@@ -38,7 +38,7 @@ func GenerateClicker() Node {
 			Text("Count: "),
 			Html("span", map[string]string{"id": "count",
 				"data-state": countId, "class": "font-bold"},
-				Text(fmt.Sprint(*count)), // Render the initial count value.
+				Text(fmt.Sprintf("%d clicks", *count)), // Render the initial count value.
 			),
 		),
 		Html("button", map[string]string{
