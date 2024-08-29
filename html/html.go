@@ -2,51 +2,71 @@ package html
 
 import (
 	"fmt"
+	"html"
+	"regexp"
 	"strings"
 )
 
 // Node interface for both text and element nodes
 type Node interface {
-	Render() string
+	Render() (string, error)
 }
 
 // TextNode struct represents plain text content within an HTML structure
 type TextNode struct {
-	Text string // Represents the text content
+	Text string
 }
 
-// Render method for TextNode returns the text content
-func (t *TextNode) Render() string {
-	return t.Text
+// Render method for TextNode returns the escaped text content
+func (t *TextNode) Render() (string, error) {
+	return html.EscapeString(t.Text), nil
 }
 
 // ElementNode struct represents an HTML element
 type ElementNode struct {
-	TagName    string            // Represents the HTML tag name
-	Attributes map[string]string // Represents HTML attributes
-	Children   []Node            // Can hold both TextNode and ElementNode, representing mixed content
+	TagName    string
+	Attributes map[string]string
+	Children   []Node
 }
 
 // Render method for ElementNode constructs the HTML string
-func (e *ElementNode) Render() string {
+func (e *ElementNode) Render() (string, error) {
+	if err := validateTagName(e.TagName); err != nil {
+		return "", err
+	}
+
 	var htmlBuilder strings.Builder
 
-	// Render opening tag with attributes
-	var attrBuilder strings.Builder
+	htmlBuilder.WriteString("<")
+	htmlBuilder.WriteString(e.TagName)
+
 	for attrName, attrValue := range e.Attributes {
-		attrBuilder.WriteString(fmt.Sprintf(` %s="%s"`, attrName, attrValue))
+		if err := validateAttributeName(attrName); err != nil {
+			return "", err
+		}
+		htmlBuilder.WriteString(fmt.Sprintf(` %s="%s"`, attrName, html.EscapeString(attrValue)))
 	}
-	htmlBuilder.WriteString(fmt.Sprintf("<%s%s>", e.TagName, attrBuilder.String()))
 
-	// Render all children (both text and nested elements)
+	if len(e.Children) == 0 && isVoidElement(e.TagName) {
+		htmlBuilder.WriteString("/>")
+		return htmlBuilder.String(), nil
+	}
+
+	htmlBuilder.WriteString(">")
+
 	for _, childNode := range e.Children {
-		htmlBuilder.WriteString(childNode.Render())
+		childHTML, err := childNode.Render()
+		if err != nil {
+			return "", fmt.Errorf("error rendering child of <%s>: %w", e.TagName, err)
+		}
+		htmlBuilder.WriteString(childHTML)
 	}
 
-	// Render closing tag
-	htmlBuilder.WriteString(fmt.Sprintf("</%s>", e.TagName))
+	htmlBuilder.WriteString("</")
+	htmlBuilder.WriteString(e.TagName)
+	htmlBuilder.WriteString(">")
 
-	return htmlBuilder.String()
+	return htmlBuilder.String(), nil
 }
 
 // AddChild method to add a child node to the ElementNode
@@ -54,7 +74,7 @@ func (e *ElementNode) AddChild(child Node) {
 	e.Children = append(e.Children, child)
 }
 
-// Html function creates a new ElementNode, making the API more intuitive
+// HTML function creates a new ElementNode
 func HTML(tagName string, attributes map[string]string, children ...Node) *ElementNode {
 	return &ElementNode{
 		TagName:    tagName,
@@ -63,32 +83,36 @@ func HTML(tagName string, attributes map[string]string, children ...Node) *Eleme
 	}
 }
 
-// Text function creates a new TextNode, making the API more intuitive
+// Text function creates a new TextNode
 func Text(text string) *TextNode {
 	return &TextNode{
 		Text: text,
 	}
 }
 
-// Example usage of the composable HTML rendering
-// func main() {
-// 	// Create a <div> element with mixed content: text and a <strong> element
-// 	div := Html("div", map[string]string{"class": "container"},
-// 		Text("Hello, "),
-// 		Html("strong", nil,
-// 			Text("world"),
-// 		),
-// 		Text("!"),
-// 	)
+// isVoidElement checks if the given tag is a void element
+func isVoidElement(tag string) bool {
+	voidElements := map[string]bool{
+		"area": true, "base": true, "br": true, "col": true,
+		"embed": true, "hr": true, "img": true, "input": true,
+		"link": true, "meta": true, "param": true, "source": true,
+		"track": true, "wbr": true,
+	}
+	return voidElements[tag]
+}
 
-// 	// More complex example: <select> with multiple <option> elements
-// 	selectElement := Html("select", map[string]string{"name": "options", "id": "selectElement"},
-// 		Html("option", map[string]string{"value": "1"}, Text("Option 1")),
-// 		Html("option", map[string]string{"value": "2"}, Text("Option 2")),
-// 		Html("option", map[string]string{"value": "3"}, Text("Option 3")),
-// 	)
+// validateTagName checks if the tag name is valid
+func validateTagName(tag string) error {
+	if !regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*$`).MatchString(tag) {
+		return fmt.Errorf("invalid tag name: %s", tag)
+	}
+	return nil
+}
 
-// 	// Render the HTML and print it
-// 	fmt.Println(div.Render())
-// 	fmt.Println(selectElement.Render())
-// }
+// validateAttributeName checks if the attribute name is valid
+func validateAttributeName(attr string) error {
+	if !regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9\-_]*$`).MatchString(attr) {
+		return fmt.Errorf("invalid attribute name: %s", attr)
+	}
+	return nil
+}
