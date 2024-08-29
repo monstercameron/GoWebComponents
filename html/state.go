@@ -8,10 +8,7 @@ import (
 	"time"
 )
 
-// init initializes the random number generator with the current time
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
+var globalRand = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 // GenerateUUID generates a basic UUID-like string using the current time and random numbers
 func GenerateUUID() string {
@@ -19,8 +16,8 @@ func GenerateUUID() string {
 	timestamp := time.Now().UnixNano()
 
 	// Generate random numbers
-	randPart1 := rand.Int63() // 63-bit random integer
-	randPart2 := rand.Int63() // another 63-bit random integer
+	randPart1 := globalRand.Int63() // 63-bit random integer
+	randPart2 := globalRand.Int63() // another 63-bit random integer
 
 	// Combine the timestamp and random numbers to form a UUID-like string
 	uuid := fmt.Sprintf("%x-%x-%x", timestamp, randPart1, randPart2)
@@ -67,12 +64,11 @@ func updateElementsWithState(stateID string) {
 	}
 }
 
-
 // UseState creates a new state with an initial value and returns a pointer to the state value
 // and a setter function to update the state.
 func UseState[T any](initialValue T) (*T, func(T), string) {
 	state := &useState[T]{value: initialValue}
-	uniqueID := GenerateUUID()               // Generate a unique UUID
+	uniqueID := GenerateUUID()                             // Generate a unique UUID
 	stateID := fmt.Sprintf("state-%p-%s", state, uniqueID) // Append UUID to stateID
 
 	setter := func(newValue T) {
@@ -82,4 +78,3 @@ func UseState[T any](initialValue T) (*T, func(T), string) {
 
 	return &state.value, setter, stateID
 }
-
