@@ -31,21 +31,37 @@ func (s *useState[T]) get() T {
 	return s.value
 }
 
-// set updates the state value in a thread-safe manner.
+// set updates the state value in a thread-safe manner and triggers an update of associated elements.
 func (s *useState[T]) set(newValue T) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.value = newValue
 }
 
+// UpdateStateElements updates all elements in the DOM that are associated with a specific state variable.
+func updateElementsWithState(stateID string, value string) {
+	selector := fmt.Sprintf("[data-state~='%s']", stateID)
+	elements := js.Global().Get("document").Call("querySelectorAll", selector)
+	length := elements.Length()
+	
+	for i := 0; i < length; i++ {
+		element := elements.Index(i)
+		element.Set("textContent", value)
+	}
+}
+
 // UseState creates a new state with an initial value and returns a pointer to the state value
 // and a setter function to update the state.
-func UseState[T any](initialValue T) (*T, func(T)) {
+func UseState[T any](initialValue T) (*T, func(T), string) {
 	state := &useState[T]{value: initialValue}
+	stateID := fmt.Sprintf("state-%p", state) // Generate a unique ID based on the state's memory address
+	
 	setter := func(newValue T) {
 		state.set(newValue)
+		updateElementsWithState(stateID, fmt.Sprint(newValue))
 	}
-	return &state.value, setter
+	
+	return &state.value, setter, stateID
 }
 
 // WasmFunc wraps a Go function to be callable from JavaScript and automatically sets it as a global function.
