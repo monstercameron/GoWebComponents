@@ -5,6 +5,8 @@ import (
 	"html"
 	"regexp"
 	"strings"
+	"sync"
+	"syscall/js"
 )
 
 // Package html provides a simple HTML generation library with a focus on safety and correctness.
@@ -12,6 +14,44 @@ import (
 // Node interface represents any element in the HTML structure, including both text and element nodes.
 type Node interface {
 	Render() (string, error)
+}
+
+type useState[T any] struct {
+	value T
+	mutex sync.RWMutex
+}
+
+func (s *useState[T]) get() T {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.value
+}
+
+func (s *useState[T]) set(newValue T) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.value = newValue
+}
+
+// UseState creates a new state with an initial value and returns the value and a setter function
+func UseState[T any](initialValue T) (*T, func(T)) {
+	state := &useState[T]{value: initialValue}
+	setter := func(newValue T) {
+		state.set(newValue)
+	}
+	return &state.value, setter
+}
+
+// WasmFunc wraps a Go function to be callable from JavaScript and automatically sets it as a global function
+func WasmFunc(name string, f func(args []js.Value) interface{}) {
+    js.Global().Set(name, js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+        return f(args)
+    }))
+}
+
+// UpdateElement updates the inner HTML of an element
+func UpdateElement(id string, content interface{}) {
+	js.Global().Get("document").Call("getElementById", id).Set("innerHTML", fmt.Sprint(content))
 }
 
 // TextNode represents plain text content within an HTML structure.
