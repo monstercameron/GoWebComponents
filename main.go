@@ -14,48 +14,54 @@ var (
 
 type Node = HTML.Node
 
-
 func GenerateClicker() Node {
-	count, setCount := HTML.UseState(0)
+    // Initialize state with an initial count of 0.
+    count, setCount := HTML.UseState(0)
 
-	updateCount := func() {
-		HTML.UpdateElement("count", count)
-	}
+    // Function to update the HTML element with the current count value.
+    updateCount := func() {
+        HTML.UpdateElement("count", *count)
+    }
 
-	JsFunc("increment", func() {
-		setCount(count + 1)
-		updateCount()
-	})
+    // Define the JavaScript functions that will be exposed to the global scope.
+    JsFunc("increment", func() {
+        // Increment the count value and update the display.
+        setCount(*count + 1)
+        updateCount()
+    })
 
-	JsFunc("decrement", func() {
-		setCount(count + 1)
-		updateCount()
-	})
+    JsFunc("decrement", func() {
+        // Decrement the count value and update the display.
+        setCount(*count - 1)
+        updateCount()
+    })
 
-	return Html("div", map[string]string{"class": "bg-white p-8 rounded-lg shadow-md text-center"},
-		Html("h1", map[string]string{"class": "text-3xl font-bold mb-4"},
-			Text("Clicker"),
-		),
-		Html("p", map[string]string{"class": "text-xl mb-4"},
-			Text("Count: "),
-			Html("span", map[string]string{"id": "count", "class": "font-bold"},
-				Text(fmt.Sprint(count)),
-			),
-		),
-		Html("button", map[string]string{
-			"onclick": "increment()",
-			"class":   "bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded mr-2 focus:outline-none focus:shadow-outline",
-		},
-			Text("+"),
-		),
-		Html("button", map[string]string{
-			"onclick": "decrement()",
-			"class":   "bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline",
-		},
-			Text("-"),
-		),
-	)
+    // Construct and return the HTML structure for the clicker component.
+    return Html("div", map[string]string{"class": "bg-white p-8 rounded-lg shadow-md text-center"},
+        Html("h1", map[string]string{"class": "text-3xl font-bold mb-4"},
+            Text("Clicker"),
+        ),
+        Html("p", map[string]string{"class": "text-xl mb-4"},
+            Text("Count: "),
+            Html("span", map[string]string{"id": "count", "class": "font-bold"},
+                Text(fmt.Sprint(*count)), // Render the initial count value.
+            ),
+        ),
+        Html("button", map[string]string{
+            "onclick": "increment()",
+            "class":   "bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded mr-2 focus:outline-none focus:shadow-outline",
+        },
+            Text("+"),
+        ),
+        Html("button", map[string]string{
+            "onclick": "decrement()",
+            "class":   "bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline",
+        },
+            Text("-"),
+        ),
+    )
 }
+
 
 func GeneratePage(content Node) Node {
 	return Html("html", nil,

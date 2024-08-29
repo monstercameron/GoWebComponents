@@ -10,30 +10,36 @@ import (
 )
 
 // Package html provides a simple HTML generation library with a focus on safety and correctness.
+// This package is designed for use in WebAssembly (Wasm) environments, enabling state management
+// and dynamic HTML generation directly from Go.
 
 // Node interface represents any element in the HTML structure, including both text and element nodes.
 type Node interface {
 	Render() (string, error)
 }
 
+// useState is a thread-safe structure to manage state values.
 type useState[T any] struct {
 	value T
 	mutex sync.RWMutex
 }
 
+// get returns the current state value in a thread-safe manner.
 func (s *useState[T]) get() T {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.value
 }
 
+// set updates the state value in a thread-safe manner.
 func (s *useState[T]) set(newValue T) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.value = newValue
 }
 
-// UseState creates a new state with an initial value and returns the value and a setter function
+// UseState creates a new state with an initial value and returns a pointer to the state value
+// and a setter function to update the state.
 func UseState[T any](initialValue T) (*T, func(T)) {
 	state := &useState[T]{value: initialValue}
 	setter := func(newValue T) {
@@ -42,16 +48,18 @@ func UseState[T any](initialValue T) (*T, func(T)) {
 	return &state.value, setter
 }
 
-// WasmFunc wraps a Go function to be callable from JavaScript and automatically sets it as a global function
-func WasmFunc(name string, f func(args []js.Value) interface{}) {
-    js.Global().Set(name, js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-        return f(args)
-    }))
+// WasmFunc wraps a Go function to be callable from JavaScript and automatically sets it as a global function.
+func WasmFunc(name string, f func()) {
+	js.Global().Set(name, js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		f()
+		return nil
+	}))
 }
 
-// UpdateElement updates the inner HTML of an element
-func UpdateElement(id string, content interface{}) {
-	js.Global().Get("document").Call("getElementById", id).Set("innerHTML", fmt.Sprint(content))
+// UpdateElement updates the inner HTML of an element with the given ID.
+// It accepts any type as value and converts it to a string.
+func UpdateElement(id string, value interface{}) {
+	js.Global().Get("document").Call("getElementById", id).Set("innerHTML", fmt.Sprint(value))
 }
 
 // TextNode represents plain text content within an HTML structure.
@@ -60,6 +68,7 @@ type TextNode struct {
 }
 
 // Render returns the escaped text content of a TextNode.
+// It ensures that any special HTML characters are properly escaped.
 func (t *TextNode) Render() (string, error) {
 	return html.EscapeString(t.Text), nil
 }
@@ -73,26 +82,28 @@ type ElementNode struct {
 
 // Render constructs and returns the HTML string representation of an ElementNode.
 func (e *ElementNode) Render() (string, error) {
+	// Validate the tag name to ensure it's a valid HTML tag.
 	if err := validateTagName(e.TagName); err != nil {
 		return "", err
 	}
 
 	var htmlBuilder strings.Builder
 
-	// Write opening tag
+	// Write opening tag.
 	htmlBuilder.WriteString("<")
 	htmlBuilder.WriteString(e.TagName)
 
-	// Add attributes
+	// Add attributes to the tag.
 	for attrName, attrValue := range e.Attributes {
+		// Validate each attribute name to ensure it's safe for HTML.
 		if err := validateAttributeName(attrName); err != nil {
 			return "", err
 		}
-		// Use fmt.Sprintf for complex string formatting
+		// Use fmt.Sprintf for properly formatted attributes.
 		htmlBuilder.WriteString(fmt.Sprintf(` %s="%s"`, attrName, html.EscapeString(attrValue)))
 	}
 
-	// Handle void elements (self-closing tags)
+	// Handle void elements (self-closing tags).
 	if len(e.Children) == 0 && isVoidElement(e.TagName) {
 		htmlBuilder.WriteString("/>")
 		return htmlBuilder.String(), nil
@@ -100,7 +111,7 @@ func (e *ElementNode) Render() (string, error) {
 
 	htmlBuilder.WriteString(">")
 
-	// Render child nodes
+	// Render child nodes recursively.
 	for _, childNode := range e.Children {
 		childHTML, err := childNode.Render()
 		if err != nil {
@@ -109,7 +120,7 @@ func (e *ElementNode) Render() (string, error) {
 		htmlBuilder.WriteString(childHTML)
 	}
 
-	// Write closing tag
+	// Write closing tag.
 	htmlBuilder.WriteString("</")
 	htmlBuilder.WriteString(e.TagName)
 	htmlBuilder.WriteString(">")
@@ -123,6 +134,7 @@ func (e *ElementNode) AddChild(child Node) {
 }
 
 // HTML creates and returns a new ElementNode with the given tag name, attributes, and children.
+// This function helps to construct a DOM tree dynamically.
 func HTML(tagName string, attributes map[string]string, children ...Node) *ElementNode {
 	return &ElementNode{
 		TagName:    tagName,
@@ -139,6 +151,7 @@ func Text(text string) *TextNode {
 }
 
 // isVoidElement checks if the given tag is a void element (self-closing tag).
+// Void elements are HTML elements that do not have a closing tag.
 func isVoidElement(tag string) bool {
 	voidElements := map[string]bool{
 		"area": true, "base": true, "br": true, "col": true,
@@ -150,8 +163,8 @@ func isVoidElement(tag string) bool {
 }
 
 // validateTagName checks if the tag name is valid using a regular expression.
+// Valid HTML tag names must start with a letter and can only contain letters and numbers.
 func validateTagName(tag string) error {
-	// Ensure tag starts with a letter and contains only letters and numbers
 	if !regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*$`).MatchString(tag) {
 		return fmt.Errorf("invalid tag name: %s", tag)
 	}
@@ -159,8 +172,8 @@ func validateTagName(tag string) error {
 }
 
 // validateAttributeName checks if the attribute name is valid using a regular expression.
+// Valid HTML attribute names must start with a letter and can contain letters, numbers, hyphens, and underscores.
 func validateAttributeName(attr string) error {
-	// Ensure attribute starts with a letter and contains only letters, numbers, hyphens, and underscores
 	if !regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9\-_]*$`).MatchString(attr) {
 		return fmt.Errorf("invalid attribute name: %s", attr)
 	}
