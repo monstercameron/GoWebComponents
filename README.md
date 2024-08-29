@@ -47,59 +47,75 @@ The `main.go` file implements a simple web server that demonstrates the usage of
 
 To run the project:
 
-1. Ensure you have Go installed on your system
-2. Clone the repository
-3. Navigate to the project directory
-4. Run the following command:
+1. Ensure you have Go installed on your system.
+2. Clone the repository.
+3. Navigate to the project directory.
+4. Build the WebAssembly target using the following command:
+
+   ```
+   GOOS=js GOARCH=wasm go build -o wasm/main.wasm
+   ```
+
+5. Run the following command to start the web server:
 
    ```
    go run main.go
    ```
 
-5. Open a web browser and visit `http://localhost:8080`
+6. Open a web browser and visit `http://localhost:8080`.
 
 ## Advanced Examples
 
 The `/advanced` route demonstrates several Go-specific features and string interpolation techniques:
 
-1. String interpolation in a text node:
+1. Adding an event listener for a click event:
    ```go
-   currentTime := time.Now().Format("15:04:05")
-   timeNode := Text(fmt.Sprintf("The current time is %s", currentTime))
-   ```
+   func GenerateClicker() html.Node {
+       // Initialize state with an initial count of 0.
+       count, setCount, countId := html.UseState(0)
 
-2. String interpolation in an attribute:
-   ```go
-   randomNumber := rand.Intn(100)
-   randomAttr := map[string]string{"data-random": fmt.Sprintf("random-%d", randomNumber)}
-   ```
+       // Define the JavaScript functions that will be exposed to the global scope.
+       html.WasmFunc("increment", func() {
+           // Increment the count value and update the display.
+           setCount(*count + 1)
+       })
 
-3. String interpolation in a CSS class using a ternary-like operation:
-   ```go
-   isEven := randomNumber%2 == 0
-   evenOddClass := map[string]string{"class": fmt.Sprintf("number %s", func() string {
-       if isEven {
-           return "even"
-       }
-       return "odd"
-   }())}
-   ```
-
-4. Using an anonymous function for dynamic content generation:
-   ```go
-   repeatText := func(text string, times int) Node {
-       return HTML("p", nil, Text(fmt.Sprintf("%s", 
-           func() string {
-               result := ""
-               for i := 0; i < times; i++ {
-                   result += text
-               }
-               return result
-           }())))
+       // Construct and return the HTML structure for the clicker component.
+       return html.HTML("div", map[string]string{"class": "bg-white p-8 rounded-lg shadow-md text-center"},
+           html.HTML("h1", map[string]string{"class": "text-3xl font-bold mb-4"},
+               html.Text("Clicker"),
+           ),
+           html.HTML("p", map[string]string{"class": "text-xl mb-4"},
+               html.Text("Count: "),
+               html.HTML("span", map[string]string{"id": "count",
+                   "data-state": countId, "class": "font-bold"},
+                   html.Text(fmt.Sprint(*count)), // Render the initial count value.
+               ),
+           ),
+           html.HTML("button", map[string]string{
+               "onclick": "increment()",
+               "class":   "bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded mr-2 focus:outline-none focus:shadow-outline",
+           },
+               html.Text("+"),
+           ),
+       )
    }
    ```
 
-These examples showcase how to use Go's string formatting and anonymous functions to create dynamic HTML content.
+2. Using Go's string formatting for dynamic attributes:
+   ```go
+   func DynamicAttributes() html.Node {
+       // Generate a random number and use it in an attribute.
+       randomNumber := rand.Intn(100)
+       randomAttr := map[string]string{"data-random": fmt.Sprintf("random-%d", randomNumber)}
+
+       return html.HTML("div", randomAttr,
+           html.Text(fmt.Sprintf("Random number is %d", randomNumber)),
+       )
+   }
+   ```
+
+These examples showcase how to use Go's string formatting and event handling to create dynamic HTML content.
 
 ## Example
 
@@ -111,7 +127,7 @@ package main
 import (
     "fmt"
     "log"
-    "./html"
+    "yourmodule/html"
 )
 
 func main() {
