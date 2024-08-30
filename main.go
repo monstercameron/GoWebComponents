@@ -6,11 +6,6 @@ import (
 	"syscall/js"
 )
 
-var (
-	Html   = HTML.HTML
-	Text   = HTML.Text
-	JsFunc = HTML.WasmFunc
-)
 
 type Node = HTML.Node
 
@@ -19,50 +14,50 @@ func GenerateClicker() Node {
 	count, setCount, countId := HTML.UseState(0)
 
 	// Define the JavaScript functions that will be exposed to the global scope.
-	JsFunc("increment", func() {
+	HTML.WasmFunc("increment", func() {
 		// Increment the count value and update the display.
 		setCount(*count + 1)
 	})
 
-	JsFunc("decrement", func() {
+	HTML.WasmFunc("decrement", func() {
 		// Decrement the count value and update the display.
 		setCount(*count - 1)
 	})
 
 	// Construct and return the HTML structure for the clicker component.
-	return Html("div", map[string]string{"class": "bg-white p-8 rounded-lg shadow-md text-center"},
-		Html("h1", map[string]string{"class": "text-3xl font-bold mb-4"},
-			Text("Clicker"),
-		),
-		Html("p", map[string]string{"class": "text-xl mb-4"},
-			Text("Count: "),
-			Html("span", map[string]string{"id": "count",
-				"data-state": countId, "class": "font-bold"},
-				Text(fmt.Sprintf("%d clicks", *count)), // Render the initial count value.
+	return HTML.HTML("div", map[string]string{"class": "bg-white p-8 rounded-lg shadow-md text-center"}, []string{},
+		HTML.HTML("h1", map[string]string{"class": "text-3xl font-bold mb-4"}, []string{}, HTML.Text("Clicker", []string{})),
+		HTML.HTML("p", map[string]string{"class": "text-xl mb-4"}, []string{},
+			HTML.Text("Count: ", []string{}),
+			HTML.HTML("span", map[string]string{
+				"id":         "count",
+				"class":      "font-bold",
+			}, []string{},
+				HTML.Text(fmt.Sprintf("%d", *count), []string{countId}),
 			),
 		),
-		Html("button", map[string]string{
+		HTML.HTML("button", map[string]string{
 			"onclick": "increment()",
 			"class":   "bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded mr-2 focus:outline-none focus:shadow-outline",
-		},
-			Text("+"),
+		}, []string{},
+			HTML.Text("+", []string{}),
 		),
-		Html("button", map[string]string{
+		HTML.HTML("button", map[string]string{
 			"onclick": "decrement()",
 			"class":   "bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline",
-		},
-			Text("-"),
+		}, []string{},
+			HTML.Text("-", []string{}),
 		),
 	)
 }
 
 func GeneratePage(content Node) Node {
-	return Html("html", nil,
-		Html("head", nil,
-			Html("title", nil, Text("Clicker Demo")),
-			Html("script", map[string]string{"src": "https://cdn.tailwindcss.com"}, Text("")),
+	return HTML.HTML("html", nil, []string{},
+		HTML.HTML("head", nil, []string{},
+			HTML.HTML("title", nil, []string{}, HTML.Text("Clicker Demo", []string{})),
+			HTML.HTML("script", map[string]string{"src": "https://cdn.tailwindcss.com"}, []string{}, HTML.Text("", []string{})),
 		),
-		Html("body", map[string]string{"class": "bg-gray-100 h-screen flex items-center justify-center"},
+		HTML.HTML("body", map[string]string{"class": "bg-gray-100 h-screen flex items-center justify-center"}, []string{},
 			content,
 		),
 	)
