@@ -4,24 +4,24 @@ This project demonstrates a simple HTML rendering library and web server impleme
 
 ## Features
 
-- Custom HTML rendering library
-- Dynamic HTML generation
+- Custom HTML rendering library with a focus on virtual DOM concepts
+- Dynamic HTML generation using `NodeInterface` for flexible node management
 - Simple web server with multiple routes
-- Example of handling complex data structures
+- Example of handling complex data structures with `ElementNode` and `TextNode`
 - Advanced examples showcasing Go-specific string interpolation and dynamic content generation
 
 ## Project Structure
 
 The project consists of two main parts:
 
-1. HTML Rendering Library (`html/html.go`)
+1. HTML Rendering Library (`vdom/vdom.go`)
 2. Web Server Implementation (`main.go`)
 
 ### HTML Rendering Library
 
 The custom HTML rendering library provides a flexible way to create HTML structures in Go. Key features include:
 
-- `Node` interface for representing HTML elements and text
+- `NodeInterface` for representing HTML elements and text
 - `ElementNode` and `TextNode` structs for creating HTML elements and text content
 - Methods for rendering nodes to HTML strings
 - HTML escaping and validation of tag and attribute names
@@ -68,54 +68,11 @@ To run the project:
 
 The `/advanced` route demonstrates several Go-specific features and string interpolation techniques:
 
-1. Adding an event listener for a click event:
-   ```go
-   func GenerateClicker() html.Node {
-       // Initialize state with an initial count of 0.
-       count, setCount, countId := html.UseState(0)
+1. **Virtual DOM Structure**: The library uses a `NodeInterface` to represent HTML elements, allowing for a more structured approach to building HTML. The `ElementNode` and `TextNode` types facilitate the creation of complex HTML structures.
 
-       // Define the JavaScript functions that will be exposed to the global scope.
-       html.WasmFunc("increment", func() {
-           // Increment the count value and update the display.
-           setCount(*count + 1)
-       })
+2. **Dynamic HTML Generation**: The `HomePage` function in `example.go` showcases how to create a complete HTML document programmatically, including a header, main content, and footer, using the `Tag` and `Text` functions.
 
-       // Construct and return the HTML structure for the clicker component.
-       return html.HTML("div", map[string]string{"class": "bg-white p-8 rounded-lg shadow-md text-center"},
-           html.HTML("h1", map[string]string{"class": "text-3xl font-bold mb-4"},
-               html.Text("Clicker"),
-           ),
-           html.HTML("p", map[string]string{"class": "text-xl mb-4"},
-               html.Text("Count: "),
-               html.HTML("span", map[string]string{"id": "count",
-                   "data-state": countId, "class": "font-bold"},
-                   html.Text(fmt.Sprint(*count)), // Render the initial count value.
-               ),
-           ),
-           html.HTML("button", map[string]string{
-               "onclick": "increment()",
-               "class":   "bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded mr-2 focus:outline-none focus:shadow-outline",
-           },
-               html.Text("+"),
-           ),
-       )
-   }
-   ```
-
-2. Using Go's string formatting for dynamic attributes:
-   ```go
-   func DynamicAttributes() html.Node {
-       // Generate a random number and use it in an attribute.
-       randomNumber := rand.Intn(100)
-       randomAttr := map[string]string{"data-random": fmt.Sprintf("random-%d", randomNumber)}
-
-       return html.HTML("div", randomAttr,
-           html.Text(fmt.Sprintf("Random number is %d", randomNumber)),
-       )
-   }
-   ```
-
-These examples showcase how to use Go's string formatting and event handling to create dynamic HTML content.
+3. **Event Handling**: The library supports event handling through methods that can be added to nodes, allowing for interactive web pages.
 
 ## Example
 
@@ -127,23 +84,23 @@ package main
 import (
     "fmt"
     "log"
-    "yourmodule/html"
+    "yourmodule/vdom"
 )
 
 func main() {
     // Create a simple HTML structure
-    doc := html.HTML("html", nil,
-        html.HTML("head", nil,
-            html.HTML("title", nil, html.Text("My Page")),
+    doc := vdom.Tag("html", nil,
+        vdom.Tag("head", nil,
+            vdom.Tag("title", nil, vdom.Text("My Page")),
         ),
-        html.HTML("body", nil,
-            html.HTML("h1", nil, html.Text("Welcome")),
-            html.HTML("p", map[string]string{"class": "content"}, html.Text("This is a paragraph.")),
+        vdom.Tag("body", nil,
+            vdom.Tag("h1", nil, vdom.Text("Welcome")),
+            vdom.Tag("p", map[string]string{"class": "content"}, vdom.Text("This is a paragraph.")),
         ),
     )
 
     // Render the HTML
-    renderedHTML, err := doc.Render()
+    renderedHTML, err := doc.Render(0)
     if err != nil {
         log.Fatal(err)
     }
@@ -156,4 +113,4 @@ This example demonstrates how to create a simple HTML document using the library
 
 ## Conclusion
 
-This project provides a flexible and type-safe way to generate HTML in Go without relying on string templates. It's particularly useful for creating dynamic web content or building custom static site generators.
+This project provides a flexible and type-safe way to generate HTML in Go without relying on string templates. It's particularly useful for creating dynamic web content or building custom static site generators, leveraging the virtual DOM concepts introduced in the `vdom` package.
