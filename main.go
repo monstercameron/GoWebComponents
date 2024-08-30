@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"goHTML/vdom"
+	"log"
+	"net/http"
 )
 
 var (
@@ -12,54 +14,27 @@ var (
 )
 
 func main() {
-	// Create a root element
-	root := Tag("html", nil,
-		Tag("head", nil,
-			Tag("title", nil, Text("My VDOM Example")),
-		),
-		Tag("body", map[string]string{"class": "main-content"},
-			Tag("header", nil,
-				Tag("h1", nil, Text("Welcome to VDOM")),
-				Text("This is a header text."),
-			),
-			Tag("nav", nil,
-				Text("Navigation: "),
-				Tag("ul", nil,
-					Tag("li", nil, Tag("a", map[string]string{"href": "#"}, Text("Home"))),
-					Tag("li", nil, Tag("a", map[string]string{"href": "#"}, Text("About"))),
-					Tag("li", nil, Tag("a", map[string]string{"href": "#"}, Text("Contact"))),
-				),
-			),
-			Tag("main", nil,
-				Tag("p", nil,
-					Text("This is a paragraph with "),
-					Tag("strong", nil, Text("bold")),
-					Text(" and "),
-					Tag("em", nil, Text("italic")),
-					Text(" text."),
-				),
-				Tag("div", map[string]string{"class": "info-box"},
-					Tag("h2", nil, Text("Information")),
-					Tag("p", nil, 
-						Text("This is some information in a box. "),
-						Tag("br", nil),
-						Text("It spans multiple lines."),
-					),
-				),
-				Text("This is some text directly inside the main element."),
-			),
-			Tag("footer", nil,
-				Text("Copyright © 2023"),
-				Tag("br", nil),
-				Text("All rights reserved."),
-			),
-		),
-	)
+	// Set up HTTP server
+	http.HandleFunc("/", serverHomePage)
 
-	// Render the HTML
-	fmt.Println("Rendered HTML:")
-	fmt.Print(root.Render(0))
+	// Start the server
+	fmt.Println("Server starting on :8080")
+	err := http.ListenAndServe(":8080", nil)
+	if err != nil {
+		log.Fatal("ListenAndServe: ", err)
+	}
 
-	fmt.Println("\n\n\nState Example:")
-	vdom.ExampleUsage4()
+	// Note: This code will never be reached
+	// fmt.Println("\n\n\nState Example:")
+	// vdom.ExampleUsage4()
+}
+
+func serverHomePage(w http.ResponseWriter, r *http.Request) {
+	page := vdom.HomePage()
+	// type text/html
+	w.Header().Set("Content-Type", "text/html")
+	_, err := w.Write([]byte(page))
+	if err != nil {
+		http.Error(w, "Error writing response", http.StatusInternalServerError)
+	}
 }
