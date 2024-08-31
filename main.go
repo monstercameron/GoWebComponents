@@ -1,15 +1,13 @@
 package main
 
 import (
-	"fmt"
-	html "goHTML/components" // Alias out components to just use the exported functions
+	html "goHTML/components"
 	"sync"
 	"syscall/js"
-	"time"
+	"fmt"
 )
 
 var (
-	// Alias out the components package to just use the exported functions
 	CreateComponent = html.CreateComponent
 	Tag             = html.Tag
 	Text            = html.Text
@@ -17,87 +15,47 @@ var (
 	Function        = html.Function
 )
 
-type (
-	Component = html.Component
-	Node      = html.NodeInterface
-	Props     = html.Props
-)
-
 func main() {
-	// Create a wait group to keep the main function running
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	// Declare the setter in the parent scope
-	var setSelectedValueInternal func(string)
+	// Composed Document Component with inlined markup
+	document := CreateComponent(func(c *html.Component, _ html.Props, _ ...*html.Component) *html.Component {
+		counter, setCounter := html.AddState(c, "counter", 0)
 
-	// Create a child component using the CreateComponent technique
-	childComponent := CreateComponent(func(c *html.Component, props Props, children ...*html.Component) *html.Component {
-		Render(c, Tag("option", map[string]string{"value": "child1"}, Text("Child Option 1")))
-		return c
-	})
-
-	// Create the main select component using the CreateComponent technique
-	selectComponent := CreateComponent(func(c *html.Component, props Props, children ...*html.Component) *html.Component {
-		// Extract the initial value from props and cast it to a string
-		selectedValue, setter := html.AddState(c, "selectedValue", props["InitialValue"].(string))
-		setSelectedValueInternal = setter // Hoist the setter to the parent scope
-
-		handleSelectChange := Function(c, "handleSelectChange", func(event js.Value) {
-			fmt.Println("Select value changed:", event.Get("target").Get("value").String())
+		handleClick := Function(c, "handleClick", func(js.Value) {
+			fmt.Println("Button clicked!")
+			setCounter(*counter + 1)
 		})
 
-		// Create the select tag with options
-		selectNode := Tag("select", map[string]string{
-			"class": "form-select",
-			"id":    "exampleSelect",
-			"name":  "exampleSelect",
-			"onchange": handleSelectChange,
-		},
-			Tag("option", map[string]string{"value": "option1"}, Text("Option 1")),
-			Tag("option", map[string]string{"value": "option2"}, Text("Option 2")),
-			Tag("option", map[string]string{"value": *selectedValue}, Text(fmt.Sprintf("Option %s", *selectedValue))),
-		)
+		Render(c, Tag("div", map[string]string{"class": "min-h-screen flex flex-col"},
+			// Header
+			Tag("header", map[string]string{"class": "bg-gradient-to-r from-blue-500 to-purple-500 text-white p-6 shadow-md text-center"},
+				Tag("h1", map[string]string{"class": "text-3xl font-bold"}, Text("Modern Clicker App")),
+				Tag("p", map[string]string{"class": "text-lg mt-2"}, Text("Sleek and modern design with Tailwind CSS")),
+			),
 
-		// Add child nodes directly to the selectNode
-		for _, child := range children {
-			if child != nil && child.RootNode != nil {
-				selectNode.AddChild(child.RootNode)
-			}
-		}
+			// Main content with Clicker
+			Tag("main", map[string]string{"class": "flex-grow flex items-center justify-center"},
+				Tag("div", map[string]string{"class": "flex flex-col items-center justify-center mt-8"},
+					Tag("button", map[string]string{
+						"class":   "px-6 py-3 bg-blue-600 text-white font-semibold rounded-md shadow-lg hover:bg-blue-700 transition duration-300",
+						"onclick": handleClick,
+					}, Text(fmt.Sprintf("Click Me! Count: %d", *counter))),
+				),
+			),
 
-		// Render the select component with its children
-		Render(c, selectNode)
+			// Footer
+			Tag("footer", map[string]string{"class": "bg-gray-800 text-white p-4 text-center mt-8"},
+				Text("© 2024 My Clicker App"),
+			),
+		))
 
 		return c
 	})
 
-	// Define Props with various generic properties
-	props := Props{
-		"InitialValue":   "test value from props",
-		"AdditionalData": "Some other value",
-	}
+	// Use the RenderToBody function to handle rendering and updating the DOM
+	html.RenderToBody(document(html.Props{}))
 
-	// Render the main component with a child component
-	mainComponent := selectComponent(props, childComponent(Props{}))
-	renderedHTML, err := mainComponent.Render() // Initial render
-	if err != nil {
-		fmt.Println("Error rendering component:", err)
-		return
-	}
-
-	// Insert the rendered HTML into the document body
-	document := js.Global().Get("document")
-	document.Get("body").Set("innerHTML", renderedHTML)
-
-	// Create a goroutine to wait 3 seconds and then update the selected value
-	go func() {
-		time.Sleep(3 * time.Second)             // Wait for 3 seconds
-		setSelectedValueInternal("hello world") // Call the setter to update the state
-
-		mainComponent.RenderAndUpdateDom() // Re-render and update the DOM
-	}()
-
-	// Wait indefinitely to keep the program running (or you could have other logic to exit)
 	wg.Wait()
 }

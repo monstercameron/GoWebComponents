@@ -235,3 +235,13 @@ func (c *Component) UpdateDomNodeByAutoID(autoID string, content string) {
 		fmt.Printf("Element with AutoID %s not found\n", autoID)
 	}
 }
+
+// RenderToBody replaces the innerHTML of the document body with the rendered HTML of the given component.
+func RenderToBody(c *Component) {
+	if renderedHTML, err := c.Render(); err == nil {
+		// Replace the innerHTML of the body element
+		js.Global().Get("document").Get("body").Set("innerHTML", renderedHTML)
+	} else {
+		fmt.Println("Error rendering component:", err)
+	}
+}
