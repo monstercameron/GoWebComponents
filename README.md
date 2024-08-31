@@ -1,7 +1,3 @@
-Here's a revised version of your README that incorporates the `Example2` as a guide to explain the components:
-
----
-
 # Go HTML Renderer
 
 This project demonstrates a modern HTML rendering library and web server implemented in Go. It showcases how to create HTML structures programmatically and serve dynamic web pages without relying on traditional templating engines.
