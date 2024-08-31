@@ -60,11 +60,10 @@ func CreateComponent(f func(*Component, Props, ...*Component) *Component) func(P
         }
 
         c.OnStateChange = func() {
-            c.RenderedHTML = "" // Invalidate the rendered HTML
-            c.Nodes = nil       // Clear previous nodes
-
-            // Store reference to old component before re-render
+            // Create a copy of the component to work with
+            c.mu.Lock()
             oldComponent := *c
+            c.mu.Unlock()
 
             // Re-run the render function to get the updated component
             newComponent := c.renderFunc(c, props, children...)
@@ -72,23 +71,23 @@ func CreateComponent(f func(*Component, Props, ...*Component) *Component) func(P
             // Reuse AutoIDs from the old component tree
             reuseAutoIDs(&oldComponent, newComponent)
 
-            // Manually copy the fields from newComponent to c
+            // Update the current component with new data
+            c.mu.Lock()
             c.Children = newComponent.Children
             c.Nodes = newComponent.Nodes
             c.RootNode = newComponent.RootNode
-            c.RenderedHTML = newComponent.RenderedHTML
-            c.OnStateChange = newComponent.OnStateChange
-            c.renderFunc = newComponent.renderFunc
+            c.mu.Unlock()
 
-            // Re-render the component tree with the updated component
-            c.RenderedHTML = renderComponentTree(c)
+            // Render and update the DOM
+            c.RenderAndUpdateDom()
 
             // Propagate update to parent
             if c.Parent != nil && c.Parent.OnStateChange != nil {
-                c.Parent.OnStateChange()
+                go c.Parent.OnStateChange()
             }
         }
 
+        // Initial render
         return c.renderFunc(c, props, children...)
     }
 }
@@ -125,10 +124,12 @@ func AddState[T any](c *Component, key string, initialState T) (*T, func(T)) {
             *valuePtr = newValue
             c.mu.Unlock()
 
-            // Trigger the OnStateChange callback
-            if c.OnStateChange != nil {
-                c.OnStateChange()
-            }
+            // Trigger the OnStateChange callback without holding the lock
+            go func() {
+                if c.OnStateChange != nil {
+                    c.OnStateChange()
+                }
+            }()
         }
     }
 
@@ -143,10 +144,12 @@ func AddState[T any](c *Component, key string, initialState T) (*T, func(T)) {
         *valuePtr = newValue
         c.mu.Unlock()
 
-        // Trigger the OnStateChange callback
-        if c.OnStateChange != nil {
-            c.OnStateChange()
-        }
+        // Trigger the OnStateChange callback without holding the lock
+        go func() {
+            if c.OnStateChange != nil {
+                c.OnStateChange()
+            }
+        }()
     }
 
     return valuePtr, setValue
