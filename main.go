@@ -14,6 +14,7 @@ var (
 	Tag             = html.Tag
 	Text            = html.Text
 	Render          = html.Render
+	Function        = html.Function
 )
 
 type (
@@ -42,13 +43,16 @@ func main() {
 		selectedValue, setter := html.AddState(c, "selectedValue", props["InitialValue"].(string))
 		setSelectedValueInternal = setter // Hoist the setter to the parent scope
 
-		fmt.Printf("Selected value: %s\n", *selectedValue)
+		handleSelectChange := Function(c, "handleSelectChange", func(event js.Value) {
+			fmt.Println("Select value changed:", event.Get("target").Get("value").String())
+		})
 
 		// Create the select tag with options
 		selectNode := Tag("select", map[string]string{
 			"class": "form-select",
 			"id":    "exampleSelect",
 			"name":  "exampleSelect",
+			"onchange": handleSelectChange,
 		},
 			Tag("option", map[string]string{"value": "option1"}, Text("Option 1")),
 			Tag("option", map[string]string{"value": "option2"}, Text("Option 2")),
