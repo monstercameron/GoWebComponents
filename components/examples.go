@@ -159,20 +159,28 @@ func preserveFocus(event js.Value, f func()) {
 }
 
 func Example2() {
+	// Log that the Todo App Component is being initialized
 	fmt.Println("Initializing Todo App Component...")
 
+	// Define the main component for the Todo App
 	todoApp := CreateComponent(func(c *Component, _ Props, _ ...*Component) *Component {
-		// Initialize state
-		todos, setTodos := AddState(c, "todos", []Todo{})
-		nextID, setNextID := AddState(c, "nextID", 1)
-		inputValue, setInputValue := AddState(c, "inputValue", "")
+		// Initialize state for todos, nextID, and inputValue
+		todos, setTodos := AddState(c, "todos", []Todo{})          // List of todos
+		nextID, setNextID := AddState(c, "nextID", 1)              // ID for the next todo item
+		inputValue, setInputValue := AddState(c, "inputValue", "") // Current value of the input field
 
-		// Define functions for adding, toggling, and removing todos
+		// Define the function for adding a new todo item
 		addTodo := Function(c, "addTodo", func(event js.Value) {
+			// Check if the input value is not empty
 			if *inputValue != "" {
+				// Create a new todo with the current input value and the next ID
 				newTodo := Todo{ID: *nextID, Text: *inputValue, Completed: false}
 				fmt.Printf("Adding Todo: %+v\n", newTodo)
+
+				// Update the todos list with the new todo
 				setTodos(append(*todos, newTodo))
+
+				// Increment the next ID and clear the input field
 				setNextID(*nextID + 1)
 				setInputValue("")
 				fmt.Println("Todo Added and Input Cleared.")
@@ -181,64 +189,83 @@ func Example2() {
 			}
 		})
 
+		// Define the function for toggling the completion status of a todo item
 		toggleTodo := Function(c, "toggleTodo", func(event js.Value) {
+			// Get the ID of the todo to toggle from the event's dataset
 			idStr := event.Get("target").Get("dataset").Get("id").String()
 
+			// Convert the string ID to an integer
 			id, err := strconv.Atoi(idStr)
 			if err != nil {
 				fmt.Printf("Error converting id to integer: %s\n", err)
 				return
 			}
 
+			// Log the ID of the todo being toggled
 			fmt.Printf("Toggling Todo with ID: %d\n", id)
 
+			// Create a new list of todos and toggle the completion status of the targeted todo
 			newTodos := make([]Todo, len(*todos))
 			copy(newTodos, *todos)
 			for i, todo := range newTodos {
 				if todo.ID == id {
+					// Toggle the completed status
 					newTodos[i].Completed = !newTodos[i].Completed
 					fmt.Printf("Todo Toggled: %+v\n", newTodos[i])
 					break
 				}
 			}
+			// Update the state with the new list of todos
 			setTodos(newTodos)
 		})
 
+		// Define the function for removing a todo item
 		removeTodo := Function(c, "removeTodo", func(event js.Value) {
+			// Get the ID of the todo to remove from the event's dataset
 			idStr := event.Get("target").Get("dataset").Get("id").String()
 
+			// Convert the string ID to an integer
 			id, err := strconv.Atoi(idStr)
 			if err != nil {
 				fmt.Printf("Error converting id to integer: %s\n", err)
 				return
 			}
 
+			// Log the ID of the todo being removed
 			fmt.Printf("Removing Todo with ID: %d\n", id)
 
+			// Create a new list of todos, excluding the one to be removed
 			newTodos := make([]Todo, 0, len(*todos)-1)
 			for _, todo := range *todos {
 				if todo.ID != id {
 					newTodos = append(newTodos, todo)
 				}
 			}
+			// Update the state with the new list of todos
 			setTodos(newTodos)
 			fmt.Println("Todo Removed.")
 		})
 
+		// Define the function to handle input changes
 		handleInputChange := Function(c, "handleInputChange", func(event js.Value) {
+			// Preserve focus on the input field before re-rendering
 			preserveFocus(event, func() {
+				// Get the new value from the input field
 				newValue := event.Get("target").Get("value").String()
 				fmt.Printf("Input Changed: %s\n", newValue)
+
+				// Update the inputValue state with the new value
 				setInputValue(newValue)
 			})
 		})
 
-		// Compose the todo items list
+		// Compose the todo items list based on the current state
 		var todoItems []NodeInterface
 		for _, todo := range *todos {
+			// Log the todo item being rendered
 			fmt.Printf("Rendering Todo: %+v\n", todo)
 
-			// Create the base attributes map
+			// Create the base attributes for the checkbox
 			checkboxAttrs := map[string]string{
 				"id":       fmt.Sprintf("todo-checkbox-%d", todo.ID),
 				"type":     "checkbox",
@@ -247,26 +274,27 @@ func Example2() {
 				"class":    "mr-2",
 			}
 
-			// If the todo is completed, add the "checked" attribute
+			// Add the "checked" attribute if the todo is completed
 			if todo.Completed {
 				checkboxAttrs["checked"] = ""
 			}
 
+			// Append the rendered todo item to the list
 			todoItems = append(todoItems, Tag("li", map[string]string{"class": "flex items-center justify-between p-2 border-b border-gray-700"},
-				Tag("input", checkboxAttrs),
+				Tag("input", checkboxAttrs), // Checkbox for toggling completion
 				Tag("span", map[string]string{
 					"class": fmt.Sprintf("flex-grow %s", map[bool]string{true: "line-through text-gray-500", false: ""}[todo.Completed]),
-				}, Text(todo.Text)),
+				}, Text(todo.Text)), // Text of the todo item
 				Tag("button", map[string]string{
 					"id":      fmt.Sprintf("remove-todo-%d", todo.ID),
 					"onclick": removeTodo,
 					"data-id": fmt.Sprintf("%d", todo.ID),
 					"class":   "ml-2 text-red-500 hover:text-red-700",
-				}, Text("Remove")),
+				}, Text("Remove")), // Button to remove the todo item
 			))
 		}
 
-		// Convert []NodeInterface to []interface{}
+		// Convert the slice of NodeInterface to a slice of interface{} for rendering
 		todoItemsInterface := make([]interface{}, len(todoItems))
 		for i, item := range todoItems {
 			todoItemsInterface[i] = item
@@ -285,21 +313,23 @@ func Example2() {
 						"value":       *inputValue,
 						"onchange":    handleInputChange,
 						"class":       "flex-grow mr-2 p-2 border rounded bg-gray-800 text-gray-100 border-gray-700",
-					}),
+					}), // Input field for new todos
 					Tag("button", map[string]string{
 						"id":      "add-todo-button",
 						"onclick": addTodo,
 						"class":   "bg-blue-600 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded",
-					}, Text("Add")),
+					}, Text("Add")), // Button to add a new todo
 				),
-				Tag("ul", map[string]string{"class": "space-y-2"}, todoItemsInterface...), // Pass the composed todo items
+				Tag("ul", map[string]string{"class": "space-y-2"}, todoItemsInterface...), // List of todos
 			),
 		))
 
+		// Log that the UI has been rendered
 		fmt.Println("Todo App UI Rendered.")
 		return c
 	})
 
+	// Render the Todo App component to the body of the document
 	fmt.Println("Rendering Todo App to Body...")
 	RenderToBody(todoApp(Props{}))
 	fmt.Println("Todo App Rendered to Body.")
