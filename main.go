@@ -23,8 +23,9 @@ func main() {
 	document := CreateComponent(func(c *html.Component, _ html.Props, _ ...*html.Component) *html.Component {
 		counter, setCounter := html.AddState(c, "counter", 0)
 
-		handleClick := Function(c, "handleClick", func(js.Value) {
-			fmt.Println("Button clicked!")
+		handleClick := Function(c, "handleClick", func(event js.Value) {
+			fmt.Println("Clicked:", event.Get("target").Get("innerText").String())
+			fmt.Printf("Counter: %d\n", *counter)
 			setCounter(*counter + 1)
 		})
 

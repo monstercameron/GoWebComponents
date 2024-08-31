@@ -114,43 +114,44 @@ func reuseAutoIDs(oldComponent, newComponent *Component) {
 
 // AddState manages the component state, identified by a unique key generated from the pointer address.
 func AddState[T any](c *Component, key string, initialState T) (*T, func(T)) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+    c.mu.Lock()
+    defer c.mu.Unlock()
 
-	// Check if the state already exists to prevent overwriting
-	if existingValue, exists := c.State[key]; exists {
-		valuePtr := existingValue.(*T)
-		return valuePtr, func(newValue T) {
-			c.mu.Lock()
-			*valuePtr = newValue
-			c.mu.Unlock()
+    // Check if the state already exists to prevent overwriting
+    if existingValue, exists := c.State[key]; exists {
+        valuePtr := existingValue.(*T)
+        return valuePtr, func(newValue T) {
+            c.mu.Lock()
+            *valuePtr = newValue
+            c.mu.Unlock()
 
-			// // Trigger the OnStateChange callback
-			// if c.OnStateChange != nil {
-			// 	c.OnStateChange()
-			// }
-		}
-	}
+            // Trigger the OnStateChange callback
+            if c.OnStateChange != nil {
+                c.OnStateChange()
+            }
+        }
+    }
 
-	// Initialize the state for the first time
-	valuePtr := new(T)
-	*valuePtr = initialState
-	c.State[key] = valuePtr
+    // Initialize the state for the first time
+    valuePtr := new(T)
+    *valuePtr = initialState
+    c.State[key] = valuePtr
 
-	// Setter function to update the state and trigger re-rendering
-	setValue := func(newValue T) {
-		c.mu.Lock()
-		*valuePtr = newValue
-		c.mu.Unlock()
+    // Setter function to update the state and trigger re-rendering
+    setValue := func(newValue T) {
+        c.mu.Lock()
+        *valuePtr = newValue
+        c.mu.Unlock()
 
-		// Trigger the OnStateChange callback
-		if c.OnStateChange != nil {
-			c.OnStateChange()
-		}
-	}
+        // Trigger the OnStateChange callback
+        if c.OnStateChange != nil {
+            c.OnStateChange()
+        }
+    }
 
-	return valuePtr, setValue
+    return valuePtr, setValue
 }
+
 
 // Render function update
 func Render(c *Component, rootNode NodeInterface) {
