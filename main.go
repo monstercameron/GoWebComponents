@@ -6,6 +6,8 @@ import (
 )
 
 func main() {
+	var setSelectedValue func(string) // Declare the setter outside of the function
+
 	// Child component using the CreateComponent technique
 	childComponent := CreateComponent(func(c *Component, props Props, children ...*Component) *Component {
 		Render(c, Tag("option", map[string]string{"value": "child1"}, Text("Child Option 1")))
@@ -14,11 +16,14 @@ func main() {
 
 	// Main select component using the CreateComponent technique
 	selectComponent := CreateComponent(func(c *Component, props Props, children ...*Component) *Component {
-		// Define state to keep track of the selected option
-		selectedValue, setSelectedValue := AddState(c, props.InitialValue)
+		// Extract the initial value from props and cast it to a string
+		selectedValue, setSelectedValueInternal := AddState(c, "selectedValue", props["InitialValue"].(string))
+		setSelectedValue = setSelectedValueInternal // Hoist the setter outside
 
-		// Create the select tag with options and any children passed in
-		Render(c, Tag("select", map[string]string{
+		fmt.Printf("Selected value: %s\n", *selectedValue)
+
+		// Create the select tag with options
+		selectNode := Tag("select", map[string]string{
 			"class": "form-select",
 			"id":    "exampleSelect",
 			"name":  "exampleSelect",
@@ -26,24 +31,45 @@ func main() {
 			Tag("option", map[string]string{"value": "option1"}, Text("Option 1")),
 			Tag("option", map[string]string{"value": "option2"}, Text("Option 2")),
 			Tag("option", map[string]string{"value": *selectedValue}, Text(fmt.Sprintf("Option %s", *selectedValue))),
-		))
+		)
 
-		// Simulate selecting "updated value from setSelectedValue"
-		setSelectedValue("updated value from setSelectedValue")
+		// Add child nodes directly to the selectNode
+		for _, child := range children {
+			if child != nil && child.RootNode != nil {
+				selectNode.AddChild(child.RootNode)
+			}
+		}
+
+		// Render the select component with its children
+		Render(c, selectNode)
 
 		return c
 	})
 
-	// Props to pass to the select component
+	// Define Props with various generic properties
 	props := Props{
-		InitialValue: "test value from props",
+		"InitialValue":    "test value from props",
+		"AdditionalData":  "Some other value",
 	}
 
 	// Render the main component with a child component and print the result
-	renderedHTML, err := selectComponent(props, childComponent(Props{})).Render() // Pass empty Props to childComponent
+	mainComponent := selectComponent(props, childComponent(Props{}))
+	renderedHTML, err := mainComponent.Render() // Initial render
 	if err != nil {
 		fmt.Println("Error rendering component:", err)
 		return
 	}
+	fmt.Println("Initial Rendered HTML:")
+	fmt.Println(renderedHTML)
+
+	// Update the state one more time and render the component again
+	fmt.Println("Setting value to: hello world")
+	setSelectedValue("hello world")
+	renderedHTML, err = mainComponent.Render() // Re-render after updating state
+	if err != nil {
+		fmt.Println("Error rendering component:", err)
+		return
+	}
+	fmt.Println("Updated Rendered HTML:")
 	fmt.Println(renderedHTML)
 }

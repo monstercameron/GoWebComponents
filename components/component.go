@@ -6,11 +6,6 @@ import (
 	"sync"
 )
 
-// Props is a struct to pass properties to components
-type Props struct {
-	InitialValue string
-}
-
 // NodeInterface defines the interface for all node types
 type NodeInterface interface {
 	SetValue(value interface{})
@@ -34,13 +29,20 @@ type ElementNode struct {
 	mu         sync.RWMutex
 }
 
+// Props is defined as a map of string to interface{}
+type Props map[string]interface{}
+
+// Component struct defines the structure for a UI component
 type Component struct {
-	Children     []*Component      // Children components
-	Nodes        []NodeInterface   // Node children
-	RootNode     NodeInterface
-	RenderedHTML string
-	State        map[string]interface{}
-	mu           sync.Mutex
+	Children      []*Component
+	Nodes         []NodeInterface
+	RootNode      NodeInterface
+	RenderedHTML  string
+	State         map[string]interface{}
+	mu            sync.Mutex
+	Parent        *Component
+	OnStateChange func()
+	renderFunc    func(*Component, Props, ...*Component) *Component
 }
 
 // NewComponent initializes a new Component
@@ -52,66 +54,93 @@ func NewComponent() *Component {
 	}
 }
 
-
+// CreateComponent handles the creation of components, taking Props and children components
 func CreateComponent(f func(*Component, Props, ...*Component) *Component) func(Props, ...*Component) *Component {
-	return func(props Props, children ...*Component) *Component {
-		c := NewComponent() // Create the parent component
+    return func(props Props, children ...*Component) *Component {
+        c := NewComponent()
+        c.renderFunc = f // Store the reference to the render function
 
-		// Register each child component
-		for _, child := range children {
-			if child != nil {
-				c.Children = append(c.Children, child)
-			}
-		}
+        for _, child := range children {
+            if child != nil {
+                c.Children = append(c.Children, child)
+                child.Parent = c
+            }
+        }
 
-		// Call the provided function with the parent component, props, and children
-		return f(c, props, children...)
-	}
+        c.OnStateChange = func() {
+            c.RenderedHTML = "" // Invalidate the rendered HTML
+            c.Nodes = nil       // Clear previous nodes
+
+            // Re-run the render function to get the updated component
+            newComponent := c.renderFunc(c, props, children...)
+
+            // Manually copy the fields from newComponent to c
+            c.Children = newComponent.Children
+            c.Nodes = newComponent.Nodes
+            c.RootNode = newComponent.RootNode
+            c.RenderedHTML = newComponent.RenderedHTML
+            //c.State = newComponent.State  // Don't overwrite the state
+            c.OnStateChange = newComponent.OnStateChange
+            c.renderFunc = newComponent.renderFunc
+
+            // Re-render the component tree with the updated component
+            c.RenderedHTML = renderComponentTree(c)
+
+            // Propagate update to parent
+            if c.Parent != nil && c.Parent.OnStateChange != nil {
+                c.Parent.OnStateChange()
+            }
+        }
+
+        return c.renderFunc(c, props, children...)
+    }
 }
 
-
-
-func AddState[T any](c *Component, initialState T) (*T, func(T)) {
+// AddState manages the component state, identified by a unique key generated from the pointer address.
+func AddState[T any](c *Component, key string, initialState T) (*T, func(T)) {
     c.mu.Lock()
     defer c.mu.Unlock()
 
-    key := generateUniqueKey(c)
+    // Check if the state already exists to prevent overwriting
+    if existingValue, exists := c.State[key]; exists {
+        valuePtr := existingValue.(*T)
+        return valuePtr, func(newValue T) {
+            c.mu.Lock()
+            *valuePtr = newValue
+            c.mu.Unlock()
+
+            // Trigger the OnStateChange callback
+            if c.OnStateChange != nil {
+                c.OnStateChange()
+            }
+        }
+    }
+
+    // Initialize the state for the first time
     valuePtr := new(T)
     *valuePtr = initialState
     c.State[key] = valuePtr
 
-    // Setter function that updates the state and triggers re-render
+    // Setter function to update the state and trigger re-rendering
     setValue := func(newValue T) {
         c.mu.Lock()
-        defer c.mu.Unlock()
         *valuePtr = newValue
-        c.RenderedHTML = "" // Invalidate the rendered HTML
+        c.mu.Unlock()
 
-        // Trigger a re-render of the component and its subtree
-        c.RenderedHTML = renderComponentTree(c)
+        // Trigger the OnStateChange callback
+        if c.OnStateChange != nil {
+            c.OnStateChange()
+        }
     }
 
     return valuePtr, setValue
 }
 
-func renderComponentTree(c *Component) string {
-	if c.RootNode == nil {
-		return ""
-	}
-
-	// Start with the current component's rendered HTML
-	renderedHTML := c.RootNode.Render(0)
-
-	// Render each child component recursively
-	for _, child := range c.Children {
-		renderedHTML += renderComponentTree(child)
-	}
-
-	return renderedHTML
-}
 
 
+// Render function update
 func Render(c *Component, rootNode NodeInterface) {
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -122,20 +151,31 @@ func Render(c *Component, rootNode NodeInterface) {
 	c.RenderedHTML = renderComponentTree(c)
 }
 
-// Render method for Component generates and returns the rendered HTML
-func (c *Component) Render() (string, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
+// renderComponentTree function (helper function) recursively renders the component tree
+func renderComponentTree(c *Component) string {
 	if c.RootNode == nil {
-		return "", fmt.Errorf("component has no root node")
+		return ""
 	}
 
-	if c.RenderedHTML == "" {
-		c.RenderedHTML = c.RootNode.Render(0)
+	renderedHTML := c.RootNode.Render(0)
+
+	for _, child := range c.Children {
+		renderedHTML += renderComponentTree(child)
 	}
 
-	return c.RenderedHTML, nil
+	return renderedHTML
+}
+
+func (c *Component) Render() (string, error) {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+
+    if c.RootNode == nil {
+        return "", fmt.Errorf("component has no root node")
+    }
+
+    c.RenderedHTML = c.RootNode.Render(0)
+    return c.RenderedHTML, nil
 }
 
 // generateUniqueKey generates a unique key for the state
@@ -272,12 +312,12 @@ type TextNode struct {
 }
 
 // Implement NodeInterface methods for TextNode
-func (n *TextNode) SetValue(value interface{})              { n.Content = fmt.Sprintf("%v", value) }
-func (n *TextNode) GetValue() interface{}                   { return n.Content }
-func (n *TextNode) SetTagName(tagName string) error         { return nil }
-func (n *TextNode) GetTagName() string                      { return "" }
-func (n *TextNode) SetAttribute(key, value string) error    { return nil }
-func (n *TextNode) GetAttributes() map[string]string        { return nil }
-func (n *TextNode) AddChild(child NodeInterface)            {}
-func (n *TextNode) GetChildren() []NodeInterface            { return nil }
-func (n *TextNode) Render(level int) string                 { return n.Content }
+func (n *TextNode) SetValue(value interface{})           { n.Content = fmt.Sprintf("%v", value) }
+func (n *TextNode) GetValue() interface{}                { return n.Content }
+func (n *TextNode) SetTagName(tagName string) error      { return nil }
+func (n *TextNode) GetTagName() string                   { return "" }
+func (n *TextNode) SetAttribute(key, value string) error { return nil }
+func (n *TextNode) GetAttributes() map[string]string     { return nil }
+func (n *TextNode) AddChild(child NodeInterface)         {}
+func (n *TextNode) GetChildren() []NodeInterface         { return nil }
+func (n *TextNode) Render(level int) string              { return n.Content }
