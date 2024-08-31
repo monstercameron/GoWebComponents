@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"strconv"
 	"syscall/js"
 )
 
@@ -109,7 +110,7 @@ func Example1() {
 								"type":        "text",
 								"placeholder": "Add a new todo",
 								"value":       *inputValue,
-								"onchange":     handleInputChange, // use "oninput" instead of "onchange" for real-time updates
+								"onchange":    handleInputChange, // use "oninput" instead of "onchange" for real-time updates
 								"class":       "flex-grow mr-2 p-2 border rounded",
 							}),
 							Tag("button", map[string]string{
@@ -132,6 +133,31 @@ func Example1() {
 	fmt.Println("Todo App Rendered to Body.")
 }
 
+func preserveFocus(event js.Value, f func()) {
+	doc := js.Global().Get("document")
+	activeElement := doc.Get("activeElement")
+	var activeID string
+
+	// Only preserve focus if it's a change event
+	if event.Get("type").String() == "change" {
+		if !activeElement.IsUndefined() && !activeElement.IsNull() {
+			activeID = activeElement.Get("id").String()
+		}
+	}
+
+	f()
+
+	if activeID != "" {
+		js.Global().Call("setTimeout", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			elem := doc.Call("getElementById", activeID)
+			if !elem.IsUndefined() && !elem.IsNull() {
+				elem.Call("focus")
+			}
+			return nil
+		}), 0)
+	}
+}
+
 func Example2() {
 	fmt.Println("Initializing Todo App Component...")
 
@@ -142,7 +168,7 @@ func Example2() {
 		inputValue, setInputValue := AddState(c, "inputValue", "")
 
 		// Define functions for adding, toggling, and removing todos
-		addTodo := Function(c, "addTodo", func(_ js.Value) {
+		addTodo := Function(c, "addTodo", func(event js.Value) {
 			if *inputValue != "" {
 				newTodo := Todo{ID: *nextID, Text: *inputValue, Completed: false}
 				fmt.Printf("Adding Todo: %+v\n", newTodo)
@@ -156,8 +182,16 @@ func Example2() {
 		})
 
 		toggleTodo := Function(c, "toggleTodo", func(event js.Value) {
-			id := event.Get("target").Get("dataset").Get("id").Int()
+			idStr := event.Get("target").Get("dataset").Get("id").String()
+
+			id, err := strconv.Atoi(idStr)
+			if err != nil {
+				fmt.Printf("Error converting id to integer: %s\n", err)
+				return
+			}
+
 			fmt.Printf("Toggling Todo with ID: %d\n", id)
+
 			newTodos := make([]Todo, len(*todos))
 			copy(newTodos, *todos)
 			for i, todo := range newTodos {
@@ -171,8 +205,16 @@ func Example2() {
 		})
 
 		removeTodo := Function(c, "removeTodo", func(event js.Value) {
-			id := event.Get("target").Get("dataset").Get("id").Int()
+			idStr := event.Get("target").Get("dataset").Get("id").String()
+
+			id, err := strconv.Atoi(idStr)
+			if err != nil {
+				fmt.Printf("Error converting id to integer: %s\n", err)
+				return
+			}
+
 			fmt.Printf("Removing Todo with ID: %d\n", id)
+
 			newTodos := make([]Todo, 0, len(*todos)-1)
 			for _, todo := range *todos {
 				if todo.ID != id {
@@ -184,28 +226,39 @@ func Example2() {
 		})
 
 		handleInputChange := Function(c, "handleInputChange", func(event js.Value) {
-			fmt.Println("Input Changed.")
-			newValue := event.Get("target").Get("value").String()
-			fmt.Printf("Input Changed: %s\n", newValue)
-			setInputValue(newValue)
+			preserveFocus(event, func() {
+				newValue := event.Get("target").Get("value").String()
+				fmt.Printf("Input Changed: %s\n", newValue)
+				setInputValue(newValue)
+			})
 		})
 
 		// Compose the todo items list
 		var todoItems []NodeInterface
 		for _, todo := range *todos {
 			fmt.Printf("Rendering Todo: %+v\n", todo)
+
+			// Create the base attributes map
+			checkboxAttrs := map[string]string{
+				"id":       fmt.Sprintf("todo-checkbox-%d", todo.ID),
+				"type":     "checkbox",
+				"onchange": toggleTodo,
+				"data-id":  fmt.Sprintf("%d", todo.ID),
+				"class":    "mr-2",
+			}
+
+			// If the todo is completed, add the "checked" attribute
+			if todo.Completed {
+				checkboxAttrs["checked"] = ""
+			}
+
 			todoItems = append(todoItems, Tag("li", map[string]string{"class": "flex items-center justify-between p-2 border-b border-gray-700"},
-				Tag("input", map[string]string{
-					"type":     "checkbox",
-					"checked":  fmt.Sprintf("%v", todo.Completed),
-					"onchange": toggleTodo,
-					"data-id":  fmt.Sprintf("%d", todo.ID),
-					"class":    "mr-2",
-				}),
+				Tag("input", checkboxAttrs),
 				Tag("span", map[string]string{
 					"class": fmt.Sprintf("flex-grow %s", map[bool]string{true: "line-through text-gray-500", false: ""}[todo.Completed]),
 				}, Text(todo.Text)),
 				Tag("button", map[string]string{
+					"id":      fmt.Sprintf("remove-todo-%d", todo.ID),
 					"onclick": removeTodo,
 					"data-id": fmt.Sprintf("%d", todo.ID),
 					"class":   "ml-2 text-red-500 hover:text-red-700",
@@ -220,19 +273,21 @@ func Example2() {
 		}
 
 		// Compose the entire tree structure with dark mode design
-		fmt.Println("Rendering the Todo App UI...")
+		fmt.Println("Adding the Nodes to the Component with updated closure...")
 		Render(c, Tag("div", map[string]string{"class": "min-h-screen bg-gray-900 text-gray-100 p-4 flex flex-col items-center"},
 			Tag("div", map[string]string{"class": "w-full max-w-md"},
 				Tag("h1", map[string]string{"class": "text-2xl font-semibold mb-4 text-center text-gray-200"}, Text("Todo List")),
 				Tag("div", map[string]string{"class": "flex mb-4"},
 					Tag("input", map[string]string{
+						"id":          "new-todo-input",
 						"type":        "text",
 						"placeholder": "Add a new todo",
 						"value":       *inputValue,
-						"oninput":     handleInputChange,
+						"onchange":    handleInputChange,
 						"class":       "flex-grow mr-2 p-2 border rounded bg-gray-800 text-gray-100 border-gray-700",
 					}),
 					Tag("button", map[string]string{
+						"id":      "add-todo-button",
 						"onclick": addTodo,
 						"class":   "bg-blue-600 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded",
 					}, Text("Add")),

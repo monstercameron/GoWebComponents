@@ -16,3 +16,8 @@ I have been working on a "component" struct that we can write composable compone
 GO is way less flexible than JS when it comes to runtime reflection and dynamic behavior, so I have been trying to figure out how to do various things but its been a challenge.
 
 I think I need to figure out a way to listen for js events and have that event trigger a GO Func to run.
+
+
+I now have basic state setup that pipes JS events to the GO side, it works but the rerendering behavior break input fields
+need to spend more time on the rerender logic such that its more fine grained. 
+I need to build out a bigger app with this to flesh out POC feature set

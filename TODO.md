@@ -4,13 +4,7 @@
 [x] interact with the DOM from wasm
 [x] add and remove elements from the DOM
 [x] add event listeners to elements
-[] add styles to elements
-[] add classes to elements
-[] add ids to elements
-[] add styles to elements
-[] add classes to elements
-[] add ids to elements
-[] add styles to elements
-[] add classes to elements
-[] add ids to elements
-[] add reactive data binding to elements
+[x] add styles to elements
+[x] add classes to elements
+[x] add ids to elements
+[x] add reactive data binding to elements
