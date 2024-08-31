@@ -2,39 +2,48 @@ package main
 
 import (
 	"fmt"
-	"goHTML/vdom"
-	"log"
-	"net/http"
-)
-
-var (
-	Tag        = vdom.Tag
-	GenerateID = vdom.GenerateID
-	Text       = vdom.Text
+	. "goHTML/components" // Alias out components to just use the exported functions
 )
 
 func main() {
-	// Set up HTTP server
-	http.HandleFunc("/", serverHomePage)
+	// Child component using the CreateComponent technique
+	childComponent := CreateComponent(func(c *Component, props Props, children ...*Component) *Component {
+		Render(c, Tag("option", map[string]string{"value": "child1"}, Text("Child Option 1")))
+		return c
+	})
 
-	// Start the server
-	fmt.Println("Server starting on :8080")
-	err := http.ListenAndServe(":8080", nil)
-	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+	// Main select component using the CreateComponent technique
+	selectComponent := CreateComponent(func(c *Component, props Props, children ...*Component) *Component {
+		// Define state to keep track of the selected option
+		selectedValue, setSelectedValue := AddState(c, props.InitialValue)
+
+		// Create the select tag with options and any children passed in
+		Render(c, Tag("select", map[string]string{
+			"class": "form-select",
+			"id":    "exampleSelect",
+			"name":  "exampleSelect",
+		},
+			Tag("option", map[string]string{"value": "option1"}, Text("Option 1")),
+			Tag("option", map[string]string{"value": "option2"}, Text("Option 2")),
+			Tag("option", map[string]string{"value": *selectedValue}, Text(fmt.Sprintf("Option %s", *selectedValue))),
+		))
+
+		// Simulate selecting "updated value from setSelectedValue"
+		setSelectedValue("updated value from setSelectedValue")
+
+		return c
+	})
+
+	// Props to pass to the select component
+	props := Props{
+		InitialValue: "test value from props",
 	}
 
-	// Note: This code will never be reached
-	// fmt.Println("\n\n\nState Example:")
-	// vdom.ExampleUsage4()
-}
-
-func serverHomePage(w http.ResponseWriter, r *http.Request) {
-	page := vdom.HomePage()
-	// type text/html
-	w.Header().Set("Content-Type", "text/html")
-	_, err := w.Write([]byte(page))
+	// Render the main component with a child component and print the result
+	renderedHTML, err := selectComponent(props, childComponent(Props{})).Render() // Pass empty Props to childComponent
 	if err != nil {
-		http.Error(w, "Error writing response", http.StatusInternalServerError)
+		fmt.Println("Error rendering component:", err)
+		return
 	}
+	fmt.Println(renderedHTML)
 }
