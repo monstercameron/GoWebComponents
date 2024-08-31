@@ -2,23 +2,45 @@ package main
 
 import (
 	"fmt"
-	. "goHTML/components" // Alias out components to just use the exported functions
+	html "goHTML/components" // Alias out components to just use the exported functions
+	"sync"
+	"syscall/js"
+	"time"
+)
+
+var (
+	// Alias out the components package to just use the exported functions
+	CreateComponent = html.CreateComponent
+	Tag             = html.Tag
+	Text            = html.Text
+	Render          = html.Render
+)
+
+type (
+	Component = html.Component
+	Node      = html.NodeInterface
+	Props     = html.Props
 )
 
 func main() {
-	var setSelectedValue func(string) // Declare the setter outside of the function
+	// Create a wait group to keep the main function running
+	var wg sync.WaitGroup
+	wg.Add(1)
 
-	// Child component using the CreateComponent technique
-	childComponent := CreateComponent(func(c *Component, props Props, children ...*Component) *Component {
+	// Declare the setter in the parent scope
+	var setSelectedValueInternal func(string)
+
+	// Create a child component using the CreateComponent technique
+	childComponent := CreateComponent(func(c *html.Component, props Props, children ...*html.Component) *html.Component {
 		Render(c, Tag("option", map[string]string{"value": "child1"}, Text("Child Option 1")))
 		return c
 	})
 
-	// Main select component using the CreateComponent technique
-	selectComponent := CreateComponent(func(c *Component, props Props, children ...*Component) *Component {
+	// Create the main select component using the CreateComponent technique
+	selectComponent := CreateComponent(func(c *html.Component, props Props, children ...*html.Component) *html.Component {
 		// Extract the initial value from props and cast it to a string
-		selectedValue, setSelectedValueInternal := AddState(c, "selectedValue", props["InitialValue"].(string))
-		setSelectedValue = setSelectedValueInternal // Hoist the setter outside
+		selectedValue, setter := html.AddState(c, "selectedValue", props["InitialValue"].(string))
+		setSelectedValueInternal = setter // Hoist the setter to the parent scope
 
 		fmt.Printf("Selected value: %s\n", *selectedValue)
 
@@ -48,28 +70,30 @@ func main() {
 
 	// Define Props with various generic properties
 	props := Props{
-		"InitialValue":    "test value from props",
-		"AdditionalData":  "Some other value",
+		"InitialValue":   "test value from props",
+		"AdditionalData": "Some other value",
 	}
 
-	// Render the main component with a child component and print the result
+	// Render the main component with a child component
 	mainComponent := selectComponent(props, childComponent(Props{}))
 	renderedHTML, err := mainComponent.Render() // Initial render
 	if err != nil {
 		fmt.Println("Error rendering component:", err)
 		return
 	}
-	fmt.Println("Initial Rendered HTML:")
-	fmt.Println(renderedHTML)
 
-	// Update the state one more time and render the component again
-	fmt.Println("Setting value to: hello world")
-	setSelectedValue("hello world")
-	renderedHTML, err = mainComponent.Render() // Re-render after updating state
-	if err != nil {
-		fmt.Println("Error rendering component:", err)
-		return
-	}
-	fmt.Println("Updated Rendered HTML:")
-	fmt.Println(renderedHTML)
+	// Insert the rendered HTML into the document body
+	document := js.Global().Get("document")
+	document.Get("body").Set("innerHTML", renderedHTML)
+
+	// Create a goroutine to wait 3 seconds and then update the selected value
+	go func() {
+		time.Sleep(3 * time.Second)             // Wait for 3 seconds
+		setSelectedValueInternal("hello world") // Call the setter to update the state
+
+		mainComponent.RenderAndUpdateDom() // Re-render and update the DOM
+	}()
+
+	// Wait indefinitely to keep the program running (or you could have other logic to exit)
+	wg.Wait()
 }
