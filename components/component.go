@@ -73,10 +73,10 @@ func RenderHTML(c *Component) string {
 	}
 	html += ">"
 
-	// Recursively render children
-	// for _, child := range c.rootNode.Children {
-	// 	html += RenderNode(child)
-	// }
+	//Recursively render children
+	for _, child := range c.rootNode.Children {
+		html += RenderNode(child.(*Node))
+	}
 
 	html += "</" + c.rootNode.Tag + ">"
 
@@ -149,23 +149,24 @@ func Cached(c *Component, key string, calcFunc func() interface{}, deps []string
 
 // AddState adds a state to the component
 func AddState[T any](c *Component, key string, initialValue T) (*T, func(T)) {
-	c.stateLock.Lock()
-	defer c.stateLock.Unlock()
+    c.stateLock.Lock()
+    defer c.stateLock.Unlock()
 
-	// Store the initial value in the state map
-	c.state[key] = initialValue
+    // Store a pointer to the initial value in the state map
+    value := initialValue
+    c.state[key] = &value
 
-	// Return a pointer to the value and a setter function
-	return c.state[key].(*T), func(newValue T) {
-		c.stateLock.Lock()
-		defer c.stateLock.Unlock()
+    // Return a pointer to the value and a setter function
+    return c.state[key].(*T), func(newValue T) {
+        c.stateLock.Lock()
+        defer c.stateLock.Unlock()
 
-		// Update the value in the state map
-		c.state[key] = newValue
+        // Update the value in the state map
+        *(c.state[key].(*T)) = newValue
 
-		// Trigger re-render or state update
-		c.updateStateFunc()
-	}
+        // Trigger re-render or state update
+        c.updateStateFunc()
+    }
 }
 
 // Setup adds a setup function to be called when the component is mounted
