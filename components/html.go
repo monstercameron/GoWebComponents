@@ -4,224 +4,209 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"syscall/js"
+	// "syscall/js"
 )
 
-var (
-	nodeMap   = make(map[string]js.Value) // Global map to store node references
-	autoIDSeq = 0                         // Counter for generating unique IDs
-	mu        sync.Mutex
-)
-
-// GenerateAutoID generates a unique ID for each component/node
-func GenerateAutoID() string {
-	mu.Lock()
-	defer mu.Unlock()
-	autoIDSeq++
-	return fmt.Sprintf("auto-id-%d", autoIDSeq)
-}
-
-// NodeInterface defines the interface for all node types
-type NodeInterface interface {
-	SetValue(value interface{})
-	GetValue() interface{}
-	SetTagName(tagName string) error
-	GetTagName() string
-	SetAttribute(key, value string) error
-	GetAttributes() map[string]string
-	AddChild(child NodeInterface)
-	GetChildren() []NodeInterface
-	Render(level int) string
-	GetAutoID() string // Method to retrieve the auto-generated ID
-}
-
-// ElementNode represents an HTML element
-type ElementNode struct {
-	AutoID     string
-	TagName    string
-	Attributes map[string]string
+// Node represents an HTML element node
+type Node struct {
+	Tag        string
+	Attributes Attributes
 	Children   []NodeInterface
-	Value      interface{} // Added Value to store content
-	mu         sync.RWMutex
 }
 
-// GetAutoID returns the auto-generated ID of the ElementNode
-func (n *ElementNode) GetAutoID() string {
-	return n.AutoID
+// Attributes represents HTML attributes
+type Attributes map[string]string
+
+// NodeInterface is a common interface for all types of nodes
+type NodeInterface interface {
+	Render() string
+	Print(indentLevel int) string
 }
 
-// SetValue sets the value of the element node
-func (n *ElementNode) SetValue(value interface{}) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.Value = value
-}
-
-// GetValue gets the value of the element node
-func (n *ElementNode) GetValue() interface{} {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
-	return n.Value
-}
-
-// SetTagName sets the tag name of the element node
-func (n *ElementNode) SetTagName(tagName string) error {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.TagName = tagName
-	return nil
-}
-
-// GetTagName gets the tag name of the element node
-func (n *ElementNode) GetTagName() string {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
-	return n.TagName
-}
-
-// SetAttribute sets an attribute on the element node
-func (n *ElementNode) SetAttribute(key, value string) error {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.Attributes[key] = value
-	return nil
-}
-
-// GetAttributes gets all attributes of the element node
-func (n *ElementNode) GetAttributes() map[string]string {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
-	attrs := make(map[string]string)
-	for k, v := range n.Attributes {
-		attrs[k] = v
-	}
-	return attrs
-}
-
-// AddChild adds a child node to the element node
-func (n *ElementNode) AddChild(child NodeInterface) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.Children = append(n.Children, child)
-}
-
-// GetChildren gets all children of the element node
-func (n *ElementNode) GetChildren() []NodeInterface {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
-	children := make([]NodeInterface, len(n.Children))
-	copy(children, n.Children)
-	return children
-}
-
-// Render renders the element node to a string with indentation
-func (n *ElementNode) Render(level int) string {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
-
-	indent := strings.Repeat("  ", level)
-	var sb strings.Builder
-
-	sb.WriteString(fmt.Sprintf("%s<%s", indent, n.TagName))
-
-	// Include all attributes, including the data-auto-id
-	for key, value := range n.Attributes {
-		sb.WriteString(fmt.Sprintf(" %s=\"%s\"", key, value))
-	}
-
-	if len(n.Children) == 0 && n.Value == nil {
-		sb.WriteString(" />\n")
-	} else {
-		sb.WriteString(">")
-		if n.Value != nil {
-			sb.WriteString(fmt.Sprintf("%v", n.Value))
-		}
-		if len(n.Children) > 0 {
-			sb.WriteString("\n")
-			for _, child := range n.Children {
-				sb.WriteString(child.Render(level + 1))
-			}
-			sb.WriteString(indent)
-		}
-		sb.WriteString(fmt.Sprintf("</%s>\n", n.TagName))
-	}
-
-	// Register the node in the global map after rendering
-	n.RegisterNode()
-
-	return sb.String()
-}
-
-// RegisterNode stores the reference to the DOM node in the map
-func (n *ElementNode) RegisterNode() {
-	js.Global().Call("requestAnimationFrame", js.FuncOf(func(js.Value, []js.Value) interface{} {
-		document := js.Global().Get("document")
-		selector := fmt.Sprintf("[data-auto-id='%s']", n.AutoID)
-
-		// Query the DOM for the element using its auto-generated ID
-		node := document.Call("querySelector", selector)
-
-		if node.Truthy() {
-			// Store the node reference in the global map
-			mu.Lock()
-			nodeMap[n.AutoID] = node
-			mu.Unlock()
-		} else {
-			// fmt.Printf("Warning: Element with AutoID %s not found in the DOM.\n", n.AutoID)
-		}
-
-		return nil
-	}))
-}
-
-// Tag creates a new ElementNode with attributes and children
-func Tag(tagName string, attributes map[string]string, children ...interface{}) NodeInterface {
-	node := &ElementNode{
-		AutoID:     GenerateAutoID(),
-		TagName:    tagName,
-		Attributes: make(map[string]string),
-		Children:   make([]NodeInterface, 0),
-	}
-
-	// Add the auto-ID as a data attribute
-	node.Attributes["data-auto-id"] = node.AutoID
-
-	for key, value := range attributes {
-		node.Attributes[key] = value
-	}
-
-	for _, child := range children {
-		switch v := child.(type) {
-		case NodeInterface:
-			node.Children = append(node.Children, v)
-		case string:
-			node.Children = append(node.Children, &TextNode{Content: v})
-		default:
-			node.Children = append(node.Children, &TextNode{Content: fmt.Sprintf("%v", v)})
-		}
-	}
-
-	return node
-}
-
-// Text creates a simple TextNode
-func Text(content string) NodeInterface {
-	return &TextNode{Content: content}
-}
-
-// TextNode represents a text content node
+// TextNode represents a text node
 type TextNode struct {
 	Content string
 }
 
-// Implement NodeInterface methods for TextNode
-func (n *TextNode) SetValue(value interface{})           { n.Content = fmt.Sprintf("%v", value) }
-func (n *TextNode) GetValue() interface{}                { return n.Content }
-func (n *TextNode) SetTagName(tagName string) error      { return nil }
-func (n *TextNode) GetTagName() string                   { return "" }
-func (n *TextNode) SetAttribute(key, value string) error { return nil }
-func (n *TextNode) GetAttributes() map[string]string     { return nil }
-func (n *TextNode) AddChild(child NodeInterface)         {}
-func (n *TextNode) GetChildren() []NodeInterface         { return nil }
-func (n *TextNode) Render(level int) string              { return n.Content }
-func (n *TextNode) GetAutoID() string                    { return "" } // TextNodes don't need an AutoID
+// NewTextNode creates a new TextNode
+func NewTextNode(content string) *TextNode {
+	return &TextNode{Content: content}
+}
+
+// Render renders the text node as a string
+func (t *TextNode) Render() string {
+	return t.Content
+}
+
+// Print renders the text node with indentation
+func (t *TextNode) Print(indentLevel int) string {
+	return strings.Repeat("\t", indentLevel) + t.Content
+}
+
+// ElementNode represents an HTML element node
+func (n *Node) Render() string {
+	// Render attributes
+	attrStr := ""
+	for key, value := range n.Attributes {
+		attrStr += fmt.Sprintf(` %s="%s"`, key, value)
+	}
+
+	// Check if the tag is a void tag
+	if isVoidTag(n.Tag) {
+		// Return the self-closing tag for void elements
+		return fmt.Sprintf("<%s%s />", n.Tag, attrStr)
+	}
+
+	// Render children for non-void tags
+	childrenStr := ""
+	for _, child := range n.Children {
+		childrenStr += child.Render()
+	}
+
+	// Return the full HTML element
+	return fmt.Sprintf("<%s%s>%s</%s>", n.Tag, attrStr, childrenStr, n.Tag)
+}
+
+// Print renders the element node with indentation
+func (n *Node) Print(indentLevel int) string {
+	// Render attributes
+	attrStr := ""
+	for key, value := range n.Attributes {
+		attrStr += fmt.Sprintf(` %s="%s"`, key, value)
+	}
+
+	// Indentation for opening tag or self-closing tag
+	if isVoidTag(n.Tag) {
+		// Self-closing tag for void elements
+		return strings.Repeat("\t", indentLevel) + fmt.Sprintf("<%s%s />", n.Tag, attrStr)
+	}
+
+	// Normal opening tag for non-void elements
+	result := strings.Repeat("\t", indentLevel) + fmt.Sprintf("<%s%s>\n", n.Tag, attrStr)
+
+	// Indentation for children
+	for _, child := range n.Children {
+		result += child.Print(indentLevel + 1) + "\n"
+	}
+
+	// Indentation for closing tag
+	result += strings.Repeat("\t", indentLevel) + fmt.Sprintf("</%s>", n.Tag)
+
+	return result
+}
+
+var (
+	idCounter   int
+	idMutex     sync.Mutex
+	// domRegistry = make(map[string]js.Value) // Map to store DOM references by binding ID
+)
+
+// generateBindingID generates a unique ID for each tag node to be used in the custom data attribute
+func generateBindingID() string {
+	idMutex.Lock()
+	defer idMutex.Unlock()
+	idCounter++
+	return fmt.Sprintf("go_binding_%d", idCounter)
+}
+
+// Tag creates an HTML element node with an autogenerated binding ID if not provided
+func Tag(name string, attrs Attributes, children ...NodeInterface) *Node {
+	// Add a custom data attribute for Go binding
+	if _, exists := attrs["data-go_binding_id"]; !exists {
+		attrs["data-go_binding_id"] = generateBindingID()
+	}
+
+	return &Node{
+		Tag:        name,
+		Attributes: attrs,
+		Children:   children,
+	}
+}
+
+// Text creates a TextNode
+func Text(content string) NodeInterface {
+	return NewTextNode(content)
+}
+
+// isVoidTag checks if a tag is a void tag (self-closing)
+func isVoidTag(tag string) bool {
+	voidTags := []string{"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+	for _, voidTag := range voidTags {
+		if tag == voidTag {
+			return true
+		}
+	}
+	return false
+}
+
+// RegisterTagReference registers a tag reference from the DOM using its binding ID
+// func RegisterTagReference(bindingID string) {
+// 	// Query the DOM for the element with the given binding ID
+// 	element := js.Global().Get("document").Call("querySelector", fmt.Sprintf(`[data-go_binding_id="%s"]`, bindingID))
+
+// 	// Store the reference in the domRegistry map
+// 	if !element.IsNull() && !element.IsUndefined() {
+// 		domRegistry[bindingID] = element
+// 	} else {
+// 		fmt.Printf("Element with data-go_binding_id='%s' not found in the DOM.\n", bindingID)
+// 	}
+// }
+
+// Validation function example: checks if the node's tag is valid HTML
+func validateTag(node *Node) error {
+	validTags := []string{"div", "span", "p", "a", "button", "select", "option", "input", "form", "label"} // Extend as needed
+	for _, validTag := range validTags {
+		if node.Tag == validTag || isVoidTag(node.Tag) {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid tag: %s", node.Tag)
+}
+
+// ValidateNode runs validation rules on the node tree
+func ValidateNode(node *Node) error {
+	if node == nil {
+		return nil
+	}
+
+	// Validate the current node
+	if err := validateTag(node); err != nil {
+		return err
+	}
+
+	// Recursively validate children
+	for _, child := range node.Children {
+		if elementNode, ok := child.(*Node); ok {
+			if err := ValidateNode(elementNode); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// RenderAndValidateNodeTree renders the node tree to an HTML string and validates it
+func RenderAndValidateNodeTree(root NodeInterface) (string, error) {
+	// Render the node tree to an HTML string
+	html := root.Render()
+
+	// Validate the node tree if it's a Node (and not a TextNode)
+	if elementNode, ok := root.(*Node); ok {
+		if err := ValidateNode(elementNode); err != nil {
+			return "", err
+		}
+	}
+
+	return html, nil
+}
+
+// PrintNodeTree prints the node tree with appropriate indentation
+func PrintNodeTree(root NodeInterface) {
+	fmt.Print(root.Print(0))
+}
+
+// Println prints the node tree with appropriate indentation and adds a newline at the end
+func Println(root NodeInterface) {
+	fmt.Println(root.Print(0))
+}

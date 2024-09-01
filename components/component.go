@@ -3,249 +3,208 @@ package components
 import (
 	"fmt"
 	"sync"
-	"syscall/js"
 )
 
-// Props is defined as a map of string to interface{}
-type Props map[string]interface{}
-
-// Component struct defines the structure for a UI component
+// Component represents a UI component
 type Component struct {
-	Children      []*Component
-	Nodes         []NodeInterface
-	RootNode      NodeInterface
-	RenderedHTML  string
-	State         map[string]interface{}
-	mu            sync.Mutex
-	Parent        *Component
-	OnStateChange func()
-	renderFunc    func(*Component, Props, ...*Component) *Component
+	state           map[string]interface{}
+	stateLock       sync.Mutex
+	lifecycle       map[string]func()
+	rootNode        *Node
+	updateStateFunc func()
+	setupDone       bool
+	registered      bool
+	cachedValues    map[string]map[string]interface{} // To store the cached values and their dependencies
 }
 
-// NewComponent initializes a new Component
-func NewComponent() *Component {
+// NewComponent creates a new Component with a given root Node
+func NewComponent(root *Node) *Component {
 	return &Component{
-		State:    make(map[string]interface{}),
-		Children: make([]*Component, 0),
-		Nodes:    make([]NodeInterface, 0),
+		state:        make(map[string]interface{}),
+		lifecycle:    make(map[string]func()),
+		rootNode:     root,
+		setupDone:    false,
+		registered:   false,
+		cachedValues: make(map[string]map[string]interface{}), // Initialize the cached values map
 	}
 }
 
-// CreateComponent handles the creation of components, taking Props and children components
-func CreateComponent(f func(*Component, Props, ...*Component) *Component) func(Props, ...*Component) *Component {
-    return func(props Props, children ...*Component) *Component {
-        c := NewComponent()
-        c.renderFunc = f // Store the reference to the render function
+// ComponentFunc is a function type that represents a component's creation logic
+type ComponentFunc[P any] func(*Component, P, ...*Component) *Component
 
-        for _, child := range children {
-            if child != nil {
-                c.Children = append(c.Children, child)
-                child.Parent = c
-            }
-        }
+// CreateComponent handles the creation of components, taking generic Props and child components
+func ThisIsAComponent[P any](f ComponentFunc[P]) func(P, ...*Component) *Component {
 
-        // Function to reuse existing AutoIDs
-        reuseAutoIDs := func(oldComponent, newComponent *Component) {
-            if oldComponent != nil && newComponent != nil {
-                if oldComponent.RootNode != nil && newComponent.RootNode != nil {
-                    newComponent.RootNode.(*ElementNode).AutoID = oldComponent.RootNode.GetAutoID()
-                }
+	return func(props P, children ...*Component) *Component {
+		// Create a new component with no root node initially
+		self := &Component{
+			state:        make(map[string]interface{}),
+			lifecycle:    make(map[string]func()),
+			cachedValues: make(map[string]map[string]interface{}),
+		}
 
-                for i := range oldComponent.Children {
-                    if i < len(newComponent.Children) {
-                        reuseAutoIDs(oldComponent.Children[i], newComponent.Children[i])
-                    }
-                }
-            }
-        }
+		// Assign the updateStateFunc after the component has been created
+		self.updateStateFunc = func() {
+			// Invoke the render function with captured variables
+			f(self, props, children...)
+		}
 
-        c.OnStateChange = func() {
-            // Create a copy of the component to work with
-            c.mu.Lock()
-            oldComponent := *c
-            c.mu.Unlock()
-
-            // Re-run the render function to get the updated component
-            newComponent := c.renderFunc(c, props, children...)
-
-            // Reuse AutoIDs from the old component tree
-            reuseAutoIDs(&oldComponent, newComponent)
-
-            // Update the current component with new data
-            c.mu.Lock()
-            c.Children = newComponent.Children
-            c.Nodes = newComponent.Nodes
-            c.RootNode = newComponent.RootNode
-            c.mu.Unlock()
-
-            // Render and update the DOM
-            c.RenderAndUpdateDom()
-
-            // Propagate update to parent
-            if c.Parent != nil && c.Parent.OnStateChange != nil {
-                go c.Parent.OnStateChange()
-            }
-        }
-
-        // Initial render
-        return c.renderFunc(c, props, children...)
-    }
+		// Return the initialized component without calling updateStateFunc
+		return self
+	}
 }
 
-// Utility function to copy IDs from old nodes to new ones
-func reuseAutoIDs(oldComponent, newComponent *Component) {
-    if oldComponent != nil && newComponent != nil {
-        if oldComponent.RootNode != nil && newComponent.RootNode != nil {
-            oldElementNode, okOld := oldComponent.RootNode.(*ElementNode)
-            newElementNode, okNew := newComponent.RootNode.(*ElementNode)
-            if okOld && okNew {
-                newElementNode.AutoID = oldElementNode.AutoID
-            }
-        }
-
-        for i := range oldComponent.Children {
-            if i < len(newComponent.Children) {
-                reuseAutoIDs(oldComponent.Children[i], newComponent.Children[i])
-            }
-        }
-    }
+// RenderTemplate attaches the *Node markup to the component struct
+func RenderTemplate(self *Component, node *Node) {
+	// Attach the provided node as the root node of the component
+	self.rootNode = node
 }
 
-// AddState manages the component state, identified by a unique key generated from the pointer address.
-func AddState[T any](c *Component, key string, initialState T) (*T, func(T)) {
-    c.mu.Lock()
-    defer c.mu.Unlock()
-
-    // Check if the state already exists to prevent overwriting
-    if existingValue, exists := c.State[key]; exists {
-        valuePtr := existingValue.(*T)
-        return valuePtr, func(newValue T) {
-            c.mu.Lock()
-            *valuePtr = newValue
-            c.mu.Unlock()
-
-            // Trigger the OnStateChange callback without holding the lock
-            go func() {
-                if c.OnStateChange != nil {
-                    c.OnStateChange()
-                }
-            }()
-        }
-    }
-
-    // Initialize the state for the first time
-    valuePtr := new(T)
-    *valuePtr = initialState
-    c.State[key] = valuePtr
-
-    // Setter function to update the state and trigger re-rendering
-    setValue := func(newValue T) {
-        c.mu.Lock()
-        *valuePtr = newValue
-        c.mu.Unlock()
-
-        // Trigger the OnStateChange callback without holding the lock
-        go func() {
-            if c.OnStateChange != nil {
-                c.OnStateChange()
-            }
-        }()
-    }
-
-    return valuePtr, setValue
-}
-
-
-// Render function update
-func Render(c *Component, rootNode NodeInterface) {
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.RootNode = rootNode
-	c.Nodes = append(c.Nodes, rootNode)
-
-	// Render and cache the HTML for the component and its subtree
-	c.RenderedHTML = renderComponentTree(c)
-}
-
-// renderComponentTree function (helper function) recursively renders the component tree
-func renderComponentTree(c *Component) string {
-	if c.RootNode == nil {
+// RenderHTML returns the HTML string of the rendered component
+func RenderHTML(c *Component) string {
+	if c.rootNode == nil {
 		return ""
 	}
 
-	renderedHTML := c.RootNode.Render(0)
+	// Manually render the root node into an HTML string
+	html := "<" + c.rootNode.Tag
+	for key, value := range c.rootNode.Attributes {
+		html += " " + key + "=\"" + value + "\""
+	}
+	html += ">"
 
-	for _, child := range c.Children {
-		renderedHTML += renderComponentTree(child)
+	// Recursively render children
+	// for _, child := range c.rootNode.Children {
+	// 	html += RenderNode(child)
+	// }
+
+	html += "</" + c.rootNode.Tag + ">"
+
+	return html
+}
+
+// RenderNode manually renders a Node and its children to an HTML string
+func RenderNode(n *Node) string {
+	if n == nil {
+		return ""
 	}
 
-	return renderedHTML
+	// Render opening tag with attributes
+	html := "<" + n.Tag
+	for key, value := range n.Attributes {
+		html += " " + key + "=\"" + value + "\""
+	}
+	html += ">"
+
+	// Render children
+	// for _, child := range n.Children {
+	// 	html += RenderNode(child)
+	// }
+
+	// Render closing tag
+	html += "</" + n.Tag + ">"
+
+	return html
 }
 
-func (c *Component) Render() (string, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if c.RootNode == nil {
-		return "", fmt.Errorf("component has no root node")
+// Cached returns a cached value that only recalculates when dependencies change or if it's the first run
+func Cached(c *Component, key string, calcFunc func() interface{}, deps []string) interface{} {
+	// Retrieve or initialize the cache entry for the given key
+	cache, exists := c.cachedValues[key]
+	if !exists {
+		cache = make(map[string]interface{})
+		c.cachedValues[key] = cache
 	}
 
-	c.RenderedHTML = c.RootNode.Render(0)
-	return c.RenderedHTML, nil
-}
-
-// generateUniqueKey generates a unique key for the state
-func generateUniqueKey(c *Component) string {
-	return fmt.Sprintf("state-%d", len(c.State))
-}
-
-// RenderAndUpdateDom renders the component and updates the DOM node
-func (c *Component) RenderAndUpdateDom() {
-	// Render the component to HTML
-	c.RenderedHTML, _ = c.Render()
-
-	// Ensure the DOM update happens after rendering with a slight delay
-	js.Global().Call("setTimeout", js.FuncOf(func(js.Value, []js.Value) interface{} {
-		if c.RootNode != nil {
-			// Update the specific DOM node
-			c.UpdateDomNodeByAutoID(c.RootNode.GetAutoID(), c.RenderedHTML)
-
-			// Register nodes only after updating the DOM
-			if elementNode, ok := c.RootNode.(*ElementNode); ok {
-				elementNode.RegisterNode()
+	// Check if this is the first time running or if any dependency has changed
+	needsRecalculation := false
+	if _, resultExists := cache["result"]; !resultExists {
+		needsRecalculation = true // First time running
+	} else {
+		for _, depKey := range deps {
+			newVal := c.state[depKey]
+			if cache[depKey] != newVal {
+				needsRecalculation = true
+				break // Stop checking further once a change is detected
 			}
 		}
+	}
 
-		// Recursively update and register children
-		for _, child := range c.Children {
-			child.RenderAndUpdateDom()
+	// Recalculate if needed
+	if needsRecalculation {
+		result := calcFunc()
+
+		// Update the cache with the new dependency values and the result
+		for _, dk := range deps {
+			cache[dk] = c.state[dk]
 		}
+		cache["result"] = result
 
-		return nil
-	}), 0) // Use a 0ms delay to defer execution until after the current event loop
+		return result
+	}
+
+	// Return the existing cached result if no recalculation was necessary
+	return cache["result"]
 }
 
+// AddState adds a state to the component
+func AddState[T any](c *Component, key string, initialValue T) (*T, func(T)) {
+	c.stateLock.Lock()
+	defer c.stateLock.Unlock()
 
-// UpdateDomNodeByAutoID updates a DOM node by its AutoID with the given content
-func (c *Component) UpdateDomNodeByAutoID(autoID string, content string) {
-	mu.Lock()
-	element, exists := nodeMap[autoID]
-	mu.Unlock()
-	if exists {
-		element.Set("innerHTML", content)
-	} else {
-		fmt.Printf("Element with AutoID %s not found\n", autoID)
+	// Store the initial value in the state map
+	c.state[key] = initialValue
+
+	// Return a pointer to the value and a setter function
+	return c.state[key].(*T), func(newValue T) {
+		c.stateLock.Lock()
+		defer c.stateLock.Unlock()
+
+		// Update the value in the state map
+		c.state[key] = newValue
+
+		// Trigger re-render or state update
+		c.updateStateFunc()
 	}
 }
 
-// RenderToBody replaces the innerHTML of the document body with the rendered HTML of the given component.
-func RenderToBody(c *Component) {
-	if renderedHTML, err := c.Render(); err == nil {
-		// Replace the innerHTML of the body element
-		js.Global().Get("document").Get("body").Set("innerHTML", renderedHTML)
-	} else {
-		fmt.Println("Error rendering component:", err)
+// Setup adds a setup function to be called when the component is mounted
+func Setup(c *Component, setupFunc func()) {
+	c.lifecycle["setup"] = setupFunc
+}
+
+// Cleanup adds a cleanup function to be called when the component is unmounted
+func Cleanup(c *Component, cleanupFunc func()) {
+	c.lifecycle["cleanup"] = cleanupFunc
+}
+
+// UnregisterComponent handles the cleanup of the component
+func UnregisterComponent(c *Component) {
+	if c.registered {
+		if cleanupFunc, ok := c.lifecycle["cleanup"]; ok {
+			cleanupFunc()
+		}
+		c.registered = false // Mark the component as unregistered (unmounted)
 	}
+}
+
+// registerDOMReferences registers all nodes in the component's tree with the DOM
+func registerDOMReferences(node *Node) {
+	// Register the current node
+	if bindingID, ok := node.Attributes["data-go_binding_id"]; ok {
+		RegisterTagReference(bindingID)
+	}
+
+	// Recursively register child nodes
+	for _, child := range node.Children {
+		if elementNode, ok := child.(*Node); ok {
+			registerDOMReferences(elementNode)
+		}
+	}
+}
+
+// RegisterTagReference is a placeholder for registering the tag reference
+func RegisterTagReference(bindingID string) {
+	// Placeholder for registering a tag reference in the DOM
+	fmt.Println("Registering tag reference:", bindingID)
 }

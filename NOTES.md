@@ -21,3 +21,6 @@ I think I need to figure out a way to listen for js events and have that event t
 I now have basic state setup that pipes JS events to the GO side, it works but the rerendering behavior break input fields
 need to spend more time on the rerender logic such that its more fine grained. 
 I need to build out a bigger app with this to flesh out POC feature set
+
+
+Im gonna try my 3rd iteration fromt he DX >>> Lib Code, lets see if this yeilds good results
