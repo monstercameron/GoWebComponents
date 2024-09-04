@@ -152,22 +152,35 @@ func AddState[T any](c *Component, key string, initialValue T) (*T, func(T)) {
     c.stateLock.Lock()
     defer c.stateLock.Unlock()
 
-    // Store a pointer to the initial value in the state map
+    // Check if the state already has a value for the given key
+    if existingValue, exists := c.state[key]; exists {
+        // Return the existing value and the setter function
+        return existingValue.(*T), func(newValue T) {
+            c.stateLock.Lock()
+            *(c.state[key].(*T)) = newValue
+            c.stateLock.Unlock()
+
+            // Trigger re-render or state update outside of the lock
+            c.updateStateFunc()
+        }
+    }
+
+    // If the key doesn't exist, initialize it with the initial value
     value := initialValue
     c.state[key] = &value
 
-    // Return a pointer to the value and a setter function
-    return c.state[key].(*T), func(newValue T) {
+    // Return the newly created value and the setter function
+    return &value, func(newValue T) {
         c.stateLock.Lock()
-        defer c.stateLock.Unlock()
-
-        // Update the value in the state map
         *(c.state[key].(*T)) = newValue
+        c.stateLock.Unlock()
 
-        // Trigger re-render or state update
+        // Trigger re-render or state update outside of the lock
         c.updateStateFunc()
     }
 }
+
+
 
 // Setup adds a setup function to be called when the component is mounted
 func Setup(c *Component, setupFunc func()) {

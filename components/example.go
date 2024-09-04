@@ -5,10 +5,13 @@ import (
 )
 
 func Example1() {
+	var setCounterHoisted func(int)
+
 	// example1 is a simple example of a component that increments a counter when a button is clicked.
 	component := ThisIsAComponent(func(self *Component, props int, children ...*Component) *Component {
 		// Setup state
-		counter, _ := AddState(self, "counter", 999)
+		counter, setCounter := AddState(self, "counter", props)
+		setCounterHoisted = setCounter
 
 		// Setup the component when it is mounted
 		Setup(self, func() {
@@ -43,15 +46,12 @@ func Example1() {
 		return self
 	})
 
-	myComponent := component(1)
+	myComponent := component(111)
 	myComponent.updateStateFunc()
+	PrintNodeTree(myComponent.rootNode)
 
-	// // Render the component with no external props or children
-	// renderedHTML := RenderHTML(myComponent)
-	
-	// RenderToDOM(renderedHTML, "root_id")
-	// fmt.Printf("Rendered HTML: %s\n", renderedHTML)
-
+	setCounterHoisted(777)
+	myComponent.updateStateFunc()
 	PrintNodeTree(myComponent.rootNode)
 }
 
