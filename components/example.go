@@ -2,89 +2,43 @@ package components
 
 import (
 	"fmt"
+	"syscall/js"
 )
 
 func Example1() {
-	var setCounterHoisted func(int)
+    fmt.Println("Starting the example 1")
 
-	// example1 is a simple example of a component that increments a counter when a button is clicked.
-	component := ThisIsAComponent(func(self *Component, props int, children ...*Component) *Component {
-		// Setup state
-		counter, setCounter := AddState(self, "counter", props)
-		setCounterHoisted = setCounter
+    // Create the component using MakeComponent
+    component := MakeComponent(func(self *Component, props int, children ...*Component) *Component {
+        // Setup state for the counter, initializing with the props value
+        counter, setCounter := AddState(self, "counter", props)
 
-		// Setup the component when it is mounted
-		Setup(self, func() {
-			fmt.Println("Component has been set up.")
-			fmt.Println("Initial counter value:", *counter)
-		})
+        // Setup the component when it is mounted
+        Setup(self, func() {
+            fmt.Println("Component has been set up.")
+            fmt.Println("Initial counter value:", *counter)
+        })
 
-		// Watch for changes in the counter state
-		// Watch(self, func() {
-		//     fmt.Println("Counter value changed:", *counter)
-		// }, "counter")
+        // Define the click handler using the Function helper
+        handleClick := Function(self, "handleClick", func(event js.Value) {
+            // Update the counter state
+			fmt.Println("handleClick called")
+            setCounter(*counter + 1)
+			fmt.Println("Counter updated to:", *counter)
+        })
 
-		// Example of a cached value that depends on the counter state
-		cachedValue := Cached(self, "cachedValue", func() interface{} {
-			return fmt.Sprintf("Computed Value: %d", *counter*2)
-		}, []string{"counter"})
+        RenderTemplate(self, Tag("div", Attributes{},
+            Tag("p", Attributes{}, Text(fmt.Sprintf("Counter: %d", *counter))),
+            Tag("button", Attributes{
+                "onclick": handleClick,
+                "class":   "btn",
+            }, Text("Click me to increment")),
+        ))
 
-		fmt.Println("Cached value:", cachedValue)
+        return self
+    })
 
-		// Cleanup logic when the component is unmounted
-		Cleanup(self, func() {
-			fmt.Println("Component is being cleaned up.")
-		})
-
-		// Render the HTML structure
-		RenderTemplate(self, Tag("select", Attributes{"class": "dropdown"},
-			Tag("option", Attributes{"value": "1"}, Text("Option 1")),
-			Tag("option", Attributes{"value": "2"}, Text("Option 2")),
-			Tag("option", Attributes{"value": "3"}, Text(fmt.Sprintf("Option %d", *counter))),
-		))
-
-		return self
-	})
-
-	myComponent := component(111)
-	myComponent.updateStateFunc()
-	PrintNodeTree(myComponent.rootNode)
-
-	setCounterHoisted(777)
-	myComponent.updateStateFunc()
-	PrintNodeTree(myComponent.rootNode)
-}
-
-func Example3() {
-	// Create a simple select dropdown with options
-	selectNode := Tag("select", Attributes{"class": "dropdown"},
-		Tag("option", Attributes{"value": "1"}, Text("Option 1")),
-		Tag("option", Attributes{"value": "2"}, Text("Option 2")),
-		Tag("option", Attributes{"value": "3"}, Text("Option 3")),
-	)
-
-	PrintNodeTree(selectNode)
-}
-
-func Example4() {
-	// Create a complex HTML structure with void tags and mixed content
-	htmlStructure := Tag("div", Attributes{"class": "container"},
-		Text("Welcome to the site! "),
-		Tag("img", Attributes{"src": "logo.png", "alt": "Site Logo"}), // Void tag
-		Tag("p", Attributes{"class": "description"},
-			Text("This is an example of "),
-			Tag("a", Attributes{"href": "https://example.com"}, Text("a link")),
-			Text(" with some "),
-			Tag("strong", Attributes{}, Text("bold text")),
-			Text(" and an inline image."),
-		),
-		Tag("input", Attributes{"type": "text", "placeholder": "Enter text here"}), // Void tag
-		Tag("div", Attributes{"class": "footer"},
-			Text("Thank you for visiting!"),
-			Tag("br", Attributes{}), // Void tag
-			Text("We hope you enjoy your stay."),
-		),
-	)
-
-	PrintNodeTree(htmlStructure)
+    // Use the InsertComponentIntoDOM function to render and insert the component into the DOM
+    InsertComponentIntoDOM("root", component(0)) // Initial counter value starts at 0
+    fmt.Println("Example 1 setup complete")
 }
