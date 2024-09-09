@@ -189,7 +189,7 @@ func EnsureBindingIDs(node *Node) {
 		newID := fmt.Sprintf("go_%d", incrementCounter)
 		incrementCounter++
 		node.Attributes["data-go_binding_id"] = newID
-		fmt.Printf("Generated new binding ID: %s for node <%s>\n", newID, node.Tag)
+		// fmt.Printf("Generated new binding ID: %s for node <%s>\n", newID, node.Tag)
 	}
 
 	// Recursively ensure all child nodes have binding IDs
@@ -246,14 +246,14 @@ func renderDiff(node *Node) {
 		domRegistry[bindingID] = element
 		fmt.Printf("Element with binding ID %s found and stored in domRegistry.\n", bindingID)
 	} else {
-		fmt.Printf("Element with binding ID %s retrieved from domRegistry.\n", bindingID)
+		// fmt.Printf("Element with binding ID %s retrieved from domRegistry.\n", bindingID)
 	}
 
 	// Step 1: Attribute-Level Changes
 	for key, newValue := range node.Attributes {
 		currentValue := element.Get(key).String()
 		if currentValue != newValue {
-			fmt.Printf("Updating attribute %s (old: %s, new: %s) on element with binding ID %s.\n", key, currentValue, newValue, bindingID)
+			// fmt.Printf("Updating attribute %s (old: %s, new: %s) on element with binding ID %s.\n", key, currentValue, newValue, bindingID)
 			element.Call("setAttribute", key, newValue)
 		}
 	}
@@ -262,7 +262,7 @@ func renderDiff(node *Node) {
 		attr := element.Get("attributes").Index(i).Get("name").String()
 		if _, exists := node.Attributes[attr]; !exists && attr != "data-go_binding_id" {
 			element.Call("removeAttribute", attr)
-			fmt.Printf("Removed attribute %s from element with binding ID %s.\n", attr, bindingID)
+			// fmt.Printf("Removed attribute %s from element with binding ID %s.\n", attr, bindingID)
 		}
 	}
 
@@ -279,7 +279,7 @@ func renderDiff(node *Node) {
 				renderedHTML := child.Render()
 
 				if currentHTML != renderedHTML {
-					fmt.Printf("Updating innerHTML on element with binding ID %s (old: %s, new: %s).\n", bindingID, currentHTML, renderedHTML)
+					// fmt.Printf("Updating innerHTML on element with binding ID %s (old: %s, new: %s).\n", bindingID, currentHTML, renderedHTML)
 					element.Set("innerHTML", renderedHTML)
 				}
 			}
@@ -290,7 +290,7 @@ func renderDiff(node *Node) {
 		renderedHTML := node.Render()
 
 		if currentHTML != renderedHTML {
-			fmt.Printf("Updating innerHTML on element with binding ID %s (no children, old: %s, new: %s).\n", bindingID, currentHTML, renderedHTML)
+			// fmt.Printf("Updating innerHTML on element with binding ID %s (no children, old: %s, new: %s).\n", bindingID, currentHTML, renderedHTML)
 			element.Set("innerHTML", renderedHTML)
 		}
 	}
@@ -371,7 +371,7 @@ func IterateAndRegisterTags(node *Node) {
 	// Register the current node's binding ID
 	if bindingID, exists := node.Attributes["data-go_binding_id"]; exists && bindingID != "" {
 		RegisterTagReference(bindingID)
-		fmt.Printf("Registered tag reference for node with binding ID: %s\n", bindingID)
+		// fmt.Printf("Registered tag reference for node with binding ID: %s\n", bindingID)
 	}
 
 	// Recursively register tag references for all child nodes
@@ -386,5 +386,5 @@ func IterateAndRegisterTags(node *Node) {
 func RegisterTagReference(bindingID string) {
 	element := js.Global().Get("document").Call("querySelector", fmt.Sprintf(`[data-go_binding_id="%s"]`, bindingID))
 	domRegistry[bindingID] = element
-	fmt.Printf("Registering tag reference for %s (Placeholder)\n", bindingID)
+	// fmt.Printf("Registering tag reference for %s (Placeholder)\n", bindingID)
 }

@@ -8,6 +8,7 @@ import (
 
 // Component represents a UI component
 type Component struct {
+	previousState   map[string]interface{}
 	state           map[string]interface{}
 	stateLock       sync.Mutex
 	lifecycle       map[string]func()
@@ -32,6 +33,11 @@ func NewComponent(root *Node) *Component {
 }
 
 func AddState[T any](c *Component, key string, initialValue T) (*T, func(T)) {
+	// Initialize previousState map if it's nil
+	if c.previousState == nil {
+		c.previousState = make(map[string]interface{})
+	}
+	
 	c.stateLock.Lock()
 	defer c.stateLock.Unlock()
 
@@ -40,6 +46,7 @@ func AddState[T any](c *Component, key string, initialValue T) (*T, func(T)) {
 		// Return the existing value and the setter function
 		return existingValue.(*T), func(newValue T) {
 			c.stateLock.Lock()
+			c.previousState[key] = *existingValue.(*T)
 			*(c.state[key].(*T)) = newValue
 			c.stateLock.Unlock()
 
@@ -55,6 +62,7 @@ func AddState[T any](c *Component, key string, initialValue T) (*T, func(T)) {
 	// Return the newly created value and the setter function
 	return &value, func(newValue T) {
 		c.stateLock.Lock()
+		c.previousState[key] = value
 		*(c.state[key].(*T)) = newValue
 		c.stateLock.Unlock()
 
@@ -92,6 +100,15 @@ func MakeComponent[P any](f func(*Component, P, ...*Component) *Component) func(
 			// Call the component's render function
 			f(self, props, children...)
 
+			if !self.setupDone {
+				// Run the setup lifecycle function
+				if setup, exists := self.lifecycle["setup"]; exists {
+					setup()
+				}
+
+				self.setupDone = true
+			}
+
 			// Update the DOM after rendering
 			if self.rootNode != nil {
 				fmt.Println("Updating DOM")
@@ -106,12 +123,40 @@ func MakeComponent[P any](f func(*Component, P, ...*Component) *Component) func(
 // RenderTemplate renders the component's HTML structure
 func RenderTemplate(self *Component, node *Node) {
 	self.proposedNode = node
-	// self.rootNode = node
-
 }
 
 // InsertComponentIntoDOM inserts the rendered component into the DOM
 func InsertComponentIntoDOM(component *Component) {
 	component.updateStateFunc()
 	UpdateDOM(component)
+}
+
+func Watch(self *Component, callback func(), deps ...string) {
+	// Placeholder map to simulate dependency tracking
+	// This would track the previous state of the dependencies (in real-world cases, this could be part of the state system)
+	previousValues := make(map[string]interface{})
+
+	// Iterate over the dependencies
+	for _, dep := range deps {
+		// Get the current value of the dependency
+		currentValue, exists := self.state[dep]
+		if !exists {
+			fmt.Printf("Dependency %s does not exist in state.\n", dep)
+			continue
+		}
+
+		// Check if the dependency has a previous value stored
+		prevValue, hasPrev := self.previousState[dep]
+
+		// If the value has changed, execute the callback function
+		if !hasPrev || currentValue != prevValue {
+			fmt.Printf("Dependency %s has changed, calling the callback.\n", dep)
+			callback()
+
+			// Update the previous value with the current one
+			previousValues[dep] = currentValue
+		} else {
+			fmt.Printf("No change detected for dependency %s.\n", dep)
+		}
+	}
 }

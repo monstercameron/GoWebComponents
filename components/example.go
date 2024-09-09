@@ -52,6 +52,7 @@ func Example1() {
 
 		// Local variable to hold the current input value
 		newTodo := ""
+		var target js.Value
 
 		// Setup the component when it is mounted
 		Setup(self, func() {
@@ -59,6 +60,10 @@ func Example1() {
 			fmt.Println("Initial ToDo list:", *todos)
 		})
 
+		Watch(self, func() {
+			fmt.Println("Looks like the state has changed!")
+		}, "todos")
+		
 		// Function to handle adding a new todo
 		handleAddTodo := Function(self, "handleAddTodo", func(event js.Value) {
 			if newTodo != "" {
@@ -67,6 +72,7 @@ func Example1() {
 				setTodos(*todos)                 // Update state
 				newTodo = ""                     // Reset input
 			}
+			target.Set("value", "") // Clear the input field
 		})
 
 		handleRemoveTodo := Function(self, "handleRemoveTodo", func(event js.Value) {
@@ -88,6 +94,7 @@ func Example1() {
 		// Input change handler
 		handleInputChange := Function(self, "handleInputChange", func(event js.Value) {
 			newTodo = event.Get("target").Get("value").String()
+			target = event.Get("target")
 			fmt.Println("Input value changed:", newTodo)
 		})
 
