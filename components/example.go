@@ -56,14 +56,17 @@ func Example1() {
 
 		// Setup the component when it is mounted
 		Setup(self, func() {
-			fmt.Println("ToDo List component has been set up.")
-			fmt.Println("Initial ToDo list:", *todos)
+			fmt.Println("Setup: ToDo List component has been set up.")
+			// add demo todos
+			*todos = append(*todos, "Learn Go", "Build a Web App", "Deploy to Production")
+			fmt.Println("Setup: Initial ToDo list:", *todos)
 		})
 
 		Watch(self, func() {
-			fmt.Println("Looks like the state has changed!")
+			fmt.Println("Watch: looks like todos has changed, or first render")
+			fmt.Printf("Watch: Current todos: %v\n", *todos)
 		}, "todos")
-		
+
 		// Function to handle adding a new todo
 		handleAddTodo := Function(self, "handleAddTodo", func(event js.Value) {
 			if newTodo != "" {
@@ -75,7 +78,7 @@ func Example1() {
 			target.Set("value", "") // Clear the input field
 		})
 
-		handleRemoveTodo := Function(self, "handleRemoveTodo", func(event js.Value) {
+		Function(self, "handleRemoveTodo", func(event js.Value) {
 			// handleRemoveTodo(1) on the JS side, where event is just an integer
 			index := event.Int() // Convert the JS value to an integer
 			fmt.Printf("Removing todo at index: %d\n", index)
@@ -88,8 +91,6 @@ func Example1() {
 				fmt.Printf("Invalid index: %d\n", index)
 			}
 		})
-
-		fmt.Println("handleRemoveTodo", handleRemoveTodo)
 
 		// Input change handler
 		handleInputChange := Function(self, "handleInputChange", func(event js.Value) {

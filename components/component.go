@@ -37,7 +37,7 @@ func AddState[T any](c *Component, key string, initialValue T) (*T, func(T)) {
 	if c.previousState == nil {
 		c.previousState = make(map[string]interface{})
 	}
-	
+
 	c.stateLock.Lock()
 	defer c.stateLock.Unlock()
 
@@ -74,6 +74,11 @@ func AddState[T any](c *Component, key string, initialValue T) (*T, func(T)) {
 // Setup registers a lifecycle function to run when the component is mounted
 func Setup(self *Component, fn func()) {
 	self.lifecycle["setup"] = fn
+	// immediately run the setup function if the component is already mounted
+	if !self.setupDone {
+		fn()
+		self.setupDone = true
+	}
 }
 
 // Function registers a JavaScript event handler and returns its call signature
@@ -99,15 +104,6 @@ func MakeComponent[P any](f func(*Component, P, ...*Component) *Component) func(
 		self.updateStateFunc = func() {
 			// Call the component's render function
 			f(self, props, children...)
-
-			if !self.setupDone {
-				// Run the setup lifecycle function
-				if setup, exists := self.lifecycle["setup"]; exists {
-					setup()
-				}
-
-				self.setupDone = true
-			}
 
 			// Update the DOM after rendering
 			if self.rootNode != nil {
@@ -150,7 +146,7 @@ func Watch(self *Component, callback func(), deps ...string) {
 
 		// If the value has changed, execute the callback function
 		if !hasPrev || currentValue != prevValue {
-			fmt.Printf("Dependency %s has changed, calling the callback.\n", dep)
+			// fmt.Printf("Dependency %s has changed, calling the callback.\n", dep)
 			callback()
 
 			// Update the previous value with the current one
