@@ -3,6 +3,7 @@ package components
 import (
 	"fmt"
 	"syscall/js"
+	"time"
 )
 
 type Attributes map[string]string
@@ -179,41 +180,206 @@ func isVoidTag(tag string) bool {
 	return false
 }
 
+var incrementCounter = 0
+
+// Iterate through the node tree and ensure every node has a binding ID
+func EnsureBindingIDs(node *Node) {
+	// Check if the current node has a binding ID, and if not, generate one
+	if node.Attributes["data-go_binding_id"] == "" {
+		newID := fmt.Sprintf("go_%d", incrementCounter)
+		incrementCounter++
+		node.Attributes["data-go_binding_id"] = newID
+		fmt.Printf("Generated new binding ID: %s for node <%s>\n", newID, node.Tag)
+	}
+
+	// Recursively ensure all child nodes have binding IDs
+	for _, child := range node.Children {
+		if childNode, ok := child.(*Node); ok {
+			EnsureBindingIDs(childNode) // Recur for child nodes
+		}
+	}
+}
+
 // UpdateDOM updates the DOM with the changes in the component's node structure
 func UpdateDOM(component *Component) {
+	// Diff the old and new node trees
 	if component.rootNode == nil {
+		component.rootNode = component.proposedNode
+	} else {
+		diffNode := DiffNodeTree(component.rootNode, component.proposedNode)
+		component.rootNode = diffNode
+	}
+	// component.rootNode = component.proposedNode
+
+	rootElement := js.Global().Get("document").Call("getElementById", "root")
+	if !rootElement.IsNull() {
+		if rootElement.Get("innerHTML").String() == "" {
+			EnsureBindingIDs(component.rootNode)
+			rootElement.Set("innerHTML", component.rootNode.Render())
+			IterateAndRegisterTags(component.rootNode)
+			return
+		} else {
+			renderDiff(component.rootNode)
+		}
+	}
+}
+
+// renderDiff checks the DOM element for attribute diffs and child changes, then updates the DOM if necessary
+func renderDiff(node *Node) {
+	// Retrieve or query for the DOM element based on the binding ID
+	bindingID, exists := node.Attributes["data-go_binding_id"]
+	if !exists || bindingID == "" {
+		fmt.Println("Node does not have a binding ID, skipping.")
 		return
 	}
 
-	var walkAndApply func(node NodeInterface, parent js.Value)
-	walkAndApply = func(node NodeInterface, parent js.Value) {
-		switch n := node.(type) {
-		case *Node:
-			bindingID := n.GetBindingID()
+	// Check if the element is already in domRegistry
+	element, found := domRegistry[bindingID]
+	if !found {
+		// If not found in domRegistry, query the DOM for the element
+		element = js.Global().Get("document").Call("querySelector", fmt.Sprintf(`[data-go_binding_id="%s"]`, bindingID))
+		if element.IsNull() {
+			fmt.Printf("Element with binding ID %s not found in the DOM.\n", bindingID)
+			return
+		}
+		// Store the reference in domRegistry for future use
+		domRegistry[bindingID] = element
+		fmt.Printf("Element with binding ID %s found and stored in domRegistry.\n", bindingID)
+	} else {
+		fmt.Printf("Element with binding ID %s retrieved from domRegistry.\n", bindingID)
+	}
 
-			// Handle regular element nodes (with binding ID)
-			element := js.Global().Get("document").Call("querySelector", fmt.Sprintf(`[data-go_binding_id="%s"]`, bindingID))
-			if !element.IsNull() {
-				// Update the node if it exists
-				// Update children as well
-				for _, child := range n.Children {
-					walkAndApply(child, element)
-				}
-			} else {
-				// Register the node if not already present
-				domRegistry[bindingID] = element
-			}
-
-		case *TextNode:
-			// Handle text nodes by appending them directly to the parent element
-			if !parent.IsNull() {
-				parent.Set("textContent", n.Render()) // Use Render() instead of Text()
-			}
+	// Step 1: Attribute-Level Changes
+	for key, newValue := range node.Attributes {
+		currentValue := element.Get(key).String()
+		if currentValue != newValue {
+			fmt.Printf("Updating attribute %s (old: %s, new: %s) on element with binding ID %s.\n", key, currentValue, newValue, bindingID)
+			element.Call("setAttribute", key, newValue)
+		}
+	}
+	// Remove any attributes that exist on the DOM element but not in the node
+	for i := 0; i < element.Get("attributes").Length(); i++ {
+		attr := element.Get("attributes").Index(i).Get("name").String()
+		if _, exists := node.Attributes[attr]; !exists && attr != "data-go_binding_id" {
+			element.Call("removeAttribute", attr)
+			fmt.Printf("Removed attribute %s from element with binding ID %s.\n", attr, bindingID)
 		}
 	}
 
-	// Start walking and applying updates from the root node
-	walkAndApply(component.rootNode, js.Null())
+	// Step 2: Child-Level Changes
+	// If the node has children, check for differences and update only the changed children
+	if len(node.Children) > 0 {
+		for _, child := range node.Children {
+			if childNode, ok := child.(*Node); ok {
+				// Recursively check for diffs in child nodes
+				renderDiff(childNode)
+			} else {
+				// If it's a TextNode or other type, check if innerHTML needs updating
+				currentHTML := element.Get("innerHTML").String()
+				renderedHTML := child.Render()
+
+				if currentHTML != renderedHTML {
+					fmt.Printf("Updating innerHTML on element with binding ID %s (old: %s, new: %s).\n", bindingID, currentHTML, renderedHTML)
+					element.Set("innerHTML", renderedHTML)
+				}
+			}
+		}
+	} else {
+		// If no children, ensure the innerHTML matches the node's content (text or empty)
+		currentHTML := element.Get("innerHTML").String()
+		renderedHTML := node.Render()
+
+		if currentHTML != renderedHTML {
+			fmt.Printf("Updating innerHTML on element with binding ID %s (no children, old: %s, new: %s).\n", bindingID, currentHTML, renderedHTML)
+			element.Set("innerHTML", renderedHTML)
+		}
+	}
+}
+
+// DiffNodeTree compares two node trees and returns a new *Node with differences.
+// If there are no changes, the original *Node is returned.
+func DiffNodeTree(oldNode, newNode *Node) *Node {
+	// Check if the tags are different; if so, return the new node
+	if oldNode.Tag != newNode.Tag {
+		return newNode
+	}
+
+	// Check and update the binding ID if missing
+	if oldNode.Attributes["data-go_binding_id"] == "" {
+		oldNode.Attributes["data-go_binding_id"] = fmt.Sprintf("go_%d", time.Now().UnixNano())
+	}
+	if newNode.Attributes["data-go_binding_id"] == "" {
+		newNode.Attributes["data-go_binding_id"] = oldNode.Attributes["data-go_binding_id"]
+	}
+
+	// Check for attribute differences
+	attrsChanged := false
+	for key, oldValue := range oldNode.Attributes {
+		if newValue, exists := newNode.Attributes[key]; !exists || newValue != oldValue {
+			attrsChanged = true
+			break
+		}
+	}
+
+	// If attributes count differs, mark as changed
+	if len(oldNode.Attributes) != len(newNode.Attributes) {
+		attrsChanged = true
+	}
+
+	// Diff children nodes
+	changedChildren := make([]NodeInterface, len(newNode.Children))
+	childrenChanged := false
+	for i := range newNode.Children {
+		if i < len(oldNode.Children) {
+			// Recursively diff children
+			oldChild, okOld := oldNode.Children[i].(*Node)
+			newChild, okNew := newNode.Children[i].(*Node)
+
+			if okOld && okNew {
+				changedChild := DiffNodeTree(oldChild, newChild)
+				if changedChild != oldChild {
+					childrenChanged = true
+				}
+				changedChildren[i] = changedChild
+			} else {
+				// Child types differ, mark as changed
+				childrenChanged = true
+				changedChildren[i] = newNode.Children[i]
+			}
+		} else {
+			// New child, just append
+			childrenChanged = true
+			changedChildren[i] = newNode.Children[i]
+		}
+	}
+
+	// If attributes or children have changed, return a new node
+	if attrsChanged || childrenChanged {
+		return &Node{
+			Tag:        newNode.Tag,
+			Attributes: newNode.Attributes,
+			Children:   changedChildren,
+		}
+	}
+
+	// No changes, return the old node
+	return oldNode
+}
+
+// Iterate through the node tree and register tag references for each node
+func IterateAndRegisterTags(node *Node) {
+	// Register the current node's binding ID
+	if bindingID, exists := node.Attributes["data-go_binding_id"]; exists && bindingID != "" {
+		RegisterTagReference(bindingID)
+		fmt.Printf("Registered tag reference for node with binding ID: %s\n", bindingID)
+	}
+
+	// Recursively register tag references for all child nodes
+	for _, child := range node.Children {
+		if childNode, ok := child.(*Node); ok {
+			IterateAndRegisterTags(childNode) // Recur for child nodes
+		}
+	}
 }
 
 // RegisterTagReference is a placeholder function to register the tag reference from the DOM

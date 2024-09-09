@@ -39,5 +39,5 @@ func Example1() {
     })
 
     // Use the InsertComponentIntoDOM function to render and insert the component into the DOM
-    InsertComponentIntoDOM("root", component(0)) // Initial counter value starts at 0
+    InsertComponentIntoDOM(component(0)) // Initial counter value starts at 0
 }

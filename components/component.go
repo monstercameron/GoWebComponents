@@ -12,6 +12,7 @@ type Component struct {
 	stateLock       sync.Mutex
 	lifecycle       map[string]func()
 	rootNode        *Node
+	proposedNode    *Node
 	updateStateFunc func()
 	setupDone       bool
 	registered      bool
@@ -104,20 +105,13 @@ func MakeComponent[P any](f func(*Component, P, ...*Component) *Component) func(
 
 // RenderTemplate renders the component's HTML structure
 func RenderTemplate(self *Component, node *Node) {
-	self.rootNode = node
+	self.proposedNode = node
+	// self.rootNode = node
+
 }
 
 // InsertComponentIntoDOM inserts the rendered component into the DOM
-// InsertComponentIntoDOM inserts the rendered component into the DOM
-func InsertComponentIntoDOM(domID string, component *Component) {
+func InsertComponentIntoDOM(component *Component) {
 	component.updateStateFunc()
-	
-    if component.rootNode == nil {
-        panic("Component rootNode is nil. Ensure RenderTemplate is called before inserting into DOM.")
-    }
-
-    rootElement := js.Global().Get("document").Call("getElementById", domID)
-    if !rootElement.IsNull() {
-        rootElement.Set("innerHTML", component.rootNode.Render())
-    }
+	UpdateDOM(component)
 }
