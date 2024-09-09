@@ -4,15 +4,72 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Go WebAssembly Example with Tailwind CSS and a minimalist loading bar." />
+  <meta name="author" content="Go Web Components" />
+  <title>Go WebAssembly Loading Example</title>
   <script src="https://cdn.tailwindcss.com" rel="stylesheet"></script>
-  <title>Go WebAssembly Example</title>
   <script src="script/wasm_exec.js"></script>
+  <style>
+    body {
+      background-color: #1a202c; /* Tailwind's gray-900 */
+      color: #f7fafc; /* Tailwind's gray-100 */
+    }
+
+    #root {
+      transition: opacity 0.5s ease-in-out;
+      opacity: 0;
+    }
+
+    #root.loaded {
+      opacity: 1;
+    }
+
+    .loading-bar {
+      height: 4px;
+      background-color: #4a5568; /* Tailwind's gray-700 */
+      transition: width 0.2s ease-in-out;
+    }
+
+    .footer {
+      position: fixed;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #2d3748; /* Tailwind's gray-800 */
+      padding: 10px 20px;
+      border-radius: 5px;
+    }
+
+    .footer a {
+      color: #63b3ed; /* Tailwind's blue-400 */
+      text-decoration: none;
+    }
+  </style>
   <script>
     const go = new Go();
 
-    WebAssembly.instantiateStreaming(fetch("bin/main.wasm"), go.importObject)
+    function updateProgress(bytesDownloaded, totalBytes) {
+      const loadingBar = document.getElementById('loading-bar');
+      const percentage = (bytesDownloaded / totalBytes) * 100;
+      loadingBar.style.width = percentage + '%';
+      document.getElementById('progress-text').innerText = `${(bytesDownloaded / 1024).toFixed(2)}KB of ${(totalBytes / 1024).toFixed(2)}KB downloaded`;
+    }
+
+    function removeLoadingBar() {
+      const rootElement = document.getElementById('root');
+      const loadingElement = document.getElementById('loading-container');
+      rootElement.classList.add('loaded');
+      loadingElement.remove();
+    }
+
+    WebAssembly.instantiateStreaming(fetch("bin/main.wasm"), go.importObject, {
+        onprogress: (loaded, total) => {
+          updateProgress(loaded, total);
+        }
+      })
       .then((result) => {
         go.run(result.instance);
+        removeLoadingBar();
       })
       .catch(console.error);
   </script>
@@ -20,6 +77,19 @@
 
 <body>
   <div id="root"></div>
+
+  <div id="loading-container" class="flex items-center justify-center h-screen">
+    <div>
+      <div id="progress-text" class="text-center mb-4">Loading WASM...</div>
+      <div class="w-full bg-gray-800 rounded-full">
+        <div id="loading-bar" class="loading-bar" style="width: 0%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <a href="https://github.com/monstercameron/GoWebComponents" target="_blank">GitHub: GoWebComponents</a>
+  </div>
 </body>
 
 </html>
