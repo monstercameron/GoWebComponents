@@ -52,8 +52,13 @@ func (t *TextNode) Print(indent int) string {
 
 // GetBindingID returns the binding ID for the Node, which is automatically generated
 func (n *Node) GetBindingID() string {
-	// Generate or return the binding ID; simplified for matching Example1's requirements
-	return "generated_binding_id"
+	// Check if the binding ID exists in the node's attributes
+	if bindingID, ok := n.Attributes["data-go_binding_id"]; ok {
+		return bindingID
+	}
+
+	// If it doesn't exist, you could either return an empty string or generate a new one
+	return ""
 }
 
 // Render returns the HTML representation of the Node

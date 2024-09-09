@@ -1,6 +1,7 @@
 package components
 
 import (
+	"fmt"
 	"sync"
 	"syscall/js"
 )
@@ -92,6 +93,7 @@ func MakeComponent[P any](f func(*Component, P, ...*Component) *Component) func(
 
 			// Update the DOM after rendering
 			if self.rootNode != nil {
+				fmt.Println("Updating DOM")
 				UpdateDOM(self)
 			}
 		}
