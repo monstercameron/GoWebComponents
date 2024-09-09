@@ -327,7 +327,7 @@ func Example1() {
 								// Render the todo item with action buttons.
 								todoItems += fmt.Sprintf(`
 									<li class="flex items-center justify-between bg-white p-4 rounded-lg shadow-md">
-										<span class="flex-grow %s">%s</span>
+										<span class="text-black flex-grow %s">%s</span>
 										<div class="flex space-x-2"> <!-- Flex container for buttons with spacing -->
 											<button class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-3 rounded" onclick="handleToggleComplete(%d)">%s</button>
 											<button class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-3 rounded" onclick="handleEditTodo(%d)">Edit</button>
