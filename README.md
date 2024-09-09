@@ -1,6 +1,6 @@
-# Go HTML Renderer – Simple, Powerful, Go
+# GoWebComponents – Build Dynamic UIs with Go and WebAssembly
 
-Welcome to **Go HTML Renderer**, a lean, fast, and powerful framework built with Go and WebAssembly. This project lets you dynamically generate HTML, manage state, and handle events in the browser – all without the overhead of JavaScript frameworks. You’ll enjoy the performance benefits of WebAssembly and the simplicity of Go, without getting bogged down by complex tooling or dependencies.
+Welcome to **GoWebComponents**, a fast, lightweight, and powerful framework for building dynamic web interfaces using **Go** and **WebAssembly**. With GoWebComponents, you can easily generate HTML, manage state, and handle events directly in Go, without the need for JavaScript frameworks. Experience the simplicity and performance of Go while creating fully interactive web applications.
 
 ## Why Go and WebAssembly?
 
