@@ -6,11 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://cdn.tailwindcss.com" rel="stylesheet"></script>
   <title>Go WebAssembly Example</title>
-  <script src="wasm_exec.js"></script>
+  <script src="script/wasm_exec.js"></script>
   <script>
     const go = new Go();
 
-    WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject)
+    WebAssembly.instantiateStreaming(fetch("bin/main.wasm"), go.importObject)
       .then((result) => {
         go.run(result.instance);
       })
