@@ -25,7 +25,7 @@ Welcome to **GoWebComponents**, a fast, lightweight, and powerful framework for 
 
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/monstercameron/go-html.git
+   git clone https://github.com/monstercameron/GoWebComponents.git
    cd go-html
    ```
 
