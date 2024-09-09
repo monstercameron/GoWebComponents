@@ -50,7 +50,7 @@ check_error "Failed to move static content to root."
 
 # Delete the static folder
 echo "Deleting static folder..."
-rmdir -rf static
+rm -rf static
 check_error "Failed to delete static folder."
 
 # Add the changes and commit them
