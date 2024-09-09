@@ -1,199 +1,173 @@
-# Go HTML Renderer
+# Go HTML Renderer – Simple, Powerful, Go
 
-This project demonstrates a modern HTML rendering library and web server implemented in Go. It showcases how to create HTML structures programmatically and serve dynamic web pages without relying on traditional templating engines.
+Welcome to **Go HTML Renderer**, a lean, fast, and powerful framework built with Go and WebAssembly. This project lets you dynamically generate HTML, manage state, and handle events in the browser – all without the overhead of JavaScript frameworks. You’ll enjoy the performance benefits of WebAssembly and the simplicity of Go, without getting bogged down by complex tooling or dependencies.
 
-## Features
+## Why Go and WebAssembly?
 
-- Custom HTML rendering library inspired by virtual DOM concepts
-- Dynamic HTML generation using `NodeInterface` for flexible node management
-- Event handling capabilities for interactive web pages
-- Example of a Todo List application with a clean, modern interface and dark mode
-- Simple web server implementation to demonstrate rendering and event handling
+- **Simplicity**: Go is famous for being easy to learn, read, and write. WebAssembly allows us to harness this simplicity and take it directly to the browser without introducing JavaScript complexity.
+- **Type Safety Built-In**: Forget about adding yet another build step for type safety. Go has all the types and safety you need, right out of the box.
+- **Lightweight**: No bloated dependency chains or gigantic node_modules folders. The entire application can be compiled down to a small and efficient WebAssembly binary.
+- **Performance**: WebAssembly runs at near-native speeds, making your web applications fast and responsive.
 
 ## Project Structure
 
-The project is divided into two primary components:
+- **HTML Rendering Library (`components/html.go`)**: A lightweight, custom rendering engine built to create dynamic HTML in Go.
+- **Example Application (`components/example.go`)**: A simple, interactive ToDo list application showcasing how to manage state and handle user events.
 
-1. **HTML Rendering Library (`vdom/vdom.go`)**
-2. **Web Server Implementation (`main.go`)**
+## How to Install
 
-### HTML Rendering Library
+### Prerequisites
 
-The custom HTML rendering library provides a powerful and flexible way to create HTML structures in Go. Key features include:
+- Go installed on your system (version 1.18+ recommended).
+- A modern browser that supports WebAssembly (most do).
 
-- **`NodeInterface`**: A core interface representing HTML elements and text nodes.
-- **`ElementNode` and `TextNode`**: Structs for creating and managing HTML elements and text content.
-- **Rendering Methods**: Convert node structures into HTML strings, with support for HTML escaping and validation.
-- **Void Element Handling**: Proper management of self-closing tags.
-- **Helper Functions**: Simplify the creation of HTML elements (`Tag`) and text nodes (`Text`).
+### Installation Steps
 
-### Web Server Implementation
-
-The `main.go` file contains a simple web server that demonstrates the usage of the HTML rendering library, including dynamic content generation and event handling.
-
-- **Multiple Routes**: Each route demonstrates a different aspect of the rendering library.
-- **Dynamic Content**: Examples of generating HTML content dynamically using Go.
-- **Interactive Elements**: Showcase of event handling capabilities within the library.
-
-## Routes
-
-- `/`: Home page
-- `/simple`: Simple HTML rendering example
-- `/complex`: Complex HTML rendering example with dynamic data
-- `/todo`: Todo List application with event handling and state management
-- `/advanced`: Advanced examples featuring Go-specific string interpolation and dynamic content generation
-
-## Usage
-
-To run the project:
-
-1. Ensure Go is installed on your system.
-2. Clone the repository.
-3. Navigate to the project directory.
-4. Build the WebAssembly target using the following command:
-
-   ```sh
-   GOOS=js GOARCH=wasm go build -o wasm/main.wasm
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/monstercameron/go-html.git
+   cd go-html
    ```
 
-5. Start the web server:
-
-   ```sh
-   go run main.go
+2. **Build the WebAssembly Target**:
+   Run the provided `build.sh` script to compile the Go code into WebAssembly:
+   ```bash
+   ./build.sh
    ```
 
-6. Open your web browser and visit `http://localhost:8080`.
+3. **Open the Application**:
+   Simply open `wasm/index.html` in your browser to run the app. No need for a server, just double-click the file and watch your application run natively in the browser.
 
-## Example: Todo List Application
+## Example: ToDo List in Go with Tailwind CSS
 
-One of the standout examples in this project is a Todo List application that demonstrates the library's ability to manage state and handle events within a dynamic HTML structure.
+### Tutorial: Example1
 
-### Key Components:
+In this example, we build a simple but powerful ToDo list application using Go and WebAssembly, powered by Tailwind CSS for styling. This demonstrates how Go can handle dynamic user input, update state, and manage the browser’s DOM directly.
 
-1. **State Management**: Using `AddState`, the application manages the state of the todo list, including the list of todos, the next ID, and the input value.
-   
-2. **Event Handling**: The application defines event handlers for adding, toggling, and removing todos using the `Function` method, showcasing the integration of JavaScript events within Go.
-   
-3. **Dynamic Rendering**: The entire UI, including the list of todos, is dynamically generated and updated based on the application state.
+#### Key Features:
+- **State Management**: Add and remove tasks with state tracking directly in Go.
+- **Event Handling**: Handle user input and button clicks via Go functions.
+- **Dynamic Rendering**: The DOM updates dynamically as the ToDo list changes, all without page reloads or complex re-renders.
+- **Tailwind CSS**: Beautiful, responsive UI styling without writing custom CSS.
 
-### Example Code (From `Example2`):
+Here’s the code:
 
 ```go
-func Example2() {
-    fmt.Println("Initializing Todo App Component...")
+func Example1() {
+	fmt.Println("Starting Example 2: Tailwind-powered ToDo List")
 
-    todoApp := CreateComponent(func(c *Component, _ Props, _ ...*Component) *Component {
-        todos, setTodos := AddState(c, "todos", []Todo{})
-        nextID, setNextID := AddState(c, "nextID", 1)
-        inputValue, setInputValue := AddState(c, "inputValue", "")
+	// Create the component using MakeComponent
+	component := MakeComponent(func(self *Component, props int, children ...*Component) *Component {
+		// Setup state for todo list items
+		todos, setTodos := AddState(self, "todos", []string{})
 
-        addTodo := Function(c, "addTodo", func(_ js.Value) {
-            if *inputValue != "" {
-                newTodo := Todo{ID: *nextID, Text: *inputValue, Completed: false}
-                setTodos(append(*todos, newTodo))
-                setNextID(*nextID + 1)
-                setInputValue("")
-            }
-        })
+		// Local variable to hold the current input value
+		newTodo := ""
+		var target js.Value
 
-        toggleTodo := Function(c, "toggleTodo", func(event js.Value) {
-            idStr := event.Get("target").Get("dataset").Get("id").String()
-            id, err := strconv.Atoi(idStr)
-            if err != nil {
-                fmt.Printf("Error converting id to integer: %s\n", err)
-                return
-            }
-            newTodos := make([]Todo, len(*todos))
-            copy(newTodos, *todos)
-            for i, todo := range newTodos {
-                if todo.ID == id {
-                    newTodos[i].Completed = !newTodos[i].Completed
-                    break
-                }
-            }
-            setTodos(newTodos)
-        })
+		// Setup the component when it is mounted
+		Setup(self, func() {
+			fmt.Println("Setup: ToDo List component has been set up.")
+			*todos = append(*todos, "Learn Go", "Build a Web App", "Deploy to Production")
+			fmt.Println("Setup: Initial ToDo list:", *todos)
+		})
 
-        removeTodo := Function(c, "removeTodo", func(event js.Value) {
-            idStr := event.Get("target").Get("dataset").Get("id").String()
-            id, err := strconv.Atoi(idStr)
-            if err != nil {
-                fmt.Printf("Error converting id to integer: %s\n", err)
-                return
-            }
-            newTodos := make([]Todo, 0, len(*todos)-1)
-            for _, todo := range *todos {
-                if todo.ID != id {
-                    newTodos = append(newTodos, todo)
-                }
-            }
-            setTodos(newTodos)
-        })
+		Watch(self, func() {
+			fmt.Println("Watch: looks like todos has changed, or first render")
+			fmt.Printf("Watch: Current todos: %v\n", *todos)
+		}, "todos")
 
-        handleInputChange := Function(c, "handleInputChange", func(event js.Value) {
-            newValue := event.Get("target").Get("value").String()
-            setInputValue(newValue)
-        })
+		// Function to handle adding a new todo
+		handleAddTodo := Function(self, "handleAddTodo", func(event js.Value) {
+			if newTodo != "" {
+				fmt.Println("Adding new todo:", newTodo)
+				*todos = append(*todos, newTodo)
+				setTodos(*todos)
+				newTodo = ""
+			}
+			target.Set("value", "") // Clear the input field
+		})
 
-        var todoItems []NodeInterface
-        for _, todo := range *todos {
-            todoItems = append(todoItems, Tag("li", map[string]string{"class": "flex items-center justify-between p-2 border-b border-gray-700"},
-                Tag("input", map[string]string{
-                    "type":     "checkbox",
-                    "checked":  fmt.Sprintf("%v", todo.Completed),
-                    "onchange": toggleTodo,
-                    "data-id":  fmt.Sprintf("%d", todo.ID),
-                    "class":    "mr-2",
-                }),
-                Tag("span", map[string]string{
-                    "class": fmt.Sprintf("flex-grow %s", map[bool]string{true: "line-through text-gray-500", false: ""}[todo.Completed]),
-                }, Text(todo.Text)),
-                Tag("button", map[string]string{
-                    "onclick": removeTodo,
-                    "data-id": fmt.Sprintf("%d", todo.ID),
-                    "class":   "ml-2 text-red-500 hover:text-red-700",
-                }, Text("Remove")),
-            ))
-        }
+		Function(self, "handleRemoveTodo", func(event js.Value) {
+			index := event.Int() 
+			fmt.Printf("Removing todo at index: %d\n", index)
 
-        todoItemsInterface := make([]interface{}, len(todoItems))
-        for i, item := range todoItems {
-            todoItemsInterface[i] = item
-        }
+			if index >= 0 && index < len(*todos) {
+				*todos = append((*todos)[:index], (*todos)[index+1:]...)
+				setTodos(*todos)
+			} else {
+				fmt.Printf("Invalid index: %d\n", index)
+			}
+		})
 
-        Render(c, Tag("div", map[string]string{"class": "min-h-screen bg-gray-900 text-gray-100 p-4 flex flex-col items-center"},
-            Tag("div", map[string]string{"class": "w-full max-w-md"},
-                Tag("h1", map[string]string{"class": "text-2xl font-semibold mb-4 text-center text-gray-200"}, Text("Todo List")),
-                Tag("div", map[string]string{"class": "flex mb-4"},
-                    Tag("input", map[string]string{
-                        "type":        "text",
-                        "placeholder": "Add a new todo",
-                        "value":       *inputValue,
-                        "oninput":     handleInputChange,
-                        "class":       "flex-grow mr-2 p-2 border rounded bg-gray-800 text-gray-100 border-gray-700",
-                    }),
-                    Tag("button", map[string]string{
-                        "onclick": addTodo,
-                        "class":   "bg-blue-600 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded",
-                    }, Text("Add")),
-                ),
-                Tag("ul", map[string]string{"class": "space-y-2"}, todoItemsInterface...),
-            ),
-        ))
+		handleInputChange := Function(self, "handleInputChange", func(event js.Value) {
+			newTodo = event.Get("target").Get("value").String()
+			target = event.Get("target")
+			fmt.Println("Input value changed:", newTodo)
+		})
 
-        return c
-    })
+		// Render the component
+		RenderTemplate(self, Tag("div", Attributes{"class": "p-6 max-w-sm mx-auto bg-white shadow-lg rounded-lg"},
+			Tag("h1", Attributes{"class": "text-2xl font-bold mb-4"}, Text("ToDo List")),
+			Tag("div", Attributes{"class": "mb-4"},
+				Tag("input", Attributes{
+					"type":        "text",
+					"placeholder": "Enter a new task",
+					"value":       newTodo,
+					"class":       "border rounded w-full p-2",
+					"oninput":     handleInputChange,
+				}),
+			),
+			Tag("button", Attributes{
+				"class":   "bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded",
+				"onclick": handleAddTodo,
+			}, Text("Add Task")),
+			Tag("ul", Attributes{"class": "mt-4 space-y-2"},
+				Tag("div", Attributes{}, Text(func() string {
+					todoItems := ""
+					for i, todo := range *todos {
+						todoItems += fmt.Sprintf(`
+							<li class="flex justify-between items-center p-2 border-b">
+								<span>%s</span>
+								<button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded" onclick="handleRemoveTodo(%d)">Remove</button>
+							</li>
+						`, todo, i)
+					}
+					return todoItems
+				}())),
+			),
+		))
 
-    RenderToBody(todoApp(Props{}))
+		return self
+	})
+
+	// Use the InsertComponentIntoDOM function to render and insert the component into the DOM
+	InsertComponentIntoDOM(component(0)) 
 }
 ```
 
-### Explanation:
+### Important Notes:
+- **State Management**: The `AddState` function manages the current state of the todo list items. It updates the state when a new task is added or removed.
+- **Event Handling**: You handle user events like input changes, adding tasks, and removing tasks using Go functions. No JavaScript or React needed.
+- **Tailwind CSS**: Tailwind CSS makes it easy to create a polished, responsive UI without writing custom styles.
 
-- **State Management**: The example demonstrates how to manage state in a Go-based web application, allowing the user to add, toggle, and remove todos.
-- **Dynamic UI Rendering**: The UI is dynamically generated based on the state, showcasing the power of the custom rendering library.
-- **Event Handling**: Events like clicking and typing are handled directly within Go, providing a seamless development experience.
+## How to Build
+
+Compile the Go code into WebAssembly with a single command:
+
+```bash
+GOOS=js GOARCH=wasm go build -o wasm/main.wasm
+```
+
+This builds the `main.wasm` file, which the browser runs as WebAssembly.
+
+## How to Deploy
+
+Simply **open `wasm/index.html`** in your browser. No servers, no complex setups – just open the file and see your Go-powered ToDo list come to life.
+
+---
 
 ## Conclusion
 
-This project provides a robust, type-safe way to generate HTML and manage dynamic web content in Go without the need for traditional templating engines. It’s particularly well-suited for creating interactive web applications or custom static site generators using modern web development practices.
+**Go HTML Renderer** lets you build interactive web applications with Go and WebAssembly, without the overhead of JavaScript frameworks. It’s type-safe, fast, and minimal – just what you need to focus on building rather than debugging toolchains. Take advantage of WebAssembly's power and Go’s simplicity to create modern web experiences with ease.
+

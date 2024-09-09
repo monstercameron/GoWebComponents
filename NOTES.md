@@ -24,3 +24,7 @@ I need to build out a bigger app with this to flesh out POC feature set
 
 
 Im gonna try my 3rd iteration fromt he DX >>> Lib Code, lets see if this yeilds good results
+
+I was finally able to get a "fine grain" updater system going. I will clean up the code next, implement Cached fn, add documentation and then rebuild the blog portion of my website. Ill move the blog from htmx to go-html
+
+I also need to brainstorm cool marketing names.
