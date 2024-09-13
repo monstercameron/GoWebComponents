@@ -72,6 +72,48 @@ graph TD
 
 ---
 
+## Installation
+
+```bash
+go get github.com/monstercameron/GoWebComponents@v1.0.0
+
+```
+
+Add to your project
+```go
+package main
+
+import (
+    "github.com/monstercameron/GoWebComponents/components"
+)
+
+func main() {
+    component := componenst.MakeComponent(func(self *Component, props int, children ...*Component) *Component {
+
+}
+```
+or alias the funcs yourself
+```
+```go
+package main
+
+import (
+    "github.com/monstercameron/GoWebComponents/components"
+)
+
+var (
+    MakeComponent = components.MakeComponent
+    etc...
+)
+
+func main() {
+    component := MakeComponent(func(self *Component, props int, children ...*Component) *Component {
+
+}
+```
+
+---
+
 ## 🌟 Example 3: Building a Modern Calculator
 
 In this example, we'll build a sleek, centered calculator application that performs basic arithmetic operations. We'll use Tailwind CSS for styling and demonstrate state management, event handling, and dynamic rendering—all in Go.
