@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	html "goHTML/components"
+	html "github.com/monstercameron/GoWebComponents/components"
 	"sync"
 )
 
