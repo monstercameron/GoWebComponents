@@ -76,6 +76,11 @@ func AddState[T any](c *Component, key string, initialValue T) (*T, func(T)) {
 	}
 }
 
+
+func (t *Component) RenderNode() *Node {
+    return t.rootNode
+}
+
 // Setup registers a lifecycle function to run when the component is mounted.
 // It ensures the function is only run once, the first time the component is mounted.
 func Setup(self *Component, fn func()) {
