@@ -1,173 +1,397 @@
-# GoWebComponents – Build Dynamic UIs with Go and WebAssembly
+# GoWebComponents – Craft Dynamic Web Apps with Go and WebAssembly
 
-Welcome to **GoWebComponents**, a fast, lightweight, and powerful framework for building dynamic web interfaces using **Go** and **WebAssembly**. With GoWebComponents, you can easily generate HTML, manage state, and handle events directly in Go, without the need for JavaScript frameworks. Experience the simplicity and performance of Go while creating fully interactive web applications.
-
-## Why Go and WebAssembly?
-
-- **Simplicity**: Go is famous for being easy to learn, read, and write. WebAssembly allows us to harness this simplicity and take it directly to the browser without introducing JavaScript complexity.
-- **Type Safety Built-In**: Forget about adding yet another build step for type safety. Go has all the types and safety you need, right out of the box.
-- **Lightweight**: No bloated dependency chains or gigantic node_modules folders. The entire application can be compiled down to a small and efficient WebAssembly binary.
-- **Performance**: WebAssembly runs at near-native speeds, making your web applications fast and responsive.
-
-## Project Structure
-
-- **HTML Rendering Library (`components/html.go`)**: A lightweight, custom rendering engine built to create dynamic HTML in Go.
-- **Example Application (`components/example.go`)**: A simple, interactive ToDo list application showcasing how to manage state and handle user events.
-
-## How to Install
-
-### Prerequisites
-
-- Go installed on your system (version 1.18+ recommended).
-- A modern browser that supports WebAssembly (most do).
-
-### Installation Steps
-
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/monstercameron/GoWebComponents.git
-   cd go-html
-   ```
-
-2. **Build the WebAssembly Target**:
-   Run the provided `build.sh` script to compile the Go code into WebAssembly:
-   ```bash
-   ./build.sh
-   ```
-
-3. **Open the Application**:
-   Simply open `wasm/index.html` in your browser to run the app. No need for a server, just double-click the file and watch your application run natively in the browser.
-
-## Example: ToDo List in Go with Tailwind CSS
-
-### Tutorial: Example1
-
-In this example, we build a simple but powerful ToDo list application using Go and WebAssembly, powered by Tailwind CSS for styling. This demonstrates how Go can handle dynamic user input, update state, and manage the browser’s DOM directly.
-
-#### Key Features:
-- **State Management**: Add and remove tasks with state tracking directly in Go.
-- **Event Handling**: Handle user input and button clicks via Go functions.
-- **Dynamic Rendering**: The DOM updates dynamically as the ToDo list changes, all without page reloads or complex re-renders.
-- **Tailwind CSS**: Beautiful, responsive UI styling without writing custom CSS.
-
-Here’s the code:
-
-```go
-func Example1() {
-	fmt.Println("Starting Example 2: Tailwind-powered ToDo List")
-
-	// Create the component using MakeComponent
-	component := MakeComponent(func(self *Component, props int, children ...*Component) *Component {
-		// Setup state for todo list items
-		todos, setTodos := AddState(self, "todos", []string{})
-
-		// Local variable to hold the current input value
-		newTodo := ""
-		var target js.Value
-
-		// Setup the component when it is mounted
-		Setup(self, func() {
-			fmt.Println("Setup: ToDo List component has been set up.")
-			*todos = append(*todos, "Learn Go", "Build a Web App", "Deploy to Production")
-			fmt.Println("Setup: Initial ToDo list:", *todos)
-		})
-
-		Watch(self, func() {
-			fmt.Println("Watch: looks like todos has changed, or first render")
-			fmt.Printf("Watch: Current todos: %v\n", *todos)
-		}, "todos")
-
-		// Function to handle adding a new todo
-		handleAddTodo := Function(self, "handleAddTodo", func(event js.Value) {
-			if newTodo != "" {
-				fmt.Println("Adding new todo:", newTodo)
-				*todos = append(*todos, newTodo)
-				setTodos(*todos)
-				newTodo = ""
-			}
-			target.Set("value", "") // Clear the input field
-		})
-
-		Function(self, "handleRemoveTodo", func(event js.Value) {
-			index := event.Int() 
-			fmt.Printf("Removing todo at index: %d\n", index)
-
-			if index >= 0 && index < len(*todos) {
-				*todos = append((*todos)[:index], (*todos)[index+1:]...)
-				setTodos(*todos)
-			} else {
-				fmt.Printf("Invalid index: %d\n", index)
-			}
-		})
-
-		handleInputChange := Function(self, "handleInputChange", func(event js.Value) {
-			newTodo = event.Get("target").Get("value").String()
-			target = event.Get("target")
-			fmt.Println("Input value changed:", newTodo)
-		})
-
-		// Render the component
-		RenderTemplate(self, Tag("div", Attributes{"class": "p-6 max-w-sm mx-auto bg-white shadow-lg rounded-lg"},
-			Tag("h1", Attributes{"class": "text-2xl font-bold mb-4"}, Text("ToDo List")),
-			Tag("div", Attributes{"class": "mb-4"},
-				Tag("input", Attributes{
-					"type":        "text",
-					"placeholder": "Enter a new task",
-					"value":       newTodo,
-					"class":       "border rounded w-full p-2",
-					"oninput":     handleInputChange,
-				}),
-			),
-			Tag("button", Attributes{
-				"class":   "bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded",
-				"onclick": handleAddTodo,
-			}, Text("Add Task")),
-			Tag("ul", Attributes{"class": "mt-4 space-y-2"},
-				Tag("div", Attributes{}, Text(func() string {
-					todoItems := ""
-					for i, todo := range *todos {
-						todoItems += fmt.Sprintf(`
-							<li class="flex justify-between items-center p-2 border-b">
-								<span>%s</span>
-								<button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded" onclick="handleRemoveTodo(%d)">Remove</button>
-							</li>
-						`, todo, i)
-					}
-					return todoItems
-				}())),
-			),
-		))
-
-		return self
-	})
-
-	// Use the InsertComponentIntoDOM function to render and insert the component into the DOM
-	InsertComponentIntoDOM(component(0)) 
-}
-```
-
-### Important Notes:
-- **State Management**: The `AddState` function manages the current state of the todo list items. It updates the state when a new task is added or removed.
-- **Event Handling**: You handle user events like input changes, adding tasks, and removing tasks using Go functions. No JavaScript or React needed.
-- **Tailwind CSS**: Tailwind CSS makes it easy to create a polished, responsive UI without writing custom styles.
-
-## How to Build
-
-Compile the Go code into WebAssembly with a single command:
-
-```bash
-GOOS=js GOARCH=wasm go build -o wasm/main.wasm
-```
-
-This builds the `main.wasm` file, which the browser runs as WebAssembly.
-
-## How to Deploy
-
-Simply **open `wasm/index.html`** in your browser. No servers, no complex setups – just open the file and see your Go-powered ToDo list come to life.
+Welcome to **GoWebComponents**, an innovative framework for building dynamic, high-performance web applications using **Go** and **WebAssembly**. Leave behind the complexities of JavaScript frameworks and embrace the simplicity, speed, and safety of Go to create interactive UIs that run seamlessly in the browser.
 
 ---
 
-## Conclusion
+## 🚀 Why Choose GoWebComponents?
 
-**Go HTML Renderer** lets you build interactive web applications with Go and WebAssembly, without the overhead of JavaScript frameworks. It’s type-safe, fast, and minimal – just what you need to focus on building rather than debugging toolchains. Take advantage of WebAssembly's power and Go’s simplicity to create modern web experiences with ease.
+- **Go Simplicity**: Leverage Go's clean syntax and powerful standard library to build web applications without the overhead of JavaScript.
+- **WebAssembly Performance**: Achieve near-native execution speeds, making your applications fast and responsive.
+- **Type Safety**: Benefit from Go's strong static typing, reducing runtime errors and increasing code reliability.
+- **Lightweight Architecture**: No heavy dependencies or large build chains—just pure Go code compiled into efficient WebAssembly binaries.
+- **Seamless State Management**: Manage application state directly in Go, simplifying data flow and UI updates.
 
+---
+
+## 🏗️ Project Structure
+
+```plaintext
+GoWebComponents/
+├── components/
+│   ├── component.go
+│   ├── html.go
+│   └── example.go
+├── static/
+│   ├── index.html
+│   ├── script/
+│   │   └── wasm_exec.js
+│   └── bin/
+│       └── main.wasm
+├── scripts/
+│   ├── build.sh
+│   └── pages.sh
+└── README.md
+```
+
+- **`components/`**: Contains the core Go files that define the component system, HTML rendering, and examples.
+  - **`component.go`**: Manages component creation, state, and lifecycle.
+  - **`html.go`**: Provides functions to create and manipulate virtual DOM nodes.
+  - **`example.go`**: Contains example applications demonstrating how to use the framework.
+- **`static/`**: Holds static assets like the HTML entry point and the compiled WebAssembly binary.
+- **`scripts/`**: Contains build and deployment scripts for ease of use.
+
+---
+
+## 🔧 Architecture Overview
+
+GoWebComponents utilizes a virtual DOM implemented in Go to efficiently update the browser's real DOM. Here's how it works:
+
+1. **Component Creation**: Define components using Go functions that return a virtual DOM tree.
+2. **State Management**: Use the `AddState` function to manage reactive state within components.
+3. **Event Handling**: Attach Go functions to DOM events using the `Function` helper.
+4. **Rendering**: The virtual DOM is diffed against the previous state to update only the necessary parts of the real DOM.
+5. **WebAssembly Execution**: The Go code is compiled into WebAssembly, running directly in the browser with access to JavaScript APIs via `syscall/js`.
+
+### 📊 Mermaid Diagram
+
+```mermaid
+graph TD
+    A[Start] --> B[Go Components Define Virtual DOM]
+    B --> C[State Changes Trigger Rerender]
+    C --> D[Virtual DOM Diffing]
+    D --> E[Update Real DOM]
+    E --> F[User Interacts with UI]
+    F --> C
+```
+
+---
+
+## 🌟 Example 3: Building a Modern Calculator
+
+In this example, we'll build a sleek, centered calculator application that performs basic arithmetic operations. We'll use Tailwind CSS for styling and demonstrate state management, event handling, and dynamic rendering—all in Go.
+
+### 📝 Step-by-Step Tutorial
+
+#### 1. **Prerequisites**
+
+- **Go 1.18+**: Ensure you have Go installed on your system.
+- **Browser with WebAssembly Support**: Most modern browsers support WebAssembly.
+- **Tailwind CSS CDN**: We'll use the Tailwind CSS CDN for styling.
+
+#### 2. **Project Setup**
+
+Clone the repository and navigate to the project directory:
+
+```bash
+git clone https://github.com/monstercameron/GoWebComponents.git
+cd GoWebComponents
+```
+
+#### 3. **Understanding the Code**
+
+Open `components/example.go` and locate `Example3`:
+
+```go
+func Example3() {
+    // Component code...
+}
+```
+
+##### **Key Components**
+
+- **State Management**: We use `AddState` to manage `input` and `result` states.
+- **Event Handlers**: Functions like `handleButtonClick`, `handleEqual`, and `handleClear` manage user interactions.
+- **Rendering**: The `RenderTemplate` function composes the UI using `Tag` and `Text` functions, mimicking HTML structure.
+
+##### **UI Structure**
+
+- **Display**: Shows the current input and previous expressions.
+- **Buttons**: Number and operator buttons arranged in a grid layout.
+
+##### **Tailwind CSS Styling**
+
+- **Responsive Design**: The calculator is centered and scales well on different screen sizes.
+- **Old-Timey Calculator Theme**: Uses monospaced fonts and a retro color scheme for the display.
+
+#### 4. **Building the Application**
+
+Use the provided `build.sh` script to compile the Go code into WebAssembly:
+
+```bash
+./scripts/build.sh
+```
+
+This script runs:
+
+```bash
+GOOS=js GOARCH=wasm go build -o static/bin/main.wasm
+```
+
+#### 5. **Running the Application**
+
+Open `static/index.html` in your browser. Ensure the `wasm_exec.js` file is correctly referenced in the HTML file.
+
+#### 6. **Testing the Calculator**
+
+- **Basic Operations**: Click on numbers and operators to perform calculations.
+- **Continuous Calculations**: After getting a result, you can continue calculating using the result as the new input.
+- **Error Handling**: The calculator handles invalid inputs gracefully.
+
+---
+
+## 🔍 How It Works
+
+### **State Management**
+
+We manage calculator inputs and results using Go's variables and the `AddState` function:
+
+```go
+input, setInput := AddState(self, "input", "")
+result, setResult := AddState(self, "result", "")
+```
+
+- **`input`**: Stores the current expression.
+- **`result`**: Stores the evaluated result.
+
+### **Event Handling**
+
+Event handlers are defined using the `Function` helper:
+
+```go
+handleButtonClick := Function(self, "handleButtonClick", func(event js.Value) {
+    value := event.Get("target").Get("innerText").String()
+    newInput := *input + value
+    setInput(newInput)
+    setResult("")
+})
+```
+
+- **Button Clicks**: Append the button value to the `input`.
+- **Equal Sign**: Evaluate the expression and update `result`.
+
+### **Rendering the UI**
+
+The UI is composed using `Tag` and `Text` functions:
+
+```go
+RenderTemplate(self, Tag("div", Attributes{
+    "class": "min-h-screen flex items-center justify-center bg-gray-100",
+},
+    // Calculator container
+    Tag("div", Attributes{
+        "class": "bg-white rounded-lg shadow-lg p-6",
+    },
+        // Display and buttons...
+    ),
+))
+```
+
+- **Tailwind CSS Classes**: Applied directly in the `class` attribute for styling.
+- **Dynamic Content**: The `Text` function displays the current `input` and `result`.
+
+### **Architecture Flow**
+
+1. **User Interaction**: The user clicks a button.
+2. **Event Handling**: The associated Go function updates the state.
+3. **State Change**: The `setInput` or `setResult` functions update the state variables.
+4. **Re-rendering**: The component re-renders, and the virtual DOM diffing algorithm updates the real DOM efficiently.
+
+---
+
+## 📦 How to Build and Deploy
+
+### **Build the WebAssembly Binary**
+
+Run the build script:
+
+```bash
+./scripts/build.sh
+```
+
+This compiles your Go code into `main.wasm`, the WebAssembly binary your browser can execute.
+
+### **Deploying Locally**
+
+Simply open `static/index.html` in your browser:
+
+```bash
+open static/index.html
+```
+
+### **Deploying to GitHub Pages**
+
+Use the `pages.sh` script to build and deploy to GitHub Pages:
+
+```bash
+./scripts/pages.sh
+```
+
+#### **What the Script Does**
+
+- **Builds** the WebAssembly binary with optimizations.
+- **Commits** the changes.
+- **Creates** or **switches** to the `gh-pages` branch.
+- **Cleans** unnecessary files, keeping only the static assets.
+- **Pushes** the changes to the `gh-pages` branch on GitHub.
+
+---
+
+## 🛠️ Scripts Explained
+
+### **`build.sh`**
+
+Compiles the Go code into WebAssembly:
+
+```bash
+GOOS=js GOARCH=wasm go build -o static/bin/main.wasm
+```
+
+### **`pages.sh`**
+
+Automates the deployment to GitHub Pages:
+
+- **Error Handling**: Checks after each command to ensure the process stops if an error occurs.
+- **Branch Management**: Deletes any existing `gh-pages` branch and creates a new one.
+- **File Management**: Moves static files to the root directory for GitHub Pages compatibility.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Feel free to submit issues or pull requests to improve the project.
+
+---
+
+## 📞 Contact
+
+For any questions or suggestions, please reach out via GitHub issues.
+
+---
+
+Harness the power of Go and WebAssembly to build modern, high-performance web applications with GoWebComponents. Start coding your next big idea today!
+
+---
+
+# Appendix
+
+## 🧩 Full Example Code: `Example3`
+
+Here is the complete code for the calculator application:
+
+```go
+package components
+
+import (
+    "fmt"
+    "syscall/js"
+)
+
+// Example3 creates a simple, modern, and centered calculator app using Tailwind CSS.
+func Example3() {
+    fmt.Println("Starting Example 3: Calculator App")
+
+    // Create the component using the MakeComponent function
+    component := MakeComponent(func(self *Component, props int, children ...*Component) *Component {
+        // Initialize state for the calculator
+        input, setInput := AddState(self, "input", "")
+        result, setResult := AddState(self, "result", "")
+        previousExpression, setPreviousExpression := AddState(self, "previousExpression", "")
+
+        // Function to handle button clicks for numbers and operators
+        handleButtonClick := Function(self, "handleButtonClick", func(event js.Value) {
+            value := event.Get("target").Get("innerText").String()
+            newInput := *input + value
+            setInput(newInput)
+            setResult("")
+        })
+
+        // Function to handle the equal button click
+        handleEqual := Function(self, "handleEqual", func(event js.Value) {
+            expr := *input
+            res, err := jsEval(expr)
+            if err != nil {
+                setResult("Error")
+            } else {
+                setResult(res)
+                setPreviousExpression(expr + " = " + res)
+                setInput(res)
+            }
+        })
+
+        // Function to handle the clear button click
+        handleClear := Function(self, "handleClear", func(event js.Value) {
+            setInput("")
+            setResult("")
+            setPreviousExpression("")
+        })
+
+        // Render the calculator UI
+        RenderTemplate(self, Tag("div", Attributes{
+            "class": "min-h-screen flex items-center justify-center bg-gray-100",
+        },
+            // Calculator container
+            Tag("div", Attributes{
+                "class": "bg-white rounded-lg shadow-lg p-6",
+            },
+                // Display for previous expression and current input
+                Tag("div", Attributes{
+                    "class": "mb-4",
+                },
+                    // Display the previous expression
+                    Tag("div", Attributes{
+                        "class": "text-right text-gray-500 text-sm",
+                    }, Text(*previousExpression)),
+                    // Display the input expression with old-timey calculator style
+                    Tag("div", Attributes{
+                        "class": "text-right text-green-500 text-3xl font-mono bg-gray-800 p-4 rounded",
+                    }, Text(*input)),
+                ),
+                // Calculator buttons
+                Tag("div", Attributes{
+                    "class": "grid grid-cols-4 gap-4",
+                },
+                    // Buttons...
+                ),
+            ),
+        ))
+
+        // Return the component after rendering
+        return self
+    })
+
+    // Insert the component into the DOM
+    InsertComponentIntoDOM(component(0))
+}
+
+// jsEval evaluates a mathematical expression using JavaScript's eval function.
+func jsEval(expr string) (string, error) {
+    evalFunc := js.Global().Call("Function", "expr", "try { return eval(expr).toString(); } catch (e) { return 'Error'; }")
+    res := evalFunc.Invoke(expr)
+    resultStr := res.String()
+    if resultStr == "Error" {
+        return "", fmt.Errorf("error evaluating expression")
+    }
+    return resultStr, nil
+}
+```
+
+---
+
+## ⚠️ Important Notes
+
+- **Security**: The `jsEval` function uses JavaScript's `eval`, which can be a security risk if not handled properly. In production, consider using a safe math expression parser.
+- **Tailwind CSS**: Ensure that Tailwind CSS is included in your `index.html` via CDN or local build.
+- **WebAssembly Support**: Not all browsers support WebAssembly; ensure you're using a compatible browser.
+
+---
+
+## 📚 Resources
+
+- **Go Documentation**: [https://golang.org/doc/](https://golang.org/doc/)
+- **WebAssembly Guide**: [https://webassembly.org/getting-started/developers-guide/](https://webassembly.org/getting-started/developers-guide/)
+- **Tailwind CSS**: [https://tailwindcss.com/](https://tailwindcss.com/)
+
+---
+
+Thank you for exploring GoWebComponents! We hope this framework accelerates your web development process and inspires you to build amazing applications.
