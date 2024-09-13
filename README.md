@@ -1,3 +1,8 @@
+<p align="center">
+  <img src="static/images/hero.jpg" alt="Hero Image" width="600">
+</p>
+
+
 # GoWebComponents – Craft Dynamic Web Apps with Go and WebAssembly
 
 Welcome to **GoWebComponents**, an innovative framework for building dynamic, high-performance web applications using **Go** and **WebAssembly**. Leave behind the complexities of JavaScript frameworks and embrace the simplicity, speed, and safety of Go to create interactive UIs that run seamlessly in the browser.

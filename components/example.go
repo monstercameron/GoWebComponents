@@ -410,7 +410,7 @@ func Example3() {
 
 		// Render the calculator UI
 		RenderTemplate(self, Tag("div", Attributes{
-			"class": "min-h-screen flex items-center justify-center bg-gray-100",
+			"class": "flex items-center justify-center min-h-screen bg-gradient-to-r from-blue-500 via-blue-600 to-purple-700 flex py-12 px-4 sm:px-6 lg:px-8",
 		},
 			// Calculator container
 			Tag("div", Attributes{
@@ -435,72 +435,71 @@ func Example3() {
 				},
 					// Row 1: Clear (C), Divide (/)
 					Tag("button", Attributes{
-						"class":   "col-span-2 bg-red-600 text-white p-4 rounded hover:bg-red-700 transition duration-200",
+						"class":   "col-span-3 bg-red-600 text-white p-4 rounded hover:bg-red-700 transition duration-200",
 						"onclick": handleClear,
 					}, Text("C")),
 					Tag("button", Attributes{
-						"class":   "bg-gray-400 text-white p-4 rounded hover:bg-gray-500 transition duration-200",
+						"class":   "bg-gray-500 text-white p-4 rounded hover:bg-gray-700 transition duration-200",
 						"onclick": handleButtonClick,
 					}, Text("/")),
-					Tag("div", Attributes{}), // Empty cell for alignment
 					// Row 2: 7,8,9,*
 					Tag("button", Attributes{
-						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
 						"onclick": handleButtonClick,
 					}, Text("7")),
 					Tag("button", Attributes{
-						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
 						"onclick": handleButtonClick,
 					}, Text("8")),
 					Tag("button", Attributes{
-						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
 						"onclick": handleButtonClick,
 					}, Text("9")),
 					Tag("button", Attributes{
-						"class":   "bg-gray-400 text-white p-4 rounded hover:bg-gray-500 transition duration-200",
+						"class":   "bg-gray-500 text-white p-4 rounded hover:bg-gray-700 transition duration-200",
 						"onclick": handleButtonClick,
 					}, Text("*")),
 					// Row 3: 4,5,6,-
 					Tag("button", Attributes{
-						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
 						"onclick": handleButtonClick,
 					}, Text("4")),
 					Tag("button", Attributes{
-						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
 						"onclick": handleButtonClick,
 					}, Text("5")),
 					Tag("button", Attributes{
-						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
 						"onclick": handleButtonClick,
 					}, Text("6")),
 					Tag("button", Attributes{
-						"class":   "bg-gray-400 text-white p-4 rounded hover:bg-gray-500 transition duration-200",
+						"class":   "bg-gray-500 text-white p-4 rounded hover:bg-gray-700 transition duration-200",
 						"onclick": handleButtonClick,
 					}, Text("-")),
 					// Row 4: 1,2,3,+
 					Tag("button", Attributes{
-						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
 						"onclick": handleButtonClick,
 					}, Text("1")),
 					Tag("button", Attributes{
-						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
 						"onclick": handleButtonClick,
 					}, Text("2")),
 					Tag("button", Attributes{
-						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
 						"onclick": handleButtonClick,
 					}, Text("3")),
 					Tag("button", Attributes{
-						"class":   "bg-gray-400 text-white p-4 rounded hover:bg-gray-500 transition duration-200",
+						"class":   "bg-gray-500 text-white p-4 rounded hover:bg-gray-700 transition duration-200",
 						"onclick": handleButtonClick,
 					}, Text("+")),
 					// Row 5: 0, ., =
 					Tag("button", Attributes{
-						"class":   "col-span-2 bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"class":   "col-span-2 bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
 						"onclick": handleButtonClick,
 					}, Text("0")),
 					Tag("button", Attributes{
-						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
 						"onclick": handleButtonClick,
 					}, Text(".")),
 					Tag("button", Attributes{
