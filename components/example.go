@@ -350,3 +350,184 @@ func Example1() {
 	InsertComponentIntoDOM(component(0))
 }
 
+// Example3 creates a simple, modern, and centered calculator app using Tailwind CSS.
+// It uses state management, event handling, and dynamic rendering with Go and WebAssembly.
+func Example3() {
+	fmt.Println("Starting Example 3: Calculator App")
+
+	// Create the component using the MakeComponent function
+	component := MakeComponent(func(self *Component, props int, children ...*Component) *Component {
+		// Initialize state for the calculator
+		input, setInput := AddState(self, "input", "")
+		result, setResult := AddState(self, "result", "")
+		previousExpression, setPreviousExpression := AddState(self, "previousExpression", "")
+
+		// Function to handle button clicks for numbers and operators
+		handleButtonClick := Function(self, "handleButtonClick", func(event js.Value) {
+			// Get the value from the button clicked
+			value := event.Get("target").Get("innerText").String()
+			fmt.Println("Button clicked:", value)
+			// Append the value to the input
+			newInput := *input + value
+			setInput(newInput)
+			// Clear the result since we're building a new expression
+			setResult("")
+		})
+
+		// Function to handle the equal button click
+		handleEqual := Function(self, "handleEqual", func(event js.Value) {
+			expr := *input
+			fmt.Println("Evaluating expression:", expr)
+			// Evaluate the expression using JavaScript's eval
+			res, err := jsEval(expr)
+			if err != nil {
+				fmt.Println("Error evaluating expression:", err)
+				setResult("Error")
+			} else {
+				setResult(res)
+				// Store the previous expression
+				setPreviousExpression(expr + " = " + res)
+				// Set the input to the result for the next calculation
+				setInput(res)
+			}
+		})
+
+		// Function to handle the clear button click
+		handleClear := Function(self, "handleClear", func(event js.Value) {
+			setInput("")
+			setResult("")
+			setPreviousExpression("")
+		})
+
+		// Watch for changes to the input and result
+		Watch(self, func() {
+			fmt.Println("Input changed:", *input)
+		}, "input")
+
+		Watch(self, func() {
+			fmt.Println("Result changed:", *result)
+		}, "result")
+
+		// Render the calculator UI
+		RenderTemplate(self, Tag("div", Attributes{
+			"class": "min-h-screen flex items-center justify-center bg-gray-100",
+		},
+			// Calculator container
+			Tag("div", Attributes{
+				"class": "bg-white rounded-lg shadow-lg p-6",
+			},
+				// Display for previous expression and current input
+				Tag("div", Attributes{
+					"class": "mb-4",
+				},
+					// Display the previous expression
+					Tag("div", Attributes{
+						"class": "text-right text-gray-500 text-sm",
+					}, Text(*previousExpression)),
+					// Display the input expression with old-timey calculator style
+					Tag("div", Attributes{
+						"class": "text-right text-green-500 text-3xl font-mono bg-gray-800 p-4 rounded",
+					}, Text(*input)),
+				),
+				// Calculator buttons
+				Tag("div", Attributes{
+					"class": "grid grid-cols-4 gap-4",
+				},
+					// Row 1: Clear (C), Divide (/)
+					Tag("button", Attributes{
+						"class":   "col-span-2 bg-red-600 text-white p-4 rounded hover:bg-red-700 transition duration-200",
+						"onclick": handleClear,
+					}, Text("C")),
+					Tag("button", Attributes{
+						"class":   "bg-gray-400 text-white p-4 rounded hover:bg-gray-500 transition duration-200",
+						"onclick": handleButtonClick,
+					}, Text("/")),
+					Tag("div", Attributes{}), // Empty cell for alignment
+					// Row 2: 7,8,9,*
+					Tag("button", Attributes{
+						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"onclick": handleButtonClick,
+					}, Text("7")),
+					Tag("button", Attributes{
+						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"onclick": handleButtonClick,
+					}, Text("8")),
+					Tag("button", Attributes{
+						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"onclick": handleButtonClick,
+					}, Text("9")),
+					Tag("button", Attributes{
+						"class":   "bg-gray-400 text-white p-4 rounded hover:bg-gray-500 transition duration-200",
+						"onclick": handleButtonClick,
+					}, Text("*")),
+					// Row 3: 4,5,6,-
+					Tag("button", Attributes{
+						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"onclick": handleButtonClick,
+					}, Text("4")),
+					Tag("button", Attributes{
+						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"onclick": handleButtonClick,
+					}, Text("5")),
+					Tag("button", Attributes{
+						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"onclick": handleButtonClick,
+					}, Text("6")),
+					Tag("button", Attributes{
+						"class":   "bg-gray-400 text-white p-4 rounded hover:bg-gray-500 transition duration-200",
+						"onclick": handleButtonClick,
+					}, Text("-")),
+					// Row 4: 1,2,3,+
+					Tag("button", Attributes{
+						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"onclick": handleButtonClick,
+					}, Text("1")),
+					Tag("button", Attributes{
+						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"onclick": handleButtonClick,
+					}, Text("2")),
+					Tag("button", Attributes{
+						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"onclick": handleButtonClick,
+					}, Text("3")),
+					Tag("button", Attributes{
+						"class":   "bg-gray-400 text-white p-4 rounded hover:bg-gray-500 transition duration-200",
+						"onclick": handleButtonClick,
+					}, Text("+")),
+					// Row 5: 0, ., =
+					Tag("button", Attributes{
+						"class":   "col-span-2 bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"onclick": handleButtonClick,
+					}, Text("0")),
+					Tag("button", Attributes{
+						"class":   "bg-gray-200 text-xl p-4 rounded hover:bg-gray-300 transition duration-200",
+						"onclick": handleButtonClick,
+					}, Text(".")),
+					Tag("button", Attributes{
+						"class":   "bg-blue-600 text-white p-4 rounded hover:bg-blue-700 transition duration-200",
+						"onclick": handleEqual,
+					}, Text("=")),
+				),
+			),
+		))
+
+		// Return the component after rendering
+		return self
+	})
+
+	// Insert the component into the DOM
+	InsertComponentIntoDOM(component(0))
+}
+
+// jsEval evaluates a mathematical expression using JavaScript's eval function.
+// Note: In production, using eval can be unsafe; consider using a proper parser.
+func jsEval(expr string) (string, error) {
+	// Use JavaScript's eval function via the Function constructor to safely evaluate the expression.
+	evalFunc := js.Global().Call("Function", "expr", "try { return eval(expr).toString(); } catch (e) { return 'Error'; }")
+	res := evalFunc.Invoke(expr)
+	resultStr := res.String()
+	if resultStr == "Error" {
+		return "", fmt.Errorf("error evaluating expression")
+	}
+	return resultStr, nil
+}
