@@ -93,7 +93,7 @@ func main() {
 }
 ```
 or alias the funcs yourself
-```
+
 ```go
 package main
 
