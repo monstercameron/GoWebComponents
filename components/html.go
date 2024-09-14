@@ -103,6 +103,42 @@ func (n *Node) SetBindingID(id string) {
     n.bindingID = id
 }
 
+// RawHTMLNode represents a node containing raw HTML content.
+type RawHTMLNode struct {
+    content   string
+    bindingID string
+}
+
+// RawHTML creates a new RawHTMLNode with the given content.
+func RawHTML(content string) *RawHTMLNode {
+    return &RawHTMLNode{
+        content: content,
+    }
+}
+
+// Implement NodeInterface methods for RawHTMLNode.
+
+func (r *RawHTMLNode) Render() string {
+    return r.content
+}
+
+func (r *RawHTMLNode) Print(indent int) string {
+    prefix := ""
+    for i := 0; i < indent; i++ {
+        prefix += "  "
+    }
+    return prefix + r.content + "\n"
+}
+
+func (r *RawHTMLNode) GetBindingID() string {
+    return r.bindingID
+}
+
+func (r *RawHTMLNode) SetBindingID(id string) {
+    r.bindingID = id
+}
+
+
 // Tag creates a new HTML node with the given tag, attributes, and children.
 func Tag(tag string, attributes Attributes, children ...NodeInterface) *Node {
     return &Node{
@@ -211,6 +247,22 @@ func diffAndUpdate(oldNode NodeInterface, newNode NodeInterface) {
             registerDOMElement(newNode, newDomElement)
             unregisterDOMElement(oldNode)
         }
+    case *RawHTMLNode:
+        switch newNodeTyped := newNode.(type) {
+        case *RawHTMLNode:
+            // Both are RawHTMLNodes
+            if oldNodeTyped.content != newNodeTyped.content {
+                domElement.Set("innerHTML", newNodeTyped.content)
+            }
+            registerDOMElement(newNode, domElement)
+        default:
+            // Replace RawHTMLNode with a different node type
+            newDomElement := renderNodeToDOM(newNode)
+            parent := domElement.Get("parentNode")
+            parent.Call("replaceChild", newDomElement, domElement)
+            registerDOMElement(newNode, newDomElement)
+            unregisterDOMElement(oldNode)
+        }
     case *Node:
         switch newNodeTyped := newNode.(type) {
         case *Node:
@@ -303,6 +355,12 @@ func renderNodeToDOM(node NodeInterface) js.Value {
         domElement := js.Global().Get("document").Call("createTextNode", n.content)
         registerDOMElement(n, domElement)
         return domElement
+    case *RawHTMLNode:
+        // Create a span (or div) element and set its innerHTML
+        element := js.Global().Get("document").Call("createElement", "span")
+        element.Set("innerHTML", n.content)
+        registerDOMElement(n, element)
+        return element
     case *Node:
         element := js.Global().Get("document").Call("createElement", n.Tag)
         // Set attributes

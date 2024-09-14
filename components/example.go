@@ -530,3 +530,84 @@ func jsEval(expr string) (string, error) {
 	}
 	return resultStr, nil
 }
+
+func Example4() {
+	testRawHTML := MakeComponent(func(self *Component, props int, children ...*Component) *Component {
+		count, setCount := AddState(self, "count", 0)
+
+		handleClick := Function(self, "handleClick", func(event js.Value) {
+			fmt.Println("Button clicked!", *count)
+			*count++
+			setCount(*count)
+		})
+
+		RenderTemplate(self,
+			Tag("div", Attributes{"class": "p-6 max-w-sm mx-auto bg-white shadow-lg rounded-lg text-black"},
+				Tag("h1", Attributes{"class": "text-2xl font-bold mb-4 text-black"}, Text(fmt.Sprintf("Count: %d", *count))),
+				Tag("button", Attributes{"class": "bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded", "onclick": handleClick}, Text("Click Me")),
+				RawHTML(`<main class="max-w-3xl mx-auto bg-white shadow-lg rounded-lg p-8">
+        <h1 class="text-3xl font-bold mb-6 text-blue-600">HTML Tags Explained</h1>
+        
+        <p class="mb-4">This document uses various HTML tags to explain themselves:</p>
+        
+        <h2 class="text-2xl font-semibold mt-6 mb-3 text-blue-500">&lt;p&gt; - Paragraph</h2>
+        <p class="mb-4">The &lt;p&gt; tag defines a paragraph. This text is wrapped in a paragraph tag.</p>
+        
+        <h2 class="text-2xl font-semibold mt-6 mb-3 text-blue-500">&lt;h1&gt; to &lt;h6&gt; - Headings</h2>
+        <p class="mb-2">Heading tags define different levels of headings:</p>
+        <h1 class="text-2xl font-bold mb-2">This is an h1 heading</h1>
+        <h2 class="text-xl font-bold mb-2">This is an h2 heading</h2>
+        <h3 class="text-lg font-bold mb-2">This is an h3 heading</h3>
+        
+        <h2 class="text-2xl font-semibold mt-6 mb-3 text-blue-500">&lt;a&gt; - Anchor (Link)</h2>
+        <p class="mb-2">The &lt;a&gt; tag creates a hyperlink:</p>
+        <a href="#" class="text-blue-600 hover:underline">This is a link (it doesn't go anywhere in this example)</a>
+        
+        <h2 class="text-2xl font-semibold mt-6 mb-3 text-blue-500">&lt;strong&gt; and &lt;em&gt; - Emphasis</h2>
+        <p class="mb-4">Use <strong class="font-bold">strong</strong> for strong importance and <em class="italic">em</em> for emphasized text.</p>
+        
+        <h2 class="text-2xl font-semibold mt-6 mb-3 text-blue-500">&lt;ul&gt;, &lt;ol&gt;, and &lt;li&gt; - Lists</h2>
+        <p class="mb-2">Unordered list (ul):</p>
+        <ul class="list-disc pl-5 mb-4">
+            <li>First item</li>
+            <li>Second item</li>
+            <li>Third item</li>
+        </ul>
+        <p class="mb-2">Ordered list (ol):</p>
+        <ol class="list-decimal pl-5 mb-4">
+            <li>First item</li>
+            <li>Second item</li>
+            <li>Third item</li>
+        </ol>
+        
+        <h2 class="text-2xl font-semibold mt-6 mb-3 text-blue-500">&lt;img&gt; - Image</h2>
+        <p class="mb-2">The img tag embeds an image:</p>
+        <img src="/api/placeholder/300/200" alt="Placeholder image" class="mb-4 rounded shadow">
+        
+        <h2 class="text-2xl font-semibold mt-6 mb-3 text-blue-500">&lt;table&gt; - Table</h2>
+        <p class="mb-2">Tables are used for tabular data:</p>
+        <table class="w-full mb-4 border-collapse border border-gray-300">
+            <thead>
+                <tr class="bg-gray-100">
+                    <th class="border border-gray-300 p-2">Header 1</th>
+                    <th class="border border-gray-300 p-2">Header 2</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="border border-gray-300 p-2">Row 1, Cell 1</td>
+                    <td class="border border-gray-300 p-2">Row 1, Cell 2</td>
+                </tr>
+                <tr>
+                    <td class="border border-gray-300 p-2">Row 2, Cell 1</td>
+                    <td class="border border-gray-300 p-2">Row 2, Cell 2</td>
+                </tr>
+            </tbody>
+        </table>
+    </main>`),
+			))
+		return self
+	})
+
+	InsertComponentIntoDOM(testRawHTML(0))
+}
