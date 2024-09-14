@@ -110,11 +110,11 @@ func Function(c *Component, id string, fn func(js.Value)) string {
 // It sets up state management, lifecycle functions, and rendering logic.
 func MakeComponent[P any](f func(*Component, P, ...*Component)) func(P, ...*Component) *Component {
     return func(props P, children ...*Component) *Component {
-        // Create a new Component instance using NewComponent to properly initialize all fields.
-        self := NewComponent(nil)
+        // Declare a variable to hold the component instance.
+        var self *Component
 
         // Define the function to update the component's state and re-render.
-        self.updateStateFunc = func() {
+        updateStateFunc := func() {
             // Call the component's render function.
             f(self, props, children...)
 
@@ -125,10 +125,23 @@ func MakeComponent[P any](f func(*Component, P, ...*Component)) func(P, ...*Comp
             }
         }
 
-        // Return the initialized component.
+        // Create the Component instance with the updateStateFunc.
+        self = &Component{
+            state:           make(map[string]interface{}),
+            lifecycle:       make(map[string]func()),
+            cachedValues:    make(map[string]map[string]interface{}),
+            updateStateFunc: updateStateFunc,
+            setupDone:       false,
+            registered:      false,
+        }
+
+        // Initial render.
+        //updateStateFunc()
+
         return self
     }
 }
+
 
 // RenderTemplate sets the proposedNode to the passed-in node for future rendering.
 // This is where the component's HTML structure is defined.
