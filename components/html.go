@@ -3,6 +3,7 @@ package components
 import (
     "fmt"
     "syscall/js"
+	"github.com/monstercameron/GoWebComponents/global"
 )
 
 // Attributes represents a map of HTML attributes for a given node.
@@ -159,17 +160,11 @@ func isVoidTag(tag string) bool {
     return false
 }
 
-// Global domRegistry to store references to DOM nodes.
-var domRegistry = make(map[string]js.Value)
-
-// incrementCounter is a global counter for generating unique binding IDs.
-var incrementCounter = 0
-
 // EnsureBindingIDs traverses the node tree and assigns binding IDs only to nodes that don't have one.
 func EnsureBindingIDs(node NodeInterface) {
     if node.GetBindingID() == "" {
-        newID := fmt.Sprintf("go_%d", incrementCounter)
-        incrementCounter++
+        newID := fmt.Sprintf("go_%d", global.IncrementCounter)
+        global.IncrementCounter++
         node.SetBindingID(newID)
     }
     switch n := node.(type) {
@@ -386,7 +381,7 @@ func getDOMElement(node NodeInterface) js.Value {
     if bindingID == "" {
         return js.Value{}
     }
-    if element, exists := domRegistry[bindingID]; exists && !element.IsUndefined() && !element.IsNull() {
+    if element, exists := global.DomRegistry[bindingID]; exists && !element.IsUndefined() && !element.IsNull() {
         return element
     }
     // As a fallback, query the DOM
@@ -395,7 +390,7 @@ func getDOMElement(node NodeInterface) js.Value {
         fmt.Printf("Element with binding ID %s not found in the DOM.\n", bindingID)
         return js.Value{}
     }
-    domRegistry[bindingID] = element
+    global.DomRegistry[bindingID] = element
     return element
 }
 
@@ -403,7 +398,7 @@ func getDOMElement(node NodeInterface) js.Value {
 func registerDOMElement(node NodeInterface, element js.Value) {
     bindingID := node.GetBindingID()
     if bindingID != "" {
-        domRegistry[bindingID] = element
+        global.DomRegistry[bindingID] = element
     }
 }
 
@@ -411,6 +406,6 @@ func registerDOMElement(node NodeInterface, element js.Value) {
 func unregisterDOMElement(node NodeInterface) {
     bindingID := node.GetBindingID()
     if bindingID != "" {
-        delete(domRegistry, bindingID)
+        delete(global.DomRegistry, bindingID)
     }
 }

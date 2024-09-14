@@ -110,11 +110,25 @@ func Function(c *Component, id string, fn func(js.Value)) string {
 // It sets up state management, lifecycle functions, and rendering logic.
 func MakeComponent[P any](f func(*Component, P, ...*Component)) func(P, ...*Component) *Component {
     return func(props P, children ...*Component) *Component {
-        // Declare a variable to hold the component instance.
         var self *Component
 
+        // Check if a Component instance already exists for this component
+        // You might need a registry or a map to keep track of existing instances
+        // For simplicity, let's assume a singleton component
+
+        // Initialize the Component only if it's nil
+        if self == nil {
+            self = &Component{
+                state:        make(map[string]interface{}),
+                lifecycle:    make(map[string]func()),
+                cachedValues: make(map[string]map[string]interface{}),
+                setupDone:    false,
+                registered:   false,
+            }
+        }
+
         // Define the function to update the component's state and re-render.
-        updateStateFunc := func() {
+        self.updateStateFunc = func() {
             // Call the component's render function.
             f(self, props, children...)
 
@@ -125,22 +139,13 @@ func MakeComponent[P any](f func(*Component, P, ...*Component)) func(P, ...*Comp
             }
         }
 
-        // Create the Component instance with the updateStateFunc.
-        self = &Component{
-            state:           make(map[string]interface{}),
-            lifecycle:       make(map[string]func()),
-            cachedValues:    make(map[string]map[string]interface{}),
-            updateStateFunc: updateStateFunc,
-            setupDone:       false,
-            registered:      false,
-        }
-
         // Initial render.
-        //updateStateFunc()
+        self.updateStateFunc()
 
         return self
     }
 }
+
 
 
 // RenderTemplate sets the proposedNode to the passed-in node for future rendering.
