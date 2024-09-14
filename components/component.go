@@ -86,8 +86,8 @@ func Setup(self *Component, fn func()) {
 	self.lifecycle["setup"] = fn // Store the setup function in the lifecycle map.
 	// If the component is not yet mounted, run the setup function and mark it as done.
 	if !self.setupDone {
-		fn()
 		self.setupDone = true
+		fn()
 	}
 }
 

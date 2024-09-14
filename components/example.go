@@ -541,6 +541,15 @@ func Example4() {
 			setCount(*count)
 		})
 
+		Setup(self, func() {
+			fmt.Println("Setup: Example 4 component has been set up.")
+			fmt.Println("Initial count:", *count)
+			fmt.Println("Updating count to 1")
+			//if *count == 0 {
+			setCount(1)
+			//}
+		})
+
 		RenderTemplate(self,
 			Tag("div", Attributes{"class": "p-6 max-w-sm mx-auto bg-white shadow-lg rounded-lg text-black"},
 				Tag("h1", Attributes{"class": "text-2xl font-bold mb-4 text-black"}, Text(fmt.Sprintf("Count: %d", *count))),
