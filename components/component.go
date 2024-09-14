@@ -76,7 +76,6 @@ func AddState[T any](c *Component, key string, initialValue T) (*T, func(T)) {
 	}
 }
 
-
 func (t *Component) RenderNode() *Node {
     return t.rootNode
 }
@@ -109,30 +108,26 @@ func Function(c *Component, id string, fn func(js.Value)) string {
 
 // MakeComponent creates and initializes a new Component with generic props and child components.
 // It sets up state management, lifecycle functions, and rendering logic.
-func MakeComponent[P any](f func(*Component, P, ...*Component) *Component) func(P, ...*Component) *Component {
-	return func(props P, children ...*Component) *Component {
-		// Create a new Component instance.
-		self := &Component{
-			state:        make(map[string]interface{}),
-			lifecycle:    make(map[string]func()),
-			cachedValues: make(map[string]map[string]interface{}),
-		}
+func MakeComponent[P any](f func(*Component, P, ...*Component)) func(P, ...*Component) *Component {
+    return func(props P, children ...*Component) *Component {
+        // Create a new Component instance using NewComponent to properly initialize all fields.
+        self := NewComponent(nil)
 
-		// Define the function to update the component's state and re-render.
-		self.updateStateFunc = func() {
-			// Call the component's render function.
-			f(self, props, children...)
+        // Define the function to update the component's state and re-render.
+        self.updateStateFunc = func() {
+            // Call the component's render function.
+            f(self, props, children...)
 
-			// Update the DOM after rendering.
-			if self.rootNode != nil {
-				fmt.Println("Updating DOM")
-				UpdateDOM(self)
-			}
-		}
+            // Update the DOM after rendering.
+            if self.rootNode != nil {
+                fmt.Println("Updating DOM")
+                UpdateDOM(self)
+            }
+        }
 
-		// Return the initialized component.
-		return self
-	}
+        // Return the initialized component.
+        return self
+    }
 }
 
 // RenderTemplate sets the proposedNode to the passed-in node for future rendering.
