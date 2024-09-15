@@ -60,10 +60,10 @@ func useState[T any](initialValue T) (func() T, func(T)) {
 			return stateValue
 		}
 		setter := func(newValue T) {
-			fmt.Printf("stateValue: Setting new state at position %d: %v\n", position, newValue)
-			currentFiber.hooks.state[position] = newValue
-			fmt.Printf("stateValue: State after update at position %d: %v\n", position, currentFiber.hooks.state[position])
-			scheduleUpdate(currentFiber)
+			if !reflect.DeepEqual(currentFiber.hooks.state[position], newValue) {
+				currentFiber.hooks.state[position] = newValue
+				scheduleUpdate(currentFiber)
+			}
 		}
 		return getter, setter
 	} else {
@@ -76,10 +76,10 @@ func useState[T any](initialValue T) (func() T, func(T)) {
 			return stateValue
 		}
 		setter := func(newValue T) {
-			fmt.Printf("stateValue: Setting new state at position %d: %v\n", position, newValue)
-			currentFiber.hooks.state[position] = newValue
-			fmt.Printf("stateValue: State after update at position %d: %v\n", position, currentFiber.hooks.state[position])
-			scheduleUpdate(currentFiber)
+			if !reflect.DeepEqual(currentFiber.hooks.state[position], newValue) {
+				currentFiber.hooks.state[position] = newValue
+				scheduleUpdate(currentFiber)
+			}
 		}
 		return getter, setter
 	}
@@ -113,12 +113,9 @@ func useEffect(effect func(), deps []interface{}) {
 		fmt.Println("useEffect: Empty dependencies, effect should run only once.")
 	}
 
-	if hasChanged {
-		fmt.Printf("useEffect: Dependencies changed at position %d. Scheduling effect.\n", position)
-		// Store the effect to be executed after commit
+	if hasChanged || len(deps) == 0 {
 		if currentFiber.hooks.effects == nil {
 			currentFiber.hooks.effects = make([]func(), 0)
-			fmt.Printf("useEffect: Initialized effects slice for position %d.\n", position)
 		}
 		currentFiber.hooks.effects = append(currentFiber.hooks.effects, effect)
 		if len(currentFiber.hooks.deps) > position {
