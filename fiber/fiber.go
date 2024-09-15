@@ -45,32 +45,40 @@ func useState[T any](initialValue T) (func() T, func(T)) {
 	currentFiber := getCurrentFiber()
 	if currentFiber.hooks == nil {
 		currentFiber.hooks = &Hooks{}
+		fmt.Println("useState: Initialized hooks for the current fiber.")
 	}
+
 	position := currentFiber.hooks.index
+	fmt.Printf("useState: Hook position %d\n", position)
 	currentFiber.hooks.index++
 
 	if len(currentFiber.hooks.state) > position {
 		// Existing state
 		getter := func() T {
-			return currentFiber.hooks.state[position].(T)
+			stateValue := currentFiber.hooks.state[position].(T)
+			fmt.Printf("stateValue: Retrieved existing state at position %d: %v\n", position, stateValue)
+			return stateValue
 		}
 		setter := func(newValue T) {
-			fmt.Printf("useState: Setting state at position %d to %v\n", position, newValue)
+			fmt.Printf("stateValue: Setting new state at position %d: %v\n", position, newValue)
 			currentFiber.hooks.state[position] = newValue
-			fmt.Printf("useState: State after update at position %d: %v\n", position, currentFiber.hooks.state[position])
+			fmt.Printf("stateValue: State after update at position %d: %v\n", position, currentFiber.hooks.state[position])
 			scheduleUpdate(currentFiber)
 		}
 		return getter, setter
 	} else {
 		// Initial state
+		fmt.Printf("stateValue: Initializing state at position %d with value: %v\n", position, initialValue)
 		currentFiber.hooks.state = append(currentFiber.hooks.state, initialValue)
 		getter := func() T {
-			return currentFiber.hooks.state[position].(T)
+			stateValue := currentFiber.hooks.state[position].(T)
+			fmt.Printf("stateValue: Retrieved initialized state at position %d: %v\n", position, stateValue)
+			return stateValue
 		}
 		setter := func(newValue T) {
-			fmt.Printf("useState: Setting state at position %d to %v\n", position, newValue)
+			fmt.Printf("stateValue: Setting new state at position %d: %v\n", position, newValue)
 			currentFiber.hooks.state[position] = newValue
-			fmt.Printf("useState: State after update at position %d: %v\n", position, currentFiber.hooks.state[position])
+			fmt.Printf("stateValue: State after update at position %d: %v\n", position, currentFiber.hooks.state[position])
 			scheduleUpdate(currentFiber)
 		}
 		return getter, setter
@@ -82,22 +90,35 @@ func useEffect(effect func(), deps []interface{}) {
 	currentFiber := getCurrentFiber()
 	if currentFiber.hooks == nil {
 		currentFiber.hooks = &Hooks{}
+		fmt.Println("useEffect: Initialized hooks for the current fiber.")
 	}
 	position := currentFiber.hooks.index
 	currentFiber.hooks.index++
 
 	var hasChanged bool
 	if len(currentFiber.hooks.deps) > position {
+		// Check if dependencies have changed
 		hasChanged = !areDepsEqual(currentFiber.hooks.deps[position], deps)
+		fmt.Printf("useEffect: Checking dependencies at position %d: changed=%v\n", position, hasChanged)
 	} else {
+		// No previous dependencies (initial render)
 		hasChanged = true
+		fmt.Printf("useEffect: No previous dependencies at position %d. Scheduling effect.\n", position)
 	}
 
-	if hasChanged && !currentFiber.hooks.hasScheduledEffect {
-		fmt.Printf("useEffect: Dependencies changed at position %d, scheduling effect\n", position)
+	// Check for empty dependencies (should only run once)
+	if len(deps) == 0 && len(currentFiber.hooks.deps) > position {
+		// Do not schedule if it's already been run with an empty dependency array
+		hasChanged = false
+		fmt.Println("useEffect: Empty dependencies, effect should run only once.")
+	}
+
+	if hasChanged {
+		fmt.Printf("useEffect: Dependencies changed at position %d. Scheduling effect.\n", position)
 		// Store the effect to be executed after commit
 		if currentFiber.hooks.effects == nil {
 			currentFiber.hooks.effects = make([]func(), 0)
+			fmt.Printf("useEffect: Initialized effects slice for position %d.\n", position)
 		}
 		currentFiber.hooks.effects = append(currentFiber.hooks.effects, effect)
 		if len(currentFiber.hooks.deps) > position {
@@ -105,9 +126,8 @@ func useEffect(effect func(), deps []interface{}) {
 		} else {
 			currentFiber.hooks.deps = append(currentFiber.hooks.deps, deps)
 		}
-		currentFiber.hooks.hasScheduledEffect = true // Mark effect as scheduled
 	} else {
-		fmt.Printf("useEffect: Dependencies did not change or effect already scheduled at position %d, skipping effect\n", position)
+		fmt.Printf("useEffect: Dependencies did not change at position %d. Effect not scheduled.\n", position)
 	}
 }
 
@@ -115,11 +135,38 @@ func areDepsEqual(a, b []interface{}) bool {
 	if len(a) != len(b) {
 		return false
 	}
+
 	for i := range a {
-		if !reflect.DeepEqual(a[i], b[i]) {
+		// Handle nil cases explicitly
+		if a[i] == nil && b[i] != nil || a[i] != nil && b[i] == nil {
 			return false
 		}
+
+		// If both are nil, they are considered equal
+		if a[i] == nil && b[i] == nil {
+			continue
+		}
+
+		// Use reflect to determine if the elements are pointers or simple types
+		aValue := reflect.ValueOf(a[i])
+		bValue := reflect.ValueOf(b[i])
+
+		// If both are pointers, compare the addresses
+		if aValue.Kind() == reflect.Ptr && bValue.Kind() == reflect.Ptr {
+			if aValue.Pointer() != bValue.Pointer() {
+				return false
+			}
+		} else if aValue.Kind() == reflect.Ptr || bValue.Kind() == reflect.Ptr {
+			// One is a pointer and the other isn't
+			return false
+		} else {
+			// For non-pointer types (basic values), use deep equality check
+			if !reflect.DeepEqual(a[i], b[i]) {
+				return false
+			}
+		}
 	}
+
 	return true
 }
 
@@ -176,67 +223,72 @@ func scheduleUpdate(fiber *Fiber) {
 
 // render starts the rendering process.
 func render(element *Element, container js.Value) {
-	fmt.Println("render: Starting rendering process")
+	fmt.Println("render: Starting rendering process.")
 	wipRoot = &Fiber{
 		typeOf:    "ROOT", // Assign a type to the root fiber
 		dom:       container,
 		props:     map[string]interface{}{"children": []interface{}{element}},
 		alternate: currentRoot,
 	}
+	fmt.Println("render: Root fiber created.")
 	nextUnitOfWork = wipRoot
 	deletions = []*Fiber{}
+	fmt.Println("render: Scheduling work loop.")
 	requestIdleCallback(workLoop)
 }
 
 // workLoop performs work until there is no more work left or the deadline expires.
 func workLoop(deadline js.Value) {
-	fmt.Println("workLoop: Starting work loop")
+	fmt.Println("workLoop: Starting work loop.")
 	var shouldYield bool = false
 	for nextUnitOfWork != nil && !shouldYield {
+		fmt.Println("workLoop: Performing a unit of work.")
 		nextUnitOfWork = performUnitOfWork(nextUnitOfWork)
 		shouldYield = deadline.Call("timeRemaining").Float() < 1
+		fmt.Printf("workLoop: timeRemaining=%f, shouldYield=%v\n", deadline.Call("timeRemaining").Float(), shouldYield)
 	}
 
 	if wipRoot != nil && nextUnitOfWork == nil {
-		fmt.Println("workLoop: Committing root")
+		fmt.Println("workLoop: No more units of work. Committing root.")
 		commitRoot()
 	}
 
 	if nextUnitOfWork != nil {
-		fmt.Println("workLoop: More work to do, continuing")
+		fmt.Println("workLoop: Work remains. Scheduling next work loop.")
 		requestIdleCallback(workLoop)
 	} else {
-		fmt.Println("workLoop: No more work to do")
+		fmt.Println("workLoop: All work completed.")
 	}
 }
 
 // performUnitOfWork performs a single unit of work.
 func performUnitOfWork(fiber *Fiber) *Fiber {
 	if fiber == nil {
-		fmt.Println("performUnitOfWork: Fiber is nil")
+		fmt.Println("performUnitOfWork: Fiber is nil.")
 		return nil
 	}
-	fmt.Printf("performUnitOfWork: Processing fiber of type %v\n", fiber.typeOf)
 
-	// If typeOf is nil or "ROOT", process children without reconciling this fiber
+	fmt.Printf("performUnitOfWork: Processing fiber of type %v.\n", fiber.typeOf)
+
 	if fiber.typeOf == nil || fiber.typeOf == "ROOT" {
-		fmt.Println("performUnitOfWork: Fiber has typeOf nil or ROOT, processing children")
+		fmt.Println("performUnitOfWork: Fiber has typeOf nil or ROOT, reconciling children.")
 		reconcileChildren(fiber, fiber.props["children"].([]interface{}))
 	} else {
 		switch fiber.typeOf.(type) {
 		case func(map[string]interface{}) *Element:
 			// Function component
-			fmt.Println("performUnitOfWork: Rendering function component")
+			fmt.Println("performUnitOfWork: Rendering function component.")
 			componentFunc := fiber.typeOf.(func(map[string]interface{}) *Element)
 			wipFiber = fiber
+			fmt.Printf("performUnitOfWork: Current fiber set to %v.\n", wipFiber.typeOf)
 
 			// Preserve hooks from alternate fiber
 			var oldHooks *Hooks
 			if fiber.alternate != nil && fiber.alternate.hooks != nil {
 				oldHooks = fiber.alternate.hooks
-				fmt.Println("performUnitOfWork: Preserving hooks from alternate fiber")
+				fmt.Println("performUnitOfWork: Preserving hooks from alternate fiber.")
 			} else {
-				fmt.Println("performUnitOfWork: No hooks found in alternate fiber")
+				fmt.Println("performUnitOfWork: No hooks found in alternate fiber.")
 			}
 
 			// Initialize hooks
@@ -247,61 +299,66 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 				}
 				copy(wipFiber.hooks.state, oldHooks.state)
 				copy(wipFiber.hooks.deps, oldHooks.deps)
+				fmt.Println("performUnitOfWork: Copied hooks from alternate fiber.")
 			} else {
 				wipFiber.hooks = &Hooks{
 					state: []interface{}{},
 					deps:  [][]interface{}{},
 				}
+				fmt.Println("performUnitOfWork: Initialized new hooks for fiber.")
 			}
 			wipFiber.hooks.index = 0
 
 			element := componentFunc(fiber.props)
 			if element == nil {
-				fmt.Println("performUnitOfWork: Function component returned nil element")
+				fmt.Println("performUnitOfWork: Function component returned nil element.")
 				return nil
 			}
 
+			fmt.Println("performUnitOfWork: Reconciling children from function component.")
 			reconcileChildren(fiber, []interface{}{element})
 		case string:
 			// Host component (HTML element)
-			fmt.Printf("performUnitOfWork: Handling host component of type %s\n", fiber.typeOf.(string))
-
+			fmt.Printf("performUnitOfWork: Handling host component of type '%s'.\n", fiber.typeOf.(string))
 			if fiber.dom.IsUndefined() || fiber.dom.IsNull() {
-				fmt.Println("performUnitOfWork: Creating DOM for host component")
+				fmt.Println("performUnitOfWork: Creating DOM node for host component.")
 				fiber.dom = createDom(fiber)
+				fmt.Println("performUnitOfWork: DOM node created.")
 			}
 
 			if fiber.props == nil {
-				fmt.Println("performUnitOfWork: props is nil for fiber")
+				fmt.Println("performUnitOfWork: Fiber props are nil. Skipping children reconciliation.")
 				return nil
 			}
 
 			if propsChildren, ok := fiber.props["children"]; ok {
+				fmt.Println("performUnitOfWork: Reconciling children of host component.")
 				elements := propsChildren.([]interface{})
 				reconcileChildren(fiber, elements)
 			}
 		default:
-			fmt.Printf("performUnitOfWork: Unhandled fiber type %T\n", fiber.typeOf)
+			fmt.Printf("performUnitOfWork: Unhandled fiber type %T.\n", fiber.typeOf)
 		}
 	}
 
-	fmt.Printf("performUnitOfWork: Completed fiber of type %v\n", fiber.typeOf)
+	fmt.Printf("performUnitOfWork: Completed processing fiber of type %v.\n", fiber.typeOf)
 
-	// Traverse to child fibers regardless of typeOf
+	// Traverse to child fibers
 	if fiber.child != nil {
-		fmt.Println("performUnitOfWork: Moving to child fiber")
+		fmt.Printf("performUnitOfWork: Moving to child fiber of type %v.\n", fiber.child.typeOf)
 		return fiber.child
 	}
 
 	nextFiber := fiber
 	for nextFiber != nil {
 		if nextFiber.sibling != nil {
-			fmt.Println("performUnitOfWork: Moving to sibling fiber")
+			fmt.Printf("performUnitOfWork: Moving to sibling fiber of type %v.\n", nextFiber.sibling.typeOf)
 			return nextFiber.sibling
 		}
-		fmt.Println("performUnitOfWork: Moving up to parent fiber")
+		fmt.Println("performUnitOfWork: Moving up to parent fiber.")
 		nextFiber = nextFiber.parent
 	}
+	fmt.Println("performUnitOfWork: No more fibers to process.")
 	return nil
 }
 
@@ -366,7 +423,7 @@ func createDom(fiber *Fiber) js.Value {
 
 // reconcileChildren reconciles the children of a fiber.
 func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
-	fmt.Printf("reconcileChildren: Reconciling %d children for fiber type %v\n", len(elements), wipFiber.typeOf)
+	// fmt.Printf("reconcileChildren: Reconciling %d children for fiber type %v\n", len(elements), wipFiber.typeOf)
 	index := 0
 	var oldFiber *Fiber
 	if wipFiber.alternate != nil {
@@ -410,7 +467,7 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 
 		if sameType {
 			// Reuse the existing fiber
-			fmt.Printf("reconcileChildren: Reusing existing fiber of type %v\n", oldFiber.typeOf)
+			// fmt.Printf("reconcileChildren: Reusing existing fiber of type %v\n", oldFiber.typeOf)
 			newFiber = &Fiber{
 				typeOf:    oldFiber.typeOf,
 				props:     element.(*Element).Props,
@@ -421,7 +478,7 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 			}
 		} else if element != nil {
 			// Create a new fiber
-			fmt.Printf("reconcileChildren: Creating new fiber of type %v\n", element.(*Element).Type)
+			// fmt.Printf("reconcileChildren: Creating new fiber of type %v\n", element.(*Element).Type)
 			newFiber = &Fiber{
 				typeOf:    element.(*Element).Type,
 				props:     element.(*Element).Props,
@@ -433,7 +490,7 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 
 		if oldFiber != nil && !sameType {
 			// Mark the old fiber for deletion
-			fmt.Printf("reconcileChildren: Deleting fiber of type %v\n", oldFiber.typeOf)
+			// fmt.Printf("reconcileChildren: Deleting fiber of type %v\n", oldFiber.typeOf)
 			oldFiber.effectTag = "DELETION"
 			deletions = append(deletions, oldFiber)
 		}
@@ -444,34 +501,34 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 
 		if index == 0 {
 			wipFiber.child = newFiber
-			fmt.Println("reconcileChildren: Setting first child fiber")
+			// fmt.Println("reconcileChildren: Setting first child fiber")
 		} else if element != nil && prevSibling != nil {
 			prevSibling.sibling = newFiber
-			fmt.Printf("reconcileChildren: Linking sibling fiber of type %v\n", newFiber.typeOf)
+			// fmt.Printf("reconcileChildren: Linking sibling fiber of type %v\n", newFiber.typeOf)
 		}
 
 		prevSibling = newFiber
 		index++
 	}
 
-	fmt.Printf("reconcileChildren: Completed reconciliation for fiber type %v\n", wipFiber.typeOf)
+	// fmt.Printf("reconcileChildren: Completed reconciliation for fiber type %v\n", wipFiber.typeOf)
 }
 
 // commitRoot commits the changes to the DOM.
 func commitRoot() {
 	fmt.Println("commitRoot: Starting to commit changes to DOM")
 	for _, deletion := range deletions {
-		fmt.Printf("commitRoot: Processing deletion for fiber type %v\n", deletion.typeOf)
+		// fmt.Printf("commitRoot: Processing deletion for fiber type %v\n", deletion.typeOf)
 		commitWork(deletion)
 	}
 	if wipRoot.child != nil {
-		fmt.Printf("commitRoot: Committing child fiber of type %v\n", wipRoot.child.typeOf)
+		// fmt.Printf("commitRoot: Committing child fiber of type %v\n", wipRoot.child.typeOf)
 		commitWork(wipRoot.child)
 	}
 	currentRoot = wipRoot
 	wipRoot = nil
 	deletions = nil
-	fmt.Println("commitRoot: Finished committing changes to DOM")
+	// fmt.Println("commitRoot: Finished committing changes to DOM")
 
 	// Execute effects after committing
 	executeEffects()
@@ -517,7 +574,7 @@ func commitWork(fiber *Fiber) {
 		domParentFiber = domParentFiber.parent
 	}
 	if domParentFiber == nil {
-		fmt.Println("commitWork: No valid parent DOM fiber found")
+		// fmt.Println("commitWork: No valid parent DOM fiber found")
 		return
 	}
 	domParent := domParentFiber.dom
@@ -525,20 +582,20 @@ func commitWork(fiber *Fiber) {
 	switch fiber.effectTag {
 	case "PLACEMENT":
 		if !fiber.dom.IsUndefined() && !fiber.dom.IsNull() {
-			fmt.Printf("commitWork: Appending child %v to parent %v\n", fiber.dom, domParent)
+			// fmt.Printf("commitWork: Appending child %v to parent %v\n", fiber.dom, domParent)
 			domParent.Call("appendChild", fiber.dom)
 		} else {
-			fmt.Println("commitWork: Fiber has no DOM node, committing its children")
+			// fmt.Println("commitWork: Fiber has no DOM node, committing its children")
 			commitWork(fiber.child)
 			return
 		}
 	case "UPDATE":
 		if !fiber.dom.IsUndefined() && !fiber.dom.IsNull() {
-			fmt.Printf("commitWork: Updating DOM node for fiber type %v\n", fiber.typeOf)
+			// fmt.Printf("commitWork: Updating DOM node for fiber type %v\n", fiber.typeOf)
 			updateDom(fiber.dom, fiber.alternate.props, fiber.props)
 		}
 	case "DELETION":
-		fmt.Println("commitWork: Deleting DOM node")
+		// fmt.Println("commitWork: Deleting DOM node")
 		commitDeletion(fiber, domParent)
 		return
 	}
@@ -569,7 +626,7 @@ func commitDeletion(fiber *Fiber, domParent js.Value) {
 }
 
 func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
-	fmt.Println("updateDom: Updating DOM properties")
+	// fmt.Println("updateDom: Updating DOM properties")
 
 	// 1. Remove old or changed event listeners
 	for name, oldValue := range oldProps {
@@ -593,18 +650,18 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 		}
 		if name == "dangerouslySetInnerHTML" {
 			htmlContent := value.(map[string]string)["__html"]
-			fmt.Println("updateDom: Updating innerHTML")
+			// fmt.Println("updateDom: Updating innerHTML")
 			dom.Set("innerHTML", htmlContent)
 			continue
 		}
 		if strings.HasPrefix(name, "on") {
 			eventType := strings.ToLower(name[2:])
-			fmt.Printf("updateDom: Adding event listener for %s\n", eventType)
+			// fmt.Printf("updateDom: Adding event listener for %s\n", eventType)
 			dom.Call("addEventListener", eventType, value.(js.Func))
 			continue
 		}
 		if name == "class" {
-			fmt.Printf("updateDom: Setting attribute 'class' to '%v'\n", value)
+			// fmt.Printf("updateDom: Setting attribute 'class' to '%v'\n", value)
 			dom.Call("setAttribute", "class", value)
 			continue
 		}
