@@ -93,7 +93,7 @@ func useEffect(effect func(), deps []interface{}) {
 		hasChanged = true
 	}
 
-	if hasChanged {
+	if hasChanged && !currentFiber.hooks.hasScheduledEffect {
 		fmt.Printf("useEffect: Dependencies changed at position %d, scheduling effect\n", position)
 		// Store the effect to be executed after commit
 		if currentFiber.hooks.effects == nil {
@@ -105,8 +105,9 @@ func useEffect(effect func(), deps []interface{}) {
 		} else {
 			currentFiber.hooks.deps = append(currentFiber.hooks.deps, deps)
 		}
+		currentFiber.hooks.hasScheduledEffect = true // Mark effect as scheduled
 	} else {
-		fmt.Printf("useEffect: Dependencies did not change at position %d, skipping effect\n", position)
+		fmt.Printf("useEffect: Dependencies did not change or effect already scheduled at position %d, skipping effect\n", position)
 	}
 }
 
@@ -124,10 +125,11 @@ func areDepsEqual(a, b []interface{}) bool {
 
 // Hooks stores the state and effect dependencies of a component.
 type Hooks struct {
-	state   []interface{}
-	deps    [][]interface{}
-	index   int
-	effects []func()
+	state              []interface{}
+	deps               [][]interface{}
+	index              int
+	effects            []func()
+	hasScheduledEffect bool // New flag to track scheduled effects
 }
 
 // Fiber represents a unit of work in the virtual DOM tree.
@@ -159,17 +161,17 @@ func getCurrentFiber() *Fiber {
 
 // scheduleUpdate triggers a re-render of the component.
 func scheduleUpdate(fiber *Fiber) {
-    fmt.Println("scheduleUpdate: Scheduling update")
-    wipRoot = &Fiber{
-        typeOf:    "ROOT",
-        dom:       currentRoot.dom,
-        props:     currentRoot.props,
-        alternate: currentRoot,
-    }
-    nextUnitOfWork = wipRoot
-    deletions = []*Fiber{}
-    fmt.Println("scheduleUpdate: wipRoot set and workLoop scheduled")
-    requestIdleCallback(workLoop)
+	fmt.Println("scheduleUpdate: Scheduling update")
+	wipRoot = &Fiber{
+		typeOf:    "ROOT",
+		dom:       currentRoot.dom,
+		props:     currentRoot.props,
+		alternate: currentRoot,
+	}
+	nextUnitOfWork = wipRoot
+	deletions = []*Fiber{}
+	fmt.Println("scheduleUpdate: wipRoot set and workLoop scheduled")
+	requestIdleCallback(workLoop)
 }
 
 // render starts the rendering process.
@@ -188,26 +190,25 @@ func render(element *Element, container js.Value) {
 
 // workLoop performs work until there is no more work left or the deadline expires.
 func workLoop(deadline js.Value) {
-    fmt.Println("workLoop: Starting work loop")
-    var shouldYield bool = false
-    for nextUnitOfWork != nil && !shouldYield {
-        nextUnitOfWork = performUnitOfWork(nextUnitOfWork)
-        shouldYield = deadline.Call("timeRemaining").Float() < 1
-    }
+	fmt.Println("workLoop: Starting work loop")
+	var shouldYield bool = false
+	for nextUnitOfWork != nil && !shouldYield {
+		nextUnitOfWork = performUnitOfWork(nextUnitOfWork)
+		shouldYield = deadline.Call("timeRemaining").Float() < 1
+	}
 
-    if wipRoot != nil && nextUnitOfWork == nil {
-        fmt.Println("workLoop: Committing root")
-        commitRoot()
-    }
+	if wipRoot != nil && nextUnitOfWork == nil {
+		fmt.Println("workLoop: Committing root")
+		commitRoot()
+	}
 
-    if nextUnitOfWork != nil {
-        fmt.Println("workLoop: More work to do, continuing")
-        requestIdleCallback(workLoop)
-    } else {
-        fmt.Println("workLoop: No more work to do")
-    }
+	if nextUnitOfWork != nil {
+		fmt.Println("workLoop: More work to do, continuing")
+		requestIdleCallback(workLoop)
+	} else {
+		fmt.Println("workLoop: No more work to do")
+	}
 }
-
 
 // performUnitOfWork performs a single unit of work.
 func performUnitOfWork(fiber *Fiber) *Fiber {
@@ -364,9 +365,8 @@ func createDom(fiber *Fiber) js.Value {
 }
 
 // reconcileChildren reconciles the children of a fiber.
-// reconcileChildren reconciles the children of a fiber.
 func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
-	fmt.Printf("reconcileChildren: Reconciling %d children\n", len(elements))
+	fmt.Printf("reconcileChildren: Reconciling %d children for fiber type %v\n", len(elements), wipFiber.typeOf)
 	index := 0
 	var oldFiber *Fiber
 	if wipFiber.alternate != nil {
@@ -459,24 +459,23 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 
 // commitRoot commits the changes to the DOM.
 func commitRoot() {
-    fmt.Println("commitRoot: Starting to commit changes to DOM")
-    for _, deletion := range deletions {
-        fmt.Printf("commitRoot: Processing deletion for fiber type %v\n", deletion.typeOf)
-        commitWork(deletion)
-    }
-    if wipRoot.child != nil {
-        fmt.Printf("commitRoot: Committing child fiber of type %v\n", wipRoot.child.typeOf)
-        commitWork(wipRoot.child)
-    }
-    currentRoot = wipRoot
-    wipRoot = nil
-    deletions = nil
-    fmt.Println("commitRoot: Finished committing changes to DOM")
+	fmt.Println("commitRoot: Starting to commit changes to DOM")
+	for _, deletion := range deletions {
+		fmt.Printf("commitRoot: Processing deletion for fiber type %v\n", deletion.typeOf)
+		commitWork(deletion)
+	}
+	if wipRoot.child != nil {
+		fmt.Printf("commitRoot: Committing child fiber of type %v\n", wipRoot.child.typeOf)
+		commitWork(wipRoot.child)
+	}
+	currentRoot = wipRoot
+	wipRoot = nil
+	deletions = nil
+	fmt.Println("commitRoot: Finished committing changes to DOM")
 
-    // Execute effects after committing
-    executeEffects()
+	// Execute effects after committing
+	executeEffects()
 }
-
 
 func executeEffects() {
 	fmt.Println("executeEffects: Executing side effects")
@@ -504,57 +503,65 @@ func executeEffects() {
 		}
 		// Clear the effects after executing them
 		fiber.hooks.effects = nil
+		fiber.hooks.hasScheduledEffect = false // Reset the flag
 	}
 }
 
 // commitWork recursively commits work to the DOM.
 func commitWork(fiber *Fiber) {
-    if fiber == nil {
-        return
-    }
-    var domParentFiber = fiber.parent
-    for domParentFiber != nil && (domParentFiber.dom.IsUndefined() || domParentFiber.dom.IsNull()) {
-        domParentFiber = domParentFiber.parent
-    }
-    if domParentFiber == nil {
-        fmt.Println("commitWork: No valid parent DOM fiber found")
-        return
-    }
-    domParent := domParentFiber.dom
+	if fiber == nil {
+		return
+	}
+	var domParentFiber = fiber.parent
+	for domParentFiber != nil && (domParentFiber.dom.IsUndefined() || domParentFiber.dom.IsNull()) {
+		domParentFiber = domParentFiber.parent
+	}
+	if domParentFiber == nil {
+		fmt.Println("commitWork: No valid parent DOM fiber found")
+		return
+	}
+	domParent := domParentFiber.dom
 
-    switch fiber.effectTag {
-    case "PLACEMENT":
-        if !fiber.dom.IsUndefined() && !fiber.dom.IsNull() {
-            fmt.Printf("commitWork: Appending child %v to parent %v\n", fiber.dom, domParent)
-            domParent.Call("appendChild", fiber.dom)
-        } else {
-            fmt.Println("commitWork: Fiber has no DOM node, committing its children")
-            commitWork(fiber.child)
-            return
-        }
-    case "UPDATE":
-        if !fiber.dom.IsUndefined() && !fiber.dom.IsNull() {
-            fmt.Printf("commitWork: Updating DOM node for fiber type %v\n", fiber.typeOf)
-            updateDom(fiber.dom, fiber.alternate.props, fiber.props)
-        }
-    case "DELETION":
-        fmt.Println("commitWork: Deleting DOM node")
-        commitDeletion(fiber, domParent)
-        return
-    }
+	switch fiber.effectTag {
+	case "PLACEMENT":
+		if !fiber.dom.IsUndefined() && !fiber.dom.IsNull() {
+			fmt.Printf("commitWork: Appending child %v to parent %v\n", fiber.dom, domParent)
+			domParent.Call("appendChild", fiber.dom)
+		} else {
+			fmt.Println("commitWork: Fiber has no DOM node, committing its children")
+			commitWork(fiber.child)
+			return
+		}
+	case "UPDATE":
+		if !fiber.dom.IsUndefined() && !fiber.dom.IsNull() {
+			fmt.Printf("commitWork: Updating DOM node for fiber type %v\n", fiber.typeOf)
+			updateDom(fiber.dom, fiber.alternate.props, fiber.props)
+		}
+	case "DELETION":
+		fmt.Println("commitWork: Deleting DOM node")
+		commitDeletion(fiber, domParent)
+		return
+	}
 
-    // Commit children and siblings
-    commitWork(fiber.child)
-    commitWork(fiber.sibling)
+	// Commit children and siblings
+	commitWork(fiber.child)
+	commitWork(fiber.sibling)
 }
-
 
 func commitDeletion(fiber *Fiber, domParent js.Value) {
 	if !fiber.dom.IsUndefined() && !fiber.dom.IsNull() {
 		fmt.Printf("commitDeletion: Removing child %v from parent %v\n", fiber.dom, domParent)
 		domParent.Call("removeChild", fiber.dom)
+
 		// Release event callbacks associated with this fiber
-		// Implement a way to track and release event callbacks if necessary
+		if fiber.hooks != nil {
+			for _, state := range fiber.hooks.state {
+				if fn, ok := state.(js.Func); ok {
+					fmt.Println("commitDeletion: Releasing event callback")
+					fn.Release()
+				}
+			}
+		}
 	} else if fiber.child != nil {
 		fmt.Println("commitDeletion: Deleting child fibers recursively")
 		commitDeletion(fiber.child, domParent)
@@ -562,48 +569,48 @@ func commitDeletion(fiber *Fiber, domParent js.Value) {
 }
 
 func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
-    fmt.Println("updateDom: Updating DOM properties")
+	fmt.Println("updateDom: Updating DOM properties")
 
-    // 1. Remove old or changed event listeners
-    for name, oldValue := range oldProps {
-        if strings.HasPrefix(name, "on") {
-            eventType := strings.ToLower(name[2:])
-            fmt.Printf("updateDom: Removing event listener for %s\n", eventType)
-            dom.Call("removeEventListener", eventType, oldValue.(js.Func))
-        }
+	// 1. Remove old or changed event listeners
+	for name, oldValue := range oldProps {
+		if strings.HasPrefix(name, "on") {
+			eventType := strings.ToLower(name[2:])
+			fmt.Printf("updateDom: Removing event listener for %s\n", eventType)
+			dom.Call("removeEventListener", eventType, oldValue.(js.Func))
+		}
 
-        // Remove properties that no longer exist, excluding event listeners
-        if newProps[name] == nil && !strings.HasPrefix(name, "on") {
-            fmt.Printf("updateDom: Removing property '%s'\n", name)
-            dom.Set(name, js.Undefined())
-        }
-    }
+		// Remove properties that no longer exist, excluding event listeners
+		if newProps[name] == nil && !strings.HasPrefix(name, "on") {
+			fmt.Printf("updateDom: Removing property '%s'\n", name)
+			dom.Set(name, js.Undefined())
+		}
+	}
 
-    // 2. Add new or changed properties and event listeners
-    for name, value := range newProps {
-        if name == "children" {
-            continue
-        }
-        if name == "dangerouslySetInnerHTML" {
-            htmlContent := value.(map[string]string)["__html"]
-            fmt.Println("updateDom: Updating innerHTML")
-            dom.Set("innerHTML", htmlContent)
-            continue
-        }
-        if strings.HasPrefix(name, "on") {
-            eventType := strings.ToLower(name[2:])
-            fmt.Printf("updateDom: Adding event listener for %s\n", eventType)
-            dom.Call("addEventListener", eventType, value.(js.Func))
-            continue
-        }
-        if name == "class" {
-            fmt.Printf("updateDom: Setting attribute 'class' to '%v'\n", value)
-            dom.Call("setAttribute", "class", value)
-            continue
-        }
-        fmt.Printf("updateDom: Setting property '%s' to '%v'\n", name, value)
-        dom.Set(name, value)
-    }
+	// 2. Add new or changed properties and event listeners
+	for name, value := range newProps {
+		if name == "children" {
+			continue
+		}
+		if name == "dangerouslySetInnerHTML" {
+			htmlContent := value.(map[string]string)["__html"]
+			fmt.Println("updateDom: Updating innerHTML")
+			dom.Set("innerHTML", htmlContent)
+			continue
+		}
+		if strings.HasPrefix(name, "on") {
+			eventType := strings.ToLower(name[2:])
+			fmt.Printf("updateDom: Adding event listener for %s\n", eventType)
+			dom.Call("addEventListener", eventType, value.(js.Func))
+			continue
+		}
+		if name == "class" {
+			fmt.Printf("updateDom: Setting attribute 'class' to '%v'\n", value)
+			dom.Call("setAttribute", "class", value)
+			continue
+		}
+		fmt.Printf("updateDom: Setting property '%s' to '%v'\n", name, value)
+		dom.Set(name, value)
+	}
 }
 
 var rafCallbacks []js.Func // Global slice to keep callbacks alive
@@ -666,6 +673,7 @@ func getBlogPosts(callback func([]BlogPost)) {
 // Define a global empty dependency array to ensure useEffect runs only once
 var emptyDeps = []interface{}{}
 
+// BlogListComponent represents the main component handling blog list and single blog view.
 func BlogListComponent(props map[string]interface{}) *Element {
 	fmt.Println("BlogListComponent: Rendering")
 	blogs, setBlogs := useState([]BlogPost{})
@@ -673,17 +681,17 @@ func BlogListComponent(props map[string]interface{}) *Element {
 	currentBlog, setCurrentBlog := useState[*BlogPost](nil)
 
 	// Event handlers
-	// Event handlers
 	viewBlog := func(slug string) js.Func {
 		cb := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			if len(args) > 0 {
 				event := args[0]
-				event.Call("preventDefault") // Prevent the default anchor behavior
+				event.Call("preventDefault") // Prevent default behavior, though using <button> minimizes this need
 			}
 			fmt.Printf("viewBlog: Viewing blog with slug %s\n", slug)
 			for _, blog := range blogs() {
 				if blog.Slug == slug {
-					setCurrentBlog(&blog)
+					blogCopy := blog // Create a copy to avoid pointer reuse
+					setCurrentBlog(&blogCopy)
 					return nil
 				}
 			}
@@ -733,7 +741,7 @@ func BlogListComponent(props map[string]interface{}) *Element {
 			createElement("h2", map[string]interface{}{"class": "text-2xl font-bold mb-2"},
 				createElement("button", map[string]interface{}{
 					"onclick": viewBlog(post.Slug),
-					"class":   "text-blue-500 hover:underline",
+					"class":   "text-blue-500 hover:underline focus:outline-none",
 				}, Text(post.Title)),
 			),
 			createElement("p", map[string]interface{}{"class": "text-gray-600 mb-2"}, Text(post.Date.Format("January 2, 2006"))),
@@ -835,14 +843,14 @@ func BlogListComponent(props map[string]interface{}) *Element {
 		if prevPost != nil {
 			navButtons = append(navButtons, createElement("button", map[string]interface{}{
 				"class":   "mx-1 px-3 py-1 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition duration-200",
-				"onclick": goToPage(currentIndex - 1), // Define prevPostPage() to return the correct page number
+				"onclick": viewBlog(prevPost.Slug), // Use viewBlog with prevPost.Slug
 			}, Text("Previous")))
 		}
 
 		if nextPost != nil {
 			navButtons = append(navButtons, createElement("button", map[string]interface{}{
 				"class":   "mx-1 px-3 py-1 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition duration-200",
-				"onclick": goToPage(currentIndex + 1), // Define nextPostPage() to return the correct page number
+				"onclick": viewBlog(nextPost.Slug), // Use viewBlog with nextPost.Slug
 			}, Text("Next")))
 		}
 
