@@ -85,95 +85,77 @@ func useState[T any](initialValue T) (func() T, func(T)) {
 	}
 }
 
-// useEffect handles side effects in a component.
-func useEffect(effect func(), deps []interface{}) {
-	currentFiber := getCurrentFiber()
-	if currentFiber.hooks == nil {
-		currentFiber.hooks = &Hooks{}
-		fmt.Println("useEffect: Initialized hooks for the current fiber.")
-	}
-	position := currentFiber.hooks.index
-	currentFiber.hooks.index++
-
-	var hasChanged bool
-	if len(currentFiber.hooks.deps) > position {
-		// Check if dependencies have changed
-		hasChanged = !areDepsEqual(currentFiber.hooks.deps[position], deps)
-		fmt.Printf("useEffect: Checking dependencies at position %d: changed=%v\n", position, hasChanged)
-	} else {
-		// No previous dependencies (initial render)
-		hasChanged = true
-		fmt.Printf("useEffect: No previous dependencies at position %d. Scheduling effect.\n", position)
-	}
-
-	// Check for empty dependencies (should only run once)
-	if len(deps) == 0 && len(currentFiber.hooks.deps) > position {
-		// Do not schedule if it's already been run with an empty dependency array
-		hasChanged = false
-		fmt.Println("useEffect: Empty dependencies, effect should run only once.")
-	}
-
-	if hasChanged || len(deps) == 0 {
-		if currentFiber.hooks.effects == nil {
-			currentFiber.hooks.effects = make([]func(), 0)
-		}
-		currentFiber.hooks.effects = append(currentFiber.hooks.effects, effect)
-		if len(currentFiber.hooks.deps) > position {
-			currentFiber.hooks.deps[position] = deps
-		} else {
-			currentFiber.hooks.deps = append(currentFiber.hooks.deps, deps)
-		}
-	} else {
-		fmt.Printf("useEffect: Dependencies did not change at position %d. Effect not scheduled.\n", position)
-	}
-}
-
-func areDepsEqual(a, b []interface{}) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		// Handle nil cases explicitly
-		if a[i] == nil && b[i] != nil || a[i] != nil && b[i] == nil {
-			return false
-		}
-
-		// If both are nil, they are considered equal
-		if a[i] == nil && b[i] == nil {
-			continue
-		}
-
-		// Use reflect to determine if the elements are pointers or simple types
-		aValue := reflect.ValueOf(a[i])
-		bValue := reflect.ValueOf(b[i])
-
-		// If both are pointers, compare the addresses
-		if aValue.Kind() == reflect.Ptr && bValue.Kind() == reflect.Ptr {
-			if aValue.Pointer() != bValue.Pointer() {
-				return false
-			}
-		} else if aValue.Kind() == reflect.Ptr || bValue.Kind() == reflect.Ptr {
-			// One is a pointer and the other isn't
-			return false
-		} else {
-			// For non-pointer types (basic values), use deep equality check
-			if !reflect.DeepEqual(a[i], b[i]) {
-				return false
-			}
-		}
-	}
-
-	return true
-}
-
-// Hooks stores the state and effect dependencies of a component.
 type Hooks struct {
 	state              []interface{}
 	deps               [][]interface{}
-	index              int
 	effects            []func()
-	hasScheduledEffect bool // New flag to track scheduled effects
+	effectsInitialized []bool
+	index              int
+}
+
+func useEffect(effect func(), deps []interface{}) {
+	currentFiber := getCurrentFiber()
+	if currentFiber.hooks == nil {
+		currentFiber.hooks = &Hooks{
+			state:              make([]interface{}, 0),
+			deps:               make([][]interface{}, 0),
+			effects:            make([]func(), 0),
+			effectsInitialized: make([]bool, 0),
+		}
+	}
+
+	position := currentFiber.hooks.index
+	currentFiber.hooks.index++
+
+	// Extend slices if necessary
+	for len(currentFiber.hooks.effectsInitialized) <= position {
+		currentFiber.hooks.effectsInitialized = append(currentFiber.hooks.effectsInitialized, false)
+		currentFiber.hooks.deps = append(currentFiber.hooks.deps, nil)
+	}
+
+	isFirstRun := !currentFiber.hooks.effectsInitialized[position]
+	var shouldRunEffect bool
+
+	if isFirstRun {
+		shouldRunEffect = true
+		fmt.Printf("useEffect: First run at position %d, will execute effect\n", position)
+		currentFiber.hooks.effectsInitialized[position] = true
+	} else if deps == nil {
+		shouldRunEffect = true
+		fmt.Printf("useEffect: Nil deps at position %d, will execute effect\n", position)
+	} else {
+		prevDeps := currentFiber.hooks.deps[position]
+		shouldRunEffect = !areDepsEqual(prevDeps, deps)
+		fmt.Printf("useEffect: Comparing deps at position %d, should run effect: %v\n", position, shouldRunEffect)
+	}
+
+	if shouldRunEffect {
+		fmt.Printf("useEffect: Scheduling effect at position %d\n", position)
+		currentFiber.hooks.effects = append(currentFiber.hooks.effects, effect)
+	} else {
+		fmt.Printf("useEffect: Not scheduling effect at position %d, deps unchanged\n", position)
+	}
+
+	// Always update the deps
+	currentFiber.hooks.deps[position] = deps
+}
+
+func areDepsEqual(prevDeps, newDeps []interface{}) bool {
+	if prevDeps == nil && newDeps == nil {
+		return true
+	}
+	if prevDeps == nil || newDeps == nil {
+		return false
+	}
+	if len(prevDeps) != len(newDeps) {
+		return false
+	}
+	for i := range prevDeps {
+		if !reflect.DeepEqual(prevDeps[i], newDeps[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // Fiber represents a unit of work in the virtual DOM tree.
@@ -551,14 +533,28 @@ func executeEffects() {
 
 	// Execute effects
 	for _, fiber := range effectFibers {
-		for _, effect := range fiber.hooks.effects {
-			fmt.Println("executeEffects: Running an effect")
+		fmt.Printf("executeEffects: Executing effects for fiber %p\n", fiber)
+		for i, effect := range fiber.hooks.effects {
+			fmt.Printf("executeEffects: Running effect %d\n", i)
 			effect()
 		}
 		// Clear the effects after executing them
-		fiber.hooks.effects = nil
-		fiber.hooks.hasScheduledEffect = false // Reset the flag
+		fiber.hooks.effects = fiber.hooks.effects[:0]
 	}
+
+	// Reset hook index for next render
+	resetHookIndex(currentRoot.child)
+}
+
+func resetHookIndex(fiber *Fiber) {
+	if fiber == nil {
+		return
+	}
+	if fiber.hooks != nil {
+		fiber.hooks.index = 0
+	}
+	resetHookIndex(fiber.child)
+	resetHookIndex(fiber.sibling)
 }
 
 // commitWork recursively commits work to the DOM.
@@ -784,7 +780,7 @@ func BlogListComponent(props map[string]interface{}) *Element {
 				fmt.Println("useEffect: No posts fetched")
 			}
 		})
-	}, emptyDeps) // Use the static emptyDeps
+	}, []interface{}{}) // Use the static emptyDeps
 
 	// Render functions
 	blogListItem := func(post BlogPost) *Element {
