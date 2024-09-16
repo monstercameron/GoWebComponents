@@ -956,15 +956,5 @@ func BlogListComponent(props map[string]interface{}) *Element {
 	return createElement("div", map[string]interface{}{"class": "container mx-auto p-4 pb-8"}, content)
 }
 
-// Example5 initializes the BlogListComponent and starts the rendering process.
-func Example5() {
-	fmt.Println("Example5: Starting")
-	// Start rendering
-	container := js.Global().Get("document").Call("getElementById", "root")
-	if container.IsUndefined() || container.IsNull() {
-		fmt.Println("Example5: Error - No element with id 'root' found in the DOM")
-		return
-	}
-	fmt.Println("Example5: Rendering BlogListComponent into the container")
-	render(createElement(BlogListComponent, nil), container)
-}
+
+

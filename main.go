@@ -20,11 +20,11 @@ func main() {
 	wg.Add(1)
 
 	// Print a message indicating the start of the program.
-	fmt.Println("Main: Starting fiber.Example5")
+	fmt.Println("Main: Starting fiber.Example1")
 
 	// Call the Example1 function from the html package, which handles the HTML rendering.
 	// html.Example4()
-	fiber.Example5()
+	fiber.Example1()
 
 	// Print a message indicating the end of the main function logic.
 	// At this point, the Example1 function has already executed.
