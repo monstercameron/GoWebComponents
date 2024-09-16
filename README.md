@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="static/images/hero.jpg" alt="Hero Image" width="600">
+</p>
+
 # 🚀 GoWebComponents: Empower Your Web Development with Go
 
 ## Revolutionize Your Web Stack
