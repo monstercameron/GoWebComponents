@@ -30,3 +30,6 @@ I was finally able to get a "fine grain" updater system going. I will clean up t
 I also need to brainstorm cool marketing names.
 
 Wow, chatgpt q* really helped me with the dom update logic! I added a calculator app, its kinda decent!
+
+Useeffect keeps getting called every rerender, I need to debug that behavior.
+I need to add a useMemo func, the perf optimization and documentation

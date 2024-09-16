@@ -1,12 +1,23 @@
+// ./fiber/fiber.go
+
 package fiber
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
 	"syscall/js"
-	"time"
+)
+
+// Global variables for tracking the current fiber and root.
+var (
+	wipRoot        *Fiber
+	currentRoot    *Fiber
+	nextUnitOfWork *Fiber
+	deletions      []*Fiber
+	wipFiber       *Fiber
+	eventCallbacks []js.Func // Global slice to keep event callbacks alive
+	rafCallbacks   []js.Func // Global slice to keep callbacks alive
 )
 
 // Element represents a virtual DOM node.
@@ -171,15 +182,6 @@ type Fiber struct {
 	effectTag string
 }
 
-// Global variables for tracking the current fiber and root.
-var (
-	wipRoot        *Fiber
-	currentRoot    *Fiber
-	nextUnitOfWork *Fiber
-	deletions      []*Fiber
-	wipFiber       *Fiber
-)
-
 // getCurrentFiber retrieves the current working fiber.
 func getCurrentFiber() *Fiber {
 	return wipFiber
@@ -340,8 +342,6 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 	fmt.Println("performUnitOfWork: No more fibers to process.")
 	return nil
 }
-
-var eventCallbacks []js.Func // Global slice to keep event callbacks alive
 
 // createDom creates a DOM node from a fiber.
 func createDom(fiber *Fiber) js.Value {
@@ -663,8 +663,6 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 	}
 }
 
-var rafCallbacks []js.Func // Global slice to keep callbacks alive
-
 // requestIdleCallback schedules work during idle periods.
 func requestIdleCallback(callback func(js.Value)) {
 	cb := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -674,287 +672,3 @@ func requestIdleCallback(callback func(js.Value)) {
 	rafCallbacks = append(rafCallbacks, cb) // Keep the function alive
 	js.Global().Call("requestIdleCallback", cb)
 }
-
-// BlogPost represents a blog post structure.
-type BlogPost struct {
-	Title       string    `json:"title"`
-	Slug        string    `json:"slug"`
-	Description string    `json:"description"`
-	Date        time.Time `json:"date"`
-	Tags        []string  `json:"tags"`
-	Content     string    `json:"content"`
-}
-
-// getBlogPosts fetches blog posts from the API.
-func getBlogPosts(callback func([]BlogPost)) {
-	fmt.Println("getBlogPosts: Fetching posts")
-	fetchPromise := js.Global().Call("fetch", "http://localhost:8080/api/blog")
-	fetchPromise.Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		response := args[0]
-		if !response.Get("ok").Bool() {
-			errorMsg := fmt.Sprintf("HTTP error! status: %s", response.Get("status").String())
-			fmt.Println("getBlogPosts:", errorMsg)
-			callback(nil)
-			return nil
-		}
-		response.Call("json").Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			data := args[0]
-			jsonStr := js.Global().Get("JSON").Call("stringify", data).String()
-			var posts []BlogPost
-			err := json.Unmarshal([]byte(jsonStr), &posts)
-			if err != nil {
-				fmt.Println("Error parsing blog posts:", err)
-				callback(nil)
-			} else {
-				fmt.Println("getBlogPosts: Successfully fetched posts")
-				callback(posts)
-			}
-			return nil
-		}))
-		return nil
-	})).Call("catch", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		err := args[0]
-		fmt.Println("Fetch error:", err)
-		callback(nil)
-		return nil
-	}))
-}
-
-// Define a global empty dependency array to ensure useEffect runs only once
-var emptyDeps = []interface{}{}
-
-// BlogListComponent represents the main component handling blog list and single blog view.
-func BlogListComponent(props map[string]interface{}) *Element {
-	fmt.Println("BlogListComponent: Rendering")
-	blogs, setBlogs := useState([]BlogPost{})
-	currentPage, setCurrentPage := useState(1)
-	currentBlog, setCurrentBlog := useState[*BlogPost](nil)
-
-	// Event handlers
-	viewBlog := func(slug string) js.Func {
-		cb := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			if len(args) > 0 {
-				event := args[0]
-				event.Call("preventDefault") // Prevent default behavior, though using <button> minimizes this need
-			}
-			fmt.Printf("viewBlog: Viewing blog with slug %s\n", slug)
-			for _, blog := range blogs() {
-				if blog.Slug == slug {
-					blogCopy := blog // Create a copy to avoid pointer reuse
-					setCurrentBlog(&blogCopy)
-					return nil
-				}
-			}
-			setCurrentBlog(nil)
-			return nil
-		})
-		eventCallbacks = append(eventCallbacks, cb) // Keep callback alive
-		return cb
-	}
-
-	backToList := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		fmt.Println("backToList: Going back to blog list")
-		setCurrentBlog(nil)
-		return nil
-	})
-	eventCallbacks = append(eventCallbacks, backToList) // Keep callback alive
-
-	goToPage := func(page int) js.Func {
-		cb := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			fmt.Printf("goToPage: Going to page %d\n", page)
-			setCurrentPage(page)
-			return nil
-		})
-		eventCallbacks = append(eventCallbacks, cb) // Keep callback alive
-		return cb
-	}
-
-	// Fetch blogs on mount
-	useEffect(func() {
-		fmt.Println("useEffect: Fetching blogs")
-		getBlogPosts(func(bp []BlogPost) {
-			if bp != nil {
-				fmt.Println("useEffect: Setting blogs state")
-				setBlogs(bp)
-			} else {
-				fmt.Println("useEffect: No posts fetched")
-			}
-		})
-	}, []interface{}{}) // Use the static emptyDeps
-
-	// Render functions
-	blogListItem := func(post BlogPost) *Element {
-		fmt.Printf("blogListItem: Creating list item for %s\n", post.Title)
-		return createElement("div", map[string]interface{}{
-			"class": "mb-6 p-6 bg-white rounded-lg shadow hover:shadow-lg transition-shadow duration-200",
-		},
-			createElement("h2", map[string]interface{}{"class": "text-2xl font-bold mb-2"},
-				createElement("button", map[string]interface{}{
-					"onclick": viewBlog(post.Slug),
-					"class":   "text-blue-500 hover:underline focus:outline-none",
-				}, Text(post.Title)),
-			),
-			createElement("p", map[string]interface{}{"class": "text-gray-600 mb-2"}, Text(post.Date.Format("January 2, 2006"))),
-			createElement("p", map[string]interface{}{"class": "text-gray-700"}, Text(post.Description)),
-		)
-	}
-
-	// Pagination component
-	paginationComponent := func(totalPages int) *Element {
-		fmt.Printf("paginationComponent: Creating pagination for %d pages\n", totalPages)
-		paginationItems := []interface{}{}
-
-		if currentPage() > 1 {
-			prevPage := currentPage() - 1
-			paginationItems = append(paginationItems, createElement("button", map[string]interface{}{
-				"class":   "mx-1 px-3 py-1 border bg-white text-blue-500 rounded-full hover:bg-blue-500 hover:text-white transition duration-200",
-				"onclick": goToPage(prevPage),
-			}, Text("Previous")))
-		}
-
-		for i := 1; i <= totalPages; i++ {
-			page := i
-			pageClass := "mx-1 px-3 py-1 border rounded-full"
-			if currentPage() == i {
-				pageClass += " bg-blue-500 text-white"
-			} else {
-				pageClass += " bg-white text-blue-500 hover:bg-blue-500 hover:text-white transition duration-200"
-			}
-			paginationItems = append(paginationItems, createElement("button", map[string]interface{}{
-				"class":   pageClass,
-				"onclick": goToPage(page),
-			}, Text(fmt.Sprintf("%d", i))))
-		}
-
-		if currentPage() < totalPages {
-			nextPage := currentPage() + 1
-			paginationItems = append(paginationItems, createElement("button", map[string]interface{}{
-				"class":   "mx-1 px-3 py-1 border bg-white text-blue-500 rounded-full hover:bg-blue-500 hover:text-white transition duration-200",
-				"onclick": goToPage(nextPage),
-			}, Text("Next")))
-		}
-
-		return createElement("div", map[string]interface{}{"class": "flex justify-center mt-4"}, paginationItems...)
-	}
-
-	// Breadcrumbs component
-	breadcrumbsComponent := func() *Element {
-		fmt.Println("breadcrumbsComponent: Creating breadcrumbs")
-		breadcrumbs := []interface{}{
-			createElement("a", map[string]interface{}{
-				"href":  "/",
-				"class": "text-blue-500 hover:underline transition duration-200",
-			}, Text("Home")),
-		}
-		if currentBlog() != nil {
-			breadcrumbs = append(breadcrumbs, Text(" / "))
-			breadcrumbs = append(breadcrumbs, createElement("a", map[string]interface{}{
-				"href":    "#",
-				"onclick": backToList,
-				"class":   "text-blue-500 hover:underline transition duration-200",
-			}, Text("Blog")))
-			breadcrumbs = append(breadcrumbs, Text(" / "))
-			breadcrumbs = append(breadcrumbs, createElement("span", nil, Text(currentBlog().Title)))
-		} else {
-			breadcrumbs = append(breadcrumbs, Text(" / "))
-			breadcrumbs = append(breadcrumbs, createElement("span", nil, Text("Blog")))
-		}
-		return createElement("nav", map[string]interface{}{"class": "text-sm mb-4 text-gray-700"}, breadcrumbs...)
-	}
-
-	var content *Element
-
-	if currentBlog() != nil {
-		// Render single blog post
-		fmt.Println("BlogListComponent: Rendering single blog post view")
-		post := currentBlog()
-
-		// Find index of current blog in blogs
-		currentIndex := -1
-		for i, b := range blogs() {
-			if b.Slug == post.Slug {
-				currentIndex = i
-				break
-			}
-		}
-
-		// Determine previous and next posts
-		var prevPost, nextPost *BlogPost
-		if currentIndex > 0 {
-			prevPost = &blogs()[currentIndex-1]
-		}
-		if currentIndex >= 0 && currentIndex < len(blogs())-1 {
-			nextPost = &blogs()[currentIndex+1]
-		}
-
-		// Build navigation buttons
-		navButtons := []interface{}{}
-
-		if prevPost != nil {
-			navButtons = append(navButtons, createElement("button", map[string]interface{}{
-				"class":   "mx-1 px-3 py-1 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition duration-200",
-				"onclick": viewBlog(prevPost.Slug), // Use viewBlog with prevPost.Slug
-			}, Text("Previous")))
-		}
-
-		if nextPost != nil {
-			navButtons = append(navButtons, createElement("button", map[string]interface{}{
-				"class":   "mx-1 px-3 py-1 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition duration-200",
-				"onclick": viewBlog(nextPost.Slug), // Use viewBlog with nextPost.Slug
-			}, Text("Next")))
-		}
-
-		// Back button
-		backButton := createElement("button", map[string]interface{}{
-			"class":   "mb-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-200",
-			"onclick": backToList,
-		}, Text("Back to List"))
-
-		content = createElement("div", nil,
-			breadcrumbsComponent(),
-			backButton,
-			createElement("article", map[string]interface{}{"class": "prose lg:prose-xl"},
-				createElement("h1", map[string]interface{}{"class": "text-3xl font-bold mb-4"}, Text(post.Title)),
-				createElement("p", map[string]interface{}{"class": "text-gray-600 mb-4"}, Text(post.Date.Format("January 2, 2006"))),
-				createElement("div", map[string]interface{}{"dangerouslySetInnerHTML": map[string]string{"__html": post.Content}}),
-			),
-			createElement("div", map[string]interface{}{"class": "flex justify-between mt-8"}, navButtons...),
-		)
-	} else {
-		// Render blog list with pagination
-		fmt.Println("BlogListComponent: Rendering blog list view")
-		totalBlogs := len(blogs())
-		blogsPerPage := 3
-		totalPages := (totalBlogs + blogsPerPage - 1) / blogsPerPage
-		if totalPages == 0 {
-			totalPages = 1
-		}
-		if currentPage() > totalPages {
-			setCurrentPage(totalPages)
-		} else if currentPage() < 1 {
-			setCurrentPage(1)
-		}
-		startIndex := (currentPage() - 1) * blogsPerPage
-		endIndex := startIndex + blogsPerPage
-		if endIndex > totalBlogs {
-			endIndex = totalBlogs
-		}
-		blogsForPage := blogs()[startIndex:endIndex]
-
-		blogListItems := []interface{}{}
-		for _, post := range blogsForPage {
-			blogListItems = append(blogListItems, blogListItem(post))
-		}
-
-		content = createElement("div", nil,
-			breadcrumbsComponent(),
-			createElement("div", nil, blogListItems...),
-			paginationComponent(totalPages),
-		)
-	}
-
-	return createElement("div", map[string]interface{}{"class": "container mx-auto p-4 pb-8"}, content)
-}
-
-
-

@@ -1,10 +1,10 @@
+// ./main.go
+
 package main
 
 import (
 	"fmt"
-	// html "github.com/monstercameron/GoWebComponents/components"
 	"github.com/monstercameron/GoWebComponents/fiber"
-	// testing "github.com/monstercameron/GoWebComponents/checkingsomething"
 	"sync"
 )
 
@@ -23,8 +23,9 @@ func main() {
 	fmt.Println("Main: Starting fiber.Example1")
 
 	// Call the Example1 function from the html package, which handles the HTML rendering.
-	// html.Example4()
 	fiber.Example1()
+	// fiber.Example2()
+	// fiber.Example3()
 
 	// Print a message indicating the end of the main function logic.
 	// At this point, the Example1 function has already executed.
