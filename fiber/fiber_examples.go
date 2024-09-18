@@ -231,8 +231,12 @@ func Example2() {
 		}
 
 		useEffect(func() {
-			fmt.Println("useEffect: Component mounted")
+			fmt.Println("useEffect: I should only appear once when the component is mounted")
 		}, emptyDeps)
+
+		useEffect(func() {
+			fmt.Println("useEffect: Count changed:", count())
+		}, []interface{}{count()})
 
 		return createElement("div", map[string]interface{}{"class": "container mx-auto p-4"},
 			createElement("h1", map[string]interface{}{"class": "text-2xl font-bold mb-4"},

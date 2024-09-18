@@ -97,64 +97,53 @@ func useState[T any](initialValue T) (func() T, func(T)) {
 }
 
 type Hooks struct {
-	state              []interface{}
-	deps               [][]interface{}
-	effects            []func()
-	effectsInitialized []bool
-	index              int
+	state []interface{}
+	deps  [][]interface{}
+	index int
 }
 
 func useEffect(effect func(), deps []interface{}) {
 	currentFiber := getCurrentFiber()
 	if currentFiber.hooks == nil {
 		currentFiber.hooks = &Hooks{
-			state:              make([]interface{}, 0),
-			deps:               make([][]interface{}, 0),
-			effects:            make([]func(), 0),
-			effectsInitialized: make([]bool, 0),
+			state: []interface{}{},
+			deps:  [][]interface{}{},
 		}
 	}
 
 	position := currentFiber.hooks.index
 	currentFiber.hooks.index++
 
-	// Extend slices if necessary
-	for len(currentFiber.hooks.effectsInitialized) <= position {
-		currentFiber.hooks.effectsInitialized = append(currentFiber.hooks.effectsInitialized, false)
-		currentFiber.hooks.deps = append(currentFiber.hooks.deps, nil)
-	}
-
-	isFirstRun := !currentFiber.hooks.effectsInitialized[position]
-	var shouldRunEffect bool
-
-	if isFirstRun {
-		shouldRunEffect = true
-		fmt.Printf("useEffect: First run at position %d, will execute effect\n", position)
-		currentFiber.hooks.effectsInitialized[position] = true
-	} else if deps == nil {
-		shouldRunEffect = true
-		fmt.Printf("useEffect: Nil deps at position %d, will execute effect\n", position)
+	if len(currentFiber.hooks.deps) <= position {
+		// First time this effect is used
+		currentFiber.hooks.deps = append(currentFiber.hooks.deps, deps)
+		// Schedule the effect
+		currentFiber.effects = append(currentFiber.effects, effect)
 	} else {
 		prevDeps := currentFiber.hooks.deps[position]
-		shouldRunEffect = !areDepsEqual(prevDeps, deps)
-		fmt.Printf("useEffect: Comparing deps at position %d, should run effect: %v\n", position, shouldRunEffect)
-	}
+		var shouldRunEffect bool
 
-	if shouldRunEffect {
-		fmt.Printf("useEffect: Scheduling effect at position %d\n", position)
-		currentFiber.hooks.effects = append(currentFiber.hooks.effects, effect)
-	} else {
-		fmt.Printf("useEffect: Not scheduling effect at position %d, deps unchanged\n", position)
-	}
+		if deps == nil {
+			// If deps is nil, run effect on every render
+			shouldRunEffect = true
+		} else if len(deps) == 0 {
+			// If deps is an empty slice, only run once (on mount)
+			shouldRunEffect = prevDeps == nil
+		} else {
+			// Otherwise, check if dependencies have changed
+			shouldRunEffect = !areDepsEqual(prevDeps, deps)
+		}
 
-	// Always update the deps
-	currentFiber.hooks.deps[position] = deps
+		if shouldRunEffect {
+			// Update the dependencies
+			currentFiber.hooks.deps[position] = deps
+			// Schedule the effect
+			currentFiber.effects = append(currentFiber.effects, effect)
+		}
+	}
 }
 
 func areDepsEqual(prevDeps, newDeps []interface{}) bool {
-	if prevDeps == nil && newDeps == nil {
-		return true
-	}
 	if prevDeps == nil || newDeps == nil {
 		return false
 	}
@@ -180,6 +169,7 @@ type Fiber struct {
 	child     *Fiber
 	sibling   *Fiber
 	effectTag string
+	effects   []func()
 }
 
 // getCurrentFiber retrieves the current working fiber.
@@ -258,18 +248,13 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 		switch fiber.typeOf.(type) {
 		case func(map[string]interface{}) *Element:
 			// Function component
-			fmt.Println("performUnitOfWork: Rendering function component.")
 			componentFunc := fiber.typeOf.(func(map[string]interface{}) *Element)
 			wipFiber = fiber
-			fmt.Printf("performUnitOfWork: Current fiber set to %v.\n", wipFiber.typeOf)
 
 			// Preserve hooks from alternate fiber
 			var oldHooks *Hooks
 			if fiber.alternate != nil && fiber.alternate.hooks != nil {
 				oldHooks = fiber.alternate.hooks
-				fmt.Println("performUnitOfWork: Preserving hooks from alternate fiber.")
-			} else {
-				fmt.Println("performUnitOfWork: No hooks found in alternate fiber.")
 			}
 
 			// Initialize hooks
@@ -280,23 +265,22 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 				}
 				copy(wipFiber.hooks.state, oldHooks.state)
 				copy(wipFiber.hooks.deps, oldHooks.deps)
-				fmt.Println("performUnitOfWork: Copied hooks from alternate fiber.")
 			} else {
 				wipFiber.hooks = &Hooks{
 					state: []interface{}{},
 					deps:  [][]interface{}{},
 				}
-				fmt.Println("performUnitOfWork: Initialized new hooks for fiber.")
 			}
 			wipFiber.hooks.index = 0
 
+			// Initialize effects
+			wipFiber.effects = []func(){}
+
 			element := componentFunc(fiber.props)
 			if element == nil {
-				fmt.Println("performUnitOfWork: Function component returned nil element.")
 				return nil
 			}
 
-			fmt.Println("performUnitOfWork: Reconciling children from function component.")
 			reconcileChildren(fiber, []interface{}{element})
 		case string:
 			// Host component (HTML element)
@@ -514,14 +498,13 @@ func commitRoot() {
 }
 
 func executeEffects() {
-	fmt.Println("executeEffects: Executing side effects")
 	var effectFibers []*Fiber
 	var collectEffects func(fiber *Fiber)
 	collectEffects = func(fiber *Fiber) {
 		if fiber == nil {
 			return
 		}
-		if fiber.hooks != nil && len(fiber.hooks.effects) > 0 {
+		if len(fiber.effects) > 0 {
 			effectFibers = append(effectFibers, fiber)
 		}
 		collectEffects(fiber.child)
@@ -533,17 +516,14 @@ func executeEffects() {
 
 	// Execute effects
 	for _, fiber := range effectFibers {
-		fmt.Printf("executeEffects: Executing effects for fiber %p\n", fiber)
-		for i, effect := range fiber.hooks.effects {
-			fmt.Printf("executeEffects: Running effect %d\n", i)
-			effect()
+		for _, effect := range fiber.effects {
+			if effect != nil {
+				effect()
+			}
 		}
 		// Clear the effects after executing them
-		fiber.hooks.effects = fiber.hooks.effects[:0]
+		fiber.effects = []func(){}
 	}
-
-	// Reset hook index for next render
-	resetHookIndex(currentRoot.child)
 }
 
 func resetHookIndex(fiber *Fiber) {
