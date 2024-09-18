@@ -3,6 +3,7 @@
 package fiber
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -96,10 +97,17 @@ func useState[T any](initialValue T) (func() T, func(T)) {
 	}
 }
 
+type memoizedValue struct {
+	value interface{}
+	deps  []interface{}
+}
+
+// Extend the Hooks struct to include memoized values
 type Hooks struct {
 	state []interface{}
 	deps  [][]interface{}
 	index int
+	memos []memoizedValue
 }
 
 func useEffect(effect func(), deps []interface{}) {
@@ -156,6 +164,42 @@ func areDepsEqual(prevDeps, newDeps []interface{}) bool {
 		}
 	}
 	return true
+}
+
+func useMemo(compute func() interface{}, deps []interface{}) interface{} {
+	currentFiber := getCurrentFiber()
+	if currentFiber.hooks == nil {
+		currentFiber.hooks = &Hooks{
+			state: []interface{}{},
+			deps:  [][]interface{}{},
+			memos: []memoizedValue{},
+		}
+	}
+
+	position := currentFiber.hooks.index
+	currentFiber.hooks.index++
+
+	if len(currentFiber.hooks.memos) <= position {
+		// First time this memo is used
+		value := compute()
+		currentFiber.hooks.memos = append(currentFiber.hooks.memos, memoizedValue{
+			value: value,
+			deps:  deps,
+		})
+		return value
+	}
+
+	memo := &currentFiber.hooks.memos[position]
+	if areDepsEqual(memo.deps, deps) {
+		// Dependencies changed, recompute the value
+		value := compute()
+		memo.value = value
+		memo.deps = deps
+		return value
+	}
+
+	// Dependencies haven't changed, return the memoized value
+	return memo.value
 }
 
 // Fiber represents a unit of work in the virtual DOM tree.
@@ -651,4 +695,102 @@ func requestIdleCallback(callback func(js.Value)) {
 	})
 	rafCallbacks = append(rafCallbacks, cb) // Keep the function alive
 	js.Global().Call("requestIdleCallback", cb)
+}
+
+func useFunc(callback func(js.Value, []js.Value) interface{}) js.Func {
+	cb := js.FuncOf(callback)
+	eventCallbacks = append(eventCallbacks, cb) // Keep callback alive
+	return cb
+}
+
+type FetchState struct {
+	Data    interface{}
+	Error   string
+	Loading bool
+}
+
+type FetchOptions struct {
+	Method  string
+	Headers map[string]interface{}
+	Body    interface{}
+}
+
+func useFetch(url string, options ...FetchOptions) (func() FetchState, func()) {
+	getState, setState := useState(FetchState{Loading: true})
+
+	var opts FetchOptions
+	if len(options) > 0 {
+		opts = options[0]
+	}
+
+	fetchData := func() {
+		fmt.Println("useFetch: Fetching data from", url)
+		
+		// Set loading state
+		setState(FetchState{Loading: true})
+		
+		// Create fetch options
+		fetchOptions := js.Global().Get("Object").New()
+		if opts.Method != "" {
+			fetchOptions.Set("method", opts.Method)
+		}
+		if len(opts.Headers) > 0 {
+			headers := js.Global().Get("Object").New()
+			for key, value := range opts.Headers {
+				headers.Set(key, value)
+			}
+			fetchOptions.Set("headers", headers)
+		}
+		if opts.Body != nil {
+			switch v := opts.Body.(type) {
+			case string:
+				fetchOptions.Set("body", v)
+			default:
+				bodyJSON, err := json.Marshal(v)
+				if err != nil {
+					setState(FetchState{Error: "Error encoding request body: " + err.Error(), Loading: false})
+					return
+				}
+				fetchOptions.Set("body", string(bodyJSON))
+			}
+		}
+
+		fetchPromise := js.Global().Call("fetch", url, fetchOptions)
+		fetchPromise.Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			response := args[0]
+			if !response.Get("ok").Bool() {
+				errorMsg := fmt.Sprintf("HTTP error! status: %s", response.Get("status").String())
+				fmt.Println("useFetch:", errorMsg)
+				setState(FetchState{Error: errorMsg, Loading: false})
+				return nil
+			}
+			response.Call("json").Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				data := args[0]
+				jsonStr := js.Global().Get("JSON").Call("stringify", data).String()
+				var parsedData interface{}
+				err := json.Unmarshal([]byte(jsonStr), &parsedData)
+				if err != nil {
+					fmt.Println("Error parsing data:", err)
+					setState(FetchState{Error: err.Error(), Loading: false})
+				} else {
+					fmt.Println("useFetch: Successfully fetched data")
+					setState(FetchState{Data: parsedData, Loading: false})
+				}
+				return nil
+			}))
+			return nil
+		})).Call("catch", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			err := args[0]
+			errorMsg := fmt.Sprintf("Fetch error: %s", err.Get("message").String())
+			fmt.Println(errorMsg)
+			setState(FetchState{Error: errorMsg, Loading: false})
+			return nil
+		}))
+	}
+
+	useEffect(func() {
+		fetchData()
+	}, []interface{}{url})
+
+	return getState, fetchData
 }

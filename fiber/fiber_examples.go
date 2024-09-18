@@ -214,21 +214,17 @@ func jsEval(expr string) (string, error) {
 
 // Example2 demonstrates the usage of a simple click counter component. The click counter component keeps track of the number of times a button is clicked. It renders a div container with a heading and a button. The button displays the current count. When the button is clicked, the count is incremented and displayed. The component utilizes the useState and useEffect hooks from the GoWebComponents library. The useState hook is used to manage the count state, while the useEffect hook is used to log a message when the component is mounted. Example2 also demonstrates how to render the component into the DOM using the render function.
 func Example2() {
-	fmt.Println("Example2: Starting to render ClickCounter")
+	fmt.Println("Example2: Starting to render ClickCounter with useMemo and useFunc")
 
-	// simple click counter component
+	// simple click counter component with memoized calculation
 	clickCounter := func(props map[string]interface{}) *Element {
 		count, setCount := useState(0)
 
-		handleClick := func() js.Func {
-			cb := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				fmt.Printf("handleClick: Clicked, count is %d\n", count())
-				setCount(count() + 1)
-				return nil
-			})
-			eventCallbacks = append(eventCallbacks, cb) // Keep callback alive
-			return cb
-		}
+		handleClick := useFunc(func(this js.Value, args []js.Value) interface{} {
+			fmt.Printf("handleClick: Clicked, count is %d\n", count())
+			setCount(count() + 1)
+			return nil
+		})
 
 		useEffect(func() {
 			fmt.Println("useEffect: I should only appear once when the component is mounted")
@@ -238,24 +234,40 @@ func Example2() {
 			fmt.Println("useEffect: Count changed:", count())
 		}, []interface{}{count()})
 
+		// Memoized expensive calculation
+		expensiveResult := useMemo(func() interface{} {
+			fmt.Println("Performing expensive calculation...")
+			return expensiveCalculation(count())
+		}, []interface{}{count()})
+
 		return createElement("div", map[string]interface{}{"class": "container mx-auto p-4"},
 			createElement("h1", map[string]interface{}{"class": "text-2xl font-bold mb-4"},
-				Text("Click Counter")),
+				Text("Click Counter with Memoization")),
 			createElement("button", map[string]interface{}{
-				"onclick": handleClick(), // Pass the function reference
+				"onclick": handleClick,
 				"class":   "px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-200",
-			}, Text(fmt.Sprintf("Clicked %d times", count())))) // Pass the function reference for `count`
-
+			}, Text(fmt.Sprintf("Clicked %d times", count()))),
+			createElement("p", map[string]interface{}{"class": "mt-4"},
+				Text(fmt.Sprintf("Expensive calculation result: %v", expensiveResult))))
 	}
 
 	// Start rendering
 	container := js.Global().Get("document").Call("getElementById", "root")
 	if container.IsUndefined() || container.IsNull() {
-		fmt.Println("Example6: Error - No element with id 'root' found in the DOM")
+		fmt.Println("Example2: Error - No element with id 'root' found in the DOM")
 		return
 	}
-	fmt.Println("Example6: Rendering BlogListComponent into the container")
+	fmt.Println("Example2: Rendering ClickCounter into the container")
 	render(createElement(clickCounter, nil), container)
+}
+
+// Simulating an expensive calculation
+func expensiveCalculation(count int) int {
+	fmt.Println("expensiveCalculation: Started")
+	time.Sleep(100 * time.Millisecond) // Simulate expensive operation
+	result := count * 2
+	fmt.Println("expensiveCalculation: Finished")
+	return result
 }
 
 // BlogPost represents a blog post structure.
@@ -545,4 +557,86 @@ func Example3() {
 		return
 	}
 	render(createElement(BlogListComponent, nil), container)
+}
+
+func Example5() {
+	fmt.Println("Example5: Starting to render Star Wars Character Viewer")
+
+	starWarsComponent := func(props map[string]interface{}) *Element {
+		// State for character ID
+		getCharId, setCharId := useState(1)
+
+		// Fetch character data
+		getCharState, refetchChar := useFetch(fmt.Sprintf("https://swapi.dev/api/people/%d", getCharId()))
+
+		// Event handler for "Next Character" button
+		handleNextChar := useFunc(func(this js.Value, args []js.Value) interface{} {
+			setCharId(getCharId() + 1)
+			return nil
+		})
+
+		// Memoized character name
+		getCharName := useMemo(func() interface{} {
+			fmt.Println("useMemo: character name")
+			charState := getCharState()
+			if charState.Data == nil {
+				return "Unknown"
+			}
+			charData, ok := charState.Data.(map[string]interface{})
+			if !ok {
+				return "Unknown"
+			}
+			return charData["name"]
+		}, []interface{}{getCharState()})
+
+		// Side effect for logging and triggering fetch
+		useEffect(func() {
+			fmt.Printf("useEffect: Fetching data for character ID: %d\n", getCharId())
+			refetchChar()
+		}, []interface{}{getCharId()})
+
+		// Render function
+		return createElement("div", map[string]interface{}{"class": "container mx-auto p-4"},
+			createElement("h1", map[string]interface{}{"class": "text-2xl font-bold mb-4"},
+				Text("Star Wars Character Viewer")),
+			createElement("div", map[string]interface{}{"class": "mb-4"},
+				func() *Element {
+					charState := getCharState()
+					if charState.Loading {
+						return createElement("p", nil, Text("Loading..."))
+					}
+					if charState.Error != "" {
+						return createElement("p", map[string]interface{}{"class": "text-red-500"},
+							Text(fmt.Sprintf("Error: %s", charState.Error)))
+					}
+					charData, ok := charState.Data.(map[string]interface{})
+					if !ok {
+						return createElement("p", nil, Text("Error: Unexpected data format"))
+					}
+					return createElement("div", nil,
+						createElement("h2", map[string]interface{}{"class": "text-xl font-semibold"},
+							Text(fmt.Sprintf("Name: %s", charData["name"]))),
+						createElement("p", nil, Text(fmt.Sprintf("Height: %s", charData["height"]))),
+						createElement("p", nil, Text(fmt.Sprintf("Mass: %s", charData["mass"]))),
+						createElement("p", nil, Text(fmt.Sprintf("Hair Color: %s", charData["hair_color"]))),
+						createElement("p", nil, Text(fmt.Sprintf("Eye Color: %s", charData["eye_color"]))))
+				}()),
+			createElement("button",
+				map[string]interface{}{
+					"onclick": handleNextChar,
+					"class":   "px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-200",
+				},
+				Text("Next Character")),
+			createElement("p", map[string]interface{}{"class": "mt-4"},
+				Text(fmt.Sprintf("Memoized Character Name: %s", getCharName))))
+	}
+
+	// Start rendering
+	container := js.Global().Get("document").Call("getElementById", "root")
+	if container.IsUndefined() || container.IsNull() {
+		fmt.Println("Example5: Error - No element with id 'root' found in the DOM")
+		return
+	}
+	fmt.Println("Example5: Rendering Star Wars Character Viewer into the container")
+	render(createElement(starWarsComponent, nil), container)
 }
