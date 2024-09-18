@@ -125,27 +125,12 @@ func useEffect(effect func(), deps []interface{}) {
 	if len(currentFiber.hooks.deps) <= position {
 		// First time this effect is used
 		currentFiber.hooks.deps = append(currentFiber.hooks.deps, deps)
-		// Schedule the effect
 		currentFiber.effects = append(currentFiber.effects, effect)
 	} else {
 		prevDeps := currentFiber.hooks.deps[position]
-		var shouldRunEffect bool
-
-		if deps == nil {
-			// If deps is nil, run effect on every render
-			shouldRunEffect = true
-		} else if len(deps) == 0 {
-			// If deps is an empty slice, only run once (on mount)
-			shouldRunEffect = prevDeps == nil
-		} else {
-			// Otherwise, check if dependencies have changed
-			shouldRunEffect = !areDepsEqual(prevDeps, deps)
-		}
-
-		if shouldRunEffect {
-			// Update the dependencies
+		if !areDepsEqual(prevDeps, deps) {
+			// Dependencies have changed, update them and schedule the effect
 			currentFiber.hooks.deps[position] = deps
-			// Schedule the effect
 			currentFiber.effects = append(currentFiber.effects, effect)
 		}
 	}
@@ -715,7 +700,7 @@ type FetchOptions struct {
 	Body    interface{}
 }
 
-func useFetch(url string, options ...FetchOptions) (func() FetchState, func()) {
+func useFetch2(url string, options ...FetchOptions) (func() FetchState, func()) {
 	getState, setState := useState(FetchState{Loading: true})
 
 	var opts FetchOptions
@@ -793,4 +778,93 @@ func useFetch(url string, options ...FetchOptions) (func() FetchState, func()) {
 	}, []interface{}{url})
 
 	return getState, fetchData
+}
+
+func useFetch(url string, options ...FetchOptions) (func() FetchState, func()) {
+    getState, setState := useState(FetchState{Loading: true})
+    
+    // Use useState to track if this is the initial render
+    getIsInitialRender, setIsInitialRender := useState(true)
+    
+    var opts FetchOptions
+    if len(options) > 0 {
+        opts = options[0]
+    }
+
+    fetchData := func() {
+        fmt.Println("useFetch: Fetching data from", url)
+        
+        // Only set loading state if it's not already loading
+        currentState := getState()
+        if !currentState.Loading {
+            setState(FetchState{Loading: true})
+        }
+        
+        // Create fetch options
+        fetchOptions := js.Global().Get("Object").New()
+        if opts.Method != "" {
+            fetchOptions.Set("method", opts.Method)
+        }
+        if len(opts.Headers) > 0 {
+            headers := js.Global().Get("Object").New()
+            for key, value := range opts.Headers {
+                headers.Set(key, value)
+            }
+            fetchOptions.Set("headers", headers)
+        }
+        if opts.Body != nil {
+            switch v := opts.Body.(type) {
+            case string:
+                fetchOptions.Set("body", v)
+            default:
+                bodyJSON, err := json.Marshal(v)
+                if err != nil {
+                    setState(FetchState{Error: "Error encoding request body: " + err.Error(), Loading: false})
+                    return
+                }
+                fetchOptions.Set("body", string(bodyJSON))
+            }
+        }
+
+        fetchPromise := js.Global().Call("fetch", url, fetchOptions)
+        fetchPromise.Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+            response := args[0]
+            if !response.Get("ok").Bool() {
+                errorMsg := fmt.Sprintf("HTTP error! status: %s", response.Get("status").String())
+                fmt.Println("useFetch:", errorMsg)
+                setState(FetchState{Error: errorMsg, Loading: false})
+                return nil
+            }
+            response.Call("json").Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+                data := args[0]
+                jsonStr := js.Global().Get("JSON").Call("stringify", data).String()
+                var parsedData interface{}
+                err := json.Unmarshal([]byte(jsonStr), &parsedData)
+                if err != nil {
+                    fmt.Println("Error parsing data:", err)
+                    setState(FetchState{Error: err.Error(), Loading: false})
+                } else {
+                    fmt.Println("useFetch: Successfully fetched data")
+                    setState(FetchState{Data: parsedData, Loading: false})
+                }
+                return nil
+            }))
+            return nil
+        })).Call("catch", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+            err := args[0]
+            errorMsg := fmt.Sprintf("Fetch error: %s", err.Get("message").String())
+            fmt.Println(errorMsg)
+            setState(FetchState{Error: errorMsg, Loading: false})
+            return nil
+        }))
+    }
+
+    useEffect(func() {
+        if getIsInitialRender() {
+            setIsInitialRender(false)
+            fetchData()
+        }
+    }, []interface{}{url})
+
+    return getState, fetchData
 }

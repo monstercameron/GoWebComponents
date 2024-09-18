@@ -563,6 +563,8 @@ func Example5() {
 	fmt.Println("Example5: Starting to render Star Wars Character Viewer")
 
 	starWarsComponent := func(props map[string]interface{}) *Element {
+		fmt.Println("Rendering starWarsComponent")
+
 		// State for character ID
 		getCharId, setCharId := useState(1)
 
@@ -571,13 +573,14 @@ func Example5() {
 
 		// Event handler for "Next Character" button
 		handleNextChar := useFunc(func(this js.Value, args []js.Value) interface{} {
+			fmt.Println("handleNextChar: Incrementing character ID")
 			setCharId(getCharId() + 1)
 			return nil
 		})
 
 		// Memoized character name
 		getCharName := useMemo(func() interface{} {
-			fmt.Println("useMemo: character name")
+			fmt.Println("useMemo: Calculating character name")
 			charState := getCharState()
 			if charState.Data == nil {
 				return "Unknown"
@@ -591,17 +594,22 @@ func Example5() {
 
 		// Side effect for logging and triggering fetch
 		useEffect(func() {
-			fmt.Printf("useEffect: Fetching data for character ID: %d\n", getCharId())
+			fmt.Printf("useEffect: Setting up effect for character ID: %d\n", getCharId())
+			// to prevent excessive fetches, only fetch if the character ID is greater than 1 or initial state
+			if getCharId() > 1 {
 			refetchChar()
+			}
 		}, []interface{}{getCharId()})
 
 		// Render function
+		charState := getCharState() // Get the current state here
+		fmt.Printf("Rendering character data. Loading: %v, Error: %v\n", charState.Loading, charState.Error != "")
+
 		return createElement("div", map[string]interface{}{"class": "container mx-auto p-4"},
 			createElement("h1", map[string]interface{}{"class": "text-2xl font-bold mb-4"},
 				Text("Star Wars Character Viewer")),
 			createElement("div", map[string]interface{}{"class": "mb-4"},
 				func() *Element {
-					charState := getCharState()
 					if charState.Loading {
 						return createElement("p", nil, Text("Loading..."))
 					}
