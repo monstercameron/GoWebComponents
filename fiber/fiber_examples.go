@@ -226,19 +226,26 @@ func Example2() {
 			return nil
 		})
 
+		// Effect that runs only on mount
 		useEffect(func() {
 			fmt.Println("useEffect: I should only appear once when the component is mounted")
-		}, emptyDeps)
+		}, nil)
 
+		// Effect that runs when count changes
 		useEffect(func() {
 			fmt.Println("useEffect: Count changed:", count())
-		}, []interface{}{count()})
+		}, count())
+
+		// Effect that runs on every render
+		useEffect(func() {
+			fmt.Println("useEffect: I run on every render")
+		})
 
 		// Memoized expensive calculation
 		expensiveResult := useMemo(func() interface{} {
 			fmt.Println("Performing expensive calculation...")
 			return expensiveCalculation(count())
-		}, []interface{}{count()})
+		}, count())
 
 		return createElement("div", map[string]interface{}{"class": "container mx-auto p-4"},
 			createElement("h1", map[string]interface{}{"class": "text-2xl font-bold mb-4"},
@@ -264,7 +271,7 @@ func Example2() {
 // Simulating an expensive calculation
 func expensiveCalculation(count int) int {
 	fmt.Println("expensiveCalculation: Started")
-	time.Sleep(100 * time.Millisecond) // Simulate expensive operation
+	time.Sleep(1000 * time.Millisecond) // Simulate expensive operation
 	result := count * 2
 	fmt.Println("expensiveCalculation: Finished")
 	return result
@@ -569,18 +576,16 @@ func Example5() {
 		getCharId, setCharId := useState(1)
 
 		// Fetch character data
-		getCharState, refetchChar := useFetch(fmt.Sprintf("https://swapi.dev/api/people/%d", getCharId()))
+		getCharState := useFetch(fmt.Sprintf("https://swapi.dev/api/people/%d", getCharId()))
 
 		// Event handler for "Next Character" button
 		handleNextChar := useFunc(func(this js.Value, args []js.Value) interface{} {
-			fmt.Println("handleNextChar: Incrementing character ID")
 			setCharId(getCharId() + 1)
 			return nil
 		})
 
 		// Memoized character name
 		getCharName := useMemo(func() interface{} {
-			fmt.Println("useMemo: Calculating character name")
 			charState := getCharState()
 			if charState.Data == nil {
 				return "Unknown"
@@ -592,18 +597,8 @@ func Example5() {
 			return charData["name"]
 		}, []interface{}{getCharState()})
 
-		// Side effect for logging and triggering fetch
-		useEffect(func() {
-			fmt.Printf("useEffect: Setting up effect for character ID: %d\n", getCharId())
-			// to prevent excessive fetches, only fetch if the character ID is greater than 1 or initial state
-			if getCharId() > 1 {
-			refetchChar()
-			}
-		}, []interface{}{getCharId()})
-
 		// Render function
 		charState := getCharState() // Get the current state here
-		fmt.Printf("Rendering character data. Loading: %v, Error: %v\n", charState.Loading, charState.Error != "")
 
 		return createElement("div", map[string]interface{}{"class": "container mx-auto p-4"},
 			createElement("h1", map[string]interface{}{"class": "text-2xl font-bold mb-4"},
@@ -647,4 +642,132 @@ func Example5() {
 	}
 	fmt.Println("Example5: Rendering Star Wars Character Viewer into the container")
 	render(createElement(starWarsComponent, nil), container)
+}
+
+// Example4 is a benchmark that renders a bouncing div and tracks render count and FPS
+func Example4() {
+	fmt.Println("Example4: Starting to render BouncingDiv")
+
+	// BallState holds the position and velocity of the ball
+	type BallState struct {
+		X  float64
+		Y  float64
+		DX float64
+		DY float64
+	}
+
+	// BouncingDiv is the component that renders the bouncing ball and FPS/render count
+	bouncingDiv := func(props map[string]interface{}) *Element {
+		// Initialize states
+		getBallState, setBallState := useState(BallState{
+			X:  50.0,
+			Y:  50.0,
+			DX: 5.0,
+			DY: 5.0,
+		})
+		getFPS, setFPS := useState(0)
+		getRenderCount, setRenderCount := useState(0)
+
+		// Start the goroutine to update ball position and FPS
+		useEffect(func() {
+			lastTime := time.Now()
+			frameCount := 0
+
+			go func() {
+				ticker := time.NewTicker(100 * time.Millisecond) // Approximately 60 FPS
+				defer ticker.Stop()
+
+				for range ticker.C {
+					// Get current ball state
+					state := getBallState()
+
+					// Update position
+					state.X += state.DX
+					state.Y += state.DY
+
+					// Check boundaries and reverse direction if necessary
+					if state.X <= 0 || state.X >= 380 {
+						state.DX = -state.DX
+						// Clamp position to boundaries
+						if state.X <= 0 {
+							state.X = 0
+						} else {
+							state.X = 380
+						}
+					}
+					if state.Y <= 0 || state.Y >= 280 {
+						state.DY = -state.DY
+						// Clamp position to boundaries
+						if state.Y <= 0 {
+							state.Y = 0
+						} else {
+							state.Y = 280
+						}
+					}
+
+					// Update the ball state
+					setBallState(state)
+
+					// Increment render count
+					setRenderCount(getRenderCount() + 1)
+
+					// Increment frame count
+					frameCount++
+
+					fmt.Printf("FPS: %d\n",  getFPS())
+
+					// Calculate FPS every second
+					now := time.Now()
+					if now.Sub(lastTime) >= time.Second {
+						setFPS(frameCount)
+						frameCount = 0
+						lastTime = now
+					}
+				}
+			}()
+		}) // No dependencies; runs once on mount
+
+		// Retrieve current states
+		ballState := getBallState()
+		fps := getFPS()
+		renderCount := getRenderCount()
+
+		// Create the bouncing ball element
+		ball := createElement("div", map[string]interface{}{
+			"class": "absolute w-5 h-5 bg-blue-500 rounded-full",
+			"style": fmt.Sprintf("transform: translate(%.2fpx, %.2fpx);", ballState.X, ballState.Y),
+		})
+
+		// Create the FPS display element
+		fpsDisplay := createElement("div", map[string]interface{}{
+			"class": "absolute top-2 left-2 text-xs text-gray-500",
+		},
+			Text(fmt.Sprintf("FPS: %d", fps)),
+		)
+
+		// Create the Render Count display element
+		renderCountDisplay := createElement("div", map[string]interface{}{
+			"class": "absolute bottom-2 right-2 text-xs text-gray-500",
+		},
+			Text(fmt.Sprintf("Render count: %d", renderCount)),
+		)
+
+		// Create the outer container with the ball and displays as children
+		return createElement("div", map[string]interface{}{
+			"class": "relative w-96 h-80 bg-gray-200 overflow-hidden",
+		},
+			ball,
+			fpsDisplay,
+			renderCountDisplay,
+		)
+	}
+
+	// Start rendering
+	container := js.Global().Get("document").Call("getElementById", "root")
+	if container.IsUndefined() || container.IsNull() {
+		fmt.Println("Example4: Error - No element with id 'root' found in the DOM")
+		return
+	}
+	fmt.Println("Example4: Rendering BouncingDiv into the container")
+	render(createElement(bouncingDiv, nil), container)
 }

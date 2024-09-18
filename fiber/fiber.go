@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"syscall/js"
 )
 
@@ -57,44 +58,50 @@ func useState[T any](initialValue T) (func() T, func(T)) {
 	currentFiber := getCurrentFiber()
 	if currentFiber.hooks == nil {
 		currentFiber.hooks = &Hooks{}
-		fmt.Println("useState: Initialized hooks for the current fiber.")
 	}
 
 	position := currentFiber.hooks.index
-	fmt.Printf("useState: Hook position %d\n", position)
 	currentFiber.hooks.index++
 
 	if len(currentFiber.hooks.state) > position {
 		// Existing state
-		getter := func() T {
-			stateValue := currentFiber.hooks.state[position].(T)
-			fmt.Printf("stateValue: Retrieved existing state at position %d: %v\n", position, stateValue)
-			return stateValue
-		}
-		setter := func(newValue T) {
-			if !reflect.DeepEqual(currentFiber.hooks.state[position], newValue) {
-				currentFiber.hooks.state[position] = newValue
-				scheduleUpdate(currentFiber)
-			}
-		}
-		return getter, setter
 	} else {
 		// Initial state
-		fmt.Printf("stateValue: Initializing state at position %d with value: %v\n", position, initialValue)
 		currentFiber.hooks.state = append(currentFiber.hooks.state, initialValue)
-		getter := func() T {
-			stateValue := currentFiber.hooks.state[position].(T)
-			fmt.Printf("stateValue: Retrieved initialized state at position %d: %v\n", position, stateValue)
-			return stateValue
-		}
-		setter := func(newValue T) {
-			if !reflect.DeepEqual(currentFiber.hooks.state[position], newValue) {
-				currentFiber.hooks.state[position] = newValue
-				scheduleUpdate(currentFiber)
-			}
-		}
-		return getter, setter
 	}
+
+	// Capture hooks and position
+	hooks := currentFiber.hooks
+	idx := position
+
+	getter := func() T {
+		return hooks.state[idx].(T)
+	}
+
+	setter := func(newValue T) {
+		if !reflect.DeepEqual(hooks.state[idx], newValue) {
+			hooks.state[idx] = newValue
+			scheduleUpdateAtRoot()
+		}
+	}
+
+	return getter, setter
+}
+
+func scheduleUpdateAtRoot() {
+	if currentRoot == nil {
+		// fmt.Println("scheduleUpdateAtRoot: currentRoot is nil!")
+		return
+	}
+	wipRoot = &Fiber{
+		typeOf:    currentRoot.typeOf,
+		dom:       currentRoot.dom,
+		props:     currentRoot.props,
+		alternate: currentRoot,
+	}
+	nextUnitOfWork = wipRoot
+	deletions = []*Fiber{}
+	requestIdleCallback(workLoop)
 }
 
 type memoizedValue struct {
@@ -110,7 +117,7 @@ type Hooks struct {
 	memos []memoizedValue
 }
 
-func useEffect(effect func(), deps []interface{}) {
+func useEffect(effect func(), deps ...interface{}) {
 	currentFiber := getCurrentFiber()
 	if currentFiber.hooks == nil {
 		currentFiber.hooks = &Hooks{
@@ -128,8 +135,9 @@ func useEffect(effect func(), deps []interface{}) {
 		currentFiber.effects = append(currentFiber.effects, effect)
 	} else {
 		prevDeps := currentFiber.hooks.deps[position]
-		if !areDepsEqual(prevDeps, deps) {
-			// Dependencies have changed, update them and schedule the effect
+		shouldRun := len(deps) == 0 || !areDepsEqual(prevDeps, deps)
+		if shouldRun {
+			// Dependencies have changed or no dependencies provided, update them and schedule the effect
 			currentFiber.hooks.deps[position] = deps
 			currentFiber.effects = append(currentFiber.effects, effect)
 		}
@@ -137,9 +145,6 @@ func useEffect(effect func(), deps []interface{}) {
 }
 
 func areDepsEqual(prevDeps, newDeps []interface{}) bool {
-	if prevDeps == nil || newDeps == nil {
-		return false
-	}
 	if len(prevDeps) != len(newDeps) {
 		return false
 	}
@@ -151,7 +156,7 @@ func areDepsEqual(prevDeps, newDeps []interface{}) bool {
 	return true
 }
 
-func useMemo(compute func() interface{}, deps []interface{}) interface{} {
+func useMemo(compute func() interface{}, deps ...interface{}) interface{} {
 	currentFiber := getCurrentFiber()
 	if currentFiber.hooks == nil {
 		currentFiber.hooks = &Hooks{
@@ -175,9 +180,16 @@ func useMemo(compute func() interface{}, deps []interface{}) interface{} {
 	}
 
 	memo := &currentFiber.hooks.memos[position]
-	if areDepsEqual(memo.deps, deps) {
-		// Dependencies changed, recompute the value
-		value := compute()
+	shouldCompute := len(deps) == 0 || !areDepsEqual(memo.deps, deps)
+	if shouldCompute {
+		var value interface{}
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			value = compute()
+		}()
+		wg.Wait()
 		memo.value = value
 		memo.deps = deps
 		return value
@@ -208,7 +220,7 @@ func getCurrentFiber() *Fiber {
 
 // scheduleUpdate triggers a re-render of the component.
 func scheduleUpdate(fiber *Fiber) {
-	fmt.Println("scheduleUpdate: Scheduling update")
+	// fmt.Println("scheduleUpdate: Scheduling update")
 	wipRoot = &Fiber{
 		typeOf:    "ROOT",
 		dom:       currentRoot.dom,
@@ -217,13 +229,13 @@ func scheduleUpdate(fiber *Fiber) {
 	}
 	nextUnitOfWork = wipRoot
 	deletions = []*Fiber{}
-	fmt.Println("scheduleUpdate: wipRoot set and workLoop scheduled")
+	// fmt.Println("scheduleUpdate: wipRoot set and workLoop scheduled")
 	requestIdleCallback(workLoop)
 }
 
 // render starts the rendering process.
 func render(element *Element, container js.Value) {
-	fmt.Println("render: Starting rendering process.")
+	// fmt.Println("render: Starting rendering process.")
 	wipRoot = &Fiber{
 		typeOf:    "ROOT", // Assign a type to the root fiber
 		dom:       container,
@@ -233,45 +245,45 @@ func render(element *Element, container js.Value) {
 	fmt.Println("render: Root fiber created.")
 	nextUnitOfWork = wipRoot
 	deletions = []*Fiber{}
-	fmt.Println("render: Scheduling work loop.")
+	// fmt.Println("render: Scheduling work loop.")
 	requestIdleCallback(workLoop)
 }
 
 // workLoop performs work until there is no more work left or the deadline expires.
 func workLoop(deadline js.Value) {
-	fmt.Println("workLoop: Starting work loop.")
+	// fmt.Println("workLoop: Starting work loop.")
 	var shouldYield bool = false
 	for nextUnitOfWork != nil && !shouldYield {
-		fmt.Println("workLoop: Performing a unit of work.")
+		// fmt.Println("workLoop: Performing a unit of work.")
 		nextUnitOfWork = performUnitOfWork(nextUnitOfWork)
 		shouldYield = deadline.Call("timeRemaining").Float() < 1
-		fmt.Printf("workLoop: timeRemaining=%f, shouldYield=%v\n", deadline.Call("timeRemaining").Float(), shouldYield)
+		// fmt.Printf("workLoop: timeRemaining=%f, shouldYield=%v\n", deadline.Call("timeRemaining").Float(), shouldYield)
 	}
 
 	if wipRoot != nil && nextUnitOfWork == nil {
-		fmt.Println("workLoop: No more units of work. Committing root.")
+		// fmt.Println("workLoop: No more units of work. Committing root.")
 		commitRoot()
 	}
 
 	if nextUnitOfWork != nil {
-		fmt.Println("workLoop: Work remains. Scheduling next work loop.")
+		// fmt.Println("workLoop: Work remains. Scheduling next work loop.")
 		requestIdleCallback(workLoop)
 	} else {
-		fmt.Println("workLoop: All work completed.")
+		// fmt.Println("workLoop: All work completed.")
 	}
 }
 
 // performUnitOfWork performs a single unit of work.
 func performUnitOfWork(fiber *Fiber) *Fiber {
 	if fiber == nil {
-		fmt.Println("performUnitOfWork: Fiber is nil.")
+		// fmt.Println("performUnitOfWork: Fiber is nil.")
 		return nil
 	}
 
-	fmt.Printf("performUnitOfWork: Processing fiber of type %v.\n", fiber.typeOf)
+	// fmt.Printf("performUnitOfWork: Processing fiber of type %v.\n", fiber.typeOf)
 
 	if fiber.typeOf == nil || fiber.typeOf == "ROOT" {
-		fmt.Println("performUnitOfWork: Fiber has typeOf nil or ROOT, reconciling children.")
+		// fmt.Println("performUnitOfWork: Fiber has typeOf nil or ROOT, reconciling children.")
 		reconcileChildren(fiber, fiber.props["children"].([]interface{}))
 	} else {
 		switch fiber.typeOf.(type) {
@@ -293,7 +305,14 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 					deps:  make([][]interface{}, len(oldHooks.deps)),
 				}
 				copy(wipFiber.hooks.state, oldHooks.state)
-				copy(wipFiber.hooks.deps, oldHooks.deps)
+
+				// Deep copy the deps slices
+				for i := range oldHooks.deps {
+					if oldHooks.deps[i] != nil {
+						wipFiber.hooks.deps[i] = make([]interface{}, len(oldHooks.deps[i]))
+						copy(wipFiber.hooks.deps[i], oldHooks.deps[i])
+					}
+				}
 			} else {
 				wipFiber.hooks = &Hooks{
 					state: []interface{}{},
@@ -313,52 +332,52 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 			reconcileChildren(fiber, []interface{}{element})
 		case string:
 			// Host component (HTML element)
-			fmt.Printf("performUnitOfWork: Handling host component of type '%s'.\n", fiber.typeOf.(string))
+			// fmt.Printf("performUnitOfWork: Handling host component of type '%s'.\n", fiber.typeOf.(string))
 			if fiber.dom.IsUndefined() || fiber.dom.IsNull() {
-				fmt.Println("performUnitOfWork: Creating DOM node for host component.")
+				// fmt.Println("performUnitOfWork: Creating DOM node for host component.")
 				fiber.dom = createDom(fiber)
-				fmt.Println("performUnitOfWork: DOM node created.")
+				// fmt.Println("performUnitOfWork: DOM node created.")
 			}
 
 			if fiber.props == nil {
-				fmt.Println("performUnitOfWork: Fiber props are nil. Skipping children reconciliation.")
+				// fmt.Println("performUnitOfWork: Fiber props are nil. Skipping children reconciliation.")
 				return nil
 			}
 
 			if propsChildren, ok := fiber.props["children"]; ok {
-				fmt.Println("performUnitOfWork: Reconciling children of host component.")
+				// fmt.Println("performUnitOfWork: Reconciling children of host component.")
 				elements := propsChildren.([]interface{})
 				reconcileChildren(fiber, elements)
 			}
 		default:
-			fmt.Printf("performUnitOfWork: Unhandled fiber type %T.\n", fiber.typeOf)
+			// fmt.Printf("performUnitOfWork: Unhandled fiber type %T.\n", fiber.typeOf)
 		}
 	}
 
-	fmt.Printf("performUnitOfWork: Completed processing fiber of type %v.\n", fiber.typeOf)
+	// fmt.Printf("performUnitOfWork: Completed processing fiber of type %v.\n", fiber.typeOf)
 
 	// Traverse to child fibers
 	if fiber.child != nil {
-		fmt.Printf("performUnitOfWork: Moving to child fiber of type %v.\n", fiber.child.typeOf)
+		// fmt.Printf("performUnitOfWork: Moving to child fiber of type %v.\n", fiber.child.typeOf)
 		return fiber.child
 	}
 
 	nextFiber := fiber
 	for nextFiber != nil {
 		if nextFiber.sibling != nil {
-			fmt.Printf("performUnitOfWork: Moving to sibling fiber of type %v.\n", nextFiber.sibling.typeOf)
+			// fmt.Printf("performUnitOfWork: Moving to sibling fiber of type %v.\n", nextFiber.sibling.typeOf)
 			return nextFiber.sibling
 		}
-		fmt.Println("performUnitOfWork: Moving up to parent fiber.")
+		// fmt.Println("performUnitOfWork: Moving up to parent fiber.")
 		nextFiber = nextFiber.parent
 	}
-	fmt.Println("performUnitOfWork: No more fibers to process.")
+	// fmt.Println("performUnitOfWork: No more fibers to process.")
 	return nil
 }
 
 // createDom creates a DOM node from a fiber.
 func createDom(fiber *Fiber) js.Value {
-	fmt.Printf("createDom: Creating DOM for fiber type %v\n", fiber.typeOf)
+	// fmt.Printf("createDom: Creating DOM for fiber type %v\n", fiber.typeOf)
 	var dom js.Value
 	switch t := fiber.typeOf.(type) {
 	case string:
@@ -369,7 +388,7 @@ func createDom(fiber *Fiber) js.Value {
 		}
 	default:
 		// Function components do not create DOM nodes here
-		fmt.Println("createDom: Function component, no DOM node created")
+		// fmt.Println("createDom: Function component, no DOM node created")
 		return js.Value{}
 	}
 
@@ -381,19 +400,19 @@ func createDom(fiber *Fiber) js.Value {
 		if name == "dangerouslySetInnerHTML" {
 			// Set innerHTML directly
 			htmlContent := value.(map[string]string)["__html"]
-			fmt.Println("createDom: Setting innerHTML")
+			// fmt.Println("createDom: Setting innerHTML")
 			dom.Set("innerHTML", htmlContent)
 			continue
 		}
 		if len(name) > 2 && name[:2] == "on" {
 			// Event handlers
 			eventType := strings.ToLower(name[2:]) // Convert event type to lowercase
-			fmt.Printf("createDom: Adding event listener for %s\n", eventType)
+			// fmt.Printf("createDom: Adding event listener for %s\n", eventType)
 
 			// Ensure the value is of the correct function type
 			eventHandler, ok := value.(js.Func)
 			if !ok {
-				fmt.Printf("createDom: Event handler for %s is not a js.Func\n", eventType)
+				// fmt.Printf("createDom: Event handler for %s is not a js.Func\n", eventType)
 				continue
 			}
 
@@ -402,12 +421,12 @@ func createDom(fiber *Fiber) js.Value {
 		}
 		if name == "class" {
 			// Handle 'class' attribute using setAttribute
-			fmt.Printf("createDom: Setting attribute 'class' to '%v'\n", value)
+			// fmt.Printf("createDom: Setting attribute 'class' to '%v'\n", value)
 			dom.Call("setAttribute", "class", value)
 			continue
 		}
 		// Set other properties directly
-		fmt.Printf("createDom: Setting property '%s' to '%v'\n", name, value)
+		// fmt.Printf("createDom: Setting property '%s' to '%v'\n", name, value)
 		dom.Set(name, value)
 	}
 	return dom
@@ -508,7 +527,7 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 
 // commitRoot commits the changes to the DOM.
 func commitRoot() {
-	fmt.Println("commitRoot: Starting to commit changes to DOM")
+	// fmt.Println("commitRoot: Starting to commit changes to DOM")
 	for _, deletion := range deletions {
 		// fmt.Printf("commitRoot: Processing deletion for fiber type %v\n", deletion.typeOf)
 		commitWork(deletion)
@@ -543,16 +562,24 @@ func executeEffects() {
 	// Collect fibers with effects starting from the root
 	collectEffects(currentRoot.child)
 
-	// Execute effects
+	var wg sync.WaitGroup
+
+	// Execute effects in parallel
 	for _, fiber := range effectFibers {
 		for _, effect := range fiber.effects {
 			if effect != nil {
-				effect()
+				wg.Add(1)
+				go func(effect func()) {
+					defer wg.Done()
+					effect()
+				}(effect)
 			}
 		}
 		// Clear the effects after executing them
 		fiber.effects = []func(){}
 	}
+
+	wg.Wait()
 }
 
 func resetHookIndex(fiber *Fiber) {
@@ -609,20 +636,20 @@ func commitWork(fiber *Fiber) {
 
 func commitDeletion(fiber *Fiber, domParent js.Value) {
 	if !fiber.dom.IsUndefined() && !fiber.dom.IsNull() {
-		fmt.Printf("commitDeletion: Removing child %v from parent %v\n", fiber.dom, domParent)
+		// fmt.Printf("commitDeletion: Removing child %v from parent %v\n", fiber.dom, domParent)
 		domParent.Call("removeChild", fiber.dom)
 
 		// Release event callbacks associated with this fiber
 		if fiber.hooks != nil {
 			for _, state := range fiber.hooks.state {
 				if fn, ok := state.(js.Func); ok {
-					fmt.Println("commitDeletion: Releasing event callback")
+					// fmt.Println("commitDeletion: Releasing event callback")
 					fn.Release()
 				}
 			}
 		}
 	} else if fiber.child != nil {
-		fmt.Println("commitDeletion: Deleting child fibers recursively")
+		// fmt.Println("commitDeletion: Deleting child fibers recursively")
 		commitDeletion(fiber.child, domParent)
 	}
 }
@@ -634,13 +661,13 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 	for name, oldValue := range oldProps {
 		if strings.HasPrefix(name, "on") {
 			eventType := strings.ToLower(name[2:])
-			fmt.Printf("updateDom: Removing event listener for %s\n", eventType)
+			// fmt.Printf("updateDom: Removing event listener for %s\n", eventType)
 			dom.Call("removeEventListener", eventType, oldValue.(js.Func))
 		}
 
 		// Remove properties that no longer exist, excluding event listeners
 		if newProps[name] == nil && !strings.HasPrefix(name, "on") {
-			fmt.Printf("updateDom: Removing property '%s'\n", name)
+			// fmt.Printf("updateDom: Removing property '%s'\n", name)
 			dom.Set(name, js.Undefined())
 		}
 	}
@@ -667,7 +694,7 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 			dom.Call("setAttribute", "class", value)
 			continue
 		}
-		fmt.Printf("updateDom: Setting property '%s' to '%v'\n", name, value)
+		// fmt.Printf("updateDom: Setting property '%s' to '%v'\n", name, value)
 		dom.Set(name, value)
 	}
 }
@@ -700,6 +727,11 @@ type FetchOptions struct {
 	Body    interface{}
 }
 
+type FetchResult struct {
+	Data interface{}
+	Err  error
+}
+
 func useFetch2(url string, options ...FetchOptions) (func() FetchState, func()) {
 	getState, setState := useState(FetchState{Loading: true})
 
@@ -710,10 +742,10 @@ func useFetch2(url string, options ...FetchOptions) (func() FetchState, func()) 
 
 	fetchData := func() {
 		fmt.Println("useFetch: Fetching data from", url)
-		
+
 		// Set loading state
 		setState(FetchState{Loading: true})
-		
+
 		// Create fetch options
 		fetchOptions := js.Global().Get("Object").New()
 		if opts.Method != "" {
@@ -780,91 +812,132 @@ func useFetch2(url string, options ...FetchOptions) (func() FetchState, func()) 
 	return getState, fetchData
 }
 
-func useFetch(url string, options ...FetchOptions) (func() FetchState, func()) {
-    getState, setState := useState(FetchState{Loading: true})
-    
-    // Use useState to track if this is the initial render
-    getIsInitialRender, setIsInitialRender := useState(true)
-    
-    var opts FetchOptions
-    if len(options) > 0 {
-        opts = options[0]
-    }
+func useFetch(url string) func() FetchState {
+	getState, setState := useState(FetchState{Loading: true, Data: nil, Error: ""})
 
-    fetchData := func() {
-        fmt.Println("useFetch: Fetching data from", url)
-        
-        // Only set loading state if it's not already loading
-        currentState := getState()
-        if !currentState.Loading {
-            setState(FetchState{Loading: true})
-        }
-        
-        // Create fetch options
-        fetchOptions := js.Global().Get("Object").New()
-        if opts.Method != "" {
-            fetchOptions.Set("method", opts.Method)
-        }
-        if len(opts.Headers) > 0 {
-            headers := js.Global().Get("Object").New()
-            for key, value := range opts.Headers {
-                headers.Set(key, value)
-            }
-            fetchOptions.Set("headers", headers)
-        }
-        if opts.Body != nil {
-            switch v := opts.Body.(type) {
-            case string:
-                fetchOptions.Set("body", v)
-            default:
-                bodyJSON, err := json.Marshal(v)
-                if err != nil {
-                    setState(FetchState{Error: "Error encoding request body: " + err.Error(), Loading: false})
-                    return
-                }
-                fetchOptions.Set("body", string(bodyJSON))
-            }
-        }
+	useEffect(func() {
+		// Set loading state
+		setState(FetchState{Loading: true, Data: nil, Error: ""})
 
-        fetchPromise := js.Global().Call("fetch", url, fetchOptions)
-        fetchPromise.Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-            response := args[0]
-            if !response.Get("ok").Bool() {
-                errorMsg := fmt.Sprintf("HTTP error! status: %s", response.Get("status").String())
-                fmt.Println("useFetch:", errorMsg)
-                setState(FetchState{Error: errorMsg, Loading: false})
-                return nil
-            }
-            response.Call("json").Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-                data := args[0]
-                jsonStr := js.Global().Get("JSON").Call("stringify", data).String()
-                var parsedData interface{}
-                err := json.Unmarshal([]byte(jsonStr), &parsedData)
-                if err != nil {
-                    fmt.Println("Error parsing data:", err)
-                    setState(FetchState{Error: err.Error(), Loading: false})
-                } else {
-                    fmt.Println("useFetch: Successfully fetched data")
-                    setState(FetchState{Data: parsedData, Loading: false})
-                }
-                return nil
-            }))
-            return nil
-        })).Call("catch", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-            err := args[0]
-            errorMsg := fmt.Sprintf("Fetch error: %s", err.Get("message").String())
-            fmt.Println(errorMsg)
-            setState(FetchState{Error: errorMsg, Loading: false})
-            return nil
-        }))
-    }
+		fetchPromise := js.Global().Call("fetch", url)
+		fetchPromise.Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			response := args[0]
+			if !response.Get("ok").Bool() {
+				errorMsg := fmt.Sprintf("HTTP error! status: %s", response.Get("status").String())
+				setState(FetchState{Error: errorMsg, Loading: false})
+				return nil
+			}
+			response.Call("json").Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				data := args[0]
+				jsonStr := js.Global().Get("JSON").Call("stringify", data).String()
+				var parsedData interface{}
+				err := json.Unmarshal([]byte(jsonStr), &parsedData)
+				if err != nil {
+					setState(FetchState{Error: err.Error(), Loading: false})
+				} else {
+					setState(FetchState{Data: parsedData, Loading: false})
+				}
+				return nil
+			}))
+			return nil
+		})).Call("catch", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			err := args[0]
+			errorMsg := fmt.Sprintf("Fetch error: %s", err.Get("message").String())
+			setState(FetchState{Error: errorMsg, Loading: false})
+			return nil
+		}))
+	}, []interface{}{url})
 
-    useEffect(func() {
-        if getIsInitialRender() {
-            setIsInitialRender(false)
-            fetchData()
-        }
-    }, []interface{}{url})
+	return getState
+}
 
-    return getState, fetchData
+// GoFetch performs an asynchronous fetch operation and returns a channel for the result
+func GoFetch(url string, options FetchOptions) <-chan FetchResult {
+	resultChan := make(chan FetchResult, 1) // Buffered channel to avoid goroutine leak
+
+	go func() {
+		defer close(resultChan)
+
+		fetchOptions := js.Global().Get("Object").New()
+		setFetchOptions(fetchOptions, options)
+
+		promiseResultChan := make(chan FetchResult, 1)
+		performFetch(url, fetchOptions, promiseResultChan)
+
+		result := <-promiseResultChan
+		resultChan <- result
+	}()
+
+	return resultChan
+}
+
+// Fetch performs an asynchronous fetch operation and invokes a callback with the result
+func Fetch(url string, options FetchOptions, callback func(FetchResult)) {
+	go func() {
+		fetchOptions := js.Global().Get("Object").New()
+		setFetchOptions(fetchOptions, options)
+
+		promiseResultChan := make(chan FetchResult, 1)
+		performFetch(url, fetchOptions, promiseResultChan)
+
+		result := <-promiseResultChan
+		callback(result)
+	}()
+}
+
+func setFetchOptions(fetchOptions js.Value, options FetchOptions) {
+	if options.Method != "" {
+		fetchOptions.Set("method", options.Method)
+	}
+
+	if len(options.Headers) > 0 {
+		headers := js.Global().Get("Object").New()
+		for key, value := range options.Headers {
+			headers.Set(key, value)
+		}
+		fetchOptions.Set("headers", headers)
+	}
+
+	if options.Body != nil {
+		switch v := options.Body.(type) {
+		case string:
+			fetchOptions.Set("body", v)
+		default:
+			bodyJSON, err := json.Marshal(v)
+			if err != nil {
+				fetchOptions.Set("body", fmt.Sprintf("error encoding body: %v", err))
+			} else {
+				fetchOptions.Set("body", string(bodyJSON))
+			}
+		}
+	}
+}
+
+func performFetch(url string, fetchOptions js.Value, resultChan chan<- FetchResult) {
+	promise := js.Global().Call("fetch", url, fetchOptions)
+	promise.Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		response := args[0]
+		if !response.Get("ok").Bool() {
+			resultChan <- FetchResult{Err: fmt.Errorf("HTTP error! status: %s", response.Get("status").String())}
+			return nil
+		}
+
+		response.Call("json").Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			data := args[0]
+			jsonStr := js.Global().Get("JSON").Call("stringify", data).String()
+			var parsedData interface{}
+			err := json.Unmarshal([]byte(jsonStr), &parsedData)
+			if err != nil {
+				resultChan <- FetchResult{Err: fmt.Errorf("error parsing response: %w", err)}
+			} else {
+				resultChan <- FetchResult{Data: parsedData}
+			}
+			return nil
+		}))
+		return nil
+	})).Call("catch", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		err := args[0]
+		resultChan <- FetchResult{Err: fmt.Errorf("fetch error: %s", err.Get("message").String())}
+		return nil
+	}))
 }

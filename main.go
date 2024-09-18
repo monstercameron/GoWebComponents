@@ -26,8 +26,8 @@ func main() {
 	// fiber.Example1()
 	// fiber.Example2()
 	// fiber.Example3()
-	// fiber.Example3()
-	fiber.Example5()
+	fiber.Example4()
+	// fiber.Example5()
 
 	// Print a message indicating the end of the main function logic.
 	// At this point, the Example1 function has already executed.
