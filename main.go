@@ -30,7 +30,9 @@ func main() {
 	// fiber.Example4()
 	// fiber.Example5()
 	// fiber.BlogLandingPage()
-	fiber.ClickCounter()
+	// fiber.ClickCounter()
+	fiber.Example7()
+
 
 	// Print a message indicating the end of the main function logic.
 	// At this point, the ClickCounter function has already executed.
