@@ -850,7 +850,7 @@ func Example7() {
 	render(createElement(SimpleTodoApp, nil), container)
 }
 
-// Simplified todo application component with fewer hooks
+// Simplified todo application component with modern dark mode styling
 func SimpleTodoApp(props Attrs) *Element {
 	// Single state for todos
 	todos, setTodos := GoUseState([]Todo{})
@@ -899,23 +899,92 @@ func SimpleTodoApp(props Attrs) *Element {
 				"name":    "viewport",
 				"content": "width=device-width, initial-scale=1.0",
 			}),
-			Title(nil, Text("Simple Todo App - GoWebComponents")),
+			Title(nil, Text("Modern Todo App - GoWebComponents")),
 			Script(Attrs{"src": "https://cdn.tailwindcss.com"}),
+			Style(nil, Text(`
+				@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+				body { font-family: 'Inter', sans-serif; }
+				.glassmorphism {
+					background: rgba(255, 255, 255, 0.1);
+					backdrop-filter: blur(10px);
+					border: 1px solid rgba(255, 255, 255, 0.2);
+				}
+				.todo-gradient {
+					background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+				}
+				.dark-gradient {
+					background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+				}
+				.animate-fade-in {
+					animation: fadeIn 0.3s ease-in-out;
+				}
+				@keyframes fadeIn {
+					from { opacity: 0; transform: translateY(10px); }
+					to { opacity: 1; transform: translateY(0); }
+				}
+			`)),
 		),
-		Body(Attrs{"class": "bg-gray-100 min-h-screen p-8"},
-			Div(Attrs{"class": "max-w-2xl mx-auto"},
-				// Header
-				H1(Attrs{"class": "text-3xl font-bold text-center mb-8"}, Text("📝 Simple Todo App")),
+		Body(Attrs{"class": "bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 min-h-screen p-4 md:p-8"},
+			Div(Attrs{"class": "max-w-4xl mx-auto"},
+				// Header with gradient and glassmorphism
+				Div(Attrs{"class": "text-center mb-8 glassmorphism rounded-2xl p-8 backdrop-blur-xl"},
+					H1(Attrs{"class": "text-4xl md:text-6xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-4"},
+						Text("✨ Modern Todo")),
+					P(Attrs{"class": "text-gray-300 text-lg font-light"},
+						Text("Beautiful task management with GoWebComponents")),
+				),
 
-				// Add todo form
+				// Add todo form with modern styling
 				SimpleTodoInput(Attrs{"onAdd": handleAddTodo}),
 
-				// Todo list
-				Div(Attrs{"class": "bg-white rounded-lg shadow-md"},
+				// Stats section
+				func() *Element {
+					completedCount := 0
+					for _, todo := range todos() {
+						if todo.Completed {
+							completedCount++
+						}
+					}
+
+					if len(todos()) == 0 {
+						return Div(nil)
+					}
+
+					return Div(Attrs{"class": "grid grid-cols-1 md:grid-cols-3 gap-4 mb-8"},
+						// Total tasks
+						Div(Attrs{"class": "glassmorphism rounded-xl p-6 text-center"},
+							Div(Attrs{"class": "text-3xl font-bold text-blue-400 mb-2"},
+								Text(fmt.Sprintf("%d", len(todos())))),
+							Div(Attrs{"class": "text-gray-300 text-sm font-medium"},
+								Text("Total Tasks")),
+						),
+
+						// Completed tasks
+						Div(Attrs{"class": "glassmorphism rounded-xl p-6 text-center"},
+							Div(Attrs{"class": "text-3xl font-bold text-green-400 mb-2"},
+								Text(fmt.Sprintf("%d", completedCount))),
+							Div(Attrs{"class": "text-gray-300 text-sm font-medium"},
+								Text("Completed")),
+						),
+
+						// Remaining tasks
+						Div(Attrs{"class": "glassmorphism rounded-xl p-6 text-center"},
+							Div(Attrs{"class": "text-3xl font-bold text-orange-400 mb-2"},
+								Text(fmt.Sprintf("%d", len(todos())-completedCount))),
+							Div(Attrs{"class": "text-gray-300 text-sm font-medium"},
+								Text("Remaining")),
+						),
+					)
+				}(),
+
+				// Todo list with modern glassmorphism
+				Div(Attrs{"class": "glassmorphism rounded-2xl overflow-hidden backdrop-blur-xl"},
 					func() *Element {
 						if len(todos()) == 0 {
-							return Div(Attrs{"class": "p-8 text-center text-gray-500"},
-								P(nil, Text("No todos yet. Add one above!")),
+							return Div(Attrs{"class": "p-16 text-center"},
+								Div(Attrs{"class": "text-6xl mb-4"}, Text("🎯")),
+								P(Attrs{"class": "text-xl text-gray-300 mb-2"}, Text("No tasks yet")),
+								P(Attrs{"class": "text-gray-400"}, Text("Add your first task above to get started")),
 							)
 						}
 
@@ -928,19 +997,23 @@ func SimpleTodoApp(props Attrs) *Element {
 							}))
 						}
 
-						return Ul(Attrs{"class": "divide-y divide-gray-200"}, items...)
+						return Ul(Attrs{"class": "divide-y divide-white/10"}, items...)
 					}(),
 				),
 
-				// Footer
-				P(Attrs{"class": "text-center mt-8 text-gray-500 text-sm"},
-					Text("Built with GoWebComponents")),
+				// Footer with modern styling
+				Footer(Attrs{"class": "text-center mt-12 glassmorphism rounded-xl p-6"},
+					P(Attrs{"class": "text-gray-300 mb-2"},
+						Text("Built with ❤️ using GoWebComponents")),
+					P(Attrs{"class": "text-gray-400 text-sm"},
+						Text("Modern • Reactive • Beautiful")),
+				),
 			),
 		),
 	)
 }
 
-// Simple todo input component
+// Modern todo input component with glassmorphism styling
 func SimpleTodoInput(props Attrs) *Element {
 	onAdd := props["onAdd"]
 	text, setText := GoUseState("")
@@ -959,26 +1032,26 @@ func SimpleTodoInput(props Attrs) *Element {
 
 	return Form(Attrs{
 		"onsubmit": handleSubmit,
-		"class":    "bg-white p-6 rounded-lg shadow-md mb-6",
+		"class":    "glassmorphism rounded-2xl p-6 mb-8 backdrop-blur-xl animate-fade-in",
 	},
-		Div(Attrs{"class": "flex gap-4"},
+		Div(Attrs{"class": "flex flex-col md:flex-row gap-4"},
 			Input(Attrs{
 				"type":        "text",
 				"value":       text(),
 				"oninput":     handleChange,
-				"placeholder": "What needs to be done?",
-				"class":       "flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500",
+				"placeholder": "What needs to be accomplished today?",
+				"class":       "flex-1 px-6 py-4 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent backdrop-blur-sm transition-all duration-200",
 				"required":    true,
 			}),
 			Button(Attrs{
 				"type":  "submit",
-				"class": "bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors",
-			}, Text("Add Todo")),
+				"class": "px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transform hover:scale-105 transition-all duration-200 shadow-lg",
+			}, Text("✨ Add Task")),
 		),
 	)
 }
 
-// Simple todo item component
+// Modern todo item component with sleek dark styling
 func SimpleTodoItem(props Attrs) *Element {
 	todo := props["todo"].(Todo)
 	onToggle := props["onToggle"]
@@ -998,27 +1071,40 @@ func SimpleTodoItem(props Attrs) *Element {
 		}
 	})
 
-	textClass := "flex-1 ml-3"
+	// Dynamic styling based on completion
+	itemClass := "flex items-center p-6 hover:bg-white/5 transition-all duration-200 group animate-fade-in"
+	textClass := "flex-1 ml-4 transition-all duration-200"
+	checkboxClass := "h-5 w-5 rounded-md border-2 border-gray-400 bg-transparent checked:bg-blue-500 checked:border-blue-500 focus:ring-2 focus:ring-blue-400 transition-all duration-200"
+
 	if todo.Completed {
-		textClass += " line-through text-gray-500"
+		textClass += " line-through text-gray-400"
+		checkboxClass = "h-5 w-5 rounded-md border-2 border-green-400 bg-green-500 checked:bg-green-500 checked:border-green-500 focus:ring-2 focus:ring-green-400 transition-all duration-200"
+	} else {
+		textClass += " text-white"
 	}
 
-	return Li(Attrs{"class": "flex items-center p-4 hover:bg-gray-50"},
-		Input(Attrs{
-			"type":     "checkbox",
-			"checked":  todo.Completed,
-			"onchange": handleToggle,
-			"class":    "h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded",
-		}),
+	return Li(Attrs{"class": itemClass},
+		// Custom styled checkbox
+		Label(Attrs{"class": "flex items-center cursor-pointer"},
+			Input(Attrs{
+				"type":     "checkbox",
+				"checked":  todo.Completed,
+				"onchange": handleToggle,
+				"class":    checkboxClass,
+			}),
 
-		Div(Attrs{"class": textClass},
-			P(Attrs{"class": "font-medium"}, Text(todo.Text)),
+			Div(Attrs{"class": textClass},
+				P(Attrs{"class": "font-medium text-lg"}, Text(todo.Text)),
+				P(Attrs{"class": "text-sm text-gray-400 mt-1"},
+					Text(todo.CreatedAt.Format("Jan 2, 2006 at 3:04 PM"))),
+			),
 		),
 
+		// Modern delete button with hover effects
 		Button(Attrs{
 			"onclick": handleDelete,
-			"class":   "p-2 text-red-500 hover:text-red-700 transition-colors",
-			"title":   "Delete todo",
+			"class":   "p-3 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all duration-200 opacity-0 group-hover:opacity-100 transform hover:scale-110",
+			"title":   "Delete task",
 		}, Text("🗑️")),
 	)
 }
