@@ -175,7 +175,29 @@ func createElement(typ interface{}, props map[string]interface{}, children ...in
 
 	// Reset the element
 	elem.Type = typ
-	elem.Children = children[:len(children):len(children)] // Ensure capacity equals length
+
+	// Process children to support both component references and return values
+	processedChildren := make([]interface{}, 0, len(children))
+
+	for _, child := range children {
+		if child == nil {
+			continue
+		}
+
+		// Check if child is a component function reference
+		if componentFunc, ok := child.(func(map[string]interface{}) *Element); ok {
+			// Call the component function with nil props
+			result := componentFunc(nil)
+			if result != nil {
+				processedChildren = append(processedChildren, result)
+			}
+		} else {
+			// Child is already processed (Element, Text, etc.)
+			processedChildren = append(processedChildren, child)
+		}
+	}
+
+	elem.Children = processedChildren[:len(processedChildren):len(processedChildren)] // Ensure capacity equals length
 
 	// Handle props efficiently
 	if props != nil {
@@ -195,8 +217,8 @@ func createElement(typ interface{}, props map[string]interface{}, children ...in
 	}
 
 	// Set children in props
-	if len(children) > 0 {
-		elem.Props["children"] = children
+	if len(processedChildren) > 0 {
+		elem.Props["children"] = processedChildren
 	} else {
 		// Use a shared empty slice to avoid allocations while maintaining type safety
 		elem.Props["children"] = emptyChildren

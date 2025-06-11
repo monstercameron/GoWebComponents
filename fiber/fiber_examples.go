@@ -1249,457 +1249,104 @@ func Example4() {
 	render(createElement(bouncingDiv, nil), container)
 }
 
-// Header component - Navigation and branding
-func HeaderComponent(props map[string]interface{}) *Element {
-	return createElement("header", map[string]interface{}{
-		"class": "bg-white shadow-md sticky top-0 z-50",
-	},
-		createElement("nav", map[string]interface{}{
-			"class": "container mx-auto px-6 py-4",
+// Example6 demonstrates component references as children
+func Example6() {
+	fmt.Println("Example6: Starting component reference demo")
+
+	// Simple component functions
+	redComponent := func(props map[string]interface{}) *Element {
+		return Div(map[string]interface{}{
+			"class": "bg-red-200 p-4 m-2 rounded",
+		}, Text("Red Component (passed as reference)"))
+	}
+
+	blueComponent := func(props map[string]interface{}) *Element {
+		return Div(map[string]interface{}{
+			"class": "bg-blue-200 p-4 m-2 rounded",
+		}, Text("Blue Component (passed as reference)"))
+	}
+
+	greenComponent := func(props map[string]interface{}) *Element {
+		return Div(map[string]interface{}{
+			"class": "bg-green-200 p-4 m-2 rounded",
+		}, Text("Green Component (passed as reference)"))
+	}
+
+	// Main demo component
+	componentRefDemo := func(props map[string]interface{}) *Element {
+		return Div(map[string]interface{}{
+			"class": "container mx-auto p-6",
 		},
-			createElement("div", map[string]interface{}{
-				"class": "flex items-center justify-between",
+			H1(map[string]interface{}{
+				"class": "text-3xl font-bold mb-6",
+			}, Text("Component Reference Demo")),
+
+			P(map[string]interface{}{
+				"class": "mb-4 text-gray-700",
+			}, Text("This demonstrates passing component functions as children. Both patterns work:")),
+
+			// Section showing different ways to pass components
+			Div(map[string]interface{}{
+				"class": "space-y-6",
 			},
-				// Logo/Brand
-				createElement("div", map[string]interface{}{
-					"class": "flex items-center space-x-2",
+				// Method 1: Component references (functions)
+				Div(map[string]interface{}{
+					"class": "border-2 border-gray-300 rounded p-4",
 				},
-					createElement("h1", map[string]interface{}{
-						"class": "text-2xl font-bold text-indigo-600",
-					}, Text("📝 TechBlog")),
-					createElement("span", map[string]interface{}{
-						"class": "text-sm text-gray-500",
-					}, Text("v1.0")),
+					H2(map[string]interface{}{
+						"class": "text-xl font-semibold mb-3",
+					}, Text("Method 1: Component References")),
+					P(map[string]interface{}{
+						"class": "text-sm text-gray-600 mb-3",
+					}, Text("Passing component functions directly - they get called automatically:")),
+					// These are function references - will be called automatically
+					redComponent,
+					blueComponent,
 				),
-				// Navigation Menu
-				createElement("ul", map[string]interface{}{
-					"class": "flex space-x-6",
+
+				// Method 2: Component return values (traditional)
+				Div(map[string]interface{}{
+					"class": "border-2 border-gray-300 rounded p-4",
 				},
-					createElement("li", nil,
-						createElement("a", map[string]interface{}{
-							"href":  "#home",
-							"class": "text-gray-700 hover:text-indigo-600 font-medium transition-colors",
-						}, Text("Home")),
-					),
-					createElement("li", nil,
-						createElement("a", map[string]interface{}{
-							"href":  "#about",
-							"class": "text-gray-700 hover:text-indigo-600 font-medium transition-colors",
-						}, Text("About")),
-					),
-					createElement("li", nil,
-						createElement("a", map[string]interface{}{
-							"href":  "#posts",
-							"class": "text-gray-700 hover:text-indigo-600 font-medium transition-colors",
-						}, Text("Posts")),
-					),
-					createElement("li", nil,
-						createElement("a", map[string]interface{}{
-							"href":  "#contact",
-							"class": "text-gray-700 hover:text-indigo-600 font-medium transition-colors",
-						}, Text("Contact")),
-					),
+					H2(map[string]interface{}{
+						"class": "text-xl font-semibold mb-3",
+					}, Text("Method 2: Component Return Values (Traditional)")),
+					P(map[string]interface{}{
+						"class": "text-sm text-gray-600 mb-3",
+					}, Text("Calling component functions explicitly:")),
+					// These are already called functions
+					greenComponent(nil),
+					redComponent(nil),
 				),
-			),
-		),
-	)
-}
 
-// Hero section component - Main banner with call-to-action
-func HeroSection(props map[string]interface{}) *Element {
-	return createElement("section", map[string]interface{}{
-		"id":    "home",
-		"class": "py-20 px-6",
-	},
-		createElement("div", map[string]interface{}{
-			"class": "container mx-auto text-center",
-		},
-			createElement("h2", map[string]interface{}{
-				"class": "text-5xl font-extrabold text-gray-900 mb-6",
-			}, Text("Welcome to TechBlog")),
-			createElement("p", map[string]interface{}{
-				"class": "text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed",
-			}, Text("Discover the latest trends in technology, programming, and web development. Join our community of passionate developers and tech enthusiasts.")),
-			createElement("div", map[string]interface{}{
-				"class": "flex justify-center space-x-4",
-			},
-				createElement("button", map[string]interface{}{
-					"class": "bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-lg",
-				}, Text("Start Reading")),
-				createElement("button", map[string]interface{}{
-					"class": "border-2 border-indigo-600 text-indigo-600 px-8 py-3 rounded-lg font-semibold hover:bg-indigo-50 transition-colors",
-				}, Text("Subscribe")),
-			),
-		),
-	)
-}
-
-// Blog post card component - Individual blog post preview
-func BlogPostCard(props map[string]interface{}) *Element {
-	title := props["title"].(string)
-	description := props["description"].(string)
-	tag := props["tag"].(string)
-	tagColor := props["tagColor"].(string)
-	date := props["date"].(string)
-	datetime := props["datetime"].(string)
-
-	return createElement("article", map[string]interface{}{
-		"class": "bg-gray-50 rounded-xl p-6 hover:shadow-lg transition-shadow",
-	},
-		createElement("div", map[string]interface{}{
-			"class": "flex items-center mb-4",
-		},
-			createElement("span", map[string]interface{}{
-				"class": tagColor,
-			}, Text(tag)),
-			createElement("time", map[string]interface{}{
-				"class":    "text-gray-500 text-sm ml-auto",
-				"datetime": datetime,
-			}, Text(date)),
-		),
-		createElement("h4", map[string]interface{}{
-			"class": "text-xl font-semibold mb-3 text-gray-900",
-		}, Text(title)),
-		createElement("p", map[string]interface{}{
-			"class": "text-gray-600 mb-4 line-clamp-3",
-		}, Text(description)),
-		createElement("a", map[string]interface{}{
-			"href":  "#",
-			"class": "text-indigo-600 font-medium hover:text-indigo-800 transition-colors",
-		}, Text("Read More →")),
-	)
-}
-
-// Featured posts section component
-func FeaturedPostsSection(props map[string]interface{}) *Element {
-	return createElement("section", map[string]interface{}{
-		"id":    "posts",
-		"class": "py-16 bg-white",
-	},
-		createElement("div", map[string]interface{}{
-			"class": "container mx-auto px-6",
-		},
-			createElement("h3", map[string]interface{}{
-				"class": "text-3xl font-bold text-center mb-12 text-gray-900",
-			}, Text("Featured Posts")),
-			createElement("div", map[string]interface{}{
-				"class": "grid md:grid-cols-2 lg:grid-cols-3 gap-8",
-			},
-				BlogPostCard(map[string]interface{}{
-					"title":       "Modern JavaScript Frameworks in 2024",
-					"description": "Explore the latest JavaScript frameworks and libraries that are shaping web development. From React to Vue, discover what's trending.",
-					"tag":         "JavaScript",
-					"tagColor":    "bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full",
-					"date":        "Jan 15, 2024",
-					"datetime":    "2024-01-15",
-				}),
-				BlogPostCard(map[string]interface{}{
-					"title":       "Building Web Components with Go and WebAssembly",
-					"description": "Learn how to create reactive web components using Go compiled to WebAssembly. A new approach to frontend development.",
-					"tag":         "Go",
-					"tagColor":    "bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full",
-					"date":        "Jan 10, 2024",
-					"datetime":    "2024-01-10",
-				}),
-				BlogPostCard(map[string]interface{}{
-					"title":       "CSS Grid vs Flexbox: When to Use What",
-					"description": "Master the art of CSS layout with this comprehensive guide comparing CSS Grid and Flexbox. Includes practical examples.",
-					"tag":         "CSS",
-					"tagColor":    "bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full",
-					"date":        "Jan 5, 2024",
-					"datetime":    "2024-01-05",
-				}),
-			),
-		),
-	)
-}
-
-// About section component - Company information and statistics
-func AboutSection(props map[string]interface{}) *Element {
-	return createElement("section", map[string]interface{}{
-		"id":    "about",
-		"class": "py-16 bg-gray-50",
-	},
-		createElement("div", map[string]interface{}{
-			"class": "container mx-auto px-6",
-		},
-			createElement("div", map[string]interface{}{
-				"class": "max-w-3xl mx-auto text-center",
-			},
-				createElement("h3", map[string]interface{}{
-					"class": "text-3xl font-bold mb-6 text-gray-900",
-				}, Text("About TechBlog")),
-				createElement("blockquote", map[string]interface{}{
-					"class": "text-lg text-gray-600 italic mb-6 border-l-4 border-indigo-500 pl-6",
-				}, Text("\"Technology is best when it brings people together.\" - Matt Mullenweg")),
-				createElement("p", map[string]interface{}{
-					"class": "text-gray-600 mb-6 leading-relaxed",
-				}, Text("We're a community of developers, designers, and tech enthusiasts sharing knowledge and experiences. Our mission is to make technology accessible and understandable for everyone.")),
-				createElement("div", map[string]interface{}{
-					"class": "flex justify-center space-x-8 text-center",
+				// Method 3: Using helper functions
+				DivWithComponents(map[string]interface{}{
+					"class": "border-2 border-gray-300 rounded p-4",
 				},
-					createElement("div", nil,
-						createElement("strong", map[string]interface{}{
-							"class": "block text-2xl font-bold text-indigo-600",
-						}, Text("500+")),
-						createElement("span", map[string]interface{}{
-							"class": "text-gray-600",
-						}, Text("Articles")),
-					),
-					createElement("div", nil,
-						createElement("strong", map[string]interface{}{
-							"class": "block text-2xl font-bold text-indigo-600",
-						}, Text("10K+")),
-						createElement("span", map[string]interface{}{
-							"class": "text-gray-600",
-						}, Text("Readers")),
-					),
-					createElement("div", nil,
-						createElement("strong", map[string]interface{}{
-							"class": "block text-2xl font-bold text-indigo-600",
-						}, Text("50+")),
-						createElement("span", map[string]interface{}{
-							"class": "text-gray-600",
-						}, Text("Contributors")),
-					),
-				),
-			),
-		),
-	)
-}
-
-// Newsletter section component - Email subscription form
-func NewsletterSection(props map[string]interface{}) *Element {
-	// State for newsletter subscription
-	email, setEmail := useState("")
-	subscribed, setSubscribed := useState(false)
-
-	// Handle newsletter subscription
-	handleSubscribe := useFunc(func(this js.Value, args []js.Value) interface{} {
-		args[0].Call("preventDefault")
-		if email() != "" {
-			setSubscribed(true)
-			fmt.Println("Newsletter subscription for:", email())
-		}
-		return nil
-	})
-
-	// Handle email input change
-	handleEmailChange := useFunc(func(this js.Value, args []js.Value) interface{} {
-		value := args[0].Get("target").Get("value").String()
-		setEmail(value)
-		return nil
-	})
-
-	return createElement("section", map[string]interface{}{
-		"class": "py-16 bg-indigo-600",
-	},
-		createElement("div", map[string]interface{}{
-			"class": "container mx-auto px-6 text-center",
-		},
-			createElement("h3", map[string]interface{}{
-				"class": "text-3xl font-bold text-white mb-4",
-			}, Text("Stay Updated")),
-			createElement("p", map[string]interface{}{
-				"class": "text-indigo-100 mb-8 max-w-2xl mx-auto",
-			}, Text("Subscribe to our newsletter and get the latest tech articles delivered straight to your inbox every week.")),
-			func() *Element {
-				if subscribed() {
-					return createElement("div", map[string]interface{}{
-						"class": "bg-green-500 text-white px-6 py-3 rounded-lg inline-block",
-					}, Text("✅ Thank you for subscribing!"))
-				}
-				return createElement("form", map[string]interface{}{
-					"class":    "flex justify-center max-w-md mx-auto",
-					"onsubmit": handleSubscribe,
-				},
-					createElement("input", map[string]interface{}{
-						"type":        "email",
-						"placeholder": "Enter your email",
-						"class":       "flex-1 px-4 py-3 rounded-l-lg border-0 focus:ring-2 focus:ring-indigo-300 outline-none",
-						"value":       email(),
-						"oninput":     handleEmailChange,
-						"required":    true,
-					}),
-					createElement("button", map[string]interface{}{
-						"type":  "submit",
-						"class": "bg-white text-indigo-600 px-6 py-3 rounded-r-lg font-semibold hover:bg-gray-100 transition-colors",
-					}, Text("Subscribe")),
-				)
-			}(),
-		),
-	)
-}
-
-// Footer component - Site links and information
-func FooterComponent(props map[string]interface{}) *Element {
-	return createElement("footer", map[string]interface{}{
-		"class": "bg-gray-900 text-white py-12",
-	},
-		createElement("div", map[string]interface{}{
-			"class": "container mx-auto px-6",
-		},
-			createElement("div", map[string]interface{}{
-				"class": "grid md:grid-cols-4 gap-8",
-			},
-				// Footer Column 1
-				createElement("div", nil,
-					createElement("h5", map[string]interface{}{
-						"class": "font-bold mb-4",
-					}, Text("TechBlog")),
-					createElement("p", map[string]interface{}{
-						"class": "text-gray-400 text-sm",
-					}, Text("Sharing knowledge and building the future of technology together.")),
-				),
-				// Footer Column 2
-				createElement("div", nil,
-					createElement("h6", map[string]interface{}{
-						"class": "font-semibold mb-4",
-					}, Text("Categories")),
-					createElement("ul", map[string]interface{}{
-						"class": "space-y-2 text-sm",
+					func(props map[string]interface{}) *Element {
+						return H2(map[string]interface{}{
+							"class": "text-xl font-semibold mb-3",
+						}, Text("Method 3: Helper Functions"))
 					},
-						createElement("li", nil,
-							createElement("a", map[string]interface{}{
-								"href":  "#",
-								"class": "text-gray-400 hover:text-white transition-colors",
-							}, Text("JavaScript")),
-						),
-						createElement("li", nil,
-							createElement("a", map[string]interface{}{
-								"href":  "#",
-								"class": "text-gray-400 hover:text-white transition-colors",
-							}, Text("Go")),
-						),
-						createElement("li", nil,
-							createElement("a", map[string]interface{}{
-								"href":  "#",
-								"class": "text-gray-400 hover:text-white transition-colors",
-							}, Text("CSS")),
-						),
-						createElement("li", nil,
-							createElement("a", map[string]interface{}{
-								"href":  "#",
-								"class": "text-gray-400 hover:text-white transition-colors",
-							}, Text("WebAssembly")),
-						),
-					),
-				),
-				// Footer Column 3
-				createElement("div", nil,
-					createElement("h6", map[string]interface{}{
-						"class": "font-semibold mb-4",
-					}, Text("Resources")),
-					createElement("ul", map[string]interface{}{
-						"class": "space-y-2 text-sm",
+					func(props map[string]interface{}) *Element {
+						return P(map[string]interface{}{
+							"class": "text-sm text-gray-600 mb-3",
+						}, Text("Using DivWithComponents helper:"))
 					},
-						createElement("li", nil,
-							createElement("a", map[string]interface{}{
-								"href":  "#",
-								"class": "text-gray-400 hover:text-white transition-colors",
-							}, Text("Tutorials")),
-						),
-						createElement("li", nil,
-							createElement("a", map[string]interface{}{
-								"href":  "#",
-								"class": "text-gray-400 hover:text-white transition-colors",
-							}, Text("Documentation")),
-						),
-						createElement("li", nil,
-							createElement("a", map[string]interface{}{
-								"href":  "#",
-								"class": "text-gray-400 hover:text-white transition-colors",
-							}, Text("GitHub")),
-						),
-						createElement("li", nil,
-							createElement("a", map[string]interface{}{
-								"href":  "#",
-								"class": "text-gray-400 hover:text-white transition-colors",
-							}, Text("Community")),
-						),
-					),
-				),
-				// Footer Column 4
-				createElement("div", nil,
-					createElement("h6", map[string]interface{}{
-						"class": "font-semibold mb-4",
-					}, Text("Connect")),
-					createElement("div", map[string]interface{}{
-						"class": "flex space-x-4",
-					},
-						createElement("a", map[string]interface{}{
-							"href":  "#",
-							"class": "text-gray-400 hover:text-white transition-colors",
-							"title": "Twitter",
-						}, Text("🐦")),
-						createElement("a", map[string]interface{}{
-							"href":  "#",
-							"class": "text-gray-400 hover:text-white transition-colors",
-							"title": "GitHub",
-						}, Text("🐙")),
-						createElement("a", map[string]interface{}{
-							"href":  "#",
-							"class": "text-gray-400 hover:text-white transition-colors",
-							"title": "LinkedIn",
-						}, Text("💼")),
-						createElement("a", map[string]interface{}{
-							"href":  "#",
-							"class": "text-gray-400 hover:text-white transition-colors",
-							"title": "Discord",
-						}, Text("💬")),
-					),
+					blueComponent,
+					greenComponent,
 				),
 			),
-			createElement("hr", map[string]interface{}{
-				"class": "my-8 border-gray-700",
-			}),
-			createElement("div", map[string]interface{}{
-				"class": "flex flex-col md:flex-row justify-between items-center text-sm text-gray-400",
-			},
-				createElement("p", nil, Text("© 2024 TechBlog. All rights reserved.")),
-				createElement("p", nil, Text("Built with ❤️ using Go + WebAssembly")),
-			),
-		),
-	)
-}
-
-// BlogLandingPage creates a simple blog landing page composed of smaller reusable components
-func BlogLandingPage() {
-	fmt.Println("BlogLandingPage: Starting to render blog landing page")
-
-	// Main Blog Landing Page Component - composed of smaller components
-	blogLandingPage := func(props map[string]interface{}) *Element {
-		// Main blog landing page structure using component composition
-		return createElement("div", map[string]interface{}{
-			"class": "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100",
-		},
-			// Header component
-			HeaderComponent(nil),
-
-			// Main content area
-			createElement("main", nil,
-				// Hero section component
-				HeroSection(nil),
-				// Featured posts section component
-				FeaturedPostsSection(nil),
-				// About section component
-				AboutSection(nil),
-				// Newsletter section component
-				NewsletterSection(nil),
-			),
-
-			// Footer component
-			FooterComponent(nil),
 		)
 	}
 
-	// Render the blog landing page
+	// Render the demo
 	container := js.Global().Get("document").Call("getElementById", "root")
 	if container.IsUndefined() || container.IsNull() {
-		fmt.Println("BlogLandingPage: Error - No element with id 'root' found in the DOM")
+		fmt.Println("Example6: Error - No element with id 'root' found in the DOM")
 		return
 	}
 
-	fmt.Println("BlogLandingPage: Rendering blog landing page into the container")
-	render(createElement(blogLandingPage, nil), container)
+	fmt.Println("Example6: Rendering component reference demo")
+	render(createElement(componentRefDemo, nil), container)
 }
