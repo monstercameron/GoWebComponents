@@ -674,8 +674,10 @@ func Example4() {
 			frameCount := 0
 
 			go func() {
-				ticker := time.NewTicker(100 * time.Millisecond) // Approximately 60 FPS
+				ticker := time.NewTicker(16 * time.Millisecond) // 60 FPS
 				defer ticker.Stop()
+
+				renderCount := 0
 
 				for range ticker.C {
 					// Get current ball state
@@ -708,13 +710,12 @@ func Example4() {
 					// Update the ball state
 					setBallState(state)
 
-					// Increment render count
-					setRenderCount(getRenderCount() + 1)
+					// Increment render count locally
+					renderCount++
+					setRenderCount(renderCount)
 
 					// Increment frame count
 					frameCount++
-
-					fmt.Printf("FPS: %d\n",  getFPS())
 
 					// Calculate FPS every second
 					now := time.Now()
@@ -732,10 +733,10 @@ func Example4() {
 		fps := getFPS()
 		renderCount := getRenderCount()
 
-		// Create the bouncing ball element
+		// Create the bouncing ball element with optimized transform
 		ball := createElement("div", map[string]interface{}{
 			"class": "absolute w-5 h-5 bg-blue-500 rounded-full",
-			"style": fmt.Sprintf("transform: translate(%.2fpx, %.2fpx);", ballState.X, ballState.Y),
+			"style": fmt.Sprintf("transform: translate3d(%.1fpx, %.1fpx, 0);", ballState.X, ballState.Y),
 		})
 
 		// Create the FPS display element

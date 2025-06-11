@@ -13,13 +13,14 @@ import (
 
 // Global variables for tracking the current fiber and root.
 var (
-	wipRoot        *Fiber
-	currentRoot    *Fiber
-	nextUnitOfWork *Fiber
-	deletions      []*Fiber
-	wipFiber       *Fiber
-	eventCallbacks []js.Func // Global slice to keep event callbacks alive
-	rafCallbacks   []js.Func // Global slice to keep callbacks alive
+	wipRoot         *Fiber
+	currentRoot     *Fiber
+	nextUnitOfWork  *Fiber
+	deletions       []*Fiber
+	wipFiber        *Fiber
+	eventCallbacks  []js.Func // Global slice to keep event callbacks alive
+	rafCallbacks    []js.Func // Global slice to keep callbacks alive
+	updateScheduled bool      // Flag to prevent multiple update scheduling
 )
 
 // Element represents a virtual DOM node.
@@ -79,7 +80,7 @@ func useState[T any](initialValue T) (func() T, func(T)) {
 	}
 
 	setter := func(newValue T) {
-		if !reflect.DeepEqual(hooks.state[idx], newValue) {
+		if hooks.state[idx] == nil || !reflect.DeepEqual(hooks.state[idx], newValue) {
 			hooks.state[idx] = newValue
 			scheduleUpdateAtRoot()
 		}
@@ -89,10 +90,10 @@ func useState[T any](initialValue T) (func() T, func(T)) {
 }
 
 func scheduleUpdateAtRoot() {
-	if currentRoot == nil {
-		// fmt.Println("scheduleUpdateAtRoot: currentRoot is nil!")
+	if currentRoot == nil || updateScheduled {
 		return
 	}
+	updateScheduled = true
 	wipRoot = &Fiber{
 		typeOf:    currentRoot.typeOf,
 		dom:       currentRoot.dom,
@@ -539,6 +540,7 @@ func commitRoot() {
 	currentRoot = wipRoot
 	wipRoot = nil
 	deletions = nil
+	updateScheduled = false // Reset flag after commit
 	// fmt.Println("commitRoot: Finished committing changes to DOM")
 
 	// Execute effects after committing
