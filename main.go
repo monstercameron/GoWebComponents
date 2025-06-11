@@ -4,8 +4,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/monstercameron/GoWebComponents/fiber"
 	"sync"
+
+	"github.com/monstercameron/GoWebComponents/fiber"
 )
 
 // main is the entry point of the program.
