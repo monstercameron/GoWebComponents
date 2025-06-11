@@ -1304,19 +1304,19 @@ func Example6() {
 					blueComponent,
 				),
 
-				// Method 2: Component return values (traditional)
+				// Method 2: More component references
 				Div(map[string]interface{}{
 					"class": "border-2 border-gray-300 rounded p-4",
 				},
 					H2(map[string]interface{}{
 						"class": "text-xl font-semibold mb-3",
-					}, Text("Method 2: Component Return Values (Traditional)")),
+					}, Text("Method 2: More Component References")),
 					P(map[string]interface{}{
 						"class": "text-sm text-gray-600 mb-3",
-					}, Text("Calling component functions explicitly:")),
-					// These are already called functions
-					greenComponent(nil),
-					redComponent(nil),
+					}, Text("Different components using the same reference pattern:")),
+					// These are component references
+					greenComponent,
+					redComponent,
 				),
 
 				// Method 3: Using helper functions

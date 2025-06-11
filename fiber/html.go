@@ -1,113 +1,117 @@
 package fiber
 
+// Type aliases for cleaner attribute syntax
+type Attrs map[string]interface{}
+type Attributes map[string]interface{}
+
 // HTML Element Aliases - These functions provide convenient aliases for createElement
 // with pre-filled element names, making the code more readable and JSX-like.
 
 // Document Structure Elements
-func Html(props map[string]interface{}, children ...interface{}) *Element {
+func Html(props Attrs, children ...interface{}) *Element {
 	return createElement("html", props, children...)
 }
 
-func Head(props map[string]interface{}, children ...interface{}) *Element {
+func Head(props Attrs, children ...interface{}) *Element {
 	return createElement("head", props, children...)
 }
 
-func Body(props map[string]interface{}, children ...interface{}) *Element {
+func Body(props Attrs, children ...interface{}) *Element {
 	return createElement("body", props, children...)
 }
 
-func Title(props map[string]interface{}, children ...interface{}) *Element {
+func Title(props Attrs, children ...interface{}) *Element {
 	return createElement("title", props, children...)
 }
 
-func Meta(props map[string]interface{}) *Element {
+func Meta(props Attrs) *Element {
 	return createElement("meta", props)
 }
 
-func Link(props map[string]interface{}) *Element {
+func Link(props Attrs) *Element {
 	return createElement("link", props)
 }
 
-func Style(props map[string]interface{}, children ...interface{}) *Element {
+func Style(props Attrs, children ...interface{}) *Element {
 	return createElement("style", props, children...)
 }
 
-func Script(props map[string]interface{}, children ...interface{}) *Element {
+func Script(props Attrs, children ...interface{}) *Element {
 	return createElement("script", props, children...)
 }
 
 // Semantic Structure Elements
-func Header(props map[string]interface{}, children ...interface{}) *Element {
+func Header(props Attrs, children ...interface{}) *Element {
 	return createElement("header", props, children...)
 }
 
-func Nav(props map[string]interface{}, children ...interface{}) *Element {
+func Nav(props Attrs, children ...interface{}) *Element {
 	return createElement("nav", props, children...)
 }
 
-func Main(props map[string]interface{}, children ...interface{}) *Element {
+func Main(props Attrs, children ...interface{}) *Element {
 	return createElement("main", props, children...)
 }
 
-func Section(props map[string]interface{}, children ...interface{}) *Element {
+func Section(props Attrs, children ...interface{}) *Element {
 	return createElement("section", props, children...)
 }
 
-func Article(props map[string]interface{}, children ...interface{}) *Element {
+func Article(props Attrs, children ...interface{}) *Element {
 	return createElement("article", props, children...)
 }
 
-func Aside(props map[string]interface{}, children ...interface{}) *Element {
+func Aside(props Attrs, children ...interface{}) *Element {
 	return createElement("aside", props, children...)
 }
 
-func Footer(props map[string]interface{}, children ...interface{}) *Element {
+func Footer(props Attrs, children ...interface{}) *Element {
 	return createElement("footer", props, children...)
 }
 
 // Layout Elements
-func Div(props map[string]interface{}, children ...interface{}) *Element {
+func Div(props Attrs, children ...interface{}) *Element {
 	return createElement("div", props, children...)
 }
 
-func Span(props map[string]interface{}, children ...interface{}) *Element {
+func Span(props Attrs, children ...interface{}) *Element {
 	return createElement("span", props, children...)
 }
 
-func P(props map[string]interface{}, children ...interface{}) *Element {
+func P(props Attrs, children ...interface{}) *Element {
 	return createElement("p", props, children...)
 }
 
-func Br(props map[string]interface{}) *Element {
+func Br(props Attrs) *Element {
 	return createElement("br", props)
 }
 
-func Hr(props map[string]interface{}) *Element {
+func Hr(props Attrs) *Element {
 	return createElement("hr", props)
 }
 
 // Heading Elements
-func H1(props map[string]interface{}, children ...interface{}) *Element {
+func H1(props Attrs, children ...interface{}) *Element {
 	return createElement("h1", props, children...)
 }
 
-func H2(props map[string]interface{}, children ...interface{}) *Element {
+func H2(props Attrs, children ...interface{}) *Element {
 	return createElement("h2", props, children...)
 }
 
-func H3(props map[string]interface{}, children ...interface{}) *Element {
+func H3(props Attrs, children ...interface{}) *Element {
 	return createElement("h3", props, children...)
 }
 
-func H4(props map[string]interface{}, children ...interface{}) *Element {
+func H4(props Attrs, children ...interface{}) *Element {
 	return createElement("h4", props, children...)
 }
 
-func H5(props map[string]interface{}, children ...interface{}) *Element {
+func H5(props Attrs, children ...interface{}) *Element {
 	return createElement("h5", props, children...)
 }
 
-func H6(props map[string]interface{}, children ...interface{}) *Element {
+func H6(props Attrs, children ...interface{}) *Element {
 	return createElement("h6", props, children...)
 }
 

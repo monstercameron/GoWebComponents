@@ -30,7 +30,7 @@ var (
 		},
 	}
 
-	// NEW: Element pool for createElement optimization
+	// Element pool for createElement optimization
 	elementPool = sync.Pool{
 		New: func() interface{} {
 			return &Element{
@@ -39,10 +39,17 @@ var (
 		},
 	}
 
-	// NEW: Props pool for map reuse
+	// Props pool for map reuse
 	propsPool = sync.Pool{
 		New: func() interface{} {
 			return make(map[string]interface{}, 8)
+		},
+	}
+
+	// Children slice pool for reducing allocations
+	childrenPool = sync.Pool{
+		New: func() interface{} {
+			return make([]interface{}, 0, 4) // Common small capacity
 		},
 	}
 )
@@ -184,8 +191,15 @@ func createElement(typ interface{}, props map[string]interface{}, children ...in
 			continue
 		}
 
-		// Check if child is a component function reference
+		// Check if child is a component function reference (map[string]interface{} signature)
 		if componentFunc, ok := child.(func(map[string]interface{}) *Element); ok {
+			// Call the component function with nil props
+			result := componentFunc(nil)
+			if result != nil {
+				processedChildren = append(processedChildren, result)
+			}
+		} else if componentFunc, ok := child.(func(Attrs) *Element); ok {
+			// Check if child is a component function reference (Attrs signature)
 			// Call the component function with nil props
 			result := componentFunc(nil)
 			if result != nil {
@@ -197,7 +211,7 @@ func createElement(typ interface{}, props map[string]interface{}, children ...in
 		}
 	}
 
-	elem.Children = processedChildren[:len(processedChildren):len(processedChildren)] // Ensure capacity equals length
+	elem.Children = processedChildren
 
 	// Handle props efficiently
 	if props != nil {
@@ -227,12 +241,17 @@ func createElement(typ interface{}, props map[string]interface{}, children ...in
 	return elem
 }
 
-// NEW: Release element back to pool
+// Release element back to pool with optimized cleanup
 func releaseElement(elem *Element) {
 	if elem != nil {
 		elem.Type = nil
 		elem.Children = nil
-		// Keep Props map allocated for reuse
+		// Clear props map efficiently but keep it allocated for reuse
+		if len(elem.Props) > 0 {
+			for k := range elem.Props {
+				delete(elem.Props, k)
+			}
+		}
 		elementPool.Put(elem)
 	}
 }
@@ -560,7 +579,7 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 	} else {
 		switch fiber.typeOf.(type) {
 		case func(map[string]interface{}) *Element:
-			// Function component
+			// Function component with map[string]interface{} props
 			componentFunc := fiber.typeOf.(func(map[string]interface{}) *Element)
 			wipFiber = fiber
 
@@ -597,6 +616,55 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 			wipFiber.effects = []func(){}
 
 			element := componentFunc(fiber.props)
+			if element == nil {
+				return nil
+			}
+
+			reconcileChildren(fiber, []interface{}{element})
+		case func(Attrs) *Element:
+			// Function component with Attrs props
+			componentFunc := fiber.typeOf.(func(Attrs) *Element)
+			wipFiber = fiber
+
+			// Preserve hooks from alternate fiber
+			var oldHooks *Hooks
+			if fiber.alternate != nil && fiber.alternate.hooks != nil {
+				oldHooks = fiber.alternate.hooks
+			}
+
+			// Initialize hooks
+			if oldHooks != nil {
+				wipFiber.hooks = &Hooks{
+					state: make([]interface{}, len(oldHooks.state)),
+					deps:  make([][]interface{}, len(oldHooks.deps)),
+				}
+				copy(wipFiber.hooks.state, oldHooks.state)
+
+				// Deep copy the deps slices
+				for i := range oldHooks.deps {
+					if oldHooks.deps[i] != nil {
+						wipFiber.hooks.deps[i] = make([]interface{}, len(oldHooks.deps[i]))
+						copy(wipFiber.hooks.deps[i], oldHooks.deps[i])
+					}
+				}
+			} else {
+				wipFiber.hooks = &Hooks{
+					state: []interface{}{},
+					deps:  [][]interface{}{},
+				}
+			}
+			wipFiber.hooks.index = 0
+
+			// Initialize effects
+			wipFiber.effects = []func(){}
+
+			// Convert map[string]interface{} to Attrs
+			var attrs Attrs
+			if fiber.props != nil {
+				attrs = Attrs(fiber.props)
+			}
+
+			element := componentFunc(attrs)
 			if element == nil {
 				return nil
 			}
@@ -726,9 +794,19 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 		if oldFiber != nil && element != nil {
 			switch elemType := element.(*Element).Type.(type) {
 			case func(map[string]interface{}) *Element:
-				// Function component: Compare function pointers using reflect
+				// Function component with map[string]interface{} props: Compare function pointers using reflect
 				funcPtrNew := reflect.ValueOf(elemType).Pointer()
 				funcPtrOld, ok := oldFiber.typeOf.(func(map[string]interface{}) *Element)
+				if ok {
+					funcPtrOldValue := reflect.ValueOf(funcPtrOld).Pointer()
+					if funcPtrNew == funcPtrOldValue {
+						sameType = true
+					}
+				}
+			case func(Attrs) *Element:
+				// Function component with Attrs props: Compare function pointers using reflect
+				funcPtrNew := reflect.ValueOf(elemType).Pointer()
+				funcPtrOld, ok := oldFiber.typeOf.(func(Attrs) *Element)
 				if ok {
 					funcPtrOldValue := reflect.ValueOf(funcPtrOld).Pointer()
 					if funcPtrNew == funcPtrOldValue {
