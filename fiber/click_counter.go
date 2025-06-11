@@ -168,11 +168,11 @@ func TechStackInfo(props Attrs) *Element {
 
 // Main click counter component - Composed of atomic components
 func MainClickCounter(props Attrs) *Element {
-	// State for the counter
-	count, setCount := useState(0)
+	// State for the counter using GoUseState
+	count, setCount := GoUseState(0)
 
-	// State for demonstration input
-	inputValue, setInputValue := useState("")
+	// State for demonstration input using GoUseState
+	inputValue, setInputValue := GoUseState("")
 
 	// Handle click events using GoUseFunc for cleaner syntax
 	handleIncrement := GoUseFunc(func(event GoEvent) {

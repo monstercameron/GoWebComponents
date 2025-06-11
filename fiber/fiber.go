@@ -306,6 +306,50 @@ func useState[T any](initialValue T) (func() T, func(T)) {
 	return getter, setter
 }
 
+// GoUseState manages state in a component with optimized equality checking
+// This is the Go-branded version of useState for GoWebComponents
+func GoUseState[T any](initialValue T) (func() T, func(T)) {
+	currentFiber := getCurrentFiber()
+	if currentFiber.hooks == nil {
+		currentFiber.hooks = getHooksFromPool()
+	}
+
+	position := currentFiber.hooks.index
+	currentFiber.hooks.index++
+
+	if len(currentFiber.hooks.state) > position {
+		// Existing state
+	} else {
+		// Initial state - grow slice efficiently
+		if cap(currentFiber.hooks.state) <= position {
+			// Double capacity when needed
+			newCap := max(8, len(currentFiber.hooks.state)*2)
+			newState := make([]interface{}, len(currentFiber.hooks.state), newCap)
+			copy(newState, currentFiber.hooks.state)
+			currentFiber.hooks.state = newState
+		}
+		currentFiber.hooks.state = append(currentFiber.hooks.state, initialValue)
+	}
+
+	// Capture hooks and position
+	hooks := currentFiber.hooks
+	idx := position
+
+	getter := func() T {
+		return hooks.state[idx].(T)
+	}
+
+	setter := func(newValue T) {
+		// Use fast equality check instead of reflect.DeepEqual
+		if hooks.state[idx] == nil || !fastEqual(hooks.state[idx], newValue) {
+			hooks.state[idx] = newValue
+			scheduleUpdateAtRoot()
+		}
+	}
+
+	return getter, setter
+}
+
 // NEW: Get hooks from pool with reset
 func getHooksFromPool() *Hooks {
 	hooks := hooksPool.Get().(*Hooks)
@@ -403,6 +447,44 @@ func useEffect(effect func(), deps ...interface{}) {
 	}
 }
 
+// GoUseEffect runs side effects in a component with dependency tracking
+// This is the Go-branded version of useEffect for GoWebComponents
+func GoUseEffect(effect func(), deps ...interface{}) {
+	currentFiber := getCurrentFiber()
+	if currentFiber.hooks == nil {
+		currentFiber.hooks = getHooksFromPool()
+	}
+
+	position := currentFiber.hooks.index
+	currentFiber.hooks.index++
+
+	// Grow deps slice efficiently
+	for len(currentFiber.hooks.deps) <= position {
+		currentFiber.hooks.deps = append(currentFiber.hooks.deps, nil)
+	}
+
+	if currentFiber.hooks.deps[position] == nil {
+		// First time this effect is used
+		currentFiber.hooks.deps[position] = deps
+		// Grow effects slice efficiently
+		if cap(currentFiber.effects) <= len(currentFiber.effects) {
+			newCap := max(4, cap(currentFiber.effects)*2)
+			newEffects := make([]func(), len(currentFiber.effects), newCap)
+			copy(newEffects, currentFiber.effects)
+			currentFiber.effects = newEffects
+		}
+		currentFiber.effects = append(currentFiber.effects, effect)
+	} else {
+		prevDeps := currentFiber.hooks.deps[position]
+		shouldRun := len(deps) == 0 || !areDepsEqual(prevDeps, deps)
+		if shouldRun {
+			// Dependencies have changed or no dependencies provided
+			currentFiber.hooks.deps[position] = deps
+			currentFiber.effects = append(currentFiber.effects, effect)
+		}
+	}
+}
+
 // Optimized dependency comparison
 func areDepsEqual(prevDeps, newDeps []interface{}) bool {
 	if len(prevDeps) != len(newDeps) {
@@ -424,6 +506,44 @@ func areDepsEqual(prevDeps, newDeps []interface{}) bool {
 }
 
 func useMemo(compute func() interface{}, deps ...interface{}) interface{} {
+	currentFiber := getCurrentFiber()
+	if currentFiber.hooks == nil {
+		currentFiber.hooks = getHooksFromPool()
+	}
+
+	position := currentFiber.hooks.index
+	currentFiber.hooks.index++
+
+	// Grow memos slice efficiently
+	for len(currentFiber.hooks.memos) <= position {
+		currentFiber.hooks.memos = append(currentFiber.hooks.memos, memoizedValue{})
+	}
+
+	memo := &currentFiber.hooks.memos[position]
+
+	if memo.value == nil {
+		// First time this memo is used
+		value := compute() // Remove goroutine overhead for simple computations
+		memo.value = value
+		memo.deps = deps
+		return value
+	}
+
+	shouldCompute := len(deps) == 0 || !areDepsEqual(memo.deps, deps)
+	if shouldCompute {
+		value := compute() // Direct call, no goroutine
+		memo.value = value
+		memo.deps = deps
+		return value
+	}
+
+	// Dependencies haven't changed, return the memoized value
+	return memo.value
+}
+
+// GoUseMemo memoizes expensive computations with dependency tracking
+// This is the Go-branded version of useMemo for GoWebComponents
+func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 	currentFiber := getCurrentFiber()
 	if currentFiber.hooks == nil {
 		currentFiber.hooks = getHooksFromPool()
