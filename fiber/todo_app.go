@@ -38,6 +38,141 @@ type TodoStats struct {
 	ByCategory map[string]int
 }
 
+// Global metrics tracking
+var appMetrics struct {
+	TotalRenders    int
+	HookUpdates     int
+	ComponentMounts int
+	FiberTime       float64 // in milliseconds
+	LastRenderTime  time.Time
+}
+
+// Helper function to log metrics
+func logMetrics(operation string) {
+	fmt.Printf("🔍 Metrics [%s]: Renders=%d, HookUpdates=%d, Mounts=%d, FiberTime=%.2fms\n",
+		operation, appMetrics.TotalRenders, appMetrics.HookUpdates, appMetrics.ComponentMounts, appMetrics.FiberTime)
+}
+
+// Metrics panel component (stateless to avoid hook conflicts)
+func MetricsPanel(props Attrs) *Element {
+	// Calculate derived metrics without hooks
+	renderRate := float64(appMetrics.TotalRenders)
+	if !appMetrics.LastRenderTime.IsZero() {
+		elapsed := time.Since(appMetrics.LastRenderTime).Seconds()
+		if elapsed > 0 {
+			renderRate = float64(appMetrics.TotalRenders) / elapsed
+		}
+	}
+
+	uptime := time.Since(appMetrics.LastRenderTime).Truncate(time.Second)
+	if appMetrics.LastRenderTime.IsZero() {
+		uptime = 0
+	}
+
+	// Determine position based on props
+	var positionStyle string
+	if props != nil && props["position"] == "bottom" {
+		positionStyle = "position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); min-width: 320px; max-width: 90vw; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 12px; padding: 16px; z-index: 50; animation: slideUp 0.3s ease-out;"
+	} else {
+		positionStyle = "position: fixed; top: 16px; right: 16px; min-width: 280px; background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 12px; padding: 16px; z-index: 50;"
+	}
+
+	return Div(Attrs{
+		"class": "metrics-panel",
+		"style": positionStyle,
+	},
+		// Header
+		Div(Attrs{
+			"style": "display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;",
+		},
+			H3(Attrs{
+				"style": "font-size: 18px; font-weight: 600; color: white; margin: 0;",
+			}, Text("⚡ Fiber Metrics")),
+			Div(Attrs{
+				"style": "width: 8px; height: 8px; background: #4ade80; border-radius: 50%; animation: pulse 2s infinite;",
+			}),
+		),
+
+		// Metrics grid
+		Div(Attrs{
+			"style": "display: grid; grid-template-columns: 1fr 1fr; gap: 12px;",
+		},
+			// Total Renders
+			Div(Attrs{
+				"style": "background: rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 12px; text-align: center;",
+			},
+				Div(Attrs{
+					"style": "font-size: 24px; font-weight: bold; color: #60a5fa;",
+				}, Text(fmt.Sprintf("%d", appMetrics.TotalRenders))),
+				Div(Attrs{
+					"style": "font-size: 12px; color: #d1d5db;",
+				}, Text("Renders")),
+			),
+
+			// Hook Updates
+			Div(Attrs{
+				"style": "background: rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 12px; text-align: center;",
+			},
+				Div(Attrs{
+					"style": "font-size: 24px; font-weight: bold; color: #c084fc;",
+				}, Text(fmt.Sprintf("%d", appMetrics.HookUpdates))),
+				Div(Attrs{
+					"style": "font-size: 12px; color: #d1d5db;",
+				}, Text("Hook Updates")),
+			),
+
+			// Component Mounts
+			Div(Attrs{
+				"style": "background: rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 12px; text-align: center;",
+			},
+				Div(Attrs{
+					"style": "font-size: 24px; font-weight: bold; color: #4ade80;",
+				}, Text(fmt.Sprintf("%d", appMetrics.ComponentMounts))),
+				Div(Attrs{
+					"style": "font-size: 12px; color: #d1d5db;",
+				}, Text("Mounts")),
+			),
+
+			// Fiber Time
+			Div(Attrs{
+				"style": "background: rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 12px; text-align: center;",
+			},
+				Div(Attrs{
+					"style": "font-size: 24px; font-weight: bold; color: #fb923c;",
+				}, Text(fmt.Sprintf("%.1f", appMetrics.FiberTime))),
+				Div(Attrs{
+					"style": "font-size: 12px; color: #d1d5db;",
+				}, Text("Fiber ms")),
+			),
+		),
+
+		// Additional info
+		Div(Attrs{
+			"style": "margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.2);",
+		},
+			Div(Attrs{
+				"style": "font-size: 12px; color: #d1d5db; text-align: center;",
+			}, Text(fmt.Sprintf("Render Rate: %.1f/sec", renderRate))),
+			Div(Attrs{
+				"style": "font-size: 12px; color: #9ca3af; text-align: center; margin-top: 4px;",
+			}, Text(fmt.Sprintf("Uptime: %v", uptime))),
+		),
+	)
+}
+
+// Enhanced state setter that tracks metrics
+func createTrackedGoUseState[T any](initialValue T) (func() T, func(T)) {
+	getter, setter := GoUseState(initialValue)
+
+	trackedSetter := func(newValue T) {
+		appMetrics.HookUpdates++
+		logMetrics("HOOK_UPDATE")
+		setter(newValue)
+	}
+
+	return getter, trackedSetter
+}
+
 // Priority badge component
 func PriorityBadge(props Attrs) *Element {
 	priority := "medium"
@@ -850,10 +985,31 @@ func Example7() {
 	render(createElement(SimpleTodoApp, nil), container)
 }
 
-// Simplified todo application component with modern dark mode styling
+// Simplified todo application component with modern dark mode styling and metrics
 func SimpleTodoApp(props Attrs) *Element {
-	// Single state for todos
-	todos, setTodos := GoUseState([]Todo{})
+	// Initialize metrics timing
+	if appMetrics.LastRenderTime.IsZero() {
+		appMetrics.LastRenderTime = time.Now()
+		fmt.Println("🚀 TodoApp: Metrics tracking initialized")
+	}
+
+	// Track render start time
+	renderStart := time.Now()
+	appMetrics.TotalRenders++
+	appMetrics.ComponentMounts++ // Count each render as a "mount" for demo purposes
+
+	// Single state for todos with metrics tracking
+	todos, setTodos := createTrackedGoUseState([]Todo{})
+
+	// State for metrics panel visibility
+	metricsVisible, setMetricsVisible := createTrackedGoUseState(true)
+
+	// Track render end time
+	defer func() {
+		renderTime := float64(time.Since(renderStart).Nanoseconds()) / 1000000.0 // Convert to milliseconds
+		appMetrics.FiberTime = renderTime
+		logMetrics("RENDER_COMPLETE")
+	}()
 
 	// Handle add todo
 	handleAddTodo := func(text string) {
@@ -865,7 +1021,9 @@ func SimpleTodoApp(props Attrs) *Element {
 				Priority:  "medium",
 				CreatedAt: time.Now(),
 			}
+			fmt.Printf("📝 TodoApp: Adding new todo - '%s'\n", newTodo.Text)
 			setTodos(append(todos(), newTodo))
+			logMetrics("ADD_TODO")
 		}
 	}
 
@@ -875,10 +1033,12 @@ func SimpleTodoApp(props Attrs) *Element {
 		for i, todo := range todos() {
 			if todo.ID == id {
 				todo.Completed = !todo.Completed
+				fmt.Printf("✅ TodoApp: Toggled todo %d - completed: %v\n", id, todo.Completed)
 			}
 			newTodos[i] = todo
 		}
 		setTodos(newTodos)
+		logMetrics("TOGGLE_TODO")
 	}
 
 	// Handle delete todo
@@ -887,10 +1047,22 @@ func SimpleTodoApp(props Attrs) *Element {
 		for _, todo := range todos() {
 			if todo.ID != id {
 				newTodos = append(newTodos, todo)
+			} else {
+				fmt.Printf("🗑️ TodoApp: Deleted todo %d - '%s'\n", id, todo.Text)
 			}
 		}
 		setTodos(newTodos)
+		logMetrics("DELETE_TODO")
 	}
+
+	// Handle metrics toggle
+	handleToggleMetrics := func() {
+		fmt.Printf("📊 TodoApp: Toggling metrics panel visibility to %v\n", !metricsVisible())
+		setMetricsVisible(!metricsVisible())
+		logMetrics("TOGGLE_METRICS")
+	}
+
+	fmt.Printf("🔄 TodoApp: Rendering with %d todos\n", len(todos()))
 
 	return Html(Attrs{"lang": "en"},
 		Head(nil,
@@ -922,6 +1094,17 @@ func SimpleTodoApp(props Attrs) *Element {
 					from { opacity: 0; transform: translateY(10px); }
 					to { opacity: 1; transform: translateY(0); }
 				}
+				@keyframes slideUp {
+					from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+					to { opacity: 1; transform: translateX(-50%) translateY(0); }
+				}
+				@keyframes pulse {
+					0%, 100% { opacity: 1; }
+					50% { opacity: 0.5; }
+				}
+				button:hover {
+					transform: scale(1.05);
+				}
 			`)),
 		),
 		Body(Attrs{"class": "bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 min-h-screen p-4 md:p-8"},
@@ -931,7 +1114,7 @@ func SimpleTodoApp(props Attrs) *Element {
 					H1(Attrs{"class": "text-4xl md:text-6xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-4"},
 						Text("✨ Modern Todo")),
 					P(Attrs{"class": "text-gray-300 text-lg font-light"},
-						Text("Beautiful task management with GoWebComponents")),
+						Text("Beautiful task management with GoWebComponents + Metrics")),
 				),
 
 				// Add todo form with modern styling
@@ -949,6 +1132,9 @@ func SimpleTodoApp(props Attrs) *Element {
 					if len(todos()) == 0 {
 						return Div(nil)
 					}
+
+					fmt.Printf("📊 TodoApp: Stats - Total: %d, Completed: %d, Remaining: %d\n",
+						len(todos()), completedCount, len(todos())-completedCount)
 
 					return Div(Attrs{"class": "grid grid-cols-1 md:grid-cols-3 gap-4 mb-8"},
 						// Total tasks
@@ -997,6 +1183,8 @@ func SimpleTodoApp(props Attrs) *Element {
 							}))
 						}
 
+						fmt.Printf("📋 TodoApp: Rendering %d todo items\n", len(items))
+
 						return Ul(Attrs{"class": "divide-y divide-white/10"}, items...)
 					}(),
 				),
@@ -1006,28 +1194,64 @@ func SimpleTodoApp(props Attrs) *Element {
 					P(Attrs{"class": "text-gray-300 mb-2"},
 						Text("Built with ❤️ using GoWebComponents")),
 					P(Attrs{"class": "text-gray-400 text-sm"},
-						Text("Modern • Reactive • Beautiful")),
+						Text("Modern • Reactive • Beautiful • Monitored")),
 				),
 			),
+
+			// Metrics toggle button - fixed position
+			Button(Attrs{
+				"onclick": GoUseFunc(func(event GoEvent) {
+					handleToggleMetrics()
+				}),
+				"style": "position: fixed; bottom: 20px; right: 20px; width: 50px; height: 50px; background: rgba(99, 102, 241, 0.8); color: white; border: none; border-radius: 50%; font-size: 20px; cursor: pointer; backdrop-filter: blur(10px); z-index: 60; transition: all 0.3s ease;",
+				"title": func() string {
+					if metricsVisible() {
+						return "Hide Metrics Panel"
+					}
+					return "Show Metrics Panel"
+				}(),
+			}, Text(func() string {
+				if metricsVisible() {
+					return "📊"
+				}
+				return "📈"
+			}())),
+
+			// Metrics Panel - Bottom positioned with visibility toggle
+			func() *Element {
+				if metricsVisible() {
+					return MetricsPanel(Attrs{"position": "bottom"})
+				}
+				return Div(nil) // Return empty div when hidden
+			}(),
 		),
 	)
 }
 
-// Modern todo input component with glassmorphism styling
+// Modern todo input component with glassmorphism styling and metrics
 func SimpleTodoInput(props Attrs) *Element {
 	onAdd := props["onAdd"]
-	text, setText := GoUseState("")
+	text, setText := createTrackedGoUseState("")
+
+	fmt.Printf("🔤 SimpleTodoInput: Rendering with text='%s'\n", text())
 
 	handleSubmit := GoUseFunc(func(event GoEvent) {
 		event.PreventDefault()
-		if onAdd != nil && strings.TrimSpace(text()) != "" {
-			onAdd.(func(string))(text())
+		inputText := strings.TrimSpace(text())
+		fmt.Printf("📤 SimpleTodoInput: Form submitted with text='%s'\n", inputText)
+
+		if onAdd != nil && inputText != "" {
+			onAdd.(func(string))(inputText)
 			setText("")
+			logMetrics("FORM_SUBMIT")
 		}
 	})
 
 	handleChange := GoUseFunc(func(event GoEvent) {
-		setText(event.GetValue())
+		newValue := event.GetValue()
+		fmt.Printf("⌨️ SimpleTodoInput: Text changed to='%s'\n", newValue)
+		setText(newValue)
+		logMetrics("INPUT_CHANGE")
 	})
 
 	return Form(Attrs{
@@ -1051,23 +1275,30 @@ func SimpleTodoInput(props Attrs) *Element {
 	)
 }
 
-// Modern todo item component with sleek dark styling
+// Modern todo item component with sleek dark styling and metrics
 func SimpleTodoItem(props Attrs) *Element {
 	todo := props["todo"].(Todo)
 	onToggle := props["onToggle"]
 	onDelete := props["onDelete"]
 
+	fmt.Printf("📝 SimpleTodoItem: Rendering todo %d - '%s' (completed: %v)\n",
+		todo.ID, todo.Text, todo.Completed)
+
 	handleToggle := GoUseFunc(func(event GoEvent) {
 		event.PreventDefault()
+		fmt.Printf("🔄 SimpleTodoItem: Toggle clicked for todo %d\n", todo.ID)
 		if onToggle != nil {
 			onToggle.(func(int))(todo.ID)
+			logMetrics("ITEM_TOGGLE")
 		}
 	})
 
 	handleDelete := GoUseFunc(func(event GoEvent) {
 		event.PreventDefault()
+		fmt.Printf("🗑️ SimpleTodoItem: Delete clicked for todo %d\n", todo.ID)
 		if onDelete != nil {
 			onDelete.(func(int))(todo.ID)
+			logMetrics("ITEM_DELETE")
 		}
 	})
 
