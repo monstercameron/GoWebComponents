@@ -11,6 +11,25 @@ import (
 	"syscall/js"
 )
 
+// Object pools for reducing allocations
+var (
+	fiberPool = sync.Pool{
+		New: func() interface{} {
+			return &Fiber{}
+		},
+	}
+
+	hooksPool = sync.Pool{
+		New: func() interface{} {
+			return &Hooks{
+				state: make([]interface{}, 0, 4),   // Pre-allocate capacity
+				deps:  make([][]interface{}, 0, 4), // Pre-allocate capacity
+				memos: make([]memoizedValue, 0, 2), // Pre-allocate capacity
+			}
+		},
+	}
+)
+
 // Global variables for tracking the current fiber and root.
 var (
 	wipRoot         *Fiber
@@ -110,12 +129,16 @@ type memoizedValue struct {
 	deps  []interface{}
 }
 
-// Extend the Hooks struct to include memoized values
+// Hooks struct optimized for memory alignment and access patterns
 type Hooks struct {
-	state []interface{}
-	deps  [][]interface{}
-	index int
-	memos []memoizedValue
+	// Hot path data - accessed most frequently
+	index int // 8 bytes (padded)
+
+	// Slice headers grouped together (each is 24 bytes)
+	state []interface{}   // 24 bytes
+	deps  [][]interface{} // 24 bytes
+	memos []memoizedValue // 24 bytes
+	// Total: 80 bytes, well-aligned
 }
 
 func useEffect(effect func(), deps ...interface{}) {
@@ -201,17 +224,26 @@ func useMemo(compute func() interface{}, deps ...interface{}) interface{} {
 }
 
 // Fiber represents a unit of work in the virtual DOM tree.
+// Fiber struct optimized for memory alignment and cache efficiency
 type Fiber struct {
-	typeOf    interface{}
-	props     map[string]interface{}
-	hooks     *Hooks
-	parent    *Fiber
-	dom       js.Value
-	alternate *Fiber
-	child     *Fiber
-	sibling   *Fiber
-	effectTag string
-	effects   []func()
+	// Group pointers together for better cache locality
+	parent    *Fiber // 8 bytes
+	alternate *Fiber // 8 bytes
+	child     *Fiber // 8 bytes
+	sibling   *Fiber // 8 bytes
+	hooks     *Hooks // 8 bytes
+	// Total: 40 bytes (aligned to 8-byte boundary)
+
+	// Group interface and map together
+	typeOf interface{}            // 16 bytes
+	props  map[string]interface{} // 8 bytes
+	dom    js.Value               // 24 bytes
+	// Total: 48 bytes
+
+	// Smaller types grouped at end
+	effectTag string   // 16 bytes
+	effects   []func() // 24 bytes
+	// Total: 40 bytes
 }
 
 // getCurrentFiber retrieves the current working fiber.
@@ -657,47 +689,43 @@ func commitDeletion(fiber *Fiber, domParent js.Value) {
 }
 
 func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
-	// fmt.Println("updateDom: Updating DOM properties")
+	// Fast path: check if maps are equal first
+	if len(oldProps) == 0 && len(newProps) == 0 {
+		return
+	}
 
 	// 1. Remove old or changed event listeners
 	for name, oldValue := range oldProps {
-		if strings.HasPrefix(name, "on") {
+		// Branch optimization: check first character before HasPrefix
+		if len(name) > 1 && name[0] == 'o' && name[1] == 'n' {
 			eventType := strings.ToLower(name[2:])
-			// fmt.Printf("updateDom: Removing event listener for %s\n", eventType)
 			dom.Call("removeEventListener", eventType, oldValue.(js.Func))
-		}
-
-		// Remove properties that no longer exist, excluding event listeners
-		if newProps[name] == nil && !strings.HasPrefix(name, "on") {
-			// fmt.Printf("updateDom: Removing property '%s'\n", name)
+		} else if newProps[name] == nil {
+			// Remove properties that no longer exist, excluding event listeners
 			dom.Set(name, js.Undefined())
 		}
 	}
 
 	// 2. Add new or changed properties and event listeners
 	for name, value := range newProps {
+		// Fast path: skip common exclusions first
 		if name == "children" {
 			continue
 		}
-		if name == "dangerouslySetInnerHTML" {
+
+		// Branch optimization: use switch for most common cases
+		switch {
+		case name == "dangerouslySetInnerHTML":
 			htmlContent := value.(map[string]string)["__html"]
-			// fmt.Println("updateDom: Updating innerHTML")
 			dom.Set("innerHTML", htmlContent)
-			continue
-		}
-		if strings.HasPrefix(name, "on") {
-			eventType := strings.ToLower(name[2:])
-			// fmt.Printf("updateDom: Adding event listener for %s\n", eventType)
-			dom.Call("addEventListener", eventType, value.(js.Func))
-			continue
-		}
-		if name == "class" {
-			// fmt.Printf("updateDom: Setting attribute 'class' to '%v'\n", value)
+		case name == "class":
 			dom.Call("setAttribute", "class", value)
-			continue
+		case len(name) > 1 && name[0] == 'o' && name[1] == 'n':
+			eventType := strings.ToLower(name[2:])
+			dom.Call("addEventListener", eventType, value.(js.Func))
+		default:
+			dom.Set(name, value)
 		}
-		// fmt.Printf("updateDom: Setting property '%s' to '%v'\n", name, value)
-		dom.Set(name, value)
 	}
 }
 

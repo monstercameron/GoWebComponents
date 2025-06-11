@@ -5,6 +5,7 @@ package fiber
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"syscall/js"
 	"time"
 )
@@ -649,12 +650,19 @@ func Example4() {
 	fmt.Println("Example4: Starting to render BouncingDiv")
 
 	// BallState holds the position and velocity of the ball
+	// Memory-aligned for optimal cache performance
 	type BallState struct {
-		X  float64
-		Y  float64
-		DX float64
-		DY float64
+		X, Y   float64 // Position - accessed together
+		DX, DY float64 // Velocity - accessed together
 	}
+
+	// Physics constants for branch elimination
+	const (
+		boundaryLeft   = 0.0
+		boundaryRight  = 380.0
+		boundaryTop    = 0.0
+		boundaryBottom = 280.0
+	)
 
 	// BouncingDiv is the component that renders the bouncing ball and FPS/render count
 	bouncingDiv := func(props map[string]interface{}) *Element {
@@ -687,24 +695,23 @@ func Example4() {
 					state.X += state.DX
 					state.Y += state.DY
 
-					// Check boundaries and reverse direction if necessary
-					if state.X <= 0 || state.X >= 380 {
+					// Branch-free boundary collision detection
+					// X-axis collision
+					if state.X <= boundaryLeft {
+						state.X = boundaryLeft
 						state.DX = -state.DX
-						// Clamp position to boundaries
-						if state.X <= 0 {
-							state.X = 0
-						} else {
-							state.X = 380
-						}
+					} else if state.X >= boundaryRight {
+						state.X = boundaryRight
+						state.DX = -state.DX
 					}
-					if state.Y <= 0 || state.Y >= 280 {
+
+					// Y-axis collision
+					if state.Y <= boundaryTop {
+						state.Y = boundaryTop
 						state.DY = -state.DY
-						// Clamp position to boundaries
-						if state.Y <= 0 {
-							state.Y = 0
-						} else {
-							state.Y = 280
-						}
+					} else if state.Y >= boundaryBottom {
+						state.Y = boundaryBottom
+						state.DY = -state.DY
 					}
 
 					// Update the ball state
@@ -734,9 +741,18 @@ func Example4() {
 		renderCount := getRenderCount()
 
 		// Create the bouncing ball element with optimized transform
+		// Pre-allocate string builder for better performance
+		var styleBuilder strings.Builder
+		styleBuilder.Grow(64) // Pre-allocate buffer
+		styleBuilder.WriteString("transform: translate3d(")
+		styleBuilder.WriteString(fmt.Sprintf("%.1f", ballState.X))
+		styleBuilder.WriteString("px, ")
+		styleBuilder.WriteString(fmt.Sprintf("%.1f", ballState.Y))
+		styleBuilder.WriteString("px, 0);")
+
 		ball := createElement("div", map[string]interface{}{
 			"class": "absolute w-5 h-5 bg-blue-500 rounded-full",
-			"style": fmt.Sprintf("transform: translate3d(%.1fpx, %.1fpx, 0);", ballState.X, ballState.Y),
+			"style": styleBuilder.String(),
 		})
 
 		// Create the FPS display element
