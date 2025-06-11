@@ -54,7 +54,7 @@ func getFPS() float64 {
 //
 // Example1 is intended to be used as an example of how to use the GoWebComponents library to create a calculator component.
 func Example1() {
-	fmt.Println("Example1: Starting to render calculator")
+	fmt.Println("Example1: Starting to render calculator with optimized fiber system")
 
 	// Calculator component
 	calculator := func(props map[string]interface{}) *Element {
@@ -63,154 +63,164 @@ func Example1() {
 		result, setResult := useState("")
 		previousExpression, setPreviousExpression := useState("")
 
+		// Use optimized useEffect with proper dependencies
 		useEffect(func() {
-			fmt.Println("Result changed:", result())
+			fmt.Println("Calculator: Result changed:", result())
 		}, []interface{}{result()})
 
-		// Function to handle button clicks for numbers and operators
-		handleButtonClick := func() js.Func {
-			cb := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				// Get the value from the button clicked
-				value := args[0].Get("target").Get("innerText").String()
-				fmt.Println("Button clicked:", value)
-				// Append the value to the input
-				newInput := input() + value
-				setInput(newInput)
-				// Clear the result since we're building a new expression
-				setResult("")
-				return nil
-			})
-			// Store the callback to keep it alive
-			eventCallbacks = append(eventCallbacks, cb)
-			return cb
-		}
+		// Use optimized useFunc for button clicks (no memory leaks)
+		handleButtonClick := useFunc(func(this js.Value, args []js.Value) interface{} {
+			// Get the value from the button clicked
+			value := args[0].Get("target").Get("innerText").String()
+			fmt.Println("Calculator: Button clicked:", value)
+			// Append the value to the input
+			newInput := input() + value
+			setInput(newInput)
+			// Clear the result since we're building a new expression
+			setResult("")
+			return nil
+		})
 
-		// Function to handle the equal button click
-		handleEqual := func() js.Func {
-			cb := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				expr := input()
-				fmt.Println("Evaluating expression:", expr)
-				// Evaluate the expression using JavaScript's eval
-				res, err := jsEval(expr)
-				if err != nil {
-					fmt.Println("Error evaluating expression:", err)
-					setResult("Error")
-				} else {
-					setResult(res)
-					// Store the previous expression
-					setPreviousExpression(expr + " = " + res)
-					// Set the input to the result for the next calculation
-					setInput(res)
-				}
-				return nil
-			})
-			// Store the callback to keep it alive
-			eventCallbacks = append(eventCallbacks, cb)
-			return cb
-		}
+		// Use optimized useFunc for equal button (no memory leaks)
+		handleEqual := useFunc(func(this js.Value, args []js.Value) interface{} {
+			expr := input()
+			fmt.Println("Calculator: Evaluating expression:", expr)
+			// Evaluate the expression using JavaScript's eval
+			res, err := jsEval(expr)
+			if err != nil {
+				fmt.Println("Calculator: Error evaluating expression:", err)
+				setResult("Error")
+			} else {
+				setResult(res)
+				// Store the previous expression
+				setPreviousExpression(expr + " = " + res)
+				// Set the input to the result for the next calculation
+				setInput(res)
+			}
+			return nil
+		})
 
-		// Function to handle the clear button click
-		handleClear := func() js.Func {
-			cb := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				setInput("")
-				setResult("")
-				setPreviousExpression("")
-				return nil
-			})
-			// Store the callback to keep it alive
-			eventCallbacks = append(eventCallbacks, cb)
-			return cb
-		}
+		// Use optimized useFunc for clear button (no memory leaks)
+		handleClear := useFunc(func(this js.Value, args []js.Value) interface{} {
+			setInput("")
+			setResult("")
+			setPreviousExpression("")
+			fmt.Println("Calculator: Cleared")
+			return nil
+		})
 
-		// Render the calculator UI
-		return createElement("div", map[string]interface{}{"class": "container mx-auto p-4 grid grid-cols-12"},
-			createElement("h1", map[string]interface{}{"class": "text-2xl font-bold mb-4"}, Text("GoWebComponent Calculator")),
+		// Render the calculator UI with proper structure
+		return createElement("div", map[string]interface{}{"class": "container mx-auto p-4"},
+			createElement("h1", map[string]interface{}{"class": "text-2xl font-bold mb-4 text-center"},
+				Text("🧮 GoWebComponent Calculator")),
+
+			// Calculator display container
 			createElement("div", map[string]interface{}{
-				"class": "mb-4 col-start-5 col-end-9",
+				"class": "max-w-md mx-auto mb-4",
 			},
-				// Display the previous expression
-				createElement("div", map[string]interface{}{"class": "h-5 text-right text-gray-500 text-sm"}, Text(previousExpression())),
-				// Display the input expression
+				// Previous expression display
 				createElement("div", map[string]interface{}{
-					"class": "h-16 text-right text-green-500 text-3xl font-mono bg-gray-800 p-4 rounded",
-				}, Text(input())),
+					"class": "h-6 text-right text-gray-500 text-sm px-4 py-1",
+				}, Text(previousExpression())),
+
+				// Current input display
+				createElement("div", map[string]interface{}{
+					"class": "h-16 text-right text-green-400 text-3xl font-mono bg-gray-900 p-4 rounded-t border-2 border-gray-600",
+				}, Text(func() string {
+					if input() == "" {
+						return "0"
+					}
+					return input()
+				}())),
 			),
-			// Calculator buttons
-			createElement("div", map[string]interface{}{"class": "col-start-5 col-end-9 grid grid-cols-4 gap-4"},
-				// Row 1: Clear (C), Divide (/)
+
+			// Calculator buttons grid
+			createElement("div", map[string]interface{}{
+				"class": "max-w-md mx-auto grid grid-cols-4 gap-2 p-4 bg-gray-800 rounded-b border-2 border-t-0 border-gray-600",
+			},
+				// Row 1: Clear and operators
 				createElement("button", map[string]interface{}{
-					"class":   "col-span-3 bg-red-600 text-white p-4 rounded hover:bg-red-700 transition duration-200",
-					"onclick": handleClear(),
-				}, Text("C")),
+					"class":   "col-span-3 bg-red-600 text-white p-4 rounded font-bold hover:bg-red-700 transition duration-200 active:bg-red-800",
+					"onclick": handleClear,
+				}, Text("Clear")),
 				createElement("button", map[string]interface{}{
-					"class":   "bg-gray-500 text-white p-4 rounded hover:bg-gray-700 transition duration-200",
-					"onclick": handleButtonClick(),
+					"class":   "bg-orange-500 text-white p-4 rounded font-bold hover:bg-orange-600 transition duration-200 active:bg-orange-700",
+					"onclick": handleButtonClick,
 				}, Text("/")),
-				// Row 2: 7,8,9,*
+
+				// Row 2: 7, 8, 9, *
 				createElement("button", map[string]interface{}{
-					"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
-					"onclick": handleButtonClick(),
+					"class":   "bg-gray-600 text-white text-xl p-4 rounded hover:bg-gray-500 transition duration-200 active:bg-gray-700",
+					"onclick": handleButtonClick,
 				}, Text("7")),
 				createElement("button", map[string]interface{}{
-					"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
-					"onclick": handleButtonClick(),
+					"class":   "bg-gray-600 text-white text-xl p-4 rounded hover:bg-gray-500 transition duration-200 active:bg-gray-700",
+					"onclick": handleButtonClick,
 				}, Text("8")),
 				createElement("button", map[string]interface{}{
-					"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
-					"onclick": handleButtonClick(),
+					"class":   "bg-gray-600 text-white text-xl p-4 rounded hover:bg-gray-500 transition duration-200 active:bg-gray-700",
+					"onclick": handleButtonClick,
 				}, Text("9")),
 				createElement("button", map[string]interface{}{
-					"class":   "bg-gray-500 text-white p-4 rounded hover:bg-gray-700 transition duration-200",
-					"onclick": handleButtonClick(),
+					"class":   "bg-orange-500 text-white p-4 rounded font-bold hover:bg-orange-600 transition duration-200 active:bg-orange-700",
+					"onclick": handleButtonClick,
 				}, Text("*")),
-				// Row 3: 4,5,6,-
+
+				// Row 3: 4, 5, 6, -
 				createElement("button", map[string]interface{}{
-					"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
-					"onclick": handleButtonClick(),
+					"class":   "bg-gray-600 text-white text-xl p-4 rounded hover:bg-gray-500 transition duration-200 active:bg-gray-700",
+					"onclick": handleButtonClick,
 				}, Text("4")),
 				createElement("button", map[string]interface{}{
-					"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
-					"onclick": handleButtonClick(),
+					"class":   "bg-gray-600 text-white text-xl p-4 rounded hover:bg-gray-500 transition duration-200 active:bg-gray-700",
+					"onclick": handleButtonClick,
 				}, Text("5")),
 				createElement("button", map[string]interface{}{
-					"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
-					"onclick": handleButtonClick(),
+					"class":   "bg-gray-600 text-white text-xl p-4 rounded hover:bg-gray-500 transition duration-200 active:bg-gray-700",
+					"onclick": handleButtonClick,
 				}, Text("6")),
 				createElement("button", map[string]interface{}{
-					"class":   "bg-gray-500 text-white p-4 rounded hover:bg-gray-700 transition duration-200",
-					"onclick": handleButtonClick(),
+					"class":   "bg-orange-500 text-white p-4 rounded font-bold hover:bg-orange-600 transition duration-200 active:bg-orange-700",
+					"onclick": handleButtonClick,
 				}, Text("-")),
-				// Row 4: 1,2,3,+
+
+				// Row 4: 1, 2, 3, +
 				createElement("button", map[string]interface{}{
-					"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
-					"onclick": handleButtonClick(),
+					"class":   "bg-gray-600 text-white text-xl p-4 rounded hover:bg-gray-500 transition duration-200 active:bg-gray-700",
+					"onclick": handleButtonClick,
 				}, Text("1")),
 				createElement("button", map[string]interface{}{
-					"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
-					"onclick": handleButtonClick(),
+					"class":   "bg-gray-600 text-white text-xl p-4 rounded hover:bg-gray-500 transition duration-200 active:bg-gray-700",
+					"onclick": handleButtonClick,
 				}, Text("2")),
 				createElement("button", map[string]interface{}{
-					"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
-					"onclick": handleButtonClick(),
+					"class":   "bg-gray-600 text-white text-xl p-4 rounded hover:bg-gray-500 transition duration-200 active:bg-gray-700",
+					"onclick": handleButtonClick,
 				}, Text("3")),
 				createElement("button", map[string]interface{}{
-					"class":   "bg-gray-500 text-white p-4 rounded hover:bg-gray-700 transition duration-200",
-					"onclick": handleButtonClick(),
+					"class":   "bg-orange-500 text-white p-4 rounded font-bold hover:bg-orange-600 transition duration-200 active:bg-orange-700",
+					"onclick": handleButtonClick,
 				}, Text("+")),
+
 				// Row 5: 0, ., =
 				createElement("button", map[string]interface{}{
-					"class":   "col-span-2 bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
-					"onclick": handleButtonClick(),
+					"class":   "col-span-2 bg-gray-600 text-white text-xl p-4 rounded hover:bg-gray-500 transition duration-200 active:bg-gray-700",
+					"onclick": handleButtonClick,
 				}, Text("0")),
 				createElement("button", map[string]interface{}{
-					"class":   "bg-gray-400 text-xl p-4 rounded hover:bg-gray-600 transition duration-200",
-					"onclick": handleButtonClick(),
+					"class":   "bg-gray-600 text-white text-xl p-4 rounded hover:bg-gray-500 transition duration-200 active:bg-gray-700",
+					"onclick": handleButtonClick,
 				}, Text(".")),
 				createElement("button", map[string]interface{}{
-					"class":   "bg-blue-600 text-white p-4 rounded hover:bg-blue-700 transition duration-200",
-					"onclick": handleEqual(),
+					"class":   "bg-blue-600 text-white p-4 rounded font-bold hover:bg-blue-700 transition duration-200 active:bg-blue-800",
+					"onclick": handleEqual,
 				}, Text("=")),
 			),
+
+			// Status display
+			createElement("div", map[string]interface{}{
+				"class": "max-w-md mx-auto mt-4 text-center text-sm text-gray-400",
+			}, Text("🚀 Powered by Optimized Fiber v2.0")),
 		)
 	}
 
@@ -222,7 +232,7 @@ func Example1() {
 	}
 
 	// Render the calculator component into the container
-	fmt.Println("Example1: Rendering calculator into the container")
+	fmt.Println("Example1: Rendering optimized calculator into the container")
 	render(createElement(calculator, nil), container)
 }
 

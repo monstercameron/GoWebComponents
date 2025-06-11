@@ -24,10 +24,10 @@ func main() {
 	fmt.Println("Main: Starting fiber.Example1")
 
 	// Call the Example1 function from the html package, which handles the HTML rendering.
-	// fiber.Example1()
+	fiber.Example1()
 	// fiber.Example2()
 	// fiber.Example3()
-	fiber.Example4()
+	// fiber.Example4()
 	// fiber.Example5()
 
 	// Print a message indicating the end of the main function logic.

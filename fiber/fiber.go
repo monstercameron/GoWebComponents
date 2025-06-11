@@ -76,12 +76,10 @@ type FastComparable interface {
 
 // NEW: Common primitive type fast equality
 func fastEqual(a, b interface{}) bool {
-	// Fast path: pointer equality
-	if a == b {
+	// Fast path: nil checks first
+	if a == nil && b == nil {
 		return true
 	}
-
-	// Fast path: nil checks
 	if a == nil || b == nil {
 		return false
 	}
@@ -125,10 +123,49 @@ func fastEqual(a, b interface{}) bool {
 			}
 			return true
 		}
+	case []interface{}:
+		if vb, ok := b.([]interface{}); ok {
+			if len(va) != len(vb) {
+				return false
+			}
+			for i := range va {
+				if !fastEqual(va[i], vb[i]) {
+					return false
+				}
+			}
+			return true
+		}
+	case []int:
+		if vb, ok := b.([]int); ok {
+			if len(va) != len(vb) {
+				return false
+			}
+			for i := range va {
+				if va[i] != vb[i] {
+					return false
+				}
+			}
+			return true
+		}
 	}
 
-	// Fallback to reflection only when necessary
-	return reflect.DeepEqual(a, b)
+	// Use pointer equality check only for comparable types
+	// Avoid == for uncomparable types like slices, maps, functions
+	va := reflect.ValueOf(a)
+	vb := reflect.ValueOf(b)
+
+	// Check if types are the same
+	if va.Type() != vb.Type() {
+		return false
+	}
+
+	// For uncomparable types, fall back to reflect.DeepEqual
+	if !va.Type().Comparable() {
+		return reflect.DeepEqual(a, b)
+	}
+
+	// Safe to use == for comparable types
+	return a == b
 }
 
 // createElement constructs an Element with optimized allocations
