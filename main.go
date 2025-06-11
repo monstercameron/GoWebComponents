@@ -10,7 +10,7 @@ import (
 )
 
 // main is the entry point of the program.
-// It initializes a WaitGroup, prints a message, calls the Example1 function from the html package,
+// It initializes a WaitGroup, prints a message, calls the Example2 function from the fiber package,
 // and waits for the WaitGroup to complete before exiting.
 func main() {
 	// Initialize a WaitGroup to simulate waiting for asynchronous tasks in the WebAssembly environment.
@@ -21,17 +21,17 @@ func main() {
 	wg.Add(1)
 
 	// Print a message indicating the start of the program.
-	fmt.Println("Main: Starting fiber.Example1")
+	fmt.Println("Main: Starting fiber.Example2")
 
-	// Call the Example1 function from the html package, which handles the HTML rendering.
-	fiber.Example1()
+	// Call the Example2 function from the fiber package, which handles the optimized click counter.
+	// fiber.Example1()
 	// fiber.Example2()
 	// fiber.Example3()
 	// fiber.Example4()
-	// fiber.Example5()
+	fiber.Example5()
 
 	// Print a message indicating the end of the main function logic.
-	// At this point, the Example1 function has already executed.
+	// At this point, the Example2 function has already executed.
 	fmt.Println("Main: End of main function")
 
 	// Wait() blocks the main function from exiting immediately.

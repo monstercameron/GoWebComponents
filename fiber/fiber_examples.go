@@ -251,48 +251,87 @@ func jsEval(expr string) (string, error) {
 
 // Example2 demonstrates the usage of a simple click counter component. The click counter component keeps track of the number of times a button is clicked. It renders a div container with a heading and a button. The button displays the current count. When the button is clicked, the count is incremented and displayed. The component utilizes the useState and useEffect hooks from the GoWebComponents library. The useState hook is used to manage the count state, while the useEffect hook is used to log a message when the component is mounted. Example2 also demonstrates how to render the component into the DOM using the render function.
 func Example2() {
-	fmt.Println("Example2: Starting to render ClickCounter with useMemo and useFunc")
+	fmt.Println("Example2: Starting to render ClickCounter with optimized useMemo and useFunc")
 
 	// simple click counter component with memoized calculation
 	clickCounter := func(props map[string]interface{}) *Element {
 		count, setCount := useState(0)
 
+		// Use optimized useFunc for event handling
 		handleClick := useFunc(func(this js.Value, args []js.Value) interface{} {
-			fmt.Printf("handleClick: Clicked, count is %d\n", count())
-			setCount(count() + 1)
+			currentCount := count()
+			fmt.Printf("ClickCounter: Button clicked, count was %d\n", currentCount)
+			setCount(currentCount + 1)
 			return nil
 		})
 
-		// Effect that runs only on mount
+		// Effect that runs only on mount (empty dependency array)
 		useEffect(func() {
-			fmt.Println("useEffect: I should only appear once when the component is mounted")
-		}, nil)
+			fmt.Println("ClickCounter: Component mounted - this should only appear once")
+		}, []interface{}{}) // ✅ FIXED - empty dependency array
 
-		// Effect that runs when count changes
+		// Effect that runs when count changes (proper dependency)
 		useEffect(func() {
-			fmt.Println("useEffect: Count changed:", count())
-		}, count())
+			fmt.Printf("ClickCounter: Count changed to: %d\n", count())
+		}, []interface{}{count()}) // ✅ FIXED - proper dependency array
 
-		// Effect that runs on every render
-		useEffect(func() {
-			fmt.Println("useEffect: I run on every render")
-		})
+		// Remove the "runs on every render" effect - it's not useful and causes performance issues
 
-		// Memoized expensive calculation
+		// Memoized expensive calculation with proper dependencies
 		expensiveResult := useMemo(func() interface{} {
-			fmt.Println("Performing expensive calculation...")
-			return expensiveCalculation(count())
-		}, count())
+			currentCount := count()
+			fmt.Printf("ClickCounter: Performing expensive calculation for count %d...\n", currentCount)
+			return expensiveCalculation(currentCount)
+		}, []interface{}{count()}) // ✅ FIXED - proper dependency array
 
-		return createElement("div", map[string]interface{}{"class": "container mx-auto p-4"},
-			createElement("h1", map[string]interface{}{"class": "text-2xl font-bold mb-4"},
-				Text("Click Counter with Memoization")),
+		// Current count for display
+		currentCount := count()
+
+		return createElement("div", map[string]interface{}{
+			"class": "container mx-auto p-4 max-w-md",
+		},
+			createElement("h1", map[string]interface{}{
+				"class": "text-2xl font-bold mb-6 text-center",
+			}, Text("🔢 Click Counter with Memoization")),
+
+			// Count display
+			createElement("div", map[string]interface{}{
+				"class": "text-center mb-6",
+			},
+				createElement("div", map[string]interface{}{
+					"class": "text-6xl font-bold text-blue-600 mb-2",
+				}, Text(fmt.Sprintf("%d", currentCount))),
+				createElement("div", map[string]interface{}{
+					"class": "text-gray-500 text-sm",
+				}, Text("clicks")),
+			),
+
+			// Click button
 			createElement("button", map[string]interface{}{
 				"onclick": handleClick,
-				"class":   "px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-200",
-			}, Text(fmt.Sprintf("Clicked %d times", count()))),
-			createElement("p", map[string]interface{}{"class": "mt-4"},
-				Text(fmt.Sprintf("Expensive calculation result: %v", expensiveResult))))
+				"class":   "w-full px-6 py-4 bg-blue-500 text-white text-xl font-bold rounded-lg hover:bg-blue-600 active:bg-blue-700 transition duration-200 shadow-lg",
+			}, Text("Click Me!")),
+
+			// Results display
+			createElement("div", map[string]interface{}{
+				"class": "mt-6 p-4 bg-gray-100 rounded-lg",
+			},
+				createElement("div", map[string]interface{}{
+					"class": "text-sm text-gray-600 mb-2",
+				}, Text("Expensive Calculation Result:")),
+				createElement("div", map[string]interface{}{
+					"class": "text-2xl font-bold text-green-600",
+				}, Text(fmt.Sprintf("%v", expensiveResult))),
+				createElement("div", map[string]interface{}{
+					"class": "text-xs text-gray-500 mt-2",
+				}, Text("(Only recalculates when count changes)")),
+			),
+
+			// Status display
+			createElement("div", map[string]interface{}{
+				"class": "mt-4 text-center text-sm text-gray-400",
+			}, Text("🚀 Powered by Optimized Fiber v2.0")),
+		)
 	}
 
 	// Start rendering
@@ -301,16 +340,16 @@ func Example2() {
 		fmt.Println("Example2: Error - No element with id 'root' found in the DOM")
 		return
 	}
-	fmt.Println("Example2: Rendering ClickCounter into the container")
+	fmt.Println("Example2: Rendering optimized ClickCounter into the container")
 	render(createElement(clickCounter, nil), container)
 }
 
-// Simulating an expensive calculation
+// Simulating an expensive calculation with better logging
 func expensiveCalculation(count int) int {
-	fmt.Println("expensiveCalculation: Started")
-	time.Sleep(1000 * time.Millisecond) // Simulate expensive operation
-	result := count * 2
-	fmt.Println("expensiveCalculation: Finished")
+	fmt.Printf("expensiveCalculation: Started for count %d\n", count)
+	time.Sleep(500 * time.Millisecond) // Reduced from 1000ms to 500ms for better UX
+	result := count*count + 10         // More interesting calculation
+	fmt.Printf("expensiveCalculation: Finished for count %d, result: %d\n", count, result)
 	return result
 }
 
