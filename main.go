@@ -21,15 +21,15 @@ func main() {
 	wg.Add(1)
 
 	// Print a message indicating the start of the program.
-	fmt.Println("Main: Starting fiber.Example6")
+	fmt.Println("Main: Starting fiber.BlogLandingPage")
 
-	// Call the Example6 function from the fiber package, which handles the blog landing page.
+	// Call the BlogLandingPage function from the fiber package, which handles the blog landing page.
 	// fiber.Example1()
 	// fiber.Example2()
 	// fiber.Example3()
 	// fiber.Example4()
 	// fiber.Example5()
-	fiber.Example6()
+	fiber.BlogLandingPage()
 
 	// Print a message indicating the end of the main function logic.
 	// At this point, the Example2 function has already executed.

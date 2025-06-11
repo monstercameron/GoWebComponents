@@ -1249,9 +1249,9 @@ func Example4() {
 	render(createElement(bouncingDiv, nil), container)
 }
 
-// Example6 creates a simple blog landing page with various HTML tags and CSS styling
-func Example6() {
-	fmt.Println("Example6: Starting to render blog landing page")
+// BlogLandingPage creates a simple blog landing page with various HTML tags and CSS styling
+func BlogLandingPage() {
+	fmt.Println("BlogLandingPage: Starting to render blog landing page")
 
 	// Blog Landing Page Component
 	blogLandingPage := func(props map[string]interface{}) *Element {
@@ -1686,10 +1686,10 @@ func Example6() {
 	// Render the blog landing page
 	container := js.Global().Get("document").Call("getElementById", "root")
 	if container.IsUndefined() || container.IsNull() {
-		fmt.Println("Example6: Error - No element with id 'root' found in the DOM")
+		fmt.Println("BlogLandingPage: Error - No element with id 'root' found in the DOM")
 		return
 	}
 
-	fmt.Println("Example6: Rendering blog landing page into the container")
+	fmt.Println("BlogLandingPage: Rendering blog landing page into the container")
 	render(createElement(blogLandingPage, nil), container)
 }
