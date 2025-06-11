@@ -21,18 +21,19 @@ func main() {
 	wg.Add(1)
 
 	// Print a message indicating the start of the program.
-	fmt.Println("Main: Starting fiber.BlogLandingPage")
+	fmt.Println("Main: Starting fiber.ClickCounter")
 
-	// Call the BlogLandingPage function from the fiber package, which handles the blog landing page.
+	// Call the ClickCounter function from the fiber package, which handles the click counter page.
 	// fiber.Example1()
 	// fiber.Example2()
 	// fiber.Example3()
 	// fiber.Example4()
 	// fiber.Example5()
-	fiber.BlogLandingPage()
+	// fiber.BlogLandingPage()
+	fiber.ClickCounter()
 
 	// Print a message indicating the end of the main function logic.
-	// At this point, the Example2 function has already executed.
+	// At this point, the ClickCounter function has already executed.
 	fmt.Println("Main: End of main function")
 
 	// Wait() blocks the main function from exiting immediately.
