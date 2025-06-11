@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"syscall/js"
+	"unsafe"
 )
 
 // Object pools for reducing allocations
@@ -22,10 +23,26 @@ var (
 	hooksPool = sync.Pool{
 		New: func() interface{} {
 			return &Hooks{
-				state: make([]interface{}, 0, 4),   // Pre-allocate capacity
-				deps:  make([][]interface{}, 0, 4), // Pre-allocate capacity
-				memos: make([]memoizedValue, 0, 2), // Pre-allocate capacity
+				state: make([]interface{}, 0, 8),   // Larger pre-allocation
+				deps:  make([][]interface{}, 0, 8), // Larger pre-allocation
+				memos: make([]memoizedValue, 0, 4), // Larger pre-allocation
 			}
+		},
+	}
+
+	// NEW: Element pool for createElement optimization
+	elementPool = sync.Pool{
+		New: func() interface{} {
+			return &Element{
+				Props: make(map[string]interface{}, 8), // Pre-allocated map
+			}
+		},
+	}
+
+	// NEW: Props pool for map reuse
+	propsPool = sync.Pool{
+		New: func() interface{} {
+			return make(map[string]interface{}, 8)
 		},
 	}
 )
@@ -40,6 +57,9 @@ var (
 	eventCallbacks  []js.Func // Global slice to keep event callbacks alive
 	rafCallbacks    []js.Func // Global slice to keep callbacks alive
 	updateScheduled bool      // Flag to prevent multiple update scheduling
+
+	// Shared empty slice to avoid allocations
+	emptyChildren = []interface{}{}
 )
 
 // Element represents a virtual DOM node.
@@ -49,20 +69,112 @@ type Element struct {
 	Children []interface{}
 }
 
-// createElement constructs an Element with the given type, props, and children.
+// NEW: Fast equality checking without reflection
+type FastComparable interface {
+	FastEqual(other interface{}) bool
+}
+
+// NEW: Common primitive type fast equality
+func fastEqual(a, b interface{}) bool {
+	// Fast path: pointer equality
+	if a == b {
+		return true
+	}
+
+	// Fast path: nil checks
+	if a == nil || b == nil {
+		return false
+	}
+
+	// Fast path: Check if types implement FastComparable
+	if fc, ok := a.(FastComparable); ok {
+		return fc.FastEqual(b)
+	}
+
+	// Fast path: Common primitive types (avoid reflection)
+	switch va := a.(type) {
+	case string:
+		if vb, ok := b.(string); ok {
+			return va == vb
+		}
+	case int:
+		if vb, ok := b.(int); ok {
+			return va == vb
+		}
+	case int64:
+		if vb, ok := b.(int64); ok {
+			return va == vb
+		}
+	case float64:
+		if vb, ok := b.(float64); ok {
+			return va == vb
+		}
+	case bool:
+		if vb, ok := b.(bool); ok {
+			return va == vb
+		}
+	case []string:
+		if vb, ok := b.([]string); ok {
+			if len(va) != len(vb) {
+				return false
+			}
+			for i := range va {
+				if va[i] != vb[i] {
+					return false
+				}
+			}
+			return true
+		}
+	}
+
+	// Fallback to reflection only when necessary
+	return reflect.DeepEqual(a, b)
+}
+
+// createElement constructs an Element with optimized allocations
 func createElement(typ interface{}, props map[string]interface{}, children ...interface{}) *Element {
-	if props == nil {
-		props = make(map[string]interface{})
-	}
-	if len(children) > 0 {
-		props["children"] = children
+	// Get element from pool
+	elem := elementPool.Get().(*Element)
+
+	// Reset the element
+	elem.Type = typ
+	elem.Children = children[:len(children):len(children)] // Ensure capacity equals length
+
+	// Handle props efficiently
+	if props != nil {
+		// Clear existing props map efficiently
+		for k := range elem.Props {
+			delete(elem.Props, k)
+		}
+		// Copy props (map is already allocated)
+		for k, v := range props {
+			elem.Props[k] = v
+		}
 	} else {
-		props["children"] = []interface{}{}
+		// Clear props if none provided
+		for k := range elem.Props {
+			delete(elem.Props, k)
+		}
 	}
-	return &Element{
-		Type:     typ,
-		Props:    props,
-		Children: children,
+
+	// Set children in props
+	if len(children) > 0 {
+		elem.Props["children"] = children
+	} else {
+		// Use a shared empty slice to avoid allocations while maintaining type safety
+		elem.Props["children"] = emptyChildren
+	}
+
+	return elem
+}
+
+// NEW: Release element back to pool
+func releaseElement(elem *Element) {
+	if elem != nil {
+		elem.Type = nil
+		elem.Children = nil
+		// Keep Props map allocated for reuse
+		elementPool.Put(elem)
 	}
 }
 
@@ -73,11 +185,11 @@ func Text(content string) *Element {
 	})
 }
 
-// useState manages state in a component.
+// useState manages state in a component with optimized equality checking
 func useState[T any](initialValue T) (func() T, func(T)) {
 	currentFiber := getCurrentFiber()
 	if currentFiber.hooks == nil {
-		currentFiber.hooks = &Hooks{}
+		currentFiber.hooks = getHooksFromPool()
 	}
 
 	position := currentFiber.hooks.index
@@ -86,7 +198,14 @@ func useState[T any](initialValue T) (func() T, func(T)) {
 	if len(currentFiber.hooks.state) > position {
 		// Existing state
 	} else {
-		// Initial state
+		// Initial state - grow slice efficiently
+		if cap(currentFiber.hooks.state) <= position {
+			// Double capacity when needed
+			newCap := max(8, len(currentFiber.hooks.state)*2)
+			newState := make([]interface{}, len(currentFiber.hooks.state), newCap)
+			copy(newState, currentFiber.hooks.state)
+			currentFiber.hooks.state = newState
+		}
 		currentFiber.hooks.state = append(currentFiber.hooks.state, initialValue)
 	}
 
@@ -99,7 +218,8 @@ func useState[T any](initialValue T) (func() T, func(T)) {
 	}
 
 	setter := func(newValue T) {
-		if hooks.state[idx] == nil || !reflect.DeepEqual(hooks.state[idx], newValue) {
+		// Use fast equality check instead of reflect.DeepEqual
+		if hooks.state[idx] == nil || !fastEqual(hooks.state[idx], newValue) {
 			hooks.state[idx] = newValue
 			scheduleUpdateAtRoot()
 		}
@@ -108,19 +228,47 @@ func useState[T any](initialValue T) (func() T, func(T)) {
 	return getter, setter
 }
 
+// NEW: Get hooks from pool with reset
+func getHooksFromPool() *Hooks {
+	hooks := hooksPool.Get().(*Hooks)
+	hooks.index = 0
+	// Reuse slices, just reset length
+	hooks.state = hooks.state[:0]
+	hooks.deps = hooks.deps[:0]
+	hooks.memos = hooks.memos[:0]
+	return hooks
+}
+
+// NEW: Return hooks to pool
+func releaseHooks(hooks *Hooks) {
+	if hooks != nil {
+		// Don't clear slices, just reset for reuse
+		hooksPool.Put(hooks)
+	}
+}
+
 func scheduleUpdateAtRoot() {
 	if currentRoot == nil || updateScheduled {
 		return
 	}
 	updateScheduled = true
-	wipRoot = &Fiber{
-		typeOf:    currentRoot.typeOf,
-		dom:       currentRoot.dom,
-		props:     currentRoot.props,
-		alternate: currentRoot,
+
+	// Reuse fiber instead of allocating new one
+	if wipRoot == nil {
+		wipRoot = fiberPool.Get().(*Fiber)
 	}
+
+	wipRoot.typeOf = currentRoot.typeOf
+	wipRoot.dom = currentRoot.dom
+	wipRoot.props = currentRoot.props
+	wipRoot.alternate = currentRoot
+	wipRoot.effectTag = ""
+	wipRoot.parent = nil
+	wipRoot.child = nil
+	wipRoot.sibling = nil
+
 	nextUnitOfWork = wipRoot
-	deletions = []*Fiber{}
+	deletions = deletions[:0] // Reuse slice
 	requestIdleCallback(workLoop)
 }
 
@@ -144,36 +292,53 @@ type Hooks struct {
 func useEffect(effect func(), deps ...interface{}) {
 	currentFiber := getCurrentFiber()
 	if currentFiber.hooks == nil {
-		currentFiber.hooks = &Hooks{
-			state: []interface{}{},
-			deps:  [][]interface{}{},
-		}
+		currentFiber.hooks = getHooksFromPool()
 	}
 
 	position := currentFiber.hooks.index
 	currentFiber.hooks.index++
 
-	if len(currentFiber.hooks.deps) <= position {
+	// Grow deps slice efficiently
+	for len(currentFiber.hooks.deps) <= position {
+		currentFiber.hooks.deps = append(currentFiber.hooks.deps, nil)
+	}
+
+	if currentFiber.hooks.deps[position] == nil {
 		// First time this effect is used
-		currentFiber.hooks.deps = append(currentFiber.hooks.deps, deps)
+		currentFiber.hooks.deps[position] = deps
+		// Grow effects slice efficiently
+		if cap(currentFiber.effects) <= len(currentFiber.effects) {
+			newCap := max(4, cap(currentFiber.effects)*2)
+			newEffects := make([]func(), len(currentFiber.effects), newCap)
+			copy(newEffects, currentFiber.effects)
+			currentFiber.effects = newEffects
+		}
 		currentFiber.effects = append(currentFiber.effects, effect)
 	} else {
 		prevDeps := currentFiber.hooks.deps[position]
 		shouldRun := len(deps) == 0 || !areDepsEqual(prevDeps, deps)
 		if shouldRun {
-			// Dependencies have changed or no dependencies provided, update them and schedule the effect
+			// Dependencies have changed or no dependencies provided
 			currentFiber.hooks.deps[position] = deps
 			currentFiber.effects = append(currentFiber.effects, effect)
 		}
 	}
 }
 
+// Optimized dependency comparison
 func areDepsEqual(prevDeps, newDeps []interface{}) bool {
 	if len(prevDeps) != len(newDeps) {
 		return false
 	}
+
+	// Fast path for empty deps
+	if len(prevDeps) == 0 {
+		return true
+	}
+
+	// Use fast equality check
 	for i := range prevDeps {
-		if !reflect.DeepEqual(prevDeps[i], newDeps[i]) {
+		if !fastEqual(prevDeps[i], newDeps[i]) {
 			return false
 		}
 	}
@@ -183,37 +348,30 @@ func areDepsEqual(prevDeps, newDeps []interface{}) bool {
 func useMemo(compute func() interface{}, deps ...interface{}) interface{} {
 	currentFiber := getCurrentFiber()
 	if currentFiber.hooks == nil {
-		currentFiber.hooks = &Hooks{
-			state: []interface{}{},
-			deps:  [][]interface{}{},
-			memos: []memoizedValue{},
-		}
+		currentFiber.hooks = getHooksFromPool()
 	}
 
 	position := currentFiber.hooks.index
 	currentFiber.hooks.index++
 
-	if len(currentFiber.hooks.memos) <= position {
-		// First time this memo is used
-		value := compute()
-		currentFiber.hooks.memos = append(currentFiber.hooks.memos, memoizedValue{
-			value: value,
-			deps:  deps,
-		})
-		return value
+	// Grow memos slice efficiently
+	for len(currentFiber.hooks.memos) <= position {
+		currentFiber.hooks.memos = append(currentFiber.hooks.memos, memoizedValue{})
 	}
 
 	memo := &currentFiber.hooks.memos[position]
+
+	if memo.value == nil {
+		// First time this memo is used
+		value := compute() // Remove goroutine overhead for simple computations
+		memo.value = value
+		memo.deps = deps
+		return value
+	}
+
 	shouldCompute := len(deps) == 0 || !areDepsEqual(memo.deps, deps)
 	if shouldCompute {
-		var value interface{}
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			value = compute()
-		}()
-		wg.Wait()
+		value := compute() // Direct call, no goroutine
 		memo.value = value
 		memo.deps = deps
 		return value
@@ -223,27 +381,49 @@ func useMemo(compute func() interface{}, deps ...interface{}) interface{} {
 	return memo.value
 }
 
+// NEW: Utility function for max
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 // Fiber represents a unit of work in the virtual DOM tree.
 // Fiber struct optimized for memory alignment and cache efficiency
 type Fiber struct {
-	// Group pointers together for better cache locality
+	// Group pointers together for better cache locality (40 bytes)
 	parent    *Fiber // 8 bytes
 	alternate *Fiber // 8 bytes
 	child     *Fiber // 8 bytes
 	sibling   *Fiber // 8 bytes
 	hooks     *Hooks // 8 bytes
-	// Total: 40 bytes (aligned to 8-byte boundary)
 
-	// Group interface and map together
+	// Group interface and map together (48 bytes)
 	typeOf interface{}            // 16 bytes
 	props  map[string]interface{} // 8 bytes
 	dom    js.Value               // 24 bytes
-	// Total: 48 bytes
 
-	// Smaller types grouped at end
+	// Smaller types grouped at end (40 bytes)
 	effectTag string   // 16 bytes
 	effects   []func() // 24 bytes
-	// Total: 40 bytes
+}
+
+// NEW: Reset fiber for pool reuse
+func resetFiber(f *Fiber) {
+	f.parent = nil
+	f.alternate = nil
+	f.child = nil
+	f.sibling = nil
+	if f.hooks != nil {
+		releaseHooks(f.hooks)
+		f.hooks = nil
+	}
+	f.typeOf = nil
+	f.props = nil
+	f.dom = js.Value{}
+	f.effectTag = ""
+	f.effects = f.effects[:0] // Reuse slice
 }
 
 // getCurrentFiber retrieves the current working fiber.
@@ -701,37 +881,59 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 		return
 	}
 
-	// 1. Remove old or changed event listeners
+	// Ultra-fast path: pointer equality check
+	if unsafe.Pointer(&oldProps) == unsafe.Pointer(&newProps) {
+		return
+	}
+
+	// 1. Remove old or changed event listeners (optimized)
 	for name, oldValue := range oldProps {
-		// Branch optimization: check first character before HasPrefix
-		if len(name) > 1 && name[0] == 'o' && name[1] == 'n' {
-			eventType := strings.ToLower(name[2:])
-			dom.Call("removeEventListener", eventType, oldValue.(js.Func))
-		} else if newProps[name] == nil {
-			// Remove properties that no longer exist, excluding event listeners
+		// Branch optimization: check first character before string operations
+		if len(name) > 2 && name[0] == 'o' && name[1] == 'n' {
+			// Only remove if not in new props or value changed
+			if newValue, exists := newProps[name]; !exists || !fastEqual(oldValue, newValue) {
+				eventType := strings.ToLower(name[2:])
+				dom.Call("removeEventListener", eventType, oldValue.(js.Func))
+			}
+		} else if newProps[name] == nil && name != "children" {
+			// Remove properties that no longer exist, excluding event listeners and children
 			dom.Set(name, js.Undefined())
 		}
 	}
 
-	// 2. Add new or changed properties and event listeners
+	// 2. Add new or changed properties and event listeners (optimized)
 	for name, value := range newProps {
-		// Fast path: skip common exclusions first
+		// Skip common exclusions first (most frequent check)
 		if name == "children" {
 			continue
 		}
 
-		// Branch optimization: use switch for most common cases
-		switch {
-		case name == "dangerouslySetInnerHTML":
+		// Skip if value hasn't changed
+		if oldValue, exists := oldProps[name]; exists && fastEqual(oldValue, value) {
+			continue
+		}
+
+		// Branch optimization: inline checks for most common patterns
+		switch name {
+		case "class":
+			dom.Call("setAttribute", "class", value)
+		case "style":
+			dom.Set("style", value)
+		case "id":
+			dom.Set("id", value)
+		case "value":
+			dom.Set("value", value)
+		case "dangerouslySetInnerHTML":
 			htmlContent := value.(map[string]string)["__html"]
 			dom.Set("innerHTML", htmlContent)
-		case name == "class":
-			dom.Call("setAttribute", "class", value)
-		case len(name) > 1 && name[0] == 'o' && name[1] == 'n':
-			eventType := strings.ToLower(name[2:])
-			dom.Call("addEventListener", eventType, value.(js.Func))
 		default:
-			dom.Set(name, value)
+			// Check for event handlers (less common)
+			if len(name) > 2 && name[0] == 'o' && name[1] == 'n' {
+				eventType := strings.ToLower(name[2:])
+				dom.Call("addEventListener", eventType, value.(js.Func))
+			} else {
+				dom.Set(name, value)
+			}
 		}
 	}
 }
