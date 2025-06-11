@@ -90,21 +90,77 @@
         loadingElement.remove();
       }
 
-      WebAssembly.instantiateStreaming(
-        fetch("bin/main.wasm"),
-        go.importObject,
-        {
-          onprogress: (loaded, total) => {
-            updateProgress(loaded, total);
-          },
-        }
-      )
-        .then((result) => {
+      function showError(message) {
+        const loadingContainer = document.getElementById("loading-container");
+        loadingContainer.innerHTML = `
+          <div class="text-center">
+            <div class="text-red-400 mb-4">❌ Error Loading WebAssembly</div>
+            <div class="text-sm text-gray-400">${message}</div>
+            <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+              Retry
+            </button>
+          </div>
+        `;
+      }
+
+      async function loadWasm() {
+        try {
+          // Check WebAssembly support
+          if (!WebAssembly.instantiateStreaming) {
+            throw new Error("WebAssembly streaming is not supported in this browser");
+          }
+
+          // Fetch with progress tracking
+          const response = await fetch("bin/main.wasm");
+          if (!response.ok) {
+            throw new Error(`Failed to fetch WASM file: ${response.status} ${response.statusText}`);
+          }
+
+          const totalBytes = parseInt(response.headers.get('content-length')) || 0;
+          const reader = response.body.getReader();
+          let bytesDownloaded = 0;
+          const chunks = [];
+
+          // Read the stream with progress updates
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            chunks.push(value);
+            bytesDownloaded += value.length;
+            
+            if (totalBytes > 0) {
+              updateProgress(bytesDownloaded, totalBytes);
+            }
+          }
+
+          // Combine chunks and instantiate
+          const wasmBytes = new Uint8Array(bytesDownloaded);
+          let offset = 0;
+          for (const chunk of chunks) {
+            wasmBytes.set(chunk, offset);
+            offset += chunk.length;
+          }
+
+          const result = await WebAssembly.instantiate(wasmBytes, go.importObject);
+          
+          // Run the WebAssembly module
           go.run(result.instance);
           removeLoadingBar();
           window.document.title = "GoWebComponents - Calculator";
-        })
-        .catch(console.error);
+          
+        } catch (error) {
+          console.error("WebAssembly loading error:", error);
+          showError(error.message);
+        }
+      }
+
+      // Start loading when the page is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadWasm);
+      } else {
+        loadWasm();
+      }
     </script>
   </head>
 
