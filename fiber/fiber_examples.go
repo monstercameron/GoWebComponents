@@ -676,63 +676,89 @@ func Example4() {
 		getFPS, setFPS := useState(0)
 		getRenderCount, setRenderCount := useState(0)
 
-		// Start the goroutine to update ball position and FPS
+		// Browser-synchronized animation using requestAnimationFrame for perfect vsync
 		useEffect(func() {
-			lastTime := time.Now()
-			frameCount := 0
+			var lastFrameTime float64
+			var frameCount int
+			var lastFPSTime float64
+			var renderCount int
 
-			go func() {
-				ticker := time.NewTicker(16 * time.Millisecond) // 60 FPS
-				defer ticker.Stop()
+			// Physics constants for frame-rate independent animation
+			const baseSpeed = 300.0 // pixels per second
 
-				renderCount := 0
+			// Animation loop using requestAnimationFrame for perfect vsync
+			var animate js.Func
+			animate = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				currentTime := args[0].Float() // High-precision timestamp in milliseconds
 
-				for range ticker.C {
-					// Get current ball state
-					state := getBallState()
-
-					// Update position
-					state.X += state.DX
-					state.Y += state.DY
-
-					// Branch-free boundary collision detection
-					// X-axis collision
-					if state.X <= boundaryLeft {
-						state.X = boundaryLeft
-						state.DX = -state.DX
-					} else if state.X >= boundaryRight {
-						state.X = boundaryRight
-						state.DX = -state.DX
-					}
-
-					// Y-axis collision
-					if state.Y <= boundaryTop {
-						state.Y = boundaryTop
-						state.DY = -state.DY
-					} else if state.Y >= boundaryBottom {
-						state.Y = boundaryBottom
-						state.DY = -state.DY
-					}
-
-					// Update the ball state
-					setBallState(state)
-
-					// Increment render count locally
-					renderCount++
-					setRenderCount(renderCount)
-
-					// Increment frame count
-					frameCount++
-
-					// Calculate FPS every second
-					now := time.Now()
-					if now.Sub(lastTime) >= time.Second {
-						setFPS(frameCount)
-						frameCount = 0
-						lastTime = now
-					}
+				// Initialize timing on first frame
+				if lastFrameTime == 0 {
+					lastFrameTime = currentTime
+					lastFPSTime = currentTime
+					js.Global().Call("requestAnimationFrame", animate)
+					return nil
 				}
-			}()
+
+				// Calculate delta time in seconds for frame-rate independence
+				deltaTime := (currentTime - lastFrameTime) / 1000.0
+				lastFrameTime = currentTime
+
+				// Cap delta time to prevent large jumps (e.g., when tab is inactive)
+				if deltaTime > 0.016 { // Cap at ~60 FPS
+					deltaTime = 0.016
+				}
+
+				// Get current ball state
+				state := getBallState()
+
+				// Frame-rate independent physics update
+				velocityX := state.DX * baseSpeed * deltaTime
+				velocityY := state.DY * baseSpeed * deltaTime
+
+				// Update position
+				state.X += velocityX
+				state.Y += velocityY
+
+				// Branch-free boundary collision detection with velocity preservation
+				if state.X <= boundaryLeft {
+					state.X = boundaryLeft
+					state.DX = -state.DX
+				} else if state.X >= boundaryRight {
+					state.X = boundaryRight
+					state.DX = -state.DX
+				}
+
+				// Y-axis collision
+				if state.Y <= boundaryTop {
+					state.Y = boundaryTop
+					state.DY = -state.DY
+				} else if state.Y >= boundaryBottom {
+					state.Y = boundaryBottom
+					state.DY = -state.DY
+				}
+
+				// Update the ball state
+				setBallState(state)
+
+				// Increment render count
+				renderCount++
+				setRenderCount(renderCount)
+
+				// Calculate FPS every second using high-precision timing
+				frameCount++
+				if currentTime-lastFPSTime >= 1000.0 {
+					setFPS(frameCount)
+					frameCount = 0
+					lastFPSTime = currentTime
+				}
+
+				// Schedule next frame for continuous animation
+				js.Global().Call("requestAnimationFrame", animate)
+				return nil
+			})
+
+			// Start the animation loop synchronized with browser's refresh rate
+			js.Global().Call("requestAnimationFrame", animate)
 		}) // No dependencies; runs once on mount
 
 		// Retrieve current states
@@ -740,33 +766,40 @@ func Example4() {
 		fps := getFPS()
 		renderCount := getRenderCount()
 
-		// Create the bouncing ball element with optimized transform
+		// Create the bouncing ball with hardware-accelerated transforms
 		// Pre-allocate string builder for better performance
 		var styleBuilder strings.Builder
-		styleBuilder.Grow(64) // Pre-allocate buffer
+		styleBuilder.Grow(128) // Pre-allocate buffer for additional properties
 		styleBuilder.WriteString("transform: translate3d(")
 		styleBuilder.WriteString(fmt.Sprintf("%.1f", ballState.X))
 		styleBuilder.WriteString("px, ")
 		styleBuilder.WriteString(fmt.Sprintf("%.1f", ballState.Y))
-		styleBuilder.WriteString("px, 0);")
+		styleBuilder.WriteString("px, 0); will-change: transform; backface-visibility: hidden;")
 
 		ball := createElement("div", map[string]interface{}{
 			"class": "absolute w-5 h-5 bg-blue-500 rounded-full",
 			"style": styleBuilder.String(),
 		})
 
-		// Create the FPS display element
+		// Create the FPS display element with vsync indicator
 		fpsDisplay := createElement("div", map[string]interface{}{
 			"class": "absolute top-2 left-2 text-xs text-gray-500",
 		},
-			Text(fmt.Sprintf("FPS: %d", fps)),
+			Text(fmt.Sprintf("FPS: %d (vsync)", fps)),
+		)
+
+		// Create the performance info display element
+		perfDisplay := createElement("div", map[string]interface{}{
+			"class": "absolute top-2 right-2 text-xs text-gray-500",
+		},
+			Text("RAF + GPU Accelerated"),
 		)
 
 		// Create the Render Count display element
 		renderCountDisplay := createElement("div", map[string]interface{}{
 			"class": "absolute bottom-2 right-2 text-xs text-gray-500",
 		},
-			Text(fmt.Sprintf("Render count: %d", renderCount)),
+			Text(fmt.Sprintf("Frames: %d", renderCount)),
 		)
 
 		// Create the outer container with the ball and displays as children
@@ -775,6 +808,7 @@ func Example4() {
 		},
 			ball,
 			fpsDisplay,
+			perfDisplay,
 			renderCountDisplay,
 		)
 	}
