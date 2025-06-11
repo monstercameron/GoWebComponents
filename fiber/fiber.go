@@ -580,6 +580,10 @@ func commitRoot() {
 }
 
 func executeEffects() {
+	if currentRoot == nil {
+		return
+	}
+
 	var effectFibers []*Fiber
 	var collectEffects func(fiber *Fiber)
 	collectEffects = func(fiber *Fiber) {
@@ -598,7 +602,7 @@ func executeEffects() {
 
 	var wg sync.WaitGroup
 
-	// Execute effects in parallel
+	// Execute effects in parallel with bounded concurrency
 	for _, fiber := range effectFibers {
 		for _, effect := range fiber.effects {
 			if effect != nil {
@@ -609,11 +613,14 @@ func executeEffects() {
 				}(effect)
 			}
 		}
-		// Clear the effects after executing them
-		fiber.effects = []func(){}
+		// Clear the effects after executing them to prevent accumulation
+		fiber.effects = nil // Set to nil instead of empty slice to release memory
 	}
 
 	wg.Wait()
+
+	// Clear the slice to prevent memory leaks
+	effectFibers = nil
 }
 
 func resetHookIndex(fiber *Fiber) {

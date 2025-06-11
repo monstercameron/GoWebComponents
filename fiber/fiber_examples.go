@@ -5,6 +5,8 @@ package fiber
 import (
 	"encoding/json"
 	"fmt"
+	"math"
+	"runtime"
 	"strings"
 	"syscall/js"
 	"time"
@@ -14,6 +16,30 @@ var (
 	// Define a global empty dependency array to ensure useEffect runs only once
 	emptyDeps = []interface{}{}
 )
+
+// FPS tracking
+var lastFrameTime time.Time
+var frameCount int
+var fpsValue float64
+
+func getFPS() float64 {
+	now := time.Now()
+	frameCount++
+
+	if frameCount == 1 {
+		lastFrameTime = now
+		return 0
+	}
+
+	elapsed := now.Sub(lastFrameTime).Seconds()
+	if elapsed >= 1.0 {
+		fpsValue = float64(frameCount) / elapsed
+		frameCount = 0
+		lastFrameTime = now
+	}
+
+	return fpsValue
+}
 
 // Example1 is a function that renders a calculator component using GoWebComponents.
 // It initializes the state for the calculator, handles button clicks for numbers and operators,
@@ -664,29 +690,117 @@ func Example4() {
 		boundaryBottom = 280.0
 	)
 
-	// BouncingDiv is the component that renders the bouncing ball and FPS/render count
+	// BouncingDiv is the component that renders the static structure
 	bouncingDiv := func(props map[string]interface{}) *Element {
-		// Initialize states
-		getBallState, setBallState := useState(BallState{
-			X:  50.0,
-			Y:  50.0,
-			DX: 5.0,
-			DY: 5.0,
+		// Create the bouncing ball element (will be updated directly)
+		ball := createElement("div", map[string]interface{}{
+			"id":    "bouncing-ball",
+			"class": "absolute w-5 h-5 bg-blue-500 rounded-full",
+			"style": "transform: translate3d(50px, 50px, 0); will-change: transform; backface-visibility: hidden;",
 		})
-		getFPS, setFPS := useState(0)
-		getRenderCount, setRenderCount := useState(0)
 
-		// Browser-synchronized animation using requestAnimationFrame for perfect vsync
-		useEffect(func() {
+		// Create display elements (will be updated directly)
+		fpsDisplay := createElement("div", map[string]interface{}{
+			"id":    "fps-display",
+			"class": "absolute top-2 left-2 text-xs text-gray-500",
+		}, Text("FPS: 0 (vsync)"))
+
+		memDisplay := createElement("div", map[string]interface{}{
+			"id":    "mem-display",
+			"class": "absolute top-6 left-2 text-xs text-green-600",
+		}, Text("Pos: (50.0, 50.0) | FPS: 0 | Single Loop ✓"))
+
+		perfDisplay := createElement("div", map[string]interface{}{
+			"class": "absolute top-2 right-2 text-xs text-gray-500",
+		}, Text("RAF + GPU + Direct DOM"))
+
+		renderCountDisplay := createElement("div", map[string]interface{}{
+			"id":    "render-count-display",
+			"class": "absolute bottom-2 right-2 text-xs text-gray-500",
+		}, Text("Frames: 0"))
+
+		// Start animation using direct DOM manipulation (no setState)
+		go func() {
+			// Get DOM references
+			ballElem := js.Global().Get("document").Call("getElementById", "bouncing-ball")
+			fpsElem := js.Global().Get("document").Call("getElementById", "fps-display")
+			memElem := js.Global().Get("document").Call("getElementById", "mem-display")
+			renderCountElem := js.Global().Get("document").Call("getElementById", "render-count-display")
+
+			// Wait for DOM elements to be available
+			for ballElem.IsNull() || fpsElem.IsNull() || memElem.IsNull() || renderCountElem.IsNull() {
+				time.Sleep(10 * time.Millisecond)
+				ballElem = js.Global().Get("document").Call("getElementById", "bouncing-ball")
+				fpsElem = js.Global().Get("document").Call("getElementById", "fps-display")
+				memElem = js.Global().Get("document").Call("getElementById", "mem-display")
+				renderCountElem = js.Global().Get("document").Call("getElementById", "render-count-display")
+			}
+
 			var lastFrameTime float64
 			var frameCount int
 			var lastFPSTime float64
 			var renderCount int
+			var currentFPS int
+
+			// Initialize ball state
+			state := BallState{
+				X:  50.0,
+				Y:  50.0,
+				DX: 5.0,
+				DY: 5.0,
+			}
 
 			// Physics constants for frame-rate independent animation
 			const baseSpeed = 300.0 // pixels per second
 
-			// Animation loop using requestAnimationFrame for perfect vsync
+			// Separate debug timer with memory tracking
+			go func() {
+				ticker := time.NewTicker(1 * time.Second)
+				defer ticker.Stop()
+				for range ticker.C {
+					// Get browser memory info
+					performance := js.Global().Get("performance")
+					var memoryInfo js.Value
+					if !performance.Get("memory").IsUndefined() {
+						memoryInfo = performance.Get("memory")
+					}
+
+					debugObj := js.Global().Get("Object").New()
+					debugObj.Set("position", js.Global().Get("Object").New())
+					debugObj.Get("position").Set("x", state.X)
+					debugObj.Get("position").Set("y", state.Y)
+					debugObj.Set("velocity", js.Global().Get("Object").New())
+					debugObj.Get("velocity").Set("dx", state.DX)
+					debugObj.Get("velocity").Set("dy", state.DY)
+					debugObj.Set("frames", renderCount)
+					debugObj.Set("fps", currentFPS)
+
+					// Add goroutine count (Go runtime info)
+					var m runtime.MemStats
+					runtime.ReadMemStats(&m)
+					runtimeObj := js.Global().Get("Object").New()
+					runtimeObj.Set("goroutines", runtime.NumGoroutine())
+					runtimeObj.Set("gc_cycles", m.NumGC)
+					debugObj.Set("runtime", runtimeObj)
+
+					// Add memory tracking
+					if !memoryInfo.IsUndefined() {
+						memObj := js.Global().Get("Object").New()
+						memObj.Set("used", fmt.Sprintf("%.1f MB", float64(memoryInfo.Get("usedJSHeapSize").Int())/1024/1024))
+						memObj.Set("total", fmt.Sprintf("%.1f MB", float64(memoryInfo.Get("totalJSHeapSize").Int())/1024/1024))
+						memObj.Set("limit", fmt.Sprintf("%.1f MB", float64(memoryInfo.Get("jsHeapSizeLimit").Int())/1024/1024))
+						debugObj.Set("memory", memObj)
+					}
+
+					js.Global().Get("console").Call("log", "📊 Example4 Snapshot:", debugObj)
+				}
+			}()
+
+			// Pre-allocated string builder for style updates
+			var styleBuilder strings.Builder
+			styleBuilder.Grow(128)
+
+			// Animation loop using requestAnimationFrame with direct DOM updates
 			var animate js.Func
 			animate = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 				currentTime := args[0].Float() // High-precision timestamp in milliseconds
@@ -708,9 +822,6 @@ func Example4() {
 					deltaTime = 0.016
 				}
 
-				// Get current ball state
-				state := getBallState()
-
 				// Frame-rate independent physics update
 				velocityX := state.DX * baseSpeed * deltaTime
 				velocityY := state.DY * baseSpeed * deltaTime
@@ -718,6 +829,10 @@ func Example4() {
 				// Update position
 				state.X += velocityX
 				state.Y += velocityY
+
+				// Round to avoid floating point precision issues
+				state.X = math.Round(state.X*10) / 10
+				state.Y = math.Round(state.Y*10) / 10
 
 				// Branch-free boundary collision detection with velocity preservation
 				if state.X <= boundaryLeft {
@@ -737,77 +852,47 @@ func Example4() {
 					state.DY = -state.DY
 				}
 
-				// Update the ball state
-				setBallState(state)
+				// Update ball position using direct DOM manipulation (no re-render!)
+				styleBuilder.Reset()
+				styleBuilder.WriteString("transform: translate3d(")
+				styleBuilder.WriteString(fmt.Sprintf("%.1f", state.X))
+				styleBuilder.WriteString("px, ")
+				styleBuilder.WriteString(fmt.Sprintf("%.1f", state.Y))
+				styleBuilder.WriteString("px, 0); will-change: transform; backface-visibility: hidden;")
+				ballElem.Set("style", styleBuilder.String())
 
 				// Increment render count
 				renderCount++
-				setRenderCount(renderCount)
 
 				// Calculate FPS every second using high-precision timing
 				frameCount++
 				if currentTime-lastFPSTime >= 1000.0 {
-					setFPS(frameCount)
+					currentFPS = frameCount
 					frameCount = 0
 					lastFPSTime = currentTime
+
+					// Update displays directly (no re-render!)
+					fpsElem.Set("textContent", fmt.Sprintf("FPS: %d (vsync)", currentFPS))
+					memElem.Set("textContent", fmt.Sprintf("Pos: (%.1f, %.1f) | FPS: %d | Direct DOM ✓", state.X, state.Y, currentFPS))
+					renderCountElem.Set("textContent", fmt.Sprintf("Frames: %d", renderCount))
 				}
 
-				// Schedule next frame for continuous animation
+				// Schedule next frame
 				js.Global().Call("requestAnimationFrame", animate)
 				return nil
 			})
 
 			// Start the animation loop synchronized with browser's refresh rate
 			js.Global().Call("requestAnimationFrame", animate)
-		}) // No dependencies; runs once on mount
+		}()
 
-		// Retrieve current states
-		ballState := getBallState()
-		fps := getFPS()
-		renderCount := getRenderCount()
-
-		// Create the bouncing ball with hardware-accelerated transforms
-		// Pre-allocate string builder for better performance
-		var styleBuilder strings.Builder
-		styleBuilder.Grow(128) // Pre-allocate buffer for additional properties
-		styleBuilder.WriteString("transform: translate3d(")
-		styleBuilder.WriteString(fmt.Sprintf("%.1f", ballState.X))
-		styleBuilder.WriteString("px, ")
-		styleBuilder.WriteString(fmt.Sprintf("%.1f", ballState.Y))
-		styleBuilder.WriteString("px, 0); will-change: transform; backface-visibility: hidden;")
-
-		ball := createElement("div", map[string]interface{}{
-			"class": "absolute w-5 h-5 bg-blue-500 rounded-full",
-			"style": styleBuilder.String(),
-		})
-
-		// Create the FPS display element with vsync indicator
-		fpsDisplay := createElement("div", map[string]interface{}{
-			"class": "absolute top-2 left-2 text-xs text-gray-500",
-		},
-			Text(fmt.Sprintf("FPS: %d (vsync)", fps)),
-		)
-
-		// Create the performance info display element
-		perfDisplay := createElement("div", map[string]interface{}{
-			"class": "absolute top-2 right-2 text-xs text-gray-500",
-		},
-			Text("RAF + GPU Accelerated"),
-		)
-
-		// Create the Render Count display element
-		renderCountDisplay := createElement("div", map[string]interface{}{
-			"class": "absolute bottom-2 right-2 text-xs text-gray-500",
-		},
-			Text(fmt.Sprintf("Frames: %d", renderCount)),
-		)
-
-		// Create the outer container with the ball and displays as children
+		// Create the outer container with static elements
 		return createElement("div", map[string]interface{}{
 			"class": "relative w-96 h-80 bg-gray-200 overflow-hidden",
 		},
 			ball,
 			fpsDisplay,
+			memDisplay,
 			perfDisplay,
 			renderCountDisplay,
 		)
