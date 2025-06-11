@@ -643,71 +643,332 @@ func Example3() {
 }
 
 func Example5() {
-	fmt.Println("Example5: Starting to render Star Wars Character Viewer")
+	fmt.Println("Example5: Starting to render Star Wars Character Viewer with swapi.tech API")
 
 	starWarsComponent := func(props map[string]interface{}) *Element {
-		fmt.Println("Rendering starWarsComponent")
+		fmt.Println("StarWars: Rendering component")
 
 		// State for character ID
 		getCharId, setCharId := useState(1)
 
-		// Fetch character data
-		getCharState := useFetch(fmt.Sprintf("https://swapi.dev/api/people/%d", getCharId()))
+		// State for character data
+		getCharState, setCharState := useState(FetchState{Loading: true, Data: nil, Error: ""})
 
-		// Event handler for "Next Character" button
+		// Force update state - increment this to trigger rerenders
+		getForceUpdate, setForceUpdate := useState(0)
+
+		// Debug: Log current state on every render
+		fmt.Printf("StarWars: Current state - Loading: %t, Error: '%s', Data: %t\n",
+			getCharState().Loading, getCharState().Error, getCharState().Data != nil)
+
+		// Effect to fetch character data when ID changes
+		useEffect(func() {
+			currentId := getCharId()
+			url := fmt.Sprintf("https://swapi.tech/api/people/%d", currentId)
+			fmt.Printf("StarWars: Fetching character %d from %s\n", currentId, url)
+
+			// Set loading state immediately
+			setCharState(FetchState{Loading: true, Data: nil, Error: ""})
+			fmt.Printf("StarWars: Set loading state for character %d\n", currentId)
+
+			// Create a channel for communicating results from JS callbacks to Go
+			resultChan := make(chan FetchState, 1)
+
+			// Use direct promise approach
+			promise := js.Global().Call("fetch", url)
+
+			// Success handler - just send results to channel, don't call setState directly
+			promise.Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				response := args[0]
+				if !response.Get("ok").Bool() {
+					errorMsg := fmt.Sprintf("HTTP error! status: %s", response.Get("status").String())
+					fmt.Printf("StarWars: Fetch error for character %d: %s\n", currentId, errorMsg)
+					resultChan <- FetchState{Error: errorMsg, Loading: false, Data: nil}
+					return nil
+				}
+
+				// Parse JSON
+				response.Call("json").Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+					data := args[0]
+
+					// Convert to Go data structure
+					jsonStr := js.Global().Get("JSON").Call("stringify", data).String()
+					var parsedData interface{}
+					err := json.Unmarshal([]byte(jsonStr), &parsedData)
+					if err != nil {
+						fmt.Printf("StarWars: JSON parse error for character %d: %s\n", currentId, err.Error())
+						resultChan <- FetchState{Error: err.Error(), Loading: false, Data: nil}
+						return nil
+					}
+
+					fmt.Printf("StarWars: Successfully fetched and parsed character %d\n", currentId)
+					resultChan <- FetchState{Data: parsedData, Loading: false, Error: ""}
+					return nil
+				}))
+				return nil
+			}))
+
+			// Error handler
+			promise.Call("catch", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				err := args[0]
+				errorMsg := fmt.Sprintf("Network error: %s", err.Get("message").String())
+				fmt.Printf("StarWars: Network error for character %d: %s\n", currentId, errorMsg)
+				resultChan <- FetchState{Error: errorMsg, Loading: false, Data: nil}
+				return nil
+			}))
+
+			// Handle the result in the main Go context (not in JS callback)
+			go func() {
+				result := <-resultChan
+				fmt.Printf("StarWars: Received result from channel for character %d - Loading: %t, Error: '%s', Data: %t\n",
+					currentId, result.Loading, result.Error, result.Data != nil)
+				setCharState(result)
+				// Force a re-render by updating the force update counter
+				setForceUpdate(getForceUpdate() + 1)
+				fmt.Printf("StarWars: Called setCharState and forced update for character %d\n", currentId)
+			}()
+		}, []interface{}{getCharId()}) // Re-fetch when character ID changes
+
+		// Event handlers using useFunc for proper cleanup
 		handleNextChar := useFunc(func(this js.Value, args []js.Value) interface{} {
-			setCharId(getCharId() + 1)
+			currentId := getCharId()
+			newId := currentId + 1
+			if newId > 83 { // SWAPI has 83 characters
+				newId = 1 // Loop back to first character
+			}
+			fmt.Printf("StarWars: Next character %d -> %d\n", currentId, newId)
+			setCharId(newId)
 			return nil
 		})
 
-		// Memoized character name
+		handlePrevChar := useFunc(func(this js.Value, args []js.Value) interface{} {
+			currentId := getCharId()
+			newId := currentId - 1
+			if newId < 1 {
+				newId = 83 // Loop to last character
+			}
+			fmt.Printf("StarWars: Previous character %d -> %d\n", currentId, newId)
+			setCharId(newId)
+			return nil
+		})
+
+		// Memoized character name for display
 		getCharName := useMemo(func() interface{} {
 			charState := getCharState()
 			if charState.Data == nil {
 				return "Unknown"
 			}
-			charData, ok := charState.Data.(map[string]interface{})
+
+			// swapi.tech returns data in result.properties format
+			dataMap, ok := charState.Data.(map[string]interface{})
 			if !ok {
 				return "Unknown"
 			}
-			return charData["name"]
-		}, []interface{}{getCharState()})
 
-		// Render function
-		charState := getCharState() // Get the current state here
+			result, ok := dataMap["result"].(map[string]interface{})
+			if !ok {
+				return "Unknown"
+			}
 
-		return createElement("div", map[string]interface{}{"class": "container mx-auto p-4"},
-			createElement("h1", map[string]interface{}{"class": "text-2xl font-bold mb-4"},
-				Text("Star Wars Character Viewer")),
-			createElement("div", map[string]interface{}{"class": "mb-4"},
+			properties, ok := result["properties"].(map[string]interface{})
+			if !ok {
+				return "Unknown"
+			}
+
+			if name, exists := properties["name"]; exists {
+				return name
+			}
+			return "Unknown"
+		}, []interface{}{getCharState()}) // Fixed dependency array
+
+		// Get current states
+		charState := getCharState()
+		charId := getCharId()
+
+		// Debug: Log current state on every render
+		fmt.Printf("StarWars: Current state - Loading: %t, Error: '%s', Data: %t\n",
+			charState.Loading, charState.Error, charState.Data != nil)
+
+		return createElement("div", map[string]interface{}{
+			"class": "container mx-auto p-4 max-w-2xl",
+		},
+			createElement("h1", map[string]interface{}{
+				"class": "text-3xl font-bold mb-6 text-center text-yellow-400",
+			}, Text("⭐ Star Wars Character Viewer")),
+
+			// Character display card
+			createElement("div", map[string]interface{}{
+				"class": "bg-gray-900 rounded-lg p-6 mb-6 border border-yellow-400",
+			},
+				// Character counter
+				createElement("div", map[string]interface{}{
+					"class": "text-center mb-4",
+				},
+					createElement("span", map[string]interface{}{
+						"class": "text-yellow-400 text-sm",
+					}, Text(fmt.Sprintf("Character %d of 83", charId))),
+				),
+
+				// Character data or loading/error state
 				func() *Element {
 					if charState.Loading {
-						return createElement("p", nil, Text("Loading..."))
+						return createElement("div", map[string]interface{}{
+							"class": "text-center py-8",
+						},
+							createElement("div", map[string]interface{}{
+								"class": "text-yellow-400 text-xl mb-2",
+							}, Text("🚀 Loading...")),
+							createElement("div", map[string]interface{}{
+								"class": "text-gray-400 text-sm",
+							}, Text("Fetching character data from swapi.tech...")),
+						)
 					}
+
 					if charState.Error != "" {
-						return createElement("p", map[string]interface{}{"class": "text-red-500"},
-							Text(fmt.Sprintf("Error: %s", charState.Error)))
+						return createElement("div", map[string]interface{}{
+							"class": "text-center py-8",
+						},
+							createElement("div", map[string]interface{}{
+								"class": "text-red-400 text-xl mb-2",
+							}, Text("❌ Error")),
+							createElement("div", map[string]interface{}{
+								"class": "text-gray-400",
+							}, Text(charState.Error)),
+						)
 					}
-					charData, ok := charState.Data.(map[string]interface{})
+
+					if charState.Data == nil {
+						return createElement("div", map[string]interface{}{
+							"class": "text-center py-8 text-gray-400",
+						}, Text("No character data available"))
+					}
+
+					// Parse swapi.tech response format
+					dataMap, ok := charState.Data.(map[string]interface{})
 					if !ok {
-						return createElement("p", nil, Text("Error: Unexpected data format"))
+						return createElement("div", map[string]interface{}{
+							"class": "text-center py-8 text-gray-400",
+						}, Text("Invalid data format"))
 					}
-					return createElement("div", nil,
-						createElement("h2", map[string]interface{}{"class": "text-xl font-semibold"},
-							Text(fmt.Sprintf("Name: %s", charData["name"]))),
-						createElement("p", nil, Text(fmt.Sprintf("Height: %s", charData["height"]))),
-						createElement("p", nil, Text(fmt.Sprintf("Mass: %s", charData["mass"]))),
-						createElement("p", nil, Text(fmt.Sprintf("Hair Color: %s", charData["hair_color"]))),
-						createElement("p", nil, Text(fmt.Sprintf("Eye Color: %s", charData["eye_color"]))))
-				}()),
-			createElement("button",
-				map[string]interface{}{
+
+					result, ok := dataMap["result"].(map[string]interface{})
+					if !ok {
+						return createElement("div", map[string]interface{}{
+							"class": "text-center py-8 text-gray-400",
+						}, Text("No result data"))
+					}
+
+					properties, ok := result["properties"].(map[string]interface{})
+					if !ok {
+						return createElement("div", map[string]interface{}{
+							"class": "text-center py-8 text-gray-400",
+						}, Text("No character properties"))
+					}
+
+					// Helper function to safely get string value
+					getString := func(key string) string {
+						if val, exists := properties[key]; exists {
+							if str, ok := val.(string); ok {
+								return str
+							}
+						}
+						return "unknown"
+					}
+
+					return createElement("div", map[string]interface{}{
+						"class": "text-white",
+					},
+						createElement("h2", map[string]interface{}{
+							"class": "text-2xl font-bold mb-4 text-yellow-400 text-center",
+						}, Text(getString("name"))),
+
+						createElement("div", map[string]interface{}{
+							"class": "grid grid-cols-2 gap-4",
+						},
+							createElement("div", nil,
+								createElement("div", map[string]interface{}{
+									"class": "text-gray-400 text-sm",
+								}, Text("Height:")),
+								createElement("div", map[string]interface{}{
+									"class": "font-semibold",
+								}, Text(fmt.Sprintf("%s cm", getString("height")))),
+							),
+							createElement("div", nil,
+								createElement("div", map[string]interface{}{
+									"class": "text-gray-400 text-sm",
+								}, Text("Mass:")),
+								createElement("div", map[string]interface{}{
+									"class": "font-semibold",
+								}, Text(fmt.Sprintf("%s kg", getString("mass")))),
+							),
+							createElement("div", nil,
+								createElement("div", map[string]interface{}{
+									"class": "text-gray-400 text-sm",
+								}, Text("Hair Color:")),
+								createElement("div", map[string]interface{}{
+									"class": "font-semibold capitalize",
+								}, Text(getString("hair_color"))),
+							),
+							createElement("div", nil,
+								createElement("div", map[string]interface{}{
+									"class": "text-gray-400 text-sm",
+								}, Text("Eye Color:")),
+								createElement("div", map[string]interface{}{
+									"class": "font-semibold capitalize",
+								}, Text(getString("eye_color"))),
+							),
+							createElement("div", nil,
+								createElement("div", map[string]interface{}{
+									"class": "text-gray-400 text-sm",
+								}, Text("Birth Year:")),
+								createElement("div", map[string]interface{}{
+									"class": "font-semibold",
+								}, Text(getString("birth_year"))),
+							),
+							createElement("div", nil,
+								createElement("div", map[string]interface{}{
+									"class": "text-gray-400 text-sm",
+								}, Text("Gender:")),
+								createElement("div", map[string]interface{}{
+									"class": "font-semibold capitalize",
+								}, Text(getString("gender"))),
+							),
+						),
+					)
+				}(),
+			),
+
+			// Navigation buttons
+			createElement("div", map[string]interface{}{
+				"class": "flex justify-center gap-4 mb-6",
+			},
+				createElement("button", map[string]interface{}{
+					"onclick": handlePrevChar,
+					"class":   "px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 transition duration-200 font-semibold",
+				}, Text("← Previous")),
+				createElement("button", map[string]interface{}{
 					"onclick": handleNextChar,
-					"class":   "px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-200",
-				},
-				Text("Next Character")),
-			createElement("p", map[string]interface{}{"class": "mt-4"},
-				Text(fmt.Sprintf("Memoized Character Name: %s", getCharName))))
+					"class":   "px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 active:bg-green-800 transition duration-200 font-semibold",
+				}, Text("Next →")),
+			),
+
+			// Memoized character name display
+			createElement("div", map[string]interface{}{
+				"class": "text-center p-4 bg-gray-100 rounded-lg",
+			},
+				createElement("div", map[string]interface{}{
+					"class": "text-sm text-gray-600 mb-1",
+				}, Text("Memoized Character Name:")),
+				createElement("div", map[string]interface{}{
+					"class": "text-lg font-bold text-gray-800",
+				}, Text(fmt.Sprintf("%s", getCharName))),
+			),
+
+			// API status display
+			createElement("div", map[string]interface{}{
+				"class": "mt-6 text-center text-sm text-gray-400",
+			}, Text("🚀 Powered by Optimized Fiber v2.0 | Using swapi.tech API")),
+		)
 	}
 
 	// Start rendering

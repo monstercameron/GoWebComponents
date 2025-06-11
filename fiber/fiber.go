@@ -997,6 +997,34 @@ type FetchState struct {
 	Loading bool
 }
 
+// Implement FastComparable for FetchState to ensure proper state updates
+func (fs FetchState) FastEqual(other interface{}) bool {
+	otherFS, ok := other.(FetchState)
+	if !ok {
+		return false
+	}
+
+	// Compare Loading and Error first (simple comparisons)
+	if fs.Loading != otherFS.Loading || fs.Error != otherFS.Error {
+		return false
+	}
+
+	// For Data field, use simple pointer/nil comparison to avoid deep comparison issues
+	// This ensures that any data change triggers an update
+	if (fs.Data == nil) != (otherFS.Data == nil) {
+		return false
+	}
+
+	// If both are nil, they're equal
+	if fs.Data == nil && otherFS.Data == nil {
+		return true
+	}
+
+	// If both are non-nil, consider them different to force updates
+	// This is safe because fetch operations should produce new data objects
+	return false
+}
+
 type FetchOptions struct {
 	Method  string
 	Headers map[string]interface{}
