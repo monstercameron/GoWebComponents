@@ -1,10 +1,12 @@
-// ./fiber/blog_landing_page.go
+// ./examples/blog_landing_page.go
 
-package fiber
+package examples
 
 import (
 	"fmt"
 	"syscall/js"
+
+	. "github.com/monstercameron/GoWebComponents/fiber"
 )
 
 // Simple test component to demonstrate component references
@@ -255,25 +257,23 @@ func AboutSection(props Attrs) *Element {
 
 // Newsletter section component - Email subscription form
 func NewsletterSection(props Attrs) *Element {
-	// State for newsletter subscription
-	email, setEmail := useState("")
-	subscribed, setSubscribed := useState(false)
+	// State for newsletter subscription using Go-branded hooks
+	email, setEmail := GoUseState("")
+	subscribed, setSubscribed := GoUseState(false)
 
-	// Handle newsletter subscription
-	handleSubscribe := useFunc(func(this js.Value, args []js.Value) interface{} {
-		args[0].Call("preventDefault")
+	// Handle newsletter subscription using GoUseFunc with GoEvent
+	handleSubscribe := GoUseFunc(func(event GoEvent) {
+		event.PreventDefault()
 		if email() != "" {
 			setSubscribed(true)
 			fmt.Println("Newsletter subscription for:", email())
 		}
-		return nil
 	})
 
-	// Handle email input change
-	handleEmailChange := useFunc(func(this js.Value, args []js.Value) interface{} {
-		value := args[0].Get("target").Get("value").String()
+	// Handle email input change using GoUseFunc with GoEvent
+	handleEmailChange := GoUseFunc(func(event GoEvent) {
+		value := event.GetValue()
 		setEmail(value)
-		return nil
 	})
 
 	return Section(Attrs{
@@ -486,5 +486,5 @@ func BlogLandingPage() {
 	}
 
 	fmt.Println("BlogLandingPage: Rendering blog landing page into the container")
-	render(createElement(blogLandingPage, nil), container)
+	Render(CreateElement(blogLandingPage, nil), container)
 }

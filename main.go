@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/fiber"
+	"github.com/monstercameron/GoWebComponents/examples"
 )
 
 // main is the entry point of the program.
-// It initializes a WaitGroup, prints a message, calls the Example2 function from the fiber package,
+// It initializes a WaitGroup, prints a message, calls the BlogLandingPage function from the examples package,
 // and waits for the WaitGroup to complete before exiting.
 func main() {
 	// Initialize a WaitGroup to simulate waiting for asynchronous tasks in the WebAssembly environment.
@@ -21,9 +21,9 @@ func main() {
 	wg.Add(1)
 
 	// Print a message indicating the start of the program.
-	fmt.Println("Main: Starting fiber.ClickCounter")
+	fmt.Println("Main: Starting examples.BlogLandingPage")
 
-	// Call the ClickCounter function from the fiber package, which handles the click counter page.
+	// Call the BlogLandingPage function from the examples package, which handles the blog landing page.
 	// fiber.Example1()
 	// fiber.Example2()
 	// fiber.Example3()
@@ -31,11 +31,11 @@ func main() {
 	// fiber.Example5()
 	// fiber.BlogLandingPage()
 	// fiber.ClickCounter()
-	fiber.Example7()
-
+	// fiber.Example7()
+	examples.BlogLandingPage()
 
 	// Print a message indicating the end of the main function logic.
-	// At this point, the ClickCounter function has already executed.
+	// At this point, the BlogLandingPage function has already executed.
 	fmt.Println("Main: End of main function")
 
 	// Wait() blocks the main function from exiting immediately.

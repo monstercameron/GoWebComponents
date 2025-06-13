@@ -660,6 +660,16 @@ func render(element *Element, container js.Value) {
 	requestIdleCallback(workLoop)
 }
 
+// Render is the exported version of render - starts the rendering process
+func Render(element *Element, container js.Value) {
+	render(element, container)
+}
+
+// CreateElement is the exported version of createElement
+func CreateElement(typ interface{}, props map[string]interface{}, children ...interface{}) *Element {
+	return createElement(typ, props, children...)
+}
+
 // workLoop performs work until there is no more work left or the deadline expires.
 func workLoop(deadline js.Value) {
 	// fmt.Println("workLoop: Starting work loop.")
