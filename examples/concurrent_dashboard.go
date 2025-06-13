@@ -71,18 +71,27 @@ const (
 	LogProcessor                        // Log entry processor
 )
 
+// stockSymbolsBase holds the base prices for stock symbols (moved outside component to prevent recreation)
+var stockSymbolsBase = map[string]float64{
+	"AAPL":  150.0,
+	"GOOGL": 120.0,
+	"MSFT":  300.0,
+	"TSLA":  200.0,
+	"AMZN":  140.0,
+}
+
 // DashboardHeader creates the main header component for the concurrent dashboard
 // It displays the title, description, and key features of the demonstration
 func DashboardHeader(props Attrs) *Element {
 	return Header(Attrs{
-		"class": "bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white p-6 shadow-lg",
+		"class": "bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-gray-100 p-6 shadow-xl border-b border-gray-700",
 	},
 		Div(Attrs{
 			"class": "max-w-7xl mx-auto",
 		},
 			// Main title with icon
 			H1(Attrs{
-				"class": "text-4xl font-bold mb-3 flex items-center",
+				"class": "text-4xl font-bold mb-3 flex items-center text-white",
 			},
 				Span(Attrs{
 					"class": "text-5xl mr-4",
@@ -92,7 +101,7 @@ func DashboardHeader(props Attrs) *Element {
 
 			// Subtitle description
 			P(Attrs{
-				"class": "text-xl text-blue-100 mb-4 leading-relaxed",
+				"class": "text-xl text-gray-300 mb-4 leading-relaxed",
 			}, Text("Real-time demonstration of Go's concurrency superpowers in WebAssembly")),
 
 			// Feature highlights
@@ -101,7 +110,7 @@ func DashboardHeader(props Attrs) *Element {
 			},
 				// Goroutines feature
 				Div(Attrs{
-					"class": "flex items-center bg-white/10 px-3 py-2 rounded-lg",
+					"class": "flex items-center bg-gray-800/50 px-3 py-2 rounded-lg border border-gray-600",
 				},
 					Span(Attrs{
 						"class": "text-lg mr-2",
@@ -111,7 +120,7 @@ func DashboardHeader(props Attrs) *Element {
 
 				// Channels feature
 				Div(Attrs{
-					"class": "flex items-center bg-white/10 px-3 py-2 rounded-lg",
+					"class": "flex items-center bg-gray-800/50 px-3 py-2 rounded-lg border border-gray-600",
 				},
 					Span(Attrs{
 						"class": "text-lg mr-2",
@@ -121,7 +130,7 @@ func DashboardHeader(props Attrs) *Element {
 
 				// Type Safety feature
 				Div(Attrs{
-					"class": "flex items-center bg-white/10 px-3 py-2 rounded-lg",
+					"class": "flex items-center bg-gray-800/50 px-3 py-2 rounded-lg border border-gray-600",
 				},
 					Span(Attrs{
 						"class": "text-lg mr-2",
@@ -131,7 +140,7 @@ func DashboardHeader(props Attrs) *Element {
 
 				// Performance feature
 				Div(Attrs{
-					"class": "flex items-center bg-white/10 px-3 py-2 rounded-lg",
+					"class": "flex items-center bg-gray-800/50 px-3 py-2 rounded-lg border border-gray-600",
 				},
 					Span(Attrs{
 						"class": "text-lg mr-2",
@@ -170,11 +179,11 @@ func DashboardControlPanel(props Attrs) *Element {
 	}
 
 	return Section(Attrs{
-		"class": "bg-white rounded-lg shadow-md p-6 mb-6",
+		"class": "bg-gray-800 rounded-lg shadow-xl p-6 mb-6 border border-gray-700",
 	},
 		// Control panel header
 		H2(Attrs{
-			"class": "text-2xl font-bold text-gray-800 mb-4 flex items-center",
+			"class": "text-2xl font-bold text-gray-100 mb-4 flex items-center",
 		},
 			Span(Attrs{
 				"class": "text-2xl mr-3",
@@ -202,9 +211,9 @@ func DashboardControlPanel(props Attrs) *Element {
 					"class": func() string {
 						baseClasses := "px-6 py-3 rounded-lg font-semibold transition-all duration-200 flex items-center"
 						if isProcessingActive {
-							return baseClasses + " bg-gray-300 text-gray-500 cursor-not-allowed"
+							return baseClasses + " bg-gray-600 text-gray-400 cursor-not-allowed"
 						}
-						return baseClasses + " bg-green-500 hover:bg-green-600 text-white shadow-lg hover:shadow-xl transform hover:scale-105"
+						return baseClasses + " bg-green-600 hover:bg-green-500 text-white shadow-lg hover:shadow-xl transform hover:scale-105"
 					}(),
 				},
 					Span(Attrs{
@@ -225,9 +234,9 @@ func DashboardControlPanel(props Attrs) *Element {
 					"class": func() string {
 						baseClasses := "px-6 py-3 rounded-lg font-semibold transition-all duration-200 flex items-center"
 						if !isProcessingActive {
-							return baseClasses + " bg-gray-300 text-gray-500 cursor-not-allowed"
+							return baseClasses + " bg-gray-600 text-gray-400 cursor-not-allowed"
 						}
-						return baseClasses + " bg-red-500 hover:bg-red-600 text-white shadow-lg hover:shadow-xl transform hover:scale-105"
+						return baseClasses + " bg-red-600 hover:bg-red-500 text-white shadow-lg hover:shadow-xl transform hover:scale-105"
 					}(),
 				},
 					Span(Attrs{
@@ -242,7 +251,7 @@ func DashboardControlPanel(props Attrs) *Element {
 				"class": "flex flex-col gap-2",
 			},
 				Label(Attrs{
-					"class": "text-sm font-medium text-gray-700",
+					"class": "text-sm font-medium text-gray-300",
 				}, Text("Worker Goroutines")),
 
 				Div(Attrs{
@@ -255,18 +264,18 @@ func DashboardControlPanel(props Attrs) *Element {
 						"max":      "10",
 						"value":    fmt.Sprintf("%d", currentWorkerCount),
 						"onchange": onWorkerCountChange,
-						"class":    "w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider",
+						"class":    "w-32 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer slider",
 					}),
 
 					// Current count display
 					Span(Attrs{
-						"class": "text-lg font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-lg min-w-[3rem] text-center",
+						"class": "text-lg font-bold text-blue-400 bg-gray-700 px-3 py-1 rounded-lg min-w-[3rem] text-center border border-gray-600",
 					}, Text(fmt.Sprintf("%d", currentWorkerCount))),
 				),
 
 				// Worker count description
 				P(Attrs{
-					"class": "text-xs text-gray-500",
+					"class": "text-xs text-gray-400",
 				}, Text("Adjust the number of concurrent worker goroutines")),
 			),
 
@@ -286,9 +295,9 @@ func DashboardControlPanel(props Attrs) *Element {
 				Span(Attrs{
 					"class": func() string {
 						if isProcessingActive {
-							return "text-green-600 font-medium"
+							return "text-green-400 font-medium"
 						}
-						return "text-gray-500"
+						return "text-gray-400"
 					}(),
 				}, Text(func() string {
 					if isProcessingActive {
@@ -330,7 +339,7 @@ func MetricsDisplayCard(props Attrs) *Element {
 	}
 
 	return Div(Attrs{
-		"class": "bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500",
+		"class": "bg-gray-800 rounded-lg shadow-xl p-6 border-l-4 border-blue-400 border border-gray-700",
 	},
 		// Metric header with icon and label
 		Div(Attrs{
@@ -343,7 +352,7 @@ func MetricsDisplayCard(props Attrs) *Element {
 					"class": "text-2xl mr-3",
 				}, Text(iconEmoji)),
 				H3(Attrs{
-					"class": "text-lg font-semibold text-gray-700",
+					"class": "text-lg font-semibold text-gray-200",
 				}, Text(label)),
 			),
 		),
@@ -359,7 +368,7 @@ func MetricsDisplayCard(props Attrs) *Element {
 
 		// Metric description
 		P(Attrs{
-			"class": "text-sm text-gray-500",
+			"class": "text-sm text-gray-400",
 		}, Text(description)),
 	)
 }
@@ -380,7 +389,7 @@ func DashboardMetricsPanel(props Attrs) *Element {
 	},
 		// Metrics panel header
 		H2(Attrs{
-			"class": "text-2xl font-bold text-gray-800 mb-6 flex items-center",
+			"class": "text-2xl font-bold text-gray-100 mb-6 flex items-center",
 		},
 			Span(Attrs{
 				"class": "text-2xl mr-3",
@@ -398,7 +407,7 @@ func DashboardMetricsPanel(props Attrs) *Element {
 				"label":       "Stock Prices",
 				"value":       fmt.Sprintf("%d", processingStats.StockPricesProcessed),
 				"description": "Total stock prices processed",
-				"colorClass":  "text-green-600",
+				"colorClass":  "text-green-400",
 			}),
 
 			// Log entries processed metric
@@ -407,7 +416,7 @@ func DashboardMetricsPanel(props Attrs) *Element {
 				"label":       "Log Entries",
 				"value":       fmt.Sprintf("%d", processingStats.LogEntriesProcessed),
 				"description": "Total log entries processed",
-				"colorClass":  "text-blue-600",
+				"colorClass":  "text-blue-400",
 			}),
 
 			// Processing rate metric
@@ -416,7 +425,7 @@ func DashboardMetricsPanel(props Attrs) *Element {
 				"label":       "Items/Second",
 				"value":       fmt.Sprintf("%.1f", processingStats.ItemsPerSecond),
 				"description": "Current processing rate",
-				"colorClass":  "text-purple-600",
+				"colorClass":  "text-purple-400",
 			}),
 
 			// Active goroutines metric
@@ -425,7 +434,7 @@ func DashboardMetricsPanel(props Attrs) *Element {
 				"label":       "Active Workers",
 				"value":       fmt.Sprintf("%d", processingStats.ActiveGoroutines),
 				"description": "Number of active goroutines",
-				"colorClass":  "text-orange-600",
+				"colorClass":  "text-orange-400",
 			}),
 		),
 
@@ -439,7 +448,7 @@ func DashboardMetricsPanel(props Attrs) *Element {
 				"label":       "Memory Usage",
 				"value":       fmt.Sprintf("%.1f MB", processingStats.MemoryUsageMB),
 				"description": "Estimated memory consumption",
-				"colorClass":  "text-red-600",
+				"colorClass":  "text-red-400",
 			}),
 
 			// Total processing time metric
@@ -448,7 +457,7 @@ func DashboardMetricsPanel(props Attrs) *Element {
 				"label":       "Total Time",
 				"value":       fmt.Sprintf("%d ms", processingStats.TotalProcessingTimeMs),
 				"description": "Total processing time",
-				"colorClass":  "text-indigo-600",
+				"colorClass":  "text-indigo-400",
 			}),
 
 			// Average processing time metric
@@ -457,7 +466,7 @@ func DashboardMetricsPanel(props Attrs) *Element {
 				"label":       "Avg Time",
 				"value":       fmt.Sprintf("%.2f ms", processingStats.AverageProcessingTimeMs),
 				"description": "Average time per item",
-				"colorClass":  "text-teal-600",
+				"colorClass":  "text-teal-400",
 			}),
 		),
 	)
@@ -495,14 +504,14 @@ func LiveDataStreamCard(props Attrs) *Element {
 	}
 
 	return Div(Attrs{
-		"class": "bg-white rounded-lg shadow-md p-6",
+		"class": "bg-gray-800 rounded-lg shadow-xl p-6 border border-gray-700",
 	},
 		// Stream header
 		Div(Attrs{
 			"class": "flex items-center justify-between mb-4",
 		},
 			H3(Attrs{
-				"class": "text-xl font-bold text-gray-800 flex items-center",
+				"class": "text-xl font-bold text-gray-100 flex items-center",
 			},
 				Span(Attrs{
 					"class": "text-xl mr-3",
@@ -512,7 +521,7 @@ func LiveDataStreamCard(props Attrs) *Element {
 
 			// Stream type badge
 			Span(Attrs{
-				"class": "px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full",
+				"class": "px-3 py-1 bg-blue-900/50 text-blue-300 text-sm font-medium rounded-full border border-blue-700",
 			}, Text(streamType)),
 		),
 
@@ -526,7 +535,7 @@ func LiveDataStreamCard(props Attrs) *Element {
 				if len(displayItems) == 0 {
 					// Show empty state
 					elements = append(elements, Div(Attrs{
-						"class": "text-center py-8 text-gray-500",
+						"class": "text-center py-8 text-gray-400",
 					},
 						Div(Attrs{
 							"class": "text-4xl mb-2",
@@ -556,10 +565,10 @@ func LiveDataStreamCard(props Attrs) *Element {
 
 		// Footer with total count
 		Div(Attrs{
-			"class": "mt-4 pt-4 border-t border-gray-200",
+			"class": "mt-4 pt-4 border-t border-gray-600",
 		},
 			P(Attrs{
-				"class": "text-sm text-gray-500 text-center",
+				"class": "text-sm text-gray-400 text-center",
 			}, Text(fmt.Sprintf("Showing %d of %d items", len(displayItems), len(dataItems)))),
 		),
 	)
@@ -571,27 +580,27 @@ func createStockPriceItem(stockPrice StockPrice) *Element {
 	timestamp := time.Unix(stockPrice.Timestamp, 0).Format("15:04:05")
 
 	// Determine price change color
-	changeColor := "text-gray-600"
+	changeColor := "text-gray-400"
 	changeSymbol := ""
 	if stockPrice.Change > 0 {
-		changeColor = "text-green-600"
+		changeColor = "text-green-400"
 		changeSymbol = "+"
 	} else if stockPrice.Change < 0 {
-		changeColor = "text-red-600"
+		changeColor = "text-red-400"
 	}
 
 	return Div(Attrs{
-		"class": "bg-gray-50 rounded-lg p-3 flex items-center justify-between hover:bg-gray-100 transition-colors",
+		"class": "bg-gray-700 rounded-lg p-3 flex items-center justify-between hover:bg-gray-600 transition-colors border border-gray-600",
 	},
 		// Stock symbol and price
 		Div(Attrs{
 			"class": "flex items-center",
 		},
 			Span(Attrs{
-				"class": "font-bold text-gray-800",
+				"class": "font-bold text-gray-200",
 			}, Text(stockPrice.Symbol)),
 			Span(Attrs{
-				"class": "ml-3 text-lg font-semibold",
+				"class": "ml-3 text-lg font-semibold text-gray-100",
 			}, Text(fmt.Sprintf("$%.2f", stockPrice.Price))),
 		),
 
@@ -603,7 +612,7 @@ func createStockPriceItem(stockPrice StockPrice) *Element {
 				"class": fmt.Sprintf("text-sm font-medium %s", changeColor),
 			}, Text(fmt.Sprintf("%s%.2f", changeSymbol, stockPrice.Change))),
 			Span(Attrs{
-				"class": "text-xs text-gray-500",
+				"class": "text-xs text-gray-400",
 			}, Text(timestamp)),
 		),
 	)
@@ -618,24 +627,24 @@ func createLogEntryItem(logEntry LogEntry) *Element {
 	var levelColor, levelIcon string
 	switch logEntry.Level {
 	case "ERROR":
-		levelColor = "text-red-600 bg-red-50"
+		levelColor = "text-red-300 bg-red-900/50 border-red-700"
 		levelIcon = "❌"
 	case "WARN":
-		levelColor = "text-yellow-600 bg-yellow-50"
+		levelColor = "text-yellow-300 bg-yellow-900/50 border-yellow-700"
 		levelIcon = "⚠️"
 	case "INFO":
-		levelColor = "text-blue-600 bg-blue-50"
+		levelColor = "text-blue-300 bg-blue-900/50 border-blue-700"
 		levelIcon = "ℹ️"
 	case "DEBUG":
-		levelColor = "text-gray-600 bg-gray-50"
+		levelColor = "text-gray-300 bg-gray-700/50 border-gray-600"
 		levelIcon = "🔍"
 	default:
-		levelColor = "text-gray-600 bg-gray-50"
+		levelColor = "text-gray-300 bg-gray-700/50 border-gray-600"
 		levelIcon = "📝"
 	}
 
 	return Div(Attrs{
-		"class": "bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors",
+		"class": "bg-gray-700 rounded-lg p-3 hover:bg-gray-600 transition-colors border border-gray-600",
 	},
 		// Log header with level and timestamp
 		Div(Attrs{
@@ -648,20 +657,20 @@ func createLogEntryItem(logEntry LogEntry) *Element {
 					"class": "text-sm",
 				}, Text(levelIcon)),
 				Span(Attrs{
-					"class": fmt.Sprintf("px-2 py-1 rounded text-xs font-medium %s", levelColor),
+					"class": fmt.Sprintf("px-2 py-1 rounded text-xs font-medium border %s", levelColor),
 				}, Text(logEntry.Level)),
 				Span(Attrs{
-					"class": "text-xs text-gray-500",
+					"class": "text-xs text-gray-400",
 				}, Text(logEntry.Source)),
 			),
 			Span(Attrs{
-				"class": "text-xs text-gray-500",
+				"class": "text-xs text-gray-400",
 			}, Text(timestamp)),
 		),
 
 		// Log message
 		P(Attrs{
-			"class": "text-sm text-gray-700 leading-relaxed",
+			"class": "text-sm text-gray-200 leading-relaxed",
 		}, Text(logEntry.Message)),
 	)
 }
@@ -686,7 +695,7 @@ func DashboardDataVisualization(props Attrs) *Element {
 	},
 		// Visualization panel header
 		H2(Attrs{
-			"class": "text-2xl font-bold text-gray-800 mb-6 flex items-center",
+			"class": "text-2xl font-bold text-gray-100 mb-6 flex items-center",
 		},
 			Span(Attrs{
 				"class": "text-2xl mr-3",
@@ -829,8 +838,8 @@ func stockPriceWorker(workerID int, stockDataChannel <-chan StockPrice, resultCh
 			_ = stockPrice.Price * 1.1 // Simple calculation
 			_ = fmt.Sprintf("Processed %s at $%.2f", stockPrice.Symbol, stockPrice.Price)
 
-			// Send processing stats update periodically
-			if processedCount%10 == 0 {
+			// Send processing stats update more frequently for demo
+			if processedCount%1 == 0 { // Send stats after every item for real-time updates
 				elapsedTime := time.Since(startTime)
 				avgProcessingTime := float64(elapsedTime.Milliseconds()) / float64(processedCount)
 
@@ -846,7 +855,9 @@ func stockPriceWorker(workerID int, stockDataChannel <-chan StockPrice, resultCh
 				// Non-blocking send to avoid deadlock
 				select {
 				case resultChannel <- stats:
+					fmt.Printf("📊 Stock worker %d: Sent stats - processed %d items\n", workerID, processedCount)
 				default:
+					fmt.Printf("⚠️ Stock worker %d: Stats channel full, dropped update\n", workerID)
 				}
 			}
 		}
@@ -879,8 +890,8 @@ func logEntryWorker(workerID int, logDataChannel <-chan LogEntry, resultChannel 
 			_ = strings.ToUpper(logEntry.Level)
 			_ = fmt.Sprintf("Log from %s: %d chars", logEntry.Source, messageLength)
 
-			// Send processing stats update periodically
-			if processedCount%15 == 0 {
+			// Send processing stats update more frequently for demo
+			if processedCount%1 == 0 { // Send stats after every item for real-time updates
 				elapsedTime := time.Since(startTime)
 				avgProcessingTime := float64(elapsedTime.Milliseconds()) / float64(processedCount)
 
@@ -1022,14 +1033,14 @@ func ConcurrentDashboard(props Attrs) *Element {
 	logEntriesData, setLogEntriesData := GoUseState[[]interface{}]([]interface{}{})
 	workerPool, setWorkerPool := GoUseState[*WorkerPool](NewWorkerPool(currentWorkerCount()))
 
-	// Predefined stock symbols with base prices for realistic simulation
-	stockSymbols := map[string]float64{
-		"AAPL":  150.0,
-		"GOOGL": 120.0,
-		"MSFT":  300.0,
-		"TSLA":  200.0,
-		"AMZN":  140.0,
-	}
+	// Create a working copy of stock symbols using memoization to prevent recreation
+	stockSymbols := GoUseMemo(func() interface{} {
+		symbols := make(map[string]float64)
+		for k, v := range stockSymbolsBase {
+			symbols[k] = v
+		}
+		return symbols
+	}, []interface{}{}).(map[string]float64)
 
 	// Data generation effect - runs when processing is active
 	GoUseEffect(func() {
@@ -1039,9 +1050,9 @@ func ConcurrentDashboard(props Attrs) *Element {
 
 		fmt.Println("Starting data generation goroutines...")
 
-		// Create ticker for stock price generation
-		stockTicker := time.NewTicker(time.Millisecond * 500) // Generate stock prices every 500ms
-		logTicker := time.NewTicker(time.Millisecond * 300)   // Generate log entries every 300ms
+		// Create ticker for stock price generation (balanced for demo responsiveness)
+		stockTicker := time.NewTicker(time.Millisecond * 800) // Generate stock prices every 800ms
+		logTicker := time.NewTicker(time.Millisecond * 600)   // Generate log entries every 600ms
 
 		// Stock price generation goroutine
 		go func() {
@@ -1135,6 +1146,9 @@ func ConcurrentDashboard(props Attrs) *Element {
 						return
 					}
 
+					fmt.Printf("📈 Stats received: Stock=%d, Logs=%d, Rate=%.1f/s\n",
+						stats.StockPricesProcessed, stats.LogEntriesProcessed, stats.ItemsPerSecond)
+
 					// Aggregate stats and update UI
 					currentStats := processingStats()
 
@@ -1148,6 +1162,9 @@ func ConcurrentDashboard(props Attrs) *Element {
 						TotalProcessingTimeMs:   currentStats.TotalProcessingTimeMs + stats.TotalProcessingTimeMs,
 						AverageProcessingTimeMs: (currentStats.AverageProcessingTimeMs + stats.AverageProcessingTimeMs) / 2,
 					}
+
+					fmt.Printf("🔄 UI Update: Combined Stock=%d, Logs=%d, Rate=%.1f/s\n",
+						combinedStats.StockPricesProcessed, combinedStats.LogEntriesProcessed, combinedStats.ItemsPerSecond)
 
 					setProcessingStats(combinedStats)
 				}
@@ -1228,7 +1245,7 @@ func ConcurrentDashboard(props Attrs) *Element {
 		),
 
 		Body(Attrs{
-			"class": "min-h-screen bg-gray-100",
+			"class": "min-h-screen bg-gray-900",
 		},
 			// Dashboard header
 			DashboardHeader(nil),
@@ -1259,11 +1276,11 @@ func ConcurrentDashboard(props Attrs) *Element {
 
 				// Footer with technology information
 				Footer(Attrs{
-					"class": "mt-12 text-center text-gray-600",
+					"class": "mt-12 text-center text-gray-400",
 				},
 					P(nil, Text("Built with GoWebComponents - Demonstrating Go's Concurrency in WebAssembly")),
 					P(Attrs{
-						"class": "text-sm mt-2",
+						"class": "text-sm mt-2 text-gray-500",
 					}, Text("Features: Goroutines • Channels • Type-Safe Generics • Real-time Processing")),
 				),
 			),
@@ -1291,7 +1308,6 @@ func ConcurrentDashboardExample() {
 	// This follows the React pattern of having a root component
 	fmt.Println("🔧 ConcurrentDashboardExample: Creating dashboard page component...")
 	dashboardPage := func(props Attrs) *Element {
-		fmt.Println("📄 dashboardPage: Component function called")
 		// Return our main dashboard component
 		return ConcurrentDashboard(nil)
 	}
