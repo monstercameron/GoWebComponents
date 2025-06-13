@@ -1039,16 +1039,26 @@ func ConcurrentDashboard(props Attrs) *Element {
 		for k, v := range stockSymbolsBase {
 			symbols[k] = v
 		}
+		fmt.Printf("📊 Stock symbols initialized: %d symbols\n", len(symbols))
 		return symbols
 	}, []interface{}{}).(map[string]float64)
 
-	// Data generation effect - runs when processing is active
+	// Data generation effect - runs when processing is active or worker pool changes
 	GoUseEffect(func() {
 		if !isProcessingActive() {
 			return
 		}
 
 		fmt.Println("Starting data generation goroutines...")
+
+		// Get current worker pool
+		currentPool := workerPool()
+		if currentPool == nil {
+			fmt.Println("❌ No worker pool available")
+			return
+		}
+
+		fmt.Printf("✅ Worker pool found: %d workers, isRunning: %v\n", currentWorkerCount(), currentPool.IsRunning())
 
 		// Create ticker for stock price generation (balanced for demo responsiveness)
 		stockTicker := time.NewTicker(time.Millisecond * 800) // Generate stock prices every 800ms
@@ -1070,6 +1080,11 @@ func ConcurrentDashboard(props Attrs) *Element {
 						symbols = append(symbols, symbol)
 					}
 
+					if len(symbols) == 0 {
+						fmt.Println("❌ No stock symbols available!")
+						continue
+					}
+
 					randomSymbol := symbols[rand.Intn(len(symbols))]
 					basePrice := stockSymbols[randomSymbol]
 					newStockPrice := generateRandomStockPrice(randomSymbol, basePrice)
@@ -1077,10 +1092,10 @@ func ConcurrentDashboard(props Attrs) *Element {
 					// Update base price for next generation (simulate market movement)
 					stockSymbols[randomSymbol] = newStockPrice.Price
 
-					// Send to worker pool for processing
-					pool := workerPool()
-					if pool != nil {
-						pool.SendStockPrice(newStockPrice)
+					// Send to current worker pool for processing
+					if currentPool != nil && currentPool.IsRunning() {
+						currentPool.SendStockPrice(newStockPrice)
+						fmt.Printf("📈 Generated stock price: %s $%.2f\n", newStockPrice.Symbol, newStockPrice.Price)
 					}
 
 					// Update UI state with new stock price
@@ -1110,10 +1125,10 @@ func ConcurrentDashboard(props Attrs) *Element {
 					// Generate random log entry
 					newLogEntry := generateRandomLogEntry()
 
-					// Send to worker pool for processing
-					pool := workerPool()
-					if pool != nil {
-						pool.SendLogEntry(newLogEntry)
+					// Send to current worker pool for processing
+					if currentPool != nil && currentPool.IsRunning() {
+						currentPool.SendLogEntry(newLogEntry)
+						fmt.Printf("📝 Generated log entry: %s - %s\n", newLogEntry.Level, newLogEntry.Message)
 					}
 
 					// Update UI state with new log entry
@@ -1130,19 +1145,21 @@ func ConcurrentDashboard(props Attrs) *Element {
 			}
 		}()
 
-		// Statistics collection goroutine
+		// Statistics collection goroutine - FIXED: Use current pool and proper channel
 		go func() {
-			pool := workerPool()
-			if pool == nil {
+			if currentPool == nil {
+				fmt.Println("❌ No worker pool for statistics collection")
 				return
 			}
 
-			resultChannel := pool.GetResultChannel()
+			resultChannel := currentPool.GetResultChannel()
+			fmt.Printf("📊 Statistics collection started for pool with %d workers\n", currentWorkerCount())
 
 			for {
 				select {
 				case stats := <-resultChannel:
 					if !isProcessingActive() {
+						fmt.Println("📊 Statistics collection stopping - processing inactive")
 						return
 					}
 
@@ -1152,15 +1169,15 @@ func ConcurrentDashboard(props Attrs) *Element {
 					// Aggregate stats and update UI
 					currentStats := processingStats()
 
-					// Combine statistics from different workers
+					// Combine statistics from different workers (increment only new items)
 					combinedStats := ProcessingStats{
 						StockPricesProcessed:    currentStats.StockPricesProcessed + stats.StockPricesProcessed,
 						LogEntriesProcessed:     currentStats.LogEntriesProcessed + stats.LogEntriesProcessed,
-						ItemsPerSecond:          (currentStats.ItemsPerSecond + stats.ItemsPerSecond) / 2, // Average
+						ItemsPerSecond:          stats.ItemsPerSecond, // Use latest rate from worker
 						ActiveGoroutines:        currentWorkerCount(),
 						MemoryUsageMB:           currentStats.MemoryUsageMB + stats.MemoryUsageMB,
 						TotalProcessingTimeMs:   currentStats.TotalProcessingTimeMs + stats.TotalProcessingTimeMs,
-						AverageProcessingTimeMs: (currentStats.AverageProcessingTimeMs + stats.AverageProcessingTimeMs) / 2,
+						AverageProcessingTimeMs: stats.AverageProcessingTimeMs, // Use latest average from worker
 					}
 
 					fmt.Printf("🔄 UI Update: Combined Stock=%d, Logs=%d, Rate=%.1f/s\n",
@@ -1174,18 +1191,23 @@ func ConcurrentDashboard(props Attrs) *Element {
 		// Cleanup function (commented out as GoUseEffect doesn't support cleanup returns in this implementation)
 		// The tickers will be stopped when the goroutines check isProcessingActive()
 		fmt.Println("Data generation goroutines started")
-	}, []interface{}{isProcessingActive()})
+	}, []interface{}{isProcessingActive(), workerPool()})
 
 	// Event handlers using GoUseFunc for type-safe event handling
 	handleStartProcessing := GoUseFunc(func(event GoEvent) {
 		fmt.Println("Starting processing...")
-		setIsProcessingActive(true)
 
 		// Start worker pool
 		pool := workerPool()
 		if pool != nil {
+			fmt.Printf("🚀 Starting worker pool with %d workers\n", currentWorkerCount())
 			pool.StartWorkers()
+			fmt.Printf("✅ Worker pool started, isRunning: %v\n", pool.IsRunning())
+		} else {
+			fmt.Println("❌ No worker pool available to start")
 		}
+
+		setIsProcessingActive(true)
 	})
 
 	handleStopProcessing := GoUseFunc(func(event GoEvent) {
@@ -1198,8 +1220,11 @@ func ConcurrentDashboard(props Attrs) *Element {
 			pool.StopWorkers()
 		}
 
-		// Reset statistics
+		// Reset all statistics and data
 		setProcessingStats(ProcessingStats{})
+		setStockPricesData([]interface{}{})
+		setLogEntriesData([]interface{}{})
+		fmt.Println("🔄 All statistics and data cleared")
 	})
 
 	handleWorkerCountChange := GoUseFunc(func(event GoEvent) {
@@ -1220,6 +1245,10 @@ func ConcurrentDashboard(props Attrs) *Element {
 			newPool := NewWorkerPool(newCount)
 			setWorkerPool(newPool)
 			setCurrentWorkerCount(newCount)
+
+			// Reset statistics when changing worker count
+			setProcessingStats(ProcessingStats{})
+			fmt.Println("🔄 Statistics reset due to worker count change")
 
 			// Restart workers if processing was active
 			if isProcessingActive() {
