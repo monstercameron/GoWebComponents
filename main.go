@@ -10,7 +10,7 @@ import (
 )
 
 // main is the entry point of the program.
-// It initializes a WaitGroup, prints a message, calls the BlogLandingPage function from the examples package,
+// It initializes a WaitGroup, prints a message, calls the ClickCounterExample function from the examples package,
 // and waits for the WaitGroup to complete before exiting.
 func main() {
 	// Initialize a WaitGroup to simulate waiting for asynchronous tasks in the WebAssembly environment.
@@ -21,21 +21,20 @@ func main() {
 	wg.Add(1)
 
 	// Print a message indicating the start of the program.
-	fmt.Println("Main: Starting examples.BlogLandingPage")
+	fmt.Println("Main: Starting examples.ClickCounterExample")
 
-	// Call the BlogLandingPage function from the examples package, which handles the blog landing page.
+	// Call the ClickCounterExample function from the examples package, which handles the click counter demo.
 	// fiber.Example1()
 	// fiber.Example2()
 	// fiber.Example3()
 	// fiber.Example4()
 	// fiber.Example5()
-	// fiber.BlogLandingPage()
-	// fiber.ClickCounter()
+	// examples.BlogLandingPage()
 	// fiber.Example7()
-	examples.BlogLandingPage()
+	examples.ClickCounterExample()
 
 	// Print a message indicating the end of the main function logic.
-	// At this point, the BlogLandingPage function has already executed.
+	// At this point, the ClickCounterExample function has already executed.
 	fmt.Println("Main: End of main function")
 
 	// Wait() blocks the main function from exiting immediately.
