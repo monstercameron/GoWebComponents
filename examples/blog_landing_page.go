@@ -11,6 +11,7 @@ import (
 
 // Simple test component to demonstrate component references
 func TestComponent(props Attrs) *Element {
+	fmt.Println("🧪 TestComponent: Rendering test component")
 	return Div(Attrs{
 		"class": "test-component bg-red-100 p-4 rounded",
 	}, Text("This component was passed as a reference!"))
@@ -18,6 +19,7 @@ func TestComponent(props Attrs) *Element {
 
 // Another test component with different styling
 func AnotherTestComponent(props Attrs) *Element {
+	fmt.Println("🔬 AnotherTestComponent: Rendering another test component")
 	return Div(Attrs{
 		"class": "another-test bg-green-100 p-4 rounded",
 	}, Text("Another component reference!"))
@@ -25,6 +27,7 @@ func AnotherTestComponent(props Attrs) *Element {
 
 // Header component - Navigation and branding
 func HeaderComponent(props Attrs) *Element {
+	fmt.Println("🏠 HeaderComponent: Rendering header with navigation")
 	return Header(Attrs{
 		"class": "bg-white shadow-md sticky top-0 z-50",
 	},
@@ -81,6 +84,22 @@ func HeaderComponent(props Attrs) *Element {
 
 // Hero section component - Main banner with call-to-action
 func HeroSection(props Attrs) *Element {
+	fmt.Println("🎯 HeroSection: Rendering hero banner with CTA buttons")
+
+	// Event handler for Start Reading button
+	handleStartReading := GoUseFunc(func(event GoEvent) {
+		fmt.Println("📖 HeroSection: Start Reading button clicked!")
+		event.PreventDefault()
+		js.Global().Call("alert", "🚀 Welcome to TechBlog! You clicked 'Start Reading' - this would navigate to the blog posts section.")
+	})
+
+	// Event handler for Subscribe button
+	handleSubscribe := GoUseFunc(func(event GoEvent) {
+		fmt.Println("💌 HeroSection: Subscribe button clicked!")
+		event.PreventDefault()
+		js.Global().Call("alert", "📬 Thanks for your interest! You clicked 'Subscribe' - this would open a subscription modal or navigate to the newsletter section.")
+	})
+
 	return Section(Attrs{
 		"id":    "home",
 		"class": "py-20 px-6",
@@ -98,10 +117,12 @@ func HeroSection(props Attrs) *Element {
 				"class": "flex justify-center space-x-4",
 			},
 				Button(Attrs{
-					"class": "bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-lg",
+					"class":   "bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-lg",
+					"onclick": handleStartReading,
 				}, Text("Start Reading")),
 				Button(Attrs{
-					"class": "border-2 border-indigo-600 text-indigo-600 px-8 py-3 rounded-lg font-semibold hover:bg-indigo-50 transition-colors",
+					"class":   "border-2 border-indigo-600 text-indigo-600 px-8 py-3 rounded-lg font-semibold hover:bg-indigo-50 transition-colors",
+					"onclick": handleSubscribe,
 				}, Text("Subscribe")),
 			),
 			// Demonstration of component references vs return values
@@ -159,6 +180,7 @@ func BlogPostCard(props Attrs) *Element {
 
 // Featured posts section component
 func FeaturedPostsSection(props Attrs) *Element {
+	fmt.Println("📝 FeaturedPostsSection: Rendering 3 featured blog posts")
 	return Section(Attrs{
 		"id":    "posts",
 		"class": "py-16 bg-white",
@@ -203,6 +225,7 @@ func FeaturedPostsSection(props Attrs) *Element {
 
 // About section component - Company information and statistics
 func AboutSection(props Attrs) *Element {
+	fmt.Println("ℹ️ AboutSection: Rendering company info and statistics")
 	return Section(Attrs{
 		"id":    "about",
 		"class": "py-16 bg-gray-50",
@@ -257,22 +280,31 @@ func AboutSection(props Attrs) *Element {
 
 // Newsletter section component - Email subscription form
 func NewsletterSection(props Attrs) *Element {
+	fmt.Println("📧 NewsletterSection: Initializing newsletter component with state")
+
 	// State for newsletter subscription using Go-branded hooks
 	email, setEmail := GoUseState("")
 	subscribed, setSubscribed := GoUseState(false)
 
+	fmt.Printf("📧 NewsletterSection: Current state - email='%s', subscribed=%v\n", email(), subscribed())
+
 	// Handle newsletter subscription using GoUseFunc with GoEvent
 	handleSubscribe := GoUseFunc(func(event GoEvent) {
+		fmt.Println("📬 NewsletterSection: Form submission event triggered")
 		event.PreventDefault()
 		if email() != "" {
+			fmt.Printf("✅ NewsletterSection: Subscribing email: %s\n", email())
 			setSubscribed(true)
-			fmt.Println("Newsletter subscription for:", email())
+			fmt.Println("🎉 NewsletterSection: Subscription successful!")
+		} else {
+			fmt.Println("❌ NewsletterSection: Empty email, cannot subscribe")
 		}
 	})
 
 	// Handle email input change using GoUseFunc with GoEvent
 	handleEmailChange := GoUseFunc(func(event GoEvent) {
 		value := event.GetValue()
+		fmt.Printf("⌨️ NewsletterSection: Email input changed to: '%s'\n", value)
 		setEmail(value)
 	})
 
@@ -318,6 +350,7 @@ func NewsletterSection(props Attrs) *Element {
 
 // Footer component - Site links and information
 func FooterComponent(props Attrs) *Element {
+	fmt.Println("🦶 FooterComponent: Rendering footer with links and social icons")
 	return Footer(Attrs{
 		"class": "bg-gray-900 text-white py-12",
 	},
@@ -450,10 +483,12 @@ func FooterComponent(props Attrs) *Element {
 
 // BlogLandingPage creates a simple blog landing page composed of smaller reusable components
 func BlogLandingPage() {
-	fmt.Println("BlogLandingPage: Starting to render blog landing page")
+	fmt.Println("🚀 BlogLandingPage: Starting to render blog landing page")
 
 	// Main Blog Landing Page Component - composed of smaller components
 	blogLandingPage := func(props Attrs) *Element {
+		fmt.Println("🏗️ BlogLandingPage: Constructing main page layout")
+
 		// Main blog landing page structure using component composition
 		return Div(Attrs{
 			"class": "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100",
@@ -478,13 +513,17 @@ func BlogLandingPage() {
 		)
 	}
 
+	fmt.Println("🔍 BlogLandingPage: Looking for DOM container with id 'root'")
+
 	// Render the blog landing page
 	container := js.Global().Get("document").Call("getElementById", "root")
 	if container.IsUndefined() || container.IsNull() {
-		fmt.Println("BlogLandingPage: Error - No element with id 'root' found in the DOM")
+		fmt.Println("❌ BlogLandingPage: Error - No element with id 'root' found in the DOM")
 		return
 	}
 
-	fmt.Println("BlogLandingPage: Rendering blog landing page into the container")
+	fmt.Println("✅ BlogLandingPage: Found DOM container, starting render process")
+	fmt.Println("🎨 BlogLandingPage: Creating element tree and rendering to container")
 	Render(CreateElement(blogLandingPage, nil), container)
+	fmt.Println("🎉 BlogLandingPage: Render process initiated successfully!")
 }
