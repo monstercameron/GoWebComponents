@@ -11,10 +11,11 @@ import (
 
 // Performance Optimizations Applied:
 // 1. Fixed metrics tracking to distinguish renders vs mounts
-// 2. Reduced logging frequency to minimize console noise (every 5th character)
-// 3. Simplified hook usage to prevent index out of bounds errors
-// 4. Kept event handlers simple using GoUseFunc instead of complex memoization
-// 5. The main over-rendering issue is now resolved with proper metrics
+// 2. Implemented 1000ms debounced input to reduce unnecessary parent re-renders
+// 3. Immediate UI updates with delayed state propagation for responsiveness
+// 4. Reduced logging frequency to minimize console noise (every 5th character)
+// 5. Simplified hook usage to prevent index out of bounds errors
+// 6. Timer cleanup on form submission to prevent memory leaks
 
 // Todo represents a single todo item
 type Todo struct {
@@ -1258,41 +1259,68 @@ func SimpleTodoApp(props Attrs) *Element {
 	)
 }
 
-// Modern todo input component with glassmorphism styling and optimized rendering
+// Modern todo input component with glassmorphism styling and 1000ms debounced rendering
 func SimpleTodoInput(props Attrs) *Element {
 	onAdd := props["onAdd"]
 
-	// Use regular state - keep it simple
-	text, setText := GoUseState("")
+	// Local immediate state for UI responsiveness
+	displayText, setDisplayText := GoUseState("")
+	// Debounced state that triggers parent re-renders
+	debouncedText, setDebouncedText := GoUseState("")
+	// Timer reference for debouncing
+	timerRef, setTimerRef := GoUseState(js.Null())
 
 	// Reduce logging frequency to minimize console noise
-	if len(text())%5 == 0 || text() == "" {
-		fmt.Printf("🔤 SimpleTodoInput: Rendering with text='%s'\n", text())
+	if len(displayText())%5 == 0 || displayText() == "" {
+		fmt.Printf("🔤 SimpleTodoInput: Rendering with display='%s', debounced='%s'\n", displayText(), debouncedText())
 	}
 
-	// Simple submit handler
+	// Submit handler uses current display text
 	handleSubmit := GoUseFunc(func(event GoEvent) {
 		event.PreventDefault()
-		inputText := strings.TrimSpace(text())
+		inputText := strings.TrimSpace(displayText())
 		fmt.Printf("📤 SimpleTodoInput: Form submitted with text='%s'\n", inputText)
 
 		if onAdd != nil && inputText != "" {
 			onAdd.(func(string))(inputText)
-			setText("")
+			setDisplayText("")
+			setDebouncedText("")
+			// Clear any pending timer
+			if !timerRef().IsNull() {
+				js.Global().Call("clearTimeout", timerRef())
+				setTimerRef(js.Null())
+			}
 			appMetrics.HookUpdates++
 			logMetrics("FORM_SUBMIT")
 		}
 	})
 
-	// Simple change handler - no debouncing to keep hooks simple
+	// Debounced change handler (1000ms delay)
 	handleChange := GoUseFunc(func(event GoEvent) {
 		newValue := event.GetValue()
-		// Only log significant changes to reduce noise
-		if len(newValue)%5 == 0 || newValue == "" {
-			fmt.Printf("⌨️ SimpleTodoInput: Text changed to='%s'\n", newValue)
+
+		// Update display immediately for UI responsiveness
+		setDisplayText(newValue)
+
+		// Clear existing timer
+		if !timerRef().IsNull() {
+			js.Global().Call("clearTimeout", timerRef())
 		}
-		setText(newValue)
-		appMetrics.HookUpdates++
+
+		// Set new timer for debounced update (1000ms)
+		newTimer := js.Global().Call("setTimeout", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			// Only log significant changes to reduce noise
+			if len(newValue)%5 == 0 || newValue == "" {
+				fmt.Printf("⌨️ SimpleTodoInput: Debounced text changed to='%s'\n", newValue)
+			}
+			setDebouncedText(newValue)
+			setTimerRef(js.Null())
+			appMetrics.HookUpdates++
+			logMetrics("DEBOUNCED_INPUT")
+			return nil
+		}), 1000)
+
+		setTimerRef(newTimer)
 	})
 
 	return Form(Attrs{
@@ -1302,7 +1330,7 @@ func SimpleTodoInput(props Attrs) *Element {
 		Div(Attrs{"class": "flex flex-col md:flex-row gap-4"},
 			Input(Attrs{
 				"type":        "text",
-				"value":       text(),
+				"value":       displayText(),
 				"oninput":     handleChange,
 				"placeholder": "What needs to be accomplished today?",
 				"class":       "flex-1 px-6 py-4 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent backdrop-blur-sm transition-all duration-200",
