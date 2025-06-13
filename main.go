@@ -31,7 +31,8 @@ func main() {
 	// fiber.Example5()
 	// examples.BlogLandingPage()
 	// fiber.Example7()
-	examples.ClickCounterExample()
+	// examples.ClickCounterExample()
+	examples.ConcurrentDashboardExample()
 
 	// Print a message indicating the end of the main function logic.
 	// At this point, the ClickCounterExample function has already executed.
