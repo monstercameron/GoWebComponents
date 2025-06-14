@@ -1,5 +1,8 @@
 // ./fiber/fiber.go
 
+//go:build js && wasm
+// +build js,wasm
+
 package fiber
 
 import (
