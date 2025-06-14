@@ -1715,7 +1715,15 @@ func requestIdleCallback(callback func(js.Value)) {
 	rafCallbacks = append(rafCallbacks, cb) // Keep the function alive
 
 	fmt.Printf("🔗 [CALLBACK_CREATED] requestIdleCallback created - total callbacks: %d\n", len(eventCallbacks)+len(rafCallbacks))
-	js.Global().Call("requestIdleCallback", cb)
+
+	// Feature-detect requestIdleCallback support
+	ric := js.Global().Get("requestIdleCallback")
+	if !ric.IsUndefined() && ric.Truthy() {
+		ric.Invoke(cb)
+	} else {
+		// Fallback: schedule soon via setTimeout 1ms
+		js.Global().Call("setTimeout", cb, 1)
+	}
 }
 
 func useFunc(callback func(js.Value, []js.Value) interface{}) js.Func {
