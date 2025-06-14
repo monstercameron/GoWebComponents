@@ -21,9 +21,9 @@ func main() {
 	wg.Add(1)
 
 	// Print a message indicating the start of the program.
-	fmt.Println("Main: Starting examples.ClickCounterExample")
+	fmt.Println("Main: Starting Network Monitoring Dashboard Example")
 
-	// Call the ClickCounterExample function from the examples package, which handles the click counter demo.
+	// Call the example functions from the examples package
 	// fiber.Example1()
 	// fiber.Example2()
 	// fiber.Example3()
@@ -32,7 +32,8 @@ func main() {
 	// examples.BlogLandingPage()
 	// fiber.Example7()
 	// examples.ClickCounterExample()
-	examples.ConcurrentDashboardExample()
+	// examples.ConcurrentDashboardExample()  // Previous dashboard - commented out
+	examples.NetworkMonitoringDashboardExample() // New Network Traffic Monitoring Dashboard
 
 	// Print a message indicating the end of the main function logic.
 	// At this point, the ClickCounterExample function has already executed.

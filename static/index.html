@@ -41,12 +41,12 @@
         color: #f7fafc; /* Tailwind's gray-100 */
       }
 
-      #root {
+      #app {
         transition: opacity 0.5s ease-in-out;
         opacity: 0;
       }
 
-      #root.loaded {
+      #app.loaded {
         opacity: 1;
       }
 
@@ -84,10 +84,16 @@
       }
 
       function removeLoadingBar() {
-        const rootElement = document.getElementById("root");
+        const appElement = document.getElementById("app");
         const loadingElement = document.getElementById("loading-container");
-        rootElement.classList.add("loaded");
-        loadingElement.remove();
+        
+        if (appElement) {
+          appElement.classList.add("loaded");
+        }
+        
+        if (loadingElement) {
+          loadingElement.remove();
+        }
       }
 
       function showError(message) {
@@ -144,10 +150,13 @@
 
           const result = await WebAssembly.instantiate(wasmBytes, go.importObject);
           
-          // Run the WebAssembly module
-          go.run(result.instance);
-          removeLoadingBar();
-          window.document.title = "GoWebComponents - Calculator";
+          // Ensure DOM is ready before running WebAssembly
+          setTimeout(() => {
+            // Run the WebAssembly module
+            go.run(result.instance);
+            removeLoadingBar();
+            window.document.title = "GoWebComponents - VMware Dashboard";
+          }, 100);
           
         } catch (error) {
           console.error("WebAssembly loading error:", error);
@@ -165,7 +174,7 @@
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="app"></div>
 
     <div
       id="loading-container"
