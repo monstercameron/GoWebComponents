@@ -81,8 +81,19 @@ type FastComparable interface {
 	FastEqual(other interface{}) bool
 }
 
-// NEW: Common primitive type fast equality
+// NEW: Common primitive type fast equality with cycle detection
 func fastEqual(a, b interface{}) bool {
+	return fastEqualWithDepth(a, b, make(map[uintptr]bool), 0)
+}
+
+// fastEqualWithDepth performs equality checking with cycle detection and depth limiting
+func fastEqualWithDepth(a, b interface{}, visited map[uintptr]bool, depth int) bool {
+	// Prevent infinite recursion - limit depth to reasonable level
+	const maxDepth = 100
+	if depth > maxDepth {
+		return false
+	}
+
 	// Fast path: nil checks first
 	if a == nil && b == nil {
 		return true
@@ -106,8 +117,44 @@ func fastEqual(a, b interface{}) bool {
 		if vb, ok := b.(int); ok {
 			return va == vb
 		}
+	case int8:
+		if vb, ok := b.(int8); ok {
+			return va == vb
+		}
+	case int16:
+		if vb, ok := b.(int16); ok {
+			return va == vb
+		}
+	case int32:
+		if vb, ok := b.(int32); ok {
+			return va == vb
+		}
 	case int64:
 		if vb, ok := b.(int64); ok {
+			return va == vb
+		}
+	case uint:
+		if vb, ok := b.(uint); ok {
+			return va == vb
+		}
+	case uint8:
+		if vb, ok := b.(uint8); ok {
+			return va == vb
+		}
+	case uint16:
+		if vb, ok := b.(uint16); ok {
+			return va == vb
+		}
+	case uint32:
+		if vb, ok := b.(uint32); ok {
+			return va == vb
+		}
+	case uint64:
+		if vb, ok := b.(uint64); ok {
+			return va == vb
+		}
+	case float32:
+		if vb, ok := b.(float32); ok {
 			return va == vb
 		}
 	case float64:
@@ -135,8 +182,17 @@ func fastEqual(a, b interface{}) bool {
 			if len(va) != len(vb) {
 				return false
 			}
+
+			// Check for cycles using slice pointer
+			aPtr := reflect.ValueOf(va).Pointer()
+			if visited[aPtr] {
+				return true // Assume equal if we've seen this before (cycle detected)
+			}
+			visited[aPtr] = true
+			defer delete(visited, aPtr)
+
 			for i := range va {
-				if !fastEqual(va[i], vb[i]) {
+				if !fastEqualWithDepth(va[i], vb[i], visited, depth+1) {
 					return false
 				}
 			}
@@ -154,10 +210,30 @@ func fastEqual(a, b interface{}) bool {
 			}
 			return true
 		}
+	case map[string]interface{}:
+		if vb, ok := b.(map[string]interface{}); ok {
+			if len(va) != len(vb) {
+				return false
+			}
+
+			// Check for cycles using map pointer
+			aPtr := reflect.ValueOf(va).Pointer()
+			if visited[aPtr] {
+				return true // Assume equal if we've seen this before (cycle detected)
+			}
+			visited[aPtr] = true
+			defer delete(visited, aPtr)
+
+			for k, v := range va {
+				if vbVal, exists := vb[k]; !exists || !fastEqualWithDepth(v, vbVal, visited, depth+1) {
+					return false
+				}
+			}
+			return true
+		}
 	}
 
-	// Use pointer equality check only for comparable types
-	// Avoid == for uncomparable types like slices, maps, functions
+	// Use reflection for more complex types
 	va := reflect.ValueOf(a)
 	vb := reflect.ValueOf(b)
 
@@ -166,8 +242,25 @@ func fastEqual(a, b interface{}) bool {
 		return false
 	}
 
-	// For uncomparable types, fall back to reflect.DeepEqual
+	// Handle special cases that could cause issues
+	switch va.Kind() {
+	case reflect.Func:
+		// Functions are not comparable in a meaningful way
+		return va.Pointer() == vb.Pointer()
+	case reflect.Chan:
+		// Channels are comparable by identity
+		return va.Pointer() == vb.Pointer()
+	case reflect.UnsafePointer:
+		// Unsafe pointers are comparable by value
+		return va.Pointer() == vb.Pointer()
+	}
+
+	// For uncomparable types, fall back to reflect.DeepEqual with safety check
 	if !va.Type().Comparable() {
+		// Additional safety: avoid reflect.DeepEqual on very complex structures
+		if depth > 10 {
+			return false
+		}
 		return reflect.DeepEqual(a, b)
 	}
 
