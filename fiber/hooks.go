@@ -79,49 +79,6 @@ func GoUseState[T any](initialValue T) (func() T, func(T)) {
 	return getter, setter
 }
 
-// useEffect runs side effects in a component with dependency tracking
-func useEffect(effect func(), deps ...interface{}) {
-	currentFiber := getCurrentFiber()
-	if currentFiber.hooks == nil {
-		currentFiber.hooks = getHooksFromPool()
-	}
-
-	position := currentFiber.hooks.index
-	currentFiber.hooks.index++
-
-	// Validate hook order
-	if err := validateHookOrder(currentFiber.hooks, HookTypeEffect, position); err != nil {
-		debugf("HOOKS", "🚨 useEffect: %v\n", err)
-		// Continue execution but log the error - don't panic in production
-	}
-
-	// Grow deps slice efficiently
-	for len(currentFiber.hooks.deps) <= position {
-		currentFiber.hooks.deps = append(currentFiber.hooks.deps, nil)
-	}
-
-	if currentFiber.hooks.deps[position] == nil {
-		// First time this effect is used
-		currentFiber.hooks.deps[position] = deps
-		// Grow effects slice efficiently
-		if cap(currentFiber.effects) <= len(currentFiber.effects) {
-			newCap := max(4, cap(currentFiber.effects)*2)
-			newEffects := make([]func(), len(currentFiber.effects), newCap)
-			copy(newEffects, currentFiber.effects)
-			currentFiber.effects = newEffects
-		}
-		currentFiber.effects = append(currentFiber.effects, effect)
-	} else {
-		prevDeps := currentFiber.hooks.deps[position]
-		shouldRun := len(deps) == 0 || !areDepsEqual(prevDeps, deps)
-		if shouldRun {
-			// Dependencies have changed or no dependencies provided
-			currentFiber.hooks.deps[position] = deps
-			currentFiber.effects = append(currentFiber.effects, effect)
-		}
-	}
-}
-
 // GoUseEffect runs side effects in a component with dependency tracking
 // This is the Go-branded version of useEffect for GoWebComponents
 func GoUseEffect(effect func(), deps ...interface{}) {
@@ -164,49 +121,6 @@ func GoUseEffect(effect func(), deps ...interface{}) {
 			currentFiber.effects = append(currentFiber.effects, effect)
 		}
 	}
-}
-
-// useMemo memoizes expensive computations with dependency tracking
-func useMemo(compute func() interface{}, deps ...interface{}) interface{} {
-	currentFiber := getCurrentFiber()
-	if currentFiber.hooks == nil {
-		currentFiber.hooks = getHooksFromPool()
-	}
-
-	position := currentFiber.hooks.index
-	currentFiber.hooks.index++
-
-	// Validate hook order
-	if err := validateHookOrder(currentFiber.hooks, HookTypeMemo, position); err != nil {
-		debugf("HOOKS", "🚨 useMemo: %v\n", err)
-		// Continue execution but log the error - don't panic in production
-	}
-
-	// Grow memos slice efficiently
-	for len(currentFiber.hooks.memos) <= position {
-		currentFiber.hooks.memos = append(currentFiber.hooks.memos, memoizedValue{})
-	}
-
-	memo := &currentFiber.hooks.memos[position]
-
-	if memo.value == nil {
-		// First time this memo is used
-		value := compute() // Remove goroutine overhead for simple computations
-		memo.value = value
-		memo.deps = deps
-		return value
-	}
-
-	shouldCompute := len(deps) == 0 || !areDepsEqual(memo.deps, deps)
-	if shouldCompute {
-		value := compute() // Direct call, no goroutine
-		memo.value = value
-		memo.deps = deps
-		return value
-	}
-
-	// Dependencies haven't changed, return the memoized value
-	return memo.value
 }
 
 // GoUseMemo memoizes expensive computations with dependency tracking
