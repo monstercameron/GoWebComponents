@@ -263,49 +263,6 @@ func Text(content string) *Element {
 	})
 }
 
-// useState manages state in a component with optimized equality checking
-func useState[T any](initialValue T) (func() T, func(T)) {
-	currentFiber := getCurrentFiber()
-	if currentFiber.hooks == nil {
-		currentFiber.hooks = getHooksFromPool()
-	}
-
-	position := currentFiber.hooks.index
-	currentFiber.hooks.index++
-
-	if len(currentFiber.hooks.state) > position {
-		// Existing state
-	} else {
-		// Initial state - grow slice efficiently
-		if cap(currentFiber.hooks.state) <= position {
-			// Double capacity when needed
-			newCap := max(8, len(currentFiber.hooks.state)*2)
-			newState := make([]interface{}, len(currentFiber.hooks.state), newCap)
-			copy(newState, currentFiber.hooks.state)
-			currentFiber.hooks.state = newState
-		}
-		currentFiber.hooks.state = append(currentFiber.hooks.state, initialValue)
-	}
-
-	// Capture hooks and position
-	hooks := currentFiber.hooks
-	idx := position
-
-	getter := func() T {
-		return hooks.state[idx].(T)
-	}
-
-	setter := func(newValue T) {
-		// Use fast equality check instead of reflect.DeepEqual
-		if hooks.state[idx] == nil || !fastEqual(hooks.state[idx], newValue) {
-			hooks.state[idx] = newValue
-			scheduleUpdateAtRoot()
-		}
-	}
-
-	return getter, setter
-}
-
 // GoUseState manages state in a component with optimized equality checking
 // This is the Go-branded version of useState for GoWebComponents
 func GoUseState[T any](initialValue T) (func() T, func(T)) {
@@ -336,7 +293,12 @@ func GoUseState[T any](initialValue T) (func() T, func(T)) {
 	idx := position
 
 	getter := func() T {
-		return hooks.state[idx].(T)
+		if value, ok := hooks.state[idx].(T); ok {
+			return value
+		}
+		// Return zero value if type assertion fails
+		var zero T
+		return zero
 	}
 
 	setter := func(newValue T) {
@@ -1460,7 +1422,7 @@ type FetchResult struct {
 }
 
 func useFetch2(url string, options ...FetchOptions) (func() FetchState, func()) {
-	getState, setState := useState(FetchState{Loading: true})
+	getState, setState := GoUseState(FetchState{Loading: true})
 
 	var opts FetchOptions
 	if len(options) > 0 {
@@ -1540,7 +1502,7 @@ func useFetch2(url string, options ...FetchOptions) (func() FetchState, func()) 
 }
 
 func useFetch(url string) func() FetchState {
-	getState, setState := useState(FetchState{Loading: true, Data: nil, Error: ""})
+	getState, setState := GoUseState(FetchState{Loading: true, Data: nil, Error: ""})
 
 	useEffect(func() {
 		// Set loading state
