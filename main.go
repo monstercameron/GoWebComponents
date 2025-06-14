@@ -1,5 +1,8 @@
 // ./main.go
 
+//go:build js && wasm
+// +build js,wasm
+
 package main
 
 import (
@@ -25,10 +28,11 @@ func main() {
 	fmt.Println("Main: Starting Go Web Components Examples")
 
 	// Configure debug logging with namespaces
-	// Enable only specific namespaces for debugging
-	fiber.SetDebugNamespaces(map[string]bool{
-		"HOOKS":  true,  // Enable hook debugging
-		"RENDER": true,  // Enable render debugging
+	// Use SetDebugNamespacesExclusive to have full control over individual namespaces
+	// This disables global debug and only enables the namespaces you set to true
+	fiber.SetDebugNamespacesExclusive(map[string]bool{
+		"HOOKS":  true, // Disable hook debugging
+		"RENDER": false, // Disable render debugging
 		"MEMORY": false, // Disable memory debugging (can be noisy)
 		"DOM":    false, // Disable DOM debugging
 		"FETCH":  false, // Disable fetch debugging
@@ -41,7 +45,7 @@ func main() {
 	// fiber.EnableAllDebug()
 
 	// Call the example functions from the examples package
-	examples.SimpleStateExamplesDemo()           // Simple GoUseState Examples
+	examples.SimpleStateExamplesDemo() // Simple GoUseState Examples
 	// examples.ClickCounterExample()               // Click Counter Example
 	// examples.ConcurrentDashboardExample()        // Concurrent Dashboard Example
 	// examples.NetworkMonitoringDashboardExample() // Network Traffic Monitoring Dashboard

@@ -9,11 +9,15 @@ import (
 	"runtime"
 	"strings"
 	"sync/atomic"
+	"time"
 )
 
 // fastEqual performs equality checking with cycle detection
 func fastEqual(a, b interface{}) bool {
-	return fastEqualWithDepth(a, b, make(map[uintptr]bool), 0)
+	debugf("UTILS", "🔍 fastEqual: comparing %T vs %T\n", a, b)
+	result := fastEqualWithDepth(a, b, make(map[uintptr]bool), 0)
+	debugf("UTILS", "✅ fastEqual: result = %v\n", result)
+	return result
 }
 
 // fastEqualWithDepth performs equality checking with cycle detection and depth limiting
@@ -220,29 +224,46 @@ func getFunctionName(i interface{}) string {
 
 // enqueueUI schedules fn to run on the main JS/event thread
 func enqueueUI(fn func()) {
+	debugf("UTILS", "📋 enqueueUI: attempting to enqueue UI task\n")
 	select {
 	case uiQueue <- fn:
+		debugf("UTILS", "✅ enqueueUI: task enqueued successfully\n")
 	default:
+		debugf("UTILS", "⚡ enqueueUI: queue full, executing immediately\n")
 		fn()
 	}
 
 	// If we're currently outside scheduler, ensure an idle callback exists to process the queue
 	if atomic.LoadInt32(&schedulerActive) == 0 && !updateScheduled {
+		debugf("UTILS", "🚀 enqueueUI: scheduler inactive, requesting idle callback\n")
 		requestIdleCallback(workLoop)
 	}
 }
 
 // processUIQueue drains queued UI operations; should be called from main thread
 func processUIQueue() {
+	debugf("UTILS", "📋 processUIQueue: starting UI queue processing\n")
+	queueStartTime := time.Now()
+	tasksProcessed := 0
+
 	startSchedulerSection()
 	defer endSchedulerSection()
 	for {
 		select {
 		case fn := <-uiQueue:
 			if fn != nil {
+				debugf("UTILS", "⚡ processUIQueue: executing task %d\n", tasksProcessed+1)
+				taskStartTime := time.Now()
 				fn()
+				taskDuration := time.Since(taskStartTime)
+				debugf("UTILS", "✅ processUIQueue: task completed in %v\n", taskDuration)
+				tasksProcessed++
+			} else {
+				debugf("UTILS", "🚨 processUIQueue: received nil task\n")
 			}
 		default:
+			queueDuration := time.Since(queueStartTime)
+			debugf("UTILS", "✅ processUIQueue: completed %d tasks in %v\n", tasksProcessed, queueDuration)
 			return
 		}
 	}
@@ -250,11 +271,13 @@ func processUIQueue() {
 
 // startSchedulerSection marks that we're in a scheduler section
 func startSchedulerSection() {
+	debugf("UTILS", "🔒 startSchedulerSection: entering scheduler section\n")
 	atomic.StoreInt32(&schedulerActive, 1)
 }
 
 // endSchedulerSection marks that we're done with scheduler section
 func endSchedulerSection() {
+	debugf("UTILS", "🔓 endSchedulerSection: exiting scheduler section\n")
 	atomic.StoreInt32(&schedulerActive, 0)
 }
 
@@ -273,6 +296,18 @@ func SetDebugNamespace(namespace string, enabled bool) {
 
 // SetDebugNamespaces enables multiple namespaces at once
 func SetDebugNamespaces(namespaces map[string]bool) {
+	for ns, enabled := range namespaces {
+		debugNamespaces[ns] = enabled
+	}
+}
+
+// SetDebugNamespacesExclusive disables global debug and only enables specified namespaces
+func SetDebugNamespacesExclusive(namespaces map[string]bool) {
+	// Disable global debug first
+	debugEnabled = false
+	// Clear existing namespace settings
+	debugNamespaces = make(map[string]bool)
+	// Set only the specified namespaces
 	for ns, enabled := range namespaces {
 		debugNamespaces[ns] = enabled
 	}

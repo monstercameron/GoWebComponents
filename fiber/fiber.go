@@ -7,7 +7,9 @@ package fiber
 
 import (
 	"reflect"
+	"runtime"
 	"syscall/js"
+	"time"
 )
 
 // Global variables for tracking the current fiber and root.
@@ -25,21 +27,36 @@ var (
 	// Indicates we're executing on the main scheduler/commit/effect loop
 	schedulerActive int32
 
-	// Debug logging toggle
-	debugEnabled = true
+	// Debug logging toggle - start with false so namespace control works
+	debugEnabled = false
+
+	// Performance tracking
+	renderStartTime time.Time
+	totalRenders    int64
+	totalWorkUnits  int64
 )
 
 func scheduleUpdateAtRoot() {
+	debugf("FIBER", "🎯 scheduleUpdateAtRoot called - currentRoot: %p, updateScheduled: %v\n", currentRoot, updateScheduled)
+
 	if currentRoot == nil || updateScheduled {
+		if currentRoot == nil {
+			debugf("FIBER", "🚨 scheduleUpdateAtRoot: currentRoot is nil, aborting\n")
+		} else {
+			debugf("FIBER", "⏭️ scheduleUpdateAtRoot: update already scheduled, skipping\n")
+		}
 		return
 	}
 	updateScheduled = true
+	debugf("FIBER", "✅ scheduleUpdateAtRoot: update scheduled\n")
 
 	// Reuse fiber instead of allocating new one
 	if wipRoot == nil {
+		debugf("FIBER", "🔧 scheduleUpdateAtRoot: getting fiber from pool\n")
 		poolFiber := fiberPool.Get()
 		if fiber, ok := poolFiber.(*Fiber); ok {
 			wipRoot = fiber
+			debugf("FIBER", "♻️ scheduleUpdateAtRoot: reused fiber from pool %p\n", wipRoot)
 		} else {
 			// This should never happen if pool is properly initialized, but handle gracefully
 			debugf("FIBER", "🚨 scheduleUpdateAtRoot: fiberPool returned unexpected type %T, creating new Fiber\n", poolFiber)
@@ -48,6 +65,10 @@ func scheduleUpdateAtRoot() {
 			}
 		}
 	}
+
+	// Debug: Log fiber setup
+	debugf("FIBER", "🔧 scheduleUpdateAtRoot: setting up wipRoot from currentRoot\n")
+	debugf("FIBER", "  📋 currentRoot type: %v, dom: %v\n", currentRoot.typeOf, currentRoot.dom.Type())
 
 	wipRoot.typeOf = currentRoot.typeOf
 	wipRoot.dom = currentRoot.dom
@@ -60,16 +81,20 @@ func scheduleUpdateAtRoot() {
 
 	nextUnitOfWork = wipRoot
 	deletions = deletions[:0] // Reuse slice
+
+	debugf("FIBER", "🚀 scheduleUpdateAtRoot: requesting idle callback for workLoop\n")
 	requestIdleCallback(workLoop)
 }
 
 // getCurrentFiber retrieves the current working fiber.
 func getCurrentFiber() *Fiber {
+	debugf("FIBER", "🔍 getCurrentFiber called, returning: %p\n", wipFiber)
 	return wipFiber
 }
 
 // scheduleUpdate triggers a re-render of the component.
 func scheduleUpdate(fiber *Fiber) {
+	debugf("FIBER", "🎯 scheduleUpdate called for fiber %p (type: %v)\n", fiber, fiber.typeOf)
 	// fmt.Println("scheduleUpdate: Scheduling update")
 	wipRoot = &Fiber{
 		typeOf:    "ROOT",
@@ -79,12 +104,17 @@ func scheduleUpdate(fiber *Fiber) {
 	}
 	nextUnitOfWork = wipRoot
 	deletions = []*Fiber{}
+	debugf("FIBER", "✅ scheduleUpdate: wipRoot set %p, scheduling workLoop\n", wipRoot)
 	// fmt.Println("scheduleUpdate: wipRoot set and workLoop scheduled")
 	requestIdleCallback(workLoop)
 }
 
 // render starts the rendering process.
 func render(element *Element, container js.Value) {
+	debugf("FIBER", "🎯 render called with element type: %v, container: %v\n", element.Type, container.Type())
+	renderStartTime = time.Now()
+	totalRenders++
+
 	// fmt.Println("render: Starting rendering process.")
 	wipRoot = &Fiber{
 		typeOf:    "ROOT", // Assign a type to the root fiber
@@ -92,26 +122,34 @@ func render(element *Element, container js.Value) {
 		props:     map[string]interface{}{"children": []interface{}{element}},
 		alternate: currentRoot,
 	}
-	debugf("RENDER", "Root fiber created.\n")
+	debugf("RENDER", "Root fiber created %p.\n", wipRoot)
+	debugf("FIBER", "📊 render: total renders so far: %d\n", totalRenders)
+
 	nextUnitOfWork = wipRoot
 	deletions = []*Fiber{}
+	debugf("FIBER", "🚀 render: scheduling work loop\n")
 	// fmt.Println("render: Scheduling work loop.")
 	requestIdleCallback(workLoop)
 }
 
 // Render is the exported version of render - starts the rendering process
 func Render(element *Element, container js.Value) {
+	debugf("FIBER", "🎯 Render (exported) called\n")
 	render(element, container)
 }
 
 // CreateElement is the exported version of createElement
 func CreateElement(typ interface{}, props map[string]interface{}, children ...interface{}) *Element {
-	return createElement(typ, props, children...)
+	debugf("FIBER", "🎯 CreateElement called with type: %v, props: %+v, children: %d\n", typ, props, len(children))
+	element := createElement(typ, props, children...)
+	debugf("FIBER", "✅ CreateElement: created element %p\n", element)
+	return element
 }
 
 // workLoop performs work until there is no more work left or the deadline expires.
 func workLoop(deadline js.Value) {
-	// fmt.Println("workLoop: Starting work loop.")
+	debugf("FIBER", "🎯 workLoop started with deadline\n")
+	workStartTime := time.Now()
 	startSchedulerSection()
 	defer endSchedulerSection()
 
@@ -120,12 +158,18 @@ func workLoop(deadline js.Value) {
 
 	var shouldYield bool
 	for nextUnitOfWork != nil {
+		debugf("FIBER", "🔄 workLoop: processing unit %d, fiber %p (type: %v)\n",
+			units+1, nextUnitOfWork, nextUnitOfWork.typeOf)
+
 		nextUnitOfWork = performUnitOfWork(nextUnitOfWork)
+		totalWorkUnits++
 
 		units++
 		// Yield criteria: low time remaining OR processed many units already
-		if deadline.Call("timeRemaining").Float() < 1 || units >= maxUnitsPerSlice {
+		timeRemaining := deadline.Call("timeRemaining").Float()
+		if timeRemaining < 1 || units >= maxUnitsPerSlice {
 			shouldYield = true
+			debugf("FIBER", "⏱️ workLoop: yielding after %d units (time remaining: %.2fms)\n", units, timeRemaining)
 		}
 
 		if shouldYield {
@@ -133,34 +177,55 @@ func workLoop(deadline js.Value) {
 		}
 	}
 
+	workDuration := time.Since(workStartTime)
+	debugf("FIBER", "📊 workLoop: processed %d units in %v (total work units: %d)\n",
+		units, workDuration, totalWorkUnits)
+
 	if wipRoot != nil && nextUnitOfWork == nil {
+		debugf("FIBER", "🏁 workLoop: no more work, committing root\n")
 		// fmt.Println("workLoop: No more units of work. Committing root.")
 		commitRoot()
 	}
 
 	if nextUnitOfWork != nil {
+		debugf("FIBER", "⏳ workLoop: work remains, scheduling next iteration\n")
 		// fmt.Println("workLoop: Work remains. Scheduling next work loop.")
 		requestIdleCallback(workLoop)
 	} else {
+		renderDuration := time.Since(renderStartTime)
+		debugf("FIBER", "🎉 workLoop: all work completed in %v\n", renderDuration)
+		updateScheduled = false
 		// fmt.Println("workLoop: All work completed.")
 	}
 
 	// First, handle any queued UI tasks from background goroutines
+	debugf("FIBER", "📋 workLoop: processing UI queue\n")
 	processUIQueue()
 }
 
 // performUnitOfWork performs a single unit of work.
 func performUnitOfWork(fiber *Fiber) *Fiber {
 	if fiber == nil {
+		debugf("FIBER", "🚨 performUnitOfWork: received nil fiber\n")
 		// fmt.Println("performUnitOfWork: Fiber is nil.")
 		return nil
 	}
 
+	debugf("FIBER", "🔄 performUnitOfWork: processing fiber %p (type: %v)\n", fiber, fiber.typeOf)
+
+	// Memory diagnostics for this fiber
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+	debugf("FIBER", "💾 performUnitOfWork: memory - heap objects: %d, allocs: %d, sys: %d KB\n",
+		memStats.HeapObjects, memStats.Mallocs-memStats.Frees, memStats.Sys/1024)
+
 	// fmt.Printf("performUnitOfWork: Processing fiber of type %v.\n", fiber.typeOf)
 
 	if fiber.typeOf == nil || fiber.typeOf == "ROOT" {
+		debugf("FIBER", "🌳 performUnitOfWork: processing ROOT fiber, reconciling children\n")
 		// fmt.Println("performUnitOfWork: Fiber has typeOf nil or ROOT, reconciling children.")
 		if children, ok := fiber.props["children"].([]interface{}); ok {
+			debugf("FIBER", "📋 performUnitOfWork: found %d children to reconcile\n", len(children))
 			reconcileChildren(fiber, children)
 		} else {
 			// Handle case where children is not the expected type
@@ -172,6 +237,7 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 	} else {
 		switch fiber.typeOf.(type) {
 		case func(map[string]interface{}) *Element:
+			debugf("FIBER", "🧩 performUnitOfWork: processing function component\n")
 			// Function component with map[string]interface{} props
 			componentFunc, ok := fiber.typeOf.(func(map[string]interface{}) *Element)
 			if !ok {
@@ -179,51 +245,67 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 				return nil
 			}
 			wipFiber = fiber
+			debugf("FIBER", "🎯 performUnitOfWork: set wipFiber to %p\n", wipFiber)
 
 			// Preserve hooks from alternate fiber
 			var oldHooks *Hooks
 			if fiber.alternate != nil {
 				oldHooks = fiber.alternate.hooks
+				debugf("FIBER", "♻️ performUnitOfWork: found existing hooks %p from alternate\n", oldHooks)
 			}
 
 			if oldHooks != nil {
 				// Reuse existing Hooks instance and reset per-render state
+				debugf("FIBER", "🔄 performUnitOfWork: reusing hooks, resetting state\n")
 				wipFiber.hooks = oldHooks
 				wipFiber.hooks.index = 0
 				wipFiber.hooks.callOrder = wipFiber.hooks.callOrder[:0]
 				wipFiber.hooks.orderChecked = false
+				debugf("FIBER", "✅ performUnitOfWork: hooks reset - index: %d, callOrder len: %d\n",
+					wipFiber.hooks.index, len(wipFiber.hooks.callOrder))
 				// prevOrder already contains the last render's sequence
 			} else {
 				// First render – allocate a fresh Hooks container
+				debugf("FIBER", "🆕 performUnitOfWork: creating new hooks container\n")
 				wipFiber.hooks = &Hooks{
 					state:        []interface{}{},
 					deps:         [][]interface{}{},
 					memos:        []memoizedValue{},
-					prevOrder:    []HookCall{},
 					callOrder:    []HookCall{},
+					prevOrder:    []HookCall{},
 					orderChecked: false,
+					index:        0,
 				}
+				debugf("FIBER", "✅ performUnitOfWork: new hooks created %p\n", wipFiber.hooks)
 			}
 
-			// Initialize effects
-			wipFiber.effects = []func(){}
+			// Clear effects for this render
+			wipFiber.effects = wipFiber.effects[:0]
+			debugf("FIBER", "🧹 performUnitOfWork: cleared effects\n")
 
+			// Call the component function
+			debugf("FIBER", "🎬 performUnitOfWork: calling component function with props: %+v\n", fiber.props)
+			componentStartTime := time.Now()
 			element := componentFunc(fiber.props)
+			componentDuration := time.Since(componentStartTime)
+			debugf("FIBER", "⚡ performUnitOfWork: component function completed in %v, returned: %p\n",
+				componentDuration, element)
 
-			// Finalize hook order validation after component execution
-			if wipFiber.hooks != nil && !wipFiber.hooks.orderChecked {
-				if err := finalizeHookOrder(wipFiber.hooks); err != nil {
-					componentName := getFunctionName(fiber.typeOf)
-					debugf("HOOKS", "🚨 Component '%s': %v\n", componentName, err)
-				}
+			// Finalize hook order validation
+			if err := finalizeHookOrder(wipFiber.hooks); err != nil {
+				debugf("FIBER", "🚨 performUnitOfWork: hook order validation failed: %v\n", err)
 			}
 
-			if element == nil {
-				return nil
+			if element != nil {
+				debugf("FIBER", "📋 performUnitOfWork: reconciling component children\n")
+				reconcileChildren(fiber, []interface{}{element})
+			} else {
+				debugf("FIBER", "🚨 performUnitOfWork: component returned nil element\n")
+				reconcileChildren(fiber, []interface{}{})
 			}
 
-			reconcileChildren(fiber, []interface{}{element})
 		case func(Attrs) *Element:
+			debugf("FIBER", "🧩 performUnitOfWork: processing Attrs component\n")
 			// Function component with Attrs props
 			componentFunc, ok := fiber.typeOf.(func(Attrs) *Element)
 			if !ok {
@@ -231,22 +313,28 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 				return nil
 			}
 			wipFiber = fiber
+			debugf("FIBER", "🎯 performUnitOfWork: set wipFiber to %p\n", wipFiber)
 
 			// Preserve hooks from alternate fiber
 			var oldHooks *Hooks
 			if fiber.alternate != nil {
 				oldHooks = fiber.alternate.hooks
+				debugf("FIBER", "♻️ performUnitOfWork: found existing hooks %p from alternate\n", oldHooks)
 			}
 
 			if oldHooks != nil {
 				// Reuse existing Hooks instance and reset per-render state
+				debugf("FIBER", "🔄 performUnitOfWork: reusing hooks, resetting state\n")
 				wipFiber.hooks = oldHooks
 				wipFiber.hooks.index = 0
 				wipFiber.hooks.callOrder = wipFiber.hooks.callOrder[:0]
 				wipFiber.hooks.orderChecked = false
+				debugf("FIBER", "✅ performUnitOfWork: hooks reset - index: %d, callOrder len: %d\n",
+					wipFiber.hooks.index, len(wipFiber.hooks.callOrder))
 				// prevOrder already contains the last render's sequence
 			} else {
 				// First render – allocate a fresh Hooks container
+				debugf("FIBER", "🆕 performUnitOfWork: creating new hooks container\n")
 				wipFiber.hooks = &Hooks{
 					state:        []interface{}{},
 					deps:         [][]interface{}{},
@@ -254,50 +342,67 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 					prevOrder:    []HookCall{},
 					callOrder:    []HookCall{},
 					orderChecked: false,
+					index:        0,
 				}
+				debugf("FIBER", "✅ performUnitOfWork: new hooks created %p\n", wipFiber.hooks)
 			}
 
-			// Initialize effects
-			wipFiber.effects = []func(){}
+			// Clear effects for this render
+			wipFiber.effects = wipFiber.effects[:0]
+			debugf("FIBER", "🧹 performUnitOfWork: cleared effects\n")
 
 			// Convert map[string]interface{} to Attrs
 			var attrs Attrs
 			if fiber.props != nil {
 				attrs = Attrs(fiber.props)
+				debugf("FIBER", "🔄 performUnitOfWork: converted props to Attrs: %+v\n", attrs)
 			}
 
+			// Call the component function
+			debugf("FIBER", "🎬 performUnitOfWork: calling Attrs component function\n")
+			componentStartTime := time.Now()
 			element := componentFunc(attrs)
+			componentDuration := time.Since(componentStartTime)
+			debugf("FIBER", "⚡ performUnitOfWork: Attrs component completed in %v, returned: %p\n",
+				componentDuration, element)
 
 			// Finalize hook order validation after component execution
-			if wipFiber.hooks != nil && !wipFiber.hooks.orderChecked {
-				if err := finalizeHookOrder(wipFiber.hooks); err != nil {
-					componentName := getFunctionName(fiber.typeOf)
-					debugf("HOOKS", "🚨 Component '%s': %v\n", componentName, err)
-				}
+			if err := finalizeHookOrder(wipFiber.hooks); err != nil {
+				componentName := getFunctionName(fiber.typeOf)
+				debugf("FIBER", "🚨 performUnitOfWork: hook validation failed for '%s': %v\n", componentName, err)
 			}
 
-			if element == nil {
-				return nil
+			if element != nil {
+				debugf("FIBER", "📋 performUnitOfWork: reconciling Attrs component children\n")
+				reconcileChildren(fiber, []interface{}{element})
+			} else {
+				debugf("FIBER", "🚨 performUnitOfWork: Attrs component returned nil element\n")
+				reconcileChildren(fiber, []interface{}{})
 			}
 
-			reconcileChildren(fiber, []interface{}{element})
 		case string:
+			debugf("FIBER", "🏷️ performUnitOfWork: processing DOM element: %v\n", fiber.typeOf)
 			// Host component (HTML element)
 			// fmt.Printf("performUnitOfWork: Handling host component of type '%s'.\n", fiber.typeOf.(string))
 			if fiber.dom.IsUndefined() || fiber.dom.IsNull() {
+				debugf("FIBER", "🔧 performUnitOfWork: creating DOM element\n")
 				// fmt.Println("performUnitOfWork: Creating DOM node for host component.")
 				fiber.dom = createDom(fiber)
+				debugf("FIBER", "✅ performUnitOfWork: DOM element created: %v\n", fiber.dom.Type())
 				// fmt.Println("performUnitOfWork: DOM node created.")
 			}
 
 			if fiber.props == nil {
+				debugf("FIBER", "🚨 performUnitOfWork: fiber props are nil, skipping children\n")
 				// fmt.Println("performUnitOfWork: Fiber props are nil. Skipping children reconciliation.")
-				return nil
+				return getNextUnitOfWork(fiber)
 			}
 
 			if propsChildren, ok := fiber.props["children"]; ok {
+				debugf("FIBER", "📋 performUnitOfWork: reconciling DOM children\n")
 				// fmt.Println("performUnitOfWork: Reconciling children of host component.")
 				if elements, elementsOk := propsChildren.([]interface{}); elementsOk {
+					debugf("FIBER", "📋 performUnitOfWork: found %d DOM children to reconcile\n", len(elements))
 					reconcileChildren(fiber, elements)
 				} else {
 					debugf("FIBER", "🚨 performUnitOfWork: fiber.props[\"children\"] is not []interface{}, got %T\n", propsChildren)
@@ -305,30 +410,46 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 					emptyChildren := make([]interface{}, 0)
 					reconcileChildren(fiber, emptyChildren)
 				}
+			} else {
+				debugf("FIBER", "📋 performUnitOfWork: no children found in props\n")
 			}
+
 		default:
+			debugf("FIBER", "❓ performUnitOfWork: unhandled fiber type %T\n", fiber.typeOf)
 			// fmt.Printf("performUnitOfWork: Unhandled fiber type %T.\n", fiber.typeOf)
 		}
 	}
 
 	// fmt.Printf("performUnitOfWork: Completed processing fiber of type %v.\n", fiber.typeOf)
 
-	// Traverse to child fibers
+	// Return next unit of work
+	nextWork := getNextUnitOfWork(fiber)
+	debugf("FIBER", "➡️ performUnitOfWork: next unit of work: %p\n", nextWork)
+	return nextWork
+}
+
+// getNextUnitOfWork determines the next fiber to process
+func getNextUnitOfWork(fiber *Fiber) *Fiber {
+	debugf("FIBER", "🔍 getNextUnitOfWork: finding next work for fiber %p\n", fiber)
+
+	// If this fiber has a child, return it
 	if fiber.child != nil {
-		// fmt.Printf("performUnitOfWork: Moving to child fiber of type %v.\n", fiber.child.typeOf)
+		debugf("FIBER", "👶 getNextUnitOfWork: returning child %p\n", fiber.child)
 		return fiber.child
 	}
 
+	// Walk up the fiber tree to find the next sibling
 	nextFiber := fiber
 	for nextFiber != nil {
 		if nextFiber.sibling != nil {
-			// fmt.Printf("performUnitOfWork: Moving to sibling fiber of type %v.\n", nextFiber.sibling.typeOf)
+			debugf("FIBER", "👫 getNextUnitOfWork: returning sibling %p\n", nextFiber.sibling)
 			return nextFiber.sibling
 		}
-		// fmt.Println("performUnitOfWork: Moving up to parent fiber.")
+		debugf("FIBER", "⬆️ getNextUnitOfWork: moving up to parent %p\n", nextFiber.parent)
 		nextFiber = nextFiber.parent
 	}
-	// fmt.Println("performUnitOfWork: No more fibers to process.")
+
+	debugf("FIBER", "🏁 getNextUnitOfWork: no more work found\n")
 	return nil
 }
 
@@ -336,24 +457,42 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 
 // reconcileChildren reconciles the children of a fiber.
 func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
+	debugf("FIBER", "🔄 reconcileChildren: reconciling %d children for fiber %p (type: %v)\n",
+		len(elements), wipFiber, wipFiber.typeOf)
+	reconcileStartTime := time.Now()
+
 	// fmt.Printf("reconcileChildren: Reconciling %d children for fiber type %v\n", len(elements), wipFiber.typeOf)
 	index := 0
 	var oldFiber *Fiber
 	if wipFiber.alternate != nil {
 		oldFiber = wipFiber.alternate.child
+		debugf("FIBER", "♻️ reconcileChildren: found existing child %p from alternate\n", oldFiber)
+	} else {
+		debugf("FIBER", "🆕 reconcileChildren: no alternate, creating fresh children\n")
 	}
 	var prevSibling *Fiber
 
 	for index < len(elements) || oldFiber != nil {
+		debugf("FIBER", "🔄 reconcileChildren: processing index %d (elements: %d, oldFiber: %p)\n",
+			index, len(elements), oldFiber)
+
 		var element interface{}
 		if index < len(elements) {
 			element = elements[index]
+			debugf("FIBER", "📋 reconcileChildren: found element at index %d: %+v\n", index, element)
 		}
 
 		var newFiber *Fiber
 
 		sameType := false
 		if oldFiber != nil && element != nil {
+			debugf("FIBER", "🔍 reconcileChildren: comparing types for reuse - old: %v, new: %v\n",
+				oldFiber.typeOf, func() interface{} {
+					if elem, ok := element.(*Element); ok {
+						return elem.Type
+					}
+					return "unknown"
+				}())
 			if elem, ok := element.(*Element); ok {
 				switch elemType := elem.Type.(type) {
 				case func(map[string]interface{}) *Element:
@@ -411,6 +550,7 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 
 		if sameType {
 			// Reuse the existing fiber
+			debugf("FIBER", "♻️ reconcileChildren: reusing existing fiber of type %v\n", oldFiber.typeOf)
 			// fmt.Printf("reconcileChildren: Reusing existing fiber of type %v\n", oldFiber.typeOf)
 			if elem, ok := element.(*Element); ok {
 				newFiber = &Fiber{
@@ -421,11 +561,13 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					alternate: oldFiber,
 					effectTag: "UPDATE",
 				}
+				debugf("FIBER", "✅ reconcileChildren: created UPDATE fiber %p\n", newFiber)
 			} else {
 				debugf("FIBER", "🚨 reconcileChildren: element is not *Element for reuse, got %T\n", element)
 			}
 		} else if element != nil {
 			// Create a new fiber
+			debugf("FIBER", "🆕 reconcileChildren: creating new fiber\n")
 			// fmt.Printf("reconcileChildren: Creating new fiber of type %v\n", element.(*Element).Type)
 			if elem, ok := element.(*Element); ok {
 				newFiber = &Fiber{
@@ -435,6 +577,8 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					parent:    wipFiber,
 					effectTag: "PLACEMENT",
 				}
+				debugf("FIBER", "✅ reconcileChildren: created PLACEMENT fiber %p (type: %v)\n",
+					newFiber, elem.Type)
 			} else {
 				debugf("FIBER", "🚨 reconcileChildren: element is not *Element for creation, got %T\n", element)
 			}
@@ -442,9 +586,11 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 
 		if oldFiber != nil && !sameType {
 			// Mark the old fiber for deletion
+			debugf("FIBER", "🗑️ reconcileChildren: marking fiber for deletion (type: %v)\n", oldFiber.typeOf)
 			// fmt.Printf("reconcileChildren: Deleting fiber of type %v\n", oldFiber.typeOf)
 			oldFiber.effectTag = "DELETION"
 			deletions = append(deletions, oldFiber)
+			debugf("FIBER", "📋 reconcileChildren: total deletions queued: %d\n", len(deletions))
 		}
 
 		if oldFiber != nil {
@@ -464,6 +610,8 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 	}
 
 	// fmt.Printf("reconcileChildren: Completed reconciliation for fiber type %v\n", wipFiber.typeOf)
+	reconcileDuration := time.Since(reconcileStartTime)
+	debugf("FIBER", "✅ reconcileChildren: completed reconciliation in %v for fiber %p\n", reconcileDuration, wipFiber)
 }
 
 // requestIdleCallback schedules work during idle periods.

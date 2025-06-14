@@ -156,9 +156,13 @@ func ConfigureMemoryLimits(maxCalls, maxPool int) {
 
 // getHooksFromPool retrieves a Hooks instance from the pool or creates a new one
 func getHooksFromPool() *Hooks {
+	debugf("MEMORY", "♻️ getHooksFromPool: retrieving hooks from pool\n")
 	poolHooks := hooksPool.Get()
 	if hooks, ok := poolHooks.(*Hooks); ok {
+		debugf("MEMORY", "✅ getHooksFromPool: reusing hooks %p from pool\n", hooks)
 		// Reset the hooks for reuse
+		debugf("MEMORY", "🔄 getHooksFromPool: resetting hooks - state: %d, deps: %d, memos: %d\n",
+			len(hooks.state), len(hooks.deps), len(hooks.memos))
 		hooks.index = 0
 		hooks.state = hooks.state[:0]
 		hooks.deps = hooks.deps[:0]
@@ -166,11 +170,12 @@ func getHooksFromPool() *Hooks {
 		hooks.prevOrder = hooks.prevOrder[:0]
 		hooks.callOrder = hooks.callOrder[:0]
 		hooks.orderChecked = false
+		debugf("MEMORY", "✅ getHooksFromPool: hooks reset complete\n")
 		return hooks
 	}
 	// This should never happen if pool is properly initialized, but handle gracefully
 	debugf("MEMORY", "🚨 getHooksFromPool: hooksPool returned unexpected type %T, creating new Hooks\n", poolHooks)
-	return &Hooks{
+	newHooks := &Hooks{
 		state:        []interface{}{},
 		deps:         [][]interface{}{},
 		memos:        []memoizedValue{},
@@ -178,23 +183,34 @@ func getHooksFromPool() *Hooks {
 		callOrder:    []HookCall{},
 		orderChecked: false,
 	}
+	debugf("MEMORY", "🆕 getHooksFromPool: created new hooks %p\n", newHooks)
+	return newHooks
 }
 
 // releaseHooks returns hooks to pool
 func releaseHooks(hooks *Hooks) {
 	if hooks != nil {
+		debugf("MEMORY", "♻️ releaseHooks: returning hooks %p to pool (state: %d, deps: %d, memos: %d)\n",
+			hooks, len(hooks.state), len(hooks.deps), len(hooks.memos))
 		// Don't clear slices, just reset for reuse
 		hooksPool.Put(hooks)
+		debugf("MEMORY", "✅ releaseHooks: hooks returned to pool\n")
+	} else {
+		debugf("MEMORY", "🚨 releaseHooks: attempted to release nil hooks\n")
 	}
 }
 
 // resetFiber resets fiber for pool reuse
 func resetFiber(f *Fiber) {
+	debugf("MEMORY", "🔄 resetFiber: resetting fiber %p (type: %v, effects: %d)\n",
+		f, f.typeOf, len(f.effects))
+
 	f.parent = nil
 	f.alternate = nil
 	f.child = nil
 	f.sibling = nil
 	if f.hooks != nil {
+		debugf("MEMORY", "♻️ resetFiber: releasing hooks from fiber\n")
 		releaseHooks(f.hooks)
 		f.hooks = nil
 	}
@@ -203,19 +219,31 @@ func resetFiber(f *Fiber) {
 	f.dom = js.Value{}
 	f.effectTag = ""
 	f.effects = f.effects[:0] // Reuse slice
+
+	debugf("MEMORY", "✅ resetFiber: fiber reset complete\n")
 }
 
 // releaseElement releases element back to pool with optimized cleanup
 func releaseElement(elem *Element) {
 	if elem != nil {
+		debugf("MEMORY", "♻️ releaseElement: returning element %p to pool (type: %v, props: %d, children: %d)\n",
+			elem, elem.Type, len(elem.Props), len(elem.Children))
+
 		elem.Type = nil
 		elem.Children = nil
 		// Clear props map efficiently but keep it allocated for reuse
+		propsCleared := 0
 		if len(elem.Props) > 0 {
 			for k := range elem.Props {
 				delete(elem.Props, k)
+				propsCleared++
 			}
 		}
+		debugf("MEMORY", "🧹 releaseElement: cleared %d props from element\n", propsCleared)
+
 		elementPool.Put(elem)
+		debugf("MEMORY", "✅ releaseElement: element returned to pool\n")
+	} else {
+		debugf("MEMORY", "🚨 releaseElement: attempted to release nil element\n")
 	}
 }
