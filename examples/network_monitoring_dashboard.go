@@ -28,6 +28,9 @@ import (
 
 // SystemMetrics represents a comprehensive collection of system performance metrics
 type SystemMetrics struct {
+	// Unique identifier for change detection
+	ID string `json:"id"` // Unique ID for this metrics snapshot
+
 	// Core system metrics
 	CPUUsage    float64 `json:"cpuUsage"`    // CPU usage percentage (0-100)
 	GPUUsage    float64 `json:"gpuUsage"`    // GPU usage percentage (0-100)
@@ -629,6 +632,7 @@ func generateRandomMetrics() SystemMetrics {
 	timeOffset := float64(now % 100000)
 
 	return SystemMetrics{
+		ID:               fmt.Sprintf("metrics-%d-%d", now, rand.Intn(10000)),
 		CPUUsage:         math.Max(0, math.Min(100, trendingJitter(BaselineMetrics.CPUUsage, timeOffset))),
 		GPUUsage:         math.Max(0, math.Min(100, trendingJitter(BaselineMetrics.GPUUsage, timeOffset*1.3))),
 		RAMUsage:         math.Max(0, math.Min(100, jitter(BaselineMetrics.RAMUsage))),
@@ -662,36 +666,99 @@ func NetworkMonitoringDashboard(props Attrs) *Element {
 	// Toggle monitoring handler
 	handleToggleMonitoring := func(this js.Value, args []js.Value) interface{} {
 		currentState := dashboardState()
-		currentState.IsMonitoring = !currentState.IsMonitoring
-		setDashboardState(currentState)
+		newState := DashboardState{
+			IsMonitoring:   !currentState.IsMonitoring,
+			MetricsHistory: currentState.MetricsHistory,
+			CurrentMetrics: currentState.CurrentMetrics,
+			UpdateInterval: currentState.UpdateInterval,
+		}
+		fmt.Printf("🎛️ Toggling monitoring: %v -> %v\n", currentState.IsMonitoring, newState.IsMonitoring)
+		setDashboardState(newState)
 		return nil
 	}
+
+	// Add an update counter to force state change detection
+	updateCounter, setUpdateCounter := GoUseState[int](0)
+
+	// Create a cancellation channel for the current monitoring session
+	cancelChan, setCancelChan := GoUseState[chan bool](make(chan bool, 1))
 
 	// Update metrics periodically when monitoring is active
 	GoUseEffect(func() {
 		if state.IsMonitoring {
+			fmt.Printf("🔄 Starting metrics update loop with %dms interval\n", state.UpdateInterval)
+
+			// Create a new cancellation channel for this session
+			newCancelChan := make(chan bool, 1)
+			setCancelChan(newCancelChan)
+
 			ticker := time.NewTicker(time.Duration(state.UpdateInterval) * time.Millisecond)
+
 			go func() {
-				for range ticker.C {
-					currentState := dashboardState()
-					if !currentState.IsMonitoring {
-						ticker.Stop()
+				defer func() {
+					ticker.Stop()
+					fmt.Println("🧹 Cleaned up ticker")
+				}()
+
+				for {
+					select {
+					case <-newCancelChan:
+						fmt.Println("🛑 Stopping metrics generation - cancelled via channel")
 						return
+					case <-ticker.C:
+						// Double-check state is still active
+						currentState := dashboardState()
+						if !currentState.IsMonitoring {
+							fmt.Println("🛑 Stopping metrics generation - monitoring disabled")
+							return
+						}
+
+						// Increment update counter to force state change detection
+						currentCounter := updateCounter()
+						newCounter := currentCounter + 1
+						setUpdateCounter(newCounter)
+
+						fmt.Printf("📊 Generated metrics #%d\n", newCounter)
+
+						// Generate new metrics
+						newMetrics := generateRandomMetrics()
+
+						fmt.Printf("🎨 Updating UI with new metrics - CPU: %.1f%%, GPU: %.1f%%, RAM: %.1f%%\n",
+							newMetrics.CPUUsage, newMetrics.GPUUsage, newMetrics.RAMUsage)
+
+						// Create new history slice (don't modify existing)
+						newHistory := make([]SystemMetrics, len(currentState.MetricsHistory))
+						copy(newHistory, currentState.MetricsHistory)
+						newHistory = append(newHistory, newMetrics)
+						if len(newHistory) > 50 {
+							newHistory = newHistory[1:]
+						}
+
+						// Create completely new state object with unique timestamp
+						newState := DashboardState{
+							IsMonitoring:   currentState.IsMonitoring,
+							MetricsHistory: newHistory,
+							CurrentMetrics: newMetrics,
+							UpdateInterval: currentState.UpdateInterval,
+						}
+
+						fmt.Printf("📈 Setting new state #%d\n", newCounter)
+						setDashboardState(newState)
 					}
-
-					// Generate new metrics
-					newMetrics := generateRandomMetrics()
-					currentState.CurrentMetrics = newMetrics
-
-					// Add to history (keep last 50 entries)
-					currentState.MetricsHistory = append(currentState.MetricsHistory, newMetrics)
-					if len(currentState.MetricsHistory) > 50 {
-						currentState.MetricsHistory = currentState.MetricsHistory[1:]
-					}
-
-					setDashboardState(currentState)
 				}
 			}()
+		} else {
+			// When monitoring is turned off, signal the goroutine to stop
+			fmt.Println("🛑 Monitoring turned off - sending cancellation signal")
+			currentCancelChan := cancelChan()
+			if currentCancelChan != nil {
+				select {
+				case currentCancelChan <- true:
+					fmt.Println("✅ Cancellation signal sent successfully")
+				default:
+					fmt.Println("⚠️ Cancellation channel was full or closed")
+				}
+			}
 		}
 	}, []interface{}{state.IsMonitoring})
 
