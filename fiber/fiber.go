@@ -1393,6 +1393,23 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 			}
 		}
 
+		// Keyed diff: if a 'key' prop is present, require key equality for reuse
+		if element != nil {
+			var elemKey interface{}
+			if elemEl, ok := element.(*Element); ok {
+				elemKey = elemEl.Props["key"]
+			}
+			var oldKey interface{}
+			if oldFiber != nil && oldFiber.props != nil {
+				oldKey = oldFiber.props["key"]
+			}
+			if elemKey != nil || oldKey != nil {
+				if !fastEqual(elemKey, oldKey) {
+					sameType = false
+				}
+			}
+		}
+
 		if sameType {
 			// Reuse the existing fiber
 			// fmt.Printf("reconcileChildren: Reusing existing fiber of type %v\n", oldFiber.typeOf)
