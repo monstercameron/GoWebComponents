@@ -21,7 +21,7 @@ func main() {
 	wg.Add(1)
 
 	// Print a message indicating the start of the program.
-	fmt.Println("Main: Starting Network Monitoring Dashboard Example")
+	fmt.Println("Main: Starting Simple GoUseState Examples")
 
 	// Call the example functions from the examples package
 	// fiber.Example1()
@@ -33,7 +33,8 @@ func main() {
 	// fiber.Example7()
 	// examples.ClickCounterExample()
 	// examples.ConcurrentDashboardExample()  // Previous dashboard - commented out
-	examples.NetworkMonitoringDashboardExample() // New Network Traffic Monitoring Dashboard
+	// examples.NetworkMonitoringDashboardExample() // Network Traffic Monitoring Dashboard - commented out
+	examples.SimpleStateExamplesDemo() // Simple GoUseState Examples
 
 	// Print a message indicating the end of the main function logic.
 	// At this point, the ClickCounterExample function has already executed.
