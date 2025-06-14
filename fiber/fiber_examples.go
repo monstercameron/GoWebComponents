@@ -59,9 +59,9 @@ func Example1() {
 	// Calculator component
 	calculator := func(props map[string]interface{}) *Element {
 		// Initialize state for the calculator
-		input, setInput := useState("")
-		result, setResult := useState("")
-		previousExpression, setPreviousExpression := useState("")
+		input, setInput := GoUseState("")
+		result, setResult := GoUseState("")
+		previousExpression, setPreviousExpression := GoUseState("")
 
 		// Use optimized useEffect with proper dependencies
 		useEffect(func() {
@@ -249,13 +249,13 @@ func jsEval(expr string) (string, error) {
 	return resultStr, nil
 }
 
-// Example2 demonstrates the usage of a simple click counter component. The click counter component keeps track of the number of times a button is clicked. It renders a div container with a heading and a button. The button displays the current count. When the button is clicked, the count is incremented and displayed. The component utilizes the useState and useEffect hooks from the GoWebComponents library. The useState hook is used to manage the count state, while the useEffect hook is used to log a message when the component is mounted. Example2 also demonstrates how to render the component into the DOM using the render function.
+// Example2 demonstrates the usage of a simple click counter component. The click counter component keeps track of the number of times a button is clicked. It renders a div container with a heading and a button. The button displays the current count. When the button is clicked, the count is incremented and displayed. The component utilizes the GoUseState and useEffect hooks from the GoWebComponents library. The GoUseState hook is used to manage the count state, while the useEffect hook is used to log a message when the component is mounted. Example2 also demonstrates how to render the component into the DOM using the render function.
 func Example2() {
 	fmt.Println("Example2: Starting to render ClickCounter with optimized useMemo and useFunc")
 
 	// simple click counter component with memoized calculation
 	clickCounter := func(props map[string]interface{}) *Element {
-		count, setCount := useState(0)
+		count, setCount := GoUseState(0)
 
 		// Use optimized useFunc for event handling
 		handleClick := useFunc(func(this js.Value, args []js.Value) interface{} {
@@ -401,9 +401,9 @@ func getBlogPosts(callback func([]BlogPost)) {
 // BlogListComponent represents the main component handling blog list and single blog view.
 func BlogListComponent(props map[string]interface{}) *Element {
 	fmt.Println("BlogListComponent: Rendering")
-	blogs, setBlogs := useState([]BlogPost{})
-	currentPage, setCurrentPage := useState(1)
-	currentBlog, setCurrentBlog := useState[*BlogPost](nil)
+	blogs, setBlogs := GoUseState([]BlogPost{})
+	currentPage, setCurrentPage := GoUseState(1)
+	currentBlog, setCurrentBlog := GoUseState[*BlogPost](nil)
 
 	// Event handlers
 	viewBlog := func(slug string) js.Func {
@@ -649,13 +649,13 @@ func Example5() {
 		fmt.Println("StarWars: Rendering component")
 
 		// State for character ID
-		getCharId, setCharId := useState(1)
+		getCharId, setCharId := GoUseState(1)
 
 		// State for character data
-		getCharState, setCharState := useState(FetchState{Loading: true, Data: nil, Error: ""})
+		getCharState, setCharState := GoUseState(FetchState{Loading: true, Data: nil, Error: ""})
 
 		// Force update state - increment this to trigger rerenders
-		getForceUpdate, setForceUpdate := useState(0)
+		getForceUpdate, setForceUpdate := GoUseState(0)
 
 		// Debug: Log current state on every render
 		fmt.Printf("StarWars: Current state - Loading: %t, Error: '%s', Data: %t\n",
