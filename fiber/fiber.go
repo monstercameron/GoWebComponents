@@ -1109,44 +1109,28 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 
 			// Preserve hooks from alternate fiber
 			var oldHooks *Hooks
-			if fiber.alternate != nil && fiber.alternate.hooks != nil {
+			if fiber.alternate != nil {
 				oldHooks = fiber.alternate.hooks
 			}
 
-			// Initialize hooks
 			if oldHooks != nil {
-				wipFiber.hooks = &Hooks{
-					state: make([]interface{}, len(oldHooks.state)),
-					deps:  make([][]interface{}, len(oldHooks.deps)),
-					memos: make([]memoizedValue, len(oldHooks.memos)),
-					// CRITICAL FIX: Transfer hook order validation state from previous render
-					prevOrder:    make([]HookCall, len(oldHooks.callOrder)),    // Previous render's callOrder becomes current render's prevOrder
-					callOrder:    make([]HookCall, 0, cap(oldHooks.callOrder)), // Fresh callOrder for current render
-					orderChecked: false,                                        // Reset validation flag
-				}
-				copy(wipFiber.hooks.state, oldHooks.state)
-				copy(wipFiber.hooks.memos, oldHooks.memos)
-				copy(wipFiber.hooks.prevOrder, oldHooks.callOrder) // Transfer completed hook order from previous render
-
-				// Deep copy the deps slices
-				for i := range oldHooks.deps {
-					if oldHooks.deps[i] != nil {
-						wipFiber.hooks.deps[i] = make([]interface{}, len(oldHooks.deps[i]))
-						copy(wipFiber.hooks.deps[i], oldHooks.deps[i])
-					}
-				}
+				// Reuse existing Hooks instance and reset per-render state
+				wipFiber.hooks = oldHooks
+				wipFiber.hooks.index = 0
+				wipFiber.hooks.callOrder = wipFiber.hooks.callOrder[:0]
+				wipFiber.hooks.orderChecked = false
+				// prevOrder already contains the last render's sequence
 			} else {
+				// First render – allocate a fresh Hooks container
 				wipFiber.hooks = &Hooks{
-					state: []interface{}{},
-					deps:  [][]interface{}{},
-					memos: []memoizedValue{},
-					// First render - no previous order to validate against
+					state:        []interface{}{},
+					deps:         [][]interface{}{},
+					memos:        []memoizedValue{},
 					prevOrder:    []HookCall{},
 					callOrder:    []HookCall{},
 					orderChecked: false,
 				}
 			}
-			wipFiber.hooks.index = 0
 
 			// Initialize effects
 			wipFiber.effects = []func(){}
@@ -1177,44 +1161,28 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 
 			// Preserve hooks from alternate fiber
 			var oldHooks *Hooks
-			if fiber.alternate != nil && fiber.alternate.hooks != nil {
+			if fiber.alternate != nil {
 				oldHooks = fiber.alternate.hooks
 			}
 
-			// Initialize hooks
 			if oldHooks != nil {
-				wipFiber.hooks = &Hooks{
-					state: make([]interface{}, len(oldHooks.state)),
-					deps:  make([][]interface{}, len(oldHooks.deps)),
-					memos: make([]memoizedValue, len(oldHooks.memos)),
-					// CRITICAL FIX: Transfer hook order validation state from previous render
-					prevOrder:    make([]HookCall, len(oldHooks.callOrder)),    // Previous render's callOrder becomes current render's prevOrder
-					callOrder:    make([]HookCall, 0, cap(oldHooks.callOrder)), // Fresh callOrder for current render
-					orderChecked: false,                                        // Reset validation flag
-				}
-				copy(wipFiber.hooks.state, oldHooks.state)
-				copy(wipFiber.hooks.memos, oldHooks.memos)
-				copy(wipFiber.hooks.prevOrder, oldHooks.callOrder) // Transfer completed hook order from previous render
-
-				// Deep copy the deps slices
-				for i := range oldHooks.deps {
-					if oldHooks.deps[i] != nil {
-						wipFiber.hooks.deps[i] = make([]interface{}, len(oldHooks.deps[i]))
-						copy(wipFiber.hooks.deps[i], oldHooks.deps[i])
-					}
-				}
+				// Reuse existing Hooks instance and reset per-render state
+				wipFiber.hooks = oldHooks
+				wipFiber.hooks.index = 0
+				wipFiber.hooks.callOrder = wipFiber.hooks.callOrder[:0]
+				wipFiber.hooks.orderChecked = false
+				// prevOrder already contains the last render's sequence
 			} else {
+				// First render – allocate a fresh Hooks container
 				wipFiber.hooks = &Hooks{
-					state: []interface{}{},
-					deps:  [][]interface{}{},
-					memos: []memoizedValue{},
-					// First render - no previous order to validate against
+					state:        []interface{}{},
+					deps:         [][]interface{}{},
+					memos:        []memoizedValue{},
 					prevOrder:    []HookCall{},
 					callOrder:    []HookCall{},
 					orderChecked: false,
 				}
 			}
-			wipFiber.hooks.index = 0
 
 			// Initialize effects
 			wipFiber.effects = []func(){}
