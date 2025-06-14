@@ -87,6 +87,9 @@ var (
 
 	// Indicates we're executing on the main scheduler/commit/effect loop
 	schedulerActive int32
+
+	// Debug logging toggle
+	debugEnabled = true
 )
 
 // Initialize memory management
@@ -561,7 +564,7 @@ func GoUseState[T any](initialValue T) (func() T, func(T)) {
 // validateHookOrder checks that hooks are called in the same order as previous render
 func validateHookOrder(hooks *Hooks, hookType HookType, position int) error {
 	// Debug: Log that validation is being called with detailed info
-	fmt.Printf("🔍 [HOOK_DEBUG] validateHookOrder called: type=%d, position=%d, prevOrder=%d, callOrder=%d\n",
+	debugf("🔍 [HOOK_DEBUG] validateHookOrder called: type=%d, position=%d, prevOrder=%d, callOrder=%d\n",
 		hookType, position, len(hooks.prevOrder), len(hooks.callOrder))
 
 	// Record this hook call
@@ -570,12 +573,12 @@ func validateHookOrder(hooks *Hooks, hookType HookType, position int) error {
 
 	// Skip validation on first render (no previous order to compare)
 	if len(hooks.prevOrder) == 0 {
-		fmt.Printf("🔍 [HOOK_DEBUG] Skipping validation - first render (no prevOrder)\n")
+		debugf("🔍 [HOOK_DEBUG] Skipping validation - first render (no prevOrder)\n")
 		return nil
 	}
 
 	// Debug: Show what we're comparing
-	fmt.Printf("🔍 [HOOK_DEBUG] Validating: current hook type=%d pos=%d vs previous hook type=%d pos=%d\n",
+	debugf("🔍 [HOOK_DEBUG] Validating: current hook type=%d pos=%d vs previous hook type=%d pos=%d\n",
 		hookType, position,
 		func() int {
 			if position < len(hooks.prevOrder) {
@@ -608,14 +611,14 @@ func validateHookOrder(hooks *Hooks, hookType HookType, position int) error {
 			position, prevCall.Position, position)
 	}
 
-	fmt.Printf("✅ [HOOK_DEBUG] Hook order validation passed for position %d\n", position)
+	debugf("✅ [HOOK_DEBUG] Hook order validation passed for position %d\n", position)
 	return nil
 }
 
 // finalizeHookOrder completes hook order validation after all hooks have been called
 func finalizeHookOrder(hooks *Hooks) error {
 	// Debug: Log finalization
-	fmt.Printf("🔍 [HOOK_DEBUG] finalizeHookOrder called: callOrder=%d, prevOrder=%d\n",
+	debugf("🔍 [HOOK_DEBUG] finalizeHookOrder called: callOrder=%d, prevOrder=%d\n",
 		len(hooks.callOrder), len(hooks.prevOrder))
 
 	// Check if fewer hooks were called than previous render
@@ -629,7 +632,13 @@ func finalizeHookOrder(hooks *Hooks) error {
 	copy(hooks.prevOrder, hooks.callOrder)
 
 	// Debug: Log the transfer
-	fmt.Printf("🔍 [HOOK_DEBUG] Transferred %d hook calls to prevOrder for next render\n", len(hooks.prevOrder))
+	debugf("🔍 [HOOK_DEBUG] Transferred %d hook calls to prevOrder for next render\n", len(hooks.prevOrder))
+
+	// Cap prevOrder slice to prevent unbounded growth
+	const maxPrevOrder = 256
+	if len(hooks.prevOrder) > maxPrevOrder {
+		hooks.prevOrder = hooks.prevOrder[:maxPrevOrder]
+	}
 
 	// Reset current order for next render
 	hooks.callOrder = hooks.callOrder[:0]
@@ -2209,3 +2218,12 @@ func processUIQueue() {
 
 func startSchedulerSection() { atomic.StoreInt32(&schedulerActive, 1) }
 func endSchedulerSection()   { atomic.StoreInt32(&schedulerActive, 0) }
+
+// SetDebug enables or disables verbose debug logs at runtime
+func SetDebug(enabled bool) { debugEnabled = enabled }
+
+func debugf(format string, a ...interface{}) {
+	if debugEnabled {
+		fmt.Printf(format, a...)
+	}
+}
