@@ -1314,7 +1314,19 @@ func createDom(fiber *Fiber) js.Value {
 			case string:
 				dom.Set("style", v)
 			case map[string]string:
+				// If previous style was a string, clear it completely first
+				if _, wasString := fiber.props["style"].(string); wasString {
+					dom.Set("style", "")
+				}
 				styleObj := dom.Get("style")
+				// Remove styles that no longer exist
+				if oldStyleMap, okOld := fiber.props["style"].(map[string]string); okOld {
+					for k := range oldStyleMap {
+						if _, exists := v[k]; !exists {
+							styleObj.Call("removeProperty", k)
+						}
+					}
+				}
 				for k, val := range v {
 					styleObj.Call("setProperty", k, val)
 				}
@@ -1658,6 +1670,10 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 			if styleStr, ok := value.(string); ok {
 				dom.Set("style", styleStr)
 			} else if styleMap, ok := value.(map[string]string); ok {
+				// If previous style was a string, clear it completely first
+				if _, wasString := oldProps["style"].(string); wasString {
+					dom.Set("style", "")
+				}
 				styleObj := dom.Get("style")
 				// Remove styles that no longer exist
 				if oldStyleMap, okOld := oldProps["style"].(map[string]string); okOld {
