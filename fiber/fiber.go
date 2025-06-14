@@ -1067,12 +1067,22 @@ func CreateElement(typ interface{}, props map[string]interface{}, children ...in
 // workLoop performs work until there is no more work left or the deadline expires.
 func workLoop(deadline js.Value) {
 	// fmt.Println("workLoop: Starting work loop.")
-	var shouldYield bool = false
-	for nextUnitOfWork != nil && !shouldYield {
-		// fmt.Println("workLoop: Performing a unit of work.")
+	const maxUnitsPerSlice = 300 // Prevent long monopolisation of idle period
+	units := 0
+
+	var shouldYield bool
+	for nextUnitOfWork != nil {
 		nextUnitOfWork = performUnitOfWork(nextUnitOfWork)
-		shouldYield = deadline.Call("timeRemaining").Float() < 1
-		// fmt.Printf("workLoop: timeRemaining=%f, shouldYield=%v\n", deadline.Call("timeRemaining").Float(), shouldYield)
+
+		units++
+		// Yield criteria: low time remaining OR processed many units already
+		if deadline.Call("timeRemaining").Float() < 1 || units >= maxUnitsPerSlice {
+			shouldYield = true
+		}
+
+		if shouldYield {
+			break
+		}
 	}
 
 	if wipRoot != nil && nextUnitOfWork == nil {
