@@ -416,7 +416,11 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 
 		default:
 			debugf("FIBER", "❓ performUnitOfWork: unhandled fiber type %T\n", fiber.typeOf)
-			// fmt.Printf("performUnitOfWork: Unhandled fiber type %T.\n", fiber.typeOf)
+			// Robust error handling: mark for deletion, cleanup, and skip
+			fiber.effectTag = "DELETION"
+			deletions = append(deletions, fiber)
+			debugf("FIBER", "🗑️ performUnitOfWork: marked unhandled fiber for deletion and cleanup\n")
+			return nil
 		}
 	}
 

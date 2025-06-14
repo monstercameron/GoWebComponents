@@ -268,12 +268,10 @@ func commitDeletion(fiber *Fiber, domParent js.Value) {
 	if !fiber.dom.IsUndefined() && !fiber.dom.IsNull() {
 		debugf("COMMIT", "📄 commitDeletion: removing DOM node %v from parent %v\n",
 			fiber.dom.Type(), domParent.Type())
-		// fmt.Printf("commitDeletion: Removing child %v from parent %v\n", fiber.dom, domParent)
 		domParent.Call("removeChild", fiber.dom)
 		debugf("COMMIT", "✅ commitDeletion: DOM node removed\n")
 	} else if fiber.child != nil {
 		debugf("COMMIT", "🚨 commitDeletion: no DOM node, recursively deleting children\n")
-		// fmt.Println("commitDeletion: Deleting child fibers recursively")
 		commitDeletion(fiber.child, domParent)
 	}
 
@@ -286,6 +284,11 @@ func commitDeletion(fiber *Fiber, domParent js.Value) {
 		debugf("COMMIT", "👫 commitDeletion: recursively cleaning up sibling %p\n", fiber.sibling)
 		commitDeletion(fiber.sibling, domParent)
 	}
+
+	// --- ADDED: Reset and return fiber to pool for memory management ---
+	resetFiber(fiber)
+	fiberPool.Put(fiber)
+	debugf("COMMIT", "♻️ commitDeletion: fiber reset and returned to pool %p\n", fiber)
 
 	debugf("COMMIT", "✅ commitDeletion: completed cleanup for fiber %p\n", fiber)
 }

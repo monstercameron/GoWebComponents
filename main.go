@@ -31,7 +31,7 @@ func main() {
 	// Use SetDebugNamespacesExclusive to have full control over individual namespaces
 	// This disables global debug and only enables the namespaces you set to true
 	fiber.SetDebugNamespacesExclusive(map[string]bool{
-		"HOOKS":  true, // Disable hook debugging
+		"HOOKS":  false, // Disable hook debugging
 		"RENDER": false, // Disable render debugging
 		"MEMORY": false, // Disable memory debugging (can be noisy)
 		"DOM":    false, // Disable DOM debugging
