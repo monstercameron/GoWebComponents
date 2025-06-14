@@ -1512,98 +1512,19 @@ func executeEffects() {
 	// Collect fibers with effects starting from the root
 	collectEffects(currentRoot.child)
 
-	var wg sync.WaitGroup
-
-	// Execute effects in parallel with bounded concurrency
+	// Execute effects sequentially to avoid race conditions and ensure predictable order
 	for _, fiber := range effectFibers {
 		for _, effect := range fiber.effects {
 			if effect != nil {
-				wg.Add(1)
-				go func(effect func()) {
-					defer wg.Done()
-					effect()
-				}(effect)
+				effect()
 			}
 		}
 		// Clear the effects after executing them to prevent accumulation
 		fiber.effects = nil // Set to nil instead of empty slice to release memory
 	}
 
-	wg.Wait()
-
 	// Clear the slice to prevent memory leaks
 	effectFibers = nil
-}
-
-// getFunctionName extracts a readable name from a function interface.
-func getFunctionName(i interface{}) string {
-	if i == nil {
-		return "nil"
-	}
-	// Use reflection to get the function's name
-	fn := runtime.FuncForPC(reflect.ValueOf(i).Pointer())
-	if fn == nil {
-		// Fallback for anonymous functions or other cases
-		return reflect.TypeOf(i).String()
-	}
-	name := fn.Name()
-	// Clean up the name to be more readable
-	parts := strings.Split(name, ".")
-	if len(parts) > 0 {
-		return parts[len(parts)-1]
-	}
-	return name
-}
-
-// commitWork recursively commits work to the DOM.
-func commitWork(fiber *Fiber) {
-	if fiber == nil {
-		return
-	}
-
-	// fmt.Printf("commitWork: Committing fiber of type %v\n", fiber.typeOf)
-
-	if fiber.parent != nil {
-		// fmt.Printf("commitWork: Appending fiber of type %v to parent's DOM\n", fiber.typeOf)
-		parentDom := fiber.parent.dom
-		if !parentDom.IsUndefined() && !parentDom.IsNull() {
-			parentDom.Call("appendChild", fiber.dom)
-		}
-	}
-
-	if fiber.effectTag == "DELETION" {
-		// fmt.Printf("commitWork: Deleting fiber of type %v\n", fiber.typeOf)
-		if !fiber.dom.IsUndefined() && !fiber.dom.IsNull() {
-			fiber.dom.Call("remove")
-		}
-		// Release the fiber back to the pool
-		releaseFiber(fiber)
-		return
-	}
-
-	if fiber.effectTag == "PLACEMENT" && fiber.dom != js.Value{} {
-		// fmt.Printf("commitWork: Placing new fiber of type %v\n", fiber.typeOf)
-		parentFiber := fiber.parent
-		if parentFiber != nil {
-			parentDom := parentFiber.dom
-			if !parentDom.IsUndefined() && !parentDom.IsNull() {
-				if parentFiber.alternate == nil {
-					// fmt.Println("commitWork: Appending new fiber to parent")
-					parentDom.Call("appendChild", fiber.dom)
-				} else {
-					// fmt.Println("commitWork: Inserting new fiber before sibling")
-					if fiber.sibling != nil && !fiber.sibling.dom.IsUndefined() {
-						parentDom.Call("insertBefore", fiber.dom, fiber.sibling.dom)
-					} else {
-						parentDom.Call("appendChild", fiber.dom)
-					}
-				}
-			}
-		}
-	}
-
-	commitWork(fiber.child)
-	commitWork(fiber.sibling)
 }
 
 // commitWork recursively commits work to the DOM.
@@ -2035,7 +1956,10 @@ type FetchResult struct {
 	Err  error
 }
 
-func useFetch2(url string, options ...FetchOptions) (func() FetchState, func()) {
+// GoUseFetch is a hook that simplifies data fetching within a component.
+// It manages loading, error, and data states automatically.
+// It returns a getter for the current FetchState and a function to trigger a refetch.
+func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func()) {
 	getState, setState := GoUseState(FetchState{Loading: true})
 
 	var opts FetchOptions
@@ -2108,53 +2032,15 @@ func useFetch2(url string, options ...FetchOptions) (func() FetchState, func()) 
 		}))
 	}
 
-	useEffect(func() {
+	GoUseEffect(func() {
 		fetchData()
 	}, []interface{}{url})
 
 	return getState, fetchData
 }
 
-func useFetch(url string) func() FetchState {
-	getState, setState := GoUseState(FetchState{Loading: true, Data: nil, Error: ""})
-
-	useEffect(func() {
-		// Set loading state
-		setState(FetchState{Loading: true, Data: nil, Error: ""})
-
-		fetchPromise := js.Global().Call("fetch", url)
-		fetchPromise.Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			response := args[0]
-			if !response.Get("ok").Bool() {
-				errorMsg := fmt.Sprintf("HTTP error! status: %s", response.Get("status").String())
-				setState(FetchState{Error: errorMsg, Loading: false})
-				return nil
-			}
-			response.Call("json").Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				data := args[0]
-				jsonStr := js.Global().Get("JSON").Call("stringify", data).String()
-				var parsedData interface{}
-				err := json.Unmarshal([]byte(jsonStr), &parsedData)
-				if err != nil {
-					setState(FetchState{Error: err.Error(), Loading: false})
-				} else {
-					setState(FetchState{Data: parsedData, Loading: false})
-				}
-				return nil
-			}))
-			return nil
-		})).Call("catch", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			err := args[0]
-			errorMsg := fmt.Sprintf("Fetch error: %s", err.Get("message").String())
-			setState(FetchState{Error: errorMsg, Loading: false})
-			return nil
-		}))
-	}, []interface{}{url})
-
-	return getState
-}
-
-// GoFetch performs an asynchronous fetch operation and returns a channel for the result
+// GoFetch performs an asynchronous fetch operation and returns a channel for the result.
+// This is a utility function for imperative fetching and requires manual state management.
 func GoFetch(url string, options FetchOptions) <-chan FetchResult {
 	resultChan := make(chan FetchResult, 1) // Buffered channel to avoid goroutine leak
 
@@ -2172,20 +2058,6 @@ func GoFetch(url string, options FetchOptions) <-chan FetchResult {
 	}()
 
 	return resultChan
-}
-
-// Fetch performs an asynchronous fetch operation and invokes a callback with the result
-func Fetch(url string, options FetchOptions, callback func(FetchResult)) {
-	go func() {
-		fetchOptions := js.Global().Get("Object").New()
-		setFetchOptions(fetchOptions, options)
-
-		promiseResultChan := make(chan FetchResult, 1)
-		performFetch(url, fetchOptions, promiseResultChan)
-
-		result := <-promiseResultChan
-		callback(result)
-	}()
 }
 
 func setFetchOptions(fetchOptions js.Value, options FetchOptions) {
@@ -2243,4 +2115,24 @@ func performFetch(url string, fetchOptions js.Value, resultChan chan<- FetchResu
 		resultChan <- FetchResult{Err: fmt.Errorf("fetch error: %s", err.Get("message").String())}
 		return nil
 	}))
+}
+
+// getFunctionName extracts a readable name from a function interface.
+func getFunctionName(i interface{}) string {
+	if i == nil {
+		return "nil"
+	}
+	// Use reflection to get the function's name
+	fn := runtime.FuncForPC(reflect.ValueOf(i).Pointer())
+	if fn == nil {
+		// Fallback for anonymous functions or other cases
+		return reflect.TypeOf(i).String()
+	}
+	name := fn.Name()
+	// Clean up the name to be more readable
+	parts := strings.Split(name, ".")
+	if len(parts) > 0 {
+		return parts[len(parts)-1]
+	}
+	return name
 }
