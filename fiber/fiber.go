@@ -273,8 +273,16 @@ func fastEqualWithDepth(a, b interface{}, visited map[uintptr]bool, depth int) b
 
 // createElement constructs an Element with optimized allocations
 func createElement(typ interface{}, props map[string]interface{}, children ...interface{}) *Element {
-	// Get element from pool
-	elem := elementPool.Get().(*Element)
+	// Get element from pool with safe type assertion
+	poolElem := elementPool.Get()
+	elem, ok := poolElem.(*Element)
+	if !ok {
+		// This should never happen if pool is properly initialized, but handle gracefully
+		fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] createElement: elementPool returned unexpected type %T, creating new Element\n", poolElem)
+		elem = &Element{
+			Props: make(map[string]interface{}),
+		}
+	}
 
 	// Reset the element
 	elem.Type = typ
@@ -509,7 +517,19 @@ func finalizeHookOrder(hooks *Hooks) error {
 
 // NEW: Get hooks from pool with reset
 func getHooksFromPool() *Hooks {
-	hooks := hooksPool.Get().(*Hooks)
+	poolHooks := hooksPool.Get()
+	hooks, ok := poolHooks.(*Hooks)
+	if !ok {
+		// This should never happen if pool is properly initialized, but handle gracefully
+		fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] getHooksFromPool: hooksPool returned unexpected type %T, creating new Hooks\n", poolHooks)
+		hooks = &Hooks{
+			state:     []interface{}{},
+			deps:      [][]interface{}{},
+			memos:     []memoizedValue{},
+			callOrder: []HookCall{},
+			prevOrder: []HookCall{},
+		}
+	}
 	hooks.index = 0
 	// Reuse slices, just reset length
 	hooks.state = hooks.state[:0]
@@ -538,7 +558,16 @@ func scheduleUpdateAtRoot() {
 
 	// Reuse fiber instead of allocating new one
 	if wipRoot == nil {
-		wipRoot = fiberPool.Get().(*Fiber)
+		poolFiber := fiberPool.Get()
+		if fiber, ok := poolFiber.(*Fiber); ok {
+			wipRoot = fiber
+		} else {
+			// This should never happen if pool is properly initialized, but handle gracefully
+			fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] scheduleUpdateAtRoot: fiberPool returned unexpected type %T, creating new Fiber\n", poolFiber)
+			wipRoot = &Fiber{
+				props: make(map[string]interface{}),
+			}
+		}
 	}
 
 	wipRoot.typeOf = currentRoot.typeOf
@@ -911,12 +940,24 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 
 	if fiber.typeOf == nil || fiber.typeOf == "ROOT" {
 		// fmt.Println("performUnitOfWork: Fiber has typeOf nil or ROOT, reconciling children.")
-		reconcileChildren(fiber, fiber.props["children"].([]interface{}))
+		if children, ok := fiber.props["children"].([]interface{}); ok {
+			reconcileChildren(fiber, children)
+		} else {
+			// Handle case where children is not the expected type
+			fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] performUnitOfWork: fiber.props[\"children\"] is not []interface{}, got %T\n", fiber.props["children"])
+			// Try to reconcile with empty children to avoid crash
+			emptyChildren := make([]interface{}, 0)
+			reconcileChildren(fiber, emptyChildren)
+		}
 	} else {
 		switch fiber.typeOf.(type) {
 		case func(map[string]interface{}) *Element:
 			// Function component with map[string]interface{} props
-			componentFunc := fiber.typeOf.(func(map[string]interface{}) *Element)
+			componentFunc, ok := fiber.typeOf.(func(map[string]interface{}) *Element)
+			if !ok {
+				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] performUnitOfWork: fiber.typeOf is not func(map[string]interface{}) *Element, got %T\n", fiber.typeOf)
+				return nil
+			}
 			wipFiber = fiber
 
 			// Preserve hooks from alternate fiber
@@ -971,7 +1012,11 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 			reconcileChildren(fiber, []interface{}{element})
 		case func(Attrs) *Element:
 			// Function component with Attrs props
-			componentFunc := fiber.typeOf.(func(Attrs) *Element)
+			componentFunc, ok := fiber.typeOf.(func(Attrs) *Element)
+			if !ok {
+				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] performUnitOfWork: fiber.typeOf is not func(Attrs) *Element, got %T\n", fiber.typeOf)
+				return nil
+			}
 			wipFiber = fiber
 
 			// Preserve hooks from alternate fiber
@@ -1046,8 +1091,14 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 
 			if propsChildren, ok := fiber.props["children"]; ok {
 				// fmt.Println("performUnitOfWork: Reconciling children of host component.")
-				elements := propsChildren.([]interface{})
-				reconcileChildren(fiber, elements)
+				if elements, elementsOk := propsChildren.([]interface{}); elementsOk {
+					reconcileChildren(fiber, elements)
+				} else {
+					fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] performUnitOfWork: fiber.props[\"children\"] is not []interface{}, got %T\n", propsChildren)
+					// Try to reconcile with empty children to avoid crash
+					emptyChildren := make([]interface{}, 0)
+					reconcileChildren(fiber, emptyChildren)
+				}
 			}
 		default:
 			// fmt.Printf("performUnitOfWork: Unhandled fiber type %T.\n", fiber.typeOf)
@@ -1099,9 +1150,16 @@ func createDom(fiber *Fiber) js.Value {
 		}
 		if name == "dangerouslySetInnerHTML" {
 			// Set innerHTML directly
-			htmlContent := value.(map[string]string)["__html"]
-			// fmt.Println("createDom: Setting innerHTML")
-			dom.Set("innerHTML", htmlContent)
+			if htmlMap, ok := value.(map[string]string); ok {
+				if htmlContent, htmlOk := htmlMap["__html"]; htmlOk {
+					// fmt.Println("createDom: Setting innerHTML")
+					dom.Set("innerHTML", htmlContent)
+				} else {
+					fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] createDom: dangerouslySetInnerHTML missing __html key\n")
+				}
+			} else {
+				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] createDom: dangerouslySetInnerHTML is not map[string]string, got %T\n", value)
+			}
 			continue
 		}
 		if len(name) > 2 && name[:2] == "on" {
@@ -1152,60 +1210,72 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 
 		sameType := false
 		if oldFiber != nil && element != nil {
-			switch elemType := element.(*Element).Type.(type) {
-			case func(map[string]interface{}) *Element:
-				// Function component with map[string]interface{} props: Compare function pointers using reflect
-				funcPtrNew := reflect.ValueOf(elemType).Pointer()
-				funcPtrOld, ok := oldFiber.typeOf.(func(map[string]interface{}) *Element)
-				if ok {
-					funcPtrOldValue := reflect.ValueOf(funcPtrOld).Pointer()
-					if funcPtrNew == funcPtrOldValue {
+			if elem, ok := element.(*Element); ok {
+				switch elemType := elem.Type.(type) {
+				case func(map[string]interface{}) *Element:
+					// Function component with map[string]interface{} props: Compare function pointers using reflect
+					funcPtrNew := reflect.ValueOf(elemType).Pointer()
+					funcPtrOld, ok := oldFiber.typeOf.(func(map[string]interface{}) *Element)
+					if ok {
+						funcPtrOldValue := reflect.ValueOf(funcPtrOld).Pointer()
+						if funcPtrNew == funcPtrOldValue {
+							sameType = true
+						}
+					}
+				case func(Attrs) *Element:
+					// Function component with Attrs props: Compare function pointers using reflect
+					funcPtrNew := reflect.ValueOf(elemType).Pointer()
+					funcPtrOld, ok := oldFiber.typeOf.(func(Attrs) *Element)
+					if ok {
+						funcPtrOldValue := reflect.ValueOf(funcPtrOld).Pointer()
+						if funcPtrNew == funcPtrOldValue {
+							sameType = true
+						}
+					}
+				case string:
+					// Host component: Use reflect.DeepEqual for string comparison
+					if reflect.DeepEqual(elem.Type, oldFiber.typeOf) {
+						sameType = true
+					}
+				default:
+					// Other types: Use reflect.DeepEqual
+					if reflect.DeepEqual(elem.Type, oldFiber.typeOf) {
 						sameType = true
 					}
 				}
-			case func(Attrs) *Element:
-				// Function component with Attrs props: Compare function pointers using reflect
-				funcPtrNew := reflect.ValueOf(elemType).Pointer()
-				funcPtrOld, ok := oldFiber.typeOf.(func(Attrs) *Element)
-				if ok {
-					funcPtrOldValue := reflect.ValueOf(funcPtrOld).Pointer()
-					if funcPtrNew == funcPtrOldValue {
-						sameType = true
-					}
-				}
-			case string:
-				// Host component: Use reflect.DeepEqual for string comparison
-				if reflect.DeepEqual(element.(*Element).Type, oldFiber.typeOf) {
-					sameType = true
-				}
-			default:
-				// Other types: Use reflect.DeepEqual
-				if reflect.DeepEqual(element.(*Element).Type, oldFiber.typeOf) {
-					sameType = true
-				}
+			} else {
+				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] reconcileChildren: element is not *Element, got %T\n", element)
 			}
 		}
 
 		if sameType {
 			// Reuse the existing fiber
 			// fmt.Printf("reconcileChildren: Reusing existing fiber of type %v\n", oldFiber.typeOf)
-			newFiber = &Fiber{
-				typeOf:    oldFiber.typeOf,
-				props:     element.(*Element).Props,
-				dom:       oldFiber.dom,
-				parent:    wipFiber,
-				alternate: oldFiber,
-				effectTag: "UPDATE",
+			if elem, ok := element.(*Element); ok {
+				newFiber = &Fiber{
+					typeOf:    oldFiber.typeOf,
+					props:     elem.Props,
+					dom:       oldFiber.dom,
+					parent:    wipFiber,
+					alternate: oldFiber,
+					effectTag: "UPDATE",
+				}
+			} else {
+				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] reconcileChildren: element is not *Element for reuse, got %T\n", element)
 			}
 		} else if element != nil {
 			// Create a new fiber
 			// fmt.Printf("reconcileChildren: Creating new fiber of type %v\n", element.(*Element).Type)
-			newFiber = &Fiber{
-				typeOf:    element.(*Element).Type,
-				props:     element.(*Element).Props,
-				dom:       js.Value{},
-				parent:    wipFiber,
-				effectTag: "PLACEMENT",
+			if elem, ok := element.(*Element); ok {
+				newFiber = &Fiber{
+					typeOf:    elem.Type,
+					props:     elem.Props,
+					dom:       js.Value{},
+					parent:    wipFiber,
+					effectTag: "PLACEMENT",
+				}
+			} else {
+				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] reconcileChildren: element is not *Element for creation, got %T\n", element)
 			}
 		}
 
@@ -1397,7 +1467,11 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 			// Only remove if not in new props or value changed
 			if newValue, exists := newProps[name]; !exists || !fastEqual(oldValue, newValue) {
 				eventType := strings.ToLower(name[2:])
-				dom.Call("removeEventListener", eventType, oldValue.(js.Func))
+				if oldHandler, ok := oldValue.(js.Func); ok {
+					dom.Call("removeEventListener", eventType, oldHandler)
+				} else {
+					fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] updateDom: old event handler %s is not js.Func, got %T\n", name, oldValue)
+				}
 			}
 		} else if newProps[name] == nil && name != "children" {
 			// Remove properties that no longer exist, excluding event listeners and children
@@ -1428,13 +1502,24 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 		case "value":
 			dom.Set("value", value)
 		case "dangerouslySetInnerHTML":
-			htmlContent := value.(map[string]string)["__html"]
-			dom.Set("innerHTML", htmlContent)
+			if htmlMap, ok := value.(map[string]string); ok {
+				if htmlContent, htmlOk := htmlMap["__html"]; htmlOk {
+					dom.Set("innerHTML", htmlContent)
+				} else {
+					fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] updateDom: dangerouslySetInnerHTML missing __html key\n")
+				}
+			} else {
+				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] updateDom: dangerouslySetInnerHTML is not map[string]string, got %T\n", value)
+			}
 		default:
 			// Check for event handlers (less common)
 			if len(name) > 2 && name[0] == 'o' && name[1] == 'n' {
 				eventType := strings.ToLower(name[2:])
-				dom.Call("addEventListener", eventType, value.(js.Func))
+				if eventHandler, ok := value.(js.Func); ok {
+					dom.Call("addEventListener", eventType, eventHandler)
+				} else {
+					fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] updateDom: event handler %s is not js.Func, got %T\n", name, value)
+				}
 			} else {
 				dom.Set(name, value)
 			}
