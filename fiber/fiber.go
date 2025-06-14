@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall/js"
 	"unsafe"
 )
@@ -80,6 +81,12 @@ var (
 	nextCallbackID   int                       // Counter for unique callback IDs
 	maxCallbacks     int                = 1000 // Maximum callbacks before cleanup
 	maxPoolSize      int                = 100  // Maximum pool size before cleanup
+
+	// --- UI queue for main-thread safe updates ---
+	uiQueue = make(chan func(), 1024) // Buffer to avoid blocking background goroutines
+
+	// Indicates we're executing on the main scheduler/commit/effect loop
+	schedulerActive int32
 )
 
 // Initialize memory management
@@ -576,18 +583,21 @@ func GoUseState[T any](initialValue T) (func() T, func(T)) {
 	}
 
 	setter := func(newValue T) {
-		// Bounds check to prevent index out of range panic
-		if idx >= len(hooks.state) {
-			// This shouldn't happen if the getter/setter are used correctly,
-			// but we'll handle it gracefully by expanding the state array
-			for len(hooks.state) <= idx {
-				hooks.state = append(hooks.state, nil)
+		apply := func() {
+			if idx >= len(hooks.state) {
+				for len(hooks.state) <= idx {
+					hooks.state = append(hooks.state, nil)
+				}
+			}
+			if hooks.state[idx] == nil || !fastEqual(hooks.state[idx], newValue) {
+				hooks.state[idx] = newValue
+				scheduleUpdateAtRoot()
 			}
 		}
-		// Use fast equality check instead of reflect.DeepEqual
-		if hooks.state[idx] == nil || !fastEqual(hooks.state[idx], newValue) {
-			hooks.state[idx] = newValue
-			scheduleUpdateAtRoot()
+		if atomic.LoadInt32(&schedulerActive) == 1 {
+			apply()
+		} else {
+			enqueueUI(apply)
 		}
 	}
 
@@ -1067,6 +1077,9 @@ func CreateElement(typ interface{}, props map[string]interface{}, children ...in
 // workLoop performs work until there is no more work left or the deadline expires.
 func workLoop(deadline js.Value) {
 	// fmt.Println("workLoop: Starting work loop.")
+	startSchedulerSection()
+	defer endSchedulerSection()
+
 	const maxUnitsPerSlice = 300 // Prevent long monopolisation of idle period
 	units := 0
 
@@ -1096,6 +1109,9 @@ func workLoop(deadline js.Value) {
 	} else {
 		// fmt.Println("workLoop: All work completed.")
 	}
+
+	// First, handle any queued UI tasks from background goroutines
+	processUIQueue()
 }
 
 // performUnitOfWork performs a single unit of work.
@@ -1495,6 +1511,9 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 // commitRoot commits the changes to the DOM.
 func commitRoot() {
 	// fmt.Println("commitRoot: Starting to commit changes to DOM")
+	startSchedulerSection()
+	defer endSchedulerSection()
+
 	for _, deletion := range deletions {
 		// fmt.Printf("commitRoot: Processing deletion for fiber type %v\n", deletion.typeOf)
 		commitWork(deletion)
@@ -2179,3 +2198,36 @@ func getFunctionName(i interface{}) string {
 	}
 	return name
 }
+
+// enqueueUI schedules fn to run on the main JS/event thread
+func enqueueUI(fn func()) {
+	select {
+	case uiQueue <- fn:
+	default:
+		fn()
+	}
+
+	// If we're currently outside scheduler, ensure an idle callback exists to process the queue
+	if atomic.LoadInt32(&schedulerActive) == 0 && !updateScheduled {
+		requestIdleCallback(workLoop)
+	}
+}
+
+// processUIQueue drains queued UI operations; should be called from main thread
+func processUIQueue() {
+	startSchedulerSection()
+	defer endSchedulerSection()
+	for {
+		select {
+		case fn := <-uiQueue:
+			if fn != nil {
+				fn()
+			}
+		default:
+			return
+		}
+	}
+}
+
+func startSchedulerSection() { atomic.StoreInt32(&schedulerActive, 1) }
+func endSchedulerSection()   { atomic.StoreInt32(&schedulerActive, 0) }
