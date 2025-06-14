@@ -21,7 +21,7 @@ func GoUseState[T any](initialValue T) (func() T, func(T)) {
 
 	// Validate hook order
 	if err := validateHookOrder(currentFiber.hooks, HookTypeState, position); err != nil {
-		fmt.Printf("🚨 [HOOK_ORDER_ERROR] GoUseState: %v\n", err)
+		debugf("HOOKS", "🚨 GoUseState: %v\n", err)
 		// Continue execution but log the error - don't panic in production
 	}
 
@@ -91,7 +91,7 @@ func useEffect(effect func(), deps ...interface{}) {
 
 	// Validate hook order
 	if err := validateHookOrder(currentFiber.hooks, HookTypeEffect, position); err != nil {
-		fmt.Printf("🚨 [HOOK_ORDER_ERROR] useEffect: %v\n", err)
+		debugf("HOOKS", "🚨 useEffect: %v\n", err)
 		// Continue execution but log the error - don't panic in production
 	}
 
@@ -135,7 +135,7 @@ func GoUseEffect(effect func(), deps ...interface{}) {
 
 	// Validate hook order
 	if err := validateHookOrder(currentFiber.hooks, HookTypeEffect, position); err != nil {
-		fmt.Printf("🚨 [HOOK_ORDER_ERROR] GoUseEffect: %v\n", err)
+		debugf("HOOKS", "🚨 GoUseEffect: %v\n", err)
 		// Continue execution but log the error - don't panic in production
 	}
 
@@ -178,7 +178,7 @@ func useMemo(compute func() interface{}, deps ...interface{}) interface{} {
 
 	// Validate hook order
 	if err := validateHookOrder(currentFiber.hooks, HookTypeMemo, position); err != nil {
-		fmt.Printf("🚨 [HOOK_ORDER_ERROR] useMemo: %v\n", err)
+		debugf("HOOKS", "🚨 useMemo: %v\n", err)
 		// Continue execution but log the error - don't panic in production
 	}
 
@@ -222,7 +222,7 @@ func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 
 	// Validate hook order
 	if err := validateHookOrder(currentFiber.hooks, HookTypeMemo, position); err != nil {
-		fmt.Printf("🚨 [HOOK_ORDER_ERROR] GoUseMemo: %v\n", err)
+		debugf("HOOKS", "🚨 GoUseMemo: %v\n", err)
 		// Continue execution but log the error - don't panic in production
 	}
 
@@ -256,7 +256,7 @@ func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 // validateHookOrder checks that hooks are called in the same order as previous render
 func validateHookOrder(hooks *Hooks, hookType HookType, position int) error {
 	// Debug: Log that validation is being called with detailed info
-	debugf("🔍 [HOOK_DEBUG] validateHookOrder called: type=%d, position=%d, prevOrder=%d, callOrder=%d\n",
+	debugf("HOOKS", "🔍 validateHookOrder called: type=%d, position=%d, prevOrder=%d, callOrder=%d\n",
 		hookType, position, len(hooks.prevOrder), len(hooks.callOrder))
 
 	// Record this hook call
@@ -265,12 +265,12 @@ func validateHookOrder(hooks *Hooks, hookType HookType, position int) error {
 
 	// Skip validation on first render (no previous order to compare)
 	if len(hooks.prevOrder) == 0 {
-		debugf("🔍 [HOOK_DEBUG] Skipping validation - first render (no prevOrder)\n")
+		debugf("HOOKS", "🔍 Skipping validation - first render (no prevOrder)\n")
 		return nil
 	}
 
 	// Debug: Show what we're comparing
-	debugf("🔍 [HOOK_DEBUG] Validating: current hook type=%d pos=%d vs previous hook type=%d pos=%d\n",
+	debugf("HOOKS", "🔍 Validating: current hook type=%d pos=%d vs previous hook type=%d pos=%d\n",
 		hookType, position,
 		func() int {
 			if position < len(hooks.prevOrder) {
@@ -303,14 +303,14 @@ func validateHookOrder(hooks *Hooks, hookType HookType, position int) error {
 			position, prevCall.Position, position)
 	}
 
-	debugf("✅ [HOOK_DEBUG] Hook order validation passed for position %d\n", position)
+	debugf("HOOKS", "✅ Hook order validation passed for position %d\n", position)
 	return nil
 }
 
 // finalizeHookOrder completes hook order validation after all hooks have been called
 func finalizeHookOrder(hooks *Hooks) error {
 	// Debug: Log finalization
-	debugf("🔍 [HOOK_DEBUG] finalizeHookOrder called: callOrder=%d, prevOrder=%d\n",
+	debugf("HOOKS", "🔍 finalizeHookOrder called: callOrder=%d, prevOrder=%d\n",
 		len(hooks.callOrder), len(hooks.prevOrder))
 
 	// Check if fewer hooks were called than previous render
@@ -324,7 +324,7 @@ func finalizeHookOrder(hooks *Hooks) error {
 	copy(hooks.prevOrder, hooks.callOrder)
 
 	// Debug: Log the transfer
-	debugf("🔍 [HOOK_DEBUG] Transferred %d hook calls to prevOrder for next render\n", len(hooks.prevOrder))
+	debugf("HOOKS", "🔍 Transferred %d hook calls to prevOrder for next render\n", len(hooks.prevOrder))
 
 	// Cap prevOrder slice to prevent unbounded growth
 	const maxPrevOrder = 256

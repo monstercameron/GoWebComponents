@@ -4,7 +4,6 @@
 package fiber
 
 import (
-	"fmt"
 	"syscall/js"
 )
 
@@ -117,12 +116,12 @@ func commitWork(fiber *Fiber) {
 func commitDeletion(fiber *Fiber, domParent js.Value) {
 	// Enhanced cleanup for deleted components
 	if fiber.hooks != nil {
-		fmt.Printf("🧹 [COMPONENT_CLEANUP] Cleaning up hooks for deleted component\n")
+		debugf("COMMIT", "🧹 Cleaning up hooks for deleted component\n")
 
 		// Release event callbacks associated with this fiber
 		for _, state := range fiber.hooks.state {
 			if fn, ok := state.(js.Func); ok {
-				fmt.Printf("🧹 [COMPONENT_CLEANUP] Releasing js.Func from state\n")
+				debugf("COMMIT", "🧹 Releasing js.Func from state\n")
 				fn.Release()
 			}
 		}
@@ -134,7 +133,7 @@ func commitDeletion(fiber *Fiber, domParent js.Value) {
 
 	// Clear effects to prevent memory leaks
 	if len(fiber.effects) > 0 {
-		fmt.Printf("🧹 [COMPONENT_CLEANUP] Clearing %d effects for deleted component\n", len(fiber.effects))
+		debugf("COMMIT", "🧹 Clearing %d effects for deleted component\n", len(fiber.effects))
 		fiber.effects = nil
 	}
 

@@ -7,10 +7,11 @@ import (
 	"sync"
 
 	"github.com/monstercameron/GoWebComponents/examples"
+	"github.com/monstercameron/GoWebComponents/fiber"
 )
 
 // main is the entry point of the program.
-// It initializes a WaitGroup, prints a message, calls the ClickCounterExample function from the examples package,
+// It initializes a WaitGroup, prints a message, calls example functions,
 // and waits for the WaitGroup to complete before exiting.
 func main() {
 	// Initialize a WaitGroup to simulate waiting for asynchronous tasks in the WebAssembly environment.
@@ -21,23 +22,34 @@ func main() {
 	wg.Add(1)
 
 	// Print a message indicating the start of the program.
-	fmt.Println("Main: Starting Simple GoUseState Examples")
+	fmt.Println("Main: Starting Go Web Components Examples")
+
+	// Configure debug logging with namespaces
+	// Enable only specific namespaces for debugging
+	fiber.SetDebugNamespaces(map[string]bool{
+		"HOOKS":  true,  // Enable hook debugging
+		"RENDER": true,  // Enable render debugging
+		"MEMORY": false, // Disable memory debugging (can be noisy)
+		"DOM":    false, // Disable DOM debugging
+		"FETCH":  false, // Disable fetch debugging
+		"EVENTS": false, // Disable event debugging
+		"COMMIT": false, // Disable commit debugging
+		"FIBER":  false, // Disable fiber debugging
+	})
+
+	// Or enable all debugging globally
+	// fiber.EnableAllDebug()
 
 	// Call the example functions from the examples package
-	// fiber.Example1()
-	// fiber.Example2()
-	// fiber.Example3()
-	// fiber.Example4()
-	// fiber.Example5()
-	// examples.BlogLandingPage()
-	// fiber.Example7()
-	// examples.ClickCounterExample()
-	// examples.ConcurrentDashboardExample()  // Previous dashboard - commented out
-	// examples.NetworkMonitoringDashboardExample() // Network Traffic Monitoring Dashboard - commented out
-	examples.SimpleStateExamplesDemo() // Simple GoUseState Examples
+	examples.SimpleStateExamplesDemo()           // Simple GoUseState Examples
+	// examples.ClickCounterExample()               // Click Counter Example
+	// examples.ConcurrentDashboardExample()        // Concurrent Dashboard Example
+	// examples.NetworkMonitoringDashboardExample() // Network Traffic Monitoring Dashboard
+
+	// Show current debug status
+	fmt.Println("Debug Status:", fiber.GetDebugStatus())
 
 	// Print a message indicating the end of the main function logic.
-	// At this point, the ClickCounterExample function has already executed.
 	fmt.Println("Main: End of main function")
 
 	// Wait() blocks the main function from exiting immediately.

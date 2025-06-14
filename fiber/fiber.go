@@ -6,7 +6,6 @@
 package fiber
 
 import (
-	"fmt"
 	"reflect"
 	"syscall/js"
 )
@@ -43,7 +42,7 @@ func scheduleUpdateAtRoot() {
 			wipRoot = fiber
 		} else {
 			// This should never happen if pool is properly initialized, but handle gracefully
-			fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] scheduleUpdateAtRoot: fiberPool returned unexpected type %T, creating new Fiber\n", poolFiber)
+			debugf("FIBER", "🚨 scheduleUpdateAtRoot: fiberPool returned unexpected type %T, creating new Fiber\n", poolFiber)
 			wipRoot = &Fiber{
 				props: make(map[string]interface{}),
 			}
@@ -93,7 +92,7 @@ func render(element *Element, container js.Value) {
 		props:     map[string]interface{}{"children": []interface{}{element}},
 		alternate: currentRoot,
 	}
-	fmt.Println("render: Root fiber created.")
+	debugf("RENDER", "Root fiber created.\n")
 	nextUnitOfWork = wipRoot
 	deletions = []*Fiber{}
 	// fmt.Println("render: Scheduling work loop.")
@@ -165,7 +164,7 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 			reconcileChildren(fiber, children)
 		} else {
 			// Handle case where children is not the expected type
-			fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] performUnitOfWork: fiber.props[\"children\"] is not []interface{}, got %T\n", fiber.props["children"])
+			debugf("FIBER", "🚨 performUnitOfWork: fiber.props[\"children\"] is not []interface{}, got %T\n", fiber.props["children"])
 			// Try to reconcile with empty children to avoid crash
 			emptyChildren := make([]interface{}, 0)
 			reconcileChildren(fiber, emptyChildren)
@@ -176,7 +175,7 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 			// Function component with map[string]interface{} props
 			componentFunc, ok := fiber.typeOf.(func(map[string]interface{}) *Element)
 			if !ok {
-				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] performUnitOfWork: fiber.typeOf is not func(map[string]interface{}) *Element, got %T\n", fiber.typeOf)
+				debugf("FIBER", "🚨 performUnitOfWork: fiber.typeOf is not func(map[string]interface{}) *Element, got %T\n", fiber.typeOf)
 				return nil
 			}
 			wipFiber = fiber
@@ -215,7 +214,7 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 			if wipFiber.hooks != nil && !wipFiber.hooks.orderChecked {
 				if err := finalizeHookOrder(wipFiber.hooks); err != nil {
 					componentName := getFunctionName(fiber.typeOf)
-					fmt.Printf("🚨 [HOOK_ORDER_ERROR] Component '%s': %v\n", componentName, err)
+					debugf("HOOKS", "🚨 Component '%s': %v\n", componentName, err)
 				}
 			}
 
@@ -228,7 +227,7 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 			// Function component with Attrs props
 			componentFunc, ok := fiber.typeOf.(func(Attrs) *Element)
 			if !ok {
-				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] performUnitOfWork: fiber.typeOf is not func(Attrs) *Element, got %T\n", fiber.typeOf)
+				debugf("FIBER", "🚨 performUnitOfWork: fiber.typeOf is not func(Attrs) *Element, got %T\n", fiber.typeOf)
 				return nil
 			}
 			wipFiber = fiber
@@ -273,7 +272,7 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 			if wipFiber.hooks != nil && !wipFiber.hooks.orderChecked {
 				if err := finalizeHookOrder(wipFiber.hooks); err != nil {
 					componentName := getFunctionName(fiber.typeOf)
-					fmt.Printf("🚨 [HOOK_ORDER_ERROR] Component '%s': %v\n", componentName, err)
+					debugf("HOOKS", "🚨 Component '%s': %v\n", componentName, err)
 				}
 			}
 
@@ -301,7 +300,7 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 				if elements, elementsOk := propsChildren.([]interface{}); elementsOk {
 					reconcileChildren(fiber, elements)
 				} else {
-					fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] performUnitOfWork: fiber.props[\"children\"] is not []interface{}, got %T\n", propsChildren)
+					debugf("FIBER", "🚨 performUnitOfWork: fiber.props[\"children\"] is not []interface{}, got %T\n", propsChildren)
 					// Try to reconcile with empty children to avoid crash
 					emptyChildren := make([]interface{}, 0)
 					reconcileChildren(fiber, emptyChildren)
@@ -389,7 +388,7 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					}
 				}
 			} else {
-				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] reconcileChildren: element is not *Element, got %T\n", element)
+				debugf("FIBER", "🚨 reconcileChildren: element is not *Element, got %T\n", element)
 			}
 		}
 
@@ -423,7 +422,7 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					effectTag: "UPDATE",
 				}
 			} else {
-				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] reconcileChildren: element is not *Element for reuse, got %T\n", element)
+				debugf("FIBER", "🚨 reconcileChildren: element is not *Element for reuse, got %T\n", element)
 			}
 		} else if element != nil {
 			// Create a new fiber
@@ -437,7 +436,7 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					effectTag: "PLACEMENT",
 				}
 			} else {
-				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] reconcileChildren: element is not *Element for creation, got %T\n", element)
+				debugf("FIBER", "🚨 reconcileChildren: element is not *Element for creation, got %T\n", element)
 			}
 		}
 
@@ -478,7 +477,7 @@ func requestIdleCallback(callback func(js.Value)) {
 	})
 	rafCallbacks = append(rafCallbacks, cb) // Keep the function alive
 
-	fmt.Printf("🔗 [CALLBACK_CREATED] requestIdleCallback created - total callbacks: %d\n", len(eventCallbacks)+len(rafCallbacks))
+	debugf("MEMORY", "🔗 requestIdleCallback created - total callbacks: %d\n", len(eventCallbacks)+len(rafCallbacks))
 
 	// Feature-detect requestIdleCallback support
 	ric := js.Global().Get("requestIdleCallback")

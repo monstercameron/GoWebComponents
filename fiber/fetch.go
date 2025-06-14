@@ -21,7 +21,7 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 	}
 
 	fetchData := func() {
-		fmt.Println("useFetch: Fetching data from", url)
+		debugf("FETCH", "useFetch: Fetching data from %s\n", url)
 
 		// Set loading state
 		setState(FetchState{Loading: true})
@@ -57,7 +57,7 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 			response := args[0]
 			if !response.Get("ok").Bool() {
 				errorMsg := fmt.Sprintf("HTTP error! status: %s", response.Get("status").String())
-				fmt.Println("useFetch:", errorMsg)
+				debugf("FETCH", "useFetch: %s\n", errorMsg)
 				setState(FetchState{Error: errorMsg, Loading: false})
 				return nil
 			}
@@ -67,10 +67,10 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 				var parsedData interface{}
 				err := json.Unmarshal([]byte(jsonStr), &parsedData)
 				if err != nil {
-					fmt.Println("Error parsing data:", err)
+					debugf("FETCH", "Error parsing data: %v\n", err)
 					setState(FetchState{Error: err.Error(), Loading: false})
 				} else {
-					fmt.Println("useFetch: Successfully fetched data")
+					debugf("FETCH", "useFetch: Successfully fetched data\n")
 					setState(FetchState{Data: parsedData, Loading: false})
 				}
 				return nil
@@ -79,7 +79,7 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 		})).Call("catch", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			err := args[0]
 			errorMsg := fmt.Sprintf("Fetch error: %s", err.Get("message").String())
-			fmt.Println(errorMsg)
+			debugf("FETCH", "%s\n", errorMsg)
 			setState(FetchState{Error: errorMsg, Loading: false})
 			return nil
 		}))

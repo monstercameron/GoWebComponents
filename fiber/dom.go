@@ -4,7 +4,6 @@
 package fiber
 
 import (
-	"fmt"
 	"strings"
 	"syscall/js"
 )
@@ -16,7 +15,7 @@ func createElement(typ interface{}, props map[string]interface{}, children ...in
 	elem, ok := poolElem.(*Element)
 	if !ok {
 		// This should never happen if pool is properly initialized, but handle gracefully
-		fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] createElement: elementPool returned unexpected type %T, creating new Element\n", poolElem)
+		debugf("DOM", "🚨 createElement: elementPool returned unexpected type %T, creating new Element\n", poolElem)
 		elem = &Element{
 			Props: make(map[string]interface{}),
 		}
@@ -119,10 +118,10 @@ func createDom(fiber *Fiber) js.Value {
 					// fmt.Println("createDom: Setting innerHTML")
 					dom.Set("innerHTML", htmlContent)
 				} else {
-					fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] createDom: dangerouslySetInnerHTML missing __html key\n")
+					debugf("DOM", "🚨 createDom: dangerouslySetInnerHTML missing __html key\n")
 				}
 			} else {
-				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] createDom: dangerouslySetInnerHTML is not map[string]string, got %T\n", value)
+				debugf("DOM", "🚨 createDom: dangerouslySetInnerHTML is not map[string]string, got %T\n", value)
 			}
 			continue
 		}
@@ -170,7 +169,7 @@ func createDom(fiber *Fiber) js.Value {
 					styleObj.Call("setProperty", k, val)
 				}
 			default:
-				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] createDom: style must be string or map[string]string, got %T\n", value)
+				debugf("DOM", "🚨 createDom: style must be string or map[string]string, got %T\n", value)
 			}
 			continue
 		}
@@ -203,7 +202,7 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 				if oldHandler, ok := oldValue.(js.Func); ok {
 					dom.Call("removeEventListener", eventType, oldHandler)
 				} else {
-					fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] updateDom: old event handler %s is not js.Func, got %T\n", name, oldValue)
+					debugf("DOM", "🚨 updateDom: old event handler %s is not js.Func, got %T\n", name, oldValue)
 				}
 			}
 		} else if newProps[name] == nil && name != "children" {
@@ -250,7 +249,7 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 					styleObj.Call("setProperty", k, val)
 				}
 			} else {
-				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] updateDom: style must be string or map[string]string, got %T\n", value)
+				debugf("DOM", "🚨 updateDom: style must be string or map[string]string, got %T\n", value)
 			}
 		case "id":
 			dom.Set("id", value)
@@ -261,10 +260,10 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 				if htmlContent, htmlOk := htmlMap["__html"]; htmlOk {
 					dom.Set("innerHTML", htmlContent)
 				} else {
-					fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] updateDom: dangerouslySetInnerHTML missing __html key\n")
+					debugf("DOM", "🚨 updateDom: dangerouslySetInnerHTML missing __html key\n")
 				}
 			} else {
-				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] updateDom: dangerouslySetInnerHTML is not map[string]string, got %T\n", value)
+				debugf("DOM", "🚨 updateDom: dangerouslySetInnerHTML is not map[string]string, got %T\n", value)
 			}
 		default:
 			// Check for event handlers (less common)
@@ -273,7 +272,7 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 				if eventHandler, ok := value.(js.Func); ok {
 					dom.Call("addEventListener", eventType, eventHandler)
 				} else {
-					fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] updateDom: event handler %s is not js.Func, got %T\n", name, value)
+					debugf("DOM", "🚨 updateDom: event handler %s is not js.Func, got %T\n", name, value)
 				}
 			} else {
 				dom.Set(name, value)

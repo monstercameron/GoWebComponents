@@ -4,7 +4,6 @@
 package fiber
 
 import (
-	"fmt"
 	"reflect"
 	"syscall/js"
 )
@@ -154,7 +153,7 @@ func useFunc(callback func(js.Value, []js.Value) interface{}) js.Func {
 	cb := js.FuncOf(callback)
 	eventCallbacks = append(eventCallbacks, cb) // Keep callback alive
 
-	fmt.Printf("🔗 [CALLBACK_CREATED] useFunc callback created - total callbacks: %d\n", len(eventCallbacks)+len(rafCallbacks))
+	debugf("EVENTS", "🔗 useFunc callback created - total callbacks: %d\n", len(eventCallbacks)+len(rafCallbacks))
 	return cb
 }
 
@@ -176,7 +175,7 @@ func GoUseFunc(callback interface{}) js.Func {
 		callbackType := callbackValue.Type()
 
 		if callbackType.Kind() != reflect.Func {
-			fmt.Println("GoUseFunc: callback must be a function")
+			debugf("EVENTS", "🚨 GoUseFunc: callback must be a function\n")
 			return nil
 		}
 
@@ -204,6 +203,6 @@ func GoUseFunc(callback interface{}) js.Func {
 
 	eventCallbacks = append(eventCallbacks, cb) // Keep callback alive
 
-	fmt.Printf("🔗 [CALLBACK_CREATED] GoUseFunc callback created - total callbacks: %d\n", len(eventCallbacks)+len(rafCallbacks))
+	debugf("EVENTS", "🔗 GoUseFunc callback created - total callbacks: %d\n", len(eventCallbacks)+len(rafCallbacks))
 	return cb
 }

@@ -258,14 +258,51 @@ func endSchedulerSection() {
 	atomic.StoreInt32(&schedulerActive, 0)
 }
 
+// Debug namespace control - map of namespace to enabled status
+var debugNamespaces = make(map[string]bool)
+
 // SetDebug enables or disables verbose debug logs at runtime
 func SetDebug(enabled bool) {
 	debugEnabled = enabled
 }
 
-// debugf prints debug messages if debug is enabled
-func debugf(format string, a ...interface{}) {
-	if debugEnabled {
-		fmt.Printf(format, a...)
+// SetDebugNamespace enables or disables debug logs for a specific namespace
+func SetDebugNamespace(namespace string, enabled bool) {
+	debugNamespaces[namespace] = enabled
+}
+
+// SetDebugNamespaces enables multiple namespaces at once
+func SetDebugNamespaces(namespaces map[string]bool) {
+	for ns, enabled := range namespaces {
+		debugNamespaces[ns] = enabled
 	}
+}
+
+// debugf prints debug messages if debug is enabled globally or for the specific namespace
+func debugf(namespace, format string, a ...interface{}) {
+	if debugEnabled || debugNamespaces[namespace] {
+		fmt.Printf("[%s] %s", namespace, fmt.Sprintf(format, a...))
+	}
+}
+
+// EnableAllDebug enables all debug logging globally
+func EnableAllDebug() {
+	SetDebug(true)
+}
+
+// DisableAllDebug disables all debug logging globally
+func DisableAllDebug() {
+	SetDebug(false)
+	// Clear namespace-specific settings
+	debugNamespaces = make(map[string]bool)
+}
+
+// GetDebugStatus returns current debug settings
+func GetDebugStatus() map[string]bool {
+	status := make(map[string]bool)
+	status["global"] = debugEnabled
+	for ns, enabled := range debugNamespaces {
+		status[ns] = enabled
+	}
+	return status
 }

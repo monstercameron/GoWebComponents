@@ -4,7 +4,6 @@
 package fiber
 
 import (
-	"fmt"
 	"runtime"
 	"sync"
 	"syscall/js"
@@ -73,7 +72,7 @@ func init() {
 
 // cleanupCallbacks removes unused callbacks to prevent memory leaks
 func cleanupCallbacks() {
-	fmt.Printf("🧹 [MEMORY_CLEANUP] Starting callback cleanup - current count: %d\n", len(eventCallbacks)+len(rafCallbacks))
+	debugf("MEMORY", "🧹 Starting callback cleanup - current count: %d\n", len(eventCallbacks)+len(rafCallbacks))
 
 	// Release all js.Func objects
 	for _, callback := range eventCallbacks {
@@ -103,95 +102,82 @@ func cleanupCallbacks() {
 		rafCallbacks = rafCallbacks[:0]
 	}
 
-	fmt.Printf("🧹 [MEMORY_CLEANUP] Callback cleanup completed\n")
+	debugf("MEMORY", "🧹 Callback cleanup completed\n")
 }
 
-// cleanupPools prevents object pools from growing too large
+// cleanupPools resets object pools to free up memory
 func cleanupPools() {
-	fmt.Printf("🧹 [MEMORY_CLEANUP] Pool cleanup via GC (avoids extra allocations)\n")
-	// sync.Pool automatically drops cached items on GC.
+	debugf("MEMORY", "🧹 Pool cleanup via GC (avoids extra allocations)\n")
+	// Let Go's GC handle pool cleanup naturally
 	runtime.GC()
-	runtime.GC()
-	fmt.Printf("🧹 [MEMORY_CLEANUP] Pool cleanup completed (post-GC)\n")
+	debugf("MEMORY", "🧹 Pool cleanup completed (post-GC)\n")
 }
 
-// forceGarbageCollection triggers garbage collection
 func forceGarbageCollection() {
-	fmt.Printf("🧹 [MEMORY_CLEANUP] Triggering garbage collection\n")
+	debugf("MEMORY", "🧹 Triggering garbage collection\n")
 	runtime.GC()
-	runtime.GC() // Call twice to ensure cleanup
+	runtime.GC() // Double GC to ensure full cleanup
 }
 
-// performMemoryCleanup performs comprehensive memory cleanup
-func performMemoryCleanup() {
-	fmt.Printf("🧹 [MEMORY_CLEANUP] Starting comprehensive memory cleanup\n")
+// CleanupMemory performs comprehensive memory cleanup
+func CleanupMemory() {
+	debugf("MEMORY", "🧹 Starting comprehensive memory cleanup\n")
 	cleanupCallbacks()
 	cleanupPools()
 	forceGarbageCollection()
-	fmt.Printf("🧹 [MEMORY_CLEANUP] Comprehensive memory cleanup completed\n")
+	debugf("MEMORY", "🧹 Comprehensive memory cleanup completed\n")
 }
 
-// checkMemoryPressure checks if we need to perform cleanup
 func checkMemoryPressure() {
 	totalCallbacks := len(eventCallbacks) + len(rafCallbacks) + len(callbackRegistry)
 	if totalCallbacks > maxCallbacks {
-		fmt.Printf("⚠️ [MEMORY_PRESSURE] High callback count detected: %d (max: %d) - triggering cleanup\n", totalCallbacks, maxCallbacks)
-		performMemoryCleanup()
+		debugf("MEMORY", "⚠️ High callback count detected: %d (max: %d) - triggering cleanup\n", totalCallbacks, maxCallbacks)
+		CleanupMemory()
 	}
 }
 
-// CleanupMemory provides a public API for manual memory cleanup
-// This can be called by applications when they want to force cleanup
-func CleanupMemory() {
-	fmt.Printf("🧹 [PUBLIC_API] Manual memory cleanup requested\n")
-	performMemoryCleanup()
+// SetMemoryLimits allows configuration of memory management thresholds (exported for user control)
+func SetMemoryLimits(maxCalls, maxPool int) {
+	debugf("MEMORY", "🧹 Manual memory cleanup requested\n")
+	CleanupMemory()
 }
 
-// GetMemoryStats returns current memory usage statistics
-func GetMemoryStats() map[string]int {
-	return map[string]int{
-		"eventCallbacks":   len(eventCallbacks),
-		"rafCallbacks":     len(rafCallbacks),
-		"callbackRegistry": len(callbackRegistry),
-		"totalCallbacks":   len(eventCallbacks) + len(rafCallbacks) + len(callbackRegistry),
-		"maxCallbacks":     maxCallbacks,
-		"maxPoolSize":      maxPoolSize,
-	}
-}
+// ConfigureMemoryLimits allows runtime configuration of memory limits
+func ConfigureMemoryLimits(maxCalls, maxPool int) {
+	oldMaxCallbacks := maxCallbacks
+	oldMaxPoolSize := maxPoolSize
 
-// SetMemoryLimits allows applications to configure memory management thresholds
-func SetMemoryLimits(maxCb, maxPool int) {
-	fmt.Printf("🔧 [CONFIG] Memory limits updated - maxCallbacks: %d→%d, maxPoolSize: %d→%d\n",
-		maxCallbacks, maxCb, maxPoolSize, maxPool)
-	maxCallbacks = maxCb
+	maxCallbacks = maxCalls
 	maxPoolSize = maxPool
+
+	debugf("MEMORY", "🔧 Memory limits updated - maxCallbacks: %d→%d, maxPoolSize: %d→%d\n",
+		oldMaxCallbacks, maxCallbacks, oldMaxPoolSize, maxPoolSize)
 }
 
-// getHooksFromPool gets hooks from pool with reset
+// getHooksFromPool retrieves a Hooks instance from the pool or creates a new one
 func getHooksFromPool() *Hooks {
 	poolHooks := hooksPool.Get()
-	hooks, ok := poolHooks.(*Hooks)
-	if !ok {
-		// This should never happen if pool is properly initialized, but handle gracefully
-		fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] getHooksFromPool: hooksPool returned unexpected type %T, creating new Hooks\n", poolHooks)
-		hooks = &Hooks{
-			state:     []interface{}{},
-			deps:      [][]interface{}{},
-			memos:     []memoizedValue{},
-			callOrder: []HookCall{},
-			prevOrder: []HookCall{},
-		}
+	if hooks, ok := poolHooks.(*Hooks); ok {
+		// Reset the hooks for reuse
+		hooks.index = 0
+		hooks.state = hooks.state[:0]
+		hooks.deps = hooks.deps[:0]
+		hooks.memos = hooks.memos[:0]
+		hooks.prevOrder = hooks.prevOrder[:0]
+		hooks.callOrder = hooks.callOrder[:0]
+		hooks.orderChecked = false
+		return hooks
 	}
-	hooks.index = 0
-	// Reuse slices, just reset length
-	hooks.state = hooks.state[:0]
-	hooks.deps = hooks.deps[:0]
-	hooks.memos = hooks.memos[:0]
-	hooks.callOrder = hooks.callOrder[:0]
-	// CRITICAL FIX: Clear prevOrder for new component - each component needs its own validation state
-	hooks.prevOrder = hooks.prevOrder[:0]
-	hooks.orderChecked = false
-	return hooks
+	// This should never happen if pool is properly initialized, but handle gracefully
+	debugf("MEMORY", "🚨 getHooksFromPool: hooksPool returned unexpected type %T, creating new Hooks\n", poolHooks)
+	return &Hooks{
+		state:        []interface{}{},
+		deps:         [][]interface{}{},
+		memos:        []memoizedValue{},
+		prevOrder:    []HookCall{},
+		callOrder:    []HookCall{},
+		orderChecked: false,
+	}
 }
 
 // releaseHooks returns hooks to pool
