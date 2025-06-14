@@ -1149,6 +1149,15 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 			wipFiber.effects = []func(){}
 
 			element := componentFunc(fiber.props)
+
+			// Finalize hook order validation after component execution
+			if wipFiber.hooks != nil && !wipFiber.hooks.orderChecked {
+				if err := finalizeHookOrder(wipFiber.hooks); err != nil {
+					componentName := getFunctionName(fiber.typeOf)
+					fmt.Printf("🚨 [HOOK_ORDER_ERROR] Component '%s': %v\n", componentName, err)
+				}
+			}
+
 			if element == nil {
 				return nil
 			}
@@ -1214,6 +1223,15 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 			}
 
 			element := componentFunc(attrs)
+
+			// Finalize hook order validation after component execution
+			if wipFiber.hooks != nil && !wipFiber.hooks.orderChecked {
+				if err := finalizeHookOrder(wipFiber.hooks); err != nil {
+					componentName := getFunctionName(fiber.typeOf)
+					fmt.Printf("🚨 [HOOK_ORDER_ERROR] Component '%s': %v\n", componentName, err)
+				}
+			}
+
 			if element == nil {
 				return nil
 			}
@@ -1517,22 +1535,75 @@ func executeEffects() {
 	effectFibers = nil
 }
 
-func resetHookIndex(fiber *Fiber) {
+// getFunctionName extracts a readable name from a function interface.
+func getFunctionName(i interface{}) string {
+	if i == nil {
+		return "nil"
+	}
+	// Use reflection to get the function's name
+	fn := runtime.FuncForPC(reflect.ValueOf(i).Pointer())
+	if fn == nil {
+		// Fallback for anonymous functions or other cases
+		return reflect.TypeOf(i).String()
+	}
+	name := fn.Name()
+	// Clean up the name to be more readable
+	parts := strings.Split(name, ".")
+	if len(parts) > 0 {
+		return parts[len(parts)-1]
+	}
+	return name
+}
+
+// commitWork recursively commits work to the DOM.
+func commitWork(fiber *Fiber) {
 	if fiber == nil {
 		return
 	}
-	if fiber.hooks != nil {
-		// Debug: Log reset
-		fmt.Printf("🔍 [HOOK_DEBUG] resetHookIndex called for component %v\n", fiber.typeOf)
 
-		// Finalize hook order validation before resetting
-		if err := finalizeHookOrder(fiber.hooks); err != nil {
-			fmt.Printf("🚨 [HOOK_ORDER_ERROR] Component %v: %v\n", fiber.typeOf, err)
+	// fmt.Printf("commitWork: Committing fiber of type %v\n", fiber.typeOf)
+
+	if fiber.parent != nil {
+		// fmt.Printf("commitWork: Appending fiber of type %v to parent's DOM\n", fiber.typeOf)
+		parentDom := fiber.parent.dom
+		if !parentDom.IsUndefined() && !parentDom.IsNull() {
+			parentDom.Call("appendChild", fiber.dom)
 		}
-		fiber.hooks.index = 0
 	}
-	resetHookIndex(fiber.child)
-	resetHookIndex(fiber.sibling)
+
+	if fiber.effectTag == "DELETION" {
+		// fmt.Printf("commitWork: Deleting fiber of type %v\n", fiber.typeOf)
+		if !fiber.dom.IsUndefined() && !fiber.dom.IsNull() {
+			fiber.dom.Call("remove")
+		}
+		// Release the fiber back to the pool
+		releaseFiber(fiber)
+		return
+	}
+
+	if fiber.effectTag == "PLACEMENT" && fiber.dom != js.Value{} {
+		// fmt.Printf("commitWork: Placing new fiber of type %v\n", fiber.typeOf)
+		parentFiber := fiber.parent
+		if parentFiber != nil {
+			parentDom := parentFiber.dom
+			if !parentDom.IsUndefined() && !parentDom.IsNull() {
+				if parentFiber.alternate == nil {
+					// fmt.Println("commitWork: Appending new fiber to parent")
+					parentDom.Call("appendChild", fiber.dom)
+				} else {
+					// fmt.Println("commitWork: Inserting new fiber before sibling")
+					if fiber.sibling != nil && !fiber.sibling.dom.IsUndefined() {
+						parentDom.Call("insertBefore", fiber.dom, fiber.sibling.dom)
+					} else {
+						parentDom.Call("appendChild", fiber.dom)
+					}
+				}
+			}
+		}
+	}
+
+	commitWork(fiber.child)
+	commitWork(fiber.sibling)
 }
 
 // commitWork recursively commits work to the DOM.
