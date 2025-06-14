@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall/js"
@@ -70,7 +71,150 @@ var (
 
 	// Shared empty slice to avoid allocations
 	emptyChildren = []interface{}{}
+
+	// Memory management tracking
+	callbackRegistry map[string]js.Func        // Track callbacks by ID for cleanup
+	nextCallbackID   int                       // Counter for unique callback IDs
+	maxCallbacks     int                = 1000 // Maximum callbacks before cleanup
+	maxPoolSize      int                = 100  // Maximum pool size before cleanup
 )
+
+// Initialize memory management
+func init() {
+	callbackRegistry = make(map[string]js.Func)
+}
+
+// Memory management and cleanup functions
+
+// cleanupCallbacks removes unused callbacks to prevent memory leaks
+func cleanupCallbacks() {
+	fmt.Printf("🧹 [MEMORY_CLEANUP] Starting callback cleanup - current count: %d\n", len(eventCallbacks)+len(rafCallbacks))
+
+	// Release all js.Func objects
+	for _, callback := range eventCallbacks {
+		callback.Release()
+	}
+	for _, callback := range rafCallbacks {
+		callback.Release()
+	}
+	for id, callback := range callbackRegistry {
+		callback.Release()
+		delete(callbackRegistry, id)
+	}
+
+	// Clear slices
+	eventCallbacks = eventCallbacks[:0]
+	rafCallbacks = rafCallbacks[:0]
+
+	fmt.Printf("🧹 [MEMORY_CLEANUP] Callback cleanup completed\n")
+}
+
+// cleanupPools prevents object pools from growing too large
+func cleanupPools() {
+	fmt.Printf("🧹 [MEMORY_CLEANUP] Starting pool cleanup\n")
+
+	// Clean up element pool if it's too large
+	poolSize := 0
+	for {
+		elem := elementPool.Get()
+		if elem == nil {
+			break
+		}
+		poolSize++
+		if poolSize > maxPoolSize {
+			// Don't put it back - let it be garbage collected
+			fmt.Printf("🧹 [MEMORY_CLEANUP] Discarding excess element from pool\n")
+		} else {
+			elementPool.Put(elem)
+		}
+	}
+
+	// Clean up hooks pool if it's too large
+	poolSize = 0
+	for {
+		hooks := hooksPool.Get()
+		if hooks == nil {
+			break
+		}
+		poolSize++
+		if poolSize > maxPoolSize {
+			// Don't put it back - let it be garbage collected
+			fmt.Printf("🧹 [MEMORY_CLEANUP] Discarding excess hooks from pool\n")
+		} else {
+			hooksPool.Put(hooks)
+		}
+	}
+
+	// Clean up fiber pool if it's too large
+	poolSize = 0
+	for {
+		fiber := fiberPool.Get()
+		if fiber == nil {
+			break
+		}
+		poolSize++
+		if poolSize > maxPoolSize {
+			// Don't put it back - let it be garbage collected
+			fmt.Printf("🧹 [MEMORY_CLEANUP] Discarding excess fiber from pool\n")
+		} else {
+			fiberPool.Put(fiber)
+		}
+	}
+
+	fmt.Printf("🧹 [MEMORY_CLEANUP] Pool cleanup completed\n")
+}
+
+// forceGarbageCollection triggers garbage collection
+func forceGarbageCollection() {
+	fmt.Printf("🧹 [MEMORY_CLEANUP] Triggering garbage collection\n")
+	runtime.GC()
+	runtime.GC() // Call twice to ensure cleanup
+}
+
+// performMemoryCleanup performs comprehensive memory cleanup
+func performMemoryCleanup() {
+	fmt.Printf("🧹 [MEMORY_CLEANUP] Starting comprehensive memory cleanup\n")
+	cleanupCallbacks()
+	cleanupPools()
+	forceGarbageCollection()
+	fmt.Printf("🧹 [MEMORY_CLEANUP] Comprehensive memory cleanup completed\n")
+}
+
+// checkMemoryPressure checks if we need to perform cleanup
+func checkMemoryPressure() {
+	totalCallbacks := len(eventCallbacks) + len(rafCallbacks) + len(callbackRegistry)
+	if totalCallbacks > maxCallbacks {
+		fmt.Printf("⚠️ [MEMORY_PRESSURE] High callback count detected: %d (max: %d) - triggering cleanup\n", totalCallbacks, maxCallbacks)
+		performMemoryCleanup()
+	}
+}
+
+// CleanupMemory provides a public API for manual memory cleanup
+// This can be called by applications when they want to force cleanup
+func CleanupMemory() {
+	fmt.Printf("🧹 [PUBLIC_API] Manual memory cleanup requested\n")
+	performMemoryCleanup()
+}
+
+// GetMemoryStats returns current memory usage statistics
+func GetMemoryStats() map[string]int {
+	return map[string]int{
+		"eventCallbacks":   len(eventCallbacks),
+		"rafCallbacks":     len(rafCallbacks),
+		"callbackRegistry": len(callbackRegistry),
+		"totalCallbacks":   len(eventCallbacks) + len(rafCallbacks) + len(callbackRegistry),
+		"maxCallbacks":     maxCallbacks,
+		"maxPoolSize":      maxPoolSize,
+	}
+}
+
+// SetMemoryLimits allows applications to configure memory management thresholds
+func SetMemoryLimits(maxCb, maxPool int) {
+	fmt.Printf("🔧 [CONFIG] Memory limits updated - maxCallbacks: %d→%d, maxPoolSize: %d→%d\n",
+		maxCallbacks, maxCb, maxPoolSize, maxPool)
+	maxCallbacks = maxCb
+	maxPoolSize = maxPool
+}
 
 // Element represents a virtual DOM node.
 type Element struct {
@@ -1324,6 +1468,9 @@ func commitRoot() {
 
 	// Execute effects after committing
 	executeEffects()
+
+	// Check memory pressure after each commit cycle
+	checkMemoryPressure()
 }
 
 func executeEffects() {
@@ -1430,22 +1577,43 @@ func commitWork(fiber *Fiber) {
 }
 
 func commitDeletion(fiber *Fiber, domParent js.Value) {
+	// Enhanced cleanup for deleted components
+	if fiber.hooks != nil {
+		fmt.Printf("🧹 [COMPONENT_CLEANUP] Cleaning up hooks for deleted component\n")
+
+		// Release event callbacks associated with this fiber
+		for _, state := range fiber.hooks.state {
+			if fn, ok := state.(js.Func); ok {
+				fmt.Printf("🧹 [COMPONENT_CLEANUP] Releasing js.Func from state\n")
+				fn.Release()
+			}
+		}
+
+		// Release hooks back to pool
+		releaseHooks(fiber.hooks)
+		fiber.hooks = nil
+	}
+
+	// Clear effects to prevent memory leaks
+	if len(fiber.effects) > 0 {
+		fmt.Printf("🧹 [COMPONENT_CLEANUP] Clearing %d effects for deleted component\n", len(fiber.effects))
+		fiber.effects = nil
+	}
+
 	if !fiber.dom.IsUndefined() && !fiber.dom.IsNull() {
 		// fmt.Printf("commitDeletion: Removing child %v from parent %v\n", fiber.dom, domParent)
 		domParent.Call("removeChild", fiber.dom)
-
-		// Release event callbacks associated with this fiber
-		if fiber.hooks != nil {
-			for _, state := range fiber.hooks.state {
-				if fn, ok := state.(js.Func); ok {
-					// fmt.Println("commitDeletion: Releasing event callback")
-					fn.Release()
-				}
-			}
-		}
 	} else if fiber.child != nil {
 		// fmt.Println("commitDeletion: Deleting child fibers recursively")
 		commitDeletion(fiber.child, domParent)
+	}
+
+	// Recursively cleanup children and siblings
+	if fiber.child != nil {
+		commitDeletion(fiber.child, domParent)
+	}
+	if fiber.sibling != nil {
+		commitDeletion(fiber.sibling, domParent)
 	}
 }
 
@@ -1529,17 +1697,27 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 
 // requestIdleCallback schedules work during idle periods.
 func requestIdleCallback(callback func(js.Value)) {
+	// Check memory pressure before creating new callback
+	checkMemoryPressure()
+
 	cb := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		callback(args[0])
 		return nil
 	})
 	rafCallbacks = append(rafCallbacks, cb) // Keep the function alive
+
+	fmt.Printf("🔗 [CALLBACK_CREATED] requestIdleCallback created - total callbacks: %d\n", len(eventCallbacks)+len(rafCallbacks))
 	js.Global().Call("requestIdleCallback", cb)
 }
 
 func useFunc(callback func(js.Value, []js.Value) interface{}) js.Func {
+	// Check memory pressure before creating new callback
+	checkMemoryPressure()
+
 	cb := js.FuncOf(callback)
 	eventCallbacks = append(eventCallbacks, cb) // Keep callback alive
+
+	fmt.Printf("🔗 [CALLBACK_CREATED] useFunc callback created - total callbacks: %d\n", len(eventCallbacks)+len(rafCallbacks))
 	return cb
 }
 
@@ -1694,6 +1872,9 @@ func (e GoEvent) Raw() js.Value {
 // GoUseFunc creates an event handler with a more convenient Go-friendly interface
 // The callback receives a GoEvent as the first parameter, followed by any additional parameters
 func GoUseFunc(callback interface{}) js.Func {
+	// Check memory pressure before creating new callback
+	checkMemoryPressure()
+
 	cb := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		// Create GoEvent from the first argument (the JS event)
 		var goEvent GoEvent
@@ -1733,6 +1914,8 @@ func GoUseFunc(callback interface{}) js.Func {
 	})
 
 	eventCallbacks = append(eventCallbacks, cb) // Keep callback alive
+
+	fmt.Printf("🔗 [CALLBACK_CREATED] GoUseFunc callback created - total callbacks: %d\n", len(eventCallbacks)+len(rafCallbacks))
 	return cb
 }
 
