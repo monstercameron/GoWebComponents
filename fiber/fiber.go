@@ -23,9 +23,12 @@ var (
 	hooksPool = sync.Pool{
 		New: func() interface{} {
 			return &Hooks{
-				state: make([]interface{}, 0, 8),   // Larger pre-allocation
-				deps:  make([][]interface{}, 0, 8), // Larger pre-allocation
-				memos: make([]memoizedValue, 0, 4), // Larger pre-allocation
+				state:        make([]interface{}, 0, 8),   // Larger pre-allocation
+				deps:         make([][]interface{}, 0, 8), // Larger pre-allocation
+				memos:        make([]memoizedValue, 0, 4), // Larger pre-allocation
+				callOrder:    make([]HookCall, 0, 8),      // Pre-allocate hook order tracking
+				prevOrder:    make([]HookCall, 0, 8),      // Pre-allocate previous order tracking
+				orderChecked: false,
 			}
 		},
 	}
@@ -367,6 +370,12 @@ func GoUseState[T any](initialValue T) (func() T, func(T)) {
 	position := currentFiber.hooks.index
 	currentFiber.hooks.index++
 
+	// Validate hook order
+	if err := validateHookOrder(currentFiber.hooks, HookTypeState, position); err != nil {
+		fmt.Printf("🚨 [HOOK_ORDER_ERROR] GoUseState: %v\n", err)
+		// Continue execution but log the error - don't panic in production
+	}
+
 	if len(currentFiber.hooks.state) > position {
 		// Existing state
 	} else {
@@ -386,6 +395,11 @@ func GoUseState[T any](initialValue T) (func() T, func(T)) {
 	idx := position
 
 	getter := func() T {
+		// Bounds check to prevent index out of range panic
+		if idx >= len(hooks.state) {
+			var zero T
+			return zero
+		}
 		if value, ok := hooks.state[idx].(T); ok {
 			return value
 		}
@@ -395,6 +409,14 @@ func GoUseState[T any](initialValue T) (func() T, func(T)) {
 	}
 
 	setter := func(newValue T) {
+		// Bounds check to prevent index out of range panic
+		if idx >= len(hooks.state) {
+			// This shouldn't happen if the getter/setter are used correctly,
+			// but we'll handle it gracefully by expanding the state array
+			for len(hooks.state) <= idx {
+				hooks.state = append(hooks.state, nil)
+			}
+		}
 		// Use fast equality check instead of reflect.DeepEqual
 		if hooks.state[idx] == nil || !fastEqual(hooks.state[idx], newValue) {
 			hooks.state[idx] = newValue
@@ -405,6 +427,86 @@ func GoUseState[T any](initialValue T) (func() T, func(T)) {
 	return getter, setter
 }
 
+// validateHookOrder checks that hooks are called in the same order as previous render
+func validateHookOrder(hooks *Hooks, hookType HookType, position int) error {
+	// Debug: Log that validation is being called with detailed info
+	fmt.Printf("🔍 [HOOK_DEBUG] validateHookOrder called: type=%d, position=%d, prevOrder=%d, callOrder=%d\n",
+		hookType, position, len(hooks.prevOrder), len(hooks.callOrder))
+
+	// Record this hook call
+	hookCall := HookCall{Type: hookType, Position: position}
+	hooks.callOrder = append(hooks.callOrder, hookCall)
+
+	// Skip validation on first render (no previous order to compare)
+	if len(hooks.prevOrder) == 0 {
+		fmt.Printf("🔍 [HOOK_DEBUG] Skipping validation - first render (no prevOrder)\n")
+		return nil
+	}
+
+	// Debug: Show what we're comparing
+	fmt.Printf("🔍 [HOOK_DEBUG] Validating: current hook type=%d pos=%d vs previous hook type=%d pos=%d\n",
+		hookType, position,
+		func() int {
+			if position < len(hooks.prevOrder) {
+				return int(hooks.prevOrder[position].Type)
+			} else {
+				return -1
+			}
+		}(),
+		func() int {
+			if position < len(hooks.prevOrder) {
+				return hooks.prevOrder[position].Position
+			} else {
+				return -1
+			}
+		}())
+
+	// Check if we have a corresponding hook call from previous render
+	if position >= len(hooks.prevOrder) {
+		return fmt.Errorf("hook order violation: more hooks called than previous render (position %d >= prevOrder length %d)", position, len(hooks.prevOrder))
+	}
+
+	prevCall := hooks.prevOrder[position]
+	if prevCall.Type != hookType {
+		return fmt.Errorf("hook order violation: hook type mismatch at position %d (expected %d, got %d)",
+			position, prevCall.Type, hookType)
+	}
+
+	if prevCall.Position != position {
+		return fmt.Errorf("hook order violation: position mismatch at index %d (expected %d, got %d)",
+			position, prevCall.Position, position)
+	}
+
+	fmt.Printf("✅ [HOOK_DEBUG] Hook order validation passed for position %d\n", position)
+	return nil
+}
+
+// finalizeHookOrder completes hook order validation after all hooks have been called
+func finalizeHookOrder(hooks *Hooks) error {
+	// Debug: Log finalization
+	fmt.Printf("🔍 [HOOK_DEBUG] finalizeHookOrder called: callOrder=%d, prevOrder=%d\n",
+		len(hooks.callOrder), len(hooks.prevOrder))
+
+	// Check if fewer hooks were called than previous render
+	if len(hooks.prevOrder) > 0 && len(hooks.callOrder) < len(hooks.prevOrder) {
+		return fmt.Errorf("hook order violation: fewer hooks called than previous render (%d vs %d)",
+			len(hooks.callOrder), len(hooks.prevOrder))
+	}
+
+	// Move current order to previous order for next render
+	hooks.prevOrder = make([]HookCall, len(hooks.callOrder))
+	copy(hooks.prevOrder, hooks.callOrder)
+
+	// Debug: Log the transfer
+	fmt.Printf("🔍 [HOOK_DEBUG] Transferred %d hook calls to prevOrder for next render\n", len(hooks.prevOrder))
+
+	// Reset current order for next render
+	hooks.callOrder = hooks.callOrder[:0]
+	hooks.orderChecked = true
+
+	return nil
+}
+
 // NEW: Get hooks from pool with reset
 func getHooksFromPool() *Hooks {
 	hooks := hooksPool.Get().(*Hooks)
@@ -413,6 +515,10 @@ func getHooksFromPool() *Hooks {
 	hooks.state = hooks.state[:0]
 	hooks.deps = hooks.deps[:0]
 	hooks.memos = hooks.memos[:0]
+	hooks.callOrder = hooks.callOrder[:0]
+	// CRITICAL FIX: Clear prevOrder for new component - each component needs its own validation state
+	hooks.prevOrder = hooks.prevOrder[:0]
+	hooks.orderChecked = false
 	return hooks
 }
 
@@ -454,7 +560,23 @@ type memoizedValue struct {
 	deps  []interface{}
 }
 
-// Hooks struct optimized for memory alignment and access patterns
+// HookType represents the type of hook being called
+type HookType int
+
+const (
+	HookTypeState HookType = iota
+	HookTypeEffect
+	HookTypeMemo
+	HookTypeFunc
+)
+
+// HookCall represents a single hook call for order validation
+type HookCall struct {
+	Type     HookType
+	Position int
+}
+
+// Hooks struct optimized for memory alignment and access patterns with order validation
 type Hooks struct {
 	// Hot path data - accessed most frequently
 	index int // 8 bytes (padded)
@@ -463,7 +585,12 @@ type Hooks struct {
 	state []interface{}   // 24 bytes
 	deps  [][]interface{} // 24 bytes
 	memos []memoizedValue // 24 bytes
-	// Total: 80 bytes, well-aligned
+
+	// Hook order validation - tracks the sequence of hook calls
+	callOrder    []HookCall // 24 bytes - current render's hook call sequence
+	prevOrder    []HookCall // 24 bytes - previous render's hook call sequence
+	orderChecked bool       // 1 byte - whether order has been validated this render
+	// Total: 129 bytes (padded to 136 bytes for alignment)
 }
 
 func useEffect(effect func(), deps ...interface{}) {
@@ -474,6 +601,12 @@ func useEffect(effect func(), deps ...interface{}) {
 
 	position := currentFiber.hooks.index
 	currentFiber.hooks.index++
+
+	// Validate hook order
+	if err := validateHookOrder(currentFiber.hooks, HookTypeEffect, position); err != nil {
+		fmt.Printf("🚨 [HOOK_ORDER_ERROR] useEffect: %v\n", err)
+		// Continue execution but log the error - don't panic in production
+	}
 
 	// Grow deps slice efficiently
 	for len(currentFiber.hooks.deps) <= position {
@@ -512,6 +645,12 @@ func GoUseEffect(effect func(), deps ...interface{}) {
 
 	position := currentFiber.hooks.index
 	currentFiber.hooks.index++
+
+	// Validate hook order
+	if err := validateHookOrder(currentFiber.hooks, HookTypeEffect, position); err != nil {
+		fmt.Printf("🚨 [HOOK_ORDER_ERROR] GoUseEffect: %v\n", err)
+		// Continue execution but log the error - don't panic in production
+	}
 
 	// Grow deps slice efficiently
 	for len(currentFiber.hooks.deps) <= position {
@@ -569,6 +708,12 @@ func useMemo(compute func() interface{}, deps ...interface{}) interface{} {
 	position := currentFiber.hooks.index
 	currentFiber.hooks.index++
 
+	// Validate hook order
+	if err := validateHookOrder(currentFiber.hooks, HookTypeMemo, position); err != nil {
+		fmt.Printf("🚨 [HOOK_ORDER_ERROR] useMemo: %v\n", err)
+		// Continue execution but log the error - don't panic in production
+	}
+
 	// Grow memos slice efficiently
 	for len(currentFiber.hooks.memos) <= position {
 		currentFiber.hooks.memos = append(currentFiber.hooks.memos, memoizedValue{})
@@ -606,6 +751,12 @@ func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 
 	position := currentFiber.hooks.index
 	currentFiber.hooks.index++
+
+	// Validate hook order
+	if err := validateHookOrder(currentFiber.hooks, HookTypeMemo, position); err != nil {
+		fmt.Printf("🚨 [HOOK_ORDER_ERROR] GoUseMemo: %v\n", err)
+		// Continue execution but log the error - don't panic in production
+	}
 
 	// Grow memos slice efficiently
 	for len(currentFiber.hooks.memos) <= position {
@@ -779,8 +930,15 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 				wipFiber.hooks = &Hooks{
 					state: make([]interface{}, len(oldHooks.state)),
 					deps:  make([][]interface{}, len(oldHooks.deps)),
+					memos: make([]memoizedValue, len(oldHooks.memos)),
+					// CRITICAL FIX: Transfer hook order validation state from previous render
+					prevOrder:    make([]HookCall, len(oldHooks.callOrder)),    // Previous render's callOrder becomes current render's prevOrder
+					callOrder:    make([]HookCall, 0, cap(oldHooks.callOrder)), // Fresh callOrder for current render
+					orderChecked: false,                                        // Reset validation flag
 				}
 				copy(wipFiber.hooks.state, oldHooks.state)
+				copy(wipFiber.hooks.memos, oldHooks.memos)
+				copy(wipFiber.hooks.prevOrder, oldHooks.callOrder) // Transfer completed hook order from previous render
 
 				// Deep copy the deps slices
 				for i := range oldHooks.deps {
@@ -793,6 +951,11 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 				wipFiber.hooks = &Hooks{
 					state: []interface{}{},
 					deps:  [][]interface{}{},
+					memos: []memoizedValue{},
+					// First render - no previous order to validate against
+					prevOrder:    []HookCall{},
+					callOrder:    []HookCall{},
+					orderChecked: false,
 				}
 			}
 			wipFiber.hooks.index = 0
@@ -822,8 +985,15 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 				wipFiber.hooks = &Hooks{
 					state: make([]interface{}, len(oldHooks.state)),
 					deps:  make([][]interface{}, len(oldHooks.deps)),
+					memos: make([]memoizedValue, len(oldHooks.memos)),
+					// CRITICAL FIX: Transfer hook order validation state from previous render
+					prevOrder:    make([]HookCall, len(oldHooks.callOrder)),    // Previous render's callOrder becomes current render's prevOrder
+					callOrder:    make([]HookCall, 0, cap(oldHooks.callOrder)), // Fresh callOrder for current render
+					orderChecked: false,                                        // Reset validation flag
 				}
 				copy(wipFiber.hooks.state, oldHooks.state)
+				copy(wipFiber.hooks.memos, oldHooks.memos)
+				copy(wipFiber.hooks.prevOrder, oldHooks.callOrder) // Transfer completed hook order from previous render
 
 				// Deep copy the deps slices
 				for i := range oldHooks.deps {
@@ -836,6 +1006,11 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 				wipFiber.hooks = &Hooks{
 					state: []interface{}{},
 					deps:  [][]interface{}{},
+					memos: []memoizedValue{},
+					// First render - no previous order to validate against
+					prevOrder:    []HookCall{},
+					callOrder:    []HookCall{},
+					orderChecked: false,
 				}
 			}
 			wipFiber.hooks.index = 0
@@ -1130,6 +1305,13 @@ func resetHookIndex(fiber *Fiber) {
 		return
 	}
 	if fiber.hooks != nil {
+		// Debug: Log reset
+		fmt.Printf("🔍 [HOOK_DEBUG] resetHookIndex called for component %v\n", fiber.typeOf)
+
+		// Finalize hook order validation before resetting
+		if err := finalizeHookOrder(fiber.hooks); err != nil {
+			fmt.Printf("🚨 [HOOK_ORDER_ERROR] Component %v: %v\n", fiber.typeOf, err)
+		}
 		fiber.hooks.index = 0
 	}
 	resetHookIndex(fiber.child)

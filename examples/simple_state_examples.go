@@ -804,6 +804,155 @@ func GoroutineExample(props Attrs) *Element {
 	)
 }
 
+// Hook Order Validation Test - demonstrates proper hook order validation
+func HookOrderTestExample(props Attrs) *Element {
+	// Track render count for this component
+	renderCount, setRenderCount := GoUseState(0)
+	currentRender := renderCount() + 1
+	setRenderCount(currentRender)
+
+	globalRender := getNextRenderID()
+
+	fmt.Printf("🔍 HookOrderTestExample [RENDER #%d|Global #%d]: Component rendered\n", currentRender, globalRender)
+
+	// Test mode state - controls whether we violate hook order
+	testMode, setTestMode := GoUseState("normal")
+	currentMode := testMode()
+
+	fmt.Printf("🔍 HookOrderTestExample [RENDER #%d]: Test mode = '%s'\n", currentRender, currentMode)
+
+	// Normal hooks that should always be called
+	normalCount, setNormalCount := GoUseState(0)
+	currentNormalCount := normalCount()
+
+	// Conditional hook violation test - this will trigger hook order errors
+	var conditionalCount func() int
+	var setConditionalCount func(int)
+
+	if currentMode == "violate" {
+		// This violates hook order rules - hooks should not be called conditionally
+		fmt.Printf("🚨 HookOrderTestExample [RENDER #%d]: About to violate hook order by calling conditional hook\n", currentRender)
+		conditionalCount, setConditionalCount = GoUseState(100)
+		fmt.Printf("🚨 HookOrderTestExample [RENDER #%d]: Conditional hook called - this should trigger validation error\n", currentRender)
+	} else {
+		// Provide dummy functions when not violating
+		conditionalCount = func() int { return -1 }
+		setConditionalCount = func(int) {}
+	}
+
+	// Another normal hook that should always be called
+	message, setMessage := GoUseState("Hook order is normal")
+	currentMessage := message()
+
+	// Effect hook for testing effect order validation
+	GoUseEffect(func() {
+		fmt.Printf("🔍 HookOrderTestExample [EFFECT]: Effect ran for render #%d in mode '%s'\n", currentRender, currentMode)
+	}, []interface{}{currentRender, currentMode})
+
+	// Conditional effect - this will also violate hook order
+	if currentMode == "violate" {
+		fmt.Printf("🚨 HookOrderTestExample [RENDER #%d]: About to violate hook order with conditional effect\n", currentRender)
+		GoUseEffect(func() {
+			fmt.Printf("🚨 HookOrderTestExample [CONDITIONAL_EFFECT]: This effect should trigger validation error\n")
+		}, []interface{}{})
+	}
+
+	// Event handlers
+	toggleMode := func(this js.Value, args []js.Value) interface{} {
+		newMode := "normal"
+		if currentMode == "normal" {
+			newMode = "violate"
+		}
+		fmt.Printf("🔍 HookOrderTestExample [EVENT]: Switching mode %s→%s (will trigger render #%d)\n",
+			currentMode, newMode, currentRender+1)
+		setTestMode(newMode)
+
+		// Update message based on mode
+		if newMode == "violate" {
+			setMessage("⚠️ Hook order violation mode - check console for errors!")
+		} else {
+			setMessage("✅ Hook order is normal")
+		}
+		return nil
+	}
+
+	incrementNormal := func(this js.Value, args []js.Value) interface{} {
+		newCount := currentNormalCount + 1
+		fmt.Printf("🔍 HookOrderTestExample [EVENT]: Normal count %d→%d (will trigger render #%d)\n",
+			currentNormalCount, newCount, currentRender+1)
+		setNormalCount(newCount)
+		return nil
+	}
+
+	incrementConditional := func(this js.Value, args []js.Value) interface{} {
+		if currentMode == "violate" {
+			currentConditional := conditionalCount()
+			newCount := currentConditional + 1
+			fmt.Printf("🔍 HookOrderTestExample [EVENT]: Conditional count %d→%d (will trigger render #%d)\n",
+				currentConditional, newCount, currentRender+1)
+			setConditionalCount(newCount)
+		} else {
+			fmt.Printf("🔍 HookOrderTestExample [EVENT]: Cannot increment conditional count in normal mode\n")
+		}
+		return nil
+	}
+
+	fmt.Printf("🔍 HookOrderTestExample [RENDER #%d]: Generating DOM with mode='%s', normalCount=%d\n",
+		currentRender, currentMode, currentNormalCount)
+
+	return Div(Attrs{
+		"style": "border: 1px solid #ccc; padding: 10px; margin: 10px;",
+	},
+		H3(Attrs{}, Text(fmt.Sprintf("🔍 Hook Order Validation Test (Render #%d)", currentRender))),
+		P(Attrs{}, Text("This component tests hook order validation by conditionally calling hooks.")),
+		P(Attrs{}, Text("⚠️ WARNING: 'Violate' mode will intentionally break hook order rules!")),
+
+		Div(Attrs{
+			"style": "margin: 10px 0; padding: 10px; border: 1px solid #ddd;",
+		},
+			P(Attrs{}, Text(fmt.Sprintf("Current Mode: %s", currentMode))),
+			P(Attrs{}, Text(fmt.Sprintf("Message: %s", currentMessage))),
+			P(Attrs{}, Text(fmt.Sprintf("Normal Count: %d", currentNormalCount))),
+			P(Attrs{}, Text(fmt.Sprintf("Conditional Count: %s", func() string {
+				if currentMode == "violate" {
+					return fmt.Sprintf("%d", conditionalCount())
+				}
+				return "N/A (not in violation mode)"
+			}()))),
+		),
+
+		Div(Attrs{
+			"style": "margin: 10px 0;",
+		},
+			Button(Attrs{
+				"onclick": js.FuncOf(toggleMode),
+				"style": func() string {
+					if currentMode == "violate" {
+						return "background-color: green; color: white;"
+					}
+					return "background-color: red; color: white;"
+				}(),
+			}, Text(func() string {
+				if currentMode == "violate" {
+					return "Switch to Normal Mode"
+				}
+				return "Switch to Violation Mode"
+			}())),
+			Text(" "),
+			Button(Attrs{
+				"onclick": js.FuncOf(incrementNormal),
+			}, Text("Increment Normal")),
+			Text(" "),
+			Button(Attrs{
+				"onclick":  js.FuncOf(incrementConditional),
+				"disabled": currentMode != "violate",
+			}, Text("Increment Conditional")),
+		),
+
+		P(Attrs{}, Text("💡 Check the browser console for hook order validation messages when switching to violation mode.")),
+	)
+}
+
 // Main application component
 func SimpleStateExamplesApp(props Attrs) *Element {
 	// Track render count for this component
@@ -820,6 +969,7 @@ func SimpleStateExamplesApp(props Attrs) *Element {
 		H1(Attrs{}, Text(fmt.Sprintf("Simple GoUseState Examples (App Render #%d | Global #%d)", currentRender, globalRender))),
 		P(Attrs{}, Text("These examples demonstrate various use cases of GoUseState with minimal styling.")),
 
+		HookOrderTestExample(nil),
 		CounterExample(nil),
 		TextInputExample(nil),
 		ToggleExample(nil),
@@ -859,6 +1009,7 @@ func SimpleStateExamplesDemo() {
 
 	fmt.Printf("🎉 SimpleStateExamplesDemo [SUCCESS]: Simple GoUseState Examples are now running!\n")
 	fmt.Printf("📊 SimpleStateExamplesDemo [INFO]: Examples included:\n")
+	fmt.Printf("   - 🔍 Hook Order Validation Test (demonstrates hook order validation)\n")
 	fmt.Printf("   - 🔢 Counter (number state)\n")
 	fmt.Printf("   - 📝 Text Input (string state)\n")
 	fmt.Printf("   - 🔘 Toggle (boolean state)\n")
@@ -866,5 +1017,6 @@ func SimpleStateExamplesDemo() {
 	fmt.Printf("   - 📋 Todo List (array/slice state)\n")
 	fmt.Printf("   - 🚀 Goroutine (async state updates with cancellation)\n")
 	fmt.Printf("🔍 SimpleStateExamplesDemo [DEBUG]: Watch console for detailed render tracking and state change logs!\n")
+	fmt.Printf("⚠️  SimpleStateExamplesDemo [HOOK_VALIDATION]: Hook order validation is now active - violations will be logged!\n")
 	fmt.Printf("📈 SimpleStateExamplesDemo [PERFORMANCE]: Global render counter started - track re-renders across all components\n")
 }
