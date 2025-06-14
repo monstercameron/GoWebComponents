@@ -133,57 +133,11 @@ func cleanupCallbacks() {
 
 // cleanupPools prevents object pools from growing too large
 func cleanupPools() {
-	fmt.Printf("🧹 [MEMORY_CLEANUP] Starting pool cleanup\n")
-
-	// Clean up element pool if it's too large
-	poolSize := 0
-	for {
-		elem := elementPool.Get()
-		if elem == nil {
-			break
-		}
-		poolSize++
-		if poolSize > maxPoolSize {
-			// Don't put it back - let it be garbage collected
-			fmt.Printf("🧹 [MEMORY_CLEANUP] Discarding excess element from pool\n")
-		} else {
-			elementPool.Put(elem)
-		}
-	}
-
-	// Clean up hooks pool if it's too large
-	poolSize = 0
-	for {
-		hooks := hooksPool.Get()
-		if hooks == nil {
-			break
-		}
-		poolSize++
-		if poolSize > maxPoolSize {
-			// Don't put it back - let it be garbage collected
-			fmt.Printf("🧹 [MEMORY_CLEANUP] Discarding excess hooks from pool\n")
-		} else {
-			hooksPool.Put(hooks)
-		}
-	}
-
-	// Clean up fiber pool if it's too large
-	poolSize = 0
-	for {
-		fiber := fiberPool.Get()
-		if fiber == nil {
-			break
-		}
-		poolSize++
-		if poolSize > maxPoolSize {
-			// Don't put it back - let it be garbage collected
-			fmt.Printf("🧹 [MEMORY_CLEANUP] Discarding excess fiber from pool\n")
-		} else {
-			fiberPool.Put(fiber)
-		}
-	}
-
-	fmt.Printf("🧹 [MEMORY_CLEANUP] Pool cleanup completed\n")
+	fmt.Printf("🧹 [MEMORY_CLEANUP] Pool cleanup via GC (avoids extra allocations)\n")
+	// sync.Pool automatically drops cached items on GC.
+	runtime.GC()
+	runtime.GC()
+	fmt.Printf("🧹 [MEMORY_CLEANUP] Pool cleanup completed (post-GC)\n")
 }
 
 // forceGarbageCollection triggers garbage collection
