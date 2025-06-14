@@ -1338,6 +1338,21 @@ func createDom(fiber *Fiber) js.Value {
 			dom.Call("setAttribute", "class", value)
 			continue
 		}
+		if name == "style" {
+			// Support both string and map styles
+			switch v := value.(type) {
+			case string:
+				dom.Set("style", v)
+			case map[string]string:
+				styleObj := dom.Get("style")
+				for k, val := range v {
+					styleObj.Call("setProperty", k, val)
+				}
+			default:
+				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] createDom: style must be string or map[string]string, got %T\n", value)
+			}
+			continue
+		}
 		// Set other properties directly
 		// fmt.Printf("createDom: Setting property '%s' to '%v'\n", name, value)
 		dom.Set(name, value)
@@ -1666,7 +1681,25 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 		case "class":
 			dom.Call("setAttribute", "class", value)
 		case "style":
-			dom.Set("style", value)
+			// Handle string vs map[string]string styles
+			if styleStr, ok := value.(string); ok {
+				dom.Set("style", styleStr)
+			} else if styleMap, ok := value.(map[string]string); ok {
+				styleObj := dom.Get("style")
+				// Remove styles that no longer exist
+				if oldStyleMap, okOld := oldProps["style"].(map[string]string); okOld {
+					for k := range oldStyleMap {
+						if _, exists := styleMap[k]; !exists {
+							styleObj.Call("removeProperty", k)
+						}
+					}
+				}
+				for k, val := range styleMap {
+					styleObj.Call("setProperty", k, val)
+				}
+			} else {
+				fmt.Printf("🚨 [TYPE_ASSERTION_ERROR] updateDom: style must be string or map[string]string, got %T\n", value)
+			}
 		case "id":
 			dom.Set("id", value)
 		case "value":
