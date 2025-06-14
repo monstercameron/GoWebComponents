@@ -105,9 +105,21 @@ func cleanupCallbacks() {
 		delete(callbackRegistry, id)
 	}
 
-	// Clear slices
-	eventCallbacks = eventCallbacks[:0]
-	rafCallbacks = rafCallbacks[:0]
+	// Clear or shrink slices to free backing arrays if they grew too big
+	const shrinkCap = 128
+	const defaultCap = 32
+
+	if cap(eventCallbacks) > shrinkCap {
+		eventCallbacks = make([]js.Func, 0, defaultCap)
+	} else {
+		eventCallbacks = eventCallbacks[:0]
+	}
+
+	if cap(rafCallbacks) > shrinkCap {
+		rafCallbacks = make([]js.Func, 0, defaultCap)
+	} else {
+		rafCallbacks = rafCallbacks[:0]
+	}
 
 	fmt.Printf("🧹 [MEMORY_CLEANUP] Callback cleanup completed\n")
 }
