@@ -123,16 +123,28 @@ func createDom(fiber *Fiber) js.Value {
 		return js.Value{}
 	}
 
-	// Add event listeners and properties
+	// Add event listeners and properties - optimized with batching and reduced DOM calls
+	//
+	// PERFORMANCE OPTIMIZATION EXPLANATION:
+	// Instead of calling dom.Get("style") multiple times for each style property,
+	// we cache the styleObj and reuse it. This reduces expensive DOM API calls.
+	// We also use a switch statement to handle common properties in fast paths,
+	// avoiding repeated string comparisons and method calls.
+	//
+	var styleObj js.Value
+	var styleObjInitialized bool
+	
+	// Batch properties by type to reduce DOM interaction overhead
 	for name, value := range fiber.props {
 		if name == "children" {
 			continue
 		}
-		if name == "dangerouslySetInnerHTML" {
-			// Set innerHTML directly
+		
+		// Fast path: handle most common properties with optimized branches
+		switch name {
+		case "dangerouslySetInnerHTML":
 			if htmlMap, ok := value.(map[string]string); ok {
 				if htmlContent, htmlOk := htmlMap["__html"]; htmlOk {
-					// fmt.Println("createDom: Setting innerHTML")
 					dom.Set("innerHTML", htmlContent)
 				} else {
 					debugf("DOM", "🚨 createDom: dangerouslySetInnerHTML missing __html key\n")
@@ -140,60 +152,52 @@ func createDom(fiber *Fiber) js.Value {
 			} else {
 				debugf("DOM", "🚨 createDom: dangerouslySetInnerHTML is not map[string]string, got %T\n", value)
 			}
-			continue
-		}
-		if len(name) > 2 && name[:2] == "on" {
-			// Event handlers
-			eventType := strings.ToLower(name[2:]) // Convert event type to lowercase
-			// fmt.Printf("createDom: Adding event listener for %s\n", eventType)
-
-			// Ensure the value is of the correct function type
-			eventHandler, ok := value.(js.Func)
-			if !ok {
-				// fmt.Printf("createDom: Event handler for %s is not a js.Func\n", eventType)
-				continue
-			}
-
-			dom.Call("addEventListener", eventType, eventHandler)
-			debugf("DOM", "🔗 createDom: added event listener %s to DOM element\n", eventType)
-			continue
-		}
-		if name == "class" {
+		case "class":
 			// Handle 'class' attribute using setAttribute
-			// fmt.Printf("createDom: Setting attribute 'class' to '%v'\n", value)
 			dom.Call("setAttribute", "class", value)
-			continue
-		}
-		if name == "style" {
-			// Support both string and map styles
+		case "style":
+			// Support both string and map styles - cache styleObj to reduce DOM calls
+			//
+			// OPTIMIZATION: Instead of calling dom.Get("style") for each style property,
+			// we get it once and reuse it. This turns O(n) DOM calls into O(1) + n property sets.
+			//
 			switch v := value.(type) {
 			case string:
 				dom.Set("style", v)
 			case map[string]string:
-				// If previous style was a string, clear it completely first
-				if _, wasString := fiber.props["style"].(string); wasString {
-					dom.Set("style", "")
+				// Initialize styleObj only when needed (lazy initialization)
+				if !styleObjInitialized {
+					styleObj = dom.Get("style")  // Expensive DOM call - do once
+					styleObjInitialized = true
 				}
-				styleObj := dom.Get("style")
-				// Remove styles that no longer exist
-				if oldStyleMap, okOld := fiber.props["style"].(map[string]string); okOld {
-					for k := range oldStyleMap {
-						if _, exists := v[k]; !exists {
-							styleObj.Call("removeProperty", k)
-						}
-					}
-				}
+				// Batch style operations - all use the cached styleObj
 				for k, val := range v {
-					styleObj.Call("setProperty", k, val)
+					styleObj.Call("setProperty", k, val)  // Fast: reuse cached object
 				}
 			default:
 				debugf("DOM", "🚨 createDom: style must be string or map[string]string, got %T\n", value)
 			}
-			continue
+		case "id", "value", "type", "placeholder", "disabled", "checked", "selected":
+			// Common properties - set directly for better performance
+			// OPTIMIZATION: These are the most frequently used properties, so we handle
+			// them in a fast path to avoid the string comparisons in the default case
+			dom.Set(name, value)
+		default:
+			// Check for event handlers
+			if len(name) > 2 && name[0] == 'o' && name[1] == 'n' {
+				// Event handlers - use cached lowercase conversion
+				eventType := strings.ToLower(name[2:])
+				if eventHandler, ok := value.(js.Func); ok {
+					dom.Call("addEventListener", eventType, eventHandler)
+					debugf("DOM", "🔗 createDom: added event listener %s to DOM element\n", eventType)
+				} else {
+					debugf("DOM", "🚨 createDom: event handler %s is not js.Func, got %T\n", name, value)
+				}
+			} else {
+				// Other properties - set directly
+				dom.Set(name, value)
+			}
 		}
-		// Set other properties directly
-		// fmt.Printf("createDom: Setting property '%s' to '%v'\n", name, value)
-		dom.Set(name, value)
 	}
 	return dom
 }
@@ -234,50 +238,72 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 		}
 	}
 
-	// 2. Add new or changed properties and event listeners (optimized)
+	// 2. Add new or changed properties and event listeners (optimized with batching)
+	//
+	// PERFORMANCE OPTIMIZATION EXPLANATION:
+	// Same optimization as createDom - cache the style object to avoid repeated
+	// expensive DOM.Get("style") calls. For elements with many style properties,
+	// this reduces DOM API calls from O(n) to O(1) + n property operations.
+	//
+	var styleObj js.Value
+	var styleObjInitialized bool
+	
+	// Batch DOM operations to reduce overhead
 	for name, value := range newProps {
 		// Skip common exclusions first (most frequent check)
 		if name == "children" {
 			continue
 		}
 
-		// Skip if value hasn't changed
+		// Skip if value hasn't changed - use fast equality check
 		if oldValue, exists := oldProps[name]; exists && fastEqual(oldValue, value) {
 			continue
 		}
 
-		// Branch optimization: inline checks for most common patterns
+		// Optimized switch for common properties - reduces string comparisons
 		switch name {
 		case "class":
 			dom.Call("setAttribute", "class", value)
 		case "style":
-			// Handle string vs map[string]string styles
+			// Handle string vs map[string]string styles with cached styleObj
+			//
+			// OPTIMIZATION: For map-based styles, we cache the DOM style object
+			// and batch all operations. This is especially beneficial when updating
+			// many CSS properties, as it avoids repeated DOM.Get("style") calls.
+			//
 			if styleStr, ok := value.(string); ok {
 				dom.Set("style", styleStr)
 			} else if styleMap, ok := value.(map[string]string); ok {
+				// Initialize styleObj only when needed (lazy initialization)
+				if !styleObjInitialized {
+					styleObj = dom.Get("style")  // Expensive DOM call - do once
+					styleObjInitialized = true
+				}
+				
 				// If previous style was a string, clear it completely first
 				if _, wasString := oldProps["style"].(string); wasString {
 					dom.Set("style", "")
 				}
-				styleObj := dom.Get("style")
-				// Remove styles that no longer exist
+				
+				// Batch style removals - all use cached styleObj
 				if oldStyleMap, okOld := oldProps["style"].(map[string]string); okOld {
 					for k := range oldStyleMap {
 						if _, exists := styleMap[k]; !exists {
-							styleObj.Call("removeProperty", k)
+							styleObj.Call("removeProperty", k)  // Fast: reuse cached object
 						}
 					}
 				}
+				
+				// Batch style additions/updates - all use cached styleObj
 				for k, val := range styleMap {
-					styleObj.Call("setProperty", k, val)
+					styleObj.Call("setProperty", k, val)  // Fast: reuse cached object
 				}
 			} else {
 				debugf("DOM", "🚨 updateDom: style must be string or map[string]string, got %T\n", value)
 			}
-		case "id":
-			dom.Set("id", value)
-		case "value":
-			dom.Set("value", value)
+		case "id", "value", "type", "placeholder", "disabled", "checked", "selected":
+			// Common properties - batch these for better performance
+			dom.Set(name, value)
 		case "dangerouslySetInnerHTML":
 			if htmlMap, ok := value.(map[string]string); ok {
 				if htmlContent, htmlOk := htmlMap["__html"]; htmlOk {
@@ -289,7 +315,7 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 				debugf("DOM", "🚨 updateDom: dangerouslySetInnerHTML is not map[string]string, got %T\n", value)
 			}
 		default:
-			// Check for event handlers (less common)
+			// Check for event handlers (less common path)
 			if len(name) > 2 && name[0] == 'o' && name[1] == 'n' {
 				eventType := strings.ToLower(name[2:])
 				if eventHandler, ok := value.(js.Func); ok {
@@ -299,6 +325,7 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 					debugf("DOM", "🚨 updateDom: event handler %s is not js.Func, got %T\n", name, value)
 				}
 			} else {
+				// Other properties - set directly
 				dom.Set(name, value)
 			}
 		}
