@@ -443,6 +443,44 @@ func isDebugBuild() bool {
 	return true // Default to debug enabled for development
 }
 
+// Memory stats collection optimization
+var (
+	memStatsCounter int64 // Counter for sampling memory stats collection
+	memStatsSampleRate int64 = 100 // Collect stats every N calls (configurable)
+)
+
+// shouldCollectMemStats determines if memory stats should be collected
+// Uses sampling to reduce the performance overhead of runtime.ReadMemStats
+func shouldCollectMemStats() bool {
+	// Compile-time optimization: disable in production builds
+	if !isDebugBuild() {
+		return false
+	}
+	
+	// Runtime optimization: only collect stats occasionally
+	// runtime.ReadMemStats is expensive, so we sample it
+	counter := atomic.AddInt64(&memStatsCounter, 1)
+	sampleRate := atomic.LoadInt64(&memStatsSampleRate)
+	
+	// Collect stats every N calls based on sample rate
+	return counter%sampleRate == 0
+}
+
+// SetMemStatsSampleRate configures how often memory stats are collected
+// Higher values = less frequent collection = better performance
+// Lower values = more frequent collection = more detailed monitoring
+func SetMemStatsSampleRate(rate int64) {
+	if rate <= 0 {
+		rate = 1 // Minimum sample rate
+	}
+	atomic.StoreInt64(&memStatsSampleRate, rate)
+}
+
+// GetMemStatsSampleRate returns the current memory stats sample rate
+func GetMemStatsSampleRate() int64 {
+	return atomic.LoadInt64(&memStatsSampleRate)
+}
+
 // EnableAllDebug enables all debug logging globally
 func EnableAllDebug() {
 	SetDebug(true)

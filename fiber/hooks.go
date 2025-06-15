@@ -40,11 +40,14 @@ func GoUseState[T any](initialValue T) (func() T, func(T)) {
 		// Continue execution but log the error - don't panic in production
 	}
 
-	// Memory diagnostics
-	var memStats runtime.MemStats
-	runtime.ReadMemStats(&memStats)
-	debugf("HOOKS", "💾 GoUseState: heap objects: %d, allocs: %d, total alloc: %d KB\n",
-		memStats.HeapObjects, memStats.Mallocs, memStats.TotalAlloc/1024)
+	// Memory diagnostics - optimized with sampling to reduce overhead
+	// Only collect memory stats occasionally to avoid performance impact
+	if shouldCollectMemStats() {
+		var memStats runtime.MemStats
+		runtime.ReadMemStats(&memStats)
+		debugf("HOOKS", "💾 GoUseState: heap objects: %d, allocs: %d, total alloc: %d KB\n",
+			memStats.HeapObjects, memStats.Mallocs, memStats.TotalAlloc/1024)
+	}
 
 	if len(currentFiber.hooks.state) > position {
 		// Existing state

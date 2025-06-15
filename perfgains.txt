@@ -43,10 +43,7 @@ Analysis: Comprehensive performance review across entire codebase
 
 
 
-17. **Memory Stats Collection** [fiber/hooks.go:35-40]
-     - Issue: runtime.ReadMemStats() in debug mode
-     - Fix: Conditional compilation, sampling instead of every call
-     - Impact: 3-10% reduction in debug overhead
+
 
 18. **Slice Bounds Checking** [fiber/hooks.go:75-85]
      - Issue: Manual bounds checks before slice access
