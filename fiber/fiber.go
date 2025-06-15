@@ -80,7 +80,20 @@ func scheduleUpdateAtRoot() {
 	wipRoot.sibling = nil
 
 	nextUnitOfWork = wipRoot
-	deletions = deletions[:0] // Reuse slice
+	
+	// Smart slice management: shrink backing array if it grew too large
+	const maxDeletionsCapacity = 64 // Reasonable upper bound for most apps
+	const defaultDeletionsCapacity = 16 // Default capacity for new slice
+	
+	if cap(deletions) > maxDeletionsCapacity {
+		// Backing array is too large, create new slice with reasonable capacity
+		oldCapacity := cap(deletions)
+		deletions = make([]*Fiber, 0, defaultDeletionsCapacity)
+		debugf("FIBER", "🧹 scheduleUpdateAtRoot: shrunk deletions slice capacity %d→%d\n", oldCapacity, defaultDeletionsCapacity)
+	} else {
+		// Reuse existing slice
+		deletions = deletions[:0]
+	}
 
 	debugf("FIBER", "🚀 scheduleUpdateAtRoot: requesting idle callback for workLoop\n")
 	requestIdleCallback(workLoop)
