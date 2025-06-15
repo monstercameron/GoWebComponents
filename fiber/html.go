@@ -30,6 +30,37 @@ var elementFactory = &ElementFactory{
 	h3Type:     "h3",
 }
 
+// Pre-allocated common prop maps to avoid repeated allocations
+// These are the most frequently used prop patterns in web applications
+var (
+	// Empty props - most common case
+	emptyProps = map[string]interface{}{}
+	
+	// Common CSS class patterns - pre-allocated to avoid map creation overhead
+	commonClassProps = map[string]map[string]interface{}{
+		"container":    {"class": "container"},
+		"btn":          {"class": "btn"},
+		"btn-primary":  {"class": "btn-primary"},
+		"form-control": {"class": "form-control"},
+		"nav":          {"class": "nav"},
+		"header":       {"class": "header"},
+		"footer":       {"class": "footer"},
+		"content":      {"class": "content"},
+	}
+	
+	// Common input type patterns
+	commonInputProps = map[string]map[string]interface{}{
+		"text":     {"type": "text"},
+		"password": {"type": "password"},
+		"email":    {"type": "email"},
+		"number":   {"type": "number"},
+		"submit":   {"type": "submit"},
+		"button":   {"type": "button"},
+		"checkbox": {"type": "checkbox"},
+		"radio":    {"type": "radio"},
+	}
+)
+
 // Optimized inline functions for most common elements
 // These avoid the function call overhead of createElement for hot paths
 
@@ -485,19 +516,57 @@ func NilProps() map[string]interface{} {
 	return nil
 }
 
-// Helper function for class-only props (very common case)
+// Optimized helper function for class-only props (very common case)
+// Uses pre-allocated maps for common CSS classes to avoid allocations
 func ClassProps(className string) map[string]interface{} {
+	// Fast path: check if we have a pre-allocated map for this class
+	if preallocated, exists := commonClassProps[className]; exists {
+		return preallocated
+	}
+	// Fallback: create new map for uncommon classes
 	return map[string]interface{}{"class": className}
 }
 
-// Helper function for id-only props
+// Helper function for id-only props - optimized with capacity hint
 func IdProps(id string) map[string]interface{} {
-	return map[string]interface{}{"id": id}
+	// Pre-size map to avoid growth during insertion
+	props := make(map[string]interface{}, 1)
+	props["id"] = id
+	return props
 }
 
-// Helper function for href-only props (links)
+// Helper function for href-only props (links) - optimized with capacity hint
 func HrefProps(href string) map[string]interface{} {
-	return map[string]interface{}{"href": href}
+	// Pre-size map to avoid growth during insertion
+	props := make(map[string]interface{}, 1)
+	props["href"] = href
+	return props
+}
+
+// New optimized helper for common input types
+func InputTypeProps(inputType string) map[string]interface{} {
+	// Fast path: check if we have a pre-allocated map for this input type
+	if preallocated, exists := commonInputProps[inputType]; exists {
+		return preallocated
+	}
+	// Fallback: create new map for uncommon input types
+	props := make(map[string]interface{}, 1)
+	props["type"] = inputType
+	return props
+}
+
+// Helper for combined class and id props (common pattern)
+func ClassIdProps(className, id string) map[string]interface{} {
+	// Pre-size map for exactly 2 properties
+	props := make(map[string]interface{}, 2)
+	props["class"] = className
+	props["id"] = id
+	return props
+}
+
+// Helper for empty props (avoids nil checks in some cases)
+func EmptyProps() map[string]interface{} {
+	return emptyProps
 }
 
 // Helper function to create elements with component references as children

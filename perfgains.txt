@@ -32,10 +32,7 @@ Analysis: Comprehensive performance review across entire codebase
 
 
 
-11. **Props Map Allocation** [fiber/html.go:446-466]
-     - Issue: New map created for simple prop patterns
-     - Fix: Pre-allocated common prop maps (class, id, href)
-     - Impact: 10-20% faster simple element creation
+
 
 12. **Type Assertion Chains** [fiber/dom.go:25-50]
     - Issue: Multiple type assertions for component functions
