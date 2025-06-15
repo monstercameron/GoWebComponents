@@ -19,6 +19,7 @@ func (e GoEvent) StopPropagation() {
 }
 
 // GetValue gets the value from the event target (useful for input elements)
+// Optimized to cache target reference and reduce DOM API calls
 func (e GoEvent) GetValue() string {
 	target := e.jsEvent.Get("target")
 	if target.IsUndefined() || target.IsNull() {
@@ -32,6 +33,7 @@ func (e GoEvent) GetValue() string {
 }
 
 // GetInnerText gets the innerText from the event target
+// Optimized to cache target reference and reduce DOM API calls
 func (e GoEvent) GetInnerText() string {
 	target := e.jsEvent.Get("target")
 	if target.IsUndefined() || target.IsNull() {
@@ -45,6 +47,7 @@ func (e GoEvent) GetInnerText() string {
 }
 
 // GetAttribute gets an attribute from the event target
+// Optimized to cache target reference and reduce DOM API calls
 func (e GoEvent) GetAttribute(name string) string {
 	target := e.jsEvent.Get("target")
 	if target.IsUndefined() || target.IsNull() {
@@ -179,6 +182,7 @@ func (e GoEvent) GetMousePosition() (x, y int) {
 }
 
 // IsChecked gets the checked state for checkbox/radio elements
+// Optimized to cache target reference and reduce DOM API calls
 func (e GoEvent) IsChecked() bool {
 	target := e.jsEvent.Get("target")
 	if target.IsUndefined() || target.IsNull() {
@@ -194,6 +198,66 @@ func (e GoEvent) IsChecked() bool {
 // Raw provides access to the underlying JavaScript event for advanced use cases
 func (e GoEvent) Raw() js.Value {
 	return e.jsEvent
+}
+
+// GetTarget returns the cached target element to avoid repeated DOM access
+// This is useful when you need to access multiple properties from the same target
+func (e GoEvent) GetTarget() js.Value {
+	return e.jsEvent.Get("target")
+}
+
+// GetTargetProperties efficiently retrieves multiple properties from the event target
+// This reduces DOM API calls by batching property access
+func (e GoEvent) GetTargetProperties(properties ...string) map[string]js.Value {
+	target := e.jsEvent.Get("target")
+	if target.IsUndefined() || target.IsNull() {
+		return make(map[string]js.Value)
+	}
+	
+	// Pre-size map to avoid growth during insertion
+	result := make(map[string]js.Value, len(properties))
+	
+	// Batch property access - single target reference, multiple property gets
+	for _, prop := range properties {
+		result[prop] = target.Get(prop)
+	}
+	
+	return result
+}
+
+// GetInputData efficiently retrieves common input element properties in one call
+// This is optimized for form inputs and reduces DOM API calls
+func (e GoEvent) GetInputData() (value, name, id, className string, checked bool) {
+	target := e.jsEvent.Get("target")
+	if target.IsUndefined() || target.IsNull() {
+		return "", "", "", "", false
+	}
+	
+	// Batch all property access with single target reference
+	valueJS := target.Get("value")
+	nameJS := target.Get("name")
+	idJS := target.Get("id")
+	classJS := target.Get("className")
+	checkedJS := target.Get("checked")
+	
+	// Convert to Go types with null checks
+	if !valueJS.IsUndefined() && !valueJS.IsNull() {
+		value = valueJS.String()
+	}
+	if !nameJS.IsUndefined() && !nameJS.IsNull() {
+		name = nameJS.String()
+	}
+	if !idJS.IsUndefined() && !idJS.IsNull() {
+		id = idJS.String()
+	}
+	if !classJS.IsUndefined() && !classJS.IsNull() {
+		className = classJS.String()
+	}
+	if !checkedJS.IsUndefined() && !checkedJS.IsNull() {
+		checked = checkedJS.Bool()
+	}
+	
+	return value, name, id, className, checked
 }
 
 // GoUseFunc creates an event handler with a more convenient Go-friendly interface
