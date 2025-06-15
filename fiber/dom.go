@@ -201,8 +201,12 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 			if newValue, exists := newProps[name]; !exists || !fastEqual(oldValue, newValue) {
 				eventType := strings.ToLower(name[2:])
 				if oldHandler, ok := oldValue.(js.Func); ok {
-					dom.Call("removeEventListener", eventType, oldHandler)
-					debugf("DOM", "🧹 updateDom: removed old event listener %s from DOM element\n", eventType)
+					// Use defer for cleaner resource management
+					func() {
+						defer oldHandler.Release() // CRITICAL: Always release js.Func to prevent memory leak
+						dom.Call("removeEventListener", eventType, oldHandler)
+						debugf("DOM", "🧹 updateDom: removed and released old event listener %s from DOM element\n", eventType)
+					}()
 				} else {
 					debugf("DOM", "🚨 updateDom: old event handler %s is not js.Func, got %T\n", name, oldValue)
 				}
