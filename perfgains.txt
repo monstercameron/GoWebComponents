@@ -6,10 +6,7 @@ Analysis: Comprehensive performance review across entire codebase
 🚀 HIGH IMPACT OPTIMIZATIONS
 ============================
 
-1. **Effect Collection Recursion** [fiber/commit.go:85-105]
-   - Issue: Recursive tree traversal for effect collection
-   - Fix: Iterative traversal with stack, pre-allocate effect arrays
-   - Impact: 20-30% faster effect execution, reduced stack usage
+
 
 🔧 MEDIUM IMPACT OPTIMIZATIONS
 ==============================

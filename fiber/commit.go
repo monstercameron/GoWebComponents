@@ -95,25 +95,43 @@ func executeEffects() {
 	defer returnEffectFibersSlice(effectFibers)
 	
 	effectCount := 0
-	var collectEffects func(fiber *Fiber)
-	collectEffects = func(fiber *Fiber) {
+	
+	// Iterative traversal to avoid recursion overhead and stack growth
+	// Use a simple slice as stack for depth-first traversal
+	stack := make([]*Fiber, 0, 32) // Pre-allocate for typical tree depth
+	if currentRoot.child != nil {
+		stack = append(stack, currentRoot.child)
+	}
+
+	// Collect fibers with effects starting from the root
+	debugf("COMMIT", "🔍 executeEffects: collecting effects from fiber tree (iterative)\n")
+	collectStartTime := time.Now()
+	
+	for len(stack) > 0 {
+		// Pop from stack (LIFO for depth-first)
+		fiber := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		
 		if fiber == nil {
-			return
+			continue
 		}
+		
 		if len(fiber.effects) > 0 {
 			debugf("COMMIT", "📋 executeEffects: found %d effects in fiber %p (type: %v)\n",
 				len(fiber.effects), fiber, fiber.typeOf)
 			*effectFibers = append(*effectFibers, fiber)
 			effectCount += len(fiber.effects)
 		}
-		collectEffects(fiber.child)
-		collectEffects(fiber.sibling)
+		
+		// Push children to stack (sibling first for correct order)
+		if fiber.sibling != nil {
+			stack = append(stack, fiber.sibling)
+		}
+		if fiber.child != nil {
+			stack = append(stack, fiber.child)
+		}
 	}
-
-	// Collect fibers with effects starting from the root
-	debugf("COMMIT", "🔍 executeEffects: collecting effects from fiber tree\n")
-	collectStartTime := time.Now()
-	collectEffects(currentRoot.child)
+	
 	collectDuration := time.Since(collectStartTime)
 
 	debugf("COMMIT", "📊 executeEffects: collected %d effects from %d fibers in %v\n",
