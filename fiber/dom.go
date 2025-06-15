@@ -5,6 +5,7 @@ package fiber
 
 import (
 	"strings"
+	"sync/atomic"
 	"syscall/js"
 )
 
@@ -19,6 +20,9 @@ func createElement(typ interface{}, props map[string]interface{}, children ...in
 		elem = &Element{
 			Props: make(map[string]interface{}),
 		}
+	} else {
+		// Decrement pool size counter when retrieving from pool
+		atomic.AddInt32(&poolSizes.element, -1)
 	}
 
 	// Reset the element

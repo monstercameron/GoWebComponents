@@ -5,6 +5,7 @@ package fiber
 
 import (
 	"runtime"
+	"sync/atomic"
 	"syscall/js"
 	"time"
 )
@@ -320,8 +321,17 @@ func commitDeletion(fiber *Fiber, domParent js.Value) {
 
 	// --- ADDED: Reset and return fiber to pool for memory management ---
 	resetFiber(fiber)
-	fiberPool.Put(fiber)
-	debugf("COMMIT", "♻️ commitDeletion: fiber reset and returned to pool %p\n", fiber)
+	
+	// Enforce pool size limits for fiber pool
+	currentSize := atomic.LoadInt32(&poolSizes.fiber)
+	if currentSize < int32(maxPoolSize) {
+		atomic.AddInt32(&poolSizes.fiber, 1)
+		fiberPool.Put(fiber)
+		debugf("COMMIT", "♻️ commitDeletion: fiber reset and returned to pool %p (pool size: %d/%d)\n", fiber, currentSize+1, maxPoolSize)
+	} else {
+		debugf("COMMIT", "🚨 commitDeletion: fiber pool size limit reached (%d), discarding fiber to prevent overflow\n", maxPoolSize)
+		// Let GC handle the discarded fiber
+	}
 
 	debugf("COMMIT", "✅ commitDeletion: completed cleanup for fiber %p\n", fiber)
 }

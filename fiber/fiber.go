@@ -8,6 +8,7 @@ package fiber
 import (
 	"reflect"
 	"runtime"
+	"sync/atomic"
 	"syscall/js"
 	"time"
 )
@@ -55,6 +56,8 @@ func scheduleUpdateAtRoot() {
 		debugf("FIBER", "🔧 scheduleUpdateAtRoot: getting fiber from pool\n")
 		poolFiber := fiberPool.Get()
 		if fiber, ok := poolFiber.(*Fiber); ok {
+			// Decrement pool size counter when retrieving from pool
+			atomic.AddInt32(&poolSizes.fiber, -1)
 			wipRoot = fiber
 			debugf("FIBER", "♻️ scheduleUpdateAtRoot: reused fiber from pool %p\n", wipRoot)
 		} else {

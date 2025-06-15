@@ -6,6 +6,7 @@ package fiber
 import (
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"syscall/js"
 )
 
@@ -60,6 +61,13 @@ var (
 			return &slice
 		},
 	}
+
+	// Fetch result channel pool for reducing allocations during fetch operations
+	fetchChannelPool = sync.Pool{
+		New: func() interface{} {
+			return make(chan FetchResult, 1) // Buffered channel to avoid blocking
+		},
+	}
 )
 
 // Global variables for memory management
@@ -69,6 +77,16 @@ var (
 	maxCallbacks     int                = 1000            // Maximum callbacks before cleanup
 	maxPoolSize      int                = 100             // Maximum pool size before cleanup
 	emptyChildren                       = []interface{}{} // Shared empty slice to avoid allocations
+	
+	// Pool size tracking for enforcement
+	poolSizes = struct {
+		fiber        int32
+		hooks        int32
+		element      int32
+		props        int32
+		children     int32
+		effectFibers int32
+	}{}
 )
 
 // Initialize memory management
@@ -156,11 +174,25 @@ func ConfigureMemoryLimits(maxCalls, maxPool int) {
 		oldMaxCallbacks, maxCallbacks, oldMaxPoolSize, maxPoolSize)
 }
 
+// GetPoolSizes returns current pool sizes for monitoring
+func GetPoolSizes() map[string]int32 {
+	return map[string]int32{
+		"fiber":        atomic.LoadInt32(&poolSizes.fiber),
+		"hooks":        atomic.LoadInt32(&poolSizes.hooks),
+		"element":      atomic.LoadInt32(&poolSizes.element),
+		"props":        atomic.LoadInt32(&poolSizes.props),
+		"children":     atomic.LoadInt32(&poolSizes.children),
+		"effectFibers": atomic.LoadInt32(&poolSizes.effectFibers),
+	}
+}
+
 // getHooksFromPool retrieves a Hooks instance from the pool or creates a new one
 func getHooksFromPool() *Hooks {
 	debugf("MEMORY", "♻️ getHooksFromPool: retrieving hooks from pool\n")
 	poolHooks := hooksPool.Get()
 	if hooks, ok := poolHooks.(*Hooks); ok {
+		// Decrement pool size counter when retrieving from pool
+		atomic.AddInt32(&poolSizes.hooks, -1)
 		debugf("MEMORY", "✅ getHooksFromPool: reusing hooks %p from pool\n", hooks)
 		// Reset the hooks for reuse with smart slice management
 		debugf("MEMORY", "🔄 getHooksFromPool: resetting hooks - state: %d, deps: %d, memos: %d\n",
@@ -219,14 +251,22 @@ func getHooksFromPool() *Hooks {
 	return newHooks
 }
 
-// releaseHooks returns hooks to pool
+// releaseHooks returns hooks to pool with size enforcement
 func releaseHooks(hooks *Hooks) {
 	if hooks != nil {
 		debugf("MEMORY", "♻️ releaseHooks: returning hooks %p to pool (state: %d, deps: %d, memos: %d)\n",
 			hooks, len(hooks.state), len(hooks.deps), len(hooks.memos))
-		// Don't clear slices, just reset for reuse
-		hooksPool.Put(hooks)
-		debugf("MEMORY", "✅ releaseHooks: hooks returned to pool\n")
+		
+		// Enforce pool size limits
+		currentSize := atomic.LoadInt32(&poolSizes.hooks)
+		if currentSize < int32(maxPoolSize) {
+			atomic.AddInt32(&poolSizes.hooks, 1)
+			hooksPool.Put(hooks)
+			debugf("MEMORY", "✅ releaseHooks: hooks returned to pool (pool size: %d/%d)\n", currentSize+1, maxPoolSize)
+		} else {
+			debugf("MEMORY", "🚨 releaseHooks: pool size limit reached (%d), discarding hooks to prevent overflow\n", maxPoolSize)
+			// Let GC handle the discarded hooks
+		}
 	} else {
 		debugf("MEMORY", "🚨 releaseHooks: attempted to release nil hooks\n")
 	}
@@ -256,7 +296,7 @@ func resetFiber(f *Fiber) {
 	debugf("MEMORY", "✅ resetFiber: fiber reset complete\n")
 }
 
-// releaseElement releases element back to pool with optimized cleanup
+// releaseElement releases element back to pool with optimized cleanup and size enforcement
 func releaseElement(elem *Element) {
 	if elem != nil {
 		debugf("MEMORY", "♻️ releaseElement: returning element %p to pool (type: %v, props: %d, children: %d)\n",
@@ -274,8 +314,16 @@ func releaseElement(elem *Element) {
 		}
 		debugf("MEMORY", "🧹 releaseElement: cleared %d props from element\n", propsCleared)
 
-		elementPool.Put(elem)
-		debugf("MEMORY", "✅ releaseElement: element returned to pool\n")
+		// Enforce pool size limits
+		currentSize := atomic.LoadInt32(&poolSizes.element)
+		if currentSize < int32(maxPoolSize) {
+			atomic.AddInt32(&poolSizes.element, 1)
+			elementPool.Put(elem)
+			debugf("MEMORY", "✅ releaseElement: element returned to pool (pool size: %d/%d)\n", currentSize+1, maxPoolSize)
+		} else {
+			debugf("MEMORY", "🚨 releaseElement: pool size limit reached (%d), discarding element to prevent overflow\n", maxPoolSize)
+			// Let GC handle the discarded element
+		}
 	} else {
 		debugf("MEMORY", "🚨 releaseElement: attempted to release nil element\n")
 	}
@@ -286,6 +334,8 @@ func getEffectFibersSlice() *[]*Fiber {
 	debugf("MEMORY", "♻️ getEffectFibersSlice: retrieving slice from pool\n")
 	poolSlice := effectFibersPool.Get()
 	if slice, ok := poolSlice.(*[]*Fiber); ok {
+		// Decrement pool size counter when retrieving from pool
+		atomic.AddInt32(&poolSizes.effectFibers, -1)
 		// Reset slice length but keep capacity
 		*slice = (*slice)[:0]
 		debugf("MEMORY", "✅ getEffectFibersSlice: reused slice with capacity %d\n", cap(*slice))
@@ -297,7 +347,7 @@ func getEffectFibersSlice() *[]*Fiber {
 	return &newSlice
 }
 
-// returnEffectFibersSlice returns a slice to the pool with smart capacity management
+// returnEffectFibersSlice returns a slice to the pool with smart capacity management and size enforcement
 func returnEffectFibersSlice(slice *[]*Fiber) {
 	if slice == nil {
 		debugf("MEMORY", "🚨 returnEffectFibersSlice: attempted to return nil slice\n")
@@ -315,8 +365,16 @@ func returnEffectFibersSlice(slice *[]*Fiber) {
 		return
 	}
 
-	// Clear the slice and return to pool
-	*slice = (*slice)[:0]
-	effectFibersPool.Put(slice)
-	debugf("MEMORY", "✅ returnEffectFibersSlice: slice returned to pool\n")
+	// Enforce pool size limits
+	currentSize := atomic.LoadInt32(&poolSizes.effectFibers)
+	if currentSize < int32(maxPoolSize) {
+		atomic.AddInt32(&poolSizes.effectFibers, 1)
+		// Clear the slice and return to pool
+		*slice = (*slice)[:0]
+		effectFibersPool.Put(slice)
+		debugf("MEMORY", "✅ returnEffectFibersSlice: slice returned to pool (pool size: %d/%d)\n", currentSize+1, maxPoolSize)
+	} else {
+		debugf("MEMORY", "🚨 returnEffectFibersSlice: pool size limit reached (%d), discarding slice to prevent overflow\n", maxPoolSize)
+		// Let GC handle the discarded slice
+	}
 }
