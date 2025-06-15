@@ -159,21 +159,28 @@ func scheduleUpdateAtRoot() {
 	updateScheduled = true
 	debugf("FIBER", "✅ scheduleUpdateAtRoot: update scheduled\n")
 
-	// Reuse fiber instead of allocating new one
+	// Reuse fiber instead of allocating new one with utilization tracking
 	if wipRoot == nil {
 		debugf("FIBER", "🔧 scheduleUpdateAtRoot: getting fiber from pool\n")
+		atomic.AddInt64(&poolUtilization.totalAllocations, 1)
+		
 		poolFiber := fiberPool.Get()
 		if fiber, ok := poolFiber.(*Fiber); ok {
-			// Decrement pool size counter when retrieving from pool
+			// Pool hit - track metrics
+			atomic.AddInt64(&poolUtilization.fiberHits, 1)
+			atomic.AddInt64(&poolUtilization.totalPoolHits, 1)
 			atomic.AddInt32(&poolSizes.fiber, -1)
 			wipRoot = fiber
-			debugf("FIBER", "♻️ scheduleUpdateAtRoot: reused fiber from pool %p\n", wipRoot)
+			debugf("FIBER", "♻️ scheduleUpdateAtRoot: reused fiber from pool %p (hit)\n", wipRoot)
 		} else {
-			// This should never happen if pool is properly initialized, but handle gracefully
-			debugf("FIBER", "🚨 scheduleUpdateAtRoot: fiberPool returned unexpected type %T, creating new Fiber\n", poolFiber)
+			// Pool miss - track metrics and create new
+			atomic.AddInt64(&poolUtilization.fiberMisses, 1)
+			debugf("FIBER", "🚨 scheduleUpdateAtRoot: fiberPool returned unexpected type %T, creating new Fiber (miss)\n", poolFiber)
 			wipRoot = &Fiber{
 				props: make(map[string]interface{}),
 			}
+			// Trigger pool optimization periodically
+			optimizePoolSizes()
 		}
 	}
 

@@ -9,20 +9,29 @@ import (
 	"syscall/js"
 )
 
-// createElement constructs an Element with optimized allocations
+// createElement constructs an Element with optimized allocations and utilization tracking
 func createElement(typ interface{}, props map[string]interface{}, children ...interface{}) *Element {
+	// Track allocation metrics
+	atomic.AddInt64(&poolUtilization.totalAllocations, 1)
+	
 	// Get element from pool with safe type assertion
 	poolElem := elementPool.Get()
 	elem, ok := poolElem.(*Element)
 	if !ok {
-		// This should never happen if pool is properly initialized, but handle gracefully
-		debugf("DOM", "🚨 createElement: elementPool returned unexpected type %T, creating new Element\n", poolElem)
+		// Pool miss - track metrics and create new
+		atomic.AddInt64(&poolUtilization.elementMisses, 1)
+		debugf("DOM", "🚨 createElement: elementPool returned unexpected type %T, creating new Element (miss)\n", poolElem)
 		elem = &Element{
 			Props: make(map[string]interface{}),
 		}
+		// Trigger pool optimization periodically
+		optimizePoolSizes()
 	} else {
-		// Decrement pool size counter when retrieving from pool
+		// Pool hit - track metrics
+		atomic.AddInt64(&poolUtilization.elementHits, 1)
+		atomic.AddInt64(&poolUtilization.totalPoolHits, 1)
 		atomic.AddInt32(&poolSizes.element, -1)
+		debugf("DOM", "✅ createElement: reused element from pool (hit)\n")
 	}
 
 	// Reset the element
