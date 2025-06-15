@@ -139,23 +139,9 @@ File: fiber/memory.go
 - fiberPool, elementPool, propsPool, childrenPool all uncapped
 - callbackRegistry Line 60: map grows unbounded (only cleaned manually)
 
-MODERATE LEAKS - Global State
-=============================
-File: fiber/events.go
-- eventCallbacks Line 203: global slice fallback accumulates (minor - only when no current fiber)
 
-MODERATE LEAKS - JS Object Creation
-==================================
-File: fiber/fetch.go
-- Line 65: js.Global().Get("JSON").Call("stringify") - temp objects
-- Line 156: js.Global().Get("JSON").Call("stringify") - temp objects
-- fetchData() creates multiple fetchOptions objects - not explicitly released
 
-File: fiber/dom.go  
-- Line 98: js.Global().Get("document").Call("createTextNode") - temp objects
-- Line 100: js.Global().Get("document").Call("createElement") - temp objects
-- createDom() creates headers objects Line 36 - not explicitly released
-- updateDom() creates styleObj references - potential accumulation
+
 
 NEW CRITICAL FINDINGS - SECOND PASS
 ===================================

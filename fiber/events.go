@@ -204,7 +204,41 @@ func GoUseFunc(callback interface{}) js.Func {
 		eventCallbacks = append(eventCallbacks, cb)
 		debugf("EVENTS", "⚠️ GoUseFunc callback added to global pool (no current fiber) - total: %d\n", 
 			len(eventCallbacks))
+		
+		// Warn if global fallback is being used frequently
+		if len(eventCallbacks)%50 == 0 && len(eventCallbacks) > 0 {
+			debugf("EVENTS", "🚨 GoUseFunc: WARNING - %d callbacks in global fallback pool, consider investigating why no current fiber\n", 
+				len(eventCallbacks))
+		}
+		
+		// Trigger memory pressure check if global pool grows too large
+		if len(eventCallbacks) > 200 {
+			debugf("EVENTS", "🧹 GoUseFunc: global callback pool large (%d), triggering memory cleanup\n", 
+				len(eventCallbacks))
+			checkMemoryPressure()
+		}
 	}
 
 	return cb
+}
+
+// CleanupGlobalEventCallbacks manually cleans up the global event callbacks fallback pool
+// This should only be needed in edge cases where callbacks accumulate in the global pool
+func CleanupGlobalEventCallbacks() {
+	debugf("EVENTS", "🧹 CleanupGlobalEventCallbacks: cleaning up %d global callbacks\n", len(eventCallbacks))
+	
+	// Release all callbacks in the global pool
+	for _, callback := range eventCallbacks {
+		callback.Release()
+	}
+	
+	// Clear the slice
+	eventCallbacks = eventCallbacks[:0]
+	
+	debugf("EVENTS", "✅ CleanupGlobalEventCallbacks: global callback pool cleared\n")
+}
+
+// GetGlobalEventCallbacksCount returns the number of callbacks in the global fallback pool
+func GetGlobalEventCallbacksCount() int {
+	return len(eventCallbacks)
 }
