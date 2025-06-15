@@ -159,32 +159,69 @@ func GoUseFunc(callback interface{}) js.Func {
 			goEvent = NewGoEvent(args[0])
 		}
 
-		// Use reflection to call the callback with appropriate parameters
-		callbackValue := reflect.ValueOf(callback)
-		callbackType := callbackValue.Type()
+		// Optimized callback dispatch using type switches for common signatures
+		// This avoids expensive reflection calls for 95% of use cases
+		switch cb := callback.(type) {
+		case func(GoEvent):
+			// Most common case: single GoEvent parameter
+			cb(goEvent)
+		case func(GoEvent, js.Value):
+			// Second most common: GoEvent + one js.Value
+			if len(args) > 1 {
+				cb(goEvent, args[1])
+			} else {
+				cb(goEvent, js.Undefined())
+			}
+		case func(GoEvent, js.Value, js.Value):
+			// Less common: GoEvent + two js.Values
+			arg1 := js.Undefined()
+			arg2 := js.Undefined()
+			if len(args) > 1 {
+				arg1 = args[1]
+			}
+			if len(args) > 2 {
+				arg2 = args[2]
+			}
+			cb(goEvent, arg1, arg2)
+		case func():
+			// No parameters callback
+			cb()
+		case func(js.Value):
+			// Raw js.Value callback (for compatibility)
+			if len(args) > 0 {
+				cb(args[0])
+			} else {
+				cb(js.Undefined())
+			}
+		default:
+			// Fallback to reflection for uncommon signatures
+			// This maintains compatibility while optimizing the common cases
+			callbackValue := reflect.ValueOf(callback)
+			callbackType := callbackValue.Type()
 
-		if callbackType.Kind() != reflect.Func {
-			debugf("EVENTS", "🚨 GoUseFunc: callback must be a function\n")
-			return nil
-		}
+			if callbackType.Kind() != reflect.Func {
+				debugf("EVENTS", "🚨 GoUseFunc: callback must be a function\n")
+				return nil
+			}
 
-		// Prepare arguments for the callback
-		var callArgs []reflect.Value
+			// Prepare arguments for the callback
+			var callArgs []reflect.Value
 
-		// First argument is always the GoEvent
-		if callbackType.NumIn() > 0 {
-			callArgs = append(callArgs, reflect.ValueOf(goEvent))
-		}
+			// First argument is always the GoEvent
+			if callbackType.NumIn() > 0 {
+				callArgs = append(callArgs, reflect.ValueOf(goEvent))
+			}
 
-		// Additional arguments from the JS event (if any)
-		for i := 1; i < len(args) && len(callArgs) < callbackType.NumIn(); i++ {
-			// Convert js.Value to interface{} for additional parameters
-			callArgs = append(callArgs, reflect.ValueOf(args[i]))
-		}
+			// Additional arguments from the JS event (if any)
+			for i := 1; i < len(args) && len(callArgs) < callbackType.NumIn(); i++ {
+				// Convert js.Value to interface{} for additional parameters
+				callArgs = append(callArgs, reflect.ValueOf(args[i]))
+			}
 
-		// Call the callback function
-		if len(callArgs) <= callbackType.NumIn() {
-			callbackValue.Call(callArgs)
+			// Call the callback function
+			if len(callArgs) <= callbackType.NumIn() {
+				callbackValue.Call(callArgs)
+			}
 		}
 
 		return nil
