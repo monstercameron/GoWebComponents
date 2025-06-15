@@ -52,6 +52,14 @@ var (
 			return make([]interface{}, 0, 4) // Common small capacity
 		},
 	}
+
+	// Effect fibers slice pool for reducing allocations during effect execution
+	effectFibersPool = sync.Pool{
+		New: func() interface{} {
+			slice := make([]*Fiber, 0, 16) // Reasonable initial capacity for most apps
+			return &slice
+		},
+	}
 )
 
 // Global variables for memory management
@@ -271,4 +279,44 @@ func releaseElement(elem *Element) {
 	} else {
 		debugf("MEMORY", "🚨 releaseElement: attempted to release nil element\n")
 	}
+}
+
+// getEffectFibersSlice retrieves a pooled slice for effect fibers collection
+func getEffectFibersSlice() *[]*Fiber {
+	debugf("MEMORY", "♻️ getEffectFibersSlice: retrieving slice from pool\n")
+	poolSlice := effectFibersPool.Get()
+	if slice, ok := poolSlice.(*[]*Fiber); ok {
+		// Reset slice length but keep capacity
+		*slice = (*slice)[:0]
+		debugf("MEMORY", "✅ getEffectFibersSlice: reused slice with capacity %d\n", cap(*slice))
+		return slice
+	}
+	// This should never happen if pool is properly initialized
+	debugf("MEMORY", "🚨 getEffectFibersSlice: pool returned unexpected type %T, creating new slice\n", poolSlice)
+	newSlice := make([]*Fiber, 0, 16)
+	return &newSlice
+}
+
+// returnEffectFibersSlice returns a slice to the pool with smart capacity management
+func returnEffectFibersSlice(slice *[]*Fiber) {
+	if slice == nil {
+		debugf("MEMORY", "🚨 returnEffectFibersSlice: attempted to return nil slice\n")
+		return
+	}
+
+	debugf("MEMORY", "♻️ returnEffectFibersSlice: returning slice to pool (len: %d, cap: %d)\n",
+		len(*slice), cap(*slice))
+
+	// Smart capacity management: don't return overly large slices to pool
+	const maxEffectFibersCapacity = 64 // Reasonable upper bound
+	if cap(*slice) > maxEffectFibersCapacity {
+		debugf("MEMORY", "🧹 returnEffectFibersSlice: slice capacity %d too large, not returning to pool\n", cap(*slice))
+		// Let GC handle the oversized slice, don't pollute the pool
+		return
+	}
+
+	// Clear the slice and return to pool
+	*slice = (*slice)[:0]
+	effectFibersPool.Put(slice)
+	debugf("MEMORY", "✅ returnEffectFibersSlice: slice returned to pool\n")
 }

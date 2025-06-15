@@ -89,7 +89,10 @@ func executeEffects() {
 		return
 	}
 
-	var effectFibers []*Fiber
+	// Use pooled slice to reduce allocations and GC pressure
+	effectFibers := getEffectFibersSlice()
+	defer returnEffectFibersSlice(effectFibers)
+	
 	effectCount := 0
 	var collectEffects func(fiber *Fiber)
 	collectEffects = func(fiber *Fiber) {
@@ -99,7 +102,7 @@ func executeEffects() {
 		if len(fiber.effects) > 0 {
 			debugf("COMMIT", "📋 executeEffects: found %d effects in fiber %p (type: %v)\n",
 				len(fiber.effects), fiber, fiber.typeOf)
-			effectFibers = append(effectFibers, fiber)
+			*effectFibers = append(*effectFibers, fiber)
 			effectCount += len(fiber.effects)
 		}
 		collectEffects(fiber.child)
@@ -113,14 +116,14 @@ func executeEffects() {
 	collectDuration := time.Since(collectStartTime)
 
 	debugf("COMMIT", "📊 executeEffects: collected %d effects from %d fibers in %v\n",
-		effectCount, len(effectFibers), collectDuration)
+		effectCount, len(*effectFibers), collectDuration)
 
 	// Execute effects sequentially to avoid race conditions and ensure predictable order
 	executionStartTime := time.Now()
 	executedCount := 0
-	for fiberIndex, fiber := range effectFibers {
+	for fiberIndex, fiber := range *effectFibers {
 		debugf("COMMIT", "⚡ executeEffects: executing effects for fiber %d/%d (type: %v)\n",
-			fiberIndex+1, len(effectFibers), fiber.typeOf)
+			fiberIndex+1, len(*effectFibers), fiber.typeOf)
 
 		for effectIndex, effect := range fiber.effects {
 			if effect != nil {
@@ -143,9 +146,7 @@ func executeEffects() {
 	executionDuration := time.Since(executionStartTime)
 	debugf("COMMIT", "✅ executeEffects: executed %d effects in %v\n", executedCount, executionDuration)
 
-	// Clear the slice to prevent memory leaks
-	effectFibers = nil
-	debugf("COMMIT", "🧹 executeEffects: cleaned up effect fibers slice\n")
+	// Note: effectFibers slice will be automatically returned to pool via defer
 }
 
 // commitWork recursively commits work to the DOM
