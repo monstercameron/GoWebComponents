@@ -58,20 +58,33 @@ func createElement(typ interface{}, props map[string]interface{}, children ...in
 
 	elem.Children = processedChildren
 
-	// Handle props efficiently
+	// Handle props efficiently - optimize map clearing for large maps
 	if props != nil {
-		// Clear existing props map efficiently
-		for k := range elem.Props {
-			delete(elem.Props, k)
+		// Performance optimization: for large maps, allocating new is faster than clearing
+		const clearThreshold = 8 // Threshold where new allocation becomes more efficient
+		if len(elem.Props) > clearThreshold {
+			// Replace with new map - faster for large maps
+			elem.Props = make(map[string]interface{}, len(props)+1) // +1 for children
+		} else {
+			// Clear existing props map for small maps
+			for k := range elem.Props {
+				delete(elem.Props, k)
+			}
 		}
-		// Copy props (map is already allocated)
+		// Copy props (map is allocated or cleared)
 		for k, v := range props {
 			elem.Props[k] = v
 		}
 	} else {
-		// Clear props if none provided
-		for k := range elem.Props {
-			delete(elem.Props, k)
+		// Clear props if none provided - same optimization applies
+		if len(elem.Props) > clearThreshold {
+			// Replace with new map for large props
+			elem.Props = make(map[string]interface{}, 1) // Just for children
+		} else {
+			// Clear small maps
+			for k := range elem.Props {
+				delete(elem.Props, k)
+			}
 		}
 	}
 

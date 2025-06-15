@@ -4,12 +4,14 @@
 package fiber
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"runtime"
 	"strings"
 	"sync/atomic"
 	"time"
+	"unsafe"
 )
 
 // fastEqual performs equality checking with cycle detection
@@ -117,8 +119,14 @@ func fastEqualWithDepth(a, b interface{}, visited map[uintptr]bool, depth int) b
 				return false
 			}
 
-			// Check for cycles using slice pointer
-			aPtr := reflect.ValueOf(va).Pointer()
+			// Fast path: both empty slices
+			if len(va) == 0 {
+				return true
+			}
+
+			// Check for cycles using slice pointer - avoid reflection when possible
+			vaPtr := (*[3]uintptr)(unsafe.Pointer(&va))
+			aPtr := vaPtr[0] // Get the data pointer directly
 			if visited[aPtr] {
 				return true // Assume equal if we've seen this before (cycle detected)
 			}
@@ -150,8 +158,14 @@ func fastEqualWithDepth(a, b interface{}, visited map[uintptr]bool, depth int) b
 				return false
 			}
 
-			// Check for cycles using map pointer
-			aPtr := reflect.ValueOf(va).Pointer()
+			// Fast path: pointer equality check for same map
+			if len(va) == 0 && len(vb) == 0 {
+				return true // Both empty maps are equal
+			}
+
+			// Check for cycles using map pointer - avoid reflection when possible
+			vaPtr := (*[2]uintptr)(unsafe.Pointer(&va))
+			aPtr := vaPtr[1] // Get the data pointer directly
 			if visited[aPtr] {
 				return true // Assume equal if we've seen this before (cycle detected)
 			}
@@ -165,9 +179,41 @@ func fastEqualWithDepth(a, b interface{}, visited map[uintptr]bool, depth int) b
 			}
 			return true
 		}
+	case map[string]string:
+		// Add fast path for common map[string]string type
+		if vb, ok := b.(map[string]string); ok {
+			if len(va) != len(vb) {
+				return false
+			}
+			for k, v := range va {
+				if vbVal, exists := vb[k]; !exists || v != vbVal {
+					return false
+				}
+			}
+			return true
+		}
+	case []byte:
+		// Add fast path for byte slices
+		if vb, ok := b.([]byte); ok {
+			return bytes.Equal(va, vb)
+		}
 	}
 
-	// Use reflection for more complex types
+	// Fast path: try direct equality first for comparable types
+	// This avoids reflection for many common cases
+	defer func() {
+		if r := recover(); r != nil {
+			// If direct comparison panics, types are not comparable
+			// Fall back to reflection-based comparison
+		}
+	}()
+	
+	// Attempt direct comparison - this works for most comparable types
+	if a == b {
+		return true
+	}
+
+	// Use reflection for more complex types only when necessary
 	va := reflect.ValueOf(a)
 	vb := reflect.ValueOf(b)
 
@@ -187,6 +233,13 @@ func fastEqualWithDepth(a, b interface{}, visited map[uintptr]bool, depth int) b
 	case reflect.UnsafePointer:
 		// Unsafe pointers are comparable by value
 		return va.Pointer() == vb.Pointer()
+	case reflect.Slice, reflect.Map:
+		// For slices and maps, we should have handled them above
+		// If we reach here, fall back to DeepEqual
+		if depth > 10 {
+			return false
+		}
+		return reflect.DeepEqual(a, b)
 	}
 
 	// For uncomparable types, fall back to reflect.DeepEqual with safety check
@@ -198,8 +251,8 @@ func fastEqualWithDepth(a, b interface{}, visited map[uintptr]bool, depth int) b
 		return reflect.DeepEqual(a, b)
 	}
 
-	// Safe to use == for comparable types
-	return a == b
+	// Safe to use == for comparable types (we already tried this above)
+	return false
 }
 
 // getFunctionName extracts a readable name from a function interface
