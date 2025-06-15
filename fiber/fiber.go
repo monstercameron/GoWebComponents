@@ -22,12 +22,17 @@ var (
 	wipFiber        *Fiber
 	updateScheduled bool // Flag to prevent multiple update scheduling
 
-	// --- UI queue for main-thread safe updates ---
-	uiQueue = make(chan func(), 1024) // Buffer to avoid blocking background goroutines
+	// --- UI queue for main-thread safe updates with optimized buffer sizing ---
+	uiQueue         chan func()
+	uiQueueSize     int   = 1024 // Default buffer size
+	uiQueueMaxSize  int   = 4096 // Maximum buffer size for dynamic growth
+	uiQueueMinSize  int   = 256  // Minimum buffer size for dynamic shrinking
+	uiQueueGrowth   int64        // Counter for queue growth events
+	uiQueueShrinks  int64        // Counter for queue shrink events
 	
 	// UI queue monitoring
 	uiQueueOverflows int64 // Counter for overflow events
-	uiQueueMaxSize   int64 // Track maximum queue size reached
+	uiQueueMaxReached int64 // Track maximum queue size reached
 
 	// Indicates we're executing on the main scheduler/commit/effect loop
 	schedulerActive int32
@@ -40,6 +45,105 @@ var (
 	totalRenders    int64
 	totalWorkUnits  int64
 )
+
+// Initialize UI queue with optimized buffer size
+func init() {
+	initializeUIQueue()
+}
+
+// initializeUIQueue creates the UI queue with optimal buffer size
+func initializeUIQueue() {
+	uiQueue = make(chan func(), uiQueueSize)
+	debugf("FIBER", "🔧 initializeUIQueue: created UI queue with buffer size %d\n", uiQueueSize)
+}
+
+// resizeUIQueue dynamically adjusts the UI queue buffer size based on usage patterns
+func resizeUIQueue(newSize int) {
+	if newSize < uiQueueMinSize {
+		newSize = uiQueueMinSize
+	}
+	if newSize > uiQueueMaxSize {
+		newSize = uiQueueMaxSize
+	}
+	
+	if newSize == uiQueueSize {
+		return // No change needed
+	}
+	
+	oldSize := uiQueueSize
+	oldQueue := uiQueue
+	
+	// Create new queue with optimized size
+	newQueue := make(chan func(), newSize)
+	
+	// Transfer existing items to new queue
+	transferred := 0
+	for {
+		select {
+		case fn := <-oldQueue:
+			select {
+			case newQueue <- fn:
+				transferred++
+			default:
+				// New queue is full, put item back and stop
+				select {
+				case oldQueue <- fn:
+				default:
+					// Both queues full, execute immediately to prevent loss
+					fn()
+				}
+				goto transferComplete
+			}
+		default:
+			goto transferComplete
+		}
+	}
+	
+transferComplete:
+	uiQueue = newQueue
+	uiQueueSize = newSize
+	
+	if newSize > oldSize {
+		atomic.AddInt64(&uiQueueGrowth, 1)
+		debugf("FIBER", "📈 resizeUIQueue: grew UI queue %d→%d (transferred %d items)\n", oldSize, newSize, transferred)
+	} else {
+		atomic.AddInt64(&uiQueueShrinks, 1)
+		debugf("FIBER", "📉 resizeUIQueue: shrunk UI queue %d→%d (transferred %d items)\n", oldSize, newSize, transferred)
+	}
+}
+
+// optimizeUIQueueSize analyzes usage patterns and adjusts buffer size
+func optimizeUIQueueSize() {
+	// Skip optimization if auto-optimization is disabled
+	if !uiQueueAutoOptimization {
+		return
+	}
+	
+	currentLen := len(uiQueue)
+	currentCap := cap(uiQueue)
+	utilizationPercent := float64(currentLen) / float64(currentCap) * 100
+	
+	debugf("FIBER", "📊 optimizeUIQueueSize: current=%d, capacity=%d, utilization=%.1f%%\n", 
+		currentLen, currentCap, utilizationPercent)
+	
+	// Grow if utilization is consistently high
+	if utilizationPercent > 80 && currentCap < uiQueueMaxSize {
+		newSize := currentCap * 2
+		if newSize > uiQueueMaxSize {
+			newSize = uiQueueMaxSize
+		}
+		resizeUIQueue(newSize)
+	}
+	
+	// Shrink if utilization is consistently low
+	if utilizationPercent < 20 && currentCap > uiQueueMinSize {
+		newSize := currentCap / 2
+		if newSize < uiQueueMinSize {
+			newSize = uiQueueMinSize
+		}
+		resizeUIQueue(newSize)
+	}
+}
 
 func scheduleUpdateAtRoot() {
 	debugf("FIBER", "🎯 scheduleUpdateAtRoot called - currentRoot: %p, updateScheduled: %v\n", currentRoot, updateScheduled)
@@ -660,4 +764,77 @@ func requestIdleCallback(callback func(js.Value)) {
 		// Fallback: schedule soon via setTimeout 1ms
 		js.Global().Call("setTimeout", cb, 1)
 	}
+}
+
+// SetUIQueueBufferSize configures the UI queue buffer size
+// This allows applications to tune buffer size based on their specific needs
+func SetUIQueueBufferSize(size int) {
+	if size < uiQueueMinSize {
+		size = uiQueueMinSize
+	}
+	if size > uiQueueMaxSize {
+		size = uiQueueMaxSize
+	}
+	
+	debugf("FIBER", "🔧 SetUIQueueBufferSize: resizing UI queue to %d\n", size)
+	resizeUIQueue(size)
+}
+
+// SetUIQueueLimits configures the min and max buffer sizes for the UI queue
+func SetUIQueueLimits(minSize, maxSize int) {
+	if minSize < 64 {
+		minSize = 64 // Absolute minimum
+	}
+	if maxSize < minSize {
+		maxSize = minSize * 2
+	}
+	if maxSize > 16384 {
+		maxSize = 16384 // Absolute maximum to prevent excessive memory usage
+	}
+	
+	oldMin, oldMax := uiQueueMinSize, uiQueueMaxSize
+	uiQueueMinSize = minSize
+	uiQueueMaxSize = maxSize
+	
+	debugf("FIBER", "🔧 SetUIQueueLimits: updated limits min=%d→%d, max=%d→%d\n", 
+		oldMin, minSize, oldMax, maxSize)
+	
+	// Adjust current size if it's outside new limits
+	if uiQueueSize < minSize {
+		resizeUIQueue(minSize)
+	} else if uiQueueSize > maxSize {
+		resizeUIQueue(maxSize)
+	}
+}
+
+// GetUIQueueStats returns comprehensive UI queue statistics
+func GetUIQueueStats() map[string]int64 {
+	return map[string]int64{
+		"currentSize":     int64(len(uiQueue)),
+		"bufferSize":      int64(cap(uiQueue)),
+		"minSize":         int64(uiQueueMinSize),
+		"maxSize":         int64(uiQueueMaxSize),
+		"overflowCount":   atomic.LoadInt64(&uiQueueOverflows),
+		"maxReached":      atomic.LoadInt64(&uiQueueMaxReached),
+		"growthEvents":    atomic.LoadInt64(&uiQueueGrowth),
+		"shrinkEvents":    atomic.LoadInt64(&uiQueueShrinks),
+	}
+}
+
+// ResetUIQueueStats resets UI queue statistics counters
+func ResetUIQueueStats() {
+	atomic.StoreInt64(&uiQueueOverflows, 0)
+	atomic.StoreInt64(&uiQueueMaxReached, 0)
+	atomic.StoreInt64(&uiQueueGrowth, 0)
+	atomic.StoreInt64(&uiQueueShrinks, 0)
+	debugf("FIBER", "🔄 ResetUIQueueStats: statistics counters reset\n")
+}
+
+// EnableUIQueueAutoOptimization enables automatic buffer size optimization
+// This is enabled by default but can be disabled for manual control
+var uiQueueAutoOptimization bool = true
+
+func SetUIQueueAutoOptimization(enabled bool) {
+	uiQueueAutoOptimization = enabled
+	debugf("FIBER", "🔧 SetUIQueueAutoOptimization: %v\n", enabled)
 }

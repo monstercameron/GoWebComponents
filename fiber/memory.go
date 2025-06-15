@@ -63,9 +63,12 @@ var (
 	}
 
 	// Fetch result channel pool for reducing channel allocations during fetch operations
+	// PERFORMANCE OPTIMIZATION: Optimized buffer size for fetch operations
 	fetchChannelPool = sync.Pool{
 		New: func() interface{} {
-			return make(chan FetchResult, 1) // Buffered channel for non-blocking sends
+			// Buffer size of 2 allows for result + potential error without blocking
+			// This handles the common case of response + json parsing or error
+			return make(chan FetchResult, 2) // Optimized buffer size for fetch operations
 		},
 	}
 )
@@ -400,7 +403,8 @@ func getFetchChannel() chan FetchResult {
 	}
 	// This should never happen if pool is properly initialized
 	debugf("MEMORY", "🚨 getFetchChannel: pool returned unexpected type %T, creating new channel\n", poolChan)
-	return make(chan FetchResult, 1)
+	// Use optimized buffer size for fallback channel
+	return make(chan FetchResult, 2)
 }
 
 // returnFetchChannel returns a channel to the pool with size enforcement

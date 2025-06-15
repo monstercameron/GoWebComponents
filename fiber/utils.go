@@ -299,8 +299,8 @@ func enqueueUI(fn func()) {
 	
 	// Track current queue size for monitoring
 	currentSize := int64(len(uiQueue))
-	if currentSize > atomic.LoadInt64(&uiQueueMaxSize) {
-		atomic.StoreInt64(&uiQueueMaxSize, currentSize)
+	if currentSize > atomic.LoadInt64(&uiQueueMaxReached) {
+		atomic.StoreInt64(&uiQueueMaxReached, currentSize)
 		debugf("UTILS", "📊 enqueueUI: new max queue size: %d\n", currentSize)
 	}
 	
@@ -378,6 +378,12 @@ func processUIQueue() {
 	} else {
 		queueDuration := time.Since(queueStartTime)
 		debugf("UTILS", "✅ processUIQueue: all tasks completed (%d total) in %v\n", tasksProcessed, queueDuration)
+		
+		// Optimize UI queue buffer size based on usage patterns
+		// Only optimize periodically to avoid overhead
+		if tasksProcessed > 0 && tasksProcessed%50 == 0 {
+			optimizeUIQueueSize()
+		}
 	}
 }
 
@@ -529,22 +535,7 @@ func GetDebugStatus() map[string]bool {
 	return status
 }
 
-// GetUIQueueStats returns UI queue statistics for monitoring
-func GetUIQueueStats() map[string]int64 {
-	return map[string]int64{
-		"currentSize":    int64(len(uiQueue)),
-		"capacity":       1024,
-		"overflowCount":  atomic.LoadInt64(&uiQueueOverflows),
-		"maxSizeReached": atomic.LoadInt64(&uiQueueMaxSize),
-	}
-}
 
-// ResetUIQueueStats resets UI queue statistics counters
-func ResetUIQueueStats() {
-	atomic.StoreInt64(&uiQueueOverflows, 0)
-	atomic.StoreInt64(&uiQueueMaxSize, 0)
-	debugf("UTILS", "🔄 ResetUIQueueStats: statistics counters reset\n")
-}
 
 // EnableGoroutineMonitoring starts monitoring for potential goroutine leaks
 // This helps detect and prevent goroutine accumulation in long-running applications
