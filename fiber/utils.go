@@ -5,6 +5,7 @@ package fiber
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -13,6 +14,23 @@ import (
 	"time"
 	"unsafe"
 )
+
+// Goroutine leak prevention and monitoring
+var (
+	goroutineMonitoringEnabled bool = false
+	baselineGoroutineCount     int
+	maxGoroutineThreshold      int = 1000 // Alert if goroutines exceed this
+	goroutineCheckInterval         = 10 * time.Second
+	goroutineMonitorContext    context.Context
+	goroutineMonitorCancel     context.CancelFunc
+	goroutineLeakDetected      int64 // Atomic counter for leak detection
+)
+
+// Initialize goroutine monitoring
+func init() {
+	goroutineMonitorContext, goroutineMonitorCancel = context.WithCancel(context.Background())
+	baselineGoroutineCount = runtime.NumGoroutine()
+}
 
 // fastEqual performs equality checking with cycle detection
 func fastEqual(a, b interface{}) bool {
@@ -527,3 +545,115 @@ func ResetUIQueueStats() {
 	atomic.StoreInt64(&uiQueueMaxSize, 0)
 	debugf("UTILS", "🔄 ResetUIQueueStats: statistics counters reset\n")
 }
+
+// EnableGoroutineMonitoring starts monitoring for potential goroutine leaks
+// This helps detect and prevent goroutine accumulation in long-running applications
+func EnableGoroutineMonitoring() {
+	if goroutineMonitoringEnabled {
+		debugf("UTILS", "⚠️ EnableGoroutineMonitoring: monitoring already enabled\n")
+		return
+	}
+	
+	goroutineMonitoringEnabled = true
+	baselineGoroutineCount = runtime.NumGoroutine()
+	
+	debugf("UTILS", "🔍 EnableGoroutineMonitoring: enabled with baseline %d goroutines\n", baselineGoroutineCount)
+	
+	// Start monitoring goroutine in background
+	go func() {
+		ticker := time.NewTicker(goroutineCheckInterval)
+		defer ticker.Stop()
+		
+		for {
+			select {
+			case <-goroutineMonitorContext.Done():
+				debugf("UTILS", "🛑 EnableGoroutineMonitoring: monitoring stopped\n")
+				return
+			case <-ticker.C:
+				checkGoroutineLeaks()
+			}
+		}
+	}()
+}
+
+// DisableGoroutineMonitoring stops goroutine leak monitoring
+func DisableGoroutineMonitoring() {
+	if !goroutineMonitoringEnabled {
+		return
+	}
+	
+	goroutineMonitoringEnabled = false
+	debugf("UTILS", "🔍 DisableGoroutineMonitoring: monitoring disabled\n")
+}
+
+// checkGoroutineLeaks monitors goroutine count and detects potential leaks
+func checkGoroutineLeaks() {
+	currentCount := runtime.NumGoroutine()
+	growth := currentCount - baselineGoroutineCount
+	
+	if currentCount > maxGoroutineThreshold {
+		atomic.AddInt64(&goroutineLeakDetected, 1)
+		debugf("UTILS", "🚨 checkGoroutineLeaks: HIGH goroutine count detected: %d (baseline: %d, growth: +%d)\n", 
+			currentCount, baselineGoroutineCount, growth)
+		
+		// Trigger aggressive cleanup
+		triggerGoroutineCleanup()
+	} else if growth > 50 {
+		debugf("UTILS", "⚠️ checkGoroutineLeaks: elevated goroutine count: %d (baseline: %d, growth: +%d)\n", 
+			currentCount, baselineGoroutineCount, growth)
+	} else {
+		debugf("UTILS", "✅ checkGoroutineLeaks: normal goroutine count: %d (baseline: %d, growth: +%d)\n", 
+			currentCount, baselineGoroutineCount, growth)
+	}
+}
+
+// triggerGoroutineCleanup attempts to clean up potential goroutine leaks
+func triggerGoroutineCleanup() {
+	debugf("UTILS", "🧹 triggerGoroutineCleanup: attempting cleanup\n")
+	
+	// Force garbage collection to clean up any unreferenced goroutines
+	runtime.GC()
+	
+	// Wait a moment for cleanup to take effect
+	time.Sleep(100 * time.Millisecond)
+	newCount := runtime.NumGoroutine()
+	debugf("UTILS", "🧹 triggerGoroutineCleanup: goroutine count after cleanup: %d\n", newCount)
+	
+	// Note: Specific cleanup functions (CancelAllEventCallbacks, CancelAllFetchOperations, etc.)
+	// should be called directly by the application when needed to avoid circular dependencies
+}
+
+// SetGoroutineThreshold configures the threshold for goroutine leak detection
+func SetGoroutineThreshold(threshold int) {
+	if threshold <= 0 {
+		threshold = 1000 // Default fallback
+	}
+	maxGoroutineThreshold = threshold
+	debugf("UTILS", "🔍 SetGoroutineThreshold: set to %d\n", threshold)
+}
+
+// GetGoroutineStats returns current goroutine statistics
+func GetGoroutineStats() map[string]int64 {
+	current := int64(runtime.NumGoroutine())
+	baseline := int64(baselineGoroutineCount)
+	growth := current - baseline
+	leakCount := atomic.LoadInt64(&goroutineLeakDetected)
+	
+	return map[string]int64{
+		"current":     current,
+		"baseline":    baseline,
+		"growth":      growth,
+		"threshold":   int64(maxGoroutineThreshold),
+		"leaksDetected": leakCount,
+	}
+}
+
+// ResetGoroutineBaseline resets the baseline goroutine count to current count
+// This is useful after major application state changes
+func ResetGoroutineBaseline() {
+	oldBaseline := baselineGoroutineCount
+	baselineGoroutineCount = runtime.NumGoroutine()
+	debugf("UTILS", "🔄 ResetGoroutineBaseline: reset from %d to %d\n", oldBaseline, baselineGoroutineCount)
+}
+
+

@@ -4,15 +4,30 @@
 package fiber
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"syscall/js"
+	"time"
 )
+
+// Goroutine leak prevention for fetch operations
+var (
+	fetchTimeout = 30 * time.Second // Default fetch timeout
+	fetchContext context.Context
+	fetchCancel  context.CancelFunc
+)
+
+// Initialize fetch context for goroutine leak prevention
+func init() {
+	fetchContext, fetchCancel = context.WithCancel(context.Background())
+}
 
 // GoUseFetch is a hook that simplifies data fetching within a component.
 // It manages loading, error, and data states automatically.
 // It returns a getter for the current FetchState and a function to trigger a refetch.
+// PERFORMANCE OPTIMIZATION: Added goroutine leak prevention with timeout controls
 func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func()) {
 	getState, setState := GoUseState(FetchState{Loading: true})
 
@@ -26,6 +41,29 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 
 		// Set loading state
 		setState(FetchState{Loading: true})
+
+		// Goroutine leak prevention: Create timeout context for this fetch
+		fetchCtx, fetchCancel := context.WithTimeout(fetchContext, fetchTimeout)
+		
+		// Track fetch completion
+		fetchDone := make(chan struct{}, 1)
+		var fetchCompleted bool
+		
+		// Cleanup function to prevent leaks
+		cleanup := func() {
+			fetchCancel()
+			if !fetchCompleted {
+				fetchCompleted = true
+				close(fetchDone)
+			}
+		}
+		
+		// Set timeout to cleanup if fetch takes too long
+		timeoutTimer := time.AfterFunc(fetchTimeout, func() {
+			debugf("FETCH", "⏰ useFetch: fetch timed out after %v, cleaning up\n", fetchTimeout)
+			setState(FetchState{Error: "Fetch timeout", Loading: false})
+			cleanup()
+		})
 
 		// Create fetch options
 		fetchOptions := js.Global().Get("Object").New()
@@ -51,6 +89,7 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 				errorMsg.WriteString("Error encoding request body: ")
 				errorMsg.WriteString(err.Error())
 				setState(FetchState{Error: errorMsg.String(), Loading: false})
+					cleanup()
 					return
 				}
 				fetchOptions.Set("body", string(bodyJSON))
@@ -64,6 +103,17 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 		
 		jsonCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			defer jsonCallback.Release() // Clean up immediately after use
+			defer cleanup() // Prevent goroutine leaks
+			
+			// Check if context was cancelled
+			select {
+			case <-fetchCtx.Done():
+				debugf("FETCH", "🛑 useFetch: fetch context cancelled during JSON parsing\n")
+				return nil
+			default:
+			}
+			
+			timeoutTimer.Stop() // Cancel timeout since we completed
 			
 			data := args[0]
 			jsonStr := js.Global().Get("JSON").Call("stringify", data).String()
@@ -82,6 +132,15 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 		thenCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			defer thenCallback.Release() // Clean up immediately after use
 			
+			// Check if context was cancelled
+			select {
+			case <-fetchCtx.Done():
+				debugf("FETCH", "🛑 useFetch: fetch context cancelled during response processing\n")
+				cleanup()
+				return nil
+			default:
+			}
+			
 			response := args[0]
 			if !response.Get("ok").Bool() {
 				// Optimized string concatenation for HTTP error messages
@@ -91,6 +150,7 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 				errorStr := errorMsg.String()
 				debugf("FETCH", "useFetch: %s\n", errorStr)
 				setState(FetchState{Error: errorStr, Loading: false})
+				cleanup()
 				return nil
 			}
 			response.Call("json").Call("then", jsonCallback)
@@ -99,6 +159,9 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 		
 		catchCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			defer catchCallback.Release() // Clean up immediately after use
+			defer cleanup() // Prevent goroutine leaks
+			
+			timeoutTimer.Stop() // Cancel timeout since we completed (with error)
 			
 			err := args[0]
 			// Optimized string concatenation for fetch error messages
@@ -233,4 +296,33 @@ func performFetch(url string, fetchOptions js.Value, resultChan chan<- FetchResu
 	})
 	
 	promise.Call("then", thenCallback).Call("catch", catchCallback)
+}
+
+// SetFetchTimeout configures the maximum timeout for fetch operations
+// This helps prevent goroutine leaks from long-running or stuck fetch requests
+func SetFetchTimeout(timeout time.Duration) {
+	if timeout <= 0 {
+		timeout = 30 * time.Second // Default fallback
+	}
+	fetchTimeout = timeout
+	debugf("FETCH", "⏰ SetFetchTimeout: set to %v\n", timeout)
+}
+
+// GetFetchTimeout returns the current fetch timeout
+func GetFetchTimeout() time.Duration {
+	return fetchTimeout
+}
+
+// CancelAllFetchOperations cancels all active fetch operations to prevent goroutine leaks
+// This should be called during application shutdown or major state resets
+func CancelAllFetchOperations() {
+	debugf("FETCH", "🛑 CancelAllFetchOperations: cancelling global fetch context\n")
+	
+	// Cancel the global context - this will cancel all active fetch contexts
+	fetchCancel()
+	
+	// Create new global context for future fetch operations
+	fetchContext, fetchCancel = context.WithCancel(context.Background())
+	
+	debugf("FETCH", "✅ CancelAllFetchOperations: all fetch operations cancelled, new context created\n")
 }

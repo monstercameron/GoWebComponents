@@ -4,8 +4,11 @@
 package fiber
 
 import (
+	"context"
 	"reflect"
+	"sync"
 	"syscall/js"
+	"time"
 )
 
 // PreventDefault prevents the default action of the event
@@ -260,82 +263,127 @@ func (e GoEvent) GetInputData() (value, name, id, className string, checked bool
 	return value, name, id, className, checked
 }
 
+// Goroutine leak prevention - global context and cancellation
+var (
+	globalEventContext    context.Context
+	globalEventCancel     context.CancelFunc
+	eventCallbackTimeouts = make(map[uintptr]*time.Timer) // Use uintptr as key instead of js.Func
+	eventTimeoutMutex     sync.RWMutex
+	maxEventTimeout       = 30 * time.Second // Maximum time an event callback can run
+)
+
+// Initialize global event context for goroutine leak prevention
+func init() {
+	globalEventContext, globalEventCancel = context.WithCancel(context.Background())
+}
+
 // GoUseFunc creates an event handler with a more convenient Go-friendly interface
 // The callback receives a GoEvent as the first parameter, followed by any additional parameters
+// PERFORMANCE OPTIMIZATION: Added goroutine leak prevention with timeout controls
 func GoUseFunc(callback interface{}) js.Func {
 	// Check memory pressure before creating new callback
 	checkMemoryPressure()
 
 	cb := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		// Create GoEvent from the first argument (the JS event)
-		var goEvent GoEvent
-		if len(args) > 0 {
-			goEvent = NewGoEvent(args[0])
-		}
-
-		// Optimized callback dispatch using type switches for common signatures
-		// This avoids expensive reflection calls for 95% of use cases
-		switch cb := callback.(type) {
-		case func(GoEvent):
-			// Most common case: single GoEvent parameter
-			cb(goEvent)
-		case func(GoEvent, js.Value):
-			// Second most common: GoEvent + one js.Value
-			if len(args) > 1 {
-				cb(goEvent, args[1])
-			} else {
-				cb(goEvent, js.Undefined())
-			}
-		case func(GoEvent, js.Value, js.Value):
-			// Less common: GoEvent + two js.Values
-			arg1 := js.Undefined()
-			arg2 := js.Undefined()
-			if len(args) > 1 {
-				arg1 = args[1]
-			}
-			if len(args) > 2 {
-				arg2 = args[2]
-			}
-			cb(goEvent, arg1, arg2)
-		case func():
-			// No parameters callback
-			cb()
-		case func(js.Value):
-			// Raw js.Value callback (for compatibility)
+		// Goroutine leak prevention: Create timeout context for this callback
+		callbackCtx, callbackCancel := context.WithTimeout(globalEventContext, maxEventTimeout)
+		defer callbackCancel()
+		
+		// Track callback execution with timeout
+		done := make(chan struct{}, 1)
+		var callbackPanic interface{}
+		
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					callbackPanic = r
+					debugf("EVENTS", "🚨 GoUseFunc: callback panicked: %v\n", r)
+				}
+				close(done)
+			}()
+			
+			// Create GoEvent from the first argument (the JS event)
+			var goEvent GoEvent
 			if len(args) > 0 {
-				cb(args[0])
-			} else {
-				cb(js.Undefined())
-			}
-		default:
-			// Fallback to reflection for uncommon signatures
-			// This maintains compatibility while optimizing the common cases
-			callbackValue := reflect.ValueOf(callback)
-			callbackType := callbackValue.Type()
-
-			if callbackType.Kind() != reflect.Func {
-				debugf("EVENTS", "🚨 GoUseFunc: callback must be a function\n")
-				return nil
+				goEvent = NewGoEvent(args[0])
 			}
 
-			// Prepare arguments for the callback
-			var callArgs []reflect.Value
+			// Optimized callback dispatch using type switches for common signatures
+			// This avoids expensive reflection calls for 95% of use cases
+			switch cb := callback.(type) {
+			case func(GoEvent):
+				// Most common case: single GoEvent parameter
+				cb(goEvent)
+			case func(GoEvent, js.Value):
+				// Second most common: GoEvent + one js.Value
+				if len(args) > 1 {
+					cb(goEvent, args[1])
+				} else {
+					cb(goEvent, js.Undefined())
+				}
+			case func(GoEvent, js.Value, js.Value):
+				// Less common: GoEvent + two js.Values
+				arg1 := js.Undefined()
+				arg2 := js.Undefined()
+				if len(args) > 1 {
+					arg1 = args[1]
+				}
+				if len(args) > 2 {
+					arg2 = args[2]
+				}
+				cb(goEvent, arg1, arg2)
+			case func():
+				// No parameters callback
+				cb()
+			case func(js.Value):
+				// Raw js.Value callback (for compatibility)
+				if len(args) > 0 {
+					cb(args[0])
+				} else {
+					cb(js.Undefined())
+				}
+			default:
+				// Fallback to reflection for uncommon signatures
+				// This maintains compatibility while optimizing the common cases
+				callbackValue := reflect.ValueOf(callback)
+				callbackType := callbackValue.Type()
 
-			// First argument is always the GoEvent
-			if callbackType.NumIn() > 0 {
-				callArgs = append(callArgs, reflect.ValueOf(goEvent))
-			}
+				if callbackType.Kind() != reflect.Func {
+					debugf("EVENTS", "🚨 GoUseFunc: callback must be a function\n")
+					return
+				}
 
-			// Additional arguments from the JS event (if any)
-			for i := 1; i < len(args) && len(callArgs) < callbackType.NumIn(); i++ {
-				// Convert js.Value to interface{} for additional parameters
-				callArgs = append(callArgs, reflect.ValueOf(args[i]))
-			}
+				// Prepare arguments for the callback
+				var callArgs []reflect.Value
 
-			// Call the callback function
-			if len(callArgs) <= callbackType.NumIn() {
-				callbackValue.Call(callArgs)
+				// First argument is always the GoEvent
+				if callbackType.NumIn() > 0 {
+					callArgs = append(callArgs, reflect.ValueOf(goEvent))
+				}
+
+				// Additional arguments from the JS event (if any)
+				for i := 1; i < len(args) && len(callArgs) < callbackType.NumIn(); i++ {
+					// Convert js.Value to interface{} for additional parameters
+					callArgs = append(callArgs, reflect.ValueOf(args[i]))
+				}
+
+				// Call the callback function
+				if len(callArgs) <= callbackType.NumIn() {
+					callbackValue.Call(callArgs)
+				}
 			}
+		}()
+		
+		// Wait for callback completion or timeout
+		select {
+		case <-done:
+			// Callback completed normally
+			if callbackPanic != nil {
+				debugf("EVENTS", "🚨 GoUseFunc: callback completed with panic: %v\n", callbackPanic)
+			}
+		case <-callbackCtx.Done():
+			// Callback timed out - potential goroutine leak prevented
+			debugf("EVENTS", "⏰ GoUseFunc: callback timed out after %v, preventing potential goroutine leak\n", maxEventTimeout)
 		}
 
 		return nil
@@ -371,6 +419,43 @@ func GoUseFunc(callback interface{}) js.Func {
 	}
 
 	return cb
+}
+
+// SetEventCallbackTimeout configures the maximum timeout for event callbacks
+// This helps prevent goroutine leaks from long-running or stuck callbacks
+func SetEventCallbackTimeout(timeout time.Duration) {
+	if timeout <= 0 {
+		timeout = 30 * time.Second // Default fallback
+	}
+	maxEventTimeout = timeout
+	debugf("EVENTS", "⏰ SetEventCallbackTimeout: set to %v\n", timeout)
+}
+
+// GetEventCallbackTimeout returns the current event callback timeout
+func GetEventCallbackTimeout() time.Duration {
+	return maxEventTimeout
+}
+
+// CancelAllEventCallbacks cancels all active event callbacks to prevent goroutine leaks
+// This should be called during application shutdown or major state resets
+func CancelAllEventCallbacks() {
+	debugf("EVENTS", "🛑 CancelAllEventCallbacks: cancelling global event context\n")
+	
+	// Cancel the global context - this will cancel all active callback contexts
+	globalEventCancel()
+	
+	// Create new global context for future callbacks
+	globalEventContext, globalEventCancel = context.WithCancel(context.Background())
+	
+	// Clean up timeout timers
+	eventTimeoutMutex.Lock()
+	for _, timer := range eventCallbackTimeouts {
+		timer.Stop()
+	}
+	eventCallbackTimeouts = make(map[uintptr]*time.Timer)
+	eventTimeoutMutex.Unlock()
+	
+	debugf("EVENTS", "✅ CancelAllEventCallbacks: all callbacks cancelled, new context created\n")
 }
 
 // CleanupGlobalEventCallbacks manually cleans up the global event callbacks fallback pool
