@@ -346,8 +346,10 @@ func SetDebugNamespaces(namespaces map[string]bool) {
 func SetDebugNamespacesExclusive(namespaces map[string]bool) {
 	// Disable global debug first
 	debugEnabled = false
-	// Clear existing namespace settings
-	debugNamespaces = make(map[string]bool)
+	// Clear existing namespace settings efficiently without creating new map
+	for k := range debugNamespaces {
+		delete(debugNamespaces, k)
+	}
 	// Set only the specified namespaces
 	for ns, enabled := range namespaces {
 		debugNamespaces[ns] = enabled
@@ -369,8 +371,10 @@ func EnableAllDebug() {
 // DisableAllDebug disables all debug logging globally
 func DisableAllDebug() {
 	SetDebug(false)
-	// Clear namespace-specific settings
-	debugNamespaces = make(map[string]bool)
+	// Clear namespace-specific settings efficiently without creating new map
+	for k := range debugNamespaces {
+		delete(debugNamespaces, k)
+	}
 }
 
 // GetDebugStatus returns current debug settings

@@ -141,15 +141,8 @@ File: fiber/memory.go
 
 MODERATE LEAKS - Global State
 =============================
-File: fiber/utils.go
-- debugNamespaces Line 284: global map never garbage collected
-- debugNamespaces Line 308: recreated but old refs may persist
-- debugNamespaces Line 331: multiple recreations without cleanup
-
-File: fiber/memory.go
-- eventCallbacks Line 58: global slice accumulates indefinitely
-- rafCallbacks Line 59: global slice accumulates indefinitely
-- callbackRegistry Line 60: global map accumulates indefinitely
+File: fiber/events.go
+- eventCallbacks Line 203: global slice fallback accumulates (minor - only when no current fiber)
 
 MODERATE LEAKS - JS Object Creation
 ==================================
