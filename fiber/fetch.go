@@ -110,8 +110,9 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 
 // GoFetch performs an asynchronous fetch operation and returns a channel for the result.
 // This is a utility function for imperative fetching and requires manual state management.
+// The returned channel should be consumed and then returned to the pool using returnFetchChannel().
 func GoFetch(url string, options FetchOptions) <-chan FetchResult {
-	resultChan := make(chan FetchResult, 1) // Buffered channel to avoid goroutine leak
+	resultChan := getFetchChannel() // Get pooled channel to reduce allocations
 
 	// Perform fetch directly without spawning goroutine to avoid goroutine leaks
 	fetchOptions := js.Global().Get("Object").New()
@@ -119,6 +120,19 @@ func GoFetch(url string, options FetchOptions) <-chan FetchResult {
 	performFetch(url, fetchOptions, resultChan)
 
 	return resultChan
+}
+
+// ReturnFetchChannel returns a fetch result channel to the pool for reuse.
+// This should be called after consuming the result from GoFetch() to prevent memory leaks.
+// Example usage:
+//   ch := GoFetch(url, options)
+//   result := <-ch
+//   ReturnFetchChannel(ch)
+func ReturnFetchChannel(ch <-chan FetchResult) {
+	// Convert read-only channel back to bidirectional for pool return
+	if writableCh, ok := interface{}(ch).(chan FetchResult); ok {
+		returnFetchChannel(writableCh)
+	}
 }
 
 // setFetchOptions configures the fetch options object

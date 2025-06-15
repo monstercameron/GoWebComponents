@@ -62,10 +62,10 @@ var (
 		},
 	}
 
-	// Fetch result channel pool for reducing allocations during fetch operations
+	// Fetch result channel pool for reducing channel allocations during fetch operations
 	fetchChannelPool = sync.Pool{
 		New: func() interface{} {
-			return make(chan FetchResult, 1) // Buffered channel to avoid blocking
+			return make(chan FetchResult, 1) // Buffered channel for non-blocking sends
 		},
 	}
 )
@@ -86,6 +86,7 @@ var (
 		props        int32
 		children     int32
 		effectFibers int32
+		fetchChannel int32
 	}{}
 )
 
@@ -183,6 +184,7 @@ func GetPoolSizes() map[string]int32 {
 		"props":        atomic.LoadInt32(&poolSizes.props),
 		"children":     atomic.LoadInt32(&poolSizes.children),
 		"effectFibers": atomic.LoadInt32(&poolSizes.effectFibers),
+		"fetchChannel": atomic.LoadInt32(&poolSizes.fetchChannel),
 	}
 }
 
@@ -371,10 +373,61 @@ func returnEffectFibersSlice(slice *[]*Fiber) {
 		atomic.AddInt32(&poolSizes.effectFibers, 1)
 		// Clear the slice and return to pool
 		*slice = (*slice)[:0]
-		effectFibersPool.Put(slice)
-		debugf("MEMORY", "✅ returnEffectFibersSlice: slice returned to pool (pool size: %d/%d)\n", currentSize+1, maxPoolSize)
+			effectFibersPool.Put(slice)
+	debugf("MEMORY", "✅ returnEffectFibersSlice: slice returned to pool (pool size: %d/%d)\n", currentSize+1, maxPoolSize)
 	} else {
 		debugf("MEMORY", "🚨 returnEffectFibersSlice: pool size limit reached (%d), discarding slice to prevent overflow\n", maxPoolSize)
 		// Let GC handle the discarded slice
+	}
+}
+
+// getFetchChannel retrieves a pooled channel for fetch operations
+func getFetchChannel() chan FetchResult {
+	debugf("MEMORY", "♻️ getFetchChannel: retrieving channel from pool\n")
+	poolChan := fetchChannelPool.Get()
+	if ch, ok := poolChan.(chan FetchResult); ok {
+		// Decrement pool size counter when retrieving from pool
+		atomic.AddInt32(&poolSizes.fetchChannel, -1)
+		// Drain any leftover data from previous use
+		select {
+		case <-ch:
+			debugf("MEMORY", "🧹 getFetchChannel: drained leftover data from reused channel\n")
+		default:
+			// Channel is empty, ready for use
+		}
+		debugf("MEMORY", "✅ getFetchChannel: reused channel from pool\n")
+		return ch
+	}
+	// This should never happen if pool is properly initialized
+	debugf("MEMORY", "🚨 getFetchChannel: pool returned unexpected type %T, creating new channel\n", poolChan)
+	return make(chan FetchResult, 1)
+}
+
+// returnFetchChannel returns a channel to the pool with size enforcement
+func returnFetchChannel(ch chan FetchResult) {
+	if ch == nil {
+		debugf("MEMORY", "🚨 returnFetchChannel: attempted to return nil channel\n")
+		return
+	}
+
+	debugf("MEMORY", "♻️ returnFetchChannel: returning channel to pool\n")
+
+	// Drain any remaining data to clean the channel for reuse
+	select {
+	case <-ch:
+		debugf("MEMORY", "🧹 returnFetchChannel: drained remaining data from channel\n")
+	default:
+		// Channel is empty
+	}
+
+	// Enforce pool size limits
+	currentSize := atomic.LoadInt32(&poolSizes.fetchChannel)
+	if currentSize < int32(maxPoolSize) {
+		atomic.AddInt32(&poolSizes.fetchChannel, 1)
+		fetchChannelPool.Put(ch)
+		debugf("MEMORY", "✅ returnFetchChannel: channel returned to pool (pool size: %d/%d)\n", currentSize+1, maxPoolSize)
+	} else {
+		debugf("MEMORY", "🚨 returnFetchChannel: pool size limit reached (%d), discarding channel to prevent overflow\n", maxPoolSize)
+		// Let GC handle the discarded channel
 	}
 }

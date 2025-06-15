@@ -75,16 +75,15 @@ Analysis: Comprehensive memory leak hunt across fiber implementation
    - Added GetPoolSizes() function for runtime monitoring
    - Memory overflow risk eliminated: Pools bounded to configurable limits (default: 100 objects per pool)
 
-9. **Fetch Channel Accumulation** [MODERATE]
-   File: fiber/fetch.go
-   Lines: 97, 105
-   Problem: Channels created for each fetch but reliance on GC for cleanup
-   Impact: Memory pressure during high-frequency fetching
-   Details:
-   - resultChan := make(chan FetchResult, 1) - relies on GC
-   - promiseResultChan := make(chan FetchResult, 1) - relies on GC
-   - Buffered channels hold memory until GC
-   Solution: Consider channel pooling for high-frequency scenarios
+9. ✅ **Fetch Channel Accumulation** [FIXED]
+   File: fiber/fetch.go, fiber/memory.go
+   SOLUTION APPLIED: Implemented channel pooling for fetch operations
+   - Added fetchChannelPool with sync.Pool for channel reuse
+   - GoFetch() now uses getFetchChannel() instead of make(chan FetchResult, 1)
+   - Added returnFetchChannel() with pool size enforcement and channel draining
+   - Added ReturnFetchChannel() public API for manual channel return
+   - Channels are properly cleaned (drained) before reuse to prevent data leakage
+   - Memory pressure eliminated: Channels reused instead of created per fetch operation
 
 10. **UI Queue Potential Overflow** [MODERATE]
     File: fiber/fiber.go
