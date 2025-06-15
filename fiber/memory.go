@@ -154,13 +154,43 @@ func getHooksFromPool() *Hooks {
 	poolHooks := hooksPool.Get()
 	if hooks, ok := poolHooks.(*Hooks); ok {
 		debugf("MEMORY", "✅ getHooksFromPool: reusing hooks %p from pool\n", hooks)
-		// Reset the hooks for reuse
+		// Reset the hooks for reuse with smart slice management
 		debugf("MEMORY", "🔄 getHooksFromPool: resetting hooks - state: %d, deps: %d, memos: %d\n",
 			len(hooks.state), len(hooks.deps), len(hooks.memos))
 		hooks.index = 0
-		hooks.state = hooks.state[:0]
-		hooks.deps = hooks.deps[:0]
-		hooks.memos = hooks.memos[:0]
+		
+		// Smart slice management: shrink backing arrays if they grew too large
+		const maxHookSliceCapacity = 32 // Reasonable upper bound for most components
+		const defaultHookSliceCapacity = 8 // Default capacity for new slices
+		
+		// Reset state slice with capacity management
+		if cap(hooks.state) > maxHookSliceCapacity {
+			oldCap := cap(hooks.state)
+			hooks.state = make([]interface{}, 0, defaultHookSliceCapacity)
+			debugf("MEMORY", "🧹 getHooksFromPool: shrunk state slice capacity %d→%d\n", oldCap, defaultHookSliceCapacity)
+		} else {
+			hooks.state = hooks.state[:0]
+		}
+		
+		// Reset deps slice with capacity management
+		if cap(hooks.deps) > maxHookSliceCapacity {
+			oldCap := cap(hooks.deps)
+			hooks.deps = make([][]interface{}, 0, defaultHookSliceCapacity)
+			debugf("MEMORY", "🧹 getHooksFromPool: shrunk deps slice capacity %d→%d\n", oldCap, defaultHookSliceCapacity)
+		} else {
+			hooks.deps = hooks.deps[:0]
+		}
+		
+		// Reset memos slice with capacity management
+		if cap(hooks.memos) > maxHookSliceCapacity {
+			oldCap := cap(hooks.memos)
+			hooks.memos = make([]memoizedValue, 0, defaultHookSliceCapacity)
+			debugf("MEMORY", "🧹 getHooksFromPool: shrunk memos slice capacity %d→%d\n", oldCap, defaultHookSliceCapacity)
+		} else {
+			hooks.memos = hooks.memos[:0]
+		}
+		
+		// Reset order tracking slices (these typically stay small)
 		hooks.prevOrder = hooks.prevOrder[:0]
 		hooks.callOrder = hooks.callOrder[:0]
 		hooks.orderChecked = false
