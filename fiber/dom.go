@@ -29,6 +29,7 @@ func createElement(typ interface{}, props map[string]interface{}, children ...in
 	elem.Type = typ
 
 	// Process children to support both component references and return values
+	// Optimized with type switch for better performance than chained type assertions
 	processedChildren := make([]interface{}, 0, len(children))
 
 	for _, child := range children {
@@ -36,22 +37,23 @@ func createElement(typ interface{}, props map[string]interface{}, children ...in
 			continue
 		}
 
-		// Check if child is a component function reference (map[string]interface{} signature)
-		if componentFunc, ok := child.(func(map[string]interface{}) *Element); ok {
-			// Call the component function with nil props
+		// Optimized type dispatch using type switch instead of chained assertions
+		// This is faster than multiple type assertions as it only evaluates the type once
+		switch componentFunc := child.(type) {
+		case func(map[string]interface{}) *Element:
+			// Component function with map[string]interface{} signature
 			result := componentFunc(nil)
 			if result != nil {
 				processedChildren = append(processedChildren, result)
 			}
-		} else if componentFunc, ok := child.(func(Attrs) *Element); ok {
-			// Check if child is a component function reference (Attrs signature)
-			// Call the component function with nil props
+		case func(Attrs) *Element:
+			// Component function with Attrs signature (same as map[string]interface{})
 			result := componentFunc(nil)
 			if result != nil {
 				processedChildren = append(processedChildren, result)
 			}
-		} else {
-			// Child is already processed (Element, Text, etc.)
+		default:
+			// Child is already processed (Element, Text, etc.) - most common case
 			processedChildren = append(processedChildren, child)
 		}
 	}
@@ -267,15 +269,18 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 			dom.Call("setAttribute", "class", value)
 		case "style":
 			// Handle string vs map[string]string styles with cached styleObj
+			// Optimized with type switch instead of chained type assertions
 			//
 			// OPTIMIZATION: For map-based styles, we cache the DOM style object
 			// and batch all operations. This is especially beneficial when updating
 			// many CSS properties, as it avoids repeated DOM.Get("style") calls.
 			//
-			if styleStr, ok := value.(string); ok {
-				dom.Set("style", styleStr)
-			} else if styleMap, ok := value.(map[string]string); ok {
-				// Initialize styleObj only when needed (lazy initialization)
+			switch styleValue := value.(type) {
+			case string:
+				// String style - most common case
+				dom.Set("style", styleValue)
+			case map[string]string:
+				// Map-based styles - initialize styleObj only when needed
 				if !styleObjInitialized {
 					styleObj = dom.Get("style")  // Expensive DOM call - do once
 					styleObjInitialized = true
@@ -289,17 +294,17 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 				// Batch style removals - all use cached styleObj
 				if oldStyleMap, okOld := oldProps["style"].(map[string]string); okOld {
 					for k := range oldStyleMap {
-						if _, exists := styleMap[k]; !exists {
+						if _, exists := styleValue[k]; !exists {
 							styleObj.Call("removeProperty", k)  // Fast: reuse cached object
 						}
 					}
 				}
 				
 				// Batch style additions/updates - all use cached styleObj
-				for k, val := range styleMap {
+				for k, val := range styleValue {
 					styleObj.Call("setProperty", k, val)  // Fast: reuse cached object
 				}
-			} else {
+			default:
 				debugf("DOM", "🚨 updateDom: style must be string or map[string]string, got %T\n", value)
 			}
 		case "id", "value", "type", "placeholder", "disabled", "checked", "selected":
