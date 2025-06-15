@@ -53,7 +53,30 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 		}
 
 		fetchPromise := js.Global().Call("fetch", url, fetchOptions)
-		fetchPromise.Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		
+		// Create callbacks that will be released after use
+		var thenCallback, jsonCallback, catchCallback js.Func
+		
+		jsonCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			defer jsonCallback.Release() // Clean up immediately after use
+			
+			data := args[0]
+			jsonStr := js.Global().Get("JSON").Call("stringify", data).String()
+			var parsedData interface{}
+			err := json.Unmarshal([]byte(jsonStr), &parsedData)
+			if err != nil {
+				debugf("FETCH", "Error parsing data: %v\n", err)
+				setState(FetchState{Error: err.Error(), Loading: false})
+			} else {
+				debugf("FETCH", "useFetch: Successfully fetched data\n")
+				setState(FetchState{Data: parsedData, Loading: false})
+			}
+			return nil
+		})
+		
+		thenCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			defer thenCallback.Release() // Clean up immediately after use
+			
 			response := args[0]
 			if !response.Get("ok").Bool() {
 				errorMsg := fmt.Sprintf("HTTP error! status: %s", response.Get("status").String())
@@ -61,28 +84,21 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 				setState(FetchState{Error: errorMsg, Loading: false})
 				return nil
 			}
-			response.Call("json").Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				data := args[0]
-				jsonStr := js.Global().Get("JSON").Call("stringify", data).String()
-				var parsedData interface{}
-				err := json.Unmarshal([]byte(jsonStr), &parsedData)
-				if err != nil {
-					debugf("FETCH", "Error parsing data: %v\n", err)
-					setState(FetchState{Error: err.Error(), Loading: false})
-				} else {
-					debugf("FETCH", "useFetch: Successfully fetched data\n")
-					setState(FetchState{Data: parsedData, Loading: false})
-				}
-				return nil
-			}))
+			response.Call("json").Call("then", jsonCallback)
 			return nil
-		})).Call("catch", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		})
+		
+		catchCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			defer catchCallback.Release() // Clean up immediately after use
+			
 			err := args[0]
 			errorMsg := fmt.Sprintf("Fetch error: %s", err.Get("message").String())
 			debugf("FETCH", "%s\n", errorMsg)
 			setState(FetchState{Error: errorMsg, Loading: false})
 			return nil
-		}))
+		})
+		
+		fetchPromise.Call("then", thenCallback).Call("catch", catchCallback)
 	}
 
 	GoUseEffect(func() {
