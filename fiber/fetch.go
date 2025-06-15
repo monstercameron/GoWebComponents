@@ -6,6 +6,7 @@ package fiber
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"syscall/js"
 )
 
@@ -45,7 +46,11 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 			default:
 				bodyJSON, err := json.Marshal(v)
 				if err != nil {
-					setState(FetchState{Error: "Error encoding request body: " + err.Error(), Loading: false})
+					// Optimized string concatenation - avoid + operator for better performance
+				var errorMsg strings.Builder
+				errorMsg.WriteString("Error encoding request body: ")
+				errorMsg.WriteString(err.Error())
+				setState(FetchState{Error: errorMsg.String(), Loading: false})
 					return
 				}
 				fetchOptions.Set("body", string(bodyJSON))
@@ -79,9 +84,13 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 			
 			response := args[0]
 			if !response.Get("ok").Bool() {
-				errorMsg := fmt.Sprintf("HTTP error! status: %s", response.Get("status").String())
-				debugf("FETCH", "useFetch: %s\n", errorMsg)
-				setState(FetchState{Error: errorMsg, Loading: false})
+				// Optimized string concatenation for HTTP error messages
+				var errorMsg strings.Builder
+				errorMsg.WriteString("HTTP error! status: ")
+				errorMsg.WriteString(response.Get("status").String())
+				errorStr := errorMsg.String()
+				debugf("FETCH", "useFetch: %s\n", errorStr)
+				setState(FetchState{Error: errorStr, Loading: false})
 				return nil
 			}
 			response.Call("json").Call("then", jsonCallback)
@@ -92,9 +101,13 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 			defer catchCallback.Release() // Clean up immediately after use
 			
 			err := args[0]
-			errorMsg := fmt.Sprintf("Fetch error: %s", err.Get("message").String())
-			debugf("FETCH", "%s\n", errorMsg)
-			setState(FetchState{Error: errorMsg, Loading: false})
+			// Optimized string concatenation for fetch error messages
+			var errorMsg strings.Builder
+			errorMsg.WriteString("Fetch error: ")
+			errorMsg.WriteString(err.Get("message").String())
+			errorStr := errorMsg.String()
+			debugf("FETCH", "%s\n", errorStr)
+			setState(FetchState{Error: errorStr, Loading: false})
 			return nil
 		})
 		
@@ -156,7 +169,11 @@ func setFetchOptions(fetchOptions js.Value, options FetchOptions) {
 		default:
 			bodyJSON, err := json.Marshal(v)
 			if err != nil {
-				fetchOptions.Set("body", fmt.Sprintf("error encoding body: %v", err))
+				// Optimized string concatenation for body encoding errors
+				var errorMsg strings.Builder
+				errorMsg.WriteString("error encoding body: ")
+				errorMsg.WriteString(err.Error())
+				fetchOptions.Set("body", errorMsg.String())
 			} else {
 				fetchOptions.Set("body", string(bodyJSON))
 			}
@@ -191,7 +208,11 @@ func performFetch(url string, fetchOptions js.Value, resultChan chan<- FetchResu
 		
 		response := args[0]
 		if !response.Get("ok").Bool() {
-			resultChan <- FetchResult{Err: fmt.Errorf("HTTP error! status: %s", response.Get("status").String())}
+			// Optimized string concatenation for HTTP error in performFetch
+			var errorMsg strings.Builder
+			errorMsg.WriteString("HTTP error! status: ")
+			errorMsg.WriteString(response.Get("status").String())
+			resultChan <- FetchResult{Err: fmt.Errorf("%s", errorMsg.String())}
 			return nil
 		}
 
@@ -203,7 +224,11 @@ func performFetch(url string, fetchOptions js.Value, resultChan chan<- FetchResu
 		defer catchCallback.Release() // Clean up immediately after use
 		
 		err := args[0]
-		resultChan <- FetchResult{Err: fmt.Errorf("fetch error: %s", err.Get("message").String())}
+		// Optimized string concatenation for fetch error in performFetch
+		var errorMsg strings.Builder
+		errorMsg.WriteString("fetch error: ")
+		errorMsg.WriteString(err.Get("message").String())
+		resultChan <- FetchResult{Err: fmt.Errorf("%s", errorMsg.String())}
 		return nil
 	})
 	

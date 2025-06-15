@@ -432,7 +432,13 @@ func debugf(namespace, format string, a ...interface{}) {
 	
 	// Only perform expensive string formatting when debug is actually enabled
 	// This reduces CPU overhead by 2-8% in production when debug is disabled
-	fmt.Printf("[%s] %s", namespace, fmt.Sprintf(format, a...))
+	// Optimized string concatenation for debug output
+	var output strings.Builder
+	output.WriteByte('[')
+	output.WriteString(namespace)
+	output.WriteString("] ")
+	output.WriteString(fmt.Sprintf(format, a...))
+	fmt.Print(output.String())
 }
 
 // isDebugBuild returns true if this is a debug build
