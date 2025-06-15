@@ -24,6 +24,10 @@ var (
 
 	// --- UI queue for main-thread safe updates ---
 	uiQueue = make(chan func(), 1024) // Buffer to avoid blocking background goroutines
+	
+	// UI queue monitoring
+	uiQueueOverflows int64 // Counter for overflow events
+	uiQueueMaxSize   int64 // Track maximum queue size reached
 
 	// Indicates we're executing on the main scheduler/commit/effect loop
 	schedulerActive int32

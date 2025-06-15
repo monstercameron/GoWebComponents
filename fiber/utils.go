@@ -222,14 +222,32 @@ func getFunctionName(i interface{}) string {
 	return name
 }
 
-// enqueueUI schedules fn to run on the main JS/event thread
+// enqueueUI schedules fn to run on the main JS/event thread with overflow monitoring
 func enqueueUI(fn func()) {
 	debugf("UTILS", "📋 enqueueUI: attempting to enqueue UI task\n")
+	
+	// Track current queue size for monitoring
+	currentSize := int64(len(uiQueue))
+	if currentSize > atomic.LoadInt64(&uiQueueMaxSize) {
+		atomic.StoreInt64(&uiQueueMaxSize, currentSize)
+		debugf("UTILS", "📊 enqueueUI: new max queue size: %d\n", currentSize)
+	}
+	
 	select {
 	case uiQueue <- fn:
-		debugf("UTILS", "✅ enqueueUI: task enqueued successfully\n")
+		debugf("UTILS", "✅ enqueueUI: task enqueued successfully (queue size: %d/1024)\n", currentSize+1)
 	default:
-		debugf("UTILS", "⚡ enqueueUI: queue full, executing immediately\n")
+		// Queue is full - increment overflow counter and handle gracefully
+		atomic.AddInt64(&uiQueueOverflows, 1)
+		overflowCount := atomic.LoadInt64(&uiQueueOverflows)
+		debugf("UTILS", "⚠️ enqueueUI: queue overflow #%d, executing immediately\n", overflowCount)
+		
+		// Log warning for frequent overflows
+		if overflowCount%100 == 0 {
+			debugf("UTILS", "🚨 enqueueUI: WARNING - %d queue overflows detected, consider increasing queue size\n", overflowCount)
+		}
+		
+		// Execute immediately as fallback
 		fn()
 	}
 
@@ -245,14 +263,19 @@ func processUIQueue() {
 	debugf("UTILS", "📋 processUIQueue: starting UI queue processing\n")
 	queueStartTime := time.Now()
 	tasksProcessed := 0
+	initialQueueSize := len(uiQueue)
 
 	startSchedulerSection()
 	defer endSchedulerSection()
-	for {
+	
+	// Process with a reasonable limit to prevent blocking too long
+	const maxTasksPerBatch = 100
+	
+	for tasksProcessed < maxTasksPerBatch {
 		select {
 		case fn := <-uiQueue:
 			if fn != nil {
-				debugf("UTILS", "⚡ processUIQueue: executing task %d\n", tasksProcessed+1)
+				debugf("UTILS", "⚡ processUIQueue: executing task %d/%d\n", tasksProcessed+1, initialQueueSize)
 				taskStartTime := time.Now()
 				fn()
 				taskDuration := time.Since(taskStartTime)
@@ -260,12 +283,30 @@ func processUIQueue() {
 				tasksProcessed++
 			} else {
 				debugf("UTILS", "🚨 processUIQueue: received nil task\n")
+				tasksProcessed++ // Count nil tasks to avoid infinite loop
 			}
 		default:
+			// No more tasks available
 			queueDuration := time.Since(queueStartTime)
-			debugf("UTILS", "✅ processUIQueue: completed %d tasks in %v\n", tasksProcessed, queueDuration)
+			debugf("UTILS", "✅ processUIQueue: completed %d/%d tasks in %v\n", tasksProcessed, initialQueueSize, queueDuration)
 			return
 		}
+	}
+	
+	// If we hit the batch limit, schedule another processing cycle
+	if len(uiQueue) > 0 {
+		queueDuration := time.Since(queueStartTime)
+		debugf("UTILS", "⏳ processUIQueue: batch limit reached (%d tasks), %d remaining - scheduling next cycle\n", 
+			maxTasksPerBatch, len(uiQueue))
+		debugf("UTILS", "📊 processUIQueue: batch completed in %v\n", queueDuration)
+		
+		// Schedule another processing cycle
+		if atomic.LoadInt32(&schedulerActive) == 0 && !updateScheduled {
+			requestIdleCallback(workLoop)
+		}
+	} else {
+		queueDuration := time.Since(queueStartTime)
+		debugf("UTILS", "✅ processUIQueue: all tasks completed (%d total) in %v\n", tasksProcessed, queueDuration)
 	}
 }
 
@@ -340,4 +381,21 @@ func GetDebugStatus() map[string]bool {
 		status[ns] = enabled
 	}
 	return status
+}
+
+// GetUIQueueStats returns UI queue statistics for monitoring
+func GetUIQueueStats() map[string]int64 {
+	return map[string]int64{
+		"currentSize":    int64(len(uiQueue)),
+		"capacity":       1024,
+		"overflowCount":  atomic.LoadInt64(&uiQueueOverflows),
+		"maxSizeReached": atomic.LoadInt64(&uiQueueMaxSize),
+	}
+}
+
+// ResetUIQueueStats resets UI queue statistics counters
+func ResetUIQueueStats() {
+	atomic.StoreInt64(&uiQueueOverflows, 0)
+	atomic.StoreInt64(&uiQueueMaxSize, 0)
+	debugf("UTILS", "🔄 ResetUIQueueStats: statistics counters reset\n")
 }
