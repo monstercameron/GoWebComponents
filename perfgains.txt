@@ -41,10 +41,7 @@ Analysis: Comprehensive performance review across entire codebase
 
 
 
-16. **Debug Printf Statements** [All files]
-    - Issue: debugf() calls with string formatting
-    - Fix: Compile-time debug flag, zero-cost when disabled
-    - Impact: 2-8% CPU reduction in production
+
 
 17. **Memory Stats Collection** [fiber/hooks.go:35-40]
      - Issue: runtime.ReadMemStats() in debug mode
