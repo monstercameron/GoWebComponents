@@ -51,13 +51,18 @@ func GoUseState[T any](initialValue T) (func() T, func(T)) {
 		existingValue := currentFiber.hooks.state[position]
 		debugf("HOOKS", "🔄 GoUseState: reusing existing state at position %d, value: %+v\n", position, existingValue)
 	} else {
-		// Initial state - grow slice efficiently
+		// Initial state - grow slice efficiently with smart capacity estimation
 		debugf("HOOKS", "🆕 GoUseState: creating initial state at position %d\n", position)
-		if cap(currentFiber.hooks.state) <= position {
-			// Double capacity when needed
+		requiredCap := position + 1
+		if cap(currentFiber.hooks.state) < requiredCap {
+			// Smart capacity estimation: ensure we have room for this position plus some growth
 			oldCap := cap(currentFiber.hooks.state)
-			newCap := max(8, len(currentFiber.hooks.state)*2)
-			debugf("HOOKS", "📈 GoUseState: growing state slice from cap %d to %d\n", oldCap, newCap)
+			newCap := max(8, max(requiredCap, oldCap*2))
+			// For components with many hooks, be more aggressive with initial allocation
+			if position >= 4 {
+				newCap = max(newCap, position*2) // Anticipate more hooks
+			}
+			debugf("HOOKS", "📈 GoUseState: growing state slice from cap %d to %d (position %d)\n", oldCap, newCap, position)
 			newState := make([]interface{}, len(currentFiber.hooks.state), newCap)
 			copy(newState, currentFiber.hooks.state)
 			currentFiber.hooks.state = newState
@@ -97,6 +102,16 @@ func GoUseState[T any](initialValue T) (func() T, func(T)) {
 		apply := func() {
 			if idx >= len(hooks.state) {
 				debugf("HOOKS", "📈 GoUseState setter: expanding state slice to fit index %d\n", idx)
+				// Optimize: grow slice to required size in one operation
+				requiredLen := idx + 1
+				if cap(hooks.state) < requiredLen {
+					// Pre-allocate with reasonable capacity
+					newCap := max(8, max(requiredLen, cap(hooks.state)*2))
+					newState := make([]interface{}, len(hooks.state), newCap)
+					copy(newState, hooks.state)
+					hooks.state = newState
+				}
+				// Extend to required length
 				for len(hooks.state) <= idx {
 					hooks.state = append(hooks.state, nil)
 				}
@@ -155,9 +170,21 @@ func GoUseEffect(effect func(), deps ...interface{}) {
 		// Continue execution but log the error - don't panic in production
 	}
 
-	// Grow deps slice efficiently
-	for len(currentFiber.hooks.deps) <= position {
-		currentFiber.hooks.deps = append(currentFiber.hooks.deps, nil)
+	// Grow deps slice efficiently - avoid multiple append operations
+	if len(currentFiber.hooks.deps) <= position {
+		// Calculate required capacity and grow in one operation
+		requiredLen := position + 1
+		if cap(currentFiber.hooks.deps) < requiredLen {
+			// Pre-allocate with reasonable capacity to avoid future reallocations
+			newCap := max(8, max(requiredLen, cap(currentFiber.hooks.deps)*2))
+			newDeps := make([][]interface{}, len(currentFiber.hooks.deps), newCap)
+			copy(newDeps, currentFiber.hooks.deps)
+			currentFiber.hooks.deps = newDeps
+		}
+		// Extend slice to required length in one operation
+		for len(currentFiber.hooks.deps) <= position {
+			currentFiber.hooks.deps = append(currentFiber.hooks.deps, nil)
+		}
 	}
 
 	if currentFiber.hooks.deps[position] == nil {
@@ -223,9 +250,21 @@ func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 		// Continue execution but log the error - don't panic in production
 	}
 
-	// Grow memos slice efficiently
-	for len(currentFiber.hooks.memos) <= position {
-		currentFiber.hooks.memos = append(currentFiber.hooks.memos, memoizedValue{})
+	// Grow memos slice efficiently - avoid multiple append operations
+	if len(currentFiber.hooks.memos) <= position {
+		// Calculate required capacity and grow in one operation
+		requiredLen := position + 1
+		if cap(currentFiber.hooks.memos) < requiredLen {
+			// Pre-allocate with reasonable capacity to avoid future reallocations
+			newCap := max(4, max(requiredLen, cap(currentFiber.hooks.memos)*2))
+			newMemos := make([]memoizedValue, len(currentFiber.hooks.memos), newCap)
+			copy(newMemos, currentFiber.hooks.memos)
+			currentFiber.hooks.memos = newMemos
+		}
+		// Extend slice to required length in one operation
+		for len(currentFiber.hooks.memos) <= position {
+			currentFiber.hooks.memos = append(currentFiber.hooks.memos, memoizedValue{})
+		}
 	}
 
 	memo := &currentFiber.hooks.memos[position]
