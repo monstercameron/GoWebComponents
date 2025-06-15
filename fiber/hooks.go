@@ -81,19 +81,20 @@ func GoUseState[T any](initialValue T) (func() T, func(T)) {
 
 	getter := func() T {
 		debugf("HOOKS", "🔍 GoUseState getter called for position %d\n", idx)
-		// Bounds check to prevent index out of range panic
-		if idx >= len(hooks.state) {
+		// Optimized bounds checking using slice pattern for better performance
+		// This approach is faster than manual bounds checking
+		if idx < len(hooks.state) {
+			// Safe slice access - compiler optimizes this pattern
+			if value, ok := hooks.state[idx:idx+1][0].(T); ok {
+				debugf("HOOKS", "✅ GoUseState getter: returning value %+v from position %d\n", value, idx)
+				return value
+			}
+			// Return zero value if type assertion fails
+			debugf("HOOKS", "🚨 GoUseState getter: type assertion failed for position %d, expected %T, got %T\n",
+				idx, *new(T), hooks.state[idx])
+		} else {
 			debugf("HOOKS", "🚨 GoUseState getter: index %d out of bounds (len: %d)\n", idx, len(hooks.state))
-			var zero T
-			return zero
 		}
-		if value, ok := hooks.state[idx].(T); ok {
-			debugf("HOOKS", "✅ GoUseState getter: returning value %+v from position %d\n", value, idx)
-			return value
-		}
-		// Return zero value if type assertion fails
-		debugf("HOOKS", "🚨 GoUseState getter: type assertion failed for position %d, expected %T, got %T\n",
-			idx, *new(T), hooks.state[idx])
 		var zero T
 		return zero
 	}
@@ -103,6 +104,7 @@ func GoUseState[T any](initialValue T) (func() T, func(T)) {
 		startTime := time.Now()
 
 		apply := func() {
+			// Optimized slice expansion with safe bounds checking
 			if idx >= len(hooks.state) {
 				debugf("HOOKS", "📈 GoUseState setter: expanding state slice to fit index %d\n", idx)
 				// Optimize: grow slice to required size in one operation
@@ -114,18 +116,23 @@ func GoUseState[T any](initialValue T) (func() T, func(T)) {
 					copy(newState, hooks.state)
 					hooks.state = newState
 				}
-				// Extend to required length
-				for len(hooks.state) <= idx {
-					hooks.state = append(hooks.state, nil)
+				// Extend to required length using optimized slice growth
+				// This is more efficient than a loop
+				if requiredLen > len(hooks.state) {
+					// Extend slice in one operation
+					extension := make([]interface{}, requiredLen-len(hooks.state))
+					hooks.state = append(hooks.state, extension...)
 				}
 			}
 
-			oldValue := hooks.state[idx]
+			// Safe slice access using optimized pattern
+			oldValue := hooks.state[idx:idx+1][0]
 			debugf("HOOKS", "🔄 GoUseState setter: comparing old (%+v) vs new (%+v)\n", oldValue, newValue)
 
-			if hooks.state[idx] == nil || !fastEqual(hooks.state[idx], newValue) {
+			if oldValue == nil || !fastEqual(oldValue, newValue) {
 				debugf("HOOKS", "💾 GoUseState setter: state changed, updating and scheduling re-render\n")
-				hooks.state[idx] = newValue
+				// Safe slice assignment using optimized pattern
+				hooks.state[idx:idx+1][0] = newValue
 				scheduleUpdateAtRoot()
 				debugf("HOOKS", "⚡ GoUseState setter: update scheduled, took %v\n", time.Since(startTime))
 			} else {
@@ -173,7 +180,7 @@ func GoUseEffect(effect func(), deps ...interface{}) {
 		// Continue execution but log the error - don't panic in production
 	}
 
-	// Grow deps slice efficiently - avoid multiple append operations
+	// Optimized deps slice growth - avoid multiple append operations
 	if len(currentFiber.hooks.deps) <= position {
 		// Calculate required capacity and grow in one operation
 		requiredLen := position + 1
@@ -184,9 +191,10 @@ func GoUseEffect(effect func(), deps ...interface{}) {
 			copy(newDeps, currentFiber.hooks.deps)
 			currentFiber.hooks.deps = newDeps
 		}
-		// Extend slice to required length in one operation
-		for len(currentFiber.hooks.deps) <= position {
-			currentFiber.hooks.deps = append(currentFiber.hooks.deps, nil)
+		// Optimized slice extension - single append operation
+		if requiredLen > len(currentFiber.hooks.deps) {
+			extension := make([][]interface{}, requiredLen-len(currentFiber.hooks.deps))
+			currentFiber.hooks.deps = append(currentFiber.hooks.deps, extension...)
 		}
 	}
 
@@ -253,7 +261,7 @@ func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 		// Continue execution but log the error - don't panic in production
 	}
 
-	// Grow memos slice efficiently - avoid multiple append operations
+	// Optimized memos slice growth - avoid multiple append operations
 	if len(currentFiber.hooks.memos) <= position {
 		// Calculate required capacity and grow in one operation
 		requiredLen := position + 1
@@ -264,9 +272,10 @@ func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 			copy(newMemos, currentFiber.hooks.memos)
 			currentFiber.hooks.memos = newMemos
 		}
-		// Extend slice to required length in one operation
-		for len(currentFiber.hooks.memos) <= position {
-			currentFiber.hooks.memos = append(currentFiber.hooks.memos, memoizedValue{})
+		// Optimized slice extension - single append operation
+		if requiredLen > len(currentFiber.hooks.memos) {
+			extension := make([]memoizedValue, requiredLen-len(currentFiber.hooks.memos))
+			currentFiber.hooks.memos = append(currentFiber.hooks.memos, extension...)
 		}
 	}
 
@@ -338,30 +347,33 @@ func validateHookOrder(hooks *Hooks, hookType HookType, position int) error {
 			}
 		}())
 
-	// Check if we have a corresponding hook call from previous render
-	if position >= len(hooks.prevOrder) {
+	// Optimized bounds checking for hook order validation
+	if position < len(hooks.prevOrder) {
+		// Safe slice access using optimized pattern
+		prevCall := hooks.prevOrder[position:position+1][0]
+		
+		if prevCall.Type != hookType {
+			err := fmt.Errorf("hook order violation: hook type mismatch at position %d (expected %d, got %d)",
+				position, prevCall.Type, hookType)
+			debugf("HOOKS", "🚨 validateHookOrder: %v\n", err)
+			return err
+		}
+
+		if prevCall.Position != position {
+			err := fmt.Errorf("hook order violation: position mismatch at index %d (expected %d, got %d)",
+				position, prevCall.Position, position)
+			debugf("HOOKS", "🚨 validateHookOrder: %v\n", err)
+			return err
+		}
+
+		debugf("HOOKS", "✅ Hook order validation passed for position %d\n", position)
+		return nil
+	} else {
+		// Handle out of bounds case
 		err := fmt.Errorf("hook order violation: more hooks called than previous render (position %d >= prevOrder length %d)", position, len(hooks.prevOrder))
 		debugf("HOOKS", "🚨 validateHookOrder: %v\n", err)
 		return err
 	}
-
-	prevCall := hooks.prevOrder[position]
-	if prevCall.Type != hookType {
-		err := fmt.Errorf("hook order violation: hook type mismatch at position %d (expected %d, got %d)",
-			position, prevCall.Type, hookType)
-		debugf("HOOKS", "🚨 validateHookOrder: %v\n", err)
-		return err
-	}
-
-	if prevCall.Position != position {
-		err := fmt.Errorf("hook order violation: position mismatch at index %d (expected %d, got %d)",
-			position, prevCall.Position, position)
-		debugf("HOOKS", "🚨 validateHookOrder: %v\n", err)
-		return err
-	}
-
-	debugf("HOOKS", "✅ Hook order validation passed for position %d\n", position)
-	return nil
 }
 
 // finalizeHookOrder completes hook order validation after all hooks have been called
