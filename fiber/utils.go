@@ -357,10 +357,15 @@ func SetDebugNamespacesExclusive(namespaces map[string]bool) {
 }
 
 // debugf prints debug messages if debug is enabled globally or for the specific namespace
+// Optimized to avoid expensive string operations when debug is disabled
 func debugf(namespace, format string, a ...interface{}) {
-	if debugEnabled || debugNamespaces[namespace] {
-		fmt.Printf("[%s] %s", namespace, fmt.Sprintf(format, a...))
+	// Fast path: check if debug is enabled before any string operations
+	if !debugEnabled && !debugNamespaces[namespace] {
+		return
 	}
+	
+	// Only perform expensive string formatting when debug is actually enabled
+	fmt.Printf("[%s] %s", namespace, fmt.Sprintf(format, a...))
 }
 
 // EnableAllDebug enables all debug logging globally
