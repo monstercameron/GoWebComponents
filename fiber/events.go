@@ -146,17 +146,6 @@ func (e GoEvent) Raw() js.Value {
 	return e.jsEvent
 }
 
-func useFunc(callback func(js.Value, []js.Value) interface{}) js.Func {
-	// Check memory pressure before creating new callback
-	checkMemoryPressure()
-
-	cb := js.FuncOf(callback)
-	eventCallbacks = append(eventCallbacks, cb) // Keep callback alive
-
-	debugf("EVENTS", "🔗 useFunc callback created - total callbacks: %d\n", len(eventCallbacks)+len(rafCallbacks))
-	return cb
-}
-
 // GoUseFunc creates an event handler with a more convenient Go-friendly interface
 // The callback receives a GoEvent as the first parameter, followed by any additional parameters
 func GoUseFunc(callback interface{}) js.Func {
@@ -201,8 +190,21 @@ func GoUseFunc(callback interface{}) js.Func {
 		return nil
 	})
 
-	eventCallbacks = append(eventCallbacks, cb) // Keep callback alive
+	// Associate callback with current fiber for proper cleanup
+	currentFiber := getCurrentFiber()
+	if currentFiber != nil {
+		if currentFiber.eventCallbacks == nil {
+			currentFiber.eventCallbacks = make([]js.Func, 0, 4)
+		}
+		currentFiber.eventCallbacks = append(currentFiber.eventCallbacks, cb)
+		debugf("EVENTS", "🔗 GoUseFunc callback associated with fiber %p - fiber callbacks: %d\n", 
+			currentFiber, len(currentFiber.eventCallbacks))
+	} else {
+		// Fallback to global tracking if no current fiber (shouldn't happen in normal usage)
+		eventCallbacks = append(eventCallbacks, cb)
+		debugf("EVENTS", "⚠️ GoUseFunc callback added to global pool (no current fiber) - total: %d\n", 
+			len(eventCallbacks))
+	}
 
-	debugf("EVENTS", "🔗 GoUseFunc callback created - total callbacks: %d\n", len(eventCallbacks)+len(rafCallbacks))
 	return cb
 }

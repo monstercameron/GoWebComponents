@@ -58,8 +58,6 @@ var (
 var (
 	eventCallbacks   []js.Func                            // Global slice to keep event callbacks alive
 	rafCallbacks     []js.Func                            // Global slice to keep callbacks alive
-	callbackRegistry map[string]js.Func                   // Track callbacks by ID for cleanup
-	nextCallbackID   int                                  // Counter for unique callback IDs
 	maxCallbacks     int                = 1000            // Maximum callbacks before cleanup
 	maxPoolSize      int                = 100             // Maximum pool size before cleanup
 	emptyChildren                       = []interface{}{} // Shared empty slice to avoid allocations
@@ -67,7 +65,7 @@ var (
 
 // Initialize memory management
 func init() {
-	callbackRegistry = make(map[string]js.Func)
+	// Removed unused callbackRegistry initialization
 }
 
 // cleanupCallbacks removes unused callbacks to prevent memory leaks
@@ -80,10 +78,6 @@ func cleanupCallbacks() {
 	}
 	for _, callback := range rafCallbacks {
 		callback.Release()
-	}
-	for id, callback := range callbackRegistry {
-		callback.Release()
-		delete(callbackRegistry, id)
 	}
 
 	// Clear or shrink slices to free backing arrays if they grew too big
@@ -129,7 +123,7 @@ func CleanupMemory() {
 }
 
 func checkMemoryPressure() {
-	totalCallbacks := len(eventCallbacks) + len(rafCallbacks) + len(callbackRegistry)
+	totalCallbacks := len(eventCallbacks) + len(rafCallbacks)
 	if totalCallbacks > maxCallbacks {
 		debugf("MEMORY", "⚠️ High callback count detected: %d (max: %d) - triggering cleanup\n", totalCallbacks, maxCallbacks)
 		CleanupMemory()
@@ -218,7 +212,8 @@ func resetFiber(f *Fiber) {
 	f.props = nil
 	f.dom = js.Value{}
 	f.effectTag = ""
-	f.effects = f.effects[:0] // Reuse slice
+	f.effects = f.effects[:0]        // Reuse slice
+	f.eventCallbacks = f.eventCallbacks[:0] // Reuse slice
 
 	debugf("MEMORY", "✅ resetFiber: fiber reset complete\n")
 }

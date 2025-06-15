@@ -138,6 +138,7 @@ func createDom(fiber *Fiber) js.Value {
 			}
 
 			dom.Call("addEventListener", eventType, eventHandler)
+			debugf("DOM", "🔗 createDom: added event listener %s to DOM element\n", eventType)
 			continue
 		}
 		if name == "class" {
@@ -201,6 +202,7 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 				eventType := strings.ToLower(name[2:])
 				if oldHandler, ok := oldValue.(js.Func); ok {
 					dom.Call("removeEventListener", eventType, oldHandler)
+					debugf("DOM", "🧹 updateDom: removed old event listener %s from DOM element\n", eventType)
 				} else {
 					debugf("DOM", "🚨 updateDom: old event handler %s is not js.Func, got %T\n", name, oldValue)
 				}
@@ -271,6 +273,7 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 				eventType := strings.ToLower(name[2:])
 				if eventHandler, ok := value.(js.Func); ok {
 					dom.Call("addEventListener", eventType, eventHandler)
+					debugf("DOM", "🔗 updateDom: added new event listener %s to DOM element\n", eventType)
 				} else {
 					debugf("DOM", "🚨 updateDom: event handler %s is not js.Func, got %T\n", name, value)
 				}

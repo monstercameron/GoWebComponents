@@ -113,18 +113,10 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 func GoFetch(url string, options FetchOptions) <-chan FetchResult {
 	resultChan := make(chan FetchResult, 1) // Buffered channel to avoid goroutine leak
 
-	go func() {
-		defer close(resultChan)
-
-		fetchOptions := js.Global().Get("Object").New()
-		setFetchOptions(fetchOptions, options)
-
-		promiseResultChan := make(chan FetchResult, 1)
-		performFetch(url, fetchOptions, promiseResultChan)
-
-		result := <-promiseResultChan
-		resultChan <- result
-	}()
+	// Perform fetch directly without spawning goroutine to avoid goroutine leaks
+	fetchOptions := js.Global().Get("Object").New()
+	setFetchOptions(fetchOptions, options)
+	performFetch(url, fetchOptions, resultChan)
 
 	return resultChan
 }
@@ -161,29 +153,45 @@ func setFetchOptions(fetchOptions js.Value, options FetchOptions) {
 // performFetch executes the actual fetch operation
 func performFetch(url string, fetchOptions js.Value, resultChan chan<- FetchResult) {
 	promise := js.Global().Call("fetch", url, fetchOptions)
-	promise.Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	
+	// Create callbacks that will be released after use
+	var thenCallback, jsonCallback, catchCallback js.Func
+	
+	jsonCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		defer jsonCallback.Release() // Clean up immediately after use
+		
+		data := args[0]
+		jsonStr := js.Global().Get("JSON").Call("stringify", data).String()
+		var parsedData interface{}
+		err := json.Unmarshal([]byte(jsonStr), &parsedData)
+		if err != nil {
+			resultChan <- FetchResult{Err: fmt.Errorf("error parsing response: %w", err)}
+		} else {
+			resultChan <- FetchResult{Data: parsedData}
+		}
+		return nil
+	})
+	
+	thenCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		defer thenCallback.Release() // Clean up immediately after use
+		
 		response := args[0]
 		if !response.Get("ok").Bool() {
 			resultChan <- FetchResult{Err: fmt.Errorf("HTTP error! status: %s", response.Get("status").String())}
 			return nil
 		}
 
-		response.Call("json").Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			data := args[0]
-			jsonStr := js.Global().Get("JSON").Call("stringify", data).String()
-			var parsedData interface{}
-			err := json.Unmarshal([]byte(jsonStr), &parsedData)
-			if err != nil {
-				resultChan <- FetchResult{Err: fmt.Errorf("error parsing response: %w", err)}
-			} else {
-				resultChan <- FetchResult{Data: parsedData}
-			}
-			return nil
-		}))
+		response.Call("json").Call("then", jsonCallback)
 		return nil
-	})).Call("catch", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	})
+	
+	catchCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		defer catchCallback.Release() // Clean up immediately after use
+		
 		err := args[0]
 		resultChan <- FetchResult{Err: fmt.Errorf("fetch error: %s", err.Get("message").String())}
 		return nil
-	}))
+	})
+	
+	promise.Call("then", thenCallback).Call("catch", catchCallback)
 }

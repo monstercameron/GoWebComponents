@@ -804,6 +804,195 @@ func GoroutineExample(props Attrs) *Element {
 	)
 }
 
+// Fetch example - demonstrates GoUseFetch hook with API calls
+func FetchExample(props Attrs) *Element {
+	// Track render count for this component
+	renderCount, setRenderCount := GoUseState(0)
+	currentRender := renderCount() + 1
+	setRenderCount(currentRender)
+
+	globalRender := getNextRenderID()
+
+	fmt.Printf("🌐 FetchExample [RENDER #%d|Global #%d]: Component rendered\n", currentRender, globalRender)
+
+	// URL state for the fetch request
+	url, setUrl := GoUseState("https://jsonplaceholder.typicode.com/posts/1")
+	currentUrl := url()
+
+	// Use GoUseFetch hook for data fetching
+	getFetchState, refetch := GoUseFetch(currentUrl)
+	fetchState := getFetchState()
+
+	fmt.Printf("🌐 FetchExample [RENDER #%d]: State values - url='%s', loading=%v, hasError=%v, hasData=%v\n",
+		currentRender, currentUrl, fetchState.Loading, fetchState.Error != "", fetchState.Data != nil)
+
+	// Log fetch state details
+	if fetchState.Error != "" {
+		fmt.Printf("🌐 FetchExample [RENDER #%d]: Error state - %s\n", currentRender, fetchState.Error)
+	}
+	if fetchState.Data != nil {
+		fmt.Printf("🌐 FetchExample [RENDER #%d]: Data received - %+v\n", currentRender, fetchState.Data)
+	}
+
+	// Manual fetch button handler
+	manualFetch := func(this js.Value, args []js.Value) interface{} {
+		fmt.Printf("🌐 FetchExample [EVENT]: FETCH clicked - triggering manual fetch from '%s' (will trigger render #%d)\n",
+			currentUrl, currentRender+1)
+		refetch()
+		return nil
+	}
+
+	// URL input handler
+	handleUrlChange := func(this js.Value, args []js.Value) interface{} {
+		if len(args) > 0 {
+			newUrl := args[0].Get("target").Get("value").String()
+			fmt.Printf("🌐 FetchExample [EVENT]: URL changed - transition '%s'→'%s' (will trigger render #%d)\n",
+				currentUrl, newUrl, currentRender+1)
+			setUrl(newUrl)
+		}
+		return nil
+	}
+
+	// Preset URL buttons
+	setJsonPlaceholder := func(this js.Value, args []js.Value) interface{} {
+		newUrl := "https://jsonplaceholder.typicode.com/posts/1"
+		fmt.Printf("🌐 FetchExample [EVENT]: JSON PLACEHOLDER clicked - setting URL to '%s' (will trigger render #%d)\n",
+			newUrl, currentRender+1)
+		setUrl(newUrl)
+		return nil
+	}
+
+	setHttpBin := func(this js.Value, args []js.Value) interface{} {
+		newUrl := "https://httpbin.org/json"
+		fmt.Printf("🌐 FetchExample [EVENT]: HTTPBIN clicked - setting URL to '%s' (will trigger render #%d)\n",
+			newUrl, currentRender+1)
+		setUrl(newUrl)
+		return nil
+	}
+
+	setRandomUser := func(this js.Value, args []js.Value) interface{} {
+		newUrl := "https://randomuser.me/api/"
+		fmt.Printf("🌐 FetchExample [EVENT]: RANDOM USER clicked - setting URL to '%s' (will trigger render #%d)\n",
+			newUrl, currentRender+1)
+		setUrl(newUrl)
+		return nil
+	}
+
+	fmt.Printf("🌐 FetchExample [RENDER #%d]: Generating DOM with fetch state - loading=%v\n", currentRender, fetchState.Loading)
+
+	// Render response data
+	var responseContent interface{}
+	if fetchState.Loading {
+		responseContent = P(Attrs{
+			"style": "color: #63b3ed; font-style: italic;",
+		}, Text("🔄 Loading..."))
+	} else if fetchState.Error != "" {
+		responseContent = P(Attrs{
+			"style": "color: #f56565; font-weight: bold;",
+		}, Text(fmt.Sprintf("❌ Error: %s", fetchState.Error)))
+	} else if fetchState.Data != nil {
+		responseContent = Div(Attrs{},
+			P(Attrs{
+				"style": "color: #48bb78; font-weight: bold; margin-bottom: 8px;",
+			}, Text("✅ Success! Data received:")),
+			Pre(Attrs{
+				"style": "background-color: #2d3748; color: #e2e8f0; padding: 10px; border: 1px solid #4a5568; border-radius: 4px; overflow-x: auto; font-size: 12px; font-family: 'Courier New', monospace;",
+			}, Text(fmt.Sprintf("%+v", fetchState.Data))),
+		)
+	} else {
+		responseContent = P(Attrs{
+			"style": "color: #a0aec0; font-style: italic;",
+		}, Text("🔗 Click 'Fetch Data' to make a request"))
+	}
+
+	return Div(Attrs{
+		"style": "border: 1px solid #4a5568; background-color: #2d3748; padding: 10px; margin: 10px; border-radius: 8px;",
+	},
+		H3(Attrs{
+			"style": "color: #f7fafc; margin-bottom: 8px;",
+		}, Text(fmt.Sprintf("🌐 Fetch Example (Render #%d)", currentRender))),
+		P(Attrs{
+			"style": "color: #e2e8f0; margin-bottom: 12px;",
+		}, Text("This demonstrates the GoUseFetch hook for API calls.")),
+
+		// URL Input Section
+		Div(Attrs{
+			"style": "border: 1px solid #4a5568; background-color: #1a202c; padding: 8px; margin: 8px 0; border-radius: 6px;",
+		},
+			H4(Attrs{
+				"style": "color: #63b3ed; margin-bottom: 6px;",
+			}, Text("📡 API Endpoint")),
+			P(Attrs{
+				"style": "color: #e2e8f0; margin-bottom: 4px;",
+			}, Text("URL:")),
+			Input(Attrs{
+				"type":    "url",
+				"value":   currentUrl,
+				"oninput": js.FuncOf(handleUrlChange),
+				"style":   "background-color: #2d3748; color: #f7fafc; border: 1px solid #4a5568; padding: 6px; border-radius: 4px; width: 100%; max-width: 500px;",
+			}),
+			Div(Attrs{
+				"style": "margin: 8px 0;",
+			},
+				Span(Attrs{
+					"style": "color: #e2e8f0;",
+				}, Text("Quick presets: ")),
+				Button(Attrs{
+					"onclick": js.FuncOf(setJsonPlaceholder),
+					"style":   "background-color: #4a5568; color: #f7fafc; border: 1px solid #63b3ed; padding: 4px 8px; margin: 2px; font-size: 12px; border-radius: 4px; cursor: pointer;",
+				}, Text("JSONPlaceholder")),
+				Text(" "),
+				Button(Attrs{
+					"onclick": js.FuncOf(setHttpBin),
+					"style":   "background-color: #4a5568; color: #f7fafc; border: 1px solid #63b3ed; padding: 4px 8px; margin: 2px; font-size: 12px; border-radius: 4px; cursor: pointer;",
+				}, Text("HTTPBin")),
+				Text(" "),
+				Button(Attrs{
+					"onclick": js.FuncOf(setRandomUser),
+					"style":   "background-color: #4a5568; color: #f7fafc; border: 1px solid #63b3ed; padding: 4px 8px; margin: 2px; font-size: 12px; border-radius: 4px; cursor: pointer;",
+				}, Text("Random User")),
+			),
+		),
+
+		// Fetch Controls Section
+		Div(Attrs{
+			"style": "border: 1px solid #4a5568; background-color: #1a202c; padding: 8px; margin: 8px 0; border-radius: 6px;",
+		},
+			H4(Attrs{
+				"style": "color: #63b3ed; margin-bottom: 6px;",
+			}, Text("🚀 Fetch Controls")),
+			Button(Attrs{
+				"onclick": js.FuncOf(manualFetch),
+				"style": func() string {
+					if fetchState.Loading {
+						return "background-color: #4a5568; color: #a0aec0; cursor: not-allowed; padding: 8px 16px; border-radius: 4px; border: 1px solid #4a5568;"
+					}
+					return "background-color: #3182ce; color: #f7fafc; font-weight: bold; padding: 8px 16px; border-radius: 4px; border: 1px solid #63b3ed; cursor: pointer;"
+				}(),
+				"disabled": fetchState.Loading,
+			}, Text(func() string {
+				if fetchState.Loading {
+					return "🔄 Fetching..."
+				}
+				return "🚀 Fetch Data"
+			}())),
+			P(Attrs{
+				"style": "font-size: 12px; color: #a0aec0; margin: 4px 0;",
+			}, Text("Note: GoUseFetch automatically fetches when URL changes. Use button for manual refetch.")),
+		),
+
+		// Response Section
+		Div(Attrs{
+			"style": "border: 1px solid #4a5568; background-color: #1a202c; padding: 8px; margin: 8px 0; border-radius: 6px;",
+		},
+			H4(Attrs{
+				"style": "color: #63b3ed; margin-bottom: 6px;",
+			}, Text("📋 Response")),
+			responseContent,
+		),
+	)
+}
+
 // Hook Order Validation Test - demonstrates proper hook order validation
 func HookOrderTestExample(props Attrs) *Element {
 	// Track render count for this component
@@ -969,6 +1158,7 @@ func SimpleStateExamplesApp(props Attrs) *Element {
 		H1(Attrs{}, Text(fmt.Sprintf("Simple GoUseState Examples (App Render #%d | Global #%d)", currentRender, globalRender))),
 		P(Attrs{}, Text("These examples demonstrate various use cases of GoUseState with minimal styling.")),
 
+		FetchExample(nil),
 		HookOrderTestExample(nil),
 		CounterExample(nil),
 		TextInputExample(nil),
@@ -1009,6 +1199,7 @@ func SimpleStateExamplesDemo() {
 
 	fmt.Printf("🎉 SimpleStateExamplesDemo [SUCCESS]: Simple GoUseState Examples are now running!\n")
 	fmt.Printf("📊 SimpleStateExamplesDemo [INFO]: Examples included:\n")
+	fmt.Printf("   - 🌐 Fetch Example (GoUseFetch hook with API calls)\n")
 	fmt.Printf("   - 🔍 Hook Order Validation Test (demonstrates hook order validation)\n")
 	fmt.Printf("   - 🔢 Counter (number state)\n")
 	fmt.Printf("   - 📝 Text Input (string state)\n")

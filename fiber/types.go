@@ -68,9 +68,10 @@ type Fiber struct {
 	props  map[string]interface{} // 8 bytes
 	dom    js.Value               // 24 bytes
 
-	// Smaller types grouped at end (40 bytes)
-	effectTag string   // 16 bytes
-	effects   []func() // 24 bytes
+	// Smaller types grouped at end (64 bytes)
+	effectTag      string    // 16 bytes
+	effects        []func()  // 24 bytes
+	eventCallbacks []js.Func // 24 bytes - event callbacks for cleanup
 }
 
 // Attrs type is defined in html.go

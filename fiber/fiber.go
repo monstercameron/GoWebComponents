@@ -623,13 +623,14 @@ func requestIdleCallback(callback func(js.Value)) {
 	// Check memory pressure before creating new callback
 	checkMemoryPressure()
 
-	cb := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	var cb js.Func
+	cb = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		defer cb.Release() // Clean up immediately after use
 		callback(args[0])
 		return nil
 	})
-	rafCallbacks = append(rafCallbacks, cb) // Keep the function alive
 
-	debugf("MEMORY", "🔗 requestIdleCallback created - total callbacks: %d\n", len(eventCallbacks)+len(rafCallbacks))
+	debugf("MEMORY", "🔗 requestIdleCallback created callback (will auto-release)\n")
 
 	// Feature-detect requestIdleCallback support
 	ric := js.Global().Get("requestIdleCallback")

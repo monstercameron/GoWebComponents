@@ -259,6 +259,17 @@ func commitDeletion(fiber *Fiber, domParent js.Value) {
 		fiber.hooks = nil
 	}
 
+	// Release event callbacks created by GoUseFunc
+	if len(fiber.eventCallbacks) > 0 {
+		debugf("COMMIT", "🧹 commitDeletion: releasing %d event callbacks from fiber\n", len(fiber.eventCallbacks))
+		for i, callback := range fiber.eventCallbacks {
+			debugf("COMMIT", "🧹 commitDeletion: releasing event callback %d\n", i)
+			callback.Release()
+		}
+		fiber.eventCallbacks = nil
+		debugf("COMMIT", "✅ commitDeletion: all event callbacks released\n")
+	}
+
 	// Clear effects to prevent memory leaks
 	if len(fiber.effects) > 0 {
 		debugf("COMMIT", "🧹 commitDeletion: clearing %d effects for deleted component\n", len(fiber.effects))
@@ -266,10 +277,31 @@ func commitDeletion(fiber *Fiber, domParent js.Value) {
 	}
 
 	if !fiber.dom.IsUndefined() && !fiber.dom.IsNull() {
-		debugf("COMMIT", "📄 commitDeletion: removing DOM node %v from parent %v\n",
+		debugf("COMMIT", "📄 commitDeletion: attempting to remove DOM node %v from parent %v\n",
 			fiber.dom.Type(), domParent.Type())
-		domParent.Call("removeChild", fiber.dom)
-		debugf("COMMIT", "✅ commitDeletion: DOM node removed\n")
+		
+		// Check if the node is actually a child of the parent before removing
+		// This prevents the "node to be removed is not a child" error
+		children := domParent.Get("childNodes")
+		isChild := false
+		if !children.IsUndefined() && !children.IsNull() {
+			length := children.Get("length").Int()
+			for i := 0; i < length; i++ {
+				child := children.Call("item", i)
+				if child.Equal(fiber.dom) {
+					isChild = true
+					break
+				}
+			}
+		}
+		
+		if isChild {
+			debugf("COMMIT", "✅ commitDeletion: confirmed node is child, removing\n")
+			domParent.Call("removeChild", fiber.dom)
+			debugf("COMMIT", "✅ commitDeletion: DOM node removed successfully\n")
+		} else {
+			debugf("COMMIT", "⚠️ commitDeletion: node is not a direct child, skipping removal\n")
+		}
 	} else if fiber.child != nil {
 		debugf("COMMIT", "🚨 commitDeletion: no DOM node, recursively deleting children\n")
 		commitDeletion(fiber.child, domParent)
