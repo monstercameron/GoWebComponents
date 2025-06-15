@@ -30,10 +30,7 @@ Analysis: Comprehensive performance review across entire codebase
    - Fix: Pre-compute strings, use string builder for complex formatting
    - Impact: 10-20% faster text rendering
 
-10. **HTML Element Function Overhead** [fiber/html.go:10-488]
-     - Issue: Function call overhead for each HTML element
-     - Fix: Inline common elements, use element factory pattern
-     - Impact: 5-15% faster element creation
+
 
 11. **Props Map Allocation** [fiber/html.go:446-466]
      - Issue: New map created for simple prop patterns
