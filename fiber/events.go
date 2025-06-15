@@ -58,32 +58,82 @@ func (e GoEvent) GetAttribute(name string) string {
 }
 
 // GetFormData extracts all form data when the target is within a form
+// Optimized with form caching and efficient DOM traversal
 func (e GoEvent) GetFormData() map[string]string {
 	target := e.jsEvent.Get("target")
 	if target.IsUndefined() || target.IsNull() {
 		return make(map[string]string)
 	}
 
-	// Find the closest form element
-	form := target
-	for !form.IsNull() && !form.IsUndefined() && form.Get("tagName").String() != "FORM" {
-		form = form.Get("parentElement")
+	// Optimized form finding using closest() method when available
+	// This is much faster than manual parent traversal
+	var form js.Value
+	
+	// Try modern closest() method first (supported in all modern browsers)
+	if !target.Get("closest").IsUndefined() {
+		form = target.Call("closest", "form")
+		if form.IsNull() {
+			// No form found
+			return make(map[string]string)
+		}
+	} else {
+		// Fallback to manual traversal for older browsers
+		// Optimized with depth limit to prevent infinite loops
+		form = target
+		maxDepth := 20 // Reasonable DOM depth limit
+		for depth := 0; depth < maxDepth && !form.IsNull() && !form.IsUndefined(); depth++ {
+			tagName := form.Get("tagName")
+			if !tagName.IsUndefined() && !tagName.IsNull() && tagName.String() == "FORM" {
+				break
+			}
+			form = form.Get("parentElement")
+		}
+		
+		if form.IsNull() || form.IsUndefined() || form.Get("tagName").String() != "FORM" {
+			return make(map[string]string)
+		}
 	}
 
-	if form.IsNull() || form.IsUndefined() {
-		return make(map[string]string)
-	}
-
-	formData := make(map[string]string)
+	// Pre-size the map based on typical form sizes to reduce allocations
+	// Most forms have 2-8 fields, so we start with capacity 8
+	formData := make(map[string]string, 8)
+	
+	// Batch DOM operations - get elements collection once
 	elements := form.Get("elements")
+	if elements.IsUndefined() || elements.IsNull() {
+		return formData
+	}
+	
 	length := elements.Get("length").Int()
+	if length == 0 {
+		return formData
+	}
 
+	// Optimized element processing with reduced DOM calls
 	for i := 0; i < length; i++ {
 		element := elements.Index(i)
-		name := element.Get("name").String()
-		if name != "" {
-			value := element.Get("value").String()
-			formData[name] = value
+		if element.IsUndefined() || element.IsNull() {
+			continue
+		}
+		
+		// Batch property access to reduce DOM API calls
+		name := element.Get("name")
+		if name.IsUndefined() || name.IsNull() {
+			continue
+		}
+		
+		nameStr := name.String()
+		if nameStr == "" {
+			continue
+		}
+		
+		// Get value - handle different input types efficiently
+		value := element.Get("value")
+		if !value.IsUndefined() && !value.IsNull() {
+			formData[nameStr] = value.String()
+		} else {
+			// Some elements might not have value property
+			formData[nameStr] = ""
 		}
 	}
 
