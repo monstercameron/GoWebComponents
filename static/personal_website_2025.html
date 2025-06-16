@@ -430,15 +430,13 @@ func main() {
     <!-- App Container (hidden initially) -->
     <div id="app" class="hidden min-h-screen"></div>
 
-    <!-- Load scripts in order (these don't exist yet) -->
-    <!-- 
+    <!-- Load JavaScript modules in order -->
     <script src="script/personal-website-2025-cache-manager.js"></script>
-    <script src="script/personal-website-2025-compiler-loader.js"></script>
     <script src="script/personal-website-2025-github-fetcher.js"></script>
     <script src="script/personal-website-2025-virtual-fs.js"></script>
     <script src="script/personal-website-2025-compilation-manager.js"></script>
     <script src="script/personal-website-2025-app-runner.js"></script>
-    -->
+    <script src="script/personal-website-2025-main.js"></script>
     
     <script>
         // Utility functions for the loading interface
@@ -501,6 +499,9 @@ func main() {
             document.getElementById('app').classList.remove('hidden');
         }
 
+        // Global system instance
+        let pws2025 = null;
+
         function showReadyState() {
             document.getElementById('loading-state').classList.add('hidden');
             document.getElementById('ready-state').classList.remove('hidden');
@@ -511,7 +512,7 @@ func main() {
             addConsoleOutput('🚀 LAUNCH_READY: Click the button to execute');
         }
 
-        function runWebsite() {
+        async function runWebsite() {
             addConsoleOutput('🔥 LAUNCHING WEBSITE...');
             addConsoleOutput('🎯 EXECUTING WASM BINARY...');
             addConsoleOutput('✨ TRANSITION: Preparing application container...');
@@ -520,7 +521,7 @@ func main() {
             document.body.classList.add('fade-out');
             
             // After fade out completes, clear body and create root
-            setTimeout(() => {
+            setTimeout(async () => {
                 // Clear all body content
                 document.body.innerHTML = '';
                 
@@ -533,49 +534,78 @@ func main() {
                 root.id = 'root';
                 document.body.appendChild(root);
                 
-                // Optional: Log to console that root is ready
+                // Launch the compiled application
+                if (pws2025 && pws2025.state.compiled) {
+                    await pws2025.launchApplication();
+                } else {
+                    // Fallback to basic mock
+                    root.innerHTML = '<div style="padding: 2rem; color: white; background: #0a0a0f; min-height: 100vh;"><h1>🚀 Go WASM Application Running!</h1><p>Ready for real compilation integration.</p></div>';
+                }
+                
                 console.log('🚀 Root container ready for Go application mounting');
                 
             }, 1000); // Match the fade-out animation duration
         }
 
-                 // Enhanced placeholder for main application initialization
-         // This will be replaced when we create the actual JavaScript modules
-         document.addEventListener('DOMContentLoaded', () => {
+        // Pipeline is now handled by the main integration class
+
+         // Main application initialization
+         document.addEventListener('DOMContentLoaded', async () => {
              addConsoleOutput('🚀 PWS-2025 SYSTEM BOOT');
-             addConsoleOutput('📦 SCANNING MODULE DEPENDENCIES...');
+             addConsoleOutput('📦 INITIALIZING COMPILATION MODULES...');
              updateProgressText('SYS_INIT');
              
-             // Simulate some progress for now with fancy timing
-             setTimeout(() => {
-                 setStageStatus(1, 'active');
-                 updateProgressText('COMPILER_LOAD');
-                 updateProgress(10);
-             }, 500);
-             
-             setTimeout(() => {
-                 // Simulate successful compilation for demo
-                 for (let i = 1; i <= 7; i++) {
-                     setTimeout(() => {
-                         setStageStatus(i, 'complete');
-                         updateProgress((i / 7) * 100);
-                         
-                         if (i === 7) {
-                             updateProgressText('COMPILATION_COMPLETE');
-                             addConsoleOutput('');
-                             addConsoleOutput('🎯 COMPILATION_PIPELINE: All stages completed successfully');
-                             addConsoleOutput('📦 WASM_OUTPUT: Generated optimized binary (2.4MB)');
-                             addConsoleOutput('⚡ BUILD_TIME: 847ms');
-                             addConsoleOutput('✨ OPTIMIZATION: Level 3 applied');
-                             
-                             // Show the ready state after a brief delay
-                             setTimeout(() => {
-                                 showReadyState();
-                             }, 1000);
-                         }
-                     }, i * 200);
-                 }
-             }, 1500);
+             try {
+                 // Initialize all modules
+                 addConsoleOutput('🔧 MODULE_INIT: Creating module instances...');
+                 
+                 gitHubFetcher = new GitHubFetcher();
+                 vfs = new VirtualFileSystem();
+                 cacheManager = new CacheManager();
+                 appRunner = new AppRunner();
+                 
+                 // Initialize cache manager
+                 await cacheManager.init();
+                 
+                 // Create compilation manager and wire up callbacks
+                 compilationManager = new CompilationManager();
+                 compilationManager.init(vfs, cacheManager);
+                 
+                 // Set up event callbacks
+                 compilationManager.setCallbacks({
+                     onProgress: (percentage, status) => {
+                         updateProgress(percentage);
+                         updateProgressText(status);
+                         addConsoleOutput(`📊 PROGRESS: ${percentage}% - ${status}`);
+                     },
+                     onStageUpdate: (stage, status) => {
+                         setStageStatus(stage, status);
+                         const stageNames = ['', 'Compiler Load', 'Cache Check', 'Source Fetch', 'VFS Setup', 'Go Compile', 'Binary Cache', 'Prep Exec'];
+                         addConsoleOutput(`🎯 STAGE_${stage}: ${stageNames[stage]} - ${status.toUpperCase()}`);
+                     },
+                     onError: (message) => {
+                         addConsoleOutput(`❌ COMPILATION_ERROR: ${message}`);
+                         showError(message);
+                     },
+                     onComplete: (wasmBinary, metadata) => {
+                         addConsoleOutput(`✅ COMPILATION_SUCCESS: Generated ${wasmBinary.byteLength} byte WASM binary`);
+                         addConsoleOutput(`📊 METADATA: ${metadata.sourceFiles} source files, ${metadata.optimizations.join(', ')} optimizations`);
+                         compiledWasmBinary = wasmBinary;
+                     }
+                 });
+                 
+                 addConsoleOutput('✅ MODULE_INIT: All modules initialized successfully');
+                 addConsoleOutput('🎯 READY: Starting compilation pipeline...');
+                 
+                 // Start the compilation pipeline
+                 setTimeout(() => {
+                     startCompilationPipeline();
+                 }, 1000);
+                 
+             } catch (error) {
+                 addConsoleOutput(`❌ INIT_ERROR: ${error.message}`);
+                 showError('Failed to initialize compilation system: ' + error.message);
+             }
          });
     </script>
 </body>
