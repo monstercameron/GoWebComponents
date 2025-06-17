@@ -95,7 +95,7 @@
 ## Missing HTTP Features
 - [ ] useMutation for POST/PUT/DELETE operations
 - [ ] Request caching and deduplication
-- [ ] Request cancellation support
+- [x] Request cancellation support
 - [ ] Retry logic for failed requests
 - [ ] Optimistic updates pattern
 
@@ -116,3 +116,44 @@
 - [ ] Add production mode
 - [ ] Add source maps support
 - [ ] Add proper error handling for build issues
+
+## WASM-Optimised Go Hooks (Implemented)
+- [x] GoUseState
+- [x] GoUseEffect
+- [x] GoUseMemo
+
+## WASM-Optimised Go Hooks (Planned)
+- [ ] GoUseAtom
+- [ ] GoUseReducer
+- [ ] GoUseRef
+- [ ] GoUseCallback
+- [ ] GoUseLayoutEffect
+- [ ] GoUseImperativeHandle
+- [ ] GoCreateContext
+- [ ] GoUseContext
+
+## Concurrency & Async Primitives (Planned)
+- [ ] GoUseTask
+- [ ] GoUseChannel
+- [ ] GoUseWorker
+- [ ] GoUseResource
+- [ ] GoTransition
+- [ ] GoDeferredValue
+
+## UI Boundaries & Portals (Planned)
+- [ ] GoErrorBoundary
+- [ ] GoSuspense
+- [ ] GoPortal
+- [ ] GoFragment
+
+## Routing & Navigation (Planned)
+- [ ] GoRouter
+- [ ] GoNavigate
+
+## Server Rendering & Hydration (Planned)
+- [ ] GoRenderToString
+- [ ] GoHydrate
+
+## Developer Experience & Tooling (Planned)
+- [ ] GoHotReload
+- [ ] GoDevToolsBridge
