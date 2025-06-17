@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -85,6 +87,7 @@ type LiveReloadServer struct {
 	lastClassification UpdateClassification // Store the last classification
 	firstChangeTime    time.Time            // Track when the first change occurred
 	changeCount        int                  // Count of changes in current batch
+	lastBuildStatus    *BuildStatus         // Track the last build status for new clients
 }
 
 func NewLiveReloadServer(projectRoot string) (*LiveReloadServer, error) {
@@ -194,6 +197,12 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
     // State storage in memory
     let storedState = null;
     
+    // Live reload status tracking
+    let wsStatus = 'disconnected';
+    let lastBuildStatus = null;
+    let buildErrors = [];
+    let buildHistory = [];
+    
     // State management
     window.GoLiveReload = {
         exportState: function() {
@@ -253,7 +262,8 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
         
         ws.onopen = function() {
             console.log('🔄 Live reload connected');
-            showStatus('Connected', 'success');
+            wsStatus = 'connected';
+            updateGWCIcon();
             
             // Clear any existing reconnect timer
             if (reconnectTimer) {
@@ -273,7 +283,8 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
         
         ws.onclose = function() {
             console.log('🔄 Live reload disconnected');
-            showStatus('Disconnected', 'error');
+            wsStatus = 'disconnected';
+            updateGWCIcon();
             
             // Always try to reconnect every 5 seconds
             if (!reconnectTimer) {
@@ -286,6 +297,8 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
         
         ws.onerror = function(error) {
             console.error('WebSocket error:', error);
+            wsStatus = 'error';
+            updateGWCIcon();
         };
     }
     
@@ -297,10 +310,8 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
                 const classification = message.payload?.classification;
                 if (classification) {
                     console.log('🔍 Update classification:', classification.type, '(' + classification.reloadType + ') -', classification.reason);
-                    showStatus('Building (' + classification.reloadType + ' reload)...', 'building');
-                } else {
-                    showStatus('Building...', 'building');
                 }
+                // Remove build toast - status shown in GWC icon instead
                 break;
                 
             case 'build_complete':
@@ -308,20 +319,53 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
                     const reloadType = message.payload.reloadType || 'full';
                     console.log('✅ Build successful, reload type:', reloadType);
                     
+                    lastBuildStatus = {
+                        success: true,
+                        duration: message.payload.duration,
+                        reloadType: reloadType,
+                        timestamp: new Date()
+                    };
+                    buildHistory.unshift(lastBuildStatus);
+                    if (buildHistory.length > 10) buildHistory.pop(); // Keep last 10 builds
+                    buildErrors = []; // Clear errors on successful build
+                    updateGWCIcon();
+                    showBuildStatusPopup('Build successful', 'success');
+                    
                     if (reloadType === 'hot') {
-                        showStatus('Hot reloading...', 'success');
                         performHotReload();
                     } else {
-                        showStatus('Full page reloading...', 'success');
                         performFullReload();
                     }
                 } else {
-                    showStatus('Build failed', 'error');
+                    lastBuildStatus = {
+                        success: false,
+                        error: message.payload.error || 'Unknown build error',
+                        timestamp: new Date()
+                    };
+                    buildHistory.unshift(lastBuildStatus);
+                    if (buildHistory.length > 10) buildHistory.pop();
+                    updateGWCIcon();
+                    showBuildStatusPopup('Build failed', 'error');
                 }
                 break;
                 
             case 'build_error':
-                showStatus('Build error: ' + (message.payload || 'Unknown error'), 'error');
+                const errorMsg = message.payload || 'Unknown error';
+                buildErrors.push({
+                    error: errorMsg,
+                    timestamp: new Date()
+                });
+                if (buildErrors.length > 5) buildErrors.shift(); // Keep last 5 errors
+                
+                lastBuildStatus = {
+                    success: false,
+                    error: errorMsg,
+                    timestamp: new Date()
+                };
+                buildHistory.unshift(lastBuildStatus);
+                if (buildHistory.length > 10) buildHistory.pop();
+                updateGWCIcon();
+                showBuildStatusPopup('Build error', 'error');
                 break;
                 
             case 'reload':
@@ -441,7 +485,65 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
             message += ' [' + progress.toFixed(0) + '%]';
         }
         
-        showStatus(message, 'waiting', false); // Don't auto-remove
+        // Don't show debounce status as toast anymore - only in GWC icon
+    }
+    
+    function showBuildStatusPopup(message, type) {
+        // Remove existing popup
+        const existing = document.getElementById('gwc-build-popup');
+        if (existing) {
+            existing.remove();
+        }
+        
+        // Create small popup near the GWC icon
+        const popup = document.createElement('div');
+        popup.id = 'gwc-build-popup';
+        popup.textContent = message;
+        
+        const colors = {
+            success: '#10B981',
+            error: '#EF4444',
+            info: '#3B82F6'
+        };
+        
+        Object.assign(popup.style, {
+            position: 'fixed',
+            bottom: '80px',
+            left: '20px',
+            padding: '8px 12px',
+            backgroundColor: colors[type] || colors.info,
+            color: 'white',
+            borderRadius: '6px',
+            fontFamily: 'monospace',
+            fontSize: '11px',
+            zIndex: '9998',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            transform: 'translateY(10px)',
+            opacity: '0',
+            transition: 'all 0.3s ease',
+            maxWidth: '200px'
+        });
+        
+        document.body.appendChild(popup);
+        
+        // Animate in
+        setTimeout(function() {
+            popup.style.transform = 'translateY(0)';
+            popup.style.opacity = '1';
+        }, 10);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(function() {
+            if (popup.parentNode) {
+                popup.style.transform = 'translateY(10px)';
+                popup.style.opacity = '0';
+                setTimeout(function() {
+                    if (popup.parentNode) {
+                        popup.remove();
+                    }
+                }, 300);
+            }
+        }, 3000);
     }
     
     function showStatus(message, type, autoRemove = true) {
@@ -508,6 +610,377 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
          }, 1000);
      });
     
+    // Add CSS animation for pulse effect
+    if (!document.getElementById('gwc-pulse-style')) {
+        const style = document.createElement('style');
+        style.id = 'gwc-pulse-style';
+        style.textContent = '@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }';
+        document.head.appendChild(style);
+    }
+
+    // Create and manage GWC status icon
+    function createGWCIcon() {
+        // Remove existing icon if present
+        const existing = document.getElementById('gwc-status-icon');
+        if (existing) {
+            existing.remove();
+        }
+        
+        // Create icon container
+        const icon = document.createElement('div');
+        icon.id = 'gwc-status-icon';
+        icon.innerHTML = 'GWC';
+        
+        // Create error badge for when there are build errors
+        const errorBadge = document.createElement('div');
+        errorBadge.id = 'gwc-error-badge';
+        errorBadge.style.display = 'none';
+        Object.assign(errorBadge.style, {
+            position: 'absolute',
+            top: '-5px',
+            right: '-5px',
+            backgroundColor: '#EF4444',
+            color: 'white',
+            borderRadius: '50%',
+            width: '18px',
+            height: '18px',
+            fontSize: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 'bold',
+            border: '2px solid white'
+        });
+        icon.appendChild(errorBadge);
+        
+        Object.assign(icon.style, {
+            position: 'fixed',
+            bottom: '20px',
+            left: '20px',
+            width: '50px',
+            height: '50px',
+            borderRadius: '50%',
+            backgroundColor: '#1F2937',
+            color: '#F9FAFB',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: 'monospace',
+            fontSize: '10px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            zIndex: '9999',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            border: '2px solid #374151',
+            transform: 'none',
+            transition: 'background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease'
+        });
+        
+        // Add click handler
+        icon.onclick = toggleGWCPanel;
+        
+        // Add hover effects (no transform to prevent movement)
+        icon.onmouseenter = function() {
+            icon.style.boxShadow = '0 6px 16px rgba(0,0,0,0.6)';
+            icon.style.borderColor = '#4B5563';
+        };
+        
+        icon.onmouseleave = function() {
+            icon.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
+            icon.style.borderColor = '#374151';
+        };
+        
+        document.body.appendChild(icon);
+        updateGWCIcon();
+    }
+    
+    function updateGWCIcon() {
+        const icon = document.getElementById('gwc-status-icon');
+        if (!icon) return;
+        
+        // Update icon color based on status (dark mode colors)
+        let backgroundColor = '#1F2937'; // Default dark gray
+        let borderColor = '#374151';
+        
+        if (wsStatus === 'connected') {
+            if (lastBuildStatus && lastBuildStatus.success) {
+                backgroundColor = '#059669'; // Dark green for success
+                borderColor = '#047857';
+            } else if (lastBuildStatus && !lastBuildStatus.success) {
+                backgroundColor = '#DC2626'; // Dark red for build error
+                borderColor = '#B91C1C';
+            } else {
+                backgroundColor = '#2563EB'; // Dark blue for connected but no build yet
+                borderColor = '#1D4ED8';
+            }
+        } else if (wsStatus === 'error') {
+            backgroundColor = '#D97706'; // Dark orange for connection error
+            borderColor = '#B45309';
+        }
+        // else keep dark gray for disconnected
+        
+        icon.style.backgroundColor = backgroundColor;
+        icon.style.borderColor = borderColor;
+        
+        // Add pulse animation for errors
+        if ((lastBuildStatus && !lastBuildStatus.success) || wsStatus === 'error') {
+            icon.style.animation = 'pulse 2s infinite';
+        } else {
+            icon.style.animation = 'none';
+        }
+        
+        // Update error badge
+        const errorBadge = document.getElementById('gwc-error-badge');
+        if (errorBadge) {
+            if (buildErrors.length > 0) {
+                errorBadge.textContent = buildErrors.length;
+                errorBadge.style.display = 'flex';
+            } else {
+                errorBadge.style.display = 'none';
+            }
+        }
+    }
+    
+    function toggleGWCPanel() {
+        const existingPanel = document.getElementById('gwc-status-panel');
+        if (existingPanel) {
+            existingPanel.remove();
+            return;
+        }
+        
+        createGWCPanel();
+    }
+    
+    function createGWCPanel() {
+        const panel = document.createElement('div');
+        panel.id = 'gwc-status-panel';
+        
+        Object.assign(panel.style, {
+            position: 'fixed',
+            bottom: '80px',
+            left: '20px',
+            width: '350px',
+            maxHeight: '400px',
+            backgroundColor: '#1F2937',
+            border: '1px solid #374151',
+            borderRadius: '8px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+            zIndex: '10000',
+            fontFamily: 'monospace',
+            fontSize: '12px',
+            overflow: 'hidden',
+            color: '#F9FAFB'
+        });
+        
+        // Create header
+        const header = document.createElement('div');
+        header.innerHTML = 'Go Web Components - Live Reload Status';
+        Object.assign(header.style, {
+            padding: '12px 16px',
+            backgroundColor: '#374151',
+            borderBottom: '1px solid #4B5563',
+            fontWeight: 'bold',
+            color: '#F9FAFB'
+        });
+        panel.appendChild(header);
+        
+        // Create content
+        const content = document.createElement('div');
+        content.style.padding = '16px';
+        content.style.maxHeight = '320px';
+        content.style.overflowY = 'auto';
+        
+        // WebSocket Status
+        const wsStatusDiv = document.createElement('div');
+        wsStatusDiv.style.marginBottom = '16px';
+        const wsStatusColor = wsStatus === 'connected' ? '#10B981' : wsStatus === 'error' ? '#F59E0B' : '#EF4444';
+        wsStatusDiv.innerHTML = '<strong>WebSocket:</strong> <span style="color: ' + wsStatusColor + '">' + wsStatus.toUpperCase() + '</span>';
+        content.appendChild(wsStatusDiv);
+        
+        // Last Build Status
+        if (lastBuildStatus) {
+            const buildStatusDiv = document.createElement('div');
+            buildStatusDiv.style.marginBottom = '16px';
+            const buildStatusColor = lastBuildStatus.success ? '#10B981' : '#EF4444';
+            const statusText = lastBuildStatus.success ? 'SUCCESS' : 'FAILED';
+            const timeAgo = formatTimeAgo(lastBuildStatus.timestamp);
+            
+            buildStatusDiv.innerHTML = '<strong>Last Build:</strong> <span style="color: ' + buildStatusColor + '">' + statusText + '</span> (' + timeAgo + ')';
+            
+            if (lastBuildStatus.success && lastBuildStatus.duration) {
+                buildStatusDiv.innerHTML += '<br><small>Duration: ' + lastBuildStatus.duration + '</small>';
+                if (lastBuildStatus.reloadType) {
+                    buildStatusDiv.innerHTML += '<br><small>Reload: ' + lastBuildStatus.reloadType + '</small>';
+                }
+            }
+            
+            if (!lastBuildStatus.success && lastBuildStatus.error) {
+                const errorDiv = document.createElement('div');
+                errorDiv.style.marginTop = '8px';
+                errorDiv.style.padding = '8px';
+                errorDiv.style.backgroundColor = '#372B2B';
+                errorDiv.style.border = '1px solid #5B4545';
+                errorDiv.style.borderRadius = '4px';
+                errorDiv.style.color = '#F87171';
+                errorDiv.style.fontSize = '11px';
+                errorDiv.style.position = 'relative';
+                
+                // Create copy button
+                const copyBtn = document.createElement('button');
+                copyBtn.innerHTML = '📋';
+                copyBtn.title = 'Copy error to clipboard';
+                Object.assign(copyBtn.style, {
+                    position: 'absolute',
+                    top: '4px',
+                    right: '4px',
+                    background: 'none',
+                    border: 'none',
+                    color: '#9CA3AF',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    padding: '2px 4px',
+                    borderRadius: '2px',
+                    transition: 'all 0.2s ease'
+                });
+                
+                copyBtn.onmouseenter = function() {
+                    copyBtn.style.backgroundColor = '#4B5563';
+                    copyBtn.style.color = '#F9FAFB';
+                };
+                
+                copyBtn.onmouseleave = function() {
+                    copyBtn.style.backgroundColor = 'transparent';
+                    copyBtn.style.color = '#9CA3AF';
+                };
+                
+                copyBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    copyToClipboard(lastBuildStatus.error);
+                    copyBtn.innerHTML = '✅';
+                    copyBtn.style.color = '#10B981';
+                    setTimeout(function() {
+                        copyBtn.innerHTML = '📋';
+                        copyBtn.style.color = '#9CA3AF';
+                    }, 2000);
+                };
+                
+                errorDiv.innerHTML = '<strong>Error:</strong><br>' + escapeHtml(lastBuildStatus.error);
+                errorDiv.appendChild(copyBtn);
+                buildStatusDiv.appendChild(errorDiv);
+            }
+            
+            content.appendChild(buildStatusDiv);
+        }
+        
+        // Build History
+        if (buildHistory.length > 0) {
+            const historyDiv = document.createElement('div');
+            historyDiv.innerHTML = '<strong>Recent Builds:</strong>';
+            historyDiv.style.marginBottom = '8px';
+            content.appendChild(historyDiv);
+            
+            buildHistory.slice(0, 5).forEach(function(build, index) {
+                const buildDiv = document.createElement('div');
+                buildDiv.style.padding = '4px 0';
+                buildDiv.style.borderBottom = index < 4 ? '1px solid #4B5563' : 'none';
+                buildDiv.style.color = '#D1D5DB';
+                
+                const statusIcon = build.success ? '✅' : '❌';
+                const timeAgo = formatTimeAgo(build.timestamp);
+                buildDiv.innerHTML = statusIcon + ' ' + timeAgo;
+                
+                if (build.success && build.duration) {
+                    buildDiv.innerHTML += ' (' + build.duration + ')';
+                }
+                
+                content.appendChild(buildDiv);
+            });
+        }
+        
+        panel.appendChild(content);
+        
+        // Close on click outside
+        setTimeout(function() {
+            document.addEventListener('click', function closePanel(e) {
+                if (!panel.contains(e.target) && e.target.id !== 'gwc-status-icon') {
+                    panel.remove();
+                    document.removeEventListener('click', closePanel);
+                }
+            });
+        }, 100);
+        
+        document.body.appendChild(panel);
+    }
+    
+    function formatTimeAgo(timestamp) {
+        const now = new Date();
+        const diff = now - timestamp;
+        const seconds = Math.floor(diff / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        
+        if (hours > 0) return hours + 'h ago';
+        if (minutes > 0) return minutes + 'm ago';
+        return seconds + 's ago';
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function copyToClipboard(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            // Modern clipboard API
+            navigator.clipboard.writeText(text).then(function() {
+                console.log('✅ Error copied to clipboard');
+            }).catch(function(err) {
+                console.error('❌ Failed to copy to clipboard:', err);
+                fallbackCopyToClipboard(text);
+            });
+        } else {
+            // Fallback for older browsers
+            fallbackCopyToClipboard(text);
+        }
+    }
+    
+    function fallbackCopyToClipboard(text) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                console.log('✅ Error copied to clipboard (fallback)');
+            } else {
+                console.error('❌ Failed to copy to clipboard (fallback)');
+            }
+        } catch (err) {
+            console.error('❌ Fallback copy failed:', err);
+        }
+        
+        document.body.removeChild(textArea);
+    }
+    
+    // Add CSS animation for pulse effect
+    const style = document.createElement('style');
+    style.textContent = '@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }';
+    document.head.appendChild(style);
+    
+    // Create icon on load
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', createGWCIcon);
+    } else {
+        createGWCIcon();
+    }
+    
     // Connect on load
     connect();
 })();
@@ -535,6 +1008,9 @@ func (lrs *LiveReloadServer) handleWebSocket(w http.ResponseWriter, r *http.Requ
 
 	fmt.Printf("🔌 WebSocket client connected (total: %d)\n", len(lrs.clients))
 
+	// Send current build status to the new client
+	lrs.sendCurrentBuildStatus(conn)
+
 	// Remove client when done
 	defer func() {
 		lrs.clientsMutex.Lock()
@@ -549,6 +1025,93 @@ func (lrs *LiveReloadServer) handleWebSocket(w http.ResponseWriter, r *http.Requ
 		if err != nil {
 			break
 		}
+	}
+}
+
+func (lrs *LiveReloadServer) sendCurrentBuildStatus(conn *websocket.Conn) {
+	// Check if we have a previous build status to send
+	if lrs.lastBuildStatus != nil {
+		message := WebSocketMessage{
+			Type:      MessageTypeBuildComplete,
+			Payload:   *lrs.lastBuildStatus,
+			Timestamp: time.Now(),
+		}
+
+		data, err := json.Marshal(message)
+		if err != nil {
+			log.Printf("❌ Failed to marshal current build status: %v", err)
+			return
+		}
+
+		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+			log.Printf("⚠️  Failed to send current build status to client: %v", err)
+		} else {
+			statusText := "success"
+			if !lrs.lastBuildStatus.Success {
+				statusText = "failed"
+			}
+			fmt.Printf("📤 Sent current build status (%s) to new client\n", statusText)
+		}
+	} else {
+		// Try to check current build state by attempting a quick build check
+		go lrs.checkCurrentBuildState(conn)
+	}
+}
+
+func (lrs *LiveReloadServer) checkCurrentBuildState(conn *websocket.Conn) {
+	// Do a quick build check to see if the current code compiles
+	fmt.Println("🔍 Checking current build state for new client...")
+
+	cmd := exec.Command(buildCommand, buildArgs...)
+	cmd.Dir = lrs.projectRoot
+	cmd.Env = append(os.Environ(), buildEnv...)
+
+	// Capture stderr for error reporting
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+
+	var buildStatus BuildStatus
+	if err != nil {
+		// Build failed - get the error
+		buildError := strings.TrimSpace(stderr.String())
+		if buildError == "" {
+			buildError = err.Error()
+		}
+
+		buildStatus = BuildStatus{
+			Success:    false,
+			Error:      buildError,
+			ReloadType: "none",
+		}
+		fmt.Printf("❌ Current build state: FAILED - %s\n", buildError)
+	} else {
+		buildStatus = BuildStatus{
+			Success:    true,
+			ReloadType: "none", // This is just a status check, not a real build
+		}
+		fmt.Println("✅ Current build state: OK")
+	}
+
+	// Store this as the current build status
+	lrs.lastBuildStatus = &buildStatus
+
+	// Send to the specific client
+	message := WebSocketMessage{
+		Type:      MessageTypeBuildComplete,
+		Payload:   buildStatus,
+		Timestamp: time.Now(),
+	}
+
+	data, err := json.Marshal(message)
+	if err != nil {
+		log.Printf("❌ Failed to marshal build state check: %v", err)
+		return
+	}
+
+	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
+		log.Printf("⚠️  Failed to send build state to client: %v", err)
 	}
 }
 
@@ -859,8 +1422,11 @@ func (lrs *LiveReloadServer) triggerBuild() {
 
 	cmd.Dir = lrs.projectRoot
 	cmd.Env = append(os.Environ(), buildEnv...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+
+	// Capture stdout and stderr for error reporting
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = io.MultiWriter(os.Stdout, &stdout)
+	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
 
 	lrs.currentBuild = cmd
 	fmt.Printf("🏗️  Build process started (PID: will be available after start)\n")
@@ -886,20 +1452,32 @@ func (lrs *LiveReloadServer) triggerBuild() {
 		if cmd.ProcessState != nil && cmd.ProcessState.String() == "signal: killed" {
 			fmt.Printf("⏹️  Build was cancelled after %v\n", duration)
 		} else {
+			// Get the actual build error output
+			buildError := strings.TrimSpace(stderr.String())
+			if buildError == "" {
+				buildError = err.Error()
+			}
+
+			buildStatus := BuildStatus{
+				Success:    false,
+				Error:      buildError,
+				ReloadType: "none",
+			}
+
 			fmt.Printf("❌ Build failed after %v: %v\n", duration, err)
-			lrs.broadcastMessage(MessageTypeBuildComplete, BuildStatus{
-				Success: false,
-				Error:   err.Error(),
-			})
+			lrs.lastBuildStatus = &buildStatus
+			lrs.broadcastMessage(MessageTypeBuildComplete, buildStatus)
 		}
 	} else {
-		fmt.Printf("✅ Build completed successfully in %v\n", duration)
-
-		lrs.broadcastMessage(MessageTypeBuildComplete, BuildStatus{
+		buildStatus := BuildStatus{
 			Success:    true,
 			Duration:   duration.String(),
 			ReloadType: lrs.lastClassification.ReloadType,
-		})
+		}
+
+		fmt.Printf("✅ Build completed successfully in %v\n", duration)
+		lrs.lastBuildStatus = &buildStatus
+		lrs.broadcastMessage(MessageTypeBuildComplete, buildStatus)
 	}
 
 	lrs.currentBuild = nil
