@@ -3,3 +3,4 @@ static/bin/main.wasm
 go-compiler-wasm
 go-source
 *.exe
+.vscode
