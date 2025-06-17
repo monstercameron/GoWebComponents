@@ -19,9 +19,11 @@ import (
 )
 
 const (
-	debounceTime = 1000 * time.Millisecond
-	buildCommand = "go"
-	serverPort   = ":8080"
+	debounceTime      = 2000 * time.Millisecond // Wait 2 seconds after last keystroke
+	quickDebounceTime = 500 * time.Millisecond  // Quick debounce for single file changes
+	maxDebounceTime   = 5000 * time.Millisecond // Maximum wait time before forcing build
+	buildCommand      = "go"
+	serverPort        = ":8080"
 )
 
 var (
@@ -38,12 +40,14 @@ var (
 type MessageType string
 
 const (
-	MessageTypeBuildStart    MessageType = "build_start"
-	MessageTypeBuildComplete MessageType = "build_complete"
-	MessageTypeBuildError    MessageType = "build_error"
-	MessageTypeReload        MessageType = "reload"
-	MessageTypeStateExport   MessageType = "state_export"
-	MessageTypeStateImport   MessageType = "state_import"
+	MessageTypeBuildStart     MessageType = "build_start"
+	MessageTypeBuildComplete  MessageType = "build_complete"
+	MessageTypeBuildError     MessageType = "build_error"
+	MessageTypeReload         MessageType = "reload"
+	MessageTypeHotReload      MessageType = "hot_reload"
+	MessageTypeStateExport    MessageType = "state_export"
+	MessageTypeStateImport    MessageType = "state_import"
+	MessageTypeDebounceStatus MessageType = "debounce_status"
 )
 
 type WebSocketMessage struct {
@@ -53,20 +57,34 @@ type WebSocketMessage struct {
 }
 
 type BuildStatus struct {
-	Success  bool   `json:"success"`
-	Duration string `json:"duration,omitempty"`
-	Error    string `json:"error,omitempty"`
+	Success    bool   `json:"success"`
+	Duration   string `json:"duration,omitempty"`
+	Error      string `json:"error,omitempty"`
+	ReloadType string `json:"reloadType,omitempty"` // "hot" or "full"
+}
+
+// UpdateClassification represents the type of update detected
+type UpdateClassification struct {
+	Type         string   `json:"type"`       // "small" or "big"
+	ReloadType   string   `json:"reloadType"` // "hot" or "full"
+	Reason       string   `json:"reason"`     // explanation for the classification
+	ChangedFiles []string `json:"changedFiles"`
 }
 
 type LiveReloadServer struct {
-	watcher       *fsnotify.Watcher
-	mutex         sync.Mutex
-	currentBuild  *exec.Cmd
-	debounceTimer *time.Timer
-	projectRoot   string
-	clients       map[*websocket.Conn]bool
-	clientsMutex  sync.RWMutex
-	httpServer    *http.Server
+	watcher            *fsnotify.Watcher
+	mutex              sync.Mutex
+	currentBuild       *exec.Cmd
+	debounceTimer      *time.Timer
+	maxDebounceTimer   *time.Timer
+	projectRoot        string
+	clients            map[*websocket.Conn]bool
+	clientsMutex       sync.RWMutex
+	httpServer         *http.Server
+	changedFiles       map[string]time.Time // Track changed files for update classification
+	lastClassification UpdateClassification // Store the last classification
+	firstChangeTime    time.Time            // Track when the first change occurred
+	changeCount        int                  // Count of changes in current batch
 }
 
 func NewLiveReloadServer(projectRoot string) (*LiveReloadServer, error) {
@@ -76,9 +94,10 @@ func NewLiveReloadServer(projectRoot string) (*LiveReloadServer, error) {
 	}
 
 	return &LiveReloadServer{
-		watcher:     watcher,
-		projectRoot: projectRoot,
-		clients:     make(map[*websocket.Conn]bool),
+		watcher:      watcher,
+		projectRoot:  projectRoot,
+		clients:      make(map[*websocket.Conn]bool),
+		changedFiles: make(map[string]time.Time),
 	}, nil
 }
 
@@ -275,27 +294,31 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
         
         switch (message.type) {
             case 'build_start':
-                showStatus('Building...', 'building');
+                const classification = message.payload?.classification;
+                if (classification) {
+                    console.log('🔍 Update classification:', classification.type, '(' + classification.reloadType + ') -', classification.reason);
+                    showStatus('Building (' + classification.reloadType + ' reload)...', 'building');
+                } else {
+                    showStatus('Building...', 'building');
+                }
                 break;
                 
-                         case 'build_complete':
-                 if (message.payload && message.payload.success) {
-                     showStatus('Build successful', 'success');
-                     
-                     // Export and store current state before reload
-                     const currentState = window.GoLiveReload.exportState();
-                     if (currentState) {
-                         window.GoLiveReload.storeState(currentState);
-                     }
-                     
-                     // Hot reload the WASM module
-                     setTimeout(() => {
-                         hotReloadWasm();
-                     }, 500);
-                 } else {
-                     showStatus('Build failed', 'error');
-                 }
-                 break;
+            case 'build_complete':
+                if (message.payload && message.payload.success) {
+                    const reloadType = message.payload.reloadType || 'full';
+                    console.log('✅ Build successful, reload type:', reloadType);
+                    
+                    if (reloadType === 'hot') {
+                        showStatus('Hot reloading...', 'success');
+                        performHotReload();
+                    } else {
+                        showStatus('Full page reloading...', 'success');
+                        performFullReload();
+                    }
+                } else {
+                    showStatus('Build failed', 'error');
+                }
+                break;
                 
             case 'build_error':
                 showStatus('Build error: ' + (message.payload || 'Unknown error'), 'error');
@@ -304,25 +327,124 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
             case 'reload':
                 location.reload();
                 break;
+                
+            case 'hot_reload':
+                performHotReload();
+                break;
+                
+            case 'debounce_status':
+                handleDebounceStatus(message.payload);
+                break;
         }
     }
     
-    function hotReloadWasm() {
-        // Try hot reload first, fallback to full page reload
-        try {
-            if (window.hotReloadWasm && typeof window.hotReloadWasm === 'function') {
-                window.hotReloadWasm();
-            } else {
-                // Fallback to full page reload
-                location.reload();
+    function performHotReload() {
+        console.log('🔥 Attempting hot reload...');
+        
+        // Export and store current state before reload
+        const currentState = window.GoLiveReload.exportState();
+        if (currentState) {
+            window.GoLiveReload.storeState(currentState);
+            console.log('💾 State saved for hot reload');
+        }
+        
+        // Try hot reload with WASM module replacement
+        setTimeout(() => {
+            try {
+                if (window.hotReloadWasm && typeof window.hotReloadWasm === 'function') {
+                    console.log('🔥 Calling WASM hot reload function');
+                    window.hotReloadWasm();
+                } else {
+                    console.log('⚠️ WASM hot reload not available, trying manual reload');
+                    // Try to reload just the WASM module
+                    reloadWasmModule();
+                }
+            } catch (e) {
+                console.warn('🚨 Hot reload failed, falling back to full page reload:', e);
+                performFullReload();
             }
-        } catch (e) {
-            console.warn('Hot reload failed, falling back to full page reload:', e);
+        }, 100);
+    }
+    
+    function performFullReload() {
+        console.log('🔄 Performing full page reload...');
+        
+        // Export and store current state before reload
+        const currentState = window.GoLiveReload.exportState();
+        if (currentState) {
+            window.GoLiveReload.storeState(currentState);
+            console.log('💾 State saved for full reload');
+        }
+        
+        // Full page reload
+        setTimeout(() => {
             location.reload();
+        }, 100);
+    }
+    
+    function reloadWasmModule() {
+        console.log('🔄 Attempting WASM module reload...');
+        
+        // Try to find and reload the WASM script
+        const wasmScript = document.querySelector('script[src*="wasm_exec.js"]');
+        if (wasmScript) {
+            // Create a new script element
+            const newScript = document.createElement('script');
+            newScript.src = wasmScript.src + '?t=' + Date.now();
+            newScript.onload = function() {
+                console.log('✅ WASM script reloaded');
+                // Try to reinitialize the Go WASM
+                if (window.Go) {
+                    const go = new Go();
+                    WebAssembly.instantiateStreaming(fetch('/bin/main.wasm?t=' + Date.now()), go.importObject)
+                        .then((result) => {
+                            console.log('✅ WASM module reloaded');
+                            go.run(result.instance);
+                        })
+                        .catch((e) => {
+                            console.warn('🚨 WASM module reload failed:', e);
+                            performFullReload();
+                        });
+                } else {
+                    console.warn('⚠️ Go WASM runtime not available');
+                    performFullReload();
+                }
+            };
+            newScript.onerror = function() {
+                console.warn('🚨 WASM script reload failed');
+                performFullReload();
+            };
+            
+            // Replace the old script
+            wasmScript.parentNode.replaceChild(newScript, wasmScript);
+        } else {
+            console.warn('⚠️ WASM script not found, falling back to full reload');
+            performFullReload();
         }
     }
     
-    function showStatus(message, type) {
+    function handleDebounceStatus(payload) {
+        if (!payload) return;
+        
+        const { changeCount, timeSinceFirstChange, waitTime, maxWaitTime } = payload;
+        const remainingTime = Math.max(0, waitTime);
+        const totalElapsed = timeSinceFirstChange;
+        
+        let message = 'Waiting for changes... (' + changeCount + ' change' + (changeCount > 1 ? 's' : '') + ')';
+        if (remainingTime > 0) {
+            message += ' ' + (remainingTime / 1000).toFixed(1) + 's';
+        }
+        
+        // Show progress if we're approaching max wait time
+        if (totalElapsed > maxWaitTime * 0.5) {
+            const progress = Math.min(100, (totalElapsed / maxWaitTime) * 100);
+            message += ' [' + progress.toFixed(0) + '%]';
+        }
+        
+        showStatus(message, 'waiting', false); // Don't auto-remove
+    }
+    
+    function showStatus(message, type, autoRemove = true) {
         // Remove existing status
         const existing = document.getElementById('livereload-status');
         if (existing) {
@@ -338,7 +460,8 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
             success: '#10B981',
             error: '#EF4444',
             building: '#F59E0B',
-            info: '#3B82F6'
+            info: '#3B82F6',
+            waiting: '#8B5CF6'
         };
         
         Object.assign(status.style, {
@@ -352,18 +475,19 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
             fontFamily: 'monospace',
             fontSize: '12px',
             zIndex: '10000',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            transition: 'all 0.3s ease'
         });
         
         document.body.appendChild(status);
         
-        // Auto-remove success messages
-        if (type === 'success') {
+        // Auto-remove success messages or when specified
+        if (autoRemove && (type === 'success' || type === 'waiting')) {
             setTimeout(() => {
                 if (status.parentNode) {
                     status.remove();
                 }
-            }, 3000);
+            }, type === 'waiting' ? 1000 : 3000);
         }
     }
     
@@ -491,6 +615,12 @@ func (lrs *LiveReloadServer) handleFileEvent(event fsnotify.Event) {
 	// Only handle write and create events
 	if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
 		fmt.Printf("📝 File changed: %s\n", event.Name)
+
+		// Track the changed file
+		lrs.mutex.Lock()
+		lrs.changedFiles[event.Name] = time.Now()
+		lrs.mutex.Unlock()
+
 		lrs.debounceAndBuild()
 	}
 }
@@ -511,28 +641,218 @@ func (lrs *LiveReloadServer) debounceAndBuild() {
 		lrs.currentBuild = nil
 	}
 
+	now := time.Now()
+
+	// Track if this is the first change in a batch
+	if lrs.firstChangeTime.IsZero() {
+		lrs.firstChangeTime = now
+		lrs.changeCount = 0
+	}
+
+	lrs.changeCount++
+
+	// Calculate smart debounce time based on change pattern
+	var smartDebounceTime time.Duration
+	timeSinceFirstChange := now.Sub(lrs.firstChangeTime)
+
+	if lrs.changeCount == 1 {
+		// First change - use longer debounce to give user time to continue typing
+		smartDebounceTime = debounceTime
+		fmt.Printf("⏱️  First change detected, waiting %v for more changes...\n", smartDebounceTime)
+	} else if lrs.changeCount <= 3 && timeSinceFirstChange < 10*time.Second {
+		// Multiple quick changes - user is actively typing, extend wait
+		smartDebounceTime = debounceTime
+		fmt.Printf("⏱️  Change #%d detected, extending wait %v (user actively typing)...\n", lrs.changeCount, smartDebounceTime)
+	} else {
+		// Many changes or been waiting a while - use shorter debounce
+		smartDebounceTime = quickDebounceTime
+		fmt.Printf("⏱️  Change #%d detected, using quick debounce %v...\n", lrs.changeCount, smartDebounceTime)
+	}
+
+	// Don't wait longer than maxDebounceTime total
+	if timeSinceFirstChange > maxDebounceTime-smartDebounceTime {
+		smartDebounceTime = maxDebounceTime - timeSinceFirstChange
+		if smartDebounceTime <= 0 {
+			fmt.Printf("⏰ Maximum debounce time reached, building immediately\n")
+			lrs.resetDebounceState()
+			go lrs.triggerBuild()
+			return
+		}
+		fmt.Printf("⏰ Approaching max debounce time, will build in %v\n", smartDebounceTime)
+	}
+
 	// Reset the debounce timer
 	if lrs.debounceTimer != nil {
 		lrs.debounceTimer.Stop()
-		fmt.Println("⏱️  Previous debounce timer cancelled")
 	}
 
-	lrs.debounceTimer = time.AfterFunc(debounceTime, func() {
+	// Reset max debounce timer if this is the first change
+	if lrs.changeCount == 1 {
+		if lrs.maxDebounceTimer != nil {
+			lrs.maxDebounceTimer.Stop()
+		}
+		lrs.maxDebounceTimer = time.AfterFunc(maxDebounceTime, func() {
+			fmt.Printf("⏰ Maximum debounce time (%v) reached, forcing build\n", maxDebounceTime)
+			lrs.mutex.Lock()
+			lrs.resetDebounceState()
+			lrs.mutex.Unlock()
+			lrs.triggerBuild()
+		})
+	}
+
+	lrs.debounceTimer = time.AfterFunc(smartDebounceTime, func() {
+		lrs.mutex.Lock()
+		lrs.resetDebounceState()
+		lrs.mutex.Unlock()
 		lrs.triggerBuild()
 	})
 
-	fmt.Printf("⏲️  Debouncing... will build in %v\n", debounceTime)
+	// Notify clients about debouncing status
+	lrs.broadcastMessage(MessageTypeDebounceStatus, map[string]interface{}{
+		"changeCount":          lrs.changeCount,
+		"timeSinceFirstChange": timeSinceFirstChange.Milliseconds(),
+		"waitTime":             smartDebounceTime.Milliseconds(),
+		"maxWaitTime":          maxDebounceTime.Milliseconds(),
+	})
+}
+
+// resetDebounceState resets the debouncing state after a build
+func (lrs *LiveReloadServer) resetDebounceState() {
+	lrs.firstChangeTime = time.Time{}
+	lrs.changeCount = 0
+	if lrs.maxDebounceTimer != nil {
+		lrs.maxDebounceTimer.Stop()
+		lrs.maxDebounceTimer = nil
+	}
+}
+
+// classifyUpdate determines whether the changes require a hot reload or full page reload
+func (lrs *LiveReloadServer) classifyUpdate() UpdateClassification {
+	lrs.mutex.Lock()
+	defer lrs.mutex.Unlock()
+
+	var changedFiles []string
+	for file := range lrs.changedFiles {
+		changedFiles = append(changedFiles, file)
+	}
+
+	// Clear the changed files after classification
+	lrs.changedFiles = make(map[string]time.Time)
+
+	if len(changedFiles) == 0 {
+		return UpdateClassification{
+			Type:         "small",
+			ReloadType:   "hot",
+			Reason:       "No files changed",
+			ChangedFiles: changedFiles,
+		}
+	}
+
+	// Analyze the changed files to determine update type
+	for _, file := range changedFiles {
+		relPath, _ := filepath.Rel(lrs.projectRoot, file)
+
+		// Big updates (require full page reload):
+
+		// 1. Main function changes
+		if strings.Contains(relPath, "main.go") {
+			return UpdateClassification{
+				Type:         "big",
+				ReloadType:   "full",
+				Reason:       "Main function or entry point changed",
+				ChangedFiles: changedFiles,
+			}
+		}
+
+		// 2. Core fiber system changes
+		if strings.Contains(relPath, "fiber/fiber.go") ||
+			strings.Contains(relPath, "fiber/hooks.go") ||
+			strings.Contains(relPath, "fiber/types.go") {
+			return UpdateClassification{
+				Type:         "big",
+				ReloadType:   "full",
+				Reason:       "Core fiber system changed",
+				ChangedFiles: changedFiles,
+			}
+		}
+
+		// 3. State management changes
+		if strings.Contains(relPath, "fiber/state_management.go") {
+			return UpdateClassification{
+				Type:         "big",
+				ReloadType:   "full",
+				Reason:       "State management system changed",
+				ChangedFiles: changedFiles,
+			}
+		}
+
+		// 4. New files or package structure changes
+		if strings.Contains(relPath, "go.mod") || strings.Contains(relPath, "go.sum") {
+			return UpdateClassification{
+				Type:         "big",
+				ReloadType:   "full",
+				Reason:       "Package dependencies changed",
+				ChangedFiles: changedFiles,
+			}
+		}
+	}
+
+	// Small updates (can use hot reload):
+	// - Component changes in examples/
+	// - Utility functions
+	// - Non-core fiber files
+
+	smallUpdateReasons := []string{}
+	for _, file := range changedFiles {
+		relPath, _ := filepath.Rel(lrs.projectRoot, file)
+
+		if strings.Contains(relPath, "examples/") {
+			smallUpdateReasons = append(smallUpdateReasons, "example components")
+		} else if strings.Contains(relPath, "fiber/utils.go") ||
+			strings.Contains(relPath, "fiber/dom.go") ||
+			strings.Contains(relPath, "fiber/events.go") ||
+			strings.Contains(relPath, "fiber/fetch.go") {
+			smallUpdateReasons = append(smallUpdateReasons, "utility functions")
+		}
+	}
+
+	if len(smallUpdateReasons) > 0 {
+		return UpdateClassification{
+			Type:         "small",
+			ReloadType:   "hot",
+			Reason:       "Small changes: " + strings.Join(smallUpdateReasons, ", "),
+			ChangedFiles: changedFiles,
+		}
+	}
+
+	// Default to full reload for safety
+	return UpdateClassification{
+		Type:         "big",
+		ReloadType:   "full",
+		Reason:       "Unknown changes, defaulting to full reload for safety",
+		ChangedFiles: changedFiles,
+	}
 }
 
 func (lrs *LiveReloadServer) triggerBuild() {
+	// Classify the update before building
+	classification := lrs.classifyUpdate()
+	fmt.Printf("🔍 Update classification: %s (%s) - %s\n",
+		classification.Type, classification.ReloadType, classification.Reason)
+
 	lrs.mutex.Lock()
 	defer lrs.mutex.Unlock()
+
+	// Store the classification for use after build completion
+	lrs.lastClassification = classification
 
 	fmt.Println("🔨 Starting WASM build...")
 	startTime := time.Now()
 
-	// Notify clients that build started
-	lrs.broadcastMessage(MessageTypeBuildStart, nil)
+	// Notify clients that build started with classification info
+	lrs.broadcastMessage(MessageTypeBuildStart, map[string]interface{}{
+		"classification": classification,
+	})
 
 	// Create the build command
 	cmd := exec.Command(buildCommand, buildArgs...)
@@ -574,9 +894,11 @@ func (lrs *LiveReloadServer) triggerBuild() {
 		}
 	} else {
 		fmt.Printf("✅ Build completed successfully in %v\n", duration)
+
 		lrs.broadcastMessage(MessageTypeBuildComplete, BuildStatus{
-			Success:  true,
-			Duration: duration.String(),
+			Success:    true,
+			Duration:   duration.String(),
+			ReloadType: lrs.lastClassification.ReloadType,
 		})
 	}
 
@@ -589,6 +911,10 @@ func (lrs *LiveReloadServer) cleanup() {
 
 	if lrs.debounceTimer != nil {
 		lrs.debounceTimer.Stop()
+	}
+
+	if lrs.maxDebounceTimer != nil {
+		lrs.maxDebounceTimer.Stop()
 	}
 
 	if lrs.currentBuild != nil && lrs.currentBuild.Process != nil {

@@ -46,6 +46,8 @@ func main() {
 	// Render the app to the DOM
 	fiber.RenderTo("#app", appComponent)
 
+	//
+
 	// Other available examples (commented out)
 	// examples.ClickCounterExample()
 	// examples.ConcurrentDashboardExample()
