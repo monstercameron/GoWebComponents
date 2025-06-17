@@ -28,9 +28,9 @@ GoWebComponents is a modern frontend framework that lets you build fast, type-sa
 
 Add GoWebComponents to your project:
 
-   ```bash
-   go get github.com/monstercameron/GoWebComponents@latest
-   ```
+```bash
+go get github.com/monstercameron/GoWebComponents@latest
+```
 
 ### Quick Start: Your First Component
 
@@ -38,7 +38,7 @@ Here's how to create a simple "click counter" component.
 
 1.  **Create `main.go`**:
 
-```go
+    ```go
     // main.go
     package main
 
@@ -50,8 +50,8 @@ Here's how to create a simple "click counter" component.
     func main() {
     	app := func(props Attrs) *Element {
     		count, setCount := GoUseState(0)
-    
-    handleClick := GoUseFunc(func(event GoEvent) {
+
+    		handleClick := GoUseFunc(func(event GoEvent) {
     			setCount(count() + 1)
     		})
 
@@ -390,7 +390,7 @@ GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
     2.  A `refetch` function to manually trigger the fetch again.
 
 *   **`FetchState` struct**:
-```go
+    ```go
     type FetchState struct {
         Data    interface{}
         Loading bool
@@ -442,7 +442,7 @@ GoFetch(url string, options FetchOptions) <-chan FetchResult
 
 *   **Returns**: A read-only channel (`<-chan`) that will deliver a single `FetchResult`.
 *   **`FetchResult` struct**:
-```go
+    ```go
     type FetchResult struct {
         Data interface{}
         Err  error
@@ -513,10 +513,6 @@ type FetchOptions struct {
 ## 📜 Examples
 
 You can find more detailed examples in the [`/examples`](https://github.com/monstercameron/GoWebComponents/tree/master/examples) directory of this repository.
-
----
-
-Happy Coding!
 
 ---
 
