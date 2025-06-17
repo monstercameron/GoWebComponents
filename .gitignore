@@ -1,2 +1,4 @@
 .DS_Store
 static/bin/main.wasm
+go-compiler-wasm
+go-source
