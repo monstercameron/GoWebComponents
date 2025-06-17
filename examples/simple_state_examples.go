@@ -1169,33 +1169,29 @@ func SimpleStateExamplesApp(props Attrs) *Element {
 	)
 }
 
-// SimpleStateExamplesDemo initializes and starts the simple state examples
-func SimpleStateExamplesDemo() {
-	fmt.Printf("🎯 SimpleStateExamplesDemo [INIT]: Starting initialization...\n")
-
+// GetSimpleStateExamplesApp returns the main app component function
+func GetSimpleStateExamplesApp() func(Attrs) *Element {
 	// Create a wrapper component function
 	appPage := func(props Attrs) *Element {
 		fmt.Printf("🎯 SimpleStateExamplesDemo [INIT]: Wrapper component called - about to render main app\n")
 		return SimpleStateExamplesApp(nil)
 	}
 
-	// Find the HTML element where we'll render our Go component
+	return appPage
+}
+
+// SimpleStateExamplesDemo initializes and starts the simple state examples
+func SimpleStateExamplesDemo() {
+	fmt.Printf("🎯 SimpleStateExamplesDemo [INIT]: Starting initialization...\n")
+
+	appPage := GetSimpleStateExamplesApp()
+
 	fmt.Printf("🎯 SimpleStateExamplesDemo [INIT]: Looking for DOM element with id 'app'\n")
-	rootContainer := js.Global().Get("document").Call("getElementById", "app")
 
-	// Error handling for missing container
-	if rootContainer.IsUndefined() || rootContainer.IsNull() {
-		fmt.Printf("❌ SimpleStateExamplesDemo [ERROR]: No element with id 'app' found in the DOM!\n")
-		fmt.Printf("💡 SimpleStateExamplesDemo [HELP]: Make sure your HTML has a <div id='app'></div> element\n")
-		return
-	}
-
+	// Use RenderTo which will handle state restoration automatically
 	fmt.Printf("✅ SimpleStateExamplesDemo [INIT]: Found DOM container, creating element...\n")
-
-	// Create element and render to DOM
-	appElement := CreateElement(appPage, nil)
 	fmt.Printf("✅ SimpleStateExamplesDemo [INIT]: Element created, rendering to DOM...\n")
-	Render(appElement, rootContainer)
+	RenderTo("#app", appPage)
 
 	fmt.Printf("🎉 SimpleStateExamplesDemo [SUCCESS]: Simple GoUseState Examples are now running!\n")
 	fmt.Printf("📊 SimpleStateExamplesDemo [INFO]: Examples included:\n")

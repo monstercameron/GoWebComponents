@@ -13,52 +13,51 @@ import (
 	"github.com/monstercameron/GoWebComponents/fiber"
 )
 
-// main is the entry point of the program.
-// It initializes a WaitGroup, prints a message, calls example functions,
-// and waits for the WaitGroup to complete before exiting.
-func main() {
-	// Initialize a WaitGroup to simulate waiting for asynchronous tasks in the WebAssembly environment.
-	var wg sync.WaitGroup
+// Global app reference
+var app *fiber.Element
 
-	// Add(1) indicates that we're waiting for 1 operation to complete.
-	// In this case, it is just a placeholder for blocking the main function.
+// main is the entry point of the program
+func main() {
+	var wg sync.WaitGroup
 	wg.Add(1)
 
-	// Print a message indicating the start of the program.
 	fmt.Println("Main: Starting Go Web Components Examples")
 
-	// Configure debug logging with namespaces
-	// Use SetDebugNamespacesExclusive to have full control over individual namespaces
-	// This disables global debug and only enables the namespaces you set to true
+	// Configure debug logging
 	fiber.SetDebugNamespacesExclusive(map[string]bool{
-		"HOOKS":  false, // Disable hook debugging
-		"RENDER": false, // Disable render debugging
-		"MEMORY": false, // Disable memory debugging (can be noisy)
-		"DOM":    false, // Disable DOM debugging
-		"FETCH":  false, // Disable fetch debugging
-		"EVENTS": false, // Disable event debugging
-		"COMMIT": false, // Disable commit debugging
-		"FIBER":  false, // Disable fiber debugging
+		"HOOKS":  false,
+		"RENDER": false,
+		"MEMORY": false,
+		"DOM":    false,
+		"FETCH":  false,
+		"EVENTS": false,
+		"COMMIT": false,
+		"FIBER":  false,
 	})
 
-	// Or enable all debugging globally
-	// fiber.EnableAllDebug()
+	// Enable hot reload for development
+	fiber.EnableHotReload(true)
 
-	// Call the example functions from the examples package
-	examples.SimpleStateExamplesDemo() // Simple GoUseState Examples
-	// examples.ClickCounterExample()               // Click Counter Example
-	// examples.ConcurrentDashboardExample()        // Concurrent Dashboard Example
-	// examples.NetworkMonitoringDashboardExample() // Network Traffic Monitoring Dashboard
+	// Create and render the main app component
+	fmt.Println("Main: Creating and rendering app component")
+	appComponent := examples.GetSimpleStateExamplesApp()
+	app = fiber.CreateElement(appComponent, nil)
+
+	// Render the app to the DOM
+	fiber.RenderTo("#app", appComponent)
+
+	// Other available examples (commented out)
+	// examples.ClickCounterExample()
+	// examples.ConcurrentDashboardExample()
+	// examples.NetworkMonitoringDashboardExample()
+
+	fmt.Println("Main: App component rendered and reference saved")
 
 	// Show current debug status
 	fmt.Println("Debug Status:", fiber.GetDebugStatus())
 
-	// Print a message indicating the end of the main function logic.
 	fmt.Println("Main: End of main function")
 
-	// Wait() blocks the main function from exiting immediately.
-	// In WebAssembly, this is used to keep the program alive for event handling and state management,
-	// as WebAssembly is single-threaded and doesn't have native goroutines running in parallel.
-	// Once WaitGroup's counter reaches zero (if manually done), it allows the program to exit.
+	// Keep the program alive for WebAssembly event handling
 	wg.Wait()
 }

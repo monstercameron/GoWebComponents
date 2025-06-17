@@ -169,52 +169,56 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
     'use strict';
     
     let ws;
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
-    const reconnectDelay = 2000;
+    let reconnectTimer = null;
+    const reconnectDelay = 5000; // 5 seconds
+    
+    // State storage in memory
+    let storedState = null;
     
     // State management
     window.GoLiveReload = {
         exportState: function() {
-            const state = {
-                timestamp: Date.now(),
-                location: window.location.href,
-                scroll: {
-                    x: window.scrollX,
-                    y: window.scrollY
-                },
-                // Add more state as needed
-                custom: {}
-            };
-            
             // Try to export WASM app state if available
             if (window.exportAppState && typeof window.exportAppState === 'function') {
                 try {
-                    state.wasmState = window.exportAppState();
+                    const wasmState = window.exportAppState();
+                    console.log('🔄 GoLiveReload: Exported WASM state:', wasmState);
+                    return wasmState;
                 } catch (e) {
-                    console.warn('Failed to export WASM state:', e);
+                    console.warn('🚨 Failed to export WASM state:', e);
                 }
             }
             
-            return state;
+            return null;
         },
         
         importState: function(state) {
             if (!state) return;
             
-            // Restore scroll position
-            if (state.scroll) {
-                window.scrollTo(state.scroll.x, state.scroll.y);
-            }
-            
             // Try to import WASM app state if available
-            if (state.wasmState && window.importAppState && typeof window.importAppState === 'function') {
+            if (window.importAppState && typeof window.importAppState === 'function') {
                 try {
-                    window.importAppState(state.wasmState);
+                    console.log('🔄 GoLiveReload: Importing WASM state:', state);
+                    window.importAppState(state);
                 } catch (e) {
-                    console.warn('Failed to import WASM state:', e);
+                    console.warn('🚨 Failed to import WASM state:', e);
                 }
             }
+        },
+        
+        storeState: function(state) {
+            storedState = state;
+            console.log('💾 GoLiveReload: State stored in memory:', state);
+        },
+        
+        getStoredState: function() {
+            console.log('📥 GoLiveReload: Retrieved stored state:', storedState);
+            return storedState;
+        },
+        
+        clearStoredState: function() {
+            console.log('🧹 GoLiveReload: Cleared stored state');
+            storedState = null;
         },
         
         onReload: function(callback) {
@@ -230,8 +234,13 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
         
         ws.onopen = function() {
             console.log('🔄 Live reload connected');
-            reconnectAttempts = 0;
             showStatus('Connected', 'success');
+            
+            // Clear any existing reconnect timer
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+                reconnectTimer = null;
+            }
         };
         
         ws.onmessage = function(event) {
@@ -247,9 +256,12 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
             console.log('🔄 Live reload disconnected');
             showStatus('Disconnected', 'error');
             
-            if (reconnectAttempts < maxReconnectAttempts) {
-                reconnectAttempts++;
-                setTimeout(connect, reconnectDelay);
+            // Always try to reconnect every 5 seconds
+            if (!reconnectTimer) {
+                reconnectTimer = setTimeout(function() {
+                    reconnectTimer = null;
+                    connect();
+                }, reconnectDelay);
             }
         };
         
@@ -266,22 +278,24 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
                 showStatus('Building...', 'building');
                 break;
                 
-            case 'build_complete':
-                if (message.payload && message.payload.success) {
-                    showStatus('Build successful', 'success');
-                    
-                    // Export current state before reload
-                    const currentState = window.GoLiveReload.exportState();
-                    sessionStorage.setItem('goLiveReloadState', JSON.stringify(currentState));
-                    
-                    // Hot reload the WASM module
-                    setTimeout(() => {
-                        hotReloadWasm();
-                    }, 500);
-                } else {
-                    showStatus('Build failed', 'error');
-                }
-                break;
+                         case 'build_complete':
+                 if (message.payload && message.payload.success) {
+                     showStatus('Build successful', 'success');
+                     
+                     // Export and store current state before reload
+                     const currentState = window.GoLiveReload.exportState();
+                     if (currentState) {
+                         window.GoLiveReload.storeState(currentState);
+                     }
+                     
+                     // Hot reload the WASM module
+                     setTimeout(() => {
+                         hotReloadWasm();
+                     }, 500);
+                 } else {
+                     showStatus('Build failed', 'error');
+                 }
+                 break;
                 
             case 'build_error':
                 showStatus('Build error: ' + (message.payload || 'Unknown error'), 'error');
@@ -353,23 +367,22 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
         }
     }
     
-    // Restore state on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        const savedState = sessionStorage.getItem('goLiveReloadState');
-        if (savedState) {
-            try {
-                const state = JSON.parse(savedState);
-                sessionStorage.removeItem('goLiveReloadState');
-                
-                // Delay state restoration to ensure WASM is loaded
-                setTimeout(() => {
-                    window.GoLiveReload.importState(state);
-                }, 1000);
-            } catch (e) {
-                console.warn('Failed to restore state:', e);
-            }
-        }
-    });
+         // Restore state on page load
+     document.addEventListener('DOMContentLoaded', function() {
+         // Delay state restoration to ensure WASM is loaded
+         setTimeout(() => {
+             const savedState = window.GoLiveReload.getStoredState();
+             if (savedState) {
+                 try {
+                     console.log('🔄 Restoring state after page load...');
+                     window.GoLiveReload.importState(savedState);
+                     window.GoLiveReload.clearStoredState();
+                 } catch (e) {
+                     console.warn('🚨 Failed to restore state:', e);
+                 }
+             }
+         }, 1000);
+     });
     
     // Connect on load
     connect();

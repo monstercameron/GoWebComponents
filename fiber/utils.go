@@ -225,7 +225,7 @@ func fastEqualWithDepth(a, b interface{}, visited map[uintptr]bool, depth int) b
 			// Fall back to reflection-based comparison
 		}
 	}()
-	
+
 	// Attempt direct comparison - this works for most comparable types
 	if a == b {
 		return true
@@ -296,14 +296,14 @@ func getFunctionName(i interface{}) string {
 // enqueueUI schedules fn to run on the main JS/event thread with overflow monitoring
 func enqueueUI(fn func()) {
 	debugf("UTILS", "📋 enqueueUI: attempting to enqueue UI task\n")
-	
+
 	// Track current queue size for monitoring
 	currentSize := int64(len(uiQueue))
 	if currentSize > atomic.LoadInt64(&uiQueueMaxReached) {
 		atomic.StoreInt64(&uiQueueMaxReached, currentSize)
 		debugf("UTILS", "📊 enqueueUI: new max queue size: %d\n", currentSize)
 	}
-	
+
 	select {
 	case uiQueue <- fn:
 		debugf("UTILS", "✅ enqueueUI: task enqueued successfully (queue size: %d/1024)\n", currentSize+1)
@@ -312,12 +312,12 @@ func enqueueUI(fn func()) {
 		atomic.AddInt64(&uiQueueOverflows, 1)
 		overflowCount := atomic.LoadInt64(&uiQueueOverflows)
 		debugf("UTILS", "⚠️ enqueueUI: queue overflow #%d, executing immediately\n", overflowCount)
-		
+
 		// Log warning for frequent overflows
 		if overflowCount%100 == 0 {
 			debugf("UTILS", "🚨 enqueueUI: WARNING - %d queue overflows detected, consider increasing queue size\n", overflowCount)
 		}
-		
+
 		// Execute immediately as fallback
 		fn()
 	}
@@ -338,10 +338,10 @@ func processUIQueue() {
 
 	startSchedulerSection()
 	defer endSchedulerSection()
-	
+
 	// Process with a reasonable limit to prevent blocking too long
 	const maxTasksPerBatch = 100
-	
+
 	for tasksProcessed < maxTasksPerBatch {
 		select {
 		case fn := <-uiQueue:
@@ -363,14 +363,14 @@ func processUIQueue() {
 			return
 		}
 	}
-	
+
 	// If we hit the batch limit, schedule another processing cycle
 	if len(uiQueue) > 0 {
 		queueDuration := time.Since(queueStartTime)
-		debugf("UTILS", "⏳ processUIQueue: batch limit reached (%d tasks), %d remaining - scheduling next cycle\n", 
+		debugf("UTILS", "⏳ processUIQueue: batch limit reached (%d tasks), %d remaining - scheduling next cycle\n",
 			maxTasksPerBatch, len(uiQueue))
 		debugf("UTILS", "📊 processUIQueue: batch completed in %v\n", queueDuration)
-		
+
 		// Schedule another processing cycle
 		if atomic.LoadInt32(&schedulerActive) == 0 && !updateScheduled {
 			requestIdleCallback(workLoop)
@@ -378,7 +378,7 @@ func processUIQueue() {
 	} else {
 		queueDuration := time.Since(queueStartTime)
 		debugf("UTILS", "✅ processUIQueue: all tasks completed (%d total) in %v\n", tasksProcessed, queueDuration)
-		
+
 		// Optimize UI queue buffer size based on usage patterns
 		// Only optimize periodically to avoid overhead
 		if tasksProcessed > 0 && tasksProcessed%50 == 0 {
@@ -401,6 +401,9 @@ func endSchedulerSection() {
 
 // Debug namespace control - map of namespace to enabled status
 var debugNamespaces = make(map[string]bool)
+
+// Hot reload control - enables state preservation during development
+var hotReloadEnabled = false
 
 // SetDebug enables or disables verbose debug logs at runtime
 func SetDebug(enabled bool) {
@@ -435,7 +438,7 @@ func SetDebugNamespacesExclusive(namespaces map[string]bool) {
 
 // debugf prints debug messages if debug is enabled globally or for the specific namespace
 // Optimized to avoid expensive string operations when debug is disabled
-// 
+//
 // PERFORMANCE OPTIMIZATION: This function uses multiple optimization strategies:
 // 1. Early return check before any string operations
 // 2. Conditional compilation support via build tags
@@ -447,13 +450,13 @@ func debugf(namespace, format string, a ...interface{}) {
 	if !isDebugBuild() {
 		return
 	}
-	
+
 	// Fast path: runtime check if debug is enabled before any string operations
 	// This avoids expensive fmt.Sprintf calls when debug is disabled
 	if !debugEnabled && !debugNamespaces[namespace] {
 		return
 	}
-	
+
 	// Only perform expensive string formatting when debug is actually enabled
 	// This reduces CPU overhead by 2-8% in production when debug is disabled
 	// Optimized string concatenation for debug output
@@ -475,7 +478,7 @@ func isDebugBuild() bool {
 
 // Memory stats collection optimization
 var (
-	memStatsCounter int64 // Counter for sampling memory stats collection
+	memStatsCounter    int64       // Counter for sampling memory stats collection
 	memStatsSampleRate int64 = 100 // Collect stats every N calls (configurable)
 )
 
@@ -486,12 +489,12 @@ func shouldCollectMemStats() bool {
 	if !isDebugBuild() {
 		return false
 	}
-	
+
 	// Runtime optimization: only collect stats occasionally
 	// runtime.ReadMemStats is expensive, so we sample it
 	counter := atomic.AddInt64(&memStatsCounter, 1)
 	sampleRate := atomic.LoadInt64(&memStatsSampleRate)
-	
+
 	// Collect stats every N calls based on sample rate
 	return counter%sampleRate == 0
 }
@@ -529,13 +532,24 @@ func DisableAllDebug() {
 func GetDebugStatus() map[string]bool {
 	status := make(map[string]bool)
 	status["global"] = debugEnabled
+	status["hotReload"] = hotReloadEnabled
 	for ns, enabled := range debugNamespaces {
 		status[ns] = enabled
 	}
 	return status
 }
 
+// EnableHotReload enables or disables hot reload functionality
+// When enabled, the application will preserve state during WASM reloads
+func EnableHotReload(enabled bool) {
+	hotReloadEnabled = enabled
+	debugf("UTILS", "🔥 EnableHotReload: hot reload %s\n", map[bool]string{true: "enabled", false: "disabled"}[enabled])
+}
 
+// IsHotReloadEnabled returns whether hot reload is currently enabled
+func IsHotReloadEnabled() bool {
+	return hotReloadEnabled
+}
 
 // EnableGoroutineMonitoring starts monitoring for potential goroutine leaks
 // This helps detect and prevent goroutine accumulation in long-running applications
@@ -544,17 +558,17 @@ func EnableGoroutineMonitoring() {
 		debugf("UTILS", "⚠️ EnableGoroutineMonitoring: monitoring already enabled\n")
 		return
 	}
-	
+
 	goroutineMonitoringEnabled = true
 	baselineGoroutineCount = runtime.NumGoroutine()
-	
+
 	debugf("UTILS", "🔍 EnableGoroutineMonitoring: enabled with baseline %d goroutines\n", baselineGoroutineCount)
-	
+
 	// Start monitoring goroutine in background
 	go func() {
 		ticker := time.NewTicker(goroutineCheckInterval)
 		defer ticker.Stop()
-		
+
 		for {
 			select {
 			case <-goroutineMonitorContext.Done():
@@ -572,7 +586,7 @@ func DisableGoroutineMonitoring() {
 	if !goroutineMonitoringEnabled {
 		return
 	}
-	
+
 	goroutineMonitoringEnabled = false
 	debugf("UTILS", "🔍 DisableGoroutineMonitoring: monitoring disabled\n")
 }
@@ -581,19 +595,19 @@ func DisableGoroutineMonitoring() {
 func checkGoroutineLeaks() {
 	currentCount := runtime.NumGoroutine()
 	growth := currentCount - baselineGoroutineCount
-	
+
 	if currentCount > maxGoroutineThreshold {
 		atomic.AddInt64(&goroutineLeakDetected, 1)
-		debugf("UTILS", "🚨 checkGoroutineLeaks: HIGH goroutine count detected: %d (baseline: %d, growth: +%d)\n", 
+		debugf("UTILS", "🚨 checkGoroutineLeaks: HIGH goroutine count detected: %d (baseline: %d, growth: +%d)\n",
 			currentCount, baselineGoroutineCount, growth)
-		
+
 		// Trigger aggressive cleanup
 		triggerGoroutineCleanup()
 	} else if growth > 50 {
-		debugf("UTILS", "⚠️ checkGoroutineLeaks: elevated goroutine count: %d (baseline: %d, growth: +%d)\n", 
+		debugf("UTILS", "⚠️ checkGoroutineLeaks: elevated goroutine count: %d (baseline: %d, growth: +%d)\n",
 			currentCount, baselineGoroutineCount, growth)
 	} else {
-		debugf("UTILS", "✅ checkGoroutineLeaks: normal goroutine count: %d (baseline: %d, growth: +%d)\n", 
+		debugf("UTILS", "✅ checkGoroutineLeaks: normal goroutine count: %d (baseline: %d, growth: +%d)\n",
 			currentCount, baselineGoroutineCount, growth)
 	}
 }
@@ -601,15 +615,15 @@ func checkGoroutineLeaks() {
 // triggerGoroutineCleanup attempts to clean up potential goroutine leaks
 func triggerGoroutineCleanup() {
 	debugf("UTILS", "🧹 triggerGoroutineCleanup: attempting cleanup\n")
-	
+
 	// Force garbage collection to clean up any unreferenced goroutines
 	runtime.GC()
-	
+
 	// Wait a moment for cleanup to take effect
 	time.Sleep(100 * time.Millisecond)
 	newCount := runtime.NumGoroutine()
 	debugf("UTILS", "🧹 triggerGoroutineCleanup: goroutine count after cleanup: %d\n", newCount)
-	
+
 	// Note: Specific cleanup functions (CancelAllEventCallbacks, CancelAllFetchOperations, etc.)
 	// should be called directly by the application when needed to avoid circular dependencies
 }
@@ -629,12 +643,12 @@ func GetGoroutineStats() map[string]int64 {
 	baseline := int64(baselineGoroutineCount)
 	growth := current - baseline
 	leakCount := atomic.LoadInt64(&goroutineLeakDetected)
-	
+
 	return map[string]int64{
-		"current":     current,
-		"baseline":    baseline,
-		"growth":      growth,
-		"threshold":   int64(maxGoroutineThreshold),
+		"current":       current,
+		"baseline":      baseline,
+		"growth":        growth,
+		"threshold":     int64(maxGoroutineThreshold),
 		"leaksDetected": leakCount,
 	}
 }
@@ -646,5 +660,3 @@ func ResetGoroutineBaseline() {
 	baselineGoroutineCount = runtime.NumGoroutine()
 	debugf("UTILS", "🔄 ResetGoroutineBaseline: reset from %d to %d\n", oldBaseline, baselineGoroutineCount)
 }
-
-

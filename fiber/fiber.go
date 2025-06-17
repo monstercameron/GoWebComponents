@@ -271,6 +271,9 @@ func Render(element *Element, container js.Value) {
 // RenderTo mounts a component into the DOM element specified by a CSS selector.
 // It simplifies the mounting process by accepting a component function directly.
 func RenderTo(selector string, component interface{}) {
+	// Restore state from previous session if hot reload is enabled
+	RestoreStateFromStorage()
+
 	root := js.Global().Get("document").Call("querySelector", selector)
 	if root.IsUndefined() || root.IsNull() {
 		js.Global().Get("console").Call("error", "GoWebComponents: RenderTo failed. No element found for selector:", selector)
