@@ -525,9 +525,7 @@ func (lrs *LiveReloadServer) classifyUpdate() UpdateClassification {
 	for _, file := range changedFiles {
 		relPath, _ := filepath.Rel(lrs.projectRoot, file)
 
-		// Big updates (require full page reload):
-
-		// 1. Main function changes
+		// Always full reload for critical system files
 		if strings.Contains(relPath, "main.go") {
 			return UpdateClassification{
 				Type:         "big",
@@ -537,10 +535,10 @@ func (lrs *LiveReloadServer) classifyUpdate() UpdateClassification {
 			}
 		}
 
-		// 2. Core fiber system changes
 		if strings.Contains(relPath, "fiber/fiber.go") ||
 			strings.Contains(relPath, "fiber/hooks.go") ||
-			strings.Contains(relPath, "fiber/types.go") {
+			strings.Contains(relPath, "fiber/types.go") ||
+			strings.Contains(relPath, "fiber/state_management.go") {
 			return UpdateClassification{
 				Type:         "big",
 				ReloadType:   "full",
@@ -549,17 +547,6 @@ func (lrs *LiveReloadServer) classifyUpdate() UpdateClassification {
 			}
 		}
 
-		// 3. State management changes
-		if strings.Contains(relPath, "fiber/state_management.go") {
-			return UpdateClassification{
-				Type:         "big",
-				ReloadType:   "full",
-				Reason:       "State management system changed",
-				ChangedFiles: changedFiles,
-			}
-		}
-
-		// 4. New files or package structure changes
 		if strings.Contains(relPath, "go.mod") || strings.Contains(relPath, "go.sum") {
 			return UpdateClassification{
 				Type:         "big",
@@ -570,39 +557,100 @@ func (lrs *LiveReloadServer) classifyUpdate() UpdateClassification {
 		}
 	}
 
-	// Small updates (can use hot reload):
-	// - Component changes in examples/
-	// - Utility functions
-	// - Non-core fiber files
-
-	smallUpdateReasons := []string{}
+	// Check if changes are UI-related (hot reload candidates)
+	hotReloadReasons := []string{}
 	for _, file := range changedFiles {
+		// Read file content to analyze the types of changes
+		content, err := os.ReadFile(file)
+		if err != nil {
+			continue // Skip files we can't read
+		}
+
+		contentStr := string(content)
 		relPath, _ := filepath.Rel(lrs.projectRoot, file)
 
+		// Check for element creation functions and aliases
+		elementFunctions := []string{
+			"H1(", "H2(", "H3(", "H4(", "H5(", "H6(",
+			"Div(", "Span(", "P(", "A(", "Button(", "Input(", "Form(",
+			"Table(", "Tr(", "Td(", "Th(", "Thead(", "Tbody(",
+			"Ul(", "Ol(", "Li(", "Nav(", "Header(", "Footer(", "Section(",
+			"Article(", "Aside(", "Main(", "Figure(", "Figcaption(",
+			"Img(", "Video(", "Audio(", "Canvas(", "Svg(",
+			"Select(", "Option(", "Textarea(", "Label(", "Fieldset(",
+			"Legend(", "Details(", "Summary(", "Dialog(",
+		}
+
+		hasElementChanges := false
+		for _, elementFunc := range elementFunctions {
+			if strings.Contains(contentStr, elementFunc) {
+				hasElementChanges = true
+				break
+			}
+		}
+
+		if hasElementChanges {
+			hotReloadReasons = append(hotReloadReasons, "element creation")
+		}
+
+		// Check for HTML-like code patterns
+		htmlPatterns := []string{
+			"Attrs{", "\"style\":", "\"class\":", "\"id\":", "\"onclick\":",
+			"\"onchange\":", "\"oninput\":", "\"onsubmit\":", "\"href\":",
+			"\"src\":", "\"alt\":", "\"title\":", "\"placeholder\":",
+			"\"value\":", "\"type\":", "\"disabled\":", "\"readonly\":",
+		}
+
+		hasHtmlChanges := false
+		for _, pattern := range htmlPatterns {
+			if strings.Contains(contentStr, pattern) {
+				hasHtmlChanges = true
+				break
+			}
+		}
+
+		if hasHtmlChanges {
+			hotReloadReasons = append(hotReloadReasons, "HTML-like attributes")
+		}
+
+		// Check for string literal changes
+		if strings.Contains(contentStr, "Text(\"") ||
+			strings.Contains(contentStr, "\", \"") ||
+			(strings.Count(contentStr, "\"") > 10) { // Lots of strings
+			hotReloadReasons = append(hotReloadReasons, "string content")
+		}
+
+		// Check if file is in examples/ directory (UI components)
 		if strings.Contains(relPath, "examples/") {
-			smallUpdateReasons = append(smallUpdateReasons, "example components")
-		} else if strings.Contains(relPath, "fiber/utils.go") ||
-			strings.Contains(relPath, "fiber/dom.go") ||
-			strings.Contains(relPath, "fiber/events.go") ||
-			strings.Contains(relPath, "fiber/fetch.go") {
-			smallUpdateReasons = append(smallUpdateReasons, "utility functions")
+			hotReloadReasons = append(hotReloadReasons, "example components")
 		}
 	}
 
-	if len(smallUpdateReasons) > 0 {
+	// Remove duplicates from hotReloadReasons
+	uniqueReasons := make(map[string]bool)
+	var finalReasons []string
+	for _, reason := range hotReloadReasons {
+		if !uniqueReasons[reason] {
+			uniqueReasons[reason] = true
+			finalReasons = append(finalReasons, reason)
+		}
+	}
+
+	// If we detected UI-related changes, use hot reload
+	if len(finalReasons) > 0 {
 		return UpdateClassification{
 			Type:         "small",
 			ReloadType:   "hot",
-			Reason:       "Small changes: " + strings.Join(smallUpdateReasons, ", "),
+			Reason:       "UI changes: " + strings.Join(finalReasons, ", "),
 			ChangedFiles: changedFiles,
 		}
 	}
 
-	// Default to full reload for safety
+	// Default to full reload for logic changes
 	return UpdateClassification{
 		Type:         "big",
 		ReloadType:   "full",
-		Reason:       "Unknown changes, defaulting to full reload for safety",
+		Reason:       "Logic changes detected, using full reload for safety",
 		ChangedFiles: changedFiles,
 	}
 }
