@@ -74,7 +74,7 @@ Here's how to create a simple "click counter" component.
     }
     ```
 
-2.  **Create `index.html`**:
+2.  **Create `static/index.html`**:
 
     ```html
     <!DOCTYPE html>
@@ -85,7 +85,7 @@ Here's how to create a simple "click counter" component.
         <script src="wasm_exec.js"></script>
         <script>
             const go = new Go();
-            WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
+            WebAssembly.instantiateStreaming(fetch("bin/main.wasm"), go.importObject).then((result) => {
                 go.run(result.instance);
             });
         </script>
@@ -96,20 +96,149 @@ Here's how to create a simple "click counter" component.
     </html>
     ```
 
-3.  **Build and Run**:
+3.  **Manual Build and Run**:
 
     ```bash
+    # Create directory structure
+    mkdir -p static/bin
+
     # Compile your Go code to WebAssembly
-    GOOS=js GOARCH=wasm go build -o main.wasm main.go
+    GOOS=js GOARCH=wasm go build -o static/bin/main.wasm main.go
 
     # You'll need wasm_exec.js from your Go installation
-    cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .
+    cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" static/
 
     # Serve the files (e.g., using a simple server)
-    # python -m http.server 8080
+    cd static && python -m http.server 8080
     ```
 
     Open `http://localhost:8080` in your browser to see your component in action!
+
+## 🔥 Development with Live Reload
+
+GoWebComponents includes a powerful **live reload development server** that dramatically improves your development experience with instant feedback, auto-rebuilding, and state preservation.
+
+### ⚡ Quick Start Live Reload
+
+**Linux/macOS:**
+```bash
+./scripts/livereload.sh
+```
+
+**Windows (PowerShell):**
+```powershell
+.\scripts\livereload.ps1
+```
+
+**Or run directly:**
+```bash
+cd scripts/livereload
+go run livereload.go
+```
+
+### 🌟 Live Reload Features
+
+#### 🔄 **Auto-Rebuild & Hot Reload**
+- **Instant feedback**: Changes to `.go` files trigger automatic WASM rebuilds
+- **Smart debouncing**: 2000ms debounce prevents excessive rebuilds during rapid editing
+- **Process management**: Automatically kills running builds when new changes are detected
+- **Build status**: Real-time build progress and error reporting via WebSocket
+
+#### 🎯 **State Preservation**
+- **Maintains scroll position** across reloads
+- **Preserves component state** when possible
+- **Custom state hooks**: Implement `exportAppState()` and `importAppState()` in your Go code
+- **Session persistence**: State stored in browser sessionStorage
+
+#### 📡 **WebSocket Communication**
+- **Real-time updates**: Build status, errors, and reload notifications
+- **Visual status indicator**: Top-right browser indicator shows connection and build status
+- **Multiple client support**: Connect from multiple browser tabs simultaneously
+
+#### 🎛️ **Smart File Watching**
+- **Recursive directory watching**: Monitors your entire project
+- **Intelligent filtering**: Only watches `.go` files, excludes `.git`, `vendor`, `node_modules`
+- **Performance optimized**: Uses efficient filesystem notifications
+
+### 🛠️ Advanced Live Reload Integration
+
+For optimal development experience, implement these optional functions in your Go WASM application:
+
+```go
+// Export current application state for preservation
+//go:export exportAppState
+func exportAppState() js.Value {
+    state := map[string]interface{}{
+        "componentStates": getComponentStates(),
+        "currentUser":     getCurrentUser(),
+        "formData":        getFormData(),
+        // Add your application-specific state
+    }
+    return js.ValueOf(state)
+}
+
+// Import and restore application state after reload
+//go:export importAppState  
+func importAppState(jsState js.Value) {
+    // Parse and restore your application state
+    restoreComponentStates(jsState.Get("componentStates"))
+    setCurrentUser(jsState.Get("currentUser"))
+    restoreFormData(jsState.Get("formData"))
+}
+
+// Optional: Custom hot reload logic
+//go:export hotReloadWasm
+func hotReloadWasm() {
+    // Perform hot reload without full page refresh
+    // Re-initialize components while preserving state
+    reInitializeComponents()
+}
+```
+
+### 📊 Development Server Output
+
+```
+🔄 Live reload started. Watching for .go file changes...
+📂 Watching directory: /your-project
+⏱️  Debounce time: 2s  
+🌐 Server running on http://localhost:8080
+🛑 Press Ctrl+C to stop
+
+👀 Watching: /your-project/fiber
+👀 Watching: /your-project/examples  
+🔨 Starting WASM build...
+✅ Build completed successfully in 1.8s
+🔌 WebSocket client connected (total: 1)
+
+📝 File changed: /your-project/main.go
+⏲️  Debouncing... will build in 2s
+🔨 Starting WASM build...
+✅ Build completed successfully in 1.2s
+🔄 Hot reload triggered
+```
+
+### 🌐 Browser Experience
+
+When you open `http://localhost:8080` with live reload:
+
+- **🟢 Connection indicator**: Shows server connection status
+- **⚡ Build progress**: Real-time build status and timing
+- **🔄 Auto-refresh**: Seamless reloads when builds complete
+- **💾 State preservation**: Your app state survives reloads
+- **❌ Error display**: Build errors shown directly in browser
+
+### ⚙️ Configuration
+
+Customize the live reload server by modifying `scripts/livereload/livereload.go`:
+
+```go
+const (
+    debounceTime      = 2000 * time.Millisecond // Debounce period
+    quickDebounceTime = 500 * time.Millisecond  // Quick debounce
+    maxDebounceTime   = 5000 * time.Millisecond // Maximum wait
+    serverPort        = ":8080"                 // HTTP server port
+)
+```
 
 ## 📖 Core API
 
