@@ -50,6 +50,7 @@ const (
 	MessageTypeStateExport    MessageType = "state_export"
 	MessageTypeStateImport    MessageType = "state_import"
 	MessageTypeDebounceStatus MessageType = "debounce_status"
+	MessageTypeCurrentStatus  MessageType = "current_status"
 )
 
 type WebSocketMessage struct {
@@ -378,6 +379,34 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
                 
             case 'debounce_status':
                 handleDebounceStatus(message.payload);
+                break;
+                
+            case 'current_status':
+                // Handle current status (don't trigger reloads, just update UI)
+                if (message.payload) {
+                    lastBuildStatus = {
+                        success: message.payload.success,
+                        error: message.payload.error,
+                        duration: message.payload.duration,
+                        reloadType: message.payload.reloadType,
+                        timestamp: new Date()
+                    };
+                    
+                    if (!message.payload.success) {
+                        buildErrors.push({
+                            error: message.payload.error,
+                            timestamp: new Date()
+                        });
+                        if (buildErrors.length > 5) buildErrors.shift();
+                    } else {
+                        buildErrors = []; // Clear errors on successful status
+                    }
+                    
+                    buildHistory.unshift(lastBuildStatus);
+                    if (buildHistory.length > 10) buildHistory.pop();
+                    updateGWCIcon();
+                    console.log('📊 Current build status received:', message.payload.success ? 'SUCCESS' : 'FAILED');
+                }
                 break;
         }
     }
@@ -1032,7 +1061,7 @@ func (lrs *LiveReloadServer) sendCurrentBuildStatus(conn *websocket.Conn) {
 	// Check if we have a previous build status to send
 	if lrs.lastBuildStatus != nil {
 		message := WebSocketMessage{
-			Type:      MessageTypeBuildComplete,
+			Type:      MessageTypeCurrentStatus,
 			Payload:   *lrs.lastBuildStatus,
 			Timestamp: time.Now(),
 		}
@@ -1099,7 +1128,7 @@ func (lrs *LiveReloadServer) checkCurrentBuildState(conn *websocket.Conn) {
 
 	// Send to the specific client
 	message := WebSocketMessage{
-		Type:      MessageTypeBuildComplete,
+		Type:      MessageTypeCurrentStatus,
 		Payload:   buildStatus,
 		Timestamp: time.Now(),
 	}

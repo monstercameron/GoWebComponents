@@ -46,7 +46,7 @@ func main() {
 	// Render the app to the DOM
 	fiber.RenderTo("#app", appComponent)
 
-	//
+	// test
 
 	// Other available examples (commented out)
 	// examples.ClickCounterExample()
