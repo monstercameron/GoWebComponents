@@ -40,18 +40,19 @@ func main() {
 
 	// Create and render the main app component
 	fmt.Println("Main: Creating and rendering app component")
-	appComponent := examples.GetSimpleStateExamplesApp()
-	app = fiber.CreateElement(appComponent, nil)
 
-	// Render the app to the DOM
-	fiber.RenderTo("#app", appComponent)
+	// Hot Reload Test Component - Perfect for testing partial reloading!
+	// Uncomment this line to test hot reload vs full reload classification
+	appComponent := examples.StateTest()
 
-	// test
-
-	// Other available examples (commented out)
+	// Other available examples (comment out the line above and uncomment one below)
+	// appComponent := examples.GetSimpleStateExamplesApp()
 	// examples.ClickCounterExample()
 	// examples.ConcurrentDashboardExample()
 	// examples.NetworkMonitoringDashboardExample()
+
+	// Render the app to the DOM
+	fiber.RenderTo("#app", appComponent)
 
 	fmt.Println("Main: App component rendered and reference saved")
 
