@@ -4,6 +4,40 @@ package fiber
 type Attrs map[string]interface{}
 type Attributes map[string]interface{}
 
+// createElementWithStringSupport is a performance-optimized wrapper around createElement
+// that automatically converts raw strings to Text elements for better DX
+func createElementWithStringSupport(typ interface{}, props map[string]interface{}, children ...interface{}) *Element {
+	if len(children) == 0 {
+		return createElement(typ, props, children...)
+	}
+
+	// Fast path: check if any children are strings (most common case is no strings)
+	hasStrings := false
+	for _, child := range children {
+		if _, isString := child.(string); isString {
+			hasStrings = true
+			break
+		}
+	}
+
+	// If no strings, use fast path
+	if !hasStrings {
+		return createElement(typ, props, children...)
+	}
+
+	// Process children with string conversion (less common path)
+	processedChildren := make([]interface{}, 0, len(children))
+	for _, child := range children {
+		if str, ok := child.(string); ok {
+			processedChildren = append(processedChildren, Text(str))
+		} else {
+			processedChildren = append(processedChildren, child)
+		}
+	}
+
+	return createElement(typ, props, processedChildren...)
+}
+
 // Element factory for common HTML elements - optimized for performance
 // This reduces function call overhead by inlining the most frequently used elements
 type ElementFactory struct {
@@ -21,12 +55,12 @@ type ElementFactory struct {
 // Global element factory instance
 var elementFactory = &ElementFactory{
 	divType:    "div",
-	spanType:   "span", 
+	spanType:   "span",
 	pType:      "p",
 	buttonType: "button",
 	inputType:  "input",
 	h1Type:     "h1",
-	h2Type:     "h2", 
+	h2Type:     "h2",
 	h3Type:     "h3",
 }
 
@@ -35,7 +69,7 @@ var elementFactory = &ElementFactory{
 var (
 	// Empty props - most common case
 	emptyProps = map[string]interface{}{}
-	
+
 	// Common CSS class patterns - pre-allocated to avoid map creation overhead
 	commonClassProps = map[string]map[string]interface{}{
 		"container":    {"class": "container"},
@@ -47,7 +81,7 @@ var (
 		"footer":       {"class": "footer"},
 		"content":      {"class": "content"},
 	}
-	
+
 	// Common input type patterns
 	commonInputProps = map[string]map[string]interface{}{
 		"text":     {"type": "text"},
@@ -69,19 +103,19 @@ var (
 
 // Document Structure Elements
 func Html(props Attrs, children ...interface{}) *Element {
-	return createElement("html", props, children...)
+	return createElementWithStringSupport("html", props, children...)
 }
 
 func Head(props Attrs, children ...interface{}) *Element {
-	return createElement("head", props, children...)
+	return createElementWithStringSupport("head", props, children...)
 }
 
 func Body(props Attrs, children ...interface{}) *Element {
-	return createElement("body", props, children...)
+	return createElementWithStringSupport("body", props, children...)
 }
 
 func Title(props Attrs, children ...interface{}) *Element {
-	return createElement("title", props, children...)
+	return createElementWithStringSupport("title", props, children...)
 }
 
 func Meta(props Attrs) *Element {
@@ -93,57 +127,56 @@ func Link(props Attrs) *Element {
 }
 
 func Style(props Attrs, children ...interface{}) *Element {
-	return createElement("style", props, children...)
+	return createElementWithStringSupport("style", props, children...)
 }
 
 func Script(props Attrs, children ...interface{}) *Element {
-	return createElement("script", props, children...)
+	return createElementWithStringSupport("script", props, children...)
 }
 
 // Semantic Structure Elements
 func Header(props Attrs, children ...interface{}) *Element {
-	return createElement("header", props, children...)
+	return createElementWithStringSupport("header", props, children...)
 }
 
 func Nav(props Attrs, children ...interface{}) *Element {
-	return createElement("nav", props, children...)
+	return createElementWithStringSupport("nav", props, children...)
 }
 
 func Main(props Attrs, children ...interface{}) *Element {
-	return createElement("main", props, children...)
+	return createElementWithStringSupport("main", props, children...)
 }
 
 func Section(props Attrs, children ...interface{}) *Element {
-	return createElement("section", props, children...)
+	return createElementWithStringSupport("section", props, children...)
 }
 
 func Article(props Attrs, children ...interface{}) *Element {
-	return createElement("article", props, children...)
+	return createElementWithStringSupport("article", props, children...)
 }
 
 func Aside(props Attrs, children ...interface{}) *Element {
-	return createElement("aside", props, children...)
+	return createElementWithStringSupport("aside", props, children...)
 }
 
 func Footer(props Attrs, children ...interface{}) *Element {
-	return createElement("footer", props, children...)
+	return createElementWithStringSupport("footer", props, children...)
 }
 
 // Layout Elements - Optimized for performance (most frequently used)
 func Div(props Attrs, children ...interface{}) *Element {
-	// Inline optimization for the most common element
-	// This avoids createElement function call overhead
-	return createElement(elementFactory.divType, props, children...)
+	// Inline optimization for the most common element with auto string wrapping
+	return createElementWithStringSupport(elementFactory.divType, props, children...)
 }
 
 func Span(props Attrs, children ...interface{}) *Element {
-	// Inline optimization for common inline element
-	return createElement(elementFactory.spanType, props, children...)
+	// Inline optimization for common inline element with auto string wrapping
+	return createElementWithStringSupport(elementFactory.spanType, props, children...)
 }
 
 func P(props Attrs, children ...interface{}) *Element {
-	// Inline optimization for common text element
-	return createElement(elementFactory.pType, props, children...)
+	// Inline optimization for common text element with auto string wrapping
+	return createElementWithStringSupport(elementFactory.pType, props, children...)
 }
 
 func Br(props Attrs) *Element {
@@ -156,122 +189,122 @@ func Hr(props Attrs) *Element {
 
 // Heading Elements - Optimized for common headings
 func H1(props Attrs, children ...interface{}) *Element {
-	// Inline optimization for most common heading
-	return createElement(elementFactory.h1Type, props, children...)
+	// Inline optimization for most common heading with auto string wrapping
+	return createElementWithStringSupport(elementFactory.h1Type, props, children...)
 }
 
 func H2(props Attrs, children ...interface{}) *Element {
-	// Inline optimization for common heading
-	return createElement(elementFactory.h2Type, props, children...)
+	// Inline optimization for common heading with auto string wrapping
+	return createElementWithStringSupport(elementFactory.h2Type, props, children...)
 }
 
 func H3(props Attrs, children ...interface{}) *Element {
-	// Inline optimization for common heading
-	return createElement(elementFactory.h3Type, props, children...)
+	// Inline optimization for common heading with auto string wrapping
+	return createElementWithStringSupport(elementFactory.h3Type, props, children...)
 }
 
 func H4(props Attrs, children ...interface{}) *Element {
-	return createElement("h4", props, children...)
+	return createElementWithStringSupport("h4", props, children...)
 }
 
 func H5(props Attrs, children ...interface{}) *Element {
-	return createElement("h5", props, children...)
+	return createElementWithStringSupport("h5", props, children...)
 }
 
 func H6(props Attrs, children ...interface{}) *Element {
-	return createElement("h6", props, children...)
+	return createElementWithStringSupport("h6", props, children...)
 }
 
 // Text Content Elements
 func Strong(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("strong", props, children...)
+	return createElementWithStringSupport("strong", props, children...)
 }
 
 func Em(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("em", props, children...)
+	return createElementWithStringSupport("em", props, children...)
 }
 
 func Small(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("small", props, children...)
+	return createElementWithStringSupport("small", props, children...)
 }
 
 func Mark(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("mark", props, children...)
+	return createElementWithStringSupport("mark", props, children...)
 }
 
 func Del(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("del", props, children...)
+	return createElementWithStringSupport("del", props, children...)
 }
 
 func Ins(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("ins", props, children...)
+	return createElementWithStringSupport("ins", props, children...)
 }
 
 func Sub(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("sub", props, children...)
+	return createElementWithStringSupport("sub", props, children...)
 }
 
 func Sup(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("sup", props, children...)
+	return createElementWithStringSupport("sup", props, children...)
 }
 
 func Code(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("code", props, children...)
+	return createElementWithStringSupport("code", props, children...)
 }
 
 func Pre(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("pre", props, children...)
+	return createElementWithStringSupport("pre", props, children...)
 }
 
 func Kbd(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("kbd", props, children...)
+	return createElementWithStringSupport("kbd", props, children...)
 }
 
 func Samp(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("samp", props, children...)
+	return createElementWithStringSupport("samp", props, children...)
 }
 
 // Quote Elements
 func Blockquote(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("blockquote", props, children...)
+	return createElementWithStringSupport("blockquote", props, children...)
 }
 
 func Q(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("q", props, children...)
+	return createElementWithStringSupport("q", props, children...)
 }
 
 func Cite(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("cite", props, children...)
+	return createElementWithStringSupport("cite", props, children...)
 }
 
 // List Elements
 func Ul(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("ul", props, children...)
+	return createElementWithStringSupport("ul", props, children...)
 }
 
 func Ol(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("ol", props, children...)
+	return createElementWithStringSupport("ol", props, children...)
 }
 
 func Li(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("li", props, children...)
+	return createElementWithStringSupport("li", props, children...)
 }
 
 func Dl(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("dl", props, children...)
+	return createElementWithStringSupport("dl", props, children...)
 }
 
 func Dt(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("dt", props, children...)
+	return createElementWithStringSupport("dt", props, children...)
 }
 
 func Dd(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("dd", props, children...)
+	return createElementWithStringSupport("dd", props, children...)
 }
 
 // Link Elements
 func A(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("a", props, children...)
+	return createElementWithStringSupport("a", props, children...)
 }
 
 // Media Elements
@@ -280,11 +313,11 @@ func Img(props map[string]interface{}) *Element {
 }
 
 func Video(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("video", props, children...)
+	return createElementWithStringSupport("video", props, children...)
 }
 
 func Audio(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("audio", props, children...)
+	return createElementWithStringSupport("audio", props, children...)
 }
 
 func Source(props map[string]interface{}) *Element {
@@ -296,16 +329,16 @@ func Track(props map[string]interface{}) *Element {
 }
 
 func Canvas(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("canvas", props, children...)
+	return createElementWithStringSupport("canvas", props, children...)
 }
 
 func Svg(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("svg", props, children...)
+	return createElementWithStringSupport("svg", props, children...)
 }
 
 // Form Elements
 func Form(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("form", props, children...)
+	return createElementWithStringSupport("form", props, children...)
 }
 
 func Input(props map[string]interface{}) *Element {
@@ -314,89 +347,89 @@ func Input(props map[string]interface{}) *Element {
 }
 
 func Textarea(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("textarea", props, children...)
+	return createElementWithStringSupport("textarea", props, children...)
 }
 
 func Button(props map[string]interface{}, children ...interface{}) *Element {
-	// Inline optimization for common interactive element
-	return createElement(elementFactory.buttonType, props, children...)
+	// Inline optimization for common interactive element with auto string wrapping
+	return createElementWithStringSupport(elementFactory.buttonType, props, children...)
 }
 
 func Select(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("select", props, children...)
+	return createElementWithStringSupport("select", props, children...)
 }
 
 func Option(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("option", props, children...)
+	return createElementWithStringSupport("option", props, children...)
 }
 
 func Optgroup(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("optgroup", props, children...)
+	return createElementWithStringSupport("optgroup", props, children...)
 }
 
 func Label(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("label", props, children...)
+	return createElementWithStringSupport("label", props, children...)
 }
 
 func Fieldset(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("fieldset", props, children...)
+	return createElementWithStringSupport("fieldset", props, children...)
 }
 
 func Legend(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("legend", props, children...)
+	return createElementWithStringSupport("legend", props, children...)
 }
 
 func Datalist(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("datalist", props, children...)
+	return createElementWithStringSupport("datalist", props, children...)
 }
 
 func Output(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("output", props, children...)
+	return createElementWithStringSupport("output", props, children...)
 }
 
 func Progress(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("progress", props, children...)
+	return createElementWithStringSupport("progress", props, children...)
 }
 
 func Meter(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("meter", props, children...)
+	return createElementWithStringSupport("meter", props, children...)
 }
 
 // Table Elements
 func Table(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("table", props, children...)
+	return createElementWithStringSupport("table", props, children...)
 }
 
 func Thead(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("thead", props, children...)
+	return createElementWithStringSupport("thead", props, children...)
 }
 
 func Tbody(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("tbody", props, children...)
+	return createElementWithStringSupport("tbody", props, children...)
 }
 
 func Tfoot(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("tfoot", props, children...)
+	return createElementWithStringSupport("tfoot", props, children...)
 }
 
 func Tr(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("tr", props, children...)
+	return createElementWithStringSupport("tr", props, children...)
 }
 
 func Th(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("th", props, children...)
+	return createElementWithStringSupport("th", props, children...)
 }
 
 func Td(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("td", props, children...)
+	return createElementWithStringSupport("td", props, children...)
 }
 
 func Caption(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("caption", props, children...)
+	return createElementWithStringSupport("caption", props, children...)
 }
 
 func Colgroup(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("colgroup", props, children...)
+	return createElementWithStringSupport("colgroup", props, children...)
 }
 
 func Col(props map[string]interface{}) *Element {
@@ -405,68 +438,68 @@ func Col(props map[string]interface{}) *Element {
 
 // Interactive Elements
 func Details(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("details", props, children...)
+	return createElementWithStringSupport("details", props, children...)
 }
 
 func Summary(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("summary", props, children...)
+	return createElementWithStringSupport("summary", props, children...)
 }
 
 func Dialog(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("dialog", props, children...)
+	return createElementWithStringSupport("dialog", props, children...)
 }
 
 // Content Sectioning Elements
 func Address(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("address", props, children...)
+	return createElementWithStringSupport("address", props, children...)
 }
 
 func Hgroup(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("hgroup", props, children...)
+	return createElementWithStringSupport("hgroup", props, children...)
 }
 
 // Time Elements
 func Time(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("time", props, children...)
+	return createElementWithStringSupport("time", props, children...)
 }
 
 // Ruby Annotation Elements
 func Ruby(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("ruby", props, children...)
+	return createElementWithStringSupport("ruby", props, children...)
 }
 
 func Rt(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("rt", props, children...)
+	return createElementWithStringSupport("rt", props, children...)
 }
 
 func Rp(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("rp", props, children...)
+	return createElementWithStringSupport("rp", props, children...)
 }
 
 // Definition Elements
 func Dfn(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("dfn", props, children...)
+	return createElementWithStringSupport("dfn", props, children...)
 }
 
 func Abbr(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("abbr", props, children...)
+	return createElementWithStringSupport("abbr", props, children...)
 }
 
 // Generic Container Elements
 func Figure(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("figure", props, children...)
+	return createElementWithStringSupport("figure", props, children...)
 }
 
 func Figcaption(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("figcaption", props, children...)
+	return createElementWithStringSupport("figcaption", props, children...)
 }
 
 func Data(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("data", props, children...)
+	return createElementWithStringSupport("data", props, children...)
 }
 
 func Var(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("var", props, children...)
+	return createElementWithStringSupport("var", props, children...)
 }
 
 func Wbr(props map[string]interface{}) *Element {
@@ -474,11 +507,11 @@ func Wbr(props map[string]interface{}) *Element {
 }
 
 func Bdi(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("bdi", props, children...)
+	return createElementWithStringSupport("bdi", props, children...)
 }
 
 func Bdo(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("bdo", props, children...)
+	return createElementWithStringSupport("bdo", props, children...)
 }
 
 // Embedded Content Elements
@@ -487,7 +520,7 @@ func Embed(props map[string]interface{}) *Element {
 }
 
 func Object(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("object", props, children...)
+	return createElementWithStringSupport("object", props, children...)
 }
 
 func Param(props map[string]interface{}) *Element {
@@ -495,7 +528,7 @@ func Param(props map[string]interface{}) *Element {
 }
 
 func Picture(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("picture", props, children...)
+	return createElementWithStringSupport("picture", props, children...)
 }
 
 func Portal(props map[string]interface{}) *Element {
@@ -504,11 +537,11 @@ func Portal(props map[string]interface{}) *Element {
 
 // Template Elements
 func Template(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("template", props, children...)
+	return createElementWithStringSupport("template", props, children...)
 }
 
 func Slot(props map[string]interface{}, children ...interface{}) *Element {
-	return createElement("slot", props, children...)
+	return createElementWithStringSupport("slot", props, children...)
 }
 
 // Helper function for nil props (common case)
@@ -577,7 +610,7 @@ func WithComponents(tagName string, props map[string]interface{}, componentRefs 
 	for i, comp := range componentRefs {
 		children[i] = comp
 	}
-	return createElement(tagName, props, children...)
+	return createElementWithStringSupport(tagName, props, children...)
 }
 
 // Helper functions for common patterns with component references
