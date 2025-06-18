@@ -5,47 +5,122 @@ package website
 
 import . "github.com/monstercameron/GoWebComponents/fiber"
 
+// HeroSection creates the main hero section for the documentation site
+func HeroSection(props Attrs) *Element {
+	return Section(
+		Attrs{
+			"id":    "home",
+			"class": "relative min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 overflow-hidden",
+		},
+
+		// Background decoration
+		Div(
+			Attrs{"class": "absolute inset-0 overflow-hidden"},
+			Div(Attrs{"class": "absolute -top-40 -right-40 w-80 h-80 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"}),
+			Div(Attrs{"class": "absolute -bottom-40 -left-40 w-80 h-80 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"}),
+			Div(Attrs{"class": "absolute top-40 left-40 w-80 h-80 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"}),
+		),
+
+		// Main content
+		Div(
+			Attrs{"class": "relative z-10 text-center max-w-5xl mx-auto px-6"},
+
+			// Hero badge
+			Div(
+				Attrs{"class": "inline-flex items-center px-4 py-2 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium mb-8 animate-bounce"},
+				Span(Attrs{"class": "mr-2"}, "🚀"),
+				Span(nil, "Welcome to the Future of Web Development"),
+			),
+
+			// Main title
+			H1(
+				Attrs{"class": "text-6xl md:text-7xl font-bold mb-6 leading-tight"},
+				Span(Attrs{"class": "bg-gradient-to-r from-gray-900 via-indigo-600 to-purple-600 bg-clip-text text-transparent"}, "GoWebComponents"),
+				Br(nil),
+				Span(Attrs{"class": "text-4xl md:text-5xl text-gray-700"}, "Reactive Web Apps in Go"),
+			),
+
+			// Subtitle
+			P(
+				Attrs{"class": "text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed"},
+				"Build modern, reactive web applications using Go and WebAssembly. ",
+				Strong(nil, "No JavaScript required."),
+				" Experience the power of Go's concurrency, type safety, and performance in the browser.",
+			),
+
+			// CTA buttons
+			Div(
+				Attrs{"class": "flex flex-col sm:flex-row gap-4 justify-center items-center mb-12"},
+				Button(
+					Attrs{
+						"class":   "px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-lg font-semibold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1",
+						"onclick": "scrollToSection('getting-started')",
+					},
+					"Get Started Now",
+				),
+				A(
+					Attrs{
+						"href":   "https://github.com/monstercameron/GoWebComponents",
+						"target": "_blank",
+						"class":  "px-8 py-4 bg-white text-gray-800 text-lg font-semibold rounded-xl border-2 border-gray-200 hover:border-indigo-300 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1",
+					},
+					"⚡ View on GitHub",
+				),
+			),
+
+			// Key features preview
+			Div(
+				Attrs{"class": "grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto"},
+				FeaturePreviewCard("⚡", "Lightning Fast", "WebAssembly performance with Go's efficiency"),
+				FeaturePreviewCard("🔄", "Hot Reload", "Instant feedback during development"),
+				FeaturePreviewCard("🛡️", "Type Safe", "Compile-time error checking and safety"),
+			),
+		),
+	)
+}
+
+// FeaturePreviewCard creates a preview card for key features
+func FeaturePreviewCard(icon, title, description string) *Element {
+	return Div(
+		Attrs{"class": "bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-100"},
+		Div(Attrs{"class": "text-3xl mb-3"}, icon),
+		H3(Attrs{"class": "text-lg font-semibold text-gray-900 mb-2"}, title),
+		P(Attrs{"class": "text-gray-600 text-sm"}, description),
+	)
+}
+
 // FeaturesSection lists all major features of GoWebComponents with in-page anchors
 func FeaturesSection(props Attrs) *Element {
 	return Section(
-		Attrs{"id": "features", "class": "py-12 bg-white"},
+		Attrs{"id": "features", "class": "py-20 bg-white"},
 		Div(
-			Attrs{"class": "container mx-auto px-4"},
-			H2(Attrs{"class": "text-3xl font-bold mb-6 text-indigo-700"}, "Features"),
-			Ul(Attrs{"class": "space-y-4"},
-				Li(Attrs{"id": "feature-unified-stack"},
-					Strong(Attrs{"class": "text-gray-900"}, "A Truly Unified Stack: "),
-					Span(Attrs{"class": "text-gray-800"}, "Share data structures, validation logic, and utilities between backend and frontend. Eliminate data-syncing bugs and code duplication."),
-				),
-				Li(Attrs{"id": "feature-performance"},
-					Strong(Attrs{"class": "text-gray-900"}, "Next-Generation Performance: "),
-					Span(Attrs{"class": "text-gray-800"}, "Go code compiles to highly optimized WebAssembly. Fiber-based reconciliation minimizes DOM updates. Advanced memory pooling for smooth UI."),
-				),
-				Li(Attrs{"id": "feature-concurrency"},
-					Strong(Attrs{"class": "text-gray-900"}, "Superior Concurrency Model: "),
-					Span(Attrs{"class": "text-gray-800"}, "Run expensive operations in the background with goroutines. No more frozen UIs."),
-				),
-				Li(Attrs{"id": "feature-go-advantage"},
-					Strong(Attrs{"class": "text-gray-900"}, "The Go Advantage Over JavaScript/TypeScript: "),
-					Span(Attrs{"class": "text-gray-800"}, "No node_modules, no complex transpilers. Use Go's standard library and compiler for a single, portable binary."),
-				),
-				Li(Attrs{"id": "feature-modern-api"},
-					Strong(Attrs{"class": "text-gray-900"}, "A Familiar, Modern API: "),
-					Span(Attrs{"class": "text-gray-800"}, "React-like hooks: GoUseState, GoUseEffect, GoUseMemo for state, effects, and performance."),
-				),
-				Li(Attrs{"id": "feature-component-library"},
-					Strong(Attrs{"class": "text-gray-900"}, "Comprehensive Component Library: "),
-					Span(Attrs{"class": "text-gray-800"}, "80+ pre-built HTML element constructors. Build UIs with Div, Button, Form, and more."),
-				),
-				Li(Attrs{"id": "feature-reliability"},
-					Strong(Attrs{"class": "text-gray-900"}, "Rock-Solid Reliability: "),
-					Span(Attrs{"class": "text-gray-800"}, "Go's static type system catches errors at compile time. Write robust, maintainable code."),
-				),
-				Li(Attrs{"id": "feature-data-fetching"},
-					Strong(Attrs{"class": "text-gray-900"}, "Effortless Data Fetching: "),
-					Span(Attrs{"class": "text-gray-800"}, "Built-in GoUseFetch hook for declarative data fetching and GoFetch for imperative requests."),
-				),
+			Attrs{"class": "container mx-auto px-6"},
+			Div(
+				Attrs{"class": "text-center mb-16"},
+				H2(Attrs{"class": "text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent"}, "Powerful Features"),
+				P(Attrs{"class": "text-xl text-gray-600 max-w-3xl mx-auto"}, "Everything you need to build modern web applications with Go"),
+			),
+			Div(
+				Attrs{"class": "grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto"},
+				FeatureCard("🏗️", "A Truly Unified Stack", "Share data structures, validation logic, and utilities between backend and frontend. Eliminate data-syncing bugs and code duplication."),
+				FeatureCard("⚡", "Next-Generation Performance", "Go code compiles to highly optimized WebAssembly. Fiber-based reconciliation minimizes DOM updates. Advanced memory pooling for smooth UI."),
+				FeatureCard("🔄", "Superior Concurrency Model", "Run expensive operations in the background with goroutines. No more frozen UIs."),
+				FeatureCard("🎯", "The Go Advantage Over JavaScript/TypeScript", "No node_modules, no complex transpilers. Use Go's standard library and compiler for a single, portable binary."),
+				FeatureCard("🪝", "A Familiar, Modern API", "React-like hooks: GoUseState, GoUseEffect, GoUseMemo for state, effects, and performance."),
+				FeatureCard("📦", "Comprehensive Component Library", "80+ pre-built HTML element constructors. Build UIs with Div, Button, Form, and more."),
+				FeatureCard("🛡️", "Rock-Solid Reliability", "Go's static type system catches errors at compile time. Write robust, maintainable code."),
+				FeatureCard("🌐", "Effortless Data Fetching", "Built-in GoUseFetch hook for declarative data fetching and GoFetch for imperative requests."),
 			),
 		),
+	)
+}
+
+// FeatureCard creates a feature card component
+func FeatureCard(icon, title, description string) *Element {
+	return Div(
+		Attrs{"class": "bg-gradient-to-br from-gray-50 to-gray-100 p-8 rounded-2xl hover:shadow-lg transition-all duration-300 border border-gray-200 hover:border-indigo-200 group"},
+		Div(Attrs{"class": "text-4xl mb-4 group-hover:scale-110 transition-transform duration-300"}, icon),
+		H3(Attrs{"class": "text-xl font-bold text-gray-900 mb-4"}, title),
+		P(Attrs{"class": "text-gray-600 leading-relaxed"}, description),
 	)
 }
