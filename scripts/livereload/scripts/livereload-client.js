@@ -22,7 +22,7 @@
             if (window.exportAppState && typeof window.exportAppState === 'function') {
                 try {
                     const wasmState = window.exportAppState();
-                    console.log('🔄 GoLiveReload: Exported WASM state:', wasmState);
+                    // console.log('🔄 GoLiveReload: Exported WASM state:', wasmState);
                     return wasmState;
                 } catch (e) {
                     console.warn('🚨 Failed to export WASM state:', e);
@@ -38,7 +38,7 @@
             // Try to import WASM app state if available
             if (window.importAppState && typeof window.importAppState === 'function') {
                 try {
-                    console.log('🔄 GoLiveReload: Importing WASM state:', state);
+                    // console.log('🔄 GoLiveReload: Importing WASM state:', state);
                     window.importAppState(state);
                 } catch (e) {
                     console.warn('🚨 Failed to import WASM state:', e);
@@ -48,16 +48,16 @@
         
         storeState: function(state) {
             storedState = state;
-            console.log('💾 GoLiveReload: State stored in memory:', state);
+            // console.log('💾 GoLiveReload: State stored in memory:', state);
         },
         
         getStoredState: function() {
-            console.log('📥 GoLiveReload: Retrieved stored state:', storedState);
+            // console.log('📥 GoLiveReload: Retrieved stored state:', storedState);
             return storedState;
         },
         
         clearStoredState: function() {
-            console.log('🧹 GoLiveReload: Cleared stored state');
+            // console.log('🧹 GoLiveReload: Cleared stored state');
             storedState = null;
         },
         
@@ -94,7 +94,7 @@
         };
         
         ws.onclose = function() {
-            console.log('🔄 Live reload disconnected');
+            // console.log('🔄 Live reload disconnected');
             wsStatus = 'disconnected';
             updateGWCIcon();
             
@@ -115,13 +115,13 @@
     }
     
     function handleMessage(message) {
-        console.log('📨 Live reload message:', message.type);
+        // console.log('📨 Live reload message:', message.type);
         
         switch (message.type) {
             case 'build_start':
                 const classification = message.payload?.classification;
                 if (classification) {
-                    console.log('🔍 Update classification:', classification.type, '(' + classification.reloadType + ') -', classification.reason);
+                    // console.log('🔍 Update classification:', classification.type, '(' + classification.reloadType + ') -', classification.reason);
                 }
                 // Remove build toast - status shown in GWC icon instead
                 break;
@@ -129,7 +129,7 @@
             case 'build_complete':
                 if (message.payload && message.payload.success) {
                     const reloadType = message.payload.reloadType || 'full';
-                    console.log('✅ Build successful, reload type:', reloadType);
+                    // console.log('✅ Build successful, reload type:', reloadType);
                     
                     lastBuildStatus = {
                         success: true,
@@ -216,48 +216,48 @@
                     buildHistory.unshift(lastBuildStatus);
                     if (buildHistory.length > 10) buildHistory.pop();
                     updateGWCIcon();
-                    console.log('📊 Current build status received:', message.payload.success ? 'SUCCESS' : 'FAILED');
+                    // console.log('📊 Current build status received:', message.payload.success ? 'SUCCESS' : 'FAILED');
                 }
                 break;
         }
     }
     
     function performHotReload() {
-        console.log('🔥 Attempting hot reload...');
+        // console.log('🔥 Attempting hot reload...');
         
         // Export and store current state before reload
         const currentState = window.GoLiveReload.exportState();
         if (currentState) {
             window.GoLiveReload.storeState(currentState);
-            console.log('💾 State saved for hot reload');
+            // console.log('💾 State saved for hot reload');
         }
         
         // Try hot reload with WASM module replacement
         setTimeout(() => {
             try {
                 if (window.hotReloadWasm && typeof window.hotReloadWasm === 'function') {
-                    console.log('🔥 Calling WASM hot reload function');
+                    // console.log('🔥 Calling WASM hot reload function');
                     window.hotReloadWasm();
                 } else {
-                    console.log('⚠️ WASM hot reload not available, trying manual reload');
+                    // console.log('⚠️ WASM hot reload not available, trying manual reload');
                     // Try to reload just the WASM module
                     reloadWasmModule();
                 }
             } catch (e) {
-                console.warn('🚨 Hot reload failed, falling back to full page reload:', e);
+                // console.warn('🚨 Hot reload failed, falling back to full page reload:', e);
                 performFullReload();
             }
         }, 100);
     }
     
     function performFullReload() {
-        console.log('🔄 Performing full page reload...');
+        // console.log('🔄 Performing full page reload...');
         
         // Export and store current state before reload
         const currentState = window.GoLiveReload.exportState();
         if (currentState) {
             window.GoLiveReload.storeState(currentState);
-            console.log('💾 State saved for full reload');
+            // console.log('💾 State saved for full reload');
         }
         
         // Full page reload
@@ -267,7 +267,7 @@
     }
     
     function reloadWasmModule() {
-        console.log('🔄 Attempting WASM module reload...');
+        // console.log('🔄 Attempting WASM module reload...');
         
         // Clean up DOM before reloading WASM
         cleanupDOMContainers();
@@ -279,45 +279,45 @@
             const newScript = document.createElement('script');
             newScript.src = wasmScript.src + '?t=' + Date.now();
             newScript.onload = function() {
-                console.log('✅ WASM script reloaded');
+                // console.log('✅ WASM script reloaded');
                 // Try to reinitialize the Go WASM
                 if (window.Go) {
                     const go = new Go();
                     WebAssembly.instantiateStreaming(fetch('/bin/main.wasm?t=' + Date.now()), go.importObject)
                         .then((result) => {
-                            console.log('✅ WASM module reloaded');
+                            // console.log('✅ WASM module reloaded');
                             go.run(result.instance);
                         })
                         .catch((e) => {
-                            console.warn('🚨 WASM module reload failed:', e);
+                            // console.warn('🚨 WASM module reload failed:', e);
                             performFullReload();
                         });
                 } else {
-                    console.warn('⚠️ Go WASM runtime not available');
+                    // console.warn('⚠️ Go WASM runtime not available');
                     performFullReload();
                 }
             };
             newScript.onerror = function() {
-                console.warn('🚨 WASM script reload failed');
+                // console.warn('🚨 WASM script reload failed');
                 performFullReload();
             };
             
             // Replace the old script
             wasmScript.parentNode.replaceChild(newScript, wasmScript);
         } else {
-            console.warn('⚠️ WASM script not found, falling back to full reload');
+            // console.warn('⚠️ WASM script not found, falling back to full reload');
             performFullReload();
         }
     }
     
     function cleanupDOMContainers() {
-        console.log('🧹 Cleaning up DOM containers before WASM reload...');
+        // console.log('🧹 Cleaning up DOM containers before WASM reload...');
         
         // Clean up the main app container
         const appElement = document.getElementById('app');
         if (appElement) {
             appElement.innerHTML = '';
-            console.log('✅ Cleared #app container');
+            // console.log('✅ Cleared #app container');
         }
         
         // Clean up other common containers
@@ -326,7 +326,7 @@
             const element = document.getElementById(containerId);
             if (element) {
                 element.innerHTML = '';
-                console.log(`✅ Cleared #${containerId} container`);
+                // console.log(`✅ Cleared #${containerId} container`);
             }
         });
         
@@ -334,9 +334,9 @@
         if (window.cleanupDOM && typeof window.cleanupDOM === 'function') {
             try {
                 window.cleanupDOM();
-                console.log('✅ Called WASM cleanup function');
+                // console.log('✅ Called WASM cleanup function');
             } catch (e) {
-                console.warn('⚠️ WASM cleanup function failed:', e);
+                // console.warn('⚠️ WASM cleanup function failed:', e);
             }
         }
     }
@@ -474,11 +474,11 @@
             const savedState = window.GoLiveReload.getStoredState();
             if (savedState) {
                 try {
-                    console.log('🔄 Restoring state after page load...');
+                    // console.log('🔄 Restoring state after page load...');
                     window.GoLiveReload.importState(savedState);
                     window.GoLiveReload.clearStoredState();
                 } catch (e) {
-                    console.warn('🚨 Failed to restore state:', e);
+                    // console.warn('🚨 Failed to restore state:', e);
                 }
             }
         }, 1000);
@@ -808,9 +808,9 @@
         if (navigator.clipboard && navigator.clipboard.writeText) {
             // Modern clipboard API
             navigator.clipboard.writeText(text).then(function() {
-                console.log('✅ Error copied to clipboard');
+                // console.log('✅ Error copied to clipboard');
             }).catch(function(err) {
-                console.error('❌ Failed to copy to clipboard:', err);
+                // console.error('❌ Failed to copy to clipboard:', err);
                 fallbackCopyToClipboard(text);
             });
         } else {
@@ -832,12 +832,12 @@
         try {
             const successful = document.execCommand('copy');
             if (successful) {
-                console.log('✅ Error copied to clipboard (fallback)');
+                // console.log('✅ Error copied to clipboard (fallback)');
             } else {
-                console.error('❌ Failed to copy to clipboard (fallback)');
+                // console.error('❌ Failed to copy to clipboard (fallback)');
             }
         } catch (err) {
-            console.error('❌ Fallback copy failed:', err);
+            // console.error('❌ Fallback copy failed:', err);
         }
         
         document.body.removeChild(textArea);

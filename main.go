@@ -22,7 +22,7 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	fmt.Println("Main: Starting Go Web Components Examples")
+	fmt.Println("🚀 Go Web Components starting...")
 
 	// Configure debug logging
 	fiber.SetDebugNamespacesExclusive(map[string]bool{
@@ -40,8 +40,6 @@ func main() {
 	fiber.EnableHotReload(true)
 
 	// Create and render the main app component
-	fmt.Println("Main: Creating and rendering app component")
-
 	// Hot Reload Test Component - Perfect for testing partial reloading!
 	// Uncomment this line to test hot reload vs full reload classification
 	// appComponent := examples.StateTest()
@@ -55,12 +53,7 @@ func main() {
 	// Render the app to the DOM
 	fiber.RenderTo("#app", website.DocsWebsite)
 
-	fmt.Println("Main: App component rendered and reference saved")
-
-	// Show current debug status
-	fmt.Println("Debug Status:", fiber.GetDebugStatus())
-
-	fmt.Println("Main: End of main function")
+	fmt.Println("✅ App rendered successfully")
 
 	// Keep the program alive for WebAssembly event handling
 	wg.Wait()
