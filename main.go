@@ -9,7 +9,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/examples"
+	"github.com/monstercameron/GoWebComponents/website"
+
 	"github.com/monstercameron/GoWebComponents/fiber"
 )
 
@@ -43,7 +44,7 @@ func main() {
 
 	// Hot Reload Test Component - Perfect for testing partial reloading!
 	// Uncomment this line to test hot reload vs full reload classification
-	appComponent := examples.StateTest()
+	// appComponent := examples.StateTest()
 
 	// Other available examples (comment out the line above and uncomment one below)
 	// appComponent := examples.GetSimpleStateExamplesApp()
@@ -52,7 +53,7 @@ func main() {
 	// examples.NetworkMonitoringDashboardExample()
 
 	// Render the app to the DOM
-	fiber.RenderTo("#app", appComponent)
+	fiber.RenderTo("#app", website.DocsWebsite)
 
 	fmt.Println("Main: App component rendered and reference saved")
 

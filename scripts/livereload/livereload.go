@@ -522,6 +522,7 @@ func (lrs *LiveReloadServer) classifyUpdate() UpdateClassification {
 	}
 
 	// Analyze the changed files to determine update type
+	var hotReloadReasons []string
 	for _, file := range changedFiles {
 		relPath, _ := filepath.Rel(lrs.projectRoot, file)
 
@@ -555,74 +556,14 @@ func (lrs *LiveReloadServer) classifyUpdate() UpdateClassification {
 				ChangedFiles: changedFiles,
 			}
 		}
-	}
-
-	// Check if changes are UI-related (hot reload candidates)
-	hotReloadReasons := []string{}
-	for _, file := range changedFiles {
-		// Read file content to analyze the types of changes
-		content, err := os.ReadFile(file)
-		if err != nil {
-			continue // Skip files we can't read
-		}
-
-		contentStr := string(content)
-		relPath, _ := filepath.Rel(lrs.projectRoot, file)
-
-		// Check for element creation functions and aliases
-		elementFunctions := []string{
-			"H1(", "H2(", "H3(", "H4(", "H5(", "H6(",
-			"Div(", "Span(", "P(", "A(", "Button(", "Input(", "Form(",
-			"Table(", "Tr(", "Td(", "Th(", "Thead(", "Tbody(",
-			"Ul(", "Ol(", "Li(", "Nav(", "Header(", "Footer(", "Section(",
-			"Article(", "Aside(", "Main(", "Figure(", "Figcaption(",
-			"Img(", "Video(", "Audio(", "Canvas(", "Svg(",
-			"Select(", "Option(", "Textarea(", "Label(", "Fieldset(",
-			"Legend(", "Details(", "Summary(", "Dialog(",
-		}
-
-		hasElementChanges := false
-		for _, elementFunc := range elementFunctions {
-			if strings.Contains(contentStr, elementFunc) {
-				hasElementChanges = true
-				break
-			}
-		}
-
-		if hasElementChanges {
-			hotReloadReasons = append(hotReloadReasons, "element creation")
-		}
-
-		// Check for HTML-like code patterns
-		htmlPatterns := []string{
-			"Attrs{", "\"style\":", "\"class\":", "\"id\":", "\"onclick\":",
-			"\"onchange\":", "\"oninput\":", "\"onsubmit\":", "\"href\":",
-			"\"src\":", "\"alt\":", "\"title\":", "\"placeholder\":",
-			"\"value\":", "\"type\":", "\"disabled\":", "\"readonly\":",
-		}
-
-		hasHtmlChanges := false
-		for _, pattern := range htmlPatterns {
-			if strings.Contains(contentStr, pattern) {
-				hasHtmlChanges = true
-				break
-			}
-		}
-
-		if hasHtmlChanges {
-			hotReloadReasons = append(hotReloadReasons, "HTML-like attributes")
-		}
-
-		// Check for string literal changes
-		if strings.Contains(contentStr, "Text(\"") ||
-			strings.Contains(contentStr, "\", \"") ||
-			(strings.Count(contentStr, "\"") > 10) { // Lots of strings
-			hotReloadReasons = append(hotReloadReasons, "string content")
-		}
 
 		// Check if file is in examples/ directory (UI components)
 		if strings.Contains(relPath, "examples/") {
 			hotReloadReasons = append(hotReloadReasons, "example components")
+		}
+		// Check if file is in website/ directory (UI components)
+		if strings.Contains(relPath, "website/") {
+			hotReloadReasons = append(hotReloadReasons, "website components")
 		}
 	}
 
