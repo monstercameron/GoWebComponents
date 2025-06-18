@@ -269,6 +269,9 @@
     function reloadWasmModule() {
         console.log('🔄 Attempting WASM module reload...');
         
+        // Clean up DOM before reloading WASM
+        cleanupDOMContainers();
+        
         // Try to find and reload the WASM script
         const wasmScript = document.querySelector('script[src*="wasm_exec.js"]');
         if (wasmScript) {
@@ -304,6 +307,37 @@
         } else {
             console.warn('⚠️ WASM script not found, falling back to full reload');
             performFullReload();
+        }
+    }
+    
+    function cleanupDOMContainers() {
+        console.log('🧹 Cleaning up DOM containers before WASM reload...');
+        
+        // Clean up the main app container
+        const appElement = document.getElementById('app');
+        if (appElement) {
+            appElement.innerHTML = '';
+            console.log('✅ Cleared #app container');
+        }
+        
+        // Clean up other common containers
+        const containers = ['root', 'main', 'content'];
+        containers.forEach(containerId => {
+            const element = document.getElementById(containerId);
+            if (element) {
+                element.innerHTML = '';
+                console.log(`✅ Cleared #${containerId} container`);
+            }
+        });
+        
+        // Try to call WASM cleanup function if available
+        if (window.cleanupDOM && typeof window.cleanupDOM === 'function') {
+            try {
+                window.cleanupDOM();
+                console.log('✅ Called WASM cleanup function');
+            } catch (e) {
+                console.warn('⚠️ WASM cleanup function failed:', e);
+            }
         }
     }
     

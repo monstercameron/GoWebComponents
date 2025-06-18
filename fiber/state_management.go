@@ -672,8 +672,36 @@ func HotReloadWasm() {
 		debugf("STATE", "⚠️ HotReloadWasm: Live reload client not available\n")
 	}
 
+	// Clean up DOM before reload to prevent content accumulation
+	cleanupDOMBeforeReload()
+
 	// Trigger page reload - the live reload script will handle state restoration
 	global.Get("location").Call("reload")
+}
+
+// cleanupDOMBeforeReload clears the DOM container to prevent content accumulation during hot reload
+func cleanupDOMBeforeReload() {
+	debugf("STATE", "🧹 cleanupDOMBeforeReload: Cleaning up DOM containers...\n")
+
+	global := js.Global()
+	document := global.Get("document")
+
+	// Clear the main app container
+	appElement := document.Call("getElementById", "app")
+	if !appElement.IsNull() && !appElement.IsUndefined() {
+		appElement.Set("innerHTML", "")
+		debugf("STATE", "✅ cleanupDOMBeforeReload: Cleared #app container\n")
+	}
+
+	// Clear other common containers that might accumulate content
+	containers := []string{"root", "main", "content"}
+	for _, containerId := range containers {
+		element := document.Call("getElementById", containerId)
+		if !element.IsNull() && !element.IsUndefined() {
+			element.Set("innerHTML", "")
+			debugf("STATE", "✅ cleanupDOMBeforeReload: Cleared #%s container\n", containerId)
+		}
+	}
 }
 
 // registerGobTypes registers all types used in state snapshots for gob encoding/decoding
@@ -730,4 +758,12 @@ func RestoreStateFromStorage() {
 	}
 
 	debugf("STATE", "ℹ️ RestoreStateFromStorage: No saved state found\n")
+}
+
+// CleanupDOM clears DOM containers - exposed for JavaScript to call during WASM unload
+//
+//go:export cleanupDOM
+func CleanupDOM() {
+	debugf("STATE", "🧹 CleanupDOM: External cleanup request received\n")
+	cleanupDOMBeforeReload()
 }

@@ -11,7 +11,7 @@ import (
 
 func StateTest() func(Attrs) *Element {
 	return func(props Attrs) *Element {
-		// message, _ := GoUseState("Hello, World!")
-		return Div(nil, Text("test"))
+		message, _ := GoUseState("Hello, World!")
+		return Div(nil, Text(message()))
 	}
 }
