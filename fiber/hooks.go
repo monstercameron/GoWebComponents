@@ -6,6 +6,7 @@ package fiber
 import (
 	"fmt"
 	"runtime"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -85,7 +86,7 @@ func GoUseState[T any](initialValue T) (func() T, func(T)) {
 		// This approach is faster than manual bounds checking
 		if idx < len(hooks.state) {
 			// Safe slice access - compiler optimizes this pattern
-			if value, ok := hooks.state[idx:idx+1][0].(T); ok {
+			if value, ok := hooks.state[idx : idx+1][0].(T); ok {
 				debugf("HOOKS", "✅ GoUseState getter: returning value %+v from position %d\n", value, idx)
 				return value
 			}
@@ -126,13 +127,13 @@ func GoUseState[T any](initialValue T) (func() T, func(T)) {
 			}
 
 			// Safe slice access using optimized pattern
-			oldValue := hooks.state[idx:idx+1][0]
+			oldValue := hooks.state[idx : idx+1][0]
 			debugf("HOOKS", "🔄 GoUseState setter: comparing old (%+v) vs new (%+v)\n", oldValue, newValue)
 
 			if oldValue == nil || !fastEqual(oldValue, newValue) {
 				debugf("HOOKS", "💾 GoUseState setter: state changed, updating and scheduling re-render\n")
 				// Safe slice assignment using optimized pattern
-				hooks.state[idx:idx+1][0] = newValue
+				hooks.state[idx : idx+1][0] = newValue
 				scheduleUpdateAtRoot()
 				debugf("HOOKS", "⚡ GoUseState setter: update scheduled, took %v\n", time.Since(startTime))
 			} else {
@@ -281,33 +282,131 @@ func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 
 	memo := &currentFiber.hooks.memos[position]
 
-	if memo.value == nil {
-		// First time this memo is used
-		debugf("HOOKS", "🆕 GoUseMemo: first computation\n")
-		value := compute() // Remove goroutine overhead for simple computations
-		memo.value = value
+	if memo.value == nil || !areDepsEqual(memo.deps, deps) {
+		// Need to recompute
+		debugf("HOOKS", "🔄 GoUseMemo: recomputing memo (first time or deps changed)\n")
+		memo.value = compute()
 		memo.deps = deps
-		debugf("HOOKS", "✅ GoUseMemo: computed new value %+v in %v\n", value, time.Since(startTime))
-		return value
+		debugf("HOOKS", "⚡ GoUseMemo: computation completed in %v\n", time.Since(startTime))
+	} else {
+		debugf("HOOKS", "⏭️ GoUseMemo: returning cached value (deps unchanged)\n")
 	}
 
-	shouldCompute := len(deps) == 0 || !areDepsEqual(memo.deps, deps)
-	debugf("HOOKS", "🔄 GoUseMemo: comparing deps - prev: %+v, current: %+v, shouldCompute: %v\n",
-		memo.deps, deps, shouldCompute)
-
-	if shouldCompute {
-		debugf("HOOKS", "🔄 GoUseMemo: dependencies changed, recomputing\n")
-		value := compute() // Direct call, no goroutine
-		memo.value = value
-		memo.deps = deps
-		debugf("HOOKS", "✅ GoUseMemo: recomputed value %+v in %v\n", value, time.Since(startTime))
-		return value
-	}
-
-	// Dependencies haven't changed, return the memoized value
-	debugf("HOOKS", "💾 GoUseMemo: cache hit, returning memoized value %+v (saved %v)\n",
-		memo.value, time.Since(startTime))
 	return memo.value
+}
+
+// Global atom storage and subscription tracking
+var atomRegistry = make(map[string]interface{})
+var atomSubscriptions = make(map[string]map[*Fiber]bool)
+var atomMutex = &sync.RWMutex{}
+
+// GoUseAtom provides SolidJS-style fine-grained reactivity with global atoms
+// Atoms are accessible from anywhere in the component tree by ID
+// This is the Go-branded version of atom-based state management for GoWebComponents
+func GoUseAtom[T any](id string, initialValue T) (func() T, func(T)) {
+	debugf("HOOKS", "🎯 GoUseAtom called with id '%s', type %T, value: %+v\n", id, initialValue, initialValue)
+
+	currentFiber := getCurrentFiber()
+	if currentFiber == nil {
+		debugf("HOOKS", "🚨 GoUseAtom: currentFiber is nil!\n")
+		panic("GoUseAtom called outside component context")
+	}
+
+	debugf("HOOKS", "📊 GoUseAtom: fiber %p for atom '%s'\n", currentFiber, id)
+
+	// Initialize atom if it doesn't exist (first one wins)
+	atomMutex.Lock()
+	if _, exists := atomRegistry[id]; !exists {
+		atomRegistry[id] = initialValue
+		atomSubscriptions[id] = make(map[*Fiber]bool)
+		debugf("HOOKS", "🆕 GoUseAtom: initialized new atom '%s' with value: %+v\n", id, initialValue)
+	}
+
+	// Subscribe this fiber to the atom
+	atomSubscriptions[id][currentFiber] = true
+	debugf("HOOKS", "📝 GoUseAtom: subscribed fiber %p to atom '%s' (total subscribers: %d)\n",
+		currentFiber, id, len(atomSubscriptions[id]))
+	atomMutex.Unlock()
+
+	// This hook position is needed for cleanup when component unmounts
+	if currentFiber.hooks == nil {
+		debugf("HOOKS", "🔧 GoUseAtom: initializing hooks container\n")
+		currentFiber.hooks = getHooksFromPool()
+	}
+
+	position := currentFiber.hooks.index
+	currentFiber.hooks.index++
+
+	// Validate hook order
+	if err := validateHookOrder(currentFiber.hooks, HookTypeAtom, position); err != nil {
+		debugf("HOOKS", "🚨 GoUseAtom: %v\n", err)
+		// Continue execution but log the error - don't panic in production
+	}
+
+	getter := func() T {
+		debugf("HOOKS", "🔍 GoUseAtom getter called for atom '%s'\n", id)
+		atomMutex.RLock()
+		value, exists := atomRegistry[id]
+		atomMutex.RUnlock()
+
+		if !exists {
+			debugf("HOOKS", "🚨 GoUseAtom getter: atom '%s' not found\n", id)
+			var zero T
+			return zero
+		}
+
+		if typedValue, ok := value.(T); ok {
+			debugf("HOOKS", "✅ GoUseAtom getter: returning value %+v for atom '%s'\n", typedValue, id)
+			return typedValue
+		}
+
+		// Type assertion failed - runtime panic with clear message
+		debugf("HOOKS", "🚨 GoUseAtom getter: type assertion failed for atom '%s', expected %T, got %T\n",
+			id, *new(T), value)
+		panic(fmt.Sprintf("GoUseAtom: atom '%s' type mismatch - expected '%T', got '%T'", id, *new(T), value))
+	}
+
+	setter := func(newValue T) {
+		debugf("HOOKS", "✏️ GoUseAtom setter called for atom '%s' with value: %+v\n", id, newValue)
+		startTime := time.Now()
+
+		apply := func() {
+			atomMutex.Lock()
+			oldValue := atomRegistry[id]
+
+			// Only update if value actually changed
+			if oldValue == nil || !fastEqual(oldValue, newValue) {
+				atomRegistry[id] = newValue
+				subscribers := make([]*Fiber, 0, len(atomSubscriptions[id]))
+				for fiber := range atomSubscriptions[id] {
+					subscribers = append(subscribers, fiber)
+				}
+				atomMutex.Unlock()
+
+				debugf("HOOKS", "💾 GoUseAtom setter: atom '%s' updated, notifying %d subscribers\n",
+					id, len(subscribers))
+
+				// Schedule re-render for all subscribed components
+				scheduleUpdateAtRoot()
+
+				debugf("HOOKS", "⚡ GoUseAtom setter: atom '%s' update completed in %v\n", id, time.Since(startTime))
+			} else {
+				atomMutex.Unlock()
+				debugf("HOOKS", "⏭️ GoUseAtom setter: atom '%s' value unchanged, skipping update\n", id)
+			}
+		}
+
+		if atomic.LoadInt32(&schedulerActive) == 1 {
+			debugf("HOOKS", "🎯 GoUseAtom setter: applying immediately (scheduler active)\n")
+			apply()
+		} else {
+			debugf("HOOKS", "📋 GoUseAtom setter: enqueueing for UI thread\n")
+			enqueueUI(apply)
+		}
+	}
+
+	debugf("HOOKS", "✅ GoUseAtom: setup complete for atom '%s'\n", id)
+	return getter, setter
 }
 
 // validateHookOrder checks that hooks are called in the same order as previous render
@@ -350,8 +449,8 @@ func validateHookOrder(hooks *Hooks, hookType HookType, position int) error {
 	// Optimized bounds checking for hook order validation
 	if position < len(hooks.prevOrder) {
 		// Safe slice access using optimized pattern
-		prevCall := hooks.prevOrder[position:position+1][0]
-		
+		prevCall := hooks.prevOrder[position : position+1][0]
+
 		if prevCall.Type != hookType {
 			err := fmt.Errorf("hook order violation: hook type mismatch at position %d (expected %d, got %d)",
 				position, prevCall.Type, hookType)

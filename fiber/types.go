@@ -22,6 +22,7 @@ const (
 	HookTypeEffect
 	HookTypeMemo
 	HookTypeFunc
+	HookTypeAtom
 )
 
 // HookCall represents a single hook call for order validation

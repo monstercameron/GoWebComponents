@@ -94,6 +94,9 @@
 - [x] Fetch state management
 - [x] Fetch error handling
 
+## State Management & Reactivity 🎯 HIGH PRIORITY
+- [ ] **GoUseAtom** - SolidJS-style fine-grained reactivity
+
 ## HTTP Features 🌐 NETWORK LAYER
 - [ ] useMutation for POST/PUT/DELETE operations
 - [ ] Request caching and deduplication
@@ -125,7 +128,7 @@
 - [x] GoUseMemo
 
 ## WASM-Optimised Go Hooks 🔧 PLANNED
-- [ ] GoUseAtom
+- [ ] **GoUseAtom** - Fine-grained reactivity system (see State Management section above)
 - [ ] GoUseReducer
 - [ ] GoUseRef
 - [ ] GoUseCallback
