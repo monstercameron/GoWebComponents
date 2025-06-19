@@ -44,9 +44,11 @@ func ContactSection(props Attrs) *Element {
 
 						// Enhanced LinkedIn
 						Div(
-							Attrs{"class": "group relative overflow-hidden bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-blue-200/50 cursor-pointer"},
+							Attrs{"class": "group relative overflow-hidden bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-blue-200/50"},
+							// Animated background gradient (moved to back layer)
+							Div(Attrs{"class": "absolute inset-0 bg-gradient-to-r from-blue-400/10 to-blue-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl -z-10"}),
 							Div(
-								Attrs{"class": "flex items-center space-x-4"},
+								Attrs{"class": "relative z-10 flex items-center space-x-4"},
 								Div(
 									Attrs{"class": "relative"},
 									Div(Attrs{"class": "w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-blue-300/50 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3"}),
@@ -66,22 +68,22 @@ func ContactSection(props Attrs) *Element {
 										Attrs{
 											"href":   "https://www.linkedin.com/in/earl-cameron/",
 											"target": "_blank",
-											"class":  "inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 group-hover:shadow-lg cursor-pointer",
+											"class":  "relative z-20 inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 group-hover:shadow-lg cursor-pointer",
 										},
 										Span(nil, "Connect"),
 										Span(Attrs{"class": "transition-transform duration-300 group-hover:translate-x-1"}, "→"),
 									),
 								),
 							),
-							// Animated background gradient
-							Div(Attrs{"class": "absolute inset-0 bg-gradient-to-r from-blue-400/10 to-blue-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl"}),
 						),
 
 						// Enhanced GitHub
 						Div(
-							Attrs{"class": "group relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-gray-200/50 cursor-pointer"},
+							Attrs{"class": "group relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-gray-200/50"},
+							// Animated background gradient (moved to back layer)
+							Div(Attrs{"class": "absolute inset-0 bg-gradient-to-r from-gray-400/10 to-gray-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl -z-10"}),
 							Div(
-								Attrs{"class": "flex items-center space-x-4"},
+								Attrs{"class": "relative z-10 flex items-center space-x-4"},
 								Div(
 									Attrs{"class": "relative"},
 									Div(Attrs{"class": "w-16 h-16 bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-gray-400/50 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3"}),
@@ -101,15 +103,13 @@ func ContactSection(props Attrs) *Element {
 										Attrs{
 											"href":   "https://github.com/monstercameron",
 											"target": "_blank",
-											"class":  "inline-flex items-center space-x-2 px-4 py-2 bg-gray-800 text-white rounded-lg font-semibold hover:bg-gray-900 transition-all duration-300 transform hover:scale-105 group-hover:shadow-lg cursor-pointer",
+											"class":  "relative z-20 inline-flex items-center space-x-2 px-4 py-2 bg-gray-800 text-white rounded-lg font-semibold hover:bg-gray-900 transition-all duration-300 transform hover:scale-105 group-hover:shadow-lg cursor-pointer",
 										},
 										Span(nil, "View Repositories"),
 										Span(Attrs{"class": "transition-transform duration-300 group-hover:translate-x-1"}, "→"),
 									),
 								),
 							),
-							// Animated background gradient
-							Div(Attrs{"class": "absolute inset-0 bg-gradient-to-r from-gray-400/10 to-gray-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl"}),
 						),
 					),
 
