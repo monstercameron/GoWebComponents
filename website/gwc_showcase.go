@@ -4,7 +4,10 @@
 package website
 
 import (
+	"math/rand"
 	"strconv"
+	"syscall/js"
+	"time"
 
 	. "github.com/monstercameron/GoWebComponents/fiber"
 )
@@ -53,7 +56,7 @@ func GWCFeatureCard(icon, title, description string) *Element {
 	)
 }
 
-// GWCExamplesSection showcases interactive examples
+// GWCExamplesSection showcases 6 mini apps with source code
 func GWCExamplesSection(props Attrs) *Element {
 	return Section(
 		Attrs{
@@ -66,148 +69,447 @@ func GWCExamplesSection(props Attrs) *Element {
 				Attrs{"class": "text-center mb-16"},
 				H2(
 					Attrs{"class": "text-4xl font-bold text-gray-900 mb-4"},
-					"Live Examples",
+					"Mini Apps Gallery",
 				),
 				P(
 					Attrs{"class": "text-xl text-gray-600 max-w-3xl mx-auto"},
-					"See GoWebComponents in action with these interactive demonstrations",
+					"6 interactive mini applications showcasing GoWebComponents capabilities",
 				),
 			),
 
 			Div(
-				Attrs{"class": "grid grid-cols-1 lg:grid-cols-3 gap-8"},
-
-				// Example cards
-				GWCExampleCard("🖱️ Click Counter", "Simple state management demonstration", GWCClickCounter),
-				GWCExampleCard("📝 Todo App", "Complete CRUD operations with local state", GWCTodoApp),
-				GWCExampleCard("📊 Dashboard", "Real-time data updates and charts", GWCDashboard),
+				Attrs{"class": "grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto"},
+				MiniAppCard("🖱️", "Click Counter", "State management basics", MiniClickCounter, clickCounterSource),
+				MiniAppCard("🎲", "Random Number", "Effects and events", MiniRandomizer, randomizerSource),
+				MiniAppCard("📝", "Quick Note", "Input handling", MiniNotepad, notepadSource),
+				MiniAppCard("🎨", "Color Picker", "Dynamic styling", MiniColorPicker, colorPickerSource),
+				MiniAppCard("⏱️", "Timer", "Real-time updates", MiniTimer, timerSource),
+				MiniAppCard("📊", "Vote Counter", "Multiple states", MiniVoting, votingSource),
 			),
 		),
 	)
 }
 
-// GWCExampleCard creates an example showcase card
-func GWCExampleCard(title, description string, component func(Attrs) *Element) *Element {
+// MiniAppCard creates a mini app showcase card with 3D flip animation and clipboard
+func MiniAppCard(icon, title, description string, component func(Attrs) *Element, sourceCode string) *Element {
+	showSource, setShowSource := GoUseState(false)
+
+	toggleSource := GoUseFunc(func(event GoEvent) {
+		setShowSource(!showSource())
+	})
+
+	copyToClipboard := GoUseFunc(func(event GoEvent) {
+		js.Global().Get("navigator").Get("clipboard").Call("writeText", sourceCode)
+		// Could add a toast notification here
+	})
+
 	return Div(
-		Attrs{"class": "bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"},
+		Attrs{
+			"class": "relative group",
+			"style": "perspective: 1000px; min-height: 450px;",
+		},
 
-		// Header
+		// 3D Flip Container with Shadow
 		Div(
-			Attrs{"class": "p-6 border-b border-gray-200"},
-			H3(Attrs{"class": "text-lg font-semibold text-gray-900 mb-2"}, title),
-			P(Attrs{"class": "text-gray-600 text-sm"}, description),
-		),
+			Attrs{
+				"class": "relative w-full h-full transition-all duration-700 bg-white rounded-xl shadow-lg hover:shadow-xl border border-gray-200",
+				"style": func() string {
+					if showSource() {
+						return "transform: rotateY(180deg); transform-style: preserve-3d;"
+					}
+					return "transform: rotateY(0deg); transform-style: preserve-3d;"
+				}(),
+			},
 
-		// Example component
-		Div(
-			Attrs{"class": "p-6"},
-			component(nil),
+			// Front Side - App View
+			Div(
+				Attrs{
+					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden",
+					"style": "backface-visibility: hidden; transform: rotateY(0deg);",
+				},
+
+				// Header
+				Div(
+					Attrs{"class": "p-6 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50"},
+					Div(
+						Attrs{"class": "flex items-center justify-between"},
+						Div(
+							Attrs{"class": "flex items-center space-x-2"},
+							Span(Attrs{"class": "text-2xl"}, icon),
+							Div(nil,
+								H3(Attrs{"class": "font-semibold text-gray-900"}, title),
+								P(Attrs{"class": "text-xs text-gray-600"}, description),
+							),
+						),
+						Button(
+							Attrs{
+								"class":   "text-xs px-3 py-1 bg-gray-800 text-white rounded-full hover:bg-gray-700 transition-all duration-300 hover:scale-105",
+								"onclick": toggleSource,
+							},
+							"</> View Code",
+						),
+					),
+				),
+
+				// App Component
+				Div(
+					Attrs{"class": "p-8 flex items-center justify-center min-h-64"},
+					component(nil),
+				),
+			),
+
+			// Back Side - Code View
+			Div(
+				Attrs{
+					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden bg-gray-900",
+					"style": "backface-visibility: hidden; transform: rotateY(-180deg);",
+				},
+
+				// Code Header
+				Div(
+					Attrs{"class": "p-6 border-b border-gray-700 bg-gray-800"},
+					Div(
+						Attrs{"class": "flex items-center justify-between"},
+						Div(
+							Attrs{"class": "flex items-center space-x-2"},
+							Span(Attrs{"class": "text-green-400 text-lg"}, "{}"),
+							H3(Attrs{"class": "font-semibold text-white text-sm"}, title+" Source"),
+						),
+						Button(
+							Attrs{
+								"class":   "text-xs px-3 py-1 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 transition-all duration-300 hover:scale-105",
+								"onclick": toggleSource,
+							},
+							"🎨 View App",
+						),
+					),
+				),
+
+				// Code Content with Floating Clipboard Button
+				Div(
+					Attrs{"class": "relative p-6 pb-12 h-full"},
+					Pre(Attrs{
+						"class": "text-xs text-green-400 font-mono leading-relaxed overflow-x-auto h-full pb-8",
+					}, sourceCode),
+
+					// Floating Clipboard Button
+					Button(
+						Attrs{
+							"class":   "absolute top-8 right-8 p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg shadow-lg transition-all duration-300 hover:scale-110 opacity-80 hover:opacity-100",
+							"onclick": copyToClipboard,
+							"title":   "Copy to clipboard",
+						},
+						Span(Attrs{"class": "text-base"}, "📋"),
+					),
+				),
+			),
 		),
 	)
 }
 
-// GWCClickCounter creates a simple click counter example
-func GWCClickCounter(props Attrs) *Element {
-	counter, setCounter := GoUseState(0)
-	count := counter()
+// Mini App 1: Click Counter
+func MiniClickCounter(props Attrs) *Element {
+	clickCount, setClickCount := GoUseState(0)
 
-	handleIncrement := GoUseFunc(func(event GoEvent) {
-		setCounter(count + 1)
+	incrementClicks := GoUseFunc(func(event GoEvent) {
+		setClickCount(clickCount() + 1)
 	})
 
-	handleReset := GoUseFunc(func(event GoEvent) {
-		setCounter(0)
+	resetClicks := GoUseFunc(func(event GoEvent) {
+		setClickCount(0)
 	})
 
 	return Div(
-		Attrs{"class": "text-center"},
-		H3(Attrs{"class": "text-xl font-bold text-gray-900 mb-4"}, "Click Counter"),
-		Div(
-			Attrs{"class": "mb-4"},
-			P(Attrs{"class": "text-3xl font-bold text-indigo-600"}, Text(strconv.Itoa(count))),
-			P(Attrs{"class": "text-gray-600"}, "clicks"),
-		),
+		Attrs{"class": "text-center space-y-3"},
+		P(Attrs{"class": "text-2xl font-bold text-indigo-600"}, Text(strconv.Itoa(clickCount()))),
 		Div(
 			Attrs{"class": "space-x-2"},
-			Button(
-				Attrs{
-					"class":   "px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700",
-					"onclick": handleIncrement,
-				},
-				"Increment",
-			),
-			Button(
-				Attrs{
-					"class":   "px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700",
-					"onclick": handleReset,
-				},
-				"Reset",
-			),
+			Button(Attrs{"class": "px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700", "onclick": incrementClicks}, "+1"),
+			Button(Attrs{"class": "px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700", "onclick": resetClicks}, "Reset"),
 		),
 	)
 }
 
-// GWCTodoApp creates a todo app example
-func GWCTodoApp(props Attrs) *Element {
-	todos, _ := GoUseState([]map[string]interface{}{
-		{"id": 1, "text": "Learn GoWebComponents", "done": false},
-		{"id": 2, "text": "Build something cool", "done": false},
+// Mini App 2: Random Number Generator
+func MiniRandomizer(props Attrs) *Element {
+	randomNum, setRandomNum := GoUseState(42)
+
+	// Initialize random seed once when component mounts
+	GoUseEffect(func() {
+		rand.Seed(time.Now().UnixNano())
+		return
 	})
 
-	todoList := todos()
-	remaining := 0
-	for _, todo := range todoList {
-		if !todo["done"].(bool) {
-			remaining++
+	generateRandom := GoUseFunc(func(event GoEvent) {
+		// Use Go's native random number generator
+		newNum := rand.Intn(100) + 1
+		setRandomNum(newNum)
+	})
+
+	return Div(
+		Attrs{"class": "text-center space-y-3"},
+		P(Attrs{"class": "text-2xl font-bold text-purple-600"}, Text(strconv.Itoa(randomNum()))),
+		Button(Attrs{"class": "px-4 py-2 bg-purple-600 text-white text-sm rounded hover:bg-purple-700", "onclick": generateRandom}, "Generate"),
+	)
+}
+
+// Mini App 3: Quick Note
+func MiniNotepad(props Attrs) *Element {
+	noteText, setNoteText := GoUseState("Sample note text")
+
+	updateNote := GoUseFunc(func(event GoEvent) {
+		if noteText() == "Sample note text" {
+			setNoteText("Updated note!")
+		} else {
+			setNoteText("Sample note text")
 		}
+	})
+
+	return Div(
+		Attrs{"class": "space-y-3"},
+		Div(
+			Attrs{"class": "w-full p-3 border border-gray-300 rounded text-sm bg-gray-50 min-h-16"},
+			P(Attrs{"class": "text-gray-800"}, noteText()),
+		),
+		Div(
+			Attrs{"class": "flex justify-between items-center"},
+			Button(Attrs{"class": "px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700", "onclick": updateNote}, "Edit Note"),
+			P(Attrs{"class": "text-xs text-gray-500"}, Text(strconv.Itoa(len(noteText()))), " characters"),
+		),
+	)
+}
+
+// Mini App 4: Color Picker
+func MiniColorPicker(props Attrs) *Element {
+	selectedColor, setSelectedColor := GoUseState("bg-blue-500")
+
+	colors := []string{"bg-red-500", "bg-blue-500", "bg-green-500", "bg-yellow-500", "bg-purple-500", "bg-pink-500"}
+	colorButtons := make([]interface{}, len(colors))
+
+	for i, color := range colors {
+		currentColor := color
+		colorButtons[i] = Button(Attrs{
+			"class": "w-6 h-6 rounded-full " + color + " hover:scale-110 transition-transform",
+			"onclick": GoUseFunc(func(event GoEvent) {
+				setSelectedColor(currentColor)
+			}),
+		})
 	}
 
 	return Div(
-		Attrs{"class": "text-center"},
-		H3(Attrs{"class": "text-xl font-bold text-gray-900 mb-4"}, "Todo App"),
-		P(Attrs{"class": "text-gray-600 mb-4"}, Text(strconv.Itoa(remaining)), " items remaining"),
-		Div(
-			Attrs{"class": "space-y-2"},
-			// Simplified todo list display
-			P(Attrs{"class": "text-sm text-gray-500"}, "Interactive todos coming soon!"),
-		),
+		Attrs{"class": "space-y-3"},
+		Div(Attrs{"class": "w-full h-16 rounded " + selectedColor()}),
+		Div(Attrs{"class": "flex space-x-2 justify-center"}, colorButtons...),
 	)
 }
 
-// GWCDashboard creates a dashboard example
-func GWCDashboard(props Attrs) *Element {
-	users, setUsers := GoUseState(1234)
-	revenue, setRevenue := GoUseState(45678)
+// Mini App 5: Simple Timer
+func MiniTimer(props Attrs) *Element {
+	timerCount, setTimerCount := GoUseState(0)
+	timerRunning, setTimerRunning := GoUseState(false)
 
-	handleRefresh := GoUseFunc(func(event GoEvent) {
-		currentUsers := users()
-		currentRevenue := revenue()
-		setUsers(1200 + (currentUsers % 100))
-		setRevenue(40000 + (currentRevenue % 10000))
+	toggleTimer := GoUseFunc(func(event GoEvent) {
+		setTimerRunning(!timerRunning())
+	})
+
+	resetTimer := GoUseFunc(func(event GoEvent) {
+		setTimerCount(0)
+		setTimerRunning(false)
+	})
+
+	GoUseEffect(func() {
+		if timerRunning() {
+			timeoutID := js.Global().Call("setTimeout", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				setTimerCount(timerCount() + 1)
+				return nil
+			}), 1000)
+			_ = timeoutID
+		}
+		return
 	})
 
 	return Div(
-		Attrs{"class": "text-center"},
-		H3(Attrs{"class": "text-xl font-bold text-gray-900 mb-4"}, "Dashboard"),
+		Attrs{"class": "text-center space-y-3"},
+		P(Attrs{"class": "text-2xl font-bold text-green-600"}, Text(strconv.Itoa(timerCount())), "s"),
 		Div(
-			Attrs{"class": "grid grid-cols-2 gap-4 mb-4"},
-			Div(
-				Attrs{"class": "bg-blue-50 p-3 rounded"},
-				P(Attrs{"class": "text-sm text-gray-600"}, "Users"),
-				P(Attrs{"class": "text-lg font-bold"}, Text(strconv.Itoa(users()))),
-			),
-			Div(
-				Attrs{"class": "bg-green-50 p-3 rounded"},
-				P(Attrs{"class": "text-sm text-gray-600"}, "Revenue"),
-				P(Attrs{"class": "text-lg font-bold"}, "$", Text(strconv.Itoa(revenue()))),
-			),
-		),
-		Button(
-			Attrs{
-				"class":   "px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700",
-				"onclick": handleRefresh,
-			},
-			"Refresh",
+			Attrs{"class": "space-x-2"},
+			Button(Attrs{"class": "px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700", "onclick": toggleTimer}, func() string {
+				if timerRunning() {
+					return "Stop"
+				}
+				return "Start"
+			}()),
+			Button(Attrs{"class": "px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700", "onclick": resetTimer}, "Reset"),
 		),
 	)
 }
+
+// Mini App 6: Vote Counter
+func MiniVoting(props Attrs) *Element {
+	upvotes, setUpvotes := GoUseState(12)
+	downvotes, setDownvotes := GoUseState(3)
+
+	addUpvote := GoUseFunc(func(event GoEvent) {
+		setUpvotes(upvotes() + 1)
+	})
+
+	addDownvote := GoUseFunc(func(event GoEvent) {
+		setDownvotes(downvotes() + 1)
+	})
+
+	totalVotes := upvotes() + downvotes()
+	upvotePercentage := 0
+	if totalVotes > 0 {
+		upvotePercentage = (upvotes() * 100) / totalVotes
+	}
+
+	return Div(
+		Attrs{"class": "space-y-3"},
+		Div(
+			Attrs{"class": "flex justify-between items-center"},
+			Button(Attrs{"class": "flex items-center space-x-1 px-2 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700", "onclick": addUpvote},
+				Span(nil, "👍"),
+				Span(nil, Text(strconv.Itoa(upvotes()))),
+			),
+			Button(Attrs{"class": "flex items-center space-x-1 px-2 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700", "onclick": addDownvote},
+				Span(nil, "👎"),
+				Span(nil, Text(strconv.Itoa(downvotes()))),
+			),
+		),
+		P(Attrs{"class": "text-xs text-gray-600 text-center"}, Text(strconv.Itoa(upvotePercentage)), "% approval"),
+	)
+}
+
+// Source code strings for each mini app
+var clickCounterSource = `func MiniClickCounter(props Attrs) *Element {
+    clickCount, setClickCount := GoUseState(0)
+    
+    incrementClicks := GoUseFunc(func(event GoEvent) {
+        setClickCount(clickCount() + 1)
+    })
+    
+    resetClicks := GoUseFunc(func(event GoEvent) {
+        setClickCount(0)
+    })
+    
+    return Div(
+        Attrs{"class": "text-center space-y-3"},
+        P(Attrs{"class": "text-2xl font-bold text-indigo-600"}, 
+          Text(strconv.Itoa(clickCount()))),
+        Div(Attrs{"class": "space-x-2"},
+            Button(Attrs{"onclick": incrementClicks}, "+1"),
+            Button(Attrs{"onclick": resetClicks}, "Reset"),
+        ),
+    )
+}`
+
+var randomizerSource = `func MiniRandomizer(props Attrs) *Element {
+    randomNum, setRandomNum := GoUseState(42)
+    
+    GoUseEffect(func() {
+        rand.Seed(time.Now().UnixNano())
+        return
+    })
+    
+    generateRandom := GoUseFunc(func(event GoEvent) {
+        newNum := rand.Intn(100) + 1
+        setRandomNum(newNum)
+    })
+    
+    return Div(
+        Attrs{"class": "text-center space-y-3"},
+        P(Attrs{"class": "text-2xl font-bold text-purple-600"}, 
+          Text(strconv.Itoa(randomNum()))),
+        Button(Attrs{"onclick": generateRandom}, "Generate"),
+    )
+}`
+
+var notepadSource = `func MiniNotepad(props Attrs) *Element {
+    noteText, setNoteText := GoUseState("Type here...")
+    
+    handleInput := GoUseFunc(func(event GoEvent) {
+        setNoteText(event.Target.Get("value").String())
+    })
+    
+    return Div(Attrs{"class": "space-y-3"},
+        Textarea(Attrs{
+            "value": noteText(),
+            "oninput": handleInput,
+            "placeholder": "Type your note...",
+        }),
+        P(nil, Text(strconv.Itoa(len(noteText()))), " characters"),
+    )
+}`
+
+var colorPickerSource = `func MiniColorPicker(props Attrs) *Element {
+    selectedColor, setSelectedColor := GoUseState("bg-blue-500")
+    
+    colors := []string{"bg-red-500", "bg-blue-500", 
+                      "bg-green-500", "bg-yellow-500"}
+    colorButtons := make([]interface{}, len(colors))
+    
+    for i, color := range colors {
+        currentColor := color
+        colorButtons[i] = Button(Attrs{
+            "class": "w-6 h-6 rounded-full " + color,
+            "onclick": GoUseFunc(func(event GoEvent) {
+                setSelectedColor(currentColor)
+            }),
+        })
+    }
+    
+    return Div(Attrs{"class": "space-y-3"},
+        Div(Attrs{"class": "w-full h-16 rounded " + selectedColor()}),
+        Div(Attrs{"class": "flex space-x-2"}, colorButtons...),
+    )
+}`
+
+var timerSource = `func MiniTimer(props Attrs) *Element {
+    timerCount, setTimerCount := GoUseState(0)
+    timerRunning, setTimerRunning := GoUseState(false)
+    
+    toggleTimer := GoUseFunc(func(event GoEvent) {
+        setTimerRunning(!timerRunning())
+    })
+    
+    GoUseEffect(func() {
+        if timerRunning() {
+            js.Global().Call("setTimeout", js.FuncOf(
+                func(this js.Value, args []js.Value) interface{} {
+                    setTimerCount(timerCount() + 1)
+                    return nil
+                }), 1000)
+        }
+        return
+    })
+    
+    return Div(Attrs{"class": "text-center space-y-3"},
+        P(nil, Text(strconv.Itoa(timerCount())), "s"),
+        Button(Attrs{"onclick": toggleTimer}, 
+               timerRunning() ? "Stop" : "Start"),
+    )
+}`
+
+var votingSource = `func MiniVoting(props Attrs) *Element {
+    upvotes, setUpvotes := GoUseState(12)
+    downvotes, setDownvotes := GoUseState(3)
+    
+    addUpvote := GoUseFunc(func(event GoEvent) {
+        setUpvotes(upvotes() + 1)
+    })
+    
+    addDownvote := GoUseFunc(func(event GoEvent) {
+        setDownvotes(downvotes() + 1)
+    })
+    
+    totalVotes := upvotes() + downvotes()
+    upvotePercentage := (upvotes() * 100) / totalVotes
+    
+    return Div(Attrs{"class": "space-y-3"},
+        Div(Attrs{"class": "flex justify-between"},
+            Button(Attrs{"onclick": addUpvote}, "👍 ", upvotes()),
+            Button(Attrs{"onclick": addDownvote}, "👎 ", downvotes()),
+        ),
+        P(nil, Text(strconv.Itoa(upvotePercentage)), "% approval"),
+    )
+}`
