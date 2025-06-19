@@ -4,6 +4,7 @@
 package website
 
 import (
+	"fmt"
 	"math/rand"
 	"strconv"
 	"syscall/js"
@@ -90,11 +91,33 @@ func GWCExamplesSection(props Attrs) *Element {
 				// Full-width advanced example
 				Div(
 					Attrs{"class": "md:col-span-2"},
-					MiniAppCard("🔒", "Advanced Form", "Validation • Effects • Memo • Go Routines", AdvancedFormExample, advancedFormSource),
+					AdvancedFormShowcase(nil),
 				),
 			),
 		),
 	)
+}
+
+// AdvancedFormShowcase wraps the AdvancedFormExample with dynamic source fetching
+func AdvancedFormShowcase(props Attrs) *Element {
+	// Fetch source code from GitHub
+	sourceUrl := "https://raw.githubusercontent.com/monstercameron/GoWebComponents/refs/heads/master/website/advanced_form.go"
+	getFetchState, _ := GoUseFetch(sourceUrl)
+	fetchState := getFetchState()
+
+	// Provide a fallback source while loading or on error
+	var sourceCode string
+	if fetchState.Loading {
+		sourceCode = "// Loading source code from GitHub..."
+	} else if fetchState.Error != "" {
+		sourceCode = fmt.Sprintf("// Error fetching source code: %s\n// Please check the URL: %s", fetchState.Error, sourceUrl)
+	} else if fetchState.Data != nil {
+		sourceCode = fmt.Sprintf("%v", fetchState.Data)
+	} else {
+		sourceCode = "// Source code not available"
+	}
+
+	return MiniAppCard("🔒", "Advanced Form", "Validation • Effects • Memo • Go Routines • GoUseFetch", AdvancedFormExample, sourceCode)
 }
 
 // MiniAppCard creates a mini app showcase card with 3D flip animation and clipboard

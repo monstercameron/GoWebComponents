@@ -28,6 +28,11 @@ func AdvancedFormExample(props Attrs) *Element {
 	submitStatus, setSubmitStatus := GoUseState("")
 	passwordStrength, setPasswordStrength := GoUseState(0)
 
+	// Fetch source code from GitHub
+	sourceUrl := "https://raw.githubusercontent.com/monstercameron/GoWebComponents/refs/heads/master/website/advanced_form.go"
+	getFetchState, refetchSource := GoUseFetch(sourceUrl)
+	fetchState := getFetchState()
+
 	// Calculate password strength when password changes
 	GoUseEffect(func() {
 		pass := password()
@@ -418,6 +423,90 @@ func AdvancedFormExample(props Attrs) *Element {
 				}(),
 			),
 		),
+
+		// Source Code Preview Section
+		Div(
+			Attrs{"class": "mt-12 border-t border-gray-200 pt-8"},
+			H3(Attrs{"class": "text-xl font-semibold text-gray-900 mb-4"}, "📋 Advanced Form Source Code"),
+			P(Attrs{"class": "text-gray-600 mb-4"},
+				"This section fetches and displays the source code for this advanced form example using GoUseFetch."),
+
+			// Fetch controls
+			Div(
+				Attrs{"class": "flex items-center gap-4 mb-4"},
+				Button(
+					Attrs{
+						"onclick": GoUseFunc(func(event GoEvent) {
+							refetchSource()
+						}),
+						"class": func() string {
+							if fetchState.Loading {
+								return "px-4 py-2 bg-gray-400 text-white rounded-md cursor-not-allowed"
+							}
+							return "px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+						}(),
+						"disabled": fetchState.Loading,
+					},
+					func() string {
+						if fetchState.Loading {
+							return "🔄 Fetching..."
+						}
+						return "🔄 Refresh Source"
+					}(),
+				),
+				Span(Attrs{"class": "text-sm text-gray-500"},
+					fmt.Sprintf("Source URL: %s", sourceUrl)),
+			),
+
+			// Source code display
+			func() *Element {
+				if fetchState.Loading {
+					return Div(
+						Attrs{"class": "p-6 bg-gray-50 border border-gray-200 rounded-lg"},
+						P(Attrs{"class": "text-blue-600 flex items-center gap-2"},
+							Span(nil, "🔄"),
+							"Loading source code...",
+						),
+					)
+				} else if fetchState.Error != "" {
+					return Div(
+						Attrs{"class": "p-6 bg-red-50 border border-red-200 rounded-lg"},
+						P(Attrs{"class": "text-red-600 font-semibold mb-2"}, "❌ Error fetching source code"),
+						P(Attrs{"class": "text-red-600 text-sm"}, fetchState.Error),
+						Button(
+							Attrs{
+								"onclick": GoUseFunc(func(event GoEvent) {
+									refetchSource()
+								}),
+								"class": "mt-3 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors",
+							},
+							"🔄 Retry",
+						),
+					)
+				} else if fetchState.Data != nil {
+					// Convert the fetched data to string
+					sourceCode := fmt.Sprintf("%v", fetchState.Data)
+					return Div(
+						Attrs{"class": "bg-gray-900 rounded-lg overflow-hidden"},
+						Div(
+							Attrs{"class": "bg-gray-800 px-4 py-2 border-b border-gray-700"},
+							P(Attrs{"class": "text-gray-300 text-sm font-mono"}, "advanced_form.go"),
+						),
+						Pre(
+							Attrs{
+								"class": "p-6 text-sm text-gray-100 font-mono overflow-x-auto",
+								"style": "max-height: 500px; overflow-y: auto;",
+							},
+							Code(nil, sourceCode),
+						),
+					)
+				}
+				return Div(
+					Attrs{"class": "p-6 bg-gray-50 border border-gray-200 rounded-lg"},
+					P(Attrs{"class": "text-gray-600"}, "No source code available"),
+				)
+			}(),
+		),
 	)
 }
 
@@ -500,56 +589,3 @@ func getStrengthBarColor(strength int) string {
 		return "bg-green-500"
 	}
 }
-
-// Source code for the advanced form
-var advancedFormSource = `func AdvancedFormExample(props Attrs) *Element {
-    // Complex state management
-    formData, setFormData := GoUseState(map[string]interface{}{
-        "username": "", "email": "", "password": "",
-        "confirmPass": "", "bio": "", "agreeTerms": false,
-    })
-    
-    validationErrors, setValidationErrors := GoUseState(map[string]string{})
-    isValidating, setIsValidating := GoUseState(false)
-    passwordStrength, setPasswordStrength := GoUseState(0)
-    
-    // Memoized validation rules
-    validationRules := GoUseMemo(func() map[string]interface{} {
-        return map[string]interface{}{
-            "username": map[string]interface{}{
-                "required": true, "minLength": 3,
-                "pattern": "^[a-zA-Z0-9_]+$",
-            },
-            "email": map[string]interface{}{
-                "required": true,
-                "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
-            },
-        }
-    }, []interface{}{})
-    
-    // Async validation with Go routines
-    performValidation := GoUseFunc(func(field string, value interface{}) {
-        setIsValidating(true)
-        go func() {
-            time.Sleep(300 * time.Millisecond) // Simulate API
-            // Validation logic here...
-            setIsValidating(false)
-        }()
-    })
-    
-    // Real-time password strength
-    GoUseEffect(func() {
-        password := formData().(map[string]interface{})["password"].(string)
-        strength := calculateStrength(password)
-        setPasswordStrength(strength)
-        return
-    })
-    
-    return Form(Attrs{"onsubmit": handleSubmit},
-        // Complex form fields with real-time validation
-        FormField("Username", usernameInput, validationErrors["username"]),
-        FormField("Email", emailInput, validationErrors["email"]),
-        PasswordStrengthMeter(passwordStrength()),
-        Button(Attrs{"type": "submit"}, "Submit"),
-    )
-}`

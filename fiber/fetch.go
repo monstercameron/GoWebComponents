@@ -44,11 +44,11 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 
 		// Goroutine leak prevention: Create timeout context for this fetch
 		fetchCtx, fetchCancel := context.WithTimeout(fetchContext, fetchTimeout)
-		
+
 		// Track fetch completion
 		fetchDone := make(chan struct{}, 1)
 		var fetchCompleted bool
-		
+
 		// Cleanup function to prevent leaks
 		cleanup := func() {
 			fetchCancel()
@@ -57,7 +57,7 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 				close(fetchDone)
 			}
 		}
-		
+
 		// Set timeout to cleanup if fetch takes too long
 		timeoutTimer := time.AfterFunc(fetchTimeout, func() {
 			debugf("FETCH", "⏰ useFetch: fetch timed out after %v, cleaning up\n", fetchTimeout)
@@ -85,10 +85,10 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 				bodyJSON, err := json.Marshal(v)
 				if err != nil {
 					// Optimized string concatenation - avoid + operator for better performance
-				var errorMsg strings.Builder
-				errorMsg.WriteString("Error encoding request body: ")
-				errorMsg.WriteString(err.Error())
-				setState(FetchState{Error: errorMsg.String(), Loading: false})
+					var errorMsg strings.Builder
+					errorMsg.WriteString("Error encoding request body: ")
+					errorMsg.WriteString(err.Error())
+					setState(FetchState{Error: errorMsg.String(), Loading: false})
 					cleanup()
 					return
 				}
@@ -97,41 +97,34 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 		}
 
 		fetchPromise := js.Global().Call("fetch", url, fetchOptions)
-		
+
 		// Create callbacks that will be released after use
-		var thenCallback, jsonCallback, catchCallback js.Func
-		
-		jsonCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			defer jsonCallback.Release() // Clean up immediately after use
-			defer cleanup() // Prevent goroutine leaks
-			
+		var thenCallback, textCallback, catchCallback js.Func
+
+		textCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			defer textCallback.Release() // Clean up immediately after use
+			defer cleanup()              // Prevent goroutine leaks
+
 			// Check if context was cancelled
 			select {
 			case <-fetchCtx.Done():
-				debugf("FETCH", "🛑 useFetch: fetch context cancelled during JSON parsing\n")
+				debugf("FETCH", "🛑 useFetch: fetch context cancelled during text parsing\n")
 				return nil
 			default:
 			}
-			
+
 			timeoutTimer.Stop() // Cancel timeout since we completed
-			
-			data := args[0]
-			jsonStr := js.Global().Get("JSON").Call("stringify", data).String()
-			var parsedData interface{}
-			err := json.Unmarshal([]byte(jsonStr), &parsedData)
-			if err != nil {
-				debugf("FETCH", "Error parsing data: %v\n", err)
-				setState(FetchState{Error: err.Error(), Loading: false})
-			} else {
-				debugf("FETCH", "useFetch: Successfully fetched data\n")
-				setState(FetchState{Data: parsedData, Loading: false})
-			}
+
+			// Get raw text data instead of JSON parsing
+			textData := args[0].String()
+			debugf("FETCH", "useFetch: Successfully fetched text data\n")
+			setState(FetchState{Data: textData, Loading: false})
 			return nil
 		})
-		
+
 		thenCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			defer thenCallback.Release() // Clean up immediately after use
-			
+
 			// Check if context was cancelled
 			select {
 			case <-fetchCtx.Done():
@@ -140,7 +133,7 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 				return nil
 			default:
 			}
-			
+
 			response := args[0]
 			if !response.Get("ok").Bool() {
 				// Optimized string concatenation for HTTP error messages
@@ -153,16 +146,16 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 				cleanup()
 				return nil
 			}
-			response.Call("json").Call("then", jsonCallback)
+			response.Call("text").Call("then", textCallback)
 			return nil
 		})
-		
+
 		catchCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			defer catchCallback.Release() // Clean up immediately after use
-			defer cleanup() // Prevent goroutine leaks
-			
+			defer cleanup()               // Prevent goroutine leaks
+
 			timeoutTimer.Stop() // Cancel timeout since we completed (with error)
-			
+
 			err := args[0]
 			// Optimized string concatenation for fetch error messages
 			var errorMsg strings.Builder
@@ -173,7 +166,7 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 			setState(FetchState{Error: errorStr, Loading: false})
 			return nil
 		})
-		
+
 		fetchPromise.Call("then", thenCallback).Call("catch", catchCallback)
 	}
 
@@ -201,9 +194,10 @@ func GoFetch(url string, options FetchOptions) <-chan FetchResult {
 // ReturnFetchChannel returns a fetch result channel to the pool for reuse.
 // This should be called after consuming the result from GoFetch() to prevent memory leaks.
 // Example usage:
-//   ch := GoFetch(url, options)
-//   result := <-ch
-//   ReturnFetchChannel(ch)
+//
+//	ch := GoFetch(url, options)
+//	result := <-ch
+//	ReturnFetchChannel(ch)
 func ReturnFetchChannel(ch <-chan FetchResult) {
 	// Convert read-only channel back to bidirectional for pool return
 	if writableCh, ok := interface{}(ch).(chan FetchResult); ok {
@@ -247,28 +241,22 @@ func setFetchOptions(fetchOptions js.Value, options FetchOptions) {
 // performFetch executes the actual fetch operation
 func performFetch(url string, fetchOptions js.Value, resultChan chan<- FetchResult) {
 	promise := js.Global().Call("fetch", url, fetchOptions)
-	
+
 	// Create callbacks that will be released after use
-	var thenCallback, jsonCallback, catchCallback js.Func
-	
-	jsonCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		defer jsonCallback.Release() // Clean up immediately after use
-		
-		data := args[0]
-		jsonStr := js.Global().Get("JSON").Call("stringify", data).String()
-		var parsedData interface{}
-		err := json.Unmarshal([]byte(jsonStr), &parsedData)
-		if err != nil {
-			resultChan <- FetchResult{Err: fmt.Errorf("error parsing response: %w", err)}
-		} else {
-			resultChan <- FetchResult{Data: parsedData}
-		}
+	var thenCallback, textCallback, catchCallback js.Func
+
+	textCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		defer textCallback.Release() // Clean up immediately after use
+
+		// Get raw text data instead of JSON parsing
+		textData := args[0].String()
+		resultChan <- FetchResult{Data: textData}
 		return nil
 	})
-	
+
 	thenCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		defer thenCallback.Release() // Clean up immediately after use
-		
+
 		response := args[0]
 		if !response.Get("ok").Bool() {
 			// Optimized string concatenation for HTTP error in performFetch
@@ -279,13 +267,13 @@ func performFetch(url string, fetchOptions js.Value, resultChan chan<- FetchResu
 			return nil
 		}
 
-		response.Call("json").Call("then", jsonCallback)
+		response.Call("text").Call("then", textCallback)
 		return nil
 	})
-	
+
 	catchCallback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		defer catchCallback.Release() // Clean up immediately after use
-		
+
 		err := args[0]
 		// Optimized string concatenation for fetch error in performFetch
 		var errorMsg strings.Builder
@@ -294,7 +282,7 @@ func performFetch(url string, fetchOptions js.Value, resultChan chan<- FetchResu
 		resultChan <- FetchResult{Err: fmt.Errorf("%s", errorMsg.String())}
 		return nil
 	})
-	
+
 	promise.Call("then", thenCallback).Call("catch", catchCallback)
 }
 
@@ -317,12 +305,12 @@ func GetFetchTimeout() time.Duration {
 // This should be called during application shutdown or major state resets
 func CancelAllFetchOperations() {
 	debugf("FETCH", "🛑 CancelAllFetchOperations: cancelling global fetch context\n")
-	
+
 	// Cancel the global context - this will cancel all active fetch contexts
 	fetchCancel()
-	
+
 	// Create new global context for future fetch operations
 	fetchContext, fetchCancel = context.WithCancel(context.Background())
-	
+
 	debugf("FETCH", "✅ CancelAllFetchOperations: all fetch operations cancelled, new context created\n")
 }
