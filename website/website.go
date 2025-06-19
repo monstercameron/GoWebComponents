@@ -36,7 +36,7 @@ func DocsWebsite(props Attrs) *Element {
 		// Interactive Examples Section
 		GWCExamplesSection,
 
-		// Why GoWebComponents Section (moved after Mini Apps Gallery)
+		// Why GoWebComponents Section
 		WhyGoWebComponentsSection,
 
 		// Contact Section
@@ -49,5 +49,3 @@ func DocsWebsite(props Attrs) *Element {
 		ScrollToTopButton,
 	)
 }
-
-// Components are now imported from separate files
