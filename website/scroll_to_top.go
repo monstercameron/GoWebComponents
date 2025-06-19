@@ -5,6 +5,7 @@ package website
 
 import (
 	"syscall/js"
+	"time"
 
 	. "github.com/monstercameron/GoWebComponents/fiber"
 )
@@ -16,43 +17,49 @@ func ScrollToTopButton(props Attrs) *Element {
 	// State for current section
 	_, setCurrentSection := GoUseState("Personal Website 2025")
 
-	// Effect to handle scroll events with throttling
+	// Effect to handle scroll events with Go-based throttling
 	GoUseEffect(func() {
-		var throttleTimeout js.Value
+		// Create a channel for scroll events
+		scrollChan := make(chan float64, 10)
 
-		handleScroll := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			// Clear existing timeout
-			if !throttleTimeout.IsUndefined() {
-				js.Global().Call("clearTimeout", throttleTimeout)
-			}
+		// Start a Go routine to process scroll events with throttling
+		go func() {
+			var lastProcessTime time.Time
+			throttleDelay := 100 * time.Millisecond
 
-			// Throttle scroll events to every 100ms
-			throttleTimeout = js.Global().Call("setTimeout", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				scrollY := js.Global().Get("window").Get("pageYOffset").Float()
-
-				// Show button when scrolled down more than 400px
-				if scrollY > 400 {
-					setIsVisible(true)
-				} else {
-					setIsVisible(false)
+			for scrollY := range scrollChan {
+				// Throttle processing
+				if time.Since(lastProcessTime) < throttleDelay {
+					continue
 				}
+				lastProcessTime = time.Now()
 
-				// Update page title based on current section in view
-				updatePageTitle(scrollY, setCurrentSection)
+				// Process scroll position
+				processScrollPosition(scrollY, setIsVisible, setCurrentSection)
+			}
+		}()
 
-				return nil
-			}), 100)
+		// JavaScript scroll event listener (minimal JS usage)
+		handleScroll := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			scrollY := js.Global().Get("window").Get("pageYOffset").Float()
+
+			// Send to Go channel for processing
+			select {
+			case scrollChan <- scrollY:
+			default:
+				// Channel full, skip this event
+			}
 
 			return nil
 		})
 
-		// Add scroll event listener
+		// Add scroll event listener with passive option
 		js.Global().Get("window").Call("addEventListener", "scroll", handleScroll, map[string]interface{}{
 			"passive": true,
 		})
 
-		// Set initial title
-		updatePageTitle(0, setCurrentSection)
+		// Set initial state
+		processScrollPosition(0, setIsVisible, setCurrentSection)
 
 		// Note: Cleanup would be handled by the framework
 		return
@@ -104,6 +111,19 @@ func ScrollToTopButton(props Attrs) *Element {
 			Div(Attrs{"class": "absolute inset-0 rounded-full border-2 border-white/20 group-hover:animate-ping"}),
 		),
 	)
+}
+
+// processScrollPosition handles scroll position processing in Go
+func processScrollPosition(scrollY float64, setIsVisible func(bool), setCurrentSection func(string)) {
+	// Show button when scrolled down more than 400px
+	if scrollY > 400 {
+		setIsVisible(true)
+	} else {
+		setIsVisible(false)
+	}
+
+	// Update page title based on current section in view
+	updatePageTitle(scrollY, setCurrentSection)
 }
 
 // updatePageTitle updates the page title based on the current scroll position
@@ -168,11 +188,14 @@ func updatePageTitle(scrollY float64, setCurrentSection func(string)) {
 	// Only update document title if it's different from current title
 	currentTitle := js.Global().Get("document").Get("title").String()
 	if currentTitle != title {
-		// Use setTimeout to ensure this runs after other title-setting code
-		js.Global().Call("setTimeout", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		// Use Go timer to delay title update (replaces JavaScript setTimeout)
+		go func() {
+			timer := time.NewTimer(50 * time.Millisecond)
+			<-timer.C
+
+			// Update title after delay to ensure it runs after conflicting JS
 			js.Global().Get("document").Set("title", title)
-			return nil
-		}), 50)
+		}()
 	}
 
 	// Update current section state
