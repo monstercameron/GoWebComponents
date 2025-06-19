@@ -9,10 +9,18 @@ import (
 
 // AppRouter sets up and manages the application routing
 func AppRouter(props Attrs) *Element {
-	// Register routes - library handles all state and navigation
-	GoRegisterRoute("/", DocsWebsite)
-	GoRegisterRoute("/docs", DocsPage)
+	// Create a hash router instance with options
+	router := NewHashRouter(RouterOptions{
+		DefaultRoute: "/",
+	})
 
-	// Return the current route component
-	return GoGetRoute().(*Element)
+	// Register routes - library handles all state and navigation
+	router.GoRegisterRoute("/", DocsWebsite)
+	router.GoRegisterRoute("/docs", DocsPage)
+
+	// Register wildcard route for 404 (catch-all)
+	router.GoRegisterRoute("*", NotFoundPage)
+
+	// Return the current route component - library handles re-renders internally
+	return router.GoGetRoute()
 }

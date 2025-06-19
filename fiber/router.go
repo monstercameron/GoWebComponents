@@ -18,6 +18,13 @@ type RouteOptions struct {
 	BeforeEnter func(string) bool // Return false to prevent navigation
 }
 
+// RouterOptions represents configuration for router instantiation
+type RouterOptions struct {
+	Type         string // "hash" or "regular"
+	DefaultRoute string // Default route to use
+	BasePath     string // Base path for regular router
+}
+
 // RouteEntry represents a registered route
 type RouteEntry struct {
 	Path      string
@@ -29,16 +36,54 @@ type RouteEntry struct {
 type Router struct {
 	routes            []RouteEntry
 	currentPath       string
-	onNavigate        func(string) // Callback when navigation occurs
-	hashListenerSetup bool         // Track if hash listener is set up
+	onNavigate        func(string)  // Callback when navigation occurs
+	hashListenerSetup bool          // Track if hash listener is set up
+	options           RouterOptions // Router configuration
 }
 
-// NewRouter creates a new router instance
-func NewRouter() *Router {
-	return &Router{
-		routes:      make([]RouteEntry, 0),
-		currentPath: "/",
+// NewRouter creates a new router instance with options
+func NewRouter(options RouterOptions) *Router {
+	// Set defaults
+	if options.DefaultRoute == "" {
+		options.DefaultRoute = "/"
 	}
+	if options.Type == "" {
+		options.Type = "regular"
+	}
+
+	router := &Router{
+		routes:      make([]RouteEntry, 0),
+		currentPath: options.DefaultRoute,
+		options:     options,
+	}
+
+	// Set up navigation handling based on type
+	if options.Type == "hash" {
+		router.setupHashListener()
+		router.hashListenerSetup = true
+	}
+
+	return router
+}
+
+// NewHashRouter creates a hash-based router
+func NewHashRouter(options ...RouterOptions) *Router {
+	opts := RouterOptions{Type: "hash", DefaultRoute: "/"}
+	if len(options) > 0 {
+		opts = options[0]
+		opts.Type = "hash" // Force hash type
+	}
+	return NewRouter(opts)
+}
+
+// NewRegularRouter creates a regular history-based router
+func NewRegularRouter(options ...RouterOptions) *Router {
+	opts := RouterOptions{Type: "regular", DefaultRoute: "/"}
+	if len(options) > 0 {
+		opts = options[0]
+		opts.Type = "regular" // Force regular type
+	}
+	return NewRouter(opts)
 }
 
 // Register adds a route to the router
@@ -82,18 +127,31 @@ func (r *Router) Route(path string) interface{} {
 		path = strings.TrimSuffix(path, "/")
 	}
 
+	var wildcardRoute *RouteEntry
+
 	// Find matching route
 	for _, route := range r.routes {
 		if route.Path == path {
-			// Create props with route info
+			// Exact match found
 			props := map[string]interface{}{
 				"path": path,
 			}
 			return route.Component(props)
+		} else if route.Path == "*" || route.Path == "/*" {
+			// Store wildcard route as fallback
+			wildcardRoute = &route
 		}
 	}
 
-	// Return 404 component if no route found
+	// Use wildcard route if found
+	if wildcardRoute != nil {
+		props := map[string]interface{}{
+			"path": path,
+		}
+		return wildcardRoute.Component(props)
+	}
+
+	// Return default 404 component if no route found
 	return Div(map[string]interface{}{
 		"style": map[string]interface{}{
 			"padding":    "2rem",
@@ -137,9 +195,23 @@ func (r *Router) Navigate(path string) {
 	// Update current path
 	r.currentPath = path
 
-	// Update browser URL and title
+	// Update browser URL and title based on router type
 	if targetRoute != nil && !targetRoute.Options.NoHistory {
-		js.Global().Get("history").Call("pushState", nil, "", path)
+		if r.options.Type == "hash" {
+			// For hash router, update the hash
+			var hash string
+			if path == "/docs" {
+				hash = "#/docs"
+			} else {
+				hash = "#/"
+			}
+			js.Global().Get("location").Set("hash", hash)
+		} else {
+			// For regular router, use pushState
+			js.Global().Get("history").Call("pushState", nil, "", path)
+		}
+
+		// Update title
 		if targetRoute.Options.Title != "" {
 			js.Global().Get("document").Set("title", targetRoute.Options.Title)
 		}
@@ -183,9 +255,23 @@ func (r *Router) NavigateReplace(path string) {
 	// Update current path
 	r.currentPath = path
 
-	// Update browser URL and title
+	// Update browser URL and title based on router type
 	if targetRoute != nil && !targetRoute.Options.NoHistory {
-		js.Global().Get("history").Call("replaceState", nil, "", path)
+		if r.options.Type == "hash" {
+			// For hash router, update the hash
+			var hash string
+			if path == "/docs" {
+				hash = "#/docs"
+			} else {
+				hash = "#/"
+			}
+			js.Global().Get("location").Set("hash", hash)
+		} else {
+			// For regular router, use replaceState
+			js.Global().Get("history").Call("replaceState", nil, "", path)
+		}
+
+		// Update title
 		if targetRoute.Options.Title != "" {
 			js.Global().Get("document").Set("title", targetRoute.Options.Title)
 		}
@@ -223,6 +309,74 @@ func (r *Router) RouteWithElement(path string, elemRef js.Value) {
 	}
 }
 
+// GoRegisterRoute registers a route with this router instance
+func (r *Router) GoRegisterRoute(path string, component interface{}, options ...RouteOptions) {
+	// Handle different component types
+	var wrappedComponent Component
+
+	switch comp := component.(type) {
+	case func(Attrs) *Element:
+		// Component function with Attrs - wrap it
+		wrappedComponent = func(props map[string]interface{}) interface{} {
+			return comp(props)
+		}
+	case *Element:
+		// Pre-called component (like DocsPage(nil)) - wrap it
+		wrappedComponent = func(props map[string]interface{}) interface{} {
+			return comp
+		}
+	case Component:
+		// Already correct type
+		wrappedComponent = comp
+	default:
+		// Fallback - assume it's a function that returns *Element
+		wrappedComponent = func(props map[string]interface{}) interface{} {
+			return component
+		}
+	}
+
+	r.Register(path, wrappedComponent, options...)
+
+	// Set up hash change listener if not already set up and this is a hash router
+	if r.options.Type == "hash" && !r.hashListenerSetup {
+		r.setupHashListener()
+		r.hashListenerSetup = true
+	}
+}
+
+// GoGetRoute returns the component for the current route wrapped in a stateful component
+func (r *Router) GoGetRoute() *Element {
+	// Return a component that manages state internally
+	routerComponent := func(props Attrs) *Element {
+		// State to trigger re-renders when route changes
+		currentRoute, setCurrentRoute := GoUseState(r.currentPath)
+
+		// Set up navigation callback to trigger re-renders
+		GoUseEffect(func() {
+			r.OnNavigate(func(path string) {
+				setCurrentRoute(path)
+			})
+			// Set initial route
+			setCurrentRoute(r.GetCurrentPath())
+			return
+		})
+
+		// Use the state to ensure re-renders happen
+		_ = currentRoute()
+
+		// Get and return the actual route component
+		result := r.Route(r.currentPath)
+		if element, ok := result.(*Element); ok {
+			return element
+		}
+		// Fallback to empty div if something goes wrong
+		return Div(nil, "Route not found")
+	}
+
+	// Return the component instance
+	return routerComponent(nil)
+}
+
 // OnNavigate sets the navigation callback
 func (r *Router) OnNavigate(callback func(string)) {
 	r.onNavigate = callback
@@ -248,8 +402,8 @@ func (r *Router) SetupBrowserSync() {
 	r.SetCurrentPath(currentPath)
 }
 
-// Global router instance for backward compatibility
-var globalRouter = NewRouter()
+// Global router instance for backward compatibility (deprecated)
+var globalRouter = NewRouter(RouterOptions{Type: "regular", DefaultRoute: "/"})
 
 // Register adds a route to the global router
 func Register(path string, component Component, options ...RouteOptions) {
@@ -302,8 +456,13 @@ func GoGetRouter() *Router {
 }
 
 // GoGetRoute returns the component for the current route
-func GoGetRoute() interface{} {
-	return globalRouter.Route(globalRouter.currentPath)
+func GoGetRoute() *Element {
+	result := globalRouter.Route(globalRouter.currentPath)
+	if element, ok := result.(*Element); ok {
+		return element
+	}
+	// Fallback to empty div if something goes wrong
+	return Div(nil, "Route not found")
 }
 
 // GoRegisterRoute registers a route with the global router (Go-style naming)
@@ -344,19 +503,35 @@ func GoRegisterRoute(path string, component interface{}, options ...RouteOptions
 
 // setupHashListener sets up hash change handling at the library level
 func (r *Router) setupHashListener() {
-	// Handle hash change events
+	// Auto-redirect from base URL to hash URL for hash router
+	currentHash := js.Global().Get("location").Get("hash").String()
+	currentPath := js.Global().Get("location").Get("pathname").String()
+
+	// If we're on the base path (/) with no hash, redirect to /#/
+	if currentPath == "/" && currentHash == "" {
+		js.Global().Get("location").Set("hash", "#/")
+		return // The hash change will trigger the handler
+	}
+
+	// Handle hash change events (for back/forward button and direct hash changes)
 	hashChangeHandler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		hash := js.Global().Get("location").Get("hash").String()
 
 		var path string
 		if hash == "#/docs" {
 			path = "/docs"
+		} else if hash == "#/" || hash == "" {
+			path = "/" // Home route
+		} else if strings.HasPrefix(hash, "#/") {
+			// Extract path from hash (remove #)
+			path = hash[1:] // Remove the # to get the path
 		} else {
-			path = "/" // Default to home for #/ or empty hash
+			path = "/" // Default fallback
 		}
 
-		// Navigate using the router
-		r.Navigate(path)
+		// Update internal router state WITHOUT updating browser URL
+		// (since the hash change already happened via back button or direct navigation)
+		r.navigateInternal(path)
 
 		return nil
 	})
@@ -364,17 +539,65 @@ func (r *Router) setupHashListener() {
 	// Add hash change listener
 	js.Global().Call("addEventListener", "hashchange", hashChangeHandler)
 
-	// Handle initial route from hash
+	// Handle initial route from hash using same logic as hash change handler
 	initialHash := js.Global().Get("location").Get("hash").String()
 	var initialPath string
 	if initialHash == "#/docs" {
 		initialPath = "/docs"
+	} else if initialHash == "#/" || initialHash == "" {
+		initialPath = "/" // Home route
+	} else if strings.HasPrefix(initialHash, "#/") {
+		// Extract path from hash (remove #)
+		initialPath = initialHash[1:] // Remove the # to get the path
 	} else {
-		initialPath = "/"
+		initialPath = "/" // Default fallback
 	}
 
-	// Set initial route
-	r.Navigate(initialPath)
+	// Set initial route without updating URL (since we're reading from current hash)
+	r.navigateInternal(initialPath)
+}
+
+// navigateInternal updates router state without modifying browser URL
+func (r *Router) navigateInternal(path string) {
+	// Clean path
+	if path == "" {
+		path = "/"
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	if path != "/" && strings.HasSuffix(path, "/") {
+		path = strings.TrimSuffix(path, "/")
+	}
+
+	// Check if route exists and has beforeEnter guard
+	var targetRoute *RouteEntry
+	for _, route := range r.routes {
+		if route.Path == path {
+			targetRoute = &route
+			break
+		}
+	}
+
+	// Call beforeEnter guard if it exists
+	if targetRoute != nil && targetRoute.Options.BeforeEnter != nil {
+		if !targetRoute.Options.BeforeEnter(path) {
+			return // Navigation prevented
+		}
+	}
+
+	// Update current path
+	r.currentPath = path
+
+	// Update page title only
+	if targetRoute != nil && targetRoute.Options.Title != "" {
+		js.Global().Get("document").Set("title", targetRoute.Options.Title)
+	}
+
+	// Call navigation callback to trigger re-render
+	if r.onNavigate != nil {
+		r.onNavigate(path)
+	}
 }
 
 // RouteWithElement renders the route for the given path using the global router
