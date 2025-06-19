@@ -41,6 +41,7 @@ func GWCShowcaseSection(props Attrs) *Element {
 				GWCFeatureCard("🏗️", "Component Architecture", "Reusable, composable components with clear data flow"),
 				GWCFeatureCard("🎨", "Modern UI", "Beautiful interfaces with Tailwind CSS integration"),
 				GWCFeatureCard("🚀", "Production Ready", "Battle-tested framework with real-world applications"),
+				GWCFeatureCard("🔒", "Advanced Form", "Validation • Effects • Memo • Go Routines"),
 			),
 		),
 	)
@@ -56,7 +57,7 @@ func GWCFeatureCard(icon, title, description string) *Element {
 	)
 }
 
-// GWCExamplesSection showcases 6 mini apps with source code
+// GWCExamplesSection showcases 7 mini apps with source code
 func GWCExamplesSection(props Attrs) *Element {
 	return Section(
 		Attrs{
@@ -73,7 +74,7 @@ func GWCExamplesSection(props Attrs) *Element {
 				),
 				P(
 					Attrs{"class": "text-xl text-gray-600 max-w-3xl mx-auto"},
-					"6 interactive mini applications showcasing GoWebComponents capabilities",
+					"7 interactive mini applications showcasing GoWebComponents capabilities",
 				),
 			),
 
@@ -118,7 +119,7 @@ func MiniAppCard(icon, title, description string, component func(Attrs) *Element
 		// 3D Flip Container with Shadow
 		Div(
 			Attrs{
-				"class": "relative w-full h-full transition-all duration-700 bg-white rounded-xl shadow-lg hover:shadow-xl border border-gray-200",
+				"class": "relative w-full min-h-[450px] transition-all duration-700 bg-white rounded-xl shadow-lg hover:shadow-xl border border-gray-200",
 				"style": func() string {
 					if showSource() {
 						return "transform: rotateY(180deg); transform-style: preserve-3d;"
@@ -130,7 +131,7 @@ func MiniAppCard(icon, title, description string, component func(Attrs) *Element
 			// Front Side - App View
 			Div(
 				Attrs{
-					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden",
+					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden flex flex-col",
 					"style": "backface-visibility: hidden; transform: rotateY(0deg);",
 				},
 
@@ -159,7 +160,7 @@ func MiniAppCard(icon, title, description string, component func(Attrs) *Element
 
 				// App Component
 				Div(
-					Attrs{"class": "p-8 flex items-center justify-center min-h-64"},
+					Attrs{"class": "flex-1 overflow-y-auto p-6 bg-gray-50"},
 					component(nil),
 				),
 			),

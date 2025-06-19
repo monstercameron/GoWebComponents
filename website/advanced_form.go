@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	. "github.com/monstercameron/GoWebComponents/fiber"
@@ -218,9 +217,9 @@ func AdvancedFormExample(props Attrs) *Element {
 					"oninput": handleUsernameChange,
 					"class": func() string {
 						if usernameError() != "" {
-							return "w-full px-3 py-2 border border-red-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+							return "w-full px-3 py-2 border border-red-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-black"
 						}
-						return "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+						return "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black"
 					}(),
 					"placeholder": "Enter username",
 				}),
@@ -242,9 +241,9 @@ func AdvancedFormExample(props Attrs) *Element {
 					"oninput": handleEmailChange,
 					"class": func() string {
 						if emailError() != "" {
-							return "w-full px-3 py-2 border border-red-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+							return "w-full px-3 py-2 border border-red-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-black"
 						}
-						return "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+						return "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black"
 					}(),
 					"placeholder": "Enter email",
 				}),
@@ -266,9 +265,9 @@ func AdvancedFormExample(props Attrs) *Element {
 					"oninput": handlePasswordChange,
 					"class": func() string {
 						if passwordError() != "" {
-							return "w-full px-3 py-2 border border-red-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+							return "w-full px-3 py-2 border border-red-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-black"
 						}
-						return "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+						return "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black"
 					}(),
 					"placeholder": "Enter password",
 				}),
@@ -319,9 +318,9 @@ func AdvancedFormExample(props Attrs) *Element {
 					"oninput": handleConfirmPassChange,
 					"class": func() string {
 						if confirmPassError() != "" {
-							return "w-full px-3 py-2 border border-red-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+							return "w-full px-3 py-2 border border-red-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-black"
 						}
-						return "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+						return "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black"
 					}(),
 					"placeholder": "Confirm password",
 				}),
@@ -341,7 +340,7 @@ func AdvancedFormExample(props Attrs) *Element {
 					"value":       bio(),
 					"oninput":     handleBioChange,
 					"rows":        "4",
-					"class":       "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500",
+					"class":       "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black",
 					"placeholder": "Tell us about yourself...",
 				}),
 				Div(
@@ -358,7 +357,7 @@ func AdvancedFormExample(props Attrs) *Element {
 				Select(Attrs{
 					"value":    userType(),
 					"onchange": handleUserTypeChange,
-					"class":    "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500",
+					"class":    "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black",
 				},
 					Option(Attrs{"value": "developer"}, "Developer"),
 					Option(Attrs{"value": "designer"}, "Designer"),
@@ -374,7 +373,7 @@ func AdvancedFormExample(props Attrs) *Element {
 					"type":     "checkbox",
 					"checked":  agreeTerms(),
 					"onchange": handleTermsChange,
-					"class":    "h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500",
+					"class":    "h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 text-black",
 				}),
 				Label(Attrs{"class": "text-sm text-gray-700"}, "I agree to the Terms and Conditions"),
 			),
@@ -420,15 +419,6 @@ func AdvancedFormExample(props Attrs) *Element {
 			),
 		),
 	)
-}
-
-// Helper function to get field CSS class based on validation state
-func getFieldClass(field string, errors map[string]string) string {
-	baseClass := "w-full p-3 border rounded-lg focus:ring-2 focus:outline-none transition-colors"
-	if _, hasError := errors[field]; hasError {
-		return baseClass + " border-red-500 focus:ring-red-500 focus:border-red-500 bg-red-50"
-	}
-	return baseClass + " border-gray-300 focus:ring-indigo-500 focus:border-indigo-500"
 }
 
 // FormField creates a labeled form field with validation
@@ -509,21 +499,6 @@ func getStrengthBarColor(strength int) string {
 	default:
 		return "bg-green-500"
 	}
-}
-
-func getSubmitButtonClass(isSubmitting bool) string {
-	baseClass := "w-full py-3 px-6 rounded-lg font-semibold transition-all duration-300 "
-	if isSubmitting {
-		return baseClass + "bg-gray-400 text-gray-700 cursor-not-allowed"
-	}
-	return baseClass + "bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 transform hover:-translate-y-1 shadow-lg hover:shadow-xl"
-}
-
-func getStatusClass(status string) string {
-	if strings.Contains(status, "✅") {
-		return "bg-green-100 border border-green-300 text-green-800"
-	}
-	return "bg-red-100 border border-red-300 text-red-800"
 }
 
 // Source code for the advanced form
