@@ -22,7 +22,7 @@ func PortfolioProjectsSection(props Attrs) *Element {
 				Attrs{"class": "text-center mb-16"},
 				H2(
 					Attrs{"class": "text-4xl font-bold text-gray-900 mb-4"},
-					"🚀 GoWebComponents Showcase",
+					"Recent Projects",
 				),
 				P(
 					Attrs{"class": "text-xl text-gray-600 max-w-3xl mx-auto"},
@@ -68,34 +68,38 @@ func PortfolioProjectCard(title, subtitle, description string, technologies []st
 		)
 	}
 
-	cardClass := "bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 hover:border-purple-200"
+	cardClass := "bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 hover:border-purple-200 flex flex-col h-full"
 	if featured {
-		cardClass = "bg-gradient-to-br from-purple-50 to-blue-50 p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-purple-200 hover:border-purple-300"
+		cardClass = "bg-gradient-to-br from-purple-50 to-blue-50 p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-purple-200 hover:border-purple-300 flex flex-col h-full"
 	}
 
 	return Div(
 		Attrs{"class": cardClass},
 
-		// Header
+		// Content container (grows to fill space)
 		Div(
-			Attrs{"class": "mb-4"},
-			H3(Attrs{"class": "text-2xl font-bold text-gray-900 mb-2"}, title),
-			P(Attrs{"class": "text-purple-600 font-medium"}, subtitle),
+			Attrs{"class": "flex-grow"},
+			// Header
+			Div(
+				Attrs{"class": "mb-4"},
+				H3(Attrs{"class": "text-2xl font-bold text-gray-900 mb-2"}, title),
+				P(Attrs{"class": "text-purple-600 font-medium"}, subtitle),
+			),
+
+			// Description
+			P(Attrs{"class": "text-gray-600 mb-6 leading-relaxed"}, description),
+
+			// Technologies
+			Div(
+				Attrs{"class": "flex flex-wrap gap-2"},
+				techElements...,
+			),
 		),
 
-		// Description
-		P(Attrs{"class": "text-gray-600 mb-6 leading-relaxed"}, description),
-
-		// Technologies
-		Div(
-			Attrs{"class": "flex flex-wrap gap-2 mb-6"},
-			techElements...,
-		),
-
-		// CTA Button
+		// CTA Button (sticky to bottom)
 		Button(
 			Attrs{
-				"class":   "w-full py-2 px-4 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors duration-200 font-medium",
+				"class":   "w-full py-2 px-4 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors duration-200 font-medium mt-6",
 				"onclick": OpenProjectLink(link),
 			},
 			"View Project →",

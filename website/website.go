@@ -36,6 +36,9 @@ func DocsWebsite(props Attrs) *Element {
 		// Interactive Examples Section
 		GWCExamplesSection(nil),
 
+		// Why GoWebComponents Section (moved after Mini Apps Gallery)
+		WhyGoWebComponentsSection(nil),
+
 		// Contact Section
 		ContactSection(nil),
 
