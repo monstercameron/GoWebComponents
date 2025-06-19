@@ -38,37 +38,20 @@ func PortfolioProjectsSection(props Attrs) *Element {
 				PortfolioProjectCard(
 					"🚀 GoWebComponents",
 					"Revolutionary Frontend Framework",
-					"A React-like framework for building web applications entirely in Go using WebAssembly. Features component-based architecture, state management, and zero JavaScript.",
-					[]string{"Go", "WebAssembly", "React-like", "State Management"},
-					"https://github.com/earlcameron/gowebcomponents",
+					"A React-like framework for building web applications entirely in Go using WebAssembly. Features component-based architecture, state management, and zero JavaScript required.",
+					[]string{"Go", "WebAssembly", "React-like", "State Management", "Frontend Framework"},
+					"https://github.com/monstercameron/GoWebComponents",
 					true, // featured
 				),
 
+				// gRPC Tunnel - Second featured project
 				PortfolioProjectCard(
-					"🌐 Portfolio Website",
-					"Personal Brand & Showcase",
-					"This very website! Built entirely with GoWebComponents to demonstrate the framework's capabilities for creating modern, interactive web applications.",
-					[]string{"GoWebComponents", "Tailwind CSS", "Responsive Design"},
-					"#",
-					false,
-				),
-
-				PortfolioProjectCard(
-					"📊 Analytics Dashboard",
-					"Real-time Data Visualization",
-					"A comprehensive analytics dashboard with real-time data updates, interactive charts, and custom reporting features built for enterprise clients.",
-					[]string{"Go", "PostgreSQL", "WebSocket", "Chart.js"},
-					"#",
-					false,
-				),
-
-				PortfolioProjectCard(
-					"🤖 AI Code Assistant",
-					"Developer Productivity Tool",
-					"An intelligent code completion and refactoring tool that leverages machine learning to help developers write better code faster.",
-					[]string{"Python", "TensorFlow", "VS Code API", "NLP"},
-					"#",
-					false,
+					"🌐 gRPC Tunnel",
+					"Native gRPC-over-WebSocket Solution",
+					"Innovative project that tunnels native gRPC calls over WebSocket connections, enabling full gRPC communication from browsers using WebAssembly without gRPC-Web limitations.",
+					[]string{"Go", "gRPC", "WebSocket", "WebAssembly", "Protobuf"},
+					"https://github.com/monstercameron/grpc-tunnel",
+					true, // featured
 				),
 			),
 		),

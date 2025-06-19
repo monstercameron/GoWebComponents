@@ -100,7 +100,7 @@ func PersonalAboutSection(props Attrs) *Element {
 				),
 				P(
 					Attrs{"class": "text-xl text-gray-600 max-w-3xl mx-auto"},
-					"Innovating at the intersection of Go and web development",
+					"Full-Stack Engineer | AI & Machine Learning Enthusiast | Innovation in Go & WebAssembly",
 				),
 			),
 
@@ -112,34 +112,53 @@ func PersonalAboutSection(props Attrs) *Element {
 					Attrs{"class": "space-y-6"},
 					P(
 						Attrs{"class": "text-lg text-gray-700 leading-relaxed"},
-						"Hi! I'm Earl Cameron, a passionate full-stack developer with a love for creating innovative solutions. My journey in tech has led me to explore the cutting edge of web development, culminating in the creation of GoWebComponents.",
+						"Hi! I'm Earl Cameron, a passionate Full-Stack Engineer with expertise in AI & Machine Learning. Proficient in React, Node.js, Angular, and pioneering innovative solutions with Go and WebAssembly. My journey has led me to create cutting-edge frameworks like GoWebComponents and develop innovative solutions like gRPC-over-WebSocket tunneling.",
 					),
 					P(
 						Attrs{"class": "text-lg text-gray-700 leading-relaxed"},
-						"When I'm not coding, you'll find me exploring new technologies, contributing to open source projects, or sharing knowledge with the developer community. I believe in the power of clean code, elegant solutions, and tools that make developers' lives easier.",
+						"I specialize in modern web development techniques, combining server-side Go with HTMX for lightning-fast performance and JavaScript-lite interactivity. My focus is on creating scalable, efficient applications that push the boundaries of what's possible in web development, from AI-powered features to seamless real-time communication.",
 					),
 
 					// Key highlights
 					Div(
 						Attrs{"class": "space-y-3"},
-						PersonalHighlightItem("🎯", "Focus", "Frontend innovation with Go & WebAssembly"),
-						PersonalHighlightItem("💡", "Mission", "Making web development more efficient and enjoyable"),
-						PersonalHighlightItem("🌟", "Achievement", "Created GoWebComponents framework"),
+						PersonalHighlightItem("🎯", "Expertise", "Full-Stack Engineering with AI/ML focus"),
+						PersonalHighlightItem("💡", "Innovation", "Go + WebAssembly for modern web apps"),
+						PersonalHighlightItem("🌟", "Achievements", "GoWebComponents & gRPC Tunnel creator"),
+						PersonalHighlightItem("🚀", "Tech Leadership", "Pioneering JavaScript-lite web development"),
 					),
 				),
 
-				// Profile image placeholder / tech stack visual
+				// Profile image section
 				Div(
 					Attrs{"class": "relative"},
 					Div(
-						Attrs{"class": "bg-gradient-to-br from-purple-100 to-blue-100 rounded-2xl p-8 shadow-lg"},
+						Attrs{"class": "relative max-w-md mx-auto"},
+
+						// Profile image with modern styling
 						Div(
-							Attrs{"class": "text-center"},
-							Div(Attrs{"class": "text-6xl mb-4"}, "👨‍💻"),
-							P(Attrs{"class": "text-lg font-semibold text-gray-800"}, "Earl Cameron"),
-							P(Attrs{"class": "text-purple-600"}, "Full-Stack Developer"),
-							P(Attrs{"class": "text-sm text-gray-600 mt-2"}, "Creator of GoWebComponents"),
+							Attrs{"class": "relative"},
+							Img(Attrs{
+								"src":   "/static/images/profile-2025.jpg",
+								"alt":   "Earl Cameron - Full-Stack Engineer",
+								"class": "w-full h-auto rounded-2xl shadow-2xl object-cover border-4 border-white/50 backdrop-blur-sm",
+							}),
+
+							// Gradient overlay for better text readability
+							Div(Attrs{"class": "absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent rounded-2xl"}),
+
+							// Profile info overlay
+							Div(
+								Attrs{"class": "absolute bottom-0 left-0 right-0 p-6 text-white"},
+								H3(Attrs{"class": "text-xl font-bold mb-1 drop-shadow-lg"}, "Earl Cameron"),
+								P(Attrs{"class": "text-sm opacity-90 drop-shadow-md"}, "Full-Stack Engineer"),
+								P(Attrs{"class": "text-xs opacity-75 drop-shadow-md"}, "AI/ML Enthusiast & Framework Creator"),
+							),
 						),
+
+						// Floating accent elements
+						Div(Attrs{"class": "absolute -top-4 -right-4 w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full shadow-lg animate-pulse"}),
+						Div(Attrs{"class": "absolute -bottom-4 -left-4 w-6 h-6 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full shadow-lg animate-pulse delay-1000"}),
 					),
 				),
 			),
@@ -188,10 +207,10 @@ func PersonalSkillsSection(props Attrs) *Element {
 					"Go", "JavaScript", "TypeScript", "Python", "HTML5", "CSS3",
 				}),
 				PersonalSkillCategory("⚛️ Frontend", []string{
-					"GoWebComponents", "React", "Vue.js", "Tailwind CSS", "WebAssembly", "PWAs",
+					"React", "Angular", "GoWebComponents", "Vue.js", "Tailwind CSS", "WebAssembly", "HTMX",
 				}),
 				PersonalSkillCategory("🔧 Backend", []string{
-					"Node.js", "Express", "FastAPI", "PostgreSQL", "MongoDB", "Redis",
+					"Node.js", "Go", "Express", "gRPC", "PostgreSQL", "MongoDB", "Redis",
 				}),
 				PersonalSkillCategory("☁️ DevOps", []string{
 					"Docker", "AWS", "GitHub Actions", "Nginx", "Linux", "Git",
