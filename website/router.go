@@ -87,6 +87,57 @@ func Router(props Attrs) *Element {
 	return route.Component(nil)
 }
 
+// DocsNavBar creates a simplified navigation bar for the documentation page
+func DocsNavBar(props Attrs) *Element {
+	return Nav(
+		Attrs{
+			"class": "fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-b border-gray-200/50 shadow-lg",
+		},
+		Div(
+			Attrs{"class": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"},
+			Div(
+				Attrs{"class": "flex items-center justify-between h-16 md:h-20"},
+
+				// Back Home Link
+				Button(
+					Attrs{
+						"class":   "group flex items-center space-x-3 px-4 py-2 text-gray-700 hover:text-indigo-600 transition-all duration-300 font-medium rounded-xl hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 cursor-pointer",
+						"onclick": GoUseFunc(func(event GoEvent) { Navigate("app") }),
+					},
+					Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:scale-110"}, "←"),
+					Span(Attrs{"class": "font-semibold transition-transform duration-300 group-hover:translate-x-0.5"}, "Back to App"),
+				),
+
+				// Title
+				Div(
+					Attrs{"class": "flex items-center"},
+					H1(
+						Attrs{"class": "text-xl md:text-2xl font-bold text-gray-900"},
+						"📚 Documentation",
+					),
+				),
+
+				// GitHub button
+				A(
+					Attrs{
+						"href":   "https://github.com/monstercameron/GoWebComponents",
+						"target": "_blank",
+						"class":  "group relative overflow-hidden px-5 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 cursor-pointer",
+					},
+					Div(
+						Attrs{"class": "absolute inset-0 bg-gradient-to-r from-gray-800 to-gray-900 opacity-0 group-hover:opacity-100 transition-opacity duration-300"},
+					),
+					Div(
+						Attrs{"class": "relative flex items-center space-x-2"},
+						Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:rotate-12"}, "🐙"),
+						Span(Attrs{"class": "font-semibold text-sm"}, "GitHub"),
+					),
+				),
+			),
+		),
+	)
+}
+
 // Navigate function for programmatic navigation
 func Navigate(path string) {
 	// Only handle main routes, let section links work naturally
@@ -151,8 +202,8 @@ func DocsPage(props Attrs) *Element {
 	return Div(
 		Attrs{"class": "min-h-screen bg-gradient-to-br from-gray-50 to-blue-50"},
 
-		// Navigation bar
-		NavBar(nil),
+		// Documentation-specific navigation bar
+		DocsNavBar(nil),
 
 		// Documentation content
 		Div(
