@@ -22,43 +22,129 @@ func ContactSection(props Attrs) *Element {
 				Attrs{"class": "text-center mb-16"},
 				H2(
 					Attrs{"class": "text-4xl font-bold text-gray-900 mb-4"},
-					"Let's Work Together",
+					"Let's Connect",
 				),
 				P(
 					Attrs{"class": "text-xl text-gray-600 max-w-3xl mx-auto"},
-					"Ready to build something amazing? I'm always excited to discuss new opportunities and interesting projects.",
+					"Based in Fort Lauderdale, Florida with 4+ years of full-stack development experience. Let's discuss your next project or collaboration opportunity.",
 				),
 			),
 
 			Div(
-				Attrs{"class": "grid grid-cols-1 lg:grid-cols-2 gap-12"},
+				Attrs{"class": "max-w-2xl mx-auto"},
 
 				// Contact methods
 				Div(
 					Attrs{"class": "space-y-8"},
-					H3(Attrs{"class": "text-2xl font-semibold text-gray-900 mb-6"}, "Get In Touch"),
+					H3(Attrs{"class": "text-2xl font-semibold text-gray-900 mb-6"}, "Connect With Me"),
 
-					ContactMethod("📧", "Email", "Drop me a line anytime", "mailto:earl@earlcameron.com"),
-					ContactMethod("💼", "LinkedIn", "Let's connect professionally", "https://linkedin.com/in/earlcameron"),
-					ContactMethod("🐙", "GitHub", "Check out my code", "https://github.com/monstercameron"),
-					ContactMethod("🐦", "Twitter", "Follow for updates", "https://twitter.com/earlcameron"),
+					// Two column layout for LinkedIn and GitHub
+					Div(
+						Attrs{"class": "grid grid-cols-1 md:grid-cols-2 gap-6"},
+
+						// Enhanced LinkedIn
+						Div(
+							Attrs{"class": "group relative overflow-hidden bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-blue-200/50 cursor-pointer"},
+							Div(
+								Attrs{"class": "flex items-center space-x-4"},
+								Div(
+									Attrs{"class": "relative"},
+									Div(Attrs{"class": "w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-blue-300/50 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3"}),
+									Div(
+										Attrs{"class": "absolute inset-0 flex items-center justify-center text-white text-2xl font-bold transition-transform duration-500 group-hover:scale-110"},
+										"💼",
+									),
+									// Floating particles
+									Div(Attrs{"class": "absolute -top-2 -right-2 w-3 h-3 bg-blue-400 rounded-full animate-pulse opacity-0 group-hover:opacity-100 transition-opacity duration-500"}),
+									Div(Attrs{"class": "absolute -bottom-2 -left-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse delay-300 opacity-0 group-hover:opacity-100 transition-opacity duration-500"}),
+								),
+								Div(
+									Attrs{"class": "flex-1"},
+									H4(Attrs{"class": "text-xl font-bold text-blue-900 group-hover:text-blue-800 transition-colors duration-300"}, "LinkedIn"),
+									P(Attrs{"class": "text-blue-700 mb-3 group-hover:text-blue-600 transition-colors duration-300"}, "Fort Lauderdale, Florida • 518 followers • UKG"),
+									A(
+										Attrs{
+											"href":   "https://www.linkedin.com/in/earl-cameron/",
+											"target": "_blank",
+											"class":  "inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 group-hover:shadow-lg cursor-pointer",
+										},
+										Span(nil, "Connect"),
+										Span(Attrs{"class": "transition-transform duration-300 group-hover:translate-x-1"}, "→"),
+									),
+								),
+							),
+							// Animated background gradient
+							Div(Attrs{"class": "absolute inset-0 bg-gradient-to-r from-blue-400/10 to-blue-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl"}),
+						),
+
+						// Enhanced GitHub
+						Div(
+							Attrs{"class": "group relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-gray-200/50 cursor-pointer"},
+							Div(
+								Attrs{"class": "flex items-center space-x-4"},
+								Div(
+									Attrs{"class": "relative"},
+									Div(Attrs{"class": "w-16 h-16 bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-gray-400/50 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3"}),
+									Div(
+										Attrs{"class": "absolute inset-0 flex items-center justify-center text-white text-2xl font-bold transition-transform duration-500 group-hover:scale-110"},
+										"🐙",
+									),
+									// Floating particles
+									Div(Attrs{"class": "absolute -top-2 -right-2 w-3 h-3 bg-gray-600 rounded-full animate-pulse opacity-0 group-hover:opacity-100 transition-opacity duration-500"}),
+									Div(Attrs{"class": "absolute -bottom-2 -left-2 w-2 h-2 bg-gray-700 rounded-full animate-pulse delay-300 opacity-0 group-hover:opacity-100 transition-opacity duration-500"}),
+								),
+								Div(
+									Attrs{"class": "flex-1"},
+									H4(Attrs{"class": "text-xl font-bold text-gray-900 group-hover:text-gray-800 transition-colors duration-300"}, "GitHub"),
+									P(Attrs{"class": "text-gray-700 mb-3 group-hover:text-gray-600 transition-colors duration-300"}, "Miami, Florida • 53 repositories • GoWebComponents"),
+									A(
+										Attrs{
+											"href":   "https://github.com/monstercameron",
+											"target": "_blank",
+											"class":  "inline-flex items-center space-x-2 px-4 py-2 bg-gray-800 text-white rounded-lg font-semibold hover:bg-gray-900 transition-all duration-300 transform hover:scale-105 group-hover:shadow-lg cursor-pointer",
+										},
+										Span(nil, "View Repositories"),
+										Span(Attrs{"class": "transition-transform duration-300 group-hover:translate-x-1"}, "→"),
+									),
+								),
+							),
+							// Animated background gradient
+							Div(Attrs{"class": "absolute inset-0 bg-gradient-to-r from-gray-400/10 to-gray-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl"}),
+						),
+					),
 
 					Div(
-						Attrs{"class": "mt-8 p-6 bg-white rounded-xl shadow-lg"},
-						H4(Attrs{"class": "text-lg font-semibold text-gray-900 mb-4"}, "Currently Available For:"),
+						Attrs{"class": "mt-8 p-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl shadow-lg border border-indigo-100"},
+						H4(Attrs{"class": "text-lg font-semibold text-gray-900 mb-4 flex items-center"},
+							Span(Attrs{"class": "mr-2"}, "🎯"),
+							"Professional Services Available:",
+						),
 						Ul(
-							Attrs{"class": "space-y-2 text-gray-600"},
-							Li(nil, "• Full-stack development projects"),
-							Li(nil, "• GoWebComponents consulting"),
-							Li(nil, "• Technical writing and documentation"),
-							Li(nil, "• Open source collaboration"),
-							Li(nil, "• Speaking engagements"),
+							Attrs{"class": "space-y-3 text-gray-700"},
+							Li(Attrs{"class": "flex items-center"},
+								Span(Attrs{"class": "mr-3 text-indigo-600"}, "💼"),
+								"Full-stack contracting projects"),
+							Li(Attrs{"class": "flex items-center"},
+								Span(Attrs{"class": "mr-3 text-purple-600"}, "🎯"),
+								"Technical consulting & architecture"),
+							Li(Attrs{"class": "flex items-center"},
+								Span(Attrs{"class": "mr-3 text-blue-600"}, "📚"),
+								"Developer training & workshops"),
+							Li(Attrs{"class": "flex items-center"},
+								Span(Attrs{"class": "mr-3 text-green-600"}, "🔍"),
+								"Code reviews & optimization"),
+							Li(Attrs{"class": "flex items-center"},
+								Span(Attrs{"class": "mr-3 text-orange-600"}, "🚀"),
+								"GoWebComponents implementation"),
+						),
+						Div(
+							Attrs{"class": "mt-4 pt-4 border-t border-indigo-200"},
+							P(Attrs{"class": "text-sm text-gray-600 flex items-center"},
+								Span(Attrs{"class": "mr-2"}, "📍"),
+								"Based in Fort Lauderdale, Florida • Remote & On-site Available"),
 						),
 					),
 				),
-
-				// Contact form
-				ContactForm(nil),
 			),
 		),
 	)

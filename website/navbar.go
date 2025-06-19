@@ -145,7 +145,7 @@ func NavBar(props Attrs) *Element {
 						Attrs{
 							"href":   "https://github.com/monstercameron/GoWebComponents",
 							"target": "_blank",
-							"class":  "group relative overflow-hidden px-5 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1",
+							"class":  "group relative overflow-hidden px-5 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 cursor-pointer",
 						},
 						Div(
 							Attrs{"class": "absolute inset-0 bg-gradient-to-r from-gray-800 to-gray-900 opacity-0 group-hover:opacity-100 transition-opacity duration-300"},
@@ -184,7 +184,7 @@ func EnhancedNavLink(icon, text, href, section string) *Element {
 	return A(
 		Attrs{
 			"href":    href,
-			"class":   "group relative px-3 py-2 text-gray-700 hover:text-indigo-600 transition-all duration-300 font-medium rounded-xl hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50",
+			"class":   "group relative px-3 py-2 text-gray-700 hover:text-indigo-600 transition-all duration-300 font-medium rounded-xl hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 cursor-pointer",
 			"onclick": handleClick,
 		},
 
@@ -282,7 +282,7 @@ func EnhancedMobileMenu(isOpen bool, setIsOpen func(bool)) *Element {
 							Attrs{
 								"href":   "https://github.com/monstercameron/GoWebComponents",
 								"target": "_blank",
-								"class":  "flex items-center justify-center space-x-3 px-6 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5",
+								"class":  "flex items-center justify-center space-x-3 px-6 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 cursor-pointer",
 							},
 							Span(Attrs{"class": "text-lg"}, "🐙"),
 							Span(Attrs{"class": "font-semibold"}, "GitHub"),
@@ -305,7 +305,7 @@ func EnhancedMobileNavLink(icon, text, href, section string, setIsOpen func(bool
 	return A(
 		Attrs{
 			"href":    href,
-			"class":   "group flex items-center space-x-3 px-4 py-3 text-gray-700 hover:text-indigo-600 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 rounded-xl transition-all duration-300 font-medium",
+			"class":   "group flex items-center space-x-3 px-4 py-3 text-gray-700 hover:text-indigo-600 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 rounded-xl transition-all duration-300 font-medium cursor-pointer",
 			"onclick": handleClick,
 		},
 		Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:scale-110"}, icon),

@@ -312,7 +312,7 @@ func PersonalYouTubeSection(props Attrs) *Element {
 							Attrs{
 								"href":   "https://www.youtube.com/@EarlCameron007",
 								"target": "_blank",
-								"class":  "inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 group",
+								"class":  "inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 group cursor-pointer",
 							},
 							Span(Attrs{"class": "text-2xl mr-3 transition-transform group-hover:scale-110"}, "📺"),
 							Span(nil, "Subscribe Now"),
@@ -321,7 +321,7 @@ func PersonalYouTubeSection(props Attrs) *Element {
 							Attrs{
 								"href":   "https://www.youtube.com/watch?v=KVYsD3H9LrQ",
 								"target": "_blank",
-								"class":  "inline-flex items-center justify-center px-8 py-4 border-2 border-red-500 text-red-400 rounded-xl font-semibold hover:bg-red-500 hover:text-white transition-all duration-300 group",
+								"class":  "inline-flex items-center justify-center px-8 py-4 border-2 border-red-500 text-red-400 rounded-xl font-semibold hover:bg-red-500 hover:text-white transition-all duration-300 group cursor-pointer",
 							},
 							Span(Attrs{"class": "text-xl mr-3 transition-transform group-hover:scale-110"}, "▶️"),
 							Span(nil, "Watch Latest"),
@@ -372,7 +372,7 @@ func PersonalYouTubeSection(props Attrs) *Element {
 					Attrs{
 						"href":   "https://www.youtube.com/@EarlCameron007",
 						"target": "_blank",
-						"class":  "inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 group text-lg",
+						"class":  "inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 group text-lg cursor-pointer",
 					},
 					Span(Attrs{"class": "text-2xl mr-3 transition-transform group-hover:scale-110"}, "📺"),
 					Span(nil, "Subscribe to My Channel"),
