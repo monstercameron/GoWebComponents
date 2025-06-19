@@ -13,40 +13,40 @@ import (
 func DocsWebsite(props Attrs) *Element {
 	return Div(
 		Attrs{"class": "min-h-screen bg-gradient-to-br from-gray-50 to-blue-50"},
-		NavBar(nil),
+		NavBar,
 
 		// Personal Hero Section
-		PersonalHeroSection(nil),
+		PersonalHeroSection,
 
 		// About Me Section
-		PersonalAboutSection(nil),
+		PersonalAboutSection,
 
 		// Skills & Technologies Section
-		PersonalSkillsSection(nil),
+		PersonalSkillsSection,
 
 		// YouTube Channel Section
-		PersonalYouTubeSection(nil),
+		PersonalYouTubeSection,
 
 		// Featured Projects Section
-		PortfolioProjectsSection(nil),
+		PortfolioProjectsSection,
 
 		// GoWebComponents Showcase
-		GWCShowcaseSection(nil),
+		GWCShowcaseSection,
 
 		// Interactive Examples Section
-		GWCExamplesSection(nil),
+		GWCExamplesSection,
 
 		// Why GoWebComponents Section (moved after Mini Apps Gallery)
-		WhyGoWebComponentsSection(nil),
+		WhyGoWebComponentsSection,
 
 		// Contact Section
-		ContactSection(nil),
+		ContactSection,
 
 		// Footer
-		FooterSection(nil),
+		FooterSection,
 
 		// Scroll to Top Button
-		ScrollToTopButton(nil),
+		ScrollToTopButton,
 	)
 }
 
