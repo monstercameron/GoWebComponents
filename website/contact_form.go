@@ -9,7 +9,9 @@ import (
 	. "github.com/monstercameron/GoWebComponents/fiber"
 )
 
-// ContactSection creates the contact section
+// ContactSection provides multiple ways to connect with Earl Cameron.
+// Features enhanced LinkedIn and GitHub cards with professional service listings
+// and animated interactions for improved engagement.
 func ContactSection(props Attrs) *Element {
 	return Section(
 		Attrs{
@@ -150,7 +152,8 @@ func ContactSection(props Attrs) *Element {
 	)
 }
 
-// ContactMethod creates a contact method item
+// ContactMethod renders a structured contact option with icon and call-to-action.
+// Provides consistent styling for different communication channels.
 func ContactMethod(icon, title, description, link string) *Element {
 	return Div(
 		Attrs{"class": "flex items-start space-x-4"},
@@ -170,7 +173,8 @@ func ContactMethod(icon, title, description, link string) *Element {
 	)
 }
 
-// ContactForm creates an interactive contact form
+// ContactForm provides a functional contact form with submission handling.
+// Features form validation, loading states, and success confirmation with auto-reset.
 func ContactForm(props Attrs) *Element {
 	_, setFormData := GoUseState(map[string]string{
 		"name":    "",

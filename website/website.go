@@ -7,45 +7,33 @@ import (
 	. "github.com/monstercameron/GoWebComponents/fiber"
 )
 
-// Earl Cameron's Personal Website & GoWebComponents Showcase
-
-// DocsWebsite is the main entrypoint for Earl Cameron's personal website
+// DocsWebsite composes Earl Cameron's personal website and GoWebComponents showcase.
+// Combines personal branding, project portfolio, technical documentation, and
+// interactive examples into a cohesive single-page application experience.
 func DocsWebsite(props Attrs) *Element {
 	return Div(
 		Attrs{"class": "min-h-screen bg-gradient-to-br from-gray-50 to-blue-50"},
+
+		// Navigation with dark mode and smooth scrolling
 		NavBar,
 
-		// Personal Hero Section
+		// Personal branding and introduction
 		PersonalHeroSection,
-
-		// About Me Section
 		PersonalAboutSection,
-
-		// Skills & Technologies Section
 		PersonalSkillsSection,
-
-		// YouTube Channel Section
 		PersonalYouTubeSection,
 
-		// Featured Projects Section
+		// Project showcase and portfolio
 		PortfolioProjectsSection,
 
-		// GoWebComponents Showcase
+		// GoWebComponents feature highlights
 		GWCShowcaseSection,
-
-		// Interactive Examples Section
 		GWCExamplesSection,
-
-		// Why GoWebComponents Section
 		WhyGoWebComponentsSection,
 
-		// Contact Section
+		// Contact and site utilities
 		ContactSection,
-
-		// Footer
 		FooterSection,
-
-		// Scroll to Top Button
 		ScrollToTopButton,
 	)
 }

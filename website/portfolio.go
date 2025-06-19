@@ -9,7 +9,8 @@ import (
 	. "github.com/monstercameron/GoWebComponents/fiber"
 )
 
-// PortfolioProjectsSection showcases key projects
+// PortfolioProjectsSection displays Earl's featured projects with detailed information.
+// Highlights GoWebComponents and gRPC Tunnel as revolutionary developments in web technology.
 func PortfolioProjectsSection(props Attrs) *Element {
 	return Section(
 		Attrs{
@@ -58,7 +59,8 @@ func PortfolioProjectsSection(props Attrs) *Element {
 	)
 }
 
-// PortfolioProjectCard creates a project showcase card
+// PortfolioProjectCard renders a project with title, description, technologies, and CTA.
+// Supports featured styling for highlighted projects and responsive layout adaptation.
 func PortfolioProjectCard(title, subtitle, description string, technologies []string, link string, featured bool) *Element {
 	techElements := make([]interface{}, len(technologies))
 	for i, tech := range technologies {
@@ -107,7 +109,8 @@ func PortfolioProjectCard(title, subtitle, description string, technologies []st
 	)
 }
 
-// OpenProjectLink creates a JavaScript function to open a project link
+// OpenProjectLink generates a click handler that opens project URLs in new tabs.
+// Safely handles invalid URLs by checking for placeholder values.
 func OpenProjectLink(url string) js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		if url != "#" {

@@ -5,7 +5,8 @@ package website
 
 import . "github.com/monstercameron/GoWebComponents/fiber"
 
-// AboutSection creates the about section explaining GoWebComponents
+// AboutSection explains the value proposition of GoWebComponents over traditional development.
+// Features side-by-side comparison cards and key statistics to highlight framework benefits.
 func AboutSection(props Attrs) *Element {
 	return Section(
 		Attrs{
@@ -90,7 +91,8 @@ func AboutSection(props Attrs) *Element {
 	)
 }
 
-// StatCard creates a statistic card component
+// StatCard displays a key metric with large number, title, and description.
+// Used to highlight quantifiable benefits of choosing GoWebComponents.
 func StatCard(stat, title, description string) *Element {
 	return Div(
 		Attrs{"class": "text-center bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow duration-300"},
@@ -100,7 +102,9 @@ func StatCard(stat, title, description string) *Element {
 	)
 }
 
-// GettingStartedSection creates the getting started guide section
+// GettingStartedSection provides step-by-step instructions for new developers.
+// Includes installation commands, running examples, and a simple component example
+// to demonstrate the framework's ease of use.
 func GettingStartedSection(props Attrs) *Element {
 	return Section(
 		Attrs{
@@ -156,7 +160,8 @@ func GettingStartedSection(props Attrs) *Element {
 	)
 }
 
-// InstallationStep creates a step in the installation process
+// InstallationStep renders a numbered instruction with icon and content.
+// Provides consistent styling for multi-step processes and tutorials.
 func InstallationStep(number, title string, content *Element) *Element {
 	return Div(
 		Attrs{"class": "flex items-start space-x-6"},
@@ -172,7 +177,9 @@ func InstallationStep(number, title string, content *Element) *Element {
 	)
 }
 
-// ExamplesSection showcases different GoWebComponents examples
+// ExamplesSection displays a gallery of interactive examples with live demos.
+// Each example card includes a working demo and links to detailed explanations
+// and source code viewing functionality.
 func ExamplesSection(props Attrs) *Element {
 	return Section(
 		Attrs{
@@ -453,7 +460,9 @@ func ApiItemCard(item ApiItem) *Element {
 	)
 }
 
-// FooterSection creates the website footer
+// FooterSection renders comprehensive site footer with organized links and information.
+// Includes project links, documentation navigation, social media, and professional
+// contact information in a responsive multi-column layout.
 func FooterSection(props Attrs) *Element {
 	return Footer(
 		Attrs{"class": "bg-gray-900 text-white py-16"},

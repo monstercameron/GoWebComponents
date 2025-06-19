@@ -5,12 +5,12 @@ package website
 
 import "syscall/js"
 
-// injectBlobCSS ensures the keyframes and utility classes for the "blob" background
-// animation are present. It is safe to call multiple times; the style tag is only
-// added once per session.
+// injectBlobCSS safely injects CSS keyframes and utility classes for animated
+// blob background effects. Uses a guard to prevent duplicate style injection
+// across component re-renders and page navigations.
 func injectBlobCSS() {
 	if !js.Global().Get("document").Call("querySelector", "#gwc-blob-css").IsNull() {
-		return // already injected
+		return // Style already injected, skip to prevent duplicates
 	}
 
 	css := `

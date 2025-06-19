@@ -5,9 +5,11 @@ package website
 
 import . "github.com/monstercameron/GoWebComponents/fiber"
 
-// HeroSection creates the main hero section for the documentation site
+// HeroSection renders the main hero banner with animated background and key features.
+// Features gradient backgrounds, floating animations, and prominent call-to-action buttons
+// that guide users to documentation and examples.
 func HeroSection(props Attrs) *Element {
-	// ensure blob css
+	// Ensure blob animation CSS is loaded once per page
 	GoUseEffect(func() { injectBlobCSS() }, []interface{}{true})
 
 	return Section(
@@ -82,7 +84,8 @@ func HeroSection(props Attrs) *Element {
 	)
 }
 
-// FeaturePreviewCard creates a preview card for key features
+// FeaturePreviewCard renders a glassmorphism-styled card highlighting key framework features.
+// Used in the hero section to provide quick feature overview with icons and descriptions.
 func FeaturePreviewCard(icon, title, description string) *Element {
 	return Div(
 		Attrs{"class": "bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-100"},
@@ -92,7 +95,9 @@ func FeaturePreviewCard(icon, title, description string) *Element {
 	)
 }
 
-// FeaturesSection lists all major features of GoWebComponents with in-page anchors
+// FeaturesSection showcases the comprehensive feature set of GoWebComponents.
+// Presents features in a responsive grid with detailed descriptions and benefits
+// for developers considering the framework.
 func FeaturesSection(props Attrs) *Element {
 	return Section(
 		Attrs{"id": "features", "class": "py-20 bg-white"},
@@ -118,7 +123,8 @@ func FeaturesSection(props Attrs) *Element {
 	)
 }
 
-// FeatureCard creates a feature card component
+// FeatureCard renders an individual feature with icon, title, and detailed description.
+// Includes hover animations and gradient styling for enhanced visual appeal.
 func FeatureCard(icon, title, description string) *Element {
 	return Div(
 		Attrs{"class": "bg-gradient-to-br from-gray-50 to-gray-100 p-8 rounded-2xl hover:shadow-lg transition-all duration-300 border border-gray-200 hover:border-indigo-200 group"},

@@ -9,10 +9,12 @@ import (
 
 var RendertoDom = RenderTo
 
-// AppSection creates the main app section
+// App initializes the main application with debug configuration and routing.
+// This is the entry point that sets up the framework's debugging namespaces,
+// enables hot reload for development, and returns the configured router.
 func App(props Attrs) *Element {
 
-	// Configure debug logging
+	// Configure debug logging namespaces for development visibility
 	SetDebugNamespacesExclusive(map[string]bool{
 		"HOOKS":  false,
 		"RENDER": false,
@@ -24,9 +26,9 @@ func App(props Attrs) *Element {
 		"FIBER":  false,
 	})
 
-	// Enable hot reload for development
+	// Enable hot reload for instant development feedback
 	EnableHotReload(true)
 
-	// can pass props to AppRouter for child components
+	// Initialize application routing
 	return AppRouter(nil)
 }

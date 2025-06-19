@@ -5,7 +5,9 @@ package website
 
 import . "github.com/monstercameron/GoWebComponents/fiber"
 
-// NotFoundPage creates a 404 error page component
+// NotFoundPage renders a user-friendly 404 error page with navigation options.
+// Features a prominent 404 display, helpful navigation buttons, and quick links
+// to key sections of the application for improved user experience.
 func NotFoundPage(props Attrs) *Element {
 	return Div(
 		Attrs{"class": "min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center"},

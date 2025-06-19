@@ -7,7 +7,9 @@ import (
 	. "github.com/monstercameron/GoWebComponents/fiber"
 )
 
-// DocsPage contains comprehensive documentation for the GoWebComponents fiber library
+// DocsPage renders complete API documentation for the GoWebComponents framework.
+// Features organized sections for types, hooks, HTML elements, events, and utilities
+// with interactive examples and detailed explanations for each API.
 func DocsPage(props Attrs) *Element {
 	return Div(
 		Attrs{"class": "min-h-screen bg-gradient-to-br from-gray-50 to-blue-50"},
@@ -56,7 +58,9 @@ func DocsPage(props Attrs) *Element {
 	)
 }
 
-// DocsNavBar creates a simplified navigation bar for the documentation page
+// DocsNavBar provides navigation specific to the documentation page.
+// Features back-to-app navigation, documentation title, and direct GitHub access
+// with glassmorphism styling consistent with the main navbar.
 func DocsNavBar(props Attrs) *Element {
 	return Nav(
 		Attrs{
@@ -114,7 +118,9 @@ func DocsNavBar(props Attrs) *Element {
 	)
 }
 
-// TableOfContents provides navigation for the documentation sections
+// TableOfContents creates an interactive navigation grid for documentation sections.
+// Features smooth scrolling to sections and visual hierarchy with icons and descriptions
+// for easy API discovery and navigation.
 func TableOfContents(props Attrs) *Element {
 	return Div(
 		Attrs{"class": "bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-12"},

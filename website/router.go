@@ -7,20 +7,20 @@ import (
 	. "github.com/monstercameron/GoWebComponents/fiber"
 )
 
-// AppRouter sets up and manages the application routing
+// AppRouter configures and manages client-side routing for the application.
+// Uses hash-based routing for reliable navigation without server configuration.
+// Supports both main website and documentation routes with 404 fallback.
 func AppRouter(props Attrs) *Element {
-	// Create a hash router instance with options
+	// Initialize hash router with homepage as default
 	router := NewHashRouter(RouterOptions{
 		DefaultRoute: "/",
 	})
 
-	// Register routes - library handles all state and navigation
-	router.GoRegisterRoute("/", DocsWebsite)
-	router.GoRegisterRoute("/docs", DocsPage)
+	// Register application routes
+	router.GoRegisterRoute("/", DocsWebsite)  // Main personal website
+	router.GoRegisterRoute("/docs", DocsPage) // API documentation
+	router.GoRegisterRoute("*", NotFoundPage) // 404 fallback for unmatched routes
 
-	// Register wildcard route for 404 (catch-all)
-	router.GoRegisterRoute("*", NotFoundPage)
-
-	// Return the current route component - library handles re-renders internally
+	// Return active route component (handles re-rendering automatically)
 	return router.GoGetRoute()
 }

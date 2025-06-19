@@ -12,9 +12,11 @@ import (
 	. "github.com/monstercameron/GoWebComponents/fiber"
 )
 
-// AdvancedFormExample demonstrates comprehensive form handling with GoWebComponents
+// AdvancedFormExample showcases sophisticated form handling with real-time validation.
+// Demonstrates GoUseState, GoUseEffect, GoUseFetch, and GoUseFunc hooks working together
+// to create a production-ready form with password strength, async submission, and error handling.
 func AdvancedFormExample(props Attrs) *Element {
-	// Individual state fields (simpler approach)
+	// Form field state management
 	username, setUsername := GoUseState("")
 	email, setEmail := GoUseState("")
 	password, setPassword := GoUseState("")
@@ -23,12 +25,12 @@ func AdvancedFormExample(props Attrs) *Element {
 	userType, setUserType := GoUseState("developer")
 	agreeTerms, setAgreeTerms := GoUseState(false)
 
-	// Validation and UI state
+	// Form submission and validation state
 	isSubmitting, setIsSubmitting := GoUseState(false)
 	submitStatus, setSubmitStatus := GoUseState("")
 	passwordStrength, setPasswordStrength := GoUseState(0)
 
-	// Fetch source code from GitHub
+	// Dynamic source code fetching for code view functionality
 	sourceUrl := "https://raw.githubusercontent.com/monstercameron/GoWebComponents/refs/heads/master/website/advanced_form.go"
 	getFetchState, refetchSource := GoUseFetch(sourceUrl)
 	fetchState := getFetchState()

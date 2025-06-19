@@ -5,7 +5,9 @@ package website
 
 import . "github.com/monstercameron/GoWebComponents/fiber"
 
-// ExampleModal creates a modal container for displaying examples
+// ExampleModal renders a full-screen modal for showcasing interactive examples.
+// Features source code viewing, example reset functionality, and responsive design
+// with backdrop blur and smooth animations.
 func ExampleModal(props Attrs) *Element {
 	return Div(
 		Attrs{
@@ -83,7 +85,9 @@ func ExampleModal(props Attrs) *Element {
 	)
 }
 
-// ClickCounter creates a working click counter example
+// ClickCounter demonstrates basic state management and event handling.
+// Shows fundamental GoWebComponents patterns with increment/reset functionality
+// and animated visual feedback.
 func ClickCounter(props Attrs) *Element {
 	// This would use GoUseState in a real implementation
 	return Div(
@@ -120,7 +124,9 @@ func ClickCounter(props Attrs) *Element {
 	)
 }
 
-// TodoApp creates a working todo application example
+// TodoApp showcases comprehensive CRUD operations and form handling.
+// Includes add/delete/toggle functionality with keyboard shortcuts
+// and dynamic stats display.
 func TodoApp(props Attrs) *Element {
 	return Div(
 		Attrs{"class": "max-w-md mx-auto bg-white dark:bg-gray-800 dark:text-gray-100 rounded-xl shadow-lg p-6"},
@@ -168,7 +174,8 @@ func TodoApp(props Attrs) *Element {
 	)
 }
 
-// TodoItem creates a single todo item
+// TodoItem renders an individual todo with checkbox, text, and delete button.
+// Handles state-based styling for completed items and provides interaction handlers.
 func TodoItem(text string, completed bool, id int) *Element {
 	completedClass := ""
 	if completed {
@@ -199,7 +206,9 @@ func TodoItem(text string, completed bool, id int) *Element {
 	)
 }
 
-// Dashboard creates a simple dashboard example
+// Dashboard demonstrates complex UI composition with stats cards and activity feeds.
+// Shows how to structure data-driven interfaces with responsive grid layouts
+// and consistent visual hierarchy.
 func Dashboard(props Attrs) *Element {
 	return Div(
 		Attrs{"class": "p-6 bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-800 dark:to-gray-900 dark:text-gray-100 rounded-xl"},
@@ -228,7 +237,8 @@ func Dashboard(props Attrs) *Element {
 	)
 }
 
-// DashboardCard creates a stats card for the dashboard
+// DashboardCard renders a metric display with value, title, and trend indicator.
+// Supports color-coded change indicators and hover animations.
 func DashboardCard(title, value, change, changeColor string) *Element {
 	return Div(
 		Attrs{"class": "bg-white dark:bg-gray-800 dark:text-gray-100 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-300"},
@@ -238,7 +248,8 @@ func DashboardCard(title, value, change, changeColor string) *Element {
 	)
 }
 
-// ActivityItem creates an activity feed item
+// ActivityItem displays a single activity with icon, message, and timestamp.
+// Provides consistent formatting for activity streams and notification lists.
 func ActivityItem(icon, message, time string) *Element {
 	return Div(
 		Attrs{"class": "flex items-center space-x-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200 dark:text-gray-100"},

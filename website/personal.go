@@ -9,9 +9,11 @@ import (
 	. "github.com/monstercameron/GoWebComponents/fiber"
 )
 
-// PersonalHeroSection creates the main hero section for Earl Cameron
+// PersonalHeroSection renders Earl Cameron's personal introduction and branding.
+// Features animated background, personal stats, and call-to-action buttons
+// that highlight the GoWebComponents innovation story.
 func PersonalHeroSection(props Attrs) *Element {
-	// Ensure blob animation CSS is present
+	// Load blob animation CSS for background effects
 	GoUseEffect(func() { injectBlobCSS() }, []interface{}{true})
 
 	return Section(
@@ -81,7 +83,8 @@ func PersonalHeroSection(props Attrs) *Element {
 	)
 }
 
-// PersonalStatCard creates a small stat display for personal section
+// PersonalStatCard displays key metrics about GoWebComponents in a compact format.
+// Used to highlight the framework's unique value propositions numerically.
 func PersonalStatCard(number, label string) *Element {
 	return Div(
 		Attrs{"class": "text-center"},
@@ -90,7 +93,9 @@ func PersonalStatCard(number, label string) *Element {
 	)
 }
 
-// PersonalAboutSection creates the about section
+// PersonalAboutSection presents Earl's professional background and expertise.
+// Combines narrative content with visual elements including skills highlights
+// and a professional profile image with overlay information.
 func PersonalAboutSection(props Attrs) *Element {
 	return Section(
 		Attrs{
@@ -175,7 +180,8 @@ func PersonalAboutSection(props Attrs) *Element {
 	)
 }
 
-// PersonalHighlightItem creates a highlight item with icon
+// PersonalHighlightItem renders a skill or achievement with icon and description.
+// Provides consistent formatting for professional highlights and expertise areas.
 func PersonalHighlightItem(icon, title, description string) *Element {
 	return Div(
 		Attrs{"class": "flex items-start space-x-3"},
@@ -188,7 +194,9 @@ func PersonalHighlightItem(icon, title, description string) *Element {
 	)
 }
 
-// PersonalSkillsSection showcases technical skills
+// PersonalSkillsSection displays organized technical competencies in skill categories.
+// Features responsive grid layout with skill badges grouped by technology area
+// for easy scanning of technical expertise.
 func PersonalSkillsSection(props Attrs) *Element {
 	return Section(
 		Attrs{
@@ -235,7 +243,9 @@ func PersonalSkillsSection(props Attrs) *Element {
 	)
 }
 
-// PersonalSkillCategory creates a skill category card
+// PersonalSkillCategory groups related skills under a themed title with badge display.
+// Creates skill tags dynamically from arrays and provides visual grouping
+// for different technology domains.
 func PersonalSkillCategory(title string, skills []string) *Element {
 	skillElements := make([]interface{}, len(skills))
 	for i, skill := range skills {
@@ -255,7 +265,9 @@ func PersonalSkillCategory(title string, skills []string) *Element {
 	)
 }
 
-// PersonalYouTubeSection showcases Earl Cameron's YouTube channel
+// PersonalYouTubeSection promotes Earl's YouTube channel with engagement statistics.
+// Features call-to-action buttons for subscribing and viewing content with
+// highlighted channel metrics and content themes.
 func PersonalYouTubeSection(props Attrs) *Element {
 	return Section(
 		Attrs{

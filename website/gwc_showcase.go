@@ -13,7 +13,9 @@ import (
 	. "github.com/monstercameron/GoWebComponents/fiber"
 )
 
-// GWCShowcaseSection highlights GoWebComponents features
+// GWCShowcaseSection presents GoWebComponents capabilities with feature cards.
+// Uses dark theme styling to create visual contrast and highlight the framework's
+// professional grade features and developer experience benefits.
 func GWCShowcaseSection(props Attrs) *Element {
 	return Section(
 		Attrs{
@@ -48,7 +50,8 @@ func GWCShowcaseSection(props Attrs) *Element {
 	)
 }
 
-// GWCFeatureCard creates a feature highlight card
+// GWCFeatureCard renders individual framework features with glassmorphism styling.
+// Designed for dark backgrounds with semi-transparent cards and hover interactions.
 func GWCFeatureCard(icon, title, description string) *Element {
 	return Div(
 		Attrs{"class": "bg-white/10 backdrop-blur-sm p-6 rounded-xl hover:bg-white/20 transition-all duration-300 border border-white/20"},
@@ -58,7 +61,9 @@ func GWCFeatureCard(icon, title, description string) *Element {
 	)
 }
 
-// GWCExamplesSection showcases 7 mini apps with source code
+// GWCExamplesSection displays interactive mini-applications demonstrating GoWebComponents.
+// Features 3D flip cards, source code viewing, and lazy loading for optimal performance.
+// Includes an advanced form example with on-demand GitHub source fetching.
 func GWCExamplesSection(props Attrs) *Element {
 	return Section(
 		Attrs{
@@ -98,12 +103,15 @@ func GWCExamplesSection(props Attrs) *Element {
 	)
 }
 
-// AdvancedFormShowcase wraps the AdvancedFormExample with on-demand source fetching
+// AdvancedFormShowcase integrates the complex form example with GitHub source loading.
+// Demonstrates GoUseFetch hook usage and lazy content loading patterns.
 func AdvancedFormShowcase(props Attrs) *Element {
 	return LazyMiniAppCard("🔒", "Advanced Form", "Validation • Effects • Memo • Go Routines • GoUseFetch", AdvancedFormExample, "https://raw.githubusercontent.com/monstercameron/GoWebComponents/refs/heads/master/website/advanced_form.go")
 }
 
-// LazyMiniAppCard creates a mini app showcase card with on-demand source code fetching
+// LazyMiniAppCard renders a 3D flip card with app demo and source code viewing.
+// Features lazy loading of source code from GitHub, loading states, error handling,
+// and smooth 3D flip animations between app view and code view.
 func LazyMiniAppCard(icon, title, description string, component func(Attrs) *Element, sourceUrl string) *Element {
 	showSource, setShowSource := GoUseState(false)
 	sourceLoaded, setSourceLoaded := GoUseState(false)

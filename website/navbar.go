@@ -10,32 +10,32 @@ import (
 	. "github.com/monstercameron/GoWebComponents/fiber"
 )
 
-// NavBar creates a modern, responsive navigation bar with glassmorphism and animations
+// NavBar renders a sophisticated navigation bar with glassmorphism effects and animations.
+// Features responsive design, dark mode toggle, scroll progress indicator, and smooth
+// section navigation with enhanced mobile menu support.
 func NavBar(props Attrs) *Element {
-	// State for mobile menu, scroll behavior, and dark mode
+	// Component state management
 	isMobileMenuOpen, setIsMobileMenuOpen := GoUseState(false)
 	isScrolled, setIsScrolled := GoUseState(false)
 	scrollProgress, setScrollProgress := GoUseState(0.0)
-	// Dark mode state is persisted in localStorage and reflected on the <html> element
-	isDark, setIsDark := GoUseState(getInitialDarkPref())
+	isDark, setIsDark := GoUseState(getInitialDarkPref()) // Persisted dark mode preference
 
-	// Ensure base CSS for dark mode is injected once
+	// Initialize dark mode CSS on component mount
 	GoUseEffect(func() {
 		initDarkModeCSS()
 	}, []interface{}{true})
 
-	// Side-effect: whenever darkModeEnabled changes, update DOM and storage
+	// Sync dark mode state with DOM and localStorage
 	GoUseEffect(func() {
 		applyDarkClass(isDark())
 		saveDarkPref(isDark())
 	}, []interface{}{isDark()})
 
-	// Handle mobile menu toggle
+	// Event handlers
 	handleMobileToggle := GoUseFunc(func(event GoEvent) {
 		setIsMobileMenuOpen(!isMobileMenuOpen())
 	})
 
-	// Handle dark mode toggle
 	handleDarkToggle := GoUseFunc(func(event GoEvent) {
 		newVal := !isDark()
 		setIsDark(newVal)
@@ -43,15 +43,14 @@ func NavBar(props Attrs) *Element {
 		saveDarkPref(newVal)
 	})
 
-	// Handle scroll effect and initialize smooth scrolling
+	// Initialize scroll tracking and smooth scrolling behavior
 	GoUseEffect(func() {
-		// Initialize smooth scroll CSS
-		AddSmoothScrollCSS()
+		AddSmoothScrollCSS() // Inject smooth scroll CSS once
 
-		// Add scroll event listener
+		// Setup scroll listener for navbar effects and progress tracking
 		scrollHandler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			scrollY := js.Global().Get("window").Get("scrollY").Float()
-			setIsScrolled(scrollY > 20)
+			setIsScrolled(scrollY > 20) // Trigger glassmorphism effect
 
 			// Calculate scroll progress for progress bar
 			windowHeight := js.Global().Get("window").Get("innerHeight").Float()
@@ -70,15 +69,12 @@ func NavBar(props Attrs) *Element {
 		})
 
 		js.Global().Get("window").Call("addEventListener", "scroll", scrollHandler)
-
-		// Add smooth scroll behavior for any missed elements
 		js.Global().Get("document").Get("documentElement").Get("style").Set("scrollBehavior", "smooth")
 
-		// Cleanup function would go here in a real useEffect
-		return
+		return // Cleanup would be handled by the effect system
 	})
 
-	// Dynamic classes based on state
+	// Apply glassmorphism effect based on scroll state
 	navClasses := "fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out"
 	if isScrolled() {
 		navClasses += " bg-white/80 backdrop-blur-xl shadow-2xl border-b border-white/20"
@@ -210,7 +206,8 @@ func NavBar(props Attrs) *Element {
 	)
 }
 
-// EnhancedNavLink creates a modern navigation link with icon and fancy hover effects
+// EnhancedNavLink renders a navigation item with icon, smooth animations and section routing.
+// Handles both hash navigation for sections and route navigation for pages like documentation.
 func EnhancedNavLink(icon, text, href, section string) *Element {
 	handleClick := GoUseFunc(func(event GoEvent) {
 		event.PreventDefault()
