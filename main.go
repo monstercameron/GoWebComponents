@@ -50,8 +50,8 @@ func main() {
 	// examples.ConcurrentDashboardExample()
 	// examples.NetworkMonitoringDashboardExample()
 
-	// Render the app to the DOM
-	fiber.RenderTo("#app", website.DocsWebsite)
+	// Render the app to the DOM with router
+	fiber.RenderTo("#app", website.Router)
 
 	fmt.Println("✅ App rendered successfully")
 

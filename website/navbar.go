@@ -178,7 +178,13 @@ func NavBar(props Attrs) *Element {
 func EnhancedNavLink(icon, text, href, section string) *Element {
 	handleClick := GoUseFunc(func(event GoEvent) {
 		event.PreventDefault()
-		ScrollToSectionSmooth(section)
+		// Handle docs route vs section scrolling
+		if section == "docs" {
+			Navigate(section)
+		} else {
+			// For sections, use smooth scrolling
+			ScrollToSectionSmoothEnhanced(section)
+		}
 	})
 
 	return A(
@@ -298,7 +304,13 @@ func EnhancedMobileMenu(isOpen bool, setIsOpen func(bool)) *Element {
 func EnhancedMobileNavLink(icon, text, href, section string, setIsOpen func(bool)) *Element {
 	handleClick := GoUseFunc(func(event GoEvent) {
 		event.PreventDefault()
-		ScrollToSectionSmooth(section)
+		// Handle docs route vs section scrolling
+		if section == "docs" {
+			Navigate(section)
+		} else {
+			// For sections, use smooth scrolling
+			ScrollToSectionSmoothEnhanced(section)
+		}
 		setIsOpen(false)
 	})
 
