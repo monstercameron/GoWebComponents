@@ -51,7 +51,7 @@ func main() {
 	// examples.NetworkMonitoringDashboardExample()
 
 	// Render the app to the DOM with router
-	fiber.RenderTo("#app", website.Router)
+	fiber.RenderTo("#app", website.AppRouter)
 
 	fmt.Println("✅ App rendered successfully")
 
