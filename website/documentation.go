@@ -68,14 +68,21 @@ func DocsNavBar(props Attrs) *Element {
 				Attrs{"class": "flex items-center justify-between h-16 md:h-20"},
 
 				// Back Home Link
-				Button(
-					Attrs{
-						"class":   "group flex items-center space-x-3 px-4 py-2 text-gray-700 hover:text-indigo-600 transition-all duration-300 font-medium rounded-xl hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 cursor-pointer",
-						"onclick": GoUseFunc(func(event GoEvent) { Navigate("app") }),
-					},
-					Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:scale-110"}, "←"),
-					Span(Attrs{"class": "font-semibold transition-transform duration-300 group-hover:translate-x-0.5"}, "Back to App"),
-				),
+				func() *Element {
+					// Store GoUseFunc result in variable for proper event handling
+					navigateToHome := GoUseFunc(func(event GoEvent) {
+						Navigate("/")
+					})
+
+					return Button(
+						Attrs{
+							"class":   "group flex items-center space-x-3 px-4 py-2 text-gray-700 hover:text-indigo-600 transition-all duration-300 font-medium rounded-xl hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 cursor-pointer",
+							"onclick": navigateToHome,
+						},
+						Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:scale-110"}, "←"),
+						Span(Attrs{"class": "font-semibold transition-transform duration-300 group-hover:translate-x-0.5"}, "Back to App"),
+					)
+				}(),
 
 				// Title
 				Div(

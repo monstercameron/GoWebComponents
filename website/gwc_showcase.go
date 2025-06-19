@@ -629,24 +629,31 @@ func WhyGoWebComponentsSection(props Attrs) *Element {
 			// Documentation CTA
 			Div(
 				Attrs{"class": "mt-16 text-center"},
-				Div(
-					Attrs{"class": "bg-white/10 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/20 max-w-2xl mx-auto"},
-					H3(
-						Attrs{"class": "text-2xl font-bold text-white mb-4"},
-						"Ready to Get Started?",
-					),
-					P(
-						Attrs{"class": "text-gray-300 mb-6"},
-						"Explore our comprehensive documentation with API references, tutorials, and best practices to build your next web application with GoWebComponents.",
-					),
-					Button(
-						Attrs{
-							"class":   "px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 font-semibold text-lg cursor-pointer",
-							"onclick": GoUseFunc(func(event GoEvent) { Navigate("docs") }),
-						},
-						"📚 View Documentation",
-					),
-				),
+				func() *Element {
+					// Store GoUseFunc result in variable for proper event handling
+					navigateToDocs := GoUseFunc(func(event GoEvent) {
+						Navigate("/docs")
+					})
+
+					return Div(
+						Attrs{"class": "bg-white/10 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/20 max-w-2xl mx-auto"},
+						H3(
+							Attrs{"class": "text-2xl font-bold text-white mb-4"},
+							"Ready to Get Started?",
+						),
+						P(
+							Attrs{"class": "text-gray-300 mb-6"},
+							"Explore our comprehensive documentation with API references, tutorials, and best practices to build your next web application with GoWebComponents.",
+						),
+						Button(
+							Attrs{
+								"class":   "px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 font-semibold text-lg cursor-pointer",
+								"onclick": navigateToDocs,
+							},
+							"📚 View Documentation",
+						),
+					)
+				}(),
 			),
 		),
 	)

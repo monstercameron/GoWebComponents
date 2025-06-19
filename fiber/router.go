@@ -73,7 +73,12 @@ func NewHashRouter(options ...RouterOptions) *Router {
 		opts = options[0]
 		opts.Type = "hash" // Force hash type
 	}
-	return NewRouter(opts)
+	router := NewRouter(opts)
+
+	// Auto-make hash routers global since they're typically the main app router
+	router.MakeGlobal()
+
+	return router
 }
 
 // NewRegularRouter creates a regular history-based router
@@ -293,6 +298,11 @@ func (r *Router) SetCurrentPath(path string) {
 	r.currentPath = path
 }
 
+// GetRouterType returns the type of router (hash or regular)
+func (r *Router) GetRouterType() string {
+	return r.options.Type
+}
+
 // RouteWithElement renders the route for the given path and mounts it to the provided element reference
 func (r *Router) RouteWithElement(path string, elemRef js.Value) {
 	// Get the component for this path
@@ -403,7 +413,7 @@ func (r *Router) SetupBrowserSync() {
 }
 
 // Global router instance for backward compatibility (deprecated)
-var globalRouter = NewRouter(RouterOptions{Type: "regular", DefaultRoute: "/"})
+var globalRouter = NewRouter(RouterOptions{Type: "hash", DefaultRoute: "/"})
 
 // Register adds a route to the global router
 func Register(path string, component Component, options ...RouteOptions) {
@@ -453,6 +463,16 @@ func GetRouter() *Router {
 // GoGetRouter returns the global router instance (Go-style naming)
 func GoGetRouter() *Router {
 	return globalRouter
+}
+
+// SetGlobalRouter replaces the global router instance
+func SetGlobalRouter(router *Router) {
+	globalRouter = router
+}
+
+// MakeGlobal makes this router instance the global router
+func (r *Router) MakeGlobal() {
+	globalRouter = r
 }
 
 // GoGetRoute returns the component for the current route
