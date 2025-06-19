@@ -270,12 +270,12 @@ func ExamplesSection(props Attrs) *Element {
 // ExampleCard creates a card for showcasing an example
 func ExampleCard(icon, title, description, code, id string) *Element {
 	return Div(
-		Attrs{"class": "bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 group hover:scale-105"},
+		Attrs{"class": "bg-white dark:bg-gray-800 dark:text-gray-100 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 dark:border-gray-700 group hover:scale-105"},
 		Div(
 			Attrs{"class": "text-center mb-6"},
 			Div(Attrs{"class": "text-4xl mb-4 group-hover:scale-110 transition-transform duration-300"}, icon),
-			H3(Attrs{"class": "text-xl font-bold text-gray-900 mb-2"}, title),
-			P(Attrs{"class": "text-gray-600 text-sm leading-relaxed"}, description),
+			H3(Attrs{"class": "text-xl font-bold text-gray-900 dark:text-gray-100 mb-2"}, title),
+			P(Attrs{"class": "text-gray-600 dark:text-gray-300 text-sm leading-relaxed"}, description),
 		),
 
 		Div(
@@ -296,7 +296,7 @@ func ExampleCard(icon, title, description, code, id string) *Element {
 				),
 				Button(
 					Attrs{
-						"class":   "px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-sm font-medium",
+						"class":   "px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-100 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 text-sm font-medium",
 						"onclick": "viewSource('" + id + "')",
 					},
 					"{ }",

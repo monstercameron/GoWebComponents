@@ -10,7 +10,7 @@ func ExampleModal(props Attrs) *Element {
 	return Div(
 		Attrs{
 			"id":    "example-modal",
-			"class": "fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden opacity-0 transition-all duration-300",
+			"class": "fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm z-50 hidden opacity-0 transition-all duration-300",
 		},
 		Div(
 			Attrs{
@@ -19,20 +19,20 @@ func ExampleModal(props Attrs) *Element {
 			},
 			Div(
 				Attrs{
-					"class":   "bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden",
+					"class":   "bg-white dark:bg-gray-800 dark:text-gray-100 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden",
 					"onclick": "event.stopPropagation()",
 				},
 
 				// Modal header
 				Div(
-					Attrs{"class": "flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50"},
+					Attrs{"class": "flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 dark:bg-gradient-to-r"},
 					H3(
-						Attrs{"id": "modal-title", "class": "text-2xl font-bold text-gray-900"},
+						Attrs{"id": "modal-title", "class": "text-2xl font-bold text-gray-900 dark:text-gray-100"},
 						"Example",
 					),
 					Button(
 						Attrs{
-							"class":   "p-2 hover:bg-gray-100 rounded-full transition-colors duration-200",
+							"class":   "p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200",
 							"onclick": "closeExampleModal()",
 						},
 						Span(Attrs{"class": "text-2xl text-gray-500"}, "×"),
@@ -43,20 +43,20 @@ func ExampleModal(props Attrs) *Element {
 				Div(
 					Attrs{
 						"id":    "modal-content",
-						"class": "p-6 overflow-y-auto max-h-[70vh]",
+						"class": "p-6 overflow-y-auto max-h-[70vh] dark:bg-gray-900 dark:text-gray-100",
 					},
-					P(Attrs{"class": "text-gray-500"}, "Loading example..."),
+					P(Attrs{"class": "text-gray-500 dark:text-gray-400"}, "Loading example..."),
 				),
 
 				// Modal footer
 				Div(
-					Attrs{"class": "flex justify-between items-center p-6 border-t border-gray-200 bg-gray-50"},
+					Attrs{"class": "flex justify-between items-center p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800"},
 					Div(
 						Attrs{"class": "flex space-x-3"},
 						Button(
 							Attrs{
 								"id":      "view-source-btn",
-								"class":   "px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors duration-200 font-medium",
+								"class":   "px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-100 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 font-medium",
 								"onclick": "toggleSourceView()",
 							},
 							"View Source",
@@ -87,8 +87,8 @@ func ExampleModal(props Attrs) *Element {
 func ClickCounter(props Attrs) *Element {
 	// This would use GoUseState in a real implementation
 	return Div(
-		Attrs{"class": "text-center p-8 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl"},
-		H2(Attrs{"class": "text-3xl font-bold text-gray-900 mb-6"}, "Click Counter"),
+		Attrs{"class": "text-center p-8 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 dark:text-gray-100 rounded-xl"},
+		H2(Attrs{"class": "text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6"}, "Click Counter"),
 		Div(
 			Attrs{"class": "mb-8"},
 			Div(
@@ -98,7 +98,7 @@ func ClickCounter(props Attrs) *Element {
 				},
 				"0",
 			),
-			P(Attrs{"class": "text-gray-600"}, "Click the button to increment the counter"),
+			P(Attrs{"class": "text-gray-600 dark:text-gray-300"}, "Click the button to increment the counter"),
 		),
 		Div(
 			Attrs{"class": "space-x-4"},
@@ -123,7 +123,7 @@ func ClickCounter(props Attrs) *Element {
 // TodoApp creates a working todo application example
 func TodoApp(props Attrs) *Element {
 	return Div(
-		Attrs{"class": "max-w-md mx-auto bg-white rounded-xl shadow-lg p-6"},
+		Attrs{"class": "max-w-md mx-auto bg-white dark:bg-gray-800 dark:text-gray-100 rounded-xl shadow-lg p-6"},
 		H2(Attrs{"class": "text-2xl font-bold text-gray-900 mb-6 text-center"}, "Todo App"),
 
 		// Add todo form
@@ -177,7 +177,7 @@ func TodoItem(text string, completed bool, id int) *Element {
 
 	return Div(
 		Attrs{
-			"class":        "flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200",
+			"class":        "flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200 dark:text-gray-100",
 			"data-todo-id": string(rune(id)),
 		},
 		Input(Attrs{
@@ -202,7 +202,7 @@ func TodoItem(text string, completed bool, id int) *Element {
 // Dashboard creates a simple dashboard example
 func Dashboard(props Attrs) *Element {
 	return Div(
-		Attrs{"class": "p-6 bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl"},
+		Attrs{"class": "p-6 bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-800 dark:to-gray-900 dark:text-gray-100 rounded-xl"},
 		H2(Attrs{"class": "text-3xl font-bold text-gray-900 mb-8 text-center"}, "Dashboard"),
 
 		// Stats cards
@@ -215,7 +215,7 @@ func Dashboard(props Attrs) *Element {
 
 		// Activity feed
 		Div(
-			Attrs{"class": "bg-white rounded-lg shadow-lg p-6"},
+			Attrs{"class": "bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6"},
 			H3(Attrs{"class": "text-xl font-bold text-gray-900 mb-4"}, "Recent Activity"),
 			Div(
 				Attrs{"class": "space-y-3"},
@@ -231,7 +231,7 @@ func Dashboard(props Attrs) *Element {
 // DashboardCard creates a stats card for the dashboard
 func DashboardCard(title, value, change, changeColor string) *Element {
 	return Div(
-		Attrs{"class": "bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-300"},
+		Attrs{"class": "bg-white dark:bg-gray-800 dark:text-gray-100 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-300"},
 		H4(Attrs{"class": "text-sm font-medium text-gray-500 mb-2"}, title),
 		P(Attrs{"class": "text-3xl font-bold text-gray-900 mb-1"}, value),
 		P(Attrs{"class": "text-sm " + changeColor}, change),
@@ -241,7 +241,7 @@ func DashboardCard(title, value, change, changeColor string) *Element {
 // ActivityItem creates an activity feed item
 func ActivityItem(icon, message, time string) *Element {
 	return Div(
-		Attrs{"class": "flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors duration-200"},
+		Attrs{"class": "flex items-center space-x-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200 dark:text-gray-100"},
 		Span(Attrs{"class": "text-2xl"}, icon),
 		Div(
 			Attrs{"class": "flex-1"},

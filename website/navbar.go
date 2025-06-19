@@ -12,14 +12,35 @@ import (
 
 // NavBar creates a modern, responsive navigation bar with glassmorphism and animations
 func NavBar(props Attrs) *Element {
-	// State for mobile menu and scroll behavior
+	// State for mobile menu, scroll behavior, and dark mode
 	isMobileMenuOpen, setIsMobileMenuOpen := GoUseState(false)
 	isScrolled, setIsScrolled := GoUseState(false)
 	scrollProgress, setScrollProgress := GoUseState(0.0)
+	// Dark mode state is persisted in localStorage and reflected on the <html> element
+	isDark, setIsDark := GoUseState(getInitialDarkPref())
+
+	// Ensure base CSS for dark mode is injected once
+	GoUseEffect(func() {
+		initDarkModeCSS()
+	}, []interface{}{true})
+
+	// Side-effect: whenever darkModeEnabled changes, update DOM and storage
+	GoUseEffect(func() {
+		applyDarkClass(isDark())
+		saveDarkPref(isDark())
+	}, []interface{}{isDark()})
 
 	// Handle mobile menu toggle
 	handleMobileToggle := GoUseFunc(func(event GoEvent) {
 		setIsMobileMenuOpen(!isMobileMenuOpen())
+	})
+
+	// Handle dark mode toggle
+	handleDarkToggle := GoUseFunc(func(event GoEvent) {
+		newVal := !isDark()
+		setIsDark(newVal)
+		applyDarkClass(newVal)
+		saveDarkPref(newVal)
 	})
 
 	// Handle scroll effect and initialize smooth scrolling
@@ -136,9 +157,24 @@ func NavBar(props Attrs) *Element {
 					EnhancedNavLink("🔥", "Contact", "#contact", "contact"),
 				),
 
-				// Action buttons with enhanced styling
+				// Dark-mode toggle and GitHub button container
 				Div(
-					Attrs{"class": "hidden md:flex items-center"},
+					Attrs{"class": "hidden md:flex items-center space-x-2"},
+
+					// Dark-mode toggle button
+					Button(
+						Attrs{
+							"class":   "group relative overflow-hidden p-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 cursor-pointer",
+							"onclick": handleDarkToggle,
+							"title":   "Toggle dark mode",
+						},
+						Span(Attrs{"class": "text-lg"}, func() string {
+							if isDark() {
+								return "☀️" // sun icon when in dark mode
+							}
+							return "🌙" // moon icon when in light mode
+						}()),
+					),
 
 					// GitHub button
 					A(
