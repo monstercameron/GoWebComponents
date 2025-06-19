@@ -11,6 +11,9 @@ import (
 
 // PersonalHeroSection creates the main hero section for Earl Cameron
 func PersonalHeroSection(props Attrs) *Element {
+	// Ensure blob animation CSS is present
+	GoUseEffect(func() { injectBlobCSS() }, []interface{}{true})
+
 	return Section(
 		Attrs{
 			"id":    "home",

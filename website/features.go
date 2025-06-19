@@ -7,6 +7,9 @@ import . "github.com/monstercameron/GoWebComponents/fiber"
 
 // HeroSection creates the main hero section for the documentation site
 func HeroSection(props Attrs) *Element {
+	// ensure blob css
+	GoUseEffect(func() { injectBlobCSS() }, []interface{}{true})
+
 	return Section(
 		Attrs{
 			"id":    "home",
