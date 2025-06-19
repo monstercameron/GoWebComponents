@@ -24,6 +24,9 @@ func DocsWebsite(props Attrs) *Element {
 		// Skills & Technologies Section
 		PersonalSkillsSection(nil),
 
+		// YouTube Channel Section
+		PersonalYouTubeSection(nil),
+
 		// Featured Projects Section
 		PortfolioProjectsSection(nil),
 

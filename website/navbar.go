@@ -129,6 +129,7 @@ func NavBar(props Attrs) *Element {
 					Attrs{"class": "hidden lg:flex items-center space-x-1 xl:space-x-2 flex-1 justify-center"},
 					EnhancedNavLink("🏠", "Home", "#home", "home"),
 					EnhancedNavLink("👨‍💻", "About", "#about", "about"),
+					EnhancedNavLink("📺", "YouTube", "#youtube", "youtube"),
 					EnhancedNavLink("⚡", "Features", "#features", "features"),
 					EnhancedNavLink("🎨", "Examples", "#examples", "examples"),
 					EnhancedNavLink("📚", "API Docs", "#api", "api"),
@@ -265,6 +266,7 @@ func EnhancedMobileMenu(isOpen bool, setIsOpen func(bool)) *Element {
 					// Navigation links
 					EnhancedMobileNavLink("🏠", "Home", "#home", "home", setIsOpen),
 					EnhancedMobileNavLink("👨‍💻", "About", "#about", "about", setIsOpen),
+					EnhancedMobileNavLink("📺", "YouTube", "#youtube", "youtube", setIsOpen),
 					EnhancedMobileNavLink("⚡", "Features", "#features", "features", setIsOpen),
 					EnhancedMobileNavLink("🎨", "Examples", "#examples", "examples", setIsOpen),
 					EnhancedMobileNavLink("📚", "API Docs", "#api", "api", setIsOpen),

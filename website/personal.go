@@ -246,7 +246,165 @@ func PersonalSkillCategory(title string, skills []string) *Element {
 	)
 }
 
-// ScrollToSection creates a JavaScript function to scroll to a section
+// PersonalYouTubeSection showcases Earl Cameron's YouTube channel
+func PersonalYouTubeSection(props Attrs) *Element {
+	return Section(
+		Attrs{
+			"id":    "youtube",
+			"class": "py-20 bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900 text-white",
+		},
+		Div(
+			Attrs{"class": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"},
+
+			// Section header
+			Div(
+				Attrs{"class": "text-center mb-16"},
+				H2(
+					Attrs{"class": "text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-red-400 via-pink-400 to-red-500 bg-clip-text text-transparent"},
+					"📺 My YouTube Channel",
+				),
+				P(
+					Attrs{"class": "text-xl text-gray-300 max-w-3xl mx-auto mb-8"},
+					"Join me on my life journey! Watch vlogs, tutorials, lifestyle content, and travel adventures. Experience the world through my lens and learn along the way.",
+				),
+			),
+
+			// Main content grid
+			Div(
+				Attrs{"class": "grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"},
+
+				// Channel info and stats
+				Div(
+					Attrs{"class": "space-y-8"},
+
+					// Channel branding
+					Div(
+						Attrs{"class": "flex items-center space-x-4 p-6 bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20"},
+						Div(
+							Attrs{"class": "relative"},
+							Div(Attrs{"class": "w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center shadow-xl"}),
+							Div(
+								Attrs{"class": "absolute inset-0 flex items-center justify-center text-white text-2xl font-bold"},
+								"YT",
+							),
+						),
+						Div(
+							nil,
+							H3(Attrs{"class": "text-2xl font-bold text-white"}, "Earl Cameron"),
+							P(Attrs{"class": "text-red-400 font-medium"}, "@EarlCameron007"),
+							P(Attrs{"class": "text-gray-300 text-sm"}, "Lifestyle & Travel Creator"),
+						),
+					),
+
+					// Channel highlights
+					Div(
+						Attrs{"class": "space-y-4"},
+						H4(Attrs{"class": "text-xl font-semibold text-white mb-4"}, "🎬 What You'll Find:"),
+						YouTubeHighlight("🎓", "Lifestyle Tutorials", "Helpful tips and how-to guides for everyday life"),
+						YouTubeHighlight("✈️", "Travel Adventures", "Exploring new places and sharing travel tips"),
+						YouTubeHighlight("💭", "Personal Stories", "Authentic experiences and life lessons"),
+					),
+
+					// CTA Buttons
+					Div(
+						Attrs{"class": "flex flex-col sm:flex-row gap-4"},
+						A(
+							Attrs{
+								"href":   "https://www.youtube.com/@EarlCameron007",
+								"target": "_blank",
+								"class":  "inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 group",
+							},
+							Span(Attrs{"class": "text-2xl mr-3 transition-transform group-hover:scale-110"}, "📺"),
+							Span(nil, "Subscribe Now"),
+						),
+						A(
+							Attrs{
+								"href":   "https://www.youtube.com/watch?v=KVYsD3H9LrQ",
+								"target": "_blank",
+								"class":  "inline-flex items-center justify-center px-8 py-4 border-2 border-red-500 text-red-400 rounded-xl font-semibold hover:bg-red-500 hover:text-white transition-all duration-300 group",
+							},
+							Span(Attrs{"class": "text-xl mr-3 transition-transform group-hover:scale-110"}, "▶️"),
+							Span(nil, "Watch Latest"),
+						),
+					),
+				),
+
+				// Featured video embed
+				Div(
+					Attrs{"class": "relative"},
+
+					// Video container with responsive aspect ratio
+					Div(
+						Attrs{"class": "relative w-full aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black/20 backdrop-blur-sm border border-white/20"},
+
+						// YouTube embed
+						CreateElement("iframe", Attrs{
+							"src":             "https://www.youtube.com/embed/KVYsD3H9LrQ",
+							"title":           "Earl Cameron - Latest YouTube Video",
+							"frameborder":     "0",
+							"allow":           "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share",
+							"allowfullscreen": "true",
+							"class":           "w-full h-full rounded-2xl",
+						}),
+
+						// Overlay for better integration
+						Div(
+							Attrs{"class": "absolute inset-0 pointer-events-none"},
+							// Corner accents
+							Div(Attrs{"class": "absolute top-4 right-4 w-3 h-3 bg-red-500 rounded-full animate-pulse"}),
+							Div(Attrs{"class": "absolute bottom-4 left-4 w-2 h-2 bg-purple-500 rounded-full animate-pulse delay-1000"}),
+						),
+					),
+
+					// Video description overlay
+					Div(
+						Attrs{"class": "mt-6 p-4 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10"},
+						P(Attrs{"class": "text-gray-300 text-sm leading-relaxed"},
+							"🎥 Featured: Latest vlogs, lifestyle tips, travel adventures, and personal stories. Subscribe for authentic content and life experiences!"),
+					),
+				),
+			),
+
+			// Simple CTA
+			Div(
+				Attrs{"class": "mt-16 text-center"},
+				A(
+					Attrs{
+						"href":   "https://www.youtube.com/@EarlCameron007",
+						"target": "_blank",
+						"class":  "inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 group text-lg",
+					},
+					Span(Attrs{"class": "text-2xl mr-3 transition-transform group-hover:scale-110"}, "📺"),
+					Span(nil, "Subscribe to My Channel"),
+				),
+			),
+		),
+	)
+}
+
+// YouTubeHighlight creates a highlight item for the YouTube section
+func YouTubeHighlight(icon, title, description string) *Element {
+	return Div(
+		Attrs{"class": "flex items-start space-x-3 group"},
+		Span(Attrs{"class": "text-xl transition-transform group-hover:scale-110"}, icon),
+		Div(
+			nil,
+			P(Attrs{"class": "font-semibold text-white"}, title),
+			P(Attrs{"class": "text-gray-400 text-sm"}, description),
+		),
+	)
+}
+
+// YouTubeStatBadge creates a small badge for YouTube interactions
+func YouTubeStatBadge(icon, action string) *Element {
+	return Div(
+		Attrs{"class": "inline-flex items-center space-x-2 px-4 py-2 bg-white/10 rounded-full border border-white/20 hover:bg-white/20 transition-all duration-300 cursor-pointer group"},
+		Span(Attrs{"class": "text-lg group-hover:scale-110 transition-transform"}, icon),
+		Span(Attrs{"class": "text-sm font-medium text-white"}, action),
+	)
+}
+
+// ScrollToSection creates a JavaScript function for smooth scrolling
 func ScrollToSection(sectionId string) js.Func {
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		element := js.Global().Get("document").Call("getElementById", sectionId)
