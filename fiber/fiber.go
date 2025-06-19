@@ -196,6 +196,7 @@ func scheduleUpdateAtRoot() {
 	wipRoot.parent = nil
 	wipRoot.child = nil
 	wipRoot.sibling = nil
+	wipRoot.dirty = true
 
 	nextUnitOfWork = wipRoot
 
@@ -232,6 +233,7 @@ func scheduleUpdate(fiber *Fiber) {
 		dom:       currentRoot.dom,
 		props:     currentRoot.props,
 		alternate: currentRoot,
+		dirty:     true,
 	}
 	nextUnitOfWork = wipRoot
 	deletions = []*Fiber{}
@@ -252,6 +254,7 @@ func render(element *Element, container js.Value) {
 		dom:       container,
 		props:     map[string]interface{}{"children": []interface{}{element}},
 		alternate: currentRoot,
+		dirty:     true,
 	}
 	debugf("RENDER", "Root fiber created %p.\n", wipRoot)
 	debugf("FIBER", "📊 render: total renders so far: %d\n", totalRenders)
@@ -375,6 +378,14 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 		// fmt.Println("performUnitOfWork: Fiber is nil.")
 		return nil
 	}
+	// Optimization: Skip non-dirty fibers
+	if !fiber.dirty {
+		debugf("FIBER", "⏭️ performUnitOfWork: skipping clean fiber %p (type: %v)\n", fiber, fiber.typeOf)
+		return getNextUnitOfWork(fiber)
+	}
+
+	// Reset dirty flag after processing
+	fiber.dirty = false
 
 	debugf("FIBER", "🔄 performUnitOfWork: processing fiber %p (type: %v)\n", fiber, fiber.typeOf)
 
@@ -720,8 +731,15 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 		if sameType {
 			// Reuse the existing fiber
 			debugf("FIBER", "♻️ reconcileChildren: reusing existing fiber of type %v\n", oldFiber.typeOf)
-			// fmt.Printf("reconcileChildren: Reusing existing fiber of type %v\n", oldFiber.typeOf)
+
+			// Unsubscribe the old fiber from any atoms it was subscribed to
+			UnsubscribeFiberFromAllAtoms(oldFiber)
+			debugf("FIBER", "🧹 reconcileChildren: unsubscribed old fiber %p from atoms before reuse\n", oldFiber)
+
 			if elem, ok := element.(*Element); ok {
+				propsChanged := !reflect.DeepEqual(oldFiber.props, elem.Props)
+				isDirty := propsChanged || oldFiber.dirty
+
 				newFiber = &Fiber{
 					typeOf:    oldFiber.typeOf,
 					props:     elem.Props,
@@ -729,8 +747,12 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					parent:    wipFiber,
 					alternate: oldFiber,
 					effectTag: "UPDATE",
+					dirty:     isDirty,
 				}
-				debugf("FIBER", "✅ reconcileChildren: created UPDATE fiber %p\n", newFiber)
+				if propsChanged {
+					debugf("FIBER", "✨ reconcileChildren: props changed for %v, marking as dirty\n", newFiber.typeOf)
+				}
+				debugf("FIBER", "✅ reconcileChildren: created UPDATE fiber %p (dirty: %v)\n", newFiber, newFiber.dirty)
 			} else {
 				debugf("FIBER", "🚨 reconcileChildren: element is not *Element for reuse, got %T\n", element)
 			}
@@ -745,6 +767,7 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					dom:       js.Value{},
 					parent:    wipFiber,
 					effectTag: "PLACEMENT",
+					dirty:     true,
 				}
 				debugf("FIBER", "✅ reconcileChildren: created PLACEMENT fiber %p (type: %v)\n",
 					newFiber, elem.Type)
@@ -878,4 +901,28 @@ var uiQueueAutoOptimization bool = true
 func SetUIQueueAutoOptimization(enabled bool) {
 	uiQueueAutoOptimization = enabled
 	debugf("FIBER", "🔧 SetUIQueueAutoOptimization: %v\n", enabled)
+}
+
+// scheduleUpdateForFiber schedules an update for a specific fiber.
+// This is used for fine-grained updates from hooks like GoUseAtom.
+func scheduleUpdateForFiber(fiber *Fiber) {
+	debugf("FIBER", "🎯 scheduleUpdateForFiber called for fiber %p (type: %v)\n", fiber, fiber.typeOf)
+
+	if fiber == nil {
+		debugf("FIBER", "🚨 scheduleUpdateForFiber: received nil fiber, aborting\n")
+		return
+	}
+
+	// Mark the fiber and its parents as dirty to ensure they are processed.
+	f := fiber
+	for f != nil {
+		f.dirty = true
+		f = f.parent
+	}
+
+	// If there's no update scheduled, start a new one from the root.
+	// This ensures that even fine-grained updates are part of a single batch.
+	if !updateScheduled {
+		scheduleUpdateAtRoot()
+	}
 }

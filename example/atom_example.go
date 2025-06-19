@@ -36,13 +36,13 @@ func GoUseAtomExample(props Attrs) *Element {
 			// Left component - Counter Controller
 			Div(
 				Attrs{"style": "flex: 1; padding: 20px; border: 2px solid #007bff; border-radius: 8px;"},
-				CounterController(nil),
+				CounterController,
 			),
 
 			// Right component - Counter Display
 			Div(
 				Attrs{"style": "flex: 1; padding: 20px; border: 2px solid #28a745; border-radius: 8px;"},
-				CounterDisplay(nil),
+				CounterDisplay,
 			),
 		),
 
@@ -53,13 +53,13 @@ func GoUseAtomExample(props Attrs) *Element {
 			// Left component - Text Input
 			Div(
 				Attrs{"style": "flex: 1; padding: 20px; border: 2px solid #ffc107; border-radius: 8px;"},
-				TextInputComponent(nil),
+				TextInputComponent,
 			),
 
 			// Right component - Text Display
 			Div(
 				Attrs{"style": "flex: 1; padding: 20px; border: 2px solid #dc3545; border-radius: 8px;"},
-				TextDisplayComponent(nil),
+				TextDisplayComponent,
 			),
 		),
 	)

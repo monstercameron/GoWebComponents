@@ -13,7 +13,7 @@ import (
 func createElement(typ interface{}, props map[string]interface{}, children ...interface{}) *Element {
 	// Track allocation metrics
 	atomic.AddInt64(&poolUtilization.totalAllocations, 1)
-	
+
 	// Get element from pool with safe type assertion
 	poolElem := elementPool.Get()
 	elem, ok := poolElem.(*Element)
@@ -37,42 +37,15 @@ func createElement(typ interface{}, props map[string]interface{}, children ...in
 	// Reset the element
 	elem.Type = typ
 
-	// Process children to support both component references and return values
-	// Optimized with type switch for better performance than chained type assertions
-	processedChildren := make([]interface{}, 0, len(children))
-
-	for _, child := range children {
-		if child == nil {
-			continue
-		}
-
-		// Optimized type dispatch using type switch instead of chained assertions
-		// This is faster than multiple type assertions as it only evaluates the type once
-		switch componentFunc := child.(type) {
-		case func(map[string]interface{}) *Element:
-			// Component function with map[string]interface{} signature
-			result := componentFunc(nil)
-			if result != nil {
-				processedChildren = append(processedChildren, result)
-			}
-		case func(Attrs) *Element:
-			// Component function with Attrs signature (same as map[string]interface{})
-			result := componentFunc(nil)
-			if result != nil {
-				processedChildren = append(processedChildren, result)
-			}
-		default:
-			// Child is already processed (Element, Text, etc.) - most common case
-			processedChildren = append(processedChildren, child)
-		}
-	}
-
-	elem.Children = processedChildren
+	// Children are now processed during reconciliation, not here.
+	// This allows component functions to be passed as children and have their
+	// lifecycle (and hooks) managed correctly by the renderer.
+	elem.Children = children
 
 	// Handle props efficiently - optimize map clearing for large maps
 	// Performance optimization: for large maps, allocating new is faster than clearing
 	const clearThreshold = 8 // Threshold where new allocation becomes more efficient
-	
+
 	if props != nil {
 		if len(elem.Props) > clearThreshold {
 			// Replace with new map - faster for large maps
@@ -101,8 +74,8 @@ func createElement(typ interface{}, props map[string]interface{}, children ...in
 	}
 
 	// Set children in props
-	if len(processedChildren) > 0 {
-		elem.Props["children"] = processedChildren
+	if len(children) > 0 {
+		elem.Props["children"] = children
 	} else {
 		// Use a shared empty slice to avoid allocations while maintaining type safety
 		elem.Props["children"] = emptyChildren
@@ -145,13 +118,13 @@ func createDom(fiber *Fiber) js.Value {
 	//
 	var styleObj js.Value
 	var styleObjInitialized bool
-	
+
 	// Batch properties by type to reduce DOM interaction overhead
 	for name, value := range fiber.props {
 		if name == "children" {
 			continue
 		}
-		
+
 		// Fast path: handle most common properties with optimized branches
 		switch name {
 		case "dangerouslySetInnerHTML":
@@ -179,12 +152,12 @@ func createDom(fiber *Fiber) js.Value {
 			case map[string]string:
 				// Initialize styleObj only when needed (lazy initialization)
 				if !styleObjInitialized {
-					styleObj = dom.Get("style")  // Expensive DOM call - do once
+					styleObj = dom.Get("style") // Expensive DOM call - do once
 					styleObjInitialized = true
 				}
 				// Batch style operations - all use the cached styleObj
 				for k, val := range v {
-					styleObj.Call("setProperty", k, val)  // Fast: reuse cached object
+					styleObj.Call("setProperty", k, val) // Fast: reuse cached object
 				}
 			default:
 				debugf("DOM", "🚨 createDom: style must be string or map[string]string, got %T\n", value)
@@ -259,7 +232,7 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 	//
 	var styleObj js.Value
 	var styleObjInitialized bool
-	
+
 	// Batch DOM operations to reduce overhead
 	for name, value := range newProps {
 		// Skip common exclusions first (most frequent check)
@@ -291,27 +264,27 @@ func updateDom(dom js.Value, oldProps, newProps map[string]interface{}) {
 			case map[string]string:
 				// Map-based styles - initialize styleObj only when needed
 				if !styleObjInitialized {
-					styleObj = dom.Get("style")  // Expensive DOM call - do once
+					styleObj = dom.Get("style") // Expensive DOM call - do once
 					styleObjInitialized = true
 				}
-				
+
 				// If previous style was a string, clear it completely first
 				if _, wasString := oldProps["style"].(string); wasString {
 					dom.Set("style", "")
 				}
-				
+
 				// Batch style removals - all use cached styleObj
 				if oldStyleMap, okOld := oldProps["style"].(map[string]string); okOld {
 					for k := range oldStyleMap {
 						if _, exists := styleValue[k]; !exists {
-							styleObj.Call("removeProperty", k)  // Fast: reuse cached object
+							styleObj.Call("removeProperty", k) // Fast: reuse cached object
 						}
 					}
 				}
-				
+
 				// Batch style additions/updates - all use cached styleObj
 				for k, val := range styleValue {
-					styleObj.Call("setProperty", k, val)  // Fast: reuse cached object
+					styleObj.Call("setProperty", k, val) // Fast: reuse cached object
 				}
 			default:
 				debugf("DOM", "🚨 updateDom: style must be string or map[string]string, got %T\n", value)

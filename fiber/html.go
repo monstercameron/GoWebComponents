@@ -1,5 +1,7 @@
 package fiber
 
+import "reflect"
+
 // Type aliases for cleaner attribute syntax
 type Attrs map[string]interface{}
 type Attributes map[string]interface{}
@@ -11,25 +13,18 @@ func createElementWithStringSupport(typ interface{}, props map[string]interface{
 		return createElement(typ, props, children...)
 	}
 
-	// Fast path: check if any children are strings (most common case is no strings)
-	hasStrings := false
-	for _, child := range children {
-		if _, isString := child.(string); isString {
-			hasStrings = true
-			break
-		}
-	}
-
-	// If no strings, use fast path
-	if !hasStrings {
-		return createElement(typ, props, children...)
-	}
-
 	// Process children with string conversion (less common path)
 	processedChildren := make([]interface{}, 0, len(children))
 	for _, child := range children {
+		if child == nil {
+			continue
+		}
+
 		if str, ok := child.(string); ok {
 			processedChildren = append(processedChildren, Text(str))
+		} else if reflect.TypeOf(child).Kind() == reflect.Func {
+			// This is a component function, wrap it in an element
+			processedChildren = append(processedChildren, CreateElement(child, nil))
 		} else {
 			processedChildren = append(processedChildren, child)
 		}

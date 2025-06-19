@@ -73,6 +73,7 @@ type Fiber struct {
 	effectTag      string    // 16 bytes
 	effects        []func()  // 24 bytes
 	eventCallbacks []js.Func // 24 bytes - event callbacks for cleanup
+	dirty          bool      // 1 byte
 }
 
 // Attrs type is defined in html.go

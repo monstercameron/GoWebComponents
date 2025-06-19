@@ -386,8 +386,12 @@ func GoUseAtom[T any](id string, initialValue T) (func() T, func(T)) {
 				debugf("HOOKS", "💾 GoUseAtom setter: atom '%s' updated, notifying %d subscribers\n",
 					id, len(subscribers))
 
-				// Schedule re-render for all subscribed components
-				scheduleUpdateAtRoot()
+				// Mark all subscribers and their parents as dirty
+				for i, fiber := range subscribers {
+					debugf("HOOKS", "⚡ GoUseAtom setter: scheduling update for subscriber %d/%d (fiber: %p)\n",
+						i+1, len(subscribers), fiber)
+					scheduleUpdateForFiber(fiber)
+				}
 
 				debugf("HOOKS", "⚡ GoUseAtom setter: atom '%s' update completed in %v\n", id, time.Since(startTime))
 			} else {
@@ -407,6 +411,31 @@ func GoUseAtom[T any](id string, initialValue T) (func() T, func(T)) {
 
 	debugf("HOOKS", "✅ GoUseAtom: setup complete for atom '%s'\n", id)
 	return getter, setter
+}
+
+// UnsubscribeFiberFromAllAtoms removes a fiber from all atom subscription lists.
+// This is crucial for preventing memory leaks and incorrect updates when a component unmounts.
+func UnsubscribeFiberFromAllAtoms(fiber *Fiber) {
+	if fiber == nil {
+		debugf("HOOKS", "🚨 UnsubscribeFiberFromAllAtoms: received nil fiber\n")
+		return
+	}
+
+	atomMutex.Lock()
+	defer atomMutex.Unlock()
+
+	unsubscribedCount := 0
+	for id, subscribers := range atomSubscriptions {
+		if _, exists := subscribers[fiber]; exists {
+			delete(subscribers, fiber)
+			unsubscribedCount++
+			debugf("HOOKS", "🗑️ UnsubscribeFiberFromAllAtoms: unsubscribed fiber %p from atom '%s'\n", fiber, id)
+		}
+	}
+
+	if unsubscribedCount > 0 {
+		debugf("HOOKS", "✅ UnsubscribeFiberFromAllAtoms: successfully unsubscribed fiber %p from %d atoms\n", fiber, unsubscribedCount)
+	}
 }
 
 // validateHookOrder checks that hooks are called in the same order as previous render

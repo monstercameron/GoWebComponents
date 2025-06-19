@@ -93,9 +93,9 @@ func executeEffects() {
 	// Use pooled slice to reduce allocations and GC pressure
 	effectFibers := getEffectFibersSlice()
 	defer returnEffectFibersSlice(effectFibers)
-	
+
 	effectCount := 0
-	
+
 	// Iterative traversal to avoid recursion overhead and stack growth
 	// Use a simple slice as stack for depth-first traversal
 	stack := make([]*Fiber, 0, 32) // Pre-allocate for typical tree depth
@@ -106,23 +106,23 @@ func executeEffects() {
 	// Collect fibers with effects starting from the root
 	debugf("COMMIT", "🔍 executeEffects: collecting effects from fiber tree (iterative)\n")
 	collectStartTime := time.Now()
-	
+
 	for len(stack) > 0 {
 		// Pop from stack (LIFO for depth-first)
 		fiber := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
-		
+
 		if fiber == nil {
 			continue
 		}
-		
+
 		if len(fiber.effects) > 0 {
 			debugf("COMMIT", "📋 executeEffects: found %d effects in fiber %p (type: %v)\n",
 				len(fiber.effects), fiber, fiber.typeOf)
 			*effectFibers = append(*effectFibers, fiber)
 			effectCount += len(fiber.effects)
 		}
-		
+
 		// Push children to stack (sibling first for correct order)
 		if fiber.sibling != nil {
 			stack = append(stack, fiber.sibling)
@@ -131,7 +131,7 @@ func executeEffects() {
 			stack = append(stack, fiber.child)
 		}
 	}
-	
+
 	collectDuration := time.Since(collectStartTime)
 
 	debugf("COMMIT", "📊 executeEffects: collected %d effects from %d fibers in %v\n",
@@ -258,6 +258,9 @@ func commitWork(fiber *Fiber) {
 func commitDeletion(fiber *Fiber, domParent js.Value) {
 	debugf("COMMIT", "🗑️ commitDeletion: cleaning up fiber %p (type: %v)\n", fiber, fiber.typeOf)
 
+	// Unsubscribe from any atoms to prevent memory leaks and unwanted updates
+	UnsubscribeFiberFromAllAtoms(fiber)
+
 	// Enhanced cleanup for deleted components
 	if fiber.hooks != nil {
 		debugf("COMMIT", "🧹 commitDeletion: cleaning up hooks for deleted component\n")
@@ -299,7 +302,7 @@ func commitDeletion(fiber *Fiber, domParent js.Value) {
 	if !fiber.dom.IsUndefined() && !fiber.dom.IsNull() {
 		debugf("COMMIT", "📄 commitDeletion: attempting to remove DOM node %v from parent %v\n",
 			fiber.dom.Type(), domParent.Type())
-		
+
 		// Check if the node is actually a child of the parent before removing
 		// This prevents the "node to be removed is not a child" error
 		children := domParent.Get("childNodes")
@@ -314,7 +317,7 @@ func commitDeletion(fiber *Fiber, domParent js.Value) {
 				}
 			}
 		}
-		
+
 		if isChild {
 			debugf("COMMIT", "✅ commitDeletion: confirmed node is child, removing\n")
 			domParent.Call("removeChild", fiber.dom)
@@ -339,7 +342,7 @@ func commitDeletion(fiber *Fiber, domParent js.Value) {
 
 	// --- ADDED: Reset and return fiber to pool for memory management ---
 	resetFiber(fiber)
-	
+
 	// Enforce adaptive pool size limits for fiber pool
 	currentSize := atomic.LoadInt32(&poolSizes.fiber)
 	targetSize := atomic.LoadInt32(&poolConfig.fiberPoolSize)
