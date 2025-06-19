@@ -35,11 +35,15 @@ func PersonalHeroSection(props Attrs) *Element {
 				),
 				H2(
 					Attrs{"class": "text-2xl md:text-3xl text-gray-700 mb-4 font-light"},
-					"Full-Stack Developer & Creator of GoWebComponents",
+					"I Build the Future of Web Development",
 				),
 				P(
-					Attrs{"class": "text-xl text-gray-600 max-w-3xl mx-auto mb-8"},
-					"Passionate about building innovative web technologies and creating developer tools that make coding more enjoyable. Currently revolutionizing frontend development with Go and WebAssembly.",
+					Attrs{"class": "text-xl text-gray-600 max-w-3xl mx-auto mb-4"},
+					"🚀 Created GoWebComponents - the revolutionary React-like framework that lets you build modern web apps entirely in Go using WebAssembly. No JavaScript required.",
+				),
+				P(
+					Attrs{"class": "text-lg text-gray-500 max-w-2xl mx-auto mb-8"},
+					"From AI/ML solutions to cutting-edge frameworks, I turn impossible ideas into production-ready code that developers love.",
 				),
 			),
 
@@ -48,10 +52,10 @@ func PersonalHeroSection(props Attrs) *Element {
 				Attrs{"class": "flex flex-col sm:flex-row gap-4 justify-center mb-12"},
 				Button(
 					Attrs{
-						"class":   "px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200",
-						"onclick": ScrollToSection("projects"),
+						"class":   "px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200 cursor-pointer",
+						"onclick": ScrollToSection("examples"),
 					},
-					"🚀 View My Projects",
+					"💎 See GoWebComponents in Action",
 				),
 				Button(
 					Attrs{
@@ -65,10 +69,10 @@ func PersonalHeroSection(props Attrs) *Element {
 			// Quick stats
 			Div(
 				Attrs{"class": "grid grid-cols-2 md:grid-cols-4 gap-8 max-w-2xl mx-auto"},
-				PersonalStatCard("5+", "Years Experience"),
-				PersonalStatCard("50+", "Projects Built"),
-				PersonalStatCard("10+", "Technologies"),
-				PersonalStatCard("1", "Groundbreaking Framework"),
+				PersonalStatCard("100%", "Go Powered"),
+				PersonalStatCard("0", "JavaScript Required"),
+				PersonalStatCard("∞", "Possibilities"),
+				PersonalStatCard("1", "Revolutionary Framework"),
 			),
 		),
 	)

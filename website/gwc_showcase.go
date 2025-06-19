@@ -85,6 +85,12 @@ func GWCExamplesSection(props Attrs) *Element {
 				MiniAppCard("🎨", "Color Picker", "Dynamic styling", MiniColorPicker, colorPickerSource),
 				MiniAppCard("⏱️", "Timer", "Real-time updates", MiniTimer, timerSource),
 				MiniAppCard("📊", "Vote Counter", "Multiple states", MiniVoting, votingSource),
+
+				// Full-width advanced example
+				Div(
+					Attrs{"class": "md:col-span-2"},
+					MiniAppCard("🔒", "Advanced Form", "Validation • Effects • Memo • Go Routines", AdvancedFormExample, advancedFormSource),
+				),
 			),
 		),
 	)

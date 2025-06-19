@@ -22,11 +22,11 @@ func PortfolioProjectsSection(props Attrs) *Element {
 				Attrs{"class": "text-center mb-16"},
 				H2(
 					Attrs{"class": "text-4xl font-bold text-gray-900 mb-4"},
-					"Featured Projects",
+					"🚀 GoWebComponents Showcase",
 				),
 				P(
 					Attrs{"class": "text-xl text-gray-600 max-w-3xl mx-auto"},
-					"A selection of projects that showcase my passion for innovation",
+					"Revolutionary projects that redefine what's possible in web development - built with cutting-edge Go and WebAssembly technology",
 				),
 			),
 
