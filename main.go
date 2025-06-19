@@ -9,7 +9,8 @@ import (
 	"fmt"
 	"sync"
 
-	. "github.com/monstercameron/GoWebComponents/website"
+	. "github.com/monstercameron/GoWebComponents/example"
+	// . "github.com/monstercameron/GoWebComponents/website"
 )
 
 // main is the entry point of the program
@@ -18,22 +19,15 @@ func main() {
 	wg.Add(1)
 
 	fmt.Println("🚀 Go Web Components starting...")
+	fmt.Println("📊 Loading GoUseAtom Example...")
 
-	// Create and render the main app component
-	// Hot Reload Test Component - Perfect for testing partial reloading!
-	// Uncomment this line to test hot reload vs full reload classification
-	// appComponent := examples.StateTest()
-
-	// Other available examples (comment out the line above and uncomment one below)
-	// appComponent := examples.GetSimpleStateExamplesApp()
-	// examples.ClickCounterExample()
-	// examples.ConcurrentDashboardExample()
-	// examples.NetworkMonitoringDashboardExample()
-
-	// Render the app to the DOM with router
+	// Render the GoUseAtom example to the DOM
 	RendertoDom("#app", App)
 
-	fmt.Println("✅ App rendered successfully")
+	// Alternative: Render the website (uncomment the website import above and comment out the example import)
+	// RendertoDom("#app", App)
+
+	fmt.Println("✅ GoUseAtom Example rendered successfully")
 
 	// Keep the program alive for WebAssembly event handling
 	wg.Wait()
