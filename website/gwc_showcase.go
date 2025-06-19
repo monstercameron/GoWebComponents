@@ -98,26 +98,187 @@ func GWCExamplesSection(props Attrs) *Element {
 	)
 }
 
-// AdvancedFormShowcase wraps the AdvancedFormExample with dynamic source fetching
+// AdvancedFormShowcase wraps the AdvancedFormExample with on-demand source fetching
 func AdvancedFormShowcase(props Attrs) *Element {
-	// Fetch source code from GitHub
-	sourceUrl := "https://raw.githubusercontent.com/monstercameron/GoWebComponents/refs/heads/master/website/advanced_form.go"
-	getFetchState, _ := GoUseFetch(sourceUrl)
+	return LazyMiniAppCard("🔒", "Advanced Form", "Validation • Effects • Memo • Go Routines • GoUseFetch", AdvancedFormExample, "https://raw.githubusercontent.com/monstercameron/GoWebComponents/refs/heads/master/website/advanced_form.go")
+}
+
+// LazyMiniAppCard creates a mini app showcase card with on-demand source code fetching
+func LazyMiniAppCard(icon, title, description string, component func(Attrs) *Element, sourceUrl string) *Element {
+	showSource, setShowSource := GoUseState(false)
+	sourceLoaded, setSourceLoaded := GoUseState(false)
+	shouldFetch, setShouldFetch := GoUseState(false)
+
+	// Use GoUseFetch but only when shouldFetch is true
+	fetchUrl := func() string {
+		if shouldFetch() {
+			return sourceUrl
+		}
+		return "" // Empty URL means no fetch
+	}()
+
+	getFetchState, _ := GoUseFetch(fetchUrl)
 	fetchState := getFetchState()
 
-	// Provide a fallback source while loading or on error
+	// Determine current source code and loading state
 	var sourceCode string
-	if fetchState.Loading {
-		sourceCode = "// Loading source code from GitHub..."
+	var isLoading bool
+
+	if !sourceLoaded() {
+		sourceCode = "// Click 'View Code' to load source from GitHub..."
+		isLoading = false
+	} else if fetchState.Loading {
+		sourceCode = ""
+		isLoading = true
 	} else if fetchState.Error != "" {
 		sourceCode = fmt.Sprintf("// Error fetching source code: %s\n// Please check the URL: %s", fetchState.Error, sourceUrl)
+		isLoading = false
 	} else if fetchState.Data != nil {
 		sourceCode = fmt.Sprintf("%v", fetchState.Data)
+		isLoading = false
 	} else {
 		sourceCode = "// Source code not available"
+		isLoading = false
 	}
 
-	return MiniAppCard("🔒", "Advanced Form", "Validation • Effects • Memo • Go Routines • GoUseFetch", AdvancedFormExample, sourceCode)
+	toggleSource := GoUseFunc(func(event GoEvent) {
+		if !showSource() && !sourceLoaded() {
+			// First time viewing source - trigger the API call
+			setSourceLoaded(true)
+			setShouldFetch(true)
+			// The fetch will trigger automatically when shouldFetch becomes true
+		}
+		setShowSource(!showSource())
+	})
+
+	copyToClipboard := GoUseFunc(func(event GoEvent) {
+		if !isLoading && sourceCode != "" && sourceLoaded() {
+			js.Global().Get("navigator").Get("clipboard").Call("writeText", sourceCode)
+		}
+	})
+
+	return Div(
+		Attrs{
+			"class": "relative group",
+			"style": "perspective: 1000px; min-height: 450px;",
+		},
+
+		// 3D Flip Container with Shadow
+		Div(
+			Attrs{
+				"class": "relative w-full min-h-[450px] transition-all duration-700 bg-white rounded-xl shadow-lg hover:shadow-xl border border-gray-200",
+				"style": func() string {
+					if showSource() {
+						return "transform: rotateY(180deg); transform-style: preserve-3d;"
+					}
+					return "transform: rotateY(0deg); transform-style: preserve-3d;"
+				}(),
+			},
+
+			// Front Side - App View
+			Div(
+				Attrs{
+					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden flex flex-col",
+					"style": "backface-visibility: hidden; transform: rotateY(0deg);",
+				},
+
+				// Header
+				Div(
+					Attrs{"class": "p-6 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50"},
+					Div(
+						Attrs{"class": "flex items-center justify-between"},
+						Div(
+							Attrs{"class": "flex items-center space-x-2"},
+							Span(Attrs{"class": "text-2xl"}, icon),
+							Div(nil,
+								H3(Attrs{"class": "font-semibold text-gray-900"}, title),
+								P(Attrs{"class": "text-xs text-gray-600"}, description),
+							),
+						),
+						Button(
+							Attrs{
+								"class":   "text-xs px-3 py-1 bg-gray-800 text-white rounded-full hover:bg-gray-700 transition-all duration-300 hover:scale-105",
+								"onclick": toggleSource,
+							},
+							"</> View Code",
+						),
+					),
+				),
+
+				// App Component
+				Div(
+					Attrs{"class": "flex-1 overflow-y-auto p-6 bg-gray-50"},
+					component(nil),
+				),
+			),
+
+			// Back Side - Code View
+			Div(
+				Attrs{
+					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden bg-gray-900",
+					"style": "backface-visibility: hidden; transform: rotateY(-180deg);",
+				},
+
+				// Code Header
+				Div(
+					Attrs{"class": "p-6 border-b border-gray-700 bg-gray-800"},
+					Div(
+						Attrs{"class": "flex items-center justify-between"},
+						Div(
+							Attrs{"class": "flex items-center space-x-2"},
+							Span(Attrs{"class": "text-green-400 text-lg"}, "{}"),
+							H3(Attrs{"class": "font-semibold text-white text-sm"}, title+" Source"),
+						),
+						Button(
+							Attrs{
+								"class":   "text-xs px-3 py-1 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 transition-all duration-300 hover:scale-105",
+								"onclick": toggleSource,
+							},
+							"🎨 View App",
+						),
+					),
+				),
+
+				// Code Content with Spinner or Source Code
+				Div(
+					Attrs{"class": "relative p-6 pb-12 h-full"},
+					func() *Element {
+						if isLoading {
+							// Show loading spinner
+							return Div(
+								Attrs{"class": "flex items-center justify-center h-full"},
+								Div(
+									Attrs{"class": "text-center"},
+									Div(Attrs{"class": "inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-400 mb-4"}),
+									P(Attrs{"class": "text-green-400 text-sm"}, "Loading source code from GitHub..."),
+								),
+							)
+						} else {
+							// Show source code
+							return Pre(Attrs{
+								"class": "text-xs text-green-400 font-mono leading-relaxed overflow-x-auto h-full pb-8",
+							}, sourceCode)
+						}
+					}(),
+
+					// Floating Clipboard Button (only show when not loading)
+					func() *Element {
+						if !isLoading && sourceCode != "" && sourceLoaded() {
+							return Button(
+								Attrs{
+									"class":   "absolute top-8 right-8 p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg shadow-lg transition-all duration-300 hover:scale-110 opacity-80 hover:opacity-100",
+									"onclick": copyToClipboard,
+									"title":   "Copy to clipboard",
+								},
+								Span(Attrs{"class": "text-base"}, "📋"),
+							)
+						}
+						return Div(nil) // Empty div when loading
+					}(),
+				),
+			),
+		),
+	)
 }
 
 // MiniAppCard creates a mini app showcase card with 3D flip animation and clipboard

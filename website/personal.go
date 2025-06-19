@@ -139,13 +139,15 @@ func PersonalAboutSection(props Attrs) *Element {
 					Div(
 						Attrs{"class": "relative max-w-md mx-auto"},
 
-						// Profile image with modern styling
+						// Profile image with modern styling and lazy loading
 						Div(
 							Attrs{"class": "relative"},
 							Img(Attrs{
-								"src":   "/static/images/profile-2025.jpg",
-								"alt":   "Earl Cameron - Full-Stack Engineer",
-								"class": "w-full h-auto rounded-2xl shadow-2xl object-cover border-4 border-white/50 backdrop-blur-sm",
+								"src":      "/static/images/profile-2025.jpg",
+								"alt":      "Earl Cameron - Full-Stack Engineer",
+								"class":    "w-full h-auto rounded-2xl shadow-2xl object-cover border-4 border-white/50 backdrop-blur-sm transition-opacity duration-500",
+								"loading":  "lazy",
+								"decoding": "async",
 							}),
 
 							// Gradient overlay for better text readability
