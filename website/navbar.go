@@ -197,7 +197,7 @@ func EnhancedNavLink(icon, text, href, section string) *Element {
 
 		// Animated underline
 		Div(Attrs{
-			"class": "absolute bottom-0 left-1/2 w-0 h-0.5 bg-gradient-to-r from-indigo-600 to-purple-600 group-hover:w-3/4 group-hover:left-1/8 transition-all duration-300 rounded-full",
+			"class": "absolute bottom-0 left-1/2 w-0 h-0.5 bg-gradient-to-r from-indigo-600 to-purple-600 group-hover:w-3/4 group-hover:left-5 transition-all duration-300 rounded-full",
 		}),
 
 		// Glow effect
