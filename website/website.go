@@ -41,6 +41,9 @@ func DocsWebsite(props Attrs) *Element {
 
 		// Footer
 		FooterSection(nil),
+
+		// Scroll to Top Button
+		ScrollToTopButton(nil),
 	)
 }
 
