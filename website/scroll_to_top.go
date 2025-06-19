@@ -16,25 +16,24 @@ func ScrollToTopButton(props Attrs) *Element {
 
 	// Effect to handle scroll events
 	GoUseEffect(func() {
+		// Attach the scroll listener exactly once (dependency sentinel below)
 		handleScroll := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			scrollY := js.Global().Get("window").Get("pageYOffset").Float()
 
-			// Show button when scrolled down more than 400px
-			if scrollY > 400 {
-				setIsVisible(true)
-			} else {
-				setIsVisible(false)
+			// Determine desired visibility
+			visible := scrollY > 400
+
+			// Update state only when it actually changes to prevent thrashing
+			if visible != isVisible() {
+				setIsVisible(visible)
 			}
 
 			return nil
 		})
 
-		// Add scroll event listener
+		// Add scroll event listener once
 		js.Global().Get("window").Call("addEventListener", "scroll", handleScroll)
-
-		// Note: Cleanup would be handled by the framework
-		return
-	})
+	}, "scroll_listener") // Stable dependency ensures this runs only once
 
 	// Click handler to scroll to top
 	handleScrollToTop := GoUseFunc(func(event GoEvent) {
