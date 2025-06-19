@@ -9,13 +9,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/monstercameron/GoWebComponents/website"
-
-	"github.com/monstercameron/GoWebComponents/fiber"
+	. "github.com/monstercameron/GoWebComponents/website"
 )
-
-// Global app reference
-var app *fiber.Element
 
 // main is the entry point of the program
 func main() {
@@ -23,21 +18,6 @@ func main() {
 	wg.Add(1)
 
 	fmt.Println("🚀 Go Web Components starting...")
-
-	// Configure debug logging
-	fiber.SetDebugNamespacesExclusive(map[string]bool{
-		"HOOKS":  false,
-		"RENDER": false,
-		"MEMORY": false,
-		"DOM":    false,
-		"FETCH":  false,
-		"EVENTS": false,
-		"COMMIT": false,
-		"FIBER":  false,
-	})
-
-	// Enable hot reload for development
-	fiber.EnableHotReload(true)
 
 	// Create and render the main app component
 	// Hot Reload Test Component - Perfect for testing partial reloading!
@@ -51,7 +31,7 @@ func main() {
 	// examples.NetworkMonitoringDashboardExample()
 
 	// Render the app to the DOM with router
-	fiber.RenderTo("#app", website.AppRouter)
+	RendertoDom("#app", App)
 
 	fmt.Println("✅ App rendered successfully")
 
