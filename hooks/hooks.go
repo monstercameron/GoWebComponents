@@ -245,5 +245,251 @@ func UseRef(initialValue interface{}) *runtime.RefValue {
 	return runtime.GoUseRefGlobal(initialValue)
 }
 
+// UseId generates a unique, stable identifier for accessibility attributes.
+// The ID is generated once per component and persists across renders,
+// making it ideal for connecting labels to form inputs and other elements.
+//
+// This hook is useful for:
+//   - Connecting label elements to form inputs
+//   - Creating unique IDs for ARIA attributes
+//   - Generating predictable but unique identifiers
+//   - Accessibility improvements (a11y)
+//
+// The generated ID has format: "gwc:<unique-number>:<hook-position>"
+// This format ensures uniqueness globally and stability across renders.
+//
+// Example connecting label to input:
+//
+//	func TextInput(props dom.Attrs) *fiber.Element {
+//	    inputId := hooks.UseId()
+//	    value, setValue := hooks.UseState("")
+//
+//	    return dom.Div(nil,
+//	        dom.Label(map[string]interface{}{
+//	            "htmlFor": inputId,
+//	        }, dom.Text("Name:")),
+//	        dom.Input(map[string]interface{}{
+//	            "id": inputId,
+//	            "type": "text",
+//	            "value": value(),
+//	            "onchange": func(this js.Value, args []js.Value) interface{} {
+//	                setValue(args[0].Get("target").Get("value").String())
+//	                return nil
+//	            },
+//	        }),
+//	    )
+//	}
+//
+// Example with ARIA attributes:
+//
+//	func ComboBox(props dom.Attrs) *fiber.Element {
+//	    labelId := hooks.UseId()
+//	    listId := hooks.UseId()
+//	    open, setOpen := hooks.UseState(false)
+//
+//	    return dom.Div(nil,
+//	        dom.Label(map[string]interface{}{
+//	            "id": labelId,
+//	        }, dom.Text("Select option:")),
+//	        dom.Div(map[string]interface{}{
+//	            "id": listId,
+//	            "role": "listbox",
+//	            "aria-labelledby": labelId,
+//	        },
+//	            dom.Div(nil, dom.Text("Option 1")),
+//	            dom.Div(nil, dom.Text("Option 2")),
+//	        ),
+//	    )
+//	}
+//
+// Note: The returned ID is a string and remains stable across re-renders.
+// Each call to UseId in a component generates a different ID.
+func UseId() string {
+	return runtime.GoUseIdGlobal()
+}
+
+// UseFetch manages asynchronous data fetching with manual trigger control.
+// This hook is designed for scenarios where you want fine-grained control
+// over when data is fetched, rather than automatic fetching on mount or dependency change.
+//
+// The hook returns:
+//   - A getter function that returns the current FetchState (Data, Error, Loading)
+//   - A refetch function to manually trigger the fetch operation
+//
+// The FetchState contains:
+//   - Data: The fetched data (nil until fetch completes)
+//   - Error: Error message if fetch failed (empty string if no error)
+//   - Loading: Boolean indicating if fetch is in progress
+//
+// The fetch operation runs asynchronously in a goroutine using channels,
+// allowing the component to remain responsive during data loading.
+//
+// Example basic usage:
+//
+//	func UserProfile(props dom.Attrs) *fiber.Element {
+//	    userState, refetchUser := hooks.UseFetch("https://api.example.com/user/123")
+//
+//	    // Handle loading state
+//	    if userState().Loading {
+//	        return dom.Div(nil, dom.Text("Loading user..."))
+//	    }
+//
+//	    // Handle error state
+//	    if userState().Error != "" {
+//	        return dom.Div(nil, dom.Text("Error: " + userState().Error))
+//	    }
+//
+//	    // Render data
+//	    return dom.Div(nil,
+//	        dom.P(nil, dom.Text("User data loaded")),
+//	        dom.Button(map[string]interface{}{
+//	            "onclick": func(this js.Value, args []js.Value) interface{} {
+//	                refetchUser()
+//	                return nil
+//	            },
+//	        }, "Refresh"),
+//	    )
+//	}
+//
+// Example with dependent data loading:
+//
+//	func PostWithComments(props dom.Attrs) *fiber.Element {
+//	    postId, _ := hooks.UseState("123")
+//	    postState, refetchPost := hooks.UseFetch("https://api.example.com/posts/" + postId())
+//	    
+//	    loadPost := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+//	        refetchPost()
+//	        return nil
+//	    })
+//
+//	    return dom.Div(nil,
+//	        dom.Button(map[string]interface{}{"onclick": loadPost}, "Load Post"),
+//	        renderPostContent(postState()),
+//	    )
+//	}
+//
+// Example with polling/refresh logic:
+//
+//	func RealtimeData(props dom.Attrs) *fiber.Element {
+//	    dataState, refetch := hooks.UseFetch("https://api.example.com/stats")
+//	    isPolling, setIsPolling := hooks.UseState(false)
+//
+//	    // Set up polling interval
+//	    hooks.UseEffect(func() func() {
+//	        if !isPolling() {
+//	            return nil
+//	        }
+//	        
+//	        ticker := time.NewTicker(5 * time.Second)
+//	        go func() {
+//	            for range ticker.C {
+//	                refetch()
+//	            }
+//	        }()
+//	        
+//	        return func() {
+//	            ticker.Stop()
+//	        }
+//	    }, isPolling())
+//
+//	    return dom.Div(nil,
+//	        dom.Button(map[string]interface{}{
+//	            "onclick": func(this js.Value, args []js.Value) interface{} {
+//	                setIsPolling(func(v interface{}) interface{} {
+//	                    return !v.(bool)
+//	                })
+//	                return nil
+//	            },
+//	        }, "Toggle Polling"),
+//	        renderData(dataState()),
+//	    )
+//	}
+//
+// Important: Always call UseFetch at the top level of your component,
+// never inside conditions or loops. Call refetch() to trigger the fetch operation.
+func UseFetch(url string, options ...interface{}) (func() runtime.FetchState, func()) {
+	return runtime.GoUseFetchGlobal(url, options...)
+}
+
 // Note: GoUseFunc is not yet implemented in the fiber package
 // func UseFunc(...) { ... }
+
+// GoUseFunc wraps Go functions as JavaScript event handlers
+// It automatically detects the function signature and creates the appropriate wrapper
+//
+// This hook makes event handlers much cleaner by eliminating verbose js.FuncOf boilerplate.
+//
+// Supported function signatures:
+//   - func() - Simple handler with no arguments
+//   - func(string) - Input handler that extracts event.target.value
+//   - func(js.Value) - Full event handler receiving the raw JS event object
+//   - func() error - Handler that can return errors gracefully
+//   - func(js.Value) error - Event handler that can fail
+//
+// The returned value can be used directly as an event handler in dom attributes.
+//
+// Example with simple click handler:
+//
+//	func Counter(props dom.Attrs) *dom.Element {
+//	    count, setCount := hooks.UseState(0)
+//
+//	    increment := hooks.GoUseFunc(func() {
+//	        setCount(func(prev int) int { return prev + 1 })
+//	    })
+//
+//	    return dom.Div(nil,
+//	        dom.P(nil, dom.Text(fmt.Sprintf("Count: %d", count()))),
+//	        dom.Button(dom.Attrs{"onclick": increment}, dom.Text("Increment")),
+//	    )
+//	}
+//
+// Example with input handler that extracts value:
+//
+//	func TextInput(props dom.Attrs) *dom.Element {
+//	    value, setValue := hooks.UseState("")
+//
+//	    handleChange := hooks.GoUseFunc(func(inputValue string) {
+//	        setValue(inputValue)
+//	    })
+//
+//	    return dom.Div(nil,
+//	        dom.Input(dom.Attrs{
+//	            "type": "text",
+//	            "onchange": handleChange,
+//	        }),
+//	        dom.P(nil, dom.Text(fmt.Sprintf("Value: %s", value()))),
+//	    )
+//	}
+//
+// Example with full event handler:
+//
+//	func FormSubmit(props dom.Attrs) *dom.Element {
+//	    submitted, setSubmitted := hooks.UseState("")
+//
+//	    handleSubmit := hooks.GoUseFunc(func(event js.Value) {
+//	        event.Call("preventDefault")
+//	        input := event.Get("target").Call("querySelector", "#form-input")
+//	        value := input.Get("value").String()
+//	        setSubmitted(value)
+//	    })
+//
+//	    return dom.Form(dom.Attrs{"onsubmit": handleSubmit},
+//	        dom.Input(dom.Attrs{"id": "form-input", "type": "text"}),
+//	        dom.Button(dom.Attrs{"type": "submit"}, dom.Text("Submit")),
+//	        dom.P(nil, dom.Text(fmt.Sprintf("Submitted: %s", submitted()))),
+//	    )
+//	}
+//
+// Benefits over direct js.FuncOf:
+//   - ✓ Much cleaner and more readable code
+//   - ✓ Automatic argument extraction (no manual unpacking needed)
+//   - ✓ Type-safe - compiler catches signature mismatches
+//   - ✓ Less boilerplate - no need for nil returns and type assertions
+//   - ✓ Familiar pattern - follows React hooks conventions
+//
+// Important: Always call GoUseFunc at the top level of your component,
+// never inside conditions or loops. The order of hook calls must be consistent.
+func GoUseFunc(fn interface{}) interface{} {
+	return runtime.GoUseFuncGlobal(fn)
+}
+

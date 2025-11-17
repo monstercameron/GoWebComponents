@@ -272,6 +272,9 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 			&dom.Element{Type: ToggleEffectDemo},
 		),
 		dom.P(dom.Attrs{"id": "cleanup-status"}, dom.Text("")),
+		// Add new hook tests
+		&dom.Element{Type: UseIdTestComponent},
+		&dom.Element{Type: UseFetchTestComponent},
 		// Add component that intentionally uses invalid props to ensure graceful handling
 		&dom.Element{Type: BadProps},
 	)
@@ -282,6 +285,111 @@ func BadProps(props dom.Attrs) *dom.Element {
 	// class attribute as non-string, onclick as non-function to simulate invalid props
 	return dom.Div(dom.Attrs{"id": "bad-props", "class": 12345, "onclick": "not-a-function"},
 		dom.Text("BadProps"),
+	)
+}
+
+// UseIdTestComponent demonstrates UseId hook for accessibility
+func UseIdTestComponent(props dom.Attrs) *dom.Element {
+	inputId := hooks.UseId()
+	selectId := hooks.UseId()
+	checkboxId := hooks.UseId()
+
+	return dom.Div(dom.Attrs{"id": "use-id-test", "class": "mt-8"},
+		dom.H2(nil, dom.Text("UseId Test")),
+		dom.Div(dom.Attrs{"class": "mb-4"},
+			dom.Label(dom.Attrs{
+				"htmlFor": inputId,
+				"id":      "input-label",
+				"class":   "block mb-2",
+			}, dom.Text("Test Input:")),
+			dom.Input(dom.Attrs{
+				"id":    inputId,
+				"type":  "text",
+				"class": "border p-2",
+			}),
+			dom.P(dom.Attrs{"id": "input-id-display"},
+				dom.Text(fmt.Sprintf("Input ID: %s", inputId)),
+			),
+		),
+		dom.Div(dom.Attrs{"class": "mb-4"},
+			dom.Label(dom.Attrs{
+				"htmlFor": selectId,
+				"id":      "select-label",
+				"class":   "block mb-2",
+			}, dom.Text("Test Select:")),
+			dom.Select(dom.Attrs{
+				"id": selectId,
+			},
+				dom.Option(dom.Attrs{"value": "1"}, dom.Text("Option 1")),
+				dom.Option(dom.Attrs{"value": "2"}, dom.Text("Option 2")),
+			),
+			dom.P(dom.Attrs{"id": "select-id-display"},
+				dom.Text(fmt.Sprintf("Select ID: %s", selectId)),
+			),
+		),
+		dom.Div(dom.Attrs{"class": "mb-4"},
+			dom.Div(nil,
+				dom.Input(dom.Attrs{
+					"id":    checkboxId,
+					"type":  "checkbox",
+				}),
+				dom.Label(dom.Attrs{
+					"htmlFor": checkboxId,
+					"id":      "checkbox-label",
+					"class":   "ml-2",
+				}, dom.Text("Test Checkbox")),
+			),
+			dom.P(dom.Attrs{"id": "checkbox-id-display"},
+				dom.Text(fmt.Sprintf("Checkbox ID: %s", checkboxId)),
+			),
+		),
+	)
+}
+
+// UseFetchTestComponent demonstrates UseFetch hook
+func UseFetchTestComponent(props dom.Attrs) *dom.Element {
+	// Mock data URL - in real tests, this would be a test server endpoint
+	userState, refetchUser := hooks.UseFetch("/api/user/123")
+
+	// Use GoUseFunc hook for cleaner event handler
+	fetchHandler := hooks.GoUseFunc(func() {
+		refetchUser()
+	})
+
+	state := userState()
+
+	// Render based on fetch state
+	var content *dom.Element
+	if state.Loading {
+		content = dom.P(dom.Attrs{"id": "fetch-loading"}, dom.Text("Loading..."))
+	} else if state.Error != "" {
+		content = dom.P(dom.Attrs{
+			"id":    "fetch-error",
+			"style": "color: red;",
+		}, dom.Text(fmt.Sprintf("Error: %s", state.Error)))
+	} else if state.Data != nil {
+		content = dom.P(dom.Attrs{"id": "fetch-data"},
+			dom.Text(fmt.Sprintf("Data: %v", state.Data)),
+		)
+	} else {
+		content = dom.P(dom.Attrs{"id": "fetch-idle"},
+			dom.Text("No data fetched yet"),
+		)
+	}
+
+	return dom.Div(dom.Attrs{"id": "use-fetch-test", "class": "mt-8"},
+		dom.H2(nil, dom.Text("UseFetch Test")),
+		dom.Button(dom.Attrs{
+			"id":      "fetch-button",
+			"onclick": fetchHandler,
+			"class":   "px-4 py-2 bg-blue-500 text-white",
+		}, dom.Text("Fetch User Data")),
+		dom.Div(dom.Attrs{"class": "mt-4"},
+			content,
+		),
+		dom.P(dom.Attrs{"id": "fetch-state-display"},
+			dom.Text(fmt.Sprintf("State: Loading=%v, Error=%s", state.Loading, state.Error)),
+		),
 	)
 }
 

@@ -3,6 +3,12 @@
 
 package runtime
 
+import (
+	"fmt"
+	"reflect"
+	"syscall/js"
+)
+
 // Global wrapper functions that provide simplified API for public packages
 // These match the old fiber package API
 
@@ -34,6 +40,87 @@ func GoUseCallbackGlobal(fn interface{}, deps ...interface{}) interface{} {
 func GoUseRefGlobal(initialValue interface{}) *RefValue {
 	// GoUseRef doesn't need Runtime, it works with current fiber
 	return GoUseRef(initialValue)
+}
+
+// GoUseIdGlobal wraps GoUseId
+func GoUseIdGlobal() string {
+	// GoUseId doesn't need Runtime, it works with current fiber
+	return GoUseId()
+}
+
+// GoUseFetchGlobal wraps GoUseFetch with global fiber context
+func GoUseFetchGlobal(url string, options ...interface{}) (func() FetchState, func()) {
+	// GoUseFetch doesn't need Runtime, it works with current fiber
+	return GoUseFetch(url, options...)
+}
+
+// GoUseFuncGlobal wraps GoUseFunc with WASM event handler wrapping
+func GoUseFuncGlobal(fn interface{}) interface{} {
+	// First, call the core GoUseFunc to validate and store the function
+	storedFn := GoUseFunc(fn)
+
+	// Then wrap it based on the function signature
+	fnType := reflect.TypeOf(storedFn)
+	if fnType == nil || fnType.Kind() != reflect.Func {
+		panic("GoUseFuncGlobal: invalid function")
+	}
+
+	numIn := fnType.NumIn()
+	numOut := fnType.NumOut()
+
+	// Create the appropriate wrapper based on function signature
+	switch {
+	// func()
+	case numIn == 0 && numOut == 0:
+		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			storedFn.(func())()
+			return nil
+		})
+
+	// func() error
+	case numIn == 0 && numOut == 1:
+		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			result := reflect.ValueOf(storedFn).Call([]reflect.Value{})
+			if len(result) > 0 && !result[0].IsNil() {
+				fmt.Printf("Handler error: %v\n", result[0].Interface())
+			}
+			return nil
+		})
+
+	// func(string) - input handler
+	case numIn == 1 && fnType.In(0).Kind() == reflect.String:
+		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			if len(args) > 0 {
+				value := args[0].Get("target").Get("value").String()
+				storedFn.(func(string))(value)
+			}
+			return nil
+		})
+
+	// func(js.Value) - event handler
+	case numIn == 1 && fnType.In(0).String() == "syscall/js.Value":
+		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			if len(args) > 0 {
+				storedFn.(func(js.Value))(args[0])
+			}
+			return nil
+		})
+
+	// func(js.Value) error - event handler with error
+	case numIn == 1 && fnType.In(0).String() == "syscall/js.Value" && numOut == 1:
+		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			if len(args) > 0 {
+				result := reflect.ValueOf(storedFn).Call([]reflect.Value{reflect.ValueOf(args[0])})
+				if len(result) > 0 && !result[0].IsNil() {
+					fmt.Printf("Handler error: %v\n", result[0].Interface())
+				}
+			}
+			return nil
+		})
+
+	default:
+		panic(fmt.Sprintf("GoUseFuncGlobal: unsupported function signature: %v", fnType))
+	}
 }
 
 // GoUseAtomGlobal wraps GoUseAtom with global runtime

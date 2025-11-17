@@ -705,3 +705,134 @@ func TestGoUseRef_WithNilInitialValue(t *testing.T) {
 	}
 }
 
+func TestGoUseId_GeneratesUniqueId(t *testing.T) {
+	fiber := &Fiber{
+		typeOf: "test",
+		props:  make(map[string]interface{}),
+	}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	// Generate ID
+	id := GoUseId()
+
+	if id == "" {
+		t.Error("Expected non-empty ID")
+	}
+
+	// Check format: "gwc:<number>:<position>"
+	// Should start with "gwc:"
+	if len(id) < 4 || id[:4] != "gwc:" {
+		t.Errorf("Expected ID to start with 'gwc:', got %s", id)
+	}
+
+	// Should contain at least one colon after "gwc:"
+	if !contains(id, ":") || len(id) <= 4 {
+		t.Errorf("Expected ID to have format 'gwc:<number>:<position>', got %s", id)
+	}
+}
+
+func TestGoUseId_PersistsAcrossRenders(t *testing.T) {
+	fiber := &Fiber{
+		typeOf: "test",
+		props:  make(map[string]interface{}),
+	}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	// First render - generate ID
+	id1 := GoUseId()
+
+	if id1 == "" {
+		t.Fatal("Expected non-empty ID on first render")
+	}
+
+	// Reset hook index for second render
+	fiber.hooks.index = 0
+
+	// Second render - get same ID
+	id2 := GoUseId()
+
+	if id1 != id2 {
+		t.Errorf("Expected ID to persist, got %s then %s", id1, id2)
+	}
+}
+
+func TestGoUseId_MultipleIdsIndependent(t *testing.T) {
+	fiber := &Fiber{
+		typeOf: "test",
+		props:  make(map[string]interface{}),
+	}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	// Generate multiple IDs
+	id1 := GoUseId()
+	id2 := GoUseId()
+	id3 := GoUseId()
+
+	if len(fiber.hooks.ids) != 3 {
+		t.Errorf("Expected 3 IDs stored, got %d", len(fiber.hooks.ids))
+	}
+
+	// All IDs should be different
+	if id1 == id2 {
+		t.Error("Expected different IDs for first and second call")
+	}
+
+	if id2 == id3 {
+		t.Error("Expected different IDs for second and third call")
+	}
+
+	if id1 == id3 {
+		t.Error("Expected different IDs for first and third call")
+	}
+
+	// Reset for second render and verify independence
+	fiber.hooks.index = 0
+
+	id1Again := GoUseId()
+	id2Again := GoUseId()
+	id3Again := GoUseId()
+
+	// All should retain their IDs
+	if id1Again != id1 || id2Again != id2 || id3Again != id3 {
+		t.Error("Expected all IDs to persist across renders")
+	}
+}
+
+func TestGoUseId_ContainsHookPosition(t *testing.T) {
+	fiber := &Fiber{
+		typeOf: "test",
+		props:  make(map[string]interface{}),
+	}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	id1 := GoUseId() // Position 0
+	id2 := GoUseId() // Position 1
+	id3 := GoUseId() // Position 2
+
+	// IDs should contain their positions in the format
+	if !contains(id1, ":0") {
+		t.Errorf("Expected first ID to contain ':0', got %s", id1)
+	}
+
+	if !contains(id2, ":1") {
+		t.Errorf("Expected second ID to contain ':1', got %s", id2)
+	}
+
+	if !contains(id3, ":2") {
+		t.Errorf("Expected third ID to contain ':2', got %s", id3)
+	}
+}
+
+func contains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+

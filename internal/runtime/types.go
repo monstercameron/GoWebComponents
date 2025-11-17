@@ -27,6 +27,9 @@ type Fiber struct {
 	effects        []func()
 	eventCallbacks []EventHandler
 
+	// Component unique ID counter for useId
+	componentIdCounter int
+
 	// Reconciliation metadata
 	effectTag   string
 	dirty       bool
@@ -44,6 +47,8 @@ const (
 	HookTypeRef
 	HookTypeFunc
 	HookTypeAtom
+	HookTypeId
+	HookTypeFetch
 )
 
 // HookCall represents a single hook call for order validation
@@ -64,10 +69,30 @@ type callbackValue struct {
 	deps []interface{}
 }
 
+// fetchValue stores fetch state and URL for a UseFetch hook call
+type fetchValue struct {
+	state FetchState
+	url   string
+	// channel for ongoing fetch (can be nil if not fetching)
+	fetchChannel <-chan interface{}
+}
+
+// funcHandlerValue stores a wrapped event handler function
+type funcHandlerValue struct {
+	fn interface{} // The user's function (func(), func(string), func(js.Value), etc.)
+}
+
 // RefValue represents a reference object that persists across renders
 // It has a single .current property that can hold any value
 type RefValue struct {
 	Current interface{}
+}
+
+// FetchState represents the state of a fetch operation
+type FetchState struct {
+	Data    interface{} // The fetched data
+	Error   string      // Error message if fetch failed
+	Loading bool        // Whether currently fetching
 }
 
 // Hooks manages component hook state
@@ -80,6 +105,9 @@ type Hooks struct {
 	memos        []memoizedValue
 	callbacks    []callbackValue
 	refs         []*RefValue // Store refs separately to persist across renders
+	ids          []string    // Store generated IDs that persist across renders
+	fetches      []fetchValue // Store fetch states for manual fetch hooks
+	funcs        []funcHandlerValue // Store wrapped event handler functions
 	cleanups     []func()    // Cleanup functions from UseEffect
 
 	callOrder    []HookCall
