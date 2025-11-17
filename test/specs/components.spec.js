@@ -23,11 +23,25 @@ test.describe('GoWebComponents - Component Composition', () => {
     expect(classes).toBeTruthy();
   });
 
-  test.skip('components can be reused multiple times', async ({ page }) => {
+  test('components can be reused multiple times', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    // TODO: Test multiple instances of same component
+    // Check that multiple Counter components are rendered
+    const counters = await page.locator('.counter-instance').count();
+    expect(counters).toBeGreaterThanOrEqual(3);
+    
+    // Verify each counter has independent state
+    const counterA = page.locator('[data-counter-id="A"]');
+    const counterB = page.locator('[data-counter-id="B"]');
+    
+    // Click first counter
+    await counterA.locator('.counter-btn').click();
+    await page.waitForTimeout(100);
+    
+    // Verify only first counter updated
+    await expect(counterA.locator('.counter-value')).toHaveText('Counter A: 1');
+    await expect(counterB.locator('.counter-value')).toHaveText('Counter B: 0');
   });
 });
 

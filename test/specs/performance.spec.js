@@ -116,7 +116,7 @@ test.describe('GoWebComponents - Browser Compatibility', () => {
 });
 
 test.describe('GoWebComponents - Accessibility', () => {
-  test.skip('buttons have accessible text', async ({ page }) => {
+  test('buttons have accessible text', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
@@ -127,7 +127,7 @@ test.describe('GoWebComponents - Accessibility', () => {
     expect(text.length).toBeGreaterThan(0);
   });
 
-  test.skip('semantic HTML is used', async ({ page }) => {
+  test('semantic HTML is used', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     

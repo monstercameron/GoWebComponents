@@ -13,6 +13,35 @@ import (
 	"github.com/monstercameron/GoWebComponents/render"
 )
 
+// Counter is a reusable component for testing component reuse
+func Counter(props dom.Attrs) *dom.Element {
+	id := ""
+	if props != nil {
+		if idVal, ok := props["id"].(string); ok {
+			id = idVal
+		}
+	}
+	
+	count, setCount := hooks.UseState(0)
+	
+	increment := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		setCount(func(prev int) int {
+			return prev + 1
+		})
+		return nil
+	})
+	
+	return dom.Div(dom.Attrs{"class": "counter-instance", "data-counter-id": id},
+		dom.P(dom.Attrs{"class": "counter-value"}, 
+			dom.Text(fmt.Sprintf("Counter %s: %d", id, count())),
+		),
+		dom.Button(dom.Attrs{
+			"onclick": increment,
+			"class": "counter-btn px-2 py-1 bg-purple-500 text-white",
+		}, dom.Text("+")),
+	)
+}
+
 // HelloWorld component demonstrates basic usage
 func HelloWorld(props dom.Attrs) *dom.Element {
 	count, setCount := hooks.UseState(0)
@@ -124,6 +153,12 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 			dom.P(dom.Attrs{"id": "submit-value"}, 
 				dom.Text(fmt.Sprintf("Submitted: %s", submitValue())),
 			),
+		),
+		dom.Div(dom.Attrs{"class": "mt-4", "id": "reusable-components"},
+			dom.H2(nil, dom.Text("Reusable Components")),
+			&dom.Element{Type: Counter, Props: dom.Attrs{"id": "A"}},
+			&dom.Element{Type: Counter, Props: dom.Attrs{"id": "B"}},
+			&dom.Element{Type: Counter, Props: dom.Attrs{"id": "C"}},
 		),
 	)
 }
