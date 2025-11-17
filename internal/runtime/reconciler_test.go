@@ -1178,3 +1178,160 @@ func TestGetSetCurrentFiber(t *testing.T) {
 		t.Error("Expected nil after setting to nil")
 	}
 }
+
+func TestFlattenFragments_NoFragments(t *testing.T) {
+	elements := []interface{}{
+		&Element{Type: "div", Props: make(map[string]interface{}), Children: []interface{}{}},
+		&Element{Type: "span", Props: make(map[string]interface{}), Children: []interface{}{}},
+	}
+
+	result := flattenFragments(elements)
+
+	if len(result) != 2 {
+		t.Errorf("Expected 2 elements, got %d", len(result))
+	}
+
+	if elem, ok := result[0].(*Element); !ok || elem.Type != "div" {
+		t.Error("Expected first element to be div")
+	}
+
+	if elem, ok := result[1].(*Element); !ok || elem.Type != "span" {
+		t.Error("Expected second element to be span")
+	}
+}
+
+func TestFlattenFragments_WithFragment(t *testing.T) {
+	// Create elements: div, Fragment(span, p), h1
+	fragmentChildren := []interface{}{
+		&Element{Type: "span", Props: make(map[string]interface{}), Children: []interface{}{}},
+		&Element{Type: "p", Props: make(map[string]interface{}), Children: []interface{}{}},
+	}
+
+	elements := []interface{}{
+		&Element{Type: "div", Props: make(map[string]interface{}), Children: []interface{}{}},
+		&Element{
+			Type:     "FRAGMENT",
+			Props:    map[string]interface{}{"children": fragmentChildren},
+			Children: []interface{}{},
+		},
+		&Element{Type: "h1", Props: make(map[string]interface{}), Children: []interface{}{}},
+	}
+
+	result := flattenFragments(elements)
+
+	if len(result) != 4 {
+		t.Errorf("Expected 4 flattened elements, got %d", len(result))
+	}
+
+	// Check order: div, span, p, h1
+	expected := []string{"div", "span", "p", "h1"}
+	for i, expectedType := range expected {
+		if elem, ok := result[i].(*Element); !ok || elem.Type != expectedType {
+			t.Errorf("Expected element %d to be %s, got %T with type %v", i, expectedType, result[i], elem.Type)
+		}
+	}
+}
+
+func TestFlattenFragments_NestedFragments(t *testing.T) {
+	// Create nested: Fragment(div, Fragment(span, p), h1)
+	innerFragmentChildren := []interface{}{
+		&Element{Type: "span", Props: make(map[string]interface{}), Children: []interface{}{}},
+		&Element{Type: "p", Props: make(map[string]interface{}), Children: []interface{}{}},
+	}
+
+	outerFragmentChildren := []interface{}{
+		&Element{Type: "div", Props: make(map[string]interface{}), Children: []interface{}{}},
+		&Element{
+			Type:     "FRAGMENT",
+			Props:    map[string]interface{}{"children": innerFragmentChildren},
+			Children: []interface{}{},
+		},
+		&Element{Type: "h1", Props: make(map[string]interface{}), Children: []interface{}{}},
+	}
+
+	elements := []interface{}{
+		&Element{
+			Type:     "FRAGMENT",
+			Props:    map[string]interface{}{"children": outerFragmentChildren},
+			Children: []interface{}{},
+		},
+	}
+
+	result := flattenFragments(elements)
+
+	if len(result) != 4 {
+		t.Errorf("Expected 4 flattened elements from nested fragments, got %d", len(result))
+	}
+
+	// Check order: div, span, p, h1
+	expected := []string{"div", "span", "p", "h1"}
+	for i, expectedType := range expected {
+		if elem, ok := result[i].(*Element); !ok || elem.Type != expectedType {
+			t.Errorf("Expected element %d to be %s, got %T with type %v", i, expectedType, result[i], elem.Type)
+		}
+	}
+}
+
+func TestFlattenFragments_EmptyFragment(t *testing.T) {
+	elements := []interface{}{
+		&Element{Type: "div", Props: make(map[string]interface{}), Children: []interface{}{}},
+		&Element{
+			Type:     "FRAGMENT",
+			Props:    make(map[string]interface{}),
+			Children: []interface{}{},
+		},
+		&Element{Type: "span", Props: make(map[string]interface{}), Children: []interface{}{}},
+	}
+
+	result := flattenFragments(elements)
+
+	if len(result) != 2 {
+		t.Errorf("Expected 2 elements (empty fragment flattened away), got %d", len(result))
+	}
+
+	// Check order: div, span
+	expected := []string{"div", "span"}
+	for i, expectedType := range expected {
+		if elem, ok := result[i].(*Element); !ok || elem.Type != expectedType {
+			t.Errorf("Expected element %d to be %s, got %T with type %v", i, expectedType, result[i], elem.Type)
+		}
+	}
+}
+
+func TestFlattenFragments_OnlyFragments(t *testing.T) {
+	// Only fragments containing elements
+	fragment1Children := []interface{}{
+		&Element{Type: "div", Props: make(map[string]interface{}), Children: []interface{}{}},
+	}
+
+	fragment2Children := []interface{}{
+		&Element{Type: "span", Props: make(map[string]interface{}), Children: []interface{}{}},
+	}
+
+	elements := []interface{}{
+		&Element{
+			Type:     "FRAGMENT",
+			Props:    map[string]interface{}{"children": fragment1Children},
+			Children: []interface{}{},
+		},
+		&Element{
+			Type:     "FRAGMENT",
+			Props:    map[string]interface{}{"children": fragment2Children},
+			Children: []interface{}{},
+		},
+	}
+
+	result := flattenFragments(elements)
+
+	if len(result) != 2 {
+		t.Errorf("Expected 2 flattened elements, got %d", len(result))
+	}
+
+	expected := []string{"div", "span"}
+	for i, expectedType := range expected {
+		if elem, ok := result[i].(*Element); !ok || elem.Type != expectedType {
+			t.Errorf("Expected element %d to be %s, got %T", i, expectedType, result[i])
+		}
+	}
+}
+

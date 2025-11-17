@@ -38,8 +38,30 @@ func CreateElement(typ interface{}, props map[string]interface{}, children ...in
 	return elem
 }
 
+// flattenFragments flattens Fragment elements, returning a new slice without Fragment wrappers
+// This allows Fragments to work as transparent containers that don't create DOM nodes
+func flattenFragments(elements []interface{}) []interface{} {
+	var flattened []interface{}
+
+	for _, elem := range elements {
+		if elemPtr, ok := elem.(*Element); ok && elemPtr.Type == "FRAGMENT" {
+			// Recursively flatten the Fragment's children
+			if fragmentChildren, ok := elemPtr.Props["children"].([]interface{}); ok {
+				flattened = append(flattened, flattenFragments(fragmentChildren)...)
+			}
+		} else {
+			flattened = append(flattened, elem)
+		}
+	}
+
+	return flattened
+}
+
 // reconcileChildren reconciles the children of a fiber
 func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
+	// Flatten any Fragment elements before reconciliation
+	elements = flattenFragments(elements)
+
 	index := 0
 	var oldFiber *Fiber
 	if wipFiber.alternate != nil {
@@ -212,6 +234,8 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 					pendingState: make([]interface{}, 0),
 					deps:         make([][]interface{}, 0),
 					memos:        make([]memoizedValue, 0),
+					callbacks:    make([]callbackValue, 0),
+					refs:         make([]*RefValue, 0),
 					cleanups:     make([]func(), 0),
 					callOrder:    make([]HookCall, 0),
 					prevOrder:    make([]HookCall, 0),
@@ -265,8 +289,11 @@ func (rt *Runtime) createDom(fiber *Fiber) DOMNode {
 			if nodeValue, ok := fiber.props["nodeValue"].(string); ok {
 				dom = rt.domAdapter.CreateTextNode(nodeValue)
 			}
+		} else if t == "FRAGMENT" {
+			// Fragments don't create DOM nodes - children are rendered directly
+			return nil
 		} else {
-			// Regular element (not TEXT_ELEMENT)
+			// Regular element (not TEXT_ELEMENT or FRAGMENT)
 			dom = rt.domAdapter.CreateElement(t)
 			// Apply properties only for non-text elements
 			rt.updateDomProperties(dom, make(map[string]interface{}), fiber.props)
