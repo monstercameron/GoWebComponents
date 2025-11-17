@@ -170,7 +170,7 @@ func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(in
 	set := func(newValueOrUpdater interface{}) {
 		// Get current value
 		currentValue := get()
-		
+
 		// Determine the new value
 		var newValue T
 		// Try to treat as functional update (func(T) T)

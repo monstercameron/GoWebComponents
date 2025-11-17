@@ -84,12 +84,10 @@ func (rt *Runtime) RenderTo(selector string, element *Element) {
 			}
 		}
 	}
-	
+
 	if container == nil || container.IsNull() {
 		panic("RenderTo: container not found for selector: " + selector)
 	}
-	
+
 	rt.Render(element, container)
 }
-
-

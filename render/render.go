@@ -23,7 +23,7 @@ func ensureInitialized() {
 		eventAdapter := jsdom.NewWASMEventAdapter()
 		scheduler := jsdom.NewWASMScheduler()
 		browserState := jsdom.NewWASMBrowserState()
-		
+
 		// Initialize global runtime
 		runtime.InitGlobalRuntime(runtime.Config{
 			DOMAdapter:   domAdapter,
@@ -31,7 +31,7 @@ func ensureInitialized() {
 			Scheduler:    scheduler,
 			BrowserState: browserState,
 		})
-		
+
 		initialized = true
 	}
 }
@@ -91,7 +91,7 @@ func To(element *runtime.Element, selector string) {
 func ToElement(element *runtime.Element, domElement js.Value) {
 	ensureInitialized()
 	rt := runtime.GetGlobalRuntime()
-	
+
 	// Wrap js.Value in a DOMNode
 	node := jsdom.NewWASMDOMNode(domElement)
 	rt.Render(element, node)

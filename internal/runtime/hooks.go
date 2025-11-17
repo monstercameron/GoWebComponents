@@ -39,7 +39,7 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 		newState[position] = initialValue
 		fiber.hooks.state = newState
 	}
-	
+
 	// Initialize pending state if needed
 	if len(fiber.hooks.pendingState) <= position {
 		newPending := make([]interface{}, position+1, (position+1)*2)
@@ -172,7 +172,7 @@ func GoUseEffect(effect func() func(), deps ...interface{}) {
 		if fiber.effects == nil {
 			fiber.effects = make([]func(), 0)
 		}
-		
+
 		// Capture position for cleanup storage
 		effectPosition := position
 		fiber.effects = append(fiber.effects, func() {

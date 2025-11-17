@@ -185,17 +185,42 @@ test.describe('GoWebComponents - Reactivity', () => {
     expect(updatedText).not.toBe(initialText);
   });
 
-  test.skip('only affected components re-render', async ({ page }) => {
+  test('only affected components re-render', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    // TODO: Test selective re-rendering
+    const aRendersBefore = parseInt(await page.locator('#react-a-renders').textContent().then(t => t.replace(/[^0-9]/g,'')));
+    const bRendersBefore = parseInt(await page.locator('#react-b-renders').textContent().then(t => t.replace(/[^0-9]/g,'')));
+    const aValueBefore = parseInt(await page.locator('#react-a-value').textContent().then(t => t.replace(/[^0-9]/g,'')));
+
+    // Increment A only
+    await page.locator('#react-a-inc').click();
+    await page.waitForTimeout(150);
+
+    const aRendersAfter = parseInt(await page.locator('#react-a-renders').textContent().then(t => t.replace(/[^0-9]/g,'')));
+    const bRendersAfter = parseInt(await page.locator('#react-b-renders').textContent().then(t => t.replace(/[^0-9]/g,'')));
+    const aValueAfter = parseInt(await page.locator('#react-a-value').textContent().then(t => t.replace(/[^0-9]/g,'')));
+
+    expect(aRendersAfter).toBe(aRendersBefore + 1);
+    expect(bRendersAfter).toBe(bRendersBefore); // B should not re-render
+    expect(aValueAfter).toBe(aValueBefore + 1);
   });
 
-  test.skip('batched updates work correctly', async ({ page }) => {
+  test('batched updates work correctly', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    // TODO: Test update batching
+    const rendersBefore = parseInt(await page.locator('#react-batch-renders').textContent().then(t => t.replace(/[^0-9]/g,'')));
+    const valueBefore = parseInt(await page.locator('#react-batch-value').textContent().then(t => t.replace(/[^0-9]/g,'')));
+
+    await page.locator('#react-batch-btn').click();
+    await page.waitForTimeout(150);
+
+    const rendersAfter = parseInt(await page.locator('#react-batch-renders').textContent().then(t => t.replace(/[^0-9]/g,'')));
+    const valueAfter = parseInt(await page.locator('#react-batch-value').textContent().then(t => t.replace(/[^0-9]/g,'')));
+
+    // Expect single render and value incremented by 3
+    expect(rendersAfter).toBe(rendersBefore + 1);
+    expect(valueAfter).toBe(valueBefore + 3);
   });
 });

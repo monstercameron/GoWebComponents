@@ -50,7 +50,7 @@ func (a *WASMDOMAdapter) CreateElement(tag string) runtime.DOMNode {
 		// Document not available - return null node
 		return &WASMDOMNode{value: js.Null()}
 	}
-	
+
 	elem := a.document.Call("createElement", tag)
 	if elem.IsNull() || elem.IsUndefined() {
 		// This shouldn't happen, but handle it gracefully
@@ -64,7 +64,7 @@ func (a *WASMDOMAdapter) CreateTextNode(text string) runtime.DOMNode {
 	if a.document.IsNull() || a.document.IsUndefined() {
 		return &WASMDOMNode{value: js.Null()}
 	}
-	
+
 	textNode := a.document.Call("createTextNode", text)
 	if textNode.IsNull() || textNode.IsUndefined() {
 		return &WASMDOMNode{value: js.Null()}
@@ -168,7 +168,7 @@ func (a *WASMDOMAdapter) QuerySelector(selector string) interface{} {
 func (a *WASMDOMAdapter) QuerySelectorAll(selector string) []runtime.DOMNode {
 	nodeList := a.document.Call("querySelectorAll", selector)
 	length := nodeList.Get("length").Int()
-	
+
 	nodes := make([]runtime.DOMNode, length)
 	for i := 0; i < length; i++ {
 		nodes[i] = &WASMDOMNode{value: nodeList.Call("item", i)}
@@ -187,7 +187,7 @@ func (a *WASMDOMAdapter) GetElementById(id string) runtime.DOMNode {
 func (a *WASMDOMAdapter) GetElementsByClassName(className string) []runtime.DOMNode {
 	htmlCollection := a.document.Call("getElementsByClassName", className)
 	length := htmlCollection.Get("length").Int()
-	
+
 	nodes := make([]runtime.DOMNode, length)
 	for i := 0; i < length; i++ {
 		nodes[i] = &WASMDOMNode{value: htmlCollection.Call("item", i)}
@@ -198,7 +198,7 @@ func (a *WASMDOMAdapter) GetElementsByClassName(className string) []runtime.DOMN
 func (a *WASMDOMAdapter) GetElementsByTagName(tagName string) []runtime.DOMNode {
 	htmlCollection := a.document.Call("getElementsByTagName", tagName)
 	length := htmlCollection.Get("length").Int()
-	
+
 	nodes := make([]runtime.DOMNode, length)
 	for i := 0; i < length; i++ {
 		nodes[i] = &WASMDOMNode{value: htmlCollection.Call("item", i)}
@@ -267,7 +267,7 @@ func (a *WASMDOMAdapter) GetChildren(node runtime.DOMNode) []runtime.DOMNode {
 	if wasmNode, ok := node.(*WASMDOMNode); ok {
 		children := wasmNode.value.Get("children")
 		length := children.Get("length").Int()
-		
+
 		nodes := make([]runtime.DOMNode, length)
 		for i := 0; i < length; i++ {
 			nodes[i] = &WASMDOMNode{value: children.Call("item", i)}
@@ -339,7 +339,7 @@ func (a *WASMEventAdapter) CreateEventHandler(fn func(runtime.Event)) runtime.Ev
 		}
 		return nil
 	})
-	
+
 	return &wasmEventHandler{
 		fn:     jsFn,
 		goFunc: fn,
@@ -449,7 +449,7 @@ func (s *WASMScheduler) RequestIdleCallback(callback func(runtime.Deadline)) {
 		jsFn.Release()
 		return nil
 	})
-	
+
 	// Check if requestIdleCallback is available
 	if s.window.Get("requestIdleCallback").Truthy() {
 		s.window.Call("requestIdleCallback", jsFn)
@@ -467,7 +467,7 @@ func (s *WASMScheduler) SetTimeout(callback func(), delay int) {
 		jsFn.Release()
 		return nil
 	})
-	
+
 	s.window.Call("setTimeout", jsFn, delay)
 }
 
@@ -547,7 +547,7 @@ func (b *WASMBrowserState) GetItem(key string) (string, bool) {
 	if storage.IsNull() || storage.IsUndefined() {
 		return "", false
 	}
-	
+
 	value := storage.Call("getItem", key)
 	if value.IsNull() {
 		return "", false
