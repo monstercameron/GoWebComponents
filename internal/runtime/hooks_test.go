@@ -357,6 +357,112 @@ func TestGoUseMemo_MultipleMemosIndependent(t *testing.T) {
 	}
 }
 
+func TestGoUseCallback_StableReference(t *testing.T) {
+	fiber := &Fiber{
+		typeOf: "test",
+		props:  make(map[string]interface{}),
+	}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	testFunc := func(x int) int {
+		return x * 2
+	}
+
+	// First render
+	result1 := GoUseCallback(testFunc, "dep1")
+
+	// Verify it returns something
+	if result1 == nil {
+		t.Error("Expected callback to return non-nil function")
+	}
+
+	// Reset for second render with same deps
+	fiber.hooks.index = 0
+
+	result2 := GoUseCallback(testFunc, "dep1")
+
+	// Verify both calls return non-nil
+	if result2 == nil {
+		t.Error("Expected second callback to return non-nil function")
+	}
+
+	// Verify callback was memoized - deps should still be "dep1"
+	if len(fiber.hooks.callbacks) != 1 {
+		t.Errorf("Expected 1 callback stored, got %d", len(fiber.hooks.callbacks))
+	}
+
+	if len(fiber.hooks.callbacks[0].deps) != 1 || fiber.hooks.callbacks[0].deps[0] != "dep1" {
+		t.Error("Expected callback deps to be set to [dep1]")
+	}
+}
+
+func TestGoUseCallback_UpdatesOnDepsChange(t *testing.T) {
+	fiber := &Fiber{
+		typeOf: "test",
+		props:  make(map[string]interface{}),
+	}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	func1 := func(x int) int { return x * 2 }
+	func2 := func(x int) int { return x * 3 }
+
+	// First render with func1
+	GoUseCallback(func1, "dep1")
+
+	firstDeps := fiber.hooks.callbacks[0].deps
+
+	// Reset for second render - change deps
+	fiber.hooks.index = 0
+
+	GoUseCallback(func2, "dep1_changed")
+
+	// Deps should have changed
+	if len(fiber.hooks.callbacks[0].deps) != 1 || fiber.hooks.callbacks[0].deps[0] == firstDeps[0] {
+		t.Error("Expected callback deps to update when deps changed")
+	}
+}
+
+func TestGoUseCallback_MultipleCallbacksIndependent(t *testing.T) {
+	fiber := &Fiber{
+		typeOf: "test",
+		props:  make(map[string]interface{}),
+	}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	func1 := func() {}
+	func2 := func() {}
+
+	// First render - create two callbacks
+	GoUseCallback(func1, "dep1")
+	GoUseCallback(func2, "dep2")
+
+	if len(fiber.hooks.callbacks) != 2 {
+		t.Errorf("Expected 2 callbacks, got %d", len(fiber.hooks.callbacks))
+	}
+
+	deps1 := fiber.hooks.callbacks[0].deps
+	deps2 := fiber.hooks.callbacks[1].deps
+
+	// Reset for second render - change dep2 only
+	fiber.hooks.index = 0
+
+	GoUseCallback(func1, "dep1") // Same dep
+	GoUseCallback(func2, "dep2_changed") // Different dep
+
+	// First callback deps should remain unchanged
+	if len(fiber.hooks.callbacks[0].deps) != 1 || fiber.hooks.callbacks[0].deps[0] != deps1[0] {
+		t.Error("Expected first callback deps to remain stable")
+	}
+
+	// Second callback deps should have changed
+	if len(fiber.hooks.callbacks[1].deps) == 1 && fiber.hooks.callbacks[1].deps[0] == deps2[0] {
+		t.Error("Expected second callback deps to update")
+	}
+}
+
 func TestValidateHookOrder_Success(t *testing.T) {
 	hooks := &Hooks{
 		callOrder: make([]HookCall, 0),

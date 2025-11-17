@@ -134,5 +134,53 @@ func UseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 	return runtime.GoUseMemoGlobal(compute, deps...)
 }
 
+// UseCallback memoizes a callback function with dependency tracking.
+// The memoized function is only updated when dependencies change.
+//
+// This hook is useful for:
+//   - Preventing unnecessary re-renders of child components
+//   - Stable function references for event handlers
+//   - Optimizing performance when passing callbacks as props
+//
+// The callback function is returned as-is on first render,
+// and the same function reference is returned on subsequent renders
+// if dependencies haven't changed.
+//
+// Example with event handler:
+//
+//	func Button(props dom.Attrs) *fiber.Element {
+//	    count, setCount := hooks.UseState(0)
+//
+//	    // Callback only changes when count changes
+//	    handleClick := hooks.UseCallback(func(this js.Value, args []js.Value) interface{} {
+//	        setCount(func(prev int) int { return prev + 1 })
+//	        return nil
+//	    }, count())
+//
+//	    return dom.Button(map[string]interface{}{"onclick": handleClick},
+//	        fmt.Sprintf("Count: %d", count()))
+//	}
+//
+// Example passing callback to child:
+//
+//	parent := func(props dom.Attrs) *fiber.Element {
+//	    items, setItems := hooks.UseState([]string{})
+//
+//	    // Callback only changes when setItems changes (never)
+//	    handleAdd := hooks.UseCallback(func(item string) {
+//	        setItems(func(prev []string) []string {
+//	            return append(prev, item)
+//	        })
+//	    })
+//
+//	    return Child(map[string]interface{}{"onAdd": handleAdd})
+//	}
+//
+// Note: The returned value is interface{}, so you'll need to type assert
+// to the expected function type (js.Func, func(...), etc.)
+func UseCallback(fn interface{}, deps ...interface{}) interface{} {
+	return runtime.GoUseCallbackGlobal(fn, deps...)
+}
+
 // Note: GoUseFunc is not yet implemented in the fiber package
 // func UseFunc(...) { ... }

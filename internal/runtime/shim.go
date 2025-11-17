@@ -24,6 +24,12 @@ func GoUseMemoGlobal(compute func() interface{}, deps ...interface{}) interface{
 	return GoUseMemo(compute, deps...)
 }
 
+// GoUseCallbackGlobal wraps GoUseCallback
+func GoUseCallbackGlobal(fn interface{}, deps ...interface{}) interface{} {
+	// GoUseCallback doesn't need Runtime, it works with current fiber
+	return GoUseCallback(fn, deps...)
+}
+
 // GoUseAtomGlobal wraps GoUseAtom with global runtime
 func GoUseAtomGlobal[T any](id string, initialValue T) (func() T, func(T)) {
 	rt := GetGlobalRuntime()

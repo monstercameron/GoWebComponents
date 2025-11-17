@@ -40,6 +40,7 @@ const (
 	HookTypeState HookType = iota
 	HookTypeEffect
 	HookTypeMemo
+	HookTypeCallback
 	HookTypeFunc
 	HookTypeAtom
 )
@@ -56,6 +57,12 @@ type memoizedValue struct {
 	deps  []interface{}
 }
 
+// callbackValue stores a memoized callback function with its dependencies
+type callbackValue struct {
+	fn   interface{}
+	deps []interface{}
+}
+
 // Hooks manages component hook state
 type Hooks struct {
 	index int
@@ -64,6 +71,7 @@ type Hooks struct {
 	pendingState []interface{} // Pending state updates (used during setState batching)
 	deps         [][]interface{}
 	memos        []memoizedValue
+	callbacks    []callbackValue
 	cleanups     []func() // Cleanup functions from UseEffect
 
 	callOrder    []HookCall

@@ -123,6 +123,7 @@ func GoUseEffect(effect func() func(), deps ...interface{}) {
 			pendingState: make([]interface{}, 0),
 			deps:         make([][]interface{}, 0),
 			memos:        make([]memoizedValue, 0),
+			callbacks:    make([]callbackValue, 0),
 			cleanups:     make([]func(), 0),
 			callOrder:    make([]HookCall, 0),
 			prevOrder:    make([]HookCall, 0),
@@ -197,6 +198,7 @@ func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 			pendingState: make([]interface{}, 0),
 			deps:         make([][]interface{}, 0),
 			memos:        make([]memoizedValue, 0),
+			callbacks:    make([]callbackValue, 0),
 			cleanups:     make([]func(), 0),
 			callOrder:    make([]HookCall, 0),
 			prevOrder:    make([]HookCall, 0),
@@ -227,6 +229,50 @@ func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 	}
 
 	return memo.value
+}
+
+// GoUseCallback memoizes a callback function with dependency tracking
+func GoUseCallback(fn interface{}, deps ...interface{}) interface{} {
+	fiber := GetCurrentFiber()
+	if fiber == nil {
+		panic("GoUseCallback called outside component context")
+	}
+
+	if fiber.hooks == nil {
+		fiber.hooks = &Hooks{
+			state:        make([]interface{}, 0),
+			pendingState: make([]interface{}, 0),
+			deps:         make([][]interface{}, 0),
+			memos:        make([]memoizedValue, 0),
+			callbacks:    make([]callbackValue, 0),
+			cleanups:     make([]func(), 0),
+			callOrder:    make([]HookCall, 0),
+			prevOrder:    make([]HookCall, 0),
+		}
+	}
+
+	position := fiber.hooks.index
+	fiber.hooks.index++
+
+	// Validate hook order
+	validateHookOrder(fiber.hooks, HookTypeCallback, position)
+
+	// Grow callbacks if needed
+	if len(fiber.hooks.callbacks) <= position {
+		newCallbacks := make([]callbackValue, position+1, (position+1)*2)
+		copy(newCallbacks, fiber.hooks.callbacks)
+		fiber.hooks.callbacks = newCallbacks
+	}
+
+	callback := &fiber.hooks.callbacks[position]
+
+	// Check if we need to update: only if deps changed or this is the first render
+	if callback.deps == nil || !areDepsEqual(callback.deps, deps) {
+		callback.fn = fn
+		callback.deps = deps
+	}
+
+	return callback.fn
 }
 
 // validateHookOrder checks that hooks are called in the same order
