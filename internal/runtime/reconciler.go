@@ -192,24 +192,23 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 				// still reference the correct state!
 				fiber.hooks = fiber.alternate.hooks
 				// Reset index for new render
-				fiber.hooks.index = 0
-				fiber.hooks.callOrder = make([]HookCall, 0)
-			} else if fiber.hooks == nil {
-				fiber.hooks = &Hooks{
-					state:        make([]interface{}, 0),
-					pendingState: make([]interface{}, 0),
-					deps:         make([][]interface{}, 0),
-					memos:        make([]memoizedValue, 0),
-					callOrder:    make([]HookCall, 0),
-					prevOrder:    make([]HookCall, 0),
-					index:        0,
-				}
+			fiber.hooks.index = 0
+			fiber.hooks.callOrder = make([]HookCall, 0)
+		} else if fiber.hooks == nil {
+			fiber.hooks = &Hooks{
+				state:        make([]interface{}, 0),
+				pendingState: make([]interface{}, 0),
+				deps:         make([][]interface{}, 0),
+				memos:        make([]memoizedValue, 0),
+				cleanups:     make([]func(), 0),
+				callOrder:    make([]HookCall, 0),
+				prevOrder:    make([]HookCall, 0),
+				index:        0,
 			}
+		}
 
-			// Clear effects
-			fiber.effects = make([]func(), 0)
-
-			// Call component function
+		// Clear effects
+		fiber.effects = make([]func(), 0)			// Call component function
 			var element *Element
 			if fn, ok := fiber.typeOf.(func(map[string]interface{}) *Element); ok {
 				element = fn(fiber.props)

@@ -16,12 +16,18 @@ import (
 func HelloWorld(props dom.Attrs) *dom.Element {
 	count, setCount := hooks.UseState(0)
 
+	// UseEffect to log on mount and count changes
+	hooks.UseEffect(func() func() {
+		fmt.Printf("UseEffect ran: count is %d\n", count())
+		return func() {
+			fmt.Printf("UseEffect cleanup: count was %d\n", count())
+		}
+	}, count())
+
 	// Create increment handler using functional setState to avoid stale closures
 	increment := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		fmt.Printf("[CLICK] Using functional setState\n")
 		// Use functional update - always gets the latest state
 		setCount(func(prev int) int {
-			fmt.Printf("[CLICK] prev=%d, returning %d\n", prev, prev+1)
 			return prev + 1
 		})
 		return nil

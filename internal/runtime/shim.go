@@ -13,7 +13,7 @@ func GoUseStateGlobal[T any](initialValue T) (func() T, func(interface{})) {
 }
 
 // GoUseEffectGlobal wraps GoUseEffect
-func GoUseEffectGlobal(effect func(), deps ...interface{}) {
+func GoUseEffectGlobal(effect func() func(), deps ...interface{}) {
 	// GoUseEffect doesn't need Runtime, it works with current fiber
 	GoUseEffect(effect, deps...)
 }

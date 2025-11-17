@@ -5,8 +5,8 @@ test.describe('GoWebComponents - Component Composition', () => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    // Check that nested elements exist
-    const container = page.locator('#app div');
+    // Check that nested elements exist (use .first() to avoid strict mode violation)
+    const container = page.locator('#app > div').first();
     await expect(container).toBeVisible();
     
     const heading = page.locator('h1');

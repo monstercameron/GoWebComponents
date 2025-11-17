@@ -64,6 +64,7 @@ type Hooks struct {
 	pendingState []interface{} // Pending state updates (used during setState batching)
 	deps         [][]interface{}
 	memos        []memoizedValue
+	cleanups     []func() // Cleanup functions from UseEffect
 
 	callOrder    []HookCall
 	prevOrder    []HookCall

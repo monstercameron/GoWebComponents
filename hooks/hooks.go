@@ -91,7 +91,7 @@ func UseState[T any](initialValue T) (func() T, func(interface{})) {
 //	hooks.UseEffect(func() {
 //	    fmt.Println("Component mounted")
 //	}, []interface{}{})
-func UseEffect(effect func(), deps ...interface{}) {
+func UseEffect(effect func() func(), deps ...interface{}) {
 	runtime.GoUseEffectGlobal(effect, deps...)
 }
 

@@ -30,15 +30,6 @@ test.describe('GoWebComponents Hooks - UseState', () => {
   });
 
   test('UseState supports multiple clicks', async ({ page }) => {
-    // Capture console logs
-    const consoleLogs = [];
-    page.on('console', msg => {
-      const text = msg.text();
-      if (text.includes('[CLICK]') || text.includes('[GETSTATE]') || text.includes('[SETSTATE]')) {
-        consoleLogs.push(text);
-      }
-    });
-    
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
@@ -49,11 +40,6 @@ test.describe('GoWebComponents Hooks - UseState', () => {
       await button.click();
       await page.waitForTimeout(50);
     }
-    
-    // Log all captured console output
-    console.log('\n=== Console Logs ===');
-    consoleLogs.forEach(log => console.log(log));
-    console.log('===================\n');
     
     // Wait for all renders to complete (requestAnimationFrame batching)
     await page.waitForTimeout(500);
@@ -83,20 +69,16 @@ test.describe('GoWebComponents Hooks - UseState', () => {
 });
 
 test.describe('GoWebComponents Hooks - UseEffect', () => {
-  test.skip('UseEffect runs on mount', async ({ page }) => {
-    // Will implement when we add UseEffect to test app
-    await page.goto('/');
-    await page.waitForSelector('#app', { timeout: 30000 });
-    
-    // Check for side effects (e.g., console logs, DOM modifications)
+  test('UseEffect runs on mount', async ({ page }) => {
     const logs = [];
     page.on('console', msg => logs.push(msg.text()));
     
-    await page.reload();
-    await page.waitForTimeout(1000);
+    await page.goto('/');
+    await page.waitForSelector('#app', { timeout: 30000 });
+    await page.waitForTimeout(500);
     
-    // Verify effect ran
-    expect(logs.some(log => log.includes('effect'))).toBeTruthy();
+    // Verify effect ran on mount
+    expect(logs.some(log => log.includes('UseEffect ran'))).toBeTruthy();
   });
 
   test.skip('UseEffect cleanup runs on unmount', async ({ page }) => {

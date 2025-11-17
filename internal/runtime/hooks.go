@@ -5,7 +5,7 @@ import (
 	"reflect"
 )
 
-// GoUseState manages state in a component
+// GoUseState provides state management for components
 func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})) {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
@@ -18,6 +18,7 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 			pendingState: make([]interface{}, 0),
 			deps:         make([][]interface{}, 0),
 			memos:        make([]memoizedValue, 0),
+			cleanups:     make([]func(), 0),
 			callOrder:    make([]HookCall, 0),
 			prevOrder:    make([]HookCall, 0),
 		}
@@ -54,12 +55,10 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 	getter := func() T {
 		if idx < len(hooks.state) {
 			if value, ok := hooks.state[idx].(T); ok {
-				fmt.Printf("[GETSTATE] Reading state[%d]=%v\n", idx, value)
 				return value
 			}
 		}
 		var zero T
-		fmt.Printf("[GETSTATE] Reading state[%d]=zero (not found)\n", idx)
 		return zero
 	}
 
@@ -77,47 +76,42 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 			hooks.pendingState = newPending
 		}
 
-	// Get PENDING value (most recent update, may not be committed yet)
-	var currentValue T
-	if idx < len(hooks.pendingState) {
-		if cv, ok := hooks.pendingState[idx].(T); ok {
-			currentValue = cv
-			fmt.Printf("[SETSTATE] Reading PENDING state[%d]=%v\n", idx, currentValue)
+		// Get PENDING value (most recent update, may not be committed yet)
+		var currentValue T
+		if idx < len(hooks.pendingState) {
+			if cv, ok := hooks.pendingState[idx].(T); ok {
+				currentValue = cv
+			}
 		}
-	} else {
-		fmt.Printf("[SETSTATE] No pending state at [%d], using zero\n", idx)
-	}		// Determine the new value
+
+		// Determine the new value
 		var newValue T
 		// Try to treat as functional update (func(T) T)
 		if fn, ok := newValueOrUpdater.(func(T) T); ok {
 			newValue = fn(currentValue)
-			fmt.Printf("[SETSTATE] Functional update state[%d]: %v -> %v\n", idx, currentValue, newValue)
 		} else if directValue, ok := newValueOrUpdater.(T); ok {
 			// Direct value
 			newValue = directValue
 		} else {
-			fmt.Printf("[SETSTATE] Type mismatch, expected %T or func(%T) %T, got %T\n", currentValue, currentValue, currentValue, newValueOrUpdater)
 			return
 		}
 
 		// Check if newValue is different from current PENDING value
 		if !fastEqual(currentValue, newValue) {
-			fmt.Printf("[SETSTATE] Updating state[%d]: %v -> %v\n", idx, currentValue, newValue)
 			// Update pending state immediately (visible to next setState in same render cycle)
 			hooks.pendingState[idx] = newValue
 			// Also update committed state (this is what triggers re-render)
 			hooks.state[idx] = newValue
 			rt.ScheduleUpdateForFiber(fiber)
-		} else {
-			fmt.Printf("[SETSTATE] Skipping update, value unchanged: %v\n", newValue)
 		}
 	}
 
 	return getter, setter
 }
 
-// GoUseEffect runs side effects
-func GoUseEffect(effect func(), deps ...interface{}) {
+// GoUseEffect runs side effects and supports cleanup
+// The effect function can return a cleanup function that will be called before the next effect runs or on unmount
+func GoUseEffect(effect func() func(), deps ...interface{}) {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
 		panic("GoUseEffect called outside component context")
@@ -129,6 +123,7 @@ func GoUseEffect(effect func(), deps ...interface{}) {
 			pendingState: make([]interface{}, 0),
 			deps:         make([][]interface{}, 0),
 			memos:        make([]memoizedValue, 0),
+			cleanups:     make([]func(), 0),
 			callOrder:    make([]HookCall, 0),
 			prevOrder:    make([]HookCall, 0),
 		}
@@ -140,30 +135,52 @@ func GoUseEffect(effect func(), deps ...interface{}) {
 	// Validate hook order
 	validateHookOrder(fiber.hooks, HookTypeEffect, position)
 
-	// Grow deps if needed
+	// Grow deps and cleanups if needed
 	if len(fiber.hooks.deps) <= position {
 		newDeps := make([][]interface{}, position+1, (position+1)*2)
 		copy(newDeps, fiber.hooks.deps)
 		fiber.hooks.deps = newDeps
 	}
+	if len(fiber.hooks.cleanups) <= position {
+		newCleanups := make([]func(), position+1, (position+1)*2)
+		copy(newCleanups, fiber.hooks.cleanups)
+		fiber.hooks.cleanups = newCleanups
+	}
 
+	shouldRun := false
 	if fiber.hooks.deps[position] == nil {
 		// First run
 		fiber.hooks.deps[position] = deps
-		if fiber.effects == nil {
-			fiber.effects = make([]func(), 0)
-		}
-		fiber.effects = append(fiber.effects, effect)
+		shouldRun = true
 	} else {
 		// Check if deps changed
 		prevDeps := fiber.hooks.deps[position]
 		if len(deps) == 0 || !areDepsEqual(prevDeps, deps) {
 			fiber.hooks.deps[position] = deps
-			if fiber.effects == nil {
-				fiber.effects = make([]func(), 0)
-			}
-			fiber.effects = append(fiber.effects, effect)
+			shouldRun = true
 		}
+	}
+
+	if shouldRun {
+		// Run cleanup from previous effect if it exists
+		if fiber.hooks.cleanups[position] != nil {
+			fiber.hooks.cleanups[position]()
+			fiber.hooks.cleanups[position] = nil
+		}
+
+		// Queue the new effect
+		if fiber.effects == nil {
+			fiber.effects = make([]func(), 0)
+		}
+		
+		// Capture position for cleanup storage
+		effectPosition := position
+		fiber.effects = append(fiber.effects, func() {
+			cleanup := effect()
+			if cleanup != nil {
+				fiber.hooks.cleanups[effectPosition] = cleanup
+			}
+		})
 	}
 }
 
@@ -180,6 +197,7 @@ func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 			pendingState: make([]interface{}, 0),
 			deps:         make([][]interface{}, 0),
 			memos:        make([]memoizedValue, 0),
+			cleanups:     make([]func(), 0),
 			callOrder:    make([]HookCall, 0),
 			prevOrder:    make([]HookCall, 0),
 		}

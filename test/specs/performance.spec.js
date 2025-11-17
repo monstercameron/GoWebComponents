@@ -40,7 +40,8 @@ test.describe('GoWebComponents - Performance', () => {
       await button.click({ delay: 10 });
     }
     
-    await page.waitForTimeout(200);
+    // Wait for all renders to complete (some renders are batched)
+    await page.waitForTimeout(1000);
     
     // Should show final count
     const countText = await page.locator('p').textContent();
