@@ -575,3 +575,133 @@ func TestFinalizeHookOrder(t *testing.T) {
 		t.Error("Expected orderChecked to be true")
 	}
 }
+
+func TestGoUseRef_InitialValue(t *testing.T) {
+	fiber := &Fiber{
+		typeOf: "test",
+		props:  make(map[string]interface{}),
+	}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	// Create ref with initial value
+	ref := GoUseRef(42)
+
+	if ref == nil {
+		t.Fatal("Expected ref to be non-nil")
+	}
+
+	if ref.Current != 42 {
+		t.Errorf("Expected ref.Current to be 42, got %v", ref.Current)
+	}
+}
+
+func TestGoUseRef_PersistsAcrossRenders(t *testing.T) {
+	fiber := &Fiber{
+		typeOf: "test",
+		props:  make(map[string]interface{}),
+	}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	// First render - create ref
+	ref1 := GoUseRef("initial")
+
+	if ref1.Current != "initial" {
+		t.Errorf("Expected initial value 'initial', got %v", ref1.Current)
+	}
+
+	// Simulate mutation
+	ref1.Current = "modified"
+
+	// Reset hook index for second render
+	fiber.hooks.index = 0
+
+	// Second render - get same ref
+	ref2 := GoUseRef("initial") // Note: initial value is ignored on subsequent renders
+
+	if ref2.Current != "modified" {
+		t.Errorf("Expected persisted value 'modified', got %v", ref2.Current)
+	}
+
+	// Verify it's the same ref object
+	if ref1 != ref2 {
+		t.Error("Expected ref to be the same object across renders")
+	}
+}
+
+func TestGoUseRef_MultipleRefsIndependent(t *testing.T) {
+	fiber := &Fiber{
+		typeOf: "test",
+		props:  make(map[string]interface{}),
+	}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	// Create multiple refs
+	ref1 := GoUseRef("ref1")
+	ref2 := GoUseRef("ref2")
+	ref3 := GoUseRef("ref3")
+
+	if len(fiber.hooks.refs) != 3 {
+		t.Errorf("Expected 3 refs stored, got %d", len(fiber.hooks.refs))
+	}
+
+	// Modify refs
+	ref1.Current = "modified1"
+	ref2.Current = "modified2"
+	ref3.Current = "modified3"
+
+	// Verify each ref maintains its own value
+	if ref1.Current != "modified1" {
+		t.Errorf("Expected ref1.Current to be 'modified1', got %v", ref1.Current)
+	}
+
+	if ref2.Current != "modified2" {
+		t.Errorf("Expected ref2.Current to be 'modified2', got %v", ref2.Current)
+	}
+
+	if ref3.Current != "modified3" {
+		t.Errorf("Expected ref3.Current to be 'modified3', got %v", ref3.Current)
+	}
+
+	// Reset for second render and verify independence
+	fiber.hooks.index = 0
+
+	ref1Again := GoUseRef("ignored1")
+	ref2Again := GoUseRef("ignored2")
+	ref3Again := GoUseRef("ignored3")
+
+	// All should retain their modified values
+	if ref1Again.Current != "modified1" || ref2Again.Current != "modified2" || ref3Again.Current != "modified3" {
+		t.Error("Expected all refs to retain their modified values independently")
+	}
+}
+
+func TestGoUseRef_WithNilInitialValue(t *testing.T) {
+	fiber := &Fiber{
+		typeOf: "test",
+		props:  make(map[string]interface{}),
+	}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	// Create ref with nil initial value
+	ref := GoUseRef(nil)
+
+	if ref == nil {
+		t.Fatal("Expected ref object to be non-nil")
+	}
+
+	if ref.Current != nil {
+		t.Errorf("Expected ref.Current to be nil, got %v", ref.Current)
+	}
+
+	// Assign a value later
+	ref.Current = "assigned later"
+
+	if ref.Current != "assigned later" {
+		t.Errorf("Expected ref.Current to be 'assigned later', got %v", ref.Current)
+	}
+}
+

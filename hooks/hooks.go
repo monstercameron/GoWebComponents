@@ -182,5 +182,68 @@ func UseCallback(fn interface{}, deps ...interface{}) interface{} {
 	return runtime.GoUseCallbackGlobal(fn, deps...)
 }
 
+// UseRef creates a mutable reference that persists across renders.
+// Unlike state, updating a ref does NOT trigger a re-render.
+// This hook is useful for:
+//   - Storing mutable values that don't affect rendering (like timers, intervals)
+//   - Direct DOM manipulation or element access
+//   - Keeping track of previous values
+//   - Storing imperative API handles
+//
+// The ref is returned as a RefValue object with a .Current field that can
+// hold any value. You modify the value by changing .Current, and it will
+// persist across re-renders.
+//
+// Example storing interval ID:
+//
+//	func Timer(props dom.Attrs) *fiber.Element {
+//	    count, setCount := hooks.UseState(0)
+//	    intervalRef := hooks.UseRef(nil)
+//
+//	    handleStart := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+//	        intervalRef.Current = js.Global().Call("setInterval", func() {
+//	            setCount(func(prev int) int { return prev + 1 })
+//	        }, 1000)
+//	        return nil
+//	    })
+//
+//	    handleStop := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+//	        if intervalRef.Current != nil {
+//	            js.Global().Call("clearInterval", intervalRef.Current)
+//	        }
+//	        return nil
+//	    })
+//
+//	    return dom.Div(nil,
+//	        dom.P(nil, fmt.Sprintf("Count: %d", count())),
+//	        dom.Button(map[string]interface{}{"onclick": handleStart}, "Start"),
+//	        dom.Button(map[string]interface{}{"onclick": handleStop}, "Stop"),
+//	    )
+//	}
+//
+// Example storing previous value:
+//
+//	func PreviousValue(props dom.Attrs) *fiber.Element {
+//	    count, setCount := hooks.UseState(0)
+//	    prevCountRef := hooks.UseRef(0)
+//
+//	    // Update ref after render
+//	    hooks.UseEffect(func() func() {
+//	        prevCountRef.Current = count()
+//	        return nil
+//	    }, count())
+//
+//	    return dom.Div(nil,
+//	        dom.P(nil, fmt.Sprintf("Current: %d", count())),
+//	        dom.P(nil, fmt.Sprintf("Previous: %d", prevCountRef.Current)),
+//	    )
+//	}
+//
+// Note: The RefValue has a .Current field of type interface{}, so you'll need
+// to type assert when reading values from the ref.
+func UseRef(initialValue interface{}) *runtime.RefValue {
+	return runtime.GoUseRefGlobal(initialValue)
+}
+
 // Note: GoUseFunc is not yet implemented in the fiber package
 // func UseFunc(...) { ... }

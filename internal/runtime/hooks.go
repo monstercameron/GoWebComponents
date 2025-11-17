@@ -275,6 +275,50 @@ func GoUseCallback(fn interface{}, deps ...interface{}) interface{} {
 	return callback.fn
 }
 
+// GoUseRef creates a mutable reference that persists across renders
+// It returns a RefValue object with a .Current field that can hold any value
+// Unlike state, updating a ref does NOT trigger a re-render
+func GoUseRef(initialValue interface{}) *RefValue {
+	fiber := GetCurrentFiber()
+	if fiber == nil {
+		panic("GoUseRef called outside component context")
+	}
+
+	if fiber.hooks == nil {
+		fiber.hooks = &Hooks{
+			state:        make([]interface{}, 0),
+			pendingState: make([]interface{}, 0),
+			deps:         make([][]interface{}, 0),
+			memos:        make([]memoizedValue, 0),
+			callbacks:    make([]callbackValue, 0),
+			refs:         make([]*RefValue, 0),
+			cleanups:     make([]func(), 0),
+			callOrder:    make([]HookCall, 0),
+			prevOrder:    make([]HookCall, 0),
+		}
+	}
+
+	position := fiber.hooks.index
+	fiber.hooks.index++
+
+	// Validate hook order
+	validateHookOrder(fiber.hooks, HookTypeRef, position)
+
+	// Grow refs if needed
+	if len(fiber.hooks.refs) <= position {
+		newRefs := make([]*RefValue, position+1, (position+1)*2)
+		copy(newRefs, fiber.hooks.refs)
+		fiber.hooks.refs = newRefs
+	}
+
+	// If ref is nil (first render), create it with initial value
+	if fiber.hooks.refs[position] == nil {
+		fiber.hooks.refs[position] = &RefValue{Current: initialValue}
+	}
+
+	return fiber.hooks.refs[position]
+}
+
 // validateHookOrder checks that hooks are called in the same order
 func validateHookOrder(hooks *Hooks, hookType HookType, position int) error {
 	hookCall := HookCall{Type: hookType, Position: position}

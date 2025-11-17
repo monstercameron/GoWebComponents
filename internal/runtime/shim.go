@@ -30,6 +30,12 @@ func GoUseCallbackGlobal(fn interface{}, deps ...interface{}) interface{} {
 	return GoUseCallback(fn, deps...)
 }
 
+// GoUseRefGlobal wraps GoUseRef
+func GoUseRefGlobal(initialValue interface{}) *RefValue {
+	// GoUseRef doesn't need Runtime, it works with current fiber
+	return GoUseRef(initialValue)
+}
+
 // GoUseAtomGlobal wraps GoUseAtom with global runtime
 func GoUseAtomGlobal[T any](id string, initialValue T) (func() T, func(T)) {
 	rt := GetGlobalRuntime()

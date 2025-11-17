@@ -41,6 +41,7 @@ const (
 	HookTypeEffect
 	HookTypeMemo
 	HookTypeCallback
+	HookTypeRef
 	HookTypeFunc
 	HookTypeAtom
 )
@@ -63,6 +64,12 @@ type callbackValue struct {
 	deps []interface{}
 }
 
+// RefValue represents a reference object that persists across renders
+// It has a single .current property that can hold any value
+type RefValue struct {
+	Current interface{}
+}
+
 // Hooks manages component hook state
 type Hooks struct {
 	index int
@@ -72,7 +79,8 @@ type Hooks struct {
 	deps         [][]interface{}
 	memos        []memoizedValue
 	callbacks    []callbackValue
-	cleanups     []func() // Cleanup functions from UseEffect
+	refs         []*RefValue // Store refs separately to persist across renders
+	cleanups     []func()    // Cleanup functions from UseEffect
 
 	callOrder    []HookCall
 	prevOrder    []HookCall
