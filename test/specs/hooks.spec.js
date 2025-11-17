@@ -33,7 +33,7 @@ test.describe('GoWebComponents Hooks - UseState', () => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    const button = page.locator('button');
+    const button = page.locator('button').first();
     
     // Click 10 times
     for (let i = 0; i < 10; i++) {
@@ -172,17 +172,27 @@ test.describe('GoWebComponents Hooks - UseMemo', () => {
 });
 
 test.describe('GoWebComponents State - UseAtom', () => {
-  test.skip('UseAtom provides global state', async ({ page }) => {
+  test('UseAtom provides global state', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
-    
-    // TODO: Test global state sharing between components
+
+    const aText = await page.locator('#atom-value-a').textContent();
+    const bText = await page.locator('#atom-value-b').textContent();
+    expect(aText).toContain('AtomA: 0');
+    expect(bText).toContain('AtomB: 0');
   });
 
-  test.skip('UseAtom updates sync across components', async ({ page }) => {
+  test('UseAtom updates sync across components', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
-    
-    // TODO: Test state synchronization
+
+    const incButton = page.locator('#atom-increment');
+    await incButton.click();
+    await page.waitForTimeout(200);
+
+    const aText = await page.locator('#atom-value-a').textContent();
+    const bText = await page.locator('#atom-value-b').textContent();
+    expect(aText).toContain('AtomA: 1');
+    expect(bText).toContain('AtomB: 1');
   });
 });

@@ -110,8 +110,9 @@ func TestGoUseEffect_RunsOnMount(t *testing.T) {
 	defer SetCurrentFiber(nil)
 
 	executed := false
-	GoUseEffect(func() {
+	GoUseEffect(func() func() {
 		executed = true
+		return func() {}
 	})
 
 	if len(fiber.effects) != 1 {
@@ -137,8 +138,9 @@ func TestGoUseEffect_RunsOnDepsChange(t *testing.T) {
 	count := 0
 
 	// First render with deps [1]
-	GoUseEffect(func() {
+	GoUseEffect(func() func() {
 		count++
+		return func() {}
 	}, 1)
 
 	if len(fiber.effects) != 1 {
@@ -150,8 +152,9 @@ func TestGoUseEffect_RunsOnDepsChange(t *testing.T) {
 	fiber.hooks.index = 0
 
 	// Second render with deps [2] (changed)
-	GoUseEffect(func() {
+	GoUseEffect(func() func() {
 		count++
+		return func() {}
 	}, 2)
 
 	if len(fiber.effects) != 1 {
@@ -168,14 +171,14 @@ func TestGoUseEffect_SkipsOnSameDeps(t *testing.T) {
 	defer SetCurrentFiber(nil)
 
 	// First render
-	GoUseEffect(func() {}, 1, 2, 3)
+	GoUseEffect(func() func() { return func() {} }, 1, 2, 3)
 
 	// Reset for second render
 	fiber.effects = make([]func(), 0)
 	fiber.hooks.index = 0
 
 	// Second render with same deps
-	GoUseEffect(func() {}, 1, 2, 3)
+	GoUseEffect(func() func() { return func() {} }, 1, 2, 3)
 
 	if len(fiber.effects) != 0 {
 		t.Errorf("Expected effect to be skipped with same deps, got %d effects", len(fiber.effects))

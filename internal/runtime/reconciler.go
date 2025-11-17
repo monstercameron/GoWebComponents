@@ -295,6 +295,9 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 		case "style":
 			if styles, ok := value.(map[string]string); ok {
 				rt.domAdapter.SetStyles(dom, styles)
+			} else if str, ok := value.(string); ok {
+				// Allow inline style strings as attribute values
+				rt.domAdapter.SetAttribute(dom, "style", str)
 			}
 		case "className", "class":
 			if str, ok := value.(string); ok {

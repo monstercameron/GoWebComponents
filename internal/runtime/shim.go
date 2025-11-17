@@ -25,9 +25,14 @@ func GoUseMemoGlobal(compute func() interface{}, deps ...interface{}) interface{
 }
 
 // GoUseAtomGlobal wraps GoUseAtom with global runtime
-func GoUseAtomGlobal[T any](id string, initialValue T) (func() T, func(interface{})) {
+func GoUseAtomGlobal[T any](id string, initialValue T) (func() T, func(T)) {
 	rt := GetGlobalRuntime()
-	return GoUseAtom(rt, id, initialValue)
+	get, set := GoUseAtom(rt, id, initialValue)
+	// Convert internal setter func(interface{}) to typed setter func(T)
+	typedSet := func(v T) {
+		set(v)
+	}
+	return get, typedSet
 }
 
 // Text creates a text node

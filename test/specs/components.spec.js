@@ -18,7 +18,7 @@ test.describe('GoWebComponents - Component Composition', () => {
     await page.waitForSelector('#app', { timeout: 30000 });
     
     // Check that props are applied (class attributes)
-    const button = page.locator('button');
+    const button = page.locator('button').first();
     const classes = await button.getAttribute('class');
     expect(classes).toBeTruthy();
   });
@@ -47,25 +47,62 @@ test.describe('GoWebComponents - Event Handling', () => {
     expect(updatedCount).not.toBe(initialCount);
   });
 
-  test.skip('onchange events work on inputs', async ({ page }) => {
+  test('onchange events work on inputs', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    // TODO: Test input change events
+    const input = page.locator('#test-input');
+    const display = page.locator('#input-value');
+    
+    // Initial state should be empty
+    await expect(display).toHaveText('Input: ');
+    
+    // Type into input and trigger change
+    await input.fill('test value');
+    await input.blur(); // Trigger onchange
+    
+    // Verify state updated
+    await expect(display).toHaveText('Input: test value');
   });
 
-  test.skip('onsubmit events work on forms', async ({ page }) => {
+  test('onsubmit events work on forms', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    // TODO: Test form submission
+    const form = page.locator('#test-form');
+    const formInput = page.locator('#form-input');
+    const submitDisplay = page.locator('#submit-value');
+    
+    // Initial state should be empty
+    await expect(submitDisplay).toHaveText('Submitted: ');
+    
+    // Fill input and submit form
+    await formInput.fill('form data');
+    await form.locator('button[type="submit"]').click();
+    
+    // Verify submission worked
+    await expect(submitDisplay).toHaveText('Submitted: form data');
   });
 
-  test.skip('event.preventDefault works', async ({ page }) => {
+  test('event.preventDefault works', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    // TODO: Test preventDefault functionality
+    const form = page.locator('#test-form');
+    const formInput = page.locator('#form-input');
+    const submitDisplay = page.locator('#submit-value');
+    
+    // Fill input
+    await formInput.fill('prevented');
+    
+    // Submit form - if preventDefault works, page won't reload
+    await form.locator('button[type="submit"]').click();
+    
+    // If preventDefault didn't work, the page would reload and this would fail
+    await expect(submitDisplay).toHaveText('Submitted: prevented');
+    
+    // Verify we're still on the same page (no navigation occurred)
+    expect(page.url()).toContain('/');
   });
 });
 
@@ -74,30 +111,41 @@ test.describe('GoWebComponents - DOM Attributes', () => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    const button = page.locator('button');
+    const button = page.locator('button').first();
     const classes = await button.getAttribute('class');
     expect(classes).toContain('bg-blue-500');
   });
 
-  test.skip('id attributes are applied', async ({ page }) => {
+  test('id attributes are applied', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    // TODO: Test id attributes
+    // Check that id attribute works
+    const heading = page.locator('#main-heading');
+    await expect(heading).toBeVisible();
+    const headingText = await heading.textContent();
+    expect(headingText).toContain('GoWebComponents Test');
   });
 
-  test.skip('data attributes are applied', async ({ page }) => {
+  test('data attributes are applied', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    // TODO: Test data-* attributes
+    // Check data-testid attribute
+    const paragraph = page.locator('[data-testid="count-display"]');
+    await expect(paragraph).toBeVisible();
+    const text = await paragraph.textContent();
+    expect(text).toContain('Count:');
   });
 
-  test.skip('style attributes are applied', async ({ page }) => {
+  test('style attributes are applied', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    // TODO: Test inline styles
+    // Check inline style
+    const doubled = page.locator('#doubled');
+    const style = await doubled.getAttribute('style');
+    expect(style).toContain('font-weight');
   });
 });
 
@@ -106,7 +154,7 @@ test.describe('GoWebComponents - Reactivity', () => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    const button = page.locator('button');
+    const button = page.locator('button').first();
     const paragraph = page.locator('p').first();
     
     // Get initial state

@@ -9,12 +9,19 @@ import (
 
 	"github.com/monstercameron/GoWebComponents/dom"
 	"github.com/monstercameron/GoWebComponents/hooks"
+	"github.com/monstercameron/GoWebComponents/state"
 	"github.com/monstercameron/GoWebComponents/render"
 )
 
 // HelloWorld component demonstrates basic usage
 func HelloWorld(props dom.Attrs) *dom.Element {
 	count, setCount := hooks.UseState(0)
+	// Setup shared atom for demonstration/testing
+	atomGet, atomSet := state.UseAtom("sharedCounter", 0)
+	// Input state for onchange test
+	inputValue, setInputValue := hooks.UseState("")
+	// Submit state for form test
+	submitValue, setSubmitValue := hooks.UseState("")
 
 	// UseEffect to log on mount and count changes
 	hooks.UseEffect(func() func() {
@@ -36,14 +43,43 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 		return nil
 	})
 
+	// Atom increment handler
+	atomIncrement := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		atomSet(atomGet() + 1)
+		return nil
+	})
+
+	// Input onchange handler
+	handleInputChange := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) > 0 {
+			event := args[0]
+			value := event.Get("target").Get("value").String()
+			setInputValue(value)
+		}
+		return nil
+	})
+
+	// Form onsubmit handler with preventDefault
+	handleSubmit := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) > 0 {
+			event := args[0]
+			event.Call("preventDefault")
+			// Get the form input value
+			formInput := event.Get("target").Call("querySelector", "#form-input")
+			value := formInput.Get("value").String()
+			setSubmitValue(value)
+		}
+		return nil
+	})
+
 	return dom.Div(dom.Attrs{"class": "container mx-auto p-8"},
-		dom.H1(dom.Attrs{"class": "text-4xl font-bold mb-4"},
+		dom.H1(dom.Attrs{"class": "text-4xl font-bold mb-4", "id": "main-heading"},
 			dom.Text("GoWebComponents Test"),
 		),
-		dom.P(dom.Attrs{"class": "mb-4"},
+		dom.P(dom.Attrs{"class": "mb-4", "data-testid": "count-display"},
 			dom.Text(fmt.Sprintf("Count: %d", count())),
 		),
-		dom.P(dom.Attrs{"class": "mb-4", "id": "doubled"},
+		dom.P(dom.Attrs{"class": "mb-4", "id": "doubled", "style": "font-weight: bold;"},
 			dom.Text(fmt.Sprintf("Doubled: %d", doubledCount)),
 		),
 		dom.Button(dom.Attrs{
@@ -51,6 +87,43 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 			"class":   "px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600",
 		},
 			dom.Text("Increment"),
+		),
+		dom.Div(nil,
+			dom.P(dom.Attrs{"id":"atom-value-a"}, dom.Text(fmt.Sprintf("AtomA: %d", atomGet()))),
+			dom.P(dom.Attrs{"id":"atom-value-b"}, dom.Text(fmt.Sprintf("AtomB: %d", atomGet()))),
+			dom.Button(dom.Attrs{"id":"atom-increment", "onclick": atomIncrement}, dom.Text("Atom Increment")),
+		),
+		dom.Div(dom.Attrs{"class": "mt-4"},
+			dom.H2(nil, dom.Text("Input Test")),
+			dom.Input(dom.Attrs{
+				"id": "test-input",
+				"type": "text",
+				"onchange": handleInputChange,
+				"class": "border p-2",
+			}),
+			dom.P(dom.Attrs{"id": "input-value"}, 
+				dom.Text(fmt.Sprintf("Input: %s", inputValue())),
+			),
+		),
+		dom.Div(dom.Attrs{"class": "mt-4"},
+			dom.H2(nil, dom.Text("Form Test")),
+			dom.Form(dom.Attrs{
+				"id": "test-form",
+				"onsubmit": handleSubmit,
+			},
+				dom.Input(dom.Attrs{
+					"id": "form-input",
+					"type": "text",
+					"class": "border p-2",
+				}),
+				dom.Button(dom.Attrs{
+					"type": "submit",
+					"class": "ml-2 px-4 py-2 bg-green-500 text-white",
+				}, dom.Text("Submit")),
+			),
+			dom.P(dom.Attrs{"id": "submit-value"}, 
+				dom.Text(fmt.Sprintf("Submitted: %s", submitValue())),
+			),
 		),
 	)
 }

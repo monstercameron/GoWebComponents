@@ -17,7 +17,7 @@ test.describe('GoWebComponents - Performance', () => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    const button = page.locator('button');
+    const button = page.locator('button').first();
     
     const startTime = Date.now();
     await button.click();
@@ -32,7 +32,7 @@ test.describe('GoWebComponents - Performance', () => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    const button = page.locator('button');
+    const button = page.locator('button').first();
     
     // Rapid clicks
     const clicks = 10;
@@ -120,7 +120,7 @@ test.describe('GoWebComponents - Accessibility', () => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    const button = page.locator('button');
+    const button = page.locator('button').first();
     const text = await button.textContent();
     
     expect(text.trim()).toBeTruthy();
