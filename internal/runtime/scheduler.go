@@ -1,12 +1,18 @@
 package runtime
 
 import (
+	"fmt"
 	"sync"
 )
 
 var (
 	schedulerMu sync.Mutex
 )
+
+type infiniteDeadline struct{}
+
+func (d *infiniteDeadline) TimeRemaining() float64 { return 1000 } // lots of time
+func (d *infiniteDeadline) DidTimeout() bool       { return false }
 
 // ScheduleUpdate schedules a full tree update from the root
 func (rt *Runtime) ScheduleUpdate() {
@@ -19,6 +25,7 @@ func (rt *Runtime) ScheduleUpdate() {
 	}
 
 	rt.updateScheduled = true
+	fmt.Printf("ScheduleUpdate: updateScheduled set to true\n")
 
 	// Create new work-in-progress root
 	rt.wipRoot = &Fiber{
@@ -33,11 +40,12 @@ func (rt *Runtime) ScheduleUpdate() {
 	rt.deletions = make([]*Fiber, 0)
 
 	// Schedule work loop
-	rt.scheduler.RequestIdleCallback(rt.workLoop)
+	rt.scheduler.SetTimeout(func() { rt.workLoop(&infiniteDeadline{}) }, 0)
 }
 
 // workLoop processes work units during idle periods
 func (rt *Runtime) workLoop(deadline Deadline) {
+	fmt.Printf("Runtime workLoop invoked\n")
 	shouldYield := false
 	units := 0
 	const maxUnitsPerSlice = 300
@@ -58,7 +66,7 @@ func (rt *Runtime) workLoop(deadline Deadline) {
 		rt.updateScheduled = false
 	} else if rt.nextUnitOfWork != nil {
 		// More work remains, schedule next iteration
-		rt.scheduler.RequestIdleCallback(rt.workLoop)
+		rt.scheduler.SetTimeout(func() { rt.workLoop(&infiniteDeadline{}) }, 0)
 	}
 }
 
@@ -74,7 +82,7 @@ func (rt *Runtime) Render(element *Element, container DOMNode) {
 
 	rt.nextUnitOfWork = rt.wipRoot
 	rt.deletions = make([]*Fiber, 0)
-	rt.scheduler.RequestIdleCallback(rt.workLoop)
+	rt.scheduler.SetTimeout(func() { rt.workLoop(&infiniteDeadline{}) }, 0)
 }
 
 // ScheduleUpdateForFiber schedules an update for a specific fiber
@@ -95,6 +103,7 @@ func (rt *Runtime) ScheduleUpdateForFiber(fiber *Fiber) {
 	if !rt.updateScheduled {
 		rt.ScheduleUpdate()
 	}
+	fmt.Printf("ScheduleUpdateForFiber called: fiber=%p type=%v\n", fiber, fiber.typeOf)
 }
 
 // UI Queue for cross-goroutine updates

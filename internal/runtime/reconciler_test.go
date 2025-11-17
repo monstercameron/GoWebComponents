@@ -854,7 +854,7 @@ func TestRunCleanups_ExecutesAllCleanups(t *testing.T) {
 		props:  make(map[string]interface{}),
 		hooks: &Hooks{cleanups: []func(){
 			func() { executed1 = true },
-		},},
+		}},
 	}
 
 	parent := &Fiber{
@@ -862,7 +862,7 @@ func TestRunCleanups_ExecutesAllCleanups(t *testing.T) {
 		props:  make(map[string]interface{}),
 		hooks: &Hooks{cleanups: []func(){
 			func() { executed2 = true },
-		},},
+		}},
 		child: child,
 	}
 
@@ -914,7 +914,6 @@ func TestCommitDeletion_RunsCleanupsAndCleansAtomSubs(t *testing.T) {
 		t.Error("Expected atom subscription to be removed during commitDeletion")
 	}
 }
-
 
 func TestGetNextUnitOfWork_Child(t *testing.T) {
 	mockDOM := newTestDOMAdapter()

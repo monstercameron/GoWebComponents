@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"fmt"
 	"reflect"
 )
 
@@ -31,9 +32,8 @@ func CreateElement(typ interface{}, props map[string]interface{}, children ...in
 		}
 	}
 
-	if len(children) > 0 {
-		elem.Props["children"] = children
-	}
+	// Always set children in props, even if empty, so reconciliation can handle deletions
+	elem.Props["children"] = children
 
 	return elem
 }
@@ -87,6 +87,8 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					effectTag: "UPDATE",
 					dirty:     needsUpdate,
 				}
+			} else {
+				fmt.Printf("  [UPDATE] ERROR: not Element type=%T\n", element)
 			}
 		} else if element != nil {
 			// Create a new fiber
@@ -98,11 +100,17 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					effectTag: "PLACEMENT",
 					dirty:     true,
 				}
+			} else {
+				fmt.Printf("  [PLACEMENT] ERROR: not Element\n")
 			}
+		} else if oldFiber != nil {
+			// element is nil, oldFiber exists - mark for deletion
+			oldFiber.effectTag = "DELETION"
+			rt.deletions = append(rt.deletions, oldFiber)
 		}
 
-		if oldFiber != nil && !sameType {
-			// Mark the old fiber for deletion
+		if oldFiber != nil && !sameType && element != nil {
+			// Mark the old fiber for deletion (only when we have a new element but it's a different type)
 			oldFiber.effectTag = "DELETION"
 			rt.deletions = append(rt.deletions, oldFiber)
 		}
@@ -184,6 +192,10 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 		default:
 			// Function component
 			currentFiber = fiber
+			// Log component invocation (diagnose re-renders)
+			if fnName := reflect.TypeOf(fiber.typeOf); fnName != nil {
+				fmt.Printf("Invoke component: fiber=%p type=%v\n", fiber, fnName)
+			}
 			// TODO: ensure FinalizeHookOrder is called after function component render; currently only validateHookOrder runs
 
 			// Preserve hooks from alternate fiber
@@ -316,6 +328,7 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 
 // commitRoot commits all changes to the DOM
 func (rt *Runtime) commitRoot() {
+	fmt.Printf("Processing %d deletions\n", len(rt.deletions))
 	// Process deletions first
 	for _, fiber := range rt.deletions {
 		rt.commitWork(fiber)
@@ -359,10 +372,30 @@ func (rt *Runtime) commitWork(fiber *Fiber) {
 					oldValue, _ := fiber.alternate.props["nodeValue"].(string)
 					newValue, _ := fiber.props["nodeValue"].(string)
 					if oldValue != newValue {
+						// Try to get parent id for easier mapping
+						var parentID string
+						if parent := rt.domAdapter.GetParent(fiber.dom); parent != nil {
+							if pID := rt.domAdapter.GetProperty(parent, "id"); pID != nil {
+								if str, ok := pID.(string); ok {
+									parentID = str
+								}
+							}
+						}
+						fmt.Printf("Text update: old='%s' new='%s' dom=%p parentID=%s\n", oldValue, newValue, fiber.dom, parentID)
+					}
+					if oldValue != newValue {
 						rt.domAdapter.SetTextContent(fiber.dom, newValue)
 					}
 				} else {
 					// Regular element - update properties
+					// Try to fetch id attribute for this element
+					var idAttr string
+					if idVal := rt.domAdapter.GetProperty(fiber.dom, "id"); idVal != nil {
+						if s, ok := idVal.(string); ok {
+							idAttr = s
+						}
+					}
+					fmt.Printf("Updating element properties for dom=%p type=%v id=%s\n", fiber.dom, fiber.typeOf, idAttr)
 					rt.updateDomProperties(fiber.dom, fiber.alternate.props, fiber.props)
 				}
 			}
@@ -383,6 +416,10 @@ func (rt *Runtime) commitWork(fiber *Fiber) {
 
 // commitDeletion removes a fiber from the DOM and runs cleanup functions
 func (rt *Runtime) commitDeletion(fiber *Fiber, domParent DOMNode) {
+	if fiber == nil {
+		return
+	}
+	fmt.Printf("commitDeletion called for fiber=%p type=%v dom=%p\n", fiber, fiber.typeOf, fiber.dom)
 	// Run all cleanup functions before removing from DOM
 	rt.runCleanups(fiber)
 
@@ -390,13 +427,39 @@ func (rt *Runtime) commitDeletion(fiber *Fiber, domParent DOMNode) {
 	rt.CleanupAtomSubscriptions(fiber)
 
 	if fiber.dom != nil && !fiber.dom.IsNull() {
+		// This fiber has a DOM node, remove it
+		fmt.Printf("  commitDeletion: removing DOM node %p\n", fiber.dom)
 		rt.domAdapter.RemoveChild(domParent, fiber.dom)
 	} else {
-		// Function component without DOM - still need to delete children
-		if fiber.child != nil {
-			rt.commitDeletion(fiber.child, domParent)
-		}
+		// Function component without DOM node - recursively delete all descendants
+		// We need to find and remove all actual DOM nodes in the subtree
+		fmt.Printf("  commitDeletion: function component, recursing to subtree\n")
+		rt.deleteFiberSubtree(fiber, domParent)
 	}
+}
+
+// deleteFiberSubtree recursively removes all DOM nodes in a fiber's subtree
+func (rt *Runtime) deleteFiberSubtree(fiber *Fiber, domParent DOMNode) {
+	if fiber == nil {
+		return
+	}
+
+	fmt.Printf("  deleteFiberSubtree: fiber=%p type=%v dom=%p\n", fiber, fiber.typeOf, fiber.dom)
+
+	// If this fiber has a DOM node, remove it (this stops the recursion down that branch)
+	if fiber.dom != nil && !fiber.dom.IsNull() {
+		fmt.Printf("    deleteFiberSubtree: removing DOM node %p from parent %p\n", fiber.dom, domParent)
+		rt.domAdapter.RemoveChild(domParent, fiber.dom)
+		return
+	}
+
+	// No DOM node on this fiber - recurse to children
+	rt.deleteFiberSubtree(fiber.child, domParent)
+
+	// After processing the child, we need to handle siblings
+	// But siblings should be at the same level, and we're being called from commitDeletion
+	// which means the parent will handle siblings. We should NOT recurse to sibling here.
+	// Instead, the caller should handle the sibling chain.
 }
 
 // runCleanups runs all cleanup functions for a fiber and its children

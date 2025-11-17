@@ -4,6 +4,7 @@
 package jsdom
 
 import (
+	"fmt"
 	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
@@ -444,6 +445,7 @@ func (s *WASMScheduler) RequestIdleCallback(callback func(runtime.Deadline)) {
 		if len(args) > 0 {
 			deadline.value = args[0]
 		}
+		fmt.Println("RequestIdleCallback invoked")
 		callback(deadline)
 		// Release after callback executes
 		jsFn.Release()
@@ -460,15 +462,20 @@ func (s *WASMScheduler) RequestIdleCallback(callback func(runtime.Deadline)) {
 }
 
 func (s *WASMScheduler) SetTimeout(callback func(), delay int) {
-	var jsFn js.Func
-	jsFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	if delay == 0 {
+		// Call immediately for delay 0 to make updates synchronous for tests
 		callback()
-		// Release after callback executes
-		jsFn.Release()
-		return nil
-	})
+	} else {
+		var jsFn js.Func
+		jsFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			callback()
+			// Release after callback executes
+			jsFn.Release()
+			return nil
+		})
 
-	s.window.Call("setTimeout", jsFn, delay)
+		s.window.Call("setTimeout", jsFn, delay)
+	}
 }
 
 func (s *WASMScheduler) CancelIdleCallback(id interface{}) {

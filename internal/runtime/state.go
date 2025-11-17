@@ -47,6 +47,11 @@ func (ar *AtomRegistry) SetAtom(id string, value interface{}) []*Fiber {
 	if _, exists := ar.atoms[id]; !exists {
 		ar.atoms[id] = &atomState{}
 	}
+	// Log the old and new values for diagnostic purposes
+	var old interface{}
+	if a, ok := ar.atoms[id]; ok {
+		old = a.value
+	}
 	ar.atoms[id].value = value
 
 	// Get all subscribed fibers
@@ -55,6 +60,7 @@ func (ar *AtomRegistry) SetAtom(id string, value interface{}) []*Fiber {
 		for fiber := range subs {
 			subscribers = append(subscribers, fiber)
 		}
+		fmt.Printf("Atom(%s) SetAtom: old=%v new=%v notified %d subscribers\n", id, old, value, len(subscribers))
 	}
 
 	return subscribers
@@ -79,6 +85,7 @@ func (ar *AtomRegistry) Subscribe(atomID string, fiber *Fiber) {
 		ar.subscriptions[atomID] = make(map[*Fiber]bool)
 	}
 	ar.subscriptions[atomID][fiber] = true
+	fmt.Printf("Atom(%s) Subscribe: fiber=%p subscribers=%d\n", atomID, fiber, len(ar.subscriptions[atomID]))
 }
 
 // Unsubscribe removes a fiber from an atom's subscription list
@@ -91,6 +98,7 @@ func (ar *AtomRegistry) Unsubscribe(atomID string, fiber *Fiber) {
 		if len(subs) == 0 {
 			delete(ar.subscriptions, atomID)
 		}
+		fmt.Printf("Atom(%s) Unsubscribe: removed fiber=%p subscribers=%d\n", atomID, fiber, len(subs))
 	}
 }
 
@@ -159,6 +167,8 @@ func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(in
 
 		// Type assertion
 		if typed, ok := value.(T); ok {
+			// Log which fiber is reading atom value to correlate with schedule updates
+			fmt.Printf("GoUseAtom getter: atom=%s value=%v fiber=%p\n", id, typed, GetCurrentFiber())
 			return typed
 		}
 

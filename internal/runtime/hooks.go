@@ -290,9 +290,13 @@ func fastEqual(a, b interface{}) bool {
 		return false
 	}
 
-	// Try direct comparison first
-	if a == b {
-		return true
+	// Try direct comparison first, but only for comparable types
+	ta := reflect.TypeOf(a)
+	tb := reflect.TypeOf(b)
+	if ta == tb && ta.Comparable() {
+		if a == b {
+			return true
+		}
 	}
 
 	// Use reflect for complex types
