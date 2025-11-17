@@ -12,14 +12,14 @@ var (
 func (rt *Runtime) ScheduleUpdate() {
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()
-	
+
 	if rt.currentRoot == nil || rt.updateScheduled {
 		// TODO: log/handle nil currentRoot to avoid silent no-op when ScheduleUpdate is called too early
 		return
 	}
-	
+
 	rt.updateScheduled = true
-	
+
 	// Create new work-in-progress root
 	rt.wipRoot = &Fiber{
 		typeOf:    rt.currentRoot.typeOf,
@@ -28,10 +28,10 @@ func (rt *Runtime) ScheduleUpdate() {
 		alternate: rt.currentRoot,
 		dirty:     true,
 	}
-	
+
 	rt.nextUnitOfWork = rt.wipRoot
 	rt.deletions = make([]*Fiber, 0)
-	
+
 	// Schedule work loop
 	rt.scheduler.RequestIdleCallback(rt.workLoop)
 }
@@ -41,17 +41,17 @@ func (rt *Runtime) workLoop(deadline Deadline) {
 	shouldYield := false
 	units := 0
 	const maxUnitsPerSlice = 300
-	
+
 	for rt.nextUnitOfWork != nil && !shouldYield {
 		rt.nextUnitOfWork = rt.performUnitOfWork(rt.nextUnitOfWork)
 		units++
-		
+
 		// Check if we should yield
 		if deadline.TimeRemaining() < 1 || units >= maxUnitsPerSlice {
 			shouldYield = true
 		}
 	}
-	
+
 	// If work is complete, commit
 	if rt.wipRoot != nil && rt.nextUnitOfWork == nil {
 		rt.commitRoot()
@@ -71,7 +71,7 @@ func (rt *Runtime) Render(element *Element, container DOMNode) {
 		alternate: rt.currentRoot,
 		dirty:     true,
 	}
-	
+
 	rt.nextUnitOfWork = rt.wipRoot
 	rt.deletions = make([]*Fiber, 0)
 	rt.scheduler.RequestIdleCallback(rt.workLoop)
@@ -82,7 +82,7 @@ func (rt *Runtime) ScheduleUpdateForFiber(fiber *Fiber) {
 	if fiber == nil {
 		return
 	}
-	
+
 	// Mark fiber and parents as dirty
 	f := fiber
 	for f != nil {
@@ -90,7 +90,7 @@ func (rt *Runtime) ScheduleUpdateForFiber(fiber *Fiber) {
 		f.needsUpdate = true
 		f = f.parent
 	}
-	
+
 	// Schedule update from root
 	if !rt.updateScheduled {
 		rt.ScheduleUpdate()
@@ -112,7 +112,7 @@ func EnqueueUI(fn func()) {
 	uiQueueInit.Do(func() {
 		// Queue is already initialized
 	})
-	
+
 	select {
 	case uiQueue <- uiQueueItem{fn: fn}:
 		// Successfully enqueued

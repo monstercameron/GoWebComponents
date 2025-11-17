@@ -4,21 +4,21 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	
+
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
 // MockDOMNode implements runtime.DOMNode
 type MockDOMNode struct {
-	ID       int
-	Tag      string
+	ID          int
+	Tag         string
 	TextContent string
-	Attrs    map[string]string
-	Props    map[string]interface{}
-	Styles   map[string]string
-	InnerHTML string
-	Children []*MockDOMNode
-	Parent   *MockDOMNode
+	Attrs       map[string]string
+	Props       map[string]interface{}
+	Styles      map[string]string
+	InnerHTML   string
+	Children    []*MockDOMNode
+	Parent      *MockDOMNode
 }
 
 func (n *MockDOMNode) IsNull() bool {
@@ -61,6 +61,7 @@ func NewMockDOMAdapter() *MockDOMAdapter {
 }
 
 func (a *MockDOMAdapter) recordOp(opType string, nodeID int, data interface{}) {
+	// TODO: guard operations with a lock; concurrent adapter calls can race when appending
 	a.operations = append(a.operations, DOMOperation{
 		Type:      opType,
 		NodeID:    nodeID,
@@ -72,14 +73,14 @@ func (a *MockDOMAdapter) recordOp(opType string, nodeID int, data interface{}) {
 func (a *MockDOMAdapter) CreateElement(tag string) runtime.DOMNode {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	
+
 	a.nodeCounter++
 	node := &MockDOMNode{
-		ID:    a.nodeCounter,
-		Tag:   tag,
-		Attrs: make(map[string]string),
-		Props: make(map[string]interface{}),
-		Styles: make(map[string]string),
+		ID:       a.nodeCounter,
+		Tag:      tag,
+		Attrs:    make(map[string]string),
+		Props:    make(map[string]interface{}),
+		Styles:   make(map[string]string),
 		Children: make([]*MockDOMNode, 0),
 	}
 	a.nodeMap[node.ID] = node
@@ -90,7 +91,7 @@ func (a *MockDOMAdapter) CreateElement(tag string) runtime.DOMNode {
 func (a *MockDOMAdapter) CreateTextNode(text string) runtime.DOMNode {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	
+
 	a.nodeCounter++
 	node := &MockDOMNode{
 		ID:          a.nodeCounter,

@@ -1,7 +1,7 @@
 //go:build js && wasm
 // +build js,wasm
 
-package fiber
+package utils
 
 import (
 	"bytes"
@@ -661,3 +661,5 @@ func ResetGoroutineBaseline() {
 	baselineGoroutineCount = runtime.NumGoroutine()
 	debugf("UTILS", "🔄 ResetGoroutineBaseline: reset from %d to %d\n", oldBaseline, baselineGoroutineCount)
 }
+
+

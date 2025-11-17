@@ -2,7 +2,7 @@ package mockdom
 
 import (
 	"sync"
-	
+
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
@@ -39,7 +39,7 @@ func NewMockScheduler(synchronous bool) *MockScheduler {
 func (s *MockScheduler) RequestIdleCallback(callback func(deadline runtime.Deadline)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	if s.synchronous {
 		// Execute immediately for deterministic testing
 		deadline := &MockDeadline{
@@ -55,7 +55,7 @@ func (s *MockScheduler) RequestIdleCallback(callback func(deadline runtime.Deadl
 func (s *MockScheduler) SetTimeout(callback func(), delay int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	if s.synchronous {
 		callback()
 	} else {
@@ -69,7 +69,7 @@ func (s *MockScheduler) FlushIdleCallbacks() {
 	callbacks := s.pendingCallbacks
 	s.pendingCallbacks = make([]func(runtime.Deadline), 0)
 	s.mu.Unlock()
-	
+
 	for _, cb := range callbacks {
 		deadline := &MockDeadline{
 			timeRemaining: 16.0,
@@ -85,7 +85,7 @@ func (s *MockScheduler) FlushTimeouts() {
 	timeouts := s.timeouts
 	s.timeouts = make([]func(), 0)
 	s.mu.Unlock()
-	
+
 	for _, cb := range timeouts {
 		cb()
 	}

@@ -16,19 +16,19 @@ type DOMAdapter interface {
 	RemoveAttribute(node DOMNode, name string)
 	SetProperty(node DOMNode, name string, value interface{})
 	GetProperty(node DOMNode, name string) interface{}
-	
+
 	// Tree manipulation
 	AppendChild(parent, child DOMNode)
 	RemoveChild(parent, child DOMNode)
 	InsertBefore(parent, newNode, referenceNode DOMNode)
 	ReplaceChild(parent, newNode, oldNode DOMNode)
-	
+
 	// Queries
 	GetParent(node DOMNode) DOMNode
 	GetChildren(node DOMNode) []DOMNode
 	GetFirstChild(node DOMNode) DOMNode
 	GetNextSibling(node DOMNode) DOMNode
-	
+
 	// Styling
 	SetStyle(node DOMNode, property, value string)
 	SetStyles(node DOMNode, styles map[string]string)
@@ -78,12 +78,12 @@ type BrowserState interface {
 	ReplaceState(state interface{}, title, url string)
 	GetCurrentPath() string
 	OnPopState(callback func(path string))
-	
+
 	// Storage
 	SetItem(key, value string) error
 	GetItem(key string) (string, bool)
 	RemoveItem(key string)
-	
+
 	// Location
 	GetHash() string
 	SetHash(hash string)

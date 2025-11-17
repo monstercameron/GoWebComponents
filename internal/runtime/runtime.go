@@ -8,16 +8,16 @@ type Runtime struct {
 	eventAdapter EventAdapter
 	scheduler    Scheduler
 	browserState BrowserState
-	
+
 	wipRoot         *Fiber
 	currentRoot     *Fiber
 	nextUnitOfWork  *Fiber
 	deletions       []*Fiber
 	updateScheduled bool
-	
+
 	// Global state management
 	atomRegistry *AtomRegistry
-	
+
 	// UI queue for non-render updates
 	uiQueue      []func()
 	uiQueueMutex sync.Mutex

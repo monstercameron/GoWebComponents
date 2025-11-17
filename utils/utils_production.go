@@ -1,7 +1,7 @@
 //go:build production
 // +build production
 
-package fiber
+package utils
 
 // isDebugBuild returns false for production builds
 // This allows the compiler to completely eliminate debug calls
@@ -31,3 +31,5 @@ func GetMemStatsSampleRate() int64 {
 }
 
 // TODO: ensure production build tags exclude the debug-enabled versions in utils.go to avoid duplicate symbol errors when building with -tags=production
+
+

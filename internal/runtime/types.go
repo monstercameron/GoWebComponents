@@ -10,23 +10,23 @@ type Element struct {
 // Fiber represents a unit of work in the virtual DOM tree
 type Fiber struct {
 	// Tree structure
-	parent   *Fiber
-	child    *Fiber
-	sibling  *Fiber
+	parent    *Fiber
+	child     *Fiber
+	sibling   *Fiber
 	alternate *Fiber
-	
+
 	// Component info
 	typeOf interface{}
 	props  map[string]interface{}
-	
+
 	// Platform-agnostic DOM reference
 	dom DOMNode
-	
+
 	// Hooks and effects
 	hooks          *Hooks
 	effects        []func()
 	eventCallbacks []EventHandler
-	
+
 	// Reconciliation metadata
 	effectTag   string
 	dirty       bool
@@ -59,11 +59,11 @@ type memoizedValue struct {
 // Hooks manages component hook state
 type Hooks struct {
 	index int
-	
+
 	state []interface{}
 	deps  [][]interface{}
 	memos []memoizedValue
-	
+
 	callOrder    []HookCall
 	prevOrder    []HookCall
 	orderChecked bool

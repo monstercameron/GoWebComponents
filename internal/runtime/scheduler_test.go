@@ -56,21 +56,21 @@ func TestScheduleUpdate_CreatesWipRoot(t *testing.T) {
 			props:  make(map[string]interface{}),
 		},
 	}
-	
+
 	rt.ScheduleUpdate()
-	
+
 	if rt.wipRoot == nil {
 		t.Fatal("Expected wipRoot to be created")
 	}
-	
+
 	if rt.wipRoot.typeOf != "ROOT" {
 		t.Errorf("Expected wipRoot typeOf to be ROOT, got %v", rt.wipRoot.typeOf)
 	}
-	
+
 	if !rt.updateScheduled {
 		t.Error("Expected updateScheduled to be true")
 	}
-	
+
 	if len(scheduler.callbacks) != 1 {
 		t.Errorf("Expected 1 idle callback scheduled, got %d", len(scheduler.callbacks))
 	}
@@ -85,11 +85,11 @@ func TestScheduleUpdate_PreventsDuplicates(t *testing.T) {
 			props:  make(map[string]interface{}),
 		},
 	}
-	
+
 	rt.ScheduleUpdate()
 	rt.ScheduleUpdate()
 	rt.ScheduleUpdate()
-	
+
 	if len(scheduler.callbacks) != 1 {
 		t.Errorf("Expected only 1 callback despite multiple calls, got %d", len(scheduler.callbacks))
 	}
@@ -100,29 +100,29 @@ func TestWorkLoop_ProcessesWork(t *testing.T) {
 	rt := &Runtime{
 		scheduler: scheduler,
 	}
-	
+
 	// Create a simple fiber tree
 	root := &Fiber{
 		typeOf: "ROOT",
 		props:  map[string]interface{}{"children": []interface{}{}},
 		dirty:  true,
 	}
-	
+
 	rt.wipRoot = root
 	rt.nextUnitOfWork = root
-	
+
 	// Execute work loop
 	deadline := &testDeadline{remaining: 16.0, timeout: false}
 	rt.workLoop(deadline)
-	
+
 	if rt.nextUnitOfWork != nil {
 		t.Error("Expected all work to be completed")
 	}
-	
+
 	if rt.currentRoot != root {
 		t.Error("Expected currentRoot to be updated")
 	}
-	
+
 	if rt.updateScheduled {
 		t.Error("Expected updateScheduled to be false after completion")
 	}
@@ -133,14 +133,14 @@ func TestWorkLoop_RespectsDeadline(t *testing.T) {
 	rt := &Runtime{
 		scheduler: scheduler,
 	}
-	
+
 	// Create a fiber with many children
 	root := &Fiber{
 		typeOf: "ROOT",
 		props:  map[string]interface{}{"children": []interface{}{}},
 		dirty:  true,
 	}
-	
+
 	// Add many children to simulate heavy work
 	child := root
 	for i := 0; i < 400; i++ {
@@ -153,14 +153,14 @@ func TestWorkLoop_RespectsDeadline(t *testing.T) {
 		child.child = nextChild
 		child = nextChild
 	}
-	
+
 	rt.wipRoot = root
 	rt.nextUnitOfWork = root
-	
+
 	// Execute with tight deadline (should yield)
 	deadline := &testDeadline{remaining: 0.5, timeout: false}
 	rt.workLoop(deadline)
-	
+
 	// Should have scheduled another callback due to yielding
 	if len(scheduler.callbacks) != 1 {
 		t.Errorf("Expected work loop to schedule continuation, got %d callbacks", len(scheduler.callbacks))
@@ -176,21 +176,21 @@ func TestScheduleUpdateForFiber_MarksParentsDirty(t *testing.T) {
 			props:  make(map[string]interface{}),
 		},
 	}
-	
+
 	grandparent := &Fiber{typeOf: "grandparent", dirty: false}
 	parent := &Fiber{typeOf: "parent", parent: grandparent, dirty: false}
 	child := &Fiber{typeOf: "child", parent: parent, dirty: false}
-	
+
 	rt.ScheduleUpdateForFiber(child)
-	
+
 	if !child.dirty {
 		t.Error("Expected child to be marked dirty")
 	}
-	
+
 	if !parent.dirty {
 		t.Error("Expected parent to be marked dirty")
 	}
-	
+
 	if !grandparent.dirty {
 		t.Error("Expected grandparent to be marked dirty")
 	}
@@ -198,13 +198,13 @@ func TestScheduleUpdateForFiber_MarksParentsDirty(t *testing.T) {
 
 func TestEnqueueUI(t *testing.T) {
 	executed := false
-	
+
 	EnqueueUI(func() {
 		executed = true
 	})
-	
+
 	ProcessUIQueue()
-	
+
 	if !executed {
 		t.Error("Expected UI function to be executed")
 	}
@@ -212,15 +212,15 @@ func TestEnqueueUI(t *testing.T) {
 
 func TestUIQueue_MultipleItems(t *testing.T) {
 	count := 0
-	
+
 	for i := 0; i < 10; i++ {
 		EnqueueUI(func() {
 			count++
 		})
 	}
-	
+
 	ProcessUIQueue()
-	
+
 	if count != 10 {
 		t.Errorf("Expected 10 executions, got %d", count)
 	}
@@ -229,17 +229,17 @@ func TestUIQueue_MultipleItems(t *testing.T) {
 func TestGetUIQueueSize(t *testing.T) {
 	// Clear queue first
 	ProcessUIQueue()
-	
+
 	EnqueueUI(func() {})
 	EnqueueUI(func() {})
-	
+
 	size := GetUIQueueSize()
 	if size != 2 {
 		t.Errorf("Expected queue size 2, got %d", size)
 	}
-	
+
 	ProcessUIQueue()
-	
+
 	size = GetUIQueueSize()
 	if size != 0 {
 		t.Errorf("Expected queue size 0 after processing, got %d", size)

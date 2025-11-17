@@ -22,17 +22,17 @@ func CreateElement(typ interface{}, props map[string]interface{}, children ...in
 		Props:    make(map[string]interface{}),
 		Children: children,
 	}
-	
+
 	if props != nil {
 		for k, v := range props {
 			elem.Props[k] = v
 		}
 	}
-	
+
 	if len(children) > 0 {
 		elem.Props["children"] = children
 	}
-	
+
 	return elem
 }
 
@@ -53,7 +53,7 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 
 		var newFiber *Fiber
 		sameType := false
-		
+
 		if oldFiber != nil && element != nil {
 			if elem, ok := element.(*Element); ok {
 				sameType = isSameType(elem.Type, oldFiber.typeOf)
@@ -71,7 +71,7 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					alternate: oldFiber,
 					effectTag: "UPDATE",
 					// TODO: avoid reflect.DeepEqual on props every render; use a cheaper diff
-					dirty:     !reflect.DeepEqual(oldFiber.props, elem.Props),
+					dirty: !reflect.DeepEqual(oldFiber.props, elem.Props),
 				}
 			}
 		} else if element != nil {
@@ -117,21 +117,21 @@ func isSameType(type1, type2 interface{}) bool {
 		}
 		return false
 	}
-	
+
 	// Function components - compare function pointers
 	t1 := reflect.TypeOf(type1)
 	t2 := reflect.TypeOf(type2)
-	
+
 	if t1 == nil || t2 == nil {
 		return false
 	}
-	
+
 	if t1.Kind() == reflect.Func && t2.Kind() == reflect.Func {
 		v1 := reflect.ValueOf(type1)
 		v2 := reflect.ValueOf(type2)
 		return v1.Pointer() == v2.Pointer()
 	}
-	
+
 	return reflect.DeepEqual(type1, type2)
 }
 
@@ -140,12 +140,12 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 	if fiber == nil {
 		return nil
 	}
-	
+
 	// Skip non-dirty fibers (optimization)
 	if !fiber.dirty {
 		return rt.getNextUnitOfWork(fiber)
 	}
-	
+
 	fiber.dirty = false
 
 	if fiber.typeOf == nil || fiber.typeOf == "ROOT" {
@@ -160,18 +160,18 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 			if fiber.dom == nil || fiber.dom.IsNull() {
 				fiber.dom = rt.createDom(fiber)
 			}
-			
+
 			if propsChildren, ok := fiber.props["children"]; ok {
 				if elements, elementsOk := propsChildren.([]interface{}); elementsOk {
 					rt.reconcileChildren(fiber, elements)
 				}
 			}
-			
+
 		default:
 			// Function component
 			currentFiber = fiber
 			// TODO: ensure FinalizeHookOrder is called after function component render; currently only validateHookOrder runs
-			
+
 			// Preserve hooks from alternate fiber
 			if fiber.alternate != nil && fiber.alternate.hooks != nil {
 				if fiber.hooks == nil {
@@ -200,10 +200,10 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 					index:     0,
 				}
 			}
-			
+
 			// Clear effects
 			fiber.effects = make([]func(), 0)
-			
+
 			// Call component function
 			var element *Element
 			if fn, ok := fiber.typeOf.(func(map[string]interface{}) *Element); ok {
@@ -211,7 +211,7 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 			} else if fn, ok := fiber.typeOf.(func(Attrs) *Element); ok {
 				element = fn(Attrs(fiber.props))
 			}
-			
+
 			if element != nil {
 				rt.reconcileChildren(fiber, []interface{}{element})
 			}
@@ -227,7 +227,7 @@ func (rt *Runtime) getNextUnitOfWork(fiber *Fiber) *Fiber {
 	if fiber.child != nil {
 		return fiber.child
 	}
-	
+
 	// Then sibling
 	nextFiber := fiber
 	for nextFiber != nil {
@@ -236,14 +236,14 @@ func (rt *Runtime) getNextUnitOfWork(fiber *Fiber) *Fiber {
 		}
 		nextFiber = nextFiber.parent
 	}
-	
+
 	return nil
 }
 
 // createDom creates a DOM node from a fiber
 func (rt *Runtime) createDom(fiber *Fiber) DOMNode {
 	var dom DOMNode
-	
+
 	if t, ok := fiber.typeOf.(string); ok {
 		if t == "TEXT_ELEMENT" {
 			if nodeValue, ok := fiber.props["nodeValue"].(string); ok {
@@ -253,10 +253,10 @@ func (rt *Runtime) createDom(fiber *Fiber) DOMNode {
 			dom = rt.domAdapter.CreateElement(t)
 		}
 	}
-	
+
 	// Apply properties
 	rt.updateDomProperties(dom, make(map[string]interface{}), fiber.props)
-	
+
 	return dom
 }
 
@@ -265,7 +265,7 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 	if dom == nil || dom.IsNull() {
 		return
 	}
-	
+
 	// Remove old properties
 	for name := range oldProps {
 		if name == "children" {
@@ -275,13 +275,13 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 			rt.domAdapter.RemoveAttribute(dom, name)
 		}
 	}
-	
+
 	// Set new properties
 	for name, value := range newProps {
 		if name == "children" {
 			continue
 		}
-		
+
 		switch name {
 		case "style":
 			if styles, ok := value.(map[string]string); ok {
@@ -308,15 +308,15 @@ func (rt *Runtime) commitRoot() {
 		rt.commitWork(fiber)
 	}
 	rt.deletions = make([]*Fiber, 0)
-	
+
 	// Commit the work
 	if rt.wipRoot != nil && rt.wipRoot.child != nil {
 		rt.commitWork(rt.wipRoot.child)
 	}
-	
+
 	// Run effects
 	rt.runEffects(rt.wipRoot)
-	
+
 	rt.currentRoot = rt.wipRoot
 	rt.wipRoot = nil
 }
@@ -326,16 +326,16 @@ func (rt *Runtime) commitWork(fiber *Fiber) {
 	if fiber == nil {
 		return
 	}
-	
+
 	// Find the parent DOM node
 	var domParentFiber *Fiber = fiber.parent
 	for domParentFiber != nil && (domParentFiber.dom == nil || domParentFiber.dom.IsNull()) {
 		domParentFiber = domParentFiber.parent
 	}
-	
+
 	if domParentFiber != nil && domParentFiber.dom != nil && !domParentFiber.dom.IsNull() {
 		domParent := domParentFiber.dom
-		
+
 		if fiber.effectTag == "PLACEMENT" && fiber.dom != nil && !fiber.dom.IsNull() {
 			rt.domAdapter.AppendChild(domParent, fiber.dom)
 		} else if fiber.effectTag == "UPDATE" && fiber.dom != nil && !fiber.dom.IsNull() {
@@ -347,7 +347,7 @@ func (rt *Runtime) commitWork(fiber *Fiber) {
 			return
 		}
 	}
-	
+
 	// Recursively commit children and siblings
 	if fiber.child != nil {
 		rt.commitWork(fiber.child)
@@ -371,14 +371,14 @@ func (rt *Runtime) runEffects(fiber *Fiber) {
 	if fiber == nil {
 		return
 	}
-	
+
 	// Run this fiber's effects
 	for _, effect := range fiber.effects {
 		if effect != nil {
 			effect()
 		}
 	}
-	
+
 	// Recursively run effects for children and siblings
 	if fiber.child != nil {
 		rt.runEffects(fiber.child)

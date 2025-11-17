@@ -30,7 +30,7 @@ func NewAtomRegistry() *AtomRegistry {
 func (ar *AtomRegistry) GetAtom(id string) (interface{}, bool) {
 	ar.mu.RLock()
 	defer ar.mu.RUnlock()
-	
+
 	atom, ok := ar.atoms[id]
 	if !ok {
 		return nil, false
@@ -42,13 +42,13 @@ func (ar *AtomRegistry) GetAtom(id string) (interface{}, bool) {
 func (ar *AtomRegistry) SetAtom(id string, value interface{}) []*Fiber {
 	ar.mu.Lock()
 	defer ar.mu.Unlock()
-	
+
 	// Update or create atom
 	if _, exists := ar.atoms[id]; !exists {
 		ar.atoms[id] = &atomState{}
 	}
 	ar.atoms[id].value = value
-	
+
 	// Get all subscribed fibers
 	subscribers := make([]*Fiber, 0)
 	if subs, ok := ar.subscriptions[id]; ok {
@@ -56,7 +56,7 @@ func (ar *AtomRegistry) SetAtom(id string, value interface{}) []*Fiber {
 			subscribers = append(subscribers, fiber)
 		}
 	}
-	
+
 	return subscribers
 }
 
@@ -64,7 +64,7 @@ func (ar *AtomRegistry) SetAtom(id string, value interface{}) []*Fiber {
 func (ar *AtomRegistry) InitAtom(id string, initialValue interface{}) {
 	ar.mu.Lock()
 	defer ar.mu.Unlock()
-	
+
 	if _, exists := ar.atoms[id]; !exists {
 		ar.atoms[id] = &atomState{value: initialValue}
 	}
@@ -74,7 +74,7 @@ func (ar *AtomRegistry) InitAtom(id string, initialValue interface{}) {
 func (ar *AtomRegistry) Subscribe(atomID string, fiber *Fiber) {
 	ar.mu.Lock()
 	defer ar.mu.Unlock()
-	
+
 	if ar.subscriptions[atomID] == nil {
 		ar.subscriptions[atomID] = make(map[*Fiber]bool)
 	}
@@ -85,7 +85,7 @@ func (ar *AtomRegistry) Subscribe(atomID string, fiber *Fiber) {
 func (ar *AtomRegistry) Unsubscribe(atomID string, fiber *Fiber) {
 	ar.mu.Lock()
 	defer ar.mu.Unlock()
-	
+
 	if subs, ok := ar.subscriptions[atomID]; ok {
 		delete(subs, fiber)
 		if len(subs) == 0 {
@@ -98,7 +98,7 @@ func (ar *AtomRegistry) Unsubscribe(atomID string, fiber *Fiber) {
 func (ar *AtomRegistry) UnsubscribeFiberFromAll(fiber *Fiber) {
 	ar.mu.Lock()
 	defer ar.mu.Unlock()
-	
+
 	for atomID, subs := range ar.subscriptions {
 		delete(subs, fiber)
 		if len(subs) == 0 {
@@ -111,7 +111,7 @@ func (ar *AtomRegistry) UnsubscribeFiberFromAll(fiber *Fiber) {
 func (ar *AtomRegistry) GetSubscriberCount(atomID string) int {
 	ar.mu.RLock()
 	defer ar.mu.RUnlock()
-	
+
 	if subs, ok := ar.subscriptions[atomID]; ok {
 		return len(subs)
 	}
@@ -132,60 +132,60 @@ func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(T)
 	if rt.atomRegistry == nil {
 		panic("Runtime atom registry not initialized")
 	}
-	
+
 	fiber := GetCurrentFiber()
 	if fiber == nil {
 		panic("GoUseAtom must be called within a component")
 	}
-	
+
 	// Validate hook order
 	if err := validateHookOrder(fiber.hooks, HookTypeAtom, fiber.hooks.index); err != nil {
 		panic(err)
 	}
 	fiber.hooks.index++
-	
+
 	// Initialize atom if it doesn't exist
 	rt.atomRegistry.InitAtom(id, initialValue)
-	
+
 	// Subscribe this fiber to the atom
 	rt.atomRegistry.Subscribe(id, fiber)
-	
+
 	// Getter function
 	get := func() T {
 		value, ok := rt.atomRegistry.GetAtom(id)
 		if !ok {
 			return initialValue
 		}
-		
+
 		// Type assertion
 		if typed, ok := value.(T); ok {
 			return typed
 		}
-		
+
 		// Fallback to initial value if type mismatch
 		return initialValue
 	}
-	
+
 	// Setter function
 	set := func(newValue T) {
 		// Get current value to check if changed
 		currentValue := get()
-		
+
 		// Skip update if value hasn't changed
 		if fastEqual(currentValue, newValue) {
 			return
 		}
-		
+
 		// Update atom and get subscribers
 		subscribers := rt.atomRegistry.SetAtom(id, newValue)
-		
+
 		// Schedule updates for all subscribed fibers
 		// TODO: dedupe subscribers and skip nil/dead fibers before scheduling updates
 		for _, subFiber := range subscribers {
 			rt.ScheduleUpdateForFiber(subFiber)
 		}
 	}
-	
+
 	return get, set
 }
 
@@ -200,7 +200,7 @@ func (rt *Runtime) CleanupAtomSubscriptions(fiber *Fiber) {
 	if rt.atomRegistry == nil {
 		return
 	}
-	
+
 	rt.atomRegistry.UnsubscribeFiberFromAll(fiber)
 }
 
@@ -217,13 +217,13 @@ func (rt *Runtime) SetAtomValue(id string, value interface{}) error {
 	if rt.atomRegistry == nil {
 		return fmt.Errorf("atom registry not initialized")
 	}
-	
+
 	subscribers := rt.atomRegistry.SetAtom(id, value)
-	
+
 	// Schedule updates for all subscribers
 	for _, fiber := range subscribers {
 		rt.ScheduleUpdateForFiber(fiber)
 	}
-	
+
 	return nil
 }
