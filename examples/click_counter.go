@@ -7,15 +7,18 @@
 // - Tailwind CSS styling integration
 // - Real-time UI updates and user interaction
 
-package examples
+//go:build js && wasm
+// +build js,wasm
+
+package example
 
 import (
 	"fmt"
 	"syscall/js"
 
-	// Dot import allows us to use fiber package functions directly without prefixing
-	// This gives us access to HTML elements (Div, Button, etc.) and hooks (GoUseState, GoUseFunc)
-	. "github.com/monstercameron/GoWebComponents/fiber"
+	"github.com/monstercameron/GoWebComponents/dom"
+	"github.com/monstercameron/GoWebComponents/hooks"
+	"github.com/monstercameron/GoWebComponents/render"
 )
 
 // ClickPageHead creates the HTML head section with meta tags and title
@@ -34,13 +37,13 @@ func ClickPageHead(props Attrs) *Element {
 	// Head() creates an HTML <head> element
 	// Meta() creates <meta> tags for charset and viewport
 	// Title() creates a <title> tag with Text() for the content
-	return Head(nil,
-		Meta(Attrs{"charset": "UTF-8"}), // Ensures proper character encoding
-		Meta(Attrs{
+	return dom.Head(nil,
+		dom.Meta(Attrs{"charset": "UTF-8"}), // Ensures proper character encoding
+		dom.Meta(Attrs{
 			"name":    "viewport",
 			"content": "width=device-width, initial-scale=1.0", // Makes the page responsive
 		}),
-		Title(nil, Text(title)), // Text() creates a text node
+		dom.Title(nil, dom.Text(title)), // Text() creates a text node
 	)
 }
 
@@ -54,11 +57,11 @@ func ClickPageLayout(props Attrs) *Element {
 	// - min-h-screen: minimum height of 100vh (full viewport height)
 	// - bg-gradient-to-br: diagonal gradient background
 	// - from-purple-400 via-pink-500 to-red-500: gradient color stops
-	return Body(Attrs{
+	return dom.Body(Attrs{
 		"class": "min-h-screen bg-gradient-to-br from-purple-400 via-pink-500 to-red-500",
 	},
 		// Inner container for centering and padding
-		Div(Attrs{
+		dom.Div(Attrs{
 			"class": "min-h-screen flex items-center justify-center p-4", // Flexbox centering
 		},
 			// props["children"] allows parent components to pass child elements
@@ -82,7 +85,7 @@ func ClickCounterCard(props Attrs) *Element {
 	// - max-w-md: maximum width constraint
 	// - w-full: full width within constraints
 	// - text-center: center-align text content
-	return Div(Attrs{
+	return dom.Div(Attrs{
 		"class": "bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center",
 	},
 		props["children"], // Flexible content area
@@ -95,16 +98,16 @@ func ClickCounterCard(props Attrs) *Element {
 // - Emoji usage for visual appeal
 // - Tailwind typography classes
 func ClickCounterHeader(props Attrs) *Element {
-	return Div(nil, // Container div with no special attributes
+	return dom.Div(nil, // Container div with no special attributes
 		// H1() creates an <h1> heading element
-		H1(Attrs{
+		dom.H1(Attrs{
 			"class": "text-4xl font-bold text-gray-800 mb-2", // Large, bold, dark text with margin
-		}, Text("🖱️ Click Counter")), // Text() creates the actual text content
+		}, dom.Text("🖱️ Click Counter")), // Text() creates the actual text content
 
 		// P() creates a <p> paragraph element for description
-		P(Attrs{
+		dom.P(Attrs{
 			"class": "text-gray-600 mb-8", // Gray text with bottom margin
-		}, Text("A simple counter built with GoWebComponents")),
+		}, dom.Text("A simple counter built with GoWebComponents")),
 	)
 }
 
@@ -122,18 +125,18 @@ func ClickCounterDisplay(props Attrs) *Element {
 		count = props["count"].(int)
 	}
 
-	return Div(Attrs{
+	return dom.Div(Attrs{
 		"class": "mb-8", // Bottom margin for spacing
 	},
 		// Large number display
-		Div(Attrs{
+		dom.Div(Attrs{
 			"class": "text-6xl font-bold text-purple-600 mb-2", // Very large, bold, purple text
-		}, Text(fmt.Sprintf("%d", count))), // Format integer as string
+		}, dom.Text(fmt.Sprintf("%d", count))), // Format integer as string
 
 		// Label for the number
-		P(Attrs{
+		dom.P(Attrs{
 			"class": "text-gray-500", // Muted gray text
-		}, Text("clicks")),
+		}, dom.Text("clicks")),
 	)
 }
 
@@ -164,10 +167,10 @@ func ClickActionButton(props Attrs) *Element {
 
 	// Button() creates an HTML <button> element
 	// The onclick attribute connects to our Go event handler
-	return Button(Attrs{
+	return dom.Button(Attrs{
 		"onclick": onClick,     // Event handler function
 		"class":   buttonClass, // CSS classes for styling
-	}, Text(text)) // Button text content
+	}, dom.Text(text)) // Button text content
 }
 
 // ClickActionButtons creates the increment and decrement button group
@@ -184,7 +187,7 @@ func ClickActionButtons(props Attrs) *Element {
 		onDecrement = props["onDecrement"]
 	}
 
-	return Div(Attrs{
+	return dom.Div(Attrs{
 		"class": "flex gap-4 justify-center mb-6", // Flexbox with gap and centering
 	},
 		// Decrement button (red styling)
@@ -230,25 +233,25 @@ func ClickResetButton(props Attrs) *Element {
 // - Visual separation with Hr() (horizontal rule)
 // - Typography hierarchy for information display
 func ClickTechStackInfo(props Attrs) *Element {
-	return Div(nil,
+	return dom.Div(nil,
 		// Hr() creates a horizontal line for visual separation
-		Hr(Attrs{
+		dom.Hr(Attrs{
 			"class": "my-6 border-gray-200", // Vertical margin and light gray border
 		}),
 
 		// Information section
-		Div(Attrs{
+		dom.Div(Attrs{
 			"class": "text-sm text-gray-500", // Small, muted text
 		},
-			P(nil, Text("Built with ❤️ using:")),
+			dom.P(nil, dom.Text("Built with ❤️ using:")),
 			// Ul() creates an unordered list
-			Ul(Attrs{
+			dom.Ul(Attrs{
 				"class": "list-none mt-2 space-y-1", // No bullets, margin top, vertical spacing
 			},
 				// Li() creates list items
-				Li(nil, Text("🟢 Go + WebAssembly")),
-				Li(nil, Text("⚛️ GoWebComponents (React-like)")),
-				Li(nil, Text("🎨 Tailwind CSS")),
+				dom.Li(nil, dom.Text("🟢 Go + WebAssembly")),
+				dom.Li(nil, dom.Text("⚛️ GoWebComponents (React-like)")),
+				dom.Li(nil, dom.Text("🎨 Tailwind CSS")),
 			),
 		),
 	)
@@ -267,11 +270,11 @@ func ClickMainClickCounter(props Attrs) *Element {
 	// GoUseState is a React-like hook that provides state management
 	// It returns two functions: a getter and a setter
 	// The state persists across component re-renders
-	count, setCount := GoUseState(0) // Initialize counter to 0
+	count, setCount := hooks.UseState(0) // Initialize counter to 0
 	fmt.Printf("📊 ClickMainClickCounter: Counter state initialized with value: %d\n", count())
 
 	// Second state for the demo input field
-	inputValue, setInputValue := GoUseState("") // Initialize input to empty string
+	inputValue, setInputValue := hooks.UseState("") // Initialize input to empty string
 	fmt.Printf("📝 ClickMainClickCounter: Input state initialized with value: '%s'\n", inputValue())
 
 	// EVENT HANDLER SECTION
@@ -281,7 +284,7 @@ func ClickMainClickCounter(props Attrs) *Element {
 
 	// Increment button handler
 	// GoUseFunc wraps our handler function and provides a GoEvent object
-	handleIncrement := GoUseFunc(func(event GoEvent) {
+	handleIncrement := hooks.GoUseFunc(func(event dom.GoEvent) {
 		fmt.Println("➕ handleIncrement: Button clicked!")
 		// event.PreventDefault() stops the default browser behavior
 		event.PreventDefault()
@@ -294,7 +297,7 @@ func ClickMainClickCounter(props Attrs) *Element {
 	})
 
 	// Decrement button handler
-	handleDecrement := GoUseFunc(func(event GoEvent) {
+	handleDecrement := hooks.GoUseFunc(func(event dom.GoEvent) {
 		fmt.Println("➖ handleDecrement: Button clicked!")
 		event.PreventDefault()
 		oldCount := count()
@@ -304,7 +307,7 @@ func ClickMainClickCounter(props Attrs) *Element {
 	})
 
 	// Reset button handler
-	handleReset := GoUseFunc(func(event GoEvent) {
+	handleReset := hooks.GoUseFunc(func(event dom.GoEvent) {
 		fmt.Println("🔄 handleReset: Reset button clicked!")
 		event.PreventDefault()
 		oldCount := count()
@@ -314,7 +317,7 @@ func ClickMainClickCounter(props Attrs) *Element {
 
 	// Input change handler - demonstrates GoEvent.GetValue() usage
 	// This shows how to handle form inputs without direct JavaScript interop
-	handleInputChange := GoUseFunc(func(event GoEvent) {
+	handleInputChange := hooks.GoUseFunc(func(event dom.GoEvent) {
 		fmt.Println("⌨️ handleInputChange: Input event triggered")
 		// GoEvent.GetValue() extracts the current input value cleanly
 		// No need for event.target.value JavaScript interop
@@ -329,16 +332,16 @@ func ClickMainClickCounter(props Attrs) *Element {
 	// DEMO INPUT COMPONENT SECTION
 	// This demonstrates form input handling with GoWebComponents
 	fmt.Println("🎨 ClickMainClickCounter: Creating demo input component...")
-	demoInput := Div(Attrs{
+	demoInput := dom.Div(Attrs{
 		"class": "mb-6", // Bottom margin for spacing
 	},
 		// Label for accessibility and user guidance
-		Label(Attrs{
+		dom.Label(Attrs{
 			"class": "block text-sm font-medium text-gray-700 mb-2",
-		}, Text("Demo Input (shows GoEvent.GetValue()):")),
+		}, dom.Text("Demo Input (shows GoEvent.GetValue()):")),
 
 		// Input element with event handling
-		Input(Attrs{
+		dom.Input(Attrs{
 			"type":        "text",
 			"value":       inputValue(),      // Controlled input - value comes from state
 			"oninput":     handleInputChange, // Event handler for input changes
@@ -348,15 +351,15 @@ func ClickMainClickCounter(props Attrs) *Element {
 		}),
 
 		// Real-time display of current input value
-		P(Attrs{
+		dom.P(Attrs{
 			"class": "mt-2 text-sm text-gray-600",
-		}, Text(fmt.Sprintf("Current value: %s", inputValue()))), // Shows live updates
+		}, dom.Text(fmt.Sprintf("Current value: %s", inputValue()))), // Shows live updates
 	)
 
 	// COMPONENT COMPOSITION SECTION
 	// This demonstrates how to compose larger components from smaller ones
 	fmt.Println("🏗️ ClickMainClickCounter: Assembling counter card content...")
-	counterCardContent := Div(nil,
+	counterCardContent := dom.Div(nil,
 		// Header component (title and description)
 		ClickCounterHeader,
 		// Display component with current count passed as prop
@@ -378,7 +381,7 @@ func ClickMainClickCounter(props Attrs) *Element {
 	// MAIN PAGE STRUCTURE SECTION
 	// This creates the complete HTML document structure
 	fmt.Println("🏛️ ClickMainClickCounter: Building main page structure...")
-	pageStructure := Html(Attrs{"lang": "en"}, // HTML root element with language
+	pageStructure := dom.Html(Attrs{"lang": "en"}, // HTML root element with language
 		// Page head with meta tags and title
 		ClickPageHead(Attrs{"title": "Click Counter - GoWebComponents"}),
 		// Page layout with the counter card as children
@@ -431,13 +434,13 @@ func ClickCounterExample() {
 
 	// CreateElement converts our component function into a virtual DOM element
 	// This is similar to React.createElement()
-	element := CreateElement(clickCounterPage, nil)
+	element := dom.CreateElement(clickCounterPage, nil)
 	fmt.Printf("🧩 ClickCounterExample: Element created: %+v\n", element.Type)
 
 	// Render takes our virtual DOM element and converts it to real DOM
 	// It then inserts it into the specified container
 	// This is where the Go code becomes actual HTML in the browser
-	Render(element, container)
+	render.ToElement(element, container)
 
 	fmt.Println("🎉 ClickCounterExample: Click counter application rendered successfully!")
 	fmt.Println("👆 ClickCounterExample: Ready for user interaction - try clicking the buttons!")

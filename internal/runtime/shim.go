@@ -68,6 +68,12 @@ func GoUseFuncGlobal(fn interface{}) interface{} {
 	numIn := fnType.NumIn()
 	numOut := fnType.NumOut()
 
+	// Get the input type name if there's an input parameter
+	var inTypeName string
+	if numIn > 0 {
+		inTypeName = fnType.In(0).String()
+	}
+
 	// Create the appropriate wrapper based on function signature
 	switch {
 	// func()
@@ -97,8 +103,31 @@ func GoUseFuncGlobal(fn interface{}) interface{} {
 			return nil
 		})
 
+	// func(GoEvent) - GoEvent handler (check by type name)
+	case numIn == 1 && (inTypeName == "github.com/monstercameron/GoWebComponents/internal/runtime.GoEvent" || inTypeName == "github.com/monstercameron/GoWebComponents/dom.GoEvent"):
+		// Type assert to func(GoEvent)
+		handler := storedFn.(func(GoEvent))
+		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			if len(args) > 0 {
+				handler(NewGoEvent(args[0]))
+			}
+			return nil
+		})
+
+	// func(GoEvent) error
+	case numIn == 1 && numOut == 1 && (inTypeName == "github.com/monstercameron/GoWebComponents/internal/runtime.GoEvent" || inTypeName == "github.com/monstercameron/GoWebComponents/dom.GoEvent"):
+		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			if len(args) > 0 {
+				result := reflect.ValueOf(storedFn).Call([]reflect.Value{reflect.ValueOf(NewGoEvent(args[0]))})
+				if len(result) > 0 && !result[0].IsNil() {
+					fmt.Printf("Handler error: %v\n", result[0].Interface())
+				}
+			}
+			return nil
+		})
+
 	// func(js.Value) - event handler
-	case numIn == 1 && fnType.In(0).String() == "syscall/js.Value":
+	case numIn == 1 && inTypeName == "syscall/js.Value":
 		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			if len(args) > 0 {
 				storedFn.(func(js.Value))(args[0])
@@ -107,7 +136,7 @@ func GoUseFuncGlobal(fn interface{}) interface{} {
 		})
 
 	// func(js.Value) error - event handler with error
-	case numIn == 1 && fnType.In(0).String() == "syscall/js.Value" && numOut == 1:
+	case numIn == 1 && inTypeName == "syscall/js.Value" && numOut == 1:
 		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			if len(args) > 0 {
 				result := reflect.ValueOf(storedFn).Call([]reflect.Value{reflect.ValueOf(args[0])})
@@ -121,6 +150,25 @@ func GoUseFuncGlobal(fn interface{}) interface{} {
 	default:
 		panic(fmt.Sprintf("GoUseFuncGlobal: unsupported function signature: %v", fnType))
 	}
+}
+
+// createGoEvent creates a GoEvent from a js.Value
+// This is a helper function used by GoUseFuncGlobal to wrap JS events
+func createGoEvent(jsEvent js.Value) interface{} {
+	// We need to create a GoEvent struct dynamically
+	// The struct has one field: jsValue js.Value
+	// We'll use reflection to create an instance
+
+	// Get the GoEvent type from the dom package
+	// This is a bit tricky since we're in the internal/runtime package
+	// We'll construct it manually using reflect
+
+	// Create a struct with the jsValue field
+	// Since we can't directly reference dom.GoEvent here without circular import,
+	// we return a function that will be called with the actual type
+	return struct {
+		jsValue js.Value
+	}{jsValue: jsEvent}
 }
 
 // GoUseAtomGlobal wraps GoUseAtom with global runtime

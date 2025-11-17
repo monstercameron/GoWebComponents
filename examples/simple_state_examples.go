@@ -5,7 +5,7 @@
 //go:build js && wasm
 // +build js,wasm
 
-package examples
+package example
 
 import (
 	"fmt"
@@ -13,7 +13,9 @@ import (
 	"syscall/js"
 	"time"
 
-	. "github.com/monstercameron/GoWebComponents/fiber"
+	"github.com/monstercameron/GoWebComponents/dom"
+	"github.com/monstercameron/GoWebComponents/hooks"
+	"github.com/monstercameron/GoWebComponents/render"
 )
 
 // Simple struct for demonstrating object state
@@ -90,8 +92,8 @@ func CounterExample(props Attrs) *Element {
 	return Div(Attrs{
 		"style": "border: 1px solid #ccc; padding: 10px; margin: 10px;",
 	},
-		H3(Attrs{}, Text(fmt.Sprintf("Counter Example (Render #%d)", currentRender))),
-		P(Attrs{}, Text(fmt.Sprintf("Count: %d", currentCount))),
+		dom.H3(Attrs{}, dom.Text(fmt.Sprintf("Counter Example (Render #%d)", currentRender))),
+		dom.P(Attrs{}, dom.Text(fmt.Sprintf("Count: %d", currentCount))),
 		Button(Attrs{
 			"onclick": js.FuncOf(increment),
 		}, Text("+")),
@@ -117,7 +119,15 @@ func TextInputExample(props Attrs) *Element {
 
 	fmt.Printf("📝 TextInputExample [RENDER #%d|Global #%d]: Component rendered\n", currentRender, globalRender)
 
-	text, setText := GoUseState("")
+	renderCount, setRenderCount := hooks.UseState(0)
+	currentRender := getNextRenderID()
+	fmt.Printf("📝 StringExample (Render #%d)\n", currentRender)
+
+		renderCount, setRenderCount := hooks.UseState(0)
+	currentRender := getNextRenderID()
+	fmt.Printf("🔧 TextInputExample (Render #%d)\n", currentRender)
+
+	text, setText := hooks.UseState("")
 	currentText := text()
 
 	fmt.Printf("📝 TextInputExample [RENDER #%d]: State values - text='%s' (length=%d)\n",

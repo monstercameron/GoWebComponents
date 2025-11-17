@@ -8,41 +8,47 @@ package examples
 import (
 	"fmt"
 
-	. "github.com/monstercameron/GoWebComponents/fiber"
+	"github.com/monstercameron/GoWebComponents/dom"
+	"github.com/monstercameron/GoWebComponents/hooks"
+	"github.com/monstercameron/GoWebComponents/render"
 )
+
+// Type aliases
+type Attrs = dom.Attrs
+type Element = render.Element
 
 func StateTest() func(Attrs) *Element {
 	return func(props Attrs) *Element {
 		// Counter state
-		count, setCount := GoUseState(0)
+		count, setCount := hooks.UseState(0)
 
 		// Input field state
-		inputValue, setInputValue := GoUseState("")
+		inputValue, setInputValue := hooks.UseState("")
 
 		// Click handler for counter using GoUseFunc
-		handleClick := GoUseFunc(func(event GoEvent) {
+		handleClick := hooks.GoUseFunc(func(event dom.GoEvent) {
 			event.PreventDefault()
 			currentCount := count()
 			setCount(currentCount + 1)
 		})
 
 		// Change handler for input using GoUseFunc
-		handleChange := GoUseFunc(func(event GoEvent) {
+		handleChange := hooks.GoUseFunc(func(event dom.GoEvent) {
 			newValue := event.GetValue()
 			setInputValue(newValue)
 		})
 
-		return Div(nil,
-			H3(nil, Text("State Test Component")),
-			Div(nil,
-				P(nil, Text("Counter: "), Text(fmt.Sprintf("%d", count()))),
-				Button(Attrs{
+		return dom.Div(nil,
+			dom.H3(nil, dom.Text("State Test Component")),
+			dom.Div(nil,
+				dom.P(nil, dom.Text("Counter: "), dom.Text(fmt.Sprintf("%d", count()))),
+				dom.Button(Attrs{
 					"onclick": handleClick,
-				}, Text("Click me!")),
+				}, dom.Text("Click me!")),
 			),
-			Div(nil,
-				P(nil, Text("Input: "), Text(inputValue())),
-				Input(Attrs{
+			dom.Div(nil,
+				dom.P(nil, dom.Text("Input: "), dom.Text(inputValue())),
+				dom.Input(Attrs{
 					"type":        "text",
 					"placeholder": "Enter some text...1",
 					"value":       inputValue(),

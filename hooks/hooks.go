@@ -10,6 +10,10 @@ import (
 // Type alias for Element from runtime
 type Element = runtime.Element
 
+// Type alias for GoEvent from runtime
+// GoEvent is a Go-friendly wrapper around JavaScript event objects
+type GoEvent = runtime.GoEvent
+
 // UseState manages state in a component with optimized equality checking.
 // This is the primary hook for adding reactive state to functional components.
 //

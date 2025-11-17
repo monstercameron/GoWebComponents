@@ -4,10 +4,16 @@
 package example
 
 import (
-	. "github.com/monstercameron/GoWebComponents/fiber"
+	"github.com/monstercameron/GoWebComponents/dom"
+	"github.com/monstercameron/GoWebComponents/render"
+	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-var RendertoDom = RenderTo
+// Type aliases for convenience
+type Attrs = dom.Attrs
+type Element = render.Element
+
+var RendertoDom = render.To
 
 // App initializes the main application with debug configuration and routing.
 // This is the entry point that sets up the framework's debugging namespaces,
@@ -15,7 +21,7 @@ var RendertoDom = RenderTo
 func App(props Attrs) *Element {
 
 	// Configure debug logging namespaces for development visibility
-	SetDebugNamespacesExclusive(map[string]bool{
+	utils.SetDebugNamespacesExclusive(map[string]bool{
 		"HOOKS":  true,
 		"RENDER": false,
 		"MEMORY": false,
@@ -27,7 +33,7 @@ func App(props Attrs) *Element {
 	})
 
 	// Enable hot reload for instant development feedback
-	EnableHotReload(true)
+	utils.EnableHotReload(true)
 
 	// Return the GoUseAtom example directly
 	return GoUseAtomExample(nil)

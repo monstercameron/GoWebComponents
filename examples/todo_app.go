@@ -1,15 +1,90 @@
-package examples
+//go:build js && wasm
+// +build js,wasm
 
-// import (
-// 	"encoding/json"
-// 	"fmt"
-// 	"strconv"
-// 	"strings"
-// 	"syscall/js"
-// 	"time"
-// )
+package example
 
-// // Performance Optimizations Applied:
+import (
+	"github.com/monstercameron/GoWebComponents/dom"
+	"github.com/monstercameron/GoWebComponents/hooks"
+	"github.com/monstercameron/GoWebComponents/render"
+)
+
+// Type aliases for convenience
+type Attrs = dom.Attrs
+type Element = render.Element
+
+// SimpleTodo is a minimal todo app component
+func SimpleTodo(props Attrs) *Element {
+	// State for todos and input
+	todos, setTodos := hooks.UseState([]string{})
+	input, setInput := hooks.UseState("")
+
+	// Handle adding a todo
+	handleAdd := hooks.GoUseFunc(func(event dom.GoEvent) {
+		event.PreventDefault()
+		if input() != "" {
+			newTodos := append(todos(), input())
+			setTodos(newTodos)
+			setInput("")
+		}
+	})
+
+	// Handle input change
+	handleChange := hooks.GoUseFunc(func(event dom.GoEvent) {
+		setInput(event.GetValue())
+	})
+
+	// Handle removing a todo
+	makeHandleRemove := func(index int) interface{} {
+		return hooks.GoUseFunc(func() {
+			newTodos := make([]string, 0)
+			for i, t := range todos() {
+				if i != index {
+					newTodos = append(newTodos, t)
+				}
+			}
+			setTodos(newTodos)
+		})
+	}
+
+	return dom.Div(Attrs{"class": "p-8 max-w-2xl mx-auto"},
+		dom.H1(nil, dom.Text("📝 Todo App")),
+		dom.Form(Attrs{"onsubmit": handleAdd, "class": "mb-6"},
+			dom.Div(Attrs{"class": "flex gap-2"},
+				dom.Input(Attrs{
+					"type":        "text",
+					"value":       input(),
+					"oninput":     handleChange,
+					"placeholder": "Add a new todo...",
+					"class":       "flex-1 px-4 py-2 border rounded",
+				}),
+				dom.Button(Attrs{
+					"type":  "submit",
+					"class": "px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600",
+				}, dom.Text("Add")),
+			),
+		),
+		dom.Ul(Attrs{"class": "space-y-2"},
+			renderTodos(todos(), makeHandleRemove)...,
+		),
+	)
+}
+
+// renderTodos renders the list of todos
+func renderTodos(todos []string, makeHandleRemove func(int) interface{}) []interface{} {
+	items := make([]interface{}, len(todos))
+	for i, todo := range todos {
+		handleRemove := makeHandleRemove(i)
+		items[i] = dom.Li(Attrs{"class": "flex justify-between items-center p-3 bg-gray-100 rounded"},
+			dom.Text(todo),
+			dom.Button(Attrs{
+				"onclick": handleRemove,
+				"class":   "px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600",
+			}, dom.Text("Delete")),
+		)
+	}
+	return items
+}
 // // 1. Fixed metrics tracking to distinguish renders vs mounts
 // // 2. Implemented 1000ms debounced input to reduce unnecessary parent re-renders
 // // 3. Immediate UI updates with delayed state propagation for responsiveness
