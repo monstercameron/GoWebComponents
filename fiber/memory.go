@@ -212,6 +212,7 @@ func checkMemoryPressure() {
 
 // SetMemoryLimits allows configuration of memory management thresholds (exported for user control)
 func SetMemoryLimits(maxCalls, maxPool int) {
+	// TODO: apply maxCalls/maxPool instead of ignoring parameters; currently only performs cleanup
 	debugf("MEMORY", "🧹 Manual memory cleanup requested\n")
 	CleanupMemory()
 }

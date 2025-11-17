@@ -28,4 +28,6 @@ func SetMemStatsSampleRate(rate int64) {
 
 func GetMemStatsSampleRate() int64 {
 	return 0 // Always disabled in production
-} 
+}
+
+// TODO: ensure production build tags exclude the debug-enabled versions in utils.go to avoid duplicate symbol errors when building with -tags=production

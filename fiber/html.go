@@ -24,6 +24,7 @@ func createElementWithStringSupport(typ interface{}, props map[string]interface{
 			processedChildren = append(processedChildren, Text(str))
 		} else if reflect.TypeOf(child).Kind() == reflect.Func {
 			// This is a component function, wrap it in an element
+			// TODO: confirm this wrapping doesn't double-invoke actual component factories
 			processedChildren = append(processedChildren, CreateElement(child, nil))
 		} else {
 			processedChildren = append(processedChildren, child)

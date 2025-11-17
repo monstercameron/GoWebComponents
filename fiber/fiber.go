@@ -228,6 +228,7 @@ func getCurrentFiber() *Fiber {
 func scheduleUpdate(fiber *Fiber) {
 	debugf("FIBER", "🎯 scheduleUpdate called for fiber %p (type: %v)\n", fiber, fiber.typeOf)
 	// fmt.Println("scheduleUpdate: Scheduling update")
+	// TODO: guard against nil currentRoot to avoid nil deref if called before initial render
 	wipRoot = &Fiber{
 		typeOf:    "ROOT",
 		dom:       currentRoot.dom,

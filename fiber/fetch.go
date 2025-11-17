@@ -97,6 +97,7 @@ func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 		}
 
 		fetchPromise := js.Global().Call("fetch", url, fetchOptions)
+		// TODO: tie timeout/cancel to AbortController; current cleanup does not abort the JS fetch
 
 		// Create callbacks that will be released after use
 		var thenCallback, textCallback, catchCallback js.Func

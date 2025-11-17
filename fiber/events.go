@@ -285,6 +285,7 @@ func GoUseFunc(callback interface{}) js.Func {
 	checkMemoryPressure()
 
 	cb := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		// TODO: avoid spawning a goroutine per event callback; in WASM this can leak if callback blocks
 		// Goroutine leak prevention: Create timeout context for this callback
 		callbackCtx, callbackCancel := context.WithTimeout(globalEventContext, maxEventTimeout)
 		defer callbackCancel()

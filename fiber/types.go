@@ -56,6 +56,7 @@ type Hooks struct {
 
 // Fiber represents a unit of work in the virtual DOM tree.
 // Fiber struct optimized for memory alignment and cache efficiency
+// TODO: re-validate alignment assumptions if fields change; exported state serialization depends on these shapes
 type Fiber struct {
 	// Group pointers together for better cache locality (40 bytes)
 	parent    *Fiber // 8 bytes

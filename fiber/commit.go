@@ -331,6 +331,7 @@ func commitDeletion(fiber *Fiber, domParent js.Value) {
 	}
 
 	// Recursively cleanup children and siblings
+	// TODO: this recursion runs after the above child handling and can visit children twice; tighten the deletion walk to avoid double cleanup
 	if fiber.child != nil {
 		debugf("COMMIT", "👶 commitDeletion: recursively cleaning up child %p\n", fiber.child)
 		commitDeletion(fiber.child, domParent)

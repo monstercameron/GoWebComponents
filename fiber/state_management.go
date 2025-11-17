@@ -452,7 +452,8 @@ func walkFiberTreeHelper(fiber *Fiber, callback func(*Fiber, ComponentPosition),
 			Depth:    position.Depth,
 			Index:    position.Index + 1,
 			ParentID: position.ParentID,
-			Path:     fmt.Sprintf("%s.%d", position.Path[:len(position.Path)-1], position.Index+1),
+			// TODO: build the sibling path by trimming the last segment, not just the last rune, to avoid malformed paths
+			Path: fmt.Sprintf("%s.%d", position.Path[:len(position.Path)-1], position.Index+1),
 		}
 		walkFiberTreeHelper(fiber.sibling, callback, siblingPosition)
 	}

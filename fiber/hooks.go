@@ -386,6 +386,7 @@ func GoUseAtom[T any](id string, initialValue T) (func() T, func(T)) {
 				debugf("HOOKS", "💾 GoUseAtom setter: atom '%s' updated, notifying %d subscribers\n",
 					id, len(subscribers))
 
+				// TODO: deduplicate subscribers and handle nil parents to avoid scheduling dead fibers
 				// Mark all subscribers and their parents as dirty
 				for i, fiber := range subscribers {
 					debugf("HOOKS", "⚡ GoUseAtom setter: scheduling update for subscriber %d/%d (fiber: %p)\n",

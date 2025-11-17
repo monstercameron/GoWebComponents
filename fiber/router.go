@@ -143,6 +143,7 @@ func (r *Router) Route(path string) interface{} {
 			}
 			return route.Component(props)
 		} else if route.Path == "*" || route.Path == "/*" {
+			// TODO: avoid taking the address of the range variable; capture the slice element before storing the pointer
 			// Store wildcard route as fallback
 			wildcardRoute = &route
 		}
@@ -158,6 +159,7 @@ func (r *Router) Route(path string) interface{} {
 
 	// Return default 404 component if no route found
 	return Div(map[string]interface{}{
+		// TODO: switch style map to map[string]string or make createDom accept map[string]interface{}
 		"style": map[string]interface{}{
 			"padding":    "2rem",
 			"text-align": "center",
@@ -205,6 +207,7 @@ func (r *Router) Navigate(path string) {
 		if r.options.Type == "hash" {
 			// For hash router, update the hash
 			var hash string
+			// TODO: derive the hash from path instead of hard-coding docs/home
 			if path == "/docs" {
 				hash = "#/docs"
 			} else {
@@ -265,6 +268,7 @@ func (r *Router) NavigateReplace(path string) {
 		if r.options.Type == "hash" {
 			// For hash router, update the hash
 			var hash string
+			// TODO: derive the hash from path instead of hard-coding docs/home
 			if path == "/docs" {
 				hash = "#/docs"
 			} else {
@@ -339,7 +343,7 @@ func (r *Router) GoRegisterRoute(path string, component interface{}, options ...
 		// Already correct type
 		wrappedComponent = comp
 	default:
-		// Fallback - assume it's a function that returns *Element
+		// TODO: call function components here so Route always returns *Element; current fallback returns the raw component value
 		wrappedComponent = func(props map[string]interface{}) interface{} {
 			return component
 		}

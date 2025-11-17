@@ -160,6 +160,7 @@ func createDom(fiber *Fiber) js.Value {
 					styleObj.Call("setProperty", k, val) // Fast: reuse cached object
 				}
 			default:
+				// TODO: allow map[string]interface{} styles (used by some callers) or normalize earlier
 				debugf("DOM", "🚨 createDom: style must be string or map[string]string, got %T\n", value)
 			}
 		case "id", "value", "type", "placeholder", "disabled", "checked", "selected":
