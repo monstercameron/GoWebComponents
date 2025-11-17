@@ -1,6 +1,8 @@
 package runtime
 
-import "reflect"
+import (
+	"reflect"
+)
 
 // currentFiber tracks the fiber being processed (for hooks)
 var currentFiber *Fiber
@@ -63,6 +65,19 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 		if sameType {
 			// Reuse the existing fiber
 			if elem, ok := element.(*Element); ok {
+				// Check if this fiber or its subtree needs update
+				needsUpdate := oldFiber.dirty || oldFiber.needsUpdate || !reflect.DeepEqual(oldFiber.props, elem.Props)
+				
+				// Always mark as dirty if props contain event handlers (they're closures that may have changed)
+				if !needsUpdate {
+					for key := range elem.Props {
+						if len(key) > 2 && key[:2] == "on" {
+							needsUpdate = true
+							break
+						}
+					}
+				}
+				
 				newFiber = &Fiber{
 					typeOf:    oldFiber.typeOf,
 					props:     elem.Props,
@@ -70,8 +85,7 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					parent:    wipFiber,
 					alternate: oldFiber,
 					effectTag: "UPDATE",
-					// TODO: avoid reflect.DeepEqual on props every render; use a cheaper diff
-					dirty: !reflect.DeepEqual(oldFiber.props, elem.Props),
+					dirty:     needsUpdate,
 				}
 			}
 		} else if element != nil {
@@ -174,30 +188,21 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 
 			// Preserve hooks from alternate fiber
 			if fiber.alternate != nil && fiber.alternate.hooks != nil {
-				if fiber.hooks == nil {
-					fiber.hooks = &Hooks{
-						state:     make([]interface{}, 0),
-						deps:      make([][]interface{}, 0),
-						memos:     make([]memoizedValue, 0),
-						callOrder: make([]HookCall, 0),
-						prevOrder: make([]HookCall, 0),
-					}
-				}
-				// Copy state from previous render
-				fiber.hooks.state = append([]interface{}(nil), fiber.alternate.hooks.state...)
-				fiber.hooks.deps = append([][]interface{}(nil), fiber.alternate.hooks.deps...)
-				fiber.hooks.memos = append([]memoizedValue(nil), fiber.alternate.hooks.memos...)
-				fiber.hooks.prevOrder = append([]HookCall(nil), fiber.alternate.hooks.prevOrder...)
+				// REUSE the same hooks object so that old event handler closures
+				// still reference the correct state!
+				fiber.hooks = fiber.alternate.hooks
+				// Reset index for new render
 				fiber.hooks.index = 0
 				fiber.hooks.callOrder = make([]HookCall, 0)
 			} else if fiber.hooks == nil {
 				fiber.hooks = &Hooks{
-					state:     make([]interface{}, 0),
-					deps:      make([][]interface{}, 0),
-					memos:     make([]memoizedValue, 0),
-					callOrder: make([]HookCall, 0),
-					prevOrder: make([]HookCall, 0),
-					index:     0,
+					state:        make([]interface{}, 0),
+					pendingState: make([]interface{}, 0),
+					deps:         make([][]interface{}, 0),
+					memos:        make([]memoizedValue, 0),
+					callOrder:    make([]HookCall, 0),
+					prevOrder:    make([]HookCall, 0),
+					index:        0,
 				}
 			}
 
@@ -250,19 +255,24 @@ func (rt *Runtime) createDom(fiber *Fiber) DOMNode {
 				dom = rt.domAdapter.CreateTextNode(nodeValue)
 			}
 		} else {
+			// Regular element (not TEXT_ELEMENT)
 			dom = rt.domAdapter.CreateElement(t)
+			// Apply properties only for non-text elements
+			rt.updateDomProperties(dom, make(map[string]interface{}), fiber.props)
 		}
 	}
-
-	// Apply properties
-	rt.updateDomProperties(dom, make(map[string]interface{}), fiber.props)
+	// Function components don't have DOM nodes - they render their children
 
 	return dom
 }
 
 // updateDomProperties updates DOM properties
 func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[string]interface{}) {
-	if dom == nil || dom.IsNull() {
+	// Check if dom is nil (interface is nil) or if the concrete value is null
+	if dom == nil {
+		return
+	}
+	if dom.IsNull() {
 		return
 	}
 
@@ -295,6 +305,7 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 			if str, ok := value.(string); ok {
 				rt.domAdapter.SetAttribute(dom, name, str)
 			} else {
+				// Always update properties (especially event handlers which are closures)
 				rt.domAdapter.SetProperty(dom, name, value)
 			}
 		}
@@ -340,7 +351,18 @@ func (rt *Runtime) commitWork(fiber *Fiber) {
 			rt.domAdapter.AppendChild(domParent, fiber.dom)
 		} else if fiber.effectTag == "UPDATE" && fiber.dom != nil && !fiber.dom.IsNull() {
 			if fiber.alternate != nil {
-				rt.updateDomProperties(fiber.dom, fiber.alternate.props, fiber.props)
+				// Check if this is a text node
+				if t, ok := fiber.typeOf.(string); ok && t == "TEXT_ELEMENT" {
+					// Update text content
+					oldValue, _ := fiber.alternate.props["nodeValue"].(string)
+					newValue, _ := fiber.props["nodeValue"].(string)
+					if oldValue != newValue {
+						rt.domAdapter.SetTextContent(fiber.dom, newValue)
+					}
+				} else {
+					// Regular element - update properties
+					rt.updateDomProperties(fiber.dom, fiber.alternate.props, fiber.props)
+				}
 			}
 		} else if fiber.effectTag == "DELETION" {
 			rt.commitDeletion(fiber, domParent)

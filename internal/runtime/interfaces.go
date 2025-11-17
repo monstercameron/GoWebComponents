@@ -29,6 +29,9 @@ type DOMAdapter interface {
 	GetFirstChild(node DOMNode) DOMNode
 	GetNextSibling(node DOMNode) DOMNode
 
+	// Text nodes
+	SetTextContent(node DOMNode, text string)
+
 	// Styling
 	SetStyle(node DOMNode, property, value string)
 	SetStyles(node DOMNode, styles map[string]string)

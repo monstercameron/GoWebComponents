@@ -576,6 +576,3 @@ func MainWithComponents(props map[string]interface{}, componentRefs ...func(map[
 	}
 	return Main(props, children...)
 }
-
-
-

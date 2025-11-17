@@ -60,9 +60,10 @@ type memoizedValue struct {
 type Hooks struct {
 	index int
 
-	state []interface{}
-	deps  [][]interface{}
-	memos []memoizedValue
+	state        []interface{} // Committed state
+	pendingState []interface{} // Pending state updates (used during setState batching)
+	deps         [][]interface{}
+	memos        []memoizedValue
 
 	callOrder    []HookCall
 	prevOrder    []HookCall

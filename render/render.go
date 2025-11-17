@@ -6,8 +6,35 @@ package render
 import (
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/fiber"
+	"github.com/monstercameron/GoWebComponents/internal/platform/jsdom"
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
+
+// Type alias for Element
+type Element = runtime.Element
+
+var initialized = false
+
+// ensureInitialized ensures the global runtime is initialized with WASM adapters
+func ensureInitialized() {
+	if !initialized {
+		// Create WASM adapters
+		domAdapter := jsdom.NewWASMDOMAdapter()
+		eventAdapter := jsdom.NewWASMEventAdapter()
+		scheduler := jsdom.NewWASMScheduler()
+		browserState := jsdom.NewWASMBrowserState()
+		
+		// Initialize global runtime
+		runtime.InitGlobalRuntime(runtime.Config{
+			DOMAdapter:   domAdapter,
+			EventAdapter: eventAdapter,
+			Scheduler:    scheduler,
+			BrowserState: browserState,
+		})
+		
+		initialized = true
+	}
+}
 
 // To renders an element to a DOM node specified by a CSS selector.
 // This is the primary function for mounting your application to the page.
@@ -36,8 +63,10 @@ import (
 // The element is mounted and the reactive rendering system is initialized.
 // Subsequent updates from hooks or state changes will automatically re-render
 // only the affected parts of the DOM.
-func To(element *fiber.Element, selector string) {
-	fiber.RenderTo(selector, element)
+func To(element *runtime.Element, selector string) {
+	ensureInitialized()
+	rt := runtime.GetGlobalRuntime()
+	rt.RenderTo(selector, element)
 }
 
 // ToElement renders an element to a specific DOM element (js.Value).
@@ -59,6 +88,11 @@ func To(element *fiber.Element, selector string) {
 //
 // Most applications should use To() with a CSS selector instead,
 // as it's more convenient and readable.
-func ToElement(element *fiber.Element, domElement js.Value) {
-	fiber.Render(element, domElement)
+func ToElement(element *runtime.Element, domElement js.Value) {
+	ensureInitialized()
+	rt := runtime.GetGlobalRuntime()
+	
+	// Wrap js.Value in a DOMNode
+	node := jsdom.NewWASMDOMNode(domElement)
+	rt.Render(element, node)
 }

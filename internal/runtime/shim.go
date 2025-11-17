@@ -7,11 +7,9 @@ package runtime
 // These match the old fiber package API
 
 // GoUseStateGlobal wraps GoUseState with global fiber context
-func GoUseStateGlobal[T any](initialValue T) (func() T, func(T)) {
-	// The Runtime parameter is needed for scheduling updates
-	// We'll need to store it in the fiber context or make it globally accessible
-	// For now, panic to indicate this needs platform adapter implementation
-	panic("GoUseStateGlobal not yet implemented - requires global Runtime instance")
+func GoUseStateGlobal[T any](initialValue T) (func() T, func(interface{})) {
+	rt := GetGlobalRuntime()
+	return GoUseState(rt, initialValue)
 }
 
 // GoUseEffectGlobal wraps GoUseEffect
@@ -27,9 +25,9 @@ func GoUseMemoGlobal(compute func() interface{}, deps ...interface{}) interface{
 }
 
 // GoUseAtomGlobal wraps GoUseAtom with global runtime
-func GoUseAtomGlobal[T any](id string, initialValue T) (func() T, func(T)) {
-	// GoUseAtom needs Runtime for atom registry
-	panic("GoUseAtomGlobal not yet implemented - requires global Runtime instance")
+func GoUseAtomGlobal[T any](id string, initialValue T) (func() T, func(interface{})) {
+	rt := GetGlobalRuntime()
+	return GoUseAtom(rt, id, initialValue)
 }
 
 // Text creates a text node

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoWebComponents - Test App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="wasm_exec.js"></script>
+    <style>
+        body {
+            background-color: #1a202c;
+            color: #f7fafc;
+        }
+        #app {
+            transition: opacity 0.3s;
+        }
+        .loading {
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="loading">
+        <div class="flex items-center justify-center h-screen">
+            <div class="text-center">
+                <div class="text-2xl mb-4">Loading WASM...</div>
+                <div class="animate-pulse">⏳</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const go = new Go();
+        
+        async function loadWasm() {
+            try {
+                const result = await WebAssembly.instantiateStreaming(
+                    fetch('main.wasm'),
+                    go.importObject
+                );
+                
+                document.getElementById('app').classList.remove('loading');
+                go.run(result.instance);
+                
+                console.log('✅ WASM loaded successfully');
+            } catch (err) {
+                console.error('❌ WASM loading failed:', err);
+                document.getElementById('app').innerHTML = `
+                    <div class="flex items-center justify-center h-screen">
+                        <div class="text-center text-red-400">
+                            <div class="text-2xl mb-4">Failed to load WASM</div>
+                            <div class="text-sm">${err.message}</div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadWasm);
+        } else {
+            loadWasm();
+        }
+    </script>
+</body>
+</html>

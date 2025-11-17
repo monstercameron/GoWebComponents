@@ -91,6 +91,7 @@ type Element = runtime.Element
 // Best Practices:
 //   - Use descriptive atom IDs (e.g., "currentUser", "appTheme", "shoppingCart")
 //   - Initialize atoms with appropriate default values
+//
 // Consider using structured types (structs) for complex state
 //   - Avoid storing large amounts of data in atoms (use for coordination, not caching)
 func UseAtom[T any](id string, initialValue T) (func() T, func(T)) {

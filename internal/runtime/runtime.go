@@ -2,7 +2,33 @@ package runtime
 
 import "sync"
 
-// Runtime orchestrates the core reconciliation engine
+var (
+	globalRuntime     *Runtime
+	globalRuntimeOnce sync.Once
+)
+
+// GetGlobalRuntime returns the global Runtime instance, creating it if needed
+// For WASM builds, this automatically uses WASM platform adapters
+func GetGlobalRuntime() *Runtime {
+	globalRuntimeOnce.Do(func() {
+		// This will be initialized with WASM adapters when called from WASM context
+		// For now, create with nil config - will be initialized later
+		globalRuntime = &Runtime{
+			atomRegistry: NewAtomRegistry(),
+		}
+	})
+	return globalRuntime
+}
+
+// InitGlobalRuntime initializes the global runtime with specific adapters
+// This should be called early in WASM initialization
+func InitGlobalRuntime(config Config) {
+	globalRuntimeOnce.Do(func() {
+		globalRuntime = NewRuntime(config)
+	})
+}
+
+// Runtime represents the reconciliation and rendering engine
 type Runtime struct {
 	domAdapter   DOMAdapter
 	eventAdapter EventAdapter
@@ -44,3 +70,26 @@ func NewRuntime(config Config) *Runtime {
 		uiQueue:      make([]func(), 0),
 	}
 }
+
+// RenderTo renders an element to a DOM node specified by selector
+func (rt *Runtime) RenderTo(selector string, element *Element) {
+	// Query for the container
+	var container DOMNode
+	if adapter, ok := rt.domAdapter.(interface {
+		QuerySelector(string) interface{}
+	}); ok {
+		if node := adapter.QuerySelector(selector); node != nil {
+			if domNode, ok := node.(DOMNode); ok {
+				container = domNode
+			}
+		}
+	}
+	
+	if container == nil || container.IsNull() {
+		panic("RenderTo: container not found for selector: " + selector)
+	}
+	
+	rt.Render(element, container)
+}
+
+

@@ -15,7 +15,7 @@ import (
 //
 // Example:
 //
-//	 dom.Text("Hello, World!")
+//	dom.Text("Hello, World!")
 func Text(content string) *runtime.Element {
 	return runtime.Text(content)
 }

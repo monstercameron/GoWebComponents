@@ -17,16 +17,20 @@ type Element = runtime.Element
 //   - A getter function that returns the current state value
 //   - A setter function that updates the state and triggers a re-render
 //
+// The setter accepts either a direct value or a function that takes the previous
+// state and returns the new state. The functional form is useful when the new
+// state depends on the previous state, especially during rapid updates.
+//
 // Type parameter T can be any Go type. The hook uses generic type parameters
 // for type safety and better developer experience.
 //
-// Example:
+// Example with direct value:
 //
 //	func Counter(props dom.Attrs) *fiber.Element {
 //	    count, setCount := hooks.UseState(0)
 //
 //	    increment := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-//	        setCount(count() + 1)
+//	        setCount(count() + 1)  // Direct value
 //	        return nil
 //	    })
 //
@@ -36,10 +40,17 @@ type Element = runtime.Element
 //	    )
 //	}
 //
+// Example with functional update (recommended for rapid updates):
+//
+//	increment := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+//	    setCount(func(prev int) int { return prev + 1 })  // Functional update
+//	    return nil
+//	})
+//
 // Important: Always call UseState at the top level of your component,
 // never inside conditions or loops. The order of hook calls must be
 // consistent across renders.
-func UseState[T any](initialValue T) (func() T, func(T)) {
+func UseState[T any](initialValue T) (func() T, func(interface{})) {
 	return runtime.GoUseStateGlobal(initialValue)
 }
 

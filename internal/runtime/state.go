@@ -128,7 +128,7 @@ func (ar *AtomRegistry) GetAtomCount() int {
 // GoUseAtom provides access to global state with fine-grained reactivity.
 // Unlike useState which is local to a component, atoms are shared across components.
 // When an atom updates, only components that use that specific atom re-render.
-func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(T)) {
+func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(interface{})) {
 	if rt.atomRegistry == nil {
 		panic("Runtime atom registry not initialized")
 	}
@@ -167,9 +167,21 @@ func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(T)
 	}
 
 	// Setter function
-	set := func(newValue T) {
-		// Get current value to check if changed
+	set := func(newValueOrUpdater interface{}) {
+		// Get current value
 		currentValue := get()
+		
+		// Determine the new value
+		var newValue T
+		// Try to treat as functional update (func(T) T)
+		if fn, ok := newValueOrUpdater.(func(T) T); ok {
+			newValue = fn(currentValue)
+		} else if directValue, ok := newValueOrUpdater.(T); ok {
+			// Direct value
+			newValue = directValue
+		} else {
+			return
+		}
 
 		// Skip update if value hasn't changed
 		if fastEqual(currentValue, newValue) {
