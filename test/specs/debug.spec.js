@@ -73,7 +73,7 @@ test.describe('GoWebComponents - Debug Rendering', () => {
     console.log('Button info:', JSON.stringify(buttonInfo, null, 2));
     
     // Get paragraph text before click
-    const beforeText = await page.locator('p').textContent();
+    const beforeText = await page.locator('p').first().textContent();
     console.log('\n=== Before click ===');
     console.log('Paragraph text:', beforeText);
     
@@ -82,7 +82,7 @@ test.describe('GoWebComponents - Debug Rendering', () => {
     await page.waitForTimeout(1000);
     
     // Get paragraph text after click
-    const afterText = await page.locator('p').textContent();
+    const afterText = await page.locator('p').first().textContent();
     console.log('\n=== After click ===');
     console.log('Paragraph text:', afterText);
     console.log('Text changed:', beforeText !== afterText);

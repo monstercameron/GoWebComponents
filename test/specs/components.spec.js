@@ -36,13 +36,14 @@ test.describe('GoWebComponents - Event Handling', () => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    const button = page.locator('button');
-    const initialCount = await page.locator('p').textContent();
+    const button = page.locator('button').first();
+    const counter = page.locator('#app p').first();
+    const initialCount = await counter.textContent();
     
     await button.click();
     await page.waitForTimeout(100);
     
-    const updatedCount = await page.locator('p').textContent();
+    const updatedCount = await counter.textContent();
     expect(updatedCount).not.toBe(initialCount);
   });
 
@@ -106,7 +107,7 @@ test.describe('GoWebComponents - Reactivity', () => {
     await page.waitForSelector('#app', { timeout: 30000 });
     
     const button = page.locator('button');
-    const paragraph = page.locator('p');
+    const paragraph = page.locator('p').first();
     
     // Get initial state
     const initialText = await paragraph.textContent();

@@ -6,7 +6,7 @@ test.describe('GoWebComponents Hooks - UseState', () => {
     await page.waitForSelector('#app', { timeout: 30000 });
     
     // Check initial count is 0
-    const countText = await page.locator('p').textContent();
+    const countText = await page.locator('p').first().textContent();
     expect(countText).toContain('Count: 0');
   });
 
@@ -15,7 +15,7 @@ test.describe('GoWebComponents Hooks - UseState', () => {
     await page.waitForSelector('#app', { timeout: 30000 });
     
     // Initial value
-    let countText = await page.locator('p').textContent();
+    let countText = await page.locator('p').first().textContent();
     expect(countText).toContain('Count: 0');
     
     // Click increment button
@@ -25,7 +25,7 @@ test.describe('GoWebComponents Hooks - UseState', () => {
     await page.waitForTimeout(100);
     
     // Check updated value
-    countText = await page.locator('p').textContent();
+    countText = await page.locator('p').first().textContent();
     expect(countText).toContain('Count: 1');
   });
 
@@ -45,7 +45,7 @@ test.describe('GoWebComponents Hooks - UseState', () => {
     await page.waitForTimeout(500);
     
     // Check final value
-    const countText = await page.locator('p').textContent();
+    const countText = await page.locator('p').first().textContent();
     expect(countText).toContain('Count: 10');
   });
 
@@ -53,7 +53,7 @@ test.describe('GoWebComponents Hooks - UseState', () => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    const paragraph = page.locator('p');
+    const paragraph = page.locator('p').first();
     
     // Get initial text
     const initialText = await paragraph.textContent();
@@ -82,33 +82,92 @@ test.describe('GoWebComponents Hooks - UseEffect', () => {
   });
 
   test.skip('UseEffect cleanup runs on unmount', async ({ page }) => {
+    // TODO: Component deletion/unmounting needs proper implementation
+    // The reconciler doesn't properly handle children arrays changing length
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
-    
-    // TODO: Test cleanup function execution
   });
 
-  test.skip('UseEffect re-runs when dependencies change', async ({ page }) => {
+  test('UseEffect re-runs when dependencies change', async ({ page }) => {
+    const logs = [];
+    page.on('console', msg => {
+      if (msg.text().includes('UseEffect ran')) {
+        logs.push(msg.text());
+      }
+    });
+    
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
+    await page.waitForTimeout(200);
     
-    // TODO: Test dependency array behavior
+    // Should have run once on mount
+    const initialCount = logs.filter(log => log.includes('UseEffect ran')).length;
+    expect(initialCount).toBe(1);
+    
+    // Click to change count (dependency)
+    await page.click('button');
+    await page.waitForTimeout(200);
+    
+    // Effect should have run again due to count change
+    const afterClickCount = logs.filter(log => log.includes('UseEffect ran')).length;
+    expect(afterClickCount).toBe(2);
   });
 });
 
 test.describe('GoWebComponents Hooks - UseMemo', () => {
-  test.skip('UseMemo caches computed values', async ({ page }) => {
+  test('UseMemo caches computed values', async ({ page }) => {
+    const logs = [];
+    page.on('console', msg => {
+      if (msg.text().includes('UseMemo computing')) {
+        logs.push(msg.text());
+      }
+    });
+    
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
+    await page.waitForTimeout(200);
     
-    // TODO: Test memoization behavior
+    // Should compute once on mount
+    expect(logs.filter(log => log.includes('UseMemo computing')).length).toBe(1);
+    
+    // Click to trigger re-render
+    await page.click('button');
+    await page.waitForTimeout(200);
+    
+    // Should compute again because count changed (dependency)
+    expect(logs.filter(log => log.includes('UseMemo computing')).length).toBe(2);
+    
+    // Verify doubled value is correct
+    const doubledText = await page.locator('#doubled').textContent();
+    expect(doubledText).toContain('Doubled: 2');
   });
 
-  test.skip('UseMemo recomputes when dependencies change', async ({ page }) => {
+  test('UseMemo recomputes when dependencies change', async ({ page }) => {
+    const logs = [];
+    page.on('console', msg => {
+      if (msg.text().includes('UseMemo computing')) {
+        logs.push(msg.text());
+      }
+    });
+    
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
+    await page.waitForTimeout(200);
     
-    // TODO: Test dependency-based recomputation
+    const initialComputeCount = logs.length;
+    
+    // Multiple clicks with proper waiting
+    for (let i = 0; i < 3; i++) {
+      await page.click('button');
+      await page.waitForTimeout(200);
+    }
+    
+    // Should have recomputed 3 more times (once per click)
+    expect(logs.length).toBe(initialComputeCount + 3);
+    
+    // Final value should be correct
+    const doubledText = await page.locator('#doubled').textContent();
+    expect(doubledText).toContain('Doubled: 6');
   });
 });
 

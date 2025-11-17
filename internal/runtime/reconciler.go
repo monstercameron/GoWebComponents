@@ -378,12 +378,42 @@ func (rt *Runtime) commitWork(fiber *Fiber) {
 	}
 }
 
-// commitDeletion removes a fiber from the DOM
+// commitDeletion removes a fiber from the DOM and runs cleanup functions
 func (rt *Runtime) commitDeletion(fiber *Fiber, domParent DOMNode) {
+	// Run all cleanup functions before removing from DOM
+	rt.runCleanups(fiber)
+	
 	if fiber.dom != nil && !fiber.dom.IsNull() {
 		rt.domAdapter.RemoveChild(domParent, fiber.dom)
-	} else if fiber.child != nil {
-		rt.commitDeletion(fiber.child, domParent)
+	} else {
+		// Function component without DOM - still need to delete children
+		if fiber.child != nil {
+			rt.commitDeletion(fiber.child, domParent)
+		}
+	}
+}
+
+// runCleanups runs all cleanup functions for a fiber and its children
+func (rt *Runtime) runCleanups(fiber *Fiber) {
+	if fiber == nil {
+		return
+	}
+
+	// Run this fiber's cleanups
+	if fiber.hooks != nil {
+		for _, cleanup := range fiber.hooks.cleanups {
+			if cleanup != nil {
+				cleanup()
+			}
+		}
+	}
+
+	// Recursively run cleanups for children and siblings
+	if fiber.child != nil {
+		rt.runCleanups(fiber.child)
+	}
+	if fiber.sibling != nil {
+		rt.runCleanups(fiber.sibling)
 	}
 }
 

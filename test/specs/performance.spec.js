@@ -44,7 +44,7 @@ test.describe('GoWebComponents - Performance', () => {
     await page.waitForTimeout(1000);
     
     // Should show final count
-    const countText = await page.locator('p').textContent();
+    const countText = await page.locator('p').first().textContent();
     expect(countText).toContain('Count: 10');
   });
 

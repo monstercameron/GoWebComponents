@@ -19,21 +19,22 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 	// UseEffect to log on mount and count changes
 	hooks.UseEffect(func() func() {
 		fmt.Printf("UseEffect ran: count is %d\n", count())
-		return func() {
-			fmt.Printf("UseEffect cleanup: count was %d\n", count())
-		}
+		return nil // No cleanup needed for this simple example
 	}, count())
 
-	// Create increment handler using functional setState to avoid stale closures
+	// UseMemo to compute expensive value (for testing)
+	doubledCount := hooks.UseMemo(func() interface{} {
+		fmt.Printf("UseMemo computing: count=%d\n", count())
+		return count() * 2
+	}, count()).(int)
+
+	// Create increment handler using functional setState
 	increment := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		// Use functional update - always gets the latest state
 		setCount(func(prev int) int {
 			return prev + 1
 		})
 		return nil
 	})
-	// Don't release - it needs to stay alive for the button handler
-	// The runtime will handle cleanup
 
 	return dom.Div(dom.Attrs{"class": "container mx-auto p-8"},
 		dom.H1(dom.Attrs{"class": "text-4xl font-bold mb-4"},
@@ -41,6 +42,9 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 		),
 		dom.P(dom.Attrs{"class": "mb-4"},
 			dom.Text(fmt.Sprintf("Count: %d", count())),
+		),
+		dom.P(dom.Attrs{"class": "mb-4", "id": "doubled"},
+			dom.Text(fmt.Sprintf("Doubled: %d", doubledCount)),
 		),
 		dom.Button(dom.Attrs{
 			"onclick": increment,
