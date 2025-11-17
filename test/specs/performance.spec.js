@@ -136,10 +136,19 @@ test.describe('GoWebComponents - Accessibility', () => {
     expect(hasHeading).toBeGreaterThan(0);
   });
 
-  test.skip('ARIA attributes are present where needed', async ({ page }) => {
+  test('ARIA attributes are present where needed', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    // TODO: Test ARIA attributes
+    // Check increment button has aria-label
+    await expect(page.locator('button[aria-label="Increment main"]').first()).toBeVisible();
+
+    // Check reusable components region has proper role and label
+    const region = page.locator('#reusable-components[role="region"][aria-label="Reusable Counters Section"]');
+    await expect(region).toBeVisible();
+
+    // Check reactivity demo section region
+    const reactRegion = page.locator('div[role="region"][aria-label="Reactivity Demo Section"]');
+    await expect(reactRegion).toBeVisible();
   });
 });

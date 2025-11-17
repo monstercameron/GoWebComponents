@@ -170,6 +170,7 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 		dom.Button(dom.Attrs{
 			"onclick": increment,
 			"class":   "px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600",
+			"aria-label": "Increment main",
 		},
 			dom.Text("Increment"),
 		),
@@ -210,13 +211,13 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 				dom.Text(fmt.Sprintf("Submitted: %s", submitValue())),
 			),
 		),
-		dom.Div(dom.Attrs{"class": "mt-4", "id": "reusable-components"},
+		dom.Div(dom.Attrs{"class": "mt-4", "id": "reusable-components", "role": "region", "aria-label": "Reusable Counters Section"},
 			dom.H2(nil, dom.Text("Reusable Components")),
 			&dom.Element{Type: Counter, Props: dom.Attrs{"id": "A"}},
 			&dom.Element{Type: Counter, Props: dom.Attrs{"id": "B"}},
 			&dom.Element{Type: Counter, Props: dom.Attrs{"id": "C"}},
 		),
-		dom.Div(nil,
+		dom.Div(dom.Attrs{"role": "region", "aria-label": "Reactivity Demo Section"},
 			&dom.Element{Type: ReactivityDemo},
 		),
 	)
