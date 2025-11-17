@@ -449,7 +449,7 @@ func TestGoUseCallback_MultipleCallbacksIndependent(t *testing.T) {
 	// Reset for second render - change dep2 only
 	fiber.hooks.index = 0
 
-	GoUseCallback(func1, "dep1") // Same dep
+	GoUseCallback(func1, "dep1")         // Same dep
 	GoUseCallback(func2, "dep2_changed") // Different dep
 
 	// First callback deps should remain unchanged
@@ -835,4 +835,3 @@ func contains(s, substr string) bool {
 	}
 	return false
 }
-

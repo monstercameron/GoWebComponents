@@ -356,7 +356,7 @@ func UseId() string {
 //	func PostWithComments(props dom.Attrs) *fiber.Element {
 //	    postId, _ := hooks.UseState("123")
 //	    postState, refetchPost := hooks.UseFetch("https://api.example.com/posts/" + postId())
-//	    
+//
 //	    loadPost := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 //	        refetchPost()
 //	        return nil
@@ -379,14 +379,14 @@ func UseId() string {
 //	        if !isPolling() {
 //	            return nil
 //	        }
-//	        
+//
 //	        ticker := time.NewTicker(5 * time.Second)
 //	        go func() {
 //	            for range ticker.C {
 //	                refetch()
 //	            }
 //	        }()
-//	        
+//
 //	        return func() {
 //	            ticker.Stop()
 //	        }
@@ -492,4 +492,3 @@ func UseFetch(url string, options ...interface{}) (func() runtime.FetchState, fu
 func GoUseFunc(fn interface{}) interface{} {
 	return runtime.GoUseFuncGlobal(fn)
 }
-

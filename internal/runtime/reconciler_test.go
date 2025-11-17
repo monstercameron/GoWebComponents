@@ -1334,4 +1334,3 @@ func TestFlattenFragments_OnlyFragments(t *testing.T) {
 		}
 	}
 }
-

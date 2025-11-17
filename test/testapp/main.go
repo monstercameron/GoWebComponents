@@ -330,8 +330,8 @@ func UseIdTestComponent(props dom.Attrs) *dom.Element {
 		dom.Div(dom.Attrs{"class": "mb-4"},
 			dom.Div(nil,
 				dom.Input(dom.Attrs{
-					"id":    checkboxId,
-					"type":  "checkbox",
+					"id":   checkboxId,
+					"type": "checkbox",
 				}),
 				dom.Label(dom.Attrs{
 					"htmlFor": checkboxId,

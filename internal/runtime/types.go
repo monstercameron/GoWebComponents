@@ -104,11 +104,11 @@ type Hooks struct {
 	deps         [][]interface{}
 	memos        []memoizedValue
 	callbacks    []callbackValue
-	refs         []*RefValue // Store refs separately to persist across renders
-	ids          []string    // Store generated IDs that persist across renders
-	fetches      []fetchValue // Store fetch states for manual fetch hooks
+	refs         []*RefValue        // Store refs separately to persist across renders
+	ids          []string           // Store generated IDs that persist across renders
+	fetches      []fetchValue       // Store fetch states for manual fetch hooks
 	funcs        []funcHandlerValue // Store wrapped event handler functions
-	cleanups     []func()    // Cleanup functions from UseEffect
+	cleanups     []func()           // Cleanup functions from UseEffect
 
 	callOrder    []HookCall
 	prevOrder    []HookCall

@@ -45,8 +45,8 @@ type Runtime struct {
 	atomRegistry *AtomRegistry
 
 	// Global ID counter for useId hook
-	idCounter    int
-	idCounterMu  sync.Mutex
+	idCounter   int
+	idCounterMu sync.Mutex
 
 	// UI queue for non-render updates
 	uiQueue      []func()

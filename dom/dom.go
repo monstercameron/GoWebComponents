@@ -89,4 +89,3 @@ func CreateElement(typ interface{}, props map[string]interface{}, children ...in
 func Fragment(props map[string]interface{}, children ...interface{}) *runtime.Element {
 	return runtime.CreateElement("FRAGMENT", props, children...)
 }
-
