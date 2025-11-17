@@ -81,11 +81,32 @@ test.describe('GoWebComponents Hooks - UseEffect', () => {
     expect(logs.some(log => log.includes('UseEffect ran'))).toBeTruthy();
   });
 
-  test.skip('UseEffect cleanup runs on unmount', async ({ page }) => {
-    // TODO: Component deletion/unmounting needs proper implementation
-    // The reconciler doesn't properly handle children arrays changing length
+  test('UseEffect cleanup runs on unmount', async ({ page }) => {
+    const logs = [];
+    page.on('console', (msg) => logs.push(msg.text()));
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
+
+    const toggle = page.locator('#toggle-child-btn').first();
+    const cleanup = page.locator('#cleanup-status').first();
+
+    // Initially empty
+    await expect(cleanup).toHaveText('');
+
+    // Toggle to mount
+    await toggle.click();
+    await page.waitForSelector('#effect-child', { timeout: 30000 });
+    await page.waitForTimeout(300);
+    await expect(cleanup).toHaveText('mounted');
+    await page.waitForTimeout(50);
+    expect(logs.some(l => l.includes('EffectChild mounted'))).toBeTruthy();
+
+    // Toggle again to unmount
+    await toggle.click();
+    await page.waitForTimeout(300);
+    await expect(cleanup).toHaveText('cleaned');
+    await page.waitForTimeout(50);
+    expect(logs.some(l => l.includes('EffectChild cleaned up'))).toBeTruthy();
   });
 
   test('UseEffect re-runs when dependencies change', async ({ page }) => {

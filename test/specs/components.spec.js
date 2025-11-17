@@ -9,7 +9,7 @@ test.describe('GoWebComponents - Component Composition', () => {
     const container = page.locator('#app > div').first();
     await expect(container).toBeVisible();
     
-    const heading = page.locator('h1');
+    const heading = page.locator('#main-heading');
     await expect(heading).toBeVisible();
   });
 
@@ -28,7 +28,7 @@ test.describe('GoWebComponents - Component Composition', () => {
     await page.waitForSelector('#app', { timeout: 30000 });
     
     // Check that multiple Counter components are rendered
-    const counters = await page.locator('.counter-instance').count();
+    const counters = await page.locator('#reusable-components .counter-instance').count();
     expect(counters).toBeGreaterThanOrEqual(3);
     
     // Verify each counter has independent state

@@ -98,6 +98,45 @@ func ReactivityDemo(props dom.Attrs) *dom.Element {
 	)
 }
 
+// EffectChild demonstrates UseEffect cleanup on unmount
+func EffectChild(props dom.Attrs) *dom.Element {
+	// Use an atom to track lifecycle status so cleanup can update a node outside the child
+	_, cleanupSet := state.UseAtom("cleanupStatus", "")
+	hooks.UseEffect(func() func() {
+		// On mount: update global cleanup status and DOM directly
+		cleanupSet("mounted")
+		fmt.Println("EffectChild mounted")
+		js.Global().Get("document").Call("querySelector", "#cleanup-status").Set("textContent", "mounted")
+		return func() {
+			// On unmount: update and log
+			cleanupSet("cleaned")
+			fmt.Println("EffectChild cleaned up")
+			js.Global().Get("document").Call("querySelector", "#cleanup-status").Set("textContent", "cleaned")
+		}
+	}, []interface{}{})
+	return dom.Div(dom.Attrs{"id": "effect-child"},
+		dom.P(dom.Attrs{"id": "effect-child-text"}, dom.Text("Effect Child")),
+	)
+}
+
+// Toggle demo to mount and unmount EffectChild
+func ToggleEffectDemo(props dom.Attrs) *dom.Element {
+	show, setShow := hooks.UseState(false)
+	toggle := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		setShow(func(prev bool) bool { return !prev })
+		return nil
+	})
+	if show() {
+		return dom.Div(dom.Attrs{"id": "toggle-effect-demo"},
+			dom.Button(dom.Attrs{"id": "toggle-child-btn", "onclick": toggle}, dom.Text("Toggle Child")),
+			&dom.Element{Type: EffectChild},
+		)
+	}
+	return dom.Div(dom.Attrs{"id": "toggle-effect-demo"},
+		dom.Button(dom.Attrs{"id": "toggle-child-btn", "onclick": toggle}, dom.Text("Toggle Child")),
+	)
+}
+
 // HelloWorld component demonstrates basic usage
 func HelloWorld(props dom.Attrs) *dom.Element {
 	count, setCount := hooks.UseState(0)
@@ -108,9 +147,11 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 	// Submit state for form test
 	submitValue, setSubmitValue := hooks.UseState("")
 
-	// UseEffect to log on mount and count changes
+	// UseEffect to log on mount and count changes (also set title once)
 	hooks.UseEffect(func() func() {
 		fmt.Printf("UseEffect ran: count is %d\n", count())
+		// Set document title on mount
+		js.Global().Get("document").Set("title", "GoWebComponents App")
 		return nil // No cleanup needed for this simple example
 	}, count())
 
@@ -119,6 +160,8 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 		fmt.Printf("UseMemo computing: count=%d\n", count())
 		return count() * 2
 	}, count()).(int)
+
+	// cleanup-status will be updated by child effect directly via Document API
 
 	// Create increment handler using functional setState
 	increment := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -220,6 +263,20 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 		dom.Div(dom.Attrs{"role": "region", "aria-label": "Reactivity Demo Section"},
 			&dom.Element{Type: ReactivityDemo},
 		),
+		dom.Div(dom.Attrs{"class": "mt-4"},
+			&dom.Element{Type: ToggleEffectDemo},
+		),
+		dom.P(dom.Attrs{"id": "cleanup-status"}, dom.Text("")),
+		// Add component that intentionally uses invalid props to ensure graceful handling
+		&dom.Element{Type: BadProps},
+	)
+}
+
+// BadProps passes intentionally invalid properties to test error handling
+func BadProps(props dom.Attrs) *dom.Element {
+	// class attribute as non-string, onclick as non-function to simulate invalid props
+	return dom.Div(dom.Attrs{"id": "bad-props", "class": 12345, "onclick": "not-a-function"},
+		dom.Text("BadProps"),
 	)
 }
 

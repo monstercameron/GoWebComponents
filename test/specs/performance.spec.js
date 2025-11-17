@@ -48,11 +48,31 @@ test.describe('GoWebComponents - Performance', () => {
     expect(countText).toContain('Count: 10');
   });
 
-  test.skip('memory usage is stable', async ({ page }) => {
+  test('memory usage is stable', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
-    
-    // TODO: Monitor memory usage over time
+
+    // Check if performance.memory API is available
+    const hasMemory = await page.evaluate(() => !!(window.performance && window.performance.memory));
+    if (!hasMemory) {
+      // Skip test when memory API isn't available in this environment
+      test.skip(true, 'performance.memory not supported in this environment');
+      return;
+    }
+
+    const initial = await page.evaluate(() => performance.memory.usedJSHeapSize);
+
+    // Perform a large number of updates
+    const button = page.locator('button').first();
+    for (let i = 0; i < 200; i++) {
+      await button.click();
+    }
+    await page.waitForTimeout(500);
+
+    const final = await page.evaluate(() => performance.memory.usedJSHeapSize);
+
+    // Allow some growth but avoid large leaks; allow 30% growth margin
+    expect(final).toBeLessThan(initial * 1.3);
   });
 });
 
@@ -68,11 +88,26 @@ test.describe('GoWebComponents - Error Handling', () => {
     expect(errors).toHaveLength(0);
   });
 
-  test.skip('invalid props are handled', async ({ page }) => {
+  test('invalid props are handled', async ({ page }) => {
+    // Ensure invalid props do not crash the app or log uncaught errors
+    const errors = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') {
+        errors.push(msg.text());
+      }
+    });
+
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
-    
-    // TODO: Test error boundaries or prop validation
+    // BadProps component renders with invalid props
+    await page.waitForSelector('#bad-props', { timeout: 30000 });
+    await page.waitForTimeout(100);
+
+    // Verify the element exists and no uncaught errors are in console
+    const text = await page.locator('#bad-props').textContent();
+    expect(text).toContain('BadProps');
+    const critical = errors.filter(e => !e.includes('favicon') && !e.includes('DevTools'));
+    expect(critical).toHaveLength(0);
   });
 });
 
@@ -130,10 +165,11 @@ test.describe('GoWebComponents - Accessibility', () => {
   test('semantic HTML is used', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
-    
-    // Check for semantic elements
-    const hasHeading = await page.locator('h1, h2, h3').count();
-    expect(hasHeading).toBeGreaterThan(0);
+    await page.waitForSelector('#main-heading', { timeout: 30000 });
+    const heading = page.locator('#main-heading').first();
+    await expect(heading).toBeVisible();
+    const headingText = await heading.textContent();
+    expect(headingText).toContain('GoWebComponents');
   });
 
   test('ARIA attributes are present where needed', async ({ page }) => {

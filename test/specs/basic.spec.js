@@ -11,11 +11,12 @@ test.describe('GoWebComponents Basic Tests', () => {
     await expect(page.locator('#app')).toBeVisible();
   });
 
-  test.skip('WASM binary is served correctly', async ({ page }) => {
-    // Skipped: Direct WASM navigation triggers download in browser
-    const response = await page.goto('/main.wasm');
+  test('WASM binary is served correctly', async ({ page }) => {
+    // Use Playwright request to avoid browser download prompt
+    const response = await page.request.get('/main.wasm');
     expect(response.status()).toBe(200);
-    expect(response.headers()['content-type']).toContain('application/wasm');
+    const contentType = response.headers()['content-type'] || response.headers()['Content-Type'];
+    expect(contentType).toContain('application/wasm');
   });
 
   test('wasm_exec.js is loaded', async ({ page }) => {
@@ -37,8 +38,8 @@ test.describe('GoWebComponents Basic Tests', () => {
     expect(appContent.trim()).not.toBe('');
   });
 
-  test.skip('page title updates after WASM loads', async ({ page }) => {
-    // Skipped: Test app doesn't change document title
+  test('page title updates after WASM loads', async ({ page }) => {
+    // Test app updates the document title on mount
     await page.goto('/');
     
     // Initial title
@@ -52,7 +53,7 @@ test.describe('GoWebComponents Basic Tests', () => {
     
     const finalTitle = await page.title();
     expect(finalTitle).not.toContain('Loading');
-    expect(finalTitle).not.toBe(initialTitle);
+    expect(finalTitle).toContain('GoWebComponents');
   });
 });
 
@@ -66,22 +67,18 @@ test.describe('GoWebComponents DOM Tests', () => {
     expect(hasDiv).toBeGreaterThan(0);
   });
 
-  test.skip('console shows expected panic from unimplemented render', async ({ page }) => {
-    // Skipped: render is now implemented
+  test('console does not report render panic', async ({ page }) => {
+    // Ensure render does not print 'render.To' or 'not yet implemented' errors
     const errors = [];
     page.on('console', msg => {
       if (msg.type() === 'error') {
         errors.push(msg.text());
       }
     });
-    
     await page.goto('/');
-    await page.waitForTimeout(2000); // Wait for WASM to try to render
-    
-    // Should have an error about render.To not being implemented
-    const hasRenderError = errors.some(e => 
-      e.includes('render.To') || e.includes('not yet implemented')
-    );
-    expect(hasRenderError).toBeTruthy();
+    await page.waitForSelector('#app', { timeout: 30000 });
+    await page.waitForTimeout(500);
+    const hasRenderError = errors.some(e => e.includes('render.To') || e.includes('not yet implemented'));
+    expect(hasRenderError).toBeFalsy();
   });
 });
