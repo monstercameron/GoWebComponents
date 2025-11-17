@@ -1,16 +1,12 @@
-// ./examples/blog_landing_page.go
-// Blog landing page example demonstrating component composition and modern patterns
-
 //go:build js && wasm
 // +build js,wasm
 
-package example
+package main
 
 import (
 	"fmt"
 
 	"github.com/monstercameron/GoWebComponents/dom"
-	"github.com/monstercameron/GoWebComponents/hooks"
 	"github.com/monstercameron/GoWebComponents/render"
 )
 
@@ -95,18 +91,6 @@ func HeaderComponent(props Attrs) *Element {
 func HeroSection(props Attrs) *Element {
 	fmt.Println("🎯 HeroSection: Rendering hero banner with CTA buttons")
 
-	// Event handler for Start Reading button
-	handleStartReading := hooks.GoUseFunc(func(event dom.GoEvent) {
-		fmt.Println("📖 HeroSection: Start Reading button clicked!")
-		event.PreventDefault()
-	})
-
-	// Event handler for Subscribe button
-	handleSubscribe := hooks.GoUseFunc(func(event dom.GoEvent) {
-		fmt.Println("💌 HeroSection: Subscribe button clicked!")
-		event.PreventDefault()
-	})
-
 	return dom.Section(Attrs{
 		"id":    "home",
 		"class": "py-20 px-6",
@@ -124,12 +108,10 @@ func HeroSection(props Attrs) *Element {
 				"class": "flex justify-center space-x-4",
 			},
 				dom.Button(Attrs{
-					"class":   "bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-lg",
-					"onclick": handleStartReading,
+					"class": "bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-lg",
 				}, dom.Text("Start Reading")),
 				dom.Button(Attrs{
-					"class":   "border-2 border-indigo-600 text-indigo-600 px-8 py-3 rounded-lg font-semibold hover:bg-indigo-50 transition-colors",
-					"onclick": handleSubscribe,
+					"class": "border-2 border-indigo-600 text-indigo-600 px-8 py-3 rounded-lg font-semibold hover:bg-indigo-50 transition-colors",
 				}, dom.Text("Subscribe")),
 			),
 			// Demonstration of component references vs return values
@@ -139,11 +121,11 @@ func HeroSection(props Attrs) *Element {
 				dom.H3(Attrs{
 					"class": "text-lg font-semibold text-gray-800",
 				}, dom.Text("Component Reference Demo:")),
-				// These are component references (functions) - will be called automatically
-				TestComponent,
-				AnotherTestComponent,
+				// These are component references - call them with nil
+				TestComponent(nil),
+				AnotherTestComponent(nil),
 				// This is also a component reference
-				TestComponent,
+				TestComponent(nil),
 			),
 		),
 	)
@@ -287,33 +269,7 @@ func AboutSection(props Attrs) *Element {
 
 // Newsletter section component - Email subscription form
 func NewsletterSection(props Attrs) *Element {
-	fmt.Println("📧 NewsletterSection: Initializing newsletter component with state")
-
-	// State for newsletter subscription using hooks
-	email, setEmail := hooks.UseState("")
-	subscribed, setSubscribed := hooks.UseState(false)
-
-	fmt.Printf("📧 NewsletterSection: Current state - email='%s', subscribed=%v\n", email(), subscribed())
-
-	// Handle newsletter subscription using hooks.GoUseFunc with dom.GoEvent
-	handleSubscribe := hooks.GoUseFunc(func(event dom.GoEvent) {
-		fmt.Println("📬 NewsletterSection: Form submission event triggered")
-		event.PreventDefault()
-		if email() != "" {
-			fmt.Printf("✅ NewsletterSection: Subscribing email: %s\n", email())
-			setSubscribed(true)
-			fmt.Println("🎉 NewsletterSection: Subscription successful!")
-		} else {
-			fmt.Println("❌ NewsletterSection: Empty email, cannot subscribe")
-		}
-	})
-
-	// Handle email input change using hooks.GoUseFunc with dom.GoEvent
-	handleEmailChange := hooks.GoUseFunc(func(event dom.GoEvent) {
-		value := event.GetValue()
-		fmt.Printf("⌨️ NewsletterSection: Email input changed to: '%s'\n", value)
-		setEmail(value)
-	})
+	fmt.Println("📧 NewsletterSection: Initializing newsletter component")
 
 	return dom.Section(Attrs{
 		"class": "py-16 bg-indigo-600",
@@ -327,30 +283,20 @@ func NewsletterSection(props Attrs) *Element {
 			dom.P(Attrs{
 				"class": "text-indigo-100 mb-8 max-w-2xl mx-auto",
 			}, dom.Text("Subscribe to our newsletter and get the latest tech articles delivered straight to your inbox every week.")),
-			func() *Element {
-				if subscribed() {
-					return dom.Div(Attrs{
-						"class": "bg-green-500 text-white px-6 py-3 rounded-lg inline-block",
-					}, dom.Text("✅ Thank you for subscribing!"))
-				}
-				return dom.Form(Attrs{
-					"class":    "flex justify-center max-w-md mx-auto",
-					"onsubmit": handleSubscribe,
-				},
-					dom.Input(Attrs{
-						"type":        "email",
-						"placeholder": "Enter your email",
-						"class":       "flex-1 px-4 py-3 rounded-l-lg border-0 focus:ring-2 focus:ring-indigo-300 outline-none",
-						"value":       email(),
-						"oninput":     handleEmailChange,
-						"required":    true,
-					}),
-					dom.Button(Attrs{
-						"type":  "submit",
-						"class": "bg-white text-indigo-600 px-6 py-3 rounded-r-lg font-semibold hover:bg-gray-100 transition-colors",
-					}, dom.Text("Subscribe")),
-				)
-			}(),
+			dom.Form(Attrs{
+				"class": "flex justify-center max-w-md mx-auto",
+			},
+				dom.Input(Attrs{
+					"type":        "email",
+					"placeholder": "Enter your email",
+					"class":       "flex-1 px-4 py-3 rounded-l-lg border-0 focus:ring-2 focus:ring-indigo-300 outline-none",
+					"required":    true,
+				}),
+				dom.Button(Attrs{
+					"type":  "submit",
+					"class": "bg-white text-indigo-600 px-6 py-3 rounded-r-lg font-semibold hover:bg-gray-100 transition-colors",
+				}, dom.Text("Subscribe")),
+			),
 		),
 	)
 }
@@ -501,22 +447,22 @@ func BlogLandingPage() {
 			"class": "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100",
 		},
 			// Header component
-			HeaderComponent,
+			HeaderComponent(nil),
 
 			// Main content area
 			dom.Main(nil,
 				// Hero section component
-				HeroSection,
+				HeroSection(nil),
 				// Featured posts section component
-				FeaturedPostsSection,
+				FeaturedPostsSection(nil),
 				// About section component
-				AboutSection,
+				AboutSection(nil),
 				// Newsletter section component
-				NewsletterSection,
+				NewsletterSection(nil),
 			),
 
 			// Footer component
-			FooterComponent,
+			FooterComponent(nil),
 		)
 	}
 

@@ -3,19 +3,19 @@
 //go:build js && wasm
 // +build js,wasm
 
-package example
+package main
 
 import (
 	"fmt"
 	"sync"
 )
 
-// Main is the exported entry point for the WASM module
-func Main() {
+// main is the entry point for the WASM module
+func main() {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	fmt.Println("🚀 Go Web Components starting...")
+	fmt.Println("🚀 Go Web Components Blog Landing Page starting...")
 	fmt.Println("📊 Loading Blog Landing Page...")
 
 	// Render the blog landing page to the DOM
@@ -25,8 +25,4 @@ func Main() {
 
 	// Keep the program alive for WebAssembly event handling
 	wg.Wait()
-}
-
-func main() {
-	Main()
 }
