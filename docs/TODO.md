@@ -15,16 +15,18 @@
 - [x] implement object pooling for performance
 - [x] implement fast equality checks
 
-## React Hooks ✅ IMPLEMENTED
+## React Hooks ✅ IMPLEMENTED (7/17 Core Hooks)
 - [x] useState (with getter/setter pattern)
 - [x] useEffect (with cleanup, dependency tracking)
 - [x] useMemo (with dependency tracking, smart caching)
 - [x] useFetch (with loading/error states, timeout controls, cancellation)
 - [x] useAtom (SolidJS-style fine-grained reactivity, thread-safe)
+- [x] useCallback (memoize functions, prevent child re-renders)
+- [x] useRef (persist mutable values, DOM access, no re-render triggers)
 
 ## React Hooks 🔧 HIGH PRIORITY (Phase 1)
-- [ ] useCallback (memoize functions to prevent child re-renders)
-- [ ] useRef (persist mutable values between renders, DOM references)
+- [x] useCallback (memoize functions to prevent child re-renders) - ✅ DONE (Commit 6245a47)
+- [x] useRef (persist mutable values between renders, DOM references) - ✅ DONE (Commit 476b162)
 - [ ] useReducer (complex state logic with actions)
 
 ## React Hooks 🔧 MEDIUM PRIORITY (Phase 2-3)
