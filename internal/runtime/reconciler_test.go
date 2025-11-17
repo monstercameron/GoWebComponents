@@ -841,6 +841,81 @@ func TestRunEffects_NilFiber(t *testing.T) {
 	rt.runEffects(nil)
 }
 
+func TestRunCleanups_ExecutesAllCleanups(t *testing.T) {
+	mockDOM := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{DOMAdapter: mockDOM, Scheduler: scheduler})
+
+	executed1 := false
+	executed2 := false
+
+	child := &Fiber{
+		typeOf: "div",
+		props:  make(map[string]interface{}),
+		hooks: &Hooks{cleanups: []func(){
+			func() { executed1 = true },
+		},},
+	}
+
+	parent := &Fiber{
+		typeOf: "div",
+		props:  make(map[string]interface{}),
+		hooks: &Hooks{cleanups: []func(){
+			func() { executed2 = true },
+		},},
+		child: child,
+	}
+
+	rt.runCleanups(parent)
+
+	if !executed1 {
+		t.Error("Expected child cleanup to run")
+	}
+	if !executed2 {
+		t.Error("Expected parent cleanup to run")
+	}
+}
+
+func TestCommitDeletion_RunsCleanupsAndCleansAtomSubs(t *testing.T) {
+	mockDOM := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{DOMAdapter: mockDOM, Scheduler: scheduler})
+
+	// Create a DOM tree
+	parentDOM := mockDOM.CreateElement("div")
+	childDOM := mockDOM.CreateElement("span")
+	mockDOM.AppendChild(parentDOM, childDOM)
+
+	// Create a function fiber that subscribes to an atom
+	funcFiber := &Fiber{typeOf: func(p map[string]interface{}) *Element { return nil }, props: make(map[string]interface{})}
+	hostFiber := &Fiber{typeOf: "span", props: make(map[string]interface{}), dom: childDOM, parent: funcFiber}
+	funcFiber.child = hostFiber
+
+	// Simulate using atom in child fiber via the runtime's registry
+	rt.atomRegistry.InitAtom("test-atom", 0)
+	rt.atomRegistry.Subscribe("test-atom", funcFiber)
+
+	// Ensure subscription is present
+	if rt.atomRegistry.GetSubscriberCount("test-atom") != 1 {
+		t.Fatal("expected 1 subscriber before deletion")
+	}
+
+	// Attach a cleanup to the function fiber
+	ran := false
+	funcFiber.hooks = &Hooks{cleanups: []func(){func() { ran = true }}}
+
+	rt.commitDeletion(funcFiber, parentDOM)
+
+	if !ran {
+		t.Error("Expected cleanup to run during commitDeletion")
+	}
+
+	if rt.atomRegistry.GetSubscriberCount("test-atom") != 0 {
+		t.Error("Expected atom subscription to be removed during commitDeletion")
+	}
+}
+
+
 func TestGetNextUnitOfWork_Child(t *testing.T) {
 	mockDOM := newTestDOMAdapter()
 	scheduler := newTestScheduler()

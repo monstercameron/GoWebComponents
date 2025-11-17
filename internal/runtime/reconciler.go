@@ -386,6 +386,9 @@ func (rt *Runtime) commitDeletion(fiber *Fiber, domParent DOMNode) {
 	// Run all cleanup functions before removing from DOM
 	rt.runCleanups(fiber)
 
+	// Cleanup atom subscriptions for this fiber and subtree
+	rt.CleanupAtomSubscriptions(fiber)
+
 	if fiber.dom != nil && !fiber.dom.IsNull() {
 		rt.domAdapter.RemoveChild(domParent, fiber.dom)
 	} else {
