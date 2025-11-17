@@ -4,123 +4,136 @@
 package fetch
 
 import (
-	"github.com/monstercameron/GoWebComponents/fiber"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"syscall/js"
+
+	"github.com/monstercameron/GoWebComponents/hooks"
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
 // Options represents configuration for HTTP fetch operations.
-type Options = fiber.FetchOptions
+type Options struct {
+	Method  string
+	Headers map[string]interface{}
+	Body    interface{}
+}
 
 // State represents the state of a fetch operation managed by UseFetch.
-type State = fiber.FetchState
+type State = runtime.FetchState
 
 // Result represents the result of a manual Fetch operation.
-type Result = fiber.FetchResult
+type Result struct {
+	Data interface{}
+	Err  error
+}
 
 // UseFetch is a hook that simplifies data fetching within a component.
-// It automatically manages loading, error, and data states.
-//
-// The hook fetches data when:
-//   - The component mounts (first render)
-//   - The URL changes
-//   - The refetch function is called manually
-//
-// Returns:
-//   - A getter function that returns the current State (loading, error, data)
-//   - A refetch function to manually trigger a new fetch
-//
-// Example with automatic fetching:
-//
-//	func DataDisplay(props dom.Attrs) *fiber.Element {
-//	    getState, _ := fetch.UseFetch("https://api.example.com/data")
-//	    state := getState()
-//
-//	    if state.Loading {
-//	        return dom.P(nil, "Loading...")
-//	    }
-//	    if state.Error != "" {
-//	        return dom.P(nil, "Error: "+state.Error)
-//	    }
-//	    return dom.Pre(nil, state.Data.(string))
-//	}
-//
-// Example with manual refetch:
-//
-//	func RefreshableData(props dom.Attrs) *fiber.Element {
-//	    getState, refetch := fetch.UseFetch("/api/data")
-//	    state := getState()
-//
-//	    refreshBtn := dom.Button(map[string]interface{}{
-//	        "onclick": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-//	            refetch()
-//	            return nil
-//	        }),
-//	        "disabled": state.Loading,
-//	    }, "Refresh")
-//
-//	    return dom.Div(nil, dom.Pre(nil, state.Data.(string)), refreshBtn)
-//	}
-//
-// Example with options:
-//
-//	func PostData(props dom.Attrs) *fiber.Element {
-//	    getState, _ := fetch.UseFetch("/api/submit", fetch.Options{
-//	        Method: "POST",
-//	        Headers: map[string]interface{}{
-//	            "Content-Type": "application/json",
-//	        },
-//	        Body: `{"message": "Hello"}`,
-//	    })
-//	    // ...
-//	}
+// It uses the new hooks.UseFetch entry point internally.
 func UseFetch(url string, options ...Options) (func() State, func()) {
-	return fiber.GoUseFetch(url, options...)
+	args := make([]interface{}, len(options))
+	for i, opt := range options {
+		args[i] = opt
+	}
+	return hooks.UseFetch(url, args...)
 }
 
 // Fetch performs an asynchronous HTTP fetch operation and returns a channel for the result.
-// This is a lower-level API for imperative fetching that requires manual state management.
-//
-// The returned channel will receive exactly one Result containing either:
-//   - Data: the response body as a string (if successful)
-//   - Err: an error (if the request failed)
-//
-// Important: The channel should be consumed and then returned to the pool using
-// ReturnChannel() to prevent memory leaks.
-//
-// Example:
-//
-//	func fetchUserData(userID int) {
-//	    ch := fetch.Fetch(
-//	        fmt.Sprintf("/api/users/%d", userID),
-//	        fetch.Options{Method: "GET"},
-//	    )
-//
-//	    result := <-ch
-//	    fetch.ReturnChannel(ch) // Return channel to pool
-//
-//	    if result.Err != nil {
-//	        fmt.Printf("Fetch failed: %v\n", result.Err)
-//	        return
-//	    }
-//
-//	    fmt.Printf("User data: %s\n", result.Data)
-//	}
-//
-// For most use cases, prefer UseFetch which handles state management automatically.
+// This uses the browser Fetch API from WASM; it currently returns the response body as text.
 func Fetch(url string, options Options) <-chan Result {
-	return fiber.GoFetch(url, options)
+	ch := make(chan Result, 1)
+
+	go func() {
+		fetch := js.Global().Get("fetch")
+		if !fetch.Truthy() {
+			ch <- Result{Err: errors.New("fetch API unavailable in this environment")}
+			return
+		}
+
+		opts := js.Global().Get("Object").New()
+
+		method := options.Method
+		if method == "" {
+			method = "GET"
+		}
+		opts.Set("method", method)
+
+		if options.Headers != nil {
+			headers := js.Global().Get("Object").New()
+			for k, v := range options.Headers {
+				headers.Set(k, fmt.Sprint(v))
+			}
+			opts.Set("headers", headers)
+		}
+
+		if options.Body != nil {
+			switch body := options.Body.(type) {
+			case string:
+				opts.Set("body", body)
+			default:
+				if encoded, err := json.Marshal(body); err == nil {
+					opts.Set("body", string(encoded))
+				} else {
+					ch <- Result{Err: fmt.Errorf("failed to encode body: %w", err)}
+					return
+				}
+			}
+		}
+
+		promise := fetch.Invoke(url, opts)
+
+		var bodyThen js.Func
+		var bodyCatch js.Func
+		var resolve js.Func
+		var reject js.Func
+
+		resolve = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			defer resolve.Release()
+			defer reject.Release()
+
+			resp := args[0]
+			textPromise := resp.Call("text")
+
+			bodyThen = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				defer bodyThen.Release()
+				defer bodyCatch.Release()
+				if len(args) > 0 {
+					ch <- Result{Data: args[0].String()}
+					return nil
+				}
+				ch <- Result{Err: errors.New("empty response from fetch")}
+				return nil
+			})
+
+			bodyCatch = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				defer bodyThen.Release()
+				defer bodyCatch.Release()
+				ch <- Result{Err: fmt.Errorf("failed to read body: %v", args)}
+				return nil
+			})
+
+			textPromise.Call("then", bodyThen)
+			textPromise.Call("catch", bodyCatch)
+			return nil
+		})
+
+		reject = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			defer resolve.Release()
+			defer reject.Release()
+			ch <- Result{Err: fmt.Errorf("fetch failed: %v", args)}
+			return nil
+		})
+
+		promise.Call("then", resolve)
+		promise.Call("catch", reject)
+	}()
+
+	return ch
 }
 
 // ReturnChannel returns a fetch result channel to the pool for reuse.
-// This should be called after consuming the result from Fetch() to prevent memory leaks.
-//
-// Example:
-//
-//	ch := fetch.Fetch(url, options)
-//	result := <-ch
-//	fetch.ReturnChannel(ch) // Important: return to pool
-//
-// Note: This function is only needed when using the low-level Fetch function.
-// UseFetch handles channel management automatically.
+// With the new implementation channels are one-shot, so this is a no-op kept for API compatibility.
 func ReturnChannel(ch <-chan Result) {
-	fiber.ReturnFetchChannel(ch)
+	_ = ch
 }

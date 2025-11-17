@@ -4,3 +4,6 @@ go-compiler-wasm
 go-source
 *.exe
 .vscode/
+.gocache/*
+examples/static/.npm-cache/*
+examples/static/node_modules/*

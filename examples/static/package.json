@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "build:css": "npx tailwindcss -i ./tailwind.input.css -o ./css/tailwind.css --content ./index.html"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.22",
+    "postcss": "^8.5.6"
+  },
+  "dependencies": {
+    "tailwindcss": "^4.1.17"
+  }
+}

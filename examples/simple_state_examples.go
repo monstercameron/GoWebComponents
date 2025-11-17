@@ -15,7 +15,6 @@ import (
 
 	"github.com/monstercameron/GoWebComponents/dom"
 	"github.com/monstercameron/GoWebComponents/hooks"
-	"github.com/monstercameron/GoWebComponents/render"
 )
 
 // Simple struct for demonstrating object state
@@ -123,7 +122,7 @@ func TextInputExample(props Attrs) *Element {
 	currentRender := getNextRenderID()
 	fmt.Printf("📝 StringExample (Render #%d)\n", currentRender)
 
-		renderCount, setRenderCount := hooks.UseState(0)
+	renderCount, setRenderCount := hooks.UseState(0)
 	currentRender := getNextRenderID()
 	fmt.Printf("🔧 TextInputExample (Render #%d)\n", currentRender)
 

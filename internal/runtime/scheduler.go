@@ -25,7 +25,6 @@ func (rt *Runtime) ScheduleUpdate() {
 	}
 
 	rt.updateScheduled = true
-	fmt.Printf("ScheduleUpdate: updateScheduled set to true\n")
 
 	// Create new work-in-progress root
 	rt.wipRoot = &Fiber{
@@ -45,7 +44,6 @@ func (rt *Runtime) ScheduleUpdate() {
 
 // workLoop processes work units during idle periods
 func (rt *Runtime) workLoop(deadline Deadline) {
-	fmt.Printf("Runtime workLoop invoked\n")
 	shouldYield := false
 	units := 0
 	const maxUnitsPerSlice = 300
@@ -62,6 +60,7 @@ func (rt *Runtime) workLoop(deadline Deadline) {
 
 	// If work is complete, commit
 	if rt.wipRoot != nil && rt.nextUnitOfWork == nil {
+		fmt.Printf("[WORKLOOP] Committing work - wipRoot.typeOf=%v\n", rt.wipRoot.typeOf)
 		rt.commitRoot()
 		rt.updateScheduled = false
 	} else if rt.nextUnitOfWork != nil {
@@ -103,7 +102,6 @@ func (rt *Runtime) ScheduleUpdateForFiber(fiber *Fiber) {
 	if !rt.updateScheduled {
 		rt.ScheduleUpdate()
 	}
-	fmt.Printf("ScheduleUpdateForFiber called: fiber=%p type=%v\n", fiber, fiber.typeOf)
 }
 
 // UI Queue for cross-goroutine updates

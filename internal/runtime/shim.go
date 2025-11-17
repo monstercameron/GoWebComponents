@@ -103,8 +103,8 @@ func GoUseFuncGlobal(fn interface{}) interface{} {
 			return nil
 		})
 
-	// func(GoEvent) - GoEvent handler (check by type name)
-	case numIn == 1 && (inTypeName == "github.com/monstercameron/GoWebComponents/internal/runtime.GoEvent" || inTypeName == "github.com/monstercameron/GoWebComponents/dom.GoEvent"):
+	// func(GoEvent) - GoEvent handler (check by type name, including aliases)
+	case numIn == 1 && (inTypeName == "github.com/monstercameron/GoWebComponents/internal/runtime.GoEvent" || inTypeName == "github.com/monstercameron/GoWebComponents/dom.GoEvent" || inTypeName == "GoEvent" || inTypeName == "runtime.GoEvent"):
 		// Type assert to func(GoEvent)
 		handler := storedFn.(func(GoEvent))
 		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -115,7 +115,7 @@ func GoUseFuncGlobal(fn interface{}) interface{} {
 		})
 
 	// func(GoEvent) error
-	case numIn == 1 && numOut == 1 && (inTypeName == "github.com/monstercameron/GoWebComponents/internal/runtime.GoEvent" || inTypeName == "github.com/monstercameron/GoWebComponents/dom.GoEvent"):
+	case numIn == 1 && numOut == 1 && (inTypeName == "github.com/monstercameron/GoWebComponents/internal/runtime.GoEvent" || inTypeName == "github.com/monstercameron/GoWebComponents/dom.GoEvent" || inTypeName == "GoEvent" || inTypeName == "runtime.GoEvent"):
 		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			if len(args) > 0 {
 				result := reflect.ValueOf(storedFn).Call([]reflect.Value{reflect.ValueOf(NewGoEvent(args[0]))})

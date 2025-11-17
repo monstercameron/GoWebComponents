@@ -61,6 +61,7 @@ func flattenFragments(elements []interface{}) []interface{} {
 func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 	// Flatten any Fragment elements before reconciliation
 	elements = flattenFragments(elements)
+	fmt.Printf("[RECONCILE] wipFiber.typeOf=%v, elements count=%d\n", wipFiber.typeOf, len(elements))
 
 	index := 0
 	var oldFiber *Fiber
@@ -112,8 +113,24 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 			} else {
 				fmt.Printf("  [UPDATE] ERROR: not Element type=%T\n", element)
 			}
+			// Link to parent
+			if index == 0 {
+				wipFiber.child = newFiber
+				fmt.Printf("[RECONCILE] set wipFiber(%v).child=%p (type=%v)\n", wipFiber.typeOf, newFiber, newFiber.typeOf)
+			} else if newFiber != nil && prevSibling != nil {
+				prevSibling.sibling = newFiber
+				fmt.Printf("[RECONCILE] set prevSibling.sibling=%p\n", newFiber)
+			}
+			if newFiber != nil {
+				prevSibling = newFiber
+			}
+			// Advance oldFiber only when we reuse it
+			if oldFiber != nil {
+				oldFiber = oldFiber.sibling
+			}
+			index++
 		} else if element != nil {
-			// Create a new fiber
+			// Create a new fiber for a different element type
 			if elem, ok := element.(*Element); ok {
 				newFiber = &Fiber{
 					typeOf:    elem.Type,
@@ -122,33 +139,36 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					effectTag: "PLACEMENT",
 					dirty:     true,
 				}
+				fmt.Printf("[RECONCILE] PLACEMENT: idx=%d, type=%v, newFiber=%p\n", index, elem.Type, newFiber)
+				// Log when placing element without old fiber (potential duplication)
+				if oldFiber != nil {
+					fmt.Printf("[DUP] PLACEMENT idx=%d type=%v when oldFiber=%p exists (sibling=%p)\n", index, elem.Type, oldFiber, oldFiber.sibling)
+					// Mark old fiber for deletion on type mismatch
+					oldFiber.effectTag = "DELETION"
+					rt.deletions = append(rt.deletions, oldFiber)
+					oldFiber = oldFiber.sibling
+				}
 			} else {
 				fmt.Printf("  [PLACEMENT] ERROR: not Element\n")
 			}
+			// Link to parent
+			if index == 0 {
+				wipFiber.child = newFiber
+				fmt.Printf("[RECONCILE] set wipFiber(%v).child=%p (type=%v)\n", wipFiber.typeOf, newFiber, newFiber.typeOf)
+			} else if newFiber != nil && prevSibling != nil {
+				prevSibling.sibling = newFiber
+				fmt.Printf("[RECONCILE] set prevSibling.sibling=%p\n", newFiber)
+			}
+			if newFiber != nil {
+				prevSibling = newFiber
+			}
+			index++
 		} else if oldFiber != nil {
-			// element is nil, oldFiber exists - mark for deletion
+			// element is nil, oldFiber exists - mark for deletion and advance
 			oldFiber.effectTag = "DELETION"
 			rt.deletions = append(rt.deletions, oldFiber)
-		}
-
-		if oldFiber != nil && !sameType && element != nil {
-			// Mark the old fiber for deletion (only when we have a new element but it's a different type)
-			oldFiber.effectTag = "DELETION"
-			rt.deletions = append(rt.deletions, oldFiber)
-		}
-
-		if oldFiber != nil {
 			oldFiber = oldFiber.sibling
 		}
-
-		if index == 0 {
-			wipFiber.child = newFiber
-		} else if element != nil && prevSibling != nil {
-			prevSibling.sibling = newFiber
-		}
-
-		prevSibling = newFiber
-		index++
 	}
 }
 
@@ -185,6 +205,8 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 		return nil
 	}
 
+	fmt.Printf("[PERFORM] fiber.typeOf=%v, dirty=%v, child=%p\n", fiber.typeOf, fiber.dirty, fiber.child)
+
 	// Skip non-dirty fibers (optimization)
 	if !fiber.dirty {
 		return rt.getNextUnitOfWork(fiber)
@@ -214,10 +236,6 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 		default:
 			// Function component
 			currentFiber = fiber
-			// Log component invocation (diagnose re-renders)
-			if fnName := reflect.TypeOf(fiber.typeOf); fnName != nil {
-				fmt.Printf("Invoke component: fiber=%p type=%v\n", fiber, fnName)
-			}
 			// TODO: ensure FinalizeHookOrder is called after function component render; currently only validateHookOrder runs
 
 			// Preserve hooks from alternate fiber
@@ -355,7 +373,7 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 
 // commitRoot commits all changes to the DOM
 func (rt *Runtime) commitRoot() {
-	fmt.Printf("Processing %d deletions\n", len(rt.deletions))
+	fmt.Printf("[COMMIT] commitRoot starting, deletions=%d\n", len(rt.deletions))
 	// Process deletions first
 	for _, fiber := range rt.deletions {
 		rt.commitWork(fiber)
@@ -364,7 +382,10 @@ func (rt *Runtime) commitRoot() {
 
 	// Commit the work
 	if rt.wipRoot != nil && rt.wipRoot.child != nil {
+		fmt.Printf("[COMMIT] committing wipRoot.child, typeOf=%v\n", rt.wipRoot.child.typeOf)
 		rt.commitWork(rt.wipRoot.child)
+	} else {
+		fmt.Printf("[COMMIT] WARNING: wipRoot.child is nil\n")
 	}
 
 	// Run effects
@@ -379,6 +400,8 @@ func (rt *Runtime) commitWork(fiber *Fiber) {
 	if fiber == nil {
 		return
 	}
+
+	fmt.Printf("[COMMIT] commitWork fiber typeOf=%v effectTag=%v\n", fiber.typeOf, fiber.effectTag)
 
 	// Find the parent DOM node
 	var domParentFiber *Fiber = fiber.parent
@@ -399,30 +422,10 @@ func (rt *Runtime) commitWork(fiber *Fiber) {
 					oldValue, _ := fiber.alternate.props["nodeValue"].(string)
 					newValue, _ := fiber.props["nodeValue"].(string)
 					if oldValue != newValue {
-						// Try to get parent id for easier mapping
-						var parentID string
-						if parent := rt.domAdapter.GetParent(fiber.dom); parent != nil {
-							if pID := rt.domAdapter.GetProperty(parent, "id"); pID != nil {
-								if str, ok := pID.(string); ok {
-									parentID = str
-								}
-							}
-						}
-						fmt.Printf("Text update: old='%s' new='%s' dom=%p parentID=%s\n", oldValue, newValue, fiber.dom, parentID)
-					}
-					if oldValue != newValue {
 						rt.domAdapter.SetTextContent(fiber.dom, newValue)
 					}
 				} else {
 					// Regular element - update properties
-					// Try to fetch id attribute for this element
-					var idAttr string
-					if idVal := rt.domAdapter.GetProperty(fiber.dom, "id"); idVal != nil {
-						if s, ok := idVal.(string); ok {
-							idAttr = s
-						}
-					}
-					fmt.Printf("Updating element properties for dom=%p type=%v id=%s\n", fiber.dom, fiber.typeOf, idAttr)
 					rt.updateDomProperties(fiber.dom, fiber.alternate.props, fiber.props)
 				}
 			}
@@ -446,7 +449,6 @@ func (rt *Runtime) commitDeletion(fiber *Fiber, domParent DOMNode) {
 	if fiber == nil {
 		return
 	}
-	fmt.Printf("commitDeletion called for fiber=%p type=%v dom=%p\n", fiber, fiber.typeOf, fiber.dom)
 	// Run all cleanup functions before removing from DOM
 	rt.runCleanups(fiber)
 
@@ -455,12 +457,10 @@ func (rt *Runtime) commitDeletion(fiber *Fiber, domParent DOMNode) {
 
 	if fiber.dom != nil && !fiber.dom.IsNull() {
 		// This fiber has a DOM node, remove it
-		fmt.Printf("  commitDeletion: removing DOM node %p\n", fiber.dom)
 		rt.domAdapter.RemoveChild(domParent, fiber.dom)
 	} else {
 		// Function component without DOM node - recursively delete all descendants
 		// We need to find and remove all actual DOM nodes in the subtree
-		fmt.Printf("  commitDeletion: function component, recursing to subtree\n")
 		rt.deleteFiberSubtree(fiber, domParent)
 	}
 }
