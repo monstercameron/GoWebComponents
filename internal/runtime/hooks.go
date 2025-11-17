@@ -218,7 +218,10 @@ func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 
 	memo := &fiber.hooks.memos[position]
 
-	if memo.value == nil || !areDepsEqual(memo.deps, deps) {
+	// Check if we need to recompute: only if deps changed (or this is the first render and memo.deps is uninitialized)
+	// First render: memo.deps will be nil, so we need to initialize it
+	// Subsequent renders: check if deps changed
+	if memo.deps == nil || !areDepsEqual(memo.deps, deps) {
 		memo.value = compute()
 		memo.deps = deps
 	}

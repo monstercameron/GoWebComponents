@@ -238,6 +238,125 @@ func TestGoUseMemo_RecomputesOnDepsChange(t *testing.T) {
 	}
 }
 
+func TestGoUseMemo_SkipRecomputeOnSameDeps(t *testing.T) {
+	fiber := &Fiber{
+		typeOf: "test",
+		props:  make(map[string]interface{}),
+	}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	computeCount := 0
+
+	// First render
+	result1 := GoUseMemo(func() interface{} {
+		computeCount++
+		return 42
+	}, "dep")
+
+	// Reset for second render with same deps
+	fiber.hooks.index = 0
+
+	result2 := GoUseMemo(func() interface{} {
+		computeCount++
+		return 42
+	}, "dep")
+
+	if result1 != 42 {
+		t.Errorf("Expected first result 42, got %v", result1)
+	}
+
+	if result2 != 42 {
+		t.Errorf("Expected second result 42, got %v", result2)
+	}
+
+	if computeCount != 1 {
+		t.Errorf("Expected compute to be called once with same deps, got %d times", computeCount)
+	}
+}
+
+func TestGoUseMemo_NilDepsInitialization(t *testing.T) {
+	fiber := &Fiber{
+		typeOf: "test",
+		props:  make(map[string]interface{}),
+	}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	computeCount := 0
+
+	// First render - memo.deps starts as nil
+	result := GoUseMemo(func() interface{} {
+		computeCount++
+		return "computed"
+	}, "dep1")
+
+	if result != "computed" {
+		t.Errorf("Expected computed value, got %v", result)
+	}
+
+	if computeCount != 1 {
+		t.Errorf("Expected compute once on first render, got %d", computeCount)
+	}
+
+	// Check that memo.deps was actually set
+	if fiber.hooks.memos[0].deps == nil {
+		t.Error("Expected memo.deps to be set after first render")
+	}
+
+	if len(fiber.hooks.memos[0].deps) != 1 {
+		t.Errorf("Expected 1 dependency, got %d", len(fiber.hooks.memos[0].deps))
+	}
+}
+
+func TestGoUseMemo_MultipleMemosIndependent(t *testing.T) {
+	fiber := &Fiber{
+		typeOf: "test",
+		props:  make(map[string]interface{}),
+	}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	count1 := 0
+	count2 := 0
+
+	// First render - create two memos
+	GoUseMemo(func() interface{} {
+		count1++
+		return "memo1"
+	}, "dep1")
+
+	GoUseMemo(func() interface{} {
+		count2++
+		return "memo2"
+	}, "dep2")
+
+	if count1 != 1 || count2 != 1 {
+		t.Errorf("Expected each memo to compute once, got count1=%d count2=%d", count1, count2)
+	}
+
+	// Reset for second render - change dep2 only
+	fiber.hooks.index = 0
+
+	GoUseMemo(func() interface{} {
+		count1++
+		return "memo1"
+	}, "dep1") // Same dep
+
+	GoUseMemo(func() interface{} {
+		count2++
+		return "memo2"
+	}, "dep2_changed") // Different dep
+
+	if count1 != 1 {
+		t.Errorf("Expected memo1 to not recompute (count1 still 1), got %d", count1)
+	}
+
+	if count2 != 2 {
+		t.Errorf("Expected memo2 to recompute (count2=2), got %d", count2)
+	}
+}
+
 func TestValidateHookOrder_Success(t *testing.T) {
 	hooks := &Hooks{
 		callOrder: make([]HookCall, 0),

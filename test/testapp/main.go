@@ -157,8 +157,9 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 
 	// UseMemo to compute expensive value (for testing)
 	doubledCount := hooks.UseMemo(func() interface{} {
+		result := count() * 2
 		fmt.Printf("UseMemo computing: count=%d\n", count())
-		return count() * 2
+		return result
 	}, count()).(int)
 
 	// cleanup-status will be updated by child effect directly via Document API

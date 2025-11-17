@@ -17,33 +17,43 @@
 
 ## React Hooks ✅ IMPLEMENTED
 - [x] useState (with getter/setter pattern)
-- [x] useEffect
-- [x] useMemo
-- [x] useFetch (with multiple patterns)
+- [x] useEffect (with cleanup, dependency tracking)
+- [x] useMemo (with dependency tracking, smart caching)
+- [x] useFetch (with loading/error states, timeout controls, cancellation)
+- [x] useAtom (SolidJS-style fine-grained reactivity, thread-safe)
 
-## React Hooks 🔧 MISSING
-- [ ] useCallback
-- [ ] useRef
-- [ ] useReducer
-- [ ] useContext
-- [ ] useLayoutEffect
-- [ ] useId
-- [ ] useDeferredValue
-- [ ] useTransition
-- [ ] useSyncExternalStore
-- [ ] useInsertionEffect
+## React Hooks 🔧 HIGH PRIORITY (Phase 1)
+- [ ] useCallback (memoize functions to prevent child re-renders)
+- [ ] useRef (persist mutable values between renders, DOM references)
+- [ ] useReducer (complex state logic with actions)
 
-## Core React Features 🔧 MISSING
-- [ ] Fragment support (React.Fragment / <>)
-- [ ] Key prop support for list reconciliation
-- [ ] Ref forwarding
-- [ ] Error boundaries
-- [ ] Suspense for async components
-- [ ] Portals (render to different DOM nodes)
-- [ ] React.memo equivalent for component memoization
+## React Hooks 🔧 MEDIUM PRIORITY (Phase 2-3)
+- [ ] useContext (share state across component tree, requires Context API)
+- [ ] useLayoutEffect (run effects synchronously before paint)
+- [ ] useId (generate unique IDs for accessibility)
+
+## React Hooks 🔧 ADVANCED/EXPERIMENTAL (Phase 4+)
+- [ ] useDeferredValue (defer state updates for performance)
+- [ ] useTransition (track async action transitions)
+- [ ] useSyncExternalStore (subscribe to external state)
+- [ ] useInsertionEffect (CSS-in-JS hook, experimental)
+
+## Core React Features 🔧 HIGH PRIORITY (Phase 1-2)
+- [ ] Fragment support (React.Fragment / <> syntax) - ⭐ Easy
+- [ ] Key prop support for list reconciliation - ⭐⭐ Medium
+- [ ] Portals (render to different DOM nodes, modals/tooltips) - ⭐⭐ Medium
+- [ ] React.memo equivalent for component memoization - ⭐⭐ Medium
+
+## Core React Features 🔧 MEDIUM PRIORITY (Phase 2-3)
+- [ ] Ref forwarding (pass refs through HOCs)
+- [ ] Error boundaries (component error handling)
 - [ ] Context API (Provider/Consumer pattern)
-- [ ] Strict mode equivalent
+- [ ] Suspense for async components
+
+## Core React Features 🔧 DEVELOPER TOOLS (Phase 3-4)
+- [ ] Strict mode equivalent (dev-time error detection)
 - [ ] Profiler for performance monitoring
+- [ ] Component inspector/debugger
 
 ## Component Patterns 🔧 MISSING
 - [ ] Higher-order components (HOCs)
@@ -123,19 +133,28 @@
 - [ ] Add proper error handling for build issues
 
 ## WASM-Optimised Go Hooks ✅ IMPLEMENTED
-- [x] GoUseState
-- [x] GoUseEffect
-- [x] GoUseMemo
+- [x] GoUseState (type-safe state management)
+- [x] GoUseEffect (side effects with dependency tracking, cleanup)
+- [x] GoUseMemo (expensive computation memoization)
+- [x] GoUseFetch (data fetching with state management)
+- [x] GoUseAtom (fine-grained reactivity, global state)
 
-## WASM-Optimised Go Hooks 🔧 PLANNED
-- [ ] **GoUseAtom** - Fine-grained reactivity system (see State Management section above)
-- [ ] GoUseReducer
-- [ ] GoUseRef
-- [ ] GoUseCallback
-- [ ] GoUseLayoutEffect
-- [ ] GoUseImperativeHandle
-- [ ] GoCreateContext
-- [ ] GoUseContext
+## WASM-Optimised Go Hooks 🔧 HIGH PRIORITY (Phase 1)
+- [ ] **GoUseCallback** - Memoize functions to prevent child re-renders
+- [ ] **GoUseRef** - Persist mutable values and DOM references between renders
+
+## WASM-Optimised Go Hooks 🔧 MEDIUM PRIORITY (Phase 2-3)
+- [ ] **GoUseReducer** - Action-based state management for complex logic
+- [ ] GoUseContext - Access context values
+- [ ] GoUseLayoutEffect - Timing-dependent effects
+- [ ] GoUseId - Generate stable unique IDs
+- [ ] GoUseImperativeHandle - Expose imperative methods on refs
+
+## WASM-Optimised Go Hooks 🔧 ADVANCED (Phase 4+)
+- [ ] **GoCreateContext** - Create new context objects
+- [ ] GoUseTransition - Track async state transitions
+- [ ] GoUseDeferredValue - Defer state value updates
+- [ ] GoUseSyncExternalStore - Subscribe to external state stores
 
 ## Concurrency & Async Primitives 🔧 PLANNED
 - [ ] GoUseTask
@@ -145,11 +164,11 @@
 - [ ] GoTransition
 - [ ] GoDeferredValue
 
-## UI Boundaries & Portals 🔧 PLANNED
-- [ ] GoErrorBoundary
-- [ ] GoSuspense
-- [ ] GoPortal
-- [ ] GoFragment
+## UI Boundaries & Portals 🔧 HIGH PRIORITY (Phase 1-2)
+- [ ] **GoFragment** - Group elements without wrapper node (empty tag <> equivalent)
+- [ ] **GoPortal** - Render to alternate DOM nodes (modals, tooltips, popovers)
+- [ ] GoErrorBoundary - Catch and handle component errors
+- [ ] GoSuspense - Handle async component loading
 
 ## Routing & Navigation 🔧 PLANNED
 - [ ] GoRouter
@@ -279,13 +298,79 @@
 3. **Performance Profiling**: Runtime performance tools
 4. **Documentation**: Comprehensive guides and examples
 
+## Detailed Implementation Guide
+
+### Phase 1 Quick Wins (3-5 days)
+**GoUseCallback** - ⭐⭐ Medium Difficulty
+- Copy UseMemo implementation but memoize functions instead of values
+- Store function references with dependency tracking
+- Return same function instance when deps haven't changed
+- Useful for event handlers and prop optimization
+
+**GoUseRef** - ⭐⭐⭐ Hard Difficulty  
+- Maintain mutable reference across renders
+- Store in hooks like state but don't trigger re-renders on change
+- Integrate with DOM adapter for element refs
+- Returns object with `.value` property to match React API
+
+**GoFragment** - ⭐ Easy Difficulty
+- Group multiple elements without wrapper node
+- Handle in reconciler to unwrap children directly
+- Enable component composition patterns
+- Minimal implementation, high value
+
+### Phase 2 Implementation (1-2 weeks)
+**Key Prop Support** - ⭐⭐ Medium Difficulty
+- Parse `key` prop from element attributes
+- Use in list reconciliation for stable element identity
+- Improve performance of list re-ordering/filtering
+- Critical for realistic list components
+
+**GoPortal** - ⭐⭐ Medium Difficulty
+- Render component tree to different DOM node
+- Query selector-based targeting (like React.createPortal)
+- Useful for modals, tooltips, popovers, dropdowns
+- Maintains component hierarchy while changing DOM location
+
+**GoReducer** - ⭐⭐ Medium Difficulty
+- Action-based state management (like Redux actions)
+- Takes reducer function: `(state, action) => newState`
+- Dispatch actions to trigger state changes
+- Alternative to UseState for complex logic
+
+### Phase 3 Advanced (2-3 weeks)
+**Context API** (GoCreateContext + GoUseContext) - ⭐⭐⭐ Hard Difficulty
+- Create context objects with default values
+- Provider component to set context value
+- Hook to consume context in descendant components
+- Requires Provider/Consumer pattern integration
+- Needs optimization to prevent unnecessary re-renders
+
+### Phase 4+ Experimental (3+ weeks)
+**GoLayoutEffect** - ⭐⭐⭐ Hard Difficulty
+- Run effects synchronously before browser paint
+- Requires synchronous execution in reconciler
+- Timing-sensitive DOM operations
+- Measure/reflow use cases
+
+**GoTransition & GoUseDeferredValue** - ⭐⭐⭐⭐ Very Hard Difficulty
+- Requires priority-based scheduling system
+- Low-priority updates for better UX
+- Complex state machine implementation
+- Concurrent rendering support
+
 ## Current Status Summary
 
-✅ **MAJOR MILESTONE**: Core WASM/DOM functionality complete
+✅ **HOOKS COMPLETE**: 5/5 core + 1 experimental (useState, useEffect, useMemo, useFetch, useAtom)
 ✅ **INFRASTRUCTURE**: Personal website 2025 pipeline complete with working demo
+✅ **TESTING**: 50 tests passing (31 unit tests, 11 hooks E2E, 8 feature tests)
 🔄 **IN PROGRESS**: Performance optimization and memory leak fixes
-🚧 **NEXT**: Essential React features (useCallback, useRef, Fragment support)
-🔮 **FUTURE**: Advanced features and full React parity
+🚧 **NEXT PRIORITIES**: 
+  1. **Phase 1**: GoUseCallback, GoUseRef, GoFragment (Quick wins)
+  2. **Phase 2**: Key prop, GoPortal, GoReducer (Core features)
+  3. **Phase 3**: Context API (Advanced state management)
 
-**Performance Status**: 7/12 critical js.Func memory leaks fixed (58% complete)
-**Development Status**: Production-ready for basic use cases, active development for advanced features 
+**Test Coverage**: 50/50 tests passing ✅
+**Core Hooks**: 5/5 implemented (UseState, UseEffect, UseMemo, UseFetch, UseAtom)
+**Missing Hooks**: 11 core + 10 experimental planned
+**Development Status**: Production-ready for basic use cases, actively adding essential features
