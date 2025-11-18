@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/monstercameron/GoWebComponents/dom"
-	example "github.com/monstercameron/GoWebComponents/example"
+	example "github.com/monstercameron/GoWebComponents/examples"
 	"github.com/monstercameron/GoWebComponents/render"
 )
 

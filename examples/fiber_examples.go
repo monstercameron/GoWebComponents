@@ -1,6 +1,6 @@
 // // ./fiber/fiber_examples.go
 
-package examples
+package example
 
 // import (
 // 	"encoding/json"

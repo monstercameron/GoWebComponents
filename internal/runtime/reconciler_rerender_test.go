@@ -68,9 +68,10 @@ func TestReconcileChildren_RerenderNoChanges(t *testing.T) {
 	updateCount := 0
 	fiber := parentFiber2.child
 	for fiber != nil {
-		if fiber.effectTag == "PLACEMENT" {
+		switch fiber.effectTag {
+		case "PLACEMENT":
 			placementCount++
-		} else if fiber.effectTag == "UPDATE" {
+		case "UPDATE":
 			updateCount++
 		}
 		fiber = fiber.sibling
@@ -92,7 +93,7 @@ func TestReconcileChildren_RerenderSameComponentTwice(t *testing.T) {
 	rt := &Runtime{domAdapter: mockDOM, deletions: make([]*Fiber, 0)}
 
 	// Component that returns a div
-	component := func(props map[string]interface{}) *Element {
+	component := func(_ map[string]interface{}) *Element {
 		return &Element{Type: "div", Props: map[string]interface{}{"class": "stats"}}
 	}
 

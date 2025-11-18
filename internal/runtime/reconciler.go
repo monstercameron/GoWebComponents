@@ -26,10 +26,8 @@ func CreateElement(typ interface{}, props map[string]interface{}, children ...in
 		Children: children,
 	}
 
-	if props != nil {
-		for k, v := range props {
-			elem.Props[k] = v
-		}
+	for k, v := range props {
+		elem.Props[k] = v
 	}
 
 	// Always set children in props, even if empty, so reconciliation can handle deletions
@@ -310,14 +308,15 @@ func (rt *Runtime) createDom(fiber *Fiber) DOMNode {
 	var dom DOMNode
 
 	if t, ok := fiber.typeOf.(string); ok {
-		if t == "TEXT_ELEMENT" {
+		switch t {
+		case "TEXT_ELEMENT":
 			if nodeValue, ok := fiber.props["nodeValue"].(string); ok {
 				dom = rt.domAdapter.CreateTextNode(nodeValue)
 			}
-		} else if t == "FRAGMENT" {
+		case "FRAGMENT":
 			// Fragments don't create DOM nodes - children are rendered directly
 			return nil
-		} else {
+		default:
 			// Regular element (not TEXT_ELEMENT or FRAGMENT)
 			dom = rt.domAdapter.CreateElement(t)
 			// Apply properties only for non-text elements

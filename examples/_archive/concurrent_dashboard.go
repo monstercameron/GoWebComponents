@@ -11,7 +11,9 @@
 // - Interactive controls for dynamic goroutine management
 // - WebAssembly performance advantages for computational work
 
-package examples
+// ./examples/concurrent_dashboard.go
+
+package example
 
 import (
 	"fmt"

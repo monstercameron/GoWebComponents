@@ -13,14 +13,9 @@ import (
 
 	"github.com/monstercameron/GoWebComponents/dom"
 	"github.com/monstercameron/GoWebComponents/hooks"
-	"github.com/monstercameron/GoWebComponents/render"
 )
 
-// Type aliases for convenience.
-type Attrs = dom.Attrs
-type Element = render.Element
-
-// Todo represents a single todo item.
+// Todo represents a single todo item
 type Todo struct {
 	ID          int        `json:"id"`
 	Text        string     `json:"text"`

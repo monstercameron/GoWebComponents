@@ -10,7 +10,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/render"
 )
 
-// Type aliases for convenience
+// Type aliases
 type Attrs = dom.Attrs
 type Element = render.Element
 
@@ -439,7 +439,7 @@ func BlogLandingPage() {
 	fmt.Println("🚀 BlogLandingPage: Starting to render blog landing page")
 
 	// Main Blog Landing Page Component - composed of smaller components
-	blogLandingPage := func(props Attrs) *Element {
+	blogLandingPage := func(_ Attrs) *Element {
 		fmt.Println("🏗️ BlogLandingPage: Constructing main page layout")
 
 		// Main blog landing page structure using component composition

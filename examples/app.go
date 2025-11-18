@@ -10,7 +10,7 @@ import (
 // App initializes the main application with debug configuration and routing.
 // This is the entry point that sets up the framework's debugging namespaces,
 // enables hot reload for development, and returns the configured router.
-func App(props Attrs) *Element {
+func App(_ Attrs) *Element {
 
 	// Configure debug logging namespaces for development visibility
 	utils.SetDebugNamespacesExclusive(map[string]bool{
@@ -27,6 +27,6 @@ func App(props Attrs) *Element {
 	// Enable hot reload for instant development feedback
 	utils.EnableHotReload(true)
 
-	// Return the GoUseAtom example directly
-	return GoUseAtomExample(nil)
+	// Return the UseAtom example directly
+	return AtomExample(nil)
 }

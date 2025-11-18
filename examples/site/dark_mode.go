@@ -78,3 +78,4 @@ func saveDarkPref(enabled bool) {
 		storage.Call("setItem", "gwc-theme", "light")
 	}
 }
+

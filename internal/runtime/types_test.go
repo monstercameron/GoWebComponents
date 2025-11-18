@@ -49,12 +49,9 @@ func TestFiberTreeStructure(t *testing.T) {
 
 func TestHooksInitialization(t *testing.T) {
 	hooks := &Hooks{
-		state:     make([]interface{}, 0),
-		deps:      make([][]interface{}, 0),
-		memos:     make([]memoizedValue, 0),
-		callOrder: make([]HookCall, 0),
-		prevOrder: make([]HookCall, 0),
-		index:     0,
+		state: make([]interface{}, 0),
+		deps:  make([][]interface{}, 0),
+		index: 0,
 	}
 
 	if hooks.index != 0 {

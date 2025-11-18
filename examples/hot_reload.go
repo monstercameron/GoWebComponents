@@ -3,19 +3,14 @@
 //go:build js && wasm
 // +build js,wasm
 
-package examples
+package example
 
 import (
 	"fmt"
 
 	"github.com/monstercameron/GoWebComponents/dom"
 	"github.com/monstercameron/GoWebComponents/hooks"
-	"github.com/monstercameron/GoWebComponents/render"
 )
-
-// Type aliases
-type Attrs = dom.Attrs
-type Element = render.Element
 
 func StateTest() func(Attrs) *Element {
 	return func(props Attrs) *Element {

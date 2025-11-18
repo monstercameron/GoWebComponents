@@ -2,147 +2,147 @@
 // +build js,wasm
 
 package website
-
 import (
 	"syscall/js"
 
-	. "github.com/monstercameron/GoWebComponents/fiber"
+	"github.com/monstercameron/GoWebComponents/dom"
+"github.com/monstercameron/GoWebComponents/hooks"
 )
 
 // ContactSection provides multiple ways to connect with Earl Cameron.
 // Features enhanced LinkedIn and GitHub cards with professional service listings
 // and animated interactions for improved engagement.
-func ContactSection(props Attrs) *Element {
-	return Section(
+func ContactSection(_ Attrs) *Element {
+	return dom.Section(
 		Attrs{
 			"id":    "contact",
 			"class": "py-20 bg-gray-50",
 		},
-		Div(
+		dom.Div(
 			Attrs{"class": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"},
-			Div(
+			dom.Div(
 				Attrs{"class": "text-center mb-16"},
-				H2(
+				dom.H2(
 					Attrs{"class": "text-4xl font-bold text-gray-900 mb-4"},
 					"Let's Connect",
 				),
-				P(
+				dom.P(
 					Attrs{"class": "text-xl text-gray-600 max-w-3xl mx-auto"},
 					"Based in Fort Lauderdale, Florida with 4+ years of full-stack development experience. Let's discuss your next project or collaboration opportunity.",
 				),
 			),
 
-			Div(
+			dom.Div(
 				Attrs{"class": "max-w-2xl mx-auto"},
 
 				// Contact methods
-				Div(
+				dom.Div(
 					Attrs{"class": "space-y-8"},
-					H3(Attrs{"class": "text-2xl font-semibold text-gray-900 mb-6"}, "Connect With Me"),
+					dom.H3(Attrs{"class": "text-2xl font-semibold text-gray-900 mb-6"}, "Connect With Me"),
 
 					// Two column layout for LinkedIn and GitHub
-					Div(
+					dom.Div(
 						Attrs{"class": "grid grid-cols-1 md:grid-cols-2 gap-6"},
 
 						// Enhanced LinkedIn
-						Div(
+						dom.Div(
 							Attrs{"class": "group relative overflow-hidden bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-blue-200/50"},
 							// Animated background gradient (moved to back layer)
-							Div(Attrs{"class": "absolute inset-0 bg-gradient-to-r from-blue-400/10 to-blue-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl -z-10"}),
-							Div(
+							dom.Div(Attrs{"class": "absolute inset-0 bg-gradient-to-r from-blue-400/10 to-blue-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl -z-10"}),
+							dom.Div(
 								Attrs{"class": "relative z-10 flex items-center space-x-4"},
-								Div(
+								dom.Div(
 									Attrs{"class": "relative"},
-									Div(Attrs{"class": "w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-blue-300/50 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3"}),
-									Div(
+									dom.Div(Attrs{"class": "w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-blue-300/50 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3"}),
+									dom.Div(
 										Attrs{"class": "absolute inset-0 flex items-center justify-center text-white text-2xl font-bold transition-transform duration-500 group-hover:scale-110"},
 										"💼",
 									),
 									// Floating particles
-									Div(Attrs{"class": "absolute -top-2 -right-2 w-3 h-3 bg-blue-400 rounded-full animate-pulse opacity-0 group-hover:opacity-100 transition-opacity duration-500"}),
-									Div(Attrs{"class": "absolute -bottom-2 -left-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse delay-300 opacity-0 group-hover:opacity-100 transition-opacity duration-500"}),
+									dom.Div(Attrs{"class": "absolute -top-2 -right-2 w-3 h-3 bg-blue-400 rounded-full animate-pulse opacity-0 group-hover:opacity-100 transition-opacity duration-500"}),
+									dom.Div(Attrs{"class": "absolute -bottom-2 -left-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse delay-300 opacity-0 group-hover:opacity-100 transition-opacity duration-500"}),
 								),
-								Div(
+								dom.Div(
 									Attrs{"class": "flex-1"},
-									H4(Attrs{"class": "text-xl font-bold text-blue-900 group-hover:text-blue-800 transition-colors duration-300"}, "LinkedIn"),
-									P(Attrs{"class": "text-blue-700 mb-3 group-hover:text-blue-600 transition-colors duration-300"}, "Fort Lauderdale, Florida • 518 followers • UKG"),
-									A(
+									dom.H4(Attrs{"class": "text-xl font-bold text-blue-900 group-hover:text-blue-800 transition-colors duration-300"}, "LinkedIn"),
+									dom.P(Attrs{"class": "text-blue-700 mb-3 group-hover:text-blue-600 transition-colors duration-300"}, "Fort Lauderdale, Florida • 518 followers • UKG"),
+									dom.A(
 										Attrs{
 											"href":   "https://www.linkedin.com/in/earl-cameron/",
 											"target": "_blank",
 											"class":  "relative z-20 inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 group-hover:shadow-lg cursor-pointer",
 										},
-										Span(nil, "Connect"),
-										Span(Attrs{"class": "transition-transform duration-300 group-hover:translate-x-1"}, "→"),
+										dom.Span(nil, "Connect"),
+										dom.Span(Attrs{"class": "transition-transform duration-300 group-hover:translate-x-1"}, "→"),
 									),
 								),
 							),
 						),
 
 						// Enhanced GitHub
-						Div(
+						dom.Div(
 							Attrs{"class": "group relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-gray-200/50"},
 							// Animated background gradient (moved to back layer)
-							Div(Attrs{"class": "absolute inset-0 bg-gradient-to-r from-gray-400/10 to-gray-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl -z-10"}),
-							Div(
+							dom.Div(Attrs{"class": "absolute inset-0 bg-gradient-to-r from-gray-400/10 to-gray-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl -z-10"}),
+							dom.Div(
 								Attrs{"class": "relative z-10 flex items-center space-x-4"},
-								Div(
+								dom.Div(
 									Attrs{"class": "relative"},
-									Div(Attrs{"class": "w-16 h-16 bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-gray-400/50 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3"}),
-									Div(
+									dom.Div(Attrs{"class": "w-16 h-16 bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-gray-400/50 transition-all duration-500 group-hover:scale-110 group-hover:rotate-3"}),
+									dom.Div(
 										Attrs{"class": "absolute inset-0 flex items-center justify-center text-white text-2xl font-bold transition-transform duration-500 group-hover:scale-110"},
 										"🐙",
 									),
 									// Floating particles
-									Div(Attrs{"class": "absolute -top-2 -right-2 w-3 h-3 bg-gray-600 rounded-full animate-pulse opacity-0 group-hover:opacity-100 transition-opacity duration-500"}),
-									Div(Attrs{"class": "absolute -bottom-2 -left-2 w-2 h-2 bg-gray-700 rounded-full animate-pulse delay-300 opacity-0 group-hover:opacity-100 transition-opacity duration-500"}),
+									dom.Div(Attrs{"class": "absolute -top-2 -right-2 w-3 h-3 bg-gray-600 rounded-full animate-pulse opacity-0 group-hover:opacity-100 transition-opacity duration-500"}),
+									dom.Div(Attrs{"class": "absolute -bottom-2 -left-2 w-2 h-2 bg-gray-700 rounded-full animate-pulse delay-300 opacity-0 group-hover:opacity-100 transition-opacity duration-500"}),
 								),
-								Div(
+								dom.Div(
 									Attrs{"class": "flex-1"},
-									H4(Attrs{"class": "text-xl font-bold text-gray-900 group-hover:text-gray-800 transition-colors duration-300"}, "GitHub"),
-									P(Attrs{"class": "text-gray-700 mb-3 group-hover:text-gray-600 transition-colors duration-300"}, "Miami, Florida • 53 repositories • GoWebComponents"),
-									A(
+									dom.H4(Attrs{"class": "text-xl font-bold text-gray-900 group-hover:text-gray-800 transition-colors duration-300"}, "GitHub"),
+									dom.P(Attrs{"class": "text-gray-700 mb-3 group-hover:text-gray-600 transition-colors duration-300"}, "Miami, Florida • 53 repositories • GoWebComponents"),
+									dom.A(
 										Attrs{
 											"href":   "https://github.com/monstercameron",
 											"target": "_blank",
 											"class":  "relative z-20 inline-flex items-center space-x-2 px-4 py-2 bg-gray-800 text-white rounded-lg font-semibold hover:bg-gray-900 transition-all duration-300 transform hover:scale-105 group-hover:shadow-lg cursor-pointer",
 										},
-										Span(nil, "View Repositories"),
-										Span(Attrs{"class": "transition-transform duration-300 group-hover:translate-x-1"}, "→"),
+										dom.Span(nil, "View Repositories"),
+										dom.Span(Attrs{"class": "transition-transform duration-300 group-hover:translate-x-1"}, "→"),
 									),
 								),
 							),
 						),
 					),
 
-					Div(
+					dom.Div(
 						Attrs{"class": "mt-8 p-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl shadow-lg border border-indigo-100"},
-						H4(Attrs{"class": "text-lg font-semibold text-gray-900 mb-4 flex items-center"},
-							Span(Attrs{"class": "mr-2"}, "🎯"),
+						dom.H4(Attrs{"class": "text-lg font-semibold text-gray-900 mb-4 flex items-center"},
+							dom.Span(Attrs{"class": "mr-2"}, "🎯"),
 							"Professional Services Available:",
 						),
-						Ul(
+						dom.Ul(
 							Attrs{"class": "space-y-3 text-gray-700"},
-							Li(Attrs{"class": "flex items-center"},
-								Span(Attrs{"class": "mr-3 text-indigo-600"}, "💼"),
+							dom.Li(Attrs{"class": "flex items-center"},
+								dom.Span(Attrs{"class": "mr-3 text-indigo-600"}, "💼"),
 								"Full-stack contracting projects"),
-							Li(Attrs{"class": "flex items-center"},
-								Span(Attrs{"class": "mr-3 text-purple-600"}, "🎯"),
+							dom.Li(Attrs{"class": "flex items-center"},
+								dom.Span(Attrs{"class": "mr-3 text-purple-600"}, "🎯"),
 								"Technical consulting & architecture"),
-							Li(Attrs{"class": "flex items-center"},
-								Span(Attrs{"class": "mr-3 text-blue-600"}, "📚"),
+							dom.Li(Attrs{"class": "flex items-center"},
+								dom.Span(Attrs{"class": "mr-3 text-blue-600"}, "📚"),
 								"Developer training & workshops"),
-							Li(Attrs{"class": "flex items-center"},
-								Span(Attrs{"class": "mr-3 text-green-600"}, "🔍"),
+							dom.Li(Attrs{"class": "flex items-center"},
+								dom.Span(Attrs{"class": "mr-3 text-green-600"}, "🔍"),
 								"Code reviews & optimization"),
-							Li(Attrs{"class": "flex items-center"},
-								Span(Attrs{"class": "mr-3 text-orange-600"}, "🚀"),
+							dom.Li(Attrs{"class": "flex items-center"},
+								dom.Span(Attrs{"class": "mr-3 text-orange-600"}, "🚀"),
 								"GoWebComponents implementation"),
 						),
-						Div(
+						dom.Div(
 							Attrs{"class": "mt-4 pt-4 border-t border-indigo-200"},
-							P(Attrs{"class": "text-sm text-gray-600 flex items-center"},
-								Span(Attrs{"class": "mr-2"}, "📍"),
+							dom.P(Attrs{"class": "text-sm text-gray-600 flex items-center"},
+								dom.Span(Attrs{"class": "mr-2"}, "📍"),
 								"Based in Fort Lauderdale, Florida • Remote & On-site Available"),
 						),
 					),
@@ -155,14 +155,14 @@ func ContactSection(props Attrs) *Element {
 // ContactMethod renders a structured contact option with icon and call-to-action.
 // Provides consistent styling for different communication channels.
 func ContactMethod(icon, title, description, link string) *Element {
-	return Div(
+	return dom.Div(
 		Attrs{"class": "flex items-start space-x-4"},
-		Span(Attrs{"class": "text-2xl"}, icon),
-		Div(
+		dom.Span(Attrs{"class": "text-2xl"}, icon),
+		dom.Div(
 			Attrs{"class": "flex-1"},
-			H4(Attrs{"class": "text-lg font-semibold text-gray-900"}, title),
-			P(Attrs{"class": "text-gray-600 mb-2"}, description),
-			Button(
+			dom.H4(Attrs{"class": "text-lg font-semibold text-gray-900"}, title),
+			dom.P(Attrs{"class": "text-gray-600 mb-2"}, description),
+			dom.Button(
 				Attrs{
 					"class":   "text-purple-600 hover:text-purple-800 transition-colors duration-200",
 					"onclick": OpenContactLink(link),
@@ -175,17 +175,17 @@ func ContactMethod(icon, title, description, link string) *Element {
 
 // ContactForm provides a functional contact form with submission handling.
 // Features form validation, loading states, and success confirmation with auto-reset.
-func ContactForm(props Attrs) *Element {
-	_, setFormData := GoUseState(map[string]string{
+func ContactForm(_ Attrs) *Element {
+	_, setFormData := hooks.UseState(map[string]string{
 		"name":    "",
 		"email":   "",
 		"message": "",
 	})
 
-	isSubmitting, setIsSubmitting := GoUseState(false)
-	isSubmitted, setIsSubmitted := GoUseState(false)
+	isSubmitting, setIsSubmitting := hooks.UseState(false)
+	isSubmitted, setIsSubmitted := hooks.UseState(false)
 
-	handleSubmit := GoUseFunc(func(event GoEvent) {
+	handleSubmit := hooks.GoUseFunc(func(event dom.GoEvent) {
 		event.PreventDefault()
 
 		// Set submitting state
@@ -211,34 +211,34 @@ func ContactForm(props Attrs) *Element {
 		}), 2000)
 	})
 
-	handleInputChange := GoUseFunc(func(event GoEvent) {
+	handleInputChange := hooks.GoUseFunc(func(event dom.GoEvent) {
 		// Note: This is a simplified version - actual implementation would need proper event handling
 		// For now, this is a placeholder for the form interaction
 	})
 
 	if isSubmitted() {
-		return Div(
+		return dom.Div(
 			Attrs{"class": "bg-white p-8 rounded-xl shadow-lg"},
-			Div(
+			dom.Div(
 				Attrs{"class": "text-center"},
-				Div(Attrs{"class": "text-4xl mb-4"}, "✅"),
-				H3(Attrs{"class": "text-2xl font-semibold text-gray-900 mb-2"}, "Message Sent!"),
-				P(Attrs{"class": "text-gray-600"}, "Thank you for reaching out. I'll get back to you soon!"),
+				dom.Div(Attrs{"class": "text-4xl mb-4"}, "✅"),
+				dom.H3(Attrs{"class": "text-2xl font-semibold text-gray-900 mb-2"}, "Message Sent!"),
+				dom.P(Attrs{"class": "text-gray-600"}, "Thank you for reaching out. I'll get back to you soon!"),
 			),
 		)
 	}
 
-	return Div(
+	return dom.Div(
 		Attrs{"class": "bg-white p-8 rounded-xl shadow-lg"},
-		H3(Attrs{"class": "text-2xl font-semibold text-gray-900 mb-6"}, "Send a Message"),
+		dom.H3(Attrs{"class": "text-2xl font-semibold text-gray-900 mb-6"}, "Send a Message"),
 
-		Form(
+		dom.Form(
 			Attrs{"onsubmit": handleSubmit},
 
-			Div(
+			dom.Div(
 				Attrs{"class": "mb-6"},
-				Label(Attrs{"class": "block text-sm font-medium text-gray-700 mb-2"}, "Name"),
-				Input(Attrs{
+				dom.Label(Attrs{"class": "block text-sm font-medium text-gray-700 mb-2"}, "Name"),
+				dom.Input(Attrs{
 					"type":        "text",
 					"name":        "name",
 					"class":       "w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent",
@@ -248,10 +248,10 @@ func ContactForm(props Attrs) *Element {
 				}),
 			),
 
-			Div(
+			dom.Div(
 				Attrs{"class": "mb-6"},
-				Label(Attrs{"class": "block text-sm font-medium text-gray-700 mb-2"}, "Email"),
-				Input(Attrs{
+				dom.Label(Attrs{"class": "block text-sm font-medium text-gray-700 mb-2"}, "Email"),
+				dom.Input(Attrs{
 					"type":        "email",
 					"name":        "email",
 					"class":       "w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent",
@@ -261,10 +261,10 @@ func ContactForm(props Attrs) *Element {
 				}),
 			),
 
-			Div(
+			dom.Div(
 				Attrs{"class": "mb-6"},
-				Label(Attrs{"class": "block text-sm font-medium text-gray-700 mb-2"}, "Message"),
-				Textarea(Attrs{
+				dom.Label(Attrs{"class": "block text-sm font-medium text-gray-700 mb-2"}, "Message"),
+				dom.Textarea(Attrs{
 					"name":        "message",
 					"rows":        "4",
 					"class":       "w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent",
@@ -274,7 +274,7 @@ func ContactForm(props Attrs) *Element {
 				}),
 			),
 
-			Button(
+			dom.Button(
 				Attrs{
 					"type":  "submit",
 					"class": "w-full py-3 px-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all duration-200 disabled:opacity-50",
@@ -297,3 +297,8 @@ func OpenContactLink(url string) js.Func {
 		return nil
 	})
 }
+
+
+
+
+

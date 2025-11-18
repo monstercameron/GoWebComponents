@@ -8,6 +8,8 @@ package example
 import (
 	"fmt"
 	"sync"
+
+	"github.com/monstercameron/GoWebComponents/render"
 )
 
 // Main is the exported entry point for the WASM module
@@ -16,12 +18,12 @@ func Main() {
 	wg.Add(1)
 
 	fmt.Println("🚀 Go Web Components starting...")
-	fmt.Println("📊 Loading Click Counter...")
+	fmt.Println("📊 Loading Counter Example...")
 
-	// Render the click counter to the DOM
-	ClickCounterExample()
+	// Render the counter example to the DOM
+	render.To(CounterExample(nil), "#app")
 
-	fmt.Println("✅ Click Counter rendered successfully")
+	fmt.Println("✅ Counter Example rendered successfully")
 
 	// Keep the program alive for WebAssembly event handling
 	wg.Wait()

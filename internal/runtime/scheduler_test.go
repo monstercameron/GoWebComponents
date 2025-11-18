@@ -39,14 +39,6 @@ func (s *testScheduler) SetTimeout(callback func(), delay int) {
 	s.timeouts = append(s.timeouts, callback)
 }
 
-func (s *testScheduler) flush() {
-	for len(s.callbacks) > 0 {
-		cb := s.callbacks[0]
-		s.callbacks = s.callbacks[1:]
-		cb(&testDeadline{remaining: 16.0, timeout: false})
-	}
-}
-
 func TestScheduleUpdate_CreatesWipRoot(t *testing.T) {
 	scheduler := newTestScheduler()
 	rt := &Runtime{

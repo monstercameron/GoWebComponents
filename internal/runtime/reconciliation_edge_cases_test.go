@@ -1231,9 +1231,10 @@ func TestReconcileChildren_AlternatingUpdatesAndPlacements(t *testing.T) {
 	placementCount := 0
 	child := wipFiber.child
 	for child != nil {
-		if child.effectTag == "UPDATE" {
+		switch child.effectTag {
+		case "UPDATE":
 			updateCount++
-		} else if child.effectTag == "PLACEMENT" {
+		case "PLACEMENT":
 			placementCount++
 		}
 		child = child.sibling

@@ -1,5 +1,5 @@
 // ./examples/simple_state_examples.go
-// Simple examples demonstrating different GoUseState use cases
+// Simple examples demonstrating different hooks.UseState use cases
 // KISS principle - no fancy styling, just functionality
 
 //go:build js && wasm
@@ -15,6 +15,7 @@ import (
 
 	"github.com/monstercameron/GoWebComponents/dom"
 	"github.com/monstercameron/GoWebComponents/hooks"
+	"github.com/monstercameron/GoWebComponents/render"
 )
 
 // Simple struct for demonstrating object state
@@ -50,7 +51,7 @@ func getNextRenderID() int {
 // Counter component - demonstrates number state
 func CounterExample(props Attrs) *Element {
 	// Track render count for this component
-	renderCount, setRenderCount := GoUseState(0)
+	renderCount, setRenderCount := hooks.UseState(0)
 	currentRender := renderCount() + 1
 	setRenderCount(currentRender)
 
@@ -58,7 +59,7 @@ func CounterExample(props Attrs) *Element {
 
 	fmt.Printf("🔢 CounterExample [RENDER #%d|Global #%d]: Component rendered\n", currentRender, globalRender)
 
-	count, setCount := GoUseState(0)
+	count, setCount := hooks.UseState(0)
 	currentCount := count()
 
 	fmt.Printf("🔢 CounterExample [RENDER #%d]: State values - count=%d\n", currentRender, currentCount)
@@ -88,43 +89,35 @@ func CounterExample(props Attrs) *Element {
 
 	fmt.Printf("🔢 CounterExample [RENDER #%d]: Generating DOM with count=%d\n", currentRender, currentCount)
 
-	return Div(Attrs{
+	return dom.Div(Attrs{
 		"style": "border: 1px solid #ccc; padding: 10px; margin: 10px;",
 	},
 		dom.H3(Attrs{}, dom.Text(fmt.Sprintf("Counter Example (Render #%d)", currentRender))),
 		dom.P(Attrs{}, dom.Text(fmt.Sprintf("Count: %d", currentCount))),
-		Button(Attrs{
+		dom.Button(Attrs{
 			"onclick": js.FuncOf(increment),
-		}, Text("+")),
-		Text(" "),
-		Button(Attrs{
+		}, dom.Text("+")),
+		dom.Text(" "),
+		dom.Button(Attrs{
 			"onclick": js.FuncOf(decrement),
-		}, Text("-")),
-		Text(" "),
-		Button(Attrs{
+		}, dom.Text("-")),
+		dom.Text(" "),
+		dom.Button(Attrs{
 			"onclick": js.FuncOf(reset),
-		}, Text("Reset")),
+		}, dom.Text("Reset")),
 	)
 }
 
 // Text input component - demonstrates string state
 func TextInputExample(props Attrs) *Element {
 	// Track render count for this component
-	renderCount, setRenderCount := GoUseState(0)
+	renderCount, setRenderCount := hooks.UseState(0)
 	currentRender := renderCount() + 1
 	setRenderCount(currentRender)
 
 	globalRender := getNextRenderID()
 
 	fmt.Printf("📝 TextInputExample [RENDER #%d|Global #%d]: Component rendered\n", currentRender, globalRender)
-
-	renderCount, setRenderCount := hooks.UseState(0)
-	currentRender := getNextRenderID()
-	fmt.Printf("📝 StringExample (Render #%d)\n", currentRender)
-
-	renderCount, setRenderCount := hooks.UseState(0)
-	currentRender := getNextRenderID()
-	fmt.Printf("🔧 TextInputExample (Render #%d)\n", currentRender)
 
 	text, setText := hooks.UseState("")
 	currentText := text()
@@ -151,30 +144,30 @@ func TextInputExample(props Attrs) *Element {
 
 	fmt.Printf("📝 TextInputExample [RENDER #%d]: Generating DOM with text='%s'\n", currentRender, currentText)
 
-	return Div(Attrs{
+	return dom.Div(Attrs{
 		"style": "border: 1px solid #ccc; padding: 10px; margin: 10px;",
 	},
-		H3(Attrs{}, Text(fmt.Sprintf("Text Input Example (Render #%d)", currentRender))),
-		P(Attrs{}, Text("Type something:")),
-		Input(Attrs{
+		dom.H3(Attrs{}, dom.Text(fmt.Sprintf("Text Input Example (Render #%d)", currentRender))),
+		dom.P(Attrs{}, dom.Text("Type something:")),
+		dom.Input(Attrs{
 			"type":    "text",
 			"value":   currentText,
 			"oninput": js.FuncOf(handleInput),
 			"style":   "color: black;",
 		}),
-		Text(" "),
-		Button(Attrs{
+		dom.Text(" "),
+		dom.Button(Attrs{
 			"onclick": js.FuncOf(clear),
-		}, Text("Clear")),
-		P(Attrs{}, Text(fmt.Sprintf("You typed: %s", currentText))),
-		P(Attrs{}, Text(fmt.Sprintf("Length: %d", len(currentText)))),
+		}, dom.Text("Clear")),
+		dom.P(Attrs{}, dom.Text(fmt.Sprintf("You typed: %s", currentText))),
+		dom.P(Attrs{}, dom.Text(fmt.Sprintf("Length: %d", len(currentText)))),
 	)
 }
 
 // Toggle component - demonstrates boolean state
 func ToggleExample(props Attrs) *Element {
 	// Track render count for this component
-	renderCount, setRenderCount := GoUseState(0)
+	renderCount, setRenderCount := hooks.UseState(0)
 	currentRender := renderCount() + 1
 	setRenderCount(currentRender)
 
@@ -182,7 +175,7 @@ func ToggleExample(props Attrs) *Element {
 
 	fmt.Printf("🔘 ToggleExample [RENDER #%d|Global #%d]: Component rendered\n", currentRender, globalRender)
 
-	isOn, setIsOn := GoUseState(false)
+	isOn, setIsOn := hooks.UseState(false)
 	currentState := isOn()
 
 	fmt.Printf("🔘 ToggleExample [RENDER #%d]: State values - isOn=%v\n", currentRender, currentState)
@@ -197,17 +190,17 @@ func ToggleExample(props Attrs) *Element {
 
 	fmt.Printf("🔘 ToggleExample [RENDER #%d]: Generating DOM with isOn=%v\n", currentRender, currentState)
 
-	return Div(Attrs{
+	return dom.Div(Attrs{
 		"style": "border: 1px solid #ccc; padding: 10px; margin: 10px;",
 	},
-		H3(Attrs{}, Text(fmt.Sprintf("Toggle Example (Render #%d)", currentRender))),
-		P(Attrs{}, Text(fmt.Sprintf("Switch is: %s", func() string {
+		dom.H3(Attrs{}, dom.Text(fmt.Sprintf("Toggle Example (Render #%d)", currentRender))),
+		dom.P(Attrs{}, dom.Text(fmt.Sprintf("Switch is: %s", func() string {
 			if currentState {
 				return "ON"
 			}
 			return "OFF"
 		}()))),
-		Button(Attrs{
+		dom.Button(Attrs{
 			"onclick": js.FuncOf(toggle),
 			"style": func() string {
 				if currentState {
@@ -215,7 +208,7 @@ func ToggleExample(props Attrs) *Element {
 				}
 				return "background-color: red; color: white;"
 			}(),
-		}, Text(func() string {
+		}, dom.Text(func() string {
 			if currentState {
 				return "Turn OFF"
 			}
@@ -227,7 +220,7 @@ func ToggleExample(props Attrs) *Element {
 // Person form component - demonstrates struct state
 func PersonFormExample(props Attrs) *Element {
 	// Track render count for this component
-	renderCount, setRenderCount := GoUseState(0)
+	renderCount, setRenderCount := hooks.UseState(0)
 	currentRender := renderCount() + 1
 	setRenderCount(currentRender)
 
@@ -235,7 +228,7 @@ func PersonFormExample(props Attrs) *Element {
 
 	fmt.Printf("👤 PersonFormExample [RENDER #%d|Global #%d]: Component rendered\n", currentRender, globalRender)
 
-	person, setPerson := GoUseState(Person{Name: "", Age: 0})
+	person, setPerson := hooks.UseState(Person{Name: "", Age: 0})
 	currentPerson := person()
 
 	fmt.Printf("👤 PersonFormExample [RENDER #%d]: State values - person={Name:'%s', Age:%d}\n",
@@ -277,36 +270,36 @@ func PersonFormExample(props Attrs) *Element {
 	fmt.Printf("👤 PersonFormExample [RENDER #%d]: Generating DOM with person={Name:'%s',Age:%d}\n",
 		currentRender, currentPerson.Name, currentPerson.Age)
 
-	return Div(Attrs{
+	return dom.Div(Attrs{
 		"style": "border: 1px solid #ccc; padding: 10px; margin: 10px;",
 	},
-		H3(Attrs{}, Text(fmt.Sprintf("Person Form Example (Render #%d)", currentRender))),
-		P(Attrs{}, Text("Name:")),
-		Input(Attrs{
+		dom.H3(Attrs{}, dom.Text(fmt.Sprintf("Person Form Example (Render #%d)", currentRender))),
+		dom.P(Attrs{}, dom.Text("Name:")),
+		dom.Input(Attrs{
 			"type":    "text",
 			"value":   currentPerson.Name,
 			"oninput": js.FuncOf(updateName),
 			"style":   "color: black;",
 		}),
-		P(Attrs{}, Text("Age:")),
-		Input(Attrs{
+		dom.P(Attrs{}, dom.Text("Age:")),
+		dom.Input(Attrs{
 			"type":    "number",
 			"value":   strconv.Itoa(currentPerson.Age),
 			"oninput": js.FuncOf(updateAge),
 			"style":   "color: black;",
 		}),
-		Text(" "),
-		Button(Attrs{
+		dom.Text(" "),
+		dom.Button(Attrs{
 			"onclick": js.FuncOf(reset),
-		}, Text("Reset")),
-		P(Attrs{}, Text(fmt.Sprintf("Person: %s, Age: %d", currentPerson.Name, currentPerson.Age))),
+		}, dom.Text("Reset")),
+		dom.P(Attrs{}, dom.Text(fmt.Sprintf("Person: %s, Age: %d", currentPerson.Name, currentPerson.Age))),
 	)
 }
 
 // Todo list component - demonstrates array/slice state
 func TodoListExample(props Attrs) *Element {
 	// Track render count for this component
-	renderCount, setRenderCount := GoUseState(0)
+	renderCount, setRenderCount := hooks.UseState(0)
 	currentRender := renderCount() + 1
 	setRenderCount(currentRender)
 
@@ -314,8 +307,8 @@ func TodoListExample(props Attrs) *Element {
 
 	fmt.Printf("📋 TodoListExample [RENDER #%d|Global #%d]: Component rendered\n", currentRender, globalRender)
 
-	todos, setTodos := GoUseState([]string{})
-	newTodo, setNewTodo := GoUseState("")
+	todos, setTodos := hooks.UseState([]string{})
+	newTodo, setNewTodo := hooks.UseState("")
 	currentTodos := todos()
 	currentNewTodo := newTodo()
 
@@ -381,45 +374,45 @@ func TodoListExample(props Attrs) *Element {
 	// Create todo items
 	todoItems := make([]interface{}, 0, len(currentTodos))
 	for i, todo := range currentTodos {
-		todoItems = append(todoItems, Li(Attrs{
+		todoItems = append(todoItems, dom.Li(Attrs{
 			"key": strconv.Itoa(i),
 		},
-			Text(todo),
-			Text(" "),
-			Button(Attrs{
+			dom.Text(todo),
+			dom.Text(" "),
+			dom.Button(Attrs{
 				"onclick": removeTodo(i),
-			}, Text("Remove")),
+			}, dom.Text("Remove")),
 		))
 	}
 
-	return Div(Attrs{
+	return dom.Div(Attrs{
 		"style": "border: 1px solid #ccc; padding: 10px; margin: 10px;",
 	},
-		H3(Attrs{}, Text(fmt.Sprintf("Todo List Example (Render #%d)", currentRender))),
-		P(Attrs{}, Text("Add a new todo:")),
-		Input(Attrs{
+		dom.H3(Attrs{}, dom.Text(fmt.Sprintf("Todo List Example (Render #%d)", currentRender))),
+		dom.P(Attrs{}, dom.Text("Add a new todo:")),
+		dom.Input(Attrs{
 			"type":    "text",
 			"value":   currentNewTodo,
 			"oninput": js.FuncOf(handleInput),
 			"style":   "color: black;",
 		}),
-		Text(" "),
-		Button(Attrs{
+		dom.Text(" "),
+		dom.Button(Attrs{
 			"onclick": js.FuncOf(addTodo),
-		}, Text("Add")),
-		Text(" "),
-		Button(Attrs{
+		}, dom.Text("Add")),
+		dom.Text(" "),
+		dom.Button(Attrs{
 			"onclick": js.FuncOf(clearAll),
-		}, Text("Clear All")),
-		P(Attrs{}, Text(fmt.Sprintf("Total todos: %d", len(currentTodos)))),
-		Ul(Attrs{}, todoItems...),
+		}, dom.Text("Clear All")),
+		dom.P(Attrs{}, dom.Text(fmt.Sprintf("Total todos: %d", len(currentTodos)))),
+		dom.Ul(Attrs{}, todoItems...),
 	)
 }
 
 // Goroutine example - demonstrates state updates from goroutines with cancellation
 func GoroutineExample(props Attrs) *Element {
 	// Track render count for this component
-	renderCount, setRenderCount := GoUseState(0)
+	renderCount, setRenderCount := hooks.UseState(0)
 	currentRender := renderCount() + 1
 	setRenderCount(currentRender)
 
@@ -428,7 +421,7 @@ func GoroutineExample(props Attrs) *Element {
 	fmt.Printf("🚀 GoroutineExample [RENDER #%d|Global #%d]: Component rendered\n", currentRender, globalRender)
 
 	// Background task state
-	task, setTask := GoUseState(BackgroundTask{
+	task, setTask := hooks.UseState(BackgroundTask{
 		IsRunning:  false,
 		Progress:   0,
 		Status:     "Ready",
@@ -436,7 +429,7 @@ func GoroutineExample(props Attrs) *Element {
 	})
 
 	// Timer state
-	timer, setTimer := GoUseState(TimerState{
+	timer, setTimer := hooks.UseState(TimerState{
 		IsRunning:  false,
 		Seconds:    0,
 		CancelChan: nil,
@@ -723,31 +716,31 @@ func GoroutineExample(props Attrs) *Element {
 	fmt.Printf("🚀 GoroutineExample [RENDER #%d]: Generating DOM with task=%d%% and timer=%ds\n",
 		currentRender, currentTask.Progress, currentTimer.Seconds)
 
-	return Div(Attrs{
+	return dom.Div(Attrs{
 		"style": "border: 1px solid #ccc; padding: 10px; margin: 10px;",
 	},
-		H3(Attrs{}, Text(fmt.Sprintf("Goroutine Example with Cancellation (Render #%d)", currentRender))),
-		P(Attrs{}, Text("This demonstrates state updates from goroutines with proper cancellation and cleanup.")),
+		dom.H3(Attrs{}, dom.Text(fmt.Sprintf("Goroutine Example with Cancellation (Render #%d)", currentRender))),
+		dom.P(Attrs{}, dom.Text("This demonstrates state updates from goroutines with proper cancellation and cleanup.")),
 
 		// Global Cleanup Section
-		Div(Attrs{
+		dom.Div(Attrs{
 			"style": "border: 2px solid #ff6b6b; padding: 8px; margin: 8px 0; background-color: #ffe0e0;",
 		},
-			H4(Attrs{}, Text("🧹 Global Controls")),
-			Button(Attrs{
+			dom.H4(Attrs{}, dom.Text("🧹 Global Controls")),
+			dom.Button(Attrs{
 				"onclick": js.FuncOf(cleanupAll),
 				"style":   "background-color: #ff6b6b; color: white; font-weight: bold;",
-			}, Text("Cancel All & Cleanup")),
+			}, dom.Text("Cancel All & Cleanup")),
 		),
 
 		// Background Task Section
-		Div(Attrs{
+		dom.Div(Attrs{
 			"style": "border: 1px solid #ddd; padding: 8px; margin: 8px 0;",
 		},
-			H4(Attrs{}, Text("Background Task")),
-			P(Attrs{}, Text(fmt.Sprintf("Status: %s", currentTask.Status))),
-			P(Attrs{}, Text(fmt.Sprintf("Progress: %d%%", currentTask.Progress))),
-			Button(Attrs{
+			dom.H4(Attrs{}, dom.Text("Background Task")),
+			dom.P(Attrs{}, dom.Text(fmt.Sprintf("Status: %s", currentTask.Status))),
+			dom.P(Attrs{}, dom.Text(fmt.Sprintf("Progress: %d%%", currentTask.Progress))),
+			dom.Button(Attrs{
 				"onclick":  js.FuncOf(startTask),
 				"disabled": currentTask.IsRunning,
 				"style": func() string {
@@ -756,14 +749,14 @@ func GoroutineExample(props Attrs) *Element {
 					}
 					return "background-color: #4CAF50; color: white;"
 				}(),
-			}, Text(func() string {
+			}, dom.Text(func() string {
 				if currentTask.IsRunning {
 					return "Running..."
 				}
 				return "Start Task"
 			}())),
-			Text(" "),
-			Button(Attrs{
+			dom.Text(" "),
+			dom.Button(Attrs{
 				"onclick":  js.FuncOf(cancelTask),
 				"disabled": !currentTask.IsRunning,
 				"style": func() string {
@@ -772,26 +765,26 @@ func GoroutineExample(props Attrs) *Element {
 					}
 					return "background-color: #ff9800; color: white;"
 				}(),
-			}, Text("Cancel")),
-			Text(" "),
-			Button(Attrs{
+			}, dom.Text("Cancel")),
+			dom.Text(" "),
+			dom.Button(Attrs{
 				"onclick": js.FuncOf(resetTask),
-			}, Text("Reset")),
+			}, dom.Text("Reset")),
 		),
 
 		// Timer Section
-		Div(Attrs{
+		dom.Div(Attrs{
 			"style": "border: 1px solid #ddd; padding: 8px; margin: 8px 0;",
 		},
-			H4(Attrs{}, Text("Continuous Timer")),
-			P(Attrs{}, Text(fmt.Sprintf("Time: %d seconds", currentTimer.Seconds))),
-			P(Attrs{}, Text(fmt.Sprintf("Status: %s", func() string {
+			dom.H4(Attrs{}, dom.Text("Continuous Timer")),
+			dom.P(Attrs{}, dom.Text(fmt.Sprintf("Time: %d seconds", currentTimer.Seconds))),
+			dom.P(Attrs{}, dom.Text(fmt.Sprintf("Status: %s", func() string {
 				if currentTimer.IsRunning {
 					return "Running"
 				}
 				return "Stopped"
 			}()))),
-			Button(Attrs{
+			dom.Button(Attrs{
 				"onclick": js.FuncOf(toggleTimer),
 				"style": func() string {
 					if currentTimer.IsRunning {
@@ -799,24 +792,24 @@ func GoroutineExample(props Attrs) *Element {
 					}
 					return "background-color: #2196F3; color: white;"
 				}(),
-			}, Text(func() string {
+			}, dom.Text(func() string {
 				if currentTimer.IsRunning {
 					return "Stop Timer"
 				}
 				return "Start Timer"
 			}())),
-			Text(" "),
-			Button(Attrs{
+			dom.Text(" "),
+			dom.Button(Attrs{
 				"onclick": js.FuncOf(resetTimer),
-			}, Text("Reset Timer")),
+			}, dom.Text("Reset Timer")),
 		),
 	)
 }
 
-// Fetch example - demonstrates GoUseFetch hook with API calls
+// Fetch example - demonstrates hooks.UseFetch hook with API calls
 func FetchExample(props Attrs) *Element {
 	// Track render count for this component
-	renderCount, setRenderCount := GoUseState(0)
+	renderCount, setRenderCount := hooks.UseState(0)
 	currentRender := renderCount() + 1
 	setRenderCount(currentRender)
 
@@ -825,11 +818,11 @@ func FetchExample(props Attrs) *Element {
 	fmt.Printf("🌐 FetchExample [RENDER #%d|Global #%d]: Component rendered\n", currentRender, globalRender)
 
 	// URL state for the fetch request
-	url, setUrl := GoUseState("https://jsonplaceholder.typicode.com/posts/1")
+	url, setUrl := hooks.UseState("https://jsonplaceholder.typicode.com/posts/1")
 	currentUrl := url()
 
-	// Use GoUseFetch hook for data fetching
-	getFetchState, refetch := GoUseFetch(currentUrl)
+	// Use hooks.UseFetch hook for data fetching
+	getFetchState, refetch := hooks.UseFetch(currentUrl)
 	fetchState := getFetchState()
 
 	fmt.Printf("🌐 FetchExample [RENDER #%d]: State values - url='%s', loading=%v, hasError=%v, hasData=%v\n",
@@ -892,85 +885,85 @@ func FetchExample(props Attrs) *Element {
 	// Render response data
 	var responseContent interface{}
 	if fetchState.Loading {
-		responseContent = P(Attrs{
+		responseContent = dom.P(Attrs{
 			"style": "color: #63b3ed; font-style: italic;",
-		}, Text("🔄 Loading..."))
+		}, dom.Text("🔄 Loading..."))
 	} else if fetchState.Error != "" {
-		responseContent = P(Attrs{
+		responseContent = dom.P(Attrs{
 			"style": "color: #f56565; font-weight: bold;",
-		}, Text(fmt.Sprintf("❌ Error: %s", fetchState.Error)))
+		}, dom.Text(fmt.Sprintf("❌ Error: %s", fetchState.Error)))
 	} else if fetchState.Data != nil {
-		responseContent = Div(Attrs{},
-			P(Attrs{
+		responseContent = dom.Div(Attrs{},
+			dom.P(Attrs{
 				"style": "color: #48bb78; font-weight: bold; margin-bottom: 8px;",
-			}, Text("✅ Success! Data received:")),
-			Pre(Attrs{
+			}, dom.Text("✅ Success! Data received:")),
+			dom.Pre(Attrs{
 				"style": "background-color: #2d3748; color: #e2e8f0; padding: 10px; border: 1px solid #4a5568; border-radius: 4px; overflow-x: auto; font-size: 12px; font-family: 'Courier New', monospace;",
-			}, Text(fmt.Sprintf("%+v", fetchState.Data))),
+			}, dom.Text(fmt.Sprintf("%+v", fetchState.Data))),
 		)
 	} else {
-		responseContent = P(Attrs{
+		responseContent = dom.P(Attrs{
 			"style": "color: #a0aec0; font-style: italic;",
-		}, Text("🔗 Click 'Fetch Data' to make a request"))
+		}, dom.Text("🔗 Click 'Fetch Data' to make a request"))
 	}
 
-	return Div(Attrs{
+	return dom.Div(Attrs{
 		"style": "border: 1px solid #4a5568; background-color: #2d3748; padding: 10px; margin: 10px; border-radius: 8px;",
 	},
-		H3(Attrs{
+		dom.H3(Attrs{
 			"style": "color: #f7fafc; margin-bottom: 8px;",
-		}, Text(fmt.Sprintf("🌐 Fetch Example (Render #%d)", currentRender))),
-		P(Attrs{
+		}, dom.Text(fmt.Sprintf("🌐 Fetch Example (Render #%d)", currentRender))),
+		dom.P(Attrs{
 			"style": "color: #e2e8f0; margin-bottom: 12px;",
-		}, Text("This demonstrates the GoUseFetch hook for API calls.")),
+		}, dom.Text("This demonstrates the hooks.UseFetch hook for API calls.")),
 
 		// URL Input Section
-		Div(Attrs{
+		dom.Div(Attrs{
 			"style": "border: 1px solid #4a5568; background-color: #1a202c; padding: 8px; margin: 8px 0; border-radius: 6px;",
 		},
-			H4(Attrs{
+			dom.H4(Attrs{
 				"style": "color: #63b3ed; margin-bottom: 6px;",
-			}, Text("📡 API Endpoint")),
-			P(Attrs{
+			}, dom.Text("📡 API Endpoint")),
+			dom.P(Attrs{
 				"style": "color: #e2e8f0; margin-bottom: 4px;",
-			}, Text("URL:")),
-			Input(Attrs{
+			}, dom.Text("URL:")),
+			dom.Input(Attrs{
 				"type":    "url",
 				"value":   currentUrl,
 				"oninput": js.FuncOf(handleUrlChange),
 				"style":   "background-color: #2d3748; color: #f7fafc; border: 1px solid #4a5568; padding: 6px; border-radius: 4px; width: 100%; max-width: 500px;",
 			}),
-			Div(Attrs{
+			dom.Div(Attrs{
 				"style": "margin: 8px 0;",
 			},
-				Span(Attrs{
+				dom.Span(Attrs{
 					"style": "color: #e2e8f0;",
-				}, Text("Quick presets: ")),
-				Button(Attrs{
+				}, dom.Text("Quick presets: ")),
+				dom.Button(Attrs{
 					"onclick": js.FuncOf(setJsonPlaceholder),
 					"style":   "background-color: #4a5568; color: #f7fafc; border: 1px solid #63b3ed; padding: 4px 8px; margin: 2px; font-size: 12px; border-radius: 4px; cursor: pointer;",
-				}, Text("JSONPlaceholder")),
-				Text(" "),
-				Button(Attrs{
+				}, dom.Text("JSONPlaceholder")),
+				dom.Text(" "),
+				dom.Button(Attrs{
 					"onclick": js.FuncOf(setHttpBin),
 					"style":   "background-color: #4a5568; color: #f7fafc; border: 1px solid #63b3ed; padding: 4px 8px; margin: 2px; font-size: 12px; border-radius: 4px; cursor: pointer;",
-				}, Text("HTTPBin")),
-				Text(" "),
-				Button(Attrs{
+				}, dom.Text("HTTPBin")),
+				dom.Text(" "),
+				dom.Button(Attrs{
 					"onclick": js.FuncOf(setRandomUser),
 					"style":   "background-color: #4a5568; color: #f7fafc; border: 1px solid #63b3ed; padding: 4px 8px; margin: 2px; font-size: 12px; border-radius: 4px; cursor: pointer;",
-				}, Text("Random User")),
+				}, dom.Text("Random User")),
 			),
 		),
 
 		// Fetch Controls Section
-		Div(Attrs{
+		dom.Div(Attrs{
 			"style": "border: 1px solid #4a5568; background-color: #1a202c; padding: 8px; margin: 8px 0; border-radius: 6px;",
 		},
-			H4(Attrs{
+			dom.H4(Attrs{
 				"style": "color: #63b3ed; margin-bottom: 6px;",
-			}, Text("🚀 Fetch Controls")),
-			Button(Attrs{
+			}, dom.Text("🚀 Fetch Controls")),
+			dom.Button(Attrs{
 				"onclick": js.FuncOf(manualFetch),
 				"style": func() string {
 					if fetchState.Loading {
@@ -979,24 +972,24 @@ func FetchExample(props Attrs) *Element {
 					return "background-color: #3182ce; color: #f7fafc; font-weight: bold; padding: 8px 16px; border-radius: 4px; border: 1px solid #63b3ed; cursor: pointer;"
 				}(),
 				"disabled": fetchState.Loading,
-			}, Text(func() string {
+			}, dom.Text(func() string {
 				if fetchState.Loading {
 					return "🔄 Fetching..."
 				}
 				return "🚀 Fetch Data"
 			}())),
-			P(Attrs{
+			dom.P(Attrs{
 				"style": "font-size: 12px; color: #a0aec0; margin: 4px 0;",
-			}, Text("Note: GoUseFetch automatically fetches when URL changes. Use button for manual refetch.")),
+			}, dom.Text("Note: hooks.UseFetch automatically fetches when URL changes. Use button for manual refetch.")),
 		),
 
 		// Response Section
-		Div(Attrs{
+		dom.Div(Attrs{
 			"style": "border: 1px solid #4a5568; background-color: #1a202c; padding: 8px; margin: 8px 0; border-radius: 6px;",
 		},
-			H4(Attrs{
+			dom.H4(Attrs{
 				"style": "color: #63b3ed; margin-bottom: 6px;",
-			}, Text("📋 Response")),
+			}, dom.Text("📋 Response")),
 			responseContent,
 		),
 	)
@@ -1005,7 +998,7 @@ func FetchExample(props Attrs) *Element {
 // Hook Order Validation Test - demonstrates proper hook order validation
 func HookOrderTestExample(props Attrs) *Element {
 	// Track render count for this component
-	renderCount, setRenderCount := GoUseState(0)
+	renderCount, setRenderCount := hooks.UseState(0)
 	currentRender := renderCount() + 1
 	setRenderCount(currentRender)
 
@@ -1014,13 +1007,13 @@ func HookOrderTestExample(props Attrs) *Element {
 	fmt.Printf("🔍 HookOrderTestExample [RENDER #%d|Global #%d]: Component rendered\n", currentRender, globalRender)
 
 	// Test mode state - controls whether we violate hook order
-	testMode, setTestMode := GoUseState("normal")
+	testMode, setTestMode := hooks.UseState("normal")
 	currentMode := testMode()
 
 	fmt.Printf("🔍 HookOrderTestExample [RENDER #%d]: Test mode = '%s'\n", currentRender, currentMode)
 
 	// Normal hooks that should always be called
-	normalCount, setNormalCount := GoUseState(0)
+	normalCount, setNormalCount := hooks.UseState(0)
 	currentNormalCount := normalCount()
 
 	// Conditional hook violation test - this will trigger hook order errors
@@ -1030,7 +1023,9 @@ func HookOrderTestExample(props Attrs) *Element {
 	if currentMode == "violate" {
 		// This violates hook order rules - hooks should not be called conditionally
 		fmt.Printf("🚨 HookOrderTestExample [RENDER #%d]: About to violate hook order by calling conditional hook\n", currentRender)
-		conditionalCount, setConditionalCount = GoUseState(100)
+		c, sc := hooks.UseState(100)
+		conditionalCount = c
+		setConditionalCount = func(v int) { sc(v) }
 		fmt.Printf("🚨 HookOrderTestExample [RENDER #%d]: Conditional hook called - this should trigger validation error\n", currentRender)
 	} else {
 		// Provide dummy functions when not violating
@@ -1039,20 +1034,22 @@ func HookOrderTestExample(props Attrs) *Element {
 	}
 
 	// Another normal hook that should always be called
-	message, setMessage := GoUseState("Hook order is normal")
+	message, setMessage := hooks.UseState("Hook order is normal")
 	currentMessage := message()
 
 	// Effect hook for testing effect order validation
-	GoUseEffect(func() {
+	hooks.UseEffect(func() func() {
 		fmt.Printf("🔍 HookOrderTestExample [EFFECT]: Effect ran for render #%d in mode '%s'\n", currentRender, currentMode)
-	}, []interface{}{currentRender, currentMode})
+		return nil
+	}, currentRender, currentMode)
 
 	// Conditional effect - this will also violate hook order
 	if currentMode == "violate" {
 		fmt.Printf("🚨 HookOrderTestExample [RENDER #%d]: About to violate hook order with conditional effect\n", currentRender)
-		GoUseEffect(func() {
+		hooks.UseEffect(func() func() {
 			fmt.Printf("🚨 HookOrderTestExample [CONDITIONAL_EFFECT]: This effect should trigger validation error\n")
-		}, []interface{}{})
+			return nil
+		})
 	}
 
 	// Event handlers
@@ -1098,20 +1095,20 @@ func HookOrderTestExample(props Attrs) *Element {
 	fmt.Printf("🔍 HookOrderTestExample [RENDER #%d]: Generating DOM with mode='%s', normalCount=%d\n",
 		currentRender, currentMode, currentNormalCount)
 
-	return Div(Attrs{
+	return dom.Div(Attrs{
 		"style": "border: 1px solid #ccc; padding: 10px; margin: 10px;",
 	},
-		H3(Attrs{}, Text(fmt.Sprintf("🔍 Hook Order Validation Test (Render #%d)", currentRender))),
-		P(Attrs{}, Text("This component tests hook order validation by conditionally calling hooks.")),
-		P(Attrs{}, Text("⚠️ WARNING: 'Violate' mode will intentionally break hook order rules!")),
+		dom.H3(Attrs{}, dom.Text(fmt.Sprintf("🔍 Hook Order Validation Test (Render #%d)", currentRender))),
+		dom.P(Attrs{}, dom.Text("This component tests hook order validation by conditionally calling hooks.")),
+		dom.P(Attrs{}, dom.Text("⚠️ WARNING: 'Violate' mode will intentionally break hook order rules!")),
 
-		Div(Attrs{
+		dom.Div(Attrs{
 			"style": "margin: 10px 0; padding: 10px; border: 1px solid #ddd;",
 		},
-			P(Attrs{}, Text(fmt.Sprintf("Current Mode: %s", currentMode))),
-			P(Attrs{}, Text(fmt.Sprintf("Message: %s", currentMessage))),
-			P(Attrs{}, Text(fmt.Sprintf("Normal Count: %d", currentNormalCount))),
-			P(Attrs{}, Text(fmt.Sprintf("Conditional Count: %s", func() string {
+			dom.P(Attrs{}, dom.Text(fmt.Sprintf("Current Mode: %s", currentMode))),
+			dom.P(Attrs{}, dom.Text(fmt.Sprintf("Message: %s", currentMessage))),
+			dom.P(Attrs{}, dom.Text(fmt.Sprintf("Normal Count: %d", currentNormalCount))),
+			dom.P(Attrs{}, dom.Text(fmt.Sprintf("Conditional Count: %s", func() string {
 				if currentMode == "violate" {
 					return fmt.Sprintf("%d", conditionalCount())
 				}
@@ -1119,10 +1116,10 @@ func HookOrderTestExample(props Attrs) *Element {
 			}()))),
 		),
 
-		Div(Attrs{
+		dom.Div(Attrs{
 			"style": "margin: 10px 0;",
 		},
-			Button(Attrs{
+			dom.Button(Attrs{
 				"onclick": js.FuncOf(toggleMode),
 				"style": func() string {
 					if currentMode == "violate" {
@@ -1130,31 +1127,31 @@ func HookOrderTestExample(props Attrs) *Element {
 					}
 					return "background-color: red; color: white;"
 				}(),
-			}, Text(func() string {
+			}, dom.Text(func() string {
 				if currentMode == "violate" {
 					return "Switch to Normal Mode"
 				}
 				return "Switch to Violation Mode"
 			}())),
-			Text(" "),
-			Button(Attrs{
+			dom.Text(" "),
+			dom.Button(Attrs{
 				"onclick": js.FuncOf(incrementNormal),
-			}, Text("Increment Normal")),
-			Text(" "),
-			Button(Attrs{
+			}, dom.Text("Increment Normal")),
+			dom.Text(" "),
+			dom.Button(Attrs{
 				"onclick":  js.FuncOf(incrementConditional),
 				"disabled": currentMode != "violate",
-			}, Text("Increment Conditional")),
+			}, dom.Text("Increment Conditional")),
 		),
 
-		P(Attrs{}, Text("💡 Check the browser console for hook order validation messages when switching to violation mode.")),
+		dom.P(Attrs{}, dom.Text("💡 Check the browser console for hook order validation messages when switching to violation mode.")),
 	)
 }
 
 // Main application component
 func SimpleStateExamplesApp(props Attrs) *Element {
 	// Track render count for this component
-	renderCount, setRenderCount := GoUseState(0)
+	renderCount, setRenderCount := hooks.UseState(0)
 	currentRender := renderCount() + 1
 	setRenderCount(currentRender)
 
@@ -1163,9 +1160,9 @@ func SimpleStateExamplesApp(props Attrs) *Element {
 	fmt.Printf("🚀 SimpleStateExamplesApp [RENDER #%d|Global #%d]: Main app component rendered\n", currentRender, globalRender)
 	fmt.Printf("🚀 SimpleStateExamplesApp [RENDER #%d]: Rendering all child components\n", currentRender)
 
-	return Div(Attrs{},
-		H1(Attrs{}, Text(fmt.Sprintf("Simple GoUseState Examples (App Render #%d | Global #%d)", currentRender, globalRender))),
-		P(Attrs{}, Text("These examples demonstrate various use cases of GoUseState with minimal styling.")),
+	return dom.Div(Attrs{},
+		dom.H1(Attrs{}, dom.Text(fmt.Sprintf("Simple hooks.UseState Examples (App Render #%d | Global #%d)", currentRender, globalRender))),
+		dom.P(Attrs{}, dom.Text("These examples demonstrate various use cases of hooks.UseState with minimal styling.")),
 
 		FetchExample(nil),
 		HookOrderTestExample(nil),
@@ -1193,18 +1190,16 @@ func GetSimpleStateExamplesApp() func(Attrs) *Element {
 func SimpleStateExamplesDemo() {
 	fmt.Printf("🎯 SimpleStateExamplesDemo [INIT]: Starting initialization...\n")
 
-	appPage := GetSimpleStateExamplesApp()
-
 	fmt.Printf("🎯 SimpleStateExamplesDemo [INIT]: Looking for DOM element with id 'app'\n")
 
-	// Use RenderTo which will handle state restoration automatically
+	// Use render.To which will handle state restoration automatically
 	fmt.Printf("✅ SimpleStateExamplesDemo [INIT]: Found DOM container, creating element...\n")
 	fmt.Printf("✅ SimpleStateExamplesDemo [INIT]: Element created, rendering to DOM...\n")
-	RenderTo("#app", appPage)
+	render.To(SimpleStateExamplesApp(nil), "#app")
 
-	fmt.Printf("🎉 SimpleStateExamplesDemo [SUCCESS]: Simple GoUseState Examples are now running!\n")
+	fmt.Printf("🎉 SimpleStateExamplesDemo [SUCCESS]: Simple hooks.UseState Examples are now running!\n")
 	fmt.Printf("📊 SimpleStateExamplesDemo [INFO]: Examples included:\n")
-	fmt.Printf("   - 🌐 Fetch Example (GoUseFetch hook with API calls)\n")
+	fmt.Printf("   - 🌐 Fetch Example (hooks.UseFetch hook with API calls)\n")
 	fmt.Printf("   - 🔍 Hook Order Validation Test (demonstrates hook order validation)\n")
 	fmt.Printf("   - 🔢 Counter (number state)\n")
 	fmt.Printf("   - 📝 Text Input (string state)\n")
@@ -1216,3 +1211,5 @@ func SimpleStateExamplesDemo() {
 	fmt.Printf("⚠️  SimpleStateExamplesDemo [HOOK_VALIDATION]: Hook order validation is now active - violations will be logged!\n")
 	fmt.Printf("📈 SimpleStateExamplesDemo [PERFORMANCE]: Global render counter started - track re-renders across all components\n")
 }
+
+

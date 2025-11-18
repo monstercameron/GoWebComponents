@@ -9,38 +9,38 @@ import (
 	"strconv"
 	"time"
 
-	. "github.com/monstercameron/GoWebComponents/fiber"
+	"github.com/monstercameron/GoWebComponents/dom"
+	"github.com/monstercameron/GoWebComponents/hooks"
 )
-
 // AdvancedFormExample showcases sophisticated form handling with real-time validation.
-// Demonstrates GoUseState, GoUseEffect, GoUseFetch, and GoUseFunc hooks working together
+// Demonstrates hooks.UseState, hooks.UseEffect, hooks.UseFetch, and hooks.GoUseFunc hooks working together
 // to create a production-ready form with password strength, async submission, and error handling.
-func AdvancedFormExample(props Attrs) *Element {
+func AdvancedFormExample(_ Attrs) *Element {
 	// Form field state management
-	username, setUsername := GoUseState("")
-	email, setEmail := GoUseState("")
-	password, setPassword := GoUseState("")
-	confirmPass, setConfirmPass := GoUseState("")
-	bio, setBio := GoUseState("")
-	userType, setUserType := GoUseState("developer")
-	agreeTerms, setAgreeTerms := GoUseState(false)
+	username, setUsername := hooks.UseState("")
+	email, setEmail := hooks.UseState("")
+	password, setPassword := hooks.UseState("")
+	confirmPass, setConfirmPass := hooks.UseState("")
+	bio, setBio := hooks.UseState("")
+	userType, setUserType := hooks.UseState("developer")
+	agreeTerms, setAgreeTerms := hooks.UseState(false)
 
 	// Form submission and validation state
-	isSubmitting, setIsSubmitting := GoUseState(false)
-	submitStatus, setSubmitStatus := GoUseState("")
-	passwordStrength, setPasswordStrength := GoUseState(0)
+	isSubmitting, setIsSubmitting := hooks.UseState(false)
+	submitStatus, setSubmitStatus := hooks.UseState("")
+	passwordStrength, setPasswordStrength := hooks.UseState(0)
 
 	// Dynamic source code fetching for code view functionality
 	sourceUrl := "https://raw.githubusercontent.com/monstercameron/GoWebComponents/refs/heads/master/website/advanced_form.go"
-	getFetchState, refetchSource := GoUseFetch(sourceUrl)
+	getFetchState, refetchSource := hooks.UseFetch(sourceUrl)
 	fetchState := getFetchState()
 
 	// Calculate password strength when password changes
-	GoUseEffect(func() {
+	hooks.UseEffect(func() func() {
 		pass := password()
 		if pass == "" {
 			setPasswordStrength(0)
-			return
+			return nil
 		}
 
 		strength := 0
@@ -63,46 +63,47 @@ func AdvancedFormExample(props Attrs) *Element {
 			strength = 100
 		}
 		setPasswordStrength(strength)
-	})
+		return nil
+	}, password())
 
 	// Input handlers
-	handleUsernameChange := GoUseFunc(func(event GoEvent) {
+	handleUsernameChange := hooks.GoUseFunc(func(event dom.GoEvent) {
 		value := event.GetValue()
 		setUsername(value)
 	})
 
-	handleEmailChange := GoUseFunc(func(event GoEvent) {
+	handleEmailChange := hooks.GoUseFunc(func(event dom.GoEvent) {
 		value := event.GetValue()
 		setEmail(value)
 	})
 
-	handlePasswordChange := GoUseFunc(func(event GoEvent) {
+	handlePasswordChange := hooks.GoUseFunc(func(event dom.GoEvent) {
 		value := event.GetValue()
 		setPassword(value)
 	})
 
-	handleConfirmPassChange := GoUseFunc(func(event GoEvent) {
+	handleConfirmPassChange := hooks.GoUseFunc(func(event dom.GoEvent) {
 		value := event.GetValue()
 		setConfirmPass(value)
 	})
 
-	handleBioChange := GoUseFunc(func(event GoEvent) {
+	handleBioChange := hooks.GoUseFunc(func(event dom.GoEvent) {
 		value := event.GetValue()
 		setBio(value)
 	})
 
-	handleUserTypeChange := GoUseFunc(func(event GoEvent) {
+	handleUserTypeChange := hooks.GoUseFunc(func(event dom.GoEvent) {
 		value := event.GetValue()
 		setUserType(value)
 	})
 
-	handleTermsChange := GoUseFunc(func(event GoEvent) {
+	handleTermsChange := hooks.GoUseFunc(func(event dom.GoEvent) {
 		checked := event.IsChecked()
 		setAgreeTerms(checked)
 	})
 
 	// Form submission
-	handleSubmit := GoUseFunc(func(event GoEvent) {
+	handleSubmit := hooks.GoUseFunc(func(event dom.GoEvent) {
 		event.PreventDefault()
 		setIsSubmitting(true)
 		setSubmitStatus("")
@@ -200,25 +201,25 @@ func AdvancedFormExample(props Attrs) *Element {
 		return ""
 	}
 
-	return Div(
+	return dom.Div(
 		Attrs{"class": "bg-white rounded-xl border border-gray-200 p-8 shadow-lg"},
 
 		// Header
-		Div(
+		dom.Div(
 			Attrs{"class": "text-center mb-8"},
-			H3(Attrs{"class": "text-2xl font-bold text-gray-900 mb-2"}, "🔧 Advanced Form Example"),
-			P(Attrs{"class": "text-gray-600"}, "Comprehensive form handling with validation, state management, and async processing"),
+			dom.H3(Attrs{"class": "text-2xl font-bold text-gray-900 mb-2"}, "🔧 Advanced Form Example"),
+			dom.P(Attrs{"class": "text-gray-600"}, "Comprehensive form handling with validation, state management, and async processing"),
 		),
 
 		// Form
-		Form(
+		dom.Form(
 			Attrs{"class": "space-y-6", "onsubmit": handleSubmit},
 
 			// Username field
-			Div(
+			dom.Div(
 				Attrs{"class": "space-y-2"},
-				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Username"),
-				Input(Attrs{
+				dom.Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Username"),
+				dom.Input(Attrs{
 					"type":    "text",
 					"value":   username(),
 					"oninput": handleUsernameChange,
@@ -232,17 +233,17 @@ func AdvancedFormExample(props Attrs) *Element {
 				}),
 				func() *Element {
 					if err := usernameError(); err != "" {
-						return P(Attrs{"class": "text-sm text-red-600"}, err)
+						return dom.P(Attrs{"class": "text-sm text-red-600"}, err)
 					}
-					return Text("")
+					return dom.Text("")
 				}(),
 			),
 
 			// Email field
-			Div(
+			dom.Div(
 				Attrs{"class": "space-y-2"},
-				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Email"),
-				Input(Attrs{
+				dom.Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Email"),
+				dom.Input(Attrs{
 					"type":    "email",
 					"value":   email(),
 					"oninput": handleEmailChange,
@@ -256,17 +257,17 @@ func AdvancedFormExample(props Attrs) *Element {
 				}),
 				func() *Element {
 					if err := emailError(); err != "" {
-						return P(Attrs{"class": "text-sm text-red-600"}, err)
+						return dom.P(Attrs{"class": "text-sm text-red-600"}, err)
 					}
-					return Text("")
+					return dom.Text("")
 				}(),
 			),
 
 			// Password field with strength meter
-			Div(
+			dom.Div(
 				Attrs{"class": "space-y-2"},
-				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Password"),
-				Input(Attrs{
+				dom.Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Password"),
+				dom.Input(Attrs{
 					"type":    "password",
 					"value":   password(),
 					"oninput": handlePasswordChange,
@@ -283,14 +284,14 @@ func AdvancedFormExample(props Attrs) *Element {
 				func() *Element {
 					if password() != "" {
 						strength := passwordStrength()
-						return Div(
+						return dom.Div(
 							Attrs{"class": "mt-2"},
-							Div(Attrs{"class": "flex justify-between text-xs text-gray-600 mb-1"},
-								Span(nil, "Password Strength"),
-								Span(nil, Text(strconv.Itoa(strength)), "%"),
+							dom.Div(Attrs{"class": "flex justify-between text-xs text-gray-600 mb-1"},
+								dom.Span(nil, "Password Strength"),
+								dom.Span(nil, dom.Text(strconv.Itoa(strength)), "%"),
 							),
-							Div(Attrs{"class": "w-full bg-gray-200 rounded-full h-2"},
-								Div(Attrs{
+							dom.Div(Attrs{"class": "w-full bg-gray-200 rounded-full h-2"},
+								dom.Div(Attrs{
 									"class": func() string {
 										if strength < 30 {
 											return "bg-red-500 h-2 rounded-full transition-all duration-300"
@@ -304,22 +305,22 @@ func AdvancedFormExample(props Attrs) *Element {
 							),
 						)
 					}
-					return Text("")
+					return dom.Text("")
 				}(),
 
 				func() *Element {
 					if err := passwordError(); err != "" {
-						return P(Attrs{"class": "text-sm text-red-600"}, err)
+						return dom.P(Attrs{"class": "text-sm text-red-600"}, err)
 					}
-					return Text("")
+					return dom.Text("")
 				}(),
 			),
 
 			// Confirm Password field
-			Div(
+			dom.Div(
 				Attrs{"class": "space-y-2"},
-				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Confirm Password"),
-				Input(Attrs{
+				dom.Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Confirm Password"),
+				dom.Input(Attrs{
 					"type":    "password",
 					"value":   confirmPass(),
 					"oninput": handleConfirmPassChange,
@@ -333,62 +334,62 @@ func AdvancedFormExample(props Attrs) *Element {
 				}),
 				func() *Element {
 					if err := confirmPassError(); err != "" {
-						return P(Attrs{"class": "text-sm text-red-600"}, err)
+						return dom.P(Attrs{"class": "text-sm text-red-600"}, err)
 					}
-					return Text("")
+					return dom.Text("")
 				}(),
 			),
 
 			// Bio field
-			Div(
+			dom.Div(
 				Attrs{"class": "space-y-2"},
-				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Bio (optional)"),
-				Textarea(Attrs{
+				dom.Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Bio (optional)"),
+				dom.Textarea(Attrs{
 					"value":       bio(),
 					"oninput":     handleBioChange,
 					"rows":        "4",
 					"class":       "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black",
 					"placeholder": "Tell us about yourself...",
 				}),
-				Div(
+				dom.Div(
 					Attrs{"class": "flex justify-between text-xs text-gray-500"},
-					Span(nil, Text("Optional")),
-					Span(nil, Text(fmt.Sprintf("%d/500 characters", len(bio())))),
+					dom.Span(nil, dom.Text("Optional")),
+					dom.Span(nil, dom.Text(fmt.Sprintf("%d/500 characters", len(bio())))),
 				),
 			),
 
 			// User type selection
-			Div(
+			dom.Div(
 				Attrs{"class": "space-y-2"},
-				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "User Type"),
-				Select(Attrs{
+				dom.Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "User Type"),
+				dom.Select(Attrs{
 					"value":    userType(),
 					"onchange": handleUserTypeChange,
 					"class":    "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black",
 				},
-					Option(Attrs{"value": "developer"}, "Developer"),
-					Option(Attrs{"value": "designer"}, "Designer"),
-					Option(Attrs{"value": "manager"}, "Project Manager"),
-					Option(Attrs{"value": "other"}, "Other"),
+					dom.Option(Attrs{"value": "developer"}, "Developer"),
+					dom.Option(Attrs{"value": "designer"}, "Designer"),
+					dom.Option(Attrs{"value": "manager"}, "Project Manager"),
+					dom.Option(Attrs{"value": "other"}, "Other"),
 				),
 			),
 
 			// Terms agreement
-			Div(
+			dom.Div(
 				Attrs{"class": "flex items-center space-x-2"},
-				Input(Attrs{
+				dom.Input(Attrs{
 					"type":     "checkbox",
 					"checked":  agreeTerms(),
 					"onchange": handleTermsChange,
 					"class":    "h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 text-black",
 				}),
-				Label(Attrs{"class": "text-sm text-gray-700"}, "I agree to the Terms and Conditions"),
+				dom.Label(Attrs{"class": "text-sm text-gray-700"}, "I agree to the Terms and Conditions"),
 			),
 
 			// Submit button and status
-			Div(
+			dom.Div(
 				Attrs{"class": "space-y-4"},
-				Button(
+				dom.Button(
 					Attrs{
 						"type":     "submit",
 						"disabled": isSubmitting() || !agreeTerms(),
@@ -410,35 +411,37 @@ func AdvancedFormExample(props Attrs) *Element {
 				// Status messages
 				func() *Element {
 					status := submitStatus()
-					if status == "success" {
-						return Div(Attrs{"class": "p-4 bg-green-100 border border-green-400 text-green-700 rounded-md"},
-							P(Attrs{"class": "font-semibold"}, "✅ Success!"),
-							P(nil, "Form submitted successfully. All data has been validated and processed."),
+					switch status {
+					case "success":
+						return dom.Div(Attrs{"class": "p-4 bg-green-100 border border-green-400 text-green-700 rounded-md"},
+							dom.P(Attrs{"class": "font-semibold"}, "✅ Success!"),
+							dom.P(nil, "Form submitted successfully. All data has been validated and processed."),
 						)
-					} else if status == "error" {
-						return Div(Attrs{"class": "p-4 bg-red-100 border border-red-400 text-red-700 rounded-md"},
-							P(Attrs{"class": "font-semibold"}, "❌ Error!"),
-							P(nil, "Please fix the validation errors and try again."),
+					case "error":
+						return dom.Div(Attrs{"class": "p-4 bg-red-100 border border-red-400 text-red-700 rounded-md"},
+							dom.P(Attrs{"class": "font-semibold"}, "❌ Error!"),
+							dom.P(nil, "Please fix the validation errors and try again."),
 						)
+					default:
+						return dom.Text("")
 					}
-					return Text("")
 				}(),
 			),
 		),
 
 		// Source Code Preview Section
-		Div(
+		dom.Div(
 			Attrs{"class": "mt-12 border-t border-gray-200 pt-8"},
-			H3(Attrs{"class": "text-xl font-semibold text-gray-900 mb-4"}, "📋 Advanced Form Source Code"),
-			P(Attrs{"class": "text-gray-600 mb-4"},
-				"This section fetches and displays the source code for this advanced form example using GoUseFetch."),
+			dom.H3(Attrs{"class": "text-xl font-semibold text-gray-900 mb-4"}, "📋 Advanced Form Source Code"),
+			dom.P(Attrs{"class": "text-gray-600 mb-4"},
+				"This section fetches and displays the source code for this advanced form example using hooks.UseFetch."),
 
 			// Fetch controls
-			Div(
+			dom.Div(
 				Attrs{"class": "flex items-center gap-4 mb-4"},
-				Button(
+				dom.Button(
 					Attrs{
-						"onclick": GoUseFunc(func(event GoEvent) {
+						"onclick": hooks.GoUseFunc(func(event dom.GoEvent) {
 							refetchSource()
 						}),
 						"class": func() string {
@@ -456,28 +459,28 @@ func AdvancedFormExample(props Attrs) *Element {
 						return "🔄 Refresh Source"
 					}(),
 				),
-				Span(Attrs{"class": "text-sm text-gray-500"},
+				dom.Span(Attrs{"class": "text-sm text-gray-500"},
 					fmt.Sprintf("Source URL: %s", sourceUrl)),
 			),
 
 			// Source code display
 			func() *Element {
 				if fetchState.Loading {
-					return Div(
+					return dom.Div(
 						Attrs{"class": "p-6 bg-gray-50 border border-gray-200 rounded-lg"},
-						P(Attrs{"class": "text-blue-600 flex items-center gap-2"},
-							Span(nil, "🔄"),
+						dom.P(Attrs{"class": "text-blue-600 flex items-center gap-2"},
+							dom.Span(nil, "🔄"),
 							"Loading source code...",
 						),
 					)
 				} else if fetchState.Error != "" {
-					return Div(
+					return dom.Div(
 						Attrs{"class": "p-6 bg-red-50 border border-red-200 rounded-lg"},
-						P(Attrs{"class": "text-red-600 font-semibold mb-2"}, "❌ Error fetching source code"),
-						P(Attrs{"class": "text-red-600 text-sm"}, fetchState.Error),
-						Button(
+						dom.P(Attrs{"class": "text-red-600 font-semibold mb-2"}, "❌ Error fetching source code"),
+						dom.P(Attrs{"class": "text-red-600 text-sm"}, fetchState.Error),
+						dom.Button(
 							Attrs{
-								"onclick": GoUseFunc(func(event GoEvent) {
+								"onclick": hooks.GoUseFunc(func(event dom.GoEvent) {
 									refetchSource()
 								}),
 								"class": "mt-3 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors",
@@ -488,24 +491,24 @@ func AdvancedFormExample(props Attrs) *Element {
 				} else if fetchState.Data != nil {
 					// Convert the fetched data to string
 					sourceCode := fmt.Sprintf("%v", fetchState.Data)
-					return Div(
+					return dom.Div(
 						Attrs{"class": "bg-gray-900 rounded-lg overflow-hidden"},
-						Div(
+						dom.Div(
 							Attrs{"class": "bg-gray-800 px-4 py-2 border-b border-gray-700"},
-							P(Attrs{"class": "text-gray-300 text-sm font-mono"}, "advanced_form.go"),
+							dom.P(Attrs{"class": "text-gray-300 text-sm font-mono"}, "advanced_form.go"),
 						),
-						Pre(
+						dom.Pre(
 							Attrs{
 								"class": "p-6 text-sm text-gray-100 font-mono overflow-x-auto",
 								"style": "max-height: 500px; overflow-y: auto;",
 							},
-							Code(nil, sourceCode),
+							dom.Code(nil, sourceCode),
 						),
 					)
 				}
-				return Div(
+				return dom.Div(
 					Attrs{"class": "p-6 bg-gray-50 border border-gray-200 rounded-lg"},
-					P(Attrs{"class": "text-gray-600"}, "No source code available"),
+					dom.P(Attrs{"class": "text-gray-600"}, "No source code available"),
 				)
 			}(),
 		),
@@ -514,24 +517,24 @@ func AdvancedFormExample(props Attrs) *Element {
 
 // FormField creates a labeled form field with validation
 func FormField(label string, input *Element, errorMsg string, isValidating bool) *Element {
-	return Div(
+	return dom.Div(
 		Attrs{"class": "space-y-2"},
-		Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, label),
+		dom.Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, label),
 		input,
 		func() *Element {
 			if isValidating {
-				return P(Attrs{"class": "text-sm text-blue-600 flex items-center"},
-					Span(Attrs{"class": "mr-2"}, "⏳"),
+				return dom.P(Attrs{"class": "text-sm text-blue-600 flex items-center"},
+					dom.Span(Attrs{"class": "mr-2"}, "⏳"),
 					"Validating...",
 				)
 			}
 			if errorMsg != "" {
-				return P(Attrs{"class": "text-sm text-red-600 flex items-center"},
-					Span(Attrs{"class": "mr-2"}, "❌"),
+				return dom.P(Attrs{"class": "text-sm text-red-600 flex items-center"},
+					dom.Span(Attrs{"class": "mr-2"}, "❌"),
 					errorMsg,
 				)
 			}
-			return Div(nil)
+			return dom.Div(nil)
 		}(),
 	)
 }
@@ -561,16 +564,16 @@ func PasswordStrengthMeter(strength int) *Element {
 		barWidth = "100%"
 	}
 
-	return Div(
+	return dom.Div(
 		Attrs{"class": "space-y-1"},
-		Div(
+		dom.Div(
 			Attrs{"class": "flex justify-between items-center"},
-			Span(Attrs{"class": "text-xs text-gray-600"}, "Password Strength:"),
-			Span(Attrs{"class": "text-xs font-medium " + strengthColor}, strengthText),
+			dom.Span(Attrs{"class": "text-xs text-gray-600"}, "Password Strength:"),
+			dom.Span(Attrs{"class": "text-xs font-medium " + strengthColor}, strengthText),
 		),
-		Div(
+		dom.Div(
 			Attrs{"class": "w-full bg-gray-200 rounded-full h-2"},
-			Div(Attrs{
+			dom.Div(Attrs{
 				"class": "h-2 rounded-full transition-all duration-300 " + getStrengthBarColor(strength),
 				"style": "width: " + barWidth,
 			}),
@@ -591,3 +594,6 @@ func getStrengthBarColor(strength int) string {
 		return "bg-green-500"
 	}
 }
+
+
+

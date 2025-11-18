@@ -9,8 +9,8 @@ import (
 // ============================================================================
 
 func TestFiber_ParentChildRelationship(t *testing.T) {
-	parent := &Fiber{typeOf: "parent"}
-	child := &Fiber{typeOf: "child"}
+	parent := &Fiber{}
+	child := &Fiber{}
 
 	parent.child = child
 	child.parent = parent
@@ -24,9 +24,9 @@ func TestFiber_ParentChildRelationship(t *testing.T) {
 }
 
 func TestFiber_SiblingChain(t *testing.T) {
-	sibling1 := &Fiber{typeOf: "sibling1"}
-	sibling2 := &Fiber{typeOf: "sibling2"}
-	sibling3 := &Fiber{typeOf: "sibling3"}
+	sibling1 := &Fiber{}
+	sibling2 := &Fiber{}
+	sibling3 := &Fiber{}
 
 	sibling1.sibling = sibling2
 	sibling2.sibling = sibling3
@@ -43,8 +43,8 @@ func TestFiber_SiblingChain(t *testing.T) {
 }
 
 func TestFiber_AlternateReference(t *testing.T) {
-	fiber1 := &Fiber{typeOf: "div"}
-	fiber2 := &Fiber{typeOf: "div", alternate: fiber1}
+	fiber1 := &Fiber{}
+	fiber2 := &Fiber{alternate: fiber1}
 
 	if fiber2.alternate != fiber1 {
 		t.Error("Expected fiber2.alternate to reference fiber1")
@@ -55,7 +55,7 @@ func TestFiber_DOMReference(t *testing.T) {
 	adapter := newTestDOMAdapter()
 	dom := adapter.CreateElement("div")
 
-	fiber := &Fiber{typeOf: "div", dom: dom}
+	fiber := &Fiber{dom: dom}
 
 	if fiber.dom == nil {
 		t.Error("Expected fiber.dom to be set")
@@ -63,7 +63,7 @@ func TestFiber_DOMReference(t *testing.T) {
 }
 
 func TestFiber_EffectTag_Placement(t *testing.T) {
-	fiber := &Fiber{typeOf: "div", effectTag: "PLACEMENT"}
+	fiber := &Fiber{effectTag: "PLACEMENT"}
 
 	if fiber.effectTag != "PLACEMENT" {
 		t.Error("Expected effectTag to be PLACEMENT")
@@ -71,7 +71,7 @@ func TestFiber_EffectTag_Placement(t *testing.T) {
 }
 
 func TestFiber_EffectTag_Update(t *testing.T) {
-	fiber := &Fiber{typeOf: "div", effectTag: "UPDATE"}
+	fiber := &Fiber{effectTag: "UPDATE"}
 
 	if fiber.effectTag != "UPDATE" {
 		t.Error("Expected effectTag to be UPDATE")
@@ -79,7 +79,7 @@ func TestFiber_EffectTag_Update(t *testing.T) {
 }
 
 func TestFiber_EffectTag_Deletion(t *testing.T) {
-	fiber := &Fiber{typeOf: "div", effectTag: "DELETION"}
+	fiber := &Fiber{effectTag: "DELETION"}
 
 	if fiber.effectTag != "DELETION" {
 		t.Error("Expected effectTag to be DELETION")
@@ -91,7 +91,7 @@ func TestFiber_PropsInitialization(t *testing.T) {
 		"id":        "test",
 		"className": "container",
 	}
-	fiber := &Fiber{typeOf: "div", props: props}
+	fiber := &Fiber{props: props}
 
 	if fiber.props["id"] != "test" {
 		t.Error("Expected id prop")
@@ -102,7 +102,7 @@ func TestFiber_PropsInitialization(t *testing.T) {
 }
 
 func TestFiber_EmptyProps(t *testing.T) {
-	fiber := &Fiber{typeOf: "div", props: make(map[string]interface{})}
+	fiber := &Fiber{props: make(map[string]interface{})}
 
 	if fiber.props == nil {
 		t.Error("Expected props to be initialized")
@@ -113,7 +113,7 @@ func TestFiber_EmptyProps(t *testing.T) {
 }
 
 func TestFiber_DirtyFlag(t *testing.T) {
-	fiber := &Fiber{typeOf: "div", dirty: true}
+	fiber := &Fiber{dirty: true}
 
 	if !fiber.dirty {
 		t.Error("Expected fiber to be marked dirty")
@@ -121,7 +121,7 @@ func TestFiber_DirtyFlag(t *testing.T) {
 }
 
 func TestFiber_CleanFlag(t *testing.T) {
-	fiber := &Fiber{typeOf: "div", dirty: false}
+	fiber := &Fiber{dirty: false}
 
 	if fiber.dirty {
 		t.Error("Expected fiber to not be marked dirty")
@@ -133,7 +133,6 @@ func TestFiber_EffectsArray(t *testing.T) {
 	effect2 := func() {}
 
 	fiber := &Fiber{
-		typeOf:  "div",
 		effects: []func(){effect1, effect2},
 	}
 
@@ -143,7 +142,7 @@ func TestFiber_EffectsArray(t *testing.T) {
 }
 
 func TestFiber_EmptyEffects(t *testing.T) {
-	fiber := &Fiber{typeOf: "div", effects: []func(){}}
+	fiber := &Fiber{effects: []func(){}}
 
 	if len(fiber.effects) != 0 {
 		t.Error("Expected empty effects array")
@@ -155,7 +154,7 @@ func TestFiber_HooksAttachment(t *testing.T) {
 		state: make([]interface{}, 0),
 		index: 0,
 	}
-	fiber := &Fiber{typeOf: "div", hooks: hooks}
+	fiber := &Fiber{hooks: hooks}
 
 	if fiber.hooks == nil {
 		t.Error("Expected hooks to be attached")
@@ -193,7 +192,7 @@ func TestFiber_TextFiber(t *testing.T) {
 }
 
 func TestFiber_NilDOM(t *testing.T) {
-	fiber := &Fiber{typeOf: "div", dom: nil}
+	fiber := &Fiber{dom: nil}
 
 	if fiber.dom != nil {
 		t.Error("Expected dom to be nil")
@@ -201,7 +200,7 @@ func TestFiber_NilDOM(t *testing.T) {
 }
 
 func TestFiber_NilAlternateReference(t *testing.T) {
-	fiber := &Fiber{typeOf: "div", alternate: nil}
+	fiber := &Fiber{alternate: nil}
 
 	if fiber.alternate != nil {
 		t.Error("Expected alternate to be nil")
@@ -335,7 +334,7 @@ func TestFiber_ManyChildren(t *testing.T) {
 }
 
 func TestFiber_NoEffectTag(t *testing.T) {
-	fiber := &Fiber{typeOf: "div"}
+	fiber := &Fiber{}
 
 	if fiber.effectTag != "" {
 		t.Error("Expected effectTag to be empty")

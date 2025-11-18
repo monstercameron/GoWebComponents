@@ -201,11 +201,6 @@ func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(in
 	return get, set
 }
 
-// atomHookState stores the atom ID for cleanup
-type atomHookState struct {
-	atomID string
-}
-
 // CleanupAtomSubscriptions removes all atom subscriptions for a fiber
 // This should be called when a fiber is being removed from the tree
 func (rt *Runtime) CleanupAtomSubscriptions(fiber *Fiber) {

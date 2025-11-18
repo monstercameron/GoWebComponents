@@ -152,25 +152,6 @@ func GoUseFuncGlobal(fn interface{}) interface{} {
 	}
 }
 
-// createGoEvent creates a GoEvent from a js.Value
-// This is a helper function used by GoUseFuncGlobal to wrap JS events
-func createGoEvent(jsEvent js.Value) interface{} {
-	// We need to create a GoEvent struct dynamically
-	// The struct has one field: jsValue js.Value
-	// We'll use reflection to create an instance
-
-	// Get the GoEvent type from the dom package
-	// This is a bit tricky since we're in the internal/runtime package
-	// We'll construct it manually using reflect
-
-	// Create a struct with the jsValue field
-	// Since we can't directly reference dom.GoEvent here without circular import,
-	// we return a function that will be called with the actual type
-	return struct {
-		jsValue js.Value
-	}{jsValue: jsEvent}
-}
-
 // GoUseAtomGlobal wraps GoUseAtom with global runtime
 func GoUseAtomGlobal[T any](id string, initialValue T) (func() T, func(T)) {
 	rt := GetGlobalRuntime()

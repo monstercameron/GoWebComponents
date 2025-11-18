@@ -34,3 +34,4 @@ func injectBlobCSS() {
 
 	js.Global().Get("document").Get("head").Call("insertAdjacentHTML", "beforeend", css)
 }
+

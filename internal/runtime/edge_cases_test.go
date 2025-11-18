@@ -3,14 +3,10 @@ package runtime
 import "testing"
 
 func TestRuntime_InitializationWithoutAtomRegistry(t *testing.T) {
-	scheduler := newTestScheduler()
 	adapter := newTestDOMAdapter()
 
 	rt := &Runtime{
-		domAdapter:   adapter,
-		scheduler:    scheduler,
-		deletions:    make([]*Fiber, 0),
-		atomRegistry: nil, // No atom registry
+		domAdapter: adapter,
 	}
 
 	if rt.domAdapter == nil {
