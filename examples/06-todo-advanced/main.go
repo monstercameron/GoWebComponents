@@ -229,10 +229,10 @@ func TodoInput(props Attrs) *Element {
 					"class": "block text-sm font-medium text-gray-700 mb-2",
 				}, dom.Text("Due Date")),
 				dom.Input(Attrs{
-					"type":     "date",
-					"value":    dueDate(),
-					"oninput":  hooks.GoUseFunc(func(e dom.GoEvent) { setDueDate(e.GetValue()) }),
-					"class":    "w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500",
+					"type":    "date",
+					"value":   dueDate(),
+					"oninput": hooks.GoUseFunc(func(e dom.GoEvent) { setDueDate(e.GetValue()) }),
+					"class":   "w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500",
 				}),
 			),
 		),
@@ -310,9 +310,9 @@ func TodoFilters(props Attrs) *Element {
 					"class": "block text-sm font-medium text-gray-700 mb-2",
 				}, dom.Text("Search")),
 				dom.Input(Attrs{
-					"type":        "text",
-					"value":       filter.Search,
-					"oninput":     hooks.GoUseFunc(func(e dom.GoEvent) {
+					"type":  "text",
+					"value": filter.Search,
+					"oninput": hooks.GoUseFunc(func(e dom.GoEvent) {
 						newFilter := filter
 						newFilter.Search = e.GetValue()
 						onChange(newFilter)

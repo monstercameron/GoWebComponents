@@ -76,7 +76,7 @@ func CounterExample(_ Attrs) *Element {
 
 func main() {
 	fmt.Println("🚀 Counter Example Started")
-	
+
 	// Find the DOM container
 	container := js.Global().Get("document").Call("getElementById", "app")
 	if container.IsUndefined() || container.IsNull() {

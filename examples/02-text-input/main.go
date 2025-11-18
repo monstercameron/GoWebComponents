@@ -46,12 +46,12 @@ func TextInputExample(_ Attrs) *Element {
 			dom.Label(Attrs{
 				"class": "block text-gray-700 text-sm font-bold mb-2",
 			}, dom.Text("Type something:")),
-			
+
 			dom.Input(Attrs{
-				"type":    "text",
-				"value":   currentText,
-				"oninput": js.FuncOf(handleInput),
-				"class":   "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black",
+				"type":        "text",
+				"value":       currentText,
+				"oninput":     js.FuncOf(handleInput),
+				"class":       "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black",
 				"placeholder": "Enter text here...",
 			}),
 		),
@@ -71,7 +71,7 @@ func TextInputExample(_ Attrs) *Element {
 			dom.P(Attrs{
 				"class": "text-gray-700 mb-2",
 			}, dom.Text(fmt.Sprintf("You typed: %s", currentText))),
-			
+
 			dom.P(Attrs{
 				"class": "text-gray-600 text-sm",
 			}, dom.Text(fmt.Sprintf("Character count: %d", len(currentText)))),
@@ -81,7 +81,7 @@ func TextInputExample(_ Attrs) *Element {
 
 func main() {
 	fmt.Println("🚀 Text Input Example Started")
-	
+
 	// Find the DOM container
 	container := js.Global().Get("document").Call("getElementById", "app")
 	if container.IsUndefined() || container.IsNull() {

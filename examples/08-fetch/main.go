@@ -92,11 +92,11 @@ func FetchExample(_ Attrs) *Element {
 			dom.H3(Attrs{
 				"class": "text-lg font-semibold mb-3 text-blue-400",
 			}, dom.Text("📡 API Endpoint")),
-			
+
 			dom.Label(Attrs{
 				"class": "block text-gray-300 mb-2",
 			}, dom.Text("URL:")),
-			
+
 			dom.Input(Attrs{
 				"type":        "url",
 				"value":       currentUrl,
@@ -133,7 +133,7 @@ func FetchExample(_ Attrs) *Element {
 			dom.H3(Attrs{
 				"class": "text-lg font-semibold mb-3 text-blue-400",
 			}, dom.Text("🚀 Fetch Controls")),
-			
+
 			dom.Button(Attrs{
 				"onclick": js.FuncOf(manualFetch),
 				"disabled": func() string {

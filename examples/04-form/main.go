@@ -53,7 +53,7 @@ func PersonForm(_ Attrs) *Element {
 		dom.H2(Attrs{
 			"class": "text-2xl font-bold mb-6 text-gray-800",
 		}, dom.Text("Person Form")),
-		
+
 		dom.Div(Attrs{"class": "mb-4"},
 			dom.Label(Attrs{
 				"class": "block text-gray-700 font-medium mb-2",

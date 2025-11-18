@@ -89,12 +89,12 @@ func CounterController(_ Attrs) *Element {
 				"onclick": handleIncrement,
 				"class":   "px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors",
 			}, dom.Text("Increment")),
-			
+
 			dom.Button(Attrs{
 				"onclick": handleDecrement,
 				"class":   "px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors",
 			}, dom.Text("Decrement")),
-			
+
 			dom.Button(Attrs{
 				"onclick": handleReset,
 				"class":   "px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors",
@@ -124,7 +124,7 @@ func CounterDisplay(_ Attrs) *Element {
 		dom.P(Attrs{
 			"class": "mb-2 text-gray-700",
 		}, dom.Text(fmt.Sprintf("Shared count value: %d", count()))),
-		
+
 		dom.P(Attrs{
 			"class": "mb-4 text-gray-700",
 		}, dom.Text(fmt.Sprintf("Count squared: %d", count()*count()))),
@@ -136,7 +136,7 @@ func CounterDisplay(_ Attrs) *Element {
 				"onclick": handleDouble,
 				"class":   "px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors",
 			}, dom.Text("Double (×2)")),
-			
+
 			dom.Button(Attrs{
 				"onclick": handleHalf,
 				"class":   "px-4 py-2 bg-teal-500 text-white rounded hover:bg-teal-600 transition-colors",
