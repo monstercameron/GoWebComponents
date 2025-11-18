@@ -56,18 +56,19 @@ import "github.com/monstercameron/GoWebComponents/utils"
 
 func MyComponent(props dom.Attrs) *dom.Element {
     defer utils.TimeStart("MyComponent render")()
-    
+
     utils.DebugLog("Rendering MyComponent")
-    
+
     // Component logic
-    
+
     utils.LogMemoryUsage()
-    
+
     return dom.Div(nil, dom.Text("My Component"))
 }
 ```
 
 **Output (Development):**
+
 ```
 [DEBUG] Rendering MyComponent
 [MEMORY] Heap: 2.5 MB, Stack: 64 KB
@@ -227,6 +228,7 @@ GOOS=js GOARCH=wasm go build \
 ```
 
 **Flags explained:**
+
 - `-tags production` - Use production utils (no debug logging)
 - `-ldflags="-s -w"` - Strip debug info and symbol table
 - Result: Smaller WASM binary, faster execution
@@ -250,9 +252,9 @@ func MyFunc() {
     if DEBUG {
         utils.DebugLog("Starting MyFunc")
     }
-    
+
     // Function logic
-    
+
     if DEBUG {
         utils.DebugLog("MyFunc completed")
     }
@@ -264,7 +266,7 @@ func MyFunc() {
 ```go
 func ExpensiveOperation() {
     defer utils.TimeStart("ExpensiveOperation")()
-    
+
     // Complex computation
     for i := 0; i < 1000000; i++ {
         // Work...
@@ -279,13 +281,13 @@ func SafeComponent(props dom.Attrs) *dom.Element {
     // Safe with defaults
     title := utils.ToString(
         utils.GetMapValue(props, "title", "Default Title"))
-    
+
     count := utils.ToInt(
         utils.GetMapValue(props, "count", 0))
-    
+
     enabled := utils.ToBool(
         utils.GetMapValue(props, "enabled", true))
-    
+
     return dom.Div(nil,
         dom.H1(nil, dom.Text(title)),
         dom.P(nil, dom.Text(fmt.Sprintf("Count: %d", count))),
@@ -333,6 +335,7 @@ go build
 ## Contributing
 
 When adding utilities:
+
 1. Keep functions simple and focused
 2. Provide both development and production versions
 3. Include examples in comments

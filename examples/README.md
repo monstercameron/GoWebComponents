@@ -43,12 +43,14 @@ Open `examples/static/index.html` in your browser to see the examples directory 
 ### Build All Examples
 
 **Windows (PowerShell):**
+
 ```powershell
 cd examples
 .\build.ps1
 ```
 
 **Linux/macOS:**
+
 ```bash
 cd examples
 chmod +x build.ps1
@@ -70,14 +72,17 @@ python -m http.server 8080
 ## Examples Index
 
 ### 01 - Counter
+
 **File:** `/examples/01-counter/main.go`
 
 **Demonstrates:**
+
 - `hooks.UseState` for number state
 - Event handlers with `js.FuncOf`
 - Basic component structure
 
 **Concepts:**
+
 ```go
 count, setCount := hooks.UseState(0)
 setCount(count() + 1)  // Update state, triggers re-render
@@ -88,14 +93,17 @@ setCount(count() + 1)  // Update state, triggers re-render
 ---
 
 ### 02 - Text Input
+
 **File:** `/examples/02-text-input/main.go`
 
 **Demonstrates:**
+
 - `hooks.UseState` for string state
 - Input event handling
 - Controlled components
 
 **Concepts:**
+
 ```go
 text, setText := hooks.UseState("")
 handleInput := func(this js.Value, args []js.Value) interface{} {
@@ -110,14 +118,17 @@ handleInput := func(this js.Value, args []js.Value) interface{} {
 ---
 
 ### 03 - Toggle
+
 **File:** `/examples/03-toggle/main.go`
 
 **Demonstrates:**
+
 - `hooks.UseState` for boolean state
 - Conditional rendering
 - Dynamic attributes
 
 **Concepts:**
+
 ```go
 isOn, setIsOn := hooks.UseState(false)
 className := func() string {
@@ -131,14 +142,17 @@ className := func() string {
 ---
 
 ### 04 - Form
+
 **File:** `/examples/04-form/main.go`
 
 **Demonstrates:**
+
 - Struct-based state management
 - Multiple related inputs
 - Form validation patterns
 
 **Concepts:**
+
 ```go
 type Person struct {
     Name string
@@ -152,14 +166,17 @@ person, setPerson := hooks.UseState(Person{})
 ---
 
 ### 05 - Todo Basic
+
 **File:** `/examples/05-todo-basic/main.go`
 
 **Demonstrates:**
+
 - Array/slice state management
 - Dynamic list rendering
 - Add/remove operations
 
 **Concepts:**
+
 ```go
 todos, setTodos := hooks.UseState([]string{})
 newTodos := append(todos(), newTodo)
@@ -171,15 +188,18 @@ setTodos(newTodos)
 ---
 
 ### 06 - Todo Advanced
+
 **File:** `/examples/06-todo-advanced/main.go` (400+ lines)
 
 **Demonstrates:**
+
 - Complex state structures
 - Filtering and searching
 - Component composition
 - Multiple sub-components
 
 **Features:**
+
 - Todo priorities (low, medium, high)
 - Categories
 - Due dates
@@ -191,15 +211,18 @@ setTodos(newTodos)
 ---
 
 ### 07 - Goroutines
+
 **File:** `/examples/07-goroutines/main.go`
 
 **Demonstrates:**
+
 - Background tasks with goroutines
 - State updates from goroutines
 - Channel-based cancellation
 - Concurrent timers
 
 **Concepts:**
+
 ```go
 go func() {
     for i := 0; i <= 100; i += 10 {
@@ -218,15 +241,18 @@ go func() {
 ---
 
 ### 08 - Fetch
+
 **File:** `/examples/08-fetch/main.go`
 
 **Demonstrates:**
+
 - `hooks.UseFetch` for data fetching
 - Loading, error, and data states
 - Manual refetch
 - API integration
 
 **Concepts:**
+
 ```go
 getFetchState, refetch := hooks.UseFetch(url)
 state := getFetchState()
@@ -241,20 +267,24 @@ if state.Error != "" { /* show error */ }
 ---
 
 ### 09 - Atoms
+
 **File:** `/examples/09-atoms/main.go` (220+ lines)
 
 **Demonstrates:**
+
 - `state.UseAtom` for global state
 - State sharing between components
 - Multiple independent atoms
 
 **Components:**
+
 - CounterController - Updates shared counter
 - CounterDisplay - Displays shared counter
 - TextInputComponent - Updates shared text
 - TextDisplayComponent - Displays shared text
 
 **Concepts:**
+
 ```go
 count, setCount := state.UseAtom("shared-counter", 0)
 // Any component can access "shared-counter"
@@ -265,9 +295,11 @@ count, setCount := state.UseAtom("shared-counter", 0)
 ---
 
 ### 10 - Advanced Form
+
 **File:** `/examples/10-advanced-form/main.go`
 
 **Demonstrates:**
+
 - Multi-step forms
 - Form validation
 - Complex form state
@@ -278,9 +310,11 @@ count, setCount := state.UseAtom("shared-counter", 0)
 ---
 
 ### 11 - Blog
+
 **File:** `/examples/11-blog/main.go`
 
 **Demonstrates:**
+
 - Blog landing page layout
 - Content-heavy components
 - Semantic HTML structure
@@ -290,9 +324,11 @@ count, setCount := state.UseAtom("shared-counter", 0)
 ---
 
 ### 12 - Portfolio Site
+
 **Files:** `/examples/12-portfolio-site/*.go` (20+ files)
 
 **Demonstrates:**
+
 - Complete SPA application
 - Client-side routing
 - Multiple pages/routes
@@ -302,6 +338,7 @@ count, setCount := state.UseAtom("shared-counter", 0)
 - Responsive design
 
 **Components:**
+
 - App.go - Main application
 - Router.go - Route configuration
 - Navbar.go - Navigation bar
@@ -328,6 +365,7 @@ The `build.ps1` script automatically:
 5. Reports success/failure
 
 **Output Example:**
+
 ```
 Building 01-counter...
 ✅ 01-counter built successfully (2.8 MB) in 1.2s
@@ -352,6 +390,7 @@ type Element = render.Element
 ```
 
 Import in examples for cleaner code:
+
 ```go
 import "github.com/monstercameron/GoWebComponents/examples/shared"
 
@@ -365,6 +404,7 @@ func MyComponent(props shared.Attrs) *shared.Element {
 ### `/examples/static/`
 
 **Structure:**
+
 ```
 static/
 ├── index.html           # Examples directory page
@@ -386,46 +426,41 @@ Each example has an HTML file in its directory:
 ```html
 <!DOCTYPE html>
 <html>
-<head>
+  <head>
     <title>Example Name</title>
-    <link rel="stylesheet" href="../static/css/tailwind.css">
+    <link rel="stylesheet" href="../static/css/tailwind.css" />
     <script src="../static/script/wasm_exec.js"></script>
-</head>
-<body>
+  </head>
+  <body>
     <div id="app"></div>
     <script>
-        const go = new Go();
-        WebAssembly.instantiateStreaming(
-            fetch('../static/bin/example.wasm'), 
-            go.importObject
-        ).then(result => go.run(result.instance));
+      const go = new Go();
+      WebAssembly.instantiateStreaming(
+        fetch("../static/bin/example.wasm"),
+        go.importObject
+      ).then((result) => go.run(result.instance));
     </script>
-</body>
+  </body>
 </html>
 ```
 
 ## Learning Path
 
 **Beginner:**
+
 1. 01-counter (State basics)
 2. 02-text-input (Form inputs)
 3. 03-toggle (Conditionals)
 4. 05-todo-basic (Lists)
 
-**Intermediate:**
-5. 04-form (Complex state)
-6. 07-goroutines (Concurrency)
-7. 08-fetch (HTTP)
-8. 09-atoms (Global state)
+**Intermediate:** 5. 04-form (Complex state) 6. 07-goroutines (Concurrency) 7. 08-fetch (HTTP) 8. 09-atoms (Global state)
 
-**Advanced:**
-9. 06-todo-advanced (Full CRUD app)
-10. 10-advanced-form (Multi-step forms)
-11. 12-portfolio-site (Complete SPA)
+**Advanced:** 9. 06-todo-advanced (Full CRUD app) 10. 10-advanced-form (Multi-step forms) 11. 12-portfolio-site (Complete SPA)
 
 ## Running Examples Locally
 
 ### Option 1: Python HTTP Server
+
 ```bash
 cd examples/static
 python -m http.server 8080
@@ -433,12 +468,14 @@ python -m http.server 8080
 ```
 
 ### Option 2: Go HTTP Server
+
 ```bash
 cd examples/static
 go run ../../tools/serve.go
 ```
 
 ### Option 3: Live Reload
+
 ```bash
 cd tools
 ./livereload.sh  # or livereload.ps1 on Windows
@@ -447,11 +484,13 @@ cd tools
 ## Related Packages
 
 All examples use:
+
 - **[/dom](../dom/)** - Element creation
 - **[/hooks](../hooks/)** - State and effects
 - **[/render](../render/)** - Rendering engine
 
 Some examples use:
+
 - **[/state](../state/)** - Global state (09-atoms)
 - **[/fetch](../fetch/)** - HTTP requests (08-fetch)
 - **[/router](../router/)** - Routing (12-portfolio-site)
@@ -470,15 +509,18 @@ To add a new example:
 ## Troubleshooting
 
 **WASM file not found:**
+
 - Ensure you ran `build.ps1`
 - Check that WASM file exists in `static/bin/`
 
 **Example not rendering:**
+
 - Check browser console for errors
 - Verify `wasm_exec.js` is loaded
 - Ensure `#app` div exists in HTML
 
 **Build fails:**
+
 - Check Go version (1.22.0+)
 - Ensure all imports are correct
 - Run `go mod tidy`

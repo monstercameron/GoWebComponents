@@ -24,26 +24,32 @@ The `router` package provides client-side routing for single-page applications (
 ## Router Types
 
 ### Hash Router
+
 Uses URL hash fragments for routing (e.g., `example.com/#/about`).
 
 **Pros:**
+
 - Works without server configuration
 - Compatible with static hosting
 - No server-side setup needed
 
 **Cons:**
+
 - Hash in URL (aesthetics)
 - SEO limitations
 
 ### Browser Router
+
 Uses HTML5 History API for clean URLs (e.g., `example.com/about`).
 
 **Pros:**
+
 - Clean, semantic URLs
 - Better SEO
 - Professional appearance
 
 **Cons:**
+
 - Requires server configuration (all routes → index.html)
 - Doesn't work with file:// protocol
 
@@ -84,11 +90,11 @@ func main() {
         "/about": AboutPage,
         "*":      NotFound,  // Catch-all route
     })
-    
+
     // Render router
     container := js.Global().Get("document").Call("getElementById", "app")
     render.ToElement(r.Render(), container)
-    
+
     select {}
 }
 ```
@@ -104,10 +110,10 @@ func main() {
         "/products": ProductsPage,
         "*":         NotFound,
     })
-    
+
     container := js.Global().Get("document").Call("getElementById", "app")
     render.ToElement(r.Render(), container)
-    
+
     select {}
 }
 ```
@@ -124,11 +130,11 @@ func Navigation(props dom.Attrs) *dom.Element {
         dom.A(dom.Attrs{
             "href": "#/",  // Hash router
         }, dom.Text("Home")),
-        
+
         dom.A(dom.Attrs{
             "href": "#/about",
         }, dom.Text("About")),
-        
+
         dom.A(dom.Attrs{
             "href": "#/contact",
         }, dom.Text("Contact")),
@@ -141,7 +147,7 @@ func Navigation(props dom.Attrs) *dom.Element {
         dom.A(dom.Attrs{
             "href": "/",  // Browser router
         }, dom.Text("Home")),
-        
+
         dom.A(dom.Attrs{
             "href": "/about",
         }, dom.Text("About")),
@@ -156,7 +162,7 @@ Navigate programmatically using JavaScript:
 ```go
 handleLogin := hooks.GoUseFunc(func(e dom.GoEvent) {
     e.PreventDefault()
-    
+
     // Perform login logic
     if loginSuccessful {
         // Navigate to dashboard
@@ -177,11 +183,11 @@ Parse URL parameters manually:
 func UserProfile(props dom.Attrs) *dom.Element {
     // Get current hash
     hash := js.Global().Get("location").Get("hash").String()
-    
+
     // Parse user ID from hash like #/users/123
     parts := strings.Split(hash, "/")
     userID := parts[len(parts)-1]
-    
+
     return dom.Div(nil,
         dom.H1(nil, dom.Text("User Profile")),
         dom.P(nil, dom.Text("User ID: "+userID)),
@@ -202,7 +208,7 @@ func SearchResults(props dom.Attrs) *dom.Element {
     // Get URL search params
     url := js.Global().Get("location").Get("href").String()
     // Parse query: #/search?q=golang&sort=relevance
-    
+
     return dom.Div(nil,
         dom.H1(nil, dom.Text("Search Results")),
         // Display results
@@ -222,7 +228,7 @@ func AppLayout(props dom.Attrs) *dom.Element {
         "/contact": ContactPage,
         "*":        NotFound,
     })
-    
+
     return dom.Div(nil,
         Navigation(nil),  // Always visible nav
         dom.Main(nil,
@@ -253,13 +259,13 @@ func Footer(props dom.Attrs) *dom.Element {
 func ProtectedRoute(component router.RouteComponent) router.RouteComponent {
     return func(props dom.Attrs) *dom.Element {
         isAuthenticated, _ := state.UseAtom("user-authenticated", false)
-        
+
         if !isAuthenticated() {
             // Redirect to login
             js.Global().Get("location").Set("hash", "/login")
             return dom.Div(nil, dom.Text("Redirecting..."))
         }
-        
+
         return component(props)
     }
 }
@@ -280,6 +286,7 @@ routes := map[string]router.RouteComponent{
 Configure your server to serve `index.html` for all routes:
 
 **Nginx:**
+
 ```nginx
 location / {
     try_files $uri $uri/ /index.html;
@@ -287,6 +294,7 @@ location / {
 ```
 
 **Apache (.htaccess):**
+
 ```apache
 <IfModule mod_rewrite.c>
     RewriteEngine On
@@ -299,6 +307,7 @@ location / {
 ```
 
 **Go HTTP Server:**
+
 ```go
 http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
     http.ServeFile(w, r, "./static/index.html")
@@ -308,7 +317,9 @@ http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 ## Best Practices
 
 ### 1. Use Catch-All Route
+
 Always include a `*` route for 404 pages:
+
 ```go
 routes := map[string]router.RouteComponent{
     "/": HomePage,
@@ -317,19 +328,20 @@ routes := map[string]router.RouteComponent{
 ```
 
 ### 2. Active Link Highlighting
+
 ```go
 func NavLink(props dom.Attrs) *dom.Element {
     href := props["href"].(string)
     text := props["text"].(string)
-    
+
     currentHash := js.Global().Get("location").Get("hash").String()
     isActive := currentHash == href
-    
+
     className := "nav-link"
     if isActive {
         className += " active"
     }
-    
+
     return dom.A(dom.Attrs{
         "href":  href,
         "class": className,
@@ -338,6 +350,7 @@ func NavLink(props dom.Attrs) *dom.Element {
 ```
 
 ### 3. Route Constants
+
 ```go
 const (
     RouteHome    = "/"
@@ -362,6 +375,7 @@ routes := map[string]router.RouteComponent{
 ## Examples
 
 See routing in action:
+
 - **[/examples/12-portfolio-site](../examples/12-portfolio-site/)** - Complete SPA with navigation
 - **[/test/specs/browser_router.spec.js](../test/specs/browser_router.spec.js)** - Browser router tests
 - **[/test/specs/hash_router.spec.js](../test/specs/hash_router.spec.js)** - Hash router tests

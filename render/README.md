@@ -36,15 +36,15 @@ import (
 
 func main() {
     // Create your component
-    app := dom.Div(nil, 
+    app := dom.Div(nil,
         dom.H1(nil, dom.Text("Hello, World!")))
-    
+
     // Get the container element
     container := js.Global().Get("document").Call("getElementById", "app")
-    
+
     // Render to DOM
     render.ToElement(app, container)
-    
+
     // Keep Go running
     select {}
 }
@@ -80,12 +80,14 @@ type Element struct {
 ### Element Types
 
 1. **HTML Elements**: Standard HTML tags
+
    ```go
    dom.Div(attrs, children...)
    dom.Button(attrs, children...)
    ```
 
 2. **Text Nodes**: Plain text content
+
    ```go
    dom.Text("Hello, World!")
    ```
@@ -116,6 +118,7 @@ graph LR
 ```
 
 1. **Reconciliation Phase** (Interruptible)
+
    - Create work-in-progress fiber tree
    - Diff with current fiber tree
    - Mark effects (updates, insertions, deletions)
@@ -219,7 +222,7 @@ func SafeComponent(props dom.Attrs) *dom.Element {
             fmt.Println("Component panic:", r)
         }
     }()
-    
+
     // Component logic that might panic
     return dom.Div(nil, dom.Text("Safe"))
 }
@@ -228,6 +231,7 @@ func SafeComponent(props dom.Attrs) *dom.Element {
 ## Best Practices
 
 ### 1. Component Purity
+
 Components should be pure functions - same props should always produce the same output:
 
 ```go
@@ -246,6 +250,7 @@ func Counter(props dom.Attrs) *dom.Element {
 ```
 
 ### 2. Avoid Direct DOM Manipulation
+
 Let the render engine handle DOM updates:
 
 ```go
@@ -263,6 +268,7 @@ func GoodComponent(props dom.Attrs) *dom.Element {
 ```
 
 ### 3. Use Keys for Dynamic Lists
+
 Always provide `key` prop for list items:
 
 ```go
@@ -281,6 +287,7 @@ for i, todo := range todos {
 ### Enable Debug Logging
 
 Set environment variable before building:
+
 ```bash
 export DEBUG_RENDER=true
 GOOS=js GOARCH=wasm go build -o main.wasm
@@ -289,12 +296,13 @@ GOOS=js GOARCH=wasm go build -o main.wasm
 ### Performance Profiling
 
 Monitor render times in browser console:
+
 ```javascript
 // In browser console
-performance.mark('render-start');
+performance.mark("render-start");
 // Trigger component update
-performance.mark('render-end');
-performance.measure('render', 'render-start', 'render-end');
+performance.mark("render-end");
+performance.measure("render", "render-start", "render-end");
 ```
 
 ## Related Packages
@@ -307,6 +315,7 @@ performance.measure('render', 'render-start', 'render-end');
 ## Examples
 
 See rendering in action:
+
 - **[/examples/01-counter](../examples/01-counter/)** - Basic rendering
 - **[/examples/06-todo-advanced](../examples/06-todo-advanced/)** - Complex lists with keys
 - **[/examples/07-goroutines](../examples/07-goroutines/)** - Async state updates

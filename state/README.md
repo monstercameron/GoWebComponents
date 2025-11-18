@@ -31,11 +31,11 @@ Creates or connects to a global state atom identified by a unique key.
 // Component A - Controller
 func CounterController(props dom.Attrs) *dom.Element {
     count, setCount := state.UseAtom("global-counter", 0)
-    
+
     handleIncrement := hooks.GoUseFunc(func(e dom.GoEvent) {
         setCount(count() + 1)
     })
-    
+
     return dom.Button(dom.Attrs{
         "onclick": handleIncrement,
     }, dom.Text("Increment"))
@@ -44,13 +44,14 @@ func CounterController(props dom.Attrs) *dom.Element {
 // Component B - Display
 func CounterDisplay(props dom.Attrs) *dom.Element {
     count, _ := state.UseAtom("global-counter", 0)
-    
-    return dom.P(nil, 
+
+    return dom.P(nil,
         dom.Text(fmt.Sprintf("Count: %d", count())))
 }
 ```
 
 **Key Features:**
+
 - **Shared State**: Multiple components can subscribe to the same atom
 - **Type-Safe**: Generic type parameter ensures type safety
 - **Automatic Re-renders**: All subscribed components re-render when atom updates
@@ -59,6 +60,7 @@ func CounterDisplay(props dom.Attrs) *dom.Element {
 ## Use Cases
 
 ### 1. Application Theme
+
 ```go
 // In theme toggle component
 theme, setTheme := state.UseAtom("app-theme", "light")
@@ -77,6 +79,7 @@ className := theme() + "-mode"
 ```
 
 ### 2. User Session
+
 ```go
 type User struct {
     ID       int
@@ -97,6 +100,7 @@ user, _ := state.UseAtom("current-user", User{})
 ```
 
 ### 3. Shopping Cart
+
 ```go
 type CartItem struct {
     ProductID int
@@ -123,6 +127,7 @@ total := calculateTotal(cart())
 ```
 
 ### 4. Modal/Dialog State
+
 ```go
 // In any component
 isOpen, setIsOpen := state.UseAtom("modal-open", false)
@@ -144,21 +149,27 @@ return dom.Dialog(/* ... modal content ... */)
 ## Atom Patterns
 
 ### Read-Only Access
+
 Components that only need to read an atom can ignore the setter:
+
 ```go
 theme, _ := state.UseAtom("app-theme", "light")
 // Only uses theme(), never updates it
 ```
 
 ### Write-Only Access
+
 Components that only update can ignore the getter (less common):
+
 ```go
 _, setTheme := state.UseAtom("app-theme", "light")
 // Only calls setTheme(), doesn't read current value
 ```
 
 ### Derived State
+
 Compute values based on atom state:
+
 ```go
 cart, _ := state.UseAtom("shopping-cart", []CartItem{})
 
@@ -174,6 +185,7 @@ total := hooks.UseMemo(func() interface{} {
 ## Best Practices
 
 ### 1. Use Descriptive Keys
+
 ```go
 // Good
 state.UseAtom("user-preferences", prefs)
@@ -185,6 +197,7 @@ state.UseAtom("x", value)
 ```
 
 ### 2. Initialize with Proper Types
+
 ```go
 // Struct
 state.UseAtom("user", User{})
@@ -202,27 +215,30 @@ state.UseAtom("message", "")
 ```
 
 ### 3. Consider Component State First
+
 Use atoms for:
+
 - ✅ State needed by multiple distant components
 - ✅ Global application state (theme, user, cart)
 - ✅ State that persists across route changes
 
 Use `hooks.UseState` for:
+
 - ✅ Form input values
 - ✅ Component-specific UI state (expanded, selected)
 - ✅ Temporary local state
 
 ## When to Use Atoms vs. Props
 
-| Scenario | Use Atoms | Use Props |
-|----------|-----------|-----------|
-| Parent-child communication | ❌ | ✅ |
-| Sibling communication | ✅ | ❌ |
-| Distant components (no parent) | ✅ | ❌ |
-| Global app state | ✅ | ❌ |
-| Component configuration | ❌ | ✅ |
-| One-time values | ❌ | ✅ |
-| Frequently changing shared state | ✅ | ❌ |
+| Scenario                         | Use Atoms | Use Props |
+| -------------------------------- | --------- | --------- |
+| Parent-child communication       | ❌        | ✅        |
+| Sibling communication            | ✅        | ❌        |
+| Distant components (no parent)   | ✅        | ❌        |
+| Global app state                 | ✅        | ❌        |
+| Component configuration          | ❌        | ✅        |
+| One-time values                  | ❌        | ✅        |
+| Frequently changing shared state | ✅        | ❌        |
 
 ## Implementation Details
 
@@ -240,6 +256,7 @@ Use `hooks.UseState` for:
 ## Examples
 
 See atom usage in:
+
 - **[/examples/09-atoms](../examples/09-atoms/)** - Complete atom demonstration with multiple components sharing state
 
 ## Documentation

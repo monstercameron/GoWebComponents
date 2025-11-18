@@ -61,6 +61,7 @@ hooks.UseEffect(func() {
 ```
 
 **Dependency Rules:**
+
 - `nil` or empty slice: Run once on mount
 - Slice with values: Run when any dependency changes
 - Omitted: Run after every render
@@ -118,8 +119,8 @@ func UserProfile(props dom.Attrs) *dom.Element {
     // Memoized computation
     displayName := hooks.UseMemo(func() interface{} {
         userData := user()
-        return fmt.Sprintf("%s %s", 
-            userData["firstName"], 
+        return fmt.Sprintf("%s %s",
+            userData["firstName"],
             userData["lastName"])
     }, []interface{}{user()}).(string)
 
@@ -154,7 +155,7 @@ func UseCounter(initial int) (func() int, func(), func()) {
 // Usage
 func Counter(props dom.Attrs) *dom.Element {
     count, inc, dec := UseCounter(0)
-    
+
     // Use count(), inc(), dec() in your component
 }
 ```
@@ -168,6 +169,7 @@ func Counter(props dom.Attrs) *dom.Element {
 ## Event Handler Patterns
 
 ### Simple Handler
+
 ```go
 handleClick := hooks.GoUseFunc(func(e dom.GoEvent) {
     fmt.Println("Clicked!")
@@ -175,6 +177,7 @@ handleClick := hooks.GoUseFunc(func(e dom.GoEvent) {
 ```
 
 ### Input Handler
+
 ```go
 handleInput := hooks.GoUseFunc(func(e dom.GoEvent) {
     setText(e.GetValue())
@@ -182,6 +185,7 @@ handleInput := hooks.GoUseFunc(func(e dom.GoEvent) {
 ```
 
 ### Form Submit Handler
+
 ```go
 handleSubmit := hooks.GoUseFunc(func(e dom.GoEvent) {
     e.PreventDefault()
@@ -190,6 +194,7 @@ handleSubmit := hooks.GoUseFunc(func(e dom.GoEvent) {
 ```
 
 ### Keyboard Handler
+
 ```go
 handleKeyPress := hooks.GoUseFunc(func(e dom.GoEvent) {
     if e.GetKey() == "Enter" {
@@ -208,6 +213,7 @@ handleKeyPress := hooks.GoUseFunc(func(e dom.GoEvent) {
 ## Examples
 
 See practical hook usage in:
+
 - **[/examples/01-counter](../examples/01-counter/)** - `UseState` basics
 - **[/examples/02-text-input](../examples/02-text-input/)** - Input handling
 - **[/examples/07-goroutines](../examples/07-goroutines/)** - `UseEffect` with goroutines

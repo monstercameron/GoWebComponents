@@ -36,21 +36,25 @@ Development tools and build scripts for GoWebComponents projects.
 Compiles Go code to WebAssembly.
 
 **Linux/macOS:**
+
 ```bash
 ./tools/build.sh
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 .\tools\build.ps1
 ```
 
 **Output:**
+
 - Compiles `main.go` to `static/bin/main.wasm`
 - Copies `wasm_exec.js` from Go installation
 - Shows build time and file size
 
 **Usage in Projects:**
+
 ```bash
 # From project root
 ./tools/build.sh
@@ -69,17 +73,20 @@ Compiles Go code to WebAssembly.
 Simple HTTP server for testing WASM applications.
 
 **Windows (PowerShell):**
+
 ```powershell
 .\tools\serve.ps1
 ```
 
 **Features:**
+
 - Serves files from `static/` directory
 - Runs on port 8080
 - Proper MIME types for `.wasm` files
 - CORS headers enabled
 
 **Requirements:**
+
 - Python 3 with http.server module
 
 ---
@@ -89,16 +96,19 @@ Simple HTTP server for testing WASM applications.
 Development server with automatic rebuild and hot reload.
 
 **Linux/macOS:**
+
 ```bash
 ./tools/livereload.sh
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 .\tools\livereload.ps1
 ```
 
 **Features:**
+
 - Watches `.go` files for changes
 - Auto-rebuilds WASM on file save
 - WebSocket-based hot reload
@@ -107,6 +117,7 @@ Development server with automatic rebuild and hot reload.
 - Debouncing (2s delay after last change)
 
 **Server Output:**
+
 ```
 🔄 Live reload started. Watching for .go file changes...
 📂 Watching directory: /your-project
@@ -119,6 +130,7 @@ Development server with automatic rebuild and hot reload.
 ```
 
 **Browser Features:**
+
 - Connection status indicator
 - Build progress display
 - Auto-refresh on successful build
@@ -142,22 +154,26 @@ const (
 GitHub Pages deployment script.
 
 **Linux/macOS:**
+
 ```bash
 ./tools/pages.sh
 ```
 
 **What it does:**
+
 1. Builds WASM binary
 2. Creates `gh-pages` branch
 3. Copies static files
 4. Commits and pushes to GitHub
 
 **Requirements:**
+
 - Git repository
 - GitHub remote configured
 - Write access to repository
 
 **Usage:**
+
 ```bash
 # First time setup
 git remote add origin https://github.com/user/repo.git
@@ -200,6 +216,7 @@ git remote add origin https://github.com/user/repo.git
 ### Implementation
 
 **`livereload/livereload.go`** - Main server:
+
 - HTTP server for static files
 - WebSocket server for reload notifications
 - File system watcher
@@ -209,11 +226,13 @@ git remote add origin https://github.com/user/repo.git
 **WebSocket Protocol:**
 
 Client → Server:
+
 ```json
-{"type": "ping"}
+{ "type": "ping" }
 ```
 
 Server → Client:
+
 ```json
 {"type": "building", "message": "Building WASM..."}
 {"type": "success", "message": "Build completed in 1.2s"}
@@ -222,12 +241,13 @@ Server → Client:
 ```
 
 **Client-Side (Auto-injected):**
+
 ```javascript
-const ws = new WebSocket('ws://localhost:8080/ws');
+const ws = new WebSocket("ws://localhost:8080/ws");
 
 ws.onmessage = (event) => {
   const msg = JSON.parse(event.data);
-  if (msg.type === 'reload') {
+  if (msg.type === "reload") {
     window.location.reload();
   }
 };
@@ -302,6 +322,7 @@ echo "✅ Done!"
 ## Contributing
 
 When adding new tools:
+
 1. Support both Windows (PowerShell) and Unix (bash) if possible
 2. Include error handling
 3. Provide clear output messages

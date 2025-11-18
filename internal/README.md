@@ -42,49 +42,58 @@ The runtime package implements the fiber-based reconciliation engine and hook sy
 #### Key Components
 
 **`reconciler.go`** - Fiber-based reconciliation algorithm
+
 - Virtual DOM diffing
 - Work-in-progress tree construction
 - Effect tagging (Placement, Update, Deletion)
 - Commit phase coordination
 
 **`scheduler.go`** - Task scheduling and prioritization
+
 - Work loop using `requestIdleCallback`
 - Priority queue for updates
 - Interruption and resumption of work
 - Batching of state updates
 
 **`hooks.go`** - Hook implementation
+
 - `UseState` internal implementation
 - `UseEffect` lifecycle management
 - `UseMemo` memoization cache
 - Hook state storage per fiber
 
 **`state.go`** - Global state management
+
 - Atom registry and subscriptions
 - State update propagation
 - Component re-render triggering
 
 **`events.go`** - Event handling system
+
 - Event delegation
 - `GoEvent` wrapper implementation
 - `js.Func` lifecycle management
 
 **`types.go`** - Core data structures
+
 - Fiber node structure
 - Work-in-progress tree
 - Effect lists
 - Hook storage
 
 **`interfaces.go`** - Internal interfaces
+
 - Component function types
 - Render targets
 - Platform abstractions
 
 **`shim.go`** - Compatibility layer
+
 - Browser API abstractions
 - Polyfills and fallbacks
 
 **`html.go`** - HTML rendering logic
+
 - Element creation
 - Attribute setting
 - DOM manipulation primitives
@@ -94,13 +103,17 @@ The runtime package implements the fiber-based reconciliation engine and hook sy
 Platform-specific implementations for different environments.
 
 #### `/internal/platform/jsdom`
+
 Real DOM implementation for WebAssembly environment.
+
 - Uses `syscall/js` to interact with browser DOM
 - Actual DOM element creation and manipulation
 - Event listener attachment
 
 #### `/internal/platform/mockdom`
+
 Mock DOM implementation for testing.
+
 - Simulates DOM without browser
 - Used in Go native tests
 - Enables unit testing of components
@@ -144,6 +157,7 @@ graph TD
 ### Work Loop Algorithm
 
 1. **Render Phase** (Interruptible)
+
    - Walk the fiber tree
    - Reconcile children (diff algorithm)
    - Mark effects
@@ -194,6 +208,7 @@ Container (event listener)
 ```
 
 When a button is clicked:
+
 1. Event bubbles to container
 2. Runtime identifies target fiber
 3. Calls appropriate Go event handler
@@ -202,6 +217,7 @@ When a button is clicked:
 ### Memory Management
 
 `js.Func` objects are released when:
+
 - Component unmounts
 - Event handler changes
 - Effect cleanup runs
@@ -216,10 +232,10 @@ The mock DOM allows testing components without a browser:
 // In test
 func TestComponent(t *testing.T) {
     mockDOM := mockdom.New()
-    
+
     element := MyComponent(nil)
     render.ToElement(element, mockDOM.Container)
-    
+
     // Assert DOM structure
     assert.Equal(t, "div", mockDOM.GetElementType())
 }
@@ -306,12 +322,14 @@ If you're contributing to GoWebComponents:
 ## Testing
 
 Run internal tests:
+
 ```bash
 go test ./internal/runtime/...
 go test ./internal/platform/mockdom/...
 ```
 
 Run benchmarks:
+
 ```bash
 go test -bench=. ./internal/runtime/
 ```
@@ -319,6 +337,7 @@ go test -bench=. ./internal/runtime/
 ## Documentation
 
 This package is internal implementation only. For user-facing documentation, see:
+
 - [Main README](../)
 - [/dom](../dom/)
 - [/hooks](../hooks/)

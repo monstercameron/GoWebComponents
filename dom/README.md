@@ -26,12 +26,15 @@ The `dom` package provides a comprehensive API for creating and manipulating HTM
 ## Key Components
 
 ### Element Creation (`dom.go`)
+
 - `CreateElement()` - Factory function for creating virtual DOM elements
 - Element type definitions and attribute handling
 - Virtual DOM node structure
 
 ### HTML Element Constructors (`html.go`)
+
 Over 80 HTML element functions including:
+
 - **Layout**: `Div`, `Span`, `Section`, `Article`, `Header`, `Footer`, `Nav`, `Main`, `Aside`
 - **Text**: `H1`-`H6`, `P`, `Blockquote`, `Pre`, `Code`, `Em`, `Strong`, `Small`
 - **Forms**: `Form`, `Input`, `Textarea`, `Select`, `Option`, `Button`, `Label`, `Fieldset`
@@ -42,6 +45,7 @@ Over 80 HTML element functions including:
 - **Semantic**: `Time`, `Mark`, `Progress`, `Meter`, `Data`, `Output`
 
 ### Event Handling (`event.go`)
+
 - `GoEvent` struct - Type-safe event wrapper
 - Event helper methods:
   - `GetValue()` - Extract input values
@@ -51,6 +55,7 @@ Over 80 HTML element functions including:
   - `StopPropagation()` - Stop event bubbling
 
 ### Type Definitions
+
 ```go
 type Attrs = map[string]interface{}  // Element attributes
 type Element struct {                // Virtual DOM element
