@@ -8,21 +8,21 @@ GoWebComponents is a modern frontend framework that lets you build fast, type-sa
 
 ## 🌟 Why GoWebComponents?
 
-*   **A Truly Unified Stack**: Go beyond just using the same language. With GoWebComponents, you can share data structures, validation logic, and utility functions between your backend and frontend. This eliminates data-syncing bugs, reduces code duplication, and simplifies your entire development process. A single PR can introduce a new feature, from the database all the way to the UI.
-*   **Next-Generation Performance**: Experience a faster web by default. Your Go code is compiled to a highly optimized WebAssembly binary that runs at near-native speed. We've engineered a fiber-based reconciliation algorithm that minimizes DOM updates, and our advanced memory pooling drastically reduces garbage collection pauses, leading to smoother animations and a more responsive UI.
-*   **Superior Concurrency Model**: Say goodbye to a frozen UI. Unlike JavaScript's single-threaded event loop, Go provides true, simple concurrency with goroutines. You can run expensive operations—like processing large datasets, complex calculations, or real-time data streaming—in the background without ever blocking the main UI thread. This ensures your application remains fluid and interactive, no matter the workload.
-*   **The Go Advantage Over JavaScript/TypeScript**: Leave the complexities of the JS ecosystem behind. With Go, you get a powerful and consistent standard library that minimizes external dependencies and a compiler that produces a single, portable binary. Say goodbye to `node_modules`, complex transpiler configurations, and the quirks of JavaScript. Write cleaner, more maintainable code that is fast by default.
-*   **A Familiar, Modern API**: Leverage a powerful, React-like hook system (`GoUseState`, `GoUseEffect`, `GoUseMemo`) that makes managing state, side effects, and performance optimizations intuitive and straightforward.
-*   **Comprehensive Component Library**: Build UIs with a rich set of over 80 pre-built HTML element constructors. From `Div` to `Button` to `Form`, everything you need is included.
-*   **Rock-Solid Reliability**: Harness the power of Go's strong, static type system to catch errors at compile time, not in production. Write more robust and maintainable code with confidence.
-*   **Effortless Data Fetching**: Simplify communication with your backend using the built-in `GoUseFetch` hook for declarative data fetching or the `GoFetch` function for imperative requests.
+- **A Truly Unified Stack**: Go beyond just using the same language. With GoWebComponents, you can share data structures, validation logic, and utility functions between your backend and frontend. This eliminates data-syncing bugs, reduces code duplication, and simplifies your entire development process. A single PR can introduce a new feature, from the database all the way to the UI.
+- **Next-Generation Performance**: Experience a faster web by default. Your Go code is compiled to a highly optimized WebAssembly binary that runs at near-native speed. We've engineered a fiber-based reconciliation algorithm that minimizes DOM updates, and our advanced memory pooling drastically reduces garbage collection pauses, leading to smoother animations and a more responsive UI.
+- **Superior Concurrency Model**: Say goodbye to a frozen UI. Unlike JavaScript's single-threaded event loop, Go provides true, simple concurrency with goroutines. You can run expensive operations—like processing large datasets, complex calculations, or real-time data streaming—in the background without ever blocking the main UI thread. This ensures your application remains fluid and interactive, no matter the workload.
+- **The Go Advantage Over JavaScript/TypeScript**: Leave the complexities of the JS ecosystem behind. With Go, you get a powerful and consistent standard library that minimizes external dependencies and a compiler that produces a single, portable binary. Say goodbye to `node_modules`, complex transpiler configurations, and the quirks of JavaScript. Write cleaner, more maintainable code that is fast by default.
+- **A Familiar, Modern API**: Leverage a powerful, React-like hook system (`GoUseState`, `GoUseEffect`, `GoUseMemo`) that makes managing state, side effects, and performance optimizations intuitive and straightforward.
+- **Comprehensive Component Library**: Build UIs with a rich set of over 80 pre-built HTML element constructors. From `Div` to `Button` to `Form`, everything you need is included.
+- **Rock-Solid Reliability**: Harness the power of Go's strong, static type system to catch errors at compile time, not in production. Write more robust and maintainable code with confidence.
+- **Effortless Data Fetching**: Simplify communication with your backend using the built-in `GoUseFetch` hook for declarative data fetching or the `GoFetch` function for imperative requests.
 
 ## 🏗️ Getting Started
 
 ### Prerequisites
 
-*   Go 1.22.0 or later.
-*   A Go project initialized with `go mod init`.
+- Go 1.22.0 or later.
+- A Go project initialized with `go mod init`.
 
 ### Installation
 
@@ -92,20 +92,23 @@ Here's how to create a simple "click counter" component.
     ```html
     <!DOCTYPE html>
     <html lang="en">
-    <head>
-        <meta charset="UTF-8">
+      <head>
+        <meta charset="UTF-8" />
         <title>GoWebComponents Counter</title>
         <script src="wasm_exec.js"></script>
         <script>
-            const go = new Go();
-            WebAssembly.instantiateStreaming(fetch("bin/main.wasm"), go.importObject).then((result) => {
-                go.run(result.instance);
-            });
+          const go = new Go();
+          WebAssembly.instantiateStreaming(
+            fetch("bin/main.wasm"),
+            go.importObject
+          ).then((result) => {
+            go.run(result.instance);
+          });
         </script>
-    </head>
-    <body>
+      </head>
+      <body>
         <div id="app"></div>
-    </body>
+      </body>
     </html>
     ```
 
@@ -134,16 +137,19 @@ GoWebComponents includes a powerful **live reload development server** that dram
 ### ⚡ Quick Start Live Reload
 
 **Linux/macOS:**
+
 ```bash
 ./scripts/livereload.sh
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 .\scripts\livereload.ps1
 ```
 
 **Or run directly:**
+
 ```bash
 cd scripts/livereload
 go run livereload.go
@@ -152,23 +158,27 @@ go run livereload.go
 ### 🌟 Live Reload Features
 
 #### 🔄 **Auto-Rebuild & Hot Reload**
+
 - **Instant feedback**: Changes to `.go` files trigger automatic WASM rebuilds
 - **Smart debouncing**: 2000ms debounce prevents excessive rebuilds during rapid editing
 - **Process management**: Automatically kills running builds when new changes are detected
 - **Build status**: Real-time build progress and error reporting via WebSocket
 
 #### 🎯 **State Preservation**
+
 - **Maintains scroll position** across reloads
 - **Preserves component state** when possible
 - **Custom state hooks**: Implement `exportAppState()` and `importAppState()` in your Go code
 - **Session persistence**: State stored in browser sessionStorage
 
 #### 📡 **WebSocket Communication**
+
 - **Real-time updates**: Build status, errors, and reload notifications
 - **Visual status indicator**: Top-right browser indicator shows connection and build status
 - **Multiple client support**: Connect from multiple browser tabs simultaneously
 
 #### 🎛️ **Smart File Watching**
+
 - **Recursive directory watching**: Monitors your entire project
 - **Intelligent filtering**: Only watches `.go` files, excludes `.git`, `vendor`, `node_modules`
 - **Performance optimized**: Uses efficient filesystem notifications
@@ -191,7 +201,7 @@ func exportAppState() js.Value {
 }
 
 // Import and restore application state after reload
-//go:export importAppState  
+//go:export importAppState
 func importAppState(jsState js.Value) {
     // Parse and restore your application state
     restoreComponentStates(jsState.Get("componentStates"))
@@ -213,12 +223,12 @@ func hotReloadWasm() {
 ```
 🔄 Live reload started. Watching for .go file changes...
 📂 Watching directory: /your-project
-⏱️  Debounce time: 2s  
+⏱️  Debounce time: 2s
 🌐 Server running on http://localhost:8080
 🛑 Press Ctrl+C to stop
 
 👀 Watching: /your-project/fiber
-👀 Watching: /your-project/examples  
+👀 Watching: /your-project/examples
 🔨 Starting WASM build...
 ✅ Build completed successfully in 1.8s
 🔌 WebSocket client connected (total: 1)
@@ -265,7 +275,7 @@ import "github.com/monstercameron/GoWebComponents/hooks"
 
 Manages state within a component. When you update the state, the component automatically re-renders.
 
-*   **Returns**: A getter function to access the current state, and a setter function to update it.
+- **Returns**: A getter function to access the current state, and a setter function to update it.
 
 **Note on Type Inference**: In most cases, you don't need to specify the generic type `[T]`. Go's type inference will automatically determine the type from the initial value you provide. For example, `hooks.UseState(0)` is automatically inferred as `hooks.UseState[int](0)`.
 
@@ -285,10 +295,10 @@ setCount(count() + 1)
 
 Runs side effects after the component has rendered. Ideal for fetching data, setting up subscriptions, or manipulating the DOM directly.
 
-*   `effect`: The function to run. It can return a cleanup function.
-*   `deps`: A variadic list of dependencies. The effect will only re-run if a value in this list changes.
-    *   `nil` or empty: Runs the effect after every render (if no deps passed).
-    *   Pass explicit dependencies to control re-runs.
+- `effect`: The function to run. It can return a cleanup function.
+- `deps`: A variadic list of dependencies. The effect will only re-run if a value in this list changes.
+  - `nil` or empty: Runs the effect after every render (if no deps passed).
+  - Pass explicit dependencies to control re-runs.
 
 ```go
 // Runs once when the component mounts (empty deps)
@@ -371,11 +381,11 @@ dom.Input(dom.Attrs{
 
 A short list of commonly used element functions:
 
-*   `dom.Div`, `dom.Span`, `dom.P`
-*   `dom.H1`, `dom.H2`, `dom.H3`, `dom.H4`, `dom.H5`, `dom.H6`
-*   `dom.Button`, `dom.Input`, `dom.Form`, `dom.Label`
-*   `dom.A` (for links), `dom.Img` (for images)
-*   `dom.Ul`, `dom.Ol`, `dom.Li` (for lists)
+- `dom.Div`, `dom.Span`, `dom.P`
+- `dom.H1`, `dom.H2`, `dom.H3`, `dom.H4`, `dom.H5`, `dom.H6`
+- `dom.Button`, `dom.Input`, `dom.Form`, `dom.Label`
+- `dom.A` (for links), `dom.Img` (for images)
+- `dom.Ul`, `dom.Ol`, `dom.Li` (for lists)
 
 ## 🧩 Component Composition
 
@@ -439,7 +449,7 @@ func ProfilePage(props dom.Attrs) *render.Element {
 
 ### Method 2: Composition by Reference
 
-For more dynamic scenarios, you can use helper functions like `dom.DivWithComponents` (if available, or just pass functions). This allows you to pass component functions *by reference* and have the framework render them.
+For more dynamic scenarios, you can use helper functions like `dom.DivWithComponents` (if available, or just pass functions). This allows you to pass component functions _by reference_ and have the framework render them.
 
 This is useful when the list of components to render is determined at runtime.
 
@@ -492,7 +502,7 @@ graph TD
         G -- Yes --> D;
         G -- No --> H{"Commit Phase"};
     end
-    
+
     subgraph "Commit Phase"
         H --> I{"Apply DOM Changes"};
         I --> J{"Run Effects (GoUseEffect)"};
@@ -526,18 +536,19 @@ The `fetch.UseFetch` hook is the recommended way to handle data fetching inside 
 fetch.UseFetch(url string, options ...fetch.Options) (func() fetch.State, func())
 ```
 
-*   **Returns**:
-    1.  A `getter` function that returns the current `fetch.State`.
-    2.  A `refetch` function to manually trigger the fetch again.
+- **Returns**:
 
-*   **`fetch.State` struct**:
-    ```go
-    type State struct {
-        Data    interface{}
-        Loading bool
-        Error   string
-    }
-    ```
+  1.  A `getter` function that returns the current `fetch.State`.
+  2.  A `refetch` function to manually trigger the fetch again.
+
+- **`fetch.State` struct**:
+  ```go
+  type State struct {
+      Data    interface{}
+      Loading bool
+      Error   string
+  }
+  ```
 
 **Example: Displaying User Data**
 
@@ -545,7 +556,7 @@ fetch.UseFetch(url string, options ...fetch.Options) (func() fetch.State, func()
 func UserProfile(props dom.Attrs) *render.Element {
     // The hook returns a getter and a refetch function.
     fetchState, refetch := fetch.UseFetch("https://api.example.com/users/1")
-    
+
     // Call the getter to get the current state.
     state := fetchState()
 
@@ -582,14 +593,14 @@ The `fetch.Fetch` function allows you to perform an HTTP request from anywhere, 
 fetch.Fetch(url string, options fetch.Options) <-chan fetch.Result
 ```
 
-*   **Returns**: A read-only channel (`<-chan`) that will deliver a single `fetch.Result`.
-*   **`fetch.Result` struct**:
-    ```go
-    type Result struct {
-        Data interface{}
-        Err  error
-    }
-    ```
+- **Returns**: A read-only channel (`<-chan`) that will deliver a single `fetch.Result`.
+- **`fetch.Result` struct**:
+  ```go
+  type Result struct {
+      Data interface{}
+      Err  error
+  }
+  ```
 
 **Example: Creating a User on Form Submit**
 
@@ -627,7 +638,7 @@ func CreateUserForm(props dom.Attrs) *render.Element {
         dom.Input(dom.Attrs{
             "type": "text",
             "value": name(),
-            "oninput": hooks.GoUseFunc(func(event dom.GoEvent) { 
+            "oninput": hooks.GoUseFunc(func(event dom.GoEvent) {
                 setName(event.GetValue())
             }),
         }),
