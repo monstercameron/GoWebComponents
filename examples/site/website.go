@@ -2,6 +2,7 @@
 // +build js,wasm
 
 package website
+
 import (
 	"github.com/monstercameron/GoWebComponents/dom"
 )
@@ -36,7 +37,3 @@ func DocsWebsite(props Attrs) *Element {
 		ScrollToTopButton,
 	)
 }
-
-
-
-
