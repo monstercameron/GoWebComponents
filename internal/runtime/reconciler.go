@@ -69,6 +69,7 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 		oldFiber = wipFiber.alternate.child
 	}
 	var prevSibling *Fiber
+	firstChildSet := false
 
 	for index < len(elements) || oldFiber != nil {
 		var element interface{}
@@ -114,8 +115,9 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 				fmt.Printf("  [UPDATE] ERROR: not Element type=%T\n", element)
 			}
 			// Link to parent
-			if index == 0 {
+			if !firstChildSet {
 				wipFiber.child = newFiber
+				firstChildSet = true
 				fmt.Printf("[RECONCILE] set wipFiber(%v).child=%p (type=%v)\n", wipFiber.typeOf, newFiber, newFiber.typeOf)
 			} else if newFiber != nil && prevSibling != nil {
 				prevSibling.sibling = newFiber
@@ -152,8 +154,9 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 				fmt.Printf("  [PLACEMENT] ERROR: not Element\n")
 			}
 			// Link to parent
-			if index == 0 {
+			if !firstChildSet {
 				wipFiber.child = newFiber
+				firstChildSet = true
 				fmt.Printf("[RECONCILE] set wipFiber(%v).child=%p (type=%v)\n", wipFiber.typeOf, newFiber, newFiber.typeOf)
 			} else if newFiber != nil && prevSibling != nil {
 				prevSibling.sibling = newFiber
@@ -168,6 +171,10 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 			oldFiber.effectTag = "DELETION"
 			rt.deletions = append(rt.deletions, oldFiber)
 			oldFiber = oldFiber.sibling
+		} else {
+			// element is nil and oldFiber is nil - skip this index
+			// This prevents infinite loop when nil elements exist without old fibers
+			index++
 		}
 	}
 }
