@@ -71,8 +71,8 @@ func TestScheduleUpdate_CreatesWipRoot(t *testing.T) {
 		t.Error("Expected updateScheduled to be true")
 	}
 
-	if len(scheduler.callbacks) != 1 {
-		t.Errorf("Expected 1 idle callback scheduled, got %d", len(scheduler.callbacks))
+	if len(scheduler.timeouts) != 1 {
+		t.Errorf("Expected 1 timeout scheduled, got %d", len(scheduler.timeouts))
 	}
 }
 
@@ -90,8 +90,8 @@ func TestScheduleUpdate_PreventsDuplicates(t *testing.T) {
 	rt.ScheduleUpdate()
 	rt.ScheduleUpdate()
 
-	if len(scheduler.callbacks) != 1 {
-		t.Errorf("Expected only 1 callback despite multiple calls, got %d", len(scheduler.callbacks))
+	if len(scheduler.timeouts) != 1 {
+		t.Errorf("Expected only 1 timeout despite multiple calls, got %d", len(scheduler.timeouts))
 	}
 }
 
@@ -161,9 +161,9 @@ func TestWorkLoop_RespectsDeadline(t *testing.T) {
 	deadline := &testDeadline{remaining: 0.5, timeout: false}
 	rt.workLoop(deadline)
 
-	// Should have scheduled another callback due to yielding
-	if len(scheduler.callbacks) != 1 {
-		t.Errorf("Expected work loop to schedule continuation, got %d callbacks", len(scheduler.callbacks))
+	// Should have scheduled another timeout due to yielding
+	if len(scheduler.timeouts) != 1 {
+		t.Errorf("Expected work loop to schedule continuation, got %d timeouts", len(scheduler.timeouts))
 	}
 }
 

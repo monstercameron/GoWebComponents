@@ -25,9 +25,12 @@ func TestReconcileChildren_RerenderNoChanges(t *testing.T) {
 
 	rt.reconcileChildren(parentFiber, elements1)
 
-	// Check that children were created
-	if len(parentFiber.child.dom.(*testDOMNode).children) > 0 {
-		t.Error("Initial render shouldn't have children yet - only fibers created")
+	// Check that children fibers were created
+	if parentFiber.child == nil {
+		t.Fatal("Expected child fiber to be created")
+	}
+	if parentFiber.child.dom != nil {
+		t.Error("Initial render shouldn't have DOM yet - only fibers created")
 	}
 
 	// Simulate commit - connect fibers to actual DOM

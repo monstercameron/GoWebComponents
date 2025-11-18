@@ -313,7 +313,7 @@ func TestUpdateDomProperties_NonStringValue(t *testing.T) {
 	}
 }
 
-func TestCommitRoot_WithEffects(t *testing.T) {
+func TestCommitRoot_WithEffects_EdgeCase(t *testing.T) {
 	adapter := newTestDOMAdapter()
 	scheduler := newTestScheduler()
 	rt := NewRuntime(Config{
