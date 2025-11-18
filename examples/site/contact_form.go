@@ -2,11 +2,12 @@
 // +build js,wasm
 
 package website
+
 import (
 	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/dom"
-"github.com/monstercameron/GoWebComponents/hooks"
+	"github.com/monstercameron/GoWebComponents/hooks"
 )
 
 // ContactSection provides multiple ways to connect with Earl Cameron.
@@ -297,8 +298,3 @@ func OpenContactLink(url string) js.Func {
 		return nil
 	})
 }
-
-
-
-
-

@@ -1211,5 +1211,3 @@ func SimpleStateExamplesDemo() {
 	fmt.Printf("⚠️  SimpleStateExamplesDemo [HOOK_VALIDATION]: Hook order validation is now active - violations will be logged!\n")
 	fmt.Printf("📈 SimpleStateExamplesDemo [PERFORMANCE]: Global render counter started - track re-renders across all components\n")
 }
-
-

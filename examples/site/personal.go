@@ -2,6 +2,7 @@
 // +build js,wasm
 
 package website
+
 import (
 	"syscall/js"
 
@@ -438,7 +439,3 @@ func ScrollToSection(sectionId string) js.Func {
 		return nil
 	})
 }
-
-
-
-

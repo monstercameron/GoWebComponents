@@ -311,5 +311,3 @@ func TestNavigateFunctions(t *testing.T) {
 		t.Error("Navigation functions failed")
 	}
 }
-
-

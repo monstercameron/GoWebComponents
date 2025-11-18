@@ -35,7 +35,7 @@ func ScrollToTopButton(props Attrs) *Element {
 
 		// Attach scroll listener once per component lifecycle
 		js.Global().Get("window").Call("addEventListener", "scroll", handleScroll)
-		
+
 		// Return cleanup function
 		return func() {
 			handleScroll.Release()
@@ -88,6 +88,3 @@ func ScrollToTopButton(props Attrs) *Element {
 		),
 	)
 }
-
-
-

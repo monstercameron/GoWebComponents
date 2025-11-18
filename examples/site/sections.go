@@ -2,8 +2,9 @@
 // +build js,wasm
 
 package website
+
 import (
-"github.com/monstercameron/GoWebComponents/dom"
+	"github.com/monstercameron/GoWebComponents/dom"
 )
 
 // AboutSection explains the value proposition of GoWebComponents over traditional development.
@@ -568,8 +569,3 @@ func FooterLink(text, href string) *Element {
 		),
 	)
 }
-
-
-
-
-

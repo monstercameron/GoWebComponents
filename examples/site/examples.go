@@ -2,8 +2,9 @@
 // +build js,wasm
 
 package website
+
 import (
-"github.com/monstercameron/GoWebComponents/dom"
+	"github.com/monstercameron/GoWebComponents/dom"
 )
 
 // ExampleModal renders a full-screen modal for showcasing interactive examples.
@@ -350,8 +351,3 @@ func GetExampleSourceCode(exampleId string) string {
 		return "// Example source code not available"
 	}
 }
-
-
-
-
-

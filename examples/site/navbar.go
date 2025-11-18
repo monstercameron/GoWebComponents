@@ -2,6 +2,7 @@
 // +build js,wasm
 
 package website
+
 import (
 	"fmt"
 	"syscall/js"
@@ -71,7 +72,7 @@ func NavBar(_ Attrs) *Element {
 			return nil
 		})
 
-				js.Global().Get("window").Call("addEventListener", "scroll", scrollHandler)
+		js.Global().Get("window").Call("addEventListener", "scroll", scrollHandler)
 		return func() {
 			scrollHandler.Release()
 		}
@@ -569,8 +570,3 @@ func AddSmoothScrollCSS() {
 	`)
 	js.Global().Get("document").Get("head").Call("appendChild", style)
 }
-
-
-
-
-

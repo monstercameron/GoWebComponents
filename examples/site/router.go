@@ -17,9 +17,9 @@ func AppRouter(_ Attrs) *Element {
 	})
 
 	// Register application routes
-	r.GoRegisterRoute("/", DocsWebsite)   // Main personal website
-	r.GoRegisterRoute("/docs", DocsPage)  // API documentation
-	r.GoRegisterRoute("*", NotFoundPage)  // 404 fallback for unmatched routes
+	r.GoRegisterRoute("/", DocsWebsite)  // Main personal website
+	r.GoRegisterRoute("/docs", DocsPage) // API documentation
+	r.GoRegisterRoute("*", NotFoundPage) // 404 fallback for unmatched routes
 
 	// Return active route component (handles re-rendering automatically)
 	return r.GoGetRoute()
@@ -38,7 +38,3 @@ func GetSiteRouter() *router.Router {
 
 	return r
 }
-
-
-
-

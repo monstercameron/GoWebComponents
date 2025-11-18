@@ -106,7 +106,7 @@ func CounterController(_ Attrs) *Element {
 		dom.Div(Attrs{
 			"style": "background: #cce5ff; padding: 8px; border-radius: 4px; margin: 8px 0; text-align: center; border-left: 4px solid #007bff;",
 		},
-			dom.Strong(Attrs{"style": "color: #004085; font-size: 16px;"}, 
+			dom.Strong(Attrs{"style": "color: #004085; font-size: 16px;"},
 				dom.Text(fmt.Sprintf("🔄 RENDERS: %d", renderCount()))),
 		),
 		dom.P(nil, dom.Text(fmt.Sprintf("Current count: %d", count()))),
@@ -163,7 +163,7 @@ func CounterDisplay(_ Attrs) *Element {
 		dom.Div(Attrs{
 			"style": "background: #d4edda; padding: 8px; border-radius: 4px; margin: 8px 0; text-align: center; border-left: 4px solid #28a745;",
 		},
-			dom.Strong(Attrs{"style": "color: #155724; font-size: 16px;"}, 
+			dom.Strong(Attrs{"style": "color: #155724; font-size: 16px;"},
 				dom.Text(fmt.Sprintf("🔄 RENDERS: %d", renderCount()))),
 		),
 		dom.P(nil, dom.Text(fmt.Sprintf("Shared count value: %d", count()))),
@@ -214,7 +214,7 @@ func TextInputComponent(_ Attrs) *Element {
 		dom.Div(Attrs{
 			"style": "background: #fff3cd; padding: 8px; border-radius: 4px; margin: 8px 0; text-align: center; border-left: 4px solid #ffc107;",
 		},
-			dom.Strong(Attrs{"style": "color: #856404; font-size: 16px;"}, 
+			dom.Strong(Attrs{"style": "color: #856404; font-size: 16px;"},
 				dom.Text(fmt.Sprintf("🔄 RENDERS: %d", renderCount()))),
 		),
 		dom.P(nil, dom.Text("Enter text below:")),
@@ -267,7 +267,7 @@ func TextDisplayComponent(_ Attrs) *Element {
 		dom.Div(Attrs{
 			"style": "background: #f8d7da; padding: 8px; border-radius: 4px; margin: 8px 0; text-align: center; border-left: 4px solid #dc3545;",
 		},
-			dom.Strong(Attrs{"style": "color: #721c24; font-size: 16px;"}, 
+			dom.Strong(Attrs{"style": "color: #721c24; font-size: 16px;"},
 				dom.Text(fmt.Sprintf("🔄 RENDERS: %d", renderCount()))),
 		),
 		dom.P(nil, dom.Text("Shared text:")),

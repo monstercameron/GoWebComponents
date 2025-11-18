@@ -96,5 +96,3 @@ func NotFoundPage(_ Attrs) *Element {
 		),
 	)
 }
-
-

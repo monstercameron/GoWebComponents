@@ -2,6 +2,7 @@
 // +build js,wasm
 
 package website
+
 import (
 	"github.com/monstercameron/GoWebComponents/dom"
 	"github.com/monstercameron/GoWebComponents/hooks"
@@ -779,8 +780,3 @@ func HtmlElementCard(elem HtmlElementDoc) *Element {
 		),
 	)
 }
-
-
-
-
-

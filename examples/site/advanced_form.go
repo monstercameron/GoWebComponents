@@ -12,6 +12,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/dom"
 	"github.com/monstercameron/GoWebComponents/hooks"
 )
+
 // AdvancedFormExample showcases sophisticated form handling with real-time validation.
 // Demonstrates hooks.UseState, hooks.UseEffect, hooks.UseFetch, and hooks.GoUseFunc hooks working together
 // to create a production-ready form with password strength, async submission, and error handling.
@@ -594,6 +595,3 @@ func getStrengthBarColor(strength int) string {
 		return "bg-green-500"
 	}
 }
-
-
-

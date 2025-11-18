@@ -278,5 +278,3 @@ func ResetGoroutineBaseline() {
 	baselineGoroutineCount = runtime.NumGoroutine()
 	debugf("UTILS", "🔄 ResetGoroutineBaseline: reset from %d to %d\n", oldBaseline, baselineGoroutineCount)
 }
-
-

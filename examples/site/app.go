@@ -34,5 +34,3 @@ func App(props Attrs) *Element {
 	// Initialize application routing
 	return AppRouter(nil)
 }
-
-

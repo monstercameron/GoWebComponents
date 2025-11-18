@@ -2,6 +2,7 @@
 // +build js,wasm
 
 package website
+
 import (
 	"syscall/js"
 
@@ -118,7 +119,3 @@ func OpenProjectLink(url string) js.Func {
 		return nil
 	})
 }
-
-
-
-

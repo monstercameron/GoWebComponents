@@ -4,8 +4,8 @@
 package website
 
 import (
-"github.com/monstercameron/GoWebComponents/dom"
-"github.com/monstercameron/GoWebComponents/hooks"
+	"github.com/monstercameron/GoWebComponents/dom"
+	"github.com/monstercameron/GoWebComponents/hooks"
 )
 
 // HeroSection renders the main hero banner with animated background and key features.
@@ -136,4 +136,3 @@ func FeatureCard(icon, title, description string) *Element {
 		dom.P(Attrs{"class": "text-gray-600 leading-relaxed"}, description),
 	)
 }
-
