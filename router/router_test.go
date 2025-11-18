@@ -1,49 +1,46 @@
 //go:build js && wasm
 // +build js,wasm
 
-package fiber
+package router
 
 import (
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/dom"
 	"github.com/monstercameron/GoWebComponents/render"
-	"github.com/monstercameron/GoWebComponents/router"
 )
 
 // Type aliases for convenience
 type (
-	Attrs     = dom.Attrs
-	Element   = render.Element
-	Component = router.Component
-	Options   = router.Options
+	Attrs   = dom.Attrs
+	Element = render.Element
 )
 
 // TestNewHashRouter tests hash router initialization
 func TestNewHashRouter(t *testing.T) {
-	r := router.NewHashRouter()
+	r := NewHashRouter()
 
 	if r == nil {
-		t.Fatal("router.NewHashRouter returned nil")
+		t.Fatal("NewHashRouter returned nil")
 	}
 }
 
 // TestNewHashRouterWithOptions tests hash router with custom options
 func TestNewHashRouterWithOptions(t *testing.T) {
-	options := router.RouterOptions{
+	options := RouterOptions{
 		DefaultRoute: "/home",
 	}
 
-	r := router.NewHashRouter(options)
+	r := NewHashRouter(options)
 
 	if r == nil {
-		t.Fatal("router.NewHashRouter with options returned nil")
+		t.Fatal("NewHashRouter with options returned nil")
 	}
 }
 
 // TestRegisterRoute tests route registration
 func TestRegisterRoute(t *testing.T) {
-	r := router.NewHashRouter()
+	r := NewHashRouter()
 
 	// Register a simple route
 	testComponent := func(props Attrs) *Element {
@@ -61,7 +58,7 @@ func TestRegisterRoute(t *testing.T) {
 
 // TestPathNormalization tests that paths are normalized correctly
 func TestPathNormalization(t *testing.T) {
-	r := router.NewHashRouter()
+	r := NewHashRouter()
 
 	testCases := []struct {
 		input    string
@@ -93,7 +90,7 @@ func TestPathNormalization(t *testing.T) {
 
 // TestGetCurrentPath tests current path getter
 func TestGetCurrentPath(t *testing.T) {
-	r := router.NewHashRouter()
+	r := NewHashRouter()
 
 	path := r.GetCurrentRouterPath()
 	if path == "" {
@@ -103,7 +100,7 @@ func TestGetCurrentPath(t *testing.T) {
 
 // TestNavigate tests navigation
 func TestNavigate(t *testing.T) {
-	r := router.NewHashRouter()
+	r := NewHashRouter()
 
 	r.Navigate("/new-path")
 
@@ -113,7 +110,7 @@ func TestNavigate(t *testing.T) {
 
 // TestRouteResolution tests route resolution/matching
 func TestRouteResolution(t *testing.T) {
-	r := router.NewHashRouter()
+	r := NewHashRouter()
 
 	homeComponent := func(props Attrs) *Element {
 		return dom.Div(nil, dom.Text("Home"))
@@ -135,7 +132,7 @@ func TestRouteResolution(t *testing.T) {
 
 // TestWildcardRoute tests wildcard (404) route
 func TestWildcardRoute(t *testing.T) {
-	r := router.NewHashRouter()
+	r := NewHashRouter()
 
 	homeComponent := func(props Attrs) *Element {
 		return dom.Div(nil, dom.Text("Home"))
@@ -157,7 +154,7 @@ func TestWildcardRoute(t *testing.T) {
 
 // TestStaticElementRoute tests registering a static element as a route
 func TestStaticElementRoute(t *testing.T) {
-	r := router.NewHashRouter()
+	r := NewHashRouter()
 
 	staticElem := dom.Div(nil, dom.Text("Static"))
 
@@ -171,7 +168,7 @@ func TestStaticElementRoute(t *testing.T) {
 
 // TestBeforeEnterGuard tests beforeEnter route guard
 func TestBeforeEnterGuard(t *testing.T) {
-	r := router.NewHashRouter()
+	r := NewHashRouter()
 
 	protectedComponent := func(props Attrs) *Element {
 		return dom.Div(nil, dom.Text("Protected"))
@@ -188,8 +185,8 @@ func TestBeforeEnterGuard(t *testing.T) {
 
 // TestRouterTypeValidation tests that router type is correctly set
 func TestRouterTypeValidation(t *testing.T) {
-	hashRouter := router.NewHashRouter()
-	regularRouter := router.NewRouter(router.RouterOptions{})
+	hashRouter := NewHashRouter()
+	regularRouter := NewRouter(RouterOptions{})
 
 	if hashRouter == nil {
 		t.Error("Hash router creation failed")
@@ -202,7 +199,7 @@ func TestRouterTypeValidation(t *testing.T) {
 
 // TestMultipleRoutes tests registering multiple routes
 func TestMultipleRoutes(t *testing.T) {
-	r := router.NewHashRouter()
+	r := NewHashRouter()
 
 	routes := []string{"/", "/about", "/contact", "/services", "/blog"}
 
@@ -222,14 +219,14 @@ func TestMultipleRoutes(t *testing.T) {
 
 // TestGlobalRouter tests global router instance management
 func TestGlobalRouter(t *testing.T) {
-	initialRouter := router.GetRouter()
+	initialRouter := GetRouter()
 
 	if initialRouter == nil {
 		t.Fatal("Global router is nil")
 	}
 
 	// Simply verify global router exists
-	currentRouter := router.GetRouter()
+	currentRouter := GetRouter()
 	if currentRouter == nil {
 		t.Error("Global router is nil")
 	}
@@ -241,9 +238,9 @@ func TestGoRegisterRoute(t *testing.T) {
 		return dom.Div(nil, dom.Text("Test Component"))
 	}
 
-	router.RegisterRoute("/go-test", componentFunc)
+	RegisterRoute("/go-test", componentFunc)
 
-	result := router.GetRoute()
+	result := GetRoute()
 	if result == nil {
 		t.Error("RegisterRoute did not properly register the route")
 	}
@@ -251,7 +248,7 @@ func TestGoRegisterRoute(t *testing.T) {
 
 // TestRouteOptions tests route options like Title
 func TestRouteOptions(t *testing.T) {
-	r := router.NewHashRouter()
+	r := NewHashRouter()
 
 	component := func(props Attrs) *Element {
 		return dom.Div(nil, dom.Text("Page"))
@@ -271,7 +268,7 @@ func TestRouteOptions(t *testing.T) {
 
 // TestEmptyPath tests handling of empty paths
 func TestEmptyPath(t *testing.T) {
-	r := router.NewHashRouter()
+	r := NewHashRouter()
 
 	component := func(props Attrs) *Element {
 		return dom.Div(nil, dom.Text("Home"))
@@ -287,7 +284,7 @@ func TestEmptyPath(t *testing.T) {
 
 // TestPathWithTrailingSlash tests path with trailing slash normalization
 func TestPathWithTrailingSlash(t *testing.T) {
-	r := router.NewHashRouter()
+	r := NewHashRouter()
 
 	component := func(props Attrs) *Element {
 		return dom.Div(nil, dom.Text("About"))
@@ -303,10 +300,10 @@ func TestPathWithTrailingSlash(t *testing.T) {
 
 // TestNavigateFunctions tests global Navigate functions
 func TestNavigateFunctions(t *testing.T) {
-	router.Navigate("/test")
-	router.NavigateReplace("/test2")
+	Navigate("/test")
+	NavigateReplace("/test2")
 
-	path := router.GetCurrentPath()
+	path := GetCurrentPath()
 	if path == "" {
 		t.Error("Navigation functions failed")
 	}
