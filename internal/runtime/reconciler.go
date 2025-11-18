@@ -54,6 +54,40 @@ func flattenFragments(elements []interface{}) []interface{} {
 	return flattened
 }
 
+// cloneChildFibers clones the child fibers from the alternate to the current fiber
+// This is used when skipping reconciliation for non-dirty fibers
+func (rt *Runtime) cloneChildFibers(parent *Fiber) {
+	if parent.alternate == nil || parent.alternate.child == nil {
+		return
+	}
+
+	var prevSibling *Fiber
+	oldFiber := parent.alternate.child
+
+	for oldFiber != nil {
+		newFiber := &Fiber{
+			typeOf:         oldFiber.typeOf,
+			props:          oldFiber.props,
+			dom:            oldFiber.dom,
+			parent:         parent,
+			alternate:      oldFiber,
+			effectTag:      "",    // No change
+			dirty:          false, // Not dirty
+			needsUpdate:    false,
+			hooks:          oldFiber.hooks, // Share hooks for non-updated components
+			eventCallbacks: oldFiber.eventCallbacks,
+		}
+
+		if prevSibling == nil {
+			parent.child = newFiber
+		} else {
+			prevSibling.sibling = newFiber
+		}
+		prevSibling = newFiber
+		oldFiber = oldFiber.sibling
+	}
+}
+
 // reconcileChildren reconciles the children of a fiber
 func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 	// Flatten any Fragment elements before reconciliation
@@ -204,6 +238,7 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 
 	// Skip non-dirty fibers (optimization)
 	if !fiber.dirty {
+		rt.cloneChildFibers(fiber)
 		return rt.getNextUnitOfWork(fiber)
 	}
 
@@ -235,12 +270,24 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 
 			// Preserve hooks from alternate fiber
 			if fiber.alternate != nil && fiber.alternate.hooks != nil {
-				// REUSE the same hooks object so that old event handler closures
-				// still reference the correct state!
-				fiber.hooks = fiber.alternate.hooks
-				// Reset index for new render
-				fiber.hooks.index = 0
-				fiber.hooks.callOrder = make([]HookCall, 0)
+				// Clone the hooks struct to avoid mutating the alternate's hooks
+				// We share the underlying slices (state, deps, etc.) but reset index/callOrder
+				oldHooks := fiber.alternate.hooks
+				fiber.hooks = &Hooks{
+					index:        0,
+					state:        oldHooks.state,
+					pendingState: oldHooks.pendingState,
+					deps:         oldHooks.deps,
+					memos:        oldHooks.memos,
+					callbacks:    oldHooks.callbacks,
+					refs:         oldHooks.refs,
+					ids:          oldHooks.ids,
+					fetches:      oldHooks.fetches,
+					funcs:        oldHooks.funcs,
+					cleanups:     oldHooks.cleanups,
+					callOrder:    make([]HookCall, 0),
+					prevOrder:    oldHooks.callOrder,
+				}
 			} else if fiber.hooks == nil {
 				fiber.hooks = &Hooks{
 					state:        make([]interface{}, 0),

@@ -72,3 +72,4 @@ test/.playwright/
 tmp/
 temp/
 *.tmp
+*.txt

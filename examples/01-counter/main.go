@@ -20,20 +20,17 @@ func CounterExample(_ Attrs) *Element {
 	count, setCount := hooks.UseState(0)
 	currentCount := count()
 
-	increment := func(this js.Value, args []js.Value) interface{} {
-		setCount(currentCount + 1)
-		return nil
-	}
+	increment := hooks.GoUseFunc(func() {
+		setCount(func(prev int) int { return prev + 1 })
+	})
 
-	decrement := func(this js.Value, args []js.Value) interface{} {
-		setCount(currentCount - 1)
-		return nil
-	}
+	decrement := hooks.GoUseFunc(func() {
+		setCount(func(prev int) int { return prev - 1 })
+	})
 
-	reset := func(this js.Value, args []js.Value) interface{} {
+	reset := hooks.GoUseFunc(func() {
 		setCount(0)
-		return nil
-	}
+	})
 
 	return dom.Div(Attrs{
 		"class": "max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-lg",
@@ -57,19 +54,19 @@ func CounterExample(_ Attrs) *Element {
 			"class": "flex gap-3 justify-center",
 		},
 			dom.Button(Attrs{
-				"onclick": js.FuncOf(decrement),
+				"onclick": decrement,
 				"class":   "px-6 py-3 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors",
 			}, dom.Text("−")),
 
 			dom.Button(Attrs{
-				"onclick": js.FuncOf(reset),
+				"onclick": reset,
 				"class":   "px-6 py-3 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition-colors",
 			}, dom.Text("Reset")),
 
 			dom.Button(Attrs{
-				"onclick": js.FuncOf(increment),
+				"onclick": increment,
 				"class":   "px-6 py-3 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition-colors",
-			}, dom.Text("+")),
+			}, dom.Text(" +")),
 		),
 	)
 }

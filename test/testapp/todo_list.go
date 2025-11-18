@@ -26,19 +26,32 @@ func TodoList(props dom.Attrs) *dom.Element {
 	todos, setTodos := hooks.UseState([]Todo{})
 	todosVersion, setTodosVersion := hooks.UseState(0)
 	filter, setFilter := hooks.UseState("")
+	statusFilter, setStatusFilter := hooks.UseState("all")
 
 	// UseMemo for filtered list
 	filtered := hooks.UseMemo(func() interface{} {
 		fmt.Println("UseMemo computing: filtered")
 		f := filter()
+		s := statusFilter()
 		list := []Todo{}
 		for _, t := range todos() {
-			if f == "" || contains(t.Text, f) {
+			// Text filter
+			matchesText := f == "" || contains(t.Text, f)
+
+			// Status filter
+			matchesStatus := true
+			if s == "active" {
+				matchesStatus = !t.Completed
+			} else if s == "completed" {
+				matchesStatus = t.Completed
+			}
+
+			if matchesText && matchesStatus {
 				list = append(list, t)
 			}
 		}
 		return list
-	}, len(todos()), todosVersion(), filter()).([]Todo)
+	}, len(todos()), todosVersion(), filter(), statusFilter()).([]Todo)
 
 	// Ensure total atom syncs
 	hooks.UseEffect(func() func() {
@@ -62,11 +75,11 @@ func TodoList(props dom.Attrs) *dom.Element {
 		setTodosVersion(func(prev int) int { return prev + 1 })
 	}
 
-	addHandler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	addHandler := hooks.GoUseFunc(func() {
 		// read input from the input element, since event target may be the button
 		val := js.Global().Get("document").Call("getElementById", "todo-input").Get("value").String()
 		if val == "" {
-			return nil
+			return
 		}
 		fmt.Println("AddHandler called, val:", val)
 		updateTodos(func(prev []Todo) []Todo {
@@ -82,12 +95,11 @@ func TodoList(props dom.Attrs) *dom.Element {
 		// Set atom total synchronously for immediate feedback
 		setTotal(len(todos()))
 		fmt.Println("SetTotal in addHandler:", len(todos()))
-		return nil
 	})
 
 	// toggle and remove closures
-	toggle := func(id int) js.Func {
-		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	toggle := func(id int) func() {
+		return func() {
 			updateTodos(func(prev []Todo) []Todo {
 				for i := range prev {
 					if prev[i].ID == id {
@@ -98,12 +110,11 @@ func TodoList(props dom.Attrs) *dom.Element {
 				}
 				return prev
 			})
-			return nil
-		})
+		}
 	}
 
-	remove := func(id int) js.Func {
-		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	remove := func(id int) func() {
+		return func() {
 			var newLength int
 			updateTodos(func(prev []Todo) []Todo {
 				newList := []Todo{}
@@ -117,36 +128,61 @@ func TodoList(props dom.Attrs) *dom.Element {
 			})
 			// Set atom to the new length (not calling len(todos()) which would be stale)
 			setTotal(newLength)
-			return nil
-		})
+		}
 	}
 
 	// Input change handler for filter
-	filterOnChange := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) > 0 {
-			val := args[0].Get("target").Get("value").String()
-			setFilter(val)
-		}
-		return nil
+	filterOnChange := hooks.GoUseFunc(func(val string) {
+		setFilter(val)
+	})
+
+	// Status change handler
+	statusOnChange := hooks.GoUseFunc(func(val string) {
+		setStatusFilter(val)
 	})
 
 	// build list items
 	children := []interface{}{}
-	for _, t := range filtered {
-		children = append(children, &dom.Element{Type: TodoItem, Props: dom.Attrs{"id": t.ID, "text": t.Text, "completed": t.Completed, "toggle": toggle(t.ID), "remove": remove(t.ID)}})
+	if len(filtered) == 0 {
+		children = append(children, dom.P(nil, dom.Text("No todos match the current filters")))
+	} else {
+		for _, t := range filtered {
+			children = append(children, &dom.Element{Type: TodoItem, Props: dom.Attrs{"key": t.ID, "id": t.ID, "text": t.Text, "completed": t.Completed, "toggle": toggle(t.ID), "remove": remove(t.ID)}})
+		}
+	}
+
+	// Calculate statistics
+	activeCount := 0
+	completedCount := 0
+	for _, t := range todos() {
+		if t.Completed {
+			completedCount++
+		} else {
+			activeCount++
+		}
 	}
 
 	result := dom.Div(dom.Attrs{"id": "todo-list", "class": "mt-6"},
 		dom.H2(nil, dom.Text("Todo List")),
 		dom.Div(nil,
-			dom.Input(dom.Attrs{"id": "todo-input", "type": "text", "class": "border p-2"}),
-			dom.Button(dom.Attrs{"id": "todo-add", "onclick": addHandler, "class": "ml-2 px-3 py-2 bg-blue-500 text-white"}, dom.Text("Add")),
+			dom.Input(dom.Attrs{"id": "todo-input", "type": "text", "class": "border p-2", "placeholder": "What needs to be done?"}),
+			dom.Button(dom.Attrs{"id": "todo-add", "onclick": addHandler, "class": "ml-2 px-3 py-2 bg-blue-500 text-white"}, dom.Text("Add Todo")),
 		),
-		dom.Div(dom.Attrs{"class": "mt-4"},
-			dom.Input(dom.Attrs{"id": "todo-filter", "type": "text", "onchange": filterOnChange, "placeholder": "Filter todos"}),
+		dom.Div(dom.Attrs{"class": "mt-4 flex gap-2"},
+			dom.Input(dom.Attrs{"id": "todo-filter", "type": "text", "oninput": filterOnChange, "placeholder": "Filter todos"}),
+			dom.Select(dom.Attrs{"id": "status-filter", "onchange": statusOnChange, "class": "border p-2"},
+				dom.Option(dom.Attrs{"value": "all"}, dom.Text("All")),
+				dom.Option(dom.Attrs{"value": "active"}, dom.Text("Active")),
+				dom.Option(dom.Attrs{"value": "completed"}, dom.Text("Completed")),
+			),
 		),
 		dom.Div(dom.Attrs{"id": "todo-items", "class": "mt-4"}, children...),
-		dom.P(dom.Attrs{"id": "todo-count"}, dom.Text(fmt.Sprintf("Total: %d", getTotal()))),
+		dom.Div(dom.Attrs{"class": "mt-6 border-t pt-4"},
+			dom.H3(nil, dom.Text("Statistics")),
+			dom.P(dom.Attrs{"id": "todo-count"}, dom.Text(fmt.Sprintf("Total: %d", getTotal()))),
+			dom.P(nil, dom.Text(fmt.Sprintf("Active: %d", activeCount))),
+			dom.P(nil, dom.Text(fmt.Sprintf("Completed: %d", completedCount))),
+		),
 	)
 	return result
 }

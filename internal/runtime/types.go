@@ -75,6 +75,8 @@ type fetchValue struct {
 	url   string
 	// channel for ongoing fetch (can be nil if not fetching)
 	fetchChannel <-chan interface{}
+	// fiber stores the fiber that owns this fetch, updated on every render
+	fiber *Fiber
 }
 
 // funcHandlerValue stores a wrapped event handler function

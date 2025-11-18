@@ -280,6 +280,20 @@ func (a *MockDOMAdapter) SetInnerHTML(node runtime.DOMNode, html string) {
 	}
 }
 
+func (a *MockDOMAdapter) SetTextContent(node runtime.DOMNode, text string) {
+	if n, ok := node.(*MockDOMNode); ok {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		n.TextContent = text
+		a.recordOp("setTextContent", n.ID, text)
+	}
+}
+
+func (a *MockDOMAdapter) WrapFunction(fn interface{}) interface{} {
+	// For mock DOM, we just return the function as is
+	return fn
+}
+
 // Helper methods for testing
 func (a *MockDOMAdapter) GetOperations() []DOMOperation {
 	a.mu.Lock()

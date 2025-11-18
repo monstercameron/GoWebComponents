@@ -24,11 +24,10 @@ func Counter(props dom.Attrs) *dom.Element {
 
 	count, setCount := hooks.UseState(0)
 
-	increment := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	increment := hooks.GoUseFunc(func() {
 		setCount(func(prev int) int {
 			return prev + 1
 		})
-		return nil
 	})
 
 	return dom.Div(dom.Attrs{"class": "counter-instance", "data-counter-id": id},
@@ -51,9 +50,8 @@ var reactBatchRenders int
 func ReactA(props dom.Attrs) *dom.Element {
 	value, setValue := hooks.UseState(0)
 	reactARenders++
-	inc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	inc := hooks.GoUseFunc(func() {
 		setValue(func(prev int) int { return prev + 1 })
-		return nil
 	})
 	return dom.Div(dom.Attrs{"id": "react-a"},
 		dom.P(dom.Attrs{"id": "react-a-value"}, dom.Text(fmt.Sprintf("A Value: %d", value()))),
@@ -76,10 +74,9 @@ func ReactB(props dom.Attrs) *dom.Element {
 func ReactBatch(props dom.Attrs) *dom.Element {
 	value, setValue := hooks.UseState(0)
 	reactBatchRenders++
-	batch := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	batch := hooks.GoUseFunc(func() {
 		// Single state update applying multiple increments
 		setValue(func(prev int) int { return prev + 3 })
-		return nil
 	})
 	return dom.Div(dom.Attrs{"id": "react-batch"},
 		dom.P(dom.Attrs{"id": "react-batch-value"}, dom.Text(fmt.Sprintf("Batch Value: %d", value()))),
@@ -122,9 +119,8 @@ func EffectChild(props dom.Attrs) *dom.Element {
 // Toggle demo to mount and unmount EffectChild
 func ToggleEffectDemo(props dom.Attrs) *dom.Element {
 	show, setShow := hooks.UseState(false)
-	toggle := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	toggle := hooks.GoUseFunc(func() {
 		setShow(func(prev bool) bool { return !prev })
-		return nil
 	})
 	if show() {
 		return dom.Div(dom.Attrs{"id": "toggle-effect-demo"},
@@ -165,40 +161,29 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 	// cleanup-status will be updated by child effect directly via Document API
 
 	// Create increment handler using functional setState
-	increment := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	increment := hooks.GoUseFunc(func() {
 		setCount(func(prev int) int {
 			return prev + 1
 		})
-		return nil
 	})
 
 	// Atom increment handler
-	atomIncrement := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	atomIncrement := hooks.GoUseFunc(func() {
 		atomSet(atomGet() + 1)
-		return nil
 	})
 
 	// Input onchange handler
-	handleInputChange := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) > 0 {
-			event := args[0]
-			value := event.Get("target").Get("value").String()
-			setInputValue(value)
-		}
-		return nil
+	handleInputChange := hooks.GoUseFunc(func(value string) {
+		setInputValue(value)
 	})
 
 	// Form onsubmit handler with preventDefault
-	handleSubmit := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) > 0 {
-			event := args[0]
-			event.Call("preventDefault")
-			// Get the form input value
-			formInput := event.Get("target").Call("querySelector", "#form-input")
-			value := formInput.Get("value").String()
-			setSubmitValue(value)
-		}
-		return nil
+	handleSubmit := hooks.GoUseFunc(func(event js.Value) {
+		event.Call("preventDefault")
+		// Get the form input value
+		formInput := event.Get("target").Call("querySelector", "#form-input")
+		value := formInput.Get("value").String()
+		setSubmitValue(value)
 	})
 
 	return dom.Div(dom.Attrs{"class": "container mx-auto p-8"},
@@ -226,10 +211,10 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 		dom.Div(dom.Attrs{"class": "mt-4"},
 			dom.H2(nil, dom.Text("Input Test")),
 			dom.Input(dom.Attrs{
-				"id":       "test-input",
-				"type":     "text",
-				"onchange": handleInputChange,
-				"class":    "border p-2",
+				"id":      "test-input",
+				"type":    "text",
+				"oninput": handleInputChange,
+				"class":   "border p-2",
 			}),
 			dom.P(dom.Attrs{"id": "input-value"},
 				dom.Text(fmt.Sprintf("Input: %s", inputValue())),
@@ -395,6 +380,9 @@ func UseFetchTestComponent(props dom.Attrs) *dom.Element {
 
 func main() {
 	fmt.Println("🚀 GoWebComponents WASM initialized")
+
+	// Debug: Verify main is running by updating DOM directly
+	js.Global().Get("document").Call("getElementById", "app").Set("innerHTML", "<div style='color: green'>Main Started</div>")
 
 	// Create root element that will call HelloWorld during render
 	app := &dom.Element{

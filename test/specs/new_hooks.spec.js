@@ -36,7 +36,7 @@ test.describe('GoWebComponents Hooks - UseId', () => {
     await page.waitForSelector('#use-id-test', { timeout: 30000 });
 
     // Get the input element and label element
-    const inputElement = await page.locator('input[type="text"]').first();
+    const inputElement = await page.locator('#use-id-test input[type="text"]').first();
     const labelElement = await page.locator('#input-label');
 
     // Get their IDs
@@ -89,7 +89,7 @@ test.describe('GoWebComponents Hooks - UseId', () => {
     await page.goto('/');
     await page.waitForSelector('#use-id-test', { timeout: 30000 });
 
-    const selectElement = page.locator('select').first();
+    const selectElement = page.locator('#use-id-test select').first();
     const selectLabel = page.locator('#select-label');
 
     const selectId = await selectElement.getAttribute('id');
@@ -296,7 +296,7 @@ test.describe('GoWebComponents Hooks - Integration', () => {
     await expect(useFetchSection).toBeVisible();
 
     // Verify they don't interfere with each other
-    const inputId = await page.locator('input[type="text"]').first().getAttribute('id');
+    const inputId = await page.locator('#use-id-test input[type="text"]').first().getAttribute('id');
     expect(inputId).toMatch(/^gwc:\d+:\d+$/);
 
     // Fetch should still work
@@ -304,7 +304,7 @@ test.describe('GoWebComponents Hooks - Integration', () => {
     await page.waitForTimeout(100);
 
     // Input ID should remain unchanged
-    const inputIdAfter = await page.locator('input[type="text"]').first().getAttribute('id');
+    const inputIdAfter = await page.locator('#use-id-test input[type="text"]').first().getAttribute('id');
     expect(inputIdAfter).toBe(inputId);
   });
 
@@ -343,15 +343,15 @@ test.describe('GoWebComponents Hooks - Integration', () => {
     // Test all three form elements
     const elements = [
       {
-        input: page.locator('input[type="text"]').first(),
+        input: page.locator('#use-id-test input[type="text"]').first(),
         label: page.locator('#input-label')
       },
       {
-        input: page.locator('select').first(),
+        input: page.locator('#use-id-test select').first(),
         label: page.locator('#select-label')
       },
       {
-        input: page.locator('input[type="checkbox"]').first(),
+        input: page.locator('#use-id-test input[type="checkbox"]').first(),
         label: page.locator('#checkbox-label')
       }
     ];

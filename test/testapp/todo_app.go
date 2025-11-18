@@ -18,13 +18,12 @@ func Header(props dom.Attrs) *dom.Element {
 	total, _ := state.UseAtom("todoCount", 0)
 	theme, setTheme := state.UseAtom("appTheme", "light")
 
-	toggleTheme := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	toggleTheme := hooks.GoUseFunc(func() {
 		if theme() == "light" {
 			setTheme("dark")
 		} else {
 			setTheme("light")
 		}
-		return nil
 	})
 
 	// UseEffect to set body data-theme

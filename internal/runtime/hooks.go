@@ -376,115 +376,6 @@ func GoUseId() string {
 	return ""
 }
 
-// GoUseFetch is a manual-trigger fetch hook that manages async data fetching
-// It uses goroutines and channels internally to fetch data without blocking
-// Unlike GoUseEffect-based auto-fetching, this requires explicit refetch() calls
-//
-// Returns:
-//   - A getter function for the current FetchState (data, error, loading)
-//   - A refetch function to manually trigger the fetch
-//
-// The FetchState contains:
-//   - Data: the fetched response body (as string)
-//   - Error: error message if fetch failed (empty string if successful)
-//   - Loading: whether currently fetching
-func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) {
-	fiber := GetCurrentFiber()
-	if fiber == nil {
-		panic("GoUseFetch called outside component context")
-	}
-
-	if fiber.hooks == nil {
-		fiber.hooks = &Hooks{
-			state:        make([]interface{}, 0),
-			pendingState: make([]interface{}, 0),
-			deps:         make([][]interface{}, 0),
-			memos:        make([]memoizedValue, 0),
-			callbacks:    make([]callbackValue, 0),
-			refs:         make([]*RefValue, 0),
-			ids:          make([]string, 0),
-			fetches:      make([]fetchValue, 0),
-			cleanups:     make([]func(), 0),
-			callOrder:    make([]HookCall, 0),
-			prevOrder:    make([]HookCall, 0),
-		}
-	}
-
-	position := fiber.hooks.index
-	fiber.hooks.index++
-
-	// Validate hook order
-	validateHookOrder(fiber.hooks, HookTypeFetch, position)
-
-	// Initialize fetch state if needed
-	if len(fiber.hooks.fetches) <= position {
-		newFetches := make([]fetchValue, position+1, (position+1)*2)
-		copy(newFetches, fiber.hooks.fetches)
-		newFetches[position] = fetchValue{
-			state: FetchState{Data: nil, Error: "", Loading: false},
-			url:   url,
-		}
-		fiber.hooks.fetches = newFetches
-	}
-
-	hooks := fiber.hooks
-	idx := position
-
-	// Getter returns current fetch state
-	getter := func() FetchState {
-		if idx < len(hooks.fetches) {
-			return hooks.fetches[idx].state
-		}
-		return FetchState{Data: nil, Error: "", Loading: false}
-	}
-
-	// Refetch function to manually trigger a fetch
-	refetch := func() {
-		if idx >= len(hooks.fetches) {
-			return
-		}
-
-		// Mark as loading
-		hooks.fetches[idx].state = FetchState{Data: nil, Error: "", Loading: true}
-
-		// Trigger component re-render
-		rt := GetGlobalRuntime()
-		if rt != nil {
-			rt.ScheduleUpdateForFiber(fiber)
-		}
-
-		// Start fetch in a goroutine
-		go func() {
-			// Simple HTTP fetch using basic string concatenation for URL
-			// In real implementation, would use proper HTTP client or JS fetch API
-			// For now, this is a placeholder that shows the pattern
-
-			// Simulate async fetch operation
-			// In WASM context, this would call js.Global().Call("fetch", url)
-			// and handle the promise chain
-
-			// For demonstration:
-			// 1. Make the fetch request
-			// 2. When complete, update state
-			// 3. Trigger re-render
-
-			// Placeholder - actual implementation would use channels and async operations
-			hooks.fetches[idx].state = FetchState{
-				Data:    nil,
-				Error:   "Fetch not fully implemented yet",
-				Loading: false,
-			}
-
-			// Schedule re-render after fetch completes
-			if rt != nil {
-				rt.ScheduleUpdateForFiber(fiber)
-			}
-		}()
-	}
-
-	return getter, refetch
-}
-
 // GoUseFunc validates and stores a function for event handling
 // The actual wrapping to js.Value happens in the WASM shim layer
 func GoUseFunc(fn interface{}) interface{} {
@@ -530,7 +421,13 @@ func GoUseFunc(fn interface{}) interface{} {
 		fiber.hooks.funcs = newFuncs
 	}
 
-	// Return the function - WASM shim will wrap it as js.Value
+	// Return the function - wrapped by DOM adapter
+	rt := GetGlobalRuntime()
+	if rt != nil && rt.domAdapter != nil {
+		fmt.Printf("GoUseFunc: Wrapping function %T\n", fn)
+		return rt.domAdapter.WrapFunction(fn)
+	}
+	fmt.Println("GoUseFunc: Runtime or DOMAdapter nil, returning raw function")
 	return fn
 }
 

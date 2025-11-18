@@ -70,7 +70,8 @@ function Build-Example {
     
     # Build the WASM binary
     Push-Location $ExampleDir.FullName
-    $buildOutput = go build -o $outputPath main.go 2>&1
+    # Use . to build all files in the package, handling multi-file examples like 11-blog
+    $buildOutput = go build -o $outputPath . 2>&1
     $exitCode = $LASTEXITCODE
     Pop-Location
     

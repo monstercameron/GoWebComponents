@@ -5,9 +5,9 @@ package main
 
 import (
 	"fmt"
-	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/dom"
+	"github.com/monstercameron/GoWebComponents/hooks"
 )
 
 // TodoItem represents a single todo item
@@ -15,8 +15,11 @@ func TodoItem(props dom.Attrs) *dom.Element {
 	id := props["id"].(int)
 	text := props["text"].(string)
 	completed := props["completed"].(bool)
-	toggle := props["toggle"].(js.Func)
-	remove := props["remove"].(js.Func)
+	toggle := props["toggle"].(func())
+	remove := props["remove"].(func())
+
+	toggleHandler := hooks.GoUseFunc(toggle)
+	removeHandler := hooks.GoUseFunc(remove)
 
 	class := ""
 	if completed {
@@ -25,7 +28,7 @@ func TodoItem(props dom.Attrs) *dom.Element {
 
 	attrs := dom.Attrs{
 		"type":     "checkbox",
-		"onchange": toggle,
+		"onchange": toggleHandler,
 	}
 	if completed {
 		attrs["checked"] = "checked"
@@ -36,6 +39,6 @@ func TodoItem(props dom.Attrs) *dom.Element {
 			dom.Input(attrs),
 			dom.Span(dom.Attrs{"id": fmt.Sprintf("todo-text-%d", id), "class": class}, dom.Text(text)),
 		),
-		dom.Button(dom.Attrs{"class": "px-2 py-1 bg-red-500 text-white rounded", "onclick": remove, "data-id": fmt.Sprintf("%d", id)}, dom.Text("Delete")),
+		dom.Button(dom.Attrs{"class": "px-2 py-1 bg-red-500 text-white rounded", "onclick": removeHandler, "data-id": fmt.Sprintf("%d", id)}, dom.Text("Delete")),
 	)
 }

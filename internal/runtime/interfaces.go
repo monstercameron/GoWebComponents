@@ -36,6 +36,9 @@ type DOMAdapter interface {
 	SetStyle(node DOMNode, property, value string)
 	SetStyles(node DOMNode, styles map[string]string)
 	SetInnerHTML(node DOMNode, html string)
+
+	// Function wrapping
+	WrapFunction(fn interface{}) interface{}
 }
 
 // EventHandler is an opaque reference to a platform-specific event handler

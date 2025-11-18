@@ -181,6 +181,10 @@ func (a *testDOMAdapter) SetTextContent(node DOMNode, text string) {
 	}
 }
 
+func (a *testDOMAdapter) WrapFunction(fn interface{}) interface{} {
+	return fn
+}
+
 func TestCreateElement(t *testing.T) {
 	elem := CreateElement("div", map[string]interface{}{"id": "test"}, "child1", "child2")
 

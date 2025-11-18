@@ -314,6 +314,59 @@ func (a *WASMDOMAdapter) SetStyles(node runtime.DOMNode, styles map[string]strin
 	}
 }
 
+func (a *WASMDOMAdapter) WrapFunction(fn interface{}) interface{} {
+	fmt.Printf("WrapFunction called for %T\n", fn)
+	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		fmt.Printf("Wrapped function executed for %T\n", fn)
+		switch f := fn.(type) {
+		case func():
+			f()
+		case func(string):
+			if len(args) > 0 {
+				event := args[0]
+				fmt.Printf("WrapFunction: func(string) called with args len %d\n", len(args))
+				target := event.Get("target")
+				if !target.IsNull() && !target.IsUndefined() {
+					value := target.Get("value")
+					fmt.Printf("WrapFunction: target found, value type: %s\n", value.Type())
+					if !value.IsNull() && !value.IsUndefined() {
+						strVal := value.String()
+						fmt.Printf("WrapFunction: calling f with '%s'\n", strVal)
+						f(strVal)
+					} else {
+						// Fallback for elements without value (like buttons)
+						f("")
+					}
+				} else {
+					// Fallback if no target
+					f("")
+				}
+			} else {
+				fmt.Println("WrapFunction: func(string) called with 0 args")
+			}
+		case func(js.Value):
+			if len(args) > 0 {
+				f(args[0])
+			}
+		case func() error:
+			f()
+		case func(js.Value) error:
+			if len(args) > 0 {
+				f(args[0])
+			}
+		case func(runtime.GoEvent):
+			if len(args) > 0 {
+				f(runtime.NewGoEvent(args[0]))
+			}
+		case func(runtime.GoEvent) error:
+			if len(args) > 0 {
+				f(runtime.NewGoEvent(args[0]))
+			}
+		}
+		return nil
+	})
+}
+
 // WASMEventAdapter implements EventAdapter for browser/WASM
 type WASMEventAdapter struct{}
 
