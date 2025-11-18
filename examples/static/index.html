@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Go WebAssembly Example with Tailwind CSS and a minimalist loading bar."
+      content="GoWebComponents - Interactive examples showcasing Go WebAssembly components"
     />
     <meta name="author" content="Go Web Components" />
     <link
@@ -32,132 +32,264 @@
       type="image/x-icon"
     />
 
-    <title>GoWebComponents - Loading Example...</title>
+    <title>GoWebComponents - Examples</title>
     <link rel="stylesheet" href="css/tailwind.css" />
-    <script src="script/wasm_exec.js"></script>
-    <script>
-      const go = new Go();
-
-      function updateProgress(bytesDownloaded, totalBytes) {
-        const loadingBar = document.getElementById("loading-bar");
-        const percentage = (bytesDownloaded / totalBytes) * 100;
-        loadingBar.style.width = percentage + "%";
-        document.getElementById("progress-text").innerText = `${(
-          bytesDownloaded / 1024
-        ).toFixed(2)}KB of ${(totalBytes / 1024).toFixed(2)}KB downloaded`;
+    <style>
+      body {
+        background: #0a0a0a;
       }
-
-      function removeLoadingBar() {
-        const appElement = document.getElementById("app");
-        const loadingElement = document.getElementById("loading-container");
-        
-        if (appElement) {
-          appElement.classList.add("loaded");
-        }
-        
-        if (loadingElement) {
-          loadingElement.remove();
-        }
+      
+      .gradient-bg {
+        background: linear-gradient(to bottom, #0a0a0a 0%, #1a1a1a 100%);
       }
-
-      function showError(message) {
-        const loadingContainer = document.getElementById("loading-container");
-        loadingContainer.innerHTML = `
-          <div class="text-center">
-            <div class="text-red-400 mb-4">❌ Error Loading WebAssembly</div>
-            <div class="text-sm text-gray-400">${message}</div>
-            <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-              Retry
-            </button>
-          </div>
-        `;
+      
+      .card-glow {
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       }
-
-      async function loadWasm() {
-        try {
-          // Check WebAssembly support
-          if (!WebAssembly.instantiateStreaming) {
-            throw new Error("WebAssembly streaming is not supported in this browser");
-          }
-
-          // Fetch with progress tracking
-          const response = await fetch("bin/main.wasm");
-          if (!response.ok) {
-            throw new Error(`Failed to fetch WASM file: ${response.status} ${response.statusText}`);
-          }
-
-          const totalBytes = parseInt(response.headers.get('content-length')) || 0;
-          const reader = response.body.getReader();
-          let bytesDownloaded = 0;
-          const chunks = [];
-
-          // Read the stream with progress updates
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            chunks.push(value);
-            bytesDownloaded += value.length;
-            
-            if (totalBytes > 0) {
-              updateProgress(bytesDownloaded, totalBytes);
-            }
-          }
-
-          // Combine chunks and instantiate
-          const wasmBytes = new Uint8Array(bytesDownloaded);
-          let offset = 0;
-          for (const chunk of chunks) {
-            wasmBytes.set(chunk, offset);
-            offset += chunk.length;
-          }
-
-          const result = await WebAssembly.instantiate(wasmBytes, go.importObject);
-          
-          // Ensure DOM is ready before running WebAssembly
-          setTimeout(() => {
-            // Run the WebAssembly module
-            go.run(result.instance);
-            removeLoadingBar();
-            window.document.title = "GoWebComponents - VMware Dashboard";
-          }, 100);
-          
-        } catch (error) {
-          console.error("WebAssembly loading error:", error);
-          showError(error.message);
-        }
+      
+      .card-glow:hover {
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15), 0 20px 40px -12px rgba(0, 0, 0, 0.5);
+        transform: translateY(-2px);
       }
-
-      // Start loading when the page is ready
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', loadWasm);
-      } else {
-        loadWasm();
+      
+      .text-gradient {
+        background: linear-gradient(to right, #ffffff, #a0a0a0);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
       }
-    </script>
+      
+      .accent-gradient {
+        background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+      }
+      
+      .border-accent {
+        border-color: rgba(59, 130, 246, 0.2);
+      }
+      
+      .hover-accent:hover {
+        border-color: rgba(59, 130, 246, 0.6);
+      }
+    </style>
   </head>
 
-  <body>
-    <div id="app"></div>
-
-    <div
-      id="loading-container"
-      class="flex items-center justify-center h-screen"
-    >
-      <div>
-        <div id="progress-text" class="text-center mb-4">Loading WASM...</div>
-        <div class="w-full bg-gray-800 rounded-full">
-          <div id="loading-bar" class="loading-bar" style="width: 0%"></div>
+  <body class="gradient-bg min-h-screen text-white antialiased">
+    <div class="max-w-7xl mx-auto px-6 py-16">
+      <!-- Header -->
+      <header class="text-center mb-20">
+        <div class="inline-block mb-6 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm text-gray-400">
+          Modern Go WebAssembly Framework
         </div>
-      </div>
-    </div>
+        <h1 class="text-6xl md:text-7xl font-bold mb-6 tracking-tight">
+          <span class="text-gradient">GoWebComponents</span>
+        </h1>
+        <p class="text-xl text-gray-400 max-w-2xl mx-auto mb-8 leading-relaxed">
+          Build reactive web applications with Go. Type-safe, concurrent, and compiled to WebAssembly.
+        </p>
+        <div class="flex flex-wrap gap-3 justify-center text-sm">
+          <div class="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-300">
+            Zero JavaScript
+          </div>
+          <div class="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-300">
+            React-like Hooks
+          </div>
+          <div class="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-300">
+            Native Performance
+          </div>
+        </div>
+      </header>
 
-    <!-- <div class="footer">
-      <a
-        href="https://github.com/monstercameron/GoWebComponents"
-        target="_blank"
-        >GitHub: GoWebComponents</a
-      >
-    </div> -->
+      <!-- Examples Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-20">
+        <!-- 01 Counter -->
+        <a href="../01-counter/counter.html" class="card-glow block bg-white/5 rounded-xl p-6 border border-white/10 hover-accent group">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-semibold text-white mb-1">Counter</h3>
+              <span class="text-xs text-gray-500 font-mono">UseState</span>
+            </div>
+            <div class="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">🔢</div>
+          </div>
+          <p class="text-sm text-gray-400 leading-relaxed">
+            Basic state management with increment, decrement, and reset operations.
+          </p>
+        </a>
+
+        <!-- 02 Text Input -->
+        <a href="../02-text-input/text-input.html" class="card-glow block bg-white/5 rounded-xl p-6 border border-white/10 hover-accent group">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-semibold text-white mb-1">Text Input</h3>
+              <span class="text-xs text-gray-500 font-mono">UseState</span>
+            </div>
+            <div class="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">✏️</div>
+          </div>
+          <p class="text-sm text-gray-400 leading-relaxed">
+            Two-way data binding with real-time character counting.
+          </p>
+        </a>
+
+        <!-- 03 Toggle -->
+        <a href="../03-toggle/toggle.html" class="card-glow block bg-white/5 rounded-xl p-6 border border-white/10 hover-accent group">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-semibold text-white mb-1">Toggle Switch</h3>
+              <span class="text-xs text-gray-500 font-mono">UseState</span>
+            </div>
+            <div class="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">🔘</div>
+          </div>
+          <p class="text-sm text-gray-400 leading-relaxed">
+            Boolean state management with conditional rendering.
+          </p>
+        </a>
+
+        <!-- 04 Form -->
+        <a href="../04-form/form.html" class="card-glow block bg-white/5 rounded-xl p-6 border border-white/10 hover-accent group">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-semibold text-white mb-1">Person Form</h3>
+              <span class="text-xs text-gray-500 font-mono">Struct State</span>
+            </div>
+            <div class="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">📝</div>
+          </div>
+          <p class="text-sm text-gray-400 leading-relaxed">
+            Complex object state with struct-based management.
+          </p>
+        </a>
+
+        <!-- 05 Todo Basic -->
+        <a href="../05-todo-basic/todo-basic.html" class="card-glow block bg-white/5 rounded-xl p-6 border border-white/10 hover-accent group">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-semibold text-white mb-1">Todo List</h3>
+              <span class="text-xs text-gray-500 font-mono">Array State</span>
+            </div>
+            <div class="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">✅</div>
+          </div>
+          <p class="text-sm text-gray-400 leading-relaxed">
+            Array state management with CRUD operations.
+          </p>
+        </a>
+
+        <!-- 06 Todo Advanced -->
+        <a href="../06-todo-advanced/todo-advanced.html" class="card-glow block bg-white/5 rounded-xl p-6 border border-white/10 hover-accent group">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-semibold text-white mb-1">Advanced Todo</h3>
+              <span class="text-xs text-gray-500 font-mono">Complex State</span>
+            </div>
+            <div class="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">📋</div>
+          </div>
+          <p class="text-sm text-gray-400 leading-relaxed">
+            Production-ready todo with priorities, categories, and filters.
+          </p>
+        </a>
+
+        <!-- 07 Goroutines -->
+        <a href="../07-goroutines/goroutines.html" class="card-glow block bg-white/5 rounded-xl p-6 border border-white/10 hover-accent group">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-semibold text-white mb-1">Goroutines</h3>
+              <span class="text-xs text-gray-500 font-mono">Concurrency</span>
+            </div>
+            <div class="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">⚡</div>
+          </div>
+          <p class="text-sm text-gray-400 leading-relaxed">
+            Background tasks and timers with proper cancellation.
+          </p>
+        </a>
+
+        <!-- 08 Fetch -->
+        <a href="../08-fetch/fetch.html" class="card-glow block bg-white/5 rounded-xl p-6 border border-white/10 hover-accent group">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-semibold text-white mb-1">HTTP Fetch</h3>
+              <span class="text-xs text-gray-500 font-mono">UseFetch</span>
+            </div>
+            <div class="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">🌐</div>
+          </div>
+          <p class="text-sm text-gray-400 leading-relaxed">
+            Async data fetching with loading states and error handling.
+          </p>
+        </a>
+
+        <!-- 09 Atoms -->
+        <a href="../09-atoms/atoms.html" class="card-glow block bg-white/5 rounded-xl p-6 border border-white/10 hover-accent group">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-semibold text-white mb-1">Global State</h3>
+              <span class="text-xs text-gray-500 font-mono">UseAtom</span>
+            </div>
+            <div class="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">⚛️</div>
+          </div>
+          <p class="text-sm text-gray-400 leading-relaxed">
+            Share state globally across sibling components.
+          </p>
+        </a>
+
+        <!-- 10 Advanced Form -->
+        <a href="../10-advanced-form/advanced-form.html" class="card-glow block bg-white/5 rounded-xl p-6 border border-white/10 hover-accent group">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-semibold text-white mb-1">Advanced Form</h3>
+              <span class="text-xs text-gray-500 font-mono">Validation</span>
+            </div>
+            <div class="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">📄</div>
+          </div>
+          <p class="text-sm text-gray-400 leading-relaxed">
+            Password strength meter and async validation patterns.
+          </p>
+        </a>
+
+        <!-- 11 Blog -->
+        <a href="../11-blog/blog.html" class="card-glow block bg-white/5 rounded-xl p-6 border border-white/10 hover-accent group">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-semibold text-white mb-1">Blog Landing</h3>
+              <span class="text-xs text-gray-500 font-mono">Full Page</span>
+            </div>
+            <div class="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">📰</div>
+          </div>
+          <p class="text-sm text-gray-400 leading-relaxed">
+            Complete landing page with component composition.
+          </p>
+        </a>
+
+        <!-- 12 Portfolio -->
+        <a href="../12-portfolio-site/portfolio.html" class="card-glow block bg-white/5 rounded-xl p-6 border border-white/10 hover-accent group">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-semibold text-white mb-1">Portfolio Site</h3>
+              <span class="text-xs text-gray-500 font-mono">Full App</span>
+            </div>
+            <div class="text-2xl opacity-50 group-hover:opacity-100 transition-opacity">💼</div>
+          </div>
+          <p class="text-sm text-gray-400 leading-relaxed">
+            Production-grade site with routing and dark mode.
+          </p>
+        </a>
+      </div>
+
+      <!-- Footer -->
+      <footer class="text-center border-t border-white/10 pt-12">
+        <a
+          href="https://github.com/monstercameron/GoWebComponents"
+          target="_blank"
+          class="inline-flex items-center gap-3 px-6 py-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all text-white group"
+        >
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          </svg>
+          <span class="font-medium">View on GitHub</span>
+          <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </a>
+        <p class="mt-8 text-sm text-gray-500">
+          Built with Go, WebAssembly, and Tailwind CSS
+        </p>
+      </footer>
+    </div>
   </body>
 </html>
