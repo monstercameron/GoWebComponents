@@ -43,31 +43,44 @@ Here's how to create a simple "click counter" component.
     package main
 
     import (
-    	. "github.com/monstercameron/GoWebComponents/fiber"
     	"fmt"
+    	"syscall/js"
+
+    	"github.com/monstercameron/GoWebComponents/dom"
+    	"github.com/monstercameron/GoWebComponents/hooks"
+    	"github.com/monstercameron/GoWebComponents/render"
     )
 
     func main() {
-    	app := func(props Attrs) *Element {
-    		count, setCount := GoUseState(0)
+    	// Define the component
+    	app := func(props dom.Attrs) *render.Element {
+    		count, setCount := hooks.UseState(0)
 
-    		handleClick := GoUseFunc(func(event GoEvent) {
+    		handleClick := hooks.GoUseFunc(func() {
     			setCount(count() + 1)
     		})
 
-    		return Div(
-    			Attrs{"class": "container"},
-    			H1(nil, "Click Counter"),
-    			P(nil, fmt.Sprintf("Current count: %d", count())),
-    			Button(
-    				Attrs{"onclick": handleClick},
-    				"Click Me!",
+    		return dom.Div(
+    			dom.Attrs{"class": "container"},
+    			dom.H1(nil, dom.Text("Click Counter")),
+    			dom.P(nil, dom.Text(fmt.Sprintf("Current count: %d", count()))),
+    			dom.Button(
+    				dom.Attrs{"onclick": handleClick},
+    				dom.Text("Click Me!"),
     			),
     		)
     	}
 
-        // Render the app component, which will be mounted to the element with the ID "app".
-    	RenderTo("#app", app)
+        // Find the DOM container
+        container := js.Global().Get("document").Call("getElementById", "app")
+        if container.IsUndefined() || container.IsNull() {
+            fmt.Println("❌ No element with id 'app' found!")
+            return
+        }
+
+        // Create and render the element
+        element := dom.CreateElement(app, nil)
+        render.ToElement(element, container)
 
     	// Keep the Go program running to prevent it from exiting immediately.
     	select {}
@@ -242,24 +255,24 @@ const (
 
 ## 📖 Core API
 
-GoWebComponents provides a set of hooks to manage component state, side effects, and performance. Always import the library using a dot import (`.`) to have direct access to the API.
+GoWebComponents provides a set of hooks to manage component state, side effects, and performance.
 
 ```go
-import . "github.com/monstercameron/GoWebComponents/fiber"
+import "github.com/monstercameron/GoWebComponents/hooks"
 ```
 
-### `GoUseState[T](initialValue T) (func() T, func(T))`
+### `hooks.UseState[T](initialValue T) (func() T, func(interface{}))`
 
 Manages state within a component. When you update the state, the component automatically re-renders.
 
 *   **Returns**: A getter function to access the current state, and a setter function to update it.
 
-**Note on Type Inference**: In most cases, you don't need to specify the generic type `[T]`. Go's type inference will automatically determine the type from the initial value you provide. For example, `GoUseState(0)` is automatically inferred as `GoUseState[int](0)`.
+**Note on Type Inference**: In most cases, you don't need to specify the generic type `[T]`. Go's type inference will automatically determine the type from the initial value you provide. For example, `hooks.UseState(0)` is automatically inferred as `hooks.UseState[int](0)`.
 
 ```go
 // Go automatically infers the type from the initial value.
-name, setName := GoUseState("World") // Type is inferred as string.
-count, setCount := GoUseState(0)     // Type is inferred as int.
+name, setName := hooks.UseState("World") // Type is inferred as string.
+count, setCount := hooks.UseState(0)     // Type is inferred as int.
 
 // Get the value
 fmt.Printf("Hello, %s\n", name()) // -> "Hello, World"
@@ -268,93 +281,89 @@ fmt.Printf("Hello, %s\n", name()) // -> "Hello, World"
 setCount(count() + 1)
 ```
 
-### `GoUseEffect(effect func(), deps []interface{})`
+### `hooks.UseEffect(effect func() func(), deps ...interface{})`
 
 Runs side effects after the component has rendered. Ideal for fetching data, setting up subscriptions, or manipulating the DOM directly.
 
-*   `effect`: The function to run.
-*   `deps`: A slice of dependencies. The effect will only re-run if a value in this slice changes.
-    *   `nil` or `[]interface{}{}`: Runs the effect once after the initial render.
-    *   `omitted`: Runs after every render.
+*   `effect`: The function to run. It can return a cleanup function.
+*   `deps`: A variadic list of dependencies. The effect will only re-run if a value in this list changes.
+    *   `nil` or empty: Runs the effect after every render (if no deps passed).
+    *   Pass explicit dependencies to control re-runs.
 
 ```go
-// Runs once when the component mounts
-GoUseEffect(func() {
+// Runs once when the component mounts (empty deps)
+hooks.UseEffect(func() func() {
     fmt.Println("Component has mounted!")
-}, nil)
+    return nil
+}, []interface{}{})
 
 // Runs whenever 'userId' changes
-userId, _ := GoUseState(1)
-GoUseEffect(func() {
+userId, _ := hooks.UseState(1)
+hooks.UseEffect(func() func() {
     fmt.Printf("Fetching data for user %d\n", userId())
-}, []interface{}{userId()})
+    return nil
+}, userId())
 ```
 
-### `GoUseMemo(compute func() interface{}, deps []interface{}) interface{}`
+### `hooks.UseMemo(compute func() interface{}, deps ...interface{}) interface{}`
 
 Memoizes the result of an expensive calculation. The function only re-computes the value when one of its dependencies changes, preventing unnecessary work on each render.
 
 ```go
 // An expensive calculation
-fib := GoUseMemo(func() interface{} {
+fib := hooks.UseMemo(func() interface{} {
     return calculateFibonacci(number())
-}, []interface{}{number()}).(int)
+}, number()).(int)
 ```
 
-### `GoUseFunc(callback interface{}) js.Func`
+### `hooks.GoUseFunc(callback interface{}) interface{}`
 
-Wraps a Go function to be used as a JavaScript event handler. It manages the lifecycle of the `js.Func` to prevent memory leaks.
+Wraps a Go function to be used as a JavaScript event handler. It manages the lifecycle of the `js.Func` to prevent memory leaks and provides a cleaner API than `js.FuncOf`.
 
 ```go
-handleClick := GoUseFunc(func(event GoEvent) {
+handleClick := hooks.GoUseFunc(func(event js.Value) {
     fmt.Println("Button was clicked!")
-    event.PreventDefault()
+    event.Call("preventDefault")
 })
 
 // In your component:
-Button(Attrs{"onclick": handleClick}, "Click Me")
+dom.Button(dom.Attrs{"onclick": handleClick}, dom.Text("Click Me"))
 ```
-
-### `GoEvent`
-
-The `GoEvent` struct is passed to event handlers and provides a safe, Go-friendly wrapper around the JavaScript event object.
-
-*   `event.GetValue()`: Gets the `value` of an input element.
-*   `event.IsChecked()`: Gets the `checked` state of a checkbox.
-*   `event.GetKey()`: Gets the key pressed for keyboard events.
-*   `event.PreventDefault()`: Prevents the browser's default action.
-*   `event.StopPropagation()`: Stops the event from bubbling up.
 
 ## 🎨 HTML Elements
 
 GoWebComponents provides functions for all standard HTML elements, allowing you to build your UI in a declarative way.
 
+```go
+import "github.com/monstercameron/GoWebComponents/dom"
+```
+
 ### Creating Elements
 
-All element functions follow a similar pattern: `ElementName(attributes, children...)`.
+All element functions follow a similar pattern: `dom.ElementName(attributes, children...)`.
 
 ```go
 // A simple div with text
-Div(nil, "Hello, World!")
+dom.Div(nil, dom.Text("Hello, World!"))
 
 // A div with a class and multiple children
-Div(
-    Attrs{"class": "container"},
-    H1(nil, "My App"),
-    P(nil, "This is a paragraph."),
+dom.Div(
+    dom.Attrs{"class": "container"},
+    dom.H1(nil, dom.Text("My App")),
+    dom.P(nil, dom.Text("This is a paragraph.")),
 )
 ```
 
 ### Attributes
 
-Attributes are passed as an `Attrs` map (`map[string]interface{}`).
+Attributes are passed as a `dom.Attrs` map (`map[string]interface{}`).
 
 ```go
 // An input with type, placeholder, and an event handler
-Input(Attrs{
+dom.Input(dom.Attrs{
     "type": "text",
     "placeholder": "Enter your name...",
-    "oninput": GoUseFunc(handleInput),
+    "oninput": hooks.GoUseFunc(handleInput),
 })
 ```
 
@@ -362,11 +371,11 @@ Input(Attrs{
 
 A short list of commonly used element functions:
 
-*   `Div`, `Span`, `P`
-*   `H1`, `H2`, `H3`, `H4`, `H5`, `H6`
-*   `Button`, `Input`, `Form`, `Label`
-*   `A` (for links), `Img` (for images)
-*   `Ul`, `Ol`, `Li` (for lists)
+*   `dom.Div`, `dom.Span`, `dom.P`
+*   `dom.H1`, `dom.H2`, `dom.H3`, `dom.H4`, `dom.H5`, `dom.H6`
+*   `dom.Button`, `dom.Input`, `dom.Form`, `dom.Label`
+*   `dom.A` (for links), `dom.Img` (for images)
+*   `dom.Ul`, `dom.Ol`, `dom.Li` (for lists)
 
 ## 🧩 Component Composition
 
@@ -383,18 +392,18 @@ A card that can take a title via props and render other elements inside it (chil
 
 ```go
 // Card is a reusable component that displays content in a styled box.
-func Card(props Attrs, children ...interface{}) *Element {
+func Card(props dom.Attrs, children ...interface{}) *render.Element {
     // Set a default title, but allow it to be overridden by props.
     title := "Default Title"
     if props != nil && props["title"] != nil {
         title = props["title"].(string)
     }
 
-    return Div(
-        Attrs{"class": "card"}, // The outer container of the card
-        H2(nil, title),          // The card title
-        Div(
-            Attrs{"class": "card-content"},
+    return dom.Div(
+        dom.Attrs{"class": "card"}, // The outer container of the card
+        dom.H2(nil, dom.Text(title)),          // The card title
+        dom.Div(
+            dom.Attrs{"class": "card-content"},
             children..., // Render any nested children here
         ),
     )
@@ -406,23 +415,23 @@ Now, let's use the `Card` component inside a `ProfilePage`.
 
 ```go
 // ProfilePage is a component that displays a user's profile.
-func ProfilePage(props Attrs) *Element {
-    return Div(
-        Attrs{"class": "profile-page"},
-        H1(nil, "User Profile"),
+func ProfilePage(props dom.Attrs) *render.Element {
+    return dom.Div(
+        dom.Attrs{"class": "profile-page"},
+        dom.H1(nil, dom.Text("User Profile")),
 
         // Example 1: A card with a specific title and a child paragraph.
         // This is a "direct call" to the Card component.
         Card(
-            Attrs{"title": "About Me"},
-            P(nil, "This is a simple profile page built with GoWebComponents."),
+            dom.Attrs{"title": "About Me"},
+            dom.P(nil, dom.Text("This is a simple profile page built with GoWebComponents.")),
         ),
 
         // Example 2: A card using the default title (nil props) and multiple children.
         Card(
             nil, // Passing nil for props is perfectly fine.
-            P(nil, "Here is another section of the profile."),
-            Button(nil, "Contact Me"),
+            dom.P(nil, dom.Text("Here is another section of the profile.")),
+            dom.Button(nil, dom.Text("Contact Me")),
         ),
     )
 }
@@ -430,29 +439,28 @@ func ProfilePage(props Attrs) *Element {
 
 ### Method 2: Composition by Reference
 
-For more dynamic scenarios, you can use helper functions like `DivWithComponents`. This allows you to pass component functions *by reference* and have the framework render them.
+For more dynamic scenarios, you can use helper functions like `dom.DivWithComponents` (if available, or just pass functions). This allows you to pass component functions *by reference* and have the framework render them.
 
 This is useful when the list of components to render is determined at runtime.
 
 ```go
 // A simple Header component.
-func Header(props Attrs) *Element {
-    return Header(Attrs{"class": "main-header"}, H1(nil, "My Application"))
+func Header(props dom.Attrs) *render.Element {
+    return dom.Header(dom.Attrs{"class": "main-header"}, dom.H1(nil, dom.Text("My Application")))
 }
 
 // A simple Footer component.
-func Footer(props Attrs) *Element {
-    return Footer(Attrs{"class": "main-footer"}, P(nil, "Copyright 2024"))
+func Footer(props dom.Attrs) *render.Element {
+    return dom.Footer(dom.Attrs{"class": "main-footer"}, dom.P(nil, dom.Text("Copyright 2024")))
 }
 
 // A Layout component that renders other components by reference.
-func AppLayout(props Attrs) *Element {
-    // DivWithComponents takes a slice of component functions and renders them.
-    // The components are passed by reference (e.g., Header, Footer), not called directly.
-    return DivWithComponents(
-        Attrs{"class": "layout"},
+func AppLayout(props dom.Attrs) *render.Element {
+    // You can pass component functions directly as children
+    return dom.Div(
+        dom.Attrs{"class": "layout"},
         Header, // Pass the function itself
-        P(nil, "This is the main content of the page."),
+        dom.P(nil, dom.Text("This is the main content of the page.")),
         Footer, // Pass the function itself
     )
 }
@@ -502,25 +510,29 @@ graph TD
 
 ## 🌐 Data Fetching
 
-GoWebComponents provides two ways to fetch data: a declarative hook (`GoUseFetch`) for use inside components and an imperative function (`GoFetch`) for use anywhere in your application.
+GoWebComponents provides two ways to fetch data: a declarative hook (`fetch.UseFetch`) for use inside components and an imperative function (`fetch.Fetch`) for use anywhere in your application.
 
-### Declarative: `GoUseFetch`
+```go
+import "github.com/monstercameron/GoWebComponents/fetch"
+```
 
-The `GoUseFetch` hook is the recommended way to handle data fetching inside your components. It automatically manages loading, error, and data states, and will re-fetch when the URL changes.
+### Declarative: `fetch.UseFetch`
+
+The `fetch.UseFetch` hook is the recommended way to handle data fetching inside your components. It automatically manages loading, error, and data states.
 
 **Signature**
 
 ```go
-GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
+fetch.UseFetch(url string, options ...fetch.Options) (func() fetch.State, func())
 ```
 
 *   **Returns**:
-    1.  A `getter` function that returns the current `FetchState`.
+    1.  A `getter` function that returns the current `fetch.State`.
     2.  A `refetch` function to manually trigger the fetch again.
 
-*   **`FetchState` struct**:
+*   **`fetch.State` struct**:
     ```go
-    type FetchState struct {
+    type State struct {
         Data    interface{}
         Loading bool
         Error   string
@@ -530,72 +542,71 @@ GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
 **Example: Displaying User Data**
 
 ```go
-func UserProfile(props Attrs) *Element {
+func UserProfile(props dom.Attrs) *render.Element {
     // The hook returns a getter and a refetch function.
-    fetchState, refetch := GoUseFetch("https://api.example.com/users/1")
+    fetchState, refetch := fetch.UseFetch("https://api.example.com/users/1")
     
     // Call the getter to get the current state.
     state := fetchState()
 
     if state.Loading {
-        return P(nil, "Loading user profile...")
+        return dom.P(nil, dom.Text("Loading user profile..."))
     }
 
     if state.Error != "" {
-        return Div(nil,
-            P(nil, "Error: ", state.Error),
-            Button(Attrs{"onclick": GoUseFunc(func(e GoEvent) { refetch() })}, "Retry"),
+        return dom.Div(nil,
+            dom.P(nil, dom.Text("Error: " + state.Error)),
+            dom.Button(dom.Attrs{"onclick": hooks.GoUseFunc(func() { refetch() })}, dom.Text("Retry")),
         )
     }
 
     // Type-assert the data to access its fields.
-    user := state.Data.(map[string]interface{})
+    // Note: fetch.Fetch currently returns Data as string (JSON), so you might need to unmarshal it.
+    // For this example, we assume it's handled or we just display the raw string.
+    userJson := state.Data.(string)
 
-    return Div(Attrs{"class": "user-profile"},
-        H1(nil, "User Profile"),
-        P(nil, "Name: ", user["name"].(string)),
-        P(nil, "Email: ", user["email"].(string)),
+    return dom.Div(dom.Attrs{"class": "user-profile"},
+        dom.H1(nil, dom.Text("User Profile")),
+        dom.P(nil, dom.Text(userJson)),
     )
 }
 ```
 
-### Imperative: `GoFetch`
+### Imperative: `fetch.Fetch`
 
-The `GoFetch` function allows you to perform an HTTP request from anywhere, such as inside an event handler or a goroutine. It returns a channel that will receive the result.
+The `fetch.Fetch` function allows you to perform an HTTP request from anywhere, such as inside an event handler or a goroutine. It returns a channel that will receive the result.
 
 **Signature**
 
 ```go
-GoFetch(url string, options FetchOptions) <-chan FetchResult
+fetch.Fetch(url string, options fetch.Options) <-chan fetch.Result
 ```
 
-*   **Returns**: A read-only channel (`<-chan`) that will deliver a single `FetchResult`.
-*   **`FetchResult` struct**:
+*   **Returns**: A read-only channel (`<-chan`) that will deliver a single `fetch.Result`.
+*   **`fetch.Result` struct**:
     ```go
-    type FetchResult struct {
+    type Result struct {
         Data interface{}
         Err  error
     }
     ```
 
-**Important**: After you receive the result from the channel, you **must** return the channel to a pool using `ReturnFetchChannel(ch)` to prevent memory leaks.
-
 **Example: Creating a User on Form Submit**
 
 ```go
-func CreateUserForm(props Attrs) *Element {
-    name, setName := GoUseState("")
+func CreateUserForm(props dom.Attrs) *render.Element {
+    name, setName := hooks.UseState("")
 
-    handleSubmit := GoUseFunc(func(e GoEvent) {
-        e.PreventDefault()
+    handleSubmit := hooks.GoUseFunc(func(event dom.GoEvent) {
+        event.PreventDefault()
 
         // Define the data to send.
         userData := map[string]interface{}{"name": name()}
 
         // Start the fetch operation.
-        resultChan := GoFetch("https://api.example.com/users", FetchOptions{
+        resultChan := fetch.Fetch("https://api.example.com/users", fetch.Options{
             Method:  "POST",
-            Headers: Attrs{"Content-Type": "application/json"},
+            Headers: map[string]interface{}{"Content-Type": "application/json"},
             Body:    userData,
         })
 
@@ -603,36 +614,34 @@ func CreateUserForm(props Attrs) *Element {
         go func() {
             // Wait for the result from the channel.
             result := <-resultChan
-            // IMPORTANT: Return the channel to the pool.
-            ReturnFetchChannel(resultChan)
 
             if result.Err != nil {
                 fmt.Println("Error creating user:", result.Err)
-                // Here you would typically update state to show an error message.
             } else {
                 fmt.Println("User created successfully:", result.Data)
-                // Update state to show a success message or clear the form.
             }
         }()
     })
 
-    return Form(Attrs{"onsubmit": handleSubmit},
-        Input(Attrs{
+    return dom.Form(dom.Attrs{"onsubmit": handleSubmit},
+        dom.Input(dom.Attrs{
             "type": "text",
             "value": name(),
-            "oninput": GoUseFunc(func(e GoEvent) { setName(e.GetValue()) }),
+            "oninput": hooks.GoUseFunc(func(event dom.GoEvent) { 
+                setName(event.GetValue())
+            }),
         }),
-        Button(nil, "Create User"),
+        dom.Button(nil, dom.Text("Create User")),
     )
 }
 ```
 
-### `FetchOptions`
+### `fetch.Options`
 
-Both `GoUseFetch` and `GoFetch` accept an optional `FetchOptions` struct to customize the request.
+Both `fetch.UseFetch` and `fetch.Fetch` accept a `fetch.Options` struct to customize the request.
 
 ```go
-type FetchOptions struct {
+type Options struct {
     Method  string
     Headers map[string]interface{}
     Body    interface{} // Can be a string or a struct/map to be JSON-encoded.

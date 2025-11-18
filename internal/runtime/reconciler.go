@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"fmt"
 	"reflect"
 )
 
@@ -59,7 +58,6 @@ func flattenFragments(elements []interface{}) []interface{} {
 func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 	// Flatten any Fragment elements before reconciliation
 	elements = flattenFragments(elements)
-	fmt.Printf("[RECONCILE] wipFiber.typeOf=%v, elements count=%d\n", wipFiber.typeOf, len(elements))
 
 	index := 0
 	var oldFiber *Fiber
@@ -110,16 +108,14 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					dirty:     needsUpdate,
 				}
 			} else {
-				fmt.Printf("  [UPDATE] ERROR: not Element type=%T\n", element)
+				// fmt.Printf("  [UPDATE] ERROR: not Element type=%T\n", element)
 			}
 			// Link to parent
 			if !firstChildSet {
 				wipFiber.child = newFiber
 				firstChildSet = true
-				fmt.Printf("[RECONCILE] set wipFiber(%v).child=%p (type=%v)\n", wipFiber.typeOf, newFiber, newFiber.typeOf)
 			} else if newFiber != nil && prevSibling != nil {
 				prevSibling.sibling = newFiber
-				fmt.Printf("[RECONCILE] set prevSibling.sibling=%p\n", newFiber)
 			}
 			if newFiber != nil {
 				prevSibling = newFiber
@@ -139,26 +135,22 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					effectTag: "PLACEMENT",
 					dirty:     true,
 				}
-				fmt.Printf("[RECONCILE] PLACEMENT: idx=%d, type=%v, newFiber=%p\n", index, elem.Type, newFiber)
 				// Log when placing element without old fiber (potential duplication)
 				if oldFiber != nil {
-					fmt.Printf("[DUP] PLACEMENT idx=%d type=%v when oldFiber=%p exists (sibling=%p)\n", index, elem.Type, oldFiber, oldFiber.sibling)
 					// Mark old fiber for deletion on type mismatch
 					oldFiber.effectTag = "DELETION"
 					rt.deletions = append(rt.deletions, oldFiber)
 					oldFiber = oldFiber.sibling
 				}
 			} else {
-				fmt.Printf("  [PLACEMENT] ERROR: not Element\n")
+				// fmt.Printf("  [PLACEMENT] ERROR: not Element\n")
 			}
 			// Link to parent
 			if !firstChildSet {
 				wipFiber.child = newFiber
 				firstChildSet = true
-				fmt.Printf("[RECONCILE] set wipFiber(%v).child=%p (type=%v)\n", wipFiber.typeOf, newFiber, newFiber.typeOf)
 			} else if newFiber != nil && prevSibling != nil {
 				prevSibling.sibling = newFiber
-				fmt.Printf("[RECONCILE] set prevSibling.sibling=%p\n", newFiber)
 			}
 			if newFiber != nil {
 				prevSibling = newFiber
@@ -209,8 +201,6 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 	if fiber == nil {
 		return nil
 	}
-
-	fmt.Printf("[PERFORM] fiber.typeOf=%v, dirty=%v, child=%p\n", fiber.typeOf, fiber.dirty, fiber.child)
 
 	// Skip non-dirty fibers (optimization)
 	if !fiber.dirty {
@@ -379,7 +369,6 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 
 // commitRoot commits all changes to the DOM
 func (rt *Runtime) commitRoot() {
-	fmt.Printf("[COMMIT] commitRoot starting, deletions=%d\n", len(rt.deletions))
 	// Process deletions first
 	for _, fiber := range rt.deletions {
 		rt.commitWork(fiber)
@@ -388,10 +377,9 @@ func (rt *Runtime) commitRoot() {
 
 	// Commit the work
 	if rt.wipRoot != nil && rt.wipRoot.child != nil {
-		fmt.Printf("[COMMIT] committing wipRoot.child, typeOf=%v\n", rt.wipRoot.child.typeOf)
 		rt.commitWork(rt.wipRoot.child)
 	} else {
-		fmt.Printf("[COMMIT] WARNING: wipRoot.child is nil\n")
+		// fmt.Printf("[COMMIT] WARNING: wipRoot.child is nil\n")
 	}
 
 	// Run effects
@@ -406,8 +394,6 @@ func (rt *Runtime) commitWork(fiber *Fiber) {
 	if fiber == nil {
 		return
 	}
-
-	fmt.Printf("[COMMIT] commitWork fiber typeOf=%v effectTag=%v\n", fiber.typeOf, fiber.effectTag)
 
 	// Find the parent DOM node
 	var domParentFiber *Fiber = fiber.parent
@@ -477,11 +463,8 @@ func (rt *Runtime) deleteFiberSubtree(fiber *Fiber, domParent DOMNode) {
 		return
 	}
 
-	fmt.Printf("  deleteFiberSubtree: fiber=%p type=%v dom=%p\n", fiber, fiber.typeOf, fiber.dom)
-
 	// If this fiber has a DOM node, remove it (this stops the recursion down that branch)
 	if fiber.dom != nil && !fiber.dom.IsNull() {
-		fmt.Printf("    deleteFiberSubtree: removing DOM node %p from parent %p\n", fiber.dom, domParent)
 		rt.domAdapter.RemoveChild(domParent, fiber.dom)
 		return
 	}
