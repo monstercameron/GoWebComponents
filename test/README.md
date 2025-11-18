@@ -1,6 +1,28 @@
-# GoWebComponents Playwright Tests
+# Test Suite
 
-End-to-end tests for GoWebComponents WASM using Playwright.
+**Location:** `/test`
+
+```
+GoWebComponents/
+├── dom/
+├── hooks/
+├── state/
+├── render/
+├── router/
+├── fetch/
+├── internal/
+├── examples/
+├── test/             ← YOU ARE HERE
+│   ├── specs/
+│   ├── testapp/
+│   ├── static/
+│   └── ...
+└── tools/
+```
+
+## Overview
+
+End-to-end tests for GoWebComponents WASM using Playwright. Tests run in real browsers to verify all framework features.
 
 ## Setup
 
