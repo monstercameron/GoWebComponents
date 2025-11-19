@@ -2,6 +2,18 @@
   <img src="static/images/hero.jpg" alt="GoWebComponents Hero Image" width="600">
 </p>
 
+<p align="center">
+  <a href="https://github.com/monstercameron/GoWebComponents/actions/workflows/release.yml">
+    <img src="https://github.com/monstercameron/GoWebComponents/actions/workflows/release.yml/badge.svg?branch=main" alt="CI + Release">
+  </a>
+  <a href="https://github.com/monstercameron/GoWebComponents/releases">
+    <img src="https://img.shields.io/github/v/release/monstercameron/GoWebComponents" alt="Release Version">
+  </a>
+  <a href="https://goreportcard.com/report/github.com/monstercameron/GoWebComponents">
+    <img src="https://goreportcard.com/badge/github.com/monstercameron/GoWebComponents" alt="Go Report Card">
+  </a>
+</p>
+
 # 🚀 GoWebComponents: Build Modern Web Apps with Go and WebAssembly
 
 GoWebComponents is a modern frontend framework that lets you build fast, type-safe web applications using Go, compiled to WebAssembly. It offers a React-like development experience with hooks, a virtual DOM, and a rich set of tools, allowing you to write your entire stack in a single language.
