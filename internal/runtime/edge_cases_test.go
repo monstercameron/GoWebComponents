@@ -320,10 +320,10 @@ func TestCommitRoot_WithEffects_EdgeCase(t *testing.T) {
 	effectRan := false
 
 	child := &Fiber{
-		typeOf: "div",
-		props:  make(map[string]interface{}),
-		dom:    adapter.CreateElement("div"),
-		effects: []Effect{{Fn: func() func() { effectRan = true; return nil }}},
+		typeOf:    "div",
+		props:     make(map[string]interface{}),
+		dom:       adapter.CreateElement("div"),
+		effects:   []Effect{{Fn: func() func() { effectRan = true; return nil }}},
 		effectTag: "PLACEMENT",
 	}
 

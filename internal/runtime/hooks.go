@@ -34,7 +34,7 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 			copy(newStates, fiber.hooks.states)
 			fiber.hooks.states = newStates
 		}
-		
+
 		// Initialize new slots
 		fiber.hooks.states[stateIdx*2] = initialValue
 		fiber.hooks.states[stateIdx*2+1] = initialValue
@@ -43,7 +43,7 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 	hooks := fiber.hooks
 	// Capture indices for closure
 	sIdx := stateIdx * 2
-	pIdx := stateIdx * 2 + 1
+	pIdx := stateIdx*2 + 1
 
 	getter := func() T {
 		// Bounds check removed for performance - slice is grown before closure creation
@@ -439,8 +439,6 @@ func GoUseFunc(fn interface{}) interface{} {
 	return wrapper
 }
 
-
-
 // areDepsEqual compares dependency arrays
 func areDepsEqual(prevDeps, newDeps []interface{}) bool {
 	if len(prevDeps) != len(newDeps) {
@@ -531,7 +529,7 @@ func fastEqual(a, b interface{}) bool {
 	// Try direct comparison first, but only for comparable types
 	ta := reflect.TypeOf(a)
 	tb := reflect.TypeOf(b)
-	
+
 	if ta != tb {
 		return false
 	}

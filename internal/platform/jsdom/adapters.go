@@ -43,7 +43,7 @@ type WASMDOMAdapter struct {
 func NewWASMDOMAdapter() *WASMDOMAdapter {
 	doc := js.Global().Get("document")
 	return &WASMDOMAdapter{
-		document:       doc,
+		document: doc,
 		// Bind methods to document to ensure correct 'this' context when Invoked
 		createElement:  doc.Get("createElement").Call("bind", doc),
 		createTextNode: doc.Get("createTextNode").Call("bind", doc),

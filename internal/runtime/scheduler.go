@@ -118,7 +118,7 @@ func (rt *Runtime) ScheduleUpdateForFiber(fiber *Fiber) {
 	// Mark fiber and parents as dirty
 	f := fiber
 	for f != nil {
-		// Optimization: if fiber is already dirty and marked for update, 
+		// Optimization: if fiber is already dirty and marked for update,
 		// we can assume the path to root is already marked.
 		if f.dirty && f.needsUpdate {
 			break

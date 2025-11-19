@@ -45,8 +45,6 @@ type Fiber struct {
 	componentIdCounter int
 }
 
-
-
 // memoizedValue stores a memoized computation result with its dependencies
 type memoizedValue struct {
 	value interface{}
@@ -106,16 +104,16 @@ type Hooks struct {
 	atomIndex     int
 	cleanupIndex  int
 
-	states       []interface{} // Interleaved: state, pending, state, pending...
-	deps         [][]interface{}
-	memos        []memoizedValue
-	callbacks    []callbackValue
-	refs         []*RefValue        // Store refs separately to persist across renders
-	ids          []string           // Store generated IDs that persist across renders
-	fetches      []fetchValue       // Store fetch states for manual fetch hooks
-	funcs        []funcHandlerValue // Store wrapped event handler functions
-	cleanups     []func()           // Cleanup functions from UseEffect
-	atoms        []string           // Store subscribed atom IDs for efficient cleanup
+	states    []interface{} // Interleaved: state, pending, state, pending...
+	deps      [][]interface{}
+	memos     []memoizedValue
+	callbacks []callbackValue
+	refs      []*RefValue        // Store refs separately to persist across renders
+	ids       []string           // Store generated IDs that persist across renders
+	fetches   []fetchValue       // Store fetch states for manual fetch hooks
+	funcs     []funcHandlerValue // Store wrapped event handler functions
+	cleanups  []func()           // Cleanup functions from UseEffect
+	atoms     []string           // Store subscribed atom IDs for efficient cleanup
 }
 
 // Attrs is a convenience type for component props

@@ -95,5 +95,3 @@ func TestElementCreation(t *testing.T) {
 		t.Errorf("Expected 1 child, got %d", len(element.Children))
 	}
 }
-
-

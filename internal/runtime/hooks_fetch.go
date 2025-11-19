@@ -29,14 +29,14 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 
 	if fiber.hooks == nil {
 		fiber.hooks = &Hooks{
-			states:       make([]interface{}, 0),
-			deps:         make([][]interface{}, 0),
-			memos:        make([]memoizedValue, 0),
-			callbacks:    make([]callbackValue, 0),
-			refs:         make([]*RefValue, 0),
-			ids:          make([]string, 0),
-			fetches:      make([]fetchValue, 0),
-			cleanups:     make([]func(), 0),
+			states:    make([]interface{}, 0),
+			deps:      make([][]interface{}, 0),
+			memos:     make([]memoizedValue, 0),
+			callbacks: make([]callbackValue, 0),
+			refs:      make([]*RefValue, 0),
+			ids:       make([]string, 0),
+			fetches:   make([]fetchValue, 0),
+			cleanups:  make([]func(), 0),
 		}
 	}
 

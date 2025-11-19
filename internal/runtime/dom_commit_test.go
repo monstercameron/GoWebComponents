@@ -350,6 +350,10 @@ func TestUpdateDomProperties_NoChanges(t *testing.T) {
 		"className": "class",
 	}
 
+	// Set initial properties
+	rt.updateDomProperties(dom, nil, props)
+
+	// Now update with same props (simulating no change)
 	rt.updateDomProperties(dom, props, props)
 
 	node := dom.(*testDOMNode)

@@ -473,8 +473,6 @@ func TestGoUseCallback_MultipleCallbacksIndependent(t *testing.T) {
 	}
 }
 
-
-
 func TestAreDepsEqual_Primitives(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -526,8 +524,6 @@ func TestFastEqual(t *testing.T) {
 		})
 	}
 }
-
-
 
 func TestGoUseRef_InitialValue(t *testing.T) {
 	fiber := &Fiber{

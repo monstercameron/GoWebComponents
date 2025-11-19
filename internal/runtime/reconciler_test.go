@@ -1116,10 +1116,10 @@ func TestPerformUnitOfWork_FunctionComponentWithHooks(t *testing.T) {
 
 	// Component with previous render (has hooks state)
 	oldHooks := &Hooks{
-		states:    []interface{}{42, 42, "test", "test"},
-		deps:      make([][]interface{}, 0),
-		memos:     make([]memoizedValue, 0),
-		index:     0,
+		states: []interface{}{42, 42, "test", "test"},
+		deps:   make([][]interface{}, 0),
+		memos:  make([]memoizedValue, 0),
+		index:  0,
 	}
 
 	alternate := &Fiber{

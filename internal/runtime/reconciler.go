@@ -7,9 +7,9 @@ import (
 
 // currentFiber tracks the fiber being processed (for hooks)
 var (
-	currentFiber *Fiber
+	currentFiber  *Fiber
 	emptyChildren = []interface{}{}
-	slicePool = sync.Pool{
+	slicePool     = sync.Pool{
 		New: func() interface{} {
 			// Initial capacity 16 seems reasonable for children
 			return make([]interface{}, 0, 16)
@@ -175,20 +175,20 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 	// Loop 1: Update/Replace (Both exist)
 	for index < len(elements) && oldFiber != nil {
 		element := elements[index]
-		
+
 		var newFiber *Fiber
 		sameType := false
 
 		if element != nil {
 			if elem, ok := element.(*Element); ok {
 				sameType = isSameType(elem.Type, oldFiber.typeOf)
-				
+
 				if sameType {
 					// UPDATE logic
 					// Check if this fiber or its subtree needs update
 					isDirty := rt.isFiberDirty(oldFiber)
 					needsUpdate := isDirty || oldFiber.needsUpdate
-					
+
 					if !needsUpdate {
 						if t, ok := elem.Type.(string); ok && t == "TEXT_ELEMENT" {
 							oldText := oldFiber.textContent
@@ -223,7 +223,7 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 
 					// Optimization: Break the alternate chain
 					oldFiber.alternate = nil
-					
+
 					// Advance oldFiber
 					oldFiber = oldFiber.sibling
 				} else {
@@ -236,7 +236,7 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 						effectTag:   "PLACEMENT",
 						dirty:       true,
 					}
-					
+
 					// Mark old fiber for deletion
 					oldFiber.effectTag = "DELETION"
 					rt.deletions = append(rt.deletions, oldFiber)
@@ -262,7 +262,7 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 			// else if element != nil { ... index++ }
 			// else if oldFiber != nil { ... oldFiber = oldFiber.sibling } (NO index++)
 			// else { index++ }
-			
+
 			// So if element is nil, we delete oldFiber and stay at same index?
 			// That implies elements[index] is NOT consumed if it is nil?
 			// But elements[index] IS nil. So we should consume it?
@@ -278,12 +278,12 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 			// Then it hits the `else { index++ }` block.
 			// So it deletes all remaining oldFibers?
 			// That seems wrong if elements has more items after nil.
-			
+
 			// Let's assume standard behavior: index corresponds to position.
 			// If elements[index] is nil, it's a hole. We should probably skip it.
 			// But if there was an oldFiber at this position, it should be deleted.
 			// So: Delete oldFiber, Increment index.
-			
+
 			// Let's stick to the behavior:
 			// If element is nil, we treat it as "nothing to render".
 			// If there was something (oldFiber), delete it.
@@ -300,7 +300,7 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 			}
 			prevSibling = newFiber
 		}
-		
+
 		index++
 	}
 
@@ -308,7 +308,7 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 	for index < len(elements) {
 		element := elements[index]
 		var newFiber *Fiber
-		
+
 		if element != nil {
 			if elem, ok := element.(*Element); ok {
 				newFiber = &Fiber{
