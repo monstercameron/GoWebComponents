@@ -1,7 +1,7 @@
 //go:build js && wasm
 // +build js,wasm
 
-package website
+package main
 
 import (
 	"fmt"
@@ -29,7 +29,7 @@ func GWCShowcaseSection(_ Attrs) *Element {
 
 			"id": "gwc-showcase",
 
-			"class": "py-20 bg-gradient-to-br from-gray-900 to-purple-900 text-white",
+			"class": "py-20 bg-gradient-to-br from-gray-900/50 to-purple-900/20 border-b border-white/10 text-white",
 		},
 
 		dom.Div(
@@ -49,7 +49,7 @@ func GWCShowcaseSection(_ Attrs) *Element {
 
 				dom.P(
 
-					Attrs{"class": "text-xl text-gray-300 max-w-3xl mx-auto"},
+					Attrs{"class": "text-xl text-gray-400 max-w-3xl mx-auto"},
 
 					"Discover the innovative features and capabilities that make GoWebComponents unique",
 				),
@@ -86,13 +86,13 @@ func GWCFeatureCard(icon, title, description string) *Element {
 
 	return dom.Div(
 
-		Attrs{"class": "bg-white/10 backdrop-blur-sm p-6 rounded-xl hover:bg-white/20 transition-all duration-300 border border-white/20"},
+		Attrs{"class": "bg-white/5 backdrop-blur-sm p-6 rounded-xl hover:bg-white/10 transition-all duration-300 border border-white/10"},
 
 		dom.Div(Attrs{"class": "text-3xl mb-4"}, icon),
 
 		dom.H3(Attrs{"class": "text-xl font-semibold mb-3"}, title),
 
-		dom.P(Attrs{"class": "text-gray-300"}, description),
+		dom.P(Attrs{"class": "text-gray-400"}, description),
 	)
 
 }
@@ -111,7 +111,7 @@ func GWCExamplesSection(_ Attrs) *Element {
 
 			"id": "examples",
 
-			"class": "py-20 bg-gray-50",
+			"class": "py-20 bg-transparent",
 		},
 
 		dom.Div(
@@ -124,14 +124,14 @@ func GWCExamplesSection(_ Attrs) *Element {
 
 				dom.H2(
 
-					Attrs{"class": "text-4xl font-bold text-gray-900 mb-4"},
+					Attrs{"class": "text-4xl font-bold text-white mb-4"},
 
 					"Mini Apps Gallery",
 				),
 
 				dom.P(
 
-					Attrs{"class": "text-xl text-gray-600 max-w-3xl mx-auto"},
+					Attrs{"class": "text-xl text-gray-400 max-w-3xl mx-auto"},
 
 					"7 interactive mini applications showcasing GoWebComponents capabilities",
 				),
@@ -141,17 +141,53 @@ func GWCExamplesSection(_ Attrs) *Element {
 
 				Attrs{"class": "grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto"},
 
-				MiniAppCard("🖱️", "Click Counter", "State management basics", MiniClickCounter, clickCounterSource),
+				dom.CreateElement(MiniAppCard, Attrs{
+					"icon":        "🖱️",
+					"title":       "Click Counter",
+					"description": "State management basics",
+					"component":   MiniClickCounter,
+					"sourceCode":  clickCounterSource,
+				}),
 
-				MiniAppCard("🎲", "Random Number", "Effects and events", MiniRandomizer, randomizerSource),
+				dom.CreateElement(MiniAppCard, Attrs{
+					"icon":        "🎲",
+					"title":       "Random Number",
+					"description": "Effects and events",
+					"component":   MiniRandomizer,
+					"sourceCode":  randomizerSource,
+				}),
 
-				MiniAppCard("📝", "Quick Note", "Input handling", MiniNotepad, notepadSource),
+				dom.CreateElement(MiniAppCard, Attrs{
+					"icon":        "📝",
+					"title":       "Quick Note",
+					"description": "Input handling",
+					"component":   MiniNotepad,
+					"sourceCode":  notepadSource,
+				}),
 
-				MiniAppCard("🎨", "Color Picker", "Dynamic styling", MiniColorPicker, colorPickerSource),
+				dom.CreateElement(MiniAppCard, Attrs{
+					"icon":        "🎨",
+					"title":       "Color Picker",
+					"description": "Dynamic styling",
+					"component":   MiniColorPicker,
+					"sourceCode":  colorPickerSource,
+				}),
 
-				MiniAppCard("⏱️", "Timer", "Real-time updates", MiniTimer, timerSource),
+				dom.CreateElement(MiniAppCard, Attrs{
+					"icon":        "⏱️",
+					"title":       "Timer",
+					"description": "Real-time updates",
+					"component":   MiniTimer,
+					"sourceCode":  timerSource,
+				}),
 
-				MiniAppCard("📊", "Vote Counter", "Multiple states", MiniVoting, votingSource),
+				dom.CreateElement(MiniAppCard, Attrs{
+					"icon":        "📊",
+					"title":       "Vote Counter",
+					"description": "Multiple states",
+					"component":   MiniVoting,
+					"sourceCode":  votingSource,
+				}),
 
 				// Full-width advanced example
 
@@ -173,7 +209,13 @@ func GWCExamplesSection(_ Attrs) *Element {
 
 func AdvancedFormShowcase(_ Attrs) *Element {
 
-	return LazyMiniAppCard("🔒", "Advanced Form", "Validation • Effects • Memo • Go Routines • GoUseFetch", AdvancedFormExample, "https://raw.githubusercontent.com/monstercameron/GoWebComponents/refs/heads/master/website/advanced_form.go")
+	return dom.CreateElement(LazyMiniAppCard, Attrs{
+		"icon":        "🔒",
+		"title":       "Advanced Form",
+		"description": "Validation • Effects • Memo • Go Routines • GoUseFetch",
+		"component":   AdvancedFormExample,
+		"sourceUrl":   "https://raw.githubusercontent.com/monstercameron/GoWebComponents/refs/heads/master/website/advanced_form.go",
+	})
 
 }
 
@@ -183,7 +225,12 @@ func AdvancedFormShowcase(_ Attrs) *Element {
 
 // and smooth 3D flip animations between app view and code view.
 
-func LazyMiniAppCard(icon, title, description string, component func(Attrs) *Element, sourceUrl string) *Element {
+func LazyMiniAppCard(props Attrs) *Element {
+	icon := props["icon"].(string)
+	title := props["title"].(string)
+	description := props["description"].(string)
+	component := props["component"].(func(Attrs) *Element)
+	sourceUrl := props["sourceUrl"].(string)
 
 	showSource, setShowSource := hooks.UseState(false)
 
@@ -290,7 +337,7 @@ func LazyMiniAppCard(icon, title, description string, component func(Attrs) *Ele
 
 			Attrs{
 
-				"class": "relative w-full min-h-[450px] transition-all duration-700 bg-white rounded-xl shadow-lg hover:shadow-xl border border-gray-200",
+				"class": "relative w-full min-h-[450px] transition-all duration-700 bg-white/5 rounded-xl shadow-lg hover:shadow-xl border border-white/10 backdrop-blur-sm",
 
 				"style": func() string {
 
@@ -313,14 +360,20 @@ func LazyMiniAppCard(icon, title, description string, component func(Attrs) *Ele
 
 					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden flex flex-col",
 
-					"style": "backface-visibility: hidden; transform: rotateY(0deg);",
+					"style": func() string {
+						style := "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(0deg) translateZ(2px);"
+						if showSource() {
+							return style + " z-index: 0;"
+						}
+						return style + " z-index: 1;"
+					}(),
 				},
 
 				// Header
 
 				dom.Div(
 
-					Attrs{"class": "p-6 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50"},
+					Attrs{"class": "p-6 border-b border-white/10 bg-white/5"},
 
 					dom.Div(
 
@@ -334,9 +387,9 @@ func LazyMiniAppCard(icon, title, description string, component func(Attrs) *Ele
 
 							dom.Div(nil,
 
-								dom.H3(Attrs{"class": "font-semibold text-gray-900"}, title),
+								dom.H3(Attrs{"class": "font-semibold text-white"}, title),
 
-								dom.P(Attrs{"class": "text-xs text-gray-600"}, description),
+								dom.P(Attrs{"class": "text-xs text-gray-400"}, description),
 							),
 						),
 
@@ -344,7 +397,7 @@ func LazyMiniAppCard(icon, title, description string, component func(Attrs) *Ele
 
 							Attrs{
 
-								"class": "text-xs px-3 py-1 bg-gray-800 text-white rounded-full hover:bg-gray-700 transition-all duration-300 hover:scale-105",
+								"class": "text-xs px-3 py-1 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all duration-300 hover:scale-105",
 
 								"onclick": toggleSource,
 							},
@@ -358,9 +411,9 @@ func LazyMiniAppCard(icon, title, description string, component func(Attrs) *Ele
 
 				dom.Div(
 
-					Attrs{"class": "flex-1 overflow-y-auto p-6 bg-gray-50"},
+					Attrs{"class": "flex-1 overflow-y-auto p-6 bg-transparent"},
 
-					component(nil),
+					dom.CreateElement(component, nil),
 				),
 			),
 
@@ -372,14 +425,20 @@ func LazyMiniAppCard(icon, title, description string, component func(Attrs) *Ele
 
 					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden bg-gray-900",
 
-					"style": "backface-visibility: hidden; transform: rotateY(-180deg);",
+					"style": func() string {
+						style := "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(180deg) translateZ(2px);"
+						if showSource() {
+							return style + " z-index: 1;"
+						}
+						return style + " z-index: 0;"
+					}(),
 				},
 
 				// Code Header
 
 				dom.Div(
 
-					Attrs{"class": "p-6 border-b border-gray-700 bg-gray-800"},
+					Attrs{"class": "p-6 border-b border-white/10 bg-white/5"},
 
 					dom.Div(
 
@@ -398,7 +457,7 @@ func LazyMiniAppCard(icon, title, description string, component func(Attrs) *Ele
 
 							Attrs{
 
-								"class": "text-xs px-3 py-1 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 transition-all duration-300 hover:scale-105",
+								"class": "text-xs px-3 py-1 bg-blue-600 text-white rounded-full hover:bg-blue-500 transition-all duration-300 hover:scale-105",
 
 								"onclick": toggleSource,
 							},
@@ -415,6 +474,9 @@ func LazyMiniAppCard(icon, title, description string, component func(Attrs) *Ele
 					Attrs{"class": "relative p-6 pb-12 h-full"},
 
 					func() *Element {
+						if !showSource() {
+							return nil
+						}
 
 						if isLoading {
 
@@ -438,10 +500,7 @@ func LazyMiniAppCard(icon, title, description string, component func(Attrs) *Ele
 
 							// Show source code
 
-							return dom.Pre(Attrs{
-
-								"class": "text-xs text-green-400 font-mono leading-relaxed overflow-x-auto h-full pb-8",
-							}, sourceCode)
+							return HighlightGoCode(sourceCode)
 
 						}
 
@@ -450,6 +509,9 @@ func LazyMiniAppCard(icon, title, description string, component func(Attrs) *Ele
 					// Floating Clipboard Button (only show when not loading)
 
 					func() *Element {
+						if !showSource() {
+							return nil
+						}
 
 						if !isLoading && sourceCode != "" && sourceLoaded() {
 
@@ -481,7 +543,12 @@ func LazyMiniAppCard(icon, title, description string, component func(Attrs) *Ele
 
 // MiniAppCard creates a mini app showcase card with 3D flip animation and clipboard
 
-func MiniAppCard(icon, title, description string, component func(Attrs) *Element, sourceCode string) *Element {
+func MiniAppCard(props Attrs) *Element {
+	icon := props["icon"].(string)
+	title := props["title"].(string)
+	description := props["description"].(string)
+	component := props["component"].(func(Attrs) *Element)
+	sourceCode := props["sourceCode"].(string)
 
 	showSource, setShowSource := hooks.UseState(false)
 
@@ -514,7 +581,7 @@ func MiniAppCard(icon, title, description string, component func(Attrs) *Element
 
 			Attrs{
 
-				"class": "relative w-full min-h-[450px] transition-all duration-700 bg-white rounded-xl shadow-lg hover:shadow-xl border border-gray-200",
+				"class": "relative w-full min-h-[450px] transition-all duration-700 bg-white/5 rounded-xl shadow-lg hover:shadow-xl border border-white/10 backdrop-blur-sm",
 
 				"style": func() string {
 
@@ -537,14 +604,20 @@ func MiniAppCard(icon, title, description string, component func(Attrs) *Element
 
 					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden flex flex-col",
 
-					"style": "backface-visibility: hidden; transform: rotateY(0deg);",
+					"style": func() string {
+						style := "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(0deg) translateZ(2px);"
+						if showSource() {
+							return style + " z-index: 0;"
+						}
+						return style + " z-index: 1;"
+					}(),
 				},
 
 				// Header
 
 				dom.Div(
 
-					Attrs{"class": "p-6 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50"},
+					Attrs{"class": "p-6 border-b border-white/10 bg-white/5"},
 
 					dom.Div(
 
@@ -558,9 +631,9 @@ func MiniAppCard(icon, title, description string, component func(Attrs) *Element
 
 							dom.Div(nil,
 
-								dom.H3(Attrs{"class": "font-semibold text-gray-900"}, title),
+								dom.H3(Attrs{"class": "font-semibold text-white"}, title),
 
-								dom.P(Attrs{"class": "text-xs text-gray-600"}, description),
+								dom.P(Attrs{"class": "text-xs text-gray-400"}, description),
 							),
 						),
 
@@ -568,7 +641,7 @@ func MiniAppCard(icon, title, description string, component func(Attrs) *Element
 
 							Attrs{
 
-								"class": "text-xs px-3 py-1 bg-gray-800 text-white rounded-full hover:bg-gray-700 transition-all duration-300 hover:scale-105",
+								"class": "text-xs px-3 py-1 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all duration-300 hover:scale-105",
 
 								"onclick": toggleSource,
 							},
@@ -582,9 +655,9 @@ func MiniAppCard(icon, title, description string, component func(Attrs) *Element
 
 				dom.Div(
 
-					Attrs{"class": "flex-1 overflow-y-auto p-6 bg-gray-50"},
+					Attrs{"class": "flex-1 overflow-y-auto p-6 bg-transparent"},
 
-					component(nil),
+					dom.CreateElement(component, nil),
 				),
 			),
 
@@ -596,14 +669,20 @@ func MiniAppCard(icon, title, description string, component func(Attrs) *Element
 
 					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden bg-gray-900",
 
-					"style": "backface-visibility: hidden; transform: rotateY(-180deg);",
+					"style": func() string {
+						style := "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(180deg) translateZ(2px);"
+						if showSource() {
+							return style + " z-index: 1;"
+						}
+						return style + " z-index: 0;"
+					}(),
 				},
 
 				// Code Header
 
 				dom.Div(
 
-					Attrs{"class": "p-6 border-b border-gray-700 bg-gray-800"},
+					Attrs{"class": "p-6 border-b border-white/10 bg-white/5"},
 
 					dom.Div(
 
@@ -622,7 +701,7 @@ func MiniAppCard(icon, title, description string, component func(Attrs) *Element
 
 							Attrs{
 
-								"class": "text-xs px-3 py-1 bg-indigo-600 text-white rounded-full hover:bg-indigo-500 transition-all duration-300 hover:scale-105",
+								"class": "text-xs px-3 py-1 bg-blue-600 text-white rounded-full hover:bg-blue-500 transition-all duration-300 hover:scale-105",
 
 								"onclick": toggleSource,
 							},
@@ -638,26 +717,33 @@ func MiniAppCard(icon, title, description string, component func(Attrs) *Element
 
 					Attrs{"class": "relative p-6 pb-12 h-full"},
 
-					dom.Pre(Attrs{
-
-						"class": "text-xs text-green-400 font-mono leading-relaxed overflow-x-auto h-full pb-8",
-					}, sourceCode),
+					func() *Element {
+						if !showSource() {
+							return nil
+						}
+						return HighlightGoCode(sourceCode)
+					}(),
 
 					// Floating Clipboard Button
 
-					dom.Button(
+					func() *Element {
+						if !showSource() {
+							return nil
+						}
+						return dom.Button(
 
-						Attrs{
+							Attrs{
 
-							"class": "absolute top-8 right-8 p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg shadow-lg transition-all duration-300 hover:scale-110 opacity-80 hover:opacity-100",
+								"class": "absolute top-8 right-8 p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg shadow-lg transition-all duration-300 hover:scale-110 opacity-80 hover:opacity-100",
 
-							"onclick": copyToClipboard,
+								"onclick": copyToClipboard,
 
-							"title": "Copy to clipboard",
-						},
+								"title": "Copy to clipboard",
+							},
 
-						dom.Span(Attrs{"class": "text-base"}, "📋"),
-					),
+							dom.Span(Attrs{"class": "text-base"}, "📋"),
+						)
+					}(),
 				),
 			),
 		),
@@ -687,13 +773,13 @@ func MiniClickCounter(props Attrs) *Element {
 
 		Attrs{"class": "text-center space-y-3"},
 
-		dom.P(Attrs{"class": "text-2xl font-bold text-indigo-600"}, dom.Text(strconv.Itoa(clickCount()))),
+		dom.P(Attrs{"class": "text-2xl font-bold text-blue-400"}, dom.Text(strconv.Itoa(clickCount()))),
 
 		dom.Div(
 
 			Attrs{"class": "space-x-2"},
 
-			dom.Button(Attrs{"class": "px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700", "onclick": incrementClicks}, "+1"),
+			dom.Button(Attrs{"class": "px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700", "onclick": incrementClicks}, "+1"),
 
 			dom.Button(Attrs{"class": "px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700", "onclick": resetClicks}, "Reset"),
 		),
@@ -723,7 +809,7 @@ func MiniRandomizer(props Attrs) *Element {
 
 		Attrs{"class": "text-center space-y-3"},
 
-		dom.P(Attrs{"class": "text-2xl font-bold text-purple-600"}, dom.Text(strconv.Itoa(randomNum()))),
+		dom.P(Attrs{"class": "text-2xl font-bold text-purple-400"}, dom.Text(strconv.Itoa(randomNum()))),
 
 		dom.Button(Attrs{"class": "px-4 py-2 bg-purple-600 text-white text-sm rounded hover:bg-purple-700", "onclick": generateRandom}, "Generate"),
 	)
@@ -756,9 +842,9 @@ func MiniNotepad(props Attrs) *Element {
 
 		dom.Div(
 
-			Attrs{"class": "w-full p-3 border border-gray-300 rounded text-sm bg-gray-50 min-h-16"},
+			Attrs{"class": "w-full p-3 border border-white/10 rounded text-sm bg-black/20 min-h-16"},
 
-			dom.P(Attrs{"class": "text-gray-800"}, noteText()),
+			dom.P(Attrs{"class": "text-white"}, noteText()),
 		),
 
 		dom.Div(
@@ -767,7 +853,7 @@ func MiniNotepad(props Attrs) *Element {
 
 			dom.Button(Attrs{"class": "px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700", "onclick": updateNote}, "Edit Note"),
 
-			dom.P(Attrs{"class": "text-xs text-gray-500"}, dom.Text(strconv.Itoa(len(noteText()))), " characters"),
+			dom.P(Attrs{"class": "text-xs text-gray-400"}, dom.Text(strconv.Itoa(len(noteText()))), " characters"),
 		),
 	)
 
@@ -832,12 +918,14 @@ func MiniTimer(props Attrs) *Element {
 		setTimerRunning(false)
 	})
 
+	// Define tick handler using GoUseFunc
+	tick := hooks.GoUseFunc(func() {
+		setTimerCount(timerCount() + 1)
+	})
+
 	hooks.UseEffect(func() func() {
 		if timerRunning() {
-			timeoutID := js.Global().Call("setTimeout", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				setTimerCount(timerCount() + 1)
-				return nil
-			}), 1000)
+			timeoutID := js.Global().Call("setTimeout", tick, 1000)
 			_ = timeoutID
 		}
 		return nil
@@ -845,7 +933,7 @@ func MiniTimer(props Attrs) *Element {
 
 	return dom.Div(
 		Attrs{"class": "text-center space-y-3"},
-		dom.P(Attrs{"class": "text-2xl font-bold text-green-600"}, dom.Text(strconv.Itoa(timerCount())), "s"),
+		dom.P(Attrs{"class": "text-2xl font-bold text-green-400"}, dom.Text(strconv.Itoa(timerCount())), "s"),
 		dom.Div(
 
 			Attrs{"class": "space-x-2"},
@@ -921,7 +1009,7 @@ func MiniVoting(props Attrs) *Element {
 			),
 		),
 
-		dom.P(Attrs{"class": "text-xs text-gray-600 text-center"}, dom.Text(strconv.Itoa(upvotePercentage)), "% approval"),
+		dom.P(Attrs{"class": "text-xs text-gray-400 text-center"}, dom.Text(strconv.Itoa(upvotePercentage)), "% approval"),
 	)
 
 }
@@ -1156,7 +1244,7 @@ func WhyGoWebComponentsSection(_ Attrs) *Element {
 
 			"id": "api",
 
-			"class": "py-20 bg-gradient-to-br from-gray-900 to-indigo-900",
+			"class": "py-20 bg-gradient-to-br from-gray-900/50 to-blue-900/20 border-t border-white/10",
 		},
 
 		dom.Div(
@@ -1189,7 +1277,7 @@ func WhyGoWebComponentsSection(_ Attrs) *Element {
 
 				dom.Div(
 
-					Attrs{"class": "bg-red-900/20 border border-red-500/30 rounded-2xl p-8 backdrop-blur-sm"},
+					Attrs{"class": "bg-red-900/10 border border-red-500/20 rounded-2xl p-8 backdrop-blur-sm"},
 
 					dom.H3(Attrs{"class": "text-2xl font-bold text-red-300 mb-6 flex items-center"},
 
@@ -1235,7 +1323,7 @@ func WhyGoWebComponentsSection(_ Attrs) *Element {
 
 				dom.Div(
 
-					Attrs{"class": "bg-green-900/20 border border-green-500/30 rounded-2xl p-8 backdrop-blur-sm"},
+					Attrs{"class": "bg-green-900/10 border border-green-500/20 rounded-2xl p-8 backdrop-blur-sm"},
 
 					dom.H3(Attrs{"class": "text-2xl font-bold text-green-300 mb-6 flex items-center"},
 
@@ -1309,7 +1397,7 @@ func WhyGoWebComponentsSection(_ Attrs) *Element {
 
 					return dom.Div(
 
-						Attrs{"class": "bg-white/10 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/20 max-w-2xl mx-auto"},
+						Attrs{"class": "bg-white/5 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/10 max-w-2xl mx-auto"},
 
 						dom.H3(
 
