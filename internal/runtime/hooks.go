@@ -427,7 +427,7 @@ func GoUseFunc(fn interface{}) interface{} {
 func areDepsEqual(prevDeps, newDeps []interface{}) bool {
 	pLen := len(prevDeps)
 	nLen := len(newDeps)
-	
+
 	if pLen != nLen {
 		return false
 	}
@@ -445,8 +445,8 @@ func areDepsEqual(prevDeps, newDeps []interface{}) bool {
 	case 3:
 		return fastEqual(prevDeps[0], newDeps[0]) && fastEqual(prevDeps[1], newDeps[1]) && fastEqual(prevDeps[2], newDeps[2])
 	case 4:
-		return fastEqual(prevDeps[0], newDeps[0]) && fastEqual(prevDeps[1], newDeps[1]) && 
-		       fastEqual(prevDeps[2], newDeps[2]) && fastEqual(prevDeps[3], newDeps[3])
+		return fastEqual(prevDeps[0], newDeps[0]) && fastEqual(prevDeps[1], newDeps[1]) &&
+			fastEqual(prevDeps[2], newDeps[2]) && fastEqual(prevDeps[3], newDeps[3])
 	}
 
 	for i := range prevDeps {

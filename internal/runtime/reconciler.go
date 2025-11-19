@@ -252,7 +252,6 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 						dirty:       needsUpdate,
 					}
 
-
 					// Advance oldFiber
 					oldFiber = oldFiber.sibling
 				} else {
@@ -380,7 +379,7 @@ func propsEqual(a, b map[string]interface{}) bool {
 	if aLen != len(b) {
 		return false
 	}
-	
+
 	// Fast path: empty maps
 	if aLen == 0 {
 		return true
@@ -607,7 +606,9 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 	// fmt.Printf("updateDomProperties: updating %d old props, %d new props\n", len(oldProps), len(newProps))
 
 	// Check if adapter supports batching (only for WASM adapter)
-	batchAdapter, supportsBatching := rt.domAdapter.(interface{ BatchSetAttributes(DOMNode, map[string]string) })
+	batchAdapter, supportsBatching := rt.domAdapter.(interface {
+		BatchSetAttributes(DOMNode, map[string]string)
+	})
 
 	// Optimization: Fast path for initial render (no old props)
 	if len(oldProps) == 0 && len(newProps) > 0 {
@@ -616,7 +617,7 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 		if supportsBatching {
 			attrBatch = make(map[string]string, len(newProps))
 		}
-		
+
 		for name, value := range newProps {
 			if name == "children" {
 				continue
@@ -670,7 +671,7 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 				}
 			}
 		}
-		
+
 		// Flush remaining batched attributes
 		if supportsBatching && len(attrBatch) > 0 {
 			batchAdapter.BatchSetAttributes(dom, attrBatch)
@@ -894,7 +895,7 @@ func (rt *Runtime) runEffects(fiber *Fiber) {
 	// Run this fiber's effects in batch
 	effects := fiber.effects
 	effectCount := len(effects)
-	
+
 	// Unroll for common small effect counts
 	if effectCount == 1 {
 		cleanup := effects[0].Fn()
@@ -902,7 +903,7 @@ func (rt *Runtime) runEffects(fiber *Fiber) {
 			fiber.hooks.cleanups[effects[0].CleanupIndex] = cleanup
 		}
 	} else {
-	for i := 0; i < effectCount; i++ {
+		for i := 0; i < effectCount; i++ {
 			effect := &effects[i]
 			cleanup := effect.Fn()
 			if cleanup != nil {
@@ -919,4 +920,3 @@ func (rt *Runtime) runEffects(fiber *Fiber) {
 		rt.runEffects(fiber.sibling)
 	}
 }
-

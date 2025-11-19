@@ -39,15 +39,15 @@ type WASMDOMAdapter struct {
 	createElement  js.Value
 	createTextNode js.Value
 	// Cached methods for performance
-	appendChild      js.Value
-	removeChild      js.Value
-	setAttribute     js.Value
-	removeAttribute  js.Value
-	createFragment   js.Value
+	appendChild     js.Value
+	removeChild     js.Value
+	setAttribute    js.Value
+	removeAttribute js.Value
+	createFragment  js.Value
 	// Batch operation support
-	currentFragment  js.Value
-	batchParent      *WASMDOMNode
-	batchMode        bool
+	currentFragment js.Value
+	batchParent     *WASMDOMNode
+	batchMode       bool
 }
 
 func NewWASMDOMAdapter() *WASMDOMAdapter {
@@ -138,7 +138,7 @@ func (a *WASMDOMAdapter) AppendChild(parent, child runtime.DOMNode) {
 	if !ok1 || !ok2 {
 		return
 	}
-	
+
 	// If in batch mode, append to fragment
 	if a.batchMode && a.batchParent == parentNode {
 		a.currentFragment.Call("appendChild", childNode.value)

@@ -63,7 +63,7 @@ func (rt *Runtime) workLoop(deadline Deadline) {
 	shouldYield := false
 	units := 0
 	const maxUnitsPerSlice = 300
-	
+
 	// Inline check for common case
 	for rt.nextUnitOfWork != nil && !shouldYield {
 		rt.nextUnitOfWork = rt.performUnitOfWork(rt.nextUnitOfWork)
