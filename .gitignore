@@ -61,6 +61,8 @@ test-output*.txt
 test/playwright-report/
 test/test-results/
 test/.playwright/
+playwright-report/
+test-results/
 
 # Environment and config files (if sensitive)
 .env

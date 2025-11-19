@@ -1,0 +1,13 @@
+{
+  "name": "gowebcomponents-tests",
+  "version": "1.0.0",
+  "description": "Tests for GoWebComponents",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.41.0",
+    "@types/node": "^20.11.0",
+    "http-server": "^14.1.1"
+  }
+}
