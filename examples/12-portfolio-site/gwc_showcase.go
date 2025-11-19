@@ -360,13 +360,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden flex flex-col",
 
-					"style": func() string {
-						style := "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(0deg) translateZ(2px);"
-						if showSource() {
-							return style + " z-index: 0;"
-						}
-						return style + " z-index: 1;"
-					}(),
+					"style": "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(0deg);",
 				},
 
 				// Header
@@ -425,16 +419,8 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden bg-gray-900",
 
-					"style": func() string {
-						style := "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(180deg) translateZ(2px);"
-						if showSource() {
-							return style + " z-index: 1;"
-						}
-						return style + " z-index: 0;"
-					}(),
+					"style": "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(180deg);",
 				},
-
-				// Code Header
 
 				dom.Div(
 
@@ -467,15 +453,18 @@ func LazyMiniAppCard(props Attrs) *Element {
 					),
 				),
 
-				// Code Content with Spinner or Source Code
-
 				dom.Div(
 
 					Attrs{"class": "relative p-6 pb-12 h-full"},
 
 					func() *Element {
-						if !showSource() {
-							return nil
+						// Only render content when showSource is true (back side is visible)
+						if !sourceLoaded() {
+							// Not loaded yet, show placeholder
+							return dom.Pre(
+								Attrs{"class": "text-gray-400 text-sm font-mono whitespace-pre-wrap"},
+								dom.Code(nil, dom.Text("// Click 'View Code' to load source from GitHub...")),
+							)
 						}
 
 						if isLoading {
@@ -496,13 +485,10 @@ func LazyMiniAppCard(props Attrs) *Element {
 								),
 							)
 
-						} else {
-
-							// Show source code
-
-							return HighlightGoCode(sourceCode)
-
 						}
+
+						// Show source code
+						return HighlightGoCode(sourceCode)
 
 					}(),
 
@@ -604,13 +590,7 @@ func MiniAppCard(props Attrs) *Element {
 
 					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden flex flex-col",
 
-					"style": func() string {
-						style := "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(0deg) translateZ(2px);"
-						if showSource() {
-							return style + " z-index: 0;"
-						}
-						return style + " z-index: 1;"
-					}(),
+					"style": "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(0deg);",
 				},
 
 				// Header
@@ -669,16 +649,8 @@ func MiniAppCard(props Attrs) *Element {
 
 					"class": "absolute inset-0 w-full h-full rounded-xl overflow-hidden bg-gray-900",
 
-					"style": func() string {
-						style := "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(180deg) translateZ(2px);"
-						if showSource() {
-							return style + " z-index: 1;"
-						}
-						return style + " z-index: 0;"
-					}(),
+					"style": "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(180deg);",
 				},
-
-				// Code Header
 
 				dom.Div(
 
@@ -710,8 +682,6 @@ func MiniAppCard(props Attrs) *Element {
 						),
 					),
 				),
-
-				// Code Content with Floating Clipboard Button
 
 				dom.Div(
 

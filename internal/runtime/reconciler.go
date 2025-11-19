@@ -201,7 +201,7 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 		var newFiber *Fiber
 
 		if element != nil {
-			if elem, ok := element.(*Element); ok {
+			if elem, ok := element.(*Element); ok && elem != nil {
 				// Inline fast path for string type comparison (most common case)
 				sameType := false
 				if s1, ok1 := elem.Type.(string); ok1 {
@@ -339,7 +339,7 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 		var newFiber *Fiber
 
 		if element != nil {
-			if elem, ok := element.(*Element); ok {
+			if elem, ok := element.(*Element); ok && elem != nil {
 				newFiber = fiberPool.Get().(*Fiber)
 				*newFiber = Fiber{
 					typeOf:      elem.Type,
