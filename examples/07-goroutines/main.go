@@ -41,10 +41,9 @@ func GoroutineExample(_ Attrs) *Element {
 		CancelChan: nil,
 	})
 
-	currentTask := task()
-	currentTimer := timer()
-
 	startTask := hooks.GoUseFunc(func(event dom.GoEvent) {
+		// Get current state inside the handler to avoid stale closures
+		currentTask := task()
 		if currentTask.IsRunning {
 			return
 		}
@@ -110,6 +109,8 @@ func GoroutineExample(_ Attrs) *Element {
 	})
 
 	cancelTask := hooks.GoUseFunc(func(event dom.GoEvent) {
+		// Get current state inside the handler
+		currentTask := task()
 		if !currentTask.IsRunning || currentTask.CancelChan == nil {
 			return
 		}
@@ -121,6 +122,8 @@ func GoroutineExample(_ Attrs) *Element {
 	})
 
 	resetTask := hooks.GoUseFunc(func(event dom.GoEvent) {
+		// Get current state inside the handler
+		currentTask := task()
 		if currentTask.IsRunning && currentTask.CancelChan != nil {
 			select {
 			case currentTask.CancelChan <- true:
@@ -137,6 +140,8 @@ func GoroutineExample(_ Attrs) *Element {
 	})
 
 	toggleTimer := hooks.GoUseFunc(func(event dom.GoEvent) {
+		// Get current state inside the handler
+		currentTimer := timer()
 		newRunning := !currentTimer.IsRunning
 
 		if newRunning {
@@ -193,6 +198,8 @@ func GoroutineExample(_ Attrs) *Element {
 	})
 
 	resetTimer := hooks.GoUseFunc(func(event dom.GoEvent) {
+		// Get current state inside the handler
+		currentTimer := timer()
 		if currentTimer.IsRunning && currentTimer.CancelChan != nil {
 			select {
 			case currentTimer.CancelChan <- true:
@@ -208,6 +215,9 @@ func GoroutineExample(_ Attrs) *Element {
 	})
 
 	cleanupAll := hooks.GoUseFunc(func(event dom.GoEvent) {
+		// Get current state inside the handler
+		currentTask := task()
+		currentTimer := timer()
 		if currentTask.IsRunning && currentTask.CancelChan != nil {
 			select {
 			case currentTask.CancelChan <- true:
@@ -225,6 +235,10 @@ func GoroutineExample(_ Attrs) *Element {
 		setTask(BackgroundTask{IsRunning: false, Progress: 0, Status: "Ready", CancelChan: nil})
 		setTimer(TimerState{IsRunning: false, Seconds: 0, CancelChan: nil})
 	})
+
+	// Get current values for rendering
+	currentTask := task()
+	currentTimer := timer()
 
 	return dom.Div(Attrs{
 		"class": "min-h-screen bg-[#0a0a0a] text-white p-8",

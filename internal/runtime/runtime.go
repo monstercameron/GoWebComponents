@@ -51,6 +51,10 @@ type Runtime struct {
 	// UI queue for non-render updates
 	uiQueue      []func()
 	uiQueueMutex sync.Mutex
+	
+	// Batch DOM operations
+	domBatch      []func()
+	domBatchMutex sync.Mutex
 }
 
 // Config holds runtime configuration

@@ -47,11 +47,9 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 
 	getter := func() T {
 		// Bounds check removed for performance - slice is grown before closure creation
-		if value, ok := hooks.states[sIdx].(T); ok {
-			return value
-		}
-		var zero T
-		return zero
+		// Type assertion should always succeed if state was initialized correctly
+		value, _ := hooks.states[sIdx].(T)
+		return value
 	}
 
 	setter := func(newValueOrUpdater interface{}) {
@@ -73,10 +71,10 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 			}
 		}
 
-		// Get PENDING value (most recent update, may not be committed yet)
+		// Get COMMITTED value (not pending) for comparison
 		var currentValue T
 		// We can trust the type if the slot was initialized with T
-		if cv, ok := hooks.states[pIdx].(T); ok {
+		if cv, ok := hooks.states[sIdx].(T); ok {
 			currentValue = cv
 		}
 
@@ -99,7 +97,10 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 			hooks.states[pIdx] = newValue
 			// Also update committed state (this is what triggers re-render)
 			hooks.states[sIdx] = newValue
+			// WASM is single-threaded, goroutines can call this directly
 			rt.ScheduleUpdateForFiber(fiber)
+		} else {
+			// Values are equal, skip update
 		}
 	}
 
@@ -380,60 +381,43 @@ func GoUseFunc(fn interface{}) interface{} {
 		panic("GoUseFunc requires a function")
 	}
 
-	// Check if we have a stored handler and if it matches
-	var wrapper interface{}
-	shouldCreate := true
-
-	if funcIdx < len(hooks.funcs) {
-		stored := hooks.funcs[funcIdx]
-		// Compare function pointers to see if the function reference is stable
-		// This works well with UseCallback which returns stable function references
-		if stored.fn != nil && reflect.ValueOf(fn).Pointer() == reflect.ValueOf(stored.fn).Pointer() {
-			if stored.wrapper != nil {
-				wrapper = stored.wrapper
-				shouldCreate = false
-			}
-		}
+	// Always create new wrapper to ensure latest closure is captured
+	// The old optimization of reusing wrappers caused stale closure bugs
+	rt := GetGlobalRuntime()
+	if rt == nil {
+		panic("GoUseFunc rt is nil")
+	}
+	if rt.domAdapter == nil {
+		panic("GoUseFunc domAdapter is nil")
 	}
 
-	if shouldCreate {
-		// Create new wrapper
-		rt := GetGlobalRuntime()
-		if rt == nil {
-			panic("GoUseFunc rt is nil")
-		}
-		if rt.domAdapter == nil {
-			panic("GoUseFunc domAdapter is nil")
-		}
+	wrapper := rt.domAdapter.WrapFunction(fn)
 
-		wrapper = rt.domAdapter.WrapFunction(fn)
+	// Store it
+	handlerVal := funcHandlerValue{
+		fn:      fn,
+		wrapper: wrapper,
+	}
 
-		// Store it
-		handlerVal := funcHandlerValue{
-			fn:      fn,
-			wrapper: wrapper,
-		}
-
-		if len(hooks.funcs) <= funcIdx {
-			needed := funcIdx + 1
-			if needed <= cap(hooks.funcs) {
-				hooks.funcs = hooks.funcs[:needed]
-			} else {
-				newFuncs := make([]funcHandlerValue, needed, needed*2)
-				copy(newFuncs, hooks.funcs)
-				hooks.funcs = newFuncs
-			}
-			hooks.funcs[funcIdx] = handlerVal
+	if len(hooks.funcs) <= funcIdx {
+		needed := funcIdx + 1
+		if needed <= cap(hooks.funcs) {
+			hooks.funcs = hooks.funcs[:needed]
 		} else {
-			// Release old wrapper if it exists to prevent memory leaks
-			oldHandler := hooks.funcs[funcIdx]
-			if oldHandler.wrapper != nil {
-				if releasable, ok := oldHandler.wrapper.(interface{ Release() }); ok {
-					releasable.Release()
-				}
-			}
-			hooks.funcs[funcIdx] = handlerVal
+			newFuncs := make([]funcHandlerValue, needed, needed*2)
+			copy(newFuncs, hooks.funcs)
+			hooks.funcs = newFuncs
 		}
+		hooks.funcs[funcIdx] = handlerVal
+	} else {
+		// Release old wrapper if it exists to prevent memory leaks
+		oldHandler := hooks.funcs[funcIdx]
+		if oldHandler.wrapper != nil {
+			if releasable, ok := oldHandler.wrapper.(interface{ Release() }); ok {
+				releasable.Release()
+			}
+		}
+		hooks.funcs[funcIdx] = handlerVal
 	}
 
 	return wrapper
@@ -441,23 +425,28 @@ func GoUseFunc(fn interface{}) interface{} {
 
 // areDepsEqual compares dependency arrays
 func areDepsEqual(prevDeps, newDeps []interface{}) bool {
-	if len(prevDeps) != len(newDeps) {
+	pLen := len(prevDeps)
+	nLen := len(newDeps)
+	
+	if pLen != nLen {
 		return false
 	}
 
-	if len(prevDeps) == 0 {
+	if pLen == 0 {
 		return true
 	}
 
-	// Unroll for common sizes
-	if len(prevDeps) == 1 {
+	// Unroll for common sizes (most hooks have 1-3 deps)
+	switch pLen {
+	case 1:
 		return fastEqual(prevDeps[0], newDeps[0])
-	}
-	if len(prevDeps) == 2 {
+	case 2:
 		return fastEqual(prevDeps[0], newDeps[0]) && fastEqual(prevDeps[1], newDeps[1])
-	}
-	if len(prevDeps) == 3 {
+	case 3:
 		return fastEqual(prevDeps[0], newDeps[0]) && fastEqual(prevDeps[1], newDeps[1]) && fastEqual(prevDeps[2], newDeps[2])
+	case 4:
+		return fastEqual(prevDeps[0], newDeps[0]) && fastEqual(prevDeps[1], newDeps[1]) && 
+		       fastEqual(prevDeps[2], newDeps[2]) && fastEqual(prevDeps[3], newDeps[3])
 	}
 
 	for i := range prevDeps {
@@ -471,6 +460,7 @@ func areDepsEqual(prevDeps, newDeps []interface{}) bool {
 
 // fastEqual performs optimized equality checking
 func fastEqual(a, b interface{}) bool {
+	// Fast path: nil checks
 	if a == nil && b == nil {
 		return true
 	}
@@ -478,7 +468,27 @@ func fastEqual(a, b interface{}) bool {
 		return false
 	}
 
-	// Fast path for common types
+	// Get types first to check comparability
+	ta := reflect.TypeOf(a)
+	tb := reflect.TypeOf(b)
+
+	if ta != tb {
+		return false
+	}
+
+	// Fast path: pointer equality for comparable types only
+	if ta.Comparable() {
+		if a == b {
+			return true
+		}
+	}
+
+	// Handle functions (compare pointers, js.Func is a func type)
+	if ta.Kind() == reflect.Func {
+		return reflect.ValueOf(a).Pointer() == reflect.ValueOf(b).Pointer()
+	}
+
+	// Fast path for common types (after comparability check)
 	switch va := a.(type) {
 	case int:
 		if vb, ok := b.(int); ok {
@@ -524,25 +534,6 @@ func fastEqual(a, b interface{}) bool {
 		if vb, ok := b.(uint8); ok {
 			return va == vb
 		}
-	}
-
-	// Try direct comparison first, but only for comparable types
-	ta := reflect.TypeOf(a)
-	tb := reflect.TypeOf(b)
-
-	if ta != tb {
-		return false
-	}
-
-	if ta.Comparable() {
-		if a == b {
-			return true
-		}
-	}
-
-	// Handle functions (compare pointers)
-	if ta.Kind() == reflect.Func {
-		return reflect.ValueOf(a).Pointer() == reflect.ValueOf(b).Pointer()
 	}
 
 	// Optimization: Use reference equality for Slices and Maps

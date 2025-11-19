@@ -15,6 +15,15 @@ var (
 			return make([]interface{}, 0, 16)
 		},
 	}
+	// Fiber pool to reduce allocations
+	fiberPool = sync.Pool{
+		New: func() interface{} {
+			return &Fiber{}
+		},
+	}
+	// Pre-allocated buffer for batch operations
+	batchBuffer     [256]*Fiber
+	batchBufferUsed int
 )
 
 // GetCurrentFiber returns the fiber currently being processed
@@ -122,7 +131,8 @@ func (rt *Runtime) cloneChildFibers(parent *Fiber) {
 	oldFiber := parent.alternate.child
 
 	for oldFiber != nil {
-		newFiber := &Fiber{
+		newFiber := fiberPool.Get().(*Fiber)
+		*newFiber = Fiber{
 			typeOf:         oldFiber.typeOf,
 			props:          oldFiber.props,
 			textContent:    oldFiber.textContent,
@@ -136,10 +146,6 @@ func (rt *Runtime) cloneChildFibers(parent *Fiber) {
 			eventCallbacks: oldFiber.eventCallbacks,
 		}
 
-		// Optimization: Break the alternate chain to prevent memory leaks and long traversals
-		// We only need the immediate alternate for the next reconciliation
-		oldFiber.alternate = nil
-
 		if prevSibling == nil {
 			parent.child = newFiber
 		} else {
@@ -152,6 +158,20 @@ func (rt *Runtime) cloneChildFibers(parent *Fiber) {
 
 // reconcileChildren reconciles the children of a fiber
 func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
+	// Fast path: empty elements
+	if len(elements) == 0 {
+		if wipFiber.alternate != nil && wipFiber.alternate.child != nil {
+			// Delete all old children
+			oldFiber := wipFiber.alternate.child
+			for oldFiber != nil {
+				oldFiber.effectTag = "DELETION"
+				rt.deletions = append(rt.deletions, oldFiber)
+				oldFiber = oldFiber.sibling
+			}
+		}
+		return
+	}
+
 	// Flatten any Fragment elements before reconciliation
 	flatElements, wasAllocated := flattenFragments(elements)
 	if wasAllocated {
@@ -173,18 +193,27 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 	firstChildSet := false
 
 	// Loop 1: Update/Replace (Both exist)
-	for index < len(elements) && oldFiber != nil {
+	// Pre-compute element count for better branch prediction
+	elemCount := len(elements)
+	for index < elemCount && oldFiber != nil {
 		element := elements[index]
 
 		var newFiber *Fiber
-		sameType := false
 
 		if element != nil {
 			if elem, ok := element.(*Element); ok {
-				sameType = isSameType(elem.Type, oldFiber.typeOf)
+				// Inline fast path for string type comparison (most common case)
+				sameType := false
+				if s1, ok1 := elem.Type.(string); ok1 {
+					if s2, ok2 := oldFiber.typeOf.(string); ok2 {
+						sameType = s1 == s2
+					}
+				} else {
+					sameType = isSameType(elem.Type, oldFiber.typeOf)
+				}
 
 				if sameType {
-					// UPDATE logic
+					// UPDATE logic - optimized path
 					// Check if this fiber or its subtree needs update
 					isDirty := rt.isFiberDirty(oldFiber)
 					needsUpdate := isDirty || oldFiber.needsUpdate
@@ -210,7 +239,9 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 						effectTag = ""
 					}
 
-					newFiber = &Fiber{
+					// Get from pool and reset
+					newFiber = fiberPool.Get().(*Fiber)
+					*newFiber = Fiber{
 						typeOf:      oldFiber.typeOf,
 						props:       elem.Props,
 						textContent: elem.TextContent,
@@ -221,14 +252,13 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 						dirty:       needsUpdate,
 					}
 
-					// Optimization: Break the alternate chain
-					oldFiber.alternate = nil
 
 					// Advance oldFiber
 					oldFiber = oldFiber.sibling
 				} else {
 					// REPLACE logic (Placement + Deletion)
-					newFiber = &Fiber{
+					newFiber = fiberPool.Get().(*Fiber)
+					*newFiber = Fiber{
 						typeOf:      elem.Type,
 						props:       elem.Props,
 						textContent: elem.TextContent,
@@ -311,7 +341,8 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 
 		if element != nil {
 			if elem, ok := element.(*Element); ok {
-				newFiber = &Fiber{
+				newFiber = fiberPool.Get().(*Fiber)
+				*newFiber = Fiber{
 					typeOf:      elem.Type,
 					props:       elem.Props,
 					textContent: elem.TextContent,
@@ -344,8 +375,15 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 
 // propsEqual compares two property maps for equality
 func propsEqual(a, b map[string]interface{}) bool {
-	if len(a) != len(b) {
+	// Fast path: different lengths
+	aLen := len(a)
+	if aLen != len(b) {
 		return false
+	}
+	
+	// Fast path: empty maps
+	if aLen == 0 {
+		return true
 	}
 
 	for k, v1 := range a {
@@ -559,15 +597,26 @@ func (rt *Runtime) createDom(fiber *Fiber) DOMNode {
 	return dom
 }
 
-// updateDomProperties updates DOM properties
+// updateDomProperties updates DOM properties with optimized batching when available
 func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[string]interface{}) {
 	// Check if dom is nil (interface is nil) or if the concrete value is null
 	if dom == nil || dom.IsNull() {
 		return
 	}
 
+	// fmt.Printf("updateDomProperties: updating %d old props, %d new props\n", len(oldProps), len(newProps))
+
+	// Check if adapter supports batching (only for WASM adapter)
+	batchAdapter, supportsBatching := rt.domAdapter.(interface{ BatchSetAttributes(DOMNode, map[string]string) })
+
 	// Optimization: Fast path for initial render (no old props)
-	if len(oldProps) == 0 {
+	if len(oldProps) == 0 && len(newProps) > 0 {
+		// If batching is supported, collect attributes
+		var attrBatch map[string]string
+		if supportsBatching {
+			attrBatch = make(map[string]string, len(newProps))
+		}
+		
 		for name, value := range newProps {
 			if name == "children" {
 				continue
@@ -575,24 +624,56 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 
 			switch name {
 			case "style":
+				// Flush batch before style
+				if supportsBatching && len(attrBatch) > 0 {
+					batchAdapter.BatchSetAttributes(dom, attrBatch)
+					attrBatch = make(map[string]string, len(newProps))
+				}
 				if styles, ok := value.(map[string]string); ok {
 					rt.domAdapter.SetStyles(dom, styles)
 				} else if str, ok := value.(string); ok {
-					rt.domAdapter.SetAttribute(dom, "style", str)
+					if supportsBatching {
+						attrBatch["style"] = str
+					} else {
+						rt.domAdapter.SetAttribute(dom, "style", str)
+					}
 				}
 			case "className", "class":
 				if str, ok := value.(string); ok {
-					rt.domAdapter.SetAttribute(dom, "class", str)
+					if supportsBatching {
+						attrBatch["class"] = str
+					} else {
+						rt.domAdapter.SetAttribute(dom, "class", str)
+					}
 				}
 			case "value", "checked", "selected":
+				// Flush batch before property
+				if supportsBatching && len(attrBatch) > 0 {
+					batchAdapter.BatchSetAttributes(dom, attrBatch)
+					attrBatch = make(map[string]string, len(newProps))
+				}
 				rt.domAdapter.SetProperty(dom, name, value)
 			default:
 				if str, ok := value.(string); ok {
-					rt.domAdapter.SetAttribute(dom, name, str)
+					if supportsBatching {
+						attrBatch[name] = str
+					} else {
+						rt.domAdapter.SetAttribute(dom, name, str)
+					}
 				} else {
+					// Flush batch before property
+					if supportsBatching && len(attrBatch) > 0 {
+						batchAdapter.BatchSetAttributes(dom, attrBatch)
+						attrBatch = make(map[string]string, len(newProps))
+					}
 					rt.domAdapter.SetProperty(dom, name, value)
 				}
 			}
+		}
+		
+		// Flush remaining batched attributes
+		if supportsBatching && len(attrBatch) > 0 {
+			batchAdapter.BatchSetAttributes(dom, attrBatch)
 		}
 		return
 	}
@@ -670,13 +751,13 @@ func (rt *Runtime) commitRoot() {
 	rt.wipRoot = nil
 }
 
-// commitWork commits a fiber's changes to the DOM
+// commitWork commits a fiber's changes to the DOM with batch optimization
 func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 	if fiber == nil {
 		return
 	}
 
-	// If domParent is nil (e.g. from deletions loop), we must find it
+	// Fast path: most calls have valid domParent
 	if domParent == nil || domParent.IsNull() {
 		var domParentFiber *Fiber = fiber.parent
 		for domParentFiber != nil && (domParentFiber.dom == nil || domParentFiber.dom.IsNull()) {
@@ -810,11 +891,23 @@ func (rt *Runtime) runEffects(fiber *Fiber) {
 		return
 	}
 
-	// Run this fiber's effects
-	for _, effect := range fiber.effects {
-		cleanup := effect.Fn()
+	// Run this fiber's effects in batch
+	effects := fiber.effects
+	effectCount := len(effects)
+	
+	// Unroll for common small effect counts
+	if effectCount == 1 {
+		cleanup := effects[0].Fn()
 		if cleanup != nil {
-			fiber.hooks.cleanups[effect.CleanupIndex] = cleanup
+			fiber.hooks.cleanups[effects[0].CleanupIndex] = cleanup
+		}
+	} else {
+	for i := 0; i < effectCount; i++ {
+			effect := &effects[i]
+			cleanup := effect.Fn()
+			if cleanup != nil {
+				fiber.hooks.cleanups[effect.CleanupIndex] = cleanup
+			}
 		}
 	}
 
@@ -826,3 +919,4 @@ func (rt *Runtime) runEffects(fiber *Fiber) {
 		rt.runEffects(fiber.sibling)
 	}
 }
+

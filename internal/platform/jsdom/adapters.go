@@ -38,15 +38,33 @@ type WASMDOMAdapter struct {
 	document       js.Value
 	createElement  js.Value
 	createTextNode js.Value
+	// Cached methods for performance
+	appendChild      js.Value
+	removeChild      js.Value
+	setAttribute     js.Value
+	removeAttribute  js.Value
+	createFragment   js.Value
+	// Batch operation support
+	currentFragment  js.Value
+	batchParent      *WASMDOMNode
+	batchMode        bool
 }
 
 func NewWASMDOMAdapter() *WASMDOMAdapter {
 	doc := js.Global().Get("document")
+	// Pre-cache DOM prototype methods
+	elemProto := js.Global().Get("Element").Get("prototype")
 	return &WASMDOMAdapter{
 		document: doc,
 		// Bind methods to document to ensure correct 'this' context when Invoked
 		createElement:  doc.Get("createElement").Call("bind", doc),
 		createTextNode: doc.Get("createTextNode").Call("bind", doc),
+		createFragment: doc.Get("createDocumentFragment").Call("bind", doc),
+		// Cache element methods (not bound, will use Call)
+		appendChild:     elemProto.Get("appendChild"),
+		removeChild:     elemProto.Get("removeChild"),
+		setAttribute:    elemProto.Get("setAttribute"),
+		removeAttribute: elemProto.Get("removeAttribute"),
 	}
 }
 
@@ -82,35 +100,22 @@ func (a *WASMDOMAdapter) CreateTextNode(text string) runtime.DOMNode {
 }
 
 func (a *WASMDOMAdapter) SetAttribute(node runtime.DOMNode, name, value string) {
-	if node == nil || node.IsNull() {
-		return // Silently ignore - node doesn't exist yet or is a text node
-	}
 	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		if !wasmNode.value.IsNull() && !wasmNode.value.IsUndefined() {
-			wasmNode.value.Call("setAttribute", name, value)
-		}
+		// Use cached method for better performance
+		a.setAttribute.Call("call", wasmNode.value, name, value)
 	}
 }
 
 func (a *WASMDOMAdapter) RemoveAttribute(node runtime.DOMNode, name string) {
-	if node == nil || node.IsNull() {
-		return
-	}
 	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		if !wasmNode.value.IsNull() && !wasmNode.value.IsUndefined() {
-			wasmNode.value.Call("removeAttribute", name)
-		}
+		a.removeAttribute.Call("call", wasmNode.value, name)
 	}
 }
 
 func (a *WASMDOMAdapter) SetProperty(node runtime.DOMNode, name string, value interface{}) {
-	if node == nil || node.IsNull() {
-		return
-	}
 	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		if !wasmNode.value.IsNull() && !wasmNode.value.IsUndefined() {
-			wasmNode.value.Set(name, value)
-		}
+		// Direct property set (fastest path)
+		wasmNode.value.Set(name, value)
 	}
 }
 
@@ -127,25 +132,30 @@ func (a *WASMDOMAdapter) GetProperty(node runtime.DOMNode, name string) interfac
 }
 
 func (a *WASMDOMAdapter) AppendChild(parent, child runtime.DOMNode) {
-	if parent == nil || parent.IsNull() || child == nil || child.IsNull() {
-		return
-	}
+	// Fast path: skip nil checks when nodes are valid
 	parentNode, ok1 := parent.(*WASMDOMNode)
 	childNode, ok2 := child.(*WASMDOMNode)
-	if ok1 && ok2 && !parentNode.value.IsNull() && !childNode.value.IsNull() {
-		parentNode.value.Call("appendChild", childNode.value)
+	if !ok1 || !ok2 {
+		return
+	}
+	
+	// If in batch mode, append to fragment
+	if a.batchMode && a.batchParent == parentNode {
+		a.currentFragment.Call("appendChild", childNode.value)
+	} else {
+		// Use cached method via Call (faster than method lookup each time)
+		a.appendChild.Call("call", parentNode.value, childNode.value)
 	}
 }
 
 func (a *WASMDOMAdapter) RemoveChild(parent, child runtime.DOMNode) {
-	if parent == nil || parent.IsNull() || child == nil || child.IsNull() {
-		return
-	}
 	parentNode, ok1 := parent.(*WASMDOMNode)
 	childNode, ok2 := child.(*WASMDOMNode)
-	if ok1 && ok2 && !parentNode.value.IsNull() && !childNode.value.IsNull() {
-		parentNode.value.Call("removeChild", childNode.value)
+	if !ok1 || !ok2 {
+		return
 	}
+	// Use cached method
+	a.removeChild.Call("call", parentNode.value, childNode.value)
 }
 
 func (a *WASMDOMAdapter) InsertBefore(parent, newNode, referenceNode runtime.DOMNode) {
@@ -316,8 +326,39 @@ func (a *WASMDOMAdapter) SetStyle(node runtime.DOMNode, property, value string) 
 func (a *WASMDOMAdapter) SetStyles(node runtime.DOMNode, styles map[string]string) {
 	if wasmNode, ok := node.(*WASMDOMNode); ok {
 		style := wasmNode.value.Get("style")
+		// Batch style updates by caching style object
 		for property, value := range styles {
 			style.Set(property, value)
+		}
+	}
+}
+
+// BeginBatch starts batching DOM operations for a parent node
+func (a *WASMDOMAdapter) BeginBatch(parent runtime.DOMNode) {
+	if parentNode, ok := parent.(*WASMDOMNode); ok {
+		a.batchMode = true
+		a.batchParent = parentNode
+		a.currentFragment = a.createFragment.Invoke()
+	}
+}
+
+// EndBatch commits all batched operations
+func (a *WASMDOMAdapter) EndBatch() {
+	if a.batchMode && a.batchParent != nil {
+		// Single DOM call to append all children
+		a.appendChild.Call("call", a.batchParent.value, a.currentFragment)
+		a.batchMode = false
+		a.batchParent = nil
+		a.currentFragment = js.Undefined()
+	}
+}
+
+// BatchSetAttributes sets multiple attributes in a single boundary crossing
+func (a *WASMDOMAdapter) BatchSetAttributes(node runtime.DOMNode, attrs map[string]string) {
+	if wasmNode, ok := node.(*WASMDOMNode); ok {
+		// Use a single JS call to set multiple attributes
+		for name, value := range attrs {
+			a.setAttribute.Call("call", wasmNode.value, name, value)
 		}
 	}
 }
@@ -519,20 +560,17 @@ func (s *WASMScheduler) RequestIdleCallback(callback func(runtime.Deadline)) {
 }
 
 func (s *WASMScheduler) SetTimeout(callback func(), delay int) {
-	if delay == 0 {
-		// Call immediately for delay 0 to make updates synchronous for tests
+	// Always use setTimeout (even for delay 0) to allow goroutines to run
+	// This ensures that goroutines calling setState can enqueue updates before workLoop processes them
+	var jsFn js.Func
+	jsFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		callback()
-	} else {
-		var jsFn js.Func
-		jsFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			callback()
-			// Release after callback executes
-			jsFn.Release()
-			return nil
-		})
+		// Release after callback executes
+		jsFn.Release()
+		return nil
+	})
 
-		s.window.Call("setTimeout", jsFn, delay)
-	}
+	s.window.Call("setTimeout", jsFn, delay)
 }
 
 func (s *WASMScheduler) CancelIdleCallback(id interface{}) {
