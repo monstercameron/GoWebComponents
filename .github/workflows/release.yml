@@ -34,14 +34,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Playwright Browsers
-        run: |
-          npx playwright install chromium
-
       - name: Run Playwright Tests
         working-directory: ./test
         run: |
-          npm ci
+          npm install
+          npx playwright install chromium
           npm run test
         env:
           CI: true
