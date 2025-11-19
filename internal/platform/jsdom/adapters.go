@@ -35,12 +35,18 @@ func (n *WASMDOMNode) Value() js.Value {
 
 // WASMDOMAdapter implements DOMAdapter for browser/WASM
 type WASMDOMAdapter struct {
-	document js.Value
+	document       js.Value
+	createElement  js.Value
+	createTextNode js.Value
 }
 
 func NewWASMDOMAdapter() *WASMDOMAdapter {
+	doc := js.Global().Get("document")
 	return &WASMDOMAdapter{
-		document: js.Global().Get("document"),
+		document:       doc,
+		// Bind methods to document to ensure correct 'this' context when Invoked
+		createElement:  doc.Get("createElement").Call("bind", doc),
+		createTextNode: doc.Get("createTextNode").Call("bind", doc),
 	}
 }
 
@@ -51,7 +57,9 @@ func (a *WASMDOMAdapter) CreateElement(tag string) runtime.DOMNode {
 		return &WASMDOMNode{value: js.Null()}
 	}
 
-	elem := a.document.Call("createElement", tag)
+	// Use Invoke on the cached function instead of Call on the document
+	// This saves a property lookup on every call
+	elem := a.createElement.Invoke(tag)
 	if elem.IsNull() || elem.IsUndefined() {
 		// This shouldn't happen, but handle it gracefully
 		return &WASMDOMNode{value: js.Null()}
@@ -65,7 +73,8 @@ func (a *WASMDOMAdapter) CreateTextNode(text string) runtime.DOMNode {
 		return &WASMDOMNode{value: js.Null()}
 	}
 
-	textNode := a.document.Call("createTextNode", text)
+	// Use Invoke on the cached function
+	textNode := a.createTextNode.Invoke(text)
 	if textNode.IsNull() || textNode.IsUndefined() {
 		return &WASMDOMNode{value: js.Null()}
 	}

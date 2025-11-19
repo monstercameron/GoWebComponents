@@ -186,7 +186,7 @@ func TestCommitWork_NilParentDOM(t *testing.T) {
 	}
 
 	// Should handle case where parent has no DOM (function component)
-	rt.commitWork(child)
+	rt.commitWork(child, nil)
 }
 
 func TestCommitWork_NilFiber(t *testing.T) {
@@ -198,7 +198,7 @@ func TestCommitWork_NilFiber(t *testing.T) {
 	})
 
 	// Should not panic with nil
-	rt.commitWork(nil)
+	rt.commitWork(nil, nil)
 }
 
 func TestCommitDeletion_NilChild(t *testing.T) {
@@ -323,9 +323,7 @@ func TestCommitRoot_WithEffects_EdgeCase(t *testing.T) {
 		typeOf: "div",
 		props:  make(map[string]interface{}),
 		dom:    adapter.CreateElement("div"),
-		effects: []func(){
-			func() { effectRan = true },
-		},
+		effects: []Effect{{Fn: func() func() { effectRan = true; return nil }}},
 		effectTag: "PLACEMENT",
 	}
 

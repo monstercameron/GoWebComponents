@@ -281,7 +281,8 @@ func TestReconcileChildren_LongChainNoKeys(t *testing.T) {
 	// Create new elements (same count, no keys)
 	elements := make([]interface{}, 20)
 	for i := 0; i < 20; i++ {
-		elements[i] = &Element{Type: "div"}
+		// Add a prop to force update
+		elements[i] = &Element{Type: "div", Props: map[string]interface{}{"id": "new"}}
 	}
 
 	rt.reconcileChildren(wipFiber, elements)

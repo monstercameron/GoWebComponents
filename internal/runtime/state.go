@@ -138,17 +138,32 @@ func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(in
 		panic("GoUseAtom must be called within a component")
 	}
 
-	// Validate hook order
-	if err := validateHookOrder(fiber.hooks, HookTypeAtom, fiber.hooks.index); err != nil {
-		panic(err)
-	}
 	fiber.hooks.index++
+
+	atomIdx := fiber.hooks.atomIndex
+	fiber.hooks.atomIndex++
 
 	// Initialize atom if it doesn't exist
 	rt.atomRegistry.InitAtom(id, initialValue)
 
 	// Subscribe this fiber to the atom
 	rt.atomRegistry.Subscribe(id, fiber)
+
+	// Track subscription in fiber for efficient cleanup
+	if len(fiber.hooks.atoms) <= atomIdx {
+		needed := atomIdx + 1
+		if needed <= cap(fiber.hooks.atoms) {
+			fiber.hooks.atoms = fiber.hooks.atoms[:needed]
+		} else {
+			newAtoms := make([]string, needed, needed*2)
+			copy(newAtoms, fiber.hooks.atoms)
+			fiber.hooks.atoms = newAtoms
+		}
+		fiber.hooks.atoms[atomIdx] = id
+	} else {
+		// Update existing slot (though ID shouldn't change for same hook position)
+		fiber.hooks.atoms[atomIdx] = id
+	}
 
 	// Getter function
 	get := func() T {
@@ -208,6 +223,15 @@ func (rt *Runtime) CleanupAtomSubscriptions(fiber *Fiber) {
 		return
 	}
 
+	// Optimization: Only unsubscribe from atoms this fiber is actually using
+	if fiber.hooks != nil && len(fiber.hooks.atoms) > 0 {
+		for _, atomID := range fiber.hooks.atoms {
+			rt.atomRegistry.Unsubscribe(atomID, fiber)
+		}
+		return
+	}
+
+	// Fallback for fibers without hooks or if atoms list is empty (shouldn't happen if using GoUseAtom)
 	rt.atomRegistry.UnsubscribeFiberFromAll(fiber)
 }
 

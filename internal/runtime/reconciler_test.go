@@ -639,7 +639,7 @@ func TestCommitWork_Placement(t *testing.T) {
 		effectTag: "PLACEMENT",
 	}
 
-	rt.commitWork(child)
+	rt.commitWork(child, parentDOM)
 
 	mockParent := parentDOM.(*testDOMNode)
 	if len(mockParent.children) != 1 {
@@ -680,7 +680,7 @@ func TestCommitWork_Update(t *testing.T) {
 		effectTag: "UPDATE",
 	}
 
-	rt.commitWork(fiber)
+	rt.commitWork(fiber, parent.dom)
 
 	mockNode := dom.(*testDOMNode)
 	if mockNode.attributes["id"] != "new" {
@@ -724,7 +724,7 @@ func TestCommitWork_RecursiveCommit(t *testing.T) {
 
 	child1.sibling = child2
 
-	rt.commitWork(child1)
+	rt.commitWork(child1, parentDOM)
 
 	mockParent := parentDOM.(*testDOMNode)
 	if len(mockParent.children) != 2 {
@@ -807,17 +807,19 @@ func TestRunEffects(t *testing.T) {
 	fiber1 := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
-		effects: []func(){
-			func() { executed1 = true },
+		effects: []Effect{
+			{Fn: func() func() { executed1 = true; return nil }, CleanupIndex: 0},
 		},
+		hooks: &Hooks{cleanups: make([]func(), 1)},
 	}
 
 	fiber2 := &Fiber{
 		typeOf: "span",
 		props:  make(map[string]interface{}),
-		effects: []func(){
-			func() { executed2 = true },
+		effects: []Effect{
+			{Fn: func() func() { executed2 = true; return nil }, CleanupIndex: 0},
 		},
+		hooks: &Hooks{cleanups: make([]func(), 1)},
 	}
 
 	fiber1.child = fiber2
@@ -1114,11 +1116,9 @@ func TestPerformUnitOfWork_FunctionComponentWithHooks(t *testing.T) {
 
 	// Component with previous render (has hooks state)
 	oldHooks := &Hooks{
-		state:     []interface{}{42, "test"},
+		states:    []interface{}{42, 42, "test", "test"},
 		deps:      make([][]interface{}, 0),
 		memos:     make([]memoizedValue, 0),
-		callOrder: make([]HookCall, 0),
-		prevOrder: make([]HookCall, 0),
 		index:     0,
 	}
 
@@ -1143,12 +1143,12 @@ func TestPerformUnitOfWork_FunctionComponentWithHooks(t *testing.T) {
 		t.Fatal("Expected hooks to be initialized")
 	}
 
-	if len(fiber.hooks.state) != 2 {
-		t.Errorf("Expected hooks state to be preserved, got %d items", len(fiber.hooks.state))
+	if len(fiber.hooks.states) != 4 {
+		t.Errorf("Expected hooks state to be preserved, got %d items", len(fiber.hooks.states))
 	}
 
-	if fiber.hooks.state[0] != 42 {
-		t.Errorf("Expected first state to be 42, got %v", fiber.hooks.state[0])
+	if fiber.hooks.states[0] != 42 {
+		t.Errorf("Expected first state to be 42, got %v", fiber.hooks.states[0])
 	}
 }
 
@@ -1189,7 +1189,7 @@ func TestFlattenFragments_NoFragments(t *testing.T) {
 		&Element{Type: "span", Props: make(map[string]interface{}), Children: []interface{}{}},
 	}
 
-	result := flattenFragments(elements)
+	result, _ := flattenFragments(elements)
 
 	if len(result) != 2 {
 		t.Errorf("Expected 2 elements, got %d", len(result))
@@ -1221,7 +1221,7 @@ func TestFlattenFragments_WithFragment(t *testing.T) {
 		&Element{Type: "h1", Props: make(map[string]interface{}), Children: []interface{}{}},
 	}
 
-	result := flattenFragments(elements)
+	result, _ := flattenFragments(elements)
 
 	if len(result) != 4 {
 		t.Errorf("Expected 4 flattened elements, got %d", len(result))
@@ -1261,7 +1261,7 @@ func TestFlattenFragments_NestedFragments(t *testing.T) {
 		},
 	}
 
-	result := flattenFragments(elements)
+	result, _ := flattenFragments(elements)
 
 	if len(result) != 4 {
 		t.Errorf("Expected 4 flattened elements from nested fragments, got %d", len(result))
@@ -1287,7 +1287,7 @@ func TestFlattenFragments_EmptyFragment(t *testing.T) {
 		&Element{Type: "span", Props: make(map[string]interface{}), Children: []interface{}{}},
 	}
 
-	result := flattenFragments(elements)
+	result, _ := flattenFragments(elements)
 
 	if len(result) != 2 {
 		t.Errorf("Expected 2 elements (empty fragment flattened away), got %d", len(result))
@@ -1325,7 +1325,7 @@ func TestFlattenFragments_OnlyFragments(t *testing.T) {
 		},
 	}
 
-	result := flattenFragments(elements)
+	result, _ := flattenFragments(elements)
 
 	if len(result) != 2 {
 		t.Errorf("Expected 2 flattened elements, got %d", len(result))

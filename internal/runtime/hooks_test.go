@@ -120,7 +120,7 @@ func TestGoUseEffect_RunsOnMount(t *testing.T) {
 	}
 
 	// Execute effect
-	fiber.effects[0]()
+	fiber.effects[0].Fn()
 
 	if !executed {
 		t.Error("Expected effect to be executed")
@@ -148,8 +148,10 @@ func TestGoUseEffect_RunsOnDepsChange(t *testing.T) {
 	}
 
 	// Reset for "second render"
-	fiber.effects = make([]func(), 0)
+	fiber.effects = make([]Effect, 0)
 	fiber.hooks.index = 0
+	fiber.hooks.depIndex = 0
+	fiber.hooks.cleanupIndex = 0
 
 	// Second render with deps [2] (changed)
 	GoUseEffect(func() func() {
@@ -174,8 +176,10 @@ func TestGoUseEffect_SkipsOnSameDeps(t *testing.T) {
 	GoUseEffect(func() func() { return func() {} }, 1, 2, 3)
 
 	// Reset for second render
-	fiber.effects = make([]func(), 0)
+	fiber.effects = make([]Effect, 0)
 	fiber.hooks.index = 0
+	fiber.hooks.depIndex = 0
+	fiber.hooks.cleanupIndex = 0
 
 	// Second render with same deps
 	GoUseEffect(func() func() { return func() {} }, 1, 2, 3)
@@ -223,6 +227,7 @@ func TestGoUseMemo_RecomputesOnDepsChange(t *testing.T) {
 
 	// Reset for second render
 	fiber.hooks.index = 0
+	fiber.hooks.memoIndex = 0
 	value = 20
 
 	result2 := GoUseMemo(func() interface{} {
@@ -256,6 +261,7 @@ func TestGoUseMemo_SkipRecomputeOnSameDeps(t *testing.T) {
 
 	// Reset for second render with same deps
 	fiber.hooks.index = 0
+	fiber.hooks.memoIndex = 0
 
 	result2 := GoUseMemo(func() interface{} {
 		computeCount++
@@ -337,6 +343,7 @@ func TestGoUseMemo_MultipleMemosIndependent(t *testing.T) {
 
 	// Reset for second render - change dep2 only
 	fiber.hooks.index = 0
+	fiber.hooks.memoIndex = 0
 
 	GoUseMemo(func() interface{} {
 		count1++
@@ -379,6 +386,7 @@ func TestGoUseCallback_StableReference(t *testing.T) {
 
 	// Reset for second render with same deps
 	fiber.hooks.index = 0
+	fiber.hooks.callbackIndex = 0
 
 	result2 := GoUseCallback(testFunc, "dep1")
 
@@ -415,6 +423,7 @@ func TestGoUseCallback_UpdatesOnDepsChange(t *testing.T) {
 
 	// Reset for second render - change deps
 	fiber.hooks.index = 0
+	fiber.hooks.callbackIndex = 0
 
 	GoUseCallback(func2, "dep1_changed")
 
@@ -448,6 +457,7 @@ func TestGoUseCallback_MultipleCallbacksIndependent(t *testing.T) {
 
 	// Reset for second render - change dep2 only
 	fiber.hooks.index = 0
+	fiber.hooks.callbackIndex = 0
 
 	GoUseCallback(func1, "dep1")         // Same dep
 	GoUseCallback(func2, "dep2_changed") // Different dep
@@ -463,39 +473,7 @@ func TestGoUseCallback_MultipleCallbacksIndependent(t *testing.T) {
 	}
 }
 
-func TestValidateHookOrder_Success(t *testing.T) {
-	hooks := &Hooks{
-		callOrder: make([]HookCall, 0),
-		prevOrder: []HookCall{
-			{Type: HookTypeState, Position: 0},
-			{Type: HookTypeEffect, Position: 1},
-		},
-	}
 
-	err := validateHookOrder(hooks, HookTypeState, 0)
-	if err != nil {
-		t.Errorf("Expected no error, got %v", err)
-	}
-
-	err = validateHookOrder(hooks, HookTypeEffect, 1)
-	if err != nil {
-		t.Errorf("Expected no error, got %v", err)
-	}
-}
-
-func TestValidateHookOrder_FailsOnMismatch(t *testing.T) {
-	hooks := &Hooks{
-		callOrder: make([]HookCall, 0),
-		prevOrder: []HookCall{
-			{Type: HookTypeState, Position: 0},
-		},
-	}
-
-	err := validateHookOrder(hooks, HookTypeEffect, 0) // Wrong type
-	if err == nil {
-		t.Error("Expected validation error for type mismatch")
-	}
-}
 
 func TestAreDepsEqual_Primitives(t *testing.T) {
 	tests := []struct {
@@ -549,32 +527,7 @@ func TestFastEqual(t *testing.T) {
 	}
 }
 
-func TestFinalizeHookOrder(t *testing.T) {
-	hooks := &Hooks{
-		callOrder: []HookCall{
-			{Type: HookTypeState, Position: 0},
-			{Type: HookTypeEffect, Position: 1},
-		},
-		prevOrder: make([]HookCall, 0),
-	}
 
-	err := FinalizeHookOrder(hooks)
-	if err != nil {
-		t.Errorf("Expected no error, got %v", err)
-	}
-
-	if len(hooks.prevOrder) != 2 {
-		t.Errorf("Expected prevOrder length 2, got %d", len(hooks.prevOrder))
-	}
-
-	if len(hooks.callOrder) != 0 {
-		t.Errorf("Expected callOrder to be reset, got length %d", len(hooks.callOrder))
-	}
-
-	if !hooks.orderChecked {
-		t.Error("Expected orderChecked to be true")
-	}
-}
 
 func TestGoUseRef_InitialValue(t *testing.T) {
 	fiber := &Fiber{
@@ -616,6 +569,7 @@ func TestGoUseRef_PersistsAcrossRenders(t *testing.T) {
 
 	// Reset hook index for second render
 	fiber.hooks.index = 0
+	fiber.hooks.refIndex = 0
 
 	// Second render - get same ref
 	ref2 := GoUseRef("initial") // Note: initial value is ignored on subsequent renders
@@ -667,6 +621,7 @@ func TestGoUseRef_MultipleRefsIndependent(t *testing.T) {
 
 	// Reset for second render and verify independence
 	fiber.hooks.index = 0
+	fiber.hooks.refIndex = 0
 
 	ref1Again := GoUseRef("ignored1")
 	ref2Again := GoUseRef("ignored2")
@@ -749,6 +704,7 @@ func TestGoUseId_PersistsAcrossRenders(t *testing.T) {
 
 	// Reset hook index for second render
 	fiber.hooks.index = 0
+	fiber.hooks.idIndex = 0
 
 	// Second render - get same ID
 	id2 := GoUseId()
@@ -790,6 +746,7 @@ func TestGoUseId_MultipleIdsIndependent(t *testing.T) {
 
 	// Reset for second render and verify independence
 	fiber.hooks.index = 0
+	fiber.hooks.idIndex = 0
 
 	id1Again := GoUseId()
 	id2Again := GoUseId()

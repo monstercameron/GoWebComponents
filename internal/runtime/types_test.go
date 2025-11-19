@@ -49,16 +49,16 @@ func TestFiberTreeStructure(t *testing.T) {
 
 func TestHooksInitialization(t *testing.T) {
 	hooks := &Hooks{
-		state: make([]interface{}, 0),
-		deps:  make([][]interface{}, 0),
-		index: 0,
+		states: make([]interface{}, 0),
+		deps:   make([][]interface{}, 0),
+		index:  0,
 	}
 
 	if hooks.index != 0 {
 		t.Errorf("Expected hooks.index to be 0, got %d", hooks.index)
 	}
 
-	if hooks.state == nil {
+	if hooks.states == nil {
 		t.Error("Expected state slice to be initialized")
 	}
 
@@ -96,16 +96,4 @@ func TestElementCreation(t *testing.T) {
 	}
 }
 
-func TestHookTypeConstants(t *testing.T) {
-	if HookTypeState != 0 {
-		t.Errorf("Expected HookTypeState to be 0, got %d", HookTypeState)
-	}
 
-	if HookTypeEffect != 1 {
-		t.Errorf("Expected HookTypeEffect to be 1, got %d", HookTypeEffect)
-	}
-
-	if HookTypeMemo != 2 {
-		t.Errorf("Expected HookTypeMemo to be 2, got %d", HookTypeMemo)
-	}
-}

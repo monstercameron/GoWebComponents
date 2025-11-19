@@ -29,8 +29,7 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 
 	if fiber.hooks == nil {
 		fiber.hooks = &Hooks{
-			state:        make([]interface{}, 0),
-			pendingState: make([]interface{}, 0),
+			states:       make([]interface{}, 0),
 			deps:         make([][]interface{}, 0),
 			memos:        make([]memoizedValue, 0),
 			callbacks:    make([]callbackValue, 0),
@@ -38,22 +37,19 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 			ids:          make([]string, 0),
 			fetches:      make([]fetchValue, 0),
 			cleanups:     make([]func(), 0),
-			callOrder:    make([]HookCall, 0),
-			prevOrder:    make([]HookCall, 0),
 		}
 	}
 
-	position := fiber.hooks.index
 	fiber.hooks.index++
 
-	// Validate hook order
-	validateHookOrder(fiber.hooks, HookTypeFetch, position)
+	fetchIdx := fiber.hooks.fetchIndex
+	fiber.hooks.fetchIndex++
 
 	// Initialize fetch state if needed
-	if len(fiber.hooks.fetches) <= position {
-		newFetches := make([]fetchValue, position+1, (position+1)*2)
+	if len(fiber.hooks.fetches) <= fetchIdx {
+		newFetches := make([]fetchValue, fetchIdx+1, (fetchIdx+1)*2)
 		copy(newFetches, fiber.hooks.fetches)
-		newFetches[position] = fetchValue{
+		newFetches[fetchIdx] = fetchValue{
 			state: FetchState{Data: nil, Error: "", Loading: false},
 			url:   url,
 			fiber: fiber,
@@ -61,11 +57,11 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 		fiber.hooks.fetches = newFetches
 	} else {
 		// Update fiber reference on every render to ensure it's current
-		fiber.hooks.fetches[position].fiber = fiber
+		fiber.hooks.fetches[fetchIdx].fiber = fiber
 	}
 
 	hooks := fiber.hooks
-	idx := position
+	idx := fetchIdx
 
 	// Getter returns current fetch state
 	getter := func() FetchState {

@@ -462,7 +462,7 @@ func TestCommitWork_PlacementSingleElement(t *testing.T) {
 	parent := &Fiber{typeOf: "div", props: make(map[string]interface{}), dom: parentDOM}
 	child := &Fiber{typeOf: "span", props: make(map[string]interface{}), dom: childDOM, parent: parent, effectTag: "PLACEMENT"}
 
-	rt.commitWork(child)
+	rt.commitWork(child, parentDOM)
 
 	parentNode := parentDOM.(*testDOMNode)
 	if len(parentNode.children) != 1 {
@@ -494,7 +494,7 @@ func TestCommitWork_PlacementMultipleElements(t *testing.T) {
 		}
 	}
 
-	rt.commitWork(children[0])
+	rt.commitWork(children[0], parentDOM)
 
 	parentNode := parentDOM.(*testDOMNode)
 	if len(parentNode.children) != 10 {
@@ -521,7 +521,7 @@ func TestCommitWork_UpdateElement(t *testing.T) {
 		effectTag: "UPDATE",
 	}
 
-	rt.commitWork(fiber)
+	rt.commitWork(fiber, parent.dom)
 
 	node := dom.(*testDOMNode)
 	if node.attributes["id"] != "new" {
@@ -549,7 +549,7 @@ func TestCommitWork_UpdateNoAlternate(t *testing.T) {
 		alternate: nil, // No alternate
 	}
 
-	rt.commitWork(fiber)
+	rt.commitWork(fiber, parent.dom)
 
 	// When alternate is nil, UPDATE effectTag does nothing (see reconciler.go:418-429)
 	// This test just verifies it doesn't crash
@@ -656,7 +656,7 @@ func TestCommitRoot_WithEffects(t *testing.T) {
 		typeOf:    "div",
 		props:     make(map[string]interface{}),
 		dom:       adapter.CreateElement("div"),
-		effects:   []func(){func() { effectRan = true }},
+		effects:   []Effect{{Fn: func() func() { effectRan = true; return nil }}},
 		effectTag: "PLACEMENT",
 	}
 
@@ -717,7 +717,7 @@ func TestRunEffects_SingleEffect(t *testing.T) {
 	fiber := &Fiber{
 		typeOf:  "div",
 		props:   make(map[string]interface{}),
-		effects: []func(){func() { executed = true }},
+		effects: []Effect{{Fn: func() func() { executed = true; return nil }}},
 	}
 
 	rt.runEffects(fiber)
@@ -736,10 +736,10 @@ func TestRunEffects_MultipleEffects(t *testing.T) {
 	fiber := &Fiber{
 		typeOf: "div",
 		props:  make(map[string]interface{}),
-		effects: []func(){
-			func() { count++ },
-			func() { count++ },
-			func() { count++ },
+		effects: []Effect{
+			{Fn: func() func() { count++; return nil }},
+			{Fn: func() func() { count++; return nil }},
+			{Fn: func() func() { count++; return nil }},
 		},
 	}
 
@@ -757,9 +757,9 @@ func TestRunEffects_NestedFibers(t *testing.T) {
 
 	count := 0
 
-	grandchild := &Fiber{typeOf: "p", props: make(map[string]interface{}), effects: []func(){func() { count++ }}}
-	child := &Fiber{typeOf: "span", props: make(map[string]interface{}), effects: []func(){func() { count++ }}, child: grandchild}
-	parent := &Fiber{typeOf: "div", props: make(map[string]interface{}), effects: []func(){func() { count++ }}, child: child}
+	grandchild := &Fiber{typeOf: "p", props: make(map[string]interface{}), effects: []Effect{{Fn: func() func() { count++; return nil }}}}
+	child := &Fiber{typeOf: "span", props: make(map[string]interface{}), effects: []Effect{{Fn: func() func() { count++; return nil }}}, child: grandchild}
+	parent := &Fiber{typeOf: "div", props: make(map[string]interface{}), effects: []Effect{{Fn: func() func() { count++; return nil }}}, child: child}
 
 	rt.runEffects(parent)
 
@@ -775,9 +775,9 @@ func TestRunEffects_WithSiblings(t *testing.T) {
 
 	count := 0
 
-	sibling2 := &Fiber{typeOf: "span", props: make(map[string]interface{}), effects: []func(){func() { count++ }}}
-	sibling1 := &Fiber{typeOf: "span", props: make(map[string]interface{}), effects: []func(){func() { count++ }}, sibling: sibling2}
-	parent := &Fiber{typeOf: "div", props: make(map[string]interface{}), effects: []func(){func() { count++ }}, child: sibling1}
+	sibling2 := &Fiber{typeOf: "span", props: make(map[string]interface{}), effects: []Effect{{Fn: func() func() { count++; return nil }}}}
+	sibling1 := &Fiber{typeOf: "span", props: make(map[string]interface{}), effects: []Effect{{Fn: func() func() { count++; return nil }}}, sibling: sibling2}
+	parent := &Fiber{typeOf: "div", props: make(map[string]interface{}), effects: []Effect{{Fn: func() func() { count++; return nil }}}, child: sibling1}
 
 	rt.runEffects(parent)
 
@@ -962,7 +962,7 @@ func TestCommitWork_FunctionComponentWithHostChild(t *testing.T) {
 
 	funcFiber.parent = parent
 
-	rt.commitWork(hostFiber)
+	rt.commitWork(hostFiber, parentDOM)
 
 	parentNode := parentDOM.(*testDOMNode)
 	if len(parentNode.children) != 1 {

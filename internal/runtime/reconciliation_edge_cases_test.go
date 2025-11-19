@@ -130,7 +130,7 @@ func TestReconcileChildren_OldFiberWithoutSibling(t *testing.T) {
 		alternate: &Fiber{child: oldFiber},
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: "span"}})
+	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: "span", Props: map[string]interface{}{"id": "new"}}})
 
 	if wipFiber.child == nil {
 		t.Fatal("Expected child to be created")
@@ -634,7 +634,7 @@ func TestReconcileChildren_SameFunctionComponent(t *testing.T) {
 		alternate: &Fiber{child: oldFiber},
 	}
 
-	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: component}})
+	rt.reconcileChildren(wipFiber, []interface{}{&Element{Type: component, Props: map[string]interface{}{"id": "new"}}})
 
 	if wipFiber.child == nil {
 		t.Fatal("Expected child")
@@ -853,7 +853,7 @@ func TestReconcileChildren_EventHandlerAlwaysDirty(t *testing.T) {
 	}
 
 	rt.reconcileChildren(wipFiber, []interface{}{
-		&Element{Type: "button", Props: map[string]interface{}{"onclick": handler}},
+		&Element{Type: "button", Props: map[string]interface{}{"onclick": handler, "id": "new"}},
 	})
 
 	if wipFiber.child == nil {
@@ -1219,8 +1219,8 @@ func TestReconcileChildren_AlternatingUpdatesAndPlacements(t *testing.T) {
 
 	// Keep first two, add new ones
 	elements := []interface{}{
-		&Element{Type: "div"},
-		&Element{Type: "div"},
+		&Element{Type: "div", Props: map[string]interface{}{"id": "new1"}},
+		&Element{Type: "div", Props: map[string]interface{}{"id": "new2"}},
 		&Element{Type: "span"},
 		&Element{Type: "p"},
 	}

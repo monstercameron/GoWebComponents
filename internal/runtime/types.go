@@ -2,60 +2,50 @@ package runtime
 
 // Element represents a virtual DOM node
 type Element struct {
-	Type     interface{}
-	Props    map[string]interface{}
-	Children []interface{}
+	Type        interface{}
+	Props       map[string]interface{}
+	Children    []interface{}
+	TextContent string // Optimization for TEXT_ELEMENT to avoid map allocation
+}
+
+// Effect represents a side effect to be run after render
+type Effect struct {
+	Fn           func() func()
+	CleanupIndex int
 }
 
 // Fiber represents a unit of work in the virtual DOM tree
 type Fiber struct {
-	// Tree structure
+	// Tree structure - grouped for traversal locality (Cache Line 0)
 	parent    *Fiber
 	child     *Fiber
 	sibling   *Fiber
 	alternate *Fiber
 
-	// Component info
-	typeOf interface{}
-	props  map[string]interface{}
-
-	// Platform-agnostic DOM reference
-	dom DOMNode
-
-	// Hooks and effects
-	hooks          *Hooks
-	effects        []func()
-	eventCallbacks []EventHandler
-
-	// Component unique ID counter for useId
-	componentIdCounter int
-
-	// Reconciliation metadata
-	effectTag   string
+	// Flags - grouped with tree pointers for fast traversal checks (Cache Line 0)
 	dirty       bool
 	needsUpdate bool
+	// 6 bytes padding here to align next 8-byte field
+
+	// Component info
+	hooks *Hooks
+	props map[string]interface{}
+
+	// Interfaces and Strings (16 bytes each)
+	typeOf      interface{}
+	dom         DOMNode
+	textContent string
+	effectTag   string
+
+	// Slices (24 bytes each)
+	effects        []Effect
+	eventCallbacks []EventHandler
+
+	// Counters
+	componentIdCounter int
 }
 
-// HookType represents the type of hook being called
-type HookType int
 
-const (
-	HookTypeState HookType = iota
-	HookTypeEffect
-	HookTypeMemo
-	HookTypeCallback
-	HookTypeRef
-	HookTypeFunc
-	HookTypeAtom
-	HookTypeId
-	HookTypeFetch
-)
-
-// HookCall represents a single hook call for order validation
-type HookCall struct {
-	Type     HookType
-	Position int
-}
 
 // memoizedValue stores a memoized computation result with its dependencies
 type memoizedValue struct {
@@ -101,9 +91,22 @@ type FetchState struct {
 // Hooks manages component hook state
 type Hooks struct {
 	index int
+	// 4 bytes padding (on 32-bit) or 0 on 64-bit if int is 64-bit.
+	// Actually int is 64-bit on 64-bit arch.
 
-	state        []interface{} // Committed state
-	pendingState []interface{} // Pending state updates (used during setState batching)
+	// Indices for packed storage
+	stateIndex    int
+	depIndex      int
+	memoIndex     int
+	callbackIndex int
+	refIndex      int
+	idIndex       int
+	fetchIndex    int
+	funcIndex     int
+	atomIndex     int
+	cleanupIndex  int
+
+	states       []interface{} // Interleaved: state, pending, state, pending...
 	deps         [][]interface{}
 	memos        []memoizedValue
 	callbacks    []callbackValue
@@ -112,10 +115,7 @@ type Hooks struct {
 	fetches      []fetchValue       // Store fetch states for manual fetch hooks
 	funcs        []funcHandlerValue // Store wrapped event handler functions
 	cleanups     []func()           // Cleanup functions from UseEffect
-
-	callOrder    []HookCall
-	prevOrder    []HookCall
-	orderChecked bool
+	atoms        []string           // Store subscribed atom IDs for efficient cleanup
 }
 
 // Attrs is a convenience type for component props

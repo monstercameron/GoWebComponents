@@ -2,10 +2,20 @@ package runtime
 
 import (
 	"reflect"
+	"sync"
 )
 
 // currentFiber tracks the fiber being processed (for hooks)
-var currentFiber *Fiber
+var (
+	currentFiber *Fiber
+	emptyChildren = []interface{}{}
+	slicePool = sync.Pool{
+		New: func() interface{} {
+			// Initial capacity 16 seems reasonable for children
+			return make([]interface{}, 0, 16)
+		},
+	}
+)
 
 // GetCurrentFiber returns the fiber currently being processed
 func GetCurrentFiber() *Fiber {
@@ -19,24 +29,23 @@ func SetCurrentFiber(fiber *Fiber) {
 
 // CreateElement creates a new virtual DOM element
 func CreateElement(typ interface{}, props map[string]interface{}, children ...interface{}) *Element {
-	// Process children to handle strings automatically
-	processedChildren := make([]interface{}, len(children))
+	// Process children: wrap strings in TEXT_ELEMENT
+	// We modify the children slice in-place to avoid allocation since it's a varargs slice
 	for i, child := range children {
 		if str, ok := child.(string); ok {
-			processedChildren[i] = &Element{
-				Type:     "TEXT_ELEMENT",
-				Props:    map[string]interface{}{"nodeValue": str},
-				Children: []interface{}{},
+			children[i] = &Element{
+				Type:        "TEXT_ELEMENT",
+				TextContent: str,
+				// Props:    nil, // No props map needed!
+				Children: emptyChildren,
 			}
-		} else {
-			processedChildren[i] = child
 		}
 	}
 
 	elem := &Element{
 		Type:     typ,
 		Props:    make(map[string]interface{}),
-		Children: processedChildren,
+		Children: children,
 	}
 
 	for k, v := range props {
@@ -44,15 +53,30 @@ func CreateElement(typ interface{}, props map[string]interface{}, children ...in
 	}
 
 	// Always set children in props, even if empty, so reconciliation can handle deletions
-	elem.Props["children"] = processedChildren
+	elem.Props["children"] = children
 
 	return elem
 }
 
 // flattenFragments flattens Fragment elements, returning a new slice without Fragment wrappers
 // This allows Fragments to work as transparent containers that don't create DOM nodes
-func flattenFragments(elements []interface{}) []interface{} {
-	var flattened []interface{}
+func flattenFragments(elements []interface{}) ([]interface{}, bool) {
+	// Optimization: Check if we have any fragments before allocating
+	hasFragment := false
+	for _, elem := range elements {
+		if elemPtr, ok := elem.(*Element); ok && elemPtr != nil && elemPtr.Type == "FRAGMENT" {
+			hasFragment = true
+			break
+		}
+	}
+
+	if !hasFragment {
+		return elements, false
+	}
+
+	// Use pool
+	flattened := slicePool.Get().([]interface{})
+	flattened = flattened[:0] // Reset length
 
 	for _, elem := range elements {
 		if elem == nil {
@@ -66,7 +90,15 @@ func flattenFragments(elements []interface{}) []interface{} {
 			if elemPtr.Type == "FRAGMENT" {
 				// Recursively flatten the Fragment's children
 				if fragmentChildren, ok := elemPtr.Props["children"].([]interface{}); ok {
-					flattened = append(flattened, flattenFragments(fragmentChildren)...)
+					res, allocated := flattenFragments(fragmentChildren)
+					flattened = append(flattened, res...)
+					if allocated {
+						// Clear and put back
+						for i := range res {
+							res[i] = nil
+						}
+						slicePool.Put(res)
+					}
 				}
 			} else {
 				flattened = append(flattened, elem)
@@ -76,7 +108,7 @@ func flattenFragments(elements []interface{}) []interface{} {
 		}
 	}
 
-	return flattened
+	return flattened, true
 }
 
 // cloneChildFibers clones the child fibers from the alternate to the current fiber
@@ -93,6 +125,7 @@ func (rt *Runtime) cloneChildFibers(parent *Fiber) {
 		newFiber := &Fiber{
 			typeOf:         oldFiber.typeOf,
 			props:          oldFiber.props,
+			textContent:    oldFiber.textContent,
 			dom:            oldFiber.dom,
 			parent:         parent,
 			alternate:      oldFiber,
@@ -102,6 +135,10 @@ func (rt *Runtime) cloneChildFibers(parent *Fiber) {
 			hooks:          oldFiber.hooks, // Share hooks for non-updated components
 			eventCallbacks: oldFiber.eventCallbacks,
 		}
+
+		// Optimization: Break the alternate chain to prevent memory leaks and long traversals
+		// We only need the immediate alternate for the next reconciliation
+		oldFiber.alternate = nil
 
 		if prevSibling == nil {
 			parent.child = newFiber
@@ -116,7 +153,16 @@ func (rt *Runtime) cloneChildFibers(parent *Fiber) {
 // reconcileChildren reconciles the children of a fiber
 func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 	// Flatten any Fragment elements before reconciliation
-	elements = flattenFragments(elements)
+	flatElements, wasAllocated := flattenFragments(elements)
+	if wasAllocated {
+		defer func() {
+			for i := range flatElements {
+				flatElements[i] = nil
+			}
+			slicePool.Put(flatElements)
+		}()
+	}
+	elements = flatElements
 
 	index := 0
 	var oldFiber *Fiber
@@ -126,110 +172,219 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 	var prevSibling *Fiber
 	firstChildSet := false
 
-	for index < len(elements) || oldFiber != nil {
-		var element interface{}
-		if index < len(elements) {
-			element = elements[index]
-		}
-
+	// Loop 1: Update/Replace (Both exist)
+	for index < len(elements) && oldFiber != nil {
+		element := elements[index]
+		
 		var newFiber *Fiber
 		sameType := false
 
-		if oldFiber != nil && element != nil {
+		if element != nil {
 			if elem, ok := element.(*Element); ok {
 				sameType = isSameType(elem.Type, oldFiber.typeOf)
-			}
-		}
-
-		if sameType {
-			// Reuse the existing fiber
-			if elem, ok := element.(*Element); ok {
-				// Check if this fiber or its subtree needs update
-				// Check alternate chain for dirty flag to handle stale closures
-				isDirty := rt.isFiberDirty(oldFiber)
-				needsUpdate := isDirty || oldFiber.needsUpdate || !reflect.DeepEqual(oldFiber.props, elem.Props)
-				// fmt.Printf("DEBUG: Reconciling %v. OldDirty: %v, NeedsUpdate: %v\n", oldFiber.typeOf, isDirty, needsUpdate)
-
-				// Always mark as dirty if props contain event handlers (they're closures that may have changed)
-				if !needsUpdate {
-					for key := range elem.Props {
-						if len(key) > 2 && key[:2] == "on" {
-							needsUpdate = true
-							break
+				
+				if sameType {
+					// UPDATE logic
+					// Check if this fiber or its subtree needs update
+					isDirty := rt.isFiberDirty(oldFiber)
+					needsUpdate := isDirty || oldFiber.needsUpdate
+					
+					if !needsUpdate {
+						if t, ok := elem.Type.(string); ok && t == "TEXT_ELEMENT" {
+							oldText := oldFiber.textContent
+							if oldText == "" && oldFiber.props != nil {
+								oldText, _ = oldFiber.props["nodeValue"].(string)
+							}
+							newText := elem.TextContent
+							if newText == "" && elem.Props != nil {
+								newText, _ = elem.Props["nodeValue"].(string)
+							}
+							needsUpdate = oldText != newText
+						} else {
+							needsUpdate = !propsEqual(oldFiber.props, elem.Props)
 						}
 					}
-				}
 
-				newFiber = &Fiber{
-					typeOf:    oldFiber.typeOf,
-					props:     elem.Props,
-					dom:       oldFiber.dom,
-					parent:    wipFiber,
-					alternate: oldFiber,
-					effectTag: "UPDATE",
-					dirty:     needsUpdate,
-				}
-			} else {
-				// fmt.Printf("  [UPDATE] ERROR: not Element type=%T\n", element)
-			}
-			// Link to parent
-			if !firstChildSet {
-				wipFiber.child = newFiber
-				firstChildSet = true
-			} else if newFiber != nil && prevSibling != nil {
-				prevSibling.sibling = newFiber
-			}
-			if newFiber != nil {
-				prevSibling = newFiber
-			}
-			// Advance oldFiber only when we reuse it
-			if oldFiber != nil {
-				oldFiber = oldFiber.sibling
-			}
-			index++
-		} else if element != nil {
-			// Create a new fiber for a different element type
-			if elem, ok := element.(*Element); ok {
-				newFiber = &Fiber{
-					typeOf:    elem.Type,
-					props:     elem.Props,
-					parent:    wipFiber,
-					effectTag: "PLACEMENT",
-					dirty:     true,
-				}
-				// Log when placing element without old fiber (potential duplication)
-				if oldFiber != nil {
-					// Mark old fiber for deletion on type mismatch
+					effectTag := "UPDATE"
+					if !needsUpdate {
+						effectTag = ""
+					}
+
+					newFiber = &Fiber{
+						typeOf:      oldFiber.typeOf,
+						props:       elem.Props,
+						textContent: elem.TextContent,
+						dom:         oldFiber.dom,
+						parent:      wipFiber,
+						alternate:   oldFiber,
+						effectTag:   effectTag,
+						dirty:       needsUpdate,
+					}
+
+					// Optimization: Break the alternate chain
+					oldFiber.alternate = nil
+					
+					// Advance oldFiber
+					oldFiber = oldFiber.sibling
+				} else {
+					// REPLACE logic (Placement + Deletion)
+					newFiber = &Fiber{
+						typeOf:      elem.Type,
+						props:       elem.Props,
+						textContent: elem.TextContent,
+						parent:      wipFiber,
+						effectTag:   "PLACEMENT",
+						dirty:       true,
+					}
+					
+					// Mark old fiber for deletion
 					oldFiber.effectTag = "DELETION"
 					rt.deletions = append(rt.deletions, oldFiber)
 					oldFiber = oldFiber.sibling
 				}
-			} else {
-				// fmt.Printf("  [PLACEMENT] ERROR: not Element\n")
 			}
-			// Link to parent
-			if !firstChildSet {
-				wipFiber.child = newFiber
-				firstChildSet = true
-			} else if newFiber != nil && prevSibling != nil {
-				prevSibling.sibling = newFiber
-			}
-			if newFiber != nil {
-				prevSibling = newFiber
-			}
-			index++
-		} else if oldFiber != nil {
-			// element is nil, oldFiber exists - mark for deletion and advance
-			// fmt.Printf("DEBUG: Marking fiber for deletion: %v\n", oldFiber.typeOf)
+		} else {
+			// element is nil, but oldFiber exists
+			// Mark old fiber for deletion
 			oldFiber.effectTag = "DELETION"
 			rt.deletions = append(rt.deletions, oldFiber)
 			oldFiber = oldFiber.sibling
-		} else {
-			// element is nil and oldFiber is nil - skip this index
-			// This prevents infinite loop when nil elements exist without old fibers
-			index++
+			// Don't increment index here, we just consumed oldFiber
+			// Wait, if element is nil, it means there is a hole in the array?
+			// Or it means we should skip this index?
+			// Original logic: "element is nil, oldFiber exists - mark for deletion and advance"
+			// So we consume both index and oldFiber?
+			// Original logic:
+			// } else if oldFiber != nil { ... oldFiber = oldFiber.sibling }
+			// It didn't increment index in that branch!
+			// Wait, the original logic had:
+			// if sameType { ... index++ }
+			// else if element != nil { ... index++ }
+			// else if oldFiber != nil { ... oldFiber = oldFiber.sibling } (NO index++)
+			// else { index++ }
+			
+			// So if element is nil, we delete oldFiber and stay at same index?
+			// That implies elements[index] is NOT consumed if it is nil?
+			// But elements[index] IS nil. So we should consume it?
+			// If elements[index] is nil, it means "nothing here".
+			// If we have oldFiber, we delete it.
+			// If we don't consume index, we will loop forever if elements[index] is nil.
+			// Ah, the original logic:
+			// if oldFiber != nil { ... } else { index++ }
+			// So if oldFiber != nil, it deletes oldFiber and DOES NOT increment index.
+			// This means it tries to match elements[index] (which is nil) against the NEXT oldFiber.
+			// This effectively deletes all oldFibers until one matches nil? Or until oldFiber is nil?
+			// If elements[index] is nil, it will keep deleting oldFibers until oldFiber is nil.
+			// Then it hits the `else { index++ }` block.
+			// So it deletes all remaining oldFibers?
+			// That seems wrong if elements has more items after nil.
+			
+			// Let's assume standard behavior: index corresponds to position.
+			// If elements[index] is nil, it's a hole. We should probably skip it.
+			// But if there was an oldFiber at this position, it should be deleted.
+			// So: Delete oldFiber, Increment index.
+			
+			// Let's stick to the behavior:
+			// If element is nil, we treat it as "nothing to render".
+			// If there was something (oldFiber), delete it.
+			// And move to next element.
+		}
+
+		// Link to parent
+		if newFiber != nil {
+			if !firstChildSet {
+				wipFiber.child = newFiber
+				firstChildSet = true
+			} else if prevSibling != nil {
+				prevSibling.sibling = newFiber
+			}
+			prevSibling = newFiber
+		}
+		
+		index++
+	}
+
+	// Loop 2: Placement (Remaining elements)
+	for index < len(elements) {
+		element := elements[index]
+		var newFiber *Fiber
+		
+		if element != nil {
+			if elem, ok := element.(*Element); ok {
+				newFiber = &Fiber{
+					typeOf:      elem.Type,
+					props:       elem.Props,
+					textContent: elem.TextContent,
+					parent:      wipFiber,
+					effectTag:   "PLACEMENT",
+					dirty:       true,
+				}
+			}
+		}
+
+		if newFiber != nil {
+			if !firstChildSet {
+				wipFiber.child = newFiber
+				firstChildSet = true
+			} else if prevSibling != nil {
+				prevSibling.sibling = newFiber
+			}
+			prevSibling = newFiber
+		}
+		index++
+	}
+
+	// Loop 3: Deletion (Remaining old fibers)
+	for oldFiber != nil {
+		oldFiber.effectTag = "DELETION"
+		rt.deletions = append(rt.deletions, oldFiber)
+		oldFiber = oldFiber.sibling
+	}
+}
+
+// propsEqual compares two property maps for equality
+func propsEqual(a, b map[string]interface{}) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for k, v1 := range a {
+		v2, ok := b[k]
+		if !ok {
+			return false
+		}
+
+		if k == "children" {
+			// Avoid deep comparison for children
+			// Check if they are the same slice reference
+			// If not, assume they are different to avoid O(Subtree) traversal
+			if v1 == nil && v2 == nil {
+				continue
+			}
+			if v1 == nil || v2 == nil {
+				return false
+			}
+
+			// Use reflect to check pointer equality
+			rv1 := reflect.ValueOf(v1)
+			rv2 := reflect.ValueOf(v2)
+			if rv1.Kind() == reflect.Slice && rv2.Kind() == reflect.Slice {
+				if rv1.Pointer() == rv2.Pointer() && rv1.Len() == rv2.Len() {
+					continue
+				}
+			}
+
+			// If pointers differ, assume different.
+			// This skips DeepEqual.
+			return false
+		}
+
+		if !fastEqual(v1, v2) {
+			return false
 		}
 	}
+
+	return true
 }
 
 // isSameType checks if two component types are the same
@@ -242,17 +397,14 @@ func isSameType(type1, type2 interface{}) bool {
 		return false
 	}
 
-	// Function components - compare function pointers
-	t1 := reflect.TypeOf(type1)
-	t2 := reflect.TypeOf(type2)
+	v1 := reflect.ValueOf(type1)
+	v2 := reflect.ValueOf(type2)
 
-	if t1 == nil || t2 == nil {
+	if !v1.IsValid() || !v2.IsValid() {
 		return false
 	}
 
-	if t1.Kind() == reflect.Func && t2.Kind() == reflect.Func {
-		v1 := reflect.ValueOf(type1)
-		v2 := reflect.ValueOf(type2)
+	if v1.Kind() == reflect.Func && v2.Kind() == reflect.Func {
 		return v1.Pointer() == v2.Pointer()
 	}
 
@@ -320,45 +472,31 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 		default:
 			// Function component
 			currentFiber = fiber
-			// TODO: ensure FinalizeHookOrder is called after function component render; currently only validateHookOrder runs
-
 			// Preserve hooks from alternate fiber
 			if fiber.alternate != nil && fiber.alternate.hooks != nil {
-				// Clone the hooks struct to avoid mutating the alternate's hooks
-				// We share the underlying slices (state, deps, etc.) but reset index/callOrder
-				oldHooks := fiber.alternate.hooks
-				fiber.hooks = &Hooks{
-					index:        0,
-					state:        oldHooks.state,
-					pendingState: oldHooks.pendingState,
-					deps:         oldHooks.deps,
-					memos:        oldHooks.memos,
-					callbacks:    oldHooks.callbacks,
-					refs:         oldHooks.refs,
-					ids:          oldHooks.ids,
-					fetches:      oldHooks.fetches,
-					funcs:        oldHooks.funcs,
-					cleanups:     oldHooks.cleanups,
-					callOrder:    make([]HookCall, 0),
-					prevOrder:    oldHooks.callOrder,
-				}
-			} else if fiber.hooks == nil {
-				fiber.hooks = &Hooks{
-					state:        make([]interface{}, 0),
-					pendingState: make([]interface{}, 0),
-					deps:         make([][]interface{}, 0),
-					memos:        make([]memoizedValue, 0),
-					callbacks:    make([]callbackValue, 0),
-					refs:         make([]*RefValue, 0),
-					cleanups:     make([]func(), 0),
-					callOrder:    make([]HookCall, 0),
-					prevOrder:    make([]HookCall, 0),
-					index:        0,
-				}
+				// Reuse the hooks struct to avoid allocations and preserve closures
+				fiber.hooks = fiber.alternate.hooks
+
+				// Prepare for new render
+				fiber.hooks.index = 0
+				fiber.hooks.stateIndex = 0
+				fiber.hooks.depIndex = 0
+				fiber.hooks.memoIndex = 0
+				fiber.hooks.callbackIndex = 0
+				fiber.hooks.refIndex = 0
+				fiber.hooks.idIndex = 0
+				fiber.hooks.fetchIndex = 0
+				fiber.hooks.funcIndex = 0
+				fiber.hooks.atomIndex = 0
+				fiber.hooks.cleanupIndex = 0
 			}
 
 			// Clear effects
-			fiber.effects = make([]func(), 0) // Call component function
+			if fiber.effects != nil {
+				fiber.effects = fiber.effects[:0]
+			} else {
+				fiber.effects = make([]Effect, 0)
+			}
 			var element *Element
 			if fn, ok := fiber.typeOf.(func(map[string]interface{}) *Element); ok {
 				element = fn(fiber.props)
@@ -401,7 +539,9 @@ func (rt *Runtime) createDom(fiber *Fiber) DOMNode {
 	if t, ok := fiber.typeOf.(string); ok {
 		switch t {
 		case "TEXT_ELEMENT":
-			if nodeValue, ok := fiber.props["nodeValue"].(string); ok {
+			if fiber.textContent != "" {
+				dom = rt.domAdapter.CreateTextNode(fiber.textContent)
+			} else if nodeValue, ok := fiber.props["nodeValue"].(string); ok {
 				dom = rt.domAdapter.CreateTextNode(nodeValue)
 			}
 		case "FRAGMENT":
@@ -411,7 +551,7 @@ func (rt *Runtime) createDom(fiber *Fiber) DOMNode {
 			// Regular element (not TEXT_ELEMENT or FRAGMENT)
 			dom = rt.domAdapter.CreateElement(t)
 			// Apply properties only for non-text elements
-			rt.updateDomProperties(dom, make(map[string]interface{}), fiber.props)
+			rt.updateDomProperties(dom, nil, fiber.props)
 		}
 	}
 	// Function components don't have DOM nodes - they render their children
@@ -422,10 +562,38 @@ func (rt *Runtime) createDom(fiber *Fiber) DOMNode {
 // updateDomProperties updates DOM properties
 func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[string]interface{}) {
 	// Check if dom is nil (interface is nil) or if the concrete value is null
-	if dom == nil {
+	if dom == nil || dom.IsNull() {
 		return
 	}
-	if dom.IsNull() {
+
+	// Optimization: Fast path for initial render (no old props)
+	if len(oldProps) == 0 {
+		for name, value := range newProps {
+			if name == "children" {
+				continue
+			}
+
+			switch name {
+			case "style":
+				if styles, ok := value.(map[string]string); ok {
+					rt.domAdapter.SetStyles(dom, styles)
+				} else if str, ok := value.(string); ok {
+					rt.domAdapter.SetAttribute(dom, "style", str)
+				}
+			case "className", "class":
+				if str, ok := value.(string); ok {
+					rt.domAdapter.SetAttribute(dom, "class", str)
+				}
+			case "value", "checked", "selected":
+				rt.domAdapter.SetProperty(dom, name, value)
+			default:
+				if str, ok := value.(string); ok {
+					rt.domAdapter.SetAttribute(dom, name, str)
+				} else {
+					rt.domAdapter.SetProperty(dom, name, value)
+				}
+			}
+		}
 		return
 	}
 
@@ -442,6 +610,11 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 	// Set new properties
 	for name, value := range newProps {
 		if name == "children" {
+			continue
+		}
+
+		// Optimization: Skip if value hasn't changed
+		if oldValue, exists := oldProps[name]; exists && fastEqual(oldValue, value) {
 			continue
 		}
 
@@ -475,13 +648,17 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 func (rt *Runtime) commitRoot() {
 	// Process deletions first
 	for _, fiber := range rt.deletions {
-		rt.commitWork(fiber)
+		// Deletions need to find their parent DOM node
+		// We can't pass a cached parent here easily because deletions can be anywhere
+		rt.commitWork(fiber, nil)
 	}
-	rt.deletions = make([]*Fiber, 0)
+	// Clear deletions but keep capacity
+	rt.deletions = rt.deletions[:0]
 
 	// Commit the work
 	if rt.wipRoot != nil && rt.wipRoot.child != nil {
-		rt.commitWork(rt.wipRoot.child)
+		// The root fiber's DOM node is the container
+		rt.commitWork(rt.wipRoot.child, rt.wipRoot.dom)
 	} else {
 		// fmt.Printf("[COMMIT] WARNING: wipRoot.child is nil\n")
 	}
@@ -494,20 +671,23 @@ func (rt *Runtime) commitRoot() {
 }
 
 // commitWork commits a fiber's changes to the DOM
-func (rt *Runtime) commitWork(fiber *Fiber) {
+func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 	if fiber == nil {
 		return
 	}
 
-	// Find the parent DOM node
-	var domParentFiber *Fiber = fiber.parent
-	for domParentFiber != nil && (domParentFiber.dom == nil || domParentFiber.dom.IsNull()) {
-		domParentFiber = domParentFiber.parent
+	// If domParent is nil (e.g. from deletions loop), we must find it
+	if domParent == nil || domParent.IsNull() {
+		var domParentFiber *Fiber = fiber.parent
+		for domParentFiber != nil && (domParentFiber.dom == nil || domParentFiber.dom.IsNull()) {
+			domParentFiber = domParentFiber.parent
+		}
+		if domParentFiber != nil {
+			domParent = domParentFiber.dom
+		}
 	}
 
-	if domParentFiber != nil && domParentFiber.dom != nil && !domParentFiber.dom.IsNull() {
-		domParent := domParentFiber.dom
-
+	if domParent != nil && !domParent.IsNull() {
 		if fiber.effectTag == "PLACEMENT" && fiber.dom != nil && !fiber.dom.IsNull() {
 			rt.domAdapter.AppendChild(domParent, fiber.dom)
 		} else if fiber.effectTag == "UPDATE" && fiber.dom != nil && !fiber.dom.IsNull() {
@@ -515,8 +695,16 @@ func (rt *Runtime) commitWork(fiber *Fiber) {
 				// Check if this is a text node
 				if t, ok := fiber.typeOf.(string); ok && t == "TEXT_ELEMENT" {
 					// Update text content
-					oldValue, _ := fiber.alternate.props["nodeValue"].(string)
-					newValue, _ := fiber.props["nodeValue"].(string)
+					oldValue := fiber.alternate.textContent
+					if oldValue == "" && fiber.alternate.props != nil {
+						oldValue, _ = fiber.alternate.props["nodeValue"].(string)
+					}
+
+					newValue := fiber.textContent
+					if newValue == "" && fiber.props != nil {
+						newValue, _ = fiber.props["nodeValue"].(string)
+					}
+
 					if oldValue != newValue {
 						rt.domAdapter.SetTextContent(fiber.dom, newValue)
 					}
@@ -532,12 +720,19 @@ func (rt *Runtime) commitWork(fiber *Fiber) {
 		}
 	}
 
+	// Determine the parent DOM node for children
+	// If this fiber has a DOM node, it becomes the parent for its children
+	childDomParent := domParent
+	if fiber.dom != nil && !fiber.dom.IsNull() {
+		childDomParent = fiber.dom
+	}
+
 	// Recursively commit children and siblings
 	if fiber.child != nil {
-		rt.commitWork(fiber.child)
+		rt.commitWork(fiber.child, childDomParent)
 	}
 	if fiber.sibling != nil {
-		rt.commitWork(fiber.sibling)
+		rt.commitWork(fiber.sibling, domParent)
 	}
 }
 
@@ -617,8 +812,9 @@ func (rt *Runtime) runEffects(fiber *Fiber) {
 
 	// Run this fiber's effects
 	for _, effect := range fiber.effects {
-		if effect != nil {
-			effect()
+		cleanup := effect.Fn()
+		if cleanup != nil {
+			fiber.hooks.cleanups[effect.CleanupIndex] = cleanup
 		}
 	}
 

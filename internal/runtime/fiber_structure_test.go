@@ -129,11 +129,11 @@ func TestFiber_CleanFlag(t *testing.T) {
 }
 
 func TestFiber_EffectsArray(t *testing.T) {
-	effect1 := func() {}
-	effect2 := func() {}
+	effect1 := func() func() { return nil }
+	effect2 := func() func() { return nil }
 
 	fiber := &Fiber{
-		effects: []func(){effect1, effect2},
+		effects: []Effect{{Fn: effect1}, {Fn: effect2}},
 	}
 
 	if len(fiber.effects) != 2 {
@@ -142,7 +142,7 @@ func TestFiber_EffectsArray(t *testing.T) {
 }
 
 func TestFiber_EmptyEffects(t *testing.T) {
-	fiber := &Fiber{effects: []func(){}}
+	fiber := &Fiber{effects: []Effect{}}
 
 	if len(fiber.effects) != 0 {
 		t.Error("Expected empty effects array")
@@ -151,8 +151,8 @@ func TestFiber_EmptyEffects(t *testing.T) {
 
 func TestFiber_HooksAttachment(t *testing.T) {
 	hooks := &Hooks{
-		state: make([]interface{}, 0),
-		index: 0,
+		states: make([]interface{}, 0),
+		index:  0,
 	}
 	fiber := &Fiber{hooks: hooks}
 
