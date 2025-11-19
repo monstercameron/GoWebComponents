@@ -1,10 +1,10 @@
 //go:build js && wasm
+// +build js,wasm
 
 package main
 
 import (
 	"fmt"
-	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/dom"
 	"github.com/monstercameron/GoWebComponents/hooks"
@@ -12,219 +12,132 @@ import (
 	"github.com/monstercameron/GoWebComponents/state"
 )
 
-type Attrs = dom.Attrs
-type Element = render.Element
+// Define global atom keys for shared state
+const (
+	CounterAtom = "counter"
+	ThemeAtom   = "theme"
+)
 
-func AtomExample(_ Attrs) *Element {
-	return dom.Div(Attrs{
-		"class": "container mx-auto p-8 max-w-4xl",
-	},
-		dom.H1(Attrs{
-			"class": "text-3xl font-bold mb-4 text-gray-800",
-		}, dom.Text("UseAtom Example - Shared State")),
+func CounterDisplay(_ dom.Attrs) *dom.Element {
+	// Subscribe to the counter atom
+	count, _ := state.UseAtom(CounterAtom, 0)
+	theme, _ := state.UseAtom(ThemeAtom, "light")
 
-		dom.P(Attrs{
-			"class": "mb-6 text-gray-600",
-		}, dom.Text("Demonstrates how sibling components share state using atoms.")),
+	textColor := "text-gray-900"
+	if theme() == "dark" {
+		textColor = "text-white"
+	}
 
-		// Counter pair
-		dom.Div(Attrs{
-			"class": "grid grid-cols-2 gap-6 mb-6",
-		},
-			dom.Div(Attrs{
-				"class": "p-6 border-2 border-blue-500 rounded-lg bg-white",
-			}, CounterController(nil)),
-
-			dom.Div(Attrs{
-				"class": "p-6 border-2 border-green-500 rounded-lg bg-white",
-			}, CounterDisplay(nil)),
+	return dom.Div(
+		dom.Attrs{"class": "text-center p-8 bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm shadow-2xl"},
+		dom.H2(
+			dom.Attrs{"class": "text-2xl font-bold " + textColor + " mb-4"},
+			"Current Count",
 		),
-
-		// Text pair
-		dom.Div(Attrs{
-			"class": "grid grid-cols-2 gap-6",
-		},
-			dom.Div(Attrs{
-				"class": "p-6 border-2 border-yellow-500 rounded-lg bg-white",
-			}, TextInputComponent(nil)),
-
-			dom.Div(Attrs{
-				"class": "p-6 border-2 border-red-500 rounded-lg bg-white",
-			}, TextDisplayComponent(nil)),
+		dom.Div(
+			dom.Attrs{"class": "text-7xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 font-mono tracking-tighter"},
+			fmt.Sprintf("%d", count()),
 		),
 	)
 }
 
-func CounterController(_ Attrs) *Element {
-	count, setCount := state.UseAtom("shared-counter", 0)
+func Controls(_ dom.Attrs) *dom.Element {
+	// Subscribe to atoms
+	count, setCount := state.UseAtom(CounterAtom, 0)
+	theme, setTheme := state.UseAtom(ThemeAtom, "light")
 
-	handleIncrement := hooks.GoUseFunc(func(event dom.GoEvent) {
-		event.PreventDefault()
+	increment := hooks.GoUseFunc(func(e dom.GoEvent) {
 		setCount(count() + 1)
 	})
 
-	handleDecrement := hooks.GoUseFunc(func(event dom.GoEvent) {
-		event.PreventDefault()
+	decrement := hooks.GoUseFunc(func(e dom.GoEvent) {
 		setCount(count() - 1)
 	})
 
-	handleReset := hooks.GoUseFunc(func(event dom.GoEvent) {
-		event.PreventDefault()
-		setCount(0)
-	})
-
-	return dom.Div(nil,
-		dom.H3(Attrs{
-			"class": "text-xl font-semibold mb-3 text-blue-600",
-		}, dom.Text("Counter Controller")),
-
-		dom.P(Attrs{
-			"class": "mb-4 text-gray-700",
-		}, dom.Text(fmt.Sprintf("Current count: %d", count()))),
-
-		dom.Div(Attrs{
-			"class": "flex gap-2",
-		},
-			dom.Button(Attrs{
-				"onclick": handleIncrement,
-				"class":   "px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors",
-			}, dom.Text("Increment")),
-
-			dom.Button(Attrs{
-				"onclick": handleDecrement,
-				"class":   "px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors",
-			}, dom.Text("Decrement")),
-
-			dom.Button(Attrs{
-				"onclick": handleReset,
-				"class":   "px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors",
-			}, dom.Text("Reset")),
-		),
-	)
-}
-
-func CounterDisplay(_ Attrs) *Element {
-	count, setCount := state.UseAtom("shared-counter", 0)
-
-	handleDouble := hooks.GoUseFunc(func(event dom.GoEvent) {
-		event.PreventDefault()
-		setCount(count() * 2)
-	})
-
-	handleHalf := hooks.GoUseFunc(func(event dom.GoEvent) {
-		event.PreventDefault()
-		setCount(count() / 2)
-	})
-
-	return dom.Div(nil,
-		dom.H3(Attrs{
-			"class": "text-xl font-semibold mb-3 text-green-600",
-		}, dom.Text("Counter Display")),
-
-		dom.P(Attrs{
-			"class": "mb-2 text-gray-700",
-		}, dom.Text(fmt.Sprintf("Shared count value: %d", count()))),
-
-		dom.P(Attrs{
-			"class": "mb-4 text-gray-700",
-		}, dom.Text(fmt.Sprintf("Count squared: %d", count()*count()))),
-
-		dom.Div(Attrs{
-			"class": "flex gap-2",
-		},
-			dom.Button(Attrs{
-				"onclick": handleDouble,
-				"class":   "px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors",
-			}, dom.Text("Double (×2)")),
-
-			dom.Button(Attrs{
-				"onclick": handleHalf,
-				"class":   "px-4 py-2 bg-teal-500 text-white rounded hover:bg-teal-600 transition-colors",
-			}, dom.Text("Half (÷2)")),
-		),
-	)
-}
-
-func TextInputComponent(_ Attrs) *Element {
-	text, setText := state.UseAtom("shared-text", "Hello, World!")
-
-	handleInput := hooks.GoUseFunc(func(event dom.GoEvent) {
-		setText(event.GetValue())
-	})
-
-	handleClear := hooks.GoUseFunc(func(event dom.GoEvent) {
-		event.PreventDefault()
-		setText("")
-	})
-
-	return dom.Div(nil,
-		dom.H3(Attrs{
-			"class": "text-xl font-semibold mb-3 text-yellow-600",
-		}, dom.Text("Text Input")),
-
-		dom.P(Attrs{
-			"class": "mb-2 text-gray-700",
-		}, dom.Text("Enter text below:")),
-
-		dom.Div(Attrs{
-			"class": "mb-4",
-		},
-			dom.Input(Attrs{
-				"type":        "text",
-				"value":       text(),
-				"oninput":     handleInput,
-				"placeholder": "Type something...",
-				"class":       "w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-yellow-500",
-			}),
-		),
-
-		dom.Button(Attrs{
-			"onclick": handleClear,
-			"class":   "px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors",
-		}, dom.Text("Clear Text")),
-	)
-}
-
-func TextDisplayComponent(_ Attrs) *Element {
-	text, setText := state.UseAtom("shared-text", "Hello, World!")
-
-	handleReverse := hooks.GoUseFunc(func(event dom.GoEvent) {
-		event.PreventDefault()
-		runes := []rune(text())
-		for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
-			runes[i], runes[j] = runes[j], runes[i]
+	toggleTheme := hooks.GoUseFunc(func(e dom.GoEvent) {
+		if theme() == "light" {
+			setTheme("dark")
+		} else {
+			setTheme("light")
 		}
-		setText(string(runes))
 	})
 
-	textStr := text()
-	return dom.Div(nil,
-		dom.H3(Attrs{
-			"class": "text-xl font-semibold mb-3 text-red-600",
-		}, dom.Text("Text Display")),
+	return dom.Div(
+		dom.Attrs{"class": "flex flex-col space-y-6"},
+		dom.Div(
+			dom.Attrs{"class": "flex justify-center space-x-6"},
+			dom.Button(
+				dom.Attrs{
+					"class":   "w-16 h-16 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-2xl text-white transition-all duration-200 hover:scale-110 active:scale-95",
+					"onclick": decrement,
+				},
+				"-",
+			),
+			dom.Button(
+				dom.Attrs{
+					"class":   "w-16 h-16 flex items-center justify-center bg-gradient-to-r from-blue-500 to-purple-600 rounded-full text-2xl text-white shadow-lg shadow-purple-500/20 transition-all duration-200 hover:scale-110 active:scale-95",
+					"onclick": increment,
+				},
+				"+",
+			),
+		),
+		dom.Button(
+			dom.Attrs{
+				"class":   "px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg font-medium transition-colors duration-200",
+				"onclick": toggleTheme,
+			},
+			func() string {
+				if theme() == "light" {
+					return "🌙 Switch to Dark Mode"
+				}
+				return "☀️ Switch to Light Mode"
+			}(),
+		),
+	)
+}
 
-		dom.P(Attrs{
-			"class": "mb-2 text-gray-700",
-		}, dom.Text("Shared text:")),
+func App(_ dom.Attrs) *dom.Element {
+	theme, _ := state.UseAtom(ThemeAtom, "light")
 
-		dom.Div(Attrs{
-			"class": "bg-gray-100 p-4 rounded mb-3 font-mono break-all",
-		}, dom.Text(fmt.Sprintf("\"%s\"", textStr))),
+	containerClass := "min-h-screen transition-colors duration-500 flex items-center justify-center p-4"
+	if theme() == "dark" {
+		containerClass += " bg-[#0a0a0a]"
+	} else {
+		containerClass += " bg-gray-100"
+	}
 
-		dom.P(Attrs{
-			"class": "mb-4 text-gray-700",
-		}, dom.Text(fmt.Sprintf("Character count: %d", len(textStr)))),
+	cardClass := "max-w-md w-full rounded-2xl shadow-2xl p-8 transition-colors duration-500"
+	if theme() == "dark" {
+		cardClass += " bg-black/40 border border-white/10"
+	} else {
+		cardClass += " bg-white"
+	}
 
-		dom.Button(Attrs{
-			"onclick": handleReverse,
-			"class":   "px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors",
-		}, dom.Text("Reverse Text")),
+	return dom.Div(
+		dom.Attrs{"class": containerClass},
+		dom.Div(
+			dom.Attrs{"class": cardClass},
+			dom.Div(
+				dom.Attrs{"class": "text-center mb-10"},
+				dom.H1(
+					dom.Attrs{"class": "text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500"},
+					"Global State (Atoms)",
+				),
+				dom.P(
+					dom.Attrs{"class": "mt-2 text-gray-500"},
+					"State shared across independent components",
+				),
+			),
+			dom.Div(
+				dom.Attrs{"class": "space-y-10"},
+				dom.CreateElement(CounterDisplay, nil),
+				dom.Div(dom.Attrs{"class": "border-t border-white/10"}),
+				dom.CreateElement(Controls, nil),
+			),
+		),
 	)
 }
 
 func main() {
-	container := js.Global().Get("document").Call("getElementById", "app")
-	element := dom.CreateElement(AtomExample, nil)
-	render.ToElement(element, container)
-	select {}
+	render.To(dom.CreateElement(App, nil), "body")
 }

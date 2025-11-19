@@ -5,11 +5,11 @@ package main
 
 import (
 	"fmt"
-	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/dom"
 	"github.com/monstercameron/GoWebComponents/hooks"
 	"github.com/monstercameron/GoWebComponents/render"
+	"github.com/monstercameron/GoWebComponents/utils"
 )
 
 type Attrs = dom.Attrs
@@ -33,60 +33,50 @@ func CounterExample(_ Attrs) *Element {
 	})
 
 	return dom.Div(Attrs{
-		"class": "max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-lg",
+		"class": "min-h-screen flex items-center justify-center bg-[#0a0a0a] text-white p-4",
 	},
-		dom.H2(Attrs{
-			"class": "text-2xl font-bold text-gray-800 mb-4",
-		}, dom.Text("Counter Example")),
-
 		dom.Div(Attrs{
-			"class": "text-center mb-6",
+			"class": "max-w-md w-full bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm p-8 shadow-2xl",
 		},
+			dom.H2(Attrs{
+				"class": "text-3xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500",
+			}, dom.Text("Counter Example")),
+
 			dom.Div(Attrs{
-				"class": "text-6xl font-bold text-blue-600 mb-2",
-			}, dom.Text(fmt.Sprintf("%d", currentCount))),
-			dom.P(Attrs{
-				"class": "text-gray-600",
-			}, dom.Text("Current Count")),
-		),
+				"class": "text-center mb-10",
+			},
+				dom.Div(Attrs{
+					"class": "text-7xl font-black text-white mb-2 font-mono tracking-tighter",
+				}, dom.Text(fmt.Sprintf("%d", currentCount))),
+				dom.P(Attrs{
+					"class": "text-gray-400 uppercase tracking-widest text-xs font-semibold",
+				}, dom.Text("Current Count")),
+			),
 
-		dom.Div(Attrs{
-			"class": "flex gap-3 justify-center",
-		},
-			dom.Button(Attrs{
-				"onclick": decrement,
-				"class":   "px-6 py-3 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors",
-			}, dom.Text("−")),
+			dom.Div(Attrs{
+				"class": "flex gap-4 justify-center",
+			},
+				dom.Button(Attrs{
+					"onclick": decrement,
+					"class":   "w-16 h-16 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-2xl transition-all duration-200 hover:scale-110 active:scale-95",
+				}, dom.Text("−")),
 
-			dom.Button(Attrs{
-				"onclick": reset,
-				"class":   "px-6 py-3 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition-colors",
-			}, dom.Text("Reset")),
+				dom.Button(Attrs{
+					"onclick": reset,
+					"class":   "px-6 h-16 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-sm font-bold uppercase tracking-wider transition-all duration-200 hover:scale-105 active:scale-95",
+				}, dom.Text("Reset")),
 
-			dom.Button(Attrs{
-				"onclick": increment,
-				"class":   "px-6 py-3 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition-colors",
-			}, dom.Text(" +")),
+				dom.Button(Attrs{
+					"onclick": increment,
+					"class":   "w-16 h-16 flex items-center justify-center bg-gradient-to-r from-blue-500 to-purple-600 rounded-full text-2xl shadow-lg shadow-purple-500/20 transition-all duration-200 hover:scale-110 active:scale-95",
+				}, dom.Text("+")),
+			),
 		),
 	)
 }
 
 func main() {
-	fmt.Println("🚀 Counter Example Started")
-
-	// Find the DOM container
-	container := js.Global().Get("document").Call("getElementById", "app")
-	if container.IsUndefined() || container.IsNull() {
-		fmt.Println("❌ No element with id 'app' found!")
-		return
-	}
-
-	// Create and render the element
-	element := dom.CreateElement(CounterExample, nil)
-	render.ToElement(element, container)
-
-	fmt.Println("✅ Counter Example Rendered")
-
-	// Keep the Go program running
+	utils.DisableAllDebug()
+	render.To(dom.CreateElement(CounterExample, nil), "#app")
 	select {}
 }

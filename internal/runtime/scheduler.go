@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -20,7 +19,6 @@ func (rt *Runtime) ScheduleUpdate() {
 	defer schedulerMu.Unlock()
 
 	if rt.currentRoot == nil || rt.updateScheduled {
-		// TODO: log/handle nil currentRoot to avoid silent no-op when ScheduleUpdate is called too early
 		return
 	}
 
@@ -60,7 +58,6 @@ func (rt *Runtime) workLoop(deadline Deadline) {
 
 	// If work is complete, commit
 	if rt.wipRoot != nil && rt.nextUnitOfWork == nil {
-		fmt.Printf("[WORKLOOP] Committing work - wipRoot.typeOf=%v\n", rt.wipRoot.typeOf)
 		rt.commitRoot()
 		rt.updateScheduled = false
 	} else if rt.nextUnitOfWork != nil {

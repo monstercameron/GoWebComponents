@@ -19,10 +19,24 @@ func SetCurrentFiber(fiber *Fiber) {
 
 // CreateElement creates a new virtual DOM element
 func CreateElement(typ interface{}, props map[string]interface{}, children ...interface{}) *Element {
+	// Process children to handle strings automatically
+	processedChildren := make([]interface{}, len(children))
+	for i, child := range children {
+		if str, ok := child.(string); ok {
+			processedChildren[i] = &Element{
+				Type:     "TEXT_ELEMENT",
+				Props:    map[string]interface{}{"nodeValue": str},
+				Children: []interface{}{},
+			}
+		} else {
+			processedChildren[i] = child
+		}
+	}
+
 	elem := &Element{
 		Type:     typ,
 		Props:    make(map[string]interface{}),
-		Children: children,
+		Children: processedChildren,
 	}
 
 	for k, v := range props {
@@ -30,7 +44,7 @@ func CreateElement(typ interface{}, props map[string]interface{}, children ...in
 	}
 
 	// Always set children in props, even if empty, so reconciliation can handle deletions
-	elem.Props["children"] = children
+	elem.Props["children"] = processedChildren
 
 	return elem
 }
@@ -41,10 +55,21 @@ func flattenFragments(elements []interface{}) []interface{} {
 	var flattened []interface{}
 
 	for _, elem := range elements {
-		if elemPtr, ok := elem.(*Element); ok && elemPtr.Type == "FRAGMENT" {
-			// Recursively flatten the Fragment's children
-			if fragmentChildren, ok := elemPtr.Props["children"].([]interface{}); ok {
-				flattened = append(flattened, flattenFragments(fragmentChildren)...)
+		if elem == nil {
+			continue
+		}
+
+		if elemPtr, ok := elem.(*Element); ok {
+			if elemPtr == nil {
+				continue
+			}
+			if elemPtr.Type == "FRAGMENT" {
+				// Recursively flatten the Fragment's children
+				if fragmentChildren, ok := elemPtr.Props["children"].([]interface{}); ok {
+					flattened = append(flattened, flattenFragments(fragmentChildren)...)
+				}
+			} else {
+				flattened = append(flattened, elem)
 			}
 		} else {
 			flattened = append(flattened, elem)
@@ -120,7 +145,10 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 			// Reuse the existing fiber
 			if elem, ok := element.(*Element); ok {
 				// Check if this fiber or its subtree needs update
-				needsUpdate := oldFiber.dirty || oldFiber.needsUpdate || !reflect.DeepEqual(oldFiber.props, elem.Props)
+				// Check alternate chain for dirty flag to handle stale closures
+				isDirty := rt.isFiberDirty(oldFiber)
+				needsUpdate := isDirty || oldFiber.needsUpdate || !reflect.DeepEqual(oldFiber.props, elem.Props)
+				// fmt.Printf("DEBUG: Reconciling %v. OldDirty: %v, NeedsUpdate: %v\n", oldFiber.typeOf, isDirty, needsUpdate)
 
 				// Always mark as dirty if props contain event handlers (they're closures that may have changed)
 				if !needsUpdate {
@@ -192,6 +220,7 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 			index++
 		} else if oldFiber != nil {
 			// element is nil, oldFiber exists - mark for deletion and advance
+			// fmt.Printf("DEBUG: Marking fiber for deletion: %v\n", oldFiber.typeOf)
 			oldFiber.effectTag = "DELETION"
 			rt.deletions = append(rt.deletions, oldFiber)
 			oldFiber = oldFiber.sibling
@@ -230,19 +259,44 @@ func isSameType(type1, type2 interface{}) bool {
 	return reflect.DeepEqual(type1, type2)
 }
 
+// isFiberDirty checks if a fiber or any of its alternates are dirty
+func (rt *Runtime) isFiberDirty(fiber *Fiber) bool {
+	f := fiber
+	for f != nil {
+		if f.dirty {
+			return true
+		}
+		f = f.alternate
+	}
+	return false
+}
+
+// clearFiberDirty clears the dirty flag on a fiber and its alternates
+func (rt *Runtime) clearFiberDirty(fiber *Fiber) {
+	f := fiber
+	for f != nil {
+		f.dirty = false
+		f = f.alternate
+	}
+}
+
 // performUnitOfWork processes a single fiber
 func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 	if fiber == nil {
 		return nil
 	}
 
+	// Check if fiber or any alternate is dirty
+	isDirty := rt.isFiberDirty(fiber)
+
 	// Skip non-dirty fibers (optimization)
-	if !fiber.dirty {
+	if !isDirty {
 		rt.cloneChildFibers(fiber)
 		return rt.getNextUnitOfWork(fiber)
 	}
 
-	fiber.dirty = false
+	// Clear dirty flags on fiber and alternates
+	rt.clearFiberDirty(fiber)
 
 	if fiber.typeOf == nil || fiber.typeOf == "ROOT" {
 		// Root fiber - reconcile children
@@ -403,6 +457,9 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 			if str, ok := value.(string); ok {
 				rt.domAdapter.SetAttribute(dom, "class", str)
 			}
+		case "value", "checked", "selected":
+			// Always set these as properties to ensure UI updates correctly
+			rt.domAdapter.SetProperty(dom, name, value)
 		default:
 			if str, ok := value.(string); ok {
 				rt.domAdapter.SetAttribute(dom, name, str)
@@ -469,6 +526,7 @@ func (rt *Runtime) commitWork(fiber *Fiber) {
 				}
 			}
 		} else if fiber.effectTag == "DELETION" {
+			// fmt.Printf("DEBUG: Committing deletion for %v\n", fiber.typeOf)
 			rt.commitDeletion(fiber, domParent)
 			return
 		}
@@ -488,6 +546,7 @@ func (rt *Runtime) commitDeletion(fiber *Fiber, domParent DOMNode) {
 	if fiber == nil {
 		return
 	}
+	// fmt.Printf("DEBUG: commitDeletion for %v\n", fiber.typeOf)
 	// Run all cleanup functions before removing from DOM
 	rt.runCleanups(fiber)
 
@@ -512,6 +571,7 @@ func (rt *Runtime) deleteFiberSubtree(fiber *Fiber, domParent DOMNode) {
 
 	// If this fiber has a DOM node, remove it (this stops the recursion down that branch)
 	if fiber.dom != nil && !fiber.dom.IsNull() {
+		// fmt.Printf("DEBUG: Removing child from DOM\n")
 		rt.domAdapter.RemoveChild(domParent, fiber.dom)
 		return
 	}

@@ -1,7 +1,7 @@
 //go:build js && wasm
 // +build js,wasm
 
-package website
+package main
 
 import (
 	"fmt"
@@ -36,16 +36,16 @@ func NavBar(_ Attrs) *Element {
 	}, isDark())
 
 	// Event handlers
-	handleMobileToggle := hooks.GoUseFunc(func(event dom.GoEvent) {
+	handleMobileToggle := hooks.GoUseFunc(hooks.UseCallback(func(event dom.GoEvent) {
 		setIsMobileMenuOpen(!isMobileMenuOpen())
-	})
+	}, isMobileMenuOpen()))
 
-	handleDarkToggle := hooks.GoUseFunc(func(event dom.GoEvent) {
+	handleDarkToggle := hooks.GoUseFunc(hooks.UseCallback(func(event dom.GoEvent) {
 		newVal := !isDark()
 		setIsDark(newVal)
 		applyDarkClass(newVal)
 		saveDarkPref(newVal)
-	})
+	}, isDark()))
 
 	// Initialize scroll tracking and smooth scrolling behavior
 	hooks.UseEffect(func() func() {
@@ -81,9 +81,9 @@ func NavBar(_ Attrs) *Element {
 	// Apply glassmorphism effect based on scroll state
 	navClasses := "fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out"
 	if isScrolled() {
-		navClasses += " bg-white/80 backdrop-blur-xl shadow-2xl border-b border-white/20"
+		navClasses += " bg-[#0a0a0a]/80 backdrop-blur-xl shadow-2xl border-b border-white/10"
 	} else {
-		navClasses += " bg-white/60 backdrop-blur-lg shadow-lg"
+		navClasses += " bg-transparent backdrop-blur-lg"
 	}
 
 	return dom.Nav(
@@ -213,7 +213,7 @@ func NavBar(_ Attrs) *Element {
 // EnhancedNavLink renders a navigation item with icon, smooth animations and section routing.
 // Handles both hash navigation for sections and route navigation for pages like documentation.
 func EnhancedNavLink(icon, text, href, section string) *Element {
-	handleClick := hooks.GoUseFunc(func(event dom.GoEvent) {
+	handleClick := hooks.GoUseFunc(hooks.UseCallback(func(event dom.GoEvent) {
 		event.PreventDefault()
 		// Handle docs route vs section scrolling
 		if section == "docs" {
@@ -222,12 +222,12 @@ func EnhancedNavLink(icon, text, href, section string) *Element {
 			// For sections, use smooth scrolling
 			ScrollToSectionSmoothEnhanced(section)
 		}
-	})
+	}, section))
 
 	return dom.A(
 		Attrs{
 			"href":    href,
-			"class":   "group relative px-3 py-2 text-gray-700 hover:text-indigo-600 transition-all duration-300 font-medium rounded-xl hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 cursor-pointer",
+			"class":   "group relative px-3 py-2 text-gray-300 hover:text-white transition-all duration-300 font-medium rounded-xl hover:bg-white/5 cursor-pointer",
 			"onclick": handleClick,
 		},
 
@@ -302,7 +302,7 @@ func EnhancedMobileMenu(isOpen bool, setIsOpen func(bool)) *Element {
 		dom.Div(
 			Attrs{"class": menuClasses},
 			dom.Div(
-				Attrs{"class": "bg-white/95 backdrop-blur-xl shadow-2xl border-b border-gray-200/50 mx-4 rounded-2xl mt-2"},
+				Attrs{"class": "bg-[#0a0a0a]/95 backdrop-blur-xl shadow-2xl border-b border-white/10 mx-4 rounded-2xl mt-2"},
 				dom.Div(
 					Attrs{"class": "px-6 py-6 space-y-4"},
 
@@ -354,7 +354,7 @@ func EnhancedMobileNavLink(icon, text, href, section string, setIsOpen func(bool
 	return dom.A(
 		Attrs{
 			"href":    href,
-			"class":   "group flex items-center space-x-3 px-4 py-3 text-gray-700 hover:text-indigo-600 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 rounded-xl transition-all duration-300 font-medium cursor-pointer",
+			"class":   "group flex items-center space-x-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-300 font-medium cursor-pointer",
 			"onclick": handleClick,
 		},
 		dom.Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:scale-110"}, icon),
@@ -364,10 +364,9 @@ func EnhancedMobileNavLink(icon, text, href, section string, setIsOpen func(bool
 }
 
 // ScrollToSectionJS creates a JavaScript function string for scrolling
-func ScrollToSectionJS(section string) js.Func {
-	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+func ScrollToSectionJS(section string) interface{} {
+	return hooks.GoUseFunc(func(e dom.GoEvent) {
 		ScrollToSectionSmoothEnhanced(section)
-		return nil
 	})
 }
 
@@ -545,7 +544,7 @@ func AddSmoothScrollCSS() {
 		}
 		
 		::-webkit-scrollbar-track {
-			background: #f1f1f1;
+			background: #1a1a1a;
 			border-radius: 4px;
 		}
 		

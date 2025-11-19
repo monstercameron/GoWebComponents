@@ -1,7 +1,7 @@
 //go:build js && wasm
 // +build js,wasm
 
-package website
+package main
 
 import (
 	"github.com/monstercameron/GoWebComponents/dom"
@@ -14,7 +14,7 @@ import (
 // with interactive examples and detailed explanations for each API.
 func DocsPage(_ Attrs) *Element {
 	return dom.Div(
-		Attrs{"class": "min-h-screen bg-gradient-to-br from-gray-50 to-blue-50"},
+		Attrs{"class": "min-h-screen bg-[#0a0a0a] text-white"},
 
 		// Documentation-specific navigation bar
 		DocsNavBar(nil),
@@ -29,11 +29,11 @@ func DocsPage(_ Attrs) *Element {
 				dom.Div(
 					Attrs{"class": "text-center mb-16"},
 					dom.H1(
-						Attrs{"class": "text-4xl font-bold text-gray-900 mb-4"},
+						Attrs{"class": "text-4xl font-bold text-white mb-4"},
 						"📚 GoWebComponents API Documentation",
 					),
 					dom.P(
-						Attrs{"class": "text-xl text-gray-600 max-w-3xl mx-auto"},
+						Attrs{"class": "text-xl text-gray-400 max-w-3xl mx-auto"},
 						"Complete technical reference for the GoWebComponents fiber library. Build reactive web applications with Go's type safety and performance.",
 					),
 				),
@@ -66,7 +66,7 @@ func DocsPage(_ Attrs) *Element {
 func DocsNavBar(_ Attrs) *Element {
 	return dom.Nav(
 		Attrs{
-			"class": "fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-b border-gray-200/50 shadow-lg",
+			"class": "fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a]/95 backdrop-blur-xl border-b border-white/10 shadow-lg",
 		},
 		dom.Div(
 			Attrs{"class": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"},
@@ -82,7 +82,7 @@ func DocsNavBar(_ Attrs) *Element {
 
 					return dom.Button(
 						Attrs{
-							"class":   "group flex items-center space-x-3 px-4 py-2 text-gray-700 hover:text-indigo-600 transition-all duration-300 font-medium rounded-xl hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 cursor-pointer",
+							"class":   "group flex items-center space-x-3 px-4 py-2 text-gray-300 hover:text-white transition-all duration-300 font-medium rounded-xl hover:bg-white/10 cursor-pointer",
 							"onclick": navigateToHome,
 						},
 						dom.Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:scale-110"}, "←"),
@@ -94,7 +94,7 @@ func DocsNavBar(_ Attrs) *Element {
 				dom.Div(
 					Attrs{"class": "flex items-center"},
 					dom.H1(
-						Attrs{"class": "text-xl md:text-2xl font-bold text-gray-900"},
+						Attrs{"class": "text-xl md:text-2xl font-bold text-white"},
 						"📚 Documentation",
 					),
 				),
@@ -104,7 +104,7 @@ func DocsNavBar(_ Attrs) *Element {
 					Attrs{
 						"href":   "https://github.com/monstercameron/GoWebComponents",
 						"target": "_blank",
-						"class":  "group relative overflow-hidden px-5 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 cursor-pointer",
+						"class":  "group relative overflow-hidden px-5 py-2.5 bg-white/10 border border-white/10 text-white rounded-xl hover:bg-white/20 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 cursor-pointer",
 					},
 					dom.Div(
 						Attrs{"class": "absolute inset-0 bg-gradient-to-r from-gray-800 to-gray-900 opacity-0 group-hover:opacity-100 transition-opacity duration-300"},
@@ -125,9 +125,9 @@ func DocsNavBar(_ Attrs) *Element {
 // for easy API discovery and navigation.
 func TableOfContents(_ Attrs) *Element {
 	return dom.Div(
-		Attrs{"class": "bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-12"},
+		Attrs{"class": "bg-white/5 rounded-xl shadow-lg border border-white/10 p-6 mb-12 backdrop-blur-sm"},
 		dom.H2(
-			Attrs{"class": "text-2xl font-bold text-gray-900 mb-6"},
+			Attrs{"class": "text-2xl font-bold text-white mb-6"},
 			"📋 Table of Contents",
 		),
 		dom.Div(
@@ -154,15 +154,15 @@ func TocLink(icon, title, sectionId, description string) *Element {
 
 	return dom.Div(
 		Attrs{
-			"class":   "block p-4 rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all duration-200 group cursor-pointer",
+			"class":   "block p-4 rounded-lg border border-white/10 hover:border-blue-500/50 hover:bg-white/5 transition-all duration-200 group cursor-pointer",
 			"onclick": handleClick,
 		},
 		dom.Div(
 			Attrs{"class": "flex items-start space-x-3"},
 			dom.Span(Attrs{"class": "text-2xl group-hover:scale-110 transition-transform duration-200"}, icon),
 			dom.Div(nil,
-				dom.H3(Attrs{"class": "font-semibold text-gray-900 group-hover:text-indigo-600"}, title),
-				dom.P(Attrs{"class": "text-sm text-gray-600 mt-1"}, description),
+				dom.H3(Attrs{"class": "font-semibold text-white group-hover:text-blue-400"}, title),
+				dom.P(Attrs{"class": "text-sm text-gray-400 mt-1"}, description),
 			),
 		),
 	)
@@ -701,35 +701,35 @@ func SectionHeader(icon, title, description string) *Element {
 	return dom.Div(
 		Attrs{"class": "mb-8"},
 		dom.H2(
-			Attrs{"class": "text-3xl font-bold text-gray-900 mb-2 flex items-center"},
+			Attrs{"class": "text-3xl font-bold text-white mb-2 flex items-center"},
 			dom.Span(Attrs{"class": "mr-3"}, icon),
 			title,
 		),
-		dom.P(Attrs{"class": "text-lg text-gray-600"}, description),
+		dom.P(Attrs{"class": "text-lg text-gray-400"}, description),
 	)
 }
 
 // ApiCard creates a documentation card for API items
 func ApiCard(name, apiType, description, code, details string) *Element {
 	return dom.Div(
-		Attrs{"class": "bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden"},
+		Attrs{"class": "bg-white/5 rounded-xl shadow-lg border border-white/10 overflow-hidden backdrop-blur-sm"},
 
 		// Header
 		dom.Div(
-			Attrs{"class": "bg-gradient-to-r from-indigo-50 to-purple-50 px-6 py-4 border-b border-gray-200"},
+			Attrs{"class": "bg-white/5 px-6 py-4 border-b border-white/10"},
 			dom.Div(
 				Attrs{"class": "flex items-center justify-between"},
 				dom.Div(nil,
-					dom.H3(Attrs{"class": "text-xl font-bold text-gray-900"}, name),
-					dom.Span(Attrs{"class": "inline-block px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full mt-1"}, apiType),
+					dom.H3(Attrs{"class": "text-xl font-bold text-white"}, name),
+					dom.Span(Attrs{"class": "inline-block px-2 py-1 bg-blue-900/30 text-blue-300 border border-blue-500/30 text-xs font-medium rounded-full mt-1"}, apiType),
 				),
 			),
-			dom.P(Attrs{"class": "text-gray-600 mt-2"}, description),
+			dom.P(Attrs{"class": "text-gray-400 mt-2"}, description),
 		),
 
 		// Code example
 		dom.Div(
-			Attrs{"class": "bg-gray-900 text-gray-100 p-6"},
+			Attrs{"class": "bg-[#0a0a0a] text-gray-300 p-6 border-y border-white/10"},
 			dom.Pre(
 				Attrs{"class": "text-sm overflow-x-auto"},
 				dom.Code(nil, code),
@@ -739,7 +739,7 @@ func ApiCard(name, apiType, description, code, details string) *Element {
 		// Details
 		dom.Div(
 			Attrs{"class": "px-6 py-4"},
-			dom.P(Attrs{"class": "text-gray-700 leading-relaxed"}, details),
+			dom.P(Attrs{"class": "text-gray-300 leading-relaxed"}, details),
 		),
 	)
 }
@@ -753,7 +753,7 @@ func HtmlElementGroup(title string, elements []HtmlElementDoc) *Element {
 
 	return dom.Div(
 		Attrs{"class": "mb-8"},
-		dom.H3(Attrs{"class": "text-xl font-semibold text-gray-900 mb-4"}, title),
+		dom.H3(Attrs{"class": "text-xl font-semibold text-white mb-4"}, title),
 		dom.Div(
 			Attrs{"class": "grid grid-cols-1 md:grid-cols-2 gap-4"},
 			elementCards...,
@@ -771,11 +771,11 @@ type HtmlElementDoc struct {
 // HtmlElementCard creates a card for an HTML element
 func HtmlElementCard(elem HtmlElementDoc) *Element {
 	return dom.Div(
-		Attrs{"class": "bg-white border border-gray-200 rounded-lg p-4"},
-		dom.H4(Attrs{"class": "font-semibold text-gray-900 mb-2"}, elem.Name),
-		dom.P(Attrs{"class": "text-sm text-gray-600 mb-3"}, elem.Description),
+		Attrs{"class": "bg-white/5 border border-white/10 rounded-lg p-4 hover:bg-white/10 transition-colors"},
+		dom.H4(Attrs{"class": "font-semibold text-white mb-2"}, elem.Name),
+		dom.P(Attrs{"class": "text-sm text-gray-400 mb-3"}, elem.Description),
 		dom.Div(
-			Attrs{"class": "bg-gray-900 text-gray-100 p-3 rounded text-xs overflow-x-auto"},
+			Attrs{"class": "bg-[#0a0a0a] text-gray-300 p-3 rounded text-xs overflow-x-auto border border-white/5"},
 			dom.Code(nil, elem.Example),
 		),
 	)

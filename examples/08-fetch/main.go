@@ -1,176 +1,148 @@
 //go:build js && wasm
+// +build js,wasm
 
 package main
 
 import (
-	"fmt"
-	"syscall/js"
+	"encoding/json"
+	"time"
 
 	"github.com/monstercameron/GoWebComponents/dom"
 	"github.com/monstercameron/GoWebComponents/hooks"
 	"github.com/monstercameron/GoWebComponents/render"
 )
 
-type Attrs = dom.Attrs
-type Element = render.Element
+type User struct {
+	ID       int    `json:"id"`
+	Name     string `json:"name"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Website  string `json:"website"`
+}
 
-func FetchExample(_ Attrs) *Element {
-	url, setUrl := hooks.UseState("https://jsonplaceholder.typicode.com/posts/1")
-	currentUrl := url()
-
-	getFetchState, refetch := hooks.UseFetch(currentUrl)
-	fetchState := getFetchState()
-
-	manualFetch := func(this js.Value, args []js.Value) interface{} {
-		refetch()
-		return nil
-	}
-
-	handleUrlChange := func(this js.Value, args []js.Value) interface{} {
-		if len(args) > 0 {
-			newUrl := args[0].Get("target").Get("value").String()
-			setUrl(newUrl)
-		}
-		return nil
-	}
-
-	setJsonPlaceholder := func(this js.Value, args []js.Value) interface{} {
-		setUrl("https://jsonplaceholder.typicode.com/posts/1")
-		return nil
-	}
-
-	setHttpBin := func(this js.Value, args []js.Value) interface{} {
-		setUrl("https://httpbin.org/json")
-		return nil
-	}
-
-	setRandomUser := func(this js.Value, args []js.Value) interface{} {
-		setUrl("https://randomuser.me/api/")
-		return nil
-	}
-
-	// Render response data
-	var responseContent interface{}
-	if fetchState.Loading {
-		responseContent = dom.P(Attrs{
-			"class": "text-blue-500 italic",
-		}, dom.Text("🔄 Loading..."))
-	} else if fetchState.Error != "" {
-		responseContent = dom.P(Attrs{
-			"class": "text-red-500 font-bold",
-		}, dom.Text(fmt.Sprintf("❌ Error: %s", fetchState.Error)))
-	} else if fetchState.Data != nil {
-		responseContent = dom.Div(Attrs{},
-			dom.P(Attrs{
-				"class": "text-green-500 font-bold mb-2",
-			}, dom.Text("✅ Success! Data received:")),
-			dom.Pre(Attrs{
-				"class": "bg-gray-800 text-gray-100 p-4 rounded-lg overflow-x-auto font-mono text-sm border border-gray-600",
-			}, dom.Text(fmt.Sprintf("%+v", fetchState.Data))),
-		)
-	} else {
-		responseContent = dom.P(Attrs{
-			"class": "text-gray-400 italic",
-		}, dom.Text("🔗 Click 'Fetch Data' to make a request"))
-	}
-
-	return dom.Div(Attrs{
-		"class": "max-w-4xl mx-auto mt-8 p-6 bg-gray-800 rounded-lg shadow-lg",
-	},
-		dom.H2(Attrs{
-			"class": "text-2xl font-bold mb-4 text-white",
-		}, dom.Text("🌐 Fetch Example")),
-
-		dom.P(Attrs{
-			"class": "mb-6 text-gray-300",
-		}, dom.Text("Demonstrates the hooks.UseFetch hook for API calls.")),
-
-		// URL Input Section
-		dom.Div(Attrs{
-			"class": "border border-gray-600 bg-gray-900 p-4 mb-4 rounded-lg",
-		},
-			dom.H3(Attrs{
-				"class": "text-lg font-semibold mb-3 text-blue-400",
-			}, dom.Text("📡 API Endpoint")),
-
-			dom.Label(Attrs{
-				"class": "block text-gray-300 mb-2",
-			}, dom.Text("URL:")),
-
-			dom.Input(Attrs{
-				"type":        "url",
-				"value":       currentUrl,
-				"oninput":     js.FuncOf(handleUrlChange),
-				"class":       "w-full bg-gray-700 text-white border border-gray-600 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500",
-				"placeholder": "Enter API URL",
-			}),
-
-			dom.Div(Attrs{
-				"class": "mt-4",
-			},
-				dom.Span(Attrs{
-					"class": "text-gray-300 mr-2",
-				}, dom.Text("Quick presets:")),
-				dom.Button(Attrs{
-					"onclick": js.FuncOf(setJsonPlaceholder),
-					"class":   "bg-gray-700 text-white border border-blue-400 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm mr-2",
-				}, dom.Text("JSONPlaceholder")),
-				dom.Button(Attrs{
-					"onclick": js.FuncOf(setHttpBin),
-					"class":   "bg-gray-700 text-white border border-blue-400 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm mr-2",
-				}, dom.Text("HTTPBin")),
-				dom.Button(Attrs{
-					"onclick": js.FuncOf(setRandomUser),
-					"class":   "bg-gray-700 text-white border border-blue-400 px-3 py-1 rounded hover:bg-gray-600 transition-colors text-sm",
-				}, dom.Text("Random User")),
+func UserCard(user User) *dom.Element {
+	return dom.Div(
+		dom.Attrs{"class": "bg-white/5 border border-white/10 p-6 rounded-xl backdrop-blur-sm hover:bg-white/10 transition-all duration-300"},
+		dom.Div(
+			dom.Attrs{"class": "flex items-center space-x-4 mb-4"},
+			dom.Div(
+				dom.Attrs{"class": "w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg"},
+				string(user.Name[0]),
+			),
+			dom.Div(
+				nil,
+				dom.H3(dom.Attrs{"class": "text-lg font-bold text-white"}, user.Name),
+				dom.P(dom.Attrs{"class": "text-sm text-blue-400"}, "@"+user.Username),
 			),
 		),
-
-		// Fetch Controls Section
-		dom.Div(Attrs{
-			"class": "border border-gray-600 bg-gray-900 p-4 mb-4 rounded-lg",
-		},
-			dom.H3(Attrs{
-				"class": "text-lg font-semibold mb-3 text-blue-400",
-			}, dom.Text("🚀 Fetch Controls")),
-
-			dom.Button(Attrs{
-				"onclick": js.FuncOf(manualFetch),
-				"disabled": func() string {
-					if fetchState.Loading {
-						return "true"
-					}
-					return ""
-				}(),
-				"class": func() string {
-					if fetchState.Loading {
-						return "bg-gray-600 text-gray-400 cursor-not-allowed px-6 py-2 rounded-lg"
-					}
-					return "bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
-				}(),
-			}, func() interface{} {
-				if fetchState.Loading {
-					return dom.Text("Fetching...")
-				}
-				return dom.Text("Fetch Data")
-			}()),
+		dom.Div(
+			dom.Attrs{"class": "space-y-2 text-sm text-gray-400"},
+			dom.P(
+				dom.Attrs{"class": "flex items-center"},
+				dom.Span(dom.Attrs{"class": "mr-2"}, "📧"),
+				user.Email,
+			),
+			dom.P(
+				dom.Attrs{"class": "flex items-center"},
+				dom.Span(dom.Attrs{"class": "mr-2"}, "🌐"),
+				user.Website,
+			),
 		),
+	)
+}
 
-		// Response Section
-		dom.Div(Attrs{
-			"class": "border border-gray-600 bg-gray-900 p-4 rounded-lg",
-		},
-			dom.H3(Attrs{
-				"class": "text-lg font-semibold mb-3 text-blue-400",
-			}, dom.Text("📦 Response")),
-			responseContent,
+func App(_ dom.Attrs) *dom.Element {
+	// State for users list
+	users, setUsers := hooks.UseState([]User{})
+
+	// Use the custom fetch hook
+	getFetchState, refetch := hooks.UseFetch("https://jsonplaceholder.typicode.com/users")
+	fetchState := getFetchState()
+
+	// Update users when data changes
+	hooks.UseEffect(func() func() {
+		if fetchState.Data != nil {
+			dataStr := fetchState.Data.(string)
+			if dataStr != "" {
+				var fetchedUsers []User
+				if err := json.Unmarshal([]byte(dataStr), &fetchedUsers); err == nil {
+					// Simulate network delay for better UX demonstration
+					go func() {
+						time.Sleep(500 * time.Millisecond)
+						setUsers(fetchedUsers)
+					}()
+				}
+			}
+		}
+		return nil
+	}, fetchState.Data)
+
+	handleRefresh := hooks.GoUseFunc(func(e dom.GoEvent) {
+		setUsers([]User{}) // Clear current users to show loading state
+		refetch()
+	})
+
+	return dom.Div(
+		dom.Attrs{"class": "min-h-screen bg-[#0a0a0a] text-white py-12 px-4 sm:px-6 lg:px-8"},
+		dom.Div(
+			dom.Attrs{"class": "max-w-7xl mx-auto"},
+			dom.Div(
+				dom.Attrs{"class": "text-center mb-12"},
+				dom.H1(
+					dom.Attrs{"class": "text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 sm:text-5xl sm:tracking-tight lg:text-6xl"},
+					"User Directory",
+				),
+				dom.P(
+					dom.Attrs{"class": "mt-5 max-w-xl mx-auto text-xl text-gray-400"},
+					"Demonstrating async data fetching with GoWebComponents hooks.",
+				),
+				dom.Button(
+					dom.Attrs{
+						"class":   "mt-8 inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90 shadow-lg shadow-purple-500/20 transition-all duration-200",
+						"onclick": handleRefresh,
+					},
+					func() string {
+						if fetchState.Loading {
+							return "Refreshing..."
+						}
+						return "Refresh Data"
+					}(),
+				),
+			),
+
+			func() *dom.Element {
+				if fetchState.Error != "" {
+					return dom.Div(
+						dom.Attrs{"class": "bg-red-500/10 border border-red-500/20 p-6 rounded-xl mb-8 mx-auto max-w-2xl text-center"},
+						dom.P(dom.Attrs{"class": "text-red-400 font-medium"}, "Error: "+fetchState.Error),
+					)
+				}
+
+				if fetchState.Loading || len(users()) == 0 {
+					return dom.Div(
+						dom.Attrs{"class": "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"},
+						// Skeleton loaders
+						dom.Div(dom.Attrs{"class": "bg-white/5 border border-white/5 p-6 rounded-xl animate-pulse h-48"}),
+						dom.Div(dom.Attrs{"class": "bg-white/5 border border-white/5 p-6 rounded-xl animate-pulse h-48"}),
+						dom.Div(dom.Attrs{"class": "bg-white/5 border border-white/5 p-6 rounded-xl animate-pulse h-48"}),
+					)
+				}
+
+				// Grid of user cards
+				userElements := make([]interface{}, len(users()))
+				for i, user := range users() {
+					userElements[i] = UserCard(user)
+				}
+
+				return dom.Div(
+					dom.Attrs{"class": "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"},
+					userElements...,
+				)
+			}(),
 		),
 	)
 }
 
 func main() {
-	container := js.Global().Get("document").Call("getElementById", "app")
-	element := dom.CreateElement(FetchExample, nil)
-	render.ToElement(element, container)
-	select {}
+	render.To(dom.CreateElement(App, nil), "body")
 }

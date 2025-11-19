@@ -101,7 +101,7 @@ func Hr(props Attrs) *Element {
 	return runtime.Hr(props)
 }
 
-// Heading Elements
+// Text Content Elements
 
 func H1(props Attrs, children ...interface{}) *Element {
 	return runtime.H1(props, children...)

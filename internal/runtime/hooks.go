@@ -97,7 +97,8 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 		}
 
 		// Check if newValue is different from current PENDING value
-		if !fastEqual(currentValue, newValue) {
+		areEqual := fastEqual(currentValue, newValue)
+		if !areEqual {
 			// Update pending state immediately (visible to next setState in same render cycle)
 			hooks.pendingState[idx] = newValue
 			// Also update committed state (this is what triggers re-render)
@@ -413,22 +414,51 @@ func GoUseFunc(fn interface{}) interface{} {
 		panic("GoUseFunc requires a function")
 	}
 
-	// Initialize handler if needed
-	if len(fiber.hooks.funcs) <= position {
-		newFuncs := make([]funcHandlerValue, position+1, (position+1)*2)
-		copy(newFuncs, fiber.hooks.funcs)
-		newFuncs[position] = funcHandlerValue{fn: fn}
-		fiber.hooks.funcs = newFuncs
+	// Check if we have a stored handler and if it matches
+	var wrapper interface{}
+	shouldCreate := true
+
+	if position < len(fiber.hooks.funcs) {
+		stored := fiber.hooks.funcs[position]
+		// Compare function pointers to see if the function reference is stable
+		// This works well with UseCallback which returns stable function references
+		if stored.fn != nil && reflect.ValueOf(fn).Pointer() == reflect.ValueOf(stored.fn).Pointer() {
+			if stored.wrapper != nil {
+				wrapper = stored.wrapper
+				shouldCreate = false
+			}
+		}
 	}
 
-	// Return the function - wrapped by DOM adapter
-	rt := GetGlobalRuntime()
-	if rt != nil && rt.domAdapter != nil {
-		fmt.Printf("GoUseFunc: Wrapping function %T\n", fn)
-		return rt.domAdapter.WrapFunction(fn)
+	if shouldCreate {
+		// Create new wrapper
+		rt := GetGlobalRuntime()
+		if rt == nil {
+			panic("GoUseFunc rt is nil")
+		}
+		if rt.domAdapter == nil {
+			panic("GoUseFunc domAdapter is nil")
+		}
+
+		wrapper = rt.domAdapter.WrapFunction(fn)
+
+		// Store it
+		handlerVal := funcHandlerValue{
+			fn:      fn,
+			wrapper: wrapper,
+		}
+
+		if len(fiber.hooks.funcs) <= position {
+			newFuncs := make([]funcHandlerValue, position+1, (position+1)*2)
+			copy(newFuncs, fiber.hooks.funcs)
+			newFuncs[position] = handlerVal
+			fiber.hooks.funcs = newFuncs
+		} else {
+			fiber.hooks.funcs[position] = handlerVal
+		}
 	}
-	fmt.Println("GoUseFunc: Runtime or DOMAdapter nil, returning raw function")
-	return fn
+
+	return wrapper
 }
 
 // validateHookOrder checks that hooks are called in the same order

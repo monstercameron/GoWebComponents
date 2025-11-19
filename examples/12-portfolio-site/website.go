@@ -1,7 +1,7 @@
 //go:build js && wasm
 // +build js,wasm
 
-package website
+package main
 
 import (
 	"github.com/monstercameron/GoWebComponents/dom"
@@ -12,28 +12,28 @@ import (
 // interactive examples into a cohesive single-page application experience.
 func DocsWebsite(props Attrs) *Element {
 	return dom.Div(
-		Attrs{"class": "min-h-screen bg-gradient-to-br from-gray-50 to-blue-50"},
+		Attrs{"class": "min-h-screen bg-[#0a0a0a] text-white selection:bg-blue-500/30"},
 
 		// Navigation with dark mode and smooth scrolling
-		NavBar,
+		dom.CreateElement(NavBar, nil),
 
 		// Personal branding and introduction
-		PersonalHeroSection,
-		PersonalAboutSection,
-		PersonalSkillsSection,
-		PersonalYouTubeSection,
+		dom.CreateElement(PersonalHeroSection, nil),
+		dom.CreateElement(PersonalAboutSection, nil),
+		dom.CreateElement(PersonalSkillsSection, nil),
+		dom.CreateElement(PersonalYouTubeSection, nil),
 
 		// Project showcase and portfolio
-		PortfolioProjectsSection,
+		dom.CreateElement(PortfolioProjectsSection, nil),
 
 		// GoWebComponents feature highlights
-		GWCShowcaseSection,
-		GWCExamplesSection,
-		WhyGoWebComponentsSection,
+		dom.CreateElement(GWCShowcaseSection, nil),
+		dom.CreateElement(GWCExamplesSection, nil),
+		dom.CreateElement(WhyGoWebComponentsSection, nil),
 
 		// Contact and site utilities
-		ContactSection,
-		FooterSection,
-		ScrollToTopButton,
+		dom.CreateElement(ContactSection, nil),
+		dom.CreateElement(FooterSection, nil),
+		dom.CreateElement(ScrollToTopButton, nil),
 	)
 }

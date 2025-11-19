@@ -1,7 +1,7 @@
 //go:build js && wasm
 // +build js,wasm
 
-package website
+package main
 
 import (
 	"github.com/monstercameron/GoWebComponents/dom"
@@ -14,7 +14,7 @@ func ExampleModal(_ Attrs) *Element {
 	return dom.Div(
 		Attrs{
 			"id":    "example-modal",
-			"class": "fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm z-50 hidden opacity-0 transition-all duration-300",
+			"class": "fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden opacity-0 transition-all duration-300",
 		},
 		dom.Div(
 			Attrs{
@@ -23,23 +23,23 @@ func ExampleModal(_ Attrs) *Element {
 			},
 			dom.Div(
 				Attrs{
-					"class":   "bg-white dark:bg-gray-800 dark:text-gray-100 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden",
+					"class":   "bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden",
 					"onclick": "event.stopPropagation()",
 				},
 
 				// Modal header
 				dom.Div(
-					Attrs{"class": "flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 dark:bg-gradient-to-r"},
+					Attrs{"class": "flex items-center justify-between p-6 border-b border-white/10 bg-white/5"},
 					dom.H3(
-						Attrs{"id": "modal-title", "class": "text-2xl font-bold text-gray-900 dark:text-gray-100"},
+						Attrs{"id": "modal-title", "class": "text-2xl font-bold text-white"},
 						"Example",
 					),
 					dom.Button(
 						Attrs{
-							"class":   "p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200",
+							"class":   "p-2 hover:bg-white/10 rounded-full transition-colors duration-200 text-gray-400 hover:text-white",
 							"onclick": "closeExampleModal()",
 						},
-						dom.Span(Attrs{"class": "text-2xl text-gray-500"}, "×"),
+						dom.Span(Attrs{"class": "text-2xl"}, "×"),
 					),
 				),
 
@@ -47,20 +47,20 @@ func ExampleModal(_ Attrs) *Element {
 				dom.Div(
 					Attrs{
 						"id":    "modal-content",
-						"class": "p-6 overflow-y-auto max-h-[70vh] dark:bg-gray-900 dark:text-gray-100",
+						"class": "p-6 overflow-y-auto max-h-[70vh] bg-transparent text-gray-100",
 					},
-					dom.P(Attrs{"class": "text-gray-500 dark:text-gray-400"}, "Loading example..."),
+					dom.P(Attrs{"class": "text-gray-400"}, "Loading example..."),
 				),
 
 				// Modal footer
 				dom.Div(
-					Attrs{"class": "flex justify-between items-center p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800"},
+					Attrs{"class": "flex justify-between items-center p-6 border-t border-white/10 bg-white/5"},
 					dom.Div(
 						Attrs{"class": "flex space-x-3"},
 						dom.Button(
 							Attrs{
 								"id":      "view-source-btn",
-								"class":   "px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-100 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200 font-medium",
+								"class":   "px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors duration-200 font-medium",
 								"onclick": "toggleSourceView()",
 							},
 							"View Source",
@@ -68,7 +68,7 @@ func ExampleModal(_ Attrs) *Element {
 						dom.Button(
 							Attrs{
 								"id":      "reset-example-btn",
-								"class":   "px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 font-medium",
+								"class":   "px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium",
 								"onclick": "resetExample()",
 							},
 							"Reset",
@@ -76,7 +76,7 @@ func ExampleModal(_ Attrs) *Element {
 					),
 					dom.Button(
 						Attrs{
-							"class":   "px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors duration-200 font-medium",
+							"class":   "px-6 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors duration-200 font-medium",
 							"onclick": "closeExampleModal()",
 						},
 						"Close",
@@ -93,24 +93,24 @@ func ExampleModal(_ Attrs) *Element {
 func ClickCounter(_ Attrs) *Element {
 	// This would use hooks.UseState in a real implementation
 	return dom.Div(
-		Attrs{"class": "text-center p-8 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 dark:text-gray-100 rounded-xl"},
-		dom.H2(Attrs{"class": "text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6"}, "Click Counter"),
+		Attrs{"class": "text-center p-8 bg-gradient-to-br from-blue-900/20 to-indigo-900/20 border border-blue-500/30 rounded-xl"},
+		dom.H2(Attrs{"class": "text-3xl font-bold text-white mb-6"}, "Click Counter"),
 		dom.Div(
 			Attrs{"class": "mb-8"},
 			dom.Div(
 				Attrs{
 					"id":    "counter-display",
-					"class": "text-6xl font-bold text-indigo-600 mb-4",
+					"class": "text-6xl font-bold text-blue-400 mb-4",
 				},
 				"0",
 			),
-			dom.P(Attrs{"class": "text-gray-600 dark:text-gray-300"}, "Click the button to increment the counter"),
+			dom.P(Attrs{"class": "text-gray-400"}, "Click the button to increment the counter"),
 		),
 		dom.Div(
 			Attrs{"class": "space-x-4"},
 			dom.Button(
 				Attrs{
-					"class":   "px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5",
+					"class":   "px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5",
 					"onclick": "incrementCounter()",
 				},
 				"+ Increment",
@@ -131,8 +131,8 @@ func ClickCounter(_ Attrs) *Element {
 // and dynamic stats display.
 func TodoApp(_ Attrs) *Element {
 	return dom.Div(
-		Attrs{"class": "max-w-md mx-auto bg-white dark:bg-gray-800 dark:text-gray-100 rounded-xl shadow-lg p-6"},
-		dom.H2(Attrs{"class": "text-2xl font-bold text-gray-900 mb-6 text-center"}, "Todo App"),
+		Attrs{"class": "max-w-md mx-auto bg-white/5 border border-white/10 rounded-xl shadow-lg p-6"},
+		dom.H2(Attrs{"class": "text-2xl font-bold text-white mb-6 text-center"}, "Todo App"),
 
 		// Add todo form
 		dom.Div(
@@ -143,12 +143,12 @@ func TodoApp(_ Attrs) *Element {
 					"id":          "todo-input",
 					"type":        "text",
 					"placeholder": "Add a new todo...",
-					"class":       "flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent",
+					"class":       "flex-1 px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-gray-500",
 					"onkeypress":  "handleTodoKeyPress(event)",
 				}),
 				dom.Button(
 					Attrs{
-						"class":   "px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 font-medium",
+						"class":   "px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium",
 						"onclick": "addTodo()",
 					},
 					"Add",
@@ -170,7 +170,7 @@ func TodoApp(_ Attrs) *Element {
 
 		// Stats
 		dom.Div(
-			Attrs{"class": "mt-6 text-center text-sm text-gray-500"},
+			Attrs{"class": "mt-6 text-center text-sm text-gray-400"},
 			dom.Span(Attrs{"id": "todo-stats"}, "3 items remaining"),
 		),
 	)
@@ -186,12 +186,12 @@ func TodoItem(text string, completed bool, id int) *Element {
 
 	return dom.Div(
 		Attrs{
-			"class":        "flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200 dark:text-gray-100",
+			"class":        "flex items-center space-x-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors duration-200 text-gray-200",
 			"data-todo-id": string(rune(id)),
 		},
 		dom.Input(Attrs{
 			"type":     "checkbox",
-			"class":    "w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500",
+			"class":    "w-4 h-4 text-blue-600 rounded focus:ring-blue-500 bg-black/20 border-white/10",
 			"onchange": "toggleTodo(" + string(rune(id)) + ")",
 		}),
 		dom.Span(
@@ -200,7 +200,7 @@ func TodoItem(text string, completed bool, id int) *Element {
 		),
 		dom.Button(
 			Attrs{
-				"class":   "text-red-500 hover:text-red-700 transition-colors duration-200",
+				"class":   "text-red-500 hover:text-red-400 transition-colors duration-200",
 				"onclick": "deleteTodo(" + string(rune(id)) + ")",
 			},
 			"🗑️",
@@ -213,21 +213,21 @@ func TodoItem(text string, completed bool, id int) *Element {
 // and consistent visual hierarchy.
 func Dashboard(_ Attrs) *Element {
 	return dom.Div(
-		Attrs{"class": "p-6 bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-800 dark:to-gray-900 dark:text-gray-100 rounded-xl"},
-		dom.H2(Attrs{"class": "text-3xl font-bold text-gray-900 mb-8 text-center"}, "Dashboard"),
+		Attrs{"class": "p-6 bg-gradient-to-br from-gray-900/50 to-blue-900/20 border border-white/10 rounded-xl"},
+		dom.H2(Attrs{"class": "text-3xl font-bold text-white mb-8 text-center"}, "Dashboard"),
 
 		// Stats cards
 		dom.Div(
 			Attrs{"class": "grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"},
-			DashboardCard("👥 Users", "1,234", "↗ +12%", "text-green-500"),
-			DashboardCard("📊 Revenue", "$45,678", "↗ +8%", "text-green-500"),
-			DashboardCard("🚀 Growth", "23%", "↘ -2%", "text-red-500"),
+			DashboardCard("👥 Users", "1,234", "↗ +12%", "text-green-400"),
+			DashboardCard("📊 Revenue", "$45,678", "↗ +8%", "text-green-400"),
+			DashboardCard("🚀 Growth", "23%", "↘ -2%", "text-red-400"),
 		),
 
 		// Activity feed
 		dom.Div(
-			Attrs{"class": "bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6"},
-			dom.H3(Attrs{"class": "text-xl font-bold text-gray-900 mb-4"}, "Recent Activity"),
+			Attrs{"class": "bg-white/5 border border-white/10 rounded-lg shadow-lg p-6"},
+			dom.H3(Attrs{"class": "text-xl font-bold text-white mb-4"}, "Recent Activity"),
 			dom.Div(
 				Attrs{"class": "space-y-3"},
 				ActivityItem("🎉", "New user registered", "2 minutes ago"),
@@ -243,9 +243,9 @@ func Dashboard(_ Attrs) *Element {
 // Supports color-coded change indicators and hover animations.
 func DashboardCard(title, value, change, changeColor string) *Element {
 	return dom.Div(
-		Attrs{"class": "bg-white dark:bg-gray-800 dark:text-gray-100 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-300"},
-		dom.H4(Attrs{"class": "text-sm font-medium text-gray-500 mb-2"}, title),
-		dom.P(Attrs{"class": "text-3xl font-bold text-gray-900 mb-1"}, value),
+		Attrs{"class": "bg-white/5 border border-white/10 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-300"},
+		dom.H4(Attrs{"class": "text-sm font-medium text-gray-400 mb-2"}, title),
+		dom.P(Attrs{"class": "text-3xl font-bold text-white mb-1"}, value),
 		dom.P(Attrs{"class": "text-sm " + changeColor}, change),
 	)
 }
@@ -254,11 +254,11 @@ func DashboardCard(title, value, change, changeColor string) *Element {
 // Provides consistent formatting for activity streams and notification lists.
 func ActivityItem(icon, message, time string) *Element {
 	return dom.Div(
-		Attrs{"class": "flex items-center space-x-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200 dark:text-gray-100"},
+		Attrs{"class": "flex items-center space-x-3 p-3 hover:bg-white/5 rounded-lg transition-colors duration-200 text-gray-200"},
 		dom.Span(Attrs{"class": "text-2xl"}, icon),
 		dom.Div(
 			Attrs{"class": "flex-1"},
-			dom.P(Attrs{"class": "text-sm font-medium text-gray-900"}, message),
+			dom.P(Attrs{"class": "text-sm font-medium text-gray-200"}, message),
 			dom.P(Attrs{"class": "text-xs text-gray-500"}, time),
 		),
 	)
@@ -276,8 +276,8 @@ func GetExampleContent(exampleId string) *Element {
 	default:
 		return dom.Div(
 			Attrs{"class": "text-center p-8"},
-			dom.H3(Attrs{"class": "text-xl font-bold text-gray-900 mb-4"}, "Example Not Found"),
-			dom.P(Attrs{"class": "text-gray-600"}, "The requested example could not be loaded."),
+			dom.H3(Attrs{"class": "text-xl font-bold text-white mb-4"}, "Example Not Found"),
+			dom.P(Attrs{"class": "text-gray-400"}, "The requested example could not be loaded."),
 		)
 	}
 }

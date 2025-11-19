@@ -7,22 +7,19 @@ package main
 
 import (
 	"fmt"
-	"sync"
+
+	"github.com/monstercameron/GoWebComponents/dom"
+	"github.com/monstercameron/GoWebComponents/render"
 )
 
 // main is the entry point for the WASM module
 func main() {
-	var wg sync.WaitGroup
-	wg.Add(1)
-
 	fmt.Println("🚀 Go Web Components Blog Landing Page starting...")
 	fmt.Println("📊 Loading Blog Landing Page...")
 
 	// Render the blog landing page to the DOM
-	BlogLandingPage()
+	render.To(dom.CreateElement(BlogLandingPage, nil), "#app")
 
 	fmt.Println("✅ Blog Landing Page rendered successfully")
-
-	// Keep the program alive for WebAssembly event handling
-	wg.Wait()
+	select {}
 }

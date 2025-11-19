@@ -81,7 +81,8 @@ type fetchValue struct {
 
 // funcHandlerValue stores a wrapped event handler function
 type funcHandlerValue struct {
-	fn interface{} // The user's function (func(), func(string), func(js.Value), etc.)
+	fn      interface{} // The user's function (func(), func(string), func(js.Value), etc.)
+	wrapper interface{} // The wrapped js.Func (or equivalent)
 }
 
 // RefValue represents a reference object that persists across renders

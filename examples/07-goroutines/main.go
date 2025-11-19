@@ -4,7 +4,6 @@ package main
 
 import (
 	"fmt"
-	"syscall/js"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/dom"
@@ -13,7 +12,7 @@ import (
 )
 
 type Attrs = dom.Attrs
-type Element = render.Element
+type Element = dom.Element
 
 type BackgroundTask struct {
 	IsRunning  bool
@@ -45,9 +44,9 @@ func GoroutineExample(_ Attrs) *Element {
 	currentTask := task()
 	currentTimer := timer()
 
-	startTask := func(this js.Value, args []js.Value) interface{} {
+	startTask := hooks.GoUseFunc(func(event dom.GoEvent) {
 		if currentTask.IsRunning {
-			return nil
+			return
 		}
 
 		cancelChan := make(chan bool, 1)
@@ -108,24 +107,20 @@ func GoroutineExample(_ Attrs) *Element {
 				}
 			}
 		}()
+	})
 
-		return nil
-	}
-
-	cancelTask := func(this js.Value, args []js.Value) interface{} {
+	cancelTask := hooks.GoUseFunc(func(event dom.GoEvent) {
 		if !currentTask.IsRunning || currentTask.CancelChan == nil {
-			return nil
+			return
 		}
 
 		select {
 		case currentTask.CancelChan <- true:
 		default:
 		}
+	})
 
-		return nil
-	}
-
-	resetTask := func(this js.Value, args []js.Value) interface{} {
+	resetTask := hooks.GoUseFunc(func(event dom.GoEvent) {
 		if currentTask.IsRunning && currentTask.CancelChan != nil {
 			select {
 			case currentTask.CancelChan <- true:
@@ -139,10 +134,9 @@ func GoroutineExample(_ Attrs) *Element {
 			Status:     "Ready",
 			CancelChan: nil,
 		})
-		return nil
-	}
+	})
 
-	toggleTimer := func(this js.Value, args []js.Value) interface{} {
+	toggleTimer := hooks.GoUseFunc(func(event dom.GoEvent) {
 		newRunning := !currentTimer.IsRunning
 
 		if newRunning {
@@ -196,11 +190,9 @@ func GoroutineExample(_ Attrs) *Element {
 				CancelChan: nil,
 			})
 		}
+	})
 
-		return nil
-	}
-
-	resetTimer := func(this js.Value, args []js.Value) interface{} {
+	resetTimer := hooks.GoUseFunc(func(event dom.GoEvent) {
 		if currentTimer.IsRunning && currentTimer.CancelChan != nil {
 			select {
 			case currentTimer.CancelChan <- true:
@@ -213,10 +205,9 @@ func GoroutineExample(_ Attrs) *Element {
 			Seconds:    0,
 			CancelChan: nil,
 		})
-		return nil
-	}
+	})
 
-	cleanupAll := func(this js.Value, args []js.Value) interface{} {
+	cleanupAll := hooks.GoUseFunc(func(event dom.GoEvent) {
 		if currentTask.IsRunning && currentTask.CancelChan != nil {
 			select {
 			case currentTask.CancelChan <- true:
@@ -233,120 +224,115 @@ func GoroutineExample(_ Attrs) *Element {
 
 		setTask(BackgroundTask{IsRunning: false, Progress: 0, Status: "Ready", CancelChan: nil})
 		setTimer(TimerState{IsRunning: false, Seconds: 0, CancelChan: nil})
-
-		return nil
-	}
+	})
 
 	return dom.Div(Attrs{
-		"class": "max-w-4xl mx-auto mt-8 p-6 bg-white rounded-lg shadow-lg",
+		"class": "min-h-screen bg-[#0a0a0a] text-white p-8",
 	},
-		dom.H2(Attrs{
-			"class": "text-2xl font-bold mb-6 text-gray-800",
-		}, dom.Text("Goroutine Example")),
-
-		dom.P(Attrs{
-			"class": "mb-6 text-gray-600",
-		}, dom.Text("Demonstrates state updates from goroutines with proper cancellation and cleanup.")),
-
-		// Global Cleanup Section
 		dom.Div(Attrs{
-			"class": "border-2 border-red-400 p-4 mb-6 bg-red-50 rounded-lg",
+			"class": "max-w-4xl mx-auto",
 		},
-			dom.H3(Attrs{
-				"class": "text-lg font-semibold mb-3 text-gray-800",
-			}, dom.Text("🧹 Global Controls")),
-			dom.Button(Attrs{
-				"onclick": js.FuncOf(cleanupAll),
-				"class":   "px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-semibold",
-			}, dom.Text("Cancel All & Cleanup")),
-		),
+			dom.H2(Attrs{
+				"class": "text-3xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500",
+			}, dom.Text("Goroutine Example")),
 
-		// Background Task Section
-		dom.Div(Attrs{
-			"class": "border border-gray-300 p-4 mb-4 rounded-lg",
-		},
-			dom.H3(Attrs{
-				"class": "text-lg font-semibold mb-3 text-gray-800",
-			}, dom.Text("Background Task")),
 			dom.P(Attrs{
-				"class": "mb-2 text-gray-700",
-			}, dom.Text(fmt.Sprintf("Status: %s", currentTask.Status))),
-			dom.P(Attrs{
-				"class": "mb-3 text-gray-700",
-			}, dom.Text(fmt.Sprintf("Progress: %d%%", currentTask.Progress))),
+				"class": "mb-8 text-gray-400",
+			}, dom.Text("Demonstrates state updates from goroutines with proper cancellation and cleanup.")),
 
-			dom.Div(Attrs{"class": "w-full bg-gray-200 rounded-full h-4 mb-4"},
-				dom.Div(Attrs{
-					"class": "bg-blue-500 h-4 rounded-full transition-all duration-300",
-					"style": fmt.Sprintf("width: %d%%", currentTask.Progress),
-				}),
+			// Global Cleanup Section
+			dom.Div(Attrs{
+				"class": "border border-red-500/30 p-6 mb-8 bg-red-500/10 rounded-xl backdrop-blur-sm",
+			},
+				dom.H3(Attrs{
+					"class": "text-lg font-semibold mb-4 text-red-400",
+				}, dom.Text("⚠️ Global Controls")),
+				dom.Button(Attrs{
+					"onclick": cleanupAll,
+					"class":   "px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors font-semibold shadow-lg shadow-red-500/20",
+				}, dom.Text("Cancel All & Cleanup")),
 			),
 
-			dom.Div(Attrs{"class": "flex gap-2"},
-				dom.Button(Attrs{
-					"onclick": js.FuncOf(startTask),
-					"disabled": func() string {
-						if currentTask.IsRunning {
-							return "true"
-						}
-						return ""
-					}(),
-					"class": func() string {
-						if currentTask.IsRunning {
-							return "px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
-						}
-						return "px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-					}(),
-				}, dom.Text("Start Task")),
-				dom.Button(Attrs{
-					"onclick": js.FuncOf(cancelTask),
-					"class":   "px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors",
-				}, dom.Text("Cancel Task")),
-				dom.Button(Attrs{
-					"onclick": js.FuncOf(resetTask),
-					"class":   "px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors",
-				}, dom.Text("Reset Task")),
+			// Background Task Section
+			dom.Div(Attrs{
+				"class": "bg-white/5 border border-white/10 p-6 mb-6 rounded-xl backdrop-blur-sm",
+			},
+				dom.H3(Attrs{
+					"class": "text-xl font-semibold mb-4 text-white",
+				}, dom.Text("Background Task")),
+				dom.P(Attrs{
+					"class": "mb-2 text-gray-400",
+				}, dom.Text(fmt.Sprintf("Status: %s", currentTask.Status))),
+				dom.P(Attrs{
+					"class": "mb-4 text-gray-400",
+				}, dom.Text(fmt.Sprintf("Progress: %d%%", currentTask.Progress))),
+
+				dom.Div(Attrs{"class": "w-full bg-black/30 rounded-full h-4 mb-6 overflow-hidden"},
+					dom.Div(Attrs{
+						"class": "bg-gradient-to-r from-blue-500 to-purple-600 h-4 rounded-full transition-all duration-300",
+						"style": fmt.Sprintf("width: %d%%", currentTask.Progress),
+					}),
+				),
+
+				dom.Div(Attrs{"class": "flex gap-3"},
+					dom.Button(Attrs{
+						"onclick":  startTask,
+						"disabled": currentTask.IsRunning,
+						"class": func() string {
+							if currentTask.IsRunning {
+								return "px-4 py-2 bg-white/5 text-gray-500 rounded-lg cursor-not-allowed border border-white/5"
+							}
+							return "px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shadow-lg shadow-green-500/20"
+						}(),
+					}, dom.Text("Start Task")),
+					dom.Button(Attrs{
+						"onclick": cancelTask,
+						"class":   "px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors shadow-lg shadow-yellow-500/20",
+					}, dom.Text("Cancel Task")),
+					dom.Button(Attrs{
+						"onclick": resetTask,
+						"class":   "px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors border border-white/10",
+					}, dom.Text("Reset Task")),
+				),
 			),
-		),
 
-		// Timer Section
-		dom.Div(Attrs{
-			"class": "border border-gray-300 p-4 rounded-lg",
-		},
-			dom.H3(Attrs{
-				"class": "text-lg font-semibold mb-3 text-gray-800",
-			}, dom.Text("Timer")),
-			dom.P(Attrs{
-				"class": "mb-3 text-gray-700 text-2xl font-mono",
-			}, dom.Text(fmt.Sprintf("%d seconds", currentTimer.Seconds))),
+			// Timer Section
+			dom.Div(Attrs{
+				"class": "bg-white/5 border border-white/10 p-6 rounded-xl backdrop-blur-sm",
+			},
+				dom.H3(Attrs{
+					"class": "text-xl font-semibold mb-4 text-white",
+				}, dom.Text("Timer")),
+				dom.P(Attrs{
+					"class": "mb-6 text-white text-4xl font-mono font-bold tracking-wider",
+				}, dom.Text(fmt.Sprintf("%02d:%02d", currentTimer.Seconds/60, currentTimer.Seconds%60))),
 
-			dom.Div(Attrs{"class": "flex gap-2"},
-				dom.Button(Attrs{
-					"onclick": js.FuncOf(toggleTimer),
-					"class": func() string {
+				dom.Div(Attrs{"class": "flex gap-3"},
+					dom.Button(Attrs{
+						"onclick": toggleTimer,
+						"class": func() string {
+							if currentTimer.IsRunning {
+								return "px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
+							}
+							return "px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shadow-lg shadow-green-500/20"
+						}(),
+					}, dom.Text(func() string {
 						if currentTimer.IsRunning {
-							return "px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+							return "Stop Timer"
 						}
-						return "px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-					}(),
-				}, func() interface{} {
-					if currentTimer.IsRunning {
-						return dom.Text("Stop Timer")
-					}
-					return dom.Text("Start Timer")
-				}()),
-				dom.Button(Attrs{
-					"onclick": js.FuncOf(resetTimer),
-					"class":   "px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors",
-				}, dom.Text("Reset Timer")),
+						return "Start Timer"
+					}())),
+					dom.Button(Attrs{
+						"onclick": resetTimer,
+						"class":   "px-6 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors border border-white/10",
+					}, dom.Text("Reset Timer")),
+				),
 			),
 		),
 	)
 }
 
 func main() {
-	container := js.Global().Get("document").Call("getElementById", "app")
-	element := dom.CreateElement(GoroutineExample, nil)
-	render.ToElement(element, container)
+	render.To(dom.CreateElement(GoroutineExample, nil), "body")
 	select {}
 }

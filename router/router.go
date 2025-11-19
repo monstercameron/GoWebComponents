@@ -120,16 +120,16 @@ func (r *Router) GoGetRoute() *render.Element {
 	}
 
 	if comp, ok := r.routes[path]; ok {
-		return comp(nil)
+		return dom.CreateElement(comp, nil)
 	}
 
 	if r.notFound != nil {
-		return r.notFound(nil)
+		return dom.CreateElement(r.notFound, nil)
 	}
 
 	if r.defaultRoute != "" {
 		if comp, ok := r.routes[r.defaultRoute]; ok {
-			return comp(nil)
+			return dom.CreateElement(comp, nil)
 		}
 	}
 

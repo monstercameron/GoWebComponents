@@ -4,7 +4,6 @@
 package jsdom
 
 import (
-	"fmt"
 	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
@@ -315,23 +314,18 @@ func (a *WASMDOMAdapter) SetStyles(node runtime.DOMNode, styles map[string]strin
 }
 
 func (a *WASMDOMAdapter) WrapFunction(fn interface{}) interface{} {
-	fmt.Printf("WrapFunction called for %T\n", fn)
 	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		fmt.Printf("Wrapped function executed for %T\n", fn)
 		switch f := fn.(type) {
 		case func():
 			f()
 		case func(string):
 			if len(args) > 0 {
 				event := args[0]
-				fmt.Printf("WrapFunction: func(string) called with args len %d\n", len(args))
 				target := event.Get("target")
 				if !target.IsNull() && !target.IsUndefined() {
 					value := target.Get("value")
-					fmt.Printf("WrapFunction: target found, value type: %s\n", value.Type())
 					if !value.IsNull() && !value.IsUndefined() {
 						strVal := value.String()
-						fmt.Printf("WrapFunction: calling f with '%s'\n", strVal)
 						f(strVal)
 					} else {
 						// Fallback for elements without value (like buttons)
@@ -342,7 +336,7 @@ func (a *WASMDOMAdapter) WrapFunction(fn interface{}) interface{} {
 					f("")
 				}
 			} else {
-				fmt.Println("WrapFunction: func(string) called with 0 args")
+				// No args
 			}
 		case func(js.Value):
 			if len(args) > 0 {
@@ -362,6 +356,8 @@ func (a *WASMDOMAdapter) WrapFunction(fn interface{}) interface{} {
 			if len(args) > 0 {
 				f(runtime.NewGoEvent(args[0]))
 			}
+		default:
+			// js.Global().Get("console").Call("log", fmt.Sprintf("DEBUG: WrapFunction unknown type: %T", fn))
 		}
 		return nil
 	})
@@ -498,7 +494,6 @@ func (s *WASMScheduler) RequestIdleCallback(callback func(runtime.Deadline)) {
 		if len(args) > 0 {
 			deadline.value = args[0]
 		}
-		fmt.Println("RequestIdleCallback invoked")
 		callback(deadline)
 		// Release after callback executes
 		jsFn.Release()

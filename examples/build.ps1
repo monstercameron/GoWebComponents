@@ -82,7 +82,7 @@ function Build-Example {
         $sizeKB = [math]::Round($size / 1KB, 2)
         $durationSec = [math]::Round($duration.TotalSeconds, 2)
         Write-Host "  [OK] $cleanName.wasm ($sizeKB KB) in ${durationSec}s" -ForegroundColor Green
-        return @{
+        return [PSCustomObject]@{
             Name = $exampleName
             CleanName = $cleanName
             Success = $true
@@ -94,7 +94,7 @@ function Build-Example {
         if ($Verbose) {
             Write-Host $buildOutput -ForegroundColor Red
         }
-        return @{
+        return [PSCustomObject]@{
             Name = $exampleName
             CleanName = $cleanName
             Success = $false

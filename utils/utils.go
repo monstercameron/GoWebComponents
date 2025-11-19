@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"sync/atomic"
+	"syscall/js"
 	"time"
 )
 
@@ -277,4 +278,10 @@ func ResetGoroutineBaseline() {
 	oldBaseline := baselineGoroutineCount
 	baselineGoroutineCount = runtime.NumGoroutine()
 	debugf("UTILS", "🔄 ResetGoroutineBaseline: reset from %d to %d\n", oldBaseline, baselineGoroutineCount)
+}
+
+// ConsoleLog wraps js.Global().Get("console").Call("log", ...) for easier debugging
+func ConsoleLog(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	js.Global().Get("console").Call("log", msg)
 }

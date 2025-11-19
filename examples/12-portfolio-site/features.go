@@ -1,7 +1,7 @@
 //go:build js && wasm
 // +build js,wasm
 
-package website
+package main
 
 import (
 	"github.com/monstercameron/GoWebComponents/dom"
@@ -18,15 +18,15 @@ func HeroSection(_ Attrs) *Element {
 	return dom.Section(
 		Attrs{
 			"id":    "home",
-			"class": "relative min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 overflow-hidden",
+			"class": "relative min-h-screen flex items-center justify-center bg-[#0a0a0a] overflow-hidden",
 		},
 
 		// Background decoration
 		dom.Div(
 			Attrs{"class": "absolute inset-0 overflow-hidden"},
-			dom.Div(Attrs{"class": "absolute -top-40 -right-40 w-80 h-80 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"}),
-			dom.Div(Attrs{"class": "absolute -bottom-40 -left-40 w-80 h-80 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"}),
-			dom.Div(Attrs{"class": "absolute top-40 left-40 w-80 h-80 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"}),
+			dom.Div(Attrs{"class": "absolute -top-40 -right-40 w-80 h-80 bg-purple-600 rounded-full mix-blend-screen filter blur-[100px] opacity-20 animate-blob"}),
+			dom.Div(Attrs{"class": "absolute -bottom-40 -left-40 w-80 h-80 bg-blue-600 rounded-full mix-blend-screen filter blur-[100px] opacity-20 animate-blob animation-delay-2000"}),
+			dom.Div(Attrs{"class": "absolute top-40 left-40 w-80 h-80 bg-pink-600 rounded-full mix-blend-screen filter blur-[100px] opacity-20 animate-blob animation-delay-4000"}),
 		),
 
 		// Main content
@@ -35,7 +35,7 @@ func HeroSection(_ Attrs) *Element {
 
 			// Hero badge
 			dom.Div(
-				Attrs{"class": "inline-flex items-center px-4 py-2 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium mb-8 animate-bounce"},
+				Attrs{"class": "inline-flex items-center px-4 py-2 bg-indigo-900/30 text-indigo-300 border border-indigo-500/30 rounded-full text-sm font-medium mb-8 animate-bounce backdrop-blur-sm"},
 				dom.Span(Attrs{"class": "mr-2"}, "🚀"),
 				dom.Span(nil, "Welcome to the Future of Web Development"),
 			),
@@ -43,16 +43,16 @@ func HeroSection(_ Attrs) *Element {
 			// Main title
 			dom.H1(
 				Attrs{"class": "text-6xl md:text-7xl font-bold mb-6 leading-tight"},
-				dom.Span(Attrs{"class": "bg-gradient-to-r from-gray-900 via-indigo-600 to-purple-600 bg-clip-text text-transparent"}, "GoWebComponents"),
+				dom.Span(Attrs{"class": "bg-gradient-to-r from-white via-indigo-400 to-purple-400 bg-clip-text text-transparent"}, "GoWebComponents"),
 				dom.Br(nil),
-				dom.Span(Attrs{"class": "text-4xl md:text-5xl text-gray-700"}, "Reactive Web Apps in Go"),
+				dom.Span(Attrs{"class": "text-4xl md:text-5xl text-gray-300"}, "Reactive Web Apps in Go"),
 			),
 
 			// Subtitle
 			dom.P(
-				Attrs{"class": "text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed"},
+				Attrs{"class": "text-xl md:text-2xl text-gray-400 mb-8 max-w-3xl mx-auto leading-relaxed"},
 				"Build modern, reactive web applications using Go and WebAssembly. ",
-				dom.Strong(nil, "No JavaScript required."),
+				dom.Strong(Attrs{"class": "text-white"}, "No JavaScript required."),
 				" Experience the power of Go's concurrency, type safety, and performance in the browser.",
 			),
 
@@ -61,7 +61,7 @@ func HeroSection(_ Attrs) *Element {
 				Attrs{"class": "flex flex-col sm:flex-row gap-4 justify-center items-center mb-12"},
 				dom.Button(
 					Attrs{
-						"class":   "px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-lg font-semibold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1",
+						"class":   "px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-lg font-semibold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 cursor-pointer",
 						"onclick": "scrollToSection('getting-started')",
 					},
 					"Get Started Now",
@@ -70,7 +70,7 @@ func HeroSection(_ Attrs) *Element {
 					Attrs{
 						"href":   "https://github.com/monstercameron/GoWebComponents",
 						"target": "_blank",
-						"class":  "px-8 py-4 bg-white text-gray-800 text-lg font-semibold rounded-xl border-2 border-gray-200 hover:border-indigo-300 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1",
+						"class":  "px-8 py-4 bg-white/5 text-white text-lg font-semibold rounded-xl border-2 border-white/10 hover:border-indigo-500/50 hover:bg-white/10 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 cursor-pointer",
 					},
 					"⚡ View on GitHub",
 				),
@@ -91,10 +91,10 @@ func HeroSection(_ Attrs) *Element {
 // Used in the hero section to provide quick feature overview with icons and descriptions.
 func FeaturePreviewCard(icon, title, description string) *Element {
 	return dom.Div(
-		Attrs{"class": "bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-100"},
+		Attrs{"class": "bg-white/5 backdrop-blur-sm p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-white/10 hover:border-white/20"},
 		dom.Div(Attrs{"class": "text-3xl mb-3"}, icon),
-		dom.H3(Attrs{"class": "text-lg font-semibold text-gray-900 mb-2"}, title),
-		dom.P(Attrs{"class": "text-gray-600 text-sm"}, description),
+		dom.H3(Attrs{"class": "text-lg font-semibold text-white mb-2"}, title),
+		dom.P(Attrs{"class": "text-gray-400 text-sm"}, description),
 	)
 }
 
@@ -103,13 +103,13 @@ func FeaturePreviewCard(icon, title, description string) *Element {
 // for developers considering the framework.
 func FeaturesSection(_ Attrs) *Element {
 	return dom.Section(
-		Attrs{"id": "features", "class": "py-20 bg-white"},
+		Attrs{"id": "features", "class": "py-20 bg-[#0a0a0a]"},
 		dom.Div(
 			Attrs{"class": "container mx-auto px-6"},
 			dom.Div(
 				Attrs{"class": "text-center mb-16"},
-				dom.H2(Attrs{"class": "text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent"}, "Powerful Features"),
-				dom.P(Attrs{"class": "text-xl text-gray-600 max-w-3xl mx-auto"}, "Everything you need to build modern web applications with Go"),
+				dom.H2(Attrs{"class": "text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent"}, "Powerful Features"),
+				dom.P(Attrs{"class": "text-xl text-gray-400 max-w-3xl mx-auto"}, "Everything you need to build modern web applications with Go"),
 			),
 			dom.Div(
 				Attrs{"class": "grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto"},
@@ -130,9 +130,9 @@ func FeaturesSection(_ Attrs) *Element {
 // Includes hover animations and gradient styling for enhanced visual appeal.
 func FeatureCard(icon, title, description string) *Element {
 	return dom.Div(
-		Attrs{"class": "bg-gradient-to-br from-gray-50 to-gray-100 p-8 rounded-2xl hover:shadow-lg transition-all duration-300 border border-gray-200 hover:border-indigo-200 group"},
+		Attrs{"class": "bg-white/5 p-8 rounded-2xl hover:shadow-lg transition-all duration-300 border border-white/10 hover:border-indigo-500/50 group backdrop-blur-sm"},
 		dom.Div(Attrs{"class": "text-4xl mb-4 group-hover:scale-110 transition-transform duration-300"}, icon),
-		dom.H3(Attrs{"class": "text-xl font-bold text-gray-900 mb-4"}, title),
-		dom.P(Attrs{"class": "text-gray-600 leading-relaxed"}, description),
+		dom.H3(Attrs{"class": "text-xl font-bold text-white mb-4"}, title),
+		dom.P(Attrs{"class": "text-gray-400 leading-relaxed"}, description),
 	)
 }

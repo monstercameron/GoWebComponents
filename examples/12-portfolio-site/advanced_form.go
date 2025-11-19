@@ -1,7 +1,7 @@
 //go:build js && wasm
 // +build js,wasm
 
-package website
+package main
 
 import (
 	"fmt"
@@ -30,11 +30,6 @@ func AdvancedFormExample(_ Attrs) *Element {
 	isSubmitting, setIsSubmitting := hooks.UseState(false)
 	submitStatus, setSubmitStatus := hooks.UseState("")
 	passwordStrength, setPasswordStrength := hooks.UseState(0)
-
-	// Dynamic source code fetching for code view functionality
-	sourceUrl := "https://raw.githubusercontent.com/monstercameron/GoWebComponents/refs/heads/master/website/advanced_form.go"
-	getFetchState, refetchSource := hooks.UseFetch(sourceUrl)
-	fetchState := getFetchState()
 
 	// Calculate password strength when password changes
 	hooks.UseEffect(func() func() {
@@ -428,90 +423,6 @@ func AdvancedFormExample(_ Attrs) *Element {
 					}
 				}(),
 			),
-		),
-
-		// Source Code Preview Section
-		dom.Div(
-			Attrs{"class": "mt-12 border-t border-gray-200 pt-8"},
-			dom.H3(Attrs{"class": "text-xl font-semibold text-gray-900 mb-4"}, "📋 Advanced Form Source Code"),
-			dom.P(Attrs{"class": "text-gray-600 mb-4"},
-				"This section fetches and displays the source code for this advanced form example using hooks.UseFetch."),
-
-			// Fetch controls
-			dom.Div(
-				Attrs{"class": "flex items-center gap-4 mb-4"},
-				dom.Button(
-					Attrs{
-						"onclick": hooks.GoUseFunc(func(event dom.GoEvent) {
-							refetchSource()
-						}),
-						"class": func() string {
-							if fetchState.Loading {
-								return "px-4 py-2 bg-gray-400 text-white rounded-md cursor-not-allowed"
-							}
-							return "px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-						}(),
-						"disabled": fetchState.Loading,
-					},
-					func() string {
-						if fetchState.Loading {
-							return "🔄 Fetching..."
-						}
-						return "🔄 Refresh Source"
-					}(),
-				),
-				dom.Span(Attrs{"class": "text-sm text-gray-500"},
-					fmt.Sprintf("Source URL: %s", sourceUrl)),
-			),
-
-			// Source code display
-			func() *Element {
-				if fetchState.Loading {
-					return dom.Div(
-						Attrs{"class": "p-6 bg-gray-50 border border-gray-200 rounded-lg"},
-						dom.P(Attrs{"class": "text-blue-600 flex items-center gap-2"},
-							dom.Span(nil, "🔄"),
-							"Loading source code...",
-						),
-					)
-				} else if fetchState.Error != "" {
-					return dom.Div(
-						Attrs{"class": "p-6 bg-red-50 border border-red-200 rounded-lg"},
-						dom.P(Attrs{"class": "text-red-600 font-semibold mb-2"}, "❌ Error fetching source code"),
-						dom.P(Attrs{"class": "text-red-600 text-sm"}, fetchState.Error),
-						dom.Button(
-							Attrs{
-								"onclick": hooks.GoUseFunc(func(event dom.GoEvent) {
-									refetchSource()
-								}),
-								"class": "mt-3 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors",
-							},
-							"🔄 Retry",
-						),
-					)
-				} else if fetchState.Data != nil {
-					// Convert the fetched data to string
-					sourceCode := fmt.Sprintf("%v", fetchState.Data)
-					return dom.Div(
-						Attrs{"class": "bg-gray-900 rounded-lg overflow-hidden"},
-						dom.Div(
-							Attrs{"class": "bg-gray-800 px-4 py-2 border-b border-gray-700"},
-							dom.P(Attrs{"class": "text-gray-300 text-sm font-mono"}, "advanced_form.go"),
-						),
-						dom.Pre(
-							Attrs{
-								"class": "p-6 text-sm text-gray-100 font-mono overflow-x-auto",
-								"style": "max-height: 500px; overflow-y: auto;",
-							},
-							dom.Code(nil, sourceCode),
-						),
-					)
-				}
-				return dom.Div(
-					Attrs{"class": "p-6 bg-gray-50 border border-gray-200 rounded-lg"},
-					dom.P(Attrs{"class": "text-gray-600"}, "No source code available"),
-				)
-			}(),
 		),
 	)
 }

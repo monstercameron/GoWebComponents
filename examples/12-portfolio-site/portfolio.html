@@ -7,11 +7,11 @@
     <link rel="stylesheet" href="../static/css/tailwind.css">
     <script src="../static/script/wasm_exec.js"></script>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-[#0a0a0a] min-h-screen">
     <div id="app"></div>
     <script>
         const go = new Go();
-        WebAssembly.instantiateStreaming(fetch('../static/bin/portfolio.wasm'), go.importObject)
+        WebAssembly.instantiateStreaming(fetch('../static/bin/portfolio-site.wasm'), go.importObject)
             .then(result => go.run(result.instance))
             .catch(err => console.error('Failed to load WASM:', err));
     </script>

@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/dom"
 	"github.com/monstercameron/GoWebComponents/hooks"
@@ -20,81 +19,82 @@ func TextInputExample(_ Attrs) *Element {
 	text, setText := hooks.UseState("")
 	currentText := text()
 
-	handleInput := func(this js.Value, args []js.Value) interface{} {
-		if len(args) > 0 {
-			newText := args[0].Get("target").Get("value").String()
-			setText(newText)
-		}
-		return nil
-	}
+	handleInput := hooks.GoUseFunc(func(event dom.GoEvent) {
+		setText(event.GetValue())
+	})
 
-	clear := func(this js.Value, args []js.Value) interface{} {
+	clear := hooks.GoUseFunc(func(event dom.GoEvent) {
 		setText("")
-		return nil
-	}
+	})
 
 	return dom.Div(Attrs{
-		"class": "max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-lg",
+		"class": "min-h-screen flex items-center justify-center bg-[#0a0a0a] text-white p-4",
 	},
-		dom.H2(Attrs{
-			"class": "text-2xl font-bold text-gray-800 mb-4",
-		}, dom.Text("Text Input Example")),
-
 		dom.Div(Attrs{
-			"class": "mb-4",
+			"class": "max-w-md w-full bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm p-8 shadow-2xl",
 		},
-			dom.Label(Attrs{
-				"class": "block text-gray-700 text-sm font-bold mb-2",
-			}, dom.Text("Type something:")),
+			dom.H2(Attrs{
+				"class": "text-3xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500",
+			}, dom.Text("Text Input Example")),
 
-			dom.Input(Attrs{
-				"type":        "text",
-				"value":       currentText,
-				"oninput":     js.FuncOf(handleInput),
-				"class":       "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black",
-				"placeholder": "Enter text here...",
-			}),
-		),
+			dom.Div(Attrs{
+				"class": "mb-6",
+			},
+				dom.Label(Attrs{
+					"class": "block text-gray-400 text-sm font-bold mb-2 uppercase tracking-wider",
+				}, dom.Text("Type something")),
 
-		dom.Div(Attrs{
-			"class": "mb-4",
-		},
-			dom.Button(Attrs{
-				"onclick": js.FuncOf(clear),
-				"class":   "px-4 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors",
-			}, dom.Text("Clear")),
-		),
+				dom.Input(Attrs{
+					"type":        "text",
+					"value":       currentText,
+					"oninput":     handleInput,
+					"class":       "w-full px-4 py-3 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-white placeholder-gray-600 transition-all",
+					"placeholder": "Enter text here...",
+				}),
+			),
 
-		dom.Div(Attrs{
-			"class": "p-4 bg-gray-50 rounded-lg",
-		},
-			dom.P(Attrs{
-				"class": "text-gray-700 mb-2",
-			}, dom.Text(fmt.Sprintf("You typed: %s", currentText))),
+			dom.Div(Attrs{
+				"class": "mb-8",
+			},
+				dom.Button(Attrs{
+					"onclick": clear,
+					"class":   "w-full px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 font-semibold rounded-lg transition-colors",
+				}, dom.Text("Clear Text")),
+			),
 
-			dom.P(Attrs{
-				"class": "text-gray-600 text-sm",
-			}, dom.Text(fmt.Sprintf("Character count: %d", len(currentText)))),
+			dom.Div(Attrs{
+				"class": "p-6 bg-black/20 rounded-lg border border-white/5",
+			},
+				dom.P(Attrs{
+					"class": "text-gray-400 text-xs uppercase tracking-widest mb-2",
+				}, dom.Text("Live Preview")),
+				dom.P(Attrs{
+					"class": "text-xl text-white mb-4 font-medium break-all",
+				}, dom.Text(func() string {
+					if currentText == "" {
+						return "..."
+					}
+					return currentText
+				}())),
+
+				dom.Div(Attrs{
+					"class": "flex justify-between items-center pt-4 border-t border-white/5",
+				},
+					dom.Span(Attrs{
+						"class": "text-gray-500 text-xs",
+					}, dom.Text("Character count")),
+					dom.Span(Attrs{
+						"class": "text-blue-400 font-mono font-bold",
+					}, dom.Text(fmt.Sprintf("%d", len(currentText)))),
+				),
+			),
 		),
 	)
 }
 
 func main() {
 	fmt.Println("🚀 Text Input Example Started")
-
-	// Find the DOM container
-	container := js.Global().Get("document").Call("getElementById", "app")
-	if container.IsUndefined() || container.IsNull() {
-		fmt.Println("❌ No element with id 'app' found!")
-		return
-	}
-
-	// Create and render the element
-	element := dom.CreateElement(TextInputExample, nil)
-	render.ToElement(element, container)
-
+	render.To(dom.CreateElement(TextInputExample, nil), "#app")
 	fmt.Println("✅ Text Input Example Rendered")
-
-	// Keep the Go program running
 	select {}
 }

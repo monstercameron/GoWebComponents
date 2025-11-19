@@ -1,7 +1,7 @@
 //go:build js && wasm
 // +build js,wasm
 
-package website
+package main
 
 import (
 	"github.com/monstercameron/GoWebComponents/dom"
@@ -12,7 +12,7 @@ import (
 // to key sections of the application for improved user experience.
 func NotFoundPage(_ Attrs) *Element {
 	return dom.Div(
-		Attrs{"class": "min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center"},
+		Attrs{"class": "min-h-screen bg-[#0a0a0a] flex items-center justify-center"},
 
 		// Main 404 content
 		dom.Div(
@@ -22,7 +22,7 @@ func NotFoundPage(_ Attrs) *Element {
 			dom.Div(
 				Attrs{"class": "mb-8"},
 				dom.H1(
-					Attrs{"class": "text-9xl font-bold text-gray-300 mb-4"},
+					Attrs{"class": "text-9xl font-bold text-white/10 mb-4"},
 					"404",
 				),
 				dom.Div(
@@ -33,11 +33,11 @@ func NotFoundPage(_ Attrs) *Element {
 
 			// Error message
 			dom.H2(
-				Attrs{"class": "text-3xl md:text-4xl font-bold text-gray-900 mb-4"},
+				Attrs{"class": "text-3xl md:text-4xl font-bold text-white mb-4"},
 				"Page Not Found",
 			),
 			dom.P(
-				Attrs{"class": "text-xl text-gray-600 mb-8 leading-relaxed"},
+				Attrs{"class": "text-xl text-gray-400 mb-8 leading-relaxed"},
 				"Oops! The page you're looking for doesn't exist. It might have been moved, deleted, or you entered the wrong URL.",
 			),
 
@@ -53,7 +53,7 @@ func NotFoundPage(_ Attrs) *Element {
 				),
 				dom.Button(
 					Attrs{
-						"class":   "px-8 py-4 bg-white text-gray-800 rounded-xl border-2 border-gray-200 hover:border-indigo-300 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 font-semibold text-lg cursor-pointer",
+						"class":   "px-8 py-4 bg-white/5 text-white rounded-xl border-2 border-white/10 hover:border-indigo-500/50 hover:bg-white/10 transition-all duration-300 transform hover:-translate-y-1 font-semibold text-lg cursor-pointer",
 						"onclick": "window.location.hash = '#/docs'",
 					},
 					"📚 View Docs",
@@ -62,9 +62,9 @@ func NotFoundPage(_ Attrs) *Element {
 
 			// Helpful links
 			dom.Div(
-				Attrs{"class": "mt-12 pt-8 border-t border-gray-200"},
+				Attrs{"class": "mt-12 pt-8 border-t border-white/10"},
 				dom.P(
-					Attrs{"class": "text-gray-500 mb-4"},
+					Attrs{"class": "text-gray-400 mb-4"},
 					"Here are some helpful links:",
 				),
 				dom.Div(
@@ -72,14 +72,14 @@ func NotFoundPage(_ Attrs) *Element {
 					dom.A(
 						Attrs{
 							"href":  "#/",
-							"class": "text-indigo-600 hover:text-indigo-800 font-medium transition-colors duration-200",
+							"class": "text-indigo-400 hover:text-indigo-300 font-medium transition-colors duration-200",
 						},
 						"🏠 Home",
 					),
 					dom.A(
 						Attrs{
 							"href":  "#/docs",
-							"class": "text-indigo-600 hover:text-indigo-800 font-medium transition-colors duration-200",
+							"class": "text-indigo-400 hover:text-indigo-300 font-medium transition-colors duration-200",
 						},
 						"📚 Documentation",
 					),
@@ -87,7 +87,7 @@ func NotFoundPage(_ Attrs) *Element {
 						Attrs{
 							"href":   "https://github.com/monstercameron/GoWebComponents",
 							"target": "_blank",
-							"class":  "text-indigo-600 hover:text-indigo-800 font-medium transition-colors duration-200",
+							"class":  "text-indigo-400 hover:text-indigo-300 font-medium transition-colors duration-200",
 						},
 						"🐙 GitHub",
 					),
