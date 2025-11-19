@@ -1,0 +1,19 @@
+{
+  "name": "gowebcomponents-tests",
+  "version": "1.0.0",
+  "description": "Playwright tests for GoWebComponents WASM",
+  "type": "module",
+  "scripts": {
+    "prebuild": "node -e \"const fs = require('fs'); const path = require('path'); const wasmPath = path.join(__dirname, 'testapp', 'main.wasm'); if (fs.existsSync(wasmPath)) fs.unlinkSync(wasmPath);\"",
+    "build": "npm run prebuild && cd testapp && set GOOS=js&& set GOARCH=wasm&& go build -o main.wasm",
+    "pretest": "npm run build",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "install:browsers": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  }
+}

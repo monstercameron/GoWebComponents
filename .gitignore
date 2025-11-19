@@ -1,6 +1,77 @@
+# OS-specific files
 .DS_Store
-static/bin/main.wasm
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Compiled binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.wasm
+
+# Test binaries
+*.test
+*.out
+
+# Build artifacts
+/bin/
+/dist/
+/build/
+static/bin/
 go-compiler-wasm
 go-source
-*.exe
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# IDE and editor files
 .vscode/
+.idea/
+*.iml
+*.sublime-*
+.history/
+
+# Dependency directories
+vendor/
+node_modules/
+.npm-cache/
+examples/static/.npm-cache/
+examples/static/node_modules/
+package-lock.json
+
+# Go cache and temporary files
+.gocache/
+go.work
+go.work.sum
+
+# Coverage and test output
+*.coverprofile
+coverage.html
+coverage.out
+*.test.log
+test-output*.txt
+
+# Playwright test artifacts
+test/playwright-report/
+test/test-results/
+test/.playwright/
+playwright-report/
+test-results/
+
+# Environment and config files (if sensitive)
+.env
+.env.local
+*.key
+*.pem
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.txt

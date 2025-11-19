@@ -1,0 +1,12 @@
+node_modules/
+package-lock.json
+playwright-report/
+test-results/
+playwright/.cache/
+.gocache/
+*.wasm
+test-output*.txt
+testapp/main
+testapp/*.wasm
+testapp/static/bin/*.wasm
+static/bin/*.wasm
