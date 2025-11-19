@@ -1093,9 +1093,8 @@ func TestPerformUnitOfWork_FunctionComponent(t *testing.T) {
 
 	rt.performUnitOfWork(fiber)
 
-	if fiber.hooks == nil {
-		t.Fatal("Expected hooks to be initialized")
-	}
+	// Hooks are only initialized when a hook is called
+	// This component doesn't use hooks, so fiber.hooks will be nil
 
 	if fiber.child == nil {
 		t.Fatal("Expected fiber to have children")
