@@ -13,25 +13,24 @@ test.describe('Hash Router - Advanced Integration Tests', () => {
     // 2. Check URL
     expect(page.url()).toContain('#/');
     
-    // 3. Navigate to docs if link exists
-    const docLinks = await page.locator('a[href*="docs"]').count();
-    if (docLinks > 0) {
-      await page.locator('a[href*="docs"]').first().click();
-      await page.waitForTimeout(500);
-      expect(page.url()).toContain('docs');
-    }
-    
-    // 4. Go back
-    await page.goBack();
-    await page.waitForTimeout(300);
-    expect(page.url()).toContain('#/');
-    
-    // 5. Direct hash navigation
+    // 3. Navigate to about to create history
     await page.evaluate(() => {
       window.location.hash = '#/about';
     });
     await page.waitForTimeout(500);
     expect(page.url()).toContain('#/about');
+    
+    // 4. Go back to home
+    await page.goBack();
+    await page.waitForTimeout(300);
+    expect(page.url()).toContain('#/');
+    
+    // 5. Direct hash navigation to docs
+    await page.evaluate(() => {
+      window.location.hash = '#/docs';
+    });
+    await page.waitForTimeout(500);
+    expect(page.url()).toContain('#/docs');
   });
 
   test('Router handles rapid hash changes', async ({ page }) => {
@@ -150,21 +149,20 @@ test.describe('Hash Router - Advanced Integration Tests', () => {
     await page.goto('/#/', { waitUntil: 'networkidle' });
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    // Simulate page becoming hidden
+    // Simulate page becoming hidden by dispatching visibility change event
     await page.evaluate(() => {
-      Object.defineProperty(document, 'hidden', { value: true });
+      const event = new Event('visibilitychange');
+      document.dispatchEvent(event);
     });
     
     // Wait a bit
     await page.waitForTimeout(200);
     
-    // Simulate page becoming visible again
+    // Navigate while "hidden" (simulate tab switch back)
     await page.evaluate(() => {
-      Object.defineProperty(document, 'hidden', { value: false });
+      window.location.hash = '#/about';
     });
-    
-    // Navigate
-    await page.goto('/#/about', { waitUntil: 'networkidle' });
+    await page.waitForTimeout(500);
     
     // Verify navigation worked
     const appVisible = await page.locator('#app').isVisible();

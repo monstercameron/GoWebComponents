@@ -2,7 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './specs',
-  testIgnore: '**/12-portfolio-site*.spec.ts', // Ignore portfolio site tests (require examples server)
+  testIgnore: [
+    '**/12-portfolio-site*.spec.ts', // Portfolio site tests require examples server
+  ],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

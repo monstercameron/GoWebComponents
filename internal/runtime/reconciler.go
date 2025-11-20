@@ -509,7 +509,7 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 		default:
 			// Function component
 			currentFiber = fiber
-			// Preserve hooks from alternate fiber
+			// Preserve hooks from alternate fiber or initialize new hooks
 			if fiber.alternate != nil && fiber.alternate.hooks != nil {
 				// Reuse the hooks struct to avoid allocations and preserve closures
 				fiber.hooks = fiber.alternate.hooks
@@ -526,6 +526,9 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 				fiber.hooks.funcIndex = 0
 				fiber.hooks.atomIndex = 0
 				fiber.hooks.cleanupIndex = 0
+			} else {
+				// Initialize hooks for first render
+				fiber.hooks = &Hooks{}
 			}
 
 			// Clear effects
