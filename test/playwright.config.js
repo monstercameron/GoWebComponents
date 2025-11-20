@@ -10,23 +10,16 @@ export default defineConfig({
   reporter: 'list',
   
   use: {
-    baseURL: 'http://127.0.0.1:5500',
+    baseURL: 'http://127.0.0.1:8081',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
 
-  // projects: [
-  //   {
-  //     name: 'chromium',
-  //     use: { ...devices['Desktop Chrome'] },
-  //   },
-  // ],
-
   // Run local dev server before tests
-  // webServer: {
-  //   command: 'node serve-examples.js',
-  //   url: 'http://localhost:8082',
-  //   reuseExistingServer: !process.env.CI,
-  //   timeout: 120 * 1000,
-  // },
+  webServer: {
+    command: 'node server.js',
+    url: 'http://localhost:8081',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000,
+  },
 });
