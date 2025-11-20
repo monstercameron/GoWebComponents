@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="static/images/hero.jpg" alt="GoWebComponents Hero Image" width="600">
+  <img src="hero.jpg" alt="GoWebComponents Hero Image" width="600">
 </p>
 
 <p align="center">
