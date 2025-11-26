@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Website 2025 - Real-time Go WASM Compiler</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="script/personal-website-2025-virtual-fs.js"></script>
+    <script src="script/fs-polyfill.js"></script>
+    <script src="script/wasm_exec.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #1a1a2e;
+            --bg-tertiary: #16213e;
+            --accent-primary: #4f46e5;
+            --accent-secondary: #7c3aed;
+            --accent-tertiary: #06b6d4;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --terminal-bg: #0f172a;
+            --terminal-border: #334155;
+        }
+
+        body {
+            font-family: 'Crimson Text', Georgia, serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%, var(--bg-primary) 100%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+        }
+
+        .font-mono { font-family: 'JetBrains Mono', 'Monaco', monospace; }
+        .font-sans { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+        .font-serif { font-family: 'Crimson Text', Georgia, serif; }
+
+        /* Fancy loading spinner with gradient */
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(79, 70, 229, 0.1);
+            border-top: 3px solid var(--accent-primary);
+            border-right: 3px solid var(--accent-secondary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            box-shadow: 0 0 20px rgba(79, 70, 229, 0.3);
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Glowing text effect for headers */
+        .glow-text {
+            text-shadow: 0 0 10px rgba(79, 70, 229, 0.5), 0 0 20px rgba(79, 70, 229, 0.3), 0 0 30px rgba(79, 70, 229, 0.1);
+        }
+
+        /* Classic progress bar */
+        .progress-bar {
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            transition: width 0.5s ease-in-out;
+            box-shadow: 0 0 10px rgba(79, 70, 229, 0.3);
+        }
+
+        /* Stage status colors with glow effects */
+        .stage-complete { 
+            color: var(--success); 
+            text-shadow: 0 0 5px rgba(16, 185, 129, 0.5);
+        }
+        .stage-active { 
+            color: var(--accent-primary); 
+            text-shadow: 0 0 5px rgba(79, 70, 229, 0.5);
+            animation: pulse 2s infinite;
+        }
+        .stage-pending { color: var(--text-muted); }
+        .stage-error { 
+            color: var(--error); 
+            text-shadow: 0 0 5px rgba(239, 68, 68, 0.5);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Terminal-style console */
+        .console-output {
+            background: var(--terminal-bg);
+            border: 1px solid var(--terminal-border);
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 20px rgba(6, 182, 212, 0.1);
+        }
+
+        /* Fancy card backgrounds */
+        .glass-card {
+            background: rgba(26, 26, 46, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(79, 70, 229, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Nerdy matrix-style background animation */
+        .matrix-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.03;
+            z-index: -1;
+        }
+
+        /* Custom scrollbar */
+        .console-output::-webkit-scrollbar {
+            width: 6px;
+        }
+        .console-output::-webkit-scrollbar-track {
+            background: var(--terminal-bg);
+        }
+        .console-output::-webkit-scrollbar-thumb {
+            background: var(--accent-primary);
+            border-radius: 3px;
+        }
+
+        /* Button hover effects */
+        .btn-fancy {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .btn-fancy:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 70, 229, 0.4);
+        }
+        .btn-fancy::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+        .btn-fancy:hover::before {
+            left: 100%;
+        }
+
+        /* Mac Terminal Styling */
+        .mac-terminal-window {
+            background: #1e1e1e;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 1px solid #3a3a3a;
+            overflow: hidden;
+        }
+
+        .mac-terminal-titlebar {
+            background: linear-gradient(180deg, #4a4a4a 0%, #2e2e2e 100%);
+            border-bottom: 1px solid #1a1a1a;
+            padding: 12px 0;
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+        }
+
+        .mac-terminal-content {
+            background: #1e1e1e;
+            padding: 20px;
+            font-family: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #00ff00;
+            overflow-y: auto;
+            max-height: calc(100vh - 300px);
+            min-height: 400px;
+        }
+
+        .mac-terminal-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .mac-terminal-content::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+        .mac-terminal-content::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 4px;
+        }
+        .mac-terminal-content::-webkit-scrollbar-thumb:hover {
+            background: #777;
+        }
+
+        /* Mega Launch Button */
+        .mega-launch-btn {
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(16, 185, 129, 0.3), 0 0 0 1px rgba(16, 185, 129, 0.2);
+            animation: mega-btn-glow 3s ease-in-out infinite alternate;
+        }
+        
+        .mega-launch-btn::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #10b981, #06d6a0, #10b981, #06d6a0);
+            border-radius: 18px;
+            z-index: -1;
+            animation: mega-btn-border 2s linear infinite;
+        }
+        
+        .mega-launch-btn:hover {
+            box-shadow: 0 25px 50px rgba(16, 185, 129, 0.5), 0 0 0 1px rgba(16, 185, 129, 0.4);
+        }
+        
+        @keyframes mega-btn-glow {
+            0% { box-shadow: 0 20px 40px rgba(16, 185, 129, 0.3), 0 0 20px rgba(16, 185, 129, 0.2); }
+            100% { box-shadow: 0 25px 50px rgba(16, 185, 129, 0.4), 0 0 30px rgba(16, 185, 129, 0.3); }
+        }
+        
+        @keyframes mega-btn-border {
+            0%, 100% { background: linear-gradient(45deg, #10b981, #06d6a0, #10b981, #06d6a0); }
+            50% { background: linear-gradient(45deg, #06d6a0, #10b981, #06d6a0, #10b981); }
+        }
+
+        /* Fade out animation for app transition */
+        .fade-out {
+            animation: fadeOut 1s ease-in-out forwards;
+        }
+        
+        @keyframes fadeOut {
+            0% { 
+                opacity: 1; 
+                transform: scale(1);
+            }
+            100% { 
+                opacity: 0; 
+                transform: scale(0.95);
+            }
+        }
+
+        /* Root container for Go application */
+        #root {
+            width: 100%;
+            height: 100vh;
+            background: var(--bg-primary);
+            opacity: 0;
+            animation: fadeIn 0.8s ease-in-out 0.2s forwards;
+        }
+        
+        @keyframes fadeIn {
+            0% { 
+                opacity: 0; 
+                transform: scale(1.05);
+            }
+            100% { 
+                opacity: 1; 
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+<body class="h-screen bg-gray-900 overflow-hidden">
+    
+    <!-- Simple Split Layout -->
+    <div class="flex flex-col h-full p-4 gap-4">
+        
+        <!-- Editor Section (Top Half) -->
+        <div class="flex-1 flex flex-col min-h-0 border border-gray-700 rounded bg-gray-800 shadow-lg">
+            <div class="px-4 py-2 bg-gray-800 text-gray-400 text-xs font-mono border-b border-gray-700 flex justify-between items-center">
+                <span>main.go</span>
+                <span class="text-gray-600">Go 1.21</span>
+            </div>
+            <textarea id="code-editor" class="flex-1 w-full p-4 bg-[#1e1e1e] text-[#d4d4d4] font-mono text-sm focus:outline-none resize-none leading-relaxed" spellcheck="false">package main
+
+import "fmt"
+
+func main() {
+	fmt.Println("Hello from Browser Compiler!")
+	fmt.Println("This code was compiled in your browser.")
+}</textarea>
+        </div>
+
+        <!-- Terminal Section (Bottom Half) -->
+        <div class="flex-1 flex flex-col min-h-0 border border-gray-700 rounded bg-black shadow-lg">
+            <div class="px-4 py-1 bg-gray-800 text-gray-500 text-xs font-mono border-b border-gray-700">
+                Terminal
+            </div>
+            <div class="flex-1 p-4 overflow-y-auto font-mono text-sm" id="terminal-container" onclick="document.getElementById('terminal-input').focus()">
+                <div class="text-gray-500 mb-2">Go WebAssembly Compiler Environment v1.0.0</div>
+                <div id="console-output" class="text-green-400 whitespace-pre-wrap leading-snug"></div>
+                <div class="flex items-center mt-1">
+                    <span class="text-green-500 mr-2">$</span>
+                    <input type="text" id="terminal-input" class="flex-1 bg-transparent border-none outline-none text-green-400 focus:ring-0 p-0 m-0" autocomplete="off" spellcheck="false">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden App Container (for DOM-based apps if needed later) -->
+    <div id="app" class="hidden"></div>
+
+    <!-- Load JavaScript modules in order -->
+    <script src="script/wasm_exec.js"></script>
+    <script src="script/personal-website-2025-cache-manager.js"></script>
+    <script src="script/personal-website-2025-github-fetcher.js"></script>
+    <!-- Virtual FS loaded in head -->
+    <script src="script/personal-website-2025-compilation-manager.js"></script>
+    <script src="script/personal-website-2025-app-runner.js"></script>
+    <script src="script/personal-website-2025-main.js"></script>
+    
+    <script>
+        // Simplified UI helpers
+        function addConsoleOutput(text, noNewline = false) {
+            const console = document.getElementById('console-output');
+            const terminalContainer = document.getElementById('terminal-container');
+            
+            // Simple text output
+            console.textContent += text + (noNewline ? '' : '\n');
+            
+            // Auto-scroll
+            terminalContainer.scrollTop = terminalContainer.scrollHeight;
+        }
+
+        function showError(message) {
+            addConsoleOutput(`Error: ${message}`);
+        }
+
+        // No-op functions for compatibility with existing JS
+        function updateProgress(p) {}
+        function updateProgressText(t) {}
+        function setStageStatus(s, st) {}
+        function showReadyState() {}
+
+        // Main initialization
+        document.addEventListener('DOMContentLoaded', async () => {
+             try {
+                 // Initialize global instance
+                 pws2025 = new PersonalWebsite2025();
+                 
+                 // Initialize with simplified callbacks
+                 await pws2025.init({
+                     addConsoleOutput,
+                     showError,
+                     updateProgress: () => {},
+                     updateProgressText: () => {},
+                     setStageStatus: () => {},
+                     showReadyState: () => {}
+                 });
+                 
+             } catch (error) {
+                 addConsoleOutput(`System Error: ${error.message}`);
+             }
+         });
+    </script>
+</body>
+</html> 
