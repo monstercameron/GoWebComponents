@@ -96,6 +96,12 @@ func (rt *Runtime) workLoop(deadline Deadline) {
 
 // Render starts rendering a component tree
 func (rt *Runtime) Render(element *Element, container DOMNode) {
+	schedulerMu.Lock()
+	defer schedulerMu.Unlock()
+
+	shouldSchedule := !rt.updateScheduled
+	rt.updateScheduled = true
+
 	// Optimization: Break the alternate chain on the current root
 	if rt.currentRoot != nil {
 		rt.currentRoot.alternate = nil
@@ -117,7 +123,9 @@ func (rt *Runtime) Render(element *Element, container DOMNode) {
 	} else {
 		rt.deletions = rt.deletions[:0]
 	}
-	rt.scheduler.SetTimeout(rt.getContinueWorkFn(), 0)
+	if shouldSchedule {
+		rt.scheduler.SetTimeout(rt.getContinueWorkFn(), 0)
+	}
 }
 
 // ScheduleUpdateForFiber schedules an update for a specific fiber

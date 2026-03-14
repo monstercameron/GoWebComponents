@@ -4,6 +4,7 @@
 package router
 
 import (
+	"reflect"
 	"strings"
 	"sync"
 	"syscall/js"
@@ -28,14 +29,16 @@ type RouterOptions struct {
 
 // Router manages routes and navigation for single-page applications.
 type Router struct {
-	routes         map[string]Component
+	routes         map[string]routeFactory
 	defaultRoute   string
-	notFound       Component
+	notFound       routeFactory
 	targetSelector string
 	targetElement  js.Value
 	listening      bool
 	routerType     string // "hash" or "history"
 }
+
+type routeFactory func() *render.Element
 
 // NewHashRouter creates a hash-based router that reads from window.location.hash.
 func NewHashRouter(options ...RouterOptions) *Router {
@@ -45,7 +48,7 @@ func NewHashRouter(options ...RouterOptions) *Router {
 	}
 
 	return &Router{
-		routes:       make(map[string]Component),
+		routes:       make(map[string]routeFactory),
 		defaultRoute: cfg.DefaultRoute,
 		routerType:   "hash",
 	}
@@ -61,7 +64,7 @@ func NewRouter(options RouterOptions) *Router {
 	}
 
 	router := &Router{
-		routes:       make(map[string]Component),
+		routes:       make(map[string]routeFactory),
 		defaultRoute: options.DefaultRoute,
 		routerType:   "history",
 	}
@@ -88,8 +91,13 @@ func (r *Router) setupHistoryListener() {
 
 // GoRegisterRoute registers a route on the router instance.
 func (r *Router) GoRegisterRoute(path string, component interface{}, options ...Options) {
+	r.Register(path, component, options...)
+}
+
+// Register registers a route using either a component function or a static node.
+func (r *Router) Register(path string, component interface{}, options ...Options) {
 	if r.routes == nil {
-		r.routes = make(map[string]Component)
+		r.routes = make(map[string]routeFactory)
 	}
 
 	normalize := path
@@ -97,15 +105,7 @@ func (r *Router) GoRegisterRoute(path string, component interface{}, options ...
 		normalize = "/"
 	}
 
-	switch comp := component.(type) {
-	case Component:
-		r.routes[normalize] = comp
-	case *render.Element:
-		// Wrap static element in a component function
-		r.routes[normalize] = func(dom.Attrs) *render.Element { return comp }
-	default:
-		panic("router: unsupported component type")
-	}
+	r.routes[normalize] = makeRouteFactory(component)
 
 	if normalize == "*" {
 		r.notFound = r.routes[normalize]
@@ -114,22 +114,27 @@ func (r *Router) GoRegisterRoute(path string, component interface{}, options ...
 
 // GoGetRoute returns the element for the current route.
 func (r *Router) GoGetRoute() *render.Element {
+	return r.Current()
+}
+
+// Current returns the current route element.
+func (r *Router) Current() *render.Element {
 	path := r.GetCurrentRouterPath()
 	if path == "" {
 		path = r.defaultRoute
 	}
 
 	if comp, ok := r.routes[path]; ok {
-		return dom.CreateElement(comp, nil)
+		return comp()
 	}
 
 	if r.notFound != nil {
-		return dom.CreateElement(r.notFound, nil)
+		return r.notFound()
 	}
 
 	if r.defaultRoute != "" {
 		if comp, ok := r.routes[r.defaultRoute]; ok {
-			return dom.CreateElement(comp, nil)
+			return comp()
 		}
 	}
 
@@ -174,14 +179,11 @@ func (r *Router) ensureListener() {
 	})
 	js.Global().Get("window").Call("addEventListener", "hashchange", handler)
 	registerCleanup(handler)
-
-	// Render current route for initial load to keep router in sync even if hash was set before mount.
-	r.renderCurrentRoute()
 }
 
 // RegisterRoute registers a route with the global router.
 func RegisterRoute(path string, component interface{}, options ...Options) {
-	GetRouter().GoRegisterRoute(path, component, options...)
+	GetRouter().Register(path, component, options...)
 }
 
 // GetCurrentRouterPath returns the current path from a router instance based on its type.
@@ -213,11 +215,11 @@ func (r *Router) Navigate(path string) {
 	if r.routerType == "history" {
 		// For history router, use pushState
 		js.Global().Get("history").Call("pushState", nil, "", path)
+		r.renderCurrentRoute()
 	} else {
-		// For hash router, use hash
+		// Hash routers re-render through the hashchange listener.
 		js.Global().Get("location").Set("hash", path)
 	}
-	r.renderCurrentRoute()
 }
 
 // NavigateReplace replaces the current history entry using the appropriate method for this router type.
@@ -225,12 +227,12 @@ func (r *Router) NavigateReplace(path string) {
 	if r.routerType == "history" {
 		// For history router, use replaceState
 		js.Global().Get("history").Call("replaceState", nil, "", path)
+		r.renderCurrentRoute()
 	} else {
-		// For hash router, use replace
+		// Hash routers re-render through the hashchange listener.
 		loc := js.Global().Get("location")
 		loc.Call("replace", "#"+strings.TrimPrefix(path, "#"))
 	}
-	r.renderCurrentRoute()
 }
 
 // Navigate updates the URL using the appropriate method for the current router.
@@ -250,7 +252,7 @@ func GetCurrentPath() string {
 
 // GetRoute returns the component for the current route as an Element.
 func GetRoute() *render.Element {
-	return GetRouter().GoGetRoute()
+	return GetRouter().Current()
 }
 
 // GetRouter returns the global router instance.
@@ -288,4 +290,42 @@ func registerCleanup(handler js.Func) {
 		})
 		js.Global().Get("window").Call("addEventListener", "beforeunload", unload)
 	})
+}
+
+func makeRouteFactory(component interface{}) routeFactory {
+	if component == nil {
+		panic("router: component cannot be nil")
+	}
+
+	if element, ok := component.(*render.Element); ok {
+		return func() *render.Element {
+			return element
+		}
+	}
+
+	value := reflect.ValueOf(component)
+	if !value.IsValid() || value.Kind() != reflect.Func {
+		panic("router: unsupported component type")
+	}
+
+	typ := value.Type()
+	if typ.NumOut() != 1 {
+		panic("router: route component must return one element")
+	}
+
+	return func() *render.Element {
+		args := []reflect.Value{}
+		if typ.NumIn() == 1 {
+			arg := reflect.Zero(typ.In(0))
+			args = append(args, arg)
+		}
+
+		results := value.Call(args)
+		if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
+			return nil
+		}
+
+		element, _ := results[0].Interface().(*render.Element)
+		return element
+	}
 }

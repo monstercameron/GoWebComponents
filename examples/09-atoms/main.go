@@ -6,138 +6,134 @@ package main
 import (
 	"fmt"
 
-	"github.com/monstercameron/GoWebComponents/dom"
-	"github.com/monstercameron/GoWebComponents/hooks"
-	"github.com/monstercameron/GoWebComponents/render"
+	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/state"
+	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-// Define global atom keys for shared state
 const (
 	CounterAtom = "counter"
 	ThemeAtom   = "theme"
 )
 
-func CounterDisplay(_ dom.Attrs) *dom.Element {
-	// Subscribe to the counter atom
-	count, _ := state.UseAtom(CounterAtom, 0)
-	theme, _ := state.UseAtom(ThemeAtom, "light")
+func CounterDisplay() ui.Node {
+	count := state.UseAtom(CounterAtom, 0)
+	theme := state.UseAtom(ThemeAtom, "light")
 
 	textColor := "text-gray-900"
-	if theme() == "dark" {
+	if theme.Get() == "dark" {
 		textColor = "text-white"
 	}
 
-	return dom.Div(
-		dom.Attrs{"class": "text-center p-8 bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm shadow-2xl"},
-		dom.H2(
-			dom.Attrs{"class": "text-2xl font-bold " + textColor + " mb-4"},
-			"Current Count",
+	return html.Div(
+		html.Props{Class: "text-center p-8 bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm shadow-2xl"},
+		html.H2(
+			html.Props{Class: "text-2xl font-bold " + textColor + " mb-4"},
+			html.Text("Current Count"),
 		),
-		dom.Div(
-			dom.Attrs{"class": "text-7xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 font-mono tracking-tighter"},
-			fmt.Sprintf("%d", count()),
+		html.Div(
+			html.Props{Class: "text-7xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 font-mono tracking-tighter"},
+			html.Text(fmt.Sprintf("%d", count.Get())),
 		),
 	)
 }
 
-func Controls(_ dom.Attrs) *dom.Element {
-	// Subscribe to atoms
-	count, setCount := state.UseAtom(CounterAtom, 0)
-	theme, setTheme := state.UseAtom(ThemeAtom, "light")
+func Controls() ui.Node {
+	count := state.UseAtom(CounterAtom, 0)
+	theme := state.UseAtom(ThemeAtom, "light")
 
-	increment := hooks.GoUseFunc(func(e dom.GoEvent) {
-		setCount(count() + 1)
+	increment := ui.UseEvent(func() {
+		count.Set(count.Get() + 1)
 	})
 
-	decrement := hooks.GoUseFunc(func(e dom.GoEvent) {
-		setCount(count() - 1)
+	decrement := ui.UseEvent(func() {
+		count.Set(count.Get() - 1)
 	})
 
-	toggleTheme := hooks.GoUseFunc(func(e dom.GoEvent) {
-		if theme() == "light" {
-			setTheme("dark")
+	toggleTheme := ui.UseEvent(func() {
+		if theme.Get() == "light" {
+			theme.Set("dark")
 		} else {
-			setTheme("light")
+			theme.Set("light")
 		}
 	})
 
-	return dom.Div(
-		dom.Attrs{"class": "flex flex-col space-y-6"},
-		dom.Div(
-			dom.Attrs{"class": "flex justify-center space-x-6"},
-			dom.Button(
-				dom.Attrs{
-					"class":   "w-16 h-16 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-2xl text-white transition-all duration-200 hover:scale-110 active:scale-95",
-					"onclick": decrement,
+	return html.Div(
+		html.Props{Class: "flex flex-col space-y-6"},
+		html.Div(
+			html.Props{Class: "flex justify-center space-x-6"},
+			html.Button(
+				html.Props{
+					Class:   "w-16 h-16 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-2xl text-white transition-all duration-200 hover:scale-110 active:scale-95",
+					OnClick: decrement,
 				},
-				"-",
+				html.Text("-"),
 			),
-			dom.Button(
-				dom.Attrs{
-					"class":   "w-16 h-16 flex items-center justify-center bg-gradient-to-r from-blue-500 to-purple-600 rounded-full text-2xl text-white shadow-lg shadow-purple-500/20 transition-all duration-200 hover:scale-110 active:scale-95",
-					"onclick": increment,
+			html.Button(
+				html.Props{
+					Class:   "w-16 h-16 flex items-center justify-center bg-gradient-to-r from-blue-500 to-purple-600 rounded-full text-2xl text-white shadow-lg shadow-purple-500/20 transition-all duration-200 hover:scale-110 active:scale-95",
+					OnClick: increment,
 				},
-				"+",
+				html.Text("+"),
 			),
 		),
-		dom.Button(
-			dom.Attrs{
-				"class":   "px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg font-medium transition-colors duration-200",
-				"onclick": toggleTheme,
+		html.Button(
+			html.Props{
+				Class:   "px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg font-medium transition-colors duration-200",
+				OnClick: toggleTheme,
 			},
-			func() string {
-				if theme() == "light" {
-					return "🌙 Switch to Dark Mode"
+			html.Text(func() string {
+				if theme.Get() == "light" {
+					return "ðŸŒ™ Switch to Dark Mode"
 				}
-				return "☀️ Switch to Light Mode"
-			}(),
+				return "â˜€ï¸ Switch to Light Mode"
+			}()),
 		),
 	)
 }
 
-func App(_ dom.Attrs) *dom.Element {
-	theme, _ := state.UseAtom(ThemeAtom, "light")
+func App() ui.Node {
+	theme := state.UseAtom(ThemeAtom, "light")
 
 	containerClass := "min-h-screen transition-colors duration-500 flex items-center justify-center p-4"
-	if theme() == "dark" {
+	if theme.Get() == "dark" {
 		containerClass += " bg-[#0a0a0a]"
 	} else {
 		containerClass += " bg-gray-100"
 	}
 
 	cardClass := "max-w-md w-full rounded-2xl shadow-2xl p-8 transition-colors duration-500"
-	if theme() == "dark" {
+	if theme.Get() == "dark" {
 		cardClass += " bg-black/40 border border-white/10"
 	} else {
 		cardClass += " bg-white"
 	}
 
-	return dom.Div(
-		dom.Attrs{"class": containerClass},
-		dom.Div(
-			dom.Attrs{"class": cardClass},
-			dom.Div(
-				dom.Attrs{"class": "text-center mb-10"},
-				dom.H1(
-					dom.Attrs{"class": "text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500"},
-					"Global State (Atoms)",
+	return html.Div(
+		html.Props{Class: containerClass},
+		html.Div(
+			html.Props{Class: cardClass},
+			html.Div(
+				html.Props{Class: "text-center mb-10"},
+				html.H1(
+					html.Props{Class: "text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500"},
+					html.Text("Global State (Atoms)"),
 				),
-				dom.P(
-					dom.Attrs{"class": "mt-2 text-gray-500"},
-					"State shared across independent components",
+				html.P(
+					html.Props{Class: "mt-2 text-gray-500"},
+					html.Text("State shared across independent components"),
 				),
 			),
-			dom.Div(
-				dom.Attrs{"class": "space-y-10"},
-				dom.CreateElement(CounterDisplay, nil),
-				dom.Div(dom.Attrs{"class": "border-t border-white/10"}),
-				dom.CreateElement(Controls, nil),
+			html.Div(
+				html.Props{Class: "space-y-10"},
+				ui.CreateElement(CounterDisplay),
+				html.Div(html.Props{Class: "border-t border-white/10"}),
+				ui.CreateElement(Controls),
 			),
 		),
 	)
 }
 
 func main() {
-	render.To(dom.CreateElement(App, nil), "body")
+	ui.Render(ui.CreateElement(App), "body")
 }

@@ -7,7 +7,8 @@ GoWebComponents is a Go + WebAssembly UI framework with a React-style component 
 Current repo state as of 2026-03-14:
 
 - Core runtime lives in `internal/runtime/`
-- Public browser-facing packages are `dom`, `hooks`, `render`, `state`, `fetch`, and `router`
+- Preferred public packages are `ui`, `html`, `state`, `fetch`, and `router`
+- Legacy browser-facing compatibility packages `dom`, `hooks`, and `render` still exist during the API transition
 - Native `internal/runtime` statement coverage is `100%`
 - Native runtime tests pass with `go test ./internal/runtime`
 - Browser component, integration, and deep state stress suites pass under Playwright
@@ -33,27 +34,29 @@ package main
 import (
     "fmt"
 
-    "github.com/monstercameron/GoWebComponents/dom"
-    "github.com/monstercameron/GoWebComponents/hooks"
-    "github.com/monstercameron/GoWebComponents/render"
+    "github.com/monstercameron/GoWebComponents/html"
+    "github.com/monstercameron/GoWebComponents/ui"
 )
 
-func Counter(props dom.Attrs) *render.Element {
-    count, setCount := hooks.UseState(0)
+type CounterProps struct {
+    Initial int
+}
 
-    increment := hooks.GoUseFunc(func() {
-        setCount(func(prev int) int { return prev + 1 })
+func Counter(props CounterProps) ui.Node {
+    count := ui.UseState(props.Initial)
+    increment := ui.UseEvent(func() {
+        count.Update(func(prev int) int { return prev + 1 })
     })
 
-    return dom.Div(nil,
-        dom.H1(nil, dom.Text("Counter")),
-        dom.P(nil, dom.Text(fmt.Sprintf("Count: %d", count()))),
-        dom.Button(dom.Attrs{"onclick": increment}, dom.Text("Increment")),
+    return html.Div(html.Props{},
+        html.H1(html.Props{}, html.Text("Counter")),
+        html.P(html.Props{}, html.Text(fmt.Sprintf("Count: %d", count.Get()))),
+        html.Button(html.Props{OnClick: increment}, html.Text("Increment")),
     )
 }
 
 func main() {
-    render.To(dom.CreateElement(Counter, nil), "#app")
+    ui.Render(ui.CreateElement(Counter, CounterProps{Initial: 0}), "#app")
     select {}
 }
 ```
@@ -97,12 +100,12 @@ Copy-Item "$(go env GOROOT)\lib\wasm\wasm_exec.js" static\wasm_exec.js
 
 ## Core Packages
 
-- `dom`: element constructors and DOM attribute helpers
-- `hooks`: local state, effects, memoization, refs, IDs, event wrappers, fetch hook
-- `render`: browser runtime bootstrap and mounting helpers
+- `ui`: component composition, hooks, render entrypoint, and typed event wrappers
+- `html`: typed HTML builders and DOM prop metadata
 - `state`: shared atom-based state
 - `fetch`: browser fetch helpers layered on top of the runtime hook/fetch APIs
 - `router`: browser/hash routing helpers
+- `dom`, `hooks`, `render`: legacy compatibility packages retained during migration
 
 ## Runtime Layout
 

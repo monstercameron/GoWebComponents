@@ -10,6 +10,11 @@ import (
 // Type alias for Element
 type Element = runtime.Element
 
+type Atom[T any] struct {
+	get func() T
+	set func(T)
+}
+
 // UseAtom provides SolidJS-style fine-grained reactivity with global atoms.
 // Atoms are accessible from anywhere in the component tree by ID and
 // automatically trigger re-renders in all subscribed components when updated.
@@ -94,6 +99,19 @@ type Element = runtime.Element
 //
 // Consider using structured types (structs) for complex state
 //   - Avoid storing large amounts of data in atoms (use for coordination, not caching)
-func UseAtom[T any](id string, initialValue T) (func() T, func(T)) {
-	return runtime.GoUseAtomGlobal(id, initialValue)
+func UseAtom[T any](id string, initialValue T) Atom[T] {
+	get, set := runtime.GoUseAtomGlobal(id, initialValue)
+	return Atom[T]{get: get, set: set}
+}
+
+func (a Atom[T]) Get() T {
+	return a.get()
+}
+
+func (a Atom[T]) Set(value T) {
+	a.set(value)
+}
+
+func (a Atom[T]) Update(fn func(T) T) {
+	a.set(fn(a.get()))
 }

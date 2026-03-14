@@ -63,4 +63,44 @@ func TestRender_SchedulesWorkAndResetsDeletions(t *testing.T) {
 	if len(scheduler.timeouts) != 1 {
 		t.Fatalf("expected render to schedule one timeout, got %d", len(scheduler.timeouts))
 	}
+	if !rt.updateScheduled {
+		t.Fatal("expected render to mark the runtime as updateScheduled")
+	}
+}
+
+func TestRender_ReusesPendingTimeoutWhenWorkAlreadyScheduled(t *testing.T) {
+	scheduler := newTestScheduler()
+	firstContainer := newTestDOMAdapter().CreateElement("div")
+	secondContainer := newTestDOMAdapter().CreateElement("div")
+	currentRoot := &Fiber{
+		typeOf: "ROOT",
+		dom:    firstContainer,
+		props:  map[string]interface{}{"children": []interface{}{}},
+	}
+	rt := &Runtime{
+		scheduler:       scheduler,
+		currentRoot:     currentRoot,
+		updateScheduled: true,
+		deletions:       []*Fiber{{typeOf: "old"}},
+	}
+
+	secondElement := &Element{Type: "section", Props: map[string]interface{}{"id": "next"}}
+	rt.Render(secondElement, secondContainer)
+
+	if len(scheduler.timeouts) != 0 {
+		t.Fatalf("expected render not to schedule an extra timeout when one is already pending, got %d", len(scheduler.timeouts))
+	}
+	if rt.wipRoot == nil {
+		t.Fatal("expected render to replace the pending work-in-progress root")
+	}
+	if rt.wipRoot.dom != secondContainer {
+		t.Fatal("expected render to replace the pending container with the latest one")
+	}
+	children, ok := rt.wipRoot.props["children"].([]interface{})
+	if !ok || len(children) != 1 || children[0] != secondElement {
+		t.Fatal("expected render to replace pending children with the latest rendered element")
+	}
+	if len(rt.deletions) != 0 {
+		t.Fatal("expected render to clear stale deletions when replacing pending work")
+	}
 }

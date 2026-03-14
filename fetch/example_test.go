@@ -13,9 +13,9 @@ func ExampleUseFetch() {
 	// Note: Hooks can only be used inside a component function
 
 	// Fetch data from an API
-	getState, refetch := fetch.UseFetch("https://api.example.com/data")
+	resource := fetch.UseFetch("https://api.example.com/data")
 
-	state := getState()
+	state := resource.Get()
 
 	if state.Loading {
 		fmt.Println("Loading...")
@@ -31,5 +31,5 @@ func ExampleUseFetch() {
 	fmt.Printf("Data: %v\n", state.Data)
 
 	// Manually trigger a refetch
-	refetch()
+	resource.Refetch()
 }

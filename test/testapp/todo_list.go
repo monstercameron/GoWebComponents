@@ -21,7 +21,7 @@ type Todo struct {
 // TodoList holds and renders a list of todos using UseState and UseAtom to share count
 func TodoList(props dom.Attrs) *dom.Element {
 	// shared atom for total todos
-	getTotal, setTotal := state.UseAtom("todoCount", 0)
+	total := state.UseAtom("todoCount", 0)
 
 	todos, setTodos := hooks.UseState([]Todo{})
 	todosVersion, setTodosVersion := hooks.UseState(0)
@@ -57,7 +57,7 @@ func TodoList(props dom.Attrs) *dom.Element {
 	hooks.UseEffect(func() func() {
 		curLen := len(todos())
 		fmt.Println("SetTotal called, len(todos()) =", curLen)
-		setTotal(curLen)
+		total.Set(curLen)
 		return nil
 	}, len(todos()))
 
@@ -93,7 +93,7 @@ func TodoList(props dom.Attrs) *dom.Element {
 			return nv
 		})
 		// Set atom total synchronously for immediate feedback
-		setTotal(len(todos()))
+		total.Set(len(todos()))
 		fmt.Println("SetTotal in addHandler:", len(todos()))
 	})
 
@@ -127,7 +127,7 @@ func TodoList(props dom.Attrs) *dom.Element {
 				return newList
 			})
 			// Set atom to the new length (not calling len(todos()) which would be stale)
-			setTotal(newLength)
+			total.Set(newLength)
 		}
 	}
 
@@ -179,7 +179,7 @@ func TodoList(props dom.Attrs) *dom.Element {
 		dom.Div(dom.Attrs{"id": "todo-items", "class": "mt-4"}, children...),
 		dom.Div(dom.Attrs{"class": "mt-6 border-t pt-4"},
 			dom.H3(nil, dom.Text("Statistics")),
-			dom.P(dom.Attrs{"id": "todo-count"}, dom.Text(fmt.Sprintf("Total: %d", getTotal()))),
+			dom.P(dom.Attrs{"id": "todo-count"}, dom.Text(fmt.Sprintf("Total: %d", total.Get()))),
 			dom.P(nil, dom.Text(fmt.Sprintf("Active: %d", activeCount))),
 			dom.P(nil, dom.Text(fmt.Sprintf("Completed: %d", completedCount))),
 		),

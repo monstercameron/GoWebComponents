@@ -29,14 +29,28 @@ type Result struct {
 	Err  error
 }
 
+type Resource struct {
+	get     func() State
+	refetch func()
+}
+
 // UseFetch is a hook that simplifies data fetching within a component.
 // It uses the new hooks.UseFetch entry point internally.
-func UseFetch(url string, options ...Options) (func() State, func()) {
+func UseFetch(url string, options ...Options) Resource {
 	args := make([]interface{}, len(options))
 	for i, opt := range options {
 		args[i] = opt
 	}
-	return hooks.UseFetch(url, args...)
+	get, refetch := hooks.UseFetch(url, args...)
+	return Resource{get: get, refetch: refetch}
+}
+
+func (r Resource) Get() State {
+	return r.get()
+}
+
+func (r Resource) Refetch() {
+	r.refetch()
 }
 
 // Fetch performs an asynchronous HTTP fetch operation and returns a channel for the result.

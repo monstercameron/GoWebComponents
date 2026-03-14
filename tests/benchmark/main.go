@@ -8,50 +8,55 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/monstercameron/GoWebComponents/dom"
-	"github.com/monstercameron/GoWebComponents/hooks"
-	"github.com/monstercameron/GoWebComponents/render"
+	"github.com/monstercameron/GoWebComponents/html"
+	"github.com/monstercameron/GoWebComponents/ui"
 )
 
 const (
 	listSize           = 10
-	deepTreeDepth     = 60
+	deepTreeDepth      = 60
 	hookComponentCount = 40
-	hooksPerComponent = 20
-	primeLimit        = 10000
+	hooksPerComponent  = 20
+	primeLimit         = 10000
 )
 
-func DeepTree(props dom.Attrs) *dom.Element {
-	depth := props["depth"].(int)
-	if depth <= 0 {
-		return dom.Div(dom.ClassIdProps("leaf", "deep-leaf"), dom.Text("Leaf"))
-	}
-	return dom.Div(dom.ClassProps("node"), dom.CreateElement(DeepTree, dom.Attrs{"depth": depth - 1}))
+type DeepTreeProps struct {
+	Depth int
 }
 
-func ManyHooks(props dom.Attrs) *dom.Element {
-	// Simulate a component with many hooks
+func DeepTree(props DeepTreeProps) ui.Node {
+	if props.Depth <= 0 {
+		return html.Div(html.Props{Class: "leaf", ID: "deep-leaf"}, html.Text("Leaf"))
+	}
+
+	return html.Div(
+		html.Props{Class: "node"},
+		ui.CreateElement(DeepTree, DeepTreeProps{Depth: props.Depth - 1}),
+	)
+}
+
+func ManyHooks() ui.Node {
 	for i := 0; i < hooksPerComponent; i++ {
-		hooks.UseState(i)
-		hooks.UseEffect(func() func() { return nil })
-		hooks.UseMemo(func() interface{} { return i * 2 }, i)
+		ui.UseState(i)
+		ui.UseEffect(func() func() { return nil })
+		ui.UseMemo(func() int { return i * 2 }, i)
 	}
-	return dom.Div(dom.ClassProps("hook-node"), dom.Text("Hooks"))
+
+	return html.Div(html.Props{Class: "hook-node"}, html.Text("Hooks"))
 }
 
-func BenchmarkApp(props dom.Attrs) *dom.Element {
-	items, setItems := hooks.UseState([]string{})
-	view, setView := hooks.UseState("list") // list, deep, hooks
-	lastRenderTime, setLastRenderTime := hooks.UseState("")
-	computeResult, setComputeResult := hooks.UseState("")
+func BenchmarkApp() ui.Node {
+	items := ui.UseState([]string{})
+	view := ui.UseState("list")
+	lastRenderTime := ui.UseState("")
+	computeResult := ui.UseState("")
 
-	// Measure render time
-	hooks.UseEffect(func() func() {
-		setLastRenderTime(time.Now().Format(time.RFC3339Nano))
+	ui.UseEffect(func() func() {
+		lastRenderTime.Set(time.Now().Format(time.RFC3339Nano))
 		return nil
-	}, items(), view())
+	}, items.Get(), view.Get())
 
-	computePrimes := hooks.GoUseFunc(func() {
+	computePrimes := ui.UseEvent(func() {
 		start := time.Now()
 		count := 0
 		for i := 2; i < primeLimit; i++ {
@@ -67,80 +72,80 @@ func BenchmarkApp(props dom.Attrs) *dom.Element {
 			}
 		}
 		duration := time.Since(start)
-		setComputeResult(fmt.Sprintf("Found %d primes in %dms", count, duration.Milliseconds()))
+		computeResult.Set(fmt.Sprintf("Found %d primes in %dms", count, duration.Milliseconds()))
 	})
 
-	renderList := hooks.GoUseFunc(func() {
-		setView("list")
+	renderList := ui.UseEvent(func() {
+		view.Set("list")
 		newItems := make([]string, listSize)
 		for i := 0; i < listSize; i++ {
 			newItems[i] = "Item " + strconv.Itoa(i)
 		}
-		setItems(newItems)
+		items.Set(newItems)
 	})
 
-	renderDeep := hooks.GoUseFunc(func() {
-		setView("deep")
-		setItems([]string{})
+	renderDeep := ui.UseEvent(func() {
+		view.Set("deep")
+		items.Set([]string{})
 	})
 
-	renderHooks := hooks.GoUseFunc(func() {
-		setView("hooks")
-		setItems([]string{})
+	renderHooks := ui.UseEvent(func() {
+		view.Set("hooks")
+		items.Set([]string{})
 	})
 
-	clearList := hooks.GoUseFunc(func() {
-		setView("list")
-		setItems([]string{})
+	clearList := ui.UseEvent(func() {
+		view.Set("list")
+		items.Set([]string{})
 	})
 
-	updateList := hooks.GoUseFunc(func() {
-		current := items()
+	updateList := ui.UseEvent(func() {
+		current := items.Get()
 		newItems := make([]string, len(current))
 		for i, item := range current {
 			newItems[i] = item + " (Updated)"
 		}
-		setItems(newItems)
+		items.Set(newItems)
 	})
 
-	return dom.Div(dom.Attrs{"id": "app"},
-		dom.H1(nil, dom.Text("Benchmark App")),
-		dom.Div(dom.Attrs{"id": "controls"},
-			dom.Button(dom.Attrs{"id": "btn-render", "onclick": renderList}, dom.Text("Render 10 Items")),
-			dom.Button(dom.Attrs{"id": "btn-update", "onclick": updateList}, dom.Text("Update Items")),
-			dom.Button(dom.Attrs{"id": "btn-clear", "onclick": clearList}, dom.Text("Clear List")),
-			dom.Button(dom.Attrs{"id": "btn-deep", "onclick": renderDeep}, dom.Text("Render Deep Tree (60)")),
-			dom.Button(dom.Attrs{"id": "btn-hooks", "onclick": renderHooks}, dom.Text("Render 40 Components w/ 60 Hooks")),
-			dom.Button(dom.Attrs{"id": "btn-compute", "onclick": computePrimes}, dom.Text("Compute Primes (10k)")),
+	var content ui.Node
+	switch view.Get() {
+	case "deep":
+		content = ui.CreateElement(DeepTree, DeepTreeProps{Depth: deepTreeDepth})
+	case "hooks":
+		children := make([]ui.Node, 0, hookComponentCount)
+		for i := 0; i < hookComponentCount; i++ {
+			children = append(children, ui.CreateElement(ManyHooks))
+		}
+		content = html.Div(html.Props{ID: "hooks-container"}, children...)
+	default:
+		children := make([]ui.Node, 0, len(items.Get()))
+		for _, item := range items.Get() {
+			children = append(children, html.Div(html.Props{Class: "list-item"}, html.Text(item)))
+		}
+		content = html.Div(html.Props{ID: "list-container"}, children...)
+	}
+
+	return html.Div(html.Props{ID: "app"},
+		html.H1(html.Props{}, html.Text("Benchmark App")),
+		html.Div(html.Props{ID: "controls"},
+			html.Button(html.Props{ID: "btn-render", OnClick: renderList}, html.Text("Render 10 Items")),
+			html.Button(html.Props{ID: "btn-update", OnClick: updateList}, html.Text("Update Items")),
+			html.Button(html.Props{ID: "btn-clear", OnClick: clearList}, html.Text("Clear List")),
+			html.Button(html.Props{ID: "btn-deep", OnClick: renderDeep}, html.Text("Render Deep Tree (60)")),
+			html.Button(html.Props{ID: "btn-hooks", OnClick: renderHooks}, html.Text("Render 40 Components w/ 60 Hooks")),
+			html.Button(html.Props{ID: "btn-compute", OnClick: computePrimes}, html.Text("Compute Primes (10k)")),
 		),
-		dom.Div(dom.Attrs{"id": "metrics"},
-			dom.P(dom.Attrs{"id": "last-render"}, dom.Text("Last Render: "+lastRenderTime())),
-			dom.P(dom.Attrs{"id": "item-count"}, dom.Text("Count: "+strconv.Itoa(len(items())))),
-			dom.P(dom.Attrs{"id": "compute-result"}, dom.Text(computeResult())),
+		html.Div(html.Props{ID: "metrics"},
+			html.P(html.Props{ID: "last-render"}, html.Text("Last Render: "+lastRenderTime.Get())),
+			html.P(html.Props{ID: "item-count"}, html.Text("Count: "+strconv.Itoa(len(items.Get())))),
+			html.P(html.Props{ID: "compute-result"}, html.Text(computeResult.Get())),
 		),
-		dom.Div(dom.Attrs{"id": "container"},
-			func() *dom.Element {
-				if view() == "deep" {
-					return dom.CreateElement(DeepTree, dom.Attrs{"depth": deepTreeDepth})
-				} else if view() == "hooks" {
-					var children []interface{}
-					for i := 0; i < hookComponentCount; i++ {
-						children = append(children, dom.CreateElement(ManyHooks, nil))
-					}
-					return dom.Div(dom.IdProps("hooks-container"), children...)
-				} else {
-					var children []interface{}
-					for _, item := range items() {
-						children = append(children, dom.Div(dom.Attrs{"class": "list-item"}, dom.Text(item)))
-					}
-					return dom.Div(dom.IdProps("list-container"), children...)
-				}
-			}(),
-		),
+		html.Div(html.Props{ID: "container"}, content),
 	)
 }
 
 func main() {
-	render.To(dom.CreateElement(BenchmarkApp, nil), "body")
+	ui.Render(ui.CreateElement(BenchmarkApp), "body")
 	select {}
 }

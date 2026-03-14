@@ -129,24 +129,24 @@ func StateStressDemo(props dom.Attrs) *dom.Element {
 }
 
 func MixedStateBurstMirror(props dom.Attrs) *dom.Element {
-	shared, _ := state.UseAtom("stressSharedCounter", 0)
+	shared := state.UseAtom("stressSharedCounter", 0)
 	mixedStressMirrorRenders++
 
 	return dom.Div(dom.Attrs{"id": "mixed-stress-mirror"},
-		dom.P(dom.Attrs{"id": "mixed-shared-mirror"}, dom.Text(fmt.Sprintf("Mirror Shared: %d", shared()))),
+		dom.P(dom.Attrs{"id": "mixed-shared-mirror"}, dom.Text(fmt.Sprintf("Mirror Shared: %d", shared.Get()))),
 		dom.P(dom.Attrs{"id": "mixed-shared-mirror-renders"}, dom.Text(fmt.Sprintf("Mirror Renders: %d", mixedStressMirrorRenders))),
 	)
 }
 
 func MixedStateBurstDemo(props dom.Attrs) *dom.Element {
 	local, setLocal := hooks.UseState(0)
-	shared, setShared := state.UseAtom("stressSharedCounter", 0)
+	shared := state.UseAtom("stressSharedCounter", 0)
 	mixedStressRenders++
 
 	applyMixedBurst := func(n int) {
 		for i := 0; i < n; i++ {
 			setLocal(func(prev int) int { return prev + 1 })
-			setShared(shared() + 1)
+			shared.Set(shared.Get() + 1)
 		}
 	}
 
@@ -154,13 +154,13 @@ func MixedStateBurstDemo(props dom.Attrs) *dom.Element {
 	burst100 := hooks.GoUseFunc(func() { applyMixedBurst(100) })
 	reset := hooks.GoUseFunc(func() {
 		setLocal(0)
-		setShared(0)
+		shared.Set(0)
 	})
 
 	return dom.Div(dom.Attrs{"id": "mixed-state-stress-demo", "class": "mt-8"},
 		dom.H2(nil, dom.Text("Mixed State Stress Demo")),
 		dom.P(dom.Attrs{"id": "mixed-local-count"}, dom.Text(fmt.Sprintf("Local Count: %d", local()))),
-		dom.P(dom.Attrs{"id": "mixed-shared-count"}, dom.Text(fmt.Sprintf("Shared Count: %d", shared()))),
+		dom.P(dom.Attrs{"id": "mixed-shared-count"}, dom.Text(fmt.Sprintf("Shared Count: %d", shared.Get()))),
 		dom.P(dom.Attrs{"id": "mixed-stress-renders"}, dom.Text(fmt.Sprintf("Mixed Renders: %d", mixedStressRenders))),
 		dom.Div(dom.Attrs{"class": "flex gap-2"},
 			dom.Button(dom.Attrs{"id": "mixed-burst-50", "onclick": burst50}, dom.Text("Mixed +50")),
@@ -174,15 +174,15 @@ func MixedStateBurstDemo(props dom.Attrs) *dom.Element {
 // EffectChild demonstrates UseEffect cleanup on unmount
 func EffectChild(props dom.Attrs) *dom.Element {
 	// Use an atom to track lifecycle status so cleanup can update a node outside the child
-	_, cleanupSet := state.UseAtom("cleanupStatus", "")
+	cleanupStatus := state.UseAtom("cleanupStatus", "")
 	hooks.UseEffect(func() func() {
 		// On mount: update global cleanup status and DOM directly
-		cleanupSet("mounted")
+		cleanupStatus.Set("mounted")
 		fmt.Println("EffectChild mounted")
 		js.Global().Get("document").Call("querySelector", "#cleanup-status").Set("textContent", "mounted")
 		return func() {
 			// On unmount: update and log
-			cleanupSet("cleaned")
+			cleanupStatus.Set("cleaned")
 			fmt.Println("EffectChild cleaned up")
 			js.Global().Get("document").Call("querySelector", "#cleanup-status").Set("textContent", "cleaned")
 		}
@@ -213,7 +213,7 @@ func ToggleEffectDemo(props dom.Attrs) *dom.Element {
 func HelloWorld(props dom.Attrs) *dom.Element {
 	count, setCount := hooks.UseState(0)
 	// Setup shared atom for demonstration/testing
-	atomGet, atomSet := state.UseAtom("sharedCounter", 0)
+	sharedCounter := state.UseAtom("sharedCounter", 0)
 	// Input state for onchange test
 	inputValue, setInputValue := hooks.UseState("")
 	// Submit state for form test
@@ -245,7 +245,7 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 
 	// Atom increment handler
 	atomIncrement := hooks.GoUseFunc(func() {
-		atomSet(atomGet() + 1)
+		sharedCounter.Set(sharedCounter.Get() + 1)
 	})
 
 	// Input onchange handler
@@ -280,8 +280,8 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 			dom.Text("Increment"),
 		),
 		dom.Div(nil,
-			dom.P(dom.Attrs{"id": "atom-value-a"}, dom.Text(fmt.Sprintf("AtomA: %d", atomGet()))),
-			dom.P(dom.Attrs{"id": "atom-value-b"}, dom.Text(fmt.Sprintf("AtomB: %d", atomGet()))),
+			dom.P(dom.Attrs{"id": "atom-value-a"}, dom.Text(fmt.Sprintf("AtomA: %d", sharedCounter.Get()))),
+			dom.P(dom.Attrs{"id": "atom-value-b"}, dom.Text(fmt.Sprintf("AtomB: %d", sharedCounter.Get()))),
 			dom.Button(dom.Attrs{"id": "atom-increment", "onclick": atomIncrement}, dom.Text("Atom Increment")),
 		),
 		dom.Div(dom.Attrs{"class": "mt-4"},
