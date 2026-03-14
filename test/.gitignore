@@ -5,6 +5,11 @@ playwright/.cache/
 .gocache/
 *.wasm
 test-output*.txt
+benchmark/bin/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 testapp/main
 testapp/*.wasm
 testapp/static/bin/*.wasm

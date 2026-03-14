@@ -6,9 +6,6 @@ package main
 import (
 	"fmt"
 	"syscall/js"
-
-	"github.com/monstercameron/GoWebComponents/dom"
-	"github.com/monstercameron/GoWebComponents/hooks"
 	"github.com/monstercameron/GoWebComponents/state"
 )
 
@@ -19,17 +16,17 @@ type Todo struct {
 }
 
 // TodoList holds and renders a list of todos using UseState and UseAtom to share count
-func TodoList(props dom.Attrs) *dom.Element {
+func TodoList(props Attrs) *Element {
 	// shared atom for total todos
 	total := state.UseAtom("todoCount", 0)
 
-	todos, setTodos := hooks.UseState([]Todo{})
-	todosVersion, setTodosVersion := hooks.UseState(0)
-	filter, setFilter := hooks.UseState("")
-	statusFilter, setStatusFilter := hooks.UseState("all")
+	todos, setTodos := UseState([]Todo{})
+	todosVersion, setTodosVersion := UseState(0)
+	filter, setFilter := UseState("")
+	statusFilter, setStatusFilter := UseState("all")
 
 	// UseMemo for filtered list
-	filtered := hooks.UseMemo(func() interface{} {
+	filtered := UseMemo(func() interface{} {
 		fmt.Println("UseMemo computing: filtered")
 		f := filter()
 		s := statusFilter()
@@ -54,7 +51,7 @@ func TodoList(props dom.Attrs) *dom.Element {
 	}, len(todos()), todosVersion(), filter(), statusFilter()).([]Todo)
 
 	// Ensure total atom syncs
-	hooks.UseEffect(func() func() {
+	UseEffect(func() func() {
 		curLen := len(todos())
 		fmt.Println("SetTotal called, len(todos()) =", curLen)
 		total.Set(curLen)
@@ -75,7 +72,7 @@ func TodoList(props dom.Attrs) *dom.Element {
 		setTodosVersion(func(prev int) int { return prev + 1 })
 	}
 
-	addHandler := hooks.GoUseFunc(func() {
+	addHandler := GoUseFunc(func() {
 		// read input from the input element, since event target may be the button
 		val := js.Global().Get("document").Call("getElementById", "todo-input").Get("value").String()
 		if val == "" {
@@ -132,22 +129,22 @@ func TodoList(props dom.Attrs) *dom.Element {
 	}
 
 	// Input change handler for filter
-	filterOnChange := hooks.GoUseFunc(func(val string) {
+	filterOnChange := GoUseFunc(func(val string) {
 		setFilter(val)
 	})
 
 	// Status change handler
-	statusOnChange := hooks.GoUseFunc(func(val string) {
+	statusOnChange := GoUseFunc(func(val string) {
 		setStatusFilter(val)
 	})
 
 	// build list items
 	children := []interface{}{}
 	if len(filtered) == 0 {
-		children = append(children, dom.P(nil, dom.Text("No todos match the current filters")))
+		children = append(children, P(nil, Text("No todos match the current filters")))
 	} else {
 		for _, t := range filtered {
-			children = append(children, &dom.Element{Type: TodoItem, Props: dom.Attrs{"key": t.ID, "id": t.ID, "text": t.Text, "completed": t.Completed, "toggle": toggle(t.ID), "remove": remove(t.ID)}})
+			children = append(children, &Element{Type: TodoItem, Props: Attrs{"key": t.ID, "id": t.ID, "text": t.Text, "completed": t.Completed, "toggle": toggle(t.ID), "remove": remove(t.ID)}})
 		}
 	}
 
@@ -162,26 +159,26 @@ func TodoList(props dom.Attrs) *dom.Element {
 		}
 	}
 
-	result := dom.Div(dom.Attrs{"id": "todo-list", "class": "mt-6"},
-		dom.H2(nil, dom.Text("Todo List")),
-		dom.Div(nil,
-			dom.Input(dom.Attrs{"id": "todo-input", "type": "text", "class": "border p-2", "placeholder": "What needs to be done?"}),
-			dom.Button(dom.Attrs{"id": "todo-add", "onclick": addHandler, "class": "ml-2 px-3 py-2 bg-blue-500 text-white"}, dom.Text("Add Todo")),
+	result := Div(Attrs{"id": "todo-list", "class": "mt-6"},
+		H2(nil, Text("Todo List")),
+		Div(nil,
+			Input(Attrs{"id": "todo-input", "type": "text", "class": "border p-2", "placeholder": "What needs to be done?"}),
+			Button(Attrs{"id": "todo-add", "onclick": addHandler, "class": "ml-2 px-3 py-2 bg-blue-500 text-white"}, Text("Add Todo")),
 		),
-		dom.Div(dom.Attrs{"class": "mt-4 flex gap-2"},
-			dom.Input(dom.Attrs{"id": "todo-filter", "type": "text", "oninput": filterOnChange, "placeholder": "Filter todos"}),
-			dom.Select(dom.Attrs{"id": "status-filter", "onchange": statusOnChange, "class": "border p-2"},
-				dom.Option(dom.Attrs{"value": "all"}, dom.Text("All")),
-				dom.Option(dom.Attrs{"value": "active"}, dom.Text("Active")),
-				dom.Option(dom.Attrs{"value": "completed"}, dom.Text("Completed")),
+		Div(Attrs{"class": "mt-4 flex gap-2"},
+			Input(Attrs{"id": "todo-filter", "type": "text", "oninput": filterOnChange, "placeholder": "Filter todos"}),
+			Select(Attrs{"id": "status-filter", "onchange": statusOnChange, "class": "border p-2"},
+				Option(Attrs{"value": "all"}, Text("All")),
+				Option(Attrs{"value": "active"}, Text("Active")),
+				Option(Attrs{"value": "completed"}, Text("Completed")),
 			),
 		),
-		dom.Div(dom.Attrs{"id": "todo-items", "class": "mt-4"}, children...),
-		dom.Div(dom.Attrs{"class": "mt-6 border-t pt-4"},
-			dom.H3(nil, dom.Text("Statistics")),
-			dom.P(dom.Attrs{"id": "todo-count"}, dom.Text(fmt.Sprintf("Total: %d", total.Get()))),
-			dom.P(nil, dom.Text(fmt.Sprintf("Active: %d", activeCount))),
-			dom.P(nil, dom.Text(fmt.Sprintf("Completed: %d", completedCount))),
+		Div(Attrs{"id": "todo-items", "class": "mt-4"}, children...),
+		Div(Attrs{"class": "mt-6 border-t pt-4"},
+			H3(nil, Text("Statistics")),
+			P(Attrs{"id": "todo-count"}, Text(fmt.Sprintf("Total: %d", total.Get()))),
+			P(nil, Text(fmt.Sprintf("Active: %d", activeCount))),
+			P(nil, Text(fmt.Sprintf("Completed: %d", completedCount))),
 		),
 	)
 	return result
@@ -202,3 +199,4 @@ func stringContains(s, sub string) bool {
 	}
 	return false
 }
+

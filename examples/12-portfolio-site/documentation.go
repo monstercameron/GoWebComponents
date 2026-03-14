@@ -4,8 +4,6 @@
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/dom"
-	"github.com/monstercameron/GoWebComponents/hooks"
 	"github.com/monstercameron/GoWebComponents/router"
 )
 
@@ -13,26 +11,26 @@ import (
 // Features organized sections for types, hooks, HTML elements, events, and utilities
 // with interactive examples and detailed explanations for each API.
 func DocsPage(_ Attrs) *Element {
-	return dom.Div(
+	return Div(
 		Attrs{"class": "min-h-screen bg-[#0a0a0a] text-white"},
 
 		// Documentation-specific navigation bar
 		DocsNavBar(nil),
 
 		// Documentation content
-		dom.Div(
+		Div(
 			Attrs{"class": "pt-32 pb-20"},
-			dom.Div(
+			Div(
 				Attrs{"class": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"},
 
 				// Header
-				dom.Div(
+				Div(
 					Attrs{"class": "text-center mb-16"},
-					dom.H1(
+					H1(
 						Attrs{"class": "text-4xl font-bold text-white mb-4"},
 						"📚 GoWebComponents API Documentation",
 					),
-					dom.P(
+					P(
 						Attrs{"class": "text-xl text-gray-400 max-w-3xl mx-auto"},
 						"Complete technical reference for the GoWebComponents fiber library. Build reactive web applications with Go's type safety and performance.",
 					),
@@ -64,55 +62,55 @@ func DocsPage(_ Attrs) *Element {
 // Features back-to-app navigation, documentation title, and direct GitHub access
 // with glassmorphism styling consistent with the main navbar.
 func DocsNavBar(_ Attrs) *Element {
-	return dom.Nav(
+	return Nav(
 		Attrs{
 			"class": "fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a]/95 backdrop-blur-xl border-b border-white/10 shadow-lg",
 		},
-		dom.Div(
+		Div(
 			Attrs{"class": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"},
-			dom.Div(
+			Div(
 				Attrs{"class": "flex items-center justify-between h-16 md:h-20"},
 
 				// Back Home Link
 				func() *Element {
 					// Store GoUseFunc result in variable for proper event handling
-					navigateToHome := hooks.GoUseFunc(func(event dom.GoEvent) {
+					navigateToHome := GoUseFunc(func(event GoEvent) {
 						router.Navigate("/")
 					})
 
-					return dom.Button(
+					return Button(
 						Attrs{
 							"class":   "group flex items-center space-x-3 px-4 py-2 text-gray-300 hover:text-white transition-all duration-300 font-medium rounded-xl hover:bg-white/10 cursor-pointer",
 							"onclick": navigateToHome,
 						},
-						dom.Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:scale-110"}, "←"),
-						dom.Span(Attrs{"class": "font-semibold transition-transform duration-300 group-hover:translate-x-0.5"}, "Back to App"),
+						Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:scale-110"}, "←"),
+						Span(Attrs{"class": "font-semibold transition-transform duration-300 group-hover:translate-x-0.5"}, "Back to App"),
 					)
 				}(),
 
 				// Title
-				dom.Div(
+				Div(
 					Attrs{"class": "flex items-center"},
-					dom.H1(
+					H1(
 						Attrs{"class": "text-xl md:text-2xl font-bold text-white"},
 						"📚 Documentation",
 					),
 				),
 
 				// GitHub button
-				dom.A(
+				A(
 					Attrs{
 						"href":   "https://github.com/monstercameron/GoWebComponents",
 						"target": "_blank",
 						"class":  "group relative overflow-hidden px-5 py-2.5 bg-white/10 border border-white/10 text-white rounded-xl hover:bg-white/20 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 cursor-pointer",
 					},
-					dom.Div(
+					Div(
 						Attrs{"class": "absolute inset-0 bg-gradient-to-r from-gray-800 to-gray-900 opacity-0 group-hover:opacity-100 transition-opacity duration-300"},
 					),
-					dom.Div(
+					Div(
 						Attrs{"class": "relative flex items-center space-x-2"},
-						dom.Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:rotate-12"}, "🐙"),
-						dom.Span(Attrs{"class": "font-semibold text-sm"}, "GitHub"),
+						Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:rotate-12"}, "🐙"),
+						Span(Attrs{"class": "font-semibold text-sm"}, "GitHub"),
 					),
 				),
 			),
@@ -124,16 +122,16 @@ func DocsNavBar(_ Attrs) *Element {
 // Features smooth scrolling to sections and visual hierarchy with icons and descriptions
 // for easy API discovery and navigation.
 func TableOfContents(_ Attrs) *Element {
-	return dom.Div(
+	return Div(
 		Attrs{"class": "bg-white/5 rounded-xl shadow-lg border border-white/10 p-6 mb-12 backdrop-blur-sm"},
-		dom.H2(
+		H2(
 			Attrs{"class": "text-2xl font-bold text-white mb-6"},
 			"📋 Table of Contents",
 		),
-		dom.Div(
+		Div(
 			Attrs{"class": "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"},
 			TocLink("🏗️", "Core Types", "core-types", "Element, Fiber, Hooks, and fundamental data structures"),
-			TocLink("🎣", "Components & Hooks", "hooks", "hooks.UseState, hooks.UseEffect, hooks.UseMemo, and component lifecycle"),
+			TocLink("🎣", "Components & Hooks", "hooks", "UseState, UseEffect, UseMemo, and component lifecycle"),
 			TocLink("🌐", "HTML Elements", "html", "All HTML5 elements with props and children support"),
 			TocLink("⚡", "Event Handling", "events", "GoEvent wrapper and event management"),
 			TocLink("💾", "State Management", "state", "Global state, snapshots, and persistence"),
@@ -145,24 +143,24 @@ func TableOfContents(_ Attrs) *Element {
 
 // TocLink creates a table of contents link with scroll functionality
 func TocLink(icon, title, sectionId, description string) *Element {
-	handleClick := hooks.GoUseFunc(func(event dom.GoEvent) {
+	handleClick := GoUseFunc(func(event GoEvent) {
 		event.PreventDefault()
 		// Use the enhanced scroll function from navbar
 		// ScrollToSectionSmoothEnhanced is defined in navbar.go in the same package
 		ScrollToSectionSmoothEnhanced(sectionId)
 	})
 
-	return dom.Div(
+	return Div(
 		Attrs{
 			"class":   "block p-4 rounded-lg border border-white/10 hover:border-blue-500/50 hover:bg-white/5 transition-all duration-200 group cursor-pointer",
 			"onclick": handleClick,
 		},
-		dom.Div(
+		Div(
 			Attrs{"class": "flex items-start space-x-3"},
-			dom.Span(Attrs{"class": "text-2xl group-hover:scale-110 transition-transform duration-200"}, icon),
-			dom.Div(nil,
-				dom.H3(Attrs{"class": "font-semibold text-white group-hover:text-blue-400"}, title),
-				dom.P(Attrs{"class": "text-sm text-gray-400 mt-1"}, description),
+			Span(Attrs{"class": "text-2xl group-hover:scale-110 transition-transform duration-200"}, icon),
+			Div(nil,
+				H3(Attrs{"class": "font-semibold text-white group-hover:text-blue-400"}, title),
+				P(Attrs{"class": "text-sm text-gray-400 mt-1"}, description),
 			),
 		),
 	)
@@ -170,11 +168,11 @@ func TocLink(icon, title, sectionId, description string) *Element {
 
 // CoreTypesSection documents the fundamental types and interfaces
 func CoreTypesSection(_ Attrs) *Element {
-	return dom.Section(
+	return Section(
 		Attrs{"id": "core-types", "class": "mb-16"},
 		SectionHeader("🏗️", "Core Types", "Fundamental data structures and interfaces"),
 
-		dom.Div(
+		Div(
 			Attrs{"class": "space-y-8"},
 
 			// Element type
@@ -246,11 +244,11 @@ type Attributes map[string]interface{} // Alternative name`,
 
 // ComponentsHooksSection documents the hooks API
 func ComponentsHooksSection(_ Attrs) *Element {
-	return dom.Section(
+	return Section(
 		Attrs{"id": "hooks", "class": "mb-16"},
 		SectionHeader("🎣", "Components & Hooks", "State management and component lifecycle"),
 
-		dom.Div(
+		Div(
 			Attrs{"class": "space-y-8"},
 
 			// GoUseState
@@ -315,7 +313,7 @@ CreateElement("div", Attrs{"class": "container"}, "Hello World")
 
 // Creating component elements:
 CreateElement(MyComponent, Attrs{"name": "value"}, child1, child2)`,
-				"Low-level function for creating Element instances. Usually abstracted away by HTML helper functions like dom.Div(), but useful for dynamic element creation."),
+				"Low-level function for creating Element instances. Usually abstracted away by HTML helper functions like Div(), but useful for dynamic element creation."),
 
 			// Render function
 			ApiCard("Render", "function", "Renders components to DOM",
@@ -332,11 +330,11 @@ RenderTo("#app", MyComponent)`,
 
 // HTMLElementsSection documents all HTML element functions
 func HTMLElementsSection(_ Attrs) *Element {
-	return dom.Section(
+	return Section(
 		Attrs{"id": "html", "class": "mb-16"},
 		SectionHeader("🌐", "HTML Elements", "Complete HTML5 element library"),
 
-		dom.Div(
+		Div(
 			Attrs{"class": "space-y-8"},
 
 			// Document structure
@@ -352,34 +350,34 @@ func HTMLElementsSection(_ Attrs) *Element {
 
 			// Layout elements
 			HtmlElementGroup("Layout & Structure", []HtmlElementDoc{
-				{"Div", "Creates <div> element", `dom.Div(Attrs{"class": "container"}, children...)`},
-				{"Span", "Creates <span> element", `dom.Span(Attrs{"class": "highlight"}, "text")`},
-				{"Header", "Creates <header> element", `Header(nil, dom.Nav(nil, "Navigation"))`},
-				{"Nav", "Creates <nav> element", `dom.Nav(Attrs{"class": "navbar"}, links...)`},
+				{"Div", "Creates <div> element", `Div(Attrs{"class": "container"}, children...)`},
+				{"Span", "Creates <span> element", `Span(Attrs{"class": "highlight"}, "text")`},
+				{"Header", "Creates <header> element", `Header(nil, Nav(nil, "Navigation"))`},
+				{"Nav", "Creates <nav> element", `Nav(Attrs{"class": "navbar"}, links...)`},
 				{"Main", "Creates <main> element", `Main(nil, content...)`},
-				{"Section", "Creates <section> element", `dom.Section(Attrs{"id": "about"}, content...)`},
-				{"Article", "Creates <article> element", `dom.Article(nil, "Article content")`},
+				{"Section", "Creates <section> element", `Section(Attrs{"id": "about"}, content...)`},
+				{"Article", "Creates <article> element", `Article(nil, "Article content")`},
 				{"Aside", "Creates <aside> element", `Aside(nil, "Sidebar content")`},
 				{"Footer", "Creates <footer> element", `Footer(nil, "© 2024 My App")`},
 			}),
 
 			// Text elements
 			HtmlElementGroup("Text & Typography", []HtmlElementDoc{
-				{"P", "Creates <p> element", `dom.P(nil, "Paragraph text")`},
-				{"H1", "Creates <h1> element", `dom.H1(Attrs{"class": "title"}, "Main Heading")`},
-				{"H2", "Creates <h2> element", `dom.H2(nil, "Subheading")`},
-				{"H3-H6", "Creates heading elements", `dom.H3(nil, "Section Title")`},
-				{"Strong", "Creates <strong> element", `dom.Strong(nil, "Bold text")`},
+				{"P", "Creates <p> element", `P(nil, "Paragraph text")`},
+				{"H1", "Creates <h1> element", `H1(Attrs{"class": "title"}, "Main Heading")`},
+				{"H2", "Creates <h2> element", `H2(nil, "Subheading")`},
+				{"H3-H6", "Creates heading elements", `H3(nil, "Section Title")`},
+				{"Strong", "Creates <strong> element", `Strong(nil, "Bold text")`},
 				{"Em", "Creates <em> element", `Em(nil, "Emphasized text")`},
-				{"Code", "Creates <code> element", `dom.Code(nil, "console.log('Hello')")`},
-				{"Pre", "Creates <pre> element", `dom.Pre(nil, "Preformatted text")`},
+				{"Code", "Creates <code> element", `Code(nil, "console.log('Hello')")`},
+				{"Pre", "Creates <pre> element", `Pre(nil, "Preformatted text")`},
 			}),
 
 			// Form elements
 			HtmlElementGroup("Form Elements", []HtmlElementDoc{
 				{"Form", "Creates <form> element", `Form(Attrs{"onsubmit": handleSubmit}, inputs...)`},
 				{"Input", "Creates <input> element", `Input(Attrs{"type": "text", "placeholder": "Enter name"})`},
-				{"Button", "Creates <button> element", `dom.Button(Attrs{"onclick": handleClick}, "Click Me")`},
+				{"Button", "Creates <button> element", `Button(Attrs{"onclick": handleClick}, "Click Me")`},
 				{"Textarea", "Creates <textarea> element", `Textarea(Attrs{"rows": "4", "oninput": handleInput})`},
 				{"Select", "Creates <select> element", `Select(Attrs{"onchange": handleChange}, options...)`},
 				{"Option", "Creates <option> element", `Option(Attrs{"value": "1"}, "Option 1")`},
@@ -388,9 +386,9 @@ func HTMLElementsSection(_ Attrs) *Element {
 
 			// List elements
 			HtmlElementGroup("Lists", []HtmlElementDoc{
-				{"Ul", "Creates <ul> element", `dom.Ul(nil, dom.Li(nil, "Item 1"), dom.Li(nil, "Item 2"))`},
-				{"Ol", "Creates <ol> element", `Ol(nil, dom.Li(nil, "First"), dom.Li(nil, "Second"))`},
-				{"Li", "Creates <li> element", `dom.Li(Attrs{"class": "item"}, "List item")`},
+				{"Ul", "Creates <ul> element", `Ul(nil, Li(nil, "Item 1"), Li(nil, "Item 2"))`},
+				{"Ol", "Creates <ol> element", `Ol(nil, Li(nil, "First"), Li(nil, "Second"))`},
+				{"Li", "Creates <li> element", `Li(Attrs{"class": "item"}, "List item")`},
 			}),
 
 			// Table elements
@@ -415,11 +413,11 @@ func HTMLElementsSection(_ Attrs) *Element {
 
 // EventHandlingSection documents event handling
 func EventHandlingSection(_ Attrs) *Element {
-	return dom.Section(
+	return Section(
 		Attrs{"id": "events", "class": "mb-16"},
 		SectionHeader("⚡", "Event Handling", "JavaScript event integration and management"),
 
-		dom.Div(
+		Div(
 			Attrs{"class": "space-y-8"},
 
 			// GoEvent
@@ -447,7 +445,7 @@ handleClick := GoUseFunc(func(event GoEvent) {
     // Update state, call APIs, etc.
 })
 
-dom.Button(Attrs{"onclick": handleClick}, "Click Me")`,
+Button(Attrs{"onclick": handleClick}, "Click Me")`,
 				"Wraps Go functions to be compatible with JavaScript event handlers. Automatically converts JavaScript events to GoEvent instances."),
 
 			// Event examples
@@ -483,11 +481,11 @@ handleMouseOver := GoUseFunc(func(event GoEvent) {
 
 // StateManagementSection documents state management features
 func StateManagementSection(_ Attrs) *Element {
-	return dom.Section(
+	return Section(
 		Attrs{"id": "state", "class": "mb-16"},
 		SectionHeader("💾", "State Management", "Global state, persistence, and hot reload"),
 
-		dom.Div(
+		Div(
 			Attrs{"class": "space-y-8"},
 
 			// Global state
@@ -556,11 +554,11 @@ CleanupMemory()  // Release memory pools`,
 
 // MemoryManagementSection documents memory optimization features
 func MemoryManagementSection(_ Attrs) *Element {
-	return dom.Section(
+	return Section(
 		Attrs{"id": "memory", "class": "mb-16"},
 		SectionHeader("🧠", "Memory Management", "Pool optimization and performance tuning"),
 
-		dom.Div(
+		Div(
 			Attrs{"class": "space-y-8"},
 
 			// Pool management
@@ -609,11 +607,11 @@ CleanupDOM()     // Clean DOM references`,
 
 // UtilitiesSection documents utility functions
 func UtilitiesSection(_ Attrs) *Element {
-	return dom.Section(
+	return Section(
 		Attrs{"id": "utils", "class": "mb-16"},
 		SectionHeader("🔧", "Utilities", "Debug tools, performance helpers, and configuration"),
 
-		dom.Div(
+		Div(
 			Attrs{"class": "space-y-8"},
 
 			// Debug functions
@@ -698,48 +696,48 @@ refetch()`,
 
 // SectionHeader creates a consistent section header
 func SectionHeader(icon, title, description string) *Element {
-	return dom.Div(
+	return Div(
 		Attrs{"class": "mb-8"},
-		dom.H2(
+		H2(
 			Attrs{"class": "text-3xl font-bold text-white mb-2 flex items-center"},
-			dom.Span(Attrs{"class": "mr-3"}, icon),
+			Span(Attrs{"class": "mr-3"}, icon),
 			title,
 		),
-		dom.P(Attrs{"class": "text-lg text-gray-400"}, description),
+		P(Attrs{"class": "text-lg text-gray-400"}, description),
 	)
 }
 
 // ApiCard creates a documentation card for API items
 func ApiCard(name, apiType, description, code, details string) *Element {
-	return dom.Div(
+	return Div(
 		Attrs{"class": "bg-white/5 rounded-xl shadow-lg border border-white/10 overflow-hidden backdrop-blur-sm"},
 
 		// Header
-		dom.Div(
+		Div(
 			Attrs{"class": "bg-white/5 px-6 py-4 border-b border-white/10"},
-			dom.Div(
+			Div(
 				Attrs{"class": "flex items-center justify-between"},
-				dom.Div(nil,
-					dom.H3(Attrs{"class": "text-xl font-bold text-white"}, name),
-					dom.Span(Attrs{"class": "inline-block px-2 py-1 bg-blue-900/30 text-blue-300 border border-blue-500/30 text-xs font-medium rounded-full mt-1"}, apiType),
+				Div(nil,
+					H3(Attrs{"class": "text-xl font-bold text-white"}, name),
+					Span(Attrs{"class": "inline-block px-2 py-1 bg-blue-900/30 text-blue-300 border border-blue-500/30 text-xs font-medium rounded-full mt-1"}, apiType),
 				),
 			),
-			dom.P(Attrs{"class": "text-gray-400 mt-2"}, description),
+			P(Attrs{"class": "text-gray-400 mt-2"}, description),
 		),
 
 		// Code example
-		dom.Div(
+		Div(
 			Attrs{"class": "bg-[#0a0a0a] text-gray-300 p-6 border-y border-white/10"},
-			dom.Pre(
+			Pre(
 				Attrs{"class": "text-sm overflow-x-auto"},
-				dom.Code(nil, code),
+				Code(nil, code),
 			),
 		),
 
 		// Details
-		dom.Div(
+		Div(
 			Attrs{"class": "px-6 py-4"},
-			dom.P(Attrs{"class": "text-gray-300 leading-relaxed"}, details),
+			P(Attrs{"class": "text-gray-300 leading-relaxed"}, details),
 		),
 	)
 }
@@ -751,10 +749,10 @@ func HtmlElementGroup(title string, elements []HtmlElementDoc) *Element {
 		elementCards[i] = HtmlElementCard(elem)
 	}
 
-	return dom.Div(
+	return Div(
 		Attrs{"class": "mb-8"},
-		dom.H3(Attrs{"class": "text-xl font-semibold text-white mb-4"}, title),
-		dom.Div(
+		H3(Attrs{"class": "text-xl font-semibold text-white mb-4"}, title),
+		Div(
 			Attrs{"class": "grid grid-cols-1 md:grid-cols-2 gap-4"},
 			elementCards...,
 		),
@@ -770,13 +768,14 @@ type HtmlElementDoc struct {
 
 // HtmlElementCard creates a card for an HTML element
 func HtmlElementCard(elem HtmlElementDoc) *Element {
-	return dom.Div(
+	return Div(
 		Attrs{"class": "bg-white/5 border border-white/10 rounded-lg p-4 hover:bg-white/10 transition-colors"},
-		dom.H4(Attrs{"class": "font-semibold text-white mb-2"}, elem.Name),
-		dom.P(Attrs{"class": "text-sm text-gray-400 mb-3"}, elem.Description),
-		dom.Div(
+		H4(Attrs{"class": "font-semibold text-white mb-2"}, elem.Name),
+		P(Attrs{"class": "text-sm text-gray-400 mb-3"}, elem.Description),
+		Div(
 			Attrs{"class": "bg-[#0a0a0a] text-gray-300 p-3 rounded text-xs overflow-x-auto border border-white/5"},
-			dom.Code(nil, elem.Example),
+			Code(nil, elem.Example),
 		),
 	)
 }
+

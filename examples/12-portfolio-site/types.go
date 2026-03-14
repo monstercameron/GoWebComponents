@@ -3,11 +3,8 @@
 
 package main
 
-import (
-	"github.com/monstercameron/GoWebComponents/dom"
-	"github.com/monstercameron/GoWebComponents/render"
-)
+import "github.com/monstercameron/GoWebComponents/internal/runtime"
 
 // Type aliases for convenience - declared once for the entire package
-type Attrs = dom.Attrs
-type Element = render.Element
+type Attrs = map[string]interface{}
+type Element = runtime.Element

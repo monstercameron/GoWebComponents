@@ -4,12 +4,10 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 
-	"github.com/monstercameron/GoWebComponents/dom"
-	"github.com/monstercameron/GoWebComponents/hooks"
-	"github.com/monstercameron/GoWebComponents/render"
+	"github.com/monstercameron/GoWebComponents/html"
+	"github.com/monstercameron/GoWebComponents/ui"
 )
 
 type FormData struct {
@@ -29,44 +27,36 @@ type FormErrors struct {
 	ConfirmPass string
 }
 
-func InputField(label, name, inputType, value, errorMsg string, onChange func(dom.GoEvent)) *dom.Element {
+func InputField(label, name, inputType, value, errorMsg string, onChange func(ui.Event)) ui.Node {
 	borderClass := "border-white/10 focus:border-blue-500 focus:ring-blue-500"
 	if errorMsg != "" {
 		borderClass = "border-red-500/50 text-red-400 placeholder-red-300 focus:border-red-500 focus:ring-red-500"
 	}
 
-	return dom.Div(
-		dom.Attrs{"class": "mb-5"},
-		dom.Label(
-			dom.Attrs{"class": "block text-sm font-medium text-gray-400 mb-2"},
-			label,
-		),
-		dom.Input(dom.Attrs{
-			"type":        inputType,
-			"name":        name,
-			"value":       value,
-			"class":       "block w-full px-4 py-3 bg-black/20 border rounded-lg shadow-sm focus:outline-none focus:ring-1 sm:text-sm text-white placeholder-gray-600 transition-all " + borderClass,
-			"oninput":     hooks.GoUseFunc(onChange),
-			"placeholder": "Enter " + strings.ToLower(label),
+	return html.Div(html.Props{Class: "mb-5"},
+		html.Label(html.Props{Class: "block text-sm font-medium text-gray-400 mb-2"}, html.Text(label)),
+		html.Input(html.Props{
+			Type:        inputType,
+			Name:        name,
+			Value:       value,
+			Class:       "block w-full px-4 py-3 bg-black/20 border rounded-lg shadow-sm focus:outline-none focus:ring-1 sm:text-sm text-white placeholder-gray-600 transition-all " + borderClass,
+			OnInput:     ui.UseEvent(onChange),
+			Placeholder: "Enter " + strings.ToLower(label),
 		}),
-		func() *dom.Element {
+		func() ui.Node {
 			if errorMsg != "" {
-				return dom.P(dom.Attrs{"class": "mt-2 text-sm text-red-400"}, errorMsg)
+				return html.P(html.Props{Class: "mt-2 text-sm text-red-400"}, html.Text(errorMsg))
 			}
 			return nil
 		}(),
 	)
 }
 
-func App(_ dom.Attrs) *dom.Element {
-	form, setForm := hooks.UseState(FormData{
-		AccountType: "personal",
-		Newsletter:  true,
-	})
-
-	errors, setErrors := hooks.UseState(FormErrors{})
-	isSubmitting, setIsSubmitting := hooks.UseState(false)
-	success, setSuccess := hooks.UseState(false)
+func App() ui.Node {
+	form := ui.UseState(FormData{AccountType: "personal", Newsletter: true})
+	errors := ui.UseState(FormErrors{})
+	isSubmitting := ui.UseState(false)
+	success := ui.UseState(false)
 
 	validate := func(data FormData) (FormErrors, bool) {
 		errs := FormErrors{}
@@ -92,10 +82,10 @@ func App(_ dom.Attrs) *dom.Element {
 		return errs, isValid
 	}
 
-	handleChange := func(field string) func(dom.GoEvent) {
-		return func(e dom.GoEvent) {
+	handleChange := func(field string) func(ui.Event) {
+		return func(e ui.Event) {
 			val := e.GetValue()
-			newForm := form()
+			newForm := form.Get()
 
 			switch field {
 			case "Username":
@@ -110,10 +100,10 @@ func App(_ dom.Attrs) *dom.Element {
 				newForm.Bio = val
 			}
 
-			setForm(newForm)
+			form.Set(newForm)
 
 			// Clear error for this field
-			newErrors := errors()
+			newErrors := errors.Get()
 			switch field {
 			case "Username":
 				newErrors.Username = ""
@@ -124,126 +114,85 @@ func App(_ dom.Attrs) *dom.Element {
 			case "ConfirmPass":
 				newErrors.ConfirmPass = ""
 			}
-			setErrors(newErrors)
+			errors.Set(newErrors)
 		}
 	}
 
-	handleSubmit := hooks.GoUseFunc(func(e dom.GoEvent) {
+	handleSubmit := ui.UseEvent(func(e ui.Event) {
 		e.PreventDefault()
 
-		errs, isValid := validate(form())
-		setErrors(errs)
+		errs, isValid := validate(form.Get())
+		errors.Set(errs)
 
 		if isValid {
-			setIsSubmitting(true)
+			isSubmitting.Set(true)
 			// Simulate API call
 			go func() {
-				// In a real app, you'd use time.Sleep here, but we can't easily in WASM without blocking
-				// So we just set state immediately for this demo, or use a timeout wrapper
-				// For simplicity in this demo, we'll just update state
-				setIsSubmitting(false)
-				setSuccess(true)
+				isSubmitting.Set(false)
+				success.Set(true)
 			}()
 		}
 	})
 
-	if success() {
-		return dom.Div(
-			dom.Attrs{"class": "min-h-screen bg-[#0a0a0a] flex flex-col justify-center py-12 sm:px-6 lg:px-8"},
-			dom.Div(
-				dom.Attrs{"class": "mt-8 sm:mx-auto sm:w-full sm:max-w-md"},
-				dom.Div(
-					dom.Attrs{"class": "bg-white/5 border border-white/10 py-8 px-4 shadow-2xl sm:rounded-xl sm:px-10 text-center backdrop-blur-sm"},
-					dom.Div(
-						dom.Attrs{"class": "mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-500/20 mb-6"},
-						dom.Span(dom.Attrs{"class": "text-green-400 text-2xl"}, "✓"),
+	if success.Get() {
+		return html.Div(html.Props{Class: "min-h-screen bg-[#0a0a0a] flex flex-col justify-center py-12 sm:px-6 lg:px-8"},
+			html.Div(html.Props{Class: "mt-8 sm:mx-auto sm:w-full sm:max-w-md"},
+				html.Div(html.Props{Class: "bg-white/5 border border-white/10 py-8 px-4 shadow-2xl sm:rounded-xl sm:px-10 text-center backdrop-blur-sm"},
+					html.Div(html.Props{Class: "mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-500/20 mb-6"},
+						html.Span(html.Props{Class: "text-green-400 text-2xl"}, html.Text("✓")),
 					),
-					dom.H3(dom.Attrs{"class": "text-xl font-bold text-white mb-2"}, "Registration Successful!"),
-					dom.P(dom.Attrs{"class": "mt-2 text-sm text-gray-400"}, "Welcome aboard, "+form().Username),
-					dom.Button(
-						dom.Attrs{
-							"class": "mt-8 w-full inline-flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all",
-							"onclick": hooks.GoUseFunc(func(e dom.GoEvent) {
-								setSuccess(false)
-								setForm(FormData{AccountType: "personal", Newsletter: true})
-							}),
-						},
-						"Register Another Account",
-					),
+					html.H3(html.Props{Class: "text-xl font-bold text-white mb-2"}, html.Text("Registration Successful!")),
+					html.P(html.Props{Class: "mt-2 text-sm text-gray-400"}, html.Text("Welcome aboard, "+form.Get().Username)),
+					html.Button(html.Props{
+						Class:   "mt-8 w-full inline-flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all",
+						OnClick: ui.UseEvent(func() { success.Set(false); form.Set(FormData{AccountType: "personal", Newsletter: true}) }),
+					}, html.Text("Register Another Account")),
 				),
 			),
 		)
 	}
 
-	return dom.Div(
-		dom.Attrs{"class": "min-h-screen bg-[#0a0a0a] flex flex-col justify-center py-12 sm:px-6 lg:px-8"},
-		dom.Div(
-			dom.Attrs{"class": "sm:mx-auto sm:w-full sm:max-w-md"},
-			dom.Div(
-				dom.Attrs{"class": "text-center mb-8"},
-				dom.H2(dom.Attrs{"class": "text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500"}, "Create your account"),
-				dom.P(dom.Attrs{"class": "mt-2 text-sm text-gray-400"}, "Join our community today"),
+	currentForm := form.Get()
+	currentErrors := errors.Get()
+
+	return html.Div(html.Props{Class: "min-h-screen bg-[#0a0a0a] flex flex-col justify-center py-12 sm:px-6 lg:px-8"},
+		html.Div(html.Props{Class: "sm:mx-auto sm:w-full sm:max-w-md"},
+			html.Div(html.Props{Class: "text-center mb-8"},
+				html.H2(html.Props{Class: "text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500"}, html.Text("Create your account")),
+				html.P(html.Props{Class: "mt-2 text-sm text-gray-400"}, html.Text("Join our community today")),
 			),
-			dom.Div(
-				dom.Attrs{"class": "bg-white/5 border border-white/10 py-8 px-4 shadow-2xl sm:rounded-xl sm:px-10 backdrop-blur-sm"},
-				dom.Form(
-					dom.Attrs{"onsubmit": handleSubmit},
-
-					InputField("Username", "username", "text", form().Username, errors().Username, handleChange("Username")),
-					InputField("Email Address", "email", "email", form().Email, errors().Email, handleChange("Email")),
-					InputField("Password", "password", "password", form().Password, errors().Password, handleChange("Password")),
-					InputField("Confirm Password", "confirm_password", "password", form().ConfirmPass, errors().ConfirmPass, handleChange("ConfirmPass")),
-
-					dom.Div(
-						dom.Attrs{"class": "mb-5"},
-						dom.Label(dom.Attrs{"class": "block text-sm font-medium text-gray-400 mb-2"}, "Account Type"),
-						dom.Select(
-							dom.Attrs{
-								"class": "block w-full px-4 py-3 bg-black/20 border border-white/10 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-white",
-								"onchange": hooks.GoUseFunc(func(e dom.GoEvent) {
-									newForm := form()
-									newForm.AccountType = e.GetValue()
-									setForm(newForm)
-								}),
-							},
-							dom.Option(dom.Attrs{"value": "personal", "selected": fmt.Sprintf("%v", form().AccountType == "personal")}, "Personal"),
-							dom.Option(dom.Attrs{"value": "business", "selected": fmt.Sprintf("%v", form().AccountType == "business")}, "Business"),
-							dom.Option(dom.Attrs{"value": "enterprise", "selected": fmt.Sprintf("%v", form().AccountType == "enterprise")}, "Enterprise"),
+			html.Div(html.Props{Class: "bg-white/5 border border-white/10 py-8 px-4 shadow-2xl sm:rounded-xl sm:px-10 backdrop-blur-sm"},
+				html.Form(html.Props{OnSubmit: handleSubmit},
+					ui.CreateElement(InputField, "Username", "username", "text", currentForm.Username, currentErrors.Username, handleChange("Username")),
+					ui.CreateElement(InputField, "Email Address", "email", "email", currentForm.Email, currentErrors.Email, handleChange("Email")),
+					ui.CreateElement(InputField, "Password", "password", "password", currentForm.Password, currentErrors.Password, handleChange("Password")),
+					ui.CreateElement(InputField, "Confirm Password", "confirm_password", "password", currentForm.ConfirmPass, currentErrors.ConfirmPass, handleChange("ConfirmPass")),
+					html.Div(html.Props{Class: "mb-5"},
+						html.Label(html.Props{Class: "block text-sm font-medium text-gray-400 mb-2"}, html.Text("Account Type")),
+						html.Select(html.Props{Class: "block w-full px-4 py-3 bg-black/20 border border-white/10 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-white", Value: currentForm.AccountType, OnChange: ui.UseEvent(func(e ui.Event) {
+							next := form.Get()
+							next.AccountType = e.GetValue()
+							form.Set(next)
+						})},
+							html.Option(html.Props{Value: "personal", Selected: currentForm.AccountType == "personal"}, html.Text("Personal")),
+							html.Option(html.Props{Value: "business", Selected: currentForm.AccountType == "business"}, html.Text("Business")),
+							html.Option(html.Props{Value: "enterprise", Selected: currentForm.AccountType == "enterprise"}, html.Text("Enterprise")),
 						),
 					),
-
-					dom.Div(
-						dom.Attrs{"class": "flex items-center mb-8"},
-						dom.Input(dom.Attrs{
-							"id":      "newsletter",
-							"type":    "checkbox",
-							"class":   "h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-600 rounded bg-black/20",
-							"checked": fmt.Sprintf("%v", form().Newsletter),
-							"onchange": hooks.GoUseFunc(func(e dom.GoEvent) {
-								newForm := form()
-								newForm.Newsletter = e.IsChecked()
-								setForm(newForm)
-							}),
-						}),
-						dom.Label(
-							dom.Attrs{"for": "newsletter", "class": "ml-2 block text-sm text-gray-300"},
-							"Subscribe to our newsletter",
-						),
+					html.Div(html.Props{Class: "flex items-center mb-8"},
+						html.Input(html.Props{ID: "newsletter", Type: "checkbox", Class: "h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-600 rounded bg-black/20", Checked: currentForm.Newsletter, OnChange: ui.UseEvent(func(e ui.Event) {
+							next := form.Get()
+							next.Newsletter = e.IsChecked()
+							form.Set(next)
+						})}),
+						html.Label(html.Props{For: "newsletter", Class: "ml-2 block text-sm text-gray-300"}, html.Text("Subscribe to our newsletter")),
 					),
-
-					dom.Button(
-						dom.Attrs{
-							"type":     "submit",
-							"class":    "w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-500/20",
-							"disabled": fmt.Sprintf("%v", isSubmitting()),
-						},
-						func() string {
-							if isSubmitting() {
-								return "Creating Account..."
-							}
-							return "Sign Up"
-						}(),
-					),
+					html.Button(html.Props{Type: "submit", Disabled: isSubmitting.Get(), Class: "w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-500/20"}, html.Text(func() string {
+						if isSubmitting.Get() {
+							return "Creating Account..."
+						}
+						return "Sign Up"
+					}())),
 				),
 			),
 		),
@@ -251,5 +200,5 @@ func App(_ dom.Attrs) *dom.Element {
 }
 
 func main() {
-	render.To(dom.CreateElement(App, nil), "body")
+	ui.Render(ui.CreateElement(App), "body")
 }

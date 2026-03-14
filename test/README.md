@@ -4,6 +4,8 @@ Location: `test/`
 
 This directory contains the Playwright-based browser test layers for GoWebComponents.
 
+It is the single browser test workspace for the repository, including both the functional regression suites and the browser performance benchmark harness.
+
 ## What Is Covered
 
 ### Component contracts
@@ -41,6 +43,16 @@ Focus:
 - mixed local and shared state updates
 - state continuity through rerenders
 
+### Performance benchmark
+
+`specs/performance_benchmark.spec.ts`
+
+Focus:
+
+- GoWebComponents vs React browser render comparisons
+- update, clear, deep-tree, and hooks scenarios
+- static benchmark assets built from `benchmark/`
+
 ### Existing browser suites
 
 The directory also keeps the older broader Playwright specs that cover router behavior, basic hooks behavior, and other end-to-end flows.
@@ -65,6 +77,7 @@ npm test
 npm run test:components
 npm run test:integration
 npm run test:state
+npm run bench
 ```
 
 ## Other Useful Commands
@@ -80,6 +93,7 @@ npm run test:ui
 - `testapp/` contains the Go wasm app used by these tests
 - the test scripts rebuild `testapp/main.wasm` before the relevant suites
 - `server.js` provides the local test server and mock API endpoints used by fetch/integration flows
+- `benchmark/` and `scripts/build-benchmark.mjs` provide the standalone browser benchmark harness used by `npm run bench`
 
 ## Notes
 

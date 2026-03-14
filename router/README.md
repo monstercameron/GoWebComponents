@@ -11,40 +11,36 @@ GoWebComponents/
 ├── router/           ← YOU ARE HERE
 │   ├── doc.go
 │   └── router.go
-├── fetch/
+    "github.com/monstercameron/GoWebComponents/html"
 ├── internal/
-├── examples/
+    "github.com/monstercameron/GoWebComponents/ui"
 └── ...
 ```
-
-## Overview
-
-The `router` package provides client-side routing for single-page applications (SPAs). It supports both hash-based routing (`#/path`) and browser history API routing, enabling navigation without full page reloads.
+func HomePage(props router.Attrs) *router.Element {
+    return html.Div(html.Props{},
+        html.H1(html.Props{}, html.Text("Home Page")),
+        html.P(html.Props{}, html.Text("Welcome!")),
 
 ## Router Types
 
-### Hash Router
-
-Uses URL hash fragments for routing (e.g., `example.com/#/about`).
+func AboutPage(props router.Attrs) *router.Element {
+    return html.Div(html.Props{},
+        html.H1(html.Props{}, html.Text("About Page")),
 
 **Pros:**
 
-- Works without server configuration
-- Compatible with static hosting
-- No server-side setup needed
+func NotFound(props router.Attrs) *router.Element {
+    return html.Div(html.Props{},
+        html.H1(html.Props{}, html.Text("404 - Page Not Found")),
 
 **Cons:**
 
 - Hash in URL (aesthetics)
-- SEO limitations
-
-### Browser Router
-
-Uses HTML5 History API for clean URLs (e.g., `example.com/about`).
-
-**Pros:**
-
-- Clean, semantic URLs
+    r := router.NewHashRouter()
+    r.Register("/", HomePage)
+    r.Register("/about", AboutPage)
+    r.Register("*", NotFound)
+    ui.Render(r.GetRoute(), "#app")
 - Better SEO
 - Professional appearance
 
@@ -59,41 +55,35 @@ Uses HTML5 History API for clean URLs (e.g., `example.com/about`).
 
 ```go
 import (
-    "github.com/monstercameron/GoWebComponents/dom"
+    "github.com/monstercameron/GoWebComponents/html"
     "github.com/monstercameron/GoWebComponents/router"
-    "github.com/monstercameron/GoWebComponents/render"
 )
 
-func HomePage(props dom.Attrs) *dom.Element {
-    return dom.Div(nil,
-        dom.H1(nil, dom.Text("Home Page")),
-        dom.P(nil, dom.Text("Welcome!")),
+func HomePage(props router.Attrs) *router.Element {
+    return html.Div(html.Props{},
+        html.H1(html.Props{}, html.Text("Home Page")),
+        html.P(html.Props{}, html.Text("Welcome!")),
     )
 }
 
-func AboutPage(props dom.Attrs) *dom.Element {
-    return dom.Div(nil,
-        dom.H1(nil, dom.Text("About Page")),
+func AboutPage(props router.Attrs) *router.Element {
+    return html.Div(html.Props{},
+        html.H1(html.Props{}, html.Text("About Page")),
     )
 }
 
-func NotFound(props dom.Attrs) *dom.Element {
-    return dom.Div(nil,
-        dom.H1(nil, dom.Text("404 - Page Not Found")),
+func NotFound(props router.Attrs) *router.Element {
+    return html.Div(html.Props{},
+        html.H1(html.Props{}, html.Text("404 - Page Not Found")),
     )
 }
 
 func main() {
-    // Create router with routes
-    r := router.NewHashRouter(map[string]router.RouteComponent{
-        "/":      HomePage,
-        "/about": AboutPage,
-        "*":      NotFound,  // Catch-all route
-    })
-
-    // Render router
-    container := js.Global().Get("document").Call("getElementById", "app")
-    render.ToElement(r.Render(), container)
+    r := router.NewHashRouter()
+    r.Register("/", HomePage)
+    r.Register("/about", AboutPage)
+    r.Register("*", NotFound)
+    r.Mount("#app")
 
     select {}
 }

@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"sync"
 	"testing"
 )
 
@@ -23,7 +22,6 @@ func (a *queryTestDOMAdapter) QuerySelector(selector string) interface{} {
 
 func resetGlobalRuntimeForTest() {
 	globalRuntime = nil
-	globalRuntimeOnce = sync.Once{}
 }
 
 func TestInitGlobalRuntime_CanUpgradeLazyGlobalRuntime(t *testing.T) {

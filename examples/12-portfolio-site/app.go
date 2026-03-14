@@ -4,12 +4,8 @@
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/render"
 	"github.com/monstercameron/GoWebComponents/utils"
 )
-
-// RendertoDom is an alias for render.To
-var RendertoDom = render.To
 
 // App initializes the main application with debug configuration and routing.
 // This is the entry point that sets up the framework's debugging namespaces,

@@ -15,7 +15,7 @@ await mkdir(outDir, { recursive: true });
 
 const child = spawn(
   'go',
-  ['build', '-o', outFile, './tests/benchmark'],
+  ['build', '-o', outFile, './test/benchmark'],
   {
     cwd: repoRoot,
     stdio: 'inherit',

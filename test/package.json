@@ -6,8 +6,10 @@
   "scripts": {
     "prebuild": "node -e \"const fs = require('fs'); const path = require('path'); const wasmPath = path.join(__dirname, 'testapp', 'main.wasm'); if (fs.existsSync(wasmPath)) fs.unlinkSync(wasmPath);\"",
     "build": "npm run prebuild && cd testapp && set GOOS=js&& set GOARCH=wasm&& go build -o main.wasm",
+    "build:benchmark": "node ./scripts/build-benchmark.mjs",
     "pretest": "npm run build",
     "test": "playwright test",
+    "bench": "npm run build:benchmark && playwright test -c playwright.performance.config.js",
     "pretest:components": "npm run build",
     "test:components": "playwright test specs/component_contract.spec.js",
     "pretest:integration": "npm run build",
@@ -20,6 +22,7 @@
     "install:browsers": "playwright install chromium"
   },
   "devDependencies": {
-    "@playwright/test": "^1.40.0"
+    "@playwright/test": "^1.41.0",
+    "http-server": "^14.1.1"
   }
 }

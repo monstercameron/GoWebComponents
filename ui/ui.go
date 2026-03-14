@@ -6,15 +6,16 @@ package ui
 import (
 	"reflect"
 
-	"github.com/monstercameron/GoWebComponents/hooks"
+	"github.com/monstercameron/GoWebComponents/internal/platform/jsdom"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
-	"github.com/monstercameron/GoWebComponents/render"
 )
 
 const (
 	componentKey = "__ui_component"
 	propsKey     = "__ui_props"
 )
+
+var initialized bool
 
 type Node = *runtime.Element
 
@@ -60,7 +61,8 @@ func Fragment(children ...Node) Node {
 }
 
 func Render(root Node, selector string) {
-	render.To(root, selector)
+	ensureInitialized()
+	runtime.GetGlobalRuntime().RenderTo(selector, root)
 }
 
 func Text(content string) Node {
@@ -68,7 +70,7 @@ func Text(content string) Node {
 }
 
 func UseState[T any](initialValue T) State[T] {
-	get, set := hooks.UseState(initialValue)
+	get, set := runtime.GoUseStateGlobal(initialValue)
 	return State[T]{get: get, set: set}
 }
 
@@ -85,11 +87,11 @@ func (s State[T]) Update(fn func(T) T) {
 }
 
 func UseEffect(effect func() func(), deps ...interface{}) {
-	hooks.UseEffect(effect, deps...)
+	runtime.GoUseEffectGlobal(effect, deps...)
 }
 
 func UseMemo[T any](compute func() T, deps ...interface{}) T {
-	value := hooks.UseMemo(func() interface{} {
+	value := runtime.GoUseMemoGlobal(func() interface{} {
 		return compute()
 	}, deps...)
 
@@ -103,7 +105,7 @@ func UseMemo[T any](compute func() T, deps ...interface{}) T {
 }
 
 func UseCallback[T any](fn T, deps ...interface{}) T {
-	value := hooks.UseCallback(fn, deps...)
+	value := runtime.GoUseCallbackGlobal(fn, deps...)
 	cast, ok := value.(T)
 	if ok {
 		return cast
@@ -114,7 +116,7 @@ func UseCallback[T any](fn T, deps ...interface{}) T {
 }
 
 func UseRef[T any](initialValue T) Ref[T] {
-	return Ref[T]{raw: hooks.UseRef(initialValue)}
+	return Ref[T]{raw: runtime.GoUseRefGlobal(initialValue)}
 }
 
 func (r Ref[T]) Get() T {
@@ -139,11 +141,11 @@ func (r Ref[T]) Set(value T) {
 }
 
 func UseId() string {
-	return hooks.UseId()
+	return runtime.GoUseIdGlobal()
 }
 
 func UseEvent(fn interface{}) Handler {
-	return Handler{value: hooks.GoUseFunc(fn)}
+	return Handler{value: runtime.GoUseFunc(fn)}
 }
 
 func RawHandler(value interface{}) Handler {
@@ -152,6 +154,20 @@ func RawHandler(value interface{}) Handler {
 
 func (h Handler) Value() interface{} {
 	return h.value
+}
+
+func ensureInitialized() {
+	if initialized {
+		return
+	}
+
+	runtime.InitGlobalRuntime(runtime.Config{
+		DOMAdapter:   jsdom.NewWASMDOMAdapter(),
+		EventAdapter: jsdom.NewWASMEventAdapter(),
+		Scheduler:    jsdom.NewWASMScheduler(),
+		BrowserState: jsdom.NewWASMBrowserState(),
+	})
+	initialized = true
 }
 
 func renderComponent(rawProps map[string]interface{}) *runtime.Element {

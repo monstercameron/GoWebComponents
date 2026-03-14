@@ -9,12 +9,14 @@ import (
 	"sync"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/dom"
-	"github.com/monstercameron/GoWebComponents/render"
+	"github.com/monstercameron/GoWebComponents/internal/platform/jsdom"
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
 // Component is a type alias for component functions used in routing.
-type Component = func(dom.Attrs) *render.Element
+type Attrs = map[string]interface{}
+type Element = runtime.Element
+type Component = func(Attrs) *Element
 
 // Options represents configuration for individual routes.
 // Placeholder for future per-route settings (e.g., titles, guards).
@@ -38,7 +40,9 @@ type Router struct {
 	routerType     string // "hash" or "history"
 }
 
-type routeFactory func() *render.Element
+type routeFactory func() *Element
+
+var initialized bool
 
 // NewHashRouter creates a hash-based router that reads from window.location.hash.
 func NewHashRouter(options ...RouterOptions) *Router {
@@ -113,12 +117,12 @@ func (r *Router) Register(path string, component interface{}, options ...Options
 }
 
 // GoGetRoute returns the element for the current route.
-func (r *Router) GoGetRoute() *render.Element {
+func (r *Router) GoGetRoute() *Element {
 	return r.Current()
 }
 
 // Current returns the current route element.
-func (r *Router) Current() *render.Element {
+func (r *Router) Current() *Element {
 	path := r.GetCurrentRouterPath()
 	if path == "" {
 		path = r.defaultRoute
@@ -138,7 +142,7 @@ func (r *Router) Current() *render.Element {
 		}
 	}
 
-	return dom.Div(nil, dom.Text("Route not found"))
+	return runtime.Div(nil, runtime.Text("Route not found"))
 }
 
 // Mount renders the router into a DOM node selected by CSS selector and wires hashchange listeners.
@@ -158,12 +162,14 @@ func (r *Router) MountElement(elem js.Value) {
 }
 
 func (r *Router) renderCurrentRoute() {
+	ensureInitialized()
+	rt := runtime.GetGlobalRuntime()
 	routeElement := r.GoGetRoute()
 	switch {
 	case r.targetSelector != "":
-		render.To(routeElement, r.targetSelector)
+		rt.RenderTo(r.targetSelector, routeElement)
 	case r.targetElement.Truthy():
-		render.ToElement(routeElement, r.targetElement)
+		rt.Render(routeElement, jsdom.NewWASMDOMNode(r.targetElement))
 	}
 }
 
@@ -251,7 +257,7 @@ func GetCurrentPath() string {
 }
 
 // GetRoute returns the component for the current route as an Element.
-func GetRoute() *render.Element {
+func GetRoute() *Element {
 	return GetRouter().Current()
 }
 
@@ -269,16 +275,18 @@ func RouteWithElement(path string, elemRef js.Value) {
 var globalRouter = NewHashRouter()
 var cleanupOnce sync.Once
 
-func getCurrentPath() string {
-	loc := js.Global().Get("location")
-	if !loc.Truthy() {
-		return "/"
+func ensureInitialized() {
+	if initialized {
+		return
 	}
-	hash := strings.TrimPrefix(loc.Get("hash").String(), "#")
-	if hash == "" || hash == "/" || hash == "#" {
-		return "/"
-	}
-	return hash
+
+	runtime.InitGlobalRuntime(runtime.Config{
+		DOMAdapter:   jsdom.NewWASMDOMAdapter(),
+		EventAdapter: jsdom.NewWASMEventAdapter(),
+		Scheduler:    jsdom.NewWASMScheduler(),
+		BrowserState: jsdom.NewWASMBrowserState(),
+	})
+	initialized = true
 }
 
 func registerCleanup(handler js.Func) {
@@ -297,8 +305,8 @@ func makeRouteFactory(component interface{}) routeFactory {
 		panic("router: component cannot be nil")
 	}
 
-	if element, ok := component.(*render.Element); ok {
-		return func() *render.Element {
+	if element, ok := component.(*Element); ok {
+		return func() *Element {
 			return element
 		}
 	}
@@ -313,7 +321,7 @@ func makeRouteFactory(component interface{}) routeFactory {
 		panic("router: route component must return one element")
 	}
 
-	return func() *render.Element {
+	return func() *Element {
 		args := []reflect.Value{}
 		if typ.NumIn() == 1 {
 			arg := reflect.Zero(typ.In(0))
@@ -325,7 +333,7 @@ func makeRouteFactory(component interface{}) routeFactory {
 			return nil
 		}
 
-		element, _ := results[0].Interface().(*render.Element)
+		element, _ := results[0].Interface().(*Element)
 		return element
 	}
 }

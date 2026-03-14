@@ -4,16 +4,15 @@
 
 ```
 GoWebComponents/
-├── dom/
-├── hooks/
 ├── state/
-├── render/
 ├── router/
 ├── fetch/
+├── html/
 ├── internal/
 ├── examples/
 ├── test/
 ├── tools/
+├── ui/
 └── utils/            ← YOU ARE HERE
     ├── utils.go
     └── utils_production.go

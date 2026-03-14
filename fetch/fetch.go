@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"syscall/js"
 
-	"github.com/monstercameron/GoWebComponents/hooks"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
@@ -35,13 +34,13 @@ type Resource struct {
 }
 
 // UseFetch is a hook that simplifies data fetching within a component.
-// It uses the new hooks.UseFetch entry point internally.
+// It uses the runtime fetch hook directly.
 func UseFetch(url string, options ...Options) Resource {
 	args := make([]interface{}, len(options))
 	for i, opt := range options {
 		args[i] = opt
 	}
-	get, refetch := hooks.UseFetch(url, args...)
+	get, refetch := runtime.GoUseFetch(url, args...)
 	return Resource{get: get, refetch: refetch}
 }
 

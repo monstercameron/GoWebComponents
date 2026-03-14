@@ -4,6 +4,7 @@ export default defineConfig({
   testDir: './specs',
   testIgnore: [
     '**/12-portfolio-site*.spec.ts', // Portfolio site tests require examples server
+    '**/performance_benchmark.spec.ts', // Benchmark suite runs under dedicated config/server
   ],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

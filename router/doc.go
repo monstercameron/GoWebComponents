@@ -3,49 +3,41 @@
 //
 // This package implements hash-based and history-based routing with support for:
 //   - Multiple router instances
-//   - Route guards (beforeEnter)
 //   - Browser history integration
 //   - Programmatic navigation
-//   - Route-specific page titles
+//   - Static node and component route registration
 //
 // Basic usage with hash routing:
 //
-//	import "github.com/monstercameron/GoWebComponents/router"
+//	import (
+//	    "github.com/monstercameron/GoWebComponents/html"
+//	    "github.com/monstercameron/GoWebComponents/router"
+//	    "github.com/monstercameron/GoWebComponents/ui"
+//	)
 //
 //	func main() {
 //	    r := router.NewHashRouter()
 //
-//	    r.RegisterRoute("/", HomePage)
-//	    r.RegisterRoute("/about", AboutPage)
-//	    r.RegisterRoute("/contact", ContactPage)
-//	    r.RegisterRoute("*", NotFoundPage) // Wildcard for 404
+//	    r.Register("/", HomePage)
+//	    r.Register("/about", AboutPage)
+//	    r.Register("/contact", ContactPage)
+//	    r.Register("*", NotFoundPage)
 //
-//	    // Render the current route
-//	    render.To(r.GetRoute(), "#app")
+//	    r.Mount("#app")
 //	}
 //
 // Route components are regular components:
 //
-//	func HomePage(props dom.Attrs) *fiber.Element {
-//	    return dom.Div(nil,
-//	        dom.H1(nil, "Welcome Home"),
-//	        dom.A(map[string]interface{}{
-//	            "onclick": js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-//	                router.Navigate("/about")
-//	                return nil
-//	            }),
-//	        }, "Go to About"),
+//	func HomePage(props router.Attrs) *router.Element {
+//	    goAbout := ui.UseEvent(func() {
+//	        router.Navigate("/about")
+//	    })
+//
+//	    return html.Div(html.Props{},
+//	        html.H1(html.Props{}, html.Text("Welcome Home")),
+//	        html.Button(html.Props{OnClick: goAbout}, html.Text("Go to About")),
 //	    )
 //	}
-//
-// Route options:
-//
-//	r.RegisterRoute("/admin", AdminPanel, router.Options{
-//	    Title: "Admin Panel",
-//	    BeforeEnter: func(path string) bool {
-//	        return isAuthenticated() // Return false to prevent navigation
-//	    },
-//	})
 //
 // The package supports both hash-based routing (using URL fragments like #/about)
 // and history-based routing (using the HTML5 History API).

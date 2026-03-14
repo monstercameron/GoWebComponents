@@ -6,9 +6,6 @@ package main
 import (
 	"fmt"
 	"syscall/js"
-
-	"github.com/monstercameron/GoWebComponents/dom"
-	"github.com/monstercameron/GoWebComponents/hooks"
 	"github.com/monstercameron/GoWebComponents/router"
 )
 
@@ -17,30 +14,30 @@ import (
 // section navigation with enhanced mobile menu support.
 func NavBar(_ Attrs) *Element {
 	// Component state management
-	isMobileMenuOpen, setIsMobileMenuOpen := hooks.UseState(false)
-	isScrolled, setIsScrolled := hooks.UseState(false)
-	scrollProgress, setScrollProgress := hooks.UseState(0.0)
-	isDark, setIsDark := hooks.UseState(getInitialDarkPref()) // Persisted dark mode preference
+	isMobileMenuOpen, setIsMobileMenuOpen := UseState(false)
+	isScrolled, setIsScrolled := UseState(false)
+	scrollProgress, setScrollProgress := UseState(0.0)
+	isDark, setIsDark := UseState(getInitialDarkPref()) // Persisted dark mode preference
 
 	// Initialize dark mode CSS on component mount
-	hooks.UseEffect(func() func() {
+	UseEffect(func() func() {
 		initDarkModeCSS()
 		return nil
 	}, true)
 
 	// Sync dark mode state with DOM and localStorage
-	hooks.UseEffect(func() func() {
+	UseEffect(func() func() {
 		applyDarkClass(isDark())
 		saveDarkPref(isDark())
 		return nil
 	}, isDark())
 
 	// Event handlers
-	handleMobileToggle := hooks.GoUseFunc(hooks.UseCallback(func(event dom.GoEvent) {
+	handleMobileToggle := GoUseFunc(UseCallback(func(event GoEvent) {
 		setIsMobileMenuOpen(!isMobileMenuOpen())
 	}, isMobileMenuOpen()))
 
-	handleDarkToggle := hooks.GoUseFunc(hooks.UseCallback(func(event dom.GoEvent) {
+	handleDarkToggle := GoUseFunc(UseCallback(func(event GoEvent) {
 		newVal := !isDark()
 		setIsDark(newVal)
 		applyDarkClass(newVal)
@@ -48,7 +45,7 @@ func NavBar(_ Attrs) *Element {
 	}, isDark()))
 
 	// Initialize scroll tracking and smooth scrolling behavior
-	hooks.UseEffect(func() func() {
+	UseEffect(func() func() {
 		AddSmoothScrollCSS() // Inject smooth scroll CSS once
 
 		// Setup scroll listener for navbar effects and progress tracking
@@ -86,11 +83,11 @@ func NavBar(_ Attrs) *Element {
 		navClasses += " bg-transparent backdrop-blur-lg"
 	}
 
-	return dom.Nav(
+	return Nav(
 		Attrs{"class": navClasses},
 
 		// Scroll progress bar
-		dom.Div(
+		Div(
 			Attrs{
 				"class": "absolute bottom-0 left-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-300 ease-out",
 				"style": "width: " + fmt.Sprintf("%.1f", scrollProgress()*100) + "%",
@@ -98,55 +95,55 @@ func NavBar(_ Attrs) *Element {
 		),
 
 		// Main navbar container
-		dom.Div(
+		Div(
 			Attrs{"class": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"},
-			dom.Div(
+			Div(
 				Attrs{"class": "flex items-center justify-between h-16 md:h-20 gap-4"},
 
 				// Logo/Brand Section with enhanced animation
-				dom.Div(
+				Div(
 					Attrs{"class": "flex items-center space-x-3 group"},
 
 					// Animated logo container
-					dom.Div(
+					Div(
 						Attrs{"class": "relative transform transition-transform duration-300 group-hover:scale-110"},
 
 						// Main logo with floating animation
-						dom.Div(
+						Div(
 							Attrs{"class": "relative h-12 w-12 md:h-14 md:w-14"},
 
 							// Background gradient circle
-							dom.Div(Attrs{"class": "absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-full animate-pulse"}),
+							Div(Attrs{"class": "absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-full animate-pulse"}),
 
 							// Logo image
-							dom.Img(Attrs{
+							Img(Attrs{
 								"src":   "/static/images/hero.jpg",
 								"alt":   "GoWebComponents Logo",
 								"class": "relative h-full w-full rounded-full border-2 border-white shadow-xl object-cover z-10",
 							}),
 
 							// Online status indicator
-							dom.Div(Attrs{"class": "absolute -top-1 -right-1 h-4 w-4 bg-emerald-500 rounded-full border-2 border-white shadow-lg animate-pulse"}),
+							Div(Attrs{"class": "absolute -top-1 -right-1 h-4 w-4 bg-emerald-500 rounded-full border-2 border-white shadow-lg animate-pulse"}),
 
 							// Floating ring animation
-							dom.Div(Attrs{"class": "absolute inset-0 rounded-full border-2 border-indigo-400/30 animate-ping"}),
+							Div(Attrs{"class": "absolute inset-0 rounded-full border-2 border-indigo-400/30 animate-ping"}),
 						),
 					),
 
 					// Brand text with enhanced typography
-					dom.Div(
+					Div(
 						Attrs{"class": "hidden sm:block"},
-						dom.H1(Attrs{
+						H1(Attrs{
 							"class": "text-xl md:text-2xl font-black bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent tracking-tight",
 						}, "GoWebComponents"),
-						dom.P(Attrs{
+						P(Attrs{
 							"class": "text-xs md:text-sm text-gray-600 font-medium -mt-1 tracking-wide",
 						}, "by Earl Cameron"),
 					),
 				),
 
 				// Desktop Navigation with enhanced hover effects
-				dom.Div(
+				Div(
 					Attrs{"class": "hidden lg:flex items-center space-x-1 xl:space-x-2 flex-1 justify-center"},
 					EnhancedNavLink("🏠", "Home", "#home", "home"),
 					EnhancedNavLink("👨‍💻", "About", "#about", "about"),
@@ -158,17 +155,17 @@ func NavBar(_ Attrs) *Element {
 				),
 
 				// Dark-mode toggle and GitHub button container
-				dom.Div(
+				Div(
 					Attrs{"class": "hidden md:flex items-center space-x-2"},
 
 					// Dark-mode toggle button
-					dom.Button(
+					Button(
 						Attrs{
 							"class":   "group relative overflow-hidden p-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 cursor-pointer",
 							"onclick": handleDarkToggle,
 							"title":   "Toggle dark mode",
 						},
-						dom.Span(Attrs{"class": "text-lg"}, func() string {
+						Span(Attrs{"class": "text-lg"}, func() string {
 							if isDark() {
 								return "☀️" // sun icon when in dark mode
 							}
@@ -177,25 +174,25 @@ func NavBar(_ Attrs) *Element {
 					),
 
 					// GitHub button
-					dom.A(
+					A(
 						Attrs{
 							"href":   "https://github.com/monstercameron/GoWebComponents",
 							"target": "_blank",
 							"class":  "group relative overflow-hidden px-5 py-2.5 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 cursor-pointer",
 						},
-						dom.Div(
+						Div(
 							Attrs{"class": "absolute inset-0 bg-gradient-to-r from-gray-800 to-gray-900 opacity-0 group-hover:opacity-100 transition-opacity duration-300"},
 						),
-						dom.Div(
+						Div(
 							Attrs{"class": "relative flex items-center space-x-2"},
-							dom.Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:rotate-12"}, "🐙"),
-							dom.Span(Attrs{"class": "font-semibold text-sm"}, "GitHub"),
+							Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:rotate-12"}, "🐙"),
+							Span(Attrs{"class": "font-semibold text-sm"}, "GitHub"),
 						),
 					),
 				),
 
 				// Enhanced Mobile Menu Button
-				dom.Button(
+				Button(
 					Attrs{
 						"class":   "lg:hidden relative p-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-300 group",
 						"onclick": handleMobileToggle,
@@ -213,7 +210,7 @@ func NavBar(_ Attrs) *Element {
 // EnhancedNavLink renders a navigation item with icon, smooth animations and section routing.
 // Handles both hash navigation for sections and route navigation for pages like documentation.
 func EnhancedNavLink(icon, text, href, section string) *Element {
-	handleClick := hooks.GoUseFunc(hooks.UseCallback(func(event dom.GoEvent) {
+	handleClick := GoUseFunc(UseCallback(func(event GoEvent) {
 		event.PreventDefault()
 		// Handle docs route vs section scrolling
 		if section == "docs" {
@@ -224,7 +221,7 @@ func EnhancedNavLink(icon, text, href, section string) *Element {
 		}
 	}, section))
 
-	return dom.A(
+	return A(
 		Attrs{
 			"href":    href,
 			"class":   "group relative px-3 py-2 text-gray-300 hover:text-white transition-all duration-300 font-medium rounded-xl hover:bg-white/5 cursor-pointer",
@@ -232,19 +229,19 @@ func EnhancedNavLink(icon, text, href, section string) *Element {
 		},
 
 		// Content container
-		dom.Div(
+		Div(
 			Attrs{"class": "flex items-center space-x-2"},
-			dom.Span(Attrs{"class": "text-sm transition-transform duration-300 group-hover:scale-110"}, icon),
-			dom.Span(Attrs{"class": "text-sm font-medium transition-transform duration-300 group-hover:translate-x-0.5 whitespace-nowrap"}, text),
+			Span(Attrs{"class": "text-sm transition-transform duration-300 group-hover:scale-110"}, icon),
+			Span(Attrs{"class": "text-sm font-medium transition-transform duration-300 group-hover:translate-x-0.5 whitespace-nowrap"}, text),
 		),
 
 		// Animated underline
-		dom.Div(Attrs{
+		Div(Attrs{
 			"class": "absolute bottom-0 left-1/2 w-0 h-0.5 bg-gradient-to-r from-indigo-600 to-purple-600 group-hover:w-3/4 group-hover:left-5 transition-all duration-300 rounded-full",
 		}),
 
 		// Glow effect
-		dom.Div(Attrs{
+		Div(Attrs{
 			"class": "absolute inset-0 bg-gradient-to-r from-indigo-600/10 to-purple-600/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10",
 		}),
 	)
@@ -253,26 +250,26 @@ func EnhancedNavLink(icon, text, href, section string) *Element {
 // MobileMenuIcon creates an animated hamburger menu icon
 func MobileMenuIcon(isOpen bool) *Element {
 	if isOpen {
-		return dom.Div(
+		return Div(
 			Attrs{"class": "w-6 h-6 flex flex-col justify-center items-center"},
 			// X icon when open
-			dom.Div(Attrs{"class": "w-5 h-0.5 bg-gray-700 transform rotate-45 translate-y-0.5 transition-all duration-300"}),
-			dom.Div(Attrs{"class": "w-5 h-0.5 bg-gray-700 transform -rotate-45 -translate-y-0.5 transition-all duration-300"}),
+			Div(Attrs{"class": "w-5 h-0.5 bg-gray-700 transform rotate-45 translate-y-0.5 transition-all duration-300"}),
+			Div(Attrs{"class": "w-5 h-0.5 bg-gray-700 transform -rotate-45 -translate-y-0.5 transition-all duration-300"}),
 		)
 	}
 
-	return dom.Div(
+	return Div(
 		Attrs{"class": "w-6 h-6 flex flex-col justify-center items-center space-y-1"},
 		// Hamburger icon when closed
-		dom.Div(Attrs{"class": "w-5 h-0.5 bg-gray-700 transition-all duration-300 group-hover:w-6"}),
-		dom.Div(Attrs{"class": "w-4 h-0.5 bg-gray-700 transition-all duration-300 group-hover:w-6"}),
-		dom.Div(Attrs{"class": "w-5 h-0.5 bg-gray-700 transition-all duration-300 group-hover:w-6"}),
+		Div(Attrs{"class": "w-5 h-0.5 bg-gray-700 transition-all duration-300 group-hover:w-6"}),
+		Div(Attrs{"class": "w-4 h-0.5 bg-gray-700 transition-all duration-300 group-hover:w-6"}),
+		Div(Attrs{"class": "w-5 h-0.5 bg-gray-700 transition-all duration-300 group-hover:w-6"}),
 	)
 }
 
 // EnhancedMobileMenu creates a modern mobile menu with animations
 func EnhancedMobileMenu(isOpen bool, setIsOpen func(bool)) *Element {
-	handleClose := hooks.GoUseFunc(func(event dom.GoEvent) {
+	handleClose := GoUseFunc(func(event GoEvent) {
 		setIsOpen(false)
 	})
 
@@ -287,11 +284,11 @@ func EnhancedMobileMenu(isOpen bool, setIsOpen func(bool)) *Element {
 		menuClasses += " -translate-y-full opacity-0 pointer-events-none"
 	}
 
-	return dom.Div(
+	return Div(
 		nil,
 
 		// Overlay
-		dom.Div(
+		Div(
 			Attrs{
 				"class":   overlayClasses,
 				"onclick": handleClose,
@@ -299,11 +296,11 @@ func EnhancedMobileMenu(isOpen bool, setIsOpen func(bool)) *Element {
 		),
 
 		// Menu content
-		dom.Div(
+		Div(
 			Attrs{"class": menuClasses},
-			dom.Div(
+			Div(
 				Attrs{"class": "bg-[#0a0a0a]/95 backdrop-blur-xl shadow-2xl border-b border-white/10 mx-4 rounded-2xl mt-2"},
-				dom.Div(
+				Div(
 					Attrs{"class": "px-6 py-6 space-y-4"},
 
 					// Navigation links
@@ -316,19 +313,19 @@ func EnhancedMobileMenu(isOpen bool, setIsOpen func(bool)) *Element {
 					EnhancedMobileNavLink("🔥", "Contact", "#contact", "contact", setIsOpen),
 
 					// Divider
-					dom.Div(Attrs{"class": "border-t border-gray-200 my-6"}),
+					Div(Attrs{"class": "border-t border-gray-200 my-6"}),
 
 					// Action buttons
-					dom.Div(
+					Div(
 						Attrs{"class": "flex justify-center"},
-						dom.A(
+						A(
 							Attrs{
 								"href":   "https://github.com/monstercameron/GoWebComponents",
 								"target": "_blank",
 								"class":  "flex items-center justify-center space-x-3 px-6 py-3 bg-gray-900 text-white rounded-xl hover:bg-gray-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 cursor-pointer",
 							},
-							dom.Span(Attrs{"class": "text-lg"}, "🐙"),
-							dom.Span(Attrs{"class": "font-semibold"}, "GitHub"),
+							Span(Attrs{"class": "text-lg"}, "🐙"),
+							Span(Attrs{"class": "font-semibold"}, "GitHub"),
 						),
 					),
 				),
@@ -339,7 +336,7 @@ func EnhancedMobileMenu(isOpen bool, setIsOpen func(bool)) *Element {
 
 // EnhancedMobileNavLink creates a styled mobile navigation link
 func EnhancedMobileNavLink(icon, text, href, section string, setIsOpen func(bool)) *Element {
-	handleClick := hooks.GoUseFunc(func(event dom.GoEvent) {
+	handleClick := GoUseFunc(func(event GoEvent) {
 		event.PreventDefault()
 		// Handle docs route vs section scrolling
 		if section == "docs" {
@@ -351,21 +348,21 @@ func EnhancedMobileNavLink(icon, text, href, section string, setIsOpen func(bool
 		setIsOpen(false)
 	})
 
-	return dom.A(
+	return A(
 		Attrs{
 			"href":    href,
 			"class":   "group flex items-center space-x-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-300 font-medium cursor-pointer",
 			"onclick": handleClick,
 		},
-		dom.Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:scale-110"}, icon),
-		dom.Span(Attrs{"class": "transition-transform duration-300 group-hover:translate-x-1"}, text),
-		dom.Span(Attrs{"class": "ml-auto text-gray-400 group-hover:text-indigo-600 transition-colors duration-300"}, "→"),
+		Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:scale-110"}, icon),
+		Span(Attrs{"class": "transition-transform duration-300 group-hover:translate-x-1"}, text),
+		Span(Attrs{"class": "ml-auto text-gray-400 group-hover:text-indigo-600 transition-colors duration-300"}, "→"),
 	)
 }
 
 // ScrollToSectionJS creates a JavaScript function string for scrolling
 func ScrollToSectionJS(section string) interface{} {
-	return hooks.GoUseFunc(func(e dom.GoEvent) {
+	return GoUseFunc(func(e GoEvent) {
 		ScrollToSectionSmoothEnhanced(section)
 	})
 }
@@ -569,3 +566,4 @@ func AddSmoothScrollCSS() {
 	`)
 	js.Global().Get("document").Get("head").Call("appendChild", style)
 }
+

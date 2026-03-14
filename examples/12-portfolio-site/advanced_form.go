@@ -8,31 +8,28 @@ import (
 	"regexp"
 	"strconv"
 	"time"
-
-	"github.com/monstercameron/GoWebComponents/dom"
-	"github.com/monstercameron/GoWebComponents/hooks"
 )
 
 // AdvancedFormExample showcases sophisticated form handling with real-time validation.
-// Demonstrates hooks.UseState, hooks.UseEffect, hooks.UseFetch, and hooks.GoUseFunc hooks working together
+// Demonstrates UseState, UseEffect, UseFetch, and GoUseFunc hooks working together
 // to create a production-ready form with password strength, async submission, and error handling.
 func AdvancedFormExample(_ Attrs) *Element {
 	// Form field state management
-	username, setUsername := hooks.UseState("")
-	email, setEmail := hooks.UseState("")
-	password, setPassword := hooks.UseState("")
-	confirmPass, setConfirmPass := hooks.UseState("")
-	bio, setBio := hooks.UseState("")
-	userType, setUserType := hooks.UseState("developer")
-	agreeTerms, setAgreeTerms := hooks.UseState(false)
+	username, setUsername := UseState("")
+	email, setEmail := UseState("")
+	password, setPassword := UseState("")
+	confirmPass, setConfirmPass := UseState("")
+	bio, setBio := UseState("")
+	userType, setUserType := UseState("developer")
+	agreeTerms, setAgreeTerms := UseState(false)
 
 	// Form submission and validation state
-	isSubmitting, setIsSubmitting := hooks.UseState(false)
-	submitStatus, setSubmitStatus := hooks.UseState("")
-	passwordStrength, setPasswordStrength := hooks.UseState(0)
+	isSubmitting, setIsSubmitting := UseState(false)
+	submitStatus, setSubmitStatus := UseState("")
+	passwordStrength, setPasswordStrength := UseState(0)
 
 	// Calculate password strength when password changes
-	hooks.UseEffect(func() func() {
+	UseEffect(func() func() {
 		pass := password()
 		if pass == "" {
 			setPasswordStrength(0)
@@ -63,43 +60,43 @@ func AdvancedFormExample(_ Attrs) *Element {
 	}, password())
 
 	// Input handlers
-	handleUsernameChange := hooks.GoUseFunc(func(event dom.GoEvent) {
+	handleUsernameChange := GoUseFunc(func(event GoEvent) {
 		value := event.GetValue()
 		setUsername(value)
 	})
 
-	handleEmailChange := hooks.GoUseFunc(func(event dom.GoEvent) {
+	handleEmailChange := GoUseFunc(func(event GoEvent) {
 		value := event.GetValue()
 		setEmail(value)
 	})
 
-	handlePasswordChange := hooks.GoUseFunc(func(event dom.GoEvent) {
+	handlePasswordChange := GoUseFunc(func(event GoEvent) {
 		value := event.GetValue()
 		setPassword(value)
 	})
 
-	handleConfirmPassChange := hooks.GoUseFunc(func(event dom.GoEvent) {
+	handleConfirmPassChange := GoUseFunc(func(event GoEvent) {
 		value := event.GetValue()
 		setConfirmPass(value)
 	})
 
-	handleBioChange := hooks.GoUseFunc(func(event dom.GoEvent) {
+	handleBioChange := GoUseFunc(func(event GoEvent) {
 		value := event.GetValue()
 		setBio(value)
 	})
 
-	handleUserTypeChange := hooks.GoUseFunc(func(event dom.GoEvent) {
+	handleUserTypeChange := GoUseFunc(func(event GoEvent) {
 		value := event.GetValue()
 		setUserType(value)
 	})
 
-	handleTermsChange := hooks.GoUseFunc(func(event dom.GoEvent) {
+	handleTermsChange := GoUseFunc(func(event GoEvent) {
 		checked := event.IsChecked()
 		setAgreeTerms(checked)
 	})
 
 	// Form submission
-	handleSubmit := hooks.GoUseFunc(func(event dom.GoEvent) {
+	handleSubmit := GoUseFunc(func(event GoEvent) {
 		event.PreventDefault()
 		setIsSubmitting(true)
 		setSubmitStatus("")
@@ -197,25 +194,25 @@ func AdvancedFormExample(_ Attrs) *Element {
 		return ""
 	}
 
-	return dom.Div(
+	return Div(
 		Attrs{"class": "bg-white rounded-xl border border-gray-200 p-8 shadow-lg"},
 
 		// Header
-		dom.Div(
+		Div(
 			Attrs{"class": "text-center mb-8"},
-			dom.H3(Attrs{"class": "text-2xl font-bold text-gray-900 mb-2"}, "🔧 Advanced Form Example"),
-			dom.P(Attrs{"class": "text-gray-600"}, "Comprehensive form handling with validation, state management, and async processing"),
+			H3(Attrs{"class": "text-2xl font-bold text-gray-900 mb-2"}, "🔧 Advanced Form Example"),
+			P(Attrs{"class": "text-gray-600"}, "Comprehensive form handling with validation, state management, and async processing"),
 		),
 
 		// Form
-		dom.Form(
+		Form(
 			Attrs{"class": "space-y-6", "onsubmit": handleSubmit},
 
 			// Username field
-			dom.Div(
+			Div(
 				Attrs{"class": "space-y-2"},
-				dom.Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Username"),
-				dom.Input(Attrs{
+				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Username"),
+				Input(Attrs{
 					"type":    "text",
 					"value":   username(),
 					"oninput": handleUsernameChange,
@@ -229,17 +226,17 @@ func AdvancedFormExample(_ Attrs) *Element {
 				}),
 				func() *Element {
 					if err := usernameError(); err != "" {
-						return dom.P(Attrs{"class": "text-sm text-red-600"}, err)
+						return P(Attrs{"class": "text-sm text-red-600"}, err)
 					}
-					return dom.Text("")
+					return Text("")
 				}(),
 			),
 
 			// Email field
-			dom.Div(
+			Div(
 				Attrs{"class": "space-y-2"},
-				dom.Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Email"),
-				dom.Input(Attrs{
+				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Email"),
+				Input(Attrs{
 					"type":    "email",
 					"value":   email(),
 					"oninput": handleEmailChange,
@@ -253,17 +250,17 @@ func AdvancedFormExample(_ Attrs) *Element {
 				}),
 				func() *Element {
 					if err := emailError(); err != "" {
-						return dom.P(Attrs{"class": "text-sm text-red-600"}, err)
+						return P(Attrs{"class": "text-sm text-red-600"}, err)
 					}
-					return dom.Text("")
+					return Text("")
 				}(),
 			),
 
 			// Password field with strength meter
-			dom.Div(
+			Div(
 				Attrs{"class": "space-y-2"},
-				dom.Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Password"),
-				dom.Input(Attrs{
+				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Password"),
+				Input(Attrs{
 					"type":    "password",
 					"value":   password(),
 					"oninput": handlePasswordChange,
@@ -280,14 +277,14 @@ func AdvancedFormExample(_ Attrs) *Element {
 				func() *Element {
 					if password() != "" {
 						strength := passwordStrength()
-						return dom.Div(
+						return Div(
 							Attrs{"class": "mt-2"},
-							dom.Div(Attrs{"class": "flex justify-between text-xs text-gray-600 mb-1"},
-								dom.Span(nil, "Password Strength"),
-								dom.Span(nil, dom.Text(strconv.Itoa(strength)), "%"),
+							Div(Attrs{"class": "flex justify-between text-xs text-gray-600 mb-1"},
+								Span(nil, "Password Strength"),
+								Span(nil, Text(strconv.Itoa(strength)), "%"),
 							),
-							dom.Div(Attrs{"class": "w-full bg-gray-200 rounded-full h-2"},
-								dom.Div(Attrs{
+							Div(Attrs{"class": "w-full bg-gray-200 rounded-full h-2"},
+								Div(Attrs{
 									"class": func() string {
 										if strength < 30 {
 											return "bg-red-500 h-2 rounded-full transition-all duration-300"
@@ -301,22 +298,22 @@ func AdvancedFormExample(_ Attrs) *Element {
 							),
 						)
 					}
-					return dom.Text("")
+					return Text("")
 				}(),
 
 				func() *Element {
 					if err := passwordError(); err != "" {
-						return dom.P(Attrs{"class": "text-sm text-red-600"}, err)
+						return P(Attrs{"class": "text-sm text-red-600"}, err)
 					}
-					return dom.Text("")
+					return Text("")
 				}(),
 			),
 
 			// Confirm Password field
-			dom.Div(
+			Div(
 				Attrs{"class": "space-y-2"},
-				dom.Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Confirm Password"),
-				dom.Input(Attrs{
+				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Confirm Password"),
+				Input(Attrs{
 					"type":    "password",
 					"value":   confirmPass(),
 					"oninput": handleConfirmPassChange,
@@ -330,62 +327,62 @@ func AdvancedFormExample(_ Attrs) *Element {
 				}),
 				func() *Element {
 					if err := confirmPassError(); err != "" {
-						return dom.P(Attrs{"class": "text-sm text-red-600"}, err)
+						return P(Attrs{"class": "text-sm text-red-600"}, err)
 					}
-					return dom.Text("")
+					return Text("")
 				}(),
 			),
 
 			// Bio field
-			dom.Div(
+			Div(
 				Attrs{"class": "space-y-2"},
-				dom.Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Bio (optional)"),
-				dom.Textarea(Attrs{
+				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Bio (optional)"),
+				Textarea(Attrs{
 					"value":       bio(),
 					"oninput":     handleBioChange,
 					"rows":        "4",
 					"class":       "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black",
 					"placeholder": "Tell us about yourself...",
 				}),
-				dom.Div(
+				Div(
 					Attrs{"class": "flex justify-between text-xs text-gray-500"},
-					dom.Span(nil, dom.Text("Optional")),
-					dom.Span(nil, dom.Text(fmt.Sprintf("%d/500 characters", len(bio())))),
+					Span(nil, Text("Optional")),
+					Span(nil, Text(fmt.Sprintf("%d/500 characters", len(bio())))),
 				),
 			),
 
 			// User type selection
-			dom.Div(
+			Div(
 				Attrs{"class": "space-y-2"},
-				dom.Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "User Type"),
-				dom.Select(Attrs{
+				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "User Type"),
+				Select(Attrs{
 					"value":    userType(),
 					"onchange": handleUserTypeChange,
 					"class":    "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black",
 				},
-					dom.Option(Attrs{"value": "developer"}, "Developer"),
-					dom.Option(Attrs{"value": "designer"}, "Designer"),
-					dom.Option(Attrs{"value": "manager"}, "Project Manager"),
-					dom.Option(Attrs{"value": "other"}, "Other"),
+					Option(Attrs{"value": "developer"}, "Developer"),
+					Option(Attrs{"value": "designer"}, "Designer"),
+					Option(Attrs{"value": "manager"}, "Project Manager"),
+					Option(Attrs{"value": "other"}, "Other"),
 				),
 			),
 
 			// Terms agreement
-			dom.Div(
+			Div(
 				Attrs{"class": "flex items-center space-x-2"},
-				dom.Input(Attrs{
+				Input(Attrs{
 					"type":     "checkbox",
 					"checked":  agreeTerms(),
 					"onchange": handleTermsChange,
 					"class":    "h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 text-black",
 				}),
-				dom.Label(Attrs{"class": "text-sm text-gray-700"}, "I agree to the Terms and Conditions"),
+				Label(Attrs{"class": "text-sm text-gray-700"}, "I agree to the Terms and Conditions"),
 			),
 
 			// Submit button and status
-			dom.Div(
+			Div(
 				Attrs{"class": "space-y-4"},
-				dom.Button(
+				Button(
 					Attrs{
 						"type":     "submit",
 						"disabled": isSubmitting() || !agreeTerms(),
@@ -409,17 +406,17 @@ func AdvancedFormExample(_ Attrs) *Element {
 					status := submitStatus()
 					switch status {
 					case "success":
-						return dom.Div(Attrs{"class": "p-4 bg-green-100 border border-green-400 text-green-700 rounded-md"},
-							dom.P(Attrs{"class": "font-semibold"}, "✅ Success!"),
-							dom.P(nil, "Form submitted successfully. All data has been validated and processed."),
+						return Div(Attrs{"class": "p-4 bg-green-100 border border-green-400 text-green-700 rounded-md"},
+							P(Attrs{"class": "font-semibold"}, "✅ Success!"),
+							P(nil, "Form submitted successfully. All data has been validated and processed."),
 						)
 					case "error":
-						return dom.Div(Attrs{"class": "p-4 bg-red-100 border border-red-400 text-red-700 rounded-md"},
-							dom.P(Attrs{"class": "font-semibold"}, "❌ Error!"),
-							dom.P(nil, "Please fix the validation errors and try again."),
+						return Div(Attrs{"class": "p-4 bg-red-100 border border-red-400 text-red-700 rounded-md"},
+							P(Attrs{"class": "font-semibold"}, "❌ Error!"),
+							P(nil, "Please fix the validation errors and try again."),
 						)
 					default:
-						return dom.Text("")
+						return Text("")
 					}
 				}(),
 			),
@@ -429,24 +426,24 @@ func AdvancedFormExample(_ Attrs) *Element {
 
 // FormField creates a labeled form field with validation
 func FormField(label string, input *Element, errorMsg string, isValidating bool) *Element {
-	return dom.Div(
+	return Div(
 		Attrs{"class": "space-y-2"},
-		dom.Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, label),
+		Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, label),
 		input,
 		func() *Element {
 			if isValidating {
-				return dom.P(Attrs{"class": "text-sm text-blue-600 flex items-center"},
-					dom.Span(Attrs{"class": "mr-2"}, "⏳"),
+				return P(Attrs{"class": "text-sm text-blue-600 flex items-center"},
+					Span(Attrs{"class": "mr-2"}, "⏳"),
 					"Validating...",
 				)
 			}
 			if errorMsg != "" {
-				return dom.P(Attrs{"class": "text-sm text-red-600 flex items-center"},
-					dom.Span(Attrs{"class": "mr-2"}, "❌"),
+				return P(Attrs{"class": "text-sm text-red-600 flex items-center"},
+					Span(Attrs{"class": "mr-2"}, "❌"),
 					errorMsg,
 				)
 			}
-			return dom.Div(nil)
+			return Div(nil)
 		}(),
 	)
 }
@@ -476,16 +473,16 @@ func PasswordStrengthMeter(strength int) *Element {
 		barWidth = "100%"
 	}
 
-	return dom.Div(
+	return Div(
 		Attrs{"class": "space-y-1"},
-		dom.Div(
+		Div(
 			Attrs{"class": "flex justify-between items-center"},
-			dom.Span(Attrs{"class": "text-xs text-gray-600"}, "Password Strength:"),
-			dom.Span(Attrs{"class": "text-xs font-medium " + strengthColor}, strengthText),
+			Span(Attrs{"class": "text-xs text-gray-600"}, "Password Strength:"),
+			Span(Attrs{"class": "text-xs font-medium " + strengthColor}, strengthText),
 		),
-		dom.Div(
+		Div(
 			Attrs{"class": "w-full bg-gray-200 rounded-full h-2"},
-			dom.Div(Attrs{
+			Div(Attrs{
 				"class": "h-2 rounded-full transition-all duration-300 " + getStrengthBarColor(strength),
 				"style": "width: " + barWidth,
 			}),
@@ -506,3 +503,4 @@ func getStrengthBarColor(strength int) string {
 		return "bg-green-500"
 	}
 }
+

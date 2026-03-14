@@ -3,11 +3,8 @@
 
 package shared
 
-import (
-	"github.com/monstercameron/GoWebComponents/dom"
-	"github.com/monstercameron/GoWebComponents/render"
-)
+import "github.com/monstercameron/GoWebComponents/internal/runtime"
 
 // Common type aliases used across examples
-type Attrs = dom.Attrs
-type Element = render.Element
+type Attrs = map[string]interface{}
+type Element = runtime.Element

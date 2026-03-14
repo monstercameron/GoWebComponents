@@ -4,12 +4,9 @@
 package router_test
 
 import (
-	"syscall/js"
-
-	"github.com/monstercameron/GoWebComponents/dom"
-	"github.com/monstercameron/GoWebComponents/hooks"
-	"github.com/monstercameron/GoWebComponents/render"
+	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/router"
+	"github.com/monstercameron/GoWebComponents/ui"
 )
 
 func ExampleNewHashRouter() {
@@ -17,12 +14,12 @@ func ExampleNewHashRouter() {
 	r := router.NewHashRouter()
 
 	// Define page components
-	homePage := func(props dom.Attrs) *render.Element {
-		return dom.Div(nil, dom.H1(nil, dom.Text("Home")))
+	homePage := func(props router.Attrs) *router.Element {
+		return html.Div(html.Props{}, html.H1(html.Props{}, html.Text("Home")))
 	}
 
-	aboutPage := func(props dom.Attrs) *render.Element {
-		return dom.Div(nil, dom.H1(nil, dom.Text("About")))
+	aboutPage := func(props router.Attrs) *router.Element {
+		return html.Div(html.Props{}, html.H1(html.Props{}, html.Text("About")))
 	}
 
 	// Register routes
@@ -39,30 +36,27 @@ func ExampleNavigate() {
 	router.Navigate("/about")
 }
 
-func ExampleLink() {
+func Example_navigationLink() {
 	// To create a link that navigates without full page reload,
-	// use a component with an onclick handler and hooks.GoUseFunc.
+	// use a component with an onclick handler and ui.UseEvent.
 
 	// Define a component
-	LinkComponent := func(props dom.Attrs) *render.Element {
-		// Use GoUseFunc to create a memory-safe event handler
-		handleClick := hooks.GoUseFunc(func(this js.Value, args []js.Value) interface{} {
-			args[0].Call("preventDefault")
+	LinkComponent := func(props router.Attrs) *router.Element {
+		handleClick := ui.UseEvent(func(event ui.Event) {
+			event.PreventDefault()
 			router.Navigate("/about")
-			return nil
 		})
 
-		return dom.A(
-			dom.Attrs{
-				"href":    "#",
-				"onclick": handleClick,
+		return html.A(
+			html.Props{
+				Href:    "#",
+				OnClick: handleClick,
 			},
-			dom.Text("Go to About"),
+			html.Text("Go to About"),
 		)
 	}
 
-	// In a real app, you would render this component:
-	// render.To(LinkComponent(nil), "#app")
+	// In a real app, you would render this component with ui.Render.
 
 	// For this example, we just suppress the unused variable warning
 	_ = LinkComponent

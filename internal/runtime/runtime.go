@@ -3,9 +3,8 @@ package runtime
 import "sync"
 
 var (
-	globalRuntime     *Runtime
-	globalRuntimeOnce sync.Once
-	globalRuntimeMu   sync.Mutex
+	globalRuntime   *Runtime
+	globalRuntimeMu sync.Mutex
 )
 
 // GetGlobalRuntime returns the global Runtime instance, creating it if needed

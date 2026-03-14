@@ -7,8 +7,7 @@ import (
 	"syscall/js"
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/dom"
-	"github.com/monstercameron/GoWebComponents/render"
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
 // TestNewBrowserRouter tests browser/history router initialization
@@ -74,8 +73,8 @@ func TestBrowserRouterType(t *testing.T) {
 func TestBrowserRouterRegisterRoute(t *testing.T) {
 	router := NewRouter(RouterOptions{})
 
-	testComponent := func(attrs dom.Attrs) *render.Element {
-		return dom.Div(nil, dom.Text("test"))
+	testComponent := func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("test"))
 	}
 
 	router.GoRegisterRoute("/", testComponent)
@@ -138,8 +137,8 @@ func TestBrowserRouterNavigate(t *testing.T) {
 	router := NewRouter(RouterOptions{})
 
 	// Register a test component
-	testComponent := func(attrs dom.Attrs) *render.Element {
-		return dom.Div(nil, dom.Text("navigation test"))
+	testComponent := func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("navigation test"))
 	}
 
 	router.GoRegisterRoute("/nav-test", testComponent)
@@ -172,8 +171,8 @@ func TestBrowserRouterNavigateReplace(t *testing.T) {
 func TestBrowserRouterMountElement(t *testing.T) {
 	router := NewRouter(RouterOptions{})
 
-	testComponent := func(attrs dom.Attrs) *render.Element {
-		return dom.Div(nil, dom.Text("mounted content"))
+	testComponent := func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("mounted content"))
 	}
 
 	router.GoRegisterRoute("/", testComponent)
@@ -201,12 +200,12 @@ func TestBrowserRouterMountElement(t *testing.T) {
 func TestBrowserRouterNotFound(t *testing.T) {
 	router := NewRouter(RouterOptions{})
 
-	homeComponent := func(attrs dom.Attrs) *render.Element {
-		return dom.Div(nil, dom.Text("home"))
+	homeComponent := func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("home"))
 	}
 
-	notFoundComponent := func(attrs dom.Attrs) *render.Element {
-		return dom.Div(nil, dom.Text("not found"))
+	notFoundComponent := func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("not found"))
 	}
 
 	router.GoRegisterRoute("/", homeComponent)
@@ -221,8 +220,8 @@ func TestBrowserRouterNotFound(t *testing.T) {
 func TestBrowserRouterGetRoute(t *testing.T) {
 	router := NewRouter(RouterOptions{})
 
-	testComponent := func(attrs dom.Attrs) *render.Element {
-		return dom.Div(nil, dom.Text("test content"))
+	testComponent := func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("test content"))
 	}
 
 	router.GoRegisterRoute("/", testComponent)

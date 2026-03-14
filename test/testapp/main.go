@@ -6,15 +6,11 @@ package main
 import (
 	"fmt"
 	"syscall/js"
-
-	"github.com/monstercameron/GoWebComponents/dom"
-	"github.com/monstercameron/GoWebComponents/hooks"
-	"github.com/monstercameron/GoWebComponents/render"
 	"github.com/monstercameron/GoWebComponents/state"
 )
 
 // Counter is a reusable component for testing component reuse
-func Counter(props dom.Attrs) *dom.Element {
+func Counter(props Attrs) *Element {
 	id := ""
 	if props != nil {
 		if idVal, ok := props["id"].(string); ok {
@@ -22,22 +18,22 @@ func Counter(props dom.Attrs) *dom.Element {
 		}
 	}
 
-	count, setCount := hooks.UseState(0)
+	count, setCount := UseState(0)
 
-	increment := hooks.GoUseFunc(func() {
+	increment := GoUseFunc(func() {
 		setCount(func(prev int) int {
 			return prev + 1
 		})
 	})
 
-	return dom.Div(dom.Attrs{"class": "counter-instance", "data-counter-id": id},
-		dom.P(dom.Attrs{"class": "counter-value"},
-			dom.Text(fmt.Sprintf("Counter %s: %d", id, count())),
+	return Div(Attrs{"class": "counter-instance", "data-counter-id": id},
+		P(Attrs{"class": "counter-value"},
+			Text(fmt.Sprintf("Counter %s: %d", id, count())),
 		),
-		dom.Button(dom.Attrs{
+		Button(Attrs{
 			"onclick": increment,
 			"class":   "counter-btn px-2 py-1 bg-purple-500 text-white",
-		}, dom.Text("+")),
+		}, Text("+")),
 	)
 }
 
@@ -50,56 +46,56 @@ var mixedStressRenders int
 var mixedStressMirrorRenders int
 
 // ReactA component - independent state
-func ReactA(props dom.Attrs) *dom.Element {
-	value, setValue := hooks.UseState(0)
+func ReactA(props Attrs) *Element {
+	value, setValue := UseState(0)
 	reactARenders++
-	inc := hooks.GoUseFunc(func() {
+	inc := GoUseFunc(func() {
 		setValue(func(prev int) int { return prev + 1 })
 	})
-	return dom.Div(dom.Attrs{"id": "react-a"},
-		dom.P(dom.Attrs{"id": "react-a-value"}, dom.Text(fmt.Sprintf("A Value: %d", value()))),
-		dom.P(dom.Attrs{"id": "react-a-renders"}, dom.Text(fmt.Sprintf("A Renders: %d", reactARenders))),
-		dom.Button(dom.Attrs{"id": "react-a-inc", "onclick": inc}, dom.Text("Inc A")),
+	return Div(Attrs{"id": "react-a"},
+		P(Attrs{"id": "react-a-value"}, Text(fmt.Sprintf("A Value: %d", value()))),
+		P(Attrs{"id": "react-a-renders"}, Text(fmt.Sprintf("A Renders: %d", reactARenders))),
+		Button(Attrs{"id": "react-a-inc", "onclick": inc}, Text("Inc A")),
 	)
 }
 
 // ReactB component - should not re-render when A changes
-func ReactB(props dom.Attrs) *dom.Element {
-	value, _ := hooks.UseState(0) // static for this test
+func ReactB(props Attrs) *Element {
+	value, _ := UseState(0) // static for this test
 	reactBRenders++
-	return dom.Div(dom.Attrs{"id": "react-b"},
-		dom.P(dom.Attrs{"id": "react-b-value"}, dom.Text(fmt.Sprintf("B Value: %d", value()))),
-		dom.P(dom.Attrs{"id": "react-b-renders"}, dom.Text(fmt.Sprintf("B Renders: %d", reactBRenders))),
+	return Div(Attrs{"id": "react-b"},
+		P(Attrs{"id": "react-b-value"}, Text(fmt.Sprintf("B Value: %d", value()))),
+		P(Attrs{"id": "react-b-renders"}, Text(fmt.Sprintf("B Renders: %d", reactBRenders))),
 	)
 }
 
 // ReactBatch component - demonstrates batched logical update
-func ReactBatch(props dom.Attrs) *dom.Element {
-	value, setValue := hooks.UseState(0)
+func ReactBatch(props Attrs) *Element {
+	value, setValue := UseState(0)
 	reactBatchRenders++
-	batch := hooks.GoUseFunc(func() {
+	batch := GoUseFunc(func() {
 		// Single state update applying multiple increments
 		setValue(func(prev int) int { return prev + 3 })
 	})
-	return dom.Div(dom.Attrs{"id": "react-batch"},
-		dom.P(dom.Attrs{"id": "react-batch-value"}, dom.Text(fmt.Sprintf("Batch Value: %d", value()))),
-		dom.P(dom.Attrs{"id": "react-batch-renders"}, dom.Text(fmt.Sprintf("Batch Renders: %d", reactBatchRenders))),
-		dom.Button(dom.Attrs{"id": "react-batch-btn", "onclick": batch}, dom.Text("Batch +3")),
+	return Div(Attrs{"id": "react-batch"},
+		P(Attrs{"id": "react-batch-value"}, Text(fmt.Sprintf("Batch Value: %d", value()))),
+		P(Attrs{"id": "react-batch-renders"}, Text(fmt.Sprintf("Batch Renders: %d", reactBatchRenders))),
+		Button(Attrs{"id": "react-batch-btn", "onclick": batch}, Text("Batch +3")),
 	)
 }
 
 // ReactivityDemo aggregates reactivity test components
-func ReactivityDemo(props dom.Attrs) *dom.Element {
-	return dom.Div(dom.Attrs{"id": "reactivity-demo", "class": "mt-8"},
-		dom.H2(nil, dom.Text("Reactivity Demo")),
-		&dom.Element{Type: ReactA},
-		&dom.Element{Type: ReactB},
-		&dom.Element{Type: ReactBatch},
+func ReactivityDemo(props Attrs) *Element {
+	return Div(Attrs{"id": "reactivity-demo", "class": "mt-8"},
+		H2(nil, Text("Reactivity Demo")),
+		&Element{Type: ReactA},
+		&Element{Type: ReactB},
+		&Element{Type: ReactBatch},
 	)
 }
 
-func StateStressDemo(props dom.Attrs) *dom.Element {
-	count, setCount := hooks.UseState(0)
+func StateStressDemo(props Attrs) *Element {
+	count, setCount := UseState(0)
 	stressRenders++
 
 	applyBurst := func(n int) {
@@ -108,38 +104,38 @@ func StateStressDemo(props dom.Attrs) *dom.Element {
 		}
 	}
 
-	plus5 := hooks.GoUseFunc(func() { applyBurst(5) })
-	plus25 := hooks.GoUseFunc(func() { applyBurst(25) })
-	plus100 := hooks.GoUseFunc(func() { applyBurst(100) })
-	reset := hooks.GoUseFunc(func() {
+	plus5 := GoUseFunc(func() { applyBurst(5) })
+	plus25 := GoUseFunc(func() { applyBurst(25) })
+	plus100 := GoUseFunc(func() { applyBurst(100) })
+	reset := GoUseFunc(func() {
 		setCount(0)
 	})
 
-	return dom.Div(dom.Attrs{"id": "state-stress-demo", "class": "mt-8"},
-		dom.H2(nil, dom.Text("State Stress Demo")),
-		dom.P(dom.Attrs{"id": "stress-count"}, dom.Text(fmt.Sprintf("Stress Count: %d", count()))),
-		dom.P(dom.Attrs{"id": "stress-renders"}, dom.Text(fmt.Sprintf("Stress Renders: %d", stressRenders))),
-		dom.Div(dom.Attrs{"class": "flex gap-2"},
-			dom.Button(dom.Attrs{"id": "stress-plus-5", "onclick": plus5}, dom.Text("+5")),
-			dom.Button(dom.Attrs{"id": "stress-plus-25", "onclick": plus25}, dom.Text("+25")),
-			dom.Button(dom.Attrs{"id": "stress-plus-100", "onclick": plus100}, dom.Text("+100")),
-			dom.Button(dom.Attrs{"id": "stress-reset", "onclick": reset}, dom.Text("Reset")),
+	return Div(Attrs{"id": "state-stress-demo", "class": "mt-8"},
+		H2(nil, Text("State Stress Demo")),
+		P(Attrs{"id": "stress-count"}, Text(fmt.Sprintf("Stress Count: %d", count()))),
+		P(Attrs{"id": "stress-renders"}, Text(fmt.Sprintf("Stress Renders: %d", stressRenders))),
+		Div(Attrs{"class": "flex gap-2"},
+			Button(Attrs{"id": "stress-plus-5", "onclick": plus5}, Text("+5")),
+			Button(Attrs{"id": "stress-plus-25", "onclick": plus25}, Text("+25")),
+			Button(Attrs{"id": "stress-plus-100", "onclick": plus100}, Text("+100")),
+			Button(Attrs{"id": "stress-reset", "onclick": reset}, Text("Reset")),
 		),
 	)
 }
 
-func MixedStateBurstMirror(props dom.Attrs) *dom.Element {
+func MixedStateBurstMirror(props Attrs) *Element {
 	shared := state.UseAtom("stressSharedCounter", 0)
 	mixedStressMirrorRenders++
 
-	return dom.Div(dom.Attrs{"id": "mixed-stress-mirror"},
-		dom.P(dom.Attrs{"id": "mixed-shared-mirror"}, dom.Text(fmt.Sprintf("Mirror Shared: %d", shared.Get()))),
-		dom.P(dom.Attrs{"id": "mixed-shared-mirror-renders"}, dom.Text(fmt.Sprintf("Mirror Renders: %d", mixedStressMirrorRenders))),
+	return Div(Attrs{"id": "mixed-stress-mirror"},
+		P(Attrs{"id": "mixed-shared-mirror"}, Text(fmt.Sprintf("Mirror Shared: %d", shared.Get()))),
+		P(Attrs{"id": "mixed-shared-mirror-renders"}, Text(fmt.Sprintf("Mirror Renders: %d", mixedStressMirrorRenders))),
 	)
 }
 
-func MixedStateBurstDemo(props dom.Attrs) *dom.Element {
-	local, setLocal := hooks.UseState(0)
+func MixedStateBurstDemo(props Attrs) *Element {
+	local, setLocal := UseState(0)
 	shared := state.UseAtom("stressSharedCounter", 0)
 	mixedStressRenders++
 
@@ -150,32 +146,32 @@ func MixedStateBurstDemo(props dom.Attrs) *dom.Element {
 		}
 	}
 
-	burst50 := hooks.GoUseFunc(func() { applyMixedBurst(50) })
-	burst100 := hooks.GoUseFunc(func() { applyMixedBurst(100) })
-	reset := hooks.GoUseFunc(func() {
+	burst50 := GoUseFunc(func() { applyMixedBurst(50) })
+	burst100 := GoUseFunc(func() { applyMixedBurst(100) })
+	reset := GoUseFunc(func() {
 		setLocal(0)
 		shared.Set(0)
 	})
 
-	return dom.Div(dom.Attrs{"id": "mixed-state-stress-demo", "class": "mt-8"},
-		dom.H2(nil, dom.Text("Mixed State Stress Demo")),
-		dom.P(dom.Attrs{"id": "mixed-local-count"}, dom.Text(fmt.Sprintf("Local Count: %d", local()))),
-		dom.P(dom.Attrs{"id": "mixed-shared-count"}, dom.Text(fmt.Sprintf("Shared Count: %d", shared.Get()))),
-		dom.P(dom.Attrs{"id": "mixed-stress-renders"}, dom.Text(fmt.Sprintf("Mixed Renders: %d", mixedStressRenders))),
-		dom.Div(dom.Attrs{"class": "flex gap-2"},
-			dom.Button(dom.Attrs{"id": "mixed-burst-50", "onclick": burst50}, dom.Text("Mixed +50")),
-			dom.Button(dom.Attrs{"id": "mixed-burst-100", "onclick": burst100}, dom.Text("Mixed +100")),
-			dom.Button(dom.Attrs{"id": "mixed-reset", "onclick": reset}, dom.Text("Mixed Reset")),
+	return Div(Attrs{"id": "mixed-state-stress-demo", "class": "mt-8"},
+		H2(nil, Text("Mixed State Stress Demo")),
+		P(Attrs{"id": "mixed-local-count"}, Text(fmt.Sprintf("Local Count: %d", local()))),
+		P(Attrs{"id": "mixed-shared-count"}, Text(fmt.Sprintf("Shared Count: %d", shared.Get()))),
+		P(Attrs{"id": "mixed-stress-renders"}, Text(fmt.Sprintf("Mixed Renders: %d", mixedStressRenders))),
+		Div(Attrs{"class": "flex gap-2"},
+			Button(Attrs{"id": "mixed-burst-50", "onclick": burst50}, Text("Mixed +50")),
+			Button(Attrs{"id": "mixed-burst-100", "onclick": burst100}, Text("Mixed +100")),
+			Button(Attrs{"id": "mixed-reset", "onclick": reset}, Text("Mixed Reset")),
 		),
-		&dom.Element{Type: MixedStateBurstMirror},
+		&Element{Type: MixedStateBurstMirror},
 	)
 }
 
 // EffectChild demonstrates UseEffect cleanup on unmount
-func EffectChild(props dom.Attrs) *dom.Element {
+func EffectChild(props Attrs) *Element {
 	// Use an atom to track lifecycle status so cleanup can update a node outside the child
 	cleanupStatus := state.UseAtom("cleanupStatus", "")
-	hooks.UseEffect(func() func() {
+	UseEffect(func() func() {
 		// On mount: update global cleanup status and DOM directly
 		cleanupStatus.Set("mounted")
 		fmt.Println("EffectChild mounted")
@@ -187,40 +183,40 @@ func EffectChild(props dom.Attrs) *dom.Element {
 			js.Global().Get("document").Call("querySelector", "#cleanup-status").Set("textContent", "cleaned")
 		}
 	}, []interface{}{})
-	return dom.Div(dom.Attrs{"id": "effect-child"},
-		dom.P(dom.Attrs{"id": "effect-child-text"}, dom.Text("Effect Child")),
+	return Div(Attrs{"id": "effect-child"},
+		P(Attrs{"id": "effect-child-text"}, Text("Effect Child")),
 	)
 }
 
 // Toggle demo to mount and unmount EffectChild
-func ToggleEffectDemo(props dom.Attrs) *dom.Element {
-	show, setShow := hooks.UseState(false)
-	toggle := hooks.GoUseFunc(func() {
+func ToggleEffectDemo(props Attrs) *Element {
+	show, setShow := UseState(false)
+	toggle := GoUseFunc(func() {
 		setShow(func(prev bool) bool { return !prev })
 	})
 	if show() {
-		return dom.Div(dom.Attrs{"id": "toggle-effect-demo"},
-			dom.Button(dom.Attrs{"id": "toggle-child-btn", "onclick": toggle}, dom.Text("Toggle Child")),
-			&dom.Element{Type: EffectChild},
+		return Div(Attrs{"id": "toggle-effect-demo"},
+			Button(Attrs{"id": "toggle-child-btn", "onclick": toggle}, Text("Toggle Child")),
+			&Element{Type: EffectChild},
 		)
 	}
-	return dom.Div(dom.Attrs{"id": "toggle-effect-demo"},
-		dom.Button(dom.Attrs{"id": "toggle-child-btn", "onclick": toggle}, dom.Text("Toggle Child")),
+	return Div(Attrs{"id": "toggle-effect-demo"},
+		Button(Attrs{"id": "toggle-child-btn", "onclick": toggle}, Text("Toggle Child")),
 	)
 }
 
 // HelloWorld component demonstrates basic usage
-func HelloWorld(props dom.Attrs) *dom.Element {
-	count, setCount := hooks.UseState(0)
+func HelloWorld(props Attrs) *Element {
+	count, setCount := UseState(0)
 	// Setup shared atom for demonstration/testing
 	sharedCounter := state.UseAtom("sharedCounter", 0)
 	// Input state for onchange test
-	inputValue, setInputValue := hooks.UseState("")
+	inputValue, setInputValue := UseState("")
 	// Submit state for form test
-	submitValue, setSubmitValue := hooks.UseState("")
+	submitValue, setSubmitValue := UseState("")
 
 	// UseEffect to log on mount and count changes (also set title once)
-	hooks.UseEffect(func() func() {
+	UseEffect(func() func() {
 		fmt.Printf("UseEffect ran: count is %d\n", count())
 		// Set document title on mount
 		js.Global().Get("document").Set("title", "GoWebComponents App")
@@ -228,7 +224,7 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 	}, count())
 
 	// UseMemo to compute expensive value (for testing)
-	doubledCount := hooks.UseMemo(func() interface{} {
+	doubledCount := UseMemo(func() interface{} {
 		result := count() * 2
 		fmt.Printf("UseMemo computing: count=%d\n", count())
 		return result
@@ -237,24 +233,24 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 	// cleanup-status will be updated by child effect directly via Document API
 
 	// Create increment handler using functional setState
-	increment := hooks.GoUseFunc(func() {
+	increment := GoUseFunc(func() {
 		setCount(func(prev int) int {
 			return prev + 1
 		})
 	})
 
 	// Atom increment handler
-	atomIncrement := hooks.GoUseFunc(func() {
+	atomIncrement := GoUseFunc(func() {
 		sharedCounter.Set(sharedCounter.Get() + 1)
 	})
 
 	// Input onchange handler
-	handleInputChange := hooks.GoUseFunc(func(value string) {
+	handleInputChange := GoUseFunc(func(value string) {
 		setInputValue(value)
 	})
 
 	// Form onsubmit handler with preventDefault
-	handleSubmit := hooks.GoUseFunc(func(event js.Value) {
+	handleSubmit := GoUseFunc(func(event js.Value) {
 		event.Call("preventDefault")
 		// Get the form input value
 		formInput := event.Get("target").Call("querySelector", "#form-input")
@@ -262,198 +258,198 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 		setSubmitValue(value)
 	})
 
-	return dom.Div(dom.Attrs{"class": "container mx-auto p-8"},
-		dom.H1(dom.Attrs{"class": "text-4xl font-bold mb-4", "id": "main-heading"},
-			dom.Text("GoWebComponents Test"),
+	return Div(Attrs{"class": "container mx-auto p-8"},
+		H1(Attrs{"class": "text-4xl font-bold mb-4", "id": "main-heading"},
+			Text("GoWebComponents Test"),
 		),
-		dom.P(dom.Attrs{"class": "mb-4", "data-testid": "count-display"},
-			dom.Text(fmt.Sprintf("Count: %d", count())),
+		P(Attrs{"class": "mb-4", "data-testid": "count-display"},
+			Text(fmt.Sprintf("Count: %d", count())),
 		),
-		dom.P(dom.Attrs{"class": "mb-4", "id": "doubled", "style": "font-weight: bold;"},
-			dom.Text(fmt.Sprintf("Doubled: %d", doubledCount)),
+		P(Attrs{"class": "mb-4", "id": "doubled", "style": "font-weight: bold;"},
+			Text(fmt.Sprintf("Doubled: %d", doubledCount)),
 		),
-		dom.Button(dom.Attrs{
+		Button(Attrs{
 			"onclick":    increment,
 			"class":      "px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600",
 			"aria-label": "Increment main",
 		},
-			dom.Text("Increment"),
+			Text("Increment"),
 		),
-		dom.Div(nil,
-			dom.P(dom.Attrs{"id": "atom-value-a"}, dom.Text(fmt.Sprintf("AtomA: %d", sharedCounter.Get()))),
-			dom.P(dom.Attrs{"id": "atom-value-b"}, dom.Text(fmt.Sprintf("AtomB: %d", sharedCounter.Get()))),
-			dom.Button(dom.Attrs{"id": "atom-increment", "onclick": atomIncrement}, dom.Text("Atom Increment")),
+		Div(nil,
+			P(Attrs{"id": "atom-value-a"}, Text(fmt.Sprintf("AtomA: %d", sharedCounter.Get()))),
+			P(Attrs{"id": "atom-value-b"}, Text(fmt.Sprintf("AtomB: %d", sharedCounter.Get()))),
+			Button(Attrs{"id": "atom-increment", "onclick": atomIncrement}, Text("Atom Increment")),
 		),
-		dom.Div(dom.Attrs{"class": "mt-4"},
-			dom.H2(nil, dom.Text("Input Test")),
-			dom.Input(dom.Attrs{
+		Div(Attrs{"class": "mt-4"},
+			H2(nil, Text("Input Test")),
+			Input(Attrs{
 				"id":      "test-input",
 				"type":    "text",
 				"oninput": handleInputChange,
 				"class":   "border p-2",
 			}),
-			dom.P(dom.Attrs{"id": "input-value"},
-				dom.Text(fmt.Sprintf("Input: %s", inputValue())),
+			P(Attrs{"id": "input-value"},
+				Text(fmt.Sprintf("Input: %s", inputValue())),
 			),
 		),
-		dom.Div(dom.Attrs{"class": "mt-4"},
-			dom.H2(nil, dom.Text("Form Test")),
-			dom.Form(dom.Attrs{
+		Div(Attrs{"class": "mt-4"},
+			H2(nil, Text("Form Test")),
+			Form(Attrs{
 				"id":       "test-form",
 				"onsubmit": handleSubmit,
 			},
-				dom.Input(dom.Attrs{
+				Input(Attrs{
 					"id":    "form-input",
 					"type":  "text",
 					"class": "border p-2",
 				}),
-				dom.Button(dom.Attrs{
+				Button(Attrs{
 					"type":  "submit",
 					"class": "ml-2 px-4 py-2 bg-green-500 text-white",
-				}, dom.Text("Submit")),
+				}, Text("Submit")),
 			),
-			dom.P(dom.Attrs{"id": "submit-value"},
-				dom.Text(fmt.Sprintf("Submitted: %s", submitValue())),
+			P(Attrs{"id": "submit-value"},
+				Text(fmt.Sprintf("Submitted: %s", submitValue())),
 			),
 		),
-		dom.Div(dom.Attrs{"class": "mt-4", "id": "reusable-components", "role": "region", "aria-label": "Reusable Counters Section"},
-			dom.H2(nil, dom.Text("Reusable Components")),
-			&dom.Element{Type: Counter, Props: dom.Attrs{"id": "A"}},
-			&dom.Element{Type: Counter, Props: dom.Attrs{"id": "B"}},
-			&dom.Element{Type: Counter, Props: dom.Attrs{"id": "C"}},
+		Div(Attrs{"class": "mt-4", "id": "reusable-components", "role": "region", "aria-label": "Reusable Counters Section"},
+			H2(nil, Text("Reusable Components")),
+			&Element{Type: Counter, Props: Attrs{"id": "A"}},
+			&Element{Type: Counter, Props: Attrs{"id": "B"}},
+			&Element{Type: Counter, Props: Attrs{"id": "C"}},
 		),
-		dom.Div(dom.Attrs{"role": "region", "aria-label": "Reactivity Demo Section"},
-			&dom.Element{Type: ReactivityDemo},
+		Div(Attrs{"role": "region", "aria-label": "Reactivity Demo Section"},
+			&Element{Type: ReactivityDemo},
 		),
-		dom.Div(dom.Attrs{"role": "region", "aria-label": "State Stress Section"},
-			&dom.Element{Type: StateStressDemo},
-			&dom.Element{Type: MixedStateBurstDemo},
+		Div(Attrs{"role": "region", "aria-label": "State Stress Section"},
+			&Element{Type: StateStressDemo},
+			&Element{Type: MixedStateBurstDemo},
 		),
-		dom.Div(dom.Attrs{"role": "region", "aria-label": "Todo App Section", "id": "todo-app"},
-			&dom.Element{Type: Header},
-			&dom.Element{Type: TodoList},
+		Div(Attrs{"role": "region", "aria-label": "Todo App Section", "id": "todo-app"},
+			&Element{Type: Header},
+			&Element{Type: TodoList},
 		),
-		dom.Div(dom.Attrs{"class": "mt-4"},
-			&dom.Element{Type: ToggleEffectDemo},
+		Div(Attrs{"class": "mt-4"},
+			&Element{Type: ToggleEffectDemo},
 		),
-		dom.P(dom.Attrs{"id": "cleanup-status"}, dom.Text("")),
+		P(Attrs{"id": "cleanup-status"}, Text("")),
 		// Add new hook tests
-		&dom.Element{Type: UseIdTestComponent},
-		&dom.Element{Type: UseFetchTestComponent},
+		&Element{Type: UseIdTestComponent},
+		&Element{Type: UseFetchTestComponent},
 		// Add component that intentionally uses invalid props to ensure graceful handling
-		&dom.Element{Type: BadProps},
+		&Element{Type: BadProps},
 	)
 }
 
 // BadProps passes intentionally invalid properties to test error handling
-func BadProps(props dom.Attrs) *dom.Element {
+func BadProps(props Attrs) *Element {
 	// class attribute as non-string, onclick as non-function to simulate invalid props
-	return dom.Div(dom.Attrs{"id": "bad-props", "class": 12345, "onclick": "not-a-function"},
-		dom.Text("BadProps"),
+	return Div(Attrs{"id": "bad-props", "class": 12345, "onclick": "not-a-function"},
+		Text("BadProps"),
 	)
 }
 
 // UseIdTestComponent demonstrates UseId hook for accessibility
-func UseIdTestComponent(props dom.Attrs) *dom.Element {
-	inputId := hooks.UseId()
-	selectId := hooks.UseId()
-	checkboxId := hooks.UseId()
+func UseIdTestComponent(props Attrs) *Element {
+	inputId := UseId()
+	selectId := UseId()
+	checkboxId := UseId()
 
-	return dom.Div(dom.Attrs{"id": "use-id-test", "class": "mt-8"},
-		dom.H2(nil, dom.Text("UseId Test")),
-		dom.Div(dom.Attrs{"class": "mb-4"},
-			dom.Label(dom.Attrs{
+	return Div(Attrs{"id": "use-id-test", "class": "mt-8"},
+		H2(nil, Text("UseId Test")),
+		Div(Attrs{"class": "mb-4"},
+			Label(Attrs{
 				"htmlFor": inputId,
 				"id":      "input-label",
 				"class":   "block mb-2",
-			}, dom.Text("Test Input:")),
-			dom.Input(dom.Attrs{
+			}, Text("Test Input:")),
+			Input(Attrs{
 				"id":    inputId,
 				"type":  "text",
 				"class": "border p-2",
 			}),
-			dom.P(dom.Attrs{"id": "input-id-display"},
-				dom.Text(fmt.Sprintf("Input ID: %s", inputId)),
+			P(Attrs{"id": "input-id-display"},
+				Text(fmt.Sprintf("Input ID: %s", inputId)),
 			),
 		),
-		dom.Div(dom.Attrs{"class": "mb-4"},
-			dom.Label(dom.Attrs{
+		Div(Attrs{"class": "mb-4"},
+			Label(Attrs{
 				"htmlFor": selectId,
 				"id":      "select-label",
 				"class":   "block mb-2",
-			}, dom.Text("Test Select:")),
-			dom.Select(dom.Attrs{
+			}, Text("Test Select:")),
+			Select(Attrs{
 				"id": selectId,
 			},
-				dom.Option(dom.Attrs{"value": "1"}, dom.Text("Option 1")),
-				dom.Option(dom.Attrs{"value": "2"}, dom.Text("Option 2")),
+				Option(Attrs{"value": "1"}, Text("Option 1")),
+				Option(Attrs{"value": "2"}, Text("Option 2")),
 			),
-			dom.P(dom.Attrs{"id": "select-id-display"},
-				dom.Text(fmt.Sprintf("Select ID: %s", selectId)),
+			P(Attrs{"id": "select-id-display"},
+				Text(fmt.Sprintf("Select ID: %s", selectId)),
 			),
 		),
-		dom.Div(dom.Attrs{"class": "mb-4"},
-			dom.Div(nil,
-				dom.Input(dom.Attrs{
+		Div(Attrs{"class": "mb-4"},
+			Div(nil,
+				Input(Attrs{
 					"id":   checkboxId,
 					"type": "checkbox",
 				}),
-				dom.Label(dom.Attrs{
+				Label(Attrs{
 					"htmlFor": checkboxId,
 					"id":      "checkbox-label",
 					"class":   "ml-2",
-				}, dom.Text("Test Checkbox")),
+				}, Text("Test Checkbox")),
 			),
-			dom.P(dom.Attrs{"id": "checkbox-id-display"},
-				dom.Text(fmt.Sprintf("Checkbox ID: %s", checkboxId)),
+			P(Attrs{"id": "checkbox-id-display"},
+				Text(fmt.Sprintf("Checkbox ID: %s", checkboxId)),
 			),
 		),
 	)
 }
 
 // UseFetchTestComponent demonstrates UseFetch hook
-func UseFetchTestComponent(props dom.Attrs) *dom.Element {
+func UseFetchTestComponent(props Attrs) *Element {
 	// Mock data URL - in real tests, this would be a test server endpoint
-	userState, refetchUser := hooks.UseFetch("/api/user/123")
+	userState, refetchUser := UseFetch("/api/user/123")
 
 	// Use GoUseFunc hook for cleaner event handler
-	fetchHandler := hooks.GoUseFunc(func() {
+	fetchHandler := GoUseFunc(func() {
 		refetchUser()
 	})
 
 	state := userState()
 
 	// Render based on fetch state
-	var content *dom.Element
+	var content *Element
 	if state.Loading {
-		content = dom.P(dom.Attrs{"id": "fetch-loading"}, dom.Text("Loading..."))
+		content = P(Attrs{"id": "fetch-loading"}, Text("Loading..."))
 	} else if state.Error != "" {
-		content = dom.P(dom.Attrs{
+		content = P(Attrs{
 			"id":    "fetch-error",
 			"style": "color: red;",
-		}, dom.Text(fmt.Sprintf("Error: %s", state.Error)))
+		}, Text(fmt.Sprintf("Error: %s", state.Error)))
 	} else if state.Data != nil {
-		content = dom.P(dom.Attrs{"id": "fetch-data"},
-			dom.Text(fmt.Sprintf("Data: %v", state.Data)),
+		content = P(Attrs{"id": "fetch-data"},
+			Text(fmt.Sprintf("Data: %v", state.Data)),
 		)
 	} else {
-		content = dom.P(dom.Attrs{"id": "fetch-idle"},
-			dom.Text("No data fetched yet"),
+		content = P(Attrs{"id": "fetch-idle"},
+			Text("No data fetched yet"),
 		)
 	}
 
-	return dom.Div(dom.Attrs{"id": "use-fetch-test", "class": "mt-8"},
-		dom.H2(nil, dom.Text("UseFetch Test")),
-		dom.Button(dom.Attrs{
+	return Div(Attrs{"id": "use-fetch-test", "class": "mt-8"},
+		H2(nil, Text("UseFetch Test")),
+		Button(Attrs{
 			"id":      "fetch-button",
 			"onclick": fetchHandler,
 			"class":   "px-4 py-2 bg-blue-500 text-white",
-		}, dom.Text("Fetch User Data")),
-		dom.Div(dom.Attrs{"class": "mt-4"},
+		}, Text("Fetch User Data")),
+		Div(Attrs{"class": "mt-4"},
 			content,
 		),
-		dom.P(dom.Attrs{"id": "fetch-state-display"},
-			dom.Text(fmt.Sprintf("State: Loading=%v, Error=%s", state.Loading, state.Error)),
+		P(Attrs{"id": "fetch-state-display"},
+			Text(fmt.Sprintf("State: Loading=%v, Error=%s", state.Loading, state.Error)),
 		),
 	)
 }
@@ -465,15 +461,16 @@ func main() {
 	js.Global().Get("document").Call("getElementById", "app").Set("innerHTML", "<div style='color: green'>Main Started</div>")
 
 	// Create root element that will call HelloWorld during render
-	app := &dom.Element{
+	app := &Element{
 		Type:  HelloWorld,
 		Props: make(map[string]interface{}),
 	}
 
-	fmt.Println("About to call render.To...")
-	render.To(app, "#app")
-	fmt.Println("render.To completed")
+	fmt.Println("About to call To...")
+	To(app, "#app")
+	fmt.Println("To completed")
 
 	// Keep the Go program running
 	select {}
 }
+

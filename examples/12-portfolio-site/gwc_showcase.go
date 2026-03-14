@@ -9,9 +9,6 @@ import (
 	"strconv"
 	"syscall/js"
 	"time"
-
-	"github.com/monstercameron/GoWebComponents/dom"
-	"github.com/monstercameron/GoWebComponents/hooks"
 	"github.com/monstercameron/GoWebComponents/router"
 )
 
@@ -23,7 +20,7 @@ import (
 
 func GWCShowcaseSection(_ Attrs) *Element {
 
-	return dom.Section(
+	return Section(
 
 		Attrs{
 
@@ -32,22 +29,22 @@ func GWCShowcaseSection(_ Attrs) *Element {
 			"class": "py-20 bg-gradient-to-br from-gray-900/50 to-purple-900/20 border-b border-white/10 text-white",
 		},
 
-		dom.Div(
+		Div(
 
 			Attrs{"class": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"},
 
-			dom.Div(
+			Div(
 
 				Attrs{"class": "text-center mb-16"},
 
-				dom.H2(
+				H2(
 
 					Attrs{"class": "text-4xl font-bold mb-4"},
 
 					"GoWebComponents Showcase",
 				),
 
-				dom.P(
+				P(
 
 					Attrs{"class": "text-xl text-gray-400 max-w-3xl mx-auto"},
 
@@ -55,7 +52,7 @@ func GWCShowcaseSection(_ Attrs) *Element {
 				),
 			),
 
-			dom.Div(
+			Div(
 
 				Attrs{"class": "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"},
 
@@ -84,15 +81,15 @@ func GWCShowcaseSection(_ Attrs) *Element {
 
 func GWCFeatureCard(icon, title, description string) *Element {
 
-	return dom.Div(
+	return Div(
 
 		Attrs{"class": "bg-white/5 backdrop-blur-sm p-6 rounded-xl hover:bg-white/10 transition-all duration-300 border border-white/10"},
 
-		dom.Div(Attrs{"class": "text-3xl mb-4"}, icon),
+		Div(Attrs{"class": "text-3xl mb-4"}, icon),
 
-		dom.H3(Attrs{"class": "text-xl font-semibold mb-3"}, title),
+		H3(Attrs{"class": "text-xl font-semibold mb-3"}, title),
 
-		dom.P(Attrs{"class": "text-gray-400"}, description),
+		P(Attrs{"class": "text-gray-400"}, description),
 	)
 
 }
@@ -105,7 +102,7 @@ func GWCFeatureCard(icon, title, description string) *Element {
 
 func GWCExamplesSection(_ Attrs) *Element {
 
-	return dom.Section(
+	return Section(
 
 		Attrs{
 
@@ -114,22 +111,22 @@ func GWCExamplesSection(_ Attrs) *Element {
 			"class": "py-20 bg-transparent",
 		},
 
-		dom.Div(
+		Div(
 
 			Attrs{"class": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"},
 
-			dom.Div(
+			Div(
 
 				Attrs{"class": "text-center mb-16"},
 
-				dom.H2(
+				H2(
 
 					Attrs{"class": "text-4xl font-bold text-white mb-4"},
 
 					"Mini Apps Gallery",
 				),
 
-				dom.P(
+				P(
 
 					Attrs{"class": "text-xl text-gray-400 max-w-3xl mx-auto"},
 
@@ -137,11 +134,11 @@ func GWCExamplesSection(_ Attrs) *Element {
 				),
 			),
 
-			dom.Div(
+			Div(
 
 				Attrs{"class": "grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto"},
 
-				dom.CreateElement(MiniAppCard, Attrs{
+				CreateElement(MiniAppCard, Attrs{
 					"icon":        "🖱️",
 					"title":       "Click Counter",
 					"description": "State management basics",
@@ -149,7 +146,7 @@ func GWCExamplesSection(_ Attrs) *Element {
 					"sourceCode":  clickCounterSource,
 				}),
 
-				dom.CreateElement(MiniAppCard, Attrs{
+				CreateElement(MiniAppCard, Attrs{
 					"icon":        "🎲",
 					"title":       "Random Number",
 					"description": "Effects and events",
@@ -157,7 +154,7 @@ func GWCExamplesSection(_ Attrs) *Element {
 					"sourceCode":  randomizerSource,
 				}),
 
-				dom.CreateElement(MiniAppCard, Attrs{
+				CreateElement(MiniAppCard, Attrs{
 					"icon":        "📝",
 					"title":       "Quick Note",
 					"description": "Input handling",
@@ -165,7 +162,7 @@ func GWCExamplesSection(_ Attrs) *Element {
 					"sourceCode":  notepadSource,
 				}),
 
-				dom.CreateElement(MiniAppCard, Attrs{
+				CreateElement(MiniAppCard, Attrs{
 					"icon":        "🎨",
 					"title":       "Color Picker",
 					"description": "Dynamic styling",
@@ -173,7 +170,7 @@ func GWCExamplesSection(_ Attrs) *Element {
 					"sourceCode":  colorPickerSource,
 				}),
 
-				dom.CreateElement(MiniAppCard, Attrs{
+				CreateElement(MiniAppCard, Attrs{
 					"icon":        "⏱️",
 					"title":       "Timer",
 					"description": "Real-time updates",
@@ -181,7 +178,7 @@ func GWCExamplesSection(_ Attrs) *Element {
 					"sourceCode":  timerSource,
 				}),
 
-				dom.CreateElement(MiniAppCard, Attrs{
+				CreateElement(MiniAppCard, Attrs{
 					"icon":        "📊",
 					"title":       "Vote Counter",
 					"description": "Multiple states",
@@ -191,7 +188,7 @@ func GWCExamplesSection(_ Attrs) *Element {
 
 				// Full-width advanced example
 
-				dom.Div(
+				Div(
 
 					Attrs{"class": "md:col-span-2"},
 
@@ -209,7 +206,7 @@ func GWCExamplesSection(_ Attrs) *Element {
 
 func AdvancedFormShowcase(_ Attrs) *Element {
 
-	return dom.CreateElement(LazyMiniAppCard, Attrs{
+	return CreateElement(LazyMiniAppCard, Attrs{
 		"icon":        "🔒",
 		"title":       "Advanced Form",
 		"description": "Validation • Effects • Memo • Go Routines • GoUseFetch",
@@ -232,11 +229,11 @@ func LazyMiniAppCard(props Attrs) *Element {
 	component := props["component"].(func(Attrs) *Element)
 	sourceUrl := props["sourceUrl"].(string)
 
-	showSource, setShowSource := hooks.UseState(false)
+	showSource, setShowSource := UseState(false)
 
-	sourceLoaded, setSourceLoaded := hooks.UseState(false)
+	sourceLoaded, setSourceLoaded := UseState(false)
 
-	shouldFetch, setShouldFetch := hooks.UseState(false)
+	shouldFetch, setShouldFetch := UseState(false)
 
 	// Use GoUseFetch but only when shouldFetch is true
 
@@ -252,7 +249,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 	}()
 
-	getFetchState, _ := hooks.UseFetch(fetchUrl)
+	getFetchState, _ := UseFetch(fetchUrl)
 
 	fetchState := getFetchState()
 
@@ -294,7 +291,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 	}
 
-	toggleSource := hooks.GoUseFunc(func(event dom.GoEvent) {
+	toggleSource := GoUseFunc(func(event GoEvent) {
 
 		if !showSource() && !sourceLoaded() {
 
@@ -312,7 +309,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 	})
 
-	copyToClipboard := hooks.GoUseFunc(func(event dom.GoEvent) {
+	copyToClipboard := GoUseFunc(func(event GoEvent) {
 
 		if !isLoading && sourceCode != "" && sourceLoaded() {
 
@@ -322,7 +319,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 	})
 
-	return dom.Div(
+	return Div(
 
 		Attrs{
 
@@ -333,7 +330,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 		// 3D Flip Container with Shadow
 
-		dom.Div(
+		Div(
 
 			Attrs{
 
@@ -354,7 +351,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 			// Front Side - App View
 
-			dom.Div(
+			Div(
 
 				Attrs{
 
@@ -365,29 +362,29 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 				// Header
 
-				dom.Div(
+				Div(
 
 					Attrs{"class": "p-6 border-b border-white/10 bg-white/5"},
 
-					dom.Div(
+					Div(
 
 						Attrs{"class": "flex items-center justify-between"},
 
-						dom.Div(
+						Div(
 
 							Attrs{"class": "flex items-center space-x-2"},
 
-							dom.Span(Attrs{"class": "text-2xl"}, icon),
+							Span(Attrs{"class": "text-2xl"}, icon),
 
-							dom.Div(nil,
+							Div(nil,
 
-								dom.H3(Attrs{"class": "font-semibold text-white"}, title),
+								H3(Attrs{"class": "font-semibold text-white"}, title),
 
-								dom.P(Attrs{"class": "text-xs text-gray-400"}, description),
+								P(Attrs{"class": "text-xs text-gray-400"}, description),
 							),
 						),
 
-						dom.Button(
+						Button(
 
 							Attrs{
 
@@ -403,17 +400,17 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 				// App Component
 
-				dom.Div(
+				Div(
 
 					Attrs{"class": "flex-1 overflow-y-auto p-6 bg-transparent"},
 
-					dom.CreateElement(component, nil),
+					CreateElement(component, nil),
 				),
 			),
 
 			// Back Side - Code View
 
-			dom.Div(
+			Div(
 
 				Attrs{
 
@@ -422,24 +419,24 @@ func LazyMiniAppCard(props Attrs) *Element {
 					"style": "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(180deg);",
 				},
 
-				dom.Div(
+				Div(
 
 					Attrs{"class": "p-6 border-b border-white/10 bg-white/5"},
 
-					dom.Div(
+					Div(
 
 						Attrs{"class": "flex items-center justify-between"},
 
-						dom.Div(
+						Div(
 
 							Attrs{"class": "flex items-center space-x-2"},
 
-							dom.Span(Attrs{"class": "text-green-400 text-lg"}, "{}"),
+							Span(Attrs{"class": "text-green-400 text-lg"}, "{}"),
 
-							dom.H3(Attrs{"class": "font-semibold text-white text-sm"}, title+" Source"),
+							H3(Attrs{"class": "font-semibold text-white text-sm"}, title+" Source"),
 						),
 
-						dom.Button(
+						Button(
 
 							Attrs{
 
@@ -453,7 +450,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 					),
 				),
 
-				dom.Div(
+				Div(
 
 					Attrs{"class": "relative p-6 pb-12 h-full"},
 
@@ -461,9 +458,9 @@ func LazyMiniAppCard(props Attrs) *Element {
 						// Only render content when showSource is true (back side is visible)
 						if !sourceLoaded() {
 							// Not loaded yet, show placeholder
-							return dom.Pre(
+							return Pre(
 								Attrs{"class": "text-gray-400 text-sm font-mono whitespace-pre-wrap"},
-								dom.Code(nil, dom.Text("// Click 'View Code' to load source from GitHub...")),
+								Code(nil, Text("// Click 'View Code' to load source from GitHub...")),
 							)
 						}
 
@@ -471,17 +468,17 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 							// Show loading spinner
 
-							return dom.Div(
+							return Div(
 
 								Attrs{"class": "flex items-center justify-center h-full"},
 
-								dom.Div(
+								Div(
 
 									Attrs{"class": "text-center"},
 
-									dom.Div(Attrs{"class": "inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-400 mb-4"}),
+									Div(Attrs{"class": "inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-400 mb-4"}),
 
-									dom.P(Attrs{"class": "text-green-400 text-sm"}, "Loading source code from GitHub..."),
+									P(Attrs{"class": "text-green-400 text-sm"}, "Loading source code from GitHub..."),
 								),
 							)
 
@@ -501,7 +498,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 						if !isLoading && sourceCode != "" && sourceLoaded() {
 
-							return dom.Button(
+							return Button(
 
 								Attrs{
 
@@ -512,12 +509,12 @@ func LazyMiniAppCard(props Attrs) *Element {
 									"title": "Copy to clipboard",
 								},
 
-								dom.Span(Attrs{"class": "text-base"}, "📋"),
+								Span(Attrs{"class": "text-base"}, "📋"),
 							)
 
 						}
 
-						return dom.Div(nil) // Empty div when loading
+						return Div(nil) // Empty div when loading
 
 					}(),
 				),
@@ -536,15 +533,15 @@ func MiniAppCard(props Attrs) *Element {
 	component := props["component"].(func(Attrs) *Element)
 	sourceCode := props["sourceCode"].(string)
 
-	showSource, setShowSource := hooks.UseState(false)
+	showSource, setShowSource := UseState(false)
 
-	toggleSource := hooks.GoUseFunc(func(event dom.GoEvent) {
+	toggleSource := GoUseFunc(func(event GoEvent) {
 
 		setShowSource(!showSource())
 
 	})
 
-	copyToClipboard := hooks.GoUseFunc(func(event dom.GoEvent) {
+	copyToClipboard := GoUseFunc(func(event GoEvent) {
 
 		js.Global().Get("navigator").Get("clipboard").Call("writeText", sourceCode)
 
@@ -552,7 +549,7 @@ func MiniAppCard(props Attrs) *Element {
 
 	})
 
-	return dom.Div(
+	return Div(
 
 		Attrs{
 
@@ -563,7 +560,7 @@ func MiniAppCard(props Attrs) *Element {
 
 		// 3D Flip Container with Shadow
 
-		dom.Div(
+		Div(
 
 			Attrs{
 
@@ -584,7 +581,7 @@ func MiniAppCard(props Attrs) *Element {
 
 			// Front Side - App View
 
-			dom.Div(
+			Div(
 
 				Attrs{
 
@@ -595,29 +592,29 @@ func MiniAppCard(props Attrs) *Element {
 
 				// Header
 
-				dom.Div(
+				Div(
 
 					Attrs{"class": "p-6 border-b border-white/10 bg-white/5"},
 
-					dom.Div(
+					Div(
 
 						Attrs{"class": "flex items-center justify-between"},
 
-						dom.Div(
+						Div(
 
 							Attrs{"class": "flex items-center space-x-2"},
 
-							dom.Span(Attrs{"class": "text-2xl"}, icon),
+							Span(Attrs{"class": "text-2xl"}, icon),
 
-							dom.Div(nil,
+							Div(nil,
 
-								dom.H3(Attrs{"class": "font-semibold text-white"}, title),
+								H3(Attrs{"class": "font-semibold text-white"}, title),
 
-								dom.P(Attrs{"class": "text-xs text-gray-400"}, description),
+								P(Attrs{"class": "text-xs text-gray-400"}, description),
 							),
 						),
 
-						dom.Button(
+						Button(
 
 							Attrs{
 
@@ -633,17 +630,17 @@ func MiniAppCard(props Attrs) *Element {
 
 				// App Component
 
-				dom.Div(
+				Div(
 
 					Attrs{"class": "flex-1 overflow-y-auto p-6 bg-transparent"},
 
-					dom.CreateElement(component, nil),
+					CreateElement(component, nil),
 				),
 			),
 
 			// Back Side - Code View
 
-			dom.Div(
+			Div(
 
 				Attrs{
 
@@ -652,24 +649,24 @@ func MiniAppCard(props Attrs) *Element {
 					"style": "-webkit-backface-visibility: hidden; backface-visibility: hidden; transform: rotateY(180deg);",
 				},
 
-				dom.Div(
+				Div(
 
 					Attrs{"class": "p-6 border-b border-white/10 bg-white/5"},
 
-					dom.Div(
+					Div(
 
 						Attrs{"class": "flex items-center justify-between"},
 
-						dom.Div(
+						Div(
 
 							Attrs{"class": "flex items-center space-x-2"},
 
-							dom.Span(Attrs{"class": "text-green-400 text-lg"}, "{}"),
+							Span(Attrs{"class": "text-green-400 text-lg"}, "{}"),
 
-							dom.H3(Attrs{"class": "font-semibold text-white text-sm"}, title+" Source"),
+							H3(Attrs{"class": "font-semibold text-white text-sm"}, title+" Source"),
 						),
 
-						dom.Button(
+						Button(
 
 							Attrs{
 
@@ -683,7 +680,7 @@ func MiniAppCard(props Attrs) *Element {
 					),
 				),
 
-				dom.Div(
+				Div(
 
 					Attrs{"class": "relative p-6 pb-12 h-full"},
 
@@ -700,7 +697,7 @@ func MiniAppCard(props Attrs) *Element {
 						if !showSource() {
 							return nil
 						}
-						return dom.Button(
+						return Button(
 
 							Attrs{
 
@@ -711,7 +708,7 @@ func MiniAppCard(props Attrs) *Element {
 								"title": "Copy to clipboard",
 							},
 
-							dom.Span(Attrs{"class": "text-base"}, "📋"),
+							Span(Attrs{"class": "text-base"}, "📋"),
 						)
 					}(),
 				),
@@ -725,33 +722,33 @@ func MiniAppCard(props Attrs) *Element {
 
 func MiniClickCounter(props Attrs) *Element {
 
-	clickCount, setClickCount := hooks.UseState(0)
+	clickCount, setClickCount := UseState(0)
 
-	incrementClicks := hooks.GoUseFunc(func(event dom.GoEvent) {
+	incrementClicks := GoUseFunc(func(event GoEvent) {
 
 		setClickCount(clickCount() + 1)
 
 	})
 
-	resetClicks := hooks.GoUseFunc(func(event dom.GoEvent) {
+	resetClicks := GoUseFunc(func(event GoEvent) {
 
 		setClickCount(0)
 
 	})
 
-	return dom.Div(
+	return Div(
 
 		Attrs{"class": "text-center space-y-3"},
 
-		dom.P(Attrs{"class": "text-2xl font-bold text-blue-400"}, dom.Text(strconv.Itoa(clickCount()))),
+		P(Attrs{"class": "text-2xl font-bold text-blue-400"}, Text(strconv.Itoa(clickCount()))),
 
-		dom.Div(
+		Div(
 
 			Attrs{"class": "space-x-2"},
 
-			dom.Button(Attrs{"class": "px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700", "onclick": incrementClicks}, "+1"),
+			Button(Attrs{"class": "px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700", "onclick": incrementClicks}, "+1"),
 
-			dom.Button(Attrs{"class": "px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700", "onclick": resetClicks}, "Reset"),
+			Button(Attrs{"class": "px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700", "onclick": resetClicks}, "Reset"),
 		),
 	)
 
@@ -761,27 +758,27 @@ func MiniClickCounter(props Attrs) *Element {
 
 func MiniRandomizer(props Attrs) *Element {
 
-	randomNum, setRandomNum := hooks.UseState(42)
+	randomNum, setRandomNum := UseState(42)
 
 	// Initialize random seed once when component mounts
-	hooks.UseEffect(func() func() {
+	UseEffect(func() func() {
 		rand.Seed(time.Now().UnixNano())
 		return nil
 	})
 
-	generateRandom := hooks.GoUseFunc(func(event dom.GoEvent) {
+	generateRandom := GoUseFunc(func(event GoEvent) {
 		// Use Go's native random number generator
 		newNum := rand.Intn(100) + 1
 		setRandomNum(newNum)
 	})
 
-	return dom.Div(
+	return Div(
 
 		Attrs{"class": "text-center space-y-3"},
 
-		dom.P(Attrs{"class": "text-2xl font-bold text-purple-400"}, dom.Text(strconv.Itoa(randomNum()))),
+		P(Attrs{"class": "text-2xl font-bold text-purple-400"}, Text(strconv.Itoa(randomNum()))),
 
-		dom.Button(Attrs{"class": "px-4 py-2 bg-purple-600 text-white text-sm rounded hover:bg-purple-700", "onclick": generateRandom}, "Generate"),
+		Button(Attrs{"class": "px-4 py-2 bg-purple-600 text-white text-sm rounded hover:bg-purple-700", "onclick": generateRandom}, "Generate"),
 	)
 
 }
@@ -790,9 +787,9 @@ func MiniRandomizer(props Attrs) *Element {
 
 func MiniNotepad(props Attrs) *Element {
 
-	noteText, setNoteText := hooks.UseState("Sample note text")
+	noteText, setNoteText := UseState("Sample note text")
 
-	updateNote := hooks.GoUseFunc(func(event dom.GoEvent) {
+	updateNote := GoUseFunc(func(event GoEvent) {
 
 		if noteText() == "Sample note text" {
 
@@ -806,24 +803,24 @@ func MiniNotepad(props Attrs) *Element {
 
 	})
 
-	return dom.Div(
+	return Div(
 
 		Attrs{"class": "space-y-3"},
 
-		dom.Div(
+		Div(
 
 			Attrs{"class": "w-full p-3 border border-white/10 rounded text-sm bg-black/20 min-h-16"},
 
-			dom.P(Attrs{"class": "text-white"}, noteText()),
+			P(Attrs{"class": "text-white"}, noteText()),
 		),
 
-		dom.Div(
+		Div(
 
 			Attrs{"class": "flex justify-between items-center"},
 
-			dom.Button(Attrs{"class": "px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700", "onclick": updateNote}, "Edit Note"),
+			Button(Attrs{"class": "px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700", "onclick": updateNote}, "Edit Note"),
 
-			dom.P(Attrs{"class": "text-xs text-gray-400"}, dom.Text(strconv.Itoa(len(noteText()))), " characters"),
+			P(Attrs{"class": "text-xs text-gray-400"}, Text(strconv.Itoa(len(noteText()))), " characters"),
 		),
 	)
 
@@ -833,7 +830,7 @@ func MiniNotepad(props Attrs) *Element {
 
 func MiniColorPicker(props Attrs) *Element {
 
-	selectedColor, setSelectedColor := hooks.UseState("bg-blue-500")
+	selectedColor, setSelectedColor := UseState("bg-blue-500")
 
 	colors := []string{"bg-red-500", "bg-blue-500", "bg-green-500", "bg-yellow-500", "bg-purple-500", "bg-pink-500"}
 
@@ -843,11 +840,11 @@ func MiniColorPicker(props Attrs) *Element {
 
 		currentColor := color
 
-		colorButtons[i] = dom.Button(Attrs{
+		colorButtons[i] = Button(Attrs{
 
 			"class": "w-6 h-6 rounded-full " + color + " hover:scale-110 transition-transform",
 
-			"onclick": hooks.GoUseFunc(func(event dom.GoEvent) {
+			"onclick": GoUseFunc(func(event GoEvent) {
 
 				setSelectedColor(currentColor)
 
@@ -856,13 +853,13 @@ func MiniColorPicker(props Attrs) *Element {
 
 	}
 
-	return dom.Div(
+	return Div(
 
 		Attrs{"class": "space-y-3"},
 
-		dom.Div(Attrs{"class": "w-full h-16 rounded " + selectedColor()}),
+		Div(Attrs{"class": "w-full h-16 rounded " + selectedColor()}),
 
-		dom.Div(Attrs{"class": "flex space-x-2 justify-center"}, colorButtons...),
+		Div(Attrs{"class": "flex space-x-2 justify-center"}, colorButtons...),
 	)
 
 }
@@ -871,17 +868,17 @@ func MiniColorPicker(props Attrs) *Element {
 
 func MiniTimer(props Attrs) *Element {
 
-	timerCount, setTimerCount := hooks.UseState(0)
+	timerCount, setTimerCount := UseState(0)
 
-	timerRunning, setTimerRunning := hooks.UseState(false)
+	timerRunning, setTimerRunning := UseState(false)
 
-	toggleTimer := hooks.GoUseFunc(func(event dom.GoEvent) {
+	toggleTimer := GoUseFunc(func(event GoEvent) {
 
 		setTimerRunning(!timerRunning())
 
 	})
 
-	resetTimer := hooks.GoUseFunc(func(event dom.GoEvent) {
+	resetTimer := GoUseFunc(func(event GoEvent) {
 
 		setTimerCount(0)
 
@@ -889,11 +886,11 @@ func MiniTimer(props Attrs) *Element {
 	})
 
 	// Define tick handler using GoUseFunc
-	tick := hooks.GoUseFunc(func() {
+	tick := GoUseFunc(func() {
 		setTimerCount(timerCount() + 1)
 	})
 
-	hooks.UseEffect(func() func() {
+	UseEffect(func() func() {
 		if timerRunning() {
 			timeoutID := js.Global().Call("setTimeout", tick, 1000)
 			_ = timeoutID
@@ -901,14 +898,14 @@ func MiniTimer(props Attrs) *Element {
 		return nil
 	})
 
-	return dom.Div(
+	return Div(
 		Attrs{"class": "text-center space-y-3"},
-		dom.P(Attrs{"class": "text-2xl font-bold text-green-400"}, dom.Text(strconv.Itoa(timerCount())), "s"),
-		dom.Div(
+		P(Attrs{"class": "text-2xl font-bold text-green-400"}, Text(strconv.Itoa(timerCount())), "s"),
+		Div(
 
 			Attrs{"class": "space-x-2"},
 
-			dom.Button(Attrs{"class": "px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700", "onclick": toggleTimer}, func() string {
+			Button(Attrs{"class": "px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700", "onclick": toggleTimer}, func() string {
 
 				if timerRunning() {
 
@@ -920,7 +917,7 @@ func MiniTimer(props Attrs) *Element {
 
 			}()),
 
-			dom.Button(Attrs{"class": "px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700", "onclick": resetTimer}, "Reset"),
+			Button(Attrs{"class": "px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700", "onclick": resetTimer}, "Reset"),
 		),
 	)
 
@@ -930,17 +927,17 @@ func MiniTimer(props Attrs) *Element {
 
 func MiniVoting(props Attrs) *Element {
 
-	upvotes, setUpvotes := hooks.UseState(12)
+	upvotes, setUpvotes := UseState(12)
 
-	downvotes, setDownvotes := hooks.UseState(3)
+	downvotes, setDownvotes := UseState(3)
 
-	addUpvote := hooks.GoUseFunc(func(event dom.GoEvent) {
+	addUpvote := GoUseFunc(func(event GoEvent) {
 
 		setUpvotes(upvotes() + 1)
 
 	})
 
-	addDownvote := hooks.GoUseFunc(func(event dom.GoEvent) {
+	addDownvote := GoUseFunc(func(event GoEvent) {
 
 		setDownvotes(downvotes() + 1)
 
@@ -956,30 +953,30 @@ func MiniVoting(props Attrs) *Element {
 
 	}
 
-	return dom.Div(
+	return Div(
 
 		Attrs{"class": "space-y-3"},
 
-		dom.Div(
+		Div(
 
 			Attrs{"class": "flex justify-between items-center"},
 
-			dom.Button(Attrs{"class": "flex items-center space-x-1 px-2 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700", "onclick": addUpvote},
+			Button(Attrs{"class": "flex items-center space-x-1 px-2 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700", "onclick": addUpvote},
 
-				dom.Span(nil, "👍"),
+				Span(nil, "👍"),
 
-				dom.Span(nil, dom.Text(strconv.Itoa(upvotes()))),
+				Span(nil, Text(strconv.Itoa(upvotes()))),
 			),
 
-			dom.Button(Attrs{"class": "flex items-center space-x-1 px-2 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700", "onclick": addDownvote},
+			Button(Attrs{"class": "flex items-center space-x-1 px-2 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700", "onclick": addDownvote},
 
-				dom.Span(nil, "👎"),
+				Span(nil, "👎"),
 
-				dom.Span(nil, dom.Text(strconv.Itoa(downvotes()))),
+				Span(nil, Text(strconv.Itoa(downvotes()))),
 			),
 		),
 
-		dom.P(Attrs{"class": "text-xs text-gray-400 text-center"}, dom.Text(strconv.Itoa(upvotePercentage)), "% approval"),
+		P(Attrs{"class": "text-xs text-gray-400 text-center"}, Text(strconv.Itoa(upvotePercentage)), "% approval"),
 	)
 
 }
@@ -988,33 +985,33 @@ func MiniVoting(props Attrs) *Element {
 
 var clickCounterSource = `func MiniClickCounter(props Attrs) *Element {
 
-    clickCount, setClickCount := hooks.UseState(0)
+    clickCount, setClickCount := UseState(0)
 
-    incrementClicks := hooks.GoUseFunc(func(event dom.GoEvent) {
+    incrementClicks := GoUseFunc(func(event GoEvent) {
 
         setClickCount(clickCount() + 1)
 
     })
 
-    resetClicks := hooks.GoUseFunc(func(event dom.GoEvent) {
+    resetClicks := GoUseFunc(func(event GoEvent) {
 
         setClickCount(0)
 
     })
 
-    return dom.Div(
+    return Div(
 
         Attrs{"class": "text-center space-y-3"},
 
-        dom.P(Attrs{"class": "text-2xl font-bold text-indigo-600"}, 
+        P(Attrs{"class": "text-2xl font-bold text-indigo-600"}, 
 
-          dom.Text(strconv.Itoa(clickCount()))),
+          Text(strconv.Itoa(clickCount()))),
 
-        dom.Div(Attrs{"class": "space-x-2"},
+        Div(Attrs{"class": "space-x-2"},
 
-            dom.Button(Attrs{"onclick": incrementClicks}, "+1"),
+            Button(Attrs{"onclick": incrementClicks}, "+1"),
 
-            dom.Button(Attrs{"onclick": resetClicks}, "Reset"),
+            Button(Attrs{"onclick": resetClicks}, "Reset"),
 
         ),
 
@@ -1024,9 +1021,9 @@ var clickCounterSource = `func MiniClickCounter(props Attrs) *Element {
 
 var randomizerSource = `func MiniRandomizer(props Attrs) *Element {
 
-    randomNum, setRandomNum := hooks.UseState(42)
+    randomNum, setRandomNum := UseState(42)
 
-    hooks.UseEffect(func() {
+    UseEffect(func() {
 
         rand.Seed(time.Now().UnixNano())
 
@@ -1034,7 +1031,7 @@ var randomizerSource = `func MiniRandomizer(props Attrs) *Element {
 
     })
 
-    generateRandom := hooks.GoUseFunc(func(event dom.GoEvent) {
+    generateRandom := GoUseFunc(func(event GoEvent) {
 
         newNum := rand.Intn(100) + 1
 
@@ -1042,15 +1039,15 @@ var randomizerSource = `func MiniRandomizer(props Attrs) *Element {
 
     })
 
-    return dom.Div(
+    return Div(
 
         Attrs{"class": "text-center space-y-3"},
 
-        dom.P(Attrs{"class": "text-2xl font-bold text-purple-600"}, 
+        P(Attrs{"class": "text-2xl font-bold text-purple-600"}, 
 
-          dom.Text(strconv.Itoa(randomNum()))),
+          Text(strconv.Itoa(randomNum()))),
 
-        dom.Button(Attrs{"onclick": generateRandom}, "Generate"),
+        Button(Attrs{"onclick": generateRandom}, "Generate"),
 
     )
 
@@ -1058,15 +1055,15 @@ var randomizerSource = `func MiniRandomizer(props Attrs) *Element {
 
 var notepadSource = `func MiniNotepad(props Attrs) *Element {
 
-    noteText, setNoteText := hooks.UseState("Type here...")
+    noteText, setNoteText := UseState("Type here...")
 
-    handleInput := hooks.GoUseFunc(func(event dom.GoEvent) {
+    handleInput := GoUseFunc(func(event GoEvent) {
 
         setNoteText(event.Target.Get("value").String())
 
     })
 
-    return dom.Div(Attrs{"class": "space-y-3"},
+    return Div(Attrs{"class": "space-y-3"},
 
         Textarea(Attrs{
 
@@ -1078,7 +1075,7 @@ var notepadSource = `func MiniNotepad(props Attrs) *Element {
 
         }),
 
-        dom.P(nil, dom.Text(strconv.Itoa(len(noteText()))), " characters"),
+        P(nil, Text(strconv.Itoa(len(noteText()))), " characters"),
 
     )
 
@@ -1086,7 +1083,7 @@ var notepadSource = `func MiniNotepad(props Attrs) *Element {
 
 var colorPickerSource = `func MiniColorPicker(props Attrs) *Element {
 
-    selectedColor, setSelectedColor := hooks.UseState("bg-blue-500")
+    selectedColor, setSelectedColor := UseState("bg-blue-500")
 
     colors := []string{"bg-red-500", "bg-blue-500", 
 
@@ -1098,11 +1095,11 @@ var colorPickerSource = `func MiniColorPicker(props Attrs) *Element {
 
         currentColor := color
 
-        colorButtons[i] = dom.Button(Attrs{
+        colorButtons[i] = Button(Attrs{
 
             "class": "w-6 h-6 rounded-full " + color,
 
-            "onclick": hooks.GoUseFunc(func(event dom.GoEvent) {
+            "onclick": GoUseFunc(func(event GoEvent) {
 
                 setSelectedColor(currentColor)
 
@@ -1112,11 +1109,11 @@ var colorPickerSource = `func MiniColorPicker(props Attrs) *Element {
 
     }
 
-    return dom.Div(Attrs{"class": "space-y-3"},
+    return Div(Attrs{"class": "space-y-3"},
 
-        dom.Div(Attrs{"class": "w-full h-16 rounded " + selectedColor()}),
+        Div(Attrs{"class": "w-full h-16 rounded " + selectedColor()}),
 
-        dom.Div(Attrs{"class": "flex space-x-2"}, colorButtons...),
+        Div(Attrs{"class": "flex space-x-2"}, colorButtons...),
 
     )
 
@@ -1124,17 +1121,17 @@ var colorPickerSource = `func MiniColorPicker(props Attrs) *Element {
 
 var timerSource = `func MiniTimer(props Attrs) *Element {
 
-    timerCount, setTimerCount := hooks.UseState(0)
+    timerCount, setTimerCount := UseState(0)
 
-    timerRunning, setTimerRunning := hooks.UseState(false)
+    timerRunning, setTimerRunning := UseState(false)
 
-    toggleTimer := hooks.GoUseFunc(func(event dom.GoEvent) {
+    toggleTimer := GoUseFunc(func(event GoEvent) {
 
         setTimerRunning(!timerRunning())
 
     })
 
-    hooks.UseEffect(func() {
+    UseEffect(func() {
 
         if timerRunning() {
 
@@ -1154,11 +1151,11 @@ var timerSource = `func MiniTimer(props Attrs) *Element {
 
     })
 
-    return dom.Div(Attrs{"class": "text-center space-y-3"},
+    return Div(Attrs{"class": "text-center space-y-3"},
 
-        dom.P(nil, dom.Text(strconv.Itoa(timerCount())), "s"),
+        P(nil, Text(strconv.Itoa(timerCount())), "s"),
 
-        dom.Button(Attrs{"onclick": toggleTimer}, 
+        Button(Attrs{"onclick": toggleTimer}, 
 
                timerRunning() ? "Stop" : "Start"),
 
@@ -1168,17 +1165,17 @@ var timerSource = `func MiniTimer(props Attrs) *Element {
 
 var votingSource = `func MiniVoting(props Attrs) *Element {
 
-    upvotes, setUpvotes := hooks.UseState(12)
+    upvotes, setUpvotes := UseState(12)
 
-    downvotes, setDownvotes := hooks.UseState(3)
+    downvotes, setDownvotes := UseState(3)
 
-    addUpvote := hooks.GoUseFunc(func(event dom.GoEvent) {
+    addUpvote := GoUseFunc(func(event GoEvent) {
 
         setUpvotes(upvotes() + 1)
 
     })
 
-    addDownvote := hooks.GoUseFunc(func(event dom.GoEvent) {
+    addDownvote := GoUseFunc(func(event GoEvent) {
 
         setDownvotes(downvotes() + 1)
 
@@ -1188,17 +1185,17 @@ var votingSource = `func MiniVoting(props Attrs) *Element {
 
     upvotePercentage := (upvotes() * 100) / totalVotes
 
-    return dom.Div(Attrs{"class": "space-y-3"},
+    return Div(Attrs{"class": "space-y-3"},
 
-        dom.Div(Attrs{"class": "flex justify-between"},
+        Div(Attrs{"class": "flex justify-between"},
 
-            dom.Button(Attrs{"onclick": addUpvote}, "👍 ", upvotes()),
+            Button(Attrs{"onclick": addUpvote}, "👍 ", upvotes()),
 
-            dom.Button(Attrs{"onclick": addDownvote}, "👎 ", downvotes()),
+            Button(Attrs{"onclick": addDownvote}, "👎 ", downvotes()),
 
         ),
 
-        dom.P(nil, dom.Text(strconv.Itoa(upvotePercentage)), "% approval"),
+        P(nil, Text(strconv.Itoa(upvotePercentage)), "% approval"),
 
     )
 
@@ -1208,7 +1205,7 @@ var votingSource = `func MiniVoting(props Attrs) *Element {
 
 func WhyGoWebComponentsSection(_ Attrs) *Element {
 
-	return dom.Section(
+	return Section(
 
 		Attrs{
 
@@ -1217,17 +1214,17 @@ func WhyGoWebComponentsSection(_ Attrs) *Element {
 			"class": "py-20 bg-gradient-to-br from-gray-900/50 to-blue-900/20 border-t border-white/10",
 		},
 
-		dom.Div(
+		Div(
 
 			Attrs{"class": "container mx-auto px-6"},
 
-			dom.Div(
+			Div(
 
 				Attrs{"class": "max-w-4xl mx-auto text-center mb-16"},
 
-				dom.H2(Attrs{"class": "text-4xl md:text-5xl font-bold mb-8 text-white"}, "Why GoWebComponents?"),
+				H2(Attrs{"class": "text-4xl md:text-5xl font-bold mb-8 text-white"}, "Why GoWebComponents?"),
 
-				dom.P(
+				P(
 
 					Attrs{"class": "text-xl text-gray-300 leading-relaxed mb-8"},
 
@@ -1239,51 +1236,51 @@ func WhyGoWebComponentsSection(_ Attrs) *Element {
 
 			// Comparison cards
 
-			dom.Div(
+			Div(
 
 				Attrs{"class": "grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto"},
 
 				// Traditional approach
 
-				dom.Div(
+				Div(
 
 					Attrs{"class": "bg-red-900/10 border border-red-500/20 rounded-2xl p-8 backdrop-blur-sm"},
 
-					dom.H3(Attrs{"class": "text-2xl font-bold text-red-300 mb-6 flex items-center"},
+					H3(Attrs{"class": "text-2xl font-bold text-red-300 mb-6 flex items-center"},
 
-						dom.Span(Attrs{"class": "mr-3"}, "❌"),
+						Span(Attrs{"class": "mr-3"}, "❌"),
 
 						"Traditional Web Development"),
 
-					dom.Ul(Attrs{"class": "space-y-4 text-red-200"},
+					Ul(Attrs{"class": "space-y-4 text-red-200"},
 
-						dom.Li(Attrs{"class": "flex items-start"},
+						Li(Attrs{"class": "flex items-start"},
 
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 
 							"Complex build pipelines and toolchains"),
 
-						dom.Li(Attrs{"class": "flex items-start"},
+						Li(Attrs{"class": "flex items-start"},
 
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 
 							"Runtime errors and type coercion issues"),
 
-						dom.Li(Attrs{"class": "flex items-start"},
+						Li(Attrs{"class": "flex items-start"},
 
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 
 							"Separate backend/frontend codebases"),
 
-						dom.Li(Attrs{"class": "flex items-start"},
+						Li(Attrs{"class": "flex items-start"},
 
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 
 							"Heavy node_modules dependencies"),
 
-						dom.Li(Attrs{"class": "flex items-start"},
+						Li(Attrs{"class": "flex items-start"},
 
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 
 							"State management complexity"),
 					),
@@ -1291,45 +1288,45 @@ func WhyGoWebComponentsSection(_ Attrs) *Element {
 
 				// GoWebComponents approach
 
-				dom.Div(
+				Div(
 
 					Attrs{"class": "bg-green-900/10 border border-green-500/20 rounded-2xl p-8 backdrop-blur-sm"},
 
-					dom.H3(Attrs{"class": "text-2xl font-bold text-green-300 mb-6 flex items-center"},
+					H3(Attrs{"class": "text-2xl font-bold text-green-300 mb-6 flex items-center"},
 
-						dom.Span(Attrs{"class": "mr-3"}, "✅"),
+						Span(Attrs{"class": "mr-3"}, "✅"),
 
 						"GoWebComponents Approach"),
 
-					dom.Ul(Attrs{"class": "space-y-4 text-green-200"},
+					Ul(Attrs{"class": "space-y-4 text-green-200"},
 
-						dom.Li(Attrs{"class": "flex items-start"},
+						Li(Attrs{"class": "flex items-start"},
 
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 
 							"Single Go codebase for everything"),
 
-						dom.Li(Attrs{"class": "flex items-start"},
+						Li(Attrs{"class": "flex items-start"},
 
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 
 							"Compile-time error checking"),
 
-						dom.Li(Attrs{"class": "flex items-start"},
+						Li(Attrs{"class": "flex items-start"},
 
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 
 							"Shared types and logic"),
 
-						dom.Li(Attrs{"class": "flex items-start"},
+						Li(Attrs{"class": "flex items-start"},
 
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 
 							"Zero external dependencies"),
 
-						dom.Li(Attrs{"class": "flex items-start"},
+						Li(Attrs{"class": "flex items-start"},
 
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 
 							"Built-in state management"),
 					),
@@ -1338,7 +1335,7 @@ func WhyGoWebComponentsSection(_ Attrs) *Element {
 
 			// Stats section
 
-			dom.Div(
+			Div(
 
 				Attrs{"class": "mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto"},
 
@@ -1351,39 +1348,39 @@ func WhyGoWebComponentsSection(_ Attrs) *Element {
 
 			// Documentation CTA
 
-			dom.Div(
+			Div(
 
 				Attrs{"class": "mt-16 text-center"},
 
 				func() *Element {
 
-					// Store hooks.GoUseFunc result in variable for proper event handling
+					// Store GoUseFunc result in variable for proper event handling
 
-					navigateToDocs := hooks.GoUseFunc(func(event dom.GoEvent) {
+					navigateToDocs := GoUseFunc(func(event GoEvent) {
 
 						router.Navigate("/docs")
 
 					})
 
-					return dom.Div(
+					return Div(
 
 						Attrs{"class": "bg-white/5 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/10 max-w-2xl mx-auto"},
 
-						dom.H3(
+						H3(
 
 							Attrs{"class": "text-2xl font-bold text-white mb-4"},
 
 							"Ready to Get Started?",
 						),
 
-						dom.P(
+						P(
 
 							Attrs{"class": "text-gray-300 mb-6"},
 
 							"Explore our comprehensive documentation with API references, tutorials, and best practices to build your next web application with GoWebComponents.",
 						),
 
-						dom.Button(
+						Button(
 
 							Attrs{
 
@@ -1402,3 +1399,4 @@ func WhyGoWebComponentsSection(_ Attrs) *Element {
 	)
 
 }
+

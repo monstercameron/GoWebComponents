@@ -4,23 +4,22 @@
 package main
 
 import (
-	"github.com/monstercameron/GoWebComponents/dom"
 )
 
 // AboutSection explains the value proposition of GoWebComponents over traditional development.
 // Features side-by-side comparison cards and key statistics to highlight framework benefits.
 func AboutSection(props Attrs) *Element {
-	return dom.Section(
+	return Section(
 		Attrs{
 			"id":    "about",
 			"class": "py-20 bg-[#0a0a0a]",
 		},
-		dom.Div(
+		Div(
 			Attrs{"class": "container mx-auto px-6"},
-			dom.Div(
+			Div(
 				Attrs{"class": "max-w-4xl mx-auto text-center mb-16"},
-				dom.H2(Attrs{"class": "text-4xl md:text-5xl font-bold mb-8 text-white"}, "Why GoWebComponents?"),
-				dom.P(
+				H2(Attrs{"class": "text-4xl md:text-5xl font-bold mb-8 text-white"}, "Why GoWebComponents?"),
+				P(
 					Attrs{"class": "text-xl text-gray-400 leading-relaxed mb-8"},
 					"Born from the need to build complex, performant web applications without the JavaScript ecosystem's complexity. ",
 					"GoWebComponents brings Go's elegance, safety, and performance to the frontend.",
@@ -28,62 +27,62 @@ func AboutSection(props Attrs) *Element {
 			),
 
 			// Comparison cards
-			dom.Div(
+			Div(
 				Attrs{"class": "grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto"},
 
 				// Traditional approach
-				dom.Div(
+				Div(
 					Attrs{"class": "bg-red-900/10 border border-red-500/20 rounded-2xl p-8 backdrop-blur-sm"},
-					dom.H3(Attrs{"class": "text-2xl font-bold text-red-400 mb-6 flex items-center"},
-						dom.Span(Attrs{"class": "mr-3"}, "❌"),
+					H3(Attrs{"class": "text-2xl font-bold text-red-400 mb-6 flex items-center"},
+						Span(Attrs{"class": "mr-3"}, "❌"),
 						"Traditional Web Development"),
-					dom.Ul(Attrs{"class": "space-y-4 text-red-300"},
-						dom.Li(Attrs{"class": "flex items-start"},
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+					Ul(Attrs{"class": "space-y-4 text-red-300"},
+						Li(Attrs{"class": "flex items-start"},
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 							"Complex build pipelines and toolchains"),
-						dom.Li(Attrs{"class": "flex items-start"},
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+						Li(Attrs{"class": "flex items-start"},
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 							"Runtime errors and type coercion issues"),
-						dom.Li(Attrs{"class": "flex items-start"},
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+						Li(Attrs{"class": "flex items-start"},
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 							"Separate backend/frontend codebases"),
-						dom.Li(Attrs{"class": "flex items-start"},
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+						Li(Attrs{"class": "flex items-start"},
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 							"Heavy node_modules dependencies"),
-						dom.Li(Attrs{"class": "flex items-start"},
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+						Li(Attrs{"class": "flex items-start"},
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 							"State management complexity"),
 					),
 				),
 
 				// GoWebComponents approach
-				dom.Div(
+				Div(
 					Attrs{"class": "bg-green-900/10 border border-green-500/20 rounded-2xl p-8 backdrop-blur-sm"},
-					dom.H3(Attrs{"class": "text-2xl font-bold text-green-400 mb-6 flex items-center"},
-						dom.Span(Attrs{"class": "mr-3"}, "✅"),
+					H3(Attrs{"class": "text-2xl font-bold text-green-400 mb-6 flex items-center"},
+						Span(Attrs{"class": "mr-3"}, "✅"),
 						"GoWebComponents Approach"),
-					dom.Ul(Attrs{"class": "space-y-4 text-green-300"},
-						dom.Li(Attrs{"class": "flex items-start"},
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+					Ul(Attrs{"class": "space-y-4 text-green-300"},
+						Li(Attrs{"class": "flex items-start"},
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 							"Single Go codebase for everything"),
-						dom.Li(Attrs{"class": "flex items-start"},
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+						Li(Attrs{"class": "flex items-start"},
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 							"Compile-time error checking"),
-						dom.Li(Attrs{"class": "flex items-start"},
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+						Li(Attrs{"class": "flex items-start"},
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 							"Shared types and logic"),
-						dom.Li(Attrs{"class": "flex items-start"},
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+						Li(Attrs{"class": "flex items-start"},
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 							"Zero external dependencies"),
-						dom.Li(Attrs{"class": "flex items-start"},
-							dom.Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+						Li(Attrs{"class": "flex items-start"},
+							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 							"Built-in state management"),
 					),
 				),
 			),
 
 			// Stats section
-			dom.Div(
+			Div(
 				Attrs{"class": "mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto"},
 				StatCard("10x", "Faster Development", "No build tools, instant feedback"),
 				StatCard("100%", "Type Safe", "Go's compiler catches all errors"),
@@ -96,11 +95,11 @@ func AboutSection(props Attrs) *Element {
 // StatCard displays a key metric with large number, title, and description.
 // Used to highlight quantifiable benefits of choosing GoWebComponents.
 func StatCard(stat, title, description string) *Element {
-	return dom.Div(
+	return Div(
 		Attrs{"class": "text-center bg-white/5 rounded-xl p-6 shadow-lg border border-white/10 hover:border-white/20 transition-all duration-300 backdrop-blur-sm"},
-		dom.Div(Attrs{"class": "text-4xl font-bold text-indigo-400 mb-2"}, stat),
-		dom.H4(Attrs{"class": "text-xl font-bold text-white mb-2"}, title),
-		dom.P(Attrs{"class": "text-gray-400"}, description),
+		Div(Attrs{"class": "text-4xl font-bold text-indigo-400 mb-2"}, stat),
+		H4(Attrs{"class": "text-xl font-bold text-white mb-2"}, title),
+		P(Attrs{"class": "text-gray-400"}, description),
 	)
 }
 
@@ -108,47 +107,47 @@ func StatCard(stat, title, description string) *Element {
 // Includes installation commands, running examples, and a simple component example
 // to demonstrate the framework's ease of use.
 func GettingStartedSection(props Attrs) *Element {
-	return dom.Section(
+	return Section(
 		Attrs{
 			"id":    "getting-started",
 			"class": "py-20 bg-white/5",
 		},
-		dom.Div(
+		Div(
 			Attrs{"class": "container mx-auto px-6"},
-			dom.Div(
+			Div(
 				Attrs{"class": "text-center mb-16"},
-				dom.H2(Attrs{"class": "text-4xl md:text-5xl font-bold mb-6 text-white"}, "Get Started"),
-				dom.P(Attrs{"class": "text-xl text-gray-400 max-w-3xl mx-auto"}, "Start building with GoWebComponents in minutes, not hours"),
+				H2(Attrs{"class": "text-4xl md:text-5xl font-bold mb-6 text-white"}, "Get Started"),
+				P(Attrs{"class": "text-xl text-gray-400 max-w-3xl mx-auto"}, "Start building with GoWebComponents in minutes, not hours"),
 			),
 
 			// Installation steps
-			dom.Div(
+			Div(
 				Attrs{"class": "max-w-4xl mx-auto space-y-12"},
 
 				InstallationStep("1", "Clone the Repository",
-					dom.Code(Attrs{"class": "bg-black/50 text-green-400 p-4 rounded-lg block border border-white/10"},
+					Code(Attrs{"class": "bg-black/50 text-green-400 p-4 rounded-lg block border border-white/10"},
 						"git clone https://github.com/monstercameron/GoWebComponents.git")),
 
 				InstallationStep("2", "Run the Examples",
-					dom.Code(Attrs{"class": "bg-black/50 text-green-400 p-4 rounded-lg block border border-white/10"},
+					Code(Attrs{"class": "bg-black/50 text-green-400 p-4 rounded-lg block border border-white/10"},
 						"cd GoWebComponents && go run main.go")),
 
 				InstallationStep("3", "Start Building",
-					dom.P(Attrs{"class": "text-gray-400"},
+					P(Attrs{"class": "text-gray-400"},
 						"Create your first component using familiar Go syntax. Check out the examples folder for inspiration!")),
 			),
 
 			// Quick example
-			dom.Div(
+			Div(
 				Attrs{"class": "mt-16 bg-white/5 rounded-2xl p-8 border border-white/10"},
-				dom.H3(Attrs{"class": "text-2xl font-bold text-white mb-6 text-center"}, "Your First Component"),
-				dom.Pre(Attrs{"class": "bg-black/50 text-gray-300 p-6 rounded-lg overflow-x-auto text-sm border border-white/10"},
-					dom.Code(nil, `func HelloWorld(props Attrs) *Element {
-    return dom.Div(
+				H3(Attrs{"class": "text-2xl font-bold text-white mb-6 text-center"}, "Your First Component"),
+				Pre(Attrs{"class": "bg-black/50 text-gray-300 p-6 rounded-lg overflow-x-auto text-sm border border-white/10"},
+					Code(nil, `func HelloWorld(props Attrs) *Element {
+    return Div(
         Attrs{"class": "text-center p-8"},
         H1(nil, "Hello, GoWebComponents!"),
-        dom.P(nil, "Building reactive UIs with Go"),
-        dom.Button(
+        P(nil, "Building reactive UIs with Go"),
+        Button(
             Attrs{
                 "onclick": "alert('Hello from Go!')",
                 "class": "px-4 py-2 bg-blue-500 text-white rounded",
@@ -165,15 +164,15 @@ func GettingStartedSection(props Attrs) *Element {
 // InstallationStep renders a numbered instruction with icon and content.
 // Provides consistent styling for multi-step processes and tutorials.
 func InstallationStep(number, title string, content *Element) *Element {
-	return dom.Div(
+	return Div(
 		Attrs{"class": "flex items-start space-x-6"},
-		dom.Div(
+		Div(
 			Attrs{"class": "flex-shrink-0 w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg shadow-indigo-500/20"},
 			number,
 		),
-		dom.Div(
+		Div(
 			Attrs{"class": "flex-1"},
-			dom.H3(Attrs{"class": "text-2xl font-bold text-white mb-4"}, title),
+			H3(Attrs{"class": "text-2xl font-bold text-white mb-4"}, title),
 			content,
 		),
 	)
@@ -183,21 +182,21 @@ func InstallationStep(number, title string, content *Element) *Element {
 // Each example card includes a working demo and links to detailed explanations
 // and source code viewing functionality.
 func ExamplesSection(props Attrs) *Element {
-	return dom.Section(
+	return Section(
 		Attrs{
 			"id":    "examples",
 			"class": "py-20 bg-[#0a0a0a]",
 		},
-		dom.Div(
+		Div(
 			Attrs{"class": "container mx-auto px-6"},
-			dom.Div(
+			Div(
 				Attrs{"class": "text-center mb-16"},
-				dom.H2(Attrs{"class": "text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent"}, "Examples"),
-				dom.P(Attrs{"class": "text-xl text-gray-400 max-w-3xl mx-auto"}, "See GoWebComponents in action with these real-world examples"),
+				H2(Attrs{"class": "text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent"}, "Examples"),
+				P(Attrs{"class": "text-xl text-gray-400 max-w-3xl mx-auto"}, "See GoWebComponents in action with these real-world examples"),
 			),
 
 			// Example categories
-			dom.Div(
+			Div(
 				Attrs{"class": "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto"},
 
 				ExampleCard(
@@ -250,13 +249,13 @@ func ExamplesSection(props Attrs) *Element {
 			),
 
 			// Live demo section
-			dom.Div(
+			Div(
 				Attrs{"class": "mt-20 bg-white/5 rounded-2xl shadow-xl p-8 max-w-4xl mx-auto border border-white/10 backdrop-blur-sm"},
-				dom.H3(Attrs{"class": "text-3xl font-bold text-white mb-6 text-center"}, "Try It Live"),
-				dom.P(Attrs{"class": "text-lg text-gray-400 text-center mb-8"}, "Experience the power of GoWebComponents right in your browser"),
+				H3(Attrs{"class": "text-3xl font-bold text-white mb-6 text-center"}, "Try It Live"),
+				P(Attrs{"class": "text-lg text-gray-400 text-center mb-8"}, "Experience the power of GoWebComponents right in your browser"),
 
 				// Interactive demo buttons
-				dom.Div(
+				Div(
 					Attrs{"class": "flex flex-wrap justify-center gap-4 mb-8"},
 					DemoButton("Counter", "loadCounterDemo()"),
 					DemoButton("Todo List", "loadTodoDemo()"),
@@ -264,12 +263,12 @@ func ExamplesSection(props Attrs) *Element {
 				),
 
 				// Demo container
-				dom.Div(
+				Div(
 					Attrs{
 						"id":    "demo-container",
 						"class": "bg-black/20 rounded-lg p-6 min-h-64 flex items-center justify-center border-2 border-dashed border-white/10",
 					},
-					dom.P(Attrs{"class": "text-gray-500 text-lg"}, "Select an example above to see it in action"),
+					P(Attrs{"class": "text-gray-500 text-lg"}, "Select an example above to see it in action"),
 				),
 			),
 		),
@@ -278,32 +277,32 @@ func ExamplesSection(props Attrs) *Element {
 
 // ExampleCard creates a card for showcasing an example
 func ExampleCard(icon, title, description, code, id string) *Element {
-	return dom.Div(
+	return Div(
 		Attrs{"class": "bg-white/5 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-white/10 group hover:scale-105 hover:bg-white/10 backdrop-blur-sm"},
-		dom.Div(
+		Div(
 			Attrs{"class": "text-center mb-6"},
-			dom.Div(Attrs{"class": "text-4xl mb-4 group-hover:scale-110 transition-transform duration-300"}, icon),
-			dom.H3(Attrs{"class": "text-xl font-bold text-white mb-2"}, title),
-			dom.P(Attrs{"class": "text-gray-400 text-sm leading-relaxed"}, description),
+			Div(Attrs{"class": "text-4xl mb-4 group-hover:scale-110 transition-transform duration-300"}, icon),
+			H3(Attrs{"class": "text-xl font-bold text-white mb-2"}, title),
+			P(Attrs{"class": "text-gray-400 text-sm leading-relaxed"}, description),
 		),
 
-		dom.Div(
+		Div(
 			Attrs{"class": "space-y-4"},
 			// Code snippet
-			dom.Pre(Attrs{"class": "bg-black/50 text-green-400 p-3 rounded-lg text-xs overflow-x-auto border border-white/5"},
-				dom.Code(nil, code)),
+			Pre(Attrs{"class": "bg-black/50 text-green-400 p-3 rounded-lg text-xs overflow-x-auto border border-white/5"},
+				Code(nil, code)),
 
 			// Action buttons
-			dom.Div(
+			Div(
 				Attrs{"class": "flex space-x-3"},
-				dom.Button(
+				Button(
 					Attrs{
 						"class":   "flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 text-sm font-medium shadow-lg shadow-indigo-500/20",
 						"onclick": "runExample('" + id + "')",
 					},
 					"▶ Run",
 				),
-				dom.Button(
+				Button(
 					Attrs{
 						"class":   "px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors duration-200 text-sm font-medium border border-white/10",
 						"onclick": "viewSource('" + id + "')",
@@ -317,7 +316,7 @@ func ExampleCard(icon, title, description, code, id string) *Element {
 
 // DemoButton creates a button for the live demo section
 func DemoButton(label, onclick string) *Element {
-	return dom.Button(
+	return Button(
 		Attrs{
 			"class":   "px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5",
 			"onclick": onclick,
@@ -328,21 +327,21 @@ func DemoButton(label, onclick string) *Element {
 
 // ApiDocumentationSection provides comprehensive API documentation
 func ApiDocumentationSection(props Attrs) *Element {
-	return dom.Section(
+	return Section(
 		Attrs{
 			"id":    "api",
 			"class": "py-20 bg-white/5",
 		},
-		dom.Div(
+		Div(
 			Attrs{"class": "container mx-auto px-6"},
-			dom.Div(
+			Div(
 				Attrs{"class": "text-center mb-16"},
-				dom.H2(Attrs{"class": "text-4xl md:text-5xl font-bold mb-6 text-white"}, "API Documentation"),
-				dom.P(Attrs{"class": "text-xl text-gray-400 max-w-3xl mx-auto"}, "Complete reference for all GoWebComponents APIs and hooks"),
+				H2(Attrs{"class": "text-4xl md:text-5xl font-bold mb-6 text-white"}, "API Documentation"),
+				P(Attrs{"class": "text-xl text-gray-400 max-w-3xl mx-auto"}, "Complete reference for all GoWebComponents APIs and hooks"),
 			),
 
 			// API sections
-			dom.Div(
+			Div(
 				Attrs{"class": "max-w-6xl mx-auto space-y-16"},
 
 				// Core Components
@@ -350,8 +349,8 @@ func ApiDocumentationSection(props Attrs) *Element {
 					"Core Components",
 					"Essential building blocks for your applications",
 					[]ApiItem{
-						{"Div", "Container element with props and children", "dom.Div(Attrs{\"class\": \"container\"}, children...)"},
-						{"Button", "Interactive button element", "dom.Button(Attrs{\"onclick\": \"handleClick()\"}, \"Click Me\")"},
+						{"Div", "Container element with props and children", "Div(Attrs{\"class\": \"container\"}, children...)"},
+						{"Button", "Interactive button element", "Button(Attrs{\"onclick\": \"handleClick()\"}, \"Click Me\")"},
 						{"Input", "Form input element", "Input(Attrs{\"type\": \"text\", \"placeholder\": \"Enter text\"})"},
 						{"Form", "Form container element", "Form(Attrs{\"onsubmit\": \"handleSubmit()\"}, children...)"},
 					},
@@ -362,8 +361,8 @@ func ApiDocumentationSection(props Attrs) *Element {
 					"Hooks",
 					"State management and lifecycle hooks",
 					[]ApiItem{
-						{"hooks.UseState", "Manage component state", "[value, setValue] := hooks.UseState(initialValue)"},
-						{"hooks.UseEffect", "Handle side effects and lifecycle", "hooks.UseEffect(func() func() { /* effect */ return nil }, dependencies...)"},
+						{"UseState", "Manage component state", "[value, setValue] := UseState(initialValue)"},
+						{"UseEffect", "Handle side effects and lifecycle", "UseEffect(func() func() { /* effect */ return nil }, dependencies...)"},
 						{"GoUseMemo", "Memoize expensive calculations", "memoizedValue := fiber.GoUseMemo(func() interface{} { return calc() }, deps)"},
 						{"GoUseFetch", "Declarative data fetching", "data, loading, err := fiber.GoUseFetch(url, options)"},
 					},
@@ -383,37 +382,37 @@ func ApiDocumentationSection(props Attrs) *Element {
 			),
 
 			// Quick reference
-			dom.Div(
+			Div(
 				Attrs{"class": "mt-20 bg-white/5 rounded-2xl p-8 border border-white/10 backdrop-blur-sm"},
-				dom.H3(Attrs{"class": "text-3xl font-bold text-white mb-6 text-center"}, "Quick Reference"),
-				dom.Div(
+				H3(Attrs{"class": "text-3xl font-bold text-white mb-6 text-center"}, "Quick Reference"),
+				Div(
 					Attrs{"class": "grid grid-cols-1 md:grid-cols-2 gap-8"},
 
 					// Component pattern
-					dom.Div(
+					Div(
 						Attrs{"class": "bg-black/20 rounded-xl p-6 shadow-lg border border-white/10"},
-						dom.H4(Attrs{"class": "text-xl font-bold text-white mb-4"}, "Component Pattern"),
-						dom.Pre(Attrs{"class": "bg-black/50 text-gray-300 p-4 rounded-lg text-sm overflow-x-auto border border-white/5"},
-							dom.Code(nil, `func MyComponent(props Attrs) *Element {
-    return dom.Div(
+						H4(Attrs{"class": "text-xl font-bold text-white mb-4"}, "Component Pattern"),
+						Pre(Attrs{"class": "bg-black/50 text-gray-300 p-4 rounded-lg text-sm overflow-x-auto border border-white/5"},
+							Code(nil, `func MyComponent(props Attrs) *Element {
+    return Div(
         Attrs{"class": "component"},
         H1(nil, "Hello World"),
-        dom.P(nil, "Component content"),
+        P(nil, "Component content"),
     )
 }`)),
 					),
 
 					// State management
-					dom.Div(
+					Div(
 						Attrs{"class": "bg-black/20 rounded-xl p-6 shadow-lg border border-white/10"},
-						dom.H4(Attrs{"class": "text-xl font-bold text-white mb-4"}, "State Management"),
-						dom.Pre(Attrs{"class": "bg-black/50 text-gray-300 p-4 rounded-lg text-sm overflow-x-auto border border-white/5"},
-							dom.Code(nil, `func Counter(props Attrs) *Element {
-    count, setCount := hooks.UseState(0)
+						H4(Attrs{"class": "text-xl font-bold text-white mb-4"}, "State Management"),
+						Pre(Attrs{"class": "bg-black/50 text-gray-300 p-4 rounded-lg text-sm overflow-x-auto border border-white/5"},
+							Code(nil, `func Counter(props Attrs) *Element {
+    count, setCount := UseState(0)
     
-    return dom.Div(nil,
-        dom.P(nil, fmt.Sprintf("Count: %d", count)),
-        dom.Button(Attrs{
+    return Div(nil,
+        P(nil, fmt.Sprintf("Count: %d", count)),
+        Button(Attrs{
             "onclick": func() { setCount(count + 1) },
         }, "Increment"),
     )
@@ -427,11 +426,11 @@ func ApiDocumentationSection(props Attrs) *Element {
 
 // ApiSection creates a section for API documentation
 func ApiSection(title, description string, items []ApiItem) *Element {
-	return dom.Div(
+	return Div(
 		Attrs{"class": ""},
-		dom.H3(Attrs{"class": "text-3xl font-bold text-white mb-4"}, title),
-		dom.P(Attrs{"class": "text-lg text-gray-400 mb-8"}, description),
-		dom.Div(
+		H3(Attrs{"class": "text-3xl font-bold text-white mb-4"}, title),
+		P(Attrs{"class": "text-lg text-gray-400 mb-8"}, description),
+		Div(
 			Attrs{"class": "grid grid-cols-1 lg:grid-cols-2 gap-6"},
 			func() []interface{} {
 				var elements []interface{}
@@ -453,12 +452,12 @@ type ApiItem struct {
 
 // ApiItemCard creates a card for an API item
 func ApiItemCard(item ApiItem) *Element {
-	return dom.Div(
+	return Div(
 		Attrs{"class": "bg-white/5 rounded-xl p-6 border border-white/10 hover:border-indigo-500/50 hover:shadow-lg transition-all duration-300 backdrop-blur-sm"},
-		dom.H4(Attrs{"class": "text-lg font-bold text-white mb-2"}, item.Name),
-		dom.P(Attrs{"class": "text-gray-400 mb-4"}, item.Description),
-		dom.Pre(Attrs{"class": "bg-black/50 text-green-400 p-3 rounded-lg text-sm overflow-x-auto border border-white/5"},
-			dom.Code(nil, item.Example)),
+		H4(Attrs{"class": "text-lg font-bold text-white mb-2"}, item.Name),
+		P(Attrs{"class": "text-gray-400 mb-4"}, item.Description),
+		Pre(Attrs{"class": "bg-black/50 text-green-400 p-3 rounded-lg text-sm overflow-x-auto border border-white/5"},
+			Code(nil, item.Example)),
 	)
 }
 
@@ -466,32 +465,32 @@ func ApiItemCard(item ApiItem) *Element {
 // Includes project links, documentation navigation, social media, and professional
 // contact information in a responsive multi-column layout.
 func FooterSection(props Attrs) *Element {
-	return dom.Footer(
+	return Footer(
 		Attrs{"class": "bg-[#0a0a0a] text-white py-16 border-t border-white/10"},
-		dom.Div(
+		Div(
 			Attrs{"class": "container mx-auto px-6"},
 
 			// Main footer content
-			dom.Div(
+			Div(
 				Attrs{"class": "grid grid-cols-1 md:grid-cols-4 gap-8 mb-12"},
 
 				// Brand section
-				dom.Div(
+				Div(
 					Attrs{"class": "col-span-1 md:col-span-2"},
-					dom.Div(
+					Div(
 						Attrs{"class": "flex items-center space-x-3 mb-6"},
-						dom.Img(Attrs{
+						Img(Attrs{
 							"src":   "/static/images/hero.jpg",
 							"alt":   "GoWebComponents Logo",
 							"class": "h-10 w-10 rounded-full border-2 border-indigo-400",
 						}),
-						dom.H3(Attrs{"class": "text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent"}, "GoWebComponents"),
+						H3(Attrs{"class": "text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent"}, "GoWebComponents"),
 					),
-					dom.P(Attrs{"class": "text-gray-400 leading-relaxed mb-6 max-w-md"},
+					P(Attrs{"class": "text-gray-400 leading-relaxed mb-6 max-w-md"},
 						"Build modern, reactive web applications using Go and WebAssembly. Created by Earl Cameron for developers who value simplicity, performance, and type safety."),
 
 					// Social links
-					dom.Div(
+					Div(
 						Attrs{"class": "flex space-x-4"},
 						SocialLink("https://github.com/monstercameron/GoWebComponents", "⚡ GitHub"),
 						SocialLink("https://earlcameron.com", "🌐 Website"),
@@ -500,10 +499,10 @@ func FooterSection(props Attrs) *Element {
 				),
 
 				// Quick links
-				dom.Div(
+				Div(
 					Attrs{"class": ""},
-					dom.H4(Attrs{"class": "text-lg font-bold mb-4 text-white"}, "Quick Links"),
-					dom.Ul(Attrs{"class": "space-y-2"},
+					H4(Attrs{"class": "text-lg font-bold mb-4 text-white"}, "Quick Links"),
+					Ul(Attrs{"class": "space-y-2"},
 						FooterLink("Getting Started", "#getting-started"),
 						FooterLink("Examples", "#examples"),
 						FooterLink("API Docs", "#api"),
@@ -512,10 +511,10 @@ func FooterSection(props Attrs) *Element {
 				),
 
 				// Resources
-				dom.Div(
+				Div(
 					Attrs{"class": ""},
-					dom.H4(Attrs{"class": "text-lg font-bold mb-4 text-white"}, "Resources"),
-					dom.Ul(Attrs{"class": "space-y-2"},
+					H4(Attrs{"class": "text-lg font-bold mb-4 text-white"}, "Resources"),
+					Ul(Attrs{"class": "space-y-2"},
 						FooterLink("Hot Reload Guide", "#live-reload"),
 						FooterLink("Performance Tips", "#performance"),
 						FooterLink("Best Practices", "#best-practices"),
@@ -525,18 +524,18 @@ func FooterSection(props Attrs) *Element {
 			),
 
 			// Bottom bar
-			dom.Div(
+			Div(
 				Attrs{"class": "border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center"},
-				dom.P(Attrs{"class": "text-gray-400 text-sm mb-4 md:mb-0"},
+				P(Attrs{"class": "text-gray-400 text-sm mb-4 md:mb-0"},
 					"© 2024 Earl Cameron. Built with GoWebComponents. All rights reserved."),
 
-				dom.Div(
+				Div(
 					Attrs{"class": "flex items-center space-x-4 text-sm text-gray-400"},
-					dom.Span(nil, "Made with ❤️ and Go"),
-					dom.Span(nil, "•"),
-					dom.Span(nil, "WebAssembly Powered"),
-					dom.Span(nil, "•"),
-					dom.Span(nil, "Type Safe"),
+					Span(nil, "Made with ❤️ and Go"),
+					Span(nil, "•"),
+					Span(nil, "WebAssembly Powered"),
+					Span(nil, "•"),
+					Span(nil, "Type Safe"),
 				),
 			),
 		),
@@ -545,7 +544,7 @@ func FooterSection(props Attrs) *Element {
 
 // SocialLink creates a social media link
 func SocialLink(href, text string) *Element {
-	return dom.A(
+	return A(
 		Attrs{
 			"href":   href,
 			"target": "_blank",
@@ -557,9 +556,9 @@ func SocialLink(href, text string) *Element {
 
 // FooterLink creates a footer navigation link
 func FooterLink(text, href string) *Element {
-	return dom.Li(
+	return Li(
 		Attrs{"class": ""},
-		dom.A(
+		A(
 			Attrs{
 				"href":    href,
 				"class":   "text-gray-400 hover:text-white transition-colors duration-200 text-sm",
@@ -569,3 +568,4 @@ func FooterLink(text, href string) *Element {
 		),
 	)
 }
+

@@ -17,7 +17,7 @@ Current repo state as of 2026-03-14:
 
 - Core runtime lives in `internal/runtime/`
 - Preferred public packages are `ui`, `html`, `state`, `fetch`, and `router`
-- Legacy browser-facing compatibility packages `dom`, `hooks`, and `render` still exist during the API transition
+- Remaining examples and test fixtures now build through local ui/html bridge helpers instead of legacy compatibility packages
 - Native `internal/runtime` statement coverage is `100%`
 - Native runtime tests pass with `go test ./internal/runtime`
 - Browser component, integration, and deep state stress suites pass under Playwright
@@ -28,6 +28,20 @@ Current repo state as of 2026-03-14:
 ```bash
 go get github.com/monstercameron/GoWebComponents@latest
 ```
+
+Import packages from the module path exactly as declared in `go.mod`:
+
+```go
+import (
+  "github.com/monstercameron/GoWebComponents/fetch"
+  "github.com/monstercameron/GoWebComponents/html"
+  "github.com/monstercameron/GoWebComponents/router"
+  "github.com/monstercameron/GoWebComponents/state"
+  "github.com/monstercameron/GoWebComponents/ui"
+)
+```
+
+The repository root is the module boundary, not a directly importable package. Consumers should import one or more public subpackages such as `ui` and `html`.
 
 Requirements:
 
@@ -114,7 +128,8 @@ Copy-Item "$(go env GOROOT)\lib\wasm\wasm_exec.js" static\wasm_exec.js
 - `state`: shared atom-based state
 - `fetch`: browser fetch helpers layered on top of the runtime hook/fetch APIs
 - `router`: browser/hash routing helpers
-- `dom`, `hooks`, `render`: legacy compatibility packages retained during migration
+
+For new projects imported with `go get`, use `ui`, `html`, `state`, `fetch`, and `router` as the stable public surface.
 
 ## Runtime Layout
 
@@ -240,7 +255,7 @@ Latest browser comparison run on 2026-03-14:
 
 Notes:
 
-- The browser benchmark currently compares render, update, clear, deep-tree, and many-hooks scenarios from `tests/performance.spec.ts`.
+- The browser benchmark currently compares render, update, clear, deep-tree, and many-hooks scenarios from `test/specs/performance_benchmark.spec.ts`.
 - The old compute-primes scenario is intentionally excluded from the main comparison run because it is not yet a stable benchmark case for this repo.
 
 Recent measured wins from the current optimization pass include:

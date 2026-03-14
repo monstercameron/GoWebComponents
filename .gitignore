@@ -21,10 +21,12 @@ Thumbs.db
 /bin/
 /dist/
 /build/
+/.pages/
 static/bin/
 go-compiler-wasm
 go-source
 examples/13-browser-compiler/static/pkg/
+test/benchmark/bin/
 
 # Local binaries and coverage outputs
 /runtime
@@ -38,6 +40,10 @@ examples/13-browser-compiler/static/pkg/
 *.log
 logs/
 *.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # IDE and editor files
 .vscode/
@@ -73,8 +79,6 @@ test/test-results/
 test/.playwright/
 playwright-report/
 test-results/
-tests/test-results/
-tests/playwright-report/
 
 # Environment and config files (if sensitive)
 .env
@@ -87,3 +91,6 @@ tmp/
 temp/
 *.tmp
 *.txt
+
+# Legacy merged workspace residue
+/tests/

@@ -6,14 +6,7 @@ package router
 import (
 	"testing"
 
-	"github.com/monstercameron/GoWebComponents/dom"
-	"github.com/monstercameron/GoWebComponents/render"
-)
-
-// Type aliases for convenience
-type (
-	Attrs   = dom.Attrs
-	Element = render.Element
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
 // TestNewHashRouter tests hash router initialization
@@ -44,7 +37,7 @@ func TestRegisterRoute(t *testing.T) {
 
 	// Register a simple route
 	testComponent := func(props Attrs) *Element {
-		return dom.Div(nil, dom.Text("Test"))
+		return runtime.Div(nil, runtime.Text("Test"))
 	}
 
 	r.GoRegisterRoute("/test", testComponent)
@@ -75,7 +68,7 @@ func TestPathNormalization(t *testing.T) {
 
 	for _, tc := range testCases {
 		testComponent := func(props Attrs) *Element {
-			return dom.Div(nil)
+			return runtime.Div(nil)
 		}
 
 		r.GoRegisterRoute(tc.input, testComponent)
@@ -113,11 +106,11 @@ func TestRouteResolution(t *testing.T) {
 	r := NewHashRouter()
 
 	homeComponent := func(props Attrs) *Element {
-		return dom.Div(nil, dom.Text("Home"))
+		return runtime.Div(nil, runtime.Text("Home"))
 	}
 
 	aboutComponent := func(props Attrs) *Element {
-		return dom.Div(nil, dom.Text("About"))
+		return runtime.Div(nil, runtime.Text("About"))
 	}
 
 	r.GoRegisterRoute("/", homeComponent)
@@ -135,11 +128,11 @@ func TestWildcardRoute(t *testing.T) {
 	r := NewHashRouter()
 
 	homeComponent := func(props Attrs) *Element {
-		return dom.Div(nil, dom.Text("Home"))
+		return runtime.Div(nil, runtime.Text("Home"))
 	}
 
 	notFoundComponent := func(props Attrs) *Element {
-		return dom.Div(nil, dom.Text("Not Found"))
+		return runtime.Div(nil, runtime.Text("Not Found"))
 	}
 
 	r.GoRegisterRoute("/", homeComponent)
@@ -156,7 +149,7 @@ func TestWildcardRoute(t *testing.T) {
 func TestStaticElementRoute(t *testing.T) {
 	r := NewHashRouter()
 
-	staticElem := dom.Div(nil, dom.Text("Static"))
+	staticElem := runtime.Div(nil, runtime.Text("Static"))
 
 	r.GoRegisterRoute("/static", staticElem)
 
@@ -171,7 +164,7 @@ func TestBeforeEnterGuard(t *testing.T) {
 	r := NewHashRouter()
 
 	protectedComponent := func(props Attrs) *Element {
-		return dom.Div(nil, dom.Text("Protected"))
+		return runtime.Div(nil, runtime.Text("Protected"))
 	}
 
 	r.GoRegisterRoute("/protected", protectedComponent)
@@ -206,7 +199,7 @@ func TestMultipleRoutes(t *testing.T) {
 	for _, path := range routes {
 		p := path
 		component := func(props Attrs) *Element {
-			return dom.Div(nil, dom.Text(p))
+			return runtime.Div(nil, runtime.Text(p))
 		}
 		r.GoRegisterRoute(path, component)
 	}
@@ -235,7 +228,7 @@ func TestGlobalRouter(t *testing.T) {
 // TestGoRegisterRoute tests the Go-style route registration
 func TestGoRegisterRoute(t *testing.T) {
 	componentFunc := func(props Attrs) *Element {
-		return dom.Div(nil, dom.Text("Test Component"))
+		return runtime.Div(nil, runtime.Text("Test Component"))
 	}
 
 	RegisterRoute("/go-test", componentFunc)
@@ -251,7 +244,7 @@ func TestRouteOptions(t *testing.T) {
 	r := NewHashRouter()
 
 	component := func(props Attrs) *Element {
-		return dom.Div(nil, dom.Text("Page"))
+		return runtime.Div(nil, runtime.Text("Page"))
 	}
 
 	options := Options{
@@ -271,7 +264,7 @@ func TestEmptyPath(t *testing.T) {
 	r := NewHashRouter()
 
 	component := func(props Attrs) *Element {
-		return dom.Div(nil, dom.Text("Home"))
+		return runtime.Div(nil, runtime.Text("Home"))
 	}
 
 	r.GoRegisterRoute("", component) // Should normalize to "/"
@@ -287,7 +280,7 @@ func TestPathWithTrailingSlash(t *testing.T) {
 	r := NewHashRouter()
 
 	component := func(props Attrs) *Element {
-		return dom.Div(nil, dom.Text("About"))
+		return runtime.Div(nil, runtime.Text("About"))
 	}
 
 	r.GoRegisterRoute("/about/", component) // Should normalize to "/about"
