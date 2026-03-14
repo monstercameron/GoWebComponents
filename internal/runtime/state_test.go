@@ -121,16 +121,14 @@ func TestAtomRegistry_ThreadSafety(t *testing.T) {
 
 	// Spawn multiple goroutines reading/writing
 	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func(id int) {
-			defer wg.Done()
-
+		id := i
+		wg.Go(func() {
 			fiber := &Fiber{typeOf: "test"}
 			registry.Subscribe("counter", fiber)
 			registry.SetAtom("counter", id)
 			_, _ = registry.GetAtom("counter")
 			registry.Unsubscribe("counter", fiber)
-		}(i)
+		})
 	}
 
 	wg.Wait()

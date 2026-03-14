@@ -22,7 +22,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.24'
+          go-version: '1.25.4'
 
       - name: Run Go Unit Tests
         run: |
@@ -58,22 +58,15 @@ jobs:
         id: version
         run: |
           git fetch --tags
-          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          echo "Latest tag: $latest_tag"
-          
-          # Remove 'v' prefix
-          version=${latest_tag#v}
-          
-          # Split into major, minor, patch
-          IFS='.' read -r major minor patch <<< "$version"
-          
-          # Logic to start at 3.0.0
-          if [ "$major" -lt 3 ]; then
-            new_tag="v3.0.0"
-          else
-            patch=$((patch + 1))
-            new_tag="v${major}.${minor}.${patch}"
+          latest_tag=$(git tag --sort=-v:refname | grep -E '^v0\.0\.[0-9]+$' | head -n 1)
+          if [ -z "$latest_tag" ]; then
+            latest_tag="v0.0.0"
           fi
+          echo "Latest tag: $latest_tag"
+
+          patch=${latest_tag#v0.0.}
+          patch=$((patch + 1))
+          new_tag="v0.0.${patch}"
           
           echo "New tag: $new_tag"
           echo "new_tag=$new_tag" >> $GITHUB_OUTPUT

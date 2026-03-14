@@ -1,4 +1,13 @@
+<p align="center">
+  <img src="hero.jpg" alt="GoWebComponents Hero Image" width="900">
+</p>
+
 # GoWebComponents
+
+[![CI + Release](https://github.com/monstercameron/GoWebComponents/actions/workflows/release.yml/badge.svg?branch=master)](https://github.com/monstercameron/GoWebComponents/actions/workflows/release.yml)
+[![Deploy Examples To Pages](https://github.com/monstercameron/GoWebComponents/actions/workflows/pages.yml/badge.svg?branch=master)](https://github.com/monstercameron/GoWebComponents/actions/workflows/pages.yml)
+[![Release Version](https://img.shields.io/github/v/release/monstercameron/GoWebComponents)](https://github.com/monstercameron/GoWebComponents/releases)
+[![Go Report Card](https://goreportcard.com/badge/github.com/monstercameron/GoWebComponents)](https://goreportcard.com/report/github.com/monstercameron/GoWebComponents)
 
 GoWebComponents is a Go + WebAssembly UI framework with a React-style component model, hooks, a fiber-based runtime, and browser-side rendering through `syscall/js`.
 
@@ -22,7 +31,7 @@ go get github.com/monstercameron/GoWebComponents@latest
 
 Requirements:
 
-- Go 1.22+
+- Go 1.25+
 - A browser that supports WebAssembly
 - Node.js only for the example dev server and Playwright-based browser tests
 
@@ -135,6 +144,33 @@ Default URLs:
 - `http://127.0.0.1:8090/healthz`
 
 The `/examples` index is generated from the actual filesystem and is not hard-coded.
+
+## Examples
+
+Primary example entry points:
+
+- Styled showcase: `http://127.0.0.1:8090/examples/static/index.html`
+- Filesystem index: `http://127.0.0.1:8090/examples`
+
+Current examples under `examples/`:
+
+- `01-counter`: counter state basics
+- `02-text-input`: controlled text input
+- `03-toggle`: boolean state and conditional UI
+- `04-form`: struct-backed form state
+- `05-todo-basic`: basic array CRUD example
+- `06-todo-advanced`: richer todo app with filters and categories
+- `07-goroutines`: background tasks and timers
+- `08-fetch`: async fetch patterns and loading states
+- `09-atoms`: shared global state via atoms
+- `10-advanced-form`: validation and async form patterns
+- `11-blog`: blog landing page composition example
+- `12-portfolio-site`: full multi-section portfolio app
+- `13-browser-compiler`: browser-side compiler tooling example
+- `14-omi`: OMI integration example
+- `15-calculator`: animated scientific calculator demo
+
+Examples currently featured on the styled showcase page include the interactive demos from `01` through `12`, plus `15-calculator`.
 
 ## Testing
 
