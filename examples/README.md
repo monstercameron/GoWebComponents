@@ -37,6 +37,7 @@ Current example directories include:
 - `12-portfolio-site`
 - `13-browser-compiler`
 - `14-omi`
+- `15-calculator`
 
 ## Shared Static Assets
 

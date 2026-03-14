@@ -1,0 +1,38 @@
+[
+  {
+    "label": "Orbital Burst",
+    "expression": "pow(11.2,2)/2",
+    "description": "Fast energy-style preset using powers and division.",
+    "category": "physics"
+  },
+  {
+    "label": "Signal Bloom",
+    "expression": "sin(45)*cos(30)*128",
+    "description": "Trig-heavy preset that reacts to the angle mode selector.",
+    "category": "trig"
+  },
+  {
+    "label": "Deep Root",
+    "expression": "sqrt(144)+sqrt(81)+sqrt(49)",
+    "description": "A stacked radical chain for quick validation.",
+    "category": "roots"
+  },
+  {
+    "label": "Analyst Mix",
+    "expression": "max(42,17)+min(8,3)+abs(-12)",
+    "description": "Nested helpers for min, max, and absolute value.",
+    "category": "functions"
+  },
+  {
+    "label": "Log Sweep",
+    "expression": "log(1000)+ln(e)+round(2.6)",
+    "description": "Combines base-10 log, natural log, and rounding.",
+    "category": "logs"
+  },
+  {
+    "label": "Pi Drift",
+    "expression": "pow(pi,2)+pow(e,2)",
+    "description": "A constant-focused preset for the classic pair.",
+    "category": "constants"
+  }
+]
