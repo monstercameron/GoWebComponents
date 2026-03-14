@@ -1,12 +1,16 @@
 import { test, expect } from '@playwright/test';
 
+function mainIncrementButton(page) {
+  return page.getByRole('button', { name: 'Increment main' });
+}
+
 test.describe('GoWebComponents Hooks - UseState', () => {
   test('UseState initializes with correct value', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
     // Check initial count is 0
-    const countText = await page.locator('p').first().textContent();
+    const countText = await page.locator('[data-testid="count-display"]').textContent();
     expect(countText).toContain('Count: 0');
   });
 
@@ -15,17 +19,15 @@ test.describe('GoWebComponents Hooks - UseState', () => {
     await page.waitForSelector('#app', { timeout: 30000 });
     
     // Initial value
-    let countText = await page.locator('p').first().textContent();
+    let countText = await page.locator('[data-testid="count-display"]').textContent();
     expect(countText).toContain('Count: 0');
     
     // Click increment button
-    await page.click('button');
-    
-    // Wait for update
-    await page.waitForTimeout(100);
+    await mainIncrementButton(page).click();
+    await expect(page.locator('[data-testid="count-display"]')).toHaveText('Count: 1');
     
     // Check updated value
-    countText = await page.locator('p').first().textContent();
+    countText = await page.locator('[data-testid="count-display"]').textContent();
     expect(countText).toContain('Count: 1');
   });
 
@@ -33,7 +35,7 @@ test.describe('GoWebComponents Hooks - UseState', () => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    const button = page.locator('button').first();
+    const button = mainIncrementButton(page);
     
     // Click 10 times
     for (let i = 0; i < 10; i++) {
@@ -42,10 +44,10 @@ test.describe('GoWebComponents Hooks - UseState', () => {
     }
     
     // Wait for all renders to complete (requestAnimationFrame batching)
-    await page.waitForTimeout(500);
+    await expect(page.locator('[data-testid="count-display"]')).toHaveText('Count: 10');
     
     // Check final value
-    const countText = await page.locator('p').first().textContent();
+    const countText = await page.locator('[data-testid="count-display"]').textContent();
     expect(countText).toContain('Count: 10');
   });
 
@@ -53,14 +55,14 @@ test.describe('GoWebComponents Hooks - UseState', () => {
     await page.goto('/');
     await page.waitForSelector('#app', { timeout: 30000 });
     
-    const paragraph = page.locator('p').first();
+    const paragraph = page.locator('[data-testid="count-display"]');
     
     // Get initial text
     const initialText = await paragraph.textContent();
     
     // Click to update state
-    await page.click('button');
-    await page.waitForTimeout(100);
+    await mainIncrementButton(page).click();
+    await expect(paragraph).toHaveText('Count: 1');
     
     // Text should have changed
     const updatedText = await paragraph.textContent();
@@ -126,8 +128,8 @@ test.describe('GoWebComponents Hooks - UseEffect', () => {
     expect(initialCount).toBe(1);
     
     // Click to change count (dependency)
-    await page.click('button');
-    await page.waitForTimeout(200);
+    await mainIncrementButton(page).click();
+    await expect.poll(() => logs.filter(log => log.includes('UseEffect ran')).length).toBe(2);
     
     // Effect should have run again due to count change
     const afterClickCount = logs.filter(log => log.includes('UseEffect ran')).length;
@@ -153,8 +155,8 @@ test.describe('GoWebComponents Hooks - UseMemo', () => {
     expect(initialComputeCount).toBeGreaterThan(0);
     
     // Click to trigger re-render
-    await page.click('button');
-    await page.waitForTimeout(200);
+    await mainIncrementButton(page).click();
+    await expect(page.locator('#doubled')).toHaveText('Doubled: 2');
     
     // Should compute again because count changed (dependency)
     const afterClickCount = logs.filter(log => log.includes('UseMemo computing')).length;
@@ -181,9 +183,10 @@ test.describe('GoWebComponents Hooks - UseMemo', () => {
     
     // Multiple clicks with proper waiting
     for (let i = 0; i < 3; i++) {
-      await page.click('button');
-      await page.waitForTimeout(200);
+      await mainIncrementButton(page).click();
     }
+
+    await expect(page.locator('#doubled')).toHaveText('Doubled: 6');
     
     // Should have recomputed 3 more times (once per click)
     expect(logs.length).toBe(initialComputeCount + 3);

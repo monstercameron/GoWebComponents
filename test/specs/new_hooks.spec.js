@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
 
+async function triggerFetchAndWaitForStableResult(page) {
+  await page.click('#fetch-button');
+  await expect(page.locator('#fetch-data')).toContainText('"id":123');
+  await expect(page.locator('#fetch-data')).toContainText('Ada Lovelace');
+  await expect(page.locator('#fetch-state-display')).toContainText('Loading=false');
+}
+
 test.describe('GoWebComponents Hooks - UseId', () => {
   test('UseId generates unique stable IDs', async ({ page }) => {
     await page.goto('/');
@@ -161,24 +168,9 @@ test.describe('GoWebComponents Hooks - UseFetch', () => {
     await page.goto('/');
     await page.waitForSelector('#use-fetch-test', { timeout: 30000 });
 
-    const fetchButton = page.locator('#fetch-button');
-
     // Click multiple times
     for (let i = 0; i < 3; i++) {
-      await fetchButton.click();
-      await page.waitForTimeout(100);
-
-      // Verify loading state appears
-      const loadingLocator = page.locator('#fetch-loading');
-      const errorLocator = page.locator('#fetch-error');
-      const idleLocator = page.locator('#fetch-idle');
-
-      // At least one of these should exist
-      const isLoading = await loadingLocator.count() > 0;
-      const hasError = await errorLocator.count() > 0;
-      const isIdle = await idleLocator.count() > 0;
-
-      expect(isLoading || hasError || isIdle).toBeTruthy();
+      await triggerFetchAndWaitForStableResult(page);
     }
   });
 
@@ -198,18 +190,12 @@ test.describe('GoWebComponents Hooks - UseFetch', () => {
     await page.goto('/');
     await page.waitForSelector('#use-fetch-test', { timeout: 30000 });
 
-    // Get initial state
-    const initialStateDisplay = await page.locator('#fetch-state-display').textContent();
+    await expect(page.locator('#fetch-idle')).toBeVisible();
 
-    // Click fetch button
-    await page.click('#fetch-button');
-    await page.waitForTimeout(300);
+    await triggerFetchAndWaitForStableResult(page);
 
-    // Get state after fetch
-    const afterFetchStateDisplay = await page.locator('#fetch-state-display').textContent();
-
-    // State should have changed (Loading should be true or error/data should exist)
-    expect(afterFetchStateDisplay).not.toBe(initialStateDisplay);
+    await expect(page.locator('#fetch-idle')).toHaveCount(0);
+    await expect(page.locator('#fetch-data')).toContainText('Ada Lovelace');
   });
 
   test('UseFetch maintains state independently', async ({ page }) => {
@@ -219,34 +205,19 @@ test.describe('GoWebComponents Hooks - UseFetch', () => {
     // Fetch state should not affect main counter
     const initialCountText = await page.locator('[data-testid="count-display"]').textContent();
 
-    // Click fetch button
-    await page.click('#fetch-button');
-    await page.waitForTimeout(200);
+    await triggerFetchAndWaitForStableResult(page);
 
     // Main counter should remain unchanged
     const afterFetchCountText = await page.locator('[data-testid="count-display"]').textContent();
     expect(afterFetchCountText).toBe(initialCountText);
   });
 
-  test('UseFetch error state displays when fetch fails', async ({ page }) => {
+  test('UseFetch completes request and clears loading state', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#use-fetch-test', { timeout: 30000 });
 
-    // Click fetch button - this will attempt to fetch from a non-existent endpoint
-    // which should eventually result in an error state
-    await page.click('#fetch-button');
-    await page.waitForTimeout(2000); // Give it time to fail
-
-    // Check if error state or other final state is displayed
-    const stateDisplay = await page.locator('#fetch-state-display').textContent();
-    
-    // Should eventually show Loading=false (fetch completed)
-    await page.waitForFunction(() => {
-      const text = document.querySelector('#fetch-state-display').textContent;
-      return text.includes('Loading=false');
-    }, { timeout: 5000 });
-
-    expect(stateDisplay).toContain('Loading=false');
+    await triggerFetchAndWaitForStableResult(page);
+    await expect(page.locator('#fetch-state-display')).toContainText('Error=');
   });
 
   test('UseFetch response handling in component', async ({ page }) => {
@@ -256,29 +227,7 @@ test.describe('GoWebComponents Hooks - UseFetch', () => {
     // Initial state should be idle
     await expect(page.locator('#fetch-idle')).toBeVisible();
 
-    // After clicking fetch, we should see some response
-    await page.click('#fetch-button');
-
-    // Wait for response to complete
-    await page.waitForFunction(() => {
-      // Check if we moved out of idle state
-      const fetchIdle = document.querySelector('#fetch-idle');
-      const fetchLoading = document.querySelector('#fetch-loading');
-      const fetchError = document.querySelector('#fetch-error');
-      const fetchData = document.querySelector('#fetch-data');
-      
-      return (fetchLoading || fetchError || fetchData);
-    }, { timeout: 5000 });
-
-    // Verify we got some kind of response
-    const responses = [
-      await page.locator('#fetch-loading').count(),
-      await page.locator('#fetch-error').count(),
-      await page.locator('#fetch-data').count()
-    ];
-
-    // At least one response type should be visible
-    expect(responses.reduce((a, b) => a + b, 0)).toBeGreaterThan(0);
+    await triggerFetchAndWaitForStableResult(page);
   });
 });
 
@@ -299,9 +248,7 @@ test.describe('GoWebComponents Hooks - Integration', () => {
     const inputId = await page.locator('#use-id-test input[type="text"]').first().getAttribute('id');
     expect(inputId).toMatch(/^gwc:\d+:\d+$/);
 
-    // Fetch should still work
-    await page.click('#fetch-button');
-    await page.waitForTimeout(100);
+    await triggerFetchAndWaitForStableResult(page);
 
     // Input ID should remain unchanged
     const inputIdAfter = await page.locator('#use-id-test input[type="text"]').first().getAttribute('id');
@@ -380,8 +327,7 @@ test.describe('GoWebComponents Hooks - GoUseFunc', () => {
     await expect(fetchButton).toBeEnabled();
     
     // Click should work without errors
-    await fetchButton.click();
-    await page.waitForTimeout(100);
+    await triggerFetchAndWaitForStableResult(page);
     
     // Button should still be clickable after click
     await expect(fetchButton).toBeEnabled();
@@ -395,14 +341,10 @@ test.describe('GoWebComponents Hooks - GoUseFunc', () => {
     const initialState = await page.locator('#fetch-idle').count();
     expect(initialState).toBe(1);
 
-    // Click fetch button
-    await page.click('#fetch-button');
-    await page.waitForTimeout(200);
+    await triggerFetchAndWaitForStableResult(page);
 
-    // State should have changed (moved out of idle or to loading)
-    const finalState = await page.locator('#fetch-idle').count();
-    // Should be 0 now (moved to loading or error state)
-    expect(finalState).toBeLessThanOrEqual(1);
+    // State should have changed out of idle after a successful fetch
+    await expect(page.locator('#fetch-idle')).toHaveCount(0);
   });
 
   test('GoUseFunc handlers work multiple times', async ({ page }) => {
@@ -413,8 +355,7 @@ test.describe('GoWebComponents Hooks - GoUseFunc', () => {
     
     // Click button 3 times
     for (let i = 0; i < 3; i++) {
-      await fetchButton.click();
-      await page.waitForTimeout(150);
+      await triggerFetchAndWaitForStableResult(page);
       
       // Verify button is still functional
       await expect(fetchButton).toBeEnabled();
@@ -440,8 +381,7 @@ test.describe('GoWebComponents Hooks - GoUseFunc', () => {
     
     // Button should still be clickable
     await expect(fetchButton).toBeEnabled();
-    await fetchButton.click();
-    await page.waitForTimeout(100);
+    await triggerFetchAndWaitForStableResult(page);
   });
 
   test('GoUseFunc handler effects are isolated from other state', async ({ page }) => {
@@ -453,8 +393,7 @@ test.describe('GoWebComponents Hooks - GoUseFunc', () => {
     
     // Click fetch button 3 times
     for (let i = 0; i < 3; i++) {
-      await page.click('#fetch-button');
-      await page.waitForTimeout(100);
+      await triggerFetchAndWaitForStableResult(page);
     }
     
     // Counter should not have changed
@@ -466,17 +405,11 @@ test.describe('GoWebComponents Hooks - GoUseFunc', () => {
     await page.goto('/');
     await page.waitForSelector('#use-fetch-test', { timeout: 30000 });
 
-    // Check state before fetch
-    const stateBefore = await page.locator('#fetch-state-display').textContent();
+    await expect(page.locator('#fetch-idle')).toBeVisible();
     
-    // Click fetch
-    await page.click('#fetch-button');
-    await page.waitForTimeout(300);
-    
-    // Check state after fetch
-    const stateAfter = await page.locator('#fetch-state-display').textContent();
-    
-    // State should have changed
-    expect(stateAfter).not.toBe(stateBefore);
+    await triggerFetchAndWaitForStableResult(page);
+
+    await expect(page.locator('#fetch-idle')).toHaveCount(0);
+    await expect(page.locator('#fetch-data')).toContainText('Ada Lovelace');
   });
 });
