@@ -182,6 +182,28 @@ $env:GOARCH = "wasm"
 go test -exec .\tools\go_js_wasm_exec.bat ./internal/platform/jsdom -run ^$ -bench . -benchmem
 ```
 
+Browser React-vs-Go comparison benchmark:
+
+```powershell
+cd tests
+npm install
+npx playwright install chromium
+npm run bench
+```
+
+Latest browser comparison run on 2026-03-14:
+
+- Render: `GoWebComponents 104 ms`, `React 47 ms`
+- Update: `GoWebComponents 48 ms`, `React 44 ms`
+- Clear: `GoWebComponents 49 ms`, `React 41 ms`
+- Deep tree: `GoWebComponents 69 ms`, `React 62 ms`
+- Hooks: `GoWebComponents 83 ms`, `React 79 ms`
+
+Notes:
+
+- The browser benchmark currently compares render, update, clear, deep-tree, and many-hooks scenarios from `tests/performance.spec.ts`.
+- The old compute-primes scenario is intentionally excluded from the main comparison run because it is not yet a stable benchmark case for this repo.
+
 Recent measured wins from the current optimization pass include:
 
 - `DivWithComponents4`: `1654 ns/op` -> `736.9 ns/op`
