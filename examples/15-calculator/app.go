@@ -161,7 +161,7 @@ func App() ui.Node {
 		statusTone = "text-amber-200"
 		statusLabel = evaluation.Error
 	}
-	
+
 	if theme.Get() == "light" {
 		if evaluation.Error != "" {
 			statusTone = "text-amber-600"
@@ -246,7 +246,6 @@ func App() ui.Node {
 		}
 	})
 
-
 	ui.UseEffect(func() func() {
 		storage := js.Global().Get("localStorage")
 		if storage.Truthy() {
@@ -316,9 +315,9 @@ func App() ui.Node {
 	for _, spec := range quickInsertKeySpecs {
 		buttonSpec := spec
 		quickInsertNodes = append(quickInsertNodes, html.Button(html.Props{
-			Type: "button",
+			Type:    "button",
 			OnClick: ui.UseEvent(func() { appendToken(buttonSpec.Token) }),
-			Class: quickBtnClass,
+			Class:   quickBtnClass,
 		}, html.Text(buttonSpec.Label)))
 	}
 
@@ -336,7 +335,7 @@ func App() ui.Node {
 		default:
 			onPress = func() { appendToken(buttonSpec.Token) }
 		}
-		
+
 		// Build button class without display modifiers
 		var btnClass string
 		switch buttonSpec.Tone {
@@ -349,15 +348,15 @@ func App() ui.Node {
 		default:
 			btnClass = keyBtnPrimary
 		}
-		
+
 		if buttonSpec.Class != "" {
 			btnClass += " " + buttonSpec.Class
 		}
-		
+
 		keypadNodes = append(keypadNodes, html.Button(html.Props{
-			Type: "button",
+			Type:    "button",
 			OnClick: ui.UseEvent(onPress),
-			Class: btnClass,
+			Class:   btnClass,
 		}, html.Text(buttonSpec.Label)))
 	}
 
@@ -368,13 +367,13 @@ func App() ui.Node {
 				html.Div(html.Props{Class: "flex items-center gap-4"},
 					html.H1(html.Props{Class: "text-xl font-bold " + textPrimary}, html.Text("Calculator")),
 					html.Div(html.Props{Class: "flex gap-2"},
-					html.Select(html.Props{Value: theme.Get(), OnChange: handleTheme, Class: selectClass}, 
-						html.Option(html.Props{Value: "graphite"}, html.Text("Graphite")), 
-						html.Option(html.Props{Value: "midnight"}, html.Text("Midnight")),
-						html.Option(html.Props{Value: "light"}, html.Text("Light")),
-					),
-						html.Select(html.Props{Value: angle.Get(), OnChange: handleAngle, Class: selectClass}, 
-							html.Option(html.Props{Value: "deg"}, html.Text("DEG")), 
+						html.Select(html.Props{Value: theme.Get(), OnChange: handleTheme, Class: selectClass},
+							html.Option(html.Props{Value: "graphite"}, html.Text("Graphite")),
+							html.Option(html.Props{Value: "midnight"}, html.Text("Midnight")),
+							html.Option(html.Props{Value: "light"}, html.Text("Light")),
+						),
+						html.Select(html.Props{Value: angle.Get(), OnChange: handleAngle, Class: selectClass},
+							html.Option(html.Props{Value: "deg"}, html.Text("DEG")),
 							html.Option(html.Props{Value: "rad"}, html.Text("RAD")),
 						),
 					),
@@ -422,25 +421,25 @@ func App() ui.Node {
 				html.Div(html.Props{},
 					html.Label(html.Props{Class: "mb-3 block " + labelClass}, html.Text("Keypad")),
 					html.Div(html.Props{Class: "grid gap-2", Style: map[string]string{
-						"display": "grid",
+						"display":               "grid",
 						"grid-template-columns": "repeat(4, 1fr)",
 					}}, keypadNodes...),
 				),
 			),
 			// Expression input
 			html.Div(html.Props{Class: "mt-6"},
-				html.Label(html.Props{For: expressionID, Class: "mb-3 flex items-center justify-between " + labelClass}, 
+				html.Label(html.Props{For: expressionID, Class: "mb-3 flex items-center justify-between " + labelClass},
 					html.Text("Expression"),
 					html.Span(html.Props{Class: "text-xs font-normal normal-case " + textMuted}, html.Text("Enter to solve • Esc to clear")),
 				),
 				html.Textarea(html.Props{
-					ID: expressionID, 
-					Value: expression.Get(), 
-					Rows: 3, 
-					OnInput: updateExpression, 
-					OnKeyDown: handleExpressionKey, 
-					Placeholder: "sin(45) + sqrt(81)", 
-					Class: inputClass,
+					ID:          expressionID,
+					Value:       expression.Get(),
+					Rows:        3,
+					OnInput:     updateExpression,
+					OnKeyDown:   handleExpressionKey,
+					Placeholder: "sin(45) + sqrt(81)",
+					Class:       inputClass,
 				}),
 			),
 		),

@@ -1,0 +1,80 @@
+name: Deploy Examples To Pages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build-pages:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build Example WASM Files
+        shell: pwsh
+        run: ./examples/build.ps1
+
+      - name: Prepare Pages Artifact
+        shell: pwsh
+        run: |
+          $pagesDir = Join-Path $PWD '.pages'
+          if (Test-Path $pagesDir) {
+            Remove-Item $pagesDir -Recurse -Force
+          }
+
+          New-Item -ItemType Directory -Path $pagesDir | Out-Null
+          Copy-Item examples\* $pagesDir -Recurse -Force
+
+          @'
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8">
+              <meta http-equiv="refresh" content="0; url=./static/index.html">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>GoWebComponents Examples</title>
+            </head>
+            <body>
+              <p>Redirecting to <a href="./static/index.html">the examples showcase</a>...</p>
+            </body>
+          </html>
+          '@ | Set-Content -Path (Join-Path $pagesDir 'index.html')
+
+          New-Item -ItemType File -Path (Join-Path $pagesDir '.nojekyll') | Out-Null
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .pages
+
+  deploy-pages:
+    needs: build-pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy To GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
