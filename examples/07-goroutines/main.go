@@ -59,10 +59,15 @@ func GoroutineExample() ui.Node {
 				}
 
 				task.Set(BackgroundTask{
-					IsRunning:  progress < 100,
-					Progress:   progress,
-					Status:     status,
-					CancelChan: func() chan bool { if progress < 100 { return cancelChan }; return nil }(),
+					IsRunning: progress < 100,
+					Progress:  progress,
+					Status:    status,
+					CancelChan: func() chan bool {
+						if progress < 100 {
+							return cancelChan
+						}
+						return nil
+					}(),
 				})
 
 				if progress >= 100 {

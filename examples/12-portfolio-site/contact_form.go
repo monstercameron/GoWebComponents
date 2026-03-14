@@ -294,4 +294,3 @@ func OpenContactLink(url string) interface{} {
 		js.Global().Get("window").Call("open", url, "_blank")
 	})
 }
-

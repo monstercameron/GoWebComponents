@@ -39,4 +39,3 @@ func TodoItem(props Attrs) *Element {
 		Button(Attrs{"class": "px-2 py-1 bg-red-500 text-white rounded", "onclick": removeHandler, "data-id": fmt.Sprintf("%d", id)}, Text("Delete")),
 	)
 }
-

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"syscall/js"
 	"time"
+
 	"github.com/monstercameron/GoWebComponents/router"
 )
 
@@ -1399,4 +1400,3 @@ func WhyGoWebComponentsSection(_ Attrs) *Element {
 	)
 
 }
-

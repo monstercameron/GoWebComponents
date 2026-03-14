@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"syscall/js"
+
 	"github.com/monstercameron/GoWebComponents/router"
 )
 
@@ -566,4 +567,3 @@ func AddSmoothScrollCSS() {
 	`)
 	js.Global().Get("document").Get("head").Call("appendChild", style)
 }
-

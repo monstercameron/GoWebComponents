@@ -3,9 +3,6 @@
 
 package main
 
-import (
-)
-
 // AboutSection explains the value proposition of GoWebComponents over traditional development.
 // Features side-by-side comparison cards and key statistics to highlight framework benefits.
 func AboutSection(props Attrs) *Element {
@@ -568,4 +565,3 @@ func FooterLink(text, href string) *Element {
 		),
 	)
 }
-

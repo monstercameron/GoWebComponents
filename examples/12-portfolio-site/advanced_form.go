@@ -503,4 +503,3 @@ func getStrengthBarColor(strength int) string {
 		return "bg-green-500"
 	}
 }
-

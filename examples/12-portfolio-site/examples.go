@@ -3,9 +3,6 @@
 
 package main
 
-import (
-)
-
 // ExampleModal renders a full-screen modal for showcasing interactive examples.
 // Features source code viewing, example reset functionality, and responsive design
 // with backdrop blur and smooth animations.
@@ -350,4 +347,3 @@ func GetExampleSourceCode(exampleId string) string {
 		return "// Example source code not available"
 	}
 }
-

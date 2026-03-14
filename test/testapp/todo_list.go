@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"syscall/js"
+
 	"github.com/monstercameron/GoWebComponents/state"
 )
 
@@ -199,4 +200,3 @@ func stringContains(s, sub string) bool {
 	}
 	return false
 }
-

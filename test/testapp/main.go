@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"syscall/js"
+
 	"github.com/monstercameron/GoWebComponents/state"
 )
 
@@ -473,4 +474,3 @@ func main() {
 	// Keep the Go program running
 	select {}
 }
-

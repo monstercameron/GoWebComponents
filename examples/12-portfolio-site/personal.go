@@ -5,6 +5,7 @@ package main
 
 import (
 	"syscall/js"
+
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
@@ -435,4 +436,3 @@ func ScrollToSection(sectionId string) interface{} {
 		}
 	})
 }
-

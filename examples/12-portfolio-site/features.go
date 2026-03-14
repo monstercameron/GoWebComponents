@@ -3,9 +3,6 @@
 
 package main
 
-import (
-)
-
 // HeroSection renders the main hero banner with animated background and key features.
 // Features gradient backgrounds, floating animations, and prominent call-to-action buttons
 // that guide users to documentation and examples.
@@ -134,4 +131,3 @@ func FeatureCard(icon, title, description string) *Element {
 		P(Attrs{"class": "text-gray-400 leading-relaxed"}, description),
 	)
 }
-

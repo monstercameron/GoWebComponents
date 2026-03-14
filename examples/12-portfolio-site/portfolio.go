@@ -116,4 +116,3 @@ func OpenProjectLink(url string) interface{} {
 		}
 	})
 }
-

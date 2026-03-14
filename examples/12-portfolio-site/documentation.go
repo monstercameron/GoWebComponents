@@ -778,4 +778,3 @@ func HtmlElementCard(elem HtmlElementDoc) *Element {
 		),
 	)
 }
-

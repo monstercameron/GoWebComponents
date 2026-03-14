@@ -49,25 +49,31 @@ func tag(name string, attrs Attrs, children ...interface{}) *Element {
 	return html.Tag(name, toProps(attrs), normalizeChildren(children...)...)
 }
 
-func Text(value interface{}) *Element { return html.Text(fmt.Sprint(value)) }
-func Div(attrs Attrs, children ...interface{}) *Element { return tag("div", attrs, children...) }
-func Form(attrs Attrs, children ...interface{}) *Element { return tag("form", attrs, children...) }
+func Text(value interface{}) *Element                      { return html.Text(fmt.Sprint(value)) }
+func Div(attrs Attrs, children ...interface{}) *Element    { return tag("div", attrs, children...) }
+func Form(attrs Attrs, children ...interface{}) *Element   { return tag("form", attrs, children...) }
 func Button(attrs Attrs, children ...interface{}) *Element { return tag("button", attrs, children...) }
-func H1(attrs Attrs, children ...interface{}) *Element { return tag("h1", attrs, children...) }
-func H2(attrs Attrs, children ...interface{}) *Element { return tag("h2", attrs, children...) }
-func H3(attrs Attrs, children ...interface{}) *Element { return tag("h3", attrs, children...) }
-func P(attrs Attrs, children ...interface{}) *Element { return tag("p", attrs, children...) }
-func Span(attrs Attrs, children ...interface{}) *Element { return tag("span", attrs, children...) }
-func Label(attrs Attrs, children ...interface{}) *Element { return tag("label", attrs, children...) }
+func H1(attrs Attrs, children ...interface{}) *Element     { return tag("h1", attrs, children...) }
+func H2(attrs Attrs, children ...interface{}) *Element     { return tag("h2", attrs, children...) }
+func H3(attrs Attrs, children ...interface{}) *Element     { return tag("h3", attrs, children...) }
+func P(attrs Attrs, children ...interface{}) *Element      { return tag("p", attrs, children...) }
+func Span(attrs Attrs, children ...interface{}) *Element   { return tag("span", attrs, children...) }
+func Label(attrs Attrs, children ...interface{}) *Element  { return tag("label", attrs, children...) }
 func Select(attrs Attrs, children ...interface{}) *Element { return tag("select", attrs, children...) }
 func Option(attrs Attrs, children ...interface{}) *Element { return tag("option", attrs, children...) }
-func Input(attrs Attrs, children ...interface{}) *Element { return tag("input", attrs, children...) }
+func Input(attrs Attrs, children ...interface{}) *Element  { return tag("input", attrs, children...) }
 
-func UseState[T any](initialValue T) (func() T, func(interface{})) { return runtime.GoUseStateGlobal(initialValue) }
+func UseState[T any](initialValue T) (func() T, func(interface{})) {
+	return runtime.GoUseStateGlobal(initialValue)
+}
 func UseEffect(effect func() func(), deps ...interface{}) { runtime.GoUseEffectGlobal(effect, deps...) }
-func UseMemo(compute func() interface{}, deps ...interface{}) interface{} { return runtime.GoUseMemoGlobal(compute, deps...) }
-func UseId() string { return runtime.GoUseIdGlobal() }
+func UseMemo(compute func() interface{}, deps ...interface{}) interface{} {
+	return runtime.GoUseMemoGlobal(compute, deps...)
+}
+func UseId() string                        { return runtime.GoUseIdGlobal() }
 func GoUseFunc(fn interface{}) interface{} { return runtime.GoUseFunc(fn) }
-func UseFetch(url string, options ...interface{}) (func() runtime.FetchState, func()) { return runtime.GoUseFetch(url, options...) }
+func UseFetch(url string, options ...interface{}) (func() runtime.FetchState, func()) {
+	return runtime.GoUseFetch(url, options...)
+}
 
 func To(root *Element, selector string) { ui.Render(root, selector) }

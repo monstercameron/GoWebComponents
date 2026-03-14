@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"syscall/js"
+
 	rt "github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/state"
 )
@@ -44,4 +45,3 @@ func Header(props Attrs) *Element {
 		),
 	)
 }
-
