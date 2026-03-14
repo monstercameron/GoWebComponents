@@ -483,22 +483,31 @@ func isSameType(type1, type2 interface{}) bool {
 
 // isFiberDirty checks if a fiber or any of its alternates are dirty
 func (rt *Runtime) isFiberDirty(fiber *Fiber) bool {
-	f := fiber
-	for f != nil {
-		if f.dirty {
-			return true
-		}
-		f = f.alternate
+	if fiber == nil {
+		return false
 	}
-	return false
+
+	if fiber.dirty {
+		return true
+	}
+
+	// Child fibers are reused as current/work-in-progress pairs.
+	// Avoid walking an alternate cycle indefinitely.
+	alternate := fiber.alternate
+	return alternate != nil && alternate != fiber && alternate.dirty
 }
 
-// clearFiberDirty clears the dirty flag on a fiber and its alternates
+// clearFiberDirty clears the dirty flag on a fiber and its alternate pair.
 func (rt *Runtime) clearFiberDirty(fiber *Fiber) {
-	f := fiber
-	for f != nil {
-		f.dirty = false
-		f = f.alternate
+	if fiber == nil {
+		return
+	}
+
+	fiber.dirty = false
+
+	alternate := fiber.alternate
+	if alternate != nil && alternate != fiber {
+		alternate.dirty = false
 	}
 }
 

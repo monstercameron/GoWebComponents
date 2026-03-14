@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "Tests for GoWebComponents",
   "scripts": {
+    "build:benchmark": "node ./scripts/build-benchmark.mjs",
+    "bench": "npm run build:benchmark && playwright test performance.spec.ts",
     "test": "playwright test"
   },
   "devDependencies": {

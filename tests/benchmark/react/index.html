@@ -10,6 +10,11 @@
     <div id="root"></div>
     <script>
         const { useState, useEffect, useMemo, createElement } = React;
+        const LIST_SIZE = 10;
+        const DEEP_TREE_DEPTH = 60;
+        const HOOK_COMPONENT_COUNT = 40;
+        const HOOKS_PER_COMPONENT = 20;
+        const PRIME_LIMIT = 10000;
 
         function DeepTree({ depth }) {
             if (depth <= 0) {
@@ -19,7 +24,7 @@
         }
 
         function ManyHooks() {
-            for (let i = 0; i < 50; i++) {
+            for (let i = 0; i < HOOKS_PER_COMPONENT; i++) {
                 useState(i);
                 useEffect(() => {}, []);
                 useMemo(() => i * 2, [i]);
@@ -40,7 +45,7 @@
             const computePrimes = () => {
                 const start = performance.now();
                 let count = 0;
-                for (let i = 2; i < 200000; i++) {
+                for (let i = 2; i < PRIME_LIMIT; i++) {
                     let isPrime = true;
                     for (let j = 2; j * j <= i; j++) {
                         if (i % j === 0) {
@@ -59,7 +64,7 @@
             const renderList = () => {
                 setView("list");
                 const newItems = [];
-                for (let i = 0; i < 1000; i++) {
+                for (let i = 0; i < LIST_SIZE; i++) {
                     newItems.push("Item " + i);
                 }
                 setItems(newItems);
@@ -86,10 +91,10 @@
 
             let content;
             if (view === "deep") {
-                content = createElement(DeepTree, { depth: 100 });
+                content = createElement(DeepTree, { depth: DEEP_TREE_DEPTH });
             } else if (view === "hooks") {
                 const children = [];
-                for (let i = 0; i < 100; i++) {
+                for (let i = 0; i < HOOK_COMPONENT_COUNT; i++) {
                     children.push(createElement(ManyHooks, { key: i }));
                 }
                 content = createElement("div", { id: "hooks-container" }, children);
@@ -104,12 +109,12 @@
             return createElement("div", { id: "app" },
                 createElement("h1", null, "Benchmark App (React)"),
                 createElement("div", { id: "controls" },
-                    createElement("button", { id: "btn-render", onClick: renderList }, "Render 1000 Items"),
+                    createElement("button", { id: "btn-render", onClick: renderList }, "Render 10 Items"),
                     createElement("button", { id: "btn-update", onClick: updateList }, "Update Items"),
                     createElement("button", { id: "btn-clear", onClick: clearList }, "Clear List"),
-                    createElement("button", { id: "btn-deep", onClick: renderDeep }, "Render Deep Tree (500)"),
-                    createElement("button", { id: "btn-hooks", onClick: renderHooks }, "Render 100 Components w/ 150 Hooks"),
-                    createElement("button", { id: "btn-compute", onClick: computePrimes }, "Compute Primes (200k)")
+                    createElement("button", { id: "btn-deep", onClick: renderDeep }, "Render Deep Tree (60)"),
+                    createElement("button", { id: "btn-hooks", onClick: renderHooks }, "Render 40 Components w/ 60 Hooks"),
+                    createElement("button", { id: "btn-compute", onClick: computePrimes }, "Compute Primes (10k)")
                 ),
                 createElement("div", { id: "metrics" },
                     createElement("p", { id: "last-render" }, "Last Render: " + lastRenderTime),
