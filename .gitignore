@@ -24,6 +24,15 @@ Thumbs.db
 static/bin/
 go-compiler-wasm
 go-source
+examples/13-browser-compiler/static/pkg/
+
+# Local binaries and coverage outputs
+/runtime
+/runtime_native
+/test_compile.wasm
+/coverage*.out
+/cov_*.txt
+/internal/runtime/cover_run.json
 
 # Logs
 *.log
@@ -63,6 +72,8 @@ test/test-results/
 test/.playwright/
 playwright-report/
 test-results/
+tests/test-results/
+tests/playwright-report/
 
 # Environment and config files (if sensitive)
 .env

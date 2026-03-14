@@ -15,6 +15,13 @@ type infiniteDeadline struct{}
 func (d *infiniteDeadline) TimeRemaining() float64 { return 1000 } // lots of time
 func (d *infiniteDeadline) DidTimeout() bool       { return false }
 
+func (rt *Runtime) getContinueWorkFn() func() {
+	if rt.continueWorkFn == nil {
+		rt.continueWorkFn = rt.continueWorkLoop
+	}
+	return rt.continueWorkFn
+}
+
 // ScheduleUpdate schedules a full tree update from the root
 func (rt *Runtime) ScheduleUpdate() {
 	schedulerMu.Lock()
@@ -32,8 +39,9 @@ func (rt *Runtime) ScheduleUpdate() {
 		rt.currentRoot.alternate = nil
 	}
 
-	// Create new work-in-progress root
-	rt.wipRoot = &Fiber{
+	// Reuse the previous alternate root when available to reduce per-update allocations.
+	rt.wipRoot = acquireWorkInProgress(rt.currentRoot)
+	*rt.wipRoot = Fiber{
 		typeOf:    rt.currentRoot.typeOf,
 		dom:       rt.currentRoot.dom,
 		props:     rt.currentRoot.props,
@@ -50,7 +58,7 @@ func (rt *Runtime) ScheduleUpdate() {
 	}
 
 	// Schedule work loop
-	rt.scheduler.SetTimeout(rt.continueWorkLoop, 0)
+	rt.scheduler.SetTimeout(rt.getContinueWorkFn(), 0)
 }
 
 // continueWorkLoop is a bound method to avoid closure allocation
@@ -82,7 +90,7 @@ func (rt *Runtime) workLoop(deadline Deadline) {
 	} else if rt.nextUnitOfWork != nil {
 		// More work remains, schedule next iteration
 		// fmt.Printf("workLoop: more work remains, scheduling next iteration\n")
-		rt.scheduler.SetTimeout(rt.continueWorkLoop, 0)
+		rt.scheduler.SetTimeout(rt.getContinueWorkFn(), 0)
 	}
 }
 
@@ -93,7 +101,8 @@ func (rt *Runtime) Render(element *Element, container DOMNode) {
 		rt.currentRoot.alternate = nil
 	}
 
-	rt.wipRoot = &Fiber{
+	rt.wipRoot = acquireWorkInProgress(rt.currentRoot)
+	*rt.wipRoot = Fiber{
 		typeOf:    "ROOT",
 		dom:       container,
 		props:     map[string]interface{}{"children": []interface{}{element}},
@@ -108,7 +117,7 @@ func (rt *Runtime) Render(element *Element, container DOMNode) {
 	} else {
 		rt.deletions = rt.deletions[:0]
 	}
-	rt.scheduler.SetTimeout(rt.continueWorkLoop, 0)
+	rt.scheduler.SetTimeout(rt.getContinueWorkFn(), 0)
 }
 
 // ScheduleUpdateForFiber schedules an update for a specific fiber
@@ -118,16 +127,17 @@ func (rt *Runtime) ScheduleUpdateForFiber(fiber *Fiber) {
 	}
 
 	// Mark fiber and parents as dirty
-	f := fiber
-	for f != nil {
+	first := true
+	for f := fiber; f != nil; f = f.parent {
 		// Optimization: if fiber is already dirty and marked for update,
-		// we can assume the path to root is already marked.
-		if f.dirty && f.needsUpdate {
+		// we can assume the path above it is already marked.
+		// The originating fiber itself cannot short-circuit ancestor marking.
+		if !first && f.dirty && f.needsUpdate {
 			break
 		}
 		f.dirty = true
 		f.needsUpdate = true
-		f = f.parent
+		first = false
 	}
 
 	// Schedule update from root

@@ -50,14 +50,15 @@ func (ar *AtomRegistry) SetAtom(id string, value interface{}) []*Fiber {
 	ar.atoms[id].value = value
 
 	// Get all subscribed fibers
-	subscribers := make([]*Fiber, 0)
 	if subs, ok := ar.subscriptions[id]; ok {
+		subscribers := make([]*Fiber, 0, len(subs))
 		for fiber := range subs {
 			subscribers = append(subscribers, fiber)
 		}
+		return subscribers
 	}
 
-	return subscribers
+	return nil
 }
 
 // InitAtom initializes an atom if it doesn't exist
@@ -90,6 +91,21 @@ func (ar *AtomRegistry) Unsubscribe(atomID string, fiber *Fiber) {
 		delete(subs, fiber)
 		if len(subs) == 0 {
 			delete(ar.subscriptions, atomID)
+		}
+	}
+}
+
+// UnsubscribeMany removes a fiber from several atom subscriptions under one lock.
+func (ar *AtomRegistry) UnsubscribeMany(atomIDs []string, fiber *Fiber) {
+	ar.mu.Lock()
+	defer ar.mu.Unlock()
+
+	for _, atomID := range atomIDs {
+		if subs, ok := ar.subscriptions[atomID]; ok {
+			delete(subs, fiber)
+			if len(subs) == 0 {
+				delete(ar.subscriptions, atomID)
+			}
 		}
 	}
 }
@@ -138,6 +154,12 @@ func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(in
 		panic("GoUseAtom must be called within a component")
 	}
 
+	if fiber.hooks == nil {
+		fiber.hooks = &Hooks{owner: fiber}
+	} else if fiber.hooks.owner == nil {
+		fiber.hooks.owner = fiber
+	}
+
 	fiber.hooks.index++
 
 	atomIdx := fiber.hooks.atomIndex
@@ -181,6 +203,8 @@ func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(in
 		return initialValue
 	}
 
+	nilableState := isNilableType[T]()
+
 	// Setter function
 	set := func(newValueOrUpdater interface{}) {
 		// Get current value
@@ -194,6 +218,9 @@ func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(in
 		} else if directValue, ok := newValueOrUpdater.(T); ok {
 			// Direct value
 			newValue = directValue
+		} else if newValueOrUpdater == nil && nilableState {
+			var zero T
+			newValue = zero
 		} else {
 			return
 		}
@@ -225,9 +252,7 @@ func (rt *Runtime) CleanupAtomSubscriptions(fiber *Fiber) {
 
 	// Optimization: Only unsubscribe from atoms this fiber is actually using
 	if fiber.hooks != nil && len(fiber.hooks.atoms) > 0 {
-		for _, atomID := range fiber.hooks.atoms {
-			rt.atomRegistry.Unsubscribe(atomID, fiber)
-		}
+		rt.atomRegistry.UnsubscribeMany(fiber.hooks.atoms, fiber)
 		return
 	}
 

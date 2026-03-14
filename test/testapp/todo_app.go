@@ -28,7 +28,7 @@ func Header(props dom.Attrs) *dom.Element {
 
 	// UseEffect to set body data-theme
 	hooks.UseEffect(func() func() {
-		js.Global().Get("document").Get("body").Set("dataset", map[string]interface{}{"theme": theme()})
+		js.Global().Get("document").Get("body").Call("setAttribute", "data-theme", theme())
 		return nil
 	}, theme())
 

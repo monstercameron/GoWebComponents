@@ -1,29 +1,38 @@
-# Simple HTTP server for testing
-# Serves the static directory on port 8080
+# Express-based dev server wrapper.
+# Serves examples and static assets with stable MIME handling for WASM.
 
-Write-Host "Starting HTTP server on http://localhost:8080" -ForegroundColor Green
-Write-Host "Serving from: examples/static" -ForegroundColor Yellow
-Write-Host "Press Ctrl+C to stop" -ForegroundColor Cyan
+$ErrorActionPreference = "Stop"
 
-$StaticPath = Join-Path $PSScriptRoot "..\examples\static"
+$ServerDir = Join-Path $PSScriptRoot "dev-server"
 
-if (-not (Test-Path $StaticPath)) {
-    Write-Host "Error: Static directory not found at $StaticPath" -ForegroundColor Red
+if (-not (Test-Path $ServerDir)) {
+    Write-Host "Error: dev server directory not found at $ServerDir" -ForegroundColor Red
     exit 1
 }
 
-# Check if Python is available
-$pythonCmd = Get-Command python -ErrorAction SilentlyContinue
-if ($null -eq $pythonCmd) {
-    $pythonCmd = Get-Command python3 -ErrorAction SilentlyContinue
+$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+$npmCmd = Get-Command npm -ErrorAction SilentlyContinue
+
+if ($null -eq $nodeCmd -or $null -eq $npmCmd) {
+    Write-Host "Error: Node.js + npm are required to run tools/dev-server." -ForegroundColor Red
+    exit 1
 }
 
-if ($null -ne $pythonCmd) {
-    Push-Location $StaticPath
-    & $pythonCmd.Source -m http.server 8080 --bind 127.0.0.1
+Write-Host "Installing dev-server dependencies..." -ForegroundColor Yellow
+Push-Location $ServerDir
+npm install
+if ($LASTEXITCODE -ne 0) {
     Pop-Location
-} else {
-    Write-Host "Python not found. Install Python or use an alternative HTTP server." -ForegroundColor Red
-    Write-Host "Alternative: Install http-server via npm: npm install -g http-server" -ForegroundColor Yellow
+    Write-Host "Error: npm install failed in $ServerDir" -ForegroundColor Red
     exit 1
 }
+
+Write-Host "Starting Express dev server on http://127.0.0.1:8090" -ForegroundColor Green
+Write-Host "Examples index: http://127.0.0.1:8090/examples/static/index.html" -ForegroundColor Cyan
+Write-Host "Counter page:   http://127.0.0.1:8090/examples/01-counter/counter.html" -ForegroundColor Cyan
+Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
+
+npm start
+$exitCode = $LASTEXITCODE
+Pop-Location
+exit $exitCode

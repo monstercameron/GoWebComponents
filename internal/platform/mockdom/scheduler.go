@@ -12,6 +12,8 @@ type MockDeadline struct {
 	didTimeout    bool
 }
 
+var _ runtime.Deadline = (*MockDeadline)(nil)
+
 func (d *MockDeadline) TimeRemaining() float64 {
 	return d.timeRemaining
 }
@@ -27,6 +29,8 @@ type MockScheduler struct {
 	timeouts         []func()
 	synchronous      bool // If true, execute callbacks immediately
 }
+
+var _ runtime.Scheduler = (*MockScheduler)(nil)
 
 func NewMockScheduler(synchronous bool) *MockScheduler {
 	return &MockScheduler{

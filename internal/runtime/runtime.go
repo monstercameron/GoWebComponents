@@ -5,27 +5,50 @@ import "sync"
 var (
 	globalRuntime     *Runtime
 	globalRuntimeOnce sync.Once
+	globalRuntimeMu   sync.Mutex
 )
 
 // GetGlobalRuntime returns the global Runtime instance, creating it if needed
 // For WASM builds, this automatically uses WASM platform adapters
 func GetGlobalRuntime() *Runtime {
-	globalRuntimeOnce.Do(func() {
-		// This will be initialized with WASM adapters when called from WASM context
-		// For now, create with nil config - will be initialized later
+	globalRuntimeMu.Lock()
+	defer globalRuntimeMu.Unlock()
+
+	if globalRuntime == nil {
+		// This can be lazily upgraded later by InitGlobalRuntime.
 		globalRuntime = &Runtime{
 			atomRegistry: NewAtomRegistry(),
+			deletions:    make([]*Fiber, 0),
+			uiQueue:      make([]func(), 0),
 		}
-	})
+	}
 	return globalRuntime
 }
 
 // InitGlobalRuntime initializes the global runtime with specific adapters
 // This should be called early in WASM initialization
 func InitGlobalRuntime(config Config) {
-	globalRuntimeOnce.Do(func() {
+	globalRuntimeMu.Lock()
+	defer globalRuntimeMu.Unlock()
+
+	if globalRuntime == nil {
 		globalRuntime = NewRuntime(config)
-	})
+		return
+	}
+
+	globalRuntime.domAdapter = config.DOMAdapter
+	globalRuntime.eventAdapter = config.EventAdapter
+	globalRuntime.scheduler = config.Scheduler
+	globalRuntime.browserState = config.BrowserState
+	if globalRuntime.atomRegistry == nil {
+		globalRuntime.atomRegistry = NewAtomRegistry()
+	}
+	if globalRuntime.deletions == nil {
+		globalRuntime.deletions = make([]*Fiber, 0)
+	}
+	if globalRuntime.uiQueue == nil {
+		globalRuntime.uiQueue = make([]func(), 0)
+	}
 }
 
 // Runtime represents the reconciliation and rendering engine
@@ -40,6 +63,7 @@ type Runtime struct {
 	nextUnitOfWork  *Fiber
 	deletions       []*Fiber
 	updateScheduled bool
+	continueWorkFn  func()
 
 	// Global state management
 	atomRegistry *AtomRegistry

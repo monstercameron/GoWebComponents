@@ -21,6 +21,8 @@ type MockDOMNode struct {
 	Parent      *MockDOMNode
 }
 
+var _ runtime.DOMNode = (*MockDOMNode)(nil)
+
 func (n *MockDOMNode) IsNull() bool {
 	return n == nil
 }
@@ -43,6 +45,8 @@ type MockDOMAdapter struct {
 	operations  []DOMOperation
 	nodeMap     map[int]*MockDOMNode
 }
+
+var _ runtime.DOMAdapter = (*MockDOMAdapter)(nil)
 
 // DOMOperation records a DOM operation for testing
 type DOMOperation struct {

@@ -3,12 +3,19 @@
 
 package runtime
 
+var unsupportedFetchState = FetchState{
+	Data:    nil,
+	Error:   "fetch API unavailable in this environment",
+	Loading: false,
+}
+
+func unsupportedFetchGetter() FetchState {
+	return unsupportedFetchState
+}
+
+func unsupportedFetchRefetch() {}
+
 // GoUseFetch is a stub for non-WASM environments
 func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) {
-	// Return empty state and no-op refetch
-	getter := func() FetchState {
-		return FetchState{Data: nil, Error: "Not supported in this environment", Loading: false}
-	}
-	refetch := func() {}
-	return getter, refetch
+	return unsupportedFetchGetter, unsupportedFetchRefetch
 }

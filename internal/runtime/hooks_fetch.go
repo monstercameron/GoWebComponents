@@ -6,7 +6,6 @@ package runtime
 import (
 	"fmt"
 	"syscall/js"
-	"time"
 )
 
 // GoUseFetch is a manual-trigger fetch hook that manages async data fetching
@@ -29,6 +28,7 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 
 	if fiber.hooks == nil {
 		fiber.hooks = &Hooks{
+			owner:     fiber,
 			states:    make([]interface{}, 0),
 			deps:      make([][]interface{}, 0),
 			memos:     make([]memoizedValue, 0),
@@ -38,6 +38,8 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 			fetches:   make([]fetchValue, 0),
 			cleanups:  make([]func(), 0),
 		}
+	} else if fiber.hooks.owner == nil {
+		fiber.hooks.owner = fiber
 	}
 
 	fiber.hooks.index++
@@ -79,7 +81,6 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 
 		// Mark as loading
 		hooks.fetches[idx].state = FetchState{Data: nil, Error: "", Loading: true}
-		fmt.Println("Refetch: Loading=true")
 
 		// Trigger component re-render
 		rt := GetGlobalRuntime()
@@ -89,13 +90,6 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 
 		// Start fetch in a goroutine
 		go func() {
-			// Add small delay to ensure loading state is visible in tests
-			// This prevents flickering when fetch completes too quickly
-			time.Sleep(50 * time.Millisecond)
-
-			console := js.Global().Get("console")
-			console.Call("log", "GoUseFetch: Starting fetch for "+url)
-
 			// Use syscall/js to call fetch API
 			fetch := js.Global().Get("fetch")
 			if !fetch.Truthy() {
@@ -104,7 +98,6 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 					Error:   "fetch API unavailable",
 					Loading: false,
 				}
-				console.Call("log", "GoUseFetch: fetch API unavailable")
 				if rt != nil {
 					rt.ScheduleUpdateForFiber(hooks.fetches[idx].fiber)
 				}
@@ -121,7 +114,6 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 				defer then.Release()
 				defer catch.Release()
 
-				console.Call("log", "GoUseFetch: Promise resolved")
 				resp := args[0]
 				if !resp.Get("ok").Bool() {
 					statusText := resp.Get("statusText").String()
@@ -133,7 +125,6 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 						Error:   errorMsg,
 						Loading: false,
 					}
-					console.Call("log", "GoUseFetch: "+errorMsg)
 					if rt != nil {
 						rt.ScheduleUpdateForFiber(hooks.fetches[idx].fiber)
 					}
@@ -154,7 +145,6 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 						Error:   "",
 						Loading: false,
 					}
-					console.Call("log", "GoUseFetch: Success, Loading=false")
 					if rt != nil {
 						rt.ScheduleUpdateForFiber(hooks.fetches[idx].fiber)
 					}
@@ -170,7 +160,6 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 						Error:   "Failed to read response body",
 						Loading: false,
 					}
-					console.Call("log", "GoUseFetch: Failed to read body")
 					if rt != nil {
 						rt.ScheduleUpdateForFiber(hooks.fetches[idx].fiber)
 					}
@@ -191,7 +180,6 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 					Error:   "Fetch failed", // Matches test expectation
 					Loading: false,
 				}
-				console.Call("log", "GoUseFetch: Network error/Fetch failed")
 				if rt != nil {
 					rt.ScheduleUpdateForFiber(hooks.fetches[idx].fiber)
 				}

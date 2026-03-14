@@ -45,6 +45,9 @@ func Counter(props dom.Attrs) *dom.Element {
 var reactARenders int
 var reactBRenders int
 var reactBatchRenders int
+var stressRenders int
+var mixedStressRenders int
+var mixedStressMirrorRenders int
 
 // ReactA component - independent state
 func ReactA(props dom.Attrs) *dom.Element {
@@ -92,6 +95,79 @@ func ReactivityDemo(props dom.Attrs) *dom.Element {
 		&dom.Element{Type: ReactA},
 		&dom.Element{Type: ReactB},
 		&dom.Element{Type: ReactBatch},
+	)
+}
+
+func StateStressDemo(props dom.Attrs) *dom.Element {
+	count, setCount := hooks.UseState(0)
+	stressRenders++
+
+	applyBurst := func(n int) {
+		for i := 0; i < n; i++ {
+			setCount(func(prev int) int { return prev + 1 })
+		}
+	}
+
+	plus5 := hooks.GoUseFunc(func() { applyBurst(5) })
+	plus25 := hooks.GoUseFunc(func() { applyBurst(25) })
+	plus100 := hooks.GoUseFunc(func() { applyBurst(100) })
+	reset := hooks.GoUseFunc(func() {
+		setCount(0)
+	})
+
+	return dom.Div(dom.Attrs{"id": "state-stress-demo", "class": "mt-8"},
+		dom.H2(nil, dom.Text("State Stress Demo")),
+		dom.P(dom.Attrs{"id": "stress-count"}, dom.Text(fmt.Sprintf("Stress Count: %d", count()))),
+		dom.P(dom.Attrs{"id": "stress-renders"}, dom.Text(fmt.Sprintf("Stress Renders: %d", stressRenders))),
+		dom.Div(dom.Attrs{"class": "flex gap-2"},
+			dom.Button(dom.Attrs{"id": "stress-plus-5", "onclick": plus5}, dom.Text("+5")),
+			dom.Button(dom.Attrs{"id": "stress-plus-25", "onclick": plus25}, dom.Text("+25")),
+			dom.Button(dom.Attrs{"id": "stress-plus-100", "onclick": plus100}, dom.Text("+100")),
+			dom.Button(dom.Attrs{"id": "stress-reset", "onclick": reset}, dom.Text("Reset")),
+		),
+	)
+}
+
+func MixedStateBurstMirror(props dom.Attrs) *dom.Element {
+	shared, _ := state.UseAtom("stressSharedCounter", 0)
+	mixedStressMirrorRenders++
+
+	return dom.Div(dom.Attrs{"id": "mixed-stress-mirror"},
+		dom.P(dom.Attrs{"id": "mixed-shared-mirror"}, dom.Text(fmt.Sprintf("Mirror Shared: %d", shared()))),
+		dom.P(dom.Attrs{"id": "mixed-shared-mirror-renders"}, dom.Text(fmt.Sprintf("Mirror Renders: %d", mixedStressMirrorRenders))),
+	)
+}
+
+func MixedStateBurstDemo(props dom.Attrs) *dom.Element {
+	local, setLocal := hooks.UseState(0)
+	shared, setShared := state.UseAtom("stressSharedCounter", 0)
+	mixedStressRenders++
+
+	applyMixedBurst := func(n int) {
+		for i := 0; i < n; i++ {
+			setLocal(func(prev int) int { return prev + 1 })
+			setShared(shared() + 1)
+		}
+	}
+
+	burst50 := hooks.GoUseFunc(func() { applyMixedBurst(50) })
+	burst100 := hooks.GoUseFunc(func() { applyMixedBurst(100) })
+	reset := hooks.GoUseFunc(func() {
+		setLocal(0)
+		setShared(0)
+	})
+
+	return dom.Div(dom.Attrs{"id": "mixed-state-stress-demo", "class": "mt-8"},
+		dom.H2(nil, dom.Text("Mixed State Stress Demo")),
+		dom.P(dom.Attrs{"id": "mixed-local-count"}, dom.Text(fmt.Sprintf("Local Count: %d", local()))),
+		dom.P(dom.Attrs{"id": "mixed-shared-count"}, dom.Text(fmt.Sprintf("Shared Count: %d", shared()))),
+		dom.P(dom.Attrs{"id": "mixed-stress-renders"}, dom.Text(fmt.Sprintf("Mixed Renders: %d", mixedStressRenders))),
+		dom.Div(dom.Attrs{"class": "flex gap-2"},
+			dom.Button(dom.Attrs{"id": "mixed-burst-50", "onclick": burst50}, dom.Text("Mixed +50")),
+			dom.Button(dom.Attrs{"id": "mixed-burst-100", "onclick": burst100}, dom.Text("Mixed +100")),
+			dom.Button(dom.Attrs{"id": "mixed-reset", "onclick": reset}, dom.Text("Mixed Reset")),
+		),
+		&dom.Element{Type: MixedStateBurstMirror},
 	)
 }
 
@@ -248,6 +324,10 @@ func HelloWorld(props dom.Attrs) *dom.Element {
 		),
 		dom.Div(dom.Attrs{"role": "region", "aria-label": "Reactivity Demo Section"},
 			&dom.Element{Type: ReactivityDemo},
+		),
+		dom.Div(dom.Attrs{"role": "region", "aria-label": "State Stress Section"},
+			&dom.Element{Type: StateStressDemo},
+			&dom.Element{Type: MixedStateBurstDemo},
 		),
 		dom.Div(dom.Attrs{"role": "region", "aria-label": "Todo App Section", "id": "todo-app"},
 			&dom.Element{Type: Header},

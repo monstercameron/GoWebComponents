@@ -1,109 +1,87 @@
-# Test Suite
+# Browser Test Suite
 
-**Location:** `/test`
+Location: `test/`
 
-```
-GoWebComponents/
-├── dom/
-├── hooks/
-├── state/
-├── render/
-├── router/
-├── fetch/
-├── internal/
-├── examples/
-├── test/             ← YOU ARE HERE
-│   ├── specs/
-│   ├── testapp/
-│   ├── static/
-│   └── ...
-└── tools/
-```
+This directory contains the Playwright-based browser test layers for GoWebComponents.
 
-## Overview
+## What Is Covered
 
-End-to-end tests for GoWebComponents WASM using Playwright. Tests run in real browsers to verify all framework features.
+### Component contracts
+
+`specs/component_contract.spec.js`
+
+Focus:
+
+- local state isolation
+- rerender stability
+- effect cleanup behavior
+- `UseId` wiring
+- stateful component behavior under normal interactions
+
+### Integration flows
+
+`specs/integration_flows.spec.js`
+
+Focus:
+
+- multi-component state coordination
+- shared atom flows
+- todo app interactions
+- fetch interactions against the mock API
+- form behavior in the browser
+
+### Deep state stress
+
+`specs/state_stress.spec.js`
+
+Focus:
+
+- repeated `UseState` updates
+- `5+`, `25+`, `100+` update bursts
+- mixed local and shared state updates
+- state continuity through rerenders
+
+### Existing browser suites
+
+The directory also keeps the older broader Playwright specs that cover router behavior, basic hooks behavior, and other end-to-end flows.
 
 ## Setup
-
-1. Install dependencies:
 
 ```powershell
 cd test
 npm install
-```
-
-2. Install Playwright browsers:
-
-```powershell
 npm run install:browsers
 ```
 
-3. Build the WASM binary:
-
-```powershell
-cd ..
-$env:GOOS="js"; $env:GOARCH="wasm"; go build -o examples/static/bin/main.wasm examples/main.go
-```
-
-4. Copy wasm_exec.js (if not already present):
-
-```powershell
-Copy-Item "$env:GOROOT\misc\wasm\wasm_exec.js" -Destination "examples\static\script\wasm_exec.js"
-```
-
-## Running Tests
-
-Run all tests:
+## Run All Browser Tests
 
 ```powershell
 npm test
 ```
 
-Run tests with UI:
+## Run Focused Suites
 
 ```powershell
-npm run test:ui
+npm run test:components
+npm run test:integration
+npm run test:state
 ```
 
-Run tests in headed mode (see browser):
+## Other Useful Commands
 
 ```powershell
 npm run test:headed
-```
-
-Debug tests:
-
-```powershell
 npm run test:debug
+npm run test:ui
 ```
 
-## Test Structure
+## How The Test App Works
 
-- `specs/basic.spec.js` - Basic WASM loading and DOM rendering tests
-- `specs/hooks.spec.js` - Tests for React-like hooks (UseState, UseEffect, etc.)
-- `playwright.config.js` - Playwright configuration
-- `package.json` - Node dependencies
+- `testapp/` contains the Go wasm app used by these tests
+- the test scripts rebuild `testapp/main.wasm` before the relevant suites
+- `server.js` provides the local test server and mock API endpoints used by fetch/integration flows
 
-## Writing Tests
+## Notes
 
-Tests are written using Playwright's test framework:
-
-```javascript
-import { test, expect } from "@playwright/test";
-
-test("my test", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.locator("#app")).toBeVisible();
-});
-```
-
-## CI/CD
-
-Tests can be run in CI with:
-
-```bash
-npm test
-```
-
-Set `CI=true` environment variable for CI-specific behavior.
+- Older docs referenced building unrelated example apps before running the test suite. That is stale. The test package builds its own `testapp/` target.
+- Playwright residue such as `test-results/` and reports are ignored and should not be committed.

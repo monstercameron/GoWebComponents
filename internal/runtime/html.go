@@ -542,37 +542,32 @@ func EmptyProps() map[string]interface{} {
 // Component helpers
 
 func WithComponents(tagName string, props map[string]interface{}, componentRefs ...func(map[string]interface{}) *Element) *Element {
-	// Convert componentRefs to interfaces for CreateElement
-	children := make([]interface{}, len(componentRefs))
-	for i, ref := range componentRefs {
-		children[i] = ref
-	}
+	children := componentRefsToChildren(componentRefs)
 	return CreateElement(tagName, props, children...)
 }
 
 func DivWithComponents(props map[string]interface{}, componentRefs ...func(map[string]interface{}) *Element) *Element {
-	// Convert componentRefs to interfaces
-	children := make([]interface{}, len(componentRefs))
-	for i, ref := range componentRefs {
-		children[i] = ref
-	}
+	children := componentRefsToChildren(componentRefs)
 	return Div(props, children...)
 }
 
 func SectionWithComponents(props map[string]interface{}, componentRefs ...func(map[string]interface{}) *Element) *Element {
-	// Convert componentRefs to interfaces
-	children := make([]interface{}, len(componentRefs))
-	for i, ref := range componentRefs {
-		children[i] = ref
-	}
+	children := componentRefsToChildren(componentRefs)
 	return Section(props, children...)
 }
 
 func MainWithComponents(props map[string]interface{}, componentRefs ...func(map[string]interface{}) *Element) *Element {
-	// Convert componentRefs to interfaces
+	children := componentRefsToChildren(componentRefs)
+	return Main(props, children...)
+}
+
+func componentRefsToChildren(componentRefs []func(map[string]interface{}) *Element) []interface{} {
 	children := make([]interface{}, len(componentRefs))
 	for i, ref := range componentRefs {
-		children[i] = ref
+		children[i] = &Element{
+			Type:     ref,
+			Children: emptyChildren,
+		}
 	}
-	return Main(props, children...)
+	return children
 }

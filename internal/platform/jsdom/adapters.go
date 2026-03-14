@@ -14,6 +14,8 @@ type WASMDOMNode struct {
 	value js.Value
 }
 
+var _ runtime.DOMNode = (*WASMDOMNode)(nil)
+
 func NewWASMDOMNode(value js.Value) runtime.DOMNode {
 	return &WASMDOMNode{value: value}
 }
@@ -49,6 +51,8 @@ type WASMDOMAdapter struct {
 	batchParent     *WASMDOMNode
 	batchMode       bool
 }
+
+var _ runtime.DOMAdapter = (*WASMDOMAdapter)(nil)
 
 func NewWASMDOMAdapter() *WASMDOMAdapter {
 	doc := js.Global().Get("document")
@@ -364,57 +368,75 @@ func (a *WASMDOMAdapter) BatchSetAttributes(node runtime.DOMNode, attrs map[stri
 }
 
 func (a *WASMDOMAdapter) WrapFunction(fn interface{}) interface{} {
-	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		switch f := fn.(type) {
-		case func():
+	switch f := fn.(type) {
+	case func():
+		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			f()
-		case func(string):
-			if len(args) > 0 {
-				event := args[0]
-				target := event.Get("target")
-				if !target.IsNull() && !target.IsUndefined() {
-					value := target.Get("value")
-					if !value.IsNull() && !value.IsUndefined() {
-						strVal := value.String()
-						f(strVal)
-					} else {
-						// Fallback for elements without value (like buttons)
-						f("")
-					}
-				} else {
-					// Fallback if no target
-					f("")
-				}
-			} else {
-				// No args
+			return nil
+		})
+	case func(string):
+		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			if len(args) == 0 {
+				f("")
+				return nil
 			}
-		case func(js.Value):
+			target := args[0].Get("target")
+			if target.IsNull() || target.IsUndefined() {
+				f("")
+				return nil
+			}
+			value := target.Get("value")
+			if value.IsNull() || value.IsUndefined() {
+				f("")
+				return nil
+			}
+			f(value.String())
+			return nil
+		})
+	case func(js.Value):
+		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			if len(args) > 0 {
 				f(args[0])
 			}
-		case func() error:
+			return nil
+		})
+	case func() error:
+		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			f()
-		case func(js.Value) error:
+			return nil
+		})
+	case func(js.Value) error:
+		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			if len(args) > 0 {
 				f(args[0])
 			}
-		case func(runtime.GoEvent):
+			return nil
+		})
+	case func(runtime.GoEvent):
+		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			if len(args) > 0 {
 				f(runtime.NewGoEvent(args[0]))
 			}
-		case func(runtime.GoEvent) error:
+			return nil
+		})
+	case func(runtime.GoEvent) error:
+		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			if len(args) > 0 {
 				f(runtime.NewGoEvent(args[0]))
 			}
-		default:
-			// js.Global().Get("console").Call("log", fmt.Sprintf("DEBUG: WrapFunction unknown type: %T", fn))
-		}
-		return nil
-	})
+			return nil
+		})
+	default:
+		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			return nil
+		})
+	}
 }
 
 // WASMEventAdapter implements EventAdapter for browser/WASM
 type WASMEventAdapter struct{}
+
+var _ runtime.EventAdapter = (*WASMEventAdapter)(nil)
 
 func NewWASMEventAdapter() *WASMEventAdapter {
 	return &WASMEventAdapter{}
@@ -425,6 +447,8 @@ type wasmEventHandler struct {
 	fn     js.Func
 	goFunc func(runtime.Event)
 }
+
+var _ runtime.EventHandler = (*wasmEventHandler)(nil)
 
 func (h *wasmEventHandler) Release() {
 	h.fn.Release()
@@ -470,6 +494,8 @@ func (a *WASMEventAdapter) RemoveEventListener(node runtime.DOMNode, eventType s
 type wasmEvent struct {
 	value js.Value
 }
+
+var _ runtime.Event = (*wasmEvent)(nil)
 
 func (e *wasmEvent) PreventDefault() {
 	e.value.Call("preventDefault")
@@ -530,6 +556,8 @@ type WASMScheduler struct {
 	window js.Value
 }
 
+var _ runtime.Scheduler = (*WASMScheduler)(nil)
+
 func NewWASMScheduler() *WASMScheduler {
 	return &WASMScheduler{
 		window: js.Global(),
@@ -584,6 +612,8 @@ type wasmDeadline struct {
 	value js.Value
 }
 
+var _ runtime.Deadline = (*wasmDeadline)(nil)
+
 func (d *wasmDeadline) TimeRemaining() float64 {
 	if d.value.IsUndefined() || d.value.IsNull() {
 		return 50.0 // Default to 50ms
@@ -605,6 +635,8 @@ func (d *wasmDeadline) DidTimeout() bool {
 type WASMBrowserState struct {
 	window js.Value
 }
+
+var _ runtime.BrowserState = (*WASMBrowserState)(nil)
 
 func NewWASMBrowserState() *WASMBrowserState {
 	return &WASMBrowserState{

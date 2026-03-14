@@ -68,8 +68,8 @@ func GoUseAtomGlobal[T any](id string, initialValue T) (func() T, func(T)) {
 // Text creates a text node
 func Text(content string) *Element {
 	return &Element{
-		Type:     "TEXT_ELEMENT",
-		Props:    map[string]interface{}{"nodeValue": content},
-		Children: []interface{}{},
+		Type:        "TEXT_ELEMENT",
+		TextContent: content,
+		Children:    emptyChildren,
 	}
 }

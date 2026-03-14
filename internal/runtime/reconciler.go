@@ -26,6 +26,17 @@ var (
 	batchBufferUsed int
 )
 
+func acquireWorkInProgress(oldFiber *Fiber) *Fiber {
+	if oldFiber != nil && oldFiber.alternate != nil {
+		reused := oldFiber.alternate
+		*reused = Fiber{}
+		return reused
+	}
+	reused := fiberPool.Get().(*Fiber)
+	*reused = Fiber{}
+	return reused
+}
+
 // GetCurrentFiber returns the fiber currently being processed
 func GetCurrentFiber() *Fiber {
 	return currentFiber
@@ -57,8 +68,10 @@ func CreateElement(typ interface{}, props map[string]interface{}, children ...in
 		Children: children,
 	}
 
-	for k, v := range props {
-		elem.Props[k] = v
+	if props != nil {
+		for k, v := range props {
+			elem.Props[k] = v
+		}
 	}
 
 	// Always set children in props, even if empty, so reconciliation can handle deletions
@@ -131,7 +144,7 @@ func (rt *Runtime) cloneChildFibers(parent *Fiber) {
 	oldFiber := parent.alternate.child
 
 	for oldFiber != nil {
-		newFiber := fiberPool.Get().(*Fiber)
+		newFiber := acquireWorkInProgress(oldFiber)
 		*newFiber = Fiber{
 			typeOf:         oldFiber.typeOf,
 			props:          oldFiber.props,
@@ -144,6 +157,9 @@ func (rt *Runtime) cloneChildFibers(parent *Fiber) {
 			needsUpdate:    false,
 			hooks:          oldFiber.hooks, // Share hooks for non-updated components
 			eventCallbacks: oldFiber.eventCallbacks,
+		}
+		if newFiber.hooks != nil {
+			newFiber.hooks.owner = newFiber
 		}
 
 		if prevSibling == nil {
@@ -240,23 +256,25 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					}
 
 					// Get from pool and reset
-					newFiber = fiberPool.Get().(*Fiber)
+					newFiber = acquireWorkInProgress(oldFiber)
 					*newFiber = Fiber{
-						typeOf:      oldFiber.typeOf,
-						props:       elem.Props,
-						textContent: elem.TextContent,
-						dom:         oldFiber.dom,
-						parent:      wipFiber,
-						alternate:   oldFiber,
-						effectTag:   effectTag,
-						dirty:       needsUpdate,
+						typeOf:         oldFiber.typeOf,
+						props:          elem.Props,
+						textContent:    elem.TextContent,
+						dom:            oldFiber.dom,
+						parent:         wipFiber,
+						alternate:      oldFiber,
+						effectTag:      effectTag,
+						dirty:          needsUpdate,
+						hooks:          oldFiber.hooks,
+						eventCallbacks: oldFiber.eventCallbacks,
 					}
 
 					// Advance oldFiber
 					oldFiber = oldFiber.sibling
 				} else {
 					// REPLACE logic (Placement + Deletion)
-					newFiber = fiberPool.Get().(*Fiber)
+					newFiber = acquireWorkInProgress(oldFiber)
 					*newFiber = Fiber{
 						typeOf:      elem.Type,
 						props:       elem.Props,
@@ -340,7 +358,7 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 
 		if element != nil {
 			if elem, ok := element.(*Element); ok && elem != nil {
-				newFiber = fiberPool.Get().(*Fiber)
+				newFiber = acquireWorkInProgress(nil)
 				*newFiber = Fiber{
 					typeOf:      elem.Type,
 					props:       elem.Props,
@@ -402,7 +420,22 @@ func propsEqual(a, b map[string]interface{}) bool {
 				return false
 			}
 
-			// Use reflect to check pointer equality
+			// Fast path for the common children representation.
+			if c1, ok1 := v1.([]interface{}); ok1 {
+				if c2, ok2 := v2.([]interface{}); ok2 {
+					if len(c1) == len(c2) {
+						if len(c1) == 0 {
+							continue
+						}
+						if &c1[0] == &c2[0] {
+							continue
+						}
+					}
+					return false
+				}
+			}
+
+			// Fallback for non-standard slice types.
 			rv1 := reflect.ValueOf(v1)
 			rv2 := reflect.ValueOf(v2)
 			if rv1.Kind() == reflect.Slice && rv2.Kind() == reflect.Slice {
@@ -480,6 +513,9 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 
 	// Skip non-dirty fibers (optimization)
 	if !isDirty {
+		if fiber.hooks != nil {
+			fiber.hooks.owner = fiber
+		}
 		rt.cloneChildFibers(fiber)
 		return rt.getNextUnitOfWork(fiber)
 	}
@@ -513,6 +549,7 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 			if fiber.alternate != nil && fiber.alternate.hooks != nil {
 				// Reuse the hooks struct to avoid allocations and preserve closures
 				fiber.hooks = fiber.alternate.hooks
+				fiber.hooks.owner = fiber
 
 				// Prepare for new render
 				fiber.hooks.index = 0
@@ -528,7 +565,7 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 				fiber.hooks.cleanupIndex = 0
 			} else {
 				// Initialize hooks for first render
-				fiber.hooks = &Hooks{}
+				fiber.hooks = &Hooks{owner: fiber}
 			}
 
 			// Clear effects
@@ -545,7 +582,11 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 			}
 
 			if element != nil {
-				rt.reconcileChildren(fiber, []interface{}{element})
+				children := [1]interface{}{element}
+				rt.reconcileChildren(fiber, children[:])
+			} else {
+				// A component that now renders nothing must delete any previous subtree.
+				rt.reconcileChildren(fiber, emptyChildren)
 			}
 		}
 	}
@@ -851,18 +892,14 @@ func (rt *Runtime) deleteFiberSubtree(fiber *Fiber, domParent DOMNode) {
 
 	// If this fiber has a DOM node, remove it (this stops the recursion down that branch)
 	if fiber.dom != nil && !fiber.dom.IsNull() {
-		// fmt.Printf("DEBUG: Removing child from DOM\n")
 		rt.domAdapter.RemoveChild(domParent, fiber.dom)
-		return
+	} else {
+		// No DOM node on this fiber - recurse to children until we find DOM nodes.
+		rt.deleteFiberSubtree(fiber.child, domParent)
 	}
 
-	// No DOM node on this fiber - recurse to children
-	rt.deleteFiberSubtree(fiber.child, domParent)
-
-	// After processing the child, we need to handle siblings
-	// But siblings should be at the same level, and we're being called from commitDeletion
-	// which means the parent will handle siblings. We should NOT recurse to sibling here.
-	// Instead, the caller should handle the sibling chain.
+	// Continue across sibling branches so DOM-less parents remove their full subtree.
+	rt.deleteFiberSubtree(fiber.sibling, domParent)
 }
 
 // runCleanups runs all cleanup functions for a fiber and its children

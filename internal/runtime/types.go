@@ -88,6 +88,8 @@ type FetchState struct {
 
 // Hooks manages component hook state
 type Hooks struct {
+	owner *Fiber
+
 	index int
 	// 4 bytes padding (on 32-bit) or 0 on 64-bit if int is 64-bit.
 	// Actually int is 64-bit on 64-bit arch.

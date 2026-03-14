@@ -5,6 +5,16 @@ import (
 	"reflect"
 )
 
+func isNilableType[T any]() bool {
+	t := reflect.TypeOf((*T)(nil)).Elem()
+	switch t.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return true
+	default:
+		return false
+	}
+}
+
 // GoUseState provides state management for components
 func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})) {
 	fiber := GetCurrentFiber()
@@ -13,7 +23,9 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 	}
 
 	if fiber.hooks == nil {
-		fiber.hooks = &Hooks{}
+		fiber.hooks = &Hooks{owner: fiber}
+	} else if fiber.hooks.owner == nil {
+		fiber.hooks.owner = fiber
 	}
 
 	fiber.hooks.index++
@@ -44,6 +56,7 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 	// Capture indices for closure
 	sIdx := stateIdx * 2
 	pIdx := stateIdx*2 + 1
+	nilableState := isNilableType[T]()
 
 	getter := func() T {
 		// Bounds check removed for performance - slice is grown before closure creation
@@ -86,6 +99,9 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 		} else if directValue, ok := newValueOrUpdater.(T); ok {
 			// Direct value
 			newValue = directValue
+		} else if newValueOrUpdater == nil && nilableState {
+			var zero T
+			newValue = zero
 		} else {
 			return
 		}
@@ -98,7 +114,11 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 			// Also update committed state (this is what triggers re-render)
 			hooks.states[sIdx] = newValue
 			// WASM is single-threaded, goroutines can call this directly
-			rt.ScheduleUpdateForFiber(fiber)
+			targetFiber := hooks.owner
+			if targetFiber == nil {
+				targetFiber = fiber
+			}
+			rt.ScheduleUpdateForFiber(targetFiber)
 		} else {
 			// Values are equal, skip update
 		}
@@ -116,7 +136,9 @@ func GoUseEffect(effect func() func(), deps ...interface{}) {
 	}
 
 	if fiber.hooks == nil {
-		fiber.hooks = &Hooks{}
+		fiber.hooks = &Hooks{owner: fiber}
+	} else if fiber.hooks.owner == nil {
+		fiber.hooks.owner = fiber
 	}
 
 	hooks := fiber.hooks
@@ -192,7 +214,9 @@ func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 	}
 
 	if fiber.hooks == nil {
-		fiber.hooks = &Hooks{}
+		fiber.hooks = &Hooks{owner: fiber}
+	} else if fiber.hooks.owner == nil {
+		fiber.hooks.owner = fiber
 	}
 
 	hooks := fiber.hooks
@@ -234,7 +258,9 @@ func GoUseCallback(fn interface{}, deps ...interface{}) interface{} {
 	}
 
 	if fiber.hooks == nil {
-		fiber.hooks = &Hooks{}
+		fiber.hooks = &Hooks{owner: fiber}
+	} else if fiber.hooks.owner == nil {
+		fiber.hooks.owner = fiber
 	}
 
 	hooks := fiber.hooks
@@ -276,7 +302,9 @@ func GoUseRef(initialValue interface{}) *RefValue {
 	}
 
 	if fiber.hooks == nil {
-		fiber.hooks = &Hooks{}
+		fiber.hooks = &Hooks{owner: fiber}
+	} else if fiber.hooks.owner == nil {
+		fiber.hooks.owner = fiber
 	}
 
 	hooks := fiber.hooks
@@ -315,7 +343,9 @@ func GoUseId() string {
 	}
 
 	if fiber.hooks == nil {
-		fiber.hooks = &Hooks{}
+		fiber.hooks = &Hooks{owner: fiber}
+	} else if fiber.hooks.owner == nil {
+		fiber.hooks.owner = fiber
 	}
 
 	hooks := fiber.hooks
@@ -349,12 +379,7 @@ func GoUseId() string {
 		hooks.ids[idIdx] = fmt.Sprintf("gwc:%d:%d", id, position)
 	}
 
-	// Return the persistent ID
-	if idIdx < len(hooks.ids) {
-		return hooks.ids[idIdx]
-	}
-
-	return ""
+	return hooks.ids[idIdx]
 }
 
 // GoUseFunc validates and stores a function for event handling
@@ -366,7 +391,9 @@ func GoUseFunc(fn interface{}) interface{} {
 	}
 
 	if fiber.hooks == nil {
-		fiber.hooks = &Hooks{}
+		fiber.hooks = &Hooks{owner: fiber}
+	} else if fiber.hooks.owner == nil {
+		fiber.hooks.owner = fiber
 	}
 
 	hooks := fiber.hooks
@@ -384,9 +411,6 @@ func GoUseFunc(fn interface{}) interface{} {
 	// Always create new wrapper to ensure latest closure is captured
 	// The old optimization of reusing wrappers caused stale closure bugs
 	rt := GetGlobalRuntime()
-	if rt == nil {
-		panic("GoUseFunc rt is nil")
-	}
 	if rt.domAdapter == nil {
 		panic("GoUseFunc domAdapter is nil")
 	}
@@ -468,27 +492,7 @@ func fastEqual(a, b interface{}) bool {
 		return false
 	}
 
-	// Get types first to check comparability
-	ta := reflect.TypeOf(a)
-	tb := reflect.TypeOf(b)
-
-	if ta != tb {
-		return false
-	}
-
-	// Fast path: pointer equality for comparable types only
-	if ta.Comparable() {
-		if a == b {
-			return true
-		}
-	}
-
-	// Handle functions (compare pointers, js.Func is a func type)
-	if ta.Kind() == reflect.Func {
-		return reflect.ValueOf(a).Pointer() == reflect.ValueOf(b).Pointer()
-	}
-
-	// Fast path for common types (after comparability check)
+	// Fast path for common primitives before reflection.
 	switch va := a.(type) {
 	case int:
 		if vb, ok := b.(int); ok {
@@ -534,6 +538,26 @@ func fastEqual(a, b interface{}) bool {
 		if vb, ok := b.(uint8); ok {
 			return va == vb
 		}
+	}
+
+	// Get types only for non-primitive fallbacks.
+	ta := reflect.TypeOf(a)
+	tb := reflect.TypeOf(b)
+
+	if ta != tb {
+		return false
+	}
+
+	// Fast path: pointer equality for comparable types only
+	if ta.Comparable() {
+		if a == b {
+			return true
+		}
+	}
+
+	// Handle functions (compare pointers, js.Func is a func type)
+	if ta.Kind() == reflect.Func {
+		return reflect.ValueOf(a).Pointer() == reflect.ValueOf(b).Pointer()
 	}
 
 	// Optimization: Use reference equality for Slices and Maps
