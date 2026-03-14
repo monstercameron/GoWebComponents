@@ -65,15 +65,16 @@ jobs:
         id: version
         run: |
           git fetch --tags
-          latest_tag=$(git tag --sort=-v:refname | grep -E '^v0\.0\.[0-9]+$' | head -n 1)
+          latest_tag=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
           if [ -z "$latest_tag" ]; then
             latest_tag="v0.0.0"
           fi
           echo "Latest tag: $latest_tag"
 
-          patch=${latest_tag#v0.0.}
+          version=${latest_tag#v}
+          IFS='.' read -r major minor patch <<< "$version"
           patch=$((patch + 1))
-          new_tag="v0.0.${patch}"
+          new_tag="v${major}.${minor}.${patch}"
           
           echo "New tag: $new_tag"
           echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
