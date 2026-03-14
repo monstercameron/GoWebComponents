@@ -53,6 +53,7 @@ node_modules/
 examples/static/.npm-cache/
 examples/static/node_modules/
 package-lock.json
+!test/package-lock.json
 
 # Go cache and temporary files
 .gocache/

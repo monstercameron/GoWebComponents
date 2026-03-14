@@ -33,13 +33,20 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: test/package-lock.json
+
+      - name: Install Test Dependencies
+        working-directory: ./test
+        run: npm ci
+
+      - name: Install Playwright Browser
+        working-directory: ./test
+        run: npx playwright install chromium
 
       - name: Run Playwright Tests
         working-directory: ./test
-        run: |
-          npm ci
-          npx playwright install chromium
-          npm run test
+        run: npm run test
         env:
           CI: true
 
