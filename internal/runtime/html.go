@@ -562,6 +562,10 @@ func MainWithComponents(props map[string]interface{}, componentRefs ...func(map[
 }
 
 func componentRefsToChildren(componentRefs []func(map[string]interface{}) *Element) []interface{} {
+	if len(componentRefs) == 0 {
+		return emptyChildren
+	}
+
 	children := make([]interface{}, len(componentRefs))
 	for i, ref := range componentRefs {
 		children[i] = &Element{

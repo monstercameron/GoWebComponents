@@ -70,7 +70,10 @@ func (rt *Runtime) continueWorkLoop() {
 func (rt *Runtime) workLoop(deadline Deadline) {
 	shouldYield := false
 	units := 0
-	const maxUnitsPerSlice = 300
+	maxUnitsPerSlice := 300
+	if deadline == globalInfiniteDeadline {
+		maxUnitsPerSlice = 1200
+	}
 
 	// Inline check for common case
 	for rt.nextUnitOfWork != nil && !shouldYield {

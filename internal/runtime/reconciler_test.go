@@ -1105,6 +1105,35 @@ func TestPerformUnitOfWork_FunctionComponent(t *testing.T) {
 	}
 }
 
+func TestPerformUnitOfWork_FunctionComponentNoProps(t *testing.T) {
+	mockDOM := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{
+		DOMAdapter: mockDOM,
+		Scheduler:  scheduler,
+	})
+
+	componentFn := func() *Element {
+		return CreateElement("div", map[string]interface{}{"id": "from-component"})
+	}
+
+	fiber := &Fiber{
+		typeOf: componentFn,
+		props:  make(map[string]interface{}),
+		dirty:  true,
+	}
+
+	rt.performUnitOfWork(fiber)
+
+	if fiber.child == nil {
+		t.Fatal("Expected fiber to have children")
+	}
+
+	if fiber.child.typeOf != "div" {
+		t.Errorf("Expected child to be div, got %v", fiber.child.typeOf)
+	}
+}
+
 func TestPerformUnitOfWork_FunctionComponentWithHooks(t *testing.T) {
 	mockDOM := newTestDOMAdapter()
 	scheduler := newTestScheduler()

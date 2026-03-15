@@ -49,8 +49,9 @@ Focus:
 
 Focus:
 
-- GoWebComponents vs React browser render comparisons
-- update, clear, deep-tree, and hooks scenarios
+- GoWebComponents vs React browser core/mechanical render-update comparisons
+- regular app-content render-update comparisons
+- clear, deep-tree, and hooks scenarios
 - static benchmark assets built from `benchmark/`
 
 ### Existing browser suites

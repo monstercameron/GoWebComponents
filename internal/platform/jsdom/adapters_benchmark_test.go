@@ -32,7 +32,18 @@ func installBenchmarkDOM() func() {
 	})
 
 	appendChild := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		this.Get("children").Call("push", args[0])
+		child := args[0]
+		if child.Get("isFragment").Truthy() {
+			fragmentChildren := child.Get("children")
+			children := this.Get("children")
+			length := fragmentChildren.Get("length").Int()
+			for i := 0; i < length; i++ {
+				children.Call("push", fragmentChildren.Index(i))
+			}
+			child.Set("children", arrayCtor.New())
+			return child
+		}
+		this.Get("children").Call("push", child)
 		return args[0]
 	})
 	removeChild := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -54,6 +65,27 @@ func installBenchmarkDOM() func() {
 		reflectObj.Call("deleteProperty", this.Get("attributes"), args[0].String())
 		return nil
 	})
+	insertBefore := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		this.Get("children").Call("push", args[0])
+		return args[0]
+	})
+	replaceChild := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		children := this.Get("children")
+		length := children.Get("length").Int()
+		for i := 0; i < length; i++ {
+			if children.Index(i).Equal(args[1]) {
+				children.SetIndex(i, args[0])
+				return args[1]
+			}
+		}
+		return args[1]
+	})
+	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return nil
+	})
+	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return nil
+	})
 
 	elementCtor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		return objectCtor.New()
@@ -63,6 +95,10 @@ func installBenchmarkDOM() func() {
 	proto.Set("removeChild", removeChild)
 	proto.Set("setAttribute", setAttribute)
 	proto.Set("removeAttribute", removeAttribute)
+	proto.Set("insertBefore", insertBefore)
+	proto.Set("replaceChild", replaceChild)
+	proto.Set("addEventListener", addEventListener)
+	proto.Set("removeEventListener", removeEventListener)
 	elementCtor.Set("prototype", proto)
 
 	docCreateElement := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -75,6 +111,7 @@ func installBenchmarkDOM() func() {
 	})
 	docCreateFragment := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		frag := objectCtor.New()
+		frag.Set("isFragment", true)
 		frag.Set("children", arrayCtor.New())
 		frag.Set("appendChild", appendChild)
 		return frag
@@ -99,6 +136,10 @@ func installBenchmarkDOM() func() {
 		removeChild.Release()
 		setAttribute.Release()
 		removeAttribute.Release()
+		insertBefore.Release()
+		replaceChild.Release()
+		addEventListener.Release()
+		removeEventListener.Release()
 		docCreateElement.Release()
 		docCreateTextNode.Release()
 		docCreateFragment.Release()
@@ -143,6 +184,70 @@ func BenchmarkWASMDOMAdapterAppendChild(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		child := adapter.CreateElement("span")
 		adapter.AppendChild(parent, child)
+	}
+}
+
+func BenchmarkWASMDOMAdapterQuerySelector(b *testing.B) {
+	cleanup := installBenchmarkDOM()
+	defer cleanup()
+
+	adapter := NewWASMDOMAdapter()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		node := adapter.QuerySelector("#app")
+		if node == nil {
+			b.Fatal("expected DOM node")
+		}
+	}
+}
+
+func BenchmarkWASMDOMAdapterSetPropertyString(b *testing.B) {
+	cleanup := installBenchmarkDOM()
+	defer cleanup()
+
+	adapter := NewWASMDOMAdapter()
+	node := adapter.CreateElement("input")
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		adapter.SetProperty(node, "value", "payload")
+	}
+}
+
+func BenchmarkWASMDOMAdapterBatchAppend16(b *testing.B) {
+	cleanup := installBenchmarkDOM()
+	defer cleanup()
+
+	adapter := NewWASMDOMAdapter()
+	parent := adapter.CreateElement("div")
+	children := make([]runtime.DOMNode, 16)
+	for i := range children {
+		children[i] = adapter.CreateElement("span")
+	}
+
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		adapter.BeginBatch(parent)
+		for _, child := range children {
+			adapter.AppendChild(parent, child)
+		}
+		adapter.EndBatch()
+	}
+}
+
+func BenchmarkWASMEventAdapterAddRemoveListener(b *testing.B) {
+	cleanup := installBenchmarkDOM()
+	defer cleanup()
+
+	adapter := NewWASMDOMAdapter()
+	eventAdapter := NewWASMEventAdapter()
+	node := adapter.CreateElement("button")
+	handler := eventAdapter.CreateEventHandler(func(runtime.Event) {})
+	defer eventAdapter.ReleaseEventHandler(handler)
+
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		eventAdapter.AddEventListener(node, "click", handler)
+		eventAdapter.RemoveEventListener(node, "click", handler)
 	}
 }
 

@@ -49,6 +49,10 @@ func SetCurrentFiber(fiber *Fiber) {
 
 // CreateElement creates a new virtual DOM element
 func CreateElement(typ interface{}, props map[string]interface{}, children ...interface{}) *Element {
+	if len(children) == 0 {
+		children = emptyChildren
+	}
+
 	// Process children: wrap strings in TEXT_ELEMENT
 	// We modify the children slice in-place to avoid allocation since it's a varargs slice
 	for i, child := range children {
@@ -62,72 +66,67 @@ func CreateElement(typ interface{}, props map[string]interface{}, children ...in
 		}
 	}
 
+	propsLen := len(props)
 	elem := &Element{
 		Type:     typ,
-		Props:    make(map[string]interface{}),
+		Props:    make(map[string]interface{}, propsLen+1),
 		Children: children,
 	}
 
-	if props != nil {
+	if propsLen > 0 {
 		for k, v := range props {
 			elem.Props[k] = v
 		}
 	}
-
-	// Always set children in props, even if empty, so reconciliation can handle deletions
 	elem.Props["children"] = children
 
 	return elem
 }
 
-// flattenFragments flattens Fragment elements, returning a new slice without Fragment wrappers
-// This allows Fragments to work as transparent containers that don't create DOM nodes
 func flattenFragments(elements []interface{}) ([]interface{}, bool) {
-	// Optimization: Check if we have any fragments before allocating
-	hasFragment := false
-	for _, elem := range elements {
-		if elemPtr, ok := elem.(*Element); ok && elemPtr != nil && elemPtr.Type == "FRAGMENT" {
-			hasFragment = true
+	needsFlatten := false
+	for _, element := range elements {
+		elem, ok := element.(*Element)
+		if !ok || elem == nil {
+			continue
+		}
+		if t, ok := elem.Type.(string); ok && t == "FRAGMENT" {
+			needsFlatten = true
 			break
 		}
 	}
 
-	if !hasFragment {
+	if !needsFlatten {
 		return elements, false
 	}
 
-	// Use pool
 	flattened := slicePool.Get().([]interface{})
-	flattened = flattened[:0] // Reset length
-
-	for _, elem := range elements {
+	flattened = flattened[:0]
+	for _, element := range elements {
+		elem, ok := element.(*Element)
+		if !ok {
+			if element != nil {
+				flattened = append(flattened, element)
+			}
+			continue
+		}
 		if elem == nil {
 			continue
 		}
-
-		if elemPtr, ok := elem.(*Element); ok {
-			if elemPtr == nil {
-				continue
-			}
-			if elemPtr.Type == "FRAGMENT" {
-				// Recursively flatten the Fragment's children
-				if fragmentChildren, ok := elemPtr.Props["children"].([]interface{}); ok {
-					res, allocated := flattenFragments(fragmentChildren)
-					flattened = append(flattened, res...)
-					if allocated {
-						// Clear and put back
-						for i := range res {
-							res[i] = nil
-						}
-						slicePool.Put(res)
+		if t, ok := elem.Type.(string); ok && t == "FRAGMENT" {
+			if children, ok := elem.Props["children"].([]interface{}); ok {
+				res, allocated := flattenFragments(children)
+				flattened = append(flattened, res...)
+				if allocated {
+					for i := range res {
+						res[i] = nil
 					}
+					slicePool.Put(res)
 				}
-			} else {
-				flattened = append(flattened, elem)
 			}
-		} else {
-			flattened = append(flattened, elem)
+			continue
 		}
+		flattened = append(flattened, elem)
 	}
 
 	return flattened, true
@@ -291,50 +290,9 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 				}
 			}
 		} else {
-			// element is nil, but oldFiber exists
-			// Mark old fiber for deletion
 			oldFiber.effectTag = "DELETION"
 			rt.deletions = append(rt.deletions, oldFiber)
 			oldFiber = oldFiber.sibling
-			// Don't increment index here, we just consumed oldFiber
-			// Wait, if element is nil, it means there is a hole in the array?
-			// Or it means we should skip this index?
-			// Original logic: "element is nil, oldFiber exists - mark for deletion and advance"
-			// So we consume both index and oldFiber?
-			// Original logic:
-			// } else if oldFiber != nil { ... oldFiber = oldFiber.sibling }
-			// It didn't increment index in that branch!
-			// Wait, the original logic had:
-			// if sameType { ... index++ }
-			// else if element != nil { ... index++ }
-			// else if oldFiber != nil { ... oldFiber = oldFiber.sibling } (NO index++)
-			// else { index++ }
-
-			// So if element is nil, we delete oldFiber and stay at same index?
-			// That implies elements[index] is NOT consumed if it is nil?
-			// But elements[index] IS nil. So we should consume it?
-			// If elements[index] is nil, it means "nothing here".
-			// If we have oldFiber, we delete it.
-			// If we don't consume index, we will loop forever if elements[index] is nil.
-			// Ah, the original logic:
-			// if oldFiber != nil { ... } else { index++ }
-			// So if oldFiber != nil, it deletes oldFiber and DOES NOT increment index.
-			// This means it tries to match elements[index] (which is nil) against the NEXT oldFiber.
-			// This effectively deletes all oldFibers until one matches nil? Or until oldFiber is nil?
-			// If elements[index] is nil, it will keep deleting oldFibers until oldFiber is nil.
-			// Then it hits the `else { index++ }` block.
-			// So it deletes all remaining oldFibers?
-			// That seems wrong if elements has more items after nil.
-
-			// Let's assume standard behavior: index corresponds to position.
-			// If elements[index] is nil, it's a hole. We should probably skip it.
-			// But if there was an oldFiber at this position, it should be deleted.
-			// So: Delete oldFiber, Increment index.
-
-			// Let's stick to the behavior:
-			// If element is nil, we treat it as "nothing to render".
-			// If there was something (oldFiber), delete it.
-			// And move to next element.
 		}
 
 		// Link to parent
@@ -392,15 +350,14 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 
 // propsEqual compares two property maps for equality
 func propsEqual(a, b map[string]interface{}) bool {
+	if len(a) == 0 && len(b) == 0 {
+		return true
+	}
+
 	// Fast path: different lengths
 	aLen := len(a)
 	if aLen != len(b) {
 		return false
-	}
-
-	// Fast path: empty maps
-	if aLen == 0 {
-		return true
 	}
 
 	for k, v1 := range a {
@@ -436,9 +393,11 @@ func propsEqual(a, b map[string]interface{}) bool {
 			}
 
 			// Fallback for non-standard slice types.
-			rv1 := reflect.ValueOf(v1)
-			rv2 := reflect.ValueOf(v2)
-			if rv1.Kind() == reflect.Slice && rv2.Kind() == reflect.Slice {
+			t1 := reflect.TypeOf(v1)
+			t2 := reflect.TypeOf(v2)
+			if t1 != nil && t2 != nil && t1.Kind() == reflect.Slice && t2.Kind() == reflect.Slice {
+				rv1 := reflect.ValueOf(v1)
+				rv2 := reflect.ValueOf(v2)
 				if rv1.Pointer() == rv2.Pointer() && rv1.Len() == rv2.Len() {
 					continue
 				}
@@ -476,6 +435,10 @@ func isSameType(type1, type2 interface{}) bool {
 
 	if v1.Kind() == reflect.Func && v2.Kind() == reflect.Func {
 		return v1.Pointer() == v2.Pointer()
+	}
+
+	if v1.Type().Comparable() {
+		return type1 == type2
 	}
 
 	return reflect.DeepEqual(type1, type2)
@@ -584,7 +547,9 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 				fiber.effects = make([]Effect, 0)
 			}
 			var element *Element
-			if fn, ok := fiber.typeOf.(func(map[string]interface{}) *Element); ok {
+			if fn, ok := fiber.typeOf.(func() *Element); ok {
+				element = fn()
+			} else if fn, ok := fiber.typeOf.(func(map[string]interface{}) *Element); ok {
 				element = fn(fiber.props)
 			} else if fn, ok := fiber.typeOf.(func(Attrs) *Element); ok {
 				element = fn(Attrs(fiber.props))
@@ -667,8 +632,12 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 	if len(oldProps) == 0 && len(newProps) > 0 {
 		// If batching is supported, collect attributes
 		var attrBatch map[string]string
-		if supportsBatching {
-			attrBatch = make(map[string]string, len(newProps))
+		flushAttrBatch := func(resetCap int) {
+			if !supportsBatching || len(attrBatch) == 0 {
+				return
+			}
+			batchAdapter.BatchSetAttributes(dom, attrBatch)
+			clear(attrBatch)
 		}
 
 		for name, value := range newProps {
@@ -679,14 +648,14 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 			switch name {
 			case "style":
 				// Flush batch before style
-				if supportsBatching && len(attrBatch) > 0 {
-					batchAdapter.BatchSetAttributes(dom, attrBatch)
-					attrBatch = make(map[string]string, len(newProps))
-				}
+				flushAttrBatch(len(newProps))
 				if styles, ok := value.(map[string]string); ok {
 					rt.domAdapter.SetStyles(dom, styles)
 				} else if str, ok := value.(string); ok {
 					if supportsBatching {
+						if attrBatch == nil {
+							attrBatch = make(map[string]string, len(newProps))
+						}
 						attrBatch["style"] = str
 					} else {
 						rt.domAdapter.SetAttribute(dom, "style", str)
@@ -695,6 +664,9 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 			case "className", "class":
 				if str, ok := value.(string); ok {
 					if supportsBatching {
+						if attrBatch == nil {
+							attrBatch = make(map[string]string, len(newProps))
+						}
 						attrBatch["class"] = str
 					} else {
 						rt.domAdapter.SetAttribute(dom, "class", str)
@@ -702,33 +674,28 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 				}
 			case "value", "checked", "selected":
 				// Flush batch before property
-				if supportsBatching && len(attrBatch) > 0 {
-					batchAdapter.BatchSetAttributes(dom, attrBatch)
-					attrBatch = make(map[string]string, len(newProps))
-				}
+				flushAttrBatch(len(newProps))
 				rt.domAdapter.SetProperty(dom, name, value)
 			default:
 				if str, ok := value.(string); ok {
 					if supportsBatching {
+						if attrBatch == nil {
+							attrBatch = make(map[string]string, len(newProps))
+						}
 						attrBatch[name] = str
 					} else {
 						rt.domAdapter.SetAttribute(dom, name, str)
 					}
 				} else {
 					// Flush batch before property
-					if supportsBatching && len(attrBatch) > 0 {
-						batchAdapter.BatchSetAttributes(dom, attrBatch)
-						attrBatch = make(map[string]string, len(newProps))
-					}
+					flushAttrBatch(len(newProps))
 					rt.domAdapter.SetProperty(dom, name, value)
 				}
 			}
 		}
 
 		// Flush remaining batched attributes
-		if supportsBatching && len(attrBatch) > 0 {
-			batchAdapter.BatchSetAttributes(dom, attrBatch)
-		}
+		flushAttrBatch(len(newProps))
 		return
 	}
 
@@ -738,7 +705,11 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 			continue
 		}
 		if _, exists := newProps[name]; !exists {
-			rt.domAdapter.RemoveAttribute(dom, name)
+			if resetValue, shouldReset := removedPropertyResetValue(name); shouldReset {
+				rt.domAdapter.SetProperty(dom, name, resetValue)
+			} else {
+				rt.domAdapter.RemoveAttribute(dom, name)
+			}
 		}
 	}
 
@@ -776,6 +747,19 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 				rt.domAdapter.SetProperty(dom, name, value)
 			}
 		}
+	}
+}
+
+func removedPropertyResetValue(name string) (interface{}, bool) {
+	switch name {
+	case "value":
+		return "", true
+	case "checked", "selected", "disabled", "required", "readOnly", "hidden", "multiple", "autofocus":
+		return false, true
+	case "onclick", "oninput", "onchange", "onsubmit", "onkeydown", "onkeyup", "onfocus", "onblur":
+		return nil, true
+	default:
+		return nil, false
 	}
 }
 

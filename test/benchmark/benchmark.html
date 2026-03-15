@@ -6,11 +6,13 @@
     <script src="wasm_exec.js"></script>
     <script>
         const go = new Go();
-        WebAssembly.instantiateStreaming(fetch("bin/benchmark.wasm"), go.importObject).then((result) => {
+        const wasmURL = `bin/benchmark.wasm?v=${Date.now()}`;
+        WebAssembly.instantiateStreaming(fetch(wasmURL), go.importObject).then((result) => {
             go.run(result.instance);
         });
     </script>
 </head>
 <body>
+    <div id="root"></div>
 </body>
 </html>

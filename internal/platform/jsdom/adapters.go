@@ -40,16 +40,26 @@ type WASMDOMAdapter struct {
 	document       js.Value
 	createElement  js.Value
 	createTextNode js.Value
+	querySelector  js.Value
 	// Cached methods for performance
-	appendChild     js.Value
-	removeChild     js.Value
-	setAttribute    js.Value
-	removeAttribute js.Value
-	createFragment  js.Value
+	appendChild         js.Value
+	removeChild         js.Value
+	setAttribute        js.Value
+	removeAttribute     js.Value
+	insertBefore        js.Value
+	replaceChild        js.Value
+	addEventListener    js.Value
+	removeEventListener js.Value
+	createFragment      js.Value
+	batchSetAttributes  js.Func
 	// Batch operation support
-	currentFragment js.Value
-	batchParent     *WASMDOMNode
-	batchMode       bool
+	fragmentPool []js.Value
+	batchStack   []wasmBatchState
+}
+
+type wasmBatchState struct {
+	parent   *WASMDOMNode
+	fragment js.Value
 }
 
 var _ runtime.DOMAdapter = (*WASMDOMAdapter)(nil)
@@ -58,17 +68,34 @@ func NewWASMDOMAdapter() *WASMDOMAdapter {
 	doc := js.Global().Get("document")
 	// Pre-cache DOM prototype methods
 	elemProto := js.Global().Get("Element").Get("prototype")
+	batchSetAttributes := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		node := args[0]
+		attrs := args[1]
+		keys := js.Global().Get("Object").Call("keys", attrs)
+		length := keys.Get("length").Int()
+		for i := 0; i < length; i++ {
+			key := keys.Index(i).String()
+			node.Call("setAttribute", key, attrs.Get(key).String())
+		}
+		return nil
+	})
 	return &WASMDOMAdapter{
 		document: doc,
 		// Bind methods to document to ensure correct 'this' context when Invoked
 		createElement:  doc.Get("createElement").Call("bind", doc),
 		createTextNode: doc.Get("createTextNode").Call("bind", doc),
+		querySelector:  doc.Get("querySelector").Call("bind", doc),
 		createFragment: doc.Get("createDocumentFragment").Call("bind", doc),
 		// Cache element methods (not bound, will use Call)
-		appendChild:     elemProto.Get("appendChild"),
-		removeChild:     elemProto.Get("removeChild"),
-		setAttribute:    elemProto.Get("setAttribute"),
-		removeAttribute: elemProto.Get("removeAttribute"),
+		appendChild:         elemProto.Get("appendChild"),
+		removeChild:         elemProto.Get("removeChild"),
+		setAttribute:        elemProto.Get("setAttribute"),
+		removeAttribute:     elemProto.Get("removeAttribute"),
+		insertBefore:        elemProto.Get("insertBefore"),
+		replaceChild:        elemProto.Get("replaceChild"),
+		addEventListener:    elemProto.Get("addEventListener"),
+		removeEventListener: elemProto.Get("removeEventListener"),
+		batchSetAttributes:  batchSetAttributes,
 	}
 }
 
@@ -143,13 +170,17 @@ func (a *WASMDOMAdapter) AppendChild(parent, child runtime.DOMNode) {
 		return
 	}
 
-	// If in batch mode, append to fragment
-	if a.batchMode && a.batchParent == parentNode {
-		a.currentFragment.Call("appendChild", childNode.value)
-	} else {
-		// Use cached method via Call (faster than method lookup each time)
-		a.appendChild.Call("call", parentNode.value, childNode.value)
+	// If in batch mode for this specific parent, append to the top-most fragment.
+	if depth := len(a.batchStack); depth > 0 {
+		state := a.batchStack[depth-1]
+		if state.parent == parentNode {
+			a.appendChild.Call("call", state.fragment, childNode.value)
+			return
+		}
 	}
+
+	// Use cached method via Call (faster than method lookup each time)
+	a.appendChild.Call("call", parentNode.value, childNode.value)
 }
 
 func (a *WASMDOMAdapter) RemoveChild(parent, child runtime.DOMNode) {
@@ -167,7 +198,7 @@ func (a *WASMDOMAdapter) InsertBefore(parent, newNode, referenceNode runtime.DOM
 	newN, ok2 := newNode.(*WASMDOMNode)
 	refN, ok3 := referenceNode.(*WASMDOMNode)
 	if ok1 && ok2 && ok3 {
-		parentN.value.Call("insertBefore", newN.value, refN.value)
+		a.insertBefore.Call("call", parentN.value, newN.value, refN.value)
 	}
 }
 
@@ -176,12 +207,12 @@ func (a *WASMDOMAdapter) ReplaceChild(parent, newNode, oldNode runtime.DOMNode) 
 	newN, ok2 := newNode.(*WASMDOMNode)
 	oldN, ok3 := oldNode.(*WASMDOMNode)
 	if ok1 && ok2 && ok3 {
-		parentN.value.Call("replaceChild", newN.value, oldN.value)
+		a.replaceChild.Call("call", parentN.value, newN.value, oldN.value)
 	}
 }
 
 func (a *WASMDOMAdapter) QuerySelector(selector string) interface{} {
-	result := a.document.Call("querySelector", selector)
+	result := a.querySelector.Invoke(selector)
 	if result.IsNull() || result.IsUndefined() {
 		return nil
 	}
@@ -340,30 +371,45 @@ func (a *WASMDOMAdapter) SetStyles(node runtime.DOMNode, styles map[string]strin
 // BeginBatch starts batching DOM operations for a parent node
 func (a *WASMDOMAdapter) BeginBatch(parent runtime.DOMNode) {
 	if parentNode, ok := parent.(*WASMDOMNode); ok {
-		a.batchMode = true
-		a.batchParent = parentNode
-		a.currentFragment = a.createFragment.Invoke()
+		depth := len(a.batchStack)
+		var fragment js.Value
+		if depth < len(a.fragmentPool) {
+			fragment = a.fragmentPool[depth]
+		} else {
+			fragment = a.createFragment.Invoke()
+			a.fragmentPool = append(a.fragmentPool, fragment)
+		}
+		a.batchStack = append(a.batchStack, wasmBatchState{parent: parentNode, fragment: fragment})
 	}
 }
 
 // EndBatch commits all batched operations
 func (a *WASMDOMAdapter) EndBatch() {
-	if a.batchMode && a.batchParent != nil {
+	depth := len(a.batchStack)
+	if depth == 0 {
+		return
+	}
+
+	state := a.batchStack[depth-1]
+	a.batchStack = a.batchStack[:depth-1]
+	if state.parent != nil {
 		// Single DOM call to append all children
-		a.appendChild.Call("call", a.batchParent.value, a.currentFragment)
-		a.batchMode = false
-		a.batchParent = nil
-		a.currentFragment = js.Undefined()
+		a.appendChild.Call("call", state.parent.value, state.fragment)
 	}
 }
 
 // BatchSetAttributes sets multiple attributes in a single boundary crossing
 func (a *WASMDOMAdapter) BatchSetAttributes(node runtime.DOMNode, attrs map[string]string) {
 	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		// Use a single JS call to set multiple attributes
-		for name, value := range attrs {
-			a.setAttribute.Call("call", wasmNode.value, name, value)
+		if len(attrs) == 0 {
+			return
 		}
+
+		payload := js.Global().Get("Object").New()
+		for name, value := range attrs {
+			payload.Set(name, value)
+		}
+		a.batchSetAttributes.Invoke(wasmNode.value, payload)
 	}
 }
 
@@ -434,12 +480,19 @@ func (a *WASMDOMAdapter) WrapFunction(fn interface{}) interface{} {
 }
 
 // WASMEventAdapter implements EventAdapter for browser/WASM
-type WASMEventAdapter struct{}
+type WASMEventAdapter struct {
+	addEventListener    js.Value
+	removeEventListener js.Value
+}
 
 var _ runtime.EventAdapter = (*WASMEventAdapter)(nil)
 
 func NewWASMEventAdapter() *WASMEventAdapter {
-	return &WASMEventAdapter{}
+	elemProto := js.Global().Get("Element").Get("prototype")
+	return &WASMEventAdapter{
+		addEventListener:    elemProto.Get("addEventListener"),
+		removeEventListener: elemProto.Get("removeEventListener"),
+	}
 }
 
 // wasmEventHandler wraps a js.Func for event handling
@@ -477,7 +530,7 @@ func (a *WASMEventAdapter) ReleaseEventHandler(handler runtime.EventHandler) {
 func (a *WASMEventAdapter) AddEventListener(node runtime.DOMNode, eventType string, handler runtime.EventHandler) {
 	if wasmNode, ok := node.(*WASMDOMNode); ok {
 		if wasmHandler, ok := handler.(*wasmEventHandler); ok {
-			wasmNode.value.Call("addEventListener", eventType, wasmHandler.fn)
+			a.addEventListener.Call("call", wasmNode.value, eventType, wasmHandler.fn)
 		}
 	}
 }
@@ -485,7 +538,7 @@ func (a *WASMEventAdapter) AddEventListener(node runtime.DOMNode, eventType stri
 func (a *WASMEventAdapter) RemoveEventListener(node runtime.DOMNode, eventType string, handler runtime.EventHandler) {
 	if wasmNode, ok := node.(*WASMDOMNode); ok {
 		if wasmHandler, ok := handler.(*wasmEventHandler); ok {
-			wasmNode.value.Call("removeEventListener", eventType, wasmHandler.fn)
+			a.removeEventListener.Call("call", wasmNode.value, eventType, wasmHandler.fn)
 		}
 	}
 }

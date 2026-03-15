@@ -2,6 +2,40 @@ package runtime
 
 import "testing"
 
+func BenchmarkAtomRegistryInitAtomExisting(b *testing.B) {
+	registry := NewAtomRegistry()
+	registry.InitAtom("counter", 0)
+
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		registry.InitAtom("counter", i)
+	}
+}
+
+func BenchmarkAtomRegistryGetAtom(b *testing.B) {
+	registry := NewAtomRegistry()
+	registry.InitAtom("counter", 42)
+
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		value, ok := registry.GetAtom("counter")
+		if !ok || value.(int) != 42 {
+			b.Fatal("expected atom value")
+		}
+	}
+}
+
+func BenchmarkAtomRegistrySubscribeUnsubscribe(b *testing.B) {
+	registry := NewAtomRegistry()
+	fiber := newTestFiber("bench")
+
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		registry.Subscribe("counter", fiber)
+		registry.Unsubscribe("counter", fiber)
+	}
+}
+
 func BenchmarkAtomRegistrySetAtom32Subscribers(b *testing.B) {
 	registry := NewAtomRegistry()
 	for i := 0; i < 32; i++ {
@@ -61,6 +95,47 @@ func BenchmarkGoUseAtomPointerNilReset(b *testing.B) {
 	}
 }
 
+func BenchmarkGoUseAtomGetter(b *testing.B) {
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{Scheduler: scheduler})
+	rt.currentRoot = &Fiber{typeOf: "ROOT"}
+	fiber := newTestFiber("bench")
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	get, _ := GoUseAtom(rt, "counter", 42)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if value := get(); value != 42 {
+			b.Fatal("expected atom value")
+		}
+	}
+}
+
+func BenchmarkGoUseAtomStableRerender(b *testing.B) {
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{Scheduler: scheduler})
+	rt.currentRoot = &Fiber{typeOf: "ROOT"}
+	fiber := newTestFiber("bench")
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	_, _ = GoUseAtom(rt, "counter", 42)
+	resetHookRenderState(fiber)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		resetHookRenderState(fiber)
+		get, _ := GoUseAtom(rt, "counter", 42)
+		if value := get(); value != 42 {
+			b.Fatal("expected atom value")
+		}
+	}
+}
+
 func BenchmarkCleanupAtomSubscriptions8(b *testing.B) {
 	rt := NewRuntime(Config{Scheduler: newTestScheduler()})
 	fiber := newTestFiber("bench")
@@ -75,5 +150,19 @@ func BenchmarkCleanupAtomSubscriptions8(b *testing.B) {
 			rt.atomRegistry.Subscribe(atomID, fiber)
 		}
 		rt.CleanupAtomSubscriptions(fiber)
+	}
+}
+
+func BenchmarkAtomRegistryUnsubscribeMany8(b *testing.B) {
+	registry := NewAtomRegistry()
+	fiber := newTestFiber("bench")
+	atomIDs := []string{"a", "b", "c", "d", "e", "f", "g", "h"}
+
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		for _, atomID := range atomIDs {
+			registry.Subscribe(atomID, fiber)
+		}
+		registry.UnsubscribeMany(atomIDs, fiber)
 	}
 }

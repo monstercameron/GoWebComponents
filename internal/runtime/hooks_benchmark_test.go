@@ -2,6 +2,15 @@ package runtime
 
 import "testing"
 
+func BenchmarkIsNilableTypeCachedPointer(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if !isNilableType[*int]() {
+			b.Fatal("expected pointer type to be nilable")
+		}
+	}
+}
+
 func BenchmarkFastEqualInt(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -88,6 +97,93 @@ func BenchmarkGoUseMemoSameDeps(b *testing.B) {
 		resetHookRenderState(fiber)
 		if value := GoUseMemo(func() interface{} { return 42 }, "dep"); value != 42 {
 			b.Fatal("expected memoized value")
+		}
+	}
+}
+
+func BenchmarkGoUseCallbackSameDeps(b *testing.B) {
+	fiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	handler := func() {}
+	_ = GoUseCallback(handler, "dep")
+	resetHookRenderState(fiber)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		resetHookRenderState(fiber)
+		if value := GoUseCallback(handler, "dep"); value == nil {
+			b.Fatal("expected callback")
+		}
+	}
+}
+
+func BenchmarkGoUseRefStable(b *testing.B) {
+	fiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	ref := GoUseRef("payload")
+	resetHookRenderState(fiber)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		resetHookRenderState(fiber)
+		if current := GoUseRef(nil); current != ref {
+			b.Fatal("expected stable ref")
+		}
+	}
+}
+
+func BenchmarkGoUseIdStable(b *testing.B) {
+	resetGlobalRuntimeForTest()
+	defer resetGlobalRuntimeForTest()
+
+	fiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	expected := GoUseId()
+	resetHookRenderState(fiber)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		resetHookRenderState(fiber)
+		if id := GoUseId(); id != expected {
+			b.Fatal("expected stable id")
+		}
+	}
+}
+
+func BenchmarkGoUseFuncWrap(b *testing.B) {
+	resetGlobalRuntimeForTest()
+	defer resetGlobalRuntimeForTest()
+
+	released := 0
+	adapter := &funcWrapTestAdapter{
+		testDOMAdapter: newTestDOMAdapter(),
+		releasedCount:  &released,
+	}
+	InitGlobalRuntime(Config{DOMAdapter: adapter, Scheduler: newTestScheduler()})
+
+	fiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	handler := func() {}
+	_ = GoUseFunc(handler)
+	resetHookRenderState(fiber)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		resetHookRenderState(fiber)
+		if wrapped := GoUseFunc(handler); wrapped == nil {
+			b.Fatal("expected wrapped handler")
 		}
 	}
 }

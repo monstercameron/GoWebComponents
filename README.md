@@ -247,11 +247,11 @@ npm run bench
 
 Latest browser comparison run on 2026-03-14:
 
-- Render: `GoWebComponents 104 ms`, `React 47 ms`
-- Update: `GoWebComponents 48 ms`, `React 44 ms`
-- Clear: `GoWebComponents 49 ms`, `React 41 ms`
-- Deep tree: `GoWebComponents 69 ms`, `React 62 ms`
-- Hooks: `GoWebComponents 83 ms`, `React 79 ms`
+- Render: `GoWebComponents 117 ms`, `React 49 ms`
+- Update: `GoWebComponents 62 ms`, `React 48 ms`
+- Clear: `GoWebComponents 59 ms`, `React 55 ms`
+- Deep tree: `GoWebComponents 165 ms`, `React 63 ms`
+- Hooks: `GoWebComponents 145 ms`, `React 77 ms`
 
 Notes:
 

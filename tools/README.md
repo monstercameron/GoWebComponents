@@ -43,7 +43,7 @@ Key behavior:
 
 Convenience wrappers for building a Go wasm target.
 
-These are still useful for standalone projects, but the repo’s browser tests build their own dedicated test app under `test/testapp/`.
+These are still useful for standalone projects, but the repoï¿½s browser tests build their own dedicated test app under `test/testapp/`.
 
 ### `go_js_wasm_exec.bat`
 
@@ -55,6 +55,44 @@ Example:
 $env:GOOS = "js"
 $env:GOARCH = "wasm"
 go test -exec .\tools\go_js_wasm_exec.bat ./internal/runtime
+```
+
+### `bench-runtime.ps1` / `bench-runtime.sh`
+
+Runs repeated benchmark samples and writes the raw output to a timestamped file for later comparison.
+
+Windows example:
+
+```powershell
+.\tools\bench-runtime.ps1 -Package ./internal/runtime -Count 5
+```
+
+Wasm adapter example on Windows:
+
+```powershell
+.\tools\bench-runtime.ps1 -Package ./internal/platform/jsdom -Count 5 -Exec .\tools\go_js_wasm_exec.bat
+```
+
+POSIX example:
+
+```bash
+./tools/bench-runtime.sh --package ./internal/runtime --count 5
+```
+
+### `bench-compare.ps1` / `bench-compare.sh`
+
+Compares two saved benchmark files with `benchstat` when available.
+
+Windows example:
+
+```powershell
+.\tools\bench-compare.ps1 -Baseline .\tools\bench-before.txt -Candidate .\tools\bench-after.txt
+```
+
+POSIX example:
+
+```bash
+./tools/bench-compare.sh ./tools/bench-before.txt ./tools/bench-after.txt
 ```
 
 ### `livereload/`
@@ -75,6 +113,16 @@ npm run dev:examples
 
 ```bash
 go test ./internal/runtime
+```
+
+### Run repeated runtime benchmarks
+
+```powershell
+.\tools\bench-runtime.ps1 -Package ./internal/runtime -Count 5
+```
+
+```bash
+./tools/bench-runtime.sh --package ./internal/runtime --count 5
 ```
 
 ### Run wasm runtime tests on Windows

@@ -227,79 +227,277 @@ func Ul(props Props, children ...ui.Node) ui.Node {
 }
 
 func toRuntimeProps(props Props) map[string]interface{} {
-	values := map[string]interface{}{
-		"id":           props.ID,
-		"class":        props.Class,
-		"key":          props.Key,
-		"title":        props.Title,
-		"type":         props.Type,
-		"name":         props.Name,
-		"value":        props.Value,
-		"placeholder":  props.Placeholder,
-		"href":         props.Href,
-		"src":          props.Src,
-		"alt":          props.Alt,
-		"htmlFor":      props.For,
-		"role":         props.Role,
-		"target":       props.Target,
-		"rel":          props.Rel,
-		"action":       props.Action,
-		"method":       props.Method,
-		"autocomplete": props.AutoComplete,
-		"min":          props.Min,
-		"max":          props.Max,
-		"step":         props.Step,
-		"rows":         props.Rows,
-		"cols":         props.Cols,
-		"checked":      props.Checked,
-		"disabled":     props.Disabled,
-		"selected":     props.Selected,
-		"required":     props.Required,
-		"readOnly":     props.ReadOnly,
-		"hidden":       props.Hidden,
-		"multiple":     props.Multiple,
-		"autofocus":    props.AutoFocus,
+	onClick := props.OnClick.Value()
+	onInput := props.OnInput.Value()
+	onChange := props.OnChange.Value()
+	onSubmit := props.OnSubmit.Value()
+	onKeyDown := props.OnKeyDown.Value()
+	onKeyUp := props.OnKeyUp.Value()
+	onFocus := props.OnFocus.Value()
+	onBlur := props.OnBlur.Value()
+
+	count := len(props.Data) + len(props.Aria) + len(props.Raw)
+	if props.ID != "" {
+		count++
+	}
+	if props.Class != "" {
+		count++
+	}
+	if props.Key != "" {
+		count++
+	}
+	if props.Title != "" {
+		count++
+	}
+	if props.Type != "" {
+		count++
+	}
+	if props.Name != "" {
+		count++
+	}
+	if props.Value != "" {
+		count++
+	}
+	if props.Placeholder != "" {
+		count++
+	}
+	if props.Href != "" {
+		count++
+	}
+	if props.Src != "" {
+		count++
+	}
+	if props.Alt != "" {
+		count++
+	}
+	if props.For != "" {
+		count++
+	}
+	if props.Role != "" {
+		count++
+	}
+	if props.Target != "" {
+		count++
+	}
+	if props.Rel != "" {
+		count++
+	}
+	if props.Action != "" {
+		count++
+	}
+	if props.Method != "" {
+		count++
+	}
+	if props.AutoComplete != "" {
+		count++
+	}
+	if props.Min != "" {
+		count++
+	}
+	if props.Max != "" {
+		count++
+	}
+	if props.Step != "" {
+		count++
+	}
+	if props.Rows != 0 {
+		count++
+	}
+	if props.Cols != 0 {
+		count++
+	}
+	if props.Checked {
+		count++
+	}
+	if props.Disabled {
+		count++
+	}
+	if props.Selected {
+		count++
+	}
+	if props.Required {
+		count++
+	}
+	if props.ReadOnly {
+		count++
+	}
+	if props.Hidden {
+		count++
+	}
+	if props.Multiple {
+		count++
+	}
+	if props.AutoFocus {
+		count++
+	}
+	if props.Style != nil {
+		count++
+	}
+	if onClick != nil {
+		count++
+	}
+	if onInput != nil {
+		count++
+	}
+	if onChange != nil {
+		count++
+	}
+	if onSubmit != nil {
+		count++
+	}
+	if onKeyDown != nil {
+		count++
+	}
+	if onKeyUp != nil {
+		count++
+	}
+	if onFocus != nil {
+		count++
+	}
+	if onBlur != nil {
+		count++
 	}
 
+	if count == 0 {
+		return nil
+	}
+
+	values := make(map[string]interface{}, count)
+	if props.ID != "" {
+		values["id"] = props.ID
+	}
+	if props.Class != "" {
+		values["class"] = props.Class
+	}
+	if props.Key != "" {
+		values["key"] = props.Key
+	}
+	if props.Title != "" {
+		values["title"] = props.Title
+	}
+	if props.Type != "" {
+		values["type"] = props.Type
+	}
+	if props.Name != "" {
+		values["name"] = props.Name
+	}
+	if props.Value != "" {
+		values["value"] = props.Value
+	}
+	if props.Placeholder != "" {
+		values["placeholder"] = props.Placeholder
+	}
+	if props.Href != "" {
+		values["href"] = props.Href
+	}
+	if props.Src != "" {
+		values["src"] = props.Src
+	}
+	if props.Alt != "" {
+		values["alt"] = props.Alt
+	}
+	if props.For != "" {
+		values["htmlFor"] = props.For
+	}
+	if props.Role != "" {
+		values["role"] = props.Role
+	}
+	if props.Target != "" {
+		values["target"] = props.Target
+	}
+	if props.Rel != "" {
+		values["rel"] = props.Rel
+	}
+	if props.Action != "" {
+		values["action"] = props.Action
+	}
+	if props.Method != "" {
+		values["method"] = props.Method
+	}
+	if props.AutoComplete != "" {
+		values["autocomplete"] = props.AutoComplete
+	}
+	if props.Min != "" {
+		values["min"] = props.Min
+	}
+	if props.Max != "" {
+		values["max"] = props.Max
+	}
+	if props.Step != "" {
+		values["step"] = props.Step
+	}
+	if props.Rows != 0 {
+		values["rows"] = props.Rows
+	}
+	if props.Cols != 0 {
+		values["cols"] = props.Cols
+	}
+	if props.Checked {
+		values["checked"] = true
+	}
+	if props.Disabled {
+		values["disabled"] = true
+	}
+	if props.Selected {
+		values["selected"] = true
+	}
+	if props.Required {
+		values["required"] = true
+	}
+	if props.ReadOnly {
+		values["readOnly"] = true
+	}
+	if props.Hidden {
+		values["hidden"] = true
+	}
+	if props.Multiple {
+		values["multiple"] = true
+	}
+	if props.AutoFocus {
+		values["autofocus"] = true
+	}
 	if props.Style != nil {
 		values["style"] = props.Style
 	}
 
-	for key, value := range props.Data {
-		values["data-"+key] = value
+	if len(props.Data) != 0 {
+		for key, value := range props.Data {
+			values["data-"+key] = value
+		}
 	}
-
-	for key, value := range props.Aria {
-		values["aria-"+key] = value
+	if len(props.Aria) != 0 {
+		for key, value := range props.Aria {
+			values["aria-"+key] = value
+		}
 	}
-
-	if props.OnClick.Value() != nil {
-		values["onclick"] = props.OnClick.Value()
+	if onClick != nil {
+		values["onclick"] = onClick
 	}
-	if props.OnInput.Value() != nil {
-		values["oninput"] = props.OnInput.Value()
+	if onInput != nil {
+		values["oninput"] = onInput
 	}
-	if props.OnChange.Value() != nil {
-		values["onchange"] = props.OnChange.Value()
+	if onChange != nil {
+		values["onchange"] = onChange
 	}
-	if props.OnSubmit.Value() != nil {
-		values["onsubmit"] = props.OnSubmit.Value()
+	if onSubmit != nil {
+		values["onsubmit"] = onSubmit
 	}
-	if props.OnKeyDown.Value() != nil {
-		values["onkeydown"] = props.OnKeyDown.Value()
+	if onKeyDown != nil {
+		values["onkeydown"] = onKeyDown
 	}
-	if props.OnKeyUp.Value() != nil {
-		values["onkeyup"] = props.OnKeyUp.Value()
+	if onKeyUp != nil {
+		values["onkeyup"] = onKeyUp
 	}
-	if props.OnFocus.Value() != nil {
-		values["onfocus"] = props.OnFocus.Value()
+	if onFocus != nil {
+		values["onfocus"] = onFocus
 	}
-	if props.OnBlur.Value() != nil {
-		values["onblur"] = props.OnBlur.Value()
+	if onBlur != nil {
+		values["onblur"] = onBlur
 	}
-
-	for key, value := range props.Raw {
-		values[key] = value
+	if len(props.Raw) != 0 {
+		for key, value := range props.Raw {
+			values[key] = value
+		}
 	}
 
 	return values

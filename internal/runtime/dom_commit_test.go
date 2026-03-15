@@ -244,6 +244,38 @@ func TestUpdateDomProperties_BooleanProperty(t *testing.T) {
 	}
 }
 
+func TestUpdateDomProperties_RemovedPropertyResetsValue(t *testing.T) {
+	adapter := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+
+	dom := adapter.CreateElement("input")
+	handler := func() {}
+	rt.updateDomProperties(dom, map[string]interface{}{
+		"value":    "abc",
+		"checked":  true,
+		"onclick":  handler,
+		"required": true,
+	}, map[string]interface{}{})
+
+	node := dom.(*testDOMNode)
+	if node.properties["value"] != "" {
+		t.Fatalf("expected value reset to empty string, got %v", node.properties["value"])
+	}
+	if node.properties["checked"] != false {
+		t.Fatalf("expected checked reset to false, got %v", node.properties["checked"])
+	}
+	if node.properties["required"] != false {
+		t.Fatalf("expected required reset to false, got %v", node.properties["required"])
+	}
+	if _, ok := node.properties["onclick"]; !ok {
+		t.Fatal("expected onclick property reset entry")
+	}
+	if node.properties["onclick"] != nil {
+		t.Fatalf("expected onclick reset to nil, got %v", node.properties["onclick"])
+	}
+}
+
 func TestUpdateDomProperties_DataAttributes(t *testing.T) {
 	adapter := newTestDOMAdapter()
 	scheduler := newTestScheduler()

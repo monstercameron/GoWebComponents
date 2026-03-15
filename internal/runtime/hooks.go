@@ -3,16 +3,27 @@ package runtime
 import (
 	"fmt"
 	"reflect"
+	"sync"
 )
+
+var nilableTypeCache sync.Map
 
 func isNilableType[T any]() bool {
 	t := reflect.TypeOf((*T)(nil)).Elem()
+	if cached, ok := nilableTypeCache.Load(t); ok {
+		return cached.(bool)
+	}
+
+	var nilable bool
 	switch t.Kind() {
 	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
-		return true
+		nilable = true
 	default:
-		return false
+		nilable = false
 	}
+
+	nilableTypeCache.Store(t, nilable)
+	return nilable
 }
 
 // GoUseState provides state management for components
@@ -538,6 +549,22 @@ func fastEqual(a, b interface{}) bool {
 		if vb, ok := b.(uint8); ok {
 			return va == vb
 		}
+	case int8:
+		if vb, ok := b.(int8); ok {
+			return va == vb
+		}
+	case int16:
+		if vb, ok := b.(int16); ok {
+			return va == vb
+		}
+	case uint16:
+		if vb, ok := b.(uint16); ok {
+			return va == vb
+		}
+	case uintptr:
+		if vb, ok := b.(uintptr); ok {
+			return va == vb
+		}
 	}
 
 	// Get types only for non-primitive fallbacks.
@@ -548,11 +575,8 @@ func fastEqual(a, b interface{}) bool {
 		return false
 	}
 
-	// Fast path: pointer equality for comparable types only
 	if ta.Comparable() {
-		if a == b {
-			return true
-		}
+		return a == b
 	}
 
 	// Handle functions (compare pointers, js.Func is a func type)

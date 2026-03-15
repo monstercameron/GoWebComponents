@@ -5,6 +5,7 @@ package ui
 
 import (
 	"reflect"
+	"sync"
 
 	"github.com/monstercameron/GoWebComponents/internal/platform/jsdom"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
@@ -16,6 +17,14 @@ const (
 )
 
 var initialized bool
+
+type componentMeta struct {
+	hasArg  bool
+	argType reflect.Type
+	zeroArg reflect.Value
+}
+
+var componentMetaCache sync.Map
 
 type Node = *runtime.Element
 
@@ -43,6 +52,9 @@ type Ref[T any] struct {
 func CreateElement(component interface{}, props ...interface{}) Node {
 	if node, ok := component.(*runtime.Element); ok && len(props) == 0 {
 		return node
+	}
+	if fn, ok := component.(func() *runtime.Element); ok {
+		return runtime.CreateElement(fn, nil)
 	}
 
 	rawProps := map[string]interface{}{
@@ -181,7 +193,45 @@ func renderComponent(rawProps map[string]interface{}) *runtime.Element {
 		panic("ui.CreateElement requires a component function or ui.Node")
 	}
 
-	componentType := componentValue.Type()
+	meta := getComponentMeta(componentValue.Type())
+
+	var results []reflect.Value
+	if meta.hasArg {
+		arg := meta.zeroArg
+		if provided, ok := rawProps[propsKey]; ok {
+			providedValue := reflect.ValueOf(provided)
+			if providedValue.IsValid() {
+				switch {
+				case providedValue.Type() == meta.argType:
+					arg = providedValue
+				case providedValue.Type().AssignableTo(meta.argType):
+					arg = providedValue
+				case providedValue.Type().ConvertibleTo(meta.argType):
+					arg = providedValue.Convert(meta.argType)
+				}
+			}
+		}
+
+		var argBuf [1]reflect.Value
+		argBuf[0] = arg
+		results = componentValue.Call(argBuf[:])
+	} else {
+		results = componentValue.Call(nil)
+	}
+
+	if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
+		return nil
+	}
+
+	element, _ := results[0].Interface().(*runtime.Element)
+	return element
+}
+
+func getComponentMeta(componentType reflect.Type) componentMeta {
+	if cached, ok := componentMetaCache.Load(componentType); ok {
+		return cached.(componentMeta)
+	}
+
 	if componentType.NumIn() > 1 {
 		panic("ui.CreateElement components may accept at most one props argument")
 	}
@@ -189,30 +239,15 @@ func renderComponent(rawProps map[string]interface{}) *runtime.Element {
 		panic("ui.CreateElement components must return ui.Node")
 	}
 
-	args := []reflect.Value{}
+	meta := componentMeta{}
 	if componentType.NumIn() == 1 {
-		arg := reflect.Zero(componentType.In(0))
-		if provided, ok := rawProps[propsKey]; ok {
-			providedValue := reflect.ValueOf(provided)
-			if providedValue.IsValid() {
-				switch {
-				case providedValue.Type().AssignableTo(componentType.In(0)):
-					arg = providedValue
-				case providedValue.Type().ConvertibleTo(componentType.In(0)):
-					arg = providedValue.Convert(componentType.In(0))
-				}
-			}
-		}
-		args = append(args, arg)
+		meta.hasArg = true
+		meta.argType = componentType.In(0)
+		meta.zeroArg = reflect.Zero(meta.argType)
 	}
 
-	results := componentValue.Call(args)
-	if len(results) == 0 || !results[0].IsValid() || results[0].IsNil() {
-		return nil
-	}
-
-	element, _ := results[0].Interface().(*runtime.Element)
-	return element
+	stored, _ := componentMetaCache.LoadOrStore(componentType, meta)
+	return stored.(componentMeta)
 }
 
 func toInterfaces(children []Node) []interface{} {

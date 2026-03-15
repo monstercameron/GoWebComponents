@@ -141,6 +141,30 @@ func BenchmarkPerformUnitOfWorkFunctionComponentLeaf(b *testing.B) {
 	}
 }
 
+func BenchmarkPerformUnitOfWorkFunctionComponentNoPropsLeaf(b *testing.B) {
+	adapter := newTestDOMAdapter()
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: newTestScheduler()})
+	props := map[string]interface{}{"id": "leaf"}
+	rendered := &Element{Type: "div", Props: props}
+	component := func() *Element { return rendered }
+	oldChild := &Fiber{typeOf: "div", props: props, dom: adapter.CreateElement("div")}
+	fiber := &Fiber{
+		typeOf:    component,
+		props:     map[string]interface{}{},
+		dirty:     true,
+		alternate: &Fiber{child: oldChild},
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		fiber.dirty = true
+		fiber.child = nil
+		rt.deletions = rt.deletions[:0]
+		_ = rt.performUnitOfWork(fiber)
+	}
+}
+
 func BenchmarkUpdateDomPropertiesInitialRender(b *testing.B) {
 	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
 	newProps := map[string]interface{}{
@@ -187,5 +211,58 @@ func BenchmarkCommitDeletionDomlessSubtree32(b *testing.B) {
 			prev = child
 		}
 		rt.commitDeletion(root, parentDOM)
+	}
+}
+
+func BenchmarkCommitWorkPlacementChain16(b *testing.B) {
+	adapter := newTestDOMAdapter()
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: newTestScheduler()})
+	parentDOM := adapter.CreateElement("div")
+	parent := &Fiber{typeOf: "root", dom: parentDOM}
+
+	var first *Fiber
+	var prev *Fiber
+	for i := 0; i < 16; i++ {
+		fiber := &Fiber{
+			typeOf:    "div",
+			dom:       adapter.CreateElement("div"),
+			parent:    parent,
+			effectTag: "PLACEMENT",
+		}
+		if first == nil {
+			first = fiber
+		} else {
+			prev.sibling = fiber
+		}
+		prev = fiber
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		parentDOM.(*testDOMNode).children = parentDOM.(*testDOMNode).children[:0]
+		rt.commitWork(first, parentDOM)
+	}
+}
+
+func BenchmarkRunEffectsChain16(b *testing.B) {
+	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	root := &Fiber{}
+	current := root
+	for i := 0; i < 16; i++ {
+		child := &Fiber{
+			hooks: &Hooks{cleanups: make([]func(), 1)},
+			effects: []Effect{{
+				Fn: func() func() { return nil },
+			}},
+		}
+		current.child = child
+		current = child
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		rt.runEffects(root)
 	}
 }
