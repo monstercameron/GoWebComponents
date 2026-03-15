@@ -37,10 +37,10 @@ func (n *WASMDOMNode) Value() js.Value {
 
 // WASMDOMAdapter implements DOMAdapter for browser/WASM
 type WASMDOMAdapter struct {
-	document       js.Value
-	createElement  js.Value
-	createTextNode js.Value
-	querySelector  js.Value
+	document         js.Value
+	createElement    js.Value
+	createTextNode   js.Value
+	querySelector    js.Value
 	querySelectorAll js.Value
 	getElementByID   js.Value
 	getByClassName   js.Value
@@ -86,14 +86,14 @@ func NewWASMDOMAdapter() *WASMDOMAdapter {
 	return &WASMDOMAdapter{
 		document: doc,
 		// Bind methods to document to ensure correct 'this' context when Invoked
-		createElement:  doc.Get("createElement").Call("bind", doc),
-		createTextNode: doc.Get("createTextNode").Call("bind", doc),
-		querySelector:  doc.Get("querySelector").Call("bind", doc),
+		createElement:    doc.Get("createElement").Call("bind", doc),
+		createTextNode:   doc.Get("createTextNode").Call("bind", doc),
+		querySelector:    doc.Get("querySelector").Call("bind", doc),
 		querySelectorAll: doc.Get("querySelectorAll").Call("bind", doc),
 		getElementByID:   doc.Get("getElementById").Call("bind", doc),
 		getByClassName:   doc.Get("getElementsByClassName").Call("bind", doc),
 		getByTagName:     doc.Get("getElementsByTagName").Call("bind", doc),
-		createFragment: doc.Get("createDocumentFragment").Call("bind", doc),
+		createFragment:   doc.Get("createDocumentFragment").Call("bind", doc),
 		// Cache element methods (not bound, will use Call)
 		appendChild:         elemProto.Get("appendChild"),
 		removeChild:         elemProto.Get("removeChild"),

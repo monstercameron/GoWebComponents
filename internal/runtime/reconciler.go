@@ -32,7 +32,7 @@ var (
 		"onfocus":   {kind: propKindDefault, attrName: "onfocus", resetValue: nil, shouldReset: true},
 		"onblur":    {kind: propKindDefault, attrName: "onblur", resetValue: nil, shouldReset: true},
 	}
-	slicePool     = sync.Pool{
+	slicePool = sync.Pool{
 		New: func() interface{} {
 			// Initial capacity 16 seems reasonable for children
 			return make([]interface{}, 0, 16)
@@ -598,7 +598,6 @@ func hasFiberKey(fiber *Fiber) bool {
 	_, ok := fiber.props["key"]
 	return ok
 }
-
 
 func elementComparableKey(elem *Element) (interface{}, bool) {
 	if elem == nil || elem.Props == nil {
