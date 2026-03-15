@@ -21,13 +21,30 @@ func TestNewHashRouter(t *testing.T) {
 // TestNewHashRouterWithOptions tests hash router with custom options
 func TestNewHashRouterWithOptions(t *testing.T) {
 	options := RouterOptions{
-		DefaultRoute: "/home",
+		DefaultRoute: "home/",
 	}
 
 	r := NewHashRouter(options)
 
 	if r == nil {
 		t.Fatal("NewHashRouter with options returned nil")
+	}
+	if r.defaultRoute != "/home" {
+		t.Fatalf("expected normalized default route '/home', got %q", r.defaultRoute)
+	}
+}
+
+func TestCurrentFallsBackToNormalizedDefaultRoute(t *testing.T) {
+	installRouterBrowserEnv(t)
+
+	r := NewRouter(RouterOptions{DefaultRoute: "home/"})
+	home := func(props Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("Home"))
+	}
+	r.GoRegisterRoute("/home", home)
+
+	if got := r.Current(); got == nil {
+		t.Fatal("expected normalized default route to resolve registered home component")
 	}
 }
 
@@ -72,12 +89,12 @@ func TestPathNormalization(t *testing.T) {
 		}
 
 		r.GoRegisterRoute(tc.input, testComponent)
+		if _, ok := r.routes[tc.expected]; !ok {
+			t.Fatalf("expected normalized path %q to be registered for input %q", tc.expected, tc.input)
+		}
 	}
-
-	// Simply verify routes were registered
-	elem := r.GoGetRoute()
-	if elem == nil {
-		t.Error("Routes not properly registered")
+	if _, ok := r.routes["about"]; ok {
+		t.Fatal("expected raw unnormalized path to be absent")
 	}
 }
 

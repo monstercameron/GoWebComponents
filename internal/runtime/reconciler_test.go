@@ -793,6 +793,40 @@ func TestCommitDeletion_FunctionComponent(t *testing.T) {
 	}
 }
 
+func TestCommitDeletion_FunctionComponentPreservesSiblingComponentDOM(t *testing.T) {
+	mockDOM := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{
+		DOMAdapter: mockDOM,
+		Scheduler:  scheduler,
+	})
+
+	parentDOM := mockDOM.CreateElement("div")
+	deletedDOM := mockDOM.CreateElement("span")
+	keptDOM := mockDOM.CreateElement("p")
+	mockDOM.AppendChild(parentDOM, deletedDOM)
+	mockDOM.AppendChild(parentDOM, keptDOM)
+
+	deletedFiber := &Fiber{typeOf: func(p map[string]interface{}) *Element { return nil }, props: make(map[string]interface{})}
+	deletedChild := &Fiber{typeOf: "span", props: make(map[string]interface{}), dom: deletedDOM, parent: deletedFiber}
+	deletedFiber.child = deletedChild
+
+	keptFiber := &Fiber{typeOf: func(p map[string]interface{}) *Element { return nil }, props: make(map[string]interface{})}
+	keptChild := &Fiber{typeOf: "p", props: make(map[string]interface{}), dom: keptDOM, parent: keptFiber}
+	keptFiber.child = keptChild
+	deletedFiber.sibling = keptFiber
+
+	rt.commitDeletion(deletedFiber, parentDOM)
+
+	children := parentDOM.(*testDOMNode).children
+	if len(children) != 1 {
+		t.Fatalf("expected sibling component DOM to remain, got %d children", len(children))
+	}
+	if children[0] != keptDOM {
+		t.Fatal("expected sibling component DOM node to be preserved")
+	}
+}
+
 func TestRunEffects(t *testing.T) {
 	mockDOM := newTestDOMAdapter()
 	scheduler := newTestScheduler()

@@ -9,6 +9,29 @@ import (
 var (
 	currentFiber  *Fiber
 	emptyChildren = []interface{}{}
+	propMetaCache = map[string]domPropMeta{
+		"children":  {kind: propKindSkip},
+		"style":     {kind: propKindStyle, attrName: "style"},
+		"className": {kind: propKindClass, attrName: "class"},
+		"class":     {kind: propKindClass, attrName: "class"},
+		"value":     {kind: propKindSpecialProperty, attrName: "value", resetValue: "", shouldReset: true},
+		"checked":   {kind: propKindSpecialProperty, attrName: "checked", resetValue: false, shouldReset: true},
+		"selected":  {kind: propKindSpecialProperty, attrName: "selected", resetValue: false, shouldReset: true},
+		"disabled":  {kind: propKindDefault, attrName: "disabled", resetValue: false, shouldReset: true},
+		"required":  {kind: propKindDefault, attrName: "required", resetValue: false, shouldReset: true},
+		"readOnly":  {kind: propKindDefault, attrName: "readOnly", resetValue: false, shouldReset: true},
+		"hidden":    {kind: propKindDefault, attrName: "hidden", resetValue: false, shouldReset: true},
+		"multiple":  {kind: propKindDefault, attrName: "multiple", resetValue: false, shouldReset: true},
+		"autofocus": {kind: propKindDefault, attrName: "autofocus", resetValue: false, shouldReset: true},
+		"onclick":   {kind: propKindDefault, attrName: "onclick", resetValue: nil, shouldReset: true},
+		"oninput":   {kind: propKindDefault, attrName: "oninput", resetValue: nil, shouldReset: true},
+		"onchange":  {kind: propKindDefault, attrName: "onchange", resetValue: nil, shouldReset: true},
+		"onsubmit":  {kind: propKindDefault, attrName: "onsubmit", resetValue: nil, shouldReset: true},
+		"onkeydown": {kind: propKindDefault, attrName: "onkeydown", resetValue: nil, shouldReset: true},
+		"onkeyup":   {kind: propKindDefault, attrName: "onkeyup", resetValue: nil, shouldReset: true},
+		"onfocus":   {kind: propKindDefault, attrName: "onfocus", resetValue: nil, shouldReset: true},
+		"onblur":    {kind: propKindDefault, attrName: "onblur", resetValue: nil, shouldReset: true},
+	}
 	slicePool     = sync.Pool{
 		New: func() interface{} {
 			// Initial capacity 16 seems reasonable for children
@@ -21,10 +44,44 @@ var (
 			return &Fiber{}
 		},
 	}
+	keyedFiberMapPool = sync.Pool{
+		New: func() interface{} {
+			return make(map[interface{}]*Fiber, 16)
+		},
+	}
+	fiberScratchSlicePool = sync.Pool{
+		New: func() interface{} {
+			return make([]*Fiber, 0, 16)
+		},
+	}
 	// Pre-allocated buffer for batch operations
 	batchBuffer     [256]*Fiber
 	batchBufferUsed int
 )
+
+type domPropKind uint8
+
+const (
+	propKindDefault domPropKind = iota
+	propKindSkip
+	propKindStyle
+	propKindClass
+	propKindSpecialProperty
+)
+
+type domPropMeta struct {
+	kind        domPropKind
+	attrName    string
+	resetValue  interface{}
+	shouldReset bool
+}
+
+func getPropMeta(name string) domPropMeta {
+	if meta, ok := propMetaCache[name]; ok {
+		return meta
+	}
+	return domPropMeta{kind: propKindDefault, attrName: name}
+}
 
 func acquireWorkInProgress(oldFiber *Fiber) *Fiber {
 	if oldFiber != nil && oldFiber.alternate != nil {
@@ -199,6 +256,11 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 	}
 	elements = flatElements
 
+	if shouldUseKeyedReconciliation(elements, wipFiber) {
+		rt.reconcileKeyedChildren(wipFiber, elements)
+		return
+	}
+
 	index := 0
 	var oldFiber *Fiber
 	if wipFiber.alternate != nil {
@@ -346,6 +408,245 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 		rt.deletions = append(rt.deletions, oldFiber)
 		oldFiber = oldFiber.sibling
 	}
+}
+
+func shouldUseKeyedReconciliation(elements []interface{}, wipFiber *Fiber) bool {
+	for _, element := range elements {
+		elem, ok := element.(*Element)
+		if !ok || elem == nil {
+			continue
+		}
+		if hasElementKey(elem) {
+			return true
+		}
+	}
+
+	if wipFiber == nil || wipFiber.alternate == nil {
+		return false
+	}
+	for oldFiber := wipFiber.alternate.child; oldFiber != nil; oldFiber = oldFiber.sibling {
+		if hasFiberKey(oldFiber) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (rt *Runtime) reconcileKeyedChildren(wipFiber *Fiber, elements []interface{}) {
+	oldByKey := keyedFiberMapPool.Get().(map[interface{}]*Fiber)
+	oldFallbackKeyed := fiberScratchSlicePool.Get().([]*Fiber)
+	oldFallbackKeyed = oldFallbackKeyed[:0]
+	oldUnkeyed := fiberScratchSlicePool.Get().([]*Fiber)
+	oldUnkeyed = oldUnkeyed[:0]
+	defer func() {
+		clear(oldByKey)
+		keyedFiberMapPool.Put(oldByKey)
+		clear(oldFallbackKeyed)
+		fiberScratchSlicePool.Put(oldFallbackKeyed[:0])
+		clear(oldUnkeyed)
+		fiberScratchSlicePool.Put(oldUnkeyed[:0])
+	}()
+
+	var oldFirst *Fiber
+	if wipFiber.alternate != nil {
+		oldFirst = wipFiber.alternate.child
+	}
+
+	for oldFiber := oldFirst; oldFiber != nil; oldFiber = oldFiber.sibling {
+		if key, ok := fiberComparableKey(oldFiber); ok {
+			oldByKey[key] = oldFiber
+		} else if hasFiberKey(oldFiber) {
+			oldFallbackKeyed = append(oldFallbackKeyed, oldFiber)
+		} else {
+			oldUnkeyed = append(oldUnkeyed, oldFiber)
+		}
+	}
+
+	unkeyedIndex := 0
+	var prevSibling *Fiber
+	firstChildSet := false
+
+	for _, element := range elements {
+		elem, ok := element.(*Element)
+		if !ok || elem == nil {
+			continue
+		}
+
+		var matchedOld *Fiber
+		if key, hasKey := elementComparableKey(elem); hasKey {
+			matchedOld = oldByKey[key]
+			if matchedOld != nil {
+				delete(oldByKey, key)
+			}
+		} else if hasElementKey(elem) {
+			matchedOld = takeMatchingFallbackKeyed(oldFallbackKeyed, elem)
+		} else if unkeyedIndex < len(oldUnkeyed) {
+			matchedOld = oldUnkeyed[unkeyedIndex]
+			unkeyedIndex++
+		}
+
+		var newFiber *Fiber
+		if matchedOld != nil && sameFiberType(elem, matchedOld) {
+			isDirty := rt.isFiberDirty(matchedOld)
+			needsUpdate := isDirty || matchedOld.needsUpdate
+
+			if !needsUpdate {
+				if t, ok := elem.Type.(string); ok && t == "TEXT_ELEMENT" {
+					oldText := matchedOld.textContent
+					if oldText == "" && matchedOld.props != nil {
+						oldText, _ = matchedOld.props["nodeValue"].(string)
+					}
+					newText := elem.TextContent
+					if newText == "" && elem.Props != nil {
+						newText, _ = elem.Props["nodeValue"].(string)
+					}
+					needsUpdate = oldText != newText
+				} else {
+					needsUpdate = !propsEqual(matchedOld.props, elem.Props)
+				}
+			}
+
+			effectTag := "UPDATE"
+			if !needsUpdate {
+				effectTag = ""
+			}
+
+			newFiber = acquireWorkInProgress(matchedOld)
+			*newFiber = Fiber{
+				typeOf:         matchedOld.typeOf,
+				props:          elem.Props,
+				textContent:    elem.TextContent,
+				dom:            matchedOld.dom,
+				parent:         wipFiber,
+				alternate:      matchedOld,
+				effectTag:      effectTag,
+				dirty:          needsUpdate,
+				hooks:          matchedOld.hooks,
+				eventCallbacks: matchedOld.eventCallbacks,
+			}
+		} else {
+			if matchedOld != nil {
+				matchedOld.effectTag = "DELETION"
+				rt.deletions = append(rt.deletions, matchedOld)
+			}
+
+			newFiber = acquireWorkInProgress(nil)
+			*newFiber = Fiber{
+				typeOf:      elem.Type,
+				props:       elem.Props,
+				textContent: elem.TextContent,
+				parent:      wipFiber,
+				effectTag:   "PLACEMENT",
+				dirty:       true,
+			}
+		}
+
+		if !firstChildSet {
+			wipFiber.child = newFiber
+			firstChildSet = true
+		} else if prevSibling != nil {
+			prevSibling.sibling = newFiber
+		}
+		prevSibling = newFiber
+	}
+
+	for _, oldFiber := range oldByKey {
+		oldFiber.effectTag = "DELETION"
+		rt.deletions = append(rt.deletions, oldFiber)
+	}
+	for _, oldFiber := range oldFallbackKeyed {
+		if oldFiber == nil {
+			continue
+		}
+		oldFiber.effectTag = "DELETION"
+		rt.deletions = append(rt.deletions, oldFiber)
+	}
+	for ; unkeyedIndex < len(oldUnkeyed); unkeyedIndex++ {
+		oldFiber := oldUnkeyed[unkeyedIndex]
+		oldFiber.effectTag = "DELETION"
+		rt.deletions = append(rt.deletions, oldFiber)
+	}
+}
+
+func sameFiberType(elem *Element, oldFiber *Fiber) bool {
+	if elem == nil || oldFiber == nil {
+		return false
+	}
+
+	if s1, ok1 := elem.Type.(string); ok1 {
+		if s2, ok2 := oldFiber.typeOf.(string); ok2 {
+			return s1 == s2
+		}
+	}
+
+	return isSameType(elem.Type, oldFiber.typeOf)
+}
+
+func hasElementKey(elem *Element) bool {
+	if elem == nil || elem.Props == nil {
+		return false
+	}
+	_, ok := elem.Props["key"]
+	return ok
+}
+
+func hasFiberKey(fiber *Fiber) bool {
+	if fiber == nil || fiber.props == nil {
+		return false
+	}
+	_, ok := fiber.props["key"]
+	return ok
+}
+
+
+func elementComparableKey(elem *Element) (interface{}, bool) {
+	if elem == nil || elem.Props == nil {
+		return nil, false
+	}
+	return propsComparableKey(elem.Props)
+}
+
+func fiberComparableKey(fiber *Fiber) (interface{}, bool) {
+	if fiber == nil || fiber.props == nil {
+		return nil, false
+	}
+	return propsComparableKey(fiber.props)
+}
+
+func propsComparableKey(props map[string]interface{}) (interface{}, bool) {
+	key, ok := props["key"]
+	if !ok || key == nil {
+		return nil, false
+	}
+	switch typed := key.(type) {
+	case string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr, bool:
+		return typed, true
+	case *Element, *Fiber:
+		return typed, true
+	}
+	t := reflect.TypeOf(key)
+	if t == nil || !t.Comparable() {
+		return nil, false
+	}
+	return key, true
+}
+
+func takeMatchingFallbackKeyed(oldFibers []*Fiber, elem *Element) *Fiber {
+	if elem == nil || elem.Props == nil {
+		return nil
+	}
+	key := elem.Props["key"]
+	for index, oldFiber := range oldFibers {
+		if oldFiber == nil || oldFiber.props == nil {
+			continue
+		}
+		if fastEqual(oldFiber.props["key"], key) {
+			oldFibers[index] = nil
+			return oldFiber
+		}
+	}
+	return nil
 }
 
 // propsEqual compares two property maps for equality
@@ -641,12 +942,13 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 		}
 
 		for name, value := range newProps {
-			if name == "children" {
+			meta := getPropMeta(name)
+			if meta.kind == propKindSkip {
 				continue
 			}
 
-			switch name {
-			case "style":
+			switch meta.kind {
+			case propKindStyle:
 				// Flush batch before style
 				flushAttrBatch(len(newProps))
 				if styles, ok := value.(map[string]string); ok {
@@ -656,23 +958,23 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 						if attrBatch == nil {
 							attrBatch = make(map[string]string, len(newProps))
 						}
-						attrBatch["style"] = str
+						attrBatch[meta.attrName] = str
 					} else {
-						rt.domAdapter.SetAttribute(dom, "style", str)
+						rt.domAdapter.SetAttribute(dom, meta.attrName, str)
 					}
 				}
-			case "className", "class":
+			case propKindClass:
 				if str, ok := value.(string); ok {
 					if supportsBatching {
 						if attrBatch == nil {
 							attrBatch = make(map[string]string, len(newProps))
 						}
-						attrBatch["class"] = str
+						attrBatch[meta.attrName] = str
 					} else {
-						rt.domAdapter.SetAttribute(dom, "class", str)
+						rt.domAdapter.SetAttribute(dom, meta.attrName, str)
 					}
 				}
-			case "value", "checked", "selected":
+			case propKindSpecialProperty:
 				// Flush batch before property
 				flushAttrBatch(len(newProps))
 				rt.domAdapter.SetProperty(dom, name, value)
@@ -682,9 +984,9 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 						if attrBatch == nil {
 							attrBatch = make(map[string]string, len(newProps))
 						}
-						attrBatch[name] = str
+						attrBatch[meta.attrName] = str
 					} else {
-						rt.domAdapter.SetAttribute(dom, name, str)
+						rt.domAdapter.SetAttribute(dom, meta.attrName, str)
 					}
 				} else {
 					// Flush batch before property
@@ -701,21 +1003,23 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 
 	// Remove old properties
 	for name := range oldProps {
-		if name == "children" {
+		meta := getPropMeta(name)
+		if meta.kind == propKindSkip {
 			continue
 		}
 		if _, exists := newProps[name]; !exists {
-			if resetValue, shouldReset := removedPropertyResetValue(name); shouldReset {
-				rt.domAdapter.SetProperty(dom, name, resetValue)
+			if meta.shouldReset {
+				rt.domAdapter.SetProperty(dom, name, meta.resetValue)
 			} else {
-				rt.domAdapter.RemoveAttribute(dom, name)
+				rt.domAdapter.RemoveAttribute(dom, meta.attrName)
 			}
 		}
 	}
 
 	// Set new properties
 	for name, value := range newProps {
-		if name == "children" {
+		meta := getPropMeta(name)
+		if meta.kind == propKindSkip {
 			continue
 		}
 
@@ -724,42 +1028,29 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 			continue
 		}
 
-		switch name {
-		case "style":
+		switch meta.kind {
+		case propKindStyle:
 			if styles, ok := value.(map[string]string); ok {
 				rt.domAdapter.SetStyles(dom, styles)
 			} else if str, ok := value.(string); ok {
 				// Allow inline style strings as attribute values
-				rt.domAdapter.SetAttribute(dom, "style", str)
+				rt.domAdapter.SetAttribute(dom, meta.attrName, str)
 			}
-		case "className", "class":
+		case propKindClass:
 			if str, ok := value.(string); ok {
-				rt.domAdapter.SetAttribute(dom, "class", str)
+				rt.domAdapter.SetAttribute(dom, meta.attrName, str)
 			}
-		case "value", "checked", "selected":
+		case propKindSpecialProperty:
 			// Always set these as properties to ensure UI updates correctly
 			rt.domAdapter.SetProperty(dom, name, value)
 		default:
 			if str, ok := value.(string); ok {
-				rt.domAdapter.SetAttribute(dom, name, str)
+				rt.domAdapter.SetAttribute(dom, meta.attrName, str)
 			} else {
 				// Always update properties (especially event handlers which are closures)
 				rt.domAdapter.SetProperty(dom, name, value)
 			}
 		}
-	}
-}
-
-func removedPropertyResetValue(name string) (interface{}, bool) {
-	switch name {
-	case "value":
-		return "", true
-	case "checked", "selected", "disabled", "required", "readOnly", "hidden", "multiple", "autofocus":
-		return false, true
-	case "onclick", "oninput", "onchange", "onsubmit", "onkeydown", "onkeyup", "onfocus", "onblur":
-		return nil, true
-	default:
-		return nil, false
 	}
 }
 
@@ -873,7 +1164,7 @@ func (rt *Runtime) commitDeletion(fiber *Fiber, domParent DOMNode) {
 	} else {
 		// Function component without DOM node - recursively delete all descendants
 		// We need to find and remove all actual DOM nodes in the subtree
-		rt.deleteFiberSubtree(fiber, domParent)
+		rt.deleteFiberSubtree(fiber.child, domParent)
 	}
 }
 

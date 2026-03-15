@@ -119,11 +119,42 @@ func installBenchmarkDOM() func() {
 	docQuerySelector := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		return makeNode.Invoke("div")
 	})
+	docQuerySelectorAll := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		list := arrayCtor.New()
+		list.Call("push", makeNode.Invoke("div"))
+		list.Set("item", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			return this.Index(args[0].Int())
+		}))
+		return list
+	})
+	docGetElementById := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return makeNode.Invoke("div")
+	})
+	docGetElementsByClassName := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		list := arrayCtor.New()
+		list.Call("push", makeNode.Invoke("div"))
+		list.Set("item", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			return this.Index(args[0].Int())
+		}))
+		return list
+	})
+	docGetElementsByTagName := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		list := arrayCtor.New()
+		list.Call("push", makeNode.Invoke("div"))
+		list.Set("item", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			return this.Index(args[0].Int())
+		}))
+		return list
+	})
 	doc := objectCtor.New()
 	doc.Set("createElement", docCreateElement)
 	doc.Set("createTextNode", docCreateTextNode)
 	doc.Set("createDocumentFragment", docCreateFragment)
 	doc.Set("querySelector", docQuerySelector)
+	doc.Set("querySelectorAll", docQuerySelectorAll)
+	doc.Set("getElementById", docGetElementById)
+	doc.Set("getElementsByClassName", docGetElementsByClassName)
+	doc.Set("getElementsByTagName", docGetElementsByTagName)
 
 	global.Set("document", doc)
 	global.Set("Element", elementCtor)
@@ -144,6 +175,10 @@ func installBenchmarkDOM() func() {
 		docCreateTextNode.Release()
 		docCreateFragment.Release()
 		docQuerySelector.Release()
+		docQuerySelectorAll.Release()
+		docGetElementById.Release()
+		docGetElementsByClassName.Release()
+		docGetElementsByTagName.Release()
 		elementCtor.Release()
 	}
 }
@@ -197,6 +232,34 @@ func BenchmarkWASMDOMAdapterQuerySelector(b *testing.B) {
 		node := adapter.QuerySelector("#app")
 		if node == nil {
 			b.Fatal("expected DOM node")
+		}
+	}
+}
+
+func BenchmarkWASMDOMAdapterGetElementById(b *testing.B) {
+	cleanup := installBenchmarkDOM()
+	defer cleanup()
+
+	adapter := NewWASMDOMAdapter()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		node := adapter.GetElementById("app")
+		if node == nil || node.IsNull() {
+			b.Fatal("expected DOM node")
+		}
+	}
+}
+
+func BenchmarkWASMDOMAdapterQuerySelectorAll(b *testing.B) {
+	cleanup := installBenchmarkDOM()
+	defer cleanup()
+
+	adapter := NewWASMDOMAdapter()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		nodes := adapter.QuerySelectorAll(".item")
+		if len(nodes) == 0 {
+			b.Fatal("expected DOM nodes")
 		}
 	}
 }

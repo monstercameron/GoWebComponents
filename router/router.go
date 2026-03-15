@@ -42,6 +42,31 @@ type Router struct {
 
 type routeFactory func() *Element
 
+func normalizePath(path string) string {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" || trimmed == "#" {
+		return "/"
+	}
+	if trimmed == "*" {
+		return "*"
+	}
+
+	trimmed = strings.TrimPrefix(trimmed, "#")
+	if trimmed == "" {
+		return "/"
+	}
+	if !strings.HasPrefix(trimmed, "/") {
+		trimmed = "/" + trimmed
+	}
+	if len(trimmed) > 1 {
+		trimmed = strings.TrimRight(trimmed, "/")
+		if trimmed == "" {
+			return "/"
+		}
+	}
+	return trimmed
+}
+
 var initialized bool
 
 // NewHashRouter creates a hash-based router that reads from window.location.hash.
@@ -50,6 +75,7 @@ func NewHashRouter(options ...RouterOptions) *Router {
 	if len(options) > 0 {
 		cfg = options[0]
 	}
+	cfg.DefaultRoute = normalizePath(cfg.DefaultRoute)
 
 	return &Router{
 		routes:       make(map[string]routeFactory),
@@ -66,6 +92,7 @@ func NewRouter(options RouterOptions) *Router {
 	if options.DefaultRoute == "" {
 		options.DefaultRoute = "/"
 	}
+	options.DefaultRoute = normalizePath(options.DefaultRoute)
 
 	router := &Router{
 		routes:       make(map[string]routeFactory),
@@ -81,13 +108,18 @@ func NewRouter(options RouterOptions) *Router {
 
 // setupHistoryListener sets up History API listeners for popstate events
 func (r *Router) setupHistoryListener() {
+	window := js.Global().Get("window")
+	if !window.Truthy() || !window.Get("addEventListener").Truthy() {
+		return
+	}
+
 	// Handler for browser back/forward buttons
 	popstateHandler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		r.renderCurrentRoute()
 		return nil
 	})
 
-	js.Global().Get("window").Call("addEventListener", "popstate", popstateHandler)
+	window.Call("addEventListener", "popstate", popstateHandler)
 
 	// Clean up on unload
 	registerCleanup(popstateHandler)
@@ -104,10 +136,7 @@ func (r *Router) Register(path string, component interface{}, options ...Options
 		r.routes = make(map[string]routeFactory)
 	}
 
-	normalize := path
-	if normalize == "" {
-		normalize = "/"
-	}
+	normalize := normalizePath(path)
 
 	r.routes[normalize] = makeRouteFactory(component)
 
@@ -177,13 +206,17 @@ func (r *Router) ensureListener() {
 	if r.listening {
 		return
 	}
+	window := js.Global().Get("window")
+	if !window.Truthy() || !window.Get("addEventListener").Truthy() {
+		return
+	}
 	r.listening = true
 
 	handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		r.renderCurrentRoute()
 		return nil
 	})
-	js.Global().Get("window").Call("addEventListener", "hashchange", handler)
+	window.Call("addEventListener", "hashchange", handler)
 	registerCleanup(handler)
 }
 
@@ -201,43 +234,55 @@ func (r *Router) GetCurrentRouterPath() string {
 
 	if r.routerType == "history" {
 		// For history router, use pathname
-		pathname := loc.Get("pathname").String()
-		if pathname == "" || pathname == "/" {
-			return "/"
-		}
-		return pathname
+		return normalizePath(loc.Get("pathname").String())
 	}
 
 	// For hash router, use hash fragment
-	hash := strings.TrimPrefix(loc.Get("hash").String(), "#")
-	if hash == "" || hash == "/" || hash == "#" {
-		return "/"
-	}
-	return hash
+	return normalizePath(loc.Get("hash").String())
 }
 
 // Navigate navigates to a path using the appropriate method for this router type.
 func (r *Router) Navigate(path string) {
+	normalized := normalizePath(path)
 	if r.routerType == "history" {
 		// For history router, use pushState
-		js.Global().Get("history").Call("pushState", nil, "", path)
+		history := js.Global().Get("history")
+		if history.Truthy() && history.Get("pushState").Truthy() {
+			history.Call("pushState", nil, "", normalized)
+		} else if loc := js.Global().Get("location"); loc.Truthy() {
+			loc.Set("pathname", normalized)
+		}
 		r.renderCurrentRoute()
 	} else {
 		// Hash routers re-render through the hashchange listener.
-		js.Global().Get("location").Set("hash", path)
+		if loc := js.Global().Get("location"); loc.Truthy() {
+			loc.Set("hash", normalized)
+		}
 	}
 }
 
 // NavigateReplace replaces the current history entry using the appropriate method for this router type.
 func (r *Router) NavigateReplace(path string) {
+	normalized := normalizePath(path)
 	if r.routerType == "history" {
 		// For history router, use replaceState
-		js.Global().Get("history").Call("replaceState", nil, "", path)
+		history := js.Global().Get("history")
+		if history.Truthy() && history.Get("replaceState").Truthy() {
+			history.Call("replaceState", nil, "", normalized)
+		} else if loc := js.Global().Get("location"); loc.Truthy() {
+			loc.Set("pathname", normalized)
+		}
 		r.renderCurrentRoute()
 	} else {
 		// Hash routers re-render through the hashchange listener.
 		loc := js.Global().Get("location")
-		loc.Call("replace", "#"+strings.TrimPrefix(path, "#"))
+		if loc.Truthy() {
+			if loc.Get("replace").Truthy() {
+				loc.Call("replace", "#"+strings.TrimPrefix(normalized, "#"))
+			} else {
+				loc.Set("hash", normalized)
+			}
+		}
 	}
 }
 
@@ -291,12 +336,16 @@ func ensureInitialized() {
 
 func registerCleanup(handler js.Func) {
 	cleanupOnce.Do(func() {
+		window := js.Global().Get("window")
+		if !window.Truthy() || !window.Get("addEventListener").Truthy() {
+			return
+		}
 		// Register unload listener to release the hashchange handler to avoid leaks in hot reload.
 		unload := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			handler.Release()
 			return nil
 		})
-		js.Global().Get("window").Call("addEventListener", "beforeunload", unload)
+		window.Call("addEventListener", "beforeunload", unload)
 	})
 }
 

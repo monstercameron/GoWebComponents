@@ -9,11 +9,11 @@ var unsupportedFetchState = FetchState{
 	Loading: false,
 }
 
-func unsupportedFetchGetter() FetchState {
+var unsupportedFetchGetter = func() FetchState {
 	return unsupportedFetchState
 }
 
-func unsupportedFetchRefetch() {}
+var unsupportedFetchRefetch = func() {}
 
 // GoUseFetch is a stub for non-WASM environments
 func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) {

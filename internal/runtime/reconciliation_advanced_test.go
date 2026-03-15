@@ -245,8 +245,17 @@ func TestReconcileChildren_KeyedRemoveMiddle(t *testing.T) {
 	if count != 2 {
 		t.Errorf("Expected 2 children, got %d", count)
 	}
+	if wipFiber.child == nil || wipFiber.child.props["key"] != "a" {
+		t.Fatal("expected first keyed child to remain 'a'")
+	}
+	if wipFiber.child.sibling == nil || wipFiber.child.sibling.props["key"] != "c" {
+		t.Fatal("expected second keyed child to remain 'c'")
+	}
 	if len(rt.deletions) != 1 {
 		t.Errorf("Expected 1 deletion, got %d", len(rt.deletions))
+	}
+	if rt.deletions[0].props["key"] != "b" {
+		t.Fatalf("expected deleted keyed child to be 'b', got %#v", rt.deletions[0].props["key"])
 	}
 }
 

@@ -413,9 +413,8 @@ func GoUseFunc(fn interface{}) interface{} {
 	funcIdx := hooks.funcIndex
 	hooks.funcIndex++
 
-	// Validate that the input is a function
-	fnType := reflect.TypeOf(fn)
-	if fnType == nil || fnType.Kind() != reflect.Func {
+	// Validate that the input is a function.
+	if !isValidHookFunction(fn) {
 		panic("GoUseFunc requires a function")
 	}
 

@@ -41,6 +41,10 @@ type WASMDOMAdapter struct {
 	createElement  js.Value
 	createTextNode js.Value
 	querySelector  js.Value
+	querySelectorAll js.Value
+	getElementByID   js.Value
+	getByClassName   js.Value
+	getByTagName     js.Value
 	// Cached methods for performance
 	appendChild         js.Value
 	removeChild         js.Value
@@ -85,6 +89,10 @@ func NewWASMDOMAdapter() *WASMDOMAdapter {
 		createElement:  doc.Get("createElement").Call("bind", doc),
 		createTextNode: doc.Get("createTextNode").Call("bind", doc),
 		querySelector:  doc.Get("querySelector").Call("bind", doc),
+		querySelectorAll: doc.Get("querySelectorAll").Call("bind", doc),
+		getElementByID:   doc.Get("getElementById").Call("bind", doc),
+		getByClassName:   doc.Get("getElementsByClassName").Call("bind", doc),
+		getByTagName:     doc.Get("getElementsByTagName").Call("bind", doc),
 		createFragment: doc.Get("createDocumentFragment").Call("bind", doc),
 		// Cache element methods (not bound, will use Call)
 		appendChild:         elemProto.Get("appendChild"),
@@ -220,18 +228,18 @@ func (a *WASMDOMAdapter) QuerySelector(selector string) interface{} {
 }
 
 func (a *WASMDOMAdapter) QuerySelectorAll(selector string) []runtime.DOMNode {
-	nodeList := a.document.Call("querySelectorAll", selector)
+	nodeList := a.querySelectorAll.Invoke(selector)
 	length := nodeList.Get("length").Int()
 
 	nodes := make([]runtime.DOMNode, length)
 	for i := 0; i < length; i++ {
-		nodes[i] = &WASMDOMNode{value: nodeList.Call("item", i)}
+		nodes[i] = &WASMDOMNode{value: nodeList.Index(i)}
 	}
 	return nodes
 }
 
 func (a *WASMDOMAdapter) GetElementById(id string) runtime.DOMNode {
-	result := a.document.Call("getElementById", id)
+	result := a.getElementByID.Invoke(id)
 	if result.IsNull() || result.IsUndefined() {
 		return nil
 	}
@@ -239,23 +247,23 @@ func (a *WASMDOMAdapter) GetElementById(id string) runtime.DOMNode {
 }
 
 func (a *WASMDOMAdapter) GetElementsByClassName(className string) []runtime.DOMNode {
-	htmlCollection := a.document.Call("getElementsByClassName", className)
+	htmlCollection := a.getByClassName.Invoke(className)
 	length := htmlCollection.Get("length").Int()
 
 	nodes := make([]runtime.DOMNode, length)
 	for i := 0; i < length; i++ {
-		nodes[i] = &WASMDOMNode{value: htmlCollection.Call("item", i)}
+		nodes[i] = &WASMDOMNode{value: htmlCollection.Index(i)}
 	}
 	return nodes
 }
 
 func (a *WASMDOMAdapter) GetElementsByTagName(tagName string) []runtime.DOMNode {
-	htmlCollection := a.document.Call("getElementsByTagName", tagName)
+	htmlCollection := a.getByTagName.Invoke(tagName)
 	length := htmlCollection.Get("length").Int()
 
 	nodes := make([]runtime.DOMNode, length)
 	for i := 0; i < length; i++ {
-		nodes[i] = &WASMDOMNode{value: htmlCollection.Call("item", i)}
+		nodes[i] = &WASMDOMNode{value: htmlCollection.Index(i)}
 	}
 	return nodes
 }
@@ -324,7 +332,7 @@ func (a *WASMDOMAdapter) GetChildren(node runtime.DOMNode) []runtime.DOMNode {
 
 		nodes := make([]runtime.DOMNode, length)
 		for i := 0; i < length; i++ {
-			nodes[i] = &WASMDOMNode{value: children.Call("item", i)}
+			nodes[i] = &WASMDOMNode{value: children.Index(i)}
 		}
 		return nodes
 	}

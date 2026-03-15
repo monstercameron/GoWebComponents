@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-03-15
+
+### Runtime optimization work
+
+- Reduced `GoUseFunc(...)` validation overhead with build-specific fast paths for common function signatures.
+- Reduced `GoUseAtom(...)` overhead by storing atom values directly, adding a single-subscriber notification fast path, and caching getter/setter accessors per hook slot.
+- Added keyed-reconciliation fast paths, pooled keyed scratch state, and lower-overhead keyed-child consumption to reduce keyed list churn.
+- Cached DOM prop metadata in `updateDomProperties(...)` and added a steady-state DOM property benchmark path.
+- Cached additional jsdom document query bindings and switched DOM collection traversal to indexed access instead of `item(...)` calls.
+- Added runtime layout and keyed reconciliation benchmark coverage used to validate and reject broader cache-layout experiments.
+- Reverted broader experiments that regressed the benchmark suite, including the hot/cold `Fiber` split and a dedicated non-batching initial DOM-props fast path.
+
+### Runtime correctness fixes
+
+- Fixed function-component deletion so removing one DOM-less component subtree does not incorrectly remove sibling component DOM.
+
+### Public package and wasm tests
+
+- Added wasm-facing public package tests for `html`, `ui`, `state`, and `fetch` wrappers.
+- Expanded HTML builder coverage to verify public prop preservation, wrapper tag selection, and text/fragment helper behavior.
+
+### Router fixes and tests
+
+- Normalized router default routes, registration paths, and navigation targets so hash/history routing behaves consistently across trailing-slash and hash-prefixed inputs.
+- Hardened browser-router setup against missing browser globals in wasm test environments.
+- Added wasm browser-environment test helpers and broader router wasm test coverage for navigation, registration, and normalized default-route behavior.
+
+### Browser tests and benchmarks
+
+- Expanded Playwright integration coverage for filtered todo flows, effect cleanup under broader app activity, and mixed local/shared-state burst interactions.
+- Added jsdom wasm benchmarks for `GetElementById(...)` and `QuerySelectorAll(...)` and refreshed the React-vs-Go browser benchmark run.
+
 ## 2026-03-14
 
 ### Runtime fixes

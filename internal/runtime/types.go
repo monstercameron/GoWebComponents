@@ -57,6 +57,11 @@ type callbackValue struct {
 	deps []interface{}
 }
 
+type atomAccessorValue struct {
+	getter interface{}
+	setter interface{}
+}
+
 // fetchValue stores fetch state and URL for a UseFetch hook call
 type fetchValue struct {
 	state FetchState
@@ -116,6 +121,7 @@ type Hooks struct {
 	funcs     []funcHandlerValue // Store wrapped event handler functions
 	cleanups  []func()           // Cleanup functions from UseEffect
 	atoms     []string           // Store subscribed atom IDs for efficient cleanup
+	atomFuncs []atomAccessorValue
 }
 
 // Attrs is a convenience type for component props

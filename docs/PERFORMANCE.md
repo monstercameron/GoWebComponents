@@ -1,6 +1,6 @@
 # Performance Notes
 
-Last updated: 2026-03-14
+Last updated: 2026-03-15
 
 This file tracks the current performance state of the repo. It intentionally avoids old speculative claims and stale file references.
 
@@ -40,13 +40,22 @@ The runtime hot paths are:
 - Lower-churn initial `updateDomProperties(...)` batching path.
 - Expanded microbenchmark coverage for callback/ref/id/func hooks, atom-registry operations, and commit/effect traversal.
 - Pooled atom subscriber notification path for `GoUseAtom(...)` updates.
+- Direct-value atom registry storage with reduced `GoUseAtom(...)` init churn.
+- Cached `GoUseAtom(...)` getter/setter accessors per hook slot.
+- Single-subscriber fast path in atom notifications.
 - Sibling placement batching in `commitWork(...)` when the DOM adapter exposes batch hooks.
 - Specialized `WASMDOMAdapter.WrapFunction` wrappers chosen once at wrap time.
+- Build-specific `GoUseFunc(...)` validation fast path for common signatures.
 - Work-in-progress fiber reuse through alternates in reconciler and scheduler.
+- Comparable-key fast path in keyed reconciliation.
+- Pooled keyed reconciliation scratch maps/slices and destructive consumption of matched keyed children.
+- Cached jsdom document query methods and direct indexed access for DOM collections.
 
 ### Optimization work that was reverted
 
 The repo also tried more aggressive reconciler micro-optimizations around props-map creation and DOM update batching. Those changes regressed the benchmark set and were removed.
+
+This pass also tried a hot/cold `Fiber` split and a dedicated non-batching initial `updateDomProperties(...)` path. Both regressed the benchmark set and were removed.
 
 ## Benchmarks
 
@@ -118,6 +127,19 @@ Follow-up commit batching pass:
 
 The native benchmark change is effectively flat; the reason to keep this commit batching path is to enable lower browser-side append churn for adapters like `internal/platform/jsdom`, not to chase native microbenchmark wins.
 
+Follow-up hook/atom/keyed reconciliation pass from the latest Windows arm64 session:
+
+- `BenchmarkGoUseFuncWrap`: `69.44 ns/op`, `8 B/op`, `1 allocs/op`
+- `BenchmarkGoUseAtomGetter`: `24.22 ns/op`, `0 B/op`, `0 allocs/op`
+- `BenchmarkGoUseAtomIntUpdate`: `304.1 ns/op`, `208 B/op`, `4 allocs/op`
+- `BenchmarkGoUseAtomStableRerender`: `83.55 ns/op`, `0 B/op`, `0 allocs/op`
+- `BenchmarkReconcileChildrenKeyedStableList16`: `8591 ns/op`, `2869 B/op`, `18 allocs/op`
+
+The keyed reconciler benchmark remained meaningfully slower than the non-keyed stable list path, but it improved substantially from its earlier shape in this pass:
+
+- earlier keyed benchmark after first keyed benchmark addition: `13983 ns/op`, `5138 B/op`, `26 allocs/op`
+- after comparable-key matching, pooled scratch state, and destructive consumption: `8591 ns/op`, `2869 B/op`, `18 allocs/op`
+
 Commit traversal was audited but not changed further in this pass; the benchmark cost is already low relative to atom fan-out and browser-bound DOM work.
 
 Some reconciler benchmarks remain noisy because cold microbenchmarks do not model steady-state alternate reuse perfectly. That is why repeated runs and comparison tooling are still a worthwhile next step.
@@ -174,9 +196,18 @@ Reusing the same `DocumentFragment` across commit batches is a real win for the 
 
 The current wrapper specialization is modestly faster than the legacy generic wrapper.
 
+Follow-up query/collection pass from the latest Windows arm64 wasm session:
+
+- `BenchmarkWASMDOMAdapterQuerySelector`: `117253 ns/op`, `240 B/op`, `23 allocs/op`
+- `BenchmarkWASMDOMAdapterGetElementById`: `94245 ns/op`, `240 B/op`, `23 allocs/op`
+- `BenchmarkWASMDOMAdapterQuerySelectorAll`: `125510 ns/op`, `335 B/op`, `27 allocs/op`
+
+Caching bound document query methods and using direct indexed collection access materially improved the `QuerySelectorAll` path compared with the earlier benchmark (`145711 ns/op`, `431 B/op`, `34 allocs/op`).
+
 ## What To Optimize Next
 
 1. Add repeated benchmark runs and `benchstat`-style comparison to reduce noise.
 2. Keep pushing steady-state reconciliation/fiber reuse benchmarks instead of only cold-path microbenchmarks.
 3. Profile browser-bound paths separately from native runtime paths.
 4. Treat correctness regressions as blockers; performance changes in this repo have repeatedly shown that low-level wins are only worth keeping if the benchmark set and behavior tests both stay green.
+5. Treat host prop update churn and DOM/event boundary cost as the next likely levers; broader struct-layout rewrites have not paid off here.

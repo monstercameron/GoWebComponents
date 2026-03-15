@@ -31,6 +31,32 @@ func benchmarkBuildHostChain(adapter DOMAdapter, count int) (*Fiber, []interface
 	return first, elements
 }
 
+func benchmarkBuildKeyedHostChain(adapter DOMAdapter, count int) (*Fiber, []interface{}) {
+	var first *Fiber
+	var prev *Fiber
+	elements := make([]interface{}, count)
+
+	for i := 0; i < count; i++ {
+		props := map[string]interface{}{"id": strconv.Itoa(i), "key": strconv.Itoa(i)}
+		elem := &Element{Type: "div", Props: props}
+		elements[i] = elem
+
+		fiber := &Fiber{
+			typeOf: "div",
+			props:  props,
+			dom:    adapter.CreateElement("div"),
+		}
+		if first == nil {
+			first = fiber
+		} else {
+			prev.sibling = fiber
+		}
+		prev = fiber
+	}
+
+	return first, elements
+}
+
 func BenchmarkCreateElementHostWithTextChildren(b *testing.B) {
 	props := map[string]interface{}{"id": "root", "className": "card", "role": "button"}
 
@@ -117,6 +143,21 @@ func BenchmarkReconcileChildrenWithFragments16(b *testing.B) {
 	}
 }
 
+func BenchmarkReconcileChildrenKeyedStableList16(b *testing.B) {
+	adapter := newTestDOMAdapter()
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: newTestScheduler()})
+	oldFirst, elements := benchmarkBuildKeyedHostChain(adapter, 16)
+	parent := &Fiber{alternate: &Fiber{child: oldFirst}}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		parent.child = nil
+		rt.deletions = rt.deletions[:0]
+		rt.reconcileChildren(parent, elements)
+	}
+}
+
 func BenchmarkPerformUnitOfWorkFunctionComponentLeaf(b *testing.B) {
 	adapter := newTestDOMAdapter()
 	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: newTestScheduler()})
@@ -183,6 +224,37 @@ func BenchmarkUpdateDomPropertiesInitialRender(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		dom := rt.domAdapter.CreateElement("input")
 		rt.updateDomProperties(dom, nil, newProps)
+	}
+}
+
+func BenchmarkUpdateDomPropertiesSteadyState(b *testing.B) {
+	rt := NewRuntime(Config{DOMAdapter: newTestDOMAdapter(), Scheduler: newTestScheduler()})
+	dom := rt.domAdapter.CreateElement("input")
+	oldProps := map[string]interface{}{
+		"id":        "field",
+		"className": "large",
+		"value":     "abc",
+		"checked":   false,
+		"style": map[string]string{
+			"color":      "red",
+			"background": "white",
+		},
+	}
+	newProps := map[string]interface{}{
+		"id":        "field-next",
+		"className": "large active",
+		"value":     "abcd",
+		"checked":   true,
+		"style": map[string]string{
+			"color":      "blue",
+			"background": "white",
+		},
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		rt.updateDomProperties(dom, oldProps, newProps)
 	}
 }
 

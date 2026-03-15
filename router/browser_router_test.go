@@ -12,6 +12,8 @@ import (
 
 // TestNewBrowserRouter tests browser/history router initialization
 func TestNewBrowserRouter(t *testing.T) {
+	installRouterBrowserEnv(t)
+
 	tests := []struct {
 		name        string
 		options     RouterOptions
@@ -57,6 +59,8 @@ func TestNewBrowserRouter(t *testing.T) {
 
 // TestBrowserRouterType verifies router type is set correctly
 func TestBrowserRouterType(t *testing.T) {
+	installRouterBrowserEnv(t)
+
 	historyRouter := NewRouter(RouterOptions{})
 	hashRouter := NewHashRouter()
 
@@ -71,6 +75,8 @@ func TestBrowserRouterType(t *testing.T) {
 
 // TestBrowserRouterRegisterRoute tests route registration
 func TestBrowserRouterRegisterRoute(t *testing.T) {
+	installRouterBrowserEnv(t)
+
 	router := NewRouter(RouterOptions{})
 
 	testComponent := func(attrs Attrs) *Element {
@@ -95,6 +101,8 @@ func TestBrowserRouterRegisterRoute(t *testing.T) {
 
 // TestBrowserRouterGetCurrentPath tests path detection based on location
 func TestBrowserRouterGetCurrentPath(t *testing.T) {
+	installRouterBrowserEnv(t)
+
 	// Note: This test relies on window.location being set by the browser
 	// In WASM, this will be the actual browser's current URL
 	router := NewRouter(RouterOptions{})
@@ -114,6 +122,8 @@ func TestBrowserRouterGetCurrentPath(t *testing.T) {
 
 // TestBrowserRouterHashVsHistoryPath tests that different router types read different paths
 func TestBrowserRouterHashVsHistoryPath(t *testing.T) {
+	installRouterBrowserEnv(t)
+
 	historyRouter := NewRouter(RouterOptions{})
 	hashRouter := NewHashRouter()
 
@@ -134,6 +144,8 @@ func TestBrowserRouterHashVsHistoryPath(t *testing.T) {
 
 // TestBrowserRouterNavigate tests navigation method
 func TestBrowserRouterNavigate(t *testing.T) {
+	installRouterBrowserEnv(t)
+
 	router := NewRouter(RouterOptions{})
 
 	// Register a test component
@@ -155,6 +167,8 @@ func TestBrowserRouterNavigate(t *testing.T) {
 
 // TestBrowserRouterNavigateReplace tests NavigateReplace method
 func TestBrowserRouterNavigateReplace(t *testing.T) {
+	installRouterBrowserEnv(t)
+
 	router := NewRouter(RouterOptions{})
 
 	// NavigateReplace should not panic
@@ -169,6 +183,8 @@ func TestBrowserRouterNavigateReplace(t *testing.T) {
 
 // TestBrowserRouterMountElement tests mounting to a DOM element
 func TestBrowserRouterMountElement(t *testing.T) {
+	installRouterBrowserEnv(t)
+
 	router := NewRouter(RouterOptions{})
 
 	testComponent := func(attrs Attrs) *Element {
@@ -198,6 +214,8 @@ func TestBrowserRouterMountElement(t *testing.T) {
 
 // TestBrowserRouterNotFound tests wildcard route handling
 func TestBrowserRouterNotFound(t *testing.T) {
+	installRouterBrowserEnv(t)
+
 	router := NewRouter(RouterOptions{})
 
 	homeComponent := func(attrs Attrs) *Element {
@@ -218,6 +236,8 @@ func TestBrowserRouterNotFound(t *testing.T) {
 
 // TestBrowserRouterGetRoute tests getting a route component
 func TestBrowserRouterGetRoute(t *testing.T) {
+	installRouterBrowserEnv(t)
+
 	router := NewRouter(RouterOptions{})
 
 	testComponent := func(attrs Attrs) *Element {
