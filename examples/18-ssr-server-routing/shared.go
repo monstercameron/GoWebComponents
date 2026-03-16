@@ -66,7 +66,7 @@ var guideCatalog = map[string]guideArticle{
 	"ssr": {
 		ID:      "ssr",
 		Title:   "Server-rendered bootstrap flow",
-		Summary: "Each request is rendered on the server, then the browser hydrates from a route-specific bootstrap payload served by the same Go process.",
+		Summary: "Each request is rendered on the server, then the browser restores a route-specific bootstrap payload and reuses matching DOM during hydration.",
 		Highlights: []string{
 			"HTML is generated per request with ui.RenderToString(...).",
 			"A route-specific bootstrap endpoint is fetched on startup.",

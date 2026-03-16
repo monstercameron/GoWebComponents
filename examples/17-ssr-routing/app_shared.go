@@ -39,7 +39,7 @@ var guideCatalog = map[string]guideArticle{
 	"ssr": {
 		ID:      "ssr",
 		Title:   "SSR transport and hydration",
-		Summary: "Server-rendered HTML shell with a bootstrap sidecar that the wasm client reads before hydration.",
+		Summary: "Server-rendered HTML shell with a bootstrap sidecar that the wasm client restores before reusing matching DOM during hydration.",
 		Highlights: []string{
 			"Static HTML ships with real route content before wasm starts.",
 			"A JSON sidecar bootstrap payload is fetched before hydration.",
