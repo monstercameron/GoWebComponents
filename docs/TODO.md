@@ -228,16 +228,16 @@ This backlog focuses on the top-level framework features that are still missing 
 
 ### Context API
 
-- [ ] Design a public context API for the `ui` package.
-	Define the minimal surface for `CreateContext`, `Provider`, and `UseContext`, keeping it consistent with the current `ui.UseState` and `state.UseAtom` style.
-- [ ] Define behavior for missing providers.
-	Decide whether `UseContext` returns a default value, panics, or exposes an `ok` result when no provider is found.
-- [ ] Add runtime support for scoped context propagation through the fiber tree.
-	Ensure providers can override parent values and descendants resolve the nearest active provider.
-- [ ] Add tests for nested providers and re-render behavior.
-	Cover provider updates, subtree overrides, and consumer updates after provider changes.
-- [ ] Document the intended usage model.
-	Include guidance for theme, auth, configuration, and service injection scenarios.
+- [x] Design a public context API for the `ui` package.
+	`ui.CreateContext`, `context.Provider`, `ui.ContextProviderProps[T]`, and `ui.UseContext` now expose the first public subtree-context surface in the current `ui` API.
+- [x] Define behavior for missing providers.
+	Missing providers currently resolve to the context default value; `ui.UseContext` only panics when called with a nil context handle.
+- [x] Add runtime support for scoped context propagation through the fiber tree.
+	`internal/runtime` now propagates provider values through the fiber tree, supports subtree overrides, and forces dependent descendants to rerender when provider values change.
+- [x] Add tests for nested providers and re-render behavior.
+	Runtime tests now cover default resolution, nested provider overrides, and provider-change rerender behavior; `ui` package tests cover the public provider element surface.
+- [x] Document the intended usage model.
+	README and `ui` package docs now describe context usage for theme, auth/session state, configuration, and service-style dependency injection.
 
 ### Async State and Resource Caching
 
