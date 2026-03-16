@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"context"
+	"time"
 
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -227,6 +229,7 @@ func renderDocsPage(view demoShellView, actions ...ui.Node) ui.Node {
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"}, actionNodes...),
 		),
 		html.Section(html.Props{Class: "grid gap-4 md:grid-cols-3"}, highlights...),
+		deferredRouteInsights(view),
 	)
 }
 
@@ -263,6 +266,7 @@ func renderSearchPage(view demoShellView, actions ...ui.Node) ui.Node {
 				}
 				return html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"}, actions...)
 			}(),
+			deferredRouteInsights(view),
 		),
 		html.Section(html.Props{Class: "grid gap-4 md:grid-cols-2"}, results...),
 	)
@@ -304,7 +308,59 @@ func renderSecurePage(view demoShellView, actions ...ui.Node) ui.Node {
 			),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"}, actionNodes...),
 		),
+		deferredRouteInsights(view),
 	)
+}
+
+func deferredRouteInsights(view demoShellView) ui.Node {
+	loaderKey := deferredRouteKey(view)
+
+	return ui.CreateElement(ui.Lazy, ui.LazyProps{
+		Loader: func(ctx context.Context) (ui.Node, error) {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(140 * time.Millisecond):
+			}
+
+			return html.Section(html.Props{Class: "rounded-[1.75rem] border border-cyan-500/20 bg-cyan-500/5 p-6"},
+				html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Deferred route insights")),
+				html.H3(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text("Nested async panel ready")),
+				html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-300"}, html.Text("This panel resolves through ui.Lazy after the route loader has already produced the shell, showing nested async UI inside a loader-backed route.")),
+				html.P(html.Props{Class: "mt-3 text-xs uppercase tracking-[0.28em] text-slate-400"}, html.Text("Loader key: "+loaderKey)),
+			), nil
+		},
+		Dependencies: []interface{}{loaderKey},
+		Delay:        50 * time.Millisecond,
+		Timeout:      500 * time.Millisecond,
+		Fallback: html.Section(html.Props{Class: "rounded-[1.75rem] border border-white/10 bg-white/5 p-6"},
+			html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Deferred route insights")),
+			html.P(html.Props{Class: "mt-3 text-sm text-slate-300"}, html.Text("Preparing nested async panel...")),
+		),
+		TimeoutFallback: html.Section(html.Props{Class: "rounded-[1.75rem] border border-amber-400/20 bg-amber-400/10 p-6"},
+			html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-amber-300"}, html.Text("Deferred route insights")),
+			html.P(html.Props{Class: "mt-3 text-sm text-amber-100"}, html.Text("Still waiting on nested async route content...")),
+		),
+		ErrorFallback: func(err error) ui.Node {
+			return html.Section(html.Props{Class: "rounded-[1.75rem] border border-rose-400/20 bg-rose-400/10 p-6"},
+				html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-rose-300"}, html.Text("Deferred route insights")),
+				html.P(html.Props{Class: "mt-3 text-sm text-rose-100"}, html.Text("Deferred route panel failed: "+err.Error())),
+			)
+		},
+	})
+}
+
+func deferredRouteKey(view demoShellView) string {
+	switch view.Mode {
+	case "docs":
+		return fmt.Sprintf("docs:%s:%s:%d", emptyFallback(view.SectionID, "ssr"), emptyFallback(view.CurrentTab, "overview"), view.LoadRevision)
+	case "search":
+		return fmt.Sprintf("search:%s:%d", emptyFallback(view.SearchQuery, "all"), view.LoadRevision)
+	case "secure":
+		return fmt.Sprintf("secure:%s:%s:%d", emptyFallback(view.SecureUser, "guest"), emptyFallback(view.SecureRole, "none"), view.LoadRevision)
+	default:
+		return fmt.Sprintf("%s:%d", emptyFallback(view.Mode, "route"), view.LoadRevision)
+	}
 }
 
 func navLink(label string, href string, active bool) ui.Node {
