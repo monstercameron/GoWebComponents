@@ -520,14 +520,14 @@ Organization rules for this file:
 
 ### Metadata and composition model
 
-- [ ] Finalize the SSR metadata model.
-	Decide whether route-level title, description, and canonical metadata are server-owned, client-owned after hydration, or jointly reconciled.
-- [ ] Add a server render path for route-managed metadata.
-	Ensure router metadata can be emitted during `ui.RenderToString(...)` instead of requiring post-render DOM mutation.
-- [ ] Define metadata hydration reconciliation rules.
-	Prevent duplicate, stale, or leaked head tags when client resume takes over a server-rendered document.
-- [ ] Decide whether slots are part of the public composition model.
-	Either formalize slot-style composition with clear usage guidance or explicitly mark it out of scope in favor of ordinary children and layout patterns.
+- [x] Finalize the SSR metadata model.
+	Route title, description, and canonical metadata are now documented as jointly reconciled: the server emits the initial router-managed tags, hydration preserves them, and subsequent client navigation updates the same managed surface.
+- [x] Add a server render path for route-managed metadata.
+	`router.MetadataNode(...)` now renders SSR-safe head nodes that can be emitted through `ui.RenderToString(...)`, and the server-routing example now uses that path instead of hand-built metadata strings.
+- [x] Define metadata hydration reconciliation rules.
+	Client route metadata reconciliation now updates and removes only `data-gwc-router-managed="true"` tags, dedupes managed tags, and clears stale SSR-managed title state when a later route omits metadata.
+- [x] Decide whether slots are part of the public composition model.
+	Slots are now explicitly out of scope for the current public API. The documented composition model is ordinary children, explicit props, context, portals, and layout routes.
 
 ### Head management and SEO surface
 

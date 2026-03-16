@@ -1146,20 +1146,32 @@ func applyRouteTitle(state *routeMetadataState, title string) {
 	if !doc.Truthy() {
 		return
 	}
-	if state != nil && !state.baseTitleCaptured {
-		state.baseTitleCaptured = true
-		state.baseTitle = doc.Get("title").String()
-	}
+	initializeRouteMetadataState(state, doc)
 
 	trimmed := strings.TrimSpace(title)
 	if trimmed == "" {
 		if state != nil && state.titleManaged {
+			if titleElement := ensureManagedTitleElement(doc, false); titleElement.Truthy() {
+				if strings.TrimSpace(state.baseTitle) == "" {
+					removeElement(titleElement)
+				} else {
+					titleElement.Set("textContent", state.baseTitle)
+					if titleElement.Get("removeAttribute").Truthy() {
+						titleElement.Call("removeAttribute", managedMetadataAttr)
+					}
+				}
+			}
 			doc.Set("title", state.baseTitle)
 			state.titleManaged = false
 		}
 		return
 	}
 
+	titleElement := ensureManagedTitleElement(doc, true)
+	if titleElement.Truthy() {
+		titleElement.Set("textContent", trimmed)
+		titleElement.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
+	}
 	doc.Set("title", trimmed)
 	if state != nil {
 		state.titleManaged = true
@@ -1175,19 +1187,20 @@ func applyRouteMetaTag(name, content string) {
 	if !head.Truthy() {
 		return
 	}
-	element := doc.Call("querySelector", `meta[name="`+name+`"]`)
+	element := ensureManagedHeadElement(doc, head, `meta[name="`+name+`"]`, "meta", func(node js.Value) {
+		node.Call("setAttribute", "name", name)
+	})
 	trimmed := strings.TrimSpace(content)
 	if trimmed == "" {
-		if element.Truthy() && element.Get("remove").Truthy() {
-			element.Call("remove")
+		if element.Truthy() {
+			removeElement(element)
 		}
 		return
 	}
 	if !element.Truthy() {
-		element = doc.Call("createElement", "meta")
-		element.Call("setAttribute", "name", name)
-		head.Call("appendChild", element)
+		return
 	}
+	element.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
 	element.Call("setAttribute", "content", trimmed)
 }
 
@@ -1200,20 +1213,121 @@ func applyRouteCanonical(href string) {
 	if !head.Truthy() {
 		return
 	}
-	element := doc.Call("querySelector", `link[rel="canonical"]`)
+	element := ensureManagedHeadElement(doc, head, `link[rel="canonical"]`, "link", func(node js.Value) {
+		node.Call("setAttribute", "rel", "canonical")
+	})
 	trimmed := strings.TrimSpace(href)
 	if trimmed == "" {
-		if element.Truthy() && element.Get("remove").Truthy() {
-			element.Call("remove")
+		if element.Truthy() {
+			removeElement(element)
 		}
 		return
 	}
 	if !element.Truthy() {
-		element = doc.Call("createElement", "link")
-		element.Call("setAttribute", "rel", "canonical")
-		head.Call("appendChild", element)
+		return
 	}
+	element.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
 	element.Call("setAttribute", "href", trimmed)
+}
+
+func initializeRouteMetadataState(state *routeMetadataState, doc js.Value) {
+	if state == nil || state.baseTitleCaptured {
+		return
+	}
+	state.baseTitleCaptured = true
+	state.baseTitle = doc.Get("title").String()
+	if title := findManagedHeadElement(doc, `title[`+managedMetadataAttr+`="`+managedMetadataValue+`"]`); title.Truthy() {
+		state.baseTitle = ""
+		state.titleManaged = true
+	}
+}
+
+func ensureManagedTitleElement(doc js.Value, create bool) js.Value {
+	if element := findManagedHeadElement(doc, `title[`+managedMetadataAttr+`="`+managedMetadataValue+`"]`); element.Truthy() {
+		return element
+	}
+	titles := querySelectorAll(doc, "title")
+	if len(titles) == 1 {
+		titles[0].Call("setAttribute", managedMetadataAttr, managedMetadataValue)
+		return titles[0]
+	}
+	if !create {
+		return js.Null()
+	}
+	head := getHeadElement(doc)
+	if !head.Truthy() {
+		return js.Null()
+	}
+	element := doc.Call("createElement", "title")
+	element.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
+	head.Call("appendChild", element)
+	return element
+}
+
+func ensureManagedHeadElement(doc js.Value, head js.Value, selector string, tag string, initialize func(js.Value)) js.Value {
+	managedSelector := selector + `[` + managedMetadataAttr + `="` + managedMetadataValue + `"]`
+	if element := findManagedHeadElement(doc, managedSelector); element.Truthy() {
+		return element
+	}
+	matches := querySelectorAll(doc, selector)
+	if len(matches) == 1 {
+		matches[0].Call("setAttribute", managedMetadataAttr, managedMetadataValue)
+		if initialize != nil {
+			initialize(matches[0])
+		}
+		return matches[0]
+	}
+	element := doc.Call("createElement", tag)
+	element.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
+	if initialize != nil {
+		initialize(element)
+	}
+	head.Call("appendChild", element)
+	return element
+}
+
+func findManagedHeadElement(doc js.Value, selector string) js.Value {
+	matches := querySelectorAll(doc, selector)
+	if len(matches) == 0 {
+		return js.Null()
+	}
+	for _, extra := range matches[1:] {
+		removeElement(extra)
+	}
+	return matches[0]
+}
+
+func querySelectorAll(doc js.Value, selector string) []js.Value {
+	list := doc.Call("querySelectorAll", selector)
+	length := list.Get("length").Int()
+	if length == 0 {
+		return nil
+	}
+	matches := make([]js.Value, 0, length)
+	for index := 0; index < length; index++ {
+		node := list.Call("item", index)
+		if !node.Truthy() {
+			node = list.Index(index)
+		}
+		if node.Truthy() {
+			matches = append(matches, node)
+		}
+	}
+	return matches
+}
+
+func removeElement(node js.Value) {
+	if !node.Truthy() {
+		return
+	}
+	if node.Get("remove").Truthy() {
+		node.Call("remove")
+		return
+	}
+	parent := node.Get("parentNode")
+	if parent.Truthy() {
+		parent.Call("removeChild", node)
+	}
 }
 
 func getHeadElement(doc js.Value) js.Value {

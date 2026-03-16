@@ -71,6 +71,12 @@
 // before-paint scenarios should continue to use explicit event sequencing and
 // the existing UseEffect surface until a stronger concrete need appears.
 //
+// The public composition model deliberately centers on ordinary children,
+// explicit props structs, context, portals, and router layout routes. There is
+// no first-class slot API today. If a component needs named insertion points,
+// model them as explicit props or child subtrees rather than depending on an
+// undocumented slot convention.
+//
 // The ui package is the recommended replacement for the older dom/hooks/render
 // split when authoring new components.
 package ui

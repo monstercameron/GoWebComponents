@@ -5,13 +5,13 @@ package main
 
 import (
 	"fmt"
-	"html/template"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/monstercameron/GoWebComponents/router"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
@@ -107,6 +107,15 @@ func (s *appServer) handlePage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	headMetadata, err := ui.RenderToString(router.MetadataNode(router.Metadata{
+		Title:        resolved.Title,
+		Description:  resolved.Description,
+		CanonicalURL: resolved.CanonicalURL,
+	}))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	refScript, err := ui.RenderBootstrapReferenceScript(ui.SSRBootstrapReference{
 		URL:    bootstrapReferenceURL(resolved.Path, r.URL.Query()),
 		Format: ui.SSRBootstrapFormatJSON,
@@ -117,7 +126,7 @@ func (s *appServer) handlePage(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(resolved.Status)
-	_, _ = fmt.Fprintf(w, "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>%s</title><meta name=\"description\" content=\"%s\"><link rel=\"canonical\" href=\"%s\"><link rel=\"stylesheet\" href=\"/assets/tailwind.css\">%s<script src=\"/assets/wasm_exec.js\"></script><script src=\"/assets/example-logger.js\"></script></head><body class=\"bg-[#07131d] text-slate-100 min-h-screen\"><div id=\"app\">%s</div><script>const go=new Go();WebAssembly.instantiateStreaming(fetch('/assets/ssr-server-routing.wasm'),go.importObject).then(result=>go.run(result.instance)).catch(err=>console.error('Failed to load WASM:',err));</script></body></html>", template.HTMLEscapeString(resolved.Title), template.HTMLEscapeString(resolved.Description), template.HTMLEscapeString(resolved.CanonicalURL), refScript, body)
+	_, _ = fmt.Fprintf(w, "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">%s<link rel=\"stylesheet\" href=\"/assets/tailwind.css\">%s<script src=\"/assets/wasm_exec.js\"></script><script src=\"/assets/example-logger.js\"></script></head><body class=\"bg-[#07131d] text-slate-100 min-h-screen\"><div id=\"app\">%s</div><script>const go=new Go();WebAssembly.instantiateStreaming(fetch('/assets/ssr-server-routing.wasm'),go.importObject).then(result=>go.run(result.instance)).catch(err=>console.error('Failed to load WASM:',err));</script></body></html>", headMetadata, refScript, body)
 }
 
 func main() {

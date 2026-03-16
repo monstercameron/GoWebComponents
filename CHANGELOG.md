@@ -2,6 +2,13 @@
 
 ## 2026-03-16
 
+### Metadata model and composition policy
+
+- Added `router.MetadataNode(...)` so route-managed title, description, and canonical tags can be rendered during SSR through `ui.RenderToString(...)`.
+- Updated client router metadata reconciliation to treat SSR and client navigation as one managed metadata flow, reusing and cleaning up only router-owned head tags.
+- Updated the SSR server-routing example to render managed metadata tags through the shared router helper instead of hand-built escaped strings.
+- Documented the current composition decision that slots are out of scope in favor of ordinary children, explicit props, context, portals, and layout routes.
+
 ### API policy and migration guidance
 
 - Added `docs/API_POLICY.md` to define public API stability tiers, semver expectations, deprecation timing, breaking-change rules, and current latest-major-only support policy.

@@ -199,6 +199,41 @@ Route-managed metadata uses replacement semantics too: when a later route omits
 description or canonical metadata, the router removes the previously managed
 values instead of leaving stale tags behind.
 
+## SSR Metadata Ownership
+
+Route metadata for `Title`, `Description`, and `CanonicalURL` is jointly
+reconciled across SSR and the client router.
+
+The intended model is:
+
+- the server emits the initial route metadata into `<head>`
+- the emitted tags are marked as router-managed metadata
+- hydration leaves the existing server-rendered tags in place
+- later client navigation updates or removes only router-managed tags
+
+Use `router.MetadataNode(...)` together with `ui.RenderToString(...)` when a
+server-rendered route needs head metadata during the first HTML response.
+
+The router currently owns only three fields through this path:
+
+- document title
+- `meta[name="description"]`
+- `link[rel="canonical"]`
+
+This is intentionally narrower than full head management. Social metadata,
+robots directives, preload hints, and structured data remain a separate future
+surface.
+
+Hydration reconciliation rules for this metadata slice are:
+
+- server-rendered router metadata should be emitted with `router.MetadataNode(...)`
+- client cleanup removes only tags marked `data-gwc-router-managed="true"`
+- when the initial SSR title is router-managed, navigating to a route with no
+    title clears the stale managed title instead of preserving it indefinitely
+- unmanaged head tags are outside the router-owned contract and should be
+    handled through explicit application markup until a broader head-management
+    API exists
+
 ### Manual route revalidation
 
 ```go

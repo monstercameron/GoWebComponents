@@ -814,6 +814,49 @@ func TestHashRouterAppliesAndCleansMetadata(t *testing.T) {
 	}
 }
 
+func TestHashRouterCleansServerManagedMetadataOnUntitledRoute(t *testing.T) {
+	installRouterBrowserEnv(t)
+	doc := js.Global().Get("document")
+	head := doc.Get("head")
+
+	title := doc.Call("createElement", "title")
+	title.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
+	title.Set("textContent", "Server title")
+	head.Call("appendChild", title)
+	doc.Set("title", "Server title")
+
+	description := doc.Call("createElement", "meta")
+	description.Call("setAttribute", "name", "description")
+	description.Call("setAttribute", "content", "Server description")
+	description.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
+	head.Call("appendChild", description)
+
+	canonical := doc.Call("createElement", "link")
+	canonical.Call("setAttribute", "rel", "canonical")
+	canonical.Call("setAttribute", "href", "https://example.com/server")
+	canonical.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
+	head.Call("appendChild", canonical)
+
+	r := NewHashRouter()
+	js.Global().Get("location").Set("hash", "/plain")
+	r.GoRegisterRoute("/plain", func(props Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("plain"))
+	})
+
+	if elem := r.Current(); elem == nil {
+		t.Fatal("expected plain route element")
+	}
+	if got := doc.Get("title").String(); got != "" {
+		t.Fatalf("expected server-managed title cleanup to clear stale title, got %q", got)
+	}
+	if node := doc.Call("querySelector", `meta[name="description"][data-gwc-router-managed="true"]`); node.Truthy() {
+		t.Fatal("expected managed description metadata to be removed")
+	}
+	if node := doc.Call("querySelector", `link[rel="canonical"][data-gwc-router-managed="true"]`); node.Truthy() {
+		t.Fatal("expected managed canonical metadata to be removed")
+	}
+}
+
 func TestParamsZeroValue(t *testing.T) {
 	var params Params
 	if params.Has("id") {

@@ -94,6 +94,8 @@ func TestPageHandlerRendersSSRDocument(t *testing.T) {
 		"Server-rendered bootstrap flow",
 		bootstrapEndpointPath,
 		"ssr-server-routing.wasm",
+		`data-gwc-router-managed="true"`,
+		`rel="canonical"`,
 	}
 	for _, check := range checks {
 		if !strings.Contains(body, check) {

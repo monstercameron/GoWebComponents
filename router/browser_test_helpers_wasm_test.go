@@ -157,6 +157,28 @@ func installRouterBrowserEnv(t testing.TB) {
 		}
 		return js.Null()
 	}
+	findHeadChildren := func(head js.Value, tag string, attrName string, attrValue string, managedOnly bool) js.Value {
+		list := arrayCtor.New()
+		children := head.Get("children")
+		length := children.Get("length").Int()
+		for index := 0; index < length; index++ {
+			child := children.Index(index)
+			if !strings.EqualFold(child.Get("tagName").String(), tag) {
+				continue
+			}
+			if attrName != "" && child.Get("attributes").Get(attrName).String() != attrValue {
+				continue
+			}
+			if managedOnly && child.Get("attributes").Get(managedMetadataAttr).String() != managedMetadataValue {
+				continue
+			}
+			list.Call("push", child)
+		}
+		list.Set("item", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			return this.Index(args[0].Int())
+		}))
+		return list
+	}
 
 	docCreateElement := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		return makeNode.Invoke(args[0].String())
@@ -180,21 +202,55 @@ func installRouterBrowserEnv(t testing.TB) {
 		switch selector {
 		case "head":
 			return head
+		case "title":
+			return findHeadChild(head, "title", "", "")
+		case `title[data-gwc-router-managed="true"]`:
+			children := findHeadChildren(head, "title", "", "", true)
+			if children.Get("length").Int() > 0 {
+				return children.Index(0)
+			}
+			return js.Null()
 		case `meta[name="description"]`:
 			return findHeadChild(head, "meta", "name", "description")
+		case `meta[name="description"][data-gwc-router-managed="true"]`:
+			children := findHeadChildren(head, "meta", "name", "description", true)
+			if children.Get("length").Int() > 0 {
+				return children.Index(0)
+			}
+			return js.Null()
 		case `link[rel="canonical"]`:
 			return findHeadChild(head, "link", "rel", "canonical")
+		case `link[rel="canonical"][data-gwc-router-managed="true"]`:
+			children := findHeadChildren(head, "link", "rel", "canonical", true)
+			if children.Get("length").Int() > 0 {
+				return children.Index(0)
+			}
+			return js.Null()
 		default:
 			return makeNode.Invoke("div")
 		}
 	})
 	docQuerySelectorAll := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		list := arrayCtor.New()
-		list.Call("push", makeNode.Invoke("div"))
-		list.Set("item", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			return this.Index(args[0].Int())
-		}))
-		return list
+		switch args[0].String() {
+		case "title":
+			return findHeadChildren(head, "title", "", "", false)
+		case `title[data-gwc-router-managed="true"]`:
+			return findHeadChildren(head, "title", "", "", true)
+		case `meta[name="description"]`:
+			return findHeadChildren(head, "meta", "name", "description", false)
+		case `meta[name="description"][data-gwc-router-managed="true"]`:
+			return findHeadChildren(head, "meta", "name", "description", true)
+		case `link[rel="canonical"]`:
+			return findHeadChildren(head, "link", "rel", "canonical", false)
+		case `link[rel="canonical"][data-gwc-router-managed="true"]`:
+			return findHeadChildren(head, "link", "rel", "canonical", true)
+		default:
+			list := arrayCtor.New()
+			list.Set("item", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				return this.Index(args[0].Int())
+			}))
+			return list
+		}
 	})
 	docGetElementByID := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		node := makeNode.Invoke("div")
