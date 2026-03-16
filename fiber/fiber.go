@@ -23,15 +23,15 @@ var (
 	updateScheduled bool // Flag to prevent multiple update scheduling
 
 	// --- UI queue for main-thread safe updates with optimized buffer sizing ---
-	uiQueue         chan func()
-	uiQueueSize     int   = 1024 // Default buffer size
-	uiQueueMaxSize  int   = 4096 // Maximum buffer size for dynamic growth
-	uiQueueMinSize  int   = 256  // Minimum buffer size for dynamic shrinking
-	uiQueueGrowth   int64        // Counter for queue growth events
-	uiQueueShrinks  int64        // Counter for queue shrink events
-	
+	uiQueue        chan func()
+	uiQueueSize    int   = 1024 // Default buffer size
+	uiQueueMaxSize int   = 4096 // Maximum buffer size for dynamic growth
+	uiQueueMinSize int   = 256  // Minimum buffer size for dynamic shrinking
+	uiQueueGrowth  int64        // Counter for queue growth events
+	uiQueueShrinks int64        // Counter for queue shrink events
+
 	// UI queue monitoring
-	uiQueueOverflows int64 // Counter for overflow events
+	uiQueueOverflows  int64 // Counter for overflow events
 	uiQueueMaxReached int64 // Track maximum queue size reached
 
 	// Indicates we're executing on the main scheduler/commit/effect loop
@@ -71,17 +71,17 @@ func resizeUIQueue(newSize int) {
 	if newSize > uiQueueMaxSize {
 		newSize = uiQueueMaxSize
 	}
-	
+
 	if newSize == uiQueueSize {
 		return // No change needed
 	}
-	
+
 	oldSize := uiQueueSize
 	oldQueue := uiQueue
-	
+
 	// Create new queue with optimized size
 	newQueue := make(chan func(), newSize)
-	
+
 	// Transfer existing items to new queue
 	transferred := 0
 	for {
@@ -104,11 +104,11 @@ func resizeUIQueue(newSize int) {
 			goto transferComplete
 		}
 	}
-	
+
 transferComplete:
 	uiQueue = newQueue
 	uiQueueSize = newSize
-	
+
 	if newSize > oldSize {
 		atomic.AddInt64(&uiQueueGrowth, 1)
 		debugf("FIBER", "📈 resizeUIQueue: grew UI queue %d→%d (transferred %d items)\n", oldSize, newSize, transferred)
@@ -124,14 +124,14 @@ func optimizeUIQueueSize() {
 	if !uiQueueAutoOptimization {
 		return
 	}
-	
+
 	currentLen := len(uiQueue)
 	currentCap := cap(uiQueue)
 	utilizationPercent := float64(currentLen) / float64(currentCap) * 100
-	
-	debugf("FIBER", "📊 optimizeUIQueueSize: current=%d, capacity=%d, utilization=%.1f%%\n", 
+
+	debugf("FIBER", "📊 optimizeUIQueueSize: current=%d, capacity=%d, utilization=%.1f%%\n",
 		currentLen, currentCap, utilizationPercent)
-	
+
 	// Grow if utilization is consistently high
 	if utilizationPercent > 80 && currentCap < uiQueueMaxSize {
 		newSize := currentCap * 2
@@ -140,7 +140,7 @@ func optimizeUIQueueSize() {
 		}
 		resizeUIQueue(newSize)
 	}
-	
+
 	// Shrink if utilization is consistently low
 	if utilizationPercent < 20 && currentCap > uiQueueMinSize {
 		newSize := currentCap / 2
@@ -169,7 +169,7 @@ func scheduleUpdateAtRoot() {
 	if wipRoot == nil {
 		debugf("FIBER", "🔧 scheduleUpdateAtRoot: getting fiber from pool\n")
 		atomic.AddInt64(&poolUtilization.totalAllocations, 1)
-		
+
 		poolFiber := fiberPool.Get()
 		if fiber, ok := poolFiber.(*Fiber); ok {
 			// Pool hit - track metrics
@@ -204,11 +204,11 @@ func scheduleUpdateAtRoot() {
 	wipRoot.sibling = nil
 
 	nextUnitOfWork = wipRoot
-	
+
 	// Smart slice management: shrink backing array if it grew too large
-	const maxDeletionsCapacity = 64 // Reasonable upper bound for most apps
+	const maxDeletionsCapacity = 64     // Reasonable upper bound for most apps
 	const defaultDeletionsCapacity = 16 // Default capacity for new slice
-	
+
 	if cap(deletions) > maxDeletionsCapacity {
 		// Backing array is too large, create new slice with reasonable capacity
 		oldCapacity := cap(deletions)
@@ -788,7 +788,7 @@ func SetUIQueueBufferSize(size int) {
 	if size > uiQueueMaxSize {
 		size = uiQueueMaxSize
 	}
-	
+
 	debugf("FIBER", "🔧 SetUIQueueBufferSize: resizing UI queue to %d\n", size)
 	resizeUIQueue(size)
 }
@@ -804,14 +804,14 @@ func SetUIQueueLimits(minSize, maxSize int) {
 	if maxSize > 16384 {
 		maxSize = 16384 // Absolute maximum to prevent excessive memory usage
 	}
-	
+
 	oldMin, oldMax := uiQueueMinSize, uiQueueMaxSize
 	uiQueueMinSize = minSize
 	uiQueueMaxSize = maxSize
-	
-	debugf("FIBER", "🔧 SetUIQueueLimits: updated limits min=%d→%d, max=%d→%d\n", 
+
+	debugf("FIBER", "🔧 SetUIQueueLimits: updated limits min=%d→%d, max=%d→%d\n",
 		oldMin, minSize, oldMax, maxSize)
-	
+
 	// Adjust current size if it's outside new limits
 	if uiQueueSize < minSize {
 		resizeUIQueue(minSize)
@@ -823,14 +823,14 @@ func SetUIQueueLimits(minSize, maxSize int) {
 // GetUIQueueStats returns comprehensive UI queue statistics
 func GetUIQueueStats() map[string]int64 {
 	return map[string]int64{
-		"currentSize":     int64(len(uiQueue)),
-		"bufferSize":      int64(cap(uiQueue)),
-		"minSize":         int64(uiQueueMinSize),
-		"maxSize":         int64(uiQueueMaxSize),
-		"overflowCount":   atomic.LoadInt64(&uiQueueOverflows),
-		"maxReached":      atomic.LoadInt64(&uiQueueMaxReached),
-		"growthEvents":    atomic.LoadInt64(&uiQueueGrowth),
-		"shrinkEvents":    atomic.LoadInt64(&uiQueueShrinks),
+		"currentSize":   int64(len(uiQueue)),
+		"bufferSize":    int64(cap(uiQueue)),
+		"minSize":       int64(uiQueueMinSize),
+		"maxSize":       int64(uiQueueMaxSize),
+		"overflowCount": atomic.LoadInt64(&uiQueueOverflows),
+		"maxReached":    atomic.LoadInt64(&uiQueueMaxReached),
+		"growthEvents":  atomic.LoadInt64(&uiQueueGrowth),
+		"shrinkEvents":  atomic.LoadInt64(&uiQueueShrinks),
 	}
 }
 
