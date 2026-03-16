@@ -1,10 +1,18 @@
 # GoWebComponents TODO
 
-This backlog focuses on the top-level framework features that are still missing compared to React, Svelte, Vue, and Solid. Items are ordered from easier, lower-risk implementation work toward deeper runtime and architecture changes.
+This backlog tracks missing, incomplete, or experimental framework capabilities compared to mature UI frameworks such as React, Svelte, Vue, Solid, Blazor, and Qwik.
 
-## Priority 1: Easiest Wins and API Cleanup
+Organization rules for this file:
 
-### Documentation and Public API Hygiene
+- Open work comes first.
+- Sections are numbered and grouped by problem area instead of by historical implementation phase.
+- Each TODO is an action statement followed by concrete scope notes.
+- Closely related ideas are merged to avoid duplicate backlog entries.
+- Completed milestones are summarized at the end so shipped work remains visible without crowding active priorities.
+
+## 1. Documentation and Public API Surface
+
+### Documentation hygiene
 
 - [x] Reconcile docs with the actual supported API surface.
 	The root README, package docs, and example docs now align on the current public APIs, shipped examples, SSR/hydration behavior, and the distinction between shipped versus future-facing backlog items.
@@ -13,7 +21,7 @@ This backlog focuses on the top-level framework features that are still missing 
 - [x] Clarify which packages are stable public APIs versus internal/runtime-only details.
 	The README and package docs now call out `ui`, `html`, `state`, `fetch`, `router`, and `devtools` as the public surface, while `internal/runtime` remains implementation detail.
 - [ ] Add migration notes as new primitives land.
-	Keep early adopters from depending on unstable patterns.
+	Explain how newer APIs replace older patterns so early adopters do not accumulate legacy usage accidentally.
 
 ### Example Alignment and Modernization
 
@@ -154,158 +162,127 @@ This backlog focuses on the top-level framework features that are still missing 
 - [x] Add a dedicated example index page that groups the expanded catalog by package and feature.
 	Once the one-feature-per-example set grows, the examples landing page should expose filters by `ui`, `html`, `state`, `fetch`, `router`, `devtools`, and SSR or hydration topics.
 
-### Head and Metadata Management
+### Metadata and composition model
 
-- [x] Add a strategy for document title and metadata updates.
-	The router now manages route titles, descriptions, and canonical URLs through `router.Options`, so common page metadata no longer requires direct `syscall/js` usage.
-- [x] Define ownership and cleanup behavior.
-	Route-managed metadata is replaced on route changes, and omitted description/canonical values are removed so stale tags do not linger.
-- [ ] Decide whether SSR metadata support is a future requirement.
-	This should align with any server rendering plan.
-- [x] Add examples for page title, description, and canonical URL management.
-	The router docs now include route option examples for title, description, and canonical URL management.
-
-### Portals and Slots as Public APIs
-
-- [x] Promote runtime portal support into the public API.
-	`ui.Portal(...)` now exposes a stable public helper for rendering a subtree outside the current DOM parent while keeping the logical component ownership in place.
-- [x] Clarify target selection for portals.
-	Portals now support both selector-based targets and explicit DOM node targets through `ui.PortalTarget`.
+- [ ] Finalize the SSR metadata model.
+	Decide whether route-level title, description, and canonical metadata are server-owned, client-owned after hydration, or jointly reconciled.
+- [ ] Add a server render path for route-managed metadata.
+	Ensure router metadata can be emitted during `ui.RenderToString(...)` instead of requiring post-render DOM mutation.
+- [ ] Define metadata hydration reconciliation rules.
+	Prevent duplicate, stale, or leaked head tags when client resume takes over a server-rendered document.
 - [ ] Decide whether slots are part of the public composition model.
-	If they are kept, document when to use them versus regular children.
-- [x] Add examples for modals, tooltips, and popovers.
-	`examples/20-portals` now demonstrates modal, tooltip, and popover overlays sharing a dedicated portal mount.
-- [x] Add tests for event propagation and cleanup.
-	Runtime tests now cover selector and explicit-node targets, retargeting, and cleanup on unmount, while the example Playwright suite validates interactive overlay behavior through the public portal API.
+	Either formalize slot-style composition with clear usage guidance or explicitly mark it out of scope in favor of ordinary children and layout patterns.
 
-### Go-Native Hook Additions
+## 2. Forms, Uploads, and Secure Submission Workflows
 
-#### Best Fit
+### Server-backed forms
 
-- [x] Add `ui.UsePrevious[T]` as a small but practical utility hook.
-	Implement it on top of refs and keep the contract minimal: expose the previous committed value without triggering extra renders.
-- [x] Document the intended use cases for `UsePrevious[T]`.
-	Restrict it to comparison, transition detection, and debugging-oriented UI logic so it does not become cargo-culted everywhere.
+- [ ] Define the supported form modes.
+	Document the recommended split between client-only forms, progressive-enhancement posts, JSON-backed submissions, and SSR-backed form flows.
+- [ ] Add form-post destination conventions for Go handlers.
+	Show how `ui.UseForm` should target `net/http` handlers, JSON endpoints, and multipart upload routes so server-backed forms are not all bespoke.
+- [ ] Define redirect-after-submit semantics.
+	Specify how successful submissions coordinate with router navigation, flash-style success state, and history replacement.
 
-- [x] Design `state.UseComputed[T]` as a typed derived-state hook.
-	Provide a first-class derived-state primitive that fits alongside `state.UseAtom` instead of forcing callers into raw `UseMemo` usage at every call site.
-- [x] Define dependency tracking rules for `state.UseComputed[T]`.
-	The initial version uses explicit dependency arguments, keeping recomputation rules predictable while leaving room for richer derived-atom dependency tracking later.
-- [x] Decide whether computed state is read-only or optionally writable.
-	The first version stays read-only through `state.Computed[T]` and `Get()`, avoiding writable derived state until a repeated real-world need emerges.
-- [x] Add examples for theme, filtered collections, and derived totals.
-	The state README now covers all three `UseComputed` patterns, and the atoms example uses computed theme/count display values so the hook is exercised in a real component.
+### CSRF and secure posting
 
-- [x] Evaluate `ui.UseChannel[T]` as a Go-specific differentiator.
-	Components can now subscribe to a receive-only channel through a typed handle that exposes the latest value together with availability and closed state.
-- [x] Define how `UseChannel[T]` integrates with the scheduler.
-	The initial version feeds channel updates through the existing state hook path, which keeps scheduling behavior consistent with other component-driven updates.
-- [x] Define cleanup and closure behavior.
-	The initial implementation stops its reader goroutine on unmount or channel change and records observed closure state on the public handle.
-- [x] Add examples based on timers, worker-style tasks, and streamed updates.
-	The goroutine example now includes a timed channel stream alongside the existing background task and timer flows, validating the hook against real concurrency-heavy UI patterns.
+- [ ] Add CSRF-aware form helpers for server-post workflows.
+	Support token injection and transport conventions for form posts targeting Go HTTP handlers without forcing every app to hand-roll hidden fields and headers.
+- [ ] Define CSRF token source and refresh rules.
+	Clarify whether tokens come from SSR bootstrap, cookies, headers, or explicit server endpoints and how long-lived pages refresh them safely.
 
-#### Medium Fit
+### Validation and error handling
 
-- [x] Evaluate lightweight lifecycle wrappers only if they add real semantics.
-	Current conclusion: no `UseMounted`/`UseLifecycle` wrapper has been added because a small `UseEffect` remains clearer than another lifecycle alias.
-- [x] Reject thin wrappers that only rename `UseEffect` without reducing complexity.
-	The current public hook set keeps this line tight and adds behavior-focused hooks rather than renaming lifecycle phases.
+- [ ] Add server-returned field error mapping.
+	Provide a normalized way to take structured validation errors from server responses and project them back onto public form state.
+- [ ] Add field-level message helpers.
+	Expose touched, dirty, pending, and error helpers so inline validation and summary rendering do not require repetitive app code.
+- [ ] Add submit-intent helpers.
+	Support workflows such as draft save vs publish, per-button pending state, and submit-intent-specific validation without ad hoc local state.
+- [ ] Define optimistic vs authoritative submit behavior.
+	Clarify when forms may update UI optimistically, when they must wait for the server, and how retry/reset flows behave after partial failure.
 
-- [x] Evaluate `ui.UseDebounced[T]` and `ui.UseThrottled[T]` as optional convenience hooks.
-	The current implementation uses `time.Duration`, trailing updates, and hook-managed timer cleanup, which keeps the feature aligned with the existing hook model.
-- [x] Decide whether debounce and throttle helpers belong in `ui` or a companion package.
-	They now live in `ui` because the behavior is small, broadly useful in input-heavy components, and simpler to adopt than a separate utility package.
-- [x] Add search and input-heavy examples before stabilizing these hooks.
-	The text-input example now shows immediate, debounced, and throttled views of the same input so the hooks are exercised in a real component.
+### Uploads and SSR examples
 
-- [x] Evaluate `ui.UseReducer` only if complex local state patterns become common.
-	`ui.UseReducer` is now part of the public `ui` API and has wasm coverage for typed reducer-style local state transitions.
-- [x] Compare `ui.UseReducer` against existing struct-state patterns.
-	For simple structs, `UseState.Update` remains smaller, but reducer-style actions are clearer once several fields and submit states transition together.
-- [x] Add reducer examples only if the API proves clearer than `UseState.Update`.
-	Current conclusion: keep `UseReducer` available and tested, but do not force a dedicated showcase example where `UseState.Update` or `UseForm` reads more clearly.
+- [ ] Add multipart and file-upload support.
+	Cover `multipart/form-data`, file inputs, upload progress, cancellation, and server error reporting as first-class workflows.
+- [ ] Add SSR-friendly secure form examples.
+	Demonstrate form defaults, server validation round-trips, CSRF-aware submission, uploads, and post-submit redirects in a request-time rendered example.
 
-## Priority 2: Moderate Complexity Feature Work
+## 3. JavaScript Interop Ergonomics
 
-### State Persistence and Snapshots
+### Public interop API
 
-- [x] Decide whether snapshot APIs should be promoted from examples into supported public exports.
-	Snapshot export/import and storage persistence now live in the public `state` package, so the feature is no longer example-only.
-- [x] Add a public persistence API if the feature is kept.
-	The `state` package now exposes snapshot export/import plus key-based selection for partial persistence flows.
-- [x] Define serialization constraints.
-	The docs now distinguish exact same-process snapshot restore from JSON/browser-storage persistence, which is only stable for JSON-compatible atom values.
-- [x] Add browser storage helpers.
-	Local and session storage helpers now wrap JSON persistence so apps do not need to hand-roll storage glue.
-- [x] Add hot reload state restoration tests.
-	Runtime and wasm-level tests now cover snapshot export/import and browser-storage restore flows for atom state.
+- [ ] Design a first-class public JS interop package or namespace.
+	Move common `syscall/js` patterns behind a stable public API so applications do not depend on raw low-level browser bindings for routine work.
+- [ ] Add typed wrappers for common browser APIs.
+	Cover storage, history, location, clipboard, timers, custom events, media queries, and similar APIs with predictable Go-friendly shapes.
+- [ ] Add module-style interop helpers.
+	Support importing a JS module, calling exported functions, and disposing module handles with a lifecycle model that fits component mount and unmount behavior.
 
-### Form State and Validation
+### DOM and event integration
 
-- [x] Decide whether forms stay manual or become a first-class feature.
-	The repo now exposes a minimal `ui.UseForm` helper for multi-field local forms, covering field values, touched state, dirty state, validation errors, reset, and submit lifecycle without introducing a separate heavy forms package.
-- [x] Add validation helpers.
-	`ui.Form` now supports synchronous validation, asynchronous validation, structured field errors, and form-level validation errors before submit.
-- [x] Add structured error collection.
-	The new `ui.FieldErrors` shape provides a consistent field-error map instead of ad hoc per-example structs.
-- [x] Support submission lifecycle handling.
-	`ui.Form` now reports pending, success, failure, and retry/reset flows through its submission helpers.
-- [x] Add examples for complex forms.
-	The advanced-form example now covers multi-field validation, async submit, and route-integrated submission/reset flows through the router.
+- [ ] Add event subscription helpers around browser APIs.
+	Support window and document listeners, media-query listeners, resize observers, and intersection observers with a consistent cleanup model.
+- [ ] Add element-reference based interop helpers.
+	Make it easy to target a rendered DOM node for measurement, imperative focus, scrolling, and third-party widget integration without leaking raw JS handles.
+- [ ] Add third-party library integration examples.
+	Demonstrate how to attach a JS widget, synchronize props, and tear it down cleanly on updates and unmount.
 
-### Devtools and Inspection
+### Safety, performance, and diagnostics
 
-- [x] Define the minimum useful debugging surface.
-	The first shipped `devtools` surface now covers committed component tree visibility, hook state inspection, route inspection, and runtime summary stats.
-- [x] Decide whether tooling should live in-browser, in VS Code, or both.
-	The first implementation is intentionally in-browser through an embeddable `devtools.Panel`, avoiding extension-only tooling while the surface is still stabilizing.
-- [x] Add structured runtime diagnostics for development builds.
-	The runtime and router now report structured diagnostics for invalid hook usage, missing render targets, duplicate route registration, and invalid route component configuration.
-- [x] Expand profiling beyond the shipped baseline counters.
-	The devtools surface now includes subtree hot-branch attribution plus effect and cleanup timing, and reports slow effect/cleanup paths through runtime diagnostics.
+- [ ] Define interop lifetime and cleanup rules.
+	Document when JS references must be released, how listeners are detached, and how cleanup behaves across unmounts, route changes, and hydration fallback.
+- [ ] Add SSR-safe interop guardrails.
+	Ensure browser-only helpers clearly report misuse in SSR code paths instead of failing silently or returning ambiguous zero values.
+- [ ] Add structured error handling for interop failures.
+	Surface missing APIs, rejected promises, serialization errors, and disposed-handle usage through typed Go errors and runtime diagnostics.
+- [ ] Add interop performance guidance and batching helpers.
+	Reduce repetitive boundary crossings for common DOM read, storage lookup, and event payload scenarios where `syscall/js` overhead accumulates.
+- [ ] Add interop-safe serialization guidance.
+	Specify how primitives, structs, maps, byte slices, and opaque JS values cross the boundary so large payloads and custom types behave predictably.
+- [ ] Add high-level examples that replace raw `syscall/js` usage.
+	Demonstrate storage, clipboard access, resize or media observers, and custom event integration through public helpers instead of ad hoc code.
 
-### Derived and Computed State
+## 4. Routing, Guards, and Auth-Aware Navigation
 
-- [x] Add first-class derived atom support.
-	The `state` package now exposes read-only shared derived atoms through `UseDerived`, so shared derivation no longer needs to be open-coded with component-local memo hooks.
-- [x] Define dependency tracking for derived state.
-	Derived atoms now use explicit source atom ID dependencies, and recompute only when those source atoms change.
-- [x] Add read-only computed atoms and writable derived atoms if useful.
-	The current design stays intentionally simple: `UseComputed` and `UseDerived` are both read-only, while writes continue to happen through source atoms.
-- [x] Add cycle detection or safe failure modes.
-	The runtime rejects simple self-referential derived registrations and reports derived-cycle failures as diagnostics instead of allowing silent infinite loops.
-- [x] Document best practices for expensive shared computations.
-	The state docs now distinguish local `UseComputed` from shared `UseDerived`, recommend explicit dependency lists, and discourage unnecessary long derived chains.
+### Async navigation guards
 
-### Route Matching and Params
+- [ ] Design the async guard API surface.
+	Decide how async guards are declared, how they differ from synchronous guards, and how they report allow, redirect, block, and retryable failure states.
+- [ ] Define async guard cancellation and race semantics.
+	Cancel stale in-flight guard work when navigation changes and ensure late results cannot commit a blocked or redirected navigation.
+- [ ] Define pending-navigation UX hooks.
+	Allow routes to show pending indicators, disable repeated navigation attempts, or surface a loading state while an async guard resolves.
+- [ ] Add test coverage for async guard edge cases.
+	Cover double-click navigation, back and forward navigation, loader-plus-guard interactions, and cleanup when guarded components unmount mid-check.
 
-- [x] Replace exact-path-only registration with declarative route patterns.
-	The router now supports parameter routes such as `/users/:id`, prefix wildcard routes, and catch-all routes through the public registration API.
-- [x] Expose typed route params to components.
-	Components can now use `router.UseParams()` together with typed helpers such as `Int` and `Bool` instead of parsing `location` manually.
-- [x] Add query-string helpers.
-	The router now exposes `UseSearchParams` for reading, updating, deleting, replacing, and serializing query params while preserving the active route path.
-- [x] Define path normalization and trailing-slash rules.
-	The router docs now spell out normalization rules for blank paths, leading slashes, trailing slashes, query handling, decoded params, and unsupported optional segments across hash and history routing.
-- [x] Add tests for edge cases.
-	Router tests now cover decoded params, invalid and empty param segments, unsupported optional-segment syntax, and exact/catch-all precedence rules.
+### Auth-aware routing primitives
 
-### Navigation Guards and Redirects
+- [ ] Define a lightweight auth context model for routed apps.
+	Support a framework-level auth or session signal for route gating and conditional rendering without taking on full identity-provider responsibilities.
+- [ ] Add router-level unauthorized and authorizing UI states.
+	Allow routes and route groups to render explicit unauthorized, forbidden, and pending-auth content instead of forcing every app into manual redirects.
+- [ ] Add route-group auth inheritance rules.
+	Allow a layout or route prefix to declare a shared auth requirement so protected sections do not duplicate the same gate on every leaf route.
+- [ ] Add route policy hooks above simple boolean guards.
+	Support reusable access rules such as authenticated-only, role-like app policies, or custom claims-style predicates without requiring a full auth framework.
+- [ ] Define auth state refresh and invalidation behavior.
+	Specify how route gating reacts when auth or session state changes after initial mount, including logout, token expiry, and background refresh results.
+- [ ] Define server-hydrated auth hint transfer.
+	Allow SSR flows to bootstrap a minimal auth or session snapshot so the first client resume can make consistent route decisions before fresh API checks complete.
+- [ ] Add return-to and post-auth navigation helpers.
+	Standardize preservation of the originally requested route, query string, and intended action when a user is redirected through login or re-auth flows.
+- [ ] Define loader and auth-gate ordering.
+	Ensure protected routes do not start expensive data loading before an auth policy rejects the navigation, while still allowing public shell data when explicitly intended.
+- [ ] Add protected-route examples and security guidance.
+	Demonstrate protected sections, deferred auth resolution, unauthorized fallback UI, and post-login redirect preservation, and document that client-side gating is a UX tool rather than a full security boundary.
 
-- [x] Turn route options into a real feature surface.
-	`router.Options` now supports route titles, declarative redirects, route loaders, and route-scoped loading/error renderers.
-- [x] Add before-enter and before-leave hooks.
-	The router now supports synchronous `BeforeEnter` and `BeforeLeave` guards for auth checks, permission gates, and unsaved-change blocking on router-driven navigation.
-- [x] Add redirect helpers.
-	The router now supports declarative redirects through `router.Options{Redirect: ...}`, while programmatic replacement continues to use `UseNavigate().Replace(...)`.
-- [ ] Define async guard behavior.
-	Synchronous guard hooks now exist; pending auth checks and other async route validation still need an explicit model.
-- [x] Add deterministic tests for blocked and redirected navigation.
-	The router test suite now covers blocked and redirected guard behavior for both hash and history routers.
+## 5. Data Loading, Cache Reuse, and Error Boundaries
 
-### Nested Routes and Layout Routes
+### Shared async cache and query model
 
+<<<<<<< HEAD
 - [x] Design nested route composition.
 	The router now supports opt-in layout routes through `router.Options{Layout: true}`, so parent routes can render persistent shells while a more specific child route renders into `router.Outlet()`.
 - [x] Add an outlet-style API.
@@ -390,22 +367,68 @@ This backlog focuses on the top-level framework features that are still missing 
 	Loading and error handling should compose cleanly with suspense-style rendering.
 - [x] Add realistic examples.
 	Cover list/detail fetches, mutation refreshes, and shared cached queries.
+=======
+- [ ] Design a shared resource cache above `UseFetch` and `UseResource`.
+	Support request deduplication, stale-while-revalidate behavior, and reuse across components without splitting the async data model into incompatible layers.
+- [ ] Decide where cached async state should live.
+	Keep the cache coherent with atoms and route loaders instead of creating a disconnected parallel mental model.
+- [ ] Define cache key normalization rules.
+	Ensure URLs, methods, query params, headers, loader args, and custom keys produce deterministic identities without surprising collisions.
+- [ ] Add freshness, eviction, and disposal policies.
+	Support stale time, garbage collection, max-age style expiry, and explicit disposal so long-lived apps do not leak memory.
+- [ ] Add request deduplication across concurrent subscribers.
+	Multiple components asking for the same resource should share one in-flight request rather than stampeding the network.
+- [ ] Define mutation and optimistic update APIs.
+	Support local optimistic writes, rollback on failure, and targeted invalidation for list and detail refresh flows.
+- [ ] Add route-loader and shared-cache interoperability.
+	Allow route loaders and component-level resources to share cached payloads where keys and invalidation rules match.
+- [ ] Add devtools visibility for cached resources.
+	Expose cache keys, freshness, subscriber counts, and last error state so async data bugs are debuggable without ad hoc logging.
+- [ ] Add SSR-aware cache bootstrap and resume.
+	Allow loader and resource caches to seed from server-rendered payloads and transition cleanly into client-owned cache state after hydration.
+- [ ] Define cache serialization safety.
+	Clarify which cached values may be embedded in bootstrap payloads, how large payloads are handled, and when sensitive server-only data must be excluded.
+- [ ] Add cache revalidation-on-resume policies.
+	Support rules such as trust-once, stale-while-revalidate, and always-refetch after hydration so apps can choose consistency versus startup speed explicitly.
+- [ ] Add realistic shared-cache examples.
+	Cover list/detail reuse, mutation refreshes, and cache-seeded SSR flows.
+>>>>>>> 0b39694 (docs: reorganize TODO backlog)
 
-### Error Boundaries
+### Error boundaries
 
+<<<<<<< HEAD
 - [x] Define an error boundary component contract.
 	Decide whether boundaries are function-based, struct-based, or a special component wrapper with fallback rendering.
 - [x] Capture render-time panics at subtree boundaries.
+=======
+- [ ] Define an error boundary component contract.
+	Decide whether boundaries are function-based, wrapper-based, or another explicit component form with fallback rendering.
+- [ ] Capture render-time failures at subtree boundaries.
+>>>>>>> 0b39694 (docs: reorganize TODO backlog)
 	Prevent a child component failure from crashing the entire app tree when a boundary is present.
 - [x] Support fallback UI rendering with error details.
 	Allow users to render fallback content and optionally inspect the recovered error value.
+<<<<<<< HEAD
 - [x] Define reset behavior after recovery.
 	Specify how boundaries retry after route changes, prop changes, or explicit resets.
 - [x] Add coverage for render, effect, and event handler failure cases.
 	Be explicit about which failure modes boundaries catch and which remain global errors.
+=======
+- [ ] Define reset and retry behavior.
+	Specify how boundaries retry after route changes, prop changes, or explicit resets.
+- [ ] Define which failure modes are caught.
+	Be explicit about render, effect, event handler, and hydration failures so the boundary model is predictable.
+- [ ] Decide how boundaries compose with nested routes and layouts.
+	Specify whether route-level boundaries wrap only leaf routes, layout shells plus leaves, or both.
+- [ ] Define boundary behavior during SSR and hydration.
+	Document whether server-render failures bubble globally, render fallback HTML, or mark the subtree as client-only, and how hydration failures map onto the same model.
+- [ ] Add diagnostics integration for recovered errors.
+	Recovered boundary errors should appear in runtime diagnostics and devtools with component-stack context instead of failing silently.
+>>>>>>> 0b39694 (docs: reorganize TODO backlog)
 
-### Async UI Primitives
+## 6. Scheduling and Runtime Coordination
 
+<<<<<<< HEAD
 - [x] Design a Suspense-like async boundary model.
 	The first async-boundary slice now ships as explicit `ui.AsyncBoundary`, where callers provide `Pending`, `Error`, fallback nodes, and optional delay/timeout behavior instead of relying on implicit promise throwing.
 - [x] Add lazy component loading support.
@@ -429,12 +452,55 @@ This backlog focuses on the top-level framework features that are still missing 
 	Completed earlier under Go-native hook additions: `UseReducer` shipped, and the remaining open work in this section is about scheduling primitives rather than reducer API design.
 - [x] Clarify whether a layout-effect equivalent is needed.
 	Current decision: keep `UseEffect` as the only effect hook until concrete DOM-read-before-paint scenarios justify a dedicated layout-effect API.
+=======
+- [ ] Decide whether the runtime should expose transitions.
+	Determine whether a `startTransition` or `UseTransition` equivalent fits the scheduler model and solves real UI priority problems.
+- [ ] Add lower-priority update scheduling if justified.
+	Distinguish urgent input updates from non-urgent tree refreshes where measurable UI jitter exists.
+- [ ] Decide whether deferred values are worth exposing.
+	Validate that a `UseDeferredValue`-style API solves real typeahead, filtering, or route-search problems before adding parity APIs by name alone.
+- [ ] Clarify whether a layout-effect equivalent is needed.
+	Define whether DOM-read-before-paint scenarios require a dedicated hook beyond `UseEffect` and how it interacts with hydration.
+- [ ] Define scheduler priority classes.
+	Document whether the runtime should support only urgent vs non-urgent work or a richer priority ladder.
+- [ ] Prototype a pending-state API for non-urgent updates.
+	Validate whether callers need both a scheduling primitive and a typed pending flag for transition-style refreshes.
+- [ ] Measure interruptibility requirements under heavy updates.
+	Use benchmarks and browser scenarios to determine whether long list updates, route changes, and async completions need interruptible work splitting.
+- [ ] Decide how scheduling primitives interact with route loaders and async boundaries.
+	Clarify whether transition-like updates suppress loading fallbacks, delay route pending indicators, or simply lower update priority.
+- [ ] Add browser examples for transition-style UX.
+	Cover typeahead filtering, tab switches, and route transitions so scheduler semantics are understandable in real app flows.
+>>>>>>> 0b39694 (docs: reorganize TODO backlog)
 
-## Priority 4: Deepest Architecture Work
+## 7. SSR, Hydration, State Transfer, and Streaming
 
-### SSR and Hydration
+### Hydration correctness
 
+- [ ] Teach the runtime to bind fibers to existing DOM nodes.
+	Hydration must reuse server-rendered DOM instead of always clearing and recreating it.
+- [ ] Define the initial hydration matching rules.
+	Specify how host elements, text nodes, and fragments are matched and when hydration abandons reuse.
+- [ ] Defer effects and subscriptions until hydration completes.
+	Prevent eager client work from racing with DOM matching.
+- [ ] Add subtree fallback behavior when hydration cannot safely continue.
+	Recover from mismatches at the smallest practical subtree instead of always restarting the whole render.
+- [ ] Add tests for successful hydration of simple pages and post-hydration updates.
+	Prove that reused trees continue to respond correctly after hydration completes.
+- [ ] Define event listener attachment order during hydration.
+	Specify when handlers are rebound relative to DOM matching so early user input is not lost or double-handled.
+- [ ] Preserve uncontrolled form state where safe.
+	Avoid clobbering server-rendered input values, selection, and focus when client hydration binds to existing DOM.
+- [ ] Define hydration behavior for portals, lazy nodes, async boundaries, and event-heavy components.
+	Document which subtree types hydrate in place, which fall back, and which remain explicitly out of scope for now.
+- [ ] Add route-aware hydration reuse tests.
+	Verify that SSR-rendered router state, layout stacks, and loader data resume without remounting the wrong subtree or duplicating route work.
+- [ ] Add progressive hydration benchmarks.
+	Measure cold-start latency, first interaction timing, and hydration cost on medium-size trees so future work has concrete baselines.
 
+### Server-to-client state transfer
+
+<<<<<<< HEAD
 - [x] Decide whether server-side rendering is a project goal.
 	SSR is now an explicit project goal. The current direction is request-time HTML generation on native Go targets through `ui.RenderToString(...)`, paired with browser hydration/resume through `ui.Hydrate(...)` using bootstrap restore, DOM reuse, mismatch diagnostics, and subtree fallback.
 	Phase 1 scope decisions:
@@ -509,23 +575,216 @@ This backlog focuses on the top-level framework features that are still missing 
 	- [x] Decide when to warn versus when to replace the subtree.
 		Text and attribute mismatches now warn and continue; structural mismatches fall back to client rendering for the affected subtree.
 	- [x] Add tests for mismatch reporting and recovery behavior.
+=======
+- [ ] Define serialization boundaries.
+	Specify how IDs, route state, atoms, cache seeds, form defaults, and other initial data are transferred from server to client.
+- [ ] Define how atom snapshots are exported, serialized, and restored for hydration.
+	The bootstrap story should cover both route-local payloads and shared state resumption.
+- [ ] Define how `UseId` stays deterministic across server and client.
+	Prevent SSR and client ID generation from diverging after hydration.
+- [ ] Define serialization support for non-JSON-friendly values.
+	Clarify how dates, byte slices, custom structs, and opaque IDs are encoded across JSON and CBOR bootstrap paths.
+- [ ] Add versioning to bootstrap payloads.
+	Prevent older clients or cached sidecars from silently misreading newer payload schemas.
+- [ ] Define partial bootstrap reuse rules.
+	Clarify which data may be trusted on first resume and which data must be revalidated immediately on the client.
+- [ ] Add typed helpers for server-to-client payload registration.
+	Provide an app-facing way to register route data, form defaults, cache seeds, and session hints without manual map packing in every app.
+- [ ] Define per-route and per-subtree bootstrap scoping.
+	Avoid sending the entire app state when only the active route, layout chain, or a specific async resource needs to cross the boundary.
+- [ ] Add payload size budgeting and diagnostics.
+	Expose when inline JSON, sidecar JSON, or binary payloads become too large and recommend a transport strategy before SSR payloads silently bloat responses.
+- [ ] Add server-to-client state classification guidance.
+	Separate safe public bootstrap state, resumable UI state, cache seeds, and server-only secrets so apps do not over-transfer sensitive or unnecessary data.
+- [ ] Define merge semantics for transferred state.
+	Specify how incoming bootstrap atoms, route data, and cache entries merge with client defaults or preexisting local state when a page is resumed or revisited.
+- [ ] Define state transfer ownership during hydration.
+	Clarify which bootstrap values become runtime-owned state, which remain immutable hints, and when client recomputation should overwrite transferred values.
+>>>>>>> 0b39694 (docs: reorganize TODO backlog)
 
-## Priority 5: Long-Term Strategic Work
+### Streaming SSR
 
-### Compiler-Assisted Features
+- [ ] Treat streaming SSR as an explicit post-hydration milestone.
+	Do not layer chunked transport complexity onto an unfinished hydration model.
+- [ ] Design chunked HTML streaming for route loaders.
+	Allow the server to flush shell HTML early, then stream slower data-backed sections once loader work completes.
+- [ ] Define async-boundary behavior under streaming SSR.
+	Specify whether pending boundaries flush placeholder HTML first, stream completed subtree content later, and how the client reconciles those streamed segments.
+- [ ] Add transport and buffering rules for streamed responses.
+	Document how reverse proxies, gzip, and chunk buffering affect incremental flush behavior outside local development.
+- [ ] Add examples and benchmarks for streaming SSR.
+	Use a loader-heavy page and a nested layout route to verify faster first byte, earlier shell paint, and correct hydration after incremental HTML delivery.
+
+### Hydration mismatch diagnostics
+
+- [ ] Add mismatch detection and reporting.
+	Detect text, structure, and critical attribute mismatches and surface them through runtime diagnostics.
+- [ ] Add tests for mismatch reporting and recovery behavior.
+	Prove that warnings, subtree replacement, and hydration abort cases behave deterministically.
+- [ ] Add component-stack context to mismatch diagnostics.
+	Warnings should name the component path and DOM selector context so developers can localize failures quickly.
+- [ ] Add an opt-in strict hydration mode.
+	Allow tests and development runs to fail fast on mismatches instead of silently replacing the subtree.
+- [ ] Define production mismatch behavior.
+	Document which mismatches degrade to warnings, which trigger subtree replacement, and which should abort hydration entirely.
+
+## 8. Server Integration, Deployment, and Production Patterns
+
+- [ ] Define a canonical Go HTTP integration story.
+	Document how request handlers, middleware, SSR rendering, asset serving, bootstrap payload emission, and API endpoints fit together in a production app.
+- [ ] Add middleware guidance for SSR apps.
+	Cover logging, recovery, compression, caching, CSRF or session middleware ordering, and request context propagation for server-rendered apps.
+- [ ] Add a first-party SSR app reference server.
+	Provide a production-shaped example that combines routes, SSR, hydration, API handlers, static assets, and secure form posts under one Go server.
+- [ ] Define backend API integration patterns.
+	Show how route loaders, `fetch.UseResource`, and form submissions should talk to internal Go handlers versus external APIs, including timeout and auth propagation guidance.
+- [ ] Add deployment guidance for common hosting modes.
+	Document static hosting, Go server hosting, reverse-proxy setups, and mixed SSR/API deployments so adopters know which patterns are officially supported.
+- [ ] Add observability hooks for server-rendered apps.
+	Expose request-level render timing, hydration fallback counters, and bootstrap size metrics so SSR operations are measurable in production.
+
+## 9. Strategic Direction and Experimental Work
+
+### Resumability and partial activation
+
+- [ ] Decide whether resumability is a real project goal.
+	Clarify whether the framework should remain hydrate-first or pursue a serialized-resume model with deferred code execution.
+- [ ] Evaluate partial activation and islands-style rendering as an intermediate step.
+	Determine whether route- or component-level activation can reduce startup cost without changing the whole runtime model.
+- [ ] Audit which runtime assumptions block resumability.
+	Identify reliance on eager hook execution, immediate event binding, global scheduler state, and non-serializable closures.
+- [ ] Define success criteria for resumability experiments.
+	Use measurable goals such as lower startup execution cost, preserved server HTML, and delayed activation of non-interactive subtrees.
+- [ ] Record explicit non-goals if resumability is rejected.
+	Avoid leaving SSR and compiler work open to incorrect long-term assumptions.
+
+### Fine-grained reactivity direction
+
+- [ ] Decide whether fine-grained reactivity should remain out of scope.
+	Clarify whether the framework stays fiber-and-hooks first or whether signal-like primitives are worth introducing for high-frequency UI paths.
+- [ ] Evaluate signal-style primitives in a companion package before core adoption.
+	Prototype fine-grained subscriptions without destabilizing the existing component and hook model.
+- [ ] Define the minimal primitive set for a signal experiment.
+	Decide whether the experiment needs only signal, computed, and effect-style building blocks or a larger API surface.
+- [ ] Benchmark fine-grained updates against current keyed reconciliation paths.
+	Use realistic list filtering, spreadsheet-style updates, and dashboard panels to determine whether finer granularity is actually needed.
+- [ ] Add a migration boundary between component rerenders and fine-grained subscriptions.
+	Clarify when a signal update rerenders an entire component, when it updates a smaller subscribed region, and how developers reason about mixed models.
+- [ ] Define interoperability rules for fine-grained primitives.
+	Specify how signal-like values interact with hooks, memoization, derived atoms, and scheduling.
+- [ ] Evaluate devtools implications for fine-grained updates.
+	If signal-style primitives ship, inspection and profiling must expose dependency graphs and update origins rather than only component rerenders.
+- [ ] Add failure-mode tests for stale reads and update loops.
+	Fine-grained systems are prone to accidental cycles and subscription leaks; prove the model can fail safely before widening the experiment.
+
+### Compiler-assisted features
 
 - [ ] Decide whether compiler-driven ergonomics are a real product direction.
-	This includes any Svelte-like or compile-time optimization path rather than only runtime improvements.
+	Separate syntax sugar, dead-code elimination, reactive dependency extraction, template lowering, and SSR build optimization instead of treating “compiler” as one bucket.
 - [ ] Clarify the role of the browser compiler example.
-	It currently demonstrates tooling ideas, not a production-ready framework compiler.
-- [ ] Evaluate compile-time transforms only after the public runtime model stabilizes.
-	Avoid introducing a second programming model before the first one is complete.
+	Document whether it is educational tooling, an experiment toward production tooling, or something intentionally outside the core roadmap.
+- [ ] Evaluate whether compile-time reactivity is compatible with the current hook model.
+	Determine whether any Svelte- or Solid-like compile step can coexist with `UseState` and `UseEffect` semantics without splitting the framework into two mental models.
+- [ ] Define source-language boundaries for compiler work.
+	Clarify whether compiler experiments target Go source only, HTML-like templates, generated Go helpers, or browser-hosted tooling.
+- [ ] Add a migration and fallback plan for compiler-generated output.
+	Users should be able to inspect, debug, and opt out of generated code paths if compile-time ergonomics ship.
 
-### Ecosystem Extension Points
+### Full-stack framework maturity
 
-- [ ] Evaluate whether the framework needs a plugin or directive model.
-	This could cover animation helpers, head management, data integration, and router extensions.
-- [ ] Define extension boundaries before adding framework-specific utilities ad hoc.
-	Avoid scattering experimental features across unrelated packages.
+- [ ] Decide whether GoWebComponents should remain a UI framework or grow a first-party app framework layer.
+	Clarify whether file-based routing, build conventions, SSR bootstrapping, and deployment adapters belong in core, a sibling package, or external starters.
+- [ ] Define a recommended project structure for production apps.
+	Document a canonical layout for routes, loaders, assets, WASM builds, server entrypoints, and shared UI code so larger apps stop inventing their own structure.
+- [ ] Evaluate first-party code-splitting and bundle-loading conventions.
+	SSR, lazy loading, and route-level boundaries need a coherent loading story if the framework is meant to scale beyond demos.
+- [ ] Define deployment targets and adapter expectations.
+	Clarify how static hosting, Go HTTP servers, edge-style SSR, and mixed server/client deployments should be supported.
+- [ ] Add an opinionated starter or reference app once conventions stabilize.
+	A real app template should exercise routing, state, SSR, hydration, forms, metadata, and async data rather than only toy examples.
+
+### Server-interactive runtime experiments
+
+- [ ] Decide whether server-owned interactive rendering is a real product direction.
+	Clarify whether GoWebComponents should remain client-owned WASM plus SSR/hydration, or whether an additional websocket-backed interactive runtime is worth pursuing experimentally.
+- [ ] Define the minimum experiment scope for server-interactive mode.
+	Limit the first exploration to event transport, server-side state ownership, DOM diff or patch streaming, reconnect handling, and a small reference app instead of a full alternative platform.
+- [ ] Audit which current runtime assumptions block a server-interactive mode.
+	Identify where the scheduler, event system, state hooks, router, and DOM commit model assume a local browser-owned runtime and what must be abstracted.
+- [ ] Evaluate transport shape for server-interactive updates.
+	Compare full HTML streaming, tree-patch messages, and DOM-op style diffs over websockets so the experiment does not lock into an inefficient protocol by accident.
+- [ ] Define latency and offline expectations up front.
+	Specify which interaction classes must stay responsive under moderate latency, what happens on reconnect, and which UI categories are unsuitable for server-owned interactivity.
+- [ ] Add a security and scalability risk review for server-interactive mode.
+	Track per-session memory cost, multi-tenant isolation, auth/session propagation, backpressure, and denial-of-service concerns before treating the experiment as roadmap-grade.
+- [ ] Add a narrow proof-of-concept example.
+	Use a dashboard or admin-style app with modest interaction density to validate the model before attempting general-purpose parity with the client-owned runtime.
+
+### Ecosystem and plugin story
+
+- [ ] Decide whether the framework needs a plugin or directive model.
+	Determine whether extensibility belongs in core or whether companion packages alone are sufficient.
+- [ ] Define extension boundaries before adding ad hoc framework utilities.
+	Avoid scattering experimental features across unrelated packages without a stable ownership model.
 - [ ] Identify which ecosystem problems belong in core versus companion packages.
 	Keep the base framework small while still enabling higher-level libraries.
+- [ ] Publish stability tiers for extension authors.
+	Mark APIs as stable, experimental, or internal so third-party packages know which surfaces are safe to depend on.
+- [ ] Define extension hooks for router, async data, devtools, SSR, and forms.
+	Different extension types should know whether they can influence rendering, routing, bootstrap state, validation, or diagnostics instead of all plugins sharing one vague hook surface.
+- [ ] Define a minimal plugin lifecycle.
+	Specify how an extension registers itself, receives framework hooks, contributes cleanup logic, and declares compatibility without needing privileged internal access.
+- [ ] Define compatibility and versioning policy for companion packages.
+	Third-party and first-party extensions need a documented promise around semver, experimental hooks, and deprecation timing so the ecosystem can safely grow.
+- [ ] Add companion-package candidates to the roadmap.
+	Track likely packages such as auth helpers, animation primitives, cached query state, head management, and testing utilities outside the core runtime.
+- [ ] Add a reference plugin or companion package.
+	Validate the extension model with one real integration such as head management, auth-aware routing helpers, or query-cache devtools.
+
+### Ecosystem and adoption maturity
+
+- [ ] Define the minimum ecosystem story for 1.0-style adoption.
+	List which pieces must exist first-party or be officially recommended: starter app, testing recipe, SSR recipe, state story, routing story, and deployment guidance.
+- [ ] Add comparison docs against major frameworks.
+	Explain where GoWebComponents is intentionally different, where it is not yet feature-complete, and which gaps are actively being closed.
+- [ ] Publish production-readiness criteria by feature area.
+	Separate experimental SSR, hydration, compiler, and runtime experiments from stable component, router, and state features so adopters can judge risk quickly.
+- [ ] Add a real-world case study or reference application.
+	Framework maturity is hard to evaluate from isolated examples alone; a sustained medium-size app should validate routing, async data, SSR, hydration, and operational workflow together.
+
+## Completed Milestones Summary
+
+The list below summarizes major work that is already shipped. It is intentionally compact and is not meant to duplicate the changelog.
+
+### Public UI and state surface
+
+- [x] Public `ui` and `html` APIs are in place for component composition and typed DOM construction.
+- [x] Context API is supported through `CreateContext`, providers, and `UseContext`.
+- [x] Local state, reducer state, refs, memoization, previous-value tracking, debounced and throttled values, channel consumption, and cancellable tasks are available.
+- [x] Shared state supports atoms, computed values, derived values, and snapshot persistence.
+- [x] Portals are a public API with selector- and node-based targets.
+
+### Router and route data
+
+- [x] Hash and history routers are supported.
+- [x] Route patterns, typed params, query helpers, and search-param updates are supported.
+- [x] Nested layout routes and explicit `Outlet()` rendering are supported.
+- [x] Route loaders, loading states, error states, and manual revalidation are supported.
+- [x] Route redirects, titles, descriptions, canonical URLs, and synchronous guards are supported.
+
+### Async UI and developer tooling
+
+- [x] Async boundaries and lazy async subtree loading are supported.
+- [x] In-browser devtools support component tree inspection, hook summaries, route inspection, diagnostics, and profiling counters.
+
+### SSR foundations
+
+- [x] Request-time server rendering is supported through `ui.RenderToString(...)`.
+- [x] A hydration entrypoint exists through `ui.Hydrate(...)`.
+- [x] Bootstrap helpers exist for inline JSON, binary payloads, and sidecar references.
+- [x] Request-time SSR examples exist for both route rendering and server-integrated routing.
+
+### Forms and examples
+
+- [x] `ui.UseForm` provides a first-class form helper for local field state, validation, and submit lifecycle handling.
+- [x] Complex form, nested routing, portals, fetch, state, goroutine, and SSR examples exist and exercise the public API.
