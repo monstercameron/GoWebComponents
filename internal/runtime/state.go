@@ -379,13 +379,25 @@ func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(in
 			hooks.atoms = newAtoms
 		}
 		hooks.atoms[atomIdx] = id
-		rt.atomRegistry.Subscribe(id, fiber)
+		if rt.hydrating {
+			rt.queueHydrationSubscription(id, fiber, true)
+		} else {
+			rt.atomRegistry.Subscribe(id, fiber)
+		}
 	} else if trackedAtomID != id {
 		if trackedAtomID != "" {
-			rt.atomRegistry.Unsubscribe(trackedAtomID, fiber)
+			if rt.hydrating {
+				rt.queueHydrationSubscription(trackedAtomID, fiber, false)
+			} else {
+				rt.atomRegistry.Unsubscribe(trackedAtomID, fiber)
+			}
 		}
 		hooks.atoms[atomIdx] = id
-		rt.atomRegistry.Subscribe(id, fiber)
+		if rt.hydrating {
+			rt.queueHydrationSubscription(id, fiber, true)
+		} else {
+			rt.atomRegistry.Subscribe(id, fiber)
+		}
 	}
 
 	nilableState := isNilableType[T]()

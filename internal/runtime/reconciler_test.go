@@ -52,6 +52,7 @@ type testDOMNode struct {
 	properties map[string]interface{}
 	styles     map[string]string
 	children   []DOMNode
+	parent     *testDOMNode
 	isNull     bool
 }
 
@@ -106,6 +107,9 @@ func (a *testDOMAdapter) CreateTextNode(text string) DOMNode {
 func (a *testDOMAdapter) AppendChild(parent, child DOMNode) {
 	if p, ok := parent.(*testDOMNode); ok {
 		p.children = append(p.children, child)
+		if c, ok := child.(*testDOMNode); ok {
+			c.parent = p
+		}
 	}
 }
 
@@ -113,6 +117,9 @@ func (a *testDOMAdapter) RemoveChild(parent, child DOMNode) {
 	if p, ok := parent.(*testDOMNode); ok {
 		for i, c := range p.children {
 			if c.Equals(child) {
+				if removed, ok := c.(*testDOMNode); ok {
+					removed.parent = nil
+				}
 				p.children = append(p.children[:i], p.children[i+1:]...)
 				break
 			}
@@ -125,10 +132,16 @@ func (a *testDOMAdapter) InsertBefore(parent, newChild, refChild DOMNode) {
 		for i, c := range p.children {
 			if c.Equals(refChild) {
 				p.children = append(p.children[:i], append([]DOMNode{newChild}, p.children[i:]...)...)
+				if inserted, ok := newChild.(*testDOMNode); ok {
+					inserted.parent = p
+				}
 				return
 			}
 		}
 		p.children = append(p.children, newChild)
+		if inserted, ok := newChild.(*testDOMNode); ok {
+			inserted.parent = p
+		}
 	}
 }
 
@@ -137,6 +150,12 @@ func (a *testDOMAdapter) ReplaceChild(parent, newChild, oldChild DOMNode) {
 		for i, c := range p.children {
 			if c.Equals(oldChild) {
 				p.children[i] = newChild
+				if replaced, ok := oldChild.(*testDOMNode); ok {
+					replaced.parent = nil
+				}
+				if inserted, ok := newChild.(*testDOMNode); ok {
+					inserted.parent = p
+				}
 				return
 			}
 		}
@@ -144,6 +163,9 @@ func (a *testDOMAdapter) ReplaceChild(parent, newChild, oldChild DOMNode) {
 }
 
 func (a *testDOMAdapter) GetParent(node DOMNode) DOMNode {
+	if n, ok := node.(*testDOMNode); ok {
+		return n.parent
+	}
 	return nil
 }
 
@@ -159,6 +181,15 @@ func (a *testDOMAdapter) GetFirstChild(node DOMNode) DOMNode {
 }
 
 func (a *testDOMAdapter) GetNextSibling(node DOMNode) DOMNode {
+	n, ok := node.(*testDOMNode)
+	if !ok || n.parent == nil {
+		return nil
+	}
+	for index, child := range n.parent.children {
+		if child.Equals(node) && index+1 < len(n.parent.children) {
+			return n.parent.children[index+1]
+		}
+	}
 	return nil
 }
 
@@ -189,6 +220,32 @@ func (a *testDOMAdapter) SetProperty(node DOMNode, name string, value interface{
 
 func (a *testDOMAdapter) GetProperty(node DOMNode, name string) interface{} {
 	if n, ok := node.(*testDOMNode); ok {
+		switch name {
+		case "nodeType":
+			if n.nodeType == "text" {
+				return 3
+			}
+			return 1
+		case "tagName":
+			return strings.ToUpper(n.tag)
+		case "nodeName":
+			if n.nodeType == "text" {
+				return "#text"
+			}
+			return strings.ToUpper(n.tag)
+		case "textContent":
+			if n.nodeType == "text" {
+				return n.text
+			}
+			return n.text
+		case "className":
+			return n.attributes["class"]
+		case "htmlFor":
+			return n.attributes["for"]
+		}
+		if value, ok := n.attributes[name]; ok {
+			return value
+		}
 		return n.properties[name]
 	}
 	return nil
@@ -210,6 +267,11 @@ func (a *testDOMAdapter) SetStyles(node DOMNode, styles map[string]string) {
 
 func (a *testDOMAdapter) SetInnerHTML(node DOMNode, html string) {
 	if n, ok := node.(*testDOMNode); ok {
+		for _, child := range n.children {
+			if c, ok := child.(*testDOMNode); ok {
+				c.parent = nil
+			}
+		}
 		n.children = make([]DOMNode, 0)
 	}
 }

@@ -16,7 +16,7 @@ GoWebComponents is a Go + WebAssembly UI framework with a React-style component 
 Current repo state as of 2026-03-14:
 
 - Core runtime lives in `internal/runtime/`
-- Preferred public packages are `ui`, `html`, `state`, `fetch`, and `router`
+- Preferred public packages are `ui`, `html`, `state`, `fetch`, `router`, and `devtools`
 - Remaining examples and test fixtures now build through local ui/html bridge helpers instead of legacy compatibility packages
 - Native `internal/runtime` statement coverage is `100%`
 - Native runtime tests pass with `go test ./internal/runtime`
@@ -48,6 +48,25 @@ Requirements:
 - Go 1.25+
 - A browser that supports WebAssembly
 - Node.js only for the example dev server and Playwright-based browser tests
+
+## Features
+
+Project-wide capabilities currently included in GoWebComponents:
+
+- React-style function components with a fiber-based runtime and browser-side rendering through `syscall/js`
+- Typed HTML element builders in `html` so UI trees can be written without raw string templates
+- Core hooks in `ui`, including `UseState`, `UseReducer`, `UseEffect`, `UseMemo`, `UseCallback`, `UseRef`, `UsePrevious`, and `UseId`
+- Event and async helpers in `ui`, including `UseEvent`, `UseChannel`, `UseTask`, `UseLazyNode`, `UseDebounced`, `UseThrottled`, and `UseForm`
+- Context API support through `CreateContext`, provider components, and `UseContext`
+- Shared atom-based state in `state` with subscriptions, derived atoms, computed values, snapshot export/import, and optional browser-storage persistence
+- Fetch helpers in `fetch`, including low-level `UseFetch`, typed `UseResource[T]`, and imperative `Fetch(...)`
+- Client-side routing in `router` with hash routers, browser/history routers, params, query helpers, redirects, metadata, guards, loaders, manual revalidation, nested layout routes, and `router.Outlet()`
+- Server-side rendering through `ui.RenderToString(...)` on native targets
+- Browser hydration through `ui.Hydrate(...)`, including bootstrap payload restore, matching DOM reuse, subtree fallback on structural mismatch, mismatch diagnostics, atom snapshot restore, and deterministic `UseId` resume via transferred ID seed
+- SSR bootstrap transport helpers for inline JSON, sidecar JSON, and optional CBOR payload encoding/decoding
+- In-browser inspection via the public `devtools` package, including component tree snapshots, hook inspection, route inspection, profiling hotspots, and structured diagnostics
+- Native Go tests, js/wasm tests, Playwright browser suites, and native plus browser benchmark coverage
+- A broad examples suite covering local state, forms, async work, atoms, routing, devtools, SSR hydration, request-time SSR, and nested layout routes
 
 ## Minimal Example
 
@@ -128,8 +147,9 @@ Copy-Item "$(go env GOROOT)\lib\wasm\wasm_exec.js" static\wasm_exec.js
 - `state`: shared atom-based state
 - `fetch`: browser fetch helpers layered on top of the runtime hook/fetch APIs
 - `router`: browser/hash routing helpers
+- `devtools`: embeddable runtime inspection and diagnostics panel
 
-For new projects imported with `go get`, use `ui`, `html`, `state`, `fetch`, and `router` as the stable public surface.
+For new projects imported with `go get`, use `ui`, `html`, `state`, `fetch`, and `router` as the main public surface. Add `devtools` when you want in-app inspection during development.
 
 ## Context API
 
@@ -213,8 +233,12 @@ Current examples under `examples/`:
 - `13-browser-compiler`: browser-side compiler tooling example
 - `14-omi`: OMI integration example
 - `15-calculator`: animated scientific calculator demo
+- `16-devtools`: standalone devtools panel and diagnostics example
+- `17-ssr-routing`: static SSR shell plus bootstrap-driven hydration into advanced routed client flows
+- `18-ssr-server-routing`: request-time server rendering with route-aware bootstrap hydration over real URLs
+- `19-nested-routes`: nested layout routes, outlets, and multi-level route trees
 
-Examples currently featured on the styled showcase page include the interactive demos from `01` through `12`, plus `15-calculator`.
+Examples currently featured on the styled showcase page include the interactive demos from `01` through `12`, plus `15-calculator`. The repo also includes the newer devtools, SSR, and nested-route demos listed above.
 
 ## Testing
 

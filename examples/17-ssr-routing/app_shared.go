@@ -39,11 +39,11 @@ var guideCatalog = map[string]guideArticle{
 	"ssr": {
 		ID:      "ssr",
 		Title:   "SSR transport and hydration",
-		Summary: "Server-rendered HTML shell with a bootstrap sidecar that the wasm client reads before hydration.",
+		Summary: "Server-rendered HTML shell with a bootstrap sidecar that the wasm client restores before reusing matching DOM during hydration.",
 		Highlights: []string{
 			"Static HTML ships with real route content before wasm starts.",
 			"A JSON sidecar bootstrap payload is fetched before hydration.",
-			"Hydration currently falls back to a fresh render after DOM preflight diagnostics.",
+			"Hydration restores the bootstrap payload, reuses matching DOM, and falls back per subtree only when structure no longer matches.",
 		},
 	},
 	"routing": {
@@ -95,7 +95,7 @@ func defaultServerView() demoShellView {
 		SectionBody:   article.Summary,
 		CurrentTab:    "overview",
 		LoadRevision:  1,
-		Notice:        "Hydrates from server markup using a sidecar bootstrap payload before the routed client app takes over.",
+		Notice:        "Restores a sidecar bootstrap payload, reuses matching server DOM, and falls back per subtree only when hydration cannot continue safely.",
 		SearchResults: catalogList(),
 	}
 }
@@ -153,7 +153,7 @@ func renderDemoShell(view demoShellView, actions ...ui.Node) ui.Node {
 			html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.14),_transparent_42%),rgba(15,23,42,0.92)] p-8 shadow-2xl"},
 				html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("SSR Routing Demo")),
 				html.H1(html.Props{Class: "mt-4 text-5xl font-black tracking-tight text-white"}, html.Text("Server render first, hydrate into advanced routes")),
-				html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text("This demo serves a real SSR shell, fetches a bootstrap sidecar, and then hydrates into a hash-router app with params, redirects, guards, loaders, query state, and manual revalidation.")),
+				html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text("This demo serves a real SSR shell, restores a bootstrap sidecar, reuses matching DOM during hydration, and then continues as a hash-router app with params, redirects, guards, loaders, query state, and manual revalidation.")),
 				html.Div(html.Props{Class: "mt-8 flex flex-wrap gap-3"},
 					navLink("Overview", "#/", view.ActivePath == "/"),
 					navLink("Docs", "#/docs/ssr", strings.HasPrefix(view.ActivePath, "/docs")),

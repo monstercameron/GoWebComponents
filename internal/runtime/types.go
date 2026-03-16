@@ -34,9 +34,11 @@ type Fiber struct {
 	// 6 bytes padding here to align next 8-byte field
 
 	// Component info
-	hooks         *Hooks
-	props         map[string]interface{}
-	contextValues map[int64]interface{}
+	hooks          *Hooks
+	props          map[string]interface{}
+	contextValues  map[int64]interface{}
+	hydration      *hydrationBoundary
+	childHydration *hydrationBoundary
 
 	// Interfaces and Strings (16 bytes each)
 	typeOf      interface{}
@@ -55,6 +57,13 @@ type Fiber struct {
 	cleanupDurationNs  int64
 	boundaryError      error
 	boundaryPhase      string
+}
+
+type hydrationBoundary struct {
+	parent   DOMNode
+	cursor   DOMNode
+	active   bool
+	fallback bool
 }
 
 // memoizedValue stores a memoized computation result with its dependencies

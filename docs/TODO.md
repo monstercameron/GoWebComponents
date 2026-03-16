@@ -6,12 +6,12 @@ This backlog focuses on the top-level framework features that are still missing 
 
 ### Documentation and Public API Hygiene
 
-- [ ] Reconcile docs with the actual supported API surface.
-	Remove or clearly label aspirational examples that are not yet first-class features.
-- [ ] Add a framework feature matrix to the docs.
-	Separate shipped, experimental, and planned capabilities.
-- [ ] Clarify which packages are stable public APIs versus internal/runtime-only details.
-	This is especially important for portal, slot, and hot reload related features.
+- [x] Reconcile docs with the actual supported API surface.
+	The root README, package docs, and example docs now align on the current public APIs, shipped examples, SSR/hydration behavior, and the distinction between shipped versus future-facing backlog items.
+- [x] Add a framework feature matrix to the docs.
+	The root README now includes a project-wide feature inventory covering the runtime, hooks, state, router, SSR/hydration, devtools, testing, benchmarks, and example coverage.
+- [x] Clarify which packages are stable public APIs versus internal/runtime-only details.
+	The README and package docs now call out `ui`, `html`, `state`, `fetch`, `router`, and `devtools` as the public surface, while `internal/runtime` remains implementation detail.
 - [ ] Add migration notes as new primitives land.
 	Keep early adopters from depending on unstable patterns.
 
@@ -297,10 +297,10 @@ This backlog focuses on the top-level framework features that are still missing 
 
 
 - [x] Decide whether server-side rendering is a project goal.
-	SSR is now an explicit project goal. The current direction is request-time HTML generation on native Go targets through `ui.RenderToString(...)`, with browser hydration/resume continuing as a separate phase while DOM matching remains unfinished.
+	SSR is now an explicit project goal. The current direction is request-time HTML generation on native Go targets through `ui.RenderToString(...)`, paired with browser hydration/resume through `ui.Hydrate(...)` using bootstrap restore, DOM reuse, mismatch diagnostics, and subtree fallback.
 	Phase 1 scope decisions:
 	- [x] Decide whether the first SSR pass targets static HTML generation only, with hydration deferred.
-		The current SSR pass supports request-time HTML generation and a hydration entrypoint, but true DOM matching and mismatch recovery remain deferred.
+		The current SSR pass supports both request-time HTML generation and a real hydration path with DOM matching and mismatch recovery for the supported host/text subtree cases.
 	- [x] Decide whether the first public API lives in `ui`, `html`, or a dedicated SSR package.
 		The first public SSR API lives in `ui`.
 	- [x] Define which component forms are supported in the first pass: host elements only, simple function components, or full `ui.CreateElement(...)` trees.
@@ -308,7 +308,7 @@ This backlog focuses on the top-level framework features that are still missing 
 	- [x] Decide whether router integration is explicit bootstrap data or automatic coupling to the current router globals.
 		The current SSR direction uses explicit bootstrap payloads rather than implicit router-global coupling.
 	- [x] Define which existing features are explicitly out of scope for v1: portals, async boundaries, error boundaries, browser-only effects, devtools overlay.
-		Those remain out of scope for the current SSR v1 surface while render-to-string, bootstrap transfer, and hydration plumbing stabilize.
+		Those remain out of scope for the current SSR v1 surface while the current render-to-string, bootstrap transfer, and hydration feature set matures.
 - [x] Add a server render entrypoint.
 	`ui.RenderToString(...)` now provides the public non-browser HTML render entrypoint, and `examples/18-ssr-server-routing` exercises request-time SSR over a real Go HTTP server.
 	Phase 1 implementation tasks:
@@ -328,23 +328,30 @@ This backlog focuses on the top-level framework features that are still missing 
 		Current coverage includes simple one-argument function components returning `ui.Node` / `*runtime.Element` trees.
 	- [x] Add a request-time server-rendered reference example.
 		`examples/18-ssr-server-routing` now serves HTML per request from a Go HTTP server, emits a route-specific bootstrap sidecar, and hydrates a browser-router client over real URLs.
-- [ ] Add a hydration path for browser startup.
+- [x] Add a hydration path for browser startup.
 	Reuse server-rendered markup instead of always doing a fresh client render.
 	Phase 2 hydration tasks:
 	- [x] Add a hydration entrypoint distinct from fresh client render.
-		`ui.Hydrate(...)` now exists as the public resume entrypoint, but it currently reads bootstrap payload and falls back to a fresh client render until DOM matching lands.
-	- [ ] Teach the runtime to bind fibers to existing DOM nodes instead of always creating new ones.
-	- [ ] Define the initial hydration matching rules for host elements, text nodes, and fragments.
-	- [ ] Defer effects and subscriptions until hydration completes.
-	- [ ] Add subtree fallback behavior when hydration cannot safely continue.
-	- [ ] Add tests for successful hydration of simple pages and component updates after hydration.
-- [ ] Define serialization boundaries.
+		`ui.Hydrate(...)` now restores the bootstrap payload, attempts DOM reuse, and falls back per subtree when hydration cannot safely continue.
+	- [x] Teach the runtime to bind fibers to existing DOM nodes instead of always creating new ones.
+		Hydration now reuses matching host and text DOM nodes instead of eagerly recreating the entire subtree.
+	- [x] Define the initial hydration matching rules for host elements, text nodes, and fragments.
+		The current hydration matcher reuses same-tag host elements, text nodes, and fragment/function-provider descendants that can continue through a shared parent boundary.
+	- [x] Defer effects and subscriptions until hydration completes.
+		Hydration now queues atom subscriptions and hydration-time update notifications until the commit finishes, then runs effects against the committed tree.
+	- [x] Add subtree fallback behavior when hydration cannot safely continue.
+		Hydration now warns and replaces only the affected subtree when structure matching fails or expected nodes are missing.
+	- [x] Add tests for successful hydration of simple pages and component updates after hydration.
+		Coverage now includes simple DOM reuse, text mismatch recovery, trailing-node cleanup, subtree fallback, and state updates after hydration.
+- [x] Define serialization boundaries.
 	Specify how IDs, props, route state, and initial data are transferred from server to client.
 	Bootstrap/transfer tasks:
 	- [x] Define a bootstrap payload shape for route path, query, params, and initial data.
 		`ui.SSRBootstrap` now provides a first public payload shape for route, atoms, arbitrary data, and ID seed transfer.
-	- [ ] Define how atom snapshots are exported, serialized, and restored for hydration.
-	- [ ] Define how `UseId` stays deterministic across server and client.
+	- [x] Define how atom snapshots are exported, serialized, and restored for hydration.
+		Hydration now applies bootstrap atom snapshots before resuming the client tree, building on the existing snapshot export/import helpers.
+	- [x] Define how `UseId` stays deterministic across server and client.
+		Hydration now applies the bootstrap ID seed before client render so `UseId` generation resumes from the transferred seed.
 	- [x] Decide whether loader data is embedded inline, fetched again, or optionally reused.
 		The current direction is explicit bootstrap transfer with optional reuse on the first client resume. The request-time server SSR example reuses route-specific bootstrap data on the initial browser route before subsequent route resolution falls back to normal client behavior.
 	- [x] Add helpers for embedding and reading bootstrap JSON safely.
@@ -353,15 +360,16 @@ This backlog focuses on the top-level framework features that are still missing 
 		`MarshalSSRBootstrapBinary` and `UnmarshalSSRBootstrapBinary` now provide a CBOR-based binary transport option for sidecar/bootstrap payload delivery without replacing the default inline JSON path.
 	- [x] Add a sidecar bootstrap reference path.
 		`SSRBootstrapReference`, `RenderBootstrapReferenceScript`, and wasm-side `ReadBootstrapReference(...)` now support pointing hydration at external JSON or CBOR bootstrap payloads instead of only inline script JSON.
-- [ ] Add mismatch detection and error reporting.
+- [x] Add mismatch detection and error reporting.
 	Surface hydration mismatches clearly during development.
 	Developer-experience tasks:
-	- [ ] Detect text mismatches during hydration.
-	- [ ] Detect tag/structure mismatches during hydration.
-	- [ ] Detect critical attribute mismatches during hydration.
-	- [ ] Report hydration warnings through the runtime diagnostics surface.
-	- [ ] Decide when to warn versus when to replace the subtree.
-	- [ ] Add tests for mismatch reporting and recovery behavior.
+	- [x] Detect text mismatches during hydration.
+	- [x] Detect tag/structure mismatches during hydration.
+	- [x] Detect critical attribute mismatches during hydration.
+	- [x] Report hydration warnings through the runtime diagnostics surface.
+	- [x] Decide when to warn versus when to replace the subtree.
+		Text and attribute mismatches now warn and continue; structural mismatches fall back to client rendering for the affected subtree.
+	- [x] Add tests for mismatch reporting and recovery behavior.
 
 ## Priority 5: Long-Term Strategic Work
 

@@ -140,6 +140,26 @@ func (a *MockDOMAdapter) GetProperty(node runtime.DOMNode, name string) interfac
 	if n, ok := node.(*MockDOMNode); ok {
 		a.mu.Lock()
 		defer a.mu.Unlock()
+		switch name {
+		case "nodeType":
+			if n.Tag == "#text" {
+				return 3
+			}
+			return 1
+		case "tagName":
+			return n.Tag
+		case "nodeName":
+			return n.Tag
+		case "textContent":
+			return n.TextContent
+		case "className":
+			return n.Attrs["class"]
+		case "htmlFor":
+			return n.Attrs["for"]
+		}
+		if value, ok := n.Attrs[name]; ok {
+			return value
+		}
 		return n.Props[name]
 	}
 	return nil

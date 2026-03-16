@@ -7,6 +7,7 @@ It demonstrates:
 - a Go HTTP server that renders HTML per request with `ui.RenderToString(...)`
 - a route-specific bootstrap endpoint served by the same Go process
 - a browser/history router on the wasm client
+- hydration that restores route bootstrap data and reuses matching DOM on startup
 - server and client redirects for `/legacy` and `/secure`
 - query-aware server rendering for `/search?q=...`
 
@@ -35,7 +36,7 @@ Then open:
 - `http://127.0.0.1:8079/secure`
 - `http://127.0.0.1:8079/secure?auth=true&role=maintainer`
 
-You should see real HTML requests on direct navigation and refresh, plus a bootstrap JSON request to `/_gwc/bootstrap?...` during client startup.
+You should see real HTML requests on direct navigation and refresh, plus a bootstrap JSON request to `/_gwc/bootstrap?...` during client startup. The first client resume should reuse the server-rendered shell where it matches and only replace the affected subtree if hydration encounters a structural mismatch.
 
 ## Browser regression check
 

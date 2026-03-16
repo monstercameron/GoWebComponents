@@ -211,6 +211,7 @@ func (rt *Runtime) cloneChildFibers(parent *Fiber) {
 			needsUpdate:    false,
 			hooks:          oldFiber.hooks, // Share hooks for non-updated components
 			eventCallbacks: oldFiber.eventCallbacks,
+			contextValues:  oldFiber.contextValues,
 		}
 		if newFiber.hooks != nil {
 			newFiber.hooks.owner = newFiber
@@ -328,6 +329,7 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 						dirty:          needsUpdate,
 						hooks:          oldFiber.hooks,
 						eventCallbacks: oldFiber.eventCallbacks,
+						hydration:      wipFiber.childHydration,
 					}
 
 					// Advance oldFiber
@@ -342,6 +344,7 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 						parent:      wipFiber,
 						effectTag:   "PLACEMENT",
 						dirty:       true,
+						hydration:   wipFiber.childHydration,
 					}
 
 					// Mark old fiber for deletion
@@ -385,6 +388,7 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					parent:      wipFiber,
 					effectTag:   "PLACEMENT",
 					dirty:       true,
+					hydration:   wipFiber.childHydration,
 				}
 			}
 		}
@@ -523,6 +527,7 @@ func (rt *Runtime) reconcileKeyedChildren(wipFiber *Fiber, elements []interface{
 				dirty:          needsUpdate,
 				hooks:          matchedOld.hooks,
 				eventCallbacks: matchedOld.eventCallbacks,
+				hydration:      wipFiber.childHydration,
 			}
 		} else {
 			if matchedOld != nil {
@@ -538,6 +543,7 @@ func (rt *Runtime) reconcileKeyedChildren(wipFiber *Fiber, elements []interface{
 				parent:      wipFiber,
 				effectTag:   "PLACEMENT",
 				dirty:       true,
+				hydration:   wipFiber.childHydration,
 			}
 		}
 
@@ -797,9 +803,13 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 	if fiber.contextValues == nil && fiber.parent != nil {
 		fiber.contextValues = fiber.parent.contextValues
 	}
+	if fiber.hydration == nil && fiber.parent != nil {
+		fiber.hydration = fiber.parent.childHydration
+	}
 
 	if fiber.typeOf == nil || fiber.typeOf == "ROOT" {
 		// Root fiber - reconcile children
+		fiber.childHydration = fiber.hydration
 		if children, ok := fiber.props["children"].([]interface{}); ok {
 			rt.reconcileChildren(fiber, children)
 		}
@@ -807,8 +817,19 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 		switch typed := fiber.typeOf.(type) {
 		case string:
 			// Host component (HTML element)
-			if fiber.dom == nil || fiber.dom.IsNull() {
-				fiber.dom = rt.createDom(fiber)
+			if typed == "FRAGMENT" {
+				fiber.childHydration = fiber.hydration
+			} else if fiber.dom == nil || fiber.dom.IsNull() {
+				if hydratedDOM, ok := rt.claimHydrationNode(fiber); ok {
+					fiber.dom = hydratedDOM
+					fiber.effectTag = "HYDRATE"
+					fiber.childHydration = newHydrationBoundary(hydratedDOM, rt.domAdapter.GetFirstChild(hydratedDOM))
+				} else {
+					fiber.dom = rt.createDom(fiber)
+					fiber.childHydration = nil
+				}
+			} else if typed != "TEXT_ELEMENT" {
+				fiber.childHydration = nil
 			}
 
 			if propsChildren, ok := fiber.props["children"]; ok {
@@ -830,6 +851,7 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 				parentContextValues = fiber.parent.contextValues
 			}
 			fiber.contextValues = deriveContextValues(parentContextValues, typed.Descriptor.ID, value)
+			fiber.childHydration = fiber.hydration
 
 			if fiber.alternate != nil && !fastEqual(resolveContextValue(fiber.alternate, typed.Descriptor), value) {
 				markSubtreeNeedsUpdate(fiber.alternate.child)
@@ -857,6 +879,7 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 
 		default:
 			// Function component
+			fiber.childHydration = fiber.hydration
 			currentFiber = fiber
 			// Preserve hooks from alternate fiber or initialize new hooks
 			if fiber.alternate != nil && fiber.alternate.hooks != nil {
@@ -1133,21 +1156,32 @@ func (rt *Runtime) commitRoot() {
 	rt.deletions = rt.deletions[:0]
 
 	// Commit the work
+	committedRoot := rt.wipRoot
 	if rt.wipRoot != nil && rt.wipRoot.child != nil {
+		rt.finalizeHydrationBoundary(rt.wipRoot.childHydration, rt.wipRoot)
 		// The root fiber's DOM node is the container
 		rt.commitWork(rt.wipRoot.child, rt.wipRoot.dom)
 	} else {
 		// fmt.Printf("[COMMIT] WARNING: wipRoot.child is nil\n")
 	}
 
-	// Run effects
-	rt.runEffects(rt.wipRoot)
-
-	rt.currentRoot = rt.wipRoot
+	rt.currentRoot = committedRoot
 	rt.wipRoot = nil
+	wasHydrating := rt.hydrating
+	if wasHydrating {
+		rt.hydrating = false
+		rt.flushHydrationSubscriptions()
+	}
+	rt.updateScheduled = false
+
+	// Run effects after the committed tree is current and hydration gates are lifted.
+	rt.runEffects(committedRoot)
+
+	if wasHydrating {
+		rt.flushDeferredHydrationUpdates()
+	}
 	if rt.pendingBoundaryRecovery {
 		rt.pendingBoundaryRecovery = false
-		rt.updateScheduled = false
 		rt.ScheduleUpdate()
 	}
 }
@@ -1227,6 +1261,20 @@ func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 			start := time.Now()
 			rt.domAdapter.AppendChild(domParent, fiber.dom)
 			fiber.commitDurationNs += time.Since(start).Nanoseconds()
+		} else if fiber.effectTag == "HYDRATE" && fiber.dom != nil && !fiber.dom.IsNull() {
+			if t, ok := fiber.typeOf.(string); ok && t == "TEXT_ELEMENT" {
+				newValue := fiber.textContent
+				if newValue == "" && fiber.props != nil {
+					newValue, _ = fiber.props["nodeValue"].(string)
+				}
+				start := time.Now()
+				rt.domAdapter.SetTextContent(fiber.dom, newValue)
+				fiber.commitDurationNs += time.Since(start).Nanoseconds()
+			} else {
+				start := time.Now()
+				rt.updateDomProperties(fiber.dom, nil, fiber.props)
+				fiber.commitDurationNs += time.Since(start).Nanoseconds()
+			}
 		} else if fiber.effectTag == "UPDATE" && fiber.dom != nil && !fiber.dom.IsNull() {
 			if fiber.alternate != nil {
 				// Check if this is a text node
@@ -1289,6 +1337,7 @@ func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 	if fiber.dom != nil && !fiber.dom.IsNull() {
 		childDomParent = fiber.dom
 	}
+	rt.finalizeHydrationBoundary(fiber.childHydration, fiber)
 
 	// Recursively commit children and siblings
 	if fiber.child != nil {

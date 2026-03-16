@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/monstercameron/GoWebComponents/internal/platform/mockdom"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
@@ -87,6 +88,22 @@ func (s *queuedScheduler) Flush() {
 			callback()
 		}
 	}
+}
+
+type queryHydrationDOMAdapter struct {
+	*mockdom.MockDOMAdapter
+	selectors map[string]interface{}
+}
+
+func newQueryHydrationDOMAdapter() *queryHydrationDOMAdapter {
+	return &queryHydrationDOMAdapter{
+		MockDOMAdapter: mockdom.NewMockDOMAdapter(),
+		selectors:      make(map[string]interface{}),
+	}
+}
+
+func (a *queryHydrationDOMAdapter) QuerySelector(selector string) interface{} {
+	return a.selectors[selector]
 }
 
 func installUIHookContext(t *testing.T) {
@@ -260,6 +277,42 @@ func TestReadBootstrapReferenceCBOR(t *testing.T) {
 	}
 	if payload.Atoms["theme"] != "dark" {
 		t.Fatalf("expected CBOR bootstrap atom to round-trip, got %#v", payload.Atoms["theme"])
+	}
+}
+
+func TestHydrateRestoresBootstrapAtomsAndIDSeed(t *testing.T) {
+	adapter := newQueryHydrationDOMAdapter()
+	scheduler := noOpScheduler{}
+	container := adapter.CreateElement("div")
+	adapter.selectors["#app"] = container
+
+	previousInitialized := initialized
+	initialized = true
+	t.Cleanup(func() {
+		initialized = previousInitialized
+	})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: adapter, Scheduler: scheduler})
+	if err := runtime.GetGlobalRuntime().RestoreAtomSnapshot(map[string]interface{}{"theme": "light"}); err != nil {
+		t.Fatalf("unexpected initial atom restore error: %v", err)
+	}
+
+	payload := SSRBootstrap{
+		Atoms:  map[string]interface{}{"theme": "dark"},
+		IDSeed: 7,
+	}
+	if _, err := Hydrate(Text("hello"), "#app", HydrationOptions{Bootstrap: payload}); err != nil {
+		t.Fatalf("unexpected hydrate error: %v", err)
+	}
+
+	value, ok := runtime.GetGlobalRuntime().GetAtomValue("theme")
+	if !ok || value != "dark" {
+		t.Fatalf("expected bootstrap atom restore to win, got %#v ok=%t", value, ok)
+	}
+
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	defer runtime.SetCurrentFiber(nil)
+	if got := UseId(); got != "gwc:8:0" {
+		t.Fatalf("expected hydration id seed to advance next UseId generation, got %q", got)
 	}
 }
 

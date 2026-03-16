@@ -66,11 +66,12 @@ var guideCatalog = map[string]guideArticle{
 	"ssr": {
 		ID:      "ssr",
 		Title:   "Server-rendered bootstrap flow",
-		Summary: "Each request is rendered on the server, then the browser hydrates from a route-specific bootstrap payload served by the same Go process.",
+		Summary: "Each request is rendered on the server, then the browser restores a route-specific bootstrap payload and reuses matching DOM during hydration.",
 		Highlights: []string{
 			"HTML is generated per request with ui.RenderToString(...).",
 			"A route-specific bootstrap endpoint is fetched on startup.",
-			"The first hydrated route reuses bootstrap data instead of recomputing blindly.",
+			"The first hydrated route restores bootstrap data and reuses matching server DOM instead of recomputing blindly.",
+			"If hydration hits a structural mismatch, only the affected subtree falls back to client rendering.",
 		},
 	},
 	"routing": {
@@ -392,7 +393,7 @@ func renderDemoShell(view demoShellView) ui.Node {
 			html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.16),_transparent_42%),rgba(15,23,42,0.94)] p-8 shadow-2xl"},
 				html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Server SSR Demo")),
 				html.H1(html.Props{Class: "mt-4 text-5xl font-black tracking-tight text-white"}, html.Text("Request-time SSR with real URLs and browser hydration")),
-				html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text("Every navigation link below can hit the Go server for fresh HTML. The wasm client then hydrates from a route-specific bootstrap payload and mirrors the same route model in the browser.")),
+				html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text("Every navigation link below can hit the Go server for fresh HTML. The wasm client then restores a route-specific bootstrap payload, reuses matching DOM during hydration, and mirrors the same route model in the browser.")),
 				html.Div(html.Props{Class: "mt-8 flex flex-wrap gap-3"},
 					navLink("Overview", "/", view.ActivePath == "/"),
 					navLink("Docs", "/docs/ssr", strings.HasPrefix(view.ActivePath, "/docs")),

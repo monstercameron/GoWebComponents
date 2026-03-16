@@ -94,7 +94,6 @@ func (rt *Runtime) workLoop(deadline Deadline) {
 	// If work is complete, commit
 	if rt.wipRoot != nil && rt.nextUnitOfWork == nil {
 		rt.commitRoot()
-		rt.updateScheduled = false
 	} else if rt.nextUnitOfWork != nil {
 		// More work remains, schedule next iteration
 		// fmt.Printf("workLoop: more work remains, scheduling next iteration\n")
@@ -142,10 +141,6 @@ func (rt *Runtime) Render(element *Element, container DOMNode) {
 }
 
 // Hydrate starts a client resume attempt from an existing container.
-//
-// The current implementation performs a hydration preflight, reports what was
-// found in the container, clears existing DOM on fallback, and then schedules a
-// fresh render. DOM-node matching will build on this dedicated path.
 func (rt *Runtime) Hydrate(element *Element, container DOMNode) {
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()
@@ -157,18 +152,26 @@ func (rt *Runtime) Hydrate(element *Element, container DOMNode) {
 
 	existingChildren := 0
 	if rt.domAdapter != nil && container != nil && !container.IsNull() {
-		existingChildren = len(rt.domAdapter.GetChildren(container))
+		for node := rt.domAdapter.GetFirstChild(container); node != nil && !node.IsNull(); node = rt.domAdapter.GetNextSibling(node) {
+			existingChildren++
+		}
 	}
 
 	if existingChildren > 0 {
-		ReportDiagnostic("runtime", DiagnosticInfo, fmt.Sprintf("Hydrate found %d existing container child nodes and is falling back to a fresh render while DOM matching is under development", existingChildren))
-		rt.domAdapter.SetInnerHTML(container, "")
+		ReportDiagnostic("runtime", DiagnosticInfo, fmt.Sprintf("Hydrate found %d existing container child nodes and will attempt DOM reuse before falling back per subtree", existingChildren))
 	} else {
 		ReportDiagnostic("runtime", DiagnosticInfo, "Hydrate found no existing container children and is proceeding with a fresh client render")
 	}
 
 	shouldSchedule := !rt.updateScheduled
 	rt.updateScheduled = true
+	rt.hydrating = true
+	rt.deferredHydrationSubscriptions = rt.deferredHydrationSubscriptions[:0]
+	if rt.deferredHydrationUpdates == nil {
+		rt.deferredHydrationUpdates = make(map[*Fiber]bool)
+	} else {
+		clear(rt.deferredHydrationUpdates)
+	}
 
 	if rt.currentRoot != nil {
 		rt.currentRoot.alternate = nil
@@ -181,6 +184,7 @@ func (rt *Runtime) Hydrate(element *Element, container DOMNode) {
 		props:     map[string]interface{}{"children": []interface{}{element}},
 		alternate: rt.currentRoot,
 		dirty:     true,
+		hydration: newHydrationBoundary(container, rt.domAdapter.GetFirstChild(container)),
 	}
 
 	rt.nextUnitOfWork = rt.wipRoot
@@ -197,6 +201,13 @@ func (rt *Runtime) Hydrate(element *Element, container DOMNode) {
 // ScheduleUpdateForFiber schedules an update for a specific fiber
 func (rt *Runtime) ScheduleUpdateForFiber(fiber *Fiber) {
 	if fiber == nil {
+		return
+	}
+	if rt.hydrating {
+		if rt.deferredHydrationUpdates == nil {
+			rt.deferredHydrationUpdates = make(map[*Fiber]bool)
+		}
+		rt.deferredHydrationUpdates[fiber] = true
 		return
 	}
 	rt.profiling.scheduledFiberMarks++

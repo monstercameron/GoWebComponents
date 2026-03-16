@@ -21,11 +21,14 @@
 - Added the first internal SSR render-to-string path for host elements, text nodes, fragments, and simple function components.
 - Added public server-side rendering support through `ui.RenderToString(...)` on non-browser targets.
 - Added a dedicated `Hydrate(...)` and runtime `HydrateTo(...)` entrypoint so client resume now has a real API path instead of reusing plain render calls.
-- Added hydration preflight/fallback behavior that inspects existing container DOM, reports diagnostics, clears server markup on fallback, and then schedules a fresh client render while true DOM matching remains under development.
+- Upgraded hydration from whole-container fallback to real DOM reuse for matching host and text nodes, with subtree-level fallback when structure matching fails.
+- Added hydration mismatch diagnostics for text, tag/structure, trailing-node, and critical attribute differences, with clear warn-versus-replace behavior.
+- Added bootstrap-time atom snapshot restore and ID-seed application so hydration resumes shared state and `UseId` generation from the transferred SSR payload.
+- Deferred hydration-time atom subscriptions and follow-up update notifications until the hydration commit completes, then ran effects against the committed tree.
 - Added safe SSR bootstrap helpers for inline JSON payloads, including script-tag rendering and browser-side bootstrap-script reading.
 - Added optional CBOR-based binary bootstrap encoding/decoding for SSR payload transport.
 - Added sidecar bootstrap reference support so hydration can load external JSON or CBOR bootstrap payloads instead of only inline script JSON.
-- Added SSR bootstrap tests covering escaping, JSON decode defaults, binary round-trips, reference scripts, wasm-side sidecar loading, and hydration fallback behavior.
+- Added SSR/bootstrap and hydration tests covering DOM reuse, subtree fallback, text mismatch recovery, trailing-node cleanup, bootstrap atom restore, and ID-seed resume behavior.
 - Added SSR transport microbenchmarks showing CBOR bootstrap encode/decode is materially cheaper than JSON for larger sidecar-style payloads in the current implementation.
 
 ### Public package and wasm tests
@@ -99,6 +102,8 @@
 - Expanded `ui` docs further to cover the new `ErrorBoundary` contract, fallback callbacks, and explicit reset behavior.
 - Added docs for shared derived state, snapshot persistence, route guards, route-managed metadata, reducer/form helpers, and debounced/throttled UI hooks.
 - Updated the backlog and examples index to mark nested routes and layout routes complete and list the new multi-level example.
+- Expanded the root README with a project-wide feature inventory, clarified the stable public package surface, and brought the shipped examples list up to the current `16` through `19` demo set.
+- Refreshed the SSR demo and README copy so the examples describe the shipped hydration behavior accurately: bootstrap restore, matching DOM reuse, and subtree fallback on structural mismatch.
 
 ### Browser tests and benchmarks
 
