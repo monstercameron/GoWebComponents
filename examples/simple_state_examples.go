@@ -1166,6 +1166,7 @@ func SimpleStateExamplesApp(props Attrs) *Element {
 		PersonFormExample(nil),
 		TodoListExample(nil),
 		GoroutineExample(nil),
+		ContextExample(nil),
 	)
 }
 
@@ -1207,6 +1208,7 @@ func SimpleStateExamplesDemo() {
 	fmt.Printf("   - 👤 Person Form (struct state)\n")
 	fmt.Printf("   - 📋 Todo List (array/slice state)\n")
 	fmt.Printf("   - 🚀 Goroutine (async state updates with cancellation)\n")
+	fmt.Printf("   - 🧭 Context API (default, provider, consumer, nested override)\n")
 	fmt.Printf("🔍 SimpleStateExamplesDemo [DEBUG]: Watch console for detailed render tracking and state change logs!\n")
 	fmt.Printf("⚠️  SimpleStateExamplesDemo [HOOK_VALIDATION]: Hook order validation is now active - violations will be logged!\n")
 	fmt.Printf("📈 SimpleStateExamplesDemo [PERFORMANCE]: Global render counter started - track re-renders across all components\n")

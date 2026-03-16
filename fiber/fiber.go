@@ -23,15 +23,15 @@ var (
 	updateScheduled bool // Flag to prevent multiple update scheduling
 
 	// --- UI queue for main-thread safe updates with optimized buffer sizing ---
-	uiQueue         chan func()
-	uiQueueSize     int   = 1024 // Default buffer size
-	uiQueueMaxSize  int   = 4096 // Maximum buffer size for dynamic growth
-	uiQueueMinSize  int   = 256  // Minimum buffer size for dynamic shrinking
-	uiQueueGrowth   int64        // Counter for queue growth events
-	uiQueueShrinks  int64        // Counter for queue shrink events
-	
+	uiQueue        chan func()
+	uiQueueSize    int   = 1024 // Default buffer size
+	uiQueueMaxSize int   = 4096 // Maximum buffer size for dynamic growth
+	uiQueueMinSize int   = 256  // Minimum buffer size for dynamic shrinking
+	uiQueueGrowth  int64        // Counter for queue growth events
+	uiQueueShrinks int64        // Counter for queue shrink events
+
 	// UI queue monitoring
-	uiQueueOverflows int64 // Counter for overflow events
+	uiQueueOverflows  int64 // Counter for overflow events
 	uiQueueMaxReached int64 // Track maximum queue size reached
 
 	// Indicates we're executing on the main scheduler/commit/effect loop
@@ -65,17 +65,17 @@ func resizeUIQueue(newSize int) {
 	if newSize > uiQueueMaxSize {
 		newSize = uiQueueMaxSize
 	}
-	
+
 	if newSize == uiQueueSize {
 		return // No change needed
 	}
-	
+
 	oldSize := uiQueueSize
 	oldQueue := uiQueue
-	
+
 	// Create new queue with optimized size
 	newQueue := make(chan func(), newSize)
-	
+
 	// Transfer existing items to new queue
 	transferred := 0
 	for {
@@ -98,11 +98,11 @@ func resizeUIQueue(newSize int) {
 			goto transferComplete
 		}
 	}
-	
+
 transferComplete:
 	uiQueue = newQueue
 	uiQueueSize = newSize
-	
+
 	if newSize > oldSize {
 		atomic.AddInt64(&uiQueueGrowth, 1)
 		debugf("FIBER", "📈 resizeUIQueue: grew UI queue %d→%d (transferred %d items)\n", oldSize, newSize, transferred)
@@ -118,14 +118,14 @@ func optimizeUIQueueSize() {
 	if !uiQueueAutoOptimization {
 		return
 	}
-	
+
 	currentLen := len(uiQueue)
 	currentCap := cap(uiQueue)
 	utilizationPercent := float64(currentLen) / float64(currentCap) * 100
-	
-	debugf("FIBER", "📊 optimizeUIQueueSize: current=%d, capacity=%d, utilization=%.1f%%\n", 
+
+	debugf("FIBER", "📊 optimizeUIQueueSize: current=%d, capacity=%d, utilization=%.1f%%\n",
 		currentLen, currentCap, utilizationPercent)
-	
+
 	// Grow if utilization is consistently high
 	if utilizationPercent > 80 && currentCap < uiQueueMaxSize {
 		newSize := currentCap * 2
@@ -134,7 +134,7 @@ func optimizeUIQueueSize() {
 		}
 		resizeUIQueue(newSize)
 	}
-	
+
 	// Shrink if utilization is consistently low
 	if utilizationPercent < 20 && currentCap > uiQueueMinSize {
 		newSize := currentCap / 2
@@ -163,7 +163,7 @@ func scheduleUpdateAtRoot() {
 	if wipRoot == nil {
 		debugf("FIBER", "🔧 scheduleUpdateAtRoot: getting fiber from pool\n")
 		atomic.AddInt64(&poolUtilization.totalAllocations, 1)
-		
+
 		poolFiber := fiberPool.Get()
 		if fiber, ok := poolFiber.(*Fiber); ok {
 			// Pool hit - track metrics
@@ -196,13 +196,14 @@ func scheduleUpdateAtRoot() {
 	wipRoot.parent = nil
 	wipRoot.child = nil
 	wipRoot.sibling = nil
+	wipRoot.contextValues = nil
 
 	nextUnitOfWork = wipRoot
-	
+
 	// Smart slice management: shrink backing array if it grew too large
-	const maxDeletionsCapacity = 64 // Reasonable upper bound for most apps
+	const maxDeletionsCapacity = 64     // Reasonable upper bound for most apps
 	const defaultDeletionsCapacity = 16 // Default capacity for new slice
-	
+
 	if cap(deletions) > maxDeletionsCapacity {
 		// Backing array is too large, create new slice with reasonable capacity
 		oldCapacity := cap(deletions)
@@ -228,10 +229,11 @@ func scheduleUpdate(fiber *Fiber) {
 	debugf("FIBER", "🎯 scheduleUpdate called for fiber %p (type: %v)\n", fiber, fiber.typeOf)
 	// fmt.Println("scheduleUpdate: Scheduling update")
 	wipRoot = &Fiber{
-		typeOf:    "ROOT",
-		dom:       currentRoot.dom,
-		props:     currentRoot.props,
-		alternate: currentRoot,
+		typeOf:        "ROOT",
+		dom:           currentRoot.dom,
+		props:         currentRoot.props,
+		contextValues: nil,
+		alternate:     currentRoot,
 	}
 	nextUnitOfWork = wipRoot
 	deletions = []*Fiber{}
@@ -248,10 +250,11 @@ func render(element *Element, container js.Value) {
 
 	// fmt.Println("render: Starting rendering process.")
 	wipRoot = &Fiber{
-		typeOf:    "ROOT", // Assign a type to the root fiber
-		dom:       container,
-		props:     map[string]interface{}{"children": []interface{}{element}},
-		alternate: currentRoot,
+		typeOf:        "ROOT", // Assign a type to the root fiber
+		dom:           container,
+		props:         map[string]interface{}{"children": []interface{}{element}},
+		contextValues: nil,
+		alternate:     currentRoot,
 	}
 	debugf("RENDER", "Root fiber created %p.\n", wipRoot)
 	debugf("FIBER", "📊 render: total renders so far: %d\n", totalRenders)
@@ -511,6 +514,59 @@ func performUnitOfWork(fiber *Fiber) *Fiber {
 				reconcileChildren(fiber, []interface{}{})
 			}
 
+		case *ContextProvider:
+			debugf("FIBER", "🧩 performUnitOfWork: processing Context provider\n")
+			provider, ok := fiber.typeOf.(*ContextProvider)
+			if !ok || provider == nil || provider.context == nil {
+				debugf("FIBER", "🚨 performUnitOfWork: invalid Context provider %T\n", fiber.typeOf)
+				return nil
+			}
+
+			providerValue := provider.context.defaultValue
+			if fiber.props != nil {
+				if value, exists := fiber.props["value"]; exists {
+					providerValue = value
+				}
+			}
+
+			fiber.contextValues = deriveContextValues(fiber.contextValues, provider.context.id, providerValue)
+
+			if children, ok := fiber.props["children"].([]interface{}); ok {
+				reconcileChildren(fiber, children)
+			} else {
+				reconcileChildren(fiber, emptyChildren)
+			}
+
+		case *ContextConsumer:
+			debugf("FIBER", "🧩 performUnitOfWork: processing Context consumer\n")
+			consumer, ok := fiber.typeOf.(*ContextConsumer)
+			if !ok || consumer == nil || consumer.context == nil {
+				debugf("FIBER", "🚨 performUnitOfWork: invalid Context consumer %T\n", fiber.typeOf)
+				return nil
+			}
+
+			contextValue := resolveContextValue(fiber, consumer.context)
+			var element *Element
+
+			if fiber.props != nil {
+				if render, ok := fiber.props["render"].(func(interface{}) *Element); ok {
+					element = render(contextValue)
+				} else if children, ok := fiber.props["children"].([]interface{}); ok {
+					for _, child := range children {
+						if renderChild, ok := child.(func(interface{}) *Element); ok {
+							element = renderChild(contextValue)
+							break
+						}
+					}
+				}
+			}
+
+			if element != nil {
+				reconcileChildren(fiber, []interface{}{element})
+			} else {
+				reconcileChildren(fiber, emptyChildren)
+			}
+
 		case string:
 			debugf("FIBER", "🏷️ performUnitOfWork: processing DOM element: %v\n", fiber.typeOf)
 			// Host component (HTML element)
@@ -650,6 +706,16 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 							sameType = true
 						}
 					}
+				case *ContextProvider:
+					oldProvider, ok := oldFiber.typeOf.(*ContextProvider)
+					if ok && oldProvider != nil && elemType != nil && oldProvider.context == elemType.context {
+						sameType = true
+					}
+				case *ContextConsumer:
+					oldConsumer, ok := oldFiber.typeOf.(*ContextConsumer)
+					if ok && oldConsumer != nil && elemType != nil && oldConsumer.context == elemType.context {
+						sameType = true
+					}
 				case string:
 					// Host component: Use reflect.DeepEqual for string comparison
 					if reflect.DeepEqual(elem.Type, oldFiber.typeOf) {
@@ -689,12 +755,13 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 			// fmt.Printf("reconcileChildren: Reusing existing fiber of type %v\n", oldFiber.typeOf)
 			if elem, ok := element.(*Element); ok {
 				newFiber = &Fiber{
-					typeOf:    oldFiber.typeOf,
-					props:     elem.Props,
-					dom:       oldFiber.dom,
-					parent:    wipFiber,
-					alternate: oldFiber,
-					effectTag: "UPDATE",
+					typeOf:        oldFiber.typeOf,
+					props:         elem.Props,
+					contextValues: wipFiber.contextValues,
+					dom:           oldFiber.dom,
+					parent:        wipFiber,
+					alternate:     oldFiber,
+					effectTag:     "UPDATE",
 				}
 				debugf("FIBER", "✅ reconcileChildren: created UPDATE fiber %p\n", newFiber)
 			} else {
@@ -706,11 +773,12 @@ func reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 			// fmt.Printf("reconcileChildren: Creating new fiber of type %v\n", element.(*Element).Type)
 			if elem, ok := element.(*Element); ok {
 				newFiber = &Fiber{
-					typeOf:    elem.Type,
-					props:     elem.Props,
-					dom:       js.Value{},
-					parent:    wipFiber,
-					effectTag: "PLACEMENT",
+					typeOf:        elem.Type,
+					props:         elem.Props,
+					contextValues: wipFiber.contextValues,
+					dom:           js.Value{},
+					parent:        wipFiber,
+					effectTag:     "PLACEMENT",
 				}
 				debugf("FIBER", "✅ reconcileChildren: created PLACEMENT fiber %p (type: %v)\n",
 					newFiber, elem.Type)
@@ -782,7 +850,7 @@ func SetUIQueueBufferSize(size int) {
 	if size > uiQueueMaxSize {
 		size = uiQueueMaxSize
 	}
-	
+
 	debugf("FIBER", "🔧 SetUIQueueBufferSize: resizing UI queue to %d\n", size)
 	resizeUIQueue(size)
 }
@@ -798,14 +866,14 @@ func SetUIQueueLimits(minSize, maxSize int) {
 	if maxSize > 16384 {
 		maxSize = 16384 // Absolute maximum to prevent excessive memory usage
 	}
-	
+
 	oldMin, oldMax := uiQueueMinSize, uiQueueMaxSize
 	uiQueueMinSize = minSize
 	uiQueueMaxSize = maxSize
-	
-	debugf("FIBER", "🔧 SetUIQueueLimits: updated limits min=%d→%d, max=%d→%d\n", 
+
+	debugf("FIBER", "🔧 SetUIQueueLimits: updated limits min=%d→%d, max=%d→%d\n",
 		oldMin, minSize, oldMax, maxSize)
-	
+
 	// Adjust current size if it's outside new limits
 	if uiQueueSize < minSize {
 		resizeUIQueue(minSize)
@@ -817,14 +885,14 @@ func SetUIQueueLimits(minSize, maxSize int) {
 // GetUIQueueStats returns comprehensive UI queue statistics
 func GetUIQueueStats() map[string]int64 {
 	return map[string]int64{
-		"currentSize":     int64(len(uiQueue)),
-		"bufferSize":      int64(cap(uiQueue)),
-		"minSize":         int64(uiQueueMinSize),
-		"maxSize":         int64(uiQueueMaxSize),
-		"overflowCount":   atomic.LoadInt64(&uiQueueOverflows),
-		"maxReached":      atomic.LoadInt64(&uiQueueMaxReached),
-		"growthEvents":    atomic.LoadInt64(&uiQueueGrowth),
-		"shrinkEvents":    atomic.LoadInt64(&uiQueueShrinks),
+		"currentSize":   int64(len(uiQueue)),
+		"bufferSize":    int64(cap(uiQueue)),
+		"minSize":       int64(uiQueueMinSize),
+		"maxSize":       int64(uiQueueMaxSize),
+		"overflowCount": atomic.LoadInt64(&uiQueueOverflows),
+		"maxReached":    atomic.LoadInt64(&uiQueueMaxReached),
+		"growthEvents":  atomic.LoadInt64(&uiQueueGrowth),
+		"shrinkEvents":  atomic.LoadInt64(&uiQueueShrinks),
 	}
 }
 

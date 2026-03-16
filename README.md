@@ -62,6 +62,25 @@ Here are the five most essential functions you'll use when building with GoWebCo
    - Renders a component into a DOM container.
    - Typically used to mount the root component of your application.
 
+### Context API
+
+GoWebComponents now includes a minimal Context API for passing values through a subtree without prop drilling. Use `CreateContext` to define a context, `GoUseContext` inside components to read the nearest provider value, and `context.Provider` or `context.Consumer` when composing the tree.
+
+```go
+themeContext := fiber.CreateContext("light")
+
+func ThemeLabel(props fiber.Attrs) *fiber.Element {
+	theme := fiber.GoUseContext[string](themeContext)
+	return fiber.P(fiber.Attrs{}, fiber.Text("Theme: "+theme))
+}
+
+app := fiber.CreateElement(themeContext.Provider, map[string]interface{}{
+	"value": "dark",
+},
+	fiber.CreateElement(ThemeLabel, nil),
+)
+```
+
 ### Quick Start: Todo List Application
 
 Let's create a simple todo list to showcase GoWebComponents in action:

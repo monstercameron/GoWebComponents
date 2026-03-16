@@ -23,7 +23,7 @@
 - [ ] useCallback
 - [ ] useRef
 - [ ] useReducer
-- [ ] useContext
+- [x] useContext
 - [ ] useLayoutEffect
 - [ ] useId
 - [ ] useDeferredValue
@@ -39,7 +39,7 @@
 - [ ] Suspense for async components
 - [ ] Portals (render to different DOM nodes)
 - [ ] React.memo equivalent for component memoization
-- [ ] Context API (Provider/Consumer pattern)
+- [x] Context API (Provider/Consumer pattern)
 - [ ] Strict mode equivalent
 - [ ] Profiler for performance monitoring
 

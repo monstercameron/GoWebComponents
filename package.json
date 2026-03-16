@@ -1,0 +1,12 @@
+{
+  "name": "gowebcomponents-browser-tests",
+  "private": true,
+  "scripts": {
+    "build:wasm": "node tools/build_wasm.js",
+    "test:context-browser": "playwright test tests/context-browser.spec.js",
+    "test:context-browser:smoke": "node tools/context_browser_smoke.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.53.1"
+  }
+}

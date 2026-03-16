@@ -21,6 +21,7 @@ const (
 	HookTypeState HookType = iota
 	HookTypeEffect
 	HookTypeMemo
+	HookTypeContext
 	HookTypeFunc
 )
 
@@ -64,9 +65,10 @@ type Fiber struct {
 	hooks     *Hooks // 8 bytes
 
 	// Group interface and map together (48 bytes)
-	typeOf interface{}            // 16 bytes
-	props  map[string]interface{} // 8 bytes
-	dom    js.Value               // 24 bytes
+	typeOf        interface{}            // 16 bytes
+	props         map[string]interface{} // 8 bytes
+	contextValues map[int64]interface{}
+	dom           js.Value // 24 bytes
 
 	// Smaller types grouped at end (64 bytes)
 	effectTag      string    // 16 bytes

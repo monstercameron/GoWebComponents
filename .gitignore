@@ -1,2 +1,5 @@
 .DS_Store
 static/bin/main.wasm
+node_modules/
+playwright-report/
+test-results/
