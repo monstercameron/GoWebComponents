@@ -12,6 +12,7 @@ import (
 
 	"github.com/monstercameron/GoWebComponents/router"
 )
+
 // GWCShowcaseSection presents GoWebComponents capabilities with feature cards.
 
 // Uses dark theme styling to create visual contrast and highlight the framework's
@@ -1211,195 +1212,195 @@ func WhyGoWebComponentsSection(_ Attrs) *Element {
 
 		Section(
 
-		Attrs{
+			Attrs{
 
-			"id": "api",
+				"id": "api",
 
-			"class": "py-20 bg-gradient-to-br from-gray-900/50 to-blue-900/20 border-t border-white/10",
-		},
-		Div(
-
-			Attrs{"class": "container mx-auto px-6"},
-
+				"class": "py-20 bg-gradient-to-br from-gray-900/50 to-blue-900/20 border-t border-white/10",
+			},
 			Div(
 
-				Attrs{"class": "max-w-4xl mx-auto text-center mb-16"},
-
-				H2(Attrs{"class": "text-4xl md:text-5xl font-bold mb-8 text-white"}, "Why GoWebComponents?"),
-
-				P(
-
-					Attrs{"class": "text-xl text-gray-300 leading-relaxed mb-8"},
-
-					"Born from the need to build complex, performant web applications without the JavaScript ecosystem's complexity. ",
-
-					"GoWebComponents brings Go's elegance, safety, and performance to the frontend.",
-				),
-			),
-
-			// Comparison cards
-
-			Div(
-
-				Attrs{"class": "grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto"},
-
-				// Traditional approach
+				Attrs{"class": "container mx-auto px-6"},
 
 				Div(
 
-					Attrs{"class": "bg-red-900/10 border border-red-500/20 rounded-2xl p-8 backdrop-blur-sm"},
+					Attrs{"class": "max-w-4xl mx-auto text-center mb-16"},
 
-					H3(Attrs{"class": "text-2xl font-bold text-red-300 mb-6 flex items-center"},
+					H2(Attrs{"class": "text-4xl md:text-5xl font-bold mb-8 text-white"}, "Why GoWebComponents?"),
 
-						Span(Attrs{"class": "mr-3"}, "❌"),
+					P(
 
-						"Traditional Web Development"),
+						Attrs{"class": "text-xl text-gray-300 leading-relaxed mb-8"},
 
-					Ul(Attrs{"class": "space-y-4 text-red-200"},
+						"Born from the need to build complex, performant web applications without the JavaScript ecosystem's complexity. ",
 
-						Li(Attrs{"class": "flex items-start"},
-
-							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
-
-							"Complex build pipelines and toolchains"),
-
-						Li(Attrs{"class": "flex items-start"},
-
-							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
-
-							"Runtime errors and type coercion issues"),
-
-						Li(Attrs{"class": "flex items-start"},
-
-							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
-
-							"Separate backend/frontend codebases"),
-
-						Li(Attrs{"class": "flex items-start"},
-
-							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
-
-							"Heavy node_modules dependencies"),
-
-						Li(Attrs{"class": "flex items-start"},
-
-							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
-
-							"State management complexity"),
+						"GoWebComponents brings Go's elegance, safety, and performance to the frontend.",
 					),
 				),
 
-				// GoWebComponents approach
+				// Comparison cards
 
 				Div(
 
-					Attrs{"class": "bg-green-900/10 border border-green-500/20 rounded-2xl p-8 backdrop-blur-sm"},
+					Attrs{"class": "grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto"},
 
-					H3(Attrs{"class": "text-2xl font-bold text-green-300 mb-6 flex items-center"},
+					// Traditional approach
 
-						Span(Attrs{"class": "mr-3"}, "✅"),
+					Div(
 
-						"GoWebComponents Approach"),
+						Attrs{"class": "bg-red-900/10 border border-red-500/20 rounded-2xl p-8 backdrop-blur-sm"},
 
-					Ul(Attrs{"class": "space-y-4 text-green-200"},
+						H3(Attrs{"class": "text-2xl font-bold text-red-300 mb-6 flex items-center"},
 
-						Li(Attrs{"class": "flex items-start"},
+							Span(Attrs{"class": "mr-3"}, "❌"),
 
-							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+							"Traditional Web Development"),
 
-							"Single Go codebase for everything"),
+						Ul(Attrs{"class": "space-y-4 text-red-200"},
 
-						Li(Attrs{"class": "flex items-start"},
+							Li(Attrs{"class": "flex items-start"},
 
-							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 
-							"Compile-time error checking"),
+								"Complex build pipelines and toolchains"),
 
-						Li(Attrs{"class": "flex items-start"},
+							Li(Attrs{"class": "flex items-start"},
 
-							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 
-							"Shared types and logic"),
+								"Runtime errors and type coercion issues"),
 
-						Li(Attrs{"class": "flex items-start"},
+							Li(Attrs{"class": "flex items-start"},
 
-							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 
-							"Zero external dependencies"),
+								"Separate backend/frontend codebases"),
 
-						Li(Attrs{"class": "flex items-start"},
+							Li(Attrs{"class": "flex items-start"},
 
-							Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
 
-							"Built-in state management"),
+								"Heavy node_modules dependencies"),
+
+							Li(Attrs{"class": "flex items-start"},
+
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+
+								"State management complexity"),
+						),
+					),
+
+					// GoWebComponents approach
+
+					Div(
+
+						Attrs{"class": "bg-green-900/10 border border-green-500/20 rounded-2xl p-8 backdrop-blur-sm"},
+
+						H3(Attrs{"class": "text-2xl font-bold text-green-300 mb-6 flex items-center"},
+
+							Span(Attrs{"class": "mr-3"}, "✅"),
+
+							"GoWebComponents Approach"),
+
+						Ul(Attrs{"class": "space-y-4 text-green-200"},
+
+							Li(Attrs{"class": "flex items-start"},
+
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+
+								"Single Go codebase for everything"),
+
+							Li(Attrs{"class": "flex items-start"},
+
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+
+								"Compile-time error checking"),
+
+							Li(Attrs{"class": "flex items-start"},
+
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+
+								"Shared types and logic"),
+
+							Li(Attrs{"class": "flex items-start"},
+
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+
+								"Zero external dependencies"),
+
+							Li(Attrs{"class": "flex items-start"},
+
+								Span(Attrs{"class": "mr-3 mt-1"}, "•"),
+
+								"Built-in state management"),
+						),
 					),
 				),
-			),
 
-			// Stats section
+				// Stats section
 
-			Div(
+				Div(
 
-				Attrs{"class": "mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto"},
+					Attrs{"class": "mt-16 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto"},
 
-				StatCard("10x", "Faster Development", "No build tools, instant feedback"),
+					StatCard("10x", "Faster Development", "No build tools, instant feedback"),
 
-				StatCard("100%", "Type Safe", "Go's compiler catches all errors"),
+					StatCard("100%", "Type Safe", "Go's compiler catches all errors"),
 
-				StatCard("0", "Dependencies", "Pure Go, no node_modules"),
-			),
+					StatCard("0", "Dependencies", "Pure Go, no node_modules"),
+				),
 
-			// Documentation CTA
+				// Documentation CTA
 
-			Div(
+				Div(
 
-				Attrs{"class": "mt-16 text-center"},
+					Attrs{"class": "mt-16 text-center"},
 
-				func() *Element {
+					func() *Element {
 
-					// Store UseEvent result in variable for proper event handling
+						// Store UseEvent result in variable for proper event handling
 
-					navigateToDocs := UseEvent(func(event MouseEvent) {
+						navigateToDocs := UseEvent(func(event MouseEvent) {
 
-						router.Navigate("/docs")
+							router.Navigate("/docs")
 
-					})
+						})
 
-					return Div(
+						return Div(
 
-						Attrs{"class": "bg-white/5 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/10 max-w-2xl mx-auto"},
+							Attrs{"class": "bg-white/5 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/10 max-w-2xl mx-auto"},
 
-						H3(
+							H3(
 
-							Attrs{"class": "text-2xl font-bold text-white mb-4"},
+								Attrs{"class": "text-2xl font-bold text-white mb-4"},
 
-							"Ready to Get Started?",
-						),
+								"Ready to Get Started?",
+							),
 
-						P(
+							P(
 
-							Attrs{"class": "text-gray-300 mb-6"},
+								Attrs{"class": "text-gray-300 mb-6"},
 
-							"Explore our comprehensive documentation with API references, tutorials, and best practices to build your next web application with GoWebComponents.",
-						),
+								"Explore our comprehensive documentation with API references, tutorials, and best practices to build your next web application with GoWebComponents.",
+							),
 
-						Button(
+							Button(
 
-							Attrs{
+								Attrs{
 
-								"class": "px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 font-semibold text-lg cursor-pointer",
+									"class": "px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 font-semibold text-lg cursor-pointer",
 
-								"onclick": navigateToDocs,
-							},
+									"onclick": navigateToDocs,
+								},
 
-							"📚 View Documentation",
-						),
-					)
+								"📚 View Documentation",
+							),
+						)
 
-				}(),
+					}(),
+				),
 			),
 		),
-	),
 	)
 
 }
