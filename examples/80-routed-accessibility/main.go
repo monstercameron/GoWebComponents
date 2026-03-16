@@ -1,0 +1,84 @@
+//go:build js && wasm
+// +build js,wasm
+
+package main
+
+import (
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
+
+	"github.com/monstercameron/GoWebComponents/examples/shared"
+	"github.com/monstercameron/GoWebComponents/html"
+	"github.com/monstercameron/GoWebComponents/router"
+	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/utils"
+)
+
+type routeContentProps struct {
+	Heading string
+	Body    string
+}
+
+func routeLabel(path string) string {
+	switch path {
+	case "/accessibility/overview":
+		return "Overview accessibility"
+	case "/accessibility/settings":
+		return "Settings accessibility"
+	case "/accessibility/reports":
+		return "Reports accessibility"
+	default:
+		return "Accessibility route"
+	}
+}
+
+func routedAccessibilityPageView(props routeContentProps) ui.Node {
+	inspection := router.InspectCurrentRoute()
+	announcer := ui.UseAnnouncer()
+	focus := ui.UseFocusManager()
+
+	ui.UseEffect(func() func() {
+		announcer.Polite("Loaded " + props.Heading)
+		focus.FocusSelector("#route-page-heading")
+		return nil
+	}, inspection.Path, props.Heading)
+
+	return shared.ExamplePage(
+		"Routed accessibility guidance",
+		"Route-change announcements and heading focus after navigation",
+		"A routed app still needs explicit spoken announcements and focus movement when the visible page changes. Each route page announces itself through ui.UseAnnouncer and then moves keyboard focus to the new page heading after navigation.",
+		announcer.Region(),
+		shared.ExamplePanel("Route navigation",
+			html.Nav(html.Props{Class: "mt-3 flex flex-wrap gap-3", Aria: map[string]string{"label": "Accessibility routes"}},
+				html.A(html.Props{Href: "#/accessibility/overview", Class: "rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200"}, html.Text("Overview")),
+				html.A(html.Props{Href: "#/accessibility/settings", Class: "rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200"}, html.Text("Settings")),
+				html.A(html.Props{Href: "#/accessibility/reports", Class: "rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200"}, html.Text("Reports")),
+			),
+			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
+				shared.ExampleStat("Current path", inspection.Path),
+				shared.ExampleStat("Loading", map[bool]string{true: "true", false: "false"}[inspection.Loading]),
+			),
+		),
+		shared.ExamplePanel("Active route content",
+			html.Article(html.Props{Class: "mt-3 rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6"},
+				html.H2(html.Props{ID: "route-page-heading", Class: "text-3xl font-black tracking-tight text-white", Raw: map[string]interface{}{"tabIndex": -1}}, html.Text(props.Heading)),
+				html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text(props.Body)),
+			),
+		),
+	)
+}
+
+func routedAccessibilityPage(heading, body string) func(router.Attrs) *router.Element {
+	return func(router.Attrs) *router.Element {
+		return ui.CreateElement(routedAccessibilityPageView, routeContentProps{Heading: heading, Body: body})
+	}
+}
+
+func main() {
+	utils.DisableAllDebug()
+	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/accessibility/overview"})
+	r.Register("/accessibility/overview", routedAccessibilityPage("Overview accessibility", "This route announces itself through a polite live region and moves focus to the page heading after navigation."), router.Options{Title: "Accessibility overview"})
+	r.Register("/accessibility/settings", routedAccessibilityPage("Settings accessibility", "Settings pages are a common place to miss focus restoration and page-change announcements because the UI often stays inside one app shell."), router.Options{Title: "Accessibility settings"})
+	r.Register("/accessibility/reports", routedAccessibilityPage("Reports accessibility", "Route-driven dashboards should still expose a clear heading and a spoken status message when the screen meaningfully changes."), router.Options{Title: "Accessibility reports"})
+	r.Mount("#app")
+	select {}
+}

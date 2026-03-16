@@ -61,6 +61,7 @@ func TestFlattenFragments_SkipsNilAndTypedNilElements(t *testing.T) {
 	elements := []interface{}{
 		&Element{
 			Type: "FRAGMENT",
+
 			Props: map[string]interface{}{
 				"children": []interface{}{nil, typedNil, "raw"},
 			},
@@ -112,6 +113,26 @@ func TestCreateDom_TextElementFromTextContent(t *testing.T) {
 	node := dom.(*testDOMNode)
 	if node.text != "from-text-content" {
 		t.Fatal("expected text node to be created from textContent")
+	}
+}
+
+func TestCreateDom_TextElementWithEmptyTextContentCreatesNode(t *testing.T) {
+	adapter := newTestDOMAdapter()
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: newTestScheduler()})
+
+	dom := rt.createDom(&Fiber{
+		typeOf:      "TEXT_ELEMENT",
+		textContent: "",
+		props:       map[string]interface{}{},
+	})
+
+	if dom == nil {
+		t.Fatal("expected empty text node to be created")
+	}
+
+	node := dom.(*testDOMNode)
+	if node.nodeType != "text" || node.text != "" {
+		t.Fatalf("expected empty text node, got type=%q text=%q", node.nodeType, node.text)
 	}
 }
 

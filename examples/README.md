@@ -35,6 +35,9 @@ Use the integrated apps when you want to understand how multiple primitives comp
 ### ui Package
 
 - `76-use-effect`: `ui.UseEffect`
+- `77-accessible-overlay`: `ui.AccessibleOverlay`, `ui.UseFocusManager`, `ui.UseFocusTrap`
+- `78-composite-navigation`: `ui.UseCompositeNavigation`
+- `79-form-accessibility`: `ui.UseAnnouncer`, validation announcements, focus-to-error behavior
 - `21-ui-render`: `ui.Render`
 - `22-create-element`: `ui.CreateElement`
 - `23-fragment`: `ui.Fragment`
@@ -96,6 +99,7 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `63-router-metadata`: route-managed title and metadata
 - `64-nested-layout-routes`: layout routes, `router.Outlet`
 - `65-router-guards`: `BeforeEnter`, `BeforeLeave`
+- `80-routed-accessibility`: route-change announcements and heading focus after navigation
 - `72-router-hydrate-mount`: `router.HydrateMount`
 - `74-ssr-route-data-reuse`: route-loader bootstrap reuse during hydration
 

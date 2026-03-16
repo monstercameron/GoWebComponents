@@ -203,6 +203,25 @@ func TestUpdateDomProperties_BothClassAndClassName(t *testing.T) {
 	}
 }
 
+func TestUpdateDomProperties_MapsHTMLForToForAttribute(t *testing.T) {
+	adapter := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+
+	dom := adapter.CreateElement("label")
+	rt.updateDomProperties(dom, map[string]interface{}{}, map[string]interface{}{
+		"htmlFor": "reviewer-name",
+	})
+
+	node := dom.(*testDOMNode)
+	if node.attributes["for"] != "reviewer-name" {
+		t.Fatalf("expected htmlFor to map to for attribute, got %q", node.attributes["for"])
+	}
+	if _, ok := node.attributes["htmlFor"]; ok {
+		t.Fatal("expected htmlFor attribute name to be normalized to for")
+	}
+}
+
 func TestUpdateDomProperties_IntegerProperty(t *testing.T) {
 	adapter := newTestDOMAdapter()
 	scheduler := newTestScheduler()

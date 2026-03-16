@@ -5,9 +5,10 @@
 //   - Render for browser mounting
 //   - Portal for rendering a subtree into a selector or explicit host node outside the current DOM parent
 //   - CreateContext, UseContext, and Provider components for subtree-scoped values
-//   - UseState, UseReducer, UseForm, UseEffect, UseMemo, UseRef, UsePrevious, UseDeferredValue, UseDebounced, UseThrottled, UseChannel, UseTask, UseLazyNode, UseTransition, StartTransition, and UseId for local stateful logic
+//   - UseState, UseReducer, UseForm, UseEffect, UseMemo, UseRef, UsePrevious, UseDeferredValue, UseDebounced, UseThrottled, UseChannel, UseTask, UseLazyNode, UseTransition, StartTransition, UseId, UseFocusManager, UseFocusTrap, UseCompositeNavigation, and UseAnnouncer for local stateful logic
 //   - AsyncBoundary, ErrorBoundary, and Lazy for explicit async subtree loading, panic recovery, and fallback rendering
 //   - UseEvent for typed event handler wrapping
+//   - AccessibleOverlay for portal-backed dialog and overlay semantics with focus trapping and dismissal behavior
 //
 // UseReducer is intended for components whose local state behaves like a small
 // state machine with several coordinated transitions. Prefer UseState.Update for
@@ -50,6 +51,21 @@
 // They are intended for search boxes, live filtering, or fast-changing UI state
 // where callers want delayed or rate-limited derived values without open-coding
 // timer cleanup in every component.
+
+// UseFocusManager and UseFocusTrap provide the first public accessibility-
+// oriented focus helpers. They are intended for returning focus after dialogs
+// close, moving focus to the next meaningful control after route or async UI
+// changes, and keeping keyboard focus inside modal-style overlays.
+
+// UseCompositeNavigation is intended for reusable composite widgets such as
+// tabs, listboxes, menus, and command-palette results. It provides roving
+// tabindex, arrow-key movement, Home/End handling, and simple typeahead so
+// applications do not have to hand-roll the same keyboard loop repeatedly.
+
+// UseAnnouncer provides an application-local live-region helper for polite and
+// assertive announcements. It is intended for validation feedback, route or
+// async status updates, and other spoken status changes that should be wired to
+// ordinary HTML rather than a separate runtime subsystem.
 //
 // CreateContext and UseContext are intended for subtree-scoped values such as
 // theme, auth/session state, app configuration, or service-style helpers that

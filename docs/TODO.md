@@ -555,19 +555,19 @@ Organization rules for this file:
 ### Accessibility primitives and guidance
 
 - [x] Define the accessibility support baseline for the public UI surface.
-	`docs/ACCESSIBILITY.md` now defines the shipped baseline around typed semantic HTML, ARIA and role props, `ui.UseId()`, and the framework behaviors that still remain application-owned.
-- [ ] Add a first-class focus-management toolkit.
-	Support common needs such as returning focus after dialog close, focusing first invalid form fields, trapping focus inside overlays, and restoring focus after route-driven UI changes.
-- [ ] Add keyboard-navigation primitives for composite widgets.
-	Provide reusable patterns for roving tabindex, arrow-key navigation, typeahead navigation, and active-descendant style controls so menus, tabs, listboxes, and command palettes do not require bespoke logic in every app.
-- [ ] Add live-region and announcement helpers.
-	Support polite and assertive announcements for async loading, validation results, toasts, and route transitions without forcing every app to hand-roll `aria-live` containers.
-- [ ] Define accessible overlay primitives.
-	Document and eventually support the semantics required for dialogs, popovers, dropdown menus, and sheet-style overlays, including focus trapping, escape handling, inert-background behavior, and aria wiring.
+	`docs/ACCESSIBILITY.md` now defines the shipped baseline around typed semantic HTML, ARIA and role props, `ui.UseId()`, and the new accessibility primitives layered on top of that markup surface.
+- [x] Add a first-class focus-management toolkit.
+	`ui.UseFocusManager()` and `ui.UseFocusTrap(...)` now cover focus restoration, focus-to-error helpers, and modal-style focus trapping, with example coverage in `examples/77-accessible-overlay` and `examples/79-form-accessibility`.
+- [x] Add keyboard-navigation primitives for composite widgets.
+	`ui.UseCompositeNavigation(...)` now provides roving tabindex, arrow-key movement, Home/End handling, typeahead, and active-descendant support, with coverage in `examples/78-composite-navigation` and `ui/ui_wasm_test.go`.
+- [x] Add live-region and announcement helpers.
+	`ui.UseAnnouncer()` now provides polite and assertive live-region output for validation, async status, and route updates, with coverage in `examples/79-form-accessibility`, `examples/80-routed-accessibility`, and `ui/ui_wasm_test.go`.
+- [x] Define accessible overlay primitives.
+	`ui.AccessibleOverlay(...)` now defines the modal overlay contract for portal-backed dialogs, including focus trapping, escape handling, background inerting, scroll locking, and aria wiring.
 - [x] Add accessibility guidance for forms, routed apps, and async UI.
-	`docs/ACCESSIBILITY.md` now documents label/input pairing, `aria-*` usage, route-announcement limitations, async pending-state semantics, and the gap between semantic markup support and missing first-class announcement helpers.
-- [ ] Add accessibility-focused examples and tests.
-	Create examples and browser tests for accessible modal, tabs, listbox or combobox, form validation feedback, and routed page-announcement behavior so the guidance is enforced by real usage.
+	`docs/ACCESSIBILITY.md` now documents label/input pairing, `aria-*` usage, route announcements, async pending-state semantics, and the shipped accessibility helper APIs used to implement those flows.
+- [x] Add accessibility-focused examples and tests.
+	Added `examples/77-accessible-overlay`, `examples/78-composite-navigation`, `examples/79-form-accessibility`, and `examples/80-routed-accessibility` together with focused Playwright specs and package-level `ui` hook tests.
 
 ### Portal layering and overlay management
 

@@ -15,7 +15,7 @@ Use it when you are:
 
 Captured on `2026-03-16`.
 
-- `npx playwright test tests/catalog-smoke.spec.ts` passed for `75` example pages.
+- `npx playwright test tests/catalog-smoke.spec.ts` passed for `79` example pages.
 - The smoke suite covers every buildable numbered example page that is served directly from the examples catalog.
 - `18-ssr-server-routing` is not part of the generic catalog smoke because the real behavior requires its standalone Go server.
 - Dedicated example specs currently cover `01`, `02`, `05`, `06`, `07`, `08`, `10`, `12`, `13`, `16`, `17`, `18`, `19`, and `20`.
@@ -121,6 +121,9 @@ Standalone SSR server URLs:
 - `71-hydrate`: Verify prerendered markup is visible immediately, then click the buttons after wasm starts. Expected: hydration resumes the existing DOM and later updates stay interactive.
 - `73-ssr-bootstrap`: Load the static bootstrap page and verify the inline bootstrap content resumes into the hydrated UI. Expected: inline JSON data is reused and the prerendered content survives startup.
 - `76-use-effect`: Trigger dependency changes and cleanup behavior. Expected: effect-run and cleanup counters move in the expected order and document-side effects stay in sync.
+- `77-accessible-overlay`: Open the modal, cycle focus with Tab and Shift+Tab, then close it with Escape. Expected: focus stays inside the dialog while open, the background shell is hidden from assistive technology, and focus returns to the trigger on close.
+- `78-composite-navigation`: Focus the tabs and listbox, then use arrow keys, Home or End, and first-letter typeahead. Expected: the active item updates without bespoke keyboard wiring in the page component.
+- `79-form-accessibility`: Submit the form empty, then complete it successfully. Expected: validation errors are announced, focus moves to the first invalid field, and the success path announces completion after submit.
 
 ### state Package
 
@@ -157,6 +160,7 @@ Standalone SSR server URLs:
 - `63-router-metadata`: Navigate across routes that set metadata. Expected: document title or related metadata changes with the current route.
 - `64-nested-layout-routes`: Switch between layout children. Expected: the parent layout remains mounted while only the outlet subtree changes.
 - `65-router-guards`: Attempt guarded navigation and leave flows. Expected: allowed routes proceed and guarded routes block or redirect according to the rule.
+- `80-routed-accessibility`: Navigate between the shell routes. Expected: the live region announces the newly loaded page and focus moves to the route heading after each navigation.
 - `72-router-hydrate-mount`: Load the prerendered route first and then navigate after hydration. Expected: the initial route is preserved during attach and later route changes work normally.
 - `74-ssr-route-data-reuse`: Load the prerendered products route, then revalidate. Expected: the first render uses bootstrap data and later revalidation falls back to the live client loader path.
 

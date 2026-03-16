@@ -15,6 +15,7 @@ var (
 		"style":     {kind: propKindStyle, attrName: "style"},
 		"className": {kind: propKindClass, attrName: "class"},
 		"class":     {kind: propKindClass, attrName: "class"},
+		"htmlFor":   {kind: propKindDefault, attrName: "for"},
 		"value":     {kind: propKindSpecialProperty, attrName: "value", resetValue: "", shouldReset: true},
 		"checked":   {kind: propKindSpecialProperty, attrName: "checked", resetValue: false, shouldReset: true},
 		"selected":  {kind: propKindSpecialProperty, attrName: "selected", resetValue: false, shouldReset: true},
@@ -977,11 +978,11 @@ func (rt *Runtime) createDom(fiber *Fiber) DOMNode {
 	if t, ok := fiber.typeOf.(string); ok {
 		switch t {
 		case "TEXT_ELEMENT":
-			if fiber.textContent != "" {
-				dom = rt.domAdapter.CreateTextNode(fiber.textContent)
-			} else if nodeValue, ok := fiber.props["nodeValue"].(string); ok {
-				dom = rt.domAdapter.CreateTextNode(nodeValue)
+			text := fiber.textContent
+			if text == "" && fiber.props != nil {
+				text, _ = fiber.props["nodeValue"].(string)
 			}
+			dom = rt.domAdapter.CreateTextNode(text)
 		case "FRAGMENT":
 			// Fragments don't create DOM nodes - children are rendered directly
 			return nil

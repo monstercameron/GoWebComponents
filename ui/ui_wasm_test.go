@@ -385,6 +385,119 @@ func TestUseIdProducesDistinctIDsWithinComponent(t *testing.T) {
 	}
 }
 
+func TestUseCompositeNavigationHandlesKeyboardFlow(t *testing.T) {
+	installUIHookContext(t)
+
+	nav := UseCompositeNavigation([]CompositeItem{
+		{ID: "alpha", Text: "Alpha"},
+		{ID: "bravo", Text: "Bravo", Disabled: true},
+		{ID: "charlie", Text: "Charlie"},
+	}, CompositeNavigationOptions{Orientation: "horizontal", Loop: true})
+
+	if nav.ActiveIndex() != 0 {
+		t.Fatalf("expected initial active index 0, got %d", nav.ActiveIndex())
+	}
+	if nav.TabIndex(0) != 0 || nav.TabIndex(2) != -1 {
+		t.Fatalf("expected roving tabindex behavior, got active=%d inactive=%d", nav.TabIndex(0), nav.TabIndex(2))
+	}
+
+	prevented := 0
+	preventFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		prevented++
+		return nil
+	})
+	t.Cleanup(func() { preventFn.Release() })
+
+	eventValue := js.Global().Get("Object").New()
+	eventValue.Set("key", "ArrowRight")
+	eventValue.Set("preventDefault", preventFn)
+	nav.OnKeyDown(runtime.NewGoEvent(eventValue))
+	if prevented != 1 {
+		t.Fatalf("expected arrow navigation to prevent default once, got %d", prevented)
+	}
+	if nav.ActiveIndex() != 2 {
+		t.Fatalf("expected disabled item to be skipped, got active index %d", nav.ActiveIndex())
+	}
+
+	typeaheadValue := js.Global().Get("Object").New()
+	typeaheadValue.Set("key", "a")
+	typeaheadValue.Set("preventDefault", preventFn)
+	nav.OnKeyDown(runtime.NewGoEvent(typeaheadValue))
+	if nav.ActiveIndex() != 0 {
+		t.Fatalf("expected typeahead to jump to Alpha, got active index %d", nav.ActiveIndex())
+	}
+	if nav.ActiveDescendant() != "alpha" {
+		t.Fatalf("expected active descendant alpha, got %q", nav.ActiveDescendant())
+	}
+
+	homeValue := js.Global().Get("Object").New()
+	homeValue.Set("key", "End")
+	homeValue.Set("preventDefault", preventFn)
+	nav.OnKeyDown(runtime.NewGoEvent(homeValue))
+	if nav.ActiveIndex() != 2 {
+		t.Fatalf("expected End to move to last enabled item, got %d", nav.ActiveIndex())
+	}
+}
+
+func TestUseAnnouncerRendersPoliteAndAssertiveRegions(t *testing.T) {
+	installUIHookContext(t)
+	messageText := func(node *runtime.Element) string {
+		if node == nil || len(node.Children) == 0 {
+			return ""
+		}
+		switch child := node.Children[0].(type) {
+		case string:
+			return child
+		case *runtime.Element:
+			return child.TextContent
+		default:
+			return ""
+		}
+	}
+
+	announcer := UseAnnouncer()
+	announcer.Polite("Draft saved")
+	announcer.Assertive("Fix the required fields")
+
+	region := announcer.Region()
+	if region == nil {
+		t.Fatal("expected live region node")
+	}
+	if len(region.Children) != 2 {
+		t.Fatalf("expected polite and assertive regions, got %#v", region.Children)
+	}
+
+	polite, ok := region.Children[0].(*runtime.Element)
+	if !ok {
+		t.Fatalf("expected polite child element, got %T", region.Children[0])
+	}
+	assertive, ok := region.Children[1].(*runtime.Element)
+	if !ok {
+		t.Fatalf("expected assertive child element, got %T", region.Children[1])
+	}
+	if polite.Props["aria-live"] != "polite" {
+		t.Fatalf("expected polite live region, got %#v", polite.Props["aria-live"])
+	}
+	if assertive.Props["aria-live"] != "assertive" {
+		t.Fatalf("expected assertive live region, got %#v", assertive.Props["aria-live"])
+	}
+	politeMessage, ok := polite.Children[0].(*runtime.Element)
+	if !ok || messageText(politeMessage) != "Draft saved" {
+		t.Fatalf("expected polite message child, got %#v", polite.Children)
+	}
+	assertiveMessage, ok := assertive.Children[0].(*runtime.Element)
+	if !ok || messageText(assertiveMessage) != "Fix the required fields" {
+		t.Fatalf("expected assertive message child, got %#v", assertive.Children)
+	}
+	if announcer.PoliteID() == "" || announcer.AssertiveID() == "" {
+		t.Fatal("expected announcer region ids")
+	}
+	announcer.Clear()
+	if cleared := announcer.Region(); len(cleared.Children) != 2 {
+		t.Fatalf("expected cleared region structure to remain stable, got %#v", cleared.Children)
+	}
+}
+
 func TestUseTransitionDefersPublicStateUpdates(t *testing.T) {
 	scheduler := installQueuedUIHookContext(t)
 
