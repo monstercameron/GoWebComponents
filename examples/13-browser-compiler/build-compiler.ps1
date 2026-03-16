@@ -21,4 +21,16 @@ if (-not (Test-Path $wasmExecPath)) {
 }
 Copy-Item $wasmExecPath (Join-Path $PSScriptRoot "script\wasm_exec.js") -Force
 
+Write-Host "Copying standard library archives..."
+& (Join-Path $PSScriptRoot "copy-std-lib.ps1")
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+
+Write-Host "Generating standard library package index..."
+& (Join-Path $PSScriptRoot "generate-pkg-index.ps1")
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+
 Write-Host "Done."

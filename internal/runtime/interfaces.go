@@ -1,13 +1,13 @@
 package runtime
 
-// DOMNode is an opaque reference to a platform-specific DOM node
+// DOMNode is an opaque reference to a platform-specific DOM node.
 type DOMNode interface {
 	IsNull() bool
 	// TODO: clarify how nil vs IsNull interact for adapters to avoid mixed nil/IsNull checks
 	Equals(other DOMNode) bool
 }
 
-// DOMAdapter abstracts all DOM operations
+// DOMAdapter abstracts all DOM operations used by the runtime.
 type DOMAdapter interface {
 	// Element creation and manipulation
 	CreateElement(tag string) DOMNode
@@ -41,12 +41,12 @@ type DOMAdapter interface {
 	WrapFunction(fn interface{}) interface{}
 }
 
-// EventHandler is an opaque reference to a platform-specific event handler
+// EventHandler is an opaque reference to a platform-specific event handler.
 type EventHandler interface {
 	Release()
 }
 
-// Event abstracts platform-specific events
+// Event abstracts platform-specific events.
 type Event interface {
 	PreventDefault()
 	StopPropagation()
@@ -57,7 +57,7 @@ type Event interface {
 	IsChecked() bool
 }
 
-// EventAdapter abstracts event handling
+// EventAdapter abstracts event handling.
 type EventAdapter interface {
 	AddEventListener(node DOMNode, eventType string, handler EventHandler)
 	RemoveEventListener(node DOMNode, eventType string, handler EventHandler)
@@ -65,19 +65,19 @@ type EventAdapter interface {
 	ReleaseEventHandler(handler EventHandler)
 }
 
-// Deadline provides timing information for idle callbacks
+// Deadline provides timing information for idle callbacks.
 type Deadline interface {
 	TimeRemaining() float64
 	DidTimeout() bool
 }
 
-// Scheduler abstracts work scheduling
+// Scheduler abstracts work scheduling.
 type Scheduler interface {
 	RequestIdleCallback(callback func(deadline Deadline))
 	SetTimeout(callback func(), delay int)
 }
 
-// BrowserState abstracts browser state APIs
+// BrowserState abstracts browser state APIs.
 type BrowserState interface {
 	// History
 	PushState(state interface{}, title, url string)

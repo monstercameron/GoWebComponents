@@ -11,8 +11,8 @@ var (
 	globalRuntimeMu sync.Mutex
 )
 
-// GetGlobalRuntime returns the global Runtime instance, creating it if needed
-// For WASM builds, this automatically uses WASM platform adapters
+// GetGlobalRuntime returns the global Runtime instance, creating it if needed.
+// For WASM builds, this can be upgraded later by InitGlobalRuntime.
 func GetGlobalRuntime() *Runtime {
 	globalRuntimeMu.Lock()
 	defer globalRuntimeMu.Unlock()
@@ -28,8 +28,7 @@ func GetGlobalRuntime() *Runtime {
 	return globalRuntime
 }
 
-// InitGlobalRuntime initializes the global runtime with specific adapters
-// This should be called early in WASM initialization
+// InitGlobalRuntime initializes or upgrades the global runtime with specific adapters.
 func InitGlobalRuntime(config Config) {
 	globalRuntimeMu.Lock()
 	defer globalRuntimeMu.Unlock()
@@ -54,7 +53,7 @@ func InitGlobalRuntime(config Config) {
 	}
 }
 
-// Runtime represents the reconciliation and rendering engine
+// Runtime represents the reconciliation and rendering engine.
 type Runtime struct {
 	domAdapter   DOMAdapter
 	eventAdapter EventAdapter
@@ -144,7 +143,7 @@ func recordSlowOperationDiagnostic(kind string, fiber *Fiber, durationNs int64) 
 	ReportDiagnostic("runtime", DiagnosticWarning, fmt.Sprintf("slow %s on %s took %s", kind, name, formatRuntimeDurationNs(durationNs)))
 }
 
-// Config holds runtime configuration
+// Config holds runtime adapter configuration.
 type Config struct {
 	DOMAdapter   DOMAdapter
 	EventAdapter EventAdapter
@@ -152,7 +151,7 @@ type Config struct {
 	BrowserState BrowserState
 }
 
-// NewRuntime creates a new runtime instance
+// NewRuntime creates a new runtime instance.
 func NewRuntime(config Config) *Runtime {
 	// TODO: validate adapters are non-nil and fail fast; current code will panic later if any adapter is missing
 	return &Runtime{
@@ -166,7 +165,7 @@ func NewRuntime(config Config) *Runtime {
 	}
 }
 
-// RenderTo renders an element to a DOM node specified by selector
+// RenderTo renders an element to a DOM node specified by selector.
 func (rt *Runtime) RenderTo(selector string, element *Element) {
 	container := rt.queryContainer(selector)
 	if container == nil || container.IsNull() {

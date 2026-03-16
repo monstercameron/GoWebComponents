@@ -1,6 +1,6 @@
 package runtime
 
-// Element represents a virtual DOM node
+// Element represents a virtual DOM node.
 type Element struct {
 	Type        interface{}
 	Props       map[string]interface{}
@@ -12,15 +12,16 @@ type Element struct {
 // into a separate target container.
 type PortalElementType struct{}
 
+// PortalNodeType marks subtrees that should commit into a separate target container.
 var PortalNodeType = &PortalElementType{}
 
-// Effect represents a side effect to be run after render
+// Effect represents a side effect to be run after render.
 type Effect struct {
 	Fn           func() func()
 	CleanupIndex int
 }
 
-// Fiber represents a unit of work in the virtual DOM tree
+// Fiber represents a unit of work in the virtual DOM tree.
 type Fiber struct {
 	// Tree structure - grouped for traversal locality (Cache Line 0)
 	parent    *Fiber
@@ -99,20 +100,19 @@ type funcHandlerValue struct {
 	wrapper interface{} // The wrapped js.Func (or equivalent)
 }
 
-// RefValue represents a reference object that persists across renders
-// It has a single .current property that can hold any value
+// RefValue represents a reference object that persists across renders.
 type RefValue struct {
 	Current interface{}
 }
 
-// FetchState represents the state of a fetch operation
+// FetchState represents the state of a fetch operation.
 type FetchState struct {
 	Data    interface{} // The fetched data
 	Error   string      // Error message if fetch failed
 	Loading bool        // Whether currently fetching
 }
 
-// Hooks manages component hook state
+// Hooks manages component hook state for a fiber.
 type Hooks struct {
 	owner *Fiber
 
@@ -145,5 +145,5 @@ type Hooks struct {
 	atomFuncs []atomAccessorValue
 }
 
-// Attrs is a convenience type for component props
+// Attrs is a convenience type for component props.
 type Attrs map[string]interface{}

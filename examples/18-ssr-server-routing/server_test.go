@@ -28,34 +28,35 @@ func testServer(t *testing.T) *appServer {
 
 func TestResolveRouteRedirectsAndSecureGuard(t *testing.T) {
 	legacy := resolveRoute("/legacy", url.Values{})
-	if legacy.Redirect != "/docs/routing?tab=loader" || legacy.Status != http.StatusFound {
+	if legacy.Redirect != legacyRedirectPath || legacy.Status != http.StatusFound {
 		t.Fatalf("expected legacy redirect, got %+v", legacy)
 	}
 
 	secure := resolveRoute("/secure", url.Values{})
-	if secure.Redirect != "/signin?from=secure" || secure.Status != http.StatusFound {
+	if secure.Redirect != secureRedirectPath || secure.Status != http.StatusFound {
 		t.Fatalf("expected secure redirect, got %+v", secure)
 	}
 }
 
 func TestResolveRouteBuildsServerRenderedDocsView(t *testing.T) {
-	resolved := resolveRoute("/docs/ssr", url.Values{"tab": {"loader"}, "refresh": {"3"}})
+	resolved := resolveRoute("/docs/"+serverGuideSectionSSR, url.Values{"tab": {serverTabLoader}, "refresh": {"3"}})
 	if resolved.Status != http.StatusOK {
 		t.Fatalf("expected OK status, got %d", resolved.Status)
 	}
-	if resolved.View.SectionID != "ssr" || resolved.View.CurrentTab != "loader" || resolved.View.Revision != 3 {
+	if resolved.View.SectionID != serverGuideSectionSSR || resolved.View.CurrentTab != serverTabLoader || resolved.View.Revision != 3 {
 		t.Fatalf("unexpected docs view: %+v", resolved.View)
 	}
-	if resolved.Bootstrap.Route.Path != "/docs/ssr" {
-		t.Fatalf("expected bootstrap path /docs/ssr, got %+v", resolved.Bootstrap.Route)
+	expectedRoutePath := "/docs/" + serverGuideSectionSSR
+	if resolved.Bootstrap.Route.Path != expectedRoutePath {
+		t.Fatalf("expected bootstrap path %s, got %+v", expectedRoutePath, resolved.Bootstrap.Route)
 	}
 }
 
 func TestBootstrapReferenceURLIncludesRouteAndQuery(t *testing.T) {
-	query := url.Values{"tab": {"loader"}, "q": {"routing"}}
-	ref := bootstrapReferenceURL("/docs/ssr", query)
-	if !strings.Contains(ref, "path=%2Fdocs%2Fssr") || !strings.Contains(ref, "tab=loader") || !strings.Contains(ref, "q=routing") {
-		t.Fatalf("unexpected bootstrap reference url: %s", ref)
+	query := url.Values{"tab": {serverTabLoader}, "q": {serverGuideSectionRouting}}
+	bootstrapURL := bootstrapReferenceURL("/docs/"+serverGuideSectionSSR, query)
+	if !strings.Contains(bootstrapURL, "path=%2Fdocs%2Fssr") || !strings.Contains(bootstrapURL, "tab=loader") || !strings.Contains(bootstrapURL, "q=routing") {
+		t.Fatalf("unexpected bootstrap reference url: %s", bootstrapURL)
 	}
 }
 

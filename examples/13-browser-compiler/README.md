@@ -12,6 +12,17 @@ This example explores running a browser-hosted compilation workflow and associat
 
 ## Serve It
 
+Before serving the example, build the browser compiler assets once:
+
+```powershell
+Set-Location .\examples\13-browser-compiler
+.\build-compiler.ps1
+```
+
+That script builds the browser-hosted compiler/linker binaries, copies `wasm_exec.js`,
+copies the `js/wasm` standard-library archives into `static/pkg/js_wasm/`, and
+generates `static/pkg/index.json`.
+
 Use the repo dev server from the repo root:
 
 ```powershell

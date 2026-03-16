@@ -11,28 +11,35 @@ import (
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
-// Type alias for Element
+// Element aliases the runtime element type for state package examples and helpers.
 type Element = runtime.Element
 
+// Atom exposes shared read/write state keyed by ID.
 type Atom[T any] struct {
 	get func() T
 	set func(T)
 }
 
+// Computed exposes a memoized derived value local to the current component.
 type Computed[T any] struct {
 	get func() T
 }
 
+// Derived exposes a shared read-only derived atom keyed by ID.
 type Derived[T any] struct {
 	get func() T
 }
 
+// Snapshot stores exported atom values by atom ID.
 type Snapshot map[string]interface{}
 
+// StorageArea names a browser storage backend.
 type StorageArea string
 
 const (
-	LocalStorage   StorageArea = "localStorage"
+	// LocalStorage stores snapshots in window.localStorage.
+	LocalStorage StorageArea = "localStorage"
+	// SessionStorage stores snapshots in window.sessionStorage.
 	SessionStorage StorageArea = "sessionStorage"
 )
 
@@ -125,14 +132,17 @@ func UseAtom[T any](id string, initialValue T) Atom[T] {
 	return Atom[T]{get: get, set: set}
 }
 
+// Get returns the current atom value.
 func (a Atom[T]) Get() T {
 	return a.get()
 }
 
+// Set replaces the atom value.
 func (a Atom[T]) Set(value T) {
 	a.set(value)
 }
 
+// Update replaces the atom value using the previous value.
 func (a Atom[T]) Update(fn func(T) T) {
 	a.set(fn(a.get()))
 }
@@ -159,6 +169,7 @@ func UseComputed[T any](compute func() T, deps ...interface{}) Computed[T] {
 	return Computed[T]{get: func() T { return cast }}
 }
 
+// Get returns the current computed value.
 func (c Computed[T]) Get() T {
 	if c.get == nil {
 		var zero T
@@ -186,6 +197,7 @@ func UseDerived[T any](id string, compute func() T, deps ...string) Derived[T] {
 	return Derived[T]{get: atom.Get}
 }
 
+// Get returns the current derived value.
 func (d Derived[T]) Get() T {
 	if d.get == nil {
 		var zero T
@@ -305,8 +317,8 @@ func RestoreSnapshot(key string, area StorageArea) (bool, error) {
 }
 
 func getStorage(area StorageArea) js.Value {
-	window := js.Global()
-	storage := window.Get(string(area))
+	globalObject := js.Global()
+	storage := globalObject.Get(string(area))
 	if storage.Truthy() {
 		return storage
 	}

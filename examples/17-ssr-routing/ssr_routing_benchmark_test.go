@@ -40,11 +40,11 @@ func BenchmarkSSRRoutingDemoMarshalBootstrapJSON(b *testing.B) {
 }
 
 func BenchmarkSSRRoutingDemoRenderReferenceScript(b *testing.B) {
-	ref := ui.SSRBootstrapReference{URL: "bootstrap.json", Format: ui.SSRBootstrapFormatJSON}
+	bootstrapReference := ui.SSRBootstrapReference{URL: "bootstrap.json", Format: ui.SSRBootstrapFormatJSON}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		script, err := ui.RenderBootstrapReferenceScript(ref, "")
+		script, err := ui.RenderBootstrapReferenceScript(bootstrapReference, "")
 		if err != nil {
 			b.Fatal(err)
 		}

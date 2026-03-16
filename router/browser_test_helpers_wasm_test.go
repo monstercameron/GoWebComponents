@@ -21,7 +21,7 @@ func installRouterBrowserEnv(t testing.TB) {
 	prevWindow := global.Get("window")
 	prevHistory := global.Get("history")
 	prevLocation := global.Get("location")
-	prevInitialized := initialized
+	prevInitialized := routerRuntimeInitialized
 	var decorateNode func(js.Value)
 
 	makeNode := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -313,7 +313,7 @@ func installRouterBrowserEnv(t testing.TB) {
 	global.Set("window", window)
 	global.Set("history", history)
 	global.Set("location", location)
-	initialized = false
+	routerRuntimeInitialized = false
 
 	t.Cleanup(func() {
 		global.Set("document", prevDoc)
@@ -321,7 +321,7 @@ func installRouterBrowserEnv(t testing.TB) {
 		global.Set("window", prevWindow)
 		global.Set("history", prevHistory)
 		global.Set("location", prevLocation)
-		initialized = prevInitialized
+		routerRuntimeInitialized = prevInitialized
 		makeNode.Release()
 		appendChild.Release()
 		removeChild.Release()

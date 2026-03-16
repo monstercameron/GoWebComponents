@@ -16,6 +16,19 @@ import (
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
+const (
+	rootRoutePath      = "/"
+	catchAllRoutePath  = "*"
+	routerTypeHash     = "hash"
+	routerTypeHistory  = "history"
+	browserEventHash   = "hashchange"
+	browserEventPop    = "popstate"
+	routeNotFoundText  = "Route not found"
+	routeLoadingText   = "Loading route..."
+	navigationBlocked  = "Navigation blocked"
+	defaultRoutePrefix = "default:"
+)
+
 // Component is a type alias for component functions used in routing.
 type Attrs = map[string]interface{}
 type Element = runtime.Element
@@ -63,30 +76,36 @@ type routeMetadataState struct {
 	titleManaged      bool
 }
 
+// Navigator provides push and replace navigation helpers.
 type Navigator struct {
 	navigate func(string)
 	replace  func(string)
 }
 
+// Revalidator exposes route-loader revalidation and loading state.
 type Revalidator struct {
 	revalidate func()
 	loading    func() bool
 }
 
+// Query provides read-only access to parsed query values.
 type Query struct {
 	values url.Values
 }
 
+// SearchParams provides query values plus navigation helpers that preserve the current path.
 type SearchParams struct {
 	values   url.Values
 	navigate func(url.Values)
 	replace  func(url.Values)
 }
 
+// Params provides read-only access to matched route params.
 type Params struct {
 	values map[string]string
 }
 
+// RouteInspection summarizes the currently active route.
 type RouteInspection struct {
 	Path    string
 	Query   url.Values
@@ -94,19 +113,24 @@ type RouteInspection struct {
 	Loading bool
 }
 
+// RouteContext describes the path, params, and query for a route evaluation.
 type RouteContext struct {
 	Path   string
 	Params Params
 	Query  Query
 }
 
+// GuardResult describes the outcome of a navigation guard.
 type GuardResult struct {
 	Redirect string
 	Blocked  bool
 	Reason   string
 }
 
+// GuardFunc decides whether navigation into a route should proceed.
 type GuardFunc func(RouteContext) GuardResult
+
+// LeaveGuardFunc decides whether navigation away from a route should proceed.
 type LeaveGuardFunc func(current RouteContext, next RouteContext) GuardResult
 
 type resolvedRoute struct {
@@ -149,10 +173,10 @@ type loaderEntry struct {
 func normalizePath(path string) string {
 	trimmed := strings.TrimSpace(path)
 	if trimmed == "" || trimmed == "#" {
-		return "/"
+		return rootRoutePath
 	}
-	if trimmed == "*" {
-		return "*"
+	if trimmed == catchAllRoutePath {
+		return catchAllRoutePath
 	}
 
 	trimmed = strings.TrimPrefix(trimmed, "#")
@@ -160,15 +184,15 @@ func normalizePath(path string) string {
 		trimmed = trimmed[:idx]
 	}
 	if trimmed == "" {
-		return "/"
+		return rootRoutePath
 	}
 	if !strings.HasPrefix(trimmed, "/") {
-		trimmed = "/" + trimmed
+		trimmed = rootRoutePath + trimmed
 	}
 	if len(trimmed) > 1 {
 		trimmed = strings.TrimRight(trimmed, "/")
 		if trimmed == "" {
-			return "/"
+			return rootRoutePath
 		}
 	}
 	return trimmed
@@ -177,7 +201,7 @@ func normalizePath(path string) string {
 func normalizeNavigationTarget(target string) string {
 	trimmed := strings.TrimSpace(target)
 	if trimmed == "" || trimmed == "#" {
-		return "/"
+		return rootRoutePath
 	}
 
 	trimmed = strings.TrimPrefix(trimmed, "#")
@@ -194,14 +218,14 @@ func normalizeNavigationTarget(target string) string {
 	return normalized + query
 }
 
-var initialized bool
+var routerRuntimeInitialized bool
 var currentParams = map[string]string{}
 var currentRouteData Attrs
 var currentRouteOutlet *Element
 
 // NewHashRouter creates a hash-based router that reads from window.location.hash.
 func NewHashRouter(options ...RouterOptions) *Router {
-	cfg := RouterOptions{DefaultRoute: "/"}
+	cfg := RouterOptions{DefaultRoute: rootRoutePath}
 	if len(options) > 0 {
 		cfg = options[0]
 	}
@@ -212,7 +236,7 @@ func NewHashRouter(options ...RouterOptions) *Router {
 		routeOptions: make(map[string]Options),
 		patterns:     []routePattern{},
 		defaultRoute: cfg.DefaultRoute,
-		routerType:   "hash",
+		routerType:   routerTypeHash,
 		loaderState: loaderState{
 			entries: make(map[string]*loaderEntry),
 			active:  make(map[string]struct{}),
@@ -226,7 +250,7 @@ func NewHashRouter(options ...RouterOptions) *Router {
 func NewRouter(options RouterOptions) *Router {
 	// Use provided options or defaults
 	if options.DefaultRoute == "" {
-		options.DefaultRoute = "/"
+		options.DefaultRoute = rootRoutePath
 	}
 	options.DefaultRoute = normalizePath(options.DefaultRoute)
 
@@ -235,7 +259,7 @@ func NewRouter(options RouterOptions) *Router {
 		routeOptions: make(map[string]Options),
 		patterns:     []routePattern{},
 		defaultRoute: options.DefaultRoute,
-		routerType:   "history",
+		routerType:   routerTypeHistory,
 		loaderState: loaderState{
 			entries: make(map[string]*loaderEntry),
 			active:  make(map[string]struct{}),
@@ -261,7 +285,7 @@ func (r *Router) setupHistoryListener() {
 		return nil
 	})
 
-	window.Call("addEventListener", "popstate", popstateHandler)
+	window.Call("addEventListener", browserEventPop, popstateHandler)
 
 	// Clean up on unload
 	registerCleanup(popstateHandler)
@@ -291,7 +315,7 @@ func (r *Router) Register(path string, component interface{}, options ...Options
 		option = options[0]
 	}
 
-	if normalize == "*" {
+	if normalize == catchAllRoutePath {
 		if r.notFound != nil {
 			runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "replacing existing catch-all route registration for *")
 		}
@@ -344,7 +368,7 @@ func (r *Router) Current() *Element {
 	currentRouteData = nil
 	currentRouteOutlet = nil
 
-	return runtime.Div(nil, runtime.Text("Route not found"))
+	return runtime.Div(nil, runtime.Text(routeNotFoundText))
 }
 
 // Mount renders the router into a DOM node selected by CSS selector and wires hashchange listeners.
@@ -428,7 +452,7 @@ func (r *Router) ensureListener() {
 		r.renderCurrentRoute()
 		return nil
 	})
-	window.Call("addEventListener", "hashchange", handler)
+	window.Call("addEventListener", browserEventHash, handler)
 	registerCleanup(handler)
 }
 
@@ -441,10 +465,10 @@ func RegisterRoute(path string, component interface{}, options ...Options) {
 func (r *Router) GetCurrentRouterPath() string {
 	loc := getLocationValue()
 	if !loc.Truthy() {
-		return "/"
+		return rootRoutePath
 	}
 
-	if r.routerType == "history" {
+	if r.routerType == routerTypeHistory {
 		// For history router, use pathname
 		return normalizePath(loc.Get("pathname").String())
 	}
@@ -459,7 +483,7 @@ func (r *Router) Navigate(path string) {
 	if !ok {
 		return
 	}
-	if r.routerType == "history" {
+	if r.routerType == routerTypeHistory {
 		// For history router, use pushState
 		history := getHistoryValue()
 		if history.Truthy() && history.Get("pushState").Truthy() {
@@ -482,7 +506,7 @@ func (r *Router) NavigateReplace(path string) {
 	if !ok {
 		return
 	}
-	if r.routerType == "history" {
+	if r.routerType == routerTypeHistory {
 		// For history router, use replaceState
 		history := getHistoryValue()
 		if history.Truthy() && history.Get("replaceState").Truthy() {
@@ -787,7 +811,7 @@ var globalRouter = NewHashRouter()
 var cleanupOnce sync.Once
 
 func ensureInitialized() {
-	if initialized {
+	if routerRuntimeInitialized {
 		return
 	}
 
@@ -797,7 +821,7 @@ func ensureInitialized() {
 		Scheduler:    jsdom.NewWASMScheduler(),
 		BrowserState: jsdom.NewWASMBrowserState(),
 	})
-	initialized = true
+	routerRuntimeInitialized = true
 }
 
 func registerCleanup(handler js.Func) {
@@ -1001,7 +1025,7 @@ func (r *Router) resolveRouteStack(path string) resolvedRouteStack {
 		return resolvedRouteStack{}
 	}
 
-	if leaf.id == "default:"+r.defaultRoute {
+	if leaf.id == defaultRoutePrefix+r.defaultRoute {
 		return resolvedRouteStack{routes: []resolvedRoute{leaf}, found: true}
 	}
 
@@ -1054,7 +1078,7 @@ func (r *Router) resolveRoute(path string) resolvedRoute {
 	}
 	if r.defaultRoute != "" {
 		if comp, ok := r.routes[r.defaultRoute]; ok {
-			return resolvedRoute{id: "default:" + r.defaultRoute, path: r.defaultRoute, params: map[string]string{}, option: r.routeOptions[r.defaultRoute], factory: comp, found: true}
+			return resolvedRoute{id: defaultRoutePrefix + r.defaultRoute, path: r.defaultRoute, params: map[string]string{}, option: r.routeOptions[r.defaultRoute], factory: comp, found: true}
 		}
 	}
 	return resolvedRoute{}
@@ -1089,7 +1113,7 @@ func (r *Router) applyBeforeEnterGuard(path string, option Options, params map[s
 	r.cancelLoaderIfActive()
 	message := strings.TrimSpace(result.Reason)
 	if message == "" {
-		message = "Navigation blocked"
+		message = navigationBlocked
 	}
 	return runtime.Div(nil, runtime.Text(message))
 }
@@ -1278,14 +1302,17 @@ func parseNavigationTarget(target string) (string, url.Values) {
 	return path, query
 }
 
+// AllowNavigation permits the pending navigation.
 func AllowNavigation() GuardResult {
 	return GuardResult{}
 }
 
+// BlockNavigation blocks the pending navigation with a reason.
 func BlockNavigation(reason string) GuardResult {
 	return GuardResult{Blocked: true, Reason: reason}
 }
 
+// RedirectNavigation redirects the pending navigation to path.
 func RedirectNavigation(path string) GuardResult {
 	return GuardResult{Redirect: path}
 }
@@ -1401,7 +1428,7 @@ func renderRouteFallback(component interface{}, props Attrs) *Element {
 	if component != nil {
 		return makeRouteFactory(component)(props)
 	}
-	return runtime.Div(nil, runtime.Text("Loading route..."))
+	return runtime.Div(nil, runtime.Text(routeLoadingText))
 }
 
 func renderRouteError(component interface{}, err error, props Attrs) *Element {

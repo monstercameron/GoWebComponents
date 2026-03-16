@@ -22,7 +22,7 @@ func TestDefaultServerViewRendersToString(t *testing.T) {
 		"SSR Routing Demo",
 		"Server render first, hydrate into advanced routes",
 		"SSR transport and hydration",
-		"json-sidecar",
+		transportJSONSidecar,
 	}
 	for _, check := range checks {
 		if !strings.Contains(markup, check) {
@@ -42,14 +42,15 @@ func TestDemoBootstrapSidecarMatchesExpectedRoute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected bootstrap parse error: %v", err)
 	}
-	if payload.Route.Path != "/docs/ssr" {
-		t.Fatalf("expected bootstrap route /docs/ssr, got %q", payload.Route.Path)
+	expectedRoutePath := "/docs/" + guideSectionSSR
+	if payload.Route.Path != expectedRoutePath {
+		t.Fatalf("expected bootstrap route %s, got %q", expectedRoutePath, payload.Route.Path)
 	}
-	if payload.Route.Params["section"] != "ssr" {
-		t.Fatalf("expected bootstrap section param ssr, got %+v", payload.Route.Params)
+	if payload.Route.Params["section"] != guideSectionSSR {
+		t.Fatalf("expected bootstrap section param %s, got %+v", guideSectionSSR, payload.Route.Params)
 	}
-	if bootstrapTransport(payload) != "json-sidecar" {
-		t.Fatalf("expected bootstrap transport json-sidecar, got %q", bootstrapTransport(payload))
+	if bootstrapTransport(payload) != transportJSONSidecar {
+		t.Fatalf("expected bootstrap transport %s, got %q", transportJSONSidecar, bootstrapTransport(payload))
 	}
 }
 

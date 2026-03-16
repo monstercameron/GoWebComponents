@@ -11,10 +11,12 @@ type Context[T any] struct {
 	Provider   *ContextProvider[T]
 }
 
+// ContextProvider creates a provider element for a Context value.
 type ContextProvider[T any] struct {
 	providerType *runtime.ContextProviderType
 }
 
+// ContextProviderProps defines the value and child content for a context provider.
 type ContextProviderProps[T any] struct {
 	Value    T
 	Child    Node
@@ -32,6 +34,7 @@ func (provider *ContextProvider[T]) runtimeContextProvider() *runtime.ContextPro
 	return provider.providerType
 }
 
+// CreateContext creates a typed context with its default value and provider.
 func CreateContext[T any](defaultValue T) *Context[T] {
 	descriptor := runtime.NewContextDescriptor(defaultValue)
 	return &Context[T]{
@@ -48,8 +51,8 @@ func createContextProviderElement(provider contextProviderComponent, rawProps in
 
 	props := map[string]interface{}{}
 	children := extractContextProviderChildren(rawProps)
-	if value, ok := extractContextProviderValue(rawProps); ok {
-		props["value"] = value
+	if contextValue, ok := extractContextProviderValue(rawProps); ok {
+		props["value"] = contextValue
 	}
 
 	return runtime.CreateElement(runtimeProvider, props, children...)
@@ -60,33 +63,33 @@ func extractContextProviderValue(rawProps interface{}) (interface{}, bool) {
 		return nil, false
 	}
 
-	if props, ok := rawProps.(map[string]interface{}); ok {
-		value, hasValue := props["value"]
-		return value, hasValue
+	if propsMap, ok := rawProps.(map[string]interface{}); ok {
+		contextValue, hasValue := propsMap["value"]
+		return contextValue, hasValue
 	}
 
-	value := reflect.ValueOf(rawProps)
-	for value.IsValid() && value.Kind() == reflect.Pointer {
-		if value.IsNil() {
+	reflectedValue := reflect.ValueOf(rawProps)
+	for reflectedValue.IsValid() && reflectedValue.Kind() == reflect.Pointer {
+		if reflectedValue.IsNil() {
 			return nil, false
 		}
-		value = value.Elem()
+		reflectedValue = reflectedValue.Elem()
 	}
 
-	if !value.IsValid() {
+	if !reflectedValue.IsValid() {
 		return nil, false
 	}
 
-	if value.Kind() != reflect.Struct {
+	if reflectedValue.Kind() != reflect.Struct {
 		return rawProps, true
 	}
 
-	field := value.FieldByName("Value")
-	if !field.IsValid() || !field.CanInterface() {
+	valueField := reflectedValue.FieldByName("Value")
+	if !valueField.IsValid() || !valueField.CanInterface() {
 		return nil, false
 	}
 
-	return field.Interface(), true
+	return valueField.Interface(), true
 }
 
 func extractContextProviderChildren(rawProps interface{}) []interface{} {
@@ -94,36 +97,36 @@ func extractContextProviderChildren(rawProps interface{}) []interface{} {
 		return nil
 	}
 
-	if props, ok := rawProps.(map[string]interface{}); ok {
+	if propsMap, ok := rawProps.(map[string]interface{}); ok {
 		children := make([]interface{}, 0, 2)
-		if child, ok := props["child"].(*runtime.Element); ok && child != nil {
+		if child, ok := propsMap["child"].(*runtime.Element); ok && child != nil {
 			children = append(children, child)
 		}
-		if child, ok := props["children"].([]interface{}); ok && len(child) > 0 {
-			children = append(children, child...)
+		if childNodes, ok := propsMap["children"].([]interface{}); ok && len(childNodes) > 0 {
+			children = append(children, childNodes...)
 		}
 		return children
 	}
 
-	value := reflect.ValueOf(rawProps)
-	for value.IsValid() && value.Kind() == reflect.Pointer {
-		if value.IsNil() {
+	reflectedValue := reflect.ValueOf(rawProps)
+	for reflectedValue.IsValid() && reflectedValue.Kind() == reflect.Pointer {
+		if reflectedValue.IsNil() {
 			return nil
 		}
-		value = value.Elem()
+		reflectedValue = reflectedValue.Elem()
 	}
 
-	if !value.IsValid() || value.Kind() != reflect.Struct {
+	if !reflectedValue.IsValid() || reflectedValue.Kind() != reflect.Struct {
 		return nil
 	}
 
 	children := make([]interface{}, 0, 2)
-	if childField := value.FieldByName("Child"); childField.IsValid() && childField.CanInterface() {
+	if childField := reflectedValue.FieldByName("Child"); childField.IsValid() && childField.CanInterface() {
 		if child, ok := childField.Interface().(*runtime.Element); ok && child != nil {
 			children = append(children, child)
 		}
 	}
-	if childrenField := value.FieldByName("Children"); childrenField.IsValid() && childrenField.CanInterface() {
+	if childrenField := reflectedValue.FieldByName("Children"); childrenField.IsValid() && childrenField.CanInterface() {
 		if typedChildren, ok := childrenField.Interface().([]Node); ok {
 			for _, child := range typedChildren {
 				if child != nil {
@@ -143,5 +146,3 @@ func castContextValue[T any](value interface{}) T {
 	var zero T
 	return zero
 }
-
-var _ = castContextValue[any]

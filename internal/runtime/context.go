@@ -15,6 +15,7 @@ type ContextProviderType struct {
 	Descriptor *ContextDescriptor
 }
 
+// NewContextDescriptor creates a new context descriptor with a unique runtime ID.
 func NewContextDescriptor(defaultValue interface{}) *ContextDescriptor {
 	return &ContextDescriptor{
 		ID:           atomic.AddInt64(&nextContextID, 1),
@@ -22,6 +23,7 @@ func NewContextDescriptor(defaultValue interface{}) *ContextDescriptor {
 	}
 }
 
+// NewContextProviderType creates a provider marker for the given descriptor.
 func NewContextProviderType(descriptor *ContextDescriptor) *ContextProviderType {
 	return &ContextProviderType{Descriptor: descriptor}
 }

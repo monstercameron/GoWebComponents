@@ -242,7 +242,7 @@ var (
 	uiQueueInit sync.Once
 )
 
-// EnqueueUI adds a function to the UI queue for main thread execution
+// EnqueueUI adds a function to the UI queue for main-thread execution.
 func EnqueueUI(fn func()) {
 	uiQueueInit.Do(func() {
 		// Queue is already initialized
@@ -257,7 +257,7 @@ func EnqueueUI(fn func()) {
 	}
 }
 
-// ProcessUIQueue processes pending UI updates
+// ProcessUIQueue runs pending UI updates until the queue is empty.
 func ProcessUIQueue() {
 	for {
 		select {
@@ -269,7 +269,7 @@ func ProcessUIQueue() {
 	}
 }
 
-// GetUIQueueSize returns the current UI queue size
+// GetUIQueueSize returns the current UI queue size.
 func GetUIQueueSize() int {
 	return len(uiQueue)
 }

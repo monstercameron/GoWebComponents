@@ -10,6 +10,7 @@ const (
 	SeverityError   Severity = "error"
 )
 
+// Diagnostic describes a runtime diagnostic entry surfaced in devtools.
 type Diagnostic struct {
 	Source   string
 	Severity Severity
@@ -17,11 +18,13 @@ type Diagnostic struct {
 	Count    int
 }
 
+// Hook describes one hook entry captured for a component node.
 type Hook struct {
 	Kind  string
 	Value string
 }
 
+// Node describes one component or host node in the inspected runtime tree.
 type Node struct {
 	Name              string
 	Kind              string
@@ -38,6 +41,7 @@ type Node struct {
 	Children          []Node
 }
 
+// Branch describes one hot subtree in profiling output.
 type Branch struct {
 	Name              string
 	Kind              string
@@ -49,6 +53,7 @@ type Branch struct {
 	SubtreeDurationNs int64
 }
 
+// Stats summarizes the current inspected runtime tree.
 type Stats struct {
 	TotalFibers     int
 	DirtyFibers     int
@@ -59,6 +64,7 @@ type Stats struct {
 	Effects         int
 }
 
+// Profiling summarizes runtime profiling counters and hot branches.
 type Profiling struct {
 	RenderCalls           int
 	ScheduledRootUpdates  int
@@ -81,6 +87,7 @@ type Route struct {
 	Loading bool
 }
 
+// Snapshot is the top-level devtools inspection payload.
 type Snapshot struct {
 	Route       Route
 	Tree        *Node
@@ -89,6 +96,7 @@ type Snapshot struct {
 	Diagnostics []Diagnostic
 }
 
+// PanelProps configures the embeddable devtools panel.
 type PanelProps struct {
 	Title           string
 	InitiallyOpen   bool

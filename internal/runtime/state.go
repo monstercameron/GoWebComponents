@@ -22,7 +22,7 @@ type derivedAtom struct {
 	active  bool
 }
 
-// NewAtomRegistry creates a new atom registry
+// NewAtomRegistry creates a new atom registry.
 func NewAtomRegistry() *AtomRegistry {
 	registry := &AtomRegistry{
 		atoms:         make(map[string]interface{}),
@@ -36,6 +36,7 @@ func NewAtomRegistry() *AtomRegistry {
 	return registry
 }
 
+// RegisterDerivedAtom registers or replaces a derived atom and computes its current value.
 func (ar *AtomRegistry) RegisterDerivedAtom(id string, deps []string, compute func() interface{}) error {
 	if ar == nil {
 		return fmt.Errorf("atom registry not initialized")
@@ -74,7 +75,7 @@ func (ar *AtomRegistry) RegisterDerivedAtom(id string, deps []string, compute fu
 	return err
 }
 
-// GetAtom retrieves an atom's current value
+// GetAtom retrieves an atom's current value.
 func (ar *AtomRegistry) GetAtom(id string) (interface{}, bool) {
 	ar.mu.RLock()
 	atom, ok := ar.atoms[id]
@@ -85,7 +86,7 @@ func (ar *AtomRegistry) GetAtom(id string) (interface{}, bool) {
 	return atom, true
 }
 
-// SetAtom updates an atom's value and returns subscribed fibers
+// SetAtom updates an atom's value and returns subscribed fibers.
 func (ar *AtomRegistry) SetAtom(id string, value interface{}) []*Fiber {
 	ar.mu.Lock()
 
@@ -202,7 +203,7 @@ func notifyFibersUnique(fibers []*Fiber, notify func(*Fiber)) {
 	}
 }
 
-// InitAtom initializes an atom if it doesn't exist
+// InitAtom initializes an atom if it doesn't exist.
 func (ar *AtomRegistry) InitAtom(id string, initialValue interface{}) {
 	ar.mu.Lock()
 	if _, exists := ar.atoms[id]; !exists {
@@ -211,7 +212,7 @@ func (ar *AtomRegistry) InitAtom(id string, initialValue interface{}) {
 	ar.mu.Unlock()
 }
 
-// Subscribe adds a fiber to an atom's subscription list
+// Subscribe adds a fiber to an atom's subscription list.
 func (ar *AtomRegistry) Subscribe(atomID string, fiber *Fiber) {
 	ar.mu.Lock()
 
@@ -222,7 +223,7 @@ func (ar *AtomRegistry) Subscribe(atomID string, fiber *Fiber) {
 	ar.mu.Unlock()
 }
 
-// Unsubscribe removes a fiber from an atom's subscription list
+// Unsubscribe removes a fiber from an atom's subscription list.
 func (ar *AtomRegistry) Unsubscribe(atomID string, fiber *Fiber) {
 	ar.mu.Lock()
 
@@ -250,7 +251,7 @@ func (ar *AtomRegistry) UnsubscribeMany(atomIDs []string, fiber *Fiber) {
 	ar.mu.Unlock()
 }
 
-// UnsubscribeFiberFromAll removes a fiber from all atom subscriptions
+// UnsubscribeFiberFromAll removes a fiber from all atom subscriptions.
 func (ar *AtomRegistry) UnsubscribeFiberFromAll(fiber *Fiber) {
 	ar.mu.Lock()
 
@@ -263,7 +264,7 @@ func (ar *AtomRegistry) UnsubscribeFiberFromAll(fiber *Fiber) {
 	ar.mu.Unlock()
 }
 
-// GetSubscriberCount returns the number of fibers subscribed to an atom
+// GetSubscriberCount returns the number of fibers subscribed to an atom.
 func (ar *AtomRegistry) GetSubscriberCount(atomID string) int {
 	ar.mu.RLock()
 	if subs, ok := ar.subscriptions[atomID]; ok {
@@ -275,7 +276,7 @@ func (ar *AtomRegistry) GetSubscriberCount(atomID string) int {
 	return 0
 }
 
-// GetAtomCount returns the total number of atoms
+// GetAtomCount returns the total number of atoms.
 func (ar *AtomRegistry) GetAtomCount() int {
 	ar.mu.RLock()
 	count := len(ar.atoms)
