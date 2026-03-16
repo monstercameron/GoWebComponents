@@ -135,6 +135,8 @@ func filterCatalog(query string) []guideArticle {
 	return matches
 }
 
+var _ = filterCatalog
+
 func bootstrapTransport(payload ui.SSRBootstrap) string {
 	if payload.Data == nil {
 		return "json-sidecar"
@@ -188,7 +190,7 @@ func renderPage(view demoShellView, actions ...ui.Node) ui.Node {
 	}
 }
 
-func renderHomePage(view demoShellView) ui.Node {
+func renderHomePage(_ demoShellView) ui.Node {
 	articles := catalogList()
 	cards := make([]ui.Node, 0, len(articles))
 	for _, article := range articles {

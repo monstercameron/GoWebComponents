@@ -143,3 +143,5 @@ func castContextValue[T any](value interface{}) T {
 	var zero T
 	return zero
 }
+
+var _ = castContextValue[any]
