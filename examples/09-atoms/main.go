@@ -9,6 +9,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/state"
 	"github.com/monstercameron/GoWebComponents/ui"
+	"github.com/monstercameron/GoWebComponents/utils"
 )
 
 const (
@@ -157,5 +158,7 @@ func App() ui.Node {
 }
 
 func main() {
-	ui.Render(ui.CreateElement(App), "body")
+	utils.DisableAllDebug()
+	ui.Render(ui.CreateElement(App), "#app")
+	select {}
 }

@@ -21,17 +21,18 @@ func rawHandlerExample() ui.Node {
 		wrappedCount.Update(func(previous int) int { return previous + 1 })
 		lastMode.Set("ui.UseEvent")
 	})
-	raw := ui.RawHandler(func() {
+	prebuiltRaw := ui.UseEvent(func() {
 		rawCount.Update(func(previous int) int { return previous + 1 })
 		lastMode.Set("ui.RawHandler")
 	})
+	raw := ui.RawHandler(prebuiltRaw.Value())
 
 	return shared.ExamplePage(
 		"ui.RawHandler",
 		"Forward a raw function value instead of using the event hook wrapper",
-		"RawHandler exists for edge cases and interop. The preferred default is still ui.UseEvent, because it tracks the handler through the hook system and matches the rest of the public event model.",
+		"RawHandler exists for edge cases and interop when you already have a handler value and need to pass it through unchanged. The preferred default is still ui.UseEvent.",
 		shared.ExamplePanel("Wrapped versus raw",
-			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("Both buttons work. The difference is API intent: UseEvent is the normal path, RawHandler is the escape hatch when you already have a function value you need to pass through directly.")),
+			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("Both buttons work. The left button passes the handler directly from ui.UseEvent. The right button forwards an already-created handler value through ui.RawHandler without wrapping it again.")),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
 				shared.ExampleButton("Increment via ui.UseEvent", wrapped),
 				html.Button(html.Props{OnClick: raw, Class: "rounded-full border border-amber-500/40 bg-amber-500/10 px-5 py-3 font-semibold text-amber-100 hover:bg-amber-500/20"}, html.Text("Increment via ui.RawHandler")),
@@ -43,7 +44,7 @@ func rawHandlerExample() ui.Node {
 			),
 			shared.ExampleCode(
 				`preferred := ui.UseEvent(func() { ... })`,
-				`escapeHatch := ui.RawHandler(func() { ... })`,
+				`escapeHatch := ui.RawHandler(preferred.Value())`,
 			),
 		),
 	)

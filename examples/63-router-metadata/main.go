@@ -37,13 +37,18 @@ func currentCanonical() string {
 	return link.Call("getAttribute", "href").String()
 }
 
-func metadataPage(title, summary string) *router.Element {
+type metadataPageProps struct {
+	Title   string
+	Summary string
+}
+
+func metadataPageView(props metadataPageProps) ui.Node {
 	nav := router.UseNavigate()
 	documentTitle := js.Global().Get("document").Get("title").String()
 	return shared.ExamplePage(
-		title,
+		props.Title,
 		"Route metadata options",
-		summary,
+		props.Summary,
 		shared.ExamplePanel("Managed head tags",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
 				shared.ExampleButton("Docs route", ui.UseEvent(func() { nav.Navigate("/docs") })),
@@ -61,6 +66,10 @@ func metadataPage(title, summary string) *router.Element {
 	)
 }
 
+func metadataPage(title, summary string) *router.Element {
+	return ui.CreateElement(metadataPageView, metadataPageProps{Title: title, Summary: summary})
+}
+
 func main() {
 	utils.DisableAllDebug()
 	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/docs"})
@@ -68,7 +77,7 @@ func main() {
 		return metadataPage("Router metadata", "This route manages title, description, and canonical URL from route options.")
 	}, router.Options{Title: "Docs", Description: "Framework guides and API documentation", CanonicalURL: "https://example.com/docs"})
 	r.Register("/pricing", func(router.Attrs) *router.Element {
-		return metadataPage("Pricing metadata", "Navigating between routes updates or replaces the managed head tags." )
+		return metadataPage("Pricing metadata", "Navigating between routes updates or replaces the managed head tags.")
 	}, router.Options{Title: "Pricing", Description: "Plan comparison and pricing", CanonicalURL: "https://example.com/pricing"})
 	r.Mount("#app")
 	select {}

@@ -18,7 +18,7 @@ const dirtyAtomID = "catalog-router-guards-dirty"
 var guardAuth bool
 var guardDirty bool
 
-func loginPage(router.Attrs) *router.Element {
+func loginPageView() ui.Node {
 	nav := router.UseNavigate()
 	authed := state.UseAtom(authAtomID, false)
 	return shared.ExamplePage(
@@ -38,7 +38,11 @@ func loginPage(router.Attrs) *router.Element {
 	)
 }
 
-func editorPage(router.Attrs) *router.Element {
+func loginPage(router.Attrs) *router.Element {
+	return ui.CreateElement(loginPageView)
+}
+
+func editorPageView() ui.Node {
 	nav := router.UseNavigate()
 	authed := state.UseAtom(authAtomID, false)
 	dirty := state.UseAtom(dirtyAtomID, false)
@@ -73,7 +77,11 @@ func editorPage(router.Attrs) *router.Element {
 	)
 }
 
-func homePage(router.Attrs) *router.Element {
+func editorPage(router.Attrs) *router.Element {
+	return ui.CreateElement(editorPageView)
+}
+
+func homePageView() ui.Node {
 	nav := router.UseNavigate()
 	authed := state.UseAtom(authAtomID, false)
 	return shared.ExamplePage(
@@ -95,6 +103,10 @@ func homePage(router.Attrs) *router.Element {
 			),
 		),
 	)
+}
+
+func homePage(router.Attrs) *router.Element {
+	return ui.CreateElement(homePageView)
 }
 
 func main() {

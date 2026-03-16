@@ -54,8 +54,8 @@ func firstDiagnosticSeverity(snapshot devtools.Snapshot) string {
 func main() {
 	utils.DisableAllDebug()
 	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
-	r.Register("/", func(router.Attrs) *router.Element { return diagnosticsExample() })
-	r.Register("/", func(router.Attrs) *router.Element { return diagnosticsExample() })
+	r.Register("/", func(router.Attrs) *router.Element { return ui.CreateElement(diagnosticsExample) })
+	r.Register("/", func(router.Attrs) *router.Element { return ui.CreateElement(diagnosticsExample) })
 	r.Mount("#app")
 	select {}
 }

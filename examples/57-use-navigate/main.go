@@ -11,7 +11,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-func navigateHome(_ router.Attrs) *router.Element {
+func navigateHomeView() ui.Node {
 	nav := router.UseNavigate()
 	return shared.ExamplePage(
 		"router.UseNavigate",
@@ -31,13 +31,22 @@ func navigateHome(_ router.Attrs) *router.Element {
 	)
 }
 
-func navigateLeaf(title, summary string) *router.Element {
+func navigateHome(_ router.Attrs) *router.Element {
+	return ui.CreateElement(navigateHomeView)
+}
+
+type navigateLeafProps struct {
+	Title   string
+	Summary string
+}
+
+func navigateLeafView(props navigateLeafProps) ui.Node {
 	nav := router.UseNavigate()
 	inspection := router.InspectCurrentRoute()
 	return shared.ExamplePage(
-		title,
+		props.Title,
 		"Imperative routing handle",
-		summary,
+		props.Summary,
 		shared.ExamplePanel("Current route",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-2"},
 				shared.ExampleStat("Path", inspection.Path),
@@ -49,6 +58,10 @@ func navigateLeaf(title, summary string) *router.Element {
 			),
 		),
 	)
+}
+
+func navigateLeaf(title, summary string) *router.Element {
+	return ui.CreateElement(navigateLeafView, navigateLeafProps{Title: title, Summary: summary})
 }
 
 func main() {

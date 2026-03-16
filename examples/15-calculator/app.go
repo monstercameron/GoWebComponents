@@ -88,6 +88,13 @@ func readStorageValue(storage js.Value, key string) string {
 	return strings.TrimSpace(value.String())
 }
 
+func normalizeCalculatorTheme(value string) string {
+	if strings.TrimSpace(value) == "midnight" {
+		return "midnight"
+	}
+	return "graphite"
+}
+
 func App() ui.Node {
 	theme := state.UseAtom(calculatorThemeAtom, "graphite")
 	angle := state.UseAtom(calculatorAngleAtom, "deg")
@@ -133,24 +140,6 @@ func App() ui.Node {
 	if theme.Get() == "midnight" {
 		cardClass = "overflow-hidden rounded-3xl bg-cyan-950/20 shadow-2xl backdrop-blur-xl ring-1 ring-cyan-500/10"
 		heroCardClass = "overflow-hidden rounded-3xl bg-gradient-to-b from-cyan-950/30 to-cyan-950/10 shadow-2xl backdrop-blur-xl ring-1 ring-cyan-500/20"
-	} else if theme.Get() == "light" {
-		rootClass = "relative min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-50 text-slate-900"
-		cardClass = "overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-slate-200"
-		heroCardClass = "overflow-hidden rounded-3xl bg-gradient-to-b from-white to-slate-50 shadow-2xl ring-1 ring-slate-200"
-		textPrimary = "text-slate-900"
-		textSecondary = "text-slate-600"
-		textMuted = "text-slate-500"
-		displayBg = "rounded-2xl bg-slate-100 p-8 ring-1 ring-slate-200"
-		displayResult = "break-all text-5xl font-black tracking-tight text-slate-900 sm:text-6xl"
-		inputClass = "w-full rounded-2xl bg-white px-5 py-4 font-mono text-sm leading-relaxed text-slate-900 ring-1 ring-slate-200 transition-all focus:ring-cyan-500/50 outline-none placeholder:text-slate-400"
-		selectClass = "cursor-pointer rounded-xl bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 outline-none transition-all hover:bg-slate-200 ring-1 ring-slate-200"
-		labelClass = "text-xs font-semibold uppercase tracking-wide text-slate-500"
-		quickBtnClass = "rounded-xl bg-slate-100 px-4 py-3 text-sm font-medium text-slate-700 transition-all hover:bg-cyan-100 hover:text-cyan-700 active:scale-95 ring-1 ring-slate-200"
-		keyBtnAccent = "rounded-2xl bg-cyan-500/20 px-4 py-4 text-lg font-bold text-cyan-700 shadow-sm transition-all hover:bg-cyan-500/30 hover:text-cyan-800 active:scale-95"
-		keyBtnGhost = "rounded-2xl bg-slate-100 px-4 py-4 text-sm font-semibold text-slate-600 transition-all hover:bg-slate-200 hover:text-slate-800 active:scale-95 ring-1 ring-slate-200"
-		keyBtnPrimary = "rounded-2xl bg-white px-4 py-4 text-xl font-black text-slate-900 shadow-sm transition-all hover:bg-slate-50 active:scale-95 ring-1 ring-slate-200"
-		badgeClass = "rounded-xl bg-slate-100 px-4 py-2 text-xs font-medium text-slate-600 ring-1 ring-slate-200"
-		codeBtnClass = "inline-flex items-center justify-center rounded-xl bg-cyan-500/20 px-4 py-2 text-xs font-semibold text-cyan-700 transition-all hover:bg-cyan-500/30 hover:text-cyan-800 active:scale-95"
 	}
 
 	resultValue := evaluation.Formatted
@@ -160,14 +149,6 @@ func App() ui.Node {
 		resultValue = lastStableResult.Get()
 		statusTone = "text-amber-200"
 		statusLabel = evaluation.Error
-	}
-
-	if theme.Get() == "light" {
-		if evaluation.Error != "" {
-			statusTone = "text-amber-600"
-		} else {
-			statusTone = "text-emerald-600"
-		}
 	}
 
 	openSource := ui.UseEvent(func() {
@@ -231,8 +212,9 @@ func App() ui.Node {
 	})
 
 	handleTheme := ui.UseEvent(func(event ui.ChangeEvent) {
-		theme.Set(event.GetValue())
-		lastAction.Set("Theme changed to " + event.GetValue())
+		nextTheme := normalizeCalculatorTheme(event.GetValue())
+		theme.Set(nextTheme)
+		lastAction.Set("Theme changed to " + nextTheme)
 	})
 
 	handleExpressionKey := ui.UseEvent(func(event ui.KeyboardEvent) {
@@ -258,7 +240,7 @@ func App() ui.Node {
 				}
 			}
 			if savedTheme := readStorageValue(storage, "calculator-theme"); savedTheme != "" {
-				theme.Set(savedTheme)
+				theme.Set(normalizeCalculatorTheme(savedTheme))
 			}
 			if savedAngle := readStorageValue(storage, "calculator-angle"); savedAngle != "" {
 				angle.Set(savedAngle)
@@ -370,7 +352,6 @@ func App() ui.Node {
 						html.Select(html.Props{Value: theme.Get(), OnChange: handleTheme, Class: selectClass},
 							html.Option(html.Props{Value: "graphite"}, html.Text("Graphite")),
 							html.Option(html.Props{Value: "midnight"}, html.Text("Midnight")),
-							html.Option(html.Props{Value: "light"}, html.Text("Light")),
 						),
 						html.Select(html.Props{Value: angle.Get(), OnChange: handleAngle, Class: selectClass},
 							html.Option(html.Props{Value: "deg"}, html.Text("DEG")),

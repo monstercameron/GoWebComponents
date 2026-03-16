@@ -16,13 +16,18 @@ import (
 
 const browserDemoBase = "/catalog-browser-router"
 
-func browserPage(title, summary string) *router.Element {
+type browserPageProps struct {
+	Title   string
+	Summary string
+}
+
+func browserPageView(props browserPageProps) ui.Node {
 	nav := router.UseNavigate()
 	inspection := router.InspectCurrentRoute()
 	return shared.ExamplePage(
-		title,
+		props.Title,
 		"router.NewRouter / history API",
-		summary,
+		props.Summary,
 		shared.ExamplePanel("Browser routes",
 			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("History routers use clean paths, but they require server rewrites if you want refreshes and deep links to keep working.")),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
@@ -35,6 +40,10 @@ func browserPage(title, summary string) *router.Element {
 			),
 		),
 	)
+}
+
+func browserPage(title, summary string) *router.Element {
+	return ui.CreateElement(browserPageView, browserPageProps{Title: title, Summary: summary})
 }
 
 func main() {

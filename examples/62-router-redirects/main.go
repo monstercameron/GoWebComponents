@@ -11,7 +11,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-func redirectsPage(_ router.Attrs) *router.Element {
+func redirectsPageView() ui.Node {
 	nav := router.UseNavigate()
 	inspection := router.InspectCurrentRoute()
 	return shared.ExamplePage(
@@ -32,6 +32,10 @@ func redirectsPage(_ router.Attrs) *router.Element {
 			),
 		),
 	)
+}
+
+func redirectsPage(_ router.Attrs) *router.Element {
+	return ui.CreateElement(redirectsPageView)
 }
 
 func main() {

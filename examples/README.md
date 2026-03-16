@@ -23,13 +23,19 @@ The `/examples` page is generated from the actual folder structure.
 
 The example set is now organized as a catalog. Use the grouped landing page at `/examples` for browsing, and use the mapping below when you want the quickest reference for a specific public API.
 
+Every feature-isolated catalog page is expected to answer three questions clearly: what the tool is for, what the user-facing behavior looks like, and how the implementation is wired. If an example stops doing one of those jobs, it should be treated as documentation debt rather than just a cosmetic issue.
+
 ### Integrated Apps
 
 - `01-counter` through `20-portals`
 - These combine multiple features and are useful for seeing how the primitives fit together in larger apps.
 
+Use the integrated apps when you want to understand how multiple primitives compose in one realistic surface. Use the feature-isolated pages when you want the clearest statement of a single API or tool's purpose.
+
 ### ui Package
 
+- `75-use-state`: `ui.UseState`
+- `76-use-effect`: `ui.UseEffect`
 - `21-ui-render`: `ui.Render`
 - `22-create-element`: `ui.CreateElement`
 - `23-fragment`: `ui.Fragment`
@@ -116,6 +122,8 @@ Generated wasm binaries for examples belong under `examples/static/bin/` and sho
 The `examples/` directory has its own Playwright setup for example-oriented testing.
 
 If you are working on the main framework regression suites, use `test/` instead. If you are specifically validating example pages, use the example-local Playwright config.
+
+For the developer-facing manual verification checklist that covers every numbered example, see `examples/MANUAL_TESTING.md`.
 
 ## Notes
 

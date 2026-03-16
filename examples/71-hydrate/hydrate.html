@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ui.Hydrate - GoWebComponents</title>
+    <link rel="stylesheet" href="../static/css/tailwind.css">
     <script id="__GWC_BOOTSTRAP__" type="application/json">{"atoms":{"catalog-hydrate-topic":"server-rendered"}}</script>
     <script src="../static/script/wasm_exec.js"></script>
 </head>
-<body>
+<body class="min-h-screen bg-[#08111d] text-slate-100">
     <div id="app"><div class="min-h-screen bg-[#08111d] text-slate-100"><div class="mx-auto max-w-3xl px-6 py-12"><div class="rounded-[2rem] border border-white/10 bg-slate-950/80 p-8 shadow-2xl"><p class="text-xs uppercase tracking-[0.35em] text-cyan-300">Hydration</p><h1 class="mt-4 text-5xl font-black tracking-tight text-white">ui.Hydrate</h1><p class="mt-4 text-lg leading-8 text-slate-300">Hydrate reuses the HTML that already exists in the DOM, restores bootstrap state, and attaches future updates without replacing the whole tree.</p><div class="mt-6 grid gap-4 md:grid-cols-2"><div class="rounded-2xl border border-white/10 bg-white/5 p-4"><p class="text-xs uppercase tracking-[0.25em] text-slate-400">Bootstrap topic</p><p class="mt-3 text-3xl font-black text-white">server-rendered</p></div><div class="rounded-2xl border border-white/10 bg-white/5 p-4"><p class="text-xs uppercase tracking-[0.25em] text-slate-400">Counter</p><p class="mt-3 text-3xl font-black text-white">2</p></div></div><p class="mt-6 text-sm leading-7 text-slate-400">This exact markup shipped in the HTML file before wasm ran. Use the buttons below to prove the resumed tree stayed interactive.</p><div class="mt-6 flex flex-wrap gap-3"><button class="rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80">Increment counter</button><button class="rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80">Toggle topic</button></div></div></div></div></div>
     <script>
         const go = new Go();

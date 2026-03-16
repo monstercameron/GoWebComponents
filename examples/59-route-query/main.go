@@ -13,7 +13,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-func queryPage(_ router.Attrs) *router.Element {
+func queryPageView() ui.Node {
 	query := router.UseQuery()
 	search := router.UseSearchParams()
 
@@ -53,6 +53,10 @@ func queryPage(_ router.Attrs) *router.Element {
 			),
 		),
 	)
+}
+
+func queryPage(_ router.Attrs) *router.Element {
+	return ui.CreateElement(queryPageView)
 }
 
 func main() {
