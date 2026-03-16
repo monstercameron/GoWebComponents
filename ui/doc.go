@@ -3,7 +3,8 @@
 // It exposes:
 //   - CreateElement for component composition
 //   - Render for browser mounting
-//   - UseState, UseReducer, UseForm, UseEffect, UseMemo, UseRef, UsePrevious, UseDebounced, UseThrottled, UseChannel, UseTask, and UseId for local stateful logic
+//   - UseState, UseReducer, UseForm, UseEffect, UseMemo, UseRef, UsePrevious, UseDebounced, UseThrottled, UseChannel, UseTask, UseLazyNode, and UseId for local stateful logic
+//   - AsyncBoundary and Lazy for explicit async subtree loading and fallback rendering
 //   - UseEvent for typed event handler wrapping
 //
 // UseReducer is intended for components whose local state behaves like a small
@@ -47,6 +48,12 @@
 // They are intended for search boxes, live filtering, or fast-changing UI state
 // where callers want delayed or rate-limited derived values without open-coding
 // timer cleanup in every component.
+//
+// AsyncBoundary is an explicit async rendering primitive for loading and error
+// fallbacks around a subtree. Lazy builds on top of it by resolving a ui.Node
+// asynchronously and routing the result through the same boundary semantics.
+// The first implementation is intentionally explicit: callers pass Pending,
+// Error, and fallback nodes rather than relying on implicit promise throwing.
 //
 // The ui package is the recommended replacement for the older dom/hooks/render
 // split when authoring new components.

@@ -101,6 +101,40 @@ type Task[T any] struct {
 	cancel func()
 }
 
+type AsyncBoundaryProps struct {
+	Pending         bool
+	Error           error
+	Fallback        Node
+	TimeoutFallback Node
+	ErrorFallback   func(error) Node
+	Content         Node
+	Delay           time.Duration
+	Timeout         time.Duration
+}
+
+type LazyNodeState struct {
+	Node    Node
+	Loading bool
+	Error   error
+	Ready   bool
+}
+
+type LazyNode struct {
+	get    func() LazyNodeState
+	reload func()
+	cancel func()
+}
+
+type LazyProps struct {
+	Loader          func(context.Context) (Node, error)
+	Dependencies    []interface{}
+	Fallback        Node
+	TimeoutFallback Node
+	ErrorFallback   func(error) Node
+	Delay           time.Duration
+	Timeout         time.Duration
+}
+
 type Debounced[T any] struct {
 	get     func() T
 	pending func() bool
@@ -114,6 +148,11 @@ type Throttled[T any] struct {
 type delayedValueState[T any] struct {
 	value   T
 	pending bool
+}
+
+type asyncBoundaryState struct {
+	fallbackVisible bool
+	timedOut        bool
 }
 
 func CreateElement(component interface{}, props ...interface{}) Node {
@@ -513,6 +552,197 @@ func (t Task[T]) Cancel() {
 	if t.cancel != nil {
 		t.cancel()
 	}
+}
+
+// AsyncBoundary renders content, fallback, timeout fallback, or an error
+// fallback depending on the current async state.
+func AsyncBoundary(props AsyncBoundaryProps) Node {
+	phase := UseState(asyncBoundaryState{fallbackVisible: props.Delay <= 0})
+
+	UseEffect(func() func() {
+		if !props.Pending || props.Error != nil {
+			phase.Set(asyncBoundaryState{fallbackVisible: props.Delay <= 0})
+			return nil
+		}
+
+		state := asyncBoundaryState{fallbackVisible: props.Delay <= 0}
+		phase.Set(state)
+
+		stop := make(chan struct{})
+		if props.Delay > 0 {
+			go func(delay time.Duration) {
+				timer := time.NewTimer(delay)
+				defer timer.Stop()
+
+				select {
+				case <-stop:
+					return
+				case <-timer.C:
+				}
+
+				current := phase.Get()
+				current.fallbackVisible = true
+				phase.Set(current)
+			}(props.Delay)
+		}
+
+		if props.Timeout > 0 {
+			go func(timeout time.Duration) {
+				timer := time.NewTimer(timeout)
+				defer timer.Stop()
+
+				select {
+				case <-stop:
+					return
+				case <-timer.C:
+				}
+
+				current := phase.Get()
+				current.timedOut = true
+				phase.Set(current)
+			}(props.Timeout)
+		}
+
+		return func() {
+			close(stop)
+		}
+	}, props.Pending, props.Error, props.Delay, props.Timeout)
+
+	state := phase.Get()
+	if props.Error != nil {
+		if props.ErrorFallback != nil {
+			return props.ErrorFallback(props.Error)
+		}
+		if props.Fallback != nil {
+			return props.Fallback
+		}
+		return nil
+	}
+
+	if !props.Pending {
+		return props.Content
+	}
+
+	if state.timedOut && props.TimeoutFallback != nil {
+		return props.TimeoutFallback
+	}
+
+	if state.fallbackVisible {
+		return props.Fallback
+	}
+
+	return props.Content
+}
+
+// UseLazyNode asynchronously resolves a ui.Node and tracks loading/error state.
+func UseLazyNode(loader func(context.Context) (Node, error), deps ...interface{}) LazyNode {
+	state := UseState(LazyNodeState{Loading: true})
+	reloadTick := UseState(0)
+	cancelRef := UseRef((context.CancelFunc)(nil))
+	requestSeq := UseRef(0)
+
+	startLoad := func() {
+		if cancel := cancelRef.Get(); cancel != nil {
+			cancel()
+		}
+
+		if loader == nil {
+			state.Set(LazyNodeState{Error: context.Canceled})
+			return
+		}
+
+		requestSeq.Set(requestSeq.Get() + 1)
+		seq := requestSeq.Get()
+		ctx, cancel := context.WithCancel(context.Background())
+		cancelRef.Set(cancel)
+
+		state.Update(func(prev LazyNodeState) LazyNodeState {
+			prev.Loading = true
+			prev.Error = nil
+			return prev
+		})
+
+		go func() {
+			node, err := loader(ctx)
+			if ctx.Err() != nil || requestSeq.Get() != seq {
+				return
+			}
+
+			state.Set(LazyNodeState{
+				Node:    node,
+				Loading: false,
+				Error:   err,
+				Ready:   err == nil,
+			})
+		}()
+	}
+
+	effectDeps := make([]interface{}, 0, len(deps)+1)
+	effectDeps = append(effectDeps, reloadTick.Get())
+	effectDeps = append(effectDeps, deps...)
+
+	UseEffect(func() func() {
+		startLoad()
+		return func() {
+			if cancel := cancelRef.Get(); cancel != nil {
+				cancel()
+				cancelRef.Set(nil)
+			}
+		}
+	}, effectDeps...)
+
+	return LazyNode{
+		get: func() LazyNodeState { return state.Get() },
+		reload: func() {
+			reloadTick.Update(func(prev int) int { return prev + 1 })
+		},
+		cancel: func() {
+			if cancel := cancelRef.Get(); cancel != nil {
+				cancel()
+				cancelRef.Set(nil)
+			}
+			state.Update(func(prev LazyNodeState) LazyNodeState {
+				prev.Loading = false
+				return prev
+			})
+		},
+	}
+}
+
+func (l LazyNode) Get() LazyNodeState {
+	if l.get == nil {
+		return LazyNodeState{}
+	}
+	return l.get()
+}
+
+func (l LazyNode) Reload() {
+	if l.reload != nil {
+		l.reload()
+	}
+}
+
+func (l LazyNode) Cancel() {
+	if l.cancel != nil {
+		l.cancel()
+	}
+}
+
+// Lazy asynchronously resolves a subtree and renders it through AsyncBoundary.
+func Lazy(props LazyProps) Node {
+	handle := UseLazyNode(props.Loader, props.Dependencies...)
+	state := handle.Get()
+
+	return AsyncBoundary(AsyncBoundaryProps{
+		Pending:         state.Loading,
+		Error:           state.Error,
+		Fallback:        props.Fallback,
+		TimeoutFallback: props.TimeoutFallback,
+		ErrorFallback:   props.ErrorFallback,
+		Content:         state.Node,
+		Delay:           props.Delay,
+		Timeout:         props.Timeout,
+	})
 }
 
 // UseDebounced returns a delayed view of value that only updates after delay has

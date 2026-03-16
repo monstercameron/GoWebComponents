@@ -269,16 +269,16 @@ This backlog focuses on the top-level framework features that are still missing 
 
 ### Async UI Primitives
 
-- [ ] Design a Suspense-like async boundary model.
-	Define how a subtree enters a loading state and how fallback UI is declared.
-- [ ] Add lazy component loading support.
-	Provide a first-class API for deferring expensive component initialization or code loading.
-- [ ] Define async resource integration points.
-	Align `fetch.UseFetch`-style flows with fallback rendering so loading UIs do not need to be manually threaded everywhere.
-- [ ] Specify timeout and retry behavior.
-	Decide how long-running operations, cancellations, and repeated retries interact with fallback states.
-- [ ] Add examples that replace manual loading flag plumbing.
-	Demonstrate async pages, route-level loading, and nested fallbacks.
+- [x] Design a Suspense-like async boundary model.
+	The first async-boundary slice now ships as explicit `ui.AsyncBoundary`, where callers provide `Pending`, `Error`, fallback nodes, and optional delay/timeout behavior instead of relying on implicit promise throwing.
+- [x] Add lazy component loading support.
+	`ui.UseLazyNode` and `ui.Lazy` now provide a first-class way to resolve a subtree asynchronously while reusing the same boundary semantics.
+- [x] Define async resource integration points.
+	The initial integration model is explicit rather than magical: `fetch.UseResource` and other async state can now flow through `ui.AsyncBoundary` without open-coded branch ladders in each component.
+- [x] Specify timeout and retry behavior.
+	`ui.AsyncBoundary` now supports explicit delay and timeout fallback thresholds, while `ui.UseLazyNode` exposes `Reload` and `Cancel` for caller-driven retry/cancellation control.
+- [x] Add examples that replace manual loading flag plumbing.
+	The fetch example now routes both list and detail loading through `ui.AsyncBoundary` and includes a deferred `ui.Lazy` panel to demonstrate nested fallback behavior.
 
 ### Concurrent-style Scheduling Primitives
 

@@ -444,6 +444,73 @@ func TestThrottledHandleZeroValue(t *testing.T) {
 	}
 }
 
+func TestAsyncBoundaryReturnsContentWhenNotPending(t *testing.T) {
+	installUIHookContext(t)
+
+	content := Text("ready")
+	if got := AsyncBoundary(AsyncBoundaryProps{Content: content}); got != content {
+		t.Fatal("expected async boundary to render content when not pending")
+	}
+}
+
+func TestAsyncBoundaryReturnsFallbackAndErrorFallback(t *testing.T) {
+	installUIHookContext(t)
+
+	fallback := Text("loading")
+	if got := AsyncBoundary(AsyncBoundaryProps{Pending: true, Fallback: fallback}); got != fallback {
+		t.Fatal("expected async boundary to render fallback while pending")
+	}
+
+	errorNode := Text("error")
+	got := AsyncBoundary(AsyncBoundaryProps{
+		Error: errors.New("boom"),
+		ErrorFallback: func(err error) Node {
+			if err == nil || err.Error() != "boom" {
+				t.Fatalf("unexpected boundary error: %v", err)
+			}
+			return errorNode
+		},
+	})
+	if got != errorNode {
+		t.Fatal("expected async boundary to render error fallback")
+	}
+}
+
+func TestUseLazyNodeInitialStateAndZeroValue(t *testing.T) {
+	installUIHookContext(t)
+
+	lazy := UseLazyNode(func(ctx context.Context) (Node, error) {
+		return Text("resolved"), nil
+	})
+	state := lazy.Get()
+	if !state.Loading || state.Ready || state.Error != nil || state.Node != nil {
+		t.Fatalf("expected initial lazy state to be loading with no ready node, got %+v", state)
+	}
+
+	var zero LazyNode
+	zeroState := zero.Get()
+	if zeroState.Loading || zeroState.Ready || zeroState.Error != nil || zeroState.Node != nil {
+		t.Fatalf("expected zero-value lazy handle to be inert, got %+v", zeroState)
+	}
+	zero.Reload()
+	zero.Cancel()
+}
+
+func TestLazyRendersFallbackOnInitialLoad(t *testing.T) {
+	installUIHookContext(t)
+
+	fallback := Text("loading")
+	got := Lazy(LazyProps{
+		Loader: func(ctx context.Context) (Node, error) {
+			return Text("resolved"), nil
+		},
+		Fallback: fallback,
+	})
+	if got != fallback {
+		t.Fatal("expected lazy helper to render fallback on initial load")
+	}
+}
+
 type profileForm struct {
 	Name   string
 	Email  string

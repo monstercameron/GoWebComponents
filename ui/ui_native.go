@@ -4,9 +4,11 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
@@ -28,6 +30,40 @@ type Node = *runtime.Element
 
 type Handler struct {
 	value interface{}
+}
+
+type AsyncBoundaryProps struct {
+	Pending         bool
+	Error           error
+	Fallback        Node
+	TimeoutFallback Node
+	ErrorFallback   func(error) Node
+	Content         Node
+	Delay           time.Duration
+	Timeout         time.Duration
+}
+
+type LazyNodeState struct {
+	Node    Node
+	Loading bool
+	Error   error
+	Ready   bool
+}
+
+type LazyNode struct {
+	get    func() LazyNodeState
+	reload func()
+	cancel func()
+}
+
+type LazyProps struct {
+	Loader          func(context.Context) (Node, error)
+	Dependencies    []interface{}
+	Fallback        Node
+	TimeoutFallback Node
+	ErrorFallback   func(error) Node
+	Delay           time.Duration
+	Timeout         time.Duration
 }
 
 func CreateElement(component interface{}, props ...interface{}) Node {
@@ -73,6 +109,73 @@ func Render(root Node, selector string) {
 
 func Hydrate(root Node, selector string, options ...HydrationOptions) (SSRBootstrap, error) {
 	return SSRBootstrap{}, UnsupportedOnServer("Hydrate")
+}
+
+func AsyncBoundary(props AsyncBoundaryProps) Node {
+	if props.Error != nil {
+		if props.ErrorFallback != nil {
+			return props.ErrorFallback(props.Error)
+		}
+		if props.Fallback != nil {
+			return props.Fallback
+		}
+		return nil
+	}
+	if props.Pending {
+		if props.Timeout > 0 && props.TimeoutFallback != nil {
+			return props.TimeoutFallback
+		}
+		return props.Fallback
+	}
+	return props.Content
+}
+
+func UseLazyNode(loader func(context.Context) (Node, error), deps ...interface{}) LazyNode {
+	state := LazyNodeState{}
+	if loader == nil {
+		state.Error = UnsupportedOnServer("UseLazyNode")
+	} else {
+		node, err := loader(context.Background())
+		state.Node = node
+		state.Error = err
+		state.Ready = err == nil && node != nil
+	}
+
+	return LazyNode{get: func() LazyNodeState { return state }}
+}
+
+func (l LazyNode) Get() LazyNodeState {
+	if l.get == nil {
+		return LazyNodeState{}
+	}
+	return l.get()
+}
+
+func (l LazyNode) Reload() {
+	if l.reload != nil {
+		l.reload()
+	}
+}
+
+func (l LazyNode) Cancel() {
+	if l.cancel != nil {
+		l.cancel()
+	}
+}
+
+func Lazy(props LazyProps) Node {
+	handle := UseLazyNode(props.Loader, props.Dependencies...)
+	state := handle.Get()
+	return AsyncBoundary(AsyncBoundaryProps{
+		Pending:         state.Loading,
+		Error:           state.Error,
+		Fallback:        props.Fallback,
+		TimeoutFallback: props.TimeoutFallback,
+		ErrorFallback:   props.ErrorFallback,
+		Content:         state.Node,
+		Delay:           props.Delay,
+		Timeout:         props.Timeout,
+	})
 }
 
 func UseEvent(fn interface{}) Handler {

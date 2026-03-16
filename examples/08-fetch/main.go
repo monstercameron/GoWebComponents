@@ -95,6 +95,34 @@ func App() ui.Node {
 		return loadJSON[User](ctx, fmt.Sprintf("https://jsonplaceholder.typicode.com/users/%d", selectedUserID.Get()))
 	}, selectedUserID.Get())
 	detailState := detailResource.Get()
+	deferredInsights := ui.CreateElement(ui.Lazy, ui.LazyProps{
+		Loader: func(ctx context.Context) (ui.Node, error) {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(250 * time.Millisecond):
+			}
+
+			return html.Div(
+				html.Props{Class: "mt-6 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4 text-sm text-cyan-100"},
+				html.P(html.Props{Class: "font-semibold"}, html.Text("Async UI primitive demo")),
+				html.P(html.Props{Class: "mt-2 text-cyan-50/80"}, html.Text("This note is resolved through ui.Lazy, while the surrounding panels use ui.AsyncBoundary instead of open-coded loading branches.")),
+			), nil
+		},
+		Dependencies: []interface{}{selectedUserID.Get()},
+		Delay:        100 * time.Millisecond,
+		Fallback: html.Div(
+			html.Props{Class: "mt-6 rounded-xl border border-white/10 bg-white/5 p-4 animate-pulse"},
+			html.Div(html.Props{Class: "h-4 w-40 rounded bg-white/10"}),
+			html.Div(html.Props{Class: "mt-3 h-4 w-full rounded bg-white/10"}),
+		),
+		ErrorFallback: func(err error) ui.Node {
+			return html.Div(
+				html.Props{Class: "mt-6 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300"},
+				html.Text("Deferred insights failed: "+err.Error()),
+			)
+		},
+	})
 
 	handleRefresh := ui.UseEvent(func() {
 		usersResource.Reload()
@@ -107,19 +135,7 @@ func App() ui.Node {
 	})
 
 	var content ui.Node
-	if usersState.Error != nil {
-		content = html.Div(
-			html.Props{Class: "bg-red-500/10 border border-red-500/20 p-6 rounded-xl mb-8 mx-auto max-w-2xl text-center"},
-			html.P(html.Props{Class: "text-red-400 font-medium"}, html.Text("Error: "+usersState.Error.Error())),
-		)
-	} else if usersState.Loading || !usersState.Ready || len(usersState.Value) == 0 {
-		content = html.Div(
-			html.Props{Class: "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"},
-			html.Div(html.Props{Class: "bg-white/5 border border-white/5 p-6 rounded-xl animate-pulse h-48"}),
-			html.Div(html.Props{Class: "bg-white/5 border border-white/5 p-6 rounded-xl animate-pulse h-48"}),
-			html.Div(html.Props{Class: "bg-white/5 border border-white/5 p-6 rounded-xl animate-pulse h-48"}),
-		)
-	} else {
+	{
 		userElements := make([]ui.Node, len(usersState.Value))
 		for i, user := range usersState.Value {
 			selected := user.ID == selectedUserID.Get()
@@ -143,47 +159,66 @@ func App() ui.Node {
 		}
 		content = html.Div(
 			html.Props{Class: "grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]"},
-			html.Div(
-				html.Props{Class: "grid grid-cols-1 gap-6 sm:grid-cols-2"},
-				userElements...,
-			),
+			ui.CreateElement(ui.AsyncBoundary, ui.AsyncBoundaryProps{
+				Pending: usersState.Loading || !usersState.Ready || len(usersState.Value) == 0,
+				Error:   usersState.Error,
+				Fallback: html.Div(
+					html.Props{Class: "grid grid-cols-1 gap-6 sm:grid-cols-2"},
+					html.Div(html.Props{Class: "bg-white/5 border border-white/5 p-6 rounded-xl animate-pulse h-48"}),
+					html.Div(html.Props{Class: "bg-white/5 border border-white/5 p-6 rounded-xl animate-pulse h-48"}),
+					html.Div(html.Props{Class: "bg-white/5 border border-white/5 p-6 rounded-xl animate-pulse h-48"}),
+				),
+				ErrorFallback: func(err error) ui.Node {
+					return html.Div(
+						html.Props{Class: "bg-red-500/10 border border-red-500/20 p-6 rounded-xl mb-8 mx-auto max-w-2xl text-center"},
+						html.P(html.Props{Class: "text-red-400 font-medium"}, html.Text("Error: "+err.Error())),
+					)
+				},
+				Content: html.Div(
+					html.Props{Class: "grid grid-cols-1 gap-6 sm:grid-cols-2"},
+					userElements...,
+				),
+			}),
 			html.Div(
 				html.Props{Class: "bg-white/5 border border-white/10 p-6 rounded-xl backdrop-blur-sm h-fit sticky top-6"},
 				html.H2(html.Props{Class: "text-xl font-bold text-white mb-2"}, html.Text("Selected User")),
-				html.P(html.Props{Class: "text-sm text-gray-400 mb-6"}, html.Text("This panel uses fetch.UseResource with dependency-based reloads, explicit retry, and cancellation.")),
-				func() ui.Node {
-					if detailState.Loading {
-						return html.Div(
-							html.Props{},
-							html.Div(html.Props{Class: "bg-white/5 border border-white/5 rounded-lg animate-pulse h-8 mb-4"}),
-							html.Div(html.Props{Class: "bg-white/5 border border-white/5 rounded-lg animate-pulse h-24"}),
-						)
-					}
-					if detailState.Error != nil {
+				html.P(html.Props{Class: "text-sm text-gray-400 mb-6"}, html.Text("This panel uses ui.AsyncBoundary around fetch.UseResource state, and the note below is deferred through ui.Lazy.")),
+				ui.CreateElement(ui.AsyncBoundary, ui.AsyncBoundaryProps{
+					Pending: detailState.Loading,
+					Error:   detailState.Error,
+					Fallback: html.Div(
+						html.Props{},
+						html.Div(html.Props{Class: "bg-white/5 border border-white/5 rounded-lg animate-pulse h-8 mb-4"}),
+						html.Div(html.Props{Class: "bg-white/5 border border-white/5 rounded-lg animate-pulse h-24"}),
+					),
+					ErrorFallback: func(err error) ui.Node {
 						return html.Div(
 							html.Props{Class: "text-red-400 space-y-3"},
-							html.P(html.Props{}, html.Text("Detail error: "+detailState.Error.Error())),
+							html.P(html.Props{}, html.Text("Detail error: "+err.Error())),
 							html.Button(html.Props{OnClick: ui.UseEvent(func() { detailResource.Reload() }), Class: "px-4 py-2 bg-red-500/20 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"}, html.Text("Retry Detail")),
 						)
-					}
-					if !detailState.Ready {
-						return html.P(html.Props{Class: "text-gray-500"}, html.Text("Select a user to inspect details."))
-					}
+					},
+					Content: func() ui.Node {
+						if !detailState.Ready {
+							return html.P(html.Props{Class: "text-gray-500"}, html.Text("Select a user to inspect details."))
+						}
 
-					user := detailState.Value
-					return html.Div(
-						html.Props{Class: "space-y-3 text-sm text-gray-300"},
-						html.H3(html.Props{Class: "text-2xl font-semibold text-white"}, html.Text(user.Name)),
-						html.P(html.Props{}, html.Text("Username: @"+user.Username)),
-						html.P(html.Props{}, html.Text("Email: "+user.Email)),
-						html.P(html.Props{}, html.Text("Website: "+user.Website)),
-						html.Div(
-							html.Props{Class: "flex flex-wrap gap-3 pt-4"},
-							html.Button(html.Props{OnClick: ui.UseEvent(func() { detailResource.Reload() }), Class: "px-4 py-2 bg-cyan-500 text-black rounded-lg hover:bg-cyan-400 transition-colors font-semibold"}, html.Text("Reload Detail")),
-							html.Button(html.Props{OnClick: ui.UseEvent(func() { detailResource.Cancel() }), Class: "px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors border border-white/10"}, html.Text("Cancel Detail")),
-						),
-					)
-				}(),
+						user := detailState.Value
+						return html.Div(
+							html.Props{Class: "space-y-3 text-sm text-gray-300"},
+							html.H3(html.Props{Class: "text-2xl font-semibold text-white"}, html.Text(user.Name)),
+							html.P(html.Props{}, html.Text("Username: @"+user.Username)),
+							html.P(html.Props{}, html.Text("Email: "+user.Email)),
+							html.P(html.Props{}, html.Text("Website: "+user.Website)),
+							html.Div(
+								html.Props{Class: "flex flex-wrap gap-3 pt-4"},
+								html.Button(html.Props{OnClick: ui.UseEvent(func() { detailResource.Reload() }), Class: "px-4 py-2 bg-cyan-500 text-black rounded-lg hover:bg-cyan-400 transition-colors font-semibold"}, html.Text("Reload Detail")),
+								html.Button(html.Props{OnClick: ui.UseEvent(func() { detailResource.Cancel() }), Class: "px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors border border-white/10"}, html.Text("Cancel Detail")),
+							),
+						)
+					}(),
+				}),
+				deferredInsights,
 			),
 		)
 	}
@@ -232,4 +267,5 @@ func App() ui.Node {
 
 func main() {
 	ui.Render(ui.CreateElement(App), "#app")
+	select {}
 }

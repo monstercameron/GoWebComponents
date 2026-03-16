@@ -4,6 +4,7 @@
 package ui_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/html"
@@ -45,5 +46,38 @@ func TestReadBootstrapReferenceUnsupportedOnServer(t *testing.T) {
 	_, err := ui.ReadBootstrapReference(ui.SSRBootstrapReference{URL: "/bootstrap.cbor", Format: ui.SSRBootstrapFormatCBOR})
 	if err == nil {
 		t.Fatal("expected ReadBootstrapReference to be unavailable on non-js/wasm builds")
+	}
+}
+
+func TestAsyncBoundaryAndLazyOnServer(t *testing.T) {
+	fallback := ui.Text("loading")
+	content := ui.Text("ready")
+	if got := ui.AsyncBoundary(ui.AsyncBoundaryProps{Content: content}); got != content {
+		t.Fatal("expected AsyncBoundary to return content when not pending on server")
+	}
+	if got := ui.AsyncBoundary(ui.AsyncBoundaryProps{Pending: true, Fallback: fallback}); got != fallback {
+		t.Fatal("expected AsyncBoundary to return fallback when pending on server")
+	}
+
+	lazy := ui.UseLazyNode(func(ctx context.Context) (ui.Node, error) {
+		return ui.Text("resolved"), nil
+	})
+	state := lazy.Get()
+	if !state.Ready || state.Error != nil || state.Node == nil {
+		t.Fatalf("expected server lazy node to resolve synchronously, got %+v", state)
+	}
+
+	got := ui.Lazy(ui.LazyProps{
+		Loader: func(ctx context.Context) (ui.Node, error) {
+			return ui.Text("resolved"), nil
+		},
+		Fallback: fallback,
+	})
+	markup, err := ui.RenderToString(got)
+	if err != nil {
+		t.Fatalf("unexpected async boundary render error: %v", err)
+	}
+	if markup != `resolved` {
+		t.Fatalf("expected lazy server render to resolve content, got %q", markup)
 	}
 }
