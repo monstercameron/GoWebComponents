@@ -27,6 +27,7 @@ type componentMeta struct {
 var componentMetaCache sync.Map
 
 // Node is the public UI tree node type.
+type Element = runtime.Element
 type Node = *runtime.Element
 
 // Transition exposes transition-pending state and a transition starter.

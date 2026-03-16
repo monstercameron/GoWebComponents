@@ -8,6 +8,8 @@
     <script src="script/personal-website-2025-virtual-fs.js"></script>
     <script src="script/fs-polyfill.js"></script>
     <script src="script/wasm_exec.js"></script>
+    <script src="../static/script/example-logger.js"></script>
+    <link rel="stylesheet" href="../static/css/example-shell.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -268,7 +270,7 @@
         }
     </style>
 </head>
-<body class="h-screen bg-gray-900 overflow-hidden">
+<body class="h-screen bg-gray-900 overflow-hidden example-shell">
     
     <!-- Simple Split Layout -->
     <div class="flex flex-col h-full p-4 gap-4">
@@ -310,6 +312,7 @@ func main() {
 
     <!-- Load JavaScript modules in order -->
     <script src="script/wasm_exec.js"></script>
+    <script src="../static/script/example-logger.js"></script>
     <script src="script/personal-website-2025-cache-manager.js"></script>
     <script src="script/personal-website-2025-github-fetcher.js"></script>
     <!-- Virtual FS loaded in head -->

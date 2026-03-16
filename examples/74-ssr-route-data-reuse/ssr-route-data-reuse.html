@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSR route data reuse - GoWebComponents</title>
+    <link rel="stylesheet" href="../static/css/tailwind.css">
+    <link rel="stylesheet" href="../static/css/example-shell.css">
+    <script>if (!window.location.hash) { window.location.hash = '#/products'; }</script>
+    <script id="__GWC_BOOTSTRAP__" type="application/json">{"route":{"path":"/products"},"data":{"items":["The first loader pass can reuse server-provided data","Hydration starts with a warm route cache instead of a duplicate request","Manual revalidation still falls back to the live client loader path"],"revision":1}}</script>
+    <script src="../static/script/wasm_exec.js"></script>
+    <script src="../static/script/example-logger.js"></script>
+</head>
+<body class="min-h-screen bg-[#08111d] text-slate-100 example-shell">
+    <div id="app"><div class="min-h-screen text-slate-100"><div class="mx-auto max-w-4xl px-6 py-12"><div class="rounded-[2rem] border border-white/10 bg-slate-950/80 p-8 shadow-2xl"><p class="text-xs uppercase tracking-[0.35em] text-cyan-300">SSR loader bootstrap</p><h1 class="mt-4 text-5xl font-black tracking-tight text-white">Route data reuse during hydration</h1><p class="mt-4 text-lg leading-8 text-slate-300">The first client loader run reuses route data embedded in the bootstrap payload, then later revalidation falls back to the normal live client loader path.</p><div class="mt-6 grid gap-4 md:grid-cols-2"><div class="rounded-2xl border border-white/10 bg-white/5 p-4"><p class="text-xs uppercase tracking-[0.25em] text-slate-400">Data source</p><p class="mt-3 text-2xl font-black text-white">bootstrap payload</p></div><div class="rounded-2xl border border-white/10 bg-white/5 p-4"><p class="text-xs uppercase tracking-[0.25em] text-slate-400">Revision</p><p class="mt-3 text-2xl font-black text-white">1</p></div></div><div class="mt-6 flex flex-wrap gap-3"><button class="rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80">Revalidate route</button></div><div class="mt-6 grid gap-4"><div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-slate-200">The first loader pass can reuse server-provided data</div><div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-slate-200">Hydration starts with a warm route cache instead of a duplicate request</div><div class="rounded-2xl border border-white/10 bg-white/5 p-4 text-slate-200">Manual revalidation still falls back to the live client loader path</div></div></div></div></div></div>
+    <script>
+        const go = new Go();
+        WebAssembly.instantiateStreaming(fetch('../static/bin/ssr-route-data-reuse.wasm'), go.importObject)
+            .then(result => go.run(result.instance))
+            .catch(err => console.error('Failed to load WASM:', err));
+    </script>
+</body>
+</html>
+
+

@@ -104,7 +104,7 @@ func PortfolioProjectCard(title, subtitle, description string, technologies []st
 // OpenProjectLink generates a click handler that opens project URLs in new tabs.
 // Safely handles invalid URLs by checking for placeholder values.
 func OpenProjectLink(url string) interface{} {
-	return GoUseFunc(func(e GoEvent) {
+	return UseEvent(func(e MouseEvent) {
 		if url != "#" {
 			js.Global().Get("window").Call("open", url, "_blank")
 		}

@@ -6,12 +6,16 @@ package main
 import (
 	"fmt"
 
+	gwcfetch "github.com/monstercameron/GoWebComponents/fetch"
 	"github.com/monstercameron/GoWebComponents/html"
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-type GoEvent = runtime.GoEvent
+type MouseEvent = ui.MouseEvent
+type InputEvent = ui.InputEvent
+type ChangeEvent = ui.ChangeEvent
+type KeyboardEvent = ui.KeyboardEvent
+type FormEvent = ui.FormEvent
 
 func toProps(attrs Attrs) html.Props {
 	if attrs == nil {
@@ -80,22 +84,41 @@ func Option(attrs Attrs, children ...interface{}) *Element { return tag("option"
 func Textarea(attrs Attrs, children ...interface{}) *Element {
 	return tag("textarea", attrs, children...)
 }
-func Input(attrs Attrs, children ...interface{}) *Element { return tag("input", attrs, children...) }
-func Img(attrs Attrs, children ...interface{}) *Element   { return tag("img", attrs, children...) }
-func Br(attrs Attrs, children ...interface{}) *Element    { return tag("br", attrs, children...) }
+func Input(attrs Attrs, children ...interface{}) *Element  { return tag("input", attrs, children...) }
+func Iframe(attrs Attrs, children ...interface{}) *Element { return tag("iframe", attrs, children...) }
+func Img(attrs Attrs, children ...interface{}) *Element    { return tag("img", attrs, children...) }
+func Br(attrs Attrs, children ...interface{}) *Element     { return tag("br", attrs, children...) }
 
 func UseState[T any](initialValue T) (func() T, func(interface{})) {
-	return runtime.GoUseStateGlobal(initialValue)
+	state := ui.UseState(initialValue)
+	return state.Get, func(value interface{}) {
+		if updater, ok := value.(func(T) T); ok {
+			state.Update(updater)
+			return
+		}
+		cast, ok := value.(T)
+		if ok {
+			state.Set(cast)
+		}
+	}
 }
-func UseEffect(effect func() func(), deps ...interface{}) { runtime.GoUseEffectGlobal(effect, deps...) }
+func UseEffect(effect func() func(), deps ...interface{}) { ui.UseEffect(effect, deps...) }
 func UseMemo(compute func() interface{}, deps ...interface{}) interface{} {
-	return runtime.GoUseMemoGlobal(compute, deps...)
+	return ui.UseMemo(compute, deps...)
 }
 func UseCallback(fn interface{}, deps ...interface{}) interface{} {
-	return runtime.GoUseCallbackGlobal(fn, deps...)
+	return ui.UseCallback(fn, deps...)
 }
-func UseId() string                        { return runtime.GoUseIdGlobal() }
-func GoUseFunc(fn interface{}) interface{} { return runtime.GoUseFunc(fn) }
-func UseFetch(url string, options ...interface{}) (func() runtime.FetchState, func()) {
-	return runtime.GoUseFetch(url, options...)
+func UseId() string                       { return ui.UseId() }
+func UseEvent(fn interface{}) interface{} { return ui.UseEvent(fn).Value() }
+func UseFetch(url string, options ...interface{}) (func() gwcfetch.State, func()) {
+	fetchOptions := make([]gwcfetch.Options, 0, len(options))
+	for _, option := range options {
+		cast, ok := option.(gwcfetch.Options)
+		if ok {
+			fetchOptions = append(fetchOptions, cast)
+		}
+	}
+	resource := gwcfetch.UseFetch(url, fetchOptions...)
+	return resource.Get, resource.Refetch
 }

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>router.HydrateMount - GoWebComponents</title>
+    <link rel="stylesheet" href="../static/css/tailwind.css">
+    <link rel="stylesheet" href="../static/css/example-shell.css">
+    <script>if (!window.location.hash) { window.location.hash = '#/docs/overview'; }</script>
+    <script src="../static/script/wasm_exec.js"></script>
+    <script src="../static/script/example-logger.js"></script>
+</head>
+<body class="min-h-screen bg-[#08111d] text-slate-100 example-shell">
+    <div id="app"><div class="min-h-screen text-slate-100"><div class="mx-auto max-w-4xl px-6 py-12"><div class="rounded-[2rem] border border-white/10 bg-slate-950/80 p-8 shadow-2xl"><p class="text-xs uppercase tracking-[0.35em] text-cyan-300">Hydrated router</p><h1 class="mt-4 text-5xl font-black tracking-tight text-white">router.HydrateMount</h1><p class="mt-4 text-lg leading-8 text-slate-300">HydrateMount attaches router listeners after the current route has already been hydrated, so the first route is preserved instead of immediately being rendered again.</p><div class="mt-6 grid gap-4 md:grid-cols-2"><div class="rounded-2xl border border-white/10 bg-white/5 p-4"><p class="text-xs uppercase tracking-[0.25em] text-slate-400">Current section</p><p class="mt-3 text-2xl font-black text-white">overview</p></div><div class="rounded-2xl border border-white/10 bg-white/5 p-4"><p class="text-xs uppercase tracking-[0.25em] text-slate-400">Attach mode</p><p class="mt-3 text-2xl font-black text-white">HydrateMount</p></div></div><p class="mt-6 text-sm leading-7 text-slate-400">The first route was hydrated first, then the router started listening for future hash changes without forcing a replacement render.</p><div class="mt-6 flex flex-wrap gap-3"><button class="rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80">Go to overview</button><button class="rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80">Go to API</button></div></div></div></div></div>
+    <script>
+        const go = new Go();
+        WebAssembly.instantiateStreaming(fetch('../static/bin/router-hydrate-mount.wasm'), go.importObject)
+            .then(result => go.run(result.instance))
+            .catch(err => console.error('Failed to load WASM:', err));
+    </script>
+</body>
+</html>
+
+

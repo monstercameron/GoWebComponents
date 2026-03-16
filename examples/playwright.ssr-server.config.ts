@@ -19,9 +19,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'powershell -NoProfile -Command "$env:GOOS=\'windows\'; $env:GOARCH=\'amd64\'; $env:PORT=\'8082\'; go build -o .\\18-ssr-server-routing\\playwright-server.exe .\\18-ssr-server-routing; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; .\\18-ssr-server-routing\\playwright-server.exe"',
+    command: 'powershell -NoProfile -Command "$env:GOOS=\'windows\'; $env:GOARCH=\'amd64\'; $env:PORT=\'8082\'; go build -o .\\18-ssr-server-routing\\playwright-server.exe .\\18-ssr-server-routing\\server_main.go .\\18-ssr-server-routing\\shared.go; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; .\\18-ssr-server-routing\\playwright-server.exe"',
     url: 'http://127.0.0.1:8082/healthz',
-    reuseExistingServer: false,
+    reuseExistingServer: true,
     timeout: 120 * 1000,
   },
 });

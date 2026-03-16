@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
 	"github.com/monstercameron/GoWebComponents/router"
 	"github.com/monstercameron/GoWebComponents/utils"
@@ -30,9 +31,9 @@ func main() {
 
 	// Initialize and mount the global router
 	r := router.GetRouter()
-	r.GoRegisterRoute(portfolioHomeRoute, DocsWebsite)
-	r.GoRegisterRoute(portfolioDocsRoute, DocsPage)
-	r.GoRegisterRoute(portfolioCatchAllRoute, NotFoundPage)
+	r.Register(portfolioHomeRoute, DocsWebsite)
+	r.Register(portfolioDocsRoute, DocsPage)
+	r.Register(portfolioCatchAllRoute, NotFoundPage)
 
 	r.Mount("#app")
 

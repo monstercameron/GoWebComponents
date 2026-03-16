@@ -74,7 +74,7 @@ async function buildExamplesListing() {
   return links;
 }
 
-app.get("/examples", async (req, res) => {
+app.get("/examples/list", async (req, res) => {
   const links = await buildExamplesListing();
   const listItems = links
     .map((l) => `<li><a href="${l.href}">${l.name}</a></li>`)
@@ -107,8 +107,12 @@ app.get("/examples", async (req, res) => {
   res.status(200).type("text/html").send(html);
 });
 
+app.get("/examples", (req, res) => {
+  res.redirect("/examples/static/index.html");
+});
+
 app.get("/examples/", (req, res) => {
-  res.redirect("/examples");
+  res.redirect("/examples/static/index.html");
 });
 
 // Primary static mounts.

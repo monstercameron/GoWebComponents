@@ -259,6 +259,7 @@ func NewsletterSection() ui.Node {
 	fmt.Println("NewsletterSection: initializing newsletter component")
 
 	return html.Section(html.Props{
+		ID:    "contact",
 		Class: "py-20 bg-gradient-to-r from-blue-900/20 to-purple-900/20 border-y border-white/5",
 	},
 		html.Div(html.Props{

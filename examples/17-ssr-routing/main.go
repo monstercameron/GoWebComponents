@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"strings"
 	"syscall/js"
 	"time"
@@ -258,7 +259,7 @@ func routedApp(r *router.Router) ui.Node {
 		}
 	}, true)
 
-	return r.GoGetRoute()
+	return r.Current()
 }
 
 func main() {

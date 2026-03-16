@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"strings"
 
 	"github.com/monstercameron/GoWebComponents/router"
@@ -171,7 +172,7 @@ func main() {
 	r.Register("/legacy", docsPage, router.Options{Redirect: legacyRedirectPath, Title: "GWC Server SSR Demo Legacy"})
 	r.Register("*", notFoundPage, router.Options{Title: "GWC Server SSR Demo Not Found"})
 
-	root := ui.CreateElement(func() ui.Node { return r.GoGetRoute() })
+	root := ui.CreateElement(func() ui.Node { return r.Current() })
 	_, _ = ui.Hydrate(root, "#app", ui.HydrationOptions{Bootstrap: initialBootstrap})
 	r.HydrateMount("#app")
 

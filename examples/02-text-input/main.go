@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/html"
@@ -62,6 +63,10 @@ func TextInputExample() ui.Node {
 			),
 
 			html.Div(html.Props{Class: "grid gap-4 mb-8 md:grid-cols-2"},
+				html.Div(html.Props{Class: "md:col-span-2 p-4 bg-blue-500/10 rounded-lg border border-blue-400/20"},
+					html.P(html.Props{Class: "text-blue-200 text-sm font-semibold uppercase tracking-[0.2em]"}, html.Text("Choosing the right pacing helper")),
+					html.P(html.Props{Class: "mt-2 text-sm leading-6 text-slate-300"}, html.Text("Use debouncing when work should wait until typing pauses, like search or validation. Use throttling when updates should continue during typing, but at a fixed rate, like counters or live telemetry.")),
+				),
 				html.Div(html.Props{Class: "p-4 bg-black/20 rounded-lg border border-white/5"},
 					html.P(html.Props{Class: "text-gray-400 text-xs uppercase tracking-widest mb-2"}, html.Text("Immediate input")),
 					html.P(html.Props{Class: "text-lg text-white font-medium break-all min-h-[1.75rem]"}, html.Text(func() string {

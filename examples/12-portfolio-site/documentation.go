@@ -32,7 +32,7 @@ func DocsPage(_ Attrs) *Element {
 					),
 					P(
 						Attrs{"class": "text-xl text-gray-400 max-w-3xl mx-auto"},
-						"Complete technical reference for the GoWebComponents fiber library. Build reactive web applications with Go's type safety and performance.",
+						"Complete technical reference for the GoWebComponents public API. Build reactive web applications with Go's type safety, typed hooks, and WebAssembly delivery.",
 					),
 				),
 
@@ -73,8 +73,8 @@ func DocsNavBar(_ Attrs) *Element {
 
 				// Back Home Link
 				func() *Element {
-					// Store GoUseFunc result in variable for proper event handling
-					navigateToHome := GoUseFunc(func(event GoEvent) {
+					// Store UseEvent result in variable for proper event handling
+					navigateToHome := UseEvent(func(event MouseEvent) {
 						router.Navigate("/")
 					})
 
@@ -133,7 +133,7 @@ func TableOfContents(_ Attrs) *Element {
 			TocLink("🏗️", "Core Types", "core-types", "Element, Fiber, Hooks, and fundamental data structures"),
 			TocLink("🎣", "Components & Hooks", "hooks", "UseState, UseEffect, UseMemo, and component lifecycle"),
 			TocLink("🌐", "HTML Elements", "html", "All HTML5 elements with props and children support"),
-			TocLink("⚡", "Event Handling", "events", "GoEvent wrapper and event management"),
+			TocLink("⚡", "Event Handling", "events", "ui.UseEvent and typed browser event helpers"),
 			TocLink("💾", "State Management", "state", "Global state, snapshots, and persistence"),
 			TocLink("🧠", "Memory Management", "memory", "Pool optimization and cleanup utilities"),
 			TocLink("🔧", "Utilities", "utils", "Debug, performance, and helper functions"),
@@ -143,7 +143,7 @@ func TableOfContents(_ Attrs) *Element {
 
 // TocLink creates a table of contents link with scroll functionality
 func TocLink(icon, title, sectionId, description string) *Element {
-	handleClick := GoUseFunc(func(event GoEvent) {
+	handleClick := UseEvent(func(event MouseEvent) {
 		event.PreventDefault()
 		// Use the enhanced scroll function from navbar
 		// ScrollToSectionSmoothEnhanced is defined in navbar.go in the same package
@@ -212,17 +212,24 @@ func CoreTypesSection(_ Attrs) *Element {
 }`,
 				"Manages all hooks for a component, ensuring consistent ordering and efficient state management across re-renders."),
 
-			// GoEvent type
-			ApiCard("GoEvent", "struct", "Go wrapper for JavaScript events",
-				`type GoEvent struct {
-    jsEvent js.Value  // Underlying JavaScript event
-}
+			// Typed public event aliases
+			ApiCard("Typed Events", "aliases", "Public event types used with ui.UseEvent",
+				`handleClick := ui.UseEvent(func(event ui.MouseEvent) {
+    event.PreventDefault()
+})
 
-// Methods:
-func (e GoEvent) Target() js.Value
-func (e GoEvent) PreventDefault()
-func (e GoEvent) StopPropagation()`,
-				"Provides a Go-friendly interface for handling JavaScript events with common methods and type safety."),
+handleInput := ui.UseEvent(func(event ui.InputEvent) {
+    setText(event.GetValue())
+})
+
+handleToggle := ui.UseEvent(func(event ui.ChangeEvent) {
+    setEnabled(event.IsChecked())
+})
+
+handleSubmit := ui.UseEvent(func(event ui.FormEvent) {
+    event.PreventDefault()
+})`,
+				"The public ui package exposes typed event aliases so handlers can declare the event shape they expect instead of working through a single generic wrapper."),
 
 			// FetchState type
 			ApiCard("FetchState", "struct", "State of HTTP fetch operations",
@@ -323,13 +330,13 @@ CreateElement(MyComponent, Attrs{"name": "value"}, child1, child2)`,
 
 			// Render function
 			ApiCard("Render", "function", "Renders components to DOM",
-				`func Render(element *Element, container js.Value)
-func RenderTo(selector string, component interface{})
+				`func Render(root Node, selector string)
+func Hydrate(root Node, selector string, options ...HydrationOptions) (SSRBootstrap, error)
 
 // Examples:
-Render(App(nil), js.Global().Get("document").Call("getElementById", "root"))
-RenderTo("#app", MyComponent)`,
-				"Entry point for rendering GoWebComponents applications. Mounts the component tree to a DOM container and begins the reconciliation process."),
+ui.Render(ui.CreateElement(App), "#app")
+_, _ = ui.Hydrate(ui.CreateElement(App), "#app")`,
+				"Render mounts a client-only tree, while Hydrate resumes markup that was already rendered on the server."),
 		),
 	)
 }
@@ -421,66 +428,51 @@ func HTMLElementsSection(_ Attrs) *Element {
 func EventHandlingSection(_ Attrs) *Element {
 	return Section(
 		Attrs{"id": "events", "class": "mb-16"},
-		SectionHeader("⚡", "Event Handling", "JavaScript event integration and management"),
+		SectionHeader("⚡", "Event Handling", "ui.UseEvent and typed browser event helpers"),
 
 		Div(
 			Attrs{"class": "space-y-8"},
 
-			// GoEvent
-			ApiCard("GoEvent", "struct", "Go wrapper for JavaScript events",
-				`type GoEvent struct {
-    jsEvent js.Value
-}
-
-// Common methods:
-func (e GoEvent) Target() js.Value          // Event target element
-func (e GoEvent) PreventDefault()           // Prevent default behavior
-func (e GoEvent) StopPropagation()          // Stop event bubbling
-func (e GoEvent) CurrentTarget() js.Value   // Current event target
-func (e GoEvent) Type() string              // Event type (click, change, etc.)`,
-				"Provides a Go-friendly interface for JavaScript events with convenient methods for common operations."),
-
-			// GoUseFunc
-			ApiCard("GoUseFunc", "function", "Creates event handler functions",
-				`func GoUseFunc(fn func(GoEvent)) interface{}
+			// UseEvent
+			ApiCard("ui.UseEvent", "function", "Wrap typed event handlers for stable DOM integration",
+				`func UseEvent(fn interface{}) ui.Handler
 
 // Example usage:
-handleClick := GoUseFunc(func(event GoEvent) {
-    event.PreventDefault()
-    fmt.Println("Button clicked!")
-    // Update state, call APIs, etc.
+handleClick := ui.UseEvent(func(event ui.MouseEvent) {
+	event.PreventDefault()
+	fmt.Println("Button clicked")
 })
 
-Button(Attrs{"onclick": handleClick}, "Click Me")`,
-				"Wraps Go functions to be compatible with JavaScript event handlers. Automatically converts JavaScript events to GoEvent instances."),
+handleInput := ui.UseEvent(func(event ui.InputEvent) {
+	setText(event.GetValue())
+})`,
+				"UseEvent is the primary public event API. Handlers stay typed at the call site, while the framework handles the DOM wiring and event conversion."),
 
 			// Event examples
-			ApiCard("Event Examples", "patterns", "Common event handling patterns",
+			ApiCard("Typed Event Patterns", "patterns", "Common public event-handling shapes",
 				`// Form submission
-handleSubmit := GoUseFunc(func(event GoEvent) {
-    event.PreventDefault()
-    formData := extractFormData(event.Target())
-    submitForm(formData)
+handleSubmit := ui.UseEvent(func(event ui.FormEvent) {
+	event.PreventDefault()
+	submitForm()
 })
 
 // Input changes
-handleInput := GoUseFunc(func(event GoEvent) {
-    value := event.Target().Get("value").String()
-    setText(value)
+handleInput := ui.UseEvent(func(event ui.InputEvent) {
+	setText(event.GetValue())
 })
 
 // Key press
-handleKeyPress := GoUseFunc(func(event GoEvent) {
-    if event.jsEvent.Get("key").String() == "Enter" {
-        handleSubmit(event)
-    }
+handleKeyPress := ui.UseEvent(func(event ui.KeyboardEvent) {
+	if event.GetKey() == "Enter" {
+		submitForm()
+	}
 })
 
-// Mouse events
-handleMouseOver := GoUseFunc(func(event GoEvent) {
-    setHovered(true)
+// Checkbox changes
+handleToggle := ui.UseEvent(func(event ui.ChangeEvent) {
+	setEnabled(event.IsChecked())
 })`,
-				"Practical examples of handling different types of events in GoWebComponents applications."),
+				"Prefer the typed ui event aliases over direct js.Value access for common interaction code. They keep handlers shorter and easier to audit."),
 		),
 	)
 }
@@ -489,71 +481,82 @@ handleMouseOver := GoUseFunc(func(event GoEvent) {
 func StateManagementSection(_ Attrs) *Element {
 	return Section(
 		Attrs{"id": "state", "class": "mb-16"},
-		SectionHeader("💾", "State Management", "Global state, persistence, and hot reload"),
+		SectionHeader("💾", "State Management", "Atoms, snapshots, and browser storage"),
 
 		Div(
 			Attrs{"class": "space-y-8"},
 
-			// Global state
-			ApiCard("Global State", "functions", "Application-wide state management",
-				`func SetGlobalState(key string, value interface{})
-func GetGlobalState(key string) (interface{}, bool)
-func ClearGlobalState()
+			// Atoms
+			ApiCard("Atoms", "functions", "Application-wide reactive state",
+				`func UseAtom[T any](id string, initialValue T) Atom[T]
+func (a Atom[T]) Get() T
+func (a Atom[T]) Set(value T)
+func (a Atom[T]) Update(fn func(T) T)
 
 // Example usage:
-SetGlobalState("user", User{ID: 1, Name: "Alice"})
-SetGlobalState("theme", "dark")
+theme := state.UseAtom("theme", "dark")
+theme.Set("light")
 
-if user, exists := GetGlobalState("user"); exists {
-    if u, ok := user.(User); ok {
-        fmt.Printf("Current user: %s\n", u.Name)
-    }
+if theme.Get() == "light" {
+    fmt.Println("Using the light theme")
 }`,
-				"Manage state that needs to be shared across multiple components without prop drilling."),
+				"Atoms provide shared reactive state keyed by ID, making cross-component coordination explicit and type-safe."),
 
 			// State snapshots
-			ApiCard("State Snapshots", "functions", "State persistence and hot reload",
-				`func ExportAppState() js.Value
-func ImportAppState(jsState js.Value)
-func ExportStateSnapshot() ([]byte, error)
-func ImportStateSnapshot(data []byte) error
-func SaveStateToFile(filename string) error
+			ApiCard("State Snapshots", "functions", "Capture and restore registered atoms",
+				`func ExportSnapshot() Snapshot
+func ImportSnapshot(snapshot Snapshot) error
+func MarshalSnapshotJSON(snapshot Snapshot) ([]byte, error)
+func UnmarshalSnapshotJSON(data []byte) (Snapshot, error)
 
 // Example usage:
-// Export current state
-snapshot, err := ExportStateSnapshot()
+snapshot := state.ExportSnapshot().Select("theme", "user")
+encoded, err := state.MarshalSnapshotJSON(snapshot)
 if err == nil {
-    // Save to storage or file
-    SaveStateToFile("app-state.json")
-}
+    restored, _ := state.UnmarshalSnapshotJSON(encoded)
+    _ = state.ImportSnapshot(restored)
+}`,
+				"Snapshots are the durable boundary for state transfer, debugging, and persistence. Select only the atoms you need before exporting."),
 
-// Restore state later
-data := loadStateFromStorage()
-ImportStateSnapshot(data)`,
-				"Export and import application state for persistence, debugging, and hot reload during development."),
+			// Snapshot storage
+			ApiCard("Snapshot Storage", "functions", "Persist snapshots in browser storage",
+				`type StorageArea string
 
-			// Hot reload
-			ApiCard("Hot Reload", "functions", "Development-time state preservation",
-				`func HotReloadWasm()
-func EnableHotReload(enabled bool)
-func IsHotReloadEnabled() bool
-func RestoreStateFromStorage()
+const (
+    LocalStorage StorageArea = "localStorage"
+    SessionStorage StorageArea = "sessionStorage"
+)
 
-// Development workflow:
-EnableHotReload(true)  // Enable hot reload
-// State is automatically preserved during code changes
-// Call HotReloadWasm() to reload with preserved state`,
-				"Preserve component state during development for faster iteration cycles."),
+func SaveSnapshot(key string, snapshot Snapshot, area StorageArea) error
+func LoadSnapshot(key string, area StorageArea) (Snapshot, bool, error)
+func RestoreSnapshot(key string, area StorageArea) (bool, error)
 
-			// State cleanup
-			ApiCard("State Cleanup", "functions", "Memory management and cleanup",
-				`func CleanupDOM()
-func CleanupMemory()
+// Example usage:
+snapshot := state.ExportSnapshot().Select("theme")
+_ = state.SaveSnapshot("app-state", snapshot, state.LocalStorage)
+_, _ = state.RestoreSnapshot("app-state", state.LocalStorage)`,
+				"Storage helpers serialize snapshots as JSON so a small set of shared atoms can survive refreshes or be restored on demand."),
 
-// Use during navigation or component unmounting:
-CleanupDOM()     // Clean up DOM references
-CleanupMemory()  // Release memory pools`,
-				"Clean up resources and memory when components are unmounted or during navigation."),
+			// Derived state
+			ApiCard("Derived State", "functions", "Compute read-only values from other state",
+				`func UseComputed[T any](compute func() T, deps ...interface{}) Computed[T]
+func UseDerived[T any](id string, compute func() T, deps ...string) Derived[T]
+func (c Computed[T]) Get() T
+func (d Derived[T]) Get() T
+
+// Example usage:
+total := state.UseAtom("total", 24)
+taxed := state.UseComputed(func() string {
+    return fmt.Sprintf("$%0.2f", float64(total.Get())*1.2)
+}, total.Get())
+
+status := state.UseDerived("cart-status", func() string {
+    if total.Get() == 0 {
+        return "Empty"
+    }
+    return "Ready"
+}, "total")`,
+				"UseComputed is local to the current component, while UseDerived registers a shared read-only atom keyed by ID."),
 		),
 	)
 }
@@ -597,16 +600,17 @@ fmt.Printf("Pool hit rate: %.2f%%\n", stats["hitRate"])
 fmt.Printf("Total allocations: %d\n", stats["totalAllocations"])`,
 				"Monitor memory usage patterns and pool efficiency for performance optimization."),
 
-			// Cleanup functions
-			ApiCard("Cleanup Functions", "functions", "Memory and resource cleanup",
-				`func CleanupMemory()
-func CleanupDOM()
-func forceGarbageCollection()  // Internal use
+			// Snapshot boundaries
+			ApiCard("Snapshot Boundaries", "functions", "Choose what state survives beyond the current render",
+				`func (s Snapshot) Select(keys ...string) Snapshot
+func MarshalSnapshotJSON(snapshot Snapshot) ([]byte, error)
+func UnmarshalSnapshotJSON(data []byte) (Snapshot, error)
 
-// Usage during cleanup:
-CleanupMemory()  // Release all pools
-CleanupDOM()     // Clean DOM references`,
-				"Force cleanup of memory pools and DOM references when needed."),
+// Example usage:
+selected := state.ExportSnapshot().Select("theme", "locale")
+payload, _ := state.MarshalSnapshotJSON(selected)
+fmt.Println(string(payload))`,
+				"Use selective snapshots when you need persistence or diagnostics without serializing every atom in the runtime."),
 		),
 	)
 }

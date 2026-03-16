@@ -4,6 +4,8 @@
   "description": "E2E tests for GoWebComponents examples",
   "scripts": {
     "test": "playwright test",
+    "test:catalog": "playwright test --config=playwright.catalog-devserver.config.ts",
+    "test:links": "playwright test tests/all-examples-links.spec.ts --config=playwright.catalog-devserver.config.ts",
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug"
   },
