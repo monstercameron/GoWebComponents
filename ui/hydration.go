@@ -1,5 +1,6 @@
 package ui
 
+// HydrationOptions configures how a server-rendered tree is resumed in the browser.
 type HydrationOptions struct {
 	ScriptID          string
 	ReferenceScriptID string
@@ -13,5 +14,3 @@ func resolveHydrationOptions(options []HydrationOptions) HydrationOptions {
 	}
 	return options[0]
 }
-
-var _ = resolveHydrationOptions

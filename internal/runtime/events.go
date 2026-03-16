@@ -64,7 +64,6 @@ func (e GoEvent) targetValue() js.Value {
 }
 
 // NewGoEvent creates a GoEvent wrapper around a JavaScript event object.
-// This is typically called internally by the hooks system.
 func NewGoEvent(jsEvent js.Value) GoEvent {
 	return GoEvent{jsValue: jsEvent}
 }

@@ -36,8 +36,8 @@ type demoShellView struct {
 }
 
 var guideCatalog = map[string]guideArticle{
-	"ssr": {
-		ID:      "ssr",
+	guideSectionSSR: {
+		ID:      guideSectionSSR,
 		Title:   "SSR transport and hydration",
 		Summary: "Server-rendered HTML shell with a bootstrap sidecar that the wasm client restores before reusing matching DOM during hydration.",
 		Highlights: []string{
@@ -46,8 +46,8 @@ var guideCatalog = map[string]guideArticle{
 			"Hydration restores the bootstrap payload, reuses matching DOM, and falls back per subtree only when structure no longer matches.",
 		},
 	},
-	"routing": {
-		ID:      "routing",
+	guideSectionRouting: {
+		ID:      guideSectionRouting,
 		Title:   "Advanced route loaders and redirects",
 		Summary: "Route patterns, query-aware loaders, redirect routes, guard checks, and manual revalidation all run through the same client router.",
 		Highlights: []string{
@@ -56,8 +56,8 @@ var guideCatalog = map[string]guideArticle{
 			"/secure uses a before-enter redirect and a protected loader result.",
 		},
 	},
-	"benchmarks": {
-		ID:      "benchmarks",
+	guideSectionBenchmarks: {
+		ID:      guideSectionBenchmarks,
 		Title:   "Microbenchmarks for SSR delivery",
 		Summary: "The demo keeps native microbenchmarks around render-to-string, bootstrap marshaling, and bootstrap reference script generation.",
 		Highlights: []string{
@@ -71,29 +71,29 @@ var guideCatalog = map[string]guideArticle{
 func defaultBootstrapPayload() ui.SSRBootstrap {
 	return ui.SSRBootstrap{
 		Route: ui.SSRRouteBootstrap{
-			Path:   "/docs/ssr",
-			Params: map[string]string{"section": "ssr"},
+			Path:   "/docs/" + guideSectionSSR,
+			Params: map[string]string{"section": guideSectionSSR},
 		},
 		Data: map[string]interface{}{
-			"transport": "json-sidecar",
-			"demo":      "ssr-routing",
+			"transport": transportJSONSidecar,
+			"demo":      ssrRoutingDemoName,
 		},
 		IDSeed: 17,
 	}
 }
 
 func defaultServerView() demoShellView {
-	article := articleForSection("ssr")
+	article := articleForSection(guideSectionSSR)
 	payload := defaultBootstrapPayload()
 	return demoShellView{
-		Mode:          "docs",
+		Mode:          modeDocs,
 		ActivePath:    payload.Route.Path,
 		BootstrapPath: payload.Route.Path,
 		Transport:     bootstrapTransport(payload),
 		SectionID:     article.ID,
 		SectionTitle:  article.Title,
 		SectionBody:   article.Summary,
-		CurrentTab:    "overview",
+		CurrentTab:    tabOverview,
 		LoadRevision:  1,
 		Notice:        "Restores a sidecar bootstrap payload, reuses matching server DOM, and falls back per subtree only when hydration cannot continue safely.",
 		SearchResults: catalogList(),
@@ -104,7 +104,7 @@ func articleForSection(section string) guideArticle {
 	if article, ok := guideCatalog[section]; ok {
 		return article
 	}
-	return guideCatalog["ssr"]
+	return guideCatalog[guideSectionSSR]
 }
 
 func catalogList() []guideArticle {
@@ -135,16 +135,14 @@ func filterCatalog(query string) []guideArticle {
 	return matches
 }
 
-var _ = filterCatalog
-
 func bootstrapTransport(payload ui.SSRBootstrap) string {
 	if payload.Data == nil {
-		return "json-sidecar"
+		return transportJSONSidecar
 	}
 	if value, ok := payload.Data["transport"].(string); ok && value != "" {
 		return value
 	}
-	return "json-sidecar"
+	return transportJSONSidecar
 }
 
 func renderDemoShell(view demoShellView, actions ...ui.Node) ui.Node {
@@ -157,16 +155,16 @@ func renderDemoShell(view demoShellView, actions ...ui.Node) ui.Node {
 				html.H1(html.Props{Class: "mt-4 text-5xl font-black tracking-tight text-white"}, html.Text("Server render first, hydrate into advanced routes")),
 				html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text("This demo serves a real SSR shell, restores a bootstrap sidecar, reuses matching DOM during hydration, and then continues as a hash-router app with params, redirects, guards, loaders, query state, and manual revalidation.")),
 				html.Div(html.Props{Class: "mt-8 flex flex-wrap gap-3"},
-					navLink("Overview", "#/", view.ActivePath == "/"),
-					navLink("Docs", "#/docs/ssr", strings.HasPrefix(view.ActivePath, "/docs")),
-					navLink("Search", "#/search", strings.HasPrefix(view.ActivePath, "/search")),
-					navLink("Protected", "#/secure", strings.HasPrefix(view.ActivePath, "/secure")),
-					navLink("Legacy Redirect", "#/legacy", strings.HasPrefix(view.ActivePath, "/legacy")),
-					navLink("Sign In", "#/signin", strings.HasPrefix(view.ActivePath, "/signin")),
+					navLink("Overview", routeHomeHash, view.ActivePath == "/"),
+					navLink("Docs", routeDocsSSRHash, strings.HasPrefix(view.ActivePath, "/docs")),
+					navLink("Search", routeSearchHash, strings.HasPrefix(view.ActivePath, "/search")),
+					navLink("Protected", routeSecureHash, strings.HasPrefix(view.ActivePath, "/secure")),
+					navLink("Legacy Redirect", routeLegacyHash, strings.HasPrefix(view.ActivePath, "/legacy")),
+					navLink("Sign In", routeSignInHash, strings.HasPrefix(view.ActivePath, "/signin")),
 				),
 				html.Div(html.Props{Class: "mt-8 grid gap-4 md:grid-cols-3"},
-					statCard("Bootstrap route", emptyFallback(view.BootstrapPath, "/docs/ssr")),
-					statCard("Transport", emptyFallback(view.Transport, "json-sidecar")),
+					statCard("Bootstrap route", emptyFallback(view.BootstrapPath, "/docs/"+guideSectionSSR)),
+					statCard("Transport", emptyFallback(view.Transport, transportJSONSidecar)),
 					statCard("Revision", fmt.Sprintf("%d", view.LoadRevision)),
 				),
 			),
@@ -210,9 +208,9 @@ func renderDocsPage(view demoShellView, actions ...ui.Node) ui.Node {
 	article := articleForSection(view.SectionID)
 	actionNodes := make([]ui.Node, 0, len(actions)+3)
 	actionNodes = append(actionNodes,
-		navLink("Overview tab", "#/docs/"+article.ID+"?tab=overview", view.CurrentTab == "overview"),
-		navLink("Loader tab", "#/docs/"+article.ID+"?tab=loader", view.CurrentTab == "loader"),
-		navLink("Bench tab", "#/docs/"+article.ID+"?tab=bench", view.CurrentTab == "bench"),
+		navLink("Overview tab", routeDocsHash+article.ID+"?tab="+tabOverview, view.CurrentTab == tabOverview),
+		navLink("Loader tab", routeDocsHash+article.ID+"?tab="+tabLoader, view.CurrentTab == tabLoader),
+		navLink("Bench tab", routeDocsHash+article.ID+"?tab="+tabBench, view.CurrentTab == tabBench),
 	)
 	actionNodes = append(actionNodes, actions...)
 
@@ -226,7 +224,7 @@ func renderDocsPage(view demoShellView, actions ...ui.Node) ui.Node {
 			html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Docs route")),
 			html.H2(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text(view.SectionTitle)),
 			html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text(view.SectionBody)),
-			html.P(html.Props{Class: "mt-4 text-sm uppercase tracking-[0.28em] text-slate-400"}, html.Text("Current tab: "+emptyFallback(view.CurrentTab, "overview"))),
+			html.P(html.Props{Class: "mt-4 text-sm uppercase tracking-[0.28em] text-slate-400"}, html.Text("Current tab: "+emptyFallback(view.CurrentTab, tabOverview))),
 			html.P(html.Props{Class: "mt-2 text-sm text-slate-500"}, html.Text(emptyFallback(view.Notice, "Route loader data is keyed by params and query state."))),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"}, actionNodes...),
 		),
@@ -257,10 +255,10 @@ func renderSearchPage(view demoShellView, actions ...ui.Node) ui.Node {
 			html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text("Use the route buttons to replace query state and rerun the search loader without leaving the routed shell.")),
 			html.P(html.Props{Class: "mt-4 text-sm uppercase tracking-[0.28em] text-slate-400"}, html.Text("Current query: "+emptyFallback(view.SearchQuery, "none"))),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-				navLink("All", "#/search", view.SearchQuery == ""),
-				navLink("SSR", "#/search?q=ssr", view.SearchQuery == "ssr"),
-				navLink("Routing", "#/search?q=routing", view.SearchQuery == "routing"),
-				navLink("Bench", "#/search?q=bench", view.SearchQuery == "bench"),
+				navLink("All", routeSearchHash, view.SearchQuery == ""),
+				navLink("SSR", routeSearchHash+"?q="+searchQuerySSR, view.SearchQuery == searchQuerySSR),
+				navLink("Routing", routeSearchHash+"?q="+searchQueryRouting, view.SearchQuery == searchQueryRouting),
+				navLink("Bench", routeSearchHash+"?q="+searchQueryBench, view.SearchQuery == searchQueryBench),
 			),
 			func() ui.Node {
 				if len(actions) == 0 {
@@ -277,8 +275,8 @@ func renderSearchPage(view demoShellView, actions ...ui.Node) ui.Node {
 func renderSignInPage(view demoShellView, actions ...ui.Node) ui.Node {
 	actionNodes := make([]ui.Node, 0, len(actions)+2)
 	actionNodes = append(actionNodes,
-		navLink("Grant Access", "#/secure?auth=true&role=maintainer", false),
-		navLink("Open overview", "#/", false),
+		navLink("Grant Access", routeSecureHash+"?auth=true&role="+secureRoleMaintainer, false),
+		navLink("Open overview", routeHomeHash, false),
 	)
 	actionNodes = append(actionNodes, actions...)
 
@@ -293,8 +291,8 @@ func renderSignInPage(view demoShellView, actions ...ui.Node) ui.Node {
 func renderSecurePage(view demoShellView, actions ...ui.Node) ui.Node {
 	actionNodes := make([]ui.Node, 0, len(actions)+2)
 	actionNodes = append(actionNodes,
-		navLink("Switch Role", "#/secure?auth=true&role=auditor", false),
-		navLink("Revoke", "#/signin", false),
+		navLink("Switch Role", routeSecureHash+"?auth=true&role=auditor", false),
+		navLink("Revoke", routeSignInHash, false),
 	)
 	actionNodes = append(actionNodes, actions...)
 
@@ -305,7 +303,7 @@ func renderSecurePage(view demoShellView, actions ...ui.Node) ui.Node {
 			html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text(emptyFallback(view.Notice, "The before-enter guard allowed this route and the loader produced a protected payload."))),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
 				statCard("User", emptyFallback(view.SecureUser, "Morgan Reconciler")),
-				statCard("Role", emptyFallback(view.SecureRole, "maintainer")),
+				statCard("Role", emptyFallback(view.SecureRole, secureRoleMaintainer)),
 				statCard("Loader revision", fmt.Sprintf("%d", view.LoadRevision)),
 			),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"}, actionNodes...),
@@ -355,13 +353,13 @@ func deferredRouteInsights(view demoShellView) ui.Node {
 func deferredRouteKey(view demoShellView) string {
 	switch view.Mode {
 	case "docs":
-		return fmt.Sprintf("docs:%s:%s:%d", emptyFallback(view.SectionID, "ssr"), emptyFallback(view.CurrentTab, "overview"), view.LoadRevision)
+		return fmt.Sprintf("docs:%s:%s:%d", emptyFallback(view.SectionID, guideSectionSSR), emptyFallback(view.CurrentTab, tabOverview), view.LoadRevision)
 	case "search":
-		return fmt.Sprintf("search:%s:%d", emptyFallback(view.SearchQuery, "all"), view.LoadRevision)
+		return fmt.Sprintf("search:%s:%d", emptyFallback(view.SearchQuery, searchQueryAll), view.LoadRevision)
 	case "secure":
-		return fmt.Sprintf("secure:%s:%s:%d", emptyFallback(view.SecureUser, "guest"), emptyFallback(view.SecureRole, "none"), view.LoadRevision)
+		return fmt.Sprintf("secure:%s:%s:%d", emptyFallback(view.SecureUser, secureGuestUser), emptyFallback(view.SecureRole, secureRoleNone), view.LoadRevision)
 	default:
-		return fmt.Sprintf("%s:%d", emptyFallback(view.Mode, "route"), view.LoadRevision)
+		return fmt.Sprintf("%s:%d", emptyFallback(view.Mode, defaultRouteBucket), view.LoadRevision)
 	}
 }
 

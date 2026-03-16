@@ -22,10 +22,12 @@ type formState[T any] struct {
 	submitError error
 }
 
+// Form exposes local form state, validation helpers, and submission lifecycle state.
 type Form[T any] struct {
 	state State[formState[T]]
 }
 
+// UseForm creates a typed form state container.
 func UseForm[T any](initial T) Form[T] {
 	return Form[T]{state: UseState(formState[T]{
 		value:   initial,
@@ -36,6 +38,7 @@ func UseForm[T any](initial T) Form[T] {
 	})}
 }
 
+// Get returns the current form value.
 func (f Form[T]) Get() T {
 	if f.state.get == nil {
 		var zero T
@@ -44,6 +47,7 @@ func (f Form[T]) Get() T {
 	return f.state.Get().value
 }
 
+// Set replaces the current form value.
 func (f Form[T]) Set(value T) {
 	if f.state.get == nil {
 		return
@@ -56,6 +60,7 @@ func (f Form[T]) Set(value T) {
 	})
 }
 
+// Update replaces the current form value using the previous value.
 func (f Form[T]) Update(fn func(T) T) {
 	if f.state.get == nil {
 		return
@@ -68,6 +73,7 @@ func (f Form[T]) Update(fn func(T) T) {
 	})
 }
 
+// SetField updates one named struct field and marks it touched.
 func (f Form[T]) SetField(name string, value interface{}) bool {
 	if f.state.get == nil {
 		return false
@@ -104,6 +110,7 @@ func (f Form[T]) SetField(name string, value interface{}) bool {
 	return updated
 }
 
+// Touch marks one field as touched.
 func (f Form[T]) Touch(name string) {
 	if f.state.get == nil {
 		return
@@ -117,6 +124,7 @@ func (f Form[T]) Touch(name string) {
 	})
 }
 
+// Touched reports whether a field has been touched.
 func (f Form[T]) Touched(name string) bool {
 	if f.state.get == nil {
 		return false
@@ -124,6 +132,7 @@ func (f Form[T]) Touched(name string) bool {
 	return f.state.Get().touched[name]
 }
 
+// Dirty reports whether a field differs from its initial value.
 func (f Form[T]) Dirty(name string) bool {
 	if f.state.get == nil {
 		return false
@@ -131,6 +140,7 @@ func (f Form[T]) Dirty(name string) bool {
 	return f.state.Get().dirty[name]
 }
 
+// SetErrors replaces the current field error map.
 func (f Form[T]) SetErrors(errors FieldErrors) {
 	if f.state.get == nil {
 		return
@@ -143,6 +153,7 @@ func (f Form[T]) SetErrors(errors FieldErrors) {
 	})
 }
 
+// SetFormError sets the form-level error message.
 func (f Form[T]) SetFormError(message string) {
 	if f.state.get == nil {
 		return
@@ -153,6 +164,7 @@ func (f Form[T]) SetFormError(message string) {
 	})
 }
 
+// Errors returns a copy of the current field error map.
 func (f Form[T]) Errors() FieldErrors {
 	if f.state.get == nil {
 		return FieldErrors{}
@@ -160,6 +172,7 @@ func (f Form[T]) Errors() FieldErrors {
 	return cloneFieldErrors(f.state.Get().errors)
 }
 
+// Error returns the field error for name.
 func (f Form[T]) Error(name string) string {
 	if f.state.get == nil {
 		return ""
@@ -167,6 +180,7 @@ func (f Form[T]) Error(name string) string {
 	return f.state.Get().errors[name]
 }
 
+// FormError returns the form-level error message.
 func (f Form[T]) FormError() string {
 	if f.state.get == nil {
 		return ""
@@ -174,6 +188,7 @@ func (f Form[T]) FormError() string {
 	return f.state.Get().formError
 }
 
+// TouchedAny reports whether any field has been touched.
 func (f Form[T]) TouchedAny() bool {
 	if f.state.get == nil {
 		return false
@@ -186,6 +201,7 @@ func (f Form[T]) TouchedAny() bool {
 	return false
 }
 
+// DirtyAny reports whether any field differs from its initial value.
 func (f Form[T]) DirtyAny() bool {
 	if f.state.get == nil {
 		return false
@@ -198,6 +214,7 @@ func (f Form[T]) DirtyAny() bool {
 	return false
 }
 
+// HasErrors reports whether the form currently has field or form-level errors.
 func (f Form[T]) HasErrors() bool {
 	if f.state.get == nil {
 		return false
@@ -206,6 +223,7 @@ func (f Form[T]) HasErrors() bool {
 	return len(state.errors) > 0 || state.formError != ""
 }
 
+// Validate runs synchronous validation and stores the resulting field errors.
 func (f Form[T]) Validate(validate func(T) FieldErrors) bool {
 	if f.state.get == nil {
 		return true
@@ -220,6 +238,7 @@ func (f Form[T]) Validate(validate func(T) FieldErrors) bool {
 	return len(errors) == 0
 }
 
+// ValidateAsync runs asynchronous validation and updates form state when it completes.
 func (f Form[T]) ValidateAsync(validate func(T) (FieldErrors, string), onComplete func(bool)) {
 	if f.state.get == nil {
 		if onComplete != nil {
@@ -266,6 +285,7 @@ func (f Form[T]) ValidateAsync(validate func(T) (FieldErrors, string), onComplet
 	}(snapshot, sequence)
 }
 
+// Submit runs the submit function in a goroutine and updates submission lifecycle state.
 func (f Form[T]) Submit(run func(T) error) {
 	if f.state.get == nil || run == nil {
 		return
@@ -294,6 +314,7 @@ func (f Form[T]) Submit(run func(T) error) {
 	}(snapshot)
 }
 
+// Submitting reports whether a submission is in flight.
 func (f Form[T]) Submitting() bool {
 	if f.state.get == nil {
 		return false
@@ -301,6 +322,7 @@ func (f Form[T]) Submitting() bool {
 	return f.state.Get().submitting
 }
 
+// Validating reports whether async validation is in flight.
 func (f Form[T]) Validating() bool {
 	if f.state.get == nil {
 		return false
@@ -308,6 +330,7 @@ func (f Form[T]) Validating() bool {
 	return f.state.Get().validating
 }
 
+// Validated reports whether validation has completed at least once.
 func (f Form[T]) Validated() bool {
 	if f.state.get == nil {
 		return false
@@ -315,6 +338,7 @@ func (f Form[T]) Validated() bool {
 	return f.state.Get().validated
 }
 
+// Submitted reports whether the last submission completed successfully.
 func (f Form[T]) Submitted() bool {
 	if f.state.get == nil {
 		return false
@@ -322,6 +346,7 @@ func (f Form[T]) Submitted() bool {
 	return f.state.Get().submitted
 }
 
+// SubmitError returns the last submission error.
 func (f Form[T]) SubmitError() error {
 	if f.state.get == nil {
 		return nil
@@ -329,6 +354,7 @@ func (f Form[T]) SubmitError() error {
 	return f.state.Get().submitError
 }
 
+// Reset restores the form to its initial value or the provided next value.
 func (f Form[T]) Reset(next ...T) {
 	if f.state.get == nil {
 		return

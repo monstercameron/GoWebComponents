@@ -12,22 +12,22 @@ func createErrorBoundaryElement(boundary runtimeErrorBoundaryComponent, rawProps
 		return nil
 	}
 
-	props := map[string]interface{}{}
+	propsMap := map[string]interface{}{}
 	if fallback, ok := extractErrorBoundaryFallback(rawProps); ok {
-		props["fallback"] = fallback
+		propsMap["fallback"] = fallback
 	}
 	if fallback, ok := extractErrorBoundaryErrorFallback(rawProps); ok {
-		props["errorFallback"] = fallback
+		propsMap["errorFallback"] = fallback
 	}
 	if onError, ok := extractErrorBoundaryOnError(rawProps); ok {
-		props["onError"] = onError
+		propsMap["onError"] = onError
 	}
 	if keys := extractErrorBoundaryResetKeys(rawProps); len(keys) > 0 {
-		props["resetKeys"] = keys
+		propsMap["resetKeys"] = keys
 	}
 
 	children := extractErrorBoundaryChildren(rawProps)
-	return runtime.CreateElement(runtimeBoundary, props, children...)
+	return runtime.CreateElement(runtimeBoundary, propsMap, children...)
 }
 
 func extractErrorBoundaryFallback(rawProps interface{}) (Node, bool) {

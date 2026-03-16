@@ -15,6 +15,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
+// SnapshotNow captures the current runtime, route, and diagnostic inspection state.
 func SnapshotNow() Snapshot {
 	rtSnapshot := runtime.GetGlobalRuntime().Inspect()
 	routeInspection := router.InspectCurrentRoute()
@@ -46,6 +47,7 @@ func SnapshotNow() Snapshot {
 	return snapshot
 }
 
+// UseSnapshot polls SnapshotNow on an interval and returns the latest snapshot.
 func UseSnapshot(refreshInterval time.Duration) Snapshot {
 	interval := refreshInterval
 	if interval <= 0 {
@@ -78,6 +80,7 @@ func UseSnapshot(refreshInterval time.Duration) Snapshot {
 	return state.Get()
 }
 
+// Panel renders an embeddable in-browser devtools overlay.
 func Panel(props PanelProps) ui.Node {
 	title := strings.TrimSpace(props.Title)
 	if title == "" {

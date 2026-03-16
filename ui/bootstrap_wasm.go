@@ -8,53 +8,56 @@ import (
 	"syscall/js"
 )
 
+// ReadBootstrapScript reads an inline bootstrap script from the browser document.
 func ReadBootstrapScript(scriptID string) (SSRBootstrap, error) {
 	id := scriptID
 	if id == "" {
 		id = DefaultBootstrapScriptID
 	}
 
-	doc := js.Global().Get("document")
-	if !doc.Truthy() {
+	document := js.Global().Get("document")
+	if !document.Truthy() {
 		return SSRBootstrap{}, fmt.Errorf("ui.ReadBootstrapScript could not access document")
 	}
 
-	node := doc.Call("getElementById", id)
-	if !node.Truthy() {
+	scriptNode := document.Call("getElementById", id)
+	if !scriptNode.Truthy() {
 		return SSRBootstrap{}, fmt.Errorf("ui.ReadBootstrapScript could not find script element with id %q", id)
 	}
 
-	text := node.Get("textContent").String()
+	text := scriptNode.Get("textContent").String()
 	return UnmarshalSSRBootstrap([]byte(text))
 }
 
+// ReadBootstrapReferenceScript reads an inline bootstrap-reference script from the browser document.
 func ReadBootstrapReferenceScript(scriptID string) (SSRBootstrapReference, error) {
 	id := scriptID
 	if id == "" {
 		id = DefaultBootstrapReferenceScriptID
 	}
 
-	doc := js.Global().Get("document")
-	if !doc.Truthy() {
+	document := js.Global().Get("document")
+	if !document.Truthy() {
 		return SSRBootstrapReference{}, fmt.Errorf("ui.ReadBootstrapReferenceScript could not access document")
 	}
 
-	node := doc.Call("getElementById", id)
-	if !node.Truthy() {
+	scriptNode := document.Call("getElementById", id)
+	if !scriptNode.Truthy() {
 		return SSRBootstrapReference{}, fmt.Errorf("ui.ReadBootstrapReferenceScript could not find script element with id %q", id)
 	}
 
-	text := node.Get("textContent").String()
+	text := scriptNode.Get("textContent").String()
 	return UnmarshalSSRBootstrapReference([]byte(text))
 }
 
+// ReadBootstrapReference fetches and decodes an external bootstrap payload.
 func ReadBootstrapReference(ref SSRBootstrapReference) (SSRBootstrap, error) {
 	if ref.URL == "" {
 		return SSRBootstrap{}, fmt.Errorf("ui.ReadBootstrapReference requires a non-empty URL")
 	}
 
-	fetchFn := js.Global().Get("fetch")
-	if !fetchFn.Truthy() {
+	fetchFunction := js.Global().Get("fetch")
+	if !fetchFunction.Truthy() {
 		return SSRBootstrap{}, fmt.Errorf("ui.ReadBootstrapReference could not access fetch")
 	}
 
@@ -109,7 +112,7 @@ func ReadBootstrapReference(ref SSRBootstrapReference) (SSRBootstrap, error) {
 	defer dataFn.Release()
 	defer catchFn.Release()
 
-	js.Global().Call("fetch", ref.URL).Call("then", responseFn).Call("then", dataFn).Call("catch", catchFn)
+	fetchFunction.Invoke(ref.URL).Call("then", responseFn).Call("then", dataFn).Call("catch", catchFn)
 	result := <-resultCh
 	if result.err != nil {
 		return SSRBootstrap{}, result.err

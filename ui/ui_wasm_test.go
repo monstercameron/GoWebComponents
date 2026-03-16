@@ -286,10 +286,10 @@ func TestHydrateRestoresBootstrapAtomsAndIDSeed(t *testing.T) {
 	container := adapter.CreateElement("div")
 	adapter.selectors["#app"] = container
 
-	previousInitialized := initialized
-	initialized = true
+	previousInitialized := runtimeInitialized
+	runtimeInitialized = true
 	t.Cleanup(func() {
-		initialized = previousInitialized
+		runtimeInitialized = previousInitialized
 	})
 	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: adapter, Scheduler: scheduler})
 	if err := runtime.GetGlobalRuntime().RestoreAtomSnapshot(map[string]interface{}{"theme": "light"}); err != nil {

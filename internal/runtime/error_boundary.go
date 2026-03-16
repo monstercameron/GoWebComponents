@@ -5,6 +5,7 @@ import "fmt"
 // ErrorBoundaryType marks runtime-recognized error-boundary elements.
 type ErrorBoundaryType struct{}
 
+// NewErrorBoundaryType creates a marker type recognized by the runtime as an error boundary.
 func NewErrorBoundaryType() *ErrorBoundaryType {
 	return &ErrorBoundaryType{}
 }

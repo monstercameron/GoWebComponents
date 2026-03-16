@@ -30,11 +30,13 @@ type Result struct {
 	Err  error
 }
 
+// Resource exposes the current low-level fetch state and a refetch helper.
 type Resource struct {
 	get     func() State
 	refetch func()
 }
 
+// ResourceState describes the state of a typed async resource.
 type ResourceState[T any] struct {
 	Value   T
 	Loading bool
@@ -42,6 +44,7 @@ type ResourceState[T any] struct {
 	Ready   bool
 }
 
+// AsyncResource exposes the current typed resource state and lifecycle controls.
 type AsyncResource[T any] struct {
 	get    func() ResourceState[T]
 	reload func()
@@ -59,10 +62,12 @@ func UseFetch(url string, options ...Options) Resource {
 	return Resource{get: get, refetch: refetch}
 }
 
+// Get returns the current low-level fetch state.
 func (r Resource) Get() State {
 	return r.get()
 }
 
+// Refetch restarts the underlying fetch request.
 func (r Resource) Refetch() {
 	r.refetch()
 }
@@ -141,6 +146,7 @@ func UseResource[T any](loader func(context.Context) (T, error), deps ...interfa
 	}
 }
 
+// Get returns the current typed resource state.
 func (r AsyncResource[T]) Get() ResourceState[T] {
 	if r.get == nil {
 		var zero ResourceState[T]
@@ -150,12 +156,14 @@ func (r AsyncResource[T]) Get() ResourceState[T] {
 	return r.get()
 }
 
+// Reload starts a new resource load.
 func (r AsyncResource[T]) Reload() {
 	if r.reload != nil {
 		r.reload()
 	}
 }
 
+// Cancel cancels the active resource load, if any.
 func (r AsyncResource[T]) Cancel() {
 	if r.cancel != nil {
 		r.cancel()
@@ -168,35 +176,35 @@ func Fetch(url string, options Options) <-chan Result {
 	ch := make(chan Result, 1)
 
 	go func() {
-		fetch := js.Global().Get("fetch")
-		if !fetch.Truthy() {
+		fetchFunction := js.Global().Get("fetch")
+		if !fetchFunction.Truthy() {
 			ch <- Result{Err: errors.New("fetch API unavailable in this environment")}
 			return
 		}
 
-		opts := js.Global().Get("Object").New()
+		requestOptions := js.Global().Get("Object").New()
 
 		method := options.Method
 		if method == "" {
 			method = "GET"
 		}
-		opts.Set("method", method)
+		requestOptions.Set("method", method)
 
 		if options.Headers != nil {
 			headers := js.Global().Get("Object").New()
 			for k, v := range options.Headers {
 				headers.Set(k, fmt.Sprint(v))
 			}
-			opts.Set("headers", headers)
+			requestOptions.Set("headers", headers)
 		}
 
 		if options.Body != nil {
 			switch body := options.Body.(type) {
 			case string:
-				opts.Set("body", body)
+				requestOptions.Set("body", body)
 			default:
 				if encoded, err := json.Marshal(body); err == nil {
-					opts.Set("body", string(encoded))
+					requestOptions.Set("body", string(encoded))
 				} else {
 					ch <- Result{Err: fmt.Errorf("failed to encode body: %w", err)}
 					return
@@ -204,7 +212,7 @@ func Fetch(url string, options Options) <-chan Result {
 			}
 		}
 
-		promise := fetch.Invoke(url, opts)
+		promise := fetchFunction.Invoke(url, requestOptions)
 
 		var bodyThen js.Func
 		var bodyCatch js.Func

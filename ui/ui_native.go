@@ -27,22 +27,27 @@ type componentMeta struct {
 var componentMetaCache sync.Map
 
 type Element = runtime.Element
+// Node is the public UI tree node type.
 type Node = *runtime.Element
 
+// Transition exposes transition-pending state and a transition starter.
 type Transition struct {
 	pending func() bool
 	start   func(func())
 }
 
+// Handler stores an event handler value in a form the runtime can consume.
 type Handler struct {
 	value interface{}
 }
 
+// PortalTarget describes where a portal subtree should render.
 type PortalTarget struct {
 	Selector string
 	Node     interface{}
 }
 
+// PortalProps configures a portal target and its children.
 type PortalProps struct {
 	Target   PortalTarget
 	Child    Node
@@ -77,6 +82,7 @@ type runtimeErrorBoundaryComponent interface {
 	runtimeErrorBoundary() *runtime.ErrorBoundaryType
 }
 
+// ErrorBoundary creates a subtree boundary with fallback rendering and reset behavior.
 var ErrorBoundary = &errorBoundaryComponent{boundaryType: runtime.NewErrorBoundaryType()}
 
 type LazyNodeState struct {
@@ -102,6 +108,7 @@ type LazyProps struct {
 	Timeout         time.Duration
 }
 
+// CreateElement creates a UI node from a component function, provider, boundary, or existing node.
 func CreateElement(component interface{}, props ...interface{}) Node {
 	if node, ok := component.(*runtime.Element); ok && len(props) == 0 {
 		return node
@@ -142,10 +149,12 @@ func (boundary *errorBoundaryComponent) runtimeErrorBoundary() *runtime.ErrorBou
 	return boundary.boundaryType
 }
 
+// Fragment groups children without introducing an extra host element.
 func Fragment(children ...Node) Node {
 	return runtime.CreateElement("FRAGMENT", nil, toInterfaces(children)...)
 }
 
+// Portal renders children inline on non-browser targets.
 func Portal(props PortalProps) Node {
 	children := make([]Node, 0, len(props.Children)+1)
 	if props.Child != nil {
@@ -155,6 +164,7 @@ func Portal(props PortalProps) Node {
 	return Fragment(children...)
 }
 
+// Text creates a text node.
 func Text(content string) Node {
 	return &runtime.Element{
 		Type:        "TEXT_ELEMENT",
@@ -177,12 +187,14 @@ func Hydrate(root Node, selector string, options ...HydrationOptions) (SSRBootst
 	return SSRBootstrap{}, UnsupportedOnServer("Hydrate")
 }
 
+// StartTransition runs fn immediately on non-browser targets.
 func StartTransition(fn func()) {
 	if fn != nil {
 		fn()
 	}
 }
 
+// UseTransition returns a no-op transition helper on non-browser targets.
 func UseTransition() Transition {
 	return Transition{
 		pending: func() bool { return false },
@@ -190,6 +202,7 @@ func UseTransition() Transition {
 	}
 }
 
+// Pending reports whether a transition is currently pending.
 func (t Transition) Pending() bool {
 	if t.pending == nil {
 		return false
@@ -197,12 +210,14 @@ func (t Transition) Pending() bool {
 	return t.pending()
 }
 
+// Start runs fn inside a transition.
 func (t Transition) Start(fn func()) {
 	if t.start != nil {
 		t.start(fn)
 	}
 }
 
+// UseDeferredValue returns value unchanged on non-browser targets.
 func UseDeferredValue[T any](value T) T {
 	return value
 }
@@ -278,14 +293,17 @@ func Lazy(props LazyProps) Node {
 	})
 }
 
+// UseEvent wraps a Go function so it can be used as a stable event handler.
 func UseEvent(fn interface{}) Handler {
 	return Handler{value: fn}
 }
 
+// RawHandler wraps an already-prepared handler value.
 func RawHandler(value interface{}) Handler {
 	return Handler{value: value}
 }
 
+// Value returns the wrapped handler payload.
 func (h Handler) Value() interface{} {
 	return h.value
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
+// Props contains the common HTML attributes and event handlers supported by the typed builders.
 type Props struct {
 	ID           string
 	Class        string
@@ -55,14 +56,17 @@ type Props struct {
 	OnBlur    ui.Handler
 }
 
+// Text creates a text node.
 func Text(content string) ui.Node {
 	return ui.Text(content)
 }
 
+// Tag creates a node for an arbitrary HTML tag name.
 func Tag(name string, props Props, children ...ui.Node) ui.Node {
 	return runtime.CreateElement(name, toRuntimeProps(props), toInterfaces(children)...)
 }
 
+// Fragment groups children without introducing an extra host element.
 func Fragment(children ...ui.Node) ui.Node {
 	return ui.Fragment(children...)
 }

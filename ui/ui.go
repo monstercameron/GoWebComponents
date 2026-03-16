@@ -18,7 +18,7 @@ const (
 	propsKey     = "__ui_props"
 )
 
-var initialized bool
+var runtimeInitialized bool
 
 type componentMeta struct {
 	hasArg  bool
@@ -29,6 +29,7 @@ type componentMeta struct {
 var componentMetaCache sync.Map
 
 type Element = runtime.Element
+// Node is the public UI tree node type.
 type Node = *runtime.Element
 
 type Event = runtime.GoEvent
@@ -39,35 +40,42 @@ type KeyboardEvent = runtime.GoEvent
 type FocusEvent = runtime.GoEvent
 type FormEvent = runtime.GoEvent
 
+// Handler stores an event handler value in a form the runtime can consume.
 type Handler struct {
 	value interface{}
 }
 
+// PortalTarget describes where a portal subtree should render.
 type PortalTarget struct {
 	Selector string
 	Node     interface{}
 }
 
+// PortalProps configures a portal target and its children.
 type PortalProps struct {
 	Target   PortalTarget
 	Child    Node
 	Children []Node
 }
 
+// State provides access to hook-managed local state.
 type State[T any] struct {
 	get func() T
 	set func(interface{})
 }
 
+// Reducer provides access to reducer-style local state transitions.
 type Reducer[S any, A any] struct {
 	get      func() S
 	dispatch func(A)
 }
 
+// Ref stores a stable mutable reference across renders.
 type Ref[T any] struct {
 	raw *runtime.RefValue
 }
 
+// Transition exposes transition-pending state and a transition starter.
 type Transition struct {
 	pending func() bool
 	start   func(func())
@@ -189,8 +197,10 @@ type runtimeErrorBoundaryComponent interface {
 	runtimeErrorBoundary() *runtime.ErrorBoundaryType
 }
 
+// ErrorBoundary creates a subtree boundary with fallback rendering and reset behavior.
 var ErrorBoundary = &errorBoundaryComponent{boundaryType: runtime.NewErrorBoundaryType()}
 
+// CreateElement creates a UI node from a component function, provider, boundary, or existing node.
 func CreateElement(component interface{}, props ...interface{}) Node {
 	if node, ok := component.(*runtime.Element); ok && len(props) == 0 {
 		return node
@@ -231,10 +241,12 @@ func (boundary *errorBoundaryComponent) runtimeErrorBoundary() *runtime.ErrorBou
 	return boundary.boundaryType
 }
 
+// Fragment groups children without introducing an extra host element.
 func Fragment(children ...Node) Node {
 	return runtime.CreateElement("FRAGMENT", nil, toInterfaces(children)...)
 }
 
+// Portal renders children into a separate target container while keeping logical ownership in the current tree.
 func Portal(props PortalProps) Node {
 	children := make([]interface{}, 0, len(props.Children)+1)
 	if props.Child != nil {
@@ -253,6 +265,7 @@ func Portal(props PortalProps) Node {
 	return runtime.CreateElement(runtime.PortalNodeType, rawProps, children...)
 }
 
+// Render mounts the UI tree into the DOM element matched by selector.
 func Render(root Node, selector string) {
 	ensureInitialized()
 	runtime.GetGlobalRuntime().RenderTo(selector, root)
@@ -312,23 +325,28 @@ func Text(content string) Node {
 	return runtime.Text(content)
 }
 
+// UseState creates local component state.
 func UseState[T any](initialValue T) State[T] {
 	get, set := runtime.GoUseStateGlobal(initialValue)
 	return State[T]{get: get, set: set}
 }
 
+// Get returns the current state value.
 func (s State[T]) Get() T {
 	return s.get()
 }
 
+// Set replaces the current state value.
 func (s State[T]) Set(value T) {
 	s.set(value)
 }
 
+// Update replaces the state value using the previous value.
 func (s State[T]) Update(fn func(T) T) {
 	s.set(fn)
 }
 
+// UseReducer creates reducer-driven local state.
 func UseReducer[S any, A any](reducer func(S, A) S, initialState S) Reducer[S, A] {
 	state := UseState(initialState)
 	return Reducer[S, A]{
@@ -355,10 +373,12 @@ func (r Reducer[S, A]) Dispatch(action A) {
 	}
 }
 
+// UseEffect registers a side effect to run after commit when dependencies change.
 func UseEffect(effect func() func(), deps ...interface{}) {
 	runtime.GoUseEffectGlobal(effect, deps...)
 }
 
+// UseMemo memoizes a computed value until dependencies change.
 func UseMemo[T any](compute func() T, deps ...interface{}) T {
 	value := runtime.GoUseMemoGlobal(func() interface{} {
 		return compute()
@@ -373,6 +393,7 @@ func UseMemo[T any](compute func() T, deps ...interface{}) T {
 	return zero
 }
 
+// UseCallback memoizes a callback until dependencies change.
 func UseCallback[T any](fn T, deps ...interface{}) T {
 	value := runtime.GoUseCallbackGlobal(fn, deps...)
 	cast, ok := value.(T)
@@ -384,10 +405,12 @@ func UseCallback[T any](fn T, deps ...interface{}) T {
 	return zero
 }
 
+// UseRef creates a stable mutable reference across renders.
 func UseRef[T any](initialValue T) Ref[T] {
 	return Ref[T]{raw: runtime.GoUseRefGlobal(initialValue)}
 }
 
+// UseContext reads the current value for a typed context.
 func UseContext[T any](context *Context[T]) T {
 	if context == nil || context.descriptor == nil {
 		panic("ui.UseContext called with nil context")
@@ -395,10 +418,12 @@ func UseContext[T any](context *Context[T]) T {
 	return castContextValue[T](runtime.GoUseContextValue(context.descriptor))
 }
 
+// StartTransition schedules non-urgent updates in the transition lane.
 func StartTransition(fn func()) {
 	runtime.StartTransitionGlobal(fn)
 }
 
+// UseTransition returns transition pending state and a start helper.
 func UseTransition() Transition {
 	pending, _ := runtime.GoUseTransitionPendingGlobal()
 	return Transition{
@@ -407,6 +432,7 @@ func UseTransition() Transition {
 	}
 }
 
+// Pending reports whether a transition is currently pending.
 func (t Transition) Pending() bool {
 	if t.pending == nil {
 		return false
@@ -414,12 +440,14 @@ func (t Transition) Pending() bool {
 	return t.pending()
 }
 
+// Start runs fn inside a transition.
 func (t Transition) Start(fn func()) {
 	if t.start != nil {
 		t.start(fn)
 	}
 }
 
+// Get returns the current ref value or the zero value for T.
 func (r Ref[T]) Get() T {
 	if r.raw == nil || r.raw.Current == nil {
 		var zero T
@@ -435,6 +463,7 @@ func (r Ref[T]) Get() T {
 	return zero
 }
 
+// Set updates the current ref value.
 func (r Ref[T]) Set(value T) {
 	if r.raw != nil {
 		r.raw.Current = value
@@ -1029,24 +1058,28 @@ func (t Throttled[T]) Pending() bool {
 	return t.pending()
 }
 
+// UseId returns a stable generated identifier for the current component instance.
 func UseId() string {
 	return runtime.GoUseIdGlobal()
 }
 
+// UseEvent wraps a Go function so it can be used as a stable event handler.
 func UseEvent(fn interface{}) Handler {
 	return Handler{value: runtime.GoUseFunc(fn)}
 }
 
+// RawHandler wraps an already-prepared handler value.
 func RawHandler(value interface{}) Handler {
 	return Handler{value: value}
 }
 
+// Value returns the wrapped handler payload.
 func (h Handler) Value() interface{} {
 	return h.value
 }
 
 func ensureInitialized() {
-	if initialized {
+	if runtimeInitialized {
 		return
 	}
 
@@ -1056,7 +1089,7 @@ func ensureInitialized() {
 		Scheduler:    jsdom.NewWASMScheduler(),
 		BrowserState: jsdom.NewWASMBrowserState(),
 	})
-	initialized = true
+	runtimeInitialized = true
 }
 
 func renderComponent(rawProps map[string]interface{}) *runtime.Element {

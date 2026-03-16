@@ -9,13 +9,14 @@ import (
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
-// WASMDOMNode wraps a js.Value representing a DOM node
+// WASMDOMNode wraps a js.Value representing a DOM node.
 type WASMDOMNode struct {
 	value js.Value
 }
 
 var _ runtime.DOMNode = (*WASMDOMNode)(nil)
 
+// NewWASMDOMNode wraps a raw js.Value as a runtime.DOMNode.
 func NewWASMDOMNode(value js.Value) runtime.DOMNode {
 	return &WASMDOMNode{value: value}
 }
@@ -35,7 +36,7 @@ func (n *WASMDOMNode) Value() js.Value {
 	return n.value
 }
 
-// WASMDOMAdapter implements DOMAdapter for browser/WASM
+// WASMDOMAdapter implements runtime.DOMAdapter for browser/WASM.
 type WASMDOMAdapter struct {
 	document         js.Value
 	createElement    js.Value
@@ -68,6 +69,7 @@ type wasmBatchState struct {
 
 var _ runtime.DOMAdapter = (*WASMDOMAdapter)(nil)
 
+// NewWASMDOMAdapter creates a DOM adapter backed by the browser document.
 func NewWASMDOMAdapter() *WASMDOMAdapter {
 	doc := js.Global().Get("document")
 	// Pre-cache DOM prototype methods
@@ -503,7 +505,7 @@ func (a *WASMDOMAdapter) WrapFunction(fn interface{}) interface{} {
 	}
 }
 
-// WASMEventAdapter implements EventAdapter for browser/WASM
+// WASMEventAdapter implements runtime.EventAdapter for browser/WASM.
 type WASMEventAdapter struct {
 	addEventListener    js.Value
 	removeEventListener js.Value
@@ -511,6 +513,7 @@ type WASMEventAdapter struct {
 
 var _ runtime.EventAdapter = (*WASMEventAdapter)(nil)
 
+// NewWASMEventAdapter creates an event adapter backed by browser DOM listeners.
 func NewWASMEventAdapter() *WASMEventAdapter {
 	elemProto := js.Global().Get("Element").Get("prototype")
 	return &WASMEventAdapter{
@@ -519,7 +522,7 @@ func NewWASMEventAdapter() *WASMEventAdapter {
 	}
 }
 
-// wasmEventHandler wraps a js.Func for event handling
+// wasmEventHandler wraps a js.Func for event handling.
 type wasmEventHandler struct {
 	fn     js.Func
 	goFunc func(runtime.Event)
@@ -567,7 +570,7 @@ func (a *WASMEventAdapter) RemoveEventListener(node runtime.DOMNode, eventType s
 	}
 }
 
-// wasmEvent implements Event for browser/WASM
+// wasmEvent implements runtime.Event for browser/WASM.
 type wasmEvent struct {
 	value js.Value
 }
@@ -628,13 +631,14 @@ func (e *wasmEvent) IsChecked() bool {
 	return false
 }
 
-// WASMScheduler implements Scheduler for browser/WASM
+// WASMScheduler implements runtime.Scheduler for browser/WASM.
 type WASMScheduler struct {
 	window js.Value
 }
 
 var _ runtime.Scheduler = (*WASMScheduler)(nil)
 
+// NewWASMScheduler creates a scheduler backed by browser idle callbacks and timeouts.
 func NewWASMScheduler() *WASMScheduler {
 	return &WASMScheduler{
 		window: js.Global(),
@@ -684,7 +688,7 @@ func (s *WASMScheduler) CancelIdleCallback(id interface{}) {
 	}
 }
 
-// wasmDeadline implements Deadline for browser/WASM
+// wasmDeadline implements runtime.Deadline for browser/WASM.
 type wasmDeadline struct {
 	value js.Value
 }
@@ -708,13 +712,14 @@ func (d *wasmDeadline) DidTimeout() bool {
 	return d.value.Get("didTimeout").Bool()
 }
 
-// WASMBrowserState implements BrowserState for browser/WASM
+// WASMBrowserState implements runtime.BrowserState for browser/WASM.
 type WASMBrowserState struct {
 	window js.Value
 }
 
 var _ runtime.BrowserState = (*WASMBrowserState)(nil)
 
+// NewWASMBrowserState creates a browser state adapter backed by window and history.
 func NewWASMBrowserState() *WASMBrowserState {
 	return &WASMBrowserState{
 		window: js.Global(),

@@ -11,11 +11,11 @@ import (
 )
 
 func BenchmarkServerSSRResolveRouteDocs(b *testing.B) {
-	query := url.Values{"tab": {"loader"}, "refresh": {"2"}}
+	query := url.Values{"tab": {serverTabLoader}, "refresh": {"2"}}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		resolved := resolveRoute("/docs/ssr", query)
+		resolved := resolveRoute("/docs/"+serverGuideSectionSSR, query)
 		if resolved.Status != 200 || resolved.View.SectionID == "" {
 			b.Fatal("expected docs route to resolve")
 		}
@@ -23,7 +23,7 @@ func BenchmarkServerSSRResolveRouteDocs(b *testing.B) {
 }
 
 func BenchmarkServerSSRRenderDocumentBody(b *testing.B) {
-	resolved := resolveRoute("/docs/ssr", url.Values{"tab": {"loader"}})
+	resolved := resolveRoute("/docs/"+serverGuideSectionSSR, url.Values{"tab": {serverTabLoader}})
 	node := renderDemoShell(resolved.View)
 	b.ReportAllocs()
 	b.ResetTimer()

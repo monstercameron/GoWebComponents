@@ -63,8 +63,8 @@ type resolvedRoute struct {
 }
 
 var guideCatalog = map[string]guideArticle{
-	"ssr": {
-		ID:      "ssr",
+	serverGuideSectionSSR: {
+		ID:      serverGuideSectionSSR,
 		Title:   "Server-rendered bootstrap flow",
 		Summary: "Each request is rendered on the server, then the browser restores a route-specific bootstrap payload and reuses matching DOM during hydration.",
 		Highlights: []string{
@@ -74,8 +74,8 @@ var guideCatalog = map[string]guideArticle{
 			"If hydration hits a structural mismatch, only the affected subtree falls back to client rendering.",
 		},
 	},
-	"routing": {
-		ID:      "routing",
+	serverGuideSectionRouting: {
+		ID:      serverGuideSectionRouting,
 		Title:   "Advanced routing over real URLs",
 		Summary: "The demo uses browser/history routing, request-time redirects, protected routes, and query-aware route data across direct URL loads.",
 		Highlights: []string{
@@ -84,8 +84,8 @@ var guideCatalog = map[string]guideArticle{
 			"/search?q=... renders filtered server HTML on every direct navigation.",
 		},
 	},
-	"transport": {
-		ID:      "transport",
+	serverGuideSectionTransport: {
+		ID:      serverGuideSectionTransport,
 		Title:   "SSR transport choices",
 		Summary: "The bootstrap payload is explicit and versionable. This demo uses JSON over an HTTP sidecar endpoint so network traffic is easy to inspect.",
 		Highlights: []string{
@@ -113,7 +113,7 @@ func articleForSection(section string) guideArticle {
 	if article, ok := guideCatalog[section]; ok {
 		return article
 	}
-	return guideCatalog["ssr"]
+	return guideCatalog[serverGuideSectionSSR]
 }
 
 func filterCatalog(query string) []guideArticle {
@@ -155,7 +155,7 @@ func buildBootstrap(path string, query url.Values, params map[string]string, rou
 			Params: cloneParams(params),
 		},
 		Data: map[string]interface{}{
-			"transport": "server-json-sidecar",
+			"transport": serverBootstrapTransport,
 			"routeData": routeData,
 		},
 		IDSeed: routeData.Revision,
@@ -175,11 +175,11 @@ func cloneParams(params map[string]string) map[string]string {
 
 func transportFromBootstrap(payload ui.SSRBootstrap) string {
 	if payload.Data == nil {
-		return "server-json-sidecar"
+		return serverBootstrapTransport
 	}
 	value, _ := payload.Data["transport"].(string)
 	if value == "" {
-		return "server-json-sidecar"
+		return serverBootstrapTransport
 	}
 	return value
 }
@@ -203,10 +203,6 @@ func decodeBootstrapRouteData(payload ui.SSRBootstrap) (bootstrapRouteData, bool
 	return decoded, true
 }
 
-var _ = decodeBootstrapRouteData
-var _ = resolveRoute
-var _ = bootstrapReferenceURL
-
 func viewFromRouteData(path string, transport string, data bootstrapRouteData) demoShellView {
 	return demoShellView{
 		Page:          data.Page,
@@ -215,7 +211,7 @@ func viewFromRouteData(path string, transport string, data bootstrapRouteData) d
 		SectionID:     data.SectionID,
 		SectionTitle:  data.SectionTitle,
 		SectionBody:   data.SectionBody,
-		CurrentTab:    emptyFallback(data.CurrentTab, "overview"),
+		CurrentTab:    emptyFallback(data.CurrentTab, serverTabOverview),
 		SearchQuery:   data.SearchQuery,
 		SearchResults: data.SearchResults,
 		SecureRole:    data.SecureRole,
@@ -237,7 +233,7 @@ func resolveRoute(path string, query url.Values) resolvedRoute {
 	switch {
 	case normalizedPath == "/":
 		data := bootstrapRouteData{
-			Page:     "home",
+			Page:     serverPageHome,
 			Notice:   "This page is rendered by the Go HTTP server on every request. Use the links below to trigger new server-side renders over real URLs.",
 			Revision: revisionFromQuery(query),
 		}
@@ -247,18 +243,18 @@ func resolveRoute(path string, query url.Values) resolvedRoute {
 			Path:         normalizedPath,
 			Title:        "GWC Server SSR Demo",
 			Description:  "Request-time SSR shell rendered by a Go server and hydrated by the wasm client.",
-			CanonicalURL: "http://127.0.0.1:8079/",
+			CanonicalURL: serverCanonicalBaseURL + "/",
 			Bootstrap:    bootstrap,
 			View:         viewFromRouteData(normalizedPath, transportFromBootstrap(bootstrap), data),
 		}
 	case normalizedPath == "/legacy":
-		return resolvedRoute{Status: 302, Redirect: "/docs/routing?tab=loader"}
+		return resolvedRoute{Status: 302, Redirect: legacyRedirectPath}
 	case strings.HasPrefix(normalizedPath, "/docs/"):
 		section := strings.TrimPrefix(normalizedPath, "/docs/")
 		article := articleForSection(section)
-		currentTab := emptyFallback(strings.TrimSpace(query.Get("tab")), "overview")
+		currentTab := emptyFallback(strings.TrimSpace(query.Get("tab")), serverTabOverview)
 		data := bootstrapRouteData{
-			Page:         "docs",
+			Page:         serverPageDocs,
 			SectionID:    article.ID,
 			SectionTitle: article.Title,
 			SectionBody:  article.Summary,
@@ -273,14 +269,14 @@ func resolveRoute(path string, query url.Values) resolvedRoute {
 			Path:         normalizedPath,
 			Title:        article.Title + " | GWC Server SSR Demo",
 			Description:  article.Summary,
-			CanonicalURL: "http://127.0.0.1:8079" + buildPathWithQuery(normalizedPath, query),
+			CanonicalURL: serverCanonicalBaseURL + buildPathWithQuery(normalizedPath, query),
 			Bootstrap:    bootstrap,
 			View:         viewFromRouteData(normalizedPath, transportFromBootstrap(bootstrap), data),
 		}
 	case normalizedPath == "/search":
 		searchQuery := strings.TrimSpace(query.Get("q"))
 		data := bootstrapRouteData{
-			Page:          "search",
+			Page:          serverPageSearch,
 			SearchQuery:   searchQuery,
 			SearchResults: filterCatalog(searchQuery),
 			Notice:        "Every direct search navigation renders fresh HTML and a fresh bootstrap payload on the server.",
@@ -292,19 +288,19 @@ func resolveRoute(path string, query url.Values) resolvedRoute {
 			Path:         normalizedPath,
 			Title:        "Search | GWC Server SSR Demo",
 			Description:  "Server-rendered search results over real URLs.",
-			CanonicalURL: "http://127.0.0.1:8079" + buildPathWithQuery(normalizedPath, query),
+			CanonicalURL: serverCanonicalBaseURL + buildPathWithQuery(normalizedPath, query),
 			Bootstrap:    bootstrap,
 			View:         viewFromRouteData(normalizedPath, transportFromBootstrap(bootstrap), data),
 		}
 	case normalizedPath == "/secure":
 		if query.Get("auth") != "true" {
-			return resolvedRoute{Status: 302, Redirect: "/signin?from=secure"}
+			return resolvedRoute{Status: 302, Redirect: secureRedirectPath}
 		}
-		role := emptyFallback(strings.TrimSpace(query.Get("role")), "maintainer")
+		role := emptyFallback(strings.TrimSpace(query.Get("role")), serverSecureRoleMaintainer)
 		data := bootstrapRouteData{
-			Page:       "secure",
+			Page:       serverPageSecure,
 			SecureRole: role,
-			SecureUser: "Morgan Reconciler",
+			SecureUser: serverSecureUserDefault,
 			Notice:     "The secure route was allowed by the server and mirrored by the client browser router after hydration.",
 			Revision:   revisionFromQuery(query),
 		}
@@ -314,7 +310,7 @@ func resolveRoute(path string, query url.Values) resolvedRoute {
 			Path:         normalizedPath,
 			Title:        "Secure | GWC Server SSR Demo",
 			Description:  "Protected route rendered on the server and hydrated on the client.",
-			CanonicalURL: "http://127.0.0.1:8079" + buildPathWithQuery(normalizedPath, query),
+			CanonicalURL: serverCanonicalBaseURL + buildPathWithQuery(normalizedPath, query),
 			Bootstrap:    bootstrap,
 			View:         viewFromRouteData(normalizedPath, transportFromBootstrap(bootstrap), data),
 		}
@@ -325,7 +321,7 @@ func resolveRoute(path string, query url.Values) resolvedRoute {
 			notice = "The protected route redirected here from " + from + "."
 		}
 		data := bootstrapRouteData{
-			Page:     "signin",
+			Page:     serverPageSignIn,
 			Notice:   notice,
 			Revision: revisionFromQuery(query),
 		}
@@ -335,13 +331,13 @@ func resolveRoute(path string, query url.Values) resolvedRoute {
 			Path:         normalizedPath,
 			Title:        "Sign In | GWC Server SSR Demo",
 			Description:  "Guard redirect target for the protected server-rendered route.",
-			CanonicalURL: "http://127.0.0.1:8079" + buildPathWithQuery(normalizedPath, query),
+			CanonicalURL: serverCanonicalBaseURL + buildPathWithQuery(normalizedPath, query),
 			Bootstrap:    bootstrap,
 			View:         viewFromRouteData(normalizedPath, transportFromBootstrap(bootstrap), data),
 		}
 	default:
 		data := bootstrapRouteData{
-			Page:     "not-found",
+			Page:     serverPageNotFound,
 			Notice:   "This path is not registered by the server SSR demo.",
 			Revision: 1,
 		}
@@ -351,7 +347,7 @@ func resolveRoute(path string, query url.Values) resolvedRoute {
 			Path:         normalizedPath,
 			Title:        "Not Found | GWC Server SSR Demo",
 			Description:  "Unknown route for the server-rendered SSR demo.",
-			CanonicalURL: "http://127.0.0.1:8079" + buildPathWithQuery(normalizedPath, query),
+			CanonicalURL: serverCanonicalBaseURL + buildPathWithQuery(normalizedPath, query),
 			Bootstrap:    bootstrap,
 			View:         viewFromRouteData(normalizedPath, transportFromBootstrap(bootstrap), data),
 		}
@@ -408,7 +404,7 @@ func renderDemoShell(view demoShellView) ui.Node {
 				),
 				html.Div(html.Props{Class: "mt-8 grid gap-4 md:grid-cols-3"},
 					statCard("Active path", view.ActivePath),
-					statCard("Transport", emptyFallback(view.Transport, "server-json-sidecar")),
+					statCard("Transport", emptyFallback(view.Transport, serverBootstrapTransport)),
 					statCard("Revision", fmt.Sprintf("%d", maxInt(view.Revision, 1))),
 				),
 			),
@@ -419,7 +415,7 @@ func renderDemoShell(view demoShellView) ui.Node {
 
 func renderPage(view demoShellView) ui.Node {
 	switch view.Page {
-	case "home":
+	case serverPageHome:
 		cards := make([]ui.Node, 0, len(catalogList()))
 		for _, article := range catalogList() {
 			article := article
@@ -431,11 +427,11 @@ func renderPage(view demoShellView) ui.Node {
 			))
 		}
 		return html.Section(html.Props{Class: "mt-8 grid gap-4 md:grid-cols-3"}, cards...)
-	case "docs":
+	case serverPageDocs:
 		actionLinks := []ui.Node{
-			navLink("Overview tab", "/docs/"+view.SectionID+"?tab=overview", view.CurrentTab == "overview"),
-			navLink("Loader tab", "/docs/"+view.SectionID+"?tab=loader", view.CurrentTab == "loader"),
-			navLink("Transport tab", "/docs/"+view.SectionID+"?tab=transport", view.CurrentTab == "transport"),
+			navLink("Overview tab", "/docs/"+view.SectionID+"?tab="+serverTabOverview, view.CurrentTab == serverTabOverview),
+			navLink("Loader tab", "/docs/"+view.SectionID+"?tab="+serverTabLoader, view.CurrentTab == serverTabLoader),
+			navLink("Transport tab", "/docs/"+view.SectionID+"?tab="+serverTabTransport, view.CurrentTab == serverTabTransport),
 			navLink("Server rerender", "/docs/"+view.SectionID+"?tab="+url.QueryEscape(view.CurrentTab)+"&refresh="+strconv.Itoa(view.Revision+1), false),
 		}
 		article := articleForSection(view.SectionID)
@@ -454,7 +450,7 @@ func renderPage(view demoShellView) ui.Node {
 			),
 			html.Section(html.Props{Class: "grid gap-4 md:grid-cols-3"}, highlights...),
 		)
-	case "search":
+	case serverPageSearch:
 		results := make([]ui.Node, 0, len(view.SearchResults))
 		for _, article := range view.SearchResults {
 			article := article
@@ -479,35 +475,35 @@ func renderPage(view demoShellView) ui.Node {
 					navLink("All", "/search", view.SearchQuery == ""),
 					navLink("SSR", "/search?q=ssr", view.SearchQuery == "ssr"),
 					navLink("Routing", "/search?q=routing", view.SearchQuery == "routing"),
-					navLink("Transport", "/search?q=transport", view.SearchQuery == "transport"),
+					navLink("Transport", "/search?q="+serverGuideSectionTransport, view.SearchQuery == serverGuideSectionTransport),
 					navLink("Server rerender", "/search?q="+url.QueryEscape(view.SearchQuery)+"&refresh="+strconv.Itoa(view.Revision+1), false),
 				),
 			),
 			html.Section(html.Props{Class: "grid gap-4 md:grid-cols-2"}, results...),
 		)
-	case "secure":
+	case serverPageSecure:
 		return html.Section(html.Props{Class: "mt-8 rounded-[1.75rem] border border-white/10 bg-white/5 p-8"},
 			html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Protected route")),
 			html.H2(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text("Guarded content unlocked")),
 			html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text(view.Notice)),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
-				statCard("User", emptyFallback(view.SecureUser, "Morgan Reconciler")),
-				statCard("Role", emptyFallback(view.SecureRole, "maintainer")),
+				statCard("User", emptyFallback(view.SecureUser, serverSecureUserDefault)),
+				statCard("Role", emptyFallback(view.SecureRole, serverSecureRoleMaintainer)),
 				statCard("Revision", fmt.Sprintf("%d", maxInt(view.Revision, 1))),
 			),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
 				navLink("Switch role", "/secure?auth=true&role=auditor", false),
 				navLink("Server rerender", "/secure?auth=true&role="+url.QueryEscape(view.SecureRole)+"&refresh="+strconv.Itoa(view.Revision+1), false),
-				navLink("Revoke access", "/signin?from=secure", false),
+				navLink("Revoke access", secureRedirectPath, false),
 			),
 		)
-	case "signin":
+	case serverPageSignIn:
 		return html.Section(html.Props{Class: "mt-8 rounded-[1.75rem] border border-white/10 bg-white/5 p-8"},
 			html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Guard redirect")),
 			html.H2(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text("Protected routes can redirect before rendering")),
 			html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text(view.Notice)),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-				navLink("Grant access", "/secure?auth=true&role=maintainer", false),
+				navLink("Grant access", "/secure?auth=true&role="+serverSecureRoleMaintainer, false),
 				navLink("Open overview", "/", false),
 			),
 		)

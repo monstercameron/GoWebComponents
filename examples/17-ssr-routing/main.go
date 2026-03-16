@@ -24,20 +24,20 @@ var (
 )
 
 func loadBootstrapPayload() ui.SSRBootstrap {
-	ref, err := ui.ReadBootstrapReferenceScript("")
+	bootstrapReference, err := ui.ReadBootstrapReferenceScript("")
 	if err != nil {
 		return defaultBootstrapPayload()
 	}
-	payload, err := ui.ReadBootstrapReference(ref)
+	bootstrapPayload, err := ui.ReadBootstrapReference(bootstrapReference)
 	if err != nil {
 		return defaultBootstrapPayload()
 	}
-	return payload
+	return bootstrapPayload
 }
 
 func homePage(props router.Attrs) ui.Node {
 	return renderDemoShell(demoShellView{
-		Mode:          "home",
+		Mode:          modeHome,
 		ActivePath:    "/",
 		BootstrapPath: hydratedBootstrap.Route.Path,
 		Transport:     bootstrapTransport(hydratedBootstrap),
@@ -58,12 +58,12 @@ func docsPage(props router.Attrs) ui.Node {
 	}
 	tab := query.Get("tab")
 	if tab == "" {
-		tab = "overview"
+		tab = tabOverview
 	}
 	revision, _ := props["revision"].(int)
 
 	return renderDemoShell(demoShellView{
-		Mode:          "docs",
+		Mode:          modeDocs,
 		ActivePath:    "/docs/" + article.ID,
 		BootstrapPath: hydratedBootstrap.Route.Path,
 		Transport:     bootstrapTransport(hydratedBootstrap),
@@ -74,8 +74,8 @@ func docsPage(props router.Attrs) ui.Node {
 		LoadRevision:  revision,
 		Notice:        fmt.Sprintf("Route params and query state resolved this docs view. The current query string is %q.", search.Encode()),
 	},
-		uiButton("Show overview", func() { search.Replace("tab", "overview") }),
-		uiButton("Show loader", func() { search.Replace("tab", "loader") }),
+		uiButton("Show overview", func() { search.Replace("tab", tabOverview) }),
+		uiButton("Show loader", func() { search.Replace("tab", tabLoader) }),
 		uiButton("Revalidate", func() { revalidator.Revalidate() }),
 	)
 }
@@ -90,7 +90,7 @@ func searchPage(props router.Attrs) ui.Node {
 	searchQuery := query.Get("q")
 
 	return renderDemoShell(demoShellView{
-		Mode:          "search",
+		Mode:          modeSearch,
 		ActivePath:    "/search",
 		BootstrapPath: hydratedBootstrap.Route.Path,
 		Transport:     bootstrapTransport(hydratedBootstrap),
@@ -99,8 +99,8 @@ func searchPage(props router.Attrs) ui.Node {
 		LoadRevision:  revision,
 		Notice:        "The search route uses query-keyed loader results and route-level revalidation.",
 	},
-		uiButton("Filter SSR", func() { search.Replace("q", "ssr") }),
-		uiButton("Filter routing", func() { search.Replace("q", "routing") }),
+		uiButton("Filter SSR", func() { search.Replace("q", searchQuerySSR) }),
+		uiButton("Filter routing", func() { search.Replace("q", searchQueryRouting) }),
 		uiButton("Revalidate", func() { revalidator.Revalidate() }),
 	)
 }
@@ -114,14 +114,14 @@ func signInPage(props router.Attrs) ui.Node {
 	}
 
 	return renderDemoShell(demoShellView{
-		Mode:          "signin",
+		Mode:          modeSignIn,
 		ActivePath:    "/signin",
 		BootstrapPath: hydratedBootstrap.Route.Path,
 		Transport:     bootstrapTransport(hydratedBootstrap),
 		LoadRevision:  1,
 		Notice:        notice,
 	},
-		uiButton("Grant access", func() { nav.Replace("/secure?auth=true&role=maintainer") }),
+		uiButton("Grant access", func() { nav.Replace("/secure?auth=true&role=" + secureRoleMaintainer) }),
 	)
 }
 
@@ -133,7 +133,7 @@ func securePage(props router.Attrs) ui.Node {
 	revision, _ := props["revision"].(int)
 
 	return renderDemoShell(demoShellView{
-		Mode:          "secure",
+		Mode:          modeSecure,
 		ActivePath:    "/secure",
 		BootstrapPath: hydratedBootstrap.Route.Path,
 		Transport:     bootstrapTransport(hydratedBootstrap),
@@ -168,7 +168,7 @@ func docsErrorPage(props router.Attrs) ui.Node {
 
 func searchLoadingPage(props router.Attrs) ui.Node {
 	return renderDemoShell(demoShellView{
-		Mode:          "search",
+		Mode:          modeSearch,
 		ActivePath:    "/search",
 		BootstrapPath: hydratedBootstrap.Route.Path,
 		Transport:     bootstrapTransport(hydratedBootstrap),
@@ -181,7 +181,7 @@ func searchLoadingPage(props router.Attrs) ui.Node {
 func searchErrorPage(props router.Attrs) ui.Node {
 	message, _ := props["error"].(string)
 	return renderDemoShell(demoShellView{
-		Mode:          "search",
+		Mode:          modeSearch,
 		ActivePath:    "/search",
 		BootstrapPath: hydratedBootstrap.Route.Path,
 		Transport:     bootstrapTransport(hydratedBootstrap),
@@ -193,7 +193,7 @@ func searchErrorPage(props router.Attrs) ui.Node {
 
 func secureLoadingPage(props router.Attrs) ui.Node {
 	return renderDemoShell(demoShellView{
-		Mode:          "secure",
+		Mode:          modeSecure,
 		ActivePath:    "/secure",
 		BootstrapPath: hydratedBootstrap.Route.Path,
 		Transport:     bootstrapTransport(hydratedBootstrap),
@@ -204,7 +204,7 @@ func secureLoadingPage(props router.Attrs) ui.Node {
 func secureErrorPage(props router.Attrs) ui.Node {
 	message, _ := props["error"].(string)
 	return renderDemoShell(demoShellView{
-		Mode:          "signin",
+		Mode:          modeSignIn,
 		ActivePath:    "/signin",
 		BootstrapPath: hydratedBootstrap.Route.Path,
 		Transport:     bootstrapTransport(hydratedBootstrap),
@@ -264,7 +264,7 @@ func routedApp(r *router.Router) ui.Node {
 func main() {
 	hydratedBootstrap = loadBootstrapPayload()
 
-	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/docs/ssr"})
+	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/docs/" + guideSectionSSR})
 	r.Register("/", homePage, router.Options{Title: "SSR Routing Demo"})
 	r.Register("/docs/:section", docsPage, router.Options{
 		Title:        "SSR Routing Docs",
@@ -329,7 +329,7 @@ func main() {
 			secureRevision++
 			role := routeCtx.Query.Get("role")
 			if role == "" {
-				role = "maintainer"
+				role = secureRoleMaintainer
 			}
 			return router.Attrs{
 				"revision": secureRevision,

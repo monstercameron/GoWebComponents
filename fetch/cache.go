@@ -21,6 +21,7 @@ type CacheOptions struct {
 	StaleAfter time.Duration
 }
 
+// CachedResourceState describes the current state of a shared cached resource.
 type CachedResourceState[T any] struct {
 	Value     T
 	Loading   bool
@@ -30,6 +31,7 @@ type CachedResourceState[T any] struct {
 	UpdatedAt time.Time
 }
 
+// CachedResource exposes shared cached resource state and mutation helpers.
 type CachedResource[T any] struct {
 	get        func() CachedResourceState[T]
 	reload     func()
@@ -120,6 +122,7 @@ func UseCachedResource[T any](key string, loader func(context.Context) (T, error
 	}
 }
 
+// Get returns the current cached resource state.
 func (r CachedResource[T]) Get() CachedResourceState[T] {
 	if r.get == nil {
 		var zero CachedResourceState[T]
@@ -129,36 +132,42 @@ func (r CachedResource[T]) Get() CachedResourceState[T] {
 	return r.get()
 }
 
+// Reload starts a new cached resource load.
 func (r CachedResource[T]) Reload() {
 	if r.reload != nil {
 		r.reload()
 	}
 }
 
+// Cancel cancels the active cached resource load, if any.
 func (r CachedResource[T]) Cancel() {
 	if r.cancel != nil {
 		r.cancel()
 	}
 }
 
+// Invalidate marks the cached value stale and eligible for revalidation.
 func (r CachedResource[T]) Invalidate() {
 	if r.invalidate != nil {
 		r.invalidate()
 	}
 }
 
+// Set replaces the cached value optimistically.
 func (r CachedResource[T]) Set(value T) {
 	if r.set != nil {
 		r.set(value)
 	}
 }
 
+// Update replaces the cached value using the previous value.
 func (r CachedResource[T]) Update(fn func(T) T) {
 	if r.update != nil {
 		r.update(fn)
 	}
 }
 
+// InvalidateResource marks the named cached resource stale.
 func InvalidateResource(key string) {
 	if key == "" {
 		return

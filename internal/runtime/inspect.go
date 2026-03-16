@@ -17,6 +17,7 @@ const (
 	DiagnosticError   DiagnosticSeverity = "error"
 )
 
+// Diagnostic describes one deduplicated runtime diagnostic entry.
 type Diagnostic struct {
 	Source   string
 	Severity DiagnosticSeverity
@@ -24,11 +25,13 @@ type Diagnostic struct {
 	Count    int
 }
 
+// HookSnapshot captures one hook entry from an inspected fiber.
 type HookSnapshot struct {
 	Kind  string
 	Value string
 }
 
+// FiberSnapshot captures one inspected fiber subtree.
 type FiberSnapshot struct {
 	Name              string
 	Kind              string
@@ -45,6 +48,7 @@ type FiberSnapshot struct {
 	Children          []FiberSnapshot
 }
 
+// HotBranchSnapshot captures one high-cost subtree from profiling output.
 type HotBranchSnapshot struct {
 	Name              string
 	Kind              string
@@ -56,6 +60,7 @@ type HotBranchSnapshot struct {
 	SubtreeDurationNs int64
 }
 
+// InspectionStats summarizes the inspected runtime tree.
 type InspectionStats struct {
 	TotalFibers     int
 	DirtyFibers     int
@@ -66,6 +71,7 @@ type InspectionStats struct {
 	Effects         int
 }
 
+// ProfilingSnapshot summarizes runtime profiling counters and hot branches.
 type ProfilingSnapshot struct {
 	RenderCalls           int
 	ScheduledRootUpdates  int
@@ -82,6 +88,7 @@ type ProfilingSnapshot struct {
 	HotBranches           []HotBranchSnapshot
 }
 
+// InspectionSnapshot is the top-level runtime inspection payload.
 type InspectionSnapshot struct {
 	Root        *FiberSnapshot
 	Stats       InspectionStats
@@ -95,6 +102,7 @@ var (
 	diagnostics     []Diagnostic
 )
 
+// ReportDiagnostic records or increments a runtime diagnostic entry.
 func ReportDiagnostic(source string, severity DiagnosticSeverity, message string) {
 	trimmedSource := strings.TrimSpace(source)
 	if trimmedSource == "" {
@@ -123,6 +131,7 @@ func ReportDiagnostic(source string, severity DiagnosticSeverity, message string
 	})
 }
 
+// GetDiagnostics returns a copy of the current diagnostic list.
 func GetDiagnostics() []Diagnostic {
 	diagnosticsMu.Lock()
 	defer diagnosticsMu.Unlock()
@@ -131,6 +140,7 @@ func GetDiagnostics() []Diagnostic {
 	return clone
 }
 
+// ClearDiagnostics removes all recorded diagnostics.
 func ClearDiagnostics() {
 	diagnosticsMu.Lock()
 	defer diagnosticsMu.Unlock()
@@ -138,6 +148,7 @@ func ClearDiagnostics() {
 	diagnostics = nil
 }
 
+// Inspect captures a snapshot of the current runtime tree, profiling state, and diagnostics.
 func (rt *Runtime) Inspect() InspectionSnapshot {
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()

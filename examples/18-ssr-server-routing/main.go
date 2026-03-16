@@ -18,34 +18,34 @@ var initialRouteDataAvailable bool
 var initialRouteDataConsumed bool
 
 func loadBootstrapPayload() ui.SSRBootstrap {
-	ref, err := ui.ReadBootstrapReferenceScript("")
+	bootstrapReference, err := ui.ReadBootstrapReferenceScript("")
 	if err != nil {
 		return ui.SSRBootstrap{}
 	}
-	payload, err := ui.ReadBootstrapReference(ref)
+	bootstrapPayload, err := ui.ReadBootstrapReference(bootstrapReference)
 	if err != nil {
 		return ui.SSRBootstrap{}
 	}
-	return payload
+	return bootstrapPayload
 }
 
-func consumeInitialRouteData(routeCtx router.RouteContext, page string) (bootstrapRouteData, bool) {
+func consumeInitialRouteData(routeCtx router.RouteContext, pageName string) (bootstrapRouteData, bool) {
 	if !initialRouteDataAvailable || initialRouteDataConsumed {
 		return bootstrapRouteData{}, false
 	}
 	if normalizePath(initialBootstrap.Route.Path) != normalizePath(routeCtx.Path) {
 		return bootstrapRouteData{}, false
 	}
-	if initialRouteData.Page != page {
+	if initialRouteData.Page != pageName {
 		return bootstrapRouteData{}, false
 	}
-	if page == "docs" && initialBootstrap.Route.Params["section"] != routeCtx.Params.Get("section") {
+	if pageName == serverPageDocs && initialBootstrap.Route.Params["section"] != routeCtx.Params.Get("section") {
 		return bootstrapRouteData{}, false
 	}
-	if page == "search" && strings.TrimSpace(initialRouteData.SearchQuery) != strings.TrimSpace(routeCtx.Query.Get("q")) {
+	if pageName == serverPageSearch && strings.TrimSpace(initialRouteData.SearchQuery) != strings.TrimSpace(routeCtx.Query.Get("q")) {
 		return bootstrapRouteData{}, false
 	}
-	if page == "secure" && strings.TrimSpace(initialRouteData.SecureRole) != emptyFallback(strings.TrimSpace(routeCtx.Query.Get("role")), "maintainer") {
+	if pageName == serverPageSecure && strings.TrimSpace(initialRouteData.SecureRole) != emptyFallback(strings.TrimSpace(routeCtx.Query.Get("role")), serverSecureRoleMaintainer) {
 		return bootstrapRouteData{}, false
 	}
 	initialRouteDataConsumed = true
@@ -54,7 +54,7 @@ func consumeInitialRouteData(routeCtx router.RouteContext, page string) (bootstr
 
 func homePage(props router.Attrs) ui.Node {
 	data := bootstrapRouteData{
-		Page:     "home",
+		Page:     serverPageHome,
 		Notice:   "The client is now running on a real browser route after the server generated the initial HTML.",
 		Revision: 1,
 	}
@@ -67,9 +67,9 @@ func docsPage(props router.Attrs) ui.Node {
 	section := params.Get("section")
 	article := articleForSection(section)
 	revision, _ := props["revision"].(int)
-	tab := emptyFallback(strings.TrimSpace(query.Get("tab")), "overview")
+	tab := emptyFallback(strings.TrimSpace(query.Get("tab")), serverTabOverview)
 	data := bootstrapRouteData{
-		Page:         "docs",
+		Page:         serverPageDocs,
 		SectionID:    article.ID,
 		SectionTitle: article.Title,
 		SectionBody:  article.Summary,
@@ -86,7 +86,7 @@ func searchPage(props router.Attrs) ui.Node {
 	revision, _ := props["revision"].(int)
 	searchQuery := strings.TrimSpace(query.Get("q"))
 	data := bootstrapRouteData{
-		Page:          "search",
+		Page:          serverPageSearch,
 		SearchQuery:   searchQuery,
 		SearchResults: results,
 		Notice:        "Client browser routing mirrors the same search route while direct links still trigger full server SSR navigations.",
@@ -101,7 +101,7 @@ func signInPage(props router.Attrs) ui.Node {
 	if from != "" {
 		notice = "The server redirected this protected request from " + from + "."
 	}
-	data := bootstrapRouteData{Page: "signin", Notice: notice, Revision: 1}
+	data := bootstrapRouteData{Page: serverPageSignIn, Notice: notice, Revision: 1}
 	return renderDemoShell(viewFromRouteData("/signin", transportFromBootstrap(initialBootstrap), data))
 }
 
@@ -110,9 +110,9 @@ func securePage(props router.Attrs) ui.Node {
 	user, _ := props["user"].(string)
 	revision, _ := props["revision"].(int)
 	data := bootstrapRouteData{
-		Page:       "secure",
-		SecureRole: emptyFallback(role, "maintainer"),
-		SecureUser: emptyFallback(user, "Morgan Reconciler"),
+		Page:       serverPageSecure,
+		SecureRole: emptyFallback(role, serverSecureRoleMaintainer),
+		SecureUser: emptyFallback(user, serverSecureUserDefault),
 		Notice:     "The client resumed the protected route using the same role payload that the server rendered.",
 		Revision:   maxInt(revision, 1),
 	}
@@ -120,7 +120,7 @@ func securePage(props router.Attrs) ui.Node {
 }
 
 func notFoundPage(props router.Attrs) ui.Node {
-	data := bootstrapRouteData{Page: "not-found", Notice: "Unknown route in the browser router.", Revision: 1}
+	data := bootstrapRouteData{Page: serverPageNotFound, Notice: "Unknown route in the browser router.", Revision: 1}
 	return renderDemoShell(viewFromRouteData(router.GetCurrentPath(), transportFromBootstrap(initialBootstrap), data))
 }
 
@@ -135,7 +135,7 @@ func main() {
 	r.Register("/docs/:section", docsPage, router.Options{
 		Title: "GWC Server SSR Demo Docs",
 		Loader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
-			if data, ok := consumeInitialRouteData(routeCtx, "docs"); ok {
+			if data, ok := consumeInitialRouteData(routeCtx, serverPageDocs); ok {
 				return router.Attrs{"revision": data.Revision}, nil
 			}
 			return router.Attrs{"revision": revisionFromQuery(routeCtx.Query.Values())}, nil
@@ -144,7 +144,7 @@ func main() {
 	r.Register("/search", searchPage, router.Options{
 		Title: "GWC Server SSR Demo Search",
 		Loader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
-			if data, ok := consumeInitialRouteData(routeCtx, "search"); ok {
+			if data, ok := consumeInitialRouteData(routeCtx, serverPageSearch); ok {
 				return router.Attrs{"revision": data.Revision, "results": data.SearchResults}, nil
 			}
 			searchQuery := strings.TrimSpace(routeCtx.Query.Get("q"))
@@ -156,19 +156,19 @@ func main() {
 		Title: "GWC Server SSR Demo Secure",
 		BeforeEnter: func(ctx router.RouteContext) router.GuardResult {
 			if ctx.Query.Get("auth") != "true" {
-				return router.RedirectNavigation("/signin?from=secure")
+				return router.RedirectNavigation(secureRedirectPath)
 			}
 			return router.AllowNavigation()
 		},
 		Loader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
-			if data, ok := consumeInitialRouteData(routeCtx, "secure"); ok {
+			if data, ok := consumeInitialRouteData(routeCtx, serverPageSecure); ok {
 				return router.Attrs{"revision": data.Revision, "role": data.SecureRole, "user": data.SecureUser}, nil
 			}
-			role := emptyFallback(strings.TrimSpace(routeCtx.Query.Get("role")), "maintainer")
-			return router.Attrs{"revision": revisionFromQuery(routeCtx.Query.Values()), "role": role, "user": "Morgan Reconciler"}, nil
+			role := emptyFallback(strings.TrimSpace(routeCtx.Query.Get("role")), serverSecureRoleMaintainer)
+			return router.Attrs{"revision": revisionFromQuery(routeCtx.Query.Values()), "role": role, "user": serverSecureUserDefault}, nil
 		},
 	})
-	r.Register("/legacy", docsPage, router.Options{Redirect: "/docs/routing?tab=loader", Title: "GWC Server SSR Demo Legacy"})
+	r.Register("/legacy", docsPage, router.Options{Redirect: legacyRedirectPath, Title: "GWC Server SSR Demo Legacy"})
 	r.Register("*", notFoundPage, router.Options{Title: "GWC Server SSR Demo Not Found"})
 
 	root := ui.CreateElement(func() ui.Node { return r.Current() })

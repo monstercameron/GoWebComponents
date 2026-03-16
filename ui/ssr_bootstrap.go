@@ -16,6 +16,7 @@ const (
 	SSRBootstrapFormatCBOR = "cbor"
 )
 
+// SSRBootstrap captures the server-provided state needed to resume a route on the client.
 type SSRBootstrap struct {
 	Route  SSRRouteBootstrap      `json:"route,omitempty"`
 	Atoms  map[string]interface{} `json:"atoms,omitempty"`
@@ -23,19 +24,22 @@ type SSRBootstrap struct {
 	IDSeed int                    `json:"idSeed,omitempty"`
 }
 
+// SSRRouteBootstrap captures the routed path, query, and params transferred from server to client.
 type SSRRouteBootstrap struct {
 	Path   string              `json:"path,omitempty"`
 	Query  map[string][]string `json:"query,omitempty"`
 	Params map[string]string   `json:"params,omitempty"`
 }
 
+// SSRBootstrapReference points the client at an external bootstrap payload.
 type SSRBootstrapReference struct {
 	URL    string `json:"url,omitempty"`
 	Format string `json:"format,omitempty"`
 }
 
+// MarshalSSRBootstrap serializes a bootstrap payload to safe inline JSON.
 func MarshalSSRBootstrap(payload SSRBootstrap) ([]byte, error) {
-	data, err := json.Marshal(payload)
+	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -47,9 +51,10 @@ func MarshalSSRBootstrap(payload SSRBootstrap) ([]byte, error) {
 		"\u2028", `\u2028`,
 		"\u2029", `\u2029`,
 	)
-	return []byte(replacer.Replace(string(data))), nil
+	return []byte(replacer.Replace(string(jsonData))), nil
 }
 
+// UnmarshalSSRBootstrap deserializes a JSON bootstrap payload.
 func UnmarshalSSRBootstrap(data []byte) (SSRBootstrap, error) {
 	if len(data) == 0 {
 		return SSRBootstrap{}, nil
@@ -62,10 +67,12 @@ func UnmarshalSSRBootstrap(data []byte) (SSRBootstrap, error) {
 	return normalizeSSRBootstrap(payload), nil
 }
 
+// MarshalSSRBootstrapBinary serializes a bootstrap payload to CBOR.
 func MarshalSSRBootstrapBinary(payload SSRBootstrap) ([]byte, error) {
 	return cbor.Marshal(payload)
 }
 
+// UnmarshalSSRBootstrapBinary deserializes a CBOR bootstrap payload.
 func UnmarshalSSRBootstrapBinary(data []byte) (SSRBootstrap, error) {
 	if len(data) == 0 {
 		return SSRBootstrap{}, nil
@@ -94,6 +101,7 @@ func normalizeSSRBootstrap(payload SSRBootstrap) SSRBootstrap {
 	return payload
 }
 
+// RenderBootstrapScript renders an inline bootstrap script tag.
 func RenderBootstrapScript(payload SSRBootstrap, scriptID string) (string, error) {
 	encoded, err := MarshalSSRBootstrap(payload)
 	if err != nil {
@@ -108,6 +116,7 @@ func RenderBootstrapScript(payload SSRBootstrap, scriptID string) (string, error
 	return `<script id="` + html.EscapeString(id) + `" type="application/json">` + string(encoded) + `</script>`, nil
 }
 
+// RenderBootstrapReferenceScript renders an inline script tag that points at an external bootstrap payload.
 func RenderBootstrapReferenceScript(ref SSRBootstrapReference, scriptID string) (string, error) {
 	encoded, err := json.Marshal(ref)
 	if err != nil {
@@ -131,6 +140,7 @@ func RenderBootstrapReferenceScript(ref SSRBootstrapReference, scriptID string) 
 	return `<script id="` + html.EscapeString(id) + `" type="application/json" data-gwc-bootstrap-ref="true">` + safeJSON + `</script>`, nil
 }
 
+// UnmarshalSSRBootstrapReference deserializes a bootstrap reference payload.
 func UnmarshalSSRBootstrapReference(data []byte) (SSRBootstrapReference, error) {
 	if len(data) == 0 {
 		return SSRBootstrapReference{}, nil
