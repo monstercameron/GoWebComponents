@@ -94,6 +94,8 @@
 - Expanded `state` and `ui` docs to cover typed computed state, previous-value tracking, channel subscriptions, and cancellable tasks.
 - Added docs for shared derived state, snapshot persistence, route guards, route-managed metadata, reducer/form helpers, and debounced/throttled UI hooks.
 - Updated the backlog and examples index to mark nested routes and layout routes complete and list the new multi-level example.
+- Expanded the root README with a project-wide feature inventory, clarified the stable public package surface, and brought the shipped examples list up to the current `16` through `19` demo set.
+- Refreshed the SSR demo and README copy so the examples describe the shipped hydration behavior accurately: bootstrap restore, matching DOM reuse, and subtree fallback on structural mismatch.
 
 ### Browser tests and benchmarks
 

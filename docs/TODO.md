@@ -6,12 +6,12 @@ This backlog focuses on the top-level framework features that are still missing 
 
 ### Documentation and Public API Hygiene
 
-- [ ] Reconcile docs with the actual supported API surface.
-	Remove or clearly label aspirational examples that are not yet first-class features.
-- [ ] Add a framework feature matrix to the docs.
-	Separate shipped, experimental, and planned capabilities.
-- [ ] Clarify which packages are stable public APIs versus internal/runtime-only details.
-	This is especially important for portal, slot, and hot reload related features.
+- [x] Reconcile docs with the actual supported API surface.
+	The root README, package docs, and example docs now align on the current public APIs, shipped examples, SSR/hydration behavior, and the distinction between shipped versus future-facing backlog items.
+- [x] Add a framework feature matrix to the docs.
+	The root README now includes a project-wide feature inventory covering the runtime, hooks, state, router, SSR/hydration, devtools, testing, benchmarks, and example coverage.
+- [x] Clarify which packages are stable public APIs versus internal/runtime-only details.
+	The README and package docs now call out `ui`, `html`, `state`, `fetch`, `router`, and `devtools` as the public surface, while `internal/runtime` remains implementation detail.
 - [ ] Add migration notes as new primitives land.
 	Keep early adopters from depending on unstable patterns.
 
@@ -297,10 +297,10 @@ This backlog focuses on the top-level framework features that are still missing 
 
 
 - [x] Decide whether server-side rendering is a project goal.
-	SSR is now an explicit project goal. The current direction is request-time HTML generation on native Go targets through `ui.RenderToString(...)`, with browser hydration/resume continuing as a separate phase while DOM matching remains unfinished.
+	SSR is now an explicit project goal. The current direction is request-time HTML generation on native Go targets through `ui.RenderToString(...)`, paired with browser hydration/resume through `ui.Hydrate(...)` using bootstrap restore, DOM reuse, mismatch diagnostics, and subtree fallback.
 	Phase 1 scope decisions:
 	- [x] Decide whether the first SSR pass targets static HTML generation only, with hydration deferred.
-		The current SSR pass supports request-time HTML generation and a hydration entrypoint, but true DOM matching and mismatch recovery remain deferred.
+		The current SSR pass supports both request-time HTML generation and a real hydration path with DOM matching and mismatch recovery for the supported host/text subtree cases.
 	- [x] Decide whether the first public API lives in `ui`, `html`, or a dedicated SSR package.
 		The first public SSR API lives in `ui`.
 	- [x] Define which component forms are supported in the first pass: host elements only, simple function components, or full `ui.CreateElement(...)` trees.
@@ -308,7 +308,7 @@ This backlog focuses on the top-level framework features that are still missing 
 	- [x] Decide whether router integration is explicit bootstrap data or automatic coupling to the current router globals.
 		The current SSR direction uses explicit bootstrap payloads rather than implicit router-global coupling.
 	- [x] Define which existing features are explicitly out of scope for v1: portals, async boundaries, error boundaries, browser-only effects, devtools overlay.
-		Those remain out of scope for the current SSR v1 surface while render-to-string, bootstrap transfer, and hydration plumbing stabilize.
+		Those remain out of scope for the current SSR v1 surface while the current render-to-string, bootstrap transfer, and hydration feature set matures.
 - [x] Add a server render entrypoint.
 	`ui.RenderToString(...)` now provides the public non-browser HTML render entrypoint, and `examples/18-ssr-server-routing` exercises request-time SSR over a real Go HTTP server.
 	Phase 1 implementation tasks:
