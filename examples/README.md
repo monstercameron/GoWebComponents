@@ -17,7 +17,7 @@ Then open:
 - `http://127.0.0.1:8090/examples`
 - `http://127.0.0.1:8090/examples/01-counter/counter.html`
 
-The `/examples` page is generated from the actual folder structure.
+The `/examples` page opens the styled showcase catalog. If you need the raw auto-generated folder listing for diagnostics, use `/examples/list`.
 
 ## Example Inventory
 
@@ -34,7 +34,6 @@ Use the integrated apps when you want to understand how multiple primitives comp
 
 ### ui Package
 
-- `75-use-state`: `ui.UseState`
 - `76-use-effect`: `ui.UseEffect`
 - `21-ui-render`: `ui.Render`
 - `22-create-element`: `ui.CreateElement`
@@ -64,6 +63,7 @@ Use the integrated apps when you want to understand how multiple primitives comp
 
 ### state Package
 
+- `75-use-state`: `ui.UseState`
 - `37-use-atom`: `state.UseAtom`
 - `38-use-computed`: `state.UseComputed`
 - `39-use-derived`: `state.UseDerived`

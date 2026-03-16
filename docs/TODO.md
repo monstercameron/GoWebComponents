@@ -23,6 +23,8 @@ Organization rules for this file:
 - [ ] Add migration notes as new primitives land.
 	Explain how newer APIs replace older patterns so early adopters do not accumulate legacy usage accidentally.
 
+### Documentation discoverability and task-oriented guidance
+
 ### Example Alignment and Modernization
 
 - [x] Replace legacy router compatibility calls in shipped examples with the primary router API.
@@ -37,6 +39,93 @@ Organization rules for this file:
 	The catalog now includes a dedicated `state.UseDerived` example alongside the other core state primitives.
 - [x] Add an example inventory that maps each shipped example to the public APIs it demonstrates.
 	`examples/README.md` now acts as an inventory that maps the catalog to specific public APIs and teaching goals.
+- [x] Track example page shell parity against the landing page theme.
+	The example entry pages are now covered as a single page-shell pass across the integrated demos (`01-counter` through `20-portals`), the feature-isolated catalog pages (`21-ui-render` through `76-use-effect`), the server-routing entry page (`18-ssr-server-routing/index.html`), and the static companion pages under `examples/static/`.
+- [x] Track all shipped examples in the backlog explicitly.
+	Coverage is now tracked across every shipped example so catalog parity work, docs review, and logging passes can be checked against the full set instead of an arbitrary subset.
+- [x] Rewrite shared example copy into Overview / Functional / Implementation sections.
+	The feature-isolated catalog pages now use one consistent structure: overview for the high-level purpose, functional guidance for how and why to use the tool, and implementation guidance for the technical shape, hazards, and optimal usage patterns.
+- [x] Add Playwright interaction coverage for every shipped example entrypoint.
+	The examples suite now includes a dev-server interaction sweep that visits every numbered example under `/examples/...`, performs safe browser interactions, and pairs with the dedicated SSR server-routing spec for the real HTTP example.
+
+#### Example Coverage Checklist
+
+- [x] `01-counter`: Counter
+- [x] `02-text-input`: Text Input
+- [x] `03-toggle`: Toggle
+- [x] `04-form`: Form
+- [x] `05-todo-basic`: Todo Basic
+- [x] `06-todo-advanced`: Todo Advanced
+- [x] `07-goroutines`: Goroutines
+- [x] `08-fetch`: Fetch
+- [x] `09-atoms`: Atoms
+- [x] `10-advanced-form`: Advanced Form
+- [x] `11-blog`: Blog Landing
+- [x] `12-portfolio-site`: Portfolio Site
+- [x] `13-browser-compiler`: Browser Compiler
+- [x] `14-omi`: OMI Demo
+- [x] `15-calculator`: Calculator
+- [x] `16-devtools`: Devtools Showcase
+- [x] `17-ssr-routing`: SSR Routing
+- [x] `18-ssr-server-routing`: SSR Server Routing
+- [x] `19-nested-routes`: Nested Routes
+- [x] `20-portals`: Portals
+- [x] `21-ui-render`: `ui.Render`
+- [x] `22-create-element`: `ui.CreateElement`
+- [x] `23-fragment`: `ui.Fragment`
+- [x] `24-use-ref`: `ui.UseRef`
+- [x] `25-use-previous`: `ui.UsePrevious`
+- [x] `26-use-deferred-value`: `ui.UseDeferredValue`
+- [x] `27-transition-hooks`: `ui.StartTransition`, `ui.UseTransition`
+- [x] `28-use-reducer`: `ui.UseReducer`
+- [x] `29-use-debounced`: `ui.UseDebounced`
+- [x] `30-use-throttled`: `ui.UseThrottled`
+- [x] `31-context-api`: `ui.CreateContext`, `ui.UseContext`
+- [x] `32-async-boundary`: `ui.AsyncBoundary`
+- [x] `33-lazy`: `ui.Lazy`
+- [x] `34-error-boundary`: `ui.ErrorBoundary`
+- [x] `35-use-id`: `ui.UseId`
+- [x] `36-typed-events`: typed events, `ui.UseEvent`
+- [x] `37-use-atom`: `state.UseAtom`
+- [x] `38-use-computed`: `state.UseComputed`
+- [x] `39-use-derived`: `state.UseDerived`
+- [x] `40-snapshot-export-import`: snapshot export and import
+- [x] `41-snapshot-storage`: snapshot storage
+- [x] `42-use-fetch`: `fetch.UseFetch`
+- [x] `43-use-resource`: `fetch.UseResource`
+- [x] `44-use-cached-resource`: `fetch.UseCachedResource`
+- [x] `45-fetch-imperative`: imperative `fetch.Fetch`
+- [x] `46-raw-handler`: `ui.RawHandler`
+- [x] `47-portal-selector`: selector `ui.Portal`
+- [x] `48-portal-target`: `ui.PortalTarget`
+- [x] `49-use-channel`: `ui.UseChannel`
+- [x] `50-use-task`: `ui.UseTask`
+- [x] `51-use-form`: `ui.UseForm`
+- [x] `52-semantic-html`: semantic `html` helpers
+- [x] `53-html-forms`: typed form controls
+- [x] `54-html-tag`: `html.Tag`
+- [x] `55-hash-router`: hash router basics
+- [x] `56-browser-router`: browser router basics
+- [x] `57-use-navigate`: `router.UseNavigate`
+- [x] `58-route-params`: route params
+- [x] `59-route-query`: route query helpers
+- [x] `60-route-loaders`: route loaders
+- [x] `61-use-revalidator`: `router.UseRevalidator`
+- [x] `62-router-redirects`: router redirects
+- [x] `63-router-metadata`: router metadata
+- [x] `64-nested-layout-routes`: nested layout routes
+- [x] `65-router-guards`: router guards
+- [x] `66-devtools-panel`: `devtools.Panel`
+- [x] `67-use-snapshot`: `devtools.UseSnapshot`
+- [x] `68-snapshot-now`: `devtools.SnapshotNow`
+- [x] `69-devtools-diagnostics`: devtools diagnostics
+- [x] `70-render-to-string`: `ui.RenderToString`
+- [x] `71-hydrate`: `ui.Hydrate`
+- [x] `72-router-hydrate-mount`: `router.HydrateMount`
+- [x] `73-ssr-bootstrap`: SSR bootstrap helpers
+- [x] `74-ssr-route-data-reuse`: SSR route-data reuse
+- [x] `75-use-state`: `ui.UseState`
+- [x] `76-use-effect`: `ui.UseEffect`
 
 ### Feature-Isolated Example Expansion
 
@@ -161,8 +250,6 @@ Organization rules for this file:
 	Show how first-route loader data is reused across hydration before normal client navigation takes over, without the extra surface area of the full server-routing example.
 - [x] Add a dedicated example index page that groups the expanded catalog by package and feature.
 	Once the one-feature-per-example set grows, the examples landing page should expose filters by `ui`, `html`, `state`, `fetch`, `router`, `devtools`, and SSR or hydration topics.
-
-### Documentation discoverability and task-oriented guidance
 
 - [ ] Reorganize docs around common developer tasks.
 	Provide clear entry points for workflows such as building a client-only app, adding routing, adding SSR, testing a component, shipping a production wasm build, and debugging hydration issues instead of relying mostly on package-by-package reading order.
@@ -420,10 +507,16 @@ Organization rules for this file:
 
 ### Shared async cache and query model
 
-- [ ] Design a shared resource cache above `UseFetch` and `UseResource`.
-	Support request deduplication, stale-while-revalidate behavior, and reuse across components without splitting the async data model into incompatible layers.
-- [ ] Decide where cached async state should live.
-	Keep the cache coherent with atoms and route loaders instead of creating a disconnected parallel mental model.
+- [x] Evaluate a resource/cache abstraction above `UseFetch`.
+	Support request deduplication, stale-while-revalidate behavior, and reuse across components.
+- [x] Decide where cached async state should live.
+	Keep the API coherent with atoms instead of creating a separate parallel mental model.
+- [x] Add invalidation primitives.
+	Support manual refresh, key-based invalidation, and optimistic mutation flows.
+- [x] Integrate resource state with async boundaries.
+	Loading and error handling should compose cleanly with suspense-style rendering.
+- [x] Add realistic examples.
+	Cover list/detail fetches, mutation refreshes, and shared cached queries.
 - [ ] Define cache key normalization rules.
 	Ensure URLs, methods, query params, headers, loader args, and custom keys produce deterministic identities without surprising collisions.
 - [ ] Add freshness, eviction, and disposal policies.
@@ -442,8 +535,8 @@ Organization rules for this file:
 	Clarify which cached values may be embedded in bootstrap payloads, how large payloads are handled, and when sensitive server-only data must be excluded.
 - [ ] Add cache revalidation-on-resume policies.
 	Support rules such as trust-once, stale-while-revalidate, and always-refetch after hydration so apps can choose consistency versus startup speed explicitly.
-- [ ] Add realistic shared-cache examples.
-	Cover list/detail reuse, mutation refreshes, and cache-seeded SSR flows.
+- [ ] Add realistic shared-cache examples for SSR-seeded and route-loader reuse.
+	Extend the shipped shared-cache examples to cover cache-seeded SSR flows and route-loader interoperability.
 
 ### Offline mutation queueing and background sync
 
@@ -528,19 +621,6 @@ Organization rules for this file:
 
 ## 6. Scheduling and Runtime Coordination
 
-- [x] Design a Suspense-like async boundary model.
-	The first async-boundary slice now ships as explicit `ui.AsyncBoundary`, where callers provide `Pending`, `Error`, fallback nodes, and optional delay/timeout behavior instead of relying on implicit promise throwing.
-- [x] Add lazy component loading support.
-	`ui.UseLazyNode` and `ui.Lazy` now provide a first-class way to resolve a subtree asynchronously while reusing the same boundary semantics.
-- [x] Define async resource integration points.
-	The initial integration model is explicit rather than magical: `fetch.UseResource` and other async state can now flow through `ui.AsyncBoundary` without open-coded branch ladders in each component.
-- [x] Specify timeout and retry behavior.
-	`ui.AsyncBoundary` now supports explicit delay and timeout fallback thresholds, while `ui.UseLazyNode` exposes `Reload` and `Cancel` for caller-driven retry/cancellation control.
-- [x] Add examples that replace manual loading flag plumbing.
-	The fetch example now routes both list and detail loading through `ui.AsyncBoundary` and includes a deferred `ui.Lazy` panel to demonstrate nested fallback behavior.
-
-### Concurrent-style Scheduling Primitives
-
 - [x] Evaluate whether the runtime should expose transitions.
 	The runtime now exposes `ui.StartTransition` and `ui.UseTransition`, using a small non-urgent scheduling lane for deferred `UseState` and `UseAtom` updates.
 - [x] Add lower-priority update scheduling support if feasible.
@@ -551,6 +631,16 @@ Organization rules for this file:
 	Completed earlier under Go-native hook additions: `UseReducer` shipped, and the remaining open work in this section is about scheduling primitives rather than reducer API design.
 - [x] Clarify whether a layout-effect equivalent is needed.
 	Current decision: keep `UseEffect` as the only effect hook until concrete DOM-read-before-paint scenarios justify a dedicated layout-effect API.
+- [ ] Define scheduler priority classes.
+	Document whether the runtime should support only urgent vs non-urgent work or a richer priority ladder.
+- [ ] Prototype a pending-state API for non-urgent updates.
+	Validate whether callers need both a scheduling primitive and a typed pending flag for transition-style refreshes.
+- [ ] Measure interruptibility requirements under heavy updates.
+	Use benchmarks and browser scenarios to determine whether long list updates, route changes, and async completions need interruptible work splitting.
+- [ ] Decide how scheduling primitives interact with route loaders and async boundaries.
+	Clarify whether transition-like updates suppress loading fallbacks, delay route pending indicators, or simply lower update priority.
+- [ ] Add browser examples for transition-style UX.
+	Cover typeahead filtering, tab switches, and route transitions so scheduler semantics are understandable in real app flows.
 
 ## 7. SSR, Hydration, State Transfer, and Streaming
 
@@ -653,6 +743,24 @@ Organization rules for this file:
 	- [x] Decide when to warn versus when to replace the subtree.
 		Text and attribute mismatches now warn and continue; structural mismatches fall back to client rendering for the affected subtree.
 	- [x] Add tests for mismatch reporting and recovery behavior.
+- [ ] Define serialization support for non-JSON-friendly values.
+	Clarify how dates, byte slices, custom structs, and opaque IDs are encoded across JSON and CBOR bootstrap paths.
+- [ ] Add versioning to bootstrap payloads.
+	Prevent older clients or cached sidecars from silently misreading newer payload schemas.
+- [ ] Define partial bootstrap reuse rules.
+	Clarify which data may be trusted on first resume and which data must be revalidated immediately on the client.
+- [ ] Add typed helpers for server-to-client payload registration.
+	Provide an app-facing way to register route data, form defaults, cache seeds, and session hints without manual map packing in every app.
+- [ ] Define per-route and per-subtree bootstrap scoping.
+	Avoid sending the entire app state when only the active route, layout chain, or a specific async resource needs to cross the boundary.
+- [ ] Add payload size budgeting and diagnostics.
+	Expose when inline JSON, sidecar JSON, or binary payloads become too large and recommend a transport strategy before SSR payloads silently bloat responses.
+- [ ] Add server-to-client state classification guidance.
+	Separate safe public bootstrap state, resumable UI state, cache seeds, and server-only secrets so apps do not over-transfer sensitive or unnecessary data.
+- [ ] Define merge semantics for transferred state.
+	Specify how incoming bootstrap atoms, route data, and cache entries merge with client defaults or preexisting local state when a page is resumed or revisited.
+- [ ] Define state transfer ownership during hydration.
+	Clarify which bootstrap values become runtime-owned state, which remain immutable hints, and when client recomputation should overwrite transferred values.
 
 ### Streaming SSR
 
