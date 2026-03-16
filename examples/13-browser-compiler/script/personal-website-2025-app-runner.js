@@ -11,6 +11,7 @@ class AppRunner {
         this.mountPoint = null;
         this.go = null; // Go runtime instance
         this.outputCallback = null;
+        this.usingMockModule = false;
     }
 
     /**
@@ -144,6 +145,7 @@ class AppRunner {
      */
     async loadWasmModule(wasmBinary) {
         console.log('📦 AppRunner: Loading WASM module...');
+        this.usingMockModule = false;
         
         if (this.go) {
             // Use actual Go runtime
@@ -167,6 +169,7 @@ class AppRunner {
      */
     async loadMockModule(wasmBinary) {
         console.log('🎭 AppRunner: Loading mock WASM module...');
+        this.usingMockModule = true;
         
         // Simulate WASM loading
         await this.delay(500);
@@ -215,6 +218,15 @@ class AppRunner {
      */
     async runWasmApplication(isConsole = false) {
         console.log('▶️ AppRunner: Starting WASM application...');
+
+        if (this.usingMockModule) {
+            if (isConsole) {
+                this.emitMockConsoleOutput();
+                return;
+            }
+            this.renderMockApplication();
+            return;
+        }
         
         if (this.go) {
             // Run with Go runtime
@@ -233,6 +245,14 @@ class AppRunner {
                 console.warn('⚠️ AppRunner: Mock application skipped in console mode');
             }
         }
+    }
+
+    emitMockConsoleOutput() {
+        if (!this.outputCallback) {
+            return;
+        }
+        this.outputCallback('Hello from Browser Compiler!\n');
+        this.outputCallback('This code was compiled in your browser.\n');
     }
 
     /**

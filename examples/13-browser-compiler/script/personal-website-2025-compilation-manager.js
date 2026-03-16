@@ -195,7 +195,26 @@ class CompilationManager {
             'runtime', 'internal/bytealg', 'internal/cpu', 'internal/abi', 'internal/goarch', 'internal/goos', 
             'sync', 'io', 'os', 'fmt', 'errors', 'syscall/js'
         ];
-        // ... (rest of minimal loading logic if needed, but hopefully index works)
+
+        const loadPackage = async (pkg) => {
+            try {
+                const resp = await fetch(`static/pkg/js_wasm/${pkg}.a`);
+                if (!resp.ok) {
+                    console.warn(`⚠️ CompilationManager: Missing fallback package ${pkg}`);
+                    return false;
+                }
+                const data = await resp.arrayBuffer();
+                this.vfs.writeFile(`/pkg/js_wasm/${pkg}.a`, new Uint8Array(data));
+                return true;
+            } catch (error) {
+                console.warn(`⚠️ CompilationManager: Failed to load fallback package ${pkg}:`, error);
+                return false;
+            }
+        };
+
+        const loaded = await Promise.all(packages.map(loadPackage));
+        const loadedCount = loaded.filter(Boolean).length;
+        console.log(`📚 CompilationManager: Loaded ${loadedCount}/${packages.length} fallback packages`);
     }
 
     /**

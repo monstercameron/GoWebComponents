@@ -10,17 +10,17 @@ test.describe('01-Counter', () => {
     await expect(page.getByText('Current Count')).toBeVisible();
     
     // Click increment (+)
-    await page.getByRole('button', { name: '+' }).click();
+    await page.getByRole('button').nth(2).click();
     
     // Verify count increased
     await expect(page.getByText('1', { exact: true })).toBeVisible();
     
     // Click again
-    await page.getByRole('button', { name: '+' }).click();
+    await page.getByRole('button').nth(2).click();
     await expect(page.getByText('2', { exact: true })).toBeVisible();
 
     // Click decrement (-)
-    await page.getByRole('button', { name: '−' }).click(); // Note: this is the minus sign character used in Go code
+    await page.getByRole('button').nth(0).click();
     await expect(page.getByText('1', { exact: true })).toBeVisible();
 
     // Click Reset

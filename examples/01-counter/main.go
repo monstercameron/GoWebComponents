@@ -55,7 +55,7 @@ func CounterExample() ui.Node {
 				html.Button(html.Props{
 					OnClick: decrement,
 					Class:   "w-16 h-16 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-2xl transition-all duration-200 hover:scale-110 active:scale-95",
-				}, html.Text("âˆ’")),
+				}, html.Text("-")),
 
 				html.Button(html.Props{
 					OnClick: reset,

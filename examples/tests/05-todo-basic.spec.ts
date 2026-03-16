@@ -41,7 +41,8 @@ test.describe('05-Todo Basic', () => {
     await page.getByRole('button', { name: 'Clear All' }).click();
     
     // Verify all removed
-    await expect(page.getByText('Tasks: 0')).toBeVisible();
+    await expect(page.locator('ul[id^="todo-list-"] li')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Clear All' })).toBeVisible();
     for (const todo of todos) {
       await expect(page.getByText(todo)).not.toBeVisible();
     }
