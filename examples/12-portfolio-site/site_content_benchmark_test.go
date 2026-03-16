@@ -28,6 +28,17 @@ func BenchmarkPortfolioTechnologyCounting(b *testing.B) {
 	}
 }
 
+func BenchmarkFeaturedPortfolioProjects(b *testing.B) {
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		featured := featuredPortfolioProjects()
+		if len(featured) != 2 {
+			b.Fatalf("expected 2 featured projects, got %d", len(featured))
+		}
+	}
+}
+
 func BenchmarkPortfolioSnapshotRenderToString(b *testing.B) {
 	node := renderPortfolioSnapshot()
 	b.ReportAllocs()
@@ -39,6 +50,21 @@ func BenchmarkPortfolioSnapshotRenderToString(b *testing.B) {
 		}
 		if len(markup) == 0 {
 			b.Fatal("expected rendered portfolio snapshot")
+		}
+	}
+}
+
+func BenchmarkPortfolioProjectsGridRenderToString(b *testing.B) {
+	node := renderPortfolioProjectsGridSnapshot()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		markup, err := ui.RenderToString(node)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if len(markup) == 0 {
+			b.Fatal("expected rendered project grid snapshot")
 		}
 	}
 }
