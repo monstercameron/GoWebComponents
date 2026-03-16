@@ -81,3 +81,19 @@ func TestAsyncBoundaryAndLazyOnServer(t *testing.T) {
 		t.Fatalf("expected lazy server render to resolve content, got %q", markup)
 	}
 }
+
+func TestContextProviderWrapperRendersChildrenOnServer(t *testing.T) {
+	theme := ui.CreateContext("light")
+	node := ui.CreateElement(theme.Provider, ui.ContextProviderProps[string]{
+		Value: "dark",
+		Child: html.P(html.Props{}, html.Text("context shell")),
+	})
+
+	markup, err := ui.RenderToString(node)
+	if err != nil {
+		t.Fatalf("unexpected provider render error: %v", err)
+	}
+	if markup != `<p>context shell</p>` {
+		t.Fatalf("expected provider wrapper to render child subtree, got %q", markup)
+	}
+}

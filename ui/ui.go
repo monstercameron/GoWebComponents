@@ -159,6 +159,13 @@ func CreateElement(component interface{}, props ...interface{}) Node {
 	if node, ok := component.(*runtime.Element); ok && len(props) == 0 {
 		return node
 	}
+	if provider, ok := component.(contextProviderComponent); ok {
+		var rawProps interface{}
+		if len(props) > 0 {
+			rawProps = props[0]
+		}
+		return createContextProviderElement(provider, rawProps)
+	}
 	if fn, ok := component.(func() *runtime.Element); ok {
 		return runtime.CreateElement(fn, nil)
 	}
@@ -301,6 +308,13 @@ func UseCallback[T any](fn T, deps ...interface{}) T {
 
 func UseRef[T any](initialValue T) Ref[T] {
 	return Ref[T]{raw: runtime.GoUseRefGlobal(initialValue)}
+}
+
+func UseContext[T any](context *Context[T]) T {
+	if context == nil || context.descriptor == nil {
+		panic("ui.UseContext called with nil context")
+	}
+	return castContextValue[T](runtime.GoUseContextValue(context.descriptor))
 }
 
 func (r Ref[T]) Get() T {

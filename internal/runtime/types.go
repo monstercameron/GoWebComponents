@@ -28,8 +28,9 @@ type Fiber struct {
 	// 6 bytes padding here to align next 8-byte field
 
 	// Component info
-	hooks *Hooks
-	props map[string]interface{}
+	hooks         *Hooks
+	props         map[string]interface{}
+	contextValues map[int64]interface{}
 
 	// Interfaces and Strings (16 bytes each)
 	typeOf      interface{}

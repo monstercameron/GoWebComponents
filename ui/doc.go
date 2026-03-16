@@ -3,6 +3,7 @@
 // It exposes:
 //   - CreateElement for component composition
 //   - Render for browser mounting
+//   - CreateContext, UseContext, and Provider components for subtree-scoped values
 //   - UseState, UseReducer, UseForm, UseEffect, UseMemo, UseRef, UsePrevious, UseDebounced, UseThrottled, UseChannel, UseTask, UseLazyNode, and UseId for local stateful logic
 //   - AsyncBoundary and Lazy for explicit async subtree loading and fallback rendering
 //   - UseEvent for typed event handler wrapping
@@ -48,6 +49,11 @@
 // They are intended for search boxes, live filtering, or fast-changing UI state
 // where callers want delayed or rate-limited derived values without open-coding
 // timer cleanup in every component.
+//
+// CreateContext and UseContext are intended for subtree-scoped values such as
+// theme, auth/session state, app configuration, or service-style helpers that
+// should not be threaded manually through many intermediate component props.
+// Missing providers currently resolve to the context default value.
 //
 // AsyncBoundary is an explicit async rendering primitive for loading and error
 // fallbacks around a subtree. Lazy builds on top of it by resolving a ui.Node

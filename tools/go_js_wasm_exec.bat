@@ -1,3 +1,3 @@
 @echo off
-"C:\Program Files\Go\bin\go.exe" env GOROOT >nul
-node "C:\Program Files\Go\lib\wasm\wasm_exec_node.js" %*
+for /f "delims=" %%I in ('go env GOROOT') do set GOROOT_PATH=%%I
+node "%GOROOT_PATH%\lib\wasm\wasm_exec_node.js" %*

@@ -282,6 +282,36 @@ func TestPublicHooksWrappers(t *testing.T) {
 	}
 }
 
+func TestUseContextFallsBackToDefaultValue(t *testing.T) {
+	installUIHookContext(t)
+
+	theme := CreateContext("light")
+	if got := UseContext(theme); got != "light" {
+		t.Fatalf("expected default context value light, got %q", got)
+	}
+}
+
+func TestCreateElementSupportsContextProvider(t *testing.T) {
+	theme := CreateContext("light")
+	child := Text("ready")
+	node := CreateElement(theme.Provider, ContextProviderProps[string]{
+		Value: "dark",
+		Child: child,
+	})
+	if node == nil {
+		t.Fatal("expected provider element to be created")
+	}
+	if _, ok := node.Type.(*runtime.ContextProviderType); !ok {
+		t.Fatalf("expected provider element type, got %T", node.Type)
+	}
+	if len(node.Children) != 1 || node.Children[0] != child {
+		t.Fatalf("expected provider child to be preserved, got %#v", node.Children)
+	}
+	if got := node.Props["value"]; got != "dark" {
+		t.Fatalf("expected provider value dark, got %#v", got)
+	}
+}
+
 func TestRefAndHandlerHelpers(t *testing.T) {
 	var empty Ref[int]
 	if empty.Get() != 0 {

@@ -131,6 +131,35 @@ Copy-Item "$(go env GOROOT)\lib\wasm\wasm_exec.js" static\wasm_exec.js
 
 For new projects imported with `go get`, use `ui`, `html`, `state`, `fetch`, and `router` as the stable public surface.
 
+## Context API
+
+The `ui` package now includes a minimal Context API for subtree-scoped values.
+Use `CreateContext` to define a context, `UseContext` to read the nearest
+provider value, and `context.Provider` with `ui.CreateElement(...)` to set a
+value for a subtree. Missing providers resolve to the context default value.
+
+```go
+type ThemeProps struct{}
+
+var themeContext = ui.CreateContext("light")
+
+func ThemeLabel(props ThemeProps) ui.Node {
+  theme := ui.UseContext(themeContext)
+  return html.P(html.Props{}, html.Text("Theme: "+theme))
+}
+
+func App() ui.Node {
+  return ui.CreateElement(themeContext.Provider, ui.ContextProviderProps[string]{
+    Value: "dark",
+    Child: ui.CreateElement(ThemeLabel, ThemeProps{}),
+  })
+}
+```
+
+Recommended use cases are theme, auth/session state, configuration, and
+service-like helpers that should not be threaded through many intermediate
+component props.
+
 ## Runtime Layout
 
 The implementation center of gravity is `internal/runtime/`:

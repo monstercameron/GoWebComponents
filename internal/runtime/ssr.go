@@ -42,6 +42,10 @@ func renderElementToString(builder *strings.Builder, element *Element) error {
 		}
 	}
 
+	if _, ok := element.Type.(*ContextProviderType); ok {
+		return renderChildrenToString(builder, element.Children)
+	}
+
 	resolved, err := resolveComponentElement(element)
 	if err != nil {
 		return err

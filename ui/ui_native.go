@@ -70,6 +70,13 @@ func CreateElement(component interface{}, props ...interface{}) Node {
 	if node, ok := component.(*runtime.Element); ok && len(props) == 0 {
 		return node
 	}
+	if provider, ok := component.(contextProviderComponent); ok {
+		var rawProps interface{}
+		if len(props) > 0 {
+			rawProps = props[0]
+		}
+		return createContextProviderElement(provider, rawProps)
+	}
 	if fn, ok := component.(func() *runtime.Element); ok {
 		return runtime.CreateElement(fn, nil)
 	}
@@ -109,6 +116,10 @@ func Render(root Node, selector string) {
 
 func Hydrate(root Node, selector string, options ...HydrationOptions) (SSRBootstrap, error) {
 	return SSRBootstrap{}, UnsupportedOnServer("Hydrate")
+}
+
+func UseContext[T any](context *Context[T]) T {
+	panic(UnsupportedOnServer("UseContext").Error())
 }
 
 func AsyncBoundary(props AsyncBoundaryProps) Node {

@@ -794,13 +794,17 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 	// Clear dirty flags on fiber and alternates
 	rt.clearFiberDirty(fiber)
 
+	if fiber.contextValues == nil && fiber.parent != nil {
+		fiber.contextValues = fiber.parent.contextValues
+	}
+
 	if fiber.typeOf == nil || fiber.typeOf == "ROOT" {
 		// Root fiber - reconcile children
 		if children, ok := fiber.props["children"].([]interface{}); ok {
 			rt.reconcileChildren(fiber, children)
 		}
 	} else {
-		switch fiber.typeOf.(type) {
+		switch typed := fiber.typeOf.(type) {
 		case string:
 			// Host component (HTML element)
 			if fiber.dom == nil || fiber.dom.IsNull() {
@@ -812,6 +816,32 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 					rt.reconcileChildren(fiber, elements)
 				}
 			}
+
+		case *ContextProviderType:
+			value := typed.Descriptor.DefaultValue
+			if fiber.props != nil {
+				if provided, ok := fiber.props["value"]; ok {
+					value = provided
+				}
+			}
+
+			var parentContextValues map[int64]interface{}
+			if fiber.parent != nil {
+				parentContextValues = fiber.parent.contextValues
+			}
+			fiber.contextValues = deriveContextValues(parentContextValues, typed.Descriptor.ID, value)
+
+			if fiber.alternate != nil && !fastEqual(resolveContextValue(fiber.alternate, typed.Descriptor), value) {
+				markSubtreeNeedsUpdate(fiber.alternate.child)
+			}
+
+			if propsChildren, ok := fiber.props["children"]; ok {
+				if elements, elementsOk := propsChildren.([]interface{}); elementsOk {
+					rt.reconcileChildren(fiber, elements)
+					break
+				}
+			}
+			rt.reconcileChildren(fiber, emptyChildren)
 
 		default:
 			// Function component
