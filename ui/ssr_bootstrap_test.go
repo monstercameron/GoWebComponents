@@ -48,8 +48,35 @@ func TestUnmarshalSSRBootstrapInitializesMaps(t *testing.T) {
 		t.Fatalf("unexpected unmarshal error: %v", err)
 	}
 
-	if payload.Route.Query == nil || payload.Route.Params == nil || payload.Atoms == nil || payload.Data == nil {
+	if payload.Route.Query == nil || payload.Route.Params == nil || payload.Atoms == nil || payload.Data == nil || payload.I18n.Messages == nil {
 		t.Fatalf("expected zero-value maps to be initialized, got %+v", payload)
+	}
+}
+
+func TestMarshalSSRBootstrapIncludesI18nPayload(t *testing.T) {
+	payload := SSRBootstrap{
+		Route: SSRRouteBootstrap{Path: "/docs"},
+		I18n: SSRI18nBootstrap{
+			Locale:         "fr",
+			FallbackLocale: "en",
+			Direction:      "ltr",
+			Messages: map[string]map[string]SSRI18nMessage{
+				"fr": {
+					"marketing.headline": {Text: "Bonjour {name}"},
+				},
+			},
+		},
+	}
+	encoded, err := MarshalSSRBootstrap(payload)
+	if err != nil {
+		t.Fatalf("unexpected marshal error: %v", err)
+	}
+	text := string(encoded)
+	if !strings.Contains(text, `"i18n":{"locale":"fr"`) {
+		t.Fatalf("expected i18n payload in bootstrap json, got %q", text)
+	}
+	if !strings.Contains(text, `"marketing.headline":{"text":"Bonjour {name}"}`) {
+		t.Fatalf("expected i18n messages in bootstrap json, got %q", text)
 	}
 }
 

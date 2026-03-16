@@ -66,6 +66,12 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `71-hydrate`: `ui.Hydrate`
 - `73-ssr-bootstrap`: `ui.RenderBootstrapScript`, `ui.ReadBootstrapScript`
 
+### i18n Package
+
+- `83-locale-switcher`: `i18n.UseLocale`, `i18n.Provider`, `i18n.UseI18n`, pluralization, and number or date formatting
+- `84-ssr-i18n-bootstrap`: `ui.SSRBootstrap.I18n`, `i18n.BundleFromSSRBootstrap`, and hydration-aligned locale restore
+- `85-locale-routing`: `i18n.PrefixPath`, `i18n.ResolvePath`, and locale-aware route-loader content selection
+
 ### state Package
 
 - `75-use-state`: `ui.UseState`

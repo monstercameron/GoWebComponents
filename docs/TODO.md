@@ -588,21 +588,21 @@ Organization rules for this file:
 
 ### Internationalization and localization
 
-- [ ] Define the first-class i18n scope for the framework.
+- [x] Define the first-class i18n scope for the framework.
 	Decide whether the framework should own only message lookup and locale context, or also pluralization, formatting helpers, locale-aware routing, and SSR locale transfer.
-- [ ] Add a locale context and switching model.
+- [x] Add a locale context and switching model.
 	Provide a stable way to expose the active locale to component trees, update it at runtime, and coordinate locale changes with rerendering, route changes, and persisted user preference.
-- [ ] Add message catalog loading and lookup primitives.
+- [x] Add message catalog loading and lookup primitives.
 	Support organizing translated messages by locale and namespace, loading them deterministically, and resolving missing-message fallback behavior without every app inventing its own structure.
-- [ ] Add message formatting and pluralization helpers.
+- [x] Add message formatting and pluralization helpers.
 	Support interpolated messages, plural rules, select-style branching, and locale-aware number or date formatting so application text does not rely on ad hoc string concatenation.
-- [ ] Define SSR and hydration behavior for locale data.
+- [x] Define SSR and hydration behavior for locale data.
 	Clarify how active locale, selected messages, and formatting configuration are transferred from server to client so SSR output and hydrated UI stay consistent.
-- [ ] Add locale-aware routing and content-loading guidance.
+- [x] Add locale-aware routing and content-loading guidance.
 	Document whether locale prefixes, locale domains, or route metadata should be handled by the router, application code, or a companion package, and how loaders select locale-specific content.
-- [ ] Add RTL and directionality support guidance.
+- [x] Add RTL and directionality support guidance.
 	Specify how locale changes affect document direction, component-level `dir` overrides, layout assumptions, and mixed-direction content in real applications.
-- [ ] Add i18n-focused examples and tests.
+- [x] Add i18n-focused examples and tests.
 	Create examples for locale switching, pluralized UI, date or number formatting, SSR locale bootstrapping, and locale-prefixed routing so the public i18n story is validated end to end.
 
 ## 2. Forms, Uploads, and Secure Submission Workflows

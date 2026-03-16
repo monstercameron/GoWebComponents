@@ -21,7 +21,24 @@ type SSRBootstrap struct {
 	Route  SSRRouteBootstrap      `json:"route,omitempty"`
 	Atoms  map[string]interface{} `json:"atoms,omitempty"`
 	Data   map[string]interface{} `json:"data,omitempty"`
+	I18n   SSRI18nBootstrap       `json:"i18n,omitempty"`
 	IDSeed int                    `json:"idSeed,omitempty"`
+}
+
+type SSRI18nBootstrap struct {
+	Locale         string                               `json:"locale,omitempty"`
+	FallbackLocale string                               `json:"fallbackLocale,omitempty"`
+	Direction      string                               `json:"direction,omitempty"`
+	Messages       map[string]map[string]SSRI18nMessage `json:"messages,omitempty"`
+}
+
+type SSRI18nMessage struct {
+	Text      string            `json:"text,omitempty"`
+	PluralArg string            `json:"pluralArg,omitempty"`
+	Plural    map[string]string `json:"plural,omitempty"`
+	SelectArg string            `json:"selectArg,omitempty"`
+	Select    map[string]string `json:"select,omitempty"`
+	Default   string            `json:"default,omitempty"`
 }
 
 // SSRRouteBootstrap captures the routed path, query, and params transferred from server to client.
@@ -97,6 +114,9 @@ func normalizeSSRBootstrap(payload SSRBootstrap) SSRBootstrap {
 	}
 	if payload.Data == nil {
 		payload.Data = map[string]interface{}{}
+	}
+	if payload.I18n.Messages == nil {
+		payload.I18n.Messages = map[string]map[string]SSRI18nMessage{}
 	}
 	return payload
 }

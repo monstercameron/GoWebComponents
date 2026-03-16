@@ -127,6 +127,12 @@ Standalone SSR server URLs:
 - `81-overlay-stack`: Open the parent dialog, then the popover and nested dialog. Expected: Escape closes the popover first, then the nested dialog, then the parent dialog; body scroll stays locked until the last modal layer closes; nested close returns focus to the parent trigger.
 - `82-overlay-anchor`: Open the menu, toggle the tooltip, then switch the tooltip target between selector and explicit-node roots. Expected: the tooltip stays above the menu in both targets and the menu still dismisses cleanly with Escape.
 
+### i18n Package
+
+- `83-locale-switcher`: Switch between English, French, and Arabic. Expected: copy, formatted values, and shell direction all update together; Arabic switches the shell to RTL.
+- `84-ssr-i18n-bootstrap`: Load the page and verify the initial French copy is already present before interaction, then switch to English. Expected: the bootstrap payload provides locale and messages for hydration, and the status line reports successful locale hydration.
+- `85-locale-routing`: Switch between locale-specific routes. Expected: the URL prefix, resolved locale, and loader-provided content all stay aligned; Arabic route selection flips the shell to RTL.
+
 ### state Package
 
 - `75-use-state`: Click the controls that call `Set` and `Update`. Expected: counter and message state both change exactly as described by the stat cards.

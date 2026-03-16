@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSR locale bootstrap - GoWebComponents</title>
+    <link rel="stylesheet" href="../static/css/tailwind.css">
+    <link rel="stylesheet" href="../static/css/example-shell.css">
+    <script id="__GWC_BOOTSTRAP__" type="application/json">{"route":{"path":"/locale-bootstrap"},"i18n":{"locale":"fr","fallbackLocale":"en","direction":"ltr","messages":{"fr":{"bootstrap.headline":{"text":"Bonjour {name}"},"bootstrap.summary":{"text":"Le serveur a deja choisi la langue active et le sous-ensemble de messages transferes au client."},"bootstrap.note":{"text":"Le client lit ui.SSRBootstrap.I18n, reconstruit un bundle, puis hydrate sans recharger le catalogue initial."}},"en":{"bootstrap.headline":{"text":"Hello {name}"},"bootstrap.summary":{"text":"The server already selected the active locale and transferred only the initial message subset the client needs."},"bootstrap.note":{"text":"The client reads ui.SSRBootstrap.I18n, rebuilds a bundle, and hydrates without reloading the first catalog."}}}}}</script>
+    <script src="../static/script/wasm_exec.js"></script>
+    <script src="../static/script/example-logger.js"></script>
+</head>
+<body class="example-shell" style="margin:0">
+    <p id="bootstrap-client-status" style="margin:0;padding:16px 24px;color:#67e8f9;font:600 14px/1.4 ui-sans-serif,system-ui,sans-serif">Waiting for wasm hydration...</p>
+    <div id="app"><div class="min-h-screen bg-[#08111d] text-slate-100" dir="ltr" lang="fr" data-bootstrapped-locale="fr"><div class="mx-auto max-w-3xl px-6 py-12"><div class="rounded-[2rem] border border-white/10 bg-slate-950/80 p-8 shadow-2xl"><p class="text-xs uppercase tracking-[0.35em] text-cyan-300">SSR locale bootstrap</p><h1 id="bootstrap-locale-headline" class="mt-4 text-5xl font-black tracking-tight text-white">Bonjour Cam</h1><p id="bootstrap-locale-summary" class="mt-4 text-lg leading-8 text-slate-300">Le serveur a deja choisi la langue active et le sous-ensemble de messages transferes au client.</p><div class="mt-6 grid gap-4 md:grid-cols-3"><div class="rounded-2xl border border-white/10 bg-white/5 p-4"><p class="text-xs uppercase tracking-[0.25em] text-slate-400">Bootstrap locale</p><p id="bootstrap-locale-value" class="mt-3 text-2xl font-black text-white">fr</p></div><div class="rounded-2xl border border-white/10 bg-white/5 p-4"><p class="text-xs uppercase tracking-[0.25em] text-slate-400">Loaded locales</p><p id="bootstrap-locale-count" class="mt-3 text-2xl font-black text-white">2</p></div><div class="rounded-2xl border border-white/10 bg-white/5 p-4"><p class="text-xs uppercase tracking-[0.25em] text-slate-400">Transferred messages</p><p id="bootstrap-message-count" class="mt-3 text-2xl font-black text-white">6</p></div></div><div class="mt-6 flex flex-wrap gap-3"><button id="bootstrap-switch-en" class="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100">English</button><button id="bootstrap-switch-fr" class="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100">Francais</button></div><p id="bootstrap-locale-note" class="mt-6 text-sm leading-7 text-slate-400">Le client lit ui.SSRBootstrap.I18n, reconstruit un bundle, puis hydrate sans recharger le catalogue initial.</p></div></div></div></div>
+    <script>
+        const go = new Go();
+        WebAssembly.instantiateStreaming(fetch('../static/bin/ssr-i18n-bootstrap.wasm'), go.importObject)
+            .then(result => go.run(result.instance))
+            .catch(err => console.error('Failed to load WASM:', err));
+    </script>
+</body>
+</html>

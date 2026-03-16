@@ -2,12 +2,23 @@
 
 ## 2026-03-16
 
+### Internationalization and localization
+
+- Added a new public `i18n` package with locale state, provider-backed runtime access, deterministic catalog registration, missing-message fallback behavior, interpolation, pluralization, select-style branching, and locale-aware number or date formatting helpers.
+- Extended `ui.SSRBootstrap` with typed `I18n` payload support so server-rendered pages can transfer active locale, fallback locale, direction, and the initial message subset used during hydration.
+- Added locale-prefix path helpers and documented the routing boundary so `router` continues to own route evaluation while applications keep ownership of locale-specific loader policy and content selection.
+- Added `docs/I18N.md` to define the current i18n scope, SSR transfer model, locale-aware routing guidance, and RTL or directionality expectations.
+- Added `examples/83-locale-switcher`, `examples/84-ssr-i18n-bootstrap`, and `examples/85-locale-routing` together with focused Playwright coverage for runtime locale switching, bootstrap-driven locale hydration, and locale-prefixed routing.
+- Added native `i18n` tests and a translation microbenchmark covering fallback lookup, pluralization, formatting, SSR bootstrap round-tripping, and locale-aware path helpers.
+
 ### Portal layering and overlay management
 
 - Added `ui.Overlay(...)` and `ui.UseOverlayStack(...)` for shared overlay layering, stack-derived z-order, nested escape and outside-click routing, and coordinated focus ownership across portal-backed surfaces.
+- Updated `ui.AccessibleOverlay(...)` to compose on top of the shared overlay stack instead of wiring instance-local modal behavior independently.
 - Updated overlay side effects to support nested scroll-lock counting and nested background inert ownership by app-root selector.
 - Added `docs/OVERLAYS.md` to document the current overlay layering model, dismissal routing, and anchored-position guidance.
 - Added `examples/81-overlay-stack` and `examples/82-overlay-anchor` together with focused Playwright specs covering nested dialogs, dialog-plus-popover routing, tooltip-over-menu layering, and portal retargeting.
+- Added stack-manager coverage in `ui` tests so topmost escape handling, outside-dismiss routing, focus-trap ownership, and derived z-index behavior are validated directly.
 
 ### Accessibility guidance baseline
 

@@ -25,6 +25,9 @@ Current accessibility support baseline, including typed semantic markup, `ui.Use
 ### `OVERLAYS.md`
 Current overlay layering model, stack coordination rules, anchored-position guidance, and the boundary between framework-owned overlay behavior and application-owned placement logic.
 
+### `I18N.md`
+Current internationalization scope, locale context model, message catalog helpers, SSR bootstrap transfer, locale-aware routing guidance, and RTL directionality guidance.
+
 ### `TODO.md`
 Current backlog and near-term work. This is a live backlog, not a historical archive of every idea the project has ever had.
 
@@ -62,6 +65,7 @@ As of 2026-03-14:
 - [API_POLICY.md](API_POLICY.md)
 - [ACCESSIBILITY.md](ACCESSIBILITY.md)
 - [OVERLAYS.md](OVERLAYS.md)
+- [I18N.md](I18N.md)
 - [HEAD_MANAGEMENT.md](HEAD_MANAGEMENT.md)
 - [MIGRATIONS.md](MIGRATIONS.md)
 - [../examples/README.md](../examples/README.md)
