@@ -72,13 +72,17 @@ func PersonalHeroSection(_ Attrs) *Element {
 			),
 
 			// Quick stats
-			Div(
-				Attrs{"class": "grid grid-cols-2 md:grid-cols-4 gap-8 max-w-2xl mx-auto"},
-				PersonalStatCard("100%", "Go Powered"),
-				PersonalStatCard("0", "JavaScript Required"),
-				PersonalStatCard("∞", "Possibilities"),
-				PersonalStatCard("1", "Revolutionary Framework"),
-			),
+			func() *Element {
+				stats := portfolioHeroStats()
+				statElements := make([]interface{}, 0, len(stats))
+				for _, stat := range stats {
+					statElements = append(statElements, PersonalStatCard(stat.Number, stat.Label))
+				}
+				return Div(
+					Attrs{"class": "grid grid-cols-2 md:grid-cols-4 gap-8 max-w-2xl mx-auto"},
+					statElements...,
+				)
+			}(),
 		),
 	)
 }

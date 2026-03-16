@@ -29,30 +29,24 @@ func PortfolioProjectsSection(_ Attrs) *Element {
 				),
 			),
 
-			// Projects grid
-			Div(
-				Attrs{"class": "grid grid-cols-1 lg:grid-cols-2 gap-8"},
-
-				// GoWebComponents - Main project
-				PortfolioProjectCard(
-					"🚀 GoWebComponents",
-					"Revolutionary Frontend Framework",
-					"A React-like framework for building web applications entirely in Go using WebAssembly. Features component-based architecture, state management, and zero JavaScript required.",
-					[]string{"Go", "WebAssembly", "React-like", "State Management", "Frontend Framework"},
-					"https://github.com/monstercameron/GoWebComponents",
-					true, // featured
-				),
-
-				// gRPC Tunnel - Second featured project
-				PortfolioProjectCard(
-					"🌐 gRPC Tunnel",
-					"Native gRPC-over-WebSocket Solution",
-					"Innovative project that tunnels native gRPC calls over WebSocket connections, enabling full gRPC communication from browsers using WebAssembly without gRPC-Web limitations.",
-					[]string{"Go", "gRPC", "WebSocket", "WebAssembly", "Protobuf"},
-					"https://github.com/monstercameron/grpc-tunnel",
-					true, // featured
-				),
-			),
+			func() *Element {
+				projects := portfolioProjects()
+				projectCards := make([]interface{}, 0, len(projects))
+				for _, project := range projects {
+					projectCards = append(projectCards, PortfolioProjectCard(
+						project.Title,
+						project.Subtitle,
+						project.Description,
+						project.Technologies,
+						project.Link,
+						project.Featured,
+					))
+				}
+				return Div(
+					Attrs{"class": "grid grid-cols-1 lg:grid-cols-2 gap-8"},
+					projectCards...,
+				)
+			}(),
 		),
 	)
 }

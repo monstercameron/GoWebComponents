@@ -30,9 +30,9 @@ func main() {
 
 	// Initialize and mount the global router
 	r := router.GetRouter()
-	r.GoRegisterRoute("/", DocsWebsite)
-	r.GoRegisterRoute("/docs", DocsPage)
-	r.GoRegisterRoute("*", NotFoundPage)
+	r.GoRegisterRoute(portfolioHomeRoute, DocsWebsite)
+	r.GoRegisterRoute(portfolioDocsRoute, DocsPage)
+	r.GoRegisterRoute(portfolioCatchAllRoute, NotFoundPage)
 
 	r.Mount("#app")
 
