@@ -42,6 +42,17 @@ type Handler struct {
 	value interface{}
 }
 
+type PortalTarget struct {
+	Selector string
+	Node     interface{}
+}
+
+type PortalProps struct {
+	Target   PortalTarget
+	Child    Node
+	Children []Node
+}
+
 type State[T any] struct {
 	get func() T
 	set func(interface{})
@@ -183,6 +194,24 @@ func CreateElement(component interface{}, props ...interface{}) Node {
 
 func Fragment(children ...Node) Node {
 	return runtime.CreateElement("FRAGMENT", nil, toInterfaces(children)...)
+}
+
+func Portal(props PortalProps) Node {
+	children := make([]interface{}, 0, len(props.Children)+1)
+	if props.Child != nil {
+		children = append(children, props.Child)
+	}
+	children = append(children, toInterfaces(props.Children)...)
+
+	rawProps := map[string]interface{}{}
+	if props.Target.Selector != "" {
+		rawProps["portalTargetSelector"] = props.Target.Selector
+	}
+	if props.Target.Node != nil {
+		rawProps["portalTargetNode"] = props.Target.Node
+	}
+
+	return runtime.CreateElement(runtime.PortalNodeType, rawProps, children...)
 }
 
 func Render(root Node, selector string) {

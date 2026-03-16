@@ -97,3 +97,18 @@ func TestContextProviderWrapperRendersChildrenOnServer(t *testing.T) {
 		t.Fatalf("expected provider wrapper to render child subtree, got %q", markup)
 	}
 }
+
+func TestPortalRendersChildrenInlineOnServer(t *testing.T) {
+	node := ui.Portal(ui.PortalProps{
+		Target: ui.PortalTarget{Selector: "#overlay-root"},
+		Child:  html.P(html.Props{}, html.Text("portal body")),
+	})
+
+	markup, err := ui.RenderToString(node)
+	if err != nil {
+		t.Fatalf("unexpected portal render error: %v", err)
+	}
+	if markup != `<p>portal body</p>` {
+		t.Fatalf("expected server portal fallback to render child inline, got %q", markup)
+	}
+}

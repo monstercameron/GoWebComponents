@@ -312,6 +312,30 @@ func TestCreateElementSupportsContextProvider(t *testing.T) {
 	}
 }
 
+func TestPortalBuildsRuntimePortalElement(t *testing.T) {
+	child := Text("overlay")
+	targetNode := js.Global().Get("Object").New()
+	node := Portal(PortalProps{
+		Target: PortalTarget{Selector: "#portal-root", Node: targetNode},
+		Child:  child,
+	})
+	if node == nil {
+		t.Fatal("expected portal element")
+	}
+	if _, ok := node.Type.(*runtime.PortalElementType); !ok {
+		t.Fatalf("expected portal runtime type, got %T", node.Type)
+	}
+	if got := node.Props["portalTargetSelector"]; got != "#portal-root" {
+		t.Fatalf("expected selector target to round-trip, got %#v", got)
+	}
+	if got := node.Props["portalTargetNode"]; !js.ValueOf(got).Equal(targetNode) {
+		t.Fatal("expected explicit node target to round-trip")
+	}
+	if len(node.Children) != 1 || node.Children[0] != child {
+		t.Fatalf("expected portal child to be preserved, got %#v", node.Children)
+	}
+}
+
 func TestRefAndHandlerHelpers(t *testing.T) {
 	var empty Ref[int]
 	if empty.Get() != 0 {

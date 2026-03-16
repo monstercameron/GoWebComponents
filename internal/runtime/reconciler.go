@@ -843,6 +843,15 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 			}
 			rt.reconcileChildren(fiber, emptyChildren)
 
+		case *PortalElementType:
+			if propsChildren, ok := fiber.props["children"]; ok {
+				if elements, elementsOk := propsChildren.([]interface{}); elementsOk {
+					rt.reconcileChildren(fiber, elements)
+					break
+				}
+			}
+			rt.reconcileChildren(fiber, emptyChildren)
+
 		default:
 			// Function component
 			currentFiber = fiber
@@ -937,6 +946,9 @@ func (rt *Runtime) createDom(fiber *Fiber) DOMNode {
 			// Apply properties only for non-text elements
 			rt.updateDomProperties(dom, nil, fiber.props)
 		}
+	}
+	if _, ok := fiber.typeOf.(*PortalElementType); ok {
+		return nil
 	}
 	// Function components don't have DOM nodes - they render their children
 
@@ -1175,7 +1187,15 @@ func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 		}
 	}
 
-	if domParent != nil && !domParent.IsNull() {
+	isPortal := rt.isPortalFiber(fiber)
+	portalParent := domParent
+	portalTargetChanged := false
+	if isPortal {
+		portalParent = rt.resolvePortalParent(fiber)
+		portalTargetChanged = rt.portalTargetChanged(fiber)
+	}
+
+	if !isPortal && domParent != nil && !domParent.IsNull() {
 		if fiber.effectTag == "PLACEMENT" && fiber.dom != nil && !fiber.dom.IsNull() {
 			start := time.Now()
 			rt.domAdapter.AppendChild(domParent, fiber.dom)
@@ -1214,9 +1234,31 @@ func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 		}
 	}
 
+	if isPortal {
+		if fiber.effectTag == "DELETION" {
+			rt.commitDeletion(fiber, portalParent)
+			return
+		}
+		if portalTargetChanged {
+			rt.movePortalSubtree(fiber.child, rt.resolvePortalParent(fiber.alternate), portalParent)
+		}
+		if portalParent == nil || portalParent.IsNull() {
+			if fiber.alternate != nil {
+				rt.deleteFiberSubtree(fiber.child, rt.resolvePortalParent(fiber.alternate))
+			}
+			if fiber.sibling != nil {
+				rt.commitWork(fiber.sibling, domParent)
+			}
+			return
+		}
+	}
+
 	// Determine the parent DOM node for children
 	// If this fiber has a DOM node, it becomes the parent for its children
 	childDomParent := domParent
+	if isPortal {
+		childDomParent = portalParent
+	}
 	if fiber.dom != nil && !fiber.dom.IsNull() {
 		childDomParent = fiber.dom
 	}
@@ -1241,6 +1283,11 @@ func (rt *Runtime) commitDeletion(fiber *Fiber, domParent DOMNode) {
 
 	// Cleanup atom subscriptions for this fiber and subtree
 	rt.CleanupAtomSubscriptions(fiber)
+
+	if rt.isPortalFiber(fiber) {
+		rt.deleteFiberSubtree(fiber.child, rt.resolvePortalParent(fiber))
+		return
+	}
 
 	if fiber.dom != nil && !fiber.dom.IsNull() {
 		// This fiber has a DOM node, remove it
@@ -1268,6 +1315,61 @@ func (rt *Runtime) deleteFiberSubtree(fiber *Fiber, domParent DOMNode) {
 
 	// Continue across sibling branches so DOM-less parents remove their full subtree.
 	rt.deleteFiberSubtree(fiber.sibling, domParent)
+}
+
+func (rt *Runtime) isPortalFiber(fiber *Fiber) bool {
+	if fiber == nil {
+		return false
+	}
+	_, ok := fiber.typeOf.(*PortalElementType)
+	return ok
+}
+
+func (rt *Runtime) resolvePortalParent(fiber *Fiber) DOMNode {
+	if fiber == nil || fiber.props == nil {
+		return nil
+	}
+
+	if rawNode, ok := fiber.props["portalTargetNode"]; ok && rawNode != nil {
+		if node, ok := rawNode.(DOMNode); ok {
+			return node
+		}
+		if resolver, ok := rt.domAdapter.(interface{ ResolveNode(interface{}) DOMNode }); ok {
+			return resolver.ResolveNode(rawNode)
+		}
+	}
+
+	if selector, ok := fiber.props["portalTargetSelector"].(string); ok && selector != "" {
+		return rt.queryContainer(selector)
+	}
+
+	return nil
+}
+
+func (rt *Runtime) portalTargetChanged(fiber *Fiber) bool {
+	if fiber == nil || fiber.alternate == nil {
+		return false
+	}
+	return !fastEqual(fiber.props["portalTargetSelector"], fiber.alternate.props["portalTargetSelector"]) || !fastEqual(fiber.props["portalTargetNode"], fiber.alternate.props["portalTargetNode"])
+}
+
+func (rt *Runtime) movePortalSubtree(fiber *Fiber, oldParent, newParent DOMNode) {
+	if fiber == nil || oldParent == nil || oldParent.IsNull() || newParent == nil || newParent.IsNull() || oldParent.Equals(newParent) {
+		return
+	}
+
+	if rt.isPortalFiber(fiber) {
+		return
+	}
+
+	if fiber.dom != nil && !fiber.dom.IsNull() {
+		rt.domAdapter.RemoveChild(oldParent, fiber.dom)
+		rt.domAdapter.AppendChild(newParent, fiber.dom)
+	} else {
+		rt.movePortalSubtree(fiber.child, oldParent, newParent)
+	}
+
+	rt.movePortalSubtree(fiber.sibling, oldParent, newParent)
 }
 
 // runCleanups runs all cleanup functions for a fiber and its children

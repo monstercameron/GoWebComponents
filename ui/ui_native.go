@@ -32,6 +32,17 @@ type Handler struct {
 	value interface{}
 }
 
+type PortalTarget struct {
+	Selector string
+	Node     interface{}
+}
+
+type PortalProps struct {
+	Target   PortalTarget
+	Child    Node
+	Children []Node
+}
+
 type AsyncBoundaryProps struct {
 	Pending         bool
 	Error           error
@@ -94,6 +105,15 @@ func CreateElement(component interface{}, props ...interface{}) Node {
 
 func Fragment(children ...Node) Node {
 	return runtime.CreateElement("FRAGMENT", nil, toInterfaces(children)...)
+}
+
+func Portal(props PortalProps) Node {
+	children := make([]Node, 0, len(props.Children)+1)
+	if props.Child != nil {
+		children = append(children, props.Child)
+	}
+	children = append(children, props.Children...)
+	return Fragment(children...)
 }
 
 func Text(content string) Node {

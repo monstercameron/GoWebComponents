@@ -3,6 +3,7 @@
 // It exposes:
 //   - CreateElement for component composition
 //   - Render for browser mounting
+//   - Portal for rendering a subtree into a selector or explicit host node outside the current DOM parent
 //   - CreateContext, UseContext, and Provider components for subtree-scoped values
 //   - UseState, UseReducer, UseForm, UseEffect, UseMemo, UseRef, UsePrevious, UseDebounced, UseThrottled, UseChannel, UseTask, UseLazyNode, and UseId for local stateful logic
 //   - AsyncBoundary and Lazy for explicit async subtree loading and fallback rendering

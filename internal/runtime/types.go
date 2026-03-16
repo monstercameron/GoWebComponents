@@ -8,6 +8,12 @@ type Element struct {
 	TextContent string // Optimization for TEXT_ELEMENT to avoid map allocation
 }
 
+// PortalElementType marks a subtree whose committed DOM children should render
+// into a separate target container.
+type PortalElementType struct{}
+
+var PortalNodeType = &PortalElementType{}
+
 // Effect represents a side effect to be run after render
 type Effect struct {
 	Fn           func() func()

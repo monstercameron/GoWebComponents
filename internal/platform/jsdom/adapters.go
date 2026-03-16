@@ -227,6 +227,22 @@ func (a *WASMDOMAdapter) QuerySelector(selector string) interface{} {
 	return &WASMDOMNode{value: result}
 }
 
+func (a *WASMDOMAdapter) ResolveNode(value interface{}) runtime.DOMNode {
+	switch typed := value.(type) {
+	case runtime.DOMNode:
+		return typed
+	case *WASMDOMNode:
+		return typed
+	case js.Value:
+		if typed.IsNull() || typed.IsUndefined() {
+			return nil
+		}
+		return &WASMDOMNode{value: typed}
+	default:
+		return nil
+	}
+}
+
 func (a *WASMDOMAdapter) QuerySelectorAll(selector string) []runtime.DOMNode {
 	nodeList := a.querySelectorAll.Invoke(selector)
 	length := nodeList.Get("length").Int()

@@ -28,16 +28,16 @@ This backlog focuses on the top-level framework features that are still missing 
 
 ### Portals and Slots as Public APIs
 
-- [ ] Promote runtime portal support into the public API.
-	Expose a stable `ui` or `html` helper for rendering outside the current subtree.
-- [ ] Clarify target selection for portals.
-	Support rendering into explicit DOM nodes or selectors.
+- [x] Promote runtime portal support into the public API.
+	`ui.Portal(...)` now exposes a stable public helper for rendering a subtree outside the current DOM parent while keeping the logical component ownership in place.
+- [x] Clarify target selection for portals.
+	Portals now support both selector-based targets and explicit DOM node targets through `ui.PortalTarget`.
 - [ ] Decide whether slots are part of the public composition model.
 	If they are kept, document when to use them versus regular children.
-- [ ] Add examples for modals, tooltips, and popovers.
-	These are the primary user-facing reasons to expose portals.
-- [ ] Add tests for event propagation and cleanup.
-	Verify portaled content behaves correctly across mount and unmount cycles.
+- [x] Add examples for modals, tooltips, and popovers.
+	`examples/20-portals` now demonstrates modal, tooltip, and popover overlays sharing a dedicated portal mount.
+- [x] Add tests for event propagation and cleanup.
+	Runtime tests now cover selector and explicit-node targets, retargeting, and cleanup on unmount, while the example Playwright suite validates interactive overlay behavior through the public portal API.
 
 ### Go-Native Hook Additions
 
