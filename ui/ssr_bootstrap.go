@@ -114,12 +114,21 @@ func RenderBootstrapReferenceScript(ref SSRBootstrapReference, scriptID string) 
 		return "", err
 	}
 
+	replacer := strings.NewReplacer(
+		"<", `\u003c`,
+		">", `\u003e`,
+		"&", `\u0026`,
+		"\u2028", `\u2028`,
+		"\u2029", `\u2029`,
+	)
+	safeJSON := replacer.Replace(string(encoded))
+
 	id := scriptID
 	if id == "" {
 		id = DefaultBootstrapReferenceScriptID
 	}
 
-	return `<script id="` + html.EscapeString(id) + `" type="application/json" data-gwc-bootstrap-ref="true">` + html.EscapeString(string(encoded)) + `</script>`, nil
+	return `<script id="` + html.EscapeString(id) + `" type="application/json" data-gwc-bootstrap-ref="true">` + safeJSON + `</script>`, nil
 }
 
 func UnmarshalSSRBootstrapReference(data []byte) (SSRBootstrapReference, error) {

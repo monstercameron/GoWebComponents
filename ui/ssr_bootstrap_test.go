@@ -104,8 +104,8 @@ func TestRenderBootstrapReferenceScriptUsesDefaultID(t *testing.T) {
 	if !strings.Contains(script, `data-gwc-bootstrap-ref="true"`) {
 		t.Fatalf("expected bootstrap reference marker, got %q", script)
 	}
-	if !strings.Contains(script, `&#34;url&#34;:&#34;/bootstrap.cbor&#34;`) {
-		t.Fatalf("expected escaped reference payload in script tag, got %q", script)
+	if !strings.Contains(script, `{"url":"/bootstrap.cbor","format":"cbor"}`) {
+		t.Fatalf("expected raw JSON reference payload in script tag, got %q", script)
 	}
 }
 

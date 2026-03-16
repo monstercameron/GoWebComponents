@@ -9,7 +9,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'list',
   use: {
-    baseURL: 'http://127.0.0.1:8079',
+    baseURL: 'http://127.0.0.1:8082',
     trace: 'on-first-retry',
   },
   projects: [
@@ -19,9 +19,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'go run ./18-ssr-server-routing',
-    url: 'http://127.0.0.1:8079/healthz',
-    reuseExistingServer: !process.env.CI,
+    command: 'cmd /c "set PORT=8082&& go run ./18-ssr-server-routing"',
+    url: 'http://127.0.0.1:8082/healthz',
+    reuseExistingServer: false,
     timeout: 120 * 1000,
   },
 });
