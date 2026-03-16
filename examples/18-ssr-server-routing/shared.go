@@ -203,6 +203,10 @@ func decodeBootstrapRouteData(payload ui.SSRBootstrap) (bootstrapRouteData, bool
 	return decoded, true
 }
 
+var _ = decodeBootstrapRouteData
+var _ = resolveRoute
+var _ = bootstrapReferenceURL
+
 func viewFromRouteData(path string, transport string, data bootstrapRouteData) demoShellView {
 	return demoShellView{
 		Page:          data.Page,

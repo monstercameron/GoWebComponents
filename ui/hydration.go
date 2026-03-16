@@ -13,3 +13,5 @@ func resolveHydrationOptions(options []HydrationOptions) HydrationOptions {
 	}
 	return options[0]
 }
+
+var _ = resolveHydrationOptions
