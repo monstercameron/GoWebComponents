@@ -22,6 +22,9 @@ Current head-management, SEO, canonical URL, structured-data, and resource-hint 
 ### `ACCESSIBILITY.md`
 Current accessibility support baseline, including typed semantic markup, `ui.UseId()`, application-owned accessibility responsibilities, and current non-goals.
 
+### `OVERLAYS.md`
+Current overlay layering model, stack coordination rules, anchored-position guidance, and the boundary between framework-owned overlay behavior and application-owned placement logic.
+
 ### `TODO.md`
 Current backlog and near-term work. This is a live backlog, not a historical archive of every idea the project has ever had.
 
@@ -58,6 +61,7 @@ As of 2026-03-14:
 - [../CHANGELOG.md](../CHANGELOG.md)
 - [API_POLICY.md](API_POLICY.md)
 - [ACCESSIBILITY.md](ACCESSIBILITY.md)
+- [OVERLAYS.md](OVERLAYS.md)
 - [HEAD_MANAGEMENT.md](HEAD_MANAGEMENT.md)
 - [MIGRATIONS.md](MIGRATIONS.md)
 - [../examples/README.md](../examples/README.md)

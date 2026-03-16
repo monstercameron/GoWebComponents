@@ -2,6 +2,13 @@
 
 ## 2026-03-16
 
+### Portal layering and overlay management
+
+- Added `ui.Overlay(...)` and `ui.UseOverlayStack(...)` for shared overlay layering, stack-derived z-order, nested escape and outside-click routing, and coordinated focus ownership across portal-backed surfaces.
+- Updated overlay side effects to support nested scroll-lock counting and nested background inert ownership by app-root selector.
+- Added `docs/OVERLAYS.md` to document the current overlay layering model, dismissal routing, and anchored-position guidance.
+- Added `examples/81-overlay-stack` and `examples/82-overlay-anchor` together with focused Playwright specs covering nested dialogs, dialog-plus-popover routing, tooltip-over-menu layering, and portal retargeting.
+
 ### Accessibility guidance baseline
 
 - Added `ui.UseFocusManager()`, `ui.UseFocusTrap(...)`, `ui.UseCompositeNavigation(...)`, `ui.UseAnnouncer()`, and `ui.AccessibleOverlay(...)` as the first public accessibility-focused primitives.

@@ -571,19 +571,19 @@ Organization rules for this file:
 
 ### Portal layering and overlay management
 
-- [ ] Define a first-class overlay and portal layering model.
+- [x] Define a first-class overlay and portal layering model.
 	Document how modals, popovers, tooltips, dropdowns, sheets, and nested portals participate in shared stacking order instead of leaving z-index policy to ad hoc application code.
-- [ ] Add a centralized overlay manager primitive.
+- [x] Add a centralized overlay manager primitive.
 	Provide a framework-level way to register active overlays, assign stack order, and coordinate mount or unmount behavior for nested and sibling portal trees.
-- [ ] Define escape-key and dismissal routing for nested overlays.
+- [x] Define escape-key and dismissal routing for nested overlays.
 	Specify which overlay handles escape first, how outside-click dismissal behaves across stacked layers, and how parent overlays remain stable when child overlays close.
-- [ ] Add scroll-lock and background-inert behavior.
+- [x] Add scroll-lock and background-inert behavior.
 	Support consistent body scroll locking, nested overlay lock counting, and background interaction suppression so portal-heavy apps do not reimplement these details for every dialog flow.
-- [ ] Define focus and accessibility coordination for layered overlays.
+- [x] Define focus and accessibility coordination for layered overlays.
 	Ensure the overlay manager composes correctly with focus trapping, restoration, announcement semantics, and aria relationships when several portal-driven surfaces are open at once.
-- [ ] Add positioning and anchor coordination guidance for floating overlays.
+- [x] Add positioning and anchor coordination guidance for floating overlays.
 	Document how tooltips, anchored popovers, and context menus should manage viewport collision, resize or scroll repositioning, and nested stacking without conflicting portal ownership.
-- [ ] Add examples and tests for complex overlay stacks.
+- [x] Add examples and tests for complex overlay stacks.
 	Demonstrate nested dialogs, dialog-plus-popover, tooltip-over-menu, and portal retargeting scenarios so layering behavior is enforced by real browser coverage.
 
 ### Internationalization and localization

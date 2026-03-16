@@ -16,11 +16,11 @@ type FocusOptions struct {
 }
 
 type FocusTrapOptions struct {
-	ContainerSelector    string
-	InitialFocusSelector string
+	ContainerSelector     string
+	InitialFocusSelector  string
 	FallbackFocusSelector string
-	Active               bool
-	RestoreFocus         bool
+	Active                bool
+	RestoreFocus          bool
 }
 
 type FocusManager struct {
@@ -34,8 +34,8 @@ type CompositeItem struct {
 }
 
 type CompositeNavigationOptions struct {
-	Orientation string
-	Loop        bool
+	Orientation  string
+	Loop         bool
 	InitialIndex int
 }
 
@@ -54,7 +54,7 @@ type compositeTypeaheadState struct {
 type AnnouncementMode string
 
 const (
-	AnnouncementPolite   AnnouncementMode = "polite"
+	AnnouncementPolite    AnnouncementMode = "polite"
 	AnnouncementAssertive AnnouncementMode = "assertive"
 )
 
@@ -64,32 +64,41 @@ type announcementState struct {
 }
 
 type Announcer struct {
-	polite     State[announcementState]
-	assertive  State[announcementState]
-	politeID   string
+	polite      State[announcementState]
+	assertive   State[announcementState]
+	politeID    string
 	assertiveID string
 }
 
 type AccessibleOverlayProps struct {
-	Open                bool
-	Target              PortalTarget
-	AppRootSelector     string
-	SurfaceID           string
-	LabelledBy          string
-	DescribedBy         string
-	Role                string
-	Modal               bool
-	InitialFocusSelector string
-	RestoreFocus        bool
-	TrapFocus           bool
-	CloseOnEscape       bool
-	CloseOnOutsideClick bool
-	LockScroll          bool
-	BackdropClass       string
-	SurfaceClass        string
-	Child               Node
-	Children            []Node
-	OnDismiss           func()
+	Open                  bool
+	Target                PortalTarget
+	AppRootSelector       string
+	SurfaceID             string
+	Kind                  OverlayKind
+	LabelledBy            string
+	DescribedBy           string
+	Role                  string
+	Modal                 bool
+	InitialFocusSelector  string
+	FallbackFocusSelector string
+	RestoreFocus          bool
+	TrapFocus             bool
+	CloseOnEscape         bool
+	CloseOnOutsideClick   bool
+	LockScroll            bool
+	BackgroundInert       bool
+	Backdrop              bool
+	BaseZIndex            int
+	AnchorSelector        string
+	Positioning           string
+	BackdropClass         string
+	SurfaceClass          string
+	BackdropStyle         map[string]string
+	SurfaceStyle          map[string]string
+	Child                 Node
+	Children              []Node
+	OnDismiss             func()
 }
 
 func UseFocusManager() FocusManager {
@@ -115,8 +124,8 @@ func (m FocusManager) FocusFirstError(errors FieldErrors, fieldIDs map[string]st
 
 func UseCompositeNavigation(items []CompositeItem, options ...CompositeNavigationOptions) CompositeNavigation {
 	resolved := CompositeNavigationOptions{
-		Orientation: "both",
-		Loop:        true,
+		Orientation:  "both",
+		Loop:         true,
 		InitialIndex: 0,
 	}
 	if len(options) > 0 {
@@ -378,15 +387,15 @@ func announcementRegionNode(id string, mode string, state announcementState) Nod
 		"aria-live":   mode,
 		"aria-atomic": "true",
 		"style": map[string]string{
-			"position": "absolute",
-			"width":    "1px",
-			"height":   "1px",
-			"padding":  "0",
-			"margin":   "-1px",
-			"overflow": "hidden",
-			"clip":     "rect(0 0 0 0)",
+			"position":   "absolute",
+			"width":      "1px",
+			"height":     "1px",
+			"padding":    "0",
+			"margin":     "-1px",
+			"overflow":   "hidden",
+			"clip":       "rect(0 0 0 0)",
 			"whiteSpace": "nowrap",
-			"border":   "0",
+			"border":     "0",
 		},
 	},
 		runtime.CreateElement("span", nil, state.message),
@@ -395,87 +404,40 @@ func announcementRegionNode(id string, mode string, state announcementState) Nod
 }
 
 func AccessibleOverlay(props AccessibleOverlayProps) Node {
-	surfaceID := props.SurfaceID
-	if surfaceID == "" {
-		surfaceID = UseId() + "-overlay"
-	}
-	role := props.Role
-	if role == "" {
-		role = "dialog"
-	}
 	modal := props.Modal
-	if role == "dialog" && !props.Modal {
+	if props.Role == "dialog" && !props.Modal {
 		modal = true
 	}
-	restoreFocus := modal || props.RestoreFocus
-	trapFocus := modal || props.TrapFocus
-	closeOnEscape := modal || props.CloseOnEscape
-	closeOnOutsideClick := modal || props.CloseOnOutsideClick
-	containerSelector := "#" + surfaceID
-	if trapFocus {
-		UseFocusTrap(FocusTrapOptions{
-			ContainerSelector:    containerSelector,
-			InitialFocusSelector: props.InitialFocusSelector,
-			Active:               props.Open,
-			RestoreFocus:         restoreFocus,
-		})
-	}
-	useOverlayEscape(props.Open && closeOnEscape, props.OnDismiss)
-	useOverlayScrollLock(props.Open && props.LockScroll)
-	useOverlayBackgroundInert(props.AppRootSelector, props.Open && modal)
-
-	if !props.Open {
-		return nil
-	}
-
-	children := make([]Node, 0, len(props.Children)+1)
-	if props.Child != nil {
-		children = append(children, props.Child)
-	}
-	children = append(children, props.Children...)
-
-	stopClick := UseEvent(func(event MouseEvent) {
-		event.StopPropagation()
+	return Overlay(OverlayProps{
+		Open:                  props.Open,
+		Target:                props.Target,
+		AppRootSelector:       props.AppRootSelector,
+		SurfaceID:             props.SurfaceID,
+		Kind:                  props.Kind,
+		Role:                  props.Role,
+		LabelledBy:            props.LabelledBy,
+		DescribedBy:           props.DescribedBy,
+		InitialFocusSelector:  props.InitialFocusSelector,
+		FallbackFocusSelector: props.FallbackFocusSelector,
+		Modal:                 modal,
+		Backdrop:              props.Backdrop,
+		TrapFocus:             props.TrapFocus,
+		RestoreFocus:          props.RestoreFocus,
+		CloseOnEscape:         props.CloseOnEscape,
+		CloseOnOutsideClick:   props.CloseOnOutsideClick,
+		LockScroll:            props.LockScroll,
+		BackgroundInert:       props.BackgroundInert,
+		BaseZIndex:            props.BaseZIndex,
+		AnchorSelector:        props.AnchorSelector,
+		Positioning:           props.Positioning,
+		BackdropClass:         props.BackdropClass,
+		SurfaceClass:          props.SurfaceClass,
+		BackdropStyle:         props.BackdropStyle,
+		SurfaceStyle:          props.SurfaceStyle,
+		Child:                 props.Child,
+		Children:              props.Children,
+		OnDismiss:             props.OnDismiss,
 	})
-	var dismissHandler Handler
-	if closeOnOutsideClick && props.OnDismiss != nil {
-		dismissHandler = UseEvent(func() {
-			props.OnDismiss()
-		})
-	}
-
-	backdropProps := map[string]interface{}{
-		"class": props.BackdropClass,
-	}
-	if dismissHandler.value != nil {
-		backdropProps["onclick"] = dismissHandler.value
-	}
-
-	surfaceProps := map[string]interface{}{
-		"id":       surfaceID,
-		"role":     role,
-		"tabIndex": -1,
-		"class":    props.SurfaceClass,
-		"onclick":  stopClick.value,
-	}
-	if props.LabelledBy != "" {
-		surfaceProps["aria-labelledby"] = props.LabelledBy
-	}
-	if props.DescribedBy != "" {
-		surfaceProps["aria-describedby"] = props.DescribedBy
-	}
-	if modal {
-		surfaceProps["aria-modal"] = "true"
-	}
-
-	overlay := runtime.CreateElement("div", backdropProps,
-		runtime.CreateElement("div", surfaceProps, toInterfaces(children)...),
-	)
-
-	if props.Target.Selector != "" || props.Target.Node != nil {
-		return Portal(PortalProps{Target: props.Target, Child: overlay})
-	}
-	return overlay
 }
 
 func compositeNormalizeIndex(items []CompositeItem, current int, preferred int) int {

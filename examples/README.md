@@ -38,6 +38,8 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `77-accessible-overlay`: `ui.AccessibleOverlay`, `ui.UseFocusManager`, `ui.UseFocusTrap`
 - `78-composite-navigation`: `ui.UseCompositeNavigation`
 - `79-form-accessibility`: `ui.UseAnnouncer`, validation announcements, focus-to-error behavior
+- `81-overlay-stack`: `ui.Overlay`, `ui.UseOverlayStack`, nested dialog and popover coordination
+- `82-overlay-anchor`: `ui.Overlay` with anchored menu and tooltip retargeting
 - `21-ui-render`: `ui.Render`
 - `22-create-element`: `ui.CreateElement`
 - `23-fragment`: `ui.Fragment`

@@ -124,6 +124,8 @@ Standalone SSR server URLs:
 - `77-accessible-overlay`: Open the modal, cycle focus with Tab and Shift+Tab, then close it with Escape. Expected: focus stays inside the dialog while open, the background shell is hidden from assistive technology, and focus returns to the trigger on close.
 - `78-composite-navigation`: Focus the tabs and listbox, then use arrow keys, Home or End, and first-letter typeahead. Expected: the active item updates without bespoke keyboard wiring in the page component.
 - `79-form-accessibility`: Submit the form empty, then complete it successfully. Expected: validation errors are announced, focus moves to the first invalid field, and the success path announces completion after submit.
+- `81-overlay-stack`: Open the parent dialog, then the popover and nested dialog. Expected: Escape closes the popover first, then the nested dialog, then the parent dialog; body scroll stays locked until the last modal layer closes; nested close returns focus to the parent trigger.
+- `82-overlay-anchor`: Open the menu, toggle the tooltip, then switch the tooltip target between selector and explicit-node roots. Expected: the tooltip stays above the menu in both targets and the menu still dismisses cleanly with Escape.
 
 ### state Package
 

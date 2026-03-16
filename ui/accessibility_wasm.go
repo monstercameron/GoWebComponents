@@ -190,19 +190,9 @@ func useOverlayScrollLock(active bool) {
 		if !active {
 			return nil
 		}
-		document := js.Global().Get("document")
-		if !document.Truthy() {
-			return nil
-		}
-		body := document.Get("body")
-		if !body.Truthy() {
-			return nil
-		}
-		style := body.Get("style")
-		previous := style.Get("overflow").String()
-		style.Set("overflow", "hidden")
+		overlayAcquireScrollLock()
 		return func() {
-			style.Set("overflow", previous)
+			overlayReleaseScrollLock()
 		}
 	}, active)
 }
@@ -212,37 +202,9 @@ func useOverlayBackgroundInert(selector string, active bool) {
 		if !active || selector == "" {
 			return nil
 		}
-		document := js.Global().Get("document")
-		if !document.Truthy() {
-			return nil
-		}
-		element := queryDocumentSelector(document, selector)
-		if !element.Truthy() {
-			return nil
-		}
-		previousHidden := ""
-		hasHidden := element.Call("hasAttribute", "aria-hidden").Bool()
-		if hasHidden {
-			previousHidden = element.Call("getAttribute", "aria-hidden").String()
-		}
-		hadInert := false
-		previousInert := false
-		inertValue := element.Get("inert")
-		if inertValue.Type() != js.TypeUndefined && inertValue.Type() != js.TypeNull {
-			hadInert = true
-			previousInert = inertValue.Bool()
-			element.Set("inert", true)
-		}
-		element.Call("setAttribute", "aria-hidden", "true")
+		overlayAcquireBackgroundInert(selector)
 		return func() {
-			if hasHidden {
-				element.Call("setAttribute", "aria-hidden", previousHidden)
-			} else {
-				element.Call("removeAttribute", "aria-hidden")
-			}
-			if hadInert {
-				element.Set("inert", previousInert)
-			}
+			overlayReleaseBackgroundInert(selector)
 		}
 	}, active, selector)
 }

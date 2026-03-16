@@ -26,8 +26,8 @@ type CompositeItem struct {
 }
 
 type CompositeNavigationOptions struct {
-	Orientation string
-	Loop        bool
+	Orientation  string
+	Loop         bool
 	InitialIndex int
 }
 
@@ -36,32 +36,41 @@ type CompositeNavigation struct{}
 type AnnouncementMode string
 
 const (
-	AnnouncementPolite   AnnouncementMode = "polite"
+	AnnouncementPolite    AnnouncementMode = "polite"
 	AnnouncementAssertive AnnouncementMode = "assertive"
 )
 
 type Announcer struct{}
 
 type AccessibleOverlayProps struct {
-	Open                 bool
-	Target               PortalTarget
-	AppRootSelector      string
-	SurfaceID            string
-	LabelledBy           string
-	DescribedBy          string
-	Role                 string
-	Modal                bool
-	InitialFocusSelector string
-	RestoreFocus         bool
-	TrapFocus            bool
-	CloseOnEscape        bool
-	CloseOnOutsideClick  bool
-	LockScroll           bool
-	BackdropClass        string
-	SurfaceClass         string
-	Child                Node
-	Children             []Node
-	OnDismiss            func()
+	Open                  bool
+	Target                PortalTarget
+	AppRootSelector       string
+	SurfaceID             string
+	Kind                  OverlayKind
+	LabelledBy            string
+	DescribedBy           string
+	Role                  string
+	Modal                 bool
+	InitialFocusSelector  string
+	FallbackFocusSelector string
+	RestoreFocus          bool
+	TrapFocus             bool
+	CloseOnEscape         bool
+	CloseOnOutsideClick   bool
+	LockScroll            bool
+	BackgroundInert       bool
+	Backdrop              bool
+	BaseZIndex            int
+	AnchorSelector        string
+	Positioning           string
+	BackdropClass         string
+	SurfaceClass          string
+	BackdropStyle         map[string]string
+	SurfaceStyle          map[string]string
+	Child                 Node
+	Children              []Node
+	OnDismiss             func()
 }
 
 func UseFocusManager() FocusManager {
@@ -117,12 +126,36 @@ func (a Announcer) AssertiveID() string { return "" }
 func (a Announcer) Region() Node { return nil }
 
 func AccessibleOverlay(props AccessibleOverlayProps) Node {
-	children := make([]Node, 0, len(props.Children)+1)
-	if props.Child != nil {
-		children = append(children, props.Child)
-	}
-	children = append(children, props.Children...)
-	return Fragment(children...)
+	return Overlay(OverlayProps{
+		Open:                  props.Open,
+		Target:                props.Target,
+		AppRootSelector:       props.AppRootSelector,
+		SurfaceID:             props.SurfaceID,
+		Kind:                  props.Kind,
+		Role:                  props.Role,
+		LabelledBy:            props.LabelledBy,
+		DescribedBy:           props.DescribedBy,
+		InitialFocusSelector:  props.InitialFocusSelector,
+		FallbackFocusSelector: props.FallbackFocusSelector,
+		Modal:                 props.Modal,
+		Backdrop:              props.Backdrop,
+		TrapFocus:             props.TrapFocus,
+		RestoreFocus:          props.RestoreFocus,
+		CloseOnEscape:         props.CloseOnEscape,
+		CloseOnOutsideClick:   props.CloseOnOutsideClick,
+		LockScroll:            props.LockScroll,
+		BackgroundInert:       props.BackgroundInert,
+		BaseZIndex:            props.BaseZIndex,
+		AnchorSelector:        props.AnchorSelector,
+		Positioning:           props.Positioning,
+		BackdropClass:         props.BackdropClass,
+		SurfaceClass:          props.SurfaceClass,
+		BackdropStyle:         props.BackdropStyle,
+		SurfaceStyle:          props.SurfaceStyle,
+		Child:                 props.Child,
+		Children:              props.Children,
+		OnDismiss:             props.OnDismiss,
+	})
 }
 
 func (m FocusManager) RememberActive() bool {
