@@ -19,6 +19,9 @@ Release-to-release upgrade guidance, starting with the transition into the curre
 ### `HEAD_MANAGEMENT.md`
 Current head-management, SEO, canonical URL, structured-data, and resource-hint guidance, including the boundary between router-managed metadata and app-owned explicit head markup.
 
+### `ACCESSIBILITY.md`
+Current accessibility support baseline, including typed semantic markup, `ui.UseId()`, application-owned accessibility responsibilities, and current non-goals.
+
 ### `TODO.md`
 Current backlog and near-term work. This is a live backlog, not a historical archive of every idea the project has ever had.
 
@@ -54,6 +57,7 @@ As of 2026-03-14:
 - [../README.md](../README.md)
 - [../CHANGELOG.md](../CHANGELOG.md)
 - [API_POLICY.md](API_POLICY.md)
+- [ACCESSIBILITY.md](ACCESSIBILITY.md)
 - [HEAD_MANAGEMENT.md](HEAD_MANAGEMENT.md)
 - [MIGRATIONS.md](MIGRATIONS.md)
 - [../examples/README.md](../examples/README.md)

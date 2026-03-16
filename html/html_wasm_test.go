@@ -152,6 +152,51 @@ func TestTagBuildersPreservePublicProps(t *testing.T) {
 	}
 }
 
+func TestAccessibilityPropsPreserveSemanticRelationships(t *testing.T) {
+	elem := Dialog(Props{
+		ID:   "settings-dialog",
+		Role: "dialog",
+		Aria: map[string]string{
+			"labelledby": "settings-title",
+			"describedby": "settings-description",
+			"modal":       "true",
+		},
+		Raw: map[string]interface{}{"tabIndex": -1},
+	})
+	if elem == nil {
+		t.Fatal("expected element")
+	}
+	if elem.Type != "dialog" {
+		t.Fatalf("expected dialog tag, got %#v", elem.Type)
+	}
+	if elem.Props["id"] != "settings-dialog" {
+		t.Fatalf("expected id prop, got %#v", elem.Props["id"])
+	}
+	if elem.Props["role"] != "dialog" {
+		t.Fatalf("expected role prop, got %#v", elem.Props["role"])
+	}
+	if elem.Props["aria-labelledby"] != "settings-title" {
+		t.Fatalf("expected aria-labelledby prop, got %#v", elem.Props["aria-labelledby"])
+	}
+	if elem.Props["aria-describedby"] != "settings-description" {
+		t.Fatalf("expected aria-describedby prop, got %#v", elem.Props["aria-describedby"])
+	}
+	if elem.Props["aria-modal"] != "true" {
+		t.Fatalf("expected aria-modal prop, got %#v", elem.Props["aria-modal"])
+	}
+	if elem.Props["tabIndex"] != -1 {
+		t.Fatalf("expected tabIndex prop, got %#v", elem.Props["tabIndex"])
+	}
+
+	label := Label(Props{For: "field-id"}, Text("Field"))
+	if label == nil {
+		t.Fatal("expected label element")
+	}
+	if label.Props["htmlFor"] != "field-id" {
+		t.Fatalf("expected htmlFor prop, got %#v", label.Props["htmlFor"])
+	}
+}
+
 func TestTagWrappersExposeExpectedElementTypes(t *testing.T) {
 	tests := []struct {
 		name string

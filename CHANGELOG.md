@@ -2,6 +2,12 @@
 
 ## 2026-03-16
 
+### Accessibility guidance baseline
+
+- Added `docs/ACCESSIBILITY.md` to define the current public accessibility baseline around typed semantic HTML, `ui.UseId()`, ARIA or role props, and the accessibility responsibilities that still belong to applications.
+- Documented current guidance for forms, routed apps, async UI, and portal-backed overlays without claiming first-class support for focus trapping, live-region announcements, or keyboard-navigation primitives.
+- Added baseline tests covering accessible prop preservation for dialog and labeled form markup plus `ui.UseId()` distinctness within a component render.
+
 ### Head management and SEO guidance
 
 - Added `docs/HEAD_MANAGEMENT.md` to define the current head-management model, including the boundary between router-managed metadata and application-owned explicit SEO markup.

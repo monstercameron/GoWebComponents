@@ -371,6 +371,20 @@ func TestPublicHooksWrappers(t *testing.T) {
 	}
 }
 
+func TestUseIdProducesDistinctIDsWithinComponent(t *testing.T) {
+	installUIHookContext(t)
+
+	first := UseId()
+	second := UseId()
+
+	if first == "" || second == "" {
+		t.Fatalf("expected non-empty ids, got %q and %q", first, second)
+	}
+	if first == second {
+		t.Fatalf("expected distinct ids within one component render, got %q and %q", first, second)
+	}
+}
+
 func TestUseTransitionDefersPublicStateUpdates(t *testing.T) {
 	scheduler := installQueuedUIHookContext(t)
 

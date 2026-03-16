@@ -554,8 +554,8 @@ Organization rules for this file:
 
 ### Accessibility primitives and guidance
 
-- [ ] Define the accessibility support baseline for the public UI surface.
-	Document which accessibility responsibilities are already handled by typed HTML props and IDs, and which behaviors still require first-class framework primitives.
+- [x] Define the accessibility support baseline for the public UI surface.
+	`docs/ACCESSIBILITY.md` now defines the shipped baseline around typed semantic HTML, ARIA and role props, `ui.UseId()`, and the framework behaviors that still remain application-owned.
 - [ ] Add a first-class focus-management toolkit.
 	Support common needs such as returning focus after dialog close, focusing first invalid form fields, trapping focus inside overlays, and restoring focus after route-driven UI changes.
 - [ ] Add keyboard-navigation primitives for composite widgets.
@@ -564,8 +564,8 @@ Organization rules for this file:
 	Support polite and assertive announcements for async loading, validation results, toasts, and route transitions without forcing every app to hand-roll `aria-live` containers.
 - [ ] Define accessible overlay primitives.
 	Document and eventually support the semantics required for dialogs, popovers, dropdown menus, and sheet-style overlays, including focus trapping, escape handling, inert-background behavior, and aria wiring.
-- [ ] Add accessibility guidance for forms, routed apps, and async UI.
-	Document label/input pairing, field error announcements, pending-state semantics, route-change announcements, and loading-state patterns that work with screen readers.
+- [x] Add accessibility guidance for forms, routed apps, and async UI.
+	`docs/ACCESSIBILITY.md` now documents label/input pairing, `aria-*` usage, route-announcement limitations, async pending-state semantics, and the gap between semantic markup support and missing first-class announcement helpers.
 - [ ] Add accessibility-focused examples and tests.
 	Create examples and browser tests for accessible modal, tabs, listbox or combobox, form validation feedback, and routed page-announcement behavior so the guidance is enforced by real usage.
 
