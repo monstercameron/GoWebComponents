@@ -42,7 +42,7 @@ func App() ui.Node {
 	if showTooltip.Get() {
 		overlay = append(overlay, ui.Portal(ui.PortalProps{
 			Target: ui.PortalTarget{Selector: "#portal-root"},
-			Child: html.Div(html.Props{ID: "tooltip-surface", Role: "tooltip", Class: "fixed left-6 top-6 z-40 rounded-full bg-[#18352f] px-4 py-2 text-sm font-medium text-white shadow-xl"}, html.Text("Tooltip rendered through the portal root")),
+			Child:  html.Div(html.Props{ID: "tooltip-surface", Role: "tooltip", Class: "fixed left-6 top-6 z-40 rounded-full bg-[#18352f] px-4 py-2 text-sm font-medium text-white shadow-xl"}, html.Text("Tooltip rendered through the portal root")),
 		}))
 	}
 	if showPopover.Get() {
