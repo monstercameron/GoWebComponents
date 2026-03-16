@@ -31,10 +31,10 @@ type poolConfigStats struct {
 }
 
 var (
-	fiberPool        sync.Pool
-	poolUtilization  poolUtilizationStats
-	poolSizes        poolSizeStats
-	poolConfig       = poolConfigStats{fiberPoolSize: 1024}
+	fiberPool       sync.Pool
+	poolUtilization poolUtilizationStats
+	poolSizes       poolSizeStats
+	poolConfig      = poolConfigStats{fiberPoolSize: 1024}
 )
 
 func debugf(namespace, format string, a ...interface{}) {}
@@ -80,8 +80,8 @@ func createElement(typ interface{}, props map[string]interface{}, children ...in
 	}
 	props["children"] = children
 	return &Element{
-		Type:  typ,
-		Props: props,
+		Type:     typ,
+		Props:    props,
 		Children: children,
 	}
 }
@@ -194,14 +194,14 @@ func tag(name string, props Attrs, children ...interface{}) *Element {
 	return createElement(name, map[string]interface{}(props), children...)
 }
 
-func Div(props Attrs, children ...interface{}) *Element { return tag("div", props, children...) }
-func H1(props Attrs, children ...interface{}) *Element { return tag("h1", props, children...) }
-func H3(props Attrs, children ...interface{}) *Element { return tag("h3", props, children...) }
-func H4(props Attrs, children ...interface{}) *Element { return tag("h4", props, children...) }
-func P(props Attrs, children ...interface{}) *Element { return tag("p", props, children...) }
-func Span(props Attrs, children ...interface{}) *Element { return tag("span", props, children...) }
-func Pre(props Attrs, children ...interface{}) *Element { return tag("pre", props, children...) }
-func Ul(props Attrs, children ...interface{}) *Element { return tag("ul", props, children...) }
-func Li(props Attrs, children ...interface{}) *Element { return tag("li", props, children...) }
+func Div(props Attrs, children ...interface{}) *Element    { return tag("div", props, children...) }
+func H1(props Attrs, children ...interface{}) *Element     { return tag("h1", props, children...) }
+func H3(props Attrs, children ...interface{}) *Element     { return tag("h3", props, children...) }
+func H4(props Attrs, children ...interface{}) *Element     { return tag("h4", props, children...) }
+func P(props Attrs, children ...interface{}) *Element      { return tag("p", props, children...) }
+func Span(props Attrs, children ...interface{}) *Element   { return tag("span", props, children...) }
+func Pre(props Attrs, children ...interface{}) *Element    { return tag("pre", props, children...) }
+func Ul(props Attrs, children ...interface{}) *Element     { return tag("ul", props, children...) }
+func Li(props Attrs, children ...interface{}) *Element     { return tag("li", props, children...) }
 func Button(props Attrs, children ...interface{}) *Element { return tag("button", props, children...) }
-func Input(props Attrs, children ...interface{}) *Element { return tag("input", props, children...) }
+func Input(props Attrs, children ...interface{}) *Element  { return tag("input", props, children...) }
