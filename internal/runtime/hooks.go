@@ -79,62 +79,47 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 	}
 
 	setter := func(newValueOrUpdater interface{}) {
-		// Bounds check removed for performance
-		if pIdx >= len(hooks.states) {
-			// This should rarely happen if logic is correct, but handle just in case of race/weirdness
-			// Actually, if we are here, hooks.states might have been reallocated but we have the pointer to hooks
-			// So len(hooks.states) should be valid.
-			// But if we are adding state dynamically (conditional hooks - bad practice), we might need to grow.
-			// But React rules say no conditional hooks.
-			// Let's keep growth logic but optimized.
-			needed := pIdx + 1
-			if needed > cap(hooks.states) {
-				newStates := make([]interface{}, needed, needed*2)
-				copy(newStates, hooks.states)
-				hooks.states = newStates
-			} else if needed > len(hooks.states) {
-				hooks.states = hooks.states[:needed]
+		apply := func() {
+			if pIdx >= len(hooks.states) {
+				needed := pIdx + 1
+				if needed > cap(hooks.states) {
+					newStates := make([]interface{}, needed, needed*2)
+					copy(newStates, hooks.states)
+					hooks.states = newStates
+				} else if needed > len(hooks.states) {
+					hooks.states = hooks.states[:needed]
+				}
 			}
-		}
 
-		// Get COMMITTED value (not pending) for comparison
-		var currentValue T
-		// We can trust the type if the slot was initialized with T
-		if cv, ok := hooks.states[sIdx].(T); ok {
-			currentValue = cv
-		}
+			var currentValue T
+			if cv, ok := hooks.states[sIdx].(T); ok {
+				currentValue = cv
+			}
 
-		// Determine the new value
-		var newValue T
-		// Try to treat as functional update (func(T) T)
-		if fn, ok := newValueOrUpdater.(func(T) T); ok {
-			newValue = fn(currentValue)
-		} else if directValue, ok := newValueOrUpdater.(T); ok {
-			// Direct value
-			newValue = directValue
-		} else if newValueOrUpdater == nil && nilableState {
-			var zero T
-			newValue = zero
-		} else {
-			return
-		}
+			newValue, ok := resolveStateUpdateValue(currentValue, newValueOrUpdater, nilableState)
+			if !ok {
+				return
+			}
 
-		// Check if newValue is different from current PENDING value
-		areEqual := fastEqual(currentValue, newValue)
-		if !areEqual {
-			// Update pending state immediately (visible to next setState in same render cycle)
+			if fastEqual(currentValue, newValue) {
+				return
+			}
+
 			hooks.states[pIdx] = newValue
-			// Also update committed state (this is what triggers re-render)
 			hooks.states[sIdx] = newValue
-			// WASM is single-threaded, goroutines can call this directly
 			targetFiber := hooks.owner
 			if targetFiber == nil {
 				targetFiber = fiber
 			}
 			rt.ScheduleUpdateForFiber(targetFiber)
-		} else {
-			// Values are equal, skip update
 		}
+
+		if rt != nil && rt.ShouldDeferStateUpdates() {
+			rt.ScheduleTransition(apply)
+			return
+		}
+
+		apply()
 	}
 
 	return getter, setter
@@ -437,7 +422,7 @@ func GoUseFunc(fn interface{}) interface{} {
 		panic("GoUseFunc domAdapter is nil")
 	}
 
-	wrapper := rt.domAdapter.WrapFunction(fn)
+	wrapper := rt.domAdapter.WrapFunction(rt.wrapEventHandler(fiber, fn))
 
 	// Store it
 	handlerVal := funcHandlerValue{

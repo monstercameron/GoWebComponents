@@ -60,3 +60,31 @@ func ExampleUseResource() {
 	resource.Reload()
 	resource.Cancel()
 }
+
+func ExampleUseCachedResource() {
+	// Note: Hooks can only be used inside a component function
+
+	resource := fetch.UseCachedResource("users", func(ctx context.Context) ([]string, error) {
+		_ = ctx
+		return []string{"Ada", "Grace"}, nil
+	}, fetch.CacheOptions{})
+
+	state := resource.Get()
+	if state.Loading && !state.Ready {
+		fmt.Println("Loading shared cache...")
+		return
+	}
+	if state.Error != nil {
+		fmt.Printf("Error: %v\n", state.Error)
+		return
+	}
+	if state.Ready {
+		fmt.Printf("Cached users: %d\n", len(state.Value))
+	}
+
+	resource.Update(func(prev []string) []string {
+		return append(prev, "Linus")
+	})
+	resource.Invalidate()
+	resource.Reload()
+}

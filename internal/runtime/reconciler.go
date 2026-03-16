@@ -843,6 +843,9 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 			}
 			rt.reconcileChildren(fiber, emptyChildren)
 
+		case *ErrorBoundaryType:
+			rt.renderBoundaryChildren(fiber)
+
 		default:
 			// Function component
 			currentFiber = fiber
@@ -876,12 +879,31 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 				fiber.effects = make([]Effect, 0)
 			}
 			var element *Element
-			if fn, ok := fiber.typeOf.(func() *Element); ok {
-				element = fn()
-			} else if fn, ok := fiber.typeOf.(func(map[string]interface{}) *Element); ok {
-				element = fn(fiber.props)
-			} else if fn, ok := fiber.typeOf.(func(Attrs) *Element); ok {
-				element = fn(Attrs(fiber.props))
+			var handledPanic bool
+			var nextFromBoundary *Fiber
+			func() {
+				defer func() {
+					if recovered := recover(); recovered != nil {
+						var handled bool
+						nextFromBoundary, handled = rt.recoverBoundaryError(fiber.parent, recovered, boundaryPhaseRender)
+						if !handled {
+							panic(recovered)
+						}
+						handledPanic = true
+					}
+				}()
+
+				if fn, ok := fiber.typeOf.(func() *Element); ok {
+					element = fn()
+				} else if fn, ok := fiber.typeOf.(func(map[string]interface{}) *Element); ok {
+					element = fn(fiber.props)
+				} else if fn, ok := fiber.typeOf.(func(Attrs) *Element); ok {
+					element = fn(Attrs(fiber.props))
+				}
+			}()
+
+			if handledPanic {
+				return nextFromBoundary
 			}
 
 			if element != nil {
@@ -1111,6 +1133,11 @@ func (rt *Runtime) commitRoot() {
 
 	rt.currentRoot = rt.wipRoot
 	rt.wipRoot = nil
+	if rt.pendingBoundaryRecovery {
+		rt.pendingBoundaryRecovery = false
+		rt.updateScheduled = false
+		rt.ScheduleUpdate()
+	}
 }
 
 func reportMissingKeys(parent *Fiber, elements []interface{}) {
@@ -1281,7 +1308,18 @@ func (rt *Runtime) runCleanups(fiber *Fiber) {
 		for _, cleanup := range fiber.hooks.cleanups {
 			if cleanup != nil {
 				start := time.Now()
-				cleanup()
+				var handled bool
+				func() {
+					defer func() {
+						if recovered := recover(); recovered != nil {
+							_, handled = rt.recoverBoundaryError(fiber, recovered, boundaryPhaseCleanup)
+							if !handled {
+								panic(recovered)
+							}
+						}
+					}()
+					cleanup()
+				}()
 				durationNs := time.Since(start).Nanoseconds()
 				fiber.cleanupDurationNs += durationNs
 				rt.profiling.cleanupExecutions++
@@ -1314,7 +1352,22 @@ func (rt *Runtime) runEffects(fiber *Fiber) {
 	// Unroll for common small effect counts
 	if effectCount == 1 {
 		start := time.Now()
-		cleanup := effects[0].Fn()
+		cleanup := func() func() {
+			var cleanup func()
+			var handled bool
+			func() {
+				defer func() {
+					if recovered := recover(); recovered != nil {
+						_, handled = rt.recoverBoundaryError(fiber, recovered, boundaryPhaseEffect)
+						if !handled {
+							panic(recovered)
+						}
+					}
+				}()
+				cleanup = effects[0].Fn()
+			}()
+			return cleanup
+		}()
 		durationNs := time.Since(start).Nanoseconds()
 		fiber.effectDurationNs += durationNs
 		rt.profiling.effectExecutions++
@@ -1327,7 +1380,22 @@ func (rt *Runtime) runEffects(fiber *Fiber) {
 		for i := 0; i < effectCount; i++ {
 			effect := &effects[i]
 			start := time.Now()
-			cleanup := effect.Fn()
+			cleanup := func() func() {
+				var cleanup func()
+				var handled bool
+				func() {
+					defer func() {
+						if recovered := recover(); recovered != nil {
+							_, handled = rt.recoverBoundaryError(fiber, recovered, boundaryPhaseEffect)
+							if !handled {
+								panic(recovered)
+							}
+						}
+					}()
+					cleanup = effect.Fn()
+				}()
+				return cleanup
+			}()
 			durationNs := time.Since(start).Nanoseconds()
 			fiber.effectDurationNs += durationNs
 			rt.profiling.effectExecutions++

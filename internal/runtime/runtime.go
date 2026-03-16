@@ -61,12 +61,16 @@ type Runtime struct {
 	scheduler    Scheduler
 	browserState BrowserState
 
-	wipRoot         *Fiber
-	currentRoot     *Fiber
-	nextUnitOfWork  *Fiber
-	deletions       []*Fiber
-	updateScheduled bool
-	continueWorkFn  func()
+	wipRoot                 *Fiber
+	currentRoot             *Fiber
+	nextUnitOfWork          *Fiber
+	deletions               []*Fiber
+	updateScheduled         bool
+	continueWorkFn          func()
+	pendingBoundaryRecovery bool
+	transitionDepth         int
+	pendingTransitions      int
+	transitionMu            sync.Mutex
 
 	// Global state management
 	atomRegistry *AtomRegistry

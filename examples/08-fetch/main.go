@@ -80,12 +80,17 @@ func UserCard(user User) ui.Node {
 
 func App() ui.Node {
 	selectedUserID := ui.UseState(1)
-	usersResource := fetch.UseResource(func(ctx context.Context) ([]User, error) {
+	usersResource := fetch.UseCachedResource("users", func(ctx context.Context) ([]User, error) {
 		return loadJSON[[]User](ctx, "https://jsonplaceholder.typicode.com/users")
-	})
+	}, fetch.CacheOptions{StaleAfter: 20 * time.Second})
+	summaryResource := fetch.UseCachedResource("users", func(ctx context.Context) ([]User, error) {
+		return loadJSON[[]User](ctx, "https://jsonplaceholder.typicode.com/users")
+	}, fetch.CacheOptions{StaleAfter: 20 * time.Second})
 	usersState := usersResource.Get()
+	summaryState := summaryResource.Get()
 
-	detailResource := fetch.UseResource(func(ctx context.Context) (User, error) {
+	detailCacheKey := fmt.Sprintf("user:%d", selectedUserID.Get())
+	detailResource := fetch.UseCachedResource(detailCacheKey, func(ctx context.Context) (User, error) {
 		select {
 		case <-ctx.Done():
 			return User{}, ctx.Err()
@@ -93,7 +98,7 @@ func App() ui.Node {
 		}
 
 		return loadJSON[User](ctx, fmt.Sprintf("https://jsonplaceholder.typicode.com/users/%d", selectedUserID.Get()))
-	}, selectedUserID.Get())
+	}, fetch.CacheOptions{StaleAfter: 15 * time.Second})
 	detailState := detailResource.Get()
 	deferredInsights := ui.CreateElement(ui.Lazy, ui.LazyProps{
 		Loader: func(ctx context.Context) (ui.Node, error) {
@@ -129,9 +134,36 @@ func App() ui.Node {
 		detailResource.Reload()
 	})
 
+	handleInvalidateShared := ui.UseEvent(func() {
+		fetch.InvalidateResource("users")
+	})
+
 	handleCancel := ui.UseEvent(func() {
 		usersResource.Cancel()
 		detailResource.Cancel()
+	})
+
+	handleOptimisticRename := ui.UseEvent(func() {
+		if !detailState.Ready {
+			return
+		}
+
+		updatedName := detailState.Value.Name + " (local)"
+		detailResource.Update(func(prev User) User {
+			prev.Name = updatedName
+			return prev
+		})
+		usersResource.Update(func(prev []User) []User {
+			next := make([]User, len(prev))
+			copy(next, prev)
+			for i := range next {
+				if next[i].ID == detailState.Value.ID {
+					next[i].Name = updatedName
+					break
+				}
+			}
+			return next
+		})
 	})
 
 	var content ui.Node
@@ -160,7 +192,7 @@ func App() ui.Node {
 		content = html.Div(
 			html.Props{Class: "grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]"},
 			ui.CreateElement(ui.AsyncBoundary, ui.AsyncBoundaryProps{
-				Pending: usersState.Loading || !usersState.Ready || len(usersState.Value) == 0,
+				Pending: (usersState.Loading && !usersState.Ready) || (!usersState.Ready && len(usersState.Value) == 0),
 				Error:   usersState.Error,
 				Fallback: html.Div(
 					html.Props{Class: "grid grid-cols-1 gap-6 sm:grid-cols-2"},
@@ -176,15 +208,34 @@ func App() ui.Node {
 				},
 				Content: html.Div(
 					html.Props{Class: "grid grid-cols-1 gap-6 sm:grid-cols-2"},
-					userElements...,
+					append([]ui.Node{func() ui.Node {
+						if usersState.Loading && usersState.Ready {
+							return html.Div(
+								html.Props{Class: "sm:col-span-2 rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100"},
+								html.Text("Revalidating the shared users query in the background while cached results stay on screen."),
+							)
+						}
+						return html.Fragment()
+					}()}, userElements...)...,
 				),
 			}),
 			html.Div(
 				html.Props{Class: "bg-white/5 border border-white/10 p-6 rounded-xl backdrop-blur-sm h-fit sticky top-6"},
 				html.H2(html.Props{Class: "text-xl font-bold text-white mb-2"}, html.Text("Selected User")),
-				html.P(html.Props{Class: "text-sm text-gray-400 mb-6"}, html.Text("This panel uses ui.AsyncBoundary around fetch.UseResource state, and the note below is deferred through ui.Lazy.")),
+				html.P(html.Props{Class: "text-sm text-gray-400 mb-6"}, html.Text("This panel uses ui.AsyncBoundary around fetch.UseCachedResource state, and the note below is deferred through ui.Lazy.")),
+				html.Div(
+					html.Props{Class: "mb-6 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-gray-300"},
+					html.P(html.Props{Class: "font-semibold text-white"}, html.Text("Shared cache status")),
+					html.P(html.Props{Class: "mt-2 text-gray-400"}, html.Text(fmt.Sprintf("%d users cached; background reloads are deduplicated across panels.", len(summaryState.Value)))),
+					func() ui.Node {
+						if summaryState.UpdatedAt.IsZero() {
+							return html.P(html.Props{Class: "mt-2 text-gray-500"}, html.Text("No successful shared query yet."))
+						}
+						return html.P(html.Props{Class: "mt-2 text-gray-500"}, html.Text("Last shared update: "+summaryState.UpdatedAt.Format(time.Kitchen)))
+					}(),
+				),
 				ui.CreateElement(ui.AsyncBoundary, ui.AsyncBoundaryProps{
-					Pending: detailState.Loading,
+					Pending: detailState.Loading && !detailState.Ready,
 					Error:   detailState.Error,
 					Fallback: html.Div(
 						html.Props{},
@@ -206,6 +257,15 @@ func App() ui.Node {
 						user := detailState.Value
 						return html.Div(
 							html.Props{Class: "space-y-3 text-sm text-gray-300"},
+							func() ui.Node {
+								if detailState.Loading && detailState.Ready {
+									return html.Div(
+										html.Props{Class: "rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100"},
+										html.Text("Showing cached detail while the selected user refreshes in the background."),
+									)
+								}
+								return html.Fragment()
+							}(),
 							html.H3(html.Props{Class: "text-2xl font-semibold text-white"}, html.Text(user.Name)),
 							html.P(html.Props{}, html.Text("Username: @"+user.Username)),
 							html.P(html.Props{}, html.Text("Email: "+user.Email)),
@@ -213,6 +273,7 @@ func App() ui.Node {
 							html.Div(
 								html.Props{Class: "flex flex-wrap gap-3 pt-4"},
 								html.Button(html.Props{OnClick: ui.UseEvent(func() { detailResource.Reload() }), Class: "px-4 py-2 bg-cyan-500 text-black rounded-lg hover:bg-cyan-400 transition-colors font-semibold"}, html.Text("Reload Detail")),
+								html.Button(html.Props{OnClick: handleOptimisticRename, Class: "px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-400 transition-colors font-semibold"}, html.Text("Optimistic Rename")),
 								html.Button(html.Props{OnClick: ui.UseEvent(func() { detailResource.Cancel() }), Class: "px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors border border-white/10"}, html.Text("Cancel Detail")),
 							),
 						)
@@ -235,7 +296,7 @@ func App() ui.Node {
 				),
 				html.P(
 					html.Props{Class: "mt-5 max-w-xl mx-auto text-xl text-gray-400"},
-					html.Text("Demonstrating typed async resources with list loading, detail loading, retries, and cancellation."),
+					html.Text("Demonstrating shared cached queries, stale-while-revalidate refreshes, optimistic mutation, and explicit async boundaries."),
 				),
 				html.Div(
 					html.Props{Class: "mt-8 flex flex-wrap items-center justify-center gap-3"},
@@ -250,6 +311,13 @@ func App() ui.Node {
 							}
 							return "Reload Resources"
 						}()),
+					),
+					html.Button(
+						html.Props{
+							Class:   "inline-flex items-center px-6 py-3 text-base font-medium rounded-lg text-cyan-100 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 transition-all duration-200",
+							OnClick: handleInvalidateShared,
+						},
+						html.Text("Invalidate Shared Query"),
 					),
 					html.Button(
 						html.Props{

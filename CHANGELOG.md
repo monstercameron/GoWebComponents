@@ -41,9 +41,12 @@
 - Added `state.UseDerived[T]` as a read-only shared derived-atom helper with explicit source-atom dependencies.
 - Added state snapshot export/import and browser storage persistence helpers for same-process restore and JSON-compatible saved state.
 - Added `fetch.UseResource[T]` for typed async loading with cancellation, reloads, and typed ready/error state.
+- Added `fetch.UseCachedResource[T]` with shared keyed cache state, in-flight request deduplication, stale-while-revalidate refreshes, invalidation, and optimistic update helpers.
 - Added `ui.UsePrevious[T]`, `ui.UseChannel[T]`, and `ui.UseTask[T]` to cover render-time comparisons, channel-driven UI streams, and explicit cancellable background jobs.
 - Added `ui.UseReducer`, `ui.UseForm`, `ui.UseDebounced`, and `ui.UseThrottled` to cover reducer-style local state, structured form lifecycle handling, and delayed/rate-limited derived UI values.
+- Added `ui.StartTransition`, `ui.UseTransition`, and `ui.UseDeferredValue` as the first concurrent-style scheduling primitives for non-urgent tree refreshes and lagging derived values.
 - Added `ui.AsyncBoundary`, `ui.UseLazyNode`, and `ui.Lazy` as the first explicit async UI primitives for fallback rendering, deferred subtree resolution, and timeout-aware loading boundaries.
+- Added `ui.ErrorBoundary` as a runtime-recognized subtree recovery wrapper with fallback rendering, explicit reset support, and server/client parity for render-time panic recovery.
 
 ### Router fixes and tests
 
@@ -69,6 +72,7 @@
 - Embedded the devtools panel into the `14-omi` showcase example.
 - Added baseline profiling counters for renders, scheduled updates, work-loop passes, processed units, commits, and last render/commit timings.
 - Added structured missing-key diagnostics for mixed keyed/unkeyed sibling lists.
+- Added runtime error-boundary recovery for render, effect, cleanup, and event-handler panics together with diagnostics and follow-up rerender scheduling.
 - Added a smaller standalone `16-devtools` example focused on the public devtools package.
 
 ### Example upgrades
@@ -76,6 +80,7 @@
 - Reworked the goroutine example around `ui.UseTask` and `ui.UseChannel`, replacing manual task bookkeeping and adding a streamed channel-driven UI panel.
 - Reworked the fetch example around `fetch.UseResource[T]` with typed list/detail loading, explicit retry controls, and cancellation.
 - Reworked the fetch example further around `ui.AsyncBoundary` and `ui.Lazy`, replacing manual loading-branch plumbing with explicit async subtree boundaries and a deferred auxiliary panel.
+- Reworked the fetch example again around `fetch.UseCachedResource[T]`, shared query reuse, key-based invalidation, and optimistic detail/list updates.
 - Updated the atoms example to demonstrate `state.UseComputed` for derived labels and summaries.
 - Updated the text-input example to demonstrate `ui.UseDebounced` and `ui.UseThrottled` with visible delayed preview and throttled count feedback.
 - Reworked the advanced-form example around `ui.UseForm`, async validation, retryable submission, and router-driven success flow.
@@ -85,10 +90,13 @@
 ### Documentation refresh
 
 - Aligned the `fetch` package docs and examples around `UseFetch` as the low-level raw hook and `UseResource[T]` as the preferred typed async resource API.
+- Extended the `fetch` docs to cover `UseCachedResource[T]`, shared cached queries, optimistic updates, and async-boundary integration.
 - Rewrote the `router` package docs to match the current public API, including params, query helpers, loaders, and manual route revalidation.
 - Expanded router docs to cover layout-route registration, `router.Outlet()`, nested route matching rules, and per-layout route-data behavior.
 - Refreshed portfolio and showcase copy to use the current `UseState`/`UseEffect`/`UseMemo` and `UseFetch`/`UseResource` naming instead of stale legacy names.
 - Expanded `state` and `ui` docs to cover typed computed state, previous-value tracking, channel subscriptions, and cancellable tasks.
+- Documented the transition/deferred-value scheduling model and the current decision to avoid a dedicated layout-effect hook until concrete DOM-read-before-paint cases appear.
+- Expanded `ui` docs further to cover the new `ErrorBoundary` contract, fallback callbacks, and explicit reset behavior.
 - Added docs for shared derived state, snapshot persistence, route guards, route-managed metadata, reducer/form helpers, and debounced/throttled UI hooks.
 - Updated the backlog and examples index to mark nested routes and layout routes complete and list the new multi-level example.
 

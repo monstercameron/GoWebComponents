@@ -5,8 +5,10 @@ package fetch
 
 import (
 	"context"
+	"errors"
 	"math"
 	"strings"
+	"sync/atomic"
 	"syscall/js"
 	"testing"
 	"time"
@@ -110,6 +112,144 @@ func TestAsyncResourceZeroValue(t *testing.T) {
 	}
 	resource.Reload()
 	resource.Cancel()
+}
+
+func TestCachedResourceZeroValue(t *testing.T) {
+	var resource CachedResource[string]
+	state := resource.Get()
+	if state.Loading || state.Error != nil || state.Ready || state.Stale || state.Value != "" || !state.UpdatedAt.IsZero() {
+		t.Fatalf("expected zero-value cached resource state, got %+v", state)
+	}
+	resource.Reload()
+	resource.Cancel()
+	resource.Invalidate()
+	resource.Set("ignored")
+	resource.Update(func(prev string) string { return prev + "x" })
+}
+
+func TestUseCachedResourceReturnsStableHandleShape(t *testing.T) {
+	installFetchHookContext(t)
+	resource := UseCachedResource("users", func(ctx context.Context) (string, error) {
+		return "ok", nil
+	})
+
+	state := resource.Get()
+	if state.Loading || state.Error != nil || state.Ready || state.Stale {
+		t.Fatalf("unexpected initial cached resource state: %+v", state)
+	}
+	resource.Reload()
+	resource.Cancel()
+	resource.Invalidate()
+}
+
+func TestUseCachedResourceDeduplicatesInflightRequests(t *testing.T) {
+	installFetchHookContext(t)
+	var loads int32
+	loader := func(ctx context.Context) (string, error) {
+		atomic.AddInt32(&loads, 1)
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(25 * time.Millisecond):
+			return "shared", nil
+		}
+	}
+
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	first := UseCachedResource("shared-users", loader)
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	second := UseCachedResource("shared-users", loader)
+
+	first.Reload()
+	second.Reload()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		firstState := first.Get()
+		secondState := second.Get()
+		if firstState.Ready && secondState.Ready {
+			if firstState.Value != "shared" || secondState.Value != "shared" {
+				t.Fatalf("expected both cached resources to share the same value, got %+v and %+v", firstState, secondState)
+			}
+			if atomic.LoadInt32(&loads) != 1 {
+				t.Fatalf("expected exactly one loader call, got %d", atomic.LoadInt32(&loads))
+			}
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatalf("timed out waiting for cached resource to settle; first=%+v second=%+v", first.Get(), second.Get())
+}
+
+func TestInvalidateResourceMarksSnapshotStale(t *testing.T) {
+	installFetchHookContext(t)
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	resource := UseCachedResource("invalidate-demo", func(ctx context.Context) (string, error) {
+		return "fresh", nil
+	})
+
+	resource.Set("ready")
+	resource.Invalidate()
+
+	state := resource.Get()
+	if !state.Ready || !state.Stale || state.Error != nil || state.Value != "ready" {
+		t.Fatalf("expected invalidated cached state to preserve ready data and become stale, got %+v", state)
+	}
+}
+
+func TestCachedResourceUpdateSharesOptimisticValue(t *testing.T) {
+	installFetchHookContext(t)
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	first := UseCachedResource("optimistic", func(ctx context.Context) (int, error) {
+		return 0, nil
+	})
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	second := UseCachedResource("optimistic", func(ctx context.Context) (int, error) {
+		return 0, nil
+	})
+
+	first.Set(3)
+	second.Update(func(prev int) int {
+		return prev + 4
+	})
+
+	firstState := first.Get()
+	secondState := second.Get()
+	if !firstState.Ready || !secondState.Ready || firstState.Value != 7 || secondState.Value != 7 {
+		t.Fatalf("expected optimistic update to be shared, got %+v and %+v", firstState, secondState)
+	}
+}
+
+func TestCachedResourceReloadKeepsStaleValueOnError(t *testing.T) {
+	installFetchHookContext(t)
+	var failNext atomic.Bool
+	loader := func(ctx context.Context) (string, error) {
+		if failNext.Load() {
+			return "", errors.New("reload failed")
+		}
+		return "fresh", nil
+	}
+
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	resource := UseCachedResource("reload-error", loader)
+	resource.Set("cached")
+	failNext.Store(true)
+	resource.Reload()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		state := resource.Get()
+		if !state.Loading {
+			if state.Value != "cached" || state.Error == nil || !state.Ready || !state.Stale {
+				t.Fatalf("expected stale cached value to survive reload error, got %+v", state)
+			}
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatalf("timed out waiting for cached resource reload error state: %+v", resource.Get())
 }
 
 func TestFetchUnavailable(t *testing.T) {

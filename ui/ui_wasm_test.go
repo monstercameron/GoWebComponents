@@ -69,6 +69,26 @@ func (noOpScheduler) RequestIdleCallback(callback func(runtime.Deadline)) {}
 
 func (noOpScheduler) SetTimeout(callback func(), delay int) {}
 
+type queuedScheduler struct {
+	timeouts []func()
+}
+
+func (s *queuedScheduler) RequestIdleCallback(callback func(runtime.Deadline)) {}
+
+func (s *queuedScheduler) SetTimeout(callback func(), delay int) {
+	s.timeouts = append(s.timeouts, callback)
+}
+
+func (s *queuedScheduler) Flush() {
+	for len(s.timeouts) > 0 {
+		pending := append([]func(){}, s.timeouts...)
+		s.timeouts = s.timeouts[:0]
+		for _, callback := range pending {
+			callback()
+		}
+	}
+}
+
 func installUIHookContext(t *testing.T) {
 	t.Helper()
 	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}})
@@ -76,6 +96,17 @@ func installUIHookContext(t *testing.T) {
 	t.Cleanup(func() {
 		runtime.SetCurrentFiber(nil)
 	})
+}
+
+func installQueuedUIHookContext(t *testing.T) *queuedScheduler {
+	t.Helper()
+	scheduler := &queuedScheduler{}
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: scheduler})
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	t.Cleanup(func() {
+		runtime.SetCurrentFiber(nil)
+	})
+	return scheduler
 }
 
 func TestCreateElementReturnsExistingNode(t *testing.T) {
@@ -279,6 +310,37 @@ func TestPublicHooksWrappers(t *testing.T) {
 	id := UseId()
 	if id == "" {
 		t.Fatal("expected non-empty id")
+	}
+
+	deferred := UseDeferredValue("steady")
+	if deferred != "steady" {
+		t.Fatalf("expected deferred value to return initial value, got %q", deferred)
+	}
+}
+
+func TestUseTransitionDefersPublicStateUpdates(t *testing.T) {
+	scheduler := installQueuedUIHookContext(t)
+
+	state := UseState(1)
+	transition := UseTransition()
+	transition.Start(func() {
+		state.Set(6)
+	})
+
+	if got := state.Get(); got != 1 {
+		t.Fatalf("expected transition update to remain deferred before flush, got %d", got)
+	}
+	if !transition.Pending() {
+		t.Fatal("expected transition to report pending before flush")
+	}
+
+	scheduler.Flush()
+
+	if got := state.Get(); got != 6 {
+		t.Fatalf("expected deferred transition state update after flush, got %d", got)
+	}
+	if transition.Pending() {
+		t.Fatal("expected transition to report settled after flush")
 	}
 }
 
@@ -503,6 +565,86 @@ func TestAsyncBoundaryReturnsFallbackAndErrorFallback(t *testing.T) {
 	})
 	if got != errorNode {
 		t.Fatal("expected async boundary to render error fallback")
+	}
+}
+
+func TestErrorBoundaryCreateElementPreservesFallbackProps(t *testing.T) {
+	installUIHookContext(t)
+	called := false
+	node := CreateElement(ErrorBoundary, ErrorBoundaryProps{
+		ErrorFallback: func(err error, reset func()) Node {
+			called = true
+			return Text("fallback")
+		},
+		Child:     Text("child"),
+		ResetKeys: []interface{}{"route-a"},
+	})
+	if node == nil {
+		t.Fatal("expected error boundary element")
+	}
+	if _, ok := node.Type.(*runtime.ErrorBoundaryType); !ok {
+		t.Fatalf("expected runtime error boundary type, got %T", node.Type)
+	}
+	if len(node.Children) != 1 {
+		t.Fatalf("expected one child under boundary, got %d", len(node.Children))
+	}
+	resetKeys, _ := node.Props["resetKeys"].([]interface{})
+	if len(resetKeys) != 1 || resetKeys[0] != "route-a" {
+		t.Fatalf("expected reset keys to be forwarded, got %#v", resetKeys)
+	}
+	fallback, _ := node.Props["errorFallback"].(func(error, func()) Node)
+	if fallback == nil {
+		t.Fatal("expected runtime fallback callback to be preserved")
+	}
+	result := fallback(errors.New("boom"), func() {})
+	if !called || result == nil {
+		t.Fatal("expected boundary fallback callback to remain callable")
+	}
+}
+
+func TestErrorBoundaryCreateElementAcceptsMapPropsAliases(t *testing.T) {
+	installUIHookContext(t)
+	onErrorCalled := false
+	child := Text("child")
+	secondChild := Text("child-2")
+	node := CreateElement(ErrorBoundary, map[string]interface{}{
+		"ErrorFallback": func(err error, reset func()) Node {
+			return Text("fallback")
+		},
+		"OnError": func(err error) {
+			onErrorCalled = err != nil
+		},
+		"ResetKeys": []interface{}{"route-b"},
+		"Child":     child,
+		"Children":  []Node{secondChild},
+	})
+	if node == nil {
+		t.Fatal("expected error boundary element")
+	}
+	if len(node.Children) != 2 {
+		t.Fatalf("expected map props aliases to preserve two children, got %d", len(node.Children))
+	}
+	if node.Children[0] != child || node.Children[1] != secondChild {
+		t.Fatal("expected map props aliases to preserve child order")
+	}
+	resetKeys, _ := node.Props["resetKeys"].([]interface{})
+	if len(resetKeys) != 1 || resetKeys[0] != "route-b" {
+		t.Fatalf("expected aliased reset keys to be forwarded, got %#v", resetKeys)
+	}
+	fallback, _ := node.Props["errorFallback"].(func(error, func()) Node)
+	if fallback == nil {
+		t.Fatal("expected aliased error fallback to be forwarded")
+	}
+	onError, _ := node.Props["onError"].(func(error))
+	if onError == nil {
+		t.Fatal("expected aliased onError to be forwarded")
+	}
+	onError(errors.New("boom"))
+	if !onErrorCalled {
+		t.Fatal("expected forwarded onError callback to remain callable")
+	}
+	if result := fallback(errors.New("boom"), func() {}); result == nil {
+		t.Fatal("expected forwarded fallback to remain callable")
 	}
 }
 

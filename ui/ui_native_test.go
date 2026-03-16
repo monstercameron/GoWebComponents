@@ -97,3 +97,26 @@ func TestContextProviderWrapperRendersChildrenOnServer(t *testing.T) {
 		t.Fatalf("expected provider wrapper to render child subtree, got %q", markup)
 	}
 }
+
+func TestErrorBoundaryRendersFallbackOnServer(t *testing.T) {
+	boom := func() ui.Node {
+		panic("server boundary")
+	}
+	node := ui.CreateElement(ui.ErrorBoundary, ui.ErrorBoundaryProps{
+		ErrorFallback: func(err error, reset func()) ui.Node {
+			if err == nil || err.Error() != "server boundary" {
+				t.Fatalf("unexpected server boundary error: %v", err)
+			}
+			return html.P(html.Props{}, html.Text("caught on server"))
+		},
+		Child: ui.CreateElement(boom),
+	})
+
+	markup, err := ui.RenderToString(node)
+	if err != nil {
+		t.Fatalf("unexpected error boundary render error: %v", err)
+	}
+	if markup != `<p>caught on server</p>` {
+		t.Fatalf("unexpected server boundary fallback markup: %q", markup)
+	}
+}

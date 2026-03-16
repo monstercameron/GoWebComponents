@@ -289,6 +289,10 @@ func describeFiber(fiber *Fiber) (string, string) {
 		default:
 			return "host", value
 		}
+	case *ErrorBoundaryType:
+		return "boundary", "ErrorBoundary"
+	case *ContextProviderType:
+		return "provider", "ContextProvider"
 	default:
 		return "component", describeCallable(value)
 	}

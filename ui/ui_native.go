@@ -28,6 +28,11 @@ var componentMetaCache sync.Map
 
 type Node = *runtime.Element
 
+type Transition struct {
+	pending func() bool
+	start   func(func())
+}
+
 type Handler struct {
 	value interface{}
 }
@@ -42,6 +47,25 @@ type AsyncBoundaryProps struct {
 	Delay           time.Duration
 	Timeout         time.Duration
 }
+
+type ErrorBoundaryProps struct {
+	Fallback      Node
+	ErrorFallback func(error, func()) Node
+	OnError       func(error)
+	Child         Node
+	Children      []Node
+	ResetKeys     []interface{}
+}
+
+type errorBoundaryComponent struct {
+	boundaryType *runtime.ErrorBoundaryType
+}
+
+type runtimeErrorBoundaryComponent interface {
+	runtimeErrorBoundary() *runtime.ErrorBoundaryType
+}
+
+var ErrorBoundary = &errorBoundaryComponent{boundaryType: runtime.NewErrorBoundaryType()}
 
 type LazyNodeState struct {
 	Node    Node
@@ -70,6 +94,13 @@ func CreateElement(component interface{}, props ...interface{}) Node {
 	if node, ok := component.(*runtime.Element); ok && len(props) == 0 {
 		return node
 	}
+	if boundary, ok := component.(runtimeErrorBoundaryComponent); ok {
+		var rawProps interface{}
+		if len(props) > 0 {
+			rawProps = props[0]
+		}
+		return createErrorBoundaryElement(boundary, rawProps)
+	}
 	if provider, ok := component.(contextProviderComponent); ok {
 		var rawProps interface{}
 		if len(props) > 0 {
@@ -90,6 +121,13 @@ func CreateElement(component interface{}, props ...interface{}) Node {
 	}
 
 	return runtime.CreateElement(renderComponent, rawProps)
+}
+
+func (boundary *errorBoundaryComponent) runtimeErrorBoundary() *runtime.ErrorBoundaryType {
+	if boundary == nil {
+		return nil
+	}
+	return boundary.boundaryType
 }
 
 func Fragment(children ...Node) Node {
@@ -116,6 +154,36 @@ func Render(root Node, selector string) {
 
 func Hydrate(root Node, selector string, options ...HydrationOptions) (SSRBootstrap, error) {
 	return SSRBootstrap{}, UnsupportedOnServer("Hydrate")
+}
+
+func StartTransition(fn func()) {
+	if fn != nil {
+		fn()
+	}
+}
+
+func UseTransition() Transition {
+	return Transition{
+		pending: func() bool { return false },
+		start:   StartTransition,
+	}
+}
+
+func (t Transition) Pending() bool {
+	if t.pending == nil {
+		return false
+	}
+	return t.pending()
+}
+
+func (t Transition) Start(fn func()) {
+	if t.start != nil {
+		t.start(fn)
+	}
+}
+
+func UseDeferredValue[T any](value T) T {
+	return value
 }
 
 func UseContext[T any](context *Context[T]) T {

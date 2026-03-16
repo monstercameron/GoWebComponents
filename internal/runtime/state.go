@@ -414,25 +414,26 @@ func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(in
 		}
 
 		set := func(newValueOrUpdater interface{}) {
-			currentValue := get()
+			apply := func() {
+				currentValue := get()
+				newValue, ok := resolveStateUpdateValue(currentValue, newValueOrUpdater, nilableState)
+				if !ok {
+					return
+				}
 
-			var newValue T
-			if fn, ok := newValueOrUpdater.(func(T) T); ok {
-				newValue = fn(currentValue)
-			} else if directValue, ok := newValueOrUpdater.(T); ok {
-				newValue = directValue
-			} else if newValueOrUpdater == nil && nilableState {
-				var zero T
-				newValue = zero
-			} else {
+				if fastEqual(currentValue, newValue) {
+					return
+				}
+
+				rt.atomRegistry.setAtomAndNotify(id, newValue, rt.ScheduleUpdateForFiber)
+			}
+
+			if rt.ShouldDeferStateUpdates() {
+				rt.ScheduleTransition(apply)
 				return
 			}
 
-			if fastEqual(currentValue, newValue) {
-				return
-			}
-
-			rt.atomRegistry.setAtomAndNotify(id, newValue, rt.ScheduleUpdateForFiber)
+			apply()
 		}
 
 		hooks.atomFuncs[atomIdx] = atomAccessorValue{getter: get, setter: set}

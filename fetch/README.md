@@ -25,6 +25,7 @@ The `fetch` package provides utilities for making HTTP requests from WebAssembly
 
 - Use `UseFetch` when you want raw fetch state around a URL and are comfortable parsing `state.Data` yourself.
 - Use `UseResource[T]` when you want typed values, cancellation, dependency-driven reloads, or loader logic that does more than one direct fetch call.
+- Use `UseCachedResource[T]` when the same typed query should be shared across components, deduplicated in flight, or updated optimistically before a revalidation.
 - Use `Fetch` when you need imperative access from an event handler, goroutine, or other non-hook code.
 
 ## Core APIs
@@ -99,6 +100,34 @@ func UserCount(props dom.Attrs) *dom.Element {
     )
 }
 ```
+
+### `UseCachedResource[T](key string, loader func(context.Context) (T, error), options ...CacheOptions)`
+
+Typed shared-cache hook for list/detail queries that should be reused across components.
+
+```go
+users := fetch.UseCachedResource("users", func(ctx context.Context) ([]User, error) {
+    return loadUsers(ctx)
+}, fetch.CacheOptions{StaleAfter: 30 * time.Second})
+
+state := users.Get()
+if state.Loading && !state.Ready {
+    return html.P(html.Props{}, html.Text("Loading users..."))
+}
+if state.Error != nil && !state.Ready {
+    return html.P(html.Props{}, html.Text("Users failed to load"))
+}
+
+users.Update(func(prev []User) []User {
+    next := append([]User(nil), prev...)
+    next[0].Name = "Ada (local)"
+    return next
+})
+
+fetch.InvalidateResource("users")
+```
+
+`UseCachedResource[T]` keeps the last ready value visible while background refreshes run, so it composes cleanly with `ui.AsyncBoundary` by using `Pending: state.Loading && !state.Ready` for the first load and showing content during stale revalidation.
 
 ### `Fetch(url string, options Options) <-chan Result`
 

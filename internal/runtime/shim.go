@@ -65,6 +65,16 @@ func GoUseAtomGlobal[T any](id string, initialValue T) (func() T, func(T)) {
 	return get, typedSet
 }
 
+// GoUseTransitionPendingGlobal exposes the shared transition pending flag as a subscribed atom.
+func GoUseTransitionPendingGlobal() (func() bool, func(bool)) {
+	return GoUseAtomGlobal(transitionPendingAtomID, false)
+}
+
+// StartTransitionGlobal runs fn in a non-urgent transition context.
+func StartTransitionGlobal(fn func()) {
+	GetGlobalRuntime().StartTransition(fn)
+}
+
 // Text creates a text node
 func Text(content string) *Element {
 	return &Element{

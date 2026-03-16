@@ -3,6 +3,7 @@
 // The package exposes two public hook styles:
 //   - UseFetch for low-level fetch state around a URL and browser-style refetching
 //   - UseResource for typed, context-aware async loading in non-trivial components
+//   - UseCachedResource for shared cached async state with deduplication and invalidation
 //
 // UseResource is the preferred choice when callers want typed results,
 // cancellation, dependency-driven reloads, or loader logic that does more than
@@ -40,6 +41,7 @@
 //
 //   - UseFetch: Hook for manual raw fetch state management via a handle
 //   - UseResource: Typed async resource hook for context-aware loaders
+//   - UseCachedResource: Shared typed cache hook with stale-while-revalidate behavior
 //   - Fetch: Low-level fetch function returning a channel for manual control
 //
 // The UseFetch hook:
@@ -51,6 +53,11 @@
 //   - Accepts a loader of type func(context.Context) (T, error)
 //   - Returns a typed handle with Get, Reload, and Cancel methods
 //   - Cancels in-flight work when the component unmounts or dependencies change
+//
+// The UseCachedResource hook:
+//   - Accepts a stable cache key plus a loader of type func(context.Context) (T, error)
+//   - Returns a typed handle with Get, Reload, Cancel, Invalidate, Set, and Update methods
+//   - Reuses cached values across components, deduplicates in-flight reloads, and keeps ready data visible during background refreshes
 //
 // For more control, use the Fetch function directly:
 //
