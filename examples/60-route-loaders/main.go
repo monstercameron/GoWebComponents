@@ -6,8 +6,9 @@ package main
 import (
 	"context"
 	"fmt"
-	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"time"
+
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
 	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/html"
