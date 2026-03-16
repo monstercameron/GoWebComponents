@@ -10,6 +10,12 @@ High-level documentation index and pointers to the current runtime, examples, te
 ### `PERFORMANCE.md`
 Current performance notes, benchmark entrypoints, and the results that were actually measured in the current codebase.
 
+### `API_POLICY.md`
+Stability tiers, semver rules, deprecation lifecycle, migration requirements, and latest-major support expectations.
+
+### `MIGRATIONS.md`
+Release-to-release upgrade guidance, starting with the transition into the current `v3.x` public package layout.
+
 ### `TODO.md`
 Current backlog and near-term work. This is a live backlog, not a historical archive of every idea the project has ever had.
 
@@ -44,6 +50,8 @@ As of 2026-03-14:
 
 - [../README.md](../README.md)
 - [../CHANGELOG.md](../CHANGELOG.md)
+- [API_POLICY.md](API_POLICY.md)
+- [MIGRATIONS.md](MIGRATIONS.md)
 - [../examples/README.md](../examples/README.md)
 - [../test/README.md](../test/README.md)
 - [../tools/README.md](../tools/README.md)

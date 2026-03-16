@@ -20,8 +20,12 @@ Organization rules for this file:
 	The root README now includes a project-wide feature inventory covering the runtime, hooks, state, router, SSR/hydration, devtools, testing, benchmarks, and example coverage.
 - [x] Clarify which packages are stable public APIs versus internal/runtime-only details.
 	The README and package docs now call out `ui`, `html`, `state`, `fetch`, `router`, and `devtools` as the public surface, while `internal/runtime` remains implementation detail.
-- [ ] Add migration notes as new primitives land.
-	Explain how newer APIs replace older patterns so early adopters do not accumulate legacy usage accidentally.
+- [x] Publish an API stability and support policy.
+	The docs now define stability tiers for public packages, experimental features, companion APIs, internal details, semver expectations, the deprecation lifecycle, and latest-major support policy in `docs/API_POLICY.md`.
+- [x] Add migration notes as new primitives land.
+	The docs now include `docs/MIGRATIONS.md` as the release-to-release upgrade index, starting with the transition into the current `v3.x` public package layout.
+- [ ] Keep release-to-release migration guides current for future major changes.
+	Each future major release still needs subsystem-specific upgrade guidance for runtime, router, SSR, forms, state, and deployment changes before the release is considered ready for enterprise adoption.
 
 ### Documentation discoverability and task-oriented guidance
 
@@ -503,16 +507,16 @@ Organization rules for this file:
 
 ### API stability and support policy
 
-- [ ] Define stability tiers for all major framework surfaces.
-	Explicitly classify public packages, experimental features, internal runtime details, and companion-package APIs so adopters know which layers are safe for long-term production use.
-- [ ] Publish a semver and compatibility policy.
-	Document what kinds of changes are allowed in patch, minor, and major releases, and which behavior changes count as breaking for consumers.
-- [ ] Define a deprecation lifecycle and migration window.
-	Specify how long deprecated APIs remain supported, how removals are announced, and what migration guidance must exist before a breaking cleanup is allowed.
-- [ ] Add upgrade and migration guides for major framework changes.
-	Provide release-to-release guidance for runtime, router, SSR, forms, and state changes so enterprise teams can upgrade without reverse-engineering diffs.
-- [ ] Define long-term support expectations for enterprise adopters.
-	Clarify whether the project intends to support LTS-style release lines, security backports, or only latest-version support before large organizations bet on it operationally.
+- [x] Define stability tiers for all major framework surfaces.
+	`docs/API_POLICY.md` now classifies stable public packages, supported companion APIs, experimental surfaces, deprecated compatibility surface expectations, and unsupported internal implementation details.
+- [x] Publish a semver and compatibility policy.
+	`docs/API_POLICY.md` now defines what is allowed in patch, minor, and major releases and documents what this project counts as breaking behavior for consumers.
+- [x] Define a deprecation lifecycle and migration window.
+	`docs/API_POLICY.md` now requires a replacement first, changelog and migration-guide notice, and a minimum support window of two minor releases and 90 days before stable API removal.
+- [x] Add upgrade and migration guides for major framework changes.
+	`docs/MIGRATIONS.md` now provides the migration index and first project-level guide, covering runtime, router, SSR or hydration, forms, state, fetch, testing, and deployment changes for the current public package layout.
+- [x] Define long-term support expectations for enterprise adopters.
+	`docs/API_POLICY.md` now states the current support posture explicitly: latest-major support only, no LTS line promised yet, and no documented backport policy for older majors.
 
 ### Metadata and composition model
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-03-16
+
+### API policy and migration guidance
+
+- Added `docs/API_POLICY.md` to define public API stability tiers, semver expectations, deprecation timing, breaking-change rules, and current latest-major-only support policy.
+- Added `docs/MIGRATIONS.md` as the release-to-release migration index, starting with guidance for moving into the current `v3.x` public package layout.
+- Linked the new policy and migration docs from the root README and docs index.
+- Updated the documentation backlog to mark the API stability and support policy work complete.
+
 ## 2026-03-15
 
 ### Runtime optimization work
