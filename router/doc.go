@@ -5,6 +5,7 @@
 //   - Multiple router instances
 //   - Browser history integration
 //   - Programmatic navigation
+//   - Nested layout routes with explicit outlets
 //   - Static node and component route registration
 //
 // Basic usage with hash routing:
@@ -56,6 +57,11 @@
 //
 //	revalidator := router.UseRevalidator()
 //	revalidator.Revalidate()
+//
+//	layout := router.Outlet()
+//
+// Parent layout routes opt in with router.Options{Layout: true} and render the
+// active child route through router.Outlet().
 //
 // Routes can also define async loaders that provide route-scoped data before
 // rendering the final page component:

@@ -54,7 +54,12 @@
 - Added route-level loaders with route-scoped loading/error renderers, cancellation on navigation changes, and route+query keyed revalidation.
 - Added `UseRouteData`, `UseRevalidator`, and manual current-route revalidation support with router tests for params, query parsing, loaders, cancellation, and explicit reruns.
 - Added route option support for titles, declarative redirects, synchronous `BeforeEnter`/`BeforeLeave` guards, and route-managed description/canonical metadata with cleanup on route changes.
+- Added nested layout routes through `router.Options{Layout: true}` and explicit child rendering through `router.Outlet()`.
+- Added nested route-stack resolution so parent layout routes render from shallowest matching prefix to the final leaf route, with parent params scoped per level and leaf routes receiving the final merged param set.
+- Extended nested routing support across hash and history routers, including layout-aware guard evaluation and per-route loader-data scoping during nested rendering.
 - Expanded router edge-case coverage for decoded params, unsupported optional-segment syntax, exact-vs-pattern precedence, blocked navigation, redirected navigation, and metadata replacement/cleanup semantics.
+- Added nested layout route tests covering outlet rendering, per-level params, per-level route data, leaf-metadata precedence, nested redirects, `InspectCurrentRoute()`, and history-router nested guard behavior.
+- Added router microbenchmarks for nested route-stack resolution, nested `Current()` rendering, and nested navigation evaluation baselines in the js/wasm test lane.
 
 ### Devtools and inspection
 
@@ -75,14 +80,17 @@
 - Updated the text-input example to demonstrate `ui.UseDebounced` and `ui.UseThrottled` with visible delayed preview and throttled count feedback.
 - Reworked the advanced-form example around `ui.UseForm`, async validation, retryable submission, and router-driven success flow.
 - Expanded the OMI example with nested route navigation, loader-backed detail/search/protected routes, and manual route revalidation controls.
+- Added the `19-nested-routes` example to demonstrate dashboard and docs layout shells, nested settings layouts, explicit outlet composition, and nested param-driven leaf routes.
 
 ### Documentation refresh
 
 - Aligned the `fetch` package docs and examples around `UseFetch` as the low-level raw hook and `UseResource[T]` as the preferred typed async resource API.
 - Rewrote the `router` package docs to match the current public API, including params, query helpers, loaders, and manual route revalidation.
+- Expanded router docs to cover layout-route registration, `router.Outlet()`, nested route matching rules, and per-layout route-data behavior.
 - Refreshed portfolio and showcase copy to use the current `UseState`/`UseEffect`/`UseMemo` and `UseFetch`/`UseResource` naming instead of stale legacy names.
 - Expanded `state` and `ui` docs to cover typed computed state, previous-value tracking, channel subscriptions, and cancellable tasks.
 - Added docs for shared derived state, snapshot persistence, route guards, route-managed metadata, reducer/form helpers, and debounced/throttled UI hooks.
+- Updated the backlog and examples index to mark nested routes and layout routes complete and list the new multi-level example.
 
 ### Browser tests and benchmarks
 

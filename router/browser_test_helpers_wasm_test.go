@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func installRouterBrowserEnv(t *testing.T) {
+func installRouterBrowserEnv(t testing.TB) {
 	t.Helper()
 	global := js.Global()
 	objectCtor := global.Get("Object")

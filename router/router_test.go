@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"strings"
 	"syscall/js"
 	"testing"
 	"time"
@@ -24,6 +25,25 @@ func waitForCondition(t *testing.T, condition func() bool) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatal("condition was not met before timeout")
+}
+
+func collectElementText(elem *Element) string {
+	if elem == nil {
+		return ""
+	}
+	if elem.TextContent != "" {
+		return elem.TextContent
+	}
+	var builder strings.Builder
+	for _, child := range elem.Children {
+		switch value := child.(type) {
+		case *Element:
+			builder.WriteString(collectElementText(value))
+		case string:
+			builder.WriteString(value)
+		}
+	}
+	return builder.String()
 }
 
 // TestNewHashRouter tests hash router initialization
@@ -337,6 +357,207 @@ func TestCurrentMatchesDecodedParamRoute(t *testing.T) {
 	}
 	if capturedName != "Ada Lovelace" {
 		t.Fatalf("expected decoded param value Ada Lovelace, got %q", capturedName)
+	}
+}
+
+func TestLayoutRoutesRenderNestedOutlet(t *testing.T) {
+	installRouterBrowserEnv(t)
+	r := NewHashRouter()
+	js.Global().Get("location").Set("hash", "/dashboard/reports/7")
+
+	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
+		return runtime.Div(nil,
+			runtime.Text("layout|"),
+			Outlet(),
+		)
+	}, Options{Layout: true})
+	r.GoRegisterRoute("/dashboard/reports/:id", func(props Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("report:"+UseParams().Get("id")))
+	})
+
+	elem := r.Current()
+	if elem == nil {
+		t.Fatal("expected nested layout route element")
+	}
+	if got := collectElementText(elem); got != "layout|report:7" {
+		t.Fatalf("expected nested layout output layout|report:7, got %q", got)
+	}
+	if Outlet() != nil {
+		t.Fatal("expected outlet to be nil outside layout rendering")
+	}
+}
+
+func TestLayoutRoutesScopeParamsPerLevel(t *testing.T) {
+	installRouterBrowserEnv(t)
+	r := NewHashRouter()
+	js.Global().Get("location").Set("hash", "/users/42/settings/profile")
+
+	layoutParams := ""
+	childParams := ""
+	r.GoRegisterRoute("/users/:id", func(props Attrs) *Element {
+		layoutParams = UseParams().Get("id") + ":" + UseParams().Get("tab")
+		return runtime.Div(nil,
+			runtime.Text("user:"+UseParams().Get("id")+"|"),
+			Outlet(),
+		)
+	}, Options{Layout: true})
+	r.GoRegisterRoute("/users/:id/settings/:tab", func(props Attrs) *Element {
+		params := UseParams()
+		childParams = params.Get("id") + ":" + params.Get("tab")
+		return runtime.Div(nil, runtime.Text("tab:"+params.Get("tab")))
+	})
+
+	elem := r.Current()
+	if elem == nil {
+		t.Fatal("expected nested param route element")
+	}
+	if layoutParams != "42:" {
+		t.Fatalf("expected layout params to expose only parent captures, got %q", layoutParams)
+	}
+	if childParams != "42:profile" {
+		t.Fatalf("expected child params to expose merged captures, got %q", childParams)
+	}
+	if got := collectElementText(elem); got != "user:42|tab:profile" {
+		t.Fatalf("expected nested param output user:42|tab:profile, got %q", got)
+	}
+}
+
+func TestRoutesDoNotNestWithoutLayoutOption(t *testing.T) {
+	installRouterBrowserEnv(t)
+	r := NewHashRouter()
+	js.Global().Get("location").Set("hash", "/docs/api")
+
+	r.GoRegisterRoute("/docs", func(props Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("docs|"), Outlet())
+	})
+	r.GoRegisterRoute("/docs/api", func(props Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("api"))
+	})
+
+	elem := r.Current()
+	if elem == nil {
+		t.Fatal("expected child route element")
+	}
+	if got := collectElementText(elem); got != "api" {
+		t.Fatalf("expected non-layout parent not to wrap child route, got %q", got)
+	}
+}
+
+func TestLayoutRoutesScopeLoaderDataPerLevel(t *testing.T) {
+	installRouterBrowserEnv(t)
+	r := NewHashRouter()
+	js.Global().Get("location").Set("hash", "/dashboard/reports/7")
+
+	layoutData := ""
+	childData := ""
+	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
+		if data := UseRouteData(); data != nil {
+			layoutData, _ = data["section"].(string)
+		}
+		return runtime.Div(nil,
+			runtime.Text("layout:"+layoutData+"|"),
+			Outlet(),
+		)
+	}, Options{
+		Layout: true,
+		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
+			return Attrs{"section": "dashboard"}, nil
+		},
+	})
+	r.GoRegisterRoute("/dashboard/reports/:id", func(props Attrs) *Element {
+		if data := UseRouteData(); data != nil {
+			childData, _ = data["report"].(string)
+		}
+		return runtime.Div(nil, runtime.Text("report:"+childData))
+	}, Options{
+		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
+			return Attrs{"report": routeCtx.Params.Get("id")}, nil
+		},
+	})
+
+	waitForCondition(t, func() bool {
+		elem := r.Current()
+		if elem == nil {
+			return false
+		}
+		return layoutData == "dashboard" && childData == "7" && collectElementText(elem) == "layout:dashboard|report:7"
+	})
+}
+
+func TestLayoutRoutesLeafMetadataOverridesParentMetadata(t *testing.T) {
+	installRouterBrowserEnv(t)
+	r := NewHashRouter()
+	js.Global().Get("location").Set("hash", "/dashboard/reports/7")
+
+	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
+		return runtime.Div(nil, Outlet())
+	}, Options{Layout: true, Title: "Dashboard", Description: "Parent dashboard description"})
+	r.GoRegisterRoute("/dashboard/reports/:id", func(props Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("report"))
+	}, Options{Title: "Report 7", Description: "Leaf report description"})
+
+	if elem := r.Current(); elem == nil {
+		t.Fatal("expected nested route element for metadata test")
+	}
+	doc := js.Global().Get("document")
+	if got := doc.Get("title").String(); got != "Report 7" {
+		t.Fatalf("expected leaf route title Report 7, got %q", got)
+	}
+	if got := doc.Call("querySelector", `meta[name="description"]`).Get("attributes").Get("content").String(); got != "Leaf report description" {
+		t.Fatalf("expected leaf route description to win, got %q", got)
+	}
+}
+
+func TestLayoutRouteBeforeEnterRedirectsLeafRoute(t *testing.T) {
+	installRouterBrowserEnv(t)
+	r := NewHashRouter()
+	js.Global().Get("location").Set("hash", "/dashboard/reports/7")
+
+	r.GoRegisterRoute("/login", func(props Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("login"))
+	}, Options{Title: "Login"})
+	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
+		return runtime.Div(nil, Outlet())
+	}, Options{
+		Layout: true,
+		BeforeEnter: func(ctx RouteContext) GuardResult {
+			return RedirectNavigation("/login")
+		},
+	})
+	r.GoRegisterRoute("/dashboard/reports/:id", func(props Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("report"))
+	})
+
+	if elem := r.Current(); elem == nil {
+		t.Fatal("expected redirected route element")
+	}
+	if got := js.Global().Get("location").Get("hash").String(); got != "#/login" {
+		t.Fatalf("expected layout before-enter redirect to update hash route, got %q", got)
+	}
+	if got := js.Global().Get("document").Get("title").String(); got != "Login" {
+		t.Fatalf("expected redirected layout route to apply login title, got %q", got)
+	}
+}
+
+func TestInspectCurrentRouteUsesLeafParamsWithLayoutRoutes(t *testing.T) {
+	installRouterBrowserEnv(t)
+	r := NewHashRouter()
+	js.Global().Get("location").Set("hash", "/dashboard/reports/7")
+
+	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
+		return runtime.Div(nil, Outlet())
+	}, Options{Layout: true})
+	r.GoRegisterRoute("/dashboard/reports/:id", func(props Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("report"))
+	})
+
+	r.Current()
+	inspection := InspectCurrentRoute()
+	if inspection.Path != "/dashboard/reports/7" {
+		t.Fatalf("expected inspect path /dashboard/reports/7, got %q", inspection.Path)
+	}
+	if inspection.Params["id"] != "7" {
+		t.Fatalf("expected inspect params to expose leaf id 7, got %q", inspection.Params["id"])
 	}
 }
 

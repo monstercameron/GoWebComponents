@@ -6,6 +6,7 @@ It supports:
 
 - Hash routers and browser/history routers
 - Exact routes, parameter routes, and prefix wildcard routes
+- Nested layout routes with explicit `Outlet()` rendering
 - Programmatic navigation with `UseNavigate`
 - Query parsing with `UseQuery`
 - Query updates and serialization with `UseSearchParams`
@@ -81,6 +82,13 @@ r.Register("/settings", SettingsPage, router.Options{
         return router.AllowNavigation()
     },
 })
+```
+
+Nested layout routes use the same registration API with `Options{Layout: true}`:
+
+```go
+r.Register("/dashboard", DashboardLayout, router.Options{Layout: true})
+r.Register("/dashboard/reports/:id", ReportPage)
 ```
 
 ### Mounting
@@ -235,6 +243,40 @@ r.Register("/settings*", SettingsArea)
 
 This matches `/settings`, `/settings/profile`, and `/settings/security`.
 
+## Nested Routes And Layout Routes
+
+Mark a parent route with `Layout: true` when it should stay mounted while a more
+specific child route renders into its outlet.
+
+```go
+func DashboardLayout(props router.Attrs) *router.Element {
+    return html.Div(html.Props{},
+        html.Header(html.Props{}, html.Text("Dashboard")),
+        html.Main(html.Props{}, router.Outlet()),
+    )
+}
+
+func ReportPage(props router.Attrs) *router.Element {
+    params := router.UseParams()
+    return html.Div(html.Props{}, html.Text("Report "+params.Get("id")))
+}
+
+r.Register("/dashboard", DashboardLayout, router.Options{Layout: true})
+r.Register("/dashboard/reports/:id", ReportPage)
+```
+
+Matching rules for nested layouts:
+
+- only routes marked with `Layout: true` participate as parent layouts
+- parent layouts render from the shallowest matching prefix to the deepest match
+- the final matched child route renders into `router.Outlet()`
+- parent layouts receive params captured by their own matched prefix
+- child routes receive the full merged param set for the final matched path
+- layout guards run for nested navigation just like leaf-route guards
+
+If no child route matches, the router falls back to the best leaf match it can
+resolve, including the catch-all route when one is registered.
+
 ### Path normalization rules
 
 The router applies the same normalization rules across registration, matching,
@@ -384,6 +426,9 @@ func UserToolbar(props router.Attrs) *router.Element {
 ```
 
 If needed, the final routed component can also read loader data with `router.UseRouteData()`.
+
+Layout routes can also use `router.UseRouteData()`; each layout or page sees the
+loader data for its own matched route while it renders.
 
 ## Layout Pattern
 
