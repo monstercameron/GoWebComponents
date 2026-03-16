@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
 	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/fetch"
@@ -14,7 +15,7 @@ import (
 )
 
 const (
-	teamFeedURL   = "data:application/json,%7B%22team%22%3A%22alpha%22%2C%22status%22%3A%22ready%22%7D"
+	teamFeedURL    = "data:application/json,%7B%22team%22%3A%22alpha%22%2C%22status%22%3A%22ready%22%7D"
 	metricsFeedURL = "data:application/json,%7B%22visitors%22%3A1280%2C%22trend%22%3A%22up%22%7D"
 )
 

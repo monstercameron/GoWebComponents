@@ -84,10 +84,10 @@ func Option(attrs Attrs, children ...interface{}) *Element { return tag("option"
 func Textarea(attrs Attrs, children ...interface{}) *Element {
 	return tag("textarea", attrs, children...)
 }
-func Input(attrs Attrs, children ...interface{}) *Element { return tag("input", attrs, children...) }
+func Input(attrs Attrs, children ...interface{}) *Element  { return tag("input", attrs, children...) }
 func Iframe(attrs Attrs, children ...interface{}) *Element { return tag("iframe", attrs, children...) }
-func Img(attrs Attrs, children ...interface{}) *Element   { return tag("img", attrs, children...) }
-func Br(attrs Attrs, children ...interface{}) *Element    { return tag("br", attrs, children...) }
+func Img(attrs Attrs, children ...interface{}) *Element    { return tag("img", attrs, children...) }
+func Br(attrs Attrs, children ...interface{}) *Element     { return tag("br", attrs, children...) }
 
 func UseState[T any](initialValue T) (func() T, func(interface{})) {
 	state := ui.UseState(initialValue)

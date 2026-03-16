@@ -12,7 +12,6 @@ import (
 
 	"github.com/monstercameron/GoWebComponents/router"
 )
-
 // GWCShowcaseSection presents GoWebComponents capabilities with feature cards.
 
 // Uses dark theme styling to create visual contrast and highlight the framework's
@@ -1206,7 +1205,11 @@ var votingSource = `func MiniVoting(props Attrs) *Element {
 
 func WhyGoWebComponentsSection(_ Attrs) *Element {
 
-	return Section(
+	return Div(
+
+		Attrs{"id": "features"},
+
+		Section(
 
 		Attrs{
 
@@ -1214,7 +1217,6 @@ func WhyGoWebComponentsSection(_ Attrs) *Element {
 
 			"class": "py-20 bg-gradient-to-br from-gray-900/50 to-blue-900/20 border-t border-white/10",
 		},
-
 		Div(
 
 			Attrs{"class": "container mx-auto px-6"},
@@ -1397,6 +1399,7 @@ func WhyGoWebComponentsSection(_ Attrs) *Element {
 				}(),
 			),
 		),
+	),
 	)
 
 }

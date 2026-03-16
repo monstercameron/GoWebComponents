@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"strings"
 	"syscall/js"
 

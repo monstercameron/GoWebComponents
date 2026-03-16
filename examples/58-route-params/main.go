@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
 	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/html"
@@ -13,7 +14,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-func paramsPage(_ router.Attrs) *router.Element {
+func paramsPageView() ui.Node {
 	nav := router.UseNavigate()
 	params := router.UseParams()
 	userID, hasID := params.Int("id")
@@ -40,6 +41,10 @@ func paramsPage(_ router.Attrs) *router.Element {
 			),
 		),
 	)
+}
+
+func paramsPage(router.Attrs) *router.Element {
+	return ui.CreateElement(paramsPageView)
 }
 
 func main() {

@@ -27,6 +27,8 @@ func AdvancedFormExample(_ Attrs) *Element {
 	isSubmitting, setIsSubmitting := UseState(false)
 	submitStatus, setSubmitStatus := UseState("")
 	passwordStrength, setPasswordStrength := UseState(0)
+	fieldClass := "w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+	fieldErrorClass := "w-full rounded-md border border-red-400/70 bg-red-500/10 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-400"
 
 	// Calculate password strength when password changes
 	UseEffect(func() func() {
@@ -195,13 +197,13 @@ func AdvancedFormExample(_ Attrs) *Element {
 	}
 
 	return Div(
-		Attrs{"class": "bg-white rounded-xl border border-gray-200 p-8 shadow-lg"},
+		Attrs{"class": "rounded-2xl border border-white/10 bg-slate-950/70 p-8 shadow-2xl backdrop-blur-sm"},
 
 		// Header
 		Div(
 			Attrs{"class": "text-center mb-8"},
-			H3(Attrs{"class": "text-2xl font-bold text-gray-900 mb-2"}, "🔧 Advanced Form Example"),
-			P(Attrs{"class": "text-gray-600"}, "Comprehensive form handling with validation, state management, and async processing"),
+			H3(Attrs{"class": "mb-2 text-2xl font-bold text-slate-100"}, "🔧 Advanced Form Example"),
+			P(Attrs{"class": "text-slate-400"}, "Comprehensive form handling with validation, state management, and async processing"),
 		),
 
 		// Form
@@ -211,16 +213,16 @@ func AdvancedFormExample(_ Attrs) *Element {
 			// Username field
 			Div(
 				Attrs{"class": "space-y-2"},
-				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Username"),
+				Label(Attrs{"class": "block text-sm font-medium text-slate-300"}, "Username"),
 				Input(Attrs{
 					"type":    "text",
 					"value":   username(),
 					"oninput": handleUsernameChange,
 					"class": func() string {
 						if usernameError() != "" {
-							return "w-full px-3 py-2 border border-red-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-black"
+							return fieldErrorClass
 						}
-						return "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black"
+						return fieldClass
 					}(),
 					"placeholder": "Enter username",
 				}),
@@ -235,16 +237,16 @@ func AdvancedFormExample(_ Attrs) *Element {
 			// Email field
 			Div(
 				Attrs{"class": "space-y-2"},
-				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Email"),
+				Label(Attrs{"class": "block text-sm font-medium text-slate-300"}, "Email"),
 				Input(Attrs{
 					"type":    "email",
 					"value":   email(),
 					"oninput": handleEmailChange,
 					"class": func() string {
 						if emailError() != "" {
-							return "w-full px-3 py-2 border border-red-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-black"
+							return fieldErrorClass
 						}
-						return "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black"
+						return fieldClass
 					}(),
 					"placeholder": "Enter email",
 				}),
@@ -259,16 +261,16 @@ func AdvancedFormExample(_ Attrs) *Element {
 			// Password field with strength meter
 			Div(
 				Attrs{"class": "space-y-2"},
-				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Password"),
+				Label(Attrs{"class": "block text-sm font-medium text-slate-300"}, "Password"),
 				Input(Attrs{
 					"type":    "password",
 					"value":   password(),
 					"oninput": handlePasswordChange,
 					"class": func() string {
 						if passwordError() != "" {
-							return "w-full px-3 py-2 border border-red-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-black"
+							return fieldErrorClass
 						}
-						return "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black"
+						return fieldClass
 					}(),
 					"placeholder": "Enter password",
 				}),
@@ -279,11 +281,11 @@ func AdvancedFormExample(_ Attrs) *Element {
 						strength := passwordStrength()
 						return Div(
 							Attrs{"class": "mt-2"},
-							Div(Attrs{"class": "flex justify-between text-xs text-gray-600 mb-1"},
+							Div(Attrs{"class": "mb-1 flex justify-between text-xs text-slate-400"},
 								Span(nil, "Password Strength"),
 								Span(nil, Text(strconv.Itoa(strength)), "%"),
 							),
-							Div(Attrs{"class": "w-full bg-gray-200 rounded-full h-2"},
+							Div(Attrs{"class": "h-2 w-full rounded-full bg-white/10"},
 								Div(Attrs{
 									"class": func() string {
 										if strength < 30 {
@@ -312,16 +314,16 @@ func AdvancedFormExample(_ Attrs) *Element {
 			// Confirm Password field
 			Div(
 				Attrs{"class": "space-y-2"},
-				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Confirm Password"),
+				Label(Attrs{"class": "block text-sm font-medium text-slate-300"}, "Confirm Password"),
 				Input(Attrs{
 					"type":    "password",
 					"value":   confirmPass(),
 					"oninput": handleConfirmPassChange,
 					"class": func() string {
 						if confirmPassError() != "" {
-							return "w-full px-3 py-2 border border-red-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 text-black"
+							return fieldErrorClass
 						}
-						return "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black"
+						return fieldClass
 					}(),
 					"placeholder": "Confirm password",
 				}),
@@ -336,16 +338,16 @@ func AdvancedFormExample(_ Attrs) *Element {
 			// Bio field
 			Div(
 				Attrs{"class": "space-y-2"},
-				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "Bio (optional)"),
+				Label(Attrs{"class": "block text-sm font-medium text-slate-300"}, "Bio (optional)"),
 				Textarea(Attrs{
 					"value":       bio(),
 					"oninput":     handleBioChange,
 					"rows":        "4",
-					"class":       "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black",
+					"class":       fieldClass,
 					"placeholder": "Tell us about yourself...",
 				}),
 				Div(
-					Attrs{"class": "flex justify-between text-xs text-gray-500"},
+					Attrs{"class": "flex justify-between text-xs text-slate-500"},
 					Span(nil, Text("Optional")),
 					Span(nil, Text(fmt.Sprintf("%d/500 characters", len(bio())))),
 				),
@@ -354,11 +356,11 @@ func AdvancedFormExample(_ Attrs) *Element {
 			// User type selection
 			Div(
 				Attrs{"class": "space-y-2"},
-				Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, "User Type"),
+				Label(Attrs{"class": "block text-sm font-medium text-slate-300"}, "User Type"),
 				Select(Attrs{
 					"value":    userType(),
 					"onchange": handleUserTypeChange,
-					"class":    "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black",
+					"class":    fieldClass,
 				},
 					Option(Attrs{"value": "developer"}, "Developer"),
 					Option(Attrs{"value": "designer"}, "Designer"),
@@ -374,9 +376,9 @@ func AdvancedFormExample(_ Attrs) *Element {
 					"type":     "checkbox",
 					"checked":  agreeTerms(),
 					"onchange": handleTermsChange,
-					"class":    "h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 text-black",
+					"class":    "h-4 w-4 rounded border-white/20 bg-slate-900 text-indigo-500 focus:ring-indigo-400 focus:ring-offset-0",
 				}),
-				Label(Attrs{"class": "text-sm text-gray-700"}, "I agree to the Terms and Conditions"),
+				Label(Attrs{"class": "text-sm text-slate-300"}, "I agree to the Terms and Conditions"),
 			),
 
 			// Submit button and status
@@ -388,9 +390,9 @@ func AdvancedFormExample(_ Attrs) *Element {
 						"disabled": isSubmitting() || !agreeTerms(),
 						"class": func() string {
 							if isSubmitting() || !agreeTerms() {
-								return "w-full py-3 px-4 bg-gray-400 text-white rounded-md cursor-not-allowed"
+								return "w-full cursor-not-allowed rounded-md border border-white/10 bg-slate-900 px-4 py-3 text-slate-500"
 							}
-							return "w-full py-3 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
+							return "w-full rounded-md bg-indigo-500 px-4 py-3 text-white transition-colors hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
 						}(),
 					},
 					func() string {
@@ -406,12 +408,12 @@ func AdvancedFormExample(_ Attrs) *Element {
 					status := submitStatus()
 					switch status {
 					case "success":
-						return Div(Attrs{"class": "p-4 bg-green-100 border border-green-400 text-green-700 rounded-md"},
+						return Div(Attrs{"class": "rounded-md border border-emerald-400/40 bg-emerald-500/10 p-4 text-emerald-200"},
 							P(Attrs{"class": "font-semibold"}, "✅ Success!"),
 							P(nil, "Form submitted successfully. All data has been validated and processed."),
 						)
 					case "error":
-						return Div(Attrs{"class": "p-4 bg-red-100 border border-red-400 text-red-700 rounded-md"},
+						return Div(Attrs{"class": "rounded-md border border-red-400/40 bg-red-500/10 p-4 text-red-200"},
 							P(Attrs{"class": "font-semibold"}, "❌ Error!"),
 							P(nil, "Please fix the validation errors and try again."),
 						)
@@ -428,11 +430,11 @@ func AdvancedFormExample(_ Attrs) *Element {
 func FormField(label string, input *Element, errorMsg string, isValidating bool) *Element {
 	return Div(
 		Attrs{"class": "space-y-2"},
-		Label(Attrs{"class": "block text-sm font-medium text-gray-700"}, label),
+		Label(Attrs{"class": "block text-sm font-medium text-slate-300"}, label),
 		input,
 		func() *Element {
 			if isValidating {
-				return P(Attrs{"class": "text-sm text-blue-600 flex items-center"},
+				return P(Attrs{"class": "flex items-center text-sm text-cyan-300"},
 					Span(Attrs{"class": "mr-2"}, "⏳"),
 					"Validating...",
 				)
@@ -477,11 +479,11 @@ func PasswordStrengthMeter(strength int) *Element {
 		Attrs{"class": "space-y-1"},
 		Div(
 			Attrs{"class": "flex justify-between items-center"},
-			Span(Attrs{"class": "text-xs text-gray-600"}, "Password Strength:"),
+			Span(Attrs{"class": "text-xs text-slate-400"}, "Password Strength:"),
 			Span(Attrs{"class": "text-xs font-medium " + strengthColor}, strengthText),
 		),
 		Div(
-			Attrs{"class": "w-full bg-gray-200 rounded-full h-2"},
+			Attrs{"class": "h-2 w-full rounded-full bg-white/10"},
 			Div(Attrs{
 				"class": "h-2 rounded-full transition-all duration-300 " + getStrengthBarColor(strength),
 				"style": "width: " + barWidth,

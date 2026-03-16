@@ -5,6 +5,7 @@ package main
 
 import (
 	"errors"
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"strings"
 	"time"
 

@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"sync"
 	"time"
 
@@ -28,11 +29,15 @@ func nextRevalidateTick() int {
 	return revalidateTick
 }
 
-func revalidatorPage(props router.Attrs) *router.Element {
+type revalidatorPageProps struct {
+	FallbackData router.Attrs
+}
+
+func revalidatorPageView(props revalidatorPageProps) ui.Node {
 	revalidator := router.UseRevalidator()
 	data := router.UseRouteData()
 	if data == nil {
-		data = props
+		data = props.FallbackData
 	}
 
 	stamp, _ := data["stamp"].(string)
@@ -52,6 +57,10 @@ func revalidatorPage(props router.Attrs) *router.Element {
 			),
 		),
 	)
+}
+
+func revalidatorPage(props router.Attrs) *router.Element {
+	return ui.CreateElement(revalidatorPageView, revalidatorPageProps{FallbackData: props})
 }
 
 func main() {

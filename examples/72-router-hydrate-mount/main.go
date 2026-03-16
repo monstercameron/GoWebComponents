@@ -4,6 +4,7 @@
 package main
 
 import (
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/html"

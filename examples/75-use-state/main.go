@@ -5,6 +5,8 @@ package main
 
 import (
 	"fmt"
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
+	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/html"
@@ -12,22 +14,67 @@ import (
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
+func logStateAction(action string, details ...interface{}) {
+	args := append([]interface{}{"[ui.UseState demo]", action}, details...)
+	js.Global().Get("console").Call("log", args...)
+}
+
 func useStateExample() ui.Node {
 	counter := ui.UseState(2)
 	message := ui.UseState("Ship the feature-isolated catalog")
 
+	ui.UseEffect(func() func() {
+		logStateAction("mounted", map[string]interface{}{
+			"counter": counter.Get(),
+			"message": message.Get(),
+		})
+		return nil
+	}, "state-demo-mounted")
+
 	increment := ui.UseEvent(func() {
+		previous := counter.Get()
 		counter.Update(func(previous int) int { return previous + 1 })
+		logStateAction("increment clicked", map[string]interface{}{
+			"previousCounter": previous,
+			"nextCounter":     previous + 1,
+		})
 	})
 	decrement := ui.UseEvent(func() {
+		previous := counter.Get()
 		counter.Update(func(previous int) int { return previous - 1 })
+		logStateAction("decrement clicked", map[string]interface{}{
+			"previousCounter": previous,
+			"nextCounter":     previous - 1,
+		})
 	})
 	reset := ui.UseEvent(func() {
+		previousCounter := counter.Get()
+		previousMessage := message.Get()
 		counter.Set(2)
 		message.Set("Ship the feature-isolated catalog")
+		logStateAction("reset clicked", map[string]interface{}{
+			"previousCounter": previousCounter,
+			"nextCounter":     2,
+			"previousMessage": previousMessage,
+			"nextMessage":     "Ship the feature-isolated catalog",
+		})
 	})
-	setAlpha := ui.UseEvent(func() { message.Set("Audit every example page") })
-	setBeta := ui.UseEvent(func() { message.Set("Document the implementation details") })
+	setAlpha := ui.UseEvent(func() {
+		previous := message.Get()
+		message.Set("Audit every example page")
+		logStateAction("set audit message clicked", map[string]interface{}{
+			"previousMessage": previous,
+			"nextMessage":     "Audit every example page",
+		})
+	})
+	setBeta := ui.UseEvent(func() {
+		previous := message.Get()
+		message.Set("Document the implementation details")
+		logStateAction("set docs message clicked", map[string]interface{}{
+			"previousMessage": previous,
+			"nextMessage":     "Document the implementation details",
+		})
+	})
 
 	return shared.ExamplePage(
 		"ui.UseState",

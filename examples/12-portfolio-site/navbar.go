@@ -315,7 +315,7 @@ func EnhancedMobileMenu(isOpen bool, setIsOpen func(bool)) *Element {
 					EnhancedMobileNavLink("🔥", "Contact", "#contact", "contact", setIsOpen),
 
 					// Divider
-					Div(Attrs{"class": "border-t border-gray-200 my-6"}),
+					Div(Attrs{"class": "my-6 border-t border-white/10"}),
 
 					// Action buttons
 					Div(

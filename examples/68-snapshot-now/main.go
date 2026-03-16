@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
 	"github.com/monstercameron/GoWebComponents/devtools"
 	"github.com/monstercameron/GoWebComponents/examples/shared"

@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"strconv"
 	"strings"
 	"time"

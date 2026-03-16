@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/examples/shared"
@@ -15,11 +16,19 @@ import (
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-func loaderPage(props router.Attrs) *router.Element {
+type loaderPageProps struct {
+	FallbackData router.Attrs
+}
+
+type errorPageProps struct {
+	Message string
+}
+
+func loaderPageView(props loaderPageProps) ui.Node {
 	nav := router.UseNavigate()
 	data := router.UseRouteData()
 	if data == nil {
-		data = props
+		data = props.FallbackData
 	}
 
 	title, _ := data["title"].(string)
@@ -49,6 +58,10 @@ func loaderPage(props router.Attrs) *router.Element {
 	)
 }
 
+func loaderPage(props router.Attrs) *router.Element {
+	return ui.CreateElement(loaderPageView, loaderPageProps{FallbackData: props})
+}
+
 func loadingPage(props router.Attrs) *router.Element {
 	path, _ := props["path"].(string)
 	return shared.ExamplePage(
@@ -64,18 +77,22 @@ func loadingPage(props router.Attrs) *router.Element {
 	)
 }
 
-func errorPage(props router.Attrs) *router.Element {
-	message, _ := props["error"].(string)
+func errorPageView(props errorPageProps) ui.Node {
 	nav := router.UseNavigate()
 	return shared.ExamplePage(
 		"Loader error",
 		"Route-level error renderer",
 		"The route provided an Error renderer, so a loader failure becomes a focused route-level fallback instead of a generic crash.",
 		shared.ExamplePanel("Error state",
-			html.P(html.Props{Class: "mt-3 text-rose-300"}, html.Text(message)),
+			html.P(html.Props{Class: "mt-3 text-rose-300"}, html.Text(props.Message)),
 			html.Div(html.Props{Class: "mt-6 flex gap-3"}, shared.ExampleButton("Back to report 7", ui.UseEvent(func() { nav.Navigate("/reports/7") }))),
 		),
 	)
+}
+
+func errorPage(props router.Attrs) *router.Element {
+	message, _ := props["error"].(string)
+	return ui.CreateElement(errorPageView, errorPageProps{Message: message})
 }
 
 func main() {

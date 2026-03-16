@@ -120,11 +120,11 @@ Standalone SSR server URLs:
 - `70-render-to-string`: Load the instruction page, then run the standalone server variant if you need the full request-time render flow. Expected: the instructional shell renders in dark mode and the server-backed version shows exact HTML string output beside the preview.
 - `71-hydrate`: Verify prerendered markup is visible immediately, then click the buttons after wasm starts. Expected: hydration resumes the existing DOM and later updates stay interactive.
 - `73-ssr-bootstrap`: Load the static bootstrap page and verify the inline bootstrap content resumes into the hydrated UI. Expected: inline JSON data is reused and the prerendered content survives startup.
-- `75-use-state`: Click the controls that call `Set` and `Update`. Expected: counter and message state both change exactly as described by the stat cards.
 - `76-use-effect`: Trigger dependency changes and cleanup behavior. Expected: effect-run and cleanup counters move in the expected order and document-side effects stay in sync.
 
 ### state Package
 
+- `75-use-state`: Click the controls that call `Set` and `Update`. Expected: counter and message state both change exactly as described by the stat cards.
 - `37-use-atom`: Change atom state from the provided controls. Expected: all subscribers reflect the same shared value immediately.
 - `38-use-computed`: Change the source inputs. Expected: computed output recalculates from the atom inputs and never requires manual refresh.
 - `39-use-derived`: Update the parent value. Expected: derived state follows the source and the displayed dependency chain remains coherent.

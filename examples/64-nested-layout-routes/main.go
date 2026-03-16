@@ -4,9 +4,11 @@
 package main
 
 import (
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/router"
+	"github.com/monstercameron/GoWebComponents/ui"
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
@@ -42,12 +44,16 @@ func dashboardOverview(router.Attrs) *router.Element {
 	)
 }
 
-func reportPage(router.Attrs) *router.Element {
+func reportPageView() ui.Node {
 	params := router.UseParams()
 	return html.Article(html.Props{Class: "rounded-[1.5rem] border border-cyan-400/20 bg-cyan-400/10 p-6 text-cyan-50"},
 		html.H3(html.Props{Class: "text-2xl font-bold"}, html.Text("Report child route")),
 		html.P(html.Props{Class: "mt-3 leading-7"}, html.Text("Child params still work inside nested layouts. Current report ID: "+params.Get("id"))),
 	)
+}
+
+func reportPage(router.Attrs) *router.Element {
+	return ui.CreateElement(reportPageView)
 }
 
 func main() {

@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/examples/shared"
@@ -13,38 +14,96 @@ import (
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
+func logEffectAction(action string, details ...interface{}) {
+	args := append([]interface{}{"[ui.UseEffect demo]", action}, details...)
+	js.Global().Get("console").Call("log", args...)
+}
+
 func useEffectExample() ui.Node {
 	selectedMode := ui.UseState("draft")
 	effectRuns := ui.UseState(0)
 	cleanupRuns := ui.UseState(0)
 	status := ui.UseState("Waiting for effect to synchronize state")
 
-	setDraft := ui.UseEvent(func() { selectedMode.Set("draft") })
-	setReview := ui.UseEvent(func() { selectedMode.Set("review") })
-	setShip := ui.UseEvent(func() { selectedMode.Set("ship") })
+	ui.UseEffect(func() func() {
+		logEffectAction("mounted", map[string]interface{}{
+			"mode": selectedMode.Get(),
+		})
+		return nil
+	}, "effect-demo-mounted")
+
+	setDraft := ui.UseEvent(func() {
+		previous := selectedMode.Get()
+		selectedMode.Set("draft")
+		logEffectAction("draft mode selected", map[string]interface{}{
+			"previousMode": previous,
+			"nextMode":     "draft",
+		})
+	})
+	setReview := ui.UseEvent(func() {
+		previous := selectedMode.Get()
+		selectedMode.Set("review")
+		logEffectAction("review mode selected", map[string]interface{}{
+			"previousMode": previous,
+			"nextMode":     "review",
+		})
+	})
+	setShip := ui.UseEvent(func() {
+		previous := selectedMode.Get()
+		selectedMode.Set("ship")
+		logEffectAction("ship mode selected", map[string]interface{}{
+			"previousMode": previous,
+			"nextMode":     "ship",
+		})
+	})
 
 	ui.UseEffect(func() func() {
+		currentMode := selectedMode.Get()
+		nextEffectRun := effectRuns.Get() + 1
 		effectRuns.Update(func(previous int) int { return previous + 1 })
-		status.Set("Effect synchronized mode: " + selectedMode.Get())
+		status.Set("Effect synchronized mode: " + currentMode)
+		logEffectAction("effect setup", map[string]interface{}{
+			"mode":        currentMode,
+			"effectRun":   nextEffectRun,
+			"cleanupRuns": cleanupRuns.Get(),
+		})
 
 		document := js.Global().Get("document")
 		previousTitle := ""
+		nextTitle := "ui.UseEffect demo - " + currentMode
 		if document.Truthy() {
 			previousTitle = document.Get("title").String()
-			document.Set("title", "ui.UseEffect demo - "+selectedMode.Get())
+			document.Set("title", nextTitle)
+			logEffectAction("document title updated", map[string]interface{}{
+				"previousTitle": previousTitle,
+				"nextTitle":     nextTitle,
+			})
 		}
 
 		var timeoutFn js.Func
 		timeoutFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			status.Set("Effect timer completed for mode: " + selectedMode.Get())
+			status.Set("Effect timer completed for mode: " + currentMode)
+			logEffectAction("timer completed", map[string]interface{}{
+				"mode": currentMode,
+			})
 			return nil
 		})
 		timeoutID := js.Global().Call("setTimeout", timeoutFn, 900)
+		logEffectAction("timer scheduled", map[string]interface{}{
+			"mode":       currentMode,
+			"delayMs":    900,
+			"timeoutRef": timeoutID.Int(),
+		})
 
 		return func() {
 			js.Global().Call("clearTimeout", timeoutID)
 			timeoutFn.Release()
 			cleanupRuns.Update(func(previous int) int { return previous + 1 })
+			logEffectAction("cleanup running", map[string]interface{}{
+				"mode":             currentMode,
+				"restoredTitle":    previousTitle,
+				"nextCleanupCount": cleanupRuns.Get() + 1,
+			})
 			if document.Truthy() {
 				document.Set("title", previousTitle)
 			}

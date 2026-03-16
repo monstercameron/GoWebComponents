@@ -4,6 +4,7 @@
 package main
 
 import (
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"strings"
 
 	"github.com/monstercameron/GoWebComponents/html"

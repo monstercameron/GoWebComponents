@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/examples/shared"
@@ -32,8 +33,8 @@ func lazyExample() ui.Node {
 			), nil
 		},
 		Dependencies: []interface{}{version.Get()},
-		Delay: 50 * time.Millisecond,
-		Fallback: html.Div(html.Props{Class: "rounded-2xl border border-cyan-400/30 bg-cyan-400/10 p-6 text-cyan-50"}, html.Text("Resolving lazy subtree...")),
+		Delay:        50 * time.Millisecond,
+		Fallback:     html.Div(html.Props{Class: "rounded-2xl border border-cyan-400/30 bg-cyan-400/10 p-6 text-cyan-50"}, html.Text("Resolving lazy subtree...")),
 		ErrorFallback: func(err error) ui.Node {
 			return html.Div(html.Props{Class: "rounded-2xl border border-red-400/30 bg-red-400/10 p-6 text-red-50"}, html.Text(err.Error()))
 		},
