@@ -4,6 +4,7 @@
 package fetch
 
 import (
+	"context"
 	"math"
 	"strings"
 	"syscall/js"
@@ -84,6 +85,31 @@ func TestUseFetchReturnsStableHandleShape(t *testing.T) {
 	if state := resource.Get(); state.Loading || state.Error != "" || state.Data != nil {
 		t.Fatalf("unexpected initial fetch state: %+v", state)
 	}
+}
+
+func TestUseResourceReturnsStableHandleShape(t *testing.T) {
+	installFetchHookContext(t)
+
+	resource := UseResource(func(ctx context.Context) (string, error) {
+		return "ok", nil
+	}, "dep")
+
+	state := resource.Get()
+	if state.Loading || state.Error != nil || state.Ready {
+		t.Fatalf("unexpected initial resource state: %+v", state)
+	}
+	resource.Reload()
+	resource.Cancel()
+}
+
+func TestAsyncResourceZeroValue(t *testing.T) {
+	var resource AsyncResource[string]
+	state := resource.Get()
+	if state.Loading || state.Error != nil || state.Ready || state.Value != "" {
+		t.Fatalf("expected zero-value resource state, got %+v", state)
+	}
+	resource.Reload()
+	resource.Cancel()
 }
 
 func TestFetchUnavailable(t *testing.T) {

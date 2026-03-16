@@ -43,6 +43,9 @@ type Fiber struct {
 
 	// Counters
 	componentIdCounter int
+	commitDurationNs   int64
+	effectDurationNs   int64
+	cleanupDurationNs  int64
 }
 
 // memoizedValue stores a memoized computation result with its dependencies

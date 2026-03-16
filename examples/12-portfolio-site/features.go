@@ -112,10 +112,10 @@ func FeaturesSection(_ Attrs) *Element {
 				FeatureCard("⚡", "Next-Generation Performance", "Go code compiles to highly optimized WebAssembly. Fiber-based reconciliation minimizes DOM updates. Advanced memory pooling for smooth UI."),
 				FeatureCard("🔄", "Superior Concurrency Model", "Run expensive operations in the background with goroutines. No more frozen UIs."),
 				FeatureCard("🎯", "The Go Advantage Over JavaScript/TypeScript", "No node_modules, no complex transpilers. Use Go's standard library and compiler for a single, portable binary."),
-				FeatureCard("🪝", "A Familiar, Modern API", "React-like hooks: GoUseState, UseEffect, GoUseMemo for state, effects, and performance."),
+				FeatureCard("🪝", "A Familiar, Modern API", "React-like hooks: UseState, UseEffect, and UseMemo for state, effects, and performance."),
 				FeatureCard("📦", "Comprehensive Component Library", "80+ pre-built HTML element constructors. Build UIs with Div, Button, Form, and more."),
 				FeatureCard("🛡️", "Rock-Solid Reliability", "Go's static type system catches errors at compile time. Write robust, maintainable code."),
-				FeatureCard("🌐", "Effortless Data Fetching", "Built-in GoUseFetch hook for declarative data fetching and GoFetch for imperative requests."),
+				FeatureCard("🌐", "Effortless Data Fetching", "Built-in UseFetch for raw fetch state, UseResource for typed async loading, and Fetch for imperative requests."),
 			),
 		),
 	)

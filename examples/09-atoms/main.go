@@ -19,6 +19,20 @@ const (
 func CounterDisplay() ui.Node {
 	count := state.UseAtom(CounterAtom, 0)
 	theme := state.UseAtom(ThemeAtom, "light")
+	themeLabel := state.UseComputed(func() string {
+		if theme.Get() == "dark" {
+			return "Dark theme active"
+		}
+		return "Light theme active"
+	}, theme.Get())
+	countSummary := state.UseComputed(func() string {
+		value := count.Get()
+		sign := "even"
+		if value%2 != 0 {
+			sign = "odd"
+		}
+		return fmt.Sprintf("%d is %s", value, sign)
+	}, count.Get())
 
 	textColor := "text-gray-900"
 	if theme.Get() == "dark" {
@@ -34,6 +48,14 @@ func CounterDisplay() ui.Node {
 		html.Div(
 			html.Props{Class: "text-7xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 font-mono tracking-tighter"},
 			html.Text(fmt.Sprintf("%d", count.Get())),
+		),
+		html.P(
+			html.Props{Class: "mt-4 text-sm text-gray-400"},
+			html.Text(themeLabel.Get()),
+		),
+		html.P(
+			html.Props{Class: "mt-1 text-xs uppercase tracking-[0.2em] text-gray-500"},
+			html.Text(countSummary.Get()),
 		),
 	)
 }

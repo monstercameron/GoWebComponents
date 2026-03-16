@@ -1,8 +1,47 @@
 package runtime
 
 import (
+	"strings"
 	"testing"
+	"time"
 )
+
+func TestReconcileChildrenReportsMissingKeyWhenMixedWithKeyedSiblings(t *testing.T) {
+	ClearDiagnostics()
+	defer ClearDiagnostics()
+
+	rt := &Runtime{}
+	parent := &Fiber{typeOf: "div"}
+	elements := []interface{}{
+		CreateElement("li", map[string]interface{}{"key": "a"}),
+		CreateElement("li", nil),
+	}
+
+	rt.reconcileChildren(parent, elements)
+
+	diagnostics := GetDiagnostics()
+	if len(diagnostics) == 0 {
+		t.Fatal("expected missing-key diagnostic to be reported")
+	}
+}
+
+func TestReconcileChildrenSkipsMissingKeyDiagnosticForFullyUnkeyedList(t *testing.T) {
+	ClearDiagnostics()
+	defer ClearDiagnostics()
+
+	rt := &Runtime{}
+	parent := &Fiber{typeOf: "div"}
+	elements := []interface{}{
+		CreateElement("li", nil),
+		CreateElement("li", nil),
+	}
+
+	rt.reconcileChildren(parent, elements)
+
+	if diagnostics := GetDiagnostics(); len(diagnostics) != 0 {
+		t.Fatalf("expected no missing-key diagnostic for fully unkeyed list, got %+v", diagnostics)
+	}
+}
 
 // Test mock DOM node
 type testDOMNode struct {
@@ -879,6 +918,81 @@ func TestRunEffects_NilFiber(t *testing.T) {
 
 	// Should not panic
 	rt.runEffects(nil)
+}
+
+func TestRunEffects_ReportsSlowEffectDiagnostic(t *testing.T) {
+	ClearDiagnostics()
+	defer ClearDiagnostics()
+
+	mockDOM := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{DOMAdapter: mockDOM, Scheduler: scheduler})
+
+	fiber := &Fiber{
+		typeOf: "div",
+		props:  make(map[string]interface{}),
+		effects: []Effect{{
+			Fn: func() func() {
+				time.Sleep(5 * time.Millisecond)
+				return nil
+			},
+			CleanupIndex: 0,
+		}},
+		hooks: &Hooks{cleanups: make([]func(), 1)},
+	}
+
+	rt.runEffects(fiber)
+	if fiber.effectDurationNs < slowOperationDiagnosticThresholdNs {
+		t.Fatalf("expected effect duration to be recorded, got %d", fiber.effectDurationNs)
+	}
+	if rt.profiling.effectExecutions != 1 {
+		t.Fatalf("expected effect execution counter to increment, got %d", rt.profiling.effectExecutions)
+	}
+	found := false
+	for _, diagnostic := range GetDiagnostics() {
+		if strings.Contains(diagnostic.Message, "slow effect") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected slow effect diagnostic to be reported")
+	}
+}
+
+func TestRunCleanups_ReportsSlowCleanupDiagnostic(t *testing.T) {
+	ClearDiagnostics()
+	defer ClearDiagnostics()
+
+	mockDOM := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{DOMAdapter: mockDOM, Scheduler: scheduler})
+
+	fiber := &Fiber{
+		typeOf: "div",
+		props:  make(map[string]interface{}),
+		hooks: &Hooks{cleanups: []func(){func() {
+			time.Sleep(5 * time.Millisecond)
+		}}},
+	}
+
+	rt.runCleanups(fiber)
+	if fiber.cleanupDurationNs < slowOperationDiagnosticThresholdNs {
+		t.Fatalf("expected cleanup duration to be recorded, got %d", fiber.cleanupDurationNs)
+	}
+	if rt.profiling.cleanupExecutions != 1 {
+		t.Fatalf("expected cleanup execution counter to increment, got %d", rt.profiling.cleanupExecutions)
+	}
+	found := false
+	for _, diagnostic := range GetDiagnostics() {
+		if strings.Contains(diagnostic.Message, "slow cleanup") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected slow cleanup diagnostic to be reported")
+	}
 }
 
 func TestRunCleanups_ExecutesAllCleanups(t *testing.T) {

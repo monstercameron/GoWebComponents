@@ -8,25 +8,36 @@ test.describe('02-Text Input', () => {
     await expect(page.getByText('Text Input Example')).toBeVisible();
     
     const input = page.getByPlaceholder('Enter text here...');
+    const countBadges = page.locator('span.font-mono.font-bold');
     
     // Initial state check
     await expect(page.getByText('Live Preview')).toBeVisible();
-    await expect(page.getByText('...', { exact: true })).toBeVisible(); // Shows ... when empty
-    await expect(page.getByText('0', { exact: true })).toBeVisible(); // Character count 0
+    await expect(page.getByText('Debounced preview', { exact: true })).toBeVisible();
+    await expect(page.getByText('Debounced value settled', { exact: true })).toBeVisible();
+    await expect(page.getByText('Count is synced', { exact: true })).toBeVisible();
+    await expect(countBadges.nth(0)).toHaveText('0');
+    await expect(countBadges.nth(1)).toHaveText('0');
     
     // Type text
-    await input.fill('Hello World');
+    await input.click();
+    await input.type('Hello World', { delay: 20 });
     
     // Verify display updates
-    await expect(page.getByText('Hello World', { exact: true })).toBeVisible();
-    await expect(page.getByText('11', { exact: true })).toBeVisible(); // Character count 11
+    await expect(page.getByText('Hello World', { exact: true })).toHaveCount(2);
+    await expect(countBadges.nth(0)).toHaveText('11');
+    await expect(page.getByText('Waiting for debounce window', { exact: true })).toBeVisible();
+    await expect(page.getByText('Debounced value settled', { exact: true })).toBeVisible({ timeout: 3000 });
+    await expect(page.getByText('Count is synced', { exact: true })).toBeVisible({ timeout: 3000 });
+    await expect(countBadges.nth(1)).toHaveText('11', { timeout: 3000 });
     
     // Clear text using the button
     await page.getByRole('button', { name: 'Clear Text' }).click();
     
     // Verify cleared
     await expect(input).toHaveValue('');
-    await expect(page.getByText('...', { exact: true })).toBeVisible();
-    await expect(page.getByText('0', { exact: true })).toBeVisible();
+    await expect(page.getByText('Debounced value settled', { exact: true })).toBeVisible();
+    await expect(page.getByText('Count is synced', { exact: true })).toBeVisible();
+    await expect(countBadges.nth(0)).toHaveText('0');
+    await expect(countBadges.nth(1)).toHaveText('0');
   });
 });

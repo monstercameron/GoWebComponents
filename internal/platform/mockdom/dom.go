@@ -280,6 +280,13 @@ func (a *MockDOMAdapter) SetInnerHTML(node runtime.DOMNode, html string) {
 		a.mu.Lock()
 		defer a.mu.Unlock()
 		n.InnerHTML = html
+		if html == "" {
+			for _, child := range n.Children {
+				child.Parent = nil
+			}
+			n.Children = n.Children[:0]
+			n.TextContent = ""
+		}
 		a.recordOp("setInnerHTML", n.ID, html)
 	}
 }

@@ -1,7 +1,9 @@
 package runtime
 
 import (
+	"fmt"
 	"sync"
+	"time"
 )
 
 var (
@@ -26,6 +28,7 @@ func (rt *Runtime) getContinueWorkFn() func() {
 func (rt *Runtime) ScheduleUpdate() {
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()
+	rt.profiling.scheduledRootUpdates++
 
 	if rt.currentRoot == nil || rt.updateScheduled {
 		return
@@ -68,6 +71,7 @@ func (rt *Runtime) continueWorkLoop() {
 
 // workLoop processes work units during idle periods
 func (rt *Runtime) workLoop(deadline Deadline) {
+	rt.profiling.workLoopPasses++
 	shouldYield := false
 	units := 0
 	maxUnitsPerSlice := 300
@@ -79,6 +83,7 @@ func (rt *Runtime) workLoop(deadline Deadline) {
 	for rt.nextUnitOfWork != nil && !shouldYield {
 		rt.nextUnitOfWork = rt.performUnitOfWork(rt.nextUnitOfWork)
 		units++
+		rt.profiling.processedUnits++
 
 		// Check if we should yield
 		if deadline.TimeRemaining() < 1 || units >= maxUnitsPerSlice {
@@ -101,6 +106,11 @@ func (rt *Runtime) workLoop(deadline Deadline) {
 func (rt *Runtime) Render(element *Element, container DOMNode) {
 	schedulerMu.Lock()
 	defer schedulerMu.Unlock()
+	start := time.Now()
+	defer func() {
+		rt.profiling.renderCalls++
+		rt.profiling.lastRenderDurationNs = time.Since(start).Nanoseconds()
+	}()
 
 	shouldSchedule := !rt.updateScheduled
 	rt.updateScheduled = true
@@ -131,11 +141,65 @@ func (rt *Runtime) Render(element *Element, container DOMNode) {
 	}
 }
 
+// Hydrate starts a client resume attempt from an existing container.
+//
+// The current implementation performs a hydration preflight, reports what was
+// found in the container, clears existing DOM on fallback, and then schedules a
+// fresh render. DOM-node matching will build on this dedicated path.
+func (rt *Runtime) Hydrate(element *Element, container DOMNode) {
+	schedulerMu.Lock()
+	defer schedulerMu.Unlock()
+	start := time.Now()
+	defer func() {
+		rt.profiling.renderCalls++
+		rt.profiling.lastRenderDurationNs = time.Since(start).Nanoseconds()
+	}()
+
+	existingChildren := 0
+	if rt.domAdapter != nil && container != nil && !container.IsNull() {
+		existingChildren = len(rt.domAdapter.GetChildren(container))
+	}
+
+	if existingChildren > 0 {
+		ReportDiagnostic("runtime", DiagnosticInfo, fmt.Sprintf("Hydrate found %d existing container child nodes and is falling back to a fresh render while DOM matching is under development", existingChildren))
+		rt.domAdapter.SetInnerHTML(container, "")
+	} else {
+		ReportDiagnostic("runtime", DiagnosticInfo, "Hydrate found no existing container children and is proceeding with a fresh client render")
+	}
+
+	shouldSchedule := !rt.updateScheduled
+	rt.updateScheduled = true
+
+	if rt.currentRoot != nil {
+		rt.currentRoot.alternate = nil
+	}
+
+	rt.wipRoot = acquireWorkInProgress(rt.currentRoot)
+	*rt.wipRoot = Fiber{
+		typeOf:    "ROOT",
+		dom:       container,
+		props:     map[string]interface{}{"children": []interface{}{element}},
+		alternate: rt.currentRoot,
+		dirty:     true,
+	}
+
+	rt.nextUnitOfWork = rt.wipRoot
+	if rt.deletions == nil {
+		rt.deletions = make([]*Fiber, 0)
+	} else {
+		rt.deletions = rt.deletions[:0]
+	}
+	if shouldSchedule {
+		rt.scheduler.SetTimeout(rt.getContinueWorkFn(), 0)
+	}
+}
+
 // ScheduleUpdateForFiber schedules an update for a specific fiber
 func (rt *Runtime) ScheduleUpdateForFiber(fiber *Fiber) {
 	if fiber == nil {
 		return
 	}
+	rt.profiling.scheduledFiberMarks++
 
 	// Mark fiber and parents as dirty
 	first := true

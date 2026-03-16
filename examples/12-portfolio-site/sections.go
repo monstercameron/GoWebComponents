@@ -360,8 +360,9 @@ func ApiDocumentationSection(props Attrs) *Element {
 					[]ApiItem{
 						{"UseState", "Manage component state", "[value, setValue] := UseState(initialValue)"},
 						{"UseEffect", "Handle side effects and lifecycle", "UseEffect(func() func() { /* effect */ return nil }, dependencies...)"},
-						{"GoUseMemo", "Memoize expensive calculations", "memoizedValue := fiber.GoUseMemo(func() interface{} { return calc() }, deps)"},
-						{"GoUseFetch", "Declarative data fetching", "data, loading, err := fiber.GoUseFetch(url, options)"},
+						{"UseMemo", "Memoize expensive calculations", "memoizedValue := ui.UseMemo(func() Result { return calc() }, deps...)"},
+						{"UseFetch", "Raw fetch state for URL-driven requests", "resource := fetch.UseFetch(url); state := resource.Get()"},
+						{"UseResource", "Typed async loading with cancellation", "resource := fetch.UseResource(loader, deps...)"},
 					},
 				),
 
@@ -371,7 +372,7 @@ func ApiDocumentationSection(props Attrs) *Element {
 					"Helper functions and utilities",
 					[]ApiItem{
 						{"RenderTo", "Render component to DOM element", "fiber.RenderTo(\"#app\", component)"},
-						{"GoFetch", "Imperative HTTP requests", "response, err := fiber.GoFetch(url, options)"},
+						{"Fetch", "Imperative HTTP requests", "resultChan := fetch.Fetch(url, fetch.Options{Method: \"GET\"})"},
 						{"SetDebugMode", "Enable/disable debug logging", "fiber.SetDebugMode(true)"},
 						{"EnableHotReload", "Enable hot reload for development", "fiber.EnableHotReload(true)"},
 					},

@@ -8,7 +8,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'list',
   use: {
-    baseURL: 'http://127.0.0.1:8080',
+    baseURL: 'http://127.0.0.1:8081',
     trace: 'on-first-retry',
   },
 
@@ -22,8 +22,8 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'npx http-server . -p 8080',
-    url: 'http://127.0.0.1:8080',
+    command: 'npx http-server . -p 8081',
+    url: 'http://127.0.0.1:8081',
     reuseExistingServer: !process.env.CI,
     stdout: 'ignore',
     stderr: 'pipe',

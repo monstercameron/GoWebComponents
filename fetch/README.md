@@ -19,21 +19,26 @@ GoWebComponents/
 
 ## Overview
 
-The `fetch` package provides utilities for making HTTP requests from WebAssembly applications. It offers both declarative (hook-based) and imperative APIs for data fetching, with built-in loading states, error handling, and automatic re-fetching.
+The `fetch` package provides utilities for making HTTP requests from WebAssembly applications. It offers both low-level fetch hooks and higher-level typed async resources.
+
+## Which API to Use
+
+- Use `UseFetch` when you want raw fetch state around a URL and are comfortable parsing `state.Data` yourself.
+- Use `UseResource[T]` when you want typed values, cancellation, dependency-driven reloads, or loader logic that does more than one direct fetch call.
+- Use `Fetch` when you need imperative access from an event handler, goroutine, or other non-hook code.
 
 ## Core APIs
 
-### `UseFetch(url string, options ...FetchOptions) (func() FetchState, func())`
+### `UseFetch(url string, options ...Options) Resource`
 
-Declarative hook for data fetching within components. Automatically manages loading, error, and data states.
+Declarative hook for low-level browser fetch state within components. It manages loading, error, and raw response data, but leaves parsing and higher-level orchestration to the caller.
 
 ```go
 import "github.com/monstercameron/GoWebComponents/fetch"
 
 func UserProfile(props dom.Attrs) *dom.Element {
-    // Returns: (stateGetter, refetch)
-    getState, refetch := fetch.UseFetch("https://api.example.com/user/1")
-    state := getState()
+    resource := fetch.UseFetch("https://api.example.com/user/1")
+    state := resource.Get()
 
     if state.Loading {
         return dom.P(nil, dom.Text("Loading..."))
@@ -44,21 +49,58 @@ func UserProfile(props dom.Attrs) *dom.Element {
             dom.P(nil, dom.Text("Error: "+state.Error)),
             dom.Button(dom.Attrs{
                 "onclick": hooks.GoUseFunc(func(e dom.GoEvent) {
-                    refetch()  // Retry the request
+                    resource.Refetch()
                 }),
             }, dom.Text("Retry")),
         )
     }
 
-    user := state.Data.(map[string]interface{})
+    userJSON := state.Data.(string)
     return dom.Div(nil,
-        dom.H1(nil, dom.Text(user["name"].(string))),
-        dom.P(nil, dom.Text(user["email"].(string))),
+        dom.Pre(nil, dom.Text(userJSON)),
     )
 }
 ```
 
-### `GoFetch(url string, options FetchOptions) <-chan FetchResult`
+### `UseResource[T](loader func(context.Context) (T, error), deps ...interface{})`
+
+Typed async resource hook for non-trivial loading flows.
+
+```go
+import (
+    "context"
+
+    "github.com/monstercameron/GoWebComponents/fetch"
+)
+
+func UserCount(props dom.Attrs) *dom.Element {
+    resource := fetch.UseResource(func(ctx context.Context) (int, error) {
+        // Replace with real async work.
+        // The context is cancelled on unmount, dependency change, or Cancel().
+        return 42, nil
+    })
+
+    state := resource.Get()
+    if state.Loading {
+        return dom.P(nil, dom.Text("Loading count..."))
+    }
+    if state.Error != nil {
+        return dom.P(nil, dom.Text("Error: "+state.Error.Error()))
+    }
+    if !state.Ready {
+        return dom.P(nil, dom.Text("Idle"))
+    }
+
+    return dom.Div(nil,
+        dom.P(nil, dom.Text(fmt.Sprintf("Count: %d", state.Value))),
+        dom.Button(dom.Attrs{"onclick": hooks.GoUseFunc(func(e dom.GoEvent) {
+            resource.Reload()
+        })}, dom.Text("Reload")),
+    )
+}
+```
+
+### `Fetch(url string, options Options) <-chan Result`
 
 Imperative API for making HTTP requests from anywhere (event handlers, goroutines, etc.).
 
@@ -66,7 +108,7 @@ Imperative API for making HTTP requests from anywhere (event handlers, goroutine
 import "github.com/monstercameron/GoWebComponents/fetch"
 
 func CreateUser(userData map[string]interface{}) {
-    resultChan := fetch.GoFetch("https://api.example.com/users", fetch.FetchOptions{
+    resultChan := fetch.Fetch("https://api.example.com/users", fetch.Options{
         Method:  "POST",
         Headers: map[string]interface{}{
             "Content-Type": "application/json",
@@ -76,7 +118,7 @@ func CreateUser(userData map[string]interface{}) {
 
     go func() {
         result := <-resultChan
-        fetch.ReturnFetchChannel(resultChan)  // IMPORTANT: Prevent memory leaks
+        fetch.ReturnChannel(resultChan)
 
         if result.Err != nil {
             fmt.Println("Error:", result.Err)
@@ -100,19 +142,19 @@ type FetchState struct {
 }
 ```
 
-### FetchResult
+### Result
 
 ```go
-type FetchResult struct {
+type Result struct {
     Data interface{}  // Response data
     Err  error        // Error if request failed
 }
 ```
 
-### FetchOptions
+### Options
 
 ```go
-type FetchOptions struct {
+type Options struct {
     Method  string                 // HTTP method: GET, POST, PUT, DELETE, etc.
     Headers map[string]interface{} // Request headers
     Body    interface{}            // Request body (auto-JSON encoded if struct/map)
@@ -167,8 +209,8 @@ func CreatePostForm(props dom.Attrs) *dom.Element {
             "userId": 1,
         }
 
-        resultChan := fetch.GoFetch("https://jsonplaceholder.typicode.com/posts",
-            fetch.FetchOptions{
+        resultChan := fetch.Fetch("https://jsonplaceholder.typicode.com/posts",
+            fetch.Options{
                 Method: "POST",
                 Headers: map[string]interface{}{
                     "Content-Type": "application/json",
@@ -178,7 +220,6 @@ func CreatePostForm(props dom.Attrs) *dom.Element {
 
         go func() {
             result := <-resultChan
-            fetch.ReturnFetchChannel(resultChan)
 
             if result.Err != nil {
                 setStatus("Error: " + result.Err.Error())
@@ -217,7 +258,7 @@ func CreatePostForm(props dom.Attrs) *dom.Element {
 func UpdateUser(userID int, updates map[string]interface{}) {
     url := fmt.Sprintf("https://api.example.com/users/%d", userID)
 
-    resultChan := fetch.GoFetch(url, fetch.FetchOptions{
+    resultChan := fetch.Fetch(url, fetch.Options{
         Method: "PUT",
         Headers: map[string]interface{}{
             "Content-Type": "application/json",
@@ -227,7 +268,6 @@ func UpdateUser(userID int, updates map[string]interface{}) {
 
     go func() {
         result := <-resultChan
-        fetch.ReturnFetchChannel(resultChan)
 
         if result.Err != nil {
             fmt.Println("Update failed:", result.Err)
@@ -244,13 +284,12 @@ func UpdateUser(userID int, updates map[string]interface{}) {
 func DeletePost(postID int) {
     url := fmt.Sprintf("https://api.example.com/posts/%d", postID)
 
-    resultChan := fetch.GoFetch(url, fetch.FetchOptions{
+    resultChan := fetch.Fetch(url, fetch.Options{
         Method: "DELETE",
     })
 
     go func() {
         result := <-resultChan
-        fetch.ReturnFetchChannel(resultChan)
 
         if result.Err != nil {
             fmt.Println("Delete failed:", result.Err)
@@ -267,8 +306,8 @@ func DeletePost(postID int) {
 func AuthenticatedRequest() {
     token := "your-jwt-token"
 
-    resultChan := fetch.GoFetch("https://api.example.com/protected",
-        fetch.FetchOptions{
+    resultChan := fetch.Fetch("https://api.example.com/protected",
+        fetch.Options{
             Method: "GET",
             Headers: map[string]interface{}{
                 "Authorization": "Bearer " + token,
@@ -278,7 +317,6 @@ func AuthenticatedRequest() {
 
     go func() {
         result := <-resultChan
-        fetch.ReturnFetchChannel(resultChan)
 
         // Handle result
     }()
@@ -300,8 +338,8 @@ func UserPosts(props dom.Attrs) *dom.Element {
     }
 
     url := fmt.Sprintf("https://api.example.com/users/%d/posts", currentUserID)
-    getState, _ := fetch.UseFetch(url)
-    state := getState()
+    resource := fetch.UseFetch(url)
+    state := resource.Get()
 
     // ... render posts
 }
@@ -311,7 +349,7 @@ func UserPosts(props dom.Attrs) *dom.Element {
 
 ```go
 func LiveData(props dom.Attrs) *dom.Element {
-    getState, refetch := fetch.UseFetch("https://api.example.com/live-data")
+    resource := fetch.UseFetch("https://api.example.com/live-data")
 
     // Poll every 5 seconds
     hooks.UseEffect(func() {
@@ -322,7 +360,7 @@ func LiveData(props dom.Attrs) *dom.Element {
             for {
                 select {
                 case <-ticker.C:
-                    refetch()
+                    resource.Refetch()
                 case <-done:
                     ticker.Stop()
                     return
@@ -336,7 +374,7 @@ func LiveData(props dom.Attrs) *dom.Element {
         }
     }, nil)
 
-    state := getState()
+    state := resource.Get()
     // ... render data
 }
 ```
@@ -345,13 +383,13 @@ func LiveData(props dom.Attrs) *dom.Element {
 
 ```go
 func Dashboard(props dom.Attrs) *dom.Element {
-    getUsers, _ := fetch.UseFetch("https://api.example.com/users")
-    getPosts, _ := fetch.UseFetch("https://api.example.com/posts")
-    getComments, _ := fetch.UseFetch("https://api.example.com/comments")
+    usersResource := fetch.UseFetch("https://api.example.com/users")
+    postsResource := fetch.UseFetch("https://api.example.com/posts")
+    commentsResource := fetch.UseFetch("https://api.example.com/comments")
 
-    usersState := getUsers()
-    postsState := getPosts()
-    commentsState := getComments()
+    usersState := usersResource.Get()
+    postsState := postsResource.Get()
+    commentsState := commentsResource.Get()
 
     if usersState.Loading || postsState.Loading || commentsState.Loading {
         return dom.P(nil, dom.Text("Loading dashboard..."))
@@ -367,10 +405,10 @@ func Dashboard(props dom.Attrs) *dom.Element {
 
 ```go
 func RobustFetch(props dom.Attrs) *dom.Element {
-    getState, refetch := fetch.UseFetch("https://api.example.com/data")
+    resource := fetch.UseFetch("https://api.example.com/data")
     retryCount, setRetryCount := hooks.UseState(0)
 
-    state := getState()
+    state := resource.Get()
 
     if state.Error != "" {
         return dom.Div(nil,
@@ -379,7 +417,7 @@ func RobustFetch(props dom.Attrs) *dom.Element {
             dom.Button(dom.Attrs{
                 "onclick": hooks.GoUseFunc(func(e dom.GoEvent) {
                     setRetryCount(retryCount() + 1)
-                    refetch()
+                    resource.Refetch()
                 }),
             }, dom.Text("Retry")),
         )
@@ -392,18 +430,16 @@ func RobustFetch(props dom.Attrs) *dom.Element {
 ### Timeout Handling
 
 ```go
-func FetchWithTimeout(url string, timeout time.Duration) <-chan FetchResult {
-    resultChan := fetch.GoFetch(url, fetch.FetchOptions{Method: "GET"})
-    timeoutChan := make(chan FetchResult, 1)
+func FetchWithTimeout(url string, timeout time.Duration) <-chan fetch.Result {
+    resultChan := fetch.Fetch(url, fetch.Options{Method: "GET"})
+    timeoutChan := make(chan fetch.Result, 1)
 
     go func() {
         select {
         case result := <-resultChan:
-            fetch.ReturnFetchChannel(resultChan)
             timeoutChan <- result
         case <-time.After(timeout):
-            fetch.ReturnFetchChannel(resultChan)
-            timeoutChan <- FetchResult{
+            timeoutChan <- fetch.Result{
                 Err: fmt.Errorf("request timeout after %v", timeout),
             }
         }
@@ -415,35 +451,32 @@ func FetchWithTimeout(url string, timeout time.Duration) <-chan FetchResult {
 
 ## Best Practices
 
-### 1. Always Return Channels
+### 1. Prefer `UseResource[T]` for typed app data
 
 ```go
-// ✅ Good
-result := <-resultChan
-fetch.ReturnFetchChannel(resultChan)
-
-// ❌ Bad - memory leak
-result := <-resultChan
-// Channel not returned!
+// ✅ Good - typed loader with cancellation and reload support
+resource := fetch.UseResource(func(ctx context.Context) (User, error) {
+    return loadUser(ctx)
+})
 ```
 
-### 2. Use Declarative API in Components
+### 2. Use `UseFetch` when you want raw response state
 
 ```go
-// ✅ Good - automatic state management
+// ✅ Good - simple raw fetch state
 func Component(props dom.Attrs) *dom.Element {
-    getState, _ := fetch.UseFetch(url)
-    state := getState()
+    resource := fetch.UseFetch(url)
+    state := resource.Get()
     // ...
 }
 
-// ❌ Less ideal - manual state management
+// ❌ Less ideal - manual state management for the same flow
 func Component(props dom.Attrs) *dom.Element {
     data, setData := hooks.UseState(nil)
     loading, setLoading := hooks.UseState(true)
 
     hooks.UseEffect(func() {
-        // Manual fetch with GoFetch...
+        // Manual fetch with fetch.Fetch...
     }, nil)
 }
 ```
@@ -452,8 +485,8 @@ func Component(props dom.Attrs) *dom.Element {
 
 ```go
 func GoodComponent(props dom.Attrs) *dom.Element {
-    getState, _ := fetch.UseFetch(url)
-    state := getState()
+    resource := fetch.UseFetch(url)
+    state := resource.Get()
 
     // Always handle all three states
     if state.Loading {

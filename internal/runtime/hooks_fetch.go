@@ -23,6 +23,7 @@ import (
 func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
+		ReportDiagnostic("runtime", DiagnosticError, "GoUseFetch called outside component context")
 		panic("GoUseFetch called outside component context")
 	}
 

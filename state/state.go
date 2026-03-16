@@ -4,6 +4,10 @@
 package state
 
 import (
+	"encoding/json"
+	"fmt"
+	"syscall/js"
+
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
@@ -14,6 +18,23 @@ type Atom[T any] struct {
 	get func() T
 	set func(T)
 }
+
+type Computed[T any] struct {
+	get func() T
+}
+
+type Derived[T any] struct {
+	get func() T
+}
+
+type Snapshot map[string]interface{}
+
+type StorageArea string
+
+const (
+	LocalStorage   StorageArea = "localStorage"
+	SessionStorage StorageArea = "sessionStorage"
+)
 
 // UseAtom provides SolidJS-style fine-grained reactivity with global atoms.
 // Atoms are accessible from anywhere in the component tree by ID and
@@ -114,4 +135,180 @@ func (a Atom[T]) Set(value T) {
 
 func (a Atom[T]) Update(fn func(T) T) {
 	a.set(fn(a.get()))
+}
+
+// UseComputed derives a typed value from other state used by the current component.
+//
+// It is intended for render-time derived values, especially when a component is
+// already reading one or more atoms and wants a typed handle instead of using
+// ui.UseMemo directly in every call site.
+//
+// The computed value is memoized according to the provided dependency list.
+// Callers should pass the values that should trigger recomputation.
+func UseComputed[T any](compute func() T, deps ...interface{}) Computed[T] {
+	value := runtime.GoUseMemoGlobal(func() interface{} {
+		return compute()
+	}, deps...)
+
+	cast, ok := value.(T)
+	if !ok {
+		var zero T
+		return Computed[T]{get: func() T { return zero }}
+	}
+
+	return Computed[T]{get: func() T { return cast }}
+}
+
+func (c Computed[T]) Get() T {
+	if c.get == nil {
+		var zero T
+		return zero
+	}
+
+	return c.get()
+}
+
+// UseDerived registers and subscribes to a read-only derived atom.
+//
+// Derived atoms are shared state values keyed by id. They recompute when one of
+// the named source atom IDs changes and expose a typed read-only handle to the
+// current derived value. Dependency tracking is explicit through atom IDs so
+// recomputation remains predictable and avoids hidden runtime graph discovery.
+func UseDerived[T any](id string, compute func() T, deps ...string) Derived[T] {
+	var zero T
+	if err := runtime.GetGlobalRuntime().RegisterDerivedAtom(id, deps, func() interface{} {
+		return compute()
+	}); err != nil {
+		return Derived[T]{get: func() T { return zero }}
+	}
+
+	atom := UseAtom(id, zero)
+	return Derived[T]{get: atom.Get}
+}
+
+func (d Derived[T]) Get() T {
+	if d.get == nil {
+		var zero T
+		return zero
+	}
+	return d.get()
+}
+
+// ExportSnapshot returns a copy of all atoms currently registered in the global runtime.
+//
+// The returned snapshot preserves in-memory Go values exactly for same-process
+// restore via ImportSnapshot. When serializing to JSON or browser storage, only
+// JSON-compatible atom values should be relied on as stable persisted data.
+func ExportSnapshot() Snapshot {
+	raw := runtime.GetGlobalRuntime().SnapshotAtoms()
+	snapshot := make(Snapshot, len(raw))
+	for key, value := range raw {
+		snapshot[key] = value
+	}
+	return snapshot
+}
+
+// Select returns a filtered snapshot containing only the requested atom keys.
+func (s Snapshot) Select(keys ...string) Snapshot {
+	if len(keys) == 0 {
+		clone := make(Snapshot, len(s))
+		for key, value := range s {
+			clone[key] = value
+		}
+		return clone
+	}
+
+	selected := make(Snapshot, len(keys))
+	for _, key := range keys {
+		if value, ok := s[key]; ok {
+			selected[key] = value
+		}
+	}
+	return selected
+}
+
+// ImportSnapshot merges atom values from snapshot into the global runtime and
+// schedules subscribed components for updates.
+func ImportSnapshot(snapshot Snapshot) error {
+	return runtime.GetGlobalRuntime().RestoreAtomSnapshot(snapshot)
+}
+
+// MarshalSnapshotJSON serializes snapshot for browser storage or transport.
+//
+// Persisted snapshots should only contain JSON-compatible values if stable
+// round-tripping is required. Composite Go structs restore as generic JSON
+// objects unless callers provide their own typed serialization layer.
+func MarshalSnapshotJSON(snapshot Snapshot) ([]byte, error) {
+	if snapshot == nil {
+		snapshot = Snapshot{}
+	}
+	return json.Marshal(snapshot)
+}
+
+// UnmarshalSnapshotJSON decodes a JSON snapshot produced by MarshalSnapshotJSON.
+func UnmarshalSnapshotJSON(data []byte) (Snapshot, error) {
+	if len(data) == 0 {
+		return Snapshot{}, nil
+	}
+
+	var snapshot Snapshot
+	if err := json.Unmarshal(data, &snapshot); err != nil {
+		return nil, err
+	}
+	if snapshot == nil {
+		return Snapshot{}, nil
+	}
+	return snapshot, nil
+}
+
+// SaveSnapshot stores a JSON-encoded snapshot in browser storage.
+func SaveSnapshot(key string, snapshot Snapshot, area StorageArea) error {
+	storage := getStorage(area)
+	if !storage.Truthy() {
+		return fmt.Errorf("%s is not available", area)
+	}
+
+	data, err := MarshalSnapshotJSON(snapshot)
+	if err != nil {
+		return err
+	}
+	storage.Call("setItem", key, string(data))
+	return nil
+}
+
+// LoadSnapshot reads and decodes a snapshot from browser storage.
+func LoadSnapshot(key string, area StorageArea) (Snapshot, bool, error) {
+	storage := getStorage(area)
+	if !storage.Truthy() {
+		return nil, false, fmt.Errorf("%s is not available", area)
+	}
+
+	value := storage.Call("getItem", key)
+	if value.IsNull() || value.IsUndefined() {
+		return nil, false, nil
+	}
+
+	snapshot, err := UnmarshalSnapshotJSON([]byte(value.String()))
+	if err != nil {
+		return nil, false, err
+	}
+	return snapshot, true, nil
+}
+
+// RestoreSnapshot loads a snapshot from browser storage and imports it.
+func RestoreSnapshot(key string, area StorageArea) (bool, error) {
+	snapshot, ok, err := LoadSnapshot(key, area)
+	if err != nil || !ok {
+		return ok, err
+	}
+	return true, ImportSnapshot(snapshot)
+}
+
+func getStorage(area StorageArea) js.Value {
+	window := js.Global()
+	storage := window.Get(string(area))
+	if storage.Truthy() {
+		return storage
+	}
+	return js.Undefined()
 }

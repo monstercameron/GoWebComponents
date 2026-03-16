@@ -35,7 +35,7 @@ func TestHooks_PanicCoverage(t *testing.T) {
 	SetCurrentFiber(nil)
 	resetGlobalRuntimeForTest()
 
-	expectPanic(t, func() { _, _ = GoUseState[int](nil, 1) })
+	expectPanic(t, func() { _, _ = GoUseState(nil, 1) })
 	expectPanic(t, func() { GoUseEffect(func() func() { return nil }) })
 	expectPanic(t, func() { _ = GoUseMemo(func() interface{} { return 1 }) })
 	expectPanic(t, func() { _ = GoUseCallback(func() {}, "x") })
@@ -402,8 +402,8 @@ func TestRuntimeSchedulerState_ExtraCoverage(t *testing.T) {
 	rt.CleanupAtomSubscriptions(fiber)
 
 	SetCurrentFiber(nil)
-	expectPanic(t, func() { _, _ = GoUseAtom[int](rt, "id", 1) })
-	expectPanic(t, func() { _, _ = GoUseAtom[int](&Runtime{}, "id", 1) })
+	expectPanic(t, func() { _, _ = GoUseAtom(rt, "id", 1) })
+	expectPanic(t, func() { _, _ = GoUseAtom(&Runtime{}, "id", 1) })
 
 	SetCurrentFiber(&Fiber{typeOf: "test", props: map[string]interface{}{}})
 	defer SetCurrentFiber(nil)

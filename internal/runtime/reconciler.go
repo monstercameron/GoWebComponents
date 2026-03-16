@@ -3,6 +3,7 @@ package runtime
 import (
 	"reflect"
 	"sync"
+	"time"
 )
 
 // currentFiber tracks the fiber being processed (for hooks)
@@ -54,9 +55,6 @@ var (
 			return make([]*Fiber, 0, 16)
 		},
 	}
-	// Pre-allocated buffer for batch operations
-	batchBuffer     [256]*Fiber
-	batchBufferUsed int
 )
 
 type domPropKind uint8
@@ -255,6 +253,7 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 		}()
 	}
 	elements = flatElements
+	reportMissingKeys(wipFiber, elements)
 
 	if shouldUseKeyedReconciliation(elements, wipFiber) {
 		rt.reconcileKeyedChildren(wipFiber, elements)
@@ -932,7 +931,7 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 	if len(oldProps) == 0 && len(newProps) > 0 {
 		// If batching is supported, collect attributes
 		var attrBatch map[string]string
-		flushAttrBatch := func(resetCap int) {
+		flushAttrBatch := func() {
 			if !supportsBatching || len(attrBatch) == 0 {
 				return
 			}
@@ -949,7 +948,7 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 			switch meta.kind {
 			case propKindStyle:
 				// Flush batch before style
-				flushAttrBatch(len(newProps))
+				flushAttrBatch()
 				if styles, ok := value.(map[string]string); ok {
 					rt.domAdapter.SetStyles(dom, styles)
 				} else if str, ok := value.(string); ok {
@@ -975,7 +974,7 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 				}
 			case propKindSpecialProperty:
 				// Flush batch before property
-				flushAttrBatch(len(newProps))
+				flushAttrBatch()
 				rt.domAdapter.SetProperty(dom, name, value)
 			default:
 				if str, ok := value.(string); ok {
@@ -989,14 +988,14 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 					}
 				} else {
 					// Flush batch before property
-					flushAttrBatch(len(newProps))
+					flushAttrBatch()
 					rt.domAdapter.SetProperty(dom, name, value)
 				}
 			}
 		}
 
 		// Flush remaining batched attributes
-		flushAttrBatch(len(newProps))
+		flushAttrBatch()
 		return
 	}
 
@@ -1055,6 +1054,11 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 
 // commitRoot commits all changes to the DOM
 func (rt *Runtime) commitRoot() {
+	start := time.Now()
+	defer func() {
+		rt.profiling.commitCount++
+		rt.profiling.lastCommitDurationNs = time.Since(start).Nanoseconds()
+	}()
 	// Process deletions first
 	for _, fiber := range rt.deletions {
 		// Deletions need to find their parent DOM node
@@ -1079,6 +1083,51 @@ func (rt *Runtime) commitRoot() {
 	rt.wipRoot = nil
 }
 
+func reportMissingKeys(parent *Fiber, elements []interface{}) {
+	renderableCount := 0
+	missingKeyCount := 0
+	hasKeyedSibling := false
+	for _, element := range elements {
+		elem, ok := element.(*Element)
+		if !ok || elem == nil {
+			continue
+		}
+		renderableCount++
+		if hasElementKey(elem) {
+			hasKeyedSibling = true
+			continue
+		}
+		missingKeyCount++
+	}
+
+	if renderableCount <= 1 || missingKeyCount == 0 {
+		return
+	}
+
+	if !hasKeyedSibling {
+		for oldFiber := parentChild(parent); oldFiber != nil; oldFiber = oldFiber.sibling {
+			if hasFiberKey(oldFiber) {
+				hasKeyedSibling = true
+				break
+			}
+		}
+	}
+
+	if !hasKeyedSibling {
+		return
+	}
+
+	_, parentName := describeFiber(parent)
+	ReportDiagnostic("runtime", DiagnosticWarning, "missing key on one or more sibling elements under "+parentName)
+}
+
+func parentChild(parent *Fiber) *Fiber {
+	if parent == nil || parent.alternate == nil {
+		return nil
+	}
+	return parent.alternate.child
+}
+
 // commitWork commits a fiber's changes to the DOM with batch optimization
 func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 	if fiber == nil {
@@ -1098,7 +1147,9 @@ func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 
 	if domParent != nil && !domParent.IsNull() {
 		if fiber.effectTag == "PLACEMENT" && fiber.dom != nil && !fiber.dom.IsNull() {
+			start := time.Now()
 			rt.domAdapter.AppendChild(domParent, fiber.dom)
+			fiber.commitDurationNs += time.Since(start).Nanoseconds()
 		} else if fiber.effectTag == "UPDATE" && fiber.dom != nil && !fiber.dom.IsNull() {
 			if fiber.alternate != nil {
 				// Check if this is a text node
@@ -1115,11 +1166,15 @@ func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 					}
 
 					if oldValue != newValue {
+						start := time.Now()
 						rt.domAdapter.SetTextContent(fiber.dom, newValue)
+						fiber.commitDurationNs += time.Since(start).Nanoseconds()
 					}
 				} else {
 					// Regular element - update properties
+					start := time.Now()
 					rt.updateDomProperties(fiber.dom, fiber.alternate.props, fiber.props)
+					fiber.commitDurationNs += time.Since(start).Nanoseconds()
 				}
 			}
 		} else if fiber.effectTag == "DELETION" {
@@ -1195,7 +1250,13 @@ func (rt *Runtime) runCleanups(fiber *Fiber) {
 	if fiber.hooks != nil {
 		for _, cleanup := range fiber.hooks.cleanups {
 			if cleanup != nil {
+				start := time.Now()
 				cleanup()
+				durationNs := time.Since(start).Nanoseconds()
+				fiber.cleanupDurationNs += durationNs
+				rt.profiling.cleanupExecutions++
+				rt.profiling.lastCleanupDurationNs = durationNs
+				recordSlowOperationDiagnostic("cleanup", fiber, durationNs)
 			}
 		}
 	}
@@ -1218,17 +1279,30 @@ func (rt *Runtime) runEffects(fiber *Fiber) {
 	// Run this fiber's effects in batch
 	effects := fiber.effects
 	effectCount := len(effects)
+	fiber.effectDurationNs = 0
 
 	// Unroll for common small effect counts
 	if effectCount == 1 {
+		start := time.Now()
 		cleanup := effects[0].Fn()
+		durationNs := time.Since(start).Nanoseconds()
+		fiber.effectDurationNs += durationNs
+		rt.profiling.effectExecutions++
+		rt.profiling.lastEffectDurationNs = durationNs
+		recordSlowOperationDiagnostic("effect", fiber, durationNs)
 		if cleanup != nil {
 			fiber.hooks.cleanups[effects[0].CleanupIndex] = cleanup
 		}
 	} else {
 		for i := 0; i < effectCount; i++ {
 			effect := &effects[i]
+			start := time.Now()
 			cleanup := effect.Fn()
+			durationNs := time.Since(start).Nanoseconds()
+			fiber.effectDurationNs += durationNs
+			rt.profiling.effectExecutions++
+			rt.profiling.lastEffectDurationNs = durationNs
+			recordSlowOperationDiagnostic("effect", fiber, durationNs)
 			if cleanup != nil {
 				fiber.hooks.cleanups[effect.CleanupIndex] = cleanup
 			}

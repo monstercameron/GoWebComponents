@@ -99,7 +99,7 @@ func TestGoUseState_SchedulesUpdateForLatestHookOwner(t *testing.T) {
 	oldRoot := &Fiber{typeOf: "ROOT", props: map[string]interface{}{}}
 	oldFiber := &Fiber{typeOf: "counter", parent: oldRoot, props: map[string]interface{}{}}
 	SetCurrentFiber(oldFiber)
-	_, setValue := GoUseState[int](rt, 0)
+	_, setValue := GoUseState(rt, 0)
 	SetCurrentFiber(nil)
 
 	currentRoot := &Fiber{typeOf: "ROOT", props: map[string]interface{}{}}

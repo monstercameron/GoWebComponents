@@ -4,12 +4,14 @@
 package fetch
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/ui"
 )
 
 // Options represents configuration for HTTP fetch operations.
@@ -33,6 +35,19 @@ type Resource struct {
 	refetch func()
 }
 
+type ResourceState[T any] struct {
+	Value   T
+	Loading bool
+	Error   error
+	Ready   bool
+}
+
+type AsyncResource[T any] struct {
+	get    func() ResourceState[T]
+	reload func()
+	cancel func()
+}
+
 // UseFetch is a hook that simplifies data fetching within a component.
 // It uses the runtime fetch hook directly.
 func UseFetch(url string, options ...Options) Resource {
@@ -50,6 +65,101 @@ func (r Resource) Get() State {
 
 func (r Resource) Refetch() {
 	r.refetch()
+}
+
+// UseResource provides a typed async resource hook driven by a Go loader.
+//
+// The loader runs on mount and whenever deps or the reload token change. It
+// receives a context that is cancelled when the component unmounts, the
+// dependency list changes, or Cancel is called on the returned handle.
+func UseResource[T any](loader func(context.Context) (T, error), deps ...interface{}) AsyncResource[T] {
+	state := ui.UseState(ResourceState[T]{})
+	reloadTick := ui.UseState(0)
+	cancelRef := ui.UseRef((context.CancelFunc)(nil))
+	requestSeq := ui.UseRef(0)
+
+	startLoad := func() {
+		if cancel := cancelRef.Get(); cancel != nil {
+			cancel()
+		}
+
+		requestSeq.Set(requestSeq.Get() + 1)
+		seq := requestSeq.Get()
+		ctx, cancel := context.WithCancel(context.Background())
+		cancelRef.Set(cancel)
+
+		state.Update(func(prev ResourceState[T]) ResourceState[T] {
+			prev.Loading = true
+			prev.Error = nil
+			return prev
+		})
+
+		go func() {
+			value, err := loader(ctx)
+			if ctx.Err() != nil || requestSeq.Get() != seq {
+				return
+			}
+
+			state.Set(ResourceState[T]{
+				Value:   value,
+				Loading: false,
+				Error:   err,
+				Ready:   err == nil,
+			})
+		}()
+	}
+
+	effectDeps := make([]interface{}, 0, len(deps)+1)
+	effectDeps = append(effectDeps, reloadTick.Get())
+	effectDeps = append(effectDeps, deps...)
+
+	ui.UseEffect(func() func() {
+		startLoad()
+		return func() {
+			if cancel := cancelRef.Get(); cancel != nil {
+				cancel()
+				cancelRef.Set(nil)
+			}
+		}
+	}, effectDeps...)
+
+	return AsyncResource[T]{
+		get: func() ResourceState[T] { return state.Get() },
+		reload: func() {
+			reloadTick.Update(func(prev int) int { return prev + 1 })
+		},
+		cancel: func() {
+			if cancel := cancelRef.Get(); cancel != nil {
+				cancel()
+				cancelRef.Set(nil)
+			}
+			state.Update(func(prev ResourceState[T]) ResourceState[T] {
+				prev.Loading = false
+				return prev
+			})
+		},
+	}
+}
+
+func (r AsyncResource[T]) Get() ResourceState[T] {
+	if r.get == nil {
+		var zero ResourceState[T]
+		return zero
+	}
+
+	return r.get()
+}
+
+func (r AsyncResource[T]) Reload() {
+	if r.reload != nil {
+		r.reload()
+	}
+}
+
+func (r AsyncResource[T]) Cancel() {
+	if r.cancel != nil {
+		r.cancel()
+	}
 }
 
 // Fetch performs an asynchronous HTTP fetch operation and returns a channel for the result.

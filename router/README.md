@@ -1,57 +1,95 @@
 # Router Package
 
-**Location:** `/router`
+The `router` package provides client-side routing for GoWebComponents single-page applications.
 
+It supports:
+
+- Hash routers and browser/history routers
+- Exact routes, parameter routes, and prefix wildcard routes
+- Programmatic navigation with `UseNavigate`
+- Query parsing with `UseQuery`
+- Query updates and serialization with `UseSearchParams`
+- Route params with `UseParams`
+- Manual route revalidation with `UseRevalidator`
+- Route-level async loaders with cancellation and query-aware revalidation
+
+## Core API
+
+### Router creation
+
+```go
+r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
+// or
+r := router.NewRouter(router.RouterOptions{DefaultRoute: "/"})
 ```
-GoWebComponents/
-├── dom/
-├── hooks/
-├── state/
-├── render/
-├── router/           ← YOU ARE HERE
-│   ├── doc.go
-│   └── router.go
-    "github.com/monstercameron/GoWebComponents/html"
-├── internal/
-    "github.com/monstercameron/GoWebComponents/ui"
-└── ...
+
+### Route registration
+
+```go
+r.Register("/", HomePage)
+r.Register("/users/:id", UserProfile)
+r.Register("/settings*", SettingsArea)
+r.Register("*", NotFoundPage)
 ```
-func HomePage(props router.Attrs) *router.Element {
-    return html.Div(html.Props{},
-        html.H1(html.Props{}, html.Text("Home Page")),
-        html.P(html.Props{}, html.Text("Welcome!")),
 
-## Router Types
+Routes may also include loader options:
 
-func AboutPage(props router.Attrs) *router.Element {
-    return html.Div(html.Props{},
-        html.H1(html.Props{}, html.Text("About Page")),
+```go
+r.Register("/users/:id", UserProfile, router.Options{
+    Loader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
+        return router.Attrs{"userID": routeCtx.Params.Get("id")}, nil
+    },
+})
+```
 
-**Pros:**
+Routes can also declare titles and redirects through `router.Options`:
 
-func NotFound(props router.Attrs) *router.Element {
-    return html.Div(html.Props{},
-        html.H1(html.Props{}, html.Text("404 - Page Not Found")),
+```go
+r.Register("/legacy", LegacyPage, router.Options{
+    Redirect: "/dashboard",
+})
 
-**Cons:**
+r.Register("/dashboard", DashboardPage, router.Options{
+    Title: "Dashboard",
+})
+```
 
-- Hash in URL (aesthetics)
-    r := router.NewHashRouter()
-    r.Register("/", HomePage)
-    r.Register("/about", AboutPage)
-    r.Register("*", NotFound)
-    ui.Render(r.GetRoute(), "#app")
-- Better SEO
-- Professional appearance
+Route metadata can also be managed declaratively through the same options:
 
-**Cons:**
+```go
+r.Register("/docs", DocsPage, router.Options{
+    Title:        "Docs",
+    Description:  "Framework guides and API documentation",
+    CanonicalURL: "https://example.com/docs",
+})
+```
 
-- Requires server configuration (all routes → index.html)
-- Doesn't work with file:// protocol
+Routes can also declare synchronous navigation guards:
+
+```go
+r.Register("/settings", SettingsPage, router.Options{
+    BeforeEnter: func(ctx router.RouteContext) router.GuardResult {
+        if !userIsSignedIn {
+            return router.RedirectNavigation("/login")
+        }
+        return router.AllowNavigation()
+    },
+    BeforeLeave: func(current router.RouteContext, next router.RouteContext) router.GuardResult {
+        if hasUnsavedChanges {
+            return router.BlockNavigation("Unsaved changes")
+        }
+        return router.AllowNavigation()
+    },
+})
+```
+
+### Mounting
+
+```go
+r.Mount("#app")
+```
 
 ## Basic Usage
-
-### Hash Router Example
 
 ```go
 import (
@@ -72,210 +110,339 @@ func AboutPage(props router.Attrs) *router.Element {
     )
 }
 
-func NotFound(props router.Attrs) *router.Element {
+func NotFoundPage(props router.Attrs) *router.Element {
     return html.Div(html.Props{},
         html.H1(html.Props{}, html.Text("404 - Page Not Found")),
     )
 }
 
 func main() {
-    r := router.NewHashRouter()
+    r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
     r.Register("/", HomePage)
     r.Register("/about", AboutPage)
-    r.Register("*", NotFound)
+    r.Register("*", NotFoundPage)
     r.Mount("#app")
 
     select {}
 }
 ```
 
-### Browser Router Example
+## Router Types
 
-```go
-func main() {
-    r := router.NewBrowserRouter(map[string]router.RouteComponent{
-        "/":         HomePage,
-        "/about":    AboutPage,
-        "/contact":  ContactPage,
-        "/products": ProductsPage,
-        "*":         NotFound,
-    })
+### Hash router
 
-    container := js.Global().Get("document").Call("getElementById", "app")
-    render.ToElement(r.Render(), container)
+Use `NewHashRouter` when you want routing to work without server rewrites.
 
-    select {}
-}
-```
+Pros:
+
+- Works from static hosting and simple file-serving setups
+- No server rewrite rules required
+
+Cons:
+
+- URLs include `#`
+
+### Browser/history router
+
+Use `NewRouter` when you want clean path-based URLs.
+
+Pros:
+
+- Clean URLs like `/about`
+- Better fit for production sites with server routing support
+
+Cons:
+
+- Requires server rewrites to your app entry point
+- Not suitable for `file://`-style usage
 
 ## Navigation
 
-### Using Links
-
-Create navigation links with the `dom.A` element:
+### Programmatic navigation
 
 ```go
-func Navigation(props dom.Attrs) *dom.Element {
-    return dom.Nav(nil,
-        dom.A(dom.Attrs{
-            "href": "#/",  // Hash router
-        }, dom.Text("Home")),
+func LoginButton(props router.Attrs) *router.Element {
+    nav := router.UseNavigate()
 
-        dom.A(dom.Attrs{
-            "href": "#/about",
-        }, dom.Text("About")),
+    handleLogin := ui.UseEvent(func() {
+        if loginSuccessful {
+            nav.Navigate("/dashboard")
+        }
+    })
 
-        dom.A(dom.Attrs{
-            "href": "#/contact",
-        }, dom.Text("Contact")),
-    )
+    return html.Button(html.Props{OnClick: handleLogin}, html.Text("Login"))
 }
+```
 
-// For Browser Router, omit the hash
-func Navigation(props dom.Attrs) *dom.Element {
-    return dom.Nav(nil,
-        dom.A(dom.Attrs{
-            "href": "/",  // Browser router
-        }, dom.Text("Home")),
+Use `Replace` when you want to overwrite the current history entry:
 
-        dom.A(dom.Attrs{
-            "href": "/about",
-        }, dom.Text("About")),
+```go
+nav := router.UseNavigate()
+nav.Replace("/login")
+```
+
+Declarative redirects use replacement semantics as well, so redirect routes do
+not leave an extra stale history entry behind.
+
+Synchronous `BeforeEnter` and `BeforeLeave` guards can also redirect or block
+router-driven navigation. Async guard behavior is still a separate future item.
+
+Route-managed metadata uses replacement semantics too: when a later route omits
+description or canonical metadata, the router removes the previously managed
+values instead of leaving stale tags behind.
+
+### Manual route revalidation
+
+```go
+revalidator := router.UseRevalidator()
+revalidator.Revalidate()
+```
+
+Use this when you want to rerun the current route loader without changing the path or query string.
+
+### Link-style navigation
+
+```go
+func Navigation(props router.Attrs) *router.Element {
+    return html.Nav(html.Props{},
+        html.A(html.Props{Href: "#/"}, html.Text("Home")),
+        html.A(html.Props{Href: "#/about"}, html.Text("About")),
     )
 }
 ```
 
-### Programmatic Navigation
+For browser routers, omit the `#` and use paths like `/about`.
 
-Navigate programmatically using JavaScript:
+## Route Patterns
+
+### Exact routes
 
 ```go
-handleLogin := hooks.GoUseFunc(func(e dom.GoEvent) {
-    e.PreventDefault()
+r.Register("/about", AboutPage)
+```
 
-    // Perform login logic
-    if loginSuccessful {
-        // Navigate to dashboard
-        js.Global().Get("location").Set("hash", "/dashboard")
-        // OR for browser router:
-        // js.Global().Get("history").Call("pushState", nil, "", "/dashboard")
-    }
+### Parameter routes
+
+```go
+r.Register("/users/:id", UserProfile)
+```
+
+### Prefix wildcard routes
+
+```go
+r.Register("/settings*", SettingsArea)
+```
+
+This matches `/settings`, `/settings/profile`, and `/settings/security`.
+
+### Path normalization rules
+
+The router applies the same normalization rules across registration, matching,
+and navigation:
+
+- blank paths normalize to `/`
+- missing leading slashes are added
+- trailing slashes are trimmed except for the root path
+- query strings are ignored for route matching but preserved for navigation targets
+- hash-router query strings are read from the `#/path?query=value` portion
+- route params are URL-decoded before they are exposed through `UseParams`
+- optional segment syntax like `:id?` is not currently supported
+
+## Route Params
+
+Use `UseParams()` inside routed components.
+
+```go
+func UserProfile(props router.Attrs) *router.Element {
+    params := router.UseParams()
+    userID := params.Get("id")
+    numericID, _ := params.Int("id")
+
+    return html.Div(html.Props{},
+        html.H1(html.Props{}, html.Text("User Profile")),
+        html.P(html.Props{}, html.Text("User ID: "+userID)),
+        html.P(html.Props{}, html.Text(fmt.Sprintf("Numeric ID: %d", numericID))),
+    )
+}
+```
+
+Available helpers:
+
+```go
+params := router.UseParams()
+
+slug := params.Get("slug")
+id, ok := params.Int("id")
+enabled, ok := params.Bool("enabled")
+all := params.Values()
+```
+
+## Query Parameters
+
+Use `UseQuery()` for URL query state.
+
+```go
+func SearchResults(props router.Attrs) *router.Element {
+    query := router.UseQuery()
+    term := query.Get("q")
+    sort := query.Get("sort")
+
+    return html.Div(html.Props{},
+        html.H1(html.Props{}, html.Text("Search Results")),
+        html.P(html.Props{}, html.Text("Query: "+term)),
+        html.P(html.Props{}, html.Text("Sort: "+sort)),
+    )
+}
+```
+
+`UseQuery()` works for both:
+
+- browser-router URLs like `/search?q=golang`
+- hash-router URLs like `#/search?q=golang&sort=relevance`
+
+When you need to update search params while preserving the current route path, use `UseSearchParams()`:
+
+```go
+func SearchToolbar(props router.Attrs) *router.Element {
+    search := router.UseSearchParams()
+
+    applyRecent := ui.UseEvent(func() {
+        search.Set("sort", "recent")
+    })
+
+    clearQuery := ui.UseEvent(func() {
+        search.Delete("q")
+    })
+
+    replaceFilter := ui.UseEvent(func() {
+        search.ReplaceAll(url.Values{"filter": {"active"}})
+    })
+
+    return html.Div(html.Props{},
+        html.P(html.Props{}, html.Text("Current query: "+search.Encode())),
+        html.Button(html.Props{OnClick: applyRecent}, html.Text("Sort Recent")),
+        html.Button(html.Props{OnClick: clearQuery}, html.Text("Clear Query")),
+        html.Button(html.Props{OnClick: replaceFilter}, html.Text("Active Only")),
+    )
+}
+```
+
+## Route Loaders
+
+Route loaders let the router fetch route-scoped data before the final page component renders.
+
+```go
+func UserProfile(props router.Attrs) *router.Element {
+    userID := props["userID"].(string)
+    userName := props["name"].(string)
+
+    return html.Div(html.Props{},
+        html.H1(html.Props{}, html.Text(userName)),
+        html.P(html.Props{}, html.Text("User ID: "+userID)),
+    )
+}
+
+func RouteLoading(props router.Attrs) *router.Element {
+    return html.Div(html.Props{}, html.Text("Loading route..."))
+}
+
+func RouteError(props router.Attrs) *router.Element {
+    return html.Div(html.Props{}, html.Text("Route error: "+props["error"].(string)))
+}
+
+r.Register("/users/:id", UserProfile, router.Options{
+    Loader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
+        return router.Attrs{
+            "userID": routeCtx.Params.Get("id"),
+            "name":   "Ada Lovelace",
+        }, nil
+    },
+    Loading: RouteLoading,
+    Error:   RouteError,
 })
 ```
 
-## Dynamic Routes
+Loader behavior:
 
-### URL Parameters
+- loaders rerun when the route path or query string changes
+- in-flight loaders are cancelled when navigation changes
+- loader results are reused for the current route key until the path or query changes
+- loader data is merged into the routed component props
 
-Parse URL parameters manually:
+You can also manually rerun the current route loader:
 
 ```go
-func UserProfile(props dom.Attrs) *dom.Element {
-    // Get current hash
-    hash := js.Global().Get("location").Get("hash").String()
+func UserToolbar(props router.Attrs) *router.Element {
+    revalidator := router.UseRevalidator()
 
-    // Parse user ID from hash like #/users/123
-    parts := strings.Split(hash, "/")
-    userID := parts[len(parts)-1]
-
-    return dom.Div(nil,
-        dom.H1(nil, dom.Text("User Profile")),
-        dom.P(nil, dom.Text("User ID: "+userID)),
-    )
-}
-
-// Register with pattern
-routes := map[string]router.RouteComponent{
-    "/users":  UsersList,    // List all users
-    "/users*": UserProfile,  // Match /users/anything
+    return html.Button(html.Props{
+        OnClick: ui.UseEvent(func() {
+            revalidator.Revalidate()
+        }),
+    }, html.Text("Reload route data"))
 }
 ```
 
-### Query Parameters
+If needed, the final routed component can also read loader data with `router.UseRouteData()`.
+
+## Layout Pattern
 
 ```go
-func SearchResults(props dom.Attrs) *dom.Element {
-    // Get URL search params
-    url := js.Global().Get("location").Get("href").String()
-    // Parse query: #/search?q=golang&sort=relevance
-
-    return dom.Div(nil,
-        dom.H1(nil, dom.Text("Search Results")),
-        // Display results
+func AppShell(props router.Attrs) *router.Element {
+    return html.Div(html.Props{},
+        html.Header(html.Props{}, html.Text("My App")),
+        html.Main(html.Props{}, router.GetRoute()),
     )
 }
 ```
 
-## Layouts
+In most apps you register routes once in `main()` and let the router mount directly into your root container.
 
-### App Layout with Router
-
-```go
-func AppLayout(props dom.Attrs) *dom.Element {
-    r := router.NewHashRouter(map[string]router.RouteComponent{
-        "/":        HomePage,
-        "/about":   AboutPage,
-        "/contact": ContactPage,
-        "*":        NotFound,
-    })
-
-    return dom.Div(nil,
-        Navigation(nil),  // Always visible nav
-        dom.Main(nil,
-            r.Render(),   // Routed content
-        ),
-        Footer(nil),      // Always visible footer
-    )
-}
-
-func Navigation(props dom.Attrs) *dom.Element {
-    return dom.Nav(dom.Attrs{"class": "navbar"},
-        dom.A(dom.Attrs{"href": "#/"}, dom.Text("Home")),
-        dom.A(dom.Attrs{"href": "#/about"}, dom.Text("About")),
-        dom.A(dom.Attrs{"href": "#/contact"}, dom.Text("Contact")),
-    )
-}
-
-func Footer(props dom.Attrs) *dom.Element {
-    return dom.Footer(nil,
-        dom.P(nil, dom.Text("© 2024 My App")),
-    )
-}
-```
-
-## Protected Routes
+## Protected Route Pattern
 
 ```go
-func ProtectedRoute(component router.RouteComponent) router.RouteComponent {
-    return func(props dom.Attrs) *dom.Element {
-        isAuthenticated, _ := state.UseAtom("user-authenticated", false)
+func ProtectedPage(props router.Attrs) *router.Element {
+    nav := router.UseNavigate()
+    isAuthenticated := true // replace with real app state
 
-        if !isAuthenticated() {
-            // Redirect to login
-            js.Global().Get("location").Set("hash", "/login")
-            return dom.Div(nil, dom.Text("Redirecting..."))
-        }
-
-        return component(props)
+    if !isAuthenticated {
+        nav.Replace("/login")
+        return html.Div(html.Props{}, html.Text("Redirecting..."))
     }
-}
 
-// Usage
-routes := map[string]router.RouteComponent{
-    "/":         HomePage,
-    "/login":    LoginPage,
-    "/dashboard": ProtectedRoute(DashboardPage),
-    "/settings":  ProtectedRoute(SettingsPage),
+    return html.Div(html.Props{}, html.Text("Protected content"))
 }
 ```
 
-## Server Configuration
+## Best Practices
 
-### For Browser Router
+### 1. Always register a catch-all route
 
-Configure your server to serve `index.html` for all routes:
+```go
+r.Register("*", NotFoundPage)
+```
 
-**Nginx:**
+### 2. Keep route strings centralized
+
+```go
+const (
+    RouteHome    = "/"
+    RouteAbout   = "/about"
+    RouteContact = "/contact"
+)
+```
+
+### 3. Prefer router helpers over manual `location` parsing
+
+- Use `UseNavigate()` instead of mutating `window.location` directly
+- Use `UseParams()` instead of splitting paths by hand
+- Use `UseQuery()` instead of manually parsing the query string
+
+## Browser Router Server Configuration
+
+For browser/history routing, configure your server to serve `index.html` for unknown routes.
+
+### Nginx
 
 ```nginx
 location / {
@@ -283,7 +450,7 @@ location / {
 }
 ```
 
-**Apache (.htaccess):**
+### Apache
 
 ```apache
 <IfModule mod_rewrite.c>
@@ -296,63 +463,12 @@ location / {
 </IfModule>
 ```
 
-**Go HTTP Server:**
+### Go HTTP server
 
 ```go
 http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
     http.ServeFile(w, r, "./static/index.html")
 })
-```
-
-## Best Practices
-
-### 1. Use Catch-All Route
-
-Always include a `*` route for 404 pages:
-
-```go
-routes := map[string]router.RouteComponent{
-    "/": HomePage,
-    "*": NotFoundPage,
-}
-```
-
-### 2. Active Link Highlighting
-
-```go
-func NavLink(props dom.Attrs) *dom.Element {
-    href := props["href"].(string)
-    text := props["text"].(string)
-
-    currentHash := js.Global().Get("location").Get("hash").String()
-    isActive := currentHash == href
-
-    className := "nav-link"
-    if isActive {
-        className += " active"
-    }
-
-    return dom.A(dom.Attrs{
-        "href":  href,
-        "class": className,
-    }, dom.Text(text))
-}
-```
-
-### 3. Route Constants
-
-```go
-const (
-    RouteHome    = "/"
-    RouteAbout   = "/about"
-    RouteContact = "/contact"
-)
-
-routes := map[string]router.RouteComponent{
-    RouteHome:    HomePage,
-    RouteAbout:   AboutPage,
-    RouteContact: ContactPage,
-}
 ```
 
 ## Related Packages

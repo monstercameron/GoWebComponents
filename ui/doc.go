@@ -3,8 +3,50 @@
 // It exposes:
 //   - CreateElement for component composition
 //   - Render for browser mounting
-//   - UseState, UseEffect, UseMemo, UseRef, and UseId for local stateful logic
+//   - UseState, UseReducer, UseForm, UseEffect, UseMemo, UseRef, UsePrevious, UseDebounced, UseThrottled, UseChannel, UseTask, and UseId for local stateful logic
 //   - UseEvent for typed event handler wrapping
+//
+// UseReducer is intended for components whose local state behaves like a small
+// state machine with several coordinated transitions. Prefer UseState.Update for
+// simpler structs; reach for UseReducer when local actions are clearer than many
+// ad hoc field mutations spread across handlers.
+//
+// UseForm is intended for multi-field local forms that need touched/dirty state,
+// structured field errors, validation, and a submission lifecycle without having
+// to rebuild that bookkeeping in every example.
+//
+// UsePrevious is intended for cases where a component needs to compare the
+// current value against the last committed one without introducing extra state.
+// Typical uses include change detection, transition styling, and one-step diff
+// logic inside a component:
+//
+//	func SearchStatus(query string) ui.Node {
+//		previous := ui.UsePrevious(query)
+//		message := "First search"
+//		if previous.Ok() && previous.Get() != query {
+//			message = "Updated from " + previous.Get() + " to " + query
+//		}
+//
+//		return html.P(html.Props{}, html.Text(message))
+//	}
+//
+// It is not intended as a substitute for real state management. Prefer
+// UseState, UseMemo, or state.UseAtom when the value needs to drive updates of
+// its own rather than only inform render-time comparisons.
+//
+// UseChannel is intended for components that consume streamed values from
+// goroutines, timers, or worker-style producers. It exposes the latest received
+// value together with availability and closure state without forcing every
+// component to hand-roll channel bookkeeping.
+//
+// UseTask is intended for explicit background jobs that should be started and
+// cancelled by UI actions. It exposes typed task state and keeps cancellation in
+// terms of context.Context rather than custom ad hoc flags in each component.
+//
+// UseDebounced and UseThrottled are small input-oriented convenience hooks.
+// They are intended for search boxes, live filtering, or fast-changing UI state
+// where callers want delayed or rate-limited derived values without open-coding
+// timer cleanup in every component.
 //
 // The ui package is the recommended replacement for the older dom/hooks/render
 // split when authoring new components.

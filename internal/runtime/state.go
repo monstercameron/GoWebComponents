@@ -11,7 +11,15 @@ type AtomRegistry struct {
 	mu             sync.RWMutex
 	atoms          map[string]interface{}
 	subscriptions  map[string]map[*Fiber]bool // atomID -> set of subscribed fibers
+	derived        map[string]derivedAtom
+	dependents     map[string]map[string]bool // source atom id -> derived ids
 	subscriberPool sync.Pool
+}
+
+type derivedAtom struct {
+	deps    []string
+	compute func() interface{}
+	active  bool
 }
 
 // NewAtomRegistry creates a new atom registry
@@ -19,11 +27,51 @@ func NewAtomRegistry() *AtomRegistry {
 	registry := &AtomRegistry{
 		atoms:         make(map[string]interface{}),
 		subscriptions: make(map[string]map[*Fiber]bool),
+		derived:       make(map[string]derivedAtom),
+		dependents:    make(map[string]map[string]bool),
 	}
 	registry.subscriberPool.New = func() interface{} {
 		return make([]*Fiber, 0, 16)
 	}
 	return registry
+}
+
+func (ar *AtomRegistry) RegisterDerivedAtom(id string, deps []string, compute func() interface{}) error {
+	if ar == nil {
+		return fmt.Errorf("atom registry not initialized")
+	}
+	if compute == nil {
+		return fmt.Errorf("derived atom %s compute function cannot be nil", id)
+	}
+	for _, dep := range deps {
+		if dep == id {
+			return fmt.Errorf("derived atom %s cannot depend on itself", id)
+		}
+	}
+
+	ar.mu.Lock()
+	if existing, ok := ar.derived[id]; ok {
+		for _, dep := range existing.deps {
+			if dependents := ar.dependents[dep]; dependents != nil {
+				delete(dependents, id)
+				if len(dependents) == 0 {
+					delete(ar.dependents, dep)
+				}
+			}
+		}
+	}
+	cloneDeps := append([]string(nil), deps...)
+	ar.derived[id] = derivedAtom{deps: cloneDeps, compute: compute, active: true}
+	for _, dep := range cloneDeps {
+		if ar.dependents[dep] == nil {
+			ar.dependents[dep] = make(map[string]bool)
+		}
+		ar.dependents[dep][id] = true
+	}
+	ar.mu.Unlock()
+
+	_, err := ar.recomputeDerived(id, nil)
+	return err
 }
 
 // GetAtom retrieves an atom's current value
@@ -64,41 +112,94 @@ func (ar *AtomRegistry) setAtomAndNotify(id string, value interface{}, notify fu
 		return
 	}
 
+	fibers := ar.setValueAndCollectSubscribers(id, value)
+	for _, derivedID := range ar.listDependents(id) {
+		derivedFibers, err := ar.recomputeDerived(derivedID, map[string]bool{id: true})
+		if err != nil {
+			ReportDiagnostic("state", DiagnosticWarning, err.Error())
+			continue
+		}
+		fibers = append(fibers, derivedFibers...)
+	}
+	notifyFibersUnique(fibers, notify)
+}
+
+func (ar *AtomRegistry) setValueAndCollectSubscribers(id string, value interface{}) []*Fiber {
 	ar.mu.Lock()
 	ar.atoms[id] = value
+	fibers := ar.collectSubscribersLocked(id)
+	ar.mu.Unlock()
+	return fibers
+}
 
+func (ar *AtomRegistry) collectSubscribersLocked(id string) []*Fiber {
 	subs, ok := ar.subscriptions[id]
 	if !ok || len(subs) == 0 {
-		ar.mu.Unlock()
-		return
+		return nil
 	}
-	if len(subs) == 1 {
-		var onlyFiber *Fiber
-		for fiber := range subs {
-			onlyFiber = fiber
-			break
-		}
-		ar.mu.Unlock()
-		notify(onlyFiber)
-		return
-	}
-
-	buffer := ar.subscriberPool.Get().([]*Fiber)
-	buffer = buffer[:0]
-	if cap(buffer) < len(subs) {
-		buffer = make([]*Fiber, 0, len(subs))
-	}
+	fibers := make([]*Fiber, 0, len(subs))
 	for fiber := range subs {
-		buffer = append(buffer, fiber)
+		fibers = append(fibers, fiber)
 	}
-	ar.mu.Unlock()
+	return fibers
+}
 
-	for _, fiber := range buffer {
+func (ar *AtomRegistry) listDependents(id string) []string {
+	ar.mu.RLock()
+	dependents := ar.dependents[id]
+	if len(dependents) == 0 {
+		ar.mu.RUnlock()
+		return nil
+	}
+	ids := make([]string, 0, len(dependents))
+	for derivedID := range dependents {
+		ids = append(ids, derivedID)
+	}
+	ar.mu.RUnlock()
+	return ids
+}
+
+func (ar *AtomRegistry) recomputeDerived(id string, trail map[string]bool) ([]*Fiber, error) {
+	if trail == nil {
+		trail = map[string]bool{}
+	}
+	if trail[id] {
+		return nil, fmt.Errorf("derived atom cycle detected involving %s", id)
+	}
+	trail[id] = true
+	defer delete(trail, id)
+
+	ar.mu.RLock()
+	derived, ok := ar.derived[id]
+	ar.mu.RUnlock()
+	if !ok || !derived.active {
+		return nil, nil
+	}
+
+	value := derived.compute()
+	fibers := ar.setValueAndCollectSubscribers(id, value)
+	for _, dependentID := range ar.listDependents(id) {
+		nested, err := ar.recomputeDerived(dependentID, trail)
+		if err != nil {
+			return fibers, err
+		}
+		fibers = append(fibers, nested...)
+	}
+	return fibers, nil
+}
+
+func notifyFibersUnique(fibers []*Fiber, notify func(*Fiber)) {
+	if notify == nil || len(fibers) == 0 {
+		return
+	}
+	seen := make(map[*Fiber]bool, len(fibers))
+	for _, fiber := range fibers {
+		if fiber == nil || seen[fiber] {
+			continue
+		}
+		seen[fiber] = true
 		notify(fiber)
 	}
-
-	clear(buffer)
-	ar.subscriberPool.Put(buffer[:0])
 }
 
 // InitAtom initializes an atom if it doesn't exist
@@ -180,6 +281,55 @@ func (ar *AtomRegistry) GetAtomCount() int {
 	count := len(ar.atoms)
 	ar.mu.RUnlock()
 	return count
+}
+
+// Snapshot returns a shallow copy of all atom values currently stored.
+func (ar *AtomRegistry) Snapshot() map[string]interface{} {
+	if ar == nil {
+		return nil
+	}
+
+	ar.mu.RLock()
+	defer ar.mu.RUnlock()
+	if len(ar.atoms) == 0 {
+		return map[string]interface{}{}
+	}
+
+	snapshot := make(map[string]interface{}, len(ar.atoms))
+	for id, value := range ar.atoms {
+		snapshot[id] = value
+	}
+	return snapshot
+}
+
+// RestoreSnapshot merges atom values from snapshot and returns subscribed fibers
+// that should be notified about the updates.
+func (ar *AtomRegistry) RestoreSnapshot(snapshot map[string]interface{}) []*Fiber {
+	if ar == nil || len(snapshot) == 0 {
+		return nil
+	}
+
+	unique := make(map[*Fiber]bool)
+	ar.mu.Lock()
+	for id, value := range snapshot {
+		ar.atoms[id] = value
+		if subs, ok := ar.subscriptions[id]; ok {
+			for fiber := range subs {
+				unique[fiber] = true
+			}
+		}
+	}
+	ar.mu.Unlock()
+
+	if len(unique) == 0 {
+		return nil
+	}
+
+	fibers := make([]*Fiber, 0, len(unique))
+	for fiber := range unique {
+		fibers = append(fibers, fiber)
+	}
+	return fibers
 }
 
 // GoUseAtom provides access to global state with fine-grained reactivity.
@@ -330,5 +480,33 @@ func (rt *Runtime) SetAtomValue(id string, value interface{}) error {
 
 	rt.atomRegistry.setAtomAndNotify(id, value, rt.ScheduleUpdateForFiber)
 
+	return nil
+}
+
+func (rt *Runtime) RegisterDerivedAtom(id string, deps []string, compute func() interface{}) error {
+	if rt == nil || rt.atomRegistry == nil {
+		return fmt.Errorf("atom registry not initialized")
+	}
+	return rt.atomRegistry.RegisterDerivedAtom(id, deps, compute)
+}
+
+// SnapshotAtoms returns a copy of all currently registered atoms.
+func (rt *Runtime) SnapshotAtoms() map[string]interface{} {
+	if rt == nil || rt.atomRegistry == nil {
+		return map[string]interface{}{}
+	}
+	return rt.atomRegistry.Snapshot()
+}
+
+// RestoreAtomSnapshot merges atom values from snapshot and schedules updates for
+// any subscribed fibers.
+func (rt *Runtime) RestoreAtomSnapshot(snapshot map[string]interface{}) error {
+	if rt == nil || rt.atomRegistry == nil {
+		return fmt.Errorf("atom registry not initialized")
+	}
+
+	for _, fiber := range rt.atomRegistry.RestoreSnapshot(snapshot) {
+		rt.ScheduleUpdateForFiber(fiber)
+	}
 	return nil
 }

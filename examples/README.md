@@ -38,6 +38,9 @@ Current example directories include:
 - `13-browser-compiler`
 - `14-omi`
 - `15-calculator`
+- `16-devtools`
+- `17-ssr-routing`
+- `18-ssr-server-routing`
 
 ## Shared Static Assets
 

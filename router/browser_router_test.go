@@ -4,6 +4,7 @@
 package router
 
 import (
+	"net/url"
 	"syscall/js"
 	"testing"
 
@@ -212,6 +213,29 @@ func TestBrowserRouterMountElement(t *testing.T) {
 	}
 }
 
+func TestBrowserRouterHydrateMountElement(t *testing.T) {
+	installRouterBrowserEnv(t)
+
+	router := NewRouter(RouterOptions{})
+	container := js.Global().Get("document").Call("createElement", "div")
+	container.Set("id", "router-hydrate-container")
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("HydrateMountElement caused panic: %v", r)
+		}
+	}()
+
+	router.HydrateMountElement(container)
+
+	if !router.listening {
+		t.Fatal("router should be marked as listening after HydrateMountElement")
+	}
+	if !router.targetElement.Equal(container) {
+		t.Fatal("expected HydrateMountElement to retain the provided target element")
+	}
+}
+
 // TestBrowserRouterNotFound tests wildcard route handling
 func TestBrowserRouterNotFound(t *testing.T) {
 	installRouterBrowserEnv(t)
@@ -251,5 +275,130 @@ func TestBrowserRouterGetRoute(t *testing.T) {
 
 	if route == nil {
 		t.Fatal("GoGetRoute returned nil")
+	}
+}
+
+func TestBrowserRouterSearchParamsNavigatePreservesPath(t *testing.T) {
+	installRouterBrowserEnv(t)
+	globalRouter = NewRouter(RouterOptions{DefaultRoute: "/users"})
+	js.Global().Get("location").Set("pathname", "/users")
+	js.Global().Get("location").Set("search", "?page=1")
+
+	search := UseSearchParams()
+	search.Navigate(url.Values{"page": {"2"}, "filter": {"active"}})
+
+	if got := js.Global().Get("location").Get("pathname").String(); got != "/users" {
+		t.Fatalf("expected path to remain /users, got %q", got)
+	}
+	if got := js.Global().Get("location").Get("search").String(); got != "?filter=active&page=2" {
+		t.Fatalf("expected query navigation to update search, got %q", got)
+	}
+}
+
+func TestBrowserRouterAppliesRouteTitleAndRedirect(t *testing.T) {
+	installRouterBrowserEnv(t)
+	router := NewRouter(RouterOptions{DefaultRoute: "/legacy"})
+	js.Global().Get("location").Set("pathname", "/legacy")
+
+	router.GoRegisterRoute("/dashboard", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("dashboard"))
+	}, Options{Title: "Dashboard"})
+	router.GoRegisterRoute("/legacy", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("legacy"))
+	}, Options{Redirect: "/dashboard"})
+
+	if route := router.GoGetRoute(); route == nil {
+		t.Fatal("expected redirected history route element")
+	}
+	if got := js.Global().Get("location").Get("pathname").String(); got != "/dashboard" {
+		t.Fatalf("expected history redirect to replace pathname, got %q", got)
+	}
+	if got := js.Global().Get("document").Get("title").String(); got != "Dashboard" {
+		t.Fatalf("expected redirected history route to apply title Dashboard, got %q", got)
+	}
+}
+
+func TestBrowserRouterBeforeLeaveBlocksNavigation(t *testing.T) {
+	installRouterBrowserEnv(t)
+	router := NewRouter(RouterOptions{DefaultRoute: "/edit"})
+	js.Global().Get("location").Set("pathname", "/edit")
+
+	router.GoRegisterRoute("/edit", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("edit"))
+	}, Options{
+		BeforeLeave: func(current RouteContext, next RouteContext) GuardResult {
+			if next.Path == "/dashboard" {
+				return BlockNavigation("Unsaved changes")
+			}
+			return AllowNavigation()
+		},
+	})
+	router.GoRegisterRoute("/dashboard", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("dashboard"))
+	})
+
+	router.Navigate("/dashboard")
+	if got := js.Global().Get("location").Get("pathname").String(); got != "/edit" {
+		t.Fatalf("expected history before-leave guard to keep pathname /edit, got %q", got)
+	}
+}
+
+func TestBrowserRouterBeforeEnterRedirectsNavigation(t *testing.T) {
+	installRouterBrowserEnv(t)
+	router := NewRouter(RouterOptions{DefaultRoute: "/secure"})
+	js.Global().Get("location").Set("pathname", "/secure")
+
+	router.GoRegisterRoute("/login", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("login"))
+	}, Options{Title: "Login"})
+	router.GoRegisterRoute("/secure", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("secure"))
+	}, Options{
+		BeforeEnter: func(ctx RouteContext) GuardResult {
+			return RedirectNavigation("/login")
+		},
+	})
+
+	if route := router.GoGetRoute(); route == nil {
+		t.Fatal("expected guarded history route to redirect")
+	}
+	if got := js.Global().Get("location").Get("pathname").String(); got != "/login" {
+		t.Fatalf("expected before-enter redirect to update history pathname, got %q", got)
+	}
+}
+
+func TestBrowserRouterReplacesMetadataAcrossRoutes(t *testing.T) {
+	installRouterBrowserEnv(t)
+	router := NewRouter(RouterOptions{DefaultRoute: "/first"})
+	js.Global().Get("location").Set("pathname", "/first")
+
+	router.GoRegisterRoute("/first", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("first"))
+	}, Options{
+		Title:        "First",
+		Description:  "First description",
+		CanonicalURL: "https://example.com/first",
+	})
+	router.GoRegisterRoute("/second", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("second"))
+	}, Options{
+		Title:        "Second",
+		Description:  "Second description",
+		CanonicalURL: "https://example.com/second",
+	})
+
+	if route := router.GoGetRoute(); route == nil {
+		t.Fatal("expected first route element")
+	}
+	router.Navigate("/second")
+	doc := js.Global().Get("document")
+	if got := doc.Get("title").String(); got != "Second" {
+		t.Fatalf("expected route title Second after navigation, got %q", got)
+	}
+	if got := doc.Call("querySelector", `meta[name="description"]`).Get("attributes").Get("content").String(); got != "Second description" {
+		t.Fatalf("expected replaced description metadata, got %q", got)
+	}
+	if got := doc.Call("querySelector", `link[rel="canonical"]`).Get("attributes").Get("href").String(); got != "https://example.com/second" {
+		t.Fatalf("expected replaced canonical metadata, got %q", got)
 	}
 }

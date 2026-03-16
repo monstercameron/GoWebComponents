@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 )
 
 var nilableTypeCache sync.Map
@@ -30,6 +31,7 @@ func isNilableType[T any]() bool {
 func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})) {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
+		ReportDiagnostic("runtime", DiagnosticError, "GoUseState called outside component context")
 		panic("GoUseState called outside component context")
 	}
 
@@ -143,6 +145,7 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 func GoUseEffect(effect func() func(), deps ...interface{}) {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
+		ReportDiagnostic("runtime", DiagnosticError, "GoUseEffect called outside component context")
 		panic("GoUseEffect called outside component context")
 	}
 
@@ -200,7 +203,11 @@ func GoUseEffect(effect func() func(), deps ...interface{}) {
 	if shouldRun {
 		// Run cleanup from previous effect if it exists
 		if hooks.cleanups[cleanupIdx] != nil {
+			start := time.Now()
 			hooks.cleanups[cleanupIdx]()
+			durationNs := time.Since(start).Nanoseconds()
+			fiber.cleanupDurationNs += durationNs
+			recordSlowOperationDiagnostic("cleanup", fiber, durationNs)
 			hooks.cleanups[cleanupIdx] = nil
 		}
 
@@ -221,6 +228,7 @@ func GoUseEffect(effect func() func(), deps ...interface{}) {
 func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
+		ReportDiagnostic("runtime", DiagnosticError, "GoUseMemo called outside component context")
 		panic("GoUseMemo called outside component context")
 	}
 
@@ -265,6 +273,7 @@ func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 func GoUseCallback(fn interface{}, deps ...interface{}) interface{} {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
+		ReportDiagnostic("runtime", DiagnosticError, "GoUseCallback called outside component context")
 		panic("GoUseCallback called outside component context")
 	}
 
@@ -309,6 +318,7 @@ func GoUseCallback(fn interface{}, deps ...interface{}) interface{} {
 func GoUseRef(initialValue interface{}) *RefValue {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
+		ReportDiagnostic("runtime", DiagnosticError, "GoUseRef called outside component context")
 		panic("GoUseRef called outside component context")
 	}
 
@@ -350,6 +360,7 @@ func GoUseRef(initialValue interface{}) *RefValue {
 func GoUseId() string {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
+		ReportDiagnostic("runtime", DiagnosticError, "GoUseId called outside component context")
 		panic("GoUseId called outside component context")
 	}
 
@@ -398,6 +409,7 @@ func GoUseId() string {
 func GoUseFunc(fn interface{}) interface{} {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
+		ReportDiagnostic("runtime", DiagnosticError, "GoUseFunc called outside component context")
 		panic("GoUseFunc called outside component context")
 	}
 

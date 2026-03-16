@@ -1,6 +1,10 @@
 package runtime
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+	"time"
+)
 
 var (
 	globalRuntime   *Runtime
@@ -78,6 +82,40 @@ type Runtime struct {
 	// Batch DOM operations
 	domBatch      []func()
 	domBatchMutex sync.Mutex
+
+	profiling runtimeProfiling
+}
+
+type runtimeProfiling struct {
+	renderCalls           int
+	scheduledRootUpdates  int
+	scheduledFiberMarks   int
+	workLoopPasses        int
+	processedUnits        int
+	commitCount           int
+	effectExecutions      int
+	cleanupExecutions     int
+	lastRenderDurationNs  int64
+	lastCommitDurationNs  int64
+	lastEffectDurationNs  int64
+	lastCleanupDurationNs int64
+}
+
+const slowOperationDiagnosticThresholdNs = int64(2 * time.Millisecond)
+
+func formatRuntimeDurationNs(durationNs int64) string {
+	if durationNs <= 0 {
+		return "0ms"
+	}
+	return fmt.Sprintf("%.2fms", float64(durationNs)/1_000_000)
+}
+
+func recordSlowOperationDiagnostic(kind string, fiber *Fiber, durationNs int64) {
+	if fiber == nil || durationNs < slowOperationDiagnosticThresholdNs {
+		return
+	}
+	_, name := describeFiber(fiber)
+	ReportDiagnostic("runtime", DiagnosticWarning, fmt.Sprintf("slow %s on %s took %s", kind, name, formatRuntimeDurationNs(durationNs)))
 }
 
 // Config holds runtime configuration
@@ -104,7 +142,29 @@ func NewRuntime(config Config) *Runtime {
 
 // RenderTo renders an element to a DOM node specified by selector
 func (rt *Runtime) RenderTo(selector string, element *Element) {
-	// Query for the container
+	container := rt.queryContainer(selector)
+	if container == nil || container.IsNull() {
+		ReportDiagnostic("runtime", DiagnosticError, "RenderTo failed because the target container selector was not found: "+selector)
+		panic("RenderTo: container not found for selector: " + selector)
+	}
+
+	rt.Render(element, container)
+}
+
+// HydrateTo renders into a selector while preserving a dedicated hydration path.
+// The current implementation still falls back to a fresh render after container
+// preflight; real DOM-node matching will be layered on top of this API.
+func (rt *Runtime) HydrateTo(selector string, element *Element) {
+	container := rt.queryContainer(selector)
+	if container == nil || container.IsNull() {
+		ReportDiagnostic("runtime", DiagnosticError, "HydrateTo failed because the target container selector was not found: "+selector)
+		panic("HydrateTo: container not found for selector: " + selector)
+	}
+
+	rt.Hydrate(element, container)
+}
+
+func (rt *Runtime) queryContainer(selector string) DOMNode {
 	var container DOMNode
 	if adapter, ok := rt.domAdapter.(interface {
 		QuerySelector(string) interface{}
@@ -115,10 +175,5 @@ func (rt *Runtime) RenderTo(selector string, element *Element) {
 			}
 		}
 	}
-
-	if container == nil || container.IsNull() {
-		panic("RenderTo: container not found for selector: " + selector)
-	}
-
-	rt.Render(element, container)
+	return container
 }

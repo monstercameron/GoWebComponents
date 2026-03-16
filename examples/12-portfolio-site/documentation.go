@@ -231,7 +231,7 @@ func (e GoEvent) StopPropagation()`,
     Error   string      // Error message if any
     Loading bool        // Loading indicator
 }`,
-				"Represents the current state of an asynchronous fetch operation, commonly used with GoUseFetch hook."),
+				"Represents the current state of an asynchronous fetch operation, commonly used with UseFetch when working with raw fetch state."),
 
 			// Attrs type
 			ApiCard("Attrs", "type alias", "Element attributes and properties",
@@ -251,58 +251,64 @@ func ComponentsHooksSection(_ Attrs) *Element {
 		Div(
 			Attrs{"class": "space-y-8"},
 
-			// GoUseState
-			ApiCard("GoUseState", "function", "Manages component state with type safety",
-				`func GoUseState[T any](initialValue T) (func() T, func(T))
+			// UseState
+			ApiCard("UseState", "function", "Manages component state with type safety",
+				`func UseState[T any](initialValue T) ui.State[T]
 
 // Example usage:
-count, setCount := GoUseState(0)
-name, setName := GoUseState("John")
-user, setUser := GoUseState(User{ID: 1, Name: "Alice"})
+count := UseState(0)
+name := UseState("John")
+user := UseState(User{ID: 1, Name: "Alice"})
 
-// In component:
-if count() > 5 {
-    setCount(0) // Reset counter
-}`,
-				"Generic state hook that provides type-safe state management. Returns a getter function and a setter function. Updates trigger component re-renders automatically. Supports any Go type including structs, slices, and primitives."),
+// Read current state:
+current := count.Get()
 
-			// GoUseEffect
-			ApiCard("GoUseEffect", "function", "Handles side effects with dependency tracking",
-				`func GoUseEffect(effect func(), deps ...interface{})
+// Write state:
+count.Set(0)
+
+// Functional update:
+count.Update(func(prev int) int {
+    return prev + 1
+})`,
+				"Generic state hook that returns a typed state handle with Get, Set, and Update helpers. Updates trigger component re-renders automatically and support any Go type including structs, slices, and primitives."),
+
+			// UseEffect
+			ApiCard("UseEffect", "function", "Handles side effects with dependency tracking",
+				`func UseEffect(effect func() func(), deps ...interface{})
 
 // Run once on mount:
-GoUseEffect(func() {
+UseEffect(func() func() {
     fmt.Println("Component mounted")
+    return nil
 })
 
 // Run when dependencies change:
-GoUseEffect(func() {
-    fmt.Printf("Count changed to: %d\n", count())
-}, count())
+UseEffect(func() func() {
+    fmt.Printf("Count changed to: %d\n", count.Get())
+    return nil
+}, count.Get())
 
 // Cleanup pattern:
-GoUseEffect(func() {
+UseEffect(func() func() {
     timer := time.NewTicker(1 * time.Second)
-    // Cleanup would be handled by framework
-})`,
-				"Executes side effects when component mounts or dependencies change. Dependencies are compared for equality to determine when to re-run. Useful for API calls, timers, subscriptions, and DOM manipulations."),
+    return func() {
+        timer.Stop()
+    }
+}, true)`,
+				"Executes side effects when a component mounts or dependencies change. Effects may return a cleanup function, making the hook suitable for timers, subscriptions, async orchestration, and DOM interactions."),
 
-			// GoUseMemo
-			ApiCard("GoUseMemo", "function", "Memoizes expensive computations",
-				`func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{}
+			// UseMemo
+			ApiCard("UseMemo", "function", "Memoizes expensive computations",
+				`func UseMemo[T any](compute func() T, deps ...interface{}) T
 
 // Example usage:
-expensiveValue := GoUseMemo(func() interface{} {
-    // Expensive computation
-    result := performComplexCalculation(data())
-    return result
-}, data())
+expensiveValue := UseMemo(func() ComputedType {
+    return performComplexCalculation(data.Get())
+}, data.Get())
 
-// Type assertion for specific types:
-if computed, ok := expensiveValue.(ComputedType); ok {
-    // Use typed result
-}`,
-				"Caches the result of expensive computations and only recalculates when dependencies change. Helps optimize performance by avoiding redundant calculations during re-renders."),
+// Typed result with no assertion required:
+fmt.Println(expensiveValue)`,
+				"Caches the result of expensive computations and only recalculates when dependencies change. The typed API avoids manual type assertions in callers."),
 
 			// Component lifecycle
 			ApiCard("CreateElement", "function", "Creates virtual DOM elements",
@@ -668,11 +674,13 @@ fmt.Printf("Queue overflows: %d\n", stats["overflows"])`,
 
 			// Fetch utilities
 			ApiCard("Fetch Utilities", "hook", "HTTP request management",
-				`func GoUseFetch(url string, options ...FetchOptions) (func() FetchState, func())
+				`func UseFetch(url string, options ...fetch.Options) fetch.Resource
+func UseResource[T any](loader func(context.Context) (T, error), deps ...interface{}) fetch.AsyncResource[T]
+func Fetch(url string, options fetch.Options) <-chan fetch.Result
 
 // Example usage:
-getFetchState, refetch := GoUseFetch("https://api.example.com/data")
-state := getFetchState()
+resource := UseFetch("https://api.example.com/data")
+state := resource.Get()
 
 if state.Loading {
     // Show loading indicator
@@ -686,8 +694,8 @@ if state.Loading {
 }
 
 // Refetch data
-refetch()`,
-				"Built-in hook for making HTTP requests with automatic loading states and error handling."),
+resource.Refetch()`,
+				"UseFetch exposes raw fetch state, while UseResource adds typed values, cancellation, and dependency-driven reloads for non-trivial async loading."),
 		),
 	)
 }

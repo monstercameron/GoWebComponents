@@ -203,14 +203,14 @@ func GWCExamplesSection(_ Attrs) *Element {
 
 // AdvancedFormShowcase integrates the complex form example with GitHub source loading.
 
-// Demonstrates GoUseFetch hook usage and lazy content loading patterns.
+// Demonstrates UseFetch hook usage and lazy content loading patterns.
 
 func AdvancedFormShowcase(_ Attrs) *Element {
 
 	return CreateElement(LazyMiniAppCard, Attrs{
 		"icon":        "🔒",
 		"title":       "Advanced Form",
-		"description": "Validation • Effects • Memo • Go Routines • GoUseFetch",
+		"description": "Validation • Effects • Memo • Go Routines • UseFetch",
 		"component":   AdvancedFormExample,
 		"sourceUrl":   "https://raw.githubusercontent.com/monstercameron/GoWebComponents/refs/heads/master/website/advanced_form.go",
 	})
@@ -236,7 +236,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 	shouldFetch, setShouldFetch := UseState(false)
 
-	// Use GoUseFetch but only when shouldFetch is true
+	// Use UseFetch but only when shouldFetch is true
 
 	fetchUrl := func() string {
 

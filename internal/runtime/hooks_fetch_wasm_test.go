@@ -22,26 +22,6 @@ func makeResolvedPromise(value js.Value) js.Value {
 	return js.Global().Get("Promise").Call("resolve", value)
 }
 
-func makeRejectedPromise(value js.Value) js.Value {
-	return js.Global().Get("Promise").Call("reject", value)
-}
-
-func makeDeferredRejectedPromise(value js.Value) js.Value {
-	var timeoutFunc js.Func
-	executor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		reject := args[1]
-		timeoutFunc = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			reject.Invoke(value)
-			timeoutFunc.Release()
-			return nil
-		})
-		js.Global().Call("setTimeout", timeoutFunc, 0)
-		return nil
-	})
-	defer executor.Release()
-	return js.Global().Get("Promise").New(executor)
-}
-
 func waitForFetchState(t *testing.T, getter func() FetchState, cond func(FetchState) bool) FetchState {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)

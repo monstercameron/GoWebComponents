@@ -35,11 +35,23 @@
 //   - Type-safe with Go generics
 //   - Thread-safe for concurrent access
 //   - Fine-grained reactivity - only subscribed components re-render
+//   - UseComputed for typed derived values inside components
+//   - UseDerived for read-only shared derived atoms with explicit source dependencies
+//   - Snapshot export/import for in-memory restore and optional browser persistence helpers
 //
 // Atoms vs Component State:
 //
 //   - Use state.UseAtom for data that needs to be shared across components
+//   - Use state.UseComputed for memoized derived values based on atoms, props, or local state
+//   - Use state.UseDerived for shared read-only derived atoms keyed by ID and explicit source atom dependencies
 //   - Use ui.UseState for local component state
 //   - Atoms persist across component unmounts
 //   - Atoms trigger updates in all subscribed components
+//
+// Snapshot persistence notes:
+//
+//   - ExportSnapshot and ImportSnapshot preserve exact Go values for same-process restore.
+//   - SaveSnapshot and LoadSnapshot encode snapshots as JSON for browser storage.
+//   - JSON persistence is only stable for JSON-compatible atom values; numeric and struct-heavy
+//     atoms may need caller-owned codecs if exact round-tripping is required.
 package state

@@ -1,7 +1,13 @@
-// Package fetch provides declarative data fetching utilities for GoWebComponents.
+// Package fetch provides data loading utilities for GoWebComponents.
 //
-// This package simplifies asynchronous HTTP requests in WASM applications with
-// handle-based hooks that manage loading, error, and data states.
+// The package exposes two public hook styles:
+//   - UseFetch for low-level fetch state around a URL and browser-style refetching
+//   - UseResource for typed, context-aware async loading in non-trivial components
+//
+// UseResource is the preferred choice when callers want typed results,
+// cancellation, dependency-driven reloads, or loader logic that does more than
+// a single raw fetch call. UseFetch remains useful when callers explicitly want
+// the raw fetch state and response payload without introducing a typed loader.
 //
 // Basic usage:
 //
@@ -32,13 +38,19 @@
 //
 // Available functions:
 //
-//   - UseFetch: Hook for manual fetch state management via a typed handle
+//   - UseFetch: Hook for manual raw fetch state management via a handle
+//   - UseResource: Typed async resource hook for context-aware loaders
 //   - Fetch: Low-level fetch function returning a channel for manual control
 //
 // The UseFetch hook:
-//   - Manages loading, error, and data states
+//   - Manages loading, error, and raw response data states
 //   - Returns a handle with Get and Refetch methods
-//   - Leaves fetch timing under caller control
+//   - Leaves response parsing and higher-level orchestration under caller control
+//
+// The UseResource hook:
+//   - Accepts a loader of type func(context.Context) (T, error)
+//   - Returns a typed handle with Get, Reload, and Cancel methods
+//   - Cancels in-flight work when the component unmounts or dependencies change
 //
 // For more control, use the Fetch function directly:
 //

@@ -4,6 +4,7 @@
 package fetch_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/monstercameron/GoWebComponents/fetch"
@@ -12,7 +13,7 @@ import (
 func ExampleUseFetch() {
 	// Note: Hooks can only be used inside a component function
 
-	// Fetch data from an API
+	// UseFetch is the low-level hook when you want raw fetch state.
 	resource := fetch.UseFetch("https://api.example.com/data")
 
 	state := resource.Get()
@@ -32,4 +33,30 @@ func ExampleUseFetch() {
 
 	// Manually trigger a refetch
 	resource.Refetch()
+}
+
+func ExampleUseResource() {
+	// Note: Hooks can only be used inside a component function
+
+	// UseResource is the preferred hook for typed, non-trivial loading.
+	resource := fetch.UseResource(func(ctx context.Context) (int, error) {
+		_ = ctx
+		return 42, nil
+	})
+
+	state := resource.Get()
+	if state.Loading {
+		fmt.Println("Loading typed resource...")
+		return
+	}
+	if state.Error != nil {
+		fmt.Printf("Error: %v\n", state.Error)
+		return
+	}
+	if state.Ready {
+		fmt.Printf("Value: %d\n", state.Value)
+	}
+
+	resource.Reload()
+	resource.Cancel()
 }

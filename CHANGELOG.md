@@ -16,20 +16,76 @@
 
 - Fixed function-component deletion so removing one DOM-less component subtree does not incorrectly remove sibling component DOM.
 
+### SSR and hydration groundwork
+
+- Added the first internal SSR render-to-string path for host elements, text nodes, fragments, and simple function components.
+- Added public server-side rendering support through `ui.RenderToString(...)` on non-browser targets.
+- Added a dedicated `Hydrate(...)` and runtime `HydrateTo(...)` entrypoint so client resume now has a real API path instead of reusing plain render calls.
+- Added hydration preflight/fallback behavior that inspects existing container DOM, reports diagnostics, clears server markup on fallback, and then schedules a fresh client render while true DOM matching remains under development.
+- Added safe SSR bootstrap helpers for inline JSON payloads, including script-tag rendering and browser-side bootstrap-script reading.
+- Added optional CBOR-based binary bootstrap encoding/decoding for SSR payload transport.
+- Added sidecar bootstrap reference support so hydration can load external JSON or CBOR bootstrap payloads instead of only inline script JSON.
+- Added SSR bootstrap tests covering escaping, JSON decode defaults, binary round-trips, reference scripts, wasm-side sidecar loading, and hydration fallback behavior.
+- Added SSR transport microbenchmarks showing CBOR bootstrap encode/decode is materially cheaper than JSON for larger sidecar-style payloads in the current implementation.
+
 ### Public package and wasm tests
 
 - Added wasm-facing public package tests for `html`, `ui`, `state`, and `fetch` wrappers.
 - Expanded HTML builder coverage to verify public prop preservation, wrapper tag selection, and text/fragment helper behavior.
+- Added public wrapper coverage for `state.UseComputed`, `fetch.UseResource`, `ui.UsePrevious`, `ui.UseChannel`, and `ui.UseTask`.
+- Added public wrapper coverage for `ui.UseReducer`, `ui.UseForm`, `state.UseDerived`, and state snapshot persistence helpers.
+
+### Public hooks and state ergonomics
+
+- Added `state.UseComputed[T]` as a typed derived-state helper on top of the memoization runtime.
+- Added `state.UseDerived[T]` as a read-only shared derived-atom helper with explicit source-atom dependencies.
+- Added state snapshot export/import and browser storage persistence helpers for same-process restore and JSON-compatible saved state.
+- Added `fetch.UseResource[T]` for typed async loading with cancellation, reloads, and typed ready/error state.
+- Added `ui.UsePrevious[T]`, `ui.UseChannel[T]`, and `ui.UseTask[T]` to cover render-time comparisons, channel-driven UI streams, and explicit cancellable background jobs.
+- Added `ui.UseReducer`, `ui.UseForm`, `ui.UseDebounced`, and `ui.UseThrottled` to cover reducer-style local state, structured form lifecycle handling, and delayed/rate-limited derived UI values.
 
 ### Router fixes and tests
 
 - Normalized router default routes, registration paths, and navigation targets so hash/history routing behaves consistently across trailing-slash and hash-prefixed inputs.
 - Hardened browser-router setup against missing browser globals in wasm test environments.
 - Added wasm browser-environment test helpers and broader router wasm test coverage for navigation, registration, and normalized default-route behavior.
+- Added route patterns, typed `UseParams`, `UseQuery`, and `UseNavigate` helpers, plus query-aware path normalization for hash and history routing.
+- Added route-level loaders with route-scoped loading/error renderers, cancellation on navigation changes, and route+query keyed revalidation.
+- Added `UseRouteData`, `UseRevalidator`, and manual current-route revalidation support with router tests for params, query parsing, loaders, cancellation, and explicit reruns.
+- Added route option support for titles, declarative redirects, synchronous `BeforeEnter`/`BeforeLeave` guards, and route-managed description/canonical metadata with cleanup on route changes.
+- Expanded router edge-case coverage for decoded params, unsupported optional-segment syntax, exact-vs-pattern precedence, blocked navigation, redirected navigation, and metadata replacement/cleanup semantics.
+
+### Devtools and inspection
+
+- Added a new public `devtools` package with runtime snapshot capture and an embeddable in-browser inspector panel.
+- Added committed component tree inspection, hook summaries, route inspection, and runtime totals to the new devtools surface.
+- Added structured diagnostics for invalid hook usage, missing render targets, duplicate route registration, and invalid route component configuration.
+- Embedded the devtools panel into the `14-omi` showcase example.
+- Added baseline profiling counters for renders, scheduled updates, work-loop passes, processed units, commits, and last render/commit timings.
+- Added structured missing-key diagnostics for mixed keyed/unkeyed sibling lists.
+- Added a smaller standalone `16-devtools` example focused on the public devtools package.
+
+### Example upgrades
+
+- Reworked the goroutine example around `ui.UseTask` and `ui.UseChannel`, replacing manual task bookkeeping and adding a streamed channel-driven UI panel.
+- Reworked the fetch example around `fetch.UseResource[T]` with typed list/detail loading, explicit retry controls, and cancellation.
+- Updated the atoms example to demonstrate `state.UseComputed` for derived labels and summaries.
+- Updated the text-input example to demonstrate `ui.UseDebounced` and `ui.UseThrottled` with visible delayed preview and throttled count feedback.
+- Reworked the advanced-form example around `ui.UseForm`, async validation, retryable submission, and router-driven success flow.
+- Expanded the OMI example with nested route navigation, loader-backed detail/search/protected routes, and manual route revalidation controls.
+
+### Documentation refresh
+
+- Aligned the `fetch` package docs and examples around `UseFetch` as the low-level raw hook and `UseResource[T]` as the preferred typed async resource API.
+- Rewrote the `router` package docs to match the current public API, including params, query helpers, loaders, and manual route revalidation.
+- Refreshed portfolio and showcase copy to use the current `UseState`/`UseEffect`/`UseMemo` and `UseFetch`/`UseResource` naming instead of stale legacy names.
+- Expanded `state` and `ui` docs to cover typed computed state, previous-value tracking, channel subscriptions, and cancellable tasks.
+- Added docs for shared derived state, snapshot persistence, route guards, route-managed metadata, reducer/form helpers, and debounced/throttled UI hooks.
 
 ### Browser tests and benchmarks
 
 - Expanded Playwright integration coverage for filtered todo flows, effect cleanup under broader app activity, and mixed local/shared-state burst interactions.
+- Added Playwright coverage for debounced/throttled text input behavior, advanced-form validation/retry/success flow, and the standalone devtools example.
 - Added jsdom wasm benchmarks for `GetElementById(...)` and `QuerySelectorAll(...)` and refreshed the React-vs-Go browser benchmark run.
 
 ## 2026-03-14
@@ -135,3 +191,47 @@
 - The examples site deploys through the GitHub Pages workflow.
 - The `CI + Release` workflow passes on `master`.
 - Automated semantic release tagging resumed and published `v3.0.3`.
+
+## 2025-11-26
+
+### Browser compiler experiment
+
+- Moved the in-browser compiler experiment into its own more self-contained example flow under `examples/13-browser-compiler`.
+- Added the supporting browser-compiler scripts, package index generation flow, and bundled `js/wasm` standard-library assets needed to run that experiment from the repo.
+
+## 2025-11-19
+
+### Runtime architecture and performance
+
+- Reworked the runtime architecture and aligned the examples with the updated rendering and hook model.
+- Optimized reconciliation and rendering hot paths across the runtime and jsdom adapter layers.
+- Fixed the goroutines example so background-driven UI updates render correctly.
+
+### Benchmarks and test structure
+
+- Added a browser performance benchmark app and Playwright benchmark coverage, and restructured the broader test layout around that workflow.
+- Expanded runtime and reconciliation coverage while tightening test expectations around hook/fiber behavior.
+- Fixed advanced hash-router test behavior around navigation history and visibility-driven cases.
+
+### CI and release workflow
+
+- Added the initial CI/CD workflow and refreshed the project README with workflow badges and updated project assets.
+- Iterated on CI reliability by excluding unsuitable benchmark/unit-test paths, switching browser-test dependency install behavior, and wiring E2E web-server startup on port `8081`.
+- Scoped CI browser coverage away from portfolio-site cases that required a separate examples server.
+
+### Examples, docs, and site polish
+
+- Refined the portfolio-site presentation, including the 3D showcase card rendering issues and updated hero-image assets.
+- Added license and example coverage for pkg.go.dev across the public packages.
+
+## 2025-11-18
+
+### WASM runtime and fetch groundwork
+
+- Added early WASM runtime improvements centered on a new fetch hook path and lower-level function-wrapping support.
+- Updated the jsdom/mockdom adapter and runtime shim layers to support that browser-focused hook flow.
+- Added early browser test coverage for events, hooks, and reconciliation rerender behavior using the test app fixtures.
+
+### Documentation cleanup
+
+- Cleaned up the root README formatting and readability before the larger runtime and tooling changes that followed.

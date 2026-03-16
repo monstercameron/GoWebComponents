@@ -14,6 +14,23 @@ The runtime hot paths are:
 - `internal/runtime/state.go`
 - `internal/platform/jsdom/adapters.go`
 
+## Latest Validation Pass
+
+Validated on 2026-03-15 after the router wasm test-harness fix.
+
+Passing test lanes:
+
+- Native tests: `go test ./internal/runtime`
+- Wasm package tests: `go test -exec .\\tools\\go_js_wasm_exec.bat ./fetch ./html ./state ./ui ./devtools ./router`
+- Wasm jsdom tests: `go test -exec .\\tools\\go_js_wasm_exec.bat ./internal/platform/jsdom`
+- Example browser specs:
+  - `examples/tests/02-text-input.spec.ts`
+  - `examples/tests/07-goroutines.spec.ts`
+  - `examples/tests/10-advanced-form.spec.ts`
+  - `examples/tests/16-devtools.spec.ts`
+
+The router wasm suite originally hung in the browser-history metadata tests because the mock browser helpers called nested JS string methods from inside `js.FuncOf(...)` callbacks. Replacing those with Go-side `strings.Index(...)` parsing in the test helper restored stable router wasm test execution.
+
 ## Completed Work In The Current Pass
 
 ### Correctness fixes that affected performance-sensitive paths
@@ -86,17 +103,38 @@ Measured wins kept in the repo:
 - `BenchmarkPerformUnitOfWorkFunctionComponentLeaf`
   - earlier pass improvement: `1991 ns/op` -> `469.9 ns/op`
 
-Current measurements from the latest Windows arm64 pass:
+Current measurements from the latest Windows amd64 pass:
 
-- `BenchmarkFastEqualInt`: `3.824 ns/op`, `0 B/op`, `0 allocs/op`
-- `BenchmarkFastEqualString`: `5.775 ns/op`, `0 B/op`, `0 allocs/op`
-- `BenchmarkAreDepsEqual3Primitives`: `17.11 ns/op`, `0 B/op`, `0 allocs/op`
-- `BenchmarkDivWithComponents4`: `598.8 ns/op`, `744 B/op`, `9 allocs/op`
-- `BenchmarkWithComponentsGeneric4`: `548.6 ns/op`, `760 B/op`, `10 allocs/op`
-- `BenchmarkCreateElementHostWithTextChildren`: `563.5 ns/op`, `664 B/op`, `8 allocs/op`
-- `BenchmarkPropsEqualChildrenDifferentPointer`: `91.56 ns/op`, `0 B/op`, `0 allocs/op`
-- `BenchmarkReconcileChildrenStableList16`: `3625 ns/op`, `2817 B/op`, `16 allocs/op`
-- `BenchmarkUpdateDomPropertiesInitialRender`: `1110 ns/op`, `1120 B/op`, `7 allocs/op`
+- `BenchmarkIsNilableTypeCachedPointer`: `27.58 ns/op`, `0 B/op`, `0 allocs/op`
+- `BenchmarkFastEqualInt`: `5.264 ns/op`, `0 B/op`, `0 allocs/op`
+- `BenchmarkFastEqualString`: `7.177 ns/op`, `0 B/op`, `0 allocs/op`
+- `BenchmarkAreDepsEqual3Primitives`: `20.79 ns/op`, `0 B/op`, `0 allocs/op`
+- `BenchmarkGoUseStateIntDirectUpdate`: `365.7 ns/op`, `248 B/op`, `5 allocs/op`
+- `BenchmarkGoUseStatePointerNilReset`: `290.6 ns/op`, `212 B/op`, `1 allocs/op`
+- `BenchmarkGoUseMemoSameDeps`: `59.81 ns/op`, `16 B/op`, `1 allocs/op`
+- `BenchmarkGoUseCallbackSameDeps`: `50.36 ns/op`, `16 B/op`, `1 allocs/op`
+- `BenchmarkGoUseRefStable`: `7.771 ns/op`, `0 B/op`, `0 allocs/op`
+- `BenchmarkGoUseIdStable`: `8.613 ns/op`, `0 B/op`, `0 allocs/op`
+- `BenchmarkGoUseFuncWrap`: `65.56 ns/op`, `8 B/op`, `1 allocs/op`
+- `BenchmarkGoUseEffectSameDeps`: `53.59 ns/op`, `16 B/op`, `1 allocs/op`
+- `BenchmarkDivWithComponents4`: `731.2 ns/op`, `744 B/op`, `9 allocs/op`
+- `BenchmarkWithComponentsGeneric4`: `793.4 ns/op`, `760 B/op`, `10 allocs/op`
+- `BenchmarkCreateElementHostWithTextChildren`: `749.3 ns/op`, `664 B/op`, `8 allocs/op`
+- `BenchmarkPropsEqualChildrenDifferentPointer`: `110.6 ns/op`, `0 B/op`, `0 allocs/op`
+- `BenchmarkReconcileChildrenStableList16`: `6921 ns/op`, `3329 B/op`, `16 allocs/op`
+- `BenchmarkReconcileChildrenKeyedStableList16`: `10065 ns/op`, `3382 B/op`, `18 allocs/op`
+- `BenchmarkUpdateDomPropertiesInitialRender`: `1393 ns/op`, `1120 B/op`, `7 allocs/op`
+- `BenchmarkUpdateDomPropertiesSteadyState`: `1002 ns/op`, `0 B/op`, `0 allocs/op`
+- `BenchmarkCommitWorkPlacementChain16`: `678.2 ns/op`, `0 B/op`, `0 allocs/op`
+- `BenchmarkRunEffectsChain16`: `511.0 ns/op`, `0 B/op`, `0 allocs/op`
+- `BenchmarkScheduleUpdate`: `282.0 ns/op`, `208 B/op`, `1 allocs/op`
+- `BenchmarkRenderSteadyState`: `619.5 ns/op`, `584 B/op`, `5 allocs/op`
+- `BenchmarkAtomRegistrySetAtom32Subscribers`: `921.0 ns/op`, `264 B/op`, `1 allocs/op`
+- `BenchmarkGoUseAtomIntUpdate`: `804.4 ns/op`, `248 B/op`, `5 allocs/op`
+- `BenchmarkGoUseAtomGetter`: `29.17 ns/op`, `0 B/op`, `0 allocs/op`
+- `BenchmarkGoUseAtomStableRerender`: `71.88 ns/op`, `0 B/op`, `0 allocs/op`
+
+Earlier arm64 numbers are kept below for comparison history, but the list above is the current baseline for this branch.
 
 Additional microbenchmarks from the same Windows arm64 pass:
 
@@ -144,6 +182,31 @@ Commit traversal was audited but not changed further in this pass; the benchmark
 
 Some reconciler benchmarks remain noisy because cold microbenchmarks do not model steady-state alternate reuse perfectly. That is why repeated runs and comparison tooling are still a worthwhile next step.
 
+### SSR transport microbenchmarks
+
+Run on Windows:
+
+```powershell
+$env:GOOS = "windows"
+$env:GOARCH = "amd64"
+go test ./ui -run ^$ -bench "RenderToStringPublicSSRSurface|MarshalSSRBootstrapJSON|MarshalSSRBootstrapBinary|UnmarshalSSRBootstrapJSON|UnmarshalSSRBootstrapBinary|RenderBootstrapReferenceScript" -benchmem
+```
+
+Current measurements from the latest Windows amd64 pass:
+
+- `BenchmarkRenderToStringPublicSSRSurface`: `5693 ns/op`, `4160 B/op`, `54 allocs/op`
+- `BenchmarkMarshalSSRBootstrapJSON`: `6085 ns/op`, `3161 B/op`, `41 allocs/op`
+- `BenchmarkMarshalSSRBootstrapBinary`: `2310 ns/op`, `240 B/op`, `2 allocs/op`
+- `BenchmarkUnmarshalSSRBootstrapJSON`: `7910 ns/op`, `2200 B/op`, `53 allocs/op`
+- `BenchmarkUnmarshalSSRBootstrapBinary`: `5257 ns/op`, `1848 B/op`, `41 allocs/op`
+- `BenchmarkRenderBootstrapReferenceScript`: `700.4 ns/op`, `464 B/op`, `6 allocs/op`
+
+Current conclusion:
+
+- Inline JSON remains the simplest default for small bootstrap payloads embedded directly into SSR HTML.
+- The CBOR sidecar path is materially cheaper than JSON for bootstrap encode/decode in this repo and is the better transport when payload size starts to matter.
+- Base64-inlined binary is still not attractive here; the better binary shape is an external sidecar referenced from the page and decoded on the wasm client.
+
 ### Wasm adapter benchmarks
 
 Run on Windows:
@@ -166,15 +229,23 @@ Compare two saved runs when `benchstat` is installed:
 .\tools\bench-compare.ps1 -Baseline .\tools\bench-before.txt -Candidate .\tools\bench-after.txt
 ```
 
-Current wasm adapter measurements:
+Current wasm adapter measurements from the latest Windows js/wasm pass:
 
-- `BenchmarkWASMDOMAdapterCreateElement`: `103665 ns/op`, `248 B/op`, `24 allocs/op`
-- `BenchmarkWASMDOMAdapterSetAttribute`: `51720 ns/op`, `136 B/op`, `13 allocs/op`
-- `BenchmarkWASMDOMAdapterAppendChild`: `119989 ns/op`, `344 B/op`, `33 allocs/op`
-- `BenchmarkWASMDOMAdapterWrapFunctionNoArgsInvoke`: `14414 ns/op`, `32 B/op`, `3 allocs/op`
-- `BenchmarkLegacyWrapFunctionNoArgsInvoke`: `14621 ns/op`, `32 B/op`, `3 allocs/op`
-- `BenchmarkWASMDOMAdapterWrapFunctionStringInvoke`: `28284 ns/op`, `80 B/op`, `8 allocs/op`
-- `BenchmarkLegacyWrapFunctionStringInvoke`: `29076 ns/op`, `80 B/op`, `8 allocs/op`
+- `BenchmarkWASMDOMAdapterCreateElement`: `79153 ns/op`, `248 B/op`, `24 allocs/op`
+- `BenchmarkWASMDOMAdapterSetAttribute`: `53092 ns/op`, `136 B/op`, `13 allocs/op`
+- `BenchmarkWASMDOMAdapterAppendChild`: `131177 ns/op`, `344 B/op`, `33 allocs/op`
+- `BenchmarkWASMDOMAdapterQuerySelector`: `92169 ns/op`, `240 B/op`, `23 allocs/op`
+- `BenchmarkWASMDOMAdapterGetElementById`: `93303 ns/op`, `240 B/op`, `23 allocs/op`
+- `BenchmarkWASMDOMAdapterQuerySelectorAll`: `107746 ns/op`, `338 B/op`, `27 allocs/op`
+- `BenchmarkWASMDOMAdapterSetPropertyString`: `5819 ns/op`, `8 B/op`, `1 allocs/op`
+- `BenchmarkWASMDOMAdapterBatchAppend16`: `763398 ns/op`, `1780 B/op`, `171 allocs/op`
+- `BenchmarkWASMEventAdapterAddRemoveListener`: `71854 ns/op`, `192 B/op`, `16 allocs/op`
+- `BenchmarkWASMDOMAdapterWrapFunctionNoArgsInvoke`: `16744 ns/op`, `32 B/op`, `3 allocs/op`
+- `BenchmarkWASMDOMAdapterWrapFunctionStringInvoke`: `29579 ns/op`, `80 B/op`, `8 allocs/op`
+- `BenchmarkLegacyWrapFunctionNoArgsInvoke`: `16003 ns/op`, `32 B/op`, `3 allocs/op`
+- `BenchmarkLegacyWrapFunctionStringInvoke`: `29756 ns/op`, `80 B/op`, `8 allocs/op`
+
+Earlier wasm measurements are retained below for trend reference.
 
 Latest profiling-oriented wasm adapter pass added these boundary-focused benchmarks:
 

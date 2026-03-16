@@ -4,7 +4,9 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/fetch"
@@ -18,6 +20,31 @@ type User struct {
 	Username string `json:"username"`
 	Email    string `json:"email"`
 	Website  string `json:"website"`
+}
+
+func loadJSON[T any](ctx context.Context, url string) (T, error) {
+	var zero T
+	resultCh := fetch.Fetch(url, fetch.Options{})
+
+	select {
+	case <-ctx.Done():
+		return zero, ctx.Err()
+	case result := <-resultCh:
+		if result.Err != nil {
+			return zero, result.Err
+		}
+
+		payload, ok := result.Data.(string)
+		if !ok || payload == "" {
+			return zero, fmt.Errorf("empty fetch payload")
+		}
+
+		if err := json.Unmarshal([]byte(payload), &zero); err != nil {
+			return zero, err
+		}
+
+		return zero, nil
+	}
 }
 
 func UserCard(user User) ui.Node {
@@ -39,12 +66,12 @@ func UserCard(user User) ui.Node {
 			html.Props{Class: "space-y-2 text-sm text-gray-400"},
 			html.P(
 				html.Props{Class: "flex items-center"},
-				html.Span(html.Props{Class: "mr-2"}, html.Text("ðŸ“§")),
+				html.Span(html.Props{Class: "mr-2"}, html.Text("Email")),
 				html.Text(user.Email),
 			),
 			html.P(
 				html.Props{Class: "flex items-center"},
-				html.Span(html.Props{Class: "mr-2"}, html.Text("ðŸŒ")),
+				html.Span(html.Props{Class: "mr-2"}, html.Text("Web")),
 				html.Text(user.Website),
 			),
 		),
@@ -52,38 +79,40 @@ func UserCard(user User) ui.Node {
 }
 
 func App() ui.Node {
-	users := ui.UseState([]User{})
-	resource := fetch.UseFetch("https://jsonplaceholder.typicode.com/users")
-	fetchState := resource.Get()
+	selectedUserID := ui.UseState(1)
+	usersResource := fetch.UseResource(func(ctx context.Context) ([]User, error) {
+		return loadJSON[[]User](ctx, "https://jsonplaceholder.typicode.com/users")
+	})
+	usersState := usersResource.Get()
 
-	ui.UseEffect(func() func() {
-		if fetchState.Data != nil {
-			dataStr := fetchState.Data.(string)
-			if dataStr != "" {
-				var fetchedUsers []User
-				if err := json.Unmarshal([]byte(dataStr), &fetchedUsers); err == nil {
-					go func() {
-						time.Sleep(500 * time.Millisecond)
-						users.Set(fetchedUsers)
-					}()
-				}
-			}
+	detailResource := fetch.UseResource(func(ctx context.Context) (User, error) {
+		select {
+		case <-ctx.Done():
+			return User{}, ctx.Err()
+		case <-time.After(350 * time.Millisecond):
 		}
-		return nil
-	}, fetchState.Data)
+
+		return loadJSON[User](ctx, fmt.Sprintf("https://jsonplaceholder.typicode.com/users/%d", selectedUserID.Get()))
+	}, selectedUserID.Get())
+	detailState := detailResource.Get()
 
 	handleRefresh := ui.UseEvent(func() {
-		users.Set([]User{})
-		resource.Refetch()
+		usersResource.Reload()
+		detailResource.Reload()
+	})
+
+	handleCancel := ui.UseEvent(func() {
+		usersResource.Cancel()
+		detailResource.Cancel()
 	})
 
 	var content ui.Node
-	if fetchState.Error != "" {
+	if usersState.Error != nil {
 		content = html.Div(
 			html.Props{Class: "bg-red-500/10 border border-red-500/20 p-6 rounded-xl mb-8 mx-auto max-w-2xl text-center"},
-			html.P(html.Props{Class: "text-red-400 font-medium"}, html.Text("Error: "+fetchState.Error)),
+			html.P(html.Props{Class: "text-red-400 font-medium"}, html.Text("Error: "+usersState.Error.Error())),
 		)
-	} else if fetchState.Loading || len(users.Get()) == 0 {
+	} else if usersState.Loading || !usersState.Ready || len(usersState.Value) == 0 {
 		content = html.Div(
 			html.Props{Class: "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"},
 			html.Div(html.Props{Class: "bg-white/5 border border-white/5 p-6 rounded-xl animate-pulse h-48"}),
@@ -91,13 +120,71 @@ func App() ui.Node {
 			html.Div(html.Props{Class: "bg-white/5 border border-white/5 p-6 rounded-xl animate-pulse h-48"}),
 		)
 	} else {
-		userElements := make([]ui.Node, len(users.Get()))
-		for i, user := range users.Get() {
-			userElements[i] = UserCard(user)
+		userElements := make([]ui.Node, len(usersState.Value))
+		for i, user := range usersState.Value {
+			selected := user.ID == selectedUserID.Get()
+			userElements[i] = html.Div(
+				html.Props{},
+				html.Button(
+					html.Props{
+						OnClick: ui.UseEvent(func() {
+							selectedUserID.Set(user.ID)
+						}),
+						Class: func() string {
+							if selected {
+								return "block w-full text-left ring-2 ring-cyan-400 rounded-xl"
+							}
+							return "block w-full text-left rounded-xl"
+						}(),
+					},
+					UserCard(user),
+				),
+			)
 		}
 		content = html.Div(
-			html.Props{Class: "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"},
-			userElements...,
+			html.Props{Class: "grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]"},
+			html.Div(
+				html.Props{Class: "grid grid-cols-1 gap-6 sm:grid-cols-2"},
+				userElements...,
+			),
+			html.Div(
+				html.Props{Class: "bg-white/5 border border-white/10 p-6 rounded-xl backdrop-blur-sm h-fit sticky top-6"},
+				html.H2(html.Props{Class: "text-xl font-bold text-white mb-2"}, html.Text("Selected User")),
+				html.P(html.Props{Class: "text-sm text-gray-400 mb-6"}, html.Text("This panel uses fetch.UseResource with dependency-based reloads, explicit retry, and cancellation.")),
+				func() ui.Node {
+					if detailState.Loading {
+						return html.Div(
+							html.Props{},
+							html.Div(html.Props{Class: "bg-white/5 border border-white/5 rounded-lg animate-pulse h-8 mb-4"}),
+							html.Div(html.Props{Class: "bg-white/5 border border-white/5 rounded-lg animate-pulse h-24"}),
+						)
+					}
+					if detailState.Error != nil {
+						return html.Div(
+							html.Props{Class: "text-red-400 space-y-3"},
+							html.P(html.Props{}, html.Text("Detail error: "+detailState.Error.Error())),
+							html.Button(html.Props{OnClick: ui.UseEvent(func() { detailResource.Reload() }), Class: "px-4 py-2 bg-red-500/20 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"}, html.Text("Retry Detail")),
+						)
+					}
+					if !detailState.Ready {
+						return html.P(html.Props{Class: "text-gray-500"}, html.Text("Select a user to inspect details."))
+					}
+
+					user := detailState.Value
+					return html.Div(
+						html.Props{Class: "space-y-3 text-sm text-gray-300"},
+						html.H3(html.Props{Class: "text-2xl font-semibold text-white"}, html.Text(user.Name)),
+						html.P(html.Props{}, html.Text("Username: @"+user.Username)),
+						html.P(html.Props{}, html.Text("Email: "+user.Email)),
+						html.P(html.Props{}, html.Text("Website: "+user.Website)),
+						html.Div(
+							html.Props{Class: "flex flex-wrap gap-3 pt-4"},
+							html.Button(html.Props{OnClick: ui.UseEvent(func() { detailResource.Reload() }), Class: "px-4 py-2 bg-cyan-500 text-black rounded-lg hover:bg-cyan-400 transition-colors font-semibold"}, html.Text("Reload Detail")),
+							html.Button(html.Props{OnClick: ui.UseEvent(func() { detailResource.Cancel() }), Class: "px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors border border-white/10"}, html.Text("Cancel Detail")),
+						),
+					)
+				}(),
+			),
 		)
 	}
 
@@ -113,19 +200,29 @@ func App() ui.Node {
 				),
 				html.P(
 					html.Props{Class: "mt-5 max-w-xl mx-auto text-xl text-gray-400"},
-					html.Text("Demonstrating async data fetching with GoWebComponents hooks."),
+					html.Text("Demonstrating typed async resources with list loading, detail loading, retries, and cancellation."),
 				),
-				html.Button(
-					html.Props{
-						Class:   "mt-8 inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90 shadow-lg shadow-purple-500/20 transition-all duration-200",
-						OnClick: handleRefresh,
-					},
-					html.Text(func() string {
-						if fetchState.Loading {
-							return "Refreshing..."
-						}
-						return "Refresh Data"
-					}()),
+				html.Div(
+					html.Props{Class: "mt-8 flex flex-wrap items-center justify-center gap-3"},
+					html.Button(
+						html.Props{
+							Class:   "inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90 shadow-lg shadow-purple-500/20 transition-all duration-200",
+							OnClick: handleRefresh,
+						},
+						html.Text(func() string {
+							if usersState.Loading || detailState.Loading {
+								return "Refreshing..."
+							}
+							return "Reload Resources"
+						}()),
+					),
+					html.Button(
+						html.Props{
+							Class:   "inline-flex items-center px-6 py-3 text-base font-medium rounded-lg text-white bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-200",
+							OnClick: handleCancel,
+						},
+						html.Text("Cancel In-Flight Work"),
+					),
 				),
 			),
 			content,
@@ -134,5 +231,5 @@ func App() ui.Node {
 }
 
 func main() {
-	ui.Render(ui.CreateElement(App), "body")
+	ui.Render(ui.CreateElement(App), "#app")
 }

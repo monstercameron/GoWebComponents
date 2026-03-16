@@ -81,3 +81,36 @@ func TestRenderTo_PanicsWhenSelectorMissing(t *testing.T) {
 
 	rt.RenderTo("#missing", &Element{Type: "div", Props: map[string]interface{}{}})
 }
+
+func TestHydrateTo_UsesQuerySelectorAndSchedulesHydration(t *testing.T) {
+	adapter := newQueryTestDOMAdapter()
+	scheduler := newTestScheduler()
+	container := adapter.CreateElement("div")
+	adapter.selectorResults["#app"] = container
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	element := &Element{Type: "div", Props: map[string]interface{}{"id": "app"}}
+
+	rt.HydrateTo("#app", element)
+
+	if rt.wipRoot == nil {
+		t.Fatal("expected HydrateTo to delegate to Hydrate and create wip root")
+	}
+	if rt.wipRoot.dom != container {
+		t.Fatal("expected HydrateTo to use queried container")
+	}
+	if len(scheduler.timeouts) != 1 {
+		t.Fatalf("expected HydrateTo to schedule one timeout, got %d", len(scheduler.timeouts))
+	}
+}
+
+func TestHydrateTo_PanicsWhenSelectorMissing(t *testing.T) {
+	rt := NewRuntime(Config{DOMAdapter: newQueryTestDOMAdapter(), Scheduler: newTestScheduler()})
+
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expected HydrateTo to panic when selector is missing")
+		}
+	}()
+
+	rt.HydrateTo("#missing", &Element{Type: "div", Props: map[string]interface{}{}})
+}

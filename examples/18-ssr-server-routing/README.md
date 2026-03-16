@@ -1,0 +1,47 @@
+# Server SSR Routing Demo
+
+This example is the request-time SSR counterpart to the earlier static SSR shell experiments.
+
+It demonstrates:
+
+- a Go HTTP server that renders HTML per request with `ui.RenderToString(...)`
+- a route-specific bootstrap endpoint served by the same Go process
+- a browser/history router on the wasm client
+- server and client redirects for `/legacy` and `/secure`
+- query-aware server rendering for `/search?q=...`
+
+## Build the client wasm
+
+From the repo root:
+
+```powershell
+Set-Location .\examples
+.\build.ps1 -Example "18-ssr-server-routing"
+```
+
+## Run the SSR server
+
+From the repo root:
+
+```powershell
+go run ./examples/18-ssr-server-routing
+```
+
+Then open:
+
+- `http://127.0.0.1:8079/`
+- `http://127.0.0.1:8079/docs/ssr`
+- `http://127.0.0.1:8079/search?q=routing`
+- `http://127.0.0.1:8079/secure`
+- `http://127.0.0.1:8079/secure?auth=true&role=maintainer`
+
+You should see real HTML requests on direct navigation and refresh, plus a bootstrap JSON request to `/_gwc/bootstrap?...` during client startup.
+
+## Browser regression check
+
+After building the wasm client, run:
+
+```powershell
+Set-Location .\examples
+npx playwright test tests/18-ssr-server-routing.spec.ts --config=playwright.ssr-server.config.ts
+```

@@ -4,10 +4,64 @@
 package ui
 
 import (
+	"context"
+	"errors"
+	"syscall/js"
 	"testing"
+	"time"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
+
+func installMockFetchResolvedBytes(t *testing.T, payload []byte) {
+	t.Helper()
+	global := js.Global()
+	objectCtor := global.Get("Object")
+	uint8ArrayCtor := global.Get("Uint8Array")
+	prevFetch := global.Get("fetch")
+
+	array := uint8ArrayCtor.New(len(payload))
+	js.CopyBytesToJS(array, payload)
+	buffer := array.Get("buffer")
+
+	response := objectCtor.New()
+	response.Set("ok", true)
+	response.Set("status", 200)
+	arrayBufferFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return buffer
+	})
+	response.Set("arrayBuffer", arrayBufferFn)
+
+	promise := objectCtor.New()
+	thenFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) == 0 {
+			return this
+		}
+		current := this.Get("__current")
+		next := args[0].Invoke(current)
+		this.Set("__current", next)
+		return this
+	})
+	catchFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return this
+	})
+	promise.Set("__current", response)
+	promise.Set("then", thenFn)
+	promise.Set("catch", catchFn)
+
+	fetchFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return promise
+	})
+	global.Set("fetch", fetchFn)
+
+	t.Cleanup(func() {
+		global.Set("fetch", prevFetch)
+		fetchFn.Release()
+		thenFn.Release()
+		catchFn.Release()
+		arrayBufferFn.Release()
+	})
+}
 
 type noOpScheduler struct{}
 
@@ -70,6 +124,114 @@ func TestFragmentAndTextHelpers(t *testing.T) {
 	}
 }
 
+func TestReadBootstrapScript(t *testing.T) {
+	global := js.Global()
+	objectCtor := global.Get("Object")
+	prevDoc := global.Get("document")
+
+	script := objectCtor.New()
+	script.Set("textContent", `{"route":{"path":"/docs"},"atoms":{"theme":"dark"}}`)
+
+	doc := objectCtor.New()
+	getElementByID := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) > 0 && args[0].String() == DefaultBootstrapScriptID {
+			return script
+		}
+		return js.Null()
+	})
+	doc.Set("getElementById", getElementByID)
+	global.Set("document", doc)
+
+	t.Cleanup(func() {
+		global.Set("document", prevDoc)
+		getElementByID.Release()
+	})
+
+	payload, err := ReadBootstrapScript("")
+	if err != nil {
+		t.Fatalf("unexpected bootstrap read error: %v", err)
+	}
+	if payload.Route.Path != "/docs" {
+		t.Fatalf("expected route path /docs, got %q", payload.Route.Path)
+	}
+	if payload.Atoms["theme"] != "dark" {
+		t.Fatalf("expected theme atom to round-trip, got %#v", payload.Atoms["theme"])
+	}
+}
+
+func TestReadBootstrapReferenceScript(t *testing.T) {
+	global := js.Global()
+	objectCtor := global.Get("Object")
+	prevDoc := global.Get("document")
+
+	script := objectCtor.New()
+	script.Set("textContent", `{"url":"/bootstrap.cbor","format":"cbor"}`)
+
+	doc := objectCtor.New()
+	getElementByID := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) > 0 && args[0].String() == DefaultBootstrapReferenceScriptID {
+			return script
+		}
+		return js.Null()
+	})
+	doc.Set("getElementById", getElementByID)
+	global.Set("document", doc)
+
+	t.Cleanup(func() {
+		global.Set("document", prevDoc)
+		getElementByID.Release()
+	})
+
+	ref, err := ReadBootstrapReferenceScript("")
+	if err != nil {
+		t.Fatalf("unexpected bootstrap reference read error: %v", err)
+	}
+	if ref.URL != "/bootstrap.cbor" {
+		t.Fatalf("expected reference url /bootstrap.cbor, got %q", ref.URL)
+	}
+	if ref.Format != SSRBootstrapFormatCBOR {
+		t.Fatalf("expected bootstrap reference format %q, got %q", SSRBootstrapFormatCBOR, ref.Format)
+	}
+}
+
+func TestReadBootstrapReferenceJSON(t *testing.T) {
+	payloadBytes := []byte(`{"route":{"path":"/json"},"atoms":{"theme":"light"}}`)
+	installMockFetchResolvedBytes(t, payloadBytes)
+
+	payload, err := ReadBootstrapReference(SSRBootstrapReference{URL: "/bootstrap.json", Format: SSRBootstrapFormatJSON})
+	if err != nil {
+		t.Fatalf("unexpected JSON bootstrap reference read error: %v", err)
+	}
+	if payload.Route.Path != "/json" {
+		t.Fatalf("expected JSON bootstrap path /json, got %q", payload.Route.Path)
+	}
+	if payload.Atoms["theme"] != "light" {
+		t.Fatalf("expected JSON bootstrap atom to round-trip, got %#v", payload.Atoms["theme"])
+	}
+}
+
+func TestReadBootstrapReferenceCBOR(t *testing.T) {
+	encoded, err := MarshalSSRBootstrapBinary(SSRBootstrap{
+		Route: SSRRouteBootstrap{Path: "/cbor"},
+		Atoms: map[string]interface{}{"theme": "dark"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected binary bootstrap marshal error: %v", err)
+	}
+	installMockFetchResolvedBytes(t, encoded)
+
+	payload, err := ReadBootstrapReference(SSRBootstrapReference{URL: "/bootstrap.cbor", Format: SSRBootstrapFormatCBOR})
+	if err != nil {
+		t.Fatalf("unexpected CBOR bootstrap reference read error: %v", err)
+	}
+	if payload.Route.Path != "/cbor" {
+		t.Fatalf("expected CBOR bootstrap path /cbor, got %q", payload.Route.Path)
+	}
+	if payload.Atoms["theme"] != "dark" {
+		t.Fatalf("expected CBOR bootstrap atom to round-trip, got %#v", payload.Atoms["theme"])
+	}
+}
+
 func TestPublicHooksWrappers(t *testing.T) {
 	installUIHookContext(t)
 
@@ -84,6 +246,15 @@ func TestPublicHooksWrappers(t *testing.T) {
 	state.Update(func(prev int) int { return prev + 4 })
 	if state.Get() != 7 {
 		t.Fatalf("expected updated state after updater, got %d", state.Get())
+	}
+
+	reducer := UseReducer(func(state int, action int) int { return state + action }, 2)
+	if reducer.Get() != 2 {
+		t.Fatalf("expected initial reducer state, got %d", reducer.Get())
+	}
+	reducer.Dispatch(5)
+	if reducer.Get() != 7 {
+		t.Fatalf("expected reducer dispatch to update state, got %d", reducer.Get())
 	}
 
 	computed := UseMemo(func() int { return 9 }, "dep")
@@ -125,4 +296,321 @@ func TestRefAndHandlerHelpers(t *testing.T) {
 	if handler.Value() != "wrapped" {
 		t.Fatalf("expected raw handler value, got %#v", handler.Value())
 	}
+}
+
+func TestUsePreviousReturnsEmptyValueOnFirstRender(t *testing.T) {
+	installUIHookContext(t)
+
+	previous := UsePrevious("current")
+	if previous.Ok() {
+		t.Fatal("expected previous value to be unavailable on first render")
+	}
+	if previous.Get() != "" {
+		t.Fatalf("expected zero value on first render, got %q", previous.Get())
+	}
+}
+
+func TestPreviousHandleZeroValue(t *testing.T) {
+	var previous Previous[int]
+	if previous.Ok() {
+		t.Fatal("expected zero-value previous handle to report unavailable")
+	}
+	if previous.Get() != 0 {
+		t.Fatalf("expected zero-value previous handle to return zero, got %d", previous.Get())
+	}
+}
+
+func TestUseChannelReturnsEmptyStateBeforeValues(t *testing.T) {
+	installUIHookContext(t)
+
+	ch := make(chan int)
+	channel := UseChannel(ch)
+	if channel.Ok() {
+		t.Fatal("expected channel handle to report no value before any receive")
+	}
+	if channel.Closed() {
+		t.Fatal("expected channel handle to report open before closure is observed")
+	}
+	if channel.Get() != 0 {
+		t.Fatalf("expected zero value before any receive, got %d", channel.Get())
+	}
+}
+
+func TestChannelHandleZeroValue(t *testing.T) {
+	var channel Channel[string]
+	if channel.Ok() {
+		t.Fatal("expected zero-value channel handle to report unavailable")
+	}
+	if channel.Closed() {
+		t.Fatal("expected zero-value channel handle to report open")
+	}
+	if channel.Get() != "" {
+		t.Fatalf("expected zero-value channel handle to return empty string, got %q", channel.Get())
+	}
+}
+
+func TestUseTaskTransitionsToRunningAndCancelled(t *testing.T) {
+	installUIHookContext(t)
+
+	block := make(chan struct{})
+	task := UseTask(func(ctx context.Context) (string, error) {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-block:
+			return "done", nil
+		}
+	})
+
+	initial := task.Get()
+	if initial.Running || initial.Ready || initial.Cancelled || initial.Started || initial.Error != nil || initial.Value != "" {
+		t.Fatalf("unexpected initial task state: %+v", initial)
+	}
+
+	task.Start()
+	running := task.Get()
+	if !running.Running || !running.Started || running.Cancelled {
+		t.Fatalf("expected running task state after Start, got %+v", running)
+	}
+
+	task.Cancel()
+	cancelled := task.Get()
+	if cancelled.Running || !cancelled.Cancelled || !cancelled.Started {
+		t.Fatalf("expected cancelled task state after Cancel, got %+v", cancelled)
+	}
+
+	close(block)
+}
+
+func TestTaskHandleZeroValue(t *testing.T) {
+	var task Task[int]
+	state := task.Get()
+	if state.Running || state.Ready || state.Cancelled || state.Started || state.Error != nil || state.Value != 0 {
+		t.Fatalf("expected zero-value task state, got %+v", state)
+	}
+	task.Start()
+	task.Cancel()
+}
+
+func TestReducerHandleZeroValue(t *testing.T) {
+	var reducer Reducer[int, string]
+	if reducer.Get() != 0 {
+		t.Fatalf("expected zero-value reducer handle to return zero, got %d", reducer.Get())
+	}
+	reducer.Dispatch("noop")
+}
+
+func TestUseDebouncedInitialValue(t *testing.T) {
+	installUIHookContext(t)
+
+	debounced := UseDebounced("hello", 20*time.Millisecond)
+	if debounced.Get() != "hello" {
+		t.Fatalf("expected initial debounced value hello, got %q", debounced.Get())
+	}
+	if debounced.Pending() {
+		t.Fatal("expected initial debounced handle to be settled")
+	}
+}
+
+func TestDebouncedHandleZeroValue(t *testing.T) {
+	var debounced Debounced[string]
+	if debounced.Get() != "" {
+		t.Fatalf("expected zero-value debounced handle to return empty string, got %q", debounced.Get())
+	}
+	if debounced.Pending() {
+		t.Fatal("expected zero-value debounced handle not to be pending")
+	}
+}
+
+func TestUseThrottledInitialValue(t *testing.T) {
+	installUIHookContext(t)
+
+	throttled := UseThrottled(7, 20*time.Millisecond)
+	if throttled.Get() != 7 {
+		t.Fatalf("expected initial throttled value 7, got %d", throttled.Get())
+	}
+	if throttled.Pending() {
+		t.Fatal("expected initial throttled handle to be settled")
+	}
+}
+
+func TestThrottledHandleZeroValue(t *testing.T) {
+	var throttled Throttled[int]
+	if throttled.Get() != 0 {
+		t.Fatalf("expected zero-value throttled handle to return zero, got %d", throttled.Get())
+	}
+	if throttled.Pending() {
+		t.Fatal("expected zero-value throttled handle not to be pending")
+	}
+}
+
+type profileForm struct {
+	Name   string
+	Email  string
+	OptIn  bool
+	Region string
+}
+
+func TestUseFormTracksFieldStateAndValidation(t *testing.T) {
+	installUIHookContext(t)
+
+	form := UseForm(profileForm{Region: "us"})
+	if form.TouchedAny() || form.DirtyAny() || form.HasErrors() {
+		t.Fatal("expected fresh form state to be pristine and error-free")
+	}
+	if form.Get().Region != "us" {
+		t.Fatalf("expected initial form state, got %+v", form.Get())
+	}
+	if !form.SetField("Name", "Alice") {
+		t.Fatal("expected SetField to update exported struct field")
+	}
+	if form.Get().Name != "Alice" {
+		t.Fatalf("expected updated field value, got %+v", form.Get())
+	}
+	if !form.Touched("Name") || !form.Dirty("Name") {
+		t.Fatal("expected SetField to mark field as touched and dirty")
+	}
+	if !form.TouchedAny() || !form.DirtyAny() {
+		t.Fatal("expected aggregate touched/dirty helpers to reflect updated field state")
+	}
+	form.SetErrors(FieldErrors{"Email": "required"})
+	if form.Error("Email") != "required" {
+		t.Fatalf("expected field error to be readable, got %q", form.Error("Email"))
+	}
+	form.SetFormError("try again")
+	if form.FormError() != "try again" {
+		t.Fatalf("expected form-level error to be readable, got %q", form.FormError())
+	}
+	if !form.HasErrors() {
+		t.Fatal("expected aggregate error helper to report field/form errors")
+	}
+	valid := form.Validate(func(state profileForm) FieldErrors {
+		if state.Name == "" {
+			return FieldErrors{"Name": "required"}
+		}
+		return nil
+	})
+	if !valid {
+		t.Fatal("expected validation to pass after name was set")
+	}
+	if len(form.Errors()) != 0 {
+		t.Fatalf("expected successful validation to clear errors, got %#v", form.Errors())
+	}
+	if form.FormError() != "" {
+		t.Fatalf("expected sync validation success to clear form error, got %q", form.FormError())
+	}
+	if form.HasErrors() {
+		t.Fatal("expected successful sync validation to clear aggregate error state")
+	}
+	form.Reset()
+	if form.Get().Name != "" || form.Get().Region != "us" {
+		t.Fatalf("expected Reset to restore initial form state, got %+v", form.Get())
+	}
+	if form.Touched("Name") || form.Dirty("Name") {
+		t.Fatal("expected Reset to clear touched and dirty state")
+	}
+	if form.TouchedAny() || form.DirtyAny() || form.HasErrors() {
+		t.Fatal("expected Reset to restore pristine and error-free aggregate state")
+	}
+}
+
+func TestUseFormAsyncValidationLifecycle(t *testing.T) {
+	installUIHookContext(t)
+
+	form := UseForm(profileForm{Name: "admin", Email: "alice@blocked.test"})
+	form.ValidateAsync(func(value profileForm) (FieldErrors, string) {
+		time.Sleep(20 * time.Millisecond)
+		errs := FieldErrors{}
+		if value.Name == "admin" {
+			errs["Name"] = "reserved"
+		}
+		return errs, "blocked domain"
+	}, nil)
+	if !form.Validating() {
+		t.Fatal("expected form to report validating immediately after ValidateAsync")
+	}
+	time.Sleep(40 * time.Millisecond)
+	if form.Validating() || !form.Validated() {
+		t.Fatalf("expected async validation to settle, validating=%t validated=%t", form.Validating(), form.Validated())
+	}
+	if form.Error("Name") != "reserved" {
+		t.Fatalf("expected async field error, got %q", form.Error("Name"))
+	}
+	if form.FormError() != "blocked domain" {
+		t.Fatalf("expected async form error, got %q", form.FormError())
+	}
+
+	completed := false
+	form.SetField("Name", "alice")
+	form.SetField("Email", "alice@example.com")
+	form.ValidateAsync(func(value profileForm) (FieldErrors, string) {
+		return nil, ""
+	}, func(valid bool) {
+		completed = valid
+	})
+	time.Sleep(20 * time.Millisecond)
+	if !completed {
+		t.Fatal("expected async validation callback to report valid state")
+	}
+	if form.FormError() != "" || len(form.Errors()) != 0 {
+		t.Fatalf("expected async validation success to clear errors, formError=%q errors=%#v", form.FormError(), form.Errors())
+	}
+}
+
+func TestUseFormSubmissionLifecycle(t *testing.T) {
+	installUIHookContext(t)
+
+	form := UseForm(profileForm{Name: "Alice"})
+	block := make(chan struct{})
+	form.Submit(func(value profileForm) error {
+		if value.Name != "Alice" {
+			return errors.New("unexpected form snapshot")
+		}
+		<-block
+		return nil
+	})
+	if !form.Submitting() {
+		t.Fatal("expected form to report submitting immediately after Submit")
+	}
+	close(block)
+	time.Sleep(20 * time.Millisecond)
+	if form.Submitting() || !form.Submitted() || form.SubmitError() != nil {
+		t.Fatalf("expected successful submit lifecycle, submitted=%t submitting=%t err=%v", form.Submitted(), form.Submitting(), form.SubmitError())
+	}
+
+	form.Submit(func(value profileForm) error {
+		return errors.New("server unavailable")
+	})
+	time.Sleep(20 * time.Millisecond)
+	if form.SubmitError() == nil || form.Submitted() {
+		t.Fatalf("expected failed submit to store error and clear submitted flag, submitted=%t err=%v", form.Submitted(), form.SubmitError())
+	}
+	if form.FormError() != "server unavailable" {
+		t.Fatalf("expected failed submit to surface form error, got %q", form.FormError())
+	}
+	if !form.HasErrors() {
+		t.Fatal("expected failed submit to mark aggregate error state")
+	}
+	form.Reset(profileForm{Region: "eu"})
+	if form.Get().Region != "eu" || form.Submitted() || form.SubmitError() != nil {
+		t.Fatalf("expected reset with new initial value to clear submission state, got %+v err=%v", form.Get(), form.SubmitError())
+	}
+	if form.FormError() != "" || form.HasErrors() {
+		t.Fatal("expected reset to clear submit-derived form error state")
+	}
+}
+
+func TestFormZeroValue(t *testing.T) {
+	var form Form[profileForm]
+	if form.Get().Name != "" {
+		t.Fatalf("expected zero-value form to return zero form state, got %+v", form.Get())
+	}
+	if form.Touched("Name") || form.Dirty("Name") || form.TouchedAny() || form.DirtyAny() || form.HasErrors() || form.Validating() || form.Validated() || form.Submitting() || form.Submitted() || form.SubmitError() != nil || form.FormError() != "" {
+		t.Fatal("expected zero-value form helpers to be inert")
+	}
+	form.SetField("Name", "ignored")
+	form.SetErrors(FieldErrors{"Name": "required"})
+	form.SetFormError("ignored")
+	form.ValidateAsync(nil, nil)
+	form.Reset()
 }

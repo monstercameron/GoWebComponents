@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 )
@@ -320,5 +321,109 @@ func TestAtomRegistry_GetAtomCount(t *testing.T) {
 	count := registry.GetAtomCount()
 	if count != 3 {
 		t.Errorf("Expected 3 atoms, got %d", count)
+	}
+}
+
+func TestAtomRegistry_SnapshotReturnsCopy(t *testing.T) {
+	registry := NewAtomRegistry()
+	registry.SetAtom("theme", "dark")
+
+	snapshot := registry.Snapshot()
+	snapshot["theme"] = "light"
+
+	value, _ := registry.GetAtom("theme")
+	if value != "dark" {
+		t.Fatalf("expected registry atom to remain dark, got %#v", value)
+	}
+}
+
+func TestRuntimeRestoreAtomSnapshotSchedulesSubscribers(t *testing.T) {
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{Scheduler: scheduler})
+	rt.currentRoot = &Fiber{}
+
+	fiber := newTestFiber("subscriber")
+	rt.atomRegistry.Subscribe("theme", fiber)
+
+	if err := rt.RestoreAtomSnapshot(map[string]interface{}{"theme": "dark"}); err != nil {
+		t.Fatalf("unexpected restore error: %v", err)
+	}
+
+	value, _ := rt.GetAtomValue("theme")
+	if value != "dark" {
+		t.Fatalf("expected restored atom value dark, got %#v", value)
+	}
+	if !fiber.needsUpdate {
+		t.Fatal("expected subscribed fiber to be marked for update after restore")
+	}
+}
+
+func TestRegisterDerivedAtomRecomputesWhenDependencyChanges(t *testing.T) {
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{Scheduler: scheduler})
+	rt.currentRoot = &Fiber{}
+
+	if err := rt.SetAtomValue("count", 2); err != nil {
+		t.Fatalf("unexpected set atom error: %v", err)
+	}
+	if err := rt.RegisterDerivedAtom("double", []string{"count"}, func() interface{} {
+		value, _ := rt.GetAtomValue("count")
+		return value.(int) * 2
+	}); err != nil {
+		t.Fatalf("unexpected register derived atom error: %v", err)
+	}
+
+	derivedFiber := newTestFiber("derived-subscriber")
+	rt.atomRegistry.Subscribe("double", derivedFiber)
+
+	value, _ := rt.GetAtomValue("double")
+	if value != 4 {
+		t.Fatalf("expected initial derived value 4, got %#v", value)
+	}
+
+	if err := rt.SetAtomValue("count", 5); err != nil {
+		t.Fatalf("unexpected update atom error: %v", err)
+	}
+	value, _ = rt.GetAtomValue("double")
+	if value != 10 {
+		t.Fatalf("expected derived value 10 after source update, got %#v", value)
+	}
+	if !derivedFiber.needsUpdate {
+		t.Fatal("expected derived subscribers to be scheduled after source update")
+	}
+}
+
+func TestRegisterDerivedAtomSupportsChainedDependencies(t *testing.T) {
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{Scheduler: scheduler})
+
+	_ = rt.SetAtomValue("base", 3)
+	if err := rt.RegisterDerivedAtom("double", []string{"base"}, func() interface{} {
+		value, _ := rt.GetAtomValue("base")
+		return value.(int) * 2
+	}); err != nil {
+		t.Fatalf("unexpected register double error: %v", err)
+	}
+	if err := rt.RegisterDerivedAtom("label", []string{"double"}, func() interface{} {
+		value, _ := rt.GetAtomValue("double")
+		return fmt.Sprintf("value:%d", value.(int))
+	}); err != nil {
+		t.Fatalf("unexpected register label error: %v", err)
+	}
+
+	_ = rt.SetAtomValue("base", 4)
+	value, _ := rt.GetAtomValue("label")
+	if value != "value:8" {
+		t.Fatalf("expected chained derived value value:8, got %#v", value)
+	}
+}
+
+func TestRegisterDerivedAtomRejectsSimpleCycles(t *testing.T) {
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{Scheduler: scheduler})
+
+	err := rt.RegisterDerivedAtom("loop", []string{"loop"}, func() interface{} { return 1 })
+	if err == nil {
+		t.Fatal("expected self-referential derived atom registration to fail")
 	}
 }

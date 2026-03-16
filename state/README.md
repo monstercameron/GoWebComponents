@@ -57,6 +57,53 @@ func CounterDisplay(props dom.Attrs) *dom.Element {
 - **Automatic Re-renders**: All subscribed components re-render when atom updates
 - **Initial Value**: If atom doesn't exist, creates it with `initialValue`
 
+### Shared Derived Atoms
+
+Use `UseDerived` when a value should stay shared and recompute from other atoms
+instead of living as a component-local memo:
+
+```go
+count := state.UseAtom("count", 2)
+
+double := state.UseDerived("double-count", func() int {
+    return count.Get() * 2
+}, "count")
+
+fmt.Println(double.Get())
+```
+
+Derived atom notes:
+
+- Derived atoms are read-only in the current design.
+- Dependencies are explicit atom IDs, not inferred at runtime.
+- Chained derived atoms are supported.
+- Simple dependency cycles are rejected as a safe failure mode.
+
+### Snapshot Persistence
+
+The package now exposes a small snapshot surface for persistence and hot-reload style restore:
+
+```go
+snapshot := state.ExportSnapshot()
+
+// Restore later in the same process with exact Go values.
+_ = state.ImportSnapshot(snapshot)
+
+// Optional browser storage persistence for JSON-compatible atoms.
+_ = state.SaveSnapshot("app-state", snapshot.Select("app-theme", "shopping-cart"), state.LocalStorage)
+
+restored, ok, err := state.LoadSnapshot("app-state", state.LocalStorage)
+if err == nil && ok {
+    _ = state.ImportSnapshot(restored)
+}
+```
+
+Serialization constraints:
+
+- `ExportSnapshot` and `ImportSnapshot` preserve exact in-memory Go values in the current process.
+- `SaveSnapshot` and `LoadSnapshot` use JSON, so persisted atoms should be JSON-compatible.
+- If exact round-tripping of complex structs is required across browser reloads, callers should provide their own typed codec layer before storage.
+
 ## Use Cases
 
 ### 1. Application Theme
@@ -171,18 +218,109 @@ _, setTheme := state.UseAtom("app-theme", "light")
 Compute values based on atom state:
 
 ```go
-cart, _ := state.UseAtom("shopping-cart", []CartItem{})
+cart := state.UseAtom("shopping-cart", []CartItem{})
 
-total := hooks.UseMemo(func() interface{} {
+total := state.UseComputed(func() float64 {
     sum := 0.0
-    for _, item := range cart() {
+    for _, item := range cart.Get() {
         sum += item.Price * float64(item.Quantity)
     }
     return sum
-}, []interface{}{cart()}).(float64)
+}, cart.Get())
+
+fmt.Println(total.Get())
+```
+
+Use `UseComputed` for component-local memoized derivation and `UseDerived` when
+the derived value itself should behave like shared global state.
+
+### Theme-Derived Labels
+
+Use `UseComputed` when multiple render decisions should flow from a shared atom:
+
+```go
+theme := state.UseAtom("app-theme", "light")
+
+themeLabel := state.UseComputed(func() string {
+    if theme.Get() == "dark" {
+        return "Dark theme active"
+    }
+    return "Light theme active"
+}, theme.Get())
+
+className := state.UseComputed(func() string {
+    if theme.Get() == "dark" {
+        return "panel panel-dark"
+    }
+    return "panel panel-light"
+}, theme.Get())
+
+fmt.Println(themeLabel.Get())
+fmt.Println(className.Get())
+```
+
+### Filtered Collections
+
+Use `UseComputed` to keep list filtering logic typed and colocated with the atoms it depends on:
+
+```go
+type Todo struct {
+    Title     string
+    Completed bool
+}
+
+todos := state.UseAtom("todos", []Todo{})
+showCompleted := state.UseAtom("show-completed", false)
+
+visibleTodos := state.UseComputed(func() []Todo {
+    items := todos.Get()
+    if showCompleted.Get() {
+        return items
+    }
+
+    filtered := make([]Todo, 0, len(items))
+    for _, todo := range items {
+        if !todo.Completed {
+            filtered = append(filtered, todo)
+        }
+    }
+    return filtered
+}, todos.Get(), showCompleted.Get())
+
+fmt.Println(len(visibleTodos.Get()))
+```
+
+### Derived Totals and Summary Text
+
+You can expose both numeric aggregates and render-ready summary strings from the same shared state:
+
+```go
+cart := state.UseAtom("shopping-cart", []CartItem{})
+
+total := state.UseComputed(func() float64 {
+    sum := 0.0
+    for _, item := range cart.Get() {
+        sum += item.Price * float64(item.Quantity)
+    }
+    return sum
+}, cart.Get())
+
+summary := state.UseComputed(func() string {
+    return fmt.Sprintf("%d items, total $%.2f", len(cart.Get()), total.Get())
+}, cart.Get(), total.Get())
+
+fmt.Println(summary.Get())
 ```
 
 ## Best Practices
+
+### Derived State Guidance
+
+- Prefer `UseComputed` for render-only derivation inside a single component.
+- Prefer `UseDerived` when multiple components should subscribe to the same derived value.
+- Keep derived atom dependency lists explicit and small.
+- Avoid long dependency chains when a simpler direct derivation will do.
+- Do not model writable state through derived atoms; keep writes on source atoms.
 
 ### 1. Use Descriptive Keys
 
