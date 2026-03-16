@@ -5,8 +5,6 @@ package main
 
 import (
 	"syscall/js"
-
-	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
 // PersonalHeroSection renders Earl Cameron's personal introduction and branding.
@@ -363,7 +361,7 @@ func PersonalYouTubeSection(_ Attrs) *Element {
 						Attrs{"class": "relative w-full aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black/20 backdrop-blur-sm border border-white/20"},
 
 						// YouTube embed
-						runtime.CreateElement("iframe", Attrs{
+						Iframe(Attrs{
 							"src":             "https://www.youtube.com/embed/KVYsD3H9LrQ",
 							"title":           "Earl Cameron - Latest YouTube Video",
 							"frameborder":     "0",
@@ -431,7 +429,7 @@ func YouTubeStatBadge(icon, action string) *Element {
 
 // ScrollToSection creates a JavaScript function for smooth scrolling
 func ScrollToSection(sectionId string) interface{} {
-	return GoUseFunc(func(e GoEvent) {
+	return UseEvent(func(e MouseEvent) {
 		element := js.Global().Get("document").Call("getElementById", sectionId)
 		if !element.IsNull() {
 			element.Call("scrollIntoView", map[string]interface{}{

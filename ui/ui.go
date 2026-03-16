@@ -28,6 +28,7 @@ type componentMeta struct {
 
 var componentMetaCache sync.Map
 
+type Element = runtime.Element
 type Node = *runtime.Element
 
 type Event = runtime.GoEvent

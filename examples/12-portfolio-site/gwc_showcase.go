@@ -292,7 +292,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 	}
 
-	toggleSource := GoUseFunc(func(event GoEvent) {
+	toggleSource := UseEvent(func(event MouseEvent) {
 
 		if !showSource() && !sourceLoaded() {
 
@@ -310,7 +310,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 	})
 
-	copyToClipboard := GoUseFunc(func(event GoEvent) {
+	copyToClipboard := UseEvent(func(event MouseEvent) {
 
 		if !isLoading && sourceCode != "" && sourceLoaded() {
 
@@ -536,13 +536,13 @@ func MiniAppCard(props Attrs) *Element {
 
 	showSource, setShowSource := UseState(false)
 
-	toggleSource := GoUseFunc(func(event GoEvent) {
+	toggleSource := UseEvent(func(event MouseEvent) {
 
 		setShowSource(!showSource())
 
 	})
 
-	copyToClipboard := GoUseFunc(func(event GoEvent) {
+	copyToClipboard := UseEvent(func(event MouseEvent) {
 
 		js.Global().Get("navigator").Get("clipboard").Call("writeText", sourceCode)
 
@@ -725,13 +725,13 @@ func MiniClickCounter(props Attrs) *Element {
 
 	clickCount, setClickCount := UseState(0)
 
-	incrementClicks := GoUseFunc(func(event GoEvent) {
+	incrementClicks := UseEvent(func(event MouseEvent) {
 
 		setClickCount(clickCount() + 1)
 
 	})
 
-	resetClicks := GoUseFunc(func(event GoEvent) {
+	resetClicks := UseEvent(func(event MouseEvent) {
 
 		setClickCount(0)
 
@@ -767,7 +767,7 @@ func MiniRandomizer(props Attrs) *Element {
 		return nil
 	})
 
-	generateRandom := GoUseFunc(func(event GoEvent) {
+	generateRandom := UseEvent(func(event MouseEvent) {
 		// Use Go's native random number generator
 		newNum := rand.Intn(100) + 1
 		setRandomNum(newNum)
@@ -790,7 +790,7 @@ func MiniNotepad(props Attrs) *Element {
 
 	noteText, setNoteText := UseState("Sample note text")
 
-	updateNote := GoUseFunc(func(event GoEvent) {
+	updateNote := UseEvent(func(event MouseEvent) {
 
 		if noteText() == "Sample note text" {
 
@@ -845,7 +845,7 @@ func MiniColorPicker(props Attrs) *Element {
 
 			"class": "w-6 h-6 rounded-full " + color + " hover:scale-110 transition-transform",
 
-			"onclick": GoUseFunc(func(event GoEvent) {
+			"onclick": UseEvent(func(event MouseEvent) {
 
 				setSelectedColor(currentColor)
 
@@ -873,21 +873,21 @@ func MiniTimer(props Attrs) *Element {
 
 	timerRunning, setTimerRunning := UseState(false)
 
-	toggleTimer := GoUseFunc(func(event GoEvent) {
+	toggleTimer := UseEvent(func(event MouseEvent) {
 
 		setTimerRunning(!timerRunning())
 
 	})
 
-	resetTimer := GoUseFunc(func(event GoEvent) {
+	resetTimer := UseEvent(func(event MouseEvent) {
 
 		setTimerCount(0)
 
 		setTimerRunning(false)
 	})
 
-	// Define tick handler using GoUseFunc
-	tick := GoUseFunc(func() {
+	// Define tick handler using UseEvent
+	tick := UseEvent(func() {
 		setTimerCount(timerCount() + 1)
 	})
 
@@ -932,13 +932,13 @@ func MiniVoting(props Attrs) *Element {
 
 	downvotes, setDownvotes := UseState(3)
 
-	addUpvote := GoUseFunc(func(event GoEvent) {
+	addUpvote := UseEvent(func(event MouseEvent) {
 
 		setUpvotes(upvotes() + 1)
 
 	})
 
-	addDownvote := GoUseFunc(func(event GoEvent) {
+	addDownvote := UseEvent(func(event MouseEvent) {
 
 		setDownvotes(downvotes() + 1)
 
@@ -988,13 +988,13 @@ var clickCounterSource = `func MiniClickCounter(props Attrs) *Element {
 
     clickCount, setClickCount := UseState(0)
 
-    incrementClicks := GoUseFunc(func(event GoEvent) {
+	incrementClicks := UseEvent(func(event MouseEvent) {
 
         setClickCount(clickCount() + 1)
 
     })
 
-    resetClicks := GoUseFunc(func(event GoEvent) {
+	resetClicks := UseEvent(func(event MouseEvent) {
 
         setClickCount(0)
 
@@ -1032,7 +1032,7 @@ var randomizerSource = `func MiniRandomizer(props Attrs) *Element {
 
     })
 
-    generateRandom := GoUseFunc(func(event GoEvent) {
+	generateRandom := UseEvent(func(event MouseEvent) {
 
         newNum := rand.Intn(100) + 1
 
@@ -1058,7 +1058,7 @@ var notepadSource = `func MiniNotepad(props Attrs) *Element {
 
     noteText, setNoteText := UseState("Type here...")
 
-    handleInput := GoUseFunc(func(event GoEvent) {
+	handleInput := UseEvent(func(event InputEvent) {
 
         setNoteText(event.Target.Get("value").String())
 
@@ -1100,7 +1100,7 @@ var colorPickerSource = `func MiniColorPicker(props Attrs) *Element {
 
             "class": "w-6 h-6 rounded-full " + color,
 
-            "onclick": GoUseFunc(func(event GoEvent) {
+			"onclick": UseEvent(func(event MouseEvent) {
 
                 setSelectedColor(currentColor)
 
@@ -1126,7 +1126,7 @@ var timerSource = `func MiniTimer(props Attrs) *Element {
 
     timerRunning, setTimerRunning := UseState(false)
 
-    toggleTimer := GoUseFunc(func(event GoEvent) {
+	toggleTimer := UseEvent(func(event MouseEvent) {
 
         setTimerRunning(!timerRunning())
 
@@ -1170,13 +1170,13 @@ var votingSource = `func MiniVoting(props Attrs) *Element {
 
     downvotes, setDownvotes := UseState(3)
 
-    addUpvote := GoUseFunc(func(event GoEvent) {
+	addUpvote := UseEvent(func(event MouseEvent) {
 
         setUpvotes(upvotes() + 1)
 
     })
 
-    addDownvote := GoUseFunc(func(event GoEvent) {
+	addDownvote := UseEvent(func(event MouseEvent) {
 
         setDownvotes(downvotes() + 1)
 
@@ -1355,9 +1355,9 @@ func WhyGoWebComponentsSection(_ Attrs) *Element {
 
 				func() *Element {
 
-					// Store GoUseFunc result in variable for proper event handling
+					// Store UseEvent result in variable for proper event handling
 
-					navigateToDocs := GoUseFunc(func(event GoEvent) {
+					navigateToDocs := UseEvent(func(event MouseEvent) {
 
 						router.Navigate("/docs")
 

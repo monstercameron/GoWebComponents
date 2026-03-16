@@ -258,7 +258,7 @@ func routedApp(r *router.Router) ui.Node {
 		}
 	}, true)
 
-	return r.GoGetRoute()
+	return r.Current()
 }
 
 func main() {

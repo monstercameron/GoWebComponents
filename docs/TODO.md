@@ -15,6 +15,145 @@ This backlog focuses on the top-level framework features that are still missing 
 - [ ] Add migration notes as new primitives land.
 	Keep early adopters from depending on unstable patterns.
 
+### Example Alignment and Modernization
+
+- [x] Replace legacy router compatibility calls in shipped examples with the primary router API.
+	Shipped examples now consistently demonstrate `Register`, `Current`, and the main router surface instead of `GoRegisterRoute` and `GoGetRoute` compatibility calls.
+- [x] Refresh `examples/12-portfolio-site` to stop teaching stale public APIs.
+	The portfolio site documentation now points at the current `ui`, `state`, `fetch`, `router`, and `devtools` surface instead of obsolete `fiber`-era examples.
+- [x] Add a review pass for example-local API reference pages whenever public APIs change.
+	Embedded example docs were reviewed and refreshed so the larger showcase apps stay aligned with the current public API terminology.
+- [x] Add explicit `UseDebounced` versus `UseThrottled` guidance to the text-input example or its README.
+	`examples/02-text-input` now explains when to debounce versus throttle so the timing tradeoff is visible in the example itself.
+- [x] Add a first-class `state.UseDerived` showcase to the examples set.
+	The catalog now includes a dedicated `state.UseDerived` example alongside the other core state primitives.
+- [x] Add an example inventory that maps each shipped example to the public APIs it demonstrates.
+	`examples/README.md` now acts as an inventory that maps the catalog to specific public APIs and teaching goals.
+
+### Feature-Isolated Example Expansion
+
+- [x] Build a one-example-per-public-feature catalog instead of stopping at an arbitrary count.
+	Treat the goal as coverage of the stable public surface, not a fixed number of demos, so each public primitive has at least one clean, isolated example.
+- [x] Define a naming and directory convention for feature-isolated examples.
+	Readers should be able to tell what an example teaches from the folder name alone instead of opening a large mixed-concern app first.
+
+- [x] Add a dedicated `ui.Render` example.
+	Show the smallest browser entrypoint using `ui.Render(ui.CreateElement(App), selector)` so the canonical mount path has its own minimal reference.
+- [x] Add a dedicated `ui.RenderToString` example.
+	Show the smallest server-side render flow so SSR starts from a tiny public example before readers move to the larger routing demos.
+- [x] Add a dedicated `ui.Hydrate` example.
+	Show client resume over pre-rendered HTML in a minimal app so hydration is not only taught through the full SSR examples.
+- [x] Add a dedicated `ui.CreateElement` and typed props example.
+	Show function components, props structs, and direct element creation so the core composition model is visible beneath helper wrappers.
+- [x] Add a dedicated `ui.Fragment` example.
+	Show multi-root child composition and conditional sibling rendering in a tiny app instead of leaving fragments as an invisible helper.
+- [x] Add a dedicated `ui.UseRef` example.
+	Teach persistent mutable values, DOM-node refs, and non-rendering instance state so developers know when refs are appropriate instead of `UseState`.
+- [x] Add a dedicated `ui.UsePrevious` example.
+	Keep it narrowly focused on render-time comparisons, first-render behavior, and previous committed values without routing or fetch noise.
+- [x] Add a dedicated `ui.UseDeferredValue` example.
+	Show a fast-changing input and a deferred results pane so scheduling behavior is obvious without a larger search app.
+- [x] Add a dedicated `ui.StartTransition` and `ui.UseTransition` example.
+	Demonstrate urgent versus non-urgent updates with visible pending state so the transition lane has a clear teaching example.
+- [x] Add a dedicated `ui.UseReducer` example.
+	Use a small state-machine-style component where reducer actions read more clearly than ad hoc `UseState.Update` calls.
+- [x] Add a dedicated `ui.UseDebounced` example.
+	Teach delayed derived values with a minimal search or validation preview so debounce stands on its own.
+- [x] Add a dedicated `ui.UseThrottled` example.
+	Teach rate-limited derived values with a tiny counter, scroll, or resize UI so the distinction from debounce is explicit.
+- [x] Add a dedicated `ui.CreateContext` and `ui.UseContext` example.
+	Show provider scoping, nested overrides, and default fallback resolution in isolation.
+- [x] Add a dedicated `ui.AsyncBoundary` example.
+	Use a small async subtree with explicit pending, content, and error fallbacks so the boundary contract is understandable without the full fetch example.
+- [x] Add a dedicated `ui.Lazy` example.
+	Show delayed node resolution, fallback rendering, and error fallback behavior with a minimal async component.
+- [x] Add a dedicated `ui.ErrorBoundary` example.
+	Create a deliberately failing child component and a local recovery UI so render/event/effect failure containment is visible without digging through tests.
+- [x] Add a dedicated `ui.UseId` example.
+	Show stable generated IDs across labeled inputs, repeated rows, and SSR-friendly markup so the purpose of the hook is concrete.
+- [x] Add a dedicated typed event handling example.
+	Demonstrate `ui.UseEvent` with `MouseEvent`, `InputEvent`, `KeyboardEvent`, and `FormEvent` so event typing is taught directly.
+- [x] Add a dedicated `ui.RawHandler` example.
+	Show how raw handler passthrough differs from `ui.UseEvent` and document when callers should avoid it.
+- [x] Add a dedicated `ui.Portal` selector-target example.
+	Teach the common modal or overlay case in a tiny app where only selector-based portal mounting is in play.
+- [x] Add a dedicated `ui.PortalTarget` explicit-node example.
+	Show rendering into an explicit DOM host node so advanced portal targeting is documented separately from the basic selector flow.
+- [x] Add a dedicated `ui.UseChannel` example.
+	Teach streamed values, latest-value semantics, and closed-channel state without coupling the hook to a larger goroutines showcase.
+- [x] Add a dedicated `ui.UseTask` example.
+	Show start, cancel, ready, cancelled, and error states in a tiny background-job UI so the task lifecycle is visible at a glance.
+- [x] Add a dedicated `ui.UseForm` example.
+	Focus on touched fields, dirty fields, validation, field errors, and submit lifecycle without router or multi-page concerns.
+
+- [x] Add a dedicated `html` semantic layout example.
+	Use the `html` package to build a small semantic page with headings, sections, nav, and article content so the package is taught independently from hooks.
+- [x] Add a dedicated `html` form controls example.
+	Show text fields, selects, checkboxes, labels, and textarea composition through typed `html.Props` instead of older attr-map patterns.
+- [x] Add a dedicated `html.Tag` custom-element example.
+	Show when to use the generic tag builder for custom elements or uncommon tags rather than relying only on predefined wrappers.
+
+- [x] Add a dedicated `state.UseAtom` example.
+	Keep one tiny shared-state demo focused on cross-component reads and writes before layering in computed or derived state.
+- [x] Add a dedicated `state.UseComputed` example.
+	Teach local typed derived values separately from shared derived atoms so developers can see when `UseComputed` is enough.
+- [x] Add a dedicated `state.UseDerived` example.
+	Keep it separate from `UseAtom` and `UseComputed` basics so shared derived atoms, explicit source dependencies, and read-only semantics are immediately obvious.
+- [x] Add a dedicated state snapshot export/import example.
+	Show `state.ExportSnapshot`, `state.ImportSnapshot`, and JSON round-tripping in one isolated example instead of leaving persistence buried in docs and tests.
+- [x] Add a dedicated browser-storage snapshot restore example.
+	Show `SaveSnapshot`, `LoadSnapshot`, and `RestoreSnapshot` flows in a tiny app so local/session storage persistence is taught separately from in-memory export/import.
+
+- [x] Add a dedicated `fetch.UseFetch` example.
+	Keep one example focused on the low-level raw fetch surface so developers can see when `UseFetch` is the right fit before graduating to typed resources.
+- [x] Add a dedicated `fetch.UseResource[T]` example.
+	Show typed loading, reload, cancellation, and typed error handling without the extra complexity of shared caching.
+- [x] Add a dedicated `fetch.UseCachedResource[T]` example.
+	Focus on shared cache reuse, stale-while-revalidate behavior, manual invalidation, and optimistic updates across two components reading the same key.
+- [x] Add a dedicated imperative `fetch.Fetch` example.
+	Show event-handler and goroutine-driven fetch flows so imperative fetching has a clear teaching reference alongside the hook-based surfaces.
+
+- [x] Add a dedicated hash-router basics example.
+	Show `router.NewHashRouter`, `Register`, and `Mount` in the smallest possible app so the default static-hosting router path is obvious.
+- [x] Add a dedicated browser-router basics example.
+	Show `router.NewRouter`, path-based URLs, and server-rewrite expectations without also introducing loaders or SSR.
+- [x] Add a dedicated `router.UseNavigate` example.
+	Teach push versus replace navigation through a tiny two-page app so imperative routing is easy to discover.
+- [x] Add a dedicated router params example.
+	Show `router.UseParams()` with typed accessors on a small detail page so route parameter parsing is taught cleanly before nested routes or SSR.
+- [x] Add a dedicated router query example.
+	Show `router.UseQuery()` and `router.UseSearchParams()` on a small filter or sort page so query reading, replacing, deleting, and serialization are demonstrated without unrelated route loaders.
+- [x] Add a dedicated `router.UseRevalidator` example.
+	Show route-loader reruns without path changes so manual revalidation is discoverable outside the SSR demos.
+- [x] Add a dedicated route loaders example.
+	Teach `router.Options{Loader: ...}` with loading and error renderers in a minimal app before readers encounter the larger OMI or SSR routing examples.
+- [x] Add a dedicated nested layout routes example.
+	Show `router.Options{Layout: true}` and `router.Outlet()` in the smallest possible app so nested composition is taught separately from dashboards and docs shells.
+- [x] Add a dedicated router guards example.
+	Use a minimal auth or unsaved-changes flow to show `BeforeEnter`, `BeforeLeave`, `AllowNavigation`, `BlockNavigation`, and `RedirectNavigation` without SSR concerns.
+- [x] Add a dedicated router redirects example.
+	Show declarative `router.Options{Redirect: ...}` behavior in isolation so redirect semantics are not hidden inside larger auth demos.
+- [x] Add a dedicated router metadata example.
+	Show route-managed title, description, and canonical URL updates in a tiny app so metadata behavior is discoverable without reading the router README.
+- [x] Add a dedicated router `HydrateMount` example.
+	Teach how a router attaches to already-hydrated markup without forcing an immediate rerender, independent of the larger server-routing examples.
+
+- [x] Add a dedicated `devtools.Panel` example.
+	Keep a minimal panel-embedding example that only teaches setup, refresh cadence, and placement, separate from broader diagnostics scenarios.
+- [x] Add a dedicated `devtools.UseSnapshot` example.
+	Show polling and rendering inspection snapshots inside app UI so the snapshot hook is documented apart from the panel itself.
+- [x] Add a dedicated `devtools.SnapshotNow` example.
+	Show one-off inspection reads from a button or diagnostics drawer so imperative inspection is demonstrated separately from subscription-based polling.
+- [x] Add a dedicated devtools diagnostics example.
+	Keep a smaller companion to the current panel showcase that intentionally triggers duplicate-route, invalid-hook, or missing-key-style diagnostics so the debugging surface can be learned feature-by-feature.
+
+- [x] Add a dedicated SSR bootstrap example.
+	Show `ui.RenderToString`, bootstrap payload emission, and first-client resume in the smallest possible app so the bootstrap story is documented outside the full SSR routing examples.
+- [x] Add a dedicated SSR route-data reuse example.
+	Show how first-route loader data is reused across hydration before normal client navigation takes over, without the extra surface area of the full server-routing example.
+- [x] Add a dedicated example index page that groups the expanded catalog by package and feature.
+	Once the one-feature-per-example set grows, the examples landing page should expose filters by `ui`, `html`, `state`, `fetch`, `router`, `devtools`, and SSR or hydration topics.
+
 ### Head and Metadata Management
 
 - [x] Add a strategy for document title and metadata updates.

@@ -17,12 +17,12 @@ func AppRouter(_ Attrs) *Element {
 	})
 
 	// Register application routes
-	r.GoRegisterRoute(portfolioHomeRoute, DocsWebsite)      // Main personal website
-	r.GoRegisterRoute(portfolioDocsRoute, DocsPage)         // API documentation
-	r.GoRegisterRoute(portfolioCatchAllRoute, NotFoundPage) // 404 fallback for unmatched routes
+	r.Register(portfolioHomeRoute, DocsWebsite)      // Main personal website
+	r.Register(portfolioDocsRoute, DocsPage)         // API documentation
+	r.Register(portfolioCatchAllRoute, NotFoundPage) // 404 fallback for unmatched routes
 
 	// Return active route component (handles re-rendering automatically)
-	return r.GoGetRoute()
+	return r.Current()
 }
 
 // GetSiteRouter returns a configured router instance for use outside components
@@ -32,9 +32,9 @@ func GetSiteRouter() *router.Router {
 	})
 
 	// Register application routes
-	r.GoRegisterRoute(portfolioHomeRoute, DocsWebsite)
-	r.GoRegisterRoute(portfolioDocsRoute, DocsPage)
-	r.GoRegisterRoute(portfolioCatchAllRoute, NotFoundPage)
+	r.Register(portfolioHomeRoute, DocsWebsite)
+	r.Register(portfolioDocsRoute, DocsPage)
+	r.Register(portfolioCatchAllRoute, NotFoundPage)
 
 	return r
 }

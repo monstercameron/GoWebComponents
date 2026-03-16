@@ -34,11 +34,11 @@ func NavBar(_ Attrs) *Element {
 	}, isDark())
 
 	// Event handlers
-	handleMobileToggle := GoUseFunc(UseCallback(func(event GoEvent) {
+	handleMobileToggle := UseEvent(UseCallback(func(event MouseEvent) {
 		setIsMobileMenuOpen(!isMobileMenuOpen())
 	}, isMobileMenuOpen()))
 
-	handleDarkToggle := GoUseFunc(UseCallback(func(event GoEvent) {
+	handleDarkToggle := UseEvent(UseCallback(func(event MouseEvent) {
 		newVal := !isDark()
 		setIsDark(newVal)
 		applyDarkClass(newVal)
@@ -72,6 +72,7 @@ func NavBar(_ Attrs) *Element {
 
 		js.Global().Get("window").Call("addEventListener", "scroll", scrollHandler)
 		return func() {
+			js.Global().Get("window").Call("removeEventListener", "scroll", scrollHandler)
 			scrollHandler.Release()
 		}
 	}, true)
@@ -211,7 +212,7 @@ func NavBar(_ Attrs) *Element {
 // EnhancedNavLink renders a navigation item with icon, smooth animations and section routing.
 // Handles both hash navigation for sections and route navigation for pages like documentation.
 func EnhancedNavLink(icon, text, href, section string) *Element {
-	handleClick := GoUseFunc(UseCallback(func(event GoEvent) {
+	handleClick := UseEvent(UseCallback(func(event MouseEvent) {
 		event.PreventDefault()
 		// Handle docs route vs section scrolling
 		if section == "docs" {
@@ -270,7 +271,7 @@ func MobileMenuIcon(isOpen bool) *Element {
 
 // EnhancedMobileMenu creates a modern mobile menu with animations
 func EnhancedMobileMenu(isOpen bool, setIsOpen func(bool)) *Element {
-	handleClose := GoUseFunc(func(event GoEvent) {
+	handleClose := UseEvent(func(event MouseEvent) {
 		setIsOpen(false)
 	})
 
@@ -337,7 +338,7 @@ func EnhancedMobileMenu(isOpen bool, setIsOpen func(bool)) *Element {
 
 // EnhancedMobileNavLink creates a styled mobile navigation link
 func EnhancedMobileNavLink(icon, text, href, section string, setIsOpen func(bool)) *Element {
-	handleClick := GoUseFunc(func(event GoEvent) {
+	handleClick := UseEvent(func(event MouseEvent) {
 		event.PreventDefault()
 		// Handle docs route vs section scrolling
 		if section == "docs" {
@@ -363,7 +364,7 @@ func EnhancedMobileNavLink(icon, text, href, section string, setIsOpen func(bool
 
 // ScrollToSectionJS creates a JavaScript function string for scrolling
 func ScrollToSectionJS(section string) interface{} {
-	return GoUseFunc(func(e GoEvent) {
+	return UseEvent(func(e MouseEvent) {
 		ScrollToSectionSmoothEnhanced(section)
 	})
 }

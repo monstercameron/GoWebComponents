@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transition Hooks - GoWebComponents</title>
+    <link rel="stylesheet" href="../static/css/tailwind.css">
+    <script src="../static/script/wasm_exec.js"></script>
+</head>
+<body class="bg-[#08111d] text-white min-h-screen">
+    <div id="app"></div>
+    <script>
+        const go = new Go();
+        WebAssembly.instantiateStreaming(fetch('../static/bin/transition-hooks.wasm'), go.importObject)
+            .then(result => go.run(result.instance))
+            .catch(err => console.error('Failed to load WASM:', err));
+    </script>
+</body>
+</html>

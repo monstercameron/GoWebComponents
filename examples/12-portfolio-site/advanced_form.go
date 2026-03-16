@@ -11,7 +11,7 @@ import (
 )
 
 // AdvancedFormExample showcases sophisticated form handling with real-time validation.
-// Demonstrates UseState, UseEffect, UseFetch, and GoUseFunc hooks working together
+// Demonstrates UseState, UseEffect, UseFetch, and UseEvent hooks working together
 // to create a production-ready form with password strength, async submission, and error handling.
 func AdvancedFormExample(_ Attrs) *Element {
 	// Form field state management
@@ -60,43 +60,43 @@ func AdvancedFormExample(_ Attrs) *Element {
 	}, password())
 
 	// Input handlers
-	handleUsernameChange := GoUseFunc(func(event GoEvent) {
+	handleUsernameChange := UseEvent(func(event InputEvent) {
 		value := event.GetValue()
 		setUsername(value)
 	})
 
-	handleEmailChange := GoUseFunc(func(event GoEvent) {
+	handleEmailChange := UseEvent(func(event InputEvent) {
 		value := event.GetValue()
 		setEmail(value)
 	})
 
-	handlePasswordChange := GoUseFunc(func(event GoEvent) {
+	handlePasswordChange := UseEvent(func(event InputEvent) {
 		value := event.GetValue()
 		setPassword(value)
 	})
 
-	handleConfirmPassChange := GoUseFunc(func(event GoEvent) {
+	handleConfirmPassChange := UseEvent(func(event InputEvent) {
 		value := event.GetValue()
 		setConfirmPass(value)
 	})
 
-	handleBioChange := GoUseFunc(func(event GoEvent) {
+	handleBioChange := UseEvent(func(event InputEvent) {
 		value := event.GetValue()
 		setBio(value)
 	})
 
-	handleUserTypeChange := GoUseFunc(func(event GoEvent) {
+	handleUserTypeChange := UseEvent(func(event ChangeEvent) {
 		value := event.GetValue()
 		setUserType(value)
 	})
 
-	handleTermsChange := GoUseFunc(func(event GoEvent) {
+	handleTermsChange := UseEvent(func(event ChangeEvent) {
 		checked := event.IsChecked()
 		setAgreeTerms(checked)
 	})
 
 	// Form submission
-	handleSubmit := GoUseFunc(func(event GoEvent) {
+	handleSubmit := UseEvent(func(event FormEvent) {
 		event.PreventDefault()
 		setIsSubmitting(true)
 		setSubmitStatus("")

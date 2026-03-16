@@ -183,7 +183,7 @@ func ContactForm(_ Attrs) *Element {
 	isSubmitting, setIsSubmitting := UseState(false)
 	isSubmitted, setIsSubmitted := UseState(false)
 
-	handleSubmit := GoUseFunc(func(event GoEvent) {
+	handleSubmit := UseEvent(func(event FormEvent) {
 		event.PreventDefault()
 
 		// Set submitting state
@@ -209,7 +209,7 @@ func ContactForm(_ Attrs) *Element {
 		}), 2000)
 	})
 
-	handleInputChange := GoUseFunc(func(event GoEvent) {
+	handleInputChange := UseEvent(func(event InputEvent) {
 		// Note: This is a simplified version - actual implementation would need proper event handling
 		// For now, this is a placeholder for the form interaction
 	})
@@ -290,7 +290,7 @@ func ContactForm(_ Attrs) *Element {
 
 // OpenContactLink creates a JavaScript function to open a contact link
 func OpenContactLink(url string) interface{} {
-	return GoUseFunc(func(e GoEvent) {
+	return UseEvent(func(e MouseEvent) {
 		js.Global().Get("window").Call("open", url, "_blank")
 	})
 }

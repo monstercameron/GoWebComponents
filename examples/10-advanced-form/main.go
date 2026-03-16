@@ -207,16 +207,16 @@ func App() ui.Node {
 	}
 
 	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
-	r.GoRegisterRoute("/", func(_ router.Attrs) *router.Element {
+	r.Register("/", func(_ router.Attrs) *router.Element {
 		return formPage(registration, validate)
 	})
-	r.GoRegisterRoute("/success", func(_ router.Attrs) *router.Element {
+	r.Register("/success", func(_ router.Attrs) *router.Element {
 		return successPage(registration)
 	})
-	r.GoRegisterRoute("*", func(_ router.Attrs) *router.Element {
+	r.Register("*", func(_ router.Attrs) *router.Element {
 		return formPage(registration, validate)
 	})
-	return r.GoGetRoute()
+	return r.Current()
 }
 
 func main() {

@@ -171,7 +171,7 @@ func main() {
 	r.Register("/legacy", docsPage, router.Options{Redirect: "/docs/routing?tab=loader", Title: "GWC Server SSR Demo Legacy"})
 	r.Register("*", notFoundPage, router.Options{Title: "GWC Server SSR Demo Not Found"})
 
-	root := ui.CreateElement(func() ui.Node { return r.GoGetRoute() })
+	root := ui.CreateElement(func() ui.Node { return r.Current() })
 	_, _ = ui.Hydrate(root, "#app", ui.HydrationOptions{Bootstrap: initialBootstrap})
 	r.HydrateMount("#app")
 

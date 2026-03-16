@@ -19,30 +19,86 @@ Then open:
 
 The `/examples` page is generated from the actual folder structure.
 
-## Example List
+## Example Inventory
 
-Current example directories include:
+The example set is now organized as a catalog. Use the grouped landing page at `/examples` for browsing, and use the mapping below when you want the quickest reference for a specific public API.
 
-- `01-counter`
-- `02-text-input`
-- `03-toggle`
-- `04-form`
-- `05-todo-basic`
-- `06-todo-advanced`
-- `07-goroutines`
-- `08-fetch`
-- `09-atoms`
-- `10-advanced-form`
-- `11-blog`
-- `12-portfolio-site`
-- `13-browser-compiler`
-- `14-omi`
-- `15-calculator`
-- `16-devtools`
-- `17-ssr-routing`
-- `18-ssr-server-routing`
-- `19-nested-routes`
-- `20-portals`
+### Integrated Apps
+
+- `01-counter` through `20-portals`
+- These combine multiple features and are useful for seeing how the primitives fit together in larger apps.
+
+### ui Package
+
+- `21-ui-render`: `ui.Render`
+- `22-create-element`: `ui.CreateElement`
+- `23-fragment`: `ui.Fragment`
+- `24-use-ref`: `ui.UseRef`
+- `25-use-previous`: `ui.UsePrevious`
+- `26-use-deferred-value`: `ui.UseDeferredValue`
+- `27-transition-hooks`: `ui.StartTransition`, `ui.UseTransition`
+- `28-use-reducer`: `ui.UseReducer`
+- `29-use-debounced`: `ui.UseDebounced`
+- `30-use-throttled`: `ui.UseThrottled`
+- `31-context-api`: `ui.CreateContext`, `ui.UseContext`
+- `32-async-boundary`: `ui.AsyncBoundary`
+- `33-lazy`: `ui.Lazy`
+- `34-error-boundary`: `ui.ErrorBoundary`
+- `35-use-id`: `ui.UseId`
+- `36-typed-events`: `ui.UseEvent`, typed event aliases
+- `46-raw-handler`: `ui.RawHandler`
+- `47-portal-selector`: `ui.Portal` with selector target
+- `48-portal-target`: `ui.PortalTarget` with explicit node target
+- `49-use-channel`: `ui.UseChannel`
+- `50-use-task`: `ui.UseTask`
+- `51-use-form`: `ui.UseForm`
+- `70-render-to-string`: `ui.RenderToString`
+- `71-hydrate`: `ui.Hydrate`
+- `73-ssr-bootstrap`: `ui.RenderBootstrapScript`, `ui.ReadBootstrapScript`
+
+### state Package
+
+- `37-use-atom`: `state.UseAtom`
+- `38-use-computed`: `state.UseComputed`
+- `39-use-derived`: `state.UseDerived`
+- `40-snapshot-export-import`: `state.ExportSnapshot`, `state.ImportSnapshot`, JSON round-tripping
+- `41-snapshot-storage`: `state.SaveSnapshot`, `state.LoadSnapshot`, `state.RestoreSnapshot`
+
+### fetch Package
+
+- `42-use-fetch`: `fetch.UseFetch`
+- `43-use-resource`: `fetch.UseResource`
+- `44-use-cached-resource`: `fetch.UseCachedResource`
+- `45-fetch-imperative`: `fetch.Fetch`
+
+### html Package
+
+- `52-semantic-html`: semantic layout helpers
+- `53-html-forms`: typed form controls via `html.Props`
+- `54-html-tag`: `html.Tag`
+
+### router Package
+
+- `55-hash-router`: `router.NewHashRouter`, `Register`, `Mount`
+- `56-browser-router`: `router.NewRouter`
+- `57-use-navigate`: `router.UseNavigate`
+- `58-route-params`: `router.UseParams`
+- `59-route-query`: `router.UseQuery`, `router.UseSearchParams`
+- `60-route-loaders`: `router.Options.Loader`, route loading and error states
+- `61-use-revalidator`: `router.UseRevalidator`
+- `62-router-redirects`: route redirects
+- `63-router-metadata`: route-managed title and metadata
+- `64-nested-layout-routes`: layout routes, `router.Outlet`
+- `65-router-guards`: `BeforeEnter`, `BeforeLeave`
+- `72-router-hydrate-mount`: `router.HydrateMount`
+- `74-ssr-route-data-reuse`: route-loader bootstrap reuse during hydration
+
+### devtools Package
+
+- `66-devtools-panel`: `devtools.Panel`
+- `67-use-snapshot`: `devtools.UseSnapshot`
+- `68-snapshot-now`: `devtools.SnapshotNow`
+- `69-devtools-diagnostics`: devtools diagnostics payloads
 
 ## Shared Static Assets
 
