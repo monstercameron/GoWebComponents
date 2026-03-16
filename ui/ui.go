@@ -190,10 +190,11 @@ func Render(root Node, selector string) {
 	runtime.GetGlobalRuntime().RenderTo(selector, root)
 }
 
-// Hydrate is the public client-resume entrypoint for future SSR hydration.
+// Hydrate is the public client-resume entrypoint for SSR hydration.
 //
-// The current implementation reads bootstrap payload when requested and then
-// falls back to a fresh client render while DOM matching work is still pending.
+// It restores the optional bootstrap payload, reuses matching server-rendered
+// DOM where possible, and falls back per subtree when hydration cannot
+// continue safely.
 func Hydrate(root Node, selector string, options ...HydrationOptions) (SSRBootstrap, error) {
 	resolved := resolveHydrationOptions(options)
 	payload := resolved.Bootstrap
@@ -222,7 +223,16 @@ func Hydrate(root Node, selector string, options ...HydrationOptions) (SSRBootst
 		payload = parsed
 	}
 	ensureInitialized()
-	runtime.GetGlobalRuntime().HydrateTo(selector, root)
+	rt := runtime.GetGlobalRuntime()
+	if payload.IDSeed > 0 {
+		rt.SetIDSeed(payload.IDSeed)
+	}
+	if len(payload.Atoms) > 0 {
+		if err := rt.RestoreAtomSnapshot(payload.Atoms); err != nil {
+			return SSRBootstrap{}, err
+		}
+	}
+	rt.HydrateTo(selector, root)
 	return payload, nil
 }
 

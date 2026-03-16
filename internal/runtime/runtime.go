@@ -83,7 +83,29 @@ type Runtime struct {
 	domBatch      []func()
 	domBatchMutex sync.Mutex
 
+	// Hydration bookkeeping
+	hydrating                      bool
+	deferredHydrationUpdates       map[*Fiber]bool
+	deferredHydrationSubscriptions []hydrationSubscriptionAction
+
 	profiling runtimeProfiling
+}
+
+type hydrationSubscriptionAction struct {
+	atomID    string
+	fiber     *Fiber
+	subscribe bool
+}
+
+func (rt *Runtime) SetIDSeed(seed int) {
+	if rt == nil || seed < 0 {
+		return
+	}
+	rt.idCounterMu.Lock()
+	if seed > rt.idCounter {
+		rt.idCounter = seed
+	}
+	rt.idCounterMu.Unlock()
 }
 
 type runtimeProfiling struct {
@@ -152,8 +174,8 @@ func (rt *Runtime) RenderTo(selector string, element *Element) {
 }
 
 // HydrateTo renders into a selector while preserving a dedicated hydration path.
-// The current implementation still falls back to a fresh render after container
-// preflight; real DOM-node matching will be layered on top of this API.
+// It attempts to reuse matching DOM, restores bootstrap state before resume via
+// the public ui layer, and falls back per subtree if hydration cannot continue.
 func (rt *Runtime) HydrateTo(selector string, element *Element) {
 	container := rt.queryContainer(selector)
 	if container == nil || container.IsNull() {

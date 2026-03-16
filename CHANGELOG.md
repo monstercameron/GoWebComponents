@@ -21,11 +21,14 @@
 - Added the first internal SSR render-to-string path for host elements, text nodes, fragments, and simple function components.
 - Added public server-side rendering support through `ui.RenderToString(...)` on non-browser targets.
 - Added a dedicated `Hydrate(...)` and runtime `HydrateTo(...)` entrypoint so client resume now has a real API path instead of reusing plain render calls.
-- Added hydration preflight/fallback behavior that inspects existing container DOM, reports diagnostics, clears server markup on fallback, and then schedules a fresh client render while true DOM matching remains under development.
+- Upgraded hydration from whole-container fallback to real DOM reuse for matching host and text nodes, with subtree-level fallback when structure matching fails.
+- Added hydration mismatch diagnostics for text, tag/structure, trailing-node, and critical attribute differences, with clear warn-versus-replace behavior.
+- Added bootstrap-time atom snapshot restore and ID-seed application so hydration resumes shared state and `UseId` generation from the transferred SSR payload.
+- Deferred hydration-time atom subscriptions and follow-up update notifications until the hydration commit completes, then ran effects against the committed tree.
 - Added safe SSR bootstrap helpers for inline JSON payloads, including script-tag rendering and browser-side bootstrap-script reading.
 - Added optional CBOR-based binary bootstrap encoding/decoding for SSR payload transport.
 - Added sidecar bootstrap reference support so hydration can load external JSON or CBOR bootstrap payloads instead of only inline script JSON.
-- Added SSR bootstrap tests covering escaping, JSON decode defaults, binary round-trips, reference scripts, wasm-side sidecar loading, and hydration fallback behavior.
+- Added SSR/bootstrap and hydration tests covering DOM reuse, subtree fallback, text mismatch recovery, trailing-node cleanup, bootstrap atom restore, and ID-seed resume behavior.
 - Added SSR transport microbenchmarks showing CBOR bootstrap encode/decode is materially cheaper than JSON for larger sidecar-style payloads in the current implementation.
 
 ### Public package and wasm tests
