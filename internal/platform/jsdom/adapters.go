@@ -229,9 +229,9 @@ func (a *WASMDOMAdapter) QuerySelector(selector string) interface{} {
 
 func (a *WASMDOMAdapter) ResolveNode(value interface{}) runtime.DOMNode {
 	switch typed := value.(type) {
-	case runtime.DOMNode:
-		return typed
 	case *WASMDOMNode:
+		return typed
+	case runtime.DOMNode:
 		return typed
 	case js.Value:
 		if typed.IsNull() || typed.IsUndefined() {
