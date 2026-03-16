@@ -681,8 +681,6 @@ Organization rules for this file:
 
 - [ ] Decide whether compiler-driven ergonomics are a real product direction.
 	Separate syntax sugar, dead-code elimination, reactive dependency extraction, template lowering, and SSR build optimization instead of treating “compiler” as one bucket.
-- [ ] Clarify the role of the browser compiler example.
-	Document whether it is educational tooling, an experiment toward production tooling, or something intentionally outside the core roadmap.
 - [ ] Evaluate whether compile-time reactivity is compatible with the current hook model.
 	Determine whether any Svelte- or Solid-like compile step can coexist with `UseState` and `UseEffect` semantics without splitting the framework into two mental models.
 - [ ] Define source-language boundaries for compiler work.
@@ -783,6 +781,10 @@ The list below summarizes major work that is already shipped. It is intentionall
 - [x] A hydration entrypoint exists through `ui.Hydrate(...)`.
 - [x] Bootstrap helpers exist for inline JSON, binary payloads, and sidecar references.
 - [x] Request-time SSR examples exist for both route rendering and server-integrated routing.
+
+### Experimental tooling boundaries
+
+- [x] The browser compiler example is explicitly documented as experimental and outside the core runtime path.
 
 ### Forms and examples
 
