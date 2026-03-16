@@ -67,6 +67,11 @@ type Ref[T any] struct {
 	raw *runtime.RefValue
 }
 
+type Transition struct {
+	pending func() bool
+	start   func(func())
+}
+
 // Previous exposes the previous committed value for a hook call.
 // The zero value is safe to use and reports no available previous value.
 type Previous[T any] struct {
@@ -123,6 +128,15 @@ type AsyncBoundaryProps struct {
 	Timeout         time.Duration
 }
 
+type ErrorBoundaryProps struct {
+	Fallback      Node
+	ErrorFallback func(error, func()) Node
+	OnError       func(error)
+	Child         Node
+	Children      []Node
+	ResetKeys     []interface{}
+}
+
 type LazyNodeState struct {
 	Node    Node
 	Loading bool
@@ -166,9 +180,26 @@ type asyncBoundaryState struct {
 	timedOut        bool
 }
 
+type errorBoundaryComponent struct {
+	boundaryType *runtime.ErrorBoundaryType
+}
+
+type runtimeErrorBoundaryComponent interface {
+	runtimeErrorBoundary() *runtime.ErrorBoundaryType
+}
+
+var ErrorBoundary = &errorBoundaryComponent{boundaryType: runtime.NewErrorBoundaryType()}
+
 func CreateElement(component interface{}, props ...interface{}) Node {
 	if node, ok := component.(*runtime.Element); ok && len(props) == 0 {
 		return node
+	}
+	if boundary, ok := component.(runtimeErrorBoundaryComponent); ok {
+		var rawProps interface{}
+		if len(props) > 0 {
+			rawProps = props[0]
+		}
+		return createErrorBoundaryElement(boundary, rawProps)
 	}
 	if provider, ok := component.(contextProviderComponent); ok {
 		var rawProps interface{}
@@ -190,6 +221,13 @@ func CreateElement(component interface{}, props ...interface{}) Node {
 	}
 
 	return runtime.CreateElement(renderComponent, rawProps)
+}
+
+func (boundary *errorBoundaryComponent) runtimeErrorBoundary() *runtime.ErrorBoundaryType {
+	if boundary == nil {
+		return nil
+	}
+	return boundary.boundaryType
 }
 
 func Fragment(children ...Node) Node {
@@ -346,6 +384,31 @@ func UseContext[T any](context *Context[T]) T {
 	return castContextValue[T](runtime.GoUseContextValue(context.descriptor))
 }
 
+func StartTransition(fn func()) {
+	runtime.StartTransitionGlobal(fn)
+}
+
+func UseTransition() Transition {
+	pending, _ := runtime.GoUseTransitionPendingGlobal()
+	return Transition{
+		pending: pending,
+		start:   StartTransition,
+	}
+}
+
+func (t Transition) Pending() bool {
+	if t.pending == nil {
+		return false
+	}
+	return t.pending()
+}
+
+func (t Transition) Start(fn func()) {
+	if t.start != nil {
+		t.start(fn)
+	}
+}
+
 func (r Ref[T]) Get() T {
 	if r.raw == nil || r.raw.Current == nil {
 		var zero T
@@ -401,6 +464,25 @@ func (p Previous[T]) Ok() bool {
 	}
 
 	return p.ok()
+}
+
+// UseDeferredValue keeps returning the last committed value until a transition updates it.
+func UseDeferredValue[T any](value T) T {
+	deferred := UseState(value)
+	current := deferred.Get()
+	previous := UsePrevious(value)
+
+	UseEffect(func() func() {
+		if !previous.Ok() || reflect.DeepEqual(current, value) {
+			return nil
+		}
+		StartTransition(func() {
+			deferred.Set(value)
+		})
+		return nil
+	}, value)
+
+	return current
 }
 
 // UseChannel subscribes the component to values received from ch.

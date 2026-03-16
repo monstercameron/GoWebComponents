@@ -5,8 +5,8 @@
 //   - Render for browser mounting
 //   - Portal for rendering a subtree into a selector or explicit host node outside the current DOM parent
 //   - CreateContext, UseContext, and Provider components for subtree-scoped values
-//   - UseState, UseReducer, UseForm, UseEffect, UseMemo, UseRef, UsePrevious, UseDebounced, UseThrottled, UseChannel, UseTask, UseLazyNode, and UseId for local stateful logic
-//   - AsyncBoundary and Lazy for explicit async subtree loading and fallback rendering
+//   - UseState, UseReducer, UseForm, UseEffect, UseMemo, UseRef, UsePrevious, UseDeferredValue, UseDebounced, UseThrottled, UseChannel, UseTask, UseLazyNode, UseTransition, StartTransition, and UseId for local stateful logic
+//   - AsyncBoundary, ErrorBoundary, and Lazy for explicit async subtree loading, panic recovery, and fallback rendering
 //   - UseEvent for typed event handler wrapping
 //
 // UseReducer is intended for components whose local state behaves like a small
@@ -61,6 +61,15 @@
 // asynchronously and routing the result through the same boundary semantics.
 // The first implementation is intentionally explicit: callers pass Pending,
 // Error, and fallback nodes rather than relying on implicit promise throwing.
+// ErrorBoundary is the sibling recovery primitive for unexpected panics during
+// render, effect, cleanup, and event-handler execution. It renders a fallback
+// subtree instead of letting a child failure tear down the entire app tree.
+// StartTransition and UseTransition provide a small non-urgent scheduling lane
+// for background tree refreshes, while UseDeferredValue keeps rendering the
+// last committed value until a transition catches up. The current scheduler
+// deliberately does not expose a separate layout-effect hook yet; DOM-read-
+// before-paint scenarios should continue to use explicit event sequencing and
+// the existing UseEffect surface until a stronger concrete need appears.
 //
 // The ui package is the recommended replacement for the older dom/hooks/render
 // split when authoring new components.

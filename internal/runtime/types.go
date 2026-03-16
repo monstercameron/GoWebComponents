@@ -53,6 +53,8 @@ type Fiber struct {
 	commitDurationNs   int64
 	effectDurationNs   int64
 	cleanupDurationNs  int64
+	boundaryError      error
+	boundaryPhase      string
 }
 
 // memoizedValue stores a memoized computation result with its dependencies

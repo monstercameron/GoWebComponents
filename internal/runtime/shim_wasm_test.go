@@ -148,3 +148,38 @@ func TestGoUseRefGlobalAndIdGlobal_Delegate(t *testing.T) {
 		t.Fatalf("expected stable id across render, got %q and %q", id1, id2)
 	}
 }
+
+func TestStartTransitionGlobalAndPendingAtom(t *testing.T) {
+	_ = initWasmShimTestRuntime()
+	defer func() {
+		SetCurrentFiber(nil)
+		resetGlobalRuntimeForTest()
+	}()
+
+	stateGet, stateSet := GoUseStateGlobal(1)
+	pendingGet, _ := GoUseTransitionPendingGlobal()
+	StartTransitionGlobal(func() {
+		stateSet(9)
+	})
+
+	if got := stateGet(); got != 1 {
+		t.Fatalf("expected transition update to remain deferred before scheduler flush, got %d", got)
+	}
+	if !pendingGet() {
+		t.Fatal("expected pending transition atom to report true before scheduler flush")
+	}
+
+	rt := GetGlobalRuntime()
+	scheduler, ok := rt.scheduler.(*testScheduler)
+	if !ok || len(scheduler.timeouts) == 0 {
+		t.Fatal("expected global test scheduler to capture transition timeout")
+	}
+	scheduler.timeouts[0]()
+
+	if got := stateGet(); got != 9 {
+		t.Fatalf("expected deferred global state update after scheduler flush, got %d", got)
+	}
+	if pendingGet() {
+		t.Fatal("expected pending transition atom to clear after scheduler flush")
+	}
+}

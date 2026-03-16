@@ -241,28 +241,28 @@ This backlog focuses on the top-level framework features that are still missing 
 
 ### Async State and Resource Caching
 
-- [ ] Evaluate a resource/cache abstraction above `UseFetch`.
+- [x] Evaluate a resource/cache abstraction above `UseFetch`.
 	Support request deduplication, stale-while-revalidate behavior, and reuse across components.
-- [ ] Decide where cached async state should live.
+- [x] Decide where cached async state should live.
 	Keep the API coherent with atoms instead of creating a separate parallel mental model.
-- [ ] Add invalidation primitives.
+- [x] Add invalidation primitives.
 	Support manual refresh, key-based invalidation, and optimistic mutation flows.
-- [ ] Integrate resource state with async boundaries.
+- [x] Integrate resource state with async boundaries.
 	Loading and error handling should compose cleanly with suspense-style rendering.
-- [ ] Add realistic examples.
+- [x] Add realistic examples.
 	Cover list/detail fetches, mutation refreshes, and shared cached queries.
 
 ### Error Boundaries
 
-- [ ] Define an error boundary component contract.
+- [x] Define an error boundary component contract.
 	Decide whether boundaries are function-based, struct-based, or a special component wrapper with fallback rendering.
-- [ ] Capture render-time panics at subtree boundaries.
+- [x] Capture render-time panics at subtree boundaries.
 	Prevent a child component failure from crashing the entire app tree when a boundary is present.
-- [ ] Support fallback UI rendering with error details.
+- [x] Support fallback UI rendering with error details.
 	Allow users to render fallback content and optionally inspect the recovered error value.
-- [ ] Define reset behavior after recovery.
+- [x] Define reset behavior after recovery.
 	Specify how boundaries retry after route changes, prop changes, or explicit resets.
-- [ ] Add coverage for render, effect, and event handler failure cases.
+- [x] Add coverage for render, effect, and event handler failure cases.
 	Be explicit about which failure modes boundaries catch and which remain global errors.
 
 ### Async UI Primitives
@@ -280,16 +280,16 @@ This backlog focuses on the top-level framework features that are still missing 
 
 ### Concurrent-style Scheduling Primitives
 
-- [ ] Evaluate whether the runtime should expose transitions.
-	Decide if a `startTransition` or `UseTransition` equivalent fits the scheduler model.
-- [ ] Add lower-priority update scheduling support if feasible.
-	Distinguish urgent input updates from non-urgent tree refreshes.
-- [ ] Decide whether deferred values are worth exposing.
-	Validate that a `UseDeferredValue`-style API solves real UI jitter problems in this runtime.
+- [x] Evaluate whether the runtime should expose transitions.
+	The runtime now exposes `ui.StartTransition` and `ui.UseTransition`, using a small non-urgent scheduling lane for deferred `UseState` and `UseAtom` updates.
+- [x] Add lower-priority update scheduling support if feasible.
+	Transition-scoped state work now commits through a delayed low-priority lane so urgent input updates can land first.
+- [x] Decide whether deferred values are worth exposing.
+	`ui.UseDeferredValue` now keeps rendering the last committed value until a transition updates the deferred copy.
 - [x] Evaluate a reducer-style state primitive.
 	Completed earlier under Go-native hook additions: `UseReducer` shipped, and the remaining open work in this section is about scheduling primitives rather than reducer API design.
-- [ ] Clarify whether a layout-effect equivalent is needed.
-	Define if DOM-read-before-paint scenarios require a dedicated hook beyond `UseEffect`.
+- [x] Clarify whether a layout-effect equivalent is needed.
+	Current decision: keep `UseEffect` as the only effect hook until concrete DOM-read-before-paint scenarios justify a dedicated layout-effect API.
 
 ## Priority 4: Deepest Architecture Work
 

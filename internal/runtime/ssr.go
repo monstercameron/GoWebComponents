@@ -48,6 +48,9 @@ func renderElementToString(builder *strings.Builder, element *Element) error {
 	if _, ok := element.Type.(*PortalElementType); ok {
 		return renderChildrenToString(builder, element.Children)
 	}
+	if _, ok := element.Type.(*ErrorBoundaryType); ok {
+		return renderErrorBoundaryToString(builder, element)
+	}
 
 	resolved, err := resolveComponentElement(element)
 	if err != nil {
@@ -57,6 +60,41 @@ func renderElementToString(builder *strings.Builder, element *Element) error {
 		return nil
 	}
 	return renderElementToString(builder, resolved)
+}
+
+func renderErrorBoundaryToString(builder *strings.Builder, element *Element) (err error) {
+	if element == nil {
+		return nil
+	}
+
+	defer func() {
+		recovered := recover()
+		if recovered == nil {
+			return
+		}
+
+		boundaryErr := normalizeBoundaryError(recovered)
+		if onError, _ := element.Props["onError"].(func(error)); onError != nil {
+			func() {
+				defer func() { _ = recover() }()
+				onError(boundaryErr)
+			}()
+		}
+
+		if fallbackFn, _ := element.Props["errorFallback"].(func(error, func()) *Element); fallbackFn != nil {
+			var fallback *Element
+			fallback = fallbackFn(boundaryErr, func() {})
+			err = renderElementToString(builder, fallback)
+			return
+		}
+		if fallback, _ := element.Props["fallback"].(*Element); fallback != nil {
+			err = renderElementToString(builder, fallback)
+			return
+		}
+		err = nil
+	}()
+
+	return renderChildrenToString(builder, element.Children)
 }
 
 func renderHostElementToString(builder *strings.Builder, tag string, element *Element) error {
