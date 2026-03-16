@@ -309,8 +309,8 @@ This backlog focuses on the top-level framework features that are still missing 
 		The current SSR direction uses explicit bootstrap payloads rather than implicit router-global coupling.
 	- [x] Define which existing features are explicitly out of scope for v1: portals, async boundaries, error boundaries, browser-only effects, devtools overlay.
 		Those remain out of scope for the current SSR v1 surface while render-to-string, bootstrap transfer, and hydration plumbing stabilize.
-- [ ] Add a server render entrypoint.
-	Provide a way to render a component tree to HTML outside the browser runtime.
+- [x] Add a server render entrypoint.
+	`ui.RenderToString(...)` now provides the public non-browser HTML render entrypoint, and `examples/18-ssr-server-routing` exercises request-time SSR over a real Go HTTP server.
 	Phase 1 implementation tasks:
 	- [x] Add an internal render-to-string prototype for `runtime.Element` trees.
 	- [x] Add a public server render entrypoint.
