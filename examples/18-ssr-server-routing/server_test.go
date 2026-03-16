@@ -102,4 +102,16 @@ func TestPageHandlerRendersSSRDocument(t *testing.T) {
 			t.Fatalf("expected SSR document to contain %q, got %q", check, body)
 		}
 	}
+	if got := strings.Count(body, `data-gwc-router-managed="true"`); got != 3 {
+		t.Fatalf("expected exactly 3 managed head tags in SSR output, got %d in %q", got, body)
+	}
+	if got := strings.Count(body, `<title `); got != 1 {
+		t.Fatalf("expected exactly one title tag in SSR output, got %d in %q", got, body)
+	}
+	if !strings.Contains(body, `name="description"`) {
+		t.Fatalf("expected SSR document to include description metadata, got %q", body)
+	}
+	if !strings.Contains(body, `href="http://127.0.0.1:8079/docs/ssr?tab=loader"`) {
+		t.Fatalf("expected SSR document to include route canonical URL, got %q", body)
+	}
 }

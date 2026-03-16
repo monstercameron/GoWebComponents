@@ -531,26 +531,26 @@ Organization rules for this file:
 
 ### Head management and SEO surface
 
-- [ ] Define the first-class head management model.
-	Decide whether document title, meta tags, canonical URLs, link tags, social metadata, and structured data are owned by route metadata, explicit components, or a dedicated head manager so applications do not mix several incompatible patterns.
-- [ ] Add server-rendered head emission for route-driven apps.
-	Ensure titles, descriptions, canonicals, robots directives, social cards, and preload hints can be produced during `ui.RenderToString(...)` without requiring a client-only patch-up step after the first paint.
-- [ ] Define hydration reconciliation rules for head state.
-	Prevent duplicated tags, stale canonicals, leaked route metadata, and incorrect tag ordering when client navigation takes ownership of a document that was initially rendered on the server.
-- [ ] Add route-level title and metadata composition rules.
-	Clarify how layouts, nested routes, and leaf pages merge or override title templates, meta descriptions, robots directives, social tags, and canonical URLs instead of leaving every router integration to invent its own precedence rules.
-- [ ] Add canonical URL and duplicate-content guidance.
-	Document how apps should generate canonical links for parameterized routes, locale variants, paginated content, and prerendered versus request-time rendered pages so SEO-sensitive apps avoid accidental duplicate indexing.
-- [ ] Add structured-data support guidance.
-	Define whether JSON-LD and other machine-readable metadata are first-class primitives, helper components, or documented escape hatches, and how they participate in SSR and hydration safely.
-- [ ] Add preload, preconnect, and resource-hint management.
-	Support or document how routes and layouts contribute preload, modulepreload, preconnect, DNS-prefetch, and other performance-relevant head hints without duplicated or stale hints accumulating over time.
-- [ ] Add social-sharing metadata examples.
-	Demonstrate Open Graph, Twitter/X card, article metadata, and route-specific preview images for both static export and server-rendered routes so the recommended head model is validated with realistic content pages.
-- [ ] Add sitemap, robots, and crawl-control integration guidance.
-	Connect route metadata, prerender output, and deployment guidance so sitemap generation, robots directives, noindex routes, and preview environments behave consistently.
-- [ ] Add tests for head correctness across SSR, hydration, and navigation.
-	Verify that title, canonical, meta, structured data, and resource hints remain correct through initial server render, client hydration, and subsequent route transitions.
+- [x] Define the first-class head management model.
+	`docs/HEAD_MANAGEMENT.md` now defines the shipped ownership split: router-managed title, description, and canonical metadata are first-class, while broader SEO tags remain application-owned explicit head markup until a dedicated head manager exists.
+- [x] Add server-rendered head emission for route-driven apps.
+	`docs/HEAD_MANAGEMENT.md` and the router metadata tests now show the SSR path: compose `router.MetadataNode(...)` with explicit head tags under `ui.RenderToString(...)` so route-driven apps can emit managed metadata plus robots, social tags, and resource hints on first paint.
+- [x] Define hydration reconciliation rules for head state.
+	`docs/HEAD_MANAGEMENT.md` now defines managed-versus-unmanaged head ownership during hydration, and the router tests verify managed tag deduplication and cleanup across hydrated documents and later navigation.
+- [x] Add route-level title and metadata composition rules.
+	`docs/HEAD_MANAGEMENT.md` now documents the current precedence contract: leaf routes override layouts for managed metadata, layouts provide defaults, and no title-template or deep merge API is implied yet.
+- [x] Add canonical URL and duplicate-content guidance.
+	`docs/HEAD_MANAGEMENT.md` now covers parameterized routes, filters, locale variants, pagination, previews, and matching canonical behavior across prerendered and request-time SSR delivery.
+- [x] Add structured-data support guidance.
+	`docs/HEAD_MANAGEMENT.md` now documents JSON-LD as an explicit SSR escape hatch that should be emitted from the server document template until a dedicated raw-script helper exists.
+- [x] Add preload, preconnect, and resource-hint management.
+	`docs/HEAD_MANAGEMENT.md` now documents resource hints as application-owned SSR markup and explains how to emit and dedupe them intentionally without implying router-managed reconciliation.
+- [x] Add social-sharing metadata examples.
+	`docs/HEAD_MANAGEMENT.md` now includes a concrete Open Graph and Twitter/X SSR example that composes with `router.MetadataNode(...)`.
+- [x] Add sitemap, robots, and crawl-control integration guidance.
+	`docs/HEAD_MANAGEMENT.md` now ties canonical URLs, robots directives, sitemap inclusion, preview environments, and authenticated routes back to one route-level source of truth.
+- [x] Add tests for head correctness across SSR, hydration, and navigation.
+	The router metadata tests now cover explicit SSR head composition plus managed-tag deduplication after hydrated startup, and the SSR server-routing tests verify the initial HTML emits exactly one managed title, description, and canonical tag set.
 
 ### Accessibility primitives and guidance
 

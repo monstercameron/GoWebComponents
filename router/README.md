@@ -214,6 +214,10 @@ The intended model is:
 Use `router.MetadataNode(...)` together with `ui.RenderToString(...)` when a
 server-rendered route needs head metadata during the first HTML response.
 
+For the broader head and SEO policy, including robots tags, social cards,
+structured data, resource hints, and canonical-URL guidance, see
+`docs/HEAD_MANAGEMENT.md`.
+
 The router currently owns only three fields through this path:
 
 - document title

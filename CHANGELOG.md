@@ -2,6 +2,12 @@
 
 ## 2026-03-16
 
+### Head management and SEO guidance
+
+- Added `docs/HEAD_MANAGEMENT.md` to define the current head-management model, including the boundary between router-managed metadata and application-owned explicit SEO markup.
+- Documented canonical URL policy, structured-data guidance, resource-hint guidance, social metadata examples, and sitemap or robots integration expectations for the current SSR surface.
+- Added tests covering managed head-tag deduplication after hydrated startup and SSR output checks that enforce a single managed title, description, and canonical tag set.
+
 ### Metadata model and composition policy
 
 - Added `router.MetadataNode(...)` so route-managed title, description, and canonical tags can be rendered during SSR through `ui.RenderToString(...)`.

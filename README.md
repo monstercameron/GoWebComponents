@@ -406,6 +406,7 @@ The implementation center of gravity is `internal/runtime/`:
 - [CHANGELOG.md](CHANGELOG.md)
 - [docs/README.md](docs/README.md)
 - [docs/API_POLICY.md](docs/API_POLICY.md)
+- [docs/HEAD_MANAGEMENT.md](docs/HEAD_MANAGEMENT.md)
 - [docs/MIGRATIONS.md](docs/MIGRATIONS.md)
 - [docs/TODO.md](docs/TODO.md)
 - [examples/README.md](examples/README.md)

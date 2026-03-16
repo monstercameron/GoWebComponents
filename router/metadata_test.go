@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
@@ -36,5 +37,41 @@ func TestMetadataNodeOmitsEmptyFields(t *testing.T) {
 	}
 	if markup != "" {
 		t.Fatalf("expected empty metadata markup, got %q", markup)
+	}
+}
+
+func TestMetadataNodeComposesWithExplicitSSRHeadTags(t *testing.T) {
+	markup, err := ui.RenderToString(ui.Fragment(
+		MetadataNode(Metadata{
+			Title:        "Docs",
+			Description:  "Searchable docs",
+			CanonicalURL: "https://example.com/docs",
+		}),
+		html.Tag("meta", html.Props{Raw: map[string]interface{}{
+			"name":    "robots",
+			"content": "index,follow",
+		}}),
+		html.Tag("meta", html.Props{Raw: map[string]interface{}{
+			"property": "og:title",
+			"content":  "Docs",
+		}}),
+		html.Tag("link", html.Props{Raw: map[string]interface{}{
+			"rel":  "preconnect",
+			"href": "https://cdn.example.com",
+		}}),
+	))
+	if err != nil {
+		t.Fatalf("unexpected composed head render error: %v", err)
+	}
+
+	checks := []string{
+		`<meta content="index,follow" name="robots">`,
+		`<meta content="Docs" property="og:title">`,
+		`<link href="https://cdn.example.com" rel="preconnect">`,
+	}
+	for _, check := range checks {
+		if !strings.Contains(markup, check) {
+			t.Fatalf("expected composed head markup to contain %q, got %q", check, markup)
+		}
 	}
 }

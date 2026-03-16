@@ -857,6 +857,64 @@ func TestHashRouterCleansServerManagedMetadataOnUntitledRoute(t *testing.T) {
 	}
 }
 
+func TestHashRouterDedupesManagedHydratedMetadata(t *testing.T) {
+	installRouterBrowserEnv(t)
+	doc := js.Global().Get("document")
+	head := doc.Get("head")
+
+	appendManagedMeta := func(tag string, attrs map[string]string, text string) {
+		node := doc.Call("createElement", tag)
+		for key, value := range attrs {
+			node.Call("setAttribute", key, value)
+		}
+		node.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
+		if text != "" {
+			node.Set("textContent", text)
+		}
+		head.Call("appendChild", node)
+	}
+
+	appendManagedMeta("title", map[string]string{}, "stale one")
+	appendManagedMeta("title", map[string]string{}, "stale two")
+	appendManagedMeta("meta", map[string]string{"name": "description", "content": "stale one"}, "")
+	appendManagedMeta("meta", map[string]string{"name": "description", "content": "stale two"}, "")
+	appendManagedMeta("link", map[string]string{"rel": "canonical", "href": "https://example.com/stale-one"}, "")
+	appendManagedMeta("link", map[string]string{"rel": "canonical", "href": "https://example.com/stale-two"}, "")
+	doc.Set("title", "stale two")
+
+	r := NewHashRouter()
+	js.Global().Get("location").Set("hash", "/landing")
+	r.GoRegisterRoute("/landing", func(props Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("landing"))
+	}, Options{
+		Title:        "Landing",
+		Description:  "Landing description",
+		CanonicalURL: "https://example.com/landing",
+	})
+
+	if elem := r.Current(); elem == nil {
+		t.Fatal("expected landing route element")
+	}
+	if got := doc.Call("querySelectorAll", `title[data-gwc-router-managed="true"]`).Get("length").Int(); got != 1 {
+		t.Fatalf("expected exactly one managed title after dedupe, got %d", got)
+	}
+	if got := doc.Call("querySelectorAll", `meta[name="description"][data-gwc-router-managed="true"]`).Get("length").Int(); got != 1 {
+		t.Fatalf("expected exactly one managed description after dedupe, got %d", got)
+	}
+	if got := doc.Call("querySelectorAll", `link[rel="canonical"][data-gwc-router-managed="true"]`).Get("length").Int(); got != 1 {
+		t.Fatalf("expected exactly one managed canonical after dedupe, got %d", got)
+	}
+	if got := doc.Get("title").String(); got != "Landing" {
+		t.Fatalf("expected deduped managed title to update to Landing, got %q", got)
+	}
+	if got := doc.Call("querySelector", `meta[name="description"]`).Get("attributes").Get("content").String(); got != "Landing description" {
+		t.Fatalf("expected deduped managed description to update, got %q", got)
+	}
+	if got := doc.Call("querySelector", `link[rel="canonical"]`).Get("attributes").Get("href").String(); got != "https://example.com/landing" {
+		t.Fatalf("expected deduped managed canonical to update, got %q", got)
+	}
+}
+
 func TestParamsZeroValue(t *testing.T) {
 	var params Params
 	if params.Has("id") {
