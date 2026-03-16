@@ -41,6 +41,7 @@ Current example directories include:
 - `16-devtools`
 - `17-ssr-routing`
 - `18-ssr-server-routing`
+- `19-nested-routes`
 
 ## Shared Static Assets
 

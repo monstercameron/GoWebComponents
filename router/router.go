@@ -28,6 +28,7 @@ type Options struct {
 	Redirect     string
 	Description  string
 	CanonicalURL string
+	Layout       bool
 	BeforeEnter  GuardFunc
 	BeforeLeave  LeaveGuardFunc
 	Loader       LoaderFunc
@@ -109,11 +110,17 @@ type GuardFunc func(RouteContext) GuardResult
 type LeaveGuardFunc func(current RouteContext, next RouteContext) GuardResult
 
 type resolvedRoute struct {
+	id      string
 	path    string
 	params  map[string]string
 	option  Options
 	factory routeFactory
 	found   bool
+}
+
+type resolvedRouteStack struct {
+	routes []resolvedRoute
+	found  bool
 }
 
 type LoaderFunc func(context.Context, RouteContext) (Attrs, error)
@@ -127,7 +134,11 @@ type routePattern struct {
 
 type loaderState struct {
 	mu      sync.Mutex
-	key     string
+	entries map[string]*loaderEntry
+	active  map[string]struct{}
+}
+
+type loaderEntry struct {
 	pending bool
 	data    Attrs
 	err     error
@@ -186,6 +197,7 @@ func normalizeNavigationTarget(target string) string {
 var initialized bool
 var currentParams = map[string]string{}
 var currentRouteData Attrs
+var currentRouteOutlet *Element
 
 // NewHashRouter creates a hash-based router that reads from window.location.hash.
 func NewHashRouter(options ...RouterOptions) *Router {
@@ -201,6 +213,10 @@ func NewHashRouter(options ...RouterOptions) *Router {
 		patterns:     []routePattern{},
 		defaultRoute: cfg.DefaultRoute,
 		routerType:   "hash",
+		loaderState: loaderState{
+			entries: make(map[string]*loaderEntry),
+			active:  make(map[string]struct{}),
+		},
 	}
 }
 
@@ -220,6 +236,10 @@ func NewRouter(options RouterOptions) *Router {
 		patterns:     []routePattern{},
 		defaultRoute: options.DefaultRoute,
 		routerType:   "history",
+		loaderState: loaderState{
+			entries: make(map[string]*loaderEntry),
+			active:  make(map[string]struct{}),
+		},
 	}
 
 	// Setup browser sync for history-based navigation
@@ -313,14 +333,16 @@ func (r *Router) Current() *Element {
 	}
 	query := getCurrentQueryValues()
 	queryKey := query.Encode()
-	resolved := r.resolveRoute(path)
+	resolved := r.resolveRouteStack(path)
 	if resolved.found {
-		currentParams = copyParams(resolved.params)
-		return r.renderResolvedRoute(resolved.path, resolved.factory, resolved.option, resolved.params, query, queryKey)
+		leaf := resolved.routes[len(resolved.routes)-1]
+		currentParams = copyParams(leaf.params)
+		return r.renderResolvedRouteStack(resolved.routes, query, queryKey)
 	}
 
 	r.cancelLoaderIfActive()
 	currentRouteData = nil
+	currentRouteOutlet = nil
 
 	return runtime.Div(nil, runtime.Text("Route not found"))
 }
@@ -371,7 +393,13 @@ func (r *Router) RevalidateCurrentRoute() {
 func (r *Router) IsRouteLoading() bool {
 	r.loaderState.mu.Lock()
 	defer r.loaderState.mu.Unlock()
-	return r.loaderState.pending
+	for key := range r.loaderState.active {
+		entry := r.loaderState.entries[key]
+		if entry != nil && entry.pending {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *Router) renderCurrentRoute() {
@@ -584,6 +612,11 @@ func UseParams() Params {
 // UseRouteData returns loader-provided route data for the current matched route.
 func UseRouteData() Attrs {
 	return copyAttrs(currentRouteData)
+}
+
+// Outlet returns the child route element for the current layout route, if one exists.
+func Outlet() *Element {
+	return currentRouteOutlet
 }
 
 // Get returns the first value for a query key or an empty string.
@@ -890,55 +923,138 @@ func getHistoryValue() js.Value {
 	return js.Global().Get("history")
 }
 
-func (r *Router) renderResolvedRoute(path string, factory routeFactory, option Options, params map[string]string, query url.Values, queryKey string) *Element {
-	if blocked := r.applyBeforeEnterGuard(path, option, params, query); blocked != nil {
+func (r *Router) renderResolvedRouteStack(routes []resolvedRoute, query url.Values, queryKey string) *Element {
+	loaderKeys := make([]string, 0, len(routes))
+	for _, route := range routes {
+		if route.option.Loader != nil {
+			loaderKeys = append(loaderKeys, buildLoaderKey(route.id, queryKey))
+		}
+	}
+	r.prepareLoaderState(loaderKeys)
+	return r.renderRouteLevel(routes, 0, query, queryKey)
+}
+
+func (r *Router) renderRouteLevel(routes []resolvedRoute, index int, query url.Values, queryKey string) *Element {
+	match := routes[index]
+	if blocked := r.applyBeforeEnterGuard(match.path, match.option, match.params, query); blocked != nil {
 		return blocked
 	}
-	if redirected := r.applyRouteOptions(path, option, query); redirected != nil {
+	if redirected := r.applyRouteOptions(match.path, match.option, query); redirected != nil {
 		return redirected
 	}
 
-	baseProps := copyParamsToAttrs(params)
-	if option.Loader == nil {
-		r.cancelLoaderIfActive()
-		currentRouteData = nil
-		return factory(baseProps)
+	baseProps := copyParamsToAttrs(match.params)
+	data := Attrs(nil)
+	if match.option.Loader != nil {
+		loaderKey := buildLoaderKey(match.id, queryKey)
+		state := r.ensureLoaderResult(loaderKey, match.option.Loader, RouteContext{
+			Path:   match.path,
+			Params: Params{values: copyParams(match.params)},
+			Query:  Query{values: copyQueryValues(query)},
+		})
+
+		if state.pending {
+			currentRouteData = nil
+			currentRouteOutlet = nil
+			return renderRouteFallback(match.option.Loading, mergeAttrs(baseProps, Attrs{"path": match.path, "loading": true}))
+		}
+		if state.err != nil {
+			currentRouteData = nil
+			currentRouteOutlet = nil
+			return renderRouteError(match.option.Error, state.err, mergeAttrs(baseProps, Attrs{"path": match.path, "error": state.err.Error()}))
+		}
+
+		data = copyAttrs(state.data)
+		baseProps = mergeAttrs(baseProps, data)
 	}
 
-	loaderKey := buildLoaderKey(path, queryKey)
-	state := r.ensureLoaderResult(loaderKey, option.Loader, RouteContext{
-		Path:   path,
-		Params: Params{values: copyParams(params)},
-		Query:  Query{values: copyQueryValues(query)},
-	})
-
-	if state.pending {
-		currentRouteData = nil
-		return renderRouteFallback(option.Loading, mergeAttrs(baseProps, Attrs{"path": path, "loading": true}))
-	}
-	if state.err != nil {
-		currentRouteData = nil
-		return renderRouteError(option.Error, state.err, mergeAttrs(baseProps, Attrs{"path": path, "error": state.err.Error()}))
+	var outlet *Element
+	if index+1 < len(routes) {
+		outlet = r.renderRouteLevel(routes, index+1, query, queryKey)
 	}
 
-	currentRouteData = copyAttrs(state.data)
-	return factory(mergeAttrs(baseProps, state.data))
+	prevParams, prevData, prevOutlet := withRouteRenderContext(match.params, data, outlet)
+	defer restoreRouteRenderContext(prevParams, prevData, prevOutlet)
+
+	return match.factory(baseProps)
+}
+
+func withRouteRenderContext(params map[string]string, data Attrs, outlet *Element) (map[string]string, Attrs, *Element) {
+	prevParams := currentParams
+	prevData := currentRouteData
+	prevOutlet := currentRouteOutlet
+	currentParams = copyParams(params)
+	currentRouteData = copyAttrs(data)
+	currentRouteOutlet = outlet
+	return prevParams, prevData, prevOutlet
+}
+
+func restoreRouteRenderContext(params map[string]string, data Attrs, outlet *Element) {
+	currentParams = params
+	currentRouteData = data
+	currentRouteOutlet = outlet
+}
+
+func (r *Router) resolveRouteStack(path string) resolvedRouteStack {
+	leaf := r.resolveRoute(path)
+	if !leaf.found {
+		return resolvedRouteStack{}
+	}
+
+	if leaf.id == "default:"+r.defaultRoute {
+		return resolvedRouteStack{routes: []resolvedRoute{leaf}, found: true}
+	}
+
+	prefixes := expandPathPrefixes(path)
+	routes := make([]resolvedRoute, 0, len(prefixes)+1)
+	seen := map[string]struct{}{}
+	for _, prefix := range prefixes {
+		if comp, ok := r.routes[prefix]; ok {
+			option := r.routeOptions[prefix]
+			id := routeIDExact(prefix)
+			if option.Layout && id != leaf.id {
+				routes = append(routes, resolvedRoute{id: id, path: prefix, params: map[string]string{}, option: option, factory: comp, found: true})
+				seen[id] = struct{}{}
+			}
+		}
+
+		for _, pattern := range r.patterns {
+			if !pattern.options.Layout {
+				continue
+			}
+			id := routeIDPattern(pattern.pattern)
+			if id == leaf.id {
+				continue
+			}
+			if _, exists := seen[id]; exists {
+				continue
+			}
+			params, ok := matchRoutePattern(pattern.pattern, prefix)
+			if !ok {
+				continue
+			}
+			routes = append(routes, resolvedRoute{id: id, path: prefix, params: copyParams(params), option: pattern.options, factory: pattern.factory, found: true})
+			seen[id] = struct{}{}
+		}
+	}
+
+	routes = append(routes, leaf)
+	return resolvedRouteStack{routes: routes, found: true}
 }
 
 func (r *Router) resolveRoute(path string) resolvedRoute {
 	if comp, ok := r.routes[path]; ok {
-		return resolvedRoute{path: path, params: map[string]string{}, option: r.routeOptions[path], factory: comp, found: true}
+		return resolvedRoute{id: routeIDExact(path), path: path, params: map[string]string{}, option: r.routeOptions[path], factory: comp, found: true}
 	}
-	if comp, params, ok := r.matchPattern(path); ok {
-		_, option := r.matchOptions(path)
-		return resolvedRoute{path: path, params: copyParams(params), option: option, factory: comp, found: true}
+	if comp, params, option, pattern, ok := r.matchPattern(path); ok {
+		return resolvedRoute{id: routeIDPattern(pattern), path: path, params: copyParams(params), option: option, factory: comp, found: true}
 	}
 	if r.notFound != nil {
-		return resolvedRoute{path: path, params: map[string]string{}, option: r.notFoundOption, factory: r.notFound, found: true}
+		return resolvedRoute{id: routeIDNotFound(), path: path, params: map[string]string{}, option: r.notFoundOption, factory: r.notFound, found: true}
 	}
 	if r.defaultRoute != "" {
 		if comp, ok := r.routes[r.defaultRoute]; ok {
-			return resolvedRoute{path: r.defaultRoute, params: map[string]string{}, option: r.routeOptions[r.defaultRoute], factory: comp, found: true}
+			return resolvedRoute{id: "default:" + r.defaultRoute, path: r.defaultRoute, params: map[string]string{}, option: r.routeOptions[r.defaultRoute], factory: comp, found: true}
 		}
 	}
 	return resolvedRoute{}
@@ -1087,33 +1203,57 @@ func getHeadElement(doc js.Value) js.Value {
 func (r *Router) evaluateNavigation(target string) (string, bool) {
 	currentPath := r.GetCurrentRouterPath()
 	currentQuery := getCurrentQueryValues()
-	currentResolved := r.resolveRoute(currentPath)
+	currentResolved := r.resolveRouteStack(currentPath)
 
 	nextTarget := target
 	for steps := 0; steps < 4; steps++ {
 		nextPath, nextQuery := parseNavigationTarget(nextTarget)
-		nextResolved := r.resolveRoute(nextPath)
-		nextCtx := r.routeContext(nextPath, nextResolved.params, nextQuery)
+		nextResolved := r.resolveRouteStack(nextPath)
+		nextLeaf := resolvedRoute{}
+		if nextResolved.found {
+			nextLeaf = nextResolved.routes[len(nextResolved.routes)-1]
+		}
+		nextCtx := r.routeContext(nextPath, nextLeaf.params, nextQuery)
+		redirected := false
 
-		if steps == 0 && currentResolved.found && currentResolved.option.BeforeLeave != nil {
-			result := currentResolved.option.BeforeLeave(r.routeContext(currentPath, currentResolved.params, currentQuery), nextCtx)
-			if redirect := strings.TrimSpace(result.Redirect); redirect != "" {
-				nextTarget = normalizeNavigationTarget(redirect)
-				continue
+		if steps == 0 && currentResolved.found {
+			for index := len(currentResolved.routes) - 1; index >= 0; index-- {
+				currentRoute := currentResolved.routes[index]
+				if currentRoute.option.BeforeLeave == nil {
+					continue
+				}
+				result := currentRoute.option.BeforeLeave(r.routeContext(currentRoute.path, currentRoute.params, currentQuery), nextCtx)
+				if redirect := strings.TrimSpace(result.Redirect); redirect != "" {
+					nextTarget = normalizeNavigationTarget(redirect)
+					redirected = true
+					break
+				}
+				if result.Blocked {
+					return "", false
+				}
 			}
-			if result.Blocked {
-				return "", false
+			if redirected {
+				continue
 			}
 		}
 
-		if nextResolved.found && nextResolved.option.BeforeEnter != nil {
-			result := nextResolved.option.BeforeEnter(r.routeContext(nextPath, nextResolved.params, nextQuery))
-			if redirect := strings.TrimSpace(result.Redirect); redirect != "" {
-				nextTarget = normalizeNavigationTarget(redirect)
-				continue
+		if nextResolved.found {
+			for _, nextRoute := range nextResolved.routes {
+				if nextRoute.option.BeforeEnter == nil {
+					continue
+				}
+				result := nextRoute.option.BeforeEnter(r.routeContext(nextRoute.path, nextRoute.params, nextQuery))
+				if redirect := strings.TrimSpace(result.Redirect); redirect != "" {
+					nextTarget = normalizeNavigationTarget(redirect)
+					redirected = true
+					break
+				}
+				if result.Blocked {
+					return "", false
+				}
 			}
-			if result.Blocked {
-				return "", false
+			if redirected {
+				continue
 			}
 		}
 
@@ -1182,31 +1322,29 @@ func (r *Router) ensureLoaderResult(key string, loader LoaderFunc, routeCtx Rout
 	err     error
 } {
 	r.loaderState.mu.Lock()
-	if r.loaderState.key == key {
+	entry := r.loaderState.entries[key]
+	if entry != nil {
 		state := struct {
 			pending bool
 			data    Attrs
 			err     error
 		}{
-			pending: r.loaderState.pending,
-			data:    copyAttrs(r.loaderState.data),
-			err:     r.loaderState.err,
+			pending: entry.pending,
+			data:    copyAttrs(entry.data),
+			err:     entry.err,
 		}
 		r.loaderState.mu.Unlock()
 		return state
 	}
 
-	if r.loaderState.cancel != nil {
-		r.loaderState.cancel()
-	}
 	ctx, cancel := context.WithCancel(context.Background())
-	r.loaderState.version++
-	version := r.loaderState.version
-	r.loaderState.key = key
-	r.loaderState.pending = true
-	r.loaderState.data = nil
-	r.loaderState.err = nil
-	r.loaderState.cancel = cancel
+	entry = &loaderEntry{
+		pending: true,
+		cancel:  cancel,
+	}
+	entry.version++
+	version := entry.version
+	r.loaderState.entries[key] = entry
 	r.loaderState.mu.Unlock()
 
 	go func() {
@@ -1214,13 +1352,14 @@ func (r *Router) ensureLoaderResult(key string, loader LoaderFunc, routeCtx Rout
 
 		r.loaderState.mu.Lock()
 		defer r.loaderState.mu.Unlock()
-		if ctx.Err() != nil || version != r.loaderState.version || key != r.loaderState.key {
+		current := r.loaderState.entries[key]
+		if ctx.Err() != nil || current == nil || current != entry || version != current.version {
 			return
 		}
-		r.loaderState.pending = false
-		r.loaderState.data = copyAttrs(data)
-		r.loaderState.err = err
-		r.loaderState.cancel = nil
+		current.pending = false
+		current.data = copyAttrs(data)
+		current.err = err
+		current.cancel = nil
 
 		go func() {
 			doc := js.Global().Get("document")
@@ -1242,15 +1381,13 @@ func (r *Router) ensureLoaderResult(key string, loader LoaderFunc, routeCtx Rout
 func (r *Router) cancelLoaderIfActive() {
 	r.loaderState.mu.Lock()
 	defer r.loaderState.mu.Unlock()
-	if r.loaderState.cancel != nil {
-		r.loaderState.cancel()
-		r.loaderState.cancel = nil
+	for key, entry := range r.loaderState.entries {
+		if entry != nil && entry.cancel != nil {
+			entry.cancel()
+		}
+		delete(r.loaderState.entries, key)
 	}
-	r.loaderState.key = ""
-	r.loaderState.pending = false
-	r.loaderState.data = nil
-	r.loaderState.err = nil
-	r.loaderState.version++
+	r.loaderState.active = make(map[string]struct{})
 }
 
 func buildLoaderKey(path, queryKey string) string {
@@ -1282,22 +1419,57 @@ func isPatternRoute(path string) bool {
 	return strings.Contains(path, ":") || (strings.HasSuffix(path, "*") && path != "*")
 }
 
-func (r *Router) matchPattern(path string) (routeFactory, map[string]string, bool) {
+func (r *Router) matchPattern(path string) (routeFactory, map[string]string, Options, string, bool) {
 	for _, pattern := range r.patterns {
 		if params, ok := matchRoutePattern(pattern.pattern, path); ok {
-			return pattern.factory, params, true
+			return pattern.factory, params, pattern.options, pattern.pattern, true
 		}
 	}
-	return nil, nil, false
+	return nil, nil, Options{}, "", false
 }
 
-func (r *Router) matchOptions(path string) (map[string]string, Options) {
-	for _, pattern := range r.patterns {
-		if params, ok := matchRoutePattern(pattern.pattern, path); ok {
-			return params, pattern.options
-		}
+func (r *Router) prepareLoaderState(activeKeys []string) {
+	r.loaderState.mu.Lock()
+	defer r.loaderState.mu.Unlock()
+	nextActive := make(map[string]struct{}, len(activeKeys))
+	for _, key := range activeKeys {
+		nextActive[key] = struct{}{}
 	}
-	return nil, Options{}
+	for key, entry := range r.loaderState.entries {
+		if _, keep := nextActive[key]; keep {
+			continue
+		}
+		if entry != nil && entry.cancel != nil {
+			entry.cancel()
+		}
+		delete(r.loaderState.entries, key)
+	}
+	r.loaderState.active = nextActive
+}
+
+func routeIDExact(path string) string {
+	return "exact:" + path
+}
+
+func routeIDPattern(pattern string) string {
+	return "pattern:" + pattern
+}
+
+func routeIDNotFound() string {
+	return "notfound:*"
+}
+
+func expandPathPrefixes(path string) []string {
+	parts := splitPath(path)
+	if len(parts) == 0 {
+		return []string{"/"}
+	}
+	prefixes := make([]string, 0, len(parts)+1)
+	prefixes = append(prefixes, "/")
+	for index := range parts {
+		prefixes = append(prefixes, "/"+strings.Join(parts[:index+1], "/"))
+	}
+	return prefixes
 }
 
 func matchRoutePattern(pattern, path string) (map[string]string, bool) {

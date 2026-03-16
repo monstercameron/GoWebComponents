@@ -11,7 +11,7 @@ This backlog focuses on the top-level framework features that are still missing 
 - [ ] Add a framework feature matrix to the docs.
 	Separate shipped, experimental, and planned capabilities.
 - [ ] Clarify which packages are stable public APIs versus internal/runtime-only details.
-	This is especially important for portal, slot, snapshot, and hot reload related features.
+	This is especially important for portal, slot, and hot reload related features.
 - [ ] Add migration notes as new primitives land.
 	Keep early adopters from depending on unstable patterns.
 
@@ -141,8 +141,6 @@ This backlog focuses on the top-level framework features that are still missing 
 
 ### Route Matching and Params
 
-### Route Matching and Params
-
 - [x] Replace exact-path-only registration with declarative route patterns.
 	The router now supports parameter routes such as `/users/:id`, prefix wildcard routes, and catch-all routes through the public registration API.
 - [x] Expose typed route params to components.
@@ -169,16 +167,16 @@ This backlog focuses on the top-level framework features that are still missing 
 
 ### Nested Routes and Layout Routes
 
-- [ ] Design nested route composition.
-	Allow parent layouts to render persistent shells with a routed child outlet.
-- [ ] Add an outlet-style API.
-	Make nested route rendering explicit and ergonomic.
-- [ ] Support shared layouts for dashboards, docs, and authenticated sections.
-	Avoid remounting common chrome on every route change.
-- [ ] Define active route resolution rules.
-	Document how parent and child routes match and render together.
-- [ ] Add examples for multi-level apps.
-	Demonstrate docs navigation, dashboard shells, and nested settings pages.
+- [x] Design nested route composition.
+	The router now supports opt-in layout routes through `router.Options{Layout: true}`, so parent routes can render persistent shells while a more specific child route renders into `router.Outlet()`.
+- [x] Add an outlet-style API.
+	`router.Outlet()` now exposes the matched child route during layout-route rendering, keeping nested composition explicit instead of relying on implicit child props.
+- [x] Support shared layouts for dashboards, docs, and authenticated sections.
+	Layout routes now wrap matching descendants without remounting shared chrome, and nested guard evaluation applies layout hooks across child-route transitions.
+- [x] Define active route resolution rules.
+	The router now builds layout stacks from shallowest matching `Layout: true` prefixes to the final leaf route, with parent params scoped to each layout level and child routes receiving the final merged param set.
+- [x] Add examples for multi-level apps.
+	`examples/19-nested-routes` now demonstrates docs navigation, a dashboard shell, and a nested settings layout stack using explicit `router.Outlet()` composition.
 
 ### Go-Native Hook Additions
 

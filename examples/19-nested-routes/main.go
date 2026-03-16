@@ -1,0 +1,218 @@
+//go:build js && wasm
+// +build js,wasm
+
+package main
+
+import (
+	"strings"
+
+	"github.com/monstercameron/GoWebComponents/html"
+	"github.com/monstercameron/GoWebComponents/router"
+	"github.com/monstercameron/GoWebComponents/ui"
+)
+
+func isActivePath(currentPath, targetPath string) bool {
+	if currentPath == targetPath {
+		return true
+	}
+	if targetPath == "/" {
+		return currentPath == "/"
+	}
+	return strings.HasPrefix(currentPath, targetPath+"/")
+}
+
+func routeLink(label, path, currentPath string) ui.Node {
+	className := "inline-flex rounded-full border border-[#1f2520]/15 bg-white/70 px-4 py-2 text-sm font-semibold text-[#314034] transition-colors hover:bg-[#d8ead3]"
+	if isActivePath(currentPath, path) {
+		className = "inline-flex rounded-full border border-[#314034] bg-[#314034] px-4 py-2 text-sm font-semibold text-[#f7f3e8]"
+	}
+	return html.A(html.Props{Href: "#" + path, Class: className}, html.Text(label))
+}
+
+func layoutSection(title, subtitle string, navItems ...ui.Node) ui.Node {
+	return html.Div(html.Props{Class: "rounded-[2rem] border border-[#1f2520]/10 bg-white/80 p-6 shadow-[0_20px_70px_rgba(31,37,32,0.08)]"},
+		html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-[#7b5c2e]"}, html.Text(title)),
+		html.H2(html.Props{Class: "mt-3 text-3xl font-black text-[#1f2520]"}, html.Text(subtitle)),
+		html.Div(html.Props{Class: "mt-5 flex flex-wrap gap-3"}, navItems...),
+	)
+}
+
+func homePage(props router.Attrs) ui.Node {
+	return html.Div(html.Props{Class: "min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(224,201,148,0.35),_transparent_28%),linear-gradient(180deg,#f4efe4_0%,#eef3e7_100%)] px-6 py-10 text-[#1f2520]"},
+		html.Div(html.Props{Class: "mx-auto max-w-6xl"},
+			html.Div(html.Props{Class: "rounded-[2.5rem] border border-[#1f2520]/10 bg-white/75 p-8 shadow-[0_25px_90px_rgba(31,37,32,0.12)] md:p-12"},
+				html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.32em] text-[#7b5c2e]"}, html.Text("Nested Routes Demo")),
+				html.H1(html.Props{Class: "mt-4 max-w-3xl text-5xl font-black leading-tight text-[#1f2520] md:text-6xl"}, html.Text("Dashboard shells, nested settings pages, and docs navigation using router.Outlet().")),
+				html.P(html.Props{Class: "mt-5 max-w-2xl text-lg leading-8 text-[#4a5a4f]"}, html.Text("This example keeps layout chrome mounted at each level while the leaf route changes beneath it. Open the dashboard, drill into settings, then switch across the docs section to see different outlet stacks.")),
+				html.Div(html.Props{Class: "mt-8 flex flex-wrap gap-4"},
+					routeLink("Open Dashboard", "/dashboard/overview", router.GetCurrentPath()),
+					routeLink("Open Settings", "/dashboard/settings/profile", router.GetCurrentPath()),
+					routeLink("Open Docs", "/docs/getting-started", router.GetCurrentPath()),
+				),
+			),
+		),
+	)
+}
+
+func dashboardLayout(props router.Attrs) ui.Node {
+	currentPath := router.GetCurrentPath()
+	return html.Div(html.Props{Class: "min-h-screen bg-[linear-gradient(180deg,#f4efe4_0%,#e6efe1_100%)] px-6 py-8 text-[#1f2520]"},
+		html.Div(html.Props{Class: "mx-auto max-w-6xl"},
+			html.Div(html.Props{Class: "flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-[#1f2520]/10 bg-[#314034] px-6 py-5 text-[#f7f3e8] shadow-[0_24px_80px_rgba(31,37,32,0.16)]"},
+				html.Div(html.Props{},
+					html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-[#d6c28d]"}, html.Text("Dashboard Layout")),
+					html.H1(html.Props{Class: "mt-2 text-3xl font-black"}, html.Text("Operations workspace")),
+				),
+				html.Div(html.Props{Class: "flex flex-wrap gap-3"},
+					routeLink("Home", "/", currentPath),
+					routeLink("Docs", "/docs/getting-started", currentPath),
+				),
+			),
+			html.Div(html.Props{Class: "mt-6 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]"},
+				html.Aside(html.Props{Class: "space-y-6"},
+					layoutSection("Dashboard", "Persistent parent shell",
+						routeLink("Overview", "/dashboard/overview", currentPath),
+						routeLink("Report 7", "/dashboard/reports/7", currentPath),
+						routeLink("Report 12", "/dashboard/reports/12", currentPath),
+						routeLink("Settings", "/dashboard/settings/profile", currentPath),
+					),
+					html.Div(html.Props{Class: "rounded-[2rem] border border-[#1f2520]/10 bg-white/80 p-6 text-sm leading-7 text-[#4a5a4f] shadow-[0_18px_60px_rgba(31,37,32,0.08)]"},
+						html.P(html.Props{Class: "font-bold text-[#1f2520]"}, html.Text("What stays mounted")),
+						html.P(html.Props{Class: "mt-3"}, html.Text("This dashboard shell remains stable while child routes swap inside router.Outlet(). That keeps navigation, headings, and summary chrome in one place.")),
+					),
+				),
+				html.Main(html.Props{Class: "space-y-6"}, router.Outlet()),
+			),
+		),
+	)
+}
+
+func dashboardOverviewPage(props router.Attrs) ui.Node {
+	return html.Div(html.Props{Class: "rounded-[2rem] border border-[#1f2520]/10 bg-white/80 p-8 shadow-[0_20px_70px_rgba(31,37,32,0.08)]"},
+		html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-[#7b5c2e]"}, html.Text("Leaf Route")),
+		html.H2(html.Props{Class: "mt-3 text-4xl font-black text-[#1f2520]"}, html.Text("Overview")),
+		html.P(html.Props{Class: "mt-5 max-w-2xl text-lg leading-8 text-[#4a5a4f]"}, html.Text("This is a standard child route under the dashboard layout. Switch to reports or settings and the dashboard shell stays mounted while only the outlet subtree changes.")),
+	)
+}
+
+func reportPage(props router.Attrs) ui.Node {
+	params := router.UseParams()
+	reportID := params.Get("id")
+	nextReport := "7"
+	if reportID == "7" {
+		nextReport = "12"
+	}
+	return html.Div(html.Props{Class: "rounded-[2rem] border border-[#1f2520]/10 bg-white/80 p-8 shadow-[0_20px_70px_rgba(31,37,32,0.08)]"},
+		html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-[#7b5c2e]"}, html.Text("Nested Param Route")),
+		html.H2(html.Props{Class: "mt-3 text-4xl font-black text-[#1f2520]"}, html.Text("Report #"+reportID)),
+		html.P(html.Props{Class: "mt-5 max-w-2xl text-lg leading-8 text-[#4a5a4f]"}, html.Text("router.UseParams() resolves the leaf route param while the parent dashboard layout keeps its own shell state and outlet position.")),
+		html.A(html.Props{Href: "#/dashboard/reports/" + nextReport, Class: "mt-6 inline-flex rounded-full border border-[#314034] bg-[#314034] px-5 py-3 text-sm font-semibold text-[#f7f3e8] hover:bg-[#3e4f40]"}, html.Text("Open report #"+nextReport)),
+	)
+}
+
+func settingsLayout(props router.Attrs) ui.Node {
+	currentPath := router.GetCurrentPath()
+	return html.Div(html.Props{Class: "rounded-[2rem] border border-[#1f2520]/10 bg-[#fbfaf5] p-6 shadow-[0_18px_60px_rgba(31,37,32,0.08)]"},
+		html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-[#7b5c2e]"}, html.Text("Nested Settings Layout")),
+		html.H2(html.Props{Class: "mt-3 text-3xl font-black text-[#1f2520]"}, html.Text("Settings shell inside the dashboard tree")),
+		html.P(html.Props{Class: "mt-4 max-w-2xl text-base leading-7 text-[#4a5a4f]"}, html.Text("This second layout route wraps only settings pages. It demonstrates a deeper layout stack: dashboard layout -> settings layout -> settings leaf.")),
+		html.Div(html.Props{Class: "mt-5 flex flex-wrap gap-3"},
+			routeLink("Profile", "/dashboard/settings/profile", currentPath),
+			routeLink("Team", "/dashboard/settings/team", currentPath),
+		),
+		html.Div(html.Props{Class: "mt-6"}, router.Outlet()),
+	)
+}
+
+func settingsProfilePage(props router.Attrs) ui.Node {
+	return html.Div(html.Props{Class: "rounded-[1.5rem] border border-[#1f2520]/10 bg-white p-6"},
+		html.H3(html.Props{Class: "text-2xl font-black text-[#1f2520]"}, html.Text("Profile settings")),
+		html.P(html.Props{Class: "mt-3 leading-7 text-[#4a5a4f]"}, html.Text("Keep identity, notification preferences, and workspace defaults in a dedicated settings outlet without remounting the surrounding dashboard or settings chrome.")),
+	)
+}
+
+func settingsTeamPage(props router.Attrs) ui.Node {
+	return html.Div(html.Props{Class: "rounded-[1.5rem] border border-[#1f2520]/10 bg-white p-6"},
+		html.H3(html.Props{Class: "text-2xl font-black text-[#1f2520]"}, html.Text("Team settings")),
+		html.P(html.Props{Class: "mt-3 leading-7 text-[#4a5a4f]"}, html.Text("Nested settings pages can share their own local shell while still living underneath the broader dashboard route.")),
+	)
+}
+
+func docsLayout(props router.Attrs) ui.Node {
+	currentPath := router.GetCurrentPath()
+	return html.Div(html.Props{Class: "min-h-screen bg-[linear-gradient(180deg,#f8f2e7_0%,#eef2ec_100%)] px-6 py-8 text-[#1f2520]"},
+		html.Div(html.Props{Class: "mx-auto max-w-6xl"},
+			html.Div(html.Props{Class: "flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-[#1f2520]/10 bg-white/80 px-6 py-5 shadow-[0_24px_80px_rgba(31,37,32,0.12)]"},
+				html.Div(html.Props{},
+					html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-[#7b5c2e]"}, html.Text("Docs Layout")),
+					html.H1(html.Props{Class: "mt-2 text-3xl font-black text-[#1f2520]"}, html.Text("Guide navigation")),
+				),
+				html.Div(html.Props{Class: "flex flex-wrap gap-3"},
+					routeLink("Home", "/", currentPath),
+					routeLink("Dashboard", "/dashboard/overview", currentPath),
+				),
+			),
+			html.Div(html.Props{Class: "mt-6 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]"},
+				html.Aside(html.Props{Class: "space-y-6"},
+					layoutSection("Docs", "Persistent docs navigation",
+						routeLink("Getting Started", "/docs/getting-started", currentPath),
+						routeLink("Routing", "/docs/routing", currentPath),
+					),
+					html.Div(html.Props{Class: "rounded-[2rem] border border-[#1f2520]/10 bg-[#314034] p-6 text-[#f7f3e8] shadow-[0_18px_60px_rgba(31,37,32,0.12)]"},
+						html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.24em] text-[#d6c28d]"}, html.Text("Why docs benefit from layouts")),
+						html.P(html.Props{Class: "mt-3 leading-7 text-[#edf3e8]"}, html.Text("Docs trees usually want a stable sidebar, breadcrumbs, and article frame while the content page changes underneath.")),
+					),
+				),
+				html.Main(html.Props{Class: "space-y-6"}, router.Outlet()),
+			),
+		),
+	)
+}
+
+func docsGettingStartedPage(props router.Attrs) ui.Node {
+	return html.Article(html.Props{Class: "rounded-[2rem] border border-[#1f2520]/10 bg-white/80 p-8 shadow-[0_20px_70px_rgba(31,37,32,0.08)]"},
+		html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-[#7b5c2e]"}, html.Text("Docs Leaf")),
+		html.H2(html.Props{Class: "mt-3 text-4xl font-black text-[#1f2520]"}, html.Text("Getting started")),
+		html.P(html.Props{Class: "mt-5 max-w-2xl text-lg leading-8 text-[#4a5a4f]"}, html.Text("Start with a layout route for each major section, then register deeper leaves under that prefix. Parent layouts render their child route explicitly with router.Outlet().")),
+	)
+}
+
+func docsRoutingPage(props router.Attrs) ui.Node {
+	return html.Article(html.Props{Class: "rounded-[2rem] border border-[#1f2520]/10 bg-white/80 p-8 shadow-[0_20px_70px_rgba(31,37,32,0.08)]"},
+		html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-[#7b5c2e]"}, html.Text("Docs Leaf")),
+		html.H2(html.Props{Class: "mt-3 text-4xl font-black text-[#1f2520]"}, html.Text("Routing rules")),
+		html.P(html.Props{Class: "mt-5 max-w-2xl text-lg leading-8 text-[#4a5a4f]"}, html.Text("Only routes marked with Options{Layout: true} participate as parent layouts. Parent params stay scoped to their matched prefix, while the leaf route sees the full merged param set for the final path.")),
+	)
+}
+
+func notFoundPage(props router.Attrs) ui.Node {
+	return html.Div(html.Props{Class: "min-h-screen bg-[linear-gradient(180deg,#f4efe4_0%,#eef3e7_100%)] px-6 py-10 text-[#1f2520]"},
+		html.Div(html.Props{Class: "mx-auto max-w-4xl rounded-[2.5rem] border border-[#1f2520]/10 bg-white/80 p-10 shadow-[0_24px_80px_rgba(31,37,32,0.12)]"},
+			html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-[#7b5c2e]"}, html.Text("Not Found")),
+			html.H1(html.Props{Class: "mt-3 text-5xl font-black text-[#1f2520]"}, html.Text("That route does not exist.")),
+			html.P(html.Props{Class: "mt-5 text-lg leading-8 text-[#4a5a4f]"}, html.Text("Use the demo links to jump back into the dashboard or docs route trees.")),
+			html.Div(html.Props{Class: "mt-8 flex flex-wrap gap-4"},
+				routeLink("Dashboard", "/dashboard/overview", router.GetCurrentPath()),
+				routeLink("Docs", "/docs/getting-started", router.GetCurrentPath()),
+			),
+		),
+	)
+}
+
+func main() {
+	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
+	r.Register("/", homePage)
+	r.Register("/dashboard", dashboardLayout, router.Options{Layout: true, Title: "Nested Routes Demo Dashboard"})
+	r.Register("/dashboard/overview", dashboardOverviewPage, router.Options{Title: "Nested Routes Demo Overview"})
+	r.Register("/dashboard/reports/:id", reportPage, router.Options{Title: "Nested Routes Demo Report"})
+	r.Register("/dashboard/settings", settingsLayout, router.Options{Layout: true, Title: "Nested Routes Demo Settings"})
+	r.Register("/dashboard/settings/profile", settingsProfilePage, router.Options{Title: "Nested Routes Demo Profile"})
+	r.Register("/dashboard/settings/team", settingsTeamPage, router.Options{Title: "Nested Routes Demo Team"})
+	r.Register("/docs", docsLayout, router.Options{Layout: true, Title: "Nested Routes Demo Docs"})
+	r.Register("/docs/getting-started", docsGettingStartedPage, router.Options{Title: "Nested Routes Demo Getting Started"})
+	r.Register("/docs/routing", docsRoutingPage, router.Options{Title: "Nested Routes Demo Routing"})
+	r.Register("*", notFoundPage, router.Options{Title: "Nested Routes Demo Not Found"})
+	r.Mount("#app")
+
+	select {}
+}

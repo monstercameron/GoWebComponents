@@ -4,6 +4,7 @@
 package router
 
 import (
+	"context"
 	"net/url"
 	"syscall/js"
 	"testing"
@@ -233,6 +234,130 @@ func TestBrowserRouterHydrateMountElement(t *testing.T) {
 	}
 	if !router.targetElement.Equal(container) {
 		t.Fatal("expected HydrateMountElement to retain the provided target element")
+	}
+}
+
+func TestBrowserRouterLayoutRoutesRenderNestedOutlet(t *testing.T) {
+	installRouterBrowserEnv(t)
+	router := NewRouter(RouterOptions{DefaultRoute: "/dashboard/reports/7"})
+	js.Global().Get("location").Set("pathname", "/dashboard/reports/7")
+
+	router.GoRegisterRoute("/dashboard", func(attrs Attrs) *Element {
+		return runtime.Div(nil,
+			runtime.Text("layout|"),
+			Outlet(),
+		)
+	}, Options{Layout: true})
+	router.GoRegisterRoute("/dashboard/reports/:id", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("report:"+UseParams().Get("id")))
+	})
+
+	elem := router.Current()
+	if elem == nil {
+		t.Fatal("expected nested history layout route element")
+	}
+	if got := collectElementText(elem); got != "layout|report:7" {
+		t.Fatalf("expected history nested layout output layout|report:7, got %q", got)
+	}
+}
+
+func TestBrowserRouterLayoutBeforeLeaveBlocksNestedNavigation(t *testing.T) {
+	installRouterBrowserEnv(t)
+	router := NewRouter(RouterOptions{DefaultRoute: "/dashboard/settings/profile"})
+	js.Global().Get("location").Set("pathname", "/dashboard/settings/profile")
+
+	router.GoRegisterRoute("/dashboard", func(attrs Attrs) *Element {
+		return runtime.Div(nil, Outlet())
+	}, Options{Layout: true})
+	router.GoRegisterRoute("/dashboard/settings", func(attrs Attrs) *Element {
+		return runtime.Div(nil, Outlet())
+	}, Options{
+		Layout: true,
+		BeforeLeave: func(current RouteContext, next RouteContext) GuardResult {
+			if next.Path == "/docs/getting-started" {
+				return BlockNavigation("Finish settings first")
+			}
+			return AllowNavigation()
+		},
+	})
+	router.GoRegisterRoute("/dashboard/settings/profile", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("profile"))
+	})
+	router.GoRegisterRoute("/docs", func(attrs Attrs) *Element {
+		return runtime.Div(nil, Outlet())
+	}, Options{Layout: true})
+	router.GoRegisterRoute("/docs/getting-started", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("docs"))
+	})
+
+	router.Navigate("/docs/getting-started")
+	if got := js.Global().Get("location").Get("pathname").String(); got != "/dashboard/settings/profile" {
+		t.Fatalf("expected nested layout before-leave guard to keep pathname /dashboard/settings/profile, got %q", got)
+	}
+}
+
+func TestBrowserRouterLayoutRouteLoaderDataScopesPerLevel(t *testing.T) {
+	installRouterBrowserEnv(t)
+	router := NewRouter(RouterOptions{DefaultRoute: "/dashboard/reports/7"})
+	js.Global().Get("location").Set("pathname", "/dashboard/reports/7")
+
+	layoutData := ""
+	childData := ""
+	router.GoRegisterRoute("/dashboard", func(attrs Attrs) *Element {
+		if data := UseRouteData(); data != nil {
+			layoutData, _ = data["section"].(string)
+		}
+		return runtime.Div(nil,
+			runtime.Text("layout:"+layoutData+"|"),
+			Outlet(),
+		)
+	}, Options{
+		Layout: true,
+		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
+			return Attrs{"section": "dashboard"}, nil
+		},
+	})
+	router.GoRegisterRoute("/dashboard/reports/:id", func(attrs Attrs) *Element {
+		if data := UseRouteData(); data != nil {
+			childData, _ = data["report"].(string)
+		}
+		return runtime.Div(nil, runtime.Text("report:"+childData))
+	}, Options{
+		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
+			return Attrs{"report": routeCtx.Params.Get("id")}, nil
+		},
+	})
+
+	waitForCondition(t, func() bool {
+		elem := router.Current()
+		if elem == nil {
+			return false
+		}
+		return layoutData == "dashboard" && childData == "7" && collectElementText(elem) == "layout:dashboard|report:7"
+	})
+}
+
+func TestBrowserRouterLeafMetadataOverridesLayoutMetadata(t *testing.T) {
+	installRouterBrowserEnv(t)
+	router := NewRouter(RouterOptions{DefaultRoute: "/dashboard/reports/7"})
+	js.Global().Get("location").Set("pathname", "/dashboard/reports/7")
+
+	router.GoRegisterRoute("/dashboard", func(attrs Attrs) *Element {
+		return runtime.Div(nil, Outlet())
+	}, Options{Layout: true, Title: "Dashboard", Description: "Parent dashboard description"})
+	router.GoRegisterRoute("/dashboard/reports/:id", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("report"))
+	}, Options{Title: "Report 7", Description: "Leaf report description"})
+
+	if elem := router.Current(); elem == nil {
+		t.Fatal("expected nested history route element for metadata test")
+	}
+	doc := js.Global().Get("document")
+	if got := doc.Get("title").String(); got != "Report 7" {
+		t.Fatalf("expected leaf history route title Report 7, got %q", got)
+	}
+	if got := doc.Call("querySelector", `meta[name="description"]`).Get("attributes").Get("content").String(); got != "Leaf report description" {
+		t.Fatalf("expected leaf history route description to win, got %q", got)
 	}
 }
 
