@@ -4,12 +4,12 @@
 
 ### Internationalization and localization
 
-- Added a new public `i18n` package with locale state, provider-backed runtime access, deterministic catalog registration, missing-message fallback behavior, interpolation, pluralization, select-style branching, and locale-aware number or date formatting helpers.
-- Extended `ui.SSRBootstrap` with typed `I18n` payload support so server-rendered pages can transfer active locale, fallback locale, direction, and the initial message subset used during hydration.
-- Added locale-prefix path helpers and documented the routing boundary so `router` continues to own route evaluation while applications keep ownership of locale-specific loader policy and content selection.
+- Added a new public `i18n` package with `UseLocale(...)`, `Provider(...)`, `UseI18n()`, deterministic bundle registration, missing-message fallback behavior, interpolation, pluralization, select-style branching, and locale-aware number or date formatting helpers.
+- Added route-oriented helpers `PrefixPath(...)` and `ResolvePath(...)` so locale prefixes can stay application-owned without pushing locale policy into `router` itself.
+- Extended `ui.SSRBootstrap` with typed `I18n` payload support and bundle conversion helpers so server-rendered pages can transfer active locale, fallback locale, direction, and the initial message subset used during hydration.
 - Added `docs/I18N.md` to define the current i18n scope, SSR transfer model, locale-aware routing guidance, and RTL or directionality expectations.
-- Added `examples/83-locale-switcher`, `examples/84-ssr-i18n-bootstrap`, and `examples/85-locale-routing` together with focused Playwright coverage for runtime locale switching, bootstrap-driven locale hydration, and locale-prefixed routing.
-- Added native `i18n` tests and a translation microbenchmark covering fallback lookup, pluralization, formatting, SSR bootstrap round-tripping, and locale-aware path helpers.
+- Added `examples/83-locale-switcher`, `examples/84-ssr-i18n-bootstrap`, and `examples/85-locale-routing` together with focused Playwright coverage for runtime locale switching, bootstrap-driven locale hydration, and locale-prefixed loader-driven routing.
+- Added native `i18n` tests and a translation microbenchmark covering fallback lookup, pluralization, formatting, SSR bootstrap round-tripping, and locale-aware path helpers, plus `ui` bootstrap tests that assert the new `I18n` payload is serialized and initialized correctly.
 
 ### Portal layering and overlay management
 
