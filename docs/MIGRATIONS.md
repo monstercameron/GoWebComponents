@@ -4,6 +4,8 @@ This file collects release-to-release upgrade guidance for GoWebComponents adopt
 
 The current project-level migration window starts with the `v3.x` public package layout. Future major releases should extend this file rather than forcing adopters to reconstruct changes from commit history and changelog bullets.
 
+No major release should be considered documentation-complete until this file includes subsystem-specific upgrade guidance for runtime and component authoring, router behavior, SSR and hydration, forms and local state, shared state and data loading, and testing or deployment expectations.
+
 For compatibility guarantees and deprecation timing, see [API_POLICY.md](API_POLICY.md).
 
 ## Pre-v3 To v3.x
@@ -107,3 +109,15 @@ Each future major release should add a new section here using this structure:
 7. Removed APIs and deadline summary
 
 Minor releases should add notes here too when a public behavior change is allowed under the experimental policy and requires user action.
+
+## Migration Release Gate
+
+Before a future major release is treated as ready for broad adoption, confirm that this file includes:
+
+- a new release section named for the outgoing and incoming major versions
+- explicit upgrade guidance for runtime and component authoring changes
+- router migration notes, including changed defaults or matching behavior
+- SSR and hydration notes, including bootstrap or mismatch-handling changes
+- forms, state, and fetch notes where user code or payload shape changes
+- testing and deployment notes for wasm output, browser tests, and server expectations
+- removed or deprecated API deadlines that match the changelog and API policy

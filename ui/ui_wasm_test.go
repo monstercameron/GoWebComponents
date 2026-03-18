@@ -950,6 +950,13 @@ func TestUseFormTracksFieldStateAndValidation(t *testing.T) {
 	if !form.HasErrors() {
 		t.Fatal("expected aggregate error helper to report field/form errors")
 	}
+	status := form.FieldStatus("Email")
+	if status.Name != "Email" || status.Error != "required" || status.Pending {
+		t.Fatalf("expected field status to reflect field error state, got %+v", status)
+	}
+	if !form.HasFieldError("Email") || form.FieldMessage("Email") != "required" {
+		t.Fatal("expected field helpers to expose field error message")
+	}
 	valid := form.Validate(func(state profileForm) FieldErrors {
 		if state.Name == "" {
 			return FieldErrors{"Name": "required"}
@@ -977,6 +984,115 @@ func TestUseFormTracksFieldStateAndValidation(t *testing.T) {
 	}
 	if form.TouchedAny() || form.DirtyAny() || form.HasErrors() {
 		t.Fatal("expected Reset to restore pristine and error-free aggregate state")
+	}
+}
+
+func TestUseFormApplyServerErrorsAndCSRFTokens(t *testing.T) {
+	installUIHookContext(t)
+
+	form := UseForm(profileForm{})
+	valid := form.ApplyServerErrors(ServerFormErrors{
+		Message: "Fix the highlighted fields.",
+		Fields:  FieldErrors{"Email": "already used"},
+	})
+	if valid {
+		t.Fatal("expected structured server errors to report invalid form state")
+	}
+	if form.FormError() != "Fix the highlighted fields." {
+		t.Fatalf("expected structured message to become form error, got %q", form.FormError())
+	}
+	if form.Error("Email") != "already used" {
+		t.Fatalf("expected structured field errors to map into form state, got %q", form.Error("Email"))
+	}
+	clean := form.ApplyServerErrors(ServerFormErrors{})
+	if !clean || form.FormError() != "" || len(form.Errors()) != 0 {
+		t.Fatalf("expected empty structured server response to clear form errors, clean=%t formError=%q errors=%#v", clean, form.FormError(), form.Errors())
+	}
+
+	token := NewCSRFToken("token-123")
+	headerName, headerValue := token.Header()
+	if headerName != DefaultCSRFHeaderName || headerValue != "token-123" {
+		t.Fatalf("expected default CSRF header helper, got %q=%q", headerName, headerValue)
+	}
+	fieldName, fieldValue := token.FormField()
+	if fieldName != DefaultCSRFFormFieldName || fieldValue != "token-123" {
+		t.Fatalf("expected default CSRF form field helper, got %q=%q", fieldName, fieldValue)
+	}
+	custom := CSRFToken{Value: "abc", HeaderName: "X-Demo-CSRF", FormFieldName: "demo_csrf"}
+	customHeader, customHeaderValue := custom.Header()
+	customField, customFieldValue := custom.FormField()
+	if customHeader != "X-Demo-CSRF" || customHeaderValue != "abc" || customField != "demo_csrf" || customFieldValue != "abc" {
+		t.Fatalf("expected custom CSRF naming to be preserved, got header=%q value=%q field=%q fieldValue=%q", customHeader, customHeaderValue, customField, customFieldValue)
+	}
+}
+
+func TestUseFormSubmitIntentHelpers(t *testing.T) {
+	installUIHookContext(t)
+
+	form := UseForm(profileForm{Name: "Alice"})
+	valid := form.ValidateIntent("publish", func(value profileForm, intent string) FieldErrors {
+		if intent == "publish" && value.Name == "" {
+			return FieldErrors{"Name": "required"}
+		}
+		return nil
+	})
+	if !valid || form.SubmitIntent() != "publish" {
+		t.Fatalf("expected intent-aware validation to record publish intent, valid=%t intent=%q", valid, form.SubmitIntent())
+	}
+
+	block := make(chan struct{})
+	form.SubmitWithIntent("draft", func(value profileForm, intent string) error {
+		if value.Name != "Alice" || intent != "draft" {
+			return errors.New("unexpected submit intent snapshot")
+		}
+		<-block
+		return nil
+	})
+	if !form.Submitting() || !form.IntentPending("draft") || form.IntentPending("publish") {
+		t.Fatalf("expected per-intent pending state, submitting=%t draft=%t publish=%t", form.Submitting(), form.IntentPending("draft"), form.IntentPending("publish"))
+	}
+	close(block)
+	time.Sleep(20 * time.Millisecond)
+	if form.Submitting() || !form.Submitted() || form.SubmitIntent() != "draft" {
+		t.Fatalf("expected successful draft submit lifecycle, submitting=%t submitted=%t intent=%q", form.Submitting(), form.Submitted(), form.SubmitIntent())
+	}
+
+	form.Reset()
+	if form.SubmitIntent() != "" {
+		t.Fatalf("expected reset to clear submit intent, got %q", form.SubmitIntent())
+	}
+}
+
+func TestExtractFilesReturnsWrappedBrowserFiles(t *testing.T) {
+	fileOne := js.Global().Get("Object").New()
+	fileOne.Set("name", "photo.png")
+	fileOne.Set("type", "image/png")
+	fileOne.Set("size", 1234)
+	fileOne.Set("lastModified", 99)
+	fileTwo := js.Global().Get("Object").New()
+	fileTwo.Set("name", "notes.txt")
+	fileTwo.Set("type", "text/plain")
+	fileTwo.Set("size", 55)
+	fileTwo.Set("lastModified", 101)
+
+	files := js.Global().Get("Object").New()
+	files.Set("length", 2)
+	files.Set("0", fileOne)
+	files.Set("1", fileTwo)
+	target := js.Global().Get("Object").New()
+	target.Set("files", files)
+	jsEvent := js.Global().Get("Object").New()
+	jsEvent.Set("target", target)
+
+	result := ExtractFiles(NewGoEvent(jsEvent))
+	if len(result) != 2 {
+		t.Fatalf("expected two extracted files, got %d", len(result))
+	}
+	if result[0].Name() != "photo.png" || result[0].Type() != "image/png" || result[0].Size() != 1234 || result[0].LastModified() != 99 {
+		t.Fatalf("unexpected first extracted file: name=%q type=%q size=%d lastModified=%d", result[0].Name(), result[0].Type(), result[0].Size(), result[0].LastModified())
+	}
+	if result[1].Name() != "notes.txt" || result[1].Type() != "text/plain" || result[1].Size() != 55 || result[1].LastModified() != 101 {
+		t.Fatalf("unexpected second extracted file: name=%q type=%q size=%d lastModified=%d", result[1].Name(), result[1].Type(), result[1].Size(), result[1].LastModified())
 	}
 }
 

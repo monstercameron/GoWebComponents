@@ -16,8 +16,9 @@
 // ad hoc field mutations spread across handlers.
 //
 // UseForm is intended for multi-field local forms that need touched/dirty state,
-// structured field errors, validation, and a submission lifecycle without having
-// to rebuild that bookkeeping in every example.
+// structured field errors, validation, a submission lifecycle, and a small set
+// of transport-oriented helpers such as server error mapping and CSRF naming
+// conventions without having to rebuild that bookkeeping in every example.
 //
 // UsePrevious is intended for cases where a component needs to compare the
 // current value against the last committed one without introducing extra state.

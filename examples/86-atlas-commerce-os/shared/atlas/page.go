@@ -1193,8 +1193,9 @@ func prependCSRFToken(token string, children ...ui.Node) []ui.Node {
 	if strings.TrimSpace(token) == "" {
 		return children
 	}
+	fieldName, fieldValue := ui.NewCSRFToken(token).FormField()
 	result := make([]ui.Node, 0, len(children)+1)
-	result = append(result, html.Input(html.Props{Type: "hidden", Name: "csrf_token", Value: token}))
+	result = append(result, html.HiddenInput(fieldName, fieldValue))
 	result = append(result, children...)
 	return result
 }

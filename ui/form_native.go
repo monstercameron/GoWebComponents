@@ -5,12 +5,68 @@ package ui
 
 import (
 	"reflect"
+	"strings"
 	"sync"
 )
+
+const DefaultCSRFHeaderName = "X-CSRF-Token"
+const DefaultCSRFFormFieldName = "csrf_token"
+
+type CSRFToken struct {
+	Value         string
+	HeaderName    string
+	FormFieldName string
+}
+
+type ServerFormErrors struct {
+	Error   string      `json:"error,omitempty"`
+	Message string      `json:"message,omitempty"`
+	Fields  FieldErrors `json:"fields,omitempty"`
+}
+
+type FieldStatus struct {
+	Name    string
+	Touched bool
+	Dirty   bool
+	Pending bool
+	Error   string
+}
+
+func NewCSRFToken(value string) CSRFToken {
+	return CSRFToken{
+		Value:         value,
+		HeaderName:    DefaultCSRFHeaderName,
+		FormFieldName: DefaultCSRFFormFieldName,
+	}
+}
+
+func (t CSRFToken) Header() (string, string) {
+	name := strings.TrimSpace(t.HeaderName)
+	if name == "" {
+		name = DefaultCSRFHeaderName
+	}
+	return name, t.Value
+}
+
+func (t CSRFToken) FormField() (string, string) {
+	name := strings.TrimSpace(t.FormFieldName)
+	if name == "" {
+		name = DefaultCSRFFormFieldName
+	}
+	return name, t.Value
+}
+
+func (e ServerFormErrors) FormMessage() string {
+	if message := strings.TrimSpace(e.Message); message != "" {
+		return message
+	}
+	return strings.TrimSpace(e.Error)
+}
 
 type formState[T any] struct {
 	value       T
 	initial     T
+	submitIntent string
 	touched     map[string]bool
 	dirty       map[string]bool
 	errors      FieldErrors
@@ -64,6 +120,26 @@ func (f Form[T]) Set(value T) {
 	f.state.value = value
 	f.state.dirty = computeDirtyFields(f.state.initial, value)
 	f.state.formError = ""
+}
+
+// SetSubmitIntent records the current submit intent for intent-aware validation or submission flows.
+func (f Form[T]) SetSubmitIntent(intent string) {
+	if f.state == nil || f.mu == nil {
+		return
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.state.submitIntent = strings.TrimSpace(intent)
+}
+
+// SubmitIntent returns the most recently selected submit intent.
+func (f Form[T]) SubmitIntent() string {
+	if f.state == nil || f.mu == nil {
+		return ""
+	}
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return f.state.submitIntent
 }
 
 // Update replaces the current form value using the previous value.
@@ -185,6 +261,31 @@ func (f Form[T]) Error(name string) string {
 	return f.state.errors[name]
 }
 
+// HasFieldError reports whether a field currently has an error message.
+func (f Form[T]) HasFieldError(name string) bool {
+	return f.FieldMessage(name) != ""
+}
+
+// FieldMessage returns the current message for one field.
+func (f Form[T]) FieldMessage(name string) string {
+	return f.Error(name)
+}
+
+// FieldStatus returns the current touched, dirty, pending, and error state for one field.
+func (f Form[T]) FieldStatus(name string) FieldStatus {
+	status := FieldStatus{Name: name}
+	if f.state == nil || f.mu == nil {
+		return status
+	}
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	status.Touched = f.state.touched[name]
+	status.Dirty = f.state.dirty[name]
+	status.Pending = f.state.validating || f.state.submitting
+	status.Error = f.state.errors[name]
+	return status
+}
+
 // FormError returns the form-level error message.
 func (f Form[T]) FormError() string {
 	if f.state == nil || f.mu == nil {
@@ -235,6 +336,16 @@ func (f Form[T]) HasErrors() bool {
 	return len(f.state.errors) > 0 || f.state.formError != ""
 }
 
+// ApplyServerErrors projects a structured server validation response onto the form state.
+func (f Form[T]) ApplyServerErrors(response ServerFormErrors) bool {
+	if f.state == nil || f.mu == nil {
+		return false
+	}
+	f.SetErrors(response.Fields)
+	f.SetFormError(response.FormMessage())
+	return len(response.Fields) == 0 && response.FormMessage() == ""
+}
+
 // Validate runs synchronous validation and stores the resulting field errors.
 func (f Form[T]) Validate(validate func(T) FieldErrors) bool {
 	if f.state == nil || f.mu == nil {
@@ -246,6 +357,25 @@ func (f Form[T]) Validate(validate func(T) FieldErrors) bool {
 		return true
 	}
 	errors := validate(f.Get())
+	f.SetFormError("")
+	f.SetErrors(errors)
+	return len(errors) == 0
+}
+
+// ValidateIntent runs validation against the current value plus an explicit submit intent.
+func (f Form[T]) ValidateIntent(intent string, validate func(T, string) FieldErrors) bool {
+	if f.state == nil || f.mu == nil {
+		return true
+	}
+	trimmedIntent := strings.TrimSpace(intent)
+	if validate == nil {
+		f.SetSubmitIntent(trimmedIntent)
+		f.SetFormError("")
+		f.SetErrors(nil)
+		return true
+	}
+	f.SetSubmitIntent(trimmedIntent)
+	errors := validate(f.Get(), trimmedIntent)
 	f.SetFormError("")
 	f.SetErrors(errors)
 	return len(errors) == 0
@@ -324,6 +454,39 @@ func (f Form[T]) Submit(run func(T) error) {
 	}(snapshot)
 }
 
+// SubmitWithIntent runs the submit function with an explicit intent and tracks that intent while submission is pending.
+func (f Form[T]) SubmitWithIntent(intent string, run func(T, string) error) {
+	if f.state == nil || f.mu == nil || run == nil {
+		return
+	}
+	trimmedIntent := strings.TrimSpace(intent)
+	snapshot := f.Get()
+	f.mu.Lock()
+	f.state.submitIntent = trimmedIntent
+	f.state.submitting = true
+	f.state.submitted = false
+	f.state.submitError = nil
+	f.state.formError = ""
+	f.mu.Unlock()
+
+	go func(value T, activeIntent string) {
+		err := run(value, activeIntent)
+		f.mu.Lock()
+		if f.state != nil {
+			f.state.submitting = false
+			f.state.submitError = err
+			f.state.submitted = err == nil
+			f.state.submitIntent = activeIntent
+			if err != nil {
+				f.state.formError = err.Error()
+			} else {
+				f.state.formError = ""
+			}
+		}
+		f.mu.Unlock()
+	}(snapshot, trimmedIntent)
+}
+
 // Submitting reports whether a submission is in flight.
 func (f Form[T]) Submitting() bool {
 	if f.state == nil || f.mu == nil {
@@ -364,6 +527,16 @@ func (f Form[T]) Submitted() bool {
 	return f.state.submitted
 }
 
+// IntentPending reports whether the given intent is the currently pending submit action.
+func (f Form[T]) IntentPending(intent string) bool {
+	if f.state == nil || f.mu == nil {
+		return false
+	}
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return f.state.submitting && f.state.submitIntent == strings.TrimSpace(intent)
+}
+
 // SubmitError returns the last submission error.
 func (f Form[T]) SubmitError() error {
 	if f.state == nil || f.mu == nil {
@@ -387,6 +560,7 @@ func (f Form[T]) Reset(next ...T) {
 	} else {
 		f.state.value = f.state.initial
 	}
+	f.state.submitIntent = ""
 	f.state.touched = map[string]bool{}
 	f.state.dirty = map[string]bool{}
 	f.state.errors = FieldErrors{}

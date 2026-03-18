@@ -15,5 +15,7 @@
 //	}
 //
 // html.Props keeps common DOM metadata explicit while still exposing Raw for
-// escape-hatch attributes that do not need first-class fields yet.
+// escape-hatch attributes that do not need first-class fields yet. Small
+// convenience builders such as HiddenInput help with repetitive form markup
+// without changing the underlying explicit props model.
 package html

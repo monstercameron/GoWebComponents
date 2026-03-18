@@ -15,6 +15,7 @@ type Props struct {
 	Name         string
 	Value        string
 	Placeholder  string
+	Accept       string
 	Href         string
 	Src          string
 	Alt          string
@@ -24,6 +25,7 @@ type Props struct {
 	Rel          string
 	Action       string
 	Method       string
+	EncType      string
 	AutoComplete string
 	Min          string
 	Max          string
@@ -163,6 +165,10 @@ func Input(props Props) ui.Node {
 	return Tag("input", props)
 }
 
+func HiddenInput(name string, value string) ui.Node {
+	return Input(Props{Type: "hidden", Name: name, Value: value})
+}
+
 func Label(props Props, children ...ui.Node) ui.Node {
 	return Tag("label", props, children...)
 }
@@ -262,6 +268,9 @@ func toRuntimeProps(props Props) map[string]interface{} {
 	if props.Placeholder != "" {
 		count++
 	}
+	if props.Accept != "" {
+		count++
+	}
 	if props.Href != "" {
 		count++
 	}
@@ -287,6 +296,9 @@ func toRuntimeProps(props Props) map[string]interface{} {
 		count++
 	}
 	if props.Method != "" {
+		count++
+	}
+	if props.EncType != "" {
 		count++
 	}
 	if props.AutoComplete != "" {
@@ -388,6 +400,9 @@ func toRuntimeProps(props Props) map[string]interface{} {
 	if props.Placeholder != "" {
 		values["placeholder"] = props.Placeholder
 	}
+	if props.Accept != "" {
+		values["accept"] = props.Accept
+	}
 	if props.Href != "" {
 		values["href"] = props.Href
 	}
@@ -414,6 +429,9 @@ func toRuntimeProps(props Props) map[string]interface{} {
 	}
 	if props.Method != "" {
 		values["method"] = props.Method
+	}
+	if props.EncType != "" {
+		values["enctype"] = props.EncType
 	}
 	if props.AutoComplete != "" {
 		values["autocomplete"] = props.AutoComplete

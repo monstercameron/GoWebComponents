@@ -27,6 +27,7 @@ The `fetch` package provides utilities for making HTTP requests from WebAssembly
 - Use `UseResource[T]` when you want typed values, cancellation, dependency-driven reloads, or loader logic that does more than one direct fetch call.
 - Use `UseCachedResource[T]` when the same typed query should be shared across components, deduplicated in flight, or updated optimistically before a revalidation.
 - Use `Fetch` when you need imperative access from an event handler, goroutine, or other non-hook code.
+- Use `Upload` together with `MultipartBody` when the request needs browser files, upload progress, or cancellation.
 
 ## Core APIs
 
@@ -159,6 +160,35 @@ func CreateUser(userData map[string]interface{}) {
 }
 ```
 
+### `Upload(ctx context.Context, url string, options Options) <-chan UploadUpdate`
+
+XHR-backed imperative upload API for multipart form-data workflows that need progress and cancellation.
+
+```go
+files := ui.ExtractFiles(event)
+updates := fetch.Upload(ctx, "/api/assets", fetch.Options{
+    Method: "POST",
+    Body: fetch.MultipartBody{
+        Fields: map[string]string{"title": form.Get().Title},
+        Files: []fetch.MultipartFile{{FieldName: "asset", File: files[0]}},
+    },
+})
+
+go func() {
+    for update := range updates {
+        if !update.Done {
+            fmt.Printf("uploaded %d of %d\n", update.Loaded, update.Total)
+            continue
+        }
+        if update.Result.Err != nil {
+            fmt.Println("upload failed:", update.Result.Err)
+            return
+        }
+        fmt.Println("upload complete:", update.Result.Data)
+    }
+}()
+```
+
 ## Data Types
 
 ### FetchState
@@ -186,7 +216,36 @@ type Result struct {
 type Options struct {
     Method  string                 // HTTP method: GET, POST, PUT, DELETE, etc.
     Headers map[string]interface{} // Request headers
-    Body    interface{}            // Request body (auto-JSON encoded if struct/map)
+    Body    interface{}            // Request body (string, auto-JSON encoded values, or MultipartBody)
+}
+```
+
+### MultipartBody
+
+```go
+type MultipartBody struct {
+    Fields map[string]string
+    Files  []MultipartFile
+}
+
+type MultipartFile struct {
+    FieldName string
+    File      ui.File
+    Filename  string
+}
+```
+
+Use `ui.ExtractFiles(event)` to capture browser-selected files from a typed input or change event, and use `html.Props{Type: "file", Accept: ...}` to keep the file input contract explicit in markup.
+
+### UploadUpdate
+
+```go
+type UploadUpdate struct {
+    Loaded           int64
+    Total            int64
+    LengthComputable bool
+    Done             bool
+    Result           Result
 }
 ```
 

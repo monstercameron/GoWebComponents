@@ -177,22 +177,20 @@ func publicProductFeedbackSection(product productCard, comments []commentRecord,
 			form.SetFormError("")
 			snapshot := form.Get()
 			go func() {
-				created, fieldErrors, summary, err := submitPublicComment(product.Slug, snapshot, payload.CSRF)
+				created, serverErrors, err := submitPublicComment(product.Slug, snapshot, payload.CSRF)
 				if err != nil {
 					form.SetFormError("Comment submit failed. Retry in a moment.")
 					submittingState.Set(false)
 					return
 				}
-				if len(fieldErrors) > 0 {
-					form.SetErrors(normalizePublicCommentFieldErrors(fieldErrors))
-					form.SetFormError(summary)
+				if !form.ApplyServerErrors(serverErrors) {
 					submittingState.Set(false)
 					return
 				}
 				form.Reset(publicCommentFormState{Reaction: "up"})
 				form.SetErrors(nil)
 				form.SetFormError("")
-				submissionMessageState.Set(nonEmptyPublicText(summary, "Your comment was submitted for review."))
+				submissionMessageState.Set("Your comment was submitted for review.")
 				commentsState.Set(mergePublicCommentList(commentsState.Get(), created))
 				refreshingState.Set(true)
 				submittingState.Set(false)
@@ -392,7 +390,7 @@ func commentRecordsSignature(items []commentRecord) string {
 	return strings.Join(parts, "|")
 }
 
-func submitPublicComment(slug string, input publicCommentFormState, csrfToken string) (commentRecord, ui.FieldErrors, string, error) {
+func submitPublicComment(slug string, input publicCommentFormState, csrfToken string) (commentRecord, ui.ServerFormErrors, error) {
 	body, err := json.Marshal(map[string]string{
 		"author_name": input.AuthorName,
 		"reaction":    input.Reaction,
@@ -400,35 +398,37 @@ func submitPublicComment(slug string, input publicCommentFormState, csrfToken st
 		"body":        input.Body,
 	})
 	if err != nil {
-		return commentRecord{}, nil, "", err
+		return commentRecord{}, ui.ServerFormErrors{}, err
 	}
 	request, err := http.NewRequest(http.MethodPost, "/api/public/products/"+slug+"/comments", bytes.NewReader(body))
 	if err != nil {
-		return commentRecord{}, nil, "", err
+		return commentRecord{}, ui.ServerFormErrors{}, err
 	}
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Accept", "application/json")
-	request.Header.Set("X-CSRF-Token", csrfToken)
+	headerName, headerValue := ui.NewCSRFToken(csrfToken).Header()
+	request.Header.Set(headerName, headerValue)
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return commentRecord{}, nil, "", err
+		return commentRecord{}, ui.ServerFormErrors{}, err
 	}
 	defer response.Body.Close()
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
 		var created commentRecord
 		if err := json.NewDecoder(response.Body).Decode(&created); err != nil {
-			return commentRecord{}, nil, "", err
+			return commentRecord{}, ui.ServerFormErrors{}, err
 		}
-		return created, nil, "Your comment was submitted for review.", nil
+		return created, ui.ServerFormErrors{}, nil
 	}
-	var failure struct {
-		Message string         `json:"message"`
-		Fields  ui.FieldErrors `json:"fields"`
-	}
+	var failure ui.ServerFormErrors
 	if err := json.NewDecoder(response.Body).Decode(&failure); err != nil {
-		return commentRecord{}, nil, "", err
+		return commentRecord{}, ui.ServerFormErrors{}, err
 	}
-	return commentRecord{}, normalizePublicCommentFieldErrors(failure.Fields), nonEmptyPublicText(failure.Message, "Fix the highlighted fields and try again."), nil
+	failure.Fields = normalizePublicCommentFieldErrors(failure.Fields)
+	if failure.FormMessage() == "" {
+		failure.Message = "Fix the highlighted fields and try again."
+	}
+	return commentRecord{}, failure, nil
 }
 
 func mergePublicCommentList(items []commentRecord, pendingComment commentRecord) []commentRecord {

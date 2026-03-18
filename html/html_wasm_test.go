@@ -26,6 +26,7 @@ func TestInput_KeepsMeaningfulProps(t *testing.T) {
 	elem := Input(Props{
 		ID:       "name",
 		Value:    "alice",
+		Accept:   "image/*",
 		Disabled: true,
 		Rows:     4,
 		Class:    "field",
@@ -41,6 +42,9 @@ func TestInput_KeepsMeaningfulProps(t *testing.T) {
 	}
 	if elem.Props["value"] != "alice" {
 		t.Fatalf("expected value prop, got %#v", elem.Props["value"])
+	}
+	if elem.Props["accept"] != "image/*" {
+		t.Fatalf("expected accept prop, got %#v", elem.Props["accept"])
 	}
 	if elem.Props["disabled"] != true {
 		t.Fatalf("expected disabled prop, got %#v", elem.Props["disabled"])
@@ -59,6 +63,32 @@ func TestInput_KeepsMeaningfulProps(t *testing.T) {
 	}
 	if _, ok := elem.Props["required"]; ok {
 		t.Fatalf("expected zero-value bool prop to be omitted, got %#v", elem.Props["required"])
+	}
+}
+
+func TestHiddenInput_UsesHiddenTypeAndProvidedNameValue(t *testing.T) {
+	elem := HiddenInput("csrf_token", "token-123")
+	if elem == nil {
+		t.Fatal("expected element")
+	}
+	if elem.Props["type"] != "hidden" {
+		t.Fatalf("expected hidden type, got %#v", elem.Props["type"])
+	}
+	if elem.Props["name"] != "csrf_token" {
+		t.Fatalf("expected hidden input name, got %#v", elem.Props["name"])
+	}
+	if elem.Props["value"] != "token-123" {
+		t.Fatalf("expected hidden input value, got %#v", elem.Props["value"])
+	}
+}
+
+func TestFormPropsIncludeEncType(t *testing.T) {
+	elem := Form(Props{Action: "/upload", Method: "post", EncType: "multipart/form-data"})
+	if elem == nil {
+		t.Fatal("expected form element")
+	}
+	if elem.Props["enctype"] != "multipart/form-data" {
+		t.Fatalf("expected enctype prop, got %#v", elem.Props["enctype"])
 	}
 }
 

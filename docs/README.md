@@ -4,6 +4,24 @@ This directory contains the project-level documentation that is still useful aft
 
 ## Files
 
+### `START_HERE.md`
+Recommended entrypoint for new adopters, including the preferred package surface, first example picks, and the modern path through the docs.
+
+### `WORKFLOWS.md`
+Task-oriented guidance for common developer jobs such as building a client-only app, adding routing, adding SSR, testing, shipping a wasm build, and debugging hydration.
+
+### `WALKTHROUGHS.md`
+End-to-end app-shape walkthroughs that connect the current examples and package surface into realistic starting paths.
+
+### `REFERENCE_MAP.md`
+Cross-links for concepts, public APIs, examples, production caveats, and related docs.
+
+### `TROUBLESHOOTING.md`
+Common setup and runtime failure guidance for wasm builds, `wasm_exec.js`, example serving, hydration, routing, and browser interop.
+
+### `FORMS.md`
+Current supported `ui.UseForm` modes, server-post conventions, redirect-after-submit guidance, and the boundary between shipped form state helpers and application-owned server workflows.
+
 ### `README.md`
 High-level documentation index and pointers to the current runtime, examples, tests, and tools.
 
@@ -32,6 +50,16 @@ Current internationalization scope, locale context model, message catalog helper
 Current backlog and near-term work. This is a live backlog, not a historical archive of every idea the project has ever had.
 
 ## Where The Core Lives
+
+## Start Here
+
+If you are new to the repo, use this order:
+
+1. [START_HERE.md](START_HERE.md)
+2. [WORKFLOWS.md](WORKFLOWS.md)
+3. [WALKTHROUGHS.md](WALKTHROUGHS.md)
+4. [REFERENCE_MAP.md](REFERENCE_MAP.md)
+5. [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 
 The old docs referred to a `/fiber` directory. That is stale.
 
@@ -62,6 +90,12 @@ As of 2026-03-14:
 
 - [../README.md](../README.md)
 - [../CHANGELOG.md](../CHANGELOG.md)
+- [START_HERE.md](START_HERE.md)
+- [WORKFLOWS.md](WORKFLOWS.md)
+- [WALKTHROUGHS.md](WALKTHROUGHS.md)
+- [REFERENCE_MAP.md](REFERENCE_MAP.md)
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+- [FORMS.md](FORMS.md)
 - [API_POLICY.md](API_POLICY.md)
 - [ACCESSIBILITY.md](ACCESSIBILITY.md)
 - [OVERLAYS.md](OVERLAYS.md)
