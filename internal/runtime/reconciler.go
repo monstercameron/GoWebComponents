@@ -740,7 +740,7 @@ func isSameType(type1, type2 interface{}) bool {
 	}
 
 	if v1.Kind() == reflect.Func && v2.Kind() == reflect.Func {
-		return v1.Pointer() == v2.Pointer()
+		return sameFunctionIdentity(type1, type2)
 	}
 
 	if v1.Type().Comparable() {

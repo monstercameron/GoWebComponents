@@ -5,7 +5,30 @@ import (
 	"reflect"
 	"sync"
 	"time"
+	"unsafe"
 )
+
+type emptyInterfaceHeader struct {
+	typ  unsafe.Pointer
+	data unsafe.Pointer
+}
+
+func sameFunctionIdentity(a, b interface{}) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	va := reflect.ValueOf(a)
+	vb := reflect.ValueOf(b)
+	if !va.IsValid() || !vb.IsValid() || va.Kind() != reflect.Func || vb.Kind() != reflect.Func {
+		return false
+	}
+	if va.Type() != vb.Type() {
+		return false
+	}
+	aHeader := (*emptyInterfaceHeader)(unsafe.Pointer(&a))
+	bHeader := (*emptyInterfaceHeader)(unsafe.Pointer(&b))
+	return va.Pointer() == vb.Pointer() && aHeader.data == bHeader.data
+}
 
 var nilableTypeCache sync.Map
 
@@ -571,13 +594,12 @@ func fastEqual(a, b interface{}) bool {
 		return false
 	}
 
-	if ta.Comparable() {
-		return a == b
+	if ta.Kind() == reflect.Func {
+		return sameFunctionIdentity(a, b)
 	}
 
-	// Handle functions (compare pointers, js.Func is a func type)
-	if ta.Kind() == reflect.Func {
-		return reflect.ValueOf(a).Pointer() == reflect.ValueOf(b).Pointer()
+	if ta.Comparable() {
+		return a == b
 	}
 
 	// Optimization: Use reference equality for Slices and Maps

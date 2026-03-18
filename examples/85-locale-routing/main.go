@@ -5,8 +5,9 @@ package main
 
 import (
 	"context"
-	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"syscall/js"
+
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/i18n"

@@ -5,7 +5,6 @@ import path from 'node:path';
 type ExampleEntry = {
   dir: string;
   htmlFile: string;
-  url: string;
 };
 
 type InteractionPlan = {
@@ -39,10 +38,30 @@ function discoverExamples(): ExampleEntry[] {
       return {
         dir: entry.name,
         htmlFile,
-        url: `/examples/${entry.name}/${htmlFile}`,
       };
     })
     .sort((left, right) => left.dir.localeCompare(right.dir));
+}
+
+async function gotoExample(
+  page: Parameters<typeof test>[1] extends never ? never : any,
+  example: ExampleEntry,
+) {
+  const candidates = [
+    `/${example.dir}/${example.htmlFile}`,
+    `/examples/${example.dir}/${example.htmlFile}`,
+  ];
+
+  let lastResponse: Awaited<ReturnType<typeof page.goto>> | null = null;
+  for (const candidate of candidates) {
+    const response = await page.goto(candidate, { waitUntil: 'domcontentloaded' });
+    lastResponse = response;
+    if (response?.ok()) {
+      return { response, url: candidate };
+    }
+  }
+
+  return { response: lastResponse, url: candidates[0] };
 }
 
 async function fillField(locator: ReturnType<typeof test['extend']> extends never ? never : any) {
@@ -165,9 +184,9 @@ test.describe('All example entrypoints on the dev server', () => {
         requestFailures.push(`${request.method()} ${request.url()} :: ${request.failure()?.errorText ?? 'failed'}`);
       });
 
-      const response = await page.goto(example.url, { waitUntil: 'domcontentloaded' });
-      expect(response, `navigation should return a response for ${example.url}`).not.toBeNull();
-      expect(response?.ok(), `navigation failed for ${example.url}`).toBeTruthy();
+      const { response, url } = await gotoExample(page, example);
+      expect(response, `navigation should return a response for ${example.dir}`).not.toBeNull();
+      expect(response?.ok(), `navigation failed for ${example.dir}`).toBeTruthy();
 
       await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => undefined);
       await expect(page.locator('body')).toBeVisible();
@@ -175,7 +194,7 @@ test.describe('All example entrypoints on the dev server', () => {
       await page.waitForTimeout(250);
 
       const bodyText = (await page.locator('body').innerText()).trim();
-      expect(bodyText.length, `body text should not be empty for ${example.dir}`).toBeGreaterThan(0);
+      expect(bodyText.length, `body text should not be empty for ${url}`).toBeGreaterThan(0);
 
       const runtimeFailures = [
         ...pageErrors.map((message) => `pageerror: ${message}`),

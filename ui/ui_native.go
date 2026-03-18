@@ -30,6 +30,34 @@ var componentMetaCache sync.Map
 type Element = runtime.Element
 type Node = *runtime.Element
 
+type Event struct{}
+type MouseEvent = Event
+type InputEvent = Event
+type ChangeEvent = Event
+type KeyboardEvent = Event
+type FocusEvent = Event
+type FormEvent = Event
+
+func (Event) GetValue() string {
+	return ""
+}
+
+func (Event) IsChecked() bool {
+	return false
+}
+
+func (Event) GetKeyCode() int {
+	return 0
+}
+
+func (Event) GetKey() string {
+	return ""
+}
+
+func (Event) PreventDefault() {}
+
+func (Event) StopPropagation() {}
+
 // Transition exposes transition-pending state and a transition starter.
 type Transition struct {
 	pending func() bool

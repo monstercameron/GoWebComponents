@@ -13,15 +13,15 @@ export default defineConfig({
   reporter: 'list',
   
   use: {
-    baseURL: 'http://127.0.0.1:8081',
+    baseURL: 'http://127.0.0.1:8083',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
 
   // Run local dev server before tests
   webServer: {
-    command: 'node server.js',
-    url: 'http://localhost:8081',
+    command: 'powershell -NoProfile -Command "$env:PORT=\'8083\'; node server.js"',
+    url: 'http://127.0.0.1:8083/healthz',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },

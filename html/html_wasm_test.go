@@ -157,7 +157,7 @@ func TestAccessibilityPropsPreserveSemanticRelationships(t *testing.T) {
 		ID:   "settings-dialog",
 		Role: "dialog",
 		Aria: map[string]string{
-			"labelledby": "settings-title",
+			"labelledby":  "settings-title",
 			"describedby": "settings-description",
 			"modal":       "true",
 		},

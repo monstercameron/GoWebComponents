@@ -951,7 +951,7 @@ func (r *Router) renderResolvedRouteStack(routes []resolvedRoute, query url.Valu
 	loaderKeys := make([]string, 0, len(routes))
 	for _, route := range routes {
 		if route.option.Loader != nil {
-			loaderKeys = append(loaderKeys, buildLoaderKey(route.id, queryKey))
+			loaderKeys = append(loaderKeys, buildLoaderKey(route.id, route.path, queryKey))
 		}
 	}
 	r.prepareLoaderState(loaderKeys)
@@ -970,7 +970,7 @@ func (r *Router) renderRouteLevel(routes []resolvedRoute, index int, query url.V
 	baseProps := copyParamsToAttrs(match.params)
 	data := Attrs(nil)
 	if match.option.Loader != nil {
-		loaderKey := buildLoaderKey(match.id, queryKey)
+		loaderKey := buildLoaderKey(match.id, match.path, queryKey)
 		state := r.ensureLoaderResult(loaderKey, match.option.Loader, RouteContext{
 			Path:   match.path,
 			Params: Params{values: copyParams(match.params)},
@@ -1531,11 +1531,12 @@ func (r *Router) cancelLoaderIfActive() {
 	r.loaderState.active = make(map[string]struct{})
 }
 
-func buildLoaderKey(path, queryKey string) string {
+func buildLoaderKey(routeID, resolvedPath, queryKey string) string {
+	base := routeID + "@" + normalizePath(resolvedPath)
 	if queryKey == "" {
-		return path
+		return base
 	}
-	return path + "?" + queryKey
+	return base + "?" + queryKey
 }
 
 func renderRouteFallback(component interface{}, props Attrs) *Element {

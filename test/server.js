@@ -7,7 +7,7 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const PORT = 8081;
+const PORT = Number(process.env.PORT || '8083');
 const ROOT = join(__dirname, 'testapp');
 
 const mimeTypes = {

@@ -71,21 +71,44 @@ func (noOpScheduler) RequestIdleCallback(callback func(runtime.Deadline)) {}
 func (noOpScheduler) SetTimeout(callback func(), delay int) {}
 
 type queuedScheduler struct {
-	timeouts []func()
+	idleCallbacks []func(runtime.Deadline)
+	timeouts      []func()
 }
 
-func (s *queuedScheduler) RequestIdleCallback(callback func(runtime.Deadline)) {}
+type queuedDeadline struct{}
+
+func (queuedDeadline) TimeRemaining() float64 { return 1000 }
+
+func (queuedDeadline) DidTimeout() bool { return false }
+
+func (s *queuedScheduler) RequestIdleCallback(callback func(runtime.Deadline)) {
+	s.idleCallbacks = append(s.idleCallbacks, callback)
+}
 
 func (s *queuedScheduler) SetTimeout(callback func(), delay int) {
 	s.timeouts = append(s.timeouts, callback)
 }
 
 func (s *queuedScheduler) Flush() {
+	for len(s.idleCallbacks) > 0 {
+		pendingIdle := append([]func(runtime.Deadline){}, s.idleCallbacks...)
+		s.idleCallbacks = s.idleCallbacks[:0]
+		for _, callback := range pendingIdle {
+			callback(queuedDeadline{})
+		}
+	}
 	for len(s.timeouts) > 0 {
 		pending := append([]func(){}, s.timeouts...)
 		s.timeouts = s.timeouts[:0]
 		for _, callback := range pending {
 			callback()
+		}
+		for len(s.idleCallbacks) > 0 {
+			pendingIdle := append([]func(runtime.Deadline){}, s.idleCallbacks...)
+			s.idleCallbacks = s.idleCallbacks[:0]
+			for _, callback := range pendingIdle {
+				callback(queuedDeadline{})
+			}
 		}
 	}
 }

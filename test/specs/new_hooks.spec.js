@@ -48,7 +48,7 @@ test.describe('GoWebComponents Hooks - UseId', () => {
 
     // Get their IDs
     const inputId = await inputElement.getAttribute('id');
-    const labelFor = await labelElement.getAttribute('htmlFor');
+    const labelFor = await labelElement.getAttribute('for');
 
     // They should match
     expect(inputId).toBe(labelFor);
@@ -100,7 +100,7 @@ test.describe('GoWebComponents Hooks - UseId', () => {
     const selectLabel = page.locator('#select-label');
 
     const selectId = await selectElement.getAttribute('id');
-    const labelFor = await selectLabel.getAttribute('htmlFor');
+    const labelFor = await selectLabel.getAttribute('for');
 
     // Verify connection
     expect(selectId).toBe(labelFor);
@@ -115,7 +115,7 @@ test.describe('GoWebComponents Hooks - UseId', () => {
     const checkboxLabel = page.locator('#checkbox-label');
 
     const checkboxId = await checkboxElement.getAttribute('id');
-    const labelFor = await checkboxLabel.getAttribute('htmlFor');
+    const labelFor = await checkboxLabel.getAttribute('for');
 
     // Verify connection
     expect(checkboxId).toBe(labelFor);
@@ -305,7 +305,7 @@ test.describe('GoWebComponents Hooks - Integration', () => {
 
     for (const element of elements) {
       const inputId = await element.input.getAttribute('id');
-      const labelFor = await element.label.getAttribute('htmlFor');
+      const labelFor = await element.label.getAttribute('for');
 
       expect(inputId).toBeTruthy();
       expect(labelFor).toBeTruthy();

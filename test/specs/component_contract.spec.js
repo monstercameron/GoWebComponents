@@ -44,7 +44,7 @@ test.describe('GoWebComponents Component Contracts', () => {
     const label = page.locator('#input-label');
 
     const initialId = await input.getAttribute('id');
-    const initialFor = await label.getAttribute('htmlFor');
+    const initialFor = await label.getAttribute('for');
     expect(initialId).toBeTruthy();
     expect(initialId).toBe(initialFor);
 
@@ -52,7 +52,7 @@ test.describe('GoWebComponents Component Contracts', () => {
     await expect(page.locator('[data-testid="count-display"]')).toHaveText('Count: 1');
 
     const rerenderId = await input.getAttribute('id');
-    const rerenderFor = await label.getAttribute('htmlFor');
+    const rerenderFor = await label.getAttribute('for');
     expect(rerenderId).toBe(initialId);
     expect(rerenderFor).toBe(initialId);
   });

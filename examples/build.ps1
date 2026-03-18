@@ -10,12 +10,41 @@ Write-Host "GoWebComponents Examples Build System" -ForegroundColor Cyan
 Write-Host "======================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Set WASM build environment
+# Preserve caller environment and scope WASM settings to this script run.
+$previousGOOS = $env:GOOS
+$previousGOARCH = $env:GOARCH
 $env:GOOS = 'js'
 $env:GOARCH = 'wasm'
 
+function Restore-BuildEnvironment {
+    if ([string]::IsNullOrEmpty($previousGOOS)) {
+        Remove-Item Env:GOOS -ErrorAction SilentlyContinue
+    } else {
+        $env:GOOS = $previousGOOS
+    }
+
+    if ([string]::IsNullOrEmpty($previousGOARCH)) {
+        Remove-Item Env:GOARCH -ErrorAction SilentlyContinue
+    } else {
+        $env:GOARCH = $previousGOARCH
+    }
+}
+
 # Get script directory
 $scriptDir = $PSScriptRoot
+$staticDir = Join-Path $scriptDir "static"
+
+Write-Host "[INFO] Refreshing shared Tailwind CSS" -ForegroundColor Yellow
+Push-Location $staticDir
+npm run build:css | Out-Null
+$cssExitCode = $LASTEXITCODE
+Pop-Location
+
+if ($cssExitCode -ne 0) {
+    Write-Host "[ERROR] Failed to rebuild shared Tailwind CSS" -ForegroundColor Red
+    Restore-BuildEnvironment
+    exit $cssExitCode
+}
 
 # Ensure bin directory exists
 $binDir = Join-Path $scriptDir "static\bin"
@@ -31,6 +60,7 @@ $exampleDirs = Get-ChildItem -Path $scriptDir -Directory |
 
 if ($exampleDirs.Count -eq 0) {
     Write-Host "[ERROR] No example directories found matching pattern '##-*'" -ForegroundColor Red
+    Restore-BuildEnvironment
     exit 1
 }
 
@@ -42,6 +72,7 @@ if ($Example) {
     $exampleDirs = $exampleDirs | Where-Object { $_.Name -eq $Example }
     if ($exampleDirs.Count -eq 0) {
         Write-Host "[ERROR] Example '$Example' not found" -ForegroundColor Red
+        Restore-BuildEnvironment
         exit 1
     }
     Write-Host "[INFO] Building specific example: $Example" -ForegroundColor Cyan
@@ -49,16 +80,22 @@ if ($Example) {
 }
 
 # Build function
-function Build-Example {
+function Invoke-ExampleBuild {
     param([Parameter(Mandatory=$true)][System.IO.DirectoryInfo]$ExampleDir)
     
     $exampleName = $ExampleDir.Name
-    $mainGoPath = Join-Path $ExampleDir.FullName "main.go"
-    
-    if (-not (Test-Path $mainGoPath)) {
-        Write-Host "[SKIP] $exampleName - no main.go found" -ForegroundColor Yellow
+    $entryCandidates = @(
+        Join-Path $ExampleDir.FullName "main.go"
+        Join-Path $ExampleDir.FullName "client\main.go"
+    )
+    $entryGoPath = $entryCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+    if (-not $entryGoPath) {
+        Write-Host "[SKIP] $exampleName - no supported main.go entrypoint found" -ForegroundColor Yellow
         return $null
     }
+
+    $buildDir = Split-Path -Parent $entryGoPath
     
     # Extract clean name (remove number prefix)
     $cleanName = $exampleName -replace '^\d{2}-', ''
@@ -69,7 +106,7 @@ function Build-Example {
     $startTime = Get-Date
     
     # Build the WASM binary
-    Push-Location $ExampleDir.FullName
+    Push-Location $buildDir
     # Use . to build all files in the package, handling multi-file examples like 11-blog
     $buildOutput = go build -o $outputPath . 2>&1
     $exitCode = $LASTEXITCODE
@@ -108,7 +145,7 @@ function Build-Example {
 $results = @()
 
 foreach ($dir in $exampleDirs) {
-    $result = Build-Example -ExampleDir $dir
+    $result = Invoke-ExampleBuild -ExampleDir $dir
     if ($result) {
         $results += $result
     }
@@ -139,6 +176,8 @@ if ($successful -gt 0) {
 }
 
 Write-Host ""
+
+Restore-BuildEnvironment
 
 if ($failed -eq 0) {
     Write-Host "All examples built successfully!" -ForegroundColor Green

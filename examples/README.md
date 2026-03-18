@@ -135,6 +135,12 @@ The `examples/` directory has its own Playwright setup for example-oriented test
 
 If you are working on the main framework regression suites, use `test/` instead. If you are specifically validating example pages, use the example-local Playwright config.
 
+Useful commands from `examples/`:
+
+- `npm test`: full example-local Playwright suite that runs against the static catalog server
+- `npm run test:catalog`: catalog-only link and smoke coverage against the dev server
+- `npm run test:atlas-ssr`: Atlas native server SSR and mutation-flow coverage
+
 For the developer-facing manual verification checklist that covers every numbered example, see `examples/MANUAL_TESTING.md`.
 
 ## Notes

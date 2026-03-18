@@ -63,8 +63,8 @@ func compositeNavigationExample() ui.Node {
 				OnKeyDown: tabKeyDown,
 				OnClick:   ui.UseEvent(func() { tabNav.SetActive(currentIndex) }),
 				Aria: map[string]string{
-					"selected":  map[bool]string{true: "true", false: "false"}[tabNav.IsActive(index)],
-					"controls":  "tab-panel",
+					"selected": map[bool]string{true: "true", false: "false"}[tabNav.IsActive(index)],
+					"controls": "tab-panel",
 				},
 				Raw: map[string]interface{}{"tabIndex": tabNav.TabIndex(index)},
 			}, html.Text(currentItem.Text)),
@@ -111,9 +111,9 @@ func compositeNavigationExample() ui.Node {
 		shared.ExamplePanel("Listbox and typeahead",
 			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("Focus the listbox container and use ArrowUp, ArrowDown, Home, End, or type the first letter of an owner name. The container exposes aria-activedescendant while the options stay simple semantic nodes.")),
 			html.Div(html.Props{
-				ID:    "owner-listbox",
-				Role:  "listbox",
-				Class: "mt-6 grid gap-3 rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-5",
+				ID:        "owner-listbox",
+				Role:      "listbox",
+				Class:     "mt-6 grid gap-3 rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-5",
 				OnKeyDown: listboxKeyDown,
 				Aria: map[string]string{
 					"activedescendant": listboxNav.ActiveDescendant(),

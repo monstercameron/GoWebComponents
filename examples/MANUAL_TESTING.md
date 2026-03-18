@@ -18,6 +18,7 @@ Captured on `2026-03-16`.
 - `npx playwright test tests/catalog-smoke.spec.ts` passed for `79` example pages.
 - The smoke suite covers every buildable numbered example page that is served directly from the examples catalog.
 - `18-ssr-server-routing` is not part of the generic catalog smoke because the real behavior requires its standalone Go server.
+- `86-atlas-commerce-os` now uses a dedicated native-server SSR suite for focused automation coverage.
 - Dedicated example specs currently cover `01`, `02`, `05`, `06`, `07`, `08`, `10`, `12`, `13`, `16`, `17`, `18`, `19`, and `20`.
 - The last dedicated-spec baseline produced `21` passes and `6` failures.
 
@@ -60,6 +61,23 @@ Standalone SSR server URLs:
 - `http://127.0.0.1:8079/secure`
 - `http://127.0.0.1:8079/secure?auth=true&role=maintainer`
 
+Standalone SSR server for `86-atlas-commerce-os`:
+
+```powershell
+Set-Location .\examples
+go build -o .\static\bin\atlas-commerce-os.wasm .\86-atlas-commerce-os\client
+Set-Location ..
+go run ./examples/86-atlas-commerce-os/server
+```
+
+Standalone Atlas SSR URLs:
+
+- `http://127.0.0.1:8096/`
+- `http://127.0.0.1:8096/shop`
+- `http://127.0.0.1:8096/shop/frame-desk`
+- `http://127.0.0.1:8096/app/dashboard`
+- `http://127.0.0.1:8096/app/inventory`
+
 ## Manual Verification Rules
 
 - Confirm the page shell is dark mode and the primary heading renders without console or page errors.
@@ -90,6 +108,7 @@ Standalone SSR server URLs:
 - `16-devtools`: Open the embedded devtools panel and inspect diagnostics or profiling output. Expected: tree, hook, or diagnostic surfaces render and update with the app state.
 - `17-ssr-routing`: Load the static SSR page, confirm prerendered docs content appears before interaction, then navigate through docs, search, secure, legacy redirect, and sign-in flows. Expected: hydration resumes the shell cleanly and route features continue working after startup.
 - `18-ssr-server-routing`: Run the standalone server and test direct navigation, refresh, search query rendering, secure redirect behavior, and authenticated secure access. Expected: each direct URL returns real HTML first and then hydrates without replacing the whole shell unnecessarily.
+- `86-atlas-commerce-os`: Run the standalone Atlas server, load `/shop/frame-desk` directly, submit a public comment form, then open `/app/dashboard` and save preferences. Expected: the first response contains the fully rendered Atlas shell, the bootstrap script hydrates without replacing the route content, and both public and internal forms round-trip through sqlite-backed server endpoints.
 - `19-nested-routes`: Jump directly into dashboard settings, switch between `Profile` and `Team`, then move into docs and report routes. Expected: parent layout shells stay mounted while only the outlet content changes.
 - `20-portals`: Open the modal, confirm it renders under `#portal-root`, then toggle tooltip and popover. Expected: overlays exist only in the portal container and clean up correctly on close or dismiss.
 

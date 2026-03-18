@@ -181,6 +181,61 @@ func TestHydrateSupportsComponentUpdatesAfterResume(t *testing.T) {
 	}
 }
 
+func TestHydrateUpdatesClosureComponentChildrenAfterResume(t *testing.T) {
+	adapter := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+
+	container := adapter.CreateElement("div")
+	serverNode := adapter.CreateElement("p")
+	adapter.SetAttribute(serverNode, "id", "value")
+	serverText := adapter.CreateTextNode("value:0")
+	adapter.AppendChild(serverNode, serverText)
+	adapter.AppendChild(container, serverNode)
+
+	var setCount func(interface{})
+	component := func() *Element {
+		count, set := GoUseState(rt, 0)
+		setCount = set
+		current := count()
+		return CreateElement(func() *Element {
+			return CreateElement("p", map[string]interface{}{"id": "value"}, fmt.Sprintf("value:%d", current))
+		}, nil)
+	}
+
+	rt.Hydrate(CreateElement(component, nil), container)
+	runHydrationWork(t, scheduler)
+
+	if setCount == nil {
+		t.Fatal("expected hydrated component to expose state setter")
+	}
+	setCount(1)
+	if len(scheduler.timeouts) == 0 {
+		t.Fatal("expected state update to schedule follow-up render")
+	}
+	runHydrationWork(t, scheduler)
+
+	children := adapter.GetChildren(container)
+	if len(children) != 1 {
+		t.Fatalf("expected one host child after hydrated closure update, got %d", len(children))
+	}
+	updatedNode := children[0]
+	updatedElement, ok := updatedNode.(*testDOMNode)
+	if !ok {
+		t.Fatal("expected updated hydrated node to be a test DOM node")
+	}
+	if got := updatedElement.attributes["id"]; got != "value" {
+		t.Fatalf("expected hydrated closure update to keep the rendered id, got %q", got)
+	}
+	textChildren := adapter.GetChildren(updatedNode)
+	if len(textChildren) != 1 {
+		t.Fatalf("expected one text child after hydrated closure update, got %d", len(textChildren))
+	}
+	if got := textChildren[0].(*testDOMNode).text; got != "value:1" {
+		t.Fatalf("expected hydrated closure update to change text to value:1, got %q", got)
+	}
+}
+
 func TestHydrateDefersAtomSubscriptionsUntilCommitCompletes(t *testing.T) {
 	adapter := newTestDOMAdapter()
 	scheduler := newTestScheduler()

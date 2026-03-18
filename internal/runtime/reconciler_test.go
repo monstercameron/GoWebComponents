@@ -339,6 +339,13 @@ func TestIsSameType_StringTypes(t *testing.T) {
 func TestIsSameType_FunctionTypes(t *testing.T) {
 	fn1 := func(p map[string]interface{}) *Element { return nil }
 	fn2 := func(p map[string]interface{}) *Element { return nil }
+	closureFactory := func(label string) func(map[string]interface{}) *Element {
+		return func(props map[string]interface{}) *Element {
+			return CreateElement("div", nil, label)
+		}
+	}
+	closure1 := closureFactory("one")
+	closure2 := closureFactory("two")
 
 	if !isSameType(fn1, fn1) {
 		t.Error("Expected same function to match itself")
@@ -347,6 +354,10 @@ func TestIsSameType_FunctionTypes(t *testing.T) {
 	// Different function instances should not match
 	if isSameType(fn1, fn2) {
 		t.Error("Expected different function instances to not match")
+	}
+
+	if isSameType(closure1, closure2) {
+		t.Error("Expected different closure instances to not match")
 	}
 }
 

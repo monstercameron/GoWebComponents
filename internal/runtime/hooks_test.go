@@ -525,6 +525,23 @@ func TestFastEqual(t *testing.T) {
 	}
 }
 
+func TestFastEqual_FunctionClosuresUseInstanceIdentity(t *testing.T) {
+	factory := func(value int) func() int {
+		return func() int { return value }
+	}
+
+	first := factory(1)
+	second := factory(2)
+	alias := first
+
+	if !fastEqual(first, alias) {
+		t.Fatal("expected the same closure instance to compare equal")
+	}
+	if fastEqual(first, second) {
+		t.Fatal("expected distinct closure instances to compare different")
+	}
+}
+
 func TestGoUseRef_InitialValue(t *testing.T) {
 	fiber := &Fiber{
 		typeOf: "test",

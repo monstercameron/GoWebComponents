@@ -5,9 +5,10 @@ package main
 
 import (
 	"fmt"
-	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"strings"
 	"time"
+
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
 	"github.com/monstercameron/GoWebComponents/examples/shared"
 	"github.com/monstercameron/GoWebComponents/html"
@@ -110,10 +111,10 @@ func formAccessibilityExample() ui.Node {
 				html.Div(html.Props{},
 					html.Label(html.Props{For: nameID, Class: "block text-sm uppercase tracking-[0.25em] text-slate-400"}, html.Text("Reviewer name")),
 					html.Input(html.Props{
-						ID:      nameID,
-						Value:   value.Name,
-						OnInput: setName,
-						Class:   "mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100",
+						ID:          nameID,
+						Value:       value.Name,
+						OnInput:     setName,
+						Class:       "mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100",
 						Placeholder: "Ada Lovelace",
 						Aria: map[string]string{
 							"invalid":     map[bool]string{true: "true", false: "false"}[nameError != ""],
@@ -126,10 +127,10 @@ func formAccessibilityExample() ui.Node {
 				html.Div(html.Props{},
 					html.Label(html.Props{For: emailID, Class: "block text-sm uppercase tracking-[0.25em] text-slate-400"}, html.Text("Notification email")),
 					html.Input(html.Props{
-						ID:      emailID,
-						Value:   value.Email,
-						OnInput: setEmail,
-						Class:   "mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100",
+						ID:          emailID,
+						Value:       value.Email,
+						OnInput:     setEmail,
+						Class:       "mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100",
 						Placeholder: "ada@example.com",
 						Aria: map[string]string{
 							"invalid":     map[bool]string{true: "true", false: "false"}[emailError != ""],
