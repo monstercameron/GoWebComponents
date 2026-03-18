@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/ui"
 )
 
 type noOpScheduler struct{}
@@ -262,6 +263,258 @@ func TestFetchUnavailable(t *testing.T) {
 	}
 }
 
+func TestBuildMultipartFormDataAppendsFieldsAndFiles(t *testing.T) {
+	var appendCalls []string
+	appendFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) >= 2 {
+			entry := args[0].String() + "="
+			if args[1].Type() == js.TypeString {
+				entry = args[0].String() + "=" + args[1].String()
+			} else {
+				entry += args[1].Get("name").String()
+			}
+			appendCalls = append(appendCalls, entry)
+		}
+		return nil
+	})
+	defer appendFn.Release()
+
+	formDataCtor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		object := js.Global().Get("Object").New()
+		object.Set("append", appendFn)
+		return object
+	})
+	defer formDataCtor.Release()
+	restoreFormData := setGlobalJSValue("FormData", formDataCtor)
+	defer restoreFormData()
+
+	rawFile := js.Global().Get("Object").New()
+	rawFile.Set("name", "avatar.png")
+	form, err := buildMultipartFormData(MultipartBody{
+		Fields: map[string]string{"title": "Demo"},
+		Files:  []MultipartFile{{FieldName: "asset", File: ui.FileFromJSValue(rawFile)}},
+	})
+	if err != nil {
+		t.Fatalf("expected multipart form-data to build, got %v", err)
+	}
+	if !form.Truthy() {
+		t.Fatal("expected multipart form-data js value")
+	}
+	if len(appendCalls) != 2 {
+		t.Fatalf("expected two multipart append calls, got %v", appendCalls)
+	}
+	if appendCalls[0] != "title=Demo" || appendCalls[1] != "asset=avatar.png" {
+		t.Fatalf("unexpected multipart append calls: %v", appendCalls)
+	}
+}
+
+func TestUploadUnavailableWithoutXMLHttpRequest(t *testing.T) {
+	restoreXHR := setGlobalJSValue("XMLHttpRequest", js.Null())
+	defer restoreXHR()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	update := <-Upload(ctx, "/api/upload", Options{Body: MultipartBody{}})
+	if !update.Done || update.Result.Err == nil || !strings.Contains(update.Result.Err.Error(), "XMLHttpRequest unavailable") {
+		t.Fatalf("expected unavailable upload transport error, got %+v", update)
+	}
+}
+
+func TestFetchHTTPErrorIncludesStatusHeadersAndDecodesJSON(t *testing.T) {
+	textFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return makeResolvedPromise(js.ValueOf(`{"message":"invalid upload"}`))
+	})
+	defer textFn.Release()
+
+	headers := js.Global().Get("Object").New()
+	forEachFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) == 0 {
+			return nil
+		}
+		callback := args[0]
+		callback.Invoke("application/json", "Content-Type")
+		callback.Invoke("trace-123", "X-Trace")
+		return nil
+	})
+	defer forEachFn.Release()
+	headers.Set("forEach", forEachFn)
+
+	response := js.Global().Get("Object").New()
+	response.Set("status", 422)
+	response.Set("statusText", "Unprocessable Entity")
+	response.Set("headers", headers)
+	response.Set("text", textFn)
+
+	fetchFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return makeResolvedPromise(response)
+	})
+	defer fetchFn.Release()
+
+	restoreFetch := setGlobalJSValue("fetch", fetchFn)
+	defer restoreFetch()
+
+	result := waitForResult(t, Fetch("/api/demo", Options{}))
+	if result.Status != 422 {
+		t.Fatalf("expected status 422, got %d", result.Status)
+	}
+	httpErr, ok := result.Err.(HTTPError)
+	if !ok {
+		t.Fatalf("expected HTTPError, got %#v", result.Err)
+	}
+	if httpErr.Status != 422 || httpErr.StatusText != "Unprocessable Entity" {
+		t.Fatalf("unexpected http error metadata: %+v", httpErr)
+	}
+	if result.Headers["Content-Type"] != "application/json" || result.Headers["X-Trace"] != "trace-123" {
+		t.Fatalf("expected response headers to be preserved, got %#v", result.Headers)
+	}
+	var payload map[string]string
+	if err := result.DecodeJSON(&payload); err != nil {
+		t.Fatalf("expected json response to decode, got %v", err)
+	}
+	if payload["message"] != "invalid upload" {
+		t.Fatalf("unexpected decoded payload: %#v", payload)
+	}
+}
+
+func TestUploadSuccessPreservesResponseMetadataAndIgnoresLateCancel(t *testing.T) {
+	var uploadProgressListener js.Value
+	var loadListener js.Value
+	var setHeaders []string
+	var abortCalls int
+
+	uploadAddEventListenerFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) >= 2 && args[0].String() == "progress" {
+			uploadProgressListener = args[1]
+		}
+		return nil
+	})
+	defer uploadAddEventListenerFn.Release()
+
+	addEventListenerFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) >= 2 && args[0].String() == "load" {
+			loadListener = args[1]
+		}
+		return nil
+	})
+	defer addEventListenerFn.Release()
+
+	setRequestHeaderFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) >= 2 {
+			setHeaders = append(setHeaders, args[0].String()+"="+args[1].String())
+		}
+		return nil
+	})
+	defer setRequestHeaderFn.Release()
+
+	abortFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		abortCalls++
+		return nil
+	})
+	defer abortFn.Release()
+
+	getAllResponseHeadersFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return "Content-Type: application/json\r\nX-Upload-ID: up-42\r\n"
+	})
+	defer getAllResponseHeadersFn.Release()
+
+	sendFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		progressEvent := js.Global().Get("Object").New()
+		progressEvent.Set("loaded", 3)
+		progressEvent.Set("total", 9)
+		progressEvent.Set("lengthComputable", true)
+		if uploadProgressListener.Truthy() {
+			uploadProgressListener.Invoke(progressEvent)
+		}
+		loadEvent := js.Global().Get("Object").New()
+		loadEvent.Set("loaded", 9)
+		loadEvent.Set("total", 9)
+		loadEvent.Set("lengthComputable", true)
+		if loadListener.Truthy() {
+			loadListener.Invoke(loadEvent)
+		}
+		return nil
+	})
+	defer sendFn.Release()
+
+	openFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+	defer openFn.Release()
+
+	xhrUpload := js.Global().Get("Object").New()
+	xhrUpload.Set("addEventListener", uploadAddEventListenerFn)
+
+	xhr := js.Global().Get("Object").New()
+	xhr.Set("status", 201)
+	xhr.Set("statusText", "Created")
+	xhr.Set("responseText", `{"asset_id":"asset-1"}`)
+	xhr.Set("open", openFn)
+	xhr.Set("setRequestHeader", setRequestHeaderFn)
+	xhr.Set("addEventListener", addEventListenerFn)
+	xhr.Set("send", sendFn)
+	xhr.Set("abort", abortFn)
+	xhr.Set("getAllResponseHeaders", getAllResponseHeadersFn)
+	xhr.Set("upload", xhrUpload)
+
+	xhrCtor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return xhr
+	})
+	defer xhrCtor.Release()
+	restoreXHR := setGlobalJSValue("XMLHttpRequest", xhrCtor)
+	defer restoreXHR()
+
+	formDataCtor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		object := js.Global().Get("Object").New()
+		object.Set("append", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
+		return object
+	})
+	defer formDataCtor.Release()
+	restoreFormData := setGlobalJSValue("FormData", formDataCtor)
+	defer restoreFormData()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var updates []UploadUpdate
+	for update := range Upload(ctx, "/api/upload", Options{
+		Method: "POST",
+		Headers: map[string]interface{}{
+			"X-Test":       "ok",
+			"Content-Type": "multipart/form-data",
+		},
+		Body: MultipartBody{Fields: map[string]string{"title": "Demo"}},
+	}) {
+		updates = append(updates, update)
+	}
+	cancel()
+	time.Sleep(20 * time.Millisecond)
+
+	if abortCalls != 0 {
+		t.Fatalf("expected completed upload to ignore late context cancellation, got %d abort calls", abortCalls)
+	}
+	if len(updates) != 2 {
+		t.Fatalf("expected progress plus final upload update, got %d updates: %+v", len(updates), updates)
+	}
+	if len(setHeaders) != 1 || setHeaders[0] != "X-Test=ok" {
+		t.Fatalf("expected multipart upload to keep custom headers and drop manual content-type, got %v", setHeaders)
+	}
+	final := updates[len(updates)-1]
+	if !final.Done || final.Result.Err != nil {
+		t.Fatalf("expected successful final update, got %+v", final)
+	}
+	if final.Result.Status != 201 || final.Result.Headers["X-Upload-ID"] != "up-42" {
+		t.Fatalf("expected upload result metadata, got %+v", final.Result)
+	}
+	if final.Loaded != 9 || final.Total != 9 || !final.LengthComputable {
+		t.Fatalf("expected final upload progress to reflect load event, got %+v", final)
+	}
+	var payload map[string]string
+	if err := final.Result.DecodeJSON(&payload); err != nil {
+		t.Fatalf("expected upload json response to decode, got %v", err)
+	}
+	if payload["asset_id"] != "asset-1" {
+		t.Fatalf("unexpected upload payload: %#v", payload)
+	}
+}
+
 func TestFetchMarshalError(t *testing.T) {
 	result := waitForResult(t, Fetch("/api/demo", Options{
 		Body: map[string]float64{"bad": math.NaN()},
@@ -283,6 +536,11 @@ func TestFetchSuccess(t *testing.T) {
 	defer textFn.Release()
 
 	response := js.Global().Get("Object").New()
+	response.Set("status", 200)
+	response.Set("statusText", "OK")
+	headers := js.Global().Get("Object").New()
+	headers.Set("forEach", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
+	response.Set("headers", headers)
 	response.Set("text", textFn)
 
 	fetchFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -321,5 +579,40 @@ func TestReturnChannelIsNoOp(t *testing.T) {
 	ch <- Result{Data: "ok"}
 	if result := <-ch; result.Data != "ok" {
 		t.Fatalf("expected channel contents to remain untouched, got %#v", result)
+	}
+}
+
+func BenchmarkBuildMultipartFormData(b *testing.B) {
+	appendFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+	defer appendFn.Release()
+
+	formDataCtor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		object := js.Global().Get("Object").New()
+		object.Set("append", appendFn)
+		return object
+	})
+	defer formDataCtor.Release()
+	restoreFormData := setGlobalJSValue("FormData", formDataCtor)
+	defer restoreFormData()
+
+	rawFile := js.Global().Get("Object").New()
+	rawFile.Set("name", "hero.png")
+	body := MultipartBody{
+		Fields: map[string]string{
+			"title":    "Demo",
+			"audience": "buyers",
+		},
+		Files: []MultipartFile{{FieldName: "asset", File: ui.FileFromJSValue(rawFile)}},
+	}
+
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		form, err := buildMultipartFormData(body)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if !form.Truthy() {
+			b.Fatal("expected form data result")
+		}
 	}
 }

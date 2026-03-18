@@ -24,7 +24,7 @@ Organization rules for this file:
 	The docs now define stability tiers for public packages, experimental features, companion APIs, internal details, semver expectations, the deprecation lifecycle, and latest-major support policy in `docs/API_POLICY.md`.
 - [x] Add migration notes as new primitives land.
 	The docs now include `docs/MIGRATIONS.md` as the release-to-release upgrade index, starting with the transition into the current `v3.x` public package layout.
-- [ ] Keep release-to-release migration guides current for future major changes.
+- [x] Keep release-to-release migration guides current for future major changes.
 	Each future major release still needs subsystem-specific upgrade guidance for runtime, router, SSR, forms, state, and deployment changes before the release is considered ready for enterprise adoption.
 
 ### Documentation discoverability and task-oriented guidance
@@ -255,15 +255,15 @@ Organization rules for this file:
 - [x] Add a dedicated example index page that groups the expanded catalog by package and feature.
 	Once the one-feature-per-example set grows, the examples landing page should expose filters by `ui`, `html`, `state`, `fetch`, `router`, `devtools`, and SSR or hydration topics.
 
-- [ ] Reorganize docs around common developer tasks.
+- [x] Reorganize docs around common developer tasks.
 	Provide clear entry points for workflows such as building a client-only app, adding routing, adding SSR, testing a component, shipping a production wasm build, and debugging hydration issues instead of relying mostly on package-by-package reading order.
-- [ ] Add end-to-end walkthroughs for common app shapes.
+- [x] Add end-to-end walkthroughs for common app shapes.
 	Create guided docs for a small SPA, a server-rendered app, a static-export app, and a data-heavy dashboard so developers can follow a realistic path rather than stitching together isolated examples.
-- [ ] Add cross-linked concept, API, and example references.
+- [x] Add cross-linked concept, API, and example references.
 	Ensure each major feature page links directly to the public API, a runnable example, production caveats, and related debugging or testing guidance so discoverability improves for new users.
-- [ ] Add troubleshooting guides for common setup and runtime failures.
+- [x] Add troubleshooting guides for common setup and runtime failures.
 	Document likely causes and fixes for wasm build failures, missing `wasm_exec.js`, broken example serving, hydration mismatch warnings, route misconfiguration, and interop mistakes.
-- [ ] Add a clearly documented recommended path for new adopters.
+- [x] Add a clearly documented recommended path for new adopters.
 	State which packages, examples, commands, and architecture patterns are the preferred modern route so developers are not left choosing between stale and current approaches.
 
 ### API stability and support policy
@@ -494,15 +494,15 @@ Organization rules for this file:
 - [x] Add a dedicated example index page that groups the expanded catalog by package and feature.
 	Once the one-feature-per-example set grows, the examples landing page should expose filters by `ui`, `html`, `state`, `fetch`, `router`, `devtools`, and SSR or hydration topics.
 
-- [ ] Reorganize docs around common developer tasks.
+- [x] Reorganize docs around common developer tasks.
 	Provide clear entry points for workflows such as building a client-only app, adding routing, adding SSR, testing a component, shipping a production wasm build, and debugging hydration issues instead of relying mostly on package-by-package reading order.
-- [ ] Add end-to-end walkthroughs for common app shapes.
+- [x] Add end-to-end walkthroughs for common app shapes.
 	Create guided docs for a small SPA, a server-rendered app, a static-export app, and a data-heavy dashboard so developers can follow a realistic path rather than stitching together isolated examples.
-- [ ] Add cross-linked concept, API, and example references.
+- [x] Add cross-linked concept, API, and example references.
 	Ensure each major feature page links directly to the public API, a runnable example, production caveats, and related debugging or testing guidance so discoverability improves for new users.
-- [ ] Add troubleshooting guides for common setup and runtime failures.
+- [x] Add troubleshooting guides for common setup and runtime failures.
 	Document likely causes and fixes for wasm build failures, missing `wasm_exec.js`, broken example serving, hydration mismatch warnings, route misconfiguration, and interop mistakes.
-- [ ] Add a clearly documented recommended path for new adopters.
+- [x] Add a clearly documented recommended path for new adopters.
 	State which packages, examples, commands, and architecture patterns are the preferred modern route so developers are not left choosing between stale and current approaches.
 
 ### API stability and support policy
@@ -609,47 +609,47 @@ Organization rules for this file:
 
 ### Server-backed forms
 
-- [ ] Define the supported form modes.
+- [x] Define the supported form modes.
 	Document the recommended split between client-only forms, progressive-enhancement posts, JSON-backed submissions, and SSR-backed form flows.
-- [ ] Add form-post destination conventions for Go handlers.
+- [x] Add form-post destination conventions for Go handlers.
 	Show how `ui.UseForm` should target `net/http` handlers, JSON endpoints, and multipart upload routes so server-backed forms are not all bespoke.
-- [ ] Define redirect-after-submit semantics.
+- [x] Define redirect-after-submit semantics.
 	Specify how successful submissions coordinate with router navigation, flash-style success state, and history replacement.
 
 ### CSRF and secure posting
 
-- [ ] Add CSRF-aware form helpers for server-post workflows.
+- [x] Add CSRF-aware form helpers for server-post workflows.
 	Support token injection and transport conventions for form posts targeting Go HTTP handlers without forcing every app to hand-roll hidden fields and headers.
-- [ ] Define CSRF token source and refresh rules.
+- [x] Define CSRF token source and refresh rules.
 	Clarify whether tokens come from SSR bootstrap, cookies, headers, or explicit server endpoints and how long-lived pages refresh them safely.
 
 ### Validation and error handling
 
-- [ ] Add server-returned field error mapping.
+- [x] Add server-returned field error mapping.
 	Provide a normalized way to take structured validation errors from server responses and project them back onto public form state.
-- [ ] Add field-level message helpers.
+- [x] Add field-level message helpers.
 	Expose touched, dirty, pending, and error helpers so inline validation and summary rendering do not require repetitive app code.
-- [ ] Add submit-intent helpers.
+- [x] Add submit-intent helpers.
 	Support workflows such as draft save vs publish, per-button pending state, and submit-intent-specific validation without ad hoc local state.
-- [ ] Define optimistic vs authoritative submit behavior.
+- [x] Define optimistic vs authoritative submit behavior.
 	Clarify when forms may update UI optimistically, when they must wait for the server, and how retry/reset flows behave after partial failure.
 
 ### Uploads and SSR examples
 
-- [ ] Add multipart and file-upload support.
+- [x] Add multipart and file-upload support.
 	Cover `multipart/form-data`, file inputs, upload progress, cancellation, and server error reporting as first-class workflows.
-- [ ] Add SSR-friendly secure form examples.
+- [x] Add SSR-friendly secure form examples.
 	Demonstrate form defaults, server validation round-trips, CSRF-aware submission, uploads, and post-submit redirects in a request-time rendered example.
 
 ## 3. JavaScript Interop Ergonomics
 
 ### Public interop API
 
-- [ ] Design a first-class public JS interop package or namespace.
+- [x] Design a first-class public JS interop package or namespace.
 	Move common `syscall/js` patterns behind a stable public API so applications do not depend on raw low-level browser bindings for routine work.
-- [ ] Add typed wrappers for common browser APIs.
+- [x] Add typed wrappers for common browser APIs.
 	Cover storage, history, location, clipboard, timers, custom events, media queries, and similar APIs with predictable Go-friendly shapes.
-- [ ] Add module-style interop helpers.
+- [x] Add module-style interop helpers.
 	Support importing a JS module, calling exported functions, and disposing module handles with a lifecycle model that fits component mount and unmount behavior.
 
 ### DOM and event integration

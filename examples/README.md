@@ -29,6 +29,7 @@ Every feature-isolated catalog page is expected to answer three questions clearl
 
 - `01-counter` through `20-portals`
 - These combine multiple features and are useful for seeing how the primitives fit together in larger apps.
+- `87-ssr-secure-forms`: request-time rendered forms with CSRF validation, multipart uploads, validation round-trips, and `303` redirects
 
 Use the integrated apps when you want to understand how multiple primitives compose in one realistic surface. Use the feature-isolated pages when you want the clearest statement of a single API or tool's purpose.
 
@@ -65,6 +66,7 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `70-render-to-string`: `ui.RenderToString`
 - `71-hydrate`: `ui.Hydrate`
 - `73-ssr-bootstrap`: `ui.RenderBootstrapScript`, `ui.ReadBootstrapScript`
+- `87-ssr-secure-forms`: SSR HTML forms, `html.HiddenInput`, typed `html.Props{EncType: ...}`, and secure form-post conventions
 
 ### i18n Package
 
