@@ -63,6 +63,7 @@ package-lock.json
 
 # Go cache and temporary files
 .gocache/
+.gomodcache/
 .gotmp/
 go.work
 go.work.sum

@@ -18,19 +18,6 @@ type routeContentProps struct {
 	Body    string
 }
 
-func routeLabel(path string) string {
-	switch path {
-	case "/accessibility/overview":
-		return "Overview accessibility"
-	case "/accessibility/settings":
-		return "Settings accessibility"
-	case "/accessibility/reports":
-		return "Reports accessibility"
-	default:
-		return "Accessibility route"
-	}
-}
-
 func routedAccessibilityPageView(props routeContentProps) ui.Node {
 	inspection := router.InspectCurrentRoute()
 	announcer := ui.UseAnnouncer()

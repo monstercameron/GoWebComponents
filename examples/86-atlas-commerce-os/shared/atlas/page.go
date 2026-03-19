@@ -52,10 +52,6 @@ type productDetailPage struct {
 	Comments []commentRecord `json:"comments"`
 }
 
-type warehouseList struct {
-	Items []warehouseCard `json:"items"`
-}
-
 type warehouseCard struct {
 	ID            string `json:"id"`
 	Slug          string `json:"slug"`
@@ -90,10 +86,6 @@ type dashboardPage struct {
 	Transfers []transferRecord  `json:"transfers"`
 	Receiving []receivingRecord `json:"receiving"`
 	Comments  []commentRecord   `json:"comments"`
-}
-
-type inventoryList struct {
-	Items []inventoryRow `json:"items"`
 }
 
 type inventoryRow struct {
@@ -953,20 +945,6 @@ func productPrimaryActionForm(product productCard, payload Payload) ui.Node {
 	}
 }
 
-func productQuestionActionForm(product productCard, payload Payload) ui.Node {
-	title := "Ask about delivery or fit"
-	copy := "Keep practical finish, delivery, and installation questions close to the product decision surface."
-	if normalized := strings.TrimSpace(strings.ToLower(product.Status)); normalized != "in_stock" && normalized != "healthy" && normalized != "approved" && normalized != "available" {
-		title = "Talk to a specialist"
-		copy = "Use a lower-friction support path when the buyer needs help evaluating timing, substitutions, or delivery tradeoffs."
-	}
-	return publicFormCard(title, copy, "/api/public/products/"+product.Slug+"/comments", "Send question", payload.CSRF, []ui.Node{
-		publicInput("author_name", "Name"),
-		publicInput("subject", "Subject"),
-		publicTextarea("body", "Question"),
-	})
-}
-
 func productSecondaryActionCard(product productCard) ui.Node {
 	status := strings.TrimSpace(strings.ToLower(product.Status))
 	if status == "in_stock" || status == "healthy" || status == "approved" || status == "available" {
@@ -1076,16 +1054,6 @@ func listCard(title string, children ...ui.Node) ui.Node {
 	content := []ui.Node{html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text(title))}
 	content = append(content, children...)
 	return html.Div(html.Props{Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, content...)
-}
-
-func formCard(title, action string, csrfToken string, fields []ui.Node) ui.Node {
-	children := []ui.Node{
-		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text(title)),
-	}
-	children = append(children, prependCSRFToken(csrfToken)...)
-	children = append(children, fields...)
-	children = append(children, submitButton("Submit"))
-	return html.Form(html.Props{Action: action, Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, children...)
 }
 
 func publicFormCard(title, copy, action, submitLabel string, csrfToken string, fields []ui.Node) ui.Node {
@@ -1222,10 +1190,6 @@ func inputWithValue(name, label, value string) ui.Node {
 	)
 }
 
-func textarea(name, label string) ui.Node {
-	return textareaWithValue(name, label, "")
-}
-
 func publicTextarea(name, label string) ui.Node {
 	return html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
 		html.Span(html.Props{}, html.Text(label)),
@@ -1254,14 +1218,6 @@ func commentNodes(items []commentRecord) []ui.Node {
 		))
 	}
 	return nodes
-}
-
-func internalActionCard(title, copy, href string) ui.Node {
-	return html.A(html.Props{Href: href, Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5 transition hover:border-cyan-300/60 hover:bg-white/10"},
-		html.P(html.Props{Class: "text-lg font-semibold text-white"}, html.Text(title)),
-		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(copy)),
-		html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Open lane")),
-	)
 }
 
 func internalWorkflowSection(title, copy string, cards ...ui.Node) ui.Node {

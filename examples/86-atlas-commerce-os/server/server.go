@@ -1023,14 +1023,6 @@ func parsePositiveInt(value string, fallback int) int {
 	return parsed
 }
 
-func htmlJSON(value any) string {
-	encoded, err := json.MarshalIndent(value, "", "  ")
-	if err != nil {
-		return "{}"
-	}
-	return string(encoded)
-}
-
 func wasmRuntimeSnippet(wasmPresent bool) string {
 	if !wasmPresent {
 		return `<script>console.warn("atlas-commerce-os.wasm not present yet; SSR shell is running without hydration.");</script>`

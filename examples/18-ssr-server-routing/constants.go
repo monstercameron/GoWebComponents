@@ -2,7 +2,6 @@ package main
 
 const (
 	serverBootstrapTransport = "server-json-sidecar"
-	serverCanonicalBaseURL   = "http://127.0.0.1:8079"
 
 	serverPageHome     = "home"
 	serverPageDocs     = "docs"

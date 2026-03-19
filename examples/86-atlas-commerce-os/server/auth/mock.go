@@ -134,9 +134,3 @@ func sanitizeNextPath(next string) string {
 	}
 	return "/app/dashboard"
 }
-
-func wantsHTMLResponse(r *http.Request) bool {
-	accept := strings.ToLower(strings.TrimSpace(r.Header.Get("Accept")))
-	contentType := strings.ToLower(strings.TrimSpace(r.Header.Get("Content-Type")))
-	return strings.Contains(accept, "text/html") || strings.Contains(contentType, "application/x-www-form-urlencoded") || strings.Contains(contentType, "multipart/form-data")
-}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -296,11 +295,4 @@ func mustProductInt(value string, fallback int) int {
 		return fallback
 	}
 	return parsed
-}
-
-func productCMSSummary(count int) string {
-	if count == 1 {
-		return "1 managed product"
-	}
-	return fmt.Sprintf("%d managed products", count)
 }

@@ -131,7 +131,7 @@ func renderProductContent(page productDetailPage, payload Payload) ui.Node {
 		html.Div(html.Props{Class: "grid gap-6"},
 			publicProductHeroCard(product),
 			html.Div(html.Props{Class: "grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"},
-				publicProductMetrics(product),
+				publicProductMetrics(),
 				publicProductFeatureStrip(),
 			),
 			publicProductFeedbackSection(product, page.Comments, payload),
@@ -359,17 +359,6 @@ func publicProductFeedbackForm(product productCard, payload Payload, form ui.For
 	return html.Form(html.Props{Action: "/api/public/products/" + product.Slug + "/comments", Method: "post", OnSubmit: submit, Class: "grid gap-4 rounded-[1.6rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"}, children...)
 }
 
-func payloadComments(payload Payload, product productCard) []commentRecord {
-	page := decode[productDetailPage](pageData(payload))
-	if len(page.Comments) > 0 {
-		return page.Comments
-	}
-	if strings.EqualFold(strings.TrimSpace(page.Product.Slug), strings.TrimSpace(product.Slug)) {
-		return page.Comments
-	}
-	return nil
-}
-
 func cloneCommentRecords(items []commentRecord) []commentRecord {
 	if len(items) == 0 {
 		return []commentRecord{}
@@ -479,14 +468,6 @@ func fetchPublicProductComments(slug string) ([]commentRecord, error) {
 		return nil, err
 	}
 	return cloneCommentRecords(payload.Items), nil
-}
-
-func nonEmptyPublicText(value string, fallback string) string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return fallback
-	}
-	return trimmed
 }
 
 func normalizePublicCommentFieldErrors(fields ui.FieldErrors) ui.FieldErrors {
@@ -625,14 +606,6 @@ func publicProductStory(product productCard) ui.Node {
 	)
 }
 
-func publicProductContextGrid(product productCard) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
-		publicProductContextColumn(publicDesignedForLabel, productCategoryCue(product.Category)),
-		publicProductContextColumn(publicFulfillmentLabel, productSupportCue(product.Status)),
-		publicProductContextColumn(publicBuyingMotionLabel, productBuyingMotion(product.Status)),
-	)
-}
-
 func publicProductContextColumn(label string, copy string) ui.Node {
 	return html.Div(html.Props{Class: "grid gap-3 rounded-[1.25rem] border border-white/10 bg-white/6 p-4 shadow-[0_14px_30px_rgba(0,0,0,0.12)]"},
 		html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-stone-400"}, html.Text(label)),
@@ -640,14 +613,7 @@ func publicProductContextColumn(label string, copy string) ui.Node {
 	)
 }
 
-func publicProductEditorialGrid(product productCard) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4 lg:grid-cols-2"},
-		publicFeatureCard(publicEditorialProductStoryLabel, catalogEditorialCopy(product)),
-		publicFeatureCard(publicRouteStableTrustLabel, "Pricing, delivery context, and follow-up options stay consistent as buyers move between products and regions."),
-	)
-}
-
-func publicProductMetrics(product productCard) ui.Node {
+func publicProductMetrics() ui.Node {
 	return html.Div(html.Props{Class: "grid gap-4"},
 		html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-stone-400"}, html.Text("Why this product page is easier to use")),
 		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
@@ -809,41 +775,6 @@ func countPublicLowStockProducts(items []productCard) int {
 		}
 	}
 	return count
-}
-
-func publicWarehouseCard(item warehouseCard) ui.Node {
-	return html.A(html.Props{Href: RouteWarehouses + "/" + item.Slug, Class: "group grid gap-5 rounded-[2.1rem] border border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(248,244,238,0.86))] p-6 shadow-[0_20px_48px_rgba(120,107,82,0.09)] transition hover:-translate-y-1 hover:border-stone-300 hover:bg-white hover:shadow-[0_28px_65px_rgba(120,107,82,0.14)]"},
-		html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
-			html.Div(html.Props{Class: "grid gap-2"},
-				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(item.Region)),
-				html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-stone-950 transition group-hover:text-stone-800"}, html.Text(item.Name)),
-			),
-			html.Span(html.Props{Class: "rounded-full border border-stone-200 bg-stone-100 px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-stone-600"}, html.Text(item.ServiceLevel)),
-		),
-		publicWarehouseStory(item),
-		publicWarehouseCardFooter(item),
-	)
-}
-
-func publicWarehouseStory(item warehouseCard) ui.Node {
-	return html.Div(html.Props{Class: "relative overflow-hidden rounded-[1.7rem] border border-stone-200/80 bg-[linear-gradient(160deg,rgba(255,255,255,0.88),rgba(244,236,224,0.96)_58%,rgba(234,223,206,0.92))] px-5 py-5"},
-		html.Div(html.Props{Class: "pointer-events-none absolute -right-6 top-4 h-24 w-24 rounded-full bg-amber-200/40 blur-2xl"}),
-		html.Div(html.Props{Class: "relative z-[1] grid gap-4"},
-			html.Div(html.Props{Class: "flex flex-wrap items-center gap-2 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-stone-500"},
-				html.Span(html.Props{Class: "rounded-full border border-white/75 bg-white/70 px-3 py-1 text-stone-600"}, html.Text(publicRegionalHubLabel)),
-				html.Span(html.Props{}, html.Text(warehouseServiceTone(item.ServiceLevel))),
-			),
-			html.P(html.Props{Class: "text-sm leading-7 text-stone-600"}, html.Text(item.PublicSummary)),
-			html.P(html.Props{Class: "text-sm leading-6 text-stone-500"}, html.Text(warehouseRegionCue(item.Region))),
-		),
-	)
-}
-
-func publicWarehouseCardFooter(item warehouseCard) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-3 rounded-[1.45rem] border border-stone-200/75 bg-white/70 p-4 text-sm text-stone-600"},
-		html.P(html.Props{Class: "rounded-full border border-stone-200 bg-stone-50 px-3 py-2"}, html.Text("Delivery pace: "+warehouseServiceTone(item.ServiceLevel))),
-		html.Span(html.Props{Class: "font-semibold text-stone-900 transition group-hover:text-stone-700"}, html.Text("View network details")),
-	)
 }
 
 func renderWarehouseDetailContent(page warehouseDetailPage) ui.Node {

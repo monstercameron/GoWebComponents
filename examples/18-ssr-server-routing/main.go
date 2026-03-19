@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"strings"
@@ -28,6 +29,25 @@ func loadBootstrapPayload() ui.SSRBootstrap {
 		return ui.SSRBootstrap{}
 	}
 	return bootstrapPayload
+}
+
+func decodeBootstrapRouteData(payload ui.SSRBootstrap) (bootstrapRouteData, bool) {
+	if payload.Data == nil {
+		return bootstrapRouteData{}, false
+	}
+	raw, ok := payload.Data["routeData"]
+	if !ok {
+		return bootstrapRouteData{}, false
+	}
+	data, err := json.Marshal(raw)
+	if err != nil {
+		return bootstrapRouteData{}, false
+	}
+	var decoded bootstrapRouteData
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return bootstrapRouteData{}, false
+	}
+	return decoded, true
 }
 
 func consumeInitialRouteData(routeCtx router.RouteContext, pageName string) (bootstrapRouteData, bool) {

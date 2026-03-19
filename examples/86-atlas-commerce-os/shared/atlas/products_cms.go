@@ -97,7 +97,7 @@ func productEditorContent(payload Payload) ui.Node {
 	return html.Section(html.Props{Class: "grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(24rem,0.88fr)]"},
 		html.Div(html.Props{Class: "grid gap-5"},
 			featureCard(item.Title, item.Details),
-			productEditorQuickTasks(item),
+			productEditorQuickTasks(),
 			html.Div(html.Props{Class: "grid gap-4 md:grid-cols-2"},
 				statCard("SKU", item.SKU),
 				statCard("Price", formatPrice(item.PriceCents)),
@@ -125,7 +125,7 @@ func productEditorContent(payload Payload) ui.Node {
 	)
 }
 
-func productEditorQuickTasks(item productAdminCard) ui.Node {
+func productEditorQuickTasks() ui.Node {
 	return internalWorkflowSection("Quick tasks", "Keep the common admin handoffs inside the product detail page so the next action is visible while you edit the product record.",
 		internalWorkflowCard("Task 1", "Add item", "Create another catalog item without backing out of the current product workflow.", "/app/products#create-product"),
 		internalWorkflowCard("Task 2", "Update copy", "Return to the freshest product records when merchandising language or SEO needs another pass.", "/app/products?sort=updated"),
@@ -272,15 +272,6 @@ func totalProductVolume(items []productAdminCard) int {
 		total += productVolume(item)
 	}
 	return total
-}
-
-func optionLabelForValue(value string, options []optionItem) string {
-	for _, option := range options {
-		if strings.EqualFold(strings.TrimSpace(option.Value), strings.TrimSpace(value)) {
-			return option.Label
-		}
-	}
-	return value
 }
 
 type optionItem struct {

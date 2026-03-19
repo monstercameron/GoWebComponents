@@ -19,11 +19,12 @@ What it shows now:
 - shared hydration from the same Atlas payload used during SSR
 - sqlite-backed mutations, CSRF protection, and request-time recovery flows
 
-What lands next:
+Current migration focus:
 
-- seed-backed product and warehouse data
-- landing, catalog, dashboard, and inventory screens
-- theme, locale, and SSR bootstrap integration
+- rewrite the Atlas public and internal shells using the React design references under `design/`
+- match the GoWebComponents HTML and CSS output to the React compositions as closely as Atlas route semantics allow
+- replicate and enhance the React interaction patterns through Atlas SSR plus WASM hydration
+- track execution details in `docs/ATLAS_COMMERCE_OS_TODO.md`
 
 ## Current Structure
 
@@ -40,6 +41,7 @@ What lands next:
 - `shared/atlas/bootstrap.go`: shared bootstrap contract now used by both the native server and the wasm client
 - `shared/atlas/page.go`: shared Atlas SSR page tree used for server rendering and browser hydration
 - `client/main.go`: js/wasm hydration entrypoint for the server-rendered Atlas surface
+- `docs/ATLAS_COMMERCE_OS_TODO.md`: active rewrite plan for React-to-GoWebComponents Atlas parity work
 - `docs/scripts/reset-seed.ps1`: removes the local Atlas sqlite path so demos can return to a clean seed baseline once persistence lands
 - The former standalone planning and review notes now live in the consolidated sections below.
 

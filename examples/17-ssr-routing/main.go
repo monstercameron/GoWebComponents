@@ -18,6 +18,13 @@ import (
 
 var hydratedBootstrap = defaultBootstrapPayload()
 
+const (
+	modeHome   = "home"
+	modeSearch = "search"
+	modeSecure = "secure"
+	modeSignIn = "signin"
+)
+
 var (
 	docsRevision   int
 	searchRevision int
@@ -104,6 +111,21 @@ func searchPage(props router.Attrs) ui.Node {
 		uiButton("Filter routing", func() { search.Replace("q", searchQueryRouting) }),
 		uiButton("Revalidate", func() { revalidator.Revalidate() }),
 	)
+}
+
+func filterCatalog(query string) []guideArticle {
+	trimmed := strings.TrimSpace(strings.ToLower(query))
+	if trimmed == "" {
+		return catalogList()
+	}
+
+	matches := make([]guideArticle, 0, len(guideCatalog))
+	for _, article := range catalogList() {
+		if strings.Contains(strings.ToLower(article.Title), trimmed) || strings.Contains(strings.ToLower(article.Summary), trimmed) {
+			matches = append(matches, article)
+		}
+	}
+	return matches
 }
 
 func signInPage(props router.Attrs) ui.Node {

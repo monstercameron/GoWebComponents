@@ -8,11 +8,7 @@ const (
 	transportJSONSidecar = "json-sidecar"
 	ssrRoutingDemoName   = "ssr-routing"
 
-	modeHome   = "home"
-	modeDocs   = "docs"
-	modeSearch = "search"
-	modeSecure = "secure"
-	modeSignIn = "signin"
+	modeDocs = "docs"
 
 	tabOverview = "overview"
 	tabLoader   = "loader"

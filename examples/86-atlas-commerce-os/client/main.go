@@ -400,18 +400,6 @@ func buildRecoveryPayload(path string, query url.Values, requestURL string, err 
 	return payload
 }
 
-func hardNavigate(path string, query url.Values) {
-	target := path
-	if encoded := query.Encode(); encoded != "" {
-		target += "?" + encoded
-	}
-	debugLog("navigation.hard", map[string]any{"target": target})
-	window := js.Global().Get("window")
-	if window.Truthy() {
-		window.Get("location").Set("href", target)
-	}
-}
-
 func registerAnchorNavigation(routerInstance *router.Router) {
 	document := js.Global().Get("document")
 	window := js.Global().Get("window")

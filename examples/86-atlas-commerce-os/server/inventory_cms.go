@@ -51,9 +51,10 @@ func (s *atlasServer) internalInventoryPageData(ctx context.Context, values url.
 		StockHealth: filters["status"],
 		Search:      filters["q"],
 	}
-	if filters["sort"] == "inbound" {
+	switch filters["sort"] {
+	case "inbound":
 		query.SortKey = "inbound"
-	} else if filters["sort"] == "updated" {
+	case "updated":
 		query.SortKey = "updated"
 	}
 	items, err := s.store.InventoryList(ctx, query)
@@ -69,10 +70,6 @@ func (s *atlasServer) internalInventoryDetailPageData(ctx context.Context, sku s
 		return inventoryDetailPageData{}, err
 	}
 	return inventoryDetailPageData{SKU: rows[0].SKU, Title: rows[0].Title, Rows: rows}, nil
-}
-
-func (s *atlasServer) internalWarehouseDetailPageData(ctx context.Context, warehouseID string) (warehouseDetailPageData, error) {
-	return s.internalWarehouseDetailPageDataWithFilters(ctx, warehouseID, url.Values{})
 }
 
 func (s *atlasServer) internalWarehouseDetailPageDataWithFilters(ctx context.Context, warehouseID string, values url.Values) (warehouseDetailPageData, error) {
@@ -217,10 +214,6 @@ func fallbackWarehouseLabel(item repository.InventoryRow) string {
 		return item.WarehouseName
 	}
 	return item.WarehouseID
-}
-
-func isNotFoundInventoryError(err error) bool {
-	return err != nil && (err == sql.ErrNoRows || strings.Contains(strings.ToLower(err.Error()), "no rows"))
 }
 
 func filterWarehouseInventoryRows(items []repository.InventoryRow, filters map[string]string) []repository.InventoryRow {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Menu, Package, Search, ShoppingCart, Star, X } from 'lucide-react'

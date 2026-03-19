@@ -179,9 +179,3 @@ func (m FocusManager) Restore(options ...FocusOptions) bool {
 }
 
 func UseFocusTrap(options FocusTrapOptions) {}
-
-func useOverlayEscape(active bool, onDismiss func()) {}
-
-func useOverlayScrollLock(active bool) {}
-
-func useOverlayBackgroundInert(selector string, active bool) {}

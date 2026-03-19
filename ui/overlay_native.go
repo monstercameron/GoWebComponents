@@ -3,15 +3,6 @@
 
 package ui
 
-type managedOverlayFocusOptions struct {
-	Open                  bool
-	Active                bool
-	ContainerSelector     string
-	InitialFocusSelector  string
-	FallbackFocusSelector string
-	RestoreFocus          bool
-}
-
 func UseOverlayStack(options OverlayStackOptions) OverlayStack {
 	id := options.ID
 	if id == "" {
@@ -36,7 +27,3 @@ func Overlay(props OverlayProps) Node {
 	children = append(children, props.Children...)
 	return Fragment(children...)
 }
-
-func useManagedOverlayFocus(options managedOverlayFocusOptions) {}
-
-func useOverlayOutsideDismiss(active bool, surfaceSelector string, onDismiss func()) {}
