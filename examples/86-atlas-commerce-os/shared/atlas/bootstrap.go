@@ -29,12 +29,14 @@ type Request struct {
 }
 
 type RouteBootstrap struct {
-	Path    string              `json:"path"`
-	Query   map[string][]string `json:"query,omitempty"`
-	Params  map[string]string   `json:"params,omitempty"`
-	Surface string              `json:"surface"`
-	Screen  string              `json:"screen"`
-	Title   string              `json:"title"`
+	Path        string              `json:"path"`
+	Query       map[string][]string `json:"query,omitempty"`
+	Params      map[string]string   `json:"params,omitempty"`
+	Surface     string              `json:"surface"`
+	Screen      string              `json:"screen"`
+	Title       string              `json:"title"`
+	Description string              `json:"description,omitempty"`
+	Canonical   string              `json:"canonical,omitempty"`
 }
 
 type PreferencesState struct {
@@ -164,10 +166,13 @@ func PayloadFromSSRBootstrap(input ui.SSRBootstrap) Payload {
 		decoded := bootstrapData{}
 		if decodeInto(raw, &decoded) == nil {
 			if decoded.Route.Path != "" {
-				payload.Route.Surface = decoded.Route.Surface
-				payload.Route.Screen = decoded.Route.Screen
-				payload.Route.Title = decoded.Route.Title
+				payload.Route.Path = decoded.Route.Path
 			}
+			payload.Route.Surface = decoded.Route.Surface
+			payload.Route.Screen = decoded.Route.Screen
+			payload.Route.Title = decoded.Route.Title
+			payload.Route.Description = decoded.Route.Description
+			payload.Route.Canonical = decoded.Route.Canonical
 			payload.Preferences = decoded.Preferences
 			payload.I18n = decoded.I18n
 			payload.Theme = decoded.Theme

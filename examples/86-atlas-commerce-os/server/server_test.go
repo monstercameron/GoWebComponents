@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -106,11 +107,12 @@ func TestInternalSSRRoutes(t *testing.T) {
 		path  string
 		title string
 	}{
-		{path: "/app/products", title: "Atlas Product CMS"},
+		{path: "/app/products", title: "Atlas Product Merchandising"},
 		{path: "/app/products/frame-desk", title: "Atlas Product Editor"},
 		{path: "/app/inventory", title: "Atlas Inventory"},
 		{path: "/app/inventory/frame-desk", title: "Atlas SKU Detail"},
-		{path: "/app/warehouses", title: "Atlas Warehouses Internal"},
+		{path: "/app/inventory/frame-desk/threshold-history", title: "Atlas Threshold History"},
+		{path: "/app/warehouses", title: "Atlas Warehouse Operations"},
 		{path: "/app/warehouses/new-jersey-hub", title: "Atlas Warehouse Detail"},
 		{path: "/app/transfers", title: "Atlas Transfers"},
 		{path: "/app/transfers/tr-seed-001", title: "Atlas Transfer Detail"},
@@ -118,7 +120,7 @@ func TestInternalSSRRoutes(t *testing.T) {
 		{path: "/app/purchase-orders/po-1042", title: "Atlas Purchase Order Detail"},
 		{path: "/app/receiving", title: "Atlas Receiving"},
 		{path: "/app/receiving/rcv-illinois-001", title: "Atlas Receiving Session"},
-		{path: "/app/comments", title: "Atlas Buyer Follow-Up"},
+		{path: "/app/comments", title: "Atlas Buyer Inbox"},
 		{path: "/app/settings", title: "Atlas Settings"},
 	}
 
@@ -143,11 +145,169 @@ func TestInternalSSRRoutes(t *testing.T) {
 			if !strings.Contains(body, `id="__ATLAS_BOOTSTRAP__"`) {
 				t.Fatalf("expected bootstrap script in response body, got %q", body)
 			}
+			for _, snippet := range []string{
+				`<title data-gwc-router-managed="true">`,
+				`<meta name="description"`,
+				`<link rel="canonical"`,
+			} {
+				if !strings.Contains(body, snippet) {
+					t.Fatalf("expected router-managed metadata snippet %q, got %q", snippet, body)
+				}
+			}
 			if !strings.Contains(body, tc.path) {
 				t.Fatalf("expected bootstrap payload to include route path %q", tc.path)
 			}
+			if !strings.Contains(body, `"description":"`) {
+				t.Fatalf("expected bootstrap payload to include route description, got %q", body)
+			}
+			if !strings.Contains(body, `"canonical":"`+tc.path+`"`) {
+				t.Fatalf("expected bootstrap payload to include canonical %q, got %q", tc.path, body)
+			}
+			if tc.path == "/app/dashboard" && !strings.Contains(body, "/api/app/dashboard") {
+				t.Fatalf("expected dashboard startup request to use /api/app/dashboard, got %q", body)
+			}
+			if tc.path == "/app/settings" && !strings.Contains(body, "/api/app/settings") {
+				t.Fatalf("expected settings startup request to use /api/app/settings, got %q", body)
+			}
 			if tc.path == "/app/inventory/frame-desk" && strings.Contains(body, "/shop?q=frame-desk") {
 				t.Fatalf("expected inventory detail to stay in internal workflows, got %q", body)
+			}
+			if tc.path == "/app/inventory/frame-desk/threshold-history" && !strings.Contains(body, `"overlay":`) {
+				t.Fatalf("expected threshold-history route bootstrap to include overlay data, got %q", body)
+			}
+		})
+	}
+}
+
+func TestInventoryThresholdHistoryExternalBootstrapMode(t *testing.T) {
+	server, cleanup := newTestAtlasServer(t)
+	defer cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/app/inventory/frame-desk/threshold-history?atlas_bootstrap=external", nil)
+	req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	res := httptest.NewRecorder()
+
+	server.routes().ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected %d, got %d", http.StatusOK, res.Code)
+	}
+	if mode := res.Header().Get("X-Atlas-Bootstrap-Mode"); mode != "external" {
+		t.Fatalf("expected external bootstrap mode, got %q", mode)
+	}
+	body := res.Body.String()
+	if !strings.Contains(body, `id="__ATLAS_BOOTSTRAP_REF__"`) {
+		t.Fatalf("expected bootstrap reference script, got %q", body)
+	}
+	if strings.Contains(body, `id="__ATLAS_BOOTSTRAP__"`) {
+		t.Fatalf("expected inline bootstrap script to be omitted in external mode, got %q", body)
+	}
+	if !strings.Contains(body, `/__atlas/bootstrap.json?`) {
+		t.Fatalf("expected external bootstrap endpoint reference, got %q", body)
+	}
+}
+
+func TestUnsupportedRouteFallsBackToInlineBootstrapMode(t *testing.T) {
+	server, cleanup := newTestAtlasServer(t)
+	defer cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/app/dashboard?atlas_bootstrap=external", nil)
+	req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	res := httptest.NewRecorder()
+
+	server.routes().ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected %d, got %d", http.StatusOK, res.Code)
+	}
+	if mode := res.Header().Get("X-Atlas-Bootstrap-Mode"); mode != "inline" {
+		t.Fatalf("expected unsupported route to stay inline, got %q", mode)
+	}
+	if !strings.Contains(res.Body.String(), `id="__ATLAS_BOOTSTRAP__"`) {
+		t.Fatalf("expected inline bootstrap script for unsupported route, got %q", res.Body.String())
+	}
+}
+
+func TestExternalBootstrapEndpointReturnsThresholdHistoryPayload(t *testing.T) {
+	server, cleanup := newTestAtlasServer(t)
+	defer cleanup()
+
+	routeQuery := url.QueryEscape("atlas_bootstrap=external")
+	req := httptest.NewRequest(http.MethodGet, "/__atlas/bootstrap.json?path=%2Fapp%2Finventory%2Fframe-desk%2Fthreshold-history&route_query="+routeQuery, nil)
+	req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	res := httptest.NewRecorder()
+
+	server.routes().ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected %d, got %d", http.StatusOK, res.Code)
+	}
+	body := res.Body.String()
+	for _, expected := range []string{
+		`"path":"/app/inventory/frame-desk/threshold-history"`,
+		`"screen":"sku-threshold-history"`,
+		`"overlay"`,
+		`"/api/app/inventory/frame-desk/threshold-panel"`,
+	} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("expected external bootstrap payload to contain %q, got %q", expected, body)
+		}
+	}
+}
+
+func TestPublicSSRRoutes(t *testing.T) {
+	server, cleanup := newTestAtlasServer(t)
+	defer cleanup()
+
+	tests := []struct {
+		path  string
+		title string
+	}{
+		{path: "/", title: "Atlas Commerce OS"},
+		{path: "/shop", title: "Atlas Shop"},
+		{path: "/shop/frame-desk", title: "Atlas Frame Desk"},
+		{path: "/warehouses", title: "Atlas Delivery Regions"},
+		{path: "/warehouses/new-jersey-hub", title: "Atlas Warehouse Detail"},
+		{path: "/warehouses/new-jersey-hub/availability/frame-desk", title: "Atlas Warehouse Availability"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.path, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			res := httptest.NewRecorder()
+
+			server.routes().ServeHTTP(res, req)
+
+			if res.Code != http.StatusOK {
+				t.Fatalf("expected %d, got %d", http.StatusOK, res.Code)
+			}
+			body := res.Body.String()
+			if !strings.Contains(body, tc.title) {
+				t.Fatalf("expected body to contain %q", tc.title)
+			}
+			if !strings.Contains(body, `<div id="app"></div>`) {
+				t.Fatalf("expected wasm app shell in response body, got %q", body)
+			}
+			if !strings.Contains(body, `id="__ATLAS_BOOTSTRAP__"`) {
+				t.Fatalf("expected bootstrap script in response body, got %q", body)
+			}
+			for _, snippet := range []string{
+				`<title data-gwc-router-managed="true">`,
+				`<meta name="description"`,
+				`<link rel="canonical"`,
+			} {
+				if !strings.Contains(body, snippet) {
+					t.Fatalf("expected router-managed metadata snippet %q, got %q", snippet, body)
+				}
+			}
+			if !strings.Contains(body, `"description":"`) {
+				t.Fatalf("expected bootstrap payload to include route description, got %q", body)
+			}
+			if !strings.Contains(body, `"canonical":"`+tc.path+`"`) {
+				t.Fatalf("expected bootstrap payload to include canonical %q, got %q", tc.path, body)
+			}
+			if tc.path == "/warehouses" && !strings.Contains(body, "/api/public/warehouses") {
+				t.Fatalf("expected warehouses startup request to use /api/public/warehouses, got %q", body)
 			}
 		})
 	}
@@ -496,6 +656,128 @@ func TestInternalInventoryAndPurchaseOrderCreateWithCSRFTokens(t *testing.T) {
 		if row.WarehouseID == "new-jersey-hub" && row.Inbound != 15 {
 			t.Fatalf("expected inbound to increase to 15 after order create, got %d", row.Inbound)
 		}
+	}
+}
+
+func TestInternalBulkModerationAndSavedViewTransfer(t *testing.T) {
+	server, cleanup := newTestAtlasServer(t)
+	defer cleanup()
+
+	csrfToken, csrfCookie := loadCSRFFromPage(t, server, "/app/comments")
+	comments, err := server.store.Comments(context.Background(), "")
+	if err != nil {
+		t.Fatalf("load comments: %v", err)
+	}
+	if len(comments) < 2 {
+		t.Fatalf("expected at least 2 comments, got %d", len(comments))
+	}
+	ids := []string{comments[0].ID, comments[1].ID}
+
+	bulkForm := url.Values{
+		"csrf_token": {csrfToken},
+		"ids":        {strings.Join(ids, ",")},
+		"status":     {"approved"},
+		"reason":     {"Bulk review from SSR test."},
+	}
+	bulkReq := httptest.NewRequest(http.MethodPost, "/api/app/comments/bulk-moderate", strings.NewReader(bulkForm.Encode()))
+	bulkReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	bulkReq.Header.Set("Origin", "http://example.com")
+	bulkReq.Header.Set("Referer", "http://example.com/app/comments")
+	bulkReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	bulkReq.AddCookie(csrfCookie)
+	bulkRes := httptest.NewRecorder()
+
+	server.routes().ServeHTTP(bulkRes, bulkReq)
+
+	if bulkRes.Code != http.StatusSeeOther {
+		t.Fatalf("expected %d, got %d", http.StatusSeeOther, bulkRes.Code)
+	}
+	if location := bulkRes.Header().Get("Location"); !strings.Contains(location, "comments-bulk-moderated") {
+		t.Fatalf("expected comments-bulk-moderated redirect notice, got %q", location)
+	}
+	updatedComments, err := server.store.Comments(context.Background(), "")
+	if err != nil {
+		t.Fatalf("reload comments: %v", err)
+	}
+	for _, id := range ids {
+		var found bool
+		for _, item := range updatedComments {
+			if item.ID != id {
+				continue
+			}
+			found = true
+			if item.Status != "approved" {
+				t.Fatalf("expected comment %q to move into approved status, got %q", id, item.Status)
+			}
+			if item.ModerationReason != "Bulk review from SSR test." {
+				t.Fatalf("expected bulk moderation reason to persist for %q, got %q", id, item.ModerationReason)
+			}
+		}
+		if !found {
+			t.Fatalf("expected comment %q to move into approved status", id)
+		}
+	}
+
+	exportReq := httptest.NewRequest(http.MethodGet, "/api/app/saved-views/export", nil)
+	exportReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	exportRes := httptest.NewRecorder()
+
+	server.routes().ServeHTTP(exportRes, exportReq)
+
+	if exportRes.Code != http.StatusOK {
+		t.Fatalf("expected %d, got %d", http.StatusOK, exportRes.Code)
+	}
+	var exportPayload struct {
+		Items []struct {
+			Name          string `json:"name"`
+			Scope         string `json:"scope"`
+			SortKey       string `json:"sortKey"`
+			SortDirection string `json:"sortDirection"`
+			Density       string `json:"density"`
+			WarehouseID   string `json:"warehouseId"`
+			FiltersJSON   string `json:"filtersJSON"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(exportRes.Body.Bytes(), &exportPayload); err != nil {
+		t.Fatalf("decode saved-view export payload: %v", err)
+	}
+	if len(exportPayload.Items) == 0 {
+		t.Fatal("expected saved-view export payload to include at least one item")
+	}
+
+	importBody := `{"items":[{"name":"SSR imported triage","scope":"inventory","sortKey":"updated","sortDirection":"desc","density":"compact","warehouseId":"illinois-hub","filtersJSON":"{\"status\":\"promise_risk\"}"}]}`
+	importForm := url.Values{
+		"csrf_token": {csrfToken},
+		"views_json": {importBody},
+	}
+	importReq := httptest.NewRequest(http.MethodPost, "/api/app/saved-views/import", strings.NewReader(importForm.Encode()))
+	importReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	importReq.Header.Set("Origin", "http://example.com")
+	importReq.Header.Set("Referer", "http://example.com/app/settings")
+	importReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	importReq.AddCookie(csrfCookie)
+	importRes := httptest.NewRecorder()
+
+	server.routes().ServeHTTP(importRes, importReq)
+
+	if importRes.Code != http.StatusSeeOther {
+		t.Fatalf("expected %d, got %d", http.StatusSeeOther, importRes.Code)
+	}
+	if location := importRes.Header().Get("Location"); !strings.Contains(location, "saved-views-imported") {
+		t.Fatalf("expected saved-views-imported redirect notice, got %q", location)
+	}
+	savedViews, err := server.store.SavedViewsByOwner(context.Background(), "demo-operator")
+	if err != nil {
+		t.Fatalf("reload saved views: %v", err)
+	}
+	var imported bool
+	for _, view := range savedViews {
+		if view.Name == "SSR imported triage" {
+			imported = true
+		}
+	}
+	if !imported {
+		t.Fatal("expected imported saved view to be persisted for demo-operator")
 	}
 }
 

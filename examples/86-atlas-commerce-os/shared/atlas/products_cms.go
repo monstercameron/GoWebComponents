@@ -77,17 +77,17 @@ func productsCMSContent(payload Payload) ui.Node {
 				statCard("Total volume", fmt.Sprintf("%d units", totalProductVolume(page.Items))),
 				statCard("Low stock", fmt.Sprintf("%d flagged", countLowStockProducts(page.Items))),
 			),
-			internalWorkflowSection("Product admin flows", "Use the product workspace for item creation, marketing copy, and volume-level decisions, then branch into warehouse routes only when the work becomes lane-specific.",
-				internalWorkflowCard("Flow 1", "Add new item", "Start a new Atlas SKU with the first warehouse assignment and live volume values already in the create form.", "/app/products#create-product"),
+			internalWorkflowSection("Product merchandising flows", "Use the product workspace for item creation, marketing copy, SEO, and catalog readiness, then branch into warehouse routes only when the work becomes lane-specific.",
+				internalWorkflowCard("Flow 1", "Add new item", "Start a new Atlas SKU with baseline pricing, merchandising copy, and the first warehouse assignment already in the create form.", "/app/products#create-product"),
 				internalWorkflowCard("Flow 2", "Update marketing copy", "Open the freshest product records first when merchandising language, summaries, or SEO need cleanup.", "/app/products?sort=updated"),
 				internalWorkflowCard("Flow 3", "Review warehouse operations", "Jump into warehouse-native item management when a product change becomes a lane or replenishment task.", "/app/warehouses"),
 				internalWorkflowCard("Flow 4", "Check buyer feedback", "Use real customer questions to decide whether copy, availability, or pricing context needs work.", "/app/comments"),
 			),
-			listCard("Product volume list", productCards...),
+			listCard("Product merchandising list", productCards...),
 		),
 		html.Div(html.Props{Class: "grid gap-5"},
 			html.Div(html.Props{ID: "create-product"}, productCreateForm(payload)),
-			featureCard("Why this matters", "Atlas now keeps the general product CMS focused on product-level volume and copy, while warehouse-specific adjustments stay inside warehouse workflows."),
+			featureCard("Why this matters", "Atlas keeps the product workspace focused on merchandising, pricing, and catalog clarity, while warehouse-specific adjustments stay inside warehouse workflows."),
 		),
 	)
 }
@@ -112,7 +112,7 @@ func productEditorContent(payload Payload) ui.Node {
 				infoRow("SEO description", item.SEODescription),
 			),
 			internalWorkflowSection("Product editor flows", "Finish the product task here, then jump directly into the next operational route instead of backing out through unrelated screens.",
-				internalWorkflowCard("Flow 1", "Back to product list", "Return to the volume list when you need to move from one product record to the next update.", "/app/products"),
+				internalWorkflowCard("Flow 1", "Back to product list", "Return to the merchandising list when you need to move from one product record to the next update.", "/app/products"),
 				internalWorkflowCard("Flow 2", "Manage warehouse item", "Open the warehouse-native item profile when this product needs stock edits or replenishment controls.", warehouseItemProfileHref(item)),
 				internalWorkflowCard("Flow 3", "Review warehouse lanes", "Open the SKU lane view when the product change needs cross-warehouse inventory context.", "/app/inventory/"+item.SKU),
 				internalWorkflowCard("Flow 4", "Review buyer feedback", "Use the comment queue to validate whether the copy update resolved the original customer confusion.", "/app/comments"),
@@ -131,8 +131,8 @@ func productEditorQuickTasks() ui.Node {
 		internalWorkflowCard("Task 2", "Update copy", "Return to the freshest product records when merchandising language or SEO needs another pass.", "/app/products?sort=updated"),
 		internalWorkflowCard("Task 3", "Fix stock risk", "Jump into the inventory pressure view when this product issue is really a stock problem.", "/app/inventory?status=promise_risk"),
 		internalWorkflowCard("Task 4", "Order more units", "Open purchase-order planning when the product change needs vendor replenishment.", "/app/purchase-orders"),
-		internalWorkflowCard("Task 5", "Receiving", "Check inbound receiving after replenishment starts moving toward the warehouse network.", "/app/receiving"),
-		internalWorkflowCard("Task 6", "Buyer follow-up", "Review customer questions tied to this product before closing the edit pass.", "/app/comments"),
+		internalWorkflowCard("Task 5", "Receiving", "Check inbound receiving after replenishment starts moving toward the warehouse operations routes.", "/app/receiving"),
+		internalWorkflowCard("Task 6", "Buyer inbox", "Review customer questions tied to this product before closing the edit pass.", "/app/comments"),
 	)
 }
 
@@ -216,7 +216,15 @@ func productUpdateFormWithOptions(item productAdminCard, payload Payload, option
 		children = append([]ui.Node{html.Input(html.Props{Type: "hidden", Name: "return_warehouse_id", Value: options.ReturnWarehouseID})}, children...)
 	}
 	introLabel := fallback(options.IntroLabel, "Edit catalog item")
-	return html.Form(html.Props{Action: "/api/app/products/" + item.Slug + "/update", Method: "post", Class: "grid gap-4 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"},
+	return html.Form(html.Props{
+		Action: "/api/app/products/" + item.Slug + "/update",
+		Method: "post",
+		Class:  "grid gap-4 rounded-[1.5rem] border border-white/10 bg-white/5 p-5",
+		Data: map[string]string{
+			"atlas-dirty-guard":   "product-editor",
+			"atlas-dirty-message": "Leave the product editor and discard unsaved Atlas product changes?",
+		},
+	},
 		append([]ui.Node{html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text(introLabel))}, prependCSRFToken(payload.CSRF, children...)...)...,
 	)
 }

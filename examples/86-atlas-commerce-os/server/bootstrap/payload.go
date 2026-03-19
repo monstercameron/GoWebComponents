@@ -15,12 +15,14 @@ type Payload struct {
 }
 
 type RouteBootstrap struct {
-	Path    string              `json:"path"`
-	Query   map[string][]string `json:"query,omitempty"`
-	Params  map[string]string   `json:"params,omitempty"`
-	Surface string              `json:"surface"`
-	Screen  string              `json:"screen"`
-	Title   string              `json:"title"`
+	Path        string              `json:"path"`
+	Query       map[string][]string `json:"query,omitempty"`
+	Params      map[string]string   `json:"params,omitempty"`
+	Surface     string              `json:"surface"`
+	Screen      string              `json:"screen"`
+	Title       string              `json:"title"`
+	Description string              `json:"description,omitempty"`
+	Canonical   string              `json:"canonical,omitempty"`
 }
 
 type PreferencesState struct {

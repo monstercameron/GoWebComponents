@@ -657,124 +657,75 @@ func publicSupportPoints(points []string) []ui.Node {
 	return nodes
 }
 
-func renderWarehouseListContent(page catalogPage) ui.Node {
+func renderWarehouseDirectoryContent(page warehouseDirectoryPage) ui.Node {
 	nodes := make([]ui.Node, 0, len(page.Items))
 	for _, item := range page.Items {
-		nodes = append(nodes, publicWarehouseProductCard(item))
+		nodes = append(nodes, publicWarehouseDirectoryCard(item))
 	}
 	if len(nodes) == 0 {
-		nodes = append(nodes, html.Div(html.Props{Class: "rounded-[1.8rem] border border-stone-200/80 bg-white/80 p-6 text-sm leading-7 text-stone-600 shadow-[0_18px_40px_rgba(120,107,82,0.08)]"}, html.Text("No products matched the current filters. Clear the query or widen the status filter to bring products back into view.")))
+		nodes = append(nodes, html.Div(html.Props{Class: "rounded-[1.8rem] border border-stone-200/80 bg-white/80 p-6 text-sm leading-7 text-stone-600 shadow-[0_18px_40px_rgba(120,107,82,0.08)]"}, html.Text("No delivery regions are available right now. Retry the page or return to the storefront.")))
 	}
 	return html.Section(html.Props{Class: "grid gap-8"},
-		publicWarehouseListOverview(page),
-		publicWarehouseProductControls(page),
+		publicWarehouseDirectoryOverview(page),
 		html.Div(html.Props{Class: "flex flex-col gap-4"}, nodes...),
 	)
 }
 
-func publicWarehouseListOverview(page catalogPage) ui.Node {
+func publicWarehouseDirectoryOverview(page warehouseDirectoryPage) ui.Node {
 	return html.Div(html.Props{Class: "grid gap-4 rounded-[2rem] border border-stone-200/80 bg-white/65 p-6 shadow-[0_18px_40px_rgba(120,107,82,0.08)] lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] lg:items-end"},
 		html.Div(html.Props{Class: "grid gap-2"},
-			html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.3em] text-stone-500"}, html.Text("Atlas product volume")),
-			html.H2(html.Props{Class: "text-3xl font-black tracking-[-0.03em] text-stone-950"}, html.Text("Sorted products and live volume, without warehouse picking.")),
-			html.P(html.Props{Class: "max-w-3xl text-base leading-8 text-stone-600"}, html.Text("This route now starts with products. Search, filter, and sort the catalog by product status and total volume instead of choosing a warehouse first.")),
+			html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.3em] text-stone-500"}, html.Text("Atlas delivery regions")),
+			html.H2(html.Props{Class: "text-3xl font-black tracking-[-0.03em] text-stone-950"}, html.Text("Choose the warehouse route that matches your delivery window.")),
+			html.P(html.Props{Class: "max-w-3xl text-base leading-8 text-stone-600"}, html.Text("This route is the public Atlas warehouse directory. Compare service posture, regional focus, and stocked highlights before opening the delivery view that best fits your project.")),
 		),
 		html.Div(html.Props{Class: "grid gap-3 sm:grid-cols-2"},
-			publicMetricCard(fmt.Sprintf("%d products", len(page.Items)), "The route now stays product-first and drops the warehouse directory cards entirely."),
-			publicMetricCard(fmt.Sprintf("%d total volume", totalPublicWarehouseVolume(page.Items)), fmt.Sprintf("%d low-stock products still need attention.", countPublicLowStockProducts(page.Items))),
+			publicMetricCard(fmt.Sprintf("%d delivery regions", len(page.Items)), "Each route keeps the location story tied to a real Atlas warehouse rather than a generic shipping estimate."),
+			publicMetricCard(primaryWarehouseServiceLevel(page.Items), "Use service level as the first cue, then open the warehouse detail for stocked highlights and product-specific availability."),
 		),
 	)
 }
 
-func publicWarehouseProductControls(page catalogPage) ui.Node {
-	return html.Form(html.Props{Action: RouteWarehouses, Method: "get", Class: "flex flex-col gap-4 rounded-[1.8rem] border border-stone-200/80 bg-white/72 p-5 shadow-[0_18px_40px_rgba(120,107,82,0.08)] lg:flex-row lg:flex-wrap lg:items-end"},
-		publicWarehouseProductInput("q", "Search", page.Query.Search),
-		publicWarehouseProductSelect("category", "Category", page.Query.Category, append([]optionItem{{"", "All categories"}}, productCategoryOptions()...)),
-		publicWarehouseProductSelect("status", "Status", page.Query.Status, append([]optionItem{{"", "All statuses"}}, productStatusOptions()...)),
-		publicWarehouseProductSelect("sort", "Sort", page.Query.Sort, []optionItem{{"volume", "Highest volume"}, {"updated", "Recently updated"}, {"price", "Highest price"}, {"status", "Status"}}),
-		html.Button(html.Props{Type: "submit", Class: "rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-stone-50 transition hover:bg-stone-800"}, html.Text("Apply")),
-	)
-}
-
-func publicWarehouseProductInput(name, label, value string) ui.Node {
-	return html.Label(html.Props{Class: "flex flex-col gap-2 text-sm font-medium text-stone-700 lg:min-w-[16rem] lg:flex-[1.4]"},
-		html.Span(html.Props{}, html.Text(label)),
-		html.Input(html.Props{Name: name, Value: value, Class: "rounded-[1.1rem] border border-stone-200 bg-white px-4 py-3 text-stone-950 outline-none transition focus:border-amber-500/70 focus:bg-white"}),
-	)
-}
-
-func publicWarehouseProductSelect(name, label, value string, options []optionItem) ui.Node {
-	children := make([]ui.Node, 0, len(options))
-	for _, option := range options {
-		selected := strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(option.Value)) || (strings.TrimSpace(value) == "" && option.Value == "")
-		children = append(children, html.Option(html.Props{Value: option.Value, Selected: selected}, html.Text(option.Label)))
-	}
-	return html.Label(html.Props{Class: "flex flex-col gap-2 text-sm font-medium text-stone-700 lg:min-w-[11rem] lg:flex-1"},
-		html.Span(html.Props{}, html.Text(label)),
-		html.Select(html.Props{Name: name, Class: "rounded-[1.1rem] border border-stone-200 bg-white px-4 py-3 text-stone-950 outline-none transition focus:border-amber-500/70 focus:bg-white"}, children...),
-	)
-}
-
-func publicWarehouseProductCard(item productCard) ui.Node {
-	return html.A(html.Props{Href: publicWarehouseProductHref(item), Class: "group flex flex-col gap-5 rounded-[2rem] border border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(248,244,238,0.9))] p-6 shadow-[0_20px_48px_rgba(120,107,82,0.09)] transition hover:border-stone-300 hover:bg-white hover:shadow-[0_28px_65px_rgba(120,107,82,0.14)] lg:flex-row lg:items-start lg:justify-between"},
+func publicWarehouseDirectoryCard(item warehouseCard) ui.Node {
+	return html.A(html.Props{Href: RouteWarehouses + "/" + item.Slug, Class: "group flex flex-col gap-5 rounded-[2rem] border border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(248,244,238,0.9))] p-6 shadow-[0_20px_48px_rgba(120,107,82,0.09)] transition hover:border-stone-300 hover:bg-white hover:shadow-[0_28px_65px_rgba(120,107,82,0.14)] lg:flex-row lg:items-start lg:justify-between"},
 		html.Div(html.Props{Class: "flex flex-1 flex-col gap-4"},
 			html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
 				html.Div(html.Props{Class: "flex flex-col gap-2"},
-					html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(item.Category)),
-					html.P(html.Props{Class: "text-[0.68rem] font-medium uppercase tracking-[0.28em] text-stone-500"}, html.Text(item.SKU)),
+					html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(item.Region)),
+					html.P(html.Props{Class: "text-[0.68rem] font-medium uppercase tracking-[0.28em] text-stone-500"}, html.Text(item.ServiceLevel)),
 				),
-				html.Span(html.Props{Class: strings.Replace(publicStatusClass(item.Status), "text-white", "text-stone-900", 1)}, html.Text(publicStatusLabel(item.Status))),
+				html.Span(html.Props{Class: "rounded-full border border-stone-200 bg-white/85 px-4 py-2 text-sm font-semibold text-stone-800"}, html.Text(item.Name)),
 			),
 			html.Div(html.Props{Class: "flex flex-col gap-3"},
-				html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-stone-950 transition group-hover:text-stone-800"}, html.Text(item.Title)),
-				html.P(html.Props{Class: "text-sm leading-7 text-stone-600"}, html.Text(item.Summary)),
+				html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-stone-950 transition group-hover:text-stone-800"}, html.Text(item.Name)),
+				html.P(html.Props{Class: "text-sm leading-7 text-stone-600"}, html.Text(item.PublicSummary)),
 			),
 			html.Div(html.Props{Class: "flex items-center justify-between gap-4 rounded-[1.45rem] border border-stone-200/75 bg-white/75 p-4 text-sm text-stone-600"},
-				html.P(html.Props{Class: "leading-6"}, html.Text("Open the warehouse item profile for the full CRUD controls, stock edits, and replenishment elements tied to this row.")),
-				html.Span(html.Props{Class: "font-semibold text-stone-900 transition group-hover:text-stone-700"}, html.Text("Open item profile")),
+				html.P(html.Props{Class: "leading-6"}, html.Text("Open the warehouse route for stocked highlights, regional service details, and product-by-product availability.")),
+				html.Span(html.Props{Class: "font-semibold text-stone-900 transition group-hover:text-stone-700"}, html.Text("Open warehouse route")),
 			),
 		),
 		html.Div(html.Props{Class: "flex flex-col gap-3 lg:min-w-[22rem] lg:max-w-[24rem]"},
 			html.Div(html.Props{Class: "flex flex-wrap gap-3 lg:flex-col"},
-				publicWarehouseProductMetric("Available", fmt.Sprintf("%d", item.Available)),
-				publicWarehouseProductMetric("Inbound", fmt.Sprintf("%d", item.Inbound)),
-				publicWarehouseProductMetric("Volume", fmt.Sprintf("%d", item.Volume)),
-				publicWarehouseProductMetric("Price", formatPrice(item.PriceCents)),
+				publicWarehouseDirectoryMetric("Region", fallback(item.Region, "Regional lane")),
+				publicWarehouseDirectoryMetric("Service level", fallback(item.ServiceLevel, "Standard coverage")),
+				publicWarehouseDirectoryMetric("Best for", warehouseRegionCue(item.Region)),
 			),
 		),
 	)
 }
 
-func publicWarehouseProductHref(item productCard) string {
-	if strings.TrimSpace(item.WarehouseID) != "" && strings.TrimSpace(item.SKU) != "" {
-		return RouteWarehouseOps + "/" + item.WarehouseID + "/items/" + item.SKU
-	}
-	return "/app/products/" + item.Slug
-}
-
-func publicWarehouseProductMetric(label string, value string) ui.Node {
+func publicWarehouseDirectoryMetric(label string, value string) ui.Node {
 	return html.Div(html.Props{Class: "flex min-w-[10rem] flex-1 items-center justify-between gap-4 rounded-[1.2rem] border border-stone-200/75 bg-white/75 px-4 py-3 lg:min-w-0"},
 		html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-stone-500"}, html.Text(label)),
-		html.P(html.Props{Class: "text-lg font-black tracking-[-0.03em] text-stone-950"}, html.Text(value)),
+		html.P(html.Props{Class: "text-right text-sm font-semibold leading-6 text-stone-900"}, html.Text(value)),
 	)
 }
 
-func totalPublicWarehouseVolume(items []productCard) int {
-	total := 0
-	for _, item := range items {
-		total += item.Volume
+func primaryWarehouseServiceLevel(items []warehouseCard) string {
+	if len(items) == 0 {
+		return "Regional service posture"
 	}
-	return total
-}
-
-func countPublicLowStockProducts(items []productCard) int {
-	count := 0
-	for _, item := range items {
-		if strings.EqualFold(strings.TrimSpace(item.Status), "low_stock") || item.Available <= 3 {
-			count++
-		}
-	}
-	return count
+	return fallback(items[0].ServiceLevel, "Regional service posture")
 }
 
 func renderWarehouseDetailContent(page warehouseDetailPage) ui.Node {

@@ -13,6 +13,7 @@ import (
 )
 
 type inventoryPageData struct {
+	Summary routeSummaryData          `json:"summary"`
 	Items   []repository.InventoryRow `json:"items"`
 	Filters map[string]string         `json:"filters"`
 }
@@ -23,7 +24,14 @@ type inventoryDetailPageData struct {
 	Rows  []repository.InventoryRow `json:"rows"`
 }
 
+type inventoryThresholdPanelPageData struct {
+	SKU             string                                  `json:"sku"`
+	Items           []serverdb.ThresholdHistoryRecord       `json:"items"`
+	Recommendations []serverdb.TransferRecommendationRecord `json:"recommendations"`
+}
+
 type warehouseDetailPageData struct {
+	Summary   routeSummaryData                 `json:"summary"`
 	Warehouse serverdb.WarehousePressureRecord `json:"warehouse"`
 	Inventory []repository.InventoryRow        `json:"inventory"`
 	Orders    []serverdb.PurchaseOrderRecord   `json:"orders"`
@@ -61,7 +69,7 @@ func (s *atlasServer) internalInventoryPageData(ctx context.Context, values url.
 	if err != nil {
 		return inventoryPageData{}, err
 	}
-	return inventoryPageData{Items: items, Filters: filters}, nil
+	return inventoryPageData{Summary: buildInventorySummary(items), Items: items, Filters: filters}, nil
 }
 
 func (s *atlasServer) internalInventoryDetailPageData(ctx context.Context, sku string) (inventoryDetailPageData, error) {
@@ -70,6 +78,22 @@ func (s *atlasServer) internalInventoryDetailPageData(ctx context.Context, sku s
 		return inventoryDetailPageData{}, err
 	}
 	return inventoryDetailPageData{SKU: rows[0].SKU, Title: rows[0].Title, Rows: rows}, nil
+}
+
+func (s *atlasServer) internalInventoryThresholdPanelPageData(ctx context.Context, sku string) (inventoryThresholdPanelPageData, error) {
+	items, err := s.store.ThresholdHistory(ctx, sku)
+	if err != nil {
+		return inventoryThresholdPanelPageData{}, fmt.Errorf("load threshold history: %w", err)
+	}
+	recommendations, err := s.store.TransferRecommendations(ctx, sku)
+	if err != nil {
+		return inventoryThresholdPanelPageData{}, fmt.Errorf("load transfer recommendations: %w", err)
+	}
+	return inventoryThresholdPanelPageData{
+		SKU:             sku,
+		Items:           items,
+		Recommendations: recommendations,
+	}, nil
 }
 
 func (s *atlasServer) internalWarehouseDetailPageDataWithFilters(ctx context.Context, warehouseID string, values url.Values) (warehouseDetailPageData, error) {
@@ -92,7 +116,7 @@ func (s *atlasServer) internalWarehouseDetailPageDataWithFilters(ctx context.Con
 	if err != nil {
 		return warehouseDetailPageData{}, fmt.Errorf("load warehouse purchase orders: %w", err)
 	}
-	return warehouseDetailPageData{Warehouse: warehouse, Inventory: inventory, Orders: orders, Filters: filters}, nil
+	return warehouseDetailPageData{Summary: buildWarehouseDetailSummary(inventory, orders, warehouseID), Warehouse: warehouse, Inventory: inventory, Orders: orders, Filters: filters}, nil
 }
 
 func (s *atlasServer) internalWarehouseItemPageData(ctx context.Context, warehouseID string, sku string, values url.Values) (warehouseItemDetailPageData, error) {

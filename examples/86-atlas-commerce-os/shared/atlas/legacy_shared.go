@@ -39,6 +39,8 @@ const (
 	RouteInventoryShell               = "/app/inventory*"
 	RouteSKUDetail                    = "/app/inventory/frame-desk"
 	RouteSKUDetailRoute               = "/app/inventory/:sku"
+	RouteSKUThresholdHistory          = "/app/inventory/frame-desk/threshold-history"
+	RouteSKUThresholdHistoryRoute     = "/app/inventory/:sku/threshold-history"
 	RouteWarehouseOps                 = "/app/warehouses"
 	RouteWarehouseDetail              = "/app/warehouses/illinois-hub"
 	RouteWarehouseDetailNevada        = "/app/warehouses/nevada-hub"
@@ -78,6 +80,7 @@ var RouteManifest = []RouteRegistration{
 	{Path: RouteDashboard, Surface: "internal", Screen: "dashboard"},
 	{Path: RouteInventory, Surface: "internal", Screen: "inventory"},
 	{Path: RouteSKUDetail, Surface: "internal", Screen: "sku-detail"},
+	{Path: RouteSKUThresholdHistory, Surface: "internal", Screen: "sku-threshold-history"},
 	{Path: RouteWarehouseOps, Surface: "internal", Screen: "warehouse-ops"},
 	{Path: RouteWarehouseDetail, Surface: "internal", Screen: "warehouse-detail"},
 	{Path: RouteWarehouseItemDetail, Surface: "internal", Screen: "warehouse-item-detail"},
@@ -105,8 +108,11 @@ func MetadataForPath(path string) PageMetadata {
 	if strings.HasPrefix(path, RouteWarehouseOps+"/") && strings.Contains(path, "/items/") {
 		return PageMetadata{Title: "Atlas Warehouse Item", Description: "Manage one warehouse item with inventory edits, replenishment, and local demand context.", Canonical: RouteWarehouseItemDetail, OGImage: "/examples/static/img/atlas-warehouse-detail-og.png"}
 	}
+	if strings.HasPrefix(path, RouteInventory+"/") && strings.HasSuffix(path, "/threshold-history") {
+		return PageMetadata{Title: "Atlas Threshold History", Description: "Review threshold edits and transfer cues for one Atlas SKU without leaving the inventory route context.", Canonical: RouteSKUThresholdHistory, OGImage: "/examples/static/img/atlas-sku-og.png"}
+	}
 	if strings.HasPrefix(path, RouteWarehouses+"/") {
-		return PageMetadata{Title: "Atlas Warehouse Detail Public", Description: "Inspect one public Atlas warehouse, including regional promise speed and product-specific availability links.", Canonical: RouteWarehousePublicDetail, OGImage: "/examples/static/img/atlas-warehouse-public-detail-og.png"}
+		return PageMetadata{Title: "Atlas Warehouse Region", Description: "Inspect one Atlas delivery region, including service posture, stocked highlights, and product-specific availability links.", Canonical: RouteWarehousePublicDetail, OGImage: "/examples/static/img/atlas-warehouse-public-detail-og.png"}
 	}
 	switch path {
 	case RouteLanding:
@@ -116,13 +122,13 @@ func MetadataForPath(path string) PageMetadata {
 	case RouteProduct:
 		return PageMetadata{Title: "Atlas Frame Desk", Description: "Warehouse-aware availability and premium workspace design for the Atlas Frame Desk.", Canonical: "/shop/frame-desk", OGImage: "/examples/static/img/atlas-frame-desk-og.png"}
 	case RouteWarehouses:
-		return PageMetadata{Title: "Atlas Product Volume", Description: "Browse Atlas products by live volume with search, filters, and sort controls instead of a warehouse selector.", Canonical: "/warehouses", OGImage: "/examples/static/img/atlas-warehouses-og.png"}
+		return PageMetadata{Title: "Atlas Delivery Regions", Description: "Compare Atlas delivery regions, service levels, and stocked highlights before opening a warehouse route.", Canonical: "/warehouses", OGImage: "/examples/static/img/atlas-warehouses-og.png"}
 	case RouteDashboard:
-		return PageMetadata{Title: "Atlas Ops Dashboard", Description: "Operational overview of buyer follow-up, stock pressure, receiving exceptions, and warehouse health.", Canonical: "/app/dashboard", OGImage: "/examples/static/img/atlas-dashboard-og.png"}
+		return PageMetadata{Title: "Atlas Ops Dashboard", Description: "Operational overview of buyer questions, stock pressure, receiving exceptions, and warehouse health.", Canonical: "/app/dashboard", OGImage: "/examples/static/img/atlas-dashboard-og.png"}
 	case RouteInventory:
 		return PageMetadata{Title: "Atlas Inventory", Description: "Review inventory health, saved views, and warehouse-aware stock pressure.", Canonical: "/app/inventory", OGImage: "/examples/static/img/atlas-inventory-og.png"}
 	case RouteWarehouseOps:
-		return PageMetadata{Title: "Atlas Warehouses Internal", Description: "Compare staffing, backlog, and warehouse pressure across the Atlas internal network.", Canonical: "/app/warehouses", OGImage: "/examples/static/img/atlas-warehouses-internal-og.png"}
+		return PageMetadata{Title: "Atlas Warehouse Operations", Description: "Compare staffing, backlog, service posture, and warehouse pressure across the Atlas network.", Canonical: "/app/warehouses", OGImage: "/examples/static/img/atlas-warehouses-internal-og.png"}
 	case RouteWarehouseDetail:
 		return PageMetadata{Title: "Atlas Warehouse Detail", Description: "Inspect staffing, backlog, and next action for a single Atlas warehouse.", Canonical: "/app/warehouses/illinois-hub", OGImage: "/examples/static/img/atlas-warehouse-detail-og.png"}
 	case RouteSKUDetail:
@@ -140,7 +146,7 @@ func MetadataForPath(path string) PageMetadata {
 	case RouteReceivingSessionDetail:
 		return PageMetadata{Title: "Atlas Receiving Session", Description: "Inspect one receiving session, including discrepancy classification and closeout readiness.", Canonical: "/app/receiving/illinois-accessories-042", OGImage: "/examples/static/img/atlas-receiving-session-og.png"}
 	case RouteComments:
-		return PageMetadata{Title: "Atlas Buyer Follow-Up", Description: "Work through buyer questions and route product or inventory follow-up from one manager lane.", Canonical: "/app/comments", OGImage: "/examples/static/img/atlas-comments-og.png"}
+		return PageMetadata{Title: "Atlas Buyer Inbox", Description: "Review buyer questions, moderation decisions, and follow-up paths into product, inventory, or warehouse work.", Canonical: "/app/comments", OGImage: "/examples/static/img/atlas-comments-og.png"}
 	case RouteSettings:
 		return PageMetadata{Title: "Atlas Settings", Description: "Manage theme, locale, density, default warehouse, and saved-view preferences.", Canonical: "/app/settings", OGImage: "/examples/static/img/atlas-settings-og.png"}
 	default:
@@ -151,7 +157,15 @@ func MetadataForPath(path string) PageMetadata {
 func RouteBootstrapForPath(path string) (RouteBootstrap, bool) {
 	for _, route := range RouteManifest {
 		if route.Path == path {
-			return RouteBootstrap{Path: route.Path, Surface: route.Surface, Screen: route.Screen, Title: MetadataForPath(path).Title}, true
+			meta := MetadataForPath(path)
+			return RouteBootstrap{
+				Path:        route.Path,
+				Surface:     route.Surface,
+				Screen:      route.Screen,
+				Title:       meta.Title,
+				Description: meta.Description,
+				Canonical:   meta.Canonical,
+			}, true
 		}
 	}
 	return RouteBootstrap{}, false
@@ -208,7 +222,7 @@ func StartupRequestURL(path string, query url.Values) string {
 	case strings.HasPrefix(path, RouteWarehouses+"/"):
 		return "/api/public/warehouses/" + strings.TrimPrefix(path, RouteWarehouses+"/")
 	case path == RouteDashboard:
-		return "/api/app/bootstrap?path=" + url.QueryEscape(RouteDashboard)
+		return "/api/app/dashboard"
 	case path == "/app/products":
 		if encoded := query.Encode(); encoded != "" {
 			return "/api/app/products?" + encoded
@@ -221,6 +235,8 @@ func StartupRequestURL(path string, query url.Values) string {
 			return "/api/app/inventory?" + encoded
 		}
 		return "/api/app/inventory"
+	case strings.HasPrefix(path, RouteInventory+"/") && strings.HasSuffix(path, "/threshold-history"):
+		return "/api/app/inventory/" + strings.TrimSuffix(strings.TrimPrefix(path, RouteInventory+"/"), "/threshold-history") + "/threshold-panel"
 	case strings.HasPrefix(path, RouteInventory+"/"):
 		return "/api/app/inventory/" + strings.TrimPrefix(path, RouteInventory+"/")
 	case path == RouteWarehouseOps:
@@ -250,7 +266,7 @@ func StartupRequestURL(path string, query url.Values) string {
 	case path == RouteComments:
 		return "/api/app/comments"
 	case path == RouteSettings:
-		return "/api/app/preferences"
+		return "/api/app/settings"
 	default:
 		return ""
 	}

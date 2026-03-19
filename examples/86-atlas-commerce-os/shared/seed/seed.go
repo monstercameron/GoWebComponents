@@ -45,25 +45,25 @@ var Product = ScreenData{
 }
 
 var Warehouses = ScreenData{
-	Title:   "Warehouse network",
+	Title:   "Delivery regions",
 	Feature: "Public regional fulfillment overview",
-	Summary: "Warehouse routes should make locality feel operationally real without turning into logistics dashboards.",
+	Summary: "Delivery-region routes should make locality feel operationally real without turning into logistics dashboards.",
 	Bullets: []string{
 		"Lead with service region and promise speed.",
 		"Use stocked highlights to connect place to product confidence.",
 		"Keep operational notices only when they help customer decisions.",
 	},
-	Stats: [][2]string{{"Public warehouses", "3"}, {"Fast-turn region", "New Jersey"}, {"Balancing hub", "Illinois"}},
+	Stats: [][2]string{{"Delivery regions", "3"}, {"Fast-turn region", "New Jersey"}, {"Balancing hub", "Illinois"}},
 }
 
 var Dashboard = ScreenData{
 	Title:   "Operations dashboard",
 	Feature: "Internal triage shell",
-	Summary: "The dashboard is a triage surface, not a decorative KPI wall. It should route users quickly into low-stock, receiving, transfer, and moderation work.",
+	Summary: "The dashboard is a triage surface, not a decorative KPI wall. It should route users quickly into low-stock, receiving, transfer, and buyer-inbox work.",
 	Bullets: []string{
 		"Urgent alerts should outrank vanity summaries.",
 		"Quick actions should push users into inventory, transfers, and receiving.",
-		"Moderation should remain visible because the public surface depends on it.",
+		"Buyer inbox work should remain visible because the public surface depends on it.",
 	},
 	Stats: [][2]string{{"Urgent alerts", "7"}, {"Inbound sessions", "3"}, {"Pending reviews", "5"}},
 }
@@ -117,9 +117,9 @@ var Receiving = ScreenData{
 }
 
 var Comments = ScreenData{
-	Title:   "Moderation queue",
-	Feature: "Public comment review flow",
-	Summary: "The moderation screen should balance queue efficiency with enough detail to make approve, reject, and flag actions feel defensible.",
+	Title:   "Buyer inbox",
+	Feature: "Buyer question and moderation flow",
+	Summary: "The buyer inbox should balance queue efficiency with enough detail to make approve, reject, and follow-up decisions feel defensible.",
 	Bullets: []string{
 		"Use a split queue-and-detail layout by default.",
 		"Keep status filters simple and immediately useful.",

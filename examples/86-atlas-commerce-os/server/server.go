@@ -31,6 +31,14 @@ type routeMeta struct {
 	Canonical   string
 }
 
+const (
+	atlasNoticeQueryKey             = "atlas_notice"
+	atlasBootstrapModeQueryKey      = "atlas_bootstrap"
+	atlasBootstrapModeExternal      = "external"
+	atlasBootstrapScriptID          = "__ATLAS_BOOTSTRAP__"
+	atlasBootstrapReferenceScriptID = "__ATLAS_BOOTSTRAP_REF__"
+)
+
 func newAtlasServer(cfg config, store *serverdb.Store, sessions *serverauth.MockSessionManager) *atlasServer {
 	return &atlasServer{cfg: cfg, store: store, sessions: sessions}
 }
@@ -51,13 +59,17 @@ func (s *atlasServer) routes() http.Handler {
 	mux.HandleFunc("GET /api/public/warehouses/{slug}", s.handlePublicWarehouse)
 	mux.HandleFunc("GET /api/public/warehouses/{slug}/availability/{productSlug}", s.handlePublicAvailability)
 	mux.HandleFunc("GET /api/app/bootstrap", s.handleInternalBootstrap)
+	mux.HandleFunc("GET /api/app/dashboard", s.handleInternalDashboard)
 	mux.HandleFunc("GET /api/app/preferences", s.handleInternalPreferences)
+	mux.HandleFunc("GET /api/app/settings", s.handleInternalSettings)
 	mux.HandleFunc("GET /api/app/saved-views", s.handleInternalSavedViews)
+	mux.HandleFunc("GET /api/app/saved-views/export", s.handleInternalSavedViewsExport)
 	mux.HandleFunc("GET /api/app/comments", s.handleInternalComments)
 	mux.HandleFunc("GET /api/app/products", s.handleInternalProducts)
 	mux.HandleFunc("GET /api/app/products/{slug}", s.handleInternalProductDetail)
 	mux.HandleFunc("GET /api/app/inventory", s.handleInternalInventory)
 	mux.HandleFunc("GET /api/app/inventory/{sku}", s.handleInternalInventoryDetail)
+	mux.HandleFunc("GET /api/app/inventory/{sku}/threshold-panel", s.handleInternalThresholdPanel)
 	mux.HandleFunc("GET /api/app/inventory/{sku}/threshold-history", s.handleInternalThresholdHistory)
 	mux.HandleFunc("GET /api/app/inventory/{sku}/transfer-recommendations", s.handleInternalTransferRecommendations)
 	mux.HandleFunc("GET /api/app/warehouses", s.handleInternalWarehouses)
@@ -73,6 +85,7 @@ func (s *atlasServer) routes() http.Handler {
 	mux.HandleFunc("POST /api/public/products/{slug}/quote-requests", s.handlePublicQuoteRequestCreate)
 	mux.HandleFunc("POST /api/public/products/{slug}/restock-requests", s.handlePublicRestockRequestCreate)
 	mux.HandleFunc("POST /api/app/comments/{id}/moderate", s.handleInternalCommentModeration)
+	mux.HandleFunc("POST /api/app/comments/bulk-moderate", s.handleInternalBulkCommentModeration)
 	mux.HandleFunc("POST /api/app/products", s.handleInternalProductCreate)
 	mux.HandleFunc("POST /api/app/products/{slug}/update", s.handleInternalProductUpdate)
 	mux.HandleFunc("POST /api/app/products/{slug}/delete", s.handleInternalProductDelete)
@@ -81,6 +94,7 @@ func (s *atlasServer) routes() http.Handler {
 	mux.HandleFunc("POST /api/app/preferences", s.handleInternalPreferencesSave)
 	mux.HandleFunc("PUT /api/app/preferences", s.handleInternalPreferencesSave)
 	mux.HandleFunc("POST /api/app/saved-views", s.handleInternalSavedViewCreate)
+	mux.HandleFunc("POST /api/app/saved-views/import", s.handleInternalSavedViewImport)
 	mux.HandleFunc("POST /api/app/transfers", s.handleInternalTransferCreate)
 	mux.HandleFunc("POST /api/app/purchase-orders", s.handleInternalPurchaseOrderCreate)
 	mux.HandleFunc("POST /api/app/receiving/{id}/reconcile", s.handleInternalReceivingReconcile)
@@ -97,6 +111,7 @@ func (s *atlasServer) routes() http.Handler {
 	mux.HandleFunc("GET /app/products/{slug}", s.handleInternalProductEditorPage)
 	mux.HandleFunc("GET /app/inventory", s.handleInventoryPage)
 	mux.HandleFunc("GET /app/inventory/{sku}", s.handleInventoryDetailPage)
+	mux.HandleFunc("GET /app/inventory/{sku}/threshold-history", s.handleInventoryThresholdHistoryPage)
 	mux.HandleFunc("GET /app/warehouses", s.handleWarehouseOpsPage)
 	mux.HandleFunc("GET /app/warehouses/{warehouseId}", s.handleWarehouseOpsDetailPage)
 	mux.HandleFunc("GET /app/warehouses/{warehouseId}/items/{sku}", s.handleWarehouseOpsItemPage)
@@ -108,6 +123,7 @@ func (s *atlasServer) routes() http.Handler {
 	mux.HandleFunc("GET /app/receiving/{id}", s.handleReceivingDetailPage)
 	mux.HandleFunc("GET /app/comments", s.handleCommentsPage)
 	mux.HandleFunc("GET /app/settings", s.handleSettingsPage)
+	mux.HandleFunc("GET /__atlas/bootstrap.json", s.handleBootstrapJSON)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || strings.HasPrefix(r.URL.Path, "/assets/") || strings.HasPrefix(r.URL.Path, "/api/") {
 			mux.ServeHTTP(w, r)
@@ -236,13 +252,12 @@ func (s *atlasServer) handlePublicRelatedProducts(w http.ResponseWriter, r *http
 }
 
 func (s *atlasServer) handlePublicWarehouses(w http.ResponseWriter, r *http.Request) {
-	query := parsePublicWarehouseProductQuery(r.URL.Query())
-	items, err := s.store.ProductAdminList(r.Context(), serverdb.ProductAdminQuery{Search: query.Search, Category: query.Category, Status: query.Status, Sort: query.Sort})
+	items, err := s.store.Warehouses(r.Context())
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "warehouse_query_failed", err)
 		return
 	}
-	s.writeJSON(w, http.StatusOK, map[string]any{"items": items, "total": len(items), "page": 1, "pageSize": len(items), "query": map[string]string{"search": query.Search, "category": query.Category, "status": query.Status, "sort": query.Sort}, "focus": "volume"})
+	s.writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
 func (s *atlasServer) handlePublicWarehouse(w http.ResponseWriter, r *http.Request) {
@@ -301,6 +316,18 @@ func (s *atlasServer) handleInternalBootstrap(w http.ResponseWriter, r *http.Req
 	s.writeJSON(w, http.StatusOK, map[string]any{"meta": meta, "bootstrap": payload})
 }
 
+func (s *atlasServer) handleInternalDashboard(w http.ResponseWriter, r *http.Request) {
+	if s.sessions.RequireInternalSession(w, r) == nil {
+		return
+	}
+	data, err := s.internalDashboardPageData(r.Context())
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "dashboard_query_failed", err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, data)
+}
+
 func (s *atlasServer) handleInternalPreferences(w http.ResponseWriter, r *http.Request) {
 	session := s.sessions.RequireInternalSession(w, r)
 	if session == nil {
@@ -312,6 +339,19 @@ func (s *atlasServer) handleInternalPreferences(w http.ResponseWriter, r *http.R
 		return
 	}
 	s.writeJSON(w, http.StatusOK, item)
+}
+
+func (s *atlasServer) handleInternalSettings(w http.ResponseWriter, r *http.Request) {
+	session := s.sessions.RequireInternalSession(w, r)
+	if session == nil {
+		return
+	}
+	data, err := s.internalSettingsPageData(r.Context(), session.UserID)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "settings_query_failed", err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, data)
 }
 
 func (s *atlasServer) handleInternalSavedViews(w http.ResponseWriter, r *http.Request) {
@@ -331,12 +371,12 @@ func (s *atlasServer) handleInternalComments(w http.ResponseWriter, r *http.Requ
 	if s.sessions.RequireInternalSession(w, r) == nil {
 		return
 	}
-	items, err := s.store.Comments(r.Context(), strings.TrimSpace(r.URL.Query().Get("status")))
+	data, err := s.internalCommentsPageData(r.Context(), strings.TrimSpace(r.URL.Query().Get("status")))
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "comment_query_failed", err)
 		return
 	}
-	s.writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	s.writeJSON(w, http.StatusOK, data)
 }
 
 func (s *atlasServer) handleInternalInventory(w http.ResponseWriter, r *http.Request) {
@@ -358,6 +398,18 @@ func (s *atlasServer) handleInternalInventoryDetail(w http.ResponseWriter, r *ht
 	data, err := s.internalInventoryDetailPageData(r.Context(), r.PathValue("sku"))
 	if err != nil {
 		s.writeError(w, http.StatusNotFound, "inventory_item_not_found", err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, data)
+}
+
+func (s *atlasServer) handleInternalThresholdPanel(w http.ResponseWriter, r *http.Request) {
+	if s.sessions.RequireInternalSession(w, r) == nil {
+		return
+	}
+	data, err := s.internalInventoryThresholdPanelPageData(r.Context(), r.PathValue("sku"))
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "threshold_panel_query_failed", err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, data)
@@ -391,12 +443,12 @@ func (s *atlasServer) handleInternalWarehouses(w http.ResponseWriter, r *http.Re
 	if s.sessions.RequireInternalSession(w, r) == nil {
 		return
 	}
-	items, err := s.store.WarehousePressure(r.Context())
+	data, err := s.internalWarehouseOpsPageData(r.Context())
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "warehouse_pressure_query_failed", err)
 		return
 	}
-	s.writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	s.writeJSON(w, http.StatusOK, data)
 }
 
 func (s *atlasServer) handleInternalWarehouseDetail(w http.ResponseWriter, r *http.Request) {
@@ -475,12 +527,12 @@ func (s *atlasServer) handleInternalPurchaseOrders(w http.ResponseWriter, r *htt
 	if s.sessions.RequireInternalSession(w, r) == nil {
 		return
 	}
-	items, err := s.store.PurchaseOrders(r.Context())
+	data, err := s.internalPurchaseOrdersPageData(r.Context())
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "purchase_orders_query_failed", err)
 		return
 	}
-	s.writeJSON(w, http.StatusOK, map[string]any{"items": items})
+	s.writeJSON(w, http.StatusOK, data)
 }
 
 func (s *atlasServer) handleInternalPurchaseOrderDetail(w http.ResponseWriter, r *http.Request) {
@@ -531,13 +583,12 @@ func (s *atlasServer) publicProductPage(ctx context.Context, slug string) (repos
 }
 
 func (s *atlasServer) handleWarehousesPage(w http.ResponseWriter, r *http.Request) {
-	query := parsePublicWarehouseProductQuery(r.URL.Query())
-	items, err := s.store.ProductAdminList(r.Context(), serverdb.ProductAdminQuery{Search: query.Search, Category: query.Category, Status: query.Status, Sort: query.Sort})
+	items, err := s.store.Warehouses(r.Context())
 	if err != nil {
-		s.renderRecoveryPage(w, r, http.StatusInternalServerError, routeMeta{Path: "/warehouses", Surface: "public", Screen: "recovery", Title: "Atlas Product Volume Unavailable", Description: "The product volume directory could not be loaded.", Canonical: "/warehouses"}, nil, "Product volume unavailable", "The Atlas product volume directory is temporarily unavailable. Retry the page or return to the storefront.", "/", "Back to storefront", err)
+		s.renderRecoveryPage(w, r, http.StatusInternalServerError, routeMeta{Path: "/warehouses", Surface: "public", Screen: "recovery", Title: "Atlas Delivery Regions Unavailable", Description: "The Atlas delivery-region directory could not be loaded.", Canonical: "/warehouses"}, nil, "Delivery regions unavailable", "The Atlas delivery-region directory is temporarily unavailable. Retry the page or return to the storefront.", "/", "Back to storefront", err)
 		return
 	}
-	s.renderPage(w, r, routeMeta{Path: "/warehouses", Surface: "public", Screen: "warehouses", Title: "Atlas Product Volume", Description: "Browse Atlas products by live volume with search, filters, and sort controls instead of a warehouse selector.", Canonical: "/warehouses"}, map[string]any{"items": items, "total": len(items), "page": 1, "pageSize": len(items), "query": map[string]string{"search": query.Search, "category": query.Category, "status": query.Status, "sort": query.Sort}, "focus": "volume"}, nil)
+	s.renderPage(w, r, routeMeta{Path: "/warehouses", Surface: "public", Screen: "warehouses", Title: "Atlas Delivery Regions", Description: "Compare Atlas delivery regions, service levels, and stocked highlights before opening a warehouse route.", Canonical: "/warehouses"}, map[string]any{"items": items}, nil)
 }
 
 func (s *atlasServer) handleWarehousePage(w http.ResponseWriter, r *http.Request) {
@@ -576,23 +627,12 @@ func (s *atlasServer) handleDashboardPage(w http.ResponseWriter, r *http.Request
 	if session == nil {
 		return
 	}
-	comments, err := s.store.Comments(r.Context(), "")
+	data, err := s.internalDashboardPageData(r.Context())
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "comment_query_failed", err)
+		s.writeError(w, http.StatusInternalServerError, "dashboard_query_failed", err)
 		return
 	}
-	transfers, err := s.store.Transfers(r.Context())
-	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "transfer_query_failed", err)
-		return
-	}
-	receiving, err := s.store.ReceivingSessions(r.Context())
-	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "receiving_query_failed", err)
-		return
-	}
-	data := map[string]any{"summary": "Demand and operations overview", "alerts": len(comments) + len(receiving), "comments": comments, "transfers": transfers, "receiving": receiving}
-	s.renderPage(w, r, routeMeta{Path: "/app/dashboard", Surface: "internal", Screen: "dashboard", Title: "Atlas Ops Dashboard", Description: "Operational overview of buyer follow-up, stock pressure, receiving exceptions, and warehouse health.", Canonical: "/app/dashboard"}, data, session)
+	s.renderPage(w, r, routeMeta{Path: "/app/dashboard", Surface: "internal", Screen: "dashboard", Title: "Atlas Ops Dashboard", Description: "Operational overview of buyer questions, stock pressure, receiving exceptions, and warehouse health.", Canonical: "/app/dashboard"}, data, session)
 }
 
 func (s *atlasServer) handleInventoryPage(w http.ResponseWriter, r *http.Request) {
@@ -623,17 +663,55 @@ func (s *atlasServer) handleInventoryDetailPage(w http.ResponseWriter, r *http.R
 	s.renderPage(w, r, routeMeta{Path: path, Surface: "internal", Screen: "sku-detail", Title: "Atlas SKU Detail", Description: "Inspect warehouse breakdown, thresholds, and activity for a single Atlas SKU.", Canonical: path}, data, session)
 }
 
+func (s *atlasServer) handleInventoryThresholdHistoryPage(w http.ResponseWriter, r *http.Request) {
+	session := s.sessions.RequireInternalSession(w, r)
+	if session == nil {
+		return
+	}
+	sku := r.PathValue("sku")
+	pageData, err := s.internalInventoryDetailPageData(r.Context(), sku)
+	if err != nil {
+		path := "/app/inventory/" + sku + "/threshold-history"
+		s.renderRecoveryPage(w, r, http.StatusNotFound, routeMeta{Path: path, Surface: "internal", Screen: "recovery", Title: "Atlas Threshold History Unavailable", Description: "The threshold-history route could not be loaded for this SKU.", Canonical: path}, session, "Threshold history unavailable", "That inventory item is not available in the current Atlas seed set.", "/app/inventory", "Back to inventory", err)
+		return
+	}
+	overlayData, err := s.internalInventoryThresholdPanelPageData(r.Context(), sku)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "threshold_panel_query_failed", err)
+		return
+	}
+	path := "/app/inventory/" + sku + "/threshold-history"
+	requests := startupRequestsForPage("/app/inventory/"+sku, r.URL.Query(), pageData)
+	requests["overlay"] = atlas.Request{
+		Method: http.MethodGet,
+		URL:    "/api/app/inventory/" + sku + "/threshold-panel",
+		Status: http.StatusOK,
+		Data:   map[string]any{"overlay": overlayData},
+	}
+	s.renderPageStatusWithPayload(w, r, http.StatusOK, routeMeta{
+		Path:        path,
+		Surface:     "internal",
+		Screen:      "sku-threshold-history",
+		Title:       "Atlas Threshold History",
+		Description: "Review threshold edits and transfer cues for one Atlas SKU without leaving the inventory route context.",
+		Canonical:   path,
+	}, map[string]any{
+		"page":    pageData,
+		"overlay": overlayData,
+	}, requests, session)
+}
+
 func (s *atlasServer) handleWarehouseOpsPage(w http.ResponseWriter, r *http.Request) {
 	session := s.sessions.RequireInternalSession(w, r)
 	if session == nil {
 		return
 	}
-	items, err := s.store.WarehousePressure(r.Context())
+	data, err := s.internalWarehouseOpsPageData(r.Context())
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "warehouse_pressure_query_failed", err)
 		return
 	}
-	s.renderPage(w, r, routeMeta{Path: "/app/warehouses", Surface: "internal", Screen: "warehouse-ops", Title: "Atlas Warehouses Internal", Description: "Compare staffing, backlog, and warehouse pressure across the Atlas internal network.", Canonical: "/app/warehouses"}, map[string]any{"items": items}, session)
+	s.renderPage(w, r, routeMeta{Path: "/app/warehouses", Surface: "internal", Screen: "warehouse-ops", Title: "Atlas Warehouse Operations", Description: "Compare staffing, backlog, service posture, and warehouse pressure across the Atlas network.", Canonical: "/app/warehouses"}, data, session)
 }
 
 func (s *atlasServer) handleWarehouseOpsDetailPage(w http.ResponseWriter, r *http.Request) {
@@ -699,12 +777,12 @@ func (s *atlasServer) handlePurchaseOrdersPage(w http.ResponseWriter, r *http.Re
 	if session == nil {
 		return
 	}
-	items, err := s.store.PurchaseOrders(r.Context())
+	data, err := s.internalPurchaseOrdersPageData(r.Context())
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "purchase_orders_query_failed", err)
 		return
 	}
-	s.renderPage(w, r, routeMeta{Path: "/app/purchase-orders", Surface: "internal", Screen: "purchase-orders", Title: "Atlas Purchase Orders", Description: "Review vendor approvals, inbound shipment rows, and purchase-order planning context.", Canonical: "/app/purchase-orders"}, map[string]any{"items": items}, session)
+	s.renderPage(w, r, routeMeta{Path: "/app/purchase-orders", Surface: "internal", Screen: "purchase-orders", Title: "Atlas Purchase Orders", Description: "Review vendor approvals, inbound shipment rows, and purchase-order planning context.", Canonical: "/app/purchase-orders"}, data, session)
 }
 
 func (s *atlasServer) handlePurchaseOrderDetailPage(w http.ResponseWriter, r *http.Request) {
@@ -755,12 +833,12 @@ func (s *atlasServer) handleCommentsPage(w http.ResponseWriter, r *http.Request)
 	if session == nil {
 		return
 	}
-	items, err := s.store.Comments(r.Context(), strings.TrimSpace(r.URL.Query().Get("status")))
+	data, err := s.internalCommentsPageData(r.Context(), strings.TrimSpace(r.URL.Query().Get("status")))
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "comment_query_failed", err)
 		return
 	}
-	s.renderPage(w, r, routeMeta{Path: "/app/comments", Surface: "internal", Screen: "comments", Title: "Atlas Buyer Follow-Up", Description: "Work through buyer questions and route product or inventory follow-up from one manager lane.", Canonical: "/app/comments"}, map[string]any{"items": items}, session)
+	s.renderPage(w, r, routeMeta{Path: "/app/comments", Surface: "internal", Screen: "comments", Title: "Atlas Buyer Inbox", Description: "Review buyer questions, moderation decisions, and follow-up paths into product, inventory, or warehouse work.", Canonical: "/app/comments"}, data, session)
 }
 
 func (s *atlasServer) handleSettingsPage(w http.ResponseWriter, r *http.Request) {
@@ -768,7 +846,12 @@ func (s *atlasServer) handleSettingsPage(w http.ResponseWriter, r *http.Request)
 	if session == nil {
 		return
 	}
-	s.renderPage(w, r, routeMeta{Path: "/app/settings", Surface: "internal", Screen: "settings", Title: "Atlas Settings", Description: "Manage theme, locale, density, default warehouse, and saved-view preferences.", Canonical: "/app/settings"}, map[string]any{"settings": "preferences"}, session)
+	data, err := s.internalSettingsPageData(r.Context(), session.UserID)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "settings_query_failed", err)
+		return
+	}
+	s.renderPage(w, r, routeMeta{Path: "/app/settings", Surface: "internal", Screen: "settings", Title: "Atlas Settings", Description: "Manage theme, locale, density, default warehouse, and saved-view preferences.", Canonical: "/app/settings"}, data, session)
 }
 
 func (s *atlasServer) handleRouteRecoveryPage(w http.ResponseWriter, r *http.Request) {
@@ -799,6 +882,10 @@ func (s *atlasServer) renderPage(w http.ResponseWriter, r *http.Request, meta ro
 }
 
 func (s *atlasServer) renderPageStatus(w http.ResponseWriter, r *http.Request, status int, meta routeMeta, data any, session *serverauth.Session) {
+	s.renderPageStatusWithPayload(w, r, status, meta, map[string]any{"page": data}, startupRequestsForPage(meta.Path, r.URL.Query(), data), session)
+}
+
+func (s *atlasServer) renderPageStatusWithPayload(w http.ResponseWriter, r *http.Request, status int, meta routeMeta, payloadData map[string]any, requests map[string]atlas.Request, session *serverauth.Session) {
 	payload, _, err := s.bootstrapForPath(r, meta.Path, session)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "bootstrap_failed", err)
@@ -807,17 +894,21 @@ func (s *atlasServer) renderPageStatus(w http.ResponseWriter, r *http.Request, s
 	payload.Route.Surface = meta.Surface
 	payload.Route.Screen = meta.Screen
 	payload.Route.Title = meta.Title
+	payload.Route.Description = meta.Description
+	payload.Route.Canonical = meta.Canonical
 	payload.CSRF = ensureCSRFCookie(w, r)
-	payload.Data = map[string]any{"page": data}
-	payload.Requests = startupRequestsForPage(meta.Path, r.URL.Query(), data)
-	bootstrapScript, err := ui.RenderBootstrapScript(payload.ToSSRBootstrap(), "__ATLAS_BOOTSTRAP__")
+	payload.Data = payloadData
+	payload.Requests = requests
+	bootstrapScript, bootstrapBytes, bootstrapMode, err := s.renderBootstrapScript(meta.Path, r.URL.Query(), payload)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "bootstrap_encode_failed", err)
 		return
 	}
+	w.Header().Set("X-Atlas-Bootstrap-Bytes", fmt.Sprintf("%d", bootstrapBytes))
+	w.Header().Set("X-Atlas-Bootstrap-Mode", bootstrapMode)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
-	_, _ = fmt.Fprintf(w, "<!DOCTYPE html><html lang=%q class=%q data-atlas-surface=%q><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>%s</title><meta name=\"description\" content=%q><link rel=\"canonical\" href=%q><link rel=\"stylesheet\" href=\"/assets/css/tailwind.css\"><link rel=\"stylesheet\" href=\"/assets/css/example-shell.css\"><script src=\"/assets/script/wasm_exec.js\"></script><script src=\"/assets/script/example-logger.js\"></script></head><body class=\"example-shell\"><div id=\"app\"></div>%s%s</body></html>", payload.I18n.Locale, atlasDocumentClass(payload), payload.Route.Surface, meta.Title, meta.Description, meta.Canonical, bootstrapScript, wasmRuntimeSnippet(fileExists(s.cfg.AtlasWASM)))
+	_, _ = fmt.Fprintf(w, "<!DOCTYPE html><html lang=%q class=%q data-atlas-surface=%q><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title data-gwc-router-managed=\"true\">%s</title><meta name=\"description\" content=%q data-gwc-router-managed=\"true\"><link rel=\"canonical\" href=%q data-gwc-router-managed=\"true\"><link rel=\"stylesheet\" href=\"/assets/css/tailwind.css\"><link rel=\"stylesheet\" href=\"/assets/css/example-shell.css\"><script src=\"/assets/script/wasm_exec.js\"></script><script src=\"/assets/script/example-logger.js\"></script></head><body class=\"example-shell\"><div id=\"app\"></div>%s%s</body></html>", payload.I18n.Locale, atlasDocumentClass(payload), payload.Route.Surface, meta.Title, meta.Description, meta.Canonical, bootstrapScript, wasmRuntimeSnippet(fileExists(s.cfg.AtlasWASM)))
 }
 
 func atlasDocumentClass(payload atlas.Payload) string {
@@ -832,8 +923,69 @@ func atlasDocumentClass(payload atlas.Payload) string {
 	return themeClass + " " + densityClass
 }
 
+func cloneURLValues(values url.Values) url.Values {
+	cloned := url.Values{}
+	for key, items := range values {
+		cloned[key] = append([]string(nil), items...)
+	}
+	return cloned
+}
+
+func atlasDataQuery(values url.Values) url.Values {
+	filtered := url.Values{}
+	for key, items := range values {
+		trimmedKey := strings.TrimSpace(strings.ToLower(key))
+		if trimmedKey == atlasNoticeQueryKey || trimmedKey == atlasBootstrapModeQueryKey {
+			continue
+		}
+		for _, item := range items {
+			filtered.Add(key, item)
+		}
+	}
+	return filtered
+}
+
+func atlasBootstrapReferenceURL(path string, query url.Values) string {
+	values := url.Values{}
+	values.Set("path", path)
+	if encoded := cloneURLValues(query).Encode(); encoded != "" {
+		values.Set("route_query", encoded)
+	}
+	return "/__atlas/bootstrap.json?" + values.Encode()
+}
+
+func atlasBootstrapMode(values url.Values) string {
+	if strings.EqualFold(strings.TrimSpace(values.Get(atlasBootstrapModeQueryKey)), atlasBootstrapModeExternal) {
+		return atlasBootstrapModeExternal
+	}
+	return "inline"
+}
+
+func supportsExternalBootstrap(path string) bool {
+	return strings.HasPrefix(path, atlas.RouteInventory+"/") && strings.HasSuffix(path, "/threshold-history")
+}
+
+func (s *atlasServer) renderBootstrapScript(path string, query url.Values, payload atlas.Payload) (string, int, string, error) {
+	bootstrap := payload.ToSSRBootstrap()
+	encoded, err := ui.MarshalSSRBootstrap(bootstrap)
+	if err != nil {
+		return "", 0, "", err
+	}
+	mode := atlasBootstrapMode(query)
+	if mode == atlasBootstrapModeExternal && supportsExternalBootstrap(path) {
+		script, err := ui.RenderBootstrapReferenceScript(ui.SSRBootstrapReference{
+			URL:    atlasBootstrapReferenceURL(path, query),
+			Format: ui.SSRBootstrapFormatJSON,
+		}, atlasBootstrapReferenceScriptID)
+		return script, len(encoded), mode, err
+	}
+	mode = "inline"
+	script, err := ui.RenderBootstrapScript(bootstrap, atlasBootstrapScriptID)
+	return script, len(encoded), mode, err
+}
+
 func startupRequestsForPage(path string, query url.Values, pageData any) map[string]atlas.Request {
-	requestURL := startupRequestURL(path, query)
+	requestURL := startupRequestURL(path, atlasDataQuery(query))
 	if requestURL == "" {
 		return map[string]atlas.Request{}
 	}
@@ -864,19 +1016,88 @@ func (s *atlasServer) renderRecoveryPage(w http.ResponseWriter, r *http.Request,
 	s.renderPageStatus(w, r, status, meta, page, session)
 }
 
+func (s *atlasServer) handleBootstrapJSON(w http.ResponseWriter, r *http.Request) {
+	targetPath := strings.TrimSpace(r.URL.Query().Get("path"))
+	if targetPath == "" {
+		targetPath = "/"
+	}
+	if !supportsExternalBootstrap(targetPath) {
+		s.writeValidationError(w, http.StatusBadRequest, "bootstrap_route_unsupported", "External bootstrap mode is only wired for the inventory threshold-history route today.", map[string]string{"path": "Use /app/inventory/{sku}/threshold-history for the proof-of-concept external bootstrap flow."})
+		return
+	}
+	routeQuery, err := url.ParseQuery(strings.TrimSpace(r.URL.Query().Get("route_query")))
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, "bootstrap_query_invalid", err)
+		return
+	}
+	var session *serverauth.Session
+	if strings.HasPrefix(targetPath, "/app/") {
+		session = s.sessions.RequireInternalSession(w, r)
+		if session == nil {
+			return
+		}
+	}
+	sku := strings.TrimSuffix(strings.TrimPrefix(targetPath, atlas.RouteInventory+"/"), "/threshold-history")
+	pageData, err := s.internalInventoryDetailPageData(r.Context(), sku)
+	if err != nil {
+		s.writeError(w, http.StatusNotFound, "inventory_item_not_found", err)
+		return
+	}
+	overlayData, err := s.internalInventoryThresholdPanelPageData(r.Context(), sku)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "threshold_panel_query_failed", err)
+		return
+	}
+	payload, _, err := s.bootstrapForRouteQuery(r, targetPath, routeQuery, session)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "bootstrap_failed", err)
+		return
+	}
+	payload.Route.Screen = "sku-threshold-history"
+	payload.Route.Title = "Atlas Threshold History"
+	payload.Route.Description = "Review threshold edits and transfer cues for one Atlas SKU without leaving the inventory route context."
+	payload.Route.Canonical = targetPath
+	payload.Data = map[string]any{
+		"page":    pageData,
+		"overlay": overlayData,
+	}
+	payload.Requests = startupRequestsForPage("/app/inventory/"+sku, routeQuery, pageData)
+	payload.Requests["overlay"] = atlas.Request{
+		Method: http.MethodGet,
+		URL:    "/api/app/inventory/" + sku + "/threshold-panel",
+		Status: http.StatusOK,
+		Data:   map[string]any{"overlay": overlayData},
+	}
+	encoded, err := ui.MarshalSSRBootstrap(payload.ToSSRBootstrap())
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "bootstrap_encode_failed", err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("X-Atlas-Bootstrap-Bytes", fmt.Sprintf("%d", len(encoded)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(encoded)
+}
+
 func (s *atlasServer) bootstrapForPath(r *http.Request, path string, session *serverauth.Session) (atlas.Payload, routeMeta, error) {
+	return s.bootstrapForRouteQuery(r, path, r.URL.Query(), session)
+}
+
+func (s *atlasServer) bootstrapForRouteQuery(r *http.Request, path string, routeQuery url.Values, session *serverauth.Session) (atlas.Payload, routeMeta, error) {
 	meta := routeMetaForPath(path)
 	preferences, _ := s.store.PreferencesByOwner(r.Context(), sessionOwnerID(session))
 	savedViews, _ := s.store.SavedViewsByOwner(r.Context(), sessionOwnerID(session))
-	query := cloneQuery(r.URL.Query())
+	query := cloneQuery(routeQuery)
 	payload := atlas.Payload{
 		Route: atlas.RouteBootstrap{
-			Path:    path,
-			Query:   query,
-			Params:  map[string]string{},
-			Surface: meta.Surface,
-			Screen:  meta.Screen,
-			Title:   meta.Title,
+			Path:        path,
+			Query:       query,
+			Params:      map[string]string{},
+			Surface:     meta.Surface,
+			Screen:      meta.Screen,
+			Title:       meta.Title,
+			Description: meta.Description,
+			Canonical:   meta.Canonical,
 		},
 		Preferences: atlas.PreferencesState{
 			Theme:            preferences.Theme,
@@ -919,23 +1140,25 @@ func routeMetaForPath(path string) routeMeta {
 	case strings.HasPrefix(path, "/shop/"):
 		return routeMeta{Path: path, Surface: "public", Screen: "product", Title: "Atlas Product", Description: "Warehouse-aware availability and premium workspace design for Atlas products.", Canonical: path}
 	case path == "/warehouses":
-		return routeMeta{Path: path, Surface: "public", Screen: "warehouses", Title: "Atlas Product Volume", Description: "Browse Atlas products by live volume with search, filters, and sort controls instead of a warehouse selector.", Canonical: path}
+		return routeMeta{Path: path, Surface: "public", Screen: "warehouses", Title: "Atlas Delivery Regions", Description: "Compare Atlas delivery regions, service levels, and stocked highlights before opening a warehouse route.", Canonical: path}
 	case path == serverauth.MockSignInPath:
 		return routeMeta{Path: path, Surface: "public", Screen: "mock-sign-in", Title: "Atlas Mock Sign In", Description: "Start a mock internal session for the Atlas operator console.", Canonical: path}
 	case strings.Contains(path, "/availability/"):
 		return routeMeta{Path: path, Surface: "public", Screen: "warehouse-availability", Title: "Atlas Warehouse Availability", Description: "Inspect a warehouse-specific product promise for one Atlas item and one regional fulfillment hub.", Canonical: path}
 	case strings.HasPrefix(path, "/warehouses/"):
-		return routeMeta{Path: path, Surface: "public", Screen: "warehouse-detail", Title: "Atlas Warehouse Detail", Description: "Inspect one public Atlas warehouse, including regional promise speed and product-specific availability links.", Canonical: path}
+		return routeMeta{Path: path, Surface: "public", Screen: "warehouse-detail", Title: "Atlas Warehouse Region", Description: "Inspect one Atlas delivery region, including service posture, stocked highlights, and product-specific availability links.", Canonical: path}
 	case path == "/app/dashboard":
-		return routeMeta{Path: path, Surface: "internal", Screen: "dashboard", Title: "Atlas Ops Dashboard", Description: "Operational overview of buyer follow-up, stock pressure, receiving exceptions, and warehouse health.", Canonical: path}
+		return routeMeta{Path: path, Surface: "internal", Screen: "dashboard", Title: "Atlas Ops Dashboard", Description: "Operational overview of buyer questions, stock pressure, receiving exceptions, and warehouse health.", Canonical: path}
 	case path == "/app/products":
-		return routeMeta{Path: path, Surface: "internal", Screen: "products", Title: "Atlas Product CMS", Description: "Create, update, sort, and filter Atlas products by live volume in one CMS list.", Canonical: path}
+		return routeMeta{Path: path, Surface: "internal", Screen: "products", Title: "Atlas Product Merchandising", Description: "Manage product copy, pricing, launch posture, and merchandising details for Atlas workspace systems.", Canonical: path}
 	case strings.HasPrefix(path, "/app/products/"):
 		return routeMeta{Path: path, Surface: "internal", Screen: "product-editor", Title: "Atlas Product Editor", Description: "Edit product copy, pricing, and volume for one Atlas storefront item.", Canonical: path}
 	case path == "/app/inventory":
 		return routeMeta{Path: path, Surface: "internal", Screen: "inventory", Title: "Atlas Inventory", Description: "Review inventory health, saved views, and warehouse-aware stock pressure.", Canonical: path}
+	case strings.HasPrefix(path, "/app/inventory/") && strings.HasSuffix(path, "/threshold-history"):
+		return routeMeta{Path: path, Surface: "internal", Screen: "sku-threshold-history", Title: "Atlas Threshold History", Description: "Review threshold edits and transfer cues for one Atlas SKU without leaving the inventory route context.", Canonical: path}
 	case path == "/app/warehouses":
-		return routeMeta{Path: path, Surface: "internal", Screen: "warehouse-ops", Title: "Atlas Warehouses Internal", Description: "Compare staffing, backlog, and warehouse pressure across the Atlas internal network.", Canonical: path}
+		return routeMeta{Path: path, Surface: "internal", Screen: "warehouse-ops", Title: "Atlas Warehouse Operations", Description: "Compare staffing, backlog, service posture, and warehouse pressure across the Atlas network.", Canonical: path}
 	case strings.HasPrefix(path, "/app/warehouses/"):
 		return routeMeta{Path: path, Surface: "internal", Screen: "warehouse-detail", Title: "Atlas Warehouse Detail", Description: "Inspect staffing, backlog, and next action for a single Atlas warehouse.", Canonical: path}
 	case strings.HasPrefix(path, "/app/inventory/"):
@@ -953,7 +1176,7 @@ func routeMetaForPath(path string) routeMeta {
 	case strings.HasPrefix(path, "/app/receiving/"):
 		return routeMeta{Path: path, Surface: "internal", Screen: "receiving-session-detail", Title: "Atlas Receiving Session", Description: "Inspect one receiving session, including discrepancy classification and closeout readiness.", Canonical: path}
 	case path == "/app/comments":
-		return routeMeta{Path: path, Surface: "internal", Screen: "comments", Title: "Atlas Buyer Follow-Up", Description: "Work through buyer questions and route product or inventory follow-up from one manager lane.", Canonical: path}
+		return routeMeta{Path: path, Surface: "internal", Screen: "comments", Title: "Atlas Buyer Inbox", Description: "Review buyer questions, moderation decisions, and follow-up paths into product, inventory, or warehouse work.", Canonical: path}
 	case path == "/app/settings":
 		return routeMeta{Path: path, Surface: "internal", Screen: "settings", Title: "Atlas Settings", Description: "Manage theme, locale, density, default warehouse, and saved-view preferences.", Canonical: path}
 	default:

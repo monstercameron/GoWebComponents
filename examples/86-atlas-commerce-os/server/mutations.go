@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	serverdb "github.com/monstercameron/GoWebComponents/examples/86-atlas-commerce-os/server/db"
+	"github.com/monstercameron/GoWebComponents/examples/86-atlas-commerce-os/shared/repository"
 )
 
 func (s *atlasServer) handlePublicCommentCreate(w http.ResponseWriter, r *http.Request) {
@@ -112,6 +113,30 @@ func (s *atlasServer) handleInternalCommentModeration(w http.ResponseWriter, r *
 		return
 	}
 	s.respondMutation(w, r, http.StatusOK, updated, "comment-moderated")
+}
+
+func (s *atlasServer) handleInternalBulkCommentModeration(w http.ResponseWriter, r *http.Request) {
+	if s.sessions.RequireInternalSession(w, r) == nil {
+		return
+	}
+	if !validateCSRFRequest(s, w, r) {
+		return
+	}
+	input, err := decodeBulkModerationRequest(r)
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid_bulk_moderation_request", err)
+		return
+	}
+	if fields := validateBulkModerationRequest(input); len(fields) > 0 {
+		s.writeValidationError(w, http.StatusBadRequest, "invalid_bulk_moderation_request", "Choose at least one visible comment and a valid moderation status before applying the bulk review.", fields)
+		return
+	}
+	updated, err := s.store.ModerateComments(r.Context(), input.IDs, input.Status, input.Reason)
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, "bulk_moderation_failed", err)
+		return
+	}
+	s.respondMutation(w, r, http.StatusOK, map[string]any{"items": updated}, "comments-bulk-moderated")
 }
 
 func (s *atlasServer) handleInternalThresholdUpdate(w http.ResponseWriter, r *http.Request) {
@@ -218,6 +243,49 @@ func (s *atlasServer) handleInternalSavedViewCreate(w http.ResponseWriter, r *ht
 		return
 	}
 	s.respondMutation(w, r, http.StatusCreated, created, "saved-view-created")
+}
+
+func (s *atlasServer) handleInternalSavedViewsExport(w http.ResponseWriter, r *http.Request) {
+	session := s.sessions.RequireInternalSession(w, r)
+	if session == nil {
+		return
+	}
+	items, err := s.store.SavedViewsByOwner(r.Context(), session.UserID)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "saved_views_export_failed", err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, buildSavedViewTransferDocument(items))
+}
+
+func (s *atlasServer) handleInternalSavedViewImport(w http.ResponseWriter, r *http.Request) {
+	session := s.sessions.RequireInternalSession(w, r)
+	if session == nil {
+		return
+	}
+	if !validateCSRFRequest(s, w, r) {
+		return
+	}
+	input, err := decodeSavedViewImportRequest(r)
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid_saved_view_import_request", err)
+		return
+	}
+	if fields := validateSavedViewImportRequest(input); len(fields) > 0 {
+		s.writeValidationError(w, http.StatusBadRequest, "invalid_saved_view_import_request", "Paste a valid saved-view export payload before importing Atlas presets.", fields)
+		return
+	}
+	views, err := parseSavedViewTransferDocument(input.ViewsJSON)
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid_saved_view_import_payload", err)
+		return
+	}
+	imported, err := s.store.ImportSavedViews(r.Context(), session.UserID, views)
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, "saved_view_import_failed", err)
+		return
+	}
+	s.respondMutation(w, r, http.StatusCreated, map[string]any{"items": imported}, "saved-views-imported")
 }
 
 func (s *atlasServer) handleInternalTransferCreate(w http.ResponseWriter, r *http.Request) {
@@ -349,6 +417,12 @@ type moderationRequest struct {
 	Reason string `json:"reason"`
 }
 
+type bulkModerationRequest struct {
+	IDs    []string `json:"ids"`
+	Status string   `json:"status"`
+	Reason string   `json:"reason"`
+}
+
 type thresholdRequest struct {
 	WarehouseID  string `json:"warehouse_id"`
 	ReorderPoint int    `json:"reorder_point"`
@@ -382,6 +456,10 @@ type savedViewRequest struct {
 	SortDirection string `json:"sort_direction"`
 	Density       string `json:"density"`
 	WarehouseID   string `json:"warehouse_id"`
+}
+
+type savedViewImportRequest struct {
+	ViewsJSON string `json:"views_json"`
 }
 
 type transferRequest struct {
@@ -448,6 +526,15 @@ func decodeModerationRequest(r *http.Request) (moderationRequest, error) {
 	})
 }
 
+func decodeBulkModerationRequest(r *http.Request) (bulkModerationRequest, error) {
+	var payload bulkModerationRequest
+	return payload, decodeBodyOrForm(r, &payload, func(values url.Values) {
+		payload.IDs = collectListField(values, "ids")
+		payload.Status = values.Get("status")
+		payload.Reason = values.Get("reason")
+	})
+}
+
 func decodeThresholdRequest(r *http.Request) (thresholdRequest, error) {
 	var payload thresholdRequest
 	return payload, decodeBodyOrForm(r, &payload, func(values url.Values) {
@@ -492,6 +579,13 @@ func decodeSavedViewRequest(r *http.Request) (savedViewRequest, error) {
 		payload.SortDirection = values.Get("sort_direction")
 		payload.Density = values.Get("density")
 		payload.WarehouseID = values.Get("warehouse_id")
+	})
+}
+
+func decodeSavedViewImportRequest(r *http.Request) (savedViewImportRequest, error) {
+	var payload savedViewImportRequest
+	return payload, decodeBodyOrForm(r, &payload, func(values url.Values) {
+		payload.ViewsJSON = values.Get("views_json")
 	})
 }
 
@@ -639,6 +733,17 @@ func validateModerationRequest(input moderationRequest) map[string]string {
 	return fields
 }
 
+func validateBulkModerationRequest(input bulkModerationRequest) map[string]string {
+	fields := map[string]string{}
+	if len(input.IDs) == 0 {
+		fields["ids"] = "Choose at least one visible comment for bulk review."
+	}
+	if !isOneOf(input.Status, "pending", "approved", "rejected", "flagged") {
+		fields["status"] = "Choose pending, approved, rejected, or flagged."
+	}
+	return fields
+}
+
 func validateThresholdRequest(input thresholdRequest) map[string]string {
 	fields := map[string]string{}
 	if strings.TrimSpace(input.WarehouseID) == "" {
@@ -717,6 +822,101 @@ func validateSavedViewRequest(input savedViewRequest) map[string]string {
 		}
 	}
 	return fields
+}
+
+func validateSavedViewImportRequest(input savedViewImportRequest) map[string]string {
+	fields := map[string]string{}
+	if strings.TrimSpace(input.ViewsJSON) == "" {
+		fields["views_json"] = "Paste the saved-view export payload before importing."
+		return fields
+	}
+	if _, err := parseSavedViewTransferDocument(input.ViewsJSON); err != nil {
+		fields["views_json"] = "Paste a valid saved-view export payload."
+	}
+	return fields
+}
+
+func collectListField(values url.Values, key string) []string {
+	result := []string{}
+	for _, raw := range values[key] {
+		for _, part := range strings.Split(raw, ",") {
+			trimmed := strings.TrimSpace(part)
+			if trimmed != "" {
+				result = append(result, trimmed)
+			}
+		}
+	}
+	return result
+}
+
+type savedViewTransferDocument struct {
+	Items []savedViewTransferItem `json:"items"`
+}
+
+type savedViewTransferItem struct {
+	Name          string `json:"name"`
+	Scope         string `json:"scope"`
+	SortKey       string `json:"sortKey"`
+	SortDirection string `json:"sortDirection"`
+	Density       string `json:"density"`
+	WarehouseID   string `json:"warehouseId"`
+	FiltersJSON   string `json:"filtersJSON"`
+}
+
+func buildSavedViewTransferDocument(items []repository.SavedView) savedViewTransferDocument {
+	result := savedViewTransferDocument{Items: make([]savedViewTransferItem, 0, len(items))}
+	for _, item := range items {
+		result.Items = append(result.Items, savedViewTransferItem{
+			Name:          item.Name,
+			Scope:         item.Scope,
+			SortKey:       item.SortKey,
+			SortDirection: item.SortDirection,
+			Density:       item.Density,
+			WarehouseID:   item.WarehouseID,
+			FiltersJSON:   item.FiltersJSON,
+		})
+	}
+	return result
+}
+
+func parseSavedViewTransferDocument(raw string) ([]repository.SavedView, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, fmt.Errorf("saved-view transfer payload is required")
+	}
+	document := savedViewTransferDocument{}
+	if err := json.Unmarshal([]byte(trimmed), &document); err == nil && len(document.Items) > 0 {
+		items := make([]repository.SavedView, 0, len(document.Items))
+		for _, item := range document.Items {
+			items = append(items, repository.SavedView{
+				Name:          item.Name,
+				Scope:         item.Scope,
+				SortKey:       item.SortKey,
+				SortDirection: item.SortDirection,
+				Density:       item.Density,
+				WarehouseID:   item.WarehouseID,
+				FiltersJSON:   item.FiltersJSON,
+			})
+		}
+		return items, nil
+	}
+	items := []savedViewTransferItem{}
+	if err := json.Unmarshal([]byte(trimmed), &items); err != nil {
+		return nil, fmt.Errorf("decode saved-view transfer payload: %w", err)
+	}
+	result := make([]repository.SavedView, 0, len(items))
+	for _, item := range items {
+		result = append(result, repository.SavedView{
+			Name:          item.Name,
+			Scope:         item.Scope,
+			SortKey:       item.SortKey,
+			SortDirection: item.SortDirection,
+			Density:       item.Density,
+			WarehouseID:   item.WarehouseID,
+			FiltersJSON:   item.FiltersJSON,
+		})
+	}
+	return result, nil
 }
 
 func validateTransferRequest(input transferRequest) map[string]string {

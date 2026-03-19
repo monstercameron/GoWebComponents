@@ -80,7 +80,7 @@ func (s *atlasServer) handleInternalProductsPage(w http.ResponseWriter, r *http.
 		s.writeError(w, http.StatusInternalServerError, "product_admin_query_failed", err)
 		return
 	}
-	s.renderPage(w, r, routeMeta{Path: "/app/products", Surface: "internal", Screen: "products", Title: "Atlas Product CMS", Description: "Create, update, sort, and filter Atlas products by live volume without warehouse-specific picking in the general CMS.", Canonical: "/app/products"}, map[string]any{
+	s.renderPage(w, r, routeMeta{Path: "/app/products", Surface: "internal", Screen: "products", Title: "Atlas Product Merchandising", Description: "Manage product copy, pricing, launch posture, and merchandising details for Atlas workspace systems.", Canonical: "/app/products"}, map[string]any{
 		"items": items,
 		"filters": map[string]string{
 			"q":        strings.TrimSpace(r.URL.Query().Get("q")),
@@ -99,7 +99,7 @@ func (s *atlasServer) handleInternalProductEditorPage(w http.ResponseWriter, r *
 	item, err := s.store.ProductAdminBySlug(r.Context(), r.PathValue("slug"))
 	if err != nil {
 		path := "/app/products/" + r.PathValue("slug")
-		s.renderRecoveryPage(w, r, http.StatusNotFound, routeMeta{Path: path, Surface: "internal", Screen: "recovery", Title: "Atlas Product Editor Not Found", Description: "The requested product editor route could not be loaded.", Canonical: path}, session, "Product editor not found", "That product editor route is not available in the current Atlas catalog.", "/app/products", "Back to product CMS", err)
+		s.renderRecoveryPage(w, r, http.StatusNotFound, routeMeta{Path: path, Surface: "internal", Screen: "recovery", Title: "Atlas Product Editor Not Found", Description: "The requested product editor route could not be loaded.", Canonical: path}, session, "Product editor not found", "That product editor route is not available in the current Atlas catalog.", "/app/products", "Back to product merchandising", err)
 		return
 	}
 	path := "/app/products/" + item.Slug

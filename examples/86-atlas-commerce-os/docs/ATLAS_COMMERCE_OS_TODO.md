@@ -51,52 +51,52 @@ The goal is not to port those mocks literally as a separate product. The goal is
 
 ### 1. Route, Data, And Server Contract Alignment
 
-- [ ] Keep Atlas seed data and route semantics coherent with the new visuals
-- [ ] Rename or revise any route copy that still reflects the older scaffold language instead of the new shell
-- [ ] Ensure public merchandising copy still fits Atlas workspace systems rather than drifting toward generic gadgets
-- [ ] Ensure internal route titles and descriptions still reflect real Atlas workflows after the rewrite
-- [ ] Revisit route metadata in `shared/atlas/legacy_shared.go` so titles, descriptions, and canonicals stay aligned with the rewrite
-- [ ] Revisit server response shapes for routes that currently overfetch or recompute similar summaries in multiple handlers
-- [ ] Move shared dashboard, inventory, warehouse, and PO summary logic toward reusable server or shared-layer derivation where that reduces duplicated work
-- [ ] Add one production-shaped bulk workflow, likely bulk moderation or bulk inventory threshold updates, so Atlas shows how GWC handles dense multi-record actions without becoming a toy demo
-- [ ] Evaluate whether lightweight import or export flows for saved views, inventory policies, or diagnostics snapshots would improve Atlas as a real showcase app
+- [x] Keep Atlas seed data and route semantics coherent with the new visuals
+- [x] Rename or revise any route copy that still reflects the older scaffold language instead of the new shell
+- [x] Ensure public merchandising copy still fits Atlas workspace systems rather than drifting toward generic gadgets
+- [x] Ensure internal route titles and descriptions still reflect real Atlas workflows after the rewrite
+- [x] Revisit route metadata in `shared/atlas/legacy_shared.go` so titles, descriptions, and canonicals stay aligned with the rewrite
+- [x] Revisit server response shapes for routes that currently overfetch or recompute similar summaries in multiple handlers
+- [x] Move shared dashboard, inventory, warehouse, and PO summary logic toward reusable server or shared-layer derivation where that reduces duplicated work
+- [x] Add one production-shaped bulk workflow, likely bulk moderation or bulk inventory threshold updates, so Atlas shows how GWC handles dense multi-record actions without becoming a toy demo
+- [x] Evaluate whether lightweight import or export flows for saved views, inventory policies, or diagnostics snapshots would improve Atlas as a real showcase app
 
 ### 2. SSR, Routing, And Bootstrap Invariants
 
-- [ ] Preserve `ui.RenderToString` plus `ui.Hydrate` parity across every rewritten route family; do not let new interactions drift into client-only assumptions
-- [ ] Keep using the history router path already in place and expand route-loader usage where rewritten routes need explicit loader and revalidation behavior
-- [ ] Add more route metadata ownership through the router where it improves title, description, and canonical consistency after client-side transitions
-- [ ] Audit loader granularity so route transitions only fetch what changed instead of rebuilding large shared payloads unnecessarily
-- [ ] Add revalidation triggers for mutations that should refresh parent and sibling route data after save, approve, reconcile, or create actions
-- [ ] Evaluate route `before-enter` and `before-leave` guards for unsaved editor flows, destructive confirmations, and auth-sensitive internal paths
-- [ ] Add at least one production-grade unsaved-changes guard for a real internal editor route so Atlas demonstrates `before-leave` with a meaningful workflow
-- [ ] Expand nested layout route usage if the rewritten internal shell introduces stable sub-layouts for products, inventory, or warehouses
-- [ ] Evaluate whether one secondary workflow should be deep-linkable by URL, such as a SKU threshold overlay or PO detail side sheet, to show route-plus-overlay composition cleanly
-- [ ] Decide which public route data should be reused from SSR bootstrap, which should revalidate on navigation, and which should be cached client-side between route transitions
-- [ ] Define which internal route datasets should persist in route-local cache or shared resources so operators do not pay a full reload cost after every minor workflow action
-- [ ] Audit which route data must be serialized into bootstrap and which can be fetched lazily after hydration to keep first paint fast without breaking parity
-- [ ] Revisit bootstrap payload usage after the shell rewrites so route-specific UI still receives enough structured data
-- [ ] Track bootstrap payload size as the rewrite progresses and split or externalize route data if first-load SSR payloads become too large
-- [ ] Evaluate `ui.RenderBootstrapReferenceScript` plus external bootstrap payloads if Atlas bootstrap size grows significantly during the rewrite
-- [ ] Add one proof-of-concept route or diagnostics mode that can switch to external bootstrap reference loading if payload growth makes the inline script less convincing as the long-term demo story
-- [ ] Add explicit todos for any rewritten component that cannot be made SSR-safe on the first pass, and isolate it behind a clear hydration boundary instead of silently degrading the route
+- [x] Preserve `ui.RenderToString` plus `ui.Hydrate` parity across every rewritten route family; do not let new interactions drift into client-only assumptions
+- [x] Keep using the history router path already in place and expand route-loader usage where rewritten routes need explicit loader and revalidation behavior
+- [x] Add more route metadata ownership through the router where it improves title, description, and canonical consistency after client-side transitions
+- [x] Audit loader granularity so route transitions only fetch what changed instead of rebuilding large shared payloads unnecessarily
+- [x] Add revalidation triggers for mutations that should refresh parent and sibling route data after save, approve, reconcile, or create actions
+- [x] Evaluate route `before-enter` and `before-leave` guards for unsaved editor flows, destructive confirmations, and auth-sensitive internal paths
+- [x] Add at least one production-grade unsaved-changes guard for a real internal editor route so Atlas demonstrates `before-leave` with a meaningful workflow
+- [x] Expand nested layout route usage if the rewritten internal shell introduces stable sub-layouts for products, inventory, or warehouses
+- [x] Evaluate whether one secondary workflow should be deep-linkable by URL, such as a SKU threshold overlay or PO detail side sheet, to show route-plus-overlay composition cleanly
+- [x] Decide which public route data should be reused from SSR bootstrap, which should revalidate on navigation, and which should be cached client-side between route transitions
+- [x] Define which internal route datasets should persist in route-local cache or shared resources so operators do not pay a full reload cost after every minor workflow action
+- [x] Audit which route data must be serialized into bootstrap and which can be fetched lazily after hydration to keep first paint fast without breaking parity
+- [x] Revisit bootstrap payload usage after the shell rewrites so route-specific UI still receives enough structured data
+- [x] Track bootstrap payload size as the rewrite progresses and split or externalize route data if first-load SSR payloads become too large
+- [x] Evaluate `ui.RenderBootstrapReferenceScript` plus external bootstrap payloads if Atlas bootstrap size grows significantly during the rewrite
+- [x] Add one proof-of-concept route or diagnostics mode that can switch to external bootstrap reference loading if payload growth makes the inline script less convincing as the long-term demo story
+- [x] Add explicit todos for any rewritten component that cannot be made SSR-safe on the first pass, and isolate it behind a clear hydration boundary instead of silently degrading the route
 
 ### 3. Server-State, Derived-State, And Cache Baseline
 
-- [ ] Audit handler-level duplicate queries for dashboard, warehouse detail, SKU detail, and PO detail flows
-- [ ] Add todos to consolidate repeated database reads where one route currently builds several related summaries separately
-- [ ] Revisit whether some route summaries should be precomputed or persisted if they become expensive enough in the real app shape
-- [ ] Build a shared inventory-derived-state layer so counts, badges, urgency summaries, reorder totals, and lane summaries are not recomputed independently across multiple routes
-- [ ] Build a shared public-derived-state layer for product status messaging, warehouse promise summaries, and action-label decisions
-- [ ] Decide which derived values belong:
+- [x] Audit handler-level duplicate queries for dashboard, warehouse detail, SKU detail, and PO detail flows
+- [x] Add todos to consolidate repeated database reads where one route currently builds several related summaries separately
+- [x] Revisit whether some route summaries should be precomputed or persisted if they become expensive enough in the real app shape
+- [x] Build a shared inventory-derived-state layer so counts, badges, urgency summaries, reorder totals, and lane summaries are not recomputed independently across multiple routes
+- [x] Build a shared public-derived-state layer for product status messaging, warehouse promise summaries, and action-label decisions
+- [x] Decide which derived values belong:
   - in server responses
   - in shared atlas helpers
   - in state computed or derived primitives
   - in route-local memoized transforms
-- [ ] Define the canonical derived-state layer for Atlas so expensive counts, totals, urgency bands, and filter summaries are computed once and consumed across routes
-- [ ] Remove duplicated count, grouping, sorting, and summary logic once the canonical derived-state locations are defined
-- [ ] Define SSR bootstrap reuse rules for each major route family
-- [ ] Define client cache lifetime rules for:
+- [x] Define the canonical derived-state layer for Atlas so expensive counts, totals, urgency bands, and filter summaries are computed once and consumed across routes
+- [x] Remove duplicated count, grouping, sorting, and summary logic once the canonical derived-state locations are defined
+- [x] Define SSR bootstrap reuse rules for each major route family
+- [x] Define client cache lifetime rules for:
   - related products
   - public comments
   - saved views

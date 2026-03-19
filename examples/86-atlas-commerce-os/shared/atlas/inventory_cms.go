@@ -3,7 +3,6 @@ package atlas
 import (
 	"fmt"
 	"net/url"
-	"sort"
 	"strings"
 
 	"github.com/monstercameron/GoWebComponents/html"
@@ -11,6 +10,7 @@ import (
 )
 
 type inventoryCMSPage struct {
+	Summary pageSummary       `json:"summary"`
 	Items   []inventoryRow    `json:"items"`
 	Filters map[string]string `json:"filters"`
 }
@@ -21,7 +21,37 @@ type inventoryDetailPage struct {
 	Rows  []inventoryRow `json:"rows"`
 }
 
+type inventoryThresholdHistoryPanelPage struct {
+	SKU             string                                `json:"sku"`
+	Items           []inventoryThresholdHistoryItem       `json:"items"`
+	Recommendations []inventoryTransferRecommendationItem `json:"recommendations"`
+}
+
+type inventoryThresholdHistoryItem struct {
+	ID           string `json:"id"`
+	ProductSKU   string `json:"productSku"`
+	WarehouseID  string `json:"warehouseId"`
+	ReorderPoint int    `json:"reorderPoint"`
+	SafetyStock  int    `json:"safetyStock"`
+	ActorName    string `json:"actorName"`
+	Summary      string `json:"summary"`
+	Detail       string `json:"detail"`
+	CreatedAt    string `json:"createdAt"`
+}
+
+type inventoryTransferRecommendationItem struct {
+	ProductSKU               string `json:"productSku"`
+	SourceWarehouseID        string `json:"sourceWarehouseId"`
+	SourceWarehouseName      string `json:"sourceWarehouseName"`
+	DestinationWarehouseID   string `json:"destinationWarehouseId"`
+	DestinationWarehouseName string `json:"destinationWarehouseName"`
+	Quantity                 int    `json:"quantity"`
+	Priority                 string `json:"priority"`
+	Reason                   string `json:"reason"`
+}
+
 type warehouseInventoryDetailPage struct {
+	Summary   pageSummary           `json:"summary"`
 	Warehouse warehouseOpsRecord    `json:"warehouse"`
 	Inventory []inventoryRow        `json:"inventory"`
 	Orders    []purchaseOrderRecord `json:"orders"`
@@ -56,6 +86,7 @@ func inventoryCMSContent(payload Payload) ui.Node {
 	return html.Section(html.Props{Class: "grid gap-6 lg:grid-cols-[minmax(0,1.32fr)_minmax(21rem,0.78fr)]"},
 		html.Div(html.Props{Class: "grid gap-5"},
 			warehouseFeatureCard("Inventory control", "Triage stock pressure, inspect inbound exposure, and open the exact SKU editor without wading through route-explainer cards."),
+			routeSummaryStrip(page.Summary),
 			inventoryCMSFilterForm(page.Filters),
 			inventoryTriageBand(page.Items, summaries),
 			inventoryQueueTable(summaries),
@@ -69,6 +100,7 @@ func inventoryCMSContent(payload Payload) ui.Node {
 }
 
 func inventoryTriageBand(rows []inventoryRow, summaries []inventorySummaryCard) ui.Node {
+	rollup := inventoryRollupFromRows(rows)
 	items := []struct {
 		label string
 		value string
@@ -77,25 +109,25 @@ func inventoryTriageBand(rows []inventoryRow, summaries []inventorySummaryCard) 
 	}{
 		{
 			label: "Critical lanes",
-			value: fmt.Sprintf("%d", countInventoryRowsByStatus(rows, "critical")),
+			value: fmt.Sprintf("%d", rollup.CriticalLanes),
 			copy:  "Immediate lane corrections before promise failure.",
 			href:  "/app/inventory?status=critical",
 		},
 		{
 			label: "Promise risk",
-			value: fmt.Sprintf("%d", countInventoryRowsByStatus(rows, "promise_risk")),
+			value: fmt.Sprintf("%d", rollup.PromiseRiskLanes),
 			copy:  "SKUs likely to slip without attention.",
 			href:  "/app/inventory?status=promise_risk",
 		},
 		{
 			label: "Inbound pending",
-			value: fmt.Sprintf("%d", countInventorySKUsWithInbound(summaries)),
+			value: fmt.Sprintf("%d", rollup.SKUsWithInbound),
 			copy:  "Items with open inbound already on the way.",
 			href:  "/app/receiving",
 		},
 		{
 			label: "Reorder now",
-			value: fmt.Sprintf("%d", countInventoryRowsRequiringReorder(rows)),
+			value: fmt.Sprintf("%d", rollup.ReorderLanes),
 			copy:  "Lanes already signaling vendor replenishment.",
 			href:  "/app/purchase-orders",
 		},
@@ -166,6 +198,7 @@ func inventoryOperationsRail(filters map[string]string, summaries []inventorySum
 	if filters == nil {
 		filters = map[string]string{}
 	}
+	rollup := inventoryRollupFromRows(rows)
 	filterNodes := inventoryFilterSummaryNodes(filters)
 	actionNodes := []ui.Node{
 		html.A(html.Props{Href: "/app/inventory?status=promise_risk", Class: "border border-slate-700 bg-slate-950/80 px-3 py-3 text-sm text-slate-200 transition hover:border-cyan-400/45 hover:text-white"}, html.Text("Open promise-risk lanes")),
@@ -177,9 +210,9 @@ func inventoryOperationsRail(filters map[string]string, summaries []inventorySum
 		warehouseListCard("Current view",
 			html.Div(html.Props{Class: "grid gap-3 md:grid-cols-2"},
 				warehouseInfoRow("Visible SKUs", fmt.Sprintf("%d", len(summaries))),
-				warehouseInfoRow("Visible lanes", fmt.Sprintf("%d", len(rows))),
-				warehouseInfoRow("Risk lanes", fmt.Sprintf("%d", countInventoryRiskLanes(rows))),
-				warehouseInfoRow("Inbound units", fmt.Sprintf("%d", countInventoryInbound(rows))),
+				warehouseInfoRow("Visible lanes", fmt.Sprintf("%d", rollup.VisibleLanes)),
+				warehouseInfoRow("Risk lanes", fmt.Sprintf("%d", rollup.RiskLanes)),
+				warehouseInfoRow("Inbound units", fmt.Sprintf("%d", rollup.InboundUnits)),
 			),
 		),
 		warehouseListCard("Active filters", filterNodes...),
@@ -211,74 +244,112 @@ func inventoryFilterSummaryNodes(filters map[string]string) []ui.Node {
 	return nodes
 }
 
-func countInventoryRowsByStatus(rows []inventoryRow, status string) int {
-	count := 0
-	for _, row := range rows {
-		if strings.EqualFold(strings.TrimSpace(row.Status), strings.TrimSpace(status)) {
-			count++
-		}
-	}
-	return count
-}
-
-func countInventorySKUsWithInbound(items []inventorySummaryCard) int {
-	count := 0
-	for _, item := range items {
-		if item.Inbound > 0 {
-			count++
-		}
-	}
-	return count
-}
-
-func countInventoryRowsRequiringReorder(rows []inventoryRow) int {
-	count := 0
-	for _, row := range rows {
-		if row.ReorderUnits > 0 {
-			count++
-		}
-	}
-	return count
-}
-
 func inventoryDetailContent(payload Payload) ui.Node {
 	page := decode[inventoryDetailPage](pageData(payload))
 	if len(page.Rows) == 0 {
 		return featureCard("Inventory item unavailable", "This SKU does not currently have any active inventory lanes.")
 	}
-	totalAvailable := 0
-	totalInbound := 0
-	riskLanes := 0
-	reorderLanes := 0
+	rollup := inventoryRollupFromRows(page.Rows)
 	laneCards := make([]ui.Node, 0, len(page.Rows))
 	for _, row := range page.Rows {
-		totalAvailable += row.Available
-		totalInbound += row.Inbound
-		if row.Status != "balanced" {
-			riskLanes++
-		}
-		if row.ReorderUnits > 0 {
-			reorderLanes++
-		}
 		laneCards = append(laneCards, inventoryLaneEditorCard(row, payload))
 	}
+	asideChildren := []ui.Node{
+		skuOperationsRail(page, rollup.TotalAvailable, rollup.InboundUnits, rollup.RiskLanes),
+		html.Div(html.Props{ID: "sku-replenishment"}, orderInventoryModalCard(page.Rows, page.Rows[0].WarehouseID, page.Title, payload, true, "")),
+	}
+	if overlay := inventoryThresholdHistoryPanelNode(payload, page); overlay != nil {
+		asideChildren = append(asideChildren, overlay)
+	}
+	asideChildren = append(asideChildren, thresholdForm(page.Rows[0], payload))
 	return html.Section(html.Props{Class: "grid gap-6 lg:grid-cols-[minmax(0,1.28fr)_minmax(22rem,0.82fr)]"},
 		html.Div(html.Props{Class: "grid gap-5"},
 			warehouseFeatureCard(page.Title, fmt.Sprintf("%s is active across %d warehouse lanes. Use this page to inspect lane pressure first, then edit the specific lane that needs correction.", page.SKU, len(page.Rows))),
 			html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
-				warehouseStatCard("Available", fmt.Sprintf("%d units", totalAvailable)),
-				warehouseStatCard("Inbound", fmt.Sprintf("%d units", totalInbound)),
-				warehouseStatCard("Flagged lanes", fmt.Sprintf("%d", riskLanes)),
-				warehouseStatCard("Reorder lanes", fmt.Sprintf("%d", reorderLanes)),
+				warehouseStatCard("Available", fmt.Sprintf("%d units", rollup.TotalAvailable)),
+				warehouseStatCard("Inbound", fmt.Sprintf("%d units", rollup.InboundUnits)),
+				warehouseStatCard("Flagged lanes", fmt.Sprintf("%d", rollup.RiskLanes)),
+				warehouseStatCard("Reorder lanes", fmt.Sprintf("%d", rollup.ReorderLanes)),
 			),
 			skuLaneRosterTable(page.Rows),
 			warehouseListCard("Lane editors", laneCards...),
 		),
-		html.Div(html.Props{Class: "grid gap-5"},
-			skuOperationsRail(page, totalAvailable, totalInbound, riskLanes),
-			html.Div(html.Props{ID: "sku-replenishment"}, orderInventoryModalCard(page.Rows, page.Rows[0].WarehouseID, page.Title, payload, true, "")),
-			thresholdForm(page.Rows[0], payload),
+		html.Div(html.Props{Class: "grid gap-5"}, asideChildren...),
+	)
+}
+
+func inventoryThresholdHistoryPanelNode(payload Payload, page inventoryDetailPage) ui.Node {
+	if outlet := routeOutletNode(); outlet != nil {
+		return outlet
+	}
+	panel := decode[inventoryThresholdHistoryPanelPage](payloadDataValue(payload, "overlay"))
+	if panel.SKU == "" || !strings.EqualFold(strings.TrimSpace(panel.SKU), strings.TrimSpace(page.SKU)) {
+		return nil
+	}
+	return inventoryThresholdHistoryPanel(panel, page)
+}
+
+func InventoryThresholdHistoryOverlay(payload Payload) ui.Node {
+	panel := decode[inventoryThresholdHistoryPanelPage](payloadDataValue(payload, "overlay"))
+	page := decode[inventoryDetailPage](payloadDataValue(payload, "page"))
+	if panel.SKU == "" || page.SKU == "" {
+		return nil
+	}
+	return inventoryThresholdHistoryPanel(panel, page)
+}
+
+func inventoryThresholdHistoryPanel(panel inventoryThresholdHistoryPanelPage, page inventoryDetailPage) ui.Node {
+	closeHref := "/app/inventory/" + page.SKU
+	historyNodes := make([]ui.Node, 0, len(panel.Items))
+	for _, item := range panel.Items {
+		historyNodes = append(historyNodes, html.Div(html.Props{Class: "grid gap-2 rounded-sm border border-slate-700 bg-slate-950/75 px-4 py-4"},
+			html.Div(html.Props{Class: "flex items-start justify-between gap-3"},
+				html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(item.Summary)),
+				html.Span(html.Props{Class: warehouseStatusClass("pending")}, html.Text(item.WarehouseID)),
+			),
+			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(item.Detail)),
+			html.Div(html.Props{Class: "grid gap-2 text-xs uppercase tracking-[0.2em] text-slate-500 md:grid-cols-3"},
+				html.Span(html.Props{}, html.Text("Reorder "+fmt.Sprintf("%d", item.ReorderPoint))),
+				html.Span(html.Props{}, html.Text("Safety "+fmt.Sprintf("%d", item.SafetyStock))),
+				html.Span(html.Props{}, html.Text(item.CreatedAt)),
+			),
+			html.P(html.Props{Class: "text-xs text-slate-500"}, html.Text("Updated by "+fallback(item.ActorName, "Atlas operations"))),
+		))
+	}
+	if len(historyNodes) == 0 {
+		historyNodes = append(historyNodes, html.P(html.Props{Class: "text-sm text-slate-400"}, html.Text("No threshold history events are recorded for this SKU yet.")))
+	}
+	recommendationNodes := make([]ui.Node, 0, len(panel.Recommendations))
+	for _, item := range panel.Recommendations {
+		recommendationNodes = append(recommendationNodes, html.Div(html.Props{Class: "grid gap-2 rounded-sm border border-slate-700 bg-slate-950/75 px-4 py-4"},
+			html.Div(html.Props{Class: "flex items-start justify-between gap-3"},
+				html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(fallback(item.SourceWarehouseName, item.SourceWarehouseID)+" -> "+fallback(item.DestinationWarehouseName, item.DestinationWarehouseID))),
+				html.Span(html.Props{Class: warehouseStatusClass(item.Priority)}, html.Text(fallback(item.Priority, "review"))),
+			),
+			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(item.Reason)),
+			html.P(html.Props{Class: "text-xs uppercase tracking-[0.2em] text-slate-500"}, html.Text(fmt.Sprintf("%d units of %s", item.Quantity, page.SKU))),
+		))
+	}
+	if len(recommendationNodes) == 0 {
+		recommendationNodes = append(recommendationNodes, html.P(html.Props{Class: "text-sm text-slate-400"}, html.Text("No transfer recommendation is stronger than local threshold tuning right now.")))
+	}
+	return html.Div(html.Props{Class: "grid gap-4 rounded-sm border border-cyan-400/35 bg-[linear-gradient(180deg,rgba(11,18,32,0.98),rgba(2,6,23,1))] p-4 shadow-[0_18px_48px_rgba(6,182,212,0.08)]", Raw: map[string]interface{}{"data-atlas-route-overlay": "threshold-history"}},
+		html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
+			html.Div(html.Props{Class: "grid gap-2"},
+				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300"}, html.Text("Route overlay")),
+				html.P(html.Props{Class: "text-lg font-semibold text-white"}, html.Text("Threshold history")),
+				html.P(html.Props{Class: "text-sm leading-6 text-slate-400"}, html.Text("This side panel is deep-linkable, so operators can review threshold decisions without losing the SKU route context.")),
+			),
+			html.A(html.Props{Href: closeHref, Class: warehouseSecondaryButtonClass()}, html.Text("Close")),
 		),
+		html.Div(html.Props{Class: "grid gap-3 md:grid-cols-2"},
+			warehouseInfoRow("SKU", page.SKU),
+			warehouseInfoRow("History events", fmt.Sprintf("%d", len(panel.Items))),
+			warehouseInfoRow("Transfer cues", fmt.Sprintf("%d", len(panel.Recommendations))),
+			warehouseInfoRow("Return path", closeHref),
+		),
+		warehouseListCard("Threshold changes", historyNodes...),
+		warehouseListCard("Transfer recommendations", recommendationNodes...),
 	)
 }
 
@@ -410,6 +481,7 @@ func warehouseInventoryDetailContent(payload Payload) ui.Node {
 				warehouseBreadcrumbLink{Label: fallback(page.Warehouse.Name, page.Warehouse.ID), Href: "/app/warehouses/" + page.Warehouse.ID, Current: true},
 			),
 			warehouseFeatureCard(page.Warehouse.Name, page.Warehouse.Focus),
+			routeSummaryStrip(page.Summary),
 			warehouseInventoryFilterForm(page.Warehouse.ID, filters),
 			html.Div(html.Props{Class: "grid gap-4 md:grid-cols-4"},
 				warehouseStatCard("Warehouse items", fmt.Sprintf("%d active", len(page.Inventory))),
@@ -767,38 +839,6 @@ func marketPressureClass(label string) string {
 	}
 }
 
-func inventorySummaryCards(rows []inventoryRow) []inventorySummaryCard {
-	grouped := map[string]*inventorySummaryCard{}
-	for _, row := range rows {
-		entry, ok := grouped[row.SKU]
-		if !ok {
-			entry = &inventorySummaryCard{SKU: row.SKU, Title: row.Title, Status: row.Status, PrimaryLane: fallback(row.WarehouseName, row.WarehouseID), LastUpdated: row.UpdatedAt}
-			grouped[row.SKU] = entry
-		}
-		entry.Available += row.Available
-		entry.Inbound += row.Inbound
-		entry.LaneCount++
-		if row.Status != "balanced" {
-			entry.RiskLaneCount++
-			entry.Status = row.Status
-		}
-		if row.UpdatedAt > entry.LastUpdated {
-			entry.LastUpdated = row.UpdatedAt
-		}
-	}
-	items := make([]inventorySummaryCard, 0, len(grouped))
-	for _, item := range grouped {
-		items = append(items, *item)
-	}
-	sort.Slice(items, func(left, right int) bool {
-		if items[left].Title == items[right].Title {
-			return items[left].SKU < items[right].SKU
-		}
-		return items[left].Title < items[right].Title
-	})
-	return items
-}
-
 func inventoryStatusOptions() []optionItem {
 	return []optionItem{{"balanced", "Balanced"}, {"promise_risk", "Promise risk"}, {"critical", "Critical"}, {"recovery", "Recovery"}}
 }
@@ -836,24 +876,6 @@ func inventoryWarehouseLabel(warehouseID string, rows []inventoryRow) string {
 		}
 	}
 	return warehouseID
-}
-
-func countInventoryRiskLanes(rows []inventoryRow) int {
-	count := 0
-	for _, row := range rows {
-		if row.Status != "balanced" {
-			count++
-		}
-	}
-	return count
-}
-
-func countInventoryInbound(rows []inventoryRow) int {
-	total := 0
-	for _, row := range rows {
-		total += row.Inbound
-	}
-	return total
 }
 
 func inventoryTextField(name, label, value string) ui.Node {

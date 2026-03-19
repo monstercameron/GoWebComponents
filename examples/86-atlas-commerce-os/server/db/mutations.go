@@ -195,6 +195,41 @@ func (s *Store) ModerateComment(ctx context.Context, id string, status string, r
 	return s.commentByID(ctx, id)
 }
 
+func (s *Store) ModerateComments(ctx context.Context, ids []string, status string, reason string) ([]CommentRecord, error) {
+	trimmedStatus := strings.TrimSpace(status)
+	if trimmedStatus == "" {
+		trimmedStatus = "approved"
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin bulk moderation transaction: %w", err)
+	}
+	normalized := make([]string, 0, len(ids))
+	for _, id := range ids {
+		trimmedID := strings.TrimSpace(id)
+		if trimmedID == "" {
+			continue
+		}
+		normalized = append(normalized, trimmedID)
+		if _, err := tx.ExecContext(ctx, `update comments set status = ?, moderation_reason = ?, updated_at = ? where id = ?`, trimmedStatus, strings.TrimSpace(reason), timestampNow(), trimmedID); err != nil {
+			_ = tx.Rollback()
+			return nil, fmt.Errorf("update bulk comment moderation: %w", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit bulk moderation transaction: %w", err)
+	}
+	items := make([]CommentRecord, 0, len(normalized))
+	for _, id := range normalized {
+		item, err := s.commentByID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
 func (s *Store) CreateQuoteRequest(ctx context.Context, input CreateQuoteRequestInput) (QuoteRequestRecord, error) {
 	now := timestampNow()
 	record := QuoteRequestRecord{
@@ -264,6 +299,28 @@ func (s *Store) SaveView(ctx context.Context, input SaveViewInput) (repository.S
 		return repository.SavedView{}, fmt.Errorf("insert saved view: %w", err)
 	}
 	return record, nil
+}
+
+func (s *Store) ImportSavedViews(ctx context.Context, ownerID string, views []repository.SavedView) ([]repository.SavedView, error) {
+	imported := make([]repository.SavedView, 0, len(views))
+	normalizedOwnerID := nonEmptyString(ownerID, "demo-operator")
+	for _, view := range views {
+		created, err := s.SaveView(ctx, SaveViewInput{
+			OwnerID:       normalizedOwnerID,
+			Name:          view.Name,
+			Scope:         view.Scope,
+			FiltersJSON:   view.FiltersJSON,
+			SortKey:       view.SortKey,
+			SortDirection: view.SortDirection,
+			Density:       view.Density,
+			WarehouseID:   view.WarehouseID,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("import saved view %q: %w", view.Name, err)
+		}
+		imported = append(imported, created)
+	}
+	return imported, nil
 }
 
 func (s *Store) Transfers(ctx context.Context) ([]TransferRecord, error) {

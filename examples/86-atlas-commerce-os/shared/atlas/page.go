@@ -73,6 +73,10 @@ type warehouseDetailPage struct {
 	Products  []productCard `json:"products"`
 }
 
+type warehouseDirectoryPage struct {
+	Items []warehouseCard `json:"items"`
+}
+
 type availabilityPage struct {
 	Warehouse warehouseCard `json:"warehouse"`
 	Product   productCard   `json:"product"`
@@ -82,10 +86,22 @@ type availabilityPage struct {
 }
 
 type dashboardPage struct {
+	Summary   pageSummary       `json:"summary"`
 	Alerts    int               `json:"alerts"`
 	Transfers []transferRecord  `json:"transfers"`
 	Receiving []receivingRecord `json:"receiving"`
 	Comments  []commentRecord   `json:"comments"`
+}
+
+type pageSummary struct {
+	Headline string            `json:"headline"`
+	Items    []pageSummaryItem `json:"items"`
+}
+
+type pageSummaryItem struct {
+	Label  string `json:"label"`
+	Value  string `json:"value"`
+	Detail string `json:"detail"`
 }
 
 type inventoryRow struct {
@@ -119,7 +135,8 @@ type inventoryRow struct {
 }
 
 type warehouseOpsList struct {
-	Items []warehouseOpsRecord `json:"items"`
+	Summary pageSummary          `json:"summary"`
+	Items   []warehouseOpsRecord `json:"items"`
 }
 
 type warehouseOpsRecord struct {
@@ -175,7 +192,8 @@ type transferDetailPage struct {
 }
 
 type purchaseOrderList struct {
-	Items []purchaseOrderRecord `json:"items"`
+	Summary pageSummary           `json:"summary"`
+	Items   []purchaseOrderRecord `json:"items"`
 }
 
 type purchaseOrderRecord struct {
@@ -234,7 +252,12 @@ type receivingDetailPage struct {
 }
 
 type commentList struct {
-	Items []commentRecord `json:"items"`
+	Summary pageSummary     `json:"summary"`
+	Items   []commentRecord `json:"items"`
+}
+
+type settingsPage struct {
+	Summary pageSummary `json:"summary"`
 }
 
 type commentRecord struct {
@@ -404,7 +427,7 @@ func pageContent(payload Payload) ui.Node {
 	case RouteCatalog:
 		return renderCatalogContent(decode[catalogPage](pageData(payload)))
 	case RouteWarehouses:
-		return renderWarehouseListContent(decode[catalogPage](pageData(payload)))
+		return renderWarehouseDirectoryContent(decode[warehouseDirectoryPage](pageData(payload)))
 	case RouteInventory:
 		return inventoryContent(payload)
 	case "/app/products":
@@ -466,10 +489,11 @@ func dashboardContent(payload Payload) ui.Node {
 	page := decode[dashboardPage](pageData(payload))
 	return html.Section(html.Props{Class: "grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.82fr)]"},
 		html.Div(html.Props{Class: "grid gap-6"},
-			featureCard("Demand and operations", "Use this workspace to route buyer follow-up, catalog accuracy work, and stock-pressure decisions instead of bouncing between unrelated pages."),
+			featureCard("Demand and operations", "Use this workspace to route buyer questions, catalog accuracy work, and stock-pressure decisions instead of bouncing between unrelated pages."),
+			routeSummaryStrip(page.Summary),
 			internalWorkflowSection("Admin flows", "Start from a real operator job, then move through the connected routes without guessing where the next step lives.",
 				internalWorkflowCard("Flow 1", "Add new item", "Create a product record, assign the first warehouse lane, and keep the new SKU inside Atlas management routes.", "/app/products#create-product"),
-				internalWorkflowCard("Flow 2", "Update marketing copy", "Open the product CMS and work through summary, details, finish, and SEO fields from one merch route.", "/app/products?sort=updated"),
+				internalWorkflowCard("Flow 2", "Update marketing copy", "Open product merchandising and work through summary, details, finish, and SEO fields from one merch route.", "/app/products?sort=updated"),
 				internalWorkflowCard("Flow 3", "Fix stock risk", "Open the inventory workspace already narrowed to pressure lanes that need threshold or quantity changes.", "/app/inventory?status=promise_risk"),
 				internalWorkflowCard("Flow 4", "Order more units", "Jump into purchase-order planning when warehouse demand needs an actual replenishment action.", "/app/purchase-orders"),
 				internalWorkflowCard("Flow 5", "Reconcile receiving", "Close inbound sessions, capture discrepancies, and return inventory to available units cleanly.", "/app/receiving"),
@@ -480,12 +504,12 @@ func dashboardContent(payload Payload) ui.Node {
 				statCard("Transfers", fmt.Sprintf("%d active", len(page.Transfers))),
 				statCard("Receiving", fmt.Sprintf("%d sessions", len(page.Receiving))),
 			),
-			listCard("Buyer follow-up queue", commentNodes(page.Comments)...),
+			listCard("Buyer inbox", commentNodes(page.Comments)...),
 			listCard("Transfer watch", transferNodes(page.Transfers)...),
 			listCard("Receiving exceptions", receivingNodes(page.Receiving)...),
 		),
 		html.Div(html.Props{Class: "grid gap-5"},
-			featureCard("Manager routing", "Customer-facing actions should resolve into clear lanes: buyer follow-up for questions, product CMS for merchandising, and inventory for supply decisions."),
+			featureCard("Manager routing", "Customer-facing actions should resolve into clear lanes: buyer inbox for questions, product merchandising for copy work, and inventory for supply decisions."),
 			preferenceForm(payload),
 			moderationForm(page.Comments, payload),
 		),
@@ -526,13 +550,14 @@ func warehouseOpsContent(payload Payload) ui.Node {
 				warehouseBreadcrumbLink{Label: "Dashboard", Href: RouteDashboard},
 				warehouseBreadcrumbLink{Label: "Warehouses", Href: RouteWarehouseOps, Current: true},
 			),
-			internalWorkflowSection("Warehouse network flows", "Start with the warehouse map when the operator knows the facility problem but not yet the exact SKU or replenishment action.",
+			routeSummaryStrip(page.Summary),
+			internalWorkflowSection("Warehouse operations flows", "Start with the warehouse map when the operator knows the facility problem but not yet the exact SKU or replenishment action.",
 				internalWorkflowCard("Flow 1", "Open a warehouse roster", "Choose the facility first when the work is local backlog, staffing, or regional supply pressure.", "/app/warehouses"),
 				internalWorkflowCard("Flow 2", "Add warehouse item", "Create a new managed item directly inside the warehouse route instead of bouncing through generic catalog pages.", "/app/warehouses/new-jersey-hub#warehouse-create-item"),
 				internalWorkflowCard("Flow 3", "Review flagged lanes", "Move into a facility detail page already filtered to the lanes that need action.", "/app/warehouses/new-jersey-hub?status=promise_risk"),
 				internalWorkflowCard("Flow 4", "Order more units", "Open replenishment only after the warehouse context proves that inbound recovery is the right move.", "/app/purchase-orders"),
 			),
-			listCard("Warehouse network", nodes...),
+			listCard("Warehouse operations", nodes...),
 		),
 		html.Div(html.Props{Class: "grid gap-5"},
 			internalWorkflowSection("Cross-route handoffs", "Warehouse work should hand off cleanly into inventory, purchasing, and receiving.",
@@ -582,7 +607,7 @@ func transferDetailContent(payload Payload) ui.Node {
 		html.Div(html.Props{Class: "grid gap-5"},
 			featureCard(page.Transfer.ID, page.Transfer.Reason),
 			internalWorkflowSection("Transfer detail flow", "A transfer is only useful if it stays tied to the warehouse and receiving steps around it.",
-				internalWorkflowCard("Back", "Warehouse network", "Re-check the broader warehouse posture if this transfer no longer looks like the right balancing move.", "/app/warehouses"),
+				internalWorkflowCard("Back", "Warehouse operations", "Re-check the broader warehouse posture if this transfer no longer looks like the right balancing move.", "/app/warehouses"),
 				internalWorkflowCard("Next", "Inventory pressure", "Validate that the SKU still needs movement rather than fresh vendor replenishment.", "/app/inventory?status=promise_risk"),
 				internalWorkflowCard("Finish", "Receiving follow-through", "Use receiving to close the physical movement once the transfer actually lands.", "/app/receiving"),
 			),
@@ -608,6 +633,7 @@ func purchaseOrdersContent(payload Payload) ui.Node {
 	}
 	return html.Section(html.Props{Class: "grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.82fr)]"},
 		html.Div(html.Props{Class: "grid gap-5"},
+			routeSummaryStrip(page.Summary),
 			internalWorkflowSection("Purchase-order flows", "Use purchase orders when stock recovery crosses the line from internal balancing into vendor replenishment.",
 				internalWorkflowCard("Flow 1", "Start from stock risk", "Open the inventory pressure view before creating a replenishment plan.", "/app/inventory?status=promise_risk"),
 				internalWorkflowCard("Flow 2", "Check warehouse context", "Use warehouse operations to confirm which facility should own the inbound units.", "/app/warehouses"),
@@ -706,21 +732,24 @@ func commentsContent(payload Payload) ui.Node {
 	page := decode[commentList](pageData(payload))
 	return html.Section(html.Props{Class: "grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.82fr)]"},
 		html.Div(html.Props{Class: "grid gap-5"},
-			featureCard("Buyer follow-up queue", "Treat this route as the manager inbox for customer questions and product-level follow-up, then route deeper catalog or inventory work from here."),
+			featureCard("Buyer inbox", "Treat this route as the manager inbox for customer questions, moderation decisions, and product-level follow-up before routing deeper catalog or inventory work."),
+			routeSummaryStrip(page.Summary),
 			listCard("Open buyer questions", commentNodes(page.Items)...),
 		),
 		html.Div(html.Props{Class: "grid gap-5"},
-			internalWorkflowSection("Buyer follow-up flows", "Move from public feedback into the right internal route without losing the original question context.",
+			internalWorkflowSection("Buyer inbox flows", "Move from public feedback into the right internal route without losing the original question context.",
 				internalWorkflowCard("Flow 1", "Update marketing copy", "Route unclear product questions into the merch workspace when the issue is messaging, not stock.", "/app/products"),
 				internalWorkflowCard("Flow 2", "Check inventory promise", "Open the inventory workspace when the customer is really asking about supply or timing.", "/app/inventory"),
 				internalWorkflowCard("Flow 3", "Open warehouse ops", "Use warehouse-native routes when the answer depends on a specific hub or recovery lane.", "/app/warehouses"),
 			),
 			moderationForm(page.Items, payload),
+			bulkModerationForm(page.Items, payload),
 		),
 	)
 }
 
 func settingsContent(payload Payload) ui.Node {
+	page := decode[settingsPage](pageData(payload))
 	viewNodes := make([]ui.Node, 0, len(payload.SavedViews))
 	for _, saved := range payload.SavedViews {
 		viewNodes = append(viewNodes, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3"},
@@ -729,15 +758,19 @@ func settingsContent(payload Payload) ui.Node {
 		))
 	}
 	return html.Section(html.Props{Class: "grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.82fr)]"},
-		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-2"},
-			statCard("Theme", payload.Preferences.Theme),
-			statCard("Locale", payload.Preferences.Locale),
-			statCard("Density", payload.Preferences.Density),
-			statCard("Warehouse", payload.Preferences.DefaultWarehouse),
+		html.Div(html.Props{Class: "grid gap-5"},
+			routeSummaryStrip(page.Summary),
+			html.Div(html.Props{Class: "grid gap-4 md:grid-cols-2"},
+				statCard("Theme", payload.Preferences.Theme),
+				statCard("Locale", payload.Preferences.Locale),
+				statCard("Density", payload.Preferences.Density),
+				statCard("Warehouse", payload.Preferences.DefaultWarehouse),
+			),
 		),
 		html.Div(html.Props{Class: "grid gap-5"},
 			preferenceForm(payload),
 			listCard("Saved views", viewNodes...),
+			savedViewTransferCard(payload),
 		),
 	)
 }
@@ -792,6 +825,24 @@ func fallbackContent(payload Payload) ui.Node {
 	return listCard("Route data", nodes...)
 }
 
+func routeSummaryStrip(summary pageSummary) ui.Node {
+	if len(summary.Items) == 0 {
+		return html.Div(html.Props{})
+	}
+	nodes := make([]ui.Node, 0, len(summary.Items))
+	for _, item := range summary.Items {
+		nodes = append(nodes, html.Div(html.Props{Class: "grid gap-2 rounded-[1.35rem] border border-white/10 bg-white/5 p-4"},
+			html.P(html.Props{Class: "text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-cyan-300"}, html.Text(item.Label)),
+			html.P(html.Props{Class: "text-xl font-semibold text-white"}, html.Text(item.Value)),
+			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(item.Detail)),
+		))
+	}
+	return html.Div(html.Props{Class: "grid gap-4"},
+		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-slate-400"}, html.Text(fallback(summary.Headline, "Route summary"))),
+		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-2 xl:grid-cols-4"}, nodes...),
+	)
+}
+
 func featureCard(title, copy string) ui.Node {
 	return html.Div(html.Props{Class: "rounded-[1.5rem] border border-white/10 bg-white/5 p-5"},
 		html.P(html.Props{Class: "text-lg font-semibold text-white"}, html.Text(title)),
@@ -833,95 +884,6 @@ func publicStatusLabel(status string) string {
 	return strings.ReplaceAll(strings.TrimSpace(strings.ToLower(status)), "_", " ")
 }
 
-func catalogPromiseCopy(status string) string {
-	switch strings.TrimSpace(strings.ToLower(status)) {
-	case "in_stock", "healthy", "approved", "available":
-		return "Ready for active projects"
-	case "low_stock", "pending", "submitted", "in_review":
-		return "Best planned with support"
-	default:
-		return "Atlas-verified catalog entry"
-	}
-}
-
-func catalogActionPlan(status string) (string, string) {
-	switch strings.TrimSpace(strings.ToLower(status)) {
-	case "in_stock", "healthy", "approved", "available":
-		return "View quote-ready product", "Ready for pricing and project review"
-	case "low_stock", "pending", "submitted", "in_review":
-		return "View availability options", "Constrained stock, reserve the next realistic window"
-	default:
-		return "View alternatives", "Best used for notification or substitution planning"
-	}
-}
-
-func catalogEditorialCopy(product productCard) string {
-	if strings.TrimSpace(product.SEODescription) != "" {
-		return product.SEODescription
-	}
-	return "Built to keep material quality, fulfillment posture, and commercial next steps readable in one route."
-}
-
-func productCategoryCue(category string) string {
-	switch strings.TrimSpace(strings.ToLower(category)) {
-	case "desks":
-		return "Focused workstation layouts and planning conversations."
-	case "storage":
-		return "Organization layers that support daily workspace rhythm."
-	case "lighting":
-		return "Task-ready illumination that finishes a calmer setup."
-	case "bundles":
-		return "Coordinated system buying for faster project decisions."
-	default:
-		return "Workspace upgrades with a more considered systems view."
-	}
-}
-
-func productSupportCue(status string) string {
-	switch strings.TrimSpace(strings.ToLower(status)) {
-	case "in_stock", "healthy", "approved", "available":
-		return "Stock posture supports immediate quoting and fulfillment follow-through."
-	case "low_stock", "pending", "submitted", "in_review":
-		return "Inventory looks constrained, so recovery and quote paths matter more."
-	default:
-		return "Atlas keeps recovery paths visible when availability needs more coordination."
-	}
-}
-
-func productBuyingMotion(status string) string {
-	switch strings.TrimSpace(strings.ToLower(status)) {
-	case "in_stock", "healthy", "approved", "available":
-		return "Lead with a project quote, then use warehouse context to confirm delivery confidence."
-	case "low_stock", "pending", "submitted", "in_review":
-		return "Guide the buyer toward reserving the next available units instead of exposing raw replenishment language."
-	default:
-		return "Preserve buyer intent with a notification path and a clear alternative route when immediate supply is not realistic."
-	}
-}
-
-func productSupportPlan(status string) (string, string, []string) {
-	switch strings.TrimSpace(strings.ToLower(status)) {
-	case "in_stock", "healthy", "approved", "available":
-		return "Move from shortlist to quote.", "This SKU can support an active buying conversation now. Lead with pricing, timing, and regional delivery confidence.", []string{
-			"Use the quote form as the primary action for real project intent.",
-			"Keep delivery and fit questions available, but secondary.",
-			"Use regional delivery details to confirm timing, not to learn Atlas internals.",
-		}
-	case "low_stock", "pending", "submitted", "in_review":
-		return "Keep the project moving while supply is tight.", "This SKU still has demand value, but the UX should set realistic expectations and preserve buyer intent for the next available units.", []string{
-			"Offer a reservation-style action instead of a raw restock request.",
-			"Explain that inventory is constrained in plain buyer language.",
-			"Keep a human support path nearby for timing or substitution questions.",
-		}
-	default:
-		return "Stay in the loop without losing the product context.", "When immediate fulfillment is not realistic, the product page should shift from conversion to intent capture and alternative discovery.", []string{
-			"Use a notification flow instead of implying immediate purchase readiness.",
-			"Offer similar options so the buyer is not trapped at a dead end.",
-			"Keep specialist support available for spec, finish, and delivery questions.",
-		}
-	}
-}
-
 func productPrimaryActionForm(product productCard, payload Payload) ui.Node {
 	switch strings.TrimSpace(strings.ToLower(product.Status)) {
 	case "in_stock", "healthy", "approved", "available":
@@ -959,53 +921,6 @@ func productSecondaryActionCard(product productCard) ui.Node {
 		html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text("If this SKU cannot support the buyer timeline, keep momentum by browsing adjacent in-category systems.")),
 		html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.25em] text-amber-700"}, html.Text("Browse alternatives")),
 	)
-}
-
-func warehouseServiceTone(serviceLevel string) string {
-	switch strings.TrimSpace(strings.ToLower(serviceLevel)) {
-	case "next-day", "priority", "priority coverage":
-		return "Fastest fit for tighter delivery windows and higher-priority installs."
-	case "two-day", "standard-plus":
-		return "Balanced timing for routine commercial installs and steady planning."
-	default:
-		return "Steady coverage for standard project scheduling and mixed-cart orders."
-	}
-}
-
-func warehouseRegionCue(region string) string {
-	switch strings.TrimSpace(strings.ToLower(region)) {
-	case "west", "west coast", "western":
-		return "Supports west-coast schedules and shorter transit expectations for nearby teams."
-	case "midwest", "central":
-		return "Acts as a stabilizing central lane for broader multi-region coverage."
-	case "east", "east coast", "eastern":
-		return "Helps protect east-coast promise windows and denser delivery expectations."
-	default:
-		return "Service territory and stock depth stay readable here before buyers open a product-specific availability view."
-	}
-}
-
-func availabilityStoryCopy(available int, inbound int) string {
-	if available > 0 && inbound > 0 {
-		return "Current stock covers near-term demand while inbound units support the next replenishment wave."
-	}
-	if available > 0 {
-		return "This hub can support immediate demand from on-hand inventory without relying on inbound receipts."
-	}
-	if inbound > 0 {
-		return "Stock is constrained now, but replenishment is already moving into the lane for recovery planning."
-	}
-	return "Inventory is currently constrained, so demand recovery and warehouse-specific follow-up are the right next steps."
-}
-
-func availabilitySupportPlan(available int, inbound int) (string, string) {
-	if available > 0 {
-		return "This region can support the project now.", "Use this route to confirm regional promise, then move directly into quote capture while the delivery context is still fresh."
-	}
-	if inbound > 0 {
-		return "Reserve the next inbound wave.", "This region is constrained today, but inbound units are already moving. Preserve buyer intent against this specific hub instead of sending them back to a generic form."
-	}
-	return "Stay attached to this region.", "Immediate fulfillment is not realistic here, so the right UX is a notification path plus a support channel for alternative planning."
 }
 
 func availabilityPrimaryActionForm(availability availabilityPage, payload Payload) ui.Node {
@@ -1095,6 +1010,21 @@ func moderationForm(items []commentRecord, payload Payload) ui.Node {
 	return html.Form(html.Props{Action: "/api/app/comments/" + id + "/moderate", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(payload.CSRF, children...)...)
 }
 
+func bulkModerationForm(items []commentRecord, payload Payload) ui.Node {
+	ids := make([]string, 0, len(items))
+	for _, item := range items {
+		ids = append(ids, item.ID)
+	}
+	children := []ui.Node{
+		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Bulk review visible queue")),
+		html.Input(html.Props{Type: "hidden", Name: "ids", Value: strings.Join(ids, ",")}),
+		inputWithValue("status", "Status", "approved"),
+		textareaWithValue("reason", "Reason", "Bulk-reviewed from the visible Atlas buyer inbox queue."),
+		submitButton("Apply bulk review"),
+	}
+	return html.Form(html.Props{Action: "/api/app/comments/bulk-moderate", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(payload.CSRF, children...)...)
+}
+
 func savedViewForm(payload Payload) ui.Node {
 	children := []ui.Node{
 		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Create saved view")),
@@ -1108,6 +1038,54 @@ func savedViewForm(payload Payload) ui.Node {
 		submitButton("Save view"),
 	}
 	return html.Form(html.Props{Action: "/api/app/saved-views", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(payload.CSRF, children...)...)
+}
+
+func savedViewTransferCard(payload Payload) ui.Node {
+	type savedViewTransferItem struct {
+		Name          string `json:"name"`
+		Scope         string `json:"scope"`
+		SortKey       string `json:"sortKey"`
+		SortDirection string `json:"sortDirection"`
+		Density       string `json:"density"`
+		WarehouseID   string `json:"warehouseId"`
+		FiltersJSON   string `json:"filtersJSON"`
+	}
+	items := make([]savedViewTransferItem, 0, len(payload.SavedViews))
+	for _, saved := range payload.SavedViews {
+		filtersJSON, err := json.Marshal(saved.Filters)
+		if err != nil {
+			filtersJSON = []byte(`{}`)
+		}
+		items = append(items, savedViewTransferItem{
+			Name:          saved.Name,
+			Scope:         saved.Scope,
+			SortKey:       saved.SortKey,
+			SortDirection: saved.SortDirection,
+			Density:       fallback(payload.Preferences.Density, "compact"),
+			WarehouseID:   fallback(saved.Filters["warehouse"], payload.Preferences.DefaultWarehouse),
+			FiltersJSON:   string(filtersJSON),
+		})
+	}
+	exportPayload := map[string]any{"items": items}
+	encoded, err := json.MarshalIndent(exportPayload, "", "  ")
+	if err != nil {
+		encoded = []byte(`{"items":[]}`)
+	}
+	children := []ui.Node{
+		html.Div(html.Props{Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"},
+			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Export saved views")),
+			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Download or copy the current saved-view payload so Atlas presets can move between runs without rebuilding them by hand.")),
+			html.A(html.Props{Href: "/api/app/saved-views/export", Class: "inline-flex w-fit rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950"}, html.Text("Open export payload")),
+			html.Pre(html.Props{Class: "overflow-x-auto rounded-[1.2rem] border border-white/10 bg-slate-950/70 p-4 text-xs leading-6 text-slate-300"}, html.Text(string(encoded))),
+		),
+	}
+	importChildren := []ui.Node{
+		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Import saved views")),
+		textareaWithValue("views_json", "Saved-view payload", string(encoded)),
+		submitButton("Import saved views"),
+	}
+	children = append(children, html.Form(html.Props{Action: "/api/app/saved-views/import", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(payload.CSRF, importChildren...)...))
+	return html.Div(html.Props{Class: "grid gap-5"}, children...)
 }
 
 func transferForm(payload Payload) ui.Node {
@@ -1290,22 +1268,28 @@ func routeSummary(path string) string {
 	case path == "/shop":
 		return "Browse workspace systems with clear pricing cues, delivery context, and straightforward next steps."
 	case strings.HasPrefix(path, "/warehouses"):
-		return "Compare regional delivery options and choose the best fit for your project timing."
+		return "Explore Atlas delivery regions, compare service levels, and open the warehouse view that best fits your project timing."
 	case strings.HasPrefix(path, "/app"):
-		return "Internal routes keep saved views, moderation, thresholds, transfers, receiving, and preferences inside one server-backed Atlas console."
+		return "Internal routes keep buyer inbox, merchandising, inventory, transfers, receiving, and preferences inside one server-backed Atlas console."
 	default:
 		return "Atlas route payload hydrated successfully from the server bootstrap."
 	}
 }
 
-func pageData(payload Payload) any {
-	if request, ok := StartupRequest(payload, "page"); ok && len(request.Data) > 0 {
-		return request.Data["page"]
+func payloadDataValue(payload Payload, key string) any {
+	if request, ok := payload.Requests[strings.TrimSpace(key)]; ok && len(request.Data) > 0 {
+		if value, exists := request.Data[strings.TrimSpace(key)]; exists {
+			return value
+		}
 	}
 	if payload.Data == nil {
 		return nil
 	}
-	return payload.Data["page"]
+	return payload.Data[strings.TrimSpace(key)]
+}
+
+func pageData(payload Payload) any {
+	return payloadDataValue(payload, "page")
 }
 
 func decode[T any](value any) T {
