@@ -95,3 +95,4 @@ temp/
 
 # Legacy merged workspace residue
 /tests/
+.gotmp
