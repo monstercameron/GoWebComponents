@@ -55,6 +55,35 @@ func newHydrationBoundary(parent DOMNode, cursor DOMNode) *hydrationBoundary {
 	}
 }
 
+func (rt *Runtime) hydrationDiagnosticFiber(fiber *Fiber) *Fiber {
+	if fiber == nil {
+		return nil
+	}
+	kind, _ := describeFiber(fiber)
+	if kind == "root" && fiber.child != nil {
+		return fiber.child
+	}
+	return fiber
+}
+
+func (rt *Runtime) reportHydrationDiagnostic(fiber *Fiber, message string) {
+	target := rt.hydrationDiagnosticFiber(fiber)
+	severity := DiagnosticWarning
+	if rt != nil && rt.strictHydration {
+		severity = DiagnosticError
+	}
+	ReportDiagnosticWithContext(
+		"runtime",
+		severity,
+		message,
+		diagnosticPathForFiber(target),
+		diagnosticComponentStack(target),
+	)
+	if rt != nil && rt.strictHydration {
+		panic(message)
+	}
+}
+
 func (rt *Runtime) claimHydrationNode(fiber *Fiber) (DOMNode, bool) {
 	if fiber == nil || fiber.hydration == nil || !fiber.hydration.active {
 		return nil, false
@@ -75,10 +104,10 @@ func (rt *Runtime) claimHydrationNode(fiber *Fiber) (DOMNode, bool) {
 
 	boundary.cursor = rt.domAdapter.GetNextSibling(candidate)
 	if textWarning := rt.detectHydrationTextMismatch(fiber, candidate); textWarning != "" {
-		ReportDiagnostic("runtime", DiagnosticWarning, textWarning)
+		rt.reportHydrationDiagnostic(fiber, textWarning)
 	}
 	for _, warning := range rt.detectHydrationAttributeMismatches(fiber, candidate) {
-		ReportDiagnostic("runtime", DiagnosticWarning, warning)
+		rt.reportHydrationDiagnostic(fiber, warning)
 	}
 	return candidate, true
 }
@@ -98,7 +127,7 @@ func (rt *Runtime) finalizeHydrationBoundary(boundary *hydrationBoundary, owner 
 	if ownerName == "" {
 		ownerName = "hydrated subtree"
 	}
-	ReportDiagnostic("runtime", DiagnosticWarning, fmt.Sprintf("hydration discarded unexpected DOM nodes under %s", ownerName))
+	rt.reportHydrationDiagnostic(owner, fmt.Sprintf("hydration discarded unexpected DOM nodes under %s", ownerName))
 	for node := extra; node != nil && !node.IsNull(); {
 		next := rt.domAdapter.GetNextSibling(node)
 		if boundary.parent != nil && !boundary.parent.IsNull() {
@@ -119,7 +148,7 @@ func (rt *Runtime) abortHydrationBoundary(boundary *hydrationBoundary, owner *Fi
 	if ownerName == "" {
 		ownerName = "hydrated subtree"
 	}
-	ReportDiagnostic("runtime", DiagnosticWarning, fmt.Sprintf("hydration fell back to client rendering for %s: %s", ownerName, strings.TrimSpace(reason)))
+	rt.reportHydrationDiagnostic(owner, fmt.Sprintf("hydration fell back to client rendering for %s: %s", ownerName, strings.TrimSpace(reason)))
 
 	for node := rt.nextHydrationCandidate(boundary.cursor); node != nil && !node.IsNull(); {
 		next := rt.domAdapter.GetNextSibling(node)

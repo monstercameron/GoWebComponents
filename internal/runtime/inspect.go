@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 type DiagnosticSeverity string
@@ -17,12 +18,45 @@ const (
 	DiagnosticError   DiagnosticSeverity = "error"
 )
 
+type DiagnosticClassification string
+
+const (
+	DiagnosticInformational      DiagnosticClassification = "informational"
+	DiagnosticCorrectness        DiagnosticClassification = "correctness"
+	DiagnosticPerformance        DiagnosticClassification = "performance"
+	DiagnosticRecovered          DiagnosticClassification = "recovered"
+	DiagnosticUnsupportedRecover DiagnosticClassification = "unsupported_recovered"
+)
+
+type LogLevel string
+
+const (
+	LogDebug LogLevel = "debug"
+	LogInfo  LogLevel = "info"
+	LogWarn  LogLevel = "warn"
+	LogError LogLevel = "error"
+)
+
 // Diagnostic describes one deduplicated runtime diagnostic entry.
 type Diagnostic struct {
-	Source   string
-	Severity DiagnosticSeverity
-	Message  string
-	Count    int
+	Source         string
+	Severity       DiagnosticSeverity
+	Classification DiagnosticClassification
+	Message        string
+	Count          int
+	Path           string
+	ComponentStack []string
+}
+
+// LogEntry describes one recent structured framework log.
+type LogEntry struct {
+	Domain         string
+	Level          LogLevel
+	Classification DiagnosticClassification
+	Message        string
+	Timestamp      string
+	CorrelationID  string
+	Fields         map[string]string
 }
 
 // HookSnapshot captures one hook entry from an inspected fiber.
@@ -94,16 +128,27 @@ type InspectionSnapshot struct {
 	Stats       InspectionStats
 	Profiling   ProfilingSnapshot
 	Diagnostics []Diagnostic
+	Logs        []LogEntry
 }
 
 var (
 	diagnosticsMu   sync.Mutex
 	diagnosticIndex = map[string]int{}
 	diagnostics     []Diagnostic
+	logsMu          sync.Mutex
+	logBuffer       []LogEntry
 )
+
+const maxLogEntries = 200
 
 // ReportDiagnostic records or increments a runtime diagnostic entry.
 func ReportDiagnostic(source string, severity DiagnosticSeverity, message string) {
+	ReportDiagnosticWithContext(source, severity, message, "", nil)
+}
+
+// ReportDiagnosticWithContext records or increments a runtime diagnostic entry
+// and optionally attaches fiber-path context for devtools and debugging.
+func ReportDiagnosticWithContext(source string, severity DiagnosticSeverity, message string, path string, componentStack []string) {
 	trimmedSource := strings.TrimSpace(source)
 	if trimmedSource == "" {
 		trimmedSource = "runtime"
@@ -112,8 +157,10 @@ func ReportDiagnostic(source string, severity DiagnosticSeverity, message string
 	if trimmedMessage == "" {
 		return
 	}
+	trimmedPath := strings.TrimSpace(path)
+	stackKey := strings.Join(componentStack, " > ")
 
-	key := string(severity) + "|" + trimmedSource + "|" + trimmedMessage
+	key := string(severity) + "|" + trimmedSource + "|" + trimmedMessage + "|" + trimmedPath + "|" + stackKey
 
 	diagnosticsMu.Lock()
 	defer diagnosticsMu.Unlock()
@@ -124,11 +171,16 @@ func ReportDiagnostic(source string, severity DiagnosticSeverity, message string
 
 	diagnosticIndex[key] = len(diagnostics)
 	diagnostics = append(diagnostics, Diagnostic{
-		Source:   trimmedSource,
-		Severity: severity,
-		Message:  trimmedMessage,
-		Count:    1,
+		Source:         trimmedSource,
+		Severity:       severity,
+		Classification: classifyDiagnostic(trimmedSource, severity, trimmedMessage),
+		Message:        trimmedMessage,
+		Count:          1,
+		Path:           trimmedPath,
+		ComponentStack: append([]string(nil), componentStack...),
 	})
+
+	reportDiagnosticLog(trimmedSource, severity, trimmedMessage, trimmedPath, componentStack)
 }
 
 // GetDiagnostics returns a copy of the current diagnostic list.
@@ -136,7 +188,63 @@ func GetDiagnostics() []Diagnostic {
 	diagnosticsMu.Lock()
 	defer diagnosticsMu.Unlock()
 	clone := make([]Diagnostic, len(diagnostics))
-	copy(clone, diagnostics)
+	for index, diagnostic := range diagnostics {
+		clone[index] = diagnostic
+		clone[index].ComponentStack = append([]string(nil), diagnostic.ComponentStack...)
+	}
+	return clone
+}
+
+// ReportLog records one structured framework log entry.
+func ReportLog(domain string, level LogLevel, message string) {
+	ReportLogWithFields(domain, level, DiagnosticInformational, message, "", nil)
+}
+
+// ReportLogWithFields records one structured framework log entry with optional
+// correlation id and fields.
+func ReportLogWithFields(domain string, level LogLevel, classification DiagnosticClassification, message string, correlationID string, fields map[string]string) {
+	trimmedDomain := strings.TrimSpace(domain)
+	if trimmedDomain == "" {
+		trimmedDomain = "runtime"
+	}
+	trimmedMessage := strings.TrimSpace(message)
+	if trimmedMessage == "" {
+		return
+	}
+	if classification == "" {
+		classification = DiagnosticInformational
+	}
+	if level == "" {
+		level = LogInfo
+	}
+
+	entry := LogEntry{
+		Domain:         trimmedDomain,
+		Level:          level,
+		Classification: classification,
+		Message:        trimmedMessage,
+		Timestamp:      time.Now().UTC().Format(timeFormatRFC3339Milli),
+		CorrelationID:  strings.TrimSpace(correlationID),
+		Fields:         cloneLogFields(fields),
+	}
+
+	logsMu.Lock()
+	defer logsMu.Unlock()
+	logBuffer = append(logBuffer, entry)
+	if len(logBuffer) > maxLogEntries {
+		logBuffer = append([]LogEntry(nil), logBuffer[len(logBuffer)-maxLogEntries:]...)
+	}
+}
+
+// GetLogs returns a copy of the current in-memory log buffer.
+func GetLogs() []LogEntry {
+	logsMu.Lock()
+	defer logsMu.Unlock()
+	clone := make([]LogEntry, len(logBuffer))
+	for index, entry := range logBuffer {
+		clone[index] = entry
+		clone[index].Fields = cloneLogFields(entry.Fields)
+	}
 	return clone
 }
 
@@ -148,6 +256,13 @@ func ClearDiagnostics() {
 	diagnostics = nil
 }
 
+// ClearLogs removes all buffered framework logs.
+func ClearLogs() {
+	logsMu.Lock()
+	defer logsMu.Unlock()
+	logBuffer = nil
+}
+
 // Inspect captures a snapshot of the current runtime tree, profiling state, and diagnostics.
 func (rt *Runtime) Inspect() InspectionSnapshot {
 	schedulerMu.Lock()
@@ -155,6 +270,7 @@ func (rt *Runtime) Inspect() InspectionSnapshot {
 
 	snapshot := InspectionSnapshot{
 		Diagnostics: GetDiagnostics(),
+		Logs:        GetLogs(),
 	}
 	if rt == nil || rt.currentRoot == nil {
 		return snapshot
@@ -179,6 +295,72 @@ func (rt *Runtime) Inspect() InspectionSnapshot {
 		HotBranches:           collectHotBranches(root, 5),
 	}
 	return snapshot
+}
+
+const timeFormatRFC3339Milli = "2006-01-02T15:04:05.000Z07:00"
+
+func classifyDiagnostic(source string, severity DiagnosticSeverity, message string) DiagnosticClassification {
+	trimmed := strings.ToLower(strings.TrimSpace(message))
+	switch severity {
+	case DiagnosticInfo:
+		return DiagnosticInformational
+	case DiagnosticError:
+		return DiagnosticCorrectness
+	case DiagnosticWarning:
+		if strings.Contains(trimmed, "slow ") {
+			return DiagnosticPerformance
+		}
+		if strings.Contains(trimmed, "fell back") ||
+			strings.Contains(trimmed, "recovered") ||
+			strings.Contains(trimmed, "ignoring ") ||
+			strings.Contains(trimmed, "discarded unexpected") ||
+			(strings.Contains(trimmed, "redirect loop") && source == "router") {
+			return DiagnosticUnsupportedRecover
+		}
+		return DiagnosticCorrectness
+	default:
+		return DiagnosticInformational
+	}
+}
+
+func reportDiagnosticLog(source string, severity DiagnosticSeverity, message string, path string, componentStack []string) {
+	fields := map[string]string{}
+	if strings.TrimSpace(path) != "" {
+		fields["path"] = strings.TrimSpace(path)
+	}
+	if len(componentStack) > 0 {
+		fields["component_stack"] = strings.Join(componentStack, " > ")
+	}
+	ReportLogWithFields(
+		source,
+		logLevelForSeverity(severity),
+		classifyDiagnostic(source, severity, message),
+		message,
+		"",
+		fields,
+	)
+}
+
+func logLevelForSeverity(severity DiagnosticSeverity) LogLevel {
+	switch severity {
+	case DiagnosticError:
+		return LogError
+	case DiagnosticWarning:
+		return LogWarn
+	default:
+		return LogInfo
+	}
+}
+
+func cloneLogFields(fields map[string]string) map[string]string {
+	if len(fields) == 0 {
+		return nil
+	}
+	clone := make(map[string]string, len(fields))
+	for key, value := range fields {
+		clone[key] = value
+	}
+	return clone
 }
 
 func inspectFiberTree(fiber *Fiber) (*FiberSnapshot, InspectionStats) {
@@ -307,6 +489,33 @@ func describeFiber(fiber *Fiber) (string, string) {
 	default:
 		return "component", describeCallable(value)
 	}
+}
+
+func diagnosticComponentStack(fiber *Fiber) []string {
+	if fiber == nil {
+		return nil
+	}
+
+	stack := make([]string, 0, 8)
+	for current := fiber; current != nil; current = current.parent {
+		kind, name := describeFiber(current)
+		if kind == "root" || kind == "text" || strings.TrimSpace(name) == "" {
+			continue
+		}
+		stack = append(stack, name)
+	}
+	for left, right := 0, len(stack)-1; left < right; left, right = left+1, right-1 {
+		stack[left], stack[right] = stack[right], stack[left]
+	}
+	return stack
+}
+
+func diagnosticPathForFiber(fiber *Fiber) string {
+	stack := diagnosticComponentStack(fiber)
+	if len(stack) == 0 {
+		return ""
+	}
+	return strings.Join(stack, " > ")
 }
 
 func describeCallable(value interface{}) string {

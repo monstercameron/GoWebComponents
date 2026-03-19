@@ -118,6 +118,44 @@ func TestLocalStorageWrapperTracksKeysAndValues(t *testing.T) {
 	}
 }
 
+func TestLocalStorageGetManyReturnsPresentValues(t *testing.T) {
+	storage := js.Global().Get("Object").New()
+	getItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		switch args[0].String() {
+		case "theme":
+			return "dark"
+		case "locale":
+			return "en-US"
+		default:
+			return js.Null()
+		}
+	})
+	defer getItemFn.Release()
+	storage.Set("getItem", getItemFn)
+	storage.Set("setItem", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
+	storage.Set("removeItem", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
+	storage.Set("clear", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
+	storage.Set("key", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return js.Null() }))
+	storage.Set("length", 2)
+	restoreStorage := setGlobalValue("localStorage", storage)
+	defer restoreStorage()
+
+	local, err := LocalStorage()
+	if err != nil {
+		t.Fatalf("expected localStorage wrapper, got %v", err)
+	}
+	values, err := local.GetMany("theme", "locale", "missing")
+	if err != nil {
+		t.Fatalf("expected batched storage read, got %v", err)
+	}
+	if values["theme"] != "dark" || values["locale"] != "en-US" {
+		t.Fatalf("unexpected batched storage values: %#v", values)
+	}
+	if _, ok := values["missing"]; ok {
+		t.Fatalf("expected missing storage value to be omitted, got %#v", values)
+	}
+}
+
 func TestWindowHistoryPushStateRoundTripsDecodedState(t *testing.T) {
 	history := js.Global().Get("Object").New()
 	history.Set("length", 2)
@@ -297,6 +335,462 @@ func TestWindowEventsDispatchCustomEvents(t *testing.T) {
 	}
 }
 
+func TestSubscribeDecodedProjectsTypedCustomEventDetail(t *testing.T) {
+	var listener js.Value
+	window := js.Global().Get("Object").New()
+	addEventListenerFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) >= 2 {
+			listener = args[1]
+		}
+		return nil
+	})
+	defer addEventListenerFn.Release()
+	removeEventListenerFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		listener = js.Undefined()
+		return nil
+	})
+	defer removeEventListenerFn.Release()
+	dispatchEventFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) > 0 && listener.Truthy() {
+			listener.Invoke(args[0])
+		}
+		return true
+	})
+	defer dispatchEventFn.Release()
+	window.Set("addEventListener", addEventListenerFn)
+	window.Set("removeEventListener", removeEventListenerFn)
+	window.Set("dispatchEvent", dispatchEventFn)
+
+	customEventCtor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		event := js.Global().Get("Object").New()
+		event.Set("type", args[0].String())
+		event.Set("detail", args[1].Get("detail"))
+		return event
+	})
+	defer customEventCtor.Release()
+
+	restoreWindow := setGlobalValue("window", window)
+	defer restoreWindow()
+	restoreCustomEvent := setGlobalValue("CustomEvent", customEventCtor)
+	defer restoreCustomEvent()
+
+	target, err := WindowEvents()
+	if err != nil {
+		t.Fatalf("expected window event target, got %v", err)
+	}
+	type ratingChange struct {
+		Score  int    `json:"score"`
+		Source string `json:"source"`
+	}
+	var (
+		received DecodedCustomEvent[ratingChange]
+		gotErr   error
+	)
+	sub, err := SubscribeDecoded(target, "rating-change", func(event DecodedCustomEvent[ratingChange], err error) {
+		received = event
+		gotErr = err
+	})
+	if err != nil {
+		t.Fatalf("expected decoded subscription to succeed, got %v", err)
+	}
+	defer sub.Cancel()
+
+	if err := target.Dispatch("rating-change", map[string]any{"score": 5, "source": "widget"}); err != nil {
+		t.Fatalf("expected dispatch to succeed, got %v", err)
+	}
+	if gotErr != nil {
+		t.Fatalf("expected decoded event payload, got %v", gotErr)
+	}
+	if received.Type != "rating-change" || received.Detail.Score != 5 || received.Detail.Source != "widget" {
+		t.Fatalf("unexpected decoded event payload: %+v", received)
+	}
+}
+
+func TestWindowEventsListenReturnsBrowserEventTargets(t *testing.T) {
+	var listener js.Value
+	window := js.Global().Get("Object").New()
+	addEventListenerFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) >= 2 {
+			listener = args[1]
+		}
+		return nil
+	})
+	defer addEventListenerFn.Release()
+	removeEventListenerFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		listener = js.Undefined()
+		return nil
+	})
+	defer removeEventListenerFn.Release()
+	window.Set("addEventListener", addEventListenerFn)
+	window.Set("removeEventListener", removeEventListenerFn)
+	restoreWindow := setGlobalValue("window", window)
+	defer restoreWindow()
+
+	target := js.Global().Get("Object").New()
+	target.Set("tagName", "SECTION")
+	target.Set("id", "metrics")
+	target.Set("className", "panel")
+
+	wrapped, err := WindowEvents()
+	if err != nil {
+		t.Fatalf("expected window event target, got %v", err)
+	}
+	var received BrowserEvent
+	sub, err := wrapped.Listen("resize", func(event BrowserEvent) {
+		received = event
+	})
+	if err != nil {
+		t.Fatalf("expected generic listener to succeed, got %v", err)
+	}
+	defer sub.Cancel()
+
+	event := js.Global().Get("Object").New()
+	event.Set("type", "resize")
+	event.Set("target", target)
+	event.Set("currentTarget", window)
+	listener.Invoke(event)
+
+	if received.Type != "resize" {
+		t.Fatalf("expected resize event type, got %+v", received)
+	}
+	if received.Target.TagName() != "SECTION" || received.Target.ID() != "metrics" {
+		t.Fatalf("expected wrapped target element, got %+v", received.Target)
+	}
+}
+
+func TestCurrentDocumentElementHelpers(t *testing.T) {
+	var (
+		focusCalls int
+		blurCalls  int
+		clickCalls int
+		scrollArg  js.Value
+		listener   js.Value
+	)
+
+	element := js.Global().Get("Object").New()
+	element.Set("tagName", "DIV")
+	element.Set("id", "hero")
+	element.Set("className", "surface primary")
+	focusFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		focusCalls++
+		return nil
+	})
+	defer focusFn.Release()
+	blurFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		blurCalls++
+		return nil
+	})
+	defer blurFn.Release()
+	clickFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		clickCalls++
+		return nil
+	})
+	defer clickFn.Release()
+	scrollFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) > 0 {
+			scrollArg = args[0]
+		}
+		return nil
+	})
+	defer scrollFn.Release()
+	rectFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		rect := js.Global().Get("Object").New()
+		rect.Set("x", 10)
+		rect.Set("y", 12)
+		rect.Set("width", 240)
+		rect.Set("height", 80)
+		rect.Set("top", 12)
+		rect.Set("right", 250)
+		rect.Set("bottom", 92)
+		rect.Set("left", 10)
+		return rect
+	})
+	defer rectFn.Release()
+	addEventListenerFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) >= 2 {
+			listener = args[1]
+		}
+		return nil
+	})
+	defer addEventListenerFn.Release()
+	removeEventListenerFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		listener = js.Undefined()
+		return nil
+	})
+	defer removeEventListenerFn.Release()
+	element.Set("focus", focusFn)
+	element.Set("blur", blurFn)
+	element.Set("click", clickFn)
+	element.Set("scrollIntoView", scrollFn)
+	element.Set("getBoundingClientRect", rectFn)
+	element.Set("addEventListener", addEventListenerFn)
+	element.Set("removeEventListener", removeEventListenerFn)
+
+	document := js.Global().Get("Object").New()
+	getElementByIDFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return element
+	})
+	defer getElementByIDFn.Release()
+	querySelectorFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return element
+	})
+	defer querySelectorFn.Release()
+	document.Set("getElementById", getElementByIDFn)
+	document.Set("querySelector", querySelectorFn)
+	restoreDocument := setGlobalValue("document", document)
+	defer restoreDocument()
+
+	wrapped, err := CurrentDocument()
+	if err != nil {
+		t.Fatalf("expected current document wrapper, got %v", err)
+	}
+	byID, ok, err := wrapped.ElementByID("hero")
+	if err != nil || !ok {
+		t.Fatalf("expected element by id, ok=%t err=%v", ok, err)
+	}
+	if byID.TagName() != "DIV" || byID.ClassName() != "surface primary" {
+		t.Fatalf("unexpected element metadata: tag=%q class=%q", byID.TagName(), byID.ClassName())
+	}
+	if err := byID.Focus(); err != nil {
+		t.Fatalf("expected focus to succeed, got %v", err)
+	}
+	if err := byID.Blur(); err != nil {
+		t.Fatalf("expected blur to succeed, got %v", err)
+	}
+	if err := byID.Click(); err != nil {
+		t.Fatalf("expected click to succeed, got %v", err)
+	}
+	if err := byID.ScrollIntoView(ScrollIntoViewOptions{Behavior: "smooth", Block: "center"}); err != nil {
+		t.Fatalf("expected scrollIntoView to succeed, got %v", err)
+	}
+	rect, err := byID.BoundingClientRect()
+	if err != nil {
+		t.Fatalf("expected bounding rect, got %v", err)
+	}
+	if rect.Width != 240 || rect.Top != 12 {
+		t.Fatalf("unexpected bounding rect: %+v", rect)
+	}
+	if focusCalls != 1 || blurCalls != 1 || clickCalls != 1 {
+		t.Fatalf("unexpected element method calls: focus=%d blur=%d click=%d", focusCalls, blurCalls, clickCalls)
+	}
+	if scrollArg.IsUndefined() || scrollArg.IsNull() || scrollArg.Get("behavior").String() != "smooth" || scrollArg.Get("block").String() != "center" {
+		t.Fatalf("expected scroll options to be forwarded, got %v", scrollArg)
+	}
+
+	var received BrowserEvent
+	sub, err := byID.Listen("asset-ready", func(event BrowserEvent) {
+		received = event
+	})
+	if err != nil {
+		t.Fatalf("expected element listener to succeed, got %v", err)
+	}
+	defer sub.Cancel()
+	event := js.Global().Get("Object").New()
+	event.Set("type", "asset-ready")
+	event.Set("detail", map[string]any{"asset": "hero"})
+	event.Set("target", element)
+	event.Set("currentTarget", element)
+	listener.Invoke(event)
+	if received.Type != "asset-ready" || received.Target.ID() != "hero" {
+		t.Fatalf("unexpected element event payload: %+v", received)
+	}
+
+	queried, ok, err := wrapped.QuerySelector("#hero")
+	if err != nil || !ok || queried.ID() != "hero" {
+		t.Fatalf("expected querySelector result, ok=%t err=%v id=%q", ok, err, queried.ID())
+	}
+}
+
+func TestCurrentDocumentElementsByIDBatchesLookups(t *testing.T) {
+	first := js.Global().Get("Object").New()
+	first.Set("tagName", "DIV")
+	first.Set("id", "hero")
+	second := js.Global().Get("Object").New()
+	second.Set("tagName", "ASIDE")
+	second.Set("id", "sidebar")
+
+	document := js.Global().Get("Object").New()
+	getElementByIDFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		switch args[0].String() {
+		case "hero":
+			return first
+		case "sidebar":
+			return second
+		default:
+			return js.Null()
+		}
+	})
+	defer getElementByIDFn.Release()
+	document.Set("getElementById", getElementByIDFn)
+	querySelectorFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return js.Null()
+	})
+	defer querySelectorFn.Release()
+	document.Set("querySelector", querySelectorFn)
+	restoreDocument := setGlobalValue("document", document)
+	defer restoreDocument()
+
+	wrapped, err := CurrentDocument()
+	if err != nil {
+		t.Fatalf("expected current document wrapper, got %v", err)
+	}
+	elements, err := wrapped.ElementsByID("hero", "sidebar", "missing")
+	if err != nil {
+		t.Fatalf("expected batched element lookup, got %v", err)
+	}
+	if elements["hero"].ID() != "hero" || elements["sidebar"].TagName() != "ASIDE" {
+		t.Fatalf("unexpected batched element lookup results: %#v", elements)
+	}
+	if _, ok := elements["missing"]; ok {
+		t.Fatalf("expected missing id to be omitted, got %#v", elements)
+	}
+}
+
+func TestElementObserverHelpers(t *testing.T) {
+	element := js.Global().Get("Object").New()
+	element.Set("tagName", "ARTICLE")
+	element.Set("id", "observer-target")
+
+	document := js.Global().Get("Object").New()
+	getElementByIDFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return element
+	})
+	defer getElementByIDFn.Release()
+	document.Set("getElementById", getElementByIDFn)
+	querySelectorFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return element
+	})
+	defer querySelectorFn.Release()
+	document.Set("querySelector", querySelectorFn)
+	restoreDocument := setGlobalValue("document", document)
+	defer restoreDocument()
+
+	var (
+		resizeCallback       js.Value
+		intersectionCallback js.Value
+		resizeDisconnects    int
+		intersectDisconnects int
+		intersectionInit     js.Value
+	)
+
+	resizeObserverCtor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		resizeCallback = args[0]
+		observer := js.Global().Get("Object").New()
+		observeFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+		disconnectFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			resizeDisconnects++
+			return nil
+		})
+		observer.Set("observe", observeFn)
+		observer.Set("disconnect", disconnectFn)
+		return observer
+	})
+	defer resizeObserverCtor.Release()
+	intersectionObserverCtor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		intersectionCallback = args[0]
+		if len(args) > 1 {
+			intersectionInit = args[1]
+		}
+		observer := js.Global().Get("Object").New()
+		observeFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+		disconnectFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			intersectDisconnects++
+			return nil
+		})
+		observer.Set("observe", observeFn)
+		observer.Set("disconnect", disconnectFn)
+		return observer
+	})
+	defer intersectionObserverCtor.Release()
+	restoreResizeObserver := setGlobalValue("ResizeObserver", resizeObserverCtor)
+	defer restoreResizeObserver()
+	restoreIntersectionObserver := setGlobalValue("IntersectionObserver", intersectionObserverCtor)
+	defer restoreIntersectionObserver()
+
+	wrapped, err := CurrentDocument()
+	if err != nil {
+		t.Fatalf("expected current document wrapper, got %v", err)
+	}
+	target, ok, err := wrapped.ElementByID("observer-target")
+	if err != nil || !ok {
+		t.Fatalf("expected target element, ok=%t err=%v", ok, err)
+	}
+
+	var resizeEntry ResizeEntry
+	resizeSub, err := target.ObserveResize(func(entry ResizeEntry) {
+		resizeEntry = entry
+	})
+	if err != nil {
+		t.Fatalf("expected resize observer to succeed, got %v", err)
+	}
+	defer resizeSub.Cancel()
+
+	resizeRect := js.Global().Get("Object").New()
+	resizeRect.Set("width", 320)
+	resizeRect.Set("height", 180)
+	resizeRect.Set("x", 0)
+	resizeRect.Set("y", 0)
+	resizeRect.Set("top", 0)
+	resizeRect.Set("right", 320)
+	resizeRect.Set("bottom", 180)
+	resizeRect.Set("left", 0)
+	resizePayload := js.Global().Get("Object").New()
+	resizePayload.Set("target", element)
+	resizePayload.Set("contentRect", resizeRect)
+	resizeCallback.Invoke(js.Global().Get("Array").Call("of", resizePayload))
+	if resizeEntry.Target.ID() != "observer-target" || resizeEntry.ContentRect.Width != 320 {
+		t.Fatalf("unexpected resize payload: %+v", resizeEntry)
+	}
+
+	var intersectionEntry IntersectionEntry
+	intersectionSub, err := target.ObserveIntersection(func(entry IntersectionEntry) {
+		intersectionEntry = entry
+	}, IntersectionObserverOptions{RootMargin: "12px", Thresholds: []float64{0.25, 0.75}})
+	if err != nil {
+		t.Fatalf("expected intersection observer to succeed, got %v", err)
+	}
+	defer intersectionSub.Cancel()
+
+	intersectionRect := js.Global().Get("Object").New()
+	intersectionRect.Set("width", 120)
+	intersectionRect.Set("height", 60)
+	intersectionRect.Set("x", 10)
+	intersectionRect.Set("y", 20)
+	intersectionRect.Set("top", 20)
+	intersectionRect.Set("right", 130)
+	intersectionRect.Set("bottom", 80)
+	intersectionRect.Set("left", 10)
+	rootBounds := js.Global().Get("Object").New()
+	rootBounds.Set("width", 500)
+	rootBounds.Set("height", 400)
+	rootBounds.Set("x", 0)
+	rootBounds.Set("y", 0)
+	rootBounds.Set("top", 0)
+	rootBounds.Set("right", 500)
+	rootBounds.Set("bottom", 400)
+	rootBounds.Set("left", 0)
+	intersectionPayload := js.Global().Get("Object").New()
+	intersectionPayload.Set("target", element)
+	intersectionPayload.Set("isIntersecting", true)
+	intersectionPayload.Set("intersectionRatio", 0.75)
+	intersectionPayload.Set("boundingClientRect", intersectionRect)
+	intersectionPayload.Set("intersectionRect", intersectionRect)
+	intersectionPayload.Set("rootBounds", rootBounds)
+	intersectionCallback.Invoke(js.Global().Get("Array").Call("of", intersectionPayload))
+	if !intersectionEntry.IsIntersecting || intersectionEntry.Target.ID() != "observer-target" || intersectionEntry.RootBounds == nil || intersectionEntry.RootBounds.Width != 500 {
+		t.Fatalf("unexpected intersection payload: %+v", intersectionEntry)
+	}
+	if intersectionInit.IsUndefined() || intersectionInit.IsNull() || intersectionInit.Get("rootMargin").String() != "12px" || intersectionInit.Get("threshold").Get("length").Int() != 2 {
+		t.Fatalf("expected intersection observer init to carry options, got %v", intersectionInit)
+	}
+
+	resizeSub.Cancel()
+	intersectionSub.Cancel()
+	if resizeDisconnects == 0 || intersectDisconnects == 0 {
+		t.Fatalf("expected observers to disconnect on cancel, resize=%d intersection=%d", resizeDisconnects, intersectDisconnects)
+	}
+}
+
 func TestMatchMediaSubscriptionReceivesChanges(t *testing.T) {
 	var changeListener js.Value
 	mediaQuery := js.Global().Get("Object").New()
@@ -404,6 +898,722 @@ func TestImportModuleCallDefaultAndDispose(t *testing.T) {
 	}
 	if _, err := module.Value(context.Background(), "version"); !IsCode(err, CodeDisposed) {
 		t.Fatalf("expected disposed module error, got %v", err)
+	}
+}
+
+func TestNewWorkerRequestDecodedSupportsReadyProgressAndResult(t *testing.T) {
+	var created int
+	ctor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		raw := js.Global().Get("Object").New()
+		messageListeners := js.Global().Get("Array").New()
+		errorListeners := js.Global().Get("Array").New()
+		raw.Set("__readySent", false)
+		emitMessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			event := js.Global().Get("Object").New()
+			if len(args) > 0 {
+				event.Set("data", args[0])
+			}
+			for i := 0; i < messageListeners.Length(); i++ {
+				callback := messageListeners.Index(i)
+				if callback.IsUndefined() || callback.IsNull() {
+					continue
+				}
+				callback.Invoke(event)
+			}
+			return nil
+		})
+		emitError := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			event := js.Global().Get("Object").New()
+			if len(args) > 0 {
+				event.Set("message", args[0])
+			}
+			for i := 0; i < errorListeners.Length(); i++ {
+				callback := errorListeners.Index(i)
+				if callback.IsUndefined() || callback.IsNull() {
+					continue
+				}
+				callback.Invoke(event)
+			}
+			return nil
+		})
+		addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			eventType := args[0].String()
+			callback := args[1]
+			switch eventType {
+			case "message":
+				messageListeners.Call("push", callback)
+				if !raw.Get("__readySent").Bool() {
+					raw.Set("__readySent", true)
+					readyValue, _ := goValueToJS("test", "worker-ready", map[string]any{"phase": "ready", "name": "bootstrap"})
+					raw.Call("__emitMessage", readyValue)
+				}
+			case "error":
+				errorListeners.Call("push", callback)
+			}
+			return nil
+		})
+		removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			eventType := args[0].String()
+			callback := args[1]
+			var listeners js.Value
+			switch eventType {
+			case "message":
+				listeners = messageListeners
+			case "error":
+				listeners = errorListeners
+			default:
+				return nil
+			}
+			for i := 0; i < listeners.Length(); i++ {
+				current := listeners.Index(i)
+				if current.IsUndefined() || current.IsNull() {
+					continue
+				}
+				if current.Equal(callback) {
+					listeners.SetIndex(i, js.Null())
+				}
+			}
+			return nil
+		})
+		postMessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			value, err := jsValueToGo("test", "worker-post", args[0])
+			if err != nil {
+				raw.Call("__emitError", err.Error())
+				return nil
+			}
+			message := workerMessageFromGo(value)
+			progressValue, _ := goValueToJS("test", "worker-progress", map[string]any{
+				"id":      message.ID,
+				"phase":   "progress",
+				"name":    message.Name,
+				"payload": map[string]any{"percent": 40},
+			})
+			raw.Call("__emitMessage", progressValue)
+			resultValue, _ := goValueToJS("test", "worker-result", map[string]any{
+				"id":      message.ID,
+				"phase":   "result",
+				"name":    message.Name,
+				"payload": map[string]any{"summary": "indexed 12 documents"},
+			})
+			raw.Call("__emitMessage", resultValue)
+			return nil
+		})
+		terminate := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			raw.Set("__terminated", true)
+			return nil
+		})
+		raw.Set("addEventListener", addEventListener)
+		raw.Set("removeEventListener", removeEventListener)
+		raw.Set("postMessage", postMessage)
+		raw.Set("terminate", terminate)
+		raw.Set("__emitMessage", emitMessage)
+		raw.Set("__emitError", emitError)
+		created++
+		return raw
+	})
+	defer ctor.Release()
+	restoreWorker := setGlobalValue("Worker", ctor)
+	defer restoreWorker()
+
+	worker, err := NewWorker(context.Background(), WorkerOptions{URL: "/workers/search.mjs", Ready: true})
+	if err != nil {
+		t.Fatalf("expected worker wrapper, got %v", err)
+	}
+	if created != 1 {
+		t.Fatalf("expected one worker instance, got %d", created)
+	}
+
+	type progressPayload struct {
+		Percent int `json:"percent"`
+	}
+	type resultPayload struct {
+		Summary string `json:"summary"`
+	}
+	var progress []int
+	result, err := RequestWorkerDecoded[map[string]any, progressPayload, resultPayload](context.Background(), worker, "build-index", map[string]any{"query": "atlas"}, func(message DecodedWorkerMessage[progressPayload], err error) {
+		if err != nil {
+			t.Fatalf("expected decoded progress payload, got %v", err)
+		}
+		progress = append(progress, message.Payload.Percent)
+	})
+	if err != nil {
+		t.Fatalf("expected worker request to succeed, got %v", err)
+	}
+	if len(progress) != 1 || progress[0] != 40 {
+		t.Fatalf("unexpected worker progress updates: %#v", progress)
+	}
+	if result.Summary != "indexed 12 documents" {
+		t.Fatalf("unexpected worker result payload: %+v", result)
+	}
+}
+
+func TestWorkerTerminateAndRestartSwapActiveInstance(t *testing.T) {
+	var created int
+	var posts int
+	ctor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		raw := js.Global().Get("Object").New()
+		raw.Set("addEventListener", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
+		raw.Set("removeEventListener", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
+		raw.Set("postMessage", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			posts++
+			return nil
+		}))
+		raw.Set("terminate", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			raw.Set("__terminated", true)
+			return nil
+		}))
+		created++
+		return raw
+	})
+	defer ctor.Release()
+	restoreWorker := setGlobalValue("Worker", ctor)
+	defer restoreWorker()
+
+	worker, err := NewWorker(context.Background(), WorkerOptions{URL: "/workers/report.js"})
+	if err != nil {
+		t.Fatalf("expected worker wrapper, got %v", err)
+	}
+	if err := worker.Post(map[string]any{"phase": "message"}); err != nil {
+		t.Fatalf("expected initial worker post to succeed, got %v", err)
+	}
+	if err := worker.Terminate(); err != nil {
+		t.Fatalf("expected terminate to succeed, got %v", err)
+	}
+	if err := worker.Post(map[string]any{"phase": "message"}); !IsCode(err, CodeDisposed) {
+		t.Fatalf("expected disposed error after terminate, got %v", err)
+	}
+	if err := worker.Restart(context.Background()); err != nil {
+		t.Fatalf("expected restart to succeed, got %v", err)
+	}
+	if err := worker.Post(map[string]any{"phase": "message"}); err != nil {
+		t.Fatalf("expected worker post to succeed after restart, got %v", err)
+	}
+	if created != 2 {
+		t.Fatalf("expected two worker instances after restart, got %d", created)
+	}
+	if posts != 2 {
+		t.Fatalf("expected posts to reach the active workers only, got %d", posts)
+	}
+}
+
+func TestWorkerRequestHonorsContextTimeout(t *testing.T) {
+	ctor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		raw := js.Global().Get("Object").New()
+		raw.Set("addEventListener", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
+		raw.Set("removeEventListener", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
+		raw.Set("postMessage", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
+		raw.Set("terminate", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
+		return raw
+	})
+	defer ctor.Release()
+	restoreWorker := setGlobalValue("Worker", ctor)
+	defer restoreWorker()
+
+	worker, err := NewWorker(context.Background(), WorkerOptions{URL: "/workers/slow.js"})
+	if err != nil {
+		t.Fatalf("expected worker wrapper, got %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
+	defer cancel()
+	if _, err := worker.Request(ctx, "slow-job", map[string]any{"input": "demo"}, nil); !IsCode(err, CodeTimeout) {
+		t.Fatalf("expected timeout error, got %v", err)
+	}
+}
+
+func TestOpenCrossTabChannelUsesBroadcastChannel(t *testing.T) {
+	var posted any
+	ctor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		raw := js.Global().Get("Object").New()
+		messageListeners := js.Global().Get("Array").New()
+		addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			if args[0].String() == "message" {
+				messageListeners.Call("push", args[1])
+			}
+			return nil
+		})
+		removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			if args[0].String() != "message" {
+				return nil
+			}
+			callback := args[1]
+			for i := 0; i < messageListeners.Length(); i++ {
+				current := messageListeners.Index(i)
+				if !current.IsUndefined() && !current.IsNull() && current.Equal(callback) {
+					messageListeners.SetIndex(i, js.Null())
+				}
+			}
+			return nil
+		})
+		emitMessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			event := js.Global().Get("Object").New()
+			event.Set("data", args[0])
+			for i := 0; i < messageListeners.Length(); i++ {
+				callback := messageListeners.Index(i)
+				if callback.IsUndefined() || callback.IsNull() {
+					continue
+				}
+				callback.Invoke(event)
+			}
+			return nil
+		})
+		postMessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			value, err := jsValueToGo("test", "broadcast-channel", args[0])
+			if err == nil {
+				posted = value
+			}
+			raw.Call("__emitMessage", args[0])
+			return nil
+		})
+		closeFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			raw.Set("__closed", true)
+			return nil
+		})
+		raw.Set("addEventListener", addEventListener)
+		raw.Set("removeEventListener", removeEventListener)
+		raw.Set("postMessage", postMessage)
+		raw.Set("close", closeFn)
+		raw.Set("__emitMessage", emitMessage)
+		return raw
+	})
+	defer ctor.Release()
+	restoreBroadcast := setGlobalValue("BroadcastChannel", ctor)
+	defer restoreBroadcast()
+
+	channel, err := OpenCrossTabChannel(CrossTabChannelOptions{Name: "theme"})
+	if err != nil {
+		t.Fatalf("expected cross-tab channel, got %v", err)
+	}
+	if channel.Transport() != "broadcast-channel" {
+		t.Fatalf("expected broadcast transport, got %q", channel.Transport())
+	}
+
+	var received DecodedCrossTabEnvelope[struct {
+		Theme string `json:"theme"`
+	}]
+	subscription, err := SubscribeDecodedCrossTab(channel, func(message DecodedCrossTabEnvelope[struct {
+		Theme string `json:"theme"`
+	}], err error) {
+		if err != nil {
+			t.Fatalf("expected decoded broadcast payload, got %v", err)
+		}
+		received = message
+	})
+	if err != nil {
+		t.Fatalf("expected subscription to succeed, got %v", err)
+	}
+	defer subscription.Cancel()
+
+	if err := channel.Publish(map[string]any{"theme": "dark"}); err != nil {
+		t.Fatalf("expected publish to succeed, got %v", err)
+	}
+	if received.Payload.Theme != "dark" || received.Name != "theme" || received.Source == "" || received.Sequence != 1 {
+		t.Fatalf("unexpected decoded broadcast envelope: %+v", received)
+	}
+
+	rawPosted, ok := posted.(map[string]any)
+	if !ok {
+		t.Fatalf("expected posted envelope map, got %#v", posted)
+	}
+	if rawPosted["name"] != "theme" {
+		t.Fatalf("expected published envelope name, got %#v", rawPosted)
+	}
+	payload, ok := rawPosted["payload"].(map[string]any)
+	if !ok || payload["theme"] != "dark" {
+		t.Fatalf("unexpected published payload: %#v", rawPosted["payload"])
+	}
+
+	if err := channel.Close(); err != nil {
+		t.Fatalf("expected close to succeed, got %v", err)
+	}
+	if err := channel.Publish(map[string]any{"theme": "light"}); !IsCode(err, CodeDisposed) {
+		t.Fatalf("expected disposed error after close, got %v", err)
+	}
+}
+
+func TestOpenCrossTabChannelFallsBackToStorageEvents(t *testing.T) {
+	restoreBroadcast := setGlobalValue("BroadcastChannel", js.Undefined())
+	defer restoreBroadcast()
+
+	var (
+		storageListener js.Value
+		lastSetKey      string
+		lastSetValue    string
+		lastRemovedKey  string
+	)
+	window := js.Global().Get("Object").New()
+	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "storage" {
+			storageListener = args[1]
+		}
+		return nil
+	})
+	defer addEventListener.Release()
+	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "storage" && storageListener.Equal(args[1]) {
+			storageListener = js.Null()
+		}
+		return nil
+	})
+	defer removeEventListener.Release()
+	window.Set("addEventListener", addEventListener)
+	window.Set("removeEventListener", removeEventListener)
+	restoreWindow := setGlobalValue("window", window)
+	defer restoreWindow()
+
+	storage := js.Global().Get("Object").New()
+	getItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return js.Null() })
+	defer getItemFn.Release()
+	setItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		lastSetKey = args[0].String()
+		lastSetValue = args[1].String()
+		return nil
+	})
+	defer setItemFn.Release()
+	removeItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		lastRemovedKey = args[0].String()
+		return nil
+	})
+	defer removeItemFn.Release()
+	clearFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+	defer clearFn.Release()
+	keyFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return js.Null() })
+	defer keyFn.Release()
+	storage.Set("getItem", getItemFn)
+	storage.Set("setItem", setItemFn)
+	storage.Set("removeItem", removeItemFn)
+	storage.Set("clear", clearFn)
+	storage.Set("key", keyFn)
+	storage.Set("length", 0)
+	restoreStorage := setGlobalValue("localStorage", storage)
+	defer restoreStorage()
+
+	channel, err := OpenCrossTabChannel(CrossTabChannelOptions{Name: "prefs"})
+	if err != nil {
+		t.Fatalf("expected storage-fallback channel, got %v", err)
+	}
+	if channel.Transport() != "storage-event" {
+		t.Fatalf("expected storage-event fallback, got %q", channel.Transport())
+	}
+
+	var received DecodedCrossTabEnvelope[struct {
+		Mode string `json:"mode"`
+	}]
+	subscription, err := SubscribeDecodedCrossTab(channel, func(message DecodedCrossTabEnvelope[struct {
+		Mode string `json:"mode"`
+	}], err error) {
+		if err != nil {
+			t.Fatalf("expected decoded storage payload, got %v", err)
+		}
+		received = message
+	})
+	if err != nil {
+		t.Fatalf("expected storage subscription to succeed, got %v", err)
+	}
+	defer subscription.Cancel()
+
+	if err := channel.Publish(map[string]any{"mode": "dark"}); err != nil {
+		t.Fatalf("expected storage publish to succeed, got %v", err)
+	}
+	if lastSetKey != "__gwc_cross_tab__:prefs" || lastRemovedKey != "__gwc_cross_tab__:prefs" {
+		t.Fatalf("unexpected storage keys: set=%q removed=%q", lastSetKey, lastRemovedKey)
+	}
+	if lastSetValue == "" {
+		t.Fatal("expected storage fallback to serialize the published envelope")
+	}
+
+	event := js.Global().Get("Object").New()
+	event.Set("key", "__gwc_cross_tab__:prefs")
+	event.Set("newValue", `{"name":"prefs","payload":{"mode":"light"},"source":"tab-2","sequence":7,"sentAt":"2026-03-18T16:00:00Z"}`)
+	storageListener.Invoke(event)
+	if received.Payload.Mode != "light" || received.Source != "tab-2" || received.Sequence != 7 || received.Name != "prefs" {
+		t.Fatalf("unexpected decoded storage envelope: %+v", received)
+	}
+
+	if err := channel.Close(); err != nil {
+		t.Fatalf("expected storage-fallback close to succeed, got %v", err)
+	}
+	if err := channel.Publish(map[string]any{"mode": "reset"}); !IsCode(err, CodeDisposed) {
+		t.Fatalf("expected disposed error after close, got %v", err)
+	}
+}
+
+func TestOpenSecondaryWindowChannelPublishesAndReceivesMessages(t *testing.T) {
+	window := js.Global().Get("Object").New()
+	location := js.Global().Get("Object").New()
+	location.Set("origin", "https://app.example.test")
+	window.Set("location", location)
+	var opened js.Value
+	openFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		opened = js.Global().Get("Object").New()
+		opened.Set("closed", false)
+		opened.Set("focus", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			opened.Set("__focused", true)
+			return nil
+		}))
+		opened.Set("close", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			opened.Set("closed", true)
+			return nil
+		}))
+		opened.Set("postMessage", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			opened.Set("__posted", args[0])
+			opened.Set("__targetOrigin", args[1].String())
+			return nil
+		}))
+		return opened
+	})
+	defer openFn.Release()
+	var messageListener js.Value
+	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "message" {
+			messageListener = args[1]
+		}
+		return nil
+	})
+	defer addEventListener.Release()
+	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "message" && messageListener.Equal(args[1]) {
+			messageListener = js.Null()
+		}
+		return nil
+	})
+	defer removeEventListener.Release()
+	window.Set("open", openFn)
+	window.Set("addEventListener", addEventListener)
+	window.Set("removeEventListener", removeEventListener)
+	restoreWindow := setGlobalValue("window", window)
+	defer restoreWindow()
+
+	channel, err := OpenSecondaryWindowChannel(WindowChannelOptions{
+		URL:  "/popup.html",
+		Name: "inspector",
+	})
+	if err != nil {
+		t.Fatalf("expected popup channel, got %v", err)
+	}
+	if channel.TargetOrigin() != "https://app.example.test" {
+		t.Fatalf("expected same-origin default target, got %q", channel.TargetOrigin())
+	}
+
+	var received DecodedWindowEnvelope[struct {
+		View string `json:"view"`
+	}]
+	subscription, err := SubscribeDecodedWindow(channel, func(message DecodedWindowEnvelope[struct {
+		View string `json:"view"`
+	}], err error) {
+		if err != nil {
+			t.Fatalf("expected decoded popup message, got %v", err)
+		}
+		received = message
+	})
+	if err != nil {
+		t.Fatalf("expected popup subscription to succeed, got %v", err)
+	}
+	defer subscription.Cancel()
+
+	if err := channel.Publish(map[string]any{"view": "orders"}); err != nil {
+		t.Fatalf("expected popup publish to succeed, got %v", err)
+	}
+	if opened.Get("__targetOrigin").String() != "https://app.example.test" {
+		t.Fatalf("expected popup postMessage target origin, got %q", opened.Get("__targetOrigin").String())
+	}
+
+	event := js.Global().Get("Object").New()
+	event.Set("source", opened)
+	event.Set("origin", "https://app.example.test")
+	event.Set("data", js.Global().Get("Object").New())
+	event.Get("data").Set("name", "inspector")
+	event.Get("data").Set("source", "popup-1")
+	event.Get("data").Set("sentAt", "2026-03-18T16:15:00Z")
+	event.Get("data").Set("payload", js.Global().Get("Object").New())
+	event.Get("data").Get("payload").Set("view", "catalog")
+	messageListener.Invoke(event)
+	if received.Payload.View != "catalog" || received.Name != "inspector" || received.Source != "popup-1" {
+		t.Fatalf("unexpected popup message envelope: %+v", received)
+	}
+
+	if err := channel.Focus(); err != nil {
+		t.Fatalf("expected popup focus to succeed, got %v", err)
+	}
+	if !opened.Get("__focused").Bool() {
+		t.Fatal("expected popup focus helper to call the window focus method")
+	}
+	if channel.Closed() {
+		t.Fatal("expected popup to start open")
+	}
+	if err := channel.Close(); err != nil {
+		t.Fatalf("expected popup close to succeed, got %v", err)
+	}
+	if !channel.Closed() {
+		t.Fatal("expected popup close to mark the window handle closed")
+	}
+	if err := channel.Publish(map[string]any{"view": "retry"}); !IsCode(err, CodeDisposed) {
+		t.Fatalf("expected disposed error after popup close, got %v", err)
+	}
+}
+
+func TestWindowOpenerChannelUsesOpenerHandle(t *testing.T) {
+	window := js.Global().Get("Object").New()
+	location := js.Global().Get("Object").New()
+	location.Set("origin", "https://app.example.test")
+	window.Set("location", location)
+	opener := js.Global().Get("Object").New()
+	opener.Set("closed", false)
+	opener.Set("postMessage", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		opener.Set("__posted", args[0])
+		opener.Set("__targetOrigin", args[1].String())
+		return nil
+	}))
+	window.Set("opener", opener)
+	var messageListener js.Value
+	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "message" {
+			messageListener = args[1]
+		}
+		return nil
+	})
+	defer addEventListener.Release()
+	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "message" && messageListener.Equal(args[1]) {
+			messageListener = js.Null()
+		}
+		return nil
+	})
+	defer removeEventListener.Release()
+	window.Set("addEventListener", addEventListener)
+	window.Set("removeEventListener", removeEventListener)
+	restoreWindow := setGlobalValue("window", window)
+	defer restoreWindow()
+
+	channel, err := WindowOpenerChannel(WindowChannelOptions{Name: "inspector"})
+	if err != nil {
+		t.Fatalf("expected opener channel, got %v", err)
+	}
+	if err := channel.Publish(map[string]any{"route": "/orders"}); err != nil {
+		t.Fatalf("expected opener publish to succeed, got %v", err)
+	}
+	if opener.Get("__targetOrigin").String() != "https://app.example.test" {
+		t.Fatalf("expected opener target origin, got %q", opener.Get("__targetOrigin").String())
+	}
+	if err := channel.Close(); !IsCode(err, CodeUnavailable) {
+		t.Fatalf("expected opener channel close to stay unavailable, got %v", err)
+	}
+
+	var receivedName string
+	subscription, err := channel.Subscribe(func(message WindowEnvelope, err error) {
+		if err != nil {
+			t.Fatalf("expected opener message to decode, got %v", err)
+		}
+		receivedName = message.Name
+	})
+	if err != nil {
+		t.Fatalf("expected opener subscription to succeed, got %v", err)
+	}
+	defer subscription.Cancel()
+
+	event := js.Global().Get("Object").New()
+	event.Set("source", opener)
+	event.Set("origin", "https://app.example.test")
+	event.Set("data", js.Global().Get("Object").New())
+	event.Get("data").Set("name", "inspector")
+	messageListener.Invoke(event)
+	if receivedName != "inspector" {
+		t.Fatalf("expected opener message name, got %q", receivedName)
+	}
+}
+
+func TestSurfaceSignalWindowHelpersPublishAndDecode(t *testing.T) {
+	window := js.Global().Get("Object").New()
+	location := js.Global().Get("Object").New()
+	location.Set("origin", "https://app.example.test")
+	window.Set("location", location)
+	var opened js.Value
+	openFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		opened = js.Global().Get("Object").New()
+		opened.Set("closed", false)
+		opened.Set("postMessage", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			opened.Set("__posted", args[0])
+			return nil
+		}))
+		opened.Set("focus", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
+		opened.Set("close", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			opened.Set("closed", true)
+			return nil
+		}))
+		return opened
+	})
+	defer openFn.Release()
+	var messageListener js.Value
+	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "message" {
+			messageListener = args[1]
+		}
+		return nil
+	})
+	defer addEventListener.Release()
+	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "message" && messageListener.Equal(args[1]) {
+			messageListener = js.Null()
+		}
+		return nil
+	})
+	defer removeEventListener.Release()
+	window.Set("open", openFn)
+	window.Set("addEventListener", addEventListener)
+	window.Set("removeEventListener", removeEventListener)
+	restoreWindow := setGlobalValue("window", window)
+	defer restoreWindow()
+
+	channel, err := OpenSecondaryWindowChannel(WindowChannelOptions{
+		URL:  "/popup.html",
+		Name: "ops",
+	})
+	if err != nil {
+		t.Fatalf("expected popup channel, got %v", err)
+	}
+
+	if err := PublishRouteFocus(channel, "/orders/42", "tab=activity", "order-heading"); err != nil {
+		t.Fatalf("expected route focus publish, got %v", err)
+	}
+	posted := opened.Get("__posted")
+	if posted.IsUndefined() || posted.IsNull() {
+		t.Fatal("expected helper publish to post a window payload")
+	}
+	if posted.Get("payload").Get("kind").String() != "route" || posted.Get("payload").Get("route").Get("path").String() != "/orders/42" {
+		t.Fatalf("unexpected posted route signal: %#v", posted)
+	}
+
+	var received DecodedWindowEnvelope[SurfaceSignal]
+	subscription, err := SubscribeSurfaceSignals(channel, func(message DecodedWindowEnvelope[SurfaceSignal], err error) {
+		if err != nil {
+			t.Fatalf("expected decoded surface signal, got %v", err)
+		}
+		received = message
+	})
+	if err != nil {
+		t.Fatalf("expected surface subscription to succeed, got %v", err)
+	}
+	defer subscription.Cancel()
+
+	event := js.Global().Get("Object").New()
+	event.Set("source", opened)
+	event.Set("origin", "https://app.example.test")
+	event.Set("data", js.Global().Get("Object").New())
+	event.Get("data").Set("name", "ops")
+	event.Get("data").Set("source", "popup-1")
+	event.Get("data").Set("payload", js.Global().Get("Object").New())
+	event.Get("data").Get("payload").Set("kind", "intent")
+	event.Get("data").Get("payload").Set("intent", js.Global().Get("Object").New())
+	event.Get("data").Get("payload").Get("intent").Set("action", "focus-panel")
+	event.Get("data").Get("payload").Get("intent").Set("target", "audit-log")
+	event.Get("data").Get("payload").Get("intent").Set("params", js.Global().Get("Object").New())
+	event.Get("data").Get("payload").Get("intent").Get("params").Set("tab", "alerts")
+	messageListener.Invoke(event)
+
+	if received.Name != "ops" || received.Source != "popup-1" {
+		t.Fatalf("unexpected decoded surface envelope metadata: %+v", received)
+	}
+	if received.Payload.Kind != SurfaceSignalIntent || received.Payload.Intent == nil || received.Payload.Intent.Action != SurfaceIntentFocusPanel || received.Payload.Intent.Target != "audit-log" || received.Payload.Intent.Params["tab"] != "alerts" {
+		t.Fatalf("unexpected decoded surface payload: %+v", received.Payload)
 	}
 }
 

@@ -10,6 +10,7 @@ type Props struct {
 	ID           string
 	Class        string
 	Key          string
+	Slot         string
 	Title        string
 	Type         string
 	Name         string
@@ -58,6 +59,17 @@ type Props struct {
 	OnBlur    ui.Handler
 }
 
+// CustomElementProps makes attribute-versus-property intent explicit for
+// browser-defined custom elements and web components.
+type CustomElementProps struct {
+	Props      Props
+	Attributes map[string]string
+	Presence   map[string]bool
+	Properties map[string]interface{}
+}
+
+const customElementPropertyPrefix = "__gwc_prop__:"
+
 // Text creates a text node.
 func Text(content string) ui.Node {
 	return ui.Text(content)
@@ -66,6 +78,31 @@ func Text(content string) ui.Node {
 // Tag creates a node for an arbitrary HTML tag name.
 func Tag(name string, props Props, children ...ui.Node) ui.Node {
 	return runtime.CreateElement(name, toRuntimeProps(props), toInterfaces(children)...)
+}
+
+// CustomElement creates a browser-defined custom element with explicit
+// attribute and property channels.
+func CustomElement(name string, props CustomElementProps, children ...ui.Node) ui.Node {
+	values := toRuntimeProps(props.Props)
+	count := len(props.Attributes) + len(props.Presence) + len(props.Properties)
+	if count == 0 {
+		return runtime.CreateElement(name, values, toInterfaces(children)...)
+	}
+	if values == nil {
+		values = make(map[string]interface{}, count)
+	}
+	for key, value := range props.Attributes {
+		values[key] = value
+	}
+	for key, enabled := range props.Presence {
+		if enabled {
+			values[key] = ""
+		}
+	}
+	for key, value := range props.Properties {
+		values[customElementPropertyPrefix+key] = value
+	}
+	return runtime.CreateElement(name, values, toInterfaces(children)...)
 }
 
 // Fragment groups children without introducing an extra host element.
@@ -253,6 +290,9 @@ func toRuntimeProps(props Props) map[string]interface{} {
 	if props.Key != "" {
 		count++
 	}
+	if props.Slot != "" {
+		count++
+	}
 	if props.Title != "" {
 		count++
 	}
@@ -384,6 +424,9 @@ func toRuntimeProps(props Props) map[string]interface{} {
 	}
 	if props.Key != "" {
 		values["key"] = props.Key
+	}
+	if props.Slot != "" {
+		values["slot"] = props.Slot
 	}
 	if props.Title != "" {
 		values["title"] = props.Title

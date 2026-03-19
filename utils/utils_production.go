@@ -3,6 +3,8 @@
 
 package utils
 
+var hotReloadEnabled bool
+
 // isDebugBuild returns false for production builds
 // This allows the compiler to completely eliminate debug calls
 func isDebugBuild() bool {
@@ -30,4 +32,48 @@ func GetMemStatsSampleRate() int64 {
 	return 0 // Always disabled in production
 }
 
-// TODO: ensure production build tags exclude the debug-enabled versions in utils.go to avoid duplicate symbol errors when building with -tags=production
+func SetDebug(enabled bool) {}
+
+func SetDebugNamespace(namespace string, enabled bool) {}
+
+func SetDebugNamespaces(namespaces map[string]bool) {}
+
+func SetDebugNamespacesExclusive(namespaces map[string]bool) {}
+
+func EnableAllDebug() {}
+
+func DisableAllDebug() {}
+
+func GetDebugStatus() map[string]bool {
+	return map[string]bool{
+		"global":    false,
+		"hotReload": hotReloadEnabled,
+	}
+}
+
+func EnableHotReload(enabled bool) {
+	hotReloadEnabled = enabled
+}
+
+func IsHotReloadEnabled() bool {
+	return hotReloadEnabled
+}
+
+func EnableGoroutineMonitoring() {}
+
+func DisableGoroutineMonitoring() {}
+
+func SetGoroutineThreshold(threshold int) {}
+
+func GetGoroutineStats() map[string]int64 {
+	return map[string]int64{
+		"current":  0,
+		"baseline": 0,
+		"growth":   0,
+		"detected": 0,
+	}
+}
+
+func ResetGoroutineBaseline() {}
+
+func ConsoleLog(format string, args ...interface{}) {}

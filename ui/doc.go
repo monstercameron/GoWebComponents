@@ -5,7 +5,7 @@
 //   - Render for browser mounting
 //   - Portal for rendering a subtree into a selector or explicit host node outside the current DOM parent
 //   - CreateContext, UseContext, and Provider components for subtree-scoped values
-//   - UseState, UseReducer, UseForm, UseEffect, UseMemo, UseRef, UsePrevious, UseDeferredValue, UseDebounced, UseThrottled, UseChannel, UseTask, UseLazyNode, UseTransition, StartTransition, UseId, UseFocusManager, UseFocusTrap, UseCompositeNavigation, and UseAnnouncer for local stateful logic
+//   - UseState, UseReducer, UseForm, UseEffect, UseMemo, UseRef, UsePrevious, UseDeferredValue, UseDebounced, UseThrottled, UseChannel, UseTask, UseWorkerTask, UseLazyNode, UseTransition, StartTransition, UseId, UseFocusManager, UseFocusTrap, UseCompositeNavigation, and UseAnnouncer for local stateful logic
 //   - AsyncBoundary, ErrorBoundary, and Lazy for explicit async subtree loading, panic recovery, and fallback rendering
 //   - UseEvent for typed event handler wrapping
 //   - AccessibleOverlay for portal-backed dialog and overlay semantics with focus trapping and dismissal behavior
@@ -47,6 +47,11 @@
 // UseTask is intended for explicit background jobs that should be started and
 // cancelled by UI actions. It exposes typed task state and keeps cancellation in
 // terms of context.Context rather than custom ad hoc flags in each component.
+//
+// UseWorkerTask is the worker-backed sibling for browser-only CPU-heavy jobs. It
+// reuses a dedicated browser worker across runs, reports typed progress payloads,
+// and tears the worker down with the owning component instead of requiring each
+// feature to hand-roll worker lifecycle and request-correlation logic.
 //
 // UseDebounced and UseThrottled are small input-oriented convenience hooks.
 // They are intended for search boxes, live filtering, or fast-changing UI state

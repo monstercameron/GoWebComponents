@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 )
@@ -76,6 +77,14 @@ type domPropMeta struct {
 }
 
 func getPropMeta(name string) domPropMeta {
+	if strings.HasPrefix(name, "__gwc_prop__:") {
+		return domPropMeta{
+			kind:        propKindSpecialProperty,
+			attrName:    strings.TrimPrefix(name, "__gwc_prop__:"),
+			resetValue:  nil,
+			shouldReset: true,
+		}
+	}
 	if meta, ok := propMetaCache[name]; ok {
 		return meta
 	}
@@ -823,10 +832,12 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 			} else if fiber.dom == nil || fiber.dom.IsNull() {
 				if hydratedDOM, ok := rt.claimHydrationNode(fiber); ok {
 					fiber.dom = hydratedDOM
+					fiber.hydrated = true
 					fiber.effectTag = "HYDRATE"
 					fiber.childHydration = newHydrationBoundary(hydratedDOM, rt.domAdapter.GetFirstChild(hydratedDOM))
 				} else {
 					fiber.dom = rt.createDom(fiber)
+					fiber.hydrated = false
 					fiber.childHydration = nil
 				}
 			} else if typed != "TEXT_ELEMENT" {
@@ -1017,73 +1028,7 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 
 	// Optimization: Fast path for initial render (no old props)
 	if len(oldProps) == 0 && len(newProps) > 0 {
-		// If batching is supported, collect attributes
-		var attrBatch map[string]string
-		flushAttrBatch := func() {
-			if !supportsBatching || len(attrBatch) == 0 {
-				return
-			}
-			batchAdapter.BatchSetAttributes(dom, attrBatch)
-			clear(attrBatch)
-		}
-
-		for name, value := range newProps {
-			meta := getPropMeta(name)
-			if meta.kind == propKindSkip {
-				continue
-			}
-
-			switch meta.kind {
-			case propKindStyle:
-				// Flush batch before style
-				flushAttrBatch()
-				if styles, ok := value.(map[string]string); ok {
-					rt.domAdapter.SetStyles(dom, styles)
-				} else if str, ok := value.(string); ok {
-					if supportsBatching {
-						if attrBatch == nil {
-							attrBatch = make(map[string]string, len(newProps))
-						}
-						attrBatch[meta.attrName] = str
-					} else {
-						rt.domAdapter.SetAttribute(dom, meta.attrName, str)
-					}
-				}
-			case propKindClass:
-				if str, ok := value.(string); ok {
-					if supportsBatching {
-						if attrBatch == nil {
-							attrBatch = make(map[string]string, len(newProps))
-						}
-						attrBatch[meta.attrName] = str
-					} else {
-						rt.domAdapter.SetAttribute(dom, meta.attrName, str)
-					}
-				}
-			case propKindSpecialProperty:
-				// Flush batch before property
-				flushAttrBatch()
-				rt.domAdapter.SetProperty(dom, name, value)
-			default:
-				if str, ok := value.(string); ok {
-					if supportsBatching {
-						if attrBatch == nil {
-							attrBatch = make(map[string]string, len(newProps))
-						}
-						attrBatch[meta.attrName] = str
-					} else {
-						rt.domAdapter.SetAttribute(dom, meta.attrName, str)
-					}
-				} else {
-					// Flush batch before property
-					flushAttrBatch()
-					rt.domAdapter.SetProperty(dom, name, value)
-				}
-			}
-		}
-
-		// Flush remaining batched attributes
-		flushAttrBatch()
+		rt.applyInitialDomProps(dom, newProps, supportsBatching, batchAdapter, false)
 		return
 	}
 
@@ -1093,9 +1038,13 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 		if meta.kind == propKindSkip {
 			continue
 		}
+		targetName := meta.attrName
+		if targetName == "" {
+			targetName = name
+		}
 		if _, exists := newProps[name]; !exists {
 			if meta.shouldReset {
-				rt.domAdapter.SetProperty(dom, name, meta.resetValue)
+				rt.domAdapter.SetProperty(dom, targetName, meta.resetValue)
 			} else {
 				rt.domAdapter.RemoveAttribute(dom, meta.attrName)
 			}
@@ -1107,6 +1056,10 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 		meta := getPropMeta(name)
 		if meta.kind == propKindSkip {
 			continue
+		}
+		targetName := meta.attrName
+		if targetName == "" {
+			targetName = name
 		}
 
 		// Optimization: Skip if value hasn't changed
@@ -1128,15 +1081,98 @@ func (rt *Runtime) updateDomProperties(dom DOMNode, oldProps, newProps map[strin
 			}
 		case propKindSpecialProperty:
 			// Always set these as properties to ensure UI updates correctly
-			rt.domAdapter.SetProperty(dom, name, value)
+			rt.domAdapter.SetProperty(dom, targetName, value)
 		default:
 			if str, ok := value.(string); ok {
 				rt.domAdapter.SetAttribute(dom, meta.attrName, str)
 			} else {
 				// Always update properties (especially event handlers which are closures)
-				rt.domAdapter.SetProperty(dom, name, value)
+				rt.domAdapter.SetProperty(dom, targetName, value)
 			}
 		}
+	}
+}
+
+func (rt *Runtime) applyInitialDomProps(dom DOMNode, newProps map[string]interface{}, supportsBatching bool, batchAdapter interface {
+	BatchSetAttributes(DOMNode, map[string]string)
+}, preserveHydrationState bool) {
+	var attrBatch map[string]string
+	flushAttrBatch := func() {
+		if !supportsBatching || len(attrBatch) == 0 {
+			return
+		}
+		batchAdapter.BatchSetAttributes(dom, attrBatch)
+		clear(attrBatch)
+	}
+
+	for name, value := range newProps {
+		meta := getPropMeta(name)
+		if meta.kind == propKindSkip {
+			continue
+		}
+		targetName := meta.attrName
+		if targetName == "" {
+			targetName = name
+		}
+		if preserveHydrationState && shouldPreserveHydrationInitialProperty(targetName) {
+			continue
+		}
+
+		switch meta.kind {
+		case propKindStyle:
+			flushAttrBatch()
+			if styles, ok := value.(map[string]string); ok {
+				rt.domAdapter.SetStyles(dom, styles)
+			} else if str, ok := value.(string); ok {
+				if supportsBatching {
+					if attrBatch == nil {
+						attrBatch = make(map[string]string, len(newProps))
+					}
+					attrBatch[meta.attrName] = str
+				} else {
+					rt.domAdapter.SetAttribute(dom, meta.attrName, str)
+				}
+			}
+		case propKindClass:
+			if str, ok := value.(string); ok {
+				if supportsBatching {
+					if attrBatch == nil {
+						attrBatch = make(map[string]string, len(newProps))
+					}
+					attrBatch[meta.attrName] = str
+				} else {
+					rt.domAdapter.SetAttribute(dom, meta.attrName, str)
+				}
+			}
+		case propKindSpecialProperty:
+			flushAttrBatch()
+			rt.domAdapter.SetProperty(dom, targetName, value)
+		default:
+			if str, ok := value.(string); ok {
+				if supportsBatching {
+					if attrBatch == nil {
+						attrBatch = make(map[string]string, len(newProps))
+					}
+					attrBatch[meta.attrName] = str
+				} else {
+					rt.domAdapter.SetAttribute(dom, meta.attrName, str)
+				}
+			} else {
+				flushAttrBatch()
+				rt.domAdapter.SetProperty(dom, targetName, value)
+			}
+		}
+	}
+
+	flushAttrBatch()
+}
+
+func shouldPreserveHydrationInitialProperty(name string) bool {
+	switch name {
+	case "value", "checked", "selected", "autofocus":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -1171,6 +1207,7 @@ func (rt *Runtime) commitRoot() {
 	wasHydrating := rt.hydrating
 	if wasHydrating {
 		rt.hydrating = false
+		rt.strictHydration = false
 		rt.flushHydrationSubscriptions()
 	}
 	rt.updateScheduled = false
@@ -1273,7 +1310,10 @@ func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 				fiber.commitDurationNs += time.Since(start).Nanoseconds()
 			} else {
 				start := time.Now()
-				rt.updateDomProperties(fiber.dom, nil, fiber.props)
+				batchAdapter, supportsBatching := rt.domAdapter.(interface {
+					BatchSetAttributes(DOMNode, map[string]string)
+				})
+				rt.applyInitialDomProps(fiber.dom, fiber.props, supportsBatching, batchAdapter, fiber.hydrated)
 				fiber.commitDurationNs += time.Since(start).Nanoseconds()
 			}
 		} else if fiber.effectTag == "UPDATE" && fiber.dom != nil && !fiber.dom.IsNull() {

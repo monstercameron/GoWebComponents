@@ -108,6 +108,46 @@ func TestHydrateReportsTextMismatchAndUpdatesNode(t *testing.T) {
 	}
 }
 
+func TestHydrateMismatchDiagnosticsIncludePathAndComponentStack(t *testing.T) {
+	ClearDiagnostics()
+	defer ClearDiagnostics()
+
+	adapter := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+
+	container := adapter.CreateElement("div")
+	serverNode := adapter.CreateElement("p")
+	serverText := adapter.CreateTextNode("Server")
+	adapter.AppendChild(serverNode, serverText)
+	adapter.AppendChild(container, serverNode)
+
+	App := func() *Element {
+		return CreateElement("p", nil, "Client")
+	}
+
+	rt.Hydrate(CreateElement(App, nil), container)
+	runHydrationWork(t, scheduler)
+
+	diagnostics := GetDiagnostics()
+	for _, diagnostic := range diagnostics {
+		if !strings.Contains(diagnostic.Message, "hydration text mismatch") {
+			continue
+		}
+		if diagnostic.Path == "" {
+			t.Fatalf("expected hydration diagnostic path, got %+v", diagnostic)
+		}
+		if len(diagnostic.ComponentStack) == 0 {
+			t.Fatalf("expected hydration component stack, got %+v", diagnostic)
+		}
+		if diagnostic.ComponentStack[len(diagnostic.ComponentStack)-1] != "p" {
+			t.Fatalf("expected hydration stack to end at host node, got %+v", diagnostic.ComponentStack)
+		}
+		return
+	}
+	t.Fatalf("expected hydration text mismatch diagnostic with context, got %+v", diagnostics)
+}
+
 func TestHydrateDiscardsTrailingUnexpectedNodes(t *testing.T) {
 	ClearDiagnostics()
 	defer ClearDiagnostics()
@@ -132,6 +172,77 @@ func TestHydrateDiscardsTrailingUnexpectedNodes(t *testing.T) {
 	if !children[0].Equals(first) {
 		t.Fatal("expected first matching node to be preserved")
 	}
+}
+
+func TestHydrateStrictModePanicsOnTagMismatch(t *testing.T) {
+	ClearDiagnostics()
+	defer ClearDiagnostics()
+
+	adapter := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+
+	container := adapter.CreateElement("div")
+	serverNode := adapter.CreateElement("span")
+	adapter.AppendChild(container, serverNode)
+
+	rt.SetNextHydrationStrict(true)
+	rt.Hydrate(CreateElement("div", map[string]interface{}{"id": "client"}), container)
+	expectPanic(t, func() {
+		runHydrationWork(t, scheduler)
+	})
+
+	children := adapter.GetChildren(container)
+	if len(children) != 1 || !children[0].Equals(serverNode) {
+		t.Fatalf("expected strict hydration to leave original DOM intact, got %+v", children)
+	}
+
+	diagnostics := GetDiagnostics()
+	for _, diagnostic := range diagnostics {
+		if strings.Contains(diagnostic.Message, "fell back to client rendering") {
+			if diagnostic.Severity != DiagnosticError {
+				t.Fatalf("expected strict hydration mismatch to be an error, got %+v", diagnostic)
+			}
+			return
+		}
+	}
+	t.Fatalf("expected strict hydration fallback diagnostic, got %+v", diagnostics)
+}
+
+func TestHydrateStrictModePanicsOnTextMismatch(t *testing.T) {
+	ClearDiagnostics()
+	defer ClearDiagnostics()
+
+	adapter := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+
+	container := adapter.CreateElement("div")
+	serverNode := adapter.CreateElement("p")
+	serverText := adapter.CreateTextNode("Server")
+	adapter.AppendChild(serverNode, serverText)
+	adapter.AppendChild(container, serverNode)
+
+	rt.SetNextHydrationStrict(true)
+	rt.Hydrate(CreateElement("p", nil, "Client"), container)
+	expectPanic(t, func() {
+		runHydrationWork(t, scheduler)
+	})
+
+	if got := serverText.(*testDOMNode).text; got != "Server" {
+		t.Fatalf("expected strict hydration to avoid rewriting mismatched text, got %q", got)
+	}
+
+	diagnostics := GetDiagnostics()
+	for _, diagnostic := range diagnostics {
+		if strings.Contains(diagnostic.Message, "hydration text mismatch") {
+			if diagnostic.Severity != DiagnosticError {
+				t.Fatalf("expected strict hydration text mismatch to be an error, got %+v", diagnostic)
+			}
+			return
+		}
+	}
+	t.Fatalf("expected strict hydration text mismatch diagnostic, got %+v", diagnostics)
 }
 
 func TestHydrateSupportsComponentUpdatesAfterResume(t *testing.T) {
@@ -301,5 +412,76 @@ func TestHydrateEffectStateUpdatesScheduleAfterCommit(t *testing.T) {
 	}
 	if got := textChildren[0].(*testDOMNode).text; got != "count:1" {
 		t.Fatalf("expected effect-driven post-hydration update to change text to count:1, got %q", got)
+	}
+}
+
+func TestHydrateAttachesEventHandlersBeforeEffectsRun(t *testing.T) {
+	adapter := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+
+	container := adapter.CreateElement("div")
+	serverButton := adapter.CreateElement("button")
+	adapter.SetAttribute(serverButton, "id", "action")
+	adapter.AppendChild(serverButton, adapter.CreateTextNode("Run"))
+	adapter.AppendChild(container, serverButton)
+
+	handlerVisibleDuringEffect := false
+	component := func() *Element {
+		GoUseEffect(func() func() {
+			handlerVisibleDuringEffect = serverButton.(*testDOMNode).properties["onclick"] != nil
+			return nil
+		})
+		return CreateElement("button", map[string]interface{}{
+			"id":      "action",
+			"onclick": func() {},
+		}, "Run")
+	}
+
+	rt.Hydrate(CreateElement(component, nil), container)
+	runHydrationWork(t, scheduler)
+
+	if !handlerVisibleDuringEffect {
+		t.Fatal("expected hydration to attach event handlers before effects run")
+	}
+}
+
+func TestHydratePreservesLiveInputValueUntilPostHydrationUpdate(t *testing.T) {
+	adapter := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+
+	container := adapter.CreateElement("div")
+	serverInput := adapter.CreateElement("input")
+	adapter.SetAttribute(serverInput, "id", "name")
+	adapter.SetAttribute(serverInput, "value", "server")
+	adapter.SetProperty(serverInput, "value", "draft")
+	adapter.AppendChild(container, serverInput)
+
+	var setValue func(interface{})
+	component := func() *Element {
+		value, set := GoUseState(rt, "server")
+		setValue = set
+		return CreateElement("input", map[string]interface{}{
+			"id":    "name",
+			"value": value(),
+		})
+	}
+
+	rt.Hydrate(CreateElement(component, nil), container)
+	runHydrationWork(t, scheduler)
+
+	if setValue == nil {
+		t.Fatal("expected hydrated input component to expose state setter")
+	}
+	if got := serverInput.(*testDOMNode).properties["value"]; got != "draft" {
+		t.Fatalf("expected hydration to preserve live input value draft, got %#v", got)
+	}
+
+	setValue("client")
+	runHydrationWork(t, scheduler)
+
+	if got := serverInput.(*testDOMNode).properties["value"]; got != "client" {
+		t.Fatalf("expected post-hydration update to apply controlled value, got %#v", got)
 	}
 }

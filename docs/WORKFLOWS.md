@@ -80,6 +80,7 @@ Runnable examples:
 - [examples/72-router-hydrate-mount](../examples/72-router-hydrate-mount)
 - [examples/73-ssr-bootstrap](../examples/73-ssr-bootstrap)
 - [examples/18-ssr-server-routing](../examples/18-ssr-server-routing)
+- [examples/87-ssr-secure-forms](../examples/87-ssr-secure-forms)
 
 Production caveats:
 
@@ -89,6 +90,10 @@ Production caveats:
 
 Testing and validation:
 
+- [HYDRATION.md](HYDRATION.md)
+- [SERVER_INTEGRATION.md](SERVER_INTEGRATION.md)
+- [OBSERVABILITY.md](OBSERVABILITY.md)
+- [STATE_TRANSFER.md](STATE_TRANSFER.md)
 - [MIGRATIONS.md](MIGRATIONS.md)
 - [REFERENCE_MAP.md](REFERENCE_MAP.md#ssr-and-hydration)
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md#hydration-mismatch-warnings)
@@ -137,12 +142,20 @@ Runnable examples:
 Production caveats:
 
 - Always ship the wasm binary and `wasm_exec.js` from the same Go toolchain.
+- Prefer a production-tag compile check before release so stripped builds keep the same exported helper surface and scheduling semantics as development builds.
 - Serve `.wasm` with the correct MIME type.
 - Validate cache behavior for generated assets and rollout timing for updated binaries.
+- Keep hashed asset lookup, HTML emission, and preload hints behind one manifest-driven convention instead of scattering emitted filenames through templates.
 
 Testing and validation:
 
 - [tools/README.md](../tools/README.md)
+- [SCHEDULING.md](SCHEDULING.md)
+- [PRERENDER.md](PRERENDER.md)
+- [ASSETS.md](ASSETS.md)
+- [BROWSER_SUPPORT.md](BROWSER_SUPPORT.md)
+- [PWA.md](PWA.md)
+- [WASM_RELEASES.md](WASM_RELEASES.md)
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md#missing-wasm_execjs)
 
 ## Debug Hydration Issues
@@ -169,12 +182,14 @@ Production caveats:
 
 Testing and validation:
 
+- [HYDRATION.md](HYDRATION.md)
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md#hydration-mismatch-warnings)
 - [REFERENCE_MAP.md](REFERENCE_MAP.md#diagnostics-and-debugging)
 
 ## Related Docs
 
 - [START_HERE.md](START_HERE.md)
+- [ONBOARDING.md](ONBOARDING.md)
 - [WALKTHROUGHS.md](WALKTHROUGHS.md)
 - [REFERENCE_MAP.md](REFERENCE_MAP.md)
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md)

@@ -12,6 +12,7 @@ Use it when you want the shortest route from evaluation to a production-shaped a
 4. Use [examples/README.md](../examples/README.md) to jump into the smallest runnable example that demonstrates the feature you need.
 5. Use [WALKTHROUGHS.md](WALKTHROUGHS.md) when you want a realistic app shape instead of a single isolated feature demo.
 6. Use [TROUBLESHOOTING.md](TROUBLESHOOTING.md) when the wasm build, dev server, hydration flow, or router setup is not behaving as expected.
+7. Use [ONBOARDING.md](ONBOARDING.md) when you want the repo’s explicit starter path, prerequisites, or inner-loop workflow without reverse-engineering examples.
 
 ## Preferred Modern Surface
 
@@ -35,7 +36,8 @@ Choose the first example based on the app shape you are building:
 - Forms and input-heavy UI: `examples/02-text-input`, `examples/51-use-form`, `examples/53-html-forms`, `examples/79-form-accessibility`
 - Shared state and fetch: `examples/37-use-atom`, `examples/39-use-derived`, `examples/43-use-resource`, `examples/44-use-cached-resource`
 - Client-side routing: `examples/55-hash-router`, `examples/56-browser-router`, `examples/60-route-loaders`, `examples/64-nested-layout-routes`
-- SSR or hydration: `examples/70-render-to-string`, `examples/71-hydrate`, `examples/72-router-hydrate-mount`, `examples/18-ssr-server-routing`, `examples/87-ssr-secure-forms`
+- SSR or hydration: `examples/70-render-to-string`, `examples/71-hydrate`, `examples/72-router-hydrate-mount`, `examples/18-ssr-server-routing`, `examples/87-ssr-secure-forms`, `docs/HYDRATION.md`, `docs/SERVER_INTEGRATION.md`
+- Browser interop and web components: `examples/90-browser-interop`, `examples/91-worker-text-index`, `examples/94-cross-tab-sync`, `examples/95-multi-window-console`, `examples/88-web-components`, `docs/INTEROP.md`, `docs/CUSTOM_ELEMENTS.md`, `docs/WORKERS.md`, `docs/OFFLINE_MUTATIONS.md`, `docs/CROSS_TAB.md`, `docs/MULTI_SURFACE.md`
 - Debugging and diagnostics: `examples/66-devtools-panel`, `examples/69-devtools-diagnostics`, `examples/86-atlas-commerce-os`
 
 ## Production-Oriented Defaults
@@ -53,6 +55,32 @@ If you are starting a new application today, these defaults are the least surpri
 
 - [README.md](../README.md)
 - [WORKFLOWS.md](WORKFLOWS.md)
+- [CACHE.md](CACHE.md)
+- [CUSTOM_ELEMENTS.md](CUSTOM_ELEMENTS.md)
+- [CROSS_TAB.md](CROSS_TAB.md)
+- [ERROR_BOUNDARIES.md](ERROR_BOUNDARIES.md)
+- [INTEROP.md](INTEROP.md)
+- [MULTI_SURFACE.md](MULTI_SURFACE.md)
+- [OFFLINE_MUTATIONS.md](OFFLINE_MUTATIONS.md)
+- [PRODUCTION_CORRECTNESS.md](PRODUCTION_CORRECTNESS.md)
+- [SCHEDULING.md](SCHEDULING.md)
+- [HYDRATION.md](HYDRATION.md)
+- [SERVER_INTEGRATION.md](SERVER_INTEGRATION.md)
+- [OBSERVABILITY.md](OBSERVABILITY.md)
+- [LOGGING.md](LOGGING.md)
+- [PRERENDER.md](PRERENDER.md)
+- [ASSETS.md](ASSETS.md)
+- [BROWSER_SUPPORT.md](BROWSER_SUPPORT.md)
+- [PWA.md](PWA.md)
+- [SECURITY.md](SECURITY.md)
+- [CONFIGURATION.md](CONFIGURATION.md)
+- [WASM_RELEASES.md](WASM_RELEASES.md)
+- [BUILD_EXPERIMENTS.md](BUILD_EXPERIMENTS.md)
+- [ONBOARDING.md](ONBOARDING.md)
+- [STATE_TRANSFER.md](STATE_TRANSFER.md)
+- [STREAMING_SSR.md](STREAMING_SSR.md)
+- [WORKERS.md](WORKERS.md)
+- [ROUTER_AUTH.md](ROUTER_AUTH.md)
 - [WALKTHROUGHS.md](WALKTHROUGHS.md)
 - [REFERENCE_MAP.md](REFERENCE_MAP.md)
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md)

@@ -55,6 +55,36 @@ func TestNewHashRouter(t *testing.T) {
 	}
 }
 
+func TestRouteLoaderWritesFrameworkLogs(t *testing.T) {
+	installRouterBrowserEnv(t)
+	runtime.ClearLogs()
+	defer runtime.ClearLogs()
+
+	r := NewHashRouter()
+	r.ensureLoaderResult("route:/users", func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
+		return nil, errors.New("loader boom")
+	}, RouteContext{Path: "/users"})
+
+	waitForCondition(t, func() bool {
+		return len(runtime.GetLogs()) >= 2
+	})
+
+	logs := runtime.GetLogs()
+	foundStart := false
+	foundFailure := false
+	for _, entry := range logs {
+		switch entry.Message {
+		case "route loader started":
+			foundStart = entry.Fields["path"] == "/users"
+		case "route loader failed":
+			foundFailure = entry.Fields["error"] == "loader boom"
+		}
+	}
+	if !foundStart || !foundFailure {
+		t.Fatalf("expected loader lifecycle logs, got %+v", logs)
+	}
+}
+
 // TestNewHashRouterWithOptions tests hash router with custom options
 func TestNewHashRouterWithOptions(t *testing.T) {
 	options := RouterOptions{
@@ -202,6 +232,70 @@ func TestHydrateMountSetsHashRouterTargetWithoutRendering(t *testing.T) {
 	}
 	if r.targetSelector != "#app" {
 		t.Fatalf("expected HydrateMount to retain target selector, got %q", r.targetSelector)
+	}
+}
+
+func TestHydrateMountReusesCachedNestedRouteLoaderData(t *testing.T) {
+	installRouterBrowserEnv(t)
+	r := NewHashRouter()
+	js.Global().Get("location").Set("hash", "/dashboard/reports/7")
+
+	layoutLoads := 0
+	leafLoads := 0
+	r.GoRegisterRoute("/dashboard", func(props Attrs) *Element {
+		section := ""
+		if data := UseRouteData(); data != nil {
+			section, _ = data["section"].(string)
+		}
+		return runtime.Div(nil,
+			runtime.Text("layout:"+section+"|"),
+			Outlet(),
+		)
+	}, Options{
+		Layout: true,
+		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
+			layoutLoads++
+			return Attrs{"section": "dashboard"}, nil
+		},
+	})
+	r.GoRegisterRoute("/dashboard/reports/:id", func(props Attrs) *Element {
+		report := ""
+		if data := UseRouteData(); data != nil {
+			report, _ = data["report"].(string)
+		}
+		return runtime.Div(nil, runtime.Text("report:"+report))
+	}, Options{
+		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
+			leafLoads++
+			return Attrs{"report": routeCtx.Params.Get("id")}, nil
+		},
+	})
+
+	stack := r.resolveRouteStack("/dashboard/reports/7")
+	if !stack.found || len(stack.routes) != 2 {
+		t.Fatal("expected nested route stack for hydration reuse test")
+	}
+	r.loaderState.entries[buildLoaderKey(stack.routes[0].id, stack.routes[0].path, "")] = &loaderEntry{
+		data: Attrs{"section": "dashboard"},
+	}
+	r.loaderState.entries[buildLoaderKey(stack.routes[1].id, stack.routes[1].path, "")] = &loaderEntry{
+		data: Attrs{"report": "7"},
+	}
+
+	r.HydrateMount("#app")
+	if layoutLoads != 0 || leafLoads != 0 {
+		t.Fatalf("expected HydrateMount not to rerun cached loaders, got layout=%d leaf=%d", layoutLoads, leafLoads)
+	}
+
+	elem := r.Current()
+	if elem == nil {
+		t.Fatal("expected nested hydrated route element")
+	}
+	if got := collectElementText(elem); got != "layout:dashboard|report:7" {
+		t.Fatalf("expected hydrated nested route output layout:dashboard|report:7, got %q", got)
+	}
+	if layoutLoads != 0 || leafLoads != 0 {
+		t.Fatalf("expected cached loader reuse during first hydrated route read, got layout=%d leaf=%d", layoutLoads, leafLoads)
 	}
 }
 
@@ -1406,5 +1500,19 @@ func TestNavigateFunctions(t *testing.T) {
 	path := GetCurrentPath()
 	if path == "" {
 		t.Error("Navigation functions failed")
+	}
+}
+
+func TestPreserveReturnToNormalizesInternalTarget(t *testing.T) {
+	values := url.Values{"tab": {"security"}, "page": {"2"}}
+	if got := PreserveReturnTo("settings", values); got != "/settings?page=2&tab=security" {
+		t.Fatalf("expected normalized internal return target, got %q", got)
+	}
+}
+
+func TestReadReturnToRejectsExternalTargets(t *testing.T) {
+	values := url.Values{ReturnToParam: {"https://evil.example/phish"}}
+	if got := ReadReturnTo(values, "/signin"); got != "/signin" {
+		t.Fatalf("expected fallback for external return target, got %q", got)
 	}
 }

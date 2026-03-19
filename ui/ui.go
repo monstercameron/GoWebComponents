@@ -271,6 +271,12 @@ func Render(root Node, selector string) {
 	runtime.GetGlobalRuntime().RenderTo(selector, root)
 }
 
+// RenderInto mounts the UI tree into an explicit DOM node.
+func RenderInto(root Node, target interface{}) error {
+	ensureInitialized()
+	return runtime.GetGlobalRuntime().RenderInto(target, root)
+}
+
 // Hydrate is the public client-resume entrypoint for SSR hydration.
 //
 // It restores the optional bootstrap payload, reuses matching server-rendered
@@ -313,7 +319,53 @@ func Hydrate(root Node, selector string, options ...HydrationOptions) (SSRBootst
 			return SSRBootstrap{}, err
 		}
 	}
+	rt.SetNextHydrationStrict(resolved.Strict)
 	rt.HydrateTo(selector, root)
+	return payload, nil
+}
+
+// HydrateInto resumes a UI tree into an explicit DOM node.
+func HydrateInto(root Node, target interface{}, options ...HydrationOptions) (SSRBootstrap, error) {
+	resolved := resolveHydrationOptions(options)
+	payload := resolved.Bootstrap
+	switch {
+	case resolved.ScriptID != "":
+		parsed, err := ReadBootstrapScript(resolved.ScriptID)
+		if err != nil {
+			return SSRBootstrap{}, err
+		}
+		payload = parsed
+	case resolved.ReferenceScriptID != "":
+		ref, err := ReadBootstrapReferenceScript(resolved.ReferenceScriptID)
+		if err != nil {
+			return SSRBootstrap{}, err
+		}
+		parsed, err := ReadBootstrapReference(ref)
+		if err != nil {
+			return SSRBootstrap{}, err
+		}
+		payload = parsed
+	case resolved.BootstrapRef.URL != "":
+		parsed, err := ReadBootstrapReference(resolved.BootstrapRef)
+		if err != nil {
+			return SSRBootstrap{}, err
+		}
+		payload = parsed
+	}
+	ensureInitialized()
+	rt := runtime.GetGlobalRuntime()
+	if payload.IDSeed > 0 {
+		rt.SetIDSeed(payload.IDSeed)
+	}
+	if len(payload.Atoms) > 0 {
+		if err := rt.RestoreAtomSnapshot(payload.Atoms); err != nil {
+			return SSRBootstrap{}, err
+		}
+	}
+	rt.SetNextHydrationStrict(resolved.Strict)
+	if err := rt.HydrateInto(target, root); err != nil {
+		return SSRBootstrap{}, err
+	}
 	return payload, nil
 }
 

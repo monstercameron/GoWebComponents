@@ -58,6 +58,9 @@ func TestRenderToStringErrorBoundaryFallback(t *testing.T) {
 }
 
 func TestErrorBoundaryRecoversRenderPanic(t *testing.T) {
+	ClearDiagnostics()
+	defer ClearDiagnostics()
+
 	adapter := newTestDOMAdapter()
 	scheduler := newTestScheduler()
 	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
@@ -80,6 +83,28 @@ func TestErrorBoundaryRecoversRenderPanic(t *testing.T) {
 	}
 	if got := textFromNode(root.children[0]); got != "render fallback: render boom" {
 		t.Fatalf("unexpected render fallback text: %q", got)
+	}
+
+	diagnostics := GetDiagnostics()
+	if len(diagnostics) == 0 {
+		t.Fatal("expected recovered render panic to produce a diagnostic")
+	}
+	last := diagnostics[len(diagnostics)-1]
+	if !strings.Contains(last.Message, "error boundary caught render failure") {
+		t.Fatalf("expected render recovery diagnostic, got %+v", last)
+	}
+	if last.Path == "" || len(last.ComponentStack) == 0 {
+		t.Fatalf("expected boundary recovery diagnostic to include path and stack context, got %+v", last)
+	}
+	foundBoundary := false
+	for _, entry := range last.ComponentStack {
+		if entry == "ErrorBoundary" {
+			foundBoundary = true
+			break
+		}
+	}
+	if !foundBoundary {
+		t.Fatalf("expected component stack to include ErrorBoundary, got %+v", last.ComponentStack)
 	}
 }
 

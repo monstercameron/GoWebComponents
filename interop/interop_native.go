@@ -50,6 +50,10 @@ func DocumentEvents() (EventTarget, error) {
 	return EventTarget{}, unavailable("EventTarget", "document")
 }
 
+func CurrentDocument() (Document, error) {
+	return Document{}, unavailable("Document", "document")
+}
+
 func MatchMedia(query string) (MediaQueryList, error) {
 	return MediaQueryList{}, unavailable("MatchMedia", query)
 }
@@ -59,4 +63,23 @@ func ImportModule(ctx context.Context, specifier string) (Module, error) {
 		ctx = context.Background()
 	}
 	return Module{}, unavailable("ImportModule", specifier)
+}
+
+func NewWorker(ctx context.Context, options WorkerOptions) (Worker, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return Worker{}, unavailable("NewWorker", options.URL)
+}
+
+func OpenCrossTabChannel(options CrossTabChannelOptions) (CrossTabChannel, error) {
+	return CrossTabChannel{}, unavailable("OpenCrossTabChannel", options.Name)
+}
+
+func OpenSecondaryWindowChannel(options WindowChannelOptions) (WindowChannel, error) {
+	return WindowChannel{}, unavailable("OpenSecondaryWindowChannel", options.Name)
+}
+
+func WindowOpenerChannel(options WindowChannelOptions) (WindowChannel, error) {
+	return WindowChannel{}, unavailable("WindowOpenerChannel", options.Name)
 }

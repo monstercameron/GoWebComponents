@@ -148,3 +148,48 @@ func BenchmarkProcessUIQueueBatch64(b *testing.B) {
 		ProcessUIQueue()
 	}
 }
+
+func BenchmarkTransitionListRefresh250(b *testing.B) {
+	adapter := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	container := adapter.CreateElement("div")
+
+	var refresh func()
+	component := func() *Element {
+		items, setItems := GoUseState(rt, []string{"seed"})
+		refresh = func() {
+			rt.StartTransition(func() {
+				next := make([]string, 0, 250)
+				for i := 0; i < 250; i++ {
+					next = append(next, "item")
+				}
+				setItems(next)
+			})
+		}
+
+		children := make([]interface{}, 0, len(items()))
+		for index, item := range items() {
+			children = append(children, CreateElement("li", map[string]interface{}{"key": index}, item))
+		}
+		return CreateElement("ul", nil, children...)
+	}
+
+	rt.Render(CreateElement(component, nil), container)
+	for len(scheduler.timeouts) > 0 {
+		callback := scheduler.timeouts[0]
+		scheduler.timeouts = scheduler.timeouts[1:]
+		callback()
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		refresh()
+		for len(scheduler.timeouts) > 0 {
+			callback := scheduler.timeouts[0]
+			scheduler.timeouts = scheduler.timeouts[1:]
+			callback()
+		}
+	}
+}

@@ -38,6 +38,7 @@ Checks:
 Useful references:
 
 - [WORKFLOWS.md](WORKFLOWS.md#ship-a-production-wasm-build)
+- [BROWSER_SUPPORT.md](BROWSER_SUPPORT.md)
 - [README.md](../README.md)
 
 ## Broken Example Serving
@@ -120,6 +121,7 @@ Checks:
 Useful references:
 
 - [WORKFLOWS.md](WORKFLOWS.md#test-a-component-or-app-flow)
+- [BROWSER_SUPPORT.md](BROWSER_SUPPORT.md)
 - [MIGRATIONS.md](MIGRATIONS.md)
 
 ## Related Docs

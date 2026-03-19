@@ -223,6 +223,9 @@ func shouldSkipSSRProp(key string, value interface{}) bool {
 	if key == "children" || key == "key" || value == nil {
 		return true
 	}
+	if strings.HasPrefix(key, "__gwc_prop__:") {
+		return true
+	}
 	if strings.HasPrefix(strings.ToLower(key), "on") {
 		return true
 	}

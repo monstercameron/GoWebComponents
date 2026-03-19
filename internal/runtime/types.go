@@ -40,6 +40,7 @@ type Fiber struct {
 	contextValues  map[int64]interface{}
 	hydration      *hydrationBoundary
 	childHydration *hydrationBoundary
+	hydrated       bool
 
 	// Interfaces and Strings (16 bytes each)
 	typeOf      interface{}

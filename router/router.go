@@ -27,6 +27,8 @@ const (
 	routeLoadingText   = "Loading route..."
 	navigationBlocked  = "Navigation blocked"
 	defaultRoutePrefix = "default:"
+	ReturnToParam      = "return_to"
+	maxReturnToLength  = 2048
 )
 
 // Component is a type alias for component functions used in routing.
@@ -483,6 +485,11 @@ func (r *Router) Navigate(path string) {
 	if !ok {
 		return
 	}
+	runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "navigation started", "", map[string]string{
+		"target": normalized,
+		"mode":   "push",
+		"kind":   r.routerType,
+	})
 	if r.routerType == routerTypeHistory {
 		// For history router, use pushState
 		history := getHistoryValue()
@@ -506,6 +513,11 @@ func (r *Router) NavigateReplace(path string) {
 	if !ok {
 		return
 	}
+	runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "navigation started", "", map[string]string{
+		"target": normalized,
+		"mode":   "replace",
+		"kind":   r.routerType,
+	})
 	if r.routerType == routerTypeHistory {
 		// For history router, use replaceState
 		history := getHistoryValue()
@@ -1103,6 +1115,10 @@ func (r *Router) applyBeforeEnterGuard(path string, option Options, params map[s
 			runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "ignoring route before-enter redirect loop for "+normalized)
 			return nil
 		}
+		runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "before-enter redirected navigation", "", map[string]string{
+			"from": path,
+			"to":   normalized,
+		})
 		r.replaceLocation(normalized)
 		return r.Current()
 	}
@@ -1115,6 +1131,10 @@ func (r *Router) applyBeforeEnterGuard(path string, option Options, params map[s
 	if message == "" {
 		message = navigationBlocked
 	}
+	runtime.ReportLogWithFields("router", runtime.LogWarn, runtime.DiagnosticRecovered, "before-enter blocked navigation", "", map[string]string{
+		"path":   path,
+		"reason": message,
+	})
 	return runtime.Div(nil, runtime.Text(message))
 }
 
@@ -1131,6 +1151,10 @@ func (r *Router) applyRouteOptions(path string, option Options, query url.Values
 		return nil
 	}
 
+	runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "route redirect applied", "", map[string]string{
+		"from": currentTarget,
+		"to":   redirectTarget,
+	})
 	r.replaceLocation(redirectTarget)
 	return r.Current()
 }
@@ -1363,10 +1387,18 @@ func (r *Router) evaluateNavigation(target string) (string, bool) {
 				result := currentRoute.option.BeforeLeave(r.routeContext(currentRoute.path, currentRoute.params, currentQuery), nextCtx)
 				if redirect := strings.TrimSpace(result.Redirect); redirect != "" {
 					nextTarget = normalizeNavigationTarget(redirect)
+					runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "before-leave redirected navigation", "", map[string]string{
+						"from": currentRoute.path,
+						"to":   nextTarget,
+					})
 					redirected = true
 					break
 				}
 				if result.Blocked {
+					runtime.ReportLogWithFields("router", runtime.LogWarn, runtime.DiagnosticRecovered, "before-leave blocked navigation", "", map[string]string{
+						"from": currentRoute.path,
+						"to":   nextPath,
+					})
 					return "", false
 				}
 			}
@@ -1383,10 +1415,17 @@ func (r *Router) evaluateNavigation(target string) (string, bool) {
 				result := nextRoute.option.BeforeEnter(r.routeContext(nextRoute.path, nextRoute.params, nextQuery))
 				if redirect := strings.TrimSpace(result.Redirect); redirect != "" {
 					nextTarget = normalizeNavigationTarget(redirect)
+					runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "before-enter redirected navigation", "", map[string]string{
+						"from": nextPath,
+						"to":   nextTarget,
+					})
 					redirected = true
 					break
 				}
 				if result.Blocked {
+					runtime.ReportLogWithFields("router", runtime.LogWarn, runtime.DiagnosticRecovered, "before-enter blocked navigation", "", map[string]string{
+						"path": nextPath,
+					})
 					return "", false
 				}
 			}
@@ -1414,6 +1453,43 @@ func parseNavigationTarget(target string) (string, url.Values) {
 		}
 	}
 	return path, query
+}
+
+// PreserveReturnTo normalizes an internal path plus query values into a bounded
+// return-target payload suitable for auth or re-auth redirects.
+func PreserveReturnTo(path string, query url.Values) string {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return rootRoutePath
+	}
+	if parsed, err := url.Parse(trimmed); err == nil {
+		if parsed.IsAbs() || parsed.Host != "" {
+			return rootRoutePath
+		}
+	}
+	if strings.HasPrefix(trimmed, "//") {
+		return rootRoutePath
+	}
+	target := buildPathWithQuery(trimmed, copyQueryValues(query))
+	if strings.TrimSpace(target) == "" || len(target) > maxReturnToLength {
+		return rootRoutePath
+	}
+	return target
+}
+
+// ReadReturnTo reads an internal return-target query value and falls back when
+// the value is empty, oversized, or external.
+func ReadReturnTo(query url.Values, fallback string) string {
+	fallbackTarget := normalizeNavigationTarget(fallback)
+	raw := strings.TrimSpace(copyQueryValues(query).Get(ReturnToParam))
+	if raw == "" || len(raw) > maxReturnToLength {
+		return fallbackTarget
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.IsAbs() || parsed.Host != "" || strings.HasPrefix(raw, "//") {
+		return fallbackTarget
+	}
+	return normalizeNavigationTarget(raw)
 }
 
 // AllowNavigation permits the pending navigation.
@@ -1488,6 +1564,11 @@ func (r *Router) ensureLoaderResult(key string, loader LoaderFunc, routeCtx Rout
 	r.loaderState.entries[key] = entry
 	r.loaderState.mu.Unlock()
 
+	runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "route loader started", "", map[string]string{
+		"key":  key,
+		"path": routeCtx.Path,
+	})
+
 	go func() {
 		data, err := loader(ctx, routeCtx)
 
@@ -1501,6 +1582,18 @@ func (r *Router) ensureLoaderResult(key string, loader LoaderFunc, routeCtx Rout
 		current.data = copyAttrs(data)
 		current.err = err
 		current.cancel = nil
+		if err != nil {
+			runtime.ReportLogWithFields("router", runtime.LogError, runtime.DiagnosticCorrectness, "route loader failed", "", map[string]string{
+				"key":   key,
+				"path":  routeCtx.Path,
+				"error": err.Error(),
+			})
+		} else {
+			runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "route loader resolved", "", map[string]string{
+				"key":  key,
+				"path": routeCtx.Path,
+			})
+		}
 
 		go func() {
 			doc := js.Global().Get("document")

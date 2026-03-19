@@ -20,6 +20,13 @@ func (a *queryTestDOMAdapter) QuerySelector(selector string) interface{} {
 	return a.selectorResults[selector]
 }
 
+func (a *queryTestDOMAdapter) ResolveNode(value interface{}) DOMNode {
+	if node, ok := value.(DOMNode); ok {
+		return node
+	}
+	return nil
+}
+
 func resetGlobalRuntimeForTest() {
 	globalRuntime = nil
 }
@@ -113,4 +120,46 @@ func TestHydrateTo_PanicsWhenSelectorMissing(t *testing.T) {
 	}()
 
 	rt.HydrateTo("#missing", &Element{Type: "div", Props: map[string]interface{}{}})
+}
+
+func TestRenderInto_UsesResolvedNodeAndSchedulesRender(t *testing.T) {
+	adapter := newQueryTestDOMAdapter()
+	scheduler := newTestScheduler()
+	container := adapter.CreateElement("section")
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	element := &Element{Type: "div", Props: map[string]interface{}{"id": "widget"}}
+
+	if err := rt.RenderInto(container, element); err != nil {
+		t.Fatalf("expected RenderInto to succeed, got %v", err)
+	}
+	if rt.wipRoot == nil {
+		t.Fatal("expected RenderInto to create wip root")
+	}
+	if rt.wipRoot.dom != container {
+		t.Fatal("expected RenderInto to use resolved container")
+	}
+	if len(scheduler.timeouts) != 1 {
+		t.Fatalf("expected RenderInto to schedule one timeout, got %d", len(scheduler.timeouts))
+	}
+}
+
+func TestHydrateInto_UsesResolvedNodeAndSchedulesHydration(t *testing.T) {
+	adapter := newQueryTestDOMAdapter()
+	scheduler := newTestScheduler()
+	container := adapter.CreateElement("section")
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	element := &Element{Type: "div", Props: map[string]interface{}{"id": "widget"}}
+
+	if err := rt.HydrateInto(container, element); err != nil {
+		t.Fatalf("expected HydrateInto to succeed, got %v", err)
+	}
+	if rt.wipRoot == nil {
+		t.Fatal("expected HydrateInto to create wip root")
+	}
+	if rt.wipRoot.dom != container {
+		t.Fatal("expected HydrateInto to use resolved container")
+	}
+	if len(scheduler.timeouts) != 1 {
+		t.Fatalf("expected HydrateInto to schedule one timeout, got %d", len(scheduler.timeouts))
+	}
 }

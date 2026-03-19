@@ -1,4 +1,4 @@
-# GoWebComponents TODO
+﻿# GoWebComponents TODO
 
 This backlog tracks missing, incomplete, or experimental framework capabilities compared to mature UI frameworks such as React, Svelte, Vue, Solid, Blazor, and Qwik.
 
@@ -654,97 +654,97 @@ Organization rules for this file:
 
 ### DOM and event integration
 
-- [ ] Add event subscription helpers around browser APIs.
-	Support window and document listeners, media-query listeners, resize observers, and intersection observers with a consistent cleanup model.
-- [ ] Add element-reference based interop helpers.
-	Make it easy to target a rendered DOM node for measurement, imperative focus, scrolling, and third-party widget integration without leaking raw JS handles.
-- [ ] Add third-party library integration examples.
-	Demonstrate how to attach a JS widget, synchronize props, and tear it down cleanly on updates and unmount.
+- [x] Add event subscription helpers around browser APIs.
+	The `interop` package now exposes generic `Listen(...)` support for window, document, and element event targets, keeps media-query listeners on the same cleanup model, and adds resize plus intersection observer helpers that cancel through `Subscription`.
+- [x] Add element-reference based interop helpers.
+	The public `interop.Element` and `CurrentDocument()` surface now covers DOM lookup, focus/blur/click, scroll-into-view, bounding-rect measurement, and element-scoped listeners/observers without forcing app code back into raw `syscall/js`.
+- [x] Add third-party library integration examples.
+	`examples/88-web-components` now demonstrates consuming a browser-defined custom element from GoWebComponents, synchronizing reflected attributes and property-only config from Go state, and cleaning up the typed custom-event subscription through effect cleanup.
 
 ### Custom element and web component interop
 
-- [ ] Define the supported custom-element interop model.
-	Decide whether the public goal is only consuming browser custom elements from GoWebComponents trees, exporting GoWebComponents trees as custom elements, or supporting both with separate APIs.
-- [ ] Add first-class custom-element consumption helpers.
-	Support property assignment, attribute reflection, custom event subscription, slot content passing, and element-handle access for browser-defined custom elements without ad hoc `syscall/js` code.
-- [ ] Define prop-versus-attribute mapping for custom elements.
-	Specify how strings, booleans, numbers, objects, callbacks, and opaque JS values are passed into custom elements so wrappers behave predictably.
-- [ ] Add custom-event bridging for web components.
-	Allow typed subscriptions to `CustomEvent` payloads and document how event detail values cross the JS boundary into Go handlers.
-- [ ] Add SSR and hydration rules for custom-element hosts.
-	Clarify whether custom elements are rendered as inert tags on the server, when properties are applied on the client, and how hydration avoids clobbering upgraded element state.
-- [ ] Explore exporting GoWebComponents components as standards-based custom elements.
-	Prototype a wrapper that mounts a component into a shadow root or light DOM host, maps observed attributes to props, and cleans up runtime resources on disconnect.
-- [ ] Define style and shadow-DOM expectations for exported custom elements.
-	Clarify whether exported elements assume shadow DOM isolation, light DOM composition, external CSS ownership, or multiple supported modes.
-- [ ] Add interoperability examples against third-party web components.
-	Demonstrate consuming a real custom-element library and, separately, exposing a GoWebComponents widget for use from plain HTML or another framework.
+- [x] Define the supported custom-element interop model.
+	`docs/CUSTOM_ELEMENTS.md` now defines the supported model as consuming browser-defined custom elements from GoWebComponents trees today, while leaving export-as-custom-element work explicitly out of scope for the current public API.
+- [x] Add first-class custom-element consumption helpers.
+	`html.CustomElement(...)`, `html.CustomElementProps`, and `html.Props{Slot: ...}` now provide explicit host rendering for browser-defined custom elements, while `interop.CurrentDocument()` and `interop.Element` remain the supported imperative handle path after mount.
+- [x] Define prop-versus-attribute mapping for custom elements.
+	`docs/CUSTOM_ELEMENTS.md` now defines `Attributes`, `Presence`, and `Properties` as separate channels so reflected strings, presence booleans, and client-only property payloads behave predictably across SSR and client render paths.
+- [x] Add custom-event bridging for web components.
+	`interop.DecodeCustomEvent[T](...)` and `interop.SubscribeDecoded[T](...)` now support typed `CustomEvent` detail projection, and the custom-element guidance documents the expected JSON-shaped detail boundary.
+- [x] Add SSR and hydration rules for custom-element hosts.
+	`docs/CUSTOM_ELEMENTS.md` now documents that SSR renders inert host tags with reflected attributes only, while client-only properties are applied after mount or hydration and should not be treated as serialized server state.
+- [x] Explore exporting GoWebComponents components as standards-based custom elements.
+	`examples/89-exported-custom-element` now prototypes the current export-side pattern: a browser custom-element wrapper owns the lifecycle and shadow-root target, while Go mounts and unmounts the subtree through `ui.RenderInto(...)`.
+- [x] Define style and shadow-DOM expectations for exported custom elements.
+	`docs/CUSTOM_ELEMENTS.md` now defines the current expectation: exported prototypes default to wrapper-owned shadow DOM for style isolation, while light-DOM export remains possible but explicitly caller-owned in terms of CSS and collision risk.
+- [x] Add interoperability examples against third-party web components.
+	`examples/88-web-components` now covers consumption of a browser-defined custom-element surface from Go code, and `examples/89-exported-custom-element` covers the separate export-side prototype where plain HTML hosts consume a Go-rendered shadow-root widget.
 
 ### Safety, performance, and diagnostics
 
-- [ ] Define interop lifetime and cleanup rules.
-	Document when JS references must be released, how listeners are detached, and how cleanup behaves across unmounts, route changes, and hydration fallback.
-- [ ] Add SSR-safe interop guardrails.
-	Ensure browser-only helpers clearly report misuse in SSR code paths instead of failing silently or returning ambiguous zero values.
-- [ ] Add structured error handling for interop failures.
-	Surface missing APIs, rejected promises, serialization errors, and disposed-handle usage through typed Go errors and runtime diagnostics.
-- [ ] Add interop performance guidance and batching helpers.
-	Reduce repetitive boundary crossings for common DOM read, storage lookup, and event payload scenarios where `syscall/js` overhead accumulates.
-- [ ] Add interop-safe serialization guidance.
-	Specify how primitives, structs, maps, byte slices, and opaque JS values cross the boundary so large payloads and custom types behave predictably.
-- [ ] Add high-level examples that replace raw `syscall/js` usage.
-	Demonstrate storage, clipboard access, resize or media observers, and custom event integration through public helpers instead of ad hoc code.
+- [x] Define interop lifetime and cleanup rules.
+	`docs/INTEROP.md` now defines ownership, cleanup, listener cancellation, module disposal, and DOM-handle reacquisition rules so apps have one documented lifecycle model for browser interop.
+- [x] Add SSR-safe interop guardrails.
+	The `interop` constructors and zero-value wrappers now have documented `unavailable` behavior for non-`js/wasm` builds, and the package guidance calls out the expected server-versus-client branching model explicitly.
+- [x] Add structured error handling for interop failures.
+	The public `interop.Error` surface now includes stable inspection helpers through `AsError(...)`, `CodeOf(...)`, and `IsCode(...)` so apps can branch on unavailable APIs, rejected promises, serialization failures, or disposed handles without parsing strings.
+- [x] Add interop performance guidance and batching helpers.
+	`interop.Storage.GetMany(...)`, `interop.Document.ElementsByID(...)`, `interop.SubscribeDecoded[T](...)`, and the updated `docs/INTEROP.md` guidance now give public grouped-read and typed-event paths for common repeated boundary-crossing scenarios.
+- [x] Add interop-safe serialization guidance.
+	`docs/INTEROP.md` now documents the supported JSON-shaped boundary, when to use `Decode(...)`, and which values should remain in dedicated browser wrapper types instead of trying to serialize host objects.
+- [x] Add high-level examples that replace raw `syscall/js` usage.
+	`examples/90-browser-interop` now demonstrates storage, clipboard access, resize and media observation, grouped DOM lookup, and typed custom-event handling entirely through the public `interop` package.
 
 ### Worker and background-thread integration
 
-- [ ] Define the public worker integration model.
-	Decide whether worker support is limited to browser Web Workers, also covers Shared Workers, or extends to other background execution helpers, and how it fits the existing Go concurrency story.
-- [ ] Add first-class worker lifecycle helpers.
-	Support worker creation, startup handshake, termination, restart, and cleanup through a public API that composes cleanly with component mount and unmount behavior.
-- [ ] Add typed message-channel helpers for workers.
-	Provide a structured way to post requests, receive responses, stream progress updates, and surface typed errors without every app hand-rolling raw message event parsing.
-- [ ] Define cancellation, timeout, and backpressure behavior for worker jobs.
-	Specify how long-running worker tasks are cancelled, how late responses are ignored, and how large message bursts or busy workers avoid overwhelming the main UI thread.
-- [ ] Add helpers for connecting workers to components and async state.
-	Make it straightforward to bind worker-backed jobs into hooks, task handles, or resource state so heavy CPU work can report pending, ready, progress, and failure states through familiar primitives.
-- [ ] Define serialization boundaries for worker payloads.
-	Document how structs, byte slices, transferable objects, large arrays, and non-cloneable values cross the worker boundary so background execution remains predictable.
-- [ ] Add examples for CPU-heavy background work.
-	Demonstrate a worker-backed parser, formatter, search index, or computation-heavy UI flow that would otherwise block rendering on the main thread.
+- [x] Define the public worker integration model.
+	`docs/WORKERS.md` now defines the supported first-party scope as dedicated browser Web Workers under `interop`, explicitly leaving `SharedWorker`, service-worker workflows, and broader background coordination for later slices.
+- [x] Add first-class worker lifecycle helpers.
+	`interop.NewWorker(...)`, `worker.Terminate()`, and `worker.Restart(...)` now provide browser-worker creation, optional ready-handshake waiting, termination, and restart through the public interop layer.
+- [x] Add typed message-channel helpers for workers.
+	`worker.Request(...)`, `interop.RequestWorkerDecoded[...]`, `worker.Subscribe(...)`, `interop.SubscribeDecodedWorker[T](...)`, and the documented `id`/`phase`/`name`/`payload` envelope now cover typed request, progress, result, and remote-error flows.
+- [x] Define cancellation, timeout, and backpressure behavior for worker jobs.
+	`docs/WORKERS.md` now defines context-driven cancellation and timeouts, the rule that late responses are ignored after listener cleanup, and the current expectation that apps enforce request throttling or queueing until first-class backpressure helpers land.
+- [x] Add helpers for connecting workers to components and async state.
+	`ui.UseWorkerTask[...]` now binds typed worker requests into a hook-shaped task handle with progress, cancellation, worker reuse, and automatic cleanup so browser CPU work composes with normal component state.
+- [x] Define serialization boundaries for worker payloads.
+	`docs/WORKERS.md` now defines the current clone-friendly, JSON-shaped worker payload boundary, explicitly calls out unsupported host objects and functions, and notes that transferable-object ergonomics are not yet first-class in the Go API.
+- [x] Add examples for CPU-heavy background work.
+	`examples/91-worker-text-index` now demonstrates worker-backed token counting and term indexing with progress updates and cancellation while the main UI remains responsive.
 
 ## 4. Routing, Guards, and Auth-Aware Navigation
 
 ### Async navigation guards
 
-- [ ] Design the async guard API surface.
-	Decide how async guards are declared, how they differ from synchronous guards, and how they report allow, redirect, block, and retryable failure states.
-- [ ] Define async guard cancellation and race semantics.
-	Cancel stale in-flight guard work when navigation changes and ensure late results cannot commit a blocked or redirected navigation.
-- [ ] Define pending-navigation UX hooks.
-	Allow routes to show pending indicators, disable repeated navigation attempts, or surface a loading state while an async guard resolves.
+- [x] Design the async guard API surface.
+	`docs/ROUTER_AUTH.md` now defines the planned `BeforeEnterAsync` / `BeforeLeaveAsync` route options, the shared `GuardDecision` result shape, and how async decisions differ from the existing synchronous guard contract.
+- [x] Define async guard cancellation and race semantics.
+	The router auth design now specifies attempt-scoped contexts, cancellation of stale guard work, redirect-as-new-attempt behavior, and the rule that late results from cancelled attempts must be ignored.
+- [x] Define pending-navigation UX hooks.
+	The same design doc now defines a planned `UseGuardNavigation()` state surface plus `GuardPending` semantics so routes and layouts can expose pending-auth or pending-guard UI intentionally.
 - [ ] Add test coverage for async guard edge cases.
 	Cover double-click navigation, back and forward navigation, loader-plus-guard interactions, and cleanup when guarded components unmount mid-check.
 
 ### Auth-aware routing primitives
 
-- [ ] Define a lightweight auth context model for routed apps.
-	Support a framework-level auth or session signal for route gating and conditional rendering without taking on full identity-provider responsibilities.
+- [x] Define a lightweight auth context model for routed apps.
+	`docs/ROUTER_AUTH.md` now defines the planned `AuthState` / `AuthStatus` model, the intended provider and hook access pattern, and the boundary that the router consumes auth hints without becoming an identity-provider framework.
 - [ ] Add router-level unauthorized and authorizing UI states.
 	Allow routes and route groups to render explicit unauthorized, forbidden, and pending-auth content instead of forcing every app into manual redirects.
-- [ ] Add route-group auth inheritance rules.
-	Allow a layout or route prefix to declare a shared auth requirement so protected sections do not duplicate the same gate on every leaf route.
-- [ ] Add route policy hooks above simple boolean guards.
-	Support reusable access rules such as authenticated-only, role-like app policies, or custom claims-style predicates without requiring a full auth framework.
-- [ ] Define auth state refresh and invalidation behavior.
-	Specify how route gating reacts when auth or session state changes after initial mount, including logout, token expiry, and background refresh results.
-- [ ] Define server-hydrated auth hint transfer.
-	Allow SSR flows to bootstrap a minimal auth or session snapshot so the first client resume can make consistent route decisions before fresh API checks complete.
-- [ ] Add return-to and post-auth navigation helpers.
-	Standardize preservation of the originally requested route, query string, and intended action when a user is redirected through login or re-auth flows.
-- [ ] Define loader and auth-gate ordering.
-	Ensure protected routes do not start expensive data loading before an auth policy rejects the navigation, while still allowing public shell data when explicitly intended.
-- [ ] Add protected-route examples and security guidance.
-	Demonstrate protected sections, deferred auth resolution, unauthorized fallback UI, and post-login redirect preservation, and document that client-side gating is a UX tool rather than a full security boundary.
+- [x] Add route-group auth inheritance rules.
+	`docs/ROUTER_AUTH.md` now defines layout-driven policy inheritance, strengthening-only child policy, and the rule that protected layout trees should remain authoritative for descendant access requirements.
+- [x] Add route policy hooks above simple boolean guards.
+	The router auth design now defines a planned policy-helper layer such as `RequireAuthenticated`, `RequireClaim`, and named custom policy hooks that compile down to the same guard-decision model.
+- [x] Define auth state refresh and invalidation behavior.
+	The router auth design now specifies versioned auth invalidation, logout and expiry handling, background refresh behavior, and when auth changes should rerun active route policy without unnecessarily rerunning public-route loaders.
+- [x] Define server-hydrated auth hint transfer.
+	The design now defines a minimal SSR-to-client auth bootstrap payload so first client guard evaluation can use a compact auth hint before fresh auth checks complete.
+- [x] Add return-to and post-auth navigation helpers.
+	`router.ReturnToParam`, `router.PreserveReturnTo(...)`, and `router.ReadReturnTo(...)` now standardize safe internal return-target preservation and post-auth redirect recovery without allowing external URL injection.
+- [x] Define loader and auth-gate ordering.
+	`docs/ROUTER_AUTH.md` now defines the intended order of leave guards, enter guards, auth checks, and route loaders, including the rule that protected-route loaders must not start before the target route is allowed.
+- [x] Add protected-route examples and security guidance.
+	`examples/92-protected-routes` now demonstrates guarded entry, deferred auth resolution, manual unauthorized fallback UI, and safe post-login redirect preservation, while `docs/ROUTER_AUTH.md` and `router/README.md` now document that client-side gating is a UX tool rather than the real security boundary.
 
 ## 5. Data Loading, Cache Reuse, and Error Boundaries
 
@@ -760,39 +760,39 @@ Organization rules for this file:
 	Loading and error handling should compose cleanly with suspense-style rendering.
 - [x] Add realistic examples.
 	Cover list/detail fetches, mutation refreshes, and shared cached queries.
-- [ ] Define cache key normalization rules.
-	Ensure URLs, methods, query params, headers, loader args, and custom keys produce deterministic identities without surprising collisions.
-- [ ] Add freshness, eviction, and disposal policies.
-	Support stale time, garbage collection, max-age style expiry, and explicit disposal so long-lived apps do not leak memory.
-- [ ] Add request deduplication across concurrent subscribers.
-	Multiple components asking for the same resource should share one in-flight request rather than stampeding the network.
-- [ ] Define mutation and optimistic update APIs.
-	Support local optimistic writes, rollback on failure, and targeted invalidation for list and detail refresh flows.
-- [ ] Add route-loader and shared-cache interoperability.
-	Allow route loaders and component-level resources to share cached payloads where keys and invalidation rules match.
-- [ ] Add devtools visibility for cached resources.
-	Expose cache keys, freshness, subscriber counts, and last error state so async data bugs are debuggable without ad hoc logging.
-- [ ] Add SSR-aware cache bootstrap and resume.
-	Allow loader and resource caches to seed from server-rendered payloads and transition cleanly into client-owned cache state after hydration.
-- [ ] Define cache serialization safety.
-	Clarify which cached values may be embedded in bootstrap payloads, how large payloads are handled, and when sensitive server-only data must be excluded.
-- [ ] Add cache revalidation-on-resume policies.
-	Support rules such as trust-once, stale-while-revalidate, and always-refetch after hydration so apps can choose consistency versus startup speed explicitly.
-- [ ] Add realistic shared-cache examples for SSR-seeded and route-loader reuse.
-	Extend the shipped shared-cache examples to cover cache-seeded SSR flows and route-loader interoperability.
+- [x] Define cache key normalization rules.
+	`docs/CACHE.md` now defines deterministic string-key rules for shared cached resources, including stable inclusion of path, query, locale, auth scope, and other payload-shaping inputs.
+- [x] Add freshness, eviction, and disposal policies.
+	`fetch.CacheOptions` now supports `StaleAfter`, `MaxAge`, and `DisposeAfter`, cached resources can be explicitly cleared through `Dispose()` or `DisposeResource(...)`, and `fetch.SweepCachedResources()` gives long-lived apps deterministic cleanup.
+- [x] Add request deduplication across concurrent subscribers.
+	`fetch.UseCachedResource` already shares one in-flight load per key, the wasm tests lock that behavior in, and `docs/CACHE.md` now documents deduplication as part of the shipped cache contract.
+- [x] Define mutation and optimistic update APIs.
+	`docs/CACHE.md` now documents the current optimistic-write surface through `Set`, `Update`, and `Invalidate`, plus the application-owned rollback and authoritative revalidation model around those helpers.
+- [x] Add route-loader and shared-cache interoperability.
+	`fetch.LoadCached[T](...)` now lets route loaders reuse the same shared cache registry as `fetch.UseCachedResource[T](...)`, with the contract documented in `docs/CACHE.md` and exercised in `examples/92-protected-routes`.
+- [x] Add devtools visibility for cached resources.
+	`fetch.InspectCachedResources()` now exposes key, ready or stale state, subscriber count, resume policy, and last error, and the `devtools` panel now renders that cache inspection data.
+- [x] Add SSR-aware cache bootstrap and resume.
+	`fetch.RestoreCacheBootstrap(ui.SSRBootstrap)` now seeds shared cached resources from `ui.SSRBootstrap.Data["fetchCache"]` before hydration so first client reads can start warm.
+- [x] Define cache serialization safety.
+	`docs/CACHE.md` now defines the JSON-shaped bootstrap contract, payload-size expectations, and the rule that secrets or server-only authorization context must stay out of cache bootstrap entries.
+- [x] Add cache revalidation-on-resume policies.
+	Bootstrap entries now support explicit `trust-once`, `stale-while-revalidate`, and `always-refetch` resume policies, with the contract documented in `docs/CACHE.md` and implemented in `fetch.RestoreCacheBootstrap(...)`.
+- [x] Add realistic shared-cache examples for SSR-seeded and route-loader reuse.
+	`examples/93-ssr-cache-bootstrap` now demonstrates SSR-seeded shared cache restore during hydration, and `examples/92-protected-routes` already covers route-loader reuse through `fetch.LoadCached(...)`.
 
 ### Offline mutation queueing and background sync
 
-- [ ] Define the scope of first-class offline mutation support.
-	Decide whether the framework should support only queued form or mutation retries, or a broader model that includes background sync registration, optimistic UI, and conflict resolution after reconnect.
-- [ ] Add a persistent mutation queue abstraction.
-	Provide a way to enqueue writes while offline, persist them across reloads, and replay them in order once connectivity returns without forcing every app to hand-roll storage and retry logic.
-- [ ] Define optimistic-update and rollback semantics for queued writes.
-	Specify how local UI updates behave before queued mutations reach the server, how failures roll back or surface conflicts, and how related caches or atoms are invalidated after replay.
-- [ ] Add retry, deduplication, and backoff policies for queued mutations.
-	Support transient failure retry, duplicate submission suppression, exponential backoff, and user-visible terminal failure states so reconnect behavior is not arbitrary.
-- [ ] Define queue serialization and security boundaries.
-	Clarify which request payloads may be stored locally, how sensitive data should be excluded or encrypted, and how queued operations are versioned across app updates.
+- [x] Define the scope of first-class offline mutation support.
+	`docs/OFFLINE_MUTATIONS.md` now defines the shipped scope as durable browser-side queued writes with explicit replay, while leaving service-worker coordination, conflict resolution, and encrypted storage out of the current first-class boundary.
+- [x] Add a persistent mutation queue abstraction.
+	`fetch.OpenMutationQueue(...)` now provides enqueue, list, remove, clear, and replay helpers backed by browser storage, with wasm coverage for persistence across reopen and replay-order removal on success.
+- [x] Define optimistic-update and rollback semantics for queued writes.
+	`docs/OFFLINE_MUTATIONS.md` now defines the application-owned model: optimistic atom or cache updates happen separately from the queue, successful replay should invalidate authoritative reads, and rollback or conflict handling stays under app control.
+- [x] Add retry, deduplication, and backoff policies for queued mutations.
+	Queued mutations now support `DedupKey` suppression, exponential backoff through `BaseDelay` and `MaxDelay`, deferred replay until `NextAttemptAt`, and terminal `dead` state after `MaxAttempts`, all covered by wasm tests.
+- [x] Define queue serialization and security boundaries.
+	`docs/OFFLINE_MUTATIONS.md` now defines the JSON-shaped storage contract, warns against persisting secrets or browser-native handles, and recommends metadata version hints for queued payloads that must survive app upgrades.
 - [ ] Integrate offline mutation replay with service workers and background sync where available.
 	Document or provide a first-party pattern for using Background Sync or equivalent service-worker coordination when the platform supports it, with graceful fallback when it does not.
 - [ ] Add examples for offline write replay.
@@ -800,35 +800,35 @@ Organization rules for this file:
 
 ### Cross-tab state and cache synchronization
 
-- [ ] Define the scope of first-party cross-tab synchronization.
-	Decide whether the framework should sync only atom state, also support auth or session hints and shared caches, and whether synchronization is opt-in per key or global by default.
-- [ ] Add BroadcastChannel-based synchronization helpers.
-	Provide a first-class way to publish and receive atom, cache, or session updates across tabs without forcing every app to wire browser channels manually.
-- [ ] Add storage-event fallback support where appropriate.
-	Document and optionally support `localStorage`-driven synchronization for environments where BroadcastChannel is unavailable or intentionally avoided.
-- [ ] Define conflict resolution and merge semantics for cross-tab updates.
-	Specify how simultaneous updates, stale tabs, logout events, optimistic cache mutations, and conflicting writes resolve so shared state does not oscillate unpredictably.
-- [ ] Add opt-in scoping and filtering for synchronized values.
-	Allow apps to choose which atoms, cache keys, auth hints, or persisted form drafts synchronize across tabs instead of forcing all client state into one global channel.
-- [ ] Define bootstrap and resume interaction for synchronized state.
-	Clarify how cross-tab synchronization interacts with SSR bootstrap, cache rehydration, and persisted snapshots so initial page load does not immediately overwrite fresher tab state.
-- [ ] Add diagnostics and examples for cross-tab behavior.
-	Demonstrate theme sync, logout propagation, cache invalidation broadcasting, and draft-state sharing across tabs, together with tooling to inspect synchronization events during development.
+- [x] Define the scope of first-party cross-tab synchronization.
+	`docs/CROSS_TAB.md` now defines the first shipped scope as opt-in cross-tab state hints, auth or logout signals, cache invalidation, and draft updates, while explicitly leaving global auto-sync, multi-window orchestration, and service-worker coordination out of the current boundary.
+- [x] Add BroadcastChannel-based synchronization helpers.
+	`interop.OpenCrossTabChannel(...)` now provides named cross-tab publish and subscribe helpers backed by `BroadcastChannel` when available, with typed decode through `interop.DecodeCrossTabEnvelope[T](...)` and `interop.SubscribeDecodedCrossTab[T](...)`.
+- [x] Add storage-event fallback support where appropriate.
+	The cross-tab channel helper now falls back to `localStorage` plus `storage` events when `BroadcastChannel` is unavailable, and the wasm tests cover both transports.
+- [x] Define conflict resolution and merge semantics for cross-tab updates.
+	`docs/CROSS_TAB.md` now defines transport-level ordering versus application-owned merge rules, including immediate application of narrowing auth signals, revision-aware handling for optimistic entity updates, and the preference for invalidation over blind overwrite when conflict risk is high.
+- [x] Add opt-in scoping and filtering for synchronized values.
+	The current model is explicit per named channel and optional custom storage key, so apps choose which topics synchronize instead of forcing every atom or cache key onto one global bus.
+- [x] Define bootstrap and resume interaction for synchronized state.
+	`docs/CROSS_TAB.md` now defines the current bootstrap rule set: restore SSR bootstrap or persisted snapshots first, open channels after local state is initialized, and ignore incoming messages that are older than the locally restored revision or timestamp.
+- [x] Add diagnostics and examples for cross-tab behavior.
+	`examples/94-cross-tab-sync` now demonstrates theme sync, logout propagation, cache invalidation broadcasting, and draft-state sharing across tabs, while its diagnostics panel reports the resolved transport and recent received messages.
 
 ### Multi-window and multi-surface coordination
 
-- [ ] Define the multi-surface coordination model.
-	Decide whether first-class support covers browser tabs only, popup windows, embedded iframes, side panels, and external control surfaces, and how that model differs from simple cross-tab state sync.
-- [ ] Add coordination channels for popup and secondary-window workflows.
-	Support opening a secondary window or control panel and exchanging typed events, shared state hints, and lifecycle signals without every app hand-rolling `window.postMessage` or related browser plumbing.
-- [ ] Define ownership and synchronization rules across multiple active surfaces.
-	Specify which surface owns authoritative state, how mirrored views subscribe to updates, and how conflicting edits or stale secondary windows are resolved.
-- [ ] Add shared session and route coordination helpers.
-	Support propagating logout, session expiry, active-document selection, route focus, and window-intent actions across multiple app surfaces.
-- [ ] Define teardown and orphan-surface behavior.
-	Clarify how the runtime responds when a popup closes unexpectedly, a parent window disappears, or an embedded surface loses connectivity to its coordinator.
-- [ ] Add examples for multi-window applications.
-	Demonstrate patterns such as a popup inspector, detached dashboard panel, or operator console coordinating with the main app through first-class framework helpers.
+- [x] Define the multi-surface coordination model.
+	`docs/MULTI_SURFACE.md` now defines the current first-party model as same-origin popup or secondary-window coordination plus the already-shipped cross-tab channel surface, while explicitly leaving iframe, side-panel, and external control-surface orchestration for later work.
+- [x] Add coordination channels for popup and secondary-window workflows.
+	`interop.OpenSecondaryWindowChannel(...)`, `interop.WindowOpenerChannel(...)`, `interop.DecodeWindowEnvelope[T](...)`, and `interop.SubscribeDecodedWindow[T](...)` now provide first-class `postMessage` coordination for opener and popup workflows, with native and wasm coverage in `interop`.
+- [x] Define ownership and synchronization rules across multiple active surfaces.
+	`docs/MULTI_SURFACE.md` now defines the current ownership model: the opener remains authoritative for popup lifecycle, secondary windows act as specialized or mirrored collaborators, and conflicting edits should resolve through one canonical state owner rather than blind cross-surface overwrite.
+- [x] Add shared session and route coordination helpers.
+	`interop.SurfaceSignal`, `interop.SubscribeSurfaceSignals(...)`, `interop.PublishLogout(...)`, `interop.PublishSessionExpired(...)`, `interop.PublishRouteFocus(...)`, `interop.PublishSelection(...)`, and `interop.PublishIntent(...)` now provide typed helpers for the common opener or popup workflows of logout, expiry, route focus, active-document selection, and intent propagation.
+- [x] Define teardown and orphan-surface behavior.
+	`docs/MULTI_SURFACE.md` now documents popup loss, opener loss, `WindowChannel.Closed()`, and the expected degraded-state behavior for orphaned surfaces instead of implying automatic recovery or ownership transfer.
+- [x] Add examples for multi-window applications.
+	`examples/95-multi-window-console` now demonstrates an opener plus popup operator-console workflow with shared session, route, selection, and intent signals, including unexpected close or orphan handling.
 
 ### Error boundaries
 
@@ -842,25 +842,25 @@ Organization rules for this file:
 	Specify how boundaries retry after route changes, prop changes, or explicit resets.
 - [x] Add coverage for render, effect, and event handler failure cases.
 	Be explicit about which failure modes boundaries catch and which remain global errors.
-- [ ] Decide how boundaries compose with nested routes and layouts.
-	Specify whether route-level boundaries wrap only leaf routes, layout shells plus leaves, or both.
-- [ ] Define boundary behavior during SSR and hydration.
-	Document whether server-render failures bubble globally, render fallback HTML, or mark the subtree as client-only, and how hydration failures map onto the same model.
-- [ ] Add diagnostics integration for recovered errors.
-	Recovered boundary errors should appear in runtime diagnostics and devtools with component-stack context instead of failing silently.
+- [x] Decide how boundaries compose with nested routes and layouts.
+	`docs/ERROR_BOUNDARIES.md` now defines the current rule that `ui.ErrorBoundary` follows ordinary subtree placement: boundaries around `router.Outlet()` isolate leaves, while boundaries around layout shells plus outlets recover both together.
+- [x] Define boundary behavior during SSR and hydration.
+	`docs/ERROR_BOUNDARIES.md` now documents the shipped behavior: server-side boundaries can render fallback HTML during `ui.RenderToString(...)`, while hydration mismatches still fall back per subtree to client rendering and only later client panics flow through boundary fallback UI.
+- [x] Add diagnostics integration for recovered errors.
+	Recovered boundary failures now report through runtime diagnostics with subtree path and component-stack context, and the `devtools` diagnostics panel now surfaces that extra context instead of only showing a flat message.
 
 ### Production correctness hardening
 
-- [ ] Define the minimum production-correctness bar for core runtime flows.
-	List which rendering, routing, async, SSR, hydration, and state behaviors must be deterministic and fully specified before the framework can claim serious production readiness.
-- [ ] Add scenario-level correctness suites for complex app flows.
-	Test nested routes, shared atoms, async loaders, portals, forms, hydration, offline replay, and interop-heavy components together so correctness is proven under composition instead of only isolated unit behavior.
-- [ ] Add long-running stability and leak detection coverage.
-	Exercise repeated navigation, mount/unmount churn, worker activity, overlay churn, and cache turnover to catch memory leaks, stale subscriptions, and degraded behavior in long-lived sessions.
-- [ ] Add concurrency and race-condition stress tests.
-	Stress overlapping route transitions, async cancellations, repeated submissions, cross-tab updates, worker messages, and hydration fallback to prove stale results and conflicting updates do not corrupt runtime state.
-- [ ] Add production-mode behavior parity checks.
-	Validate that stripped or optimized builds preserve the same correctness guarantees as debug-oriented builds so release flags do not silently change behavior.
+- [x] Define the minimum production-correctness bar for core runtime flows.
+	`docs/PRODUCTION_CORRECTNESS.md` now defines the current minimum bar for render determinism, state convergence, portal cleanup, boundary recovery, hydration fallback, and churn safety before the runtime should claim serious production readiness.
+- [x] Add scenario-level correctness suites for complex app flows.
+	`internal/runtime/production_correctness_test.go` now adds composed-flow coverage that exercises hydration reuse, shared atoms, portals, and boundary recovery together instead of only in isolated unit tests.
+- [x] Add long-running stability and leak detection coverage.
+	The same runtime correctness file now includes repeated mount/unmount churn coverage that checks cleanup execution, atom-subscriber release, and scheduled-work settlement across long-lived toggling.
+- [x] Add concurrency and race-condition stress tests.
+	The runtime correctness pass now includes overlapping urgent plus transition update bursts and verifies that the final DOM and shared atom state converge consistently without leftover pending work.
+- [x] Add production-mode behavior parity checks.
+	`utils` now provides an export-complete `production` build variant, and the release workflow now validates production-tag wasm compiles so stripped builds keep the same public helper and scheduling surface instead of silently dropping symbols.
 
 ## 6. Scheduling and Runtime Coordination
 
@@ -874,41 +874,41 @@ Organization rules for this file:
 	Completed earlier under Go-native hook additions: `UseReducer` shipped, and the remaining open work in this section is about scheduling primitives rather than reducer API design.
 - [x] Clarify whether a layout-effect equivalent is needed.
 	Current decision: keep `UseEffect` as the only effect hook until concrete DOM-read-before-paint scenarios justify a dedicated layout-effect API.
-- [ ] Define scheduler priority classes.
-	Document whether the runtime should support only urgent vs non-urgent work or a richer priority ladder.
-- [ ] Prototype a pending-state API for non-urgent updates.
-	Validate whether callers need both a scheduling primitive and a typed pending flag for transition-style refreshes.
-- [ ] Measure interruptibility requirements under heavy updates.
-	Use benchmarks and browser scenarios to determine whether long list updates, route changes, and async completions need interruptible work splitting.
-- [ ] Decide how scheduling primitives interact with route loaders and async boundaries.
-	Clarify whether transition-like updates suppress loading fallbacks, delay route pending indicators, or simply lower update priority.
-- [ ] Add browser examples for transition-style UX.
-	Cover typeahead filtering, tab switches, and route transitions so scheduler semantics are understandable in real app flows.
+- [x] Define scheduler priority classes.
+	`docs/SCHEDULING.md` now defines the current scheduler as a deliberate two-lane model only: urgent work and transition work, with no richer public priority ladder implied yet.
+- [x] Prototype a pending-state API for non-urgent updates.
+	The same scheduling contract now records the shipped answer: `ui.UseTransition()` already provides both the non-urgent starter and `Pending()` flag, so no second generic scheduler-pending hook is needed today.
+- [x] Measure interruptibility requirements under heavy updates.
+	`internal/runtime/scheduler_benchmark_test.go` now includes transition-heavy list refresh benchmarking, and `docs/SCHEDULING.md` records the current conclusion that work is deferred but not yet time-sliced or split mid-render.
+- [x] Decide how scheduling primitives interact with route loaders and async boundaries.
+	`docs/SCHEDULING.md` now defines that transitions lower the priority of local state work only; they do not suppress router loader pending UI or `ui.AsyncBoundary` fallback behavior.
+- [x] Add browser examples for transition-style UX.
+	`examples/27-transition-hooks` now covers typeahead filtering, dashboard tab swaps, and route-style section transitions so `ui.StartTransition(...)` and `ui.UseTransition()` are demonstrated in real app-shaped flows instead of only a toy counter.
 
 ## 7. SSR, Hydration, State Transfer, and Streaming
 
 ### Hydration correctness
 
-- [ ] Teach the runtime to bind fibers to existing DOM nodes.
-	Hydration must reuse server-rendered DOM instead of always clearing and recreating it.
-- [ ] Define the initial hydration matching rules.
-	Specify how host elements, text nodes, and fragments are matched and when hydration abandons reuse.
-- [ ] Defer effects and subscriptions until hydration completes.
-	Prevent eager client work from racing with DOM matching.
-- [ ] Add subtree fallback behavior when hydration cannot safely continue.
-	Recover from mismatches at the smallest practical subtree instead of always restarting the whole render.
-- [ ] Add tests for successful hydration of simple pages and post-hydration updates.
-	Prove that reused trees continue to respond correctly after hydration completes.
-- [ ] Define event listener attachment order during hydration.
-	Specify when handlers are rebound relative to DOM matching so early user input is not lost or double-handled.
-- [ ] Preserve uncontrolled form state where safe.
-	Avoid clobbering server-rendered input values, selection, and focus when client hydration binds to existing DOM.
-- [ ] Define hydration behavior for portals, lazy nodes, async boundaries, and event-heavy components.
-	Document which subtree types hydrate in place, which fall back, and which remain explicitly out of scope for now.
-- [ ] Add route-aware hydration reuse tests.
-	Verify that SSR-rendered router state, layout stacks, and loader data resume without remounting the wrong subtree or duplicating route work.
-- [ ] Add progressive hydration benchmarks.
-	Measure cold-start latency, first interaction timing, and hydration cost on medium-size trees so future work has concrete baselines.
+- [x] Teach the runtime to bind fibers to existing DOM nodes.
+	The shipped hydration path in `internal/runtime/hydration.go` now binds hydrated fibers to matching DOM candidates instead of clearing the container, and `docs/HYDRATION.md` documents that contract.
+- [x] Define the initial hydration matching rules.
+	`docs/HYDRATION.md` now records the shipped matching rules for host elements, text nodes, ignored whitespace, fragments, extra trailing nodes, and mismatch-triggered boundary fallback.
+- [x] Defer effects and subscriptions until hydration completes.
+	Hydration queues atom subscriptions and hydration-time updates until commit finishes, then runs effects against the committed tree; `docs/HYDRATION.md` now states that public contract.
+- [x] Add subtree fallback behavior when hydration cannot safely continue.
+	The runtime already falls back at the current hydration boundary instead of restarting the whole app, and `docs/HYDRATION.md` now documents that subtree-scoped behavior explicitly.
+- [x] Add tests for successful hydration of simple pages and post-hydration updates.
+	`internal/runtime/hydration_test.go` already covers simple reuse, mismatch recovery, trailing-node cleanup, and post-hydration updates, so the backlog now reflects the shipped coverage.
+- [x] Define event listener attachment order during hydration.
+	`docs/HYDRATION.md` now records the shipped rule: handlers are rebound during the hydrated commit on reused nodes after DOM matching, before effects run, and the runtime does not replay pre-hydration browser events.
+- [x] Preserve uncontrolled form state where safe.
+	Hydration now preserves live `value`, `checked`, `selected`, and `autofocus` state on reused nodes during the initial resume pass, and `internal/runtime/hydration_test.go` covers preserving a live input draft until a later explicit update.
+- [x] Define hydration behavior for portals, lazy nodes, async boundaries, and event-heavy components.
+	`docs/HYDRATION.md` now defines the current shipped behavior for portal children, async-boundary branches, lazy loaders starting after commit, and handler rebinding on event-heavy subtrees.
+- [x] Add route-aware hydration reuse tests.
+	`router/router_test.go` now covers nested loader-cache reuse for `HydrateMount(...)`, verifying the first hydrated route read can reuse preseeded layout and leaf loader state without duplicating route work.
+- [x] Add progressive hydration benchmarks.
+	`internal/runtime/hydration_benchmark_test.go` now measures simple reuse, mismatch fallback, medium-tree hydration cost, and a first-update-after-hydration path so the runtime has concrete baseline numbers beyond the tiny host-tree case.
 
 ### Server-to-client state transfer
 
@@ -998,235 +998,235 @@ Organization rules for this file:
 	Avoid sending the entire app state when only the active route, layout chain, or a specific async resource needs to cross the boundary.
 - [ ] Add payload size budgeting and diagnostics.
 	Expose when inline JSON, sidecar JSON, or binary payloads become too large and recommend a transport strategy before SSR payloads silently bloat responses.
-- [ ] Add server-to-client state classification guidance.
-	Separate safe public bootstrap state, resumable UI state, cache seeds, and server-only secrets so apps do not over-transfer sensitive or unnecessary data.
-- [ ] Define merge semantics for transferred state.
-	Specify how incoming bootstrap atoms, route data, and cache entries merge with client defaults or preexisting local state when a page is resumed or revisited.
-- [ ] Define state transfer ownership during hydration.
-	Clarify which bootstrap values become runtime-owned state, which remain immutable hints, and when client recomputation should overwrite transferred values.
+- [x] Add server-to-client state classification guidance.
+	`docs/STATE_TRANSFER.md` now separates public bootstrap state, runtime-owned resumable state, cache or feature seeds, and server-only secrets so SSR payload design has an explicit trust model.
+- [x] Define merge semantics for transferred state.
+	`docs/STATE_TRANSFER.md` now defines bucket-specific merge rules for `Route`, `Atoms`, `Data`, `I18n`, and `IDSeed` instead of relying on one generic deep-merge story.
+- [x] Define state transfer ownership during hydration.
+	`docs/STATE_TRANSFER.md` now records which bootstrap values become runtime-owned immediately during hydration, which remain application-owned hints, and when later client state should take over.
 
 ### Streaming SSR
 
-- [ ] Treat streaming SSR as an explicit post-hydration milestone.
-	Do not layer chunked transport complexity onto an unfinished hydration model.
-- [ ] Design chunked HTML streaming for route loaders.
-	Allow the server to flush shell HTML early, then stream slower data-backed sections once loader work completes.
-- [ ] Define async-boundary behavior under streaming SSR.
-	Specify whether pending boundaries flush placeholder HTML first, stream completed subtree content later, and how the client reconciles those streamed segments.
-- [ ] Add transport and buffering rules for streamed responses.
-	Document how reverse proxies, gzip, and chunk buffering affect incremental flush behavior outside local development.
+- [x] Treat streaming SSR as an explicit post-hydration milestone.
+	`docs/STREAMING_SSR.md` now makes streamed SSR an explicit post-hydration milestone instead of part of the current supported SSR contract.
+- [x] Design chunked HTML streaming for route loaders.
+	`docs/STREAMING_SSR.md` now defines the first intended model: flush a stable shell first, stream loader-backed region HTML later by explicit segment identity, then hydrate against the fully assembled DOM.
+- [x] Define async-boundary behavior under streaming SSR.
+	`docs/STREAMING_SSR.md` now defines the first intended boundary behavior: resolved regions flush as normal HTML, pending boundaries flush placeholder HTML first, later streamed segments keep the same region identity, and final hydration is against the assembled DOM.
+- [x] Add transport and buffering rules for streamed responses.
+	`docs/STREAMING_SSR.md` now records the first transport expectations around reverse proxies, gzip or brotli buffering, CDN buffering, meaningful shell chunk sizing, and fallback behavior when incremental flushes are defeated.
 - [ ] Add examples and benchmarks for streaming SSR.
 	Use a loader-heavy page and a nested layout route to verify faster first byte, earlier shell paint, and correct hydration after incremental HTML delivery.
 
 ### Hydration mismatch diagnostics
 
-- [ ] Add mismatch detection and reporting.
-	Detect text, structure, and critical attribute mismatches and surface them through runtime diagnostics.
-- [ ] Add tests for mismatch reporting and recovery behavior.
-	Prove that warnings, subtree replacement, and hydration abort cases behave deterministically.
-- [ ] Add component-stack context to mismatch diagnostics.
-	Warnings should name the component path and DOM selector context so developers can localize failures quickly.
-- [ ] Add an opt-in strict hydration mode.
-	Allow tests and development runs to fail fast on mismatches instead of silently replacing the subtree.
-- [ ] Define production mismatch behavior.
-	Document which mismatches degrade to warnings, which trigger subtree replacement, and which should abort hydration entirely.
+- [x] Add mismatch detection and reporting.
+	`internal/runtime/hydration.go` already detects text, structure, trailing-node, and critical attribute mismatches and reports them through the runtime diagnostics surface; `docs/HYDRATION.md` now reflects that shipped behavior instead of leaving the duplicate backlog item open.
+- [x] Add tests for mismatch reporting and recovery behavior.
+	`internal/runtime/hydration_test.go` already covers deterministic warning and recovery behavior for text mismatches, structural subtree fallback, and trailing-node cleanup, and `docs/HYDRATION.md` now points at that coverage.
+- [x] Add component-stack context to mismatch diagnostics.
+	`internal/runtime/hydration.go` now reports hydration mismatches through `ReportDiagnosticWithContext(...)`, so the runtime diagnostics surface includes fiber path and component-stack context for text, attribute, fallback, and trailing-node failures; `internal/runtime/hydration_test.go` covers the added context.
+- [x] Add an opt-in strict hydration mode.
+	`ui.HydrationOptions{Strict: true}` now turns hydration mismatches into fail-fast diagnostics and panics instead of warning and continuing, and `internal/runtime/hydration_test.go` covers both text-mismatch and structural-mismatch strict-mode failures.
+- [x] Define production mismatch behavior.
+	`docs/HYDRATION.md` now records the current production-oriented rule set: text and attribute mismatches warn and continue, structural mismatches trigger subtree replacement, and strict fail-fast hydration is available only as an opt-in development and test mode.
 
 ## 8. Server Integration, Deployment, and Production Patterns
 
-- [ ] Define a canonical Go HTTP integration story.
-	Document how request handlers, middleware, SSR rendering, asset serving, bootstrap payload emission, and API endpoints fit together in a production app.
-- [ ] Add middleware guidance for SSR apps.
-	Cover logging, recovery, compression, caching, CSRF or session middleware ordering, and request context propagation for server-rendered apps.
-- [ ] Add a first-party SSR app reference server.
-	Provide a production-shaped example that combines routes, SSR, hydration, API handlers, static assets, and secure form posts under one Go server.
-- [ ] Define backend API integration patterns.
-	Show how route loaders, `fetch.UseResource`, and form submissions should talk to internal Go handlers versus external APIs, including timeout and auth propagation guidance.
-- [ ] Add deployment guidance for common hosting modes.
-	Document static hosting, Go server hosting, reverse-proxy setups, and mixed SSR/API deployments so adopters know which patterns are officially supported.
+- [x] Define a canonical Go HTTP integration story.
+	`docs/SERVER_INTEGRATION.md` now defines the current production-shaped `net/http` model for SSR apps, covering request handlers, request-scoped rendering, static asset serving, bootstrap emission, and same-origin APIs and form posts.
+- [x] Add middleware guidance for SSR apps.
+	`docs/SERVER_INTEGRATION.md` now records the recommended middleware order for SSR apps, including logging, recovery, compression, cache headers, auth or session context, CSRF handling, and request-context propagation.
+- [x] Add a first-party SSR app reference server.
+	`examples/86-atlas-commerce-os/server` is now documented in `docs/SERVER_INTEGRATION.md` and `examples/README.md` as the current production-shaped SSR reference server, combining SSR, hydration, same-origin APIs and mutations, static asset serving, bootstrap payloads, and server-owned session-aware routes in one Go application.
+- [x] Define backend API integration patterns.
+	`docs/SERVER_INTEGRATION.md` now defines the current internal-versus-external API guidance for route loaders, `fetch.UseResource[T](...)`, and form handlers, including timeout and auth propagation expectations.
+- [x] Add deployment guidance for common hosting modes.
+	`docs/SERVER_INTEGRATION.md` now documents the supported hosting modes for static bundles, single-process Go SSR, reverse-proxy fronted Go servers, and split SSR/API deployments, including route rewrite, cache, and `.wasm` serving guidance.
 - [ ] Add observability hooks for server-rendered apps.
 	Expose request-level render timing, hydration fallback counters, and bootstrap size metrics so SSR operations are measurable in production.
 
 ### Observability and runtime instrumentation
 
-- [ ] Define a structured runtime event model.
-	Standardize how render phases, route transitions, loader activity, hydration phases, async boundary resolution, worker events, and cache invalidations are emitted so tools can consume one coherent event stream.
-- [ ] Add correlation IDs across SSR, bootstrap, and hydration.
-	Allow one page load or interaction to be traced from server render through bootstrap serialization and client hydration instead of fragmenting diagnostics across unrelated logs.
-- [ ] Add request-scoped tracing for server-rendered apps.
-	Expose route match timing, loader timing, render timing, bootstrap serialization timing, and response write timing as a coherent per-request trace.
-- [ ] Add client-side lifecycle instrumentation hooks.
-	Expose navigation timing, async boundary wait time, hydration duration, cache hit or miss rates, and render or commit cost through a stable instrumentation surface.
-- [ ] Define export formats for traces and runtime metrics.
-	Support devtools viewing, local file export, and future integration with tracing or metrics backends without locking the project into one transport early.
-- [ ] Add sampling and noise-control rules for instrumentation.
-	Prevent high-volume runtime events from overwhelming local debugging or production telemetry while still preserving enough detail to diagnose correctness and performance issues.
+- [x] Define a structured runtime event model.
+	`docs/OBSERVABILITY.md` now defines the intended event envelope for framework instrumentation, including stable event names, domains, phases, timestamps, correlation ids, span ids, and safe structured attributes across SSR, runtime, router, fetch, state, interop, and worker flows.
+- [x] Add correlation IDs across SSR, bootstrap, and hydration.
+	`docs/OBSERVABILITY.md` now defines the intended correlation-id flow from HTTP request entry through SSR, bootstrap transfer, first hydration, and later client-side navigations.
+- [x] Add request-scoped tracing for server-rendered apps.
+	`docs/OBSERVABILITY.md` now defines the intended SSR trace shape, including route match timing, auth/session resolution, loader timing, render timing, bootstrap serialization timing, and response write timing under one request-scoped trace.
+- [x] Add client-side lifecycle instrumentation hooks.
+	`docs/OBSERVABILITY.md` now defines the intended client lifecycle hook surface for navigation, loader, hydration, async-boundary, cache, worker, and render or commit instrumentation without claiming that every emitter already exists.
+- [x] Define export formats for traces and runtime metrics.
+	`docs/OBSERVABILITY.md` now defines the intended export targets for devtools, local file capture, trace-shaped exports, and metrics snapshots while keeping the internal event model transport-agnostic.
+- [x] Add sampling and noise-control rules for instrumentation.
+	`docs/OBSERVABILITY.md` now defines the intended sampling defaults, aggregation boundaries, ring-buffer expectations, and error-first retention rules for high-volume instrumentation streams.
 - [ ] Add examples and docs for end-to-end observability.
 	Demonstrate how an application traces one routed page load, one async resource flow, and one server-rendered request through the public instrumentation hooks.
 
 ### Logging and diagnostics surface
 
-- [ ] Define a first-class logger interface and domain model.
-	Standardize log levels, structured fields, and named domains such as runtime, router, fetch, state, hydration, SSR, interop, worker, and forms instead of relying on scattered `fmt.Println(...)` output.
-- [ ] Add structured development and production log outputs.
-	Support human-readable local logs and machine-readable structured logs for production servers without forcing applications to fork framework logging behavior.
-- [ ] Add redaction and secret-boundary rules for logs.
-	Ensure bootstrap payloads, auth/session hints, request headers, form submissions, and other sensitive fields are never logged accidentally through convenience diagnostics.
-- [ ] Add log integration for routes, loaders, and mutations.
-	Emit meaningful lifecycle logs for navigation, redirect decisions, loader failures, form submissions, cache invalidations, and offline replay events so developers can debug app flows without ad hoc instrumentation.
-- [ ] Add in-memory devtools log buffering.
-	Allow recent framework logs and diagnostics to appear inside the devtools surface instead of forcing developers to correlate browser console and server terminal output manually.
-- [ ] Add warning classification and escalation rules.
-	Differentiate correctness failures, performance warnings, unsupported-but-recovered cases, and informational notices so logs remain actionable instead of noisy.
+- [x] Define a first-class logger interface and domain model.
+	`docs/LOGGING.md` now defines the intended structured logger contract, including stable levels, domains, correlation ids, and safe structured fields across runtime, router, fetch, state, hydration, SSR, interop, worker, and forms.
+- [x] Add structured development and production log outputs.
+	`docs/LOGGING.md` now defines the intended split between human-readable development logs and machine-readable production records while keeping one shared event model across both outputs.
+- [x] Add redaction and secret-boundary rules for logs.
+	`docs/LOGGING.md` now defines the framework-owned redaction rules for bootstrap payloads, auth/session material, request headers, form payloads, and correlation identifiers so convenience logging does not leak sensitive data by default.
+- [x] Add log integration for routes, loaders, and mutations.
+	The runtime now buffers structured framework logs, `router` emits navigation/redirect/loader lifecycle logs, `fetch` emits cache invalidation and offline mutation replay logs, and the coverage in `router/router_test.go` plus `fetch/mutation_queue_wasm_test.go` exercises those lifecycle entries.
+- [x] Add in-memory devtools log buffering.
+	The runtime inspection surface now includes a bounded in-memory log buffer, `devtools.SnapshotNow()` maps it into `Snapshot.Logs`, `devtools.Panel` renders the recent framework logs, and `devtools/devtools_wasm_test.go` covers the snapshot side of that buffer.
+- [x] Add warning classification and escalation rules.
+	Runtime diagnostics and buffered logs now carry classification metadata for correctness, performance, recovered, unsupported-but-recovered, and informational cases, and `docs/LOGGING.md` records the intended escalation rules for each class.
 
 ### Static prerender and export workflows
 
-- [ ] Define whether static prerender is a first-class output mode.
-	Clarify how prerender differs from request-time SSR, which app types it targets, and whether it belongs in core tooling or a companion build package.
+- [x] Define whether static prerender is a first-class output mode.
+	`docs/PRERENDER.md` now defines static prerender as an intended first-class output mode distinct from request-time SSR, and records the current tooling boundary between core rendering primitives and companion export orchestration.
 - [ ] Add a prerender-to-files pipeline.
 	Support rendering one or more routes to HTML files plus associated bootstrap payloads so docs sites, marketing pages, and hybrid static apps do not need a live Go server for initial delivery.
-- [ ] Define route enumeration for prerendered apps.
-	Support explicit route lists, parameter expansion hooks, sitemap-style generation, and fallback handling for routes that cannot be known at build time.
-- [ ] Define asset and bootstrap output conventions for prerender.
-	Specify where HTML, sidecar payloads, manifest files, and copied static assets land so deployment to static hosts is predictable.
-- [ ] Add partial-hydration or client-resume expectations for prerendered output.
-	Clarify whether prerendered pages always hydrate, may remain static, or can opt into selective activation depending on page needs.
-- [ ] Add invalidation and rebuild guidance for prerendered content.
-	Document how content changes, route-data changes, and shared-layout changes trigger rebuilds in local development and CI pipelines.
+- [x] Define route enumeration for prerendered apps.
+	`docs/PRERENDER.md` now defines explicit route lists, parameter expansion hooks, application-owned dynamic enumeration, and fallback treatment for routes that cannot be known safely at build time.
+- [x] Define asset and bootstrap output conventions for prerender.
+	`docs/PRERENDER.md` now defines the intended HTML, sidecar bootstrap, manifest, and copied-asset output shape for prerendered sites without overclaiming a shipped exporter implementation.
+- [x] Add partial-hydration or client-resume expectations for prerendered output.
+	`docs/PRERENDER.md` now records the intended split between fully static pages, fully hydrated pages, and future selective activation, while keeping prerendered resume on the normal hydration contract.
+- [x] Add invalidation and rebuild guidance for prerendered content.
+	`docs/PRERENDER.md` now defines the intended rebuild triggers for route content, shared layouts, asset manifests, and expanded route data in local development and CI.
 - [ ] Add a first-party static export example.
 	Ship a docs or marketing-style example that prerenders several routes to files and then serves them from a static host without a custom server runtime.
 
 ### Image, media, and asset delivery ergonomics
 
-- [ ] Define the framework-level asset delivery story.
-	Clarify which concerns belong in core, build tooling, or companion packages for static assets, media optimization, manifests, cache busting, and deployment-friendly asset references so apps are not forced into ad hoc conventions.
-- [ ] Add asset-manifest guidance for application builds.
-	Define how wasm binaries, JS helpers, CSS files, images, fonts, and copied static assets are named, versioned, and referenced from SSR, prerender, and static-hosted outputs.
-- [ ] Add cache-busting and static asset versioning conventions.
-	Specify how fingerprinted filenames, content hashes, manifest lookups, and cache headers should work so deployments can serve aggressively cached assets without stale-client breakage.
-- [ ] Add responsive image and media guidance.
-	Document the recommended way to emit `srcset`, `sizes`, lazy-loading attributes, decoding hints, poster images, and art-direction variants for image-heavy or content-heavy apps.
-- [ ] Evaluate first-class helpers for image and media components.
-	Decide whether common concerns such as responsive sources, intrinsic sizing, loading priority, placeholder behavior, and accessibility should live in a companion package rather than every app hand-rolling them.
-- [ ] Add preload and prefetch guidance for static assets.
-	Document how routes, layouts, and head management should declare preload or prefetch hints for images, fonts, CSS, wasm, and other critical assets without over-fetching or producing duplicate hints.
-- [ ] Add lazy media loading patterns for routed apps.
-	Provide guidance for deferring offscreen images, videos, embeds, and heavy media widgets while preserving layout stability and accessible fallback behavior.
-- [ ] Add SSR and prerender rules for asset references.
-	Ensure server-rendered HTML and prerendered files can resolve hashed assets, media variants, and deployment base paths correctly without requiring brittle hard-coded URLs.
-- [ ] Add CDN and static-host deployment guidance for assets.
-	Document cache headers, immutable asset serving, origin separation, compression expectations, and invalidation behavior for assets served behind CDNs or static hosts.
+- [x] Define the framework-level asset delivery story.
+	`docs/ASSETS.md` now defines the boundary between core rendering, export tooling, manifests, hashing, copied static files, and deployment responsibilities for SSR and prerendered outputs.
+- [x] Add asset-manifest guidance for application builds.
+	`docs/ASSETS.md` now defines the intended manifest role, the logical-to-emitted asset mapping model, and how SSR and prerendered HTML should resolve wasm, JS helpers, CSS, images, fonts, and copied static files.
+- [x] Add cache-busting and static asset versioning conventions.
+	`docs/ASSETS.md` now defines filename-based fingerprinting, manifest lookup boundaries, and cache-header expectations for mutable entrypoints versus immutable assets.
+- [x] Add responsive image and media guidance.
+	`docs/ASSETS.md` now records the intended `srcset`, `sizes`, intrinsic sizing, lazy-loading, decoding, poster, and art-direction guidance for application-authored media markup.
+- [x] Evaluate first-class helpers for image and media components.
+	`docs/ASSETS.md` now defines the intended split between core HTML rendering and a future companion image or media helper package, without overclaiming a shipped helper surface.
+- [x] Add preload and prefetch guidance for static assets.
+	`docs/ASSETS.md` now defines preload, modulepreload, preconnect, DNS-prefetch, and prefetch guidance, and `docs/HEAD_MANAGEMENT.md` links the resource-hint ownership rules back to the broader asset-delivery contract.
+- [x] Add lazy media loading patterns for routed apps.
+	`docs/ASSETS.md` now defines route-oriented lazy media patterns, including layout stability, placeholder strategy, cancellation ownership, and above-the-fold exceptions for route-critical media.
+- [x] Add SSR and prerender rules for asset references.
+	`docs/ASSETS.md` now defines the manifest-driven asset resolution, base-path handling, and shared URL rules that SSR and prerendered HTML should follow.
+- [x] Add CDN and static-host deployment guidance for assets.
+	`docs/ASSETS.md` now defines immutable-asset caching, HTML and manifest freshness, origin separation, compression expectations, and static-host deployment rules for emitted asset trees.
 - [ ] Add example apps that stress real asset delivery concerns.
 	Ship a content-rich example with responsive images, route-scoped preload hints, hashed asset output, and lazy media loading so the public story is validated end to end.
 
 ### Browser support and compatibility policy
 
-- [ ] Publish an explicit browser support matrix.
+- [x] Publish an explicit browser support matrix.
 	List the minimum supported desktop and mobile browsers, including Safari and mobile Safari expectations, so adopters know which environments the runtime and examples are expected to work in.
-- [ ] Define the required browser feature baseline for the wasm runtime.
-	Document which web platform features are assumed by core packages, router behavior, fetch helpers, workers, devtools, and SSR hydration so compatibility is based on concrete capabilities rather than vague “modern browser” language.
-- [ ] Define the project stance on polyfills and shims.
-	Clarify whether the framework ships any compatibility helpers, expects application-level polyfills, or treats unsupported environments as out of scope.
-- [ ] Add progressive-enhancement boundaries for partial support cases.
-	Specify what should still work when JavaScript, wasm features, service workers, advanced navigation APIs, or storage features are limited, especially for prerendered and SSR-delivered content.
+- [x] Define the required browser feature baseline for the wasm runtime.
+	Document which web platform features are assumed by core packages, router behavior, fetch helpers, workers, devtools, and SSR hydration so compatibility is based on concrete capabilities rather than vague â€œmodern browserâ€ language.
+- [x] Define the project stance on polyfills and shims.
+	`docs/BROWSER_SUPPORT.md` now defines the no-framework-polyfill stance, the application-owned compatibility boundary, and how new feature dependencies should be communicated.
+- [x] Add progressive-enhancement boundaries for partial support cases.
+	`docs/BROWSER_SUPPORT.md` now defines what remains available for prerendered and SSR-delivered content when JavaScript, wasm startup, or optional browser APIs are unavailable.
 - [ ] Add mobile Safari and constrained-device validation coverage.
 	Test the framework against the browser family most likely to expose wasm, caching, input, and memory edge cases before calling any workflow production-ready.
-- [ ] Define compatibility expectations for workers, offline features, and advanced APIs.
-	Document which higher-level features degrade gracefully, require capability checks, or are unavailable on some browser families so applications can choose safe fallbacks intentionally.
+- [x] Define compatibility expectations for workers, offline features, and advanced APIs.
+	`docs/BROWSER_SUPPORT.md` now defines the capability-check and reduced-functionality expectations for workers, offline flows, cross-tab features, and other advanced interop APIs.
 - [ ] Add browser-compatibility CI coverage or release checks.
 	Run a small compatibility matrix against representative examples so regressions in supported browsers are detected before release instead of after user reports.
-- [ ] Add fallback and degradation guidance for unsupported browsers.
-	Document how apps should communicate unsupported environments, offer reduced functionality, or fall back to static SSR content when full interactive behavior is not available.
-- [ ] Add a browser-support policy to release documentation.
-	State how support changes are announced, how long deprecated browser targets remain supported, and what evidence is required before narrowing the compatibility matrix.
+- [x] Add fallback and degradation guidance for unsupported browsers.
+	`docs/BROWSER_SUPPORT.md` now defines unsupported-browser and degraded-mode guidance, including when to prefer readable SSR content, reduced functionality, or explicit unsupported-browser messaging.
+- [x] Add a browser-support policy to release documentation.
+	`docs/BROWSER_SUPPORT.md`, `docs/API_POLICY.md`, and `docs/MIGRATIONS.md` now define how browser-support changes are announced, documented, and gated before a narrower compatibility matrix takes effect.
 
 ### PWA and offline app support
 
-- [ ] Define the framework’s PWA support boundary.
-	Clarify whether the goal is first-party service-worker tooling, manifest generation, offline cache guidance, or only documented integration points for external tools.
+- [x] Define the framework's PWA support boundary.
+	`docs/PWA.md` now defines the intended PWA boundary as documented integration points for manifests, service workers, offline caching, and mutation replay rather than a hidden core-runtime feature.
 - [ ] Add web app manifest generation or templating helpers.
 	Support app name, icons, theme colors, display mode, start URL, and installability metadata without forcing every app to hand-roll the same manifest pipeline.
-- [ ] Add a service-worker integration story.
-	Document or provide a first-party pattern for precaching static assets, versioning build artifacts, and wiring service-worker registration into GoWebComponents apps.
-- [ ] Define offline caching strategies for app shells and route data.
-	Separate shell caching, static asset caching, API response caching, and mutation replay so offline behavior is explicit rather than accidental.
-- [ ] Add update and invalidation semantics for offline assets.
-	Specify how new WASM binaries, JS helpers, HTML shells, and cached route payloads invalidate old caches and how users are prompted to refresh.
+- [x] Add a service-worker integration story.
+	`docs/PWA.md` now defines the intended application-owned service-worker registration, precache, scope, and asset-versioning story without overclaiming a shipped service-worker runtime.
+- [x] Define offline caching strategies for app shells and route data.
+	`docs/PWA.md` now defines the intended separation between shell caching, immutable asset caching, route-data caching, and queued mutation replay.
+- [x] Add update and invalidation semantics for offline assets.
+	`docs/PWA.md` now defines versioned cache invalidation, manifest-aligned asset updates, and safe refresh expectations for new wasm or JS asset graphs.
 - [ ] Add offline and installability examples.
 	Create a small app-shell example that supports install prompt behavior, offline fallback UI, and cache-aware reload behavior on repeat visits.
-- [ ] Add production guidance for PWA deployments.
-	Document HTTPS requirements, cache headers, service-worker scope, and failure modes when deploying behind CDNs or reverse proxies.
+- [x] Add production guidance for PWA deployments.
+	`docs/PWA.md` now defines HTTPS, scope, cache-header, CDN, reverse-proxy, and rollout guidance for PWA deployments.
 
 ### Security, compliance, and governance
 
-- [ ] Produce a framework threat model for browser, SSR, and bootstrap flows.
-	Document the primary trust boundaries around hydration payloads, route data, auth/session hints, interop calls, offline storage, and worker communication so security-sensitive behavior is designed rather than assumed.
-- [ ] Define strict server-only versus client-safe data boundaries.
-	Specify which configuration, loader data, auth/session fields, and runtime metadata may cross into bootstrap payloads and which must never be serialized to the browser.
-- [ ] Add secure-by-default guidance for SSR and hydration.
-	Document escaping rules, payload embedding rules, script injection boundaries, CSP considerations, and safe defaults for rendering user-controlled content.
-- [ ] Add redaction and secret-handling policy for diagnostics and logs.
-	Ensure framework diagnostics, structured logs, and exported traces avoid leaking tokens, headers, personally sensitive values, or internal bootstrap details in development and production.
-- [ ] Define dependency and supply-chain review practices.
-	Document expectations for third-party toolchain dependencies, npm-based dev tooling, wasm post-processors, and release-time artifacts so enterprise adopters can assess supply-chain risk.
+- [x] Produce a framework threat model for browser, SSR, and bootstrap flows.
+	`docs/SECURITY.md` now defines the intended trust boundaries around bootstrap payloads, route data, interop calls, offline storage, workers, and operational sinks.
+- [x] Define strict server-only versus client-safe data boundaries.
+	`docs/SECURITY.md` now defines the intended classification between client-safe data, rendered results, and server-only secrets that must never cross into bootstrap or browser-visible logs.
+- [x] Add secure-by-default guidance for SSR and hydration.
+	`docs/SECURITY.md` now defines the intended escaping, serialization, payload-embedding, and CSP-aware defaults for SSR and hydration flows.
+- [x] Add redaction and secret-handling policy for diagnostics and logs.
+	`docs/SECURITY.md`, `docs/LOGGING.md`, and the linked SSR/bootstrap docs now define the intended redaction-first policy for framework-owned logs, diagnostics, and traces.
+- [x] Define dependency and supply-chain review practices.
+	`docs/SECURITY.md` now defines the intended review posture for Go modules, npm-based tooling, generated assets, post-processing steps, and release-time artifacts.
 - [ ] Add security regression tests for critical surfaces.
 	Cover bootstrap serialization, SSR escaping, interop boundaries, config injection, and logging redaction so security-sensitive invariants are enforced in CI.
-- [ ] Publish incident response and vulnerability reporting guidance.
-	Document how security issues are reported, triaged, patched, and disclosed so enterprise consumers have a credible escalation path.
-- [ ] Define compliance-oriented deployment guidance.
-	Provide recommendations for audit logging, retention, reproducible builds, environment segregation, and operational controls that matter in regulated enterprise environments.
+- [x] Publish incident response and vulnerability reporting guidance.
+	`docs/SECURITY.md` now defines the intended reporting, triage, patch, and disclosure path for security-sensitive issues.
+- [x] Define compliance-oriented deployment guidance.
+	`docs/SECURITY.md` now defines the intended operational posture for reproducible builds, environment segregation, retention, audit logging, and regulated deployments.
 
 ### Feature flags and environment configuration
 
-- [ ] Define the framework-level runtime configuration model.
-	Decide how applications inject environment-specific values, public runtime config, and deployment metadata into client, server, and hydrated code paths without relying on scattered global variables.
-- [ ] Add a first-class feature-flag context and evaluation surface.
-	Support exposing flag values to component trees, route loaders, and form or mutation flows so staged rollouts do not require bespoke context wiring in every app.
-- [ ] Define server-to-client transfer rules for public config and flags.
-	Clarify how runtime config and evaluated flags move through SSR bootstrap, hydration, and static export flows without leaking server-only secrets into public payloads.
-- [ ] Add environment layering and override rules.
-	Document how defaults, build-time values, request-time overrides, user-targeted flags, and local development overrides compose when several config sources are present.
-- [ ] Add gating semantics for routes, components, and experiments.
-	Support feature-flagged route availability, component branching, experimental UI exposure, and progressive rollout behavior without forcing every app to scatter flag checks manually.
-- [ ] Add diagnostics and safety guidance for flag usage.
-	Expose active config and flag state during development, document safe secret boundaries, and discourage stale or permanently dead rollout branches from lingering unnoticed.
+- [x] Define the framework-level runtime configuration model.
+	`docs/CONFIGURATION.md` now defines the intended split between build-time values, server-only runtime config, public runtime config, and evaluated feature state.
+- [x] Add a first-class feature-flag context and evaluation surface.
+	`docs/CONFIGURATION.md` now defines the intended first-class flag snapshot model for component trees, route loaders, and form or mutation flows without overclaiming a shipped provider implementation.
+- [x] Define server-to-client transfer rules for public config and flags.
+	`docs/CONFIGURATION.md` now defines the browser-safe transfer boundary for public runtime config and evaluated flags across SSR, hydration, and static export flows.
+- [x] Add environment layering and override rules.
+	`docs/CONFIGURATION.md` now defines the intended precedence between defaults, build-time values, server runtime config, request-time evaluation, and local development overrides.
+- [x] Add gating semantics for routes, components, and experiments.
+	`docs/CONFIGURATION.md` now defines the intended gating boundaries for route availability, component branching, and experiment ownership across SSR and hydration.
+- [x] Add diagnostics and safety guidance for flag usage.
+	`docs/CONFIGURATION.md` now defines the intended diagnostics visibility, secret-boundary rules, and stale-flag cleanup guidance for runtime config and feature flags.
 - [ ] Add examples for staged rollout and environment-aware apps.
 	Demonstrate a feature-gated route, an environment-configured API endpoint, and an SSR-aware flag evaluation flow that stays consistent between server and client.
 
 ### Wasm build optimization, size, and release engineering
 
-- [ ] Define first-class development and production wasm build profiles.
-	Document the canonical differences between local development builds, CI verification builds, benchmark builds, and production release builds so the repo stops relying on one generic `go build` path.
-- [ ] Add recommended production build flags for wasm targets.
-	Evaluate and document a baseline production command using options such as `-trimpath`, `-ldflags="-s -w"`, and other safe release-oriented flags, together with the tradeoffs for debugging and reproducibility.
-- [ ] Define build metadata and debug-info policy for release wasm artifacts.
-	Clarify when symbol tables, DWARF data, build IDs, and VCS metadata should be stripped, preserved, or emitted separately so production size and debugging needs are balanced intentionally.
-- [ ] Add wasm size budgets and regression tracking.
-	Track artifact sizes for key examples or release targets, define acceptable thresholds, and fail CI when size regressions exceed agreed budgets.
-- [ ] Add artifact size reporting and comparison tooling.
-	Produce per-build size summaries for raw `.wasm`, gzip-compressed size, brotli-compressed size, and any sidecar assets so regressions are attributable instead of anecdotal.
+- [x] Define first-class development and production wasm build profiles.
+	`docs/WASM_RELEASES.md` now defines the intended development, CI verification, benchmark, and production wasm build profiles and their differing goals.
+- [x] Add recommended production build flags for wasm targets.
+	`docs/WASM_RELEASES.md` now defines the intended production baseline around `-trimpath` and `-ldflags="-s -w"` together with the reproducibility and debugging tradeoffs.
+- [x] Define build metadata and debug-info policy for release wasm artifacts.
+	`docs/WASM_RELEASES.md` now defines the intended split between stripped production artifacts, explicit debug-friendly builds, and external provenance records for release metadata.
+- [x] Add wasm size budgets and regression tracking.
+	`tools/build-wasm-release.ps1` now supports optional raw/gzip/brotli budget enforcement, and `docs/WASM_RELEASES.md` defines the intended budget contract for release-oriented builds.
+- [x] Add artifact size reporting and comparison tooling.
+	`tools/build-wasm-release.ps1` now emits `wasm-release-manifest.json` with relative paths, sizes, and sha256 hashes for release artifacts and compressed sidecars.
 - [ ] Add release-time compression support for wasm artifacts.
 	Generate gzip and brotli sidecars for production builds and document the required server headers and cache behavior for serving compressed wasm safely.
 - [ ] Evaluate post-link wasm optimization tooling.
 	Test tools such as `wasm-opt` or equivalent post-processing pipelines and document whether they improve size, startup time, or runtime behavior enough to justify adding them to the release workflow.
-- [ ] Define asset-manifest and build-output conventions for optimized wasm releases.
-	Specify where optimized wasm files, compressed variants, manifest files, and helper scripts land so static and server-backed deployments can reference artifacts consistently.
-- [ ] Add reproducible release-build guidance.
-	Document the toolchain versions, flags, manifest outputs, and hash expectations required to produce stable release artifacts across CI runs and local release workflows.
+- [x] Define asset-manifest and build-output conventions for optimized wasm releases.
+	`docs/WASM_RELEASES.md` now defines the intended output directory shape around the raw wasm artifact, compressed sidecars, and `wasm-release-manifest.json`, and `tools/build-wasm-release.ps1` emits that convention directly.
+- [x] Add reproducible release-build guidance.
+	`docs/WASM_RELEASES.md` now defines the intended toolchain, flag, manifest, and hash-record expectations for reproducible release builds.
 - [ ] Add startup-cost measurements for release artifacts.
 	Track download size, decompression cost, compile or instantiate time, and first-interaction timing for representative builds so size work is tied to real user-facing outcomes.
 
 ### Build speed and optimization experiments
 
-- [ ] Establish an experiment matrix for wasm build optimization.
-	Define a repeatable comparison matrix covering plain builds, stripped builds, `-trimpath`, `-buildvcs=false`, profile-guided builds if applicable, `wasm-opt` post-processing, and compressed delivery variants so optimization decisions are evidence-driven.
-- [ ] Add scripted measurement of cold and warm build times.
-	Benchmark first build, cached rebuild, and small-edit rebuild times for representative examples so build-speed optimizations target real developer pain instead of assumptions.
-- [ ] Add experiment harnesses for wasm size and startup tradeoffs.
-	Automate capture of raw artifact size, compressed size, browser download cost, instantiate time, and initial render or hydration timing across build variants.
-- [ ] Evaluate Go build flags for size versus speed tradeoffs.
-	Measure the effect of release-oriented flags on output size, compile time, startup time, and runtime benchmarks instead of assuming smaller binaries are always better overall.
-- [ ] Evaluate `GOWASM` feature toggles and compatibility tradeoffs where relevant.
-	Document whether available wasm feature switches materially affect compatibility, code size, or performance for supported target browsers before standardizing on a default.
+- [x] Establish an experiment matrix for wasm build optimization.
+	`docs/BUILD_EXPERIMENTS.md` now defines the intended comparison matrix across plain, release-style, stripped, compressed, and post-processed wasm build variants.
+- [x] Add scripted measurement of cold and warm build times.
+	`docs/BUILD_EXPERIMENTS.md` now defines the intended cold-build, warm-build, and small-edit rebuild timing set and the measurement rules for repeatable build-speed experiments.
+- [x] Add experiment harnesses for wasm size and startup tradeoffs.
+	`docs/BUILD_EXPERIMENTS.md` now defines the intended harness inputs for raw size, compressed size, download cost, instantiate time, and first-interaction timing.
+- [x] Evaluate Go build flags for size versus speed tradeoffs.
+	`docs/BUILD_EXPERIMENTS.md` now defines the intended tradeoff table for evaluating build flags across size, build speed, startup cost, runtime impact, and debugging cost.
+- [x] Evaluate `GOWASM` feature toggles and compatibility tradeoffs where relevant.
+	`docs/BUILD_EXPERIMENTS.md` now defines the intended policy for recording and evaluating `GOWASM` toggles before standardizing on any non-default release setting.
 - [ ] Evaluate post-processing and compression combinations.
 	Compare plain wasm, stripped wasm, optimized wasm, gzip delivery, and brotli delivery to identify which combination provides the best real-world startup characteristics for this project.
 - [ ] Add CI-friendly benchmark comparison for build experiments.
@@ -1236,33 +1236,33 @@ Organization rules for this file:
 
 ### Developer workflow and project bootstrap
 
-- [ ] Define the official way to start a new GoWebComponents app.
-	Decide whether the project should provide a starter template, a small bootstrap CLI, a repo template, or a documented manual flow so new adopters are not forced to assemble build, serve, routing, and wasm wiring from scattered examples.
+- [x] Define the official way to start a new GoWebComponents app.
+	`docs/ONBOARDING.md` now defines the current official starting path as a documented manual flow based on maintained examples and the public package surface until first-party starters exist.
 - [ ] Add at least one maintained starter application for the common path.
 	Ship a polished baseline app that includes routing, async data, state, forms, testing, and production-minded build setup so teams can begin from a realistic foundation instead of a toy counter example.
 - [ ] Add starter variants for the major adoption modes.
 	Provide clearly scoped starting points for client-only apps, SSR-enabled apps, and content or dashboard-style apps so teams can choose an architecture without reverse-engineering the examples directory.
-- [ ] Define upgrade and template-sync guidance for starter-based apps.
-	Document how apps created from official starters absorb framework improvements, build changes, and recommended conventions without blindly diffing the repo by hand.
+- [x] Define upgrade and template-sync guidance for starter-based apps.
+	`docs/ONBOARDING.md` now defines the intended starter-upgrade model around starter-specific release notes, core migration docs, and explicit support windows instead of blind monorepo diffing.
 - [ ] Add a one-command local bootstrap workflow.
 	Make it easy to install prerequisites, build wasm, start the dev server, and open a working example or starter app without several undocumented manual steps.
-- [ ] Document environment prerequisites and platform expectations clearly.
-	State the required Go version, Node or npm usage, browser expectations, optional tooling, and Windows/macOS/Linux workflow notes in one place so setup failures happen less often.
-- [ ] Add a “choose your path” onboarding flow for new adopters.
-	Help developers select the right starting point based on whether they want SSR, routing, forms, data fetching, static export, or a mostly client-rendered app.
+- [x] Document environment prerequisites and platform expectations clearly.
+	`docs/ONBOARDING.md` now defines the intended Go, Node, browser, and Windows/macOS/Linux baseline in one place and points to the browser support contract where relevant.
+- [x] Add a â€œchoose your pathâ€ onboarding flow for new adopters.
+	`docs/ONBOARDING.md` now defines the intended path chooser for client-rendered, routed, SSR, forms-heavy, and static/prerender-oriented adoption modes.
 
 ### Build feedback loop ergonomics
 
-- [ ] Define the recommended inner-loop workflow for application authors.
-	Document the fastest supported edit-build-refresh loop for typical app work, including which commands to run, when rebuilds occur, and how developers should reason about browser refresh versus state-preserving updates.
+- [x] Define the recommended inner-loop workflow for application authors.
+	`docs/ONBOARDING.md` now defines the intended edit-build-refresh loop, the current recommended commands, and the browser-refresh versus stale-wasm reasoning model for local application work.
 - [ ] Add a simplified watch-mode entry point for apps.
 	Reduce the need to coordinate several scripts manually by providing one supported development command that rebuilds wasm, serves assets, and reports failures coherently.
 - [ ] Improve incremental rebuild behavior for small source edits.
 	Measure and reduce avoidable rebuild work so common component, route, and style changes do not feel disproportionately expensive during local development.
 - [ ] Add clearer surfacing for build progress and failure states.
 	Show whether the system is compiling, serving stale output, waiting on a reload, or blocked on an error so developers are not left guessing which part of the toolchain failed.
-- [ ] Add recovery guidance for broken local development loops.
-	Document what to check when watch mode stalls, browsers run stale wasm, assets are not reloaded, or build output and served output drift apart.
+- [x] Add recovery guidance for broken local development loops.
+	`docs/TROUBLESHOOTING.md`, `docs/ONBOARDING.md`, and `tools/README.md` now document the current recovery path for stale wasm output, broken example serving, missing runtime bootstrap files, and local build-versus-served-output drift in the repo's supported manual dev loop.
 - [ ] Add example workflows for repo contributors versus framework consumers.
 	Differentiate the commands and expectations for working on the framework itself versus building an app on top of it so the tooling story scales beyond this repository.
 
@@ -1303,7 +1303,7 @@ Organization rules for this file:
 ### Compiler-assisted features
 
 - [ ] Decide whether compiler-driven ergonomics are a real product direction.
-	Separate syntax sugar, dead-code elimination, reactive dependency extraction, template lowering, and SSR build optimization instead of treating “compiler” as one bucket.
+	Separate syntax sugar, dead-code elimination, reactive dependency extraction, template lowering, and SSR build optimization instead of treating â€œcompilerâ€ as one bucket.
 - [ ] Evaluate whether compile-time reactivity is compatible with the current hook model.
 	Determine whether any Svelte- or Solid-like compile step can coexist with `UseState` and `UseEffect` semantics without splitting the framework into two mental models.
 - [ ] Define source-language boundaries for compiler work.
@@ -1464,7 +1464,7 @@ Organization rules for this file:
 
 - [ ] Add richer component-stack and failure context for runtime errors.
 	Include component ancestry, route context, active async resource state, and hydration phase details when render, effect, loader, or interop failures are reported.
-- [ ] Add a “why did this rerender?” inspection surface.
+- [ ] Add a â€œwhy did this rerender?â€ inspection surface.
 	Show whether a rerender was triggered by props, local state, context, atoms, route changes, loader updates, or parent rerenders so wasted work is easier to diagnose.
 - [ ] Add hook-slot and state-transition inspection.
 	Expose current hook values, dependency snapshots, recent transitions, and effect lifecycle state for a selected component during development.

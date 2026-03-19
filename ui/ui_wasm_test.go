@@ -12,6 +12,7 @@ import (
 
 	"github.com/monstercameron/GoWebComponents/internal/platform/mockdom"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/interop"
 )
 
 func installMockFetchResolvedBytes(t *testing.T, payload []byte) {
@@ -127,6 +128,13 @@ func newQueryHydrationDOMAdapter() *queryHydrationDOMAdapter {
 
 func (a *queryHydrationDOMAdapter) QuerySelector(selector string) interface{} {
 	return a.selectors[selector]
+}
+
+func (a *queryHydrationDOMAdapter) ResolveNode(value interface{}) runtime.DOMNode {
+	if node, ok := value.(runtime.DOMNode); ok {
+		return node
+	}
+	return nil
 }
 
 func installUIHookContext(t *testing.T) {
@@ -336,6 +344,38 @@ func TestHydrateRestoresBootstrapAtomsAndIDSeed(t *testing.T) {
 	defer runtime.SetCurrentFiber(nil)
 	if got := UseId(); got != "gwc:8:0" {
 		t.Fatalf("expected hydration id seed to advance next UseId generation, got %q", got)
+	}
+}
+
+func TestRenderIntoRendersToExplicitNode(t *testing.T) {
+	adapter := newQueryHydrationDOMAdapter()
+	container := adapter.CreateElement("section")
+
+	previousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	t.Cleanup(func() {
+		runtimeInitialized = previousInitialized
+	})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: adapter, Scheduler: noOpScheduler{}})
+
+	if err := RenderInto(Text("hello"), container); err != nil {
+		t.Fatalf("expected RenderInto to succeed, got %v", err)
+	}
+}
+
+func TestHydrateIntoUsesExplicitNode(t *testing.T) {
+	adapter := newQueryHydrationDOMAdapter()
+	container := adapter.CreateElement("section")
+
+	previousInitialized := runtimeInitialized
+	runtimeInitialized = true
+	t.Cleanup(func() {
+		runtimeInitialized = previousInitialized
+	})
+	runtime.InitGlobalRuntime(runtime.Config{DOMAdapter: adapter, Scheduler: noOpScheduler{}})
+
+	if _, err := HydrateInto(Text("hello"), container); err != nil {
+		t.Fatalf("expected HydrateInto to succeed, got %v", err)
 	}
 }
 
@@ -701,6 +741,166 @@ func TestUseTaskTransitionsToRunningAndCancelled(t *testing.T) {
 	close(block)
 }
 
+func installMockWorkerConstructor(t *testing.T, onPost func(js.Value, js.Value)) func() {
+	t.Helper()
+	ctor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		raw := js.Global().Get("Object").New()
+		messageListeners := js.Global().Get("Array").New()
+		errorListeners := js.Global().Get("Array").New()
+		emitMessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			event := js.Global().Get("Object").New()
+			if len(args) > 0 {
+				event.Set("data", args[0])
+			}
+			for i := 0; i < messageListeners.Length(); i++ {
+				callback := messageListeners.Index(i)
+				if callback.IsUndefined() || callback.IsNull() {
+					continue
+				}
+				callback.Invoke(event)
+			}
+			return nil
+		})
+		addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			eventType := args[0].String()
+			callback := args[1]
+			switch eventType {
+			case "message":
+				messageListeners.Call("push", callback)
+				readySent := raw.Get("__readySent")
+				if !readySent.Truthy() {
+					raw.Set("__readySent", true)
+					ready := js.Global().Get("Object").New()
+					ready.Set("phase", "ready")
+					ready.Set("name", "bootstrap")
+					raw.Call("__emitMessage", ready)
+				}
+			case "error":
+				errorListeners.Call("push", callback)
+			}
+			return nil
+		})
+		removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			return nil
+		})
+		postMessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			if onPost != nil && len(args) > 0 {
+				onPost(raw, args[0])
+			}
+			return nil
+		})
+		terminate := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			raw.Set("__terminated", true)
+			return nil
+		})
+		raw.Set("__emitMessage", emitMessage)
+		raw.Set("addEventListener", addEventListener)
+		raw.Set("removeEventListener", removeEventListener)
+		raw.Set("postMessage", postMessage)
+		raw.Set("terminate", terminate)
+		return raw
+	})
+	prevWorker := js.Global().Get("Worker")
+	js.Global().Set("Worker", ctor)
+	return func() {
+		js.Global().Set("Worker", prevWorker)
+		ctor.Release()
+	}
+}
+
+func TestUseWorkerTaskReportsProgressAndResult(t *testing.T) {
+	installUIHookContext(t)
+	restoreWorker := installMockWorkerConstructor(t, func(raw js.Value, payload js.Value) {
+		requestID := payload.Get("id").String()
+		name := payload.Get("name").String()
+		progress := js.Global().Get("Object").New()
+		progress.Set("id", requestID)
+		progress.Set("phase", "progress")
+		progress.Set("name", name)
+		progressPayload := js.Global().Get("Object").New()
+		progressPayload.Set("percent", 50)
+		progress.Set("payload", progressPayload)
+		raw.Call("__emitMessage", progress)
+
+		result := js.Global().Get("Object").New()
+		result.Set("id", requestID)
+		result.Set("phase", "result")
+		result.Set("name", name)
+		resultPayload := js.Global().Get("Object").New()
+		resultPayload.Set("summary", "indexed 12 docs")
+		result.Set("payload", resultPayload)
+		raw.Call("__emitMessage", result)
+	})
+	defer restoreWorker()
+
+	type progressPayload struct {
+		Percent int `json:"percent"`
+	}
+	type resultPayload struct {
+		Summary string `json:"summary"`
+	}
+
+	task := UseWorkerTask[map[string]any, progressPayload, resultPayload](interop.WorkerOptions{URL: "/workers/search.mjs", Ready: true}, "build-index")
+	task.Start(map[string]any{"query": "atlas"})
+
+	deadline := time.Now().Add(250 * time.Millisecond)
+	for {
+		state := task.Get()
+		if state.Ready {
+			if !state.ProgressReady || state.Progress.Percent != 50 {
+				t.Fatalf("expected worker progress payload before completion, got %+v", state)
+			}
+			if state.Value.Summary != "indexed 12 docs" {
+				t.Fatalf("unexpected worker result payload: %+v", state)
+			}
+			if state.Running || state.Cancelled || state.Error != nil {
+				t.Fatalf("unexpected final worker task state: %+v", state)
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for worker task completion, last state %+v", task.Get())
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func TestUseWorkerTaskCancelMarksCancelled(t *testing.T) {
+	installUIHookContext(t)
+	block := make(chan struct{})
+	restoreWorker := installMockWorkerConstructor(t, func(raw js.Value, payload js.Value) {
+		go func() {
+			<-block
+			result := js.Global().Get("Object").New()
+			result.Set("id", payload.Get("id").String())
+			result.Set("phase", "result")
+			result.Set("name", payload.Get("name").String())
+			resultPayload := js.Global().Get("Object").New()
+			resultPayload.Set("summary", "late result")
+			result.Set("payload", resultPayload)
+			raw.Call("__emitMessage", result)
+		}()
+	})
+	defer restoreWorker()
+
+	type progressPayload struct {
+		Percent int `json:"percent"`
+	}
+	type resultPayload struct {
+		Summary string `json:"summary"`
+	}
+
+	task := UseWorkerTask[map[string]any, progressPayload, resultPayload](interop.WorkerOptions{URL: "/workers/slow.js", Ready: true}, "slow-job")
+	task.Start(map[string]any{"query": "atlas"})
+	task.Cancel()
+
+	state := task.Get()
+	if state.Running || !state.Cancelled || !state.Started {
+		t.Fatalf("expected cancelled worker task state, got %+v", state)
+	}
+	close(block)
+}
+
 func TestTaskHandleZeroValue(t *testing.T) {
 	var task Task[int]
 	state := task.Get()
@@ -708,6 +908,16 @@ func TestTaskHandleZeroValue(t *testing.T) {
 		t.Fatalf("expected zero-value task state, got %+v", state)
 	}
 	task.Start()
+	task.Cancel()
+}
+
+func TestWorkerTaskHandleZeroValue(t *testing.T) {
+	var task WorkerTask[map[string]any, struct{ Percent int }, struct{ Summary string }]
+	state := task.Get()
+	if state.Running || state.Ready || state.Cancelled || state.Started || state.Error != nil || state.ProgressReady {
+		t.Fatalf("expected zero-value worker task state, got %+v", state)
+	}
+	task.Start(nil)
 	task.Cancel()
 }
 
@@ -1084,7 +1294,7 @@ func TestExtractFilesReturnsWrappedBrowserFiles(t *testing.T) {
 	jsEvent := js.Global().Get("Object").New()
 	jsEvent.Set("target", target)
 
-	result := ExtractFiles(NewGoEvent(jsEvent))
+	result := ExtractFiles(runtime.NewGoEvent(jsEvent))
 	if len(result) != 2 {
 		t.Fatalf("expected two extracted files, got %d", len(result))
 	}

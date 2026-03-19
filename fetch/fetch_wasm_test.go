@@ -27,9 +27,25 @@ func installFetchHookContext(t *testing.T) {
 	t.Helper()
 	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}})
 	runtime.SetCurrentFiber(&runtime.Fiber{})
+	resetCachedResourcesForTest()
 	t.Cleanup(func() {
+		resetCachedResourcesForTest()
 		runtime.SetCurrentFiber(nil)
 	})
+}
+
+func resetCachedResourcesForTest() {
+	var keys []string
+	cachedResourceRegistry.Range(func(key, value interface{}) bool {
+		cacheKey, _ := key.(string)
+		if cacheKey != "" {
+			keys = append(keys, cacheKey)
+		}
+		return true
+	})
+	for _, key := range keys {
+		DisposeResource(key)
+	}
 }
 
 func setGlobalJSValue(name string, value interface{}) func() {
@@ -251,6 +267,248 @@ func TestCachedResourceReloadKeepsStaleValueOnError(t *testing.T) {
 	}
 
 	t.Fatalf("timed out waiting for cached resource reload error state: %+v", resource.Get())
+}
+
+func TestDisposeResourceClearsSharedCachedValue(t *testing.T) {
+	installFetchHookContext(t)
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	resource := UseCachedResource("dispose-demo", func(ctx context.Context) (string, error) {
+		return "fresh", nil
+	})
+
+	resource.Set("cached")
+	resource.Dispose()
+
+	state := resource.Get()
+	if state.Ready || state.Loading || state.Stale || state.Error != nil || state.Value != "" || !state.UpdatedAt.IsZero() {
+		t.Fatalf("expected disposed cached state to be cleared, got %+v", state)
+	}
+	if _, ok := cachedResourceRegistry.Load("dispose-demo"); ok {
+		t.Fatal("expected disposed cached entry to leave the registry")
+	}
+}
+
+func TestSweepCachedResourcesDisposesIdleEntries(t *testing.T) {
+	installFetchHookContext(t)
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	resource := UseCachedResource("sweep-demo", func(ctx context.Context) (string, error) {
+		return "fresh", nil
+	}, CacheOptions{DisposeAfter: time.Millisecond})
+	resource.Set("cached")
+
+	raw, ok := cachedResourceRegistry.Load("sweep-demo")
+	if !ok {
+		t.Fatal("expected cache entry to be registered")
+	}
+	entry := raw.(*cachedResourceEntry)
+	entry.mu.Lock()
+	entry.lastAccess = time.Now().Add(-10 * time.Millisecond)
+	entry.mu.Unlock()
+
+	if disposed := SweepCachedResources(); disposed != 1 {
+		t.Fatalf("expected one swept cache entry, got %d", disposed)
+	}
+	if state := resource.Get(); state.Ready || state.Value != "" {
+		t.Fatalf("expected swept cache state to be cleared, got %+v", state)
+	}
+}
+
+func TestLoadCachedSharesResultWithUseCachedResource(t *testing.T) {
+	installFetchHookContext(t)
+	var loads int32
+	value, err := LoadCached(context.Background(), "loader-bridge", func(ctx context.Context) (string, error) {
+		atomic.AddInt32(&loads, 1)
+		return "shared", nil
+	}, CacheOptions{StaleAfter: time.Minute})
+	if err != nil {
+		t.Fatalf("expected cached load to succeed, got %v", err)
+	}
+	if value != "shared" {
+		t.Fatalf("expected cached load value, got %q", value)
+	}
+
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	resource := UseCachedResource("loader-bridge", func(ctx context.Context) (string, error) {
+		atomic.AddInt32(&loads, 1)
+		return "should-not-run", nil
+	}, CacheOptions{StaleAfter: time.Minute})
+
+	state := resource.Get()
+	if !state.Ready || state.Value != "shared" || state.Error != nil {
+		t.Fatalf("expected hook reader to see seeded shared cache, got %+v", state)
+	}
+	if atomic.LoadInt32(&loads) != 1 {
+		t.Fatalf("expected shared cache bridge to avoid a second load, got %d loads", atomic.LoadInt32(&loads))
+	}
+}
+
+func TestLoadCachedDeduplicatesConcurrentImperativeReaders(t *testing.T) {
+	installFetchHookContext(t)
+	var loads int32
+	loader := func(ctx context.Context) (string, error) {
+		atomic.AddInt32(&loads, 1)
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(20 * time.Millisecond):
+			return "shared", nil
+		}
+	}
+
+	results := make(chan string, 2)
+	errs := make(chan error, 2)
+	for i := 0; i < 2; i++ {
+		go func() {
+			value, err := LoadCached(context.Background(), "dedupe-loadcached", loader)
+			if err == nil {
+				results <- value
+			}
+			errs <- err
+		}()
+	}
+
+	for i := 0; i < 2; i++ {
+		if err := <-errs; err != nil {
+			t.Fatalf("expected cached imperative load to succeed, got %v", err)
+		}
+	}
+	first := <-results
+	second := <-results
+	if first != "shared" || second != "shared" {
+		t.Fatalf("expected both imperative readers to share one result, got %q and %q", first, second)
+	}
+	if atomic.LoadInt32(&loads) != 1 {
+		t.Fatalf("expected exactly one imperative load, got %d", atomic.LoadInt32(&loads))
+	}
+}
+
+func TestRestoreCacheBootstrapSeedsTrustOnceCache(t *testing.T) {
+	installFetchHookContext(t)
+	payload := ui.SSRBootstrap{
+		Data: map[string]interface{}{
+			CacheBootstrapDataKey: CacheBootstrap{
+				Entries: []CacheBootstrapEntry{{
+					Key:          "bootstrap-users",
+					Value:        "server-seeded",
+					UpdatedAt:    time.Now(),
+					ResumePolicy: CacheResumeTrustOnce,
+					StaleAfter:   time.Minute,
+				}},
+			},
+		},
+	}
+	if err := RestoreCacheBootstrap(payload); err != nil {
+		t.Fatalf("expected bootstrap restore to succeed, got %v", err)
+	}
+
+	var loads int32
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	resource := UseCachedResource("bootstrap-users", func(ctx context.Context) (string, error) {
+		atomic.AddInt32(&loads, 1)
+		return "client", nil
+	}, CacheOptions{StaleAfter: time.Minute})
+
+	state := resource.Get()
+	if !state.Ready || state.Stale || state.Value != "server-seeded" {
+		t.Fatalf("expected trust-once bootstrap value to seed ready cache state, got %+v", state)
+	}
+	if atomic.LoadInt32(&loads) != 0 {
+		t.Fatalf("expected trust-once bootstrap to skip immediate reload, got %d loads", atomic.LoadInt32(&loads))
+	}
+}
+
+func TestRestoreCacheBootstrapResumePoliciesMarkEntriesForAuthoritativeClientLoad(t *testing.T) {
+	installFetchHookContext(t)
+	payload := ui.SSRBootstrap{
+		Data: map[string]interface{}{
+			CacheBootstrapDataKey: CacheBootstrap{
+				Entries: []CacheBootstrapEntry{
+					{
+						Key:          "bootstrap-swr",
+						Value:        "server-stale",
+						UpdatedAt:    time.Now().Add(-time.Minute),
+						ResumePolicy: CacheResumeStaleWhileRevalidate,
+						StaleAfter:   time.Second,
+					},
+					{
+						Key:          "bootstrap-always",
+						Value:        "server-always",
+						UpdatedAt:    time.Now(),
+						ResumePolicy: CacheResumeAlwaysRefetch,
+						StaleAfter:   time.Hour,
+					},
+				},
+			},
+		},
+	}
+	if err := RestoreCacheBootstrap(payload); err != nil {
+		t.Fatalf("expected bootstrap restore to succeed, got %v", err)
+	}
+
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	swr := UseCachedResource("bootstrap-swr", func(ctx context.Context) (string, error) {
+		return "client-swr", nil
+	}, CacheOptions{StaleAfter: time.Minute})
+
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	always := UseCachedResource("bootstrap-always", func(ctx context.Context) (string, error) {
+		return "client-always", nil
+	}, CacheOptions{StaleAfter: time.Minute})
+
+	swrState := swr.Get()
+	alwaysState := always.Get()
+	if !swrState.Ready || !swrState.Stale {
+		t.Fatalf("expected stale-while-revalidate bootstrap to preserve ready data and mark stale, got %+v", swrState)
+	}
+	if !alwaysState.Ready || !alwaysState.Stale {
+		t.Fatalf("expected always-refetch bootstrap to preserve ready data and mark stale, got %+v", alwaysState)
+	}
+	if !shouldLoadCachedEntry(currentCachedSnapshot("bootstrap-swr"), getCachedResourceEntry("bootstrap-swr")) {
+		t.Fatal("expected stale-while-revalidate bootstrap entry to require an authoritative client load")
+	}
+	if !shouldLoadCachedEntry(currentCachedSnapshot("bootstrap-always"), getCachedResourceEntry("bootstrap-always")) {
+		t.Fatal("expected always-refetch bootstrap entry to require an authoritative client load")
+	}
+}
+
+func TestInspectCachedResourcesReportsKeyPolicyAndSubscribers(t *testing.T) {
+	installFetchHookContext(t)
+	payload := ui.SSRBootstrap{
+		Data: map[string]interface{}{
+			CacheBootstrapDataKey: CacheBootstrap{
+				Entries: []CacheBootstrapEntry{{
+					Key:          "inspect-cache",
+					Value:        "server",
+					UpdatedAt:    time.Now(),
+					ResumePolicy: CacheResumeTrustOnce,
+				}},
+			},
+		},
+	}
+	if err := RestoreCacheBootstrap(payload); err != nil {
+		t.Fatalf("expected bootstrap restore to succeed, got %v", err)
+	}
+
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	resource := UseCachedResource("inspect-cache", func(ctx context.Context) (string, error) {
+		return "client", nil
+	})
+	if state := resource.Get(); !state.Ready {
+		t.Fatalf("expected seeded resource to start ready, got %+v", state)
+	}
+	retainCachedResource("inspect-cache")
+
+	entries := InspectCachedResources()
+	if len(entries) != 1 {
+		t.Fatalf("expected one inspected cache entry, got %#v", entries)
+	}
+	entry := entries[0]
+	if entry.Key != "inspect-cache" || entry.ResumePolicy != CacheResumeTrustOnce {
+		t.Fatalf("unexpected inspected cache entry: %+v", entry)
+	}
+	if entry.SubscriberCount != 1 {
+		t.Fatalf("expected one active subscriber, got %+v", entry)
+	}
 }
 
 func TestFetchUnavailable(t *testing.T) {

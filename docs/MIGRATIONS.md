@@ -55,6 +55,7 @@ Review manually if your app depended on older path-normalization quirks, especia
 - `ui.Hydrate(...)` for browser resume over existing markup
 - `router.HydrateMount(...)` for router-aware hydration flows
 - SSR bootstrap helpers for route data, atom snapshots, and ID seed reuse
+- streaming SSR remains intentionally out of the shipped stable surface for now
 
 Migration guidance:
 
@@ -95,6 +96,7 @@ When upgrading older applications:
 - add a hydration check for SSR apps
 - add a router smoke test if the app depends on guards, nested routes, params, or route loaders
 - validate generated wasm and the correct `wasm_exec.js` flow in your deployment pipeline
+- if you adopt prerender or hashed static assets, centralize route enumeration and asset-manifest generation instead of scattering custom file layout rules across app code
 
 ## Future Release Template
 
@@ -120,4 +122,6 @@ Before a future major release is treated as ready for broad adoption, confirm th
 - SSR and hydration notes, including bootstrap or mismatch-handling changes
 - forms, state, and fetch notes where user code or payload shape changes
 - testing and deployment notes for wasm output, browser tests, and server expectations
+- browser-support changes, capability-baseline shifts, or dropped browser families when the release changes them
+- runtime-configuration or public-flag transfer changes when the release changes those boundaries
 - removed or deprecated API deadlines that match the changelog and API policy

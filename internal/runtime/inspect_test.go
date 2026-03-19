@@ -7,15 +7,18 @@ import (
 
 func TestDiagnosticsDeduplicateBySourceSeverityAndMessage(t *testing.T) {
 	ClearDiagnostics()
+	ClearLogs()
 	defer ClearDiagnostics()
+	defer ClearLogs()
 
 	ReportDiagnostic("router", DiagnosticWarning, "duplicate route registration")
 	ReportDiagnostic("router", DiagnosticWarning, "duplicate route registration")
 	ReportDiagnostic("runtime", DiagnosticError, "invalid hook usage")
+	ReportDiagnosticWithContext("runtime", DiagnosticWarning, "duplicate route registration", "App > Boundary", []string{"App", "Boundary"})
 
 	diagnostics := GetDiagnostics()
-	if len(diagnostics) != 2 {
-		t.Fatalf("expected 2 unique diagnostics, got %d", len(diagnostics))
+	if len(diagnostics) != 3 {
+		t.Fatalf("expected 3 unique diagnostics, got %d", len(diagnostics))
 	}
 	if diagnostics[0].Count != 2 {
 		t.Fatalf("expected duplicate diagnostic count 2, got %d", diagnostics[0].Count)
@@ -24,7 +27,9 @@ func TestDiagnosticsDeduplicateBySourceSeverityAndMessage(t *testing.T) {
 
 func TestRuntimeInspectCapturesTreeStatsAndHooks(t *testing.T) {
 	ClearDiagnostics()
+	ClearLogs()
 	defer ClearDiagnostics()
+	defer ClearLogs()
 
 	rt := &Runtime{}
 	rt.profiling = runtimeProfiling{
@@ -73,6 +78,9 @@ func TestRuntimeInspectCapturesTreeStatsAndHooks(t *testing.T) {
 	}
 	if len(snapshot.Diagnostics) != 1 {
 		t.Fatalf("expected 1 diagnostic entry, got %d", len(snapshot.Diagnostics))
+	}
+	if snapshot.Diagnostics[0].ComponentStack != nil {
+		t.Fatalf("expected plain diagnostic to have no component stack, got %+v", snapshot.Diagnostics[0])
 	}
 	if snapshot.Profiling.RenderCalls != 3 || snapshot.Profiling.CommitCount != 2 {
 		t.Fatalf("expected profiling snapshot to preserve runtime counters, got %+v", snapshot.Profiling)
@@ -132,5 +140,50 @@ func TestRuntimeInspectCollectsHotBranchesAndTiming(t *testing.T) {
 	}
 	if snapshot.Profiling.HotBranches[0].SubtreeDurationNs != int64(7*time.Millisecond) {
 		t.Fatalf("expected hot branch subtree duration 7ms, got %d", snapshot.Profiling.HotBranches[0].SubtreeDurationNs)
+	}
+}
+
+func TestReportDiagnosticWithContextPreservesPathAndStack(t *testing.T) {
+	ClearDiagnostics()
+	ClearLogs()
+	defer ClearDiagnostics()
+	defer ClearLogs()
+
+	ReportDiagnosticWithContext("runtime", DiagnosticWarning, "boundary failure", "App > ErrorBoundary > Child", []string{"App", "ErrorBoundary", "Child"})
+
+	diagnostics := GetDiagnostics()
+	if len(diagnostics) != 1 {
+		t.Fatalf("expected one diagnostic entry, got %d", len(diagnostics))
+	}
+	if diagnostics[0].Path != "App > ErrorBoundary > Child" {
+		t.Fatalf("expected diagnostic path to round-trip, got %q", diagnostics[0].Path)
+	}
+	if len(diagnostics[0].ComponentStack) != 3 || diagnostics[0].ComponentStack[1] != "ErrorBoundary" {
+		t.Fatalf("expected diagnostic component stack to round-trip, got %+v", diagnostics[0].ComponentStack)
+	}
+}
+
+func TestReportDiagnosticWritesClassifiedLogEntries(t *testing.T) {
+	ClearDiagnostics()
+	ClearLogs()
+	defer ClearDiagnostics()
+	defer ClearLogs()
+
+	ReportDiagnostic("runtime", DiagnosticWarning, "slow commit on App took 4.00ms")
+	ReportDiagnostic("router", DiagnosticWarning, "ignoring route redirect loop for /login")
+	ReportDiagnostic("runtime", DiagnosticError, "invalid hook usage")
+
+	logs := GetLogs()
+	if len(logs) != 3 {
+		t.Fatalf("expected 3 log entries, got %d", len(logs))
+	}
+	if logs[0].Classification != DiagnosticPerformance {
+		t.Fatalf("expected performance classification, got %+v", logs[0])
+	}
+	if logs[1].Classification != DiagnosticUnsupportedRecover {
+		t.Fatalf("expected unsupported-recovered classification, got %+v", logs[1])
+	}
+	if logs[2].Classification != DiagnosticCorrectness || logs[2].Level != LogError {
+		t.Fatalf("expected correctness error log, got %+v", logs[2])
 	}
 }

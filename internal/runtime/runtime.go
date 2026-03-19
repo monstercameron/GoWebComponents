@@ -88,6 +88,8 @@ type Runtime struct {
 
 	// Hydration bookkeeping
 	hydrating                      bool
+	strictHydration                bool
+	nextHydrationStrict            bool
 	deferredHydrationUpdates       map[*Fiber]bool
 	deferredHydrationSubscriptions []hydrationSubscriptionAction
 
@@ -109,6 +111,15 @@ func (rt *Runtime) SetIDSeed(seed int) {
 		rt.idCounter = seed
 	}
 	rt.idCounterMu.Unlock()
+}
+
+// SetNextHydrationStrict configures whether the next hydration attempt should
+// fail fast on mismatches instead of warning and falling back per subtree.
+func (rt *Runtime) SetNextHydrationStrict(strict bool) {
+	if rt == nil {
+		return
+	}
+	rt.nextHydrationStrict = strict
 }
 
 type runtimeProfiling struct {
@@ -201,4 +212,39 @@ func (rt *Runtime) queryContainer(selector string) DOMNode {
 		}
 	}
 	return container
+}
+
+func (rt *Runtime) resolveContainer(target interface{}) DOMNode {
+	if target == nil || rt == nil || rt.domAdapter == nil {
+		return nil
+	}
+	if node, ok := target.(DOMNode); ok {
+		return node
+	}
+	if resolver, ok := rt.domAdapter.(interface{ ResolveNode(interface{}) DOMNode }); ok {
+		return resolver.ResolveNode(target)
+	}
+	return nil
+}
+
+// RenderInto renders an element tree into an explicit DOM node.
+func (rt *Runtime) RenderInto(target interface{}, element *Element) error {
+	container := rt.resolveContainer(target)
+	if container == nil || container.IsNull() {
+		ReportDiagnostic("runtime", DiagnosticError, "RenderInto failed because the target node could not be resolved")
+		return fmt.Errorf("RenderInto: target node could not be resolved")
+	}
+	rt.Render(element, container)
+	return nil
+}
+
+// HydrateInto hydrates an element tree into an explicit DOM node.
+func (rt *Runtime) HydrateInto(target interface{}, element *Element) error {
+	container := rt.resolveContainer(target)
+	if container == nil || container.IsNull() {
+		ReportDiagnostic("runtime", DiagnosticError, "HydrateInto failed because the target node could not be resolved")
+		return fmt.Errorf("HydrateInto: target node could not be resolved")
+	}
+	rt.Hydrate(element, container)
+	return nil
 }

@@ -141,6 +141,8 @@ Recommended rules:
 - reserve router-managed metadata for document identity, not for transport optimization hints
 - prefer stable, high-value hints only; do not emit large per-navigation hint sets that are hard to keep correct
 
+For the broader asset-delivery contract behind those hints, see [ASSETS.md](ASSETS.md).
+
 ## Social Metadata Examples
 
 Current recommendation for social metadata is explicit SSR markup next to the route-managed metadata:

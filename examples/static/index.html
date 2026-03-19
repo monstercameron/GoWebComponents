@@ -252,12 +252,12 @@
         <div class="eyebrow">GoWebComponents Example Catalog</div>
         <h1>Examples grouped by package and feature.</h1>
         <p class="lede">
-          The catalog now covers the public ui, html, state, fetch, router,
-          devtools, and SSR or hydration surfaces directly, while still keeping
-          the larger end-to-end demos available for full-app reference.
+          The catalog now covers the public ui, html, interop, state, fetch,
+          router, devtools, and SSR or hydration surfaces directly, while still
+          keeping the larger end-to-end demos available for full-app reference.
         </p>
         <div class="hero-meta">
-          <div class="pill">76 numbered examples</div>
+          <div class="pill">80 numbered examples</div>
           <div class="pill">Feature-isolated demos</div>
           <div class="pill">Server-backed SSR examples included</div>
         </div>
@@ -267,6 +267,7 @@
           <a href="#state">state</a>
           <a href="#fetch">fetch</a>
           <a href="#html">html</a>
+          <a href="#interop">interop</a>
           <a href="#router">router</a>
           <a href="#devtools">devtools</a>
           <a href="#ssr">SSR and hydration</a>
@@ -326,7 +327,7 @@
             <a class="example-link" href="../24-use-ref/use-ref.html"><div class="example-top"><span class="example-id">24</span><span class="example-title">ui.UseRef</span></div><div class="example-desc">Mutable instance values without rerenders.</div></a>
             <a class="example-link" href="../25-use-previous/use-previous.html"><div class="example-top"><span class="example-id">25</span><span class="example-title">ui.UsePrevious</span></div><div class="example-desc">Read the last committed value.</div></a>
             <a class="example-link" href="../26-use-deferred-value/use-deferred-value.html"><div class="example-top"><span class="example-id">26</span><span class="example-title">ui.UseDeferredValue</span></div><div class="example-desc">Defer expensive visual updates.</div></a>
-            <a class="example-link" href="../27-transition-hooks/transition-hooks.html"><div class="example-top"><span class="example-id">27</span><span class="example-title">StartTransition and UseTransition</span></div><div class="example-desc">Urgent versus non-urgent updates.</div></a>
+            <a class="example-link" href="../27-transition-hooks/transition-hooks.html"><div class="example-top"><span class="example-id">27</span><span class="example-title">StartTransition and UseTransition</span></div><div class="example-desc">Typeahead, dashboard-tab, and route-style transitions with urgent intent preserved.</div></a>
             <a class="example-link" href="../28-use-reducer/use-reducer.html"><div class="example-top"><span class="example-id">28</span><span class="example-title">ui.UseReducer</span></div><div class="example-desc">Reducer-style local state transitions.</div></a>
             <a class="example-link" href="../29-use-debounced/use-debounced.html"><div class="example-top"><span class="example-id">29</span><span class="example-title">ui.UseDebounced</span></div><div class="example-desc">Debounced derived values.</div></a>
             <a class="example-link" href="../30-use-throttled/use-throttled.html"><div class="example-top"><span class="example-id">30</span><span class="example-title">ui.UseThrottled</span></div><div class="example-desc">Rate-limited derived values.</div></a>
@@ -382,26 +383,44 @@
             Raw fetch, typed resources, shared cached resources, and imperative
             request flows.
           </p>
-          <div class="section-count">4 examples</div>
+          <div class="section-count">5 examples</div>
           <div class="example-list">
             <a class="example-link" href="../42-use-fetch/use-fetch.html"><div class="example-top"><span class="example-id">42</span><span class="example-title">fetch.UseFetch</span></div><div class="example-desc">Low-level request state handling.</div></a>
             <a class="example-link" href="../43-use-resource/use-resource.html"><div class="example-top"><span class="example-id">43</span><span class="example-title">fetch.UseResource</span></div><div class="example-desc">Typed resource loading and reload.</div></a>
             <a class="example-link" href="../44-use-cached-resource/use-cached-resource.html"><div class="example-top"><span class="example-id">44</span><span class="example-title">fetch.UseCachedResource</span></div><div class="example-desc">Shared cache reuse and invalidation.</div></a>
             <a class="example-link" href="../45-fetch-imperative/fetch-imperative.html"><div class="example-top"><span class="example-id">45</span><span class="example-title">fetch.Fetch</span></div><div class="example-desc">Imperative event-driven fetch flows.</div></a>
+            <a class="example-link" href="../93-ssr-cache-bootstrap/ssr-cache-bootstrap.html"><div class="example-top"><span class="example-id">93</span><span class="example-title">SSR cache bootstrap</span></div><div class="example-desc">Seed shared cache entries before hydration and choose explicit resume policies.</div></a>
           </div>
         </section>
 
         <section class="section-card" id="html">
           <h2>html Package</h2>
           <p class="section-copy">
-            Semantic wrappers, typed form controls, and generic tag escape
-            hatches.
+            Semantic wrappers, typed form controls, generic tag escape
+            hatches, and explicit custom-element hosts.
           </p>
-          <div class="section-count">3 examples</div>
+          <div class="section-count">5 examples</div>
           <div class="example-list">
+            <a class="example-link" href="../89-exported-custom-element/exported-custom-element.html"><div class="example-top"><span class="example-id">89</span><span class="example-title">Exported custom element prototype</span></div><div class="example-desc">Mount a GoWebComponents subtree into a shadow-root host owned by plain HTML.</div></a>
+            <a class="example-link" href="../88-web-components/web-components.html"><div class="example-top"><span class="example-id">88</span><span class="example-title">html.CustomElement</span></div><div class="example-desc">Browser-defined custom elements with properties, slots, and typed CustomEvent payloads.</div></a>
             <a class="example-link" href="../52-semantic-html/semantic-html.html"><div class="example-top"><span class="example-id">52</span><span class="example-title">Semantic layout</span></div><div class="example-desc">Build a small semantic page with html wrappers.</div></a>
             <a class="example-link" href="../53-html-forms/html-forms.html"><div class="example-top"><span class="example-id">53</span><span class="example-title">Form controls</span></div><div class="example-desc">Typed form composition with html.Props.</div></a>
             <a class="example-link" href="../54-html-tag/html-tag.html"><div class="example-top"><span class="example-id">54</span><span class="example-title">html.Tag</span></div><div class="example-desc">Generic tag builder for custom elements and rarer tags.</div></a>
+          </div>
+        </section>
+
+        <section class="section-card" id="interop">
+          <h2>interop Package</h2>
+          <p class="section-copy">
+            Typed browser wrappers for storage, clipboard, DOM lookup,
+            observers, and browser event integration.
+          </p>
+          <div class="section-count">4 examples</div>
+          <div class="example-list">
+            <a class="example-link" href="../95-multi-window-console/multi-window-console.html"><div class="example-top"><span class="example-id">95</span><span class="example-title">Multi-window console</span></div><div class="example-desc">Coordinate an opener and popup with typed session, route, selection, and intent signals.</div></a>
+            <a class="example-link" href="../94-cross-tab-sync/cross-tab-sync.html"><div class="example-top"><span class="example-id">94</span><span class="example-title">Cross-tab sync</span></div><div class="example-desc">Broadcast theme, auth, cache, and draft hints between tabs with transport diagnostics.</div></a>
+            <a class="example-link" href="../91-worker-text-index/worker-text-index.html"><div class="example-top"><span class="example-id">91</span><span class="example-title">Worker text index</span></div><div class="example-desc">Run CPU-heavy token counting in a dedicated worker through ui.UseWorkerTask.</div></a>
+            <a class="example-link" href="../90-browser-interop/browser-interop.html"><div class="example-top"><span class="example-id">90</span><span class="example-title">Browser interop</span></div><div class="example-desc">Use interop helpers for storage, clipboard, observers, and typed CustomEvent flows.</div></a>
           </div>
         </section>
 
@@ -411,8 +430,9 @@
             Hash and browser routers, navigation, params, query state, loaders,
             guards, redirects, metadata, and nested layouts.
           </p>
-          <div class="section-count">12 examples</div>
+          <div class="section-count">13 examples</div>
           <div class="example-list">
+            <a class="example-link" href="../92-protected-routes/protected-routes.html"><div class="example-top"><span class="example-id">92</span><span class="example-title">Protected routes</span></div><div class="example-desc">Safe return_to redirects, manual auth-pending UI, and shared loader/cache reuse.</div></a>
             <a class="example-link" href="../80-routed-accessibility/routed-accessibility.html"><div class="example-top"><span class="example-id">80</span><span class="example-title">Routed accessibility</span></div><div class="example-desc">Route announcements and heading focus after navigation.</div></a>
             <a class="example-link" href="../55-hash-router/hash-router.html"><div class="example-top"><span class="example-id">55</span><span class="example-title">Hash router basics</span></div><div class="example-desc">Static-host-friendly router setup.</div></a>
             <a class="example-link" href="../56-browser-router/browser-router.html"><div class="example-top"><span class="example-id">56</span><span class="example-title">Browser router basics</span></div><div class="example-desc">Path-based routing with rewrite expectations.</div></a>

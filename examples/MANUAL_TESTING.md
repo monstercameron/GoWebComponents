@@ -120,7 +120,7 @@ Standalone Atlas SSR URLs:
 - `24-use-ref`: Interact with the ref-driven control, usually a focus or imperative read. Expected: the DOM element responds through the ref-backed action.
 - `25-use-previous`: Change the tracked value more than once. Expected: the page shows both the current and previous value correctly.
 - `26-use-deferred-value`: Type or change input rapidly. Expected: the immediate value changes first and the deferred value lags behind before settling.
-- `27-transition-hooks`: Trigger the transition workload. Expected: pending UI appears during the transition and the final state commits when work completes.
+- `27-transition-hooks`: Type into the search box, switch dashboard tabs, and swap sections. Expected: the query, requested tab, and requested path update immediately; the page reports a transition-pending state while the heavier result, dashboard, and section panes commit afterward.
 - `28-use-reducer`: Dispatch multiple actions. Expected: reducer-driven state changes are deterministic and all derived stats match the action history.
 - `29-use-debounced`: Type quickly, then stop. Expected: debounced output changes only after the delay window elapses.
 - `30-use-throttled`: Trigger repeated updates rapidly. Expected: throttled output updates at the expected cadence rather than on every event.
@@ -167,12 +167,21 @@ Standalone Atlas SSR URLs:
 - `43-use-resource`: Load resource-backed content and retry if needed. Expected: the resource cache and fallback behavior behave predictably across rerenders.
 - `44-use-cached-resource`: Revisit or retrigger the same fetch path. Expected: cached content is reused instead of showing the cold-loading path every time.
 - `45-fetch-imperative`: Invoke the imperative fetch action repeatedly. Expected: responses update the UI on demand and do not require hook remounting.
+- `93-ssr-cache-bootstrap`: Load the prerendered page and wait for wasm startup. Expected: the trust-once card stays on the server-seeded revision until manual reload, the stale-while-revalidate card upgrades from its seeded revision after the client pass, and the always-refetch card also upgrades immediately despite a fresh embedded timestamp.
 
 ### html Package
 
 - `52-semantic-html`: Verify the semantic layout renders correct headings, landmarks, and content grouping. Expected: the DOM structure is semantically meaningful and visually intact.
 - `53-html-forms`: Use the typed form controls. Expected: inputs, selects, and labels stay wired correctly through `html.Props`.
 - `54-html-tag`: Inspect the dynamic tag output. Expected: the requested tag renders with the right children and attributes.
+- `88-web-components`: Advance the browser-defined widget and change palettes. Expected: reflected attributes update the widget theme, property-only state updates the score meter, slotted Go content renders inside the widget, and `rating-change` updates the Go-side status panel.
+- `89-exported-custom-element`: Change the raw HTML host attributes through the page buttons. Expected: the plain HTML custom-element hosts re-mount a Go-rendered shadow-root widget through the export bridge and clean up when removed.
+
+### interop Package
+
+- `90-browser-interop`: Save and reload the draft, resize the page, and dispatch a pulse. Expected: storage round-trips through `interop.LocalStorage()` and `storage.GetMany(...)`, the panel measurement and color-scheme state update through interop observers, the typed custom event updates the status panel, and clipboard actions either succeed or report a structured browser denial instead of failing silently.
+- `91-worker-text-index`: Run the index build, then cancel and rerun it with a different query. Expected: the page stays responsive while the worker reports progress, top-term stats update from the worker result, and cancellation stops the in-flight job without freezing the UI.
+- `95-multi-window-console`: Open the popup, send the session and route actions, then close either surface unexpectedly. Expected: the popup receives typed session, route, selection, and intent updates from the opener; popup-originated signals update the opener when sent back; and if either side disappears the remaining surface reports an explicit orphaned or disconnected state instead of silently assuming the channel still exists.
 
 ### router Package
 
@@ -187,6 +196,8 @@ Standalone Atlas SSR URLs:
 - `63-router-metadata`: Navigate across routes that set metadata. Expected: document title or related metadata changes with the current route.
 - `64-nested-layout-routes`: Switch between layout children. Expected: the parent layout remains mounted while only the outlet subtree changes.
 - `65-router-guards`: Attempt guarded navigation and leave flows. Expected: allowed routes proceed and guarded routes block or redirect according to the rule.
+- `92-protected-routes`: Enter the protected route signed out, while resolving, and signed in. Expected: signed-out access redirects through login with a safe `return_to`, unknown auth shows manual authorizing UI, the billing tab renders a manual unauthorized fallback until the claim is granted, and the shared cache widget stays aligned with the route loader revision.
+- `94-cross-tab-sync`: Open the page in two tabs. Expected: theme broadcasts update the second tab, logout broadcasts flip the second tab into signed-out state, cache invalidations update the revision and status text remotely, draft broadcasts replace the second tab's draft when the version is newer, and the diagnostics panel reports the resolved transport plus recent received messages.
 - `80-routed-accessibility`: Navigate between the shell routes. Expected: the live region announces the newly loaded page and focus moves to the route heading after each navigation.
 - `72-router-hydrate-mount`: Load the prerendered route first and then navigate after hydration. Expected: the initial route is preserved during attach and later route changes work normally.
 - `74-ssr-route-data-reuse`: Load the prerendered products route, then revalidate. Expected: the first render uses bootstrap data and later revalidation falls back to the live client loader path.

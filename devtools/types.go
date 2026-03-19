@@ -10,12 +10,29 @@ const (
 	SeverityError   Severity = "error"
 )
 
+type Classification string
+
 // Diagnostic describes a runtime diagnostic entry surfaced in devtools.
 type Diagnostic struct {
-	Source   string
-	Severity Severity
-	Message  string
-	Count    int
+	Source         string
+	Severity       Severity
+	Classification Classification
+	Message        string
+	Count          int
+	Path           string
+	ComponentStack []string
+}
+
+type LogLevel string
+
+type Log struct {
+	Domain         string
+	Level          LogLevel
+	Classification Classification
+	Message        string
+	Timestamp      string
+	CorrelationID  string
+	Fields         map[string]string
 }
 
 // Hook describes one hook entry captured for a component node.
@@ -87,13 +104,27 @@ type Route struct {
 	Loading bool
 }
 
+type CacheEntry struct {
+	Key             string
+	Loading         bool
+	Ready           bool
+	Stale           bool
+	LastError       string
+	UpdatedAt       time.Time
+	LastLoaded      time.Time
+	SubscriberCount int
+	ResumePolicy    string
+}
+
 // Snapshot is the top-level devtools inspection payload.
 type Snapshot struct {
 	Route       Route
+	Cache       []CacheEntry
 	Tree        *Node
 	Stats       Stats
 	Profiling   Profiling
 	Diagnostics []Diagnostic
+	Logs        []Log
 }
 
 // PanelProps configures the embeddable devtools panel.

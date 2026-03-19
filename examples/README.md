@@ -29,6 +29,7 @@ Every feature-isolated catalog page is expected to answer three questions clearl
 
 - `01-counter` through `20-portals`
 - These combine multiple features and are useful for seeing how the primitives fit together in larger apps.
+- `86-atlas-commerce-os`: the current production-shaped SSR reference server, combining shared UI, SSR, hydration, server-owned routes, mutations, static assets, and reviewer-facing docs
 - `87-ssr-secure-forms`: request-time rendered forms with CSRF validation, multipart uploads, validation round-trips, and `303` redirects
 
 Use the integrated apps when you want to understand how multiple primitives compose in one realistic surface. Use the feature-isolated pages when you want the clearest statement of a single API or tool's purpose.
@@ -47,7 +48,7 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `24-use-ref`: `ui.UseRef`
 - `25-use-previous`: `ui.UsePrevious`
 - `26-use-deferred-value`: `ui.UseDeferredValue`
-- `27-transition-hooks`: `ui.StartTransition`, `ui.UseTransition`
+- `27-transition-hooks`: `ui.StartTransition`, `ui.UseTransition`, typeahead filtering, tab swaps, and route-style section transitions
 - `28-use-reducer`: `ui.UseReducer`
 - `29-use-debounced`: `ui.UseDebounced`
 - `30-use-throttled`: `ui.UseThrottled`
@@ -89,12 +90,22 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `43-use-resource`: `fetch.UseResource`
 - `44-use-cached-resource`: `fetch.UseCachedResource`
 - `45-fetch-imperative`: `fetch.Fetch`
+- `93-ssr-cache-bootstrap`: SSR-seeded shared cache restore, `fetch.RestoreCacheBootstrap`, and resume policies
 
 ### html Package
 
 - `52-semantic-html`: semantic layout helpers
 - `53-html-forms`: typed form controls via `html.Props`
 - `54-html-tag`: `html.Tag`
+- `88-web-components`: `html.CustomElement`, `html.Props{Slot: ...}`, and `interop.SubscribeDecoded[T]`
+- `89-exported-custom-element`: experimental export-side custom-element wrapper via `ui.RenderInto`
+
+### interop Package
+
+- `90-browser-interop`: storage, clipboard, grouped DOM lookup, resize or media observation, and typed custom events through `interop`
+- `91-worker-text-index`: `ui.UseWorkerTask`, worker progress, and CPU-heavy text indexing off the main thread
+- `94-cross-tab-sync`: `interop.OpenCrossTabChannel`, typed cross-tab messages, transport diagnostics, and opt-in state hint broadcasting
+- `95-multi-window-console`: `interop.OpenSecondaryWindowChannel`, `interop.WindowOpenerChannel`, and typed shared session or route coordination across popup surfaces
 
 ### router Package
 
@@ -109,6 +120,7 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `63-router-metadata`: route-managed title and metadata
 - `64-nested-layout-routes`: layout routes, `router.Outlet`
 - `65-router-guards`: `BeforeEnter`, `BeforeLeave`
+- `92-protected-routes`: guarded redirects, safe `return_to`, manual authorizing UI, and `fetch.LoadCached`
 - `80-routed-accessibility`: route-change announcements and heading focus after navigation
 - `72-router-hydrate-mount`: `router.HydrateMount`
 - `74-ssr-route-data-reuse`: route-loader bootstrap reuse during hydration

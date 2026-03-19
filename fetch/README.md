@@ -25,9 +25,14 @@ The `fetch` package provides utilities for making HTTP requests from WebAssembly
 
 - Use `UseFetch` when you want raw fetch state around a URL and are comfortable parsing `state.Data` yourself.
 - Use `UseResource[T]` when you want typed values, cancellation, dependency-driven reloads, or loader logic that does more than one direct fetch call.
-- Use `UseCachedResource[T]` when the same typed query should be shared across components, deduplicated in flight, or updated optimistically before a revalidation.
+- Use `UseCachedResource[T]` when the same typed query should be shared across components, deduplicated in flight, updated optimistically, or managed with cache lifecycle policies such as `MaxAge` and `DisposeAfter`.
+- Use `LoadCached[T]` when non-hook code such as a route loader should reuse the same shared cache key as `UseCachedResource[T]`.
+- Use `RestoreCacheBootstrap(...)` when hydration should start from SSR-seeded cache entries stored inside `ui.SSRBootstrap.Data`.
+- Use `OpenMutationQueue(...)` when writes should survive offline periods or page reloads and replay later through an application-owned executor.
 - Use `Fetch` when you need imperative access from an event handler, goroutine, or other non-hook code.
 - Use `Upload` together with `MultipartBody` when the request needs browser files, upload progress, or cancellation.
+
+For the broader shared-cache contract, including key normalization, optimistic update guidance, and the boundary between shipped cache behavior versus future cache work, see [`docs/CACHE.md`](../docs/CACHE.md). For offline queued write flows, replay semantics, and storage boundaries, see [`docs/OFFLINE_MUTATIONS.md`](../docs/OFFLINE_MUTATIONS.md).
 
 ## Core APIs
 
@@ -109,7 +114,11 @@ Typed shared-cache hook for list/detail queries that should be reused across com
 ```go
 users := fetch.UseCachedResource("users", func(ctx context.Context) ([]User, error) {
     return loadUsers(ctx)
-}, fetch.CacheOptions{StaleAfter: 30 * time.Second})
+}, fetch.CacheOptions{
+    StaleAfter:   30 * time.Second,
+    MaxAge:       2 * time.Minute,
+    DisposeAfter: 10 * time.Minute,
+})
 
 state := users.Get()
 if state.Loading && !state.Ready {
@@ -126,9 +135,98 @@ users.Update(func(prev []User) []User {
 })
 
 fetch.InvalidateResource("users")
+users.Dispose()
 ```
 
 `UseCachedResource[T]` keeps the last ready value visible while background refreshes run, so it composes cleanly with `ui.AsyncBoundary` by using `Pending: state.Loading && !state.Ready` for the first load and showing content during stale revalidation.
+
+### `LoadCached[T](ctx context.Context, key string, loader func(context.Context) (T, error), options ...CacheOptions)`
+
+Imperative shared-cache access for route loaders or other non-hook code paths that should reuse the same normalized key as `UseCachedResource[T]`.
+
+```go
+summary, err := fetch.LoadCached(ctx, "workspace:summary:"+subject, func(ctx context.Context) (WorkspaceSummary, error) {
+    return loadWorkspaceSummary(ctx, subject)
+}, fetch.CacheOptions{StaleAfter: 20 * time.Second})
+```
+
+Use the same `key` in a later `UseCachedResource[T]` call when a routed page and a component-level reader should share the exact payload and invalidation path.
+
+### `RestoreCacheBootstrap(payload ui.SSRBootstrap) error`
+
+Restore shared cache entries from `payload.Data["fetchCache"]` before `ui.Hydrate(...)` resumes the page:
+
+```go
+payload, _ := ui.ReadBootstrapScript("")
+_ = fetch.RestoreCacheBootstrap(payload)
+_, _ = ui.Hydrate(app(), "#app", ui.HydrationOptions{Bootstrap: payload})
+```
+
+Supported resume policies per entry are:
+
+- `trust-once`
+- `stale-while-revalidate`
+- `always-refetch`
+
+### `InspectCachedResources() []CachedResourceInspection`
+
+Read current cache entries for diagnostics or custom tooling:
+
+```go
+for _, entry := range fetch.InspectCachedResources() {
+    fmt.Println(entry.Key, entry.Ready, entry.Stale, entry.SubscriberCount)
+}
+```
+
+### `OpenMutationQueue(options ...MutationQueueOptions) (MutationQueue, error)`
+
+Open a durable browser-side queue for writes that should be replayed later:
+
+```go
+queue, err := fetch.OpenMutationQueue(fetch.MutationQueueOptions{
+    StorageKey:  "orders:offline",
+    MaxAttempts: 4,
+    BaseDelay:   2 * time.Second,
+    MaxDelay:    2 * time.Minute,
+})
+if err != nil {
+    panic(err)
+}
+
+_, err = queue.Enqueue(fetch.MutationDraft{
+    Kind:     "order.submit",
+    DedupKey: "order:draft:123",
+    Method:   "POST",
+    URL:      "/api/orders",
+    Headers:  map[string]string{"Content-Type": "application/json"},
+    Body:     map[string]interface{}{"items": []string{"sku-1"}},
+})
+if err != nil {
+    panic(err)
+}
+
+report, err := queue.Replay(context.Background(), func(ctx context.Context, mutation fetch.QueuedMutation) error {
+    result := <-fetch.Fetch(mutation.URL, fetch.Options{
+        Method: mutation.Method,
+        Headers: map[string]interface{}{
+            "Content-Type": mutation.Headers["Content-Type"],
+        },
+        Body: mutation.Body,
+    })
+    return result.Err
+})
+fmt.Println(report, err)
+```
+
+Current queue behavior includes:
+
+- persistence through browser storage, defaulting to `localStorage`
+- insertion-order replay
+- deduplication through `DedupKey`
+- exponential backoff through `BaseDelay` and `MaxDelay`
+- terminal `dead` entries after `MaxAttempts`
+
+Keep queued bodies JSON-shaped and derive sensitive auth headers at replay time instead of storing them. See [`docs/OFFLINE_MUTATIONS.md`](../docs/OFFLINE_MUTATIONS.md) for the full contract.
 
 ### `Fetch(url string, options Options) <-chan Result`
 

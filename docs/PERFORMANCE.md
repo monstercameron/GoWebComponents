@@ -282,3 +282,7 @@ Caching bound document query methods and using direct indexed collection access 
 3. Profile browser-bound paths separately from native runtime paths.
 4. Treat correctness regressions as blockers; performance changes in this repo have repeatedly shown that low-level wins are only worth keeping if the benchmark set and behavior tests both stay green.
 5. Treat host prop update churn and DOM/event boundary cost as the next likely levers; broader struct-layout rewrites have not paid off here.
+
+For the broader build-profile, size-budget, and release-artifact policy around those measurements, see [WASM_RELEASES.md](WASM_RELEASES.md) and [BUILD_EXPERIMENTS.md](BUILD_EXPERIMENTS.md).
+
+For the broader build-profile and release-flag policy around those measurements, see [WASM_RELEASES.md](WASM_RELEASES.md).

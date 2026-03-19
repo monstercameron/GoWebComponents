@@ -214,6 +214,17 @@ Current support expectations are:
 
 If the project later introduces LTS branches or backport windows, this document should be updated before those guarantees are advertised.
 
+## Browser Support Changes
+
+Browser-support policy is part of the public support contract.
+
+That means:
+
+- documented supported browser families and capability baselines must live in `docs/BROWSER_SUPPORT.md`
+- release notes and migration guidance must call out any narrowing of the browser matrix or materially new browser-feature requirement
+- patch releases must not silently drop a documented supported browser family
+- any planned browser-support reduction should follow the same evidence-first discipline used for other support-policy changes, with a clear rationale and migration guidance
+
 ## Enterprise Adoption Guidance
 
 Teams evaluating long-lived production use should treat the following as the safe baseline today:

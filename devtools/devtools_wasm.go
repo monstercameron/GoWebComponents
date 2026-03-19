@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/monstercameron/GoWebComponents/fetch"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/router"
@@ -36,12 +37,39 @@ func SnapshotNow() Snapshot {
 		Stats:     mapStats(rtSnapshot.Stats),
 		Profiling: mapProfiling(rtSnapshot.Profiling),
 	}
+	for _, entry := range fetch.InspectCachedResources() {
+		snapshot.Cache = append(snapshot.Cache, CacheEntry{
+			Key:             entry.Key,
+			Loading:         entry.Loading,
+			Ready:           entry.Ready,
+			Stale:           entry.Stale,
+			LastError:       entry.LastError,
+			UpdatedAt:       entry.UpdatedAt,
+			LastLoaded:      entry.LastLoaded,
+			SubscriberCount: entry.SubscriberCount,
+			ResumePolicy:    string(entry.ResumePolicy),
+		})
+	}
 	for _, diagnostic := range rtSnapshot.Diagnostics {
 		snapshot.Diagnostics = append(snapshot.Diagnostics, Diagnostic{
-			Source:   diagnostic.Source,
-			Severity: Severity(diagnostic.Severity),
-			Message:  diagnostic.Message,
-			Count:    diagnostic.Count,
+			Source:         diagnostic.Source,
+			Severity:       Severity(diagnostic.Severity),
+			Classification: Classification(diagnostic.Classification),
+			Message:        diagnostic.Message,
+			Count:          diagnostic.Count,
+			Path:           diagnostic.Path,
+			ComponentStack: append([]string(nil), diagnostic.ComponentStack...),
+		})
+	}
+	for _, entry := range rtSnapshot.Logs {
+		snapshot.Logs = append(snapshot.Logs, Log{
+			Domain:         entry.Domain,
+			Level:          LogLevel(entry.Level),
+			Classification: Classification(entry.Classification),
+			Message:        entry.Message,
+			Timestamp:      entry.Timestamp,
+			CorrelationID:  entry.CorrelationID,
+			Fields:         cloneStringMap(entry.Fields),
 		})
 	}
 	return snapshot
@@ -136,8 +164,10 @@ func Panel(props PanelProps) ui.Node {
 	}},
 		header(title, toggle),
 		section("Route", routeSummary(snapshot.Route)),
+		section("Cache", cacheSummary(snapshot.Cache)),
 		section("Runtime", statsSummary(snapshot.Stats)),
 		section("Profiling", profilingSummary(snapshot.Profiling)),
+		section("Logs", logsSummary(snapshot.Logs)),
 		section("Diagnostics", diagnosticsSummary(snapshot.Diagnostics)),
 		section("Tree", treeSummary(snapshot.Tree, 0, maxDepth)),
 	)
@@ -199,6 +229,31 @@ func statsSummary(stats Stats) ui.Node {
 		metricRow("Hook entries", fmt.Sprintf("%d", stats.HookEntries)),
 		metricRow("Effects", fmt.Sprintf("%d", stats.Effects)),
 	)
+}
+
+func cacheSummary(entries []CacheEntry) ui.Node {
+	if len(entries) == 0 {
+		return html.Div(html.Props{}, metricRow("Entries", "0"))
+	}
+
+	rows := make([]ui.Node, 0, len(entries))
+	for _, entry := range entries {
+		rows = append(rows, html.Div(html.Props{Style: map[string]string{
+			"padding":       "8px 0",
+			"border-bottom": "1px solid rgba(30,41,59,0.8)",
+		}},
+			metricRow("Key", entry.Key),
+			metricRow("Ready", fmt.Sprintf("%t", entry.Ready)),
+			metricRow("Loading", fmt.Sprintf("%t", entry.Loading)),
+			metricRow("Stale", fmt.Sprintf("%t", entry.Stale)),
+			metricRow("Subscribers", fmt.Sprintf("%d", entry.SubscriberCount)),
+			metricRow("Resume", emptyFallback(entry.ResumePolicy, "trust-once")),
+			metricRow("Updated", formatTime(entry.UpdatedAt)),
+			metricRow("Last load", formatTime(entry.LastLoaded)),
+			metricRow("Error", emptyFallback(entry.LastError, "none")),
+		))
+	}
+	return html.Div(html.Props{}, rows...)
 }
 
 func profilingSummary(profiling Profiling) ui.Node {
@@ -272,6 +327,76 @@ func diagnosticsSummary(diagnostics []Diagnostic) ui.Node {
 		}},
 			html.Div(html.Props{Style: map[string]string{"font-size": "12px", "text-transform": "uppercase", "letter-spacing": "0.08em", "color": color}}, html.Text(string(diagnostic.Severity)+" • "+diagnostic.Source+" • count="+fmt.Sprintf("%d", diagnostic.Count))),
 			html.P(html.Props{Style: map[string]string{"margin": "6px 0 0 0", "color": "#cbd5e1"}}, html.Text(diagnostic.Message)),
+			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text("class: "+string(diagnostic.Classification))),
+			func() ui.Node {
+				if strings.TrimSpace(diagnostic.Path) == "" {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "6px", "color": "#94a3b8"}}, html.Text("path: "+diagnostic.Path))
+			}(),
+			func() ui.Node {
+				if len(diagnostic.ComponentStack) == 0 {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("stack: "+strings.Join(diagnostic.ComponentStack, " > ")))
+			}(),
+		))
+	}
+	return html.Div(html.Props{}, items...)
+}
+
+func logsSummary(entries []Log) ui.Node {
+	if len(entries) == 0 {
+		return html.P(html.Props{Style: map[string]string{"margin": "0", "color": "#94a3b8"}}, html.Text("No framework logs buffered."))
+	}
+
+	items := make([]ui.Node, 0, len(entries))
+	for _, entry := range entries {
+		color := "#cbd5e1"
+		switch entry.Level {
+		case LogLevel(runtime.LogWarn):
+			color = "#fde68a"
+		case LogLevel(runtime.LogError):
+			color = "#fda4af"
+		case LogLevel(runtime.LogInfo):
+			color = "#67e8f9"
+		}
+		items = append(items, html.Div(html.Props{Style: map[string]string{
+			"padding":       "8px 10px",
+			"border-radius": "10px",
+			"border":        "1px solid rgba(51,65,85,0.7)",
+			"margin-bottom": "8px",
+		}},
+			html.Div(html.Props{Style: map[string]string{"font-size": "12px", "text-transform": "uppercase", "letter-spacing": "0.08em", "color": color}}, html.Text(string(entry.Level)+" | "+entry.Domain+" | "+string(entry.Classification))),
+			html.P(html.Props{Style: map[string]string{"margin": "6px 0 0 0", "color": "#e2e8f0"}}, html.Text(entry.Message)),
+			func() ui.Node {
+				meta := []string{}
+				if strings.TrimSpace(entry.Timestamp) != "" {
+					meta = append(meta, entry.Timestamp)
+				}
+				if strings.TrimSpace(entry.CorrelationID) != "" {
+					meta = append(meta, "corr="+entry.CorrelationID)
+				}
+				if len(meta) == 0 {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text(strings.Join(meta, " | ")))
+			}(),
+			func() ui.Node {
+				if len(entry.Fields) == 0 {
+					return nil
+				}
+				keys := make([]string, 0, len(entry.Fields))
+				for key := range entry.Fields {
+					keys = append(keys, key)
+				}
+				sort.Strings(keys)
+				parts := make([]string, 0, len(keys))
+				for _, key := range keys {
+					parts = append(parts, key+"="+entry.Fields[key])
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text(strings.Join(parts, " | ")))
+			}(),
 		))
 	}
 	return html.Div(html.Props{}, items...)
@@ -422,6 +547,17 @@ func mapProfiling(profiling runtime.ProfilingSnapshot) Profiling {
 	return mapped
 }
 
+func cloneStringMap(input map[string]string) map[string]string {
+	if len(input) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(input))
+	for key, value := range input {
+		out[key] = value
+	}
+	return out
+}
+
 func cloneParams(params map[string]string) map[string]string {
 	if len(params) == 0 {
 		return nil
@@ -477,4 +613,11 @@ func formatDurationNs(value int64) string {
 		return "0ms"
 	}
 	return fmt.Sprintf("%.2fms", float64(value)/1_000_000)
+}
+
+func formatTime(value time.Time) string {
+	if value.IsZero() {
+		return "n/a"
+	}
+	return value.Format("15:04:05")
 }

@@ -4,6 +4,7 @@
 //   - UseFetch for low-level fetch state around a URL and browser-style refetching
 //   - UseResource for typed, context-aware async loading in non-trivial components
 //   - UseCachedResource for shared cached async state with deduplication and invalidation
+//   - OpenMutationQueue for durable offline write replay in browser storage
 //
 // UseResource is the preferred choice when callers want typed results,
 // cancellation, dependency-driven reloads, or loader logic that does more than
@@ -42,6 +43,7 @@
 //   - UseFetch: Hook for manual raw fetch state management via a handle
 //   - UseResource: Typed async resource hook for context-aware loaders
 //   - UseCachedResource: Shared typed cache hook with stale-while-revalidate behavior
+//   - OpenMutationQueue: Durable queued write storage plus replay helpers for offline workflows
 //   - Fetch: Low-level fetch function returning a channel for manual control
 //
 // The UseFetch hook:

@@ -7,6 +7,8 @@ It focuses on the minimum useful debugging view:
 - component tree visibility
 - hook state inspection
 - current route inspection
+- shared cache inspection
+- recent framework log buffering
 - subtree-level profiling hotspots
 - structured runtime diagnostics
 
@@ -66,10 +68,13 @@ func InspectorSummary() ui.Node {
 ## What the Panel Shows
 
 - Current route path, query params, route params, and route loader pending state
+- Shared cache entries including key, ready or stale state, subscriber count, resume policy, and last error
 - Runtime totals for fibers, dirty nodes, hook entries, effects, and recent timing counters
 - Hot branches ranked by subtree commit/effect/cleanup cost
+- Recent framework logs buffered in memory, including router navigation, route-loader, cache invalidation, and mutation replay lifecycle events
 - A committed component tree view with hook summaries per node
-- Structured diagnostics reported by the runtime and router, including slow effect and cleanup paths
+- Structured diagnostics reported by the runtime and router, now including classification metadata for correctness, performance, recovered, unsupported-but-recovered, and informational notices
+- Recovered error-boundary diagnostics now include subtree path and component-stack context when the runtime can attribute the failure
 
 ## Diagnostics Included Today
 
@@ -77,6 +82,7 @@ func InspectorSummary() ui.Node {
 - missing `RenderTo(...)` container selectors
 - duplicate route registrations
 - invalid route component registration
+- recovered boundary failures with path and component-stack context
 
 ## Notes
 

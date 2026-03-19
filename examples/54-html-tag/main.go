@@ -24,7 +24,7 @@ func htmlTagExample() ui.Node {
 	customWidget := html.Tag("status-widget", html.Props{Class: widgetClass, Data: map[string]string{"tone": tone.Get()}, Raw: map[string]interface{}{"data-owner": "html.Tag"}},
 		html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Custom element")),
 		html.H2(html.Props{Class: "mt-3 text-2xl font-bold text-white"}, html.Text("status-widget")),
-		html.P(html.Props{Class: "mt-4 leading-7 text-slate-300"}, html.Text("html.Tag is the escape hatch for custom elements and uncommon tags that do not need a dedicated wrapper.")),
+		html.P(html.Props{Class: "mt-4 leading-7 text-slate-300"}, html.Text("html.Tag is the escape hatch for simple custom elements and uncommon tags that do not need explicit property mapping or custom-event helpers.")),
 	)
 
 	highlight := html.Tag("mark", html.Props{Class: "rounded px-2 py-1 bg-cyan-400/20 text-cyan-100"}, html.Text("Uncommon standard tag"))
@@ -32,7 +32,7 @@ func htmlTagExample() ui.Node {
 	return shared.ExamplePage(
 		"html.Tag",
 		"Create custom or uncommon elements without waiting for a dedicated helper",
-		"Use html.Tag when you need a custom element, a newer HTML tag, or a rarely used standard element that does not justify a named wrapper in the package.",
+		"Use html.Tag when you need a custom element, a newer HTML tag, or a rarely used standard element that does not justify a named wrapper in the package. Reach for html.CustomElement when a browser-defined element needs property assignment, named slots, or typed custom-event wiring.",
 		shared.ExamplePanel("Generic tag builder",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
 				shared.ExampleButton("Calm", setCalm),
@@ -43,6 +43,7 @@ func htmlTagExample() ui.Node {
 			shared.ExampleCode(
 				`html.Tag("status-widget", html.Props{Data: map[string]string{"tone": tone}} , children...)`,
 				`html.Tag("mark", html.Props{}, html.Text("highlight"))`,
+				`html.CustomElement("demo-rating-card", html.CustomElementProps{Properties: map[string]interface{}{"score": 3}})`,
 			),
 		),
 	)

@@ -195,6 +195,14 @@ not leave an extra stale history entry behind.
 Synchronous `BeforeEnter` and `BeforeLeave` guards can also redirect or block
 router-driven navigation. Async guard behavior is still a separate future item.
 
+For current protected-route guidance, safe `return_to` handling, and the
+manual authorizing or unauthorized pattern that exists before async auth-aware
+route primitives land, see `docs/ROUTER_AUTH.md` and
+`examples/92-protected-routes`.
+
+For the planned async-guard and auth-aware routing contract, see
+`docs/ROUTER_AUTH.md`.
+
 Route-managed metadata uses replacement semantics too: when a later route omits
 description or canonical metadata, the router removes the previously managed
 values instead of leaving stale tags behind.
@@ -485,18 +493,24 @@ In most apps you register routes once in `main()` and let the router mount direc
 ## Protected Route Pattern
 
 ```go
-func ProtectedPage(props router.Attrs) *router.Element {
-    nav := router.UseNavigate()
-    isAuthenticated := true // replace with real app state
-
-    if !isAuthenticated {
-        nav.Replace("/login")
-        return html.Div(html.Props{}, html.Text("Redirecting..."))
+func protectedGuard(ctx router.RouteContext) router.GuardResult {
+    if !userIsSignedIn {
+        values := url.Values{}
+        values.Set(router.ReturnToParam, router.PreserveReturnTo(ctx.Path, ctx.Query.Values()))
+        return router.RedirectNavigation("/login?" + values.Encode())
     }
-
-    return html.Div(html.Props{}, html.Text("Protected content"))
+    return router.AllowNavigation()
 }
+
+r.Register("/workspace", WorkspacePage, router.Options{
+    BeforeEnter: protectedGuard,
+})
 ```
+
+When auth is still unresolved or a subsection is forbidden, keep the route
+mounted and render manual authorizing or unauthorized UI in the page itself.
+That is the current shipped pattern until route-level `Authorizing` and
+`Unauthorized` options exist.
 
 ## Best Practices
 

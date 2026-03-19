@@ -217,6 +217,7 @@ Atlas demonstrates one current server-backed pattern:
 The dedicated request-time rendered example is [examples/87-ssr-secure-forms](../examples/87-ssr-secure-forms), which keeps the forms server-owned and shows the current recommended secure HTML-post flow without requiring Atlas-specific domain context.
 
 See [examples/86-atlas-commerce-os/server/README.md](../examples/86-atlas-commerce-os/server/README.md) for the current repo example of that server contract.
+See [SECURITY.md](SECURITY.md) for the broader server-only data and logging redaction policy.
 
 ## Related Docs
 

@@ -211,8 +211,21 @@ func Render(root Node, selector string) {
 	panic("ui.Render is only available in js/wasm builds; use ui.RenderToString on the server")
 }
 
+func RenderInto(root Node, target interface{}) error {
+	_ = root
+	_ = target
+	return UnsupportedOnServer("RenderInto")
+}
+
 func Hydrate(root Node, selector string, options ...HydrationOptions) (SSRBootstrap, error) {
 	return SSRBootstrap{}, UnsupportedOnServer("Hydrate")
+}
+
+func HydrateInto(root Node, target interface{}, options ...HydrationOptions) (SSRBootstrap, error) {
+	_ = root
+	_ = target
+	_ = options
+	return SSRBootstrap{}, UnsupportedOnServer("HydrateInto")
 }
 
 // StartTransition runs fn immediately on non-browser targets.

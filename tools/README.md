@@ -45,6 +45,26 @@ Convenience wrappers for building a Go wasm target.
 
 These are still useful for standalone projects, but the repo�s browser tests build their own dedicated test app under `test/testapp/`.
 
+### `build-wasm-release.ps1`
+
+PowerShell-first helper for production-style wasm release builds.
+
+Example:
+
+```powershell
+.\tools\build-wasm-release.ps1 `
+  -Package ./examples/21-ui-render `
+  -OutDir .\dist\ui-render `
+  -BudgetsPath .\tools\wasm-size-budgets.sample.json
+```
+
+Behavior:
+
+- builds a `js/wasm` artifact with `-trimpath`, `-ldflags="-s -w"`, and `-buildvcs=false`
+- writes the raw `.wasm` file plus a `.gz` sidecar by default, and a `.br` sidecar when the host PowerShell runtime supports Brotli compression
+- emits `wasm-release-manifest.json` with relative paths, sizes, and sha256 hashes
+- optionally fails when raw, gzip, or available brotli sizes exceed configured budgets
+
 ### `go_js_wasm_exec.bat`
 
 Windows helper for running `go test` in `js/wasm` mode.

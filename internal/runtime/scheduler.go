@@ -166,6 +166,8 @@ func (rt *Runtime) Hydrate(element *Element, container DOMNode) {
 	shouldSchedule := !rt.updateScheduled
 	rt.updateScheduled = true
 	rt.hydrating = true
+	rt.strictHydration = rt.nextHydrationStrict
+	rt.nextHydrationStrict = false
 	rt.deferredHydrationSubscriptions = rt.deferredHydrationSubscriptions[:0]
 	if rt.deferredHydrationUpdates == nil {
 		rt.deferredHydrationUpdates = make(map[*Fiber]bool)

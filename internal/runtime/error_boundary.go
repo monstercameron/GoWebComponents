@@ -41,7 +41,13 @@ func (rt *Runtime) recoverBoundaryError(source *Fiber, recovered interface{}, ph
 	err := normalizeBoundaryError(recovered)
 	rt.setBoundaryError(boundary, err, string(phase))
 	rt.invokeBoundaryOnError(boundary, err)
-	ReportDiagnostic("runtime", DiagnosticWarning, fmt.Sprintf("error boundary caught %s failure: %v", phase, err))
+	ReportDiagnosticWithContext(
+		"runtime",
+		DiagnosticWarning,
+		fmt.Sprintf("error boundary caught %s failure: %v", phase, err),
+		diagnosticPathForFiber(source),
+		diagnosticComponentStack(source),
+	)
 
 	if phase == boundaryPhaseRender {
 		rt.renderBoundaryChildren(boundary)
@@ -109,7 +115,13 @@ func (rt *Runtime) invokeBoundaryOnError(boundary *Fiber, err error) {
 	}
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			ReportDiagnostic("runtime", DiagnosticWarning, fmt.Sprintf("error boundary onError callback panicked: %v", recovered))
+			ReportDiagnosticWithContext(
+				"runtime",
+				DiagnosticWarning,
+				fmt.Sprintf("error boundary onError callback panicked: %v", recovered),
+				diagnosticPathForFiber(boundary),
+				diagnosticComponentStack(boundary),
+			)
 		}
 	}()
 	onError(err)

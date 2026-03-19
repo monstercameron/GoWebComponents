@@ -59,6 +59,7 @@ Related docs:
 
 - [WORKFLOWS.md](WORKFLOWS.md#test-a-component-or-app-flow)
 - [WALKTHROUGHS.md](WALKTHROUGHS.md#data-heavy-dashboard)
+- [CONFIGURATION.md](CONFIGURATION.md)
 
 ## Routing
 
@@ -106,6 +107,7 @@ Runnable examples:
 - [examples/73-ssr-bootstrap](../examples/73-ssr-bootstrap)
 - [examples/74-ssr-route-data-reuse](../examples/74-ssr-route-data-reuse)
 - [examples/18-ssr-server-routing](../examples/18-ssr-server-routing)
+- [examples/87-ssr-secure-forms](../examples/87-ssr-secure-forms)
 
 Production caveats:
 
@@ -115,6 +117,8 @@ Production caveats:
 Related docs:
 
 - [MIGRATIONS.md](MIGRATIONS.md)
+- [SERVER_INTEGRATION.md](SERVER_INTEGRATION.md)
+- [OBSERVABILITY.md](OBSERVABILITY.md)
 - [WORKFLOWS.md](WORKFLOWS.md#add-ssr-and-hydration)
 - [WALKTHROUGHS.md](WALKTHROUGHS.md#server-rendered-app)
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md#hydration-mismatch-warnings)
@@ -141,6 +145,39 @@ Production caveats:
 
 Related docs:
 
+- [OBSERVABILITY.md](OBSERVABILITY.md)
+- [LOGGING.md](LOGGING.md)
+- [PRERENDER.md](PRERENDER.md)
+- [ASSETS.md](ASSETS.md)
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 - [test/README.md](../test/README.md)
 - [tools/README.md](../tools/README.md)
+
+## Prerender And Assets
+
+Public API:
+
+- `ui.RenderToString`
+- hydration and bootstrap helpers when prerendered pages also resume in the browser
+- application-owned manifest or asset-reference helpers
+
+Runnable examples:
+
+- [examples/70-render-to-string](../examples/70-render-to-string)
+- [examples/71-hydrate](../examples/71-hydrate)
+- [examples/73-ssr-bootstrap](../examples/73-ssr-bootstrap)
+
+Production caveats:
+
+- prerender route enumeration must exclude request-bound or authenticated routes
+- generated HTML should resolve hashed assets and base paths through one documented manifest convention
+- static pages may remain static, but hydrated pages still follow the normal hydration contract
+
+Related docs:
+
+- [PRERENDER.md](PRERENDER.md)
+- [ASSETS.md](ASSETS.md)
+- [HYDRATION.md](HYDRATION.md)
+- [SERVER_INTEGRATION.md](SERVER_INTEGRATION.md)
+- [HEAD_MANAGEMENT.md](HEAD_MANAGEMENT.md)
+- [WORKFLOWS.md](WORKFLOWS.md#ship-a-production-wasm-build)

@@ -1,5 +1,56 @@
 # Changelog
 
+## 2026-03-18
+
+### Browser interop and multipart workflows
+
+- Added a new public `interop` package with typed wrappers for browser storage, history, location, clipboard, timers, custom and generic event listeners, document lookup, element handles, resize observers, intersection observers, media queries, and dynamic module import.
+- Added structured interop error handling through `interop.Error`, `IsCode(...)`, `AsError(...)`, and `CodeOf(...)`, together with native and `js/wasm` test coverage for browser-only failure paths and wrapper behavior.
+- Added multipart request support to `fetch` through `MultipartBody`, `MultipartFile`, and `Upload(...)`, including progress updates, cancellation, preserved response status and headers, and structured HTTP error reporting for non-success responses.
+- Added public browser file helpers in `ui` so file inputs and upload flows can work through typed `ui.File` wrappers instead of raw `syscall/js` values.
+
+### SSR forms and server-integrated application flows
+
+- Added the `87-ssr-secure-forms` example to demonstrate request-time SSR form rendering, CSRF-aware form posting, multipart upload validation, server round-trips that preserve user input, and post-submit `303 See Other` redirects.
+- Added stronger `ui` form support for server-driven workflows, including server-error shaping, request-targeted submit modes, CSRF naming helpers, and typed file helpers on both browser and native targets so SSR form code no longer has to hand-roll those pieces.
+- Added focused tests and microbenchmarks for secure SSR form rendering and multipart upload handling, plus wasm-side fetch and interop benchmarks for multipart form-data creation and browser interop calls.
+- Added the first Atlas Commerce OS server-integrated workflow pass with request-time rendering, mock session routing, CSRF protection, SQLite-backed read and mutation flows, bootstrap payloads, startup migrations, and dedicated SSR browser coverage.
+
+### Documentation and adoption guides
+
+- Added `docs/START_HERE.md`, `docs/FORMS.md`, `docs/WORKFLOWS.md`, `docs/WALKTHROUGHS.md`, `docs/TROUBLESHOOTING.md`, and `docs/REFERENCE_MAP.md` to give new adopters a task-oriented route through the current public package surface.
+- Expanded the docs index and migration guidance so the current public package surface, SSR and form workflows, troubleshooting path, and reference-app adoption path are linked from one consistent set of entry documents.
+- Added dedicated Atlas Commerce OS documentation, layout maps, screenshots, and server notes so the reference application is documented as a real server-integrated workflow instead of only as runnable code.
+- Added `interop/README.md` and refreshed `fetch` and docs index guidance so multipart upload, SSR form, and browser interop workflows are documented from the public API perspective instead of requiring commit archaeology.
+
+### Browser platform integration and runnable examples
+
+- Expanded `interop` with first-class worker helpers, typed worker request/progress/result envelopes, cross-tab channels with `BroadcastChannel` and `storage` fallback, popup/opener window channels, multi-surface signals, and additional typed browser wrappers so common browser coordination flows no longer require ad hoc `syscall/js`.
+- Added `html.CustomElement(...)` and related custom-element guidance so browser-defined web components can be consumed with explicit attribute, presence-attribute, and property mapping instead of raw prop spreading.
+- Added explicit mount-target APIs through `ui.RenderInto(...)` and `ui.HydrateInto(...)`, plus the `ui.UseWorkerTask[...]` hook for binding worker-backed browser jobs into normal component state.
+- Added `examples/88-web-components`, `89-exported-custom-element`, `90-browser-interop`, `91-worker-text-index`, `94-cross-tab-sync`, and `95-multi-window-console` to demonstrate third-party custom elements, export-side web-component prototypes, typed browser interop, worker-backed CPU-heavy UI, cross-tab sync, and multi-window coordination.
+
+### Cache reuse, auth-routing, and offline workflows
+
+- Expanded `fetch.UseCachedResource[T]` with cache freshness and disposal policies, imperative `LoadCached(...)`, cache inspection, SSR bootstrap restore, resume-policy handling, and route-loader interoperability so shared data reuse works across component, loader, and SSR resume flows.
+- Added a durable browser-backed offline mutation queue through `fetch.OpenMutationQueue(...)` with replay, deduplication, retry scheduling, dead-letter state, and wasm-side tests for replay and cancellation behavior.
+- Added safe post-auth redirect helpers in `router` for preserving and validating internal `return_to` targets, and added the `92-protected-routes` and `93-ssr-cache-bootstrap` examples to demonstrate protected navigation, shared cache reuse, and SSR-seeded cache hydration.
+- Added cache, offline mutation, auth-routing, observability, and server-integration documentation so the current routed-app and shared-data model is described as a public contract instead of only through tests and examples.
+
+### Hydration diagnostics, runtime hardening, and devtools
+
+- Hardened hydration and recovery with component-stack-aware mismatch diagnostics, opt-in strict hydration mode, preserved browser-owned form control state during the initial reuse pass, and explicit docs for hydration behavior, state transfer, streaming SSR boundaries, and mismatch recovery.
+- Expanded runtime diagnostics to record structured classifications, buffered framework logs, and component path/stack context for recovered boundary errors, and surfaced those logs and diagnostics through the devtools snapshot and panel.
+- Added broader runtime correctness and benchmark coverage, including production-correctness scenarios, hydration reuse and fallback benchmarks, and transition scheduling benchmarks, while also keeping the `production` wasm utils surface aligned with development exports.
+- Refreshed `examples/27-transition-hooks` into a more realistic transition-style UX example and aligned the backlog/docs around the current runtime, scheduling, error-boundary, and hydration behavior.
+
+### Tooling, release engineering, and platform policy docs
+
+- Added `tools/build-wasm-release.ps1` and a sample wasm size-budget file so release-style builds can emit stripped artifacts, gzip sidecars, hashes, manifests, and optional size-budget enforcement from one helper.
+- Added docs covering cache behavior, custom elements, interop, workers, cross-tab sync, multi-surface coordination, error boundaries, production correctness, scheduling, hydration, streaming SSR, server integration, observability, logging, prerender, assets, browser support, PWA boundaries, security, configuration, wasm releases, build experiments, and onboarding.
+- Updated example indexes, manual-testing guidance, and docs entrypoints so the newer example set and system-level docs are discoverable from the top-level navigation.
+- Ignored the repo-local `.gotmp/` Go temp/build directory so local release-build and wasm test artifacts stop appearing as worktree noise.
+
 ## 2026-03-16
 
 ### Internationalization and localization
@@ -46,6 +97,12 @@
 - Added `docs/MIGRATIONS.md` as the release-to-release migration index, starting with guidance for moving into the current `v3.x` public package layout.
 - Linked the new policy and migration docs from the root README and docs index.
 - Updated the documentation backlog to mark the API stability and support policy work complete.
+
+### Example catalog and backlog alignment
+
+- Expanded the feature example catalog so the examples index and shared catalog copy map the shipped examples more directly to the current public APIs and learning goals.
+- Refreshed the root README and docs backlog structure around the current public package surface, numbered roadmap sections, and completed-work tracking instead of leaving newer example and docs work scattered across older notes.
+- Added the first Atlas Commerce OS planning backlog so the larger reference-application effort has an explicit timeline in the repo instead of only appearing through implementation commits later.
 
 ## 2026-03-15
 

@@ -37,6 +37,9 @@ func resolveStorage(name string) (Storage, error) {
 			}
 			return value.String(), true, nil
 		},
+		getMany: func(keys []string) (map[string]string, error) {
+			return storageGetMany(raw, keys), nil
+		},
 		setItem: func(key string, value string) error {
 			raw.Call("setItem", key, value)
 			return nil
@@ -223,6 +226,103 @@ func DocumentEvents() (EventTarget, error) {
 	return newEventTarget("document", raw), nil
 }
 
+func CurrentDocument() (Document, error) {
+	raw, err := globalProperty("Document", "document")
+	if err != nil {
+		return Document{}, err
+	}
+	return Document{
+		elementByID: func(id string) (Element, bool, error) {
+			value := raw.Call("getElementById", id)
+			if value.IsUndefined() || value.IsNull() {
+				return Element{}, false, nil
+			}
+			return newElement("document.getElementById", value), true, nil
+		},
+		elementsByID: func(ids []string) (map[string]Element, error) {
+			resolved := make(map[string]Element, len(ids))
+			for id, value := range documentElementsByID(raw, ids) {
+				resolved[id] = newElement("document.getElementById", value)
+			}
+			return resolved, nil
+		},
+		querySelector: func(selector string) (Element, bool, error) {
+			value := raw.Call("querySelector", selector)
+			if value.IsUndefined() || value.IsNull() {
+				return Element{}, false, nil
+			}
+			return newElement("document.querySelector", value), true, nil
+		},
+	}, nil
+}
+
+var (
+	storageGetManyHelperOnce sync.Once
+	storageGetManyHelper     js.Value
+	documentByIDHelperOnce   sync.Once
+	documentByIDHelper       js.Value
+)
+
+func storageGetMany(raw js.Value, keys []string) map[string]string {
+	storageGetManyHelperOnce.Do(func() {
+		storageGetManyHelper = js.Global().Get("Function").New("storage", "keys", `
+			const result = {};
+			for (const key of keys) {
+				const value = storage.getItem(key);
+				if (value !== null && value !== undefined) {
+					result[key] = value;
+				}
+			}
+			return result;
+		`)
+	})
+	values := storageGetManyHelper.Invoke(raw, stringArrayValue(keys))
+	if values.IsUndefined() || values.IsNull() {
+		return map[string]string{}
+	}
+	result := make(map[string]string, len(keys))
+	objectKeys := js.Global().Get("Object").Call("keys", values)
+	for index := 0; index < objectKeys.Get("length").Int(); index++ {
+		key := objectKeys.Index(index).String()
+		result[key] = values.Get(key).String()
+	}
+	return result
+}
+
+func documentElementsByID(raw js.Value, ids []string) map[string]js.Value {
+	documentByIDHelperOnce.Do(func() {
+		documentByIDHelper = js.Global().Get("Function").New("documentRef", "ids", `
+			const result = {};
+			for (const id of ids) {
+				const value = documentRef.getElementById(id);
+				if (value !== null && value !== undefined) {
+					result[id] = value;
+				}
+			}
+			return result;
+		`)
+	})
+	values := documentByIDHelper.Invoke(raw, stringArrayValue(ids))
+	if values.IsUndefined() || values.IsNull() {
+		return map[string]js.Value{}
+	}
+	result := make(map[string]js.Value, len(ids))
+	objectKeys := js.Global().Get("Object").Call("keys", values)
+	for index := 0; index < objectKeys.Get("length").Int(); index++ {
+		key := objectKeys.Index(index).String()
+		result[key] = values.Get(key)
+	}
+	return result
+}
+
+func stringArrayValue(values []string) js.Value {
+	array := js.Global().Get("Array").New()
+	for _, value := range values {
+		array.Call("push", value)
+	}
+	return array
+}
+
 func MatchMedia(query string) (MediaQueryList, error) {
 	window, err := globalProperty("MatchMedia", "window")
 	if err != nil {
@@ -327,6 +427,807 @@ func ImportModule(ctx context.Context, specifier string) (Module, error) {
 	}, nil
 }
 
+func OpenCrossTabChannel(options CrossTabChannelOptions) (CrossTabChannel, error) {
+	name := strings.TrimSpace(options.Name)
+	if name == "" {
+		return CrossTabChannel{}, wrapError("OpenCrossTabChannel", options.Name, CodeInvalid, errors.New("channel name is empty"))
+	}
+	source := fmt.Sprintf("%s-%d", name, time.Now().UnixNano())
+	if ctor := js.Global().Get("BroadcastChannel"); ctor.Type() == js.TypeFunction {
+		return newBroadcastCrossTabChannel(name, source, ctor.New(name)), nil
+	}
+	return newStorageCrossTabChannel(name, source, resolveCrossTabStorageKey(name, options.StorageKey))
+}
+
+func OpenSecondaryWindowChannel(options WindowChannelOptions) (WindowChannel, error) {
+	name := strings.TrimSpace(options.Name)
+	if name == "" {
+		return WindowChannel{}, wrapError("OpenSecondaryWindowChannel", options.Name, CodeInvalid, errors.New("channel name is empty"))
+	}
+	rawWindow, err := globalProperty("Window", "window")
+	if err != nil {
+		return WindowChannel{}, err
+	}
+	openFn := rawWindow.Get("open")
+	if openFn.Type() != js.TypeFunction {
+		return WindowChannel{}, unavailable("OpenSecondaryWindowChannel", name)
+	}
+	rawURL := strings.TrimSpace(options.URL)
+	if rawURL == "" {
+		return WindowChannel{}, wrapError("OpenSecondaryWindowChannel", name, CodeInvalid, errors.New("window URL is empty"))
+	}
+	raw := openFn.Invoke(rawURL, name, strings.TrimSpace(options.Features))
+	if raw.IsUndefined() || raw.IsNull() {
+		return WindowChannel{}, wrapError("OpenSecondaryWindowChannel", name, CodeUnavailable, errors.New("window.open returned no handle"))
+	}
+	return newWindowChannel(name, resolveWindowTargetOrigin(strings.TrimSpace(options.TargetOrigin)), raw, true), nil
+}
+
+func WindowOpenerChannel(options WindowChannelOptions) (WindowChannel, error) {
+	name := strings.TrimSpace(options.Name)
+	if name == "" {
+		return WindowChannel{}, wrapError("WindowOpenerChannel", options.Name, CodeInvalid, errors.New("channel name is empty"))
+	}
+	rawWindow, err := globalProperty("Window", "window")
+	if err != nil {
+		return WindowChannel{}, err
+	}
+	opener := rawWindow.Get("opener")
+	if opener.IsUndefined() || opener.IsNull() {
+		return WindowChannel{}, unavailable("WindowOpenerChannel", name)
+	}
+	return newWindowChannel(name, resolveWindowTargetOrigin(strings.TrimSpace(options.TargetOrigin)), opener, false), nil
+}
+
+const defaultWorkerReadyTimeout = 5 * time.Second
+
+type browserWorkerState struct {
+	mu            sync.RWMutex
+	options       WorkerOptions
+	raw           js.Value
+	active        bool
+	nextRequestID int
+}
+
+func NewWorker(ctx context.Context, options WorkerOptions) (Worker, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if strings.TrimSpace(options.URL) == "" {
+		return Worker{}, wrapError("NewWorker", options.URL, CodeInvalid, errors.New("worker URL is empty"))
+	}
+	state := &browserWorkerState{options: options}
+	if err := state.start(ctx); err != nil {
+		return Worker{}, err
+	}
+	return Worker{
+		post: state.post,
+		subscribe: func(handler func(WorkerMessage, error)) (Subscription, error) {
+			return state.subscribe(handler)
+		},
+		request:   state.request,
+		terminate: state.terminate,
+		restart:   state.restart,
+	}, nil
+}
+
+func (s *browserWorkerState) start(ctx context.Context) error {
+	raw, err := createBrowserWorker(s.options)
+	if err != nil {
+		return err
+	}
+	if s.options.Ready {
+		waitCtx := ctx
+		if _, ok := waitCtx.Deadline(); !ok {
+			timeout := s.options.ReadyTimeout
+			if timeout <= 0 {
+				timeout = defaultWorkerReadyTimeout
+			}
+			var cancel context.CancelFunc
+			waitCtx, cancel = context.WithTimeout(waitCtx, timeout)
+			defer cancel()
+		}
+		if err := waitWorkerReady(waitCtx, raw, s.options.URL); err != nil {
+			raw.Call("terminate")
+			return err
+		}
+	}
+	s.mu.Lock()
+	s.raw = raw
+	s.active = true
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *browserWorkerState) current(op string, target string) (js.Value, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if !s.active || s.raw.IsUndefined() || s.raw.IsNull() {
+		return js.Undefined(), wrapError(op, target, CodeDisposed, errors.New("worker is not active"))
+	}
+	return s.raw, nil
+}
+
+func (s *browserWorkerState) post(message any) error {
+	raw, err := s.current("Worker.Post", s.options.URL)
+	if err != nil {
+		return err
+	}
+	value, err := goValueToJS("Worker.Post", s.options.URL, message)
+	if err != nil {
+		return err
+	}
+	raw.Call("postMessage", value)
+	return nil
+}
+
+func (s *browserWorkerState) subscribe(handler func(WorkerMessage, error)) (Subscription, error) {
+	if handler == nil {
+		return Subscription{}, wrapError("Worker.Subscribe", s.options.URL, CodeInvalid, errors.New("handler is nil"))
+	}
+	raw, err := s.current("Worker.Subscribe", s.options.URL)
+	if err != nil {
+		return Subscription{}, err
+	}
+	messageFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		message, err := workerMessageFromEvent("Worker.Subscribe", s.options.URL, args)
+		handler(message, err)
+		return nil
+	})
+	errorFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		handler(WorkerMessage{}, wrapError("Worker.Subscribe", s.options.URL, CodeRemote, errors.New(workerRemoteErrorSummary(args))))
+		return nil
+	})
+	raw.Call("addEventListener", "message", messageFn)
+	raw.Call("addEventListener", "error", errorFn)
+	return Subscription{cancel: func() {
+		raw.Call("removeEventListener", "message", messageFn)
+		raw.Call("removeEventListener", "error", errorFn)
+		messageFn.Release()
+		errorFn.Release()
+	}}, nil
+}
+
+func (s *browserWorkerState) request(ctx context.Context, name string, payload any, onProgress func(WorkerMessage, error)) (WorkerMessage, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if strings.TrimSpace(name) == "" {
+		return WorkerMessage{}, wrapError("Worker.Request", name, CodeInvalid, errors.New("request name is empty"))
+	}
+	raw, err := s.current("Worker.Request", name)
+	if err != nil {
+		return WorkerMessage{}, err
+	}
+
+	s.mu.Lock()
+	s.nextRequestID++
+	requestID := fmt.Sprintf("worker-%d", s.nextRequestID)
+	s.mu.Unlock()
+
+	resultCh := make(chan WorkerMessage, 1)
+	errCh := make(chan error, 1)
+	messageFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		message, decodeErr := workerMessageFromEvent("Worker.Request", name, args)
+		if decodeErr != nil {
+			if onProgress != nil {
+				onProgress(WorkerMessage{}, decodeErr)
+			}
+			return nil
+		}
+		if strings.TrimSpace(message.ID) != requestID {
+			return nil
+		}
+		switch strings.TrimSpace(message.Phase) {
+		case "progress":
+			if onProgress != nil {
+				onProgress(message, nil)
+			}
+		case "error":
+			errCh <- wrapError("Worker.Request", name, CodeRemote, errors.New(workerRemoteEnvelopeError(message)))
+		case "result", "message", "":
+			resultCh <- message
+		}
+		return nil
+	})
+	errorFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		errCh <- wrapError("Worker.Request", name, CodeRemote, errors.New(workerRemoteErrorSummary(args)))
+		return nil
+	})
+	raw.Call("addEventListener", "message", messageFn)
+	raw.Call("addEventListener", "error", errorFn)
+	defer func() {
+		raw.Call("removeEventListener", "message", messageFn)
+		raw.Call("removeEventListener", "error", errorFn)
+		messageFn.Release()
+		errorFn.Release()
+	}()
+
+	if err := s.post(WorkerMessage{
+		ID:      requestID,
+		Phase:   "request",
+		Name:    name,
+		Payload: payload,
+	}); err != nil {
+		return WorkerMessage{}, err
+	}
+
+	select {
+	case message := <-resultCh:
+		return message, nil
+	case err := <-errCh:
+		return WorkerMessage{}, err
+	case <-ctx.Done():
+		return WorkerMessage{}, workerContextError("Worker.Request", name, ctx.Err())
+	}
+}
+
+func (s *browserWorkerState) terminate() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.active || s.raw.IsUndefined() || s.raw.IsNull() {
+		return wrapError("Worker.Terminate", s.options.URL, CodeDisposed, errors.New("worker is not active"))
+	}
+	s.raw.Call("terminate")
+	s.raw = js.Undefined()
+	s.active = false
+	return nil
+}
+
+func (s *browserWorkerState) restart(ctx context.Context) error {
+	s.mu.Lock()
+	raw := s.raw
+	active := s.active
+	s.raw = js.Undefined()
+	s.active = false
+	s.mu.Unlock()
+	if active && !raw.IsUndefined() && !raw.IsNull() {
+		raw.Call("terminate")
+	}
+	return s.start(ctx)
+}
+
+func createBrowserWorker(options WorkerOptions) (js.Value, error) {
+	ctor, err := globalProperty("Worker", "Worker")
+	if err != nil {
+		return js.Undefined(), err
+	}
+	workerType := strings.TrimSpace(options.Type)
+	if workerType != "" && workerType != "classic" && workerType != "module" {
+		return js.Undefined(), wrapError("NewWorker", options.URL, CodeInvalid, errors.New("worker type must be classic or module"))
+	}
+	if workerType == "" && strings.HasSuffix(strings.ToLower(strings.TrimSpace(options.URL)), ".mjs") {
+		workerType = "module"
+	}
+	if strings.TrimSpace(options.Name) == "" && workerType == "" {
+		return ctor.New(options.URL), nil
+	}
+	init := js.Global().Get("Object").New()
+	if strings.TrimSpace(options.Name) != "" {
+		init.Set("name", options.Name)
+	}
+	if workerType != "" {
+		init.Set("type", workerType)
+	}
+	return ctor.New(options.URL, init), nil
+}
+
+func waitWorkerReady(ctx context.Context, raw js.Value, target string) error {
+	readyCh := make(chan struct{}, 1)
+	errCh := make(chan error, 1)
+	messageFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		message, err := workerMessageFromEvent("NewWorker", target, args)
+		if err != nil {
+			errCh <- err
+			return nil
+		}
+		if strings.TrimSpace(message.Phase) == "ready" {
+			readyCh <- struct{}{}
+		}
+		return nil
+	})
+	errorFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		errCh <- wrapError("NewWorker", target, CodeRemote, errors.New(workerRemoteErrorSummary(args)))
+		return nil
+	})
+	raw.Call("addEventListener", "message", messageFn)
+	raw.Call("addEventListener", "error", errorFn)
+	defer func() {
+		raw.Call("removeEventListener", "message", messageFn)
+		raw.Call("removeEventListener", "error", errorFn)
+		messageFn.Release()
+		errorFn.Release()
+	}()
+	select {
+	case <-readyCh:
+		return nil
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		return workerContextError("NewWorker", target, ctx.Err())
+	}
+}
+
+func workerMessageFromEvent(op string, target string, args []js.Value) (WorkerMessage, error) {
+	if len(args) == 0 {
+		return WorkerMessage{}, wrapError(op, target, CodeDecode, errors.New("worker event payload is missing"))
+	}
+	payload := args[0]
+	if payload.IsUndefined() || payload.IsNull() {
+		return WorkerMessage{}, wrapError(op, target, CodeDecode, errors.New("worker event payload is missing"))
+	}
+	data := payload.Get("data")
+	if data.IsUndefined() || data.IsNull() {
+		return WorkerMessage{}, wrapError(op, target, CodeDecode, errors.New("worker message is missing data"))
+	}
+	value, err := jsValueToGo(op, target, data)
+	if err != nil {
+		return WorkerMessage{}, err
+	}
+	return workerMessageFromGo(value), nil
+}
+
+func workerMessageFromGo(value any) WorkerMessage {
+	message := WorkerMessage{
+		Phase:   "message",
+		Payload: value,
+	}
+	data, ok := value.(map[string]any)
+	if !ok {
+		return message
+	}
+	if id := workerStringField(data, "id"); id != "" {
+		message.ID = id
+	}
+	if phase := workerStringField(data, "phase"); phase != "" {
+		message.Phase = phase
+	}
+	if name := workerStringField(data, "name"); name != "" {
+		message.Name = name
+	} else if name := workerStringField(data, "type"); name != "" {
+		message.Name = name
+	}
+	if payload, ok := data["payload"]; ok {
+		message.Payload = payload
+	}
+	if remoteErr := workerStringField(data, "error"); remoteErr != "" {
+		message.Error = remoteErr
+	}
+	return message
+}
+
+func workerStringField(data map[string]any, key string) string {
+	value, ok := data[key]
+	if !ok {
+		return ""
+	}
+	switch typed := value.(type) {
+	case string:
+		return typed
+	default:
+		return fmt.Sprint(typed)
+	}
+}
+
+func workerRemoteEnvelopeError(message WorkerMessage) string {
+	if strings.TrimSpace(message.Error) != "" {
+		return message.Error
+	}
+	if summary := strings.TrimSpace(fmt.Sprint(message.Payload)); summary != "" && summary != "<nil>" {
+		return summary
+	}
+	return "worker reported an error"
+}
+
+func workerRemoteErrorSummary(args []js.Value) string {
+	if len(args) == 0 {
+		return "worker reported an error"
+	}
+	if message := args[0].Get("message"); !message.IsUndefined() && !message.IsNull() {
+		return strings.TrimSpace(message.String())
+	}
+	return strings.TrimSpace(jsValueSummary(args[0]))
+}
+
+func workerContextError(op string, target string, err error) error {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return wrapError(op, target, CodeTimeout, err)
+	}
+	return wrapError(op, target, CodeCancelled, err)
+}
+
+func newBroadcastCrossTabChannel(name string, source string, raw js.Value) CrossTabChannel {
+	var (
+		mu       sync.Mutex
+		sequence int64
+		active   = true
+	)
+	nextEnvelope := func(payload any) CrossTabEnvelope {
+		mu.Lock()
+		defer mu.Unlock()
+		sequence++
+		return CrossTabEnvelope{
+			Name:     name,
+			Payload:  payload,
+			Source:   source,
+			Sequence: sequence,
+			SentAt:   time.Now().UTC(),
+		}
+	}
+	current := func(op string) (js.Value, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		if !active || raw.IsUndefined() || raw.IsNull() {
+			return js.Undefined(), wrapError(op, name, CodeDisposed, errors.New("cross-tab channel is closed"))
+		}
+		return raw, nil
+	}
+	return CrossTabChannel{
+		name:      func() string { return name },
+		transport: func() string { return "broadcast-channel" },
+		publish: func(payload any) error {
+			target, err := current("CrossTabChannel.Publish")
+			if err != nil {
+				return err
+			}
+			value, err := goValueToJS("CrossTabChannel.Publish", name, nextEnvelope(payload))
+			if err != nil {
+				return err
+			}
+			target.Call("postMessage", value)
+			return nil
+		},
+		subscribe: func(handler func(CrossTabEnvelope, error)) (Subscription, error) {
+			if handler == nil {
+				return Subscription{}, wrapError("CrossTabChannel.Subscribe", name, CodeInvalid, errors.New("handler is nil"))
+			}
+			target, err := current("CrossTabChannel.Subscribe")
+			if err != nil {
+				return Subscription{}, err
+			}
+			listener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				if len(args) == 0 {
+					handler(CrossTabEnvelope{Name: name}, wrapError("CrossTabChannel.Subscribe", name, CodeDecode, errors.New("broadcast message event is missing")))
+					return nil
+				}
+				data := args[0].Get("data")
+				value, decodeErr := jsValueToGo("CrossTabChannel.Subscribe", name, data)
+				if decodeErr != nil {
+					handler(CrossTabEnvelope{Name: name}, decodeErr)
+					return nil
+				}
+				handler(crossTabEnvelopeFromGo(value, name), nil)
+				return nil
+			})
+			target.Call("addEventListener", "message", listener)
+			return Subscription{cancel: func() {
+				target.Call("removeEventListener", "message", listener)
+				listener.Release()
+			}}, nil
+		},
+		close: func() error {
+			target, err := current("CrossTabChannel.Close")
+			if err != nil {
+				return err
+			}
+			target.Call("close")
+			mu.Lock()
+			active = false
+			raw = js.Undefined()
+			mu.Unlock()
+			return nil
+		},
+	}
+}
+
+func newStorageCrossTabChannel(name string, source string, storageKey string) (CrossTabChannel, error) {
+	storage, err := LocalStorage()
+	if err != nil {
+		return CrossTabChannel{}, err
+	}
+	window, err := globalProperty("EventTarget", "window")
+	if err != nil {
+		return CrossTabChannel{}, err
+	}
+	var (
+		mu       sync.Mutex
+		sequence int64
+		active   = true
+	)
+	nextEnvelope := func(payload any) CrossTabEnvelope {
+		mu.Lock()
+		defer mu.Unlock()
+		sequence++
+		return CrossTabEnvelope{
+			Name:     name,
+			Payload:  payload,
+			Source:   source,
+			Sequence: sequence,
+			SentAt:   time.Now().UTC(),
+		}
+	}
+	ensureActive := func(op string) error {
+		mu.Lock()
+		defer mu.Unlock()
+		if !active {
+			return wrapError(op, name, CodeDisposed, errors.New("cross-tab channel is closed"))
+		}
+		return nil
+	}
+	return CrossTabChannel{
+		name:      func() string { return name },
+		transport: func() string { return "storage-event" },
+		publish: func(payload any) error {
+			if err := ensureActive("CrossTabChannel.Publish"); err != nil {
+				return err
+			}
+			data, err := json.Marshal(nextEnvelope(payload))
+			if err != nil {
+				return wrapError("CrossTabChannel.Publish", name, CodeEncode, err)
+			}
+			if err := storage.SetItem(storageKey, string(data)); err != nil {
+				return err
+			}
+			return storage.RemoveItem(storageKey)
+		},
+		subscribe: func(handler func(CrossTabEnvelope, error)) (Subscription, error) {
+			if handler == nil {
+				return Subscription{}, wrapError("CrossTabChannel.Subscribe", name, CodeInvalid, errors.New("handler is nil"))
+			}
+			if err := ensureActive("CrossTabChannel.Subscribe"); err != nil {
+				return Subscription{}, err
+			}
+			listener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				if len(args) == 0 {
+					return nil
+				}
+				event := args[0]
+				if event.IsUndefined() || event.IsNull() {
+					return nil
+				}
+				if event.Get("key").String() != storageKey {
+					return nil
+				}
+				newValue := event.Get("newValue")
+				if newValue.IsUndefined() || newValue.IsNull() || strings.TrimSpace(newValue.String()) == "" {
+					return nil
+				}
+				var message CrossTabEnvelope
+				if err := json.Unmarshal([]byte(newValue.String()), &message); err != nil {
+					handler(CrossTabEnvelope{Name: name}, wrapError("CrossTabChannel.Subscribe", name, CodeDecode, err))
+					return nil
+				}
+				if strings.TrimSpace(message.Name) == "" {
+					message.Name = name
+				}
+				handler(message, nil)
+				return nil
+			})
+			window.Call("addEventListener", "storage", listener)
+			return Subscription{cancel: func() {
+				window.Call("removeEventListener", "storage", listener)
+				listener.Release()
+			}}, nil
+		},
+		close: func() error {
+			if err := ensureActive("CrossTabChannel.Close"); err != nil {
+				return err
+			}
+			mu.Lock()
+			active = false
+			mu.Unlock()
+			return nil
+		},
+	}, nil
+}
+
+func newWindowChannel(name string, targetOrigin string, peer js.Value, allowClose bool) WindowChannel {
+	source := fmt.Sprintf("%s-%d", name, time.Now().UnixNano())
+	rawWindow := js.Global().Get("window")
+	return WindowChannel{
+		name:         func() string { return name },
+		targetOrigin: func() string { return targetOrigin },
+		publish: func(payload any) error {
+			if peer.IsUndefined() || peer.IsNull() {
+				return wrapError("WindowChannel.Publish", name, CodeDisposed, errors.New("window channel peer is unavailable"))
+			}
+			if closed := peer.Get("closed"); !closed.IsUndefined() && !closed.IsNull() && closed.Bool() {
+				return wrapError("WindowChannel.Publish", name, CodeDisposed, errors.New("window channel peer is closed"))
+			}
+			value, err := goValueToJS("WindowChannel.Publish", name, WindowEnvelope{
+				Name:    name,
+				Payload: payload,
+				Source:  source,
+				SentAt:  time.Now().UTC(),
+			})
+			if err != nil {
+				return err
+			}
+			peer.Call("postMessage", value, targetOrigin)
+			return nil
+		},
+		subscribe: func(handler func(WindowEnvelope, error)) (Subscription, error) {
+			if handler == nil {
+				return Subscription{}, wrapError("WindowChannel.Subscribe", name, CodeInvalid, errors.New("handler is nil"))
+			}
+			listener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				if len(args) == 0 {
+					handler(WindowEnvelope{Name: name}, wrapError("WindowChannel.Subscribe", name, CodeDecode, errors.New("message event is missing")))
+					return nil
+				}
+				event := args[0]
+				if event.IsUndefined() || event.IsNull() {
+					return nil
+				}
+				eventSource := event.Get("source")
+				if !eventSource.IsUndefined() && !eventSource.IsNull() && !eventSource.Equal(peer) {
+					return nil
+				}
+				if targetOrigin != "*" {
+					origin := strings.TrimSpace(event.Get("origin").String())
+					if origin != "" && origin != targetOrigin {
+						return nil
+					}
+				}
+				value, decodeErr := jsValueToGo("WindowChannel.Subscribe", name, event.Get("data"))
+				if decodeErr != nil {
+					handler(WindowEnvelope{Name: name}, decodeErr)
+					return nil
+				}
+				handler(windowEnvelopeFromGo(value, name), nil)
+				return nil
+			})
+			rawWindow.Call("addEventListener", "message", listener)
+			return Subscription{cancel: func() {
+				rawWindow.Call("removeEventListener", "message", listener)
+				listener.Release()
+			}}, nil
+		},
+		focus: func() error {
+			if peer.IsUndefined() || peer.IsNull() {
+				return wrapError("WindowChannel.Focus", name, CodeDisposed, errors.New("window channel peer is unavailable"))
+			}
+			if fn := peer.Get("focus"); fn.Type() != js.TypeFunction {
+				return unavailable("WindowChannel.Focus", name)
+			}
+			peer.Call("focus")
+			return nil
+		},
+		close: func() error {
+			if !allowClose {
+				return unavailable("WindowChannel.Close", name)
+			}
+			if peer.IsUndefined() || peer.IsNull() {
+				return wrapError("WindowChannel.Close", name, CodeDisposed, errors.New("window channel peer is unavailable"))
+			}
+			if fn := peer.Get("close"); fn.Type() != js.TypeFunction {
+				return unavailable("WindowChannel.Close", name)
+			}
+			peer.Call("close")
+			return nil
+		},
+		closed: func() bool {
+			if peer.IsUndefined() || peer.IsNull() {
+				return true
+			}
+			closed := peer.Get("closed")
+			if closed.IsUndefined() || closed.IsNull() {
+				return false
+			}
+			return closed.Bool()
+		},
+	}
+}
+
+func resolveCrossTabStorageKey(name string, override string) string {
+	trimmed := strings.TrimSpace(override)
+	if trimmed != "" {
+		return trimmed
+	}
+	return "__gwc_cross_tab__:" + name
+}
+
+func resolveWindowTargetOrigin(rawTargetOrigin string) string {
+	trimmed := strings.TrimSpace(rawTargetOrigin)
+	if trimmed != "" {
+		return trimmed
+	}
+	window := js.Global().Get("window")
+	if window.IsUndefined() || window.IsNull() {
+		return "*"
+	}
+	location := window.Get("location")
+	if location.IsUndefined() || location.IsNull() {
+		return "*"
+	}
+	origin := strings.TrimSpace(location.Get("origin").String())
+	if origin == "" {
+		return "*"
+	}
+	return origin
+}
+
+func crossTabEnvelopeFromGo(value any, fallbackName string) CrossTabEnvelope {
+	message := CrossTabEnvelope{
+		Name:    fallbackName,
+		Payload: value,
+	}
+	data, ok := value.(map[string]any)
+	if !ok {
+		return message
+	}
+	if name := workerStringField(data, "name"); name != "" {
+		message.Name = name
+	}
+	if payload, ok := data["payload"]; ok {
+		message.Payload = payload
+	}
+	if source := workerStringField(data, "source"); source != "" {
+		message.Source = source
+	}
+	if sequence, ok := crossTabInt64Field(data["sequence"]); ok {
+		message.Sequence = sequence
+	}
+	if sentAt, ok := crossTabTimeField(data["sentAt"]); ok {
+		message.SentAt = sentAt
+	}
+	return message
+}
+
+func windowEnvelopeFromGo(value any, fallbackName string) WindowEnvelope {
+	message := WindowEnvelope{
+		Name:    fallbackName,
+		Payload: value,
+	}
+	data, ok := value.(map[string]any)
+	if !ok {
+		return message
+	}
+	if name := workerStringField(data, "name"); name != "" {
+		message.Name = name
+	}
+	if payload, ok := data["payload"]; ok {
+		message.Payload = payload
+	}
+	if source := workerStringField(data, "source"); source != "" {
+		message.Source = source
+	}
+	if sentAt, ok := crossTabTimeField(data["sentAt"]); ok {
+		message.SentAt = sentAt
+	}
+	return message
+}
+
+func crossTabInt64Field(value any) (int64, bool) {
+	switch typed := value.(type) {
+	case float64:
+		return int64(typed), true
+	case float32:
+		return int64(typed), true
+	case int:
+		return int64(typed), true
+	case int64:
+		return typed, true
+	case json.Number:
+		parsed, err := typed.Int64()
+		return parsed, err == nil
+	default:
+		return 0, false
+	}
+}
+
+func crossTabTimeField(value any) (time.Time, bool) {
+	text, ok := value.(string)
+	if !ok || strings.TrimSpace(text) == "" {
+		return time.Time{}, false
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, text)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return parsed, true
+}
+
 type moduleState struct {
 	mu        sync.RWMutex
 	specifier string
@@ -394,19 +1295,25 @@ func newEventTarget(name string, raw js.Value) EventTarget {
 			raw.Call("dispatchEvent", customEventCtor.New(eventName, init))
 			return nil
 		},
-		subscribe: func(eventName string, handler func(CustomEvent)) (Subscription, error) {
+		listen: func(eventName string, handler func(BrowserEvent)) (Subscription, error) {
 			if handler == nil {
-				return Subscription{}, wrapError("EventTarget.Subscribe", eventName, CodeInvalid, errors.New("handler is nil"))
+				return Subscription{}, wrapError("EventTarget.Listen", eventName, CodeInvalid, errors.New("handler is nil"))
+			}
+			if add := raw.Get("addEventListener"); add.Type() != js.TypeFunction {
+				return Subscription{}, unavailable("EventTarget.Listen", name)
 			}
 			listener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 				if len(args) == 0 {
-					handler(CustomEvent{Type: eventName})
+					handler(BrowserEvent{Type: eventName})
 					return nil
 				}
-				detail, _ := jsValueToGo("EventTarget.Subscribe", eventName, args[0].Get("detail"))
-				handler(CustomEvent{
-					Type:   args[0].Get("type").String(),
-					Detail: detail,
+				event := args[0]
+				detail, _ := jsValueToGo("EventTarget.Listen", eventName, event.Get("detail"))
+				handler(BrowserEvent{
+					Type:          event.Get("type").String(),
+					Detail:        detail,
+					Target:        elementFromJSValue(event.Get("target")),
+					CurrentTarget: elementFromJSValue(event.Get("currentTarget")),
 				})
 				return nil
 			})
@@ -417,6 +1324,192 @@ func newEventTarget(name string, raw js.Value) EventTarget {
 			}}, nil
 		},
 	}
+}
+
+func newElement(name string, raw js.Value) Element {
+	return Element{
+		raw:       raw,
+		tagName:   func() string { return raw.Get("tagName").String() },
+		id:        func() string { return raw.Get("id").String() },
+		className: func() string { return raw.Get("className").String() },
+		focus: func() error {
+			if fn := raw.Get("focus"); fn.Type() != js.TypeFunction {
+				return unavailable("Element.Focus", name)
+			}
+			raw.Call("focus")
+			return nil
+		},
+		blur: func() error {
+			if fn := raw.Get("blur"); fn.Type() != js.TypeFunction {
+				return unavailable("Element.Blur", name)
+			}
+			raw.Call("blur")
+			return nil
+		},
+		click: func() error {
+			if fn := raw.Get("click"); fn.Type() != js.TypeFunction {
+				return unavailable("Element.Click", name)
+			}
+			raw.Call("click")
+			return nil
+		},
+		scrollIntoView: func(options ScrollIntoViewOptions) error {
+			if fn := raw.Get("scrollIntoView"); fn.Type() != js.TypeFunction {
+				return unavailable("Element.ScrollIntoView", name)
+			}
+			init := js.Global().Get("Object").New()
+			hasOptions := false
+			if strings.TrimSpace(options.Behavior) != "" {
+				init.Set("behavior", options.Behavior)
+				hasOptions = true
+			}
+			if strings.TrimSpace(options.Block) != "" {
+				init.Set("block", options.Block)
+				hasOptions = true
+			}
+			if strings.TrimSpace(options.Inline) != "" {
+				init.Set("inline", options.Inline)
+				hasOptions = true
+			}
+			if !hasOptions {
+				raw.Call("scrollIntoView")
+				return nil
+			}
+			raw.Call("scrollIntoView", init)
+			return nil
+		},
+		boundingClientRect: func() (Rect, error) {
+			if fn := raw.Get("getBoundingClientRect"); fn.Type() != js.TypeFunction {
+				return Rect{}, unavailable("Element.BoundingClientRect", name)
+			}
+			return rectFromJSValue(raw.Call("getBoundingClientRect")), nil
+		},
+		events: func() (EventTarget, error) {
+			return newEventTarget(name, raw), nil
+		},
+		observeResize: func(handler func(ResizeEntry)) (Subscription, error) {
+			return observeResize(name, raw, handler)
+		},
+		observeIntersection: func(options IntersectionObserverOptions, handler func(IntersectionEntry)) (Subscription, error) {
+			return observeIntersection(name, raw, options, handler)
+		},
+	}
+}
+
+func elementFromJSValue(value js.Value) Element {
+	if value.IsUndefined() || value.IsNull() {
+		return Element{}
+	}
+	return newElement("element", value)
+}
+
+func rectFromJSValue(value js.Value) Rect {
+	if value.IsUndefined() || value.IsNull() {
+		return Rect{}
+	}
+	return Rect{
+		X:      value.Get("x").Float(),
+		Y:      value.Get("y").Float(),
+		Width:  value.Get("width").Float(),
+		Height: value.Get("height").Float(),
+		Top:    value.Get("top").Float(),
+		Right:  value.Get("right").Float(),
+		Bottom: value.Get("bottom").Float(),
+		Left:   value.Get("left").Float(),
+	}
+}
+
+func observeResize(name string, raw js.Value, handler func(ResizeEntry)) (Subscription, error) {
+	if handler == nil {
+		return Subscription{}, wrapError("Element.ObserveResize", name, CodeInvalid, errors.New("handler is nil"))
+	}
+	ctor := js.Global().Get("ResizeObserver")
+	if ctor.IsUndefined() || ctor.IsNull() {
+		return Subscription{}, unavailable("Element.ObserveResize", name)
+	}
+	callback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) == 0 {
+			return nil
+		}
+		entries := args[0]
+		length := entries.Get("length").Int()
+		for index := 0; index < length; index++ {
+			entry := entries.Index(index)
+			handler(ResizeEntry{
+				Target:      elementFromJSValue(entry.Get("target")),
+				ContentRect: rectFromJSValue(entry.Get("contentRect")),
+			})
+		}
+		return nil
+	})
+	observer := ctor.New(callback)
+	observer.Call("observe", raw)
+	return Subscription{cancel: func() {
+		observer.Call("disconnect")
+		callback.Release()
+	}}, nil
+}
+
+func observeIntersection(name string, raw js.Value, options IntersectionObserverOptions, handler func(IntersectionEntry)) (Subscription, error) {
+	if handler == nil {
+		return Subscription{}, wrapError("Element.ObserveIntersection", name, CodeInvalid, errors.New("handler is nil"))
+	}
+	ctor := js.Global().Get("IntersectionObserver")
+	if ctor.IsUndefined() || ctor.IsNull() {
+		return Subscription{}, unavailable("Element.ObserveIntersection", name)
+	}
+	callback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) == 0 {
+			return nil
+		}
+		entries := args[0]
+		length := entries.Get("length").Int()
+		for index := 0; index < length; index++ {
+			entry := entries.Index(index)
+			var rootBounds *Rect
+			if bounds := entry.Get("rootBounds"); !bounds.IsUndefined() && !bounds.IsNull() {
+				rect := rectFromJSValue(bounds)
+				rootBounds = &rect
+			}
+			handler(IntersectionEntry{
+				Target:             elementFromJSValue(entry.Get("target")),
+				IsIntersecting:     entry.Get("isIntersecting").Bool(),
+				IntersectionRatio:  entry.Get("intersectionRatio").Float(),
+				BoundingClientRect: rectFromJSValue(entry.Get("boundingClientRect")),
+				IntersectionRect:   rectFromJSValue(entry.Get("intersectionRect")),
+				RootBounds:         rootBounds,
+			})
+		}
+		return nil
+	})
+	if len(options.Thresholds) == 0 && options.RootMargin == "" && options.Root.raw == nil {
+		observer := ctor.New(callback)
+		observer.Call("observe", raw)
+		return Subscription{cancel: func() {
+			observer.Call("disconnect")
+			callback.Release()
+		}}, nil
+	}
+	init := js.Global().Get("Object").New()
+	if options.RootMargin != "" {
+		init.Set("rootMargin", options.RootMargin)
+	}
+	if len(options.Thresholds) > 0 {
+		thresholds := js.Global().Get("Array").New()
+		for _, threshold := range options.Thresholds {
+			thresholds.Call("push", threshold)
+		}
+		init.Set("threshold", thresholds)
+	}
+	if root, ok := options.Root.raw.(js.Value); ok && !root.IsUndefined() && !root.IsNull() {
+		init.Set("root", root)
+	}
+	observer := ctor.New(callback, init)
+	observer.Call("observe", raw)
+	return Subscription{cancel: func() {
+		observer.Call("disconnect")
+		callback.Release()
+	}}, nil
 }
 
 func globalProperty(op string, name string) (js.Value, error) {
