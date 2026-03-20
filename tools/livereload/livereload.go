@@ -3,9 +3,11 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -25,18 +27,29 @@ const (
 	quickDebounceTime = 500 * time.Millisecond  // Quick debounce for single file changes
 	maxDebounceTime   = 5000 * time.Millisecond // Maximum wait time before forcing build
 	buildCommand      = "go"
-	serverPort        = ":8080"
+	defaultHost       = "127.0.0.1"
+	defaultPort       = "8080"
 )
 
 var (
-	buildArgs = []string{"build", "-o", "static/bin/main.wasm"}
-	buildEnv  = []string{"GOOS=js", "GOARCH=wasm"}
-	upgrader  = websocket.Upgrader{
+	buildEnv = []string{"GOOS=js", "GOARCH=wasm"}
+	upgrader = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			return true // Allow connections from any origin in development
 		},
 	}
 )
+
+type LiveReloadOptions struct {
+	MainPath         string
+	ProjectRoot      string
+	IndexPath        string
+	OutputPath       string
+	Host             string
+	Port             string
+	AlwaysHotReload  bool
+	ClientScriptPath string
+}
 
 // WebSocket message types
 type MessageType string
@@ -49,6 +62,7 @@ const (
 	MessageTypeHotReload      MessageType = "hot_reload"
 	MessageTypeStateExport    MessageType = "state_export"
 	MessageTypeStateImport    MessageType = "state_import"
+	MessageTypeStateSnapshot  MessageType = "state_snapshot"
 	MessageTypeDebounceStatus MessageType = "debounce_status"
 	MessageTypeCurrentStatus  MessageType = "current_status"
 )
@@ -60,10 +74,11 @@ type WebSocketMessage struct {
 }
 
 type BuildStatus struct {
-	Success    bool   `json:"success"`
-	Duration   string `json:"duration,omitempty"`
-	Error      string `json:"error,omitempty"`
-	ReloadType string `json:"reloadType,omitempty"` // "hot" or "full"
+	Success       bool   `json:"success"`
+	Duration      string `json:"duration,omitempty"`
+	Error         string `json:"error,omitempty"`
+	ReloadType    string `json:"reloadType,omitempty"` // "hot" or "full"
+	StateSnapshot string `json:"stateSnapshot,omitempty"`
 }
 
 // UpdateClassification represents the type of update detected
@@ -75,60 +90,161 @@ type UpdateClassification struct {
 }
 
 type LiveReloadServer struct {
-	watcher            *fsnotify.Watcher
-	mutex              sync.Mutex
-	currentBuild       *exec.Cmd
-	debounceTimer      *time.Timer
-	maxDebounceTimer   *time.Timer
-	projectRoot        string
-	clients            map[*websocket.Conn]bool
-	clientsMutex       sync.RWMutex
-	httpServer         *http.Server
-	changedFiles       map[string]time.Time // Track changed files for update classification
-	lastClassification UpdateClassification // Store the last classification
-	firstChangeTime    time.Time            // Track when the first change occurred
-	changeCount        int                  // Count of changes in current batch
-	lastBuildStatus    *BuildStatus         // Track the last build status for new clients
+	watcher              *fsnotify.Watcher
+	mutex                sync.Mutex
+	currentBuild         *exec.Cmd
+	debounceTimer        *time.Timer
+	maxDebounceTimer     *time.Timer
+	projectRoot          string
+	watchRoot            string
+	buildDir             string
+	indexPath            string
+	outputPath           string
+	staticDir            string
+	clientScriptPath     string
+	host                 string
+	port                 string
+	alwaysHotReload      bool
+	clients              map[*websocket.Conn]bool
+	clientsMutex         sync.RWMutex
+	httpServer           *http.Server
+	changedFiles         map[string]time.Time // Track changed files for update classification
+	lastClassification   UpdateClassification // Store the last classification
+	firstChangeTime      time.Time            // Track when the first change occurred
+	changeCount          int                  // Count of changes in current batch
+	lastBuildStatus      *BuildStatus         // Track the last build status for new clients
+	pendingStateSnapshot string
+	stateSnapshotMu      sync.Mutex
 }
 
 func NewLiveReloadServer(projectRoot string) (*LiveReloadServer, error) {
+	return NewLiveReloadServerWithOptions(LiveReloadOptions{ProjectRoot: projectRoot})
+}
+
+func NewLiveReloadServerWithOptions(options LiveReloadOptions) (*LiveReloadServer, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file watcher: %w", err)
 	}
 
+	buildDir := strings.TrimSpace(options.MainPath)
+	if buildDir != "" {
+		buildDir, err = resolveBuildDir(buildDir)
+		if err != nil {
+			return nil, err
+		}
+	}
+	projectRoot := strings.TrimSpace(options.ProjectRoot)
+	if projectRoot == "" {
+		if buildDir != "" {
+			projectRoot = buildDir
+		} else {
+			projectRoot = "."
+		}
+	}
+	projectRoot, err = filepath.Abs(projectRoot)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve project root: %w", err)
+	}
+	if buildDir == "" {
+		buildDir = projectRoot
+	}
+
+	watchRoot := projectRoot
+	if moduleRoot := resolveModuleRoot(buildDir); moduleRoot != "" {
+		watchRoot = moduleRoot
+	}
+
+	indexPath := strings.TrimSpace(options.IndexPath)
+	if indexPath == "" {
+		indexPath = filepath.Join(projectRoot, "index.html")
+		if _, err := os.Stat(indexPath); err != nil {
+			indexPath = filepath.Join(projectRoot, "static", "index.html")
+		}
+	} else if !filepath.IsAbs(indexPath) {
+		indexPath = filepath.Join(projectRoot, indexPath)
+	}
+
+	outputPath := strings.TrimSpace(options.OutputPath)
+	if outputPath == "" {
+		outputPath = filepath.Join(buildDir, "main.wasm")
+	} else if !filepath.IsAbs(outputPath) {
+		outputPath = filepath.Join(buildDir, outputPath)
+	}
+
+	staticDir := resolveStaticDir(projectRoot)
+
+	clientScriptPath := strings.TrimSpace(options.ClientScriptPath)
+	if clientScriptPath == "" {
+		clientScriptPath = resolveClientScriptPath()
+	} else if !filepath.IsAbs(clientScriptPath) {
+		clientScriptPath = filepath.Join(projectRoot, clientScriptPath)
+	}
+
+	host := strings.TrimSpace(options.Host)
+	if host == "" {
+		host = defaultHost
+	}
+	port := strings.TrimSpace(options.Port)
+	if port == "" {
+		port = defaultPort
+	}
+
 	return &LiveReloadServer{
-		watcher:      watcher,
-		projectRoot:  projectRoot,
-		clients:      make(map[*websocket.Conn]bool),
-		changedFiles: make(map[string]time.Time),
+		watcher:          watcher,
+		projectRoot:      projectRoot,
+		watchRoot:        watchRoot,
+		buildDir:         buildDir,
+		indexPath:        indexPath,
+		outputPath:       outputPath,
+		staticDir:        staticDir,
+		clientScriptPath: clientScriptPath,
+		host:             host,
+		port:             port,
+		alwaysHotReload:  options.AlwaysHotReload,
+		clients:          make(map[*websocket.Conn]bool),
+		changedFiles:     make(map[string]time.Time),
 	}, nil
 }
 
+func (lrs *LiveReloadServer) newHTTPHandler() http.Handler {
+	mux := http.NewServeMux()
+	fileServer := http.FileServer(http.Dir(lrs.projectRoot))
+	if lrs.staticDir != "" {
+		staticFileServer := http.StripPrefix("/static/", http.FileServer(http.Dir(lrs.staticDir)))
+		mux.Handle("/static/", staticFileServer)
+	}
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			lrs.handleHTML(w, r, lrs.indexPath)
+			return
+		}
+		if strings.HasSuffix(r.URL.Path, ".html") {
+			relPath := strings.TrimPrefix(r.URL.Path, "/")
+			lrs.handleHTML(w, r, filepath.Join(lrs.projectRoot, filepath.FromSlash(relPath)))
+			return
+		}
+		fileServer.ServeHTTP(w, r)
+	})
+	mux.HandleFunc("/ws", lrs.handleWebSocket)
+	return mux
+}
+
 func (lrs *LiveReloadServer) Start() error {
-	// Add the project root and subdirectories to the watcher
-	err := lrs.addWatchers(lrs.projectRoot)
+	// Watch the module root so shared package changes rebuild example-specific servers.
+	err := lrs.addWatchers(lrs.watchRoot)
 	if err != nil {
 		return fmt.Errorf("failed to add watchers: %w", err)
 	}
 
-	// Setup HTTP server
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", lrs.handleIndex)
-	mux.HandleFunc("/ws", lrs.handleWebSocket)
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(filepath.Join(lrs.projectRoot, "static")))))
-	mux.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir(filepath.Join(lrs.projectRoot, "static/images")))))
-	mux.Handle("/script/", http.StripPrefix("/script/", http.FileServer(http.Dir(filepath.Join(lrs.projectRoot, "static/script")))))
-	mux.Handle("/bin/", http.StripPrefix("/bin/", http.FileServer(http.Dir(filepath.Join(lrs.projectRoot, "static/bin")))))
-
 	lrs.httpServer = &http.Server{
-		Addr:    serverPort,
-		Handler: mux,
+		Addr:    netAddr(lrs.host, lrs.port),
+		Handler: lrs.newHTTPHandler(),
 	}
 
 	// Start HTTP server in a goroutine
 	go func() {
-		fmt.Printf("🌐 Live reload server starting on http://localhost%s\n", serverPort)
+		fmt.Printf("🌐 Live reload server starting on http://%s\n", netAddr(lrs.host, lrs.port))
 		if err := lrs.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Printf("❌ HTTP server error: %v", err)
 		}
@@ -139,9 +255,13 @@ func (lrs *LiveReloadServer) Start() error {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
 	fmt.Println("🔄 Live reload started. Watching for .go file changes...")
-	fmt.Printf("📂 Watching directory: %s\n", lrs.projectRoot)
+	fmt.Printf("📂 Watching directory: %s\n", lrs.watchRoot)
+	if lrs.watchRoot != lrs.projectRoot {
+		fmt.Printf("🗂️  Serving project root: %s\n", lrs.projectRoot)
+	}
+	fmt.Printf("🧩 Building from: %s\n", lrs.buildDir)
 	fmt.Printf("⏱️  Debounce time: %v\n", debounceTime)
-	fmt.Printf("🌐 Server running on http://localhost%s\n", serverPort)
+	fmt.Printf("🌐 Server running on http://%s\n", netAddr(lrs.host, lrs.port))
 	fmt.Println("🛑 Press Ctrl+C to stop")
 
 	// Trigger initial build
@@ -174,21 +294,18 @@ func (lrs *LiveReloadServer) Start() error {
 	select {}
 }
 
-func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request) {
-	indexPath := filepath.Join(lrs.projectRoot, "static", "index.html")
-
-	// Read the original index.html
-	indexContent, err := os.ReadFile(indexPath)
+func (lrs *LiveReloadServer) handleHTML(w http.ResponseWriter, r *http.Request, filePath string) {
+	// Read the original html file
+	htmlContent, err := os.ReadFile(filePath)
 	if err != nil {
-		http.Error(w, "Could not read index.html", http.StatusInternalServerError)
+		http.NotFound(w, r)
 		return
 	}
 
 	// Read the live reload client script from external file
-	scriptPath := filepath.Join("scripts", "livereload-client.js")
-	scriptContent, err := os.ReadFile(scriptPath)
+	scriptContent, err := os.ReadFile(lrs.clientScriptPath)
 	if err != nil {
-		log.Printf("❌ Could not read livereload-client.js from %s: %v", scriptPath, err)
+		log.Printf("❌ Could not read livereload-client.js from %s: %v", lrs.clientScriptPath, err)
 		http.Error(w, "Could not read livereload client script", http.StatusInternalServerError)
 		return
 	}
@@ -197,7 +314,7 @@ func (lrs *LiveReloadServer) handleIndex(w http.ResponseWriter, r *http.Request)
 	liveReloadScript := fmt.Sprintf("\n<script>\n%s\n</script>", string(scriptContent))
 
 	// Insert the script before closing </body> tag
-	modifiedContent := strings.Replace(string(indexContent), "</body>", liveReloadScript+"\n</body>", 1)
+	modifiedContent := strings.Replace(string(htmlContent), "</body>", liveReloadScript+"\n</body>", 1)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(modifiedContent))
@@ -231,11 +348,43 @@ func (lrs *LiveReloadServer) handleWebSocket(w http.ResponseWriter, r *http.Requ
 
 	// Keep connection alive and handle messages
 	for {
-		_, _, err := conn.ReadMessage()
+		_, data, err := conn.ReadMessage()
 		if err != nil {
 			break
 		}
+
+		var message WebSocketMessage
+		if err := json.Unmarshal(data, &message); err != nil {
+			continue
+		}
+		if message.Type == MessageTypeStateSnapshot {
+			if payload, ok := message.Payload.(string); ok && strings.TrimSpace(payload) != "" {
+				lrs.stateSnapshotMu.Lock()
+				lrs.pendingStateSnapshot = payload
+				lrs.stateSnapshotMu.Unlock()
+			}
+		}
 	}
+}
+
+func (lrs *LiveReloadServer) requestStateSnapshot() {
+	lrs.broadcastMessage(MessageTypeStateExport, map[string]string{
+		"reason": "hot_reload",
+	})
+}
+
+func (lrs *LiveReloadServer) takePendingStateSnapshot() string {
+	lrs.stateSnapshotMu.Lock()
+	defer lrs.stateSnapshotMu.Unlock()
+	snapshot := lrs.pendingStateSnapshot
+	lrs.pendingStateSnapshot = ""
+	return snapshot
+}
+
+func (lrs *LiveReloadServer) clearPendingStateSnapshot() {
+	lrs.stateSnapshotMu.Lock()
+	lrs.pendingStateSnapshot = ""
+	lrs.stateSnapshotMu.Unlock()
 }
 
 func (lrs *LiveReloadServer) sendCurrentBuildStatus(conn *websocket.Conn) {
@@ -272,8 +421,8 @@ func (lrs *LiveReloadServer) checkCurrentBuildState(conn *websocket.Conn) {
 	// Do a quick build check to see if the current code compiles
 	fmt.Println("🔍 Checking current build state for new client...")
 
-	cmd := exec.Command(buildCommand, buildArgs...)
-	cmd.Dir = lrs.projectRoot
+	cmd := exec.Command(buildCommand, "build", "-o", lrs.outputPath)
+	cmd.Dir = lrs.buildDir
 	cmd.Env = append(os.Environ(), buildEnv...)
 
 	// Capture stderr for error reporting
@@ -512,6 +661,19 @@ func (lrs *LiveReloadServer) classifyUpdate() UpdateClassification {
 	// Clear the changed files after classification
 	lrs.changedFiles = make(map[string]time.Time)
 
+	if lrs.alwaysHotReload {
+		reason := "App dev server hot reload"
+		if len(changedFiles) > 0 {
+			reason = "Hot reload for app changes"
+		}
+		return UpdateClassification{
+			Type:         "small",
+			ReloadType:   "hot",
+			Reason:       reason,
+			ChangedFiles: changedFiles,
+		}
+	}
+
 	if len(changedFiles) == 0 {
 		return UpdateClassification{
 			Type:         "small",
@@ -615,11 +777,15 @@ func (lrs *LiveReloadServer) triggerBuild() {
 	lrs.broadcastMessage(MessageTypeBuildStart, map[string]interface{}{
 		"classification": classification,
 	})
+	if classification.ReloadType == "hot" {
+		lrs.clearPendingStateSnapshot()
+		lrs.requestStateSnapshot()
+	}
 
 	// Create the build command
-	cmd := exec.Command(buildCommand, buildArgs...)
+	cmd := exec.Command(buildCommand, "build", "-o", lrs.outputPath)
 
-	cmd.Dir = lrs.projectRoot
+	cmd.Dir = lrs.buildDir
 	cmd.Env = append(os.Environ(), buildEnv...)
 
 	// Capture stdout and stderr for error reporting
@@ -635,6 +801,7 @@ func (lrs *LiveReloadServer) triggerBuild() {
 	if err != nil {
 		fmt.Printf("❌ Failed to start build: %v\n", err)
 		lrs.currentBuild = nil
+		lrs.clearPendingStateSnapshot()
 		lrs.broadcastMessage(MessageTypeBuildError, fmt.Sprintf("Failed to start build: %v", err))
 		return
 	}
@@ -664,6 +831,7 @@ func (lrs *LiveReloadServer) triggerBuild() {
 			}
 
 			fmt.Printf("❌ Build failed after %v: %v\n", duration, err)
+			lrs.clearPendingStateSnapshot()
 			lrs.lastBuildStatus = &buildStatus
 			lrs.broadcastMessage(MessageTypeBuildComplete, buildStatus)
 		}
@@ -672,6 +840,11 @@ func (lrs *LiveReloadServer) triggerBuild() {
 			Success:    true,
 			Duration:   duration.String(),
 			ReloadType: lrs.lastClassification.ReloadType,
+		}
+		if buildStatus.ReloadType == "hot" {
+			buildStatus.StateSnapshot = lrs.takePendingStateSnapshot()
+		} else {
+			lrs.clearPendingStateSnapshot()
 		}
 
 		fmt.Printf("✅ Build completed successfully in %v\n", duration)
@@ -716,22 +889,114 @@ func (lrs *LiveReloadServer) cleanup() {
 	lrs.clientsMutex.Unlock()
 }
 
-func main() {
-	// Get the project root (parent directory of scripts)
-	scriptDir, err := os.Getwd()
+func resolveBuildDir(entryPath string) (string, error) {
+	absPath, err := filepath.Abs(strings.TrimSpace(entryPath))
 	if err != nil {
-		log.Fatalf("❌ Failed to get current directory: %v", err)
+		return "", fmt.Errorf("failed to resolve entry path: %w", err)
+	}
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect entry path %s: %w", absPath, err)
+	}
+	if info.IsDir() {
+		return absPath, nil
+	}
+	return filepath.Dir(absPath), nil
+}
+
+func resolveModuleRoot(startPath string) string {
+	current := strings.TrimSpace(startPath)
+	if current == "" {
+		return ""
 	}
 
-	// If we're in the livereload directory, go up two levels to reach project root
-	if filepath.Base(scriptDir) == "livereload" {
-		scriptDir = filepath.Dir(filepath.Dir(scriptDir))
-	} else if filepath.Base(scriptDir) == "scripts" {
-		// If we're in the scripts directory, go up one level
-		scriptDir = filepath.Dir(scriptDir)
+	absPath, err := filepath.Abs(current)
+	if err != nil {
+		return ""
 	}
 
-	server, err := NewLiveReloadServer(scriptDir)
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return ""
+	}
+	if !info.IsDir() {
+		absPath = filepath.Dir(absPath)
+	}
+
+	for {
+		if _, err := os.Stat(filepath.Join(absPath, "go.mod")); err == nil {
+			return absPath
+		}
+		parent := filepath.Dir(absPath)
+		if parent == absPath {
+			return ""
+		}
+		absPath = parent
+	}
+}
+
+func resolveStaticDir(projectRoot string) string {
+	candidates := []string{
+		filepath.Join(projectRoot, "static"),
+		filepath.Join(filepath.Dir(projectRoot), "static"),
+	}
+
+	for _, candidate := range candidates {
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return candidate
+		}
+	}
+
+	return ""
+}
+
+func resolveClientScriptPath() string {
+	if exe, err := os.Executable(); err == nil && exe != "" {
+		candidate := filepath.Join(filepath.Dir(exe), "scripts", "livereload-client.js")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		candidate := filepath.Join(cwd, "scripts", "livereload-client.js")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func netAddr(host, port string) string {
+	if strings.TrimSpace(host) == "" {
+		host = defaultHost
+	}
+	if strings.TrimSpace(port) == "" {
+		port = defaultPort
+	}
+	return net.JoinHostPort(host, port)
+}
+
+func main() {
+	mainPath := flag.String("main", "", "Path to the app main.go file or the app directory")
+	rootPath := flag.String("root", "", "Project root to watch and serve")
+	indexPath := flag.String("index", "", "HTML file to serve, relative to the project root")
+	outputPath := flag.String("output", "", "WASM output path, relative to the build directory")
+	host := flag.String("host", defaultHost, "Host to bind")
+	port := flag.String("port", defaultPort, "Port to bind")
+	hot := flag.Bool("hot", true, "Always use hot reload on successful rebuilds")
+	clientScriptPath := flag.String("client-script", "", "Path to livereload-client.js")
+	flag.Parse()
+
+	server, err := NewLiveReloadServerWithOptions(LiveReloadOptions{
+		MainPath:         *mainPath,
+		ProjectRoot:      *rootPath,
+		IndexPath:        *indexPath,
+		OutputPath:       *outputPath,
+		Host:             *host,
+		Port:             *port,
+		AlwaysHotReload:  *hot,
+		ClientScriptPath: *clientScriptPath,
+	})
 	if err != nil {
 		log.Fatalf("❌ Failed to create live reload server: %v", err)
 	}
