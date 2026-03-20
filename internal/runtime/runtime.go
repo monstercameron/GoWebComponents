@@ -129,18 +129,20 @@ func (rt *Runtime) SetNextHydrationStrict(strict bool) {
 }
 
 type runtimeProfiling struct {
-	renderCalls           int
-	scheduledRootUpdates  int
-	scheduledFiberMarks   int
-	workLoopPasses        int
-	processedUnits        int
-	commitCount           int
-	effectExecutions      int
-	cleanupExecutions     int
-	lastRenderDurationNs  int64
-	lastCommitDurationNs  int64
-	lastEffectDurationNs  int64
-	lastCleanupDurationNs int64
+	renderCalls            int
+	scheduledRootUpdates   int
+	scheduledFiberMarks    int
+	scheduledGranularMarks int
+	workLoopPasses         int
+	processedUnits         int
+	commitCount            int
+	fineGrainedCommits     int
+	effectExecutions       int
+	cleanupExecutions      int
+	lastRenderDurationNs   int64
+	lastCommitDurationNs   int64
+	lastEffectDurationNs   int64
+	lastCleanupDurationNs  int64
 }
 
 const slowOperationDiagnosticThresholdNs = int64(2 * time.Millisecond)

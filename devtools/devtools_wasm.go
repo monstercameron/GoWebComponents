@@ -226,6 +226,7 @@ func statsSummary(stats Stats) ui.Node {
 		metricRow("Components", fmt.Sprintf("%d", stats.ComponentFibers)),
 		metricRow("Host nodes", fmt.Sprintf("%d", stats.HostFibers)),
 		metricRow("Text nodes", fmt.Sprintf("%d", stats.TextFibers)),
+		metricRow("Fine-grained", fmt.Sprintf("%d", stats.FineGrainedFibers)),
 		metricRow("Hook entries", fmt.Sprintf("%d", stats.HookEntries)),
 		metricRow("Effects", fmt.Sprintf("%d", stats.Effects)),
 	)
@@ -261,9 +262,11 @@ func profilingSummary(profiling Profiling) ui.Node {
 		metricRow("Render calls", fmt.Sprintf("%d", profiling.RenderCalls)),
 		metricRow("Root updates", fmt.Sprintf("%d", profiling.ScheduledRootUpdates)),
 		metricRow("Fiber marks", fmt.Sprintf("%d", profiling.ScheduledFiberMarks)),
+		metricRow("Granular marks", fmt.Sprintf("%d", profiling.ScheduledGranularMarks)),
 		metricRow("Work loops", fmt.Sprintf("%d", profiling.WorkLoopPasses)),
 		metricRow("Units processed", fmt.Sprintf("%d", profiling.ProcessedUnits)),
 		metricRow("Commits", fmt.Sprintf("%d", profiling.CommitCount)),
+		metricRow("Granular commits", fmt.Sprintf("%d", profiling.FineGrainedCommits)),
 		metricRow("Effects run", fmt.Sprintf("%d", profiling.EffectExecutions)),
 		metricRow("Cleanups run", fmt.Sprintf("%d", profiling.CleanupExecutions)),
 		metricRow("Last render", formatDurationNs(profiling.LastRenderDurationNs)),
@@ -421,6 +424,12 @@ func renderNode(node Node, depth int, maxDepth int) ui.Node {
 			html.Code(html.Props{Style: map[string]string{"color": "#67e8f9", "background": "rgba(15,23,42,0.6)", "padding": "2px 6px", "border-radius": "6px"}}, html.Text(node.Kind)),
 			html.Small(html.Props{Style: map[string]string{"color": "#94a3b8"}}, html.Text(fmt.Sprintf("hooks=%d effects=%d", node.HookCount, node.EffectCount))),
 			func() ui.Node {
+				if !node.FineGrained {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"color": "#67e8f9"}}, html.Text("fine-grained"))
+			}(),
+			func() ui.Node {
 				if node.Dirty || node.NeedsUpdate {
 					return html.Small(html.Props{Style: map[string]string{"color": "#fde68a"}}, html.Text(fmt.Sprintf("dirty=%t update=%t", node.Dirty, node.NeedsUpdate)))
 				}
@@ -441,6 +450,24 @@ func renderNode(node Node, depth int, maxDepth int) ui.Node {
 			"margin-top": "4px",
 			"color":      "#cbd5e1",
 		}}, html.Text("signature: "+node.Signature)))
+	}
+
+	if node.FineGrained || strings.TrimSpace(node.UpdateOrigin) != "" || strings.TrimSpace(node.ReactiveSource) != "" {
+		meta := make([]string, 0, 3)
+		if node.FineGrained {
+			meta = append(meta, "mode=fine-grained")
+		}
+		if strings.TrimSpace(node.UpdateOrigin) != "" {
+			meta = append(meta, "origin="+node.UpdateOrigin)
+		}
+		if strings.TrimSpace(node.ReactiveSource) != "" {
+			meta = append(meta, "source="+node.ReactiveSource)
+		}
+		children = append(children, html.Small(html.Props{Style: map[string]string{
+			"display":    "block",
+			"margin-top": "4px",
+			"color":      "#67e8f9",
+		}}, html.Text(strings.Join(meta, " | "))))
 	}
 
 	if len(node.Hooks) > 0 {
@@ -496,6 +523,9 @@ func mapNode(node *runtime.FiberSnapshot) *Node {
 		Kind:              node.Kind,
 		Dirty:             node.Dirty,
 		NeedsUpdate:       node.NeedsUpdate,
+		FineGrained:       node.FineGrained,
+		ReactiveSource:    node.ReactiveSource,
+		UpdateOrigin:      node.UpdateOrigin,
 		EffectCount:       node.EffectCount,
 		HookCount:         node.HookCount,
 		Signature:         "",
@@ -519,30 +549,33 @@ func mapNode(node *runtime.FiberSnapshot) *Node {
 
 func mapStats(stats runtime.InspectionStats) Stats {
 	return Stats{
-		TotalFibers:     stats.TotalFibers,
-		DirtyFibers:     stats.DirtyFibers,
-		ComponentFibers: stats.ComponentFibers,
-		HostFibers:      stats.HostFibers,
-		TextFibers:      stats.TextFibers,
-		HookEntries:     stats.HookEntries,
-		Effects:         stats.Effects,
+		TotalFibers:       stats.TotalFibers,
+		DirtyFibers:       stats.DirtyFibers,
+		ComponentFibers:   stats.ComponentFibers,
+		HostFibers:        stats.HostFibers,
+		TextFibers:        stats.TextFibers,
+		FineGrainedFibers: stats.FineGrainedFibers,
+		HookEntries:       stats.HookEntries,
+		Effects:           stats.Effects,
 	}
 }
 
 func mapProfiling(profiling runtime.ProfilingSnapshot) Profiling {
 	mapped := Profiling{
-		RenderCalls:           profiling.RenderCalls,
-		ScheduledRootUpdates:  profiling.ScheduledRootUpdates,
-		ScheduledFiberMarks:   profiling.ScheduledFiberMarks,
-		WorkLoopPasses:        profiling.WorkLoopPasses,
-		ProcessedUnits:        profiling.ProcessedUnits,
-		CommitCount:           profiling.CommitCount,
-		EffectExecutions:      profiling.EffectExecutions,
-		CleanupExecutions:     profiling.CleanupExecutions,
-		LastRenderDurationNs:  profiling.LastRenderDurationNs,
-		LastCommitDurationNs:  profiling.LastCommitDurationNs,
-		LastEffectDurationNs:  profiling.LastEffectDurationNs,
-		LastCleanupDurationNs: profiling.LastCleanupDurationNs,
+		RenderCalls:            profiling.RenderCalls,
+		ScheduledRootUpdates:   profiling.ScheduledRootUpdates,
+		ScheduledFiberMarks:    profiling.ScheduledFiberMarks,
+		ScheduledGranularMarks: profiling.ScheduledGranularMarks,
+		WorkLoopPasses:         profiling.WorkLoopPasses,
+		ProcessedUnits:         profiling.ProcessedUnits,
+		CommitCount:            profiling.CommitCount,
+		FineGrainedCommits:     profiling.FineGrainedCommits,
+		EffectExecutions:       profiling.EffectExecutions,
+		CleanupExecutions:      profiling.CleanupExecutions,
+		LastRenderDurationNs:   profiling.LastRenderDurationNs,
+		LastCommitDurationNs:   profiling.LastCommitDurationNs,
+		LastEffectDurationNs:   profiling.LastEffectDurationNs,
+		LastCleanupDurationNs:  profiling.LastCleanupDurationNs,
 	}
 	for _, branch := range profiling.HotBranches {
 		mapped.HotBranches = append(mapped.HotBranches, Branch{

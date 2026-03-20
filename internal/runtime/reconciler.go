@@ -208,6 +208,10 @@ func (rt *Runtime) cloneChildFibers(parent *Fiber) {
 	oldFiber := parent.alternate.child
 
 	for oldFiber != nil {
+		effectTag := ""
+		if oldFiber.dirty || oldFiber.needsUpdate {
+			effectTag = "UPDATE"
+		}
 		newFiber := acquireWorkInProgress(oldFiber)
 		*newFiber = Fiber{
 			typeOf:         oldFiber.typeOf,
@@ -216,15 +220,30 @@ func (rt *Runtime) cloneChildFibers(parent *Fiber) {
 			dom:            oldFiber.dom,
 			parent:         parent,
 			alternate:      oldFiber,
-			effectTag:      "",    // No change
-			dirty:          false, // Not dirty
-			needsUpdate:    false,
+			effectTag:      effectTag,
+			dirty:          oldFiber.dirty,
+			needsUpdate:    oldFiber.needsUpdate,
 			hooks:          oldFiber.hooks, // Share hooks for non-updated components
 			eventCallbacks: oldFiber.eventCallbacks,
 			contextValues:  oldFiber.contextValues,
+			reactiveAtomID: oldFiber.reactiveAtomID,
+			reactiveSourceIDs: append([]string(nil), oldFiber.reactiveSourceIDs...),
+			fineGrained:    oldFiber.fineGrained,
+			updateOrigin:   oldFiber.updateOrigin,
 		}
 		if newFiber.hooks != nil {
 			newFiber.hooks.owner = newFiber
+		}
+		if rt.atomRegistry != nil && newFiber.fineGrained && len(newFiber.reactiveSourceIDs) > 0 {
+			for _, sourceID := range newFiber.reactiveSourceIDs {
+				if rt.hydrating {
+					rt.queueHydrationSubscription(sourceID, oldFiber, false)
+					rt.queueHydrationSubscription(sourceID, newFiber, true)
+				} else {
+					rt.atomRegistry.Unsubscribe(sourceID, oldFiber)
+					rt.atomRegistry.Subscribe(sourceID, newFiber)
+				}
+			}
 		}
 
 		if prevSibling == nil {
@@ -337,9 +356,14 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 						alternate:      oldFiber,
 						effectTag:      effectTag,
 						dirty:          needsUpdate,
+						needsUpdate:    oldFiber.needsUpdate,
 						hooks:          oldFiber.hooks,
 						eventCallbacks: oldFiber.eventCallbacks,
 						hydration:      wipFiber.childHydration,
+						reactiveAtomID: oldFiber.reactiveAtomID,
+						reactiveSourceIDs: append([]string(nil), oldFiber.reactiveSourceIDs...),
+						fineGrained:    oldFiber.fineGrained,
+						updateOrigin:   oldFiber.updateOrigin,
 					}
 
 					// Advance oldFiber
@@ -348,13 +372,15 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					// REPLACE logic (Placement + Deletion)
 					newFiber = acquireWorkInProgress(oldFiber)
 					*newFiber = Fiber{
-						typeOf:      elem.Type,
-						props:       elem.Props,
-						textContent: elem.TextContent,
-						parent:      wipFiber,
-						effectTag:   "PLACEMENT",
-						dirty:       true,
-						hydration:   wipFiber.childHydration,
+						typeOf:       elem.Type,
+						props:        elem.Props,
+						textContent:  elem.TextContent,
+						parent:       wipFiber,
+						effectTag:    "PLACEMENT",
+						dirty:        true,
+						hydration:    wipFiber.childHydration,
+						fineGrained:  isFineGrainedType(elem.Type),
+						updateOrigin: oldFiberUpdateOrigin(oldFiber, elem.Type),
 					}
 
 					// Mark old fiber for deletion
@@ -392,13 +418,15 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 			if elem, ok := element.(*Element); ok && elem != nil {
 				newFiber = acquireWorkInProgress(nil)
 				*newFiber = Fiber{
-					typeOf:      elem.Type,
-					props:       elem.Props,
-					textContent: elem.TextContent,
-					parent:      wipFiber,
-					effectTag:   "PLACEMENT",
-					dirty:       true,
-					hydration:   wipFiber.childHydration,
+					typeOf:       elem.Type,
+					props:        elem.Props,
+					textContent:  elem.TextContent,
+					parent:       wipFiber,
+					effectTag:    "PLACEMENT",
+					dirty:        true,
+					hydration:    wipFiber.childHydration,
+					fineGrained:  isFineGrainedType(elem.Type),
+					updateOrigin: oldFiberUpdateOrigin(nil, elem.Type),
 				}
 			}
 		}
@@ -535,9 +563,14 @@ func (rt *Runtime) reconcileKeyedChildren(wipFiber *Fiber, elements []interface{
 				alternate:      matchedOld,
 				effectTag:      effectTag,
 				dirty:          needsUpdate,
+				needsUpdate:    matchedOld.needsUpdate,
 				hooks:          matchedOld.hooks,
 				eventCallbacks: matchedOld.eventCallbacks,
 				hydration:      wipFiber.childHydration,
+				reactiveAtomID: matchedOld.reactiveAtomID,
+				reactiveSourceIDs: append([]string(nil), matchedOld.reactiveSourceIDs...),
+				fineGrained:    matchedOld.fineGrained,
+				updateOrigin:   matchedOld.updateOrigin,
 			}
 		} else {
 			if matchedOld != nil {
@@ -547,13 +580,15 @@ func (rt *Runtime) reconcileKeyedChildren(wipFiber *Fiber, elements []interface{
 
 			newFiber = acquireWorkInProgress(nil)
 			*newFiber = Fiber{
-				typeOf:      elem.Type,
-				props:       elem.Props,
-				textContent: elem.TextContent,
-				parent:      wipFiber,
-				effectTag:   "PLACEMENT",
-				dirty:       true,
-				hydration:   wipFiber.childHydration,
+				typeOf:       elem.Type,
+				props:        elem.Props,
+				textContent:  elem.TextContent,
+				parent:       wipFiber,
+				effectTag:    "PLACEMENT",
+				dirty:        true,
+				hydration:    wipFiber.childHydration,
+				fineGrained:  isFineGrainedType(elem.Type),
+				updateOrigin: oldFiberUpdateOrigin(nil, elem.Type),
 			}
 		}
 
@@ -894,6 +929,32 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 			}
 			rt.reconcileChildren(fiber, emptyChildren)
 
+		case *ReactiveTextElementType:
+			rt.syncReactiveTextSubscription(fiber)
+			fiber.textContent = reactiveTextValue(fiber)
+			if fiber.dom == nil || fiber.dom.IsNull() {
+				if hydratedDOM, ok := rt.claimHydrationNode(fiber); ok {
+					fiber.dom = hydratedDOM
+					fiber.hydrated = true
+					fiber.effectTag = "HYDRATE"
+				} else {
+					fiber.dom = rt.createDom(fiber)
+					fiber.hydrated = false
+				}
+			}
+			fiber.childHydration = nil
+
+		case *ReactiveRegionElementType:
+			rt.syncReactiveRegionSubscription(fiber)
+			fiber.childHydration = fiber.hydration
+			rendered := reactiveRegionValue(fiber)
+			if rendered != nil {
+				children := [1]interface{}{rendered}
+				rt.reconcileChildren(fiber, children[:])
+			} else {
+				rt.reconcileChildren(fiber, emptyChildren)
+			}
+
 		case *ErrorBoundaryType:
 			rt.renderBoundaryChildren(fiber)
 
@@ -959,6 +1020,12 @@ func (rt *Runtime) createDom(fiber *Fiber) DOMNode {
 	}
 	if _, ok := fiber.typeOf.(*PortalElementType); ok {
 		return nil
+	}
+	if _, ok := fiber.typeOf.(*ReactiveRegionElementType); ok {
+		return nil
+	}
+	if _, ok := fiber.typeOf.(*ReactiveTextElementType); ok {
+		return rt.domAdapter.CreateTextNode(reactiveTextValue(fiber))
 	}
 	// Function components don't have DOM nodes - they render their children
 
@@ -1252,15 +1319,23 @@ func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 			start := time.Now()
 			rt.domAdapter.AppendChild(domParent, fiber.dom)
 			fiber.commitDurationNs += time.Since(start).Nanoseconds()
+			if fiber.fineGrained {
+				rt.profiling.fineGrainedCommits++
+			}
 		} else if fiber.effectTag == "HYDRATE" && fiber.dom != nil && !fiber.dom.IsNull() {
-			if t, ok := fiber.typeOf.(string); ok && t == "TEXT_ELEMENT" {
+			if isTextLikeFiber(fiber) {
 				newValue := fiber.textContent
-				if newValue == "" && fiber.props != nil {
+				if _, ok := fiber.typeOf.(*ReactiveTextElementType); ok {
+					newValue = reactiveTextValue(fiber)
+				} else if newValue == "" && fiber.props != nil {
 					newValue, _ = fiber.props["nodeValue"].(string)
 				}
 				start := time.Now()
 				rt.domAdapter.SetTextContent(fiber.dom, newValue)
 				fiber.commitDurationNs += time.Since(start).Nanoseconds()
+				if fiber.fineGrained {
+					rt.profiling.fineGrainedCommits++
+				}
 			} else {
 				start := time.Now()
 				batchAdapter, supportsBatching := rt.domAdapter.(interface {
@@ -1271,23 +1346,18 @@ func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 			}
 		} else if fiber.effectTag == "UPDATE" && fiber.dom != nil && !fiber.dom.IsNull() {
 			if fiber.alternate != nil {
-				// Check if this is a text node
-				if t, ok := fiber.typeOf.(string); ok && t == "TEXT_ELEMENT" {
+				if isTextLikeFiber(fiber) {
 					// Update text content
-					oldValue := fiber.alternate.textContent
-					if oldValue == "" && fiber.alternate.props != nil {
-						oldValue, _ = fiber.alternate.props["nodeValue"].(string)
-					}
-
-					newValue := fiber.textContent
-					if newValue == "" && fiber.props != nil {
-						newValue, _ = fiber.props["nodeValue"].(string)
-					}
+					oldValue := textLikeFiberValue(fiber.alternate)
+					newValue := textLikeFiberValue(fiber)
 
 					if oldValue != newValue {
 						start := time.Now()
 						rt.domAdapter.SetTextContent(fiber.dom, newValue)
 						fiber.commitDurationNs += time.Since(start).Nanoseconds()
+						if fiber.fineGrained {
+							rt.profiling.fineGrainedCommits++
+						}
 					}
 				} else {
 					// Regular element - update properties
@@ -1342,6 +1412,191 @@ func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 	}
 }
 
+func oldFiberUpdateOrigin(oldFiber *Fiber, typeOf interface{}) string {
+	if oldFiber != nil && oldFiber.updateOrigin != "" {
+		return oldFiber.updateOrigin
+	}
+	if isFineGrainedType(typeOf) {
+		return "fine-grained"
+	}
+	return ""
+}
+
+func isReactiveTextType(typeOf interface{}) bool {
+	_, ok := typeOf.(*ReactiveTextElementType)
+	return ok
+}
+
+func isReactiveRegionType(typeOf interface{}) bool {
+	_, ok := typeOf.(*ReactiveRegionElementType)
+	return ok
+}
+
+func isFineGrainedType(typeOf interface{}) bool {
+	return isReactiveTextType(typeOf) || isReactiveRegionType(typeOf)
+}
+
+func isTextLikeFiber(fiber *Fiber) bool {
+	if fiber == nil {
+		return false
+	}
+	if _, ok := fiber.typeOf.(*ReactiveTextElementType); ok {
+		return true
+	}
+	typ, ok := fiber.typeOf.(string)
+	return ok && typ == "TEXT_ELEMENT"
+}
+
+func textLikeFiberValue(fiber *Fiber) string {
+	if fiber == nil {
+		return ""
+	}
+	if _, ok := fiber.typeOf.(*ReactiveTextElementType); ok {
+		return fiber.textContent
+	}
+	value := fiber.textContent
+	if value == "" && fiber.props != nil {
+		value, _ = fiber.props["nodeValue"].(string)
+	}
+	return value
+}
+
+const (
+	reactiveTextAtomIDProp = "__gwc_reactive_text_atom_id"
+	reactiveTextGetterProp = "__gwc_reactive_text_getter"
+	reactiveRegionSourceIDsProp = "__gwc_reactive_region_source_ids"
+	reactiveRegionRenderProp    = "__gwc_reactive_region_render"
+)
+
+func reactiveTextValue(fiber *Fiber) string {
+	if fiber == nil || fiber.props == nil {
+		return ""
+	}
+	getter, _ := fiber.props[reactiveTextGetterProp].(func() string)
+	if getter == nil {
+		return ""
+	}
+	return getter()
+}
+
+func reactiveRegionValue(fiber *Fiber) *Element {
+	if fiber == nil || fiber.props == nil {
+		return nil
+	}
+	render, _ := fiber.props[reactiveRegionRenderProp].(func() *Element)
+	if render == nil {
+		return nil
+	}
+	return render()
+}
+
+func reactiveRegionSourceIDs(fiber *Fiber) []string {
+	if fiber == nil || fiber.props == nil {
+		return nil
+	}
+	raw, _ := fiber.props[reactiveRegionSourceIDsProp].([]string)
+	if len(raw) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(raw))
+	seen := make(map[string]struct{}, len(raw))
+	for _, id := range raw {
+		if strings.TrimSpace(id) == "" {
+			continue
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	return ids
+}
+
+func (rt *Runtime) syncFineGrainedSubscriptions(fiber *Fiber, sourceIDs []string) {
+	if rt == nil || rt.atomRegistry == nil || fiber == nil {
+		return
+	}
+	previous := append([]string(nil), fiber.reactiveSourceIDs...)
+	if fiber.alternate != nil && fiber.alternate != fiber && len(fiber.alternate.reactiveSourceIDs) > 0 {
+		previous = append([]string(nil), fiber.alternate.reactiveSourceIDs...)
+	}
+	previousSet := make(map[string]struct{}, len(previous))
+	for _, id := range previous {
+		previousSet[id] = struct{}{}
+	}
+	nextSet := make(map[string]struct{}, len(sourceIDs))
+	for _, id := range sourceIDs {
+		nextSet[id] = struct{}{}
+	}
+	for _, oldID := range previous {
+		if _, keep := nextSet[oldID]; keep {
+			continue
+		}
+		if rt.hydrating {
+			rt.queueHydrationSubscription(oldID, fiber, false)
+			if fiber.alternate != nil && fiber.alternate != fiber {
+				rt.queueHydrationSubscription(oldID, fiber.alternate, false)
+			}
+		} else {
+			rt.atomRegistry.Unsubscribe(oldID, fiber)
+			if fiber.alternate != nil && fiber.alternate != fiber {
+				rt.atomRegistry.Unsubscribe(oldID, fiber.alternate)
+			}
+		}
+	}
+	for _, newID := range sourceIDs {
+		if _, already := previousSet[newID]; already {
+			if fiber.alternate != nil && fiber.alternate != fiber {
+				if rt.hydrating {
+					rt.queueHydrationSubscription(newID, fiber.alternate, false)
+					rt.queueHydrationSubscription(newID, fiber, true)
+				} else {
+					rt.atomRegistry.Unsubscribe(newID, fiber.alternate)
+					rt.atomRegistry.Subscribe(newID, fiber)
+				}
+			}
+			continue
+		}
+		if rt.hydrating {
+			rt.queueHydrationSubscription(newID, fiber, true)
+		} else {
+			rt.atomRegistry.Subscribe(newID, fiber)
+		}
+	}
+	fiber.reactiveSourceIDs = append(fiber.reactiveSourceIDs[:0], sourceIDs...)
+	fiber.reactiveAtomID = ""
+	if len(sourceIDs) > 0 {
+		fiber.reactiveAtomID = strings.Join(sourceIDs, ",")
+	}
+	fiber.fineGrained = len(sourceIDs) > 0
+}
+
+func (rt *Runtime) syncReactiveTextSubscription(fiber *Fiber) {
+	if rt == nil || fiber == nil || fiber.props == nil {
+		return
+	}
+	atomID, _ := fiber.props[reactiveTextAtomIDProp].(string)
+	sourceIDs := []string{}
+	if atomID != "" {
+		sourceIDs = append(sourceIDs, atomID)
+	}
+	rt.syncFineGrainedSubscriptions(fiber, sourceIDs)
+	if atomID != "" {
+		fiber.reactiveAtomID = atomID
+	}
+	}
+
+func (rt *Runtime) syncReactiveRegionSubscription(fiber *Fiber) {
+	if rt == nil || fiber == nil {
+		return
+	}
+	rt.syncFineGrainedSubscriptions(fiber, reactiveRegionSourceIDs(fiber))
+}
+
 // commitDeletion removes a fiber from the DOM and runs cleanup functions
 func (rt *Runtime) commitDeletion(fiber *Fiber, domParent DOMNode) {
 	if fiber == nil {
@@ -1352,7 +1607,7 @@ func (rt *Runtime) commitDeletion(fiber *Fiber, domParent DOMNode) {
 	rt.runCleanups(fiber)
 
 	// Cleanup atom subscriptions for this fiber and subtree
-	rt.CleanupAtomSubscriptions(fiber)
+	rt.cleanupAtomSubscriptionsSubtree(fiber)
 
 	if rt.isPortalFiber(fiber) {
 		rt.deleteFiberSubtree(fiber.child, rt.resolvePortalParent(fiber))
@@ -1366,6 +1621,19 @@ func (rt *Runtime) commitDeletion(fiber *Fiber, domParent DOMNode) {
 		// Function component without DOM node - recursively delete all descendants
 		// We need to find and remove all actual DOM nodes in the subtree
 		rt.deleteFiberSubtree(fiber.child, domParent)
+	}
+}
+
+func (rt *Runtime) cleanupAtomSubscriptionsSubtree(fiber *Fiber) {
+	if fiber == nil {
+		return
+	}
+	rt.CleanupAtomSubscriptions(fiber)
+	for child := fiber.child; child != nil; child = child.sibling {
+		rt.cleanupAtomSubscriptionsSubtree(child)
+	}
+	if fiber.alternate != nil && fiber.alternate != fiber {
+		rt.CleanupAtomSubscriptions(fiber.alternate)
 	}
 }
 

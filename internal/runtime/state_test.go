@@ -358,6 +358,74 @@ func TestRuntimeRestoreAtomSnapshotSchedulesSubscribers(t *testing.T) {
 	}
 }
 
+func TestRuntimeHelpers_SetAtomValueTransitionDefersUntilTimeout(t *testing.T) {
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{Scheduler: scheduler})
+	rt.currentRoot = &Fiber{}
+
+	fiber := &Fiber{typeOf: "test", props: make(map[string]interface{})}
+	rt.atomRegistry.Subscribe("test", fiber)
+
+	rt.StartTransition(func() {
+		if err := rt.SetAtomValue("test", 123); err != nil {
+			t.Fatalf("unexpected transition set atom error: %v", err)
+		}
+	})
+
+	if value, _ := rt.GetAtomValue("test"); value != nil {
+		t.Fatalf("expected transition atom value to stay deferred before timeout, got %#v", value)
+	}
+	if fiber.needsUpdate {
+		t.Fatal("expected subscribed fiber to stay clean before transition timeout")
+	}
+	if len(scheduler.timeouts) != 1 {
+		t.Fatalf("expected one deferred timeout for direct atom write, got %d", len(scheduler.timeouts))
+	}
+
+	scheduler.timeouts[0]()
+
+	if value, _ := rt.GetAtomValue("test"); value != 123 {
+		t.Fatalf("expected deferred atom value 123 after timeout, got %#v", value)
+	}
+	if !fiber.needsUpdate {
+		t.Fatal("expected subscribed fiber to be marked after deferred atom write")
+	}
+}
+
+func TestRuntimeRestoreAtomSnapshotTransitionDefersUntilTimeout(t *testing.T) {
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{Scheduler: scheduler})
+	rt.currentRoot = &Fiber{}
+
+	fiber := newTestFiber("theme-subscriber")
+	rt.atomRegistry.Subscribe("theme", fiber)
+
+	rt.StartTransition(func() {
+		if err := rt.RestoreAtomSnapshot(map[string]interface{}{"theme": "dark"}); err != nil {
+			t.Fatalf("unexpected transition restore error: %v", err)
+		}
+	})
+
+	if value, _ := rt.GetAtomValue("theme"); value != nil {
+		t.Fatalf("expected restored atom value to stay deferred before timeout, got %#v", value)
+	}
+	if fiber.needsUpdate {
+		t.Fatal("expected subscribed fiber to stay clean before deferred restore flushes")
+	}
+	if len(scheduler.timeouts) != 1 {
+		t.Fatalf("expected one deferred timeout for snapshot restore, got %d", len(scheduler.timeouts))
+	}
+
+	scheduler.timeouts[0]()
+
+	if value, _ := rt.GetAtomValue("theme"); value != "dark" {
+		t.Fatalf("expected restored atom value dark after timeout, got %#v", value)
+	}
+	if !fiber.needsUpdate {
+		t.Fatal("expected subscribed fiber to be marked after deferred restore")
+	}
+}
+
 func TestRegisterDerivedAtomRecomputesWhenDependencyChanges(t *testing.T) {
 	scheduler := newTestScheduler()
 	rt := NewRuntime(Config{Scheduler: scheduler})
@@ -418,6 +486,37 @@ func TestRegisterDerivedAtomSupportsChainedDependencies(t *testing.T) {
 	}
 }
 
+func TestRegisterDerivedAtomSkipsSubscriberNotifyWhenValueUnchanged(t *testing.T) {
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{Scheduler: scheduler})
+	rt.currentRoot = &Fiber{}
+
+	_ = rt.SetAtomValue("count", 1)
+	if err := rt.RegisterDerivedAtom("parity", []string{"count"}, func() interface{} {
+		value, _ := rt.GetAtomValue("count")
+		return value.(int) % 2
+	}); err != nil {
+		t.Fatalf("unexpected register parity error: %v", err)
+	}
+
+	derivedFiber := newTestFiber("parity-subscriber")
+	rt.atomRegistry.Subscribe("parity", derivedFiber)
+
+	if err := rt.SetAtomValue("count", 3); err != nil {
+		t.Fatalf("unexpected count update error: %v", err)
+	}
+	if derivedFiber.needsUpdate || derivedFiber.dirty {
+		t.Fatal("expected unchanged derived value to avoid notifying subscribers")
+	}
+
+	if err := rt.SetAtomValue("count", 4); err != nil {
+		t.Fatalf("unexpected second count update error: %v", err)
+	}
+	if !derivedFiber.needsUpdate {
+		t.Fatal("expected changed derived value to notify subscribers")
+	}
+}
+
 func TestRegisterDerivedAtomRejectsSimpleCycles(t *testing.T) {
 	scheduler := newTestScheduler()
 	rt := NewRuntime(Config{Scheduler: scheduler})
@@ -425,5 +524,18 @@ func TestRegisterDerivedAtomRejectsSimpleCycles(t *testing.T) {
 	err := rt.RegisterDerivedAtom("loop", []string{"loop"}, func() interface{} { return 1 })
 	if err == nil {
 		t.Fatal("expected self-referential derived atom registration to fail")
+	}
+}
+
+func TestRegisterDerivedAtomRejectsIndirectCycles(t *testing.T) {
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{Scheduler: scheduler})
+
+	if err := rt.RegisterDerivedAtom("derived-a", []string{"derived-b"}, func() interface{} { return 1 }); err != nil {
+		t.Fatalf("unexpected register derived-a error: %v", err)
+	}
+	err := rt.RegisterDerivedAtom("derived-b", []string{"derived-a"}, func() interface{} { return 2 })
+	if err == nil {
+		t.Fatal("expected indirect derived cycle registration to fail")
 	}
 }

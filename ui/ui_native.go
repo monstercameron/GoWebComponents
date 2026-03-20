@@ -103,6 +103,11 @@ type Handler struct {
 	value interface{}
 }
 
+// ReactiveSource identifies shared values that a ReactiveRegion can subscribe to explicitly.
+type ReactiveSource interface {
+	ReactiveRegionSourceIDs() []string
+}
+
 // PortalTarget describes where a portal subtree should render.
 type PortalTarget struct {
 	Selector string
@@ -208,6 +213,36 @@ func (boundary *errorBoundaryComponent) runtimeErrorBoundary() *runtime.ErrorBou
 // Fragment groups children without introducing an extra host element.
 func Fragment(children ...Node) Node {
 	return runtime.CreateElement("FRAGMENT", nil, toInterfaces(children)...)
+}
+
+// ReactiveRegion creates an explicit fine-grained subscribed region.
+func ReactiveRegion(render func() Node, sources ...ReactiveSource) Node {
+	ids := make([]string, 0, len(sources))
+	seen := make(map[string]struct{}, len(sources))
+	for _, source := range sources {
+		if source == nil {
+			continue
+		}
+		for _, id := range source.ReactiveRegionSourceIDs() {
+			if id == "" {
+				continue
+			}
+			if _, exists := seen[id]; exists {
+				continue
+			}
+			seen[id] = struct{}{}
+			ids = append(ids, id)
+		}
+	}
+	return runtime.CreateElement(runtime.ReactiveRegionNodeType, map[string]interface{}{
+		"__gwc_reactive_region_source_ids": ids,
+		"__gwc_reactive_region_render": func() *runtime.Element {
+			if render == nil {
+				return nil
+			}
+			return render()
+		},
+	})
 }
 
 // Portal renders children inline on non-browser targets.

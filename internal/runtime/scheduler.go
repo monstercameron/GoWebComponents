@@ -213,6 +213,7 @@ func (rt *Runtime) ScheduleUpdateForFiber(fiber *Fiber) {
 		return
 	}
 	rt.profiling.scheduledFiberMarks++
+	fiber.updateOrigin = "hook"
 
 	// Mark fiber and parents as dirty
 	first := true
@@ -225,6 +226,11 @@ func (rt *Runtime) ScheduleUpdateForFiber(fiber *Fiber) {
 		}
 		f.dirty = true
 		f.needsUpdate = true
+		if first {
+			f.updateOrigin = "hook"
+		} else if f.updateOrigin == "" {
+			f.updateOrigin = "ancestor"
+		}
 		first = false
 	}
 
@@ -232,6 +238,41 @@ func (rt *Runtime) ScheduleUpdateForFiber(fiber *Fiber) {
 	if !rt.updateScheduled {
 		rt.ScheduleUpdate()
 	}
+}
+
+// ScheduleGranularUpdateForFiber marks only the target fiber dirty and lets
+// clean ancestors clone through to the dirty descendant on the next root pass.
+func (rt *Runtime) ScheduleGranularUpdateForFiber(fiber *Fiber) {
+	if fiber == nil {
+		return
+	}
+	if rt.hydrating {
+		if rt.deferredHydrationUpdates == nil {
+			rt.deferredHydrationUpdates = make(map[*Fiber]bool)
+		}
+		rt.deferredHydrationUpdates[fiber] = true
+		return
+	}
+	rt.profiling.scheduledFiberMarks++
+	rt.profiling.scheduledGranularMarks++
+	fiber.dirty = true
+	fiber.needsUpdate = true
+	fiber.updateOrigin = "fine-grained"
+	if !rt.updateScheduled {
+		rt.ScheduleUpdate()
+	}
+}
+
+// ScheduleSubscribedFiberUpdate chooses the narrowest safe scheduling path for a subscription target.
+func (rt *Runtime) ScheduleSubscribedFiberUpdate(fiber *Fiber) {
+	if fiber == nil {
+		return
+	}
+	if fiber.fineGrained {
+		rt.ScheduleGranularUpdateForFiber(fiber)
+		return
+	}
+	rt.ScheduleUpdateForFiber(fiber)
 }
 
 // UI Queue for cross-goroutine updates

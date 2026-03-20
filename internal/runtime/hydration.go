@@ -184,6 +184,12 @@ func (rt *Runtime) matchesHydrationNode(fiber *Fiber, node DOMNode) bool {
 	if fiber == nil || node == nil || node.IsNull() {
 		return false
 	}
+	if _, ok := fiber.typeOf.(*ReactiveRegionElementType); ok {
+		return false
+	}
+	if _, ok := fiber.typeOf.(*ReactiveTextElementType); ok {
+		return rt.domNodeType(node) == 3
+	}
 
 	typ, ok := fiber.typeOf.(string)
 	if !ok {
@@ -207,13 +213,10 @@ func (rt *Runtime) detectHydrationTextMismatch(fiber *Fiber, node DOMNode) strin
 	if fiber == nil || node == nil || node.IsNull() {
 		return ""
 	}
-	if typ, ok := fiber.typeOf.(string); !ok || typ != "TEXT_ELEMENT" {
+	if !isTextLikeFiber(fiber) {
 		return ""
 	}
-	expected := fiber.textContent
-	if expected == "" && fiber.props != nil {
-		expected, _ = fiber.props["nodeValue"].(string)
-	}
+	expected := textLikeFiberValue(fiber)
 	actual := rt.domNodeText(node)
 	if actual == expected {
 		return ""
@@ -309,6 +312,12 @@ func stringifyHydrationValue(value interface{}) string {
 func expectedHydrationFiberName(fiber *Fiber) string {
 	if fiber == nil {
 		return ""
+	}
+	if _, ok := fiber.typeOf.(*ReactiveRegionElementType); ok {
+		return "reactive region"
+	}
+	if _, ok := fiber.typeOf.(*ReactiveTextElementType); ok {
+		return "reactive text node"
 	}
 	if typ, ok := fiber.typeOf.(string); ok {
 		switch typ {

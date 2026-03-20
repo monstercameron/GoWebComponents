@@ -78,6 +78,17 @@ type queuedScheduler struct {
 
 type queuedDeadline struct{}
 
+type reactiveRegionTestSource struct {
+	id string
+}
+
+func (s reactiveRegionTestSource) ReactiveRegionSourceIDs() []string {
+	if s.id == "" {
+		return nil
+	}
+	return []string{s.id}
+}
+
 func (queuedDeadline) TimeRemaining() float64 { return 1000 }
 
 func (queuedDeadline) DidTimeout() bool { return false }
@@ -638,6 +649,29 @@ func TestPortalBuildsRuntimePortalElement(t *testing.T) {
 	}
 	if len(node.Children) != 1 || node.Children[0] != child {
 		t.Fatalf("expected portal child to be preserved, got %#v", node.Children)
+	}
+}
+
+func TestReactiveRegionBuildsRuntimeRegionElement(t *testing.T) {
+	node := ReactiveRegion(func() Node {
+		return Text("hot")
+	}, reactiveRegionTestSource{id: "count"})
+	if node == nil {
+		t.Fatal("expected reactive region element")
+	}
+	if _, ok := node.Type.(*runtime.ReactiveRegionElementType); !ok {
+		t.Fatalf("expected reactive region runtime type, got %T", node.Type)
+	}
+	if got, _ := node.Props["__gwc_reactive_region_source_ids"].([]string); len(got) != 1 || got[0] != "count" {
+		t.Fatalf("expected source ids to round-trip, got %#v", got)
+	}
+	render, _ := node.Props["__gwc_reactive_region_render"].(func() *runtime.Element)
+	if render == nil {
+		t.Fatal("expected reactive region render callback")
+	}
+	rendered := render()
+	if rendered == nil || rendered.Type != "TEXT_ELEMENT" || rendered.TextContent != "hot" {
+		t.Fatalf("expected region render callback to return text node, got %#v", rendered)
 	}
 }
 

@@ -1283,22 +1283,32 @@ Organization rules for this file:
 
 ### Fine-grained reactivity direction
 
-- [ ] Decide whether fine-grained reactivity should remain out of scope.
-	Clarify whether the framework stays fiber-and-hooks first or whether signal-like primitives are worth introducing for high-frequency UI paths.
-- [ ] Evaluate signal-style primitives in a companion package before core adoption.
-	Prototype fine-grained subscriptions without destabilizing the existing component and hook model.
-- [ ] Define the minimal primitive set for a signal experiment.
-	Decide whether the experiment needs only signal, computed, and effect-style building blocks or a larger API surface.
-- [ ] Benchmark fine-grained updates against current keyed reconciliation paths.
-	Use realistic list filtering, spreadsheet-style updates, and dashboard panels to determine whether finer granularity is actually needed.
-- [ ] Add a migration boundary between component rerenders and fine-grained subscriptions.
-	Clarify when a signal update rerenders an entire component, when it updates a smaller subscribed region, and how developers reason about mixed models.
-- [ ] Define interoperability rules for fine-grained primitives.
-	Specify how signal-like values interact with hooks, memoization, derived atoms, and scheduling.
-- [ ] Evaluate devtools implications for fine-grained updates.
-	If signal-style primitives ship, inspection and profiling must expose dependency graphs and update origins rather than only component rerenders.
-- [ ] Add failure-mode tests for stale reads and update loops.
-	Fine-grained systems are prone to accidental cycles and subscription leaks; prove the model can fail safely before widening the experiment.
+- [x] Adopt fine-grained reactivity as an explicit performance direction.
+	`docs/FRAMEWORK_SCOPE.md` now records the intended direction: reduce unnecessary full-component and page-level rerenders in high-frequency UI paths while keeping the framework hooks-compatible and fiber-based overall.
+- [x] Define the first shipped boundary for narrower updates.
+	`docs/FINE_GRAINED_REACTIVITY.md` now defines the first pass as explicit subscribed render regions inside the current component tree: stable anchored host regions may update narrowly, while hooks, props, context, routing, async boundaries, hydration recovery, and other structural changes still fall back to normal component reconciliation.
+- [x] Choose the initial primitive set for in-core adoption.
+	`docs/FINE_GRAINED_REACTIVITY.md` now records the recommended first set: reuse `state.Atom[T]` and `state.Derived[T]`, add explicit subscribed-region support in `ui`, and prefer selector helpers over introducing a full standalone signal or effect runtime in the first pass.
+- [x] Prototype fine-grained state reads on top of the existing `state` package.
+	The first prototype now ships as a text-only narrow-update path: `state.Atom[T]` and `state.Derived[T]` can render reactive text nodes that subscribe by atom ID, mark only the text fiber dirty on updates, and avoid rerendering the owning component when the change is isolated to that text node.
+- [x] Benchmark narrow updates against current keyed reconciliation paths.
+	The first benchmark now covers a stable keyed dashboard row of 16 panels in `internal/runtime/fine_grained_benchmark_test.go`: the full component rerender path measured `13548 ns/op`, `9538 B/op`, and `141 allocs/op`, while the reactive text path measured `2073 ns/op`, `512 B/op`, and `6 allocs/op` on Windows amd64.
+- [x] Define the mixed-model boundary between hooks and fine-grained subscriptions.
+	`docs/FINE_GRAINED_REACTIVITY.md` now defines the ownership and fallback rules: hooks still own lifecycle, structure, props, context, effects, and local state semantics, while fine-grained subscriptions may bypass component rerenders only inside explicit subscribed regions with explicit reactive sources and a stable DOM anchor.
+- [x] Define scheduling and batching semantics for fine-grained updates.
+	`docs/FINE_GRAINED_REACTIVITY.md` now defines the first scheduling contract: fine-grained updates reuse the existing root scheduler and commit boundary, urgent writes coalesce by pass, transition updates defer before granularity is applied, hook-driven rerenders take precedence over narrow updates in the same subtree, and text-only narrow updates do not trigger a separate effect phase.
+- [x] Add devtools support for fine-grained updates.
+	Runtime inspection and the devtools snapshot now expose fine-grained fiber counts, granular dirty-mark and commit counters, per-node update origin, and the reactive source ID currently attached to a subscribed region so narrow updates are visible without guessing from generic dirty flags.
+- [x] Add failure-mode tests for stale reads, update loops, and leaked subscriptions.
+	`internal/runtime/fine_grained_reactivity_test.go` now covers source swaps without stale old-source updates, cyclic derived dependencies that report diagnostics instead of notifying fine-grained subscribers, and deleted subscribed subtrees that release atom subscriptions on unmount.
+- [x] Add a first selector helper for projected fine-grained reads.
+	`state.Select(...)` now projects read-only shared values from atoms or derived sources, and the runtime skips derived subscriber notifications when the projected value does not actually change so selector-backed hot paths can reduce churn instead of only renaming it.
+- [x] Add a ui-level subscribed-region primitive and broaden narrow updates beyond text.
+	`ui.ReactiveRegion(...)` now creates an explicit subscribed region fiber that rerenders only its own child subtree, enabling narrow host property and small anchored host subtree updates without rerendering the owning component.
+- [x] Scope selector identity per hook instance instead of relying on globally shared caller strings.
+	`state.Select(...)` now derives its internal shared-state identity from a stable hook-scoped ID, so reused selector labels no longer collide across component instances or separate subscribed regions.
+- [x] Make transition deferral apply consistently across public shared-state update paths.
+	Direct runtime atom writes and snapshot restores now honor `StartTransition(...)` by deferring their notifications through the same transition lane used by hook-backed state and atom setters.
 
 ### Compiler-assisted features
 

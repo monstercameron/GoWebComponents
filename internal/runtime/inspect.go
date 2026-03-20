@@ -70,6 +70,9 @@ type FiberSnapshot struct {
 	Kind              string
 	Dirty             bool
 	NeedsUpdate       bool
+	FineGrained       bool
+	ReactiveSource    string
+	UpdateOrigin      string
 	EffectCount       int
 	HookCount         int
 	Signature         *ComponentSignature
@@ -96,30 +99,33 @@ type HotBranchSnapshot struct {
 
 // InspectionStats summarizes the inspected runtime tree.
 type InspectionStats struct {
-	TotalFibers     int
-	DirtyFibers     int
-	ComponentFibers int
-	HostFibers      int
-	TextFibers      int
-	HookEntries     int
-	Effects         int
+	TotalFibers       int
+	DirtyFibers       int
+	ComponentFibers   int
+	HostFibers        int
+	TextFibers        int
+	FineGrainedFibers int
+	HookEntries       int
+	Effects           int
 }
 
 // ProfilingSnapshot summarizes runtime profiling counters and hot branches.
 type ProfilingSnapshot struct {
-	RenderCalls           int
-	ScheduledRootUpdates  int
-	ScheduledFiberMarks   int
-	WorkLoopPasses        int
-	ProcessedUnits        int
-	CommitCount           int
-	EffectExecutions      int
-	CleanupExecutions     int
-	LastRenderDurationNs  int64
-	LastCommitDurationNs  int64
-	LastEffectDurationNs  int64
-	LastCleanupDurationNs int64
-	HotBranches           []HotBranchSnapshot
+	RenderCalls            int
+	ScheduledRootUpdates   int
+	ScheduledFiberMarks    int
+	ScheduledGranularMarks int
+	WorkLoopPasses         int
+	ProcessedUnits         int
+	CommitCount            int
+	FineGrainedCommits     int
+	EffectExecutions       int
+	CleanupExecutions      int
+	LastRenderDurationNs   int64
+	LastCommitDurationNs   int64
+	LastEffectDurationNs   int64
+	LastCleanupDurationNs  int64
+	HotBranches            []HotBranchSnapshot
 }
 
 // InspectionSnapshot is the top-level runtime inspection payload.
@@ -280,19 +286,21 @@ func (rt *Runtime) Inspect() InspectionSnapshot {
 	snapshot.Root = root
 	snapshot.Stats = stats
 	snapshot.Profiling = ProfilingSnapshot{
-		RenderCalls:           rt.profiling.renderCalls,
-		ScheduledRootUpdates:  rt.profiling.scheduledRootUpdates,
-		ScheduledFiberMarks:   rt.profiling.scheduledFiberMarks,
-		WorkLoopPasses:        rt.profiling.workLoopPasses,
-		ProcessedUnits:        rt.profiling.processedUnits,
-		CommitCount:           rt.profiling.commitCount,
-		EffectExecutions:      rt.profiling.effectExecutions,
-		CleanupExecutions:     rt.profiling.cleanupExecutions,
-		LastRenderDurationNs:  rt.profiling.lastRenderDurationNs,
-		LastCommitDurationNs:  rt.profiling.lastCommitDurationNs,
-		LastEffectDurationNs:  rt.profiling.lastEffectDurationNs,
-		LastCleanupDurationNs: rt.profiling.lastCleanupDurationNs,
-		HotBranches:           collectHotBranches(root, 5),
+		RenderCalls:            rt.profiling.renderCalls,
+		ScheduledRootUpdates:   rt.profiling.scheduledRootUpdates,
+		ScheduledFiberMarks:    rt.profiling.scheduledFiberMarks,
+		ScheduledGranularMarks: rt.profiling.scheduledGranularMarks,
+		WorkLoopPasses:         rt.profiling.workLoopPasses,
+		ProcessedUnits:         rt.profiling.processedUnits,
+		CommitCount:            rt.profiling.commitCount,
+		FineGrainedCommits:     rt.profiling.fineGrainedCommits,
+		EffectExecutions:       rt.profiling.effectExecutions,
+		CleanupExecutions:      rt.profiling.cleanupExecutions,
+		LastRenderDurationNs:   rt.profiling.lastRenderDurationNs,
+		LastCommitDurationNs:   rt.profiling.lastCommitDurationNs,
+		LastEffectDurationNs:   rt.profiling.lastEffectDurationNs,
+		LastCleanupDurationNs:  rt.profiling.lastCleanupDurationNs,
+		HotBranches:            collectHotBranches(root, 5),
 	}
 	return snapshot
 }
@@ -375,6 +383,9 @@ func inspectFiberTree(fiber *Fiber) (*FiberSnapshot, InspectionStats) {
 		Kind:              kind,
 		Dirty:             fiber.dirty,
 		NeedsUpdate:       fiber.needsUpdate,
+		FineGrained:       fiber.fineGrained,
+		ReactiveSource:    firstNonEmpty(strings.Join(fiber.reactiveSourceIDs, ","), fiber.reactiveAtomID),
+		UpdateOrigin:      fiber.updateOrigin,
 		EffectCount:       len(fiber.effects),
 		HookCount:         len(hooks),
 		Signature:         buildComponentSignature(fiber, fiber.hooks),
@@ -404,6 +415,9 @@ func inspectFiberTree(fiber *Fiber) (*FiberSnapshot, InspectionStats) {
 	case "text":
 		stats.TextFibers++
 	}
+	if fiber.fineGrained {
+		stats.FineGrainedFibers++
+	}
 
 	for child := fiber.child; child != nil; child = child.sibling {
 		childSnapshot, childStats := inspectFiberTree(child)
@@ -416,6 +430,7 @@ func inspectFiberTree(fiber *Fiber) (*FiberSnapshot, InspectionStats) {
 		stats.ComponentFibers += childStats.ComponentFibers
 		stats.HostFibers += childStats.HostFibers
 		stats.TextFibers += childStats.TextFibers
+		stats.FineGrainedFibers += childStats.FineGrainedFibers
 		stats.HookEntries += childStats.HookEntries
 		stats.Effects += childStats.Effects
 	}
@@ -487,6 +502,10 @@ func describeFiber(fiber *Fiber) (string, string) {
 		return "boundary", "ErrorBoundary"
 	case *ContextProviderType:
 		return "provider", "ContextProvider"
+	case *ReactiveTextElementType:
+		return "text", "ReactiveText"
+	case *ReactiveRegionElementType:
+		return "region", "ReactiveRegion"
 	case *ComponentType:
 		if strings.TrimSpace(value.Name) != "" {
 			return "component", value.Name
@@ -499,6 +518,15 @@ func describeFiber(fiber *Fiber) (string, string) {
 		prettyName, _ := describeCallableIdentity(value)
 		return "component", prettyName
 	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func diagnosticComponentStack(fiber *Fiber) []string {

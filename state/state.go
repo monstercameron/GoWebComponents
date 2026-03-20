@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strings"
 	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
@@ -17,6 +18,7 @@ type Element = runtime.Element
 
 // Atom exposes shared read/write state keyed by ID.
 type Atom[T any] struct {
+	id  string
 	get func() T
 	set func(T)
 }
@@ -28,7 +30,13 @@ type Computed[T any] struct {
 
 // Derived exposes a shared read-only derived atom keyed by ID.
 type Derived[T any] struct {
+	id  string
 	get func() T
+}
+
+type selectorSource[T any] interface {
+	Get() T
+	selectorSourceID() string
 }
 
 // Snapshot stores exported atom values by atom ID.
@@ -44,7 +52,7 @@ const (
 	SessionStorage StorageArea = "sessionStorage"
 )
 
-// UseAtom provides SolidJS-style fine-grained reactivity with global atoms.
+// UseAtom provides shared global atoms with subscription-scoped rerenders.
 // Atoms are accessible from anywhere in the component tree by ID and
 // automatically trigger re-renders in all subscribed components when updated.
 //
@@ -130,7 +138,7 @@ const (
 //   - Avoid storing large amounts of data in atoms (use for coordination, not caching)
 func UseAtom[T any](id string, initialValue T) Atom[T] {
 	get, set := runtime.GoUseAtomGlobal(id, initialValue)
-	return Atom[T]{get: get, set: set}
+	return Atom[T]{id: id, get: get, set: set}
 }
 
 // Get returns the current atom value.
@@ -191,11 +199,11 @@ func UseDerived[T any](id string, compute func() T, deps ...string) Derived[T] {
 	if err := runtime.GetGlobalRuntime().RegisterDerivedAtom(id, deps, func() interface{} {
 		return compute()
 	}); err != nil {
-		return Derived[T]{get: func() T { return zero }}
+		return Derived[T]{id: id, get: func() T { return zero }}
 	}
 
 	atom := UseAtom(id, zero)
-	return Derived[T]{get: atom.Get}
+	return Derived[T]{id: id, get: atom.Get}
 }
 
 // Get returns the current derived value.
@@ -205,6 +213,92 @@ func (d Derived[T]) Get() T {
 		return zero
 	}
 	return d.get()
+}
+
+func (a Atom[T]) selectorSourceID() string {
+	return a.id
+}
+
+func (a Atom[T]) ReactiveRegionSourceIDs() []string {
+	if a.id == "" {
+		return nil
+	}
+	return []string{a.id}
+}
+
+func (d Derived[T]) selectorSourceID() string {
+	return d.id
+}
+
+func (d Derived[T]) ReactiveRegionSourceIDs() []string {
+	if d.id == "" {
+		return nil
+	}
+	return []string{d.id}
+}
+
+// Select creates a read-only projected shared value from an atom or derived source.
+//
+// The selector remains explicit: callers provide the derived ID to register and the
+// source handle to project from. When the projected value is unchanged, subscribers
+// are not notified, which makes it suitable for fine-grained hot-value paths.
+func Select[T any, U any](id string, source selectorSource[T], project func(T) U) Derived[U] {
+	var zero U
+	if source == nil || project == nil {
+		return Derived[U]{id: id, get: func() U { return zero }}
+	}
+	selectorID := scopedSelectorID(id, source.selectorSourceID())
+
+	return UseDerived(selectorID, func() U {
+		return project(source.Get())
+	}, source.selectorSourceID())
+}
+
+func scopedSelectorID(requestedID string, sourceID string) string {
+	stableID := runtime.GoUseIdGlobal()
+	parts := []string{"selector", stableID}
+	if strings.TrimSpace(requestedID) != "" {
+		parts = append(parts, requestedID)
+	}
+	if strings.TrimSpace(sourceID) != "" {
+		parts = append(parts, sourceID)
+	}
+	return strings.Join(parts, ":")
+}
+
+// Text renders an atom-backed reactive text node that can update without rerendering the owning component.
+func (a Atom[T]) Text(render func(T) string) *Element {
+	return createReactiveTextNode(a.id, a.Get, render)
+}
+
+// Text renders a derived-value-backed reactive text node that can update without rerendering the owning component.
+func (d Derived[T]) Text(render func(T) string) *Element {
+	return createReactiveTextNode(d.id, d.Get, render)
+}
+
+func createReactiveTextNode[T any](id string, getter func() T, render func(T) string) *Element {
+	textGetter := func() string {
+		if getter == nil {
+			return ""
+		}
+		value := getter()
+		if render != nil {
+			return render(value)
+		}
+		return fmt.Sprint(value)
+	}
+	return runtime.CreateElement(runtime.ReactiveTextNodeType, map[string]interface{}{
+		runtimeReactiveTextAtomIDProp(): id,
+		runtimeReactiveTextGetterProp(): textGetter,
+	})
+}
+
+func runtimeReactiveTextAtomIDProp() string {
+	return "__gwc_reactive_text_atom_id"
+}
+
+func runtimeReactiveTextGetterProp() string {
+	return "__gwc_reactive_text_getter"
 }
 
 // ExportSnapshot returns a copy of all atoms currently registered in the global runtime.

@@ -15,6 +15,20 @@ type PortalElementType struct{}
 // PortalNodeType marks subtrees that should commit into a separate target container.
 var PortalNodeType = &PortalElementType{}
 
+// ReactiveTextElementType marks a text node that can update from an explicit
+// atom-backed subscription without rerendering the owning component.
+type ReactiveTextElementType struct{}
+
+// ReactiveTextNodeType marks text-like fine-grained update regions.
+var ReactiveTextNodeType = &ReactiveTextElementType{}
+
+// ReactiveRegionElementType marks a subscribed fine-grained region that can
+// rerender its own child subtree without rerendering the owning component.
+type ReactiveRegionElementType struct{}
+
+// ReactiveRegionNodeType marks anchored fine-grained update regions.
+var ReactiveRegionNodeType = &ReactiveRegionElementType{}
+
 // Effect represents a side effect to be run after render.
 type Effect struct {
 	Fn           func() func()
@@ -59,6 +73,10 @@ type Fiber struct {
 	cleanupDurationNs  int64
 	boundaryError      error
 	boundaryPhase      string
+	reactiveAtomID     string
+	reactiveSourceIDs  []string
+	fineGrained        bool
+	updateOrigin       string
 }
 
 type hydrationBoundary struct {

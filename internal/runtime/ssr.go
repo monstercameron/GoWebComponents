@@ -48,6 +48,13 @@ func renderElementToString(builder *strings.Builder, element *Element) error {
 	if _, ok := element.Type.(*PortalElementType); ok {
 		return renderChildrenToString(builder, element.Children)
 	}
+	if _, ok := element.Type.(*ReactiveRegionElementType); ok {
+		render, _ := element.Props[reactiveRegionRenderProp].(func() *Element)
+		if render == nil {
+			return nil
+		}
+		return renderElementToString(builder, render())
+	}
 	if _, ok := element.Type.(*ErrorBoundaryType); ok {
 		return renderErrorBoundaryToString(builder, element)
 	}

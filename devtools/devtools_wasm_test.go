@@ -75,3 +75,38 @@ func TestExportSnapshotJSONAndCompareSnapshots(t *testing.T) {
 		t.Fatalf("expected route, stats, and logs to change, missing %v", want)
 	}
 }
+
+func TestMapInspectionFineGrainedMetadata(t *testing.T) {
+	node := mapNode(&runtime.FiberSnapshot{
+		Name:           "ReactiveText",
+		Kind:           "text",
+		FineGrained:    true,
+		ReactiveSource: "count",
+		UpdateOrigin:   "fine-grained",
+	})
+	if node == nil {
+		t.Fatal("expected mapped node")
+	}
+	if !node.FineGrained {
+		t.Fatal("expected fine-grained flag to map")
+	}
+	if node.ReactiveSource != "count" {
+		t.Fatalf("expected reactive source count, got %q", node.ReactiveSource)
+	}
+	if node.UpdateOrigin != "fine-grained" {
+		t.Fatalf("expected update origin fine-grained, got %q", node.UpdateOrigin)
+	}
+
+	stats := mapStats(runtime.InspectionStats{FineGrainedFibers: 1})
+	if stats.FineGrainedFibers != 1 {
+		t.Fatalf("expected fine-grained fiber count to map, got %d", stats.FineGrainedFibers)
+	}
+
+	profiling := mapProfiling(runtime.ProfilingSnapshot{ScheduledGranularMarks: 4, FineGrainedCommits: 3})
+	if profiling.ScheduledGranularMarks != 4 {
+		t.Fatalf("expected granular marks to map, got %d", profiling.ScheduledGranularMarks)
+	}
+	if profiling.FineGrainedCommits != 3 {
+		t.Fatalf("expected fine-grained commits to map, got %d", profiling.FineGrainedCommits)
+	}
+}

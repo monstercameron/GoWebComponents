@@ -1,5 +1,4 @@
-// Package state provides global state management with fine-grained reactivity
-// for GoWebComponents.
+// Package state provides shared atom-based state management for GoWebComponents.
 //
 // This package implements atom-based state management inspired by SolidJS and Jotai,
 // allowing components to subscribe to global state that persists across the entire
@@ -34,7 +33,7 @@
 //   - Automatic subscription and re-rendering when state changes
 //   - Type-safe with Go generics
 //   - Thread-safe for concurrent access
-//   - Fine-grained reactivity - only subscribed components re-render
+//   - Subscription-scoped updates - only subscribed components re-render
 //   - UseComputed for typed derived values inside components
 //   - UseDerived for read-only shared derived atoms with explicit source dependencies
 //   - Snapshot export/import for in-memory restore and optional browser persistence helpers

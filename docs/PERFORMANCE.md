@@ -134,6 +134,25 @@ Current measurements from the latest Windows amd64 pass:
 - `BenchmarkGoUseAtomGetter`: `29.17 ns/op`, `0 B/op`, `0 allocs/op`
 - `BenchmarkGoUseAtomStableRerender`: `71.88 ns/op`, `0 B/op`, `0 allocs/op`
 
+Fine-grained prototype comparison from the latest Windows amd64 pass:
+
+- `BenchmarkFineGrainedKeyedDashboardComponentUpdate16`: `13548 ns/op`, `9538 B/op`, `141 allocs/op`
+- `BenchmarkFineGrainedKeyedDashboardReactiveTextUpdate16`: `2073 ns/op`, `512 B/op`, `6 allocs/op`
+
+Initial conclusion for the text-only fine-grained prototype:
+
+- a hot value update inside a stable keyed dashboard row is materially cheaper when it stays on the reactive text path instead of rerendering the owning component and reconciling the keyed list again
+- the current win is specific to narrow text updates; broader region updates, selector-based reads, and list-filtering scenarios still need separate measurement
+
+Ancestor-rerender comparison for 64 stable children from the latest Windows amd64 pass:
+
+- `BenchmarkFineGrainedAncestorRerenderStaticLeaves64`: `18201 ns/op`, `2901 B/op`, `27 allocs/op`
+- `BenchmarkFineGrainedAncestorRerenderReactiveRegions64`: `30681 ns/op`, `16274 B/op`, `220 allocs/op`
+
+Current conclusion for the clean-clone transfer cost:
+
+- many stable fine-grained regions under a frequently rerendered ancestor are still materially more expensive than static host leaves on the same path, so the clean-clone subscription transfer overhead is now measured and should remain a watch point for future optimization
+
 Earlier arm64 numbers are kept below for comparison history, but the list above is the current baseline for this branch.
 
 Additional microbenchmarks from the same Windows arm64 pass:

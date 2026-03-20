@@ -4,10 +4,12 @@
 package state
 
 import (
+	"fmt"
 	"syscall/js"
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/ui"
 )
 
 type noOpScheduler struct{}
@@ -15,6 +17,26 @@ type noOpScheduler struct{}
 func (noOpScheduler) RequestIdleCallback(callback func(runtime.Deadline)) {}
 
 func (noOpScheduler) SetTimeout(callback func(), delay int) {}
+
+type queuedScheduler struct {
+	timeouts []func()
+}
+
+func (s *queuedScheduler) RequestIdleCallback(callback func(runtime.Deadline)) {}
+
+func (s *queuedScheduler) SetTimeout(callback func(), delay int) {
+	s.timeouts = append(s.timeouts, callback)
+}
+
+func (s *queuedScheduler) Flush() {
+	for len(s.timeouts) > 0 {
+		pending := append([]func(){}, s.timeouts...)
+		s.timeouts = s.timeouts[:0]
+		for _, callback := range pending {
+			callback()
+		}
+	}
+}
 
 func installStateHookContext(t *testing.T) {
 	t.Helper()
@@ -100,6 +122,176 @@ func TestUseDerivedTracksSharedDerivedAtom(t *testing.T) {
 	count.Set(5)
 	if double.Get() != 10 {
 		t.Fatalf("expected derived value 10 after atom update, got %d", double.Get())
+	}
+}
+
+func TestSelectProjectsAtomValues(t *testing.T) {
+	installStateHookContext(t)
+	count := UseAtom("state-test-select-count", 2)
+	parity := Select("state-test-select-parity", count, func(value int) string {
+		if value%2 == 0 {
+			return "even"
+		}
+		return "odd"
+	})
+
+	if parity.Get() != "even" {
+		t.Fatalf("expected initial selector value even, got %q", parity.Get())
+	}
+	count.Set(5)
+	if parity.Get() != "odd" {
+		t.Fatalf("expected selector value odd after atom update, got %q", parity.Get())
+	}
+}
+
+func TestSelectProjectsDerivedValues(t *testing.T) {
+	installStateHookContext(t)
+	count := UseAtom("state-test-select-derived-count", 3)
+	double := UseDerived("state-test-select-double", func() int {
+		return count.Get() * 2
+	}, "state-test-select-derived-count")
+	label := Select("state-test-select-label", double, func(value int) string {
+		return fmt.Sprintf("value:%d", value)
+	})
+
+	if label.Get() != "value:6" {
+		t.Fatalf("expected initial projected derived value value:6, got %q", label.Get())
+	}
+	count.Set(4)
+	if label.Get() != "value:8" {
+		t.Fatalf("expected projected derived value value:8 after source update, got %q", label.Get())
+	}
+}
+
+func TestSelectScopesRequestedIDsPerHookContext(t *testing.T) {
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}})
+	countAID := "state-test-select-scope-a"
+	countBID := "state-test-select-scope-b"
+
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	countA := UseAtom(countAID, 1)
+	selectorA := Select("shared-selector", countA, func(value int) string {
+		return fmt.Sprintf("a:%d", value)
+	})
+
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	countB := UseAtom(countBID, 10)
+	selectorB := Select("shared-selector", countB, func(value int) string {
+		return fmt.Sprintf("b:%d", value)
+	})
+
+	t.Cleanup(func() {
+		runtime.SetCurrentFiber(nil)
+	})
+
+	if selectorA.Get() != "a:1" {
+		t.Fatalf("expected first selector value a:1, got %q", selectorA.Get())
+	}
+	if selectorB.Get() != "b:10" {
+		t.Fatalf("expected second selector value b:10, got %q", selectorB.Get())
+	}
+
+	countA.Set(2)
+	if selectorA.Get() != "a:2" {
+		t.Fatalf("expected first selector to remain scoped to atom A, got %q", selectorA.Get())
+	}
+	if selectorB.Get() != "b:10" {
+		t.Fatalf("expected second selector to remain isolated after atom A update, got %q", selectorB.Get())
+	}
+
+	countB.Set(11)
+	if selectorA.Get() != "a:2" {
+		t.Fatalf("expected first selector to remain isolated after atom B update, got %q", selectorA.Get())
+	}
+	if selectorB.Get() != "b:11" {
+		t.Fatalf("expected second selector to remain scoped to atom B, got %q", selectorB.Get())
+	}
+}
+
+func TestAtomTextBuildsReactiveTextElement(t *testing.T) {
+	installStateHookContext(t)
+	count := UseAtom("state-test-text-atom", 2)
+	node := count.Text(func(value int) string {
+		return fmt.Sprintf("count:%d", value)
+	})
+	if node == nil {
+		t.Fatal("expected reactive text element")
+	}
+	if node.Type != runtime.ReactiveTextNodeType {
+		t.Fatalf("expected reactive text node type, got %#v", node.Type)
+	}
+	if got, _ := node.Props["__gwc_reactive_text_atom_id"].(string); got != "state-test-text-atom" {
+		t.Fatalf("expected reactive text atom id to round-trip, got %q", got)
+	}
+	getter, _ := node.Props["__gwc_reactive_text_getter"].(func() string)
+	if getter == nil {
+		t.Fatal("expected reactive text getter")
+	}
+	if got := getter(); got != "count:2" {
+		t.Fatalf("expected reactive text getter to render count:2, got %q", got)
+	}
+	count.Set(4)
+	if got := getter(); got != "count:4" {
+		t.Fatalf("expected reactive text getter to observe latest atom value, got %q", got)
+	}
+}
+
+func TestSelectTextBuildsReactiveTextElement(t *testing.T) {
+	installStateHookContext(t)
+	count := UseAtom("state-test-text-select-count", 1)
+	parity := Select("state-test-text-select-parity", count, func(value int) string {
+		if value%2 == 0 {
+			return "even"
+		}
+		return "odd"
+	})
+	node := parity.Text(func(value string) string {
+		return "parity:" + value
+	})
+	if node == nil {
+		t.Fatal("expected selector-backed reactive text element")
+	}
+	getter, _ := node.Props["__gwc_reactive_text_getter"].(func() string)
+	if getter == nil {
+		t.Fatal("expected selector-backed reactive text getter")
+	}
+	if got := getter(); got != "parity:odd" {
+		t.Fatalf("expected initial selector text parity:odd, got %q", got)
+	}
+	count.Set(2)
+	if got := getter(); got != "parity:even" {
+		t.Fatalf("expected selector text parity:even after source update, got %q", got)
+	}
+}
+
+func TestImportSnapshotTransitionViaUIPublicWrapperDefersUntilTimeout(t *testing.T) {
+	scheduler := &queuedScheduler{}
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: scheduler})
+	fiber := &runtime.Fiber{}
+	runtime.SetCurrentFiber(fiber)
+	t.Cleanup(func() {
+		runtime.SetCurrentFiber(nil)
+	})
+
+	theme := UseAtom("state-test-public-transition-theme", "light")
+
+	ui.StartTransition(func() {
+		if err := ImportSnapshot(Snapshot{"state-test-public-transition-theme": "dark"}); err != nil {
+			t.Fatalf("unexpected import snapshot error inside transition: %v", err)
+		}
+	})
+
+	if theme.Get() != "light" {
+		t.Fatalf("expected shared state update to stay deferred before timeout, got %q", theme.Get())
+	}
+	if len(scheduler.timeouts) != 1 {
+		t.Fatalf("expected one deferred timeout for public transition-wrapped snapshot import, got %d", len(scheduler.timeouts))
+	}
+
+	scheduler.Flush()
+
+	if theme.Get() != "dark" {
+		t.Fatalf("expected deferred shared state update after timeout, got %q", theme.Get())
 	}
 }
 

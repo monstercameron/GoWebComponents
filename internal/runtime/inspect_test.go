@@ -114,6 +114,49 @@ func TestRuntimeInspectCapturesTreeStatsAndHooks(t *testing.T) {
 	}
 }
 
+func TestRuntimeInspectCapturesFineGrainedMetadata(t *testing.T) {
+	rt := &Runtime{}
+	rt.profiling = runtimeProfiling{
+		scheduledFiberMarks:    3,
+		scheduledGranularMarks: 2,
+		commitCount:            1,
+		fineGrainedCommits:     2,
+	}
+	reactive := &Fiber{
+		typeOf:         ReactiveTextNodeType,
+		fineGrained:    true,
+		reactiveAtomID: "count",
+		updateOrigin:   "fine-grained",
+	}
+	root := &Fiber{typeOf: "ROOT", child: reactive}
+	reactive.parent = root
+	rt.currentRoot = root
+
+	snapshot := rt.Inspect()
+	if snapshot.Stats.FineGrainedFibers != 1 {
+		t.Fatalf("expected 1 fine-grained fiber, got %d", snapshot.Stats.FineGrainedFibers)
+	}
+	if snapshot.Profiling.ScheduledGranularMarks != 2 {
+		t.Fatalf("expected 2 granular marks, got %d", snapshot.Profiling.ScheduledGranularMarks)
+	}
+	if snapshot.Profiling.FineGrainedCommits != 2 {
+		t.Fatalf("expected 2 fine-grained commits, got %d", snapshot.Profiling.FineGrainedCommits)
+	}
+	if len(snapshot.Root.Children) != 1 {
+		t.Fatalf("expected one child snapshot, got %d", len(snapshot.Root.Children))
+	}
+	node := snapshot.Root.Children[0]
+	if !node.FineGrained {
+		t.Fatal("expected inspected node to be marked fine-grained")
+	}
+	if node.ReactiveSource != "count" {
+		t.Fatalf("expected reactive source to round-trip, got %q", node.ReactiveSource)
+	}
+	if node.UpdateOrigin != "fine-grained" {
+		t.Fatalf("expected update origin to round-trip, got %q", node.UpdateOrigin)
+	}
+}
+
 func TestComponentSignatureCompatibilityUsesIdentityAndHookOrder(t *testing.T) {
 	base := ComponentSignature{
 		Kind:          "component",

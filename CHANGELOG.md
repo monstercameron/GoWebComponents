@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-03-20
+
+### Fine-grained reactivity and subscribed-region updates
+
+- Added explicit fine-grained subscribed-region support on top of the existing fiber runtime through reactive text nodes, general reactive regions, selector-backed shared projections, and transition-aware shared-state update paths.
+- Narrow subscribed updates can now update stable text nodes, host properties, and small anchored host-only subtrees without rerendering the owning component, while hook-driven rerenders still take precedence when mixed ownership would otherwise be ambiguous.
+- Expanded runtime inspection and devtools snapshots with fine-grained fiber counts, granular mark and commit counters, and per-node update-origin or reactive-source metadata so narrow updates are visible in diagnostics instead of appearing as generic dirty work.
+- Added deeper runtime, wasm, SSR, benchmark, and Playwright coverage for subscribed-region behavior, selector stability, transition deferral, hydration reuse, ancestor-rerender costs, and browser-level non-rerender guarantees.
+- Added `docs/FINE_GRAINED_REACTIVITY.md` plus related roadmap and performance updates so the current mixed-model contract, measurements, and limits are documented as part of the repo history.
+
 ## 2026-03-18
 
 ### Browser interop and multipart workflows

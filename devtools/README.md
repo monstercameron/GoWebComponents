@@ -86,6 +86,7 @@ fmt.Println(comparison.ChangedSections)
 - Current route path, query params, route params, and route loader pending state
 - Shared cache entries including key, ready or stale state, subscriber count, resume policy, and last error
 - Runtime totals for fibers, dirty nodes, hook entries, effects, and recent timing counters
+- Fine-grained counters for subscribed fibers, granular dirty marks, granular commits, and per-node update origin or reactive source metadata when narrow updates are in play
 - Hot branches ranked by subtree commit/effect/cleanup cost
 - Recent framework logs buffered in memory, including router navigation, route-loader, cache invalidation, and mutation replay lifecycle events
 - A committed component tree view with hook summaries per node

@@ -61,6 +61,14 @@ func (ar *AtomRegistry) RegisterDerivedAtom(id string, deps []string, compute fu
 			}
 		}
 	}
+	for _, dep := range deps {
+		if ar.hasDerivedDependencyPathLocked(dep, id, map[string]bool{}) {
+			ar.mu.Unlock()
+			err := fmt.Errorf("derived atom cycle detected involving %s", id)
+			ReportDiagnostic("state", DiagnosticWarning, err.Error())
+			return err
+		}
+	}
 	cloneDeps := append([]string(nil), deps...)
 	ar.derived[id] = derivedAtom{deps: cloneDeps, compute: compute, active: true}
 	for _, dep := range cloneDeps {
@@ -72,7 +80,30 @@ func (ar *AtomRegistry) RegisterDerivedAtom(id string, deps []string, compute fu
 	ar.mu.Unlock()
 
 	_, err := ar.recomputeDerived(id, nil)
+	if err != nil {
+		ReportDiagnostic("state", DiagnosticWarning, err.Error())
+	}
 	return err
+}
+
+func (ar *AtomRegistry) hasDerivedDependencyPathLocked(start string, target string, seen map[string]bool) bool {
+	if start == target {
+		return true
+	}
+	if seen[start] {
+		return false
+	}
+	seen[start] = true
+	derived, ok := ar.derived[start]
+	if !ok || !derived.active {
+		return false
+	}
+	for _, dep := range derived.deps {
+		if ar.hasDerivedDependencyPathLocked(dep, target, seen) {
+			return true
+		}
+	}
+	return false
 }
 
 // GetAtom retrieves an atom's current value.
@@ -133,6 +164,18 @@ func (ar *AtomRegistry) setValueAndCollectSubscribers(id string, value interface
 	return fibers
 }
 
+func (ar *AtomRegistry) setValueAndCollectSubscribersIfChanged(id string, value interface{}) ([]*Fiber, bool) {
+	ar.mu.Lock()
+	if previous, ok := ar.atoms[id]; ok && fastEqual(previous, value) {
+		ar.mu.Unlock()
+		return nil, false
+	}
+	ar.atoms[id] = value
+	fibers := ar.collectSubscribersLocked(id)
+	ar.mu.Unlock()
+	return fibers, true
+}
+
 func (ar *AtomRegistry) collectSubscribersLocked(id string) []*Fiber {
 	subs, ok := ar.subscriptions[id]
 	if !ok || len(subs) == 0 {
@@ -178,7 +221,10 @@ func (ar *AtomRegistry) recomputeDerived(id string, trail map[string]bool) ([]*F
 	}
 
 	value := derived.compute()
-	fibers := ar.setValueAndCollectSubscribers(id, value)
+	fibers, changed := ar.setValueAndCollectSubscribersIfChanged(id, value)
+	if !changed {
+		return nil, nil
+	}
 	for _, dependentID := range ar.listDependents(id) {
 		nested, err := ar.recomputeDerived(dependentID, trail)
 		if err != nil {
@@ -439,7 +485,7 @@ func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(in
 					return
 				}
 
-				rt.atomRegistry.setAtomAndNotify(id, newValue, rt.ScheduleUpdateForFiber)
+				rt.atomRegistry.setAtomAndNotify(id, newValue, rt.ScheduleSubscribedFiberUpdate)
 			}
 
 			if rt.ShouldDeferStateUpdates() {
@@ -472,6 +518,17 @@ func (rt *Runtime) CleanupAtomSubscriptions(fiber *Fiber) {
 	// Optimization: Only unsubscribe from atoms this fiber is actually using
 	if fiber.hooks != nil && len(fiber.hooks.atoms) > 0 {
 		rt.atomRegistry.UnsubscribeMany(fiber.hooks.atoms, fiber)
+		if len(fiber.reactiveSourceIDs) > 0 {
+			rt.atomRegistry.UnsubscribeMany(fiber.reactiveSourceIDs, fiber)
+			fiber.reactiveSourceIDs = nil
+			fiber.reactiveAtomID = ""
+		}
+		return
+	}
+	if len(fiber.reactiveSourceIDs) > 0 {
+		rt.atomRegistry.UnsubscribeMany(fiber.reactiveSourceIDs, fiber)
+		fiber.reactiveSourceIDs = nil
+		fiber.reactiveAtomID = ""
 		return
 	}
 
@@ -492,8 +549,15 @@ func (rt *Runtime) SetAtomValue(id string, value interface{}) error {
 	if rt.atomRegistry == nil {
 		return fmt.Errorf("atom registry not initialized")
 	}
+	apply := func() {
+		rt.atomRegistry.setAtomAndNotify(id, value, rt.ScheduleSubscribedFiberUpdate)
+	}
+	if rt.ShouldDeferStateUpdates() {
+		rt.ScheduleTransition(apply)
+		return nil
+	}
 
-	rt.atomRegistry.setAtomAndNotify(id, value, rt.ScheduleUpdateForFiber)
+	apply()
 
 	return nil
 }
@@ -519,9 +583,16 @@ func (rt *Runtime) RestoreAtomSnapshot(snapshot map[string]interface{}) error {
 	if rt == nil || rt.atomRegistry == nil {
 		return fmt.Errorf("atom registry not initialized")
 	}
-
-	for _, fiber := range rt.atomRegistry.RestoreSnapshot(snapshot) {
-		rt.ScheduleUpdateForFiber(fiber)
+	apply := func() {
+		for _, fiber := range rt.atomRegistry.RestoreSnapshot(snapshot) {
+			rt.ScheduleSubscribedFiberUpdate(fiber)
+		}
 	}
+	if rt.ShouldDeferStateUpdates() {
+		rt.ScheduleTransition(apply)
+		return nil
+	}
+
+	apply()
 	return nil
 }

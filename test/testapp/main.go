@@ -8,6 +8,7 @@ import (
 	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/hotreload"
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/state"
 )
@@ -47,6 +48,12 @@ var reactBatchRenders int
 var stressRenders int
 var mixedStressRenders int
 var mixedStressMirrorRenders int
+var fineGrainedParentRenders int
+var fineGrainedStaticRenders int
+
+type fineGrainedModel struct {
+	Hot int
+}
 
 // ReactA component - independent state
 func ReactA(props Attrs) *Element {
@@ -167,6 +174,125 @@ func MixedStateBurstDemo(props Attrs) *Element {
 			Button(Attrs{"id": "mixed-reset", "onclick": reset}, Text("Mixed Reset")),
 		),
 		&Element{Type: MixedStateBurstMirror},
+	)
+}
+
+func FineGrainedStaticPanel(props Attrs) *Element {
+	fineGrainedStaticRenders++
+	return Div(Attrs{"id": "fg-static-panel"},
+		P(Attrs{"id": "fg-static-renders"}, Text(fmt.Sprintf("Static Renders: %d", fineGrainedStaticRenders))),
+		P(nil,
+			Span(Attrs{"id": "fg-static-strong"}, Text("Static sibling")),
+		),
+	)
+}
+
+func FineGrainedDemo(props Attrs) *Element {
+	rt := runtime.GetGlobalRuntime()
+	if _, ok := rt.GetAtomValue("fgLeft"); !ok {
+		_ = rt.SetAtomValue("fgLeft", 1)
+	}
+	if _, ok := rt.GetAtomValue("fgRight"); !ok {
+		_ = rt.SetAtomValue("fgRight", 8)
+	}
+	if _, ok := rt.GetAtomValue("fgModel"); !ok {
+		_ = rt.SetAtomValue("fgModel", fineGrainedModel{Hot: 1})
+	}
+	_ = rt.RegisterDerivedAtom("fgParity", []string{"fgModel"}, func() interface{} {
+		value, _ := rt.GetAtomValue("fgModel")
+		model, _ := value.(fineGrainedModel)
+		if model.Hot%2 == 0 {
+			return "even"
+		}
+		return "odd"
+	})
+	label, setLabel := UseState("ready")
+	fineGrainedParentRenders++
+
+	incLeft := GoUseFunc(func() {
+		value, _ := rt.GetAtomValue("fgLeft")
+		current, _ := value.(int)
+		_ = rt.SetAtomValue("fgLeft", current+1)
+	})
+	incRight := GoUseFunc(func() {
+		value, _ := rt.GetAtomValue("fgRight")
+		current, _ := value.(int)
+		_ = rt.SetAtomValue("fgRight", current+1)
+	})
+	rerenderParent := GoUseFunc(func() {
+		setLabel(func(prev string) string {
+			if prev == "ready" {
+				return "updated"
+			}
+			return "ready"
+		})
+	})
+	selectorSame := GoUseFunc(func() {
+		value, _ := rt.GetAtomValue("fgModel")
+		current, _ := value.(fineGrainedModel)
+		current.Hot += 2
+		_ = rt.SetAtomValue("fgModel", current)
+	})
+	selectorChange := GoUseFunc(func() {
+		value, _ := rt.GetAtomValue("fgModel")
+		current, _ := value.(fineGrainedModel)
+		current.Hot += 1
+		_ = rt.SetAtomValue("fgModel", current)
+	})
+
+	return Div(Attrs{"id": "fine-grained-demo", "class": "mt-8"},
+		H2(nil, Text("Fine-Grained Reactivity Demo")),
+		P(Attrs{"id": "fg-parent-renders"}, Text(fmt.Sprintf("Parent Renders: %d", fineGrainedParentRenders))),
+		P(Attrs{"id": "fg-parent-label"}, Text(fmt.Sprintf("Parent Label: %s", label()))),
+		Div(Attrs{"class": "flex gap-4"},
+			Div(Attrs{"id": "fg-left-region"},
+				P(nil, Text("Left region")),
+				Span(Attrs{"id": "fg-left-value"},
+					&Element{Type: runtime.ReactiveTextNodeType, Props: map[string]interface{}{
+						"__gwc_reactive_text_atom_id": "fgLeft",
+						"__gwc_reactive_text_getter": func() string {
+							value, _ := rt.GetAtomValue("fgLeft")
+							current, _ := value.(int)
+							return fmt.Sprintf("%d", current)
+						},
+					}},
+				),
+				Button(Attrs{"id": "fg-left-inc", "onclick": incLeft, "class": "ml-2 px-3 py-1 bg-blue-500 text-white"}, Text("Inc Left")),
+			),
+			Div(Attrs{"id": "fg-right-region"},
+				P(nil, Text("Right region")),
+				Span(Attrs{"id": "fg-right-value"},
+					&Element{Type: runtime.ReactiveTextNodeType, Props: map[string]interface{}{
+						"__gwc_reactive_text_atom_id": "fgRight",
+						"__gwc_reactive_text_getter": func() string {
+							value, _ := rt.GetAtomValue("fgRight")
+							current, _ := value.(int)
+							return fmt.Sprintf("%d", current)
+						},
+					}},
+				),
+				Button(Attrs{"id": "fg-right-inc", "onclick": incRight, "class": "ml-2 px-3 py-1 bg-blue-500 text-white"}, Text("Inc Right")),
+			),
+		),
+		Div(Attrs{"id": "fg-selector-region", "class": "mt-4"},
+			P(nil, Text("Selector projection")),
+			Span(Attrs{"id": "fg-selector-value"},
+				&Element{Type: runtime.ReactiveTextNodeType, Props: map[string]interface{}{
+					"__gwc_reactive_text_atom_id": "fgParity",
+					"__gwc_reactive_text_getter": func() string {
+						value, _ := rt.GetAtomValue("fgParity")
+						current, _ := value.(string)
+						return current
+					},
+				}},
+			),
+			Button(Attrs{"id": "fg-selector-same", "onclick": selectorSame, "class": "ml-2 px-3 py-1 bg-slate-600 text-white"}, Text("Keep Projection")),
+			Button(Attrs{"id": "fg-selector-change", "onclick": selectorChange, "class": "ml-2 px-3 py-1 bg-slate-600 text-white"}, Text("Change Projection")),
+		),
+		Div(Attrs{"class": "mt-4"},
+			Button(Attrs{"id": "fg-parent-rerender", "onclick": rerenderParent, "class": "px-3 py-1 bg-green-600 text-white"}, Text("Rerender Parent")),
+		),
+		&Element{Type: FineGrainedStaticPanel},
 	)
 }
 
@@ -349,6 +475,9 @@ func HelloWorld(props Attrs) *Element {
 		),
 		Div(Attrs{"role": "region", "aria-label": "Reactivity Demo Section"},
 			&Element{Type: ReactivityDemo},
+		),
+		Div(Attrs{"role": "region", "aria-label": "Fine Grained Demo Section"},
+			&Element{Type: FineGrainedDemo},
 		),
 		Div(Attrs{"role": "region", "aria-label": "State Stress Section"},
 			&Element{Type: StateStressDemo},

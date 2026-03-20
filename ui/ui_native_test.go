@@ -15,6 +15,17 @@ type greetingProps struct {
 	Name string
 }
 
+type reactiveRegionTestSource struct {
+	id string
+}
+
+func (s reactiveRegionTestSource) ReactiveRegionSourceIDs() []string {
+	if s.id == "" {
+		return nil
+	}
+	return []string{s.id}
+}
+
 func greeting(props greetingProps) ui.Node {
 	return html.Section(html.Props{ID: "greeting"},
 		html.H1(html.Props{}, html.Text("Hello "+props.Name)),
@@ -110,6 +121,20 @@ func TestPortalRendersChildrenInlineOnServer(t *testing.T) {
 	}
 	if markup != `<p>portal body</p>` {
 		t.Fatalf("expected server portal fallback to render child inline, got %q", markup)
+	}
+}
+
+func TestReactiveRegionRendersChildrenOnServer(t *testing.T) {
+	node := ui.ReactiveRegion(func() ui.Node {
+		return html.Span(html.Props{ID: "status"}, html.Text("server region"))
+	}, reactiveRegionTestSource{id: "count"})
+
+	markup, err := ui.RenderToString(node)
+	if err != nil {
+		t.Fatalf("unexpected reactive region render error: %v", err)
+	}
+	if markup != `<span id="status">server region</span>` {
+		t.Fatalf("expected reactive region SSR to render child subtree, got %q", markup)
 	}
 }
 
