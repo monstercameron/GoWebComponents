@@ -39,6 +39,25 @@ Key behavior:
 - example HTML and shared static assets are served from the repo
 - useful for local manual testing and Playwright-oriented smoke checks
 
+### `dev.ps1` / `dev.sh`
+
+Starts the path-based hot-reload server for a standalone Go WASM app.
+
+Example:
+
+```powershell
+.\tools\dev.ps1 -Main .\test\testapp\main.go
+```
+
+Behavior:
+
+- builds the Go WASM app from the directory that contains the provided `main.go`
+- rebuilds on file changes
+- injects the live-reload client and preserves state through the browser rehydration bridge
+- accepts optional `-Root`, `-Index`, `-Output`, `-ListenHost`, `-Port`, and `-NoHotReload` overrides
+
+Use `-Root` when the app serves HTML from a different directory than the Go package. Use `-Index` and `-Output` to point at non-default HTML or wasm filenames.
+
 ### `build.sh` / `build.ps1`
 
 Convenience wrappers for building a Go wasm target.
@@ -119,7 +138,7 @@ POSIX example:
 
 Legacy/experimental live reload tooling.
 
-It has not been removed, but it should not be treated as the primary development path. The main documented dev server is the Express server in `tools/dev-server/`.
+It has not been removed, but it should not be treated as the primary development path. Use `tools/dev.ps1` or `tools/dev.sh` for the path-based hot-reload server.
 
 ## Recommended Workflow
 

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"syscall/js"
 	"testing"
+	"time"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
@@ -490,6 +491,219 @@ func TestBrowserRouterBeforeEnterRedirectsNavigation(t *testing.T) {
 	if got := js.Global().Get("location").Get("pathname").String(); got != "/login" {
 		t.Fatalf("expected before-enter redirect to update history pathname, got %q", got)
 	}
+}
+
+func TestBrowserRouterAsyncGuardDoubleNavigationDropsStaleAttempt(t *testing.T) {
+	installRouterBrowserEnv(t)
+	router := NewRouter(RouterOptions{DefaultRoute: "/start"})
+	js.Global().Get("location").Set("pathname", "/start")
+
+	started := make(chan string, 2)
+	releaseFirst := make(chan struct{})
+	router.GoRegisterRoute("/start", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("start"))
+	}, Options{
+		BeforeLeaveAsync: func(ctx context.Context, current RouteContext, next RouteContext) GuardDecision {
+			started <- next.Path
+			if next.Path == "/slow" {
+				<-releaseFirst
+			}
+			return GuardDecision{}
+		},
+	})
+	router.GoRegisterRoute("/slow", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("slow"))
+	})
+	router.GoRegisterRoute("/fast", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("fast"))
+	})
+
+	doneSlow := make(chan struct{})
+	go func() {
+		defer close(doneSlow)
+		router.Navigate("/slow")
+	}()
+
+	select {
+	case got := <-started:
+		if got != "/slow" {
+			t.Fatalf("expected slow navigation to start first, got %q", got)
+		}
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("slow navigation did not start")
+	}
+
+	doneFast := make(chan struct{})
+	go func() {
+		defer close(doneFast)
+		router.Navigate("/fast")
+	}()
+
+	waitForCondition(t, func() bool {
+		return len(started) >= 1 && js.Global().Get("location").Get("pathname").String() == "/fast"
+	})
+	close(releaseFirst)
+	<-doneSlow
+	<-doneFast
+
+	if got := js.Global().Get("location").Get("pathname").String(); got != "/fast" {
+		t.Fatalf("expected stale slow navigation to be ignored, got pathname %q", got)
+	}
+}
+
+func TestBrowserRouterAsyncGuardBackAndForwardUsesFreshAttempt(t *testing.T) {
+	installRouterBrowserEnv(t)
+	router := NewRouter(RouterOptions{DefaultRoute: "/beta"})
+	js.Global().Get("location").Set("pathname", "/beta")
+	js.Global().Get("history").Call("replaceState", nil, "", "/beta")
+
+	releaseBeta := make(chan struct{})
+	betaStarted := make(chan struct{}, 1)
+
+	router.GoRegisterRoute("/beta", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("beta"))
+	}, Options{
+		BeforeEnterAsync: func(ctx context.Context, next RouteContext) GuardDecision {
+			if next.Path == "/beta" {
+				betaStarted <- struct{}{}
+				<-releaseBeta
+			}
+			return GuardDecision{}
+		},
+	})
+	router.GoRegisterRoute("/alpha", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("alpha"))
+	})
+
+	router.Navigate("/alpha")
+	if got := js.Global().Get("location").Get("pathname").String(); got != "/alpha" {
+		t.Fatalf("expected alpha navigation to complete, got %q", got)
+	}
+
+	backDone := make(chan struct{})
+	go func() {
+		defer close(backDone)
+		js.Global().Get("history").Call("back")
+	}()
+
+	select {
+	case <-betaStarted:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("back navigation did not start beta guard")
+	}
+
+	forwardDone := make(chan struct{})
+	go func() {
+		defer close(forwardDone)
+		js.Global().Get("history").Call("forward")
+	}()
+
+	waitForCondition(t, func() bool {
+		return js.Global().Get("location").Get("pathname").String() == "/alpha"
+	})
+	close(releaseBeta)
+	<-backDone
+	<-forwardDone
+
+	if got := js.Global().Get("location").Get("pathname").String(); got != "/alpha" {
+		t.Fatalf("expected stale back navigation to be ignored, got pathname %q", got)
+	}
+}
+
+func TestBrowserRouterAsyncGuardDelaysLoaderUntilAllowed(t *testing.T) {
+	installRouterBrowserEnv(t)
+	router := NewRouter(RouterOptions{DefaultRoute: "/start"})
+	js.Global().Get("location").Set("pathname", "/start")
+
+	releaseGuard := make(chan struct{})
+	guardStarted := make(chan struct{}, 1)
+	loaderStarted := 0
+	router.GoRegisterRoute("/start", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("start"))
+	})
+	router.GoRegisterRoute("/guarded", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("guarded"))
+	}, Options{
+		BeforeEnterAsync: func(ctx context.Context, next RouteContext) GuardDecision {
+			guardStarted <- struct{}{}
+			<-releaseGuard
+			return GuardDecision{}
+		},
+		Loader: func(ctx context.Context, routeCtx RouteContext) (Attrs, error) {
+			loaderStarted++
+			return Attrs{"ready": true}, nil
+		},
+	})
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		router.Navigate("/guarded")
+	}()
+
+	select {
+	case <-guardStarted:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("guarded navigation did not start")
+	}
+	if loaderStarted != 0 {
+		t.Fatalf("expected loader to wait for guard release, got %d starts", loaderStarted)
+	}
+	close(releaseGuard)
+	<-done
+
+	waitForCondition(t, func() bool {
+		return js.Global().Get("location").Get("pathname").String() == "/guarded" && loaderStarted == 1
+	})
+}
+
+func TestBrowserRouterAsyncGuardUnmountCleanup(t *testing.T) {
+	installRouterBrowserEnv(t)
+	router := NewRouter(RouterOptions{DefaultRoute: "/guarded"})
+	js.Global().Get("location").Set("pathname", "/guarded")
+
+	releaseGuard := make(chan struct{})
+	guardStarted := make(chan struct{}, 1)
+	otherRendered := make(chan struct{}, 1)
+	router.GoRegisterRoute("/guarded", func(attrs Attrs) *Element {
+		return runtime.Div(nil, runtime.Text("guarded"))
+	}, Options{
+		BeforeEnterAsync: func(ctx context.Context, next RouteContext) GuardDecision {
+			guardStarted <- struct{}{}
+			<-releaseGuard
+			return GuardDecision{}
+		},
+	})
+	router.GoRegisterRoute("/other", func(attrs Attrs) *Element {
+		otherRendered <- struct{}{}
+		return runtime.Div(nil, runtime.Text("other"))
+	})
+
+	container := js.Global().Get("document").Call("createElement", "div")
+	renderDone := make(chan struct{})
+	go func() {
+		defer close(renderDone)
+		router.MountElement(container)
+	}()
+
+	select {
+	case <-guardStarted:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("guarded mount did not start")
+	}
+
+	router.Navigate("/other")
+	select {
+	case <-otherRendered:
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("replacement route did not render while guarded mount was pending")
+	}
+	close(releaseGuard)
+	<-renderDone
+
+	waitForCondition(t, func() bool {
+		return js.Global().Get("location").Get("pathname").String() == "/other"
+	})
 }
 
 func TestBrowserRouterReplacesMetadataAcrossRoutes(t *testing.T) {

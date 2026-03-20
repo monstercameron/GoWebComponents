@@ -22,6 +22,7 @@ The `interop` package is the public browser and module bridge for GoWebComponent
 - `NewWorker(...)` for dedicated browser worker lifecycles
 - `worker.Request(...)`, `RequestWorkerDecoded(...)`, and `SubscribeDecodedWorker[T](...)` for typed worker message flows
 - `ImportModule(...)` for dynamic module loading, export calls, value reads, and explicit disposal
+- `GlobalThis()` plus `Value.Present()`, `Value.Get(...)`, `Value.Set(...)`, `Value.Delete(...)`, `Value.Call(...)`, `Value.Invoke(...)`, `Value.ToGo()`, and `Value.SetFunction(...)` for generic `globalThis` access and temporary JS bridge wiring
 - `Decode(...)` for mapping JSON-shaped interop payloads back into typed Go structs
 - `DecodeCustomEvent[T](...)` and `SubscribeDecoded[T](...)` for typed custom-event detail handling
 - `AsError(...)`, `CodeOf(...)`, and `IsCode(...)` for structured interop error handling

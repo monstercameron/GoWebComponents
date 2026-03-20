@@ -46,6 +46,7 @@ func GoUseContextValue(descriptor *ContextDescriptor) interface{} {
 		fiber.hooks.owner = fiber
 	}
 
+	recordHookSignature(fiber.hooks, "context")
 	fiber.hooks.index++
 	return resolveContextValue(fiber, descriptor)
 }

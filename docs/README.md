@@ -46,6 +46,9 @@ Current project direction for streaming SSR as a post-hydration milestone, plus 
 ### `SERVER_INTEGRATION.md`
 Current canonical Go HTTP integration story for SSR apps, including request pipeline shape, middleware ordering, bootstrap emission, and backend API integration patterns.
 
+### `DEPLOYMENT_TARGETS.md`
+Current deployment-target summary and adapter expectations for static hosting, single-server SSR, reverse-proxy fronted deployments, and split SSR/API topologies.
+
 ### `OBSERVABILITY.md`
 Current intended observability contract for SSR requests, hydration, navigation, correlation ids, and structured runtime event naming.
 

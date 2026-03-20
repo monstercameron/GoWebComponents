@@ -39,16 +39,21 @@ type Component = func(Attrs) *Element
 // Options represents configuration for individual routes.
 // Placeholder for future per-route settings (e.g., titles, guards).
 type Options struct {
-	Title        string
-	Redirect     string
-	Description  string
-	CanonicalURL string
-	Layout       bool
-	BeforeEnter  GuardFunc
-	BeforeLeave  LeaveGuardFunc
-	Loader       LoaderFunc
-	Loading      interface{}
-	Error        interface{}
+	Title            string
+	Redirect         string
+	Description      string
+	CanonicalURL     string
+	Layout           bool
+	BeforeEnter      GuardFunc
+	BeforeLeave      LeaveGuardFunc
+	BeforeEnterAsync AsyncGuardFunc
+	BeforeLeaveAsync AsyncLeaveGuardFunc
+	GuardPending     interface{}
+	Unauthorized     interface{}
+	Authorizing      interface{}
+	Loader           LoaderFunc
+	Loading          interface{}
+	Error            interface{}
 }
 
 // RouterOptions configures router defaults.
@@ -70,6 +75,14 @@ type Router struct {
 	routerType     string // "hash" or "history"
 	loaderState    loaderState
 	metadataState  routeMetadataState
+	guardState     navigationGuardState
+}
+
+type navigationGuardState struct {
+	mu     sync.Mutex
+	seq    uint64
+	active uint64
+	cancel context.CancelFunc
 }
 
 type routeMetadataState struct {
@@ -129,11 +142,26 @@ type GuardResult struct {
 	Reason   string
 }
 
+// GuardDecision describes the outcome of an async navigation guard.
+type GuardDecision struct {
+	Redirect  string
+	Blocked   bool
+	Reason    string
+	Retryable bool
+	Denied    bool
+}
+
 // GuardFunc decides whether navigation into a route should proceed.
 type GuardFunc func(RouteContext) GuardResult
 
 // LeaveGuardFunc decides whether navigation away from a route should proceed.
 type LeaveGuardFunc func(current RouteContext, next RouteContext) GuardResult
+
+// AsyncGuardFunc decides whether navigation into a route should proceed.
+type AsyncGuardFunc func(context.Context, RouteContext) GuardDecision
+
+// AsyncLeaveGuardFunc decides whether navigation away from a route should proceed.
+type AsyncLeaveGuardFunc func(context.Context, RouteContext, RouteContext) GuardDecision
 
 type resolvedRoute struct {
 	id      string
@@ -283,7 +311,7 @@ func (r *Router) setupHistoryListener() {
 
 	// Handler for browser back/forward buttons
 	popstateHandler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		r.renderCurrentRoute()
+		r.renderCurrentRoute(true)
 		return nil
 	})
 
@@ -352,6 +380,10 @@ func (r *Router) GoGetRoute() *Element {
 
 // Current returns the current route element.
 func (r *Router) Current() *Element {
+	return r.currentElement(true)
+}
+
+func (r *Router) currentElement(applyGuards bool) *Element {
 	globalRouter = r
 	path := r.GetCurrentRouterPath()
 	if path == "" {
@@ -363,7 +395,16 @@ func (r *Router) Current() *Element {
 	if resolved.found {
 		leaf := resolved.routes[len(resolved.routes)-1]
 		currentParams = copyParams(leaf.params)
-		return r.renderResolvedRouteStack(resolved.routes, query, queryKey)
+		if applyGuards {
+			ctx, attemptID := r.beginGuardAttempt()
+			defer r.finishGuardAttempt(attemptID)
+			rendered := r.renderResolvedRouteStack(resolved.routes, query, queryKey, true, ctx, attemptID)
+			if ctx.Err() != nil || !r.guardAttemptActive(attemptID) {
+				return nil
+			}
+			return rendered
+		}
+		return r.renderResolvedRouteStack(resolved.routes, query, queryKey, false, nil, 0)
 	}
 
 	r.cancelLoaderIfActive()
@@ -378,7 +419,7 @@ func (r *Router) Mount(selector string) {
 	globalRouter = r
 	r.targetSelector = selector
 	r.targetElement = js.Null()
-	r.renderCurrentRoute()
+	r.renderCurrentRoute(true)
 	r.ensureListener()
 }
 
@@ -396,7 +437,7 @@ func (r *Router) MountElement(elem js.Value) {
 	globalRouter = r
 	r.targetElement = elem
 	r.targetSelector = ""
-	r.renderCurrentRoute()
+	r.renderCurrentRoute(true)
 	r.ensureListener()
 }
 
@@ -412,7 +453,7 @@ func (r *Router) HydrateMountElement(elem js.Value) {
 // RevalidateCurrentRoute clears the cached result for the current route loader and runs it again.
 func (r *Router) RevalidateCurrentRoute() {
 	r.cancelLoaderIfActive()
-	r.renderCurrentRoute()
+	r.renderCurrentRoute(false)
 }
 
 // IsRouteLoading reports whether the current route loader is pending.
@@ -428,10 +469,13 @@ func (r *Router) IsRouteLoading() bool {
 	return false
 }
 
-func (r *Router) renderCurrentRoute() {
+func (r *Router) renderCurrentRoute(applyGuards bool) {
 	ensureInitialized()
 	rt := runtime.GetGlobalRuntime()
-	routeElement := r.GoGetRoute()
+	routeElement := r.currentElement(applyGuards)
+	if routeElement == nil {
+		return
+	}
 	switch {
 	case r.targetSelector != "":
 		rt.RenderTo(r.targetSelector, routeElement)
@@ -451,7 +495,7 @@ func (r *Router) ensureListener() {
 	r.listening = true
 
 	handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		r.renderCurrentRoute()
+		r.renderCurrentRoute(true)
 		return nil
 	})
 	window.Call("addEventListener", browserEventHash, handler)
@@ -481,8 +525,14 @@ func (r *Router) GetCurrentRouterPath() string {
 
 // Navigate navigates to a path using the appropriate method for this router type.
 func (r *Router) Navigate(path string) {
-	normalized, ok := r.evaluateNavigation(normalizeNavigationTarget(path))
+	ctx, attemptID := r.beginGuardAttempt()
+	defer r.finishGuardAttempt(attemptID)
+
+	normalized, ok := r.evaluateNavigationWithAttempt(ctx, attemptID, normalizeNavigationTarget(path))
 	if !ok {
+		return
+	}
+	if ctx.Err() != nil || !r.guardAttemptActive(attemptID) {
 		return
 	}
 	runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "navigation started", "", map[string]string{
@@ -498,19 +548,30 @@ func (r *Router) Navigate(path string) {
 		} else if loc := getLocationValue(); loc.Truthy() {
 			loc.Set("pathname", normalized)
 		}
-		r.renderCurrentRoute()
 	} else {
 		// Hash routers re-render through the hashchange listener.
 		if loc := getLocationValue(); loc.Truthy() {
 			loc.Set("hash", normalized)
 		}
 	}
+	if r.routerType == routerTypeHistory {
+		if ctx.Err() != nil || !r.guardAttemptActive(attemptID) {
+			return
+		}
+		r.renderCurrentRoute(false)
+	}
 }
 
 // NavigateReplace replaces the current history entry using the appropriate method for this router type.
 func (r *Router) NavigateReplace(path string) {
-	normalized, ok := r.evaluateNavigation(normalizeNavigationTarget(path))
+	ctx, attemptID := r.beginGuardAttempt()
+	defer r.finishGuardAttempt(attemptID)
+
+	normalized, ok := r.evaluateNavigationWithAttempt(ctx, attemptID, normalizeNavigationTarget(path))
 	if !ok {
+		return
+	}
+	if ctx.Err() != nil || !r.guardAttemptActive(attemptID) {
 		return
 	}
 	runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "navigation started", "", map[string]string{
@@ -526,7 +587,6 @@ func (r *Router) NavigateReplace(path string) {
 		} else if loc := getLocationValue(); loc.Truthy() {
 			loc.Set("pathname", normalized)
 		}
-		r.renderCurrentRoute()
 	} else {
 		// Hash routers re-render through the hashchange listener.
 		loc := getLocationValue()
@@ -537,6 +597,12 @@ func (r *Router) NavigateReplace(path string) {
 				loc.Set("hash", normalized)
 			}
 		}
+	}
+	if r.routerType == routerTypeHistory {
+		if ctx.Err() != nil || !r.guardAttemptActive(attemptID) {
+			return
+		}
+		r.renderCurrentRoute(false)
 	}
 }
 
@@ -959,7 +1025,7 @@ func getHistoryValue() js.Value {
 	return js.Global().Get("history")
 }
 
-func (r *Router) renderResolvedRouteStack(routes []resolvedRoute, query url.Values, queryKey string) *Element {
+func (r *Router) renderResolvedRouteStack(routes []resolvedRoute, query url.Values, queryKey string, applyGuards bool, guardCtx context.Context, attemptID uint64) *Element {
 	loaderKeys := make([]string, 0, len(routes))
 	for _, route := range routes {
 		if route.option.Loader != nil {
@@ -967,13 +1033,15 @@ func (r *Router) renderResolvedRouteStack(routes []resolvedRoute, query url.Valu
 		}
 	}
 	r.prepareLoaderState(loaderKeys)
-	return r.renderRouteLevel(routes, 0, query, queryKey)
+	return r.renderRouteLevel(routes, 0, query, queryKey, applyGuards, guardCtx, attemptID)
 }
 
-func (r *Router) renderRouteLevel(routes []resolvedRoute, index int, query url.Values, queryKey string) *Element {
+func (r *Router) renderRouteLevel(routes []resolvedRoute, index int, query url.Values, queryKey string, applyGuards bool, guardCtx context.Context, attemptID uint64) *Element {
 	match := routes[index]
-	if blocked := r.applyBeforeEnterGuard(match.path, match.option, match.params, query); blocked != nil {
-		return blocked
+	if applyGuards {
+		if blocked := r.applyBeforeEnterGuard(match.path, match.option, match.params, query, guardCtx, attemptID); blocked != nil {
+			return blocked
+		}
 	}
 	if redirected := r.applyRouteOptions(match.path, match.option, query); redirected != nil {
 		return redirected
@@ -1006,7 +1074,7 @@ func (r *Router) renderRouteLevel(routes []resolvedRoute, index int, query url.V
 
 	var outlet *Element
 	if index+1 < len(routes) {
-		outlet = r.renderRouteLevel(routes, index+1, query, queryKey)
+		outlet = r.renderRouteLevel(routes, index+1, query, queryKey, applyGuards, guardCtx, attemptID)
 	}
 
 	prevParams, prevData, prevOutlet := withRouteRenderContext(match.params, data, outlet)
@@ -1104,12 +1172,25 @@ func (r *Router) routeContext(path string, params map[string]string, query url.V
 	}
 }
 
-func (r *Router) applyBeforeEnterGuard(path string, option Options, params map[string]string, query url.Values) *Element {
-	if option.BeforeEnter == nil {
+func (r *Router) applyBeforeEnterGuard(path string, option Options, params map[string]string, query url.Values, guardCtx context.Context, attemptID uint64) *Element {
+	if option.BeforeEnter == nil && option.BeforeEnterAsync == nil {
 		return nil
 	}
-	result := option.BeforeEnter(r.routeContext(path, params, query))
-	if target := strings.TrimSpace(result.Redirect); target != "" {
+	routeCtx := r.routeContext(path, params, query)
+	decision := guardDecisionAllowed()
+	if option.BeforeEnter != nil {
+		decision = guardDecisionFromResult(option.BeforeEnter(routeCtx))
+	}
+	if !decision.Blocked && decision.Redirect == "" && option.BeforeEnterAsync != nil {
+		if guardCtx == nil {
+			guardCtx = context.Background()
+		}
+		decision = option.BeforeEnterAsync(guardCtx, routeCtx)
+	}
+	if (guardCtx != nil && guardCtx.Err() != nil) || (attemptID != 0 && !r.guardAttemptActive(attemptID)) {
+		return nil
+	}
+	if target := strings.TrimSpace(decision.Redirect); target != "" {
 		normalized := normalizeNavigationTarget(target)
 		if normalized == buildPathWithQuery(path, query) {
 			runtime.ReportDiagnostic("router", runtime.DiagnosticWarning, "ignoring route before-enter redirect loop for "+normalized)
@@ -1120,14 +1201,14 @@ func (r *Router) applyBeforeEnterGuard(path string, option Options, params map[s
 			"to":   normalized,
 		})
 		r.replaceLocation(normalized)
-		return r.Current()
+		return r.currentElement(false)
 	}
-	if !result.Blocked {
+	if !decision.Blocked && !decision.Denied {
 		return nil
 	}
 	currentRouteData = nil
 	r.cancelLoaderIfActive()
-	message := strings.TrimSpace(result.Reason)
+	message := strings.TrimSpace(decision.Reason)
 	if message == "" {
 		message = navigationBlocked
 	}
@@ -1156,7 +1237,7 @@ func (r *Router) applyRouteOptions(path string, option Options, query url.Values
 		"to":   redirectTarget,
 	})
 	r.replaceLocation(redirectTarget)
-	return r.Current()
+	return r.currentElement(false)
 }
 
 func (r *Router) applyRouteMetadata(option Options) {
@@ -1363,12 +1444,21 @@ func getHeadElement(doc js.Value) js.Value {
 }
 
 func (r *Router) evaluateNavigation(target string) (string, bool) {
+	ctx, attemptID := r.beginGuardAttempt()
+	defer r.finishGuardAttempt(attemptID)
+	return r.evaluateNavigationWithAttempt(ctx, attemptID, target)
+}
+
+func (r *Router) evaluateNavigationWithAttempt(ctx context.Context, attemptID uint64, target string) (string, bool) {
 	currentPath := r.GetCurrentRouterPath()
 	currentQuery := getCurrentQueryValues()
 	currentResolved := r.resolveRouteStack(currentPath)
 
 	nextTarget := target
 	for steps := 0; steps < 4; steps++ {
+		if ctx.Err() != nil || !r.guardAttemptActive(attemptID) {
+			return "", false
+		}
 		nextPath, nextQuery := parseNavigationTarget(nextTarget)
 		nextResolved := r.resolveRouteStack(nextPath)
 		nextLeaf := resolvedRoute{}
@@ -1381,11 +1471,21 @@ func (r *Router) evaluateNavigation(target string) (string, bool) {
 		if steps == 0 && currentResolved.found {
 			for index := len(currentResolved.routes) - 1; index >= 0; index-- {
 				currentRoute := currentResolved.routes[index]
-				if currentRoute.option.BeforeLeave == nil {
+				if currentRoute.option.BeforeLeave == nil && currentRoute.option.BeforeLeaveAsync == nil {
 					continue
 				}
-				result := currentRoute.option.BeforeLeave(r.routeContext(currentRoute.path, currentRoute.params, currentQuery), nextCtx)
-				if redirect := strings.TrimSpace(result.Redirect); redirect != "" {
+				decision := guardDecisionAllowed()
+				currentCtx := r.routeContext(currentRoute.path, currentRoute.params, currentQuery)
+				if currentRoute.option.BeforeLeave != nil {
+					decision = guardDecisionFromResult(currentRoute.option.BeforeLeave(currentCtx, nextCtx))
+				}
+				if !decision.Blocked && decision.Redirect == "" && currentRoute.option.BeforeLeaveAsync != nil {
+					decision = currentRoute.option.BeforeLeaveAsync(ctx, currentCtx, nextCtx)
+				}
+				if ctx.Err() != nil || !r.guardAttemptActive(attemptID) {
+					return "", false
+				}
+				if redirect := strings.TrimSpace(decision.Redirect); redirect != "" {
 					nextTarget = normalizeNavigationTarget(redirect)
 					runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "before-leave redirected navigation", "", map[string]string{
 						"from": currentRoute.path,
@@ -1394,7 +1494,7 @@ func (r *Router) evaluateNavigation(target string) (string, bool) {
 					redirected = true
 					break
 				}
-				if result.Blocked {
+				if decision.Blocked || decision.Denied {
 					runtime.ReportLogWithFields("router", runtime.LogWarn, runtime.DiagnosticRecovered, "before-leave blocked navigation", "", map[string]string{
 						"from": currentRoute.path,
 						"to":   nextPath,
@@ -1409,11 +1509,21 @@ func (r *Router) evaluateNavigation(target string) (string, bool) {
 
 		if nextResolved.found {
 			for _, nextRoute := range nextResolved.routes {
-				if nextRoute.option.BeforeEnter == nil {
+				if nextRoute.option.BeforeEnter == nil && nextRoute.option.BeforeEnterAsync == nil {
 					continue
 				}
-				result := nextRoute.option.BeforeEnter(r.routeContext(nextRoute.path, nextRoute.params, nextQuery))
-				if redirect := strings.TrimSpace(result.Redirect); redirect != "" {
+				decision := guardDecisionAllowed()
+				nextRouteCtx := r.routeContext(nextRoute.path, nextRoute.params, nextQuery)
+				if nextRoute.option.BeforeEnter != nil {
+					decision = guardDecisionFromResult(nextRoute.option.BeforeEnter(nextRouteCtx))
+				}
+				if !decision.Blocked && decision.Redirect == "" && nextRoute.option.BeforeEnterAsync != nil {
+					decision = nextRoute.option.BeforeEnterAsync(ctx, nextRouteCtx)
+				}
+				if ctx.Err() != nil || !r.guardAttemptActive(attemptID) {
+					return "", false
+				}
+				if redirect := strings.TrimSpace(decision.Redirect); redirect != "" {
 					nextTarget = normalizeNavigationTarget(redirect)
 					runtime.ReportLogWithFields("router", runtime.LogInfo, runtime.DiagnosticInformational, "before-enter redirected navigation", "", map[string]string{
 						"from": nextPath,
@@ -1422,7 +1532,7 @@ func (r *Router) evaluateNavigation(target string) (string, bool) {
 					redirected = true
 					break
 				}
-				if result.Blocked {
+				if decision.Blocked || decision.Denied {
 					runtime.ReportLogWithFields("router", runtime.LogWarn, runtime.DiagnosticRecovered, "before-enter blocked navigation", "", map[string]string{
 						"path": nextPath,
 					})
@@ -1505,6 +1615,60 @@ func BlockNavigation(reason string) GuardResult {
 // RedirectNavigation redirects the pending navigation to path.
 func RedirectNavigation(path string) GuardResult {
 	return GuardResult{Redirect: path}
+}
+
+func guardDecisionFromResult(result GuardResult) GuardDecision {
+	return GuardDecision{
+		Redirect: result.Redirect,
+		Blocked:  result.Blocked,
+		Reason:   result.Reason,
+		Denied:   result.Blocked,
+	}
+}
+
+func guardDecisionAllowed() GuardDecision {
+	return GuardDecision{}
+}
+
+func guardDecisionBlocked(reason string) GuardDecision {
+	return GuardDecision{Blocked: true, Reason: reason, Denied: true}
+}
+
+func guardDecisionRedirect(path string) GuardDecision {
+	return GuardDecision{Redirect: path}
+}
+
+func (r *Router) beginGuardAttempt() (context.Context, uint64) {
+	r.guardState.mu.Lock()
+	if r.guardState.cancel != nil {
+		r.guardState.cancel()
+	}
+	r.guardState.seq++
+	id := r.guardState.seq
+	ctx, cancel := context.WithCancel(context.Background())
+	r.guardState.active = id
+	r.guardState.cancel = cancel
+	r.guardState.mu.Unlock()
+	return ctx, id
+}
+
+func (r *Router) finishGuardAttempt(id uint64) {
+	r.guardState.mu.Lock()
+	defer r.guardState.mu.Unlock()
+	if r.guardState.active != id {
+		return
+	}
+	if r.guardState.cancel != nil {
+		r.guardState.cancel()
+	}
+	r.guardState.active = 0
+	r.guardState.cancel = nil
+}
+
+func (r *Router) guardAttemptActive(id uint64) bool {
+	r.guardState.mu.Lock()
+	defer r.guardState.mu.Unlock()
+	return r.guardState.active == id && id != 0
 }
 
 func (r *Router) replaceLocation(target string) {
@@ -1601,7 +1765,7 @@ func (r *Router) ensureLoaderResult(key string, loader LoaderFunc, routeCtx Rout
 			if doc.IsUndefined() || doc.IsNull() || elem.IsUndefined() || elem.IsNull() {
 				return
 			}
-			r.renderCurrentRoute()
+			r.renderCurrentRoute(false)
 		}()
 	}()
 

@@ -6,6 +6,7 @@ package state
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
@@ -270,7 +271,7 @@ func UnmarshalSnapshotJSON(data []byte) (Snapshot, error) {
 	if snapshot == nil {
 		return Snapshot{}, nil
 	}
-	return snapshot, nil
+	return normalizeSnapshot(snapshot).(Snapshot), nil
 }
 
 // SaveSnapshot stores a JSON-encoded snapshot in browser storage.
@@ -323,4 +324,34 @@ func getStorage(area StorageArea) js.Value {
 		return storage
 	}
 	return js.Undefined()
+}
+
+func normalizeSnapshot(value interface{}) interface{} {
+	switch typed := value.(type) {
+	case Snapshot:
+		normalized := make(Snapshot, len(typed))
+		for key, nested := range typed {
+			normalized[key] = normalizeSnapshot(nested)
+		}
+		return normalized
+	case map[string]interface{}:
+		normalized := make(map[string]interface{}, len(typed))
+		for key, nested := range typed {
+			normalized[key] = normalizeSnapshot(nested)
+		}
+		return normalized
+	case []interface{}:
+		normalized := make([]interface{}, len(typed))
+		for index, nested := range typed {
+			normalized[index] = normalizeSnapshot(nested)
+		}
+		return normalized
+	case float64:
+		if math.Trunc(typed) == typed {
+			return int(typed)
+		}
+		return typed
+	default:
+		return value
+	}
 }

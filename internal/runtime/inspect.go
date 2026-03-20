@@ -3,7 +3,6 @@ package runtime
 import (
 	"fmt"
 	"reflect"
-	goRuntime "runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -73,6 +72,7 @@ type FiberSnapshot struct {
 	NeedsUpdate       bool
 	EffectCount       int
 	HookCount         int
+	Signature         *ComponentSignature
 	CommitDurationNs  int64
 	EffectDurationNs  int64
 	CleanupDurationNs int64
@@ -377,6 +377,7 @@ func inspectFiberTree(fiber *Fiber) (*FiberSnapshot, InspectionStats) {
 		NeedsUpdate:       fiber.needsUpdate,
 		EffectCount:       len(fiber.effects),
 		HookCount:         len(hooks),
+		Signature:         buildComponentSignature(fiber, fiber.hooks),
 		CommitDurationNs:  fiber.commitDurationNs,
 		EffectDurationNs:  fiber.effectDurationNs,
 		CleanupDurationNs: fiber.cleanupDurationNs,
@@ -487,7 +488,8 @@ func describeFiber(fiber *Fiber) (string, string) {
 	case *ContextProviderType:
 		return "provider", "ContextProvider"
 	default:
-		return "component", describeCallable(value)
+		prettyName, _ := describeCallableIdentity(value)
+		return "component", prettyName
 	}
 }
 
@@ -519,23 +521,8 @@ func diagnosticPathForFiber(fiber *Fiber) string {
 }
 
 func describeCallable(value interface{}) string {
-	rv := reflect.ValueOf(value)
-	if rv.IsValid() && rv.Kind() == reflect.Func {
-		if fn := goRuntime.FuncForPC(rv.Pointer()); fn != nil {
-			name := fn.Name()
-			if index := strings.LastIndex(name, "/"); index >= 0 {
-				name = name[index+1:]
-			}
-			if index := strings.LastIndex(name, "."); index >= 0 {
-				name = name[index+1:]
-			}
-			return name
-		}
-	}
-	if value == nil {
-		return "nil"
-	}
-	return reflect.TypeOf(value).String()
+	prettyName, _ := describeCallableIdentity(value)
+	return prettyName
 }
 
 func inspectHooks(hooks *Hooks) []HookSnapshot {

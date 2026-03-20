@@ -722,8 +722,8 @@ Organization rules for this file:
 	The router auth design now specifies attempt-scoped contexts, cancellation of stale guard work, redirect-as-new-attempt behavior, and the rule that late results from cancelled attempts must be ignored.
 - [x] Define pending-navigation UX hooks.
 	The same design doc now defines a planned `UseGuardNavigation()` state surface plus `GuardPending` semantics so routes and layouts can expose pending-auth or pending-guard UI intentionally.
-- [ ] Add test coverage for async guard edge cases.
-	Cover double-click navigation, back and forward navigation, loader-plus-guard interactions, and cleanup when guarded components unmount mid-check.
+- [x] Add test coverage for async guard edge cases.
+		Covered double-click navigation, back and forward navigation, loader-plus-guard interactions, and cleanup when guarded components unmount mid-check with wasm browser tests in `router/browser_router_test.go`.
 
 ### Auth-aware routing primitives
 
@@ -1313,69 +1313,80 @@ Organization rules for this file:
 
 ### State-preserving hot reload
 
-- [ ] Decide whether state-preserving hot reload is a first-class development goal.
-	Clarify whether the framework aims for true module-level replacement during development or a narrower snapshot-and-remount workflow that preserves common state shapes.
-- [ ] Audit which runtime assumptions block hot replacement.
-	Identify where component identity, hook ordering, global registries, route registration, and effect lifecycle assumptions prevent swapping updated code without a full reload.
-- [ ] Define the preservation boundary for local and shared state.
-	Specify which state categories may survive a development reload, such as local hook state, atom state, form state, route state, and in-flight async resource state, and which categories reset intentionally.
-- [ ] Add a development-time component identity and signature model.
-	Track enough metadata to determine when a component edit is shape-compatible for state preservation and when the runtime must fall back to full remount.
-- [ ] Add effect cleanup and re-run semantics for hot updates.
-	Ensure preserved components still dispose stale effects, listeners, timers, and JS handles when their implementation changes during development.
-- [ ] Define error recovery behavior during failed hot updates.
-	Specify how syntax errors, build errors, and runtime failures roll back or invalidate pending hot updates without leaving the dev session in a corrupted state.
-- [ ] Integrate the live reload server with state snapshot transport.
-	Extend the current dev tooling so it can coordinate update payloads, runtime invalidation, and optional state snapshot restore instead of only forcing a full page reload.
-- [ ] Add examples and benchmarks for preserved-state development flows.
-	Validate editing a counter, form, routed screen, and atom-backed shared state without losing state unnecessarily while still preserving correctness.
+- [x] Decide whether true in-place HMR is a goal beyond reload-and-restore.
+	`docs/HOT_RELOAD.md` now records the implemented hot reload model: rebuild the bundle, replace the WASM module in page, clean up the old runtime resources, and restore shared plus migratable local state without forcing a full page reload.
+- [x] Define state migration behavior for shape-changing component edits.
+	`docs/HOT_RELOAD.md` now records the guarded migration policy: serializable hook slots can survive effect or callback shape changes and tail growth or shrink, while ambiguous serializable layout changes still remount safely.
+- [x] Define preserve-versus-restart semantics for async and router-owned work.
+	`docs/HOT_RELOAD.md` now records a restart-first policy for pending async work, router registrations, listeners, guards, loaders, and other closure-backed router internals, while still allowing atom snapshots and compatible serializable hook state to restore.
+- [x] Improve hot reload diagnostics for dropped local state.
+	The runtime now reports a hot-reload fallback warning with component path, component stack, and the specific remount reason when saved local state is discarded because identity, key, or hook shape no longer matches.
+- [x] Decide whether callback or effect-owned resources should gain a first-class restore model.
+	`docs/HOT_RELOAD.md` now records the implemented cleanup-plus-rebind model: callback closures are recreated from the new bundle, and effect-owned listeners, timers, observers, and wrapped handlers are cleaned up before reload and rebound afterward.
+
+- [x] Decide whether state-preserving hot reload is a first-class development goal.
+	State-preserving reload is now treated as an opt-in development aid: `utils.EnableHotReload(true)` installs the snapshot bridge, the live-reload client persists exported state through `sessionStorage`, runs a pre-reload cleanup hook, and restores shared state plus migratable serializable hook state while keeping DOM identity intact when the reload succeeds.
+- [x] Audit which runtime assumptions block hot replacement.
+	See `docs/HOT_RELOAD.md` for the current blocker list: component identity, ordered hook slots, global registries, route registration, effect cleanup, and JS handle ownership still require a reload-and-remount model rather than true module-level replacement.
+- [x] Define the preservation boundary for local and shared state.
+	See `docs/HOT_RELOAD.md` for the current boundary: shared atom values and compatible local hook state survive reloads through the snapshot bridge, while effect-owned side effects, router internals, async work, and incompatible DOM subtrees still remount or reset.
+- [x] Add a development-time component identity and signature model.
+	Runtime inspection now records ordered hook kinds plus component identity metadata, and devtools surfaces a compatibility signature that can tell shape-compatible edits from remount-required changes.
+- [x] Add effect cleanup and re-run semantics for hot updates.
+	`Runtime.RefreshEffectsForFiber(...)` now cleans stale effect cleanups and bumps an effect-generation counter so the next render reruns effects even when dependencies are unchanged.
+- [x] Define error recovery behavior during failed hot updates.
+	`GoLiveReload.triggerHotReload()` now records the current snapshot, falls back to a full reload on hot-update failure, and preserves the rollback snapshot so the next load can restore state cleanly.
+- [x] Integrate the live reload server with state snapshot transport.
+	Hot builds now request a snapshot from the client, carry the exported payload through `build_complete`, and let the browser reuse that snapshot on reload instead of relying only on a local-only fallback.
+- [x] Add examples and benchmarks for preserved-state development flows.
+	`test/specs/hot_reload_preserved_flow.spec.js` demonstrates counter, form, atom, and effect cleanup behavior across a hot reload, and `test/specs/hot_reload_preserved_flow_benchmark.spec.js` guards the snapshot round-trip timing.
 
 ### Full-stack framework maturity
 
-- [ ] Decide whether GoWebComponents should remain a UI framework or grow a first-party app framework layer.
-	Clarify whether file-based routing, build conventions, SSR bootstrapping, and deployment adapters belong in core, a sibling package, or external starters.
-- [ ] Define a recommended project structure for production apps.
-	Document a canonical layout for routes, loaders, assets, WASM builds, server entrypoints, and shared UI code so larger apps stop inventing their own structure.
-- [ ] Evaluate first-party code-splitting and bundle-loading conventions.
-	SSR, lazy loading, and route-level boundaries need a coherent loading story if the framework is meant to scale beyond demos.
-- [ ] Define deployment targets and adapter expectations.
-	Clarify how static hosting, Go HTTP servers, edge-style SSR, and mixed server/client deployments should be supported.
-- [ ] Add an opinionated starter or reference app once conventions stabilize.
-	A real app template should exercise routing, state, SSR, hydration, forms, metadata, and async data rather than only toy examples.
+- [x] Decide whether GoWebComponents should remain a UI framework or grow a first-party app framework layer.
+	`docs/FRAMEWORK_SCOPE.md` records the decision to keep core focused on the UI/runtime surface and leave app-framework conventions to docs, starters, or sibling packages.
+- [x] Define a recommended project structure for production apps.
+	`docs/PROJECT_STRUCTURE.md` captures the recommended `cmd/` + `internal/` + `web/` split for app entrypoints, SSR integration, assets, and test scaffolding.
+- [x] Evaluate first-party code-splitting and bundle-loading conventions.
+	`docs/CODE_SPLITTING.md` records the current recommendation: keep splitting convention-driven and app-owned, with `ui.Lazy`, boundaries, manifests, and preload/prefetch hints handled by tooling instead of a new core bundler API.
+- [x] Define deployment targets and adapter expectations.
+	`docs/DEPLOYMENT_TARGETS.md` records the supported deployment shapes and adapter expectations: static hosting, one Go SSR server, reverse-proxy or CDN fronted servers, and same-origin split SSR/API deployments.
+- [x] Add an opinionated starter or reference app once conventions stabilize.
+	`examples/86-atlas-commerce-os` is the current production-shaped reference app, and `docs/ONBOARDING.md` now names it as the integrated full-stack reference for larger apps.
 
 ### Code splitting and lazy bundle delivery
 
-- [ ] Define the code-splitting model for the framework.
-	Decide whether splitting is route-driven, component-driven, build-tool-driven, or some combination, and how it should relate to the existing `ui.Lazy` and async-boundary surface.
-- [ ] Add a first-class lazy asset and module loading pipeline.
-	Support loading deferred WASM-adjacent assets, JS helpers, route bundles, or generated code chunks through a public mechanism instead of leaving lazy delivery entirely to ad hoc app tooling.
-- [ ] Define route-level code-splitting conventions.
-	Specify how large routed applications split feature areas, preload likely next routes, and avoid loading the full app codepath before first paint.
-- [ ] Define component-level chunk boundaries and loading semantics.
-	Clarify how lazily loaded components declare their loading boundary, error fallback, retry behavior, and compatibility with hydration or resumed state.
-- [ ] Add preload and prefetch hooks for deferred bundles.
-	Allow apps and routers to warm likely-next chunks on hover, idle time, viewport visibility, or route intent rather than waiting for the final navigation click.
-- [ ] Define SSR interactions for split bundles.
-	Specify how prerendered or server-rendered pages declare which chunks are needed on the client, how those assets are discovered, and how hydration avoids bundle-order races.
-- [ ] Add build-output and asset-manifest conventions for split bundles.
-	Document how split artifacts are named, versioned, referenced from HTML, and invalidated across deployments so lazy loading remains production-safe.
-- [ ] Add end-to-end examples for route and component splitting.
-	Create examples showing a heavy route and a heavy nested panel loading on demand with meaningful fallbacks, preload hints, and measured startup improvements.
+- [x] Define the code-splitting model for the framework.
+	`docs/CODE_SPLITTING.md` now defines the intended hybrid model: route-driven splits are primary, component-level `ui.Lazy` boundaries are the exception, and build tooling owns physical chunk emission plus manifest-backed delivery.
+- [x] Add a first-class lazy asset and module loading pipeline.
+	`examples/90-browser-interop` now demonstrates the public module-loading path through `interop.ImportModule(...)`, a browser bridge at `browser-interop.html`, and a module-backed lazy-loading panel that resolves a deferred helper and renders its exports.
+- [x] Define route-level code-splitting conventions.
+	`docs/CODE_SPLITTING.md` now defines route-level splits as user-journey boundaries: shell code stays in the base bundle, major route families get their own chunks, and only heavy sibling or detail screens defer behind route-specific imports.
+- [x] Define component-level chunk boundaries and loading semantics.
+	`docs/CODE_SPLITTING.md` now defines component-level `ui.Lazy` boundaries as optional subtrees with explicit pending, error, retry, and hydration-aware behavior rather than hidden auto-splitting.
+- [x] Add preload and prefetch hooks for deferred bundles.
+	`html.Preload(...)`, `html.ModulePreload(...)`, `html.Prefetch(...)`, `html.Preconnect(...)`, and `html.DNSPrefetch(...)` now provide typed resource-hint helpers, and `docs/HEAD_MANAGEMENT.md` plus `docs/ASSETS.md` document when to use them for deferred bundles.
+- [x] Define SSR interactions for split bundles.
+	`docs/CODE_SPLITTING.md` now defines the SSR and prerender chunk contract: route output emits manifest-backed chunk declarations, critical chunks are preloaded with the shell, and hydration does not start from a missing shell dependency or template order assumption.
+- [x] Add build-output and asset-manifest conventions for split bundles.
+	`docs/ASSETS.md` now defines the split-bundle output shape: route entry chunks, shared shell chunks, and lazy feature chunks use logical manifest names, hashed filenames, and deploy together so HTML never relies on guessed output paths.
+- [x] Add end-to-end examples for route and component splitting.
+	`examples/96-code-splitting` now demonstrates shell-preserving route-family switches with a reloadable lazy panel, and `examples/tests/96-code-splitting.spec.ts` verifies the catalog and operations flows in Playwright.
 
 ### Server-interactive runtime experiments
 
-- [ ] Decide whether server-owned interactive rendering is a real product direction.
-	Clarify whether GoWebComponents should remain client-owned WASM plus SSR/hydration, or whether an additional websocket-backed interactive runtime is worth pursuing experimentally.
-- [ ] Define the minimum experiment scope for server-interactive mode.
-	Limit the first exploration to event transport, server-side state ownership, DOM diff or patch streaming, reconnect handling, and a small reference app instead of a full alternative platform.
-- [ ] Audit which current runtime assumptions block a server-interactive mode.
-	Identify where the scheduler, event system, state hooks, router, and DOM commit model assume a local browser-owned runtime and what must be abstracted.
-- [ ] Evaluate transport shape for server-interactive updates.
-	Compare full HTML streaming, tree-patch messages, and DOM-op style diffs over websockets so the experiment does not lock into an inefficient protocol by accident.
-- [ ] Define latency and offline expectations up front.
-	Specify which interaction classes must stay responsive under moderate latency, what happens on reconnect, and which UI categories are unsuitable for server-owned interactivity.
-- [ ] Add a security and scalability risk review for server-interactive mode.
-	Track per-session memory cost, multi-tenant isolation, auth/session propagation, backpressure, and denial-of-service concerns before treating the experiment as roadmap-grade.
+- [x] Decide whether server-owned interactive rendering is a real product direction.
+	`docs/FRAMEWORK_SCOPE.md` now states that core stays browser-owned and that any server-owned interactive rendering work would need to live as a separate experiment or sibling package rather than a default product direction.
+- [x] Define the minimum experiment scope for server-interactive mode.
+	`docs/SERVER_INTERACTIVE.md` now limits the first experiment to event transport, server-owned state, DOM patch streaming, reconnect handling, and a small reference app while explicitly excluding parity with the browser-owned runtime.
+- [x] Audit which current runtime assumptions block a server-interactive mode.
+	`docs/SERVER_INTERACTIVE.md` now records the browser-owned assumptions in the scheduler, hook/context model, event wrapping, atom registry, hydration, commit path, and browser-state helpers that would need abstraction before a server-owned runtime could work.
+- [x] Evaluate transport shape for server-interactive updates.
+	`docs/SERVER_INTERACTIVE.md` now recommends WebSocket transport with JSON-shaped DOM-op patches for the first experiment, treats tree-patch messages as the longer-term abstraction, and reserves full HTML streaming for bootstrap or reconnect fallback instead of the normal interaction path.
+- [x] Define latency and offline expectations up front.
+	`docs/SERVER_INTERACTIVE.md` now says the first experiment should keep bounded actions, submits, and route-like changes responsive under moderate latency; avoid drag/continuous-input surfaces; keep stale UI visible on reconnect; and treat full offline operation as out of scope unless the reference app explicitly needs replay.
+- [x] Add a security and scalability risk review for server-interactive mode.
+	`docs/SERVER_INTERACTIVE.md` now covers per-session memory cost, tenant isolation, auth and session propagation, backpressure, DoS limits, and the recommendation to keep the first experiment small, authenticated, and bounded.
 - [ ] Add a narrow proof-of-concept example.
 	Use a dashboard or admin-style app with modest interaction density to validate the model before attempting general-purpose parity with the client-owned runtime.
 
@@ -1455,8 +1466,8 @@ Organization rules for this file:
 	Provide a structured profiling format and devtools visualization that can show nested render cost over time instead of only flat counters or aggregate summaries.
 - [ ] Add async and route-lifecycle profiling.
 	Capture loader timing, hydration timing, async-boundary waits, transition delays, and route navigation phases so full app interactions can be profiled end to end.
-- [ ] Add devtools export and snapshot comparison support.
-	Allow developers to save profiling sessions, compare before/after traces, and inspect regressions across optimization attempts instead of relying on one-off local observation.
+- [x] Add devtools export and snapshot comparison support.
+	`devtools.ExportSnapshotJSON(...)` and `devtools.CompareSnapshots(...)` now let developers save inspection snapshots, compare before/after traces, and inspect which top-level sections changed across an optimization attempt instead of relying on one-off local observation.
 - [ ] Add profiling examples and performance regression tests.
 	Use representative apps such as large lists, nested routes, async dashboards, and portal-heavy overlays to ensure the profiling surface remains useful for real bottlenecks.
 

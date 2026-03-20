@@ -1617,6 +1617,11 @@ func goValueToJS(op string, target string, value any) (interface{}, error) {
 	switch typed := value.(type) {
 	case nil:
 		return js.Null(), nil
+	case Value:
+		if raw, ok := typed.rawValue(); ok {
+			return raw, nil
+		}
+		return js.Undefined(), unavailable(op, target)
 	case js.Value:
 		return typed, nil
 	case bool, string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
@@ -1628,6 +1633,21 @@ func goValueToJS(op string, target string, value any) (interface{}, error) {
 		}
 		return js.Global().Get("JSON").Call("parse", string(data)), nil
 	}
+}
+
+func goValuesToJS(op string, target string, values ...any) ([]interface{}, error) {
+	if len(values) == 0 {
+		return nil, nil
+	}
+	converted := make([]interface{}, len(values))
+	for index, value := range values {
+		jsValue, err := goValueToJS(op, target, value)
+		if err != nil {
+			return nil, err
+		}
+		converted[index] = jsValue
+	}
+	return converted, nil
 }
 
 func jsValueToGo(op string, target string, value js.Value) (any, error) {

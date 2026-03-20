@@ -65,6 +65,20 @@ Manifests should be sufficient to resolve:
 
 Applications do not need a single mandatory manifest file format yet, but they should avoid embedding emitted filenames directly throughout templates or route handlers.
 
+## Split Bundle Output Shape
+
+Split bundles should follow the same manifest-backed asset rules as the rest of the deployment output.
+
+The intended conventions are:
+
+- use one logical namespace for split artifacts so route entry chunks, shared shell chunks, and lazy feature chunks can be named consistently
+- treat route-family entry chunks as first-class build outputs alongside wasm, CSS, and other fingerprinted assets
+- keep emitted chunk filenames content-hashed and resolve them through the manifest rather than embedding physical paths in HTML or bootstrap data
+- let HTML, bootstrap payloads, and preload hints refer to logical chunk names only, with the manifest resolving the final URL
+- keep chunk names stable enough that an unchanged logical route family keeps the same human-readable key across releases
+- publish the HTML, bootstrap data, manifest, and chunk files together so clients do not mix an old document with a new chunk graph
+- fail build or deploy validation visibly when a logical split artifact has no manifest entry instead of discovering that mismatch at runtime
+
 ## Cache Busting And Versioning
 
 The intended cache-busting strategy is filename-based, not query-string-based by default.
@@ -119,6 +133,8 @@ Until then, applications should prefer explicit `html.Img`, `html.Video`, and re
 ## Preload And Prefetch Guidance
 
 Preload and prefetch hints remain application-owned explicit head markup today.
+
+When a route or layout wants typed convenience helpers, use the `html` package's `Preload(...)`, `ModulePreload(...)`, `Prefetch(...)`, `Preconnect(...)`, `DNSPrefetch(...)`, or generic `Link(...)` builders instead of hand-writing raw link tags in many places.
 
 Recommended rules:
 
@@ -198,7 +214,7 @@ For static hosts:
 Applications should plan around:
 
 - hashed assets for wasm binaries, JS helpers, CSS, fonts, and large media derivatives when practical
-- one manifest or equivalent lookup table that maps logical asset names to emitted files
+- one manifest or equivalent lookup table that maps logical asset names to emitted files, including split-bundle route chunks and lazy feature chunks
 - copied public assets for files that should keep stable names
 - explicit cache-header strategy for HTML, manifests, and immutable assets
 

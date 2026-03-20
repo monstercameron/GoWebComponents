@@ -12,36 +12,37 @@ This directory contains the older Go-based live reload server. It is still avail
 
 ## Primary Dev Server
 
-Use this for normal example serving:
+Use `tools/dev.ps1` or `tools/dev.sh` for the path-based hot-reload server:
 
 ```powershell
-npm run dev:examples
+.\tools\dev.ps1 -Main .\test\testapp\main.go
 ```
 
-That starts the Express server on `http://127.0.0.1:8090`.
+That builds the app from the directory that contains `main.go`, serves the HTML shell, and keeps the browser state bridge alive across rebuilds.
 
 ## Running The Live Reload Server
 
 From the repo root on Windows:
 
 ```powershell
-.\tools\livereload.ps1
+.\tools\dev.ps1 -Main .\test\testapp\main.go
 ```
 
 On Unix-like systems:
 
 ```bash
-./tools/livereload.sh
+./tools/dev.sh ./test/testapp/main.go
 ```
 
 Or run the Go program directly from this directory.
 
 ## What It Does
 
-- watches `.go` files
+- watches `.go` files under the app root
 - rebuilds wasm output when watched files change
 - serves a browser client with websocket-driven reload notifications
-- can preserve limited app state if the application exports the expected hooks
+- can preserve shared atom state plus compatible component-local hook state and `UseMemo` caches across reloads when the app installs the hot-reload snapshot bridge via `utils.EnableHotReload(true)`
+- requests and forwards reload snapshots on hot builds so the client can restore the previous app state after reload
 
 ## Important Caveat
 

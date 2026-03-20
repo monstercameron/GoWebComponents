@@ -49,6 +49,7 @@ type Node struct {
 	NeedsUpdate       bool
 	EffectCount       int
 	HookCount         int
+	Signature         string
 	CommitDurationNs  int64
 	EffectDurationNs  int64
 	CleanupDurationNs int64
@@ -125,6 +126,16 @@ type Snapshot struct {
 	Profiling   Profiling
 	Diagnostics []Diagnostic
 	Logs        []Log
+}
+
+// SnapshotComparison summarizes how two inspection snapshots differ.
+type SnapshotComparison struct {
+	Equal               bool
+	ChangedSections     []string
+	PreviousFingerprint string
+	CurrentFingerprint  string
+	PreviousSize        int
+	CurrentSize         int
 }
 
 // PanelProps configures the embeddable devtools panel.

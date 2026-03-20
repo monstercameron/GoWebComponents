@@ -74,6 +74,12 @@ type memoizedValue struct {
 	deps  []interface{}
 }
 
+// HotReloadMemoSnapshot stores a memoized computation and its dependencies.
+type HotReloadMemoSnapshot struct {
+	Value interface{}   `json:"value"`
+	Deps  []interface{} `json:"deps,omitempty"`
+}
+
 // callbackValue stores a memoized callback function with its dependencies
 type callbackValue struct {
 	fn   interface{}
@@ -132,18 +138,22 @@ type Hooks struct {
 	funcIndex     int
 	atomIndex     int
 	cleanupIndex  int
+	effectEpoch   int
 
-	states    []interface{} // Interleaved: state, pending, state, pending...
-	deps      [][]interface{}
-	memos     []memoizedValue
-	callbacks []callbackValue
-	refs      []*RefValue        // Store refs separately to persist across renders
-	ids       []string           // Store generated IDs that persist across renders
-	fetches   []fetchValue       // Store fetch states for manual fetch hooks
-	funcs     []funcHandlerValue // Store wrapped event handler functions
-	cleanups  []func()           // Cleanup functions from UseEffect
-	atoms     []string           // Store subscribed atom IDs for efficient cleanup
-	atomFuncs []atomAccessorValue
+	states           []interface{} // Interleaved: state, pending, state, pending...
+	deps             [][]interface{}
+	memos            []memoizedValue
+	callbacks        []callbackValue
+	refs             []*RefValue        // Store refs separately to persist across renders
+	ids              []string           // Store generated IDs that persist across renders
+	fetches          []fetchValue       // Store fetch states for manual fetch hooks
+	funcs            []funcHandlerValue // Store wrapped event handler functions
+	cleanups         []func()           // Cleanup functions from UseEffect
+	effectEpochs     []int
+	atoms            []string // Store subscribed atom IDs for efficient cleanup
+	atomFuncs        []atomAccessorValue
+	signature        []string
+	hotReloadRestore *HotReloadComponentSnapshot
 }
 
 // Attrs is a convenience type for component props.

@@ -25,6 +25,8 @@ type componentMeta struct {
 }
 
 var componentMetaCache sync.Map
+var nativeIDMu sync.Mutex
+var nativeIDCounter int
 
 // Node is the public UI tree node type.
 type Element = runtime.Element
@@ -62,6 +64,41 @@ func (Event) StopPropagation() {}
 type Transition struct {
 	pending func() bool
 	start   func(func())
+}
+
+// State provides access to hook-managed local state.
+type State[T any] struct {
+	get func() T
+	set func(interface{})
+}
+
+// Ref stores a stable mutable reference across renders.
+type Ref[T any] struct {
+	current *T
+}
+
+// Reducer provides access to reducer-style local state transitions.
+type Reducer[S any, A any] struct {
+	get      func() S
+	dispatch func(A)
+}
+
+// Previous exposes the previous committed value for a hook call.
+type Previous[T any] struct {
+	value func() T
+	ok    func() bool
+}
+
+// Debounced returns a delayed view of a value on browser builds; on native builds it is immediate.
+type Debounced[T any] struct {
+	get     func() T
+	pending func() bool
+}
+
+// Throttled returns a trailing-throttled view of a value on browser builds; on native builds it is immediate.
+type Throttled[T any] struct {
+	get     func() T
+	pending func() bool
 }
 
 // Handler stores an event handler value in a form the runtime can consume.
@@ -256,6 +293,199 @@ func (t Transition) Start(fn func()) {
 	if t.start != nil {
 		t.start(fn)
 	}
+}
+
+// UseState creates local component state on non-browser targets.
+func UseState[T any](initialValue T) State[T] {
+	current := initialValue
+	return State[T]{
+		get: func() T { return current },
+		set: func(next interface{}) {
+			if value, ok := next.(T); ok {
+				current = value
+				return
+			}
+			if updater, ok := next.(func(T) T); ok {
+				current = updater(current)
+			}
+		},
+	}
+}
+
+// Get returns the current state value.
+func (s State[T]) Get() T {
+	if s.get == nil {
+		var zero T
+		return zero
+	}
+	return s.get()
+}
+
+// Set replaces the current state value.
+func (s State[T]) Set(value T) {
+	if s.set != nil {
+		s.set(value)
+	}
+}
+
+// Update replaces the state value using the previous value.
+func (s State[T]) Update(fn func(T) T) {
+	if s.set != nil && fn != nil {
+		s.set(fn)
+	}
+}
+
+// UseRef creates a stable mutable reference across renders.
+func UseRef[T any](initialValue T) Ref[T] {
+	return Ref[T]{current: &initialValue}
+}
+
+// Get returns the current ref value.
+func (r Ref[T]) Get() T {
+	if r.current == nil {
+		var zero T
+		return zero
+	}
+	return *r.current
+}
+
+// Set updates the current ref value.
+func (r Ref[T]) Set(value T) {
+	if r.current != nil {
+		*r.current = value
+	}
+}
+
+// UseEffect is a no-op on non-browser targets.
+func UseEffect(effect func() func(), deps ...interface{}) {}
+
+// UseId returns a stable generated identifier for the current component instance.
+func UseId() string {
+	nativeIDMu.Lock()
+	defer nativeIDMu.Unlock()
+	nativeIDCounter++
+	return fmt.Sprintf("gwc-native:%d", nativeIDCounter)
+}
+
+// UseMemo computes value immediately on non-browser targets.
+func UseMemo[T any](compute func() T, deps ...interface{}) T {
+	if compute == nil {
+		var zero T
+		return zero
+	}
+	return compute()
+}
+
+// UseCallback returns fn unchanged on non-browser targets.
+func UseCallback[T any](fn T, deps ...interface{}) T {
+	return fn
+}
+
+// UseReducer returns a lightweight reducer-backed handle on non-browser targets.
+func UseReducer[S any, A any](reducer func(S, A) S, initialState S) Reducer[S, A] {
+	current := initialState
+	return Reducer[S, A]{
+		get: func() S { return current },
+		dispatch: func(action A) {
+			if reducer != nil {
+				current = reducer(current, action)
+			}
+		},
+	}
+}
+
+// Get returns the current reducer state.
+func (r Reducer[S, A]) Get() S {
+	if r.get == nil {
+		var zero S
+		return zero
+	}
+	return r.get()
+}
+
+// Dispatch applies an action to the reducer state.
+func (r Reducer[S, A]) Dispatch(action A) {
+	if r.dispatch != nil {
+		r.dispatch(action)
+	}
+}
+
+// UsePrevious reports no previous value on non-browser targets.
+func UsePrevious[T any](value T) Previous[T] {
+	return Previous[T]{
+		value: func() T {
+			var zero T
+			return zero
+		},
+		ok: func() bool { return false },
+	}
+}
+
+// Get returns the previous committed value or the zero value when unavailable.
+func (p Previous[T]) Get() T {
+	if p.value == nil {
+		var zero T
+		return zero
+	}
+	return p.value()
+}
+
+// Ok reports whether a previous committed value is available.
+func (p Previous[T]) Ok() bool {
+	if p.ok == nil {
+		return false
+	}
+	return p.ok()
+}
+
+// UseDebounced returns the current value unchanged on non-browser targets.
+func UseDebounced[T any](value T, delay time.Duration) Debounced[T] {
+	return Debounced[T]{
+		get:     func() T { return value },
+		pending: func() bool { return false },
+	}
+}
+
+// Get returns the current debounced value.
+func (d Debounced[T]) Get() T {
+	if d.get == nil {
+		var zero T
+		return zero
+	}
+	return d.get()
+}
+
+// Pending reports whether a debounced update is pending.
+func (d Debounced[T]) Pending() bool {
+	if d.pending == nil {
+		return false
+	}
+	return d.pending()
+}
+
+// UseThrottled returns the current value unchanged on non-browser targets.
+func UseThrottled[T any](value T, interval time.Duration) Throttled[T] {
+	return Throttled[T]{
+		get:     func() T { return value },
+		pending: func() bool { return false },
+	}
+}
+
+// Get returns the current throttled value.
+func (t Throttled[T]) Get() T {
+	if t.get == nil {
+		var zero T
+		return zero
+	}
+	return t.get()
+}
+
+// Pending reports whether a throttled update is pending.
+func (t Throttled[T]) Pending() bool {
+	if t.pending == nil {
+		return false
+	}
+	return t.pending()
 }
 
 // UseDeferredValue returns value unchanged on non-browser targets.

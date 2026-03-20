@@ -148,6 +148,8 @@ Operational rules:
 - Validate `.wasm` MIME type, `wasm_exec.js` version match, and asset path rewrites in staging before release.
 - When using a CDN or reverse proxy, verify route rewrites for browser-router deep links and SSR route pass-through separately.
 
+See [DEPLOYMENT_TARGETS.md](DEPLOYMENT_TARGETS.md) for the short deployment-target summary and adapter expectations.
+
 ## What Is Still Open
 
 These items are still deliberately separate backlog work:

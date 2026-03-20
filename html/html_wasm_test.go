@@ -106,6 +106,7 @@ func TestTagBuildersPreservePublicProps(t *testing.T) {
 		Role:         "button",
 		Target:       "_blank",
 		Rel:          "noreferrer",
+		As:           "script",
 		Action:       "/submit",
 		Method:       "post",
 		AutoComplete: "on",
@@ -148,6 +149,7 @@ func TestTagBuildersPreservePublicProps(t *testing.T) {
 		"role":         "button",
 		"target":       "_blank",
 		"rel":          "noreferrer",
+		"as":           "script",
 		"action":       "/submit",
 		"method":       "post",
 		"autocomplete": "on",
@@ -179,6 +181,48 @@ func TestTagBuildersPreservePublicProps(t *testing.T) {
 	}
 	if style, ok := props["style"].(map[string]string); !ok || style["color"] != "red" {
 		t.Fatalf("expected style map to be preserved, got %#v", props["style"])
+	}
+}
+
+func TestResourceHintHelpersCreateLinkElements(t *testing.T) {
+	preload := Preload("/static/bin/browser-interop.wasm", "fetch")
+	if preload == nil {
+		t.Fatal("expected preload element")
+	}
+	if preload.Type != "link" {
+		t.Fatalf("expected link tag, got %#v", preload.Type)
+	}
+	if preload.Props["rel"] != "preload" {
+		t.Fatalf("expected preload rel, got %#v", preload.Props["rel"])
+	}
+	if preload.Props["href"] != "/static/bin/browser-interop.wasm" {
+		t.Fatalf("expected preload href, got %#v", preload.Props["href"])
+	}
+	if preload.Props["as"] != "fetch" {
+		t.Fatalf("expected preload as attribute, got %#v", preload.Props["as"])
+	}
+
+	modulePreload := ModulePreload("/static/modules/browser-interop-lazy-module.js")
+	if modulePreload.Props["rel"] != "modulepreload" {
+		t.Fatalf("expected modulepreload rel, got %#v", modulePreload.Props["rel"])
+	}
+	if modulePreload.Props["as"] != "script" {
+		t.Fatalf("expected modulepreload as script, got %#v", modulePreload.Props["as"])
+	}
+
+	prefetch := Prefetch("/static/modules/next-route.js")
+	if prefetch.Props["rel"] != "prefetch" {
+		t.Fatalf("expected prefetch rel, got %#v", prefetch.Props["rel"])
+	}
+
+	preconnect := Preconnect("https://cdn.example.test")
+	if preconnect.Props["rel"] != "preconnect" {
+		t.Fatalf("expected preconnect rel, got %#v", preconnect.Props["rel"])
+	}
+
+	dns := DNSPrefetch("https://cdn.example.test")
+	if dns.Props["rel"] != "dns-prefetch" {
+		t.Fatalf("expected dns-prefetch rel, got %#v", dns.Props["rel"])
 	}
 }
 

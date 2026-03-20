@@ -215,3 +215,29 @@ func TestSnapshotJSONStorageRoundTrip(t *testing.T) {
 		t.Fatalf("expected restored user atom, got %#v", value)
 	}
 }
+
+func TestUnmarshalSnapshotJSONNormalizesWholeNumbers(t *testing.T) {
+	snapshot, err := UnmarshalSnapshotJSON([]byte(`{"count":1,"ratio":1.5,"nested":{"items":[2,2.5]}}`))
+	if err != nil {
+		t.Fatalf("unexpected unmarshal error: %v", err)
+	}
+
+	count, ok := snapshot["count"].(int)
+	if !ok || count != 1 {
+		t.Fatalf("expected whole number to normalize to int, got %#v", snapshot["count"])
+	}
+
+	ratio, ok := snapshot["ratio"].(float64)
+	if !ok || ratio != 1.5 {
+		t.Fatalf("expected non-whole number to remain float64, got %#v", snapshot["ratio"])
+	}
+
+	nested := snapshot["nested"].(map[string]interface{})
+	items := nested["items"].([]interface{})
+	if first, ok := items[0].(int); !ok || first != 2 {
+		t.Fatalf("expected nested whole number to normalize to int, got %#v", items[0])
+	}
+	if second, ok := items[1].(float64); !ok || second != 2.5 {
+		t.Fatalf("expected nested non-whole number to remain float64, got %#v", items[1])
+	}
+}

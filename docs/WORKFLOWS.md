@@ -146,6 +146,7 @@ Production caveats:
 - Serve `.wasm` with the correct MIME type.
 - Validate cache behavior for generated assets and rollout timing for updated binaries.
 - Keep hashed asset lookup, HTML emission, and preload hints behind one manifest-driven convention instead of scattering emitted filenames through templates.
+- If the app uses route or component splitting, keep chunk naming and discovery in the same manifest-driven pipeline; see [CODE_SPLITTING.md](CODE_SPLITTING.md) and [ASSETS.md](ASSETS.md).
 
 Testing and validation:
 

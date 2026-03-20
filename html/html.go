@@ -24,6 +24,7 @@ type Props struct {
 	Role         string
 	Target       string
 	Rel          string
+	As           string
 	Action       string
 	Method       string
 	EncType      string
@@ -78,6 +79,11 @@ func Text(content string) ui.Node {
 // Tag creates a node for an arbitrary HTML tag name.
 func Tag(name string, props Props, children ...ui.Node) ui.Node {
 	return runtime.CreateElement(name, toRuntimeProps(props), toInterfaces(children)...)
+}
+
+// Link creates a typed link element.
+func Link(props Props) ui.Node {
+	return Tag("link", props)
 }
 
 // CustomElement creates a browser-defined custom element with explicit
@@ -226,6 +232,26 @@ func Nav(props Props, children ...ui.Node) ui.Node {
 	return Tag("nav", props, children...)
 }
 
+func Preload(href, as string) ui.Node {
+	return Link(Props{Rel: "preload", Href: href, As: as})
+}
+
+func ModulePreload(href string) ui.Node {
+	return Link(Props{Rel: "modulepreload", Href: href, As: "script"})
+}
+
+func Prefetch(href string) ui.Node {
+	return Link(Props{Rel: "prefetch", Href: href})
+}
+
+func Preconnect(href string) ui.Node {
+	return Link(Props{Rel: "preconnect", Href: href})
+}
+
+func DNSPrefetch(href string) ui.Node {
+	return Link(Props{Rel: "dns-prefetch", Href: href})
+}
+
 func Option(props Props, children ...ui.Node) ui.Node {
 	return Tag("option", props, children...)
 }
@@ -330,6 +356,9 @@ func toRuntimeProps(props Props) map[string]interface{} {
 		count++
 	}
 	if props.Rel != "" {
+		count++
+	}
+	if props.As != "" {
 		count++
 	}
 	if props.Action != "" {
@@ -466,6 +495,9 @@ func toRuntimeProps(props Props) map[string]interface{} {
 	}
 	if props.Rel != "" {
 		values["rel"] = props.Rel
+	}
+	if props.As != "" {
+		values["as"] = props.As
 	}
 	if props.Action != "" {
 		values["action"] = props.Action

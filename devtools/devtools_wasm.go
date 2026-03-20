@@ -435,6 +435,14 @@ func renderNode(node Node, depth int, maxDepth int) ui.Node {
 		),
 	}
 
+	if strings.TrimSpace(node.Signature) != "" {
+		children = append(children, html.Small(html.Props{Style: map[string]string{
+			"display":    "block",
+			"margin-top": "4px",
+			"color":      "#cbd5e1",
+		}}, html.Text("signature: "+node.Signature)))
+	}
+
 	if len(node.Hooks) > 0 {
 		hookNodes := make([]ui.Node, 0, len(node.Hooks))
 		for _, hook := range node.Hooks {
@@ -490,11 +498,15 @@ func mapNode(node *runtime.FiberSnapshot) *Node {
 		NeedsUpdate:       node.NeedsUpdate,
 		EffectCount:       node.EffectCount,
 		HookCount:         node.HookCount,
+		Signature:         "",
 		CommitDurationNs:  node.CommitDurationNs,
 		EffectDurationNs:  node.EffectDurationNs,
 		CleanupDurationNs: node.CleanupDurationNs,
 		SelfDurationNs:    node.SelfDurationNs,
 		SubtreeDurationNs: node.SubtreeDurationNs,
+	}
+	if node.Signature != nil {
+		mapped.Signature = node.Signature.Summary()
 	}
 	for _, hook := range node.Hooks {
 		mapped.Hooks = append(mapped.Hooks, Hook{Kind: hook.Kind, Value: hook.Value})

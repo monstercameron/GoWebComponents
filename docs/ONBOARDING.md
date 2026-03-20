@@ -18,6 +18,8 @@ The intended starting path is:
 
 Until first-party starter apps exist, the repo examples are the official bootstrap reference points rather than disposable toys.
 
+The current production-shaped reference app is `examples/86-atlas-commerce-os`, which demonstrates the integrated SSR, hydration, routing, forms, state, devtools, and deployment shape for a larger app.
+
 ## Environment Prerequisites And Platform Expectations
 
 The intended prerequisite baseline is:

@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
@@ -67,8 +68,11 @@ func UseState[T any](initialValue T) (func() T, func(interface{})) {
 	return runtime.GoUseStateGlobal(initialValue)
 }
 func UseEffect(effect func() func(), deps ...interface{}) { runtime.GoUseEffectGlobal(effect, deps...) }
-func UseMemo(compute func() interface{}, deps ...interface{}) interface{} {
-	return runtime.GoUseMemoGlobal(compute, deps...)
+func UseMemo[T any](compute func() T, deps ...interface{}) T {
+	value := runtime.GoUseMemoGlobalTyped(func() interface{} {
+		return compute()
+	}, reflect.TypeOf((*T)(nil)).Elem(), deps...)
+	return value.(T)
 }
 func UseId() string                        { return runtime.GoUseIdGlobal() }
 func GoUseFunc(fn interface{}) interface{} { return runtime.GoUseFunc(fn) }

@@ -466,7 +466,7 @@ func submitPublicComment(slug string, input publicCommentFormState, csrfToken st
 		Body: body,
 	})
 	if strings.TrimSpace(result.Error) != "" {
-		return commentRecord{}, ui.ServerFormErrors{}, fmt.Errorf(result.Error)
+		return commentRecord{}, ui.ServerFormErrors{}, fmt.Errorf("%s", result.Error)
 	}
 	if result.Status >= 200 && result.Status < 300 {
 		var created commentRecord

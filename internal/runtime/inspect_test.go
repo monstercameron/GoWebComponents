@@ -43,12 +43,14 @@ func TestRuntimeInspectCapturesTreeStatsAndHooks(t *testing.T) {
 		lastCommitDurationNs: 900_000,
 	}
 	childHooks := &Hooks{
-		states: []interface{}{42, 42},
-		memos:  []memoizedValue{{value: "memoized"}},
-		ids:    []string{"node-1"},
+		states:    []interface{}{42, 42},
+		memos:     []memoizedValue{{value: "memoized"}},
+		ids:       []string{"node-1"},
+		signature: []string{"state", "memo", "id"},
 	}
 	child := &Fiber{
-		typeOf:  func() {},
+		typeOf:  testSignatureComponent,
+		props:   map[string]interface{}{"key": "hero"},
 		dirty:   true,
 		hooks:   childHooks,
 		effects: []Effect{{}},
@@ -95,6 +97,57 @@ func TestRuntimeInspectCapturesTreeStatsAndHooks(t *testing.T) {
 	if component.HookCount < 3 {
 		t.Fatalf("expected hook inspection entries, got %d", component.HookCount)
 	}
+	if component.Signature == nil {
+		t.Fatal("expected component signature")
+	}
+	if component.Signature.Name != "testSignatureComponent" {
+		t.Fatalf("expected component name to round-trip, got %q", component.Signature.Name)
+	}
+	if component.Signature.Key != "hero" {
+		t.Fatalf("expected component key to round-trip, got %q", component.Signature.Key)
+	}
+	if len(component.Signature.HookKinds) != 3 || component.Signature.HookKinds[0] != "state" || component.Signature.HookKinds[2] != "id" {
+		t.Fatalf("expected hook order to be preserved, got %+v", component.Signature.HookKinds)
+	}
+	if !component.Signature.CompatibleWith(*component.Signature) {
+		t.Fatal("expected signature to be compatible with itself")
+	}
+}
+
+func TestComponentSignatureCompatibilityUsesIdentityAndHookOrder(t *testing.T) {
+	base := ComponentSignature{
+		Kind:          "component",
+		Name:          "Counter",
+		QualifiedName: "github.com/example.Counter",
+		Key:           "primary",
+		HookKinds:     []string{"state", "effect", "id"},
+	}
+
+	compatible := ComponentSignature{
+		Kind:          "component",
+		Name:          "Counter",
+		QualifiedName: "github.com/example.Counter",
+		Key:           "primary",
+		HookKinds:     []string{"state", "effect", "id"},
+	}
+	if !base.CompatibleWith(compatible) {
+		t.Fatal("expected matching signature to be compatible")
+	}
+
+	incompatible := ComponentSignature{
+		Kind:          "component",
+		Name:          "Counter",
+		QualifiedName: "github.com/example.Counter",
+		Key:           "primary",
+		HookKinds:     []string{"state", "id", "effect"},
+	}
+	if base.CompatibleWith(incompatible) {
+		t.Fatal("expected reordered hooks to be incompatible")
+	}
+}
+
+func testSignatureComponent() *Element {
+	return nil
 }
 
 func TestRuntimeInspectCollectsHotBranchesAndTiming(t *testing.T) {

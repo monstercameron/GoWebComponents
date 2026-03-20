@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"syscall/js"
 
+	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/state"
+	"github.com/monstercameron/GoWebComponents/utils"
 )
 
 // Counter is a reusable component for testing component reuse
@@ -225,11 +227,31 @@ func HelloWorld(props Attrs) *Element {
 	}, count())
 
 	// UseMemo to compute expensive value (for testing)
-	doubledCount := UseMemo(func() interface{} {
+	doubledCount := UseMemo(func() int {
 		result := count() * 2
 		fmt.Printf("UseMemo computing: count=%d\n", count())
 		return result
-	}, count()).(int)
+	}, count())
+
+	memoReloadCount := UseMemo(func() int {
+		global, err := interop.GlobalThis()
+		if err != nil {
+			return 1
+		}
+		runs := 0
+		if value := global.Get("__memoReloadRuns"); value.Present() {
+			runs = value.Int()
+		}
+		runs++
+		global.Set("__memoReloadRuns", runs)
+		return runs
+	}, "memo-reload-boundary")
+	memoReloadRuns := 0
+	if global, err := interop.GlobalThis(); err == nil {
+		if value := global.Get("__memoReloadRuns"); value.Present() {
+			memoReloadRuns = value.Int()
+		}
+	}
 
 	// cleanup-status will be updated by child effect directly via Document API
 
@@ -268,6 +290,12 @@ func HelloWorld(props Attrs) *Element {
 		),
 		P(Attrs{"class": "mb-4", "id": "doubled", "style": "font-weight: bold;"},
 			Text(fmt.Sprintf("Doubled: %d", doubledCount)),
+		),
+		P(Attrs{"class": "mb-4", "id": "memo-value"},
+			Text(fmt.Sprintf("Memo Value: %d", memoReloadCount)),
+		),
+		P(Attrs{"class": "mb-4", "id": "memo-runs"},
+			Text(fmt.Sprintf("Memo Runs: %d", memoReloadRuns)),
 		),
 		Button(Attrs{
 			"onclick":    increment,
@@ -457,9 +485,7 @@ func UseFetchTestComponent(props Attrs) *Element {
 
 func main() {
 	fmt.Println("🚀 GoWebComponents WASM initialized")
-
-	// Debug: Verify main is running by updating DOM directly
-	js.Global().Get("document").Call("getElementById", "app").Set("innerHTML", "<div style='color: green'>Main Started</div>")
+	utils.EnableHotReload(true)
 
 	// Create root element that will call HelloWorld during render
 	app := &Element{

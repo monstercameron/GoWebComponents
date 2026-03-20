@@ -5,9 +5,11 @@
     let ws;
     let reconnectTimer = null;
     const reconnectDelay = 5000; // 5 seconds
+    const stateStorageKey = 'gwc:livereload:state';
     
     // State storage in memory
     let storedState = null;
+    let lastHotReloadFailure = null;
     
     // Live reload status tracking
     let wsStatus = 'disconnected';
@@ -33,13 +35,14 @@
         },
         
         importState: function(state) {
-            if (!state) return;
+            const payload = normalizeStatePayload(state);
+            if (!payload) return;
             
             // Try to import WASM app state if available
             if (window.importAppState && typeof window.importAppState === 'function') {
                 try {
                     // console.log('🔄 GoLiveReload: Importing WASM state:', state);
-                    window.importAppState(state);
+                    window.importAppState(payload);
                 } catch (e) {
                     console.warn('🚨 Failed to import WASM state:', e);
                 }
@@ -47,11 +50,30 @@
         },
         
         storeState: function(state) {
-            storedState = state;
+            const payload = normalizeStatePayload(state);
+            if (!payload) return;
+
+            storedState = payload;
+            try {
+                sessionStorage.setItem(stateStorageKey, payload);
+            } catch (e) {
+                console.warn('Failed to persist hot reload state:', e);
+            }
             // console.log('💾 GoLiveReload: State stored in memory:', state);
         },
         
         getStoredState: function() {
+            if (storedState) return storedState;
+
+            try {
+                const saved = sessionStorage.getItem(stateStorageKey);
+                if (saved) {
+                    storedState = saved;
+                    return saved;
+                }
+            } catch (e) {
+                console.warn('Failed to read persisted hot reload state:', e);
+            }
             // console.log('📥 GoLiveReload: Retrieved stored state:', storedState);
             return storedState;
         },
@@ -59,12 +81,37 @@
         clearStoredState: function() {
             // console.log('🧹 GoLiveReload: Cleared stored state');
             storedState = null;
+            try {
+                sessionStorage.removeItem(stateStorageKey);
+            } catch (e) {
+                console.warn('Failed to clear persisted hot reload state:', e);
+            }
         },
         
         onReload: function(callback) {
             document.addEventListener('beforeunload', callback);
+        },
+
+        getLastHotReloadFailure: function() {
+            return lastHotReloadFailure;
+        },
+
+        triggerHotReload: function(snapshotOverride) {
+            performHotReload(snapshotOverride);
         }
     };
+
+    function normalizeStatePayload(state) {
+        if (state == null) return null;
+        if (typeof state === 'string') return state;
+
+        try {
+            return JSON.stringify(state);
+        } catch (e) {
+            console.warn('Failed to serialize hot reload state:', e);
+            return null;
+        }
+    }
     
     function connect() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -144,9 +191,9 @@
                     showBuildStatusPopup('Build successful', 'success');
                     
                     if (reloadType === 'hot') {
-                        performHotReload();
+                        performHotReload(message.payload.stateSnapshot);
                     } else {
-                        performFullReload();
+                        performFullReload(message.payload.stateSnapshot);
                     }
                 } else {
                     lastBuildStatus = {
@@ -187,6 +234,14 @@
             case 'hot_reload':
                 performHotReload();
                 break;
+
+            case 'state_export':
+                sendStateSnapshotToServer();
+                break;
+
+            case 'state_import':
+                window.GoLiveReload.importState(message.payload);
+                break;
                 
             case 'debounce_status':
                 handleDebounceStatus(message.payload);
@@ -222,41 +277,42 @@
         }
     }
     
-    function performHotReload() {
+    function performHotReload(snapshotOverride) {
         // console.log('🔥 Attempting hot reload...');
         
         // Export and store current state before reload
-        const currentState = window.GoLiveReload.exportState();
+        const currentState = preserveStateForReload(snapshotOverride);
         if (currentState) {
-            window.GoLiveReload.storeState(currentState);
             // console.log('💾 State saved for hot reload');
         }
         
         // Try hot reload with WASM module replacement
         setTimeout(() => {
             try {
+                if (window.prepareAppHotReload && typeof window.prepareAppHotReload === 'function') {
+                    window.prepareAppHotReload();
+                }
+
                 if (window.hotReloadWasm && typeof window.hotReloadWasm === 'function') {
                     // console.log('🔥 Calling WASM hot reload function');
                     window.hotReloadWasm();
-                } else {
-                    // console.log('⚠️ WASM hot reload not available, trying manual reload');
-                    // Try to reload just the WASM module
-                    reloadWasmModule();
                 }
             } catch (e) {
-                // console.warn('🚨 Hot reload failed, falling back to full page reload:', e);
-                performFullReload();
+                console.warn('Hot reload hook failed, continuing with module reload:', e);
             }
+
+            reloadWasmModule(function(reason, error) {
+                recoverFromHotReloadFailure(reason, error, currentState);
+            });
         }, 100);
     }
     
-    function performFullReload() {
+    function performFullReload(snapshotOverride) {
         // console.log('🔄 Performing full page reload...');
         
         // Export and store current state before reload
-        const currentState = window.GoLiveReload.exportState();
+        const currentState = preserveStateForReload(snapshotOverride);
         if (currentState) {
-            window.GoLiveReload.storeState(currentState);
             // console.log('💾 State saved for full reload');
         }
         
@@ -265,13 +321,54 @@
             location.reload();
         }, 100);
     }
+
+    function preserveStateForReload(snapshotOverride) {
+        const currentState = normalizeStatePayload(snapshotOverride) || window.GoLiveReload.exportState();
+        if (currentState) {
+            window.GoLiveReload.storeState(currentState);
+        }
+        return currentState;
+    }
     
-    function reloadWasmModule() {
+    function recoverFromHotReloadFailure(reason, error, rollbackState) {
+        lastHotReloadFailure = {
+            reason: reason,
+            message: error && error.message ? error.message : String(error || 'unknown error'),
+            timestamp: Date.now()
+        };
+
+        if (rollbackState) {
+            window.GoLiveReload.storeState(rollbackState);
+        }
+
+        console.warn('Hot reload failed, falling back to a full reload:', lastHotReloadFailure);
+        showBuildStatusPopup('Hot reload failed, restoring state', 'error');
+        performFullReload(rollbackState);
+    }
+
+    function sendStateSnapshotToServer() {
+        if (!ws || ws.readyState !== 1) {
+            return;
+        }
+
+        const snapshot = window.GoLiveReload.exportState();
+        if (!snapshot) {
+            return;
+        }
+
+        try {
+            ws.send(JSON.stringify({
+                type: 'state_snapshot',
+                payload: snapshot
+            }));
+        } catch (e) {
+            console.warn('Failed to send hot reload state snapshot:', e);
+        }
+    }
+    
+    function reloadWasmModule(onFailure) {
         // console.log('🔄 Attempting WASM module reload...');
-        
-        // Clean up DOM before reloading WASM
-        cleanupDOMContainers();
-        
+
         // Try to find and reload the WASM script
         const wasmScript = document.querySelector('script[src*="wasm_exec.js"]');
         if (wasmScript) {
@@ -290,15 +387,27 @@
                         })
                         .catch((e) => {
                             // console.warn('🚨 WASM module reload failed:', e);
+                            if (typeof onFailure === 'function') {
+                                onFailure('WASM module instantiation failed', e);
+                                return;
+                            }
                             performFullReload();
                         });
                 } else {
                     // console.warn('⚠️ Go WASM runtime not available');
+                    if (typeof onFailure === 'function') {
+                        onFailure('Go WASM runtime unavailable');
+                        return;
+                    }
                     performFullReload();
                 }
             };
             newScript.onerror = function() {
                 // console.warn('🚨 WASM script reload failed');
+                if (typeof onFailure === 'function') {
+                    onFailure('WASM script reload failed');
+                    return;
+                }
                 performFullReload();
             };
             
@@ -306,6 +415,10 @@
             wasmScript.parentNode.replaceChild(newScript, wasmScript);
         } else {
             // console.warn('⚠️ WASM script not found, falling back to full reload');
+            if (typeof onFailure === 'function') {
+                onFailure('WASM script not found');
+                return;
+            }
             performFullReload();
         }
     }
@@ -467,21 +580,39 @@
         }
     }
     
+    function restoreStateWhenReady(deadlineMs) {
+        const savedState = window.GoLiveReload.getStoredState();
+        if (!savedState) {
+            return;
+        }
+
+        if (typeof window.importAppState === 'function') {
+            try {
+                // console.log('🔄 Restoring state after page load...');
+                window.GoLiveReload.importState(savedState);
+                window.GoLiveReload.clearStoredState();
+            } catch (e) {
+                // console.warn('🚨 Failed to restore state:', e);
+            }
+            return;
+        }
+
+        if (Date.now() < deadlineMs) {
+            setTimeout(() => restoreStateWhenReady(deadlineMs), 100);
+        }
+    }
+
     // Restore state on page load
     document.addEventListener('DOMContentLoaded', function() {
-        // Delay state restoration to ensure WASM is loaded
-        setTimeout(() => {
-            const savedState = window.GoLiveReload.getStoredState();
-            if (savedState) {
-                try {
-                    // console.log('🔄 Restoring state after page load...');
-                    window.GoLiveReload.importState(savedState);
-                    window.GoLiveReload.clearStoredState();
-                } catch (e) {
-                    // console.warn('🚨 Failed to restore state:', e);
-                }
-            }
-        }, 1000);
+        const deadlineMs = Date.now() + 15000;
+        setTimeout(() => restoreStateWhenReady(deadlineMs), 1000);
+    });
+
+    window.addEventListener('beforeunload', function() {
+        const currentState = window.GoLiveReload.exportState();
+        if (currentState) {
+            window.GoLiveReload.storeState(currentState);
+        }
     });
     
     // Add CSS animation for pulse effect
@@ -564,7 +695,10 @@
             icon.style.borderColor = '#374151';
         };
         
-        document.body.appendChild(icon);
+        const mountTarget = document.body || document.documentElement;
+        if (mountTarget) {
+            mountTarget.appendChild(icon);
+        }
         updateGWCIcon();
     }
     

@@ -78,6 +78,8 @@ func MyComponent(props dom.Attrs) *dom.Element {
 
 In production builds (with `-tags production`), these functions become no-ops for zero overhead:
 
+Hot reload is also disabled in production builds; `utils.EnableHotReload(true)` does nothing when the `production` tag is present.
+
 ```bash
 GOOS=js GOARCH=wasm go build -tags production -o main.wasm
 ```

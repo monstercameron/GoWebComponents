@@ -179,7 +179,7 @@ Standalone Atlas SSR URLs:
 
 ### interop Package
 
-- `90-browser-interop`: Save and reload the draft, resize the page, and dispatch a pulse. Expected: storage round-trips through `interop.LocalStorage()` and `storage.GetMany(...)`, the panel measurement and color-scheme state update through interop observers, the typed custom event updates the status panel, and clipboard actions either succeed or report a structured browser denial instead of failing silently.
+- `90-browser-interop`: Save and reload the draft, resize the page, dispatch a pulse, and load the lazy module. Expected: storage round-trips through `interop.LocalStorage()` and `storage.GetMany(...)`, the panel measurement and color-scheme state update through interop observers, the typed custom event updates the status panel, clipboard actions either succeed or report a structured browser denial instead of failing silently, and the lazy module loader resolves the static helper bridge and renders its exported strings.
 - `91-worker-text-index`: Run the index build, then cancel and rerun it with a different query. Expected: the page stays responsive while the worker reports progress, top-term stats update from the worker result, and cancellation stops the in-flight job without freezing the UI.
 - `95-multi-window-console`: Open the popup, send the session and route actions, then close either surface unexpectedly. Expected: the popup receives typed session, route, selection, and intent updates from the opener; popup-originated signals update the opener when sent back; and if either side disappears the remaining surface reports an explicit orphaned or disconnected state instead of silently assuming the channel still exists.
 

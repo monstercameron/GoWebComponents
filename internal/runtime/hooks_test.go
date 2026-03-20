@@ -189,6 +189,70 @@ func TestGoUseEffect_SkipsOnSameDeps(t *testing.T) {
 	}
 }
 
+func TestGoUseEffect_RerunsAfterHotRefresh(t *testing.T) {
+	rt := &Runtime{}
+	fiber := &Fiber{
+		typeOf: "test",
+		props:  make(map[string]interface{}),
+	}
+	SetCurrentFiber(fiber)
+	defer SetCurrentFiber(nil)
+
+	runCount := 0
+	cleanupCount := 0
+
+	GoUseEffect(func() func() {
+		runCount++
+		return func() {
+			cleanupCount++
+		}
+	}, "dep")
+
+	if len(fiber.effects) != 1 {
+		t.Fatalf("expected 1 queued effect, got %d", len(fiber.effects))
+	}
+
+	firstCleanup := fiber.effects[0].Fn()
+	if firstCleanup == nil {
+		t.Fatal("expected first effect to return a cleanup")
+	}
+	if runCount != 1 {
+		t.Fatalf("expected first effect to run once, got %d", runCount)
+	}
+	fiber.hooks.cleanups[0] = firstCleanup
+	fiber.effects = nil
+	fiber.hooks.index = 0
+	fiber.hooks.depIndex = 0
+	fiber.hooks.cleanupIndex = 0
+
+	rt.RefreshEffectsForFiber(fiber)
+	if cleanupCount != 1 {
+		t.Fatalf("expected hot refresh to run cleanup once, got %d", cleanupCount)
+	}
+
+	GoUseEffect(func() func() {
+		runCount++
+		return func() {
+			cleanupCount++
+		}
+	}, "dep")
+
+	if len(fiber.effects) != 1 {
+		t.Fatalf("expected effect to rerun after hot refresh, got %d queued effects", len(fiber.effects))
+	}
+	if runCount != 1 {
+		t.Fatalf("expected effect body to remain deferred until commit, got runCount=%d", runCount)
+	}
+
+	secondCleanup := fiber.effects[0].Fn()
+	if secondCleanup == nil {
+		t.Fatal("expected rerun effect to return a cleanup")
+	}
+	if runCount != 2 {
+		t.Fatalf("expected effect body to run again after refresh, got %d", runCount)
+	}
+}
+
 func TestGoUseMemo_ComputesOnce(t *testing.T) {
 	fiber := &Fiber{
 		typeOf: "test",

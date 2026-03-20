@@ -64,6 +64,7 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 		fiber.hooks.owner = fiber
 	}
 
+	recordHookSignature(fiber.hooks, "state")
 	fiber.hooks.index++
 
 	stateIdx := fiber.hooks.stateIndex
@@ -84,8 +85,14 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 		}
 
 		// Initialize new slots
-		fiber.hooks.states[stateIdx*2] = initialValue
-		fiber.hooks.states[stateIdx*2+1] = initialValue
+		restoredValue, ok := fiber.hooks.restoreStateValue(stateIdx)
+		if !ok {
+			restoredValue = initialValue
+		} else if coerced, ok := coerceHotReloadValue(restoredValue, reflect.TypeOf(initialValue)); ok {
+			restoredValue = coerced
+		}
+		fiber.hooks.states[stateIdx*2] = restoredValue
+		fiber.hooks.states[stateIdx*2+1] = restoredValue
 	}
 
 	hooks := fiber.hooks
@@ -164,6 +171,7 @@ func GoUseEffect(effect func() func(), deps ...interface{}) {
 	}
 
 	hooks := fiber.hooks
+	recordHookSignature(hooks, "effect")
 	hooks.index++
 
 	depIdx := hooks.depIndex
@@ -193,6 +201,16 @@ func GoUseEffect(effect func() func(), deps ...interface{}) {
 			hooks.cleanups = newCleanups
 		}
 	}
+	if len(hooks.effectEpochs) <= cleanupIdx {
+		needed := cleanupIdx + 1
+		if needed <= cap(hooks.effectEpochs) {
+			hooks.effectEpochs = hooks.effectEpochs[:needed]
+		} else {
+			newEpochs := make([]int, needed, needed*2)
+			copy(newEpochs, hooks.effectEpochs)
+			hooks.effectEpochs = newEpochs
+		}
+	}
 
 	shouldRun := false
 	if hooks.deps[depIdx] == nil {
@@ -202,7 +220,7 @@ func GoUseEffect(effect func() func(), deps ...interface{}) {
 	} else {
 		// Check if deps changed
 		prevDeps := hooks.deps[depIdx]
-		if len(deps) == 0 || !areDepsEqual(prevDeps, deps) {
+		if len(deps) == 0 || !areDepsEqual(prevDeps, deps) || hooks.effectEpochs[cleanupIdx] != hooks.effectEpoch {
 			hooks.deps[depIdx] = deps
 			shouldRun = true
 		}
@@ -229,11 +247,16 @@ func GoUseEffect(effect func() func(), deps ...interface{}) {
 			Fn:           effect,
 			CleanupIndex: cleanupIdx,
 		})
+		hooks.effectEpochs[cleanupIdx] = hooks.effectEpoch
 	}
 }
 
 // GoUseMemo memoizes expensive computations
 func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
+	return goUseMemo(compute, nil, deps...)
+}
+
+func goUseMemo(compute func() interface{}, targetType reflect.Type, deps ...interface{}) interface{} {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
 		ReportDiagnostic("runtime", DiagnosticError, "GoUseMemo called outside component context")
@@ -247,6 +270,7 @@ func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 	}
 
 	hooks := fiber.hooks
+	recordHookSignature(hooks, "memo")
 	hooks.index++
 
 	memoIdx := hooks.memoIndex
@@ -266,6 +290,15 @@ func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 
 	memo := &hooks.memos[memoIdx]
 
+	if memo.deps == nil {
+		if restoredValue, restoredDeps, ok := hooks.restoreMemoValue(memoIdx); ok {
+			if coerced, ok := coerceHotReloadValue(restoredValue, targetType); ok {
+				memo.value = coerced
+				memo.deps = restoredDeps
+			}
+		}
+	}
+
 	// Check if we need to recompute: only if deps changed (or this is the first render and memo.deps is uninitialized)
 	// First render: memo.deps will be nil, so we need to initialize it
 	// Subsequent renders: check if deps changed
@@ -275,6 +308,12 @@ func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 	}
 
 	return memo.value
+}
+
+// GoUseMemoTyped memoizes expensive computations and coerces restored hot reload
+// values to the caller's expected type when possible.
+func GoUseMemoTyped(compute func() interface{}, targetType reflect.Type, deps ...interface{}) interface{} {
+	return goUseMemo(compute, targetType, deps...)
 }
 
 // GoUseCallback memoizes a callback function with dependency tracking
@@ -292,6 +331,7 @@ func GoUseCallback(fn interface{}, deps ...interface{}) interface{} {
 	}
 
 	hooks := fiber.hooks
+	recordHookSignature(hooks, "callback")
 	hooks.index++
 
 	callbackIdx := hooks.callbackIndex
@@ -337,6 +377,7 @@ func GoUseRef(initialValue interface{}) *RefValue {
 	}
 
 	hooks := fiber.hooks
+	recordHookSignature(hooks, "ref")
 	hooks.index++
 
 	refIdx := hooks.refIndex
@@ -356,7 +397,11 @@ func GoUseRef(initialValue interface{}) *RefValue {
 
 	// If ref is nil (first render), create it with initial value
 	if hooks.refs[refIdx] == nil {
-		hooks.refs[refIdx] = &RefValue{Current: initialValue}
+		restoredValue, ok := hooks.restoreRefValue(refIdx)
+		if !ok {
+			restoredValue = initialValue
+		}
+		hooks.refs[refIdx] = &RefValue{Current: restoredValue}
 	}
 
 	return hooks.refs[refIdx]
@@ -380,6 +425,7 @@ func GoUseId() string {
 
 	hooks := fiber.hooks
 	position := hooks.index
+	recordHookSignature(hooks, "id")
 	hooks.index++
 
 	idIdx := hooks.idIndex
@@ -396,17 +442,21 @@ func GoUseId() string {
 			hooks.ids = newIds
 		}
 
-		// Generate a new unique ID
-		// On first render, create a new ID using fiber's component ID counter
-		rt := GetGlobalRuntime()
-		rt.idCounterMu.Lock()
-		rt.idCounter++
-		id := rt.idCounter
-		rt.idCounterMu.Unlock()
+		if restoredID, ok := hooks.restoreIDValue(idIdx); ok {
+			hooks.ids[idIdx] = restoredID
+		} else {
+			// Generate a new unique ID
+			// On first render, create a new ID using fiber's component ID counter
+			rt := GetGlobalRuntime()
+			rt.idCounterMu.Lock()
+			rt.idCounter++
+			id := rt.idCounter
+			rt.idCounterMu.Unlock()
 
-		// Create ID in format: "gwc:<global-id>:<hook-position>"
-		// This ensures uniqueness and stability across renders
-		hooks.ids[idIdx] = fmt.Sprintf("gwc:%d:%d", id, position)
+			// Create ID in format: "gwc:<global-id>:<hook-position>"
+			// This ensures uniqueness and stability across renders
+			hooks.ids[idIdx] = fmt.Sprintf("gwc:%d:%d", id, position)
+		}
 	}
 
 	return hooks.ids[idIdx]
@@ -428,6 +478,7 @@ func GoUseFunc(fn interface{}) interface{} {
 	}
 
 	hooks := fiber.hooks
+	recordHookSignature(hooks, "func")
 	hooks.index++
 
 	funcIdx := hooks.funcIndex

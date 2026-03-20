@@ -65,6 +65,22 @@ func InspectorSummary() ui.Node {
 }
 ```
 
+### Export And Compare Snapshots
+
+Use the helper functions when you want to save or diff inspection state during
+hot-reload or optimization work:
+
+```go
+before := devtools.SnapshotNow()
+// ... change something ...
+after := devtools.SnapshotNow()
+
+payload, _ := devtools.ExportSnapshotJSON(after)
+comparison, _ := devtools.CompareSnapshots(before, after)
+fmt.Println(string(payload))
+fmt.Println(comparison.ChangedSections)
+```
+
 ## What the Panel Shows
 
 - Current route path, query params, route params, and route loader pending state

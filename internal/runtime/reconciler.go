@@ -890,66 +890,11 @@ func (rt *Runtime) performUnitOfWork(fiber *Fiber) *Fiber {
 			rt.renderBoundaryChildren(fiber)
 
 		default:
-			// Function component
 			fiber.childHydration = fiber.hydration
-			currentFiber = fiber
-			// Preserve hooks from alternate fiber or initialize new hooks
-			if fiber.alternate != nil && fiber.alternate.hooks != nil {
-				// Reuse the hooks struct to avoid allocations and preserve closures
-				fiber.hooks = fiber.alternate.hooks
-				fiber.hooks.owner = fiber
-
-				// Prepare for new render
-				fiber.hooks.index = 0
-				fiber.hooks.stateIndex = 0
-				fiber.hooks.depIndex = 0
-				fiber.hooks.memoIndex = 0
-				fiber.hooks.callbackIndex = 0
-				fiber.hooks.refIndex = 0
-				fiber.hooks.idIndex = 0
-				fiber.hooks.fetchIndex = 0
-				fiber.hooks.funcIndex = 0
-				fiber.hooks.atomIndex = 0
-				fiber.hooks.cleanupIndex = 0
-			} else {
-				// Initialize hooks for first render
-				fiber.hooks = &Hooks{owner: fiber}
-			}
-
-			// Clear effects
-			if fiber.effects != nil {
-				fiber.effects = fiber.effects[:0]
-			} else {
-				fiber.effects = make([]Effect, 0)
-			}
-			var element *Element
-			var handledPanic bool
-			var nextFromBoundary *Fiber
-			func() {
-				defer func() {
-					if recovered := recover(); recovered != nil {
-						var handled bool
-						nextFromBoundary, handled = rt.recoverBoundaryError(fiber.parent, recovered, boundaryPhaseRender)
-						if !handled {
-							panic(recovered)
-						}
-						handledPanic = true
-					}
-				}()
-
-				if fn, ok := fiber.typeOf.(func() *Element); ok {
-					element = fn()
-				} else if fn, ok := fiber.typeOf.(func(map[string]interface{}) *Element); ok {
-					element = fn(fiber.props)
-				} else if fn, ok := fiber.typeOf.(func(Attrs) *Element); ok {
-					element = fn(Attrs(fiber.props))
-				}
-			}()
-
+			element, handledPanic, nextFromBoundary := rt.renderFunctionComponent(fiber)
 			if handledPanic {
 				return nextFromBoundary
 			}
-
 			if element != nil {
 				children := [1]interface{}{element}
 				rt.reconcileChildren(fiber, children[:])
@@ -1497,7 +1442,7 @@ func (rt *Runtime) runCleanups(fiber *Fiber) {
 
 	// Run this fiber's cleanups
 	if fiber.hooks != nil {
-		for _, cleanup := range fiber.hooks.cleanups {
+		for index, cleanup := range fiber.hooks.cleanups {
 			if cleanup != nil {
 				start := time.Now()
 				var handled bool
@@ -1517,6 +1462,7 @@ func (rt *Runtime) runCleanups(fiber *Fiber) {
 				rt.profiling.cleanupExecutions++
 				rt.profiling.lastCleanupDurationNs = durationNs
 				recordSlowOperationDiagnostic("cleanup", fiber, durationNs)
+				fiber.hooks.cleanups[index] = nil
 			}
 		}
 	}
@@ -1527,6 +1473,32 @@ func (rt *Runtime) runCleanups(fiber *Fiber) {
 	}
 	if fiber.sibling != nil {
 		rt.runCleanups(fiber.sibling)
+	}
+}
+
+// RefreshEffectsForFiber forces a fiber subtree's effects to clean up and rerun on the next render.
+func (rt *Runtime) RefreshEffectsForFiber(fiber *Fiber) {
+	if fiber == nil {
+		return
+	}
+
+	rt.runCleanups(fiber)
+	bumpEffectEpochs(fiber)
+}
+
+func bumpEffectEpochs(fiber *Fiber) {
+	if fiber == nil {
+		return
+	}
+
+	if fiber.hooks != nil {
+		fiber.hooks.effectEpoch++
+	}
+	if fiber.child != nil {
+		bumpEffectEpochs(fiber.child)
+	}
+	if fiber.sibling != nil {
+		bumpEffectEpochs(fiber.sibling)
 	}
 }
 

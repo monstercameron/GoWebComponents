@@ -102,7 +102,7 @@ Use the integrated apps when you want to understand how multiple primitives comp
 
 ### interop Package
 
-- `90-browser-interop`: storage, clipboard, grouped DOM lookup, resize or media observation, and typed custom events through `interop`
+- `90-browser-interop`: storage, clipboard, grouped DOM lookup, resize or media observation, typed custom events, and lazy module loading through `interop`
 - `91-worker-text-index`: `ui.UseWorkerTask`, worker progress, and CPU-heavy text indexing off the main thread
 - `94-cross-tab-sync`: `interop.OpenCrossTabChannel`, typed cross-tab messages, transport diagnostics, and opt-in state hint broadcasting
 - `95-multi-window-console`: `interop.OpenSecondaryWindowChannel`, `interop.WindowOpenerChannel`, and typed shared session or route coordination across popup surfaces
@@ -121,6 +121,7 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `64-nested-layout-routes`: layout routes, `router.Outlet`
 - `65-router-guards`: `BeforeEnter`, `BeforeLeave`
 - `92-protected-routes`: guarded redirects, safe `return_to`, manual authorizing UI, and `fetch.LoadCached`
+- `96-code-splitting`: route shells, `ui.Lazy` nested panels, and route-family shell preservation
 - `80-routed-accessibility`: route-change announcements and heading focus after navigation
 - `72-router-hydrate-mount`: `router.HydrateMount`
 - `74-ssr-route-data-reuse`: route-loader bootstrap reuse during hydration
@@ -130,7 +131,8 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `66-devtools-panel`: `devtools.Panel`
 - `67-use-snapshot`: `devtools.UseSnapshot`
 - `68-snapshot-now`: `devtools.SnapshotNow`
-- `69-devtools-diagnostics`: devtools diagnostics payloads
+  - `69-devtools-diagnostics`: devtools diagnostics payloads
+  - `98-hot-reload`: interactive development server that preserves state across edits
 
 ## Shared Static Assets
 

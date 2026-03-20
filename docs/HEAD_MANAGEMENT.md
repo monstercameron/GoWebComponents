@@ -136,7 +136,7 @@ Resource hints are also application-owned explicit markup today.
 
 Recommended rules:
 
-- emit `preload`, `modulepreload`, `preconnect`, and `dns-prefetch` links on the server when the route resolver already knows they are needed
+- emit `preload`, `modulepreload`, `preconnect`, and `dns-prefetch` links on the server when the route resolver already knows they are needed, using the typed `html.Preload(...)`, `html.ModulePreload(...)`, `html.Preconnect(...)`, `html.DNSPrefetch(...)`, or `html.Link(...)` helpers when they keep the route template clearer
 - dedupe hints at the document-template layer rather than expecting the router to reconcile them
 - reserve router-managed metadata for document identity, not for transport optimization hints
 - prefer stable, high-value hints only; do not emit large per-navigation hint sets that are hard to keep correct

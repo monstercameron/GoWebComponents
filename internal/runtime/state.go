@@ -352,6 +352,7 @@ func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(in
 		fiber.hooks.owner = fiber
 	}
 
+	recordHookSignature(fiber.hooks, "atom")
 	fiber.hooks.index++
 
 	atomIdx := fiber.hooks.atomIndex

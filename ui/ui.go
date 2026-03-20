@@ -268,7 +268,12 @@ func Portal(props PortalProps) Node {
 // Render mounts the UI tree into the DOM element matched by selector.
 func Render(root Node, selector string) {
 	ensureInitialized()
-	runtime.GetGlobalRuntime().RenderTo(selector, root)
+	rt := runtime.GetGlobalRuntime()
+	if rt.HasPendingHotReloadSnapshot() {
+		rt.HydrateTo(selector, root)
+		return
+	}
+	rt.RenderTo(selector, root)
 }
 
 // RenderInto mounts the UI tree into an explicit DOM node.
@@ -432,9 +437,9 @@ func UseEffect(effect func() func(), deps ...interface{}) {
 
 // UseMemo memoizes a computed value until dependencies change.
 func UseMemo[T any](compute func() T, deps ...interface{}) T {
-	value := runtime.GoUseMemoGlobal(func() interface{} {
+	value := runtime.GoUseMemoGlobalTyped(func() interface{} {
 		return compute()
-	}, deps...)
+	}, reflect.TypeOf((*T)(nil)).Elem(), deps...)
 
 	cast, ok := value.(T)
 	if ok {

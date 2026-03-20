@@ -21,6 +21,8 @@ type demoPulse struct {
 	Count   int    `json:"count"`
 }
 
+const browserInteropLazyModuleSpecifier = "/static/modules/browser-interop-lazy-module.js"
+
 func browserInteropExample() ui.Node {
 	draft := ui.UseState("Ship the browser bridge.")
 	savedDraft := ui.UseState("No stored draft yet.")
@@ -33,6 +35,9 @@ func browserInteropExample() ui.Node {
 	eventStatus := ui.UseState("Waiting for interop-demo events.")
 	eventCount := ui.UseState(0)
 	eventSource := ui.UseState("none")
+	moduleStatus := ui.UseState("Lazy module has not been imported yet.")
+	moduleResult := ui.UseState("No module exports have been read yet.")
+	moduleLoadCount := ui.UseState(0)
 
 	describeError := func(prefix string, err error) string {
 		if err == nil {
@@ -66,6 +71,49 @@ func browserInteropExample() ui.Node {
 	updateDraft := ui.UseEvent(func(e ui.Event) {
 		draft.Set(e.GetValue())
 	})
+
+	loadLazyModule := ui.UseEvent(func() {
+		moduleStatus.Set("Lazy module import requested.")
+		moduleResult.Set("Waiting for the module exports.")
+		moduleLoadCount.Update(func(previous int) int { return previous + 1 })
+	})
+
+	ui.UseEffect(func() func() {
+		if moduleLoadCount.Get() == 0 {
+			return nil
+		}
+
+		moduleStatus.Set("Importing a lazy module through interop.ImportModule(...).")
+
+		module, err := interop.ImportModule(context.Background(), browserInteropLazyModuleSpecifier)
+		if err != nil {
+			moduleStatus.Set(describeError("Lazy module import failed", err))
+			return nil
+		}
+		defer module.Dispose()
+
+		name, err := module.Value(context.Background(), "bundleName")
+		if err != nil {
+			moduleStatus.Set(describeError("Lazy module bundle name lookup failed", err))
+			return nil
+		}
+
+		helperLabel, err := module.Call(context.Background(), "formatLabel", draft.Get())
+		if err != nil {
+			moduleStatus.Set(describeError("Lazy module helper call failed", err))
+			return nil
+		}
+
+		defaultLabel, err := module.CallDefault(context.Background(), draft.Get())
+		if err != nil {
+			moduleStatus.Set(describeError("Lazy module default export failed", err))
+			return nil
+		}
+
+		moduleStatus.Set(fmt.Sprintf("Imported %s through interop.ImportModule(...).", name))
+		moduleResult.Set(fmt.Sprintf("%s | %s", helperLabel, defaultLabel))
+		return nil
+	}, moduleLoadCount.Get())
 
 	saveStorage := ui.UseEvent(func() {
 		storage, err := interop.LocalStorage()
@@ -268,6 +316,23 @@ func browserInteropExample() ui.Node {
 				`clipboard.WriteText(context.Background(), draft)`,
 				`document.ElementsByID("interop-demo-panel", "interop-demo-status")`,
 				`interop.SubscribeDecoded[demoPulse](target, "interop-demo", handler)`,
+			),
+		),
+		shared.ExamplePanel("Lazy module loading",
+			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("Import a JavaScript helper only when the user asks for it, then call its named and default exports through interop.ImportModule(...).")),
+			html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"},
+				shared.ExampleButton("Load lazy module", loadLazyModule),
+			),
+			html.Div(html.Props{Class: "mt-5 grid gap-4 md:grid-cols-2"},
+				shared.ExampleStat("Module status", moduleStatus.Get()),
+				shared.ExampleStat("Module result", moduleResult.Get()),
+			),
+			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text("The loader resolves the module specifier through the browser bridge, reads a named export, calls the default export, and disposes the handle once the work is done.")),
+			shared.ExampleCode(
+				`interop.ImportModule(context.Background(), "/static/modules/browser-interop-lazy-module.js")`,
+				`module.Value(context.Background(), "bundleName")`,
+				`module.Call(context.Background(), "formatLabel", draft)`,
+				`module.Dispose()`,
 			),
 		),
 	)

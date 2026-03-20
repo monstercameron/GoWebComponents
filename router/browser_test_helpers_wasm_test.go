@@ -23,6 +23,7 @@ func installRouterBrowserEnv(t testing.TB) {
 	prevLocation := global.Get("location")
 	prevInitialized := routerRuntimeInitialized
 	var decorateNode func(js.Value)
+	listenerStore := objectCtor.New()
 
 	makeNode := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		tag := ""
@@ -96,8 +97,52 @@ func installRouterBrowserEnv(t testing.TB) {
 		}
 		return args[1]
 	})
-	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
-	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) < 2 {
+			return nil
+		}
+		eventType := args[0].String()
+		handler := args[1]
+		listeners := listenerStore.Get(eventType)
+		if !listeners.Truthy() {
+			listeners = arrayCtor.New()
+			listenerStore.Set(eventType, listeners)
+		}
+		listeners.Call("push", handler)
+		return nil
+	})
+	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) < 2 {
+			return nil
+		}
+		eventType := args[0].String()
+		handler := args[1]
+		listeners := listenerStore.Get(eventType)
+		if !listeners.Truthy() {
+			return nil
+		}
+		length := listeners.Get("length").Int()
+		for index := 0; index < length; index++ {
+			if listeners.Index(index).Equal(handler) {
+				listeners.Call("splice", index, 1)
+				break
+			}
+		}
+		return nil
+	})
+	emitEvent := func(eventType string) {
+		listeners := listenerStore.Get(eventType)
+		if !listeners.Truthy() {
+			return
+		}
+		length := listeners.Get("length").Int()
+		for index := 0; index < length; index++ {
+			handler := listeners.Index(index)
+			if handler.Truthy() {
+				handler.Invoke()
+			}
+		}
+	}
 	removeNode := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		parent := this.Get("parentNode")
 		if !parent.Truthy() {
@@ -310,34 +355,64 @@ func installRouterBrowserEnv(t testing.TB) {
 	location.Set("replace", locationReplace)
 
 	history := objectCtor.New()
+	historyEntries := []string{"/"}
+	historyIndex := 0
+	applyHistoryTarget := func(target string) {
+		if idx := strings.Index(target, "?"); idx >= 0 {
+			location.Set("pathname", target[:idx])
+			location.Set("search", target[idx:])
+			return
+		}
+		location.Set("pathname", target)
+		location.Set("search", "")
+	}
 	pushState := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		if len(args) > 2 {
 			next := args[2].String()
-			if idx := strings.Index(next, "?"); idx >= 0 {
-				location.Set("pathname", next[:idx])
-				location.Set("search", next[idx:])
-			} else {
-				location.Set("pathname", next)
-				location.Set("search", "")
+			if historyIndex < len(historyEntries)-1 {
+				historyEntries = append([]string(nil), historyEntries[:historyIndex+1]...)
 			}
+			historyEntries = append(historyEntries, next)
+			historyIndex = len(historyEntries) - 1
+			applyHistoryTarget(next)
 		}
 		return nil
 	})
 	replaceState := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		if len(args) > 2 {
 			next := args[2].String()
-			if idx := strings.Index(next, "?"); idx >= 0 {
-				location.Set("pathname", next[:idx])
-				location.Set("search", next[idx:])
+			if len(historyEntries) == 0 {
+				historyEntries = append(historyEntries, next)
+				historyIndex = 0
 			} else {
-				location.Set("pathname", next)
-				location.Set("search", "")
+				historyEntries[historyIndex] = next
 			}
+			applyHistoryTarget(next)
 		}
+		return nil
+	})
+	back := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if historyIndex == 0 {
+			return nil
+		}
+		historyIndex--
+		applyHistoryTarget(historyEntries[historyIndex])
+		emitEvent(browserEventPop)
+		return nil
+	})
+	forward := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if historyIndex >= len(historyEntries)-1 {
+			return nil
+		}
+		historyIndex++
+		applyHistoryTarget(historyEntries[historyIndex])
+		emitEvent(browserEventPop)
 		return nil
 	})
 	history.Set("pushState", pushState)
 	history.Set("replaceState", replaceState)
+	history.Set("back", back)
+	history.Set("forward", forward)
 
 	storage := objectCtor.New()
 	storageData := objectCtor.New()
@@ -401,5 +476,7 @@ func installRouterBrowserEnv(t testing.TB) {
 		locationReplace.Release()
 		pushState.Release()
 		replaceState.Release()
+		back.Release()
+		forward.Release()
 	})
 }

@@ -3,6 +3,8 @@
 
 package runtime
 
+import "reflect"
+
 // Global wrapper functions that provide simplified API for public packages
 // These match the old fiber package API
 
@@ -22,6 +24,12 @@ func GoUseEffectGlobal(effect func() func(), deps ...interface{}) {
 func GoUseMemoGlobal(compute func() interface{}, deps ...interface{}) interface{} {
 	// GoUseMemo doesn't need Runtime, it works with current fiber
 	return GoUseMemo(compute, deps...)
+}
+
+// GoUseMemoGlobalTyped wraps GoUseMemo with an expected target type for
+// hot-reload restoration.
+func GoUseMemoGlobalTyped(compute func() interface{}, targetType reflect.Type, deps ...interface{}) interface{} {
+	return GoUseMemoTyped(compute, targetType, deps...)
 }
 
 // GoUseCallbackGlobal wraps GoUseCallback

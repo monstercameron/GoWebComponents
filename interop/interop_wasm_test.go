@@ -5,6 +5,7 @@ package interop
 
 import (
 	"context"
+	"fmt"
 	"syscall/js"
 	"testing"
 	"time"
@@ -21,6 +22,76 @@ func setGlobalValue(name string, value interface{}) func() {
 
 func makePromise(value js.Value) js.Value {
 	return js.Global().Get("Promise").Call("resolve", value)
+}
+
+func TestGlobalThisValueSurfaceSupportsPropertiesAndFunctions(t *testing.T) {
+	global, err := GlobalThis()
+	if err != nil {
+		t.Fatalf("expected globalThis wrapper, got %v", err)
+	}
+
+	prevValue := global.Get("__interopValueProbe")
+	prevFn := global.Get("__interopFnProbe")
+	t.Cleanup(func() {
+		if prevValue.Present() {
+			_ = global.Set("__interopValueProbe", prevValue)
+		} else {
+			_ = global.Delete("__interopValueProbe")
+		}
+		if prevFn.Present() {
+			_ = global.Set("__interopFnProbe", prevFn)
+		} else {
+			_ = global.Delete("__interopFnProbe")
+		}
+	})
+
+	if err := global.Set("__interopValueProbe", map[string]any{"count": 7, "label": "ok"}); err != nil {
+		t.Fatalf("expected global property write to succeed, got %v", err)
+	}
+
+	stored := global.Get("__interopValueProbe")
+	if !stored.Present() {
+		t.Fatal("expected stored probe value to be present")
+	}
+	decoded, err := stored.ToGo()
+	if err != nil {
+		t.Fatalf("expected probe value to decode, got %v", err)
+	}
+	payload, ok := decoded.(map[string]any)
+	if !ok {
+		t.Fatalf("expected decoded probe value to be a map, got %#v", decoded)
+	}
+	if payload["count"] != float64(7) || payload["label"] != "ok" {
+		t.Fatalf("unexpected decoded payload: %#v", payload)
+	}
+
+	var seen string
+	sub, err := global.SetFunction("__interopFnProbe", func(args ...Value) any {
+		if len(args) != 2 {
+			seen = fmt.Sprintf("unexpected:%d", len(args))
+			return seen
+		}
+		seen = fmt.Sprintf("%s:%d", args[0].String(), args[1].Int())
+		return seen
+	})
+	if err != nil {
+		t.Fatalf("expected function binding to succeed, got %v", err)
+	}
+	defer sub.Cancel()
+
+	result, err := global.Get("__interopFnProbe").Invoke("alpha", 4)
+	if err != nil {
+		t.Fatalf("expected function invocation to succeed, got %v", err)
+	}
+	if !result.Present() {
+		t.Fatal("expected function result to be present")
+	}
+	if result.String() != "alpha:4" {
+		t.Fatalf("unexpected function result: %q", result.String())
+	}
+	if seen != "alpha:4" {
+		t.Fatalf("expected callback to observe arguments, got %q", seen)
+	}
 }
 
 func TestLocalStorageWrapperTracksKeysAndValues(t *testing.T) {

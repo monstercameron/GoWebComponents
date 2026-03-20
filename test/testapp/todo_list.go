@@ -27,7 +27,7 @@ func TodoList(props Attrs) *Element {
 	statusFilter, setStatusFilter := UseState("all")
 
 	// UseMemo for filtered list
-	filtered := UseMemo(func() interface{} {
+	filtered := UseMemo(func() []Todo {
 		fmt.Println("UseMemo computing: filtered")
 		f := filter()
 		s := statusFilter()
@@ -49,7 +49,7 @@ func TodoList(props Attrs) *Element {
 			}
 		}
 		return list
-	}, len(todos()), todosVersion(), filter(), statusFilter()).([]Todo)
+	}, len(todos()), todosVersion(), filter(), statusFilter())
 
 	// Ensure total atom syncs
 	UseEffect(func() func() {

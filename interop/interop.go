@@ -122,6 +122,12 @@ func (s Subscription) Cancel() {
 	}
 }
 
+// Value wraps a browser JavaScript value behind a typed interop surface.
+// Platform-specific methods are attached in build-tagged files.
+type Value struct {
+	raw interface{}
+}
+
 type Storage struct {
 	getItem    func(string) (string, bool, error)
 	getMany    func([]string) (map[string]string, error)

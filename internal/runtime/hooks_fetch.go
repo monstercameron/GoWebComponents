@@ -43,6 +43,7 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 		fiber.hooks.owner = fiber
 	}
 
+	recordHookSignature(fiber.hooks, "fetch")
 	fiber.hooks.index++
 
 	fetchIdx := fiber.hooks.fetchIndex
@@ -52,8 +53,12 @@ func GoUseFetch(url string, options ...interface{}) (func() FetchState, func()) 
 	if len(fiber.hooks.fetches) <= fetchIdx {
 		newFetches := make([]fetchValue, fetchIdx+1, (fetchIdx+1)*2)
 		copy(newFetches, fiber.hooks.fetches)
+		state := FetchState{Data: nil, Error: "", Loading: false}
+		if restoredState, ok := fiber.hooks.restoreFetchValue(fetchIdx, url); ok {
+			state = restoredState
+		}
 		newFetches[fetchIdx] = fetchValue{
-			state: FetchState{Data: nil, Error: "", Loading: false},
+			state: state,
 			url:   url,
 			fiber: fiber,
 		}

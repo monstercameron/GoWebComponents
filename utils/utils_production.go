@@ -47,17 +47,18 @@ func DisableAllDebug() {}
 func GetDebugStatus() map[string]bool {
 	return map[string]bool{
 		"global":    false,
-		"hotReload": hotReloadEnabled,
+		"hotReload": false,
 	}
 }
 
 func EnableHotReload(enabled bool) {
-	hotReloadEnabled = enabled
 }
 
 func IsHotReloadEnabled() bool {
-	return hotReloadEnabled
+	return false
 }
+
+func InstallHotReloadBridge(atomIDs ...string) {}
 
 func EnableGoroutineMonitoring() {}
 
