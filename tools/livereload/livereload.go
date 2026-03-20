@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
 	"log"
 	"net"
@@ -13,6 +16,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -74,11 +78,29 @@ type WebSocketMessage struct {
 }
 
 type BuildStatus struct {
-	Success       bool   `json:"success"`
-	Duration      string `json:"duration,omitempty"`
-	Error         string `json:"error,omitempty"`
-	ReloadType    string `json:"reloadType,omitempty"` // "hot" or "full"
-	StateSnapshot string `json:"stateSnapshot,omitempty"`
+	Success       bool                      `json:"success"`
+	Duration      string                    `json:"duration,omitempty"`
+	Error         string                    `json:"error,omitempty"`
+	ReloadType    string                    `json:"reloadType,omitempty"` // "hot" or "full"
+	StateSnapshot string                    `json:"stateSnapshot,omitempty"`
+	ManifestPath  string                    `json:"manifestPath,omitempty"`
+	Manifest      *ChangedComponentManifest `json:"manifest,omitempty"`
+}
+
+type ChangedComponentManifest struct {
+	GeneratedAt  time.Time          `json:"generatedAt"`
+	ReloadType   string             `json:"reloadType"`
+	Reason       string             `json:"reason,omitempty"`
+	ChangedFiles []string           `json:"changedFiles,omitempty"`
+	Components   []ChangedComponent `json:"components,omitempty"`
+}
+
+type ChangedComponent struct {
+	Name          string `json:"name"`
+	QualifiedName string `json:"qualifiedName"`
+	PackageName   string `json:"packageName,omitempty"`
+	PackagePath   string `json:"packagePath,omitempty"`
+	File          string `json:"file"`
 }
 
 // UpdateClassification represents the type of update detected
@@ -115,6 +137,8 @@ type LiveReloadServer struct {
 	lastBuildStatus      *BuildStatus         // Track the last build status for new clients
 	pendingStateSnapshot string
 	stateSnapshotMu      sync.Mutex
+	modulePath           string
+	manifestPath         string
 }
 
 func NewLiveReloadServer(projectRoot string) (*LiveReloadServer, error) {
@@ -190,6 +214,8 @@ func NewLiveReloadServerWithOptions(options LiveReloadOptions) (*LiveReloadServe
 		port = defaultPort
 	}
 
+	manifestPath := outputPath + ".hotreload-manifest.json"
+
 	return &LiveReloadServer{
 		watcher:          watcher,
 		projectRoot:      projectRoot,
@@ -204,6 +230,8 @@ func NewLiveReloadServerWithOptions(options LiveReloadOptions) (*LiveReloadServe
 		alwaysHotReload:  options.AlwaysHotReload,
 		clients:          make(map[*websocket.Conn]bool),
 		changedFiles:     make(map[string]time.Time),
+		modulePath:       resolveModulePath(watchRoot),
+		manifestPath:     manifestPath,
 	}, nil
 }
 
@@ -310,14 +338,41 @@ func (lrs *LiveReloadServer) handleHTML(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
+	configScript := fmt.Sprintf("\n<script>\nwindow.__GWC_LIVERELOAD_CONFIG = Object.assign({}, window.__GWC_LIVERELOAD_CONFIG || {}, { wasmPath: %q });\n</script>", lrs.servedWASMPath())
+
 	// Inject the live reload script before closing </body> tag
-	liveReloadScript := fmt.Sprintf("\n<script>\n%s\n</script>", string(scriptContent))
+	liveReloadScript := fmt.Sprintf("%s\n<script>\n%s\n</script>", configScript, string(scriptContent))
 
 	// Insert the script before closing </body> tag
 	modifiedContent := strings.Replace(string(htmlContent), "</body>", liveReloadScript+"\n</body>", 1)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(modifiedContent))
+}
+
+func (lrs *LiveReloadServer) servedWASMPath() string {
+	if lrs == nil {
+		return "/main.wasm"
+	}
+
+	outputPath := strings.TrimSpace(lrs.outputPath)
+	if outputPath == "" {
+		return "/main.wasm"
+	}
+	if !filepath.IsAbs(outputPath) {
+		outputPath = filepath.Join(lrs.buildDir, outputPath)
+	}
+
+	relPath, err := filepath.Rel(lrs.projectRoot, outputPath)
+	if err == nil && relPath != "" && relPath != "." && !strings.HasPrefix(relPath, "..") && !filepath.IsAbs(relPath) {
+		return "/" + filepath.ToSlash(relPath)
+	}
+
+	base := strings.TrimSpace(filepath.Base(outputPath))
+	if base == "" || base == "." || base == string(filepath.Separator) {
+		return "/main.wasm"
+	}
+	return "/" + filepath.ToSlash(base)
 }
 
 func (lrs *LiveReloadServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
@@ -836,10 +891,22 @@ func (lrs *LiveReloadServer) triggerBuild() {
 			lrs.broadcastMessage(MessageTypeBuildComplete, buildStatus)
 		}
 	} else {
+		manifest, manifestErr := lrs.buildChangedComponentManifest(lrs.lastClassification)
+		if manifestErr != nil {
+			log.Printf("⚠️  Failed to build changed-component manifest: %v", manifestErr)
+		}
+		if manifest != nil {
+			if err := lrs.writeChangedComponentManifest(manifest); err != nil {
+				log.Printf("⚠️  Failed to write changed-component manifest: %v", err)
+			}
+		}
+
 		buildStatus := BuildStatus{
-			Success:    true,
-			Duration:   duration.String(),
-			ReloadType: lrs.lastClassification.ReloadType,
+			Success:      true,
+			Duration:     duration.String(),
+			ReloadType:   lrs.lastClassification.ReloadType,
+			ManifestPath: lrs.manifestPath,
+			Manifest:     manifest,
 		}
 		if buildStatus.ReloadType == "hot" {
 			buildStatus.StateSnapshot = lrs.takePendingStateSnapshot()
@@ -853,6 +920,218 @@ func (lrs *LiveReloadServer) triggerBuild() {
 	}
 
 	lrs.currentBuild = nil
+}
+
+func (lrs *LiveReloadServer) buildChangedComponentManifest(classification UpdateClassification) (*ChangedComponentManifest, error) {
+	manifest := &ChangedComponentManifest{
+		GeneratedAt:  time.Now(),
+		ReloadType:   classification.ReloadType,
+		Reason:       classification.Reason,
+		ChangedFiles: make([]string, 0, len(classification.ChangedFiles)),
+	}
+
+	componentsByQualifiedName := make(map[string]ChangedComponent)
+	for _, file := range classification.ChangedFiles {
+		relFile := file
+		if relative, err := filepath.Rel(lrs.watchRoot, file); err == nil {
+			relFile = filepath.ToSlash(relative)
+		}
+		manifest.ChangedFiles = append(manifest.ChangedFiles, relFile)
+
+		components, err := lrs.extractChangedComponents(file)
+		if err != nil {
+			return nil, err
+		}
+		for _, component := range components {
+			componentsByQualifiedName[component.QualifiedName] = component
+		}
+	}
+
+	if len(componentsByQualifiedName) > 0 {
+		qualifiedNames := make([]string, 0, len(componentsByQualifiedName))
+		for qualifiedName := range componentsByQualifiedName {
+			qualifiedNames = append(qualifiedNames, qualifiedName)
+		}
+		sort.Strings(qualifiedNames)
+		manifest.Components = make([]ChangedComponent, 0, len(qualifiedNames))
+		for _, qualifiedName := range qualifiedNames {
+			manifest.Components = append(manifest.Components, componentsByQualifiedName[qualifiedName])
+		}
+	}
+
+	return manifest, nil
+}
+
+func (lrs *LiveReloadServer) extractChangedComponents(filePath string) ([]ChangedComponent, error) {
+	if strings.TrimSpace(filePath) == "" || !strings.HasSuffix(filePath, ".go") {
+		return nil, nil
+	}
+
+	fset := token.NewFileSet()
+	parsed, err := parser.ParseFile(fset, filePath, nil, 0)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", filePath, err)
+	}
+
+	relFile := filePath
+	if relative, err := filepath.Rel(lrs.watchRoot, filePath); err == nil {
+		relFile = filepath.ToSlash(relative)
+	}
+	packagePath := resolvePackagePath(lrs.modulePath, lrs.watchRoot, filePath)
+	packageName := ""
+	if parsed.Name != nil {
+		packageName = parsed.Name.Name
+	}
+
+	var components []ChangedComponent
+	for _, decl := range parsed.Decls {
+		switch typed := decl.(type) {
+		case *ast.FuncDecl:
+			if typed.Name == nil || typed.Recv != nil || !returnsComponentNode(typed.Type) {
+				continue
+			}
+			components = append(components, ChangedComponent{
+				Name:          typed.Name.Name,
+				QualifiedName: qualifyComponentName(packagePath, typed.Name.Name),
+				PackageName:   packageName,
+				PackagePath:   packagePath,
+				File:          relFile,
+			})
+		case *ast.GenDecl:
+			if typed.Tok != token.VAR {
+				continue
+			}
+			for _, spec := range typed.Specs {
+				valueSpec, ok := spec.(*ast.ValueSpec)
+				if !ok {
+					continue
+				}
+				for index, name := range valueSpec.Names {
+					if name == nil || !isComponentValueSpec(valueSpec, index) {
+						continue
+					}
+					components = append(components, ChangedComponent{
+						Name:          name.Name,
+						QualifiedName: qualifyComponentName(packagePath, name.Name),
+						PackageName:   packageName,
+						PackagePath:   packagePath,
+						File:          relFile,
+					})
+				}
+			}
+		}
+	}
+
+	return components, nil
+}
+
+func isComponentValueSpec(spec *ast.ValueSpec, index int) bool {
+	if spec == nil {
+		return false
+	}
+	if funcType, ok := spec.Type.(*ast.FuncType); ok {
+		return returnsComponentNode(funcType)
+	}
+	if index >= len(spec.Values) {
+		return false
+	}
+	funcLiteral, ok := spec.Values[index].(*ast.FuncLit)
+	if !ok {
+		return false
+	}
+	return returnsComponentNode(funcLiteral.Type)
+}
+
+func returnsComponentNode(funcType *ast.FuncType) bool {
+	if funcType == nil || funcType.Results == nil || len(funcType.Results.List) != 1 {
+		return false
+	}
+	return isComponentResultExpr(funcType.Results.List[0].Type)
+}
+
+func isComponentResultExpr(expr ast.Expr) bool {
+	switch typed := expr.(type) {
+	case *ast.Ident:
+		return typed.Name == "Node" || typed.Name == "Element"
+	case *ast.SelectorExpr:
+		packageIdent, ok := typed.X.(*ast.Ident)
+		if !ok {
+			return false
+		}
+		return (packageIdent.Name == "ui" && (typed.Sel.Name == "Node" || typed.Sel.Name == "Element")) ||
+			(packageIdent.Name == "runtime" && typed.Sel.Name == "Element")
+	case *ast.StarExpr:
+		return isRuntimeElementExpr(typed.X)
+	default:
+		return false
+	}
+}
+
+func isRuntimeElementExpr(expr ast.Expr) bool {
+	switch typed := expr.(type) {
+	case *ast.Ident:
+		return typed.Name == "Element"
+	case *ast.SelectorExpr:
+		packageIdent, ok := typed.X.(*ast.Ident)
+		if !ok {
+			return false
+		}
+		return (packageIdent.Name == "ui" || packageIdent.Name == "runtime") && typed.Sel.Name == "Element"
+	default:
+		return false
+	}
+}
+
+func qualifyComponentName(packagePath string, name string) string {
+	if strings.TrimSpace(packagePath) == "" {
+		return name
+	}
+	return packagePath + "." + name
+}
+
+func resolvePackagePath(modulePath string, watchRoot string, filePath string) string {
+	directory := filepath.Dir(filePath)
+	relDirectory, err := filepath.Rel(watchRoot, directory)
+	if err != nil || relDirectory == "." {
+		return modulePath
+	}
+	relDirectory = filepath.ToSlash(relDirectory)
+	if strings.TrimSpace(modulePath) == "" {
+		return relDirectory
+	}
+	return modulePath + "/" + relDirectory
+}
+
+func resolveModulePath(root string) string {
+	goModPath := filepath.Join(root, "go.mod")
+	content, err := os.ReadFile(goModPath)
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(content), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(trimmed, "module "))
+		}
+	}
+	return ""
+}
+
+func (lrs *LiveReloadServer) writeChangedComponentManifest(manifest *ChangedComponentManifest) error {
+	if manifest == nil || strings.TrimSpace(lrs.manifestPath) == "" {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(lrs.manifestPath), 0o755); err != nil {
+		return fmt.Errorf("create manifest dir: %w", err)
+	}
+	data, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal manifest: %w", err)
+	}
+	if err := os.WriteFile(lrs.manifestPath, data, 0o644); err != nil {
+		return fmt.Errorf("write manifest: %w", err)
+	}
+	return nil
 }
 
 func (lrs *LiveReloadServer) cleanup() {
@@ -977,21 +1256,37 @@ func netAddr(host, port string) string {
 }
 
 func main() {
-	mainPath := flag.String("main", "", "Path to the app main.go file or the app directory")
+	appPath := flag.String("app", "", "Path to the app main.go file or the app directory")
+	mainPath := flag.String("main", "", "Legacy alias for -app")
 	rootPath := flag.String("root", "", "Project root to watch and serve")
-	indexPath := flag.String("index", "", "HTML file to serve, relative to the project root")
-	outputPath := flag.String("output", "", "WASM output path, relative to the build directory")
+	htmlPath := flag.String("html", "", "HTML file to serve, relative to the project root")
+	indexPath := flag.String("index", "", "Legacy alias for -html")
+	wasmPath := flag.String("wasm", "", "WASM output path, relative to the build directory")
+	outputPath := flag.String("output", "", "Legacy alias for -wasm")
 	host := flag.String("host", defaultHost, "Host to bind")
 	port := flag.String("port", defaultPort, "Port to bind")
 	hot := flag.Bool("hot", true, "Always use hot reload on successful rebuilds")
 	clientScriptPath := flag.String("client-script", "", "Path to livereload-client.js")
 	flag.Parse()
 
+	selectedAppPath := strings.TrimSpace(*appPath)
+	if selectedAppPath == "" {
+		selectedAppPath = strings.TrimSpace(*mainPath)
+	}
+	selectedHTMLPath := strings.TrimSpace(*htmlPath)
+	if selectedHTMLPath == "" {
+		selectedHTMLPath = strings.TrimSpace(*indexPath)
+	}
+	selectedWASMPath := strings.TrimSpace(*wasmPath)
+	if selectedWASMPath == "" {
+		selectedWASMPath = strings.TrimSpace(*outputPath)
+	}
+
 	server, err := NewLiveReloadServerWithOptions(LiveReloadOptions{
-		MainPath:         *mainPath,
+		MainPath:         selectedAppPath,
 		ProjectRoot:      *rootPath,
-		IndexPath:        *indexPath,
-		OutputPath:       *outputPath,
+		IndexPath:        selectedHTMLPath,
+		OutputPath:       selectedWASMPath,
 		Host:             *host,
 		Port:             *port,
 		AlwaysHotReload:  *hot,

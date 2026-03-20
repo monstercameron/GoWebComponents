@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"syscall/js"
 
+	"github.com/monstercameron/GoWebComponents/hotreload"
 	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/state"
-	"github.com/monstercameron/GoWebComponents/utils"
 )
 
 // Counter is a reusable component for testing component reuse
@@ -485,7 +485,7 @@ func UseFetchTestComponent(props Attrs) *Element {
 
 func main() {
 	fmt.Println("🚀 GoWebComponents WASM initialized")
-	utils.EnableHotReload(true)
+	hotreload.Enable()
 
 	// Create root element that will call HelloWorld during render
 	app := &Element{

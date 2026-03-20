@@ -77,6 +77,8 @@ type Runtime struct {
 	// Hot reload restore queue for component-local state snapshots.
 	pendingHotReloadComponents []HotReloadComponentSnapshot
 	pendingHotReloadIndex      int
+	pendingHotReloadByPath     map[string]HotReloadComponentSnapshot
+	pendingHotReloadSelective  bool
 
 	// Global ID counter for useId hook
 	idCounter   int

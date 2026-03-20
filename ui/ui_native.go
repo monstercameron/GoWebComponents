@@ -13,10 +13,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 )
 
-const (
-	componentKey = "__ui_component"
-	propsKey     = "__ui_props"
-)
+const propsKey = "__ui_props"
 
 type componentMeta struct {
 	hasArg  bool
@@ -192,19 +189,13 @@ func CreateElement(component interface{}, props ...interface{}) Node {
 		}
 		return createContextProviderElement(provider, rawProps)
 	}
-	if fn, ok := component.(func() *runtime.Element); ok {
-		return runtime.CreateElement(fn, nil)
-	}
-
-	rawProps := map[string]interface{}{
-		componentKey: component,
-	}
-
+	var rawProps map[string]interface{}
 	if len(props) > 0 {
+		rawProps = map[string]interface{}{}
 		rawProps[propsKey] = props[0]
 	}
 
-	return runtime.CreateElement(renderComponent, rawProps)
+	return runtime.CreateElement(getComponentHandle(component), rawProps)
 }
 
 func (boundary *errorBoundaryComponent) runtimeErrorBoundary() *runtime.ErrorBoundaryType {
@@ -579,8 +570,7 @@ func (h Handler) Value() interface{} {
 	return h.value
 }
 
-func renderComponent(rawProps map[string]interface{}) *runtime.Element {
-	component := rawProps[componentKey]
+func renderComponent(component interface{}, rawProps map[string]interface{}) *runtime.Element {
 	if component == nil {
 		return nil
 	}

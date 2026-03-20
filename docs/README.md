@@ -91,6 +91,9 @@ Release-to-release upgrade guidance, starting with the transition into the curre
 ### `HEAD_MANAGEMENT.md`
 Current head-management, SEO, canonical URL, structured-data, and resource-hint guidance, including the boundary between router-managed metadata and app-owned explicit head markup.
 
+### `HOT_RELOAD.md`
+First-class hot reload guide covering the public `hotreload` package, the `tools/dev` wrappers, snapshot semantics, persistence boundaries, and example commands.
+
 ### `ERROR_BOUNDARIES.md`
 Current `ui.ErrorBoundary` composition rules for nested routes and layouts, plus the shipped SSR and hydration behavior.
 

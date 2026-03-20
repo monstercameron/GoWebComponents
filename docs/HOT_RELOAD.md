@@ -1,8 +1,155 @@
-# Hot Reload Audit
+# Hot Reload
 
-This note records the current hot reload model in GoWebComponents.
+GoWebComponents now treats state-preserving hot reload as a first-class development feature for standalone `js/wasm` apps.
 
-The repo now supports in-page WASM module replacement with a state-preserving reload bridge. It preserves shared atom state and compatible serializable component-local hook state while keeping the existing DOM in place during a hot reload, runs a pre-reload cleanup bridge for old effect resources, and falls back to a remount only when the runtime cannot safely migrate the preserved state.
+The public surface has two parts:
+
+- the `hotreload` package for app-side enablement and snapshot control
+- the `tools/dev.ps1` and `tools/dev.sh` wrappers for the rebuild-and-reload dev loop
+
+The repo supports in-page WASM module replacement with a state-preserving reload bridge. It preserves shared atom state and compatible serializable component-local hook state while keeping the existing DOM in place during a hot reload, runs a pre-reload cleanup bridge for old effect resources, and falls back to a remount only when the runtime cannot safely migrate the preserved state.
+
+## Quick Start
+
+### 1. Enable hot reload in your app
+
+```go
+package main
+
+import (
+	"github.com/monstercameron/GoWebComponents/hotreload"
+	"github.com/monstercameron/GoWebComponents/ui"
+)
+
+func main() {
+	hotreload.Enable()
+	ui.Render(ui.CreateElement(App), "#app")
+	select {}
+}
+```
+
+If you want to limit exported atom state to specific ids:
+
+```go
+hotreload.Configure(hotreload.Config{
+	AtomIDs: []string{"session", "draft", "filters"},
+})
+```
+
+If an edit should intentionally invalidate preserved state, bump `ResetKey`:
+
+```go
+hotreload.Configure(hotreload.Config{
+	ResetKey: "cart-schema-v2",
+})
+```
+
+### 2. Run the hot reload dev server
+
+Windows:
+
+```powershell
+.\tools\dev.ps1 -App .\examples\98-hot-reload\main.go -Root .\examples\98-hot-reload -Html .\examples\98-hot-reload\hot-reload.html -Wasm .\main.wasm -Port 8099
+```
+
+Unix-like systems:
+
+```bash
+./tools/dev.sh ./examples/98-hot-reload/main.go ./examples/98-hot-reload ./examples/98-hot-reload/hot-reload.html ./main.wasm
+```
+
+Then open the served page and edit Go files. On successful rebuilds, the client will try an in-page module swap before falling back to a full reload.
+
+## Public API
+
+The first-class app API lives in `github.com/monstercameron/GoWebComponents/hotreload`.
+
+### `hotreload.Enable()`
+
+Installs the default bridge and attempts to restore any pending snapshot persisted by the dev client.
+
+### `hotreload.Configure(hotreload.Config{...})`
+
+Installs or reconfigures the bridge with explicit options.
+
+Current config fields:
+
+- `AtomIDs`: optional allowlist of atom ids to export through the snapshot bridge
+- `ResetKey`: optional explicit snapshot version. When it changes, older snapshots are discarded instead of restored
+
+### `hotreload.Disable()`
+
+Removes the browser bridge from the page.
+
+### `hotreload.Enabled()`
+
+Reports whether the bridge is currently enabled in the running app.
+
+### `hotreload.ExportSnapshot()`
+
+Returns the current JSON payload used by the live-reload client.
+
+### `hotreload.ImportSnapshot(payload)`
+
+Restores a previously exported payload.
+
+The browser bridge now also exposes restore outcomes and hot-reload diagnostics so the live-reload UI can show whether a rebuild restored state, intentionally reset it because `ResetKey` changed, or fell back to remounting part of the tree.
+
+The same bridge now exposes recent route and async restart activity, including router loader and guard logs plus explicit pending-fetch restart notices recorded during hot reload prepare.
+
+For subtree-scoped resets, wrap a section in `ui.HotReloadBoundary(...)` and change its `ResetKeys` when that part of the tree should intentionally remount on the next hot reload without forcing an app-wide `ResetKey` bump.
+
+### `hotreload.Prepare()`
+
+Runs cleanup needed before the old runtime instance is replaced.
+
+## Compatibility Wrapper
+
+`utils.EnableHotReload(true)` and `utils.InstallHotReloadBridge(...)` still work, but they are now compatibility wrappers over the `hotreload` package.
+
+New app code should prefer `hotreload.Enable()` or `hotreload.Configure(...)` directly.
+
+## Dev Server API
+
+The supported dev-server entrypoints are:
+
+- `tools/dev.ps1`
+- `tools/dev.sh`
+- `go run ./tools/livereload -app ...`
+
+The preferred flag names are now:
+
+- `-App` / `-app`: app entrypoint or app directory
+- `-Root` / `-root`: served root
+- `-Html` / `-html`: HTML shell path
+- `-Wasm` / `-wasm`: wasm output path
+
+Legacy aliases still work for compatibility:
+
+- `-Main` / `-main`
+- `-Index` / `-index`
+- `-Output` / `-output`
+
+## How It Works
+
+The hot reload loop is:
+
+1. the dev server watches Go files and rebuilds the wasm bundle
+2. before the old bundle is replaced, the browser exports a snapshot payload
+3. the app runtime runs `hotreload.Prepare()` to clean up stale effect-owned resources
+4. the client swaps in the rebuilt wasm module
+5. the app restores the snapshot through `hotreload.ImportSnapshot(...)`
+6. if the swap fails, the client falls back to a full page reload and reuses the stored snapshot on the next load
+
+`ResetKey` provides the first explicit reset control. This is the opt-in answer for edits where preserved state would be misleading, such as changing a state initializer from `ui.UseState(4)` to `ui.UseState(5)` and wanting the next rebuild to start fresh.
+
+## Example Surfaces
+
+Use these repo examples as the reference flows:
+
+- `examples/98-hot-reload`: smallest end-to-end hot reload sandbox
+- `test/testapp/main.go`: regression app that exercises state restore, effect cleanup, and failure recovery
+- `examples/12-portfolio-site`: larger routed app that enables the public `hotreload` package
 
 ## Current Model
 
@@ -27,6 +174,8 @@ Reasons for that boundary:
 - the current cleanup-plus-restore bridge covers the high-value developer workflow of keeping DOM, shared state, and migratable local state across edits
 
 If the framework revisits subtree-level code patching later, that should be treated as an additional layer on top of the current module-replacement workflow rather than as a prerequisite for useful hot reload.
+
+The current HMR-v2 workflow now goes one step further than plain full-snapshot restore: `ui.CreateElement(...)` produces stable runtime-recognized component handles instead of using the shared `ui.renderComponent` function as the only component identity, those handles now own the current implementation binding instead of smuggling it through element props, the dev build loop emits a changed-component manifest alongside successful builds, and the restore path now uses that manifest to preserve unchanged compatible component state while remounting changed subtrees. This is still module replacement plus selective restore, not literal in-place WASM code patching.
 
 ## Current Blocking Assumptions
 

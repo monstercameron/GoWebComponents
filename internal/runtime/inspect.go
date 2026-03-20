@@ -487,6 +487,14 @@ func describeFiber(fiber *Fiber) (string, string) {
 		return "boundary", "ErrorBoundary"
 	case *ContextProviderType:
 		return "provider", "ContextProvider"
+	case *ComponentType:
+		if strings.TrimSpace(value.Name) != "" {
+			return "component", value.Name
+		}
+		if strings.TrimSpace(value.QualifiedName) != "" {
+			return "component", value.QualifiedName
+		}
+		return "component", "Component"
 	default:
 		prettyName, _ := describeCallableIdentity(value)
 		return "component", prettyName

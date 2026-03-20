@@ -10,20 +10,31 @@
     // State storage in memory
     let storedState = null;
     let lastHotReloadFailure = null;
+    let lastHotReloadOutcome = null;
+    let lastHotReloadActivity = [];
     
     // Live reload status tracking
     let wsStatus = 'disconnected';
     let lastBuildStatus = null;
     let buildErrors = [];
     let buildHistory = [];
+    let lastBuildClassification = null;
+
+    function getAppHotReloadBridge() {
+        const bridge = window.GoWebComponentsHotReloadApp;
+        if (!bridge || typeof bridge !== 'object') {
+            return null;
+        }
+        return bridge;
+    }
     
     // State management
     window.GoLiveReload = {
         exportState: function() {
-            // Try to export WASM app state if available
-            if (window.exportAppState && typeof window.exportAppState === 'function') {
+            const bridge = getAppHotReloadBridge();
+            if (bridge && typeof bridge.captureSnapshot === 'function') {
                 try {
-                    const wasmState = window.exportAppState();
+                    const wasmState = bridge.captureSnapshot();
                     // console.log('🔄 GoLiveReload: Exported WASM state:', wasmState);
                     return wasmState;
                 } catch (e) {
@@ -36,17 +47,20 @@
         
         importState: function(state) {
             const payload = normalizeStatePayload(state);
-            if (!payload) return;
+            if (!payload) return null;
             
-            // Try to import WASM app state if available
-            if (window.importAppState && typeof window.importAppState === 'function') {
+            const bridge = getAppHotReloadBridge();
+            if (bridge && typeof bridge.restoreSnapshot === 'function') {
                 try {
-                    // console.log('🔄 GoLiveReload: Importing WASM state:', state);
-                    window.importAppState(payload);
+                    const result = bridge.restoreSnapshot(payload);
+                    recordHotReloadOutcome(result);
+                    return result;
                 } catch (e) {
                     console.warn('🚨 Failed to import WASM state:', e);
                 }
             }
+
+            return null;
         },
         
         storeState: function(state) {
@@ -96,6 +110,14 @@
             return lastHotReloadFailure;
         },
 
+        getLastHotReloadOutcome: function() {
+            return lastHotReloadOutcome;
+        },
+
+        getLastHotReloadActivity: function() {
+            return lastHotReloadActivity.slice();
+        },
+
         triggerHotReload: function(snapshotOverride) {
             performHotReload(snapshotOverride);
         }
@@ -112,10 +134,400 @@
             return null;
         }
     }
+
+    function whenDocumentTargetReady(targetName, callback) {
+        const target = targetName === 'head' ? document.head : document.body;
+        if (target) {
+            callback(target);
+            return;
+        }
+
+        document.addEventListener('DOMContentLoaded', function onReady() {
+            document.removeEventListener('DOMContentLoaded', onReady);
+            const readyTarget = targetName === 'head' ? document.head : document.body;
+            if (readyTarget) {
+                callback(readyTarget);
+            }
+        });
+    }
+
+    function appendToDocumentTarget(targetName, element) {
+        if (!element) return false;
+
+        const target = targetName === 'head' ? document.head : document.body;
+        if (target) {
+            target.appendChild(element);
+            return true;
+        }
+
+        whenDocumentTargetReady(targetName, function(readyTarget) {
+            if (!element.isConnected) {
+                readyTarget.appendChild(element);
+            }
+        });
+        return false;
+    }
+
+    function summarizeHotReloadFailure(reason, error) {
+        const detail = error && error.message ? error.message : String(error || 'unknown error');
+        const title = reason || 'Hot reload fell back to a full page reload';
+        return {
+            title: title,
+            detail: detail,
+            summary: title + ': ' + detail,
+            recovery: 'full page reload with snapshot restore'
+        };
+    }
+
+    function configuredWasmPath() {
+        const config = window.__GWC_LIVERELOAD_CONFIG;
+        if (!config || typeof config !== 'object') {
+            return '';
+        }
+        if (typeof config.wasmPath !== 'string') {
+            return '';
+        }
+        return config.wasmPath.trim();
+    }
+
+    function discoverWasmPathFromPage() {
+        const inlineScripts = document.querySelectorAll('script:not([src])');
+        const pattern = /fetch\(\s*['"]([^'"]+\.wasm(?:\?[^'"]*)?)['"]\s*\)/;
+
+        for (let index = inlineScripts.length - 1; index >= 0; index--) {
+            const script = inlineScripts[index];
+            const content = typeof script.textContent === 'string' ? script.textContent : '';
+            const match = content.match(pattern);
+            if (match && typeof match[1] === 'string') {
+                return match[1].trim();
+            }
+        }
+
+        return '';
+    }
+
+    function resolveWasmPath() {
+        const configured = configuredWasmPath();
+        if (configured) {
+            return configured;
+        }
+
+        const discovered = discoverWasmPathFromPage();
+        if (discovered) {
+            return discovered;
+        }
+
+        return 'main.wasm';
+    }
+
+    function withCacheBust(url) {
+        if (typeof url !== 'string' || url.trim() === '') {
+            return 'main.wasm?t=' + Date.now();
+        }
+
+        const trimmed = url.trim();
+        return trimmed + (trimmed.includes('?') ? '&' : '?') + 't=' + Date.now();
+    }
+
+    function changedComponentIdentities(manifest) {
+        if (!manifest || typeof manifest !== 'object' || !Array.isArray(manifest.components)) {
+            return [];
+        }
+
+        const identities = [];
+
+        manifest.components.forEach(function(component) {
+            if (!component || typeof component !== 'object') return;
+
+            const qualifiedName = typeof component.qualifiedName === 'string' ? component.qualifiedName.trim() : '';
+            if (qualifiedName) {
+                identities.push(qualifiedName);
+            }
+
+            const packageName = typeof component.packageName === 'string' ? component.packageName.trim() : '';
+            const name = typeof component.name === 'string' ? component.name.trim() : '';
+            if (packageName && name) {
+                identities.push(packageName + '.' + name);
+            }
+        });
+
+        return identities
+            .filter(function(identity) {
+                return identity.length > 0;
+            })
+            .filter(function(identity, index, all) {
+                return all.indexOf(identity) === index;
+            });
+    }
+
+    function attachSelectiveRestorePlan(payload, changedComponents) {
+        const normalizedPayload = normalizeStatePayload(payload);
+        if (!normalizedPayload) {
+            return null;
+        }
+        if (!Array.isArray(changedComponents) || changedComponents.length === 0) {
+            return normalizedPayload;
+        }
+
+        try {
+            const parsed = JSON.parse(normalizedPayload);
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                return normalizedPayload;
+            }
+
+            parsed.restoreMode = 'selective';
+            parsed.changedComponents = changedComponents.slice();
+            return JSON.stringify(parsed);
+        } catch (e) {
+            console.warn('Failed to attach selective hot reload manifest to snapshot payload:', e);
+            return normalizedPayload;
+        }
+    }
+
+    function normalizeHotReloadOverride(snapshotOverride) {
+        if (!snapshotOverride || typeof snapshotOverride !== 'object' || Array.isArray(snapshotOverride)) {
+            return {
+                payload: normalizeStatePayload(snapshotOverride),
+                changedComponents: [],
+                strategy: ''
+            };
+        }
+
+        return {
+            payload: normalizeStatePayload(snapshotOverride.payload),
+            changedComponents: Array.isArray(snapshotOverride.changedComponents) ? snapshotOverride.changedComponents.slice() : [],
+            strategy: typeof snapshotOverride.strategy === 'string' ? snapshotOverride.strategy : ''
+        };
+    }
+
+    function buildHotReloadRestorePlan(snapshot, manifest) {
+        const payload = normalizeStatePayload(snapshot);
+        const changedComponents = changedComponentIdentities(manifest);
+        const plan = {
+            payload: payload,
+            strategy: 'legacy',
+            summary: '',
+            changedComponents: changedComponents
+        };
+
+        if (changedComponents.length === 0) {
+            if (manifest && Array.isArray(manifest.changedFiles) && manifest.changedFiles.length > 0) {
+                plan.summary = 'full restore fallback';
+            }
+            return plan;
+        }
+
+        if (!payload) {
+            plan.summary = 'selective preserve/remount';
+            plan.strategy = 'selective';
+            return plan;
+        }
+
+        try {
+            plan.payload = attachSelectiveRestorePlan(payload, changedComponents);
+            if (!plan.payload) {
+                plan.summary = 'full restore fallback';
+                return plan;
+            }
+            plan.strategy = 'selective';
+            plan.summary = 'selective preserve/remount';
+            return plan;
+        } catch (e) {
+            plan.summary = 'full restore fallback';
+            return plan;
+        }
+    }
+
+    function normalizeDiagnostics(diagnostics) {
+        if (!Array.isArray(diagnostics)) return [];
+        return diagnostics
+            .filter(function(diagnostic) {
+                return diagnostic && typeof diagnostic === 'object';
+            })
+            .map(function(diagnostic) {
+                return {
+                    severity: diagnostic.severity || '',
+                    classification: diagnostic.classification || '',
+                    message: diagnostic.message || '',
+                    path: diagnostic.path || '',
+                    componentStack: Array.isArray(diagnostic.componentStack) ? diagnostic.componentStack.slice() : []
+                };
+            });
+    }
+
+    function recordHotReloadOutcome(result) {
+        if (!result || typeof result !== 'object') {
+            return null;
+        }
+
+        lastHotReloadOutcome = {
+            outcome: result.outcome || '',
+            message: result.message || '',
+            diagnostics: normalizeDiagnostics(result.diagnostics),
+            timestamp: new Date()
+        };
+
+        updateGWCIcon();
+        return lastHotReloadOutcome;
+    }
+
+    function normalizeActivity(entries) {
+        if (!Array.isArray(entries)) return [];
+        return entries
+            .filter(function(entry) {
+                return entry && typeof entry === 'object';
+            })
+            .map(function(entry) {
+                return {
+                    domain: entry.domain || '',
+                    level: entry.level || '',
+                    classification: entry.classification || '',
+                    message: entry.message || '',
+                    timestamp: entry.timestamp || '',
+                    fields: entry.fields && typeof entry.fields === 'object' ? Object.assign({}, entry.fields) : {}
+                };
+            });
+    }
+
+    function syncHotReloadOutcomeFromBridge() {
+        const bridge = getAppHotReloadBridge();
+        if (!bridge) return null;
+
+        let result = null;
+        if (typeof bridge.getLastRestoreResult === 'function') {
+            try {
+                result = bridge.getLastRestoreResult();
+            } catch (e) {
+                console.warn('Failed to read hot reload restore result:', e);
+            }
+        }
+
+        const recorded = recordHotReloadOutcome(result);
+
+        if (typeof bridge.getHotReloadDiagnostics === 'function') {
+            try {
+                const diagnostics = normalizeDiagnostics(bridge.getHotReloadDiagnostics());
+                if (recorded) {
+                    recorded.diagnostics = diagnostics;
+                    if (!recorded.message && diagnostics.length > 0) {
+                        recorded.message = diagnostics[0].message;
+                    }
+                } else if (diagnostics.length > 0) {
+                    lastHotReloadOutcome = {
+                        outcome: 'diagnostic-only',
+                        message: diagnostics[0].message,
+                        diagnostics: diagnostics,
+                        timestamp: new Date()
+                    };
+                }
+            } catch (e) {
+                console.warn('Failed to read hot reload diagnostics:', e);
+            }
+        }
+
+        updateGWCIcon();
+        return lastHotReloadOutcome;
+    }
+
+    function hotReloadPopupMessage(outcome) {
+        if (!outcome) return null;
+
+        const diagnostics = Array.isArray(outcome.diagnostics) ? outcome.diagnostics : [];
+        if (diagnostics.length > 0) {
+            return 'Hot reload restored with remount fallback';
+        }
+
+        switch (outcome.outcome) {
+            case 'restored':
+            case 'restored-legacy':
+                return 'Hot reload restored state';
+            case 'skipped-reset-key':
+                return 'Hot reload reset state';
+            case 'skipped-empty':
+                return 'Hot reload started without saved state';
+            default:
+                return null;
+        }
+    }
+
+    function droppedStateReason(outcome) {
+        if (!outcome) return '';
+
+        if (outcome.outcome === 'skipped-reset-key') {
+            return outcome.message || 'ResetKey changed';
+        }
+
+        const diagnostics = Array.isArray(outcome.diagnostics) ? outcome.diagnostics : [];
+        if (diagnostics.length > 0) {
+            return diagnostics[0].message || 'Part of the tree remounted during hot reload';
+        }
+
+        return '';
+    }
+
+    function buildSummary(status) {
+        if (!status || !status.success) return '';
+
+        const segments = [];
+        if (status.duration) {
+            segments.push('build ' + status.duration);
+        }
+        if (status.reloadType) {
+            segments.push(status.reloadType + ' reload');
+        }
+        if (status.restorePlanSummary) {
+            segments.push(status.restorePlanSummary);
+        }
+        if (status.restoreSummary) {
+            segments.push(status.restoreSummary);
+        }
+        if (status.droppedStateReason) {
+            segments.push('reason: ' + status.droppedStateReason);
+        } else if (status.classificationReason) {
+            segments.push('reason: ' + status.classificationReason);
+        }
+        return segments.join(' | ');
+    }
+
+    function applyBuildSummary(status) {
+        if (!status) return '';
+        status.summary = buildSummary(status);
+        updateGWCIcon();
+        return status.summary;
+    }
+
+    function applyHotReloadOutcomeToBuild(outcome) {
+        if (!lastBuildStatus || !lastBuildStatus.success) {
+            return;
+        }
+
+        if (outcome) {
+            lastBuildStatus.restoreOutcome = outcome.outcome || '';
+            lastBuildStatus.restoreMessage = outcome.message || '';
+            if (Array.isArray(outcome.diagnostics)) {
+                lastBuildStatus.restoreDiagnostics = outcome.diagnostics.slice();
+            }
+            if (outcome.outcome === 'skipped-reset-key') {
+                lastBuildStatus.restoreSummary = 'snapshot reset';
+            } else if (outcome.outcome === 'restored-selective') {
+                lastBuildStatus.restoreSummary = 'state restored with selective remounts';
+            } else if (Array.isArray(outcome.diagnostics) && outcome.diagnostics.length > 0) {
+                lastBuildStatus.restoreSummary = 'restored with remount fallback';
+            } else if (outcome.outcome === 'restored' || outcome.outcome === 'restored-legacy') {
+                lastBuildStatus.restoreSummary = 'state restored';
+            } else if (outcome.outcome === 'skipped-empty') {
+                lastBuildStatus.restoreSummary = 'no saved snapshot';
+            }
+            lastBuildStatus.droppedStateReason = droppedStateReason(outcome);
+        }
+
+        applyBuildSummary(lastBuildStatus);
+    }
     
     function connect() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = protocol + '//' + window.location.host + '/ws';
+        const bridge = getAppHotReloadBridge();
         
         ws = new WebSocket(wsUrl);
         
@@ -131,6 +543,14 @@
             }
         };
         
+
+        if (bridge && typeof bridge.getHotReloadActivity === 'function') {
+		    try {
+		        lastHotReloadActivity = normalizeActivity(bridge.getHotReloadActivity());
+		    } catch (e) {
+		        console.warn('Failed to read hot reload activity:', e);
+		    }
+		}
         ws.onmessage = function(event) {
             try {
                 const message = JSON.parse(event.data);
@@ -168,6 +588,7 @@
             case 'build_start':
                 const classification = message.payload?.classification;
                 if (classification) {
+                    lastBuildClassification = classification;
                     // console.log('🔍 Update classification:', classification.type, '(' + classification.reloadType + ') -', classification.reason);
                 }
                 // Remove build toast - status shown in GWC icon instead
@@ -176,23 +597,33 @@
             case 'build_complete':
                 if (message.payload && message.payload.success) {
                     const reloadType = message.payload.reloadType || 'full';
+                    const restorePlan = buildHotReloadRestorePlan(message.payload.stateSnapshot, message.payload.manifest);
                     // console.log('✅ Build successful, reload type:', reloadType);
                     
                     lastBuildStatus = {
                         success: true,
                         duration: message.payload.duration,
                         reloadType: reloadType,
+                        classificationReason: lastBuildClassification ? lastBuildClassification.reason : '',
+                        changedFiles: lastBuildClassification && Array.isArray(lastBuildClassification.changedFiles) ? lastBuildClassification.changedFiles.slice() : [],
+                        changedComponents: restorePlan.changedComponents.slice(),
+                        restorePlanSummary: restorePlan.summary,
                         timestamp: new Date()
                     };
+                    applyBuildSummary(lastBuildStatus);
                     buildHistory.unshift(lastBuildStatus);
                     if (buildHistory.length > 10) buildHistory.pop(); // Keep last 10 builds
                     buildErrors = []; // Clear errors on successful build
                     updateGWCIcon();
-                    showBuildStatusPopup('Build successful', 'success');
                     
                     if (reloadType === 'hot') {
-                        performHotReload(message.payload.stateSnapshot);
+                        performHotReload({
+                            payload: restorePlan.payload,
+                            changedComponents: restorePlan.changedComponents,
+                            strategy: restorePlan.strategy
+                        });
                     } else {
+                        showBuildStatusPopup(lastBuildStatus.summary || 'Build successful', 'success');
                         performFullReload(message.payload.stateSnapshot);
                     }
                 } else {
@@ -255,10 +686,13 @@
                         error: message.payload.error,
                         duration: message.payload.duration,
                         reloadType: message.payload.reloadType,
+                        classificationReason: lastBuildClassification ? lastBuildClassification.reason : '',
                         timestamp: new Date()
                     };
+                    applyBuildSummary(lastBuildStatus);
                     
                     if (!message.payload.success) {
+                    applyHotReloadOutcomeToBuild(lastHotReloadOutcome);
                         buildErrors.push({
                             error: message.payload.error,
                             timestamp: new Date()
@@ -289,8 +723,9 @@
         // Try hot reload with WASM module replacement
         setTimeout(() => {
             try {
-                if (window.prepareAppHotReload && typeof window.prepareAppHotReload === 'function') {
-                    window.prepareAppHotReload();
+                const bridge = getAppHotReloadBridge();
+                if (bridge && typeof bridge.prepare === 'function') {
+                    bridge.prepare();
                 }
 
                 if (window.hotReloadWasm && typeof window.hotReloadWasm === 'function') {
@@ -298,11 +733,20 @@
                     window.hotReloadWasm();
                 }
             } catch (e) {
-                console.warn('Hot reload hook failed, continuing with module reload:', e);
+                console.warn('Hot reload patch hook threw; continuing with full WASM module reload and snapshot restore:', e);
             }
 
             reloadWasmModule(function(reason, error) {
                 recoverFromHotReloadFailure(reason, error, currentState);
+            }, function() {
+                setTimeout(function() {
+                    const outcome = syncHotReloadOutcomeFromBridge();
+                    const popupMessage = hotReloadPopupMessage(outcome);
+                    if (popupMessage) {
+                        const summary = lastBuildStatus && lastBuildStatus.summary ? lastBuildStatus.summary : popupMessage;
+                        showBuildStatusPopup(summary, outcome && outcome.outcome === 'skipped-reset-key' ? 'info' : 'success');
+                    }
+                }, 250);
             });
         }, 100);
     }
@@ -323,7 +767,11 @@
     }
 
     function preserveStateForReload(snapshotOverride) {
-        const currentState = normalizeStatePayload(snapshotOverride) || window.GoLiveReload.exportState();
+        const override = normalizeHotReloadOverride(snapshotOverride);
+        let currentState = override.payload || window.GoLiveReload.exportState();
+        if (override.strategy === 'selective') {
+            currentState = attachSelectiveRestorePlan(currentState, override.changedComponents);
+        }
         if (currentState) {
             window.GoLiveReload.storeState(currentState);
         }
@@ -331,18 +779,21 @@
     }
     
     function recoverFromHotReloadFailure(reason, error, rollbackState) {
+        const failure = summarizeHotReloadFailure(reason, error);
         lastHotReloadFailure = {
-            reason: reason,
-            message: error && error.message ? error.message : String(error || 'unknown error'),
-            timestamp: Date.now()
+            reason: failure.title,
+            message: failure.detail,
+            recovery: failure.recovery,
+            summary: failure.summary,
+            timestamp: new Date().toISOString()
         };
 
         if (rollbackState) {
             window.GoLiveReload.storeState(rollbackState);
         }
 
-        console.warn('Hot reload failed, falling back to a full reload:', lastHotReloadFailure);
-        showBuildStatusPopup('Hot reload failed, restoring state', 'error');
+        console.warn('Hot reload could not swap the rebuilt WASM module; falling back to a full page reload with preserved snapshot state:', lastHotReloadFailure);
+        showBuildStatusPopup('Hot reload fallback: ' + failure.title, 'error');
         performFullReload(rollbackState);
     }
 
@@ -366,7 +817,7 @@
         }
     }
     
-    function reloadWasmModule(onFailure) {
+    function reloadWasmModule(onFailure, onSuccess) {
         // console.log('🔄 Attempting WASM module reload...');
 
         // Try to find and reload the WASM script
@@ -380,10 +831,13 @@
                 // Try to reinitialize the Go WASM
                 if (window.Go) {
                     const go = new Go();
-                    WebAssembly.instantiateStreaming(fetch('/bin/main.wasm?t=' + Date.now()), go.importObject)
+                    WebAssembly.instantiateStreaming(fetch(withCacheBust(resolveWasmPath())), go.importObject)
                         .then((result) => {
                             // console.log('✅ WASM module reloaded');
                             go.run(result.instance);
+                            if (typeof onSuccess === 'function') {
+                                onSuccess();
+                            }
                         })
                         .catch((e) => {
                             // console.warn('🚨 WASM module reload failed:', e);
@@ -510,8 +964,8 @@
             transition: 'all 0.3s ease',
             maxWidth: '200px'
         });
-        
-        document.body.appendChild(popup);
+
+        appendToDocumentTarget('body', popup);
         
         // Animate in
         setTimeout(function() {
@@ -567,8 +1021,8 @@
             boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
             transition: 'all 0.3s ease'
         });
-        
-        document.body.appendChild(status);
+
+        appendToDocumentTarget('body', status);
         
         // Auto-remove success messages or when specified
         if (autoRemove && (type === 'success' || type === 'waiting')) {
@@ -586,11 +1040,15 @@
             return;
         }
 
-        if (typeof window.importAppState === 'function') {
+        const bridge = getAppHotReloadBridge();
+        if (bridge && typeof bridge.restoreSnapshot === 'function') {
             try {
                 // console.log('🔄 Restoring state after page load...');
                 window.GoLiveReload.importState(savedState);
                 window.GoLiveReload.clearStoredState();
+                setTimeout(function() {
+                    syncHotReloadOutcomeFromBridge();
+                }, 150);
             } catch (e) {
                 // console.warn('🚨 Failed to restore state:', e);
             }
@@ -620,7 +1078,7 @@
         const style = document.createElement('style');
         style.id = 'gwc-pulse-style';
         style.textContent = '@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }';
-        document.head.appendChild(style);
+        appendToDocumentTarget('head', style);
     }
 
     // Create and manage GWC status icon
@@ -695,10 +1153,7 @@
             icon.style.borderColor = '#374151';
         };
         
-        const mountTarget = document.body || document.documentElement;
-        if (mountTarget) {
-            mountTarget.appendChild(icon);
-        }
+        appendToDocumentTarget('body', icon);
         updateGWCIcon();
     }
     
@@ -735,6 +1190,10 @@
             icon.style.animation = 'pulse 2s infinite';
         } else {
             icon.style.animation = 'none';
+        }
+
+        if (lastHotReloadOutcome && lastHotReloadOutcome.diagnostics && lastHotReloadOutcome.diagnostics.length > 0) {
+            icon.style.boxShadow = '0 0 0 3px rgba(245, 158, 11, 0.45), 0 4px 12px rgba(0,0,0,0.5)';
         }
         
         // Update error badge
@@ -820,6 +1279,9 @@
                 if (lastBuildStatus.reloadType) {
                     buildStatusDiv.innerHTML += '<br><small>Reload: ' + lastBuildStatus.reloadType + '</small>';
                 }
+                if (lastBuildStatus.summary) {
+                    buildStatusDiv.innerHTML += '<br><small>Summary: ' + escapeHtml(lastBuildStatus.summary) + '</small>';
+                }
             }
             
             if (!lastBuildStatus.success && lastBuildStatus.error) {
@@ -879,6 +1341,74 @@
             
             content.appendChild(buildStatusDiv);
         }
+
+        if (lastHotReloadOutcome) {
+            const hotReloadDiv = document.createElement('div');
+            hotReloadDiv.style.marginBottom = '16px';
+
+            const hasDiagnostics = Array.isArray(lastHotReloadOutcome.diagnostics) && lastHotReloadOutcome.diagnostics.length > 0;
+            const outcomeColor = hasDiagnostics ? '#F59E0B' : lastHotReloadOutcome.outcome === 'skipped-reset-key' ? '#3B82F6' : '#10B981';
+            const outcomeText = (lastHotReloadOutcome.outcome || 'unknown').toUpperCase();
+            const timeAgo = formatTimeAgo(lastHotReloadOutcome.timestamp);
+            hotReloadDiv.innerHTML = '<strong>Hot Reload:</strong> <span style="color: ' + outcomeColor + '">' + escapeHtml(outcomeText) + '</span> (' + timeAgo + ')';
+
+            if (lastHotReloadOutcome.message) {
+                hotReloadDiv.innerHTML += '<br><small>' + escapeHtml(lastHotReloadOutcome.message) + '</small>';
+            }
+
+            if (hasDiagnostics) {
+                const diagnosticList = document.createElement('div');
+                diagnosticList.style.marginTop = '8px';
+                diagnosticList.style.padding = '8px';
+                diagnosticList.style.backgroundColor = '#3A2E14';
+                diagnosticList.style.border = '1px solid #6B4F1D';
+                diagnosticList.style.borderRadius = '4px';
+                diagnosticList.style.color = '#FDE68A';
+                diagnosticList.style.fontSize = '11px';
+
+                const items = lastHotReloadOutcome.diagnostics.slice(0, 3).map(function(diagnostic) {
+                    let line = escapeHtml(diagnostic.message || 'Hot reload remounted part of the tree.');
+                    if (diagnostic.path) {
+                        line += '<br><small style="color:#FCD34D">' + escapeHtml(diagnostic.path) + '</small>';
+                    }
+                    return '<div style="margin-top:6px">' + line + '</div>';
+                }).join('');
+
+                diagnosticList.innerHTML = '<strong>Preserve vs reset:</strong>' + items;
+                hotReloadDiv.appendChild(diagnosticList);
+            }
+
+            content.appendChild(hotReloadDiv);
+        }
+
+        if (lastHotReloadActivity.length > 0) {
+            const activityDiv = document.createElement('div');
+            activityDiv.style.marginBottom = '16px';
+            activityDiv.innerHTML = '<strong>Route/Async Activity:</strong>';
+
+            lastHotReloadActivity.slice(-4).reverse().forEach(function(entry) {
+                const item = document.createElement('div');
+                item.style.marginTop = '8px';
+                item.style.padding = '8px';
+                item.style.backgroundColor = '#243244';
+                item.style.border = '1px solid #334155';
+                item.style.borderRadius = '4px';
+                item.style.fontSize = '11px';
+                item.style.color = '#DBEAFE';
+
+                let meta = entry.domain ? entry.domain.toUpperCase() : 'ACTIVITY';
+                if (entry.fields && entry.fields.path) {
+                    meta += ' · ' + entry.fields.path;
+                } else if (entry.fields && entry.fields.url) {
+                    meta += ' · ' + entry.fields.url;
+                }
+
+                item.innerHTML = '<strong>' + escapeHtml(meta) + '</strong><br>' + escapeHtml(entry.message || 'Activity recorded');
+                activityDiv.appendChild(item);
+            });
+
+            content.appendChild(activityDiv);
+        }
         
         // Build History
         if (buildHistory.length > 0) {
@@ -900,6 +1430,9 @@
                 if (build.success && build.duration) {
                     buildDiv.innerHTML += ' (' + build.duration + ')';
                 }
+                if (build.success && build.summary) {
+                    buildDiv.innerHTML += '<br><small style="color:#9CA3AF">' + escapeHtml(build.summary) + '</small>';
+                }
                 
                 content.appendChild(buildDiv);
             });
@@ -917,7 +1450,7 @@
             });
         }, 100);
         
-        document.body.appendChild(panel);
+        appendToDocumentTarget('body', panel);
     }
     
     function formatTimeAgo(timestamp) {
@@ -959,7 +1492,7 @@
         textArea.style.position = 'fixed';
         textArea.style.left = '-999999px';
         textArea.style.top = '-999999px';
-        document.body.appendChild(textArea);
+        appendToDocumentTarget('body', textArea);
         textArea.focus();
         textArea.select();
         
@@ -974,13 +1507,15 @@
             // console.error('❌ Fallback copy failed:', err);
         }
         
-        document.body.removeChild(textArea);
+        if (textArea.parentNode) {
+            textArea.parentNode.removeChild(textArea);
+        }
     }
     
     // Add CSS animation for pulse effect
     const style = document.createElement('style');
     style.textContent = '@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }';
-    document.head.appendChild(style);
+    appendToDocumentTarget('head', style);
     
     // Create icon on load
     if (document.readyState === 'loading') {

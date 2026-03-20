@@ -741,6 +741,14 @@ func isSameType(type1, type2 interface{}) bool {
 		return false
 	}
 
+	if component1, ok1 := type1.(*ComponentType); ok1 {
+		component2, ok2 := type2.(*ComponentType)
+		if !ok2 {
+			return false
+		}
+		return component1.IdentityKey() != "" && component1.IdentityKey() == component2.IdentityKey()
+	}
+
 	v1 := reflect.ValueOf(type1)
 	v2 := reflect.ValueOf(type2)
 

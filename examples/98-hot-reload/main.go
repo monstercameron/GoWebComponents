@@ -8,41 +8,47 @@ import (
 
 	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
+	"github.com/monstercameron/GoWebComponents/hotreload"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/ui"
-	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-// App demonstrates hot reload basics
-func App() ui.Node {
+func StableCounterPanel() ui.Node {
 	count := ui.UseState(0)
-	currentCount := count.Get()
-
 	increment := ui.UseEvent(func() {
 		count.Update(func(prev int) int { return prev + 1 })
 	})
 
-	return html.Div(html.Props{Class: "p-8"},
-		html.H1(html.Props{Class: "text-2xl font-bold mb-4"},
-			html.Text("Hot Reload Development Server test"),
-		),
-		html.P(html.Props{Class: "mb-4 text-gray-300"},
-			html.Text("Try editing main.go while this is ruining. Increase the count, edit the text, and watch the hot reload! The state SHOULD be preserved!"),
-		),
-		html.Div(html.Props{Class: "bg-gray-800 p-6 rounded-lg"},
-			html.Text(fmt.Sprintf("Current count: %d", currentCount)),
-			html.Button(html.Props{
-				Class:   "mx-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded",
-				OnClick: increment,
-			},
-				html.Text("Increment Counter111"),
+	return html.Div(html.Props{Class: "bg-slate-900 p-5 rounded-xl border border-emerald-500/40", ID: "stable-panel"},
+		html.H2(html.Props{Class: "text-lg font-semibold text-emerald-300 mb-2"}, html.Text("Stable sibling subtree")),
+		html.P(html.Props{Class: "text-sm text-slate-300 mb-3"}, html.Text("This subtree should preserve its local state when a different sibling component changes.")),
+		html.P(html.Props{Class: "font-mono text-base", ID: "stable-count"}, html.Text(fmt.Sprintf("Stable count: %d", count.Get()))),
+		html.Button(html.Props{
+			Class:   "mt-3 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold px-4 py-2 rounded",
+			ID:      "stable-increment",
+			OnClick: increment,
+		}, html.Text("Increment Stable Counter")),
+	)
+}
+
+// App demonstrates selective preserve/remount hot reload behavior.
+func App() ui.Node {
+	return html.Div(html.Props{Class: "p-8 space-y-6"},
+		html.Div(html.Props{Class: "space-y-3"},
+			html.H1(html.Props{Class: "text-2xl font-bold", ID: "hot-reload-heading"}, html.Text("Hot Reload Development Server")),
+			html.P(html.Props{Class: "text-slate-300 max-w-3xl"},
+				html.Text("Edit only the changed sibling component in this file while the standalone dev server is running. The stable sibling should preserve its counter state, while the changed sibling should remount and reset its local state after the rebuild."),
 			),
+		),
+		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-2"},
+			ui.CreateElement(StableCounterPanel),
+			ui.CreateElement(ChangedCounterPanel),
 		),
 	)
 }
 
 func main() {
-	utils.EnableHotReload(true)
+	hotreload.Enable()
 
 	app := ui.CreateElement(App)
 	ui.Render(app, "#app")

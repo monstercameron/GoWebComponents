@@ -178,3 +178,90 @@ func TestPrepareForHotReloadRunsCleanupsAndReleasesWrappers(t *testing.T) {
 		t.Fatal("expected prepare for hot reload to clear update scheduling")
 	}
 }
+
+func TestPrepareForHotReloadReportsPendingFetchRestartActivity(t *testing.T) {
+	ClearLogs()
+	defer ClearLogs()
+
+	rt := &Runtime{}
+	leaf := &Fiber{
+		typeOf: "div",
+		hooks: &Hooks{
+			fetches: []fetchValue{{
+				url:   "/api/orders",
+				state: FetchState{Loading: true},
+			}},
+		},
+	}
+	root := &Fiber{typeOf: "ROOT", child: leaf}
+	leaf.parent = root
+	rt.currentRoot = root
+
+	rt.PrepareForHotReload()
+
+	logs := GetLogs()
+	if len(logs) != 1 {
+		t.Fatalf("expected one hot reload activity log, got %d", len(logs))
+	}
+	if logs[0].Domain != "hotreload" {
+		t.Fatalf("expected hotreload log domain, got %+v", logs[0])
+	}
+	if logs[0].Message != "pending fetch will restart on hot reload" {
+		t.Fatalf("expected fetch restart message, got %+v", logs[0])
+	}
+	if logs[0].Fields["url"] != "/api/orders" {
+		t.Fatalf("expected fetch url field, got %+v", logs[0])
+	}
+}
+
+func TestSelectiveHotReloadRestoreRemountsChangedSubtreeOnly(t *testing.T) {
+	rt := &Runtime{}
+	root := &Fiber{typeOf: "ROOT"}
+	app := &Fiber{typeOf: NewComponentType("example/App", "App", "example/App", nil, nil), parent: root, hooks: &Hooks{signature: []string{"state"}, states: []interface{}{1, nil}}}
+	changed := &Fiber{typeOf: NewComponentType("example/Changed", "Changed", "example/Changed", nil, nil), parent: app, hooks: &Hooks{signature: []string{"state"}, states: []interface{}{2, nil}}}
+	stable := &Fiber{typeOf: NewComponentType("example/Stable", "Stable", "example/Stable", nil, nil), parent: app, hooks: &Hooks{signature: []string{"state"}, states: []interface{}{3, nil}}}
+	root.child = app
+	app.child = changed
+	changed.sibling = stable
+
+	snapshot := HotReloadSnapshot{}
+	captureHotReloadComponentSnapshots(root, &snapshot.Components)
+	decision := rt.RestoreHotReloadSnapshotWithPlan(snapshot, HotReloadRestorePlan{
+		Selective:         true,
+		ChangedIdentities: []string{"example/Changed"},
+	})
+	if decision.Strategy != "selective" {
+		t.Fatalf("expected selective restore strategy, got %+v", decision)
+	}
+
+	reloadRoot := &Fiber{typeOf: "ROOT"}
+	reloadApp := &Fiber{typeOf: NewComponentType("example/App", "App", "example/App", nil, nil), parent: reloadRoot}
+	reloadChanged := &Fiber{typeOf: NewComponentType("example/Changed", "Changed", "example/Changed", nil, nil), parent: reloadApp}
+	reloadStable := &Fiber{typeOf: NewComponentType("example/Stable", "Stable", "example/Stable", nil, nil), parent: reloadApp}
+	reloadRoot.child = reloadApp
+	reloadApp.child = reloadChanged
+	reloadChanged.sibling = reloadStable
+
+	if got := rt.matchingHotReloadComponentSnapshot(reloadApp); got == nil || got.Signature.identityKey() != "example/App" {
+		t.Fatalf("expected app snapshot to be preserved, got %#v", got)
+	}
+	if got := rt.matchingHotReloadComponentSnapshot(reloadChanged); got != nil {
+		t.Fatalf("expected changed subtree to remount without snapshot, got %#v", got)
+	}
+	if got := rt.matchingHotReloadComponentSnapshot(reloadStable); got == nil || got.Signature.identityKey() != "example/Stable" {
+		t.Fatalf("expected unchanged sibling snapshot to survive, got %#v", got)
+	}
+}
+
+func TestSelectiveHotReloadRestoreFallsBackWhenPathsAreMissing(t *testing.T) {
+	rt := &Runtime{}
+	decision := rt.RestoreHotReloadSnapshotWithPlan(HotReloadSnapshot{Components: []HotReloadComponentSnapshot{{
+		Signature: ComponentSignature{Kind: "component", Name: "App", QualifiedName: "example/App"},
+	}}}, HotReloadRestorePlan{Selective: true, ChangedIdentities: []string{"example/App"}})
+	if decision.Strategy != "legacy" {
+		t.Fatalf("expected legacy fallback strategy, got %+v", decision)
+	}
+	if decision.UnsafeReason == "" {
+		t.Fatalf("expected unsafe fallback reason, got %+v", decision)
+	}
+}

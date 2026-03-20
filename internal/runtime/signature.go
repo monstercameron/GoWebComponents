@@ -103,6 +103,15 @@ func buildComponentSignature(fiber *Fiber, hooks *Hooks) *ComponentSignature {
 }
 
 func describeCallableIdentity(value interface{}) (string, string) {
+	if component, ok := value.(*ComponentType); ok && component != nil {
+		pretty := strings.TrimSpace(component.Name)
+		qualified := strings.TrimSpace(component.IdentityKey())
+		if pretty == "" {
+			pretty = trimCallableName(qualified)
+		}
+		return pretty, qualified
+	}
+
 	rv := reflect.ValueOf(value)
 	if rv.IsValid() && rv.Kind() == reflect.Func {
 		if fn := goRuntime.FuncForPC(rv.Pointer()); fn != nil {

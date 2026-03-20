@@ -5,16 +5,16 @@
 
 set -euo pipefail
 
-MAIN="${1:-}"
+APP="${1:-}"
 ROOT="${2:-}"
-INDEX="${3:-}"
-OUTPUT="${4:-}"
+HTML="${3:-}"
+WASM="${4:-}"
 HOST="${HOST:-127.0.0.1}"
 PORT="${PORT:-8080}"
 NO_HOT_RELOAD="${NO_HOT_RELOAD:-0}"
 
-if [[ -z "$MAIN" ]]; then
-  echo "Usage: ./tools/dev.sh <path-to-main.go-or-app-dir> [root] [index] [output]" >&2
+if [[ -z "$APP" ]]; then
+  echo "Usage: ./tools/dev.sh <path-to-app> [root] [html] [wasm]" >&2
   exit 1
 fi
 
@@ -33,29 +33,35 @@ go build -o livereload .
 popd >/dev/null
 
 if [[ -z "$ROOT" ]]; then
-  ROOT="$(dirname "$MAIN")"
+  ROOT="$(dirname "$APP")"
 fi
 
 args=(
-  -main "$MAIN"
+  -app "$APP"
   -root "$ROOT"
   -host "$HOST"
   -port "$PORT"
 )
 
-if [[ -n "$INDEX" ]]; then
-  args+=(-index "$INDEX")
+if [[ -n "$HTML" ]]; then
+  args+=(-html "$HTML")
 fi
-if [[ -n "$OUTPUT" ]]; then
-  args+=(-output "$OUTPUT")
+if [[ -n "$WASM" ]]; then
+  args+=(-wasm "$WASM")
 fi
 if [[ "$NO_HOT_RELOAD" == "1" ]]; then
   args+=(-hot=false)
 fi
 
 echo "Starting hot-reload dev server..."
-echo "Main:  $MAIN"
+echo "App:   $APP"
 echo "Root:  $ROOT"
+if [[ -n "$HTML" ]]; then
+  echo "HTML:  $HTML"
+fi
+if [[ -n "$WASM" ]]; then
+  echo "WASM:  $WASM"
+fi
 echo "Press Ctrl+C to stop"
 
 pushd "$REPO_ROOT" >/dev/null

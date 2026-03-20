@@ -140,6 +140,10 @@ func renderChildrenToString(builder *strings.Builder, children []interface{}) er
 }
 
 func resolveComponentElement(element *Element) (*Element, error) {
+	if component, ok := element.Type.(*ComponentType); ok {
+		return component.Render(element.Props), nil
+	}
+
 	value := reflect.ValueOf(element.Type)
 	if !value.IsValid() || value.Kind() != reflect.Func {
 		return nil, fmt.Errorf("ssr: unsupported element type %T", element.Type)

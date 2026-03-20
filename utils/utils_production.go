@@ -3,6 +3,8 @@
 
 package utils
 
+import "github.com/monstercameron/GoWebComponents/hotreload"
+
 var hotReloadEnabled bool
 
 // isDebugBuild returns false for production builds
@@ -52,13 +54,20 @@ func GetDebugStatus() map[string]bool {
 }
 
 func EnableHotReload(enabled bool) {
+	if enabled {
+		hotreload.Enable()
+		return
+	}
+	hotreload.Disable()
 }
 
 func IsHotReloadEnabled() bool {
-	return false
+	return hotreload.Enabled()
 }
 
-func InstallHotReloadBridge(atomIDs ...string) {}
+func InstallHotReloadBridge(atomIDs ...string) {
+	hotreload.Configure(hotreload.Config{AtomIDs: atomIDs})
+}
 
 func EnableGoroutineMonitoring() {}
 

@@ -93,7 +93,7 @@ Recommended commands today:
 
 Reasoning rules:
 
-- browser refresh is the current default feedback loop; state-preserving hot reload is not the documented baseline
+- browser refresh remains a reliable fallback, but state-preserving hot reload is now the documented dev loop for standalone apps that call `hotreload.Enable()` and run through `tools/dev.ps1` or `tools/dev.sh`
 - treat stale wasm output as the first suspect when a browser change seems missing
 - keep local validation focused on the package or example being edited instead of rerunning every suite on every save
 
@@ -105,6 +105,6 @@ It does not yet claim:
 
 - shipped starter applications
 - a one-command project bootstrap command for new apps
-- a watch-mode dev loop that rebuilds and refreshes automatically
+- a one-command project bootstrap command for new apps
 
-Those remain separate backlog work.
+Project-local hot reload is now documented, but repo-wide scaffolding and app generation remain separate backlog work.

@@ -41,6 +41,7 @@ Import public packages from the module path exactly as declared in `go.mod`:
 ```go
 import (
   "github.com/monstercameron/GoWebComponents/fetch"
+    "github.com/monstercameron/GoWebComponents/hotreload"
   "github.com/monstercameron/GoWebComponents/html"
   "github.com/monstercameron/GoWebComponents/router"
   "github.com/monstercameron/GoWebComponents/state"
@@ -52,9 +53,11 @@ Requirements:
 
 - Go 1.25+
 - A browser with WebAssembly support
-- Node.js only when you want the example dev server or Playwright browser suites
+- Node.js only when you want the example catalog server or Playwright browser suites
 
-The repository root is the module boundary, not a directly importable package. Application code should import public subpackages such as `ui`, `html`, `state`, `fetch`, `router`, and `devtools`.
+The repository root is the module boundary, not a directly importable package. Application code should import public subpackages such as `ui`, `html`, `state`, `fetch`, `router`, `devtools`, and `hotreload`.
+
+For the standalone wasm dev loop, enable `hotreload.Enable()` in your app and run `tools/dev.ps1` or `tools/dev.sh`.
 
 ## Starter App Example
 
@@ -206,6 +209,7 @@ The preferred public surface is:
 - `fetch`: browser fetch helpers, typed resources, and imperative fetch flows
 - `router`: hash routing, browser routing, params, query helpers, redirects, loaders, guards, metadata, nested layouts, and hydration-aware mount helpers
 - `devtools`: embeddable inspection, diagnostics, profiling hints, and snapshots
+- `hotreload`: state-preserving development reload bridge and snapshot helpers for standalone wasm apps
 
 ## Feature Overview
 
@@ -383,7 +387,7 @@ Generated wasm binaries and local browser-compiler package archives should stay 
 Current repo state as reflected in the codebase:
 
 - Core runtime lives in `internal/runtime/`
-- Preferred public packages are `ui`, `html`, `state`, `fetch`, `router`, and `devtools`
+- Preferred public packages are `ui`, `html`, `state`, `fetch`, `router`, `devtools`, and `hotreload`
 - Example and test fixture code now builds through current ui/html bridge helpers instead of older compatibility layers
 - Native `internal/runtime` statement coverage is `100%`
 - Native runtime tests pass with `go test ./internal/runtime`

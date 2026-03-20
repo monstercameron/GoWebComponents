@@ -4,6 +4,7 @@
 package main
 
 import (
+	"github.com/monstercameron/GoWebComponents/hotreload"
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
@@ -25,7 +26,7 @@ func App(props Attrs) *Element {
 	})
 
 	// Enable hot reload for instant development feedback
-	utils.EnableHotReload(true)
+	hotreload.Enable()
 
 	// Initialize application routing
 	return AppRouter(nil)

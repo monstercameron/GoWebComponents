@@ -14,15 +14,31 @@ type HotReloadSnapshot struct {
 	Components []HotReloadComponentSnapshot `json:"components,omitempty"`
 }
 
+// HotReloadRestorePlan controls whether hot-reload restore should preserve all
+// compatible component snapshots or selectively drop changed subtrees.
+type HotReloadRestorePlan struct {
+	Selective         bool
+	ChangedIdentities []string
+}
+
+// HotReloadRestoreDecision reports whether selective restore was applied or the
+// runtime fell back to the legacy full compatible restore path.
+type HotReloadRestoreDecision struct {
+	Strategy     string
+	UnsafeReason string
+}
+
 // HotReloadComponentSnapshot stores the serializable hook slots for a single
 // function component render in preorder traversal order.
 type HotReloadComponentSnapshot struct {
-	Signature ComponentSignature       `json:"signature"`
-	States    []interface{}            `json:"states,omitempty"`
-	Memos     []HotReloadMemoSnapshot  `json:"memos,omitempty"`
-	Refs      []interface{}            `json:"refs,omitempty"`
-	IDs       []string                 `json:"ids,omitempty"`
-	Fetches   []HotReloadFetchSnapshot `json:"fetches,omitempty"`
+	Signature     ComponentSignature       `json:"signature"`
+	Path          string                   `json:"path,omitempty"`
+	IdentityTrail []string                 `json:"identityTrail,omitempty"`
+	States        []interface{}            `json:"states,omitempty"`
+	Memos         []HotReloadMemoSnapshot  `json:"memos,omitempty"`
+	Refs          []interface{}            `json:"refs,omitempty"`
+	IDs           []string                 `json:"ids,omitempty"`
+	Fetches       []HotReloadFetchSnapshot `json:"fetches,omitempty"`
 }
 
 // HotReloadFetchSnapshot stores the serializable portion of a fetch hook.
@@ -50,23 +66,50 @@ func (rt *Runtime) CaptureHotReloadSnapshot() HotReloadSnapshot {
 }
 
 func (rt *Runtime) RestoreHotReloadSnapshot(snapshot HotReloadSnapshot) {
+	_ = rt.RestoreHotReloadSnapshotWithPlan(snapshot, HotReloadRestorePlan{})
+}
+
+func (rt *Runtime) RestoreHotReloadSnapshotWithPlan(snapshot HotReloadSnapshot, plan HotReloadRestorePlan) HotReloadRestoreDecision {
 	if rt == nil {
-		return
+		return HotReloadRestoreDecision{}
 	}
 
 	if len(snapshot.Components) == 0 {
 		rt.pendingHotReloadComponents = nil
 		rt.pendingHotReloadIndex = 0
-		return
+		if rt.pendingHotReloadByPath != nil {
+			clear(rt.pendingHotReloadByPath)
+		}
+		rt.pendingHotReloadSelective = false
+		return HotReloadRestoreDecision{}
+	}
+
+	decision := HotReloadRestoreDecision{}
+	if plan.Selective {
+		decision = rt.restoreSelectiveHotReloadSnapshot(snapshot, plan)
+		if decision.Strategy == "selective" {
+			return decision
+		}
 	}
 
 	rt.pendingHotReloadComponents = append(rt.pendingHotReloadComponents[:0], snapshot.Components...)
 	rt.pendingHotReloadIndex = 0
+	if rt.pendingHotReloadByPath != nil {
+		clear(rt.pendingHotReloadByPath)
+	}
+	rt.pendingHotReloadSelective = false
+	if decision.Strategy == "" {
+		decision.Strategy = "legacy"
+	}
+	return decision
 }
 
 func (rt *Runtime) HasPendingHotReloadSnapshot() bool {
 	if rt == nil {
 		return false
+	}
+	if rt.pendingHotReloadSelective {
+		return len(rt.pendingHotReloadByPath) > 0
 	}
 	return rt.pendingHotReloadIndex < len(rt.pendingHotReloadComponents)
 }
@@ -79,6 +122,67 @@ func (rt *Runtime) nextHotReloadComponentSnapshot() *HotReloadComponentSnapshot 
 	snapshot := rt.pendingHotReloadComponents[rt.pendingHotReloadIndex]
 	rt.pendingHotReloadIndex++
 	return &snapshot
+}
+
+func (rt *Runtime) matchingHotReloadComponentSnapshot(fiber *Fiber) *HotReloadComponentSnapshot {
+	if rt == nil {
+		return nil
+	}
+	if !rt.pendingHotReloadSelective {
+		return rt.nextHotReloadComponentSnapshot()
+	}
+	if rt.pendingHotReloadByPath == nil {
+		return nil
+	}
+	path := hotReloadFiberPath(fiber)
+	if strings.TrimSpace(path) == "" {
+		return nil
+	}
+	snapshot, ok := rt.pendingHotReloadByPath[path]
+	if !ok {
+		return nil
+	}
+	delete(rt.pendingHotReloadByPath, path)
+	return &snapshot
+}
+
+func (rt *Runtime) restoreSelectiveHotReloadSnapshot(snapshot HotReloadSnapshot, plan HotReloadRestorePlan) HotReloadRestoreDecision {
+	changed := make(map[string]struct{}, len(plan.ChangedIdentities))
+	for _, identity := range plan.ChangedIdentities {
+		identity = strings.TrimSpace(identity)
+		if identity != "" {
+			changed[identity] = struct{}{}
+		}
+	}
+	if len(changed) == 0 {
+		return HotReloadRestoreDecision{Strategy: "legacy", UnsafeReason: "selective restore requested without changed component identities"}
+	}
+	if rt.pendingHotReloadByPath == nil {
+		rt.pendingHotReloadByPath = make(map[string]HotReloadComponentSnapshot, len(snapshot.Components))
+	} else {
+		clear(rt.pendingHotReloadByPath)
+	}
+
+	for _, component := range snapshot.Components {
+		path := strings.TrimSpace(component.Path)
+		if path == "" {
+			clear(rt.pendingHotReloadByPath)
+			return HotReloadRestoreDecision{Strategy: "legacy", UnsafeReason: "saved snapshot is missing stable component paths"}
+		}
+		if _, exists := rt.pendingHotReloadByPath[path]; exists {
+			clear(rt.pendingHotReloadByPath)
+			return HotReloadRestoreDecision{Strategy: "legacy", UnsafeReason: "saved snapshot contains duplicate component paths"}
+		}
+		if hotReloadSnapshotTouchesChangedIdentity(component, changed) {
+			continue
+		}
+		rt.pendingHotReloadByPath[path] = component
+	}
+
+	rt.pendingHotReloadComponents = nil
+	rt.pendingHotReloadIndex = 0
+	rt.pendingHotReloadSelective = true
+	return HotReloadRestoreDecision{Strategy: "selective"}
 }
 
 func captureHotReloadComponentSnapshots(fiber *Fiber, snapshots *[]HotReloadComponentSnapshot) {
@@ -108,7 +212,9 @@ func captureHotReloadComponentSnapshot(fiber *Fiber) *HotReloadComponentSnapshot
 	}
 
 	snapshot := &HotReloadComponentSnapshot{
-		Signature: *signature,
+		Signature:     *signature,
+		Path:          hotReloadFiberPath(fiber),
+		IdentityTrail: hotReloadIdentityTrail(fiber),
 	}
 	if fiber.hooks != nil {
 		if len(fiber.hooks.states) > 0 {
@@ -151,6 +257,94 @@ func captureHotReloadComponentSnapshot(fiber *Fiber) *HotReloadComponentSnapshot
 	}
 
 	return snapshot
+}
+
+func hotReloadSnapshotTouchesChangedIdentity(snapshot HotReloadComponentSnapshot, changed map[string]struct{}) bool {
+	if len(changed) == 0 {
+		return false
+	}
+	for _, identity := range snapshot.IdentityTrail {
+		if _, ok := changed[strings.TrimSpace(identity)]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func hotReloadIdentityTrail(fiber *Fiber) []string {
+	if fiber == nil {
+		return nil
+	}
+	trail := make([]string, 0, 8)
+	for current := fiber; current != nil; current = current.parent {
+		signature := buildComponentSignature(current, nil)
+		if signature == nil {
+			continue
+		}
+		identity := strings.TrimSpace(signature.identityKey())
+		if identity == "" {
+			continue
+		}
+		trail = append(trail, identity)
+	}
+	for left, right := 0, len(trail)-1; left < right; left, right = left+1, right-1 {
+		trail[left], trail[right] = trail[right], trail[left]
+	}
+	return trail
+}
+
+func hotReloadFiberPath(fiber *Fiber) string {
+	if fiber == nil {
+		return ""
+	}
+	segments := make([]string, 0, 8)
+	for current := fiber; current != nil && current.parent != nil; current = current.parent {
+		segment := hotReloadFiberPathSegment(current)
+		if segment == "" {
+			continue
+		}
+		segments = append(segments, segment)
+	}
+	for left, right := 0, len(segments)-1; left < right; left, right = left+1, right-1 {
+		segments[left], segments[right] = segments[right], segments[left]
+	}
+	return strings.Join(segments, "/")
+}
+
+func hotReloadFiberPathSegment(fiber *Fiber) string {
+	if fiber == nil || fiber.parent == nil {
+		return ""
+	}
+	if key := hotReloadFiberKeySegment(fiber); key != "" {
+		return key
+	}
+
+	index := 0
+	for sibling := fiber.parent.child; sibling != nil && sibling != fiber; sibling = sibling.sibling {
+		index++
+	}
+	if signature := buildComponentSignature(fiber, nil); signature != nil {
+		identity := strings.TrimSpace(signature.identityKey())
+		if identity != "" {
+			return fmt.Sprintf("%s@%d", identity, index)
+		}
+	}
+	kind, name := describeFiber(fiber)
+	if strings.TrimSpace(name) == "" {
+		name = kind
+	}
+	return fmt.Sprintf("%s@%d", name, index)
+}
+
+func hotReloadFiberKeySegment(fiber *Fiber) string {
+	if fiber == nil || fiber.props == nil {
+		return ""
+	}
+	key, ok := fiber.props["key"]
+	if !ok || key == nil {
+		return ""
+	}
+	return "key:" + fmt.Sprint(key)
 }
 
 func normalizeHotReloadFetchState(state FetchState) FetchState {
@@ -442,6 +636,7 @@ func prepareFiberForHotReload(rt *Runtime, fiber *Fiber) {
 	}
 
 	if fiber.hooks != nil {
+		reportHotReloadRestartActivity(fiber)
 		releaseHookResources(fiber.hooks)
 		for index := range fiber.hooks.cleanups {
 			fiber.hooks.cleanups[index] = nil
@@ -456,6 +651,35 @@ func prepareFiberForHotReload(rt *Runtime, fiber *Fiber) {
 
 	prepareFiberForHotReload(rt, fiber.child)
 	prepareFiberForHotReload(rt, fiber.sibling)
+}
+
+func reportHotReloadRestartActivity(fiber *Fiber) {
+	if fiber == nil || fiber.hooks == nil {
+		return
+	}
+
+	for _, fetch := range fiber.hooks.fetches {
+		if !fetch.state.Loading {
+			continue
+		}
+
+		fields := map[string]string{}
+		if path := strings.TrimSpace(diagnosticPathForFiber(fiber)); path != "" {
+			fields["path"] = path
+		}
+		if url := strings.TrimSpace(fetch.url); url != "" {
+			fields["url"] = url
+		}
+
+		ReportLogWithFields(
+			"hotreload",
+			LogInfo,
+			DiagnosticInformational,
+			"pending fetch will restart on hot reload",
+			"",
+			fields,
+		)
+	}
 }
 
 func (hooks *Hooks) restoreStateValue(index int) (interface{}, bool) {
@@ -520,7 +744,7 @@ func (hooks *Hooks) restoreFetchValue(index int, url string) (FetchState, bool) 
 
 func (rt *Runtime) renderFunctionComponent(fiber *Fiber) (*Element, bool, *Fiber) {
 	var restore *HotReloadComponentSnapshot
-	if snapshot := rt.nextHotReloadComponentSnapshot(); snapshot != nil {
+	if snapshot := rt.matchingHotReloadComponentSnapshot(fiber); snapshot != nil {
 		if componentSnapshotCompatible(snapshot, fiber) {
 			restore = snapshot
 		} else {
@@ -581,6 +805,8 @@ func (rt *Runtime) renderFunctionComponent(fiber *Fiber) (*Element, bool, *Fiber
 				element = fn(fiber.props)
 			} else if fn, ok := fiber.typeOf.(func(Attrs) *Element); ok {
 				element = fn(Attrs(fiber.props))
+			} else if component, ok := fiber.typeOf.(*ComponentType); ok {
+				element = component.Render(fiber.props)
 			}
 		}()
 

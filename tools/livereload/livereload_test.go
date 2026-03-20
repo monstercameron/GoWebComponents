@@ -32,6 +32,10 @@ func TestBuildStatusMarshalsStateSnapshot(t *testing.T) {
 		Success:       true,
 		ReloadType:    "hot",
 		StateSnapshot: `{"sharedCounter":1}`,
+		Manifest: &ChangedComponentManifest{
+			ReloadType: "hot",
+			Components: []ChangedComponent{{Name: "App", QualifiedName: "example.com/test.App", File: "main.go"}},
+		},
 	}
 
 	data, err := json.Marshal(status)
@@ -44,6 +48,78 @@ func TestBuildStatusMarshalsStateSnapshot(t *testing.T) {
 	}
 	if _, ok := decoded["stateSnapshot"]; !ok {
 		t.Fatalf("expected marshaled build status to include stateSnapshot, got %s", data)
+	}
+	if _, ok := decoded["manifest"]; !ok {
+		t.Fatalf("expected marshaled build status to include manifest, got %s", data)
+	}
+}
+
+func TestBuildChangedComponentManifestExtractsTopLevelComponents(t *testing.T) {
+	workspaceDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(workspaceDir, "go.mod"), []byte("module example.com/test\n"), 0o644); err != nil {
+		t.Fatalf("failed to write go.mod fixture: %v", err)
+	}
+	appDir := filepath.Join(workspaceDir, "examples", "98-hot-reload")
+	if err := os.MkdirAll(appDir, 0o755); err != nil {
+		t.Fatalf("failed to create app dir: %v", err)
+	}
+	mainPath := filepath.Join(appDir, "main.go")
+	content := `package main
+
+import "github.com/monstercameron/GoWebComponents/ui"
+
+func App() ui.Node { return nil }
+func helper() int { return 1 }
+var Banner = func() ui.Node { return nil }
+`
+	if err := os.WriteFile(mainPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write main.go fixture: %v", err)
+	}
+
+	server := &LiveReloadServer{
+		watchRoot:    workspaceDir,
+		modulePath:   "example.com/test",
+		manifestPath: filepath.Join(workspaceDir, "main.wasm.hotreload-manifest.json"),
+	}
+
+	manifest, err := server.buildChangedComponentManifest(UpdateClassification{
+		ReloadType:   "hot",
+		Reason:       "UI changes",
+		ChangedFiles: []string{mainPath},
+	})
+	if err != nil {
+		t.Fatalf("expected manifest build to succeed, got %v", err)
+	}
+	if len(manifest.Components) != 2 {
+		t.Fatalf("expected 2 changed components, got %#v", manifest.Components)
+	}
+	if manifest.Components[0].QualifiedName != "example.com/test/examples/98-hot-reload.App" {
+		t.Fatalf("unexpected first component: %#v", manifest.Components[0])
+	}
+	if manifest.Components[1].QualifiedName != "example.com/test/examples/98-hot-reload.Banner" {
+		t.Fatalf("unexpected second component: %#v", manifest.Components[1])
+	}
+}
+
+func TestWriteChangedComponentManifestPersistsJSON(t *testing.T) {
+	workspaceDir := t.TempDir()
+	manifestPath := filepath.Join(workspaceDir, "out", "main.wasm.hotreload-manifest.json")
+	server := &LiveReloadServer{manifestPath: manifestPath}
+	manifest := &ChangedComponentManifest{
+		ReloadType:   "hot",
+		ChangedFiles: []string{"examples/98-hot-reload/main.go"},
+		Components:   []ChangedComponent{{Name: "App", QualifiedName: "example.com/test/examples/98-hot-reload.App", File: "examples/98-hot-reload/main.go"}},
+	}
+
+	if err := server.writeChangedComponentManifest(manifest); err != nil {
+		t.Fatalf("expected manifest write to succeed, got %v", err)
+	}
+	content, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("expected manifest file to exist, got %v", err)
+	}
+	if !strings.Contains(string(content), "example.com/test/examples/98-hot-reload.App") {
+		t.Fatalf("expected manifest file to contain component identity, got %s", content)
 	}
 }
 

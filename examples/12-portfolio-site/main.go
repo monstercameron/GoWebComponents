@@ -5,8 +5,10 @@ package main
 
 import (
 	"fmt"
+
 	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
+	"github.com/monstercameron/GoWebComponents/hotreload"
 	"github.com/monstercameron/GoWebComponents/router"
 	"github.com/monstercameron/GoWebComponents/utils"
 )
@@ -27,7 +29,7 @@ func main() {
 	})
 
 	// Enable hot reload for instant development feedback
-	utils.EnableHotReload(true)
+	hotreload.Enable()
 
 	// Initialize and mount the global router
 	r := router.GetRouter()

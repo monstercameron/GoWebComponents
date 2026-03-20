@@ -1325,7 +1325,7 @@ Organization rules for this file:
 	`docs/HOT_RELOAD.md` now records the implemented cleanup-plus-rebind model: callback closures are recreated from the new bundle, and effect-owned listeners, timers, observers, and wrapped handlers are cleaned up before reload and rebound afterward.
 
 - [x] Decide whether state-preserving hot reload is a first-class development goal.
-	State-preserving reload is now treated as an opt-in development aid: `utils.EnableHotReload(true)` installs the snapshot bridge, the live-reload client persists exported state through `sessionStorage`, runs a pre-reload cleanup hook, and restores shared state plus migratable serializable hook state while keeping DOM identity intact when the reload succeeds.
+	State-preserving reload is now treated as an opt-in development aid: `hotreload.Enable()` installs the snapshot bridge, the live-reload client persists exported state through `sessionStorage`, runs a pre-reload cleanup hook, and restores shared state plus migratable serializable hook state while keeping DOM identity intact when the reload succeeds.
 - [x] Audit which runtime assumptions block hot replacement.
 	See `docs/HOT_RELOAD.md` for the current blocker list: component identity, ordered hook slots, global registries, route registration, effect cleanup, and JS handle ownership still require a reload-and-remount model rather than true module-level replacement.
 - [x] Define the preservation boundary for local and shared state.
@@ -1340,6 +1340,27 @@ Organization rules for this file:
 	Hot builds now request a snapshot from the client, carry the exported payload through `build_complete`, and let the browser reuse that snapshot on reload instead of relying only on a local-only fallback.
 - [x] Add examples and benchmarks for preserved-state development flows.
 	`test/specs/hot_reload_preserved_flow.spec.js` demonstrates counter, form, atom, and effect cleanup behavior across a hot reload, and `test/specs/hot_reload_preserved_flow_benchmark.spec.js` guards the snapshot round-trip timing.
+- [x] Add explicit opt-in reset controls for intentional state invalidation.
+	`hotreload.Configure(hotreload.Config{ResetKey: ...})` now stamps exported snapshots with a reset token and discards older snapshots when that token changes, giving developers a predictable way to force a clean restart after edits that should not preserve prior local or shared state.
+- [x] Add better in-browser diagnostics for preserve-versus-reset decisions.
+	The hot reload bridge now exposes the last restore outcome plus filtered hot-reload diagnostics, and the live-reload GWC panel shows whether a reload restored state, intentionally reset it because `ResetKey` changed, or remounted part of the tree with the concrete fallback reason.
+- [x] Add a post-rebuild reload summary for the standalone dev server.
+	The live-reload client now records a per-build summary with build duration, reload mode, restore result, and dropped-state reason or classification reason, and surfaces it in the popup, last-build panel section, and recent-build history.
+- [x] Add first-class reset boundaries for subtree-scoped reload resets.
+	`ui.HotReloadBoundary(...)` now provides an explicit keyed subtree wrapper so apps can intentionally remount one section by changing `ResetKeys`, without forcing a full app-wide `hotreload.Config.ResetKey` change.
+- [x] Improve route and async visibility during hot reload.
+	The hot reload bridge now exposes recent router and async activity, the runtime records explicit pending-fetch restart notices during hot reload prepare, and the live-reload panel shows the latest loader, guard, navigation, and fetch restart events after reloads.
+
+### HMR v2 and subtree patching
+
+- [x] Introduce stable runtime-recognized component handles.
+	`ui.CreateElement(...)` now emits cached `runtime.ComponentType` handles keyed by logical component identity, and runtime identity/signature comparisons understand those handles instead of treating the shared `ui.renderComponent` wrapper as the component itself.
+- [x] Move fibers from raw implementation identity to patchable component definitions.
+	Stable component handles now own the current implementation binding, `ui.CreateElement(...)` no longer stores the live component function in hidden props, and fibers render through persistent component definitions whose implementations can be rebound independently of fiber identity.
+- [x] Add a changed-component manifest to the dev build loop.
+	The dev server now emits a `*.hotreload-manifest.json` artifact next to the rebuilt WASM output and includes the same manifest in successful build payloads, listing changed source files and top-level component identities discovered from those files.
+- [x] Use changed-component identities to drive selective preserve/remount decisions with compatibility fallback.
+	After each module replacement, the hot-reload restore path now uses the changed-component manifest to preserve unchanged compatible component snapshots, remount changed subtrees intentionally, and fall back to the legacy full compatible restore path when selective matching is unsafe.
 
 ### Full-stack framework maturity
 

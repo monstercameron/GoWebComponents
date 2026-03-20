@@ -4,11 +4,14 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [string]$Main,
+    [Alias("Main")]
+    [string]$App,
 
     [string]$Root = "",
-    [string]$Index = "",
-    [string]$Output = "",
+    [Alias("Index")]
+    [string]$Html = "",
+    [Alias("Output")]
+    [string]$Wasm = "",
     [string]$ListenHost = "127.0.0.1",
     [string]$Port = "8080",
     [switch]$NoHotReload
@@ -46,29 +49,35 @@ finally {
 }
 
 if ($Root -eq "") {
-    $Root = Split-Path -Parent $Main
+    $Root = Split-Path -Parent $App
 }
 
 $args = @(
-    "-main", $Main,
+    "-app", $App,
     "-root", $Root,
     "-host", $ListenHost,
     "-port", $Port
 )
 
-if ($Index -ne "") {
-    $args += @("-index", $Index)
+if ($Html -ne "") {
+    $args += @("-html", $Html)
 }
-if ($Output -ne "") {
-    $args += @("-output", $Output)
+if ($Wasm -ne "") {
+    $args += @("-wasm", $Wasm)
 }
 if ($NoHotReload) {
     $args += "-hot=false"
 }
 
 Write-Host "Starting hot-reload dev server..." -ForegroundColor Green
-Write-Host "Main:  $Main" -ForegroundColor Cyan
+Write-Host "App:   $App" -ForegroundColor Cyan
 Write-Host "Root:  $Root" -ForegroundColor Cyan
+if ($Html -ne "") {
+    Write-Host "HTML:  $Html" -ForegroundColor Cyan
+}
+if ($Wasm -ne "") {
+    Write-Host "WASM:  $Wasm" -ForegroundColor Cyan
+}
 Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
 
 Push-Location $RepoRoot

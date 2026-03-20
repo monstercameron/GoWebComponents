@@ -375,7 +375,7 @@ func ApiDocumentationSection(props Attrs) *Element {
 						{"Hydrate", "Resume a server-rendered tree on the client", "ui.Hydrate(ui.CreateElement(App), \"#app\")"},
 						{"Fetch", "Imperative HTTP requests", "resultChan := fetch.Fetch(url, fetch.Options{Method: \"GET\"})"},
 						{"SetDebugNamespacesExclusive", "Focus debug output on selected subsystems", "utils.SetDebugNamespacesExclusive(map[string]bool{\"FETCH\": true})"},
-						{"EnableHotReload", "Enable hot reload for development", "utils.EnableHotReload(true)"},
+						{"hotreload.Enable", "Enable hot reload for development", "hotreload.Enable()"},
 					},
 				),
 			),
