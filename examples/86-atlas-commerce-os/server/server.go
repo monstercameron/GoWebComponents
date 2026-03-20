@@ -734,14 +734,29 @@ func (s *atlasServer) handleWarehouseOpsItemPage(w http.ResponseWriter, r *http.
 	if session == nil {
 		return
 	}
-	item, err := s.internalWarehouseItemPageData(r.Context(), r.PathValue("warehouseId"), r.PathValue("sku"), r.URL.Query())
+	warehouseID := r.PathValue("warehouseId")
+	path := "/app/warehouses/" + warehouseID + "/items/" + r.PathValue("sku")
+	pageData, err := s.internalWarehouseDetailPageDataWithFilters(r.Context(), warehouseID, r.URL.Query())
 	if err != nil {
-		path := "/app/warehouses/" + r.PathValue("warehouseId") + "/items/" + r.PathValue("sku")
+		s.renderRecoveryPage(w, r, http.StatusNotFound, routeMeta{Path: path, Surface: "internal", Screen: "recovery", Title: "Atlas Warehouse Item Not Found", Description: "The requested warehouse item route could not be loaded.", Canonical: path}, session, "Warehouse item not found", "That warehouse item is not available in the current Atlas seed set for this facility.", "/app/warehouses/"+warehouseID, "Back to warehouse items", err)
+		return
+	}
+	item, err := s.internalWarehouseItemPageData(r.Context(), warehouseID, r.PathValue("sku"), r.URL.Query())
+	if err != nil {
 		s.renderRecoveryPage(w, r, http.StatusNotFound, routeMeta{Path: path, Surface: "internal", Screen: "recovery", Title: "Atlas Warehouse Item Not Found", Description: "The requested warehouse item route could not be loaded.", Canonical: path}, session, "Warehouse item not found", "That warehouse item is not available in the current Atlas seed set for this facility.", "/app/warehouses/"+r.PathValue("warehouseId"), "Back to warehouse items", err)
 		return
 	}
-	path := "/app/warehouses/" + r.PathValue("warehouseId") + "/items/" + item.Item.SKU
-	s.renderPage(w, r, routeMeta{Path: path, Surface: "internal", Screen: "warehouse-item-detail", Title: "Atlas Warehouse Item", Description: "Manage one warehouse item with inventory edits, replenishment, and demand context.", Canonical: path}, item, session)
+	requests := startupRequestsForPage("/app/warehouses/"+warehouseID, r.URL.Query(), pageData)
+	requests["item"] = atlas.Request{
+		Method: http.MethodGet,
+		URL:    startupRequestURL(path, atlasDataQuery(r.URL.Query())),
+		Status: http.StatusOK,
+		Data:   map[string]any{"item": item},
+	}
+	s.renderPageStatusWithPayload(w, r, http.StatusOK, routeMeta{Path: path, Surface: "internal", Screen: "warehouse-item-detail", Title: "Atlas Warehouse Item", Description: "Manage one warehouse item with inventory edits, replenishment, and demand context.", Canonical: path}, map[string]any{
+		"page": pageData,
+		"item": item,
+	}, requests, session)
 }
 
 func (s *atlasServer) handleTransfersPage(w http.ResponseWriter, r *http.Request) {

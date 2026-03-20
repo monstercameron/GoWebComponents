@@ -11,8 +11,10 @@ import (
 	"net/url"
 	"strings"
 	"syscall/js"
+	"time"
 
 	"github.com/monstercameron/GoWebComponents/examples/86-atlas-commerce-os/shared/atlas"
+	"github.com/monstercameron/GoWebComponents/fetch"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/router"
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -36,8 +38,12 @@ var beforeUnloadHandler js.Func
 var dirtyGuardHandlers []js.Func
 var lastRenderedRouteKey string
 var hasRenderedRoute bool
-var routePayloadCache = map[string]atlas.Payload{}
-var requestCache = map[string]atlas.Request{}
+
+var atlasCacheOptions = fetch.CacheOptions{
+	StaleAfter:   5 * time.Minute,
+	MaxAge:       30 * time.Minute,
+	DisposeAfter: 90 * time.Minute,
+}
 
 func debugLog(event string, details map[string]any) {
 	console := js.Global().Get("console")
@@ -94,22 +100,6 @@ func cloneQueryValues(values url.Values) map[string][]string {
 	return cloned
 }
 
-func cloneQueryMap(input map[string][]string) map[string][]string {
-	cloned := make(map[string][]string, len(input))
-	for key, item := range input {
-		cloned[key] = append([]string(nil), item...)
-	}
-	return cloned
-}
-
-func cloneStringMap(input map[string]string) map[string]string {
-	cloned := make(map[string]string, len(input))
-	for key, value := range input {
-		cloned[key] = value
-	}
-	return cloned
-}
-
 func cloneDataMap(input map[string]any) map[string]any {
 	cloned := make(map[string]any, len(input))
 	for key, value := range input {
@@ -129,20 +119,6 @@ func cloneRequests(input map[string]atlas.Request) map[string]atlas.Request {
 		}
 	}
 	return cloned
-}
-
-func clonePayload(input atlas.Payload) atlas.Payload {
-	payload := input
-	payload.Route.Query = cloneQueryMap(input.Route.Query)
-	payload.Route.Params = cloneStringMap(input.Route.Params)
-	payload.Data = cloneDataMap(input.Data)
-	payload.Requests = cloneRequests(input.Requests)
-	payload.SavedViews = append([]atlas.SavedViewPayload(nil), input.SavedViews...)
-	if input.User != nil {
-		user := *input.User
-		payload.User = &user
-	}
-	return payload
 }
 
 func queryValuesFromMap(input map[string][]string) url.Values {
@@ -188,10 +164,6 @@ func routeKey(path string, query map[string][]string) string {
 	return path + "?" + encoded
 }
 
-func routeDataKey(path string, query url.Values) string {
-	return routeKey(path, cloneQueryValues(routeDataQuery(query)))
-}
-
 func pathWithQuery(path string, query url.Values) string {
 	encoded := query.Encode()
 	if encoded == "" {
@@ -200,33 +172,9 @@ func pathWithQuery(path string, query url.Values) string {
 	return path + "?" + encoded
 }
 
-func startupRequestForPayload(payload atlas.Payload) (atlas.Request, bool) {
-	request, ok := atlas.StartupRequest(payload, "page")
-	if !ok {
-		return atlas.Request{}, false
-	}
-	return request, true
-}
-
-func cachePayload(payload atlas.Payload) {
-	dataKey := routeDataKey(payload.Route.Path, queryValuesFromMap(payload.Route.Query))
-	routePayloadCache[dataKey] = clonePayload(payload)
-	if request, ok := startupRequestForPayload(payload); ok && strings.TrimSpace(request.URL) != "" {
-		requestCache[strings.TrimSpace(request.URL)] = atlas.Request{
-			Method: request.Method,
-			URL:    request.URL,
-			Status: request.Status,
-			Data:   cloneDataMap(request.Data),
-		}
-	}
-}
-
-func cachedPayloadForRoute(path string, query url.Values) (atlas.Payload, bool) {
-	payload, ok := routePayloadCache[routeDataKey(path, query)]
-	if !ok {
-		return atlas.Payload{}, false
-	}
-	return clonePayload(payload), true
+func restoreAtlasFetchCacheBootstrap(payload atlas.Payload) error {
+	atlas.SeedFetchCacheBootstrap(&initialBootstrap, payload, atlasCacheOptions, time.Now())
+	return fetch.RestoreCacheBootstrap(initialBootstrap)
 }
 
 func fetchPageData(ctx context.Context, path string, query url.Values) (any, string, error) {
@@ -244,38 +192,34 @@ func fetchPageData(ctx context.Context, path string, query url.Values) (any, str
 }
 
 func fetchRequestData(ctx context.Context, requestURL string, dataKey string) (any, error) {
-	if cached, ok := requestCache[strings.TrimSpace(requestURL)]; ok {
+	payloadData, err := fetch.LoadCached[any](ctx, atlas.CachedRequestResourceKey(requestURL, dataKey), func(loadCtx context.Context) (any, error) {
+		request, err := http.NewRequestWithContext(loadCtx, http.MethodGet, requestURL, nil)
+		if err != nil {
+			debugLog("route.fetch.request.error", map[string]any{"requestURL": requestURL, "dataKey": dataKey, "error": err.Error()})
+			return nil, err
+		}
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			debugLog("route.fetch.network.error", map[string]any{"requestURL": requestURL, "dataKey": dataKey, "error": err.Error()})
+			return nil, err
+		}
+		if response.StatusCode < 200 || response.StatusCode >= 300 {
+			debugLog("route.fetch.non_ok", map[string]any{"requestURL": requestURL, "dataKey": dataKey, "status": response.StatusCode})
+			response.Body.Close()
+			return nil, nil
+		}
+		var loaded any
+		if err := decodeJSONBody(response, &loaded); err != nil {
+			debugLog("route.fetch.decode.error", map[string]any{"requestURL": requestURL, "dataKey": dataKey, "error": err.Error()})
+			return nil, err
+		}
+		debugLog("route.fetch.ok", map[string]any{"requestURL": requestURL, "dataKey": dataKey})
+		return loaded, nil
+	}, atlasCacheOptions)
+	if err == nil {
 		debugLog("route.fetch.cache.hit", map[string]any{"requestURL": requestURL, "dataKey": dataKey})
-		return cached.Data[dataKey], nil
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
-	if err != nil {
-		debugLog("route.fetch.request.error", map[string]any{"requestURL": requestURL, "dataKey": dataKey, "error": err.Error()})
-		return nil, err
-	}
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		debugLog("route.fetch.network.error", map[string]any{"requestURL": requestURL, "dataKey": dataKey, "error": err.Error()})
-		return nil, err
-	}
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		debugLog("route.fetch.non_ok", map[string]any{"requestURL": requestURL, "dataKey": dataKey, "status": response.StatusCode})
-		response.Body.Close()
-		return nil, nil
-	}
-	var payloadData any
-	if err := decodeJSONBody(response, &payloadData); err != nil {
-		debugLog("route.fetch.decode.error", map[string]any{"requestURL": requestURL, "dataKey": dataKey, "error": err.Error()})
-		return nil, err
-	}
-	requestCache[strings.TrimSpace(requestURL)] = atlas.Request{
-		Method: http.MethodGet,
-		URL:    requestURL,
-		Status: http.StatusOK,
-		Data:   map[string]any{dataKey: payloadData},
-	}
-	debugLog("route.fetch.ok", map[string]any{"requestURL": requestURL, "dataKey": dataKey})
-	return payloadData, nil
+	return payloadData, err
 }
 
 func routeSurface(path string) string {
@@ -641,32 +585,24 @@ func loadRoutePayload(ctx context.Context, routeCtx router.RouteContext) (atlas.
 		"query": routeCtx.Query.Values().Encode(),
 	})
 	fullQuery := routeCtx.Query.Values()
-	if cached, ok := cachedPayloadForRoute(routeCtx.Path, fullQuery); ok {
-		cached.Route.Query = cloneQueryValues(fullQuery)
-		debugLog("route.load.cache.hit", map[string]any{"path": routeCtx.Path})
-		return cached, nil
-	}
-	pageData, requestURL, err := fetchPageData(ctx, routeCtx.Path, fullQuery)
-	if err != nil {
-		debugLog("route.load.error", map[string]any{"path": routeCtx.Path, "error": err.Error()})
-		return buildRecoveryPayload(routeCtx.Path, fullQuery, requestURL, err), nil
-	}
-	if pageData == nil && strings.TrimSpace(requestURL) == "" && routeCtx.Path == atlas.RouteLanding {
-		debugLog("route.load.static", map[string]any{"path": routeCtx.Path, "reason": "static landing route"})
-		payload := buildPayload(routeCtx.Path, fullQuery, map[string]any{}, "")
-		cachePayload(payload)
+	return fetch.LoadCached(ctx, atlas.RoutePayloadResourceKey(routeCtx.Path, fullQuery), func(loadCtx context.Context) (atlas.Payload, error) {
+		pageData, requestURL, err := fetchPageData(loadCtx, routeCtx.Path, fullQuery)
+		if err != nil {
+			debugLog("route.load.error", map[string]any{"path": routeCtx.Path, "error": err.Error()})
+			return buildRecoveryPayload(routeCtx.Path, fullQuery, requestURL, err), nil
+		}
+		if pageData == nil && strings.TrimSpace(requestURL) == "" && routeCtx.Path == atlas.RouteLanding {
+			debugLog("route.load.static", map[string]any{"path": routeCtx.Path, "reason": "static landing route"})
+			return buildPayload(routeCtx.Path, fullQuery, map[string]any{}, ""), nil
+		}
+		if pageData == nil {
+			debugLog("route.load.missing", map[string]any{"path": routeCtx.Path, "requestURL": requestURL})
+			return buildRecoveryPayload(routeCtx.Path, fullQuery, requestURL, nil), nil
+		}
+		payload := buildPayload(routeCtx.Path, fullQuery, pageData, requestURL)
+		debugLog("route.load.ok", map[string]any{"path": routeCtx.Path, "title": payload.Route.Title})
 		return payload, nil
-	}
-	if pageData == nil {
-		debugLog("route.load.missing", map[string]any{"path": routeCtx.Path, "requestURL": requestURL})
-		payload := buildRecoveryPayload(routeCtx.Path, fullQuery, requestURL, nil)
-		cachePayload(payload)
-		return payload, nil
-	}
-	payload := buildPayload(routeCtx.Path, fullQuery, pageData, requestURL)
-	cachePayload(payload)
-	debugLog("route.load.ok", map[string]any{"path": routeCtx.Path, "title": payload.Route.Title})
-	return payload, nil
+	}, atlasCacheOptions)
 }
 
 func serializeGuardedForm(form js.Value) string {
@@ -825,94 +761,44 @@ func productEditorBeforeLeaveGuard(current router.RouteContext, next router.Rout
 	return router.BlockNavigation(message)
 }
 
-func requestCachePrefixesForRoutePrefix(prefix string) []string {
-	switch prefix {
-	case "/shop":
-		return []string{"/api/public/catalog", "/api/public/products"}
-	case "/warehouses":
-		return []string{"/api/public/warehouses"}
-	case "/app/dashboard":
-		return []string{"/api/app/dashboard"}
-	case "/app/products":
-		return []string{"/api/app/products"}
-	case "/app/inventory":
-		return []string{"/api/app/inventory"}
-	case "/app/warehouses":
-		return []string{"/api/app/warehouses"}
-	case "/app/transfers":
-		return []string{"/api/app/transfers"}
-	case "/app/purchase-orders":
-		return []string{"/api/app/purchase-orders"}
-	case "/app/receiving":
-		return []string{"/api/app/receiving"}
-	case "/app/comments":
-		return []string{"/api/app/comments"}
-	case "/app/settings":
-		return []string{"/api/app/settings", "/api/app/saved-views"}
-	default:
-		return nil
-	}
-}
-
-func mutationRoutePrefixes(path string, notice string) []string {
-	trimmed := strings.TrimSpace(strings.ToLower(notice))
-	switch {
-	case strings.HasPrefix(trimmed, "product-"):
-		return []string{"/app/products", "/app/inventory", "/app/warehouses", "/shop"}
-	case trimmed == "inventory-updated" || trimmed == "threshold-updated":
-		return []string{"/app/inventory", "/app/warehouses", "/app/dashboard"}
-	case strings.HasPrefix(trimmed, "purchase-order-"):
-		return []string{"/app/purchase-orders", "/app/receiving", "/app/dashboard"}
-	case trimmed == "receiving-reconciled":
-		return []string{"/app/receiving", "/app/purchase-orders", "/app/dashboard"}
-	case strings.Contains(trimmed, "comment"):
-		return []string{"/app/comments", "/app/dashboard", "/shop"}
-	case strings.HasPrefix(trimmed, "saved-view"):
-		return []string{"/app/settings", "/app/inventory", "/app/dashboard"}
-	case trimmed == "preferences-saved":
-		return []string{"/app/settings", "/app/dashboard", "/app/inventory", "/app/warehouses"}
-	case strings.HasPrefix(trimmed, "transfer-"):
-		return []string{"/app/transfers", "/app/inventory", "/app/dashboard"}
-	case strings.HasPrefix(trimmed, "quote-request") || strings.HasPrefix(trimmed, "restock-request"):
-		return []string{"/shop", "/warehouses"}
-	default:
-		return []string{path}
-	}
-}
-
 func invalidateCachesForPayload(payload atlas.Payload) {
 	notice := strings.TrimSpace(queryValuesFromMap(payload.Route.Query).Get(atlasNoticeQueryKey))
 	if notice == "" {
 		return
 	}
-	currentDataKey := routeDataKey(payload.Route.Path, queryValuesFromMap(payload.Route.Query))
-	currentRequestURL := ""
-	if request, ok := startupRequestForPayload(payload); ok {
-		currentRequestURL = strings.TrimSpace(request.URL)
+	routePrefixes := atlas.MutationRoutePrefixes(payload.Route.Path, notice)
+	activeKeys := atlas.PayloadResourceKeys(payload)
+	routeResourcePrefixes := make([]string, 0, len(routePrefixes))
+	for _, prefix := range routePrefixes {
+		routeResourcePrefixes = append(routeResourcePrefixes, "atlas:route:"+prefix)
 	}
-	routePrefixes := mutationRoutePrefixes(payload.Route.Path, notice)
-	for key := range routePayloadCache {
-		if key == currentDataKey {
+	requestPrefixes := atlas.MutationRequestPrefixes(routePrefixes)
+	requestResourcePrefixes := make([]string, 0, len(requestPrefixes))
+	for _, prefix := range requestPrefixes {
+		requestResourcePrefixes = append(requestResourcePrefixes, "atlas:request:"+prefix)
+	}
+	for _, inspection := range fetch.InspectCachedResources() {
+		key := inspection.Key
+		if key == "" {
 			continue
 		}
-		for _, prefix := range routePrefixes {
+		if _, ok := activeKeys[key]; ok {
+			continue
+		}
+		matched := false
+		for _, prefix := range routeResourcePrefixes {
 			if strings.HasPrefix(key, prefix) {
-				delete(routePayloadCache, key)
+				fetch.InvalidateResource(key)
+				matched = true
 				break
 			}
 		}
-	}
-	requestPrefixes := []string{}
-	for _, prefix := range routePrefixes {
-		requestPrefixes = append(requestPrefixes, requestCachePrefixesForRoutePrefix(prefix)...)
-	}
-	for key := range requestCache {
-		if key == currentRequestURL {
+		if matched {
 			continue
 		}
-		for _, prefix := range requestPrefixes {
+		for _, prefix := range requestResourcePrefixes {
 			if strings.HasPrefix(key, prefix) {
-				delete(requestCache, key)
+				fetch.InvalidateResource(key)
 				break
 			}
 		}
@@ -936,51 +822,94 @@ func atlasRouteLoader(ctx context.Context, routeCtx router.RouteContext) (router
 
 func loadInventoryThresholdHistoryPayload(ctx context.Context, routeCtx router.RouteContext) (atlas.Payload, error) {
 	fullQuery := routeCtx.Query.Values()
-	if cached, ok := cachedPayloadForRoute(routeCtx.Path, fullQuery); ok {
-		cached.Route.Query = cloneQueryValues(fullQuery)
-		debugLog("route.overlay.cache.hit", map[string]any{"path": routeCtx.Path})
-		return cached, nil
-	}
-	sku := strings.TrimSpace(routeCtx.Params.Get("sku"))
-	parentPath := atlas.RouteInventory + "/" + sku
-	pageData, pageRequestURL, err := fetchPageData(ctx, parentPath, fullQuery)
-	if err != nil {
-		debugLog("route.overlay.page.error", map[string]any{"path": routeCtx.Path, "error": err.Error()})
-		return buildRecoveryPayload(routeCtx.Path, fullQuery, pageRequestURL, err), nil
-	}
-	if pageData == nil {
-		debugLog("route.overlay.page.missing", map[string]any{"path": routeCtx.Path, "requestURL": pageRequestURL})
-		return buildRecoveryPayload(routeCtx.Path, fullQuery, pageRequestURL, nil), nil
-	}
-	overlayRequestURL := atlas.StartupRequestURL(routeCtx.Path, routeDataQuery(fullQuery))
-	overlayData, err := fetchRequestData(ctx, overlayRequestURL, "overlay")
-	if err != nil {
-		debugLog("route.overlay.data.error", map[string]any{"path": routeCtx.Path, "requestURL": overlayRequestURL, "error": err.Error()})
-		return buildRecoveryPayload(routeCtx.Path, fullQuery, overlayRequestURL, err), nil
-	}
-	requests := map[string]atlas.Request{}
-	if strings.TrimSpace(pageRequestURL) != "" {
-		requests["page"] = atlas.Request{
-			Method: http.MethodGet,
-			URL:    pageRequestURL,
-			Status: http.StatusOK,
-			Data:   map[string]any{"page": pageData},
+	return fetch.LoadCached(ctx, atlas.RoutePayloadResourceKey(routeCtx.Path, fullQuery), func(loadCtx context.Context) (atlas.Payload, error) {
+		sku := strings.TrimSpace(routeCtx.Params.Get("sku"))
+		parentPath := atlas.RouteInventory + "/" + sku
+		pageData, pageRequestURL, err := fetchPageData(loadCtx, parentPath, fullQuery)
+		if err != nil {
+			debugLog("route.overlay.page.error", map[string]any{"path": routeCtx.Path, "error": err.Error()})
+			return buildRecoveryPayload(routeCtx.Path, fullQuery, pageRequestURL, err), nil
 		}
-	}
-	if strings.TrimSpace(overlayRequestURL) != "" && overlayData != nil {
-		requests["overlay"] = atlas.Request{
-			Method: http.MethodGet,
-			URL:    overlayRequestURL,
-			Status: http.StatusOK,
-			Data:   map[string]any{"overlay": overlayData},
+		if pageData == nil {
+			debugLog("route.overlay.page.missing", map[string]any{"path": routeCtx.Path, "requestURL": pageRequestURL})
+			return buildRecoveryPayload(routeCtx.Path, fullQuery, pageRequestURL, nil), nil
 		}
-	}
-	payload := buildPayloadWithData(routeCtx.Path, fullQuery, map[string]any{
-		"page":    pageData,
-		"overlay": overlayData,
-	}, requests)
-	cachePayload(payload)
-	return payload, nil
+		overlayRequestURL := atlas.StartupRequestURL(routeCtx.Path, routeDataQuery(fullQuery))
+		overlayData, err := fetchRequestData(loadCtx, overlayRequestURL, "overlay")
+		if err != nil {
+			debugLog("route.overlay.data.error", map[string]any{"path": routeCtx.Path, "requestURL": overlayRequestURL, "error": err.Error()})
+			return buildRecoveryPayload(routeCtx.Path, fullQuery, overlayRequestURL, err), nil
+		}
+		requests := map[string]atlas.Request{}
+		if strings.TrimSpace(pageRequestURL) != "" {
+			requests["page"] = atlas.Request{
+				Method: http.MethodGet,
+				URL:    pageRequestURL,
+				Status: http.StatusOK,
+				Data:   map[string]any{"page": pageData},
+			}
+		}
+		if strings.TrimSpace(overlayRequestURL) != "" && overlayData != nil {
+			requests["overlay"] = atlas.Request{
+				Method: http.MethodGet,
+				URL:    overlayRequestURL,
+				Status: http.StatusOK,
+				Data:   map[string]any{"overlay": overlayData},
+			}
+		}
+		return buildPayloadWithData(routeCtx.Path, fullQuery, map[string]any{
+			"page":    pageData,
+			"overlay": overlayData,
+		}, requests), nil
+	}, atlasCacheOptions)
+}
+
+func loadWarehouseItemNestedPayload(ctx context.Context, routeCtx router.RouteContext) (atlas.Payload, error) {
+	fullQuery := routeCtx.Query.Values()
+	return fetch.LoadCached(ctx, atlas.RoutePayloadResourceKey(routeCtx.Path, fullQuery), func(loadCtx context.Context) (atlas.Payload, error) {
+		warehouseID := strings.TrimSpace(routeCtx.Params.Get("warehouseId"))
+		parentPath := atlas.RouteWarehouseOps + "/" + warehouseID
+		pageData, pageRequestURL, err := fetchPageData(loadCtx, parentPath, fullQuery)
+		if err != nil {
+			debugLog("route.nested.page.error", map[string]any{"path": routeCtx.Path, "error": err.Error()})
+			return buildRecoveryPayload(routeCtx.Path, fullQuery, pageRequestURL, err), nil
+		}
+		if pageData == nil {
+			debugLog("route.nested.page.missing", map[string]any{"path": routeCtx.Path, "requestURL": pageRequestURL})
+			return buildRecoveryPayload(routeCtx.Path, fullQuery, pageRequestURL, nil), nil
+		}
+		itemRequestURL := atlas.StartupRequestURL(routeCtx.Path, routeDataQuery(fullQuery))
+		itemData, err := fetchRequestData(loadCtx, itemRequestURL, "item")
+		if err != nil {
+			debugLog("route.nested.item.error", map[string]any{"path": routeCtx.Path, "requestURL": itemRequestURL, "error": err.Error()})
+			return buildRecoveryPayload(routeCtx.Path, fullQuery, itemRequestURL, err), nil
+		}
+		if itemData == nil {
+			debugLog("route.nested.item.missing", map[string]any{"path": routeCtx.Path, "requestURL": itemRequestURL})
+			return buildRecoveryPayload(routeCtx.Path, fullQuery, itemRequestURL, nil), nil
+		}
+		requests := map[string]atlas.Request{}
+		if strings.TrimSpace(pageRequestURL) != "" {
+			requests["page"] = atlas.Request{
+				Method: http.MethodGet,
+				URL:    pageRequestURL,
+				Status: http.StatusOK,
+				Data:   map[string]any{"page": pageData},
+			}
+		}
+		if strings.TrimSpace(itemRequestURL) != "" {
+			requests["item"] = atlas.Request{
+				Method: http.MethodGet,
+				URL:    itemRequestURL,
+				Status: http.StatusOK,
+				Data:   map[string]any{"item": itemData},
+			}
+		}
+		return buildPayloadWithData(routeCtx.Path, fullQuery, map[string]any{
+			"page": pageData,
+			"item": itemData,
+		}, requests), nil
+	}, atlasCacheOptions)
 }
 
 func atlasThresholdHistoryOverlayLoader(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
@@ -992,9 +921,17 @@ func atlasThresholdHistoryOverlayLoader(ctx context.Context, routeCtx router.Rou
 	return router.Attrs{"payload": payload}, nil
 }
 
+func atlasWarehouseItemNestedLoader(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
+	debugLog("router.loader.nested", map[string]any{"path": routeCtx.Path})
+	payload, err := loadWarehouseItemNestedPayload(ctx, routeCtx)
+	if err != nil {
+		return nil, err
+	}
+	return router.Attrs{"payload": payload}, nil
+}
+
 func applyPayloadSideEffects(payload atlas.Payload, resetScroll bool) {
 	invalidateCachesForPayload(payload)
-	cachePayload(payload)
 	updateDocumentMetadata(payload)
 	if resetScroll {
 		syncNavigationPosition(payload)
@@ -1017,6 +954,15 @@ func atlasThresholdHistoryOverlayComponent(attrs router.Attrs) *router.Element {
 	applyPayloadSideEffects(payload, false)
 	return ui.CreateElement(func() ui.Node {
 		return atlas.InventoryThresholdHistoryOverlay(payload)
+	})
+}
+
+func atlasWarehouseItemNestedComponent(attrs router.Attrs) *router.Element {
+	payload, _ := attrs["payload"].(atlas.Payload)
+	debugLog("route.render.nested", map[string]any{"path": payload.Route.Path, "screen": payload.Route.Screen})
+	applyPayloadSideEffects(payload, false)
+	return ui.CreateElement(func() ui.Node {
+		return atlas.WarehouseOpsItemPanel(payload)
 	})
 }
 
@@ -1080,8 +1026,8 @@ func registerAtlasRoutes(r *router.Router) {
 		{Path: atlas.RouteSKUDetailRoute, MetadataKey: atlas.RouteSKUDetail, Layout: true, UseLoader: true, Internal: true},
 		{Path: atlas.RouteSKUThresholdHistoryRoute, MetadataKey: atlas.RouteSKUThresholdHistory, UseLoader: true, Loader: atlasThresholdHistoryOverlayLoader, Internal: true, Component: atlasThresholdHistoryOverlayComponent},
 		{Path: atlas.RouteWarehouseOps, MetadataKey: atlas.RouteWarehouseOps, UseLoader: true, Internal: true},
-		{Path: atlas.RouteWarehouseDetailRoute, MetadataKey: atlas.RouteWarehouseDetail, UseLoader: true, Internal: true},
-		{Path: atlas.RouteWarehouseItemDetailRoute, MetadataKey: atlas.RouteWarehouseItemDetail, UseLoader: true, Internal: true},
+		{Path: atlas.RouteWarehouseDetailRoute, MetadataKey: atlas.RouteWarehouseDetail, Layout: true, UseLoader: true, Internal: true},
+		{Path: atlas.RouteWarehouseItemDetailRoute, MetadataKey: atlas.RouteWarehouseItemDetail, UseLoader: true, Loader: atlasWarehouseItemNestedLoader, Internal: true, Component: atlasWarehouseItemNestedComponent},
 		{Path: atlas.RouteTransfers, MetadataKey: atlas.RouteTransfers, UseLoader: true, Internal: true},
 		{Path: atlas.RouteTransferDetailRoute, MetadataKey: atlas.RouteTransferDetail, UseLoader: true, Internal: true},
 		{Path: atlas.RoutePurchaseOrders, MetadataKey: atlas.RoutePurchaseOrders, UseLoader: true, Internal: true},
@@ -1167,7 +1113,9 @@ func registerAnchorNavigation(routerInstance *router.Router) {
 func main() {
 	initialBootstrap = loadBootstrap()
 	initialPayload = atlas.PayloadFromSSRBootstrap(initialBootstrap)
-	cachePayload(initialPayload)
+	if err := restoreAtlasFetchCacheBootstrap(initialPayload); err != nil {
+		debugLog("bootstrap.cache.restore.failed", map[string]any{"error": err.Error()})
+	}
 	debugLog("app.init", map[string]any{
 		"path":    initialPayload.Route.Path,
 		"screen":  initialPayload.Route.Screen,

@@ -516,6 +516,26 @@ Internal routes should support decision queues:
 - `/app/products` for catalog management
 - `/app/inventory` for stock health
 - `/app/comments` or a future demand queue for buyer follow-up work
+- the shipped `/app/products` route now uses a summary band, filter shell, CRUD action rail, dense catalog table, and side create rail so operators work from a reviewable product workspace instead of a merch-card list
+
+### Products route work map
+
+- table shell: the dense catalog table is the primary review surface, with explicit edit and warehouse-lane actions on every row
+- filter bar: search, category, status, and sort stay in a dedicated route shell ahead of the table
+- saved-view slice: still reserved for a later operator-preset pass rather than bolted into the first CRUD rewrite
+- bulk-action slice: the current action rail stays intentionally non-destructive and routes operators into cleanup, inventory, or warehouse follow-up
+- route-level empty state: the table shell already handles zero-match filters with a route-specific recovery message and a create-product fallback
+- warehouse return-target continuity: product row actions still link into warehouse item profiles, and product create, update, and delete flows still preserve `return_warehouse_id` when the workflow originates from a warehouse route
+- the shipped product editor now uses a preview-first layout: preview hero, preview surface, and warehouse context on the left, with grouped metadata, warehouse, and merchandising edit sections plus the existing save/delete and unsaved-change guard on the right
+
+### Product editor work map
+
+- metadata form: SKU identity, slug, title, category, price, status, and finish
+- merchandising copy form: summary, details, SEO title, and SEO description
+- warehouse context: warehouse anchor plus available and inbound volume fields
+- preview surface: the left-column preview hero and merch preview card
+- unsaved-changes workflow: recent draft-change summary plus the existing `before-leave` guard around the save path
+- workflow lock: visual tuning must preserve the current save endpoint, delete endpoint, warehouse return-target hidden field, warehouse item handoff links, and the unsaved-change guard behavior
 
 ## 7. Practical Product-Page Rewrite
 
@@ -709,6 +729,25 @@ The public interface should use a warm-light editorial palette with soft stone b
 
 The internal interface should use a darker, steel-and-slate visual system with strong information hierarchy, restrained accent colors, and dense but legible surfaces. It should look serious and fast, not merely dark.
 
+Shipped internal surface system:
+
+- hero tier: deep steel gradient for the route hero and other shell-level lead surfaces
+- standard card tier: elevated slate panels for shared stats, list cards, feature cards, and grouped workspace navigation
+- inset tier: denser recessed panels for summary rows, secondary nav links, and compact route context
+- accent tier: brighter cyan-leaning action cards for operator workflows that need stronger visual pull than passive data panels
+
+Shared internal surface contract before route rewrites:
+
+- card helpers: `internalHeroSurfaceClass`, `internalSurfaceCardClass`, `internalInsetSurfaceClass`, `internalAccentSurfaceClass`, and `internalSurfacePillClass`
+- table helpers: `internalTableContainerClass`, `internalTableHeaderCellClass`, and `internalTableRowClass`
+- route rewrites should compose new dashboard, inventory, product, warehouse, logistics, and settings surfaces from those helpers instead of introducing one-off dark card and table wrappers
+
+Internal surface rollout order:
+
+- first wave: dashboard and inventory adopt the shared hero, card, and table-container helpers
+- second wave: products and warehouse ops inherit the same surface contract once the first operator-heavy routes stabilize
+- third wave: logistics and settings finish the rollout after the higher-traffic triage and catalog routes prove the surface system
+
 ### Typography
 
 Use a distinctive display face for public headings and a legible operational face for dense UI. A good baseline direction is:
@@ -778,10 +817,73 @@ The dashboard should not become a generic KPI wall. It should behave like a tria
 - transfer pressure
 - moderation backlog
 - quick navigation into action-heavy views
+- the shipped dashboard now follows that triage-first structure directly: top summary band, action cluster, high-attention panel, activity feed, and purchase-order summary, with purchase-order data loaded into the dashboard payload instead of being inferred from unrelated counts
+- within that shipped structure, the summary band and action cluster are the lead surfaces, so the new hierarchy is visible before an operator scans the secondary high-attention and activity panels
+- the secondary dashboard sections are now also explicit: a high-attention panel for queue risk, an activity feed for recent motion across moderation, transfers, receiving, and POs, and a denser purchase-order summary with direct route affordances
 
 ### Inventory management
 
 The inventory view should be the strongest internal screen. It needs to feel fast, controlled, and trustworthy with visible sort state, filters, saved views, and bulk actions.
+
+- the shipped inventory route now follows that ops-first structure directly: an inventory triage summary band, a dedicated filter model card, a route action cluster for critical or receiving pivots, a clickable triage band, and a dense SKU queue table as the main pane
+- the right rail now stays subordinate to the queue and carries workspace stats, active filter context, saved-view selection, and save-view persistence so operators can confirm scope without losing the main triage surface
+- the shipped SKU detail route now matches that same shell language: a hero-level lane workspace summary, a stat strip, a denser lane roster table, grouped lane editors, and a right rail that keeps SKU actions, replenishment, and threshold controls separate from the main comparison surface
+
+### Inventory route work map
+
+- triage summary band: lead counts and route summary keep inventory pressure readable before any operator scans the table
+- filter model: query, warehouse, status, and sort controls stay grouped in one dedicated card so URL-backed filtering remains obvious
+- saved-view rail: saved-view selection and persistence stay in the side rail instead of competing with the queue for primary attention
+- dense queue table: the main pane stays table-first, with SKU posture, lane spread, inbound exposure, and direct route actions visible at a glance
+- route action cluster: the first route-level pivots are explicit cards for critical lanes, promise-risk review, and receiving follow-up rather than loose text links
+
+### SKU detail work map
+
+- summary hero: the route opens with one lane-workspace hero so the operator has SKU, lane-count, and primary-warehouse context before touching a form
+- lane roster: the roster stays as the first dense table, because warehouse comparison is the prerequisite for deciding whether the problem is local or network-wide
+- lane edit forms: lane editors stay grouped in one dedicated section under the roster, preserving the compare-first then edit flow
+- threshold-history side workflow: threshold-history remains a route-local overlay workflow so the SKU page can keep context while the historical panel opens and closes
+- replenishment or transfer actions: replenishment entry and adjacent SKU handoff actions stay in the right rail so they are explicit secondary workflows rather than the route's visual center of gravity
+
+### Warehouse operations
+
+- the shipped warehouse list route now behaves like a facility triage board: summary band, action cluster, dense facility table, and a supporting right rail for cross-route handoffs
+- the shipped warehouse detail route now follows the same ops shell language: facility hero, route summary, facility filter model, stat strip, action cluster, nested item continuity, dense warehouse-item table, and a right rail for facility context plus replenishment history
+
+### Warehouse ops work map
+
+- warehouse list shell: the list route now opens as a facility triage shell with summary band, route action cluster, and dense facility table
+- warehouse detail workspace: the facility detail route keeps hero, route summary, filter model, and stat strip together before the operator drills into items
+- warehouse item table: warehouse-managed items now live in one dense table instead of a card stack, so item pressure is scan-friendly at the facility level
+- purchase-order rail: replenishment history and creation affordances stay in the right rail so inbound recovery remains an explicit secondary workflow
+- nested item-detail continuity: the nested item outlet remains mounted inside the parent facility route so warehouse context survives the item drill-in instead of collapsing into a separate detached page
+
+### Purchase orders
+
+- the shipped purchase-order list route now behaves like a vendor recovery board with a summary band, route action cluster, dense vendor-order table, and a right rail for cross-route handoffs
+- the shipped purchase-order detail route now uses a PO workspace hero and dense line-item table while preserving the existing lazy side rail for route refresh, stats, and approve or hold actions
+
+### Purchase-order work map
+
+- list shell: the purchase-order route now opens as a vendor recovery shell instead of a loose card list
+- status summary band: order counts by submitted, approved, and on-hold posture stay visible before an operator scans the table
+- detail hero: the detail route leads with one PO workspace hero so vendor, warehouse, ETA, and current status are readable at a glance
+- line-item context: inbound lines stay in one dense table, making quantity and ETA review the prerequisite to any decision
+- approve or hold workflow tasks: approval, hold, refresh, and supporting stats stay isolated in the lazy detail rail so the primary route body remains stable
+
+### Logistics and support
+
+- the shipped transfers route now behaves like a balancing workspace with a summary band, route action cluster, dense transfer table, and a supporting rail for transfer creation plus warehouse and receiving handoffs
+- the shipped receiving route now behaves like a closeout workspace with a summary band, route action cluster, dense receiving table, and a supporting rail for reconciliation plus upstream or downstream handoffs
+- the shipped comments route now behaves like a buyer inbox workspace with a summary band, route action cluster, dense moderation table, and a supporting rail for moderation actions and cross-route follow-up
+- the shipped settings route now behaves like an operator control room with a summary band, route action cluster, and a supporting rail for preferences, saved-view exchange, and workspace snapshot flows
+
+### Logistics and support work map
+
+- receiving mini-rewrite: summary band, closeout action cluster, dense session table, and reconciliation rail
+- transfers mini-rewrite: balancing summary band, transfer action cluster, dense movement table, and creation plus handoff rail
+- comments mini-rewrite: buyer inbox summary band, moderation action cluster, dense question table, and moderation workflow rail
+- settings mini-rewrite: operator control summary band, settings action cluster, and the existing preference, saved-view, and workspace snapshot cards treated as one control-room rail
 
 ## Content Direction
 
@@ -1064,13 +1166,10 @@ The internal shell should use a left navigation rail plus a compact top bar.
 
 Primary internal nav groups:
 
-- dashboard
-- inventory
-- warehouses
-- transfers
-- receiving
-- comments
-- settings
+- overview: dashboard and products
+- stock: inventory and warehouses
+- logistics: transfers, purchase orders, and receiving
+- support: comments and settings
 
 The top bar should handle command search, active warehouse context, alerts, and user preferences.
 
@@ -1112,6 +1211,26 @@ The product page should be assembled in this order:
 5. related setup or bundle suggestions
 6. customer comments or questions
 7. quote or restock capture when relevant
+
+### Product-detail loading policy
+
+- first-paint critical:
+  - product hero, finish and price context, and the primary buyer action rail
+  - the initial warehouse-aware promise copy that tells the buyer whether to quote now, reserve later, or switch warehouse context
+  - route metadata, quote or restock entry points, and the compact support framing that keeps the product page decision-ready from SSR through hydration
+- secondary and allowed to load after the primary body is stable:
+  - the promise-lanes comparison island, because it extends the delivery story rather than defining the first commercial decision
+  - the public feedback block, because comments and questions should stay visible but secondary to the hero and main action stack
+- secondary and preferred for cached repeat-open behavior:
+  - related-products rails and other merchandising-adjacent side panels
+  - public comments once the route has mounted, so repeat visits can reuse the last approved thread while moderation-aware refresh still happens in the background
+- rule for future product-detail work:
+  - do not move the primary quote, restock, or hero decision surfaces behind lazy boundaries
+  - new secondary panels should default to lazy or cached loading unless they materially change the buyer's first decision on the route
+- current shipped mapping:
+  - the public feedback block mounts through `ui.UseLazyNode`
+  - public comments and related products both reuse cached-resource loaders after hydration
+  - the promise-lanes module stays behind its own async boundary so failures and refreshes remain local to that panel
 
 ### Warehouse page modules
 
@@ -1170,10 +1289,67 @@ The walkthrough should stay under ten minutes and never require apology for plac
 
 ## Interaction Rules
 
+### React mock interaction inventory
+
+The two React references currently contribute these concrete interaction patterns that Atlas must account for during parity planning:
+
+- mobile menu: both `design/homepage_store.tsx` and `design/homepage_warehouse.tsx` use a small-screen header trigger that opens an animated route list overlay. Atlas route ownership: public shell routes such as `/shop`, `/shop/:slug`, `/warehouses`, and `/warehouses/:warehouseSlug`, plus the internal shell wrapper across `/app/*`.
+- animated drawers and overlays: the store mock uses an animated cart drawer with backdrop dismissal, while both mocks use animated mobile-menu overlays and hover-lift product cards. Atlas route ownership: public product overlays on `/shop/:slug`, public shell navigation overlays, and internal workflow overlays on `/app/inventory/:sku`, `/app/transfers`, `/app/receiving`, `/app/comments`, and the shared `/app/*` shell.
+- toasts: both mocks mount a timed toast surface for lightweight confirmation feedback. Atlas route ownership: public follow-up actions on `/shop/:slug` and `/warehouses/:warehouseSlug`, plus internal action feedback on `/app/inventory`, `/app/transfers`, `/app/receiving`, `/app/comments`, and `/app/settings`.
+- filter chips: the store mock turns active catalog filters and search terms into removable chips above the product grid. Atlas route ownership: public catalog state on `/shop`, with the same pattern already relevant to internal filter-heavy workspaces such as `/app/inventory` and `/app/warehouses/:warehouseId`.
+- image gallery selection: the store product-detail view swaps the hero image from a thumbnail strip. Atlas route ownership: `/shop/:slug`.
+- quantity steppers: the store product-detail quantity control and the warehouse reorder flow both use increment or decrement steppers. Atlas route ownership: public buying interactions on `/shop/:slug` and internal replenishment or receiving quantity work on `/app/inventory/:sku`, `/app/purchase-orders/:id`, and `/app/receiving/:id`.
+- editable forms: the store mock includes a mocked checkout form, and the warehouse mock includes compact create or edit product forms with metadata, pricing, supplier, and status fields. Atlas route ownership: public buyer-contact and request forms on `/shop/:slug` and `/warehouses/:warehouseSlug`, plus operator CRUD and settings forms on `/app/products`, `/app/products/:slug`, `/app/comments`, and `/app/settings`.
+- preview panels: the warehouse item editor keeps a live item-card preview beside the form. Atlas route ownership: `/app/products` and `/app/products/:slug`, where the merchandising editor already owns preview-oriented CRUD work.
+- supplier reorder flow: the warehouse mock groups low-stock items by supplier, precomputes reorder quantities, allows row-level quantity edits, and sends a purchase order from the staged list. Atlas route ownership: stock-recovery work on `/app/inventory`, `/app/inventory/:sku`, and `/app/purchase-orders`.
+
+The current interaction inventory is intentionally reference-level only. Route ownership, Atlas adaptation, and exclusion rationale are tracked by the following parity todos so this section stays focused on what exists in the React mocks.
+
+### Parity planning buckets
+
+Before implementation starts, Atlas should treat the current mock interactions in three planning buckets:
+
+- must-port first: public mobile menu, internal mobile nav, timed toast feedback, public catalog filter chips, public product gallery selection, and quantity steppers anywhere Atlas already has a real quantity decision
+- Atlas-adapt rather than copy literally: drawer or overlay behavior, editable public forms, editable internal CRUD forms, preview panels, and the warehouse reorder flow because Atlas routes already express those jobs through product requests, inventory recovery, purchase-order creation, receiving, and shared overlay primitives
+- reference-only for visual or product-language inspiration: the mock cart drawer as a literal cart, the full mocked checkout route, and decorative hover-lift card motion that does not carry Atlas workflow value on its own
+
+### Destination map
+
+Each interaction should now be treated as one of three implementation destinations:
+
+- direct Atlas port: mobile menu, toasts, filter chips, image gallery selection, and quantity steppers where Atlas already exposes a real quantity choice
+- Atlas-adapted equivalent: animated drawers and overlays, editable forms, preview panels, and the supplier reorder flow
+- intentionally excluded from literal parity: the mock cart drawer as a cart workflow, the standalone mocked checkout route, and decorative hover-lift card motion as a required product behavior
+
+### Exclusion rationale
+
+The currently excluded mock interactions are excluded for Atlas-native product reasons, not because they are unimplemented:
+
+- literal cart drawer: Atlas public routes currently support request, quote, restock, and product-question workflows rather than a session cart, so a cart-specific drawer would introduce a second public purchase model that the real example does not own
+- standalone checkout route: Atlas does not model direct payment capture or order placement from the public shell, so a mocked checkout page would imply backend responsibilities and fulfillment states the example intentionally does not ship
+- decorative hover-lift card motion as required behavior: Atlas needs motion that reinforces route hierarchy, overlays, and operational feedback, so treating hover-lift animation as mandatory parity would create avoidable surface churn without improving task completion
+
+### Public mobile menu parity
+
+Atlas now gives the public shell a hydrated small-screen navigation overlay instead of a single fallback shortcut. The menu opens from the shared public header, keeps the existing storefront route set in one overlay, preserves active-route emphasis, and leaves the desktop public nav unchanged.
+
+### Public mobile menu work map
+
+The public mobile menu should continue as five narrowly reviewed tasks:
+
+- open or close state: trigger, dismiss, and close-button behavior stay local to the shared public header
+- focus order: first focus target, close target, and return-to-trigger behavior stay tied to the overlay container
+- route selection: the overlay must expose the same public route set and active-state treatment as the desktop nav
+- overlay treatment: backdrop, stacking, dismissal, and reduced-motion behavior should stay aligned with the shared Atlas overlay rules
+- small-screen layout: the overlay card spacing, copy density, and CTA grouping should stay optimized for narrow storefront screens without changing the desktop header
+
 ### Motion rules
 
 Motion should be short, directional, and functional.
 
+- Atlas already uses reveal or panel motion where it adds hierarchy safely: public mobile nav, the public buying drawer, the internal workspace drawer, threshold-history and workflow sheets, local toast entry, and restrained card-hover lift on public merchandising tiles
+- keep as structural motion: drawer or sheet entry and exit, toast entry, localized pending-state swaps, and light public merchandising hover emphasis
+- simplify for Atlas stability: full-route reveal choreography, staggered section entrances that hide SSR content until hydration, and decorative motion on dense internal tables or workflow cards where immediate readability matters more than spectacle
 - route transitions should use subtle opacity and vertical offset rather than large travel
 - overlays should enter faster than routes and leave even faster
 - row selection, filter application, and saved-view restore should favor immediate feedback over decorative animation
@@ -1216,6 +1392,17 @@ The first overlay set should include:
 - command palette
 - row action menu
 - quote request confirmation surface
+
+Atlas now also uses Atlas-native panel behavior where the React references implied separate panels instead of inline-only treatment:
+
+- public product detail uses a small-screen buying drawer so the quote or restock action rail does not stay trapped as a static below-fold block on narrow screens
+- the shared public and internal headers use sheet-based mobile navigation instead of static collapsed link rows
+- threshold history and internal workflow guidance already use sheet or modal presentation rather than forcing every secondary task to live inline beside the primary route body
+
+The first overlay proof points should stay narrow:
+
+- public first-wave pattern: the product-detail buying drawer on `/shop/:slug`
+- internal first-wave pattern: the threshold-history and workflow sheet stack on `/app/inventory/:sku`
 
 ### Modal stacking rules
 
@@ -1418,6 +1605,9 @@ The initial sitemap should include only the public routes that are stable and wo
 
 Public and internal forms should share the same behavioral expectations:
 
+- render a real `form` with server-owned `action` and `method` whenever the workflow already has a normal POST endpoint
+- keep the non-JS submit path authoritative for quote, restock, question, moderation, transfer, receiving, settings, and CRUD forms unless a workflow is impossible to express progressively
+- use hydration only to add local validation, pending labels, preview or staging state, focus management, and post-submit toast or announcer feedback
 - validate early when fields are obviously incomplete
 - keep server validation messages field-specific whenever possible
 - show a pending state on the active action only
@@ -1527,89 +1717,101 @@ Atlas diagnostics are intentionally hidden from normal reviewer flows.
 
 # Atlas Framework Coverage
 
-This file tracks whether Atlas Commerce OS exercises the major GoWebComponents framework features in real product flows.
+This file tracks which GoWebComponents surfaces Atlas Commerce OS actually exercises in shipped code today.
 
 Status legend:
 
-- `Implemented`: present in Atlas today with a concrete screen or workflow.
-- `Planned`: required for Atlas, but not wired into the example yet.
+- `Implemented`: present in current Atlas code, not just in planning docs.
+- `Not currently wired`: available in the framework or planned in Atlas, but not exercised by the current example.
 
 ## ui
 
-- [x] `ui.Render` and `ui.CreateElement` implemented in the Atlas app entry.
-- [x] `ui.UseState` implemented across settings, inventory, SKU detail, transfer, receiving, and moderation screens.
-- [x] `ui.UseEffect` implemented for browser preference and DOM attribute synchronization.
-- [x] `ui.UseEvent` implemented for routed controls and workflow actions.
-- [x] `ui.UsePrevious` implemented in the transfer workflow state summary.
-- [x] `ui.UseDeferredValue` implemented in the inventory workspace search preview.
-- [x] `ui.UseDebounced` implemented in the inventory workspace search preview.
-- [x] `ui.UseReducer` implemented in the transfer workflow stage controls.
-- [ ] `ui.Fragment` planned for composite route sections and grouped table cells.
-- [ ] `ui.UseRef` planned for focus restoration in overlays and command surfaces.
-- [ ] `ui.UseThrottled` planned for dense table telemetry and resize-driven UI state.
-- [x] `ui.UseNavigate` implemented for internal app-shell redirects.
-- [x] `ui.UseId` implemented for public request-form labeling and hint associations.
-- [x] public request forms now exercise structured form validation flows; richer internal adjustment forms are still planned.
-- [x] `ui.Overlay` and `ui.UseOverlayStack` implemented through the receiving discrepancy sheet and Atlas dialog-backed workflows.
-- [x] `ui.Portal` and `ui.PortalTarget` implemented for Atlas secondary workflow UI through the shared overlay host, transfer confirmation dialog, and internal toast viewport.
-- [ ] `ui.UseChannel` planned for cross-surface event fanout.
-- [x] `ui.UseTask` implemented for the diagnostics reviewer-handoff background task.
-- [ ] `ui.UseContext` planned for shell-level operator context.
-- [x] `ui.UseTransition` implemented for non-urgent diagnostics probe switching.
-- [x] `ui.AsyncBoundary` implemented for async diagnostics probe and cached reviewer-check panels.
-- [x] `ui.Lazy` implemented for the deferred reviewer note in diagnostics mode.
-- [ ] `ui.ErrorBoundary` planned for route-local failure containment.
-- [ ] `ui.RenderToString` and `ui.Hydrate` planned for the SSR hydration path.
+- [x] `ui.CreateElement` implemented for route components and interactive public product feedback.
+- [x] `ui.Hydrate` implemented in the wasm entrypoint for server-bootstrap resume.
+- [x] `ui.UseState` implemented behind Atlas local-state wrappers for public feedback and client-only interaction state.
+- [x] `ui.UseEffect` implemented behind Atlas wrappers for client-side state synchronization.
+- [x] `ui.UseEvent` implemented for public comment-form field updates and submit behavior.
+- [x] `ui.UseForm` implemented for the public product comment workflow plus internal product create or update, inventory lane edit, moderation, transfer, receiving reconcile, and settings import or export flows.
+- [x] `ui.UseId` implemented in shared Atlas form helpers so CMS inputs, catalog and inventory controls, public quote or restock fields, and public feedback error text all bind through generated IDs instead of ad hoc markup.
+- [x] `ui.UsePrevious` implemented for product-editor drafts, the threshold-history overlay refresh summary, and receiving reconcile drafts so Atlas can show the most recent change without keeping duplicate snapshot state by hand.
+- [ ] `ui.Render` not currently wired in Atlas; the browser entry hydrates instead of doing a pure client render path.
+- [ ] `ui.RenderToString` not currently wired for the Atlas app tree; the server emits an HTML shell plus bootstrap, then the client hydrates the app into `#app`.
+- [x] `ui.AsyncBoundary` now isolates the deferred public promise-lanes module and the purchase-order or receiving side-panel stat islands so panel loading and failure states stay local.
+- [x] `ui.UseWorkerTask` now powers saved-view import validation on the settings route, pushing JSON parse and validation work into a dedicated worker while the operator keeps editing the import payload.
+- [ ] `ui.UseTask` remains deferred after evaluation; the remaining saved-view export, workspace snapshot export, and current diagnostics snapshot paths are still small enough to stay synchronous until Atlas gains a heavier non-worker background job.
+- [x] `ui.UseChannel` now drives a shell-level Atlas toast bus: the app shell subscribes once, while distant flows such as public comment submission and internal panel refresh can broadcast completion notices without routing those events through query state.
+- [x] `ui.UseReducer` now drives replenishment-order staging in the inventory purchase-order modal and receiving closeout-stage guidance in the reconcile form, so both workflows can show reducer-owned status summaries without abandoning progressive form posts.
+- [x] `ui.Fragment` now groups inventory queue cells, warehouse network table cells, and repeated section-meta copy blocks without introducing extra wrapper nodes in the rendered table or card markup.
+- [x] `ui.UseLazyNode` now defers the below-the-fold public feedback module and the secondary purchase-order or receiving detail rails until the primary route body is stable, while still rendering synchronously on the server for direct entry.
+- [x] `ui.ErrorBoundary` now contains the public promise-lanes enhancement island plus the purchase-order and receiving side panels, so a broken enhancement panel falls back locally instead of collapsing the full Atlas route.
+- [x] `ui.UseRef`, `ui.UseFocusManager`, and `ui.UseFocusTrap` now drive threshold-overlay focus restore plus the transfer, receiving, and moderation confirmation dialogs, so Atlas captures the opener and traps keyboard focus inside those flows instead of relying on manual markup behavior.
+- [x] `ui.UseFocusTrap` now also wraps the replenishment-order modal, replacing the old checkbox-and-peer visibility trick with a stateful dialog that traps focus, restores the opener, and keeps the purchase-order workflow keyboard-contained.
+- [x] `ui.UseCompositeNavigation` now powers the settings-route saved-view browser, giving Atlas one real listbox-style operator control with ArrowUp or ArrowDown, Home or End, and typeahead-driven inspection of saved workspace presets.
+- [x] `ui.AccessibleOverlay`, `ui.Overlay`, `ui.UseOverlayStack`, `ui.Portal`, and `ui.PortalTarget` now back the shared Atlas overlay layer: the threshold-history route sheet renders through a portal host outside the shell, the transfer, receiving, and moderation confirmations reuse the same stack-aware modal wrapper, and Atlas now also uses that host for small-screen public buying drawers plus small-screen internal quick-action drawers.
+- [x] `ui.UseAnnouncer` now sits at the Atlas shell boundary and announces route changes, query-string notice banners, and shell toast updates, which covers public comment submit plus threshold, receiving, and moderation success messaging without sprinkling separate live regions across each route.
+- [x] `ui.UseDeferredValue` and `ui.UseDebounced` now back hydrated filter controls on `/shop`, `/app/inventory`, and `/app/warehouses/:warehouseId`, so Atlas can preview filtered lists locally while debouncing query-string replacement for deep-linkable filter state.
+- [x] `ui.UseTransition` and `ui.StartTransition` now cover inventory saved-view application, settings density preview toggles, and the high-churn inventory or warehouse filter setters, so Atlas can keep dense internal rerenders non-urgent while still exposing local pending state.
+- [x] `ui.UseThrottled` now powers the hidden Atlas diagnostics shell panel behind `?diag=1`, which samples viewport size, scroll depth, sticky-shell state, and inventory or warehouse workspace presence without redrawing that panel on every scroll or resize event burst.
+- [ ] `ui.UseNavigate`, `ui.UseTask`, and `ui.Lazy` are not currently exercised by Atlas code even though some older notes listed them as implemented.
+- [ ] `ui.UseContext` remains planned rather than wired.
 
 ## router
 
-- [x] Hash routing implemented for the Atlas browser example.
-- [x] Route metadata implemented for current screens.
-- [x] Direct route entry and catch-all recovery implemented and browser-tested.
-- [ ] Browser router planned for the server-rendered Atlas variant.
-- [x] Route params implemented for product and SKU detail routes.
-- [x] Query state implemented for catalog browsing.
-- [x] Route loaders and revalidation implemented for dashboard, inventory, SKU detail, transfers, and receiving screens.
-- [x] Redirects implemented for app-shell entry; auth guards are still planned.
-- [x] Nested layout routes implemented for the internal app shell and inventory drill-in.
+- [x] History-router navigation implemented through `router.NewRouter(...)`, document-link interception, and `router.HydrateMount(...)`.
+- [x] Route metadata implemented through router options for title, description, and canonical updates.
+- [x] Route params and query-backed route state implemented for product, warehouse, inventory, and threshold-history paths.
+- [x] Route loaders implemented across public and internal Atlas routes, including the threshold-history overlay loader.
+- [x] Route redirects implemented for `/app` to `/app/dashboard`.
+- [x] `BeforeEnter` auth guards implemented for internal routes.
+- [x] `BeforeLeave` unsaved-change guard implemented for the product editor route.
+- [x] Nested layout route usage implemented for the inventory detail and threshold-history flow.
+- [ ] Hash routing is no longer part of the shipped Atlas path and should not be treated as current framework coverage.
 
 ## html
 
-- [x] Semantic layout primitives implemented throughout Atlas pages and workflow panels.
-- [x] Rich HTML forms implemented for public quote, restock, and question-request flows.
-- [ ] Additional semantic table and description-list treatment planned for dense operations screens.
+- [x] Semantic HTML layout and form markup implemented across public and internal routes.
+- [x] Progressive HTML form posts implemented for public and internal mutation flows.
+- [ ] Dense internal table and grouped-form markup still need a broader parity and accessibility pass.
 
 ## i18n
 
-- [x] Locale persistence and RTL direction implemented for Atlas preferences.
-- [ ] Package-level translation resources planned for public and internal copy.
-- [ ] Localized route metadata and content loading planned for SSR.
+- [x] Locale bootstrap, document `lang`, and RTL direction handling implemented for SSR entry and hydration resume.
+- [ ] Package-level translation resources and localized content bundles are not currently wired.
 
 ## state
 
-- [x] `state.UseAtom` implemented for shared preferences and inventory workspace state.
-- [ ] `state.UseComputed` planned for derived stock-health summaries.
-- [x] `state.UseDerived` implemented for inventory summary state that feeds inventory and dashboard surfaces.
-- [x] diagnostics now use runtime snapshots for reviewer-visible state inspection through `devtools.SnapshotNow` and `devtools.UseSnapshot`.
-- [ ] Snapshot export, import, and storage planned for operator workspaces and saved reviews.
+- [x] `state.UseComputed` implemented for internal shell summaries and route badges derived once per route payload and reused by the header and hero.
+- [x] `state.UseAtom` implemented for shell-wide presentation preferences so locale, density, and default-warehouse context have one shared ownership point during hydration.
+- [ ] `state.UseDerived` is not currently exercised by Atlas code; current Atlas interaction state is still mostly local hook state plus server bootstrap.
+- [ ] Snapshot export, import, and broader shared-state ownership remain planned.
 
 ## fetch
 
-- [ ] `fetch.Fetch` planned for data-backed dashboard and catalog refreshes.
-- [ ] `ui.UseFetch` planned for imperative refresh surfaces.
-- [x] `ui.UseResource` implemented for route-local async diagnostics probe loading.
-- [x] `ui.UseCachedResource` implemented for shared cached reviewer checks in diagnostics mode.
+- [x] Atlas route payload and request loaders now use shared cached-resource helpers in `shared/atlas/resource_cache*.go` via `fetch.LoadCached`, shared SSR cache bootstrap seeding, and the same mutation invalidation matrix that backs `ui.UseCachedResource`.
+- [x] Public comments, related products, warehouse side data, and purchase-order or receiving detail rails now read through Atlas cached-resource hooks, so hydrated repeat-open surfaces can reuse secondary data without waiting on a full route reload.
+- [x] `fetch.UseResource` now powers the deferred public product promise-lanes island and the purchase-order or receiving detail side-panel stat islands, each wrapped in `ui.AsyncBoundary` so retries and failures remain panel-local.
+- [x] `fetch.Fetch` now drives the public comment POST path and the purchase-order or receiving panel refresh buttons, so imperative follow-up refresh work stays on the framework fetch path instead of raw browser client calls.
+- [x] Atlas cache diagnostics now emit `bootstrap.read.ok`, `route.fetch.ok`, `route.fetch.cache.hit`, and `route.cache.invalidate` into the browser console and `window.__atlasDebugLast`, while shared Atlas tests cover route-key stability and mutation invalidation target mapping and server tests cover fresh direct-entry SSR bootstrap after mutation.
+- [ ] `ui.UseFetch` is not currently exercised by Atlas code; imperative refresh now uses `fetch.Fetch`, while route or panel loading stays on `fetch.UseResource` or shared cached resources.
 
 ## devtools
 
-- [x] `devtools.Panel` implemented for Atlas diagnostics, route state, and runtime inspection behind hidden diagnostics mode.
-- [ ] Additional diagnostics wiring planned once async data flows and SSR bootstrap land.
+- [ ] `devtools.Panel`, `devtools.SnapshotNow`, and `devtools.UseSnapshot` are documented for future Atlas diagnostics but are not currently wired in the shipped example.
 
 ## bootstrap and SSR
 
-- [x] Bootstrap default helpers implemented for route payload defaults and locale direction.
-- [ ] Bootstrap script rendering and reading planned for the SSR entry path.
-- [ ] SQLite-backed server bootstrap planned for Atlas SSR and hydration reuse.
+- [x] Request-time bootstrap generation implemented for public and internal routes.
+- [x] Shared bootstrap decoding implemented for client hydration.
+- [x] Inline bootstrap script rendering implemented for normal SSR responses.
+- [x] External bootstrap reference mode implemented as a proof of concept for the inventory threshold-history route.
+- [x] SQLite-backed server data and request-time route payload generation implemented for SSR entry.
+- [ ] Shared server-side rendering of the Atlas component tree itself is not currently wired; the shipped server response is still a bootstrap-first shell.
+
+## framework adoption rule
+
+- Atlas should prefer a shipped GoWebComponents surface whenever the rewrite needs state ownership, route loading, form lifecycle, overlays, scheduling, or async data reuse.
+- Manual browser state, hand-rolled request caches, and ad hoc DOM wiring are acceptable only when the framework does not yet expose the needed primitive or when Atlas is intentionally documenting a gap.
+- Every future Atlas rewrite step should treat a framework primitive as the first option to evaluate, not the last cleanup pass after a custom implementation has already landed.
 
 ---
 
@@ -1875,10 +2077,11 @@ Until a request-time server exists, migration work can remain documented and man
 - Settings resume covers theme, locale, density, and default warehouse with direct route entry support.
 - Inventory resume covers saved view, warehouse, and query with a clear-resume action.
 - Internal app routes now use nested layouts, redirect cleanly from `/app`, and preserve inventory context during SKU drill-in.
-- Shared atoms and derived inventory summaries now drive settings, inventory, and dashboard continuity across routes.
+- Warehouse detail now acts as a second layout route showcase, keeping warehouse summary rails, filters, and local create or replenishment workflow context mounted while a nested warehouse item workspace is open.
+- Shared atoms and derived inventory summaries now drive settings, inventory, and dashboard continuity across routes, the shell-level presentation state is bootstrap-seeded and mirrored to browser storage, a route-scoped workspace atom carries inventory filter labels, matched saved-view context, warehouse filter summaries, and dashboard or route badge rollups, and shared inventory or warehouse workspace snapshot helpers now feed both the shell atom and route bodies instead of duplicating those derived counts in multiple files.
 - Atlas now has a real accessible threshold overlay plus a portal-mounted transfer confirmation flow wired into the internal workspace.
 - Receiving now has a discrepancy side sheet, and moderation actions now confirm through a real overlay instead of inline-only state changes.
-- Dashboard, inventory, SKU detail, transfers, and receiving now use real route loaders with loading and error fallbacks, manual revalidation, query-aware inventory reloads where applicable, and a shared toast viewport for internal action feedback.
+- Dashboard, inventory, SKU detail, transfers, and receiving now use real route loaders with loading and error fallbacks, query-aware inventory reloads where applicable, and a shared toast viewport for internal action feedback; transfer, purchase-order, and receiving detail routes now expose explicit `router.UseRevalidator` refresh actions instead of custom per-route reload plumbing.
 - Internal warehouse list and warehouse detail routes now exist with loader-backed pressure summaries, staffing/backlog stats, and direct-entry browser coverage.
 - Public warehouses now include a warehouse detail route plus a warehouse-specific availability route, and both are covered by direct-entry and recovery browser flows.
 - Public catalog browsing now keeps sort and pagination in the URL, product detail now includes warehouse promise lanes plus related-product routing, and public quote, restock, and comment forms now expose real validation states.
@@ -2131,6 +2334,48 @@ Use these checkpoints when Atlas changes route shells, diagnostics, overlays, or
 - Recheck the mobile density screenshots after any spacing or shell change.
 - Recheck diagnostics mode after any loader, shared-state, or route metadata change.
 
+### Product Detail Baseline: `/shop/frame-desk`
+
+- direct-entry baseline: use `/shop/frame-desk` so SSR and hydration both exercise the flagship public product route
+- first-paint baseline: the product hero, warehouse-aware promise copy, quote or restock entry points, and the core buyer action rail should already be visible in server HTML before hydration resumes
+- localized-rerender baseline: the promise-lanes async island, cached related-products rail, comment thread and submission form, and small-screen buying drawer may rerender locally, but the public shell, hero, and route metadata should stay visually stable while those panels refresh
+- interaction baseline: open the buying drawer, trigger public comment validation, scroll into the feedback block, and revisit the same route to confirm repeat-open secondary panels stay responsive without forcing a full-route redraw
+- comparison rule: future lazy or cached product-detail work should be compared against this baseline and should preserve SSR-readable first paint plus route-local rerender boundaries rather than regressing to whole-page pending states
+
+### Dashboard Baseline: `/app/dashboard`
+
+- direct-entry baseline: use `/app/dashboard` first and repeat with `/app/dashboard?diag=1` so both the normal internal shell and the developer-only diagnostics panel are profiled against the same route payload
+- first-paint baseline: SSR should already show the internal shell header, hero badges, dashboard summary strip, admin-flow cards, alerts summary, and the buyer-inbox, transfer-watch, and receiving-exceptions sections before hydration resumes
+- localized-rerender baseline: shared shell badges, the hidden diagnostics panel, the settings-side preference form, and moderation actions may update locally, but the dashboard route body should not collapse into a whole-shell pending state when those adjacent surfaces change
+- interaction baseline: direct-enter the route, toggle diagnostics mode, open the inventory and comments handoff links, and stage a settings or moderation edit to confirm dashboard triage content stays readable while shell-state and diagnostics surfaces update around it
+- comparison rule: future shared shell state, diagnostics expansion, or route-summary work should keep the dashboard triage-first and preserve these scoped update boundaries instead of turning the route into a generic KPI wall or a full-page rerender hotspot
+
+### Products Baseline: `/app/products`
+
+- direct-entry baseline: use `/app/products` for the merchandising list and then drill into `/app/products/frame-desk` so the current list-plus-editor flow is captured before a richer CRUD or preview rewrite lands
+- first-paint baseline: SSR should already show the shell header, route summary strip, static filter bar, product count cards, merchandising workflow cards, the current product list, and the create-form rail before hydration resumes
+- localized-rerender baseline: the product editor form, dirty-state change summary, delete action, and unsaved-change guard may update locally, but the products list route should remain stable while the editor state changes and the surrounding shell badges refresh
+- interaction baseline: direct-enter the list, filter or sort once, open the `frame-desk` editor, change copy fields without saving, and return through the guarded navigation path to confirm the current editor flow stays local and does not invalidate the full merchandising shell
+- comparison rule: future CRUD-table, live-preview, or richer editor work should preserve this current split between list-level route context and editor-local updates instead of turning basic edit interactions into full-route redraws
+
+### Inventory Baseline: `/app/inventory`
+
+- direct-entry baseline: use `/app/inventory` and then drill into `/app/inventory/frame-desk` plus the threshold-history overlay so the current inventory list, SKU detail, and overlay-backed workflow stack are all part of the same baseline
+- first-paint baseline: SSR should already show the shell header, route summary strip, inventory filter bar, triage summary band, queue table, saved-view rail, and the core inventory operations rail before hydration resumes
+- inventory loading policy: keep the list-route summary band, filter model, triage band, dense queue table, saved-view rail, and current-view workspace rail first-paint because they define the operator's immediate queue understanding and route scope
+- inventory loading policy: treat threshold-history, transfer recommendations inside that sheet, and replenishment modal state as secondary route-local workflows; they should stay scoped to the SKU detail route or overlay and may refresh lazily or through cached request data without blocking the surrounding inventory shell
+- localized-rerender baseline: saved-view application, debounced filter changes, threshold-history overlays, replenishment modal state, and route-side workspace summaries may update locally, but the inventory route should keep the broader shell and non-active panels stable while those interactions settle
+- interaction baseline: apply a saved view, type into the inventory query, open a SKU detail route, open threshold history, and stage a replenishment flow to confirm the current inventory workspace stays responsive without degrading into full-route pending or losing resume context
+- comparison rule: future inventory-side enhancements should preserve this route-local state model, especially the current split between list context, SKU drill-in, and overlay or modal workflows, instead of turning one dense interaction into a whole-page rerender
+
+### Warehouse Baseline: `/app/warehouses/:warehouseId`
+
+- direct-entry baseline: use `/app/warehouses/new-jersey-hub` and then drill into `/app/warehouses/new-jersey-hub/items/frame-desk` so the parent warehouse route and the nested item workspace are profiled as one layout-driven flow
+- first-paint baseline: SSR should already show the shell header, warehouse summary strip, warehouse filter bar, facility stats, warehouse-item roster, local create or replenishment workflow entry points, and the side rail with active workspace context before hydration resumes
+- localized-rerender baseline: warehouse filter changes, nested item-lane editors, replenishment panel state, and the mounted item outlet may update locally, but the parent warehouse summary rails and route-scoped context should stay mounted while the nested item workspace changes
+- interaction baseline: direct-enter the warehouse route, apply one warehouse filter, open the nested `frame-desk` item route, stage a lane edit or replenishment action, and return to the parent roster to confirm warehouse-scoped context survives the drill-in without rebuilding the full route
+- comparison rule: future warehouse-scoped workflow growth should preserve the current parent-and-child layout continuity rather than demoting warehouse item work back into disconnected full-page hops or full-shell rerenders
+
 ---
 
 ### PUBLIC_NOTES
@@ -2327,14 +2572,31 @@ The product route should be assembled in this order:
 
 ### Primary internal navigation groups
 
-- overview: dashboard
-- inventory: inventory list and SKU detail
-- warehouses: warehouse list and warehouse detail
-- purchasing: purchase orders and purchase-order detail
-- transfers: transfers and transfer detail
-- receiving: receiving list and receiving session detail
-- comments: moderation workspace
-- settings: preferences and diagnostics entry context
+- overview: dashboard as the triage entry plus products as the catalog or merchandising workspace
+- stock: inventory list and SKU detail plus warehouse list and warehouse detail
+- logistics: transfers, purchase orders and purchase-order detail, and receiving list and receiving session detail
+- support: comments moderation plus settings, preferences, and diagnostics entry context
+- the shipped internal shell now exposes grouped workspace navigation in the header on desktop and a sheet-based mobile workspace drawer, so operators can jump routes without losing shell context even before the full left-rail rewrite lands
+
+### Internal shell rollout order
+
+- desktop header first: grouped workspace cards and context pills establish the shared route hierarchy on larger screens
+- mobile nav and collapse behavior next: the same groups collapse into the sheet-based workspace drawer and compact quick links
+- route-context badges and workspace affordances last: saved-view, summary, filter, and route-badge cues hang off the shared shell once the grouping is stable
+
+### Internal mobile nav parity
+
+Atlas now ships the internal mobile menu through the shared workspace header. The small-screen shell exposes a hydrated `Workspace nav` trigger, grouped route cards inside a sheet-based drawer, and compact quick links that keep the current route family visible when the full grouped header collapses.
+
+### Internal mobile nav work map
+
+The internal mobile drawer should keep future review and testing scoped to five slices:
+
+- rail collapse: how the grouped desktop header contracts into compact quick links plus the drawer trigger
+- route grouping: how overview, stock, logistics, and support links remain aligned between desktop cards and the drawer
+- workspace context: how saved-view, summary, warehouse, and filter cues stay visible when the full desktop header is gone
+- active-state behavior: how the current route family and exact route stay emphasized in both quick links and grouped drawer cards
+- keyboard interaction: how the trigger, drawer close affordance, grouped links, and focus return behave under keyboard-only navigation
 
 ### Route-level tabs for detail pages
 
@@ -2348,6 +2610,7 @@ The product route should be assembled in this order:
 - the internal app shell is the first layout boundary
 - inventory detail is nested beneath the inventory workspace shell so saved-view and filter context remain mounted during drill-in
 - public warehouse detail and availability routes inherit the public shell and keep the Warehouses section active across nested paths
+- purchase-order detail and receiving detail stay standalone first-class routes for now; Atlas already demonstrates a second deep-linkable nested workflow through warehouse item drill-in, while PO approval state, receiving discrepancy work, and related confirmations remain better expressed as route-local overlays than persistent list-and-detail shells
 
 ### Overlay-versus-route responsibility
 
@@ -2395,13 +2658,66 @@ The product route should be assembled in this order:
 
 - Atlas diagnostics mode exposes manual runtime snapshots through `devtools.SnapshotNow()` plus the live `devtools.Panel`
 - snapshot output is for developer review only and stays behind `?diag=1` so normal reviewer flows remain product-facing
-- Atlas does not yet support persisted export or import of workspace snapshots; those remain a future expansion once server-backed review flows exist
+- Atlas should keep full reviewer or operator workspace snapshots deferred for now: diagnostics snapshots already cover developer inspection, and saved-view export or import already covers the narrow operator handoff Atlas can justify today
+- a broader workspace snapshot flow should only land once Atlas has richer reviewer-only filters, diagnostics annotations, or multi-route operator context that cannot be handed off cleanly through saved views, direct links, and the existing diagnostics snapshot surface
+- Atlas now includes one narrow operator snapshot export on `/app/settings`: the settings route can export a copyable JSON payload containing the current shell presentation state, current route workspace atom, and saved-view metadata without exposing the deeper developer diagnostics surface
 
 ### Route revalidation strategy
 
 - loader-backed internal routes should expose explicit revalidation controls while Atlas remains seed-backed and local-state-driven
 - route loaders rerun after workflow mutations or when the operator explicitly refreshes a loader-backed route so the visible screen can reconcile with the latest mock workflow state
 - query-backed routes should keep visible query state stable while revalidation runs so a refresh does not silently discard the operator context
+
+### Stale-While-Revalidate policy
+
+- direct SSR entry should always block on fresh route data; stale-while-revalidate is only acceptable for hydrated in-session cache reuse
+- internal workflow routes should block on fresh loader data whenever the route is first entered or a mutation has just completed:
+  - `/app/dashboard`
+  - `/app/products`
+  - `/app/products/:slug`
+  - `/app/inventory`
+  - `/app/inventory/:sku`
+  - `/app/warehouses`
+  - `/app/warehouses/:warehouseId`
+  - `/app/warehouses/:warehouseId/items/:sku`
+  - `/app/transfers`
+  - `/app/transfers/:id`
+  - `/app/purchase-orders`
+  - `/app/purchase-orders/:id`
+  - `/app/receiving`
+  - `/app/receiving/:id`
+  - `/app/comments`
+  - `/app/settings`
+- inventory thresholds, transfer recommendations, purchase-order status, receiving closeout, moderation state, preferences, and saved views should all prefer fresh data because they directly change operator decisions and are already wired to explicit invalidation or loader refresh
+- public route shells should also block on fresh data for direct entry because SEO-sensitive HTML, canonical metadata, and warehouse-aware availability copy should not be derived from a stale client cache
+- stale-while-revalidate is acceptable for read-mostly secondary data after hydration when the stale view is clearly non-authoritative and invalidation is already in place:
+  - approved public comments shown beneath the primary product story
+  - related-product or warehouse-promise side rails reopened during the same session
+  - warehouse detail side data that supplements, rather than defines, the main route decision
+  - diagnostics and reviewer-only async panels behind `?diag=1`
+- stale-while-revalidate should not be used for mutation confirmation surfaces; Atlas should show the optimistic success message immediately, but the authoritative route state must come from the next fresh loader result
+- when Atlas adds more cached resources, the default should remain `fresh-first` unless the data is secondary, read-mostly, and safe to momentarily lag behind without changing fulfillment, moderation, or operator workflow choices
+
+### Cross-tab state policy
+
+- preferences should sync across tabs and windows because theme, locale, density, and default warehouse are operator-level defaults that should not diverge between concurrent Atlas sessions
+- saved views should sync across tabs and windows because create or import flows produce shared operator presets rather than tab-local scratch state
+- diagnostics mode should stay tab-local even when the query string enables it; reviewer and developer tooling should not silently appear in another tab or window
+- active inventory queries, unsaved forms, open overlays, and route-local work-in-progress state should stay tab-local so one tab does not stomp another tab's focused workflow
+- the server-backed preference and saved-view payload remains the source of truth for fresh document entry; browser storage may assist resume behavior or broadcast change notifications, but it should not outrank the next SSR bootstrap response
+
+### Mutation invalidation matrix
+
+- `comment-submitted`, `comment-moderated`, and `comments-bulk-moderated` invalidate `/app/comments`, `/app/dashboard`, and `/shop` because moderation state is shared between the buyer inbox, dashboard summary cards, and public product comment threads
+- `product-created`, `product-updated`, and `product-deleted` invalidate `/app/products`, `/app/inventory`, `/app/warehouses`, `/shop`, and `/warehouses` because product identity, merchandising copy, and warehouse availability all read the same catalog records
+- `inventory-updated` invalidates `/app/inventory`, `/app/warehouses`, `/app/dashboard`, `/shop`, and `/warehouses` because stock, promise copy, and facility posture all derive from the edited lane
+- `threshold-updated` invalidates `/app/inventory`, `/app/warehouses`, and `/app/dashboard` because reorder posture and warehouse pressure summaries depend on threshold history and lane policy
+- `purchase-order-created` invalidates `/app/purchase-orders`, `/app/receiving`, `/app/dashboard`, `/app/inventory`, `/app/warehouses`, `/shop`, and `/warehouses` because the create flow changes both PO records and inbound inventory totals used by public and internal availability views
+- `purchase-order-updated` invalidates `/app/purchase-orders`, `/app/receiving`, and `/app/dashboard` because approval state changes affect replenishment and receiving workflows without changing lane counts
+- `receiving-reconciled` invalidates `/app/receiving`, `/app/purchase-orders`, and `/app/dashboard` because receiving closeout changes the workflow state surfaced by those routes
+- `transfer-created` invalidates `/app/transfers`, `/app/inventory`, and `/app/dashboard` so newly staged balancing work clears stale transfer lists and operator summaries
+- `preferences-saved`, `saved-view-created`, and `saved-views-imported` invalidate every internal route family because those values are carried in the internal SSR bootstrap payload, not only in settings or inventory page data
+- `quote-request-submitted` and `restock-request-submitted` invalidate `/shop` and `/warehouses` so public action rails and warehouse-specific availability messaging do not reuse stale submission-state caches
 
 ### Access guard behavior
 
@@ -2837,6 +3153,8 @@ The first page bootstrap payload should be shaped as:
 
 - server-rendered theme, locale, and direction must match the values applied to the document element before hydration begins
 - bootstrap route data must describe the same path, params, and canonical metadata that the client router will inspect after startup
+- route reloads and direct-entry SSR must always rebuild bootstrap from server state after mutations; client memory caches may speed hydrated navigation, but they are never authoritative for a fresh document request
+- SSR bootstrap should avoid duplicating route payload blobs under both `data` and `requests`; request metadata should stay serializable for hydration cache priming, but the primary payload remains the source for actual route data bytes
 - pages that cannot guarantee consistent seeded data between server render and client hydration should stay client-only until that mismatch risk is removed
 
 ---
@@ -2908,6 +3226,17 @@ Atlas warehouse routes should feel like a bridge between the storefront promise 
 - the warehouses index should present each warehouse as a locality and service-promise surface, not as an operational dashboard
 - each public warehouse page should include a hero summary, service region, stocked highlights, fulfillment promise, and a lightweight operational notice when demand is constrained
 - SKU availability by warehouse should translate stock posture into buyer-facing promise copy, with direct pivots back to the product route or across to a better-fit warehouse
+- the shipped warehouse directory now uses a merchandised regional-commerce overview, richer route cards with pressure and stocked-volume cues, and a warehouse-detail story band so the public warehouse routes carry the same premium editorial weight as the storefront instead of reading like detached utility screens
+- the shipped warehouse-availability route now reuses the product-detail visual scaffold: dark hero, first-screen metrics, and a dedicated action rail so the regional SKU lane reads like a sibling of product detail instead of a detached utility form stack
+- the shipped warehouse-availability route now layers warehouse-specific promise copy on top of that scaffold through a dedicated promise band plus regional/service support points in the action rail, so buyers keep the hub context while deciding whether to quote, reserve inbound stock, or ask for help
+
+### Warehouse route work map
+
+- warehouse list merchandising: regional-commerce overview plus route cards that sell each warehouse as a locality-specific choice
+- warehouse detail hero: location summary, service posture, and regional promise framing in the first screenful
+- capability summary: staffing, backlog, pressure, and focus translated into buyer-facing regional posture rather than internal-only jargon
+- product volume story: stocked-highlight count and regional product showcase that keep the route feeling merchandised instead of purely logistical
+- route-specific CTA tasks: regional browse, compare-all, and availability pivots that move the buyer forward without dropping them into a disconnected utility flow
 
 ## Internal Warehouse Experience
 

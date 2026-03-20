@@ -114,6 +114,7 @@ func TestInternalSSRRoutes(t *testing.T) {
 		{path: "/app/inventory/frame-desk/threshold-history", title: "Atlas Threshold History"},
 		{path: "/app/warehouses", title: "Atlas Warehouse Operations"},
 		{path: "/app/warehouses/new-jersey-hub", title: "Atlas Warehouse Detail"},
+		{path: "/app/warehouses/new-jersey-hub/items/frame-desk", title: "Atlas Warehouse Item"},
 		{path: "/app/transfers", title: "Atlas Transfers"},
 		{path: "/app/transfers/tr-seed-001", title: "Atlas Transfer Detail"},
 		{path: "/app/purchase-orders", title: "Atlas Purchase Orders"},
@@ -176,6 +177,28 @@ func TestInternalSSRRoutes(t *testing.T) {
 				t.Fatalf("expected threshold-history route bootstrap to include overlay data, got %q", body)
 			}
 		})
+	}
+}
+
+func TestWarehouseItemDirectEntryBootstrapsParentAndChildData(t *testing.T) {
+	server, cleanup := newTestAtlasServer(t)
+	defer cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/app/warehouses/new-jersey-hub/items/frame-desk?status=promise_risk", nil)
+	req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	res := httptest.NewRecorder()
+
+	server.routes().ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected %d, got %d", http.StatusOK, res.Code)
+	}
+	body := res.Body.String()
+	if !strings.Contains(body, "/api/app/warehouses/new-jersey-hub?status=promise_risk") {
+		t.Fatalf("expected nested warehouse item bootstrap to include parent warehouse request, got %q", body)
+	}
+	if !strings.Contains(body, "/api/app/warehouses/new-jersey-hub/items/frame-desk?status=promise_risk") {
+		t.Fatalf("expected nested warehouse item bootstrap to include child item request, got %q", body)
 	}
 }
 
@@ -778,6 +801,80 @@ func TestInternalBulkModerationAndSavedViewTransfer(t *testing.T) {
 	}
 	if !imported {
 		t.Fatal("expected imported saved view to be persisted for demo-operator")
+	}
+}
+
+func TestDirectEntrySSRUsesFreshBootstrapAfterPreferenceSave(t *testing.T) {
+	server, cleanup := newTestAtlasServer(t)
+	defer cleanup()
+
+	csrfToken, csrfCookie := loadCSRFFromPage(t, server, "/app/settings")
+	saveForm := url.Values{
+		"csrf_token":           {csrfToken},
+		"theme":                {"light"},
+		"locale":               {"ar"},
+		"density":              {"comfortable"},
+		"default_warehouse_id": {"illinois-hub"},
+	}
+	saveReq := httptest.NewRequest(http.MethodPost, "/api/app/preferences", strings.NewReader(saveForm.Encode()))
+	saveReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	saveReq.Header.Set("Origin", "http://example.com")
+	saveReq.Header.Set("Referer", "http://example.com/app/settings")
+	saveReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	saveReq.AddCookie(csrfCookie)
+	saveRes := httptest.NewRecorder()
+
+	server.routes().ServeHTTP(saveRes, saveReq)
+
+	if saveRes.Code != http.StatusSeeOther {
+		t.Fatalf("expected %d, got %d", http.StatusSeeOther, saveRes.Code)
+	}
+	if location := saveRes.Header().Get("Location"); !strings.Contains(location, "preferences-saved") {
+		t.Fatalf("expected preferences-saved redirect notice, got %q", location)
+	}
+
+	directReq := httptest.NewRequest(http.MethodGet, "/app/inventory", nil)
+	directReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	directRes := httptest.NewRecorder()
+
+	server.routes().ServeHTTP(directRes, directReq)
+
+	if directRes.Code != http.StatusOK {
+		t.Fatalf("expected %d, got %d", http.StatusOK, directRes.Code)
+	}
+	body := directRes.Body.String()
+	for _, expected := range []string{
+		`<html lang="ar" class="atlas-theme-light atlas-density-comfortable"`,
+		`"locale":"ar"`,
+		`"direction":"rtl"`,
+		`"defaultWarehouse":"illinois-hub"`,
+		`"theme":{"mode":"light"`,
+	} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("expected direct-entry SSR body to contain %q, got %q", expected, body)
+		}
+	}
+}
+
+func TestSSRBootstrapOmitsDuplicatedRequestPageData(t *testing.T) {
+	server, cleanup := newTestAtlasServer(t)
+	defer cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/app/inventory", nil)
+	req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	res := httptest.NewRecorder()
+
+	server.routes().ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected %d, got %d", http.StatusOK, res.Code)
+	}
+	body := res.Body.String()
+	if !strings.Contains(body, `"requests":{"page":{"method":"GET","url":"/api/app/inventory","status":200}}`) {
+		t.Fatalf("expected bootstrap request metadata without duplicated page payload, got %q", body)
+	}
+	if strings.Contains(body, `"/api/app/inventory","status":200,"data":{"page":`) {
+		t.Fatalf("expected duplicated request page payload to be trimmed from bootstrap, got %q", body)
 	}
 }
 

@@ -1,7 +1,7 @@
 package atlas
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -51,15 +51,43 @@ func publicLandingFeatures() ui.Node {
 }
 
 func renderCatalogContent(page catalogPage) ui.Node {
-	items := make([]ui.Node, 0, len(page.Items))
-	for _, item := range page.Items {
-		items = append(items, publicCatalogCard(item))
-	}
-	return html.Section(html.Props{Class: "grid gap-8"},
-		publicCatalogOverview(page),
-		storeCatalogControls(page),
-		html.Div(html.Props{Class: "grid gap-5 md:grid-cols-2 xl:grid-cols-3"}, items...),
-	)
+	return ui.CreateElement(func() ui.Node {
+		search := useAtlasSearchParams()
+		initial := atlasCatalogFilterState(page.Query)
+		form := ui.UseForm(initial)
+		useAtlasEffect(func() func() {
+			if !atlasSameListFilterState(form.Get(), initial) {
+				form.Reset(initial)
+			}
+			return nil
+		}, initial)
+		value := form.Get()
+		deferred := ui.UseDeferredValue(value)
+		debounced := ui.UseDebounced(value, atlasFilterSyncDelay)
+		useAtlasEffect(func() func() {
+			next := atlasBuildListFilterQuery(search.Values(), debounced.Get())
+			if next.Encode() != search.Values().Encode() {
+				search.ReplaceAll(next)
+			}
+			return nil
+		}, debounced.Get())
+		submit := ui.UseEvent(func(event ui.FormEvent) {
+			event.PreventDefault()
+			search.ReplaceAll(atlasBuildListFilterQuery(search.Values(), form.Get()))
+		})
+		filteredItems := filterCatalogItems(page.Items, deferred)
+		viewPage := page
+		viewPage.Items = filteredItems
+		items := make([]ui.Node, 0, len(filteredItems))
+		for _, item := range filteredItems {
+			items = append(items, publicCatalogCard(item))
+		}
+		return html.Section(html.Props{Class: "grid gap-8"},
+			publicCatalogOverview(viewPage),
+			storeCatalogControls(form, debounced.Pending(), submit),
+			html.Div(html.Props{Class: "grid gap-5 md:grid-cols-2 xl:grid-cols-3"}, items...),
+		)
+	})
 }
 
 func publicCatalogOverview(page catalogPage) ui.Node {
@@ -125,6 +153,14 @@ func publicCatalogPriceRail(item productCard, actionLabel string, actionCopy str
 	)
 }
 
+func publicLazySectionFallback(eyebrow, title, copy string) ui.Node {
+	return html.Div(html.Props{Class: "grid gap-5 rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"},
+		html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(eyebrow)),
+		html.H3(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(title)),
+		html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text(copy)),
+	)
+}
+
 func renderProductContent(page productDetailPage, payload Payload) ui.Node {
 	product := page.Product
 	return html.Section(html.Props{Class: "grid gap-8 xl:grid-cols-[minmax(0,1.5fr)_minmax(21rem,0.78fr)] xl:items-start"},
@@ -134,30 +170,54 @@ func renderProductContent(page productDetailPage, payload Payload) ui.Node {
 				publicProductMetrics(),
 				publicProductFeatureStrip(),
 			),
-			publicProductFeedbackSection(product, page.Comments, payload),
+			atlasLazySection(func() ui.Node {
+				return publicProductFeedbackSection(product, page.Comments, payload)
+			}, publicLazySectionFallback("Customer reviews and questions", "Loading buyer feedback", "Atlas waits until the primary product story is stable before mounting the heavier review and question workflow."), product.Slug, commentRecordsSignature(page.Comments)),
+			publicProductPromiseLanesIsland(product),
 		),
 		publicProductActionRail(product, payload),
 	)
 }
 
+type relatedProductRecord struct {
+	SKU           string `json:"sku"`
+	Slug          string `json:"slug"`
+	Title         string `json:"title"`
+	Category      string `json:"category"`
+	Summary       string `json:"summary"`
+	WarehouseID   string `json:"warehouseId"`
+	WarehouseName string `json:"warehouseName"`
+	Reason        string `json:"reason"`
+}
+
 func publicProductFeedbackSection(product productCard, comments []commentRecord, payload Payload) ui.Node {
 	return ui.CreateElement(func() ui.Node {
 		form := ui.UseForm(publicCommentFormState{Reaction: "up"})
-		commentsState := useAtlasState(cloneCommentRecords(comments))
-		refreshingState := useAtlasState(false)
+		pendingCommentsState := useAtlasState([]commentRecord{})
 		submittingState := useAtlasState(false)
 		submissionMessageState := useAtlasState("")
+		commentsResource := useAtlasCachedResource(CachedRequestResourceKey("/api/public/products/"+product.Slug+"/comments", "items"), func(ctx context.Context) ([]commentRecord, error) {
+			return fetchPublicProductComments(ctx, product.Slug)
+		})
+		resourceState := commentsResource.Get()
 		useAtlasEffect(func() func() {
-			commentsState.Set(cloneCommentRecords(comments))
-			refreshingState.Set(false)
+			commentsResource.Set(cloneCommentRecords(comments))
+			pendingCommentsState.Set([]commentRecord{})
 			return nil
 		}, product.Slug, commentRecordsSignature(comments))
 		value := form.Get()
-		comments := commentsState.Get()
+		visibleComments := cloneCommentRecords(comments)
+		if resourceState.Ready {
+			visibleComments = cloneCommentRecords(resourceState.Value)
+		}
+		for _, pending := range pendingCommentsState.Get() {
+			visibleComments = mergePublicCommentList(visibleComments, pending)
+		}
 		submitting := submittingState.Get()
 		submissionMessage := submissionMessageState.Get()
-		countLabel := fmt.Sprintf("%d buyer notes", len(comments))
-		if len(comments) == 1 {
+		refreshing := resourceState.Loading && resourceState.Ready
+		countLabel := fmt.Sprintf("%d buyer notes", len(visibleComments))
+		if len(visibleComments) == 1 {
 			countLabel = "1 buyer note"
 		}
 		setAuthorName := ui.UseEvent(func(event ui.InputEvent) { form.SetField("AuthorName", event.GetValue()) })
@@ -191,16 +251,17 @@ func publicProductFeedbackSection(product productCard, comments []commentRecord,
 				form.SetErrors(nil)
 				form.SetFormError("")
 				submissionMessageState.Set("Your comment was submitted for review.")
-				commentsState.Set(mergePublicCommentList(commentsState.Get(), created))
-				refreshingState.Set(true)
+				dispatchAtlasShellToast(atlasShellToast{
+					Title:  "Comment queued",
+					Detail: "Atlas submitted the buyer comment and refreshed the thread without leaving the product route.",
+					Tone:   "success",
+				})
+				pendingCommentsState.Set(mergePublicCommentList(pendingCommentsState.Get(), created))
+				commentsResource.Update(func(items []commentRecord) []commentRecord {
+					return mergePublicCommentList(items, created)
+				})
+				commentsResource.Reload()
 				submittingState.Set(false)
-				go func(created commentRecord) {
-					updatedComments, err := fetchPublicProductComments(product.Slug)
-					if err == nil {
-						commentsState.Set(mergePublicCommentList(updatedComments, created))
-					}
-					refreshingState.Set(false)
-				}(created)
 			}()
 		})
 		return html.Div(html.Props{Class: "grid gap-5 rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"},
@@ -213,7 +274,7 @@ func publicProductFeedbackSection(product productCard, comments []commentRecord,
 				html.Div(html.Props{Class: "rounded-[1.2rem] border border-white/10 bg-white/8 px-4 py-3 text-sm font-semibold text-stone-200"}, html.Text(countLabel)),
 			),
 			html.Div(html.Props{Class: "grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(19rem,0.8fr)] lg:items-start"},
-				publicProductFeedbackList(comments, refreshingState.Get()),
+				publicProductFeedbackList(visibleComments, refreshing),
 				publicProductFeedbackForm(product, payload, form, value, submitting, submissionMessage, setAuthorName, setSubject, setBody, setReaction, submit),
 			),
 		)
@@ -326,6 +387,14 @@ func validatePublicCommentForm(value publicCommentFormState) ui.FieldErrors {
 }
 
 func publicProductFeedbackForm(product productCard, payload Payload, form ui.Form[publicCommentFormState], value publicCommentFormState, submitting bool, submissionMessage string, setAuthorName ui.Handler, setSubject ui.Handler, setBody ui.Handler, setReaction ui.Handler, submit ui.Handler) ui.Node {
+	authorInputID := ui.UseId()
+	authorErrorID := authorInputID + "-error"
+	reactionFieldID := ui.UseId()
+	reactionErrorID := reactionFieldID + "-error"
+	subjectInputID := ui.UseId()
+	subjectErrorID := subjectInputID + "-error"
+	bodyInputID := ui.UseId()
+	bodyErrorID := bodyInputID + "-error"
 	children := []ui.Node{
 		html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text("Share your review or question")),
 		html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text("Use the same product page to leave a quick review or ask a buying question without opening a separate support flow.")),
@@ -339,20 +408,20 @@ func publicProductFeedbackForm(product productCard, payload Payload, form ui.For
 	children = append(children, prependCSRFToken(payload.CSRF)...)
 	children = append(children,
 		html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
-			html.Span(html.Props{}, html.Text("Name")),
-			html.Input(html.Props{Name: "author_name", Value: value.AuthorName, AutoComplete: "name", OnInput: setAuthorName, Class: publicCommentFieldClass(form.Error("AuthorName") != "")}),
-			publicCommentFieldError(form.Error("AuthorName")),
+			html.Span(html.Props{ID: authorInputID + "-label"}, html.Text("Name")),
+			html.Input(html.Props{ID: authorInputID, Name: "author_name", Value: value.AuthorName, AutoComplete: "name", OnInput: setAuthorName, Class: publicCommentFieldClass(form.Error("AuthorName") != ""), Raw: map[string]interface{}{"aria-labelledby": authorInputID + "-label", "aria-describedby": authorErrorID, "aria-invalid": form.Error("AuthorName") != ""}}),
+			publicCommentFieldError(authorErrorID, form.Error("AuthorName")),
 		),
-		publicCommentReactionInput(value.Reaction, setReaction, form.Error("Reaction")),
+		publicCommentReactionInput(reactionFieldID, reactionErrorID, value.Reaction, setReaction, form.Error("Reaction")),
 		html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
-			html.Span(html.Props{}, html.Text("Headline")),
-			html.Input(html.Props{Name: "subject", Value: value.Subject, OnInput: setSubject, Class: publicCommentFieldClass(form.Error("Subject") != "")}),
-			publicCommentFieldError(form.Error("Subject")),
+			html.Span(html.Props{ID: subjectInputID + "-label"}, html.Text("Headline")),
+			html.Input(html.Props{ID: subjectInputID, Name: "subject", Value: value.Subject, OnInput: setSubject, Class: publicCommentFieldClass(form.Error("Subject") != ""), Raw: map[string]interface{}{"aria-labelledby": subjectInputID + "-label", "aria-describedby": subjectErrorID, "aria-invalid": form.Error("Subject") != ""}}),
+			publicCommentFieldError(subjectErrorID, form.Error("Subject")),
 		),
 		html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
-			html.Span(html.Props{}, html.Text("Comment")),
-			html.Textarea(html.Props{Name: "body", OnInput: setBody, Class: publicCommentTextareaClass(form.Error("Body") != "")}, html.Text(value.Body)),
-			publicCommentFieldError(form.Error("Body")),
+			html.Span(html.Props{ID: bodyInputID + "-label"}, html.Text("Comment")),
+			html.Textarea(html.Props{ID: bodyInputID, Name: "body", OnInput: setBody, Class: publicCommentTextareaClass(form.Error("Body") != ""), Raw: map[string]interface{}{"aria-labelledby": bodyInputID + "-label", "aria-describedby": bodyErrorID, "aria-invalid": form.Error("Body") != ""}}, html.Text(value.Body)),
+			publicCommentFieldError(bodyErrorID, form.Error("Body")),
 		),
 		html.Button(html.Props{Type: "submit", Disabled: submitting, Class: publicCommentSubmitClass(submitting)}, html.Text(publicCommentSubmitLabel(submitting))),
 	)
@@ -380,37 +449,34 @@ func commentRecordsSignature(items []commentRecord) string {
 }
 
 func submitPublicComment(slug string, input publicCommentFormState, csrfToken string) (commentRecord, ui.ServerFormErrors, error) {
-	body, err := json.Marshal(map[string]string{
+	body := map[string]string{
 		"author_name": input.AuthorName,
 		"reaction":    input.Reaction,
 		"subject":     input.Subject,
 		"body":        input.Body,
-	})
-	if err != nil {
-		return commentRecord{}, ui.ServerFormErrors{}, err
 	}
-	request, err := http.NewRequest(http.MethodPost, "/api/public/products/"+slug+"/comments", bytes.NewReader(body))
-	if err != nil {
-		return commentRecord{}, ui.ServerFormErrors{}, err
-	}
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Accept", "application/json")
 	headerName, headerValue := ui.NewCSRFToken(csrfToken).Header()
-	request.Header.Set(headerName, headerValue)
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		return commentRecord{}, ui.ServerFormErrors{}, err
+	result := <-atlasFetch("/api/public/products/"+slug+"/comments", atlasFetchOptions{
+		Method: http.MethodPost,
+		Headers: map[string]interface{}{
+			"Content-Type": "application/json",
+			"Accept":       "application/json",
+			headerName:     headerValue,
+		},
+		Body: body,
+	})
+	if strings.TrimSpace(result.Error) != "" {
+		return commentRecord{}, ui.ServerFormErrors{}, fmt.Errorf(result.Error)
 	}
-	defer response.Body.Close()
-	if response.StatusCode >= 200 && response.StatusCode < 300 {
+	if result.Status >= 200 && result.Status < 300 {
 		var created commentRecord
-		if err := json.NewDecoder(response.Body).Decode(&created); err != nil {
+		if err := json.Unmarshal([]byte(result.Data), &created); err != nil {
 			return commentRecord{}, ui.ServerFormErrors{}, err
 		}
 		return created, ui.ServerFormErrors{}, nil
 	}
 	var failure ui.ServerFormErrors
-	if err := json.NewDecoder(response.Body).Decode(&failure); err != nil {
+	if err := json.Unmarshal([]byte(result.Data), &failure); err != nil {
 		return commentRecord{}, ui.ServerFormErrors{}, err
 	}
 	failure.Fields = normalizePublicCommentFieldErrors(failure.Fields)
@@ -450,24 +516,26 @@ func publicCommentStatusBadge(status string) ui.Node {
 	return html.Span(html.Props{Class: className}, html.Text(strings.ReplaceAll(trimmed, "_", " ")))
 }
 
-func fetchPublicProductComments(slug string) ([]commentRecord, error) {
-	request, err := http.NewRequest(http.MethodGet, "/api/public/products/"+slug+"/comments", nil)
-	if err != nil {
-		return nil, err
-	}
-	request.Header.Set("Accept", "application/json")
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-	var payload struct {
+func fetchPublicProductComments(ctx context.Context, slug string) ([]commentRecord, error) {
+	payload, err := fetchAtlasJSON[struct {
 		Items []commentRecord `json:"items"`
-	}
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+	}](ctx, "/api/public/products/"+slug+"/comments")
+	if err != nil {
 		return nil, err
 	}
 	return cloneCommentRecords(payload.Items), nil
+}
+
+func fetchPublicRelatedProducts(ctx context.Context, slug string) ([]relatedProductRecord, error) {
+	payload, err := fetchAtlasJSON[struct {
+		Items []relatedProductRecord `json:"items"`
+	}](ctx, "/api/public/products/"+slug+"/related-products")
+	if err != nil {
+		return nil, err
+	}
+	items := make([]relatedProductRecord, len(payload.Items))
+	copy(items, payload.Items)
+	return items, nil
 }
 
 func normalizePublicCommentFieldErrors(fields ui.FieldErrors) ui.FieldErrors {
@@ -507,29 +575,29 @@ func publicCommentSubmitLabel(submitting bool) string {
 	return "Share feedback"
 }
 
-func publicCommentReactionInput(selected string, handler ui.Handler, errorText string) ui.Node {
+func publicCommentReactionInput(fieldID string, errorID string, selected string, handler ui.Handler, errorText string) ui.Node {
 	if strings.TrimSpace(selected) == "" {
 		selected = "up"
 	}
-	return html.Fieldset(html.Props{Class: "grid gap-3 rounded-[1.35rem] border border-white/10 bg-white/5 p-4"},
-		html.Legend(html.Props{Class: "px-1 text-sm font-medium text-stone-300"}, html.Text("Your reaction")),
+	return html.Fieldset(html.Props{Class: "grid gap-3 rounded-[1.35rem] border border-white/10 bg-white/5 p-4", Raw: map[string]interface{}{"aria-describedby": errorID, "aria-invalid": strings.TrimSpace(errorText) != ""}},
+		html.Legend(html.Props{ID: fieldID + "-legend", Class: "px-1 text-sm font-medium text-stone-300"}, html.Text("Your reaction")),
 		html.Div(html.Props{Class: "grid gap-3 sm:grid-cols-2"},
 			html.Label(html.Props{Class: "flex cursor-pointer items-start gap-3 rounded-[1.1rem] border border-emerald-400/25 bg-white/6 px-4 py-3 text-sm text-stone-300"},
-				html.Input(html.Props{Type: "radio", Name: "reaction", Value: "up", Checked: strings.TrimSpace(selected) == "up", OnChange: handler, Class: "mt-1 h-4 w-4 border-stone-300 text-emerald-600"}),
+				html.Input(html.Props{ID: fieldID + "-up", Type: "radio", Name: "reaction", Value: "up", Checked: strings.TrimSpace(selected) == "up", OnChange: handler, Class: "mt-1 h-4 w-4 border-stone-300 text-emerald-600", Raw: map[string]interface{}{"aria-labelledby": fieldID + "-legend", "aria-describedby": errorID}}),
 				html.Span(html.Props{Class: "grid gap-1"},
 					html.Span(html.Props{Class: "font-semibold text-white"}, html.Text("Thumbs up")),
 					html.Span(html.Props{Class: "text-xs leading-6 text-stone-400"}, html.Text("Recommend it or confirm the setup met expectations.")),
 				),
 			),
 			html.Label(html.Props{Class: "flex cursor-pointer items-start gap-3 rounded-[1.1rem] border border-rose-400/25 bg-white/6 px-4 py-3 text-sm text-stone-300"},
-				html.Input(html.Props{Type: "radio", Name: "reaction", Value: "down", Checked: strings.TrimSpace(selected) == "down", OnChange: handler, Class: "mt-1 h-4 w-4 border-stone-300 text-rose-600"}),
+				html.Input(html.Props{ID: fieldID + "-down", Type: "radio", Name: "reaction", Value: "down", Checked: strings.TrimSpace(selected) == "down", OnChange: handler, Class: "mt-1 h-4 w-4 border-stone-300 text-rose-600", Raw: map[string]interface{}{"aria-labelledby": fieldID + "-legend", "aria-describedby": errorID}}),
 				html.Span(html.Props{Class: "grid gap-1"},
 					html.Span(html.Props{Class: "font-semibold text-white"}, html.Text("Thumbs down")),
 					html.Span(html.Props{Class: "text-xs leading-6 text-stone-400"}, html.Text("Call out delivery friction, finish issues, or fit concerns buyers should know.")),
 				),
 			),
 		),
-		publicCommentFieldError(errorText),
+		publicCommentFieldError(errorID, errorText),
 	)
 }
 
@@ -549,11 +617,11 @@ func publicCommentTextareaClass(hasError bool) string {
 	return className
 }
 
-func publicCommentFieldError(message string) ui.Node {
+func publicCommentFieldError(id string, message string) ui.Node {
 	if strings.TrimSpace(message) == "" {
 		return nil
 	}
-	return html.P(html.Props{Class: "text-sm font-medium text-rose-600"}, html.Text(message))
+	return html.P(html.Props{ID: id, Class: "text-sm font-medium text-rose-600"}, html.Text(message))
 }
 
 func formatPublicCommentDate(value string) string {
@@ -635,18 +703,180 @@ func publicProductFeatureStrip() ui.Node {
 	)
 }
 
+func publicProductPromiseLanesIsland(product productCard) ui.Node {
+	return ui.CreateElement(ui.ErrorBoundary, ui.ErrorBoundaryProps{
+		ResetKeys: []interface{}{product.Slug, product.Status},
+		ErrorFallback: func(err error, reset func()) ui.Node {
+			return publicProductPromiseLanesError(product, err, reset)
+		},
+		Child: ui.CreateElement(func() ui.Node {
+			resource := useAtlasResource(func(ctx context.Context) (warehouseDirectoryPage, error) {
+				return fetchAtlasJSON[warehouseDirectoryPage](ctx, "/api/public/warehouses")
+			}, product.Slug)
+			state := resource.Get()
+			content := publicProductPromiseLanesCard(product, state.Value.Items, state.Loading && state.Ready)
+			return ui.CreateElement(ui.AsyncBoundary, ui.AsyncBoundaryProps{
+				Pending:  !state.Ready && state.Error == nil,
+				Error:    state.Error,
+				Fallback: publicProductPromiseLanesFallback(product),
+				ErrorFallback: func(err error) ui.Node {
+					return publicProductPromiseLanesError(product, err, resource.Reload)
+				},
+				Content: content,
+			})
+		}),
+	})
+}
+
+func publicProductPromiseLanesCard(product productCard, warehouses []warehouseCard, refreshing bool) ui.Node {
+	nodes := make([]ui.Node, 0, 3)
+	for _, item := range warehouses {
+		nodes = append(nodes, html.A(html.Props{Href: RouteWarehouses + "/" + item.Slug + "/availability/" + product.Slug, Class: "grid gap-2 rounded-[1.3rem] border border-white/10 bg-white/6 px-4 py-4 transition hover:border-amber-300/35 hover:bg-white/10"},
+			html.Div(html.Props{Class: "flex items-center justify-between gap-3"},
+				html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(item.Name)),
+				html.Span(html.Props{Class: "rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-stone-300"}, html.Text(item.Region)),
+			),
+			html.P(html.Props{Class: "text-sm leading-6 text-stone-300"}, html.Text(fallback(item.ServiceLevel, "Regional service posture"))),
+			html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-amber-200"}, html.Text("Open "+item.Name+" availability")),
+		))
+		if len(nodes) == 3 {
+			break
+		}
+	}
+	children := []ui.Node{
+		html.Div(html.Props{Class: "grid gap-2"},
+			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-stone-400"}, html.Text("Regional promise lanes")),
+			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text("Check the warehouse route that matches this product.")),
+			html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text("This below-the-fold module loads after the main product story, so route-critical content stays stable while the regional availability lanes resolve independently.")),
+		),
+	}
+	if refreshing {
+		children = append(children, html.P(html.Props{Class: "rounded-[1.2rem] border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm text-cyan-100"}, html.Text("Refreshing the regional lane list in the background while the current panel stays visible.")))
+	}
+	if len(nodes) == 0 {
+		nodes = append(nodes, html.Div(html.Props{Class: "rounded-[1.3rem] border border-white/10 bg-white/6 px-4 py-4 text-sm leading-7 text-stone-300"}, html.Text("Atlas is still resolving warehouse lanes for this product.")))
+	}
+	children = append(children, nodes...)
+	return html.Div(html.Props{Class: "grid gap-4 rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"}, children...)
+}
+
+func publicProductPromiseLanesFallback(product productCard) ui.Node {
+	return html.Div(html.Props{Class: "grid gap-4 rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"},
+		html.Div(html.Props{Class: "grid gap-2"},
+			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-stone-400"}, html.Text("Regional promise lanes")),
+			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text("Check the warehouse route that matches this product.")),
+			html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text("Atlas defers this secondary lane module until after hydration so loading stays local to the panel instead of blocking the product route.")),
+		),
+		html.Div(html.Props{Class: "grid gap-3 md:grid-cols-3"},
+			html.Div(html.Props{Class: "h-24 rounded-[1.3rem] border border-white/10 bg-white/6"}),
+			html.Div(html.Props{Class: "h-24 rounded-[1.3rem] border border-white/10 bg-white/6"}),
+			html.Div(html.Props{Class: "h-24 rounded-[1.3rem] border border-white/10 bg-white/6"}),
+		),
+		html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-stone-500"}, html.Text("Product: "+product.Title)),
+	)
+}
+
+func publicProductPromiseLanesError(product productCard, err error, retry func()) ui.Node {
+	return html.Div(html.Props{Class: "grid gap-4 rounded-[1.8rem] border border-rose-400/25 bg-rose-400/10 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)]"},
+		html.Div(html.Props{Class: "grid gap-2"},
+			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-rose-200"}, html.Text("Regional promise lanes")),
+			html.P(html.Props{Class: "text-xl font-black tracking-[-0.03em] text-white"}, html.Text("Atlas could not load the lane panel.")),
+			html.P(html.Props{Class: "text-sm leading-7 text-rose-100"}, html.Text(err.Error())),
+		),
+		html.Button(html.Props{
+			Type:    "button",
+			Class:   "inline-flex items-center justify-center rounded-full border border-rose-200/40 bg-rose-200/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-rose-200/20",
+			OnClick: ui.UseEvent(func() { retry() }),
+		}, html.Text("Retry lane panel")),
+		html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-rose-100/80"}, html.Text("Product: "+product.Title)),
+	)
+}
+
 func publicProductActionRail(product productCard, payload Payload) ui.Node {
 	productSupportTitle, productSupportCopy, productSupportPoints := productSupportPlan(product.Status)
-	return html.Div(html.Props{Class: "grid gap-5 xl:sticky xl:top-24"},
-		html.Div(html.Props{Class: "grid gap-4 rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"},
-			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(publicBuyerNextStepLabel)),
-			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(productSupportTitle)),
-			html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text(productSupportCopy)),
-			html.Div(html.Props{Class: "grid gap-3 text-sm text-stone-300"}, publicSupportPoints(productSupportPoints)...),
-		),
-		productPrimaryActionForm(product, payload),
-		productSecondaryActionCard(product),
-	)
+	return ui.CreateElement(func() ui.Node {
+		open := ui.UseState(false)
+		sheetID := ui.UseId() + "-public-action-rail"
+		titleID := sheetID + "-title"
+		descriptionID := sheetID + "-description"
+		closeID := sheetID + "-close"
+		openDrawer := ui.UseEvent(func() { open.Set(true) })
+		closeDrawer := func() { open.Set(false) }
+		buildRailChildren := func() []ui.Node {
+			return []ui.Node{
+				html.Div(html.Props{Class: "grid gap-4 rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"},
+					html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(publicBuyerNextStepLabel)),
+					html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(productSupportTitle)),
+					html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text(productSupportCopy)),
+					html.Div(html.Props{Class: "grid gap-3 text-sm text-stone-300"}, publicSupportPoints(productSupportPoints)...),
+				),
+				productPrimaryActionForm(product, payload),
+				publicRelatedProductsCard(product),
+				productSecondaryActionCard(product),
+			}
+		}
+		return html.Div(html.Props{Class: "grid gap-5 xl:sticky xl:top-24"},
+			html.Button(html.Props{Type: "button", Class: "inline-flex w-fit items-center rounded-full border border-amber-300/45 bg-amber-300/10 px-4 py-3 text-sm font-semibold text-amber-100 xl:hidden", OnClick: openDrawer}, html.Text("Open buying drawer")),
+			html.Div(html.Props{Class: "hidden gap-5 xl:grid"}, buildRailChildren()...),
+			atlasDismissibleSheet(open.Get(), sheetID, titleID, descriptionID, "#"+closeID, closeDrawer, html.Div(html.Props{Class: "grid gap-5"},
+				html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
+					html.Div(html.Props{Class: "grid gap-2"},
+						html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(publicBuyerNextStepLabel)),
+						html.P(html.Props{ID: titleID, Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(productSupportTitle)),
+						html.P(html.Props{ID: descriptionID, Class: "text-sm leading-7 text-stone-300"}, html.Text(productSupportCopy)),
+					),
+					html.Button(html.Props{ID: closeID, Type: "button", Class: "rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-stone-200", OnClick: ui.UseEvent(func() { closeDrawer() })}, html.Text("Close")),
+				),
+				html.Div(html.Props{Class: "grid gap-5"}, buildRailChildren()...),
+			)),
+		)
+	})
+}
+
+func publicRelatedProductsCard(product productCard) ui.Node {
+	return ui.CreateElement(func() ui.Node {
+		resource := useAtlasCachedResource(CachedRequestResourceKey("/api/public/products/"+product.Slug+"/related-products", "items"), func(ctx context.Context) ([]relatedProductRecord, error) {
+			return fetchPublicRelatedProducts(ctx, product.Slug)
+		})
+		state := resource.Get()
+		items := []relatedProductRecord{}
+		if state.Ready {
+			items = state.Value
+		}
+		description := "Open adjacent Atlas systems without leaving the same buying context."
+		if state.Loading && !state.Ready {
+			description = "Loading adjacent systems for this product..."
+		} else if state.Error != nil && !state.Ready {
+			description = "Atlas could not load related systems right now. Reopen the route to retry."
+		}
+		children := []ui.Node{
+			html.Div(html.Props{Class: "grid gap-2"},
+				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text("Related systems")),
+				html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text("Stay inside the same Atlas family.")),
+				html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text(description)),
+			),
+		}
+		children = append(children, publicRelatedProductNodes(items)...)
+		return html.Div(html.Props{Class: "grid gap-4 rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"}, children...)
+	})
+}
+
+func publicRelatedProductNodes(items []relatedProductRecord) []ui.Node {
+	if len(items) == 0 {
+		return []ui.Node{
+			html.Div(html.Props{Class: "rounded-[1.3rem] border border-white/10 bg-white/6 px-4 py-4 text-sm leading-7 text-stone-300"}, html.Text("Repeat-open visits can reuse the cached related-product list after the first lookup, so Atlas does not need to rebuild this secondary panel every time.")),
+		}
+	}
+	nodes := make([]ui.Node, 0, len(items))
+	for _, item := range items {
+		nodes = append(nodes, html.A(html.Props{Href: RouteCatalog + "/" + item.Slug, Class: "grid gap-2 rounded-[1.3rem] border border-white/10 bg-white/6 px-4 py-4 transition hover:border-amber-300/35 hover:bg-white/10"},
+			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(item.Title)),
+			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-stone-400"}, html.Text(item.Category+" · "+item.SKU)),
+			html.P(html.Props{Class: "text-sm leading-6 text-stone-300"}, html.Text(fallback(item.Reason, item.Summary))),
+			html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-amber-200"}, html.Text(fallback(item.WarehouseName, item.WarehouseID))),
+		))
+	}
+	return nodes
 }
 
 func publicSupportPoints(points []string) []ui.Node {
@@ -672,15 +902,32 @@ func renderWarehouseDirectoryContent(page warehouseDirectoryPage) ui.Node {
 }
 
 func publicWarehouseDirectoryOverview(page warehouseDirectoryPage) ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4 rounded-[2rem] border border-stone-200/80 bg-white/65 p-6 shadow-[0_18px_40px_rgba(120,107,82,0.08)] lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] lg:items-end"},
+	primaryHref := RouteCatalog
+	if len(page.Items) > 0 {
+		primaryHref = RouteWarehouses + "/" + page.Items[0].Slug
+	}
+	return html.Div(html.Props{Class: "relative overflow-hidden grid gap-5 rounded-[2.35rem] border border-stone-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(246,238,227,0.94)_55%,rgba(233,222,205,0.9))] p-7 shadow-[0_26px_60px_rgba(120,107,82,0.12)] lg:grid-cols-[minmax(0,1.15fr)_minmax(20rem,0.85fr)] lg:items-end"},
+		html.Div(html.Props{Class: "pointer-events-none absolute -right-12 top-0 h-44 w-44 rounded-full bg-amber-200/35 blur-3xl"}),
+		html.Div(html.Props{Class: "pointer-events-none absolute bottom-0 left-10 h-32 w-32 rounded-full bg-stone-200/40 blur-3xl"}),
 		html.Div(html.Props{Class: "grid gap-2"},
 			html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.3em] text-stone-500"}, html.Text("Atlas delivery regions")),
 			html.H2(html.Props{Class: "text-3xl font-black tracking-[-0.03em] text-stone-950"}, html.Text("Choose the warehouse route that matches your delivery window.")),
-			html.P(html.Props{Class: "max-w-3xl text-base leading-8 text-stone-600"}, html.Text("This route is the public Atlas warehouse directory. Compare service posture, regional focus, and stocked highlights before opening the delivery view that best fits your project.")),
+			html.P(html.Props{Class: "max-w-3xl text-base leading-8 text-stone-600"}, html.Text("Compare regional service posture, stocked volume, and warehouse-specific focus before you open the route that best fits the project timeline in front of you.")),
+			html.Div(html.Props{Class: "flex flex-wrap items-center gap-3 pt-2"},
+				html.A(html.Props{Href: primaryHref, Class: "rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-stone-50 transition hover:bg-stone-800"}, html.Text("Open featured region")),
+				html.A(html.Props{Href: RouteCatalog, Class: "rounded-full border border-stone-300 bg-white/75 px-5 py-3 text-sm font-semibold text-stone-900 transition hover:border-stone-500 hover:bg-white"}, html.Text("Browse all systems")),
+			),
 		),
-		html.Div(html.Props{Class: "grid gap-3 sm:grid-cols-2"},
-			publicMetricCard(fmt.Sprintf("%d delivery regions", len(page.Items)), "Each route keeps the location story tied to a real Atlas warehouse rather than a generic shipping estimate."),
-			publicMetricCard(primaryWarehouseServiceLevel(page.Items), "Use service level as the first cue, then open the warehouse detail for stocked highlights and product-specific availability."),
+		html.Div(html.Props{Class: "relative z-[1] grid gap-3"},
+			html.Div(html.Props{Class: "grid gap-3 rounded-[1.8rem] border border-white/75 bg-white/68 p-5 backdrop-blur-sm"},
+				html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.26em] text-amber-700"}, html.Text("Regional commerce board")),
+				html.Div(html.Props{Class: "grid gap-3 sm:grid-cols-2"},
+					publicMetricCard(fmt.Sprintf("%d delivery regions", len(page.Items)), "Each route ties promise language to a real Atlas facility rather than a generic shipping estimate."),
+					publicMetricCard(primaryWarehouseServiceLevel(page.Items), "Use service level as the first cue, then open the warehouse detail for stocked highlights and product-specific availability."),
+					publicMetricCard(fmt.Sprintf("%d stocked units", publicWarehouseUnitsTotal(page.Items)), "Available volume stays visible so the directory feels like a real merchandised network, not only a list of names."),
+					publicMetricCard(fmt.Sprintf("%d inbound units", publicWarehouseInboundTotal(page.Items)), "Inbound posture makes the next-best regional choice visible before the buyer drills into product-level availability."),
+				),
+			),
 		),
 	)
 }
@@ -699,8 +946,16 @@ func publicWarehouseDirectoryCard(item warehouseCard) ui.Node {
 				html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-stone-950 transition group-hover:text-stone-800"}, html.Text(item.Name)),
 				html.P(html.Props{Class: "text-sm leading-7 text-stone-600"}, html.Text(item.PublicSummary)),
 			),
+			html.Div(html.Props{Class: "grid gap-3 sm:grid-cols-3"},
+				publicWarehouseDirectoryMetric("Available", fmt.Sprintf("%d units", item.Available)),
+				publicWarehouseDirectoryMetric("Inbound", fmt.Sprintf("%d units", item.Inbound)),
+				publicWarehouseDirectoryMetric("Pressure", fallback(item.Pressure, "Balanced posture")),
+			),
 			html.Div(html.Props{Class: "flex items-center justify-between gap-4 rounded-[1.45rem] border border-stone-200/75 bg-white/75 p-4 text-sm text-stone-600"},
-				html.P(html.Props{Class: "leading-6"}, html.Text("Open the warehouse route for stocked highlights, regional service details, and product-by-product availability.")),
+				html.Div(html.Props{Class: "grid gap-1"},
+					html.P(html.Props{Class: "leading-6"}, html.Text("Open the warehouse route for stocked highlights, regional service details, and product-by-product availability.")),
+					html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-stone-500"}, html.Text(fallback(item.Focus, "Regional project fit")+" | "+fallback(item.Backlog, "Backlog controlled"))),
+				),
 				html.Span(html.Props{Class: "font-semibold text-stone-900 transition group-hover:text-stone-700"}, html.Text("Open warehouse route")),
 			),
 		),
@@ -728,12 +983,32 @@ func primaryWarehouseServiceLevel(items []warehouseCard) string {
 	return fallback(items[0].ServiceLevel, "Regional service posture")
 }
 
-func renderWarehouseDetailContent(page warehouseDetailPage) ui.Node {
+func publicWarehouseUnitsTotal(items []warehouseCard) int {
+	total := 0
+	for _, item := range items {
+		total += item.Available
+	}
+	return total
+}
+
+func publicWarehouseInboundTotal(items []warehouseCard) int {
+	total := 0
+	for _, item := range items {
+		total += item.Inbound
+	}
+	return total
+}
+
+func renderWarehouseDetailContent(page warehouseDetailPage, payload Payload) ui.Node {
 	warehouse := page.Warehouse
-	return html.Section(html.Props{Class: "grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.78fr)]"},
-		publicWarehouseDetailHero(warehouse),
-		publicWarehouseDetailFeatureStrip(),
-		listCard(publicRegionalAvailabilityPicksLabel, publicWarehouseRegionalProducts(warehouse, page.Products)...),
+	return html.Section(html.Props{Class: "grid gap-8 lg:grid-cols-[minmax(0,1.12fr)_minmax(19rem,0.82fr)] lg:items-start"},
+		html.Div(html.Props{Class: "grid gap-8"},
+			publicWarehouseDetailHero(warehouse),
+			publicWarehouseDetailFeatureStrip(),
+			publicWarehouseStoryBand(page),
+			publicWarehouseRegionalProductShowcase(warehouse, page.Products),
+		),
+		publicWarehouseSideDataCard(page, payload),
 	)
 }
 
@@ -775,6 +1050,66 @@ func publicWarehouseDetailFeatureStrip() ui.Node {
 	)
 }
 
+func publicWarehouseStoryBand(page warehouseDetailPage) ui.Node {
+	warehouse := page.Warehouse
+	return html.Div(html.Props{Class: "grid gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]"},
+		html.Div(html.Props{Class: "grid gap-4 rounded-[1.95rem] border border-stone-200/80 bg-white/82 p-6 shadow-[0_18px_45px_rgba(120,107,82,0.08)]"},
+			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text("Regional capability summary")),
+			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-stone-950"}, html.Text(fallback(warehouse.Focus, "Regional warehouse posture"))),
+			html.P(html.Props{Class: "text-sm leading-7 text-stone-600"}, html.Text("This warehouse route should feel like a merchandised regional story: clear service posture, visible stocked volume, and one obvious next step into product-specific availability.")),
+			html.Div(html.Props{Class: "grid gap-3 sm:grid-cols-3"},
+				publicWarehouseDirectoryMetric("Staffing", fallback(warehouse.Staffing, "Core team assigned")),
+				publicWarehouseDirectoryMetric("Backlog", fallback(warehouse.Backlog, "Backlog under control")),
+				publicWarehouseDirectoryMetric("Risk lanes", fmt.Sprintf("%d flagged", warehouse.RiskCount)),
+			),
+		),
+		html.Div(html.Props{Class: "grid gap-4"},
+			html.Div(html.Props{Class: "grid gap-3 rounded-[1.95rem] border border-stone-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(246,238,227,0.92))] p-6 shadow-[0_18px_45px_rgba(120,107,82,0.08)]"},
+				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-stone-500"}, html.Text("Product volume story")),
+				html.P(html.Props{Class: "text-3xl font-black tracking-[-0.03em] text-stone-950"}, html.Text(fmt.Sprintf("%d stocked highlights", len(page.Products)))),
+				html.P(html.Props{Class: "text-sm leading-7 text-stone-600"}, html.Text("Use this route when the buyer wants a region-first answer before choosing the exact product availability lane.")),
+			),
+			html.Div(html.Props{Class: "flex flex-wrap gap-3 rounded-[1.8rem] border border-stone-200/80 bg-white/75 p-5 shadow-[0_18px_40px_rgba(120,107,82,0.08)]"},
+				html.A(html.Props{Href: RouteCatalog + "?warehouse=" + url.QueryEscape(warehouse.ID), Class: "rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-stone-50 transition hover:bg-stone-800"}, html.Text(publicBrowseRegionalProductsLabel)),
+				html.A(html.Props{Href: RouteCatalog, Class: "rounded-full border border-stone-300 bg-white/85 px-5 py-3 text-sm font-semibold text-stone-900 transition hover:border-stone-500 hover:bg-white"}, html.Text(publicCompareAllSystemsLabel)),
+			),
+		),
+	)
+}
+
+func publicWarehouseSideDataCard(page warehouseDetailPage, payload Payload) ui.Node {
+	return ui.CreateElement(func() ui.Node {
+		resource := useAtlasStartupPageResource(payload)
+		state := resource.Get()
+		current := page
+		if state.Ready {
+			decoded := decode[warehouseDetailPage](state.Value)
+			if strings.TrimSpace(decoded.Warehouse.ID) != "" {
+				current = decoded
+			}
+		}
+		warehouse := current.Warehouse
+		statusCopy := "Warehouse posture stays cached for repeat-open reviews of staffing, backlog, and regional focus."
+		if state.Loading && state.Ready {
+			statusCopy = "Refreshing the latest warehouse posture..."
+		} else if state.Error != nil && !state.Ready {
+			statusCopy = "Showing the SSR warehouse snapshot until Atlas can reload the side data."
+		}
+		return html.Div(html.Props{Class: "grid gap-4 lg:sticky lg:top-24"},
+			html.Div(html.Props{Class: "grid gap-3 rounded-[1.9rem] border border-stone-200/80 bg-white/80 p-6 shadow-[0_18px_40px_rgba(120,107,82,0.08)]"},
+				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text("Warehouse side data")),
+				html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-stone-950"}, html.Text(fallback(warehouse.Name, "Regional hub posture"))),
+				html.P(html.Props{Class: "text-sm leading-7 text-stone-600"}, html.Text(statusCopy)),
+			),
+			publicMetricCard("Pressure", fallback(warehouse.Pressure, "Balanced regional pressure")),
+			publicMetricCard("Staffing", fallback(warehouse.Staffing, "Core team assigned")),
+			publicMetricCard("Backlog", fallback(warehouse.Backlog, "Backlog is under control")),
+			publicMetricCard("Regional focus", fallback(warehouse.Focus, "Regional delivery planning")),
+			publicMetricCard(fmt.Sprintf("%d stocked highlights", len(current.Products)), "Repeat-open visits can reuse this side snapshot without waiting for the whole warehouse route to rebuild."),
+		)
+	})
+}
+
 func publicWarehouseRegionalProducts(warehouse warehouseCard, products []productCard) []ui.Node {
 	nodes := make([]ui.Node, 0, len(products))
 	for _, item := range products {
@@ -799,43 +1134,59 @@ func publicWarehouseRegionalProducts(warehouse warehouseCard, products []product
 	return nodes
 }
 
+func publicWarehouseRegionalProductShowcase(warehouse warehouseCard, products []productCard) ui.Node {
+	nodes := publicWarehouseRegionalProducts(warehouse, products)
+	if len(nodes) == 0 {
+		nodes = []ui.Node{
+			html.Div(html.Props{Class: "rounded-[1.7rem] border border-stone-200/80 bg-white/80 p-5 text-sm leading-7 text-stone-600"}, html.Text("No stocked highlights are available for this warehouse right now. Return to the catalog or compare another regional route.")),
+		}
+	}
+	children := []ui.Node{
+		html.Div(html.Props{Class: "grid gap-2"},
+			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(publicRegionalAvailabilityPicksLabel)),
+			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-stone-950"}, html.Text("Open stocked systems that fit this regional route.")),
+			html.P(html.Props{Class: "text-sm leading-7 text-stone-600"}, html.Text("These product cards keep the warehouse route feeling merchandised instead of reading like a detached logistics utility page.")),
+		),
+	}
+	children = append(children, nodes...)
+	return html.Div(html.Props{Class: "grid gap-4 rounded-[2rem] border border-stone-200/80 bg-white/78 p-6 shadow-[0_18px_45px_rgba(120,107,82,0.08)]"}, children...)
+}
+
 func renderAvailabilityContent(availability availabilityPage, payload Payload) ui.Node {
-	availabilityTitle, availabilityCopy := availabilitySupportPlan(availability.Available, availability.Inbound)
-	return html.Section(html.Props{Class: "grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.8fr)]"},
-		html.Div(html.Props{Class: "grid gap-5"},
+	return html.Section(html.Props{Class: "grid gap-8 xl:grid-cols-[minmax(0,1.5fr)_minmax(21rem,0.78fr)] xl:items-start"},
+		html.Div(html.Props{Class: "grid gap-6"},
 			publicAvailabilityHero(availability),
-			publicAvailabilityFeatureStrip(),
-		),
-		html.Div(html.Props{Class: "grid gap-5"},
-			html.Div(html.Props{Class: "grid gap-4 rounded-[2rem] border border-stone-200/80 bg-white/78 p-6 shadow-[0_18px_45px_rgba(120,107,82,0.08)]"},
-				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(publicRegionalNextStepLabel)),
-				html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-stone-950"}, html.Text(availabilityTitle)),
-				html.P(html.Props{Class: "text-sm leading-7 text-stone-600"}, html.Text(availabilityCopy)),
+			html.Div(html.Props{Class: "grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"},
+				publicAvailabilityMetrics(availability),
+				publicAvailabilityFeatureStrip(),
 			),
-			availabilityPrimaryActionForm(availability, payload),
-			availabilityQuestionActionForm(availability, payload),
+			publicAvailabilityPromiseBand(availability),
 		),
+		publicAvailabilityActionRail(availability, payload),
 	)
 }
 
 func publicAvailabilityHero(availability availabilityPage) ui.Node {
-	return html.Div(html.Props{Class: "relative overflow-hidden rounded-[2.3rem] border border-stone-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(244,236,224,0.94)_55%,rgba(231,220,202,0.92))] p-7 shadow-[0_28px_65px_rgba(120,107,82,0.14)]"},
-		html.Div(html.Props{Class: "pointer-events-none absolute -right-10 top-6 h-36 w-36 rounded-full bg-amber-200/35 blur-3xl"}),
-		html.Div(html.Props{Class: "relative z-[1] grid gap-7 lg:grid-cols-[minmax(0,1.05fr)_minmax(15rem,0.72fr)]"},
+	return html.Div(html.Props{Class: "grid gap-5 rounded-[1.9rem] border border-white/10 bg-[linear-gradient(145deg,rgba(13,18,30,0.96),rgba(18,25,40,0.9))] p-6 shadow-[0_28px_65px_rgba(0,0,0,0.22)] lg:p-7"},
+		html.Div(html.Props{Class: "grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.8fr)] lg:items-start"},
 			html.Div(html.Props{Class: "grid gap-5"},
 				html.Div(html.Props{Class: "flex flex-wrap items-center gap-3"},
 					html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(availability.Warehouse.Name)),
-					html.Span(html.Props{Class: "rounded-full border border-white/80 bg-white/70 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-stone-500"}, html.Text(availability.Warehouse.Region)),
+					html.Span(html.Props{Class: "rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-stone-300"}, html.Text(availability.Warehouse.Region)),
 					html.Span(html.Props{Class: publicStatusClass(availability.Status)}, html.Text(publicStatusLabel(availability.Status))),
 				),
-				html.H2(html.Props{Class: "text-4xl font-black tracking-[-0.04em] text-stone-950"}, html.Text(availability.Product.Title)),
-				html.P(html.Props{Class: "max-w-3xl text-base leading-8 text-stone-600"}, html.Text(fmt.Sprintf("%d available now with %d inbound at %s.", availability.Available, availability.Inbound, availability.Warehouse.Name))),
-				html.Div(html.Props{Class: "grid gap-4 rounded-[1.75rem] border border-white/75 bg-white/55 p-5 backdrop-blur-sm sm:grid-cols-2"},
+				html.H2(html.Props{Class: "max-w-4xl text-3xl font-black tracking-[-0.04em] text-white sm:text-4xl lg:text-[3rem]"}, html.Text(availability.Product.Title)),
+				html.P(html.Props{Class: "max-w-3xl text-base leading-8 text-stone-300"}, html.Text(fmt.Sprintf("%d available now with %d inbound at %s.", availability.Available, availability.Inbound, availability.Warehouse.Name))),
+				html.Div(html.Props{Class: "grid gap-4 rounded-[1.75rem] border border-white/10 bg-white/6 p-5 backdrop-blur-sm sm:grid-cols-2"},
 					publicProductContextColumn(publicAvailabilityStoryLabel, availabilityStoryCopy(availability.Available, availability.Inbound)),
 					publicProductContextColumn(publicWhyThisMattersLabel, "Product demand stays tied to a named hub, so promise language feels concrete instead of generic."),
 				),
+				html.Div(html.Props{Class: "flex flex-wrap items-center gap-3"},
+					html.A(html.Props{Href: RouteCatalog + "/" + availability.Product.Slug, Class: "rounded-full bg-amber-300 px-5 py-3 text-sm font-semibold text-stone-950 transition hover:bg-amber-200"}, html.Text("Back to product detail")),
+					html.A(html.Props{Href: RouteWarehouses + "/" + availability.Warehouse.Slug, Class: "rounded-full border border-white/12 bg-white/6 px-5 py-3 text-sm font-semibold text-stone-200 transition hover:border-amber-300/35 hover:bg-white/10 hover:text-white"}, html.Text("See warehouse route")),
+				),
 			),
-			html.Div(html.Props{Class: "grid gap-4 rounded-[1.9rem] border border-stone-200/80 bg-white/78 p-5 shadow-[0_18px_40px_rgba(120,107,82,0.08)]"},
+			html.Div(html.Props{Class: "grid gap-4 rounded-[1.5rem] border border-white/10 bg-white/6 p-5"},
 				publicMetricCard(fmt.Sprintf("%d available", availability.Available), "Available now in this region."),
 				publicMetricCard(fmt.Sprintf("%d inbound", availability.Inbound), "More units already scheduled for upcoming orders."),
 				publicMetricCard(publicStatusLabel(availability.Status), "Status stays explicit so buyers know whether to quote now or plan ahead."),
@@ -845,11 +1196,80 @@ func publicAvailabilityHero(availability availabilityPage) ui.Node {
 }
 
 func publicAvailabilityFeatureStrip() ui.Node {
-	return html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
-		publicFeatureCard("Concrete promise", "Availability is framed around a real delivery region, which makes timing confidence easier to evaluate."),
-		publicFeatureCard("Keep your place", "Availability capture stays next to the delivery story so buyer intent does not vanish when stock tightens."),
-		publicFeatureCard("Clear next steps", "The route stays calm and practical without forcing buyers to learn Atlas operations language."),
+	return html.Div(html.Props{Class: "grid gap-4"},
+		html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-stone-400"}, html.Text("Quick buying notes")),
+		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
+			publicFeatureCard("Concrete promise", "Availability is framed around a real delivery region, which makes timing confidence easier to evaluate."),
+			publicFeatureCard("Keep your place", "Availability capture stays next to the delivery story so buyer intent does not vanish when stock tightens."),
+			publicFeatureCard("Clear next steps", "The route stays calm and practical without forcing buyers to learn Atlas operations language."),
+		),
 	)
+}
+
+func publicAvailabilityMetrics(availability availabilityPage) ui.Node {
+	return html.Div(html.Props{Class: "grid gap-4"},
+		html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-stone-400"}, html.Text("Why this availability page is easier to use")),
+		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
+			publicMetricCard("Regional promise", "The route keeps one warehouse, one SKU, and one timing read in the same first screenful."),
+			publicMetricCard("Action rail", "Quote, reserve, and support actions stay in a dedicated side rail instead of being split into detached utility blocks."),
+			publicMetricCard("Consistent scaffold", "The same hero, metrics, and side-rail reading order as product detail reduces route-switching friction."),
+		),
+	)
+}
+
+func publicAvailabilityActionRail(availability availabilityPage, payload Payload) ui.Node {
+	availabilityTitle, availabilityCopy := availabilitySupportPlan(availability.Available, availability.Inbound)
+	return html.Div(html.Props{Class: "grid gap-5 xl:sticky xl:top-24"},
+		html.Div(html.Props{Class: "grid gap-4 rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"},
+			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(publicRegionalNextStepLabel)),
+			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(availabilityTitle)),
+			html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text(availabilityCopy)),
+			html.Div(html.Props{Class: "grid gap-3 text-sm text-stone-300"}, publicSupportPoints(publicAvailabilitySupportPoints(availability))...),
+		),
+		availabilityPrimaryActionForm(availability, payload),
+		availabilityQuestionActionForm(availability, payload),
+		html.Div(html.Props{Class: "grid gap-3 rounded-[1.7rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"},
+			html.P(html.Props{Class: "text-lg font-semibold text-white"}, html.Text("Keep warehouse context visible")),
+			html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text("Use the product route for broader comparison or move into the warehouse route if the buyer needs more regional confidence before requesting follow-up.")),
+			html.Div(html.Props{Class: "flex flex-wrap gap-3"},
+				html.A(html.Props{Href: RouteCatalog + "/" + availability.Product.Slug, Class: "rounded-full border border-white/12 bg-white/6 px-4 py-3 text-sm font-semibold text-stone-200 transition hover:border-amber-300/35 hover:bg-white/10 hover:text-white"}, html.Text("Product route")),
+				html.A(html.Props{Href: RouteWarehouses + "/" + availability.Warehouse.Slug, Class: "rounded-full border border-white/12 bg-white/6 px-4 py-3 text-sm font-semibold text-stone-200 transition hover:border-amber-300/35 hover:bg-white/10 hover:text-white"}, html.Text("Warehouse route")),
+			),
+		),
+	)
+}
+
+func publicAvailabilityPromiseBand(availability availabilityPage) ui.Node {
+	return html.Div(html.Props{Class: "grid gap-4 rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"},
+		html.Div(html.Props{Class: "grid gap-2"},
+			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text("Warehouse-specific promise")),
+			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(fallback(availability.Warehouse.Focus, "Regional delivery posture"))),
+			html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text(fallback(availability.Warehouse.PublicSummary, "This route should explain what this warehouse can realistically support for this product before the buyer submits follow-up."))),
+		),
+		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-3"},
+			publicMetricCard(publicRegionalReadLabel, warehouseRegionCue(availability.Warehouse.Region)),
+			publicMetricCard(publicServicePostureLabel, warehouseServiceTone(availability.Warehouse.ServiceLevel)),
+			publicMetricCard(publicPromiseLensLabel, availabilityStoryCopy(availability.Available, availability.Inbound)),
+		),
+	)
+}
+
+func publicAvailabilitySupportPoints(availability availabilityPage) []string {
+	points := []string{
+		warehouseRegionCue(availability.Warehouse.Region),
+		warehouseServiceTone(availability.Warehouse.ServiceLevel),
+	}
+	if strings.TrimSpace(availability.Warehouse.Backlog) != "" {
+		points = append(points, "Warehouse posture: "+availability.Warehouse.Backlog+".")
+	}
+	if availability.Available > 0 {
+		points = append(points, "Quote now if the project can move on this region's current stock posture.")
+	} else if availability.Inbound > 0 {
+		points = append(points, "Use reserve capture to hold buyer intent against the inbound recovery window for this specific hub.")
+	} else {
+		points = append(points, "Use the support path to discuss substitutions or a different warehouse before promising timing.")
+	}
+	return points
 }
 
 func renderPublicHero(payload Payload) ui.Node {

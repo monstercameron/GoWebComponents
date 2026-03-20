@@ -140,7 +140,7 @@ func (p Payload) ToSSRBootstrap() ui.SSRBootstrap {
 				I18n:        p.I18n,
 				Theme:       p.Theme,
 				Data:        cloneData(p.Data),
-				Requests:    cloneRequests(p.Requests),
+				Requests:    cloneRequestsForBootstrap(p.Data, p.Requests),
 				SavedViews:  append([]SavedViewPayload(nil), p.SavedViews...),
 				CSRF:        p.CSRF,
 				User:        p.User,
@@ -242,6 +242,34 @@ func cloneRequests(input map[string]Request) map[string]Request {
 			Status: value.Status,
 			Data:   cloneData(value.Data),
 		}
+	}
+	return clone
+}
+
+func cloneRequestsForBootstrap(routeData map[string]any, input map[string]Request) map[string]Request {
+	if len(input) == 0 {
+		return map[string]Request{}
+	}
+	clone := make(map[string]Request, len(input))
+	for key, value := range input {
+		request := Request{
+			Method: value.Method,
+			URL:    value.URL,
+			Status: value.Status,
+		}
+		if len(value.Data) > 0 {
+			data := map[string]any{}
+			for dataKey, item := range value.Data {
+				if _, duplicated := routeData[dataKey]; duplicated {
+					continue
+				}
+				data[dataKey] = item
+			}
+			if len(data) > 0 {
+				request.Data = cloneData(data)
+			}
+		}
+		clone[key] = request
 	}
 	return clone
 }

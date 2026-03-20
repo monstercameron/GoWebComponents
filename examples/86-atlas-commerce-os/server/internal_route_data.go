@@ -27,6 +27,7 @@ type dashboardPageData struct {
 	Transfers []serverdb.TransferRecord         `json:"transfers"`
 	Receiving []serverdb.ReceivingSessionRecord `json:"receiving"`
 	Comments  []serverdb.CommentRecord          `json:"comments"`
+	Orders    []serverdb.PurchaseOrderRecord    `json:"orders"`
 }
 
 type warehouseOpsPageData struct {
@@ -61,12 +62,17 @@ func (s *atlasServer) internalDashboardPageData(ctx context.Context) (dashboardP
 	if err != nil {
 		return dashboardPageData{}, fmt.Errorf("load dashboard receiving: %w", err)
 	}
+	orders, err := s.store.PurchaseOrders(ctx)
+	if err != nil {
+		return dashboardPageData{}, fmt.Errorf("load dashboard purchase orders: %w", err)
+	}
 	return dashboardPageData{
-		Summary:   buildDashboardSummary(comments, transfers, receiving),
-		Alerts:    len(comments) + len(receiving),
+		Summary:   buildDashboardSummary(comments, transfers, receiving, orders),
+		Alerts:    countCommentsByStatus(comments, "pending") + countCommentsByStatus(comments, "flagged") + countOpenReceivingSessions(receiving) + countPurchaseOrdersByStatus(orders, "submitted") + countPurchaseOrdersByStatus(orders, "on_hold"),
 		Transfers: transfers,
 		Receiving: receiving,
 		Comments:  comments,
+		Orders:    orders,
 	}, nil
 }
 
@@ -106,13 +112,14 @@ func (s *atlasServer) internalSettingsPageData(ctx context.Context, ownerID stri
 	return settingsPageData{Summary: buildSettingsSummary(preferences, savedViews)}, nil
 }
 
-func buildDashboardSummary(comments []serverdb.CommentRecord, transfers []serverdb.TransferRecord, receiving []serverdb.ReceivingSessionRecord) routeSummaryData {
+func buildDashboardSummary(comments []serverdb.CommentRecord, transfers []serverdb.TransferRecord, receiving []serverdb.ReceivingSessionRecord, orders []serverdb.PurchaseOrderRecord) routeSummaryData {
 	return routeSummaryData{
 		Headline: "Demand and operations overview",
 		Items: []routeSummaryItemData{
 			{Label: "Buyer inbox", Value: fmt.Sprintf("%d queued", len(comments)), Detail: fmt.Sprintf("%d pending and %d flagged items are shaping the next operator handoff.", countCommentsByStatus(comments, "pending"), countCommentsByStatus(comments, "flagged"))},
 			{Label: "Transfers", Value: fmt.Sprintf("%d active", len(transfers)), Detail: fmt.Sprintf("%d submitted and %d approved moves are still influencing supply balance.", countTransfersByStatus(transfers, "submitted"), countTransfersByStatus(transfers, "approved"))},
 			{Label: "Receiving", Value: fmt.Sprintf("%d sessions", len(receiving)), Detail: fmt.Sprintf("%d sessions still need closeout or discrepancy review.", countOpenReceivingSessions(receiving))},
+			{Label: "Purchase orders", Value: fmt.Sprintf("%d open", len(orders)), Detail: fmt.Sprintf("%d submitted and %d approved orders are feeding inbound planning.", countPurchaseOrdersByStatus(orders, "submitted"), countPurchaseOrdersByStatus(orders, "approved"))},
 		},
 	}
 }
