@@ -16,13 +16,9 @@ For each todo item, follow this sequence:
 7. wait 5 minutes before starting the next todo
 
 ### Required wait
-After completing each todo item, the agent must wait **300 seconds** before beginning the next todo.
+After completing each todo item, the agent must wait **10 seconds** before beginning the next todo.
 
-This wait is mandatory unless:
-- the harness does not support waiting, or
-- the run is being explicitly stopped by the operator
-
-If waiting is unsupported, the agent must stop after the checkpoint and resume in a later run rather than immediately continuing.
+If the harness does not support waiting, the agent should continue immediately with the next unchecked todo instead of stopping.
 
 ### Harness directive
 If the harness supports autonomous execution with delay or sleep semantics, use them.
@@ -30,16 +26,16 @@ If the harness supports autonomous execution with delay or sleep semantics, use 
 Preferred harness behavior:
 - complete one todo
 - checkpoint
-- sleep 300 seconds
+- sleep 10 seconds
 - continue with the next unchecked todo
-- repeat until stopped or blocked
+- repeat until all todos are complete
 
 Equivalent pseudocode:
 
 while todos_remaining:
     do_one_todo()
     write_checkpoint()
-    sleep(300)
+    sleep(10)
 
 ### Todo batching restriction
 Do not complete multiple unrelated todos in the same execution burst.
@@ -76,10 +72,6 @@ After the 5-minute wait, the agent should:
 
 ### Stop conditions
 The agent must stop instead of continuing when:
-- validation fails and the issue is not resolved
-- the next todo is ambiguous
-- the next todo requires a larger architectural decision
-- the harness does not support the required wait behavior
 - there are no more unchecked todos
 
 ### Priority
