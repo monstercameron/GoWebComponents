@@ -55,7 +55,7 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 	fiber := GetCurrentFiber()
 	if fiber == nil {
 		ReportDiagnostic("runtime", DiagnosticError, "GoUseState called outside component context")
-		panic("GoUseState called outside component context")
+		panic(actionableHookUsagePanic("GoUseState"))
 	}
 
 	if fiber.hooks == nil {
@@ -161,7 +161,7 @@ func GoUseEffect(effect func() func(), deps ...interface{}) {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
 		ReportDiagnostic("runtime", DiagnosticError, "GoUseEffect called outside component context")
-		panic("GoUseEffect called outside component context")
+		panic(actionableHookUsagePanic("GoUseEffect"))
 	}
 
 	if fiber.hooks == nil {
@@ -260,7 +260,7 @@ func goUseMemo(compute func() interface{}, targetType reflect.Type, deps ...inte
 	fiber := GetCurrentFiber()
 	if fiber == nil {
 		ReportDiagnostic("runtime", DiagnosticError, "GoUseMemo called outside component context")
-		panic("GoUseMemo called outside component context")
+		panic(actionableHookUsagePanic("GoUseMemo"))
 	}
 
 	if fiber.hooks == nil {
@@ -321,7 +321,7 @@ func GoUseCallback(fn interface{}, deps ...interface{}) interface{} {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
 		ReportDiagnostic("runtime", DiagnosticError, "GoUseCallback called outside component context")
-		panic("GoUseCallback called outside component context")
+		panic(actionableHookUsagePanic("GoUseCallback"))
 	}
 
 	if fiber.hooks == nil {
@@ -367,7 +367,7 @@ func GoUseRef(initialValue interface{}) *RefValue {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
 		ReportDiagnostic("runtime", DiagnosticError, "GoUseRef called outside component context")
-		panic("GoUseRef called outside component context")
+		panic(actionableHookUsagePanic("GoUseRef"))
 	}
 
 	if fiber.hooks == nil {
@@ -414,7 +414,7 @@ func GoUseId() string {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
 		ReportDiagnostic("runtime", DiagnosticError, "GoUseId called outside component context")
-		panic("GoUseId called outside component context")
+		panic(actionableHookUsagePanic("GoUseId"))
 	}
 
 	if fiber.hooks == nil {
@@ -468,7 +468,7 @@ func GoUseFunc(fn interface{}) interface{} {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
 		ReportDiagnostic("runtime", DiagnosticError, "GoUseFunc called outside component context")
-		panic("GoUseFunc called outside component context")
+		panic(actionableHookUsagePanic("GoUseFunc"))
 	}
 
 	if fiber.hooks == nil {

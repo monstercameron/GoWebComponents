@@ -19,6 +19,9 @@ Cross-links for concepts, public APIs, examples, production caveats, and related
 ### `TROUBLESHOOTING.md`
 Common setup and runtime failure guidance for wasm builds, `wasm_exec.js`, example serving, hydration, routing, and browser interop.
 
+### `ACTIONABLE_ERRORS.md`
+Audit of the highest-friction framework failures, the current diagnostic gaps, and the stable identifiers or remediation anchors runtime errors should point to.
+
 ### `FORMS.md`
 Current supported `ui.UseForm` modes, server-post conventions, redirect-after-submit guidance, and the boundary between shipped form state helpers and application-owned server workflows.
 
@@ -186,6 +189,7 @@ As of 2026-03-14:
 - [BUILD_EXPERIMENTS.md](BUILD_EXPERIMENTS.md)
 - [COMPILER_ASSISTED_FEATURES.md](COMPILER_ASSISTED_FEATURES.md)
 - [ONBOARDING.md](ONBOARDING.md)
+- [ACTIONABLE_ERRORS.md](ACTIONABLE_ERRORS.md)
 - [ADOPTION.md](ADOPTION.md)
 - [COMPARISONS.md](COMPARISONS.md)
 - [API_POLICY.md](API_POLICY.md)

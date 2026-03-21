@@ -46,10 +46,17 @@ func (e *Error) Error() string {
 	if e.Code != "" {
 		base += " [" + string(e.Code) + "]"
 	}
+	message := base
 	if e.Err != nil {
-		return base + ": " + e.Err.Error()
+		message += ": " + e.Err.Error()
 	}
-	return base
+	if docs, remediation := interopActionableGuidance(e.Code); docs != "" {
+		if remediation != "" {
+			message += ". " + remediation
+		}
+		message += ". See " + docs
+	}
+	return message
 }
 
 func (e *Error) Unwrap() error {
@@ -110,6 +117,17 @@ func CodeOf(err error) (ErrorCode, bool) {
 		return "", false
 	}
 	return interopErr.Code, true
+}
+
+func interopActionableGuidance(code ErrorCode) (string, string) {
+	switch code {
+	case CodeInvalid:
+		return "ACTIONABLE_ERRORS.md#gwc-interop-invalid", "Validate required names, URLs, and callbacks before creating the interop binding"
+	case CodeNotFunction:
+		return "ACTIONABLE_ERRORS.md#gwc-interop-not-function", "Verify the target export or property exists and is callable before invoking it"
+	default:
+		return "", ""
+	}
 }
 
 type Subscription struct {

@@ -291,3 +291,39 @@ func TestReportDiagnosticWritesClassifiedLogEntries(t *testing.T) {
 		t.Fatalf("expected correctness error log, got %+v", logs[2])
 	}
 }
+
+func TestReportDiagnosticAddsStableMetadataForKnownFailures(t *testing.T) {
+	ClearDiagnostics()
+	ClearLogs()
+	defer ClearDiagnostics()
+	defer ClearLogs()
+
+	ReportDiagnostic("runtime", DiagnosticWarning, "hydration text mismatch for p: server \"Server\" client \"Client\"")
+	ReportLogWithFields("router", LogError, DiagnosticCorrectness, "route loader failed", "", nil)
+
+	diagnostics := GetDiagnostics()
+	if len(diagnostics) != 1 {
+		t.Fatalf("expected one diagnostic, got %d", len(diagnostics))
+	}
+	if diagnostics[0].Code != "GWC-HYDRATION-TEXT-MISMATCH" {
+		t.Fatalf("expected hydration code, got %+v", diagnostics[0])
+	}
+	if diagnostics[0].Docs == "" || diagnostics[0].Remediation == "" {
+		t.Fatalf("expected hydration diagnostic docs and remediation, got %+v", diagnostics[0])
+	}
+	if !diagnostics[0].Recoverable {
+		t.Fatalf("expected hydration warning to be marked recoverable, got %+v", diagnostics[0])
+	}
+
+	logs := GetLogs()
+	if len(logs) == 0 {
+		t.Fatal("expected log entry")
+	}
+	last := logs[len(logs)-1]
+	if last.Code != "GWC-ROUTER-LOADER-FAILED" {
+		t.Fatalf("expected loader log code, got %+v", last)
+	}
+	if last.Docs == "" || last.Remediation == "" || last.Recoverable {
+		t.Fatalf("expected loader log metadata, got %+v", last)
+	}
+}

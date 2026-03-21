@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/hotreload"
@@ -12,6 +13,16 @@ import (
 	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/state"
 )
+
+func shouldCrash(mode string) bool {
+	search := js.Global().Get("location").Get("search")
+	if !search.Truthy() {
+		return false
+	}
+	query := strings.ToLower(strings.TrimSpace(search.String()))
+	want := strings.ToLower(strings.TrimSpace(mode))
+	return strings.Contains(query, "crash="+want)
+}
 
 // Counter is a reusable component for testing component reuse
 func Counter(props Attrs) *Element {
@@ -336,6 +347,10 @@ func ToggleEffectDemo(props Attrs) *Element {
 
 // HelloWorld component demonstrates basic usage
 func HelloWorld(props Attrs) *Element {
+	if shouldCrash("render") {
+		panic("intentional render crash for Playwright logging")
+	}
+
 	count, setCount := UseState(0)
 	// Setup shared atom for demonstration/testing
 	sharedCounter := state.UseAtom("sharedCounter", 0)

@@ -41,6 +41,10 @@ type Diagnostic struct {
 	Source         string
 	Severity       DiagnosticSeverity
 	Classification DiagnosticClassification
+	Code           string
+	Docs           string
+	Remediation    string
+	Recoverable    bool
 	Message        string
 	Count          int
 	Path           string
@@ -52,6 +56,10 @@ type LogEntry struct {
 	Domain         string
 	Level          LogLevel
 	Classification DiagnosticClassification
+	Code           string
+	Docs           string
+	Remediation    string
+	Recoverable    bool
 	Message        string
 	Timestamp      string
 	CorrelationID  string
@@ -167,6 +175,8 @@ func ReportDiagnosticWithContext(source string, severity DiagnosticSeverity, mes
 	}
 	trimmedPath := strings.TrimSpace(path)
 	stackKey := strings.Join(componentStack, " > ")
+	classification := classifyDiagnostic(trimmedSource, severity, trimmedMessage)
+	details := diagnosticMetadata(trimmedSource, severity, classification, trimmedMessage)
 
 	key := string(severity) + "|" + trimmedSource + "|" + trimmedMessage + "|" + trimmedPath + "|" + stackKey
 
@@ -181,7 +191,11 @@ func ReportDiagnosticWithContext(source string, severity DiagnosticSeverity, mes
 	diagnostics = append(diagnostics, Diagnostic{
 		Source:         trimmedSource,
 		Severity:       severity,
-		Classification: classifyDiagnostic(trimmedSource, severity, trimmedMessage),
+		Classification: classification,
+		Code:           details.Code,
+		Docs:           details.Docs,
+		Remediation:    details.Remediation,
+		Recoverable:    details.Recoverable,
 		Message:        trimmedMessage,
 		Count:          1,
 		Path:           trimmedPath,
@@ -225,11 +239,16 @@ func ReportLogWithFields(domain string, level LogLevel, classification Diagnosti
 	if level == "" {
 		level = LogInfo
 	}
+	details := diagnosticMetadata(trimmedDomain, logSeverity(level), classification, trimmedMessage)
 
 	entry := LogEntry{
 		Domain:         trimmedDomain,
 		Level:          level,
 		Classification: classification,
+		Code:           details.Code,
+		Docs:           details.Docs,
+		Remediation:    details.Remediation,
+		Recoverable:    details.Recoverable,
 		Message:        trimmedMessage,
 		Timestamp:      time.Now().UTC().Format(timeFormatRFC3339Milli),
 		CorrelationID:  strings.TrimSpace(correlationID),

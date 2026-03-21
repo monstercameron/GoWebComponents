@@ -920,7 +920,7 @@ func registerCleanup(handler js.Func) {
 func makeRouteFactory(component interface{}) routeFactory {
 	if component == nil {
 		runtime.ReportDiagnostic("router", runtime.DiagnosticError, "route component cannot be nil")
-		panic("router: component cannot be nil")
+		panic("router: component cannot be nil (GWC-ROUTER-COMPONENT-NIL). Register a concrete component function or static node for the route instead of leaving a nil placeholder. See ACTIONABLE_ERRORS.md#gwc-router-component-nil.")
 	}
 
 	if element, ok := component.(*Element); ok {
@@ -932,13 +932,13 @@ func makeRouteFactory(component interface{}) routeFactory {
 	value := reflect.ValueOf(component)
 	if !value.IsValid() || value.Kind() != reflect.Func {
 		runtime.ReportDiagnostic("router", runtime.DiagnosticError, "unsupported route component type")
-		panic("router: unsupported component type")
+		panic("router: unsupported component type (GWC-ROUTER-COMPONENT-TYPE). Register a component function, ui.Node, or route-compatible element producer instead of a raw config or data value. See ACTIONABLE_ERRORS.md#gwc-router-component-type.")
 	}
 
 	typ := value.Type()
 	if typ.NumOut() != 1 {
 		runtime.ReportDiagnostic("router", runtime.DiagnosticError, "route component must return exactly one element")
-		panic("router: route component must return one element")
+		panic("router: route component must return one element (GWC-ROUTER-COMPONENT-ARITY). Return exactly one element tree and wrap siblings in ui.Fragment(...) when needed. See ACTIONABLE_ERRORS.md#gwc-router-component-arity.")
 	}
 
 	return func(attrs Attrs) *Element {

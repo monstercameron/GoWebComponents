@@ -617,7 +617,7 @@ func renderComponent(component interface{}, rawProps map[string]interface{}) *ru
 
 	componentValue := reflect.ValueOf(component)
 	if !componentValue.IsValid() || componentValue.Kind() != reflect.Func {
-		panic("ui.CreateElement requires a component function or ui.Node")
+		panic("ui.CreateElement requires a component function or ui.Node (GWC-UI-CREATE-ELEMENT-TYPE). Pass either a component function or a ui.Node value. See ACTIONABLE_ERRORS.md#gwc-ui-create-element-type.")
 	}
 
 	meta := getComponentMeta(componentValue.Type())
@@ -660,10 +660,10 @@ func getComponentMeta(componentType reflect.Type) componentMeta {
 	}
 
 	if componentType.NumIn() > 1 {
-		panic("ui.CreateElement components may accept at most one props argument")
+		panic("ui.CreateElement components may accept at most one props argument (GWC-UI-CREATE-ELEMENT-TYPE). Keep component signatures to zero or one props parameter. See ACTIONABLE_ERRORS.md#gwc-ui-create-element-type.")
 	}
 	if componentType.NumOut() != 1 {
-		panic("ui.CreateElement components must return ui.Node")
+		panic("ui.CreateElement components must return ui.Node (GWC-UI-CREATE-ELEMENT-TYPE). Return one ui.Node tree from the component function. See ACTIONABLE_ERRORS.md#gwc-ui-create-element-type.")
 	}
 
 	meta := componentMeta{}

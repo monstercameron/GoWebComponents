@@ -77,3 +77,41 @@ The agent must stop instead of continuing when:
 ### Priority
 These pacing instructions override any generic preference for maximizing throughput.
 For this project, controlled sequential progress is preferred over rapid continuous execution.
+
+## Generic issue-fixing instructions
+
+When the task is to fix a bug, regression, runtime panic, broken example, flaky test, or unclear diagnostic, the agent should use this default workflow unless the user asks for something narrower.
+
+### Debugging workflow
+
+1. reproduce the issue first using the smallest reliable command, test, or browser flow
+2. capture the exact failing message, stack frame, or observable incorrect behavior
+3. identify the root cause before editing files
+4. prefer the smallest fix that addresses the root cause instead of adding a broad workaround
+5. preserve existing public behavior unless the bug itself requires a behavior change
+6. keep existing logs, panic text, or diagnostics when useful, but restructure them if readability is part of the fix
+7. validate with the narrowest relevant test or command first, then widen only if needed
+
+### Implementation rules
+
+- do not guess about the failing path when the repo can be inspected directly
+- do not silently swallow panics or errors just to make a test pass
+- do not remove useful debugging detail when improving message design; keep the original failure signal visible when practical
+- do not change unrelated files or reformat unrelated code while fixing the issue
+- if there are user changes in nearby files, read them carefully and work with them instead of overwriting them
+
+### Validation rules
+
+- prefer targeted package tests, focused Playwright specs, or the smallest reproducible command
+- if the failure involves browser output, capture the actual browser console or page error instead of paraphrasing it
+- if the failure involves wasm or cross-compilation, clear stale environment variables before concluding the result
+- after the fix, confirm both that the issue is gone and that the improved output is easier to interpret
+
+### Expected final report
+
+When the fix is complete, report:
+
+- what the root cause was
+- what changed
+- what validation was run
+- any remaining risk or follow-up that would materially improve the area

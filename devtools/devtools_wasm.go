@@ -55,6 +55,10 @@ func SnapshotNow() Snapshot {
 			Source:         diagnostic.Source,
 			Severity:       Severity(diagnostic.Severity),
 			Classification: Classification(diagnostic.Classification),
+			Code:           diagnostic.Code,
+			Docs:           diagnostic.Docs,
+			Remediation:    diagnostic.Remediation,
+			Recoverable:    diagnostic.Recoverable,
 			Message:        diagnostic.Message,
 			Count:          diagnostic.Count,
 			Path:           diagnostic.Path,
@@ -66,6 +70,10 @@ func SnapshotNow() Snapshot {
 			Domain:         entry.Domain,
 			Level:          LogLevel(entry.Level),
 			Classification: Classification(entry.Classification),
+			Code:           entry.Code,
+			Docs:           entry.Docs,
+			Remediation:    entry.Remediation,
+			Recoverable:    entry.Recoverable,
 			Message:        entry.Message,
 			Timestamp:      entry.Timestamp,
 			CorrelationID:  entry.CorrelationID,
@@ -331,8 +339,14 @@ func diagnosticsSummary(diagnostics []Diagnostic) ui.Node {
 			"margin-bottom": "8px",
 		}},
 			html.Div(html.Props{Style: map[string]string{"font-size": "12px", "text-transform": "uppercase", "letter-spacing": "0.08em", "color": color}}, html.Text(string(diagnostic.Severity)+" • "+diagnostic.Source+" • count="+fmt.Sprintf("%d", diagnostic.Count))),
+			func() ui.Node {
+				if strings.TrimSpace(diagnostic.Code) == "" {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#67e8f9"}}, html.Text("code: "+diagnostic.Code))
+			}(),
 			html.P(html.Props{Style: map[string]string{"margin": "6px 0 0 0", "color": "#cbd5e1"}}, html.Text(diagnostic.Message)),
-			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text("class: "+string(diagnostic.Classification))),
+			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text("class: "+string(diagnostic.Classification)+" | recoverable="+fmt.Sprintf("%t", diagnostic.Recoverable))),
 			func() ui.Node {
 				if strings.TrimSpace(diagnostic.Path) == "" {
 					return nil
@@ -344,6 +358,18 @@ func diagnosticsSummary(diagnostics []Diagnostic) ui.Node {
 					return nil
 				}
 				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("stack: "+strings.Join(diagnostic.ComponentStack, " > ")))
+			}(),
+			func() ui.Node {
+				if strings.TrimSpace(diagnostic.Remediation) == "" {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "6px", "color": "#cbd5e1"}}, html.Text("next step: "+diagnostic.Remediation))
+			}(),
+			func() ui.Node {
+				if strings.TrimSpace(diagnostic.Docs) == "" {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text("docs: "+diagnostic.Docs))
 			}(),
 		))
 	}
@@ -373,6 +399,12 @@ func logsSummary(entries []Log) ui.Node {
 			"margin-bottom": "8px",
 		}},
 			html.Div(html.Props{Style: map[string]string{"font-size": "12px", "text-transform": "uppercase", "letter-spacing": "0.08em", "color": color}}, html.Text(string(entry.Level)+" | "+entry.Domain+" | "+string(entry.Classification))),
+			func() ui.Node {
+				if strings.TrimSpace(entry.Code) == "" {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#67e8f9"}}, html.Text("code: "+entry.Code+" | recoverable="+fmt.Sprintf("%t", entry.Recoverable)))
+			}(),
 			html.P(html.Props{Style: map[string]string{"margin": "6px 0 0 0", "color": "#e2e8f0"}}, html.Text(entry.Message)),
 			func() ui.Node {
 				meta := []string{}
@@ -401,6 +433,18 @@ func logsSummary(entries []Log) ui.Node {
 					parts = append(parts, key+"="+entry.Fields[key])
 				}
 				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text(strings.Join(parts, " | ")))
+			}(),
+			func() ui.Node {
+				if strings.TrimSpace(entry.Remediation) == "" {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("next step: "+entry.Remediation))
+			}(),
+			func() ui.Node {
+				if strings.TrimSpace(entry.Docs) == "" {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text("docs: "+entry.Docs))
 			}(),
 		))
 	}

@@ -17,6 +17,10 @@ type Diagnostic struct {
 	Source         string
 	Severity       Severity
 	Classification Classification
+	Code           string
+	Docs           string
+	Remediation    string
+	Recoverable    bool
 	Message        string
 	Count          int
 	Path           string
@@ -29,6 +33,10 @@ type Log struct {
 	Domain         string
 	Level          LogLevel
 	Classification Classification
+	Code           string
+	Docs           string
+	Remediation    string
+	Recoverable    bool
 	Message        string
 	Timestamp      string
 	CorrelationID  string

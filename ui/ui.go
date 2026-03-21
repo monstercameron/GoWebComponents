@@ -508,7 +508,7 @@ func UseRef[T any](initialValue T) Ref[T] {
 // UseContext reads the current value for a typed context.
 func UseContext[T any](context *Context[T]) T {
 	if context == nil || context.descriptor == nil {
-		panic("ui.UseContext called with nil context")
+		panic("ui.UseContext called with nil context (GWC-UI-CONTEXT-NIL). Pass the value returned by ui.CreateContext(...) and avoid nil placeholder contexts. See ACTIONABLE_ERRORS.md#gwc-ui-context-nil.")
 	}
 	return castContextValue[T](runtime.GoUseContextValue(context.descriptor))
 }
@@ -1194,7 +1194,7 @@ func renderComponent(component interface{}, rawProps map[string]interface{}) *ru
 
 	componentValue := reflect.ValueOf(component)
 	if !componentValue.IsValid() || componentValue.Kind() != reflect.Func {
-		panic("ui.CreateElement requires a component function or ui.Node")
+		panic("ui.CreateElement requires a component function or ui.Node (GWC-UI-CREATE-ELEMENT-TYPE). Pass either a component function or a ui.Node value. See ACTIONABLE_ERRORS.md#gwc-ui-create-element-type.")
 	}
 
 	meta := getComponentMeta(componentValue.Type())
@@ -1237,10 +1237,10 @@ func getComponentMeta(componentType reflect.Type) componentMeta {
 	}
 
 	if componentType.NumIn() > 1 {
-		panic("ui.CreateElement components may accept at most one props argument")
+		panic("ui.CreateElement components may accept at most one props argument (GWC-UI-CREATE-ELEMENT-TYPE). Keep component signatures to zero or one props parameter. See ACTIONABLE_ERRORS.md#gwc-ui-create-element-type.")
 	}
 	if componentType.NumOut() != 1 {
-		panic("ui.CreateElement components must return ui.Node")
+		panic("ui.CreateElement components must return ui.Node (GWC-UI-CREATE-ELEMENT-TYPE). Return one ui.Node tree from the component function. See ACTIONABLE_ERRORS.md#gwc-ui-create-element-type.")
 	}
 
 	meta := componentMeta{}

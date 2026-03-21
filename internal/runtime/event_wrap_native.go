@@ -30,6 +30,6 @@ func (rt *Runtime) recoverEventPanic(owner *Fiber) {
 		if _, handled := rt.recoverBoundaryError(owner, recovered, boundaryPhaseEvent); handled {
 			return
 		}
-		panic(recovered)
+		panic(reportUnhandledPanic(owner, boundaryPhaseEvent, recovered))
 	}
 }

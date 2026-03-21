@@ -5,6 +5,7 @@ package ui_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/html"
@@ -112,6 +113,21 @@ func TestReadBootstrapReferenceUnsupportedOnServer(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected ReadBootstrapReference to be unavailable on non-js/wasm builds")
 	}
+}
+
+func TestCreateElementInvalidTypePanicIncludesActionableGuidance(t *testing.T) {
+	defer func() {
+		recovered := recover()
+		if recovered == nil {
+			t.Fatal("expected panic")
+		}
+		message := recovered.(string)
+		if !strings.Contains(message, "GWC-UI-CREATE-ELEMENT-TYPE") || !strings.Contains(message, "ACTIONABLE_ERRORS.md#gwc-ui-create-element-type") {
+			t.Fatalf("expected actionable create-element panic, got %q", message)
+		}
+	}()
+
+	_, _ = ui.RenderToString(ui.CreateElement(123))
 }
 
 func TestAsyncBoundaryAndLazyOnServer(t *testing.T) {

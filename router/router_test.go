@@ -1290,6 +1290,27 @@ func TestRegisterReportsDuplicateRouteDiagnostic(t *testing.T) {
 	if len(diagnostics) == 0 {
 		t.Fatal("expected duplicate route registration diagnostic")
 	}
+	if diagnostics[0].Code != "GWC-ROUTER-DUPLICATE-ROUTE" {
+		t.Fatalf("expected duplicate route code, got %+v", diagnostics[0])
+	}
+	if diagnostics[0].Docs == "" || diagnostics[0].Remediation == "" || !diagnostics[0].Recoverable {
+		t.Fatalf("expected duplicate route guidance, got %+v", diagnostics[0])
+	}
+}
+
+func TestMakeRouteFactoryNilPanicIncludesActionableGuidance(t *testing.T) {
+	defer func() {
+		recovered := recover()
+		if recovered == nil {
+			t.Fatal("expected panic")
+		}
+		message := recovered.(string)
+		if !strings.Contains(message, "GWC-ROUTER-COMPONENT-NIL") || !strings.Contains(message, "ACTIONABLE_ERRORS.md#gwc-router-component-nil") {
+			t.Fatalf("expected actionable router panic, got %q", message)
+		}
+	}()
+
+	_ = makeRouteFactory(nil)
 }
 
 // TestNavigate tests navigation

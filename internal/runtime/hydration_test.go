@@ -134,6 +134,12 @@ func TestHydrateMismatchDiagnosticsIncludePathAndComponentStack(t *testing.T) {
 		if !strings.Contains(diagnostic.Message, "hydration text mismatch") {
 			continue
 		}
+		if diagnostic.Code != "GWC-HYDRATION-TEXT-MISMATCH" {
+			t.Fatalf("expected hydration text mismatch code, got %+v", diagnostic)
+		}
+		if diagnostic.Docs == "" || diagnostic.Remediation == "" || !diagnostic.Recoverable {
+			t.Fatalf("expected hydration mismatch guidance, got %+v", diagnostic)
+		}
 		if diagnostic.Path == "" {
 			t.Fatalf("expected hydration diagnostic path, got %+v", diagnostic)
 		}

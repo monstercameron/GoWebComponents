@@ -31,13 +31,13 @@ func NewContextProviderType(descriptor *ContextDescriptor) *ContextProviderType 
 // GoUseContextValue reads the nearest provider value for a context descriptor.
 func GoUseContextValue(descriptor *ContextDescriptor) interface{} {
 	if descriptor == nil {
-		panic("GoUseContextValue called with nil context descriptor")
+		panic(actionableContextDescriptorNilPanic("GoUseContextValue"))
 	}
 
 	fiber := GetCurrentFiber()
 	if fiber == nil {
 		ReportDiagnostic("runtime", DiagnosticError, "GoUseContextValue called outside component context")
-		panic("GoUseContextValue called outside component context")
+		panic(actionableHookUsagePanic("GoUseContextValue"))
 	}
 
 	if fiber.hooks == nil {
