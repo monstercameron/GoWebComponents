@@ -54,8 +54,7 @@ type SSRBootstrapReference struct {
 	Format string `json:"format,omitempty"`
 }
 
-// MarshalSSRBootstrap serializes a bootstrap payload to safe inline JSON.
-func MarshalSSRBootstrap(payload SSRBootstrap) ([]byte, error) {
+func marshalSSRBootstrapJSON(payload SSRBootstrap) ([]byte, error) {
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
@@ -71,6 +70,18 @@ func MarshalSSRBootstrap(payload SSRBootstrap) ([]byte, error) {
 	return []byte(replacer.Replace(string(jsonData))), nil
 }
 
+// MarshalSSRBootstrap serializes a bootstrap payload to safe inline JSON.
+func MarshalSSRBootstrap(payload SSRBootstrap) ([]byte, error) {
+	return MarshalSSRBootstrapObserved(payload, SSRObservabilityOptions{})
+}
+
+// MarshalSSRBootstrapObserved serializes a bootstrap payload and emits size metrics.
+func MarshalSSRBootstrapObserved(payload SSRBootstrap, options SSRObservabilityOptions) ([]byte, error) {
+	encoded, err := marshalSSRBootstrapJSON(payload)
+	dispatchSSRObservation(options, newSSRBootstrapObservation(options, SSRBootstrapFormatJSON, len(encoded), 0, err))
+	return encoded, err
+}
+
 // UnmarshalSSRBootstrap deserializes a JSON bootstrap payload.
 func UnmarshalSSRBootstrap(data []byte) (SSRBootstrap, error) {
 	if len(data) == 0 {
@@ -84,9 +95,20 @@ func UnmarshalSSRBootstrap(data []byte) (SSRBootstrap, error) {
 	return normalizeSSRBootstrap(payload), nil
 }
 
+func marshalSSRBootstrapBinary(payload SSRBootstrap) ([]byte, error) {
+	return cbor.Marshal(payload)
+}
+
 // MarshalSSRBootstrapBinary serializes a bootstrap payload to CBOR.
 func MarshalSSRBootstrapBinary(payload SSRBootstrap) ([]byte, error) {
-	return cbor.Marshal(payload)
+	return MarshalSSRBootstrapBinaryObserved(payload, SSRObservabilityOptions{})
+}
+
+// MarshalSSRBootstrapBinaryObserved serializes a bootstrap payload to CBOR and emits size metrics.
+func MarshalSSRBootstrapBinaryObserved(payload SSRBootstrap, options SSRObservabilityOptions) ([]byte, error) {
+	encoded, err := marshalSSRBootstrapBinary(payload)
+	dispatchSSRObservation(options, newSSRBootstrapObservation(options, SSRBootstrapFormatCBOR, len(encoded), 0, err))
+	return encoded, err
 }
 
 // UnmarshalSSRBootstrapBinary deserializes a CBOR bootstrap payload.
@@ -123,8 +145,14 @@ func normalizeSSRBootstrap(payload SSRBootstrap) SSRBootstrap {
 
 // RenderBootstrapScript renders an inline bootstrap script tag.
 func RenderBootstrapScript(payload SSRBootstrap, scriptID string) (string, error) {
-	encoded, err := MarshalSSRBootstrap(payload)
+	return RenderBootstrapScriptObserved(payload, scriptID, SSRObservabilityOptions{})
+}
+
+// RenderBootstrapScriptObserved renders an inline bootstrap script tag and emits size metrics.
+func RenderBootstrapScriptObserved(payload SSRBootstrap, scriptID string, options SSRObservabilityOptions) (string, error) {
+	encoded, err := marshalSSRBootstrapJSON(payload)
 	if err != nil {
+		dispatchSSRObservation(options, newSSRBootstrapObservation(options, SSRBootstrapFormatJSON, 0, 0, err))
 		return "", err
 	}
 
@@ -133,7 +161,9 @@ func RenderBootstrapScript(payload SSRBootstrap, scriptID string) (string, error
 		id = DefaultBootstrapScriptID
 	}
 
-	return `<script id="` + html.EscapeString(id) + `" type="application/json">` + string(encoded) + `</script>`, nil
+	script := `<script id="` + html.EscapeString(id) + `" type="application/json">` + string(encoded) + `</script>`
+	dispatchSSRObservation(options, newSSRBootstrapObservation(options, SSRBootstrapFormatJSON, len(encoded), len(script), nil))
+	return script, nil
 }
 
 // RenderBootstrapReferenceScript renders an inline script tag that points at an external bootstrap payload.

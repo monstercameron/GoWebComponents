@@ -7,6 +7,7 @@ type HydrationOptions struct {
 	Bootstrap         SSRBootstrap
 	BootstrapRef      SSRBootstrapReference
 	Strict            bool
+	Observability     SSRObservabilityOptions
 }
 
 func resolveHydrationOptions(options []HydrationOptions) HydrationOptions {

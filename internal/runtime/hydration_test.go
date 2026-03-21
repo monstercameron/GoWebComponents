@@ -278,7 +278,6 @@ func TestHydrateSupportsComponentUpdatesAfterResume(t *testing.T) {
 		t.Fatal("expected state update to schedule follow-up render")
 	}
 	runHydrationWork(t, scheduler)
-
 	children := adapter.GetChildren(container)
 	if len(children) != 1 || !children[0].Equals(serverButton) {
 		t.Fatal("expected hydrated update to keep existing host node")
@@ -289,6 +288,46 @@ func TestHydrateSupportsComponentUpdatesAfterResume(t *testing.T) {
 	}
 	if got := textChildren[0].(*testDOMNode).text; got != "count:1" {
 		t.Fatalf("expected hydrated update to change text to count:1, got %q", got)
+	}
+}
+
+func TestHydrateReportsObservabilityMetrics(t *testing.T) {
+	ClearDiagnostics()
+	defer ClearDiagnostics()
+
+	adapter := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+
+	container := adapter.CreateElement("div")
+	serverNode := adapter.CreateElement("span")
+	adapter.AppendChild(container, serverNode)
+
+	var observed HydrationMetrics
+	rt.SetNextHydrationObserver("req-42", func(metrics HydrationMetrics) {
+		observed = metrics
+	})
+
+	rt.Hydrate(CreateElement("div", map[string]interface{}{"id": "client"}), container)
+	runHydrationWork(t, scheduler)
+
+	if observed.CorrelationID != "req-42" {
+		t.Fatalf("expected correlation id to be preserved, got %+v", observed)
+	}
+	if observed.FallbackCount != 1 {
+		t.Fatalf("expected one hydration fallback, got %+v", observed)
+	}
+	if observed.ExistingDOMNodeCount != 1 {
+		t.Fatalf("expected existing DOM count to be recorded, got %+v", observed)
+	}
+	if observed.DiscardedNodeCount != 1 {
+		t.Fatalf("expected discarded node count to be recorded, got %+v", observed)
+	}
+	if observed.DurationNs < 0 {
+		t.Fatalf("expected non-negative hydration duration, got %+v", observed)
+	}
+	if observed.Failed {
+		t.Fatalf("expected non-strict hydration to finish without failure, got %+v", observed)
 	}
 }
 

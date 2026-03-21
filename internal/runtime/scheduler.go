@@ -167,6 +167,7 @@ func (rt *Runtime) Hydrate(element *Element, container DOMNode) {
 	rt.updateScheduled = true
 	rt.hydrating = true
 	rt.strictHydration = rt.nextHydrationStrict
+	rt.beginHydrationMetrics(existingChildren, rt.nextHydrationStrict)
 	rt.nextHydrationStrict = false
 	rt.deferredHydrationSubscriptions = rt.deferredHydrationSubscriptions[:0]
 	if rt.deferredHydrationUpdates == nil {

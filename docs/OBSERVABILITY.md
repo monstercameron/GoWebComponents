@@ -163,9 +163,18 @@ Recommended first sampling boundaries:
 
 ## What Is Still Open
 
+The current public SSR slice now ships through `ui.ObserveSSR(...)`, `ui.RenderToStringObserved(...)`, `ui.MarshalSSRBootstrapObserved(...)`, `ui.MarshalSSRBootstrapBinaryObserved(...)`, `ui.RenderBootstrapScriptObserved(...)`, and hydration options that accept `SSRObservabilityOptions`.
+
+That shipped slice covers:
+
+- request-scoped or render-scoped correlation ids supplied by the application
+- SSR render timing for `ui.RenderToString(...)` and `ui.RenderToStringObserved(...)`
+- bootstrap payload bytes for JSON and CBOR serialization, plus inline script bytes for rendered bootstrap scripts
+- hydration duration, existing server DOM counts, mismatch counts, fallback counts, and discarded-node counts when `ui.Hydrate(...)` or `ui.HydrateInto(...)` runs in the browser
+
 These items remain separate backlog work:
 
-- actual public instrumentation hooks for SSR and browser lifecycle emission
-- client-side lifecycle APIs and sampling controls
+- broader client lifecycle APIs beyond hydration
+- sampling controls and backpressure policy for high-volume production traffic
 - export formats for traces and metrics
 - an end-to-end observability example

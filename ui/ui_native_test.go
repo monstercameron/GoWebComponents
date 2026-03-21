@@ -46,6 +46,60 @@ func TestRenderToStringPublicSSRSurface(t *testing.T) {
 	}
 }
 
+func TestRenderToStringObservedReportsMetrics(t *testing.T) {
+	node := ui.CreateElement(greeting, greetingProps{Name: "Server"})
+	var observed ui.SSRObservation
+
+	markup, err := ui.RenderToStringObserved(node, ui.SSRObservabilityOptions{
+		CorrelationID: "req-render",
+		OnEvent: func(event ui.SSRObservation) {
+			observed = event
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected render error: %v", err)
+	}
+	if markup == "" {
+		t.Fatal("expected rendered markup")
+	}
+	if observed.Name != "ssr.render" || observed.Phase != "finish" {
+		t.Fatalf("expected ssr render observation, got %+v", observed)
+	}
+	if observed.CorrelationID != "req-render" {
+		t.Fatalf("expected correlation id to flow into render event, got %+v", observed)
+	}
+	if observed.Render == nil || observed.Render.DurationNs < 0 {
+		t.Fatalf("expected non-negative render metrics, got %+v", observed)
+	}
+	if observed.Bootstrap != nil || observed.Hydration != nil {
+		t.Fatalf("expected render-only observation, got %+v", observed)
+	}
+}
+
+func TestObserveSSRReceivesBootstrapMetrics(t *testing.T) {
+	var observed ui.SSRObservation
+	unsubscribe := ui.ObserveSSR(func(event ui.SSRObservation) {
+		if event.Name == "ssr.bootstrap" {
+			observed = event
+		}
+	})
+	defer unsubscribe()
+
+	_, err := ui.RenderBootstrapScript(ui.SSRBootstrap{Route: ui.SSRRouteBootstrap{Path: "/home"}}, "")
+	if err != nil {
+		t.Fatalf("unexpected bootstrap render error: %v", err)
+	}
+	if observed.Bootstrap == nil {
+		t.Fatalf("expected bootstrap observation, got %+v", observed)
+	}
+	if observed.Bootstrap.Format != ui.SSRBootstrapFormatJSON {
+		t.Fatalf("expected json bootstrap format, got %+v", observed)
+	}
+	if observed.Bootstrap.PayloadBytes <= 0 || observed.Bootstrap.ScriptBytes <= 0 {
+		t.Fatalf("expected positive bootstrap sizes, got %+v", observed)
+	}
+}
+
 func TestHydrateUnsupportedOnServer(t *testing.T) {
 	_, err := ui.Hydrate(ui.Text("hello"), "#app")
 	if err == nil {

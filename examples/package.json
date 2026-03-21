@@ -7,6 +7,8 @@
     "test:catalog": "playwright test --config=playwright.catalog-devserver.config.ts",
     "test:links": "playwright test tests/all-examples-links.spec.ts --config=playwright.catalog-devserver.config.ts",
     "test:atlas-ssr": "playwright test --config=playwright.atlas-ssr.config.ts",
+    "test:startup": "playwright test --config=playwright.startup-experiments.config.ts",
+    "test:atlas-startup": "playwright test --config=playwright.atlas-startup.config.ts",
     "test:ui": "playwright test --ui",
     "test:debug": "playwright test --debug"
   },

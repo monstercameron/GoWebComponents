@@ -266,7 +266,12 @@ func Text(content string) Node {
 
 // RenderToString renders a ui.Node tree to HTML on non-browser targets.
 func RenderToString(root Node) (string, error) {
-	return runtime.RenderToString(root)
+	return renderToStringObserved(root, SSRObservabilityOptions{})
+}
+
+// RenderToStringObserved renders a ui.Node tree to HTML and emits SSR metrics.
+func RenderToStringObserved(root Node, options SSRObservabilityOptions) (string, error) {
+	return renderToStringObserved(root, options)
 }
 
 // Render is browser-only; the native SSR slice exposes RenderToString instead.

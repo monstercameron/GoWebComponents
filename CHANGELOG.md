@@ -2,6 +2,12 @@
 
 ## 2026-03-20
 
+### SSR observability hooks
+
+- Added a focused SSR observability surface in `ui` through `ObserveSSR(...)` plus observed render and bootstrap helpers so applications can capture request-level render timing, bootstrap payload sizes, and inline bootstrap script sizes without adopting a framework-specific logger backend.
+- Extended browser hydration instrumentation to report per-hydration duration, existing DOM counts, mismatch counts, fallback counts, and discarded-node counts, with optional correlation ids threaded from `ui.Hydrate(...)` options into the emitted observation.
+- Added native and runtime coverage that verifies render observations, bootstrap size metrics, and hydration fallback summaries are emitted from the shipped public surface.
+
 ### Wasm build experiment tooling and release-size comparison
 
 - Added repeatable wasm build experiment helpers for phase-attributed timing, cache-topology comparison, CI-friendly manifest comparison, and explicit Go toolchain comparison so build-speed and artifact-size decisions can be made from saved JSON results instead of ad hoc shell timings.

@@ -343,6 +343,9 @@ func Hydrate(root Node, selector string, options ...HydrationOptions) (SSRBootst
 	}
 	ensureInitialized()
 	rt := runtime.GetGlobalRuntime()
+	rt.SetNextHydrationObserver(resolved.Observability.CorrelationID, func(metrics runtime.HydrationMetrics) {
+		dispatchSSRObservation(resolved.Observability, newSSRHydrationObservation(metrics))
+	})
 	if payload.IDSeed > 0 {
 		rt.SetIDSeed(payload.IDSeed)
 	}
@@ -386,6 +389,9 @@ func HydrateInto(root Node, target interface{}, options ...HydrationOptions) (SS
 	}
 	ensureInitialized()
 	rt := runtime.GetGlobalRuntime()
+	rt.SetNextHydrationObserver(resolved.Observability.CorrelationID, func(metrics runtime.HydrationMetrics) {
+		dispatchSSRObservation(resolved.Observability, newSSRHydrationObservation(metrics))
+	})
 	if payload.IDSeed > 0 {
 		rt.SetIDSeed(payload.IDSeed)
 	}
@@ -402,7 +408,12 @@ func HydrateInto(root Node, target interface{}, options ...HydrationOptions) (SS
 }
 
 func RenderToString(root Node) (string, error) {
-	return runtime.RenderToString(root)
+	return renderToStringObserved(root, SSRObservabilityOptions{})
+}
+
+// RenderToStringObserved renders a ui.Node tree to HTML and emits SSR metrics.
+func RenderToStringObserved(root Node, options SSRObservabilityOptions) (string, error) {
+	return renderToStringObserved(root, options)
 }
 
 func Text(content string) Node {

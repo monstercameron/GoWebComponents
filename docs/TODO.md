@@ -1043,8 +1043,8 @@ Organization rules for this file:
 	`docs/SERVER_INTEGRATION.md` now defines the current internal-versus-external API guidance for route loaders, `fetch.UseResource[T](...)`, and form handlers, including timeout and auth propagation expectations.
 - [x] Add deployment guidance for common hosting modes.
 	`docs/SERVER_INTEGRATION.md` now documents the supported hosting modes for static bundles, single-process Go SSR, reverse-proxy fronted Go servers, and split SSR/API deployments, including route rewrite, cache, and `.wasm` serving guidance.
-- [ ] Add observability hooks for server-rendered apps.
-	Expose request-level render timing, hydration fallback counters, and bootstrap size metrics so SSR operations are measurable in production.
+- [x] Add observability hooks for server-rendered apps.
+	`ui` now exposes SSR observability callbacks for server render timing, bootstrap payload and inline-script size metrics, and hydration summaries including fallback and mismatch counters with optional correlation ids.
 
 ### Observability and runtime instrumentation
 

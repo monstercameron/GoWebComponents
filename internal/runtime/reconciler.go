@@ -1245,6 +1245,7 @@ func (rt *Runtime) commitRoot() {
 	rt.runEffects(committedRoot)
 
 	if wasHydrating {
+		rt.finishHydrationMetrics(false, "")
 		rt.flushDeferredHydrationUpdates()
 	}
 	if rt.pendingBoundaryRecovery {

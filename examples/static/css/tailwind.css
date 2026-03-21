@@ -1958,9 +1958,6 @@
   .bg-\[\#06131f\] {
     background-color: #06131f;
   }
-  .bg-\[\#07111f\] {
-    background-color: #07111f;
-  }
   .bg-\[\#07131d\] {
     background-color: #07131d;
   }
@@ -2014,6 +2011,9 @@
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-amber-300) 14%, transparent);
     }
+  }
+  .bg-amber-400 {
+    background-color: var(--color-amber-400);
   }
   .bg-amber-400\/10 {
     background-color: color-mix(in srgb, oklch(82.8% 0.189 84.429) 10%, transparent);
@@ -4899,6 +4899,13 @@
       }
     }
   }
+  .hover\:bg-amber-500 {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--color-amber-500);
+      }
+    }
+  }
   .hover\:bg-amber-500\/20 {
     &:hover {
       @media (hover: hover) {
@@ -5034,6 +5041,13 @@
         @supports (color: color-mix(in lab, red, red)) {
           background-color: color-mix(in oklab, var(--color-emerald-500) 20%, transparent);
         }
+      }
+    }
+  }
+  .hover\:bg-emerald-600 {
+    &:hover {
+      @media (hover: hover) {
+        background-color: var(--color-emerald-600);
       }
     }
   }

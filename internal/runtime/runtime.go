@@ -96,6 +96,10 @@ type Runtime struct {
 	hydrating                      bool
 	strictHydration                bool
 	nextHydrationStrict            bool
+	nextHydrationObserver          func(HydrationMetrics)
+	nextHydrationCorrelationID     string
+	hydrationMetrics               HydrationMetrics
+	hydrationMetricsActive         bool
 	deferredHydrationUpdates       map[*Fiber]bool
 	deferredHydrationSubscriptions []hydrationSubscriptionAction
 

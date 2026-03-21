@@ -80,6 +80,7 @@ func (rt *Runtime) reportHydrationDiagnostic(fiber *Fiber, message string) {
 		diagnosticComponentStack(target),
 	)
 	if rt != nil && rt.strictHydration {
+		rt.finishHydrationMetrics(true, message)
 		panic(message)
 	}
 }
@@ -104,9 +105,11 @@ func (rt *Runtime) claimHydrationNode(fiber *Fiber) (DOMNode, bool) {
 
 	boundary.cursor = rt.domAdapter.GetNextSibling(candidate)
 	if textWarning := rt.detectHydrationTextMismatch(fiber, candidate); textWarning != "" {
+		rt.recordHydrationMismatch()
 		rt.reportHydrationDiagnostic(fiber, textWarning)
 	}
 	for _, warning := range rt.detectHydrationAttributeMismatches(fiber, candidate) {
+		rt.recordHydrationMismatch()
 		rt.reportHydrationDiagnostic(fiber, warning)
 	}
 	return candidate, true
@@ -128,13 +131,16 @@ func (rt *Runtime) finalizeHydrationBoundary(boundary *hydrationBoundary, owner 
 		ownerName = "hydrated subtree"
 	}
 	rt.reportHydrationDiagnostic(owner, fmt.Sprintf("hydration discarded unexpected DOM nodes under %s", ownerName))
+	removed := 0
 	for node := extra; node != nil && !node.IsNull(); {
 		next := rt.domAdapter.GetNextSibling(node)
 		if boundary.parent != nil && !boundary.parent.IsNull() {
 			rt.domAdapter.RemoveChild(boundary.parent, node)
 		}
+		removed++
 		node = next
 	}
+	rt.recordHydrationDiscarded(removed)
 	boundary.active = false
 	boundary.cursor = nil
 }
@@ -148,15 +154,19 @@ func (rt *Runtime) abortHydrationBoundary(boundary *hydrationBoundary, owner *Fi
 	if ownerName == "" {
 		ownerName = "hydrated subtree"
 	}
+	rt.recordHydrationFallback()
 	rt.reportHydrationDiagnostic(owner, fmt.Sprintf("hydration fell back to client rendering for %s: %s", ownerName, strings.TrimSpace(reason)))
 
+	removed := 0
 	for node := rt.nextHydrationCandidate(boundary.cursor); node != nil && !node.IsNull(); {
 		next := rt.domAdapter.GetNextSibling(node)
 		if boundary.parent != nil && !boundary.parent.IsNull() {
 			rt.domAdapter.RemoveChild(boundary.parent, node)
 		}
+		removed++
 		node = next
 	}
+	rt.recordHydrationDiscarded(removed)
 
 	boundary.active = false
 	boundary.cursor = nil
