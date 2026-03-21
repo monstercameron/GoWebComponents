@@ -125,6 +125,11 @@ func overviewCopy(title, feature string) (string, []string) {
 			"These tools are for understanding app behavior, not for driving user-facing product features directly.",
 			"The examples focus on what diagnostic surface the tool exposes and when that surface is valuable during debugging.",
 		}
+	case strings.HasPrefix(subject, "plugin."):
+		return "Use " + subject + " when an application or companion package needs explicit manifest-based extension points without reaching into framework internals.", []string{
+			"This family is about controlled integration boundaries: capabilities, registration, cleanup, and hook contribution should stay visible in normal application code.",
+			"Choose it when you want reusable extension structure, but still want the owning app to decide exactly which hooks are enabled.",
+		}
 	default:
 		return "Use this example to understand the purpose of " + title + " in isolation before mixing it into a larger integrated app.", []string{
 			"The page is intentionally scoped so the API or tool's job is visible without unrelated framework behavior hiding the core idea.",
@@ -175,6 +180,11 @@ func functionalCopy(title, feature string) []string {
 		bullets = append(bullets,
 			"Use the example to compare visible app behavior with the diagnostic surface so you can tell what the tool adds during debugging.",
 			"The value here is observability: choose these APIs when understanding runtime behavior is the primary goal.",
+		)
+	case strings.HasPrefix(subject, "plugin."):
+		bullets = append(bullets,
+			"Use these controls to see how plugins contribute route policy, async-data decoration, SSR head output, and form rules through one explicit host.",
+			"The point is not hidden discovery. The point is flexible but reviewable extension wiring that stays outside the framework's internal runtime state.",
 		)
 	default:
 		bullets = append(bullets,
@@ -302,6 +312,19 @@ func implementationCopy(title, feature string) (string, []string, []string) {
 			"Panel refresh cadence matters: shorter intervals give fresher diagnostics but increase snapshot work and browser churn. Tune polling to the debugging task instead of always sampling aggressively.",
 			"Watch out for noisy demo logic that makes it harder to see what the devtools API is actually adding beyond normal UI state changes.",
 		}, bullets...)
+	case strings.HasPrefix(subject, "plugin."):
+		lead = "These plugin examples create one explicit host, register manifests in order, and let companion code contribute only the hooks the host enables for that application surface."
+		bullets = append([]string{
+			"Keep registration explicit and early in app setup so capability mismatches fail in one obvious place instead of during unrelated renders later.",
+			"Prefer package-owned hooks and stable public APIs underneath the plugin host. The host is an integration organizer, not permission to reach into framework internals.",
+			"Cleanup should stay scoped to the plugin's own subscriptions, observers, or external resources. Do not assume a hidden runtime shutdown channel exists unless the host documents one.",
+		}, bullets...)
+		code = []string{
+			"host := plugin.NewHost(plugin.HostOptions{Capabilities: []plugin.Capability{...}})",
+			"host.Register(examplePlugin())",
+			"decision := host.EvaluateRoute(plugin.RouteRequest{Path: \"/admin\"})",
+			"issues := host.ValidateForm(plugin.FormSubmission{ID: \"purchase-order\"})",
+		}
 	default:
 		bullets = append([]string{
 			"Each catalog example is a focused Go js/wasm package that mounts a single component tree into #app with ui.Render(ui.CreateElement(...), \"#app\").",

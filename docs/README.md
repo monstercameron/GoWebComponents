@@ -85,8 +85,17 @@ Current project direction for compiler-assisted features, including the decision
 ### `ONBOARDING.md`
 Current intended onboarding, prerequisites, choose-your-path, starter-upgrade, and inner-loop workflow guidance for new adopters.
 
+### `ADOPTION.md`
+Minimum 1.0-style ecosystem baseline, including the required answers for starter path, testing, SSR, state, routing, and deployment guidance.
+
+### `COMPARISONS.md`
+Framework comparison guidance describing where GoWebComponents is intentionally different from React, Vue, Svelte, Solid, Blazor, and Qwik, plus current maturity gaps.
+
 ### `API_POLICY.md`
 Stability tiers, semver rules, deprecation lifecycle, migration requirements, and latest-major support expectations.
+
+### `ECOSYSTEM.md`
+Current project stance on plugins, directives, companion packages, and when a shared extension lifecycle would be justified.
 
 ### `MIGRATIONS.md`
 Release-to-release upgrade guidance, starting with the transition into the current `v3.x` public package layout.
@@ -177,7 +186,10 @@ As of 2026-03-14:
 - [BUILD_EXPERIMENTS.md](BUILD_EXPERIMENTS.md)
 - [COMPILER_ASSISTED_FEATURES.md](COMPILER_ASSISTED_FEATURES.md)
 - [ONBOARDING.md](ONBOARDING.md)
+- [ADOPTION.md](ADOPTION.md)
+- [COMPARISONS.md](COMPARISONS.md)
 - [API_POLICY.md](API_POLICY.md)
+- [ECOSYSTEM.md](ECOSYSTEM.md)
 - [ACCESSIBILITY.md](ACCESSIBILITY.md)
 - [OVERLAYS.md](OVERLAYS.md)
 - [I18N.md](I18N.md)

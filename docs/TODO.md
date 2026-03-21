@@ -1420,31 +1420,31 @@ Organization rules for this file:
 
 ### Ecosystem and plugin story
 
-- [ ] Decide whether the framework needs a plugin or directive model.
-	Determine whether extensibility belongs in core or whether companion packages alone are sufficient.
-- [ ] Define extension boundaries before adding ad hoc framework utilities.
-	Avoid scattering experimental features across unrelated packages without a stable ownership model.
-- [ ] Identify which ecosystem problems belong in core versus companion packages.
-	Keep the base framework small while still enabling higher-level libraries.
-- [ ] Publish stability tiers for extension authors.
-	Mark APIs as stable, experimental, or internal so third-party packages know which surfaces are safe to depend on.
-- [ ] Define extension hooks for router, async data, devtools, SSR, and forms.
-	Different extension types should know whether they can influence rendering, routing, bootstrap state, validation, or diagnostics instead of all plugins sharing one vague hook surface.
-- [ ] Define a minimal plugin lifecycle.
-	Specify how an extension registers itself, receives framework hooks, contributes cleanup logic, and declares compatibility without needing privileged internal access.
-- [ ] Define compatibility and versioning policy for companion packages.
-	Third-party and first-party extensions need a documented promise around semver, experimental hooks, and deprecation timing so the ecosystem can safely grow.
-- [ ] Add companion-package candidates to the roadmap.
-	Track likely packages such as auth helpers, animation primitives, cached query state, head management, and testing utilities outside the core runtime.
-- [ ] Add a reference plugin or companion package.
-	Validate the extension model with one real integration such as head management, auth-aware routing helpers, or query-cache devtools.
+- [x] Decide whether the framework needs a plugin or directive model.
+	`docs/ECOSYSTEM.md` now makes the current stance explicit: no generic plugin registry or directive layer in core today; prefer companion packages and package-specific extension points until multiple subsystems prove the need for a shared lifecycle.
+- [x] Define extension boundaries before adding ad hoc framework utilities.
+	`docs/ECOSYSTEM.md` now defines ownership rules and a core versus package-owned versus companion-package versus application-owned matrix so new utilities must declare their home before they spread across unrelated packages.
+- [x] Identify which ecosystem problems belong in core versus companion packages.
+	`docs/ECOSYSTEM.md` now lists the default split: core keeps correctness-critical rendering, state, routing, SSR, hydration, diagnostics, and typed form primitives, while higher-level auth, head management, query orchestration, animation, asset helpers, and testing utilities default to companion packages.
+- [x] Publish stability tiers for extension authors.
+	`docs/ECOSYSTEM.md` now translates the repo-wide stability labels into extension-author guidance, including when ecosystem surfaces count as stable, supported companion, experimental, or internal.
+- [x] Define extension hooks for router, async data, devtools, SSR, and forms.
+	`docs/ECOSYSTEM.md` now defines a subsystem hook matrix that says what router, async-data, devtools, SSR, and form extensions may observe or influence, plus what remains off-limits without internal access.
+- [x] Define a minimal plugin lifecycle.
+	`docs/ECOSYSTEM.md` now defines the minimum lifecycle for companion integrations: declare compatibility, register through explicit application code, receive only documented hook inputs, return explicit outputs or cleanup, and fail predictably when requirements are missing.
+- [x] Define compatibility and versioning policy for companion packages.
+	`docs/ECOSYSTEM.md` now defines the semver baseline, dependency declaration rules, experimental-hook caveats, deprecation expectations, and third-party guidance for companion packages.
+- [x] Add companion-package candidates to the roadmap.
+	`docs/ECOSYSTEM.md` now tracks the likely first companion packages, including head management, auth helpers, query or mutation orchestration, animation and gesture helpers, asset or media helpers, and testing utilities.
+- [x] Add a reference plugin or companion package.
+	The repo now includes `head/` as a supported companion package for SSR head composition and `plugin/` plus `examples/99-plugin-host` as the experimental explicit plugin-host reference, both built on documented public APIs rather than privileged runtime internals.
 
 ### Ecosystem and adoption maturity
 
-- [ ] Define the minimum ecosystem story for 1.0-style adoption.
-	List which pieces must exist first-party or be officially recommended: starter app, testing recipe, SSR recipe, state story, routing story, and deployment guidance.
-- [ ] Add comparison docs against major frameworks.
-	Explain where GoWebComponents is intentionally different, where it is not yet feature-complete, and which gaps are actively being closed.
+- [x] Define the minimum ecosystem story for 1.0-style adoption.
+	`docs/ADOPTION.md` now defines the baseline explicitly: a 1.0-style story needs one first-party or officially recommended answer for starter path, testing, SSR and hydration, state, routing, and deployment, with the current repo mappings and the remaining starter-gap called out directly.
+- [x] Add comparison docs against major frameworks.
+	`docs/COMPARISONS.md` now compares GoWebComponents against React, Vue, Svelte, Solid, Blazor, and Qwik, separating intentional design choices from current maturity gaps and active areas of closure.
 - [ ] Publish production-readiness criteria by feature area.
 	Separate experimental SSR, hydration, compiler, and runtime experiments from stable component, router, and state features so adopters can judge risk quickly.
 - [ ] Add a real-world case study or reference application.

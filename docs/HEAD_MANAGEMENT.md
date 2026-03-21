@@ -6,7 +6,7 @@ The short version is:
 
 - route metadata is first-class only for `Title`, `Description`, and `CanonicalURL`
 - those three fields are jointly reconciled between SSR and the client router
-- broader head state such as robots tags, Open Graph, Twitter cards, JSON-LD, and resource hints is currently application-owned explicit markup
+- broader head state such as robots tags, Open Graph, Twitter cards, JSON-LD, and resource hints remains outside core router ownership, but may be composed explicitly or through the optional `head` companion package
 - there is no dedicated framework head manager yet
 
 That split is intentional. The repo now has a stable, test-covered route metadata slice, but it does not yet claim a larger dynamic head-management runtime than it actually ships.
@@ -25,9 +25,9 @@ The router owns these fields when they are supplied through `router.Options` or 
 
 This is the only framework-managed head state today.
 
-### 2. Application-owned explicit head markup
+### 2. Application-owned or companion-owned explicit head markup
 
-Everything else remains application-owned until a broader head manager exists.
+Everything else remains outside core router ownership until a broader head manager exists.
 
 That includes:
 
@@ -38,7 +38,7 @@ That includes:
 - JSON-LD and other structured-data scripts
 - verification tags, app manifests, icons, and similar integration metadata
 
-The recommended current approach is to render those tags explicitly in the server document template or outer SSR document builder, using `ui.RenderToString(...)` plus normal element construction where appropriate.
+The recommended current approach is to render those tags explicitly in the server document template or outer SSR document builder, using `ui.RenderToString(...)` plus normal element construction where appropriate. For repeated SSR head composition, the optional `head` companion package can package those explicit tags without changing router ownership rules.
 
 ## SSR Emission For Route-Driven Apps
 
@@ -71,7 +71,7 @@ headMarkup, err := ui.RenderToString(ui.Fragment(
 Current recommendation:
 
 - use `router.MetadataNode(...)` for route-managed title, description, and canonical tags
-- render robots, social tags, and resource hints explicitly in the same head markup or outer document template
+- render robots, social tags, and resource hints explicitly in the same head markup or outer document template, either directly or through the optional `head` companion package
 - avoid a client-only patch-up step for first paint on SSR routes whenever the data is already known on the server
 
 ## Hydration Reconciliation Rules
@@ -199,7 +199,7 @@ Today the project explicitly supports:
 - route-managed title, description, and canonical URL
 - SSR emission of those managed tags through `router.MetadataNode(...)`
 - hydration-safe cleanup and replacement of router-managed tags
-- explicit SSR emission of broader head tags using normal element construction or server-template markup
+- explicit SSR emission of broader head tags using normal element construction, server-template markup, or the optional `head` companion package
 
 Today the project does not yet support as a first-class managed runtime feature:
 

@@ -180,4 +180,35 @@ Related docs:
 - [HYDRATION.md](HYDRATION.md)
 - [SERVER_INTEGRATION.md](SERVER_INTEGRATION.md)
 - [HEAD_MANAGEMENT.md](HEAD_MANAGEMENT.md)
+
+## Ecosystem And Companion Packages
+
+Public API:
+
+- stable public packages are the base extension surface: `ui`, `html`, `state`, `fetch`, `router`
+- supported companion integrations may layer on documented package boundaries without requiring runtime internals
+- there is no framework-wide plugin registry or directive syntax in the current product surface
+
+Runnable examples:
+
+- [examples/66-devtools-panel](../examples/66-devtools-panel)
+- [examples/69-devtools-diagnostics](../examples/69-devtools-diagnostics)
+- [examples/73-ssr-bootstrap](../examples/73-ssr-bootstrap)
+- [examples/87-ssr-secure-forms](../examples/87-ssr-secure-forms)
+
+Production caveats:
+
+- prefer companion packages over runtime-internal hooks when adding higher-level integrations
+- avoid depending on `internal/` or undocumented runtime behavior for ecosystem packages
+- add subsystem-specific hooks only when composition on public APIs is no longer sufficient
+
+Related docs:
+
+- [ADOPTION.md](ADOPTION.md)
+- [COMPARISONS.md](COMPARISONS.md)
+- [ECOSYSTEM.md](ECOSYSTEM.md)
+- [API_POLICY.md](API_POLICY.md)
+- [FRAMEWORK_SCOPE.md](FRAMEWORK_SCOPE.md)
+- [HEAD_MANAGEMENT.md](HEAD_MANAGEMENT.md)
+- [FORMS.md](FORMS.md)
 - [WORKFLOWS.md](WORKFLOWS.md#ship-a-production-wasm-build)

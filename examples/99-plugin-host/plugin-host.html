@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plugin Host - GoWebComponents</title>
+    <link rel="stylesheet" href="../static/css/tailwind.css">
+    <link rel="stylesheet" href="../static/css/example-shell.css">
+    <script src="../static/script/wasm_exec.js"></script>
+    <script src="../static/script/example-logger.js"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+    <div id="app"></div>
+    <script>
+        const go = new Go();
+        WebAssembly.instantiateStreaming(fetch('../static/bin/99-plugin-host.wasm'), go.importObject).then((result) => {
+            go.run(result.instance);
+        });
+    </script>
+</body>
+</html>

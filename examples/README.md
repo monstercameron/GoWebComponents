@@ -134,6 +134,10 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `69-devtools-diagnostics`: devtools diagnostics payloads
 - `98-hot-reload`: `hotreload.Enable()`, `tools/dev.ps1`, and state-preserving rebuilds across edits
 
+### plugin Package
+
+- `99-plugin-host`: `plugin.Host`, `plugin.Plugin`, capability-checked registration, route and async-data hooks, SSR head contributions, and form-validation hooks
+
 ### Hot Reload Workflow
 
 For a single app surface, use the standalone dev server and enable the public `hotreload` package in that app:
