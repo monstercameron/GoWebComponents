@@ -6,6 +6,7 @@ package interop
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"syscall/js"
 	"testing"
@@ -226,6 +227,497 @@ func TestLocalStorageGetManyReturnsPresentValues(t *testing.T) {
 	if _, ok := values["missing"]; ok {
 		t.Fatalf("expected missing storage value to be omitted, got %#v", values)
 	}
+}
+
+func TestOpenPersistentStoreUsesIndexedDB(t *testing.T) {
+	restoreIndexedDB := installMockIndexedDB(t)
+	defer restoreIndexedDB()
+
+	store, err := OpenPersistentStore(context.Background(), PersistentStoreOptions{
+		Name:         "cache",
+		DatabaseName: "gwc-tests",
+		Version:      1,
+	})
+	if err != nil {
+		t.Fatalf("expected persistent store to open, got %v", err)
+	}
+	defer func() {
+		if closeErr := store.Close(); closeErr != nil {
+			t.Fatalf("expected persistent store close to succeed, got %v", closeErr)
+		}
+	}()
+
+	if store.Backend() != "indexedDB" {
+		t.Fatalf("expected indexedDB backend, got %q", store.Backend())
+	}
+	if err := store.SetItem(context.Background(), "theme", "dark"); err != nil {
+		t.Fatalf("expected persistent write to succeed, got %v", err)
+	}
+	if err := store.SetJSON(context.Background(), "profile", map[string]any{"locale": "en-US", "count": 3}); err != nil {
+		t.Fatalf("expected persistent JSON write to succeed, got %v", err)
+	}
+
+	value, ok, err := store.GetItem(context.Background(), "theme")
+	if err != nil || !ok || value != "dark" {
+		t.Fatalf("unexpected persistent read: value=%q ok=%t err=%v", value, ok, err)
+	}
+	decoded, ok, err := LoadPersistentJSON[struct {
+		Locale string `json:"locale"`
+		Count  int    `json:"count"`
+	}](context.Background(), store, "profile")
+	if err != nil || !ok {
+		t.Fatalf("expected typed persistent JSON decode, ok=%t err=%v", ok, err)
+	}
+	if decoded.Locale != "en-US" || decoded.Count != 3 {
+		t.Fatalf("unexpected decoded JSON payload: %+v", decoded)
+	}
+
+	keys, err := store.Keys(context.Background())
+	if err != nil {
+		t.Fatalf("expected persistent keys, got %v", err)
+	}
+	if len(keys) != 2 || keys[0] != "profile" || keys[1] != "theme" {
+		t.Fatalf("unexpected persistent keys: %#v", keys)
+	}
+	length, err := store.Len(context.Background())
+	if err != nil || length != 2 {
+		t.Fatalf("expected persistent len 2, got %d err=%v", length, err)
+	}
+
+	if err := store.RemoveItem(context.Background(), "theme"); err != nil {
+		t.Fatalf("expected persistent remove to succeed, got %v", err)
+	}
+	if _, ok, err := store.GetItem(context.Background(), "theme"); err != nil || ok {
+		t.Fatalf("expected removed persistent key to disappear, ok=%t err=%v", ok, err)
+	}
+	if err := store.Clear(context.Background()); err != nil {
+		t.Fatalf("expected persistent clear to succeed, got %v", err)
+	}
+	length, err = store.Len(context.Background())
+	if err != nil || length != 0 {
+		t.Fatalf("expected persistent len 0 after clear, got %d err=%v", length, err)
+	}
+}
+
+func TestOpenPersistentStoreFallsBackWhenIndexedDBUnavailable(t *testing.T) {
+	restoreIndexedDB := setGlobalValue("indexedDB", js.Undefined())
+	defer restoreIndexedDB()
+
+	storage := js.Global().Get("Object").New()
+	data := map[string]string{}
+	getItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if value, ok := data[args[0].String()]; ok {
+			return value
+		}
+		return js.Null()
+	})
+	defer getItemFn.Release()
+	setItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		data[args[0].String()] = args[1].String()
+		storage.Set("length", len(data))
+		return nil
+	})
+	defer setItemFn.Release()
+	removeItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		delete(data, args[0].String())
+		storage.Set("length", len(data))
+		return nil
+	})
+	defer removeItemFn.Release()
+	clearFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		for key := range data {
+			delete(data, key)
+		}
+		storage.Set("length", 0)
+		return nil
+	})
+	defer clearFn.Release()
+	keyFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		keys := make([]string, 0, len(data))
+		for key := range data {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		index := args[0].Int()
+		if index < 0 || index >= len(keys) {
+			return js.Null()
+		}
+		return keys[index]
+	})
+	defer keyFn.Release()
+	storage.Set("getItem", getItemFn)
+	storage.Set("setItem", setItemFn)
+	storage.Set("removeItem", removeItemFn)
+	storage.Set("clear", clearFn)
+	storage.Set("key", keyFn)
+	storage.Set("length", 0)
+
+	store, err := OpenPersistentStore(context.Background(), PersistentStoreOptions{
+		Name:            "cache",
+		FallbackBackend: "localStorage",
+		FallbackResolver: func() (Storage, error) {
+			return Storage{
+				getItem: func(key string) (string, bool, error) {
+					value := storage.Call("getItem", key)
+					if value.IsUndefined() || value.IsNull() {
+						return "", false, nil
+					}
+					return value.String(), true, nil
+				},
+				setItem: func(key string, value string) error {
+					storage.Call("setItem", key, value)
+					return nil
+				},
+				removeItem: func(key string) error {
+					storage.Call("removeItem", key)
+					return nil
+				},
+				clear: func() error {
+					storage.Call("clear")
+					return nil
+				},
+				length: func() (int, error) {
+					return storage.Get("length").Int(), nil
+				},
+				key: func(index int) (string, bool, error) {
+					value := storage.Call("key", index)
+					if value.IsNull() || value.IsUndefined() {
+						return "", false, nil
+					}
+					return value.String(), true, nil
+				},
+			}, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected fallback persistent store, got %v", err)
+	}
+	if store.Backend() != "localStorage" {
+		t.Fatalf("expected fallback backend label, got %q", store.Backend())
+	}
+	if err := store.SetItem(context.Background(), "draft", "ready"); err != nil {
+		t.Fatalf("expected fallback persistent write, got %v", err)
+	}
+	value, ok, err := store.GetItem(context.Background(), "draft")
+	if err != nil || !ok || value != "ready" {
+		t.Fatalf("unexpected fallback read: value=%q ok=%t err=%v", value, ok, err)
+	}
+}
+
+func TestOpenPersistentStoreReportsBlockedUpgrade(t *testing.T) {
+	blocked := 0
+	restoreIndexedDB := installMockIndexedDBWithOptions(t, mockIndexedDBOptions{
+		blockedOpenCounts: map[string]int{"gwc-blocked": 1},
+	})
+	defer restoreIndexedDB()
+
+	_, err := OpenPersistentStore(context.Background(), PersistentStoreOptions{
+		Name:         "cache",
+		DatabaseName: "gwc-blocked",
+		Version:      2,
+		OnBlocked: func(event PersistentStoreBlockedEvent) {
+			blocked++
+			if event.DatabaseName != "gwc-blocked" || event.StoreName != "cache" || event.RequestedVersion != 2 {
+				t.Fatalf("unexpected blocked event: %+v", event)
+			}
+		},
+	})
+	if !IsCode(err, CodeBlocked) {
+		t.Fatalf("expected blocked error, got %v", err)
+	}
+	if blocked != 1 {
+		t.Fatalf("expected blocked callback once, got %d", blocked)
+	}
+}
+
+func TestOpenPersistentStoreDeletesCorruptDatabaseAndRecovers(t *testing.T) {
+	restoreIndexedDB := installMockIndexedDBWithOptions(t, mockIndexedDBOptions{
+		openFailures: map[string][]mockIndexedDBError{
+			"gwc-recover": {{Name: "InvalidStateError", Message: "backing store is corrupted"}},
+		},
+	})
+	defer restoreIndexedDB()
+
+	store, err := OpenPersistentStore(context.Background(), PersistentStoreOptions{
+		Name:               "cache",
+		DatabaseName:       "gwc-recover",
+		DeleteOnCorruption: true,
+	})
+	if err != nil {
+		t.Fatalf("expected corruption recovery to succeed, got %v", err)
+	}
+	defer func() {
+		if closeErr := store.Close(); closeErr != nil {
+			t.Fatalf("expected close after recovery to succeed, got %v", closeErr)
+		}
+	}()
+	if err := store.SetItem(context.Background(), "theme", "dark"); err != nil {
+		t.Fatalf("expected recovered store to accept writes, got %v", err)
+	}
+}
+
+func TestPersistentStoreSetItemReportsQuotaExceeded(t *testing.T) {
+	restoreIndexedDB := installMockIndexedDBWithOptions(t, mockIndexedDBOptions{
+		putFailures: map[string][]mockIndexedDBError{
+			"gwc-quota/cache": {{Name: "QuotaExceededError", Message: "storage quota exceeded"}},
+		},
+	})
+	defer restoreIndexedDB()
+
+	store, err := OpenPersistentStore(context.Background(), PersistentStoreOptions{
+		Name:         "cache",
+		DatabaseName: "gwc-quota",
+	})
+	if err != nil {
+		t.Fatalf("expected persistent store to open, got %v", err)
+	}
+	defer func() {
+		if closeErr := store.Close(); closeErr != nil {
+			t.Fatalf("expected store close to succeed, got %v", closeErr)
+		}
+	}()
+
+	err = store.SetItem(context.Background(), "theme", "dark")
+	if !IsCode(err, CodeQuotaExceeded) {
+		t.Fatalf("expected quota exceeded error, got %v", err)
+	}
+}
+
+type mockIndexedDBError struct {
+	Name    string
+	Message string
+}
+
+type mockIndexedDBOptions struct {
+	openFailures      map[string][]mockIndexedDBError
+	putFailures       map[string][]mockIndexedDBError
+	deleteFailures    map[string][]mockIndexedDBError
+	blockedOpenCounts map[string]int
+}
+
+func installMockIndexedDB(t *testing.T) func() {
+	return installMockIndexedDBWithOptions(t, mockIndexedDBOptions{})
+}
+
+func installMockIndexedDBWithOptions(t *testing.T, options mockIndexedDBOptions) func() {
+	t.Helper()
+	global := js.Global()
+	objectCtor := global.Get("Object")
+	databaseStores := map[string]map[string]map[string]string{}
+	databaseVersions := map[string]int{}
+	var funcs []js.Func
+	releaseLater := func(fn js.Func) js.Func {
+		funcs = append(funcs, fn)
+		return fn
+	}
+	consumeFailure := func(failures map[string][]mockIndexedDBError, key string) (mockIndexedDBError, bool) {
+		entries := failures[key]
+		if len(entries) == 0 {
+			return mockIndexedDBError{}, false
+		}
+		failure := entries[0]
+		failures[key] = entries[1:]
+		return failure, true
+	}
+	schedule := func(run func()) {
+		var callback js.Func
+		callback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			callback.Release()
+			run()
+			return nil
+		})
+		global.Call("setTimeout", callback, 0)
+	}
+	newRequest := func() js.Value {
+		request := objectCtor.New()
+		request.Set("result", js.Null())
+		request.Set("error", js.Null())
+		return request
+	}
+	emitFailure := func(request js.Value, failure mockIndexedDBError) {
+		schedule(func() {
+			errValue := objectCtor.New()
+			errValue.Set("name", failure.Name)
+			errValue.Set("message", failure.Message)
+			request.Set("error", errValue)
+			handler := request.Get("onerror")
+			if handler.Type() == js.TypeFunction {
+				requestEvent := objectCtor.New()
+				requestEvent.Set("target", request)
+				handler.Invoke(requestEvent)
+			}
+		})
+	}
+	emitBlocked := func(request js.Value) {
+		schedule(func() {
+			handler := request.Get("onblocked")
+			if handler.Type() == js.TypeFunction {
+				requestEvent := objectCtor.New()
+				requestEvent.Set("target", request)
+				handler.Invoke(requestEvent)
+			}
+		})
+	}
+	emitSuccess := func(request js.Value, result any) {
+		schedule(func() {
+			request.Set("result", result)
+			handler := request.Get("onsuccess")
+			if handler.Type() == js.TypeFunction {
+				requestEvent := objectCtor.New()
+				requestEvent.Set("target", request)
+				handler.Invoke(requestEvent)
+			}
+		})
+	}
+	buildDatabase := func(databaseName string) js.Value {
+		db := objectCtor.New()
+		objectStoreNames := objectCtor.New()
+		objectStoreNames.Set("contains", releaseLater(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			_, ok := databaseStores[databaseName][args[0].String()]
+			return ok
+		})))
+		db.Set("objectStoreNames", objectStoreNames)
+		db.Set("createObjectStore", releaseLater(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			storeName := args[0].String()
+			if databaseStores[databaseName] == nil {
+				databaseStores[databaseName] = map[string]map[string]string{}
+			}
+			if databaseStores[databaseName][storeName] == nil {
+				databaseStores[databaseName][storeName] = map[string]string{}
+			}
+			return objectCtor.New()
+		})))
+		db.Set("transaction", releaseLater(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			storeName := args[0].String()
+			transaction := objectCtor.New()
+			transaction.Set("objectStore", releaseLater(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				storeName := args[0].String()
+				storeData := databaseStores[databaseName][storeName]
+				store := objectCtor.New()
+				store.Set("get", releaseLater(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+					request := newRequest()
+					key := args[0].String()
+					if value, ok := storeData[key]; ok {
+						entry := objectCtor.New()
+						entry.Set("key", key)
+						entry.Set("value", value)
+						emitSuccess(request, entry)
+					} else {
+						emitSuccess(request, js.Null())
+					}
+					return request
+				})))
+				store.Set("put", releaseLater(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+					request := newRequest()
+					entry := args[0]
+					if failure, ok := consumeFailure(options.putFailures, databaseName+"/"+storeName); ok {
+						emitFailure(request, failure)
+						return request
+					}
+					storeData[entry.Get("key").String()] = entry.Get("value").String()
+					emitSuccess(request, entry.Get("key"))
+					return request
+				})))
+				store.Set("delete", releaseLater(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+					request := newRequest()
+					delete(storeData, args[0].String())
+					emitSuccess(request, js.Undefined())
+					return request
+				})))
+				store.Set("clear", releaseLater(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+					request := newRequest()
+					for key := range storeData {
+						delete(storeData, key)
+					}
+					emitSuccess(request, js.Undefined())
+					return request
+				})))
+				store.Set("count", releaseLater(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+					request := newRequest()
+					emitSuccess(request, len(storeData))
+					return request
+				})))
+				store.Set("getAllKeys", releaseLater(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+					request := newRequest()
+					keys := make([]string, 0, len(storeData))
+					for key := range storeData {
+						keys = append(keys, key)
+					}
+					sort.Strings(keys)
+					emitSuccess(request, js.ValueOf(keys))
+					return request
+				})))
+				return store
+			})))
+			_ = storeName
+			return transaction
+		})))
+		db.Set("close", releaseLater(js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })))
+		return db
+	}
+	indexedDB := objectCtor.New()
+	indexedDB.Set("open", releaseLater(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		request := newRequest()
+		databaseName := args[0].String()
+		version := 1
+		if len(args) > 1 && args[1].Type() != js.TypeUndefined {
+			version = args[1].Int()
+		}
+		if options.blockedOpenCounts[databaseName] > 0 {
+			options.blockedOpenCounts[databaseName]--
+			emitBlocked(request)
+			return request
+		}
+		if failure, ok := consumeFailure(options.openFailures, databaseName); ok {
+			emitFailure(request, failure)
+			return request
+		}
+		if databaseStores[databaseName] == nil {
+			databaseStores[databaseName] = map[string]map[string]string{}
+		}
+		previousVersion := databaseVersions[databaseName]
+		databaseVersions[databaseName] = version
+		db := buildDatabase(databaseName)
+		schedule(func() {
+			if previousVersion == 0 || version > previousVersion {
+				request.Set("result", db)
+				handler := request.Get("onupgradeneeded")
+				if handler.Type() == js.TypeFunction {
+					requestEvent := objectCtor.New()
+					requestEvent.Set("target", request)
+					handler.Invoke(requestEvent)
+				}
+			}
+			request.Set("result", db)
+			handler := request.Get("onsuccess")
+			if handler.Type() == js.TypeFunction {
+				requestEvent := objectCtor.New()
+				requestEvent.Set("target", request)
+				handler.Invoke(requestEvent)
+			}
+		})
+		return request
+	})))
+	indexedDB.Set("deleteDatabase", releaseLater(js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		request := newRequest()
+		databaseName := args[0].String()
+		if failure, ok := consumeFailure(options.deleteFailures, databaseName); ok {
+			emitFailure(request, failure)
+			return request
+		}
+		delete(databaseStores, databaseName)
+		delete(databaseVersions, databaseName)
+		emitSuccess(request, js.Undefined())
+		return request
+	})))
+	restore := setGlobalValue("indexedDB", indexedDB)
+	t.Cleanup(func() {
+		restore()
+		for _, fn := range funcs {
+			fn.Release()
+		}
+	})
+	return restore
 }
 
 func TestWindowHistoryPushStateRoundTripsDecodedState(t *testing.T) {

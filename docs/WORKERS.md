@@ -9,7 +9,8 @@ Use it when an app has browser-only CPU-heavy work that should move off the main
 The first-party worker surface is currently limited to dedicated browser `Worker` instances.
 
 - supported: dedicated Web Workers created through `interop.NewWorker(...)`
-- not yet supported as first-class APIs: `SharedWorker`, `ServiceWorker`, background sync, or cross-tab coordination
+- service workers now have a first-class companion surface in `pwa.RegisterServiceWorker(...)` for explicit registration and update-lifecycle coordination
+- not yet supported as first-class APIs in `interop`: `SharedWorker`, background sync, or service-worker-owned cross-tab coordination
 - intended package: `interop`, because workers are browser runtime interop rather than a replacement for normal Go goroutines
 
 Normal Go goroutines still remain the right tool for in-process concurrency inside the wasm runtime. Reach for workers only when the browser thread itself would otherwise be blocked by parsing, indexing, formatting, or other CPU-heavy work.

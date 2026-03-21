@@ -18,6 +18,13 @@ func SessionStorage() (Storage, error) {
 	return Storage{}, unavailable("Storage", "sessionStorage")
 }
 
+func OpenPersistentStore(ctx context.Context, options PersistentStoreOptions) (PersistentStore, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return PersistentStore{}, unavailable("OpenPersistentStore", options.Name)
+}
+
 func WindowLocation() (Location, error) {
 	return Location{}, unavailable("Location", "window.location")
 }

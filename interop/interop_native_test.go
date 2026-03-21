@@ -16,6 +16,10 @@ func TestNativeInteropConstructorsReportUnavailable(t *testing.T) {
 	}{
 		{name: "LocalStorage", err: func() error { _, err := LocalStorage(); return err }()},
 		{name: "SessionStorage", err: func() error { _, err := SessionStorage(); return err }()},
+		{name: "OpenPersistentStore", err: func() error {
+			_, err := OpenPersistentStore(context.TODO(), PersistentStoreOptions{Name: "cache"})
+			return err
+		}()},
 		{name: "WindowLocation", err: func() error { _, err := WindowLocation(); return err }()},
 		{name: "WindowHistory", err: func() error { _, err := WindowHistory(); return err }()},
 		{name: "NavigatorClipboard", err: func() error { _, err := NavigatorClipboard(); return err }()},

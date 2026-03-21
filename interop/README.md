@@ -5,6 +5,7 @@ The `interop` package is the public browser and module bridge for GoWebComponent
 ## Current Surface
 
 - `LocalStorage()` and `SessionStorage()` for typed storage access
+- `OpenPersistentStore(...)` for IndexedDB-first durable key/value persistence with explicit fallback storage
 - `storage.GetMany(...)` for grouped storage lookups
 - `WindowLocation()` and `WindowHistory()` for browser URL and history state work
 - `NavigatorClipboard()` for promise-backed clipboard reads and writes

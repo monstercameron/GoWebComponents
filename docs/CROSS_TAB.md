@@ -34,6 +34,7 @@ The current first-party scope is intentionally narrow:
 - logout or session-expiry notifications
 - cache invalidation signals
 - draft-state or preference updates
+- single-owner offline replay coordination built on app-owned messages and leadership policy
 
 The current scope does not yet include:
 
@@ -152,6 +153,7 @@ This remains an application merge decision; the framework transport simply prese
 - choose stable channel names with one concern per channel
 - use `SubscribeDecodedCrossTab[T](...)` instead of hand-parsing untyped maps in app code
 - use invalidation messages for caches and richer revisioned payloads for drafts or form-like state
+- when coordinating offline replay, elect one replay owner per queue or trust boundary and have non-owner tabs observe results plus invalidate affected cache keys instead of replaying the same mutation stream twice
 
 ## Diagnostics And Example
 

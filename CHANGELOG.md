@@ -2,6 +2,16 @@
 
 ## 2026-03-21
 
+### PWA helpers and durable offline persistence
+
+- Added a new public `pwa` companion package with explicit web-app manifest helpers, installability observation, service-worker registration and update-lifecycle helpers, wasm-release-manifest-driven asset planning, Cache Storage coordination, and structured diagnostics so PWA behavior stays app-owned instead of hidden in the core rendering runtime.
+- Added a first-class IndexedDB-first durable persistence seam through `interop.OpenPersistentStore(...)`, including typed JSON helpers, blocked-upgrade and quota-aware interop error codes, opt-in corruption recovery, and focused native and `js/wasm` coverage for IndexedDB and fallback-storage behavior.
+- Extended `fetch` with opt-in durable shared-cache persistence through `CacheOptions.Persist` and `fetch.ConfigurePersistentCache(...)`, and moved the offline mutation queue onto the same IndexedDB-first persistence boundary while preserving explicit fallback storage control.
+- Extended `state` with `SavePersistentSnapshot(...)`, `LoadPersistentSnapshot(...)`, and `RestorePersistentSnapshot(...)` so atom snapshots can survive reloads through the same durable browser-storage boundary used by cache and queue helpers.
+- Added runnable PWA examples for installability and offline cache or replay behavior, plus focused Playwright coverage for installability state, service-worker update flow, offline shell warmup, stale cache cleanup, queued write replay, offline navigation fallback, and cross-tab coordination.
+- Extended the offline PWA slice with app-owned Background Sync registration through `pwa.ServiceWorkerRegistration.RegisterSync(...)`, conflict-aware offline replay via `fetch.ReplayWithOptions(...)` plus `fetch.NewMutationConflict(...)`, and example coverage for graceful Background Sync fallback plus conflict requeue resolution.
+- Expanded the platform docs around PWA scope, Cache Storage policy, offline mutation retention, cross-tab replay ownership, release-manifest reuse, security posture, manual testing, and backlog status so the new offline behavior is documented as an explicit public contract.
+
 ### Unified test runner and harness stabilization
 
 - Added a canonical repo-root `npm test` entrypoint that runs the main native Go suite, the `js/wasm` Go lane, the nested `tools/livereload` Go tests, the primary Playwright workspace under `test/`, and the aggregated Playwright suites under `examples/` from one orchestrated runner.

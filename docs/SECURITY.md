@@ -128,6 +128,14 @@ Recommended deployment posture:
 - apply explicit retention and deletion policy to browser-visible logs, bootstrap payloads, and stored offline data when the application domain requires it
 - review CDN, reverse-proxy, and browser-storage behavior for regulated workloads so public caches and local persistence do not outlive their intended policy window
 
+For durable offline browser data specifically:
+
+- classify each store as reconstructible cache, recoverable draft, or sensitive authoritative record before persisting it
+- require logout and user-switch flows to purge any persisted data that could leak across principals on the same device
+- put explicit retention windows on dead-letter queues, cached route data, and persisted snapshots instead of relying on browser eviction as the only cleanup mechanism
+- prefer application-owned encryption, minimization, or opt-out policy when regulated data must survive offline
+- treat cleartext browser persistence as device-local exposure, even when transport and server storage are otherwise locked down
+
 The framework can document these constraints, but application operators still own the actual control implementation.
 
 ## Compliance-Oriented Posture

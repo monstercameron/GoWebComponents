@@ -109,6 +109,12 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `97-multi-client-presence`: `interop.PublishClientHello`, `interop.PublishClientQuery`, `interop.PublishClientResult`, `interop.SubscribeClientMessages`, and `interop.SubscribeClientWindowMessages` for late join discovery and targeted popup replies
 - `97-multi-client-binary`: `interop.PublishClientBinaryCrossTab`, `interop.PublishClientBinaryWindow`, JSON control-plane handshake, binary preview payloads on supported transports, and JSON fallback when cross-tab transport cannot carry bytes
 
+### pwa Package
+
+- `97-pwa-installability`: `pwa.ObserveInstallability`, `pwa.RegisterServiceWorker`, manifest validation, and install-prompt diagnostics
+- `97-pwa-offline-cache`: `pwa.BuildCacheStoragePlan`, `pwa.OpenCacheStorageManager`, `pwa.InspectDiagnostics`, `pwa.ServiceWorkerRegistration.RegisterSync`, and conflict-aware offline mutation replay inspection
+- `97-pwa-multi-client`: `pwa.RegisterServiceWorker`, `pwa.BuildCacheStoragePlan`, `pwa.InspectDiagnostics`, `interop.OpenCrossTabChannel`, and typed multi-client hello or sync or invalidation messaging across wasm tabs
+
 ### router Package
 
 - `55-hash-router`: `router.NewHashRouter`, `Register`, `Mount`

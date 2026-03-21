@@ -185,6 +185,12 @@ Standalone Atlas SSR URLs:
 - `97-multi-client-presence`: Open the page in two tabs, then open the popup from either tab. Expected: each tab publishes `hello`, a late join publishes `query(topic="clients")`, peers answer with targeted `result` messages, disconnected tabs age into expired leases until they reconnect, and the popup exchanges targeted `hello`, `query`, `result`, and `goodbye` traffic with its opener without falling back to broadcast semantics.
 - `97-multi-client-binary`: Open the page in two tabs and press `Broadcast preview`. Expected: BroadcastChannel-capable browsers deliver a binary preview to the second tab, storage-event fallback browsers send JSON metadata instead, and opening the popup then sending a preview delivers binary bytes to the popup with a JSON acknowledgement returned to the opener.
 
+### pwa Package
+
+- `97-pwa-installability`: Load the example, refresh installability, and try `Prompt install`. Expected: manifest validity, prompt availability, install reasons, and service-worker lifecycle stay visible in-page; if the browser refuses the prompt, the page reports a structured unavailable message instead of a silent failure.
+- `97-pwa-offline-cache`: Warm the offline cache, queue an offline write, queue a conflicting write, replay with conflict policy, then schedule background replay and inspect diagnostics. Expected: the cache report names the warmed release namespace, the conflict path re-queues one rebased write instead of silently retrying forever, Background Sync either registers or reports a manual-replay fallback explicitly, and the diagnostics panel shows cache counts plus Background Sync capability instead of raw console-only state.
+- `97-pwa-multi-client`: Open the page in two tabs, click `Announce peer` in each, then broadcast a sync event and cache invalidation from one tab while warming the offline shell and inspecting diagnostics in the other. Expected: each tab sees typed peer traffic from the other wasm client, the cache warmup reports cached shell entries, and the diagnostics panel keeps manifest or service-worker state inspectable instead of hiding PWA coordination in console logs.
+
 ### router Package
 
 - `55-hash-router`: Navigate through the hash-based routes using links and browser history. Expected: the hash changes and the rendered view follows the route.

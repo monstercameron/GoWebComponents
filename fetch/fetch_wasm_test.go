@@ -5,8 +5,10 @@ package fetch
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"math"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"syscall/js"
@@ -28,8 +30,10 @@ func installFetchHookContext(t *testing.T) {
 	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}})
 	runtime.SetCurrentFiber(&runtime.Fiber{})
 	resetCachedResourcesForTest()
+	ConfigurePersistentCache(PersistentCacheOptions{})
 	t.Cleanup(func() {
 		resetCachedResourcesForTest()
+		ConfigurePersistentCache(PersistentCacheOptions{})
 		runtime.SetCurrentFiber(nil)
 	})
 }
@@ -508,6 +512,172 @@ func TestInspectCachedResourcesReportsKeyPolicyAndSubscribers(t *testing.T) {
 	}
 	if entry.SubscriberCount != 1 {
 		t.Fatalf("expected one active subscriber, got %+v", entry)
+	}
+}
+
+func TestLoadCachedPersistsAndRestoresFromDurableStore(t *testing.T) {
+	installFetchHookContext(t)
+	storage := installMockPersistentLocalStorage(t)
+	restoreIndexedDB := setGlobalJSValue("indexedDB", js.Undefined())
+	defer restoreIndexedDB()
+
+	var loads int32
+	value, err := LoadCached(context.Background(), "persisted-users", func(ctx context.Context) (string, error) {
+		atomic.AddInt32(&loads, 1)
+		return "from-network", nil
+	}, CacheOptions{Persist: true, StaleAfter: time.Hour})
+	if err != nil {
+		t.Fatalf("expected persisted cached load to succeed, got %v", err)
+	}
+	if value != "from-network" {
+		t.Fatalf("expected network value, got %q", value)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if stored, ok := storage["persisted-users"]; ok && stored != "" {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	resetCachedResourcesForTest()
+	var restoreLoads int32
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	resource := UseCachedResource("persisted-users", func(ctx context.Context) (string, error) {
+		atomic.AddInt32(&restoreLoads, 1)
+		return "unexpected", nil
+	}, CacheOptions{Persist: true, StaleAfter: time.Hour})
+
+	deadline = time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		state := resource.Get()
+		if state.Ready {
+			if state.Value != "from-network" || state.Stale || state.Error != nil {
+				t.Fatalf("expected durable cache restore, got %+v", state)
+			}
+			if atomic.LoadInt32(&restoreLoads) != 0 {
+				t.Fatalf("expected durable restore to avoid cold load, got %d loads", atomic.LoadInt32(&restoreLoads))
+			}
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatalf("timed out waiting for durable cache restore: %+v", resource.Get())
+}
+
+func TestDisposeResourceRemovesDurableCachedValue(t *testing.T) {
+	installFetchHookContext(t)
+	storage := installMockPersistentLocalStorage(t)
+	restoreIndexedDB := setGlobalJSValue("indexedDB", js.Undefined())
+	defer restoreIndexedDB()
+
+	runtime.SetCurrentFiber(&runtime.Fiber{})
+	resource := UseCachedResource("persisted-dispose", func(ctx context.Context) (string, error) {
+		return "fresh", nil
+	}, CacheOptions{Persist: true, StaleAfter: time.Hour})
+	resource.Set("cached")
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, ok := storage["persisted-dispose"]; ok {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	resource.Dispose()
+	deadline = time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, ok := storage["persisted-dispose"]; !ok {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("expected persistent cache entry to be removed on dispose")
+}
+
+func installMockPersistentLocalStorage(t *testing.T) map[string]string {
+	t.Helper()
+	data := map[string]string{}
+	storage := js.Global().Get("Object").New()
+	getItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if value, ok := data[args[0].String()]; ok {
+			return value
+		}
+		return js.Null()
+	})
+	setItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		data[args[0].String()] = args[1].String()
+		storage.Set("length", len(data))
+		return nil
+	})
+	removeItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		delete(data, args[0].String())
+		storage.Set("length", len(data))
+		return nil
+	})
+	clearFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		for key := range data {
+			delete(data, key)
+		}
+		storage.Set("length", 0)
+		return nil
+	})
+	keyFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		index := args[0].Int()
+		keys := make([]string, 0, len(data))
+		for key := range data {
+			keys = append(keys, key)
+		}
+		if index < 0 || index >= len(keys) {
+			return js.Null()
+		}
+		return keys[index]
+	})
+	storage.Set("getItem", getItemFn)
+	storage.Set("setItem", setItemFn)
+	storage.Set("removeItem", removeItemFn)
+	storage.Set("clear", clearFn)
+	storage.Set("key", keyFn)
+	storage.Set("length", 0)
+	restore := setGlobalJSValue("localStorage", storage)
+	t.Cleanup(func() {
+		restore()
+		getItemFn.Release()
+		setItemFn.Release()
+		removeItemFn.Release()
+		clearFn.Release()
+		keyFn.Release()
+	})
+	return data
+}
+
+func TestPersistedCachedValueRoundTripsJSONEnvelope(t *testing.T) {
+	record := persistedCachedResource{}
+	encoded, err := json.Marshal(persistedCachedResource{
+		Value:      json.RawMessage(`{"name":"Ada"}`),
+		UpdatedAt:  time.Date(2026, time.March, 21, 10, 0, 0, 0, time.UTC),
+		LastLoaded: time.Date(2026, time.March, 21, 10, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("expected record marshal to succeed, got %v", err)
+	}
+	if err := json.Unmarshal(encoded, &record); err != nil {
+		t.Fatalf("expected record unmarshal to succeed, got %v", err)
+	}
+	value, err := decodePersistedCachedValue(record.Value, reflect.TypeOf(struct {
+		Name string `json:"name"`
+	}{}))
+	if err != nil {
+		t.Fatalf("expected persisted value decode, got %v", err)
+	}
+	decoded := value.(struct {
+		Name string `json:"name"`
+	})
+	if decoded.Name != "Ada" {
+		t.Fatalf("unexpected persisted decoded value: %+v", decoded)
 	}
 }
 

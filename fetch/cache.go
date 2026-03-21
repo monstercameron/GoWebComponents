@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/state"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
@@ -33,6 +34,15 @@ type CacheOptions struct {
 	StaleAfter   time.Duration
 	MaxAge       time.Duration
 	DisposeAfter time.Duration
+	Persist      bool
+}
+
+type PersistentCacheOptions struct {
+	DatabaseName     string
+	StoreName        string
+	FallbackResolver func() (interop.Storage, error)
+	FallbackBackend  string
+	StoreResolver    func(context.Context) (interop.PersistentStore, error)
 }
 
 // CachedResourceState describes the current state of a shared cached resource.
@@ -105,9 +115,26 @@ type cachedResourceEntry struct {
 	subscribers  int
 	bootstrapped bool
 	resumePolicy CacheResumePolicy
+	persist      bool
+	restored     bool
+	restore      *cachedResourceWaiters
+}
+
+type persistedCachedResource struct {
+	Value      json.RawMessage `json:"value,omitempty"`
+	UpdatedAt  time.Time       `json:"updatedAt,omitempty"`
+	LastLoaded time.Time       `json:"lastLoaded,omitempty"`
 }
 
 var cachedResourceRegistry sync.Map
+
+var persistentCacheState = struct {
+	mu      sync.Mutex
+	options PersistentCacheOptions
+	opened  bool
+	store   interop.PersistentStore
+	err     error
+}{}
 
 type cachedResourceWaiters struct {
 	ch   chan struct{}
@@ -204,6 +231,7 @@ func UseCachedResource[T any](key string, loader func(context.Context) (T, error
 				return prev
 			})
 			markCachedEntryFresh(key)
+			persistCachedSnapshot(key)
 		},
 	}
 }
@@ -294,8 +322,10 @@ func DisposeResource(key string) {
 		entry.mu.Lock()
 		cancel := entry.cancel
 		done := entry.done
+		restore := entry.restore
 		entry.cancel = nil
 		entry.done = nil
+		entry.restore = nil
 		entry.pending = false
 		entry.invalidated = false
 		entry.lastLoaded = time.Time{}
@@ -303,14 +333,17 @@ func DisposeResource(key string) {
 		entry.subscribers = 0
 		entry.bootstrapped = false
 		entry.resumePolicy = CacheResumeTrustOnce
+		entry.restored = false
 		entry.mu.Unlock()
 		if cancel != nil {
 			cancel()
 		}
 		done.Close()
+		restore.Close()
 	}
 
 	clearCachedSnapshot(key)
+	deletePersistentCachedSnapshot(key)
 }
 
 // InspectCachedResources returns a stable snapshot of shared cache state for diagnostics and devtools.
@@ -414,6 +447,9 @@ func LoadCached[T any](ctx context.Context, key string, loader func(context.Cont
 		needsLoad := shouldLoadCachedEntry(snapshot, entry)
 		if !needsLoad {
 			waiters := entry.done
+			if waiters == nil {
+				waiters = entry.restore
+			}
 			entry.mu.Unlock()
 			if snapshot.Ready {
 				value, _ := castCachedValue[T](snapshot.Value)
@@ -555,6 +591,9 @@ func configureCachedResourceEntry[T any](key string, entry *cachedResourceEntry,
 	if options.DisposeAfter > 0 {
 		entry.disposeAfter = options.DisposeAfter
 	}
+	if options.Persist {
+		entry.persist = true
+	}
 }
 
 func cachedResourceAtomID(key string) string {
@@ -612,6 +651,7 @@ func setCachedValue[T any](key string, value T) {
 		return prev
 	})
 	markCachedEntryFresh(key)
+	persistCachedSnapshot(key)
 }
 
 func markCachedEntryFresh(key string) {
@@ -626,6 +666,20 @@ func markCachedEntryFresh(key string) {
 	entry.lastLoaded = time.Now()
 	entry.lastAccess = entry.lastLoaded
 	entry.mu.Unlock()
+}
+
+func ConfigurePersistentCache(options PersistentCacheOptions) {
+	persistentCacheState.mu.Lock()
+	store := persistentCacheState.store
+	opened := persistentCacheState.opened
+	persistentCacheState.options = options
+	persistentCacheState.store = interop.PersistentStore{}
+	persistentCacheState.err = nil
+	persistentCacheState.opened = false
+	persistentCacheState.mu.Unlock()
+	if opened {
+		_ = store.Close()
+	}
 }
 
 func startCachedLoad(key string, entry *cachedResourceEntry, loader func(context.Context) (interface{}, error), force bool, parent context.Context) (*cachedResourceWaiters, bool) {
@@ -720,12 +774,16 @@ func startCachedLoad(key string, entry *cachedResourceEntry, loader func(context
 			prev.Stale = false
 			return prev
 		})
+		persistCachedSnapshot(key)
 	}(seq, ctx, waiters)
 	return waiters, true
 }
 
 func shouldLoadCachedEntry(snapshot cachedResourceSnapshot, entry *cachedResourceEntry) bool {
 	if entry.pending {
+		return false
+	}
+	if entry.restore != nil {
 		return false
 	}
 	if entry.bootstrapped && entry.resumePolicy == CacheResumeAlwaysRefetch {
@@ -833,6 +891,9 @@ func prepareCachedResourceEntry(key string, entry *cachedResourceEntry) {
 	now := time.Now()
 	expireSnapshot := false
 	disposeEntry := false
+	persistSnapshot := false
+	startRestore := false
+	snapshot := currentCachedSnapshot(key)
 
 	entry.mu.Lock()
 	if !entry.pending && entry.maxAge > 0 && !entry.lastLoaded.IsZero() && now.Sub(entry.lastLoaded) >= entry.maxAge {
@@ -843,6 +904,15 @@ func prepareCachedResourceEntry(key string, entry *cachedResourceEntry) {
 	if !entry.pending && entry.disposeAfter > 0 && !entry.lastAccess.IsZero() && now.Sub(entry.lastAccess) >= entry.disposeAfter {
 		disposeEntry = true
 	}
+	if entry.persist && !entry.restored && entry.restore == nil {
+		if snapshot.Ready {
+			entry.restored = true
+			persistSnapshot = true
+		} else {
+			entry.restore = newCachedResourceWaiters()
+			startRestore = true
+		}
+	}
 	entry.lastAccess = now
 	entry.mu.Unlock()
 
@@ -852,6 +922,13 @@ func prepareCachedResourceEntry(key string, entry *cachedResourceEntry) {
 	}
 	if expireSnapshot {
 		clearCachedSnapshot(key)
+		deletePersistentCachedSnapshot(key)
+	}
+	if startRestore {
+		startPersistentCachedRestore(key, entry)
+	}
+	if persistSnapshot {
+		persistCachedSnapshot(key)
 	}
 }
 
@@ -869,26 +946,30 @@ func resetCachedResourceEntry(key string, entry *cachedResourceEntry) {
 	entry.mu.Lock()
 	cancel := entry.cancel
 	done := entry.done
+	restore := entry.restore
 	entry.cancel = nil
 	entry.done = nil
+	entry.restore = nil
 	entry.pending = false
 	entry.invalidated = false
 	entry.lastLoaded = time.Time{}
 	entry.lastAccess = time.Now()
 	entry.bootstrapped = false
+	entry.restored = false
 	entry.mu.Unlock()
 
 	if cancel != nil {
 		cancel()
 	}
 	done.Close()
+	restore.Close()
 	clearCachedSnapshot(key)
 }
 
 func shouldDisposeCachedEntry(now time.Time, entry *cachedResourceEntry) bool {
 	entry.mu.Lock()
 	defer entry.mu.Unlock()
-	if entry.pending {
+	if entry.pending || entry.restore != nil {
 		return false
 	}
 	if entry.disposeAfter > 0 && !entry.lastAccess.IsZero() && now.Sub(entry.lastAccess) >= entry.disposeAfter {
@@ -920,4 +1001,240 @@ func castCachedValue[T any](value interface{}) (T, bool) {
 
 	var zero T
 	return zero, false
+}
+
+func openPersistentCacheStore(ctx context.Context) (interop.PersistentStore, error) {
+	persistentCacheState.mu.Lock()
+	if persistentCacheState.opened {
+		store := persistentCacheState.store
+		err := persistentCacheState.err
+		persistentCacheState.mu.Unlock()
+		return store, err
+	}
+	options := persistentCacheState.options
+	persistentCacheState.mu.Unlock()
+
+	resolver := options.StoreResolver
+	if resolver == nil {
+		storeName := strings.TrimSpace(options.StoreName)
+		if storeName == "" {
+			storeName = "fetch-cache"
+		}
+		fallbackResolver := options.FallbackResolver
+		if fallbackResolver == nil {
+			fallbackResolver = interop.LocalStorage
+		}
+		fallbackBackend := strings.TrimSpace(options.FallbackBackend)
+		if fallbackBackend == "" {
+			fallbackBackend = "localStorage"
+		}
+		resolver = func(ctx context.Context) (interop.PersistentStore, error) {
+			return interop.OpenPersistentStore(ctx, interop.PersistentStoreOptions{
+				Name:               storeName,
+				DatabaseName:       options.DatabaseName,
+				DeleteOnCorruption: true,
+				FallbackResolver:   fallbackResolver,
+				FallbackBackend:    fallbackBackend,
+			})
+		}
+	}
+	store, err := resolver(ctx)
+
+	persistentCacheState.mu.Lock()
+	if persistentCacheState.opened {
+		existing := persistentCacheState.store
+		existingErr := persistentCacheState.err
+		persistentCacheState.mu.Unlock()
+		if err == nil {
+			_ = store.Close()
+		}
+		return existing, existingErr
+	}
+	persistentCacheState.store = store
+	persistentCacheState.err = err
+	persistentCacheState.opened = true
+	persistentCacheState.mu.Unlock()
+	return store, err
+}
+
+func startPersistentCachedRestore(key string, entry *cachedResourceEntry) {
+	if key == "" || entry == nil {
+		return
+	}
+	entry.mu.Lock()
+	waiters := entry.restore
+	valueType := entry.valueType
+	entry.mu.Unlock()
+	if waiters == nil || valueType == nil {
+		return
+	}
+
+	go func(done *cachedResourceWaiters, desiredType reflect.Type) {
+		defer done.Close()
+		store, err := openPersistentCacheStore(context.Background())
+		if err == nil {
+			var record persistedCachedResource
+			ok, decodeErr := store.DecodeJSON(context.Background(), key, &record)
+			if decodeErr != nil {
+				err = decodeErr
+			} else if ok && len(record.Value) > 0 {
+				now := time.Now()
+				if persistedEntryExpired(now, entry, record) {
+					deletePersistentCachedSnapshot(key)
+				} else {
+					value, valueErr := decodePersistedCachedValue(record.Value, desiredType)
+					if valueErr != nil {
+						err = valueErr
+					} else {
+						updateCachedSnapshot(key, func(prev cachedResourceSnapshot) cachedResourceSnapshot {
+							return cachedResourceSnapshot{
+								Value:     value,
+								Loading:   false,
+								Error:     nil,
+								Ready:     true,
+								Stale:     persistedEntryShouldStartStale(now, entry, record),
+								UpdatedAt: record.UpdatedAt,
+							}
+						})
+						entry.mu.Lock()
+						entry.lastLoaded = record.LastLoaded
+						if entry.lastLoaded.IsZero() {
+							entry.lastLoaded = record.UpdatedAt
+						}
+						entry.lastAccess = time.Now()
+						entry.mu.Unlock()
+					}
+				}
+			}
+		}
+
+		entry.mu.Lock()
+		if entry.restore == done {
+			entry.restore = nil
+		}
+		entry.restored = true
+		entry.mu.Unlock()
+
+		if err != nil {
+			runtime.ReportLogWithFields("fetch", runtime.LogWarn, runtime.DiagnosticRecovered, "persistent cache restore failed", "", map[string]string{
+				"key":     key,
+				"message": err.Error(),
+			})
+		}
+	}(waiters, valueType)
+}
+
+func persistCachedSnapshot(key string) {
+	if key == "" {
+		return
+	}
+	raw, ok := cachedResourceRegistry.Load(key)
+	if !ok {
+		return
+	}
+	entry := raw.(*cachedResourceEntry)
+	entry.mu.Lock()
+	persist := entry.persist
+	lastLoaded := entry.lastLoaded
+	entry.mu.Unlock()
+	if !persist {
+		return
+	}
+	snapshot := currentCachedSnapshot(key)
+	if !snapshot.Ready || snapshot.Error != nil {
+		return
+	}
+	encoded, err := json.Marshal(snapshot.Value)
+	if err != nil {
+		runtime.ReportLogWithFields("fetch", runtime.LogWarn, runtime.DiagnosticRecovered, "persistent cache encode failed", "", map[string]string{
+			"key":     key,
+			"message": err.Error(),
+		})
+		return
+	}
+	record := persistedCachedResource{Value: encoded, UpdatedAt: snapshot.UpdatedAt, LastLoaded: lastLoaded}
+	go func() {
+		store, storeErr := openPersistentCacheStore(context.Background())
+		if storeErr != nil {
+			runtime.ReportLogWithFields("fetch", runtime.LogWarn, runtime.DiagnosticRecovered, "persistent cache write failed", "", map[string]string{
+				"key":     key,
+				"message": storeErr.Error(),
+			})
+			return
+		}
+		if writeErr := store.SetJSON(context.Background(), key, record); writeErr != nil {
+			runtime.ReportLogWithFields("fetch", runtime.LogWarn, runtime.DiagnosticRecovered, "persistent cache write failed", "", map[string]string{
+				"key":     key,
+				"message": writeErr.Error(),
+			})
+		}
+	}()
+}
+
+func deletePersistentCachedSnapshot(key string) {
+	if key == "" {
+		return
+	}
+	go func() {
+		store, err := openPersistentCacheStore(context.Background())
+		if err != nil {
+			return
+		}
+		_ = store.RemoveItem(context.Background(), key)
+	}()
+}
+
+func decodePersistedCachedValue(raw json.RawMessage, desiredType reflect.Type) (interface{}, error) {
+	if desiredType == nil {
+		var value interface{}
+		if err := json.Unmarshal(raw, &value); err != nil {
+			return nil, err
+		}
+		return value, nil
+	}
+	valuePtr := reflect.New(desiredType)
+	if err := json.Unmarshal(raw, valuePtr.Interface()); err != nil {
+		return nil, err
+	}
+	return valuePtr.Elem().Interface(), nil
+}
+
+func persistedEntryShouldStartStale(now time.Time, entry *cachedResourceEntry, item persistedCachedResource) bool {
+	if entry == nil {
+		return false
+	}
+	entry.mu.Lock()
+	staleAfter := entry.staleAfter
+	entry.mu.Unlock()
+	if staleAfter <= 0 {
+		return false
+	}
+	reference := item.LastLoaded
+	if reference.IsZero() {
+		reference = item.UpdatedAt
+	}
+	if reference.IsZero() {
+		return true
+	}
+	return now.Sub(reference) >= staleAfter
+}
+
+func persistedEntryExpired(now time.Time, entry *cachedResourceEntry, item persistedCachedResource) bool {
+	if entry == nil {
+		return false
+	}
+	entry.mu.Lock()
+	maxAge := entry.maxAge
+	entry.mu.Unlock()
+	if maxAge <= 0 {
+		return false
+	}
+	reference := item.LastLoaded
+	if reference.IsZero() {
+		reference = item.UpdatedAt
+	}
+	if reference.IsZero() {
+		return false
+	}
+	return now.Sub(reference) >= maxAge
 }

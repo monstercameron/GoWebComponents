@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -11,6 +12,7 @@ import (
 	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/interop"
 )
 
 // Element aliases the runtime element type for state package examples and helpers.
@@ -45,12 +47,23 @@ type Snapshot map[string]interface{}
 // StorageArea names a browser storage backend.
 type StorageArea string
 
+type PersistentSnapshotOptions struct {
+	DatabaseName       string
+	StoreName          string
+	DeleteOnCorruption bool
+	FallbackResolver   func() (interop.Storage, error)
+	FallbackBackend    string
+	StoreResolver      func(context.Context) (interop.PersistentStore, error)
+}
+
 const (
 	// LocalStorage stores snapshots in window.localStorage.
 	LocalStorage StorageArea = "localStorage"
 	// SessionStorage stores snapshots in window.sessionStorage.
 	SessionStorage StorageArea = "sessionStorage"
 )
+
+const defaultPersistentSnapshotStoreName = "state-snapshots"
 
 // UseAtom provides shared global atoms with subscription-scoped rerenders.
 // Atoms are accessible from anywhere in the component tree by ID and
@@ -409,6 +422,88 @@ func RestoreSnapshot(key string, area StorageArea) (bool, error) {
 		return ok, err
 	}
 	return true, ImportSnapshot(snapshot)
+}
+
+// SavePersistentSnapshot stores a JSON-encoded snapshot in IndexedDB-first durable browser storage.
+func SavePersistentSnapshot(ctx context.Context, key string, snapshot Snapshot, options ...PersistentSnapshotOptions) error {
+	store, err := openPersistentSnapshotStore(ctx, options)
+	if err != nil {
+		return err
+	}
+	data, err := MarshalSnapshotJSON(snapshot)
+	if err != nil {
+		return err
+	}
+	return store.SetItem(resolvePersistentSnapshotContext(ctx), key, string(data))
+}
+
+// LoadPersistentSnapshot reads and decodes a snapshot from IndexedDB-first durable browser storage.
+func LoadPersistentSnapshot(ctx context.Context, key string, options ...PersistentSnapshotOptions) (Snapshot, bool, error) {
+	store, err := openPersistentSnapshotStore(ctx, options)
+	if err != nil {
+		return nil, false, err
+	}
+	value, ok, err := store.GetItem(resolvePersistentSnapshotContext(ctx), key)
+	if err != nil || !ok {
+		return nil, ok, err
+	}
+	snapshot, err := UnmarshalSnapshotJSON([]byte(value))
+	if err != nil {
+		return nil, false, err
+	}
+	return snapshot, true, nil
+}
+
+// RestorePersistentSnapshot loads a durable snapshot and imports it into the current runtime.
+func RestorePersistentSnapshot(ctx context.Context, key string, options ...PersistentSnapshotOptions) (bool, error) {
+	snapshot, ok, err := LoadPersistentSnapshot(ctx, key, options...)
+	if err != nil || !ok {
+		return ok, err
+	}
+	return true, ImportSnapshot(snapshot)
+}
+
+func openPersistentSnapshotStore(ctx context.Context, options []PersistentSnapshotOptions) (interop.PersistentStore, error) {
+	resolved := resolvePersistentSnapshotOptions(options)
+	resolver := resolved.StoreResolver
+	if resolver == nil {
+		fallbackResolver := resolved.FallbackResolver
+		if fallbackResolver == nil {
+			fallbackResolver = interop.LocalStorage
+		}
+		fallbackBackend := strings.TrimSpace(resolved.FallbackBackend)
+		if fallbackBackend == "" {
+			fallbackBackend = "localStorage"
+		}
+		storeName := strings.TrimSpace(resolved.StoreName)
+		if storeName == "" {
+			storeName = defaultPersistentSnapshotStoreName
+		}
+		resolver = func(ctx context.Context) (interop.PersistentStore, error) {
+			return interop.OpenPersistentStore(ctx, interop.PersistentStoreOptions{
+				Name:               storeName,
+				DatabaseName:       resolved.DatabaseName,
+				DeleteOnCorruption: resolved.DeleteOnCorruption,
+				FallbackResolver:   fallbackResolver,
+				FallbackBackend:    fallbackBackend,
+			})
+		}
+	}
+	return resolver(resolvePersistentSnapshotContext(ctx))
+}
+
+func resolvePersistentSnapshotOptions(options []PersistentSnapshotOptions) PersistentSnapshotOptions {
+	if len(options) == 0 {
+		return PersistentSnapshotOptions{}
+	}
+	return options[0]
+}
+
+func resolvePersistentSnapshotContext(ctx context.Context) context.Context {
+	if ctx != nil {
+		return ctx
+	}
+	return context.Background()
 }
 
 func getStorage(area StorageArea) js.Value {

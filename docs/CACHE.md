@@ -10,7 +10,8 @@ The public shared-cache surface today is:
 
 - `fetch.UseCachedResource[T](key, loader, options...)`
 - `fetch.LoadCached[T](ctx, key, loader, options...)`
-- `fetch.CacheOptions{StaleAfter: ..., MaxAge: ..., DisposeAfter: ...}`
+- `fetch.CacheOptions{StaleAfter: ..., MaxAge: ..., DisposeAfter: ..., Persist: ...}`
+- `fetch.ConfigurePersistentCache(fetch.PersistentCacheOptions{...})`
 - `fetch.RestoreCacheBootstrap(ui.SSRBootstrap)`
 - `fetch.InspectCachedResources()`
 - `CachedResource.Get()`
@@ -33,6 +34,7 @@ Current shipped behavior already includes:
 - in-flight request deduplication for the same key
 - hard expiry through `MaxAge`
 - idle disposal through `DisposeAfter`
+- opt-in durable restore and write-through persistence through `CacheOptions.Persist`
 - explicit disposal through `Dispose()` or `DisposeResource(...)`
 - SSR bootstrap seeding through `ui.SSRBootstrap.Data["fetchCache"]` plus `fetch.RestoreCacheBootstrap(...)`
 - cache inspection for devtools and diagnostics through `fetch.InspectCachedResources()`
@@ -65,6 +67,7 @@ Current shipped freshness and lifecycle policy is:
 - `CacheOptions.StaleAfter`
 - `CacheOptions.MaxAge`
 - `CacheOptions.DisposeAfter`
+- `CacheOptions.Persist`
 
 Current behavior:
 
@@ -73,6 +76,7 @@ Current behavior:
 - stale ready data remains visible during background reload
 - when `MaxAge` expires, the ready snapshot is cleared and the next reader reloads cold
 - when `DisposeAfter` expires, `SweepCachedResources()` or the next access clears the entry
+- when `Persist` is enabled, ready values are written through to durable browser storage and a later session restores that same key before a cold load begins
 - applications may explicitly clear one entry with `DisposeResource(key)` or `resource.Dispose()`
 
 Still open work:
@@ -81,6 +85,37 @@ Still open work:
 - automatic background sweep scheduling for long-lived apps
 
 Today, lifecycle cleanup is explicit and deterministic rather than hidden behind an always-on eviction loop.
+
+## Durable Persistence
+
+Shared cached resources may now persist across reloads on an opt-in basis.
+
+Current shipped model:
+
+- add `Persist: true` to `CacheOptions` when a key should survive reloads
+- persisted values restore before the first cold load for that key
+- IndexedDB is the first durable backend through `interop.OpenPersistentStore(...)`
+- the default fallback backend is `localStorage` when IndexedDB is unavailable
+- `DisposeResource(key)` removes both the in-memory entry and the durable stored value
+- `MaxAge` remains a hard expiry boundary for persisted entries as well as in-memory entries
+
+Global configuration is available through:
+
+```go
+fetch.ConfigurePersistentCache(fetch.PersistentCacheOptions{
+  DatabaseName: "atlas-cache",
+  StoreName:    "shared-fetch",
+})
+```
+
+Recommended rules:
+
+- enable persistence only for keys whose payloads are intentionally JSON-shaped and reasonably small
+- prefer one durable key per normalized cache identity instead of ad hoc mixed payload buckets
+- use `MaxAge` when persisted results must not survive indefinitely across sessions
+- use explicit disposal on logout or trust-boundary changes when cached data should be purged immediately
+- treat durable read-cache entries as reconstructible copies, not as the only source of truth; if a logout, user switch, or privilege narrowing event occurs, purge them immediately instead of trying to salvage stale visibility
+- keep secrets, raw authorization context, and server-only policy results out of persisted cache payloads even when the same data is already cached in memory transiently
 
 ## Request Deduplication
 
@@ -218,3 +253,4 @@ The devtools panel now surfaces:
 - reuse the same normalized key from route loaders and component readers when the payload shape truly matches
 - call `DisposeResource` or `SweepCachedResources` in long-lived surfaces that need deterministic cleanup
 - when SSR is already producing first-route data, seed the same normalized cache key into `ui.SSRBootstrap.Data["fetchCache"]` and restore it before hydration
+- enable `Persist` only for keys whose durable replay across reloads is desirable and safe

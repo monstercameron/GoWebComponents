@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"syscall/js"
 	"testing"
@@ -20,6 +21,15 @@ func (noOpScheduler) SetTimeout(callback func(), delay int) {}
 
 type queuedScheduler struct {
 	timeouts []func()
+}
+
+func setGlobalValue(name string, value interface{}) func() {
+	global := js.Global()
+	prev := global.Get(name)
+	global.Set(name, value)
+	return func() {
+		global.Set(name, prev)
+	}
 }
 
 func (s *queuedScheduler) RequestIdleCallback(callback func(runtime.Deadline)) {}
@@ -405,6 +415,40 @@ func TestSnapshotJSONStorageRoundTrip(t *testing.T) {
 	value, _ := runtime.GetGlobalRuntime().GetAtomValue("persist-user")
 	if value != "alice" {
 		t.Fatalf("expected restored user atom, got %#v", value)
+	}
+}
+
+func TestPersistentSnapshotRoundTrip(t *testing.T) {
+	installMockStorage(t)
+	restoreIndexedDB := setGlobalValue("indexedDB", js.Undefined())
+	defer restoreIndexedDB()
+	runtime.InitGlobalRuntime(runtime.Config{Scheduler: noOpScheduler{}})
+
+	snapshot := Snapshot{
+		"persist-user":  "atlas",
+		"persist-ready": true,
+	}
+	if err := SavePersistentSnapshot(context.Background(), "app-state-persistent", snapshot); err != nil {
+		t.Fatalf("unexpected persistent save error: %v", err)
+	}
+
+	loaded, ok, err := LoadPersistentSnapshot(context.Background(), "app-state-persistent")
+	if err != nil {
+		t.Fatalf("unexpected persistent load error: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected persistent snapshot to be present")
+	}
+	if loaded["persist-user"] != "atlas" || loaded["persist-ready"] != true {
+		t.Fatalf("unexpected persistent loaded snapshot: %#v", loaded)
+	}
+
+	if restored, err := RestorePersistentSnapshot(context.Background(), "app-state-persistent"); err != nil || !restored {
+		t.Fatalf("expected persistent restore to succeed, restored=%t err=%v", restored, err)
+	}
+	value, _ := runtime.GetGlobalRuntime().GetAtomValue("persist-user")
+	if value != "atlas" {
+		t.Fatalf("expected persistent restored user atom, got %#v", value)
 	}
 }
 

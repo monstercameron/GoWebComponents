@@ -6,6 +6,7 @@ package fetch
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -16,6 +17,7 @@ import (
 )
 
 const defaultMutationQueueStorageKey = "__gwc_mutation_queue__"
+const defaultMutationQueueStoreName = "mutation-queue"
 
 type MutationState string
 
@@ -58,12 +60,105 @@ type QueuedMutation struct {
 
 // MutationQueueOptions configures persistent queue behavior.
 type MutationQueueOptions struct {
-	StorageKey      string
-	MaxAttempts     int
-	BaseDelay       time.Duration
-	MaxDelay        time.Duration
-	StorageResolver func() (interop.Storage, error)
-	Now             func() time.Time
+	StorageKey         string
+	MaxAttempts        int
+	BaseDelay          time.Duration
+	MaxDelay           time.Duration
+	DeleteOnCorruption bool
+	StoreResolver      func(context.Context) (interop.PersistentStore, error)
+	StorageResolver    func() (interop.Storage, error)
+	Now                func() time.Time
+}
+
+type MutationConflict struct {
+	Code          string            `json:"code,omitempty"`
+	Message       string            `json:"message,omitempty"`
+	LocalVersion  string            `json:"localVersion,omitempty"`
+	RemoteVersion string            `json:"remoteVersion,omitempty"`
+	Fields        map[string]string `json:"fields,omitempty"`
+}
+
+type MutationConflictError struct {
+	Conflict MutationConflict
+	Err      error
+}
+
+func (e *MutationConflictError) Error() string {
+	if e == nil {
+		return "mutation conflict"
+	}
+	parts := []string{"mutation conflict"}
+	if message := strings.TrimSpace(e.Conflict.Message); message != "" {
+		parts = append(parts, message)
+	}
+	if e.Err != nil {
+		parts = append(parts, e.Err.Error())
+	}
+	return strings.Join(parts, ": ")
+}
+
+func (e *MutationConflictError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
+func NewMutationConflict(err error, conflict MutationConflict) error {
+	conflict.Code = strings.TrimSpace(conflict.Code)
+	conflict.Message = strings.TrimSpace(conflict.Message)
+	conflict.LocalVersion = strings.TrimSpace(conflict.LocalVersion)
+	conflict.RemoteVersion = strings.TrimSpace(conflict.RemoteVersion)
+	conflict.Fields = cloneStringMap(conflict.Fields)
+	if err == nil {
+		err = errors.New("mutation conflict")
+	}
+	return &MutationConflictError{Conflict: conflict, Err: err}
+}
+
+// IsMutationConflict reports whether err unwraps to a MutationConflictError.
+func IsMutationConflict(err error) bool {
+	_, ok := AsMutationConflictError(err)
+	return ok
+}
+
+// AsMutationConflictError unwraps err into the structured MutationConflictError form.
+func AsMutationConflictError(err error) (*MutationConflictError, bool) {
+	var conflictErr *MutationConflictError
+	if !errors.As(err, &conflictErr) {
+		return nil, false
+	}
+	return conflictErr, true
+}
+
+// MutationConflictOf returns the structured conflict details carried by err.
+func MutationConflictOf(err error) (MutationConflict, bool) {
+	conflictErr, ok := AsMutationConflictError(err)
+	if !ok || conflictErr == nil {
+		return MutationConflict{}, false
+	}
+	return conflictErr.Conflict, true
+}
+
+type MutationResolutionAction string
+
+const (
+	MutationResolutionRetry   MutationResolutionAction = "retry"
+	MutationResolutionDead    MutationResolutionAction = "dead"
+	MutationResolutionRemove  MutationResolutionAction = "remove"
+	MutationResolutionReplace MutationResolutionAction = "replace"
+)
+
+type MutationConflictResolution struct {
+	Action  MutationResolutionAction
+	Draft   MutationDraft
+	Message string
+}
+
+type MutationConflictHandler func(context.Context, QueuedMutation, MutationConflict) (MutationConflictResolution, error)
+
+type MutationReplayOptions struct {
+	ConflictHandler MutationConflictHandler
 }
 
 // MutationReplayReport summarizes one replay pass across queued entries.
@@ -72,6 +167,8 @@ type MutationReplayReport struct {
 	Deferred    int
 	Retried     int
 	DeadLetters int
+	Conflicts   int
+	Resolved    int
 	Remaining   int
 }
 
@@ -81,7 +178,7 @@ type MutationExecutor func(context.Context, QueuedMutation) error
 // MutationQueue persists writes locally and replays them later through an app-owned executor.
 type MutationQueue struct {
 	storageKey  string
-	storage     interop.Storage
+	store       interop.PersistentStore
 	maxAttempts int
 	baseDelay   time.Duration
 	maxDelay    time.Duration
@@ -92,18 +189,29 @@ type MutationQueue struct {
 func OpenMutationQueue(options ...MutationQueueOptions) (MutationQueue, error) {
 	cfg := resolveMutationQueueOptions(options)
 
-	resolver := cfg.StorageResolver
+	resolver := cfg.StoreResolver
 	if resolver == nil {
-		resolver = interop.LocalStorage
+		fallbackResolver := cfg.StorageResolver
+		if fallbackResolver == nil {
+			fallbackResolver = interop.LocalStorage
+		}
+		resolver = func(ctx context.Context) (interop.PersistentStore, error) {
+			return interop.OpenPersistentStore(ctx, interop.PersistentStoreOptions{
+				Name:               defaultMutationQueueStoreName,
+				DeleteOnCorruption: cfg.DeleteOnCorruption,
+				FallbackResolver:   fallbackResolver,
+				FallbackBackend:    "localStorage",
+			})
+		}
 	}
-	storage, err := resolver()
+	store, err := resolver(context.Background())
 	if err != nil {
 		return MutationQueue{}, err
 	}
 
 	return MutationQueue{
 		storageKey:  cfg.StorageKey,
-		storage:     storage,
+		store:       store,
 		maxAttempts: cfg.MaxAttempts,
 		baseDelay:   cfg.BaseDelay,
 		maxDelay:    cfg.MaxDelay,
@@ -195,13 +303,22 @@ func (q MutationQueue) Remove(id string) error {
 
 // Clear removes every persisted queue entry.
 func (q MutationQueue) Clear() error {
-	return q.storage.RemoveItem(q.storageKey)
+	return q.store.RemoveItem(context.Background(), q.storageKey)
 }
 
 // Replay replays due entries through the provided executor and persists the updated queue state.
 func (q MutationQueue) Replay(ctx context.Context, executor MutationExecutor) (MutationReplayReport, error) {
+	return q.ReplayWithOptions(ctx, executor)
+}
+
+// ReplayWithOptions replays due entries and applies optional conflict-resolution policy.
+func (q MutationQueue) ReplayWithOptions(ctx context.Context, executor MutationExecutor, options ...MutationReplayOptions) (MutationReplayReport, error) {
 	if executor == nil {
 		return MutationReplayReport{}, fmt.Errorf("fetch mutation queue requires an executor")
+	}
+	replayOptions := MutationReplayOptions{}
+	if len(options) > 0 {
+		replayOptions = options[0]
 	}
 
 	entries, err := q.load()
@@ -238,6 +355,26 @@ func (q MutationQueue) Replay(ctx context.Context, executor MutationExecutor) (M
 		}
 
 		if err := executor(ctx, entry); err != nil {
+			if conflictErr, ok := AsMutationConflictError(err); ok {
+				report.Conflicts++
+				resolved, handled, resolveErr := q.handleConflict(ctx, entry, conflictErr, replayOptions.ConflictHandler, now)
+				if resolveErr != nil {
+					return report, resolveErr
+				}
+				if handled {
+					switch resolved.State {
+					case MutationDead:
+						report.DeadLetters++
+						remaining = append(remaining, resolved)
+					case MutationQueued, MutationRetrying:
+						report.Resolved++
+						remaining = append(remaining, resolved)
+					default:
+						report.Resolved++
+					}
+					continue
+				}
+			}
 			entry.Attempts++
 			entry.UpdatedAt = now
 			entry.LastError = err.Error()
@@ -283,8 +420,74 @@ func (q MutationQueue) Replay(ctx context.Context, executor MutationExecutor) (M
 	return report, nil
 }
 
+func (q MutationQueue) handleConflict(ctx context.Context, entry QueuedMutation, conflictErr *MutationConflictError, handler MutationConflictHandler, now time.Time) (QueuedMutation, bool, error) {
+	if handler == nil {
+		entry.Attempts++
+		entry.State = MutationDead
+		entry.UpdatedAt = now
+		entry.NextAttemptAt = time.Time{}
+		entry.LastError = conflictErr.Error()
+		runtime.ReportLogWithFields("fetch", runtime.LogError, runtime.DiagnosticCorrectness, "mutation replay requires conflict resolution", "", map[string]string{
+			"id":             entry.ID,
+			"kind":           entry.Kind,
+			"url":            entry.URL,
+			"conflict_code":  conflictErr.Conflict.Code,
+			"local_version":  conflictErr.Conflict.LocalVersion,
+			"remote_version": conflictErr.Conflict.RemoteVersion,
+		})
+		return entry, true, nil
+	}
+	resolution, err := handler(ctx, entry, conflictErr.Conflict)
+	if err != nil {
+		return QueuedMutation{}, false, err
+	}
+	message := strings.TrimSpace(resolution.Message)
+	if message == "" {
+		message = conflictErr.Error()
+	}
+	switch resolution.Action {
+	case MutationResolutionRemove:
+		runtime.ReportLogWithFields("fetch", runtime.LogInfo, runtime.DiagnosticRecovered, "mutation conflict resolved by removal", "", map[string]string{
+			"id":   entry.ID,
+			"kind": entry.Kind,
+			"url":  entry.URL,
+		})
+		return QueuedMutation{}, true, nil
+	case MutationResolutionReplace:
+		resolved := mergeResolvedMutation(entry, resolution.Draft, now, message)
+		runtime.ReportLogWithFields("fetch", runtime.LogInfo, runtime.DiagnosticRecovered, "mutation conflict resolved by requeue", "", map[string]string{
+			"id":             resolved.ID,
+			"kind":           resolved.Kind,
+			"url":            resolved.URL,
+			"conflict_code":  conflictErr.Conflict.Code,
+			"local_version":  conflictErr.Conflict.LocalVersion,
+			"remote_version": conflictErr.Conflict.RemoteVersion,
+		})
+		return resolved, true, nil
+	case MutationResolutionDead:
+		entry.Attempts++
+		entry.State = MutationDead
+		entry.UpdatedAt = now
+		entry.NextAttemptAt = time.Time{}
+		entry.LastError = message
+		runtime.ReportLogWithFields("fetch", runtime.LogError, runtime.DiagnosticCorrectness, "mutation conflict moved to dead-letter state", "", map[string]string{
+			"id":             entry.ID,
+			"kind":           entry.Kind,
+			"url":            entry.URL,
+			"conflict_code":  conflictErr.Conflict.Code,
+			"local_version":  conflictErr.Conflict.LocalVersion,
+			"remote_version": conflictErr.Conflict.RemoteVersion,
+		})
+		return entry, true, nil
+	case MutationResolutionRetry, "":
+		return QueuedMutation{}, false, nil
+	default:
+		return QueuedMutation{}, false, fmt.Errorf("unsupported mutation conflict resolution action %q", resolution.Action)
+	}
+}
+
 func (q MutationQueue) load() ([]QueuedMutation, error) {
-	value, ok, err := q.storage.GetItem(q.storageKey)
+	value, ok, err := q.store.GetItem(context.Background(), q.storageKey)
 	if err != nil {
 		return nil, err
 	}
@@ -315,13 +518,13 @@ func (q MutationQueue) load() ([]QueuedMutation, error) {
 
 func (q MutationQueue) save(entries []QueuedMutation) error {
 	if len(entries) == 0 {
-		return q.storage.RemoveItem(q.storageKey)
+		return q.store.RemoveItem(context.Background(), q.storageKey)
 	}
 	data, err := json.Marshal(entries)
 	if err != nil {
 		return err
 	}
-	return q.storage.SetItem(q.storageKey, string(data))
+	return q.store.SetItem(context.Background(), q.storageKey, string(data))
 }
 
 func (q MutationQueue) currentTime() time.Time {
@@ -379,6 +582,9 @@ func resolveMutationQueueOptions(options []MutationQueueOptions) MutationQueueOp
 	if overrides.StorageResolver != nil {
 		cfg.StorageResolver = overrides.StorageResolver
 	}
+	if overrides.StoreResolver != nil {
+		cfg.StoreResolver = overrides.StoreResolver
+	}
 	if overrides.Now != nil {
 		cfg.Now = overrides.Now
 	}
@@ -402,4 +608,38 @@ func cloneStringMap(input map[string]string) map[string]string {
 		clone[key] = value
 	}
 	return clone
+}
+
+func mergeResolvedMutation(existing QueuedMutation, draft MutationDraft, now time.Time, message string) QueuedMutation {
+	resolved := existing
+	if id := strings.TrimSpace(draft.ID); id != "" {
+		resolved.ID = id
+	}
+	if kind := strings.TrimSpace(draft.Kind); kind != "" {
+		resolved.Kind = kind
+	}
+	if dedupKey := strings.TrimSpace(draft.DedupKey); dedupKey != "" {
+		resolved.DedupKey = dedupKey
+	}
+	if method := strings.ToUpper(strings.TrimSpace(draft.Method)); method != "" {
+		resolved.Method = method
+	}
+	if url := strings.TrimSpace(draft.URL); url != "" {
+		resolved.URL = url
+	}
+	if draft.Headers != nil {
+		resolved.Headers = cloneStringMap(draft.Headers)
+	}
+	if draft.Body != nil {
+		resolved.Body = draft.Body
+	}
+	if draft.Metadata != nil {
+		resolved.Metadata = cloneStringMap(draft.Metadata)
+	}
+	resolved.State = MutationQueued
+	resolved.Attempts = 0
+	resolved.NextAttemptAt = time.Time{}
+	resolved.LastError = message
+	resolved.UpdatedAt = now
+	return resolved
 }

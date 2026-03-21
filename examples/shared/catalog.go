@@ -125,6 +125,11 @@ func overviewCopy(title, feature string) (string, []string) {
 			"These tools are for understanding app behavior, not for driving user-facing product features directly.",
 			"The examples focus on what diagnostic surface the tool exposes and when that surface is valuable during debugging.",
 		}
+	case strings.HasPrefix(subject, "pwa."):
+		return "Use " + subject + " when installability, service-worker lifecycle, Cache Storage, or offline diagnostics should stay explicit in application code instead of hiding behind runtime side effects.", []string{
+			"These examples focus on reviewable ownership: manifest, service worker, cache warming, and diagnostics are surfaced as deliberate app choices.",
+			"Choose the pwa package when you want first-class offline and installability helpers without giving up control of deployment policy.",
+		}
 	case strings.HasPrefix(subject, "plugin."):
 		return "Use " + subject + " when an application or companion package needs explicit manifest-based extension points without reaching into framework internals.", []string{
 			"This family is about controlled integration boundaries: capabilities, registration, cleanup, and hook contribution should stay visible in normal application code.",
@@ -180,6 +185,11 @@ func functionalCopy(title, feature string) []string {
 		bullets = append(bullets,
 			"Use the example to compare visible app behavior with the diagnostic surface so you can tell what the tool adds during debugging.",
 			"The value here is observability: choose these APIs when understanding runtime behavior is the primary goal.",
+		)
+	case strings.HasPrefix(subject, "pwa."):
+		bullets = append(bullets,
+			"Use the controls to separate installability, service-worker registration, cache warming, and diagnostics inspection into explicit operations the app owns directly.",
+			"Choose these helpers when offline support matters, but correctness still depends on visible cache policy and update behavior rather than framework magic.",
 		)
 	case strings.HasPrefix(subject, "plugin."):
 		bullets = append(bullets,
@@ -312,6 +322,18 @@ func implementationCopy(title, feature string) (string, []string, []string) {
 			"Panel refresh cadence matters: shorter intervals give fresher diagnostics but increase snapshot work and browser churn. Tune polling to the debugging task instead of always sampling aggressively.",
 			"Watch out for noisy demo logic that makes it harder to see what the devtools API is actually adding beyond normal UI state changes.",
 		}, bullets...)
+	case strings.HasPrefix(subject, "pwa."):
+		lead = "These PWA examples keep installability, service-worker lifecycle, Cache Storage, and structured diagnostics under explicit app control so offline behavior remains reviewable rather than implicit."
+		bullets = append([]string{
+			"Prefer versioned cache plans and typed diagnostics over console-only debugging. The point is to inspect what was cached, queued, or registered in a form that can graduate into real support tooling.",
+			"Keep the manifest, service-worker URL, and cache namespace obvious in code. PWA bugs are operational bugs as much as UI bugs, so hidden defaults are expensive to debug later.",
+			"Treat offline writes and cached shells differently. Read caches are reconstructible, while queued writes and retained snapshots need explicit product policy and purge behavior.",
+		}, bullets...)
+		code = []string{
+			"manager, _ := pwa.OpenCacheStorageManager()",
+			"registration, _ := pwa.RegisterServiceWorker(ctx, pwa.ServiceWorkerOptions{URL: \"/sw.js\", Scope: \"/app/\"})",
+			"snapshot, _ := pwa.InspectDiagnostics(ctx, pwa.DiagnosticsOptions{...})",
+		}
 	case strings.HasPrefix(subject, "plugin."):
 		lead = "These plugin examples create one explicit host, register manifests in order, and let companion code contribute only the hooks the host enables for that application surface."
 		bullets = append([]string{

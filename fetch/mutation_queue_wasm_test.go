@@ -71,7 +71,9 @@ func installMockMutationQueueStorage(t *testing.T) map[string]string {
 	storage.Set("length", 0)
 
 	restoreStorage := setGlobalJSValue("localStorage", storage)
+	restoreIndexedDB := setGlobalJSValue("indexedDB", js.Undefined())
 	t.Cleanup(func() {
+		restoreIndexedDB()
 		restoreStorage()
 		getItemFn.Release()
 		setItemFn.Release()
@@ -382,5 +384,138 @@ func TestMutationQueueReplayCancellationKeepsRemainingEntries(t *testing.T) {
 	}
 	if len(entries) != 1 || entries[0].Kind != "second" {
 		t.Fatalf("expected second entry to remain queued, got %+v", entries)
+	}
+}
+
+func TestMutationQueueConflictWithoutHandlerMovesToDeadLetter(t *testing.T) {
+	installMockMutationQueueStorage(t)
+	queue, err := OpenMutationQueue(MutationQueueOptions{StorageKey: "offline-conflict-dead"})
+	if err != nil {
+		t.Fatalf("expected mutation queue to open, got %v", err)
+	}
+	if _, err := queue.Enqueue(MutationDraft{URL: "/api/orders", Kind: "order.submit"}); err != nil {
+		t.Fatalf("expected enqueue to succeed, got %v", err)
+	}
+
+	report, err := queue.Replay(context.Background(), func(ctx context.Context, mutation QueuedMutation) error {
+		return NewMutationConflict(errors.New("etag mismatch"), MutationConflict{Code: "etag_mismatch", LocalVersion: "1", RemoteVersion: "2", Message: "server revision is newer"})
+	})
+	if err != nil {
+		t.Fatalf("expected replay to persist conflict dead-letter state, got %v", err)
+	}
+	if report.Conflicts != 1 || report.DeadLetters != 1 || report.Remaining != 1 {
+		t.Fatalf("unexpected conflict report: %+v", report)
+	}
+
+	entries, err := queue.List()
+	if err != nil {
+		t.Fatalf("expected list to succeed, got %v", err)
+	}
+	if len(entries) != 1 || entries[0].State != MutationDead {
+		t.Fatalf("expected one dead-letter conflict entry, got %+v", entries)
+	}
+	if entries[0].LastError == "" || entries[0].Attempts != 1 {
+		t.Fatalf("expected conflict details to be retained, got %+v", entries[0])
+	}
+}
+
+func TestMutationConflictHelpersExposeStructuredConflict(t *testing.T) {
+	err := NewMutationConflict(errors.New("etag mismatch"), MutationConflict{
+		Code:          "etag_mismatch",
+		LocalVersion:  "1",
+		RemoteVersion: "2",
+		Message:       "server revision is newer",
+	})
+
+	if !IsMutationConflict(err) {
+		t.Fatal("expected IsMutationConflict to recognize wrapped conflict errors")
+	}
+	if IsMutationConflict(errors.New("plain error")) {
+		t.Fatal("expected IsMutationConflict to reject non-conflict errors")
+	}
+
+	conflictErr, ok := AsMutationConflictError(err)
+	if !ok || conflictErr == nil {
+		t.Fatal("expected AsMutationConflictError to unwrap the structured conflict")
+	}
+	if conflictErr.Conflict.Code != "etag_mismatch" {
+		t.Fatalf("expected conflict code to round-trip, got %+v", conflictErr.Conflict)
+	}
+
+	conflict, ok := MutationConflictOf(err)
+	if !ok {
+		t.Fatal("expected MutationConflictOf to expose conflict details")
+	}
+	if conflict.LocalVersion != "1" || conflict.RemoteVersion != "2" || conflict.Message != "server revision is newer" {
+		t.Fatalf("unexpected conflict details: %+v", conflict)
+	}
+
+	if _, ok := MutationConflictOf(errors.New("plain error")); ok {
+		t.Fatal("expected MutationConflictOf to reject non-conflict errors")
+	}
+}
+
+func TestMutationQueueConflictHandlerCanRequeueResolvedMutation(t *testing.T) {
+	installMockMutationQueueStorage(t)
+	current := time.Date(2026, time.March, 18, 12, 0, 0, 0, time.UTC)
+	queue, err := OpenMutationQueue(MutationQueueOptions{
+		StorageKey: "offline-conflict-resolve",
+		Now:        func() time.Time { return current },
+	})
+	if err != nil {
+		t.Fatalf("expected mutation queue to open, got %v", err)
+	}
+	if _, err := queue.Enqueue(MutationDraft{URL: "/api/orders", Kind: "order.submit", Metadata: map[string]string{"revision": "1"}}); err != nil {
+		t.Fatalf("expected enqueue to succeed, got %v", err)
+	}
+
+	report, err := queue.ReplayWithOptions(context.Background(), func(ctx context.Context, mutation QueuedMutation) error {
+		if mutation.Metadata["resolved"] == "server-2" {
+			return nil
+		}
+		return NewMutationConflict(errors.New("etag mismatch"), MutationConflict{Code: "etag_mismatch", LocalVersion: mutation.Metadata["revision"], RemoteVersion: "2", Message: "server revision is newer"})
+	}, MutationReplayOptions{ConflictHandler: func(ctx context.Context, mutation QueuedMutation, conflict MutationConflict) (MutationConflictResolution, error) {
+		return MutationConflictResolution{
+			Action:  MutationResolutionReplace,
+			Message: "rebased onto server revision 2",
+			Draft: MutationDraft{
+				Metadata: map[string]string{"revision": conflict.RemoteVersion, "resolved": "server-2"},
+				Body:     map[string]any{"merge": "accepted"},
+			},
+		}, nil
+	}})
+	if err != nil {
+		t.Fatalf("expected conflict resolution replay to succeed, got %v", err)
+	}
+	if report.Conflicts != 1 || report.Resolved != 1 || report.Remaining != 1 {
+		t.Fatalf("unexpected conflict resolution report: %+v", report)
+	}
+
+	entries, err := queue.List()
+	if err != nil {
+		t.Fatalf("expected list to succeed, got %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected one requeued resolved entry, got %d", len(entries))
+	}
+	entry := entries[0]
+	if entry.State != MutationQueued || entry.Attempts != 0 || entry.Metadata["resolved"] != "server-2" || entry.Metadata["revision"] != "2" {
+		t.Fatalf("unexpected resolved entry: %+v", entry)
+	}
+	if entry.LastError != "rebased onto server revision 2" {
+		t.Fatalf("expected resolution note to persist, got %+v", entry)
+	}
+
+	finalReport, err := queue.Replay(context.Background(), func(ctx context.Context, mutation QueuedMutation) error {
+		if mutation.Metadata["resolved"] != "server-2" {
+			t.Fatalf("expected rebased mutation to be replayed, got %+v", mutation)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("expected resolved replay to succeed, got %v", err)
+	}
+	if finalReport.Succeeded != 1 || finalReport.Remaining != 0 {
+		t.Fatalf("unexpected final replay report: %+v", finalReport)
 	}
 }

@@ -19,6 +19,8 @@ const (
 	CodeMissingExport   ErrorCode = "missing_export"
 	CodeNotFunction     ErrorCode = "not_function"
 	CodeInvalid         ErrorCode = "invalid"
+	CodeBlocked         ErrorCode = "blocked"
+	CodeQuotaExceeded   ErrorCode = "quota_exceeded"
 	CodeUnauthorized    ErrorCode = "unauthorized"
 	CodeCancelled       ErrorCode = "cancelled"
 	CodeTimeout         ErrorCode = "timeout"
@@ -124,6 +126,10 @@ func interopActionableGuidance(code ErrorCode) (string, string) {
 	switch code {
 	case CodeInvalid:
 		return "ACTIONABLE_ERRORS.md#gwc-interop-invalid", "Validate required names, URLs, and callbacks before creating the interop binding"
+	case CodeBlocked:
+		return "ACTIONABLE_ERRORS.md#gwc-interop-persistent-store-blocked", "Close older tabs, workers, or windows that still hold the same IndexedDB database open, then retry the upgrade"
+	case CodeQuotaExceeded:
+		return "ACTIONABLE_ERRORS.md#gwc-interop-persistent-store-quota", "Purge stale durable data or reduce the payload size before retrying the write"
 	case CodeNotFunction:
 		return "ACTIONABLE_ERRORS.md#gwc-interop-not-function", "Verify the target export or property exists and is callable before invoking it"
 	case CodeUnauthorized:
@@ -219,6 +225,158 @@ func (s Storage) Key(index int) (string, bool, error) {
 		return "", false, unavailable("Storage.Key", "")
 	}
 	return s.key(index)
+}
+
+type PersistentStoreOptions struct {
+	Name               string
+	DatabaseName       string
+	Version            int
+	DeleteOnCorruption bool
+	OnBlocked          func(PersistentStoreBlockedEvent)
+	FallbackResolver   func() (Storage, error)
+	FallbackBackend    string
+}
+
+type PersistentStoreBlockedEvent struct {
+	DatabaseName     string
+	StoreName        string
+	RequestedVersion int
+}
+
+type PersistentStore struct {
+	backend    func() string
+	getItem    func(context.Context, string) (string, bool, error)
+	setItem    func(context.Context, string, string) error
+	removeItem func(context.Context, string) error
+	clear      func(context.Context) error
+	keys       func(context.Context) ([]string, error)
+	length     func(context.Context) (int, error)
+	close      func() error
+}
+
+func (s PersistentStore) Backend() string {
+	if s.backend == nil {
+		return ""
+	}
+	return s.backend()
+}
+
+func (s PersistentStore) GetItem(ctx context.Context, key string) (string, bool, error) {
+	if s.getItem == nil {
+		return "", false, unavailable("PersistentStore.GetItem", "")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return s.getItem(ctx, key)
+}
+
+func (s PersistentStore) GetMany(ctx context.Context, keys ...string) (map[string]string, error) {
+	if len(keys) == 0 {
+		return map[string]string{}, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	values := make(map[string]string, len(keys))
+	for _, key := range keys {
+		value, ok, err := s.GetItem(ctx, key)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			values[key] = value
+		}
+	}
+	return values, nil
+}
+
+func (s PersistentStore) SetItem(ctx context.Context, key string, value string) error {
+	if s.setItem == nil {
+		return unavailable("PersistentStore.SetItem", "")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return s.setItem(ctx, key, value)
+}
+
+func (s PersistentStore) SetJSON(ctx context.Context, key string, value any) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return wrapError("PersistentStore.SetJSON", key, CodeEncode, err)
+	}
+	return s.SetItem(ctx, key, string(data))
+}
+
+func (s PersistentStore) DecodeJSON(ctx context.Context, key string, target any) (bool, error) {
+	if target == nil {
+		return false, wrapError("PersistentStore.DecodeJSON", key, CodeInvalid, errors.New("target is nil"))
+	}
+	value, ok, err := s.GetItem(ctx, key)
+	if err != nil || !ok {
+		return ok, err
+	}
+	if err := json.Unmarshal([]byte(value), target); err != nil {
+		return false, wrapError("PersistentStore.DecodeJSON", key, CodeDecode, err)
+	}
+	return true, nil
+}
+
+func (s PersistentStore) RemoveItem(ctx context.Context, key string) error {
+	if s.removeItem == nil {
+		return unavailable("PersistentStore.RemoveItem", "")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return s.removeItem(ctx, key)
+}
+
+func (s PersistentStore) Clear(ctx context.Context) error {
+	if s.clear == nil {
+		return unavailable("PersistentStore.Clear", "")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return s.clear(ctx)
+}
+
+func (s PersistentStore) Keys(ctx context.Context) ([]string, error) {
+	if s.keys == nil {
+		return nil, unavailable("PersistentStore.Keys", "")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return s.keys(ctx)
+}
+
+func (s PersistentStore) Len(ctx context.Context) (int, error) {
+	if s.length == nil {
+		return 0, unavailable("PersistentStore.Len", "")
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return s.length(ctx)
+}
+
+func (s PersistentStore) Close() error {
+	if s.close == nil {
+		return nil
+	}
+	return s.close()
+}
+
+func LoadPersistentJSON[T any](ctx context.Context, store PersistentStore, key string) (T, bool, error) {
+	var value T
+	ok, err := store.DecodeJSON(ctx, key, &value)
+	if err != nil || !ok {
+		return value, ok, err
+	}
+	return value, true, nil
 }
 
 type Location struct {

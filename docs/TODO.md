@@ -793,10 +793,10 @@ Organization rules for this file:
 	Queued mutations now support `DedupKey` suppression, exponential backoff through `BaseDelay` and `MaxDelay`, deferred replay until `NextAttemptAt`, and terminal `dead` state after `MaxAttempts`, all covered by wasm tests.
 - [x] Define queue serialization and security boundaries.
 	`docs/OFFLINE_MUTATIONS.md` now defines the JSON-shaped storage contract, warns against persisting secrets or browser-native handles, and recommends metadata version hints for queued payloads that must survive app upgrades.
-- [ ] Integrate offline mutation replay with service workers and background sync where available.
-	Document or provide a first-party pattern for using Background Sync or equivalent service-worker coordination when the platform supports it, with graceful fallback when it does not.
-- [ ] Add examples for offline write replay.
-	Demonstrate a draft save, queued form submission, or cache-backed mutation flow that survives offline periods and reconciles cleanly after connectivity returns.
+- [x] Integrate offline mutation replay with service workers and background sync where available.
+	`pwa.ServiceWorkerRegistration.RegisterSync(...)` now exposes app-owned Background Sync registration, and `97-pwa-offline-cache` demonstrates explicit scheduling with manual replay fallback when the browser does not expose one-shot Background Sync.
+ - [x] Add examples for offline write replay.
+	The examples catalog now includes `97-pwa-offline-cache`, which demonstrates a durable queued write, explicit replay, offline fallback behavior, and focused browser coverage for the replay path.
 
 ### Cross-tab state and cache synchronization
 
@@ -1218,18 +1218,46 @@ Organization rules for this file:
 
 - [x] Define the framework's PWA support boundary.
 	`docs/PWA.md` now defines the intended PWA boundary as documented integration points for manifests, service workers, offline caching, and mutation replay rather than a hidden core-runtime feature.
-- [ ] Add web app manifest generation or templating helpers.
-	Support app name, icons, theme colors, display mode, start URL, and installability metadata without forcing every app to hand-roll the same manifest pipeline.
+- [x] Add web app manifest generation or templating helpers.
+	The new `pwa` package now provides `pwa.Manifest`, related icon and shortcut structs, validation, and JSON marshalling helpers so apps can generate installability metadata without hand-rolling manifest payloads.
 - [x] Add a service-worker integration story.
 	`docs/PWA.md` now defines the intended application-owned service-worker registration, precache, scope, and asset-versioning story without overclaiming a shipped service-worker runtime.
 - [x] Define offline caching strategies for app shells and route data.
 	`docs/PWA.md` now defines the intended separation between shell caching, immutable asset caching, route-data caching, and queued mutation replay.
 - [x] Add update and invalidation semantics for offline assets.
 	`docs/PWA.md` now defines versioned cache invalidation, manifest-aligned asset updates, and safe refresh expectations for new wasm or JS asset graphs.
-- [ ] Add offline and installability examples.
-	Create a small app-shell example that supports install prompt behavior, offline fallback UI, and cache-aware reload behavior on repeat visits.
+- [x] Add offline and installability examples.
+	The examples catalog now includes `97-pwa-installability` for manifest wiring, installability state, and scoped service-worker ownership, plus `97-pwa-offline-cache` for versioned cache warmup, offline fallback documents, queue inspection, and structured PWA diagnostics.
 - [x] Add production guidance for PWA deployments.
 	`docs/PWA.md` now defines HTTPS, scope, cache-header, CDN, reverse-proxy, and rollout guidance for PWA deployments.
+- [x] Add a first-class browser persistence abstraction for durable offline data.
+	`interop.OpenPersistentStore(...)` now provides an IndexedDB-first durable key/value surface with explicit fallback storage, typed JSON helpers, capability-aware errors, and focused native/wasm tests so later cache, queue, and state work can reuse one maintained persistence boundary.
+- [x] Add a first-class IndexedDB story for cache, queue, and state persistence.
+	`interop.OpenPersistentStore(...)` now defines a stable IndexedDB store layout, versioned object-store creation, blocked-upgrade diagnostics, quota-aware request failures, and opt-in corruption recovery by database reset. `fetch.ConfigurePersistentCache(...)`, `fetch.OpenMutationQueue(...)`, and `state.SavePersistentSnapshot(...)` all ride that same persistence seam so cache, queue, and state work share one maintained durable-storage contract instead of separate ad hoc IndexedDB implementations.
+- [x] Add Cache Storage helpers for immutable assets and offline shells.
+	`pwa.BuildCacheStoragePlan(...)` now builds release-scoped cache namespaces plus explicit strategies for shell HTML, wasm, scripts, styles, media, and other immutable assets, and `pwa.OpenCacheStorageManager()` now applies and inspects that plan against browser `caches` with versioned namespace cleanup.
+- [x] Add durable shared-read cache persistence.
+	`fetch.CacheOptions` now supports `Persist`, `fetch.ConfigurePersistentCache(...)` configures the durable backing store, and shared cached resources now restore prior ready values from IndexedDB-first browser storage before cold loads while still respecting `StaleAfter`, `MaxAge`, and explicit disposal semantics.
+- [x] Add IndexedDB-backed persistence options for mutation queues.
+	`fetch.OpenMutationQueue(...)` now uses the same IndexedDB-first durable persistence seam as the shared fetch cache while still supporting explicit store overrides and `localStorage` fallback when IndexedDB is unavailable.
+- [x] Add IndexedDB-backed persistence options for state snapshots.
+	`state.SavePersistentSnapshot(...)`, `state.LoadPersistentSnapshot(...)`, and `state.RestorePersistentSnapshot(...)` now provide IndexedDB-first durable snapshot persistence with `localStorage` fallback so atom snapshots are not limited to the smaller local/session storage helpers.
+- [x] Add installability helpers and diagnostics.
+	`pwa.ObserveInstallability(...)` now surfaces manifest validation, `beforeinstallprompt`, `appinstalled`, explicit prompting, installed state, and user-visible reasons install is unavailable so applications can own install flows deliberately instead of reverse-engineering browser behavior.
+- [x] Add explicit service-worker registration and update-lifecycle helpers.
+	`pwa.RegisterServiceWorker(...)` now provides app-owned registration, typed lifecycle snapshots, waiting-worker inspection, `SkipWaiting(...)`, `ReloadOnControllerChange()`, `Update(...)`, `Unregister(...)`, and native unavailable stubs so service-worker ownership stays explicit without pushing this logic into the core rendering runtime.
+- [x] Add service-worker asset-manifest integration for wasm releases.
+	`pwa.ParseWasmReleaseManifestJSON(...)` now parses the existing `wasm-release-manifest.json` format and `pwa.BuildServiceWorkerAssetPlan(...)` turns that release record into a stable revision, cache namespace, wasm URL, and deduped precache inputs so service workers can reuse the same release manifest for cache invalidation and safe reload decisions.
+- [x] Add offline route-opening and fallback behavior.
+	`docs/PWA.md` now defines route-family offline policy for deep links, app-shell fallbacks, partial offline routes, and online-required routes so service-worker fallbacks do not quietly invent application behavior when the network is unavailable.
+- [x] Add replay and cache coordination across tabs.
+	`docs/PWA.md` and `docs/CROSS_TAB.md` now define single-owner replay, authoritative logout propagation, and cache-invalidation fanout on top of `interop.OpenCrossTabChannel(...)` so multi-tab offline work has one documented ownership model instead of ad hoc duplicate replay.
+- [x] Add first-class PWA diagnostics and devtools visibility.
+	`pwa.InspectDiagnostics(...)` now returns one structured snapshot for manifest validation, installability state, service-worker lifecycle, Cache Storage inspection, offline queue summary, and browser storage-pressure signals, with `pwa.MutationQueueDiagnosticsSource(...)` bridging `fetch.MutationQueue` into that view without relying on raw console output.
+- [x] Add security and retention rules for durable offline data.
+	`docs/PWA.md`, `docs/CACHE.md`, `docs/OFFLINE_MUTATIONS.md`, and `docs/SECURITY.md` now define what may be persisted, which data classes are reconstructible versus sensitive, how logout or user-switch flows should purge durable state, and why durable offline stores must carry explicit retention windows instead of relying on browser eviction.
+- [x] Add production-grade PWA validation coverage.
+	The examples Playwright suite now covers installability signals and update requests, offline shell warmup plus stale-cache cleanup, Background Sync fallback messaging, conflict-aware replay resolution, offline navigation fallback, queued write replay, and multi-tab coordination through focused browser automation across `97-pwa-installability`, `97-pwa-offline-cache`, `97-pwa-multi-client`, and `94-cross-tab-sync`, with shared PWA or cross-tab helpers under `examples/tests/support/pwa.ts`.
 
 ### Security, compliance, and governance
 

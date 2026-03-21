@@ -94,6 +94,8 @@ The intended reporting shape is:
 
 The release helper now emits `wasm-release-manifest.json` containing those size and hash records so builds can be compared mechanically instead of by ad hoc shell output.
 
+That same manifest is now also the first-class input for service-worker release planning through `pwa.ParseWasmReleaseManifestJSON(...)` and `pwa.BuildServiceWorkerAssetPlan(...)`, so cache namespaces and safe-reload revision checks can reuse the shipped release record instead of maintaining a second wasm-specific PWA manifest.
+
 ## Reproducible Release-Build Guidance
 
 Release builds should be reproducible enough to explain what was shipped.

@@ -102,6 +102,7 @@ Serialization constraints:
 
 - `ExportSnapshot` and `ImportSnapshot` preserve exact in-memory Go values in the current process.
 - `SaveSnapshot` and `LoadSnapshot` use JSON, so persisted atoms should be JSON-compatible.
+- `SavePersistentSnapshot`, `LoadPersistentSnapshot`, and `RestorePersistentSnapshot` use IndexedDB-first durable storage with `localStorage` fallback when longer-lived browser persistence is needed.
 - If exact round-tripping of complex structs is required across browser reloads, callers should provide their own typed codec layer before storage.
 
 ## Use Cases

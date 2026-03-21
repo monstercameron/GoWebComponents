@@ -217,6 +217,26 @@ Expected remediation:
 - initialize the runtime with a DOM adapter before rendering interactive components
 - avoid calling event-hook setup against a partially constructed runtime
 
+### GWC-INTEROP-PERSISTENT-STORE-BLOCKED
+
+Use for IndexedDB open or delete operations blocked by older tabs, workers, or windows that still hold the same database open.
+
+Expected remediation:
+
+- close the older client holding the database open
+- retry the persistent-store open after the blocked client releases its connection
+- keep database-version bumps coordinated with release rollouts instead of mixing old and new clients indefinitely
+
+### GWC-INTEROP-PERSISTENT-STORE-QUOTA
+
+Use for IndexedDB writes that exceed the browser storage budget.
+
+Expected remediation:
+
+- purge stale durable caches before retrying the write
+- keep persisted payloads bounded and JSON-shaped instead of storing large opaque blobs
+- avoid treating browser storage as an unbounded archive for offline data
+
 ### GWC-RUNTIME-ATOM-REGISTRY-NIL
 
 Use when `GoUseAtom(...)` runs against a runtime that was never fully initialized.

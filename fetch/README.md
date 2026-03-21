@@ -118,6 +118,7 @@ users := fetch.UseCachedResource("users", func(ctx context.Context) ([]User, err
     StaleAfter:   30 * time.Second,
     MaxAge:       2 * time.Minute,
     DisposeAfter: 10 * time.Minute,
+    Persist:      true,
 })
 
 state := users.Get()
@@ -139,6 +140,17 @@ users.Dispose()
 ```
 
 `UseCachedResource[T]` keeps the last ready value visible while background refreshes run, so it composes cleanly with `ui.AsyncBoundary` by using `Pending: state.Loading && !state.Ready` for the first load and showing content during stale revalidation.
+
+When `CacheOptions.Persist` is enabled, the shared cache also restores prior ready values from durable browser storage before the first cold load. By default, the package uses `interop.OpenPersistentStore(...)` with IndexedDB first and `localStorage` fallback.
+
+Applications may override the durable store configuration globally:
+
+```go
+fetch.ConfigurePersistentCache(fetch.PersistentCacheOptions{
+    DatabaseName: "atlas-cache",
+    StoreName:    "shared-fetch",
+})
+```
 
 ### `LoadCached[T](ctx context.Context, key string, loader func(context.Context) (T, error), options ...CacheOptions)`
 
@@ -220,13 +232,53 @@ fmt.Println(report, err)
 
 Current queue behavior includes:
 
-- persistence through browser storage, defaulting to `localStorage`
+- persistence through an IndexedDB-first durable store with `localStorage` fallback
 - insertion-order replay
 - deduplication through `DedupKey`
 - exponential backoff through `BaseDelay` and `MaxDelay`
 - terminal `dead` entries after `MaxAttempts`
+- optional conflict-aware replay through `ReplayWithOptions(...)` plus `NewMutationConflict(...)`
+- conflict inspection sugar through `IsMutationConflict(...)`, `AsMutationConflictError(...)`, and `MutationConflictOf(...)`
+
+Applications that need full control over queue persistence may provide `MutationQueueOptions.StoreResolver`, while the older `StorageResolver` field still controls the fallback storage path used when IndexedDB is unavailable.
 
 Keep queued bodies JSON-shaped and derive sensitive auth headers at replay time instead of storing them. See [`docs/OFFLINE_MUTATIONS.md`](../docs/OFFLINE_MUTATIONS.md) for the full contract.
+
+Use `ReplayWithOptions(...)` when the authoritative executor may surface version or ETag conflicts that should not be treated like transient network failures:
+
+```go
+report, err := queue.ReplayWithOptions(context.Background(), executor, fetch.MutationReplayOptions{
+    ConflictHandler: func(ctx context.Context, mutation fetch.QueuedMutation, conflict fetch.MutationConflict) (fetch.MutationConflictResolution, error) {
+        return fetch.MutationConflictResolution{
+            Action:  fetch.MutationResolutionReplace,
+            Message: "rebased onto remote revision",
+            Draft: fetch.MutationDraft{
+                Metadata: map[string]string{"revision": conflict.RemoteVersion, "resolved": conflict.RemoteVersion},
+            },
+        }, nil
+    },
+})
+fmt.Println(report, err)
+```
+
+Inside `executor`, signal the conflict explicitly instead of returning a generic retryable error:
+
+```go
+return fetch.NewMutationConflict(err, fetch.MutationConflict{
+    Code:          "etag_mismatch",
+    LocalVersion:  mutation.Metadata["revision"],
+    RemoteVersion: serverRevision,
+    Message:       "server revision is newer",
+})
+```
+
+When callers need to branch on conflict state outside the replay loop, use the helper sugar instead of repeating `errors.As(...)` boilerplate:
+
+```go
+if conflict, ok := fetch.MutationConflictOf(err); ok {
+    fmt.Println("conflict", conflict.Code, conflict.RemoteVersion)
+}
+```
 
 ### `Fetch(url string, options Options) <-chan Result`
 
