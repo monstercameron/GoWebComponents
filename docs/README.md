@@ -10,6 +10,9 @@ Recommended entrypoint for new adopters, including the preferred package surface
 ### `WORKFLOWS.md`
 Task-oriented guidance for common developer jobs such as building a client-only app, adding routing, adding SSR, testing, shipping a wasm build, and debugging hydration.
 
+### `TESTING.md`
+Defines the intended first-party testing surface for consumers, including the decision to keep testing support in a companion module with focused helper packages instead of one monolithic core package.
+
 ### `WALKTHROUGHS.md`
 End-to-end app-shape walkthroughs that connect the current examples and package surface into realistic starting paths.
 
@@ -167,6 +170,7 @@ As of 2026-03-14:
 - [../CHANGELOG.md](../CHANGELOG.md)
 - [START_HERE.md](START_HERE.md)
 - [WORKFLOWS.md](WORKFLOWS.md)
+- [TESTING.md](TESTING.md)
 - [WALKTHROUGHS.md](WALKTHROUGHS.md)
 - [REFERENCE_MAP.md](REFERENCE_MAP.md)
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md)

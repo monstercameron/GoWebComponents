@@ -276,7 +276,7 @@ func RenderToStringObserved(root Node, options SSRObservabilityOptions) (string,
 
 // Render is browser-only; the native SSR slice exposes RenderToString instead.
 func Render(root Node, selector string) {
-	panic("ui.Render is only available in js/wasm builds; use ui.RenderToString on the server")
+	panic(actionableUnsupportedOnServerPanic("Render"))
 }
 
 func RenderInto(root Node, target interface{}) error {
@@ -525,7 +525,7 @@ func UseDeferredValue[T any](value T) T {
 }
 
 func UseContext[T any](context *Context[T]) T {
-	panic(UnsupportedOnServer("UseContext").Error())
+	panic(actionableUnsupportedOnServerPanic("UseContext"))
 }
 
 func AsyncBoundary(props AsyncBoundaryProps) Node {
@@ -617,7 +617,7 @@ func renderComponent(component interface{}, rawProps map[string]interface{}) *ru
 
 	componentValue := reflect.ValueOf(component)
 	if !componentValue.IsValid() || componentValue.Kind() != reflect.Func {
-		panic("ui.CreateElement requires a component function or ui.Node (GWC-UI-CREATE-ELEMENT-TYPE). Pass either a component function or a ui.Node value. See ACTIONABLE_ERRORS.md#gwc-ui-create-element-type.")
+		panic(actionableCreateElementPanic("ui.CreateElement requires a component function or ui.Node"))
 	}
 
 	meta := getComponentMeta(componentValue.Type())
@@ -660,10 +660,10 @@ func getComponentMeta(componentType reflect.Type) componentMeta {
 	}
 
 	if componentType.NumIn() > 1 {
-		panic("ui.CreateElement components may accept at most one props argument (GWC-UI-CREATE-ELEMENT-TYPE). Keep component signatures to zero or one props parameter. See ACTIONABLE_ERRORS.md#gwc-ui-create-element-type.")
+		panic(actionableCreateElementPanic("ui.CreateElement components may accept at most one props argument"))
 	}
 	if componentType.NumOut() != 1 {
-		panic("ui.CreateElement components must return ui.Node (GWC-UI-CREATE-ELEMENT-TYPE). Return one ui.Node tree from the component function. See ACTIONABLE_ERRORS.md#gwc-ui-create-element-type.")
+		panic(actionableCreateElementPanic("ui.CreateElement components must return ui.Node"))
 	}
 
 	meta := componentMeta{}
@@ -692,7 +692,7 @@ func toInterfaces(children []Node) []interface{} {
 
 // UnsupportedOnServer explains the current SSR limitation for hook-based components.
 func UnsupportedOnServer(name string) error {
-	return fmt.Errorf("ui.%s is not available on non-js/wasm builds in the current SSR slice", name)
+	return fmt.Errorf("%s", unsupportedOnServerMessage(name))
 }
 
 func ReadBootstrapScript(scriptID string) (SSRBootstrap, error) {

@@ -12,6 +12,7 @@ import (
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/state"
+	"github.com/monstercameron/GoWebComponents/ui"
 )
 
 func shouldCrash(mode string) bool {
@@ -345,6 +346,28 @@ func ToggleEffectDemo(props Attrs) *Element {
 	)
 }
 
+func BoundaryCrashChild(props Attrs) *Element {
+	if shouldCrash("boundary-render") {
+		panic("intentional boundary render crash for Playwright logging")
+	}
+
+	return P(Attrs{"id": "boundary-child-ok"},
+		Text("Boundary child rendered without crashing"),
+	)
+}
+
+func BoundaryCrashDemo(props Attrs) ui.Node {
+	return ui.CreateElement(ui.ErrorBoundary, ui.ErrorBoundaryProps{
+		ErrorFallback: func(err error, reset func()) ui.Node {
+			return Div(Attrs{"id": "boundary-fallback", "data-error": err.Error()},
+				P(Attrs{"id": "boundary-fallback-title"}, Text("Boundary fallback rendered")),
+				P(Attrs{"id": "boundary-fallback-error"}, Text(err.Error())),
+			)
+		},
+		Child: &Element{Type: BoundaryCrashChild},
+	})
+}
+
 // HelloWorld component demonstrates basic usage
 func HelloWorld(props Attrs) *Element {
 	if shouldCrash("render") {
@@ -504,6 +527,10 @@ func HelloWorld(props Attrs) *Element {
 		),
 		Div(Attrs{"class": "mt-4"},
 			&Element{Type: ToggleEffectDemo},
+		),
+		Div(Attrs{"class": "mt-4", "id": "boundary-demo"},
+			H2(nil, Text("Boundary Demo")),
+			BoundaryCrashDemo(nil),
 		),
 		P(Attrs{"id": "cleanup-status"}, Text("")),
 		// Add new hook tests

@@ -95,9 +95,27 @@ func (s *MockScheduler) FlushTimeouts() {
 	}
 }
 
+// FlushAll executes all queued idle callbacks and timeouts until the scheduler settles.
+func (s *MockScheduler) FlushAll() {
+	for {
+		if s.GetPendingCount() == 0 && s.GetPendingTimeoutCount() == 0 {
+			return
+		}
+		s.FlushIdleCallbacks()
+		s.FlushTimeouts()
+	}
+}
+
 // GetPendingCount returns the number of pending callbacks
 func (s *MockScheduler) GetPendingCount() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return len(s.pendingCallbacks)
+}
+
+// GetPendingTimeoutCount returns the number of queued timeouts.
+func (s *MockScheduler) GetPendingTimeoutCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.timeouts)
 }

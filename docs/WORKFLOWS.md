@@ -120,6 +120,7 @@ Production caveats:
 
 Testing and validation:
 
+- [TESTING.md](TESTING.md)
 - [tools/README.md](../tools/README.md)
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md#broken-example-serving)
 

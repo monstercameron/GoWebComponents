@@ -169,7 +169,13 @@ Useful commands from `examples/`:
 
 - `npm test`: full example-local Playwright suite that runs against the static catalog server
 - `npm run test:catalog`: catalog-only link and smoke coverage against the dev server
+- `npm run test:ssr-server-routing`: dedicated SSR server-routing example coverage
 - `npm run test:atlas-ssr`: Atlas native server SSR and mutation-flow coverage
+- `npm run test:startup`: startup experiment coverage
+- `npm run test:atlas-startup`: Atlas startup diagnostics coverage
+- `npm run test:all`: aggregate example runner covering the default suite plus the dedicated links, SSR routing, Atlas SSR, and startup configs
+
+From the repo root, `npm test` now includes this aggregated example test runner as part of the main project harness.
 
 For the developer-facing manual verification checklist that covers every numbered example, see `examples/MANUAL_TESTING.md`.
 

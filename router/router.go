@@ -919,8 +919,12 @@ func registerCleanup(handler js.Func) {
 
 func makeRouteFactory(component interface{}) routeFactory {
 	if component == nil {
-		runtime.ReportDiagnostic("router", runtime.DiagnosticError, "route component cannot be nil")
-		panic("router: component cannot be nil (GWC-ROUTER-COMPONENT-NIL). Register a concrete component function or static node for the route instead of leaving a nil placeholder. See ACTIONABLE_ERRORS.md#gwc-router-component-nil.")
+		panic(runtime.ActionableFrameworkPanic(runtime.ActionablePanicOptions{
+			Source:  "router",
+			Subject: "router.Register",
+			Message: "route component cannot be nil",
+			Path:    "router.Register",
+		}))
 	}
 
 	if element, ok := component.(*Element); ok {
@@ -931,14 +935,22 @@ func makeRouteFactory(component interface{}) routeFactory {
 
 	value := reflect.ValueOf(component)
 	if !value.IsValid() || value.Kind() != reflect.Func {
-		runtime.ReportDiagnostic("router", runtime.DiagnosticError, "unsupported route component type")
-		panic("router: unsupported component type (GWC-ROUTER-COMPONENT-TYPE). Register a component function, ui.Node, or route-compatible element producer instead of a raw config or data value. See ACTIONABLE_ERRORS.md#gwc-router-component-type.")
+		panic(runtime.ActionableFrameworkPanic(runtime.ActionablePanicOptions{
+			Source:  "router",
+			Subject: "router.Register",
+			Message: "unsupported route component type",
+			Path:    "router.Register",
+		}))
 	}
 
 	typ := value.Type()
 	if typ.NumOut() != 1 {
-		runtime.ReportDiagnostic("router", runtime.DiagnosticError, "route component must return exactly one element")
-		panic("router: route component must return one element (GWC-ROUTER-COMPONENT-ARITY). Return exactly one element tree and wrap siblings in ui.Fragment(...) when needed. See ACTIONABLE_ERRORS.md#gwc-router-component-arity.")
+		panic(runtime.ActionableFrameworkPanic(runtime.ActionablePanicOptions{
+			Source:  "router",
+			Subject: "router.Register",
+			Message: "route component must return exactly one element",
+			Path:    "router.Register",
+		}))
 	}
 
 	return func(attrs Attrs) *Element {
@@ -1293,7 +1305,7 @@ func applyRouteMetaTag(name, content string) {
 		return
 	}
 	element := ensureManagedHeadElement(doc, head, `meta[name="`+name+`"]`, "meta", func(node js.Value) {
-		node.Call("setAttribute", "name", name)
+		setElementAttribute(node, "name", name)
 	})
 	trimmed := strings.TrimSpace(content)
 	if trimmed == "" {
@@ -1305,8 +1317,8 @@ func applyRouteMetaTag(name, content string) {
 	if !element.Truthy() {
 		return
 	}
-	element.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
-	element.Call("setAttribute", "content", trimmed)
+	setElementAttribute(element, managedMetadataAttr, managedMetadataValue)
+	setElementAttribute(element, "content", trimmed)
 }
 
 func applyRouteCanonical(href string) {
@@ -1319,7 +1331,7 @@ func applyRouteCanonical(href string) {
 		return
 	}
 	element := ensureManagedHeadElement(doc, head, `link[rel="canonical"]`, "link", func(node js.Value) {
-		node.Call("setAttribute", "rel", "canonical")
+		setElementAttribute(node, "rel", "canonical")
 	})
 	trimmed := strings.TrimSpace(href)
 	if trimmed == "" {
@@ -1331,8 +1343,8 @@ func applyRouteCanonical(href string) {
 	if !element.Truthy() {
 		return
 	}
-	element.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
-	element.Call("setAttribute", "href", trimmed)
+	setElementAttribute(element, managedMetadataAttr, managedMetadataValue)
+	setElementAttribute(element, "href", trimmed)
 }
 
 func initializeRouteMetadataState(state *routeMetadataState, doc js.Value) {
@@ -1353,7 +1365,7 @@ func ensureManagedTitleElement(doc js.Value, create bool) js.Value {
 	}
 	titles := querySelectorAll(doc, "title")
 	if len(titles) == 1 {
-		titles[0].Call("setAttribute", managedMetadataAttr, managedMetadataValue)
+		setElementAttribute(titles[0], managedMetadataAttr, managedMetadataValue)
 		return titles[0]
 	}
 	if !create {
@@ -1363,9 +1375,17 @@ func ensureManagedTitleElement(doc js.Value, create bool) js.Value {
 	if !head.Truthy() {
 		return js.Null()
 	}
+	createElement := doc.Get("createElement")
+	if createElement.IsUndefined() || createElement.IsNull() || !createElement.Truthy() {
+		return js.Null()
+	}
+	appendChild := head.Get("appendChild")
+	if appendChild.IsUndefined() || appendChild.IsNull() || !appendChild.Truthy() {
+		return js.Null()
+	}
 	element := doc.Call("createElement", "title")
-	element.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
-	head.Call("appendChild", element)
+	setElementAttribute(element, managedMetadataAttr, managedMetadataValue)
+	appendChildElement(head, element)
 	return element
 }
 
@@ -1376,18 +1396,26 @@ func ensureManagedHeadElement(doc js.Value, head js.Value, selector string, tag 
 	}
 	matches := querySelectorAll(doc, selector)
 	if len(matches) == 1 {
-		matches[0].Call("setAttribute", managedMetadataAttr, managedMetadataValue)
+		setElementAttribute(matches[0], managedMetadataAttr, managedMetadataValue)
 		if initialize != nil {
 			initialize(matches[0])
 		}
 		return matches[0]
 	}
+	createElement := doc.Get("createElement")
+	if createElement.IsUndefined() || createElement.IsNull() || !createElement.Truthy() {
+		return js.Null()
+	}
+	appendChild := head.Get("appendChild")
+	if appendChild.IsUndefined() || appendChild.IsNull() || !appendChild.Truthy() {
+		return js.Null()
+	}
 	element := doc.Call("createElement", tag)
-	element.Call("setAttribute", managedMetadataAttr, managedMetadataValue)
+	setElementAttribute(element, managedMetadataAttr, managedMetadataValue)
 	if initialize != nil {
 		initialize(element)
 	}
-	head.Call("appendChild", element)
+	appendChildElement(head, element)
 	return element
 }
 
@@ -1403,7 +1431,17 @@ func findManagedHeadElement(doc js.Value, selector string) js.Value {
 }
 
 func querySelectorAll(doc js.Value, selector string) []js.Value {
+	if doc.IsUndefined() || doc.IsNull() || !doc.Truthy() {
+		return nil
+	}
+	queryAll := doc.Get("querySelectorAll")
+	if queryAll.IsUndefined() || queryAll.IsNull() || !queryAll.Truthy() {
+		return nil
+	}
 	list := doc.Call("querySelectorAll", selector)
+	if list.IsUndefined() || list.IsNull() || !list.Truthy() {
+		return nil
+	}
 	length := list.Get("length").Int()
 	if length == 0 {
 		return nil
@@ -1436,11 +1474,42 @@ func removeElement(node js.Value) {
 }
 
 func getHeadElement(doc js.Value) js.Value {
+	if doc.IsUndefined() || doc.IsNull() || !doc.Truthy() {
+		return js.Null()
+	}
 	head := doc.Get("head")
 	if head.Truthy() {
 		return head
 	}
+	query := doc.Get("querySelector")
+	if query.IsUndefined() || query.IsNull() || !query.Truthy() {
+		return js.Null()
+	}
 	return doc.Call("querySelector", "head")
+}
+
+func setElementAttribute(node js.Value, name, value string) bool {
+	if node.IsUndefined() || node.IsNull() || !node.Truthy() {
+		return false
+	}
+	method := node.Get("setAttribute")
+	if method.IsUndefined() || method.IsNull() || !method.Truthy() {
+		return false
+	}
+	node.Call("setAttribute", name, value)
+	return true
+}
+
+func appendChildElement(parent js.Value, child js.Value) bool {
+	if parent.IsUndefined() || parent.IsNull() || !parent.Truthy() {
+		return false
+	}
+	method := parent.Get("appendChild")
+	if method.IsUndefined() || method.IsNull() || !method.Truthy() {
+		return false
+	}
+	parent.Call("appendChild", child)
+	return true
 }
 
 func (r *Router) evaluateNavigation(target string) (string, bool) {
@@ -1734,12 +1803,27 @@ func (r *Router) ensureLoaderResult(key string, loader LoaderFunc, routeCtx Rout
 	})
 
 	go func() {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				r.loaderState.mu.Lock()
+				current := r.loaderState.entries[key]
+				if current != nil && current == entry && version == current.version {
+					current.pending = false
+					current.cancel = nil
+				}
+				r.loaderState.mu.Unlock()
+				if _, suppressed := runtime.FinalizeUnhandledPanicContext("router", runtime.PanicPhaseLoader, "route loader", routeCtx.Path, nil, recovered); suppressed {
+					return
+				}
+			}
+		}()
+
 		data, err := loader(ctx, routeCtx)
 
 		r.loaderState.mu.Lock()
-		defer r.loaderState.mu.Unlock()
 		current := r.loaderState.entries[key]
 		if ctx.Err() != nil || current == nil || current != entry || version != current.version {
+			r.loaderState.mu.Unlock()
 			return
 		}
 		current.pending = false
@@ -1758,15 +1842,14 @@ func (r *Router) ensureLoaderResult(key string, loader LoaderFunc, routeCtx Rout
 				"path": routeCtx.Path,
 			})
 		}
+		r.loaderState.mu.Unlock()
 
-		go func() {
-			doc := js.Global().Get("document")
-			elem := js.Global().Get("Element")
-			if doc.IsUndefined() || doc.IsNull() || elem.IsUndefined() || elem.IsNull() {
-				return
-			}
-			r.renderCurrentRoute(false)
-		}()
+		doc := js.Global().Get("document")
+		elem := js.Global().Get("Element")
+		if doc.IsUndefined() || doc.IsNull() || elem.IsUndefined() || elem.IsNull() {
+			return
+		}
+		r.renderCurrentRoute(false)
 	}()
 
 	return struct {

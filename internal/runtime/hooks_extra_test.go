@@ -1,6 +1,9 @@
 package runtime
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 type releasableWrapper struct {
 	released *int
@@ -66,8 +69,13 @@ func TestGoUseFunc_ReleasesOldWrapperOnRerender(t *testing.T) {
 func TestGoUseFunc_PanicsWithoutComponentContext(t *testing.T) {
 	SetCurrentFiber(nil)
 	defer func() {
-		if recover() == nil {
+		recovered := recover()
+		if recovered == nil {
 			t.Fatal("expected GoUseFunc to panic outside component context")
+		}
+		message := recovered.(string)
+		if !strings.Contains(message, "GWC-RUNTIME-HOOK-OUTSIDE-COMPONENT") || !strings.Contains(message, "where:") || !strings.Contains(message, "runtime:") || !strings.Contains(message, "next:") {
+			t.Fatalf("expected unified hook misuse panic output, got %q", message)
 		}
 	}()
 	GoUseFunc(func() {})
@@ -79,8 +87,13 @@ func TestGoUseFunc_PanicsForNonFunction(t *testing.T) {
 	defer SetCurrentFiber(nil)
 
 	defer func() {
-		if recover() == nil {
+		recovered := recover()
+		if recovered == nil {
 			t.Fatal("expected GoUseFunc to panic for non-function input")
+		}
+		message := recovered.(string)
+		if !strings.Contains(message, "GWC-RUNTIME-HOOK-FUNC-TYPE") || !strings.Contains(message, "path: GoUseFunc") || !strings.Contains(message, "docs: ACTIONABLE_ERRORS.md#gwc-runtime-hook-func-type") {
+			t.Fatalf("expected unified GoUseFunc type panic output, got %q", message)
 		}
 	}()
 	GoUseFunc(123)

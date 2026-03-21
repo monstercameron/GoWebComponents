@@ -9,7 +9,6 @@ import (
 	"go/parser"
 	"go/token"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -17,6 +16,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -24,6 +24,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
+	"github.com/monstercameron/GoWebComponents/diagnostics"
 )
 
 const (
@@ -33,6 +34,7 @@ const (
 	buildCommand      = "go"
 	defaultHost       = "127.0.0.1"
 	defaultPort       = "8080"
+	livereloadDocs    = "ACTIONABLE_ERRORS.md#gwc-tool-livereload"
 )
 
 var (
@@ -139,6 +141,31 @@ type LiveReloadServer struct {
 	stateSnapshotMu      sync.Mutex
 	modulePath           string
 	manifestPath         string
+}
+
+func livereloadReport(subject string, path string, summary string, consequence string, next string) diagnostics.Report {
+	return diagnostics.Build(diagnostics.Options{
+		Summary:  strings.TrimSpace(summary),
+		Code:     "GWC-TOOL-LIVERELOAD",
+		Headline: "tool failure in " + strings.TrimSpace(subject),
+		Path:     strings.TrimSpace(path),
+		Runtime:  strings.TrimSpace(consequence),
+		Next:     strings.TrimSpace(next),
+		Docs:     livereloadDocs,
+	})
+}
+
+func livereloadErrReport(subject string, path string, err error, consequence string, next string) diagnostics.Report {
+	return livereloadReport(subject, path, err.Error(), consequence, next)
+}
+
+func emitLivereloadError(subject string, path string, err error, consequence string, next string) {
+	diagnostics.Emit(livereloadErrReport(subject, path, err, consequence, next))
+}
+
+func fatalLivereloadStartup(subject string, path string, err error, next string) {
+	emitLivereloadError(subject, path, err, "the live reload tool did not finish startup, so no build or websocket loop is running.", next)
+	os.Exit(1)
 }
 
 func NewLiveReloadServer(projectRoot string) (*LiveReloadServer, error) {
@@ -274,7 +301,7 @@ func (lrs *LiveReloadServer) Start() error {
 	go func() {
 		fmt.Printf("🌐 Live reload server starting on http://%s\n", netAddr(lrs.host, lrs.port))
 		if err := lrs.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("❌ HTTP server error: %v", err)
+			emitLivereloadError("LiveReloadServer.Start.ListenAndServe", netAddr(lrs.host, lrs.port), err, "the HTTP listener stopped unexpectedly and browser clients can no longer connect.", "Inspect the bind address and listener lifetime for the livereload server.")
 		}
 	}()
 
@@ -308,7 +335,7 @@ func (lrs *LiveReloadServer) Start() error {
 				if !ok {
 					return
 				}
-				log.Printf("❌ Watcher error: %v", err)
+				emitLivereloadError("LiveReloadServer.Start.watcher", lrs.watchRoot, err, "file watching degraded and future source changes may not trigger rebuilds.", "Inspect filesystem watcher limits and the watched root for this livereload session.")
 
 			case <-c:
 				fmt.Println("\n🛑 Shutting down live reload server...")
@@ -333,8 +360,13 @@ func (lrs *LiveReloadServer) handleHTML(w http.ResponseWriter, r *http.Request, 
 	// Read the live reload client script from external file
 	scriptContent, err := os.ReadFile(lrs.clientScriptPath)
 	if err != nil {
-		log.Printf("❌ Could not read livereload-client.js from %s: %v", lrs.clientScriptPath, err)
-		http.Error(w, "Could not read livereload client script", http.StatusInternalServerError)
+		diagnostics.WriteHTTPError(w, http.StatusInternalServerError, livereloadErrReport(
+			"LiveReloadServer.handleHTML.clientScript",
+			lrs.clientScriptPath,
+			err,
+			"the HTML response could not inject the livereload client script, so browser reload coordination is unavailable for this request.",
+			"Verify the livereload client script path and make sure the asset exists before serving HTML through this tool.",
+		))
 		return
 	}
 
@@ -378,7 +410,7 @@ func (lrs *LiveReloadServer) servedWASMPath() string {
 func (lrs *LiveReloadServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("❌ WebSocket upgrade error: %v", err)
+		emitLivereloadError("LiveReloadServer.handleWebSocket.upgrade", r.URL.Path, err, "the browser could not establish the livereload websocket, so it will miss build notifications.", "Inspect the websocket endpoint, browser connection state, and any local proxy interference.")
 		return
 	}
 	defer conn.Close()
@@ -453,12 +485,12 @@ func (lrs *LiveReloadServer) sendCurrentBuildStatus(conn *websocket.Conn) {
 
 		data, err := json.Marshal(message)
 		if err != nil {
-			log.Printf("❌ Failed to marshal current build status: %v", err)
+			emitLivereloadError("LiveReloadServer.sendCurrentBuildStatus.marshal", "current_status", err, "the current build status could not be serialized, so the new websocket client received no initial status.", "Inspect the build status payload for unsupported values before marshalling.")
 			return
 		}
 
 		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			log.Printf("⚠️  Failed to send current build status to client: %v", err)
+			emitLivereloadError("LiveReloadServer.sendCurrentBuildStatus.write", "current_status", err, "the new websocket client did not receive the current build status and may show stale state.", "Inspect websocket connectivity and client lifecycle during status delivery.")
 		} else {
 			statusText := "success"
 			if !lrs.lastBuildStatus.Success {
@@ -499,7 +531,13 @@ func (lrs *LiveReloadServer) checkCurrentBuildState(conn *websocket.Conn) {
 			Error:      buildError,
 			ReloadType: "none",
 		}
-		fmt.Printf("❌ Current build state: FAILED - %s\n", buildError)
+		diagnostics.Emit(livereloadReport(
+			"LiveReloadServer.checkCurrentBuildState",
+			lrs.buildDir,
+			buildError,
+			"the current app does not compile, so newly connected clients are informed that the dev server is in a failed build state.",
+			"Inspect the current build stderr and fix the compile error before relying on hot reload state.",
+		))
 	} else {
 		buildStatus = BuildStatus{
 			Success:    true,
@@ -520,12 +558,12 @@ func (lrs *LiveReloadServer) checkCurrentBuildState(conn *websocket.Conn) {
 
 	data, err := json.Marshal(message)
 	if err != nil {
-		log.Printf("❌ Failed to marshal build state check: %v", err)
+		emitLivereloadError("LiveReloadServer.checkCurrentBuildState.marshal", "current_status", err, "the build-state check result could not be serialized, so the client received no current-status payload.", "Inspect the build-state payload for unsupported values before marshalling.")
 		return
 	}
 
 	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-		log.Printf("⚠️  Failed to send build state to client: %v", err)
+		emitLivereloadError("LiveReloadServer.checkCurrentBuildState.write", "current_status", err, "the websocket client did not receive the build-state check result and may show stale information.", "Inspect websocket connectivity and client lifecycle during status delivery.")
 	}
 }
 
@@ -538,7 +576,7 @@ func (lrs *LiveReloadServer) broadcastMessage(msgType MessageType, payload inter
 
 	data, err := json.Marshal(message)
 	if err != nil {
-		log.Printf("❌ Failed to marshal WebSocket message: %v", err)
+		emitLivereloadError("LiveReloadServer.broadcastMessage.marshal", string(msgType), err, "the livereload event was not serialized, so connected clients will miss this update.", "Inspect the websocket payload for unsupported values before marshalling.")
 		return
 	}
 
@@ -547,7 +585,7 @@ func (lrs *LiveReloadServer) broadcastMessage(msgType MessageType, payload inter
 
 	for conn := range lrs.clients {
 		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			log.Printf("⚠️  Failed to send message to client: %v", err)
+			emitLivereloadError("LiveReloadServer.broadcastMessage.write", string(msgType), err, "one websocket client did not receive the livereload event and may drift out of sync.", "Inspect websocket connectivity and client lifecycle for the failing connection.")
 		}
 	}
 }
@@ -568,7 +606,7 @@ func (lrs *LiveReloadServer) addWatchers(root string) error {
 			// Add the directory to the watcher
 			err := lrs.watcher.Add(path)
 			if err != nil {
-				log.Printf("⚠️  Failed to watch directory %s: %v", path, err)
+				emitLivereloadError("LiveReloadServer.addWatchers", path, err, "changes under this directory will not trigger rebuilds because the watcher could not attach.", "Inspect filesystem watcher limits, permissions, and directory availability for this path.")
 			} else {
 				fmt.Printf("👀 Watching: %s\n", path)
 			}
@@ -611,7 +649,7 @@ func (lrs *LiveReloadServer) debounceAndBuild() {
 		fmt.Printf("⏹️  Killing current build process (PID: %d)...\n", lrs.currentBuild.Process.Pid)
 		err := lrs.currentBuild.Process.Kill()
 		if err != nil {
-			log.Printf("❌ Failed to kill current build: %v", err)
+			emitLivereloadError("LiveReloadServer.debounceAndBuild.kill", strconv.Itoa(lrs.currentBuild.Process.Pid), err, "the previous build process kept running, so the next rebuild may overlap with stale work.", "Inspect process permissions and lifecycle handling for the build command.")
 		} else {
 			fmt.Println("✅ Previous build process killed successfully")
 		}
@@ -854,7 +892,7 @@ func (lrs *LiveReloadServer) triggerBuild() {
 	// Start the build process (non-blocking)
 	err := cmd.Start()
 	if err != nil {
-		fmt.Printf("❌ Failed to start build: %v\n", err)
+		emitLivereloadError("LiveReloadServer.triggerBuild.start", lrs.buildDir, err, "the rebuild never started, so connected clients remain on the previous artifact state.", "Inspect the build command, working directory, and output path for the livereload session.")
 		lrs.currentBuild = nil
 		lrs.clearPendingStateSnapshot()
 		lrs.broadcastMessage(MessageTypeBuildError, fmt.Sprintf("Failed to start build: %v", err))
@@ -885,7 +923,13 @@ func (lrs *LiveReloadServer) triggerBuild() {
 				ReloadType: "none",
 			}
 
-			fmt.Printf("❌ Build failed after %v: %v\n", duration, err)
+			diagnostics.Emit(livereloadReport(
+				"LiveReloadServer.triggerBuild.wait",
+				lrs.buildDir,
+				buildError,
+				"the rebuild failed, so no new wasm artifact or reload event was produced for connected clients.",
+				"Inspect the captured build stderr and fix the compile error before relying on the next livereload cycle.",
+			))
 			lrs.clearPendingStateSnapshot()
 			lrs.lastBuildStatus = &buildStatus
 			lrs.broadcastMessage(MessageTypeBuildComplete, buildStatus)
@@ -893,11 +937,11 @@ func (lrs *LiveReloadServer) triggerBuild() {
 	} else {
 		manifest, manifestErr := lrs.buildChangedComponentManifest(lrs.lastClassification)
 		if manifestErr != nil {
-			log.Printf("⚠️  Failed to build changed-component manifest: %v", manifestErr)
+			emitLivereloadError("LiveReloadServer.triggerBuild.manifest", lrs.manifestPath, manifestErr, "hot-reload metadata was not generated, so the next client update may fall back to less precise behavior.", "Inspect component-manifest generation for unsupported files or parser failures.")
 		}
 		if manifest != nil {
 			if err := lrs.writeChangedComponentManifest(manifest); err != nil {
-				log.Printf("⚠️  Failed to write changed-component manifest: %v", err)
+				emitLivereloadError("LiveReloadServer.triggerBuild.writeManifest", lrs.manifestPath, err, "the changed-component manifest was not written, so downstream tooling cannot consume precise hot-reload metadata.", "Inspect manifest path permissions and filesystem availability before writing the hot-reload manifest.")
 			}
 		}
 
@@ -1293,13 +1337,13 @@ func main() {
 		ClientScriptPath: *clientScriptPath,
 	})
 	if err != nil {
-		log.Fatalf("❌ Failed to create live reload server: %v", err)
+		fatalLivereloadStartup("main.NewLiveReloadServerWithOptions", strings.TrimSpace(*rootPath), err, "Inspect the selected app, project root, HTML path, and client-script arguments before starting livereload again.")
 	}
 
 	defer server.cleanup()
 
 	err = server.Start()
 	if err != nil {
-		log.Fatalf("❌ Failed to start live reload server: %v", err)
+		fatalLivereloadStartup("main.Start", netAddr(*host, *port), err, "Inspect watcher initialization and HTTP startup errors before restarting the livereload tool.")
 	}
 }

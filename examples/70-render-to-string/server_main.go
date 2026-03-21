@@ -10,9 +10,40 @@ import (
 	"os"
 	"strings"
 
+	"github.com/monstercameron/GoWebComponents/diagnostics"
 	gwchtml "github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
+
+const (
+	renderToStringRequestDocs = "ACTIONABLE_ERRORS.md#gwc-example-server-request"
+	renderToStringStartupDocs = "ACTIONABLE_ERRORS.md#gwc-example-server-startup"
+)
+
+func renderToStringRequestReport(path string, err error) diagnostics.Report {
+	return diagnostics.Build(diagnostics.Options{
+		Summary:  err.Error(),
+		Code:     "GWC-EXAMPLE-SERVER-REQUEST",
+		Headline: "server failure in handleRenderToString",
+		Path:     strings.TrimSpace(path),
+		Runtime:  "the request failed before ui.RenderToString could return HTML.",
+		Next:     "Inspect the server render path and the component tree being serialized for this request.",
+		Docs:     renderToStringRequestDocs,
+	})
+}
+
+func fatalRenderToStringStartup(path string, err error) {
+	diagnostics.Emit(diagnostics.Build(diagnostics.Options{
+		Summary:  err.Error(),
+		Code:     "GWC-EXAMPLE-SERVER-STARTUP",
+		Headline: "server startup failure in render-to-string demo",
+		Path:     strings.TrimSpace(path),
+		Runtime:  "the ui.RenderToString example server did not start, so no requests can be served.",
+		Next:     "Verify the port is free and the example is being started with a valid server environment.",
+		Docs:     renderToStringStartupDocs,
+	}))
+	os.Exit(1)
+}
 
 func renderCard() ui.Node {
 	return gwchtml.Div(gwchtml.Props{Class: "rounded-[1.75rem] border border-slate-800 bg-slate-950 p-8 text-slate-100"},
@@ -25,7 +56,7 @@ func renderCard() ui.Node {
 func handleRenderToString(w http.ResponseWriter, r *http.Request) {
 	markup, err := ui.RenderToString(renderCard())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		diagnostics.WriteHTTPError(w, http.StatusInternalServerError, renderToStringRequestReport(r.URL.Path, err))
 		return
 	}
 
@@ -41,6 +72,6 @@ func main() {
 	http.HandleFunc("/", handleRenderToString)
 	fmt.Printf("ui.RenderToString demo listening on http://127.0.0.1:%s\n", port)
 	if err := http.ListenAndServe("127.0.0.1:"+port, nil); err != nil {
-		panic(err)
+		fatalRenderToStringStartup("127.0.0.1:"+port, err)
 	}
 }

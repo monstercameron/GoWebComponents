@@ -199,6 +199,42 @@ Expected remediation:
 - move the hook call into a component function rendered through `ui.CreateElement(...)`
 - do not call framework hooks in package init code, route registration helpers, or other ordinary helpers that are not rendering components
 
+### GWC-RUNTIME-HOOK-FUNC-TYPE
+
+Use for `GoUseFunc(...)` calls that receive a non-function value.
+
+Expected remediation:
+
+- pass a real function into `GoUseFunc(...)`
+- keep raw data, options, and config objects outside the event-hook wrapper
+
+### GWC-RUNTIME-DOM-ADAPTER-NIL
+
+Use when runtime event-hook setup runs before a DOM adapter exists.
+
+Expected remediation:
+
+- initialize the runtime with a DOM adapter before rendering interactive components
+- avoid calling event-hook setup against a partially constructed runtime
+
+### GWC-RUNTIME-ATOM-REGISTRY-NIL
+
+Use when `GoUseAtom(...)` runs against a runtime that was never fully initialized.
+
+Expected remediation:
+
+- create or initialize the runtime before calling `GoUseAtom(...)`
+- ensure the shared atom registry exists before rendering components with atom subscriptions
+
+### GWC-RUNTIME-ATOM-ACCESSOR-MISMATCH
+
+Use when one atom hook slot is reused with an incompatible cached accessor shape.
+
+Expected remediation:
+
+- keep `GoUseAtom(...)` call order stable across renders
+- do not reuse one hook position for different atom value types
+
 ### GWC-UI-CONTEXT-NIL
 
 Use for `ui.UseContext(...)` or runtime context access with a nil context descriptor.
@@ -216,6 +252,42 @@ Expected remediation:
 
 - pass either a component function or a `ui.Node`
 - keep component signatures to zero or one props argument and return `ui.Node`
+
+### GWC-UI-UNSUPPORTED-ON-SERVER
+
+Use for browser-only UI APIs called from the native SSR slice.
+
+Expected remediation:
+
+- switch to the SSR-safe alternative for the current API
+- call browser-only UI APIs only from `js/wasm` builds after the client runtime is active
+
+### GWC-EXAMPLE-SERVER-REQUEST
+
+Use for example-server request failures such as SSR render, bootstrap serialization, or request parsing errors.
+
+Expected remediation:
+
+- inspect the `where:` and `path:` lines for the failing request handler first
+- fix the server render, bootstrap, CSRF, or request-decoding path named in `next:` before retrying the request
+
+### GWC-EXAMPLE-SERVER-STARTUP
+
+Use for example-server startup failures such as working-directory discovery, repo-root resolution, or `ListenAndServe` bind errors.
+
+Expected remediation:
+
+- inspect the startup path named in `where:` first
+- fix the port, repo-root, working-directory, or asset-discovery problem before restarting the example server
+
+### GWC-TOOL-LIVERELOAD
+
+Use for live-reload tool failures such as watcher attachment errors, websocket delivery failures, client-script injection errors, or failed rebuilds.
+
+Expected remediation:
+
+- inspect the tool stage named in `where:` first
+- fix the watcher, websocket, manifest, client-script, or rebuild failure named in `next:` before trusting hot reload again
 
 ### GWC-RUNTIME-CONTAINER-NOT-FOUND
 
@@ -261,6 +333,90 @@ Expected remediation:
 
 - inspect the cleanup function for teardown assumptions
 - make cleanup idempotent so unmount or dependency changes do not panic mid-teardown
+
+### GWC-RUNTIME-PANIC-LOADER
+
+Use for uncaught panics thrown from route loaders or route-owned async data callbacks.
+
+Expected remediation:
+
+- inspect the route loader and its data dependencies first
+- return explicit errors so route error UI can recover without a fatal exit
+
+### GWC-RUNTIME-PANIC-HYDRATION
+
+Use for strict hydration failures or hydration-time panics that must abort resume work.
+
+Expected remediation:
+
+- compare server markup with the first client render inputs
+- fix the mismatch or hydration-time panic before relying on strict hydration
+
+### GWC-RUNTIME-PANIC-STARTUP
+
+Use for fatal startup failures before the app can mount safely.
+
+Expected remediation:
+
+- verify the target root selector exists before mounting
+- validate bootstrap and initialization inputs before calling `ui.Render(...)` or `ui.Hydrate(...)`
+
+### GWC-RUNTIME-PANIC-DEFERRED
+
+Use for uncaught panics thrown from deferred runtime work such as transitions or scheduled callbacks.
+
+Expected remediation:
+
+- inspect the delayed callback or transition work first
+- replace panic-based control flow with explicit errors or guarded branches
+
+### GWC-RUNTIME-PANIC-SSR
+
+Use for uncaught panics thrown while server-rendering HTML or integrating SSR output.
+
+Expected remediation:
+
+- inspect the server render path and bootstrap generation code first
+- surface the returned error to the request handler instead of treating the panic as a transport-level failure
+
+## Fatal Panic Log Contract
+
+Wrapped fatal panic output now follows this line order:
+
+- original panic payload as the first line
+- stable framework code and panic phase
+- `where:` with the first app-owned frame when available
+- `path:` with the resolved component ancestry or route/startup target
+- `error:` with the compact summary
+- `runtime:` describing whether work stopped and why the runtime is no longer trustworthy
+- `next:` with remediation guidance
+- `docs:` with the stable anchor
+- grouped `stack:` sections for `app:`, `framework:`, and `platform:` frames when available
+
+Use this contract when refining future panic output so browser console logs, runtime diagnostics, and in-app debugging surfaces stay aligned.
+
+## Recovery Versus Rethrow
+
+The runtime currently allows an `ErrorBoundary` to recover only framework-owned panics that happen while executing user component work in these phases:
+
+- render
+- event handlers
+- effects
+- cleanup
+
+These phases first try the nearest error boundary. If a boundary handles the failure, the runtime degrades into fallback UI or scheduled recovery instead of terminating immediately.
+
+The following phases are still treated as fatal even after logging:
+
+- route loaders and route-owned async data callbacks
+- strict hydration escalation and hydration-time fatal mismatches
+- startup and mount-target failures
+- deferred or scheduled runtime work outside boundary-owned component execution
+- SSR render failures
+
+Those paths rethrow after logging because the runtime cannot currently prove that state, DOM reuse, route data, or server response generation remain trustworthy after the panic.
+
+If future work adds safe route-level or server-level recovery semantics, update both this section and the central phase policy in `internal/runtime/panic_report.go` together.
 
 ### GWC-ROUTER-COMPONENT-NIL
 

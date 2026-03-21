@@ -1799,9 +1799,11 @@ func (rt *Runtime) runCleanups(fiber *Fiber) {
 				func() {
 					defer func() {
 						if recovered := recover(); recovered != nil {
-							_, handled = rt.recoverBoundaryError(fiber, recovered, boundaryPhaseCleanup)
+							if panicPhaseMayRecoverWithBoundary(PanicPhaseCleanup) {
+								_, handled = rt.recoverBoundaryError(fiber, recovered, boundaryPhaseCleanup)
+							}
 							if !handled {
-								panic(reportUnhandledPanic(fiber, boundaryPhaseCleanup, recovered))
+								panic(markUnhandledPanic(fiber, boundaryPhaseCleanup, recovered))
 							}
 						}
 					}()
@@ -1872,9 +1874,11 @@ func (rt *Runtime) runEffects(fiber *Fiber) {
 			func() {
 				defer func() {
 					if recovered := recover(); recovered != nil {
-						_, handled = rt.recoverBoundaryError(fiber, recovered, boundaryPhaseEffect)
+						if panicPhaseMayRecoverWithBoundary(PanicPhaseEffect) {
+							_, handled = rt.recoverBoundaryError(fiber, recovered, boundaryPhaseEffect)
+						}
 						if !handled {
-							panic(reportUnhandledPanic(fiber, boundaryPhaseEffect, recovered))
+							panic(markUnhandledPanic(fiber, boundaryPhaseEffect, recovered))
 						}
 					}
 				}()
@@ -1900,9 +1904,11 @@ func (rt *Runtime) runEffects(fiber *Fiber) {
 				func() {
 					defer func() {
 						if recovered := recover(); recovered != nil {
-							_, handled = rt.recoverBoundaryError(fiber, recovered, boundaryPhaseEffect)
+							if panicPhaseMayRecoverWithBoundary(PanicPhaseEffect) {
+								_, handled = rt.recoverBoundaryError(fiber, recovered, boundaryPhaseEffect)
+							}
 							if !handled {
-								panic(reportUnhandledPanic(fiber, boundaryPhaseEffect, recovered))
+								panic(markUnhandledPanic(fiber, boundaryPhaseEffect, recovered))
 							}
 						}
 					}()

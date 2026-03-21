@@ -37,14 +37,60 @@ func diagnosticMetadata(source string, severity DiagnosticSeverity, classificati
 		details.Code = "GWC-RUNTIME-PANIC-CLEANUP"
 		details.Docs = actionableErrorsDoc + "#gwc-runtime-panic-cleanup"
 		details.Remediation = "Inspect the cleanup function for the named component and make teardown idempotent so unmount or dependency changes do not panic mid-cleanup."
+	case strings.Contains(lower, "uncaught loader panic in "):
+		details.Code = "GWC-RUNTIME-PANIC-LOADER"
+		details.Docs = actionableErrorsDoc + "#gwc-runtime-panic-loader"
+		details.Remediation = "Inspect the route loader or async data callback named in the diagnostic, remove panic-based control flow, and return explicit errors so route error UI can recover without a fatal exit."
+	case strings.Contains(lower, "uncaught hydration panic in "):
+		details.Code = "GWC-RUNTIME-PANIC-HYDRATION"
+		details.Docs = actionableErrorsDoc + "#gwc-runtime-panic-hydration"
+		details.Remediation = "Inspect the first client render inputs and server markup, then fix the mismatch or hydration-time panic before relying on strict resume paths."
+	case strings.Contains(lower, "uncaught startup panic in "):
+		details.Code = "GWC-RUNTIME-PANIC-STARTUP"
+		details.Docs = actionableErrorsDoc + "#gwc-runtime-panic-startup"
+		details.Remediation = "Verify startup selectors, bootstrap inputs, and runtime initialization so mount-time failures do not terminate before the app can render."
+	case strings.Contains(lower, "uncaught deferred panic in "):
+		details.Code = "GWC-RUNTIME-PANIC-DEFERRED"
+		details.Docs = actionableErrorsDoc + "#gwc-runtime-panic-deferred"
+		details.Remediation = "Inspect deferred callbacks, transition work, and scheduled runtime continuations so delayed work returns explicit errors instead of panicking."
+	case strings.Contains(lower, "uncaught ssr panic in "):
+		details.Code = "GWC-RUNTIME-PANIC-SSR"
+		details.Docs = actionableErrorsDoc + "#gwc-runtime-panic-ssr"
+		details.Remediation = "Inspect the server render path and bootstrap generation code first, then surface the returned error instead of letting request-time rendering fail invisibly."
 	case strings.Contains(lower, "called outside component context"):
 		details.Code = "GWC-RUNTIME-HOOK-OUTSIDE-COMPONENT"
 		details.Docs = actionableErrorsDoc + "#gwc-runtime-hook-outside-component"
 		details.Remediation = "Call framework hooks only while rendering a component through ui.CreateElement(...). Move the hook call out of package init code, route factories, and ordinary helpers that are not rendering components."
+	case strings.Contains(lower, "gousefunc requires a function"):
+		details.Code = "GWC-RUNTIME-HOOK-FUNC-TYPE"
+		details.Docs = actionableErrorsDoc + "#gwc-runtime-hook-func-type"
+		details.Remediation = "Pass a real function to GoUseFunc and move any non-callable config or data values outside the event-hook wrapper."
+	case strings.Contains(lower, "gousefunc dom adapter is nil"):
+		details.Code = "GWC-RUNTIME-DOM-ADAPTER-NIL"
+		details.Docs = actionableErrorsDoc + "#gwc-runtime-dom-adapter-nil"
+		details.Remediation = "Initialize the runtime with a DOM adapter before rendering components that call GoUseFunc or wire event handlers."
+	case strings.Contains(lower, "runtime atom registry not initialized"):
+		details.Code = "GWC-RUNTIME-ATOM-REGISTRY-NIL"
+		details.Docs = actionableErrorsDoc + "#gwc-runtime-atom-registry-nil"
+		details.Remediation = "Create or initialize the runtime before calling GoUseAtom so the shared atom registry exists for subscriptions and updates."
+	case strings.Contains(lower, "gouseatom accessor cache type mismatch"):
+		details.Code = "GWC-RUNTIME-ATOM-ACCESSOR-MISMATCH"
+		details.Docs = actionableErrorsDoc + "#gwc-runtime-atom-accessor-mismatch"
+		details.Remediation = "Do not reuse one hook slot for different atom value types. Keep GoUseAtom call order stable and preserve a single value shape per atom hook position."
 	case strings.Contains(lower, "called with nil context descriptor"):
 		details.Code = "GWC-UI-CONTEXT-NIL"
 		details.Docs = actionableErrorsDoc + "#gwc-ui-context-nil"
 		details.Remediation = "Pass the descriptor returned by ui.CreateContext(...) and avoid nil placeholder contexts."
+	case strings.Contains(lower, "ui.createelement requires a component function or ui.node") ||
+		strings.Contains(lower, "ui.createelement components may accept at most one props argument") ||
+		strings.Contains(lower, "ui.createelement components must return ui.node"):
+		details.Code = "GWC-UI-CREATE-ELEMENT-TYPE"
+		details.Docs = actionableErrorsDoc + "#gwc-ui-create-element-type"
+		details.Remediation = "Pass a component function or ui.Node to ui.CreateElement, keep component signatures to zero or one props argument, and return exactly one ui.Node tree."
+	case strings.Contains(lower, "is not available on non-js/wasm builds in the current ssr slice"):
+		details.Code = "GWC-UI-UNSUPPORTED-ON-SERVER"
+		details.Docs = actionableErrorsDoc + "#gwc-ui-unsupported-on-server"
+		details.Remediation = "Use the SSR-safe alternative documented for this API, or call the browser-only API only from js/wasm builds after the client runtime is active."
 	case strings.Contains(lower, "route component cannot be nil"):
 		details.Code = "GWC-ROUTER-COMPONENT-NIL"
 		details.Docs = actionableErrorsDoc + "#gwc-router-component-nil"
@@ -115,11 +161,59 @@ func logSeverity(level LogLevel) DiagnosticSeverity {
 }
 
 func actionableHookUsagePanic(name string) string {
-	return fmt.Sprintf("%s called outside component context (GWC-RUNTIME-HOOK-OUTSIDE-COMPONENT). Call hooks only while rendering a component through ui.CreateElement(...). Do not call hooks in package init code, route factories, or ordinary helpers. See %s#gwc-runtime-hook-outside-component.", strings.TrimSpace(name), actionableErrorsDoc)
+	trimmed := strings.TrimSpace(name)
+	return ActionableFrameworkPanic(ActionablePanicOptions{
+		Source:  "runtime",
+		Subject: trimmed,
+		Message: fmt.Sprintf("%s called outside component context", trimmed),
+		Path:    trimmed,
+	})
 }
 
 func actionableContextDescriptorNilPanic(name string) string {
-	return fmt.Sprintf("%s called with nil context descriptor (GWC-UI-CONTEXT-NIL). Pass the descriptor returned by ui.CreateContext(...) and avoid nil placeholder contexts. See %s#gwc-ui-context-nil.", strings.TrimSpace(name), actionableErrorsDoc)
+	trimmed := strings.TrimSpace(name)
+	return ActionableFrameworkPanic(ActionablePanicOptions{
+		Source:  "runtime",
+		Subject: trimmed,
+		Message: fmt.Sprintf("%s called with nil context descriptor", trimmed),
+		Path:    trimmed,
+	})
+}
+
+func actionableGoUseFuncTypePanic() string {
+	return ActionableFrameworkPanic(ActionablePanicOptions{
+		Source:  "runtime",
+		Subject: "GoUseFunc",
+		Message: "GoUseFunc requires a function",
+		Path:    "GoUseFunc",
+	})
+}
+
+func actionableGoUseFuncDOMAdapterPanic() string {
+	return ActionableFrameworkPanic(ActionablePanicOptions{
+		Source:  "runtime",
+		Subject: "GoUseFunc",
+		Message: "GoUseFunc dom adapter is nil",
+		Path:    "GoUseFunc",
+	})
+}
+
+func actionableGoUseAtomRegistryPanic() string {
+	return ActionableFrameworkPanic(ActionablePanicOptions{
+		Source:  "runtime",
+		Subject: "GoUseAtom",
+		Message: "Runtime atom registry not initialized",
+		Path:    "GoUseAtom",
+	})
+}
+
+func actionableGoUseAtomAccessorPanic() string {
+	return ActionableFrameworkPanic(ActionablePanicOptions{
+		Source:  "runtime",
+		Subject: "GoUseAtom",
+		Message: "GoUseAtom accessor cache type mismatch",
+		Path:    "GoUseAtom",
+	})
 }
 
 func panicDiagnosticCode(phase boundaryPhase) string {
@@ -132,6 +226,16 @@ func panicDiagnosticCode(phase boundaryPhase) string {
 		return "GWC-RUNTIME-PANIC-EFFECT"
 	case boundaryPhaseCleanup:
 		return "GWC-RUNTIME-PANIC-CLEANUP"
+	case PanicPhaseLoader:
+		return "GWC-RUNTIME-PANIC-LOADER"
+	case PanicPhaseHydration:
+		return "GWC-RUNTIME-PANIC-HYDRATION"
+	case PanicPhaseStartup:
+		return "GWC-RUNTIME-PANIC-STARTUP"
+	case PanicPhaseDeferred:
+		return "GWC-RUNTIME-PANIC-DEFERRED"
+	case PanicPhaseSSR:
+		return "GWC-RUNTIME-PANIC-SSR"
 	default:
 		return "GWC-RUNTIME-PANIC"
 	}
@@ -147,23 +251,48 @@ func panicDiagnosticDocs(phase boundaryPhase) string {
 		return actionableErrorsDoc + "#gwc-runtime-panic-effect"
 	case boundaryPhaseCleanup:
 		return actionableErrorsDoc + "#gwc-runtime-panic-cleanup"
+	case PanicPhaseLoader:
+		return actionableErrorsDoc + "#gwc-runtime-panic-loader"
+	case PanicPhaseHydration:
+		return actionableErrorsDoc + "#gwc-runtime-panic-hydration"
+	case PanicPhaseStartup:
+		return actionableErrorsDoc + "#gwc-runtime-panic-startup"
+	case PanicPhaseDeferred:
+		return actionableErrorsDoc + "#gwc-runtime-panic-deferred"
+	case PanicPhaseSSR:
+		return actionableErrorsDoc + "#gwc-runtime-panic-ssr"
 	default:
 		return actionableErrorsDoc
 	}
 }
 
 func panicDiagnosticRemediation(phase boundaryPhase) string {
+	code := panicDiagnosticCode(phase)
+	if strings.TrimSpace(code) == "" {
+		code = "GWC-RUNTIME-PANIC"
+	}
+	prefix := fmt.Sprintf("Match code %s in automation; ", code)
 	switch phase {
-	case boundaryPhaseRender:
-		return "Inspect the component render path and replace panic-based control flow with guarded branches, fallback UI, or an error boundary around the failing subtree."
-	case boundaryPhaseEvent:
-		return "Inspect the event handler, remove panic-based control flow, and return explicit errors or guarded updates instead of crashing the callback."
-	case boundaryPhaseEffect:
-		return "Inspect the effect body and move failure-prone work behind validation, explicit error handling, or an error boundary-friendly fallback path."
-	case boundaryPhaseCleanup:
-		return "Inspect the cleanup function and make teardown idempotent so unmount or dependency changes do not panic mid-cleanup."
+	case PanicPhaseRender:
+		return prefix + "inspect the component render path named by where/path first; replace panic-based control flow with guarded branches, fallback UI, or an ErrorBoundary when local recovery is expected."
+	case PanicPhaseEvent:
+		return prefix + "inspect the event handler named by where/path first; return explicit errors or guarded updates instead of panicking from runtime callbacks."
+	case PanicPhaseEffect:
+		return prefix + "inspect the effect body named by where/path first; move failure-prone work behind validation, explicit errors, or a recoverable fallback path."
+	case PanicPhaseCleanup:
+		return prefix + "inspect the cleanup path named by where/path first; make teardown idempotent and avoid panicking during unmount or dependency changes."
+	case PanicPhaseLoader:
+		return prefix + "inspect the loader or async data path named by where/path first; return explicit errors so route error UI can recover instead of crashing route resolution."
+	case PanicPhaseHydration:
+		return prefix + "compare server markup with the first client render at where/path first; fix the mismatch or hydration panic before relying on strict resume."
+	case PanicPhaseStartup:
+		return prefix + "verify the startup target and bootstrap inputs named by where/path first; ensure mount selectors and initialization state exist before rendering."
+	case PanicPhaseDeferred:
+		return prefix + "inspect the deferred callback or transition work named by where/path first; replace panic-based control flow with explicit errors or guarded branches."
+	case PanicPhaseSSR:
+		return prefix + "inspect the server render path named by where/path first; surface the returned error to the request handler instead of treating it as a transport-level panic."
 	default:
-		return "Inspect the failing user code path and replace panic-based control flow with explicit error handling where possible."
+		return prefix + "inspect the where/path fields first, then replace panic-based control flow with guarded branches, explicit errors, fallback UI, or a boundary when recovery is expected."
 	}
 }
 
@@ -188,26 +317,35 @@ func panicDiagnosticMessage(fiber *Fiber, phase boundaryPhase, recovered interfa
 	return fmt.Sprintf("uncaught %s panic in %s: %s", phase, panicSubject(fiber), panicSummary(recovered))
 }
 
-func actionablePanicMessage(fiber *Fiber, phase boundaryPhase, recovered interface{}) string {
-	subject := panicSubject(fiber)
-	summary := panicSummary(recovered)
-	code := panicDiagnosticCode(phase)
-	docs := panicDiagnosticDocs(phase)
-	path := strings.TrimSpace(diagnosticPathForFiber(fiber))
-	if path == "" {
-		path = subject
-	}
-
-	return fmt.Sprintf("%s\n[%s] uncaught %s panic in %s\nwhere: %s\nerror: %s\nnext: %s\ndocs: %s", summary, code, phase, subject, path, summary, panicDiagnosticRemediation(phase), docs)
-}
-
 func reportUnhandledPanic(fiber *Fiber, phase boundaryPhase, recovered interface{}) string {
-	ReportDiagnosticWithContext(
+	return ReportUnhandledPanicContext(
 		"runtime",
-		DiagnosticError,
-		panicDiagnosticMessage(fiber, phase, recovered),
+		phase,
+		panicSubject(fiber),
 		diagnosticPathForFiber(fiber),
 		diagnosticComponentStack(fiber),
+		recovered,
 	)
-	return actionablePanicMessage(fiber, phase, recovered)
+}
+
+func markUnhandledPanic(fiber *Fiber, phase boundaryPhase, recovered interface{}) interface{} {
+	return markUnhandledPanicContext(
+		"runtime",
+		phase,
+		panicSubject(fiber),
+		diagnosticPathForFiber(fiber),
+		diagnosticComponentStack(fiber),
+		recovered,
+	)
+}
+
+func panicFinalUnhandledPanic(fiber *Fiber, phase boundaryPhase, recovered interface{}) {
+	panicFinalUnhandledPanicContext(
+		"runtime",
+		phase,
+		panicSubject(fiber),
+		diagnosticPathForFiber(fiber),
+		diagnosticComponentStack(fiber),
+		recovered,
+	)
 }

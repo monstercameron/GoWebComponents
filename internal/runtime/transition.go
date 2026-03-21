@@ -56,6 +56,11 @@ func (rt *Runtime) ScheduleTransition(fn func()) {
 	rt.setTransitionPending(true)
 
 	rt.scheduler.SetTimeout(func() {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				panicFinalUnhandledPanicContext("runtime", PanicPhaseDeferred, "scheduled transition", "", nil, recovered)
+			}
+		}()
 		defer rt.finishTransition()
 		fn()
 	}, transitionDelayMs)

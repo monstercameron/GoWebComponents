@@ -66,6 +66,17 @@ func (rt *Runtime) ScheduleUpdate() {
 
 // continueWorkLoop is a bound method to avoid closure allocation
 func (rt *Runtime) continueWorkLoop() {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			fiber := rt.nextUnitOfWork
+			if fiber == nil && rt.wipRoot != nil {
+				fiber = rt.hydrationDiagnosticFiber(rt.wipRoot)
+			}
+			if _, suppressed := finalizeUnhandledPanicContext("runtime", PanicPhaseDeferred, panicSubject(fiber), diagnosticPathForFiber(fiber), diagnosticComponentStack(fiber), recovered); suppressed {
+				return
+			}
+		}
+	}()
 	rt.workLoop(globalInfiniteDeadline)
 }
 

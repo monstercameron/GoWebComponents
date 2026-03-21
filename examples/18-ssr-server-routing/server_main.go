@@ -11,8 +11,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/monstercameron/GoWebComponents/diagnostics"
 	"github.com/monstercameron/GoWebComponents/router"
 	"github.com/monstercameron/GoWebComponents/ui"
+)
+
+const (
+	exampleServerRequestDocs = "ACTIONABLE_ERRORS.md#gwc-example-server-request"
+	exampleServerStartupDocs = "ACTIONABLE_ERRORS.md#gwc-example-server-startup"
 )
 
 type appServer struct {
@@ -69,6 +75,31 @@ func fileHandler(path string, contentType string) http.Handler {
 	})
 }
 
+func exampleServerRequestReport(subject string, path string, err error, consequence string, next string) diagnostics.Report {
+	return diagnostics.Build(diagnostics.Options{
+		Summary:  err.Error(),
+		Code:     "GWC-EXAMPLE-SERVER-REQUEST",
+		Headline: "server failure in " + strings.TrimSpace(subject),
+		Path:     strings.TrimSpace(path),
+		Runtime:  strings.TrimSpace(consequence),
+		Next:     strings.TrimSpace(next),
+		Docs:     exampleServerRequestDocs,
+	})
+}
+
+func fatalExampleServerStartup(subject string, path string, err error, next string) {
+	diagnostics.Emit(diagnostics.Build(diagnostics.Options{
+		Summary:  err.Error(),
+		Code:     "GWC-EXAMPLE-SERVER-STARTUP",
+		Headline: "server startup failure in " + strings.TrimSpace(subject),
+		Path:     strings.TrimSpace(path),
+		Runtime:  "the example server could not finish startup and no requests will be served.",
+		Next:     strings.TrimSpace(next),
+		Docs:     exampleServerStartupDocs,
+	}))
+	os.Exit(1)
+}
+
 func (s *appServer) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 	query := cloneQueryWithoutPath(r.URL.Query())
 	resolved := resolveRoute(r.URL.Query().Get("path"), query)
@@ -78,7 +109,13 @@ func (s *appServer) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 	}
 	data, err := ui.MarshalSSRBootstrap(resolved.Bootstrap)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		diagnostics.WriteHTTPError(w, http.StatusInternalServerError, exampleServerRequestReport(
+			"appServer.handleBootstrap",
+			r.URL.Path,
+			err,
+			"the bootstrap payload was not serialized, so the client cannot hydrate this request.",
+			"Inspect the resolved route bootstrap payload and serialization inputs for this request.",
+		))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -104,7 +141,13 @@ func (s *appServer) handlePage(w http.ResponseWriter, r *http.Request) {
 	}
 	body, err := ui.RenderToString(renderDemoShell(resolved.View))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		diagnostics.WriteHTTPError(w, http.StatusInternalServerError, exampleServerRequestReport(
+			"appServer.handlePage.renderDemoShell",
+			r.URL.Path,
+			err,
+			"the server could not render the demo shell, so this request returned HTTP 500 without HTML.",
+			"Inspect the resolved route view and server render path for this request.",
+		))
 		return
 	}
 	headMetadata, err := ui.RenderToString(router.MetadataNode(router.Metadata{
@@ -113,7 +156,13 @@ func (s *appServer) handlePage(w http.ResponseWriter, r *http.Request) {
 		CanonicalURL: resolved.CanonicalURL,
 	}))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		diagnostics.WriteHTTPError(w, http.StatusInternalServerError, exampleServerRequestReport(
+			"appServer.handlePage.metadata",
+			r.URL.Path,
+			err,
+			"the server could not render route metadata, so the HTML head for this request is incomplete.",
+			"Inspect the metadata generation path and route metadata inputs for this request.",
+		))
 		return
 	}
 	refScript, err := ui.RenderBootstrapReferenceScript(ui.SSRBootstrapReference{
@@ -121,7 +170,13 @@ func (s *appServer) handlePage(w http.ResponseWriter, r *http.Request) {
 		Format: ui.SSRBootstrapFormatJSON,
 	}, "")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		diagnostics.WriteHTTPError(w, http.StatusInternalServerError, exampleServerRequestReport(
+			"appServer.handlePage.bootstrapReference",
+			r.URL.Path,
+			err,
+			"the server could not generate the bootstrap reference script, so hydration cannot locate its payload.",
+			"Inspect the bootstrap reference URL and script generation inputs for this request.",
+		))
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -136,15 +191,15 @@ func main() {
 	}
 	workingDir, err := os.Getwd()
 	if err != nil {
-		panic(err)
+		fatalExampleServerStartup("main.os.Getwd", "cwd", err, "Verify the example is being started from a readable working directory.")
 	}
 	root, err := findRepoRoot(workingDir)
 	if err != nil {
-		panic(err)
+		fatalExampleServerStartup("main.findRepoRoot", workingDir, err, "Start the example inside the repo so the static assets and go.mod can be discovered.")
 	}
 	server := newAppServer(root)
 	fmt.Printf("Server SSR demo listening on http://127.0.0.1:%s\n", port)
 	if err := http.ListenAndServe("127.0.0.1:"+port, server.routes()); err != nil {
-		panic(err)
+		fatalExampleServerStartup("main.http.ListenAndServe", "127.0.0.1:"+port, err, "Free the port or update PORT before starting the example server again.")
 	}
 }

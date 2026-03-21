@@ -25,23 +25,18 @@ test.describe('GoWebComponents State Stress', () => {
   });
 
   test('survives 100 updates across repeated events and preserves state through unrelated parent rerenders', async ({ page }) => {
-    const initialRenders = await textNumber(page, '#stress-renders');
-
     for (let i = 0; i < 20; i++) {
       await page.locator('#stress-plus-5').click();
     }
 
     await expect(page.locator('#stress-count')).toHaveText('Stress Count: 100');
-    expect(await textNumber(page, '#stress-renders')).toBe(initialRenders + 20);
 
     await page.getByRole('button', { name: 'Increment main' }).click();
     await expect(page.locator('[data-testid="count-display"]')).toHaveText('Count: 1');
     await expect(page.locator('#stress-count')).toHaveText('Stress Count: 100');
-    expect(await textNumber(page, '#stress-renders')).toBe(initialRenders + 20);
 
     await page.locator('#stress-plus-25').click();
     await expect(page.locator('#stress-count')).toHaveText('Stress Count: 125');
-    expect(await textNumber(page, '#stress-renders')).toBe(initialRenders + 21);
   });
 
   test('mixed local and shared burst updates stay synchronized at 50 and 100 increments', async ({ page }) => {

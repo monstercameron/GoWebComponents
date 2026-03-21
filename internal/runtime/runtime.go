@@ -33,6 +33,8 @@ func InitGlobalRuntime(config Config) {
 	globalRuntimeMu.Lock()
 	defer globalRuntimeMu.Unlock()
 
+	ConfigureUnhandledPanicLogging(PanicLoggingOptions{HideRawPanicOutput: config.HideRawPanicOutput, OnReport: config.OnUnhandledPanicReport})
+
 	if globalRuntime == nil {
 		globalRuntime = NewRuntime(config)
 		return
@@ -170,14 +172,17 @@ func recordSlowOperationDiagnostic(kind string, fiber *Fiber, durationNs int64) 
 
 // Config holds runtime adapter configuration.
 type Config struct {
-	DOMAdapter   DOMAdapter
-	EventAdapter EventAdapter
-	Scheduler    Scheduler
-	BrowserState BrowserState
+	DOMAdapter             DOMAdapter
+	EventAdapter           EventAdapter
+	Scheduler              Scheduler
+	BrowserState           BrowserState
+	HideRawPanicOutput     bool
+	OnUnhandledPanicReport func(PanicReport)
 }
 
 // NewRuntime creates a new runtime instance.
 func NewRuntime(config Config) *Runtime {
+	ConfigureUnhandledPanicLogging(PanicLoggingOptions{HideRawPanicOutput: config.HideRawPanicOutput, OnReport: config.OnUnhandledPanicReport})
 	// TODO: validate adapters are non-nil and fail fast; current code will panic later if any adapter is missing
 	return &Runtime{
 		domAdapter:   config.DOMAdapter,
@@ -194,8 +199,8 @@ func NewRuntime(config Config) *Runtime {
 func (rt *Runtime) RenderTo(selector string, element *Element) {
 	container := rt.queryContainer(selector)
 	if container == nil || container.IsNull() {
-		ReportDiagnostic("runtime", DiagnosticError, "RenderTo failed because the target container selector was not found: "+selector)
-		panic("RenderTo: container not found for selector: " + selector)
+		message := "RenderTo failed because the target container selector was not found: " + selector
+		panicFinalUnhandledPanicContext("runtime", PanicPhaseStartup, "RenderTo", selector, nil, message)
 	}
 
 	rt.Render(element, container)
@@ -207,8 +212,8 @@ func (rt *Runtime) RenderTo(selector string, element *Element) {
 func (rt *Runtime) HydrateTo(selector string, element *Element) {
 	container := rt.queryContainer(selector)
 	if container == nil || container.IsNull() {
-		ReportDiagnostic("runtime", DiagnosticError, "HydrateTo failed because the target container selector was not found: "+selector)
-		panic("HydrateTo: container not found for selector: " + selector)
+		message := "HydrateTo failed because the target container selector was not found: " + selector
+		panicFinalUnhandledPanicContext("runtime", PanicPhaseStartup, "HydrateTo", selector, nil, message)
 	}
 
 	rt.Hydrate(element, container)

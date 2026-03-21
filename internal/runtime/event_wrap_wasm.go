@@ -49,9 +49,11 @@ func (rt *Runtime) wrapEventHandler(owner *Fiber, fn interface{}) interface{} {
 
 func (rt *Runtime) recoverEventPanic(owner *Fiber) {
 	if recovered := recover(); recovered != nil {
-		if _, handled := rt.recoverBoundaryError(owner, recovered, boundaryPhaseEvent); handled {
-			return
+		if panicPhaseMayRecoverWithBoundary(PanicPhaseEvent) {
+			if _, handled := rt.recoverBoundaryError(owner, recovered, boundaryPhaseEvent); handled {
+				return
+			}
 		}
-		panic(reportUnhandledPanic(owner, boundaryPhaseEvent, recovered))
+		panicFinalUnhandledPanic(owner, boundaryPhaseEvent, recovered)
 	}
 }

@@ -81,7 +81,7 @@ func (rt *Runtime) reportHydrationDiagnostic(fiber *Fiber, message string) {
 	)
 	if rt != nil && rt.strictHydration {
 		rt.finishHydrationMetrics(true, message)
-		panic(message)
+		panic(markUnhandledPanicContext("runtime", PanicPhaseHydration, "hydration", diagnosticPathForFiber(target), diagnosticComponentStack(target), message))
 	}
 }
 

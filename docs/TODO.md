@@ -1537,77 +1537,77 @@ Organization rules for this file:
 
 ### Fatal panic wrapping and console-log design
 
-- [ ] Audit every framework-owned uncaught panic boundary.
+- [x] Audit every framework-owned uncaught panic boundary.
 	List which render, event, effect, cleanup, loader, hydration, bootstrap, and SSR paths can still escape as raw Go panic output so panic wrapping work targets the last fatal surfaces instead of only the easiest ones.
-- [ ] Intercept uncaught component render panics before fatal exit.
+- [x] Intercept uncaught component render panics before fatal exit.
 	Wrap function-component render entrypoints and other app-owned render callbacks so plain component panics no longer fall straight through as classic raw Go panic output.
-- [ ] Intercept uncaught event-handler panics before fatal exit.
+- [x] Intercept uncaught event-handler panics before fatal exit.
 	Wrap DOM event handlers, synthetic event bridges, and callback adapters so button clicks, form submissions, and other user events emit wrapped fatal diagnostics instead of bare runtime panics.
-- [ ] Intercept uncaught effect-body panics before fatal exit.
+- [x] Intercept uncaught effect-body panics before fatal exit.
 	Wrap effect execution paths so panics during mount or dependency-driven reruns produce the improved fatal log shape with app frame and component path context.
-- [ ] Intercept uncaught cleanup panics before fatal exit.
+- [x] Intercept uncaught cleanup panics before fatal exit.
 	Wrap effect cleanup and teardown paths so unmount-time failures, dependency cleanup failures, and disposal-time crashes do not surface as classic raw panic dumps.
-- [ ] Intercept uncaught async loader and route-data panics.
+- [x] Intercept uncaught async loader and route-data panics.
 	Wrap route loaders, async resource callbacks, route revalidation hooks, and data-driven retry paths so route-owned failures use the same fatal log contract as component panics.
-- [ ] Intercept uncaught hydration-phase panics.
+- [x] Intercept uncaught hydration-phase panics.
 	Wrap hydration mismatch escalation, subtree reuse checks, and hydration-time component work so strict or fatal hydration failures preserve app-first context before any unavoidable exit.
-- [ ] Intercept uncaught bootstrap and startup panics.
+- [x] Intercept uncaught bootstrap and startup panics.
 	Wrap root mount, bootstrap payload decode, wasm startup, and runtime initialization entrypoints so first-load failures still emit the wrapped panic design instead of only low-level startup noise.
-- [ ] Intercept uncaught scheduler and deferred work panics.
+- [x] Intercept uncaught scheduler and deferred work panics.
 	Wrap scheduler callbacks, queued work-loop continuations, timer-driven rerenders, and deferred work entrypoints so delayed crashes retain the same structured fatal log layout.
-- [ ] Intercept uncaught server-render and SSR integration panics where applicable.
+- [x] Intercept uncaught server-render and SSR integration panics where applicable.
 	Wrap request-time render, bootstrap generation, and SSR integration boundaries so server-owned failures can use the same app-frame-first contract even when the transport differs from browser console output.
-- [ ] Preserve the original panic payload as the first visible log line.
+- [x] Preserve the original panic payload as the first visible log line.
 	Keep the exact panic text developers would otherwise see from Go so improved formatting adds clarity without hiding the original failure signal or making issue reports harder to correlate.
-- [ ] Surface the first app-owned frame before framework internals.
+- [x] Surface the first app-owned frame before framework internals.
 	Extract the top user-code frame such as `main.HelloWorld at test/testapp/main.go:351` and show it as `where:` so authors can jump to the actionable location before reading reconciler or scheduler frames.
-- [ ] Add component-path context to fatal panic logs.
+- [x] Add component-path context to fatal panic logs.
 	Show the resolved component ancestry such as `App > HelloWorld` as a `path:` line so panics inside nested layouts, portals, or async subtrees can be localized without reconstructing the tree manually.
-- [ ] Add a short labeled error summary line.
+- [x] Add a short labeled error summary line.
 	Repeat the panic payload in a compact `error:` field so noisy browser consoles still show the core failure clearly even when the first panic line scrolls out of view.
-- [ ] Explain fatal runtime consequence in plain language.
+- [x] Explain fatal runtime consequence in plain language.
 	Replace confusing Go-specific wording such as `[recovered, repanicked]` with a framework-owned `runtime:` line that says whether no boundary handled the panic, whether render work stopped, and whether the app can still be trusted.
-- [ ] Group stack output into app, framework, and platform sections.
+- [x] Group stack output into app, framework, and platform sections.
 	Trim or reorder raw stack output so user frames appear first, framework frames remain available for debugging, and low-level wasm or `syscall/js` frames are still preserved but visually demoted.
-- [ ] Avoid duplicate fatal panic noise.
+- [x] Avoid duplicate fatal panic noise.
 	Ensure the runtime does not emit both a wrapped panic block and a second competing framework log entry that repeats the same information with different wording.
-- [ ] Mirror wrapped fatal panics into devtools and diagnostics buffers.
+- [x] Mirror wrapped fatal panics into devtools and diagnostics buffers.
 	Send the same stable code, path, top frame, remediation, and recoverability metadata into runtime diagnostics and devtools logs so browser console output and in-app debugging views stay consistent.
-- [ ] Decide which fatal panic paths should recover versus rethrow.
+- [x] Decide which fatal panic paths should recover versus rethrow.
 	Document and encode the boundary between panics that may safely degrade into boundary fallback UI and panics that must still terminate after logging because runtime correctness can no longer be trusted.
-- [ ] Add positive-path unit tests for wrapped fatal panic formatting.
+- [x] Add positive-path unit tests for wrapped fatal panic formatting.
 	Assert that render, event, effect, cleanup, loader, hydration, and bootstrap failures each emit the expected code, path, error summary, consequence line, grouped stacks, and docs anchor when interception succeeds.
-- [ ] Add negative-path tests to ensure non-panic flows are unchanged.
+- [x] Add negative-path tests to ensure non-panic flows are unchanged.
 	Assert that successful renders, handled error-boundary fallbacks, ordinary warnings, and non-fatal diagnostics do not emit wrapped fatal panic logs or duplicate error records.
-- [ ] Add edge-case tests for unusual panic payloads.
+- [x] Add edge-case tests for unusual panic payloads.
 	Cover empty panic messages, `error` values, non-string panic payloads, repeated panics, missing component paths, anonymous component functions, and nested boundary interactions so the formatter stays readable in odd cases.
-- [ ] Add integration tests for runtime-to-devtools panic propagation.
-	Assert that a wrapped fatal panic records consistent metadata across runtime diagnostics, log buffers, devtools snapshots, and any in-app debugging surfaces without conflicting classifications or duplicate entries.
-- [ ] Add Playwright console tests for wrapped fatal panic output.
-	Use intentionally crashing wasm scenarios to assert the exact browser-console shape for render, event, effect, cleanup, and startup failures, including original panic text, top app frame, component path, grouped stacks, and exit semantics.
-- [ ] Add Playwright regression tests for non-fatal boundaries.
-	Assert that error boundaries, recoverable diagnostics, and degraded-but-supported behavior do not print fatal wrapped panic blocks when the runtime successfully recovers.
-- [ ] Add docs for the fatal panic log contract.
+- [x] Add integration tests for runtime-to-devtools panic propagation.
+	`devtools/devtools_wasm_test.go` now proves that a wrapped fatal panic snapshot mirrors the runtime diagnostic and log metadata exactly, including stable code, message, docs, remediation, recoverability, top frame, consequence, and mirrored path or runtime fields.
+- [x] Add Playwright console tests for wrapped fatal panic output.
+	`test/specs/panic_contract.spec.js` now drives an intentionally crashing wasm render path and asserts the browser-observed wrapped panic contract, including the panic payload, stable code, `where:`, `path:`, `runtime:`, and grouped stack sections.
+- [x] Add Playwright regression tests for non-fatal boundaries.
+	The same focused Playwright coverage now exercises a boundary-owned render crash in `test/testapp/main.go`, verifies fallback UI renders, and asserts that no fatal wrapped panic block is printed when the runtime recovers locally.
+- [x] Add docs for the fatal panic log contract.
 	Document the intended line order, stable fields, and recovery-versus-fatal rules in `docs/ACTIONABLE_ERRORS.md` so future message refinements do not drift or regress.
 
 ### Public testing utilities for app authors
 
-- [ ] Define the first-party testing surface for consumers.
-	Decide whether testing support lives in one package or several focused helpers for component rendering, hook testing, router testing, and SSR assertions.
-- [ ] Add a component render and query harness for tests.
-	Provide a public way to mount a component into a controlled DOM fixture, trigger updates, and inspect rendered output without depending on internal runtime helpers.
-- [ ] Add event and async-flush helpers for browser-facing tests.
-	Support deterministic event dispatch, timer flushing, microtask draining, and render stabilization so consumer tests do not need fragile sleeps.
-- [ ] Add hook-level testing utilities where feasible.
-	Support isolated testing of custom hooks or hook-driven state flows without requiring a full hand-written host component for every test.
-- [ ] Add router testing helpers.
-	Provide utilities for setting initial routes, exercising navigation, asserting params and query behavior, and validating guard or loader outcomes in component tests.
-- [ ] Add SSR and hydration assertion helpers.
-	Support snapshotting `RenderToString(...)` output, bootstrap payload assertions, and hydration smoke tests so server-rendered apps can test their delivery path directly.
-- [ ] Define stable public query semantics for test helpers.
-	Decide whether first-party test queries are DOM-role and accessibility-first, selector-based, or a thin integration layer over existing browser-test tools.
-- [ ] Add example tests and documentation for consumers.
-	Document recommended unit, integration, router, and SSR testing patterns using the public helpers so adopters can copy real working examples instead of reverse-engineering repo internals.
+- [x] Define the first-party testing surface for consumers.
+	`docs/TESTING.md` now defines the intended shape as one first-party companion testing module with several focused helper packages, keeping consumer ergonomics first-party while leaving runtime correctness inside core packages.
+- [x] Add a component render and query harness for tests.
+	`testkit/render` now provides a first public `js/wasm` fixture over `mockdom`, with controlled mounting, rerendering, and basic rendered-node queries for component tests without importing repo-local runtime test helpers.
+- [x] Add event and async-flush helpers for browser-facing tests.
+	`testkit/render` now exposes synthetic dispatch helpers such as click and input plus `Flush`, `FlushTimers`, and `Stabilize`, so `js/wasm` consumer tests can drive handlers and settle queued work without fragile sleeps or raw handler-property access.
+- [x] Add hook-level testing utilities where feasible.
+	`testkit/hooks` now provides a first public `RenderHook(...)` harness for `js/wasm` tests, letting hook-driven state flows be exercised without a bespoke host component in every test.
+- [x] Add router testing helpers.
+	`testkit/router` now provides first public hash and history router fixtures for `js/wasm` tests, covering initial-path setup, navigation, route inspection, params and query assertions, and delegated rendered-route queries.
+- [x] Add SSR and hydration assertion helpers.
+	`testkit/ssr` now provides public HTML snapshot helpers, typed bootstrap-payload assertions, and a lightweight `js/wasm` hydration smoke harness so SSR delivery paths can be tested without repo-local fixtures.
+- [x] Define stable public query semantics for test helpers.
+	`testkit/render` now treats accessibility-first role/name queries as the preferred public contract, with exact normalized matching and lower-level id/text/tag helpers retained as explicit escape hatches.
+- [x] Add example tests and documentation for consumers.
+	Consumer-copyable examples now live alongside `testkit/render`, `testkit/hooks`, `testkit/router`, and `testkit/ssr`, and `docs/TESTING.md` now points to the recommended unit, integration, router, SSR, and hydration patterns.
 - [ ] Add deterministic scheduler and flush helpers for tests.
 	Support explicit render flushing, timer draining, microtask advancement, and effect settlement so tests do not depend on sleeps or incidental event-loop timing.
 - [ ] Add async resource and loader test utilities.

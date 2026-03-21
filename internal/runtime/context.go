@@ -36,7 +36,6 @@ func GoUseContextValue(descriptor *ContextDescriptor) interface{} {
 
 	fiber := GetCurrentFiber()
 	if fiber == nil {
-		ReportDiagnostic("runtime", DiagnosticError, "GoUseContextValue called outside component context")
 		panic(actionableHookUsagePanic("GoUseContextValue"))
 	}
 

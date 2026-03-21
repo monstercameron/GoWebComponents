@@ -2,9 +2,25 @@ package runtime
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 )
+
+func TestGoUseAtomRegistryPanicUsesUnifiedContract(t *testing.T) {
+	defer func() {
+		recovered := recover()
+		if recovered == nil {
+			t.Fatal("expected GoUseAtom to panic when registry is missing")
+		}
+		message := recovered.(string)
+		if !strings.Contains(message, "GWC-RUNTIME-ATOM-REGISTRY-NIL") || !strings.Contains(message, "where:") || !strings.Contains(message, "runtime:") || !strings.Contains(message, "docs: ACTIONABLE_ERRORS.md#gwc-runtime-atom-registry-nil") {
+			t.Fatalf("expected unified atom registry panic output, got %q", message)
+		}
+	}()
+
+	_, _ = GoUseAtom(&Runtime{}, "counter", 0)
+}
 
 // Helper to create test fibers with hooks initialized
 func newTestFiber(typeOf string) *Fiber {

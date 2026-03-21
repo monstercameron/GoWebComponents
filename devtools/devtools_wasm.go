@@ -59,6 +59,8 @@ func SnapshotNow() Snapshot {
 			Docs:           diagnostic.Docs,
 			Remediation:    diagnostic.Remediation,
 			Recoverable:    diagnostic.Recoverable,
+			TopFrame:       diagnostic.TopFrame,
+			Consequence:    diagnostic.Consequence,
 			Message:        diagnostic.Message,
 			Count:          diagnostic.Count,
 			Path:           diagnostic.Path,
@@ -74,6 +76,8 @@ func SnapshotNow() Snapshot {
 			Docs:           entry.Docs,
 			Remediation:    entry.Remediation,
 			Recoverable:    entry.Recoverable,
+			TopFrame:       entry.TopFrame,
+			Consequence:    entry.Consequence,
 			Message:        entry.Message,
 			Timestamp:      entry.Timestamp,
 			CorrelationID:  entry.CorrelationID,
@@ -348,10 +352,22 @@ func diagnosticsSummary(diagnostics []Diagnostic) ui.Node {
 			html.P(html.Props{Style: map[string]string{"margin": "6px 0 0 0", "color": "#cbd5e1"}}, html.Text(diagnostic.Message)),
 			html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text("class: "+string(diagnostic.Classification)+" | recoverable="+fmt.Sprintf("%t", diagnostic.Recoverable))),
 			func() ui.Node {
+				if strings.TrimSpace(diagnostic.TopFrame) == "" {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "6px", "color": "#cbd5e1"}}, html.Text("where: "+diagnostic.TopFrame))
+			}(),
+			func() ui.Node {
 				if strings.TrimSpace(diagnostic.Path) == "" {
 					return nil
 				}
 				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "6px", "color": "#94a3b8"}}, html.Text("path: "+diagnostic.Path))
+			}(),
+			func() ui.Node {
+				if strings.TrimSpace(diagnostic.Consequence) == "" {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("runtime: "+diagnostic.Consequence))
 			}(),
 			func() ui.Node {
 				if len(diagnostic.ComponentStack) == 0 {
@@ -418,6 +434,18 @@ func logsSummary(entries []Log) ui.Node {
 					return nil
 				}
 				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#94a3b8"}}, html.Text(strings.Join(meta, " | ")))
+			}(),
+			func() ui.Node {
+				if strings.TrimSpace(entry.TopFrame) == "" {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("where: "+entry.TopFrame))
+			}(),
+			func() ui.Node {
+				if strings.TrimSpace(entry.Consequence) == "" {
+					return nil
+				}
+				return html.Small(html.Props{Style: map[string]string{"display": "block", "margin-top": "4px", "color": "#cbd5e1"}}, html.Text("runtime: "+entry.Consequence))
 			}(),
 			func() ui.Node {
 				if len(entry.Fields) == 0 {

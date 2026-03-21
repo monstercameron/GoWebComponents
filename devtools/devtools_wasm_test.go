@@ -29,6 +29,76 @@ func TestSnapshotNowIncludesBufferedLogs(t *testing.T) {
 	}
 }
 
+func TestSnapshotNowIncludesWrappedPanicMetadata(t *testing.T) {
+	runtime.ClearLogs()
+	runtime.ClearDiagnostics()
+	defer runtime.ClearLogs()
+	defer runtime.ClearDiagnostics()
+
+	message := runtime.ReportUnhandledPanicContext("runtime", runtime.PanicPhaseStartup, "RenderTo", "#app", []string{"App"}, "startup boom")
+	if message == "" {
+		t.Fatal("expected wrapped panic message")
+	}
+
+	snapshot := SnapshotNow()
+	runtimeDiagnostics := runtime.GetDiagnostics()
+	if len(runtimeDiagnostics) == 0 {
+		t.Fatal("expected runtime panic diagnostic")
+	}
+	runtimeDiagnostic := runtimeDiagnostics[len(runtimeDiagnostics)-1]
+	if len(snapshot.Diagnostics) == 0 {
+		t.Fatal("expected panic diagnostic in snapshot")
+	}
+	diagnostic := snapshot.Diagnostics[len(snapshot.Diagnostics)-1]
+	if diagnostic.Code != "GWC-RUNTIME-PANIC-STARTUP" || diagnostic.Path != "#app" {
+		t.Fatalf("unexpected diagnostic payload: %+v", diagnostic)
+	}
+	if diagnostic.TopFrame == "" || diagnostic.Consequence == "" {
+		t.Fatalf("expected wrapped panic diagnostic metadata, got %+v", diagnostic)
+	}
+	if diagnostic.Code != runtimeDiagnostic.Code ||
+		diagnostic.Message != runtimeDiagnostic.Message ||
+		diagnostic.Path != runtimeDiagnostic.Path ||
+		diagnostic.Docs != runtimeDiagnostic.Docs ||
+		diagnostic.Remediation != runtimeDiagnostic.Remediation ||
+		diagnostic.Recoverable != runtimeDiagnostic.Recoverable ||
+		diagnostic.TopFrame != runtimeDiagnostic.TopFrame ||
+		diagnostic.Consequence != runtimeDiagnostic.Consequence {
+		t.Fatalf("expected snapshot diagnostic to mirror runtime diagnostic, snapshot=%+v runtime=%+v", diagnostic, runtimeDiagnostic)
+	}
+
+	runtimeLogs := runtime.GetLogs()
+	if len(runtimeLogs) == 0 {
+		t.Fatal("expected runtime panic log")
+	}
+	runtimeLog := runtimeLogs[len(runtimeLogs)-1]
+	if len(snapshot.Logs) == 0 {
+		t.Fatal("expected panic log in snapshot")
+	}
+	entry := snapshot.Logs[len(snapshot.Logs)-1]
+	if entry.Code != "GWC-RUNTIME-PANIC-STARTUP" {
+		t.Fatalf("unexpected log payload: %+v", entry)
+	}
+	if entry.TopFrame == "" || entry.Consequence == "" {
+		t.Fatalf("expected wrapped panic log metadata, got %+v", entry)
+	}
+	if entry.Fields["path"] != "#app" || entry.Fields["runtime"] == "" || entry.Fields["top_frame"] == "" {
+		t.Fatalf("expected panic fields to mirror into log entry, got %+v", entry)
+	}
+	if entry.Code != runtimeLog.Code ||
+		entry.Message != runtimeLog.Message ||
+		entry.Docs != runtimeLog.Docs ||
+		entry.Remediation != runtimeLog.Remediation ||
+		entry.Recoverable != runtimeLog.Recoverable ||
+		entry.TopFrame != runtimeLog.TopFrame ||
+		entry.Consequence != runtimeLog.Consequence ||
+		entry.Fields["path"] != runtimeLog.Fields["path"] ||
+		entry.Fields["runtime"] != runtimeLog.Fields["runtime"] ||
+		entry.Fields["top_frame"] != runtimeLog.Fields["top_frame"] {
+		t.Fatalf("expected snapshot log to mirror runtime log, snapshot=%+v runtime=%+v", entry, runtimeLog)
+	}
+}
+
 func TestExportSnapshotJSONAndCompareSnapshots(t *testing.T) {
 	before := Snapshot{
 		Route: Route{Path: "/before"},

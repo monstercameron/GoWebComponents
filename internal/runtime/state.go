@@ -443,12 +443,12 @@ func (ar *AtomRegistry) RestoreSnapshot(snapshot map[string]interface{}) []*Fibe
 // When an atom updates, only components that use that specific atom re-render.
 func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(interface{})) {
 	if rt.atomRegistry == nil {
-		panic("Runtime atom registry not initialized")
+		panic(actionableGoUseAtomRegistryPanic())
 	}
 
 	fiber := GetCurrentFiber()
 	if fiber == nil {
-		panic("GoUseAtom must be called within a component")
+		panic(actionableHookUsagePanic("GoUseAtom"))
 	}
 
 	if fiber.hooks == nil {
@@ -561,7 +561,7 @@ func GoUseAtom[T any](rt *Runtime, id string, initialValue T) (func() T, func(in
 	get, _ := hooks.atomFuncs[atomIdx].getter.(func() T)
 	set, _ := hooks.atomFuncs[atomIdx].setter.(func(interface{}))
 	if get == nil || set == nil {
-		panic("GoUseAtom accessor cache type mismatch")
+		panic(actionableGoUseAtomAccessorPanic())
 	}
 
 	return get, set

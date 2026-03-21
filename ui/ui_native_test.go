@@ -116,18 +116,32 @@ func TestReadBootstrapReferenceUnsupportedOnServer(t *testing.T) {
 }
 
 func TestCreateElementInvalidTypePanicIncludesActionableGuidance(t *testing.T) {
+	markup, err := ui.RenderToString(ui.CreateElement(123))
+	if err == nil {
+		t.Fatal("expected create-element misuse to surface as an SSR error")
+	}
+	if markup != "" {
+		t.Fatalf("expected empty markup for SSR failure, got %q", markup)
+	}
+	message := err.Error()
+	if !strings.Contains(message, "GWC-UI-CREATE-ELEMENT-TYPE") || !strings.Contains(message, "ACTIONABLE_ERRORS.md#gwc-ui-create-element-type") || !strings.Contains(message, "where:") || !strings.Contains(message, "runtime:") {
+		t.Fatalf("expected actionable create-element error, got %q", message)
+	}
+}
+
+func TestRenderUnsupportedOnServerPanicUsesUnifiedContract(t *testing.T) {
 	defer func() {
 		recovered := recover()
 		if recovered == nil {
-			t.Fatal("expected panic")
+			t.Fatal("expected Render to panic on server")
 		}
 		message := recovered.(string)
-		if !strings.Contains(message, "GWC-UI-CREATE-ELEMENT-TYPE") || !strings.Contains(message, "ACTIONABLE_ERRORS.md#gwc-ui-create-element-type") {
-			t.Fatalf("expected actionable create-element panic, got %q", message)
+		if !strings.Contains(message, "GWC-UI-UNSUPPORTED-ON-SERVER") || !strings.Contains(message, "ui.Render") || !strings.Contains(message, "docs: ACTIONABLE_ERRORS.md#gwc-ui-unsupported-on-server") {
+			t.Fatalf("expected unified server-only api panic output, got %q", message)
 		}
 	}()
 
-	_, _ = ui.RenderToString(ui.CreateElement(123))
+	ui.Render(ui.Text("hello"), "#app")
 }
 
 func TestAsyncBoundaryAndLazyOnServer(t *testing.T) {

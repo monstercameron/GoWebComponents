@@ -10,8 +10,39 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/monstercameron/GoWebComponents/diagnostics"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
+
+const (
+	bootstrapRequestDocs = "ACTIONABLE_ERRORS.md#gwc-example-server-request"
+	bootstrapStartupDocs = "ACTIONABLE_ERRORS.md#gwc-example-server-startup"
+)
+
+func bootstrapRequestReport(path string, err error, consequence string, next string) diagnostics.Report {
+	return diagnostics.Build(diagnostics.Options{
+		Summary:  err.Error(),
+		Code:     "GWC-EXAMPLE-SERVER-REQUEST",
+		Headline: "server failure in ssr-bootstrap demo",
+		Path:     strings.TrimSpace(path),
+		Runtime:  strings.TrimSpace(consequence),
+		Next:     strings.TrimSpace(next),
+		Docs:     bootstrapRequestDocs,
+	})
+}
+
+func fatalBootstrapStartup(subject string, path string, err error, next string) {
+	diagnostics.Emit(diagnostics.Build(diagnostics.Options{
+		Summary:  err.Error(),
+		Code:     "GWC-EXAMPLE-SERVER-STARTUP",
+		Headline: "server startup failure in " + strings.TrimSpace(subject),
+		Path:     strings.TrimSpace(path),
+		Runtime:  "the dedicated SSR bootstrap example could not start, so no requests will be served.",
+		Next:     strings.TrimSpace(next),
+		Docs:     bootstrapStartupDocs,
+	}))
+	os.Exit(1)
+}
 
 func repoRoot(start string) (string, error) {
 	current := start
@@ -34,11 +65,11 @@ func main() {
 	}
 	wd, err := os.Getwd()
 	if err != nil {
-		panic(err)
+		fatalBootstrapStartup("main.os.Getwd", "cwd", err, "Verify the example is being started from a readable working directory.")
 	}
 	root, err := repoRoot(wd)
 	if err != nil {
-		panic(err)
+		fatalBootstrapStartup("main.repoRoot", wd, err, "Start the example inside the repo so the wasm binary and scripts can be discovered.")
 	}
 	loggerScript := filepath.Join(root, "examples", "static", "script", "example-logger.js")
 	wasmExec := filepath.Join(root, "examples", "static", "script", "wasm_exec.js")
@@ -63,12 +94,22 @@ func main() {
 		}
 		body, err := ui.RenderToString(renderBootstrapView(bootstrapViewFromPayload(payload)))
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			diagnostics.WriteHTTPError(w, http.StatusInternalServerError, bootstrapRequestReport(
+				r.URL.Path,
+				err,
+				"the request failed before the bootstrap view HTML could be rendered.",
+				"Inspect the bootstrap view render path and the payload being serialized into the document.",
+			))
 			return
 		}
 		script, err := ui.RenderBootstrapScript(payload, "")
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			diagnostics.WriteHTTPError(w, http.StatusInternalServerError, bootstrapRequestReport(
+				r.URL.Path,
+				err,
+				"the bootstrap payload script was not generated, so the wasm client cannot hydrate this document.",
+				"Inspect the bootstrap payload contents and script generation path for this request.",
+			))
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -76,6 +117,6 @@ func main() {
 	})
 	fmt.Printf("Dedicated SSR bootstrap demo listening on http://127.0.0.1:%s\n", port)
 	if err := http.ListenAndServe("127.0.0.1:"+port, nil); err != nil {
-		panic(err)
+		fatalBootstrapStartup("main.http.ListenAndServe", "127.0.0.1:"+port, err, "Free the port or update PORT before starting the example server again.")
 	}
 }

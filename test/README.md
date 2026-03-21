@@ -72,6 +72,22 @@ npm run install:browsers
 npm test
 ```
 
+## Run The Entire Project Test Matrix
+
+From the repo root, the canonical main harness is now:
+
+```powershell
+npm test
+```
+
+That root command runs:
+
+- native Go tests from the main module
+- js/wasm Go tests discovered from `*_wasm_test.go`
+- nested Go tests in `tools/livereload`
+- this Playwright workspace under `test/`
+- the example Playwright suites under `examples/`
+
 ## Run Focused Suites
 
 ```powershell

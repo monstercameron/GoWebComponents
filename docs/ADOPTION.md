@@ -43,6 +43,7 @@ Minimum answer:
 
 Current repo answer:
 
+- [TESTING.md](TESTING.md) defines the intended first-party testing surface and package split
 - [WORKFLOWS.md](WORKFLOWS.md#test-a-component-or-app-flow) defines the main testing path
 - [test/README.md](../test/README.md) covers broader framework and app validation
 - [examples/README.md](../examples/README.md) covers example-local Playwright coverage

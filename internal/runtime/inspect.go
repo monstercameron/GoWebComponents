@@ -45,6 +45,8 @@ type Diagnostic struct {
 	Docs           string
 	Remediation    string
 	Recoverable    bool
+	TopFrame       string
+	Consequence    string
 	Message        string
 	Count          int
 	Path           string
@@ -60,6 +62,8 @@ type LogEntry struct {
 	Docs           string
 	Remediation    string
 	Recoverable    bool
+	TopFrame       string
+	Consequence    string
 	Message        string
 	Timestamp      string
 	CorrelationID  string
@@ -165,6 +169,10 @@ func ReportDiagnostic(source string, severity DiagnosticSeverity, message string
 // ReportDiagnosticWithContext records or increments a runtime diagnostic entry
 // and optionally attaches fiber-path context for devtools and debugging.
 func ReportDiagnosticWithContext(source string, severity DiagnosticSeverity, message string, path string, componentStack []string) {
+	reportDiagnosticWithContextDetails(source, severity, message, path, componentStack, "", "")
+}
+
+func reportDiagnosticWithContextDetails(source string, severity DiagnosticSeverity, message string, path string, componentStack []string, topFrame string, consequence string) {
 	trimmedSource := strings.TrimSpace(source)
 	if trimmedSource == "" {
 		trimmedSource = "runtime"
@@ -196,13 +204,15 @@ func ReportDiagnosticWithContext(source string, severity DiagnosticSeverity, mes
 		Docs:           details.Docs,
 		Remediation:    details.Remediation,
 		Recoverable:    details.Recoverable,
+		TopFrame:       strings.TrimSpace(topFrame),
+		Consequence:    strings.TrimSpace(consequence),
 		Message:        trimmedMessage,
 		Count:          1,
 		Path:           trimmedPath,
 		ComponentStack: append([]string(nil), componentStack...),
 	})
 
-	reportDiagnosticLog(trimmedSource, severity, trimmedMessage, trimmedPath, componentStack)
+	reportDiagnosticLogDetails(trimmedSource, severity, trimmedMessage, trimmedPath, componentStack, topFrame, consequence)
 }
 
 // GetDiagnostics returns a copy of the current diagnostic list.
@@ -225,6 +235,10 @@ func ReportLog(domain string, level LogLevel, message string) {
 // ReportLogWithFields records one structured framework log entry with optional
 // correlation id and fields.
 func ReportLogWithFields(domain string, level LogLevel, classification DiagnosticClassification, message string, correlationID string, fields map[string]string) {
+	reportLogWithFieldsDetails(domain, level, classification, message, correlationID, fields, "", "")
+}
+
+func reportLogWithFieldsDetails(domain string, level LogLevel, classification DiagnosticClassification, message string, correlationID string, fields map[string]string, topFrame string, consequence string) {
 	trimmedDomain := strings.TrimSpace(domain)
 	if trimmedDomain == "" {
 		trimmedDomain = "runtime"
@@ -249,6 +263,8 @@ func ReportLogWithFields(domain string, level LogLevel, classification Diagnosti
 		Docs:           details.Docs,
 		Remediation:    details.Remediation,
 		Recoverable:    details.Recoverable,
+		TopFrame:       strings.TrimSpace(topFrame),
+		Consequence:    strings.TrimSpace(consequence),
 		Message:        trimmedMessage,
 		Timestamp:      time.Now().UTC().Format(timeFormatRFC3339Milli),
 		CorrelationID:  strings.TrimSpace(correlationID),
@@ -355,6 +371,10 @@ func classifyDiagnostic(source string, severity DiagnosticSeverity, message stri
 }
 
 func reportDiagnosticLog(source string, severity DiagnosticSeverity, message string, path string, componentStack []string) {
+	reportDiagnosticLogDetails(source, severity, message, path, componentStack, "", "")
+}
+
+func reportDiagnosticLogDetails(source string, severity DiagnosticSeverity, message string, path string, componentStack []string, topFrame string, consequence string) {
 	fields := map[string]string{}
 	if strings.TrimSpace(path) != "" {
 		fields["path"] = strings.TrimSpace(path)
@@ -362,13 +382,21 @@ func reportDiagnosticLog(source string, severity DiagnosticSeverity, message str
 	if len(componentStack) > 0 {
 		fields["component_stack"] = strings.Join(componentStack, " > ")
 	}
-	ReportLogWithFields(
+	if strings.TrimSpace(topFrame) != "" {
+		fields["top_frame"] = strings.TrimSpace(topFrame)
+	}
+	if strings.TrimSpace(consequence) != "" {
+		fields["runtime"] = strings.TrimSpace(consequence)
+	}
+	reportLogWithFieldsDetails(
 		source,
 		logLevelForSeverity(severity),
 		classifyDiagnostic(source, severity, message),
 		message,
 		"",
 		fields,
+		topFrame,
+		consequence,
 	)
 }
 

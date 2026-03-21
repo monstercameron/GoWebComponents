@@ -15,14 +15,42 @@ import (
 	"os"
 	"strings"
 
+	"github.com/monstercameron/GoWebComponents/diagnostics"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
 const (
-	secureFormsCSRFCookie = "gwc_secure_forms_csrf"
+	secureFormsCSRFCookie  = "gwc_secure_forms_csrf"
+	secureFormsRequestDocs = "ACTIONABLE_ERRORS.md#gwc-example-server-request"
+	secureFormsStartupDocs = "ACTIONABLE_ERRORS.md#gwc-example-server-startup"
 )
 
 type secureFormsServer struct{}
+
+func secureFormsRequestReport(subject string, path string, err error, consequence string, next string) diagnostics.Report {
+	return diagnostics.Build(diagnostics.Options{
+		Summary:  err.Error(),
+		Code:     "GWC-EXAMPLE-SERVER-REQUEST",
+		Headline: "server failure in " + strings.TrimSpace(subject),
+		Path:     strings.TrimSpace(path),
+		Runtime:  strings.TrimSpace(consequence),
+		Next:     strings.TrimSpace(next),
+		Docs:     secureFormsRequestDocs,
+	})
+}
+
+func fatalSecureFormsStartup(path string, err error) {
+	diagnostics.Emit(diagnostics.Build(diagnostics.Options{
+		Summary:  err.Error(),
+		Code:     "GWC-EXAMPLE-SERVER-STARTUP",
+		Headline: "server startup failure in secure forms demo",
+		Path:     strings.TrimSpace(path),
+		Runtime:  "the secure forms example did not start, so no requests can be served.",
+		Next:     "Free the configured port or update PORT before restarting the secure forms example.",
+		Docs:     secureFormsStartupDocs,
+	}))
+	os.Exit(1)
+}
 
 func (s *secureFormsServer) routes() http.Handler {
 	mux := http.NewServeMux()
@@ -39,11 +67,23 @@ func (s *secureFormsServer) handleIndex(w http.ResponseWriter, r *http.Request) 
 
 func (s *secureFormsServer) handleQuote(w http.ResponseWriter, r *http.Request) {
 	if !validateCSRFFromForm(r) {
-		http.Error(w, "csrf validation failed", http.StatusForbidden)
+		diagnostics.WriteHTTPError(w, http.StatusForbidden, secureFormsRequestReport(
+			"secureFormsServer.handleQuote.csrf",
+			r.URL.Path,
+			errors.New("csrf validation failed"),
+			"the quote submission was rejected before any mutation because the CSRF proof was missing or invalid.",
+			"Reload the form to refresh the CSRF token and resubmit from the same origin.",
+		))
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		diagnostics.WriteHTTPError(w, http.StatusBadRequest, secureFormsRequestReport(
+			"secureFormsServer.handleQuote.ParseForm",
+			r.URL.Path,
+			err,
+			"the quote submission body could not be parsed, so the request ended before validation or redirect.",
+			"Inspect the form encoding and request payload for this submission.",
+		))
 		return
 	}
 	input := quoteForm{
@@ -66,11 +106,23 @@ func (s *secureFormsServer) handleQuote(w http.ResponseWriter, r *http.Request) 
 
 func (s *secureFormsServer) handleUpload(w http.ResponseWriter, r *http.Request) {
 	if !validateCSRFFromForm(r) {
-		http.Error(w, "csrf validation failed", http.StatusForbidden)
+		diagnostics.WriteHTTPError(w, http.StatusForbidden, secureFormsRequestReport(
+			"secureFormsServer.handleUpload.csrf",
+			r.URL.Path,
+			errors.New("csrf validation failed"),
+			"the upload submission was rejected before any file processing because the CSRF proof was missing or invalid.",
+			"Reload the form to refresh the CSRF token and resubmit from the same origin.",
+		))
 		return
 	}
 	if err := r.ParseMultipartForm(maxUploadBytes); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		diagnostics.WriteHTTPError(w, http.StatusBadRequest, secureFormsRequestReport(
+			"secureFormsServer.handleUpload.ParseMultipartForm",
+			r.URL.Path,
+			err,
+			"the multipart request could not be parsed, so the upload was rejected before validation.",
+			"Inspect the multipart form encoding and upload size limits for this request.",
+		))
 		return
 	}
 	state := newPageState(ensureCSRFCookie(w, r), r.URL.Query())
@@ -78,7 +130,13 @@ func (s *secureFormsServer) handleUpload(w http.ResponseWriter, r *http.Request)
 
 	file, header, err := r.FormFile("asset")
 	if err != nil && !errors.Is(err, http.ErrMissingFile) {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		diagnostics.WriteHTTPError(w, http.StatusBadRequest, secureFormsRequestReport(
+			"secureFormsServer.handleUpload.FormFile",
+			r.URL.Path,
+			err,
+			"the upload could not read the submitted file field, so validation stopped before redirect.",
+			"Inspect the multipart asset field name and browser submission payload for this request.",
+		))
 		return
 	}
 	if file != nil {
@@ -92,7 +150,13 @@ func (s *secureFormsServer) handleUpload(w http.ResponseWriter, r *http.Request)
 	if file != nil {
 		data, readErr := io.ReadAll(io.LimitReader(file, maxUploadBytes+1))
 		if readErr != nil {
-			http.Error(w, readErr.Error(), http.StatusBadRequest)
+			diagnostics.WriteHTTPError(w, http.StatusBadRequest, secureFormsRequestReport(
+				"secureFormsServer.handleUpload.ReadAll",
+				r.URL.Path,
+				readErr,
+				"the upload body could not be read completely, so file validation stopped before redirect.",
+				"Inspect the uploaded file stream and size limits for this request.",
+			))
 			return
 		}
 		sizeBytes = int64(len(data))
@@ -118,7 +182,13 @@ func (s *secureFormsServer) handleUpload(w http.ResponseWriter, r *http.Request)
 func (s *secureFormsServer) renderHTML(w http.ResponseWriter, status int, state pageState) {
 	document, err := renderDocument(state)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		diagnostics.WriteHTTPError(w, http.StatusInternalServerError, secureFormsRequestReport(
+			"secureFormsServer.renderHTML",
+			"/",
+			err,
+			"the secure forms page could not be rendered, so the request returned HTTP 500 without HTML.",
+			"Inspect the secure forms document render path and the page state being serialized.",
+		))
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -207,6 +277,6 @@ func main() {
 	server := &secureFormsServer{}
 	fmt.Printf("SSR secure forms demo listening on http://127.0.0.1:%s\n", port)
 	if err := http.ListenAndServe("127.0.0.1:"+port, server.routes()); err != nil {
-		panic(err)
+		fatalSecureFormsStartup("127.0.0.1:"+port, err)
 	}
 }

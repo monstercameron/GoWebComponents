@@ -2,7 +2,14 @@
   "name": "gowebcomponents",
   "private": true,
   "scripts": {
-	"dev:examples": "npm --prefix tools/dev-server install && node tools/dev-server/server.mjs",
-	"test:atlas-ssr": "npm --prefix examples run test:atlas-ssr"
+  "dev:examples": "npm --prefix tools/dev-server install && node tools/dev-server/server.mjs",
+  "test": "node scripts/run-main-tests.mjs",
+  "test:main": "node scripts/run-main-tests.mjs",
+  "test:go:native": "node scripts/run-main-tests.mjs --lane go-native",
+  "test:go:wasm": "node scripts/run-main-tests.mjs --lane go-wasm",
+  "test:go:livereload": "node scripts/run-main-tests.mjs --lane go-livereload",
+  "test:browser": "node scripts/run-main-tests.mjs --lane browser",
+  "test:examples": "node scripts/run-main-tests.mjs --lane examples",
+  "test:atlas-ssr": "npm --prefix examples run test:atlas-ssr"
   }
 }

@@ -54,7 +54,6 @@ func isNilableType[T any]() bool {
 func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})) {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
-		ReportDiagnostic("runtime", DiagnosticError, "GoUseState called outside component context")
 		panic(actionableHookUsagePanic("GoUseState"))
 	}
 
@@ -160,7 +159,6 @@ func GoUseState[T any](rt *Runtime, initialValue T) (func() T, func(interface{})
 func GoUseEffect(effect func() func(), deps ...interface{}) {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
-		ReportDiagnostic("runtime", DiagnosticError, "GoUseEffect called outside component context")
 		panic(actionableHookUsagePanic("GoUseEffect"))
 	}
 
@@ -259,7 +257,6 @@ func GoUseMemo(compute func() interface{}, deps ...interface{}) interface{} {
 func goUseMemo(compute func() interface{}, targetType reflect.Type, deps ...interface{}) interface{} {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
-		ReportDiagnostic("runtime", DiagnosticError, "GoUseMemo called outside component context")
 		panic(actionableHookUsagePanic("GoUseMemo"))
 	}
 
@@ -320,7 +317,6 @@ func GoUseMemoTyped(compute func() interface{}, targetType reflect.Type, deps ..
 func GoUseCallback(fn interface{}, deps ...interface{}) interface{} {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
-		ReportDiagnostic("runtime", DiagnosticError, "GoUseCallback called outside component context")
 		panic(actionableHookUsagePanic("GoUseCallback"))
 	}
 
@@ -366,7 +362,6 @@ func GoUseCallback(fn interface{}, deps ...interface{}) interface{} {
 func GoUseRef(initialValue interface{}) *RefValue {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
-		ReportDiagnostic("runtime", DiagnosticError, "GoUseRef called outside component context")
 		panic(actionableHookUsagePanic("GoUseRef"))
 	}
 
@@ -413,7 +408,6 @@ func GoUseRef(initialValue interface{}) *RefValue {
 func GoUseId() string {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
-		ReportDiagnostic("runtime", DiagnosticError, "GoUseId called outside component context")
 		panic(actionableHookUsagePanic("GoUseId"))
 	}
 
@@ -467,7 +461,6 @@ func GoUseId() string {
 func GoUseFunc(fn interface{}) interface{} {
 	fiber := GetCurrentFiber()
 	if fiber == nil {
-		ReportDiagnostic("runtime", DiagnosticError, "GoUseFunc called outside component context")
 		panic(actionableHookUsagePanic("GoUseFunc"))
 	}
 
@@ -486,14 +479,14 @@ func GoUseFunc(fn interface{}) interface{} {
 
 	// Validate that the input is a function.
 	if !isValidHookFunction(fn) {
-		panic("GoUseFunc requires a function")
+		panic(actionableGoUseFuncTypePanic())
 	}
 
 	// Always create new wrapper to ensure latest closure is captured
 	// The old optimization of reusing wrappers caused stale closure bugs
 	rt := GetGlobalRuntime()
 	if rt.domAdapter == nil {
-		panic("GoUseFunc domAdapter is nil")
+		panic(actionableGoUseFuncDOMAdapterPanic())
 	}
 
 	wrapper := rt.domAdapter.WrapFunction(rt.wrapEventHandler(fiber, fn))

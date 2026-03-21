@@ -35,6 +35,19 @@ if ($null -eq $goCmd) {
     exit 1
 }
 
+$previousGoos = $null
+$previousGoarch = $null
+$hadGoos = Test-Path Env:\GOOS
+$hadGoarch = Test-Path Env:\GOARCH
+if ($hadGoos) {
+    $previousGoos = $env:GOOS
+    Remove-Item Env:\GOOS -ErrorAction SilentlyContinue
+}
+if ($hadGoarch) {
+    $previousGoarch = $env:GOARCH
+    Remove-Item Env:\GOARCH -ErrorAction SilentlyContinue
+}
+
 Push-Location $ServerDir
 try {
     Write-Host "Building live reload server..." -ForegroundColor Yellow
@@ -45,6 +58,16 @@ try {
     }
 }
 finally {
+    if ($hadGoos) {
+        $env:GOOS = $previousGoos
+    } else {
+        Remove-Item Env:\GOOS -ErrorAction SilentlyContinue
+    }
+    if ($hadGoarch) {
+        $env:GOARCH = $previousGoarch
+    } else {
+        Remove-Item Env:\GOARCH -ErrorAction SilentlyContinue
+    }
     Pop-Location
 }
 
@@ -82,9 +105,21 @@ Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
 
 Push-Location $RepoRoot
 try {
+    if ($hadGoos) {
+        Remove-Item Env:\GOOS -ErrorAction SilentlyContinue
+    }
+    if ($hadGoarch) {
+        Remove-Item Env:\GOARCH -ErrorAction SilentlyContinue
+    }
     & $BinaryPath @args
     exit $LASTEXITCODE
 }
 finally {
+    if ($hadGoos) {
+        $env:GOOS = $previousGoos
+    }
+    if ($hadGoarch) {
+        $env:GOARCH = $previousGoarch
+    }
     Pop-Location
 }

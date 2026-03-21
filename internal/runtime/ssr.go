@@ -13,10 +13,18 @@ import (
 // This is the first internal SSR slice: it supports host elements, text nodes,
 // fragments, and simple function components that return *Element. Hydration and
 // browser bootstrap are intentionally out of scope here.
-func RenderToString(element *Element) (string, error) {
+func RenderToString(element *Element) (markup string, err error) {
 	if element == nil {
 		return "", nil
 	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			if original, suppressed := finalizeUnhandledPanicContext("runtime", PanicPhaseSSR, "RenderToString", "", nil, recovered); suppressed {
+				markup = ""
+				err = recoveredAsError(original)
+			}
+		}
+	}()
 
 	var builder strings.Builder
 	if err := renderElementToString(&builder, element); err != nil {

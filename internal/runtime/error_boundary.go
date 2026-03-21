@@ -10,13 +10,25 @@ func NewErrorBoundaryType() *ErrorBoundaryType {
 	return &ErrorBoundaryType{}
 }
 
-type boundaryPhase string
+type PanicPhase string
+
+type boundaryPhase = PanicPhase
 
 const (
-	boundaryPhaseRender  boundaryPhase = "render"
-	boundaryPhaseEffect  boundaryPhase = "effect"
-	boundaryPhaseCleanup boundaryPhase = "cleanup"
-	boundaryPhaseEvent   boundaryPhase = "event"
+	PanicPhaseRender    PanicPhase = "render"
+	PanicPhaseEffect    PanicPhase = "effect"
+	PanicPhaseCleanup   PanicPhase = "cleanup"
+	PanicPhaseEvent     PanicPhase = "event"
+	PanicPhaseLoader    PanicPhase = "loader"
+	PanicPhaseHydration PanicPhase = "hydration"
+	PanicPhaseStartup   PanicPhase = "startup"
+	PanicPhaseDeferred  PanicPhase = "deferred"
+	PanicPhaseSSR       PanicPhase = "ssr"
+
+	boundaryPhaseRender  boundaryPhase = PanicPhaseRender
+	boundaryPhaseEffect  boundaryPhase = PanicPhaseEffect
+	boundaryPhaseCleanup boundaryPhase = PanicPhaseCleanup
+	boundaryPhaseEvent   boundaryPhase = PanicPhaseEvent
 )
 
 func boundaryCapturedError(fiber *Fiber) error {
@@ -216,7 +228,7 @@ func (rt *Runtime) renderBoundaryFallback(boundary *Fiber, err error) (fallback 
 				}
 				return
 			}
-			panic(recovered)
+			panic(markUnhandledPanic(boundary, boundaryPhaseRender, recovered))
 		}
 	}()
 

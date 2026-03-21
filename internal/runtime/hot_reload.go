@@ -791,9 +791,11 @@ func (rt *Runtime) renderFunctionComponent(fiber *Fiber) (*Element, bool, *Fiber
 			defer func() {
 				if recovered := recover(); recovered != nil {
 					var handled bool
-					nextFromBoundary, handled = rt.recoverBoundaryError(fiber.parent, recovered, boundaryPhaseRender)
+					if panicPhaseMayRecoverWithBoundary(PanicPhaseRender) {
+						nextFromBoundary, handled = rt.recoverBoundaryError(fiber.parent, recovered, boundaryPhaseRender)
+					}
 					if !handled {
-						panic(reportUnhandledPanic(fiber, boundaryPhaseRender, recovered))
+						panic(markUnhandledPanic(fiber, boundaryPhaseRender, recovered))
 					}
 					handledPanic = true
 				}

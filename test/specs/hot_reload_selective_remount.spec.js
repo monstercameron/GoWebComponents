@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { spawn, spawnSync } from 'node:child_process';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import http from 'node:http';
+import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -11,6 +12,7 @@ const repoRoot = path.resolve(__dirname, '..', '..');
 const exampleChangedPath = path.join(repoRoot, 'examples', '98-hot-reload', 'changed_panel.go');
 const exampleHTMLPath = path.join(repoRoot, 'examples', '98-hot-reload', 'hot-reload.html');
 const exampleRoot = path.join(repoRoot, 'examples', '98-hot-reload');
+const exampleWasmPath = path.join(exampleRoot, 'main.wasm');
 
 const selectiveVersionConstV1 = 'const changedSubtreeVersion = "v1"';
 const selectiveVersionConstV2 = 'const changedSubtreeVersion = "v2"';
@@ -21,18 +23,26 @@ test.describe.configure({ mode: 'serial' });
 
 test.describe('GoWebComponents selective hot reload remounts', () => {
 	let serverProcess;
+	let serverOutput = '';
 	let originalChangedSource = '';
-	const port = 8113;
-	const pageUrl = `http://127.0.0.1:${port}/hot-reload.html`;
+	let port;
+	let pageUrl;
 
 	test.beforeAll(async () => {
+		test.setTimeout(150000);
+
 		originalChangedSource = await readFile(exampleChangedPath, 'utf8');
 		if (!originalChangedSource.includes(selectiveVersionConstV1)) {
 			throw new Error('hot reload selective remount example is not at the expected baseline');
 		}
+		await rm(exampleWasmPath, { force: true });
 
-		serverProcess = startStandaloneDevServer(port);
-		await waitForServer(pageUrl, 120000);
+		port = await findAvailablePort();
+		pageUrl = `http://127.0.0.1:${port}/hot-reload.html`;
+		serverProcess = startStandaloneDevServer(port, (output) => {
+			serverOutput = output;
+		});
+		await waitForServer(pageUrl, 120000, serverProcess, () => serverOutput);
 	});
 
 	test.afterAll(async () => {
@@ -47,9 +57,10 @@ test.describe('GoWebComponents selective hot reload remounts', () => {
 
 		await page.goto(pageUrl, { waitUntil: 'networkidle', timeout: 30000 });
 
+		await expect(page.locator('#changed-version')).toHaveCount(1, { timeout: 45000 });
 		await expect(page.locator('#stable-count')).toHaveText('Stable count: 0');
 		await expect(page.locator('#changed-count')).toHaveText('Changed count: 0');
-		await expect(page.locator('#changed-version')).toHaveText(selectiveVersionTextV1);
+		await expect(page.locator('#changed-version')).toHaveText(selectiveVersionTextV1, { timeout: 45000 });
 
 		const changedPanelHandle = await page.locator('#changed-panel').elementHandle();
 
@@ -66,6 +77,7 @@ test.describe('GoWebComponents selective hot reload remounts', () => {
 		}
 		await writeFile(exampleChangedPath, updatedSource, 'utf8');
 
+		await expect(page.locator('#changed-version')).toHaveCount(1, { timeout: 45000 });
 		await expect(page.locator('#changed-version')).toHaveText(selectiveVersionTextV2, { timeout: 45000 });
 		await expect(page.locator('#stable-count')).toHaveText('Stable count: 2', { timeout: 15000 });
 		await expect(page.locator('#changed-count')).toHaveText('Changed count: 0', { timeout: 15000 });
@@ -75,9 +87,9 @@ test.describe('GoWebComponents selective hot reload remounts', () => {
 	});
 });
 
-function startStandaloneDevServer(port) {
+function startStandaloneDevServer(port, onOutput) {
 	if (process.platform === 'win32') {
-		return spawn('powershell', [
+		const processHandle = spawn('powershell', [
 			'-NoProfile',
 			'-ExecutionPolicy',
 			'Bypass',
@@ -92,9 +104,11 @@ function startStandaloneDevServer(port) {
 			cwd: repoRoot,
 			stdio: ['ignore', 'pipe', 'pipe'],
 		});
+		drainProcessOutput(processHandle, onOutput);
+		return processHandle;
 	}
 
-	return spawn('bash', [
+	const processHandle = spawn('bash', [
 		path.join(repoRoot, 'tools', 'dev.sh'),
 		path.join(repoRoot, 'examples', '98-hot-reload', 'main.go'),
 		exampleRoot,
@@ -109,6 +123,31 @@ function startStandaloneDevServer(port) {
 			HOST: '127.0.0.1',
 		},
 	});
+	drainProcessOutput(processHandle, onOutput);
+	return processHandle;
+}
+
+function drainProcessOutput(processHandle, onOutput) {
+	if (!processHandle) {
+		return;
+	}
+	const lines = [];
+	const record = (chunk) => {
+		const text = chunk.toString();
+		for (const line of text.split(/\r?\n/)) {
+			const trimmed = line.trim();
+			if (!trimmed) {
+				continue;
+			}
+			lines.push(trimmed);
+			if (lines.length > 40) {
+				lines.shift();
+			}
+		}
+		onOutput?.(lines.join('\n'));
+	};
+	processHandle.stdout?.on('data', record);
+	processHandle.stderr?.on('data', record);
 }
 
 async function stopStandaloneDevServer(serverProcess) {
@@ -128,11 +167,16 @@ async function stopStandaloneDevServer(serverProcess) {
 	});
 }
 
-async function waitForServer(url, timeoutMs) {
+async function waitForServer(url, timeoutMs, serverProcess, getOutput) {
 	const deadline = Date.now() + timeoutMs;
 	let lastError = null;
 
 	while (Date.now() < deadline) {
+		if (serverProcess && serverProcess.exitCode !== null) {
+			const output = getOutput ? getOutput() : '';
+			const detail = output ? `\n${output}` : '';
+			throw new Error(`standalone dev server exited before becoming ready (exit ${serverProcess.exitCode})${detail}`);
+		}
 		try {
 			const status = await requestStatus(url);
 			if (status === 200) {
@@ -146,6 +190,28 @@ async function waitForServer(url, timeoutMs) {
 	}
 
 	throw lastError || new Error(`timed out waiting for ${url}`);
+}
+
+function findAvailablePort() {
+	return new Promise((resolve, reject) => {
+		const server = net.createServer();
+		server.unref();
+		server.on('error', reject);
+		server.listen(0, '127.0.0.1', () => {
+			const address = server.address();
+			if (!address || typeof address === 'string') {
+				server.close(() => reject(new Error('failed to resolve an available port')));
+				return;
+			}
+			server.close((error) => {
+				if (error) {
+					reject(error);
+					return;
+				}
+				resolve(address.port);
+			});
+		});
+	});
 }
 
 function requestStatus(url) {

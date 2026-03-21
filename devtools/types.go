@@ -21,6 +21,8 @@ type Diagnostic struct {
 	Docs           string
 	Remediation    string
 	Recoverable    bool
+	TopFrame       string
+	Consequence    string
 	Message        string
 	Count          int
 	Path           string
@@ -37,6 +39,8 @@ type Log struct {
 	Docs           string
 	Remediation    string
 	Recoverable    bool
+	TopFrame       string
+	Consequence    string
 	Message        string
 	Timestamp      string
 	CorrelationID  string
