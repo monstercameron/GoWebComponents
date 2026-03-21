@@ -125,7 +125,7 @@ This document defines the intended build-profile and flag baseline only.
 
 It does not yet claim:
 
-- guaranteed brotli sidecar generation on every host runtime
+- guaranteed brotli sidecar generation on every host runtime without the repo's Node-based fallback helper
 - post-link optimizer integration such as `wasm-opt`
 - first-class startup-cost measurement for representative releases
 

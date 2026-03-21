@@ -1,12 +1,13 @@
 param(
     [string]$Package = ".",
-    [string]$OutDir = "dist/wasm-release",
+    [string]$OutDir = "dist/wasm-build-experiment",
     [string]$BinaryName = "app.wasm",
-    [string]$ManifestName = "wasm-release-manifest.json",
-    [string]$BudgetsPath = "",
+    [string]$ManifestName = "wasm-build-experiment.json",
+    [string]$GoExecutable = "go",
     [string]$LdFlags = "-s -w",
+    [switch]$ReleaseProfile,
     [switch]$SkipCompression,
-    [switch]$KeepBuildInfo
+    [long]$ServeReloadMs
 )
 
 Set-StrictMode -Version Latest
@@ -102,6 +103,7 @@ function Get-ArtifactRecord {
     $baseUri = New-Object System.Uri(([System.IO.Path]::GetFullPath($BaseDir).TrimEnd('\') + '\'))
     $artifactUri = New-Object System.Uri([System.IO.Path]::GetFullPath($ArtifactPath))
     $relativePath = $baseUri.MakeRelativeUri($artifactUri).ToString()
+
     return [ordered]@{
         path   = [System.Uri]::UnescapeDataString($relativePath)
         bytes  = [int64]$item.Length
@@ -109,69 +111,12 @@ function Get-ArtifactRecord {
     }
 }
 
-function Assert-Budgets {
-    param(
-        [hashtable]$Budgets,
-        [hashtable]$Artifacts
-    )
-
-    $checks = @(
-        @{ key = "raw_bytes"; artifact = "wasm"; label = "raw wasm" },
-        @{ key = "gzip_bytes"; artifact = "gzip"; label = "gzip sidecar" },
-        @{ key = "brotli_bytes"; artifact = "brotli"; label = "brotli sidecar" }
-    )
-
-    foreach ($check in $checks) {
-        if (-not $Budgets.ContainsKey($check.key)) {
-            continue
-        }
-        if (-not $Artifacts.ContainsKey($check.artifact)) {
-            continue
-        }
-
-        $limit = [int64]$Budgets[$check.key]
-        $actual = [int64]$Artifacts[$check.artifact].bytes
-        if ($actual -gt $limit) {
-            throw ("Artifact budget exceeded for {0}: {1} bytes > {2} bytes" -f $check.label, $actual, $limit)
-        }
-    }
+$resolvedOutDirInput = if ([System.IO.Path]::IsPathRooted($OutDir)) {
+    $OutDir
+} else {
+    Join-Path (Get-Location) $OutDir
 }
-
-function ConvertTo-HashtableCompat {
-    param([object]$Value)
-
-    if ($null -eq $Value) {
-        return $null
-    }
-
-    if ($Value -is [System.Collections.IDictionary]) {
-        $map = @{}
-        foreach ($key in $Value.Keys) {
-            $map[$key] = ConvertTo-HashtableCompat -Value $Value[$key]
-        }
-        return $map
-    }
-
-    if ($Value -is [System.Collections.IEnumerable] -and -not ($Value -is [string])) {
-        $items = @()
-        foreach ($item in $Value) {
-            $items += ,(ConvertTo-HashtableCompat -Value $item)
-        }
-        return $items
-    }
-
-    if ($Value -is [pscustomobject]) {
-        $map = @{}
-        foreach ($property in $Value.PSObject.Properties) {
-            $map[$property.Name] = ConvertTo-HashtableCompat -Value $property.Value
-        }
-        return $map
-    }
-
-    return $Value
-}
-
-$resolvedOutDir = [System.IO.Path]::GetFullPath((Join-Path (Get-Location) $OutDir))
+$resolvedOutDir = [System.IO.Path]::GetFullPath($resolvedOutDirInput)
 New-DirectoryIfMissing -Path $resolvedOutDir
 
 $wasmPath = Join-Path $resolvedOutDir $BinaryName
@@ -179,23 +124,30 @@ $gzipPath = "$wasmPath.gz"
 $brotliPath = "$wasmPath.br"
 $manifestPath = Join-Path $resolvedOutDir $ManifestName
 
+$phaseTimings = [ordered]@{}
+$totalStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+
 $oldGoos = $env:GOOS
 $oldGoarch = $env:GOARCH
+$buildArgs = @("build", "-o", $wasmPath)
+if ($ReleaseProfile) {
+    $buildArgs += "-trimpath"
+    if ($LdFlags -ne "") {
+        $buildArgs += "-ldflags=$LdFlags"
+    }
+    $buildArgs += "-buildvcs=false"
+}
+$buildArgs += $Package
+
 try {
     $env:GOOS = "js"
     $env:GOARCH = "wasm"
 
-    $buildArgs = @("build", "-o", $wasmPath)
-    if (-not $KeepBuildInfo) {
-        $buildArgs += "-trimpath"
-        if ($LdFlags -ne "") {
-            $buildArgs += "-ldflags=$LdFlags"
-        }
-        $buildArgs += "-buildvcs=false"
-    }
-    $buildArgs += $Package
+    $buildStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    & $GoExecutable @buildArgs
+    $buildStopwatch.Stop()
+    $phaseTimings["go_build_ms"] = [int64]$buildStopwatch.ElapsedMilliseconds
 
-    & go @buildArgs
     if ($LASTEXITCODE -ne 0) {
         throw "go build failed"
     }
@@ -208,37 +160,48 @@ $artifacts = [ordered]@{}
 $artifacts["wasm"] = Get-ArtifactRecord -BaseDir $resolvedOutDir -ArtifactPath $wasmPath
 
 if (-not $SkipCompression) {
+    $compressionStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+
+    $gzipStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     Write-GZipFile -SourcePath $wasmPath -TargetPath $gzipPath
+    $gzipStopwatch.Stop()
+    $phaseTimings["gzip_ms"] = [int64]$gzipStopwatch.ElapsedMilliseconds
     $artifacts["gzip"] = Get-ArtifactRecord -BaseDir $resolvedOutDir -ArtifactPath $gzipPath
+
     if (Test-BrotliSupport) {
+        $brotliStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
         Write-BrotliFile -SourcePath $wasmPath -TargetPath $brotliPath
+        $brotliStopwatch.Stop()
+        $phaseTimings["brotli_ms"] = [int64]$brotliStopwatch.ElapsedMilliseconds
         $artifacts["brotli"] = Get-ArtifactRecord -BaseDir $resolvedOutDir -ArtifactPath $brotliPath
-    } else {
-        Write-Warning "Brotli sidecar skipped because neither the PowerShell runtime nor Node-based fallback compression is available."
     }
+
+    $compressionStopwatch.Stop()
+    $phaseTimings["compression_total_ms"] = [int64]$compressionStopwatch.ElapsedMilliseconds
+} else {
+    $phaseTimings["compression_total_ms"] = 0
 }
 
-if ($BudgetsPath -ne "") {
-    $resolvedBudgetsPath = [System.IO.Path]::GetFullPath((Join-Path (Get-Location) $BudgetsPath))
-    $budgetObject = ConvertTo-HashtableCompat -Value (Get-Content -LiteralPath $resolvedBudgetsPath -Raw | ConvertFrom-Json)
-    Assert-Budgets -Budgets $budgetObject -Artifacts $artifacts
+if ($PSBoundParameters.ContainsKey("ServeReloadMs")) {
+    $phaseTimings["serve_reload_ms"] = [int64]$ServeReloadMs
 }
+
+$totalStopwatch.Stop()
+$phaseTimings["total_wall_ms"] = [int64]$totalStopwatch.ElapsedMilliseconds
 
 $manifest = [ordered]@{
-    package   = $Package
-    profile   = if ($KeepBuildInfo) { "debug" } else { "production" }
-    goos      = "js"
-    goarch    = "wasm"
-    flags     = [ordered]@{
-        trimpath    = (-not $KeepBuildInfo)
-        ldflags     = if ($KeepBuildInfo) { "" } else { $LdFlags }
-        buildvcs    = if ($KeepBuildInfo) { "default" } else { "false" }
-        compression = (-not $SkipCompression)
-    }
-    artifacts = $artifacts
+    package       = $Package
+    profile       = if ($ReleaseProfile) { "release" } else { "debug" }
+    go_executable = $GoExecutable
+    go_version    = (& $GoExecutable version)
+    goos          = "js"
+    goarch        = "wasm"
+    build_args    = $buildArgs
+    phases        = $phaseTimings
+    artifacts     = $artifacts
 }
 
 $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $manifestPath -Encoding utf8
 
-Write-Host ("Built wasm release artifacts in {0}" -f $resolvedOutDir) -ForegroundColor Green
+Write-Host ("Measured wasm build phases for {0}" -f $Package) -ForegroundColor Green
 Write-Host ("Manifest: {0}" -f $manifestPath) -ForegroundColor Green

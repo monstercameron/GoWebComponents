@@ -2,6 +2,13 @@
 
 ## 2026-03-20
 
+### Wasm build experiment tooling and release-size comparison
+
+- Added repeatable wasm build experiment helpers for phase-attributed timing, cache-topology comparison, CI-friendly manifest comparison, and explicit Go toolchain comparison so build-speed and artifact-size decisions can be made from saved JSON results instead of ad hoc shell timings.
+- Added a stable representative target set for small, routed mid-sized, and large wasm applications, together with updated build experiment docs and completed backlog tracking for the current measurement surface.
+- Extended wasm compression and release tooling with a Node-based Brotli fallback plus `npx --package binaryen wasm-opt` support so gzip, brotli, and optimized-wasm variants can be measured on standard contributor machines even when the host PowerShell runtime lacks Brotli support or `wasm-opt` is not installed globally.
+- Recorded the current accepted and rejected build-optimization outcomes in the docs, including the stripped release baseline, gzip release sidecars, cache-behavior guidance, and the still-not-default status of Brotli and `wasm-opt` until the saved comparison results justify promoting them.
+
 ### Fine-grained reactivity and subscribed-region updates
 
 - Added explicit fine-grained subscribed-region support on top of the existing fiber runtime through reactive text nodes, general reactive regions, selector-backed shared projections, and transition-aware shared-state update paths.

@@ -1221,18 +1221,26 @@ Organization rules for this file:
 	`docs/BUILD_EXPERIMENTS.md` now defines the intended comparison matrix across plain, release-style, stripped, compressed, and post-processed wasm build variants.
 - [x] Add scripted measurement of cold and warm build times.
 	`docs/BUILD_EXPERIMENTS.md` now defines the intended cold-build, warm-build, and small-edit rebuild timing set and the measurement rules for repeatable build-speed experiments.
+- [x] Add representative multi-target coverage for build experiments.
+	`docs/BUILD_EXPERIMENTS.md` now defines the canonical small (`./examples/21-ui-render`), routed mid-sized (`./examples/56-browser-router`), and large showcase (`./examples/86-atlas-commerce-os/client`) wasm targets, and `tools/wasm-build-experiment-targets.json` provides the same list for tooling.
 - [x] Add experiment harnesses for wasm size and startup tradeoffs.
 	`docs/BUILD_EXPERIMENTS.md` now defines the intended harness inputs for raw size, compressed size, download cost, instantiate time, and first-interaction timing.
 - [x] Evaluate Go build flags for size versus speed tradeoffs.
 	`docs/BUILD_EXPERIMENTS.md` now defines the intended tradeoff table for evaluating build flags across size, build speed, startup cost, runtime impact, and debugging cost.
 - [x] Evaluate `GOWASM` feature toggles and compatibility tradeoffs where relevant.
 	`docs/BUILD_EXPERIMENTS.md` now defines the intended policy for recording and evaluating `GOWASM` toggles before standardizing on any non-default release setting.
-- [ ] Evaluate post-processing and compression combinations.
-	Compare plain wasm, stripped wasm, optimized wasm, gzip delivery, and brotli delivery to identify which combination provides the best real-world startup characteristics for this project.
-- [ ] Add CI-friendly benchmark comparison for build experiments.
-	Reuse or extend the existing benchmark tooling so candidate build settings can be compared against a saved baseline before they are adopted into the documented release path.
-- [ ] Record accepted and rejected build optimizations in docs.
-	Keep a short history of build-flag and tooling experiments, including what was tried, what regressed build speed or startup time, and what combinations are currently recommended.
+- [x] Attribute build-loop timing by phase.
+	`tools/measure-wasm-build.ps1` now emits phase-attributed JSON manifests with `go_build_ms`, compression timings, optional `serve_reload_ms`, total wall-clock timing, and artifact metadata, and `docs/BUILD_EXPERIMENTS.md` defines that measurement shape.
+- [x] Evaluate post-processing and compression combinations.
+	`tools/compare-wasm-compression.ps1` now compares plain, stripped, optimized, gzip, and brotli variants, using a Node-based Brotli fallback and `npx --package binaryen wasm-opt` when a direct optimizer install is absent, and `docs/BUILD_EXPERIMENTS.md` records that those variants are now measured before any release-default decision is made.
+- [x] Track Go toolchain upgrade regressions for wasm builds explicitly.
+	`tools/compare-wasm-go-toolchain.ps1` now runs the same wasm target through explicit baseline and candidate Go executables, reuses `tools/measure-wasm-build.ps1` for per-toolchain manifests, compares those manifests with `tools/compare-wasm-experiment.ps1`, and records the compared versions in `wasm-toolchain-comparison.json`.
+- [x] Measure cache-strategy effects on build experiments.
+	`tools/compare-wasm-build-cache.ps1` now records shared-cache cold, warm, and small-edit rebuilds together with isolated build-cache and CI-style cold, warm, and small-edit runs, and `docs/BUILD_EXPERIMENTS.md` defines that cache-topology comparison shape.
+- [x] Add CI-friendly benchmark comparison for build experiments.
+	`tools/compare-wasm-experiment.ps1` now compares saved wasm experiment manifests, applies configurable timing and size regression thresholds, emits a machine-readable comparison summary, and exits non-zero when a candidate exceeds the configured budget.
+- [x] Record accepted and rejected build optimizations in docs.
+	`docs/BUILD_EXPERIMENTS.md` now records the current accepted release baseline, accepted gzip delivery sidecar, rejected plain release default, rejected use of CI-cold timings as inner-loop guidance, and the not-yet-accepted `wasm-opt` and Brotli paths.
 
 ### Developer workflow and project bootstrap
 

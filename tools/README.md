@@ -85,6 +85,110 @@ Behavior:
 - emits `wasm-release-manifest.json` with relative paths, sizes, and sha256 hashes
 - optionally fails when raw, gzip, or available brotli sizes exceed configured budgets
 
+### `measure-wasm-build.ps1`
+
+PowerShell helper for phase-attributed wasm build experiments.
+
+Example:
+
+```powershell
+.\tools\measure-wasm-build.ps1 `
+  -Package ./examples/21-ui-render `
+  -OutDir .\tmp\ui-render-build-exp `
+  -ReleaseProfile
+```
+
+Behavior:
+
+- builds a `js/wasm` artifact for the requested package
+- accepts an optional `-GoExecutable` override so the same measurement flow can be used across different Go toolchains
+- records `go_build_ms`, compression timings, and total wall-clock timing in `wasm-build-experiment.json`
+- writes artifact size and sha256 metadata beside the phase timings
+- emits a Brotli sidecar when either the PowerShell runtime or the repo's Node-based helper can provide Brotli compression
+- accepts an optional `-ServeReloadMs` value when a browser or dev-server probe measures reload latency separately
+
+### `compare-wasm-compression.ps1`
+
+PowerShell helper for comparing supported wasm compression and post-processing variants for one package.
+
+Example:
+
+```powershell
+.\tools\compare-wasm-compression.ps1 `
+  -Package ./examples/21-ui-render `
+  -OutDir .\tmp\ui-render-compression-exp
+```
+
+Behavior:
+
+- runs plain raw, stripped raw, and stripped plus compression builds through `measure-wasm-build.ps1`
+- adds `wasm-opt`-processed variants by resolving `wasm-opt` from `PATH` or from the `binaryen` npm package through `npx`
+- writes one summary JSON file that includes each variant manifest
+- records whether brotli delivery or `wasm-opt`-based optimized variants are still unavailable after the repo-local fallbacks are attempted
+
+### `compare-wasm-build-cache.ps1`
+
+PowerShell helper for comparing wasm build timings across different build-cache and module-cache strategies.
+
+Example:
+
+```powershell
+.\tools\compare-wasm-build-cache.ps1 `
+  -Package ./examples/21-ui-render `
+  -OutDir .\tmp\ui-render-cache-exp `
+  -ReleaseProfile
+```
+
+Behavior:
+
+- runs cold and warm builds with a dedicated shared `GOCACHE`
+- adds a small-edit rebuild after the shared cache is warm by applying and restoring a temporary comment change in one package source file
+- compares that against a fresh isolated build-cache run that still reuses the normal module cache
+- runs a CI-style isolated `GOCACHE` plus isolated `GOMODCACHE` pass, then repeats it warm, then measures one small-edit rebuild against those hydrated caches
+- writes one summary JSON file that includes each variant's `measure-wasm-build.ps1` manifest plus any module-download timing
+
+### `compare-wasm-experiment.ps1`
+
+PowerShell helper for CI-friendly comparison of saved wasm build experiment manifests.
+
+Example:
+
+```powershell
+.\tools\compare-wasm-experiment.ps1 `
+  -Baseline .\tmp\ui-render-cache-exp\wasm-build-cache-comparison.json `
+  -Candidate .\tmp\ui-render-cache-exp\wasm-build-cache-comparison.json `
+  -OutFile .\tmp\ui-render-cache-exp\comparison.json
+```
+
+Behavior:
+
+- flattens numeric timing and size metrics from saved JSON experiment manifests
+- applies separate regression thresholds for timing metrics and artifact-size metrics
+- writes a comparison summary JSON file when requested
+- exits non-zero when the candidate exceeds the configured regression thresholds, making it suitable for CI gating
+
+### `compare-wasm-go-toolchain.ps1`
+
+PowerShell helper for comparing one wasm target across a baseline Go toolchain and a candidate Go toolchain.
+
+Example:
+
+```powershell
+.\tools\compare-wasm-go-toolchain.ps1 `
+  -Package ./examples/21-ui-render `
+  -BaselineGo go `
+  -CandidateGo go `
+  -OutDir .\tmp\ui-render-toolchain-exp `
+  -ReleaseProfile
+```
+
+Behavior:
+
+- runs `measure-wasm-build.ps1` once per toolchain with the same package and profile
+- stores one manifest per toolchain plus a saved comparison result
+- exits non-zero when the candidate toolchain exceeds the configured regression thresholds
+- writes `wasm-toolchain-comparison.json` so CI and docs can attribute the compared Go versions
+
 ### `go_js_wasm_exec.bat`
 
 Windows helper for running `go test` in `js/wasm` mode.
