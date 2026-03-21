@@ -9,6 +9,8 @@
 - Expanded runtime inspection and devtools snapshots with fine-grained fiber counts, granular mark and commit counters, and per-node update-origin or reactive-source metadata so narrow updates are visible in diagnostics instead of appearing as generic dirty work.
 - Added deeper runtime, wasm, SSR, benchmark, and Playwright coverage for subscribed-region behavior, selector stability, transition deferral, hydration reuse, ancestor-rerender costs, and browser-level non-rerender guarantees.
 - Added `docs/FINE_GRAINED_REACTIVITY.md` plus related roadmap and performance updates so the current mixed-model contract, measurements, and limits are documented as part of the repo history.
+- Followed up with targeted rerender-path optimization passes that removed the measured ancestor-rerender overhead for the current stable-region benchmark shape by reusing unchanged reactive-source bookkeeping and redirecting stale subscribed fibers to their live fine-grained twin instead of transferring ownership during every clean clone.
+- Expanded profiling and devtools visibility further with descendant host and descendant text commit counters inside fine-grained regions, plus regression coverage that proves stale subscribed twins still resolve to the live current region after ancestor rerenders.
 
 ## 2026-03-18
 
