@@ -42,6 +42,7 @@ func CompareSnapshots(previous, current Snapshot) (SnapshotComparison, error) {
 	}{
 		{name: "route", previous: previous.Route, current: current.Route},
 		{name: "cache", previous: previous.Cache, current: current.Cache},
+		{name: "multiClient", previous: previous.MultiClient, current: current.MultiClient},
 		{name: "tree", previous: previous.Tree, current: current.Tree},
 		{name: "stats", previous: previous.Stats, current: current.Stats},
 		{name: "profiling", previous: previous.Profiling, current: current.Profiling},

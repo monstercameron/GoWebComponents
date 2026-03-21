@@ -8,6 +8,7 @@ It focuses on the minimum useful debugging view:
 - hook state inspection
 - current route inspection
 - shared cache inspection
+- app-owned multi-client inspection state
 - recent framework log buffering
 - subtree-level profiling hotspots
 - structured runtime diagnostics
@@ -48,6 +49,23 @@ snapshot := devtools.SnapshotNow()
 fmt.Println(snapshot.Route.Path)
 fmt.Println(snapshot.Stats.TotalFibers)
 fmt.Println(len(snapshot.Diagnostics))
+fmt.Println(snapshot.MultiClient.ResolvedTransport)
+```
+
+### Multi-Client Inspection
+
+When an application maintains multi-client peer state, it can expose that state directly to the devtools panel and snapshot exporters:
+
+```go
+devtools.SetMultiClientInspection(devtools.MultiClient{
+    Enabled:           true,
+    LocalPeerID:       "storefront-1",
+    ResolvedTransport: "broadcast-channel",
+    AuthorityView: map[string]string{
+        "operator:inventory": "ops-1",
+    },
+})
+defer devtools.ResetMultiClientInspection()
 ```
 
 ### UseSnapshot
@@ -85,6 +103,7 @@ fmt.Println(comparison.ChangedSections)
 
 - Current route path, query params, route params, and route loader pending state
 - Shared cache entries including key, ready or stale state, subscriber count, resume policy, and last error
+- Multi-client transport, authority view, peer registry entries, recent topic traffic, and failed publish summaries when the application provides inspection state
 - Runtime totals for fibers, dirty nodes, hook entries, effects, and recent timing counters
 - Fine-grained counters for subscribed fibers, granular dirty marks, granular commits, and per-node update origin or reactive source metadata when narrow updates are in play
 - Hot branches ranked by subtree commit/effect/cleanup cost

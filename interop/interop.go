@@ -19,6 +19,7 @@ const (
 	CodeMissingExport   ErrorCode = "missing_export"
 	CodeNotFunction     ErrorCode = "not_function"
 	CodeInvalid         ErrorCode = "invalid"
+	CodeUnauthorized    ErrorCode = "unauthorized"
 	CodeCancelled       ErrorCode = "cancelled"
 	CodeTimeout         ErrorCode = "timeout"
 	CodeRemote          ErrorCode = "remote_error"
@@ -125,6 +126,8 @@ func interopActionableGuidance(code ErrorCode) (string, string) {
 		return "ACTIONABLE_ERRORS.md#gwc-interop-invalid", "Validate required names, URLs, and callbacks before creating the interop binding"
 	case CodeNotFunction:
 		return "ACTIONABLE_ERRORS.md#gwc-interop-not-function", "Verify the target export or property exists and is callable before invoking it"
+	case CodeUnauthorized:
+		return "ACTIONABLE_ERRORS.md#gwc-interop-multi-client-unauthorized", "Verify topic ownership, peer role, and origin policy before accepting or publishing privileged multi-client traffic"
 	default:
 		return "", ""
 	}
@@ -767,6 +770,65 @@ type WindowEnvelope struct {
 	SentAt  time.Time `json:"sentAt,omitempty"`
 }
 
+type ClientIdentity struct {
+	ID      string `json:"id"`
+	App     string `json:"app"`
+	Surface string `json:"surface"`
+	Role    string `json:"role,omitempty"`
+	Version string `json:"version,omitempty"`
+}
+
+type ClientCapabilities struct {
+	ProtocolVersion string   `json:"protocolVersion,omitempty"`
+	Transports      []string `json:"transports,omitempty"`
+	Encodings       []string `json:"encodings,omitempty"`
+	Topics          []string `json:"topics,omitempty"`
+	MaxJSONBytes    int      `json:"maxJsonBytes,omitempty"`
+	MaxBinaryBytes  int      `json:"maxBinaryBytes,omitempty"`
+}
+
+type ClientMessageKind string
+
+const (
+	ClientHello      ClientMessageKind = "hello"
+	ClientGoodbye    ClientMessageKind = "goodbye"
+	ClientEvent      ClientMessageKind = "event"
+	ClientIntent     ClientMessageKind = "intent"
+	ClientQuery      ClientMessageKind = "query"
+	ClientResult     ClientMessageKind = "result"
+	ClientInvalidate ClientMessageKind = "invalidate"
+	ClientError      ClientMessageKind = "error"
+)
+
+type ClientPayloadEncoding string
+
+const (
+	ClientPayloadJSON   ClientPayloadEncoding = "json"
+	ClientPayloadBinary ClientPayloadEncoding = "binary"
+)
+
+const ClientPresenceTopic = "clients"
+
+type ClientMessage struct {
+	ID           string                `json:"id,omitempty"`
+	Kind         ClientMessageKind     `json:"kind"`
+	Topic        string                `json:"topic"`
+	Source       ClientIdentity        `json:"source"`
+	Capabilities *ClientCapabilities   `json:"capabilities,omitempty"`
+	Target       string                `json:"target,omitempty"`
+	Encoding     ClientPayloadEncoding `json:"encoding,omitempty"`
+	ContentType  string                `json:"contentType,omitempty"`
+	Payload      any                   `json:"payload,omitempty"`
+	Revision     string                `json:"revision,omitempty"`
+	Error        string                `json:"error,omitempty"`
+	SentAt       time.Time             `json:"sentAt,omitempty"`
+}
+
+type ClientBinaryPayload struct {
+	ContentType string `json:"contentType,omitempty"`
+	Bytes       []byte `json:"-"`
+}
+
 type SurfaceSignalKind string
 
 const (
@@ -859,21 +921,23 @@ type Worker struct {
 }
 
 type CrossTabChannel struct {
-	name      func() string
-	transport func() string
-	publish   func(any) error
-	subscribe func(func(CrossTabEnvelope, error)) (Subscription, error)
-	close     func() error
+	name                func() string
+	transport           func() string
+	publish             func(any) error
+	publishClientBinary func(ClientMessage) error
+	subscribe           func(func(CrossTabEnvelope, error)) (Subscription, error)
+	close               func() error
 }
 
 type WindowChannel struct {
-	name         func() string
-	targetOrigin func() string
-	publish      func(any) error
-	subscribe    func(func(WindowEnvelope, error)) (Subscription, error)
-	focus        func() error
-	close        func() error
-	closed       func() bool
+	name                func() string
+	targetOrigin        func() string
+	publish             func(any) error
+	publishClientBinary func(ClientMessage) error
+	subscribe           func(func(WindowEnvelope, error)) (Subscription, error)
+	focus               func() error
+	close               func() error
+	closed              func() bool
 }
 
 func (c CrossTabChannel) Name() string {
@@ -1105,6 +1169,523 @@ func DecodeWindowEnvelope[T any](message WindowEnvelope) (DecodedWindowEnvelope[
 		Source:  message.Source,
 		SentAt:  message.SentAt,
 	}, nil
+}
+
+func DecodeClientMessage(value any) (ClientMessage, error) {
+	message, err := decodeClientMessageValue(value)
+	if err != nil {
+		return ClientMessage{}, err
+	}
+	if err := validateClientMessage("DecodeClientMessage", message.Topic, message); err != nil {
+		return ClientMessage{}, err
+	}
+	return message, nil
+}
+
+func PublishClientMessage(channel CrossTabChannel, message ClientMessage) error {
+	prepared, err := prepareClientMessage("PublishClientMessage", channel.Name(), message)
+	if err != nil {
+		return err
+	}
+	return channel.Publish(prepared)
+}
+
+func PublishClientWindowMessage(channel WindowChannel, message ClientMessage) error {
+	prepared, err := prepareClientMessage("PublishClientWindowMessage", channel.Name(), message)
+	if err != nil {
+		return err
+	}
+	return channel.Publish(prepared)
+}
+
+func SubscribeClientMessages(channel CrossTabChannel, handler func(ClientMessage, error)) (Subscription, error) {
+	if handler == nil {
+		return Subscription{}, wrapError("SubscribeClientMessages", channel.Name(), CodeInvalid, errors.New("handler is nil"))
+	}
+	return channel.Subscribe(func(message CrossTabEnvelope, err error) {
+		if err != nil {
+			handler(ClientMessage{}, err)
+			return
+		}
+		decoded, decodeErr := DecodeClientMessage(message.Payload)
+		handler(decoded, decodeErr)
+	})
+}
+
+func SubscribeClientWindowMessages(channel WindowChannel, handler func(ClientMessage, error)) (Subscription, error) {
+	if handler == nil {
+		return Subscription{}, wrapError("SubscribeClientWindowMessages", channel.Name(), CodeInvalid, errors.New("handler is nil"))
+	}
+	return channel.Subscribe(func(message WindowEnvelope, err error) {
+		if err != nil {
+			handler(ClientMessage{}, err)
+			return
+		}
+		decoded, decodeErr := DecodeClientMessage(message.Payload)
+		handler(decoded, decodeErr)
+	})
+}
+
+func PublishClientHello(channel CrossTabChannel, self ClientIdentity) error {
+	capabilities := defaultCrossTabClientCapabilities(channel)
+	return PublishClientHelloWithCapabilities(channel, self, capabilities)
+}
+
+func PublishClientHelloWithCapabilities(channel CrossTabChannel, self ClientIdentity, capabilities ClientCapabilities) error {
+	return PublishClientMessage(channel, ClientMessage{
+		Kind:         ClientHello,
+		Topic:        ClientPresenceTopic,
+		Source:       self,
+		Capabilities: &capabilities,
+	})
+}
+
+func PublishClientHelloWindow(channel WindowChannel, self ClientIdentity) error {
+	capabilities := defaultWindowClientCapabilities(channel)
+	return PublishClientHelloWindowWithCapabilities(channel, self, capabilities)
+}
+
+func PublishClientHelloWindowWithCapabilities(channel WindowChannel, self ClientIdentity, capabilities ClientCapabilities) error {
+	return PublishClientWindowMessage(channel, ClientMessage{
+		Kind:         ClientHello,
+		Topic:        ClientPresenceTopic,
+		Source:       self,
+		Capabilities: &capabilities,
+	})
+}
+
+func PublishClientGoodbye(channel CrossTabChannel, self ClientIdentity) error {
+	return PublishClientMessage(channel, ClientMessage{
+		Kind:   ClientGoodbye,
+		Topic:  ClientPresenceTopic,
+		Source: self,
+	})
+}
+
+func PublishClientGoodbyeWindow(channel WindowChannel, self ClientIdentity) error {
+	return PublishClientWindowMessage(channel, ClientMessage{
+		Kind:   ClientGoodbye,
+		Topic:  ClientPresenceTopic,
+		Source: self,
+	})
+}
+
+func PublishClientEvent(channel CrossTabChannel, topic string, self ClientIdentity, payload any) error {
+	return PublishClientMessage(channel, ClientMessage{
+		Kind:    ClientEvent,
+		Topic:   strings.TrimSpace(topic),
+		Source:  self,
+		Payload: payload,
+	})
+}
+
+func PublishClientIntent(channel WindowChannel, topic string, self ClientIdentity, target string, payload any) error {
+	trimmedTarget := strings.TrimSpace(target)
+	if trimmedTarget == "" {
+		return wrapError("PublishClientIntent", channel.Name(), CodeInvalid, errors.New("target is empty"))
+	}
+	return PublishClientWindowMessage(channel, ClientMessage{
+		Kind:    ClientIntent,
+		Topic:   strings.TrimSpace(topic),
+		Source:  self,
+		Target:  trimmedTarget,
+		Payload: payload,
+	})
+}
+
+func PublishClientInvalidation(channel CrossTabChannel, topic string, self ClientIdentity, revision string) error {
+	trimmedRevision := strings.TrimSpace(revision)
+	if trimmedRevision == "" {
+		return wrapError("PublishClientInvalidation", channel.Name(), CodeInvalid, errors.New("revision is empty"))
+	}
+	return PublishClientMessage(channel, ClientMessage{
+		Kind:     ClientInvalidate,
+		Topic:    strings.TrimSpace(topic),
+		Source:   self,
+		Revision: trimmedRevision,
+	})
+}
+
+func PublishClientQuery(channel CrossTabChannel, topic string, self ClientIdentity) error {
+	return PublishClientMessage(channel, ClientMessage{
+		Kind:   ClientQuery,
+		Topic:  strings.TrimSpace(topic),
+		Source: self,
+	})
+}
+
+func PublishClientResult(channel CrossTabChannel, topic string, self ClientIdentity, target string, payload any) error {
+	trimmedTarget := strings.TrimSpace(target)
+	if trimmedTarget == "" {
+		return wrapError("PublishClientResult", channel.Name(), CodeInvalid, errors.New("target is empty"))
+	}
+	return PublishClientMessage(channel, ClientMessage{
+		Kind:    ClientResult,
+		Topic:   strings.TrimSpace(topic),
+		Source:  self,
+		Target:  trimmedTarget,
+		Payload: payload,
+	})
+}
+
+func PublishClientBinaryWindow(channel WindowChannel, topic string, self ClientIdentity, target string, payload ClientBinaryPayload) error {
+	trimmedTarget := strings.TrimSpace(target)
+	if trimmedTarget == "" {
+		return wrapError("PublishClientBinaryWindow", channel.Name(), CodeInvalid, errors.New("target is empty"))
+	}
+	prepared, err := prepareClientBinaryMessage("PublishClientBinaryWindow", channel.Name(), ClientMessage{
+		Kind:        ClientEvent,
+		Topic:       strings.TrimSpace(topic),
+		Source:      self,
+		Target:      trimmedTarget,
+		Encoding:    ClientPayloadBinary,
+		ContentType: strings.TrimSpace(payload.ContentType),
+		Payload:     append([]byte(nil), payload.Bytes...),
+	})
+	if err != nil {
+		return err
+	}
+	if channel.publishClientBinary != nil {
+		return channel.publishClientBinary(prepared)
+	}
+	return PublishClientWindowMessage(channel, prepared)
+}
+
+func PublishClientBinaryCrossTab(channel CrossTabChannel, topic string, self ClientIdentity, payload ClientBinaryPayload) error {
+	prepared, err := prepareClientBinaryMessage("PublishClientBinaryCrossTab", channel.Name(), ClientMessage{
+		Kind:        ClientEvent,
+		Topic:       strings.TrimSpace(topic),
+		Source:      self,
+		Encoding:    ClientPayloadBinary,
+		ContentType: strings.TrimSpace(payload.ContentType),
+		Payload:     append([]byte(nil), payload.Bytes...),
+	})
+	if err != nil {
+		return err
+	}
+	if channel.publishClientBinary != nil {
+		return channel.publishClientBinary(prepared)
+	}
+	return PublishClientMessage(channel, prepared)
+}
+
+func prepareClientMessage(op string, target string, message ClientMessage) (ClientMessage, error) {
+	if err := validateClientMessage(op, target, message); err != nil {
+		return ClientMessage{}, err
+	}
+	if message.SentAt.IsZero() {
+		message.SentAt = time.Now().UTC()
+	}
+	return message, nil
+}
+
+func prepareClientBinaryMessage(op string, target string, message ClientMessage) (ClientMessage, error) {
+	prepared, err := prepareClientMessage(op, target, message)
+	if err != nil {
+		return ClientMessage{}, err
+	}
+	prepared.Encoding = ClientPayloadBinary
+	bytes, ok := prepared.Payload.([]byte)
+	if !ok {
+		return ClientMessage{}, wrapError(op, target, CodeInvalid, errors.New("binary payload must be []byte"))
+	}
+	if len(bytes) == 0 {
+		return ClientMessage{}, wrapError(op, target, CodeInvalid, errors.New("binary payload is empty"))
+	}
+	if strings.TrimSpace(prepared.ContentType) == "" {
+		return ClientMessage{}, wrapError(op, target, CodeInvalid, errors.New("binary content type is empty"))
+	}
+	prepared.Payload = append([]byte(nil), bytes...)
+	return prepared, nil
+}
+
+func validateClientMessage(op string, target string, message ClientMessage) error {
+	if err := validateClientIdentity(op, target, message.Source); err != nil {
+		return err
+	}
+	if strings.TrimSpace(message.Topic) == "" {
+		return wrapError(op, target, CodeInvalid, errors.New("client topic is empty"))
+	}
+	switch message.Kind {
+	case ClientHello, ClientGoodbye, ClientEvent, ClientIntent, ClientQuery, ClientResult, ClientInvalidate, ClientError:
+	default:
+		return wrapError(op, target, CodeInvalid, errors.New("client message kind is empty or unknown"))
+	}
+	switch message.Encoding {
+	case "", ClientPayloadJSON, ClientPayloadBinary:
+	default:
+		return wrapError(op, target, CodeInvalid, errors.New("client payload encoding is empty or unknown"))
+	}
+	if message.Encoding == ClientPayloadBinary {
+		if _, ok := message.Payload.([]byte); !ok {
+			return wrapError(op, target, CodeInvalid, errors.New("binary client payload must be []byte"))
+		}
+	}
+	if err := validateClientTopicAuthorization(op, target, message); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateClientTopicAuthorization(op string, target string, message ClientMessage) error {
+	topic := strings.ToLower(strings.TrimSpace(message.Topic))
+	if !isPrivilegedClientTopic(topic) {
+		return nil
+	}
+	role := normalizeClientRole(message.Source.Role)
+	if clientRoleMayUsePrivilegedTopic(role) {
+		return nil
+	}
+	if message.Kind == ClientIntent {
+		return wrapError(op, target, CodeUnauthorized, errors.New("client role is not authorized to publish privileged intent topic"))
+	}
+	return wrapError(op, target, CodeUnauthorized, errors.New("client role is not authorized for privileged topic"))
+}
+
+func isPrivilegedClientTopic(topic string) bool {
+	switch {
+	case strings.HasPrefix(topic, "session:"), strings.HasPrefix(topic, "operator:"), strings.HasPrefix(topic, "intent:session"), strings.HasPrefix(topic, "intent:operator"):
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeClientRole(role string) string {
+	return strings.ToLower(strings.TrimSpace(role))
+}
+
+func clientRoleMayUsePrivilegedTopic(role string) bool {
+	switch role {
+	case "operator", "admin", "system":
+		return true
+	default:
+		return false
+	}
+}
+
+func decodeClientMessageValue(value any) (ClientMessage, error) {
+	switch typed := value.(type) {
+	case ClientMessage:
+		return typed, nil
+	case map[string]any:
+		return decodeClientMessageMap(typed)
+	default:
+		var message ClientMessage
+		if err := Decode(value, &message); err != nil {
+			return ClientMessage{}, err
+		}
+		return message, nil
+	}
+}
+
+func decodeClientMessageMap(data map[string]any) (ClientMessage, error) {
+	message := ClientMessage{
+		ID:          stringField(data, "id"),
+		Kind:        ClientMessageKind(stringField(data, "kind")),
+		Topic:       stringField(data, "topic"),
+		Target:      stringField(data, "target"),
+		Revision:    stringField(data, "revision"),
+		Error:       stringField(data, "error"),
+		Encoding:    ClientPayloadEncoding(stringField(data, "encoding")),
+		ContentType: stringField(data, "contentType"),
+	}
+	if source, ok := data["source"].(map[string]any); ok {
+		message.Source = ClientIdentity{
+			ID:      stringField(source, "id"),
+			App:     stringField(source, "app"),
+			Surface: stringField(source, "surface"),
+			Role:    stringField(source, "role"),
+			Version: stringField(source, "version"),
+		}
+	}
+	if capabilities, ok := data["capabilities"].(map[string]any); ok {
+		message.Capabilities = decodeClientCapabilitiesMap(capabilities)
+	}
+	if payload, ok := data["payload"]; ok {
+		message.Payload = payload
+	}
+	if sentAt, ok := clientTimeField(data["sentAt"]); ok {
+		message.SentAt = sentAt
+	}
+	return message, nil
+}
+
+func decodeClientCapabilitiesMap(data map[string]any) *ClientCapabilities {
+	capabilities := &ClientCapabilities{
+		ProtocolVersion: stringField(data, "protocolVersion"),
+		Transports:      stringSliceField(data["transports"]),
+		Encodings:       stringSliceField(data["encodings"]),
+		Topics:          stringSliceField(data["topics"]),
+		MaxJSONBytes:    intField(data["maxJsonBytes"]),
+		MaxBinaryBytes:  intField(data["maxBinaryBytes"]),
+	}
+	return capabilities
+}
+
+func stringField(data map[string]any, key string) string {
+	value, ok := data[key]
+	if !ok {
+		return ""
+	}
+	switch typed := value.(type) {
+	case string:
+		return typed
+	default:
+		return ""
+	}
+}
+
+func stringSliceField(value any) []string {
+	switch typed := value.(type) {
+	case []string:
+		return append([]string(nil), typed...)
+	case []any:
+		values := make([]string, 0, len(typed))
+		for _, entry := range typed {
+			text, ok := entry.(string)
+			if ok && strings.TrimSpace(text) != "" {
+				values = append(values, text)
+			}
+		}
+		return values
+	default:
+		return nil
+	}
+}
+
+func intField(value any) int {
+	switch typed := value.(type) {
+	case int:
+		return typed
+	case int64:
+		return int(typed)
+	case float64:
+		return int(typed)
+	default:
+		return 0
+	}
+}
+
+func clientTimeField(value any) (time.Time, bool) {
+	text, ok := value.(string)
+	if !ok || strings.TrimSpace(text) == "" {
+		return time.Time{}, false
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, text)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return parsed, true
+}
+
+func defaultCrossTabClientCapabilities(channel CrossTabChannel) ClientCapabilities {
+	encodings := []string{string(ClientPayloadJSON)}
+	if channel.Transport() == "broadcast-channel" {
+		encodings = append(encodings, string(ClientPayloadBinary))
+	}
+	transports := []string{}
+	if transport := strings.TrimSpace(channel.Transport()); transport != "" {
+		transports = append(transports, transport)
+	}
+	return ClientCapabilities{
+		ProtocolVersion: "v1",
+		Transports:      transports,
+		Encodings:       encodings,
+	}
+}
+
+func defaultWindowClientCapabilities(channel WindowChannel) ClientCapabilities {
+	transports := []string{"window-message"}
+	if target := strings.TrimSpace(channel.Name()); target != "" {
+		_ = target
+	}
+	return ClientCapabilities{
+		ProtocolVersion: "v1",
+		Transports:      transports,
+		Encodings:       []string{string(ClientPayloadJSON), string(ClientPayloadBinary)},
+	}
+}
+
+func ClientProtocolCompatible(local ClientCapabilities, peer ClientCapabilities) bool {
+	localVersion := normalizeProtocolVersion(local.ProtocolVersion)
+	peerVersion := normalizeProtocolVersion(peer.ProtocolVersion)
+	if localVersion == "" || peerVersion == "" {
+		return false
+	}
+	return protocolMajor(localVersion) == protocolMajor(peerVersion)
+}
+
+func ClientSupportsEncoding(capabilities ClientCapabilities, encoding ClientPayloadEncoding) bool {
+	trimmed := strings.TrimSpace(string(encoding))
+	if trimmed == "" {
+		trimmed = string(ClientPayloadJSON)
+	}
+	for _, candidate := range capabilities.Encodings {
+		if strings.EqualFold(strings.TrimSpace(candidate), trimmed) {
+			return true
+		}
+	}
+	return false
+}
+
+func ClientSupportsTopic(capabilities ClientCapabilities, topic string) bool {
+	trimmed := strings.TrimSpace(topic)
+	if trimmed == "" {
+		return false
+	}
+	if len(capabilities.Topics) == 0 {
+		return true
+	}
+	for _, candidate := range capabilities.Topics {
+		if strings.EqualFold(strings.TrimSpace(candidate), trimmed) {
+			return true
+		}
+	}
+	return false
+}
+
+func ClientCanExchange(local ClientCapabilities, peer ClientCapabilities, topic string, encoding ClientPayloadEncoding) bool {
+	if !ClientProtocolCompatible(local, peer) {
+		return false
+	}
+	if !ClientSupportsEncoding(local, encoding) || !ClientSupportsEncoding(peer, encoding) {
+		return false
+	}
+	if !ClientSupportsTopic(local, topic) || !ClientSupportsTopic(peer, topic) {
+		return false
+	}
+	return true
+}
+
+func normalizeProtocolVersion(value string) string {
+	trimmed := strings.TrimSpace(strings.ToLower(value))
+	trimmed = strings.TrimPrefix(trimmed, "v")
+	return trimmed
+}
+
+func protocolMajor(value string) string {
+	trimmed := normalizeProtocolVersion(value)
+	if trimmed == "" {
+		return ""
+	}
+	if dot := strings.Index(trimmed, "."); dot >= 0 {
+		return trimmed[:dot]
+	}
+	return trimmed
+}
+
+func validateClientIdentity(op string, target string, identity ClientIdentity) error {
+	if strings.TrimSpace(identity.ID) == "" {
+		return wrapError(op, target, CodeInvalid, errors.New("client identity id is empty"))
+	}
+	if strings.TrimSpace(identity.App) == "" {
+		return wrapError(op, target, CodeInvalid, errors.New("client identity app is empty"))
+	}
+	if strings.TrimSpace(identity.Surface) == "" {
+		return wrapError(op, target, CodeInvalid, errors.New("client identity surface is empty"))
+	}
+	return nil
 }
 
 func SubscribeDecodedWindow[T any](channel WindowChannel, handler func(DecodedWindowEnvelope[T], error)) (Subscription, error) {

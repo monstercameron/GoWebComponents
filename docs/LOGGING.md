@@ -73,6 +73,7 @@ The intended framework-owned logging points are:
 - cache invalidation and revalidation
 - queued mutation persistence, retry scheduling, success, and dead-letter transitions
 - form submission lifecycle only for framework-owned state transitions, not raw form data payloads
+- multi-client peer discovery, timeout, transport, reconnect, and authorization failures when the experimental multi-client surface is in use
 
 This keeps the logs focused on framework lifecycle and transport state rather than duplicating full application business logs.
 
@@ -102,6 +103,8 @@ Escalation rules:
 One event may surface in more than one channel, but the same stable domain and field names should apply across logs, diagnostics, and future traces whenever possible.
 
 See [SECURITY.md](SECURITY.md) for the broader server-only data and redaction policy that surrounds framework-owned logging and diagnostics.
+
+See [MULTI_CLIENTS.md](MULTI_CLIENTS.md) for the intended peer-id, topic, payload-size, and binary-redaction rules specific to sovereign browser-client coordination.
 
 ## What Is Still Open
 

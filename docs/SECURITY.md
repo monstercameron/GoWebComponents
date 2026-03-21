@@ -77,6 +77,10 @@ The intended policy is:
 - avoid copying browser storage contents, worker payload bodies, or interop return objects into logs by default
 - treat exported traces and diagnostics under the same redaction boundary as logs
 
+For the experimental multi-client surface documented in `docs/MULTI_CLIENTS.md`, the same-origin default, topic-level authorization, origin validation, and no-raw-binary-logging rules apply to peer coordination just as they do to other browser-visible interop flows.
+
+The current helper layer now enforces a first runtime slice of that policy by rejecting privileged multi-client topic families for non-privileged roles, surfacing same-peer origin mismatch as structured unauthorized errors on window subscriptions, and failing closed on stale popup or opener handles.
+
 Application code may choose to log more detail, but that is outside the framework-owned safe default.
 
 ## Supply-Chain Review Practices

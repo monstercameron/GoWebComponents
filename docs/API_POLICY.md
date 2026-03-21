@@ -63,6 +63,7 @@ Current experimental surfaces are:
 - advanced router data and lifecycle APIs including route loaders, `UseRevalidator`, guards, route-managed metadata, and layout-heavy hydration flows
 - optional SSR bootstrap transport details beyond the documented JSON bootstrap path, including alternative payload encodings
 - the `plugin` companion package, including `Host`, `Plugin`, manifests, lifecycle helpers, and subsystem hook registration APIs
+- the multi-client coordination proposal and current helper layer documented in `docs/MULTI_CLIENTS.md`
 
 Experimental means:
 

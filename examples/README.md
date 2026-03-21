@@ -106,6 +106,8 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `91-worker-text-index`: `ui.UseWorkerTask`, worker progress, and CPU-heavy text indexing off the main thread
 - `94-cross-tab-sync`: `interop.OpenCrossTabChannel`, typed cross-tab messages, transport diagnostics, and opt-in state hint broadcasting
 - `95-multi-window-console`: `interop.OpenSecondaryWindowChannel`, `interop.WindowOpenerChannel`, and typed shared session or route coordination across popup surfaces
+- `97-multi-client-presence`: `interop.PublishClientHello`, `interop.PublishClientQuery`, `interop.PublishClientResult`, `interop.SubscribeClientMessages`, and `interop.SubscribeClientWindowMessages` for late join discovery and targeted popup replies
+- `97-multi-client-binary`: `interop.PublishClientBinaryCrossTab`, `interop.PublishClientBinaryWindow`, JSON control-plane handshake, binary preview payloads on supported transports, and JSON fallback when cross-tab transport cannot carry bytes
 
 ### router Package
 

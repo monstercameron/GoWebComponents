@@ -33,9 +33,10 @@ func SnapshotNow() Snapshot {
 			Params:  cloneParams(routeInspection.Params),
 			Loading: routeInspection.Loading,
 		},
-		Tree:      mapNode(rtSnapshot.Root),
-		Stats:     mapStats(rtSnapshot.Stats),
-		Profiling: mapProfiling(rtSnapshot.Profiling),
+		MultiClient: InspectMultiClient(),
+		Tree:        mapNode(rtSnapshot.Root),
+		Stats:       mapStats(rtSnapshot.Stats),
+		Profiling:   mapProfiling(rtSnapshot.Profiling),
 	}
 	for _, entry := range fetch.InspectCachedResources() {
 		snapshot.Cache = append(snapshot.Cache, CacheEntry{
@@ -177,6 +178,7 @@ func Panel(props PanelProps) ui.Node {
 		header(title, toggle),
 		section("Route", routeSummary(snapshot.Route)),
 		section("Cache", cacheSummary(snapshot.Cache)),
+		section("Multi-Client", multiClientSummary(snapshot.MultiClient)),
 		section("Runtime", statsSummary(snapshot.Stats)),
 		section("Profiling", profilingSummary(snapshot.Profiling)),
 		section("Logs", logsSummary(snapshot.Logs)),
@@ -265,6 +267,49 @@ func cacheSummary(entries []CacheEntry) ui.Node {
 			metricRow("Last load", formatTime(entry.LastLoaded)),
 			metricRow("Error", emptyFallback(entry.LastError, "none")),
 		))
+	}
+	return html.Div(html.Props{}, rows...)
+}
+
+func multiClientSummary(state MultiClient) ui.Node {
+	if !state.Enabled && len(state.Peers) == 0 && len(state.RecentTraffic) == 0 && len(state.FailedPublishes) == 0 {
+		return html.Div(html.Props{}, metricRow("State", "none"))
+	}
+	rows := []ui.Node{
+		metricRow("Enabled", fmt.Sprintf("%t", state.Enabled)),
+		metricRow("Local Peer", emptyFallback(state.LocalPeerID, "unknown")),
+		metricRow("Transport", emptyFallback(state.ResolvedTransport, "unknown")),
+		metricRow("Peers", fmt.Sprintf("%d", len(state.Peers))),
+		metricRow("Traffic", fmt.Sprintf("%d", len(state.RecentTraffic))),
+		metricRow("Failed Publishes", fmt.Sprintf("%d", len(state.FailedPublishes))),
+	}
+	if len(state.AuthorityView) > 0 {
+		rows = append(rows, metricRow("Authority", formatStringMap(state.AuthorityView)))
+	}
+	if len(state.Peers) > 0 {
+		peerSummaries := make([]string, 0, len(state.Peers))
+		for _, peer := range state.Peers {
+			lease := "n/a"
+			if !peer.LeaseDeadline.IsZero() {
+				lease = peer.LeaseDeadline.UTC().Format(time.RFC3339)
+			}
+			peerSummaries = append(peerSummaries, fmt.Sprintf("%s(%s/%s state=%s compatible=%t lease=%s)", emptyFallback(peer.ID, "unknown"), emptyFallback(peer.Surface, "unknown"), emptyFallback(peer.Role, "none"), emptyFallback(peer.State, "unknown"), peer.Compatible, lease))
+		}
+		rows = append(rows, metricRow("Peer Registry", strings.Join(peerSummaries, "; ")))
+	}
+	if len(state.RecentTraffic) > 0 {
+		trafficSummaries := make([]string, 0, len(state.RecentTraffic))
+		for _, entry := range state.RecentTraffic {
+			trafficSummaries = append(trafficSummaries, fmt.Sprintf("%s %s %s peer=%s id=%s latency=%dms failed=%t", emptyFallback(entry.Direction, "unknown"), emptyFallback(entry.Kind, "unknown"), emptyFallback(entry.Topic, "unknown"), emptyFallback(entry.PeerID, "unknown"), emptyFallback(entry.CorrelationID, "-"), entry.LatencyMs, entry.Failed))
+		}
+		rows = append(rows, metricRow("Recent Traffic", strings.Join(trafficSummaries, "; ")))
+	}
+	if len(state.FailedPublishes) > 0 {
+		failureSummaries := make([]string, 0, len(state.FailedPublishes))
+		for _, failure := range state.FailedPublishes {
+			failureSummaries = append(failureSummaries, fmt.Sprintf("%s topic=%s target=%s code=%s", emptyFallback(failure.Op, "unknown"), emptyFallback(failure.Topic, "unknown"), emptyFallback(failure.Target, "-"), emptyFallback(failure.Code, "unknown")))
+		}
+		rows = append(rows, metricRow("Failures", strings.Join(failureSummaries, "; ")))
 	}
 	return html.Div(html.Props{}, rows...)
 }
@@ -718,6 +763,22 @@ func formatParams(params map[string]string) string {
 	parts := make([]string, 0, len(keys))
 	for _, key := range keys {
 		parts = append(parts, key+"="+params[key])
+	}
+	return strings.Join(parts, " & ")
+}
+
+func formatStringMap(values map[string]string) string {
+	if len(values) == 0 {
+		return "none"
+	}
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, key+"="+values[key])
 	}
 	return strings.Join(parts, " & ")
 }

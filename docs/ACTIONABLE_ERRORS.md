@@ -524,6 +524,51 @@ Expected remediation:
 
 - verify the target export or property exists and is callable before invoking it
 
+### GWC-INTEROP-MULTI-CLIENT-VERSION
+
+Use when a peer advertises an incompatible multi-client protocol version.
+
+Expected remediation:
+
+- compare the local protocol version and capability set with the peer announcement in `docs/MULTI_CLIENTS.md`
+- degrade to presence-only behavior until both clients advertise a compatible version range
+
+### GWC-INTEROP-MULTI-CLIENT-BINARY
+
+Use when a multi-client publish attempts binary payload delivery on a transport that cannot carry binary.
+
+Expected remediation:
+
+- inspect the resolved transport first and confirm it supports binary payloads before publishing
+- fall back to JSON or keep the payload on window or BroadcastChannel paths as described in `docs/MULTI_CLIENTS.md`
+
+### GWC-INTEROP-MULTI-CLIENT-UNAUTHORIZED
+
+Use when a client publishes or handles a topic that the application has not authorized for that peer or surface.
+
+Expected remediation:
+
+- verify topic ownership and authorization rules before accepting the publish
+- restrict privileged topics to the documented authority client or server-backed policy in `docs/MULTI_CLIENTS.md`
+
+### GWC-INTEROP-MULTI-CLIENT-TIMEOUT
+
+Use when a `query` does not receive an acceptable terminal `result` before the requester timeout.
+
+Expected remediation:
+
+- inspect the correlation id, target peer, and timeout budget first
+- retry only when the request is safe to repeat and adjust the timeout to the topic cost described in `docs/MULTI_CLIENTS.md`
+
+### GWC-INTEROP-MULTI-CLIENT-LEASE-EXPIRED
+
+Use when a peer lease ages out without a `hello`, reconnect, or other refresh signal.
+
+Expected remediation:
+
+- treat the peer as expired or degraded instead of connected and wait for a fresh handshake
+- review heartbeat, resume, and reconnect behavior against the lease rules in `docs/MULTI_CLIENTS.md`
+
 ## Related Docs
 
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
@@ -533,3 +578,4 @@ Expected remediation:
 - [router/README.md](../router/README.md)
 - [FORMS.md](FORMS.md)
 - [API_POLICY.md](API_POLICY.md)
+- [MULTI_CLIENTS.md](MULTI_CLIENTS.md)

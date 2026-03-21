@@ -91,6 +91,8 @@ Once the browser resumes, the intended client event set should cover:
 
 The client side should reuse the transferred correlation id for the first hydration pass, then create new correlation ids for later navigations or long-lived user interactions.
 
+For multi-client coordination, the intended event family also includes peer discovery, lease expiry, query and result timing, transport resolution, reconnect, and unsupported-encoding failures as documented in `docs/MULTI_CLIENTS.md`.
+
 ## Client-Side Lifecycle Hooks
 
 The intended public client instrumentation surface should expose stable hooks or callback registration for:

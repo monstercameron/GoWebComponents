@@ -19,6 +19,9 @@ End-to-end app-shape walkthroughs that connect the current examples and package 
 ### `REFERENCE_MAP.md`
 Cross-links for concepts, public APIs, examples, production caveats, and related docs.
 
+### `MULTI_CLIENTS.md`
+Short proposal for coordinating multiple sovereign browser `js/wasm` clients by layering one typed message contract over the existing cross-tab and multi-window transports.
+
 ### `TROUBLESHOOTING.md`
 Common setup and runtime failure guidance for wasm builds, `wasm_exec.js`, example serving, hydration, routing, and browser interop.
 
@@ -173,6 +176,7 @@ As of 2026-03-14:
 - [TESTING.md](TESTING.md)
 - [WALKTHROUGHS.md](WALKTHROUGHS.md)
 - [REFERENCE_MAP.md](REFERENCE_MAP.md)
+- [MULTI_CLIENTS.md](MULTI_CLIENTS.md)
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 - [FORMS.md](FORMS.md)
 - [PRODUCTION_CORRECTNESS.md](PRODUCTION_CORRECTNESS.md)

@@ -830,6 +830,79 @@ Organization rules for this file:
 - [x] Add examples for multi-window applications.
 	`examples/95-multi-window-console` now demonstrates an opener plus popup operator-console workflow with shared session, route, selection, and intent signals, including unexpected close or orphan handling.
 
+### Multi-client coordination
+
+- [x] Decide whether the `docs/MULTI_CLIENTS.md` proposal should become a first-class public `interop` surface.
+	The project now treats multi-client coordination as an experimental public `interop` slice: the JSON helper layer is implemented in `interop`, its protocol contract is documented in `docs/MULTI_CLIENTS.md`, and its stability tier is called out through `docs/API_POLICY.md`.
+- [x] Define the stable public API shape for multi-client coordination.
+	`docs/MULTI_CLIENTS.md` now records the current first implemented slice, and `interop` now exposes `ClientIdentity`, `ClientMessage`, `DecodeClientMessage(...)`, publish helpers, and subscribe helpers over `CrossTabChannel` and `WindowChannel`, while broader capability and governance work remains open.
+- [x] Define protocol versioning and compatibility rules for multi-client messages.
+	`docs/MULTI_CLIENTS.md` now defines additive-first protocol evolution, unknown-field handling, unknown-kind rejection, downgrade behavior, and the expectation that version mismatch degrades to presence-only rather than optimistic higher-level coordination.
+- [x] Define capability negotiation for mixed client populations.
+	`docs/MULTI_CLIENTS.md` now defines `ClientCapabilities`, `hello`-time capability advertisement, and the expectation that topic, encoding, and payload-size-sensitive work proceed only when both peers advertise support.
+- [x] Define the authority model per multi-client topic.
+	The multi-client contract now defines per-topic authority rules for auth, route focus, cache invalidation, diagnostics, and shared-entity edits so the protocol does not imply blind co-ownership of mutable state.
+- [x] Define delivery guarantees for client-mesh traffic.
+	`docs/MULTI_CLIENTS.md` now states the current guarantees explicitly: best-effort browser-local delivery, at-most-once sender expectations, duplicate tolerance, no global ordering promise, and no built-in replay contract.
+- [x] Define request correlation, timeout, and cancellation semantics for `query` and `result` flows.
+	The multi-client note now defines `ID` as the correlation key, requester-owned timeout policy, late-result discard, duplicate-result handling, and local-only cancellation semantics for the current first-class contract.
+- [x] Define lease, heartbeat, and expiry rules for peer presence.
+	`docs/MULTI_CLIENTS.md` now records the intended lease and heartbeat model, including refresh on boot, resume, and reconnect, conservative expiry handling, and the expectation that background-tab throttling is normal rather than exceptional.
+- [x] Define the full local lifecycle event model for multi-client coordination.
+	`docs/MULTI_CLIENTS.md` now defines the local lifecycle event set, peer-state model, and recommended transitions for `hello`, readiness, disconnect, expiry, and reconnect without pretending the browser offers socket-style connection state.
+- [x] Define the wire-level handshake and discovery flow in detail.
+	`docs/MULTI_CLIENTS.md` now defines subscribe-before-publish startup, `hello` and `goodbye`, late-join `query(topic="clients")`, targeted `result` replies, and the recommendation to derive discovery from handshake and lease state rather than unsupported browser-wide scanning.
+- [x] Define duplex and flow-control semantics for multi-client traffic.
+	`docs/MULTI_CLIENTS.md` now defines the client mesh as message-oriented and logically full duplex, clearly separating that from socket-style byte streams while leaving payload-size and backpressure policy as follow-up work.
+- [x] Define the JSON control-plane contract for multi-client messages.
+	The multi-client note now defines the required JSON message fields, and `interop` now validates and publishes the JSON control-plane message shape through `ClientMessage` and the new helper functions.
+- [x] Define the binary data-plane contract for multi-client messages.
+	`docs/MULTI_CLIENTS.md` now defines binary as a planned optional data-plane encoding through `ClientBinaryPayload`, while keeping JSON as the current implemented control plane and leaving transport-specific binary publish helpers for later implementation.
+- [x] Define binary capability boundaries across existing transports.
+	`docs/MULTI_CLIENTS.md` now documents that binary is only appropriate for transports with native structured-clone support, and explicitly calls out the storage-fallback path as a structured rejection case rather than a silent re-encoding path.
+- [x] Define payload-size limits and backpressure behavior for multi-client topics.
+	`docs/MULTI_CLIENTS.md` now defines conservative size-cap expectations, oversized-publish rejection, no implicit chunking in the first public slice, and the current rule that backpressure stays application-owned until a stronger first-party queue is justified.
+- [x] Define topic namespace and ownership conventions.
+	The multi-client note now reserves topic families such as `clients`, `intent:*`, `invalidate:*`, `event:*`, and `diagnostics:*`, and documents that topic ownership must be explicit per subsystem.
+- [x] Define schema ownership and validation policy per topic.
+	`docs/MULTI_CLIENTS.md` now defines one-owner schema responsibility, additive evolution preference, small stable required fields, and the expectation that topic schemas live with the topic owner instead of tribal example code.
+- [x] Define structured error codes for multi-client failures.
+	The multi-client contract now defines the stable failure categories the `interop` error model should cover for unsupported transport, unsupported binary, version mismatch, unauthorized publish, peer unavailability, timeout, payload limits, decode failure, expiry, and orphaned windows.
+- [x] Define the trust and authorization model for sovereign clients.
+	`docs/MULTI_CLIENTS.md` now defines same-origin defaults, advisory-versus-enforced role expectations, topic-level authorization expectations, and the rule that privileged intents must still flow through application-owned authorization.
+- [x] Define origin and embedding policy for window-based multi-client coordination.
+	The multi-client contract now documents same-origin defaults, target-origin validation, trust invalidation on navigation or origin change, and the rule that cross-origin coordination is not the default supported path.
+- [x] Define orphan, disconnect, and degraded-mode behavior for multi-client windows.
+	`docs/MULTI_CLIENTS.md` now defines expired, orphaned, and disconnected peer behavior, including degraded-mode expectations and the rule that degraded presence is operational state rather than a fatal runtime error.
+- [x] Define observability hooks and structured runtime events for the multi-client layer.
+	`docs/MULTI_CLIENTS.md` now defines the intended multi-client event family, and `docs/OBSERVABILITY.md` now references peer discovery, transport resolution, timeout, reconnect, and encoding failures as part of the broader observability model.
+- [x] Add structured logging guidance for multi-client coordination.
+	`docs/MULTI_CLIENTS.md` now defines topic, peer, size, and binary-redaction logging rules, and `docs/LOGGING.md` now explicitly includes multi-client peer discovery, timeout, transport, reconnect, and authorization failures in the intended structured logging model.
+- [x] Add devtools inspection for multi-client state.
+	`devtools` now exposes an app-owned multi-client inspection surface with snapshot export, snapshot diff, and panel rendering support for peer registry entries, resolved transport, lease deadlines, recent topic traffic, query latency, failed publishes, capability negotiation state, and current authority view.
+- [x] Add actionable-error guidance for multi-client failures.
+	`docs/ACTIONABLE_ERRORS.md` now defines stable multi-client anchors for version mismatch, unsupported binary sends, unauthorized topics, query timeout, and lease expiry, with each one pointing back to `docs/MULTI_CLIENTS.md` and concrete remediation guidance.
+- [x] Add a first-party example for multi-client presence and discovery.
+	`examples/97-multi-client-presence` now demonstrates cross-tab `hello`, late join discovery through `query(topic="clients")`, targeted `result` replies, lease expiry, reconnect behavior, and popup or opener targeted coordination through the existing window channel helpers.
+- [x] Add a first-party example for mixed JSON and binary multi-client payloads.
+	`examples/97-multi-client-binary` now demonstrates JSON hello and ack traffic, binary preview delivery on `WindowChannel` and BroadcastChannel, and JSON fallback metadata when the resolved cross-tab transport cannot carry raw bytes.
+- [x] Add a realistic enterprise-shaped reference topology for multi-client coordination.
+	`docs/MULTI_CLIENTS.md` now includes a concrete storefront-tab, operator-tab, and popup-inspector topology that exercises authority, topic ownership, transport choice, discovery, degraded mode, and binary-capability boundaries in one production-shaped scenario.
+- [x] Add conformance tests for mixed-version and mixed-capability client populations.
+	`interop/interop_native_test.go` now covers incompatible major versions, missing capability flags, JSON-only peers, binary-capable peers, topic mismatch, staged rollouts, and capability decoding, while `interop/interop_wasm_test.go` verifies that cross-tab and window hello traffic advertises transport-appropriate default capabilities.
+- [x] Add transport-conformance tests for cross-tab and window multi-client flows.
+	`interop/interop_wasm_test.go` now covers BroadcastChannel late join, reconnect, duplicate `hello`, and `goodbye`; storage-fallback lifecycle delivery with deterministic lease-expiry simulation from message timestamps; popup orphaning and disposal; and opener-path `hello` plus `goodbye` lifecycle traffic with stable js/wasm assertions.
+- [x] Add reliability tests for query, result, timeout, and duplicate delivery handling.
+	`interop/interop_native_test.go` now uses a shared mock cross-tab bus to cover request ID correlation, timeout handling, late-result discard, duplicate-result tolerance, concurrent query handling, and simultaneous bidirectional request or reply traffic without adding speculative production machinery.
+- [x] Add binary-transport tests for supported and unsupported surfaces.
+	`interop/interop_wasm_test.go` now covers binary publish on BroadcastChannel and window paths, verifies content type plus byte identity on round-trip, and asserts that storage-event fallback rejects binary publish with a structured interop error.
+- [x] Add security and authorization tests for multi-client topic handling.
+	`interop/interop.go` now exposes a dedicated unauthorized error code and enforces privileged topic-family checks for non-privileged roles, while `interop/interop_wasm.go` surfaces same-peer origin mismatch as a structured unauthorized error and still fails closed on stale popup or opener handles; native and js/wasm tests cover unauthorized topic publish, privileged intent rejection, target-origin mismatch, stale opener handles, and malformed peer identities.
+- [x] Define the public stability tier for multi-client coordination.
+	The multi-client surface is now explicitly classified as experimental public API in `docs/MULTI_CLIENTS.md`, and `docs/API_POLICY.md` now lists the multi-client coordination layer under experimental public surfaces.
+- [x] Define explicit non-goals for the multi-client feature set.
+	`docs/MULTI_CLIENTS.md` now documents the key non-goals: no distributed database semantics, no shared-memory runtime state, no generic byte-stream transport, no offline replay by default, and no same-document co-ownership without isolation boundaries.
+
 ### Error boundaries
 
 - [x] Define an error boundary component contract.

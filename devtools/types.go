@@ -137,10 +137,55 @@ type CacheEntry struct {
 	ResumePolicy    string
 }
 
+type MultiClientPeer struct {
+	ID              string
+	App             string
+	Surface         string
+	Role            string
+	State           string
+	LeaseDeadline   time.Time
+	LastSeen        time.Time
+	ProtocolVersion string
+	Encodings       []string
+	Topics          []string
+	Compatible      bool
+}
+
+type MultiClientTraffic struct {
+	Direction     string
+	Kind          string
+	Topic         string
+	PeerID        string
+	CorrelationID string
+	LatencyMs     int
+	Timestamp     time.Time
+	Failed        bool
+}
+
+type MultiClientFailure struct {
+	Op        string
+	Topic     string
+	Target    string
+	Code      string
+	Message   string
+	Timestamp time.Time
+}
+
+type MultiClient struct {
+	Enabled           bool
+	LocalPeerID       string
+	ResolvedTransport string
+	AuthorityView     map[string]string
+	Peers             []MultiClientPeer
+	RecentTraffic     []MultiClientTraffic
+	FailedPublishes   []MultiClientFailure
+}
+
 // Snapshot is the top-level devtools inspection payload.
 type Snapshot struct {
 	Route       Route
 	Cache       []CacheEntry
+	MultiClient MultiClient
 	Tree        *Node
 	Stats       Stats
 	Profiling   Profiling

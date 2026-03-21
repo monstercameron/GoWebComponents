@@ -6,6 +6,7 @@ package interop
 import (
 	"context"
 	"fmt"
+	"strings"
 	"syscall/js"
 	"testing"
 	"time"
@@ -1408,6 +1409,535 @@ func TestOpenCrossTabChannelFallsBackToStorageEvents(t *testing.T) {
 	}
 }
 
+func TestMultiClientStorageFallbackLifecycleFlow(t *testing.T) {
+	restoreBroadcast := setGlobalValue("BroadcastChannel", js.Undefined())
+	defer restoreBroadcast()
+
+	var storageListener js.Value
+	window := js.Global().Get("Object").New()
+	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "storage" {
+			storageListener = args[1]
+		}
+		return nil
+	})
+	defer addEventListener.Release()
+	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "storage" && storageListener.Equal(args[1]) {
+			storageListener = js.Null()
+		}
+		return nil
+	})
+	defer removeEventListener.Release()
+	window.Set("addEventListener", addEventListener)
+	window.Set("removeEventListener", removeEventListener)
+	restoreWindow := setGlobalValue("window", window)
+	defer restoreWindow()
+
+	storage := js.Global().Get("Object").New()
+	getItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return js.Null() })
+	defer getItemFn.Release()
+	setItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+	defer setItemFn.Release()
+	removeItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+	defer removeItemFn.Release()
+	clearFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+	defer clearFn.Release()
+	keyFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return js.Null() })
+	defer keyFn.Release()
+	storage.Set("getItem", getItemFn)
+	storage.Set("setItem", setItemFn)
+	storage.Set("removeItem", removeItemFn)
+	storage.Set("clear", clearFn)
+	storage.Set("key", keyFn)
+	storage.Set("length", 0)
+	restoreStorage := setGlobalValue("localStorage", storage)
+	defer restoreStorage()
+
+	channel, err := OpenCrossTabChannel(CrossTabChannelOptions{Name: "clients-fallback"})
+	if err != nil {
+		t.Fatalf("expected storage-fallback channel, got %v", err)
+	}
+	if channel.Transport() != "storage-event" {
+		t.Fatalf("expected storage-event fallback transport, got %q", channel.Transport())
+	}
+
+	type peerState struct {
+		hellos       int
+		disconnected bool
+		expired      bool
+		lastSentAt   time.Time
+	}
+	peers := map[string]peerState{}
+	expirePeers := func(now time.Time, lease time.Duration) {
+		for id, state := range peers {
+			if state.disconnected || state.lastSentAt.IsZero() {
+				continue
+			}
+			if now.Sub(state.lastSentAt) > lease {
+				state.expired = true
+				peers[id] = state
+			}
+		}
+	}
+
+	subscription, err := SubscribeClientMessages(channel, func(message ClientMessage, err error) {
+		if err != nil {
+			t.Fatalf("expected decoded client storage message, got %v", err)
+		}
+		if message.Topic != ClientPresenceTopic {
+			return
+		}
+		state := peers[message.Source.ID]
+		switch message.Kind {
+		case ClientHello:
+			state.hellos++
+			state.disconnected = false
+			state.expired = false
+			state.lastSentAt = message.SentAt
+		case ClientGoodbye:
+			state.disconnected = true
+			state.lastSentAt = message.SentAt
+		}
+		peers[message.Source.ID] = state
+	})
+	if err != nil {
+		t.Fatalf("expected storage multi-client subscription, got %v", err)
+	}
+	defer subscription.Cancel()
+
+	emitStorage := func(data string) {
+		event := js.Global().Get("Object").New()
+		event.Set("key", "__gwc_cross_tab__:clients-fallback")
+		event.Set("newValue", data)
+		storageListener.Invoke(event)
+	}
+
+	emitStorage(`{"name":"clients-fallback","payload":{"kind":"hello","topic":"clients","source":{"id":"storefront-2","app":"atlas","surface":"tab"},"sentAt":"2026-03-19T10:00:00Z"},"source":"tab-2","sequence":1,"sentAt":"2026-03-19T10:00:00Z"}`)
+	emitStorage(`{"name":"clients-fallback","payload":{"kind":"hello","topic":"clients","source":{"id":"storefront-2","app":"atlas","surface":"tab"},"sentAt":"2026-03-19T10:00:02Z"},"source":"tab-2","sequence":2,"sentAt":"2026-03-19T10:00:02Z"}`)
+	state := peers["storefront-2"]
+	if state.hellos != 2 || state.disconnected || state.expired {
+		t.Fatalf("expected duplicate fallback hello traffic to be tolerated, got %+v", state)
+	}
+
+	expirePeers(time.Date(2026, 3, 19, 10, 0, 6, 0, time.UTC), 3*time.Second)
+	state = peers["storefront-2"]
+	if !state.expired {
+		t.Fatalf("expected fallback peer lease to expire after inactivity, got %+v", state)
+	}
+
+	emitStorage(`{"name":"clients-fallback","payload":{"kind":"hello","topic":"clients","source":{"id":"storefront-2","app":"atlas","surface":"tab"},"sentAt":"2026-03-19T10:00:07Z"},"source":"tab-2","sequence":3,"sentAt":"2026-03-19T10:00:07Z"}`)
+	state = peers["storefront-2"]
+	if state.hellos != 3 || state.expired || state.disconnected {
+		t.Fatalf("expected fallback peer to reconnect on fresh hello, got %+v", state)
+	}
+
+	emitStorage(`{"name":"clients-fallback","payload":{"kind":"goodbye","topic":"clients","source":{"id":"storefront-2","app":"atlas","surface":"tab"},"sentAt":"2026-03-19T10:00:08Z"},"source":"tab-2","sequence":4,"sentAt":"2026-03-19T10:00:08Z"}`)
+	state = peers["storefront-2"]
+	if !state.disconnected {
+		t.Fatalf("expected fallback peer goodbye to mark the peer disconnected, got %+v", state)
+	}
+}
+
+func TestPublishClientBinaryCrossTabUsesBroadcastChannel(t *testing.T) {
+	var posted js.Value
+	ctor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		raw := js.Global().Get("Object").New()
+		messageListeners := js.Global().Get("Array").New()
+		addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			if args[0].String() == "message" {
+				messageListeners.Call("push", args[1])
+			}
+			return nil
+		})
+		removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			if args[0].String() != "message" {
+				return nil
+			}
+			callback := args[1]
+			for i := 0; i < messageListeners.Length(); i++ {
+				current := messageListeners.Index(i)
+				if !current.IsUndefined() && !current.IsNull() && current.Equal(callback) {
+					messageListeners.SetIndex(i, js.Null())
+				}
+			}
+			return nil
+		})
+		emitMessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			event := js.Global().Get("Object").New()
+			event.Set("data", args[0])
+			for i := 0; i < messageListeners.Length(); i++ {
+				callback := messageListeners.Index(i)
+				if callback.IsUndefined() || callback.IsNull() {
+					continue
+				}
+				callback.Invoke(event)
+			}
+			return nil
+		})
+		postMessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			posted = args[0]
+			raw.Call("__emitMessage", args[0])
+			return nil
+		})
+		closeFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			raw.Set("__closed", true)
+			return nil
+		})
+		raw.Set("addEventListener", addEventListener)
+		raw.Set("removeEventListener", removeEventListener)
+		raw.Set("postMessage", postMessage)
+		raw.Set("close", closeFn)
+		raw.Set("__emitMessage", emitMessage)
+		return raw
+	})
+	defer ctor.Release()
+	restoreBroadcast := setGlobalValue("BroadcastChannel", ctor)
+	defer restoreBroadcast()
+
+	channel, err := OpenCrossTabChannel(CrossTabChannelOptions{Name: "assets"})
+	if err != nil {
+		t.Fatalf("expected broadcast cross-tab channel, got %v", err)
+	}
+
+	var received ClientMessage
+	subscription, err := SubscribeClientMessages(channel, func(message ClientMessage, err error) {
+		if err != nil {
+			t.Fatalf("expected decoded client message, got %v", err)
+		}
+		received = message
+	})
+	if err != nil {
+		t.Fatalf("expected client-message subscription to succeed, got %v", err)
+	}
+	defer subscription.Cancel()
+
+	self := ClientIdentity{ID: "storefront-1", App: "atlas", Surface: "tab"}
+	binaryPayload := []byte{1, 2, 3, 4}
+	if err := PublishClientBinaryCrossTab(channel, "asset:preview", self, ClientBinaryPayload{ContentType: "application/octet-stream", Bytes: binaryPayload}); err != nil {
+		t.Fatalf("expected binary cross-tab publish to succeed, got %v", err)
+	}
+
+	if posted.IsUndefined() || posted.IsNull() {
+		t.Fatal("expected broadcast channel to capture a posted payload")
+	}
+	postedMessage := posted.Get("payload")
+	if postedMessage.Get("encoding").String() != "binary" || postedMessage.Get("contentType").String() != "application/octet-stream" {
+		t.Fatalf("unexpected posted binary metadata: %s %s", postedMessage.Get("encoding").String(), postedMessage.Get("contentType").String())
+	}
+	postedBytes := make([]byte, postedMessage.Get("payload").Length())
+	js.CopyBytesToGo(postedBytes, postedMessage.Get("payload"))
+	if string(postedBytes) != string(binaryPayload) {
+		t.Fatalf("unexpected posted binary bytes: %v", postedBytes)
+	}
+
+	decodedBytes, ok := received.Payload.([]byte)
+	if !ok {
+		t.Fatalf("expected received payload bytes, got %T", received.Payload)
+	}
+	if received.Encoding != ClientPayloadBinary || received.ContentType != "application/octet-stream" || string(decodedBytes) != string(binaryPayload) {
+		t.Fatalf("unexpected received binary message: %+v payload=%v", received, decodedBytes)
+	}
+}
+
+func TestPublishClientHelloCarriesDefaultCapabilitiesByTransport(t *testing.T) {
+	var posted js.Value
+	ctor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		raw := js.Global().Get("Object").New()
+		listeners := js.Global().Get("Array").New()
+		addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			if args[0].String() == "message" {
+				listeners.Call("push", args[1])
+			}
+			return nil
+		})
+		removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+		postMessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			posted = args[0]
+			return nil
+		})
+		closeFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+		raw.Set("addEventListener", addEventListener)
+		raw.Set("removeEventListener", removeEventListener)
+		raw.Set("postMessage", postMessage)
+		raw.Set("close", closeFn)
+		return raw
+	})
+	defer ctor.Release()
+	restoreBroadcast := setGlobalValue("BroadcastChannel", ctor)
+	defer restoreBroadcast()
+
+	channel, err := OpenCrossTabChannel(CrossTabChannelOptions{Name: "clients"})
+	if err != nil {
+		t.Fatalf("expected cross-tab channel, got %v", err)
+	}
+	if err := PublishClientHello(channel, ClientIdentity{ID: "storefront-1", App: "atlas", Surface: "tab"}); err != nil {
+		t.Fatalf("expected hello publish to succeed, got %v", err)
+	}
+	capabilities := posted.Get("payload").Get("capabilities")
+	if capabilities.Get("protocolVersion").String() != "v1" {
+		t.Fatalf("expected default protocol version, got %q", capabilities.Get("protocolVersion").String())
+	}
+	encodings := capabilities.Get("encodings")
+	if encodings.Length() != 2 || encodings.Index(0).String() != "json" || encodings.Index(1).String() != "binary" {
+		t.Fatalf("expected broadcast hello to advertise json and binary, got %#v", encodings)
+	}
+
+	restoreBroadcastFallback := setGlobalValue("BroadcastChannel", js.Undefined())
+	defer restoreBroadcastFallback()
+	window := js.Global().Get("Object").New()
+	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+	defer addEventListener.Release()
+	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+	defer removeEventListener.Release()
+	window.Set("addEventListener", addEventListener)
+	window.Set("removeEventListener", removeEventListener)
+	restoreWindow := setGlobalValue("window", window)
+	defer restoreWindow()
+	storage := js.Global().Get("Object").New()
+	var stored string
+	getItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return js.Null() })
+	defer getItemFn.Release()
+	setItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		stored = args[1].String()
+		return nil
+	})
+	defer setItemFn.Release()
+	removeItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+	defer removeItemFn.Release()
+	clearFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+	defer clearFn.Release()
+	keyFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return js.Null() })
+	defer keyFn.Release()
+	storage.Set("getItem", getItemFn)
+	storage.Set("setItem", setItemFn)
+	storage.Set("removeItem", removeItemFn)
+	storage.Set("clear", clearFn)
+	storage.Set("key", keyFn)
+	storage.Set("length", 0)
+	restoreStorage := setGlobalValue("localStorage", storage)
+	defer restoreStorage()
+
+	fallbackChannel, err := OpenCrossTabChannel(CrossTabChannelOptions{Name: "clients-fallback"})
+	if err != nil {
+		t.Fatalf("expected storage fallback channel, got %v", err)
+	}
+	if err := PublishClientHello(fallbackChannel, ClientIdentity{ID: "storefront-2", App: "atlas", Surface: "tab"}); err != nil {
+		t.Fatalf("expected fallback hello publish to succeed, got %v", err)
+	}
+	if !strings.Contains(stored, `"encodings":["json"]`) {
+		t.Fatalf("expected storage fallback hello to advertise json-only encoding, got %s", stored)
+	}
+}
+
+func TestPublishClientBinaryCrossTabRejectsStorageFallback(t *testing.T) {
+	restoreBroadcast := setGlobalValue("BroadcastChannel", js.Undefined())
+	defer restoreBroadcast()
+
+	window := js.Global().Get("Object").New()
+	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+	defer addEventListener.Release()
+	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+	defer removeEventListener.Release()
+	window.Set("addEventListener", addEventListener)
+	window.Set("removeEventListener", removeEventListener)
+	restoreWindow := setGlobalValue("window", window)
+	defer restoreWindow()
+
+	storage := js.Global().Get("Object").New()
+	getItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return js.Null() })
+	defer getItemFn.Release()
+	setItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+	defer setItemFn.Release()
+	removeItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+	defer removeItemFn.Release()
+	clearFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
+	defer clearFn.Release()
+	keyFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return js.Null() })
+	defer keyFn.Release()
+	storage.Set("getItem", getItemFn)
+	storage.Set("setItem", setItemFn)
+	storage.Set("removeItem", removeItemFn)
+	storage.Set("clear", clearFn)
+	storage.Set("key", keyFn)
+	storage.Set("length", 0)
+	restoreStorage := setGlobalValue("localStorage", storage)
+	defer restoreStorage()
+
+	channel, err := OpenCrossTabChannel(CrossTabChannelOptions{Name: "prefs"})
+	if err != nil {
+		t.Fatalf("expected storage-fallback channel, got %v", err)
+	}
+
+	err = PublishClientBinaryCrossTab(channel, "asset:preview", ClientIdentity{ID: "storefront-1", App: "atlas", Surface: "tab"}, ClientBinaryPayload{ContentType: "application/octet-stream", Bytes: []byte{9, 8, 7}})
+	if !IsCode(err, CodeInvalid) {
+		t.Fatalf("expected invalid binary transport error, got %v", err)
+	}
+}
+
+func TestMultiClientBroadcastLateJoinReconnectAndGoodbye(t *testing.T) {
+	type mockBroadcastChannel struct {
+		raw       js.Value
+		listeners js.Value
+	}
+
+	channelsByName := map[string][]mockBroadcastChannel{}
+	ctor := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		name := args[0].String()
+		raw := js.Global().Get("Object").New()
+		listeners := js.Global().Get("Array").New()
+		addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			if args[0].String() == "message" {
+				listeners.Call("push", args[1])
+			}
+			return nil
+		})
+		removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			if args[0].String() != "message" {
+				return nil
+			}
+			callback := args[1]
+			for i := 0; i < listeners.Length(); i++ {
+				current := listeners.Index(i)
+				if !current.IsUndefined() && !current.IsNull() && current.Equal(callback) {
+					listeners.SetIndex(i, js.Null())
+				}
+			}
+			return nil
+		})
+		postMessage := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			event := js.Global().Get("Object").New()
+			event.Set("data", args[0])
+			for _, channel := range channelsByName[name] {
+				if closed := channel.raw.Get("__closed"); !closed.IsUndefined() && !closed.IsNull() && closed.Bool() {
+					continue
+				}
+				for i := 0; i < channel.listeners.Length(); i++ {
+					callback := channel.listeners.Index(i)
+					if callback.IsUndefined() || callback.IsNull() {
+						continue
+					}
+					callback.Invoke(event)
+				}
+			}
+			return nil
+		})
+		closeFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			raw.Set("__closed", true)
+			return nil
+		})
+		raw.Set("addEventListener", addEventListener)
+		raw.Set("removeEventListener", removeEventListener)
+		raw.Set("postMessage", postMessage)
+		raw.Set("close", closeFn)
+		channelsByName[name] = append(channelsByName[name], mockBroadcastChannel{raw: raw, listeners: listeners})
+		return raw
+	})
+	defer ctor.Release()
+	restoreBroadcast := setGlobalValue("BroadcastChannel", ctor)
+	defer restoreBroadcast()
+
+	alpha, err := OpenCrossTabChannel(CrossTabChannelOptions{Name: "clients"})
+	if err != nil {
+		t.Fatalf("expected alpha cross-tab channel, got %v", err)
+	}
+	defer alpha.Close()
+
+	alphaSelf := ClientIdentity{ID: "alpha-1", App: "atlas", Surface: "tab-a"}
+	betaSelf := ClientIdentity{ID: "beta-1", App: "atlas", Surface: "tab-b"}
+
+	var betaHellos int
+	var betaSawGoodbye bool
+	var betaSawReconnect bool
+	var betaSawResult bool
+
+	alphaSubscription, err := SubscribeClientMessages(alpha, func(message ClientMessage, err error) {
+		if err != nil {
+			t.Fatalf("expected alpha subscription to decode messages, got %v", err)
+		}
+		if message.Kind == ClientQuery && message.Topic == ClientPresenceTopic && message.Source.ID == betaSelf.ID {
+			if publishErr := PublishClientResult(alpha, ClientPresenceTopic, alphaSelf, betaSelf.ID, map[string]any{"peer": alphaSelf.Surface}); publishErr != nil {
+				t.Fatalf("expected alpha to answer beta query, got %v", publishErr)
+			}
+		}
+	})
+	if err != nil {
+		t.Fatalf("expected alpha multi-client subscription, got %v", err)
+	}
+	defer alphaSubscription.Cancel()
+
+	if err := PublishClientHello(alpha, alphaSelf); err != nil {
+		t.Fatalf("expected alpha hello to succeed, got %v", err)
+	}
+
+	beta, err := OpenCrossTabChannel(CrossTabChannelOptions{Name: "clients"})
+	if err != nil {
+		t.Fatalf("expected beta cross-tab channel, got %v", err)
+	}
+	defer beta.Close()
+
+	betaSubscription, err := SubscribeClientMessages(beta, func(message ClientMessage, err error) {
+		if err != nil {
+			t.Fatalf("expected beta subscription to decode messages, got %v", err)
+		}
+		if message.Source.ID != alphaSelf.ID {
+			return
+		}
+		switch message.Kind {
+		case ClientHello:
+			betaHellos++
+			if betaSawGoodbye {
+				betaSawReconnect = true
+			}
+		case ClientGoodbye:
+			betaSawGoodbye = true
+		case ClientResult:
+			if message.Target == betaSelf.ID {
+				betaSawResult = true
+			}
+		}
+	})
+	if err != nil {
+		t.Fatalf("expected beta multi-client subscription, got %v", err)
+	}
+	defer betaSubscription.Cancel()
+
+	if err := PublishClientHello(alpha, alphaSelf); err != nil {
+		t.Fatalf("expected duplicate alpha hello to succeed, got %v", err)
+	}
+	if err := PublishClientQuery(beta, ClientPresenceTopic, betaSelf); err != nil {
+		t.Fatalf("expected beta late-join discovery query to succeed, got %v", err)
+	}
+	if err := PublishClientGoodbye(alpha, alphaSelf); err != nil {
+		t.Fatalf("expected alpha goodbye to succeed, got %v", err)
+	}
+	if err := alpha.Close(); err != nil {
+		t.Fatalf("expected alpha close to succeed, got %v", err)
+	}
+
+	alphaReconnect, err := OpenCrossTabChannel(CrossTabChannelOptions{Name: "clients"})
+	if err != nil {
+		t.Fatalf("expected alpha reconnect channel, got %v", err)
+	}
+	defer alphaReconnect.Close()
+	if err := PublishClientHello(alphaReconnect, alphaSelf); err != nil {
+		t.Fatalf("expected alpha reconnect hello to succeed, got %v", err)
+	}
+
+	if betaHellos < 2 {
+		t.Fatalf("expected beta to observe duplicate or reconnect hello traffic, saw %d hellos", betaHellos)
+	}
+	if !betaSawResult {
+		t.Fatal("expected beta to receive a targeted discovery result from alpha")
+	}
+	if !betaSawGoodbye {
+		t.Fatal("expected beta to observe alpha goodbye before reconnect")
+	}
+	if !betaSawReconnect {
+		t.Fatal("expected beta to observe alpha reconnect hello after goodbye")
+	}
+}
+
 func TestOpenSecondaryWindowChannelPublishesAndReceivesMessages(t *testing.T) {
 	window := js.Global().Get("Object").New()
 	location := js.Global().Get("Object").New()
@@ -1522,6 +2052,194 @@ func TestOpenSecondaryWindowChannelPublishesAndReceivesMessages(t *testing.T) {
 	}
 }
 
+func TestPublishClientBinaryWindowRoundTripsPayload(t *testing.T) {
+	window := js.Global().Get("Object").New()
+	location := js.Global().Get("Object").New()
+	location.Set("origin", "https://app.example.test")
+	window.Set("location", location)
+	var opened js.Value
+	openFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		opened = js.Global().Get("Object").New()
+		opened.Set("closed", false)
+		opened.Set("focus", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
+		opened.Set("close", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			opened.Set("closed", true)
+			return nil
+		}))
+		opened.Set("postMessage", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			opened.Set("__posted", args[0])
+			opened.Set("__targetOrigin", args[1].String())
+			return nil
+		}))
+		return opened
+	})
+	defer openFn.Release()
+	var messageListener js.Value
+	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "message" {
+			messageListener = args[1]
+		}
+		return nil
+	})
+	defer addEventListener.Release()
+	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "message" && messageListener.Equal(args[1]) {
+			messageListener = js.Null()
+		}
+		return nil
+	})
+	defer removeEventListener.Release()
+	window.Set("open", openFn)
+	window.Set("addEventListener", addEventListener)
+	window.Set("removeEventListener", removeEventListener)
+	restoreWindow := setGlobalValue("window", window)
+	defer restoreWindow()
+
+	channel, err := OpenSecondaryWindowChannel(WindowChannelOptions{URL: "/popup.html", Name: "inspector"})
+	if err != nil {
+		t.Fatalf("expected popup channel, got %v", err)
+	}
+
+	var received ClientMessage
+	subscription, err := SubscribeClientWindowMessages(channel, func(message ClientMessage, err error) {
+		if err != nil {
+			t.Fatalf("expected decoded client window message, got %v", err)
+		}
+		received = message
+	})
+	if err != nil {
+		t.Fatalf("expected client-window subscription to succeed, got %v", err)
+	}
+	defer subscription.Cancel()
+
+	self := ClientIdentity{ID: "storefront-1", App: "atlas", Surface: "tab"}
+	binaryPayload := []byte{5, 6, 7, 8}
+	if err := PublishClientBinaryWindow(channel, "asset:preview", self, "popup-1", ClientBinaryPayload{ContentType: "application/octet-stream", Bytes: binaryPayload}); err != nil {
+		t.Fatalf("expected binary window publish to succeed, got %v", err)
+	}
+
+	posted := opened.Get("__posted")
+	if posted.IsUndefined() || posted.IsNull() {
+		t.Fatal("expected posted popup message")
+	}
+	postedMessage := posted.Get("payload")
+	if postedMessage.Get("encoding").String() != "binary" || postedMessage.Get("contentType").String() != "application/octet-stream" || postedMessage.Get("target").String() != "popup-1" {
+		t.Fatalf("unexpected posted binary window metadata: %#v", postedMessage)
+	}
+	postedBytes := make([]byte, postedMessage.Get("payload").Length())
+	js.CopyBytesToGo(postedBytes, postedMessage.Get("payload"))
+	if string(postedBytes) != string(binaryPayload) {
+		t.Fatalf("unexpected posted binary window bytes: %v", postedBytes)
+	}
+
+	event := js.Global().Get("Object").New()
+	event.Set("source", opened)
+	event.Set("origin", "https://app.example.test")
+	event.Set("data", posted)
+	messageListener.Invoke(event)
+
+	decodedBytes, ok := received.Payload.([]byte)
+	if !ok {
+		t.Fatalf("expected received popup payload bytes, got %T", received.Payload)
+	}
+	if received.Encoding != ClientPayloadBinary || received.ContentType != "application/octet-stream" || received.Target != "popup-1" || string(decodedBytes) != string(binaryPayload) {
+		t.Fatalf("unexpected received popup binary message: %+v payload=%v", received, decodedBytes)
+	}
+}
+
+func TestMultiClientWindowOrphanedPopupReportsDisposed(t *testing.T) {
+	window := js.Global().Get("Object").New()
+	location := js.Global().Get("Object").New()
+	location.Set("origin", "https://app.example.test")
+	window.Set("location", location)
+	var opened js.Value
+	openFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		opened = js.Global().Get("Object").New()
+		opened.Set("closed", false)
+		opened.Set("focus", js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil }))
+		opened.Set("close", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			opened.Set("closed", true)
+			return nil
+		}))
+		opened.Set("postMessage", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			opened.Set("__posted", args[0])
+			return nil
+		}))
+		return opened
+	})
+	defer openFn.Release()
+	var messageListener js.Value
+	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "message" {
+			messageListener = args[1]
+		}
+		return nil
+	})
+	defer addEventListener.Release()
+	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "message" && messageListener.Equal(args[1]) {
+			messageListener = js.Null()
+		}
+		return nil
+	})
+	defer removeEventListener.Release()
+	window.Set("open", openFn)
+	window.Set("addEventListener", addEventListener)
+	window.Set("removeEventListener", removeEventListener)
+	restoreWindow := setGlobalValue("window", window)
+	defer restoreWindow()
+
+	channel, err := OpenSecondaryWindowChannel(WindowChannelOptions{URL: "/popup.html", Name: "inspector"})
+	if err != nil {
+		t.Fatalf("expected popup channel, got %v", err)
+	}
+
+	var sawHello bool
+	subscription, err := SubscribeClientWindowMessages(channel, func(message ClientMessage, err error) {
+		if err != nil {
+			t.Fatalf("expected decoded popup lifecycle message, got %v", err)
+		}
+		if message.Kind == ClientHello && message.Source.ID == "popup-1" {
+			sawHello = true
+		}
+	})
+	if err != nil {
+		t.Fatalf("expected popup multi-client subscription, got %v", err)
+	}
+	defer subscription.Cancel()
+
+	event := js.Global().Get("Object").New()
+	event.Set("source", opened)
+	event.Set("origin", "https://app.example.test")
+	event.Set("data", js.Global().Get("Object").New())
+	event.Get("data").Set("name", "inspector")
+	event.Get("data").Set("source", "popup-window")
+	event.Get("data").Set("payload", js.Global().Get("Object").New())
+	event.Get("data").Get("payload").Set("kind", "hello")
+	event.Get("data").Get("payload").Set("topic", "clients")
+	event.Get("data").Get("payload").Set("source", js.Global().Get("Object").New())
+	event.Get("data").Get("payload").Get("source").Set("id", "popup-1")
+	event.Get("data").Get("payload").Get("source").Set("app", "atlas")
+	event.Get("data").Get("payload").Get("source").Set("surface", "popup")
+	messageListener.Invoke(event)
+	if !sawHello {
+		t.Fatal("expected popup hello to be observed before orphaning the handle")
+	}
+
+	opened.Set("closed", true)
+	if !channel.Closed() {
+		t.Fatal("expected popup channel to report closed after the peer handle closes")
+	}
+	err = PublishClientWindowMessage(channel, ClientMessage{Kind: ClientGoodbye, Topic: ClientPresenceTopic, Source: ClientIdentity{ID: "opener-1", App: "atlas", Surface: "tab"}, Target: "popup-1"})
+	if !IsCode(err, CodeDisposed) {
+		t.Fatalf("expected disposed error after popup orphaning, got %v", err)
+	}
+	err = PublishClientBinaryWindow(channel, "asset:preview", ClientIdentity{ID: "opener-1", App: "atlas", Surface: "tab"}, "popup-1", ClientBinaryPayload{ContentType: "application/octet-stream", Bytes: []byte{1, 2}})
+	if !IsCode(err, CodeDisposed) {
+		t.Fatalf("expected disposed error for binary publish after popup orphaning, got %v", err)
+	}
+}
+
 func TestWindowOpenerChannelUsesOpenerHandle(t *testing.T) {
 	window := js.Global().Get("Object").New()
 	location := js.Global().Get("Object").New()
@@ -1589,6 +2307,184 @@ func TestWindowOpenerChannelUsesOpenerHandle(t *testing.T) {
 	messageListener.Invoke(event)
 	if receivedName != "inspector" {
 		t.Fatalf("expected opener message name, got %q", receivedName)
+	}
+}
+
+func TestMultiClientWindowOpenerLifecycleFlow(t *testing.T) {
+	window := js.Global().Get("Object").New()
+	location := js.Global().Get("Object").New()
+	location.Set("origin", "https://app.example.test")
+	window.Set("location", location)
+	opener := js.Global().Get("Object").New()
+	opener.Set("closed", false)
+	opener.Set("postMessage", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		opener.Set("__posted", args[0])
+		opener.Set("__targetOrigin", args[1].String())
+		return nil
+	}))
+	window.Set("opener", opener)
+	var messageListener js.Value
+	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "message" {
+			messageListener = args[1]
+		}
+		return nil
+	})
+	defer addEventListener.Release()
+	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "message" && messageListener.Equal(args[1]) {
+			messageListener = js.Null()
+		}
+		return nil
+	})
+	defer removeEventListener.Release()
+	window.Set("addEventListener", addEventListener)
+	window.Set("removeEventListener", removeEventListener)
+	restoreWindow := setGlobalValue("window", window)
+	defer restoreWindow()
+
+	channel, err := WindowOpenerChannel(WindowChannelOptions{Name: "inspector"})
+	if err != nil {
+		t.Fatalf("expected opener channel, got %v", err)
+	}
+
+	popupSelf := ClientIdentity{ID: "popup-1", App: "atlas", Surface: "popup"}
+	if err := PublishClientHelloWindow(channel, popupSelf); err != nil {
+		t.Fatalf("expected opener hello publish to succeed, got %v", err)
+	}
+	posted := opener.Get("__posted")
+	if posted.Get("payload").Get("kind").String() != "hello" || posted.Get("payload").Get("topic").String() != "clients" {
+		t.Fatalf("expected opener hello payload, got %#v", posted)
+	}
+	if posted.Get("payload").Get("capabilities").Get("protocolVersion").String() != "v1" {
+		t.Fatalf("expected opener hello to advertise capabilities, got %#v", posted.Get("payload").Get("capabilities"))
+	}
+
+	if err := PublishClientGoodbyeWindow(channel, popupSelf); err != nil {
+		t.Fatalf("expected opener goodbye publish to succeed, got %v", err)
+	}
+	posted = opener.Get("__posted")
+	if posted.Get("payload").Get("kind").String() != "goodbye" {
+		t.Fatalf("expected opener goodbye payload, got %#v", posted)
+	}
+
+	var sawHello bool
+	var sawGoodbye bool
+	subscription, err := SubscribeClientWindowMessages(channel, func(message ClientMessage, err error) {
+		if err != nil {
+			t.Fatalf("expected decoded opener client message, got %v", err)
+		}
+		switch message.Kind {
+		case ClientHello:
+			if message.Source.ID == "opener-1" {
+				sawHello = true
+			}
+		case ClientGoodbye:
+			if message.Source.ID == "opener-1" {
+				sawGoodbye = true
+			}
+		}
+	})
+	if err != nil {
+		t.Fatalf("expected opener multi-client subscription to succeed, got %v", err)
+	}
+	defer subscription.Cancel()
+
+	emitWindowMessage := func(kind string) {
+		event := js.Global().Get("Object").New()
+		event.Set("source", opener)
+		event.Set("origin", "https://app.example.test")
+		event.Set("data", js.Global().Get("Object").New())
+		event.Get("data").Set("name", "inspector")
+		event.Get("data").Set("source", "opener-window")
+		event.Get("data").Set("payload", js.Global().Get("Object").New())
+		event.Get("data").Get("payload").Set("kind", kind)
+		event.Get("data").Get("payload").Set("topic", "clients")
+		event.Get("data").Get("payload").Set("source", js.Global().Get("Object").New())
+		event.Get("data").Get("payload").Get("source").Set("id", "opener-1")
+		event.Get("data").Get("payload").Get("source").Set("app", "atlas")
+		event.Get("data").Get("payload").Get("source").Set("surface", "tab")
+		messageListener.Invoke(event)
+	}
+
+	emitWindowMessage("hello")
+	emitWindowMessage("goodbye")
+	if !sawHello || !sawGoodbye {
+		t.Fatalf("expected opener lifecycle traffic to decode, sawHello=%v sawGoodbye=%v", sawHello, sawGoodbye)
+	}
+}
+
+func TestMultiClientWindowSubscriptionRejectsOriginMismatchAndStaleOpener(t *testing.T) {
+	window := js.Global().Get("Object").New()
+	location := js.Global().Get("Object").New()
+	location.Set("origin", "https://app.example.test")
+	window.Set("location", location)
+	opener := js.Global().Get("Object").New()
+	opener.Set("closed", false)
+	opener.Set("postMessage", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return nil
+	}))
+	window.Set("opener", opener)
+	var messageListener js.Value
+	addEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "message" {
+			messageListener = args[1]
+		}
+		return nil
+	})
+	defer addEventListener.Release()
+	removeEventListener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].String() == "message" && messageListener.Equal(args[1]) {
+			messageListener = js.Null()
+		}
+		return nil
+	})
+	defer removeEventListener.Release()
+	window.Set("addEventListener", addEventListener)
+	window.Set("removeEventListener", removeEventListener)
+	restoreWindow := setGlobalValue("window", window)
+	defer restoreWindow()
+
+	channel, err := WindowOpenerChannel(WindowChannelOptions{Name: "inspector"})
+	if err != nil {
+		t.Fatalf("expected opener channel, got %v", err)
+	}
+
+	var originMismatchErr error
+	subscription, err := SubscribeClientWindowMessages(channel, func(message ClientMessage, err error) {
+		if err != nil {
+			originMismatchErr = err
+			return
+		}
+	})
+	if err != nil {
+		t.Fatalf("expected opener security subscription to succeed, got %v", err)
+	}
+	defer subscription.Cancel()
+
+	event := js.Global().Get("Object").New()
+	event.Set("source", opener)
+	event.Set("origin", "https://evil.example.test")
+	event.Set("data", js.Global().Get("Object").New())
+	event.Get("data").Set("name", "inspector")
+	event.Get("data").Set("payload", js.Global().Get("Object").New())
+	event.Get("data").Get("payload").Set("kind", "hello")
+	event.Get("data").Get("payload").Set("topic", "clients")
+	event.Get("data").Get("payload").Set("source", js.Global().Get("Object").New())
+	event.Get("data").Get("payload").Get("source").Set("id", "opener-1")
+	event.Get("data").Get("payload").Get("source").Set("app", "atlas")
+	event.Get("data").Get("payload").Get("source").Set("surface", "tab")
+	messageListener.Invoke(event)
+	if !IsCode(originMismatchErr, CodeUnauthorized) {
+		t.Fatalf("expected target-origin mismatch to produce unauthorized error, got %v", originMismatchErr)
+	}
+
+	opener.Set("closed", true)
+	if err := PublishClientHelloWindow(channel, ClientIdentity{ID: "popup-1", App: "atlas", Surface: "popup", Role: "operator"}); !IsCode(err, CodeDisposed) {
+		t.Fatalf("expected stale opener handle to reject hello publish, got %v", err)
+	}
+	if err := PublishClientIntent(channel, "operator:inventory", ClientIdentity{ID: "popup-1", App: "atlas", Surface: "popup", Role: "operator"}, "opener-1", map[string]any{"sku": "SKU-44"}); !IsCode(err, CodeDisposed) {
+		t.Fatalf("expected stale opener handle to reject privileged intent publish, got %v", err)
 	}
 }
 

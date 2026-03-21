@@ -877,6 +877,18 @@ func newBroadcastCrossTabChannel(name string, source string, raw js.Value) Cross
 			target.Call("postMessage", value)
 			return nil
 		},
+		publishClientBinary: func(message ClientMessage) error {
+			target, err := current("PublishClientBinaryCrossTab")
+			if err != nil {
+				return err
+			}
+			envelope, err := crossTabEnvelopeJS(name, source, nextEnvelope(message))
+			if err != nil {
+				return err
+			}
+			target.Call("postMessage", envelope)
+			return nil
+		},
 		subscribe: func(handler func(CrossTabEnvelope, error)) (Subscription, error) {
 			if handler == nil {
 				return Subscription{}, wrapError("CrossTabChannel.Subscribe", name, CodeInvalid, errors.New("handler is nil"))
@@ -970,6 +982,9 @@ func newStorageCrossTabChannel(name string, source string, storageKey string) (C
 			}
 			return storage.RemoveItem(storageKey)
 		},
+		publishClientBinary: func(message ClientMessage) error {
+			return wrapError("PublishClientBinaryCrossTab", name, CodeInvalid, errors.New("binary client payloads require broadcast-channel transport"))
+		},
 		subscribe: func(handler func(CrossTabEnvelope, error)) (Subscription, error) {
 			if handler == nil {
 				return Subscription{}, wrapError("CrossTabChannel.Subscribe", name, CodeInvalid, errors.New("handler is nil"))
@@ -1046,6 +1061,20 @@ func newWindowChannel(name string, targetOrigin string, peer js.Value, allowClos
 			peer.Call("postMessage", value, targetOrigin)
 			return nil
 		},
+		publishClientBinary: func(message ClientMessage) error {
+			if peer.IsUndefined() || peer.IsNull() {
+				return wrapError("PublishClientBinaryWindow", name, CodeDisposed, errors.New("window channel peer is unavailable"))
+			}
+			if closed := peer.Get("closed"); !closed.IsUndefined() && !closed.IsNull() && closed.Bool() {
+				return wrapError("PublishClientBinaryWindow", name, CodeDisposed, errors.New("window channel peer is closed"))
+			}
+			envelope, err := windowEnvelopeJS(name, source, message)
+			if err != nil {
+				return err
+			}
+			peer.Call("postMessage", envelope, targetOrigin)
+			return nil
+		},
 		subscribe: func(handler func(WindowEnvelope, error)) (Subscription, error) {
 			if handler == nil {
 				return Subscription{}, wrapError("WindowChannel.Subscribe", name, CodeInvalid, errors.New("handler is nil"))
@@ -1066,6 +1095,7 @@ func newWindowChannel(name string, targetOrigin string, peer js.Value, allowClos
 				if targetOrigin != "*" {
 					origin := strings.TrimSpace(event.Get("origin").String())
 					if origin != "" && origin != targetOrigin {
+						handler(WindowEnvelope{Name: name}, wrapError("WindowChannel.Subscribe", name, CodeUnauthorized, errors.New("message origin does not match target origin")))
 						return nil
 					}
 				}
@@ -1617,6 +1647,10 @@ func goValueToJS(op string, target string, value any) (interface{}, error) {
 	switch typed := value.(type) {
 	case nil:
 		return js.Null(), nil
+	case []byte:
+		array := js.Global().Get("Uint8Array").New(len(typed))
+		js.CopyBytesToJS(array, typed)
+		return array, nil
 	case Value:
 		if raw, ok := typed.rawValue(); ok {
 			return raw, nil
@@ -1654,6 +1688,9 @@ func jsValueToGo(op string, target string, value js.Value) (any, error) {
 	if value.IsUndefined() || value.IsNull() {
 		return nil, nil
 	}
+	if bytes, ok := jsValueToBytes(value); ok {
+		return bytes, nil
+	}
 	switch value.Type() {
 	case js.TypeBoolean:
 		return value.Bool(), nil
@@ -1662,13 +1699,26 @@ func jsValueToGo(op string, target string, value js.Value) (any, error) {
 	case js.TypeNumber:
 		return value.Float(), nil
 	case js.TypeObject:
-		stringified := js.Global().Get("JSON").Call("stringify", value)
-		if stringified.IsUndefined() || stringified.IsNull() {
-			return nil, wrapError(op, target, CodeDecode, errors.New("value is not serializable"))
+		if value.InstanceOf(js.Global().Get("Array")) {
+			items := make([]any, value.Length())
+			for index := 0; index < value.Length(); index++ {
+				item, err := jsValueToGo(op, target, value.Index(index))
+				if err != nil {
+					return nil, err
+				}
+				items[index] = item
+			}
+			return items, nil
 		}
-		var decoded any
-		if err := json.Unmarshal([]byte(stringified.String()), &decoded); err != nil {
-			return nil, wrapError(op, target, CodeDecode, err)
+		keys := js.Global().Get("Object").Call("keys", value)
+		decoded := make(map[string]any, keys.Length())
+		for index := 0; index < keys.Length(); index++ {
+			key := keys.Index(index).String()
+			item, err := jsValueToGo(op, target, value.Get(key))
+			if err != nil {
+				return nil, err
+			}
+			decoded[key] = item
 		}
 		return decoded, nil
 	case js.TypeFunction:
@@ -1676,6 +1726,138 @@ func jsValueToGo(op string, target string, value js.Value) (any, error) {
 	default:
 		return value.String(), nil
 	}
+}
+
+func jsValueToBytes(value js.Value) ([]byte, bool) {
+	if value.IsUndefined() || value.IsNull() {
+		return nil, false
+	}
+	arrayBuffer := js.Global().Get("ArrayBuffer")
+	if arrayBuffer.Type() == js.TypeFunction && value.InstanceOf(arrayBuffer) {
+		view := js.Global().Get("Uint8Array").New(value)
+		bytes := make([]byte, view.Length())
+		js.CopyBytesToGo(bytes, view)
+		return bytes, true
+	}
+	if arrayBuffer.Type() != js.TypeFunction {
+		return nil, false
+	}
+	isView := arrayBuffer.Get("isView")
+	if isView.Type() != js.TypeFunction || !isView.Invoke(value).Bool() {
+		return nil, false
+	}
+	view := js.Global().Get("Uint8Array").New(value.Get("buffer"), value.Get("byteOffset"), value.Get("byteLength"))
+	bytes := make([]byte, view.Length())
+	js.CopyBytesToGo(bytes, view)
+	return bytes, true
+}
+
+func crossTabEnvelopeJS(name string, source string, envelope CrossTabEnvelope) (js.Value, error) {
+	value := js.Global().Get("Object").New()
+	value.Set("name", name)
+	value.Set("source", source)
+	value.Set("sequence", envelope.Sequence)
+	value.Set("sentAt", envelope.SentAt.Format(time.RFC3339Nano))
+	payload, err := goValueToJSStructured("CrossTabChannel.Publish", name, envelope.Payload)
+	if err != nil {
+		return js.Undefined(), err
+	}
+	value.Set("payload", payload)
+	return value, nil
+}
+
+func windowEnvelopeJS(name string, source string, payload any) (js.Value, error) {
+	value := js.Global().Get("Object").New()
+	value.Set("name", name)
+	value.Set("source", source)
+	value.Set("sentAt", time.Now().UTC().Format(time.RFC3339Nano))
+	converted, err := goValueToJSStructured("WindowChannel.Publish", name, payload)
+	if err != nil {
+		return js.Undefined(), err
+	}
+	value.Set("payload", converted)
+	return value, nil
+}
+
+func goValueToJSStructured(op string, target string, value any) (interface{}, error) {
+	switch typed := value.(type) {
+	case ClientMessage:
+		message := js.Global().Get("Object").New()
+		if strings.TrimSpace(typed.ID) != "" {
+			message.Set("id", typed.ID)
+		}
+		message.Set("kind", string(typed.Kind))
+		message.Set("topic", typed.Topic)
+		message.Set("source", clientIdentityJS(typed.Source))
+		if typed.Capabilities != nil {
+			message.Set("capabilities", clientCapabilitiesJS(*typed.Capabilities))
+		}
+		if strings.TrimSpace(typed.Target) != "" {
+			message.Set("target", typed.Target)
+		}
+		if typed.Encoding != "" {
+			message.Set("encoding", string(typed.Encoding))
+		}
+		if strings.TrimSpace(typed.ContentType) != "" {
+			message.Set("contentType", typed.ContentType)
+		}
+		if strings.TrimSpace(typed.Revision) != "" {
+			message.Set("revision", typed.Revision)
+		}
+		if strings.TrimSpace(typed.Error) != "" {
+			message.Set("error", typed.Error)
+		}
+		if !typed.SentAt.IsZero() {
+			message.Set("sentAt", typed.SentAt.Format(time.RFC3339Nano))
+		}
+		if typed.Payload != nil {
+			payload, err := goValueToJS(op, target, typed.Payload)
+			if err != nil {
+				return nil, err
+			}
+			message.Set("payload", payload)
+		}
+		return message, nil
+	default:
+		return goValueToJS(op, target, value)
+	}
+}
+
+func clientIdentityJS(identity ClientIdentity) js.Value {
+	value := js.Global().Get("Object").New()
+	value.Set("id", identity.ID)
+	value.Set("app", identity.App)
+	value.Set("surface", identity.Surface)
+	if strings.TrimSpace(identity.Role) != "" {
+		value.Set("role", identity.Role)
+	}
+	if strings.TrimSpace(identity.Version) != "" {
+		value.Set("version", identity.Version)
+	}
+	return value
+}
+
+func clientCapabilitiesJS(capabilities ClientCapabilities) js.Value {
+	value := js.Global().Get("Object").New()
+	if strings.TrimSpace(capabilities.ProtocolVersion) != "" {
+		value.Set("protocolVersion", capabilities.ProtocolVersion)
+	}
+	if len(capabilities.Transports) > 0 {
+		value.Set("transports", stringArrayValue(capabilities.Transports))
+	}
+	if len(capabilities.Encodings) > 0 {
+		value.Set("encodings", stringArrayValue(capabilities.Encodings))
+	}
+	if len(capabilities.Topics) > 0 {
+		value.Set("topics", stringArrayValue(capabilities.Topics))
+	}
+	if capabilities.MaxJSONBytes > 0 {
+		value.Set("maxJsonBytes", capabilities.MaxJSONBytes)
+	}
+	if capabilities.MaxBinaryBytes > 0 {
+		value.Set("maxBinaryBytes", capabilities.MaxBinaryBytes)
+	}
+	return value
 }
 
 func jsValueSummary(value js.Value) string {

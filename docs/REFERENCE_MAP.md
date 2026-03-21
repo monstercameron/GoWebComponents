@@ -154,6 +154,31 @@ Related docs:
 - [test/README.md](../test/README.md)
 - [tools/README.md](../tools/README.md)
 
+## Multi-Client Coordination
+
+Public API:
+
+- `interop.OpenCrossTabChannel`, `interop.CrossTabChannel.Publish`, `interop.CrossTabChannel.Subscribe`
+- `interop.OpenSecondaryWindowChannel`, `interop.WindowOpenerChannel`, `interop.WindowChannel.Publish`, `interop.WindowChannel.Subscribe`
+- proposed typed message layer in [MULTI_CLIENTS.md](MULTI_CLIENTS.md)
+
+Runnable examples:
+
+- [examples/94-cross-tab-sync](../examples/94-cross-tab-sync)
+- [examples/95-multi-window-console](../examples/95-multi-window-console)
+
+Production caveats:
+
+- keep each client sovereign and isolate it to its own tab, popup, or embedded document root
+- treat one client or the server as authoritative per topic instead of replicating arbitrary mutable state
+- prefer `intent` and `invalidate` messages over broad cross-client state mirroring
+
+Related docs:
+
+- [CROSS_TAB.md](CROSS_TAB.md)
+- [MULTI_SURFACE.md](MULTI_SURFACE.md)
+- [MULTI_CLIENTS.md](MULTI_CLIENTS.md)
+
 ## Prerender And Assets
 
 Public API:
