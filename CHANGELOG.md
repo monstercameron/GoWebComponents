@@ -1,5 +1,40 @@
 # Changelog
 
+## 2026-03-21
+
+### Unified test runner and harness stabilization
+
+- Added a canonical repo-root `npm test` entrypoint that runs the main native Go suite, the `js/wasm` Go lane, the nested `tools/livereload` Go tests, the primary Playwright workspace under `test/`, and the aggregated Playwright suites under `examples/` from one orchestrated runner.
+- Added `scripts/run-main-tests.mjs` plus focused root scripts for each lane so contributors can run the full matrix or isolate one lane without manually hopping across workspaces.
+- Hardened the Windows-oriented harness flow by scrubbing leaked `GOOS` and `GOARCH` values for native tools, invoking nested npm workflows through the active Node/npm runtime, and making Playwright worker counts configurable from the environment for stability.
+- Folded more example coverage into the main path by aggregating dedicated example suites such as SSR server-routing, Atlas SSR, and startup experiments under the examples workspace `test:all` script.
+- Stabilized the selective hot-reload Playwright coverage by using ephemeral ports, draining dev-server output, detecting early startup exits, clearing stale wasm artifacts before startup, and waiting for a single remounted changed subtree before asserting preservation behavior.
+- Simplified one brittle browser stress assertion so the test continues to validate user-visible state correctness without depending on incidental render-count behavior.
+
+### Wrapped panic contract and actionable runtime diagnostics
+
+- Added a unified wrapped-panic reporting path across runtime render, event, effect, cleanup, loader, hydration, startup, deferred, and SSR failure phases, keeping the original panic payload while attaching stable framework codes, `where:` context, component or route `path:`, plain-language runtime consequences, remediation guidance, and grouped app/framework/platform stack sections.
+- Added structured panic reporting hooks and browser-console emission support so wrapped fatal panics can be mirrored consistently into runtime diagnostics, buffered logs, devtools snapshots, and browser-observed Playwright assertions instead of appearing as raw low-context Go panic output.
+- Expanded actionable framework misuse messages for hooks, atom access, `ui.CreateElement(...)`, server-only UI APIs, router registration, and nil-context misuse so invalid public API usage now follows the same stable diagnostic contract instead of ad hoc panic strings.
+- Added broad runtime coverage for wrapped panic formatting, suppression behavior, recovery-versus-rethrow policy, SSR panic handling, hydration and deferred panic reporting, and propagation into devtools snapshots and browser-visible logging.
+- Updated docs with a formal fatal panic log contract, new actionable error codes for server and tool failures, and explicit recovery-versus-fatal rules so future diagnostic changes stay aligned across runtime, docs, and tooling.
+
+### First public testing companion surface
+
+- Added `docs/TESTING.md` to define the intended first-party testing surface as a companion module made of focused helper packages instead of one monolithic core testing API.
+- Added the first public `testkit/render` fixture for `js/wasm` tests with controlled mock-DOM rendering, rerendering, accessibility-first role and name queries, lower-level id/text/tag queries, synthetic event dispatch helpers, and deterministic scheduler settlement helpers.
+- Added `testkit/hooks` with a lightweight `RenderHook(...)` harness so hook-driven state flows can be exercised without writing a bespoke host component for every wasm-side test.
+- Added `testkit/router` with hash and history fixtures that support route registration, initial path setup, navigation, params and query inspection, and delegated rendered-route assertions from public APIs.
+- Added `testkit/ssr` with snapshot helpers, typed bootstrap-payload assertions, and a lightweight hydration smoke harness so SSR and hydration paths can be tested from public entrypoints instead of repo-local fixtures.
+- Added consumer-oriented example tests and direct coverage for each of the new testkit packages so the shipped surface is documented by working test patterns rather than only by API signatures.
+
+### Example and tool error reporting
+
+- Added a small public `diagnostics` package over the internal reporting helpers so example servers and tools can emit the same structured actionable reports used by the runtime.
+- Updated several SSR and server-integrated examples to return structured request and startup failures with stable codes, runtime consequences, remediation guidance, and docs anchors instead of plain `panic(...)` or raw `http.Error(...)` responses.
+- Updated the live-reload tool to emit structured diagnostics for watcher failures, websocket delivery problems, client-script injection errors, manifest generation issues, rebuild failures, and startup problems so hot-reload breakage is easier to interpret from the terminal and browser.
+- Extended devtools snapshot structures and UI summaries to retain wrapped panic metadata such as top frame and runtime consequence, keeping in-app inspection aligned with the new fatal panic contract.
+
 ## 2026-03-20
 
 ### SSR observability hooks

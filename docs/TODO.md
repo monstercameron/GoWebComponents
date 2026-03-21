@@ -1608,8 +1608,8 @@ Organization rules for this file:
 	`testkit/render` now treats accessibility-first role/name queries as the preferred public contract, with exact normalized matching and lower-level id/text/tag helpers retained as explicit escape hatches.
 - [x] Add example tests and documentation for consumers.
 	Consumer-copyable examples now live alongside `testkit/render`, `testkit/hooks`, `testkit/router`, and `testkit/ssr`, and `docs/TESTING.md` now points to the recommended unit, integration, router, SSR, and hydration patterns.
-- [ ] Add deterministic scheduler and flush helpers for tests.
-	Support explicit render flushing, timer draining, microtask advancement, and effect settlement so tests do not depend on sleeps or incidental event-loop timing.
+- [x] Add deterministic scheduler and flush helpers for tests.
+	`testkit/render` now exposes `Flush`, `FlushTimers`, and `Stabilize`, and the mockdom scheduler now supports full queued-work draining so `js/wasm` tests can settle render, timeout, and follow-up effect work without sleeps or incidental event-loop timing.
 - [ ] Add async resource and loader test utilities.
 	Provide helpers for resolving, rejecting, cancelling, retrying, and stalling resource or route-loader work so async UI flows can be tested precisely.
 - [ ] Add portal and overlay testing helpers.
