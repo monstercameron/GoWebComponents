@@ -14,11 +14,15 @@ The purpose is to answer three questions clearly:
 - where it aims at a similar problem space but is not yet equally complete
 - which gaps are active backlog or policy work rather than hidden surprises
 
-## Feature Matrix
+## Feature Scorecard
 
-This matrix is deliberately blunt.
+This scorecard is deliberately blunt.
 
-It compares the major public capabilities that GoWebComponents currently documents against the frameworks this repo already treats as the closest comparison set.
+It normalizes every framework and every capability to the same three-point rubric so the page answers position, not just presence.
+
+The GoWebComponents column below is based on a fresh repo scan across the current public packages and docs, including `ui`, `html`, `state`, `fetch`, `router`, `interop`, `pwa`, `i18n`, `head`, `devtools`, `hotreload`, and the reference map.
+
+The competitor columns were refreshed against official documentation for the normal official story teams typically buy into, not against arbitrary third-party plugin combinations.
 
 Direct comparison set:
 
@@ -31,75 +35,120 @@ Direct comparison set:
 
 React, Solid, and Blazor are included here as direct first-class comparison columns, not as side notes.
 
-Status legend:
+Normalized legend:
 
-- `Strong`: mature, central, or first-class in the framework's normal story
-- `Present`: supported in a normal way, but not necessarily the framework's defining strength
-- `Partial`: possible, but narrower, more manual, more experimental, or more dependent on surrounding choices
-- `Weak/External`: mainly delegated to other tools, app frameworks, or community packages rather than the base framework itself
-- `No`: not a normal first-class capability in the framework's default product story
+- `H3`: High support, mature, central, or first-class in the framework's normal story
+- `M2`: Medium support, supported in a normal way but not the framework's defining strength
+- `L1`: Low support, absent, ecosystem-led, more manual, more experimental, or materially behind the category leaders
+
+Important reading rule:
+
+- this is an integrated product-surface score, not a popularity score
+- React is intentionally penalized where the official answer is "use the broader ecosystem or a surrounding framework"
+- GoWebComponents is intentionally rewarded where the same repo owns and documents more of the stack directly
 
 | Category | Capability | GoWebComponents | React | Solid | Blazor | Vue | Svelte | Qwik |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Language | Primary application language can stay non-JS | Strong | No | No | Strong | No | No | No |
-| Authoring | Function-component mental model | Strong | Strong | Strong | Partial | Present | Present | Present |
-| Authoring | Hook-style local state and effects as the main model | Strong | Strong | Strong | Partial | Partial | Partial | Partial |
-| Authoring | Typed HTML builders instead of templates/JSX | Strong | No | No | Partial | No | No | No |
-| Authoring | Template- or JSX-first authoring | No | Strong | Strong | Strong | Strong | Strong | Strong |
-| Runtime | Client-side rendering | Strong | Strong | Strong | Strong | Strong | Strong | Strong |
-| Routing | Router in the normal first-party story | Present | Weak/External | Present | Strong | Strong | Present | Strong |
-| Routing | Route loaders / route-owned data APIs | Present | Weak/External | Present | Present | Strong | Present | Strong |
-| SSR | Request-time SSR story | Present | Weak/External | Strong | Strong | Strong | Strong | Strong |
-| SSR | Hydration | Strong | Strong | Strong | Strong | Strong | Strong | Partial |
-| SSR | Streaming SSR direction | Partial | Strong | Present | Present | Strong | Strong | Strong |
-| SSR | Resumability instead of traditional hydration | No | No | No | No | No | No | Strong |
-| State | Shared state in the first-party package surface | Present | Weak/External | Present | Strong | Present | Weak/External | Present |
-| State | Fine-grained reactivity as the default model | Partial | No | Strong | No | Partial | Strong | Strong |
-| State | Fine-grained reactivity as an optional direction | Strong | Partial | Strong | No | Present | Strong | Strong |
-| Forms | Progressive forms and explicit form helpers | Present | Weak/External | Present | Strong | Present | Present | Present |
-| UI primitives | Overlays / portals / focus-managed modal primitives | Present | Partial | Present | Strong | Present | Partial | Partial |
-| Interop | Built-in browser interop surfaces | Strong | Weak/External | Weak/External | Present | Weak/External | Weak/External | Weak/External |
-| Interop | Web worker integration story | Present | Weak/External | Weak/External | Present | Weak/External | Weak/External | Weak/External |
-| Interop | Cross-tab / multi-window coordination helpers | Present | Weak/External | Weak/External | Weak/External | Weak/External | Weak/External | Weak/External |
-| Tooling | Hot reload in the documented core workflow | Present | Strong | Strong | Strong | Strong | Strong | Strong |
-| Tooling | In-app devtools package owned by the same repo | Present | Weak/External | Weak/External | Strong | Present | Weak/External | Weak/External |
-| Platform | PWA / offline integration guidance | Present | Weak/External | Present | Present | Strong | Strong | Present |
-| Extensibility | Plugin / companion package extension contract | Present | Weak/External | Present | Strong | Strong | Present | Present |
-| Compiler | Compiler-first optimization pipeline as default | No | Partial | Partial | Partial | Partial | Strong | Strong |
-| Docs | Plain-language server integration docs in the main project | Strong | Weak/External | Present | Strong | Strong | Strong | Strong |
-| Adoption | First-party starter / app-generator maturity | Weak/External | Strong | Present | Strong | Strong | Strong | Strong |
-| Adoption | Ecosystem depth and third-party package volume | Weak/External | Strong | Present | Strong | Strong | Strong | Present |
+| Language | Primary application language can stay non-JS | H3 | L1 | L1 | H3 | L1 | L1 | L1 |
+| Authoring | Function-component mental model | H3 | H3 | H3 | L1 | M2 | M2 | M2 |
+| Authoring | Hook-style local state and effects as the main model | H3 | H3 | H3 | L1 | L1 | L1 | L1 |
+| Authoring | Typed HTML builders instead of templates/JSX | H3 | L1 | L1 | L1 | L1 | L1 | L1 |
+| Authoring | Template- or JSX-first authoring | L1 | H3 | H3 | H3 | H3 | H3 | H3 |
+| Authoring | Typed context/provider API in the first-party surface | H3 | H3 | H3 | M2 | M2 | M2 | H3 |
+| Runtime | Client-side rendering | H3 | H3 | H3 | H3 | H3 | H3 | H3 |
+| Runtime | Component-local async boundary / suspense primitive | H3 | H3 | H3 | L1 | M2 | M2 | H3 |
+| Runtime | Transition / deferred rendering primitives | H3 | H3 | H3 | L1 | L1 | L1 | M2 |
+| Routing | Router in the normal first-party story | H3 | L1 | M2 | H3 | H3 | H3 | H3 |
+| Routing | Route loaders / route-owned data APIs | H3 | L1 | M2 | M2 | H3 | H3 | H3 |
+| Routing | Redirects, guards, and route metadata in the official story | H3 | L1 | M2 | H3 | H3 | H3 | H3 |
+| SSR | Request-time SSR story | H3 | L1 | H3 | H3 | H3 | H3 | H3 |
+| SSR | Hydration | H3 | H3 | H3 | H3 | H3 | H3 | L1 |
+| SSR | Streaming SSR direction | L1 | H3 | M2 | M2 | H3 | H3 | H3 |
+| SSR | Resumability instead of traditional hydration | L1 | L1 | L1 | L1 | L1 | L1 | H3 |
+| State | Shared state in the first-party package surface | H3 | L1 | M2 | H3 | M2 | L1 | M2 |
+| State | Fine-grained reactivity as the default model | L1 | L1 | H3 | L1 | L1 | H3 | H3 |
+| State | Fine-grained reactivity as an optional direction | H3 | L1 | H3 | L1 | M2 | H3 | H3 |
+| State | Snapshot export/import and serialized state transfer helpers | H3 | L1 | L1 | M2 | L1 | L1 | H3 |
+| Forms | Progressive forms and explicit form helpers | H3 | L1 | M2 | H3 | M2 | M2 | M2 |
+| Forms | Server-side form actions in the official story | M2 | M2 | L1 | H3 | L1 | H3 | H3 |
+| UI primitives | Portals / teleports | H3 | H3 | H3 | L1 | H3 | L1 | L1 |
+| UI primitives | Overlay stack / focus-managed modal primitives | H3 | L1 | L1 | L1 | L1 | L1 | L1 |
+| Accessibility | First-party focus, live-region, and composite-widget helpers | H3 | L1 | L1 | L1 | L1 | L1 | L1 |
+| Interop | Built-in browser interop surfaces | H3 | L1 | L1 | M2 | L1 | L1 | L1 |
+| Interop | Web worker integration story | H3 | L1 | L1 | L1 | L1 | L1 | L1 |
+| Interop | Cross-tab / multi-window coordination helpers | H3 | L1 | L1 | L1 | L1 | L1 | L1 |
+| Platform | Head / SEO metadata in the official story | M2 | L1 | M2 | H3 | H3 | H3 | H3 |
+| Platform | Internationalization in the official story | H3 | L1 | L1 | H3 | M2 | L1 | L1 |
+| Tooling | Hot reload in the documented core workflow | M2 | H3 | H3 | H3 | H3 | H3 | H3 |
+| Tooling | In-app devtools package owned by the same repo/ecosystem | M2 | M2 | L1 | H3 | H3 | L1 | L1 |
+| Platform | PWA / offline integration guidance | M2 | L1 | M2 | M2 | H3 | H3 | M2 |
+| Platform | Durable offline write / mutation replay story | M2 | L1 | L1 | L1 | L1 | L1 | L1 |
+| Extensibility | Plugin / companion package extension contract | M2 | L1 | M2 | H3 | H3 | M2 | M2 |
+| Compiler | Compiler-first optimization pipeline as default | L1 | L1 | L1 | L1 | L1 | H3 | H3 |
+| Docs | Plain-language server integration docs in the main project | H3 | L1 | M2 | H3 | H3 | H3 | H3 |
+| Adoption | First-party starter / app-generator maturity | L1 | H3 | M2 | H3 | H3 | H3 | H3 |
+| Adoption | Ecosystem depth and third-party package volume | L1 | H3 | M2 | H3 | H3 | H3 | M2 |
+| Adoption | Enterprise support / procurement comfort | L1 | H3 | L1 | H3 | M2 | M2 | L1 |
+| Adoption | Community reach / hiring pool | L1 | H3 | L1 | H3 | H3 | M2 | L1 |
+| Tooling | End-to-end DX coherence in the official story | M2 | M2 | M2 | H3 | H3 | H3 | M2 |
+| Adoption | Learning resources / training depth | L1 | H3 | L1 | H3 | H3 | H3 | M2 |
+
+## Score Totals
+
+Maximum score is `129` per framework: `117` technical points across 39 capability rows plus `12` market points across 4 market rows.
+
+| Framework | Technical total | Market total | Overall total | Read |
+| --- | --- | --- | --- | --- |
+| GoWebComponents | 96 / 117 | 5 / 12 | 101 / 129 | Broad first-party surface, weak market maturity |
+| Blazor | 81 / 117 | 12 / 12 | 93 / 129 | Strongest enterprise-integrated competitor |
+| Vue | 80 / 117 | 11 / 12 | 91 / 129 | Most balanced mainstream official stack |
+| Svelte | 80 / 117 | 10 / 12 | 90 / 129 | Strong compiler-led product with good DX |
+| Qwik | 84 / 117 | 6 / 12 | 90 / 129 | Strong technical novelty, lighter market weight |
+| Solid | 77 / 117 | 5 / 12 | 82 / 129 | Excellent reactive core, smaller surrounding stack |
+| React | 67 / 117 | 11 / 12 | 78 / 129 | Market leader, but much of the stack is intentionally delegated |
 
 ## Matrix Notes
 
 - `GoWebComponents` is scored against what this repo currently documents and ships publicly, not against speculative future direction.
-- `React` is marked `Weak/External` in areas like routing, loaders, shared state, and forms because those are usually solved with the broader React ecosystem or an app framework such as Next or Remix rather than React core alone.
+- The GoWebComponents score is high because the repo now clearly owns routing, loaders, forms, browser interop, accessibility helpers, worker seams, cross-tab coordination, state transfer helpers, and diagnostics in first-party packages and docs.
+- `React` lands lower than its market position would suggest because this rubric measures integrated first-party ownership. In real adoption decisions React still wins heavily on ecosystem scale, staffing, and surrounding framework choices.
 - `Vue`, `Svelte`, and `Qwik` are scored against their normal framework-plus-official-stack story because that is how teams typically evaluate them in practice.
-- `Solid` is scored high on fine-grained reactivity because that is central to its identity, even though surrounding full-stack conventions are less dominant than React or Vue ecosystems.
-- `Blazor` is scored high where its full-stack and server or hosting story is stronger than GoWebComponents today, even though its authoring model is intentionally different.
-- `GoWebComponents` is intentionally unusual in three cells: Go as the application language, typed HTML builders as a first-class surface, and explicit browser interop documented in the same project rather than delegated almost entirely to community conventions.
+- `Solid` scores high where its reactive model is the point, but lower where the broader product stack is lighter or less standardized.
+- `Blazor` scores extremely well on enterprise and integrated full-stack concerns because Microsoft owns a large amount of the end-to-end story directly.
+- `L1` does not always mean "impossible". It usually means the capability is delegated, less mature, less central, or materially weaker than the leaders in that row.
+- The four market rows are intentionally narrower than the technical rows. They are there to stop the scorecard from pretending API breadth is the whole market story.
 
 ## Practical Reading
 
-If you read the matrix row by row, the honest summary is:
+If you read the scorecard row by row, the honest summary is:
 
-- GoWebComponents is competitive today on component model, hooks, routing, SSR or hydration-aware architecture, browser interop, and explicit documentation depth.
-- It is intentionally different on language choice, builder-based UI authoring, and the preference for runtime primitives over compiler-first magic.
-- It is behind the largest opponent frameworks on starter maturity, ecosystem depth, deployment scaffolding, and polished convention stacks.
-- It is not trying to win on resumability-first design or template-compiler ergonomics; those belong more naturally to Qwik and Svelte.
-- Its fine-grained reactivity direction is now real, but still not as central or mature as Solid's default model.
+- GoWebComponents now has a larger first-party product surface than the old matrix showed, especially around routing, browser interop, platform ownership, and diagnostics.
+- The framework is strongest when the evaluation criteria reward explicit first-party ownership of the stack rather than reliance on external conventions.
+- It is intentionally different on language choice, builder-based UI authoring, and preference for runtime primitives over compiler-first transforms.
+- It remains behind the mainstream leaders on enterprise comfort, staffing market, starter maturity, and ecosystem depth.
+- Qwik and Solid still own clearer positions around resumability and fine-grained-first reactivity.
+- Blazor, Vue, and Svelte remain stronger default answers for teams that want a more standardized or convention-heavy application platform immediately.
+
+### Market Read
+
+- GoWebComponents stands out most where teams want one Go-first surface for rendering, routing, state, SSR or hydration, forms, browser interop, and diagnostics without handing core architecture to a JavaScript app framework.
+- The scorecard is favorable to GoWebComponents because it rewards first-party product breadth. That is real, but it is not the same thing as market dominance.
+- Blazor is the closest "integrated platform" competitor for enterprise teams that value non-JS authoring and first-party full-stack conventions.
+- Vue and Svelte are the most balanced mainstream alternatives if the team values polished developer experience and official-stack coherence more than Go-first architecture.
+- React remains the safest hiring and ecosystem bet even though this particular rubric scores it lower on integrated surface area.
+- Qwik is technically differentiated enough that teams optimizing hardest for startup and resumability should still evaluate it separately instead of treating it as a variant of the others.
 
 ### Quick Reads For React, Solid, And Blazor
 
-- React: closest mental-model match for components and hooks, but still well ahead on ecosystem depth, starters, and surrounding production tooling.
+- React: closest mental-model match for components and hooks, still the strongest market choice on ecosystem and hiring, but much less self-contained as a single official product surface.
 - Solid: strongest current comparison point for fine-grained reactivity, with GoWebComponents still intentionally keeping that model optional rather than making it the whole framework.
 - Blazor: strongest comparison point for non-JavaScript primary-language UI and a fuller enterprise app-framework story, while GoWebComponents stays more explicit, Go-first, and less convention-heavy.
 
 ## Project Position In One Paragraph
 
-GoWebComponents is a Go plus WebAssembly UI framework with React-style function components, hooks, typed HTML builders, routing, shared state, SSR, hydration, and companion-package-oriented extensibility.
+GoWebComponents is a Go plus WebAssembly UI framework with React-style function components, hooks, typed HTML builders, routing, shared state, forms, SSR, hydration, browser interop, accessibility primitives, companion-package-oriented extensibility, and a surprisingly broad first-party browser platform surface.
 
-It is not a full app framework with file-based routing, generated starters, deployment adapters, or a mandatory compiler step. The project direction stays explicit and Go-first: ordinary Go source, explicit runtime primitives, and documented public packages rather than hidden transforms or convention-heavy scaffolding.
+It is not yet a full convention-heavy app framework with file-based routing, generated starters, deployment adapters, mature commercial backing, or a large hiring market. The project direction stays explicit and Go-first: ordinary Go source, explicit runtime primitives, documented public packages, and companion packages for areas like head management or plugins rather than hidden transforms or convention-heavy scaffolding.
 
 ## Compared To React
 
