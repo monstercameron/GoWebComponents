@@ -1299,6 +1299,14 @@ Organization rules for this file:
 
 - [x] Define first-class development and production wasm build profiles.
 	`docs/WASM_RELEASES.md` now defines the intended development, CI verification, benchmark, and production wasm build profiles and their differing goals.
+- [ ] Add a Go-native profile runner for app builds.
+	Ship `go run ./tools/gwc build --profile ...` so development, CI, benchmark, and release wasm builds all resolve through one documented Go entrypoint instead of script-specific wrappers.
+- [ ] Add a Go-native release packaging command.
+	Ship `go run ./tools/gwc release` with output-directory creation, manifest emission, compression, and budget enforcement so deployable wasm artifacts do not depend on PowerShell-only helpers.
+- [ ] Define scaffold metadata fields for build and release profiles.
+	Record the default wasm entrypoint, output path, build profile, release output directory, compression policy, and budget file path so `gwc dev`, `gwc build`, and `gwc release` can avoid heuristic-only resolution.
+- [ ] Add profile-aware machine-readable launcher output.
+	Emit JSON summaries for build and release commands that record the resolved app root, target package, flags, output paths, sizes, hashes, and profile name so CI and enterprise automation can consume launcher results directly.
 - [x] Add recommended production build flags for wasm targets.
 	`docs/WASM_RELEASES.md` now defines the intended production baseline around `-trimpath` and `-ldflags="-s -w"` together with the reproducibility and debugging tradeoffs.
 - [x] Define build metadata and debug-info policy for release wasm artifacts.
@@ -1309,6 +1317,8 @@ Organization rules for this file:
 	`tools/build-wasm-release.ps1` now emits `wasm-release-manifest.json` with relative paths, sizes, and sha256 hashes for release artifacts and compressed sidecars.
 - [ ] Add release-time compression support for wasm artifacts.
 	Generate gzip and brotli sidecars for production builds and document the required server headers and cache behavior for serving compressed wasm safely.
+- [ ] Decide whether launcher-owned Brotli must be pure Go.
+	Either implement Brotli sidecar generation in Go for the default `gwc release` path or keep any external compressor fallback explicit, optional, and clearly reported in the release manifest and command output.
 - [ ] Evaluate post-link wasm optimization tooling.
 	Test tools such as `wasm-opt` or equivalent post-processing pipelines and document whether they improve size, startup time, or runtime behavior enough to justify adding them to the release workflow.
 - [x] Define asset-manifest and build-output conventions for optimized wasm releases.
@@ -1317,6 +1327,8 @@ Organization rules for this file:
 	`docs/WASM_RELEASES.md` now defines the intended toolchain, flag, manifest, and hash-record expectations for reproducible release builds.
 - [ ] Add startup-cost measurements for release artifacts.
 	Track download size, decompression cost, compile or instantiate time, and first-interaction timing for representative builds so size work is tied to real user-facing outcomes.
+- [ ] Add release smoke validation to the launcher.
+	Let `gwc release` optionally run a minimal post-build verification pass that checks artifact presence, manifest consistency, wasm MIME assumptions, and boot-time smoke probes before declaring a release artifact ready.
 
 ### Build speed and optimization experiments
 
@@ -1349,6 +1361,18 @@ Organization rules for this file:
 
 - [x] Define the official way to start a new GoWebComponents app.
 	`docs/ONBOARDING.md` now defines the current official starting path as a documented manual flow based on maintained examples and the public package surface until first-party starters exist.
+- [ ] Add `tools/gwc` as the canonical launcher entrypoint.
+	Make `go run ./tools/gwc <command>` the one documented CLI surface for scaffolding, development, testing, build, release, diagnostics, and example browsing.
+- [ ] Add a preset-first `gwc start` TUI.
+	Ship a high-devx scaffold wizard that starts with a small set of presets, then optionally opens advanced feature selection instead of presenting a wall of low-level yes or no questions.
+- [ ] Add feature-matrix scaffold generation.
+	Generate scaffold files from selected capabilities such as router, SSR, forms, fetch, state, devtools, hot reload, and browser tests so starters stay composable instead of being hard-coded starter copies.
+- [ ] Add scaffold preset definitions for the main adoption modes.
+	Define built-in presets such as minimal client app, routed SPA, SSR app, and fuller reference app so `gwc start` stays Vite-simple by default while still supporting feature customization.
+- [ ] Add starter output rules that keep generated apps disposable.
+	Ensure scaffolded code stays small, readable, conventionally organized, and easy to delete or rewrite instead of generating repo-internal scaffolding that is hard to own afterward.
+- [ ] Add launcher-owned project metadata for generated apps.
+	Write a small project config file that records app mode, entrypoints, enabled features, preferred ports, and release defaults so later launcher commands can resolve intent without fragile filesystem guessing.
 - [ ] Add at least one maintained starter application for the common path.
 	Ship a polished baseline app that includes routing, async data, state, forms, testing, and production-minded build setup so teams can begin from a realistic foundation instead of a toy counter example.
 - [ ] Add starter variants for the major adoption modes.
@@ -1357,6 +1381,8 @@ Organization rules for this file:
 	`docs/ONBOARDING.md` now defines the intended starter-upgrade model around starter-specific release notes, core migration docs, and explicit support windows instead of blind monorepo diffing.
 - [ ] Add a one-command local bootstrap workflow.
 	Make it easy to install prerequisites, build wasm, start the dev server, and open a working example or starter app without several undocumented manual steps.
+- [ ] Add scaffold-time prerequisite checks and optional setup steps.
+	Let `gwc start` and `gwc doctor` verify Go, browser-test dependencies, and runtime assets early, then optionally run project initialization steps such as `go mod tidy` and first-build asset copying after scaffold generation.
 - [x] Document environment prerequisites and platform expectations clearly.
 	`docs/ONBOARDING.md` now defines the intended Go, Node, browser, and Windows/macOS/Linux baseline in one place and points to the browser support contract where relevant.
 - [x] Add a â€œchoose your pathâ€ onboarding flow for new adopters.
@@ -1366,16 +1392,49 @@ Organization rules for this file:
 
 - [x] Define the recommended inner-loop workflow for application authors.
 	`docs/ONBOARDING.md` now defines the intended edit-build-refresh loop, the current recommended commands, and the browser-refresh versus stale-wasm reasoning model for local application work.
+- [ ] Add `gwc dev` as the canonical app development command.
+	Resolve current-project detection, serving, watching, rebuilds, and optional hot reload through one Go command instead of separate script families.
+- [ ] Add project detection for app mode and entrypoints.
+	Prefer scaffold metadata when present, then fall back to documented conventions such as `cmd/web/main.go`, wasm entrypoints, HTML shells, and output locations when `gwc dev` is run in a hand-built project.
+- [ ] Add dev-server mode selection for client-only versus SSR apps.
+	Let `gwc dev` choose between a static asset server, a hot-reload wasm dev server, and an SSR-aware local server path while still presenting one user-facing development command.
+- [ ] Port the examples catalog server to Go.
+	Replace the current Node example browser server with `gwc examples`, preserving catalog browsing, generated example listing, no-cache behavior, wasm MIME handling, and health checks.
+- [ ] Add example filtering and search to `gwc examples`.
+	Support tag- or keyword-based browsing for examples so the Go examples server becomes a real discovery tool rather than only a static redirector.
+- [ ] Add resolved-plan output before launcher execution.
+	Print the detected project root, app mode, wasm entry, HTML shell, output path, server mode, hot-reload state, and listening URL before the dev server starts so launcher behavior is auditable instead of implicit.
 - [ ] Add a simplified watch-mode entry point for apps.
 	Reduce the need to coordinate several scripts manually by providing one supported development command that rebuilds wasm, serves assets, and reports failures coherently.
 - [ ] Improve incremental rebuild behavior for small source edits.
 	Measure and reduce avoidable rebuild work so common component, route, and style changes do not feel disproportionately expensive during local development.
 - [ ] Add clearer surfacing for build progress and failure states.
 	Show whether the system is compiling, serving stale output, waiting on a reload, or blocked on an error so developers are not left guessing which part of the toolchain failed.
+- [ ] Add launcher-visible dev status endpoints and summaries.
+	Expose current mode, last successful build, current error state, hot-reload eligibility, and listening URLs through both human-readable output and a machine-readable status endpoint for tooling and editor integration.
 - [x] Add recovery guidance for broken local development loops.
 	`docs/TROUBLESHOOTING.md`, `docs/ONBOARDING.md`, and `tools/README.md` now document the current recovery path for stale wasm output, broken example serving, missing runtime bootstrap files, and local build-versus-served-output drift in the repo's supported manual dev loop.
 - [ ] Add example workflows for repo contributors versus framework consumers.
 	Differentiate the commands and expectations for working on the framework itself versus building an app on top of it so the tooling story scales beyond this repository.
+
+### Launcher testing, verification, and diagnostics
+
+- [ ] Add `gwc test` with explicit test lanes.
+	Support launcher-owned test lanes such as unit, wasm, browser, hydration, and release so application and CI workflows stop depending on ad hoc command memorization.
+- [ ] Add `gwc verify` as a CI-oriented aggregate command.
+	Run the right build and test checks for the current project mode and selected features so CI can use one documented entrypoint instead of manually composing lanes.
+- [ ] Add `gwc doctor` for environment and project diagnostics.
+	Check toolchain versions, runtime assets, browser-test prerequisites, port availability, scaffold metadata, and common misconfiguration cases before users hit opaque launcher failures.
+- [ ] Add scaffold-generated baseline tests keyed to selected features.
+	Emit the smallest believable test set for chosen capabilities such as routing, SSR, forms, fetch, or hot reload so generated apps start with real verification instead of an empty test folder.
+- [ ] Add launcher integration tests for config precedence and project detection.
+	Cover metadata-driven resolution, convention fallback, flag overrides, and environment-variable precedence so launcher behavior remains predictable across generated and hand-built apps.
+- [ ] Add golden tests for scaffold output combinations.
+	Snapshot the files generated for key preset and feature combinations so starter evolution stays reviewable and does not drift silently.
+- [ ] Add end-to-end launcher tests for dev, build, and release commands.
+	Exercise representative generated apps through `gwc dev`, `gwc build`, `gwc test`, `gwc verify`, and `gwc release` so the launcher contract is validated as a product surface rather than only by unit tests.
+- [ ] Add machine-readable diagnostics contracts for launcher failures.
+	Standardize structured failure output for build, serve, test, verify, and release commands so editors, CI jobs, and enterprise wrappers can distinguish configuration problems from code failures.
 
 ## 9. Strategic Direction and Experimental Work
 
@@ -1539,6 +1598,27 @@ Organization rules for this file:
 	`docs/ECOSYSTEM.md` now tracks the likely first companion packages, including head management, auth helpers, query or mutation orchestration, animation and gesture helpers, asset or media helpers, and testing utilities.
 - [x] Add a reference plugin or companion package.
 	The repo now includes `head/` as a supported companion package for SSR head composition and `plugin/` plus `examples/99-plugin-host` as the experimental explicit plugin-host reference, both built on documented public APIs rather than privileged runtime internals.
+
+### Launcher extensibility and enterprise policy
+
+- [ ] Define launcher config layering for framework defaults, organization policy, project config, and CLI overrides.
+	Make `gwc` resolve ports, output paths, release budgets, test lanes, compression policy, and org-required checks through one explicit precedence model instead of hidden enterprise patching.
+- [ ] Add simple pre and post command hooks to the launcher.
+	Support auditable hook points such as pre-dev, post-build, pre-release, post-release, and pre-verify before introducing a broader plugin runtime.
+- [ ] Define a capability-based launcher plugin contract.
+	Allow plugins to contribute scaffold features, test lanes, verify checks, release validators, or deployment packagers without letting them silently rewrite core launcher semantics.
+- [ ] Prefer external executable plugins with structured JSON I/O.
+	Use an explicit executable-plugin protocol for enterprise extensions so launcher integrations stay cross-platform, auditable, and isolated from the core process.
+- [ ] Add plugin-discovery and trust reporting to command output.
+	Show which plugins, hooks, and policy packs were loaded for each launcher invocation so enterprise teams can audit why a command behaved differently.
+- [ ] Add policy-pack support for organization-specific enterprise requirements.
+	Allow reusable configuration or plugin bundles to enforce approved toolchains, required verify lanes, artifact naming rules, manifest requirements, and deployment validations across many projects.
+- [ ] Add launcher security boundaries for hooks and plugins.
+	Define what launcher extensions may read, modify, and emit, how secrets are passed, and how failures are isolated so enterprise customization does not become an opaque security risk.
+- [ ] Add plugin-contributed feature sections to the scaffold TUI.
+	Let organization features appear as an explicit optional section in `gwc start`, clearly separated from built-in presets and features so starter output remains understandable.
+- [ ] Add plugin and policy integration tests.
+	Cover discovery, ordering, config precedence, failure attribution, and machine-readable plugin diagnostics so enterprise customization stays supportable.
 
 ### Ecosystem and adoption maturity
 
