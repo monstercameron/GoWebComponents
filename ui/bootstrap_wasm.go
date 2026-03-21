@@ -52,6 +52,11 @@ func ReadBootstrapReferenceScript(scriptID string) (SSRBootstrapReference, error
 
 // ReadBootstrapReference fetches and decodes an external bootstrap payload.
 func ReadBootstrapReference(ref SSRBootstrapReference) (SSRBootstrap, error) {
+	normalizedRef, err := normalizeSSRBootstrapReference(ref)
+	if err != nil {
+		return SSRBootstrap{}, err
+	}
+	ref = normalizedRef
 	if ref.URL == "" {
 		return SSRBootstrap{}, fmt.Errorf("ui.ReadBootstrapReference requires a non-empty URL")
 	}

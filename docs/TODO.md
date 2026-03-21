@@ -986,18 +986,20 @@ Organization rules for this file:
 	- [x] Decide when to warn versus when to replace the subtree.
 		Text and attribute mismatches now warn and continue; structural mismatches fall back to client rendering for the affected subtree.
 	- [x] Add tests for mismatch reporting and recovery behavior.
-- [ ] Define serialization support for non-JSON-friendly values.
-	Clarify how dates, byte slices, custom structs, and opaque IDs are encoded across JSON and CBOR bootstrap paths.
-- [ ] Add versioning to bootstrap payloads.
-	Prevent older clients or cached sidecars from silently misreading newer payload schemas.
-- [ ] Define partial bootstrap reuse rules.
-	Clarify which data may be trusted on first resume and which data must be revalidated immediately on the client.
-- [ ] Add typed helpers for server-to-client payload registration.
-	Provide an app-facing way to register route data, form defaults, cache seeds, and session hints without manual map packing in every app.
-- [ ] Define per-route and per-subtree bootstrap scoping.
-	Avoid sending the entire app state when only the active route, layout chain, or a specific async resource needs to cross the boundary.
-- [ ] Add payload size budgeting and diagnostics.
-	Expose when inline JSON, sidecar JSON, or binary payloads become too large and recommend a transport strategy before SSR payloads silently bloat responses.
+- [x] Define serialization support for non-JSON-friendly values.
+	`docs/STATE_TRANSFER.md` now defines the current typed payload encoding rules for `time.Time`, byte slices, custom structs, text-marshaled ids, and explicit CBOR payloads, and `ui` exposes typed bootstrap payload helpers instead of relying on ad hoc `map[string]interface{}` packing alone.
+- [x] Add versioning to bootstrap payloads.
+	`ui.SSRBootstrap`, `ui.SSRBootstrapReference`, and the post-bootstrap update envelope now carry explicit schema versions, default missing versions to the current shipped schema for backward compatibility, and reject unsupported newer versions during decode instead of silently misreading them.
+- [x] Define partial bootstrap reuse rules.
+	`docs/STATE_TRANSFER.md` now records framework-level typed payload reuse policies (`trust-once`, `revalidate-after-resume`, and `client-owned`) so first-resume trust and immediate revalidation decisions are explicit instead of living only in package-specific or example-specific notes.
+- [x] Add typed helpers for server-to-client payload registration.
+	`ui.RegisterBootstrapPayload(...)`, `ui.RegisterRouteBootstrapData(...)`, `ui.RegisterFormBootstrapDefaults(...)`, `ui.RegisterCacheBootstrapSeed(...)`, `ui.RegisterSessionBootstrapHint(...)`, and the corresponding read helpers now provide typed registration and retrieval for app-facing bootstrap payloads.
+- [x] Define per-route and per-subtree bootstrap scoping.
+	Typed payload envelopes now carry explicit `Scope` and `Target` metadata, and `ui.InspectBootstrapPayloads(...)` exposes that scoping information for diagnostics and app-level routing or subtree ownership decisions.
+- [x] Add incremental text and binary state update transports.
+	`ui.SSRStateUpdate` plus JSON and CBOR encode/decode helpers now define a versioned post-bootstrap text or binary update envelope for application-owned payload upserts and removals after hydration.
+- [x] Add payload size budgeting and diagnostics.
+	`ui.AnalyzeSSRBootstrapSize(...)` now measures JSON, inline-script, and CBOR payload sizes, reports warning and error bands, and recommends an inline JSON, sidecar JSON, or sidecar CBOR delivery mode.
 - [x] Add server-to-client state classification guidance.
 	`docs/STATE_TRANSFER.md` now separates public bootstrap state, runtime-owned resumable state, cache or feature seeds, and server-only secrets so SSR payload design has an explicit trust model.
 - [x] Define merge semantics for transferred state.

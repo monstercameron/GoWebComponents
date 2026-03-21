@@ -31,6 +31,9 @@ func TestRenderBootstrapScriptUsesDefaultID(t *testing.T) {
 		t.Fatalf("unexpected render error: %v", err)
 	}
 
+	if !strings.Contains(script, `"version":1`) {
+		t.Fatalf("expected versioned bootstrap payload in script tag, got %q", script)
+	}
 	if !strings.Contains(script, `id="__GWC_BOOTSTRAP__"`) {
 		t.Fatalf("expected default bootstrap script id, got %q", script)
 	}
@@ -131,7 +134,7 @@ func TestRenderBootstrapReferenceScriptUsesDefaultID(t *testing.T) {
 	if !strings.Contains(script, `data-gwc-bootstrap-ref="true"`) {
 		t.Fatalf("expected bootstrap reference marker, got %q", script)
 	}
-	if !strings.Contains(script, `{"url":"/bootstrap.cbor","format":"cbor"}`) {
+	if !strings.Contains(script, `{"version":1,"url":"/bootstrap.cbor","format":"cbor"}`) {
 		t.Fatalf("expected raw JSON reference payload in script tag, got %q", script)
 	}
 }

@@ -8,6 +8,13 @@
 - Extended browser hydration instrumentation to report per-hydration duration, existing DOM counts, mismatch counts, fallback counts, and discarded-node counts, with optional correlation ids threaded from `ui.Hydrate(...)` options into the emitted observation.
 - Added native and runtime coverage that verifies render observations, bootstrap size metrics, and hydration fallback summaries are emitted from the shipped public surface.
 
+### State transfer contracts and update envelopes
+
+- Extended `ui.SSRBootstrap` and `ui.SSRBootstrapReference` with explicit schema versions and decode-time validation so newer payload schemas are rejected instead of being silently misread by older clients.
+- Added typed state-transfer helpers in `ui` for route data, form defaults, cache seeds, session hints, scoped payload inspection, and non-JSON-friendly payload encoding for bytes, time values, text-marshaled ids, and explicit CBOR payloads.
+- Added `ui.SSRStateUpdate` plus JSON and CBOR encode/decode helpers so post-hydration server-to-client payload refreshes can use versioned text or binary update envelopes instead of replacing the full bootstrap payload.
+- Added `ui.AnalyzeSSRBootstrapSize(...)` so applications can measure inline JSON, inline script, and CBOR payload sizes and choose between inline, sidecar JSON, or sidecar CBOR transport with explicit warning bands.
+
 ### Wasm build experiment tooling and release-size comparison
 
 - Added repeatable wasm build experiment helpers for phase-attributed timing, cache-topology comparison, CI-friendly manifest comparison, and explicit Go toolchain comparison so build-speed and artifact-size decisions can be made from saved JSON results instead of ad hoc shell timings.

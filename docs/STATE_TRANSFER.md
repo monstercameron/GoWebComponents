@@ -6,8 +6,9 @@ Use it when deciding what belongs in bootstrap, how transferred values merge wit
 
 ## Current Bootstrap Surface
 
-`ui.SSRBootstrap` currently exposes five buckets:
+`ui.SSRBootstrap` currently exposes a version field plus five state buckets:
 
+- `Version`: the bootstrap schema version validated during decode
 - `Route`: path, query, and params for the initial route
 - `Atoms`: atom snapshot values restored into runtime state before hydration
 - `Data`: application-owned public bootstrap payloads such as cache seeds or other resumable hints
@@ -19,6 +20,49 @@ The transport formats already shipped are:
 - inline JSON through `RenderBootstrapScript(...)`
 - sidecar JSON through `SSRBootstrapReference{Format: "json"}`
 - sidecar CBOR through `SSRBootstrapReference{Format: "cbor"}`
+
+The bootstrap payload is now versioned. Current helpers normalize omitted versions to `1` for backward compatibility and reject newer unsupported schema versions instead of silently decoding them as if nothing changed.
+
+## Typed Payload Registration
+
+The current public helpers for application-owned payloads are:
+
+- `RegisterBootstrapPayload(...)`
+- `ReadBootstrapPayload(...)`
+- `RegisterRouteBootstrapData(...)`
+- `RegisterFormBootstrapDefaults(...)`
+- `RegisterCacheBootstrapSeed(...)`
+- `RegisterSessionBootstrapHint(...)`
+- `InspectBootstrapPayloads(...)`
+
+Those helpers store one typed envelope under `SSRBootstrap.Data[key]` with explicit metadata:
+
+- `Kind`: route data, form defaults, cache seed, session hint, or general data
+- `Scope`: app, route, or subtree
+- `Target`: route path, form id, subtree id, cache key, or other application-owned target label
+- `ReusePolicy`: whether first resume may trust the payload, should revalidate immediately after resume, or should treat the payload as client-owned once consumed
+- `Revision`: an optional application-owned payload revision marker
+- `Encoding`: JSON, text, binary, RFC3339 time, Unix-nano time, or CBOR
+
+Legacy plain `Data` entries still decode as JSON payloads, but new app-facing code should prefer the typed helpers so scope, reuse, and encoding are explicit instead of being implied by one ad hoc map key.
+
+## Serialization Support For Non-JSON-Friendly Values
+
+Current supported value encodings for typed payload helpers are:
+
+- custom structs and ordinary JSON-shaped values through `json`
+- opaque ids and other text-marshaled values through `text`
+- raw byte slices through `binary`
+- `time.Time` values through `time-rfc3339` or `time-unix-nano`
+- explicitly denser typed payloads through `cbor`
+
+Practical rules:
+
+- use JSON for ordinary route data, form defaults, and cache seed payloads
+- use text encoding for ids or compact tokens that already have a stable string form
+- use binary for raw byte slices only when the payload is truly byte-oriented
+- use CBOR only when both the writer and reader deliberately own a denser typed payload contract
+- keep secrets, credentials, and other server-only values out of every encoding mode
 
 ## State Classification Guidance
 
@@ -72,6 +116,12 @@ For example:
 - `featureFlags` should be treated as immutable startup hints unless the app has an explicit live refresh model
 - `themeHint` should seed first render but not override a fresher persisted preference without an explicit policy
 
+Typed payload helpers now carry `ReusePolicy` metadata so app code can distinguish the current intended first-resume modes:
+
+- `trust-once`: the seeded value may be used as authoritative for the first resume until a normal invalidation or refresh path takes over
+- `revalidate-after-resume`: the seeded value may render first paint, but the client should fetch a fresh authoritative value immediately after resume
+- `client-owned`: the payload only seeds local startup state and the resumed client becomes the owner after that point
+
 ## Ownership During Hydration
 
 Ownership answers who controls a value after the client resumes.
@@ -93,6 +143,12 @@ More specifically:
 - i18n bootstrap is the first locale seed; later client locale changes may replace it normally
 - `Data` does nothing by itself until a package or app consumes it, so ownership stays with that consumer
 
+For typed `Data` payloads, ownership should also respect scope:
+
+- `app` scope payloads may survive route changes until the app decides otherwise
+- `route` scope payloads belong to one route family or route key and should be replaced when navigation leaves that target
+- `subtree` scope payloads belong to one specific hydrated panel, form, or other bounded client subtree and should not be promoted to whole-app state unless the app does so explicitly
+
 ## Recommended Transport Choices
 
 - inline JSON:
@@ -107,6 +163,22 @@ Practical guidance:
 - keep inline payloads intentionally small
 - move bulk cache seeds or large message bundles into sidecars before they silently dominate HTML size
 - treat transport choice as a delivery concern only; it does not change the ownership or secrecy rules above
+
+The current budgeting helper is `AnalyzeSSRBootstrapSize(...)`, which measures inline JSON, inline script, and CBOR payload sizes and returns warnings plus a recommended transport mode such as `inline-json`, `sidecar-json`, or `sidecar-cbor`.
+
+## Incremental Text And Binary Updates
+
+The current post-bootstrap update protocol is a versioned app-owned envelope:
+
+- `SSRStateUpdate`
+- `AddStateUpdatePayload(...)`
+- `MarshalSSRStateUpdateText(...)`
+- `UnmarshalSSRStateUpdateText(...)`
+- `MarshalSSRStateUpdateBinary(...)`
+- `UnmarshalSSRStateUpdateBinary(...)`
+- `ApplySSRStateUpdate(...)`
+
+This update envelope is for application-owned `Data` payloads after hydration. It does not mutate the core runtime-owned bootstrap buckets automatically. The intended current use is server-driven refresh or delta delivery for scoped payload entries without replacing the full bootstrap snapshot.
 
 ## Non-Goals For The Current Contract
 

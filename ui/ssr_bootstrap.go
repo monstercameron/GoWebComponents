@@ -2,14 +2,18 @@ package ui
 
 import (
 	"encoding/json"
+	"fmt"
 	"html"
-	"strings"
 
 	"github.com/fxamacker/cbor/v2"
 )
 
 const DefaultBootstrapScriptID = "__GWC_BOOTSTRAP__"
 const DefaultBootstrapReferenceScriptID = "__GWC_BOOTSTRAP_REF__"
+
+const CurrentSSRBootstrapVersion = 1
+
+var errUnsupportedSSRBootstrapVersion = fmt.Errorf("ui: unsupported SSR bootstrap version")
 
 const (
 	SSRBootstrapFormatJSON = "json"
@@ -18,11 +22,12 @@ const (
 
 // SSRBootstrap captures the server-provided state needed to resume a route on the client.
 type SSRBootstrap struct {
-	Route  SSRRouteBootstrap      `json:"route,omitempty"`
-	Atoms  map[string]interface{} `json:"atoms,omitempty"`
-	Data   map[string]interface{} `json:"data,omitempty"`
-	I18n   SSRI18nBootstrap       `json:"i18n,omitempty"`
-	IDSeed int                    `json:"idSeed,omitempty"`
+	Version int                    `json:"version,omitempty"`
+	Route   SSRRouteBootstrap      `json:"route,omitempty"`
+	Atoms   map[string]interface{} `json:"atoms,omitempty"`
+	Data    map[string]interface{} `json:"data,omitempty"`
+	I18n    SSRI18nBootstrap       `json:"i18n,omitempty"`
+	IDSeed  int                    `json:"idSeed,omitempty"`
 }
 
 type SSRI18nBootstrap struct {
@@ -50,24 +55,21 @@ type SSRRouteBootstrap struct {
 
 // SSRBootstrapReference points the client at an external bootstrap payload.
 type SSRBootstrapReference struct {
-	URL    string `json:"url,omitempty"`
-	Format string `json:"format,omitempty"`
+	Version int    `json:"version,omitempty"`
+	URL     string `json:"url,omitempty"`
+	Format  string `json:"format,omitempty"`
 }
 
 func marshalSSRBootstrapJSON(payload SSRBootstrap) ([]byte, error) {
+	payload, err := normalizeSSRBootstrap(payload)
+	if err != nil {
+		return nil, err
+	}
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
-
-	replacer := strings.NewReplacer(
-		"<", `\u003c`,
-		">", `\u003e`,
-		"&", `\u0026`,
-		"\u2028", `\u2028`,
-		"\u2029", `\u2029`,
-	)
-	return []byte(replacer.Replace(string(jsonData))), nil
+	return []byte(escapeJSONForInlineScript(string(jsonData))), nil
 }
 
 // MarshalSSRBootstrap serializes a bootstrap payload to safe inline JSON.
@@ -85,17 +87,21 @@ func MarshalSSRBootstrapObserved(payload SSRBootstrap, options SSRObservabilityO
 // UnmarshalSSRBootstrap deserializes a JSON bootstrap payload.
 func UnmarshalSSRBootstrap(data []byte) (SSRBootstrap, error) {
 	if len(data) == 0 {
-		return SSRBootstrap{}, nil
+		return normalizeSSRBootstrap(SSRBootstrap{})
 	}
 
 	var payload SSRBootstrap
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return SSRBootstrap{}, err
 	}
-	return normalizeSSRBootstrap(payload), nil
+	return normalizeSSRBootstrap(payload)
 }
 
 func marshalSSRBootstrapBinary(payload SSRBootstrap) ([]byte, error) {
+	payload, err := normalizeSSRBootstrap(payload)
+	if err != nil {
+		return nil, err
+	}
 	return cbor.Marshal(payload)
 }
 
@@ -114,17 +120,22 @@ func MarshalSSRBootstrapBinaryObserved(payload SSRBootstrap, options SSRObservab
 // UnmarshalSSRBootstrapBinary deserializes a CBOR bootstrap payload.
 func UnmarshalSSRBootstrapBinary(data []byte) (SSRBootstrap, error) {
 	if len(data) == 0 {
-		return SSRBootstrap{}, nil
+		return normalizeSSRBootstrap(SSRBootstrap{})
 	}
 
 	var payload SSRBootstrap
 	if err := cbor.Unmarshal(data, &payload); err != nil {
 		return SSRBootstrap{}, err
 	}
-	return normalizeSSRBootstrap(payload), nil
+	return normalizeSSRBootstrap(payload)
 }
 
-func normalizeSSRBootstrap(payload SSRBootstrap) SSRBootstrap {
+func normalizeSSRBootstrap(payload SSRBootstrap) (SSRBootstrap, error) {
+	version, err := normalizeSSRBootstrapVersion(payload.Version)
+	if err != nil {
+		return SSRBootstrap{}, err
+	}
+	payload.Version = version
 	if payload.Route.Query == nil {
 		payload.Route.Query = map[string][]string{}
 	}
@@ -140,7 +151,7 @@ func normalizeSSRBootstrap(payload SSRBootstrap) SSRBootstrap {
 	if payload.I18n.Messages == nil {
 		payload.I18n.Messages = map[string]map[string]SSRI18nMessage{}
 	}
-	return payload
+	return payload, nil
 }
 
 // RenderBootstrapScript renders an inline bootstrap script tag.
@@ -168,19 +179,15 @@ func RenderBootstrapScriptObserved(payload SSRBootstrap, scriptID string, option
 
 // RenderBootstrapReferenceScript renders an inline script tag that points at an external bootstrap payload.
 func RenderBootstrapReferenceScript(ref SSRBootstrapReference, scriptID string) (string, error) {
+	ref, err := normalizeSSRBootstrapReference(ref)
+	if err != nil {
+		return "", err
+	}
 	encoded, err := json.Marshal(ref)
 	if err != nil {
 		return "", err
 	}
-
-	replacer := strings.NewReplacer(
-		"<", `\u003c`,
-		">", `\u003e`,
-		"&", `\u0026`,
-		"\u2028", `\u2028`,
-		"\u2029", `\u2029`,
-	)
-	safeJSON := replacer.Replace(string(encoded))
+	safeJSON := escapeJSONForInlineScript(string(encoded))
 
 	id := scriptID
 	if id == "" {
@@ -193,13 +200,35 @@ func RenderBootstrapReferenceScript(ref SSRBootstrapReference, scriptID string) 
 // UnmarshalSSRBootstrapReference deserializes a bootstrap reference payload.
 func UnmarshalSSRBootstrapReference(data []byte) (SSRBootstrapReference, error) {
 	if len(data) == 0 {
-		return SSRBootstrapReference{}, nil
+		return normalizeSSRBootstrapReference(SSRBootstrapReference{})
 	}
 
 	var ref SSRBootstrapReference
 	if err := json.Unmarshal(data, &ref); err != nil {
 		return SSRBootstrapReference{}, err
 	}
+	return normalizeSSRBootstrapReference(ref)
+}
+
+func normalizeSSRBootstrapVersion(version int) (int, error) {
+	if version < 0 {
+		return 0, fmt.Errorf("%w %d", errUnsupportedSSRBootstrapVersion, version)
+	}
+	if version == 0 {
+		return CurrentSSRBootstrapVersion, nil
+	}
+	if version > CurrentSSRBootstrapVersion {
+		return 0, fmt.Errorf("%w %d", errUnsupportedSSRBootstrapVersion, version)
+	}
+	return version, nil
+}
+
+func normalizeSSRBootstrapReference(ref SSRBootstrapReference) (SSRBootstrapReference, error) {
+	version, err := normalizeSSRBootstrapVersion(ref.Version)
+	if err != nil {
+		return SSRBootstrapReference{}, err
+	}
+	ref.Version = version
 	if ref.Format == "" {
 		ref.Format = SSRBootstrapFormatJSON
 	}
