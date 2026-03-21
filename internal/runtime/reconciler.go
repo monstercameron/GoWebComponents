@@ -214,22 +214,22 @@ func (rt *Runtime) cloneChildFibers(parent *Fiber) {
 		}
 		newFiber := acquireWorkInProgress(oldFiber)
 		*newFiber = Fiber{
-			typeOf:         oldFiber.typeOf,
-			props:          oldFiber.props,
-			textContent:    oldFiber.textContent,
-			dom:            oldFiber.dom,
-			parent:         parent,
-			alternate:      oldFiber,
-			effectTag:      effectTag,
-			dirty:          oldFiber.dirty,
-			needsUpdate:    oldFiber.needsUpdate,
-			hooks:          oldFiber.hooks, // Share hooks for non-updated components
-			eventCallbacks: oldFiber.eventCallbacks,
-			contextValues:  oldFiber.contextValues,
-			reactiveAtomID: oldFiber.reactiveAtomID,
+			typeOf:            oldFiber.typeOf,
+			props:             oldFiber.props,
+			textContent:       oldFiber.textContent,
+			dom:               oldFiber.dom,
+			parent:            parent,
+			alternate:         oldFiber,
+			effectTag:         effectTag,
+			dirty:             oldFiber.dirty,
+			needsUpdate:       oldFiber.needsUpdate,
+			hooks:             oldFiber.hooks, // Share hooks for non-updated components
+			eventCallbacks:    oldFiber.eventCallbacks,
+			contextValues:     oldFiber.contextValues,
+			reactiveAtomID:    oldFiber.reactiveAtomID,
 			reactiveSourceIDs: append([]string(nil), oldFiber.reactiveSourceIDs...),
-			fineGrained:    oldFiber.fineGrained,
-			updateOrigin:   oldFiber.updateOrigin,
+			fineGrained:       oldFiber.fineGrained,
+			updateOrigin:      oldFiber.updateOrigin,
 		}
 		if newFiber.hooks != nil {
 			newFiber.hooks.owner = newFiber
@@ -348,22 +348,22 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 					// Get from pool and reset
 					newFiber = acquireWorkInProgress(oldFiber)
 					*newFiber = Fiber{
-						typeOf:         oldFiber.typeOf,
-						props:          elem.Props,
-						textContent:    elem.TextContent,
-						dom:            oldFiber.dom,
-						parent:         wipFiber,
-						alternate:      oldFiber,
-						effectTag:      effectTag,
-						dirty:          needsUpdate,
-						needsUpdate:    oldFiber.needsUpdate,
-						hooks:          oldFiber.hooks,
-						eventCallbacks: oldFiber.eventCallbacks,
-						hydration:      wipFiber.childHydration,
-						reactiveAtomID: oldFiber.reactiveAtomID,
+						typeOf:            oldFiber.typeOf,
+						props:             elem.Props,
+						textContent:       elem.TextContent,
+						dom:               oldFiber.dom,
+						parent:            wipFiber,
+						alternate:         oldFiber,
+						effectTag:         effectTag,
+						dirty:             needsUpdate,
+						needsUpdate:       oldFiber.needsUpdate,
+						hooks:             oldFiber.hooks,
+						eventCallbacks:    oldFiber.eventCallbacks,
+						hydration:         wipFiber.childHydration,
+						reactiveAtomID:    oldFiber.reactiveAtomID,
 						reactiveSourceIDs: append([]string(nil), oldFiber.reactiveSourceIDs...),
-						fineGrained:    oldFiber.fineGrained,
-						updateOrigin:   oldFiber.updateOrigin,
+						fineGrained:       oldFiber.fineGrained,
+						updateOrigin:      oldFiber.updateOrigin,
 					}
 
 					// Advance oldFiber
@@ -555,22 +555,22 @@ func (rt *Runtime) reconcileKeyedChildren(wipFiber *Fiber, elements []interface{
 
 			newFiber = acquireWorkInProgress(matchedOld)
 			*newFiber = Fiber{
-				typeOf:         matchedOld.typeOf,
-				props:          elem.Props,
-				textContent:    elem.TextContent,
-				dom:            matchedOld.dom,
-				parent:         wipFiber,
-				alternate:      matchedOld,
-				effectTag:      effectTag,
-				dirty:          needsUpdate,
-				needsUpdate:    matchedOld.needsUpdate,
-				hooks:          matchedOld.hooks,
-				eventCallbacks: matchedOld.eventCallbacks,
-				hydration:      wipFiber.childHydration,
-				reactiveAtomID: matchedOld.reactiveAtomID,
+				typeOf:            matchedOld.typeOf,
+				props:             elem.Props,
+				textContent:       elem.TextContent,
+				dom:               matchedOld.dom,
+				parent:            wipFiber,
+				alternate:         matchedOld,
+				effectTag:         effectTag,
+				dirty:             needsUpdate,
+				needsUpdate:       matchedOld.needsUpdate,
+				hooks:             matchedOld.hooks,
+				eventCallbacks:    matchedOld.eventCallbacks,
+				hydration:         wipFiber.childHydration,
+				reactiveAtomID:    matchedOld.reactiveAtomID,
 				reactiveSourceIDs: append([]string(nil), matchedOld.reactiveSourceIDs...),
-				fineGrained:    matchedOld.fineGrained,
-				updateOrigin:   matchedOld.updateOrigin,
+				fineGrained:       matchedOld.fineGrained,
+				updateOrigin:      matchedOld.updateOrigin,
 			}
 		} else {
 			if matchedOld != nil {
@@ -1462,8 +1462,8 @@ func textLikeFiberValue(fiber *Fiber) string {
 }
 
 const (
-	reactiveTextAtomIDProp = "__gwc_reactive_text_atom_id"
-	reactiveTextGetterProp = "__gwc_reactive_text_getter"
+	reactiveTextAtomIDProp      = "__gwc_reactive_text_atom_id"
+	reactiveTextGetterProp      = "__gwc_reactive_text_getter"
 	reactiveRegionSourceIDsProp = "__gwc_reactive_region_source_ids"
 	reactiveRegionRenderProp    = "__gwc_reactive_region_render"
 )
@@ -1588,7 +1588,7 @@ func (rt *Runtime) syncReactiveTextSubscription(fiber *Fiber) {
 	if atomID != "" {
 		fiber.reactiveAtomID = atomID
 	}
-	}
+}
 
 func (rt *Runtime) syncReactiveRegionSubscription(fiber *Fiber) {
 	if rt == nil || fiber == nil {
