@@ -102,11 +102,17 @@ func TestMapInspectionFineGrainedMetadata(t *testing.T) {
 		t.Fatalf("expected fine-grained fiber count to map, got %d", stats.FineGrainedFibers)
 	}
 
-	profiling := mapProfiling(runtime.ProfilingSnapshot{ScheduledGranularMarks: 4, FineGrainedCommits: 3})
+	profiling := mapProfiling(runtime.ProfilingSnapshot{ScheduledGranularMarks: 4, FineGrainedCommits: 3, FineGrainedDescendantHostCommits: 6, FineGrainedDescendantTextCommits: 2})
 	if profiling.ScheduledGranularMarks != 4 {
 		t.Fatalf("expected granular marks to map, got %d", profiling.ScheduledGranularMarks)
 	}
 	if profiling.FineGrainedCommits != 3 {
 		t.Fatalf("expected fine-grained commits to map, got %d", profiling.FineGrainedCommits)
+	}
+	if profiling.FineGrainedDescendantHostCommits != 6 {
+		t.Fatalf("expected descendant host commits to map, got %d", profiling.FineGrainedDescendantHostCommits)
+	}
+	if profiling.FineGrainedDescendantTextCommits != 2 {
+		t.Fatalf("expected descendant text commits to map, got %d", profiling.FineGrainedDescendantTextCommits)
 	}
 }

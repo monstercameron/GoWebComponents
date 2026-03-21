@@ -297,6 +297,65 @@ func (ar *AtomRegistry) UnsubscribeMany(atomIDs []string, fiber *Fiber) {
 	ar.mu.Unlock()
 }
 
+// MoveSubscriptions transfers a fiber's ownership across several atom subscriptions under one lock.
+func (ar *AtomRegistry) MoveSubscriptions(atomIDs []string, from *Fiber, to *Fiber) {
+	if ar == nil || len(atomIDs) == 0 || from == to {
+		return
+	}
+
+	ar.mu.Lock()
+	for _, atomID := range atomIDs {
+		if atomID == "" {
+			continue
+		}
+		subs := ar.subscriptions[atomID]
+		if subs == nil {
+			if to == nil {
+				continue
+			}
+			subs = make(map[*Fiber]bool)
+			ar.subscriptions[atomID] = subs
+		}
+		if from != nil {
+			delete(subs, from)
+		}
+		if to != nil {
+			subs[to] = true
+		}
+		if len(subs) == 0 {
+			delete(ar.subscriptions, atomID)
+		}
+	}
+	ar.mu.Unlock()
+}
+
+// MoveSubscription transfers a fiber's ownership for a single atom subscription.
+func (ar *AtomRegistry) MoveSubscription(atomID string, from *Fiber, to *Fiber) {
+	if ar == nil || atomID == "" || from == to {
+		return
+	}
+	ar.mu.Lock()
+	subs := ar.subscriptions[atomID]
+	if subs == nil {
+		if to == nil {
+			ar.mu.Unlock()
+			return
+		}
+		subs = make(map[*Fiber]bool)
+		ar.subscriptions[atomID] = subs
+	}
+	if from != nil {
+		delete(subs, from)
+	}
+	if to != nil {
+		subs[to] = true
+	}
+	if len(subs) == 0 {
+		delete(ar.subscriptions, atomID)
+	}
+	ar.mu.Unlock()
+}
+
 // UnsubscribeFiberFromAll removes a fiber from all atom subscriptions.
 func (ar *AtomRegistry) UnsubscribeFiberFromAll(fiber *Fiber) {
 	ar.mu.Lock()

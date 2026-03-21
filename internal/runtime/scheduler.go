@@ -268,11 +268,39 @@ func (rt *Runtime) ScheduleSubscribedFiberUpdate(fiber *Fiber) {
 	if fiber == nil {
 		return
 	}
+	fiber = rt.resolveSubscribedFiberTarget(fiber)
+	if fiber == nil {
+		return
+	}
 	if fiber.fineGrained {
 		rt.ScheduleGranularUpdateForFiber(fiber)
 		return
 	}
 	rt.ScheduleUpdateForFiber(fiber)
+}
+
+func (rt *Runtime) resolveSubscribedFiberTarget(fiber *Fiber) *Fiber {
+	if rt == nil || fiber == nil {
+		return fiber
+	}
+	if rt.isFiberInCurrentTree(fiber) {
+		return fiber
+	}
+	if fiber.alternate != nil && rt.isFiberInCurrentTree(fiber.alternate) {
+		return fiber.alternate
+	}
+	return fiber
+}
+
+func (rt *Runtime) isFiberInCurrentTree(fiber *Fiber) bool {
+	if rt == nil || fiber == nil || rt.currentRoot == nil {
+		return false
+	}
+	root := fiber
+	for root.parent != nil {
+		root = root.parent
+	}
+	return root == rt.currentRoot
 }
 
 // UI Queue for cross-goroutine updates

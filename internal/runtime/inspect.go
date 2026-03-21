@@ -111,21 +111,23 @@ type InspectionStats struct {
 
 // ProfilingSnapshot summarizes runtime profiling counters and hot branches.
 type ProfilingSnapshot struct {
-	RenderCalls            int
-	ScheduledRootUpdates   int
-	ScheduledFiberMarks    int
-	ScheduledGranularMarks int
-	WorkLoopPasses         int
-	ProcessedUnits         int
-	CommitCount            int
-	FineGrainedCommits     int
-	EffectExecutions       int
-	CleanupExecutions      int
-	LastRenderDurationNs   int64
-	LastCommitDurationNs   int64
-	LastEffectDurationNs   int64
-	LastCleanupDurationNs  int64
-	HotBranches            []HotBranchSnapshot
+	RenderCalls                      int
+	ScheduledRootUpdates             int
+	ScheduledFiberMarks              int
+	ScheduledGranularMarks           int
+	WorkLoopPasses                   int
+	ProcessedUnits                   int
+	CommitCount                      int
+	FineGrainedCommits               int
+	FineGrainedDescendantHostCommits int
+	FineGrainedDescendantTextCommits int
+	EffectExecutions                 int
+	CleanupExecutions                int
+	LastRenderDurationNs             int64
+	LastCommitDurationNs             int64
+	LastEffectDurationNs             int64
+	LastCleanupDurationNs            int64
+	HotBranches                      []HotBranchSnapshot
 }
 
 // InspectionSnapshot is the top-level runtime inspection payload.
@@ -286,21 +288,23 @@ func (rt *Runtime) Inspect() InspectionSnapshot {
 	snapshot.Root = root
 	snapshot.Stats = stats
 	snapshot.Profiling = ProfilingSnapshot{
-		RenderCalls:            rt.profiling.renderCalls,
-		ScheduledRootUpdates:   rt.profiling.scheduledRootUpdates,
-		ScheduledFiberMarks:    rt.profiling.scheduledFiberMarks,
-		ScheduledGranularMarks: rt.profiling.scheduledGranularMarks,
-		WorkLoopPasses:         rt.profiling.workLoopPasses,
-		ProcessedUnits:         rt.profiling.processedUnits,
-		CommitCount:            rt.profiling.commitCount,
-		FineGrainedCommits:     rt.profiling.fineGrainedCommits,
-		EffectExecutions:       rt.profiling.effectExecutions,
-		CleanupExecutions:      rt.profiling.cleanupExecutions,
-		LastRenderDurationNs:   rt.profiling.lastRenderDurationNs,
-		LastCommitDurationNs:   rt.profiling.lastCommitDurationNs,
-		LastEffectDurationNs:   rt.profiling.lastEffectDurationNs,
-		LastCleanupDurationNs:  rt.profiling.lastCleanupDurationNs,
-		HotBranches:            collectHotBranches(root, 5),
+		RenderCalls:                      rt.profiling.renderCalls,
+		ScheduledRootUpdates:             rt.profiling.scheduledRootUpdates,
+		ScheduledFiberMarks:              rt.profiling.scheduledFiberMarks,
+		ScheduledGranularMarks:           rt.profiling.scheduledGranularMarks,
+		WorkLoopPasses:                   rt.profiling.workLoopPasses,
+		ProcessedUnits:                   rt.profiling.processedUnits,
+		CommitCount:                      rt.profiling.commitCount,
+		FineGrainedCommits:               rt.profiling.fineGrainedCommits,
+		FineGrainedDescendantHostCommits: rt.profiling.fineGrainedDescendantHostCommits,
+		FineGrainedDescendantTextCommits: rt.profiling.fineGrainedDescendantTextCommits,
+		EffectExecutions:                 rt.profiling.effectExecutions,
+		CleanupExecutions:                rt.profiling.cleanupExecutions,
+		LastRenderDurationNs:             rt.profiling.lastRenderDurationNs,
+		LastCommitDurationNs:             rt.profiling.lastCommitDurationNs,
+		LastEffectDurationNs:             rt.profiling.lastEffectDurationNs,
+		LastCleanupDurationNs:            rt.profiling.lastCleanupDurationNs,
+		HotBranches:                      collectHotBranches(root, 5),
 	}
 	return snapshot
 }

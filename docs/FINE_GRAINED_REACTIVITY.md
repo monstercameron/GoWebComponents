@@ -374,12 +374,12 @@ Measured on Windows amd64 with `go test ./internal/runtime -run ^$ -bench 'FineG
 
 Measured on Windows amd64 with `go test ./internal/runtime -run ^$ -bench FineGrainedAncestorRerender -benchmem`:
 
-- ancestor rerender with 64 static leaves: `18201 ns/op`, `2901 B/op`, `27 allocs/op`
-- ancestor rerender with 64 stable reactive regions: `30681 ns/op`, `16274 B/op`, `220 allocs/op`
+- ancestor rerender with 64 static leaves: `19489 ns/op`, `2901 B/op`, `27 allocs/op`
+- ancestor rerender with 64 stable reactive regions: `19418 ns/op`, `2902 B/op`, `27 allocs/op`
 
 That is the first proof that the narrow text update path avoids a large amount of keyed reconciliation and allocation work for dashboard-style updates. It is not yet proof for every workload, but it is enough to justify continuing with selector and small-region follow-up work.
 
-It is also now the first direct measurement of the ancestor-rerender overhead introduced by fine-grained region retention and clean-clone subscription transfer: many stable subscribed regions under a frequently rerendered ancestor are measurably more expensive than static host leaves on the same path.
+It is also now a direct measurement of the ancestor-rerender overhead introduced by fine-grained region retention and clean-clone subscription transfer: for the current 64-region benchmark shape, the latest pass removed the practical gap on this machine by keeping unchanged subscriptions on their stale committed twin and redirecting later subscribed updates to the live fine-grained twin, rather than transferring ownership during every clean clone.
 
 ## Performance Guardrails
 
@@ -409,7 +409,7 @@ Current devtools support now includes:
 - per-node fine-grained flags in the inspected tree
 - the reactive source ID currently attached to a fine-grained node
 - the last recorded update origin for a node, including `fine-grained` when a subscribed region was the dirty target
-- runtime counters for fine-grained fiber count, granular dirty marks, and granular commits
+- runtime counters for fine-grained fiber count, granular dirty marks, granular commits, and descendant host or text commits that happened inside a fine-grained region subtree
 
 Current failure-mode coverage now includes:
 

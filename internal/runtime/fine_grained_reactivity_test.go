@@ -291,6 +291,82 @@ func TestReactiveTextMultipleRegions_UpdateOnlyTargetDomTree(t *testing.T) {
 	}
 }
 
+func TestReactiveRegionSubscriptionsRedirectFromStaleTwinAfterAncestorRerender(t *testing.T) {
+	adapter := newTestDOMAdapter()
+	scheduler := newTestScheduler()
+	rt := NewRuntime(Config{DOMAdapter: adapter, Scheduler: scheduler})
+	container := adapter.CreateElement("div")
+	rt.atomRegistry.InitAtom("count", 1)
+
+	var setTick func(interface{})
+	app := func() *Element {
+		tick, set := GoUseState(rt, 0)
+		setTick = set
+		return CreateElement("section", nil,
+			CreateElement("h1", nil, textFromInt(tick())),
+			CreateElement("div", map[string]interface{}{"id": "region"},
+				CreateElement(ReactiveRegionNodeType, map[string]interface{}{
+					reactiveRegionSourceIDsProp: []string{"count"},
+					reactiveRegionRenderProp: func() *Element {
+						value, _ := rt.GetAtomValue("count")
+						current, _ := value.(int)
+						return CreateElement("span", map[string]interface{}{"id": "count-value"}, textFromInt(current))
+					},
+				}),
+			),
+		)
+	}
+
+	rt.Render(CreateElement(app, nil), container)
+	runScheduledTimeouts(scheduler)
+	if setTick == nil {
+		t.Fatal("expected ancestor state setter")
+	}
+
+	staleRegionFiber := findFineGrainedFiber(rt.currentRoot)
+	if staleRegionFiber == nil || !staleRegionFiber.fineGrained {
+		t.Fatal("expected to capture current reactive region fiber")
+	}
+
+	setTick(1)
+	runScheduledTimeouts(scheduler)
+
+	if rt.isFiberInCurrentTree(staleRegionFiber) {
+		t.Fatal("expected captured region fiber to become stale after ancestor rerender")
+	}
+
+	if err := rt.SetAtomValue("count", 2); err != nil {
+		t.Fatalf("unexpected region atom update error: %v", err)
+	}
+	runScheduledTimeouts(scheduler)
+
+	root := container.(*testDOMNode)
+	section := root.children[0].(*testDOMNode)
+	regionWrap := section.children[1].(*testDOMNode)
+	countNode := regionWrap.children[0].(*testDOMNode)
+	countText := countNode.children[0].(*testDOMNode)
+	if countText.text != "2" {
+		t.Fatalf("expected redirected stale subscription update to reach live region, got %q", countText.text)
+	}
+}
+
+func textFromInt(value int) string {
+	return string(rune('0' + value))
+}
+
+func findFineGrainedFiber(root *Fiber) *Fiber {
+	if root == nil {
+		return nil
+	}
+	if root.fineGrained {
+		return root
+	}
+	if child := findFineGrainedFiber(root.child); child != nil {
+		return child
+	}
+	return findFineGrainedFiber(root.sibling)
+}
+
 func TestReactiveTextCollision_HookRerenderWinsAndKeepsTreeCoherent(t *testing.T) {
 	adapter := newTestDOMAdapter()
 	scheduler := newTestScheduler()
@@ -812,6 +888,9 @@ func TestReactiveRegionHostPropertyUpdate_DoesNotRerenderOwnerComponent(t *testi
 	if rt.profiling.scheduledGranularMarks == 0 {
 		t.Fatal("expected region property update to record a granular mark")
 	}
+	if rt.profiling.fineGrainedDescendantHostCommits == 0 {
+		t.Fatal("expected region property update to record descendant host commits")
+	}
 }
 
 func TestReactiveRegionAnchoredHostSubtreeUpdate_DoesNotRerenderOwnerComponent(t *testing.T) {
@@ -889,5 +968,11 @@ func TestReactiveRegionAnchoredHostSubtreeUpdate_DoesNotRerenderOwnerComponent(t
 	}
 	if got := actionAfter.properties["disabled"]; got != true {
 		t.Fatalf("expected appended action node property disabled=true, got %#v", got)
+	}
+	if rt.profiling.fineGrainedDescendantHostCommits == 0 {
+		t.Fatal("expected anchored region subtree update to record descendant host commits")
+	}
+	if rt.profiling.fineGrainedDescendantTextCommits == 0 {
+		t.Fatal("expected anchored region subtree update to record descendant text commits")
 	}
 }

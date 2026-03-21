@@ -88,21 +88,23 @@ type Stats struct {
 
 // Profiling summarizes runtime profiling counters and hot branches.
 type Profiling struct {
-	RenderCalls            int
-	ScheduledRootUpdates   int
-	ScheduledFiberMarks    int
-	ScheduledGranularMarks int
-	WorkLoopPasses         int
-	ProcessedUnits         int
-	CommitCount            int
-	FineGrainedCommits     int
-	EffectExecutions       int
-	CleanupExecutions      int
-	LastRenderDurationNs   int64
-	LastCommitDurationNs   int64
-	LastEffectDurationNs   int64
-	LastCleanupDurationNs  int64
-	HotBranches            []Branch
+	RenderCalls                      int
+	ScheduledRootUpdates             int
+	ScheduledFiberMarks              int
+	ScheduledGranularMarks           int
+	WorkLoopPasses                   int
+	ProcessedUnits                   int
+	CommitCount                      int
+	FineGrainedCommits               int
+	FineGrainedDescendantHostCommits int
+	FineGrainedDescendantTextCommits int
+	EffectExecutions                 int
+	CleanupExecutions                int
+	LastRenderDurationNs             int64
+	LastCommitDurationNs             int64
+	LastEffectDurationNs             int64
+	LastCleanupDurationNs            int64
+	HotBranches                      []Branch
 }
 type Route struct {
 	Path    string

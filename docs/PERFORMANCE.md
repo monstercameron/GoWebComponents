@@ -146,12 +146,12 @@ Initial conclusion for the text-only fine-grained prototype:
 
 Ancestor-rerender comparison for 64 stable children from the latest Windows amd64 pass:
 
-- `BenchmarkFineGrainedAncestorRerenderStaticLeaves64`: `18201 ns/op`, `2901 B/op`, `27 allocs/op`
-- `BenchmarkFineGrainedAncestorRerenderReactiveRegions64`: `30681 ns/op`, `16274 B/op`, `220 allocs/op`
+- `BenchmarkFineGrainedAncestorRerenderStaticLeaves64`: `19489 ns/op`, `2901 B/op`, `27 allocs/op`
+- `BenchmarkFineGrainedAncestorRerenderReactiveRegions64`: `19418 ns/op`, `2902 B/op`, `27 allocs/op`
 
 Current conclusion for the clean-clone transfer cost:
 
-- many stable fine-grained regions under a frequently rerendered ancestor are still materially more expensive than static host leaves on the same path, so the clean-clone subscription transfer overhead is now measured and should remain a watch point for future optimization
+- for the current 64-region ancestor-rerender benchmark shape, the reactive-region path is now effectively at parity with static leaves on this machine: removing clone-time ownership transfer for unchanged subscriptions and redirecting stale subscribed fibers to their live fine-grained twin eliminated the earlier CPU and allocation gap versus the 30.7us / 16.3KB / 220 alloc baseline
 
 Earlier arm64 numbers are kept below for comparison history, but the list above is the current baseline for this branch.
 

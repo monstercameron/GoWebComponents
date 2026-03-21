@@ -117,10 +117,12 @@ func TestRuntimeInspectCapturesTreeStatsAndHooks(t *testing.T) {
 func TestRuntimeInspectCapturesFineGrainedMetadata(t *testing.T) {
 	rt := &Runtime{}
 	rt.profiling = runtimeProfiling{
-		scheduledFiberMarks:    3,
-		scheduledGranularMarks: 2,
-		commitCount:            1,
-		fineGrainedCommits:     2,
+		scheduledFiberMarks:              3,
+		scheduledGranularMarks:           2,
+		commitCount:                      1,
+		fineGrainedCommits:               2,
+		fineGrainedDescendantHostCommits: 5,
+		fineGrainedDescendantTextCommits: 7,
 	}
 	reactive := &Fiber{
 		typeOf:         ReactiveTextNodeType,
@@ -141,6 +143,12 @@ func TestRuntimeInspectCapturesFineGrainedMetadata(t *testing.T) {
 	}
 	if snapshot.Profiling.FineGrainedCommits != 2 {
 		t.Fatalf("expected 2 fine-grained commits, got %d", snapshot.Profiling.FineGrainedCommits)
+	}
+	if snapshot.Profiling.FineGrainedDescendantHostCommits != 5 {
+		t.Fatalf("expected 5 descendant host commits, got %d", snapshot.Profiling.FineGrainedDescendantHostCommits)
+	}
+	if snapshot.Profiling.FineGrainedDescendantTextCommits != 7 {
+		t.Fatalf("expected 7 descendant text commits, got %d", snapshot.Profiling.FineGrainedDescendantTextCommits)
 	}
 	if len(snapshot.Root.Children) != 1 {
 		t.Fatalf("expected one child snapshot, got %d", len(snapshot.Root.Children))

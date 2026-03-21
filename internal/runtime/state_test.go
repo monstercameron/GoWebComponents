@@ -99,6 +99,29 @@ func TestAtomRegistry_Unsubscribe(t *testing.T) {
 	}
 }
 
+func TestAtomRegistry_MoveSubscriptions(t *testing.T) {
+	registry := NewAtomRegistry()
+	from := &Fiber{typeOf: "from"}
+	to := &Fiber{typeOf: "to"}
+
+	registry.Subscribe("counter", from)
+	registry.Subscribe("message", from)
+	registry.MoveSubscriptions([]string{"counter", "message"}, from, to)
+
+	if registry.GetSubscriberCount("counter") != 1 {
+		t.Fatalf("expected one counter subscriber after move, got %d", registry.GetSubscriberCount("counter"))
+	}
+	if registry.GetSubscriberCount("message") != 1 {
+		t.Fatalf("expected one message subscriber after move, got %d", registry.GetSubscriberCount("message"))
+	}
+
+	registry.Unsubscribe("counter", to)
+	registry.Unsubscribe("message", to)
+	if registry.GetSubscriberCount("counter") != 0 || registry.GetSubscriberCount("message") != 0 {
+		t.Fatal("expected moved subscriptions to be owned by the destination fiber")
+	}
+}
+
 func TestAtomRegistry_UnsubscribeFiberFromAll(t *testing.T) {
 	registry := NewAtomRegistry()
 	fiber := &Fiber{typeOf: "test"}

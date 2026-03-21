@@ -102,6 +102,15 @@ func acquireWorkInProgress(oldFiber *Fiber) *Fiber {
 	return reused
 }
 
+func ensureFineGrainedTwinLink(oldFiber *Fiber, newFiber *Fiber) {
+	if oldFiber == nil || newFiber == nil {
+		return
+	}
+	if oldFiber.fineGrained || newFiber.fineGrained {
+		oldFiber.alternate = newFiber
+	}
+}
+
 // GetCurrentFiber returns the fiber currently being processed
 func GetCurrentFiber() *Fiber {
 	return currentFiber
@@ -227,21 +236,19 @@ func (rt *Runtime) cloneChildFibers(parent *Fiber) {
 			eventCallbacks:    oldFiber.eventCallbacks,
 			contextValues:     oldFiber.contextValues,
 			reactiveAtomID:    oldFiber.reactiveAtomID,
-			reactiveSourceIDs: append([]string(nil), oldFiber.reactiveSourceIDs...),
+			reactiveSourceIDs: oldFiber.reactiveSourceIDs,
 			fineGrained:       oldFiber.fineGrained,
 			updateOrigin:      oldFiber.updateOrigin,
 		}
 		if newFiber.hooks != nil {
 			newFiber.hooks.owner = newFiber
 		}
+		ensureFineGrainedTwinLink(oldFiber, newFiber)
 		if rt.atomRegistry != nil && newFiber.fineGrained && len(newFiber.reactiveSourceIDs) > 0 {
-			for _, sourceID := range newFiber.reactiveSourceIDs {
-				if rt.hydrating {
+			if rt.hydrating {
+				for _, sourceID := range newFiber.reactiveSourceIDs {
 					rt.queueHydrationSubscription(sourceID, oldFiber, false)
 					rt.queueHydrationSubscription(sourceID, newFiber, true)
-				} else {
-					rt.atomRegistry.Unsubscribe(sourceID, oldFiber)
-					rt.atomRegistry.Subscribe(sourceID, newFiber)
 				}
 			}
 		}
@@ -361,10 +368,11 @@ func (rt *Runtime) reconcileChildren(wipFiber *Fiber, elements []interface{}) {
 						eventCallbacks:    oldFiber.eventCallbacks,
 						hydration:         wipFiber.childHydration,
 						reactiveAtomID:    oldFiber.reactiveAtomID,
-						reactiveSourceIDs: append([]string(nil), oldFiber.reactiveSourceIDs...),
+						reactiveSourceIDs: oldFiber.reactiveSourceIDs,
 						fineGrained:       oldFiber.fineGrained,
 						updateOrigin:      oldFiber.updateOrigin,
 					}
+					ensureFineGrainedTwinLink(oldFiber, newFiber)
 
 					// Advance oldFiber
 					oldFiber = oldFiber.sibling
@@ -568,10 +576,11 @@ func (rt *Runtime) reconcileKeyedChildren(wipFiber *Fiber, elements []interface{
 				eventCallbacks:    matchedOld.eventCallbacks,
 				hydration:         wipFiber.childHydration,
 				reactiveAtomID:    matchedOld.reactiveAtomID,
-				reactiveSourceIDs: append([]string(nil), matchedOld.reactiveSourceIDs...),
+				reactiveSourceIDs: matchedOld.reactiveSourceIDs,
 				fineGrained:       matchedOld.fineGrained,
 				updateOrigin:      matchedOld.updateOrigin,
 			}
+			ensureFineGrainedTwinLink(matchedOld, newFiber)
 		} else {
 			if matchedOld != nil {
 				matchedOld.effectTag = "DELETION"
@@ -1321,6 +1330,8 @@ func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 			fiber.commitDurationNs += time.Since(start).Nanoseconds()
 			if fiber.fineGrained {
 				rt.profiling.fineGrainedCommits++
+			} else {
+				rt.recordFineGrainedDescendantCommit(fiber)
 			}
 		} else if fiber.effectTag == "HYDRATE" && fiber.dom != nil && !fiber.dom.IsNull() {
 			if isTextLikeFiber(fiber) {
@@ -1335,6 +1346,8 @@ func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 				fiber.commitDurationNs += time.Since(start).Nanoseconds()
 				if fiber.fineGrained {
 					rt.profiling.fineGrainedCommits++
+				} else {
+					rt.recordFineGrainedDescendantCommit(fiber)
 				}
 			} else {
 				start := time.Now()
@@ -1343,6 +1356,7 @@ func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 				})
 				rt.applyInitialDomProps(fiber.dom, fiber.props, supportsBatching, batchAdapter, fiber.hydrated)
 				fiber.commitDurationNs += time.Since(start).Nanoseconds()
+				rt.recordFineGrainedDescendantCommit(fiber)
 			}
 		} else if fiber.effectTag == "UPDATE" && fiber.dom != nil && !fiber.dom.IsNull() {
 			if fiber.alternate != nil {
@@ -1357,6 +1371,8 @@ func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 						fiber.commitDurationNs += time.Since(start).Nanoseconds()
 						if fiber.fineGrained {
 							rt.profiling.fineGrainedCommits++
+						} else {
+							rt.recordFineGrainedDescendantCommit(fiber)
 						}
 					}
 				} else {
@@ -1364,6 +1380,7 @@ func (rt *Runtime) commitWork(fiber *Fiber, domParent DOMNode) {
 					start := time.Now()
 					rt.updateDomProperties(fiber.dom, fiber.alternate.props, fiber.props)
 					fiber.commitDurationNs += time.Since(start).Nanoseconds()
+					rt.recordFineGrainedDescendantCommit(fiber)
 				}
 			}
 		} else if fiber.effectTag == "DELETION" {
@@ -1436,6 +1453,44 @@ func isFineGrainedType(typeOf interface{}) bool {
 	return isReactiveTextType(typeOf) || isReactiveRegionType(typeOf)
 }
 
+func isHostFiber(fiber *Fiber) bool {
+	if fiber == nil {
+		return false
+	}
+	typ, ok := fiber.typeOf.(string)
+	if !ok {
+		return false
+	}
+	switch typ {
+	case "ROOT", "FRAGMENT", "TEXT_ELEMENT":
+		return false
+	default:
+		return true
+	}
+}
+
+func hasFineGrainedAncestor(fiber *Fiber) bool {
+	for parent := fiber.parent; parent != nil; parent = parent.parent {
+		if parent.fineGrained {
+			return true
+		}
+	}
+	return false
+}
+
+func (rt *Runtime) recordFineGrainedDescendantCommit(fiber *Fiber) {
+	if rt == nil || fiber == nil || fiber.fineGrained || !hasFineGrainedAncestor(fiber) {
+		return
+	}
+	if isTextLikeFiber(fiber) {
+		rt.profiling.fineGrainedDescendantTextCommits++
+		return
+	}
+	if isHostFiber(fiber) {
+		rt.profiling.fineGrainedDescendantHostCommits++
+	}
+}
+
 func isTextLikeFiber(fiber *Fiber) bool {
 	if fiber == nil {
 		return false
@@ -1498,6 +1553,12 @@ func reactiveRegionSourceIDs(fiber *Fiber) []string {
 	if len(raw) == 0 {
 		return nil
 	}
+	if len(raw) == 1 {
+		if strings.TrimSpace(raw[0]) == "" {
+			return nil
+		}
+		return raw
+	}
 	ids := make([]string, 0, len(raw))
 	seen := make(map[string]struct{}, len(raw))
 	for _, id := range raw {
@@ -1516,13 +1577,34 @@ func reactiveRegionSourceIDs(fiber *Fiber) []string {
 	return ids
 }
 
+func sameReactiveSourceIDs(left []string, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
 func (rt *Runtime) syncFineGrainedSubscriptions(fiber *Fiber, sourceIDs []string) {
 	if rt == nil || rt.atomRegistry == nil || fiber == nil {
 		return
 	}
-	previous := append([]string(nil), fiber.reactiveSourceIDs...)
+	previous := fiber.reactiveSourceIDs
 	if fiber.alternate != nil && fiber.alternate != fiber && len(fiber.alternate.reactiveSourceIDs) > 0 {
-		previous = append([]string(nil), fiber.alternate.reactiveSourceIDs...)
+		previous = fiber.alternate.reactiveSourceIDs
+	}
+	if sameReactiveSourceIDs(previous, sourceIDs) {
+		fiber.reactiveSourceIDs = previous
+		fiber.reactiveAtomID = ""
+		if len(previous) > 0 {
+			fiber.reactiveAtomID = strings.Join(previous, ",")
+		}
+		fiber.fineGrained = len(previous) > 0
+		return
 	}
 	previousSet := make(map[string]struct{}, len(previous))
 	for _, id := range previous {
@@ -1550,15 +1632,6 @@ func (rt *Runtime) syncFineGrainedSubscriptions(fiber *Fiber, sourceIDs []string
 	}
 	for _, newID := range sourceIDs {
 		if _, already := previousSet[newID]; already {
-			if fiber.alternate != nil && fiber.alternate != fiber {
-				if rt.hydrating {
-					rt.queueHydrationSubscription(newID, fiber.alternate, false)
-					rt.queueHydrationSubscription(newID, fiber, true)
-				} else {
-					rt.atomRegistry.Unsubscribe(newID, fiber.alternate)
-					rt.atomRegistry.Subscribe(newID, fiber)
-				}
-			}
 			continue
 		}
 		if rt.hydrating {
@@ -1567,7 +1640,7 @@ func (rt *Runtime) syncFineGrainedSubscriptions(fiber *Fiber, sourceIDs []string
 			rt.atomRegistry.Subscribe(newID, fiber)
 		}
 	}
-	fiber.reactiveSourceIDs = append(fiber.reactiveSourceIDs[:0], sourceIDs...)
+	fiber.reactiveSourceIDs = append([]string(nil), sourceIDs...)
 	fiber.reactiveAtomID = ""
 	if len(sourceIDs) > 0 {
 		fiber.reactiveAtomID = strings.Join(sourceIDs, ",")
