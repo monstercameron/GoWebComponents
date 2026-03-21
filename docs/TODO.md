@@ -1278,19 +1278,6 @@ Organization rules for this file:
 
 ## 9. Strategic Direction and Experimental Work
 
-### Resumability and partial activation
-
-- [ ] Decide whether resumability is a real project goal.
-	Clarify whether the framework should remain hydrate-first or pursue a serialized-resume model with deferred code execution.
-- [ ] Evaluate partial activation and islands-style rendering as an intermediate step.
-	Determine whether route- or component-level activation can reduce startup cost without changing the whole runtime model.
-- [ ] Audit which runtime assumptions block resumability.
-	Identify reliance on eager hook execution, immediate event binding, global scheduler state, and non-serializable closures.
-- [ ] Define success criteria for resumability experiments.
-	Use measurable goals such as lower startup execution cost, preserved server HTML, and delayed activation of non-interactive subtrees.
-- [ ] Record explicit non-goals if resumability is rejected.
-	Avoid leaving SSR and compiler work open to incorrect long-term assumptions.
-
 ### Fine-grained reactivity direction
 
 - [x] Adopt fine-grained reactivity as an explicit performance direction.
@@ -1322,14 +1309,14 @@ Organization rules for this file:
 
 ### Compiler-assisted features
 
-- [ ] Decide whether compiler-driven ergonomics are a real product direction.
-	Separate syntax sugar, dead-code elimination, reactive dependency extraction, template lowering, and SSR build optimization instead of treating â€œcompilerâ€ as one bucket.
-- [ ] Evaluate whether compile-time reactivity is compatible with the current hook model.
-	Determine whether any Svelte- or Solid-like compile step can coexist with `UseState` and `UseEffect` semantics without splitting the framework into two mental models.
-- [ ] Define source-language boundaries for compiler work.
-	Clarify whether compiler experiments target Go source only, HTML-like templates, generated Go helpers, or browser-hosted tooling.
-- [ ] Add a migration and fallback plan for compiler-generated output.
-	Users should be able to inspect, debug, and opt out of generated code paths if compile-time ergonomics ship.
+- [x] Decide whether compiler-driven ergonomics are a real product direction.
+	`docs/COMPILER_ASSISTED_FEATURES.md` now records the project stance: compiler-assisted features stay opt-in and capability-specific, while plain Go plus ordinary `go build` remain the default product path rather than a required compiler-first workflow.
+- [x] Evaluate whether compile-time reactivity is compatible with the current hook model.
+	`docs/COMPILER_ASSISTED_FEATURES.md` now records the compatibility rule: compile-time reactivity is acceptable only as an opt-in lowering into explicit runtime primitives that preserve normal hook semantics, not as a second default authoring model with different lifecycle or scheduling rules.
+- [x] Define source-language boundaries for compiler work.
+	`docs/COMPILER_ASSISTED_FEATURES.md` now defines the boundary: the supported product path stays plain Go plus the ordinary toolchain, while generated Go helpers, template-lowering experiments, and browser-hosted tooling may exist only as opt-in experiments with inspectable output.
+- [x] Add a migration and fallback plan for compiler-generated output.
+	`docs/COMPILER_ASSISTED_FEATURES.md` now records the rollout rule: generated output must stay opt-in, inspectable, attributable, and reversible, with explicit opt-out paths and a documented non-generated fallback whenever compiler-assisted workflows touch supported product features.
 
 ### State-preserving hot reload
 

@@ -79,6 +79,9 @@ Current intended wasm build-profile and production-flag baseline for development
 ### `BUILD_EXPERIMENTS.md`
 Current intended experiment matrix for wasm build flags, size measurements, startup-cost tradeoffs, and compatibility-sensitive optimization work.
 
+### `COMPILER_ASSISTED_FEATURES.md`
+Current project direction for compiler-assisted features, including the decision to keep plain Go plus ordinary `go build` as the default path while limiting compiler work to opt-in experiments.
+
 ### `ONBOARDING.md`
 Current intended onboarding, prerequisites, choose-your-path, starter-upgrade, and inner-loop workflow guidance for new adopters.
 
@@ -172,6 +175,7 @@ As of 2026-03-14:
 - [CONFIGURATION.md](CONFIGURATION.md)
 - [WASM_RELEASES.md](WASM_RELEASES.md)
 - [BUILD_EXPERIMENTS.md](BUILD_EXPERIMENTS.md)
+- [COMPILER_ASSISTED_FEATURES.md](COMPILER_ASSISTED_FEATURES.md)
 - [ONBOARDING.md](ONBOARDING.md)
 - [API_POLICY.md](API_POLICY.md)
 - [ACCESSIBILITY.md](ACCESSIBILITY.md)
