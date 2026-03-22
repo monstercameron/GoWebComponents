@@ -644,6 +644,10 @@ Organization rules for this file:
 	Standardize how server-owned form handlers return field errors, form errors, redirects, flash-style success metadata, and post-submit refresh instructions so applications do not keep reinventing transport-specific mutation response contracts.
 - [ ] Add integrated examples for progressive plus hydrated server actions.
 	Ship at least one example where the same form works as a normal HTML post without JavaScript, upgrades into richer hydrated pending/error UX, and still preserves one authoritative server mutation contract.
+- [ ] Define a first-class server function model beyond forms.
+	Specify whether GWC should support typed server-owned actions for non-form mutations and queries, how those calls are declared from Go code, and how they differ from plain fetch helpers or transport-specific RPC clients.
+- [ ] Define how server functions compose with loaders, revalidation, auth, and SSR.
+	Clarify how a server-owned action can invalidate route data, refresh shared caches, honor auth and CSRF boundaries, participate in SSR-aware request context, and degrade when JavaScript or hydration is unavailable.
 
 ### CSRF and secure posting
 
@@ -801,6 +805,10 @@ Organization rules for this file:
 	`docs/ROUTER_AUTH.md` now defines the intended order of leave guards, enter guards, auth checks, and route loaders, including the rule that protected-route loaders must not start before the target route is allowed.
 - [x] Add protected-route examples and security guidance.
 	`examples/92-protected-routes` now demonstrates guarded entry, deferred auth resolution, manual unauthorized fallback UI, and safe post-login redirect preservation, while `docs/ROUTER_AUTH.md` and `router/README.md` now document that client-side gating is a UX tool rather than the real security boundary.
+- [ ] Add typed route-definition and reverse-routing contracts.
+	Provide one supported way to define routes so links, redirects, params, and query values can be generated and validated from typed Go APIs instead of manually repeating string paths across loaders, navigation code, and tests.
+- [ ] Add route-contract tooling for navigation, metadata, and generated examples.
+	Decide whether typed route contracts should stay runtime-only helpers or also emit code-generated route manifests for links, metadata ownership, prerender enumeration, and starter examples so larger apps can avoid stringly-typed route drift.
 
 ## 5. Data Loading, Cache Reuse, and Error Boundaries
 
@@ -1204,6 +1212,10 @@ Organization rules for this file:
 	`docs/PRERENDER.md` now defines the intended HTML, sidecar bootstrap, manifest, and copied-asset output shape for prerendered sites without overclaiming a shipped exporter implementation.
 - [x] Add partial-hydration or client-resume expectations for prerendered output.
 	`docs/PRERENDER.md` now records the intended split between fully static pages, fully hydrated pages, and future selective activation, while keeping prerendered resume on the normal hydration contract.
+- [ ] Define a first-class islands or selective-hydration model.
+	Move beyond future-looking notes by specifying the ownership model for static regions versus selectively activated islands, how island boundaries compose with routing and async boundaries, and what guarantees remain for SSR and hydration correctness.
+- [ ] Add one islands-style reference example and budget-driven validation.
+	Ship a content-heavy page or marketing-style route that hydrates only selected interactive regions, then measure startup, hydration, and interaction costs so selective activation is evaluated as a real product feature instead of a design note.
 - [x] Add invalidation and rebuild guidance for prerendered content.
 	`docs/PRERENDER.md` now defines the intended rebuild triggers for route content, shared layouts, asset manifests, and expanded route data in local development and CI.
 - [ ] Add a first-party static export example.
@@ -1469,6 +1481,8 @@ Organization rules for this file:
 	Show whether the system is compiling, serving stale output, waiting on a reload, or blocked on an error so developers are not left guessing which part of the toolchain failed.
 - [ ] Add launcher-visible dev status endpoints and summaries.
 	Expose current mode, last successful build, current error state, hot-reload eligibility, and listening URLs through both human-readable output and a machine-readable status endpoint for tooling and editor integration.
+- [ ] Add an interactive `gwc dev` status TUI.
+	Provide one optional live surface for current resolved plan, compile state, stale-output state, last successful build time, latest failure, hot-reload eligibility, listening URLs, and recovery hints so `gwc dev` feels like a product command rather than a thin wrapper around terminal logs.
 - [x] Add recovery guidance for broken local development loops.
 	`docs/TROUBLESHOOTING.md`, `docs/ONBOARDING.md`, and `tools/README.md` now document the current recovery path for stale wasm output, broken example serving, missing runtime bootstrap files, and local build-versus-served-output drift in the repo's supported manual dev loop.
 - [ ] Add example workflows for repo contributors versus framework consumers.
@@ -1539,6 +1553,10 @@ Organization rules for this file:
 	The launcher now implements OS-aware generated-project defaults, using `Documents` on Windows and macOS, `Documents` or `Projects` fallback behavior on Linux, and override support through launcher config.
 - [ ] Add scaffold metadata that records project ownership and framework source mode.
 	Record whether the generated app is standalone, locally linked, vendored, or otherwise framework-coupled so later launcher commands can resolve dependencies and diagnostics coherently.
+- [ ] Add metadata-first resolution tracing and fallback diagnostics for launcher commands.
+	Show for `gwc dev`, `gwc build`, `gwc release`, `gwc test`, `gwc verify`, and `gwc doctor` whether the resolved app path, entrypoint, output path, profile, and port came from explicit flags, `gwc-start.json`, launcher config, or convention fallback so remaining heuristics stay visible and debuggable.
+- [ ] Add metadata schema-versioning and migration validation for generated apps.
+	Define how older or partially populated `gwc-start.json` files are upgraded, defaulted, warned on, or rejected so launcher evolution does not silently reinterpret generated-app intent across versions.
 - [ ] Add optional bootstrap for app-local git initialization.
 	Offer to initialize a fresh git repository for generated standalone apps so they start with their own version-control boundary instead of inheriting the framework repo context.
 - [x] Add launcher integration tests for config precedence and project detection.
@@ -1586,6 +1604,10 @@ Organization rules for this file:
 	Publish concrete workload-driven rules for when normal component rerenders remain preferred, when `state.Select(...)` is enough, and when a subscribed region is justified so the non-default model is easy to adopt consistently.
 - [ ] Add benchmark comparisons that defend the non-default stance explicitly.
 	Measure hook-only, opt-in fine-grained, and signal-first-style hotspot workloads side by side so the project can explain why fine-grained support is H3 as an option but still L1 as the default programming model.
+- [ ] Add first-class virtualization primitives for large lists and tables.
+	Provide one supported answer for windowed rendering, stable row identity, measurement or overscan policy, and scroll restoration so data-heavy apps do not have to hand-roll large-collection performance patterns on top of the base reconciler.
+- [ ] Add virtualization examples, diagnostics, and performance budgets.
+	Ship at least one realistic table or feed example plus profiling hooks that show rendered-row counts, measurement churn, and scroll-jank signals so virtualization can be validated as a production feature rather than an isolated helper.
 
 ### Compiler-assisted features
 
