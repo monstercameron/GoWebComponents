@@ -523,7 +523,7 @@ The repo now includes `head` as the reference companion package for this categor
 
 - likely scope: render harnesses, hydration test helpers, router test setup, SSR assertions, and common fixture helpers
 - why it stays out of core for now: test ergonomics matter, but the stable runtime contract should stay separate from any one testing style or harness package
-- current direction: one first-party companion testing module with focused packages such as `testkit/render`, `testkit/hooks`, `testkit/router`, and `testkit/ssr`; see [TESTING.md](TESTING.md)
+- current direction: one first-party companion testing module with focused packages such as `test/render`, `test/hooks`, `test/router`, and `test/ssr`; the older `testkit/...` paths remain supported as compatibility aliases; see [TESTING.md](TESTING.md)
 
 ## Roadmap Priority Rule
 

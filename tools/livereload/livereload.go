@@ -25,6 +25,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
 	"github.com/monstercameron/GoWebComponents/diagnostics"
+	"github.com/monstercameron/GoWebComponents/tools/runnerconfig"
 )
 
 const (
@@ -44,7 +45,18 @@ var (
 			return true // Allow connections from any origin in development
 		},
 	}
+	livereloadConfigGetwd       = os.Getwd
+	livereloadConfigUserHomeDir = os.UserHomeDir
 )
+
+func livereloadRunnerConfigFS() runnerconfig.FS {
+	return runnerconfig.FS{
+		Getwd:       livereloadConfigGetwd,
+		UserHomeDir: livereloadConfigUserHomeDir,
+		ReadFile:    os.ReadFile,
+		Stat:        os.Stat,
+	}
+}
 
 type LiveReloadOptions struct {
 	MainPath         string
@@ -77,12 +89,6 @@ type WebSocketMessage struct {
 	Type      MessageType `json:"type"`
 	Payload   interface{} `json:"payload,omitempty"`
 	Timestamp time.Time   `json:"timestamp"`
-}
-
-type livereloadRunnerOverrides struct {
-	Paths struct {
-		LivereloadClientScript string `json:"livereloadClientScript,omitempty"`
-	} `json:"paths,omitempty"`
 }
 
 type BuildStatus struct {
@@ -1299,29 +1305,16 @@ func resolveClientScriptPath() string {
 }
 
 func resolveConfiguredClientScriptPath() string {
-	configPath := resolveLivereloadRunnerConfigPath()
-	if strings.TrimSpace(configPath) == "" {
-		return ""
-	}
-	content, err := os.ReadFile(configPath)
+	cwd, err := livereloadConfigGetwd()
 	if err != nil {
+		cwd = ""
+	}
+	resolved, ok, err := runnerconfig.ResolveConfiguredPath(cwd, func(paths runnerconfig.Paths) string {
+		return paths.LivereloadClientScript
+	}, "livereloadClientScript", livereloadRunnerConfigFS())
+	if err != nil || !ok {
 		return ""
 	}
-	var overrides livereloadRunnerOverrides
-	if err := json.Unmarshal(content, &overrides); err != nil {
-		return ""
-	}
-	raw := strings.TrimSpace(overrides.Paths.LivereloadClientScript)
-	if raw == "" {
-		return ""
-	}
-	if filepath.IsAbs(raw) {
-		if _, err := os.Stat(raw); err == nil {
-			return filepath.Clean(raw)
-		}
-		return ""
-	}
-	resolved := filepath.Join(filepath.Dir(configPath), raw)
 	if _, err := os.Stat(resolved); err == nil {
 		return resolved
 	}
@@ -1329,36 +1322,15 @@ func resolveConfiguredClientScriptPath() string {
 }
 
 func resolveLivereloadRunnerConfigPath() string {
-	if explicit := strings.TrimSpace(os.Getenv("GWC_RUNNER_CONFIG")); explicit != "" {
-		if filepath.IsAbs(explicit) {
-			return explicit
-		}
-		if cwd, err := os.Getwd(); err == nil {
-			return filepath.Join(cwd, explicit)
-		}
-		return explicit
+	cwd, err := livereloadConfigGetwd()
+	if err != nil {
+		cwd = ""
 	}
-	if cwd, err := os.Getwd(); err == nil {
-		for current := cwd; strings.TrimSpace(current) != ""; current = filepath.Dir(current) {
-			candidate := filepath.Join(current, "gwc-runner.json")
-			if _, statErr := os.Stat(candidate); statErr == nil {
-				return candidate
-			}
-			parent := filepath.Dir(current)
-			if parent == current {
-				break
-			}
-		}
-	}
-	homeDir, err := os.UserHomeDir()
-	if err != nil || strings.TrimSpace(homeDir) == "" {
+	configPath, err := runnerconfig.ResolveConfigPath(cwd, livereloadRunnerConfigFS())
+	if err != nil {
 		return ""
 	}
-	candidate := filepath.Join(homeDir, ".gwc", "runner.json")
-	if _, err := os.Stat(candidate); err == nil {
-		return candidate
-	}
-	return ""
+	return configPath
 }
 
 func netAddr(host, port string) string {

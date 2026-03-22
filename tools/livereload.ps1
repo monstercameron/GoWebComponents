@@ -6,6 +6,8 @@ Write-Host "Server will be available at http://localhost:8080" -ForegroundColor 
 # Store original directory to restore on exit
 $OriginalDir = Get-Location
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$RepoRoot = (Resolve-Path (Join-Path $ScriptDir "..")).Path
+$BinaryDir = Join-Path $RepoRoot "bin\tools\livereload"
 
 # Add trap to restore directory on Ctrl+C or script exit
 trap {
@@ -20,10 +22,11 @@ trap {
 $LiveReloadDir = Join-Path $ScriptDir "livereload"
 Set-Location $LiveReloadDir
 
-$BinaryPath = ".\livereload.exe"
+$BinaryPath = Join-Path $BinaryDir "livereload.exe"
 
 Write-Host "Building live reload server..." -ForegroundColor Yellow
-go build -o livereload.exe .
+New-Item -ItemType Directory -Force -Path $BinaryDir | Out-Null
+go build -o $BinaryPath .
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Build failed!" -ForegroundColor Red
     if ($OriginalDir) {

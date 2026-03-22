@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/monstercameron/GoWebComponents/tools/runnerconfig"
 )
 
 func TestCanonicalRunnerConfigExampleMatchesLivereloadSchema(t *testing.T) {
@@ -16,7 +18,7 @@ func TestCanonicalRunnerConfigExampleMatchesLivereloadSchema(t *testing.T) {
 		t.Fatalf("read canonical runner config example: %v", err)
 	}
 
-	var overrides livereloadRunnerOverrides
+	var overrides runnerconfig.Overrides
 	if err := json.Unmarshal(content, &overrides); err != nil {
 		t.Fatalf("parse canonical runner config example: %v", err)
 	}

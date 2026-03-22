@@ -2,9 +2,18 @@
 
 Location: `test/`
 
-This directory contains the Playwright-based browser test layers for GoWebComponents.
+This directory contains the testing surface for GoWebComponents.
 
-It is the single browser test workspace for the repository, including both the functional regression suites and the browser performance benchmark harness.
+At the top level it is the single browser test workspace for the repository, including both the functional regression suites and the browser performance benchmark harness.
+
+It also now hosts the preferred public Go testing helper import paths under:
+
+- `test/render`
+- `test/hooks`
+- `test/router`
+- `test/ssr`
+
+The older `testkit/...` import paths remain supported as compatibility aliases.
 
 ## What Is Covered
 

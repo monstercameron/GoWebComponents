@@ -22,7 +22,8 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = (Resolve-Path (Join-Path $ScriptDir "..")).Path
 $ServerDir = Join-Path $ScriptDir "livereload"
-$BinaryPath = Join-Path $ServerDir "livereload.exe"
+$BinaryDir = Join-Path $RepoRoot "bin\tools\livereload"
+$BinaryPath = Join-Path $BinaryDir "livereload.exe"
 
 if (-not (Test-Path $ServerDir)) {
     Write-Host "Error: live reload server directory not found at $ServerDir" -ForegroundColor Red
@@ -51,7 +52,8 @@ if ($hadGoarch) {
 Push-Location $ServerDir
 try {
     Write-Host "Building live reload server..." -ForegroundColor Yellow
-    go build -o livereload.exe .
+    New-Item -ItemType Directory -Force -Path $BinaryDir | Out-Null
+    go build -o $BinaryPath .
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Error: live reload server build failed." -ForegroundColor Red
         exit $LASTEXITCODE

@@ -10,20 +10,24 @@ The intended shape is one companion testing module with several focused helper p
 
 Recommended package split:
 
-- `testkit/render`: component mount, DOM fixture ownership, queries, event dispatch, and deterministic flush helpers
-- `testkit/hooks`: hook-host utilities for custom hooks and hook-driven state flows
-- `testkit/router`: initial-route setup, navigation, params, query, guard, and loader assertions
-- `testkit/ssr`: `RenderToString(...)` snapshots, bootstrap assertions, and hydration smoke helpers
-- `testkit/browser`: optional bridges for browser-runner setup when consumer tests want thin helpers over Playwright or similar tools
+- `test/render`: component mount, DOM fixture ownership, queries, event dispatch, and deterministic flush helpers
+- `test/hooks`: hook-host utilities for custom hooks and hook-driven state flows
+- `test/router`: initial-route setup, navigation, params, query, guard, and loader assertions
+- `test/ssr`: SSR snapshots, bootstrap assertions, and hydration smoke helpers
+- `test/browser`: optional bridges for browser-runner setup when consumer tests want thin helpers over Playwright or similar tools
 
 The root companion module may expose only shared low-level pieces that the focused packages need, such as fixture lifecycle or scheduler-settlement helpers. Consumer-facing testing APIs should stay in the focused packages so imports remain explicit and semver changes stay easier to reason about.
 
+The preferred import paths now live under `test/...`.
+
+The older `testkit/...` paths remain supported as compatibility aliases, so existing consumers do not need an immediate migration.
+
 Current shipped slice:
 
-- `testkit/render` now provides the first public component fixture for `js/wasm` tests, including controlled mock-DOM rendering, rerendering, basic rendered-node queries, event dispatch helpers, and scheduler-settlement helpers without importing repo-local runtime test helpers.
-- `testkit/hooks` now provides a lightweight `RenderHook(...)` harness for `js/wasm` tests, so custom hooks and hook-driven state flows can be exercised without a bespoke host component per test.
-- `testkit/router` now provides hash and history router fixtures for `js/wasm` tests, including initial-path setup, navigation helpers, route inspection, and delegated rendered-route queries.
-- `testkit/ssr` now provides public SSR snapshot helpers, typed bootstrap-payload assertions, and a lightweight hydration smoke harness for `js/wasm` tests.
+- `test/render` now provides the public component fixture for `js/wasm` tests, including controlled mock-DOM rendering, rerendering, basic rendered-node queries, event dispatch helpers, and scheduler-settlement helpers without importing repo-local runtime test helpers.
+- `test/hooks` now provides a lightweight `RenderHook(...)` harness for `js/wasm` tests, so custom hooks and hook-driven state flows can be exercised without a bespoke host component per test.
+- `test/router` now provides hash and history router fixtures for `js/wasm` tests, including initial-path setup, navigation helpers, route inspection, and delegated rendered-route queries.
+- `test/ssr` now provides public SSR snapshot helpers, typed bootstrap-payload assertions, and a lightweight hydration smoke harness for `js/wasm` tests.
 
 ## Why This Split
 
@@ -73,11 +77,11 @@ Consumers should be able to copy working tests directly from the public helpers.
 
 Recommended usage shape:
 
-1. unit and component tests on `js/wasm`: render with `testkit/render`, query by role/name, and drive events through `Click`, `Input`, or `Dispatch`
-2. hook tests on `js/wasm`: use `testkit/hooks.RenderHook(...)` and mutate through `Act(...)`
-3. router integration tests on `js/wasm`: set an initial path with `testkit/router`, render once, then assert params, query, and rendered output together
-4. SSR delivery checks on native Go: snapshot with `testkit/ssr.Render(...)` and assert bootstrap payloads with `RequirePayload(...)`
-5. hydration smoke checks on `js/wasm`: hydrate through `testkit/ssr.SmokeHydrate(...)` when a server-delivery path needs end-to-end confidence
+1. unit and component tests on `js/wasm`: render with `test/render`, query by role/name, and drive events through `Click`, `Input`, or `Dispatch`
+2. hook tests on `js/wasm`: use `test/hooks.RenderHook(...)` and mutate through `Act(...)`
+3. router integration tests on `js/wasm`: set an initial path with `test/router`, render once, then assert params, query, and rendered output together
+4. SSR delivery checks on native Go: snapshot with `test/ssr.Render(...)` and assert bootstrap payloads with `RequirePayload(...)`
+5. hydration smoke checks on `js/wasm`: hydrate through `test/ssr.SmokeHydrate(...)` when a server-delivery path needs end-to-end confidence
 
 For this repository itself, the Go-native launcher now exposes explicit lane-oriented shortcuts around the existing mix of Go, js/wasm, Playwright, and release smoke checks:
 
@@ -119,7 +123,7 @@ The testing companion surface owns consumer ergonomics for:
 
 The remaining backlog in [TODO.md](TODO.md) should build this surface in this order:
 
-1. `testkit/render` plus shared deterministic flush helpers
+1. `test/render` plus shared deterministic flush helpers
 2. accessibility-first query semantics and example tests
 3. router and async loader helpers
 4. SSR and hydration helpers
