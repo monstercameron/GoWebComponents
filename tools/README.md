@@ -14,11 +14,11 @@ Examples:
 
 ```powershell
 go run ./tools/gwc build -app .\examples\01-counter\main.go -profile ci
-go run ./tools/gwc release -app .\examples\01-counter\main.go -out-dir .\tmp\gwc-release
+go run ./tools/gwc release -app .\examples\01-counter\main.go -out-dir .\bin\gwc-release
 go run ./tools/gwc examples
 go run ./tools/gwc dev -app .\test\testapp\main.go
 go run ./tools/gwc doctor
-go run ./tools/gwc import -src .\design\landing.jsx -out .\tmp\landing\main.go
+go run ./tools/gwc import -src .\design\landing.jsx -out .\bin\landing\main.go
 go run ./tools/gwc test -lane unit -lane wasm
 go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01-counter
 ```
@@ -34,7 +34,7 @@ Current status:
 - `test` now exposes explicit launcher-owned `unit`, `wasm`, `hydration`, `browser`, and `release` lanes, defaults to `unit` plus `wasm`, and supports JSON summaries for automation
 - `verify` now runs app-local `go test ./...` when `_test.go` files exist under the resolved project root, then performs a `ci`-profile js/wasm build through the same launcher path, with both human and JSON output
 - `start` now opens a Bubble Tea wizard, generates a runnable scaffold in a user-owned workspace location by default, and asks whether to launch it in the dev server immediately
-- `gwc-runner.json` or `%GWC_RUNNER_CONFIG%` can now provide enterprise-oriented path overrides such as `generatedProjectRoot`, `wasmExecJS`, `goWasmExec`, and `browserWorkspace`
+- `gwc-runner.json` or `%GWC_RUNNER_CONFIG%` can now provide enterprise-oriented path overrides such as `generatedProjectRoot`, `artifactRoot`, `wasmExecJS`, `goWasmExec`, `browserWorkspace`, `livereloadWorkspace`, and `livereloadClientScript`
 - launcher-owned temp artifacts now resolve under `bin/tmp/` beneath the relevant project root instead of the OS temp directory
 
 ### `serve.ps1`
@@ -57,12 +57,12 @@ Behavior:
 Equivalent repo-root command:
 
 ```powershell
-npm run dev:examples
+npm --prefix tools/devtools run dev:examples
 ```
 
 ### `dev-server/`
 
-Express-based server used by `serve.ps1` and `npm run dev:examples`.
+Express-based server used by `serve.ps1` and `npm --prefix tools/devtools run dev:examples`.
 
 Key behavior:
 
@@ -105,7 +105,7 @@ Example:
 ```powershell
 .\tools\build-wasm-release.ps1 `
   -Package ./examples/21-ui-render `
-  -OutDir .\dist\ui-render `
+  -OutDir .\bin\ui-render `
   -BudgetsPath .\tools\wasm-size-budgets.sample.json
 ```
 
@@ -125,7 +125,7 @@ Example:
 ```powershell
 .\tools\measure-wasm-build.ps1 `
   -Package ./examples/21-ui-render `
-  -OutDir .\tmp\ui-render-build-exp `
+  -OutDir .\bin\ui-render-build-exp `
   -ReleaseProfile
 ```
 
@@ -147,7 +147,7 @@ Example:
 ```powershell
 .\tools\compare-wasm-compression.ps1 `
   -Package ./examples/21-ui-render `
-  -OutDir .\tmp\ui-render-compression-exp
+  -OutDir .\bin\ui-render-compression-exp
 ```
 
 Behavior:
@@ -166,7 +166,7 @@ Example:
 ```powershell
 .\tools\compare-wasm-build-cache.ps1 `
   -Package ./examples/21-ui-render `
-  -OutDir .\tmp\ui-render-cache-exp `
+  -OutDir .\bin\ui-render-cache-exp `
   -ReleaseProfile
 ```
 
@@ -186,9 +186,9 @@ Example:
 
 ```powershell
 .\tools\compare-wasm-experiment.ps1 `
-  -Baseline .\tmp\ui-render-cache-exp\wasm-build-cache-comparison.json `
-  -Candidate .\tmp\ui-render-cache-exp\wasm-build-cache-comparison.json `
-  -OutFile .\tmp\ui-render-cache-exp\comparison.json
+  -Baseline .\bin\ui-render-cache-exp\wasm-build-cache-comparison.json `
+  -Candidate .\bin\ui-render-cache-exp\wasm-build-cache-comparison.json `
+  -OutFile .\bin\ui-render-cache-exp\comparison.json
 ```
 
 Behavior:
@@ -209,7 +209,7 @@ Example:
   -Package ./examples/21-ui-render `
   -BaselineGo go `
   -CandidateGo go `
-  -OutDir .\tmp\ui-render-toolchain-exp `
+  -OutDir .\bin\ui-render-toolchain-exp `
   -ReleaseProfile
 ```
 
@@ -281,7 +281,7 @@ Most users should run the wrapper scripts instead of calling the Go server direc
 ### Serve examples
 
 ```powershell
-npm run dev:examples
+npm --prefix tools/devtools run dev:examples
 ```
 
 ### Run runtime tests

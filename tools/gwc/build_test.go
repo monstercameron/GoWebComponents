@@ -136,6 +136,30 @@ func TestResolveBuildConfigPrefersScaffoldMetadata(t *testing.T) {
 	}
 }
 
+func TestResolveBuildConfigUsesArtifactRootOverride(t *testing.T) {
+	root := t.TempDir()
+	mainPath := filepath.Join(root, "main.go")
+	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
+		t.Fatalf("write main.go: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "gwc-runner.json"), []byte(`{"paths":{"artifactRoot":"enterprise-artifacts"}}`), 0644); err != nil {
+		t.Fatalf("write gwc-runner.json: %v", err)
+	}
+
+	originalGetwd := buildGetwd
+	t.Cleanup(func() { buildGetwd = originalGetwd })
+	buildGetwd = func() (string, error) { return root, nil }
+
+	config, err := resolveBuildConfig(buildConfig{})
+	if err != nil {
+		t.Fatalf("resolve build config: %v", err)
+	}
+	want := filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "main.wasm")
+	if config.outputPath != want {
+		t.Fatalf("expected artifact-root output path %q, got %#v", want, config)
+	}
+}
+
 func TestResolveBuildConfigDirectoryAppPathAndInvalidMetadata(t *testing.T) {
 	t.Run("directory app path uses app directory as root", func(t *testing.T) {
 		root := t.TempDir()

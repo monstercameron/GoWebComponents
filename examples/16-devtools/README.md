@@ -12,7 +12,7 @@ It demonstrates:
 Serve examples from the repo root with:
 
 ```powershell
-npm run dev:examples
+npm --prefix ../../tools/devtools run dev:examples
 ```
 
 Then open `/examples/16-devtools/devtools.html`.

@@ -370,7 +370,7 @@ func TestRunUnitTestLaneIncludesNestedLivereloadWorkspace(t *testing.T) {
 	if invocations[0] != repoRoot || invocations[1] != nestedRoot {
 		t.Fatalf("expected invocation order [%q %q], got %#v", repoRoot, nestedRoot, invocations)
 	}
-	if summary.Summary != "Native Go tests passed, including tools/livereload." {
+	if summary.Summary != "Native Go tests passed, including the nested livereload workspace." {
 		t.Fatalf("expected nested unit test summary, got %#v", summary)
 	}
 	if !strings.Contains(summary.Output, filepath.Base(repoRoot)+" ok") || !strings.Contains(summary.Output, "livereload ok") {
@@ -555,6 +555,19 @@ func TestRunBrowserTestLaneSuccessAndSkipPaths(t *testing.T) {
 	}
 	if !summary.Skipped || summary.Workspace == "" {
 		t.Fatalf("expected skipped browser lane summary, got %#v", summary)
+	}
+}
+
+func TestRunBrowserTestLaneFailsForInvalidOverride(t *testing.T) {
+	repoRoot := t.TempDir()
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "gwc-runner.json"), []byte(`{"paths":{"browserWorkspace":"missing-browser"}}`), 0644); err != nil {
+		t.Fatalf("write gwc-runner.json: %v", err)
+	}
+
+	_, err := (launcher{repoRoot: repoRoot}).runBrowserTestLane(root)
+	if err == nil || !strings.Contains(err.Error(), "configured browserWorkspace does not contain a package.json file") {
+		t.Fatalf("expected invalid browserWorkspace override to fail, got %v", err)
 	}
 }
 

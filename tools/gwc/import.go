@@ -1809,6 +1809,11 @@ func createLauncherTempDir(rootPath string, prefix string) (string, error) {
 		rootPath = cwd
 	}
 	tempRoot := filepath.Join(rootPath, "bin", "tmp")
+	if artifactPath, ok, err := resolveLauncherArtifactPath(rootPath, "tmp"); err != nil {
+		return "", err
+	} else if ok {
+		tempRoot = artifactPath
+	}
 	if err := os.MkdirAll(tempRoot, 0755); err != nil {
 		return "", fmt.Errorf("create launcher temp root: %w", err)
 	}

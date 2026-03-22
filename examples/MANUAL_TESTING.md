@@ -36,7 +36,7 @@ Treat those four examples as manual-priority pages until their focused specs are
 From the repo root:
 
 ```powershell
-npm run dev:examples
+npm --prefix ../tools/devtools run dev:examples
 ```
 
 Main catalog URLs:

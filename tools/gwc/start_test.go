@@ -1255,7 +1255,7 @@ func TestRenderScaffoldMetadataIncludesToolingDefaults(t *testing.T) {
 	if metadata.Tooling.AppPath != "main.go" || metadata.Tooling.HTMLPath != "index.html" || metadata.Tooling.WASMPath != "main.wasm" {
 		t.Fatalf("expected default tooling paths, got %#v", metadata.Tooling)
 	}
-	if metadata.Tooling.ReleaseOutDir != filepath.ToSlash(filepath.Join("dist", "wasm-release")) || metadata.Tooling.ReleaseBinaryName != "app.wasm" || metadata.Tooling.ReleaseCompression != "gzip+brotli" {
+	if metadata.Tooling.ReleaseOutDir != filepath.ToSlash(filepath.Join("bin", "wasm-release")) || metadata.Tooling.ReleaseBinaryName != "app.wasm" || metadata.Tooling.ReleaseCompression != "gzip+brotli" {
 		t.Fatalf("expected release tooling defaults, got %#v", metadata.Tooling)
 	}
 	if metadata.Preset.Key != selection.Preset.Key || len(metadata.Preset.Features) != 2 {
@@ -1445,7 +1445,7 @@ func TestGenerateStartScaffoldWritesStarterFiles(t *testing.T) {
 	if metadata.Tooling.DefaultBuildProfile != "development" {
 		t.Fatalf("expected default build profile metadata, got %#v", metadata.Tooling)
 	}
-	if metadata.Tooling.ReleaseOutDir != filepath.ToSlash(filepath.Join("dist", "wasm-release")) {
+	if metadata.Tooling.ReleaseOutDir != filepath.ToSlash(filepath.Join("bin", "wasm-release")) {
 		t.Fatalf("expected default release out dir metadata, got %#v", metadata.Tooling)
 	}
 	if metadata.Tooling.ReleaseBinaryName != "app.wasm" {

@@ -51,7 +51,7 @@ Symptoms:
 
 Checks:
 
-- start the documented Express server with `npm run dev:examples`
+- start the documented Express server with `npm --prefix tools/devtools run dev:examples`
 - confirm the expected port is free before starting another dev server
 - check that the requested example path exists under `examples/`
 - verify generated wasm output is present under `examples/static/bin/` when the page expects it

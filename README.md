@@ -6,7 +6,7 @@ It is intentionally separate so the current README stays unchanged until you app
 ---
 
 <p align="center">
-  <img src="hero.jpg" alt="GoWebComponents Hero Image" width="900">
+    <img src="docs/assets/hero.jpg" alt="GoWebComponents Hero Image" width="900">
 </p>
 
 # GoWebComponents
@@ -41,7 +41,7 @@ Import public packages from the module path exactly as declared in `go.mod`:
 ```go
 import (
   "github.com/monstercameron/GoWebComponents/fetch"
-    "github.com/monstercameron/GoWebComponents/hotreload"
+  "github.com/monstercameron/GoWebComponents/hotreload"
   "github.com/monstercameron/GoWebComponents/html"
   "github.com/monstercameron/GoWebComponents/router"
   "github.com/monstercameron/GoWebComponents/state"
@@ -240,7 +240,7 @@ The preferred public surface is:
 ### Tooling and Validation
 
 - Public `devtools` package for in-app inspection and diagnostics
-- `go run ./tools/gwc import -src .\path\to\layout.html -out .\bin\converter\layout\bin\main.go` converts static `.html`, `.htm`, `.jsx`, or `.tsx` files into an inspectable GWC `main.go` built from `html` library calls
+- `go run ./tools/gwc import -src .\path\to\layout.html -out .\bin\converter\layout\main.go` converts static `.html`, `.htm`, `.jsx`, or `.tsx` files into an inspectable GWC `main.go` built from `html` library calls
 - Launcher-owned temporary artifacts now resolve under `bin/tmp/` beneath the relevant project root instead of the OS temp directory
 - Native Go tests, js/wasm tests, Playwright browser suites, and benchmark coverage
 - Large example suite spanning local state, forms, routing, async work, SSR, hydration, nested routes, and diagnostics
@@ -266,7 +266,7 @@ The repository ships both larger integrated demos and feature-isolated catalog p
 From the repo root, start the example server with:
 
 ```powershell
-npm run dev:examples
+npm --prefix tools/devtools run dev:examples
 ```
 
 Primary URLs:
@@ -373,7 +373,7 @@ Recent measured native runtime improvements include:
 The repo uses a Node/Express example server for local example development.
 
 ```powershell
-npm run dev:examples
+npm --prefix tools/devtools run dev:examples
 ```
 
 Relevant directories:

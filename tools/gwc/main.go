@@ -574,7 +574,10 @@ func (l launcher) runUnitTestLane(rootPath string) (testLaneSummary, error) {
 		Summary:        "Native Go tests passed.",
 	}
 	if rootPath == l.repoRoot {
-		nestedRoot := filepath.Join(l.repoRoot, "tools", "livereload")
+		nestedRoot, err := resolveLauncherLivereloadWorkspace(l.repoRoot, rootPath)
+		if err != nil {
+			return testLaneSummary{}, err
+		}
 		if fileExists(filepath.Join(nestedRoot, "go.mod")) {
 			nestedOutput, nestedErr := launcherRunCommand("go", []string{"test", "./..."}, nestedRoot, buildNativeGoEnv())
 			if nestedOutput != "" {
@@ -583,7 +586,7 @@ func (l launcher) runUnitTestLane(rootPath string) (testLaneSummary, error) {
 			if nestedErr != nil {
 				return testLaneSummary{}, nestedErr
 			}
-			summary.Summary = "Native Go tests passed, including tools/livereload."
+			summary.Summary = "Native Go tests passed, including the nested livereload workspace."
 		}
 	}
 	if len(outputs) > 0 {
@@ -634,7 +637,10 @@ func (l launcher) runWasmTestLane(rootPath string, hydrationOnly bool) (testLane
 }
 
 func (l launcher) runBrowserTestLane(rootPath string) (testLaneSummary, error) {
-	workspace := detectBrowserWorkspace(l.repoRoot, rootPath)
+	workspace, err := resolveBrowserWorkspace(l.repoRoot, rootPath)
+	if err != nil {
+		return testLaneSummary{}, err
+	}
 	if workspace == "" {
 		return testLaneSummary{
 			Name:      "browser",
@@ -840,21 +846,17 @@ func buildBrowserTestEnv() []string {
 }
 
 func resolveWasmTestExec(repoRoot string) (string, error) {
-	overrides, configPath, ok, err := loadLauncherOverridesForCurrentContext()
+	overridePath, ok, err := resolveLauncherConfiguredPath(repoRoot, func(paths launcherOverridePaths) string {
+		return paths.GoWASMExec
+	}, "goWasmExec")
 	if err != nil {
 		return "", err
 	}
 	if ok {
-		overridePath, err := resolveLauncherOverrideValue(configPath, overrides.Paths.GoWASMExec)
-		if err != nil {
-			return "", fmt.Errorf("resolve goWasmExec override: %w", err)
+		if !fileExists(overridePath) {
+			return "", fmt.Errorf("configured goWasmExec path does not exist: %s", overridePath)
 		}
-		if strings.TrimSpace(overridePath) != "" {
-			if !fileExists(overridePath) {
-				return "", fmt.Errorf("configured goWasmExec path does not exist: %s", overridePath)
-			}
-			return overridePath, nil
-		}
+		return overridePath, nil
 	}
 	if value := strings.TrimSpace(os.Getenv("GO_WASM_EXEC")); value != "" {
 		return value, nil
@@ -868,23 +870,77 @@ func resolveWasmTestExec(repoRoot string) (string, error) {
 	return "", errors.New("GO_WASM_EXEC is not set and the repo js/wasm executor helper could not be resolved")
 }
 
-func detectBrowserWorkspace(repoRoot string, rootPath string) string {
-	overrides, configPath, ok, err := loadLauncherOverrides(rootPath)
-	if err == nil && ok {
-		overridePath, resolveErr := resolveLauncherOverrideValue(configPath, overrides.Paths.BrowserWorkspace)
-		if resolveErr == nil && strings.TrimSpace(overridePath) != "" && fileExists(filepath.Join(overridePath, "package.json")) {
-			return overridePath
+func resolveBrowserWorkspace(repoRoot string, rootPath string) (string, error) {
+	overridePath, ok, err := resolveLauncherConfiguredPath(rootPath, func(paths launcherOverridePaths) string {
+		return paths.BrowserWorkspace
+	}, "browserWorkspace")
+	if err != nil {
+		return "", err
+	}
+	if ok {
+		if !fileExists(filepath.Join(overridePath, "package.json")) {
+			return "", fmt.Errorf("configured browserWorkspace does not contain a package.json file: %s", overridePath)
 		}
+		return overridePath, nil
 	}
 	rootPackage := filepath.Join(rootPath, "package.json")
 	if fileExists(rootPackage) && (fileExists(filepath.Join(rootPath, "playwright.config.js")) || fileExists(filepath.Join(rootPath, "playwright.config.ts"))) {
-		return rootPath
+		return rootPath, nil
 	}
 	repoWorkspace := filepath.Join(repoRoot, "test")
 	if fileExists(filepath.Join(repoWorkspace, "package.json")) {
-		return repoWorkspace
+		return repoWorkspace, nil
 	}
-	return ""
+	return "", nil
+}
+
+func detectBrowserWorkspace(repoRoot string, rootPath string) string {
+	workspace, err := resolveBrowserWorkspace(repoRoot, rootPath)
+	if err != nil {
+		return ""
+	}
+	return workspace
+}
+
+func resolveLauncherLivereloadWorkspace(repoRoot string, rootPath string) (string, error) {
+	overridePath, ok, err := resolveLauncherConfiguredPath(rootPath, func(paths launcherOverridePaths) string {
+		return paths.LivereloadWorkspace
+	}, "livereloadWorkspace")
+	if err != nil {
+		return "", err
+	}
+	if ok {
+		info, statErr := os.Stat(overridePath)
+		if statErr != nil || !info.IsDir() {
+			return "", fmt.Errorf("configured livereloadWorkspace path does not exist: %s", overridePath)
+		}
+		return overridePath, nil
+	}
+	return filepath.Join(repoRoot, "tools", "livereload"), nil
+}
+
+func resolveLauncherLivereloadClientScript(repoRoot string, rootPath string) (string, bool, error) {
+	overridePath, ok, err := resolveLauncherConfiguredPath(rootPath, func(paths launcherOverridePaths) string {
+		return paths.LivereloadClientScript
+	}, "livereloadClientScript")
+	if err != nil {
+		return "", false, err
+	}
+	if ok {
+		if !fileExists(overridePath) {
+			return "", false, fmt.Errorf("configured livereloadClientScript path does not exist: %s", overridePath)
+		}
+		return overridePath, true, nil
+	}
+	workspace, err := resolveLauncherLivereloadWorkspace(repoRoot, rootPath)
+	if err != nil {
+		return "", false, err
+	}
+	candidate := filepath.Join(workspace, "scripts", "livereload-client.js")
+	if fileExists(candidate) {
+		return candidate, true, nil
+	}
+	return "", false, nil
 }
 
 func npmCommandName() string {
@@ -1456,8 +1512,16 @@ func (l launcher) runDev(args []string) error {
 		forwarded = append(forwarded, "-wasm", config.wasmPath)
 	}
 	forwarded = append(forwarded, "-host", config.host, "-port", config.port, "-hot", fmt.Sprintf("%t", config.hot))
-	if strings.TrimSpace(*clientScript) != "" {
-		forwarded = append(forwarded, "-client-script", *clientScript)
+	resolvedClientScript := strings.TrimSpace(*clientScript)
+	if resolvedClientScript == "" {
+		if autoClientScript, ok, resolveErr := resolveLauncherLivereloadClientScript(l.repoRoot, config.rootPath); resolveErr != nil {
+			return resolveErr
+		} else if ok {
+			resolvedClientScript = autoClientScript
+		}
+	}
+	if resolvedClientScript != "" {
+		forwarded = append(forwarded, "-client-script", resolvedClientScript)
 	}
 
 	if *jsonOutput {
@@ -1470,8 +1534,12 @@ func (l launcher) runDev(args []string) error {
 	if *dryRun {
 		return nil
 	}
+	livereloadWorkspace, err := resolveLauncherLivereloadWorkspace(l.repoRoot, config.rootPath)
+	if err != nil {
+		return err
+	}
 	cmd := exec.Command("go", forwarded...)
-	cmd.Dir = filepath.Join(l.repoRoot, "tools", "livereload")
+	cmd.Dir = livereloadWorkspace
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -1481,6 +1549,7 @@ func (l launcher) runDev(args []string) error {
 
 func resolveBuildConfig(config buildConfig) (buildConfig, error) {
 	resolved := config
+	explicitOutputPath := strings.TrimSpace(config.outputPath) != ""
 	cwd, err := buildGetwd()
 	if err != nil {
 		return buildConfig{}, err
@@ -1533,6 +1602,13 @@ func resolveBuildConfig(config buildConfig) (buildConfig, error) {
 		return buildConfig{}, fmt.Errorf("resolve root path: %w", err)
 	}
 
+	if !explicitOutputPath {
+		if artifactPath, ok, err := resolveLauncherArtifactPath(resolved.rootPath, scaffoldWASMOutputPath()); err != nil {
+			return buildConfig{}, err
+		} else if ok {
+			resolved.outputPath = artifactPath
+		}
+	}
 	if strings.TrimSpace(resolved.outputPath) == "" {
 		resolved.outputPath = filepath.Join(resolved.rootPath, scaffoldWASMOutputPath())
 	}
@@ -1566,6 +1642,7 @@ func resolveBuildProfile(profile string) (buildProfile, error) {
 
 func resolveReleaseConfig(config releaseConfig) (releaseConfig, error) {
 	resolved := config
+	explicitOutDir := strings.TrimSpace(config.outDir) != ""
 	cwd, err := buildGetwd()
 	if err != nil {
 		return releaseConfig{}, err
@@ -1628,6 +1705,13 @@ func resolveReleaseConfig(config releaseConfig) (releaseConfig, error) {
 		return releaseConfig{}, fmt.Errorf("resolve root path: %w", err)
 	}
 
+	if !explicitOutDir {
+		if artifactPath, ok, err := resolveLauncherArtifactPath(resolved.rootPath, "wasm-release"); err != nil {
+			return releaseConfig{}, err
+		} else if ok {
+			resolved.outDir = artifactPath
+		}
+	}
 	if strings.TrimSpace(resolved.outDir) == "" {
 		resolved.outDir = filepath.Join(resolved.rootPath, defaultScaffoldReleaseOutDir())
 	}
@@ -2073,7 +2157,7 @@ func defaultScaffoldBuildProfile() string {
 }
 
 func defaultScaffoldReleaseOutDir() string {
-	return filepath.ToSlash(filepath.Join("dist", "wasm-release"))
+	return filepath.ToSlash(filepath.Join("bin", "wasm-release"))
 }
 
 func defaultScaffoldReleaseBinaryName() string {
@@ -2855,13 +2939,16 @@ func buildDoctorWasmExecCheck() doctorCheck {
 }
 
 func buildDoctorPlaywrightCheck(repoRoot string) doctorCheck {
-	packagePath := filepath.Join(repoRoot, "test", "package.json")
-	if !fileExists(packagePath) {
+	workspace, err := resolveBrowserWorkspace(repoRoot, repoRoot)
+	if err != nil {
+		return doctorCheck{Name: "Browser tests", Status: "fail", Summary: err.Error(), Hint: "Fix the browserWorkspace override or remove it so launcher defaults can be used."}
+	}
+	if strings.TrimSpace(workspace) == "" {
 		return doctorCheck{Name: "Browser tests", Status: "warn", Summary: "The repo test/package.json file was not found.", Hint: "Run doctor from the repo or restore the test workspace if browser coverage matters."}
 	}
-	playwrightPackagePath := filepath.Join(repoRoot, "test", "node_modules", "@playwright", "test", "package.json")
+	playwrightPackagePath := filepath.Join(workspace, "node_modules", "@playwright", "test", "package.json")
 	if !fileExists(playwrightPackagePath) {
-		return doctorCheck{Name: "Browser tests", Status: "warn", Summary: "Playwright dependencies are not installed under test/node_modules.", Hint: "Run `npm install` in test/ before browser suites or launcher verify flows."}
+		return doctorCheck{Name: "Browser tests", Status: "warn", Summary: fmt.Sprintf("Playwright dependencies are not installed under %s.", filepath.Join(workspace, "node_modules")), Hint: fmt.Sprintf("Run `npm install` in %s before browser suites or launcher verify flows.", workspace)}
 	}
 	return doctorCheck{Name: "Browser tests", Status: "pass", Summary: fmt.Sprintf("Playwright is installed at %s", playwrightPackagePath)}
 }

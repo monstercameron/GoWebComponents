@@ -158,7 +158,7 @@ func TestResolveReleaseConfigExplicitFlagsOverrideMetadata(t *testing.T) {
   "modulePath": "example.com/metadata-release-app",
   "tooling": {
     "appPath": "main.go",
-    "releaseOutDir": "dist/release",
+		"releaseOutDir": "bin/release",
     "releaseBinaryName": "site.wasm",
     "releaseCompression": "none"
   }

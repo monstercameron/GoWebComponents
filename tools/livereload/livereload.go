@@ -79,6 +79,12 @@ type WebSocketMessage struct {
 	Timestamp time.Time   `json:"timestamp"`
 }
 
+type livereloadRunnerOverrides struct {
+	Paths struct {
+		LivereloadClientScript string `json:"livereloadClientScript,omitempty"`
+	} `json:"paths,omitempty"`
+}
+
 type BuildStatus struct {
 	Success       bool                      `json:"success"`
 	Duration      string                    `json:"duration,omitempty"`
@@ -1274,6 +1280,9 @@ func resolveStaticDir(projectRoot string) string {
 }
 
 func resolveClientScriptPath() string {
+	if configured := resolveConfiguredClientScriptPath(); configured != "" {
+		return configured
+	}
 	if exe, err := os.Executable(); err == nil && exe != "" {
 		candidate := filepath.Join(filepath.Dir(exe), "scripts", "livereload-client.js")
 		if _, err := os.Stat(candidate); err == nil {
@@ -1285,6 +1294,69 @@ func resolveClientScriptPath() string {
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate
 		}
+	}
+	return ""
+}
+
+func resolveConfiguredClientScriptPath() string {
+	configPath := resolveLivereloadRunnerConfigPath()
+	if strings.TrimSpace(configPath) == "" {
+		return ""
+	}
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		return ""
+	}
+	var overrides livereloadRunnerOverrides
+	if err := json.Unmarshal(content, &overrides); err != nil {
+		return ""
+	}
+	raw := strings.TrimSpace(overrides.Paths.LivereloadClientScript)
+	if raw == "" {
+		return ""
+	}
+	if filepath.IsAbs(raw) {
+		if _, err := os.Stat(raw); err == nil {
+			return filepath.Clean(raw)
+		}
+		return ""
+	}
+	resolved := filepath.Join(filepath.Dir(configPath), raw)
+	if _, err := os.Stat(resolved); err == nil {
+		return resolved
+	}
+	return ""
+}
+
+func resolveLivereloadRunnerConfigPath() string {
+	if explicit := strings.TrimSpace(os.Getenv("GWC_RUNNER_CONFIG")); explicit != "" {
+		if filepath.IsAbs(explicit) {
+			return explicit
+		}
+		if cwd, err := os.Getwd(); err == nil {
+			return filepath.Join(cwd, explicit)
+		}
+		return explicit
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		for current := cwd; strings.TrimSpace(current) != ""; current = filepath.Dir(current) {
+			candidate := filepath.Join(current, "gwc-runner.json")
+			if _, statErr := os.Stat(candidate); statErr == nil {
+				return candidate
+			}
+			parent := filepath.Dir(current)
+			if parent == current {
+				break
+			}
+		}
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil || strings.TrimSpace(homeDir) == "" {
+		return ""
+	}
+	candidate := filepath.Join(homeDir, ".gwc", "runner.json")
+	if _, err := os.Stat(candidate); err == nil {
+		return candidate
 	}
 	return ""
 }

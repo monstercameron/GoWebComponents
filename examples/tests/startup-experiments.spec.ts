@@ -1,8 +1,8 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 
-const resultsDir = '..\\tmp';
-const resultsPath = '..\\tmp\\playwright-startup-static.json';
+const resultsDir = '..\\bin';
+const resultsPath = '..\\bin\\playwright-startup-static.json';
 
 type ExperimentResult = {
   id: string;

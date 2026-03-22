@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 
-const resultsDir = '..\\tmp';
-const resultsPath = '..\\tmp\\playwright-startup-atlas.json';
+const resultsDir = '..\\bin';
+const resultsPath = '..\\bin\\playwright-startup-atlas.json';
 
 test.describe.configure({ mode: 'serial' });
 

@@ -1568,6 +1568,33 @@ Organization rules for this file:
 - [ ] Add machine-readable diagnostics contracts for launcher failures.
 	Standardize structured failure output for build, serve, test, verify, and release commands so editors, CI jobs, and enterprise wrappers can distinguish configuration problems from code failures.
 
+#### Runner Config Centralization And Path Policy
+
+- [ ] Define one canonical runner-config schema for Go launcher, JS test runner, and nested livereload tooling.
+	Keep `gwc-runner.json` as the single external contract so artifact paths, helper binaries, browser workspaces, and livereload settings do not drift across implementations.
+- [ ] Split launcher config code into schema, defaults, and resolver layers.
+	Move away from a flat "magic strings in command handlers" model by keeping literal defaults in one place and computed repo-root-aware resolution logic in a separate shared layer.
+- [ ] Route every launcher-owned path decision through shared resolvers.
+	Ensure `dev`, `build`, `release`, `test`, `verify`, `doctor`, `import`, `examples`, and `start` all consume the same path-policy helpers instead of reconstructing fallbacks inline.
+- [ ] Remove remaining repo-owned `tmp/` and `dist/` assumptions from launcher-adjacent tooling.
+	Finish the `bin/` normalization pass so PowerShell helpers, Playwright outputs, manifests, and generated import artifacts all obey the same artifact-root policy.
+- [ ] Make `artifactRoot` govern every launcher-owned output class consistently.
+	Cover wasm builds, release directories, temporary import workdirs, experiment manifests, browser-result files, and any future generated diagnostics so enterprise overrides are complete rather than partial.
+- [ ] Make browser-workspace, livereload-workspace, client-script, and wasm-exec resolution behavior identical across Go and Node entrypoints.
+	Prevent cases where `gwc test`, `scripts/run-main-tests.mjs`, and standalone livereload each accept different overrides or silently fall back to different directories.
+- [ ] Add explicit resolution tracing for runner-config-derived values.
+	Show whether each resolved path came from CLI flags, project metadata, runner config, environment variables, or convention fallback so operators can debug why a command picked a specific workspace or artifact directory.
+- [ ] Add stable, structured diagnostics for invalid runner overrides.
+	Return actionable failures for missing configured paths, wrong workspace shapes, unreadable config files, and invalid relative-path bases without raw panic-style output or silent skip behavior.
+- [ ] Add config-discovery tests for local, environment, and home-directory runner config files.
+	Lock down precedence between repo-local `gwc-runner.json`, `GWC_RUNNER_CONFIG`, and home-level defaults so enterprise setups remain predictable across shells and CI agents.
+- [ ] Add end-to-end parity tests for runner-config path overrides.
+	Exercise one representative override file through `gwc dev`, `gwc test`, `gwc doctor`, `gwc build`, `gwc release`, the Node runner, and nested `tools/livereload` so the shared contract is validated across process boundaries.
+- [ ] Publish a documented example runner-config file and field reference.
+	Give teams a copyable baseline for `artifactRoot`, `browserWorkspace`, `livereloadWorkspace`, `livereloadClientScript`, `goWasmExec`, and related fields so adoption does not require code archaeology.
+- [ ] Define organization-policy versus project-config ownership for runner settings.
+	Clarify which overrides belong in enterprise-managed shared config, which belong in checked-in project config, and which should remain explicit per-command flags.
+
 ## 9. Strategic Direction and Experimental Work
 
 ### Fine-grained reactivity direction

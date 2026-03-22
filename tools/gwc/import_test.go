@@ -234,3 +234,21 @@ func TestCreateLauncherTempDirUsesBinTmp(t *testing.T) {
 		t.Fatalf("expected bin/tmp directory to exist: %v", err)
 	}
 }
+
+func TestCreateLauncherTempDirUsesArtifactRootOverride(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "gwc-runner.json"), []byte(`{"paths":{"artifactRoot":"enterprise-artifacts"}}`), 0644); err != nil {
+		t.Fatalf("write gwc-runner.json: %v", err)
+	}
+	dir, err := createLauncherTempDir(root, "gwc-test-")
+	if err != nil {
+		t.Fatalf("create launcher temp dir: %v", err)
+	}
+	wantPrefix := filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "tmp") + string(os.PathSeparator)
+	if !strings.HasPrefix(dir, wantPrefix) {
+		t.Fatalf("expected temp dir under artifact-root tmp %q, got %q", wantPrefix, dir)
+	}
+	if _, err := os.Stat(filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "tmp")); err != nil {
+		t.Fatalf("expected artifact-root tmp directory to exist: %v", err)
+	}
+}

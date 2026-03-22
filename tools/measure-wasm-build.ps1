@@ -1,6 +1,6 @@
 param(
     [string]$Package = ".",
-    [string]$OutDir = "dist/wasm-build-experiment",
+    [string]$OutDir = "bin/wasm-build-experiment",
     [string]$BinaryName = "app.wasm",
     [string]$ManifestName = "wasm-build-experiment.json",
     [string]$GoExecutable = "go",

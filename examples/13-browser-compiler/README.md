@@ -26,7 +26,7 @@ generates `static/pkg/index.json`.
 Use the repo dev server from the repo root:
 
 ```powershell
-npm run dev:examples
+npm --prefix ../../tools/devtools run dev:examples
 ```
 
 Then open:

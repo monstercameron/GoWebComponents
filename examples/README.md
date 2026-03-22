@@ -9,7 +9,7 @@ This directory contains the framework examples and shared static assets.
 From the repo root:
 
 ```powershell
-npm run dev:examples
+npm --prefix ../tools/devtools run dev:examples
 ```
 
 Then open:

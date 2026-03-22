@@ -1,6 +1,6 @@
 param(
     [string]$Package = "./examples/21-ui-render",
-    [string]$OutDir = "tmp/wasm-compression-comparison",
+    [string]$OutDir = "bin/wasm-compression-comparison",
     [string]$BinaryName = "app.wasm",
     [string]$SummaryName = "wasm-compression-comparison.json"
 )

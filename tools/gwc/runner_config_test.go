@@ -79,6 +79,69 @@ func TestDefaultGeneratedScaffoldRootUsesOverride(t *testing.T) {
 	}
 }
 
+func TestResolveLauncherArtifactPathUsesOverride(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "gwc-runner.json"), []byte(`{"paths":{"artifactRoot":"enterprise-artifacts"}}`), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	got, ok, err := resolveLauncherArtifactPath(root, "wasm-release")
+	if err != nil {
+		t.Fatalf("resolve launcher artifact path: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected artifact root override to be discovered")
+	}
+	want := filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "wasm-release")
+	if got != want {
+		t.Fatalf("expected artifact path %q, got %q", want, got)
+	}
+}
+
+func TestResolveLauncherLivereloadWorkspaceUsesOverride(t *testing.T) {
+	root := t.TempDir()
+	overrideDir := filepath.Join(root, "enterprise-livereload")
+	if err := os.MkdirAll(overrideDir, 0755); err != nil {
+		t.Fatalf("mkdir override dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "gwc-runner.json"), []byte(`{"paths":{"livereloadWorkspace":"enterprise-livereload"}}`), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	got, err := resolveLauncherLivereloadWorkspace(filepath.Join(root, "repo"), root)
+	if err != nil {
+		t.Fatalf("resolve livereload workspace: %v", err)
+	}
+	if got != overrideDir {
+		t.Fatalf("expected livereload workspace %q, got %q", overrideDir, got)
+	}
+}
+
+func TestResolveLauncherLivereloadClientScriptUsesOverride(t *testing.T) {
+	root := t.TempDir()
+	overrideFile := filepath.Join(root, "vendor", "livereload-client.js")
+	if err := os.MkdirAll(filepath.Dir(overrideFile), 0755); err != nil {
+		t.Fatalf("mkdir override dir: %v", err)
+	}
+	if err := os.WriteFile(overrideFile, []byte("console.log('ok');\n"), 0644); err != nil {
+		t.Fatalf("write override file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "gwc-runner.json"), []byte(`{"paths":{"livereloadClientScript":"vendor/livereload-client.js"}}`), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	got, ok, err := resolveLauncherLivereloadClientScript(filepath.Join(root, "repo"), root)
+	if err != nil {
+		t.Fatalf("resolve livereload client script: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected livereload client script override to be discovered")
+	}
+	if got != overrideFile {
+		t.Fatalf("expected livereload client script %q, got %q", overrideFile, got)
+	}
+}
+
 func TestResolveWasmExecPathUsesOverride(t *testing.T) {
 	root := t.TempDir()
 	overrideFile := filepath.Join(root, "vendor", "wasm_exec.js")
@@ -184,6 +247,33 @@ func TestResolveWasmTestExecUsesOverride(t *testing.T) {
 	}
 	if got != overrideFile {
 		t.Fatalf("expected goWasmExec override %q, got %q", overrideFile, got)
+	}
+}
+
+func TestResolveWasmTestExecUsesRepoRootConfigInsteadOfCurrentContext(t *testing.T) {
+	repoRoot := t.TempDir()
+	otherRoot := t.TempDir()
+	overrideFile := filepath.Join(repoRoot, "tools", "go_js_wasm_exec.bat")
+	if err := os.MkdirAll(filepath.Dir(overrideFile), 0755); err != nil {
+		t.Fatalf("mkdir override dir: %v", err)
+	}
+	if err := os.WriteFile(overrideFile, []byte("@echo off\n"), 0644); err != nil {
+		t.Fatalf("write override file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoRoot, "gwc-runner.json"), []byte(`{"paths":{"goWasmExec":"tools/go_js_wasm_exec.bat"}}`), 0644); err != nil {
+		t.Fatalf("write repo config: %v", err)
+	}
+
+	originalGetwd := launcherConfigGetwd
+	t.Cleanup(func() { launcherConfigGetwd = originalGetwd })
+	launcherConfigGetwd = func() (string, error) { return otherRoot, nil }
+
+	got, err := resolveWasmTestExec(repoRoot)
+	if err != nil {
+		t.Fatalf("resolve wasm test exec: %v", err)
+	}
+	if got != overrideFile {
+		t.Fatalf("expected repo-root config override %q, got %q", overrideFile, got)
 	}
 }
 

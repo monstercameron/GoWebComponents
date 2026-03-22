@@ -1,6 +1,6 @@
 param(
     [string]$Package = ".",
-    [string]$OutDir = "dist/wasm-release",
+    [string]$OutDir = "bin/wasm-release",
     [string]$BinaryName = "app.wasm",
     [string]$ManifestName = "wasm-release-manifest.json",
     [string]$BudgetsPath = "",

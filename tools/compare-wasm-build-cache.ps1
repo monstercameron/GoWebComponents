@@ -1,6 +1,6 @@
 param(
     [string]$Package = "./examples/21-ui-render",
-    [string]$OutDir = "tmp/wasm-build-cache-comparison",
+    [string]$OutDir = "bin/wasm-build-cache-comparison",
     [string]$BinaryName = "app.wasm",
     [string]$SummaryName = "wasm-build-cache-comparison.json",
     [switch]$ReleaseProfile

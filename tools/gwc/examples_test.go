@@ -879,7 +879,7 @@ func TestBuildDoctorStandaloneChecksAdditionalBranches(t *testing.T) {
 		t.Fatalf("write package.json: %v", err)
 	}
 	missingDeps := buildDoctorPlaywrightCheck(root)
-	if missingDeps.Status != "warn" || !strings.Contains(missingDeps.Summary, "not installed") {
+	if missingDeps.Status != "warn" || !strings.Contains(missingDeps.Summary, "not installed") || !strings.Contains(missingDeps.Summary, filepath.Join(root, "test", "node_modules")) {
 		t.Fatalf("expected missing playwright deps warning, got %#v", missingDeps)
 	}
 
@@ -1617,8 +1617,8 @@ func TestPrintHelpersEmitExpectedLauncherOutput(t *testing.T) {
 		AppPath:      `C:\repo\app\main.go`,
 		ProjectRoot:  `C:\repo\app`,
 		PackageDir:   `C:\repo\app`,
-		OutDir:       `C:\repo\dist`,
-		ManifestPath: `C:\repo\dist\manifest.json`,
+		OutDir:       `C:\repo\bin`,
+		ManifestPath: `C:\repo\bin\manifest.json`,
 		Artifacts: map[string]releaseArtifactRecord{
 			"gzip": {Path: "app.wasm.gz", Bytes: 10},
 			"wasm": {Path: "app.wasm", Bytes: 20},

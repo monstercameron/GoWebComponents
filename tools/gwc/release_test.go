@@ -20,7 +20,7 @@ func TestResolveReleaseConfigPrefersScaffoldMetadata(t *testing.T) {
   "modulePath": "example.com/metadata-release-app",
   "tooling": {
     "appPath": "main.go",
-    "releaseOutDir": "dist/release",
+	"releaseOutDir": "bin/release",
 	    "releaseBinaryName": "site.wasm",
 	    "releaseCompression": "none",
 	    "releaseBudgetsPath": "config/release-budgets.json"
@@ -42,7 +42,7 @@ func TestResolveReleaseConfigPrefersScaffoldMetadata(t *testing.T) {
 	if config.appPath != filepath.Join(tempApp, "main.go") {
 		t.Fatalf("expected metadata app path, got %#v", config)
 	}
-	if config.outDir != filepath.Join(tempApp, "dist", "release") {
+	if config.outDir != filepath.Join(tempApp, "bin", "release") {
 		t.Fatalf("expected metadata release out dir, got %#v", config)
 	}
 	if config.binaryName != "site.wasm" {
@@ -59,6 +59,30 @@ func TestResolveReleaseConfigPrefersScaffoldMetadata(t *testing.T) {
 	}
 	if config.profile != "release" {
 		t.Fatalf("expected release profile default, got %#v", config)
+	}
+}
+
+func TestResolveReleaseConfigUsesArtifactRootOverride(t *testing.T) {
+	root := t.TempDir()
+	mainPath := filepath.Join(root, "main.go")
+	if err := os.WriteFile(mainPath, []byte("package main\nfunc main() {}\n"), 0644); err != nil {
+		t.Fatalf("write main.go: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "gwc-runner.json"), []byte(`{"paths":{"artifactRoot":"enterprise-artifacts"}}`), 0644); err != nil {
+		t.Fatalf("write gwc-runner.json: %v", err)
+	}
+
+	originalGetwd := buildGetwd
+	t.Cleanup(func() { buildGetwd = originalGetwd })
+	buildGetwd = func() (string, error) { return root, nil }
+
+	config, err := resolveReleaseConfig(releaseConfig{})
+	if err != nil {
+		t.Fatalf("resolve release config: %v", err)
+	}
+	want := filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "wasm-release")
+	if config.outDir != want {
+		t.Fatalf("expected artifact-root release out dir %q, got %#v", want, config)
 	}
 }
 
@@ -401,7 +425,7 @@ func TestResolveReleaseConfigDirectoryAppPathAndInvalidMetadata(t *testing.T) {
 		if err != nil {
 			t.Fatalf("resolve release config: %v", err)
 		}
-		if config.rootPath != appDir || config.outDir != filepath.Join(appDir, "dist", "wasm-release") || config.binaryName != "app.wasm" {
+		if config.rootPath != appDir || config.outDir != filepath.Join(appDir, "bin", "wasm-release") || config.binaryName != "app.wasm" {
 			t.Fatalf("expected directory app path defaults, got %#v", config)
 		}
 	})

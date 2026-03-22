@@ -86,7 +86,7 @@ For repo evaluation and example work today:
 
 Recommended commands today:
 
-- example serving: `npm run dev:examples`
+- example serving: `npm --prefix tools/devtools run dev:examples`
 - focused native validation: `go test ./internal/runtime` or the package under change
 - focused wasm validation on Windows: `go test -exec .\tools\go_js_wasm_exec.bat ./...` for the relevant package path
 - release-style artifact validation: `.\tools\build-wasm-release.ps1 ...`

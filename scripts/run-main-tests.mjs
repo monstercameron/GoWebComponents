@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { access, readdir } from 'node:fs/promises';
+import { access, readFile, readdir } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -8,6 +9,7 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const npmExecPath = process.env.npm_execpath;
+const runnerOverrides = await loadRunnerOverrides(repoRoot);
 
 const requestedLanes = parseRequestedLanes(process.argv.slice(2));
 
@@ -36,14 +38,15 @@ const lanes = [
 		id: 'go-livereload',
 		title: 'Nested tools/livereload Go tests',
 		run: () => runCommand('go', ['test', './...'], {
-			cwd: path.join(repoRoot, 'tools', 'livereload'),
+			cwd: resolveLivereloadWorkspace(repoRoot),
 			env: buildNativeGoEnv(),
 		}),
 	},
 	{
 		id: 'browser',
 		title: 'Main Playwright workspace',
-		run: () => runNpmCommand(['--prefix', 'test', 'test', '--', '--reporter=list'], {
+		run: () => runNpmCommand(['test', '--', '--reporter=list'], {
+			cwd: resolveBrowserWorkspace(repoRoot),
 			env: buildBrowserTestEnv(),
 		}),
 	},
@@ -175,6 +178,10 @@ function shouldSkip(name) {
 }
 
 async function resolveWasmExec(root) {
+	const configured = resolveConfiguredPath(root, runnerOverrides.paths?.goWasmExec);
+	if (configured) {
+		return configured;
+	}
 	if (process.env.GO_WASM_EXEC) {
 		return process.env.GO_WASM_EXEC;
 	}
@@ -184,4 +191,66 @@ async function resolveWasmExec(root) {
 	throw new Error('GO_WASM_EXEC is not set and the repo only ships a Windows go_js_wasm_exec helper. Set GO_WASM_EXEC to a valid js/wasm executor for this platform.');
 }
 
-await access(path.join(repoRoot, 'package.json'));
+function resolveBrowserWorkspace(root) {
+	const configured = resolveConfiguredPath(root, runnerOverrides.paths?.browserWorkspace);
+	if (configured) {
+		return configured;
+	}
+	return path.join(root, 'test');
+}
+
+function resolveLivereloadWorkspace(root) {
+	const configured = resolveConfiguredPath(root, runnerOverrides.paths?.livereloadWorkspace);
+	if (configured) {
+		return configured;
+	}
+	return path.join(root, 'tools', 'livereload');
+}
+
+function resolveConfiguredPath(root, raw) {
+	if (!raw || !String(raw).trim()) {
+		return '';
+	}
+	if (path.isAbsolute(raw)) {
+		return path.normalize(raw);
+	}
+	const baseDir = runnerOverrides.configPath ? path.dirname(runnerOverrides.configPath) : root;
+	return path.resolve(baseDir, raw);
+}
+
+async function loadRunnerOverrides(root) {
+	const configPath = await resolveRunnerOverridePath(root);
+	if (!configPath) {
+		return { configPath: '', paths: {} };
+	}
+	const content = await readFile(configPath, 'utf8');
+	const parsed = JSON.parse(content);
+	return { configPath, paths: parsed?.paths ?? {} };
+}
+
+async function resolveRunnerOverridePath(root) {
+	const explicit = process.env.GWC_RUNNER_CONFIG?.trim();
+	if (explicit) {
+		return path.isAbsolute(explicit) ? path.normalize(explicit) : path.resolve(root, explicit);
+	}
+	const localConfig = path.join(root, 'gwc-runner.json');
+	if (await pathExists(localConfig)) {
+		return localConfig;
+	}
+	const homeConfig = path.join(os.homedir(), '.gwc', 'runner.json');
+	if (await pathExists(homeConfig)) {
+		return homeConfig;
+	}
+	return '';
+}
+
+async function pathExists(targetPath) {
+	try {
+		await access(targetPath);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+await access(path.join(repoRoot, 'tools', 'devtools', 'package.json'));

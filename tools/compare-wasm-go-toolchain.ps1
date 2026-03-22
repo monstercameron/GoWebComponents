@@ -2,7 +2,7 @@ param(
     [Parameter(Mandatory = $true)][string]$Package,
     [Parameter(Mandatory = $true)][string]$BaselineGo,
     [Parameter(Mandatory = $true)][string]$CandidateGo,
-    [string]$OutDir = "tmp/wasm-toolchain-comparison",
+    [string]$OutDir = "bin/wasm-toolchain-comparison",
     [double]$TimingRegressionPercent = 10,
     [double]$SizeRegressionPercent = 0,
     [double]$OtherRegressionPercent = 0,

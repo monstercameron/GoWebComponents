@@ -89,7 +89,6 @@ test-results/
 *.pem
 
 # Temporary files
-tmp/
 temp/
 *.tmp
 *.txt

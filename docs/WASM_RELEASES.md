@@ -30,7 +30,7 @@ That command currently covers single-target js/wasm builds and JSON build summar
 The repo now also exposes the baseline release packager through:
 
 ```powershell
-go run ./tools/gwc release -app .\path\to\main.go -out-dir .\dist\wasm-release
+go run ./tools/gwc release -app .\path\to\main.go -out-dir .\bin\wasm-release
 ```
 
 That release command emits the raw release-profile wasm artifact, supports `-compression none|gzip|brotli|gzip+brotli`, defaults to gzip plus Brotli sidecars, writes `wasm-release-manifest.json`, applies optional budget enforcement, and emits a JSON release summary for automation.
