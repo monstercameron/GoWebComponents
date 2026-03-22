@@ -2,6 +2,7 @@
   "paths": {
     "generatedProjectRoot": "generated-projects",
     "artifactRoot": "enterprise-artifacts",
+    "workspaceBuildRoot": "bin",
     "wasmExecJS": "vendor/wasm_exec.js",
     "goWasmExec": "tools/go_js_wasm_exec.bat",
     "browserWorkspace": "test",

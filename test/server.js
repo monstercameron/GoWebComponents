@@ -4,11 +4,14 @@ import { extname, join, normalize } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
+import { resolveWorkspaceBuildPath } from '../scripts/runner-paths.mjs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const PORT = Number(process.env.PORT || '8083');
 const ROOT = join(__dirname, 'testapp');
+const WASM_PATH = resolveWorkspaceBuildPath(dirname(__dirname), 'test', 'testapp', 'main.wasm');
 
 const mimeTypes = {
   '.html': 'text/html',
@@ -43,6 +46,29 @@ const server = createServer(async (req, res) => {
   }
 
   let filePath = requestUrl.pathname === '/' ? '/index.html' : requestUrl.pathname;
+
+  if (requestUrl.pathname === '/main.wasm') {
+  filePath = WASM_PATH;
+  const contentType = mimeTypes['.wasm'];
+  try {
+    const content = await readFile(filePath);
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Cache-Control': 'no-store',
+    });
+    res.end(content);
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      res.writeHead(404);
+      res.end('Not found');
+    } else {
+      res.writeHead(500);
+      res.end('Server error');
+    }
+  }
+  return;
+  }
+
   filePath = normalize(join(ROOT, filePath));
 
   if (!filePath.startsWith(ROOT)) {

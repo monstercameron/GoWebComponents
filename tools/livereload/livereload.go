@@ -230,7 +230,15 @@ func NewLiveReloadServerWithOptions(options LiveReloadOptions) (*LiveReloadServe
 
 	outputPath := strings.TrimSpace(options.OutputPath)
 	if outputPath == "" {
-		outputPath = filepath.Join(buildDir, "main.wasm")
+		workspaceBuildRoot, resolveErr := runnerconfig.ResolveWorkspaceBuildRoot(watchRoot, livereloadRunnerConfigFS())
+		if resolveErr != nil {
+			return nil, fmt.Errorf("resolve workspace build root: %w", resolveErr)
+		}
+		relProjectPath, relErr := filepath.Rel(watchRoot, projectRoot)
+		if relErr != nil || strings.HasPrefix(relProjectPath, "..") {
+			relProjectPath = filepath.Base(projectRoot)
+		}
+		outputPath = filepath.Join(workspaceBuildRoot, relProjectPath, "main.wasm")
 	} else if !filepath.IsAbs(outputPath) {
 		outputPath = filepath.Join(buildDir, outputPath)
 	}
@@ -519,6 +527,10 @@ func (lrs *LiveReloadServer) sendCurrentBuildStatus(conn *websocket.Conn) {
 func (lrs *LiveReloadServer) checkCurrentBuildState(conn *websocket.Conn) {
 	// Do a quick build check to see if the current code compiles
 	fmt.Println("🔍 Checking current build state for new client...")
+	if err := os.MkdirAll(filepath.Dir(lrs.outputPath), 0o755); err != nil {
+		emitLivereloadError("LiveReloadServer.checkCurrentBuildState.mkdir", filepath.Dir(lrs.outputPath), err, "the livereload output directory could not be created before the status check build.", "Inspect the configured build root and directory permissions for the livereload artifact path.")
+		return
+	}
 
 	cmd := exec.Command(buildCommand, "build", "-o", lrs.outputPath)
 	cmd.Dir = lrs.buildDir
@@ -888,6 +900,12 @@ func (lrs *LiveReloadServer) triggerBuild() {
 	}
 
 	// Create the build command
+	if err := os.MkdirAll(filepath.Dir(lrs.outputPath), 0o755); err != nil {
+		emitLivereloadError("LiveReloadServer.triggerBuild.mkdir", filepath.Dir(lrs.outputPath), err, "the livereload output directory could not be created before rebuilding.", "Inspect the configured build root and directory permissions for the livereload artifact path.")
+		lrs.clearPendingStateSnapshot()
+		lrs.broadcastMessage(MessageTypeBuildError, fmt.Sprintf("Failed to prepare build output directory: %v", err))
+		return
+	}
 	cmd := exec.Command(buildCommand, "build", "-o", lrs.outputPath)
 
 	cmd.Dir = lrs.buildDir

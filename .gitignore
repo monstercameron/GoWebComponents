@@ -22,6 +22,7 @@ Thumbs.db
 /dist/
 /build/
 /.pages/
+*.hotreload-manifest.json
 static/bin/
 go-compiler-wasm
 go-source

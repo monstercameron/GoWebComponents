@@ -25,6 +25,9 @@ func TestCanonicalRunnerConfigExampleMatchesLivereloadSchema(t *testing.T) {
 	if overrides.Paths.LivereloadClientScript != "tools/livereload/scripts/livereload-client.js" {
 		t.Fatalf("expected livereload client script in canonical example, got %#v", overrides.Paths)
 	}
+	if overrides.Paths.WorkspaceBuildRoot != "bin" {
+		t.Fatalf("expected workspace build root in canonical example, got %#v", overrides.Paths)
+	}
 }
 
 func TestPendingStateSnapshotBufferRoundTrips(t *testing.T) {
@@ -215,6 +218,10 @@ func TestNewLiveReloadServerUsesModuleRootForWatching(t *testing.T) {
 	}
 	if server.buildDir != exampleDir {
 		t.Fatalf("expected build dir %q, got %q", exampleDir, server.buildDir)
+	}
+	wantOutputPath := filepath.Join(workspaceDir, "bin", "examples", "98-hot-reload", "main.wasm")
+	if server.outputPath != wantOutputPath {
+		t.Fatalf("expected output path %q, got %q", wantOutputPath, server.outputPath)
 	}
 }
 

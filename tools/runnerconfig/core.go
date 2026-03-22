@@ -13,6 +13,7 @@ const OverrideEnvVar = "GWC_RUNNER_CONFIG"
 type Paths struct {
 	GeneratedProjectRoot   string `json:"generatedProjectRoot,omitempty"`
 	ArtifactRoot           string `json:"artifactRoot,omitempty"`
+	WorkspaceBuildRoot     string `json:"workspaceBuildRoot,omitempty"`
 	WASMExecJS             string `json:"wasmExecJS,omitempty"`
 	GoWASMExec             string `json:"goWasmExec,omitempty"`
 	BrowserWorkspace       string `json:"browserWorkspace,omitempty"`
@@ -169,6 +170,41 @@ func ResolveArtifactRoot(cwd string, fs FS) (string, bool, error) {
 	return ResolveConfiguredPath(cwd, func(paths Paths) string {
 		return paths.ArtifactRoot
 	}, "artifactRoot", fs)
+}
+
+func ResolveWorkspaceBuildRoot(rootPath string, fs FS) (string, error) {
+	configured, ok, err := ResolveConfiguredPath(rootPath, func(paths Paths) string {
+		return paths.WorkspaceBuildRoot
+	}, "workspaceBuildRoot", fs)
+	if err != nil {
+		return "", err
+	}
+	if ok {
+		return configured, nil
+	}
+	cleaned := filepath.Clean(strings.TrimSpace(rootPath))
+	if cleaned == "" || cleaned == "." {
+		cleaned = "bin"
+		if filepath.IsAbs(cleaned) {
+			return cleaned, nil
+		}
+		resolved, resolveErr := filepath.Abs(cleaned)
+		if resolveErr != nil {
+			return "", resolveErr
+		}
+		return resolved, nil
+	}
+	return filepath.Join(cleaned, "bin"), nil
+}
+
+func ResolveWorkspaceBuildPath(rootPath string, fs FS, segments ...string) (string, error) {
+	buildRoot, err := ResolveWorkspaceBuildRoot(rootPath, fs)
+	if err != nil {
+		return "", err
+	}
+	parts := []string{buildRoot}
+	parts = append(parts, segments...)
+	return filepath.Join(parts...), nil
 }
 
 func ArtifactNamespace(rootPath string) string {

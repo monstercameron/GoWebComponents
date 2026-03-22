@@ -117,7 +117,7 @@ npm run test:ui
 ## How The Test App Works
 
 - `testapp/` contains the Go wasm app used by these tests
-- the test scripts rebuild `testapp/main.wasm` before the relevant suites
+- the test scripts rebuild the wasm bundle under `bin/test/testapp/main.wasm` before the relevant suites
 - `server.js` provides the local test server and mock API endpoints used by fetch/integration flows
 - `benchmark/` and `scripts/build-benchmark.mjs` provide the standalone browser benchmark harness used by `npm run bench`
 

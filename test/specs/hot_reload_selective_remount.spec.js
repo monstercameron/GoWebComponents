@@ -6,13 +6,15 @@ import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { resolveWorkspaceBuildPath } from '../../scripts/runner-paths.mjs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..', '..');
 const exampleChangedPath = path.join(repoRoot, 'examples', '98-hot-reload', 'changed_panel.go');
 const exampleHTMLPath = path.join(repoRoot, 'examples', '98-hot-reload', 'hot-reload.html');
 const exampleRoot = path.join(repoRoot, 'examples', '98-hot-reload');
-const exampleWasmPath = path.join(exampleRoot, 'main.wasm');
+const exampleWasmPath = resolveWorkspaceBuildPath(repoRoot, 'examples', '98-hot-reload', 'main.wasm');
 
 const selectiveVersionConstV1 = 'const changedSubtreeVersion = "v1"';
 const selectiveVersionConstV2 = 'const changedSubtreeVersion = "v2"';
@@ -98,7 +100,7 @@ function startStandaloneDevServer(port, onOutput) {
 			'-Main', path.join(repoRoot, 'examples', '98-hot-reload', 'main.go'),
 			'-Root', exampleRoot,
 			'-Index', exampleHTMLPath,
-			'-Output', path.join(exampleRoot, 'main.wasm'),
+			'-Output', exampleWasmPath,
 			'-Port', String(port),
 		], {
 			cwd: repoRoot,
@@ -113,7 +115,7 @@ function startStandaloneDevServer(port, onOutput) {
 		path.join(repoRoot, 'examples', '98-hot-reload', 'main.go'),
 		exampleRoot,
 		exampleHTMLPath,
-		path.join(exampleRoot, 'main.wasm'),
+		exampleWasmPath,
 	], {
 		cwd: repoRoot,
 		stdio: ['ignore', 'pipe', 'pipe'],

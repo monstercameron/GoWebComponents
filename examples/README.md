@@ -151,7 +151,7 @@ Use the integrated apps when you want to understand how multiple primitives comp
 For a single app surface, use the standalone dev server and enable the public `hotreload` package in that app:
 
 ```powershell
-.\tools\dev.ps1 -App .\examples\98-hot-reload\main.go -Root .\examples\98-hot-reload -Html .\examples\98-hot-reload\hot-reload.html -Wasm .\main.wasm
+.\tools\dev.ps1 -App .\examples\98-hot-reload\main.go -Root .\examples\98-hot-reload -Html .\examples\98-hot-reload\hot-reload.html
 ```
 
 Use the Express catalog server when you want to browse many examples. Use `tools/dev.ps1` or `tools/dev.sh` when you want rebuild-on-save and state-preserving reload for one specific app.

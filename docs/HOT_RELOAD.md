@@ -49,13 +49,13 @@ hotreload.Configure(hotreload.Config{
 Windows:
 
 ```powershell
-.\tools\dev.ps1 -App .\examples\98-hot-reload\main.go -Root .\examples\98-hot-reload -Html .\examples\98-hot-reload\hot-reload.html -Wasm .\main.wasm -Port 8099
+.\tools\dev.ps1 -App .\examples\98-hot-reload\main.go -Root .\examples\98-hot-reload -Html .\examples\98-hot-reload\hot-reload.html -Port 8099
 ```
 
 Unix-like systems:
 
 ```bash
-./tools/dev.sh ./examples/98-hot-reload/main.go ./examples/98-hot-reload ./examples/98-hot-reload/hot-reload.html ./main.wasm
+./tools/dev.sh ./examples/98-hot-reload/main.go ./examples/98-hot-reload ./examples/98-hot-reload/hot-reload.html
 ```
 
 Then open the served page and edit Go files. On successful rebuilds, the client will try an in-page module swap before falling back to a full reload.

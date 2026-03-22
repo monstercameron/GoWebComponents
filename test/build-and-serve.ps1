@@ -2,14 +2,17 @@
 Write-Host "Building test WASM app..." -ForegroundColor Green
 
 $TestAppDir = Join-Path $PSScriptRoot "testapp"
-$OutputWasm = Join-Path $TestAppDir "main.wasm"
+$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$OutputDir = Join-Path $RepoRoot "bin\test\testapp"
+$OutputWasm = Join-Path $OutputDir "main.wasm"
 
 # Build WASM
 $env:GOOS = "js"
 $env:GOARCH = "wasm"
 
 Push-Location $TestAppDir
-go build -o main.wasm .
+New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+go build -o $OutputWasm .
 Pop-Location
 
 if ($LASTEXITCODE -eq 0) {
