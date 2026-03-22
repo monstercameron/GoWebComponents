@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-03-22
+
+### GWC launcher coverage and examples runtime
+
+- Added broad launcher coverage for `tools/gwc`, including focused tests for `build`, `release`, `test`, `verify`, `examples`, project detection and config precedence, the `start` Bubble Tea scaffold flow, runner-config overrides, and launcher output helpers so the newer CLI surface is exercised as a maintained contract instead of only by ad hoc manual checks.
+- Promoted the repo examples catalog toward a launcher-owned runtime by adding a dedicated `examples/gwc-examples-site` `js/wasm` application, generating `examples/static/catalog.json`, and replacing the older mostly static examples shell with a richer catalog experience that can load, filter, and persist catalog state from the served metadata.
+- Updated the repo tooling docs to describe `gwc` as the canonical launcher for build, release, examples, dev, doctor, test, verify, and start workflows, including the current `gwc-runner.json` override points for enterprise-oriented path configuration.
+- Hardened the browser-facing PWA and interop support layer with explicit wasm browser-global helpers plus expanded wasm and native coverage around persistence, installability, service-worker, and diagnostics paths so browser-only helpers behave consistently in test and runtime environments.
+
 ## 2026-03-21
 
 ### PWA helpers and durable offline persistence
