@@ -37,6 +37,18 @@ Current status:
 - `gwc-runner.json` or `%GWC_RUNNER_CONFIG%` can now provide enterprise-oriented path overrides such as `generatedProjectRoot`, `artifactRoot`, `wasmExecJS`, `goWasmExec`, `browserWorkspace`, `livereloadWorkspace`, and `livereloadClientScript`
 - launcher-owned temp artifacts now resolve under `bin/tmp/` beneath the relevant project root instead of the OS temp directory
 
+Runner config reference:
+
+- Copy the baseline contract from `docs/examples/gwc-runner.example.json` into `gwc-runner.json` at the repo or project root, or point `%GWC_RUNNER_CONFIG%` at an equivalent file.
+- Relative paths are resolved from the directory that contains the config file.
+- `generatedProjectRoot`: default output location for `gwc start` generated apps when a command does not pass an explicit destination.
+- `artifactRoot`: root directory for launcher-owned artifacts such as wasm builds, release outputs, and temporary import work directories.
+- `wasmExecJS`: override path for `wasm_exec.js` discovery used by launcher flows that need the JS runtime helper.
+- `goWasmExec`: override path for the js/wasm test executor used by launcher and Node-driven test flows.
+- `browserWorkspace`: workspace directory that contains the Playwright `package.json` used by browser lanes.
+- `livereloadWorkspace`: workspace directory used when `gwc dev` shells into the nested livereload server.
+- `livereloadClientScript`: explicit client script path served by the livereload server when auto-discovery should not be used.
+
 ### `serve.ps1`
 
 Starts the Node/Express example server.

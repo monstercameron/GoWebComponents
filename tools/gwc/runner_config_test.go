@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -31,6 +32,50 @@ func TestLoadLauncherOverridesFindsParentConfig(t *testing.T) {
 	}
 	if overrides.Paths.GeneratedProjectRoot != "company-projects" {
 		t.Fatalf("expected generated project root override, got %#v", overrides)
+	}
+}
+
+func TestCanonicalRunnerConfigExampleMatchesLauncherSchema(t *testing.T) {
+	examplePath := filepath.Join("..", "..", "docs", "examples", "gwc-runner.example.json")
+	content, err := os.ReadFile(examplePath)
+	if err != nil {
+		t.Fatalf("read canonical runner config example: %v", err)
+	}
+
+	var overrides launcherOverrides
+	if err := json.Unmarshal(content, &overrides); err != nil {
+		t.Fatalf("parse canonical runner config example: %v", err)
+	}
+
+	if overrides.Paths.GeneratedProjectRoot != "generated-projects" {
+		t.Fatalf("expected generatedProjectRoot in canonical example, got %#v", overrides.Paths)
+	}
+	if overrides.Paths.ArtifactRoot != "enterprise-artifacts" {
+		t.Fatalf("expected artifactRoot in canonical example, got %#v", overrides.Paths)
+	}
+	if overrides.Paths.WASMExecJS != "vendor/wasm_exec.js" {
+		t.Fatalf("expected wasmExecJS in canonical example, got %#v", overrides.Paths)
+	}
+	if overrides.Paths.GoWASMExec != "tools/go_js_wasm_exec.bat" {
+		t.Fatalf("expected goWasmExec in canonical example, got %#v", overrides.Paths)
+	}
+	if overrides.Paths.BrowserWorkspace != "test" {
+		t.Fatalf("expected browserWorkspace in canonical example, got %#v", overrides.Paths)
+	}
+	if overrides.Paths.LivereloadWorkspace != "tools/livereload" {
+		t.Fatalf("expected livereloadWorkspace in canonical example, got %#v", overrides.Paths)
+	}
+	if overrides.Paths.LivereloadClientScript != "tools/livereload/scripts/livereload-client.js" {
+		t.Fatalf("expected livereloadClientScript in canonical example, got %#v", overrides.Paths)
+	}
+	if len(overrides.Paths.GeneratedProjectRoot) == 0 {
+		t.Fatalf("expected canonical example to stay non-empty, got %#v", overrides.Paths)
+	}
+	if len(overrides.Paths.ArtifactRoot) == 0 {
+		t.Fatalf("expected canonical example to stay non-empty, got %#v", overrides.Paths)
+	}
+	if len(overrides.Paths.WASMExecJS) == 0 || len(overrides.Paths.GoWASMExec) == 0 {
+		t.Fatalf("expected canonical example exec fields to stay non-empty, got %#v", overrides.Paths)
 	}
 }
 

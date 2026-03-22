@@ -1590,8 +1590,8 @@ Organization rules for this file:
 	Lock down precedence between repo-local `gwc-runner.json`, `GWC_RUNNER_CONFIG`, and home-level defaults so enterprise setups remain predictable across shells and CI agents.
 - [ ] Add end-to-end parity tests for runner-config path overrides.
 	Exercise one representative override file through `gwc dev`, `gwc test`, `gwc doctor`, `gwc build`, `gwc release`, the Node runner, and nested `tools/livereload` so the shared contract is validated across process boundaries.
-- [ ] Publish a documented example runner-config file and field reference.
-	Give teams a copyable baseline for `artifactRoot`, `browserWorkspace`, `livereloadWorkspace`, `livereloadClientScript`, `goWasmExec`, and related fields so adoption does not require code archaeology.
+- [x] Publish a documented example runner-config file and field reference.
+	`docs/examples/gwc-runner.example.json` now provides the copyable baseline, and `tools/README.md` now documents the current path fields and relative-path resolution semantics.
 - [ ] Define organization-policy versus project-config ownership for runner settings.
 	Clarify which overrides belong in enterprise-managed shared config, which belong in checked-in project config, and which should remain explicit per-command flags.
 

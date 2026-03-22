@@ -9,6 +9,22 @@ import (
 	"testing"
 )
 
+func TestCanonicalRunnerConfigExampleMatchesLivereloadSchema(t *testing.T) {
+	examplePath := filepath.Join("..", "..", "docs", "examples", "gwc-runner.example.json")
+	content, err := os.ReadFile(examplePath)
+	if err != nil {
+		t.Fatalf("read canonical runner config example: %v", err)
+	}
+
+	var overrides livereloadRunnerOverrides
+	if err := json.Unmarshal(content, &overrides); err != nil {
+		t.Fatalf("parse canonical runner config example: %v", err)
+	}
+	if overrides.Paths.LivereloadClientScript != "tools/livereload/scripts/livereload-client.js" {
+		t.Fatalf("expected livereload client script in canonical example, got %#v", overrides.Paths)
+	}
+}
+
 func TestPendingStateSnapshotBufferRoundTrips(t *testing.T) {
 	server := &LiveReloadServer{}
 	server.pendingStateSnapshot = `{"sharedCounter":1}`
