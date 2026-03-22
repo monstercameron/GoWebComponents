@@ -19,6 +19,22 @@ The current canonical profiles are:
 - production release build:
   optimized for deployable size, stable paths, and predictable runtime behavior in staging or production hosting
 
+The repo now exposes the baseline build-profile runner through:
+
+```powershell
+go run ./tools/gwc build -app .\path\to\main.go -profile ci
+```
+
+That command currently covers single-target js/wasm builds and JSON build summaries.
+
+The repo now also exposes the baseline release packager through:
+
+```powershell
+go run ./tools/gwc release -app .\path\to\main.go -out-dir .\dist\wasm-release
+```
+
+That release command emits the raw release-profile wasm artifact, supports `-compression none|gzip|brotli|gzip+brotli`, defaults to gzip plus Brotli sidecars, writes `wasm-release-manifest.json`, applies optional budget enforcement, and emits a JSON release summary for automation.
+
 Recommended differences by profile:
 
 - development builds may preserve fuller debug metadata and simpler artifact naming
@@ -92,7 +108,7 @@ The intended reporting shape is:
 - brotli sidecar size when that sidecar is emitted
 - sha256 hashes for each emitted artifact
 
-The release helper now emits `wasm-release-manifest.json` containing those size and hash records so builds can be compared mechanically instead of by ad hoc shell output.
+The PowerShell helper and `gwc release` now emit `wasm-release-manifest.json` containing those size and hash records so builds can be compared mechanically instead of by ad hoc shell output.
 
 That same manifest is now also the first-class input for service-worker release planning through `pwa.ParseWasmReleaseManifestJSON(...)` and `pwa.BuildServiceWorkerAssetPlan(...)`, so cache namespaces and safe-reload revision checks can reuse the shipped release record instead of maintaining a second wasm-specific PWA manifest.
 
@@ -123,7 +139,13 @@ This gives static hosts, SSR servers, and deployment automation one stable place
 
 ## Current Boundary
 
-This document defines the intended build-profile and flag baseline only.
+This document defines the current build-profile and release-packaging baseline.
+
+The current Go-native launcher boundary is:
+
+- `gwc build` for single-target js/wasm artifacts and JSON build summaries
+- `gwc release` for raw wasm plus gzip packaging, manifest emission, optional budgets, and JSON release summaries
+- Brotli generation and any post-link optimization toolchain remain optional follow-up work rather than default launcher behavior
 
 It does not yet claim:
 

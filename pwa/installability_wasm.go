@@ -13,7 +13,7 @@ import (
 )
 
 func ObserveInstallability(options InstallabilityOptions) (InstallabilityManager, error) {
-	window := js.Global().Get("window")
+	window := browserWindow()
 	if window.IsUndefined() || window.IsNull() {
 		return InstallabilityManager{}, installabilityUnavailable("ObserveInstallability", "window")
 	}
@@ -109,7 +109,7 @@ func detectInstalledDisplayMode(window js.Value) bool {
 			return true
 		}
 	}
-	navigator := js.Global().Get("navigator")
+	navigator := browserNavigator()
 	if !navigator.IsUndefined() && !navigator.IsNull() {
 		standalone := navigator.Get("standalone")
 		if standalone.Type() == js.TypeBoolean && standalone.Bool() {

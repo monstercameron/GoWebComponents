@@ -52,7 +52,7 @@ func InspectDiagnostics(ctx context.Context, options DiagnosticsOptions) (Diagno
 }
 
 func inspectStoragePressure(ctx context.Context) (StoragePressureDiagnostics, error) {
-	navigator := js.Global().Get("navigator")
+	navigator := browserNavigator()
 	if navigator.IsUndefined() || navigator.IsNull() {
 		return StoragePressureDiagnostics{}, installabilityUnavailable("InspectDiagnostics", "navigator")
 	}

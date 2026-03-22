@@ -1299,14 +1299,14 @@ Organization rules for this file:
 
 - [x] Define first-class development and production wasm build profiles.
 	`docs/WASM_RELEASES.md` now defines the intended development, CI verification, benchmark, and production wasm build profiles and their differing goals.
-- [ ] Add a Go-native profile runner for app builds.
-	Ship `go run ./tools/gwc build --profile ...` so development, CI, benchmark, and release wasm builds all resolve through one documented Go entrypoint instead of script-specific wrappers.
-- [ ] Add a Go-native release packaging command.
-	Ship `go run ./tools/gwc release` with output-directory creation, manifest emission, compression, and budget enforcement so deployable wasm artifacts do not depend on PowerShell-only helpers.
-- [ ] Define scaffold metadata fields for build and release profiles.
-	Record the default wasm entrypoint, output path, build profile, release output directory, compression policy, and budget file path so `gwc dev`, `gwc build`, and `gwc release` can avoid heuristic-only resolution.
-- [ ] Add profile-aware machine-readable launcher output.
-	Emit JSON summaries for build and release commands that record the resolved app root, target package, flags, output paths, sizes, hashes, and profile name so CI and enterprise automation can consume launcher results directly.
+- [x] Add a Go-native profile runner for app builds.
+	`go run ./tools/gwc build --profile ...` now resolves a js/wasm build through one Go launcher entrypoint with `development`, `ci`, `benchmark`, and `release` profiles, explicit output-path handling, and machine-readable JSON summaries for build automation.
+- [x] Add a Go-native release packaging command.
+	`go run ./tools/gwc release` now resolves the target app through the launcher, writes a release-profile wasm artifact into a release output directory, emits `wasm-release-manifest.json`, generates a gzip sidecar by default, supports optional budget enforcement, and can emit a structured JSON summary for automation.
+- [x] Define scaffold metadata fields for build and release profiles.
+	`gwc-start.json` now records the default wasm entrypoint, HTML shell, dev host/port, build profile, release output directory, release binary name, release compression policy, and optional release budget path so `gwc dev`, `gwc build`, and `gwc release` can resolve launcher defaults from metadata first instead of relying on heuristics and ad hoc command flags.
+- [x] Add profile-aware machine-readable launcher output.
+	`gwc build -json` and `gwc release -json` now emit the resolved app path, project root, package directory, selected profile, output/manifest paths, emitted artifact sizes, and sha256 hashes so automation can consume launcher output without scraping human-readable logs.
 - [x] Add recommended production build flags for wasm targets.
 	`docs/WASM_RELEASES.md` now defines the intended production baseline around `-trimpath` and `-ldflags="-s -w"` together with the reproducibility and debugging tradeoffs.
 - [x] Define build metadata and debug-info policy for release wasm artifacts.
@@ -1315,10 +1315,10 @@ Organization rules for this file:
 	`tools/build-wasm-release.ps1` now supports optional raw/gzip/brotli budget enforcement, and `docs/WASM_RELEASES.md` defines the intended budget contract for release-oriented builds.
 - [x] Add artifact size reporting and comparison tooling.
 	`tools/build-wasm-release.ps1` now emits `wasm-release-manifest.json` with relative paths, sizes, and sha256 hashes for release artifacts and compressed sidecars.
-- [ ] Add release-time compression support for wasm artifacts.
-	Generate gzip and brotli sidecars for production builds and document the required server headers and cache behavior for serving compressed wasm safely.
-- [ ] Decide whether launcher-owned Brotli must be pure Go.
-	Either implement Brotli sidecar generation in Go for the default `gwc release` path or keep any external compressor fallback explicit, optional, and clearly reported in the release manifest and command output.
+- [x] Add release-time compression support for wasm artifacts.
+	`gwc release` now supports `none`, `gzip`, `brotli`, or `gzip+brotli` compression policies, defaults to gzip plus Brotli sidecars, and records the selected policy in the release manifest so the Go-native release path now matches the documented compressed-artifact output shape.
+- [x] Decide whether launcher-owned Brotli must be pure Go.
+	`gwc release` now uses a pure-Go Brotli encoder for the default launcher-owned `.br` sidecar path, so deployable release artifacts no longer depend on PowerShell-only or Node-only compression helpers.
 - [ ] Evaluate post-link wasm optimization tooling.
 	Test tools such as `wasm-opt` or equivalent post-processing pipelines and document whether they improve size, startup time, or runtime behavior enough to justify adding them to the release workflow.
 - [x] Define asset-manifest and build-output conventions for optimized wasm releases.
@@ -1398,11 +1398,11 @@ Organization rules for this file:
 	Prefer scaffold metadata when present, then fall back to documented conventions such as `cmd/web/main.go`, wasm entrypoints, HTML shells, and output locations when `gwc dev` is run in a hand-built project.
 - [ ] Add dev-server mode selection for client-only versus SSR apps.
 	Let `gwc dev` choose between a static asset server, a hot-reload wasm dev server, and an SSR-aware local server path while still presenting one user-facing development command.
-- [ ] Port the examples catalog server to Go.
+- [x] Port the examples catalog server to Go.
 	Replace the current Node example browser server with `gwc examples`, preserving catalog browsing, generated example listing, no-cache behavior, wasm MIME handling, and health checks.
-- [ ] Add example filtering and search to `gwc examples`.
+- [x] Add example filtering and search to `gwc examples`.
 	Support tag- or keyword-based browsing for examples so the Go examples server becomes a real discovery tool rather than only a static redirector.
-- [ ] Add resolved-plan output before launcher execution.
+- [x] Add resolved-plan output before launcher execution.
 	Print the detected project root, app mode, wasm entry, HTML shell, output path, server mode, hot-reload state, and listening URL before the dev server starts so launcher behavior is auditable instead of implicit.
 - [ ] Add a simplified watch-mode entry point for apps.
 	Reduce the need to coordinate several scripts manually by providing one supported development command that rebuilds wasm, serves assets, and reports failures coherently.
@@ -1419,16 +1419,28 @@ Organization rules for this file:
 
 ### Launcher testing, verification, and diagnostics
 
-- [ ] Add `gwc test` with explicit test lanes.
-	Support launcher-owned test lanes such as unit, wasm, browser, hydration, and release so application and CI workflows stop depending on ad hoc command memorization.
-- [ ] Add `gwc verify` as a CI-oriented aggregate command.
-	Run the right build and test checks for the current project mode and selected features so CI can use one documented entrypoint instead of manually composing lanes.
-- [ ] Add `gwc doctor` for environment and project diagnostics.
-	Check toolchain versions, runtime assets, browser-test prerequisites, port availability, scaffold metadata, and common misconfiguration cases before users hit opaque launcher failures.
+- [x] Add `gwc test` with explicit test lanes.
+	`go run ./tools/gwc test` now supports explicit `unit`, `wasm`, `hydration`, `browser`, and `release` lanes, defaults to `unit` plus `wasm`, exposes repeatable `-lane` flags with JSON summaries, and reuses the repo js/wasm executor, Playwright workspace, and release smoke-build path so launcher-driven validation no longer depends on ad hoc command memorization.
+- [x] Add `gwc verify` as a CI-oriented aggregate command.
+	`go run ./tools/gwc verify` now resolves the target app through the launcher, runs app-local `go test ./...` when `_test.go` files exist under the resolved project root, and then performs a `ci`-profile js/wasm build with both human-readable and JSON output so CI can use one documented baseline entrypoint.
+- [x] Add `gwc doctor` for environment and project diagnostics.
+	`go run ./tools/gwc doctor` now checks Go, Node.js, npm, `wasm_exec.js`, Playwright install state, scaffold metadata, current-directory project-detection signals, and requested port availability, with both human-readable and JSON output.
 - [ ] Add scaffold-generated baseline tests keyed to selected features.
 	Emit the smallest believable test set for chosen capabilities such as routing, SSR, forms, fetch, or hot reload so generated apps start with real verification instead of an empty test folder.
+- [ ] Make `gwc start` generate standalone apps in user-owned workspaces by default.
+	Stop treating generated starters as temporary repo-owned artifacts so new apps land under user workspace defaults such as Documents or Projects instead of the framework checkout.
+- [ ] Split `gwc start` into standalone-app mode versus contributor-linked mode.
+	Keep a deliberate framework-contributor path for local source linking, but make the default generated app behave like its own project with its own lifecycle.
+- [ ] Remove the default scaffold dependency on the current framework checkout.
+	Replace the current local `replace`-to-repo behavior with a real standalone dependency strategy so generated apps remain portable after the original GWC clone is moved or deleted.
+- [ ] Add explicit generated-project location policy for Windows, macOS, and Linux.
+	Document and implement the default target-root selection rules, the fallback order when Documents is missing, and how users override the output path in the start flow.
+- [ ] Add scaffold metadata that records project ownership and framework source mode.
+	Record whether the generated app is standalone, locally linked, vendored, or otherwise framework-coupled so later launcher commands can resolve dependencies and diagnostics coherently.
+- [ ] Add optional bootstrap for app-local git initialization.
+	Offer to initialize a fresh git repository for generated standalone apps so they start with their own version-control boundary instead of inheriting the framework repo context.
 - [ ] Add launcher integration tests for config precedence and project detection.
-	Cover metadata-driven resolution, convention fallback, flag overrides, and environment-variable precedence so launcher behavior remains predictable across generated and hand-built apps.
+	`tools/gwc` now has focused tests for metadata-driven resolution, configured-app metadata discovery, convention fallback to `main.go` or `cmd/web/main.go`, and explicit flag overrides across `dev`, `build`, and `release`; extend this further if launcher-level environment-variable precedence is added later.
 - [ ] Add golden tests for scaffold output combinations.
 	Snapshot the files generated for key preset and feature combinations so starter evolution stays reviewable and does not drift silently.
 - [ ] Add end-to-end launcher tests for dev, build, and release commands.

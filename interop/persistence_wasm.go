@@ -192,7 +192,7 @@ func newIndexedDBPersistentStore(db js.Value, config persistentStoreConfig) Pers
 	var onVersionChange js.Func
 	onVersionChange = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		if closeFn := db.Get("close"); closeFn.Type() == js.TypeFunction {
-			closeFn.Invoke()
+			db.Call("close")
 		}
 		return nil
 	})
@@ -276,7 +276,7 @@ func newIndexedDBPersistentStore(db js.Value, config persistentStoreConfig) Pers
 			db.Set("onversionchange", js.Undefined())
 			onVersionChange.Release()
 			if closeFn := db.Get("close"); closeFn.Type() == js.TypeFunction {
-				closeFn.Invoke()
+				db.Call("close")
 			}
 			return nil
 		},

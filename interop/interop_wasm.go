@@ -45,7 +45,11 @@ func resolveStorage(name string) (Storage, error) {
 			return nil
 		},
 		removeItem: func(key string) error {
-			raw.Call("removeItem", key)
+			removeItem := raw.Get("removeItem")
+			if removeItem.Type() != js.TypeFunction {
+				return &Error{Op: "Storage.RemoveItem", Target: name + ".removeItem", Code: CodeNotFunction, Err: errors.New("storage removeItem is not callable")}
+			}
+			removeItem.Invoke(key)
 			return nil
 		},
 		clear: func() error {

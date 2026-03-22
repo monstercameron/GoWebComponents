@@ -148,7 +148,7 @@ func newServiceWorkerRegistration(container js.Value, raw js.Value) ServiceWorke
 			}}, nil
 		},
 		reloadOnControllerChange: func() (ServiceWorkerSubscription, error) {
-			window := js.Global().Get("window")
+			window := browserWindow()
 			if window.IsUndefined() || window.IsNull() {
 				return ServiceWorkerSubscription{}, serviceWorkerUnavailable("ServiceWorkerRegistration.ReloadOnControllerChange", snapshot().Scope)
 			}
@@ -186,7 +186,7 @@ func normalizeServiceWorkerOptions(options ServiceWorkerOptions) ServiceWorkerOp
 }
 
 func serviceWorkerContainer() (js.Value, error) {
-	navigator := js.Global().Get("navigator")
+	navigator := browserNavigator()
 	if navigator.IsUndefined() || navigator.IsNull() {
 		return js.Undefined(), serviceWorkerUnavailable("RegisterServiceWorker", "navigator.serviceWorker")
 	}

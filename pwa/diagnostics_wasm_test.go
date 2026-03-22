@@ -13,10 +13,10 @@ import (
 )
 
 func TestInspectDiagnosticsCollectsPWASnapshot(t *testing.T) {
-	restoreSW := installMockServiceWorkerEnvironment(t)
+	restoreSW := installMockServiceWorkerEnvironment(t, false)
 	defer restoreSW()
 	window := js.Global().Get("window")
-	navigator := js.Global().Get("navigator")
+	navigator := window.Get("navigator")
 	installEventTargetOnWindow(t, window)
 	attachMockStorageManager(t, navigator)
 	restoreCaches := installMockCacheStorage(t)

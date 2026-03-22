@@ -106,6 +106,7 @@ func installMockInstallabilityWindow(t *testing.T) (js.Value, func()) {
 	window.Set("matchMedia", matchMedia)
 	navigator := objectCtor.New()
 	navigator.Set("standalone", false)
+	window.Set("navigator", navigator)
 	restoreWindow := setPWAServiceWorkerGlobal("window", window)
 	restoreNavigator := setPWAServiceWorkerGlobal("navigator", navigator)
 	return window, func() {

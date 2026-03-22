@@ -1,17 +1,5 @@
 {
-  "generatedAt": "2026-03-20T13:56:25.0170894-04:00",
+  "generatedAt": "2026-03-21T16:54:20.6932871-04:00",
   "reloadType": "hot",
-  "reason": "Hot reload for app changes",
-  "changedFiles": [
-    "examples/98-hot-reload/changed_panel.go"
-  ],
-  "components": [
-    {
-      "name": "ChangedCounterPanel",
-      "qualifiedName": "github.com/monstercameron/GoWebComponents/examples/98-hot-reload.ChangedCounterPanel",
-      "packageName": "main",
-      "packagePath": "github.com/monstercameron/GoWebComponents/examples/98-hot-reload",
-      "file": "examples/98-hot-reload/changed_panel.go"
-    }
-  ]
+  "reason": "App dev server hot reload"
 }

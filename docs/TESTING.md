@@ -79,6 +79,22 @@ Recommended usage shape:
 4. SSR delivery checks on native Go: snapshot with `testkit/ssr.Render(...)` and assert bootstrap payloads with `RequirePayload(...)`
 5. hydration smoke checks on `js/wasm`: hydrate through `testkit/ssr.SmokeHydrate(...)` when a server-delivery path needs end-to-end confidence
 
+For this repository itself, the Go-native launcher now exposes explicit lane-oriented shortcuts around the existing mix of Go, js/wasm, Playwright, and release smoke checks:
+
+```powershell
+go run ./tools/gwc test -lane unit -lane wasm
+go run ./tools/gwc test -lane hydration -lane browser
+go run ./tools/gwc test -lane release -app .\examples\01-counter\main.go -root .\examples\01-counter
+```
+
+Current repo lane meanings:
+
+- `unit`: native `go test ./...` for the selected root, plus the nested `tools/livereload` module when run from the repo root
+- `wasm`: discovered `*_wasm_test.go` packages under the selected root using the repo js/wasm executor helper
+- `hydration`: focused js/wasm packages whose tests exercise hydration helpers or `Hydrate*` behavior
+- `browser`: the Playwright workspace under `test/` when available
+- `release`: a launcher-owned release smoke build into a temporary output directory
+
 ## Non-Goals
 
 The first-party testing surface should not:

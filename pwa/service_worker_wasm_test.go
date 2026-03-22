@@ -19,7 +19,7 @@ func setPWAServiceWorkerGlobal(name string, value interface{}) func() {
 }
 
 func TestRegisterServiceWorkerReturnsLifecycleSnapshot(t *testing.T) {
-	restore := installMockServiceWorkerEnvironment(t)
+	restore := installMockServiceWorkerEnvironment(t, true)
 	defer restore()
 
 	registration, err := RegisterServiceWorker(context.Background(), ServiceWorkerOptions{URL: "/sw.js", Scope: "/app"})
@@ -48,7 +48,7 @@ func TestRegisterServiceWorkerReturnsLifecycleSnapshot(t *testing.T) {
 	}
 }
 
-func installMockServiceWorkerEnvironment(t *testing.T) func() {
+func installMockServiceWorkerEnvironment(t *testing.T, assertSyncRegistration bool) func() {
 	t.Helper()
 	global := js.Global()
 	objectCtor := global.Get("Object")
@@ -119,6 +119,9 @@ func installMockServiceWorkerEnvironment(t *testing.T) func() {
 		registerSyncFn.Release()
 		updateFn.Release()
 		unregisterFn.Release()
+		if !assertSyncRegistration {
+			return
+		}
 		if len(registeredTags) != 1 || registeredTags[0] != "offline-demo-replay" {
 			t.Fatalf("expected sync.register to receive the replay tag, got %#v", registeredTags)
 		}
@@ -139,6 +142,7 @@ func installMockServiceWorkerEnvironment(t *testing.T) func() {
 	navigator := objectCtor.New()
 	navigator.Set("serviceWorker", container)
 	window := objectCtor.New()
+	window.Set("navigator", navigator)
 	location := objectCtor.New()
 	reload := js.FuncOf(func(this js.Value, args []js.Value) interface{} { return nil })
 	location.Set("reload", reload)

@@ -250,6 +250,28 @@ func TestOpenPersistentStoreUsesIndexedDB(t *testing.T) {
 	if store.Backend() != "indexedDB" {
 		t.Fatalf("expected indexedDB backend, got %q", store.Backend())
 	}
+
+	t.Run("close binds database receiver", func(t *testing.T) {
+		constructor := js.Global().Get("Object")
+		mockDB := constructor.New()
+		closedWithBoundReceiver := false
+		closeFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			if this.Equal(mockDB) {
+				closedWithBoundReceiver = true
+			}
+			return nil
+		})
+		defer closeFn.Release()
+		mockDB.Set("close", closeFn)
+
+		mockStore := newIndexedDBPersistentStore(mockDB, persistentStoreConfig{databaseName: "gwc-tests", name: "cache"})
+		if err := mockStore.Close(); err != nil {
+			t.Fatalf("expected mock persistent store close to succeed, got %v", err)
+		}
+		if !closedWithBoundReceiver {
+			t.Fatalf("expected persistent store close to call IndexedDB close with the database as receiver")
+		}
+	})
 	if err := store.SetItem(context.Background(), "theme", "dark"); err != nil {
 		t.Fatalf("expected persistent write to succeed, got %v", err)
 	}
@@ -296,6 +318,45 @@ func TestOpenPersistentStoreUsesIndexedDB(t *testing.T) {
 	length, err = store.Len(context.Background())
 	if err != nil || length != 0 {
 		t.Fatalf("expected persistent len 0 after clear, got %d err=%v", length, err)
+	}
+}
+
+func TestLocalStorageRemoveItemReturnsStructuredErrorWhenNotCallable(t *testing.T) {
+	storage := js.Global().Get("Object").New()
+	getItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return js.Null()
+	})
+	defer getItemFn.Release()
+	setItemFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return nil
+	})
+	defer setItemFn.Release()
+	clearFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return nil
+	})
+	defer clearFn.Release()
+	keyFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return js.Null()
+	})
+	defer keyFn.Release()
+
+	storage.Set("getItem", getItemFn)
+	storage.Set("setItem", setItemFn)
+	storage.Set("removeItem", js.Undefined())
+	storage.Set("clear", clearFn)
+	storage.Set("key", keyFn)
+	storage.Set("length", 0)
+
+	restoreStorage := setGlobalValue("localStorage", storage)
+	defer restoreStorage()
+
+	local, err := LocalStorage()
+	if err != nil {
+		t.Fatalf("expected localStorage wrapper, got %v", err)
+	}
+	err = local.RemoveItem("theme")
+	if !IsCode(err, CodeNotFunction) {
+		t.Fatalf("expected removeItem to return CodeNotFunction, got %v", err)
 	}
 }
 
