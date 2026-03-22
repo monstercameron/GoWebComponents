@@ -18,6 +18,7 @@ go run ./tools/gwc release -app .\examples\01-counter\main.go -out-dir .\tmp\gwc
 go run ./tools/gwc examples
 go run ./tools/gwc dev -app .\test\testapp\main.go
 go run ./tools/gwc doctor
+go run ./tools/gwc import -src .\design\landing.jsx -out .\tmp\landing\main.go
 go run ./tools/gwc test -lane unit -lane wasm
 go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01-counter
 ```
@@ -29,10 +30,12 @@ Current status:
 - `examples` is now a Go-native catalog server replacement for the older Node-only entrypoint
 - `dev` is a compatibility wrapper over the existing Go livereload server while broader project detection is still being built
 - `doctor` now checks toolchains, `wasm_exec.js`, browser-test prerequisites, scaffold metadata, project-detection signals, and port availability
+- `import` now converts a static `.html`, `.htm`, `.jsx`, or `.tsx` file into a single inspectable `main.go` that uses the GWC `html` library builders
 - `test` now exposes explicit launcher-owned `unit`, `wasm`, `hydration`, `browser`, and `release` lanes, defaults to `unit` plus `wasm`, and supports JSON summaries for automation
 - `verify` now runs app-local `go test ./...` when `_test.go` files exist under the resolved project root, then performs a `ci`-profile js/wasm build through the same launcher path, with both human and JSON output
 - `start` now opens a Bubble Tea wizard, generates a runnable scaffold in a user-owned workspace location by default, and asks whether to launch it in the dev server immediately
 - `gwc-runner.json` or `%GWC_RUNNER_CONFIG%` can now provide enterprise-oriented path overrides such as `generatedProjectRoot`, `wasmExecJS`, `goWasmExec`, and `browserWorkspace`
+- launcher-owned temp artifacts now resolve under `bin/tmp/` beneath the relevant project root instead of the OS temp directory
 
 ### `serve.ps1`
 

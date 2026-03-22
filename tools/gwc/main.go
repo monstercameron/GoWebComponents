@@ -338,6 +338,10 @@ var runVerifyCommand = func(l launcher, args []string) error {
 	return l.runVerify(args)
 }
 
+var runImportCommand = func(l launcher, args []string) error {
+	return l.runImport(args)
+}
+
 var runStartCommand = func(l launcher, args []string) error {
 	return l.runStart(args)
 }
@@ -440,6 +444,8 @@ func (l launcher) run(args []string) error {
 		return runDoctorCommand(l, args[1:])
 	case "verify":
 		return runVerifyCommand(l, args[1:])
+	case "import":
+		return runImportCommand(l, args[1:])
 	case "start":
 		return runStartCommand(l, args[1:])
 	default:
@@ -654,9 +660,9 @@ func (l launcher) runBrowserTestLane(rootPath string) (testLaneSummary, error) {
 }
 
 func (l launcher) runReleaseTestLane(config testConfig) (testLaneSummary, error) {
-	releaseOutDir, err := os.MkdirTemp("", "gwc-test-release-*")
+	releaseOutDir, err := createLauncherTempDir(config.rootPath, "gwc-test-release-")
 	if err != nil {
-		return testLaneSummary{}, fmt.Errorf("create temporary release directory: %w", err)
+		return testLaneSummary{}, err
 	}
 	releaseConfig, err := resolveReleaseConfig(releaseConfig{
 		appPath:  config.appPath,
@@ -2086,65 +2092,17 @@ func (l launcher) generateStartScaffold(selection startSelection) (scaffoldResul
 	if err := ensureEmptyDir(targetDir); err != nil {
 		return scaffoldResult{}, err
 	}
-
 	repoModulePath, err := l.readRepoModulePath()
 	if err != nil {
 		return scaffoldResult{}, err
 	}
-	relRepoRoot, err := scaffoldRel(targetDir, l.repoRoot)
-	if err != nil {
-		return scaffoldResult{}, fmt.Errorf("resolve repo replace path: %w", err)
-	}
-	wasmExecSource, err := scaffoldResolveWasmExecPath()
-	if err != nil {
-		return scaffoldResult{}, err
-	}
-
-	mainPath := filepath.Join(targetDir, "main.go")
-	htmlPath := filepath.Join(targetDir, "index.html")
-	metadataPath := filepath.Join(targetDir, "gwc-start.json")
-	readmePath := filepath.Join(targetDir, "README.md")
-	wasmExecPath := filepath.Join(targetDir, "wasm_exec.js")
-	goModPath := filepath.Join(targetDir, "go.mod")
-
-	if err := scaffoldWriteFile(goModPath, []byte(renderScaffoldGoMod(selection, repoModulePath, relRepoRoot)), 0644); err != nil {
-		return scaffoldResult{}, fmt.Errorf("write go.mod: %w", err)
-	}
-	if err := scaffoldWriteFile(mainPath, []byte(renderScaffoldMain(selection, repoModulePath)), 0644); err != nil {
-		return scaffoldResult{}, fmt.Errorf("write main.go: %w", err)
-	}
-	if err := scaffoldWriteFile(htmlPath, []byte(renderScaffoldHTML(selection)), 0644); err != nil {
-		return scaffoldResult{}, fmt.Errorf("write index.html: %w", err)
-	}
-	if err := scaffoldWriteFile(metadataPath, []byte(renderScaffoldMetadata(selection)), 0644); err != nil {
-		return scaffoldResult{}, fmt.Errorf("write gwc-start.json: %w", err)
-	}
-	if err := scaffoldWriteFile(readmePath, []byte(renderScaffoldREADME(selection)), 0644); err != nil {
-		return scaffoldResult{}, fmt.Errorf("write README.md: %w", err)
-	}
-	wasmExecBytes, err := scaffoldReadFile(wasmExecSource)
-	if err != nil {
-		return scaffoldResult{}, fmt.Errorf("read wasm_exec.js: %w", err)
-	}
-	if err := scaffoldWriteFile(wasmExecPath, wasmExecBytes, 0644); err != nil {
-		return scaffoldResult{}, fmt.Errorf("write wasm_exec.js: %w", err)
-	}
-	if err := l.seedScaffoldGoSum(targetDir); err != nil {
-		return scaffoldResult{}, err
-	}
-	if err := l.tidyScaffoldModule(targetDir); err != nil {
-		return scaffoldResult{}, err
-	}
-
-	if err := scaffoldFormatMain(mainPath); err != nil {
-		return scaffoldResult{}, fmt.Errorf("format generated main.go: %w", err)
-	}
-
-	return scaffoldResult{
-		TargetDir: targetDir,
-		AppPath:   mainPath,
-		HTMLPath:  htmlPath,
-	}, nil
+	return l.generateScaffoldProject(scaffoldPlan{
+		Selection: selection,
+		MainGo:    renderScaffoldMain(selection, repoModulePath),
+		HTML:      renderScaffoldHTML(selection),
+		README:    renderScaffoldREADME(selection),
+		Metadata:  defaultScaffoldMetadata(selection),
+	})
 }
 
 func (l launcher) seedScaffoldGoSum(targetDir string) error {
@@ -2483,32 +2441,7 @@ func renderScaffoldHTML(selection startSelection) string {
 }
 
 func renderScaffoldMetadata(selection startSelection) string {
-	payload := scaffoldMetadata{
-		ProjectName: selection.ProjectName,
-		ModulePath:  selection.ModulePath,
-		Author:      selection.Author,
-		Version:     selection.Version,
-		Description: selection.Description,
-		TargetDir:   selection.TargetDir,
-		Preset: scaffoldPresetMetadata{
-			Key:         selection.Preset.Key,
-			Name:        selection.Preset.Name,
-			Summary:     selection.Preset.Summary,
-			Description: selection.Preset.Description,
-			Features:    selection.Preset.Features,
-		},
-		Tooling: scaffoldToolingMetadata{
-			AppPath:             filepath.ToSlash("main.go"),
-			HTMLPath:            filepath.ToSlash("index.html"),
-			WASMPath:            filepath.ToSlash(scaffoldWASMOutputPath()),
-			DevHost:             defaultHost,
-			DevPort:             "8080",
-			DefaultBuildProfile: defaultScaffoldBuildProfile(),
-			ReleaseOutDir:       defaultScaffoldReleaseOutDir(),
-			ReleaseBinaryName:   defaultScaffoldReleaseBinaryName(),
-			ReleaseCompression:  defaultScaffoldReleaseCompression(),
-		},
-	}
+	payload := defaultScaffoldMetadata(selection)
 	encoded, err := scaffoldMarshalIndent(payload, "", "  ")
 	if err != nil {
 		return "{}\n"
@@ -2818,6 +2751,7 @@ func printUsage() {
 	fmt.Println("  examples   Serve the examples catalog from a Go-native server")
 	fmt.Println("  dev        Run the Go-native dev entrypoint and forward to livereload")
 	fmt.Println("  doctor     Check local toolchains, runtime assets, project signals, and port availability")
+	fmt.Println("  import     Convert a static HTML or JSX file into an inspectable GWC project")
 	fmt.Println("  release    Package a js/wasm release with manifest and compressed sidecars")
 	fmt.Println("  verify     Run app-local Go tests when present and perform a CI-profile wasm build")
 	fmt.Println("  start      Run the scaffold TUI for preset and project setup")

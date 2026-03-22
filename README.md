@@ -240,6 +240,8 @@ The preferred public surface is:
 ### Tooling and Validation
 
 - Public `devtools` package for in-app inspection and diagnostics
+- `go run ./tools/gwc import -src .\path\to\layout.html -out .\bin\converter\layout\bin\main.go` converts static `.html`, `.htm`, `.jsx`, or `.tsx` files into an inspectable GWC `main.go` built from `html` library calls
+- Launcher-owned temporary artifacts now resolve under `bin/tmp/` beneath the relevant project root instead of the OS temp directory
 - Native Go tests, js/wasm tests, Playwright browser suites, and benchmark coverage
 - Large example suite spanning local state, forms, routing, async work, SSR, hydration, nested routes, and diagnostics
 
@@ -379,6 +381,7 @@ Relevant directories:
 - `examples/`: example apps and feature-isolated catalog pages
 - `examples/static/`: shared example assets
 - `examples/static/bin/`: generated wasm binaries for example entrypoints
+- `bin/converter/`: ignored local converter outputs for inspectable imported layouts and screenshot comparisons
 - `tools/dev-server/`: local example server implementation
 - `test/`: main Playwright-based browser regression suites
 

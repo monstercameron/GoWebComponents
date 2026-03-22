@@ -2,6 +2,13 @@
 
 ## 2026-03-22
 
+### Static HTML and JSX converter workflow
+
+- Added a new `gwc import` launcher command that converts static `.html`, `.htm`, `.jsx`, and `.tsx` sources into a single inspectable `main.go` built from the public `html` builder API instead of generating an opaque scaffold or hidden transform output.
+- Added focused parser and generation coverage in `tools/gwc/import_test.go`, together with persisted converter fixtures under `test/gwc-import-fixtures/` that exercise nested structures, custom tags, boolean and raw attributes, `data-*`, `aria-*`, style maps, and explicit rejection of dynamic JSX child expressions.
+- Moved launcher-owned temporary output from the OS temp directory into `bin/tmp/` so release-test and converter-adjacent temporary artifacts stay rooted under the project tree.
+- Added ignored repo-local converter preview outputs under `bin/converter/` and validated the catalog fixture visually by running both the original HTML and converted wasm app, capturing screenshots for each, and confirming the rendered output matched at the browser level.
+
 ### GWC launcher coverage and examples runtime
 
 - Added broad launcher coverage for `tools/gwc`, including focused tests for `build`, `release`, `test`, `verify`, `examples`, project detection and config precedence, the `start` Bubble Tea scaffold flow, runner-config overrides, and launcher output helpers so the newer CLI surface is exercised as a maintained contract instead of only by ad hoc manual checks.
