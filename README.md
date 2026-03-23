@@ -1,10 +1,3 @@
-# README Proposal
-
-This file is a proposed replacement for `README.md`.
-It is intentionally separate so the current README stays unchanged until you approve the rewrite.
-
----
-
 <p align="center">
     <img src="docs/assets/hero.jpg" alt="GoWebComponents Hero Image" width="900">
 </p>
@@ -16,7 +9,7 @@ It is intentionally separate so the current README stays unchanged until you app
 [![Release Version](https://img.shields.io/github/v/release/monstercameron/GoWebComponents)](https://github.com/monstercameron/GoWebComponents/releases)
 [![Go Report Card](https://goreportcard.com/badge/github.com/monstercameron/GoWebComponents)](https://goreportcard.com/report/github.com/monstercameron/GoWebComponents)
 
-GoWebComponents is a Go + WebAssembly UI framework with a React-style component model, hooks, a fiber-based runtime, typed HTML builders, client-side routing, shared state, and SSR or hydration support.
+GoWebComponents is a Go + WebAssembly UI framework with a React-style component model, hooks, a fiber-based runtime, typed HTML builders, shorthand authoring helpers, client-side routing, shared state, and SSR or hydration support.
 
 It is aimed at teams that want to build browser UI in Go without dropping into a separate JavaScript application stack for rendering, state, routing, and browser lifecycle management.
 
@@ -24,7 +17,7 @@ It is aimed at teams that want to build browser UI in Go without dropping into a
 
 - Write browser UI in Go instead of splitting application logic across Go backends and JavaScript frontends.
 - Use a familiar component and hook model for local state, effects, async work, and composition.
-- Build DOM trees with typed helpers in `html` instead of raw string templates.
+- Build DOM trees with typed helpers in `html` or the mixed-argument sugar surface in `html/shorthand` instead of raw string templates.
 - Add routing, shared state, fetch helpers, SSR, hydration, and devtools from the same module.
 - Validate behavior with native Go tests, js/wasm tests, Playwright suites, and benchmark coverage already used in this repo.
 
@@ -43,6 +36,7 @@ import (
   "github.com/monstercameron/GoWebComponents/fetch"
   "github.com/monstercameron/GoWebComponents/hotreload"
   "github.com/monstercameron/GoWebComponents/html"
+    . "github.com/monstercameron/GoWebComponents/html/shorthand"
   "github.com/monstercameron/GoWebComponents/router"
   "github.com/monstercameron/GoWebComponents/state"
   "github.com/monstercameron/GoWebComponents/ui"
@@ -53,11 +47,23 @@ Requirements:
 
 - Go 1.25+
 - A browser with WebAssembly support
-- Node.js only when you want the example catalog server or Playwright browser suites
 
 The repository root is the module boundary, not a directly importable package. Application code should import public subpackages such as `ui`, `html`, `state`, `fetch`, `router`, `devtools`, and `hotreload`.
 
-For the standalone wasm dev loop, enable `hotreload.Enable()` in your app and run `tools/dev.ps1` or `tools/dev.sh`.
+The repo-standard workflow uses the `gwc` runner under `tools/gwc`.
+
+Useful entrypoints:
+
+```powershell
+go run ./tools/gwc doctor
+go run ./tools/gwc examples
+go run ./tools/gwc dev -app .\examples\01-counter\main.go
+go run ./tools/gwc build -app .\examples\01-counter\main.go -profile development
+go run ./tools/gwc test -lane unit -lane wasm
+go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01-counter
+```
+
+For standalone wasm apps that want state-preserving reload, enable `hotreload.Enable()` in your app and use `gwc dev`.
 
 ## Starter App Example
 
@@ -68,9 +74,8 @@ package main
 
 import (
     "fmt"
-    "syscall/js"
 
-    "github.com/monstercameron/GoWebComponents/html"
+    . "github.com/monstercameron/GoWebComponents/html/shorthand"
     "github.com/monstercameron/GoWebComponents/ui"
 )
 
@@ -87,11 +92,12 @@ type CounterPanelProps struct {
 }
 
 func CounterPanel(props CounterPanelProps) ui.Node {
-    return html.Div(html.Props{},
-        html.P(html.Props{}, html.Text(fmt.Sprintf("Hello, %s.", props.Name))),
-        html.P(html.Props{}, html.Text(fmt.Sprintf("Count: %d", props.Count))),
-        html.P(html.Props{}, html.Text(fmt.Sprintf("Previous count: %s", props.PreviousCount))),
-        html.Button(html.Props{OnClick: props.OnIncrement}, html.Text("Increment")),
+    return Div(
+        Class("space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"),
+        P(Class("text-sm text-slate-600"), Textf("Hello, %s.", props.Name)),
+        P(Class("text-lg font-semibold text-slate-900"), Textf("Count: %d", props.Count)),
+        P(Class("text-sm text-slate-500"), Textf("Previous count: %s", props.PreviousCount)),
+        Button(Type("button"), OnClick(props.OnIncrement), Class("rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white"), "Increment"),
     )
 }
 
@@ -107,33 +113,33 @@ func StarterApp(props StarterAppProps) ui.Node {
         name.Set(event.GetValue())
     })
 
-    ui.UseEffect(func() func() {
-        document := js.Global().Get("document")
-        if document.Truthy() {
-            document.Set("title", fmt.Sprintf("%s (%d)", props.Title, count.Get()))
-        }
-        return nil
-    }, props.Title, count.Get())
-
     previousLabel := "none yet"
     if previousCount.Ok() {
         previousLabel = fmt.Sprintf("%d", previousCount.Get())
     }
 
-    return html.Div(html.Props{},
-        html.H1(html.Props{}, html.Text(props.Title)),
-        html.P(html.Props{}, html.Text("A small React-like component with local state, typed events, composition, a previous value, and an effect.")),
-        html.Input(html.Props{
-            Value:       name.Get(),
-            OnInput:     updateName,
-            Placeholder: "Who is using the app?",
-        }),
+    return Main(
+        Class("min-h-screen bg-slate-50 px-6 py-12 text-slate-900"),
+        Div(
+            Class("mx-auto max-w-2xl space-y-6"),
+            H1(Class("text-4xl font-black tracking-tight"), props.Title),
+            P(Class("max-w-xl text-sm leading-7 text-slate-600"), "A small starter that uses dot-imported shorthand tags and helper functions for state, events, composition, and reactive text."),
+            Input(
+                Type("text"),
+                Value(name.Get()),
+                OnInput(updateName),
+                Placeholder("Who is using the app?"),
+                Class("w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm shadow-sm"),
+            ),
+            If(name.Get() == "", P(Class("text-sm text-amber-700"), "Tip: enter a name to personalize the panel.")),
+        ),
         ui.CreateElement(CounterPanel, CounterPanelProps{
             Name:          name.Get(),
             Count:         count.Get(),
             PreviousCount: previousLabel,
             OnIncrement:   increment,
         }),
+        P(Class("mx-auto mt-6 max-w-2xl text-xs uppercase tracking-[0.18em] text-slate-500"), Textf("Current count is %d", count.Get())),
     )
 }
 
@@ -152,7 +158,7 @@ This version stays small, but it shows the normal flow most React users expect:
 - `UseEvent` for typed event handlers
 - Component composition with a child `CounterPanel`
 - `UsePrevious` for render-time comparisons
-- `UseEffect` for browser-side side effects
+- Dot-imported `html/shorthand` tags and helpers such as `Div`, `Button`, `Class`, `Textf`, and `If`
 
 Host HTML:
 
@@ -175,7 +181,13 @@ Host HTML:
 </html>
 ```
 
-Build manually:
+Build with the repo runner:
+
+```powershell
+go run ./tools/gwc build -app .\main.go -profile development
+```
+
+Or build manually:
 
 ```bash
 GOOS=js GOARCH=wasm go build -o static/bin/main.wasm main.go
@@ -194,7 +206,8 @@ Copy-Item "$(go env GOROOT)\lib\wasm\wasm_exec.js" static\wasm_exec.js
 ## Core Concepts
 
 - Components return `ui.Node` and are mounted with `ui.Render(...)`.
-- The `html` package provides typed DOM builders such as `Div`, `Button`, `Input`, `Section`, and `Tag`.
+- The `html` package provides the stable typed DOM builders such as `html.Div`, `html.Button`, `html.Input`, and `html.Tag`.
+- The `html/shorthand` package provides ergonomic mixed-argument sugar for dot-imported tags and helper funcs such as `Div`, `Button`, `Class`, `If`, `Text`, and `Textf`.
 - Local component behavior lives in `ui` hooks such as `UseState`, `UseEffect`, `UseReducer`, `UseRef`, and `UseEvent`.
 - Shared application state lives in `state`, with atoms, derived values, computed values, and snapshot helpers.
 - Routing, fetch helpers, SSR, hydration, and diagnostics are layered on top of the same runtime rather than split into unrelated packages.
@@ -204,7 +217,8 @@ Copy-Item "$(go env GOROOT)\lib\wasm\wasm_exec.js" static\wasm_exec.js
 The preferred public surface is:
 
 - `ui`: component composition, hooks, rendering, hydration, async boundaries, events, portals, and form helpers
-- `html`: typed HTML builders and DOM prop metadata
+- `html`: stable typed HTML builders and DOM prop metadata
+- `html/shorthand`: mixed-argument authoring sugar, helper funcs, and dot-import-friendly host tags layered on `html`
 - `state`: atom-based shared state, derived state, computed values, and snapshot helpers
 - `fetch`: browser fetch helpers, typed resources, and imperative fetch flows
 - `router`: hash routing, browser routing, params, query helpers, redirects, loaders, guards, metadata, nested layouts, and hydration-aware mount helpers
@@ -240,7 +254,10 @@ The preferred public surface is:
 ### Tooling and Validation
 
 - Public `devtools` package for in-app inspection and diagnostics
-- `go run ./tools/gwc import -src .\path\to\layout.html -out .\bin\converter\layout\main.go` converts static `.html`, `.htm`, `.jsx`, or `.tsx` files into an inspectable GWC `main.go` built from `html` library calls
+- `go run ./tools/gwc import -src .\path\to\layout.html -out .\bin\converter\layout\main.go` converts static `.html`, `.htm`, `.jsx`, or `.tsx` files into an inspectable GWC `main.go` built from current public `html` builders
+- `go run ./tools/gwc examples` serves the example catalog through the repo-standard Go runner
+- `go run ./tools/gwc dev -app .\path\to\main.go` starts the standalone wasm inner loop with rebuild-on-save and hotreload support
+- `go run ./tools/gwc test -lane unit -lane wasm -lane browser` runs the supported launcher-owned validation lanes
 - Launcher-owned temporary artifacts now resolve under `bin/tmp/` beneath the relevant project root instead of the OS temp directory
 - Native Go tests, js/wasm tests, Playwright browser suites, and benchmark coverage
 - Large example suite spanning local state, forms, routing, async work, SSR, hydration, nested routes, and diagnostics
@@ -263,10 +280,10 @@ The hydration model in this repo already includes DOM reuse, transferred bootstr
 
 The repository ships both larger integrated demos and feature-isolated catalog pages.
 
-From the repo root, start the example server with:
+From the repo root, start the example catalog with:
 
 ```powershell
-npm --prefix tools/devtools run dev:examples
+go run ./tools/gwc examples
 ```
 
 Primary URLs:
@@ -294,6 +311,14 @@ Native runtime tests only:
 go test ./internal/runtime
 ```
 
+Runner-owned validation lanes:
+
+```powershell
+go run ./tools/gwc test -lane unit -lane wasm
+go run ./tools/gwc test -lane browser
+go run ./tools/gwc verify -app .\examples\01-counter\main.go -root .\examples\01-counter
+```
+
 Wasm-only runtime tests on Windows:
 
 ```powershell
@@ -302,30 +327,7 @@ $env:GOARCH = "wasm"
 go test -exec .\tools\go_js_wasm_exec.bat ./internal/runtime
 ```
 
-Example-oriented browser tests:
-
-```powershell
-cd examples
-npm install
-npx playwright test
-```
-
-Main browser regression suites:
-
-```powershell
-cd test
-npm install
-npm run install:browsers
-npm test
-```
-
-Focused browser suites:
-
-```powershell
-npm run test:components
-npm run test:integration
-npm run test:state
-```
+For the broader browser harness, example-specific suites, and focused Playwright flows, use [test/README.md](test/README.md) and [examples/README.md](examples/README.md) as the authoritative references.
 
 ## Benchmarks
 
@@ -343,14 +345,7 @@ $env:GOARCH = "wasm"
 go test -exec .\tools\go_js_wasm_exec.bat ./internal/platform/jsdom -run ^$ -bench . -benchmem
 ```
 
-Browser comparison benchmark:
-
-```powershell
-cd test
-npm install
-npx playwright install chromium
-npm run bench
-```
+Release-style wasm comparisons and build experiments are driven through the tooling documented in [tools/README.md](tools/README.md), especially `gwc build`, `gwc release`, and the wasm experiment helpers under `tools/`.
 
 Latest browser comparison run on 2026-03-16:
 
@@ -370,10 +365,14 @@ Recent measured native runtime improvements include:
 
 ## Development Workflow
 
-The repo uses a Node/Express example server for local example development.
+Use the `gwc` runner as the repo-standard entrypoint for local workflows.
 
 ```powershell
-npm --prefix tools/devtools run dev:examples
+go run ./tools/gwc doctor
+go run ./tools/gwc examples
+go run ./tools/gwc dev -app .\examples\01-counter\main.go
+go run ./tools/gwc build -app .\examples\01-counter\main.go -profile ci
+go run ./tools/gwc release -app .\examples\01-counter\main.go -out-dir .\bin\gwc-release
 ```
 
 Relevant directories:
@@ -382,8 +381,9 @@ Relevant directories:
 - `examples/static/`: shared example assets
 - `bin/examples/`: generated wasm binaries for example entrypoints served at `/static/bin/...` by the local example servers
 - `bin/converter/`: ignored local converter outputs for inspectable imported layouts and screenshot comparisons
-- `tools/dev-server/`: local example server implementation
-- `test/`: main Playwright-based browser regression suites
+- `tools/gwc/`: canonical repo runner and launcher commands
+- `tools/dev-server/`: catalog server implementation used by runner-owned example serving
+- `test/`: main browser regression suites
 
 Generated wasm binaries and local browser-compiler package archives should stay out of git unless there is a deliberate release reason to commit them.
 
@@ -392,8 +392,8 @@ Generated wasm binaries and local browser-compiler package archives should stay 
 Current repo state as reflected in the codebase:
 
 - Core runtime lives in `internal/runtime/`
-- Preferred public packages are `ui`, `html`, `state`, `fetch`, `router`, `devtools`, and `hotreload`
-- Example and test fixture code now builds through current ui/html bridge helpers instead of older compatibility layers
+- Preferred public packages are `ui`, `html`, `html/shorthand`, `state`, `fetch`, `router`, `devtools`, and `hotreload`
+- Example and test fixture code now builds through current `ui`/`html` bridge helpers and shorthand sugar instead of older compatibility layers
 - Native `internal/runtime` statement coverage is `100%`
 - Native runtime tests pass with `go test ./internal/runtime`
 - Browser component, integration, and deep-state suites exist under Playwright
@@ -432,5 +432,5 @@ The implementation center of gravity is `internal/runtime/`:
 ## Notes
 
 - Older references to `fiber/` are obsolete; the runtime now lives under `internal/runtime/`.
-- The Express example server replaced older docs that referred to `scripts/` or ad hoc static serving.
+- The repo-standard workflow now goes through `go run ./tools/gwc ...` instead of ad hoc local launcher scripts.
 - The browser-compiler example may generate large local package archives under `examples/13-browser-compiler/static/pkg/`; those artifacts should remain ignored.
