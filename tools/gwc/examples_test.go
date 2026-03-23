@@ -17,6 +17,20 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
+func stageExampleWasmFixtures(t *testing.T, binaryNames ...string) string {
+	t.Helper()
+	wasmDir := t.TempDir()
+	for _, binaryName := range binaryNames {
+		if strings.TrimSpace(binaryName) == "" {
+			continue
+		}
+		if err := os.WriteFile(filepath.Join(wasmDir, binaryName), []byte("wasm"), 0644); err != nil {
+			t.Fatalf("write wasm fixture %q: %v", binaryName, err)
+		}
+	}
+	return wasmDir
+}
+
 func TestFilterExampleLinksMatchesKeywordsAcrossNameAndHref(t *testing.T) {
 	links := []exampleLink{
 		{Name: "01-counter", Href: "/examples/01-counter/"},
@@ -371,6 +385,10 @@ func TestExamplesCatalogJSONReportsWasmAndMultiClientEntries(t *testing.T) {
 		repoRoot:    repoRoot,
 		examplesDir: filepath.Join(repoRoot, "examples"),
 		staticDir:   filepath.Join(repoRoot, "examples", "static"),
+		examplesWasmDir: stageExampleWasmFixtures(t,
+			"counter.wasm",
+			"multi-client-presence.wasm",
+		),
 	}
 	handler := launcher.newExamplesHandler("127.0.0.1", "8090")
 	request := httptest.NewRequest(http.MethodGet, "/examples/catalog.json", nil)
@@ -466,9 +484,10 @@ func TestExamplesRouteGeneratesWasmHostPage(t *testing.T) {
 		t.Fatalf("resolve repo root: %v", err)
 	}
 	launcher := launcher{
-		repoRoot:    repoRoot,
-		examplesDir: filepath.Join(repoRoot, "examples"),
-		staticDir:   filepath.Join(repoRoot, "examples", "static"),
+		repoRoot:        repoRoot,
+		examplesDir:     filepath.Join(repoRoot, "examples"),
+		staticDir:       filepath.Join(repoRoot, "examples", "static"),
+		examplesWasmDir: stageExampleWasmFixtures(t, "counter.wasm"),
 	}
 	handler := launcher.newExamplesHandler("127.0.0.1", "8090")
 	request := httptest.NewRequest(http.MethodGet, "/examples/01-counter/", nil)

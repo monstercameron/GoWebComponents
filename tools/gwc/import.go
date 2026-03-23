@@ -1697,7 +1697,7 @@ func (l launcher) generateScaffoldProject(plan scaffoldPlan) (scaffoldResult, er
 	if err != nil {
 		return scaffoldResult{}, err
 	}
-	relRepoRoot, err := scaffoldRel(targetDir, l.repoRoot)
+	relRepoRoot, err := resolveScaffoldRepoReplacePath(targetDir, l.repoRoot)
 	if err != nil {
 		return scaffoldResult{}, fmt.Errorf("resolve repo replace path: %w", err)
 	}
@@ -1759,6 +1759,19 @@ func (l launcher) generateScaffoldProject(plan scaffoldPlan) (scaffoldResult, er
 		return scaffoldResult{}, fmt.Errorf("format generated main.go: %w", err)
 	}
 	return scaffoldResult{TargetDir: targetDir, AppPath: mainPath, HTMLPath: htmlPath}, nil
+}
+
+func resolveScaffoldRepoReplacePath(baseDir string, repoRoot string) (string, error) {
+	relPath, err := scaffoldRel(baseDir, repoRoot)
+	if err == nil {
+		return relPath, nil
+	}
+	baseVolume := strings.ToLower(filepath.VolumeName(filepath.Clean(baseDir)))
+	repoVolume := strings.ToLower(filepath.VolumeName(filepath.Clean(repoRoot)))
+	if baseVolume != "" && repoVolume != "" && baseVolume != repoVolume {
+		return repoRoot, nil
+	}
+	return "", err
 }
 
 func defaultScaffoldMetadata(selection startSelection) scaffoldMetadata {
