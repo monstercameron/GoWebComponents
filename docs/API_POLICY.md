@@ -59,6 +59,7 @@ Current experimental surfaces are:
 
 - concurrent-style scheduling primitives such as `ui.StartTransition`, `ui.UseTransition`, and `ui.UseDeferredValue`
 - explicit async subtree primitives such as `ui.AsyncBoundary` and `ui.Lazy`
+- additive `html` authoring sugar helpers documented in `docs/HTML_SUGAR.md`, including `Children`, `PropsOf`, `Textf`, `TextIf`, `When`, `ClassNames`, `If`, `IfElse`, `Unless`, `Map`, and the option-helper surface built on `PropsOf(...)`
 - advanced cached-resource flows in `fetch.UseCachedResource`
 - advanced router data and lifecycle APIs including route loaders, `UseRevalidator`, guards, route-managed metadata, and layout-heavy hydration flows
 - optional SSR bootstrap transport details beyond the documented JSON bootstrap path, including alternative payload encodings

@@ -33,8 +33,9 @@ type Props struct {
 	Max          string
 	Step         string
 
-	Rows int
-	Cols int
+	Rows     int
+	Cols     int
+	TabIndex int
 
 	Checked   bool
 	Disabled  bool
@@ -70,11 +71,6 @@ type CustomElementProps struct {
 }
 
 const customElementPropertyPrefix = "__gwc_prop__:"
-
-// Text creates a text node.
-func Text(content string) ui.Node {
-	return ui.Text(content)
-}
 
 // Tag creates a node for an arbitrary HTML tag name.
 func Tag(name string, props Props, children ...ui.Node) ui.Node {
@@ -388,6 +384,9 @@ func toRuntimeProps(props Props) map[string]interface{} {
 	if props.Cols != 0 {
 		count++
 	}
+	if props.TabIndex != 0 {
+		count++
+	}
 	if props.Checked {
 		count++
 	}
@@ -525,6 +524,9 @@ func toRuntimeProps(props Props) map[string]interface{} {
 	}
 	if props.Cols != 0 {
 		values["cols"] = props.Cols
+	}
+	if props.TabIndex != 0 {
+		values["tabIndex"] = props.TabIndex
 	}
 	if props.Checked {
 		values["checked"] = true

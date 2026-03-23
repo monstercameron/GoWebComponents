@@ -4,8 +4,9 @@ package main
 
 import (
 	"fmt"
-	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 	"strconv"
+
+	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -14,6 +15,11 @@ import (
 type TodoItemProps struct {
 	Text     string
 	OnRemove func()
+}
+
+type todoRow struct {
+	Index int
+	Text  string
 }
 
 func TodoItem(props TodoItemProps) ui.Node {
@@ -56,19 +62,21 @@ func TodoList() ui.Node {
 		todos.Set([]string{})
 	})
 
-	todoItems := make([]ui.Node, 0, len(currentTodos))
+	todoRows := make([]todoRow, len(currentTodos))
 	for i, todo := range currentTodos {
-		index := i
-		todoItems = append(todoItems, ui.CreateElement(TodoItem, TodoItemProps{
-			Text: todo,
+		todoRows[i] = todoRow{Index: i, Text: todo}
+	}
+	todoItems := html.Map(todoRows, func(row todoRow) ui.Node {
+		return ui.CreateElement(TodoItem, TodoItemProps{
+			Text: row.Text,
 			OnRemove: func() {
 				newTodos := make([]string, 0, len(currentTodos)-1)
-				newTodos = append(newTodos, currentTodos[:index]...)
-				newTodos = append(newTodos, currentTodos[index+1:]...)
+				newTodos = append(newTodos, currentTodos[:row.Index]...)
+				newTodos = append(newTodos, currentTodos[row.Index+1:]...)
 				todos.Set(newTodos)
 			},
-		}))
-	}
+		})
+	})
 
 	return html.Div(html.Props{
 		Class: "min-h-screen flex items-center justify-center bg-[#0a0a0a] text-white p-4",
@@ -99,7 +107,7 @@ func TodoList() ui.Node {
 			},
 				html.P(html.Props{
 					Class: "text-gray-400 text-sm font-medium",
-				}, html.Text(fmt.Sprintf("Tasks: %d", len(currentTodos)))),
+				}, html.Textf("Tasks: %d", len(currentTodos))),
 
 				html.Button(html.Props{
 					OnClick: clearAll,
@@ -107,10 +115,15 @@ func TodoList() ui.Node {
 				}, html.Text("Clear All")),
 			),
 
-			html.Ul(html.Props{
-				Class: "space-y-2",
-				ID:    "todo-list-" + strconv.Itoa(len(currentTodos)),
-			}, todoItems...),
+			html.If(len(currentTodos) == 0,
+				html.P(html.Props{Class: "rounded-lg border border-dashed border-white/10 px-4 py-6 text-center text-sm text-gray-500"}, html.Text("No tasks yet. Add your first item above.")),
+			),
+			html.Unless(len(currentTodos) == 0,
+				html.Ul(html.Props{
+					Class: "space-y-2",
+					ID:    "todo-list-" + strconv.Itoa(len(currentTodos)),
+				}, todoItems...),
+			),
 		),
 	)
 }

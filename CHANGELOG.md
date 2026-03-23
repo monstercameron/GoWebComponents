@@ -2,6 +2,14 @@
 
 ## 2026-03-22
 
+### HTML authoring sugar, shorthand ergonomics, and browser validation
+
+- Added the first additive `html` authoring sugar layer, including `Children(...)`, `Textf(...)`, `TextIf(...)`, `When(...)`, `ClassNames(...)`, `If(...)`, `IfElse(...)`, `Unless(...)`, `Map(...)`, `MapKeyed(...)`, `FlatMap(...)`, `FilterMap(...)`, `Join(...)`, `Maybe(...)`, `OrElse(...)`, `Coalesce(...)`, `Switch(...)`, `Case(...)`, `Default(...)`, `PropsOf(...)`, `WithProps(...)`, first-pass prop helpers, explicit event-wrapper helpers, and closure-scoped `Debounce(...)` and `Throttle(...)` helpers so primitive DOM composition can be lighter without replacing the stable typed builder surface.
+- Added the companion `html/shorthand` package with mixed-argument host-tag wrappers such as `Div(...)`, `Button(...)`, and `Input(...)`, plus `FromProps(...)`, while keeping the existing typed `html.Div(...)` builder family compatibility-stable for existing `[]ui.Node` call sites.
+- Extended SSR to render reactive text nodes correctly, broadened native, shorthand, and exact-markup test coverage for the html surface, and pushed html package coverage beyond the targeted threshold with parity checks against explicit builders.
+- Updated package docs, API policy, roadmap tracking, and several examples to demonstrate both `PropsOf(...)`-style additive sugar and the companion shorthand path, including form-heavy, toggle, todo, and html-form example flows.
+- Hardened the browser smoke-test harness by making the Playwright web-server port configurable, then validated the mounted html path with focused and broader Playwright suites plus a direct manual smoke pass covering input, form submit, effect mount or cleanup, todo creation, and fetch-driven rendering.
+
 ### Static HTML and JSX converter workflow
 
 - Added a new `gwc import` launcher command that converts static `.html`, `.htm`, `.jsx`, and `.tsx` sources into a single inspectable `main.go` built from the public `html` builder API instead of generating an opaque scaffold or hidden transform output.

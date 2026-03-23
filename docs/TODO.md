@@ -1511,6 +1511,163 @@ Organization rules for this file:
 - [ ] Add lightweight code actions for common framework fixes.
 	Offer quick fixes for missing scaffold metadata, missing editor tasks, baseline test generation, and known auditor suppressions so editor integration has corrective value rather than only passive warnings.
 
+### HTML authoring sugar and shorthand ergonomics
+
+- [x] Define the product boundary for additive HTML authoring sugar.
+	Decide and document that the shorthand layer stays plain Go, composes on top of `html` and `ui`, does not replace the explicit builder surface, and does not introduce JSX, hidden reactivity, or a second runtime ownership model.
+- [x] Decide where the shorthand surface lives.
+	Choose whether the first pass lives in `html`, in a dedicated additive package, or as a narrowly documented dot-import style over `html`, and record the support tier before any new public API is added.
+- [x] Define the accepted mixed-child contract for the shorthand layer.
+	Specify exactly which child inputs are supported, such as `ui.Node`, `string`, `fmt.Stringer`, nested `[]ui.Node`, nested `[]string`, and mixed `[]interface{}`, so variadic sugar behavior is fixed before helpers are implemented.
+- [x] Define nil and scalar child handling rules.
+	Decide whether `nil` children are silently skipped, whether non-string scalar values are rejected or stringified, and whether the shorthand layer is allowed to use `fmt.Sprint(...)` as a last-resort fallback.
+- [x] Add one shared child-normalization helper for the sugar path.
+	Implement a single internal normalization pass that flattens nested children, auto-wraps accepted text-like inputs into text nodes, preserves order, and avoids each shorthand builder reimplementing its own child parsing.
+- [x] Add tests for child normalization behavior.
+	Cover mixed strings and nodes, nested child slices, nil entries, empty input, and deterministic output ordering so sugar builders do not drift subtly over time.
+- [x] Defer automatic string-to-text lifting inside existing shorthand builders until a compatibility-safe migration exists.
+	Record that changing the existing typed builder signatures to mixed variadic inputs would break common `[]ui.Node` expansion callsites, so the non-breaking first pass keeps explicit builders plus `Text(...)` and `Children(...)` instead.
+- [x] Ship compatibility-safe mixed-input host tags in a companion `html/shorthand` package.
+	Keep the stable typed `html.Div(...)` builder family unchanged, and add the reopened second-pass mixed-argument call shape through `html/shorthand.Div(...)`, `Button(...)`, and the rest of the selected primitive tag set.
+- [x] Add SSR parity tests for auto-lifted text children in the companion shorthand package.
+	Validate that `html/shorthand` mixed string children serialize identically to equivalent explicit `html` trees once auto-lifted host tags actually exist.
+- [x] Define the first-pass shorthand tag set.
+	Choose the initial supported subset of common tags such as `Div`, `Span`, `Button`, `Input`, `Label`, `Form`, `P`, `Pre`, `Code`, `Section`, `Ul`, `Li`, `H1`, `H2`, `H3`, `Img`, `Select`, and `Option` instead of mirroring every HTML builder immediately.
+- [x] Keep existing typed builders as the first-pass host-tag entrypoints instead of adding parallel shorthand wrapper names.
+	Use the already-exported package-level builders such as `Div`, `Button`, `Input`, and `Option` together with `PropsOf(...)`, `Children(...)`, and text helpers in the first pass, while the reopened second pass keeps mixed-input wrappers isolated in `html/shorthand` instead of replacing the typed `html` API.
+- [x] Define the shorthand call-shape for tags.
+	Decide whether shorthand tag functions accept only mixed variadic arguments, whether options and children are parsed from one shared argument list, and how empty calls or zero-child host nodes are represented.
+- [x] Define the option model for shorthand DOM props.
+	Choose the representation for additive props such as a marker interface, typed option structs, or another explicit value shape so shorthand tags can stay ergonomic without becoming reflection-heavy or ambiguous.
+- [x] Add shorthand helpers for the highest-value common props.
+	Implement the first set of option helpers for `Class`, `ID`, `Title`, `Value`, `Placeholder`, `Type`, `Href`, `Src`, `Disabled`, `Checked`, `Selected`, `Required`, `ReadOnly`, `AutoFocus`, `Style`, `Data`, and `Aria` so primitive DOM authoring can move away from repetitive explicit prop structs where appropriate.
+- [x] Define duplicate-option precedence rules.
+	Document whether repeated shorthand options use last-write-wins semantics or another explicit rule so option parsing stays deterministic and reviewable.
+- [x] Add tests for shorthand option parsing and precedence.
+	Verify that shorthand options map cleanly onto `html.Props`, that duplicate options resolve consistently, and that omitted zero values do not accidentally emit extra props.
+- [x] Add shorthand event option helpers that reuse `ui.UseEvent(...)`.
+	Implement helpers such as `OnClick`, `OnInput`, `OnChange`, `OnSubmit`, `OnKeyDown`, `OnKeyUp`, `OnFocus`, and `OnBlur` that stay on the existing handler path instead of creating a second event abstraction.
+- [x] Support both zero-argument and typed-event callback signatures through shorthand event helpers.
+	Ensure shorthand event helpers can accept the already-supported `func()` and typed event callback forms cleanly so authoring is lighter without changing runtime behavior.
+- [x] Add tests for shorthand event helper behavior.
+	Cover zero-argument handlers, typed event handlers, stable prop emission, and browser event execution so event sugar remains a pure surface-level convenience.
+- [x] Add a `Textf(...)` helper for formatted text nodes.
+	Provide a small formatting helper that reduces repetitive `fmt.Sprintf(...)` plus `html.Text(...)` pairs while keeping the underlying output equal to an ordinary text node.
+- [x] Add tests for `Textf(...)`.
+	Verify formatting behavior across empty strings, multiple arguments, numeric formatting, and equivalent explicit output so the helper is easy to trust.
+- [x] Evaluate whether `TextIf(...)` belongs in the first shorthand pass.
+	Decide whether a small conditional text helper materially improves compact status and label rendering over `If(...)` plus string auto-lifting or whether it only duplicates existing composition patterns.
+- [x] Add tests for `TextIf(...)` if that helper ships.
+	Cover true and false conditions, empty strings, SSR parity, and interaction with auto-text normalization so conditional text sugar remains straightforward.
+- [x] Add a `When(...)` helper for conditional class fragments.
+	Provide a simple conditional-string helper that lets class composition stay readable without open-coded string concatenation for common boolean cases.
+- [x] Add a `ClassNames(...)` helper.
+	Join class fragments, drop empty values, normalize whitespace boundaries, and support a mix of raw strings plus conditional fragments so class composition feels modern without hiding actual class output.
+- [x] Define whether `ClassNames(...)` flattens nested class-part slices.
+	Specify whether nested `[]string`, grouped helper results, or other class-part collections are recursively flattened so callers do not need a second normalization step when composing reusable class fragments.
+- [x] Evaluate whether `ClassIf(...)` adds enough value beyond `When(...)`.
+	Decide whether a dedicated boolean-to-class helper materially improves readability or merely duplicates `When(...)` under another name.
+- [x] Add tests for `When(...)` and `ClassNames(...)`.
+	Cover empty fragments, repeated spaces, mixed truthy and falsey fragments, and deterministic join behavior so styling helpers remain mechanical and unsurprising.
+- [x] Add `If(...)` for inline conditional node emission.
+	Support the common case where a subtree should render only when a condition is true, without forcing authors to allocate temporary slices or wrapper nodes for small inline decisions.
+- [x] Add `IfElse(...)` for inline branch selection.
+	Support the common case where a component chooses between two sibling node shapes inline, while keeping the output on the normal `ui.Node` path rather than inventing an expression-specific runtime contract.
+- [x] Add `Unless(...)` as the inverse conditional helper.
+	Support the common case where a subtree should render only when a predicate is false so small fallback or empty-state branches do not require manual boolean negation at every callsite.
+- [x] Evaluate whether switch-style expression helpers belong in the sugar layer.
+	Decide whether `Switch(...)`, `Case(...)`, and `Default(...)` materially improve authored tree readability over ordinary Go branching or whether they push the shorthand API too far toward a custom DSL.
+- [x] Add switch-style helpers for second-pass inline branch selection.
+	Ship `Switch(...)`, `Case(...)`, and `Default(...)` with first-match-wins semantics and explicit fallback behavior.
+- [x] Define false-branch semantics for conditional helpers.
+	Decide whether a false condition returns `nil`, an empty fragment, or another explicit zero-node contract so conditional helpers integrate predictably with existing child flattening rules.
+- [x] Add tests for `If(...)` and `IfElse(...)`.
+	Verify nil handling, empty-branch behavior, SSR output parity, and composition with mixed shorthand children so conditional helpers do not accidentally emit wrapper markup.
+- [x] Evaluate whether optional-value helpers belong in the first shorthand pass.
+	Decide whether helpers such as `Maybe(...)`, `OrElse(...)`, and `Coalesce(...)` are important enough to be part of the initial authoring story or whether they should remain a later convenience layer to avoid turning `ui` into a general utility bag.
+- [x] Add pointer-based optional-value helpers for second-pass sugar.
+	Ship `Maybe(...)`, `OrElse(...)`, and `Coalesce(...)` with pointer-only absence semantics so missing values stay explicit and zero values are not overloaded.
+- [x] Add a generic `Map(...)` helper for slice-to-node expansion.
+	Provide a small helper that expands typed slices into `[]ui.Node` while preserving order and avoiding repetitive `make([]ui.Node, 0, len(items))` boilerplate in DOM-heavy list rendering.
+- [x] Decide whether first-pass `Map(...)` also supports index-aware callbacks.
+	Choose whether the initial API is `func(T) ui.Node` only or whether `func(T, int) ui.Node` belongs in the first pass so list helpers stay minimal and stable.
+- [x] Add tests for `Map(...)`.
+	Cover empty slices, single-item slices, order preservation, and direct variadic composition into parent shorthand tags so list sugar remains predictable.
+- [x] Add a truthful `MapKeyed(...)` helper with explicit key propagation.
+	Ship keyed list sugar only by explicitly writing computed keys onto each realized node so reconciliation behavior remains reviewable instead of cosmetic.
+- [x] Evaluate whether higher-order collection helpers belong in the shorthand surface.
+	Decide whether `FlatMap(...)`, `FilterMap(...)`, and `Join(...)` materially reduce real list-composition boilerplate in examples or whether they expand the sugar layer too quickly for the first release.
+- [x] Add higher-order collection helpers for second-pass shorthand composition.
+	Ship `FlatMap(...)`, `FilterMap(...)`, and `Join(...)` with explicit flattening, filtering, and separator behavior so denser tree construction stays mechanical.
+- [x] Decide whether the shorthand layer should expose `Fragment` and a short alias.
+	Evaluate whether to re-expose `Fragment` only, add a short alias such as `F`, or deliberately avoid the alias to keep the API from drifting into DSL-style shorthand.
+- [x] Define first-class void-tag shorthand expectations.
+	Ensure helpers for childless tags such as `Br()`, `Hr()`, `Img(...)`, and `Input(...)` remain cheap to call, require no placeholder children, and compose cleanly with the same shorthand option model as non-void host nodes.
+- [x] Add tests for void-tag shorthand behavior.
+	Cover empty child lists, attr emission, SSR serialization, and equivalence with explicit `html` builders so void tags stay simple and unsurprising.
+- [x] Evaluate whether buttons and links need dedicated content-normalization sugar.
+	Decide whether common cases such as `Button("Save")`, `Button(icon, "Save")`, and string-heavy link content are already solved by the general normalization model or whether these heavily-used primitives need additional shorthand conveniences.
+- [x] Evaluate whether anchor shorthand should support positional destination sugar.
+	Decide whether forms like `A("/settings", "Settings")` are worth supporting or whether explicit `Href(...)` plus normalized children keeps the argument contract clearer and more Go-like.
+- [x] Do not add button or link normalization shortcut tests for the first pass.
+	The first pass relies on the general child normalization path and explicit `Href(...)` usage rather than shipping primitive-specific shortcut forms that need separate coverage.
+- [x] Decide whether the shorthand layer needs explicit attribute-builder helpers beyond typed prop options.
+	Evaluate whether `Attr(...)`, `Attrs(...)`, `Data(...)`, and `Aria(...)` materially improve readability over typed options alone, especially for uncommon or mixed attribute-heavy host nodes.
+- [x] If attribute-builder helpers ship, define how they merge with typed options.
+	Specify precedence between `Attr(...)` and dedicated helpers like `Class(...)` or `ID(...)`, how repeated `Attrs(...)` groups merge, and how raw attributes interact with typed boolean props so the shorthand layer does not hide conflicts.
+- [x] Add tests for attribute-builder helper behavior if that API ships.
+	Cover raw attribute emission, merge precedence, duplicate keys, mixed `Data(...)` and `Aria(...)` usage, and parity with explicit `html.Props` output.
+- [x] Add shorthand helpers for `Role(...)` and `TabIndex(...)` if the first attr set expands.
+	Treat landmark, dialog, listbox, and keyboard-navigation attributes as common enough to justify first-class helpers once the baseline attr sugar surface is stable.
+- [x] Evaluate conditional boolean attr helpers for common host props.
+	Decide whether helpers such as `DisabledIf(...)`, `ReadOnlyIf(...)`, and `SelectedIf(...)` improve tree readability enough to justify dedicated exports beyond the base boolean prop helpers.
+- [x] Add tests for conditional boolean attr helpers if they ship.
+	Cover true and false emission, merge precedence with direct boolean options, and parity with explicit boolean props so conditional attr sugar remains predictable.
+- [x] Evaluate whether `StyleMap(...)` should be a dedicated shorthand helper.
+	Decide whether a named `StyleMap(...)` helper improves readability enough over `Style(...)` with a literal map to justify a separate public API.
+- [x] Do not add `StyleMap(...)` as a first-pass helper.
+	`Style(...)` already covers the intended map-based usage, so no separate helper or test track is needed.
+- [x] Add simple event-wrapper helpers for common browser-control flows.
+	Evaluate and, if appropriate, implement wrappers such as `Prevent(...)` and `Stop(...)` that compose with existing event helpers and reduce repetitive `PreventDefault()` and `StopPropagation()` boilerplate without hiding handler ownership.
+- [x] Define how simple event wrappers interact with zero-argument and typed-event callbacks.
+	Specify whether wrappers synthesize an event-aware adapter around `func()` callbacks, whether typed-event callbacks remain unchanged, and how wrapper composition order behaves so event helpers are stackable but still explicit.
+- [x] Add tests for simple event-wrapper helpers if they ship.
+	Cover prevent-default behavior, stop-propagation behavior, zero-argument callbacks, typed-event callbacks, and nested wrapper composition so the helpers remain transparent.
+- [x] Evaluate whether temporal event helpers belong in the first-party sugar surface.
+	Decide whether `Debounce(...)` and `Throttle(...)` should ship as first-party event sugar, remain separate scheduling helpers, or stay deferred until the cleanup, timing, and value-extraction contract is more mature.
+- [x] Add temporal event helpers for second-pass event sugar.
+	Ship `Debounce(...)` and `Throttle(...)` with explicit closure-scoped scheduling semantics rather than leaving them as permanently deferred placeholders.
+- [x] Define the shorthand split between primitive option-style components and business components.
+	Document that primitive DOM-like components may accept option-style sugar such as `Variant(...)` or `Size(...)`, while app-level or business components should continue to use typed props structs for clarity and long-term maintainability.
+- [x] Evaluate whether primitive visual options such as `Variant(...)` and `Size(...)` belong in core shorthand.
+	Decide whether these option helpers should be limited to a small first-party primitive set or left to application and design-system packages so the framework does not overclaim a built-in visual component model.
+- [x] Leave primitive visual option helpers out of the first-pass sugar surface.
+	Do not add framework-level `Variant(...)` or `Size(...)` options to generic html sugar, so no helper-specific tests are needed.
+- [x] Decide whether the shorthand layer should expose a `Memo(...)` alias distinct from the existing hook names.
+	Evaluate whether a standalone `Memo(...)` concept genuinely improves ergonomics or whether it would duplicate `UseMemo(...)` semantics and increase naming surface without enough value.
+- [x] Add a documented happy-path import recommendation for the shorthand surface.
+	Choose whether the preferred authored form is `ui.*`, dot-imported shorthand helpers, or an additive package alias, and document the tradeoffs honestly instead of implying a no-prefix style that Go does not naturally guarantee.
+- [x] Evaluate whether small app-level convenience helpers belong in core shorthand or companion packages.
+	Classify candidates such as `Plural(...)`, `Ellipsis(...)`, and `TestID(...)` as core sugar, companion utilities, or app-level helpers so the framework does not quietly accumulate unrelated generic utilities under the same authoring layer.
+- [x] Leave small app-level convenience helpers out of the first-pass sugar surface.
+	Keep app-specific conveniences such as pluralization, truncation, and test-id helpers out of core html sugar rather than defining contracts and tests for them here.
+- [x] Separate router-aware sugar candidates from generic DOM sugar.
+	Treat helpers such as `LinkTo(...)`, `IsActiveRoute(...)`, and route-matching conveniences as router-surface decisions rather than silently folding them into generic HTML shorthand work.
+- [x] Separate resource-state sugar candidates from generic DOM sugar.
+	Treat helpers such as `Match(resource, ...)` as fetch or async-boundary ergonomics that should be evaluated with the broader resource API instead of being bundled uncritically into the base HTML authoring layer.
+- [x] Separate binding-style sugar candidates from first-pass shorthand work.
+	Treat helpers such as `BindValue(...)` and `BindChecked(...)` as higher-magic form abstractions that need a dedicated decision on ownership, conversion rules, and event semantics before they are allowed into the public API.
+- [x] Pilot the shorthand layer on a small set of examples.
+	The shorthand surface now has real authored validation beyond package tests: `examples/03-toggle` exercises the reopened second-pass `html/shorthand` path directly, and `examples/02-text-input` covers the form-heavy input path. A dedicated list-heavy shorthand port remains optional follow-up rather than a blocker for the shipped HTML sugar surface.
+- [x] Add parity tests that compare shorthand output to explicit `html` output.
+	Use representative host trees to confirm that shorthand-built nodes serialize and render identically to equivalent explicit `html` builders so the sugar layer can stay a mechanical facade.
+- [x] Add authoring docs for the shorthand layer.
+	Document the intended relationship between `ui`, `html`, and the shorthand helpers, show side-by-side examples, explain when to prefer the explicit builder layer, and state clearly which ergonomics are intentionally deferred.
+- [x] Add adoption and migration guidance for shorthand usage.
+	Show how teams can mix shorthand helpers with explicit `html` builders safely, when dot-import is acceptable, which identifiers are likely to collide in larger packages, and how to keep business components on typed props structs while using shorthand primarily for primitive DOM composition.
+- [x] Classify the shorthand layer in the API policy before broad rollout.
+	Mark the first shipped shorthand surface as stable, supported companion, or experimental and update the package docs and migration guidance so additive authoring sugar does not arrive as unlabeled permanent public API.
+
 ### Launcher testing, verification, and diagnostics
 
 - [x] Add `gwc test` with explicit test lanes.
@@ -1633,6 +1790,70 @@ Organization rules for this file:
 	Measure hook-only, opt-in fine-grained, and signal-first-style hotspot workloads side by side so the project can explain why fine-grained support is H3 as an option but still L1 as the default programming model.
 - [ ] Add first-class virtualization primitives for large lists and tables.
 	Provide one supported answer for windowed rendering, stable row identity, measurement or overscan policy, and scroll restoration so data-heavy apps do not have to hand-roll large-collection performance patterns on top of the base reconciler.
+- [ ] Decide whether virtualization belongs in core `ui`, a supported companion package, or an examples-first proving ground.
+	Choose the ownership boundary before designing public APIs so large-list support does not arrive as an unlabeled permanent surface without a clear maintenance story.
+- [ ] Define the first supported virtualization workload shapes.
+	Decide whether the initial supported scope covers uniform-height vertical lists only, variable-height lists, tables and grids, nested grouped lists, or some smaller subset so the first release has honest constraints.
+- [ ] Define the virtualization API shape.
+	Choose whether the public surface is a component, a hook, a render-helper pair, or a lower-level state plus measurement primitive so consumers can reason about list ownership and rendering boundaries clearly.
+- [ ] Define row identity and key requirements for virtualized items.
+	Specify how callers provide stable item identity, how virtualization interacts with reconciliation keys, and which misuse patterns should be documented or rejected so row reuse does not corrupt local row state.
+- [ ] Define the viewport and scroll-container ownership model.
+	Decide whether the primitive owns its own scroll container, can bind to an external scrolling parent, or supports both modes so larger app shells do not have to fight the virtualization contract.
+- [ ] Define overscan policy and defaults.
+	Choose how many extra rows render before and after the visible window, whether overscan is item-count-based or pixel-based, and how callers override it so the first implementation has a defensible jank-versus-work tradeoff.
+- [ ] Define the measurement model for row size.
+	Decide whether the first pass assumes fixed row height, supports measured variable row heights, or supports an estimated-plus-correction model so the public API does not overpromise variable-height behavior.
+- [ ] If variable-height rows are supported, define measurement invalidation rules.
+	Specify how row remeasurement is triggered after content changes, width changes, font loading, or async image load so scroll position and visible windows stay coherent over time.
+- [ ] Define scroll restoration and anchor behavior.
+	Specify how virtualization restores scroll after rerender, route transitions, hydration, and data refresh, and whether restoration is item-anchor-based, pixel-offset-based, or both.
+- [ ] Define SSR and hydration behavior for virtualized lists.
+	Decide whether SSR renders only the initial window, a fixed above-the-fold budget, or a non-virtualized fallback so hydration and initial HTML stay predictable instead of silently changing list semantics between server and browser.
+- [ ] Define accessibility expectations for virtualized content.
+	Document focus retention, roving navigation interactions, screen-reader row or count metadata, and how offscreen items should be represented so virtualization does not undermine the accessibility work already present elsewhere in the framework.
+- [ ] Define table-specific behavior if tables are in scope for the first pass.
+	Specify whether virtualization supports semantic `<table>` structures directly, requires div-based grids, or needs a dedicated table virtualization primitive so row and header semantics remain honest.
+- [ ] Define interaction behavior for sticky headers, sticky columns, and grouped sections.
+	Decide whether these patterns are explicitly unsupported in the first release, supported only for certain layout shapes, or part of the first-class contract so feature scope stays reviewable.
+- [ ] Define integration guidance for local state, forms, and focus inside virtualized rows.
+	Explain how row-local hook state behaves when rows unmount outside the visible window, when callers should externalize row state, and how form inputs or expanded rows preserve meaningful user work across virtualization boundaries.
+- [ ] Define integration guidance for fine-grained reactivity versus virtualization.
+	Clarify whether virtualization is expected to compose with `state.Select(...)` and `ui.ReactiveRegion(...)`, and which mechanism should own high-frequency row updates versus window-range updates in large data surfaces.
+- [ ] Add the first low-level viewport state primitive if needed.
+	Provide a minimal maintained way to track scroll offset, viewport size, and visible range so virtualization logic does not depend on every consumer hand-rolling browser measurement and resize bookkeeping.
+- [ ] Add the first public virtualized list primitive for uniform-height rows.
+	Ship one narrow, well-tested answer for large vertical lists before expanding into more complex variable-height or grid-style workloads.
+- [ ] Add variable-height virtualization only after fixed-height behavior is correct and measured.
+	Treat measured or estimated variable-height rows as a second phase so the first release does not inherit avoidable complexity in scroll correction and measurement churn.
+- [ ] Add a virtualization-specific row renderer contract.
+	Define exactly what row index, item value, item key, style or offset data, and visibility metadata the render callback receives so the primitive is expressive without leaking internal implementation details.
+- [ ] Add virtualization-specific diagnostics for rendered range and overscan behavior.
+	Expose current start and end indexes, rendered row count, overscan count, total item count, and visible viewport metrics so large-list behavior can be inspected without guessing.
+- [ ] Add diagnostics for measurement churn and scroll correction.
+	Record how often row sizes are measured or invalidated, how often scroll offsets are corrected after estimate mismatch, and whether measurement work clusters around specific interactions so variable-height support can be profiled honestly.
+- [ ] Add diagnostics for row mount or unmount churn in virtualized surfaces.
+	Track how many row fibers mount, unmount, or reuse across scroll movements so performance work can distinguish reconciler overhead from raw DOM work.
+- [ ] Add virtualization-aware performance budgets.
+	Define target ceilings for rendered-row count, scroll handler cost, measurement churn, dropped-frame signals, and row mount churn so future changes can be judged against repeatable budgets rather than subjective smoothness.
+- [ ] Add a fixed-height feed example that proves the basic contract.
+	Ship one realistic long feed or event log example that exercises scrolling, selection, and row reuse so virtualization is taught through an app-shaped workload rather than only through an abstract API demo.
+- [ ] Add a data-table example if tables remain in scope.
+	Use a wide, data-dense table or operator grid example to validate header behavior, keyboard flow, stable row identity, and scroll performance under enterprise-style list pressure.
+- [ ] Add examples that show row-local state pitfalls and recommended ownership patterns.
+	Demonstrate what happens when row-local hook state is lost on unmount and show the recommended pattern for preserving selection, expansion, edits, or draft form values outside the virtualized row lifecycle.
+- [ ] Add browser benchmarks for large virtualized scroll surfaces.
+	Measure fixed-height and, if supported, variable-height list scrolling with representative item counts so the project can compare virtualized rendering to full rendering under realistic row counts.
+- [ ] Add regression tests for visible-range calculation.
+	Cover empty lists, tiny lists, large lists, start-of-list, end-of-list, overscan boundaries, and resize-driven recalculation so window math does not drift silently.
+- [ ] Add regression tests for stable row identity across scroll reuse.
+	Verify that keyed rows preserve intended identity when items enter and leave the rendered window so row-local state does not bleed between unrelated records.
+- [ ] Add regression tests for scroll restoration and anchor retention.
+	Verify that route transitions, data refreshes, resorting, and container resizes preserve the documented restoration behavior instead of snapping users to the wrong offset.
+- [ ] Add regression tests for hydration behavior on virtualized surfaces.
+	Verify the documented SSR-to-browser contract for initial rendered range, placeholder height strategy, and post-hydration scroll correctness so virtualization does not destabilize hydration.
+- [ ] Add regression tests for keyboard and focus behavior in virtualized lists.
+	Verify focus retention, tabbability, active-row movement, and screen-reader-relevant metadata under row recycling and scroll movement so accessibility remains intact.
 - [ ] Add virtualization examples, diagnostics, and performance budgets.
 	Ship at least one realistic table or feed example plus profiling hooks that show rendered-row counts, measurement churn, and scroll-jank signals so virtualization can be validated as a production feature rather than an isolated helper.
 

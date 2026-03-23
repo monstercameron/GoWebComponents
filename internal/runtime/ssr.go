@@ -56,6 +56,15 @@ func renderElementToString(builder *strings.Builder, element *Element) error {
 	if _, ok := element.Type.(*PortalElementType); ok {
 		return renderChildrenToString(builder, element.Children)
 	}
+	if _, ok := element.Type.(*ReactiveTextElementType); ok {
+		getter, _ := element.Props[reactiveTextGetterProp].(func() string)
+		if getter == nil {
+			builder.WriteString(html.EscapeString(element.TextContent))
+			return nil
+		}
+		builder.WriteString(html.EscapeString(getter()))
+		return nil
+	}
 	if _, ok := element.Type.(*ReactiveRegionElementType); ok {
 		render, _ := element.Props[reactiveRegionRenderProp].(func() *Element)
 		if render == nil {

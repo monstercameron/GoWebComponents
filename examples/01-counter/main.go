@@ -4,7 +4,6 @@
 package main
 
 import (
-	"fmt"
 	_ "github.com/monstercameron/GoWebComponents/examples/internal/examplelog"
 
 	"github.com/monstercameron/GoWebComponents/html"
@@ -29,6 +28,26 @@ func CounterExample() ui.Node {
 		count.Set(0)
 	})
 
+	buttonBaseClass := "transition-all duration-200 active:scale-95"
+	iconButtonClass := html.ClassNames(
+		"w-16 h-16 flex items-center justify-center rounded-full text-2xl",
+		buttonBaseClass,
+		"hover:scale-110",
+	)
+	neutralButtonClass := html.ClassNames(
+		iconButtonClass,
+		"bg-white/5 hover:bg-white/10 border border-white/10",
+	)
+	primaryButtonClass := html.ClassNames(
+		iconButtonClass,
+		"bg-gradient-to-r from-blue-500 to-purple-600 shadow-lg shadow-purple-500/20",
+	)
+	resetButtonClass := html.ClassNames(
+		"px-6 h-16 flex items-center justify-center rounded-full text-sm font-bold uppercase tracking-wider",
+		buttonBaseClass,
+		"bg-white/5 hover:bg-white/10 border border-white/10 hover:scale-105",
+	)
+
 	return html.Div(html.Props{
 		Class: "min-h-screen flex items-center justify-center bg-[#0a0a0a] text-white p-4",
 	},
@@ -44,10 +63,14 @@ func CounterExample() ui.Node {
 			},
 				html.Div(html.Props{
 					Class: "text-7xl font-black text-white mb-2 font-mono tracking-tighter",
-				}, html.Text(fmt.Sprintf("%d", currentCount))),
+				}, html.Textf("%d", currentCount)),
 				html.P(html.Props{
 					Class: "text-gray-400 uppercase tracking-widest text-xs font-semibold",
 				}, html.Text("Current Count")),
+				html.IfElse(currentCount == 0,
+					html.P(html.Props{Class: "mt-3 text-xs text-emerald-300"}, html.Text("Counter is centered")),
+					html.P(html.Props{Class: "mt-3 text-xs text-slate-400"}, html.Textf("Offset from zero: %d", currentCount)),
+				),
 			),
 
 			html.Div(html.Props{
@@ -55,17 +78,17 @@ func CounterExample() ui.Node {
 			},
 				html.Button(html.Props{
 					OnClick: decrement,
-					Class:   "w-16 h-16 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-2xl transition-all duration-200 hover:scale-110 active:scale-95",
+					Class:   neutralButtonClass,
 				}, html.Text("-")),
 
 				html.Button(html.Props{
 					OnClick: reset,
-					Class:   "px-6 h-16 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-sm font-bold uppercase tracking-wider transition-all duration-200 hover:scale-105 active:scale-95",
+					Class:   resetButtonClass,
 				}, html.Text("Reset")),
 
 				html.Button(html.Props{
 					OnClick: increment,
-					Class:   "w-16 h-16 flex items-center justify-center bg-gradient-to-r from-blue-500 to-purple-600 rounded-full text-2xl shadow-lg shadow-purple-500/20 transition-all duration-200 hover:scale-110 active:scale-95",
+					Class:   primaryButtonClass,
 				}, html.Text("+")),
 			),
 		),
