@@ -3463,14 +3463,14 @@ func renderExamplesShellHTML(document examplesShellDocument) string {
 	bootstrapScript := renderExamplesBootstrapDataScript(document)
 	loaderScript := renderExamplesLoaderScriptTag(document.WasmURL, document.FailureTitle, document.FailureMessage, document.FailureHref, document.FailureLinkLabel)
 	headChildren := []ui.Node{
-		gwchtml.Tag("meta", gwchtml.Props{Raw: map[string]interface{}{"charset": "utf-8"}}),
-		gwchtml.Tag("meta", gwchtml.Props{Raw: map[string]interface{}{"name": "viewport", "content": "width=device-width, initial-scale=1"}}),
-		gwchtml.Tag("meta", gwchtml.Props{Raw: map[string]interface{}{"name": "description", "content": document.Description}}),
-		gwchtml.Tag("title", gwchtml.Props{}, gwchtml.Text(document.Title)),
+		gwchtml.Meta(gwchtml.Props{Raw: map[string]interface{}{"charset": "utf-8"}}),
+		gwchtml.Meta(gwchtml.Props{Raw: map[string]interface{}{"name": "viewport", "content": "width=device-width, initial-scale=1"}}),
+		gwchtml.Meta(gwchtml.Props{Raw: map[string]interface{}{"name": "description", "content": document.Description}}),
+		gwchtml.Title(gwchtml.Props{}, gwchtml.Text(document.Title)),
 		gwchtml.Link(gwchtml.Props{Rel: "stylesheet", Href: "/static/css/tailwind.css"}),
 		gwchtml.Link(gwchtml.Props{Rel: "stylesheet", Href: "/static/css/example-shell.css"}),
-		gwchtml.Tag("script", gwchtml.Props{Src: "/static/script/wasm_exec.js"}),
-		gwchtml.Tag("script", gwchtml.Props{Src: "/static/script/example-logger.js"}),
+		gwchtml.Script(gwchtml.Props{Src: "/static/script/wasm_exec.js"}),
+		gwchtml.Script(gwchtml.Props{Src: "/static/script/example-logger.js"}),
 	}
 	if strings.TrimSpace(document.ManifestHref) != "" {
 		headChildren = append(headChildren, gwchtml.Link(gwchtml.Props{Rel: "manifest", Href: document.ManifestHref}))
@@ -3479,7 +3479,7 @@ func renderExamplesShellHTML(document examplesShellDocument) string {
 	bodyChildren := []ui.Node{gwchtml.Div(gwchtml.Props{ID: "app"})}
 	if strings.TrimSpace(document.NoScriptMessage) != "" {
 		bodyChildren = append(bodyChildren,
-			gwchtml.Tag("noscript", gwchtml.Props{},
+			gwchtml.NoScript(gwchtml.Props{},
 				gwchtml.Main(gwchtml.Props{Style: map[string]string{"max-width": "72rem", "margin": "0 auto", "padding": "2rem", "font-family": "'Segoe UI Variable', 'Segoe UI', sans-serif"}},
 					gwchtml.H1(gwchtml.Props{}, gwchtml.Text(document.FailureTitle)),
 					gwchtml.P(gwchtml.Props{}, gwchtml.Text(document.NoScriptMessage)),
@@ -3490,9 +3490,9 @@ func renderExamplesShellHTML(document examplesShellDocument) string {
 	}
 
 	bodyProps := gwchtml.Props{Class: document.BodyClass, Data: document.BodyData}
-	markup, err := renderExamplesToString(gwchtml.Tag("html", gwchtml.Props{Raw: map[string]interface{}{"lang": "en"}},
-		gwchtml.Tag("head", gwchtml.Props{}, headChildren...),
-		gwchtml.Tag("body", bodyProps, bodyChildren...),
+	markup, err := renderExamplesToString(gwchtml.Html(gwchtml.Props{Raw: map[string]interface{}{"lang": "en"}},
+		gwchtml.Head(gwchtml.Props{}, headChildren...),
+		gwchtml.Body(bodyProps, bodyChildren...),
 	))
 	if err != nil {
 		return renderExamplesShellHTMLFallback(document, bootstrapScript)

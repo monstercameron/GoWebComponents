@@ -124,4 +124,4 @@ npm run test:ui
 ## Notes
 
 - Older docs referenced building unrelated example apps before running the test suite. That is stale. The test package builds its own `testapp/` target.
-- Playwright residue such as `test-results/` and reports are ignored and should not be committed.
+- Playwright residue is written under `bin/test-results/`; legacy `test-results/` paths remain ignored and should not be committed.

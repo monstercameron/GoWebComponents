@@ -8,6 +8,7 @@ const baseURL = `http://127.0.0.1:${configuredPort}`;
 
 export default defineConfig({
   testDir: './specs',
+  outputDir: '../bin/test-results/test',
   testIgnore: [
     '**/12-portfolio-site*.spec.ts', // Portfolio site tests require examples server
     '**/performance_benchmark.spec.ts', // Benchmark suite runs under dedicated config/server

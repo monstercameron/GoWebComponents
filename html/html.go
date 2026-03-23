@@ -136,8 +136,16 @@ func Button(props Props, children ...ui.Node) ui.Node {
 	return Tag("button", props, children...)
 }
 
+func Body(props Props, children ...ui.Node) ui.Node {
+	return Tag("body", props, children...)
+}
+
 func Code(props Props, children ...ui.Node) ui.Node {
 	return Tag("code", props, children...)
+}
+
+func Details(props Props, children ...ui.Node) ui.Node {
+	return Tag("details", props, children...)
 }
 
 func Dialog(props Props, children ...ui.Node) ui.Node {
@@ -188,8 +196,16 @@ func H6(props Props, children ...ui.Node) ui.Node {
 	return Tag("h6", props, children...)
 }
 
+func Head(props Props, children ...ui.Node) ui.Node {
+	return Tag("head", props, children...)
+}
+
 func Header(props Props, children ...ui.Node) ui.Node {
 	return Tag("header", props, children...)
+}
+
+func Html(props Props, children ...ui.Node) ui.Node {
+	return Tag("html", props, children...)
 }
 
 func Hr(props Props) ui.Node {
@@ -224,8 +240,20 @@ func Main(props Props, children ...ui.Node) ui.Node {
 	return Tag("main", props, children...)
 }
 
+func Mark(props Props, children ...ui.Node) ui.Node {
+	return Tag("mark", props, children...)
+}
+
+func Meta(props Props) ui.Node {
+	return Tag("meta", props)
+}
+
 func Nav(props Props, children ...ui.Node) ui.Node {
 	return Tag("nav", props, children...)
+}
+
+func NoScript(props Props, children ...ui.Node) ui.Node {
+	return Tag("noscript", props, children...)
 }
 
 func Preload(href, as string) ui.Node {
@@ -260,6 +288,10 @@ func Pre(props Props, children ...ui.Node) ui.Node {
 	return Tag("pre", props, children...)
 }
 
+func Script(props Props, children ...ui.Node) ui.Node {
+	return Tag("script", props, children...)
+}
+
 func Section(props Props, children ...ui.Node) ui.Node {
 	return Tag("section", props, children...)
 }
@@ -280,12 +312,40 @@ func Strong(props Props, children ...ui.Node) ui.Node {
 	return Tag("strong", props, children...)
 }
 
+func Summary(props Props, children ...ui.Node) ui.Node {
+	return Tag("summary", props, children...)
+}
+
+func Table(props Props, children ...ui.Node) ui.Node {
+	return Tag("table", props, children...)
+}
+
+func Tbody(props Props, children ...ui.Node) ui.Node {
+	return Tag("tbody", props, children...)
+}
+
+func Td(props Props, children ...ui.Node) ui.Node {
+	return Tag("td", props, children...)
+}
+
+func Th(props Props, children ...ui.Node) ui.Node {
+	return Tag("th", props, children...)
+}
+
+func Thead(props Props, children ...ui.Node) ui.Node {
+	return Tag("thead", props, children...)
+}
+
 func Textarea(props Props, children ...ui.Node) ui.Node {
 	return Tag("textarea", props, children...)
 }
 
 func Time(props Props, children ...ui.Node) ui.Node {
 	return Tag("time", props, children...)
+}
+
+func Tr(props Props, children ...ui.Node) ui.Node {
+	return Tag("tr", props, children...)
 }
 
 func Ul(props Props, children ...ui.Node) ui.Node {

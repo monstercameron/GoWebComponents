@@ -27,7 +27,7 @@ func htmlTagExample() ui.Node {
 		html.P(html.Props{Class: "mt-4 leading-7 text-slate-300"}, html.Text("html.Tag is the escape hatch for simple custom elements and uncommon tags that do not need explicit property mapping or custom-event helpers.")),
 	)
 
-	highlight := html.Tag("mark", html.Props{Class: "rounded px-2 py-1 bg-cyan-400/20 text-cyan-100"}, html.Text("Uncommon standard tag"))
+	highlight := html.Mark(html.Props{Class: "rounded px-2 py-1 bg-cyan-400/20 text-cyan-100"}, html.Text("Uncommon standard tag"))
 
 	return shared.ExamplePage(
 		"html.Tag",
@@ -42,7 +42,7 @@ func htmlTagExample() ui.Node {
 			html.P(html.Props{Class: "mt-6 text-slate-300"}, html.Text("The same helper also works for standard-but-uncommon tags like ")), highlight, html.Text("."),
 			shared.ExampleCode(
 				`html.Tag("status-widget", html.Props{Data: map[string]string{"tone": tone}} , children...)`,
-				`html.Tag("mark", html.Props{}, html.Text("highlight"))`,
+				`html.Mark(html.Props{}, html.Text("highlight"))`,
 				`html.CustomElement("demo-rating-card", html.CustomElementProps{Properties: map[string]interface{}{"score": 3}})`,
 			),
 		),

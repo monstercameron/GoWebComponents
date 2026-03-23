@@ -19,7 +19,7 @@ func TestRegisterRejectsMissingCapability(t *testing.T) {
 		Requires:    []Capability{CapabilitySSR},
 	}, func(host *Host) (CleanupFunc, error) {
 		return nil, host.AddHeadProvider(func() ui.Node {
-			return html.Tag("meta", html.Props{Raw: map[string]interface{}{
+			return html.Meta(html.Props{Raw: map[string]interface{}{
 				"name":    "robots",
 				"content": "index,follow",
 			}})
@@ -78,7 +78,7 @@ func TestHostAggregatesContributionsAndCleanup(t *testing.T) {
 		})
 		_ = host.AddCacheKeyDecorator(func(key string) string { return "gwc:" + key })
 		_ = host.AddHeadProvider(func() ui.Node {
-			return html.Tag("meta", html.Props{Raw: map[string]interface{}{"name": "robots", "content": "index,follow"}})
+			return html.Meta(html.Props{Raw: map[string]interface{}{"name": "robots", "content": "index,follow"}})
 		})
 		_ = host.AddBootstrapProvider(func() BootstrapPayload {
 			return BootstrapPayload{Namespace: "first", Data: map[string]interface{}{"owner": "plugins"}}

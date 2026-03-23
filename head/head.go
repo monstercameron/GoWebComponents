@@ -37,7 +37,7 @@ func MetaName(name, content string) ui.Node {
 	if name == "" || content == "" {
 		return nil
 	}
-	return html.Tag("meta", html.Props{Raw: map[string]interface{}{
+	return html.Meta(html.Props{Raw: map[string]interface{}{
 		"name":    name,
 		"content": content,
 	}})
@@ -50,7 +50,7 @@ func MetaProperty(property, content string) ui.Node {
 	if property == "" || content == "" {
 		return nil
 	}
-	return html.Tag("meta", html.Props{Raw: map[string]interface{}{
+	return html.Meta(html.Props{Raw: map[string]interface{}{
 		"property": property,
 		"content":  content,
 	}})
@@ -63,7 +63,7 @@ func LinkRel(rel, href string) ui.Node {
 	if rel == "" || href == "" {
 		return nil
 	}
-	return html.Tag("link", html.Props{Raw: map[string]interface{}{
+	return html.Link(html.Props{Raw: map[string]interface{}{
 		"rel":  rel,
 		"href": href,
 	}})

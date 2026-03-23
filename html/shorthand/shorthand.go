@@ -31,28 +31,45 @@ func Fragment(args ...interface{}) ui.Node {
 	return html.Fragment(html.Children(args...)...)
 }
 
-func A(args ...interface{}) ui.Node       { return Tag("a", args...) }
-func Article(args ...interface{}) ui.Node { return Tag("article", args...) }
-func Button(args ...interface{}) ui.Node  { return Tag("button", args...) }
-func Br(args ...interface{}) ui.Node      { return Tag("br", args...) }
-func Code(args ...interface{}) ui.Node    { return Tag("code", args...) }
-func Div(args ...interface{}) ui.Node     { return Tag("div", args...) }
-func Form(args ...interface{}) ui.Node    { return Tag("form", args...) }
-func H1(args ...interface{}) ui.Node      { return Tag("h1", args...) }
-func H2(args ...interface{}) ui.Node      { return Tag("h2", args...) }
-func H3(args ...interface{}) ui.Node      { return Tag("h3", args...) }
-func Hr(args ...interface{}) ui.Node      { return Tag("hr", args...) }
-func Img(args ...interface{}) ui.Node     { return Tag("img", args...) }
-func Input(args ...interface{}) ui.Node   { return Tag("input", args...) }
-func Label(args ...interface{}) ui.Node   { return Tag("label", args...) }
-func Li(args ...interface{}) ui.Node      { return Tag("li", args...) }
-func Option(args ...interface{}) ui.Node  { return Tag("option", args...) }
-func P(args ...interface{}) ui.Node       { return Tag("p", args...) }
-func Pre(args ...interface{}) ui.Node     { return Tag("pre", args...) }
-func Section(args ...interface{}) ui.Node { return Tag("section", args...) }
-func Select(args ...interface{}) ui.Node  { return Tag("select", args...) }
-func Span(args ...interface{}) ui.Node    { return Tag("span", args...) }
-func Ul(args ...interface{}) ui.Node      { return Tag("ul", args...) }
+func A(args ...interface{}) ui.Node        { return Tag("a", args...) }
+func Article(args ...interface{}) ui.Node  { return Tag("article", args...) }
+func Body(args ...interface{}) ui.Node     { return Tag("body", args...) }
+func Button(args ...interface{}) ui.Node   { return Tag("button", args...) }
+func Br(args ...interface{}) ui.Node       { return Tag("br", args...) }
+func Code(args ...interface{}) ui.Node     { return Tag("code", args...) }
+func Details(args ...interface{}) ui.Node  { return Tag("details", args...) }
+func Div(args ...interface{}) ui.Node      { return Tag("div", args...) }
+func Form(args ...interface{}) ui.Node     { return Tag("form", args...) }
+func H1(args ...interface{}) ui.Node       { return Tag("h1", args...) }
+func H2(args ...interface{}) ui.Node       { return Tag("h2", args...) }
+func H3(args ...interface{}) ui.Node       { return Tag("h3", args...) }
+func Head(args ...interface{}) ui.Node     { return Tag("head", args...) }
+func Header(args ...interface{}) ui.Node   { return Tag("header", args...) }
+func Hr(args ...interface{}) ui.Node       { return Tag("hr", args...) }
+func Html(args ...interface{}) ui.Node     { return Tag("html", args...) }
+func Img(args ...interface{}) ui.Node      { return Tag("img", args...) }
+func Input(args ...interface{}) ui.Node    { return Tag("input", args...) }
+func Label(args ...interface{}) ui.Node    { return Tag("label", args...) }
+func Li(args ...interface{}) ui.Node       { return Tag("li", args...) }
+func Main(args ...interface{}) ui.Node     { return Tag("main", args...) }
+func Mark(args ...interface{}) ui.Node     { return Tag("mark", args...) }
+func Meta(args ...interface{}) ui.Node     { return Tag("meta", args...) }
+func NoScript(args ...interface{}) ui.Node { return Tag("noscript", args...) }
+func Option(args ...interface{}) ui.Node   { return Tag("option", args...) }
+func P(args ...interface{}) ui.Node        { return Tag("p", args...) }
+func Pre(args ...interface{}) ui.Node      { return Tag("pre", args...) }
+func Script(args ...interface{}) ui.Node   { return Tag("script", args...) }
+func Section(args ...interface{}) ui.Node  { return Tag("section", args...) }
+func Select(args ...interface{}) ui.Node   { return Tag("select", args...) }
+func Span(args ...interface{}) ui.Node     { return Tag("span", args...) }
+func Summary(args ...interface{}) ui.Node  { return Tag("summary", args...) }
+func Table(args ...interface{}) ui.Node    { return Tag("table", args...) }
+func Tbody(args ...interface{}) ui.Node    { return Tag("tbody", args...) }
+func Td(args ...interface{}) ui.Node       { return Tag("td", args...) }
+func Th(args ...interface{}) ui.Node       { return Tag("th", args...) }
+func Thead(args ...interface{}) ui.Node    { return Tag("thead", args...) }
+func Tr(args ...interface{}) ui.Node       { return Tag("tr", args...) }
+func Ul(args ...interface{}) ui.Node       { return Tag("ul", args...) }
 
 func Text(content interface{}) ui.Node                   { return html.Text(content) }
 func Textf(format string, args ...interface{}) ui.Node   { return html.Textf(format, args...) }

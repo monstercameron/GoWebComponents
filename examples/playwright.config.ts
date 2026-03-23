@@ -7,6 +7,7 @@ const configuredWorkers = process.env.PLAYWRIGHT_WORKERS
 export default defineConfig({
   testDir: './tests',
   testIgnore: ['18-ssr-server-routing.spec.ts', 'all-examples-links.spec.ts'],
+  outputDir: '../bin/test-results/examples',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

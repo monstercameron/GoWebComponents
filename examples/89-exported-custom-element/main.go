@@ -36,7 +36,7 @@ func exportedStatusTile(props exportedTileProps) ui.Node {
 	}
 
 	return html.Section(html.Props{},
-		html.Tag("style", html.Props{}, html.Text(fmt.Sprintf(`
+		html.Style(html.Props{}, html.Text(fmt.Sprintf(`
 			:host {
 				display: block;
 				font-family: "Segoe UI Variable", Aptos, "Trebuchet MS", sans-serif;

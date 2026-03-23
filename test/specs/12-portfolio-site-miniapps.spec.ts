@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { test, expect } from '@playwright/test';
 
 test.describe('Example 12: Portfolio Site - Mini Apps', () => {
@@ -31,7 +33,7 @@ test.describe('Example 12: Portfolio Site - Mini Apps', () => {
     await page.waitForTimeout(1000);
 
     // Take a screenshot for verification
-    await page.screenshot({ path: 'test-results/flip-verification.png' });
+    await page.screenshot({ path: path.join('bin', 'test-results', 'test', 'flip-verification.png') });
 
     // DEBUG: Dump the DOM of the card
     const cardHTML = await card.evaluate(el => el.outerHTML);

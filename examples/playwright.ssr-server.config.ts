@@ -12,6 +12,7 @@ const serverBinaryPath = resolveWorkspaceBuildPath(repoRoot, 'examples', '18-ssr
 export default defineConfig({
   testDir: './tests',
   testMatch: ['18-ssr-server-routing.spec.ts'],
+  outputDir: '../bin/test-results/examples-ssr-server',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
