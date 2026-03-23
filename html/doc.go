@@ -20,7 +20,10 @@
 // CustomElement when a browser-defined custom element needs explicit
 // attribute-versus-property mapping instead of a single Raw map. Small
 // convenience builders such as HiddenInput help with repetitive form markup
-// without changing the underlying explicit props model.
+// without changing the underlying explicit props model. The package also
+// exposes explicit markdown rendering helpers through RenderMarkdown(...)
+// when applications want semantic ui.Node output without adding a second
+// templating runtime.
 //
 // The additive sugar layer also lives here rather than in ui. The current
 // supported first pass is intentionally conservative:

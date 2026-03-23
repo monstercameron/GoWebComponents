@@ -56,17 +56,6 @@ func typeBadgeClass(kind string) string {
 	}
 }
 
-func withChildNodes(prefix []interface{}, nodes []ui.Node) []interface{} {
-	args := make([]interface{}, 0, len(prefix)+len(nodes))
-
-	// withChildNodes appends a slice of child nodes after a fixed shorthand argument prefix.
-	args = append(args, prefix...)
-	for _, node := range nodes {
-		args = append(args, node)
-	}
-	return args
-}
-
 // renderLoadingSpinner renders a lightweight shell spinner for async catalog loading states.
 func renderLoadingSpinner() ui.Node {
 	return Div(Class("inline-flex h-12 w-12 items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/10"),
@@ -147,35 +136,55 @@ func renderItemCard(item docsItem, isActive bool, onSelect ui.Handler) ui.Node {
 			),
 			Span(Class(ClassNames("shrink-0 rounded-full border px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em]", typeBadgeClass(item.Type))), Text(item.Type)),
 		),
-		Div(withChildNodes([]interface{}{Class("mt-3 flex flex-wrap items-center gap-1")}, tagNodes)...),
+		Div(Class("mt-3 flex flex-wrap items-center gap-1"), tagNodes),
 	)
 }
 
 // renderConceptArticle renders long-form concept content for article-style entries.
 func renderConceptArticle(panelProps contentPanelProps) ui.Node {
-	sectionNodes := append([]ui.Node{
-		Div(Class("rounded-[22px] border border-cyan-400/20 bg-cyan-400/10 p-4 text-sm leading-7 text-cyan-50"), Text(panelProps.Item.Content.Callout)),
-	}, Map(panelProps.Item.Content.Sections, func(section docsSection) ui.Node {
+	sectionNodes := make([]ui.Node, 0, len(panelProps.Item.Content.Sections)+3)
+	if panelProps.Item.Content.Callout != "" {
+		sectionNodes = append(sectionNodes,
+			Div(Class("rounded-[22px] border border-cyan-400/20 bg-cyan-400/10 p-4 text-sm leading-7 text-cyan-50"), Text(panelProps.Item.Content.Callout)),
+		)
+	}
+	sectionNodes = append(sectionNodes, Map(panelProps.Item.Content.Sections, func(section docsSection) ui.Node {
 		paragraphs := Map(section.Paragraphs, func(paragraph string) ui.Node {
 			return P(Text(paragraph))
 		})
 		return Article(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
 			H3(Class("text-lg font-semibold text-white"), Text(section.Heading)),
-			Div(withChildNodes([]interface{}{Class("mt-3 space-y-3 text-sm leading-7 text-slate-300")}, paragraphs)...),
+			Div(Class("mt-3 space-y-3 text-sm leading-7 text-slate-300"), paragraphs),
 		)
 	})...)
-	sectionNodes = append(sectionNodes,
-		Div(Class("rounded-[20px] border border-white/10 bg-[#06101d] p-4"),
-			Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelExampleMarkdown)),
-			Pre(Class("mt-3 overflow-x-auto text-sm leading-6 text-cyan-100"), Code(Text(panelProps.Item.Content.Code))),
-		),
-	)
+	if panelProps.Item.Content.SourcePath != "" {
+		sectionNodes = append(sectionNodes,
+			Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
+				Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelSourceDocument)),
+				Div(Class("mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-cyan-100"), Text(panelProps.Item.Content.SourcePath)),
+			),
+		)
+	}
+	sectionNodes = append(sectionNodes, renderMarkdownState(panelProps))
+	if panelProps.Item.Content.Code != "" && !panelProps.MarkdownReady {
+		sectionNodes = append(sectionNodes,
+			Div(Class("rounded-[20px] border border-white/10 bg-[#06101d] p-4"),
+				Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelExampleMarkdown)),
+				Pre(Class("mt-3 overflow-x-auto text-sm leading-6 text-cyan-100"), Code(Text(panelProps.Item.Content.Code))),
+			),
+		)
+	}
+	if len(sectionNodes) == 0 {
+		sectionNodes = append(sectionNodes,
+			Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(panelProps.Item.Blurb)),
+		)
+	}
 	return Div(Class("flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-4 shadow-inner shadow-black/20"),
 		Div(Class("border-b border-white/10 pb-3"),
 			Div(Class("text-sm font-medium text-white"), Text(labelConceptArticle)),
 			Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelMarkdownWriteup)),
 		),
-		Div(withChildNodes([]interface{}{Class("mt-4 flex flex-1 flex-col gap-4")}, sectionNodes)...),
+		Div(Class("mt-4 flex flex-1 flex-col gap-4"), sectionNodes),
 	)
 }
 
@@ -198,7 +207,7 @@ func renderParameterTable(params []docsParam) ui.Node {
 				Th(Class("pb-2 font-medium"), Text("Description")),
 			),
 		),
-		Tbody(withChildNodes(nil, rows)...),
+		Tbody(rows),
 	)
 }
 
@@ -229,7 +238,7 @@ func renderAPIReference(panelProps contentPanelProps) ui.Node {
 				),
 				Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
 					Div(Class("text-sm font-medium text-white"), Text(labelNotes)),
-					Ul(withChildNodes([]interface{}{Class("mt-3 space-y-2 text-sm leading-6 text-slate-300")}, noteNodes)...),
+					Ul(Class("mt-3 space-y-2 text-sm leading-6 text-slate-300"), noteNodes),
 				),
 			),
 			Div(Class("rounded-[20px] border border-white/10 bg-[#06101d] p-4"),
@@ -293,7 +302,7 @@ func renderCounterExample(panelProps contentPanelProps) ui.Node {
 			Div(Class("space-y-3"),
 				Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
 					Div(Class("text-sm font-medium text-white"), Text(labelWhyThisMatters)),
-					Ul(withChildNodes([]interface{}{Class("mt-3 space-y-2 text-sm leading-6 text-slate-300")}, tipNodes)...),
+					Ul(Class("mt-3 space-y-2 text-sm leading-6 text-slate-300"), tipNodes),
 				),
 				Div(Class("rounded-[20px] border border-white/10 bg-[#06101d] p-4"),
 					Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelExampleSource)),
@@ -305,21 +314,21 @@ func renderCounterExample(panelProps contentPanelProps) ui.Node {
 }
 
 // renderDisplaySurface chooses the appropriate detail renderer for the selected item.
-func renderDisplaySurface(selectedItem docsItem, hasSelectedItem bool) ui.Node {
+func renderDisplaySurface(panelProps contentPanelProps, hasSelectedItem bool) ui.Node {
 	return ui.If(!hasSelectedItem,
 		func() ui.Node {
 			return Div(Class("flex min-h-full items-center justify-center rounded-[22px] border border-dashed border-white/10 bg-black/10 p-8 text-sm text-slate-400"), Text(messageNothingSelected))
 		},
 		func() ui.Node {
 			return ui.Match().
-				When(selectedItem.Content.Kind == contentKindArticle, func() ui.Node {
-					return renderConceptArticle(contentPanelProps{Item: selectedItem})
+				When(panelProps.Item.Content.Kind == contentKindArticle, func() ui.Node {
+					return renderConceptArticle(panelProps)
 				}).
-				When(selectedItem.Content.Kind == contentKindAPI, func() ui.Node {
-					return renderAPIReference(contentPanelProps{Item: selectedItem})
+				When(panelProps.Item.Content.Kind == contentKindAPI, func() ui.Node {
+					return renderAPIReference(contentPanelProps{Item: panelProps.Item})
 				}).
 				Default(func() ui.Node {
-					return ui.Component(renderCounterExample, contentPanelProps{Item: selectedItem})
+					return ui.Component(renderCounterExample, contentPanelProps{Item: panelProps.Item})
 				})
 		},
 	)
@@ -365,29 +374,29 @@ func renderCatalogSidebar(props catalogSidebarProps) ui.Node {
 					),
 					Div(Class("text-xs uppercase tracking-[0.18em] text-slate-400"), Textf("%d results", props.ResultCount)),
 				),
-				Div(withChildNodes([]interface{}{Class("flex flex-wrap gap-2")}, props.FilterButtons)...),
+				Div(Class("flex flex-wrap gap-2"), props.FilterButtons),
 				Div(Class("grid grid-cols-2 gap-2 xl:grid-cols-4"),
 					Label(Class("flex flex-col gap-1 text-[11px] uppercase tracking-[0.16em] text-slate-500"),
 						Span(Text("Status")),
-						Select(withChildNodes([]interface{}{Value(props.SelectedStatusFilter), OnChange(props.OnStatusChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none")}, renderOptionNodes(props.Statuses))...),
+						Select(Value(props.SelectedStatusFilter), OnChange(props.OnStatusChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderOptionNodes(props.Statuses)),
 					),
 					Label(Class("flex flex-col gap-1 text-[11px] uppercase tracking-[0.16em] text-slate-500"),
 						Span(Text("Difficulty")),
-						Select(withChildNodes([]interface{}{Value(props.SelectedLevelFilter), OnChange(props.OnLevelChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none")}, renderOptionNodes(props.Levels))...),
+						Select(Value(props.SelectedLevelFilter), OnChange(props.OnLevelChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderOptionNodes(props.Levels)),
 					),
 					Label(Class("flex flex-col gap-1 text-[11px] uppercase tracking-[0.16em] text-slate-500"),
 						Span(Text("Module")),
-						Select(withChildNodes([]interface{}{Value(props.SelectedModuleFilter), OnChange(props.OnModuleChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none")}, renderOptionNodes(props.Modules))...),
+						Select(Value(props.SelectedModuleFilter), OnChange(props.OnModuleChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderOptionNodes(props.Modules)),
 					),
 					Label(Class("flex flex-col gap-1 text-[11px] uppercase tracking-[0.16em] text-slate-500"),
 						Span(Text("Sort")),
-						Select(withChildNodes([]interface{}{Value(props.SelectedSortOrder), OnChange(props.OnSortChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none")}, renderSortOptionNodes(props.SortOptions))...),
+						Select(Value(props.SelectedSortOrder), OnChange(props.OnSortChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderSortOptionNodes(props.SortOptions)),
 					),
 				),
 			),
 		),
 		Div(Class("min-h-0 flex-1 overflow-y-auto p-2 sm:p-3"),
-			Div(withChildNodes([]interface{}{Class("space-y-2")}, props.ItemNodes)...),
+			Div(Class("space-y-2"), props.ItemNodes),
 		),
 	)
 }
@@ -412,7 +421,7 @@ func renderDetailPanel(props detailPanelProps) ui.Node {
 				),
 			),
 		),
-		Div(ID("demo"), Class("min-h-0 flex-1 overflow-y-auto p-3 sm:p-4"), renderDisplaySurface(props.SelectedItem, props.HasSelectedItem)),
+		Div(ID("demo"), Class("min-h-0 flex-1 overflow-y-auto p-3 sm:p-4"), renderDisplaySurface(contentPanelProps{Item: props.SelectedItem, MarkdownBody: props.MarkdownBody, MarkdownLoading: props.MarkdownLoading, MarkdownReady: props.MarkdownReady, MarkdownError: props.MarkdownError, OnRetryMarkdown: props.OnRetryMarkdown}, props.HasSelectedItem)),
 	)
 }
 
@@ -513,6 +522,35 @@ func renderDocsDemosSite() ui.Node {
 	}, filteredItemsSignature(filteredItems), selectedItemID.Get())
 
 	selectedCatalogItem, hasSelectedItem := findSelectedItem(filteredItems, selectedItemID.Get())
+	selectedDocURL := ""
+	if hasSelectedItem && selectedCatalogItem.Content.Kind == contentKindArticle && selectedCatalogItem.Content.SourcePath != "" {
+		selectedDocURL = docsSourceURL(selectedCatalogItem.Content.SourcePath)
+	}
+	markdownResource := fetch.UseCachedResource(markdownCacheKey(selectedDocURL), func(ctx context.Context) (string, error) {
+		return loadMarkdownResource(ctx, selectedDocURL)
+	}, fetch.CacheOptions{StaleAfter: 2 * time.Minute})
+	markdownRequest := markdownResource.Get()
+	retryMarkdownLoad := ui.UseEvent(func() {
+		if selectedDocURL == "" {
+			return
+		}
+		log.Info("markdown refetch requested", map[string]interface{}{"url": selectedDocURL, "sourcePath": selectedCatalogItem.Content.SourcePath})
+		markdownResource.Reload()
+	})
+	ui.UseEffect(func() func() {
+		if selectedDocURL == "" {
+			return nil
+		}
+		switch {
+		case markdownRequest.Loading:
+			log.Info("markdown cache loading", map[string]interface{}{"url": selectedDocURL, "sourcePath": selectedCatalogItem.Content.SourcePath, "ready": markdownRequest.Ready, "stale": markdownRequest.Stale})
+		case markdownRequest.Error != nil:
+			log.Error("markdown cache failed", map[string]interface{}{"url": selectedDocURL, "sourcePath": selectedCatalogItem.Content.SourcePath, "error": markdownRequest.Error.Error()})
+		case markdownRequest.Ready:
+			log.Info("markdown cache ready", map[string]interface{}{"url": selectedDocURL, "sourcePath": selectedCatalogItem.Content.SourcePath, "bytes": len(markdownRequest.Value)})
+		}
+		return nil
+	}, selectedDocURL, markdownRequest.Loading, markdownRequest.Ready, markdownRequest.Stale, errorString(markdownRequest.Error), len(markdownRequest.Value), selectedItemID.Get())
 	browseExamples := ui.UseEvent(func() {
 		activeTypeFilter.Set(kindExample)
 		log.Info("quick filter selected", map[string]interface{}{"type": kindExample})
@@ -576,7 +614,7 @@ func renderDocsDemosSite() ui.Node {
 					ui.Component(renderCatalogHero, catalogHeroProps{OnBrowseExamples: browseExamples, OnInspectAPIs: inspectPackageAPIs, TotalItems: len(catalogRequest.Value.Items), ExampleCount: countItemsByType(catalogRequest.Value.Items, kindExample), APICount: countItemsByType(catalogRequest.Value.Items, kindAPI)}),
 					Main(Class("mt-3 flex flex-1 flex-col gap-3 lg:min-h-0 lg:flex-row"),
 						ui.Component(renderCatalogSidebar, catalogSidebarProps{SearchQuery: searchQuery.Get(), ResultCount: len(filteredItems), Statuses: catalogRequest.Value.Statuses, Levels: catalogRequest.Value.Levels, Modules: catalogRequest.Value.Modules, SortOptions: catalogRequest.Value.SortOptions, FilterButtons: filterButtons, SelectedStatusFilter: selectedStatusFilter.Get(), SelectedLevelFilter: selectedLevelFilter.Get(), SelectedModuleFilter: selectedModuleFilter.Get(), SelectedSortOrder: selectedSortOrder.Get(), ItemNodes: itemNodes, OnSearchInput: updateSearchQuery, OnStatusChange: updateStatusFilter, OnLevelChange: updateLevelFilter, OnModuleChange: updateModuleFilter, OnSortChange: updateSortOrder}),
-						ui.Component(renderDetailPanel, detailPanelProps{SelectedItem: selectedCatalogItem, HasSelectedItem: hasSelectedItem}),
+						ui.Component(renderDetailPanel, detailPanelProps{SelectedItem: selectedCatalogItem, HasSelectedItem: hasSelectedItem, MarkdownBody: markdownRequest.Value, MarkdownLoading: markdownRequest.Loading, MarkdownReady: markdownRequest.Ready, MarkdownError: errorString(markdownRequest.Error), OnRetryMarkdown: retryMarkdownLoad}),
 					),
 				),
 			)

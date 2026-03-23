@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/fxamacker/cbor/v2 v2.9.0
+	github.com/yuin/goldmark v1.7.13
 	golang.org/x/net v0.43.0
 	modernc.org/sqlite v1.46.2
 )

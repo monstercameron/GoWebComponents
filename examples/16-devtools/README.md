@@ -2,6 +2,12 @@
 
 A minimal example focused on the public `devtools` package.
 
+## Current Status
+
+This is a small standalone diagnostics surface that embeds `devtools.Panel` directly into one page.
+
+Use it when you want to inspect tree shape, hook state, profiling counters, and structured diagnostics without the larger Atlas shell or the narrower single-purpose `66` through `69` devtools examples.
+
 It demonstrates:
 
 - the embeddable in-browser devtools panel
@@ -12,7 +18,13 @@ It demonstrates:
 Serve examples from the repo root with:
 
 ```powershell
-npm --prefix ../../tools/devtools run dev:examples
+go run ./tools/gwc examples
 ```
 
 Then open `/examples/16-devtools/devtools.html`.
+
+Compatibility path from the repo root:
+
+```powershell
+npm --prefix tools/devtools run dev:examples
+```

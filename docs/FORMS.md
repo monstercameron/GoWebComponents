@@ -4,6 +4,108 @@ This page documents the current supported form model for GoWebComponents.
 
 It intentionally distinguishes between shipped first-class behavior and application-owned conventions for server-backed workflows.
 
+## At A Glance
+
+- The primary shipped form API is `ui.UseForm[T]` for typed local form state.
+- GoWebComponents supports controlled client forms, hydrated SSR forms, explicit JSON submits, and explicit multipart upload workflows.
+- The framework helps with validation state, submit lifecycle, server-error mapping, CSRF token conventions, and browser file extraction.
+- Transport, endpoint ownership, server validation, redirects, and storage rules remain application responsibilities.
+- The recommended default is explicit, authoritative server-backed form handling rather than hidden framework transport.
+
+## Quick Form Mode Chooser
+
+Use a local controlled form when:
+
+- validation is mostly client-side
+- the form submits through an explicit event handler
+- the UI benefits from typed field, dirty, touched, and pending state in one place
+
+Use hydrated SSR plus `ui.UseForm[T]` when:
+
+- the page is rendered on the server first but should adopt the same client form state model after hydration
+- you want HTML-post or secure server-owned flows without inventing a separate client-only form abstraction
+
+Use JSON submit handlers when:
+
+- the form is fully client-controlled after hydration
+- you need structured field-keyed validation responses or explicit client-side routing decisions after success
+
+Use multipart only when:
+
+- the workflow genuinely needs browser-managed file upload semantics
+- progress, cancellation, or file transfer are first-class requirements
+
+Rule of thumb: keep `ui.UseForm[T]` as the state owner, keep transport explicit, and choose HTML, JSON, or multipart based on the endpoint contract rather than mixing them casually.
+
+## Example Shape
+
+The current recommended shape is: typed form state in `ui.UseForm[T]`, synchronous validation before submit, and explicit async submission that maps failures back into the same form handle.
+
+```go
+package signup
+
+import (
+	"github.com/monstercameron/GoWebComponents/html"
+	"github.com/monstercameron/GoWebComponents/ui"
+)
+
+type signupForm struct {
+	Name  string
+	Email string
+}
+
+func SignupPanel() ui.Node {
+	form := ui.UseForm(signupForm{})
+	status := ui.UseState("")
+
+	setName := ui.UseEvent(func(event ui.InputEvent) {
+		form.SetField("Name", event.GetValue())
+	})
+	setEmail := ui.UseEvent(func(event ui.InputEvent) {
+		form.SetField("Email", event.GetValue())
+	})
+	submit := ui.UseEvent(func(event ui.FormEvent) {
+		event.PreventDefault()
+		if !form.Validate(func(value signupForm) ui.FieldErrors {
+			errors := ui.FieldErrors{}
+			if value.Name == "" {
+				errors["Name"] = "Name is required"
+			}
+			if value.Email == "" {
+				errors["Email"] = "Email is required"
+			}
+			return errors
+		}) {
+			status.Set("Fix validation errors before submitting.")
+			return
+		}
+
+		form.Submit(func(value signupForm) error {
+			status.Set("Submitted " + value.Email)
+			return nil
+		})
+	})
+
+	value := form.Get()
+
+	return html.Form(html.Props{OnSubmit: submit},
+		html.Input(html.Props{Value: value.Name, OnInput: setName}),
+		html.Input(html.Props{Value: value.Email, OnInput: setEmail}),
+		html.Button(html.Props{Type: "submit"}, html.Text("Submit")),
+		html.P(html.Props{}, html.Text(form.Error("Name"))),
+		html.P(html.Props{}, html.Text(form.Error("Email"))),
+		html.P(html.Props{}, html.Text(status.Get())),
+	)
+}
+```
+
+Why this shape matters:
+
+- one typed handle owns field values, dirty state, touched state, validation state, and submit lifecycle
+- inline field errors and aggregate submit state stay in the same public model
+- server-backed workflows can still map authoritative failures back through `ApplyServerErrors(...)`
+- transport remains explicit instead of being hidden behind framework-owned mutation magic
+
 ## Supported Form Modes
 
 The current public form surface is centered on `ui.UseForm[T]` for typed local form state.
@@ -226,3 +328,14 @@ See [SECURITY.md](SECURITY.md) for the broader server-only data and logging reda
 - [REFERENCE_MAP.md](REFERENCE_MAP.md#rendering-and-local-state)
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 - [examples/README.md](../examples/README.md)
+
+## Review Checklist
+
+Before standardizing a form workflow, verify all of the following:
+
+- the form has one clear destination style: HTML post, JSON mutation, or multipart upload
+- validation rules are split deliberately between local checks and server-authoritative checks
+- field-keyed server errors can map back into `ui.UseForm[T]` without custom ad hoc parsing at every call site
+- CSRF token sourcing and refresh rules are explicit for server-backed mutations
+- redirects happen only on success paths that genuinely need navigation
+- optimistic behavior is opt-in and justified by the domain rather than treated as the default

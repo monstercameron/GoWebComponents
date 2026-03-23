@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/fetch"
+	gwchtml "github.com/monstercameron/GoWebComponents/html"
+	. "github.com/monstercameron/GoWebComponents/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/testkit/render"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
@@ -27,15 +29,20 @@ func testArticleItem() docsItem {
 		Blurb:    "A guided overview of the package model and rendering surface.",
 		ReadTime: "8 min",
 		Content: docsContent{
-			Kind:    contentKindArticle,
-			Callout: "Start here before wiring larger examples.",
-			Code:    "func main() { ui.Render(app, \"#app\") }",
+			Kind:       contentKindArticle,
+			Callout:    "Start here before wiring larger examples.",
+			SourcePath: "assets/docs/start-here.md",
+			Code:       "func main() { ui.Render(app, \"#app\") }",
 			Sections: []docsSection{{
 				Heading:    "Core model",
 				Paragraphs: []string{"Components are plain Go functions.", "State and effects stay colocated with the component tree."},
 			}},
 		},
 	}
+}
+
+func testArticleMarkdown() string {
+	return "# Start Here\n\nThis is the first paragraph with a [guide](troubleshooting.md).\n\n## Checklist\n\n- First\n- Second\n\n```go\nfunc main() {}\n```\n"
 }
 
 func testAPIItem() docsItem {
@@ -107,7 +114,7 @@ func testDeprecatedExampleItem() docsItem {
 			Tips:        []string{"Exercise real routes.", "Observe hydration and mutations together."},
 		},
 	}
-	}
+}
 
 func testUnknownLevelItem() docsItem {
 	return docsItem{
@@ -120,7 +127,7 @@ func testUnknownLevelItem() docsItem {
 		Tags:     []string{"edge"},
 		Blurb:    "Used to verify unknown levels sink to the bottom during sorting.",
 		ReadTime: "3 min",
-		Content: docsContent{Kind: contentKindArticle, Callout: "Unknown level content.", Code: "// noop", Sections: []docsSection{{Heading: "Unknown", Paragraphs: []string{"Unknown level items sort last."}}}},
+		Content:  docsContent{Kind: contentKindArticle, Callout: "Unknown level content.", Code: "// noop", Sections: []docsSection{{Heading: "Unknown", Paragraphs: []string{"Unknown level items sort last."}}}},
 	}
 }
 
@@ -313,6 +320,29 @@ func TestDecodeFetchedCatalogAndHelpers(t *testing.T) {
 	}
 }
 
+func TestLoadMarkdownResourceAndRenderDocument(t *testing.T) {
+	installMockDocumentBaseURI(t, "https://example.test/examples/00-example-0/example-0.html")
+	installMockFetchText(t, testArticleMarkdown(), 200, "OK")
+	markdownURL := docsSourceURL("assets/docs/start-here.md")
+	loaded, err := loadMarkdownResource(context.Background(), markdownURL)
+	if err != nil {
+		t.Fatalf("loadMarkdownResource returned error: %v", err)
+	}
+	if loaded != testArticleMarkdown() {
+		t.Fatalf("unexpected markdown payload: %q", loaded)
+	}
+
+	markup, renderErr := ui.RenderToString(Div(Class("space-y-4"), gwchtml.RenderMarkdown(testArticleMarkdown(), markdownRenderOptions("assets/docs/start-here.md"))))
+	if renderErr != nil {
+		t.Fatalf("RenderMarkdown returned error: %v", renderErr)
+	}
+	for _, snippet := range []string{"<h1", "Start Here", "<h2", "Checklist", "<li", "First", "func main() {}", "assets/docs/troubleshooting.md"} {
+		if !strings.Contains(markup, snippet) {
+			t.Fatalf("expected markdown markup to contain %q, got %s", snippet, markup)
+		}
+	}
+}
+
 func TestFilterAndSortItems(t *testing.T) {
 	items := append(testCatalog().Items, testUnknownLevelItem())
 
@@ -345,18 +375,17 @@ func TestFilterAndSortItems(t *testing.T) {
 	}
 }
 
-func TestWithChildNodesAndOptionRendering(t *testing.T) {
+func TestOptionRenderingAndDirectSliceExpansion(t *testing.T) {
 	options := renderOptionNodes([]string{"one", "two"})
 	sortOptions := renderSortOptionNodes([]sortOption{{Value: sortAlpha, Label: labelAlpha}})
-	joined := withChildNodes([]interface{}{"prefix", 7}, append(options, sortOptions...) )
-	if len(joined) != 5 {
-		t.Fatalf("expected five joined values, got %d", len(joined))
+	markup, err := ui.RenderToString(Div(Class("stack"), append(options, sortOptions...)))
+	if err != nil {
+		t.Fatalf("direct slice expansion render failed: %v", err)
 	}
-	if joined[0] != "prefix" || joined[1] != 7 {
-		t.Fatalf("expected prefix to be preserved, got %+v", joined[:2])
-	}
-	if _, ok := joined[2].(ui.Node); !ok {
-		t.Fatalf("expected joined child nodes after prefix, got %T", joined[2])
+	for _, snippet := range []string{"<div class=\"stack\"", "<option value=\"one\">one</option>", "<option value=\"two\">two</option>", labelAlpha} {
+		if !strings.Contains(markup, snippet) {
+			t.Fatalf("expected markup to contain %q, got %s", snippet, markup)
+		}
 	}
 }
 
@@ -445,15 +474,15 @@ func TestRenderDetailPanelAndDisplaySurfaceStates(t *testing.T) {
 		}
 	}
 
-	articleMarkup, err := ui.RenderToString(renderDisplaySurface(testArticleItem(), true))
+	articleMarkup, err := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testArticleItem(), MarkdownBody: testArticleMarkdown(), MarkdownReady: true}, true))
 	if err != nil {
 		t.Fatalf("renderDisplaySurface article returned error: %v", err)
 	}
-	if !strings.Contains(articleMarkup, labelConceptArticle) || !strings.Contains(articleMarkup, labelExampleMarkdown) {
+	if !strings.Contains(articleMarkup, labelConceptArticle) || !strings.Contains(articleMarkup, labelRenderedMarkdown) || !strings.Contains(articleMarkup, "assets/docs/start-here.md") || !strings.Contains(articleMarkup, "Start Here") {
 		t.Fatalf("article surface missing expected content: %s", articleMarkup)
 	}
 
-	apiMarkup, err := ui.RenderToString(renderDisplaySurface(testAPIItem(), true))
+	apiMarkup, err := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testAPIItem()}, true))
 	if err != nil {
 		t.Fatalf("renderDisplaySurface api returned error: %v", err)
 	}
@@ -461,7 +490,7 @@ func TestRenderDetailPanelAndDisplaySurfaceStates(t *testing.T) {
 		t.Fatalf("api surface missing expected content: %s", apiMarkup)
 	}
 
-	placeholderMarkup, err := ui.RenderToString(renderDisplaySurface(docsItem{}, false))
+	placeholderMarkup, err := ui.RenderToString(renderDisplaySurface(contentPanelProps{}, false))
 	if err != nil {
 		t.Fatalf("renderDisplaySurface placeholder returned error: %v", err)
 	}
@@ -506,7 +535,6 @@ func TestRenderCounterExampleInteractions(t *testing.T) {
 		t.Fatalf("expected ready tone after reset, got %q", fixture.Text())
 	}
 }
-
 
 func TestCatalogDataURLResolvesAgainstDocumentBaseURI(t *testing.T) {
 	installMockDocumentBaseURI(t, "https://example.test/examples/00-example-0/example-0.html")

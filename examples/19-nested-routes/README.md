@@ -2,9 +2,27 @@
 
 This example demonstrates the new layout-route and outlet API with a small multi-level app.
 
-Open:
+## Current Status
+
+This example is the focused integrated reference for nested layout routes in the browser-router examples set.
+
+Use it when you want to see how parent layout shells stay mounted while child outlet content changes, including a deeper nested settings layout and a separate docs layout tree.
+
+Serve examples from the repo root with:
+
+```powershell
+go run ./tools/gwc examples
+```
+
+Then open:
 
 `/examples/19-nested-routes/nested-routes.html`
+
+Compatibility path from the repo root:
+
+```powershell
+npm --prefix tools/devtools run dev:examples
+```
 
 Routes included:
 

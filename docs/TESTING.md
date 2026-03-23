@@ -1,6 +1,22 @@
 # Testing Surface
 
-This document defines the intended first-party testing surface for GoWebComponents consumers.
+This document defines the current first-party testing surface for GoWebComponents consumers.
+
+## Current Status
+
+Shipped today:
+
+- preferred consumer import paths under `test/render`, `test/hooks`, `test/router`, and `test/ssr`
+- compatibility aliases under `testkit/...` for existing consumers
+- browser-oriented public helpers for render, hooks, router, and hydration smoke coverage
+- repo-level validation through native Go tests, js/wasm tests, the `test/` Playwright workspace, and the aggregated example suites
+- launcher lanes through `go run ./tools/gwc test -lane ...` for unit, wasm, hydration, browser, and release checks
+
+Not shipped today:
+
+- a custom framework-owned test runner
+- one monolithic testing package that hides all setup behind a single import
+- a first-party replacement for Playwright-style end-to-end browser automation
 
 ## Decision
 
@@ -107,6 +123,22 @@ The first-party testing surface should not:
 - introduce privileged hidden runtime callbacks that apps cannot reach in production code
 - try to replace Playwright for end-to-end browser automation
 - couple framework correctness to one assertion library style
+
+## Current Boundary
+
+This document describes the shipped consumer testing surface.
+
+It does claim:
+
+- the preferred public helpers live under `test/...`
+- `testkit/...` remains supported as a compatibility path
+- the repo validates behavior across native Go, js/wasm, hydration-focused, and browser Playwright lanes
+
+It does not claim:
+
+- that all testing helpers belong inside core runtime packages
+- that browser automation should be replaced by framework-specific abstractions
+- that every future domain, such as workers or offline replay, already has a complete public harness
 
 ## Ownership Boundary
 

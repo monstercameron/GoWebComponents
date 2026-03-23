@@ -2,6 +2,31 @@
 
 This backlog tracks missing, incomplete, or experimental framework capabilities compared to mature UI frameworks such as React, Svelte, Vue, Solid, Blazor, and Qwik.
 
+## At A Glance
+
+- This file is the active framework backlog, not a changelog and not end-user documentation.
+- Open work stays near the top so current priorities are visible without digging through completed history.
+- The backlog mixes product-surface gaps, documentation gaps, runtime follow-up, and ecosystem maturity work because all of them affect framework readiness.
+- Completed items should remain concise proof of shipped direction, not become the dominant content of the file.
+
+## How To Read This Backlog
+
+Use this file when you need to answer one of these questions quickly:
+
+- what important framework gaps are still open
+- which maturity areas are active versus merely historical
+- whether a topic already has backlog coverage before adding a duplicate item
+- how current docs, examples, runtime work, and ecosystem work connect to the same roadmap
+
+Read the top unchecked items in a section as the real current pressure. Treat completed items as evidence of direction, not as a substitute for the source docs that describe shipped behavior.
+
+## Backlog Rules
+
+- prefer one action-oriented item per real gap instead of many near-duplicates
+- keep scope notes concrete enough that a maintainer can tell what done means
+- move stale or superseded items into clearer merged entries instead of letting the file fragment
+- keep this file focused on framework work; repo-local chores that do not affect framework readiness belong elsewhere
+
 Organization rules for this file:
 
 - Open work comes first.

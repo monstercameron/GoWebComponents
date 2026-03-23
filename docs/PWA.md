@@ -1,12 +1,89 @@
 # PWA and Offline App Support
 
-This page defines the intended Progressive Web App and offline-application support boundary for GoWebComponents.
+This page defines the current Progressive Web App and offline-application support boundary for GoWebComponents.
 
 Use it when deciding how web app manifests, service workers, offline caches, mutation replay, installability, and deployment concerns should fit around the current runtime and browser-support model.
 
+## At A Glance
+
+- The `pwa` package already ships a real companion surface for manifests, installability observation, explicit service-worker registration, release-manifest-driven asset planning, Cache Storage coordination, and structured PWA diagnostics.
+- PWA support in this repo is integration-oriented: the framework provides explicit helpers, but applications still own service-worker code, route fallback policy, retention policy, and deployment rollout.
+- Durable offline writes are first-class through `fetch.OpenMutationQueue(...)`, while broader PWA state can be inspected through `pwa.InspectDiagnostics(...)`.
+- Use [OFFLINE_MUTATIONS.md](OFFLINE_MUTATIONS.md) for replay semantics, [ASSETS.md](ASSETS.md) for cache and manifest alignment, and [BROWSER_SUPPORT.md](BROWSER_SUPPORT.md) for capability-gated behavior.
+
+## Quick API Chooser
+
+Use this route when the question is about:
+
+- web app manifest generation and validation: `pwa.Manifest`, `Manifest.Validate()`, `pwa.MarshalManifestJSON(...)`
+- install prompts and browser installability state: `pwa.ObserveInstallability(...)`
+- explicit service-worker registration, waiting-worker control, and controller-change reload behavior: `pwa.RegisterServiceWorker(...)`
+- aligning cache namespaces and precache entries with a wasm release record: `pwa.ParseWasmReleaseManifestJSON(...)`, `pwa.BuildServiceWorkerAssetPlan(...)`, `pwa.BuildCacheStoragePlan(...)`
+- applying or inspecting Cache Storage state from application code: `pwa.OpenCacheStorageManager()`
+- one structured snapshot across manifest, installability, service worker, Cache Storage, and offline queue state: `pwa.InspectDiagnostics(...)`
+
+## Current Shipped Slice
+
+What is already real in this repo today:
+
+- manifest normalization, validation, and JSON marshaling
+- installability observation and explicit prompt ownership
+- explicit service-worker registration plus lifecycle inspection helpers
+- release-manifest parsing and service-worker asset planning helpers
+- Cache Storage planning, sync, and inspection helpers
+- structured PWA diagnostics snapshots, including offline mutation queue adaptation
+
+What remains deliberately application-owned:
+
+- the service-worker implementation itself
+- route-level offline fallback policy
+- security and retention decisions for durable browser data
+- rollout decisions such as refresh prompting, logout purge behavior, and cross-tab replay ownership
+
+## Example Shape
+
+```go
+manifest := pwa.Manifest{
+	Name:      "Atlas",
+	ShortName: "Atlas",
+	StartURL:  "/app/",
+	Scope:     "/app/",
+	Display:   pwa.ManifestDisplayStandalone,
+	Icons: []pwa.ManifestImage{{
+		Src:   "/assets/icon-192.png",
+		Sizes: "192x192",
+		Type:  "image/png",
+	}},
+}
+
+manifestJSON, err := pwa.MarshalManifestJSON(manifest)
+if err != nil {
+	return err
+}
+
+registration, err := pwa.RegisterServiceWorker(ctx, pwa.ServiceWorkerOptions{
+	URL:   "/sw.js",
+	Scope: "/app/",
+})
+if err != nil {
+	return err
+}
+
+snapshot, err := pwa.InspectDiagnostics(ctx, pwa.DiagnosticsOptions{})
+if err != nil {
+	return err
+}
+
+_ = manifestJSON
+_ = registration.Snapshot()
+_ = snapshot
+```
+
+That example is intentionally narrow: the framework owns the helpers and typed snapshots, while the application still owns the actual service-worker script, precache rules, and offline route policy.
+
 ## Support Boundary
 
-The intended PWA scope is integration-oriented, not a hidden runtime feature.
+The PWA scope is integration-oriented, not a hidden runtime feature.
 
 The current project direction is:
 
@@ -14,7 +91,7 @@ The current project direction is:
 - keep the core rendering and hydration runtime independent from service-worker lifecycle logic
 - treat offline mutation replay, cache invalidation, and static asset delivery as related but distinct concerns
 
-The framework does not yet claim:
+The framework does not claim:
 
 - a built-in service-worker runtime
 - automatic app-manifest generation from app code
@@ -26,13 +103,13 @@ Applications should choose PWA features deliberately instead of assuming every G
 
 Installability metadata belongs in a manifest pipeline, not in the rendering runtime itself.
 
-The intended model is:
+The current model is:
 
 - applications provide a web app manifest with app name, icons, start URL, display mode, theme color, and related metadata
 - manifest generation or templating may live in companion tooling rather than in core rendering APIs; the first shipped helper surface now lives in the `pwa` package through `pwa.Manifest` plus `pwa.MarshalManifestJSON(...)`
 - SSR, prerender, or static-hosted HTML should reference the manifest explicitly through ordinary head markup
 
-The project may grow first-party manifest helpers later, but the current contract is the integration boundary, not a shipped manifest generator.
+The project may still grow additional manifest tooling later, but the current contract already includes the shipped manifest helper surface rather than only a future boundary.
 
 Durable browser persistence now has a defined first-party seam through `interop.OpenPersistentStore(...)` plus the cache, queue, and state helpers layered on top of it. The current storage model is intentionally narrow: one logical feature store maps to one IndexedDB object store with string keys and JSON-friendly string payloads, database-version bumps own schema creation, blocked upgrades surface structured diagnostics, quota failures stay typed, and corruption recovery is opt-in so reconstructible caches can reset safely without silently deleting mutation or state data.
 
@@ -53,7 +130,7 @@ The helper reports installability state, manifest validation results, prompt ava
 
 Service workers should be treated as an application-owned deployment concern with documented framework touchpoints.
 
-The intended integration story is:
+The current integration story is:
 
 - register the service worker from explicit client bootstrap code, not from hidden framework side effects
 - use `pwa.RegisterServiceWorker(...)` when you want a first-party helper for explicit registration, waiting-worker inspection, `skipWaiting` signaling, and controller-change refresh coordination without burying ownership inside unrelated runtime code
@@ -68,7 +145,7 @@ This keeps the runtime small while still making PWA integration a first-class do
 
 Offline behavior should separate shell delivery, static assets, data reads, and mutations.
 
-The intended cache split is:
+The current recommended cache split is:
 
 - app shell and route HTML: cache for repeat visits and offline fallback only when the deployment model supports serving those documents safely
 - immutable static assets: cache aggressively by hashed filename
@@ -87,7 +164,7 @@ The current first-party Cache Storage companion surface is:
 - `pwa.BuildCacheStoragePlan(...)` for release-scoped cache namespaces and explicit per-entry strategy assignment
 - `pwa.OpenCacheStorageManager()` plus `Sync(...)` and `Inspect(...)` for applying and inspecting browser Cache Storage state
 
-The intended default strategy split is:
+The current recommended default strategy split is:
 
 - shell HTML and offline fallback documents: `network-first` or `stale-while-revalidate`, depending on how aggressively the application wants repeat-visit freshness
 - hashed wasm, JS helpers, CSS, and fingerprinted media: `cache-first`
@@ -117,7 +194,7 @@ Applications may surface this snapshot through their own diagnostics drawer, dev
 
 Offline route behavior should be explicit per route family.
 
-The intended route-opening rules are:
+The route-opening rules should be:
 
 - routes that can render safely from a cached shell plus durable client data may open offline through an application-owned fallback document or shell route
 - routes that require authoritative online data for correctness should fail closed with an explicit offline-unavailable experience instead of rendering misleading stale content
@@ -135,7 +212,7 @@ Recommended split:
 
 PWA update behavior must keep old clients from running half-old asset graphs.
 
-The intended rules are:
+The current rules should be:
 
 - version shell assets, wasm artifacts, JS helpers, and CSS through the same hashed-asset or manifest strategy used outside the service worker
 - treat HTML documents and manifest-like entrypoints as short-lived so they can point clients at the newest immutable assets
@@ -148,7 +225,7 @@ Offline caches should be invalidated by release version or manifest revision, no
 
 Durable offline data needs explicit retention rules, not just storage APIs.
 
-The intended rules are:
+The current rules should be:
 
 - persist only data that is already acceptable in browser-visible storage and developer tools
 - treat read caches as reconstructible copies; they may be reset aggressively on corruption, logout, user switch, or trust-boundary changes
@@ -168,7 +245,7 @@ Recommended application split:
 
 Durable offline work should not be replayed by every open tab at once.
 
-The intended coordination rules are:
+The coordination rules should be:
 
 - use one logical cross-tab topic for offline replay ownership and one for cache invalidation or replay results when an application opens multiple tabs for the same surface
 - elect one active replay owner at a time; other tabs may observe queue state and results, but should not stampede the same queued writes concurrently
@@ -198,10 +275,17 @@ PWA deployments should be validated together with:
 
 ## Current Boundary
 
-This document defines the intended integration contract only.
+This document defines the current integration contract only.
 
 It does not yet claim:
 
 - a built-in service-worker runtime or precache strategy
 
 Those remain separate backlog work.
+
+## Review Checklist
+
+- does the page clearly separate shipped `pwa` helpers from the still application-owned service-worker and route-policy logic
+- are cache, queue, and retention recommendations grounded in current public APIs instead of generic PWA advice
+- does the page keep durable offline writes, read caching, and installability as separate concerns rather than collapsing them into one feature
+- are security, logout purge, and cross-tab replay ownership treated as explicit product decisions rather than automatic framework behavior

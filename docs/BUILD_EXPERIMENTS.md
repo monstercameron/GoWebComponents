@@ -4,6 +4,12 @@ This page defines the intended experiment matrix for wasm build and release opti
 
 Use it when comparing build flags, artifact size, startup cost, compatibility settings, and compression choices so release decisions stay evidence-driven instead of anecdotal.
 
+## Current Status
+
+- The repo already ships real wasm experiment helpers for phase timing, compression comparison, cache-topology comparison, manifest comparison, and Go toolchain comparison.
+- This page is the current policy layer over those scripts and over the representative benchmark targets used by the repo.
+- The release experiment story now feeds directly into the shipped launcher and manifest contract rather than living as isolated notes.
+
 ## Experiment Matrix
 
 The intended comparison matrix should use a stable set of representative variants.
@@ -204,20 +210,24 @@ Current evidence-backed outcomes from the scripted measurements in this repo are
 	On `./examples/21-ui-render`, the stripped release build emitted `4575365` raw bytes versus `4680861` raw bytes for plain `go build`, so the stripped profile remains the documented release starting point.
 - accepted delivery sidecar: gzip compression for release artifacts
 	On the same target, the stripped release artifact compressed to `1260895` gzip bytes, and the repo's current release helper already emits that sidecar by default.
+- accepted release packaging default: gzip plus Brotli sidecars in the launcher-owned release path
+	The current `gwc release` contract emits both sidecars by default and records them in `wasm-release-manifest.json`, so experiment work now evaluates whether that default should change, not whether Brotli exists at all.
 - rejected as a release default: plain unstripped `go build`
 	The current measurements show a larger artifact with no delivery-sidecar advantage, so plain output is still treated as a debug-oriented build path rather than the release recommendation.
 - rejected as an inner-loop expectation: CI-style cold-cache timings
 	The cache comparison for `./examples/21-ui-render` showed `18233` ms of module download time and `6554` ms of compile time for the clean CI-style pass, versus `127` ms `go_build_ms` for the warmed shared-cache rebuild, so CI-cold numbers should not be used to describe local incremental workflow quality.
-- not accepted yet: brotli delivery as a documented default
-	The repo can now emit Brotli sidecars through the Node-based fallback even when the PowerShell runtime lacks `System.IO.Compression.BrotliStream`, but Brotli is still not the default release recommendation until the comparison data shows a clear startup win worth the extra serving complexity.
 - not accepted yet: `wasm-opt` post-processing in the release workflow
 	`tools/compare-wasm-compression.ps1` now measures `wasm-opt` output through `PATH` or `npx --package binaryen`, but the release workflow still does not promote it to the default until the saved comparison data justifies the extra post-processing step.
+- not accepted yet: a narrower Brotli-only or optimizer-coupled serving policy
+	The current launcher default is to emit gzip plus Brotli sidecars together. Further experiment work can still justify changing that delivery policy, but the open question is about policy refinement rather than Brotli availability.
 
 Update this section when a new flag set, cache policy, toolchain, or post-processing step becomes accepted, rejected, or explicitly deferred.
 
 ## Current Boundary
 
 This document defines the intended experiment model only.
+
+It currently covers real scripted comparison flows, but it is still not the same thing as the release contract itself.
 
 It does not yet claim:
 

@@ -4,6 +4,21 @@ This page is the recommended path for new GoWebComponents adopters.
 
 Use it when you want the shortest route from evaluation to a production-shaped app without guessing which docs reflect the current public surface.
 
+## Current Status
+
+Shipped today:
+
+- a stable application-authoring surface centered on `ui`, `html`, `state`, `fetch`, and `router`
+- companion guidance for `devtools`, `interop`, SSR or hydration, server integration, testing, and troubleshooting
+- a large example catalog that spans isolated API demos, integrated client apps, SSR flows, and the Atlas reference app
+
+Not shipped today:
+
+- one single mandatory starter template for every app shape
+- a requirement that every adopter use SSR, routing, or companion packages on day one
+
+The shortest successful path is still incremental: start from the smallest surface that fits your app, then layer in routing, fetch, shared state, SSR, or diagnostics only when your app actually needs them.
+
 ## Recommended Adoption Path
 
 1. Read the root [README.md](../README.md) for the current public package surface, build requirements, and repo-level commands.
@@ -50,6 +65,22 @@ If you are starting a new application today, these defaults are the least surpri
 - Use `fetch.UseResource[T]` for typed async data and `fetch.UseFetch` only when you need lower-level request control.
 - Add SSR only when your app needs request-time HTML, route-aware bootstrapping, or hydration reuse.
 - Validate production flows with both Go tests and Playwright browser tests.
+
+## Current Boundary
+
+This page is an entrypoint, not a full architecture spec.
+
+It does claim:
+
+- the recommended starting surface is the documented public package set, not repo internals
+- examples and workflows are the fastest path to the current supported app shapes
+- troubleshooting, testing, and SSR guidance already exist and should be used early instead of reverse-engineering the repo
+
+It does not claim:
+
+- that every application needs all public packages
+- that the experimental docs define the default adoption path
+- that reading every document in `docs/` is the best first move for new adopters
 
 ## Related Docs
 

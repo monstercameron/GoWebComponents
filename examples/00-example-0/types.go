@@ -26,6 +26,7 @@ type docsContent struct {
 	Kind        string
 	Sections    []docsSection
 	Callout     string
+	SourcePath  string
 	Code        string
 	Signature   string
 	Summary     string
@@ -51,7 +52,12 @@ type docsItem struct {
 }
 
 type contentPanelProps struct {
-	Item docsItem
+	Item            docsItem
+	MarkdownBody    string
+	MarkdownLoading bool
+	MarkdownReady   bool
+	MarkdownError   string
+	OnRetryMarkdown ui.Handler
 }
 
 type catalogHeroProps struct {
@@ -86,6 +92,11 @@ type catalogSidebarProps struct {
 type detailPanelProps struct {
 	SelectedItem    docsItem
 	HasSelectedItem bool
+	MarkdownBody    string
+	MarkdownLoading bool
+	MarkdownReady   bool
+	MarkdownError   string
+	OnRetryMarkdown ui.Handler
 }
 
 type docsCatalog struct {

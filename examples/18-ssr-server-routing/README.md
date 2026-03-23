@@ -2,6 +2,12 @@
 
 This example is the request-time SSR counterpart to the earlier static SSR shell experiments.
 
+## Current Status
+
+This example remains the focused server-backed SSR routing reference in the integrated example set.
+
+Use it when you want a smaller request-time rendered app that demonstrates real HTML responses, route-aware bootstrap reuse, redirects, query-aware rendering, and hydration on top of a Go HTTP server without the larger Atlas surface area.
+
 It demonstrates:
 
 - a Go HTTP server that renders HTML per request with `ui.RenderToString(...)`

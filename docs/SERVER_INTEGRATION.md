@@ -4,14 +4,32 @@ This page defines the current production-shaped Go HTTP integration story for Go
 
 Use it when you need to know how request handlers, middleware, SSR rendering, bootstrap payloads, asset serving, and API endpoints fit together without inventing a new server shape for each app.
 
+## Current Status
+
+Shipped today:
+
+- request-time HTML rendering through `ui.RenderToString(...)` and `ui.RenderToStringObserved(...)`
+- inline and sidecar bootstrap emission through `ui.RenderBootstrapScript(...)` and `ui.RenderBootstrapReferenceScript(...)`
+- typed bootstrap payload helpers for route data, form defaults, cache seeds, and session hints
+- hydration bootstrap discovery through `ui.Hydrate(...)`, `router.HydrateMount(...)`, `ui.ReadBootstrapScript(...)`, and `ui.ReadBootstrapReferenceScript(...)`
+- request-level SSR and bootstrap metrics through `ui.ObserveSSR(...)` and the observed bootstrap helpers
+- CSRF naming helpers and server-shaped form error flows used by `examples/87-ssr-secure-forms`
+- a production-shaped integrated reference server in `examples/86-atlas-commerce-os/server`
+
+Not shipped today:
+
+- framework-owned auth or session middleware
+- a built-in HTTP adapter layer for every Go router or deployment host
+- streaming SSR as the default server integration transport
+
 ## Canonical App Shape
 
 The current first-party story is a normal Go `net/http` server with five responsibilities:
 
 - serve immutable static assets such as `.wasm`, `wasm_exec.js`, CSS, images, and any worker scripts
 - serve one browser entry document route or a set of SSR page routes
-- render request-time HTML with `ui.RenderToString(...)`
-- emit one bootstrap payload that the browser passes back into `ui.Hydrate(...)`
+- render request-time HTML with `ui.RenderToString(...)` or `ui.RenderToStringObserved(...)`
+- emit one bootstrap payload or bootstrap reference that the browser passes back into `ui.Hydrate(...)`
 - expose same-origin API and form-post handlers alongside the SSR routes
 
 This is the intended baseline shape for production apps today. Use the existing SSR examples as the reference pieces:
@@ -26,7 +44,7 @@ For a normal SSR page request, the canonical flow is:
 
 1. top-level HTTP middleware attaches request IDs, logging context, recovery, timeout, session state, and any auth or CSRF context
 2. the route handler resolves the current route, request-scoped loader data, and any request-owned view model
-3. the handler renders HTML with `ui.RenderToString(...)`
+3. the handler renders HTML with `ui.RenderToString(...)` or `ui.RenderToStringObserved(...)`
 4. the handler embeds or references the bootstrap payload needed for hydration reuse
 5. the browser loads the wasm bundle and resumes with `ui.Hydrate(...)` or `router.HydrateMount(...)`
 
@@ -46,8 +64,9 @@ The simplest supported production setup today is one Go binary that serves both 
 - Serialize only request-scoped data that the browser needs to resume without refetching immediately.
 - Keep secrets, raw session material, and internal-only server fields out of bootstrap payloads.
 - Treat `ui.SSRBootstrap` as the canonical transfer channel for seeded IDs, atom snapshots, and other hydration-owned resume data.
-- Use route-specific bootstrap keys for loader payloads instead of one unstructured global blob.
+- Use typed helpers such as `ui.RegisterRouteBootstrapData(...)`, `ui.RegisterFormBootstrapDefaults(...)`, `ui.RegisterCacheBootstrapSeed(...)`, and `ui.RegisterSessionBootstrapHint(...)` instead of one unstructured global blob.
 - Prefer bootstrap references for large payloads when inline scripts would become too large for the HTML response.
+- Treat `ui.SSRBootstrapReference` as a public sidecar transport, not as a secret channel.
 
 See `docs/STATE_TRANSFER.md` for the current classification and ownership rules.
 See `docs/SECURITY.md` for the broader threat model and secure serialization boundary.
@@ -97,6 +116,22 @@ Use these rules:
 - Resolve the authenticated user once in middleware, then pass that identity through request context or typed handler dependencies.
 - Do not serialize bearer tokens, session secrets, or CSRF secrets into bootstrap data just to make browser fetches easier.
 - If client-side follow-up requests need auth, prefer same-origin cookie or session flows over exposing raw upstream credentials to wasm code.
+
+## Observability And Failure Handling
+
+The server integration page no longer treats SSR observability as future work.
+
+Current shipped hooks:
+
+- `ui.ObserveSSR(...)` for process-local subscriptions to render, hydration, and bootstrap observations
+- `ui.RenderToStringObserved(...)` when the handler wants per-request render metrics
+- `ui.RenderBootstrapScriptObserved(...)` when the handler wants inline bootstrap size metrics alongside the render path
+
+Recommended rules:
+
+- keep request or correlation ids in server middleware, then pass them into SSR observability helpers when request-level tracing matters
+- use structured diagnostics and controlled `500` responses for render failures instead of raw panic output
+- treat bootstrap payload size as an operational budget worth measuring in the same request path that emits the page
 
 ## Forms, APIs, And Route Data Together
 
@@ -154,4 +189,6 @@ See [DEPLOYMENT_TARGETS.md](DEPLOYMENT_TARGETS.md) for the short deployment-targ
 
 These items are still deliberately separate backlog work:
 
-- observability hooks for request-level SSR timing and hydration counters
+- richer framework-provided host adapters beyond the documented `net/http` baseline
+- streaming SSR transport and its buffering or proxy guidance
+- broader end-to-end server observability examples that combine middleware, SSR metrics, logs, and diagnostics in one reference app

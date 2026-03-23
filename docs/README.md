@@ -2,6 +2,31 @@
 
 This directory contains the project-level documentation that is still useful after the runtime and tooling cleanup on 2026-03-14.
 
+## At A Glance
+
+- This directory is the prose index for the current GoWebComponents runtime, platform guidance, and adoption surface.
+- New adopters should start with the guided entry docs rather than reading every file alphabetically.
+- Core package and runtime behavior now live primarily under `ui/`, `html/`, `state/`, `fetch/`, `router/`, and `internal/runtime/`.
+- This index is most useful when you need to choose the next document quickly or confirm where a topic belongs.
+
+## Quick Reading Guide
+
+Read these first when you are new to the repo:
+
+1. `START_HERE.md`
+2. `WORKFLOWS.md`
+3. `WALKTHROUGHS.md`
+4. `REFERENCE_MAP.md`
+5. `TROUBLESHOOTING.md`
+
+Jump directly to these when you already know the question category:
+
+- runtime and rendering behavior: `HYDRATION.md`, `SCHEDULING.md`, `PRODUCTION_CORRECTNESS.md`
+- app integration: `SERVER_INTEGRATION.md`, `DEPLOYMENT_TARGETS.md`, `ASSETS.md`, `CONFIGURATION.md`
+- product-policy and scope: `API_POLICY.md`, `FRAMEWORK_SCOPE.md`, `ECOSYSTEM.md`, `COMPARISONS.md`
+- user-facing browser concerns: `FORMS.md`, `ACCESSIBILITY.md`, `OVERLAYS.md`, `I18N.md`, `PWA.md`
+- troubleshooting and diagnostics: `ACTIONABLE_ERRORS.md`, `LOGGING.md`, `OBSERVABILITY.md`, `TROUBLESHOOTING.md`
+
 ## Files
 
 ### `START_HERE.md`
@@ -130,8 +155,6 @@ Current internationalization scope, locale context model, message catalog helper
 ### `TODO.md`
 Current backlog and near-term work. This is a live backlog, not a historical archive of every idea the project has ever had.
 
-## Where The Core Lives
-
 ## Start Here
 
 If you are new to the repo, use this order:
@@ -144,11 +167,14 @@ If you are new to the repo, use this order:
 
 The old docs referred to a `/fiber` directory. That is stale.
 
+## Where The Core Lives
+
 The current implementation core is:
 
 - `internal/runtime/`
 - `internal/platform/jsdom/`
-- `dom/`, `hooks/`, `render/`, `state/`, `fetch/`, `router/`
+- `ui/`, `html/`, `state/`, `fetch/`, `router/`
+- companion and platform packages such as `interop/`, `hotreload/`, `head/`, `pwa/`, `logging/`, and `devtools/`
 
 If you are debugging the framework itself, start here:
 
@@ -166,6 +192,13 @@ As of 2026-03-14:
 - Native `internal/runtime` statement coverage is `100%`
 - Playwright component, integration, and deep state stress suites pass
 - Separate `js/wasm` tests and benchmarks exist for wasm-only runtime and adapter code
+
+## Documentation Maintenance Rules
+
+- keep this index focused on orientation, not full topic duplication
+- prefer linking to the authoritative topic page instead of expanding summaries here indefinitely
+- update this file when the package surface, preferred reading order, or documentation map changes materially
+- remove stale package references promptly when directory layouts or public entrypoints move
 
 ## Related Docs
 

@@ -19,6 +19,14 @@ func catalogDataURL() string {
 	return utils.ResolveDocumentURL(catalogDataRelativeURL)
 }
 
+// docsSourceURL resolves a markdown source asset relative to the current document URL.
+func docsSourceURL(sourcePath string) string {
+	if sourcePath == "" {
+		return ""
+	}
+	return utils.ResolveDocumentURL(sourcePath)
+}
+
 // decodeCatalogJSON validates the fetched JSON payload before the UI reads from it.
 func decodeCatalogJSON(payload []byte) (docsCatalog, error) {
 	var catalog docsCatalog
@@ -55,9 +63,23 @@ func decodeFetchedCatalog(payload interface{}) (docsCatalog, error) {
 	return decodeCatalogJSON([]byte(textPayload))
 }
 
+// decodeFetchedText validates plain text fetch responses used by markdown documents.
+func decodeFetchedText(payload interface{}) (string, error) {
+	textPayload, ok := payload.(string)
+	if !ok {
+		return "", fmt.Errorf("document response must be text")
+	}
+	return textPayload, nil
+}
+
 // catalogCacheKey returns the cache key used to share catalog data across renders.
 func catalogCacheKey(url string) string {
 	return catalogCacheKeyPrefix + url
+}
+
+// markdownCacheKey returns the cache key used to share markdown document loads.
+func markdownCacheKey(url string) string {
+	return markdownCacheKeyPrefix + url
 }
 
 // loadCatalogResource fetches and validates the catalog through the cached-resource loader path.
@@ -72,6 +94,27 @@ func loadCatalogResource(ctx context.Context, url string) (docsCatalog, error) {
 		}
 		return decodeFetchedCatalog(result.Data)
 	}
+}
+
+// loadMarkdownResource fetches and validates a markdown document as plain text.
+func loadMarkdownResource(ctx context.Context, url string) (string, error) {
+	resultCh := fetch.Fetch(url, fetch.Options{})
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case result := <-resultCh:
+		if result.Err != nil {
+			return "", result.Err
+		}
+		return decodeFetchedText(result.Data)
+	}
+}
+
+func errorString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
 
 // normalizeLowercase trims and lowercases values before they are used in comparisons.

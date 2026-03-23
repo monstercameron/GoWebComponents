@@ -4,6 +4,45 @@ This page reorganizes the documentation around common developer tasks instead of
 
 Use it as the main task-oriented index for the current repo.
 
+## Current Status
+
+- This page is the shipped task-oriented entrypoint for the current repo, not a planning note.
+- The workflows here are anchored in the public package surface, the example catalog, and the current `gwc` launcher commands.
+- Use this page first when the question is "what is the supported path for this task," then drop into the linked policy docs for boundary details.
+
+## At A Glance
+
+Open this page when you know what you want to do, but do not yet know which package docs or examples to follow.
+
+Use this quick chooser:
+
+- building a browser-only app: start with Build A Client-Only App
+- adding multiple screens, params, or nested layouts: start with Add Routing
+- serving HTML first and resuming on the client: start with Add SSR And Hydration
+- validating runtime, browser, or hydration behavior: start with Test A Component Or App Flow
+- preparing deployment output: start with Ship A Production Wasm Build
+- investigating client resume mismatches: start with Debug Hydration Issues
+
+This page is intentionally task-first. It should help a team choose a supported path quickly instead of discovering it indirectly from package boundaries.
+
+## How To Read This Page
+
+Each workflow section is organized the same way:
+
+- when to use the workflow
+- the main public API or tools involved
+- runnable examples
+- production caveats
+- related validation and deeper reference docs
+
+If a workflow here points to multiple deeper docs, treat this page as the entrypoint and the linked pages as the policy or implementation detail layer.
+
+## Current Boundary
+
+- Shipped: task-first guidance for the current browser, routing, SSR, testing, and release workflows.
+- Not shipped: scaffold generation, hidden one-command architecture setup, or a promise that every workflow is reduced to a single helper API.
+- When you need realistic app-shape reading paths rather than task slices, use [WALKTHROUGHS.md](WALKTHROUGHS.md).
+
 ## Build A Client-Only App
 
 Use this path when the app is mounted in the browser and does not need request-time HTML.
@@ -105,6 +144,7 @@ Use this path when validating runtime behavior, wasm behavior, or browser flows.
 Public API and tools:
 
 - native Go tests for framework or app packages
+- `go run ./tools/gwc test -lane unit -lane wasm` for launcher-owned validation lanes
 - `go test -exec .\tools\go_js_wasm_exec.bat ...` for Windows `js/wasm` coverage
 - Playwright suites under `test/` and `examples/`
 
@@ -130,7 +170,9 @@ Use this path when turning a local app into a deployable wasm bundle.
 
 Public API and tools:
 
-- normal `go build` with `GOOS=js` and `GOARCH=wasm`
+- `go run ./tools/gwc build -app .\path\to\main.go -profile release`
+- `go run ./tools/gwc release -app .\path\to\main.go -out-dir .\bin\wasm-release`
+- normal `go build` with `GOOS=js` and `GOARCH=wasm` when a lower-level compiler-only path is needed
 - the matching `wasm_exec.js` from `$(go env GOROOT)/lib/wasm/`
 - the repo's example server or your own static server for local validation
 
@@ -143,6 +185,7 @@ Runnable examples:
 Production caveats:
 
 - Always ship the wasm binary and `wasm_exec.js` from the same Go toolchain.
+- Prefer the launcher-owned release path when you want manifest emission, compression sidecars, budgets, and machine-readable summaries kept in one contract.
 - Prefer a production-tag compile check before release so stripped builds keep the same exported helper surface and scheduling semantics as development builds.
 - Serve `.wasm` with the correct MIME type.
 - Validate cache behavior for generated assets and rollout timing for updated binaries.

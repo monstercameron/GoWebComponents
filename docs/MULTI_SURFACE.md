@@ -4,6 +4,63 @@ This page documents the current first-class model for coordinating multiple acti
 
 Use it when an application needs a popup or secondary window to cooperate with the main app without hand-rolling `window.open` and `postMessage` plumbing.
 
+## At A Glance
+
+- the current surface is a typed same-origin window-messaging layer over `postMessage`
+- it is designed for opener and popup workflows, not general browser-wide peer discovery
+- the main helpers are `OpenSecondaryWindowChannel(...)`, `WindowOpenerChannel(...)`, typed window-envelope decoding, and `SurfaceSignal` convenience helpers
+- ownership stays explicit: one surface owns lifecycle and canonical writes, the other acts as a specialized collaborator
+
+## Quick API Chooser
+
+- use `interop.OpenSecondaryWindowChannel(...)` in the opener when the current app launches and owns the popup lifecycle
+- use `interop.WindowOpenerChannel(...)` inside the popup when it needs to talk back to its opener
+- use `interop.SubscribeDecodedWindow[T](...)` when the workflow has its own typed payloads
+- use `interop.SubscribeSurfaceSignals(...)` plus `PublishSessionExpired(...)`, `PublishRouteFocus(...)`, `PublishSelection(...)`, or `PublishIntent(...)` when the payload is one of the common session or surface-coordination cases
+- use cross-tab channels instead of window channels when there is no direct opener or popup relationship
+
+## Example Shape
+
+This is the current intended flow: the opener creates the child window, both sides subscribe to typed surface signals, and collaboration happens through explicit route, selection, or intent messages rather than silent shared-state mutation.
+
+```go
+package shell
+
+import "github.com/atdiar/particleui/interop"
+
+func openInspector() (func(), error) {
+    channel, err := interop.OpenSecondaryWindowChannel(interop.WindowChannelOptions{
+        URL:  "./multi-window-console-popup.html",
+        Name: "example:multi-window:ops",
+    })
+    if err != nil {
+        return nil, err
+    }
+
+    subscription, err := interop.SubscribeSurfaceSignals(channel, func(message interop.DecodedWindowEnvelope[interop.SurfaceSignal], err error) {
+        if err != nil {
+            return
+        }
+        _ = message
+    })
+    if err != nil {
+        _ = channel.Close()
+        return nil, err
+    }
+
+    if err := interop.PublishRouteFocus(channel, "/orders/42", "tab=activity", "order-heading"); err != nil {
+        _ = subscription.Cancel()
+        _ = channel.Close()
+        return nil, err
+    }
+
+    return func() {
+        _ = subscription.Cancel()
+        _ = channel.Close()
+    }, nil
+}
+```
+
 ## Current Shipped Surface
 
 The public surface today is:
@@ -49,6 +106,16 @@ The distinction from cross-tab synchronization matters:
 
 - cross-tab sync is peer-to-peer state hint broadcasting with no direct window handle
 - multi-surface coordination is an explicit parent/child relationship with a concrete opened window, focus control, and targeted `postMessage` exchange
+
+## Current Recommended Flow
+
+The smallest reliable workflow today is:
+
+1. opener creates a named window channel
+2. popup binds back to the opener using the same channel name
+3. both sides subscribe before relying on the connection
+4. opener publishes route, selection, session, or intent signals as needed
+5. both sides treat close, orphaning, and publish failure as normal operational states
 
 ## Popup And Secondary-Window Channels
 
@@ -136,3 +203,11 @@ The runtime does not auto-remount, auto-close, or auto-transfer ownership betwee
 - treat orphaned or closed child windows as normal operational state, not as exceptional control flow
 
 See `examples/95-multi-window-console` for the current popup-inspector style reference flow built on this surface.
+
+## Review Checklist
+
+- does one surface clearly own lifecycle, focus, and canonical writes
+- are same-origin and `TargetOrigin` rules explicit instead of implicit
+- do popup and opener UIs handle `Closed()` and publish failure as normal degraded states
+- are common route, session, selection, and intent cases using the typed signal helpers instead of ad hoc string payloads
+- is cross-tab synchronization kept separate from opener or popup coordination when no direct window handle exists

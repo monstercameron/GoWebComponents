@@ -4,6 +4,47 @@ This page cross-links major concepts to the current public APIs, runnable exampl
 
 Use it when you know the problem you are solving but do not want to guess which package docs or examples cover it best.
 
+## At A Glance
+
+- Start here when you already know the feature area and want the shortest path to the right public package, example, and deeper doc.
+- Prefer the public package surface named here over `internal/` implementation details or example-only scaffolding.
+- Use [START_HERE.md](START_HERE.md) when you need an adoption order. Use this page when you need a problem-to-surface lookup.
+
+## Quick Starting Points
+
+If you are trying to:
+
+- build a client-only UI: start with Rendering And Local State
+- wire shared state or async data: start with State And Data
+- add routes, loaders, or guards: start with Routing
+- server-render and resume in the browser: start with SSR And Hydration
+- inspect runtime behavior or structured diagnostics: start with Diagnostics And Debugging
+- add installability, service workers, or offline helpers: start with PWA And Offline Support
+
+## HTML Authoring
+
+Public API:
+
+- `html.Div`, `html.Button`, `html.Input`, `html.Tag`
+- `html/shorthand` helpers such as `Div`, `Button`, `Class`, `Text`, `Textf`, `If`
+
+Runnable examples:
+
+- [examples/21-ui-render](../examples/21-ui-render)
+- [examples/22-create-element](../examples/22-create-element)
+- [examples/53-html-forms](../examples/53-html-forms)
+
+Production caveats:
+
+- Prefer typed builders and shorthand helpers over unstructured raw prop maps when the goal is maintainable UI code.
+- Keep server-rendered and hydrated markup deterministic when the same authoring path runs on both sides.
+
+Related docs:
+
+- [HTML_SUGAR.md](HTML_SUGAR.md)
+- [ACCESSIBILITY.md](ACCESSIBILITY.md)
+- [START_HERE.md](START_HERE.md)
+
 ## Rendering And Local State
 
 Public API:
@@ -154,6 +195,34 @@ Related docs:
 - [test/README.md](../test/README.md)
 - [tools/README.md](../tools/README.md)
 
+## PWA And Offline Support
+
+Public API:
+
+- `pwa.Manifest`, `pwa.MarshalManifestJSON`, `Manifest.Validate`
+- `pwa.ObserveInstallability`, `pwa.RegisterServiceWorker`
+- `pwa.ParseWasmReleaseManifestJSON`, `pwa.BuildServiceWorkerAssetPlan`, `pwa.BuildCacheStoragePlan`, `pwa.OpenCacheStorageManager`
+- `pwa.InspectDiagnostics`, `pwa.MutationQueueDiagnosticsSource`
+- `fetch.OpenMutationQueue`
+
+Runnable examples:
+
+- [examples/18-ssr-server-routing](../examples/18-ssr-server-routing)
+- [examples/86-atlas-commerce-os](../examples/86-atlas-commerce-os)
+
+Production caveats:
+
+- the framework ships explicit helpers, but applications still own service-worker code, route fallback policy, and durable-data retention rules
+- offline writes, read caching, and installability should be treated as separate concerns rather than one generic offline mode
+
+Related docs:
+
+- [PWA.md](PWA.md)
+- [OFFLINE_MUTATIONS.md](OFFLINE_MUTATIONS.md)
+- [ASSETS.md](ASSETS.md)
+- [BROWSER_SUPPORT.md](BROWSER_SUPPORT.md)
+- [CROSS_TAB.md](CROSS_TAB.md)
+
 ## Multi-Client Coordination
 
 Public API:
@@ -238,3 +307,10 @@ Related docs:
 - [HEAD_MANAGEMENT.md](HEAD_MANAGEMENT.md)
 - [FORMS.md](FORMS.md)
 - [WORKFLOWS.md](WORKFLOWS.md#ship-a-production-wasm-build)
+
+## Review Checklist
+
+- does each section point to current public APIs instead of internal implementation files or stale compatibility layers
+- are the runnable examples still the best maintained examples for that feature area
+- are production caveats explicit enough to stop readers from overgeneralizing a demo into a production contract
+- do the deeper-doc links match the current mirrored doc titles and current repo guidance

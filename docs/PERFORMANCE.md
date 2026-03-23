@@ -4,15 +4,49 @@ Last updated: 2026-03-15
 
 This file tracks the current performance state of the repo. It intentionally avoids old speculative claims and stale file references.
 
+## At A Glance
+
+- Use this page when you need the current runtime, SSR transport, and js/wasm adapter baselines in one place.
+- Treat correctness and repeatability as the first performance constraints. Changes only stay if the benchmark set and the behavior tests both remain green.
+- Measure the runtime in layers: native microbenchmarks for reconciler and hooks, js/wasm adapter benchmarks for browser-bound crossings, and browser-facing inspection for hot branches and granular update counters.
+- Use [FINE_GRAINED_REACTIVITY.md](FINE_GRAINED_REACTIVITY.md) when the question is whether a narrow subscribed-region update is worth the extra machinery.
+- Use [WASM_RELEASES.md](WASM_RELEASES.md) and [BUILD_EXPERIMENTS.md](BUILD_EXPERIMENTS.md) when the question is bundle profile, release flags, or artifact policy rather than raw runtime cost.
+
+## Quick Measurement Chooser
+
+Use this route when the question is about:
+
+- reconciler, scheduler, hook, atom, or hydration hot paths: `go test ./internal/runtime -run ^$ -bench . -benchmem`
+- browser-bound DOM adapter cost in wasm: `go test -exec .\tools\go_js_wasm_exec.bat ./internal/platform/jsdom -run ^$ -bench . -benchmem`
+- SSR bootstrap encode or decode tradeoffs: `go test ./ui -run ^$ -bench "RenderToStringPublicSSRSurface|MarshalSSRBootstrapJSON|MarshalSSRBootstrapBinary|UnmarshalSSRBootstrapJSON|UnmarshalSSRBootstrapBinary|RenderBootstrapReferenceScript" -benchmem`
+- repeated runs and before or after comparisons: `./tools/bench-runtime.ps1` and `./tools/bench-compare.ps1`
+- live branch hotspots, granular commit counters, or snapshot diffs: the devtools panel and `devtools.SnapshotNow(...)` / `devtools.CompareSnapshots(...)`
+
+## Current Shipped Slice
+
+What is already real in this repo today:
+
+- native runtime microbenchmarks for reconciliation, hooks, atoms, scheduling, effects, and hydration-sensitive paths
+- js/wasm adapter microbenchmarks for DOM creation, mutation, query, event listener, and wrapper boundary cost
+- SSR transport microbenchmarks covering JSON, CBOR/binary, and bootstrap reference script generation
+- fine-grained prototype benchmarks that compare subscribed-region updates against full component rerenders for specific workloads
+- in-browser inspection through `devtools.Panel(...)`, snapshot export, snapshot comparison, and profiling counters such as granular marks, granular commits, and hot branches
+
 ## Current Focus Areas
 
-The runtime hot paths are:
+The runtime hot paths remain:
 
 - `internal/runtime/reconciler.go`
 - `internal/runtime/scheduler.go`
 - `internal/runtime/hooks.go`
 - `internal/runtime/state.go`
 - `internal/platform/jsdom/adapters.go`
+
+The current optimization pattern is consistent across those files:
+
+- keep steady-state rerenders cheap before chasing cold-path wins
+- reduce allocations only when correctness and benchmark evidence agree
+- separate native runtime cost from browser boundary cost instead of blending them into one number
 
 ## Latest Validation Pass
 
@@ -73,6 +107,19 @@ The router wasm suite originally hung in the browser-history metadata tests beca
 The repo also tried more aggressive reconciler micro-optimizations around props-map creation and DOM update batching. Those changes regressed the benchmark set and were removed.
 
 This pass also tried a hot/cold `Fiber` split and a dedicated non-batching initial `updateDomProperties(...)` path. Both regressed the benchmark set and were removed.
+
+## Current Inspection Surface
+
+Use the devtools surface when the problem is not just raw benchmark numbers but locating which subtree or update mode is expensive.
+
+What it exposes today:
+
+- runtime totals for fibers, dirty nodes, hooks, effects, and recent timing counters
+- fine-grained counters such as subscribed fibers, granular dirty marks, granular commits, and descendant host or text commits
+- hot branches ranked by commit, effect, and cleanup cost
+- snapshot export and comparison via `devtools.ExportSnapshotJSON(...)` and `devtools.CompareSnapshots(...)`
+
+That inspection path is the bridge between a benchmark regression and a user-visible slowdown. Use microbenchmarks to prove a low-level change, then use devtools to confirm the expensive branch actually moved in the right direction.
 
 ## Benchmarks
 
@@ -294,6 +341,15 @@ Follow-up query/collection pass from the latest Windows arm64 wasm session:
 
 Caching bound document query methods and using direct indexed collection access materially improved the `QuerySelectorAll` path compared with the earlier benchmark (`145711 ns/op`, `431 B/op`, `34 allocs/op`).
 
+## Reading The Current Signal
+
+The current benchmark set says:
+
+- keyed reconciliation is still materially more expensive than the non-keyed stable list path, even after the recent pooling and comparable-key improvements
+- browser boundary work still dominates many real js/wasm costs, especially DOM mutation, selector queries, and listener churn
+- SSR binary sidecars are a better fit than inline JSON once bootstrap payload size starts to matter
+- fine-grained updates are promising for narrow hot regions, but they are still workload-specific and must keep proving themselves against ordinary rerenders
+
 ## What To Optimize Next
 
 1. Add repeated benchmark runs and `benchstat`-style comparison to reduce noise.
@@ -302,6 +358,11 @@ Caching bound document query methods and using direct indexed collection access 
 4. Treat correctness regressions as blockers; performance changes in this repo have repeatedly shown that low-level wins are only worth keeping if the benchmark set and behavior tests both stay green.
 5. Treat host prop update churn and DOM/event boundary cost as the next likely levers; broader struct-layout rewrites have not paid off here.
 
-For the broader build-profile, size-budget, and release-artifact policy around those measurements, see [WASM_RELEASES.md](WASM_RELEASES.md) and [BUILD_EXPERIMENTS.md](BUILD_EXPERIMENTS.md).
+## Review Checklist
 
-For the broader build-profile and release-flag policy around those measurements, see [WASM_RELEASES.md](WASM_RELEASES.md).
+- is the performance claim tied to a named benchmark, devtools counter, or browser-observable behavior
+- does the page clearly separate native runtime cost, js/wasm boundary cost, and SSR transport cost
+- do kept optimizations stay paired with the correctness fixes and reverted experiments that explain why the current shape exists
+- do follow-up ideas stay grounded in the current evidence instead of speculative rewrites
+
+For the broader build-profile, size-budget, and release-artifact policy around those measurements, see [WASM_RELEASES.md](WASM_RELEASES.md) and [BUILD_EXPERIMENTS.md](BUILD_EXPERIMENTS.md).

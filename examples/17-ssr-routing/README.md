@@ -2,6 +2,12 @@
 
 This example is the static-shell SSR prototype.
 
+## Current Status
+
+This example remains the static-document SSR and hydration prototype in the examples set.
+
+Use it when you want to inspect pre-rendered HTML plus bootstrap-driven hydration inside a static example shell. If you need true request-time HTML responses on direct navigation, the current integrated server-backed reference is `examples/18-ssr-server-routing`.
+
 If you want the request-time server-rendered version with real HTML responses on direct URL navigation, use `examples/18-ssr-server-routing` instead.
 
 This example demonstrates:
@@ -12,9 +18,21 @@ This example demonstrates:
 - DOM reuse for matching server-rendered nodes, with subtree fallback if hydration cannot continue safely
 - advanced routing features including params, redirects, guards, query-aware loaders, and manual revalidation
 
-Open:
+Serve examples from the repo root with:
+
+```powershell
+go run ./tools/gwc examples
+```
+
+Then open:
 
 `/examples/17-ssr-routing/ssr-routing.html`
+
+Compatibility path from the repo root:
+
+```powershell
+npm --prefix tools/devtools run dev:examples
+```
 
 The initial document contains pre-rendered docs content for `/docs/ssr`. Once wasm starts, the client restores the bootstrap payload, reuses matching server DOM where possible, and hydrates into a routed app that supports:
 

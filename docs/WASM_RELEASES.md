@@ -4,6 +4,12 @@ This page defines the intended wasm build-profile and release-engineering model 
 
 Use it when deciding how local development builds, CI verification builds, benchmark builds, and production release builds should differ, and which production-oriented build flags are the default safe baseline.
 
+## Current Status
+
+- The repo already ships a real Go-native launcher path for wasm build and release work through `gwc build` and `gwc release`.
+- `gwc release` emits a release-profile wasm artifact, defaults to gzip plus Brotli sidecars, writes `wasm-release-manifest.json`, supports optional budget enforcement, and can emit machine-readable JSON summaries.
+- That release manifest is also the shipped handoff into the `pwa` package through `pwa.ParseWasmReleaseManifestJSON(...)`, `pwa.BuildServiceWorkerAssetPlan(...)`, and `pwa.BuildCacheStoragePlan(...)`.
+
 ## Build Profiles
 
 The intended wasm build profiles are explicit, not one generic `go build` command reused for every job.
@@ -97,6 +103,8 @@ The PowerShell release helper now supports optional budget enforcement through a
 
 That gives the repo one concrete path for turning size expectations into a pass/fail release check.
 
+The current release manifest and planning tests live in `tools/gwc/release_test.go`, `pwa/release_manifest_test.go`, and `pwa/cache_storage_test.go`, so the release record and the downstream PWA planning contract are validated together.
+
 ## Artifact Size Reporting And Comparison
 
 Every release-style build should produce attributable size records.
@@ -144,14 +152,14 @@ This document defines the current build-profile and release-packaging baseline.
 The current Go-native launcher boundary is:
 
 - `gwc build` for single-target js/wasm artifacts and JSON build summaries
-- `gwc release` for raw wasm plus gzip packaging, manifest emission, optional budgets, and JSON release summaries
-- Brotli generation and any post-link optimization toolchain remain optional follow-up work rather than default launcher behavior
+- `gwc release` for raw wasm plus gzip and Brotli packaging, manifest emission, optional budgets, and JSON release summaries
+- `pwa.ParseWasmReleaseManifestJSON(...)`, `pwa.BuildServiceWorkerAssetPlan(...)`, and `pwa.BuildCacheStoragePlan(...)` for turning the release manifest into cache and service-worker planning inputs
 
 It does not yet claim:
 
-- guaranteed brotli sidecar generation on every host runtime without the repo's Node-based fallback helper
 - post-link optimizer integration such as `wasm-opt`
 - first-class startup-cost measurement for representative releases
+- full end-to-end release verification beyond artifact emission, manifest consistency, and the test coverage already in the launcher and `pwa` packages
 
 Those remain separate backlog work.
 

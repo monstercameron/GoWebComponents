@@ -4,6 +4,24 @@ This page records the current server-to-client state transfer contract for `ui.S
 
 Use it when deciding what belongs in bootstrap, how transferred values merge with client state, and which parts of that payload become runtime-owned during hydration.
 
+## Current Status
+
+Shipped today:
+
+- versioned bootstrap payloads through `ui.SSRBootstrap` and `ui.SSRBootstrapReference`
+- inline JSON plus sidecar JSON and CBOR transport choices
+- typed payload helpers for route data, form defaults, cache seeds, session hints, and general app data
+- payload inspection and size-budget analysis through `InspectBootstrapPayloads(...)` and `AnalyzeSSRBootstrapSize(...)`
+- versioned post-hydration update envelopes through `SSRStateUpdate` and its text and binary helpers
+
+Not shipped today:
+
+- secret transfer channels inside bootstrap
+- one generic deep-merge policy across all payload keys
+- automatic mutation of runtime-owned bootstrap buckets from post-hydration data updates
+
+The current state-transfer surface is about explicit public-data transport and scoped ownership, not about hiding secrets or creating a universal live-sync protocol.
+
 ## Current Bootstrap Surface
 
 `ui.SSRBootstrap` currently exposes a version field plus five state buckets:
@@ -186,3 +204,19 @@ This update envelope is for application-owned `Data` payloads after hydration. I
 - generic deep-merge semantics for every bootstrap subfield
 - client authority over values that should remain server-only
 - streaming-state protocols mixed into the current hydration bootstrap shape
+
+## Current Boundary
+
+This document describes the shipped bootstrap and update contract.
+
+It does claim:
+
+- bootstrap transport is versioned and decode-validated
+- typed payload helpers carry explicit kind, scope, target, reuse, and encoding metadata
+- post-hydration state updates are limited to application-owned payload entries rather than the full bootstrap surface
+
+It does not claim:
+
+- that bootstrap is an appropriate channel for secrets, auth credentials, or CSRF material
+- that every payload should be merged or refreshed with one generic policy
+- that streaming SSR or server-interactive transports are part of this contract

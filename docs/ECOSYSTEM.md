@@ -4,6 +4,18 @@ This document defines the current project stance on plugins, directives, and com
 
 Use it when deciding whether a new capability belongs in core, should ship as a companion package, or needs a package-specific extension hook.
 
+## At A Glance
+
+The default ecosystem story is intentionally simple:
+
+- keep core small
+- prefer companion packages for optional or policy-heavy reusable features
+- prefer package-owned hooks when one subsystem clearly owns the concern
+- keep domain and deployment policy application-owned by default
+- do not introduce a framework-wide plugin lifecycle until multiple real extension categories need the same contract
+
+This doc exists to stop ecosystem growth from becoming an accidental second framework architecture.
+
 ## Decision
 
 - core does not define a generic plugin system today
@@ -12,6 +24,17 @@ Use it when deciding whether a new capability belongs in core, should ship as a 
 - a shared plugin lifecycle should only be introduced after multiple extension categories need the same registration, cleanup, compatibility, and diagnostics contract
 
 The repo now also includes an experimental `plugin` companion package for explicit application-owned plugin hosts. That package is not a privileged core runtime registry; it is a companion abstraction built on documented public APIs.
+
+## Quick Decision Guide
+
+When a new utility or integration is proposed, use this order:
+
+1. Can an application compose it cleanly on current public APIs?
+2. If not, does one subsystem clearly own the extension seam?
+3. If the feature is reusable but optional, should it be a companion package?
+4. Only after those fail, is there evidence for a shared plugin lifecycle?
+
+If a proposal jumps straight to a generic plugin mechanism, it usually has not identified the real ownership boundary yet.
 
 ## Why There Is No Generic Plugin System Yet
 
@@ -43,6 +66,17 @@ When a new feature is proposed, use this order of preference:
 4. a shared plugin lifecycle only if multiple subsystem-specific extension points converge on the same needs
 
 This keeps core small and makes extension pressure visible before the repo commits to a framework-wide plugin contract.
+
+## Review Lens
+
+Use this document during design review to answer four questions quickly:
+
+- who owns the capability?
+- is the problem mechanism or policy?
+- does it need semver-backed framework guarantees?
+- would a narrower package or companion boundary solve it cleanly?
+
+The right answer is usually the smallest boundary that still keeps correctness explicit.
 
 ## Extension Boundary Rules
 
@@ -277,6 +311,8 @@ Revisit this decision only if several first-party or third-party integrations al
 - compatibility checks against framework versions or capability flags
 - standardized diagnostics or feature discovery
 - coordinated access across multiple subsystems such as router, SSR, forms, and devtools
+
+Until then, a generic plugin model would add more contract surface than value.
 
 If those needs become real, the project should design a minimal plugin lifecycle around explicit subsystem hooks rather than a vague catch-all callback API.
 

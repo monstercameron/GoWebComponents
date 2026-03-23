@@ -4,12 +4,18 @@ Location: `examples/`
 
 This directory contains the framework examples and shared static assets.
 
+## Current Status
+
+- The example catalog is now a first-class documented surface rather than a loose folder listing.
+- `go run ./tools/gwc examples` is the primary current way to browse the catalog from the repo root.
+- The older Node/Express server still exists for compatibility and Playwright-oriented flows, but it is no longer the only documented entrypoint.
+
 ## Serve Examples
 
 From the repo root:
 
 ```powershell
-npm --prefix ../tools/devtools run dev:examples
+go run ./tools/gwc examples
 ```
 
 Then open:
@@ -19,11 +25,23 @@ Then open:
 
 The `/examples` page opens the styled showcase catalog. If you need the raw auto-generated folder listing for diagnostics, use `/examples/list`.
 
+Alternative compatibility path from the repo root:
+
+```powershell
+npm --prefix tools/devtools run dev:examples
+```
+
 ## Example Inventory
 
 The example set is now organized as a catalog. Use the grouped landing page at `/examples` for browsing, and use the mapping below when you want the quickest reference for a specific public API.
 
 Every feature-isolated catalog page is expected to answer three questions clearly: what the tool is for, what the user-facing behavior looks like, and how the implementation is wired. If an example stops doing one of those jobs, it should be treated as documentation debt rather than just a cosmetic issue.
+
+## Current Boundary
+
+- Shipped: a browsable example catalog, dedicated example Playwright coverage, and integrated examples that act as reference surfaces for larger app shapes.
+- Not shipped: a promise that every example is a production starter template or that every example is kept runnable through every possible serving path.
+- Use the examples to understand supported APIs and composed flows; use the package docs and workflow docs for policy boundaries.
 
 ### Integrated Apps
 
@@ -189,5 +207,5 @@ For the developer-facing manual verification checklist that covers every numbere
 
 ## Notes
 
-- Older docs referenced ad hoc live reload commands as the primary example workflow. The primary documented path is now the Express server in `tools/dev-server/`.
+- Older docs referenced ad hoc live reload commands as the primary example workflow. The primary documented path is now `gwc examples`, with the Express server in `tools/dev-server/` kept as a compatibility and Playwright-oriented path.
 - The browser-compiler example may generate a large local package archive tree under `examples/13-browser-compiler/static/pkg/`. That output is ignored and should stay out of git.

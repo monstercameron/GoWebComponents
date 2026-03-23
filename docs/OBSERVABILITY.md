@@ -1,12 +1,84 @@
 # Observability
 
-This page defines the current intended observability model for GoWebComponents applications.
+This page defines the current observability model for GoWebComponents applications.
 
 Use it when you need to instrument SSR requests, hydration, routed client activity, or framework lifecycle events without inventing a different event shape for each subsystem.
 
+## At A Glance
+
+- a real first-class observability slice already ships for SSR render, bootstrap serialization, and hydration
+- the public entry points are `ui.ObserveSSR(...)`, `ui.RenderToStringObserved(...)`, `ui.MarshalSSRBootstrapObserved(...)`, `ui.MarshalSSRBootstrapBinaryObserved(...)`, `ui.RenderBootstrapScriptObserved(...)`, and hydration options with `SSRObservabilityOptions`
+- `devtools` and runtime diagnostics remain the current in-process inspection surface for broader client debugging
+- broader router, fetch, worker, and long-lived client lifecycle instrumentation is still planned rather than fully emitted today
+
+## Quick API Chooser
+
+- use `ui.RenderToStringObserved(...)` when an SSR render should emit one structured render observation
+- use `ui.MarshalSSRBootstrapObserved(...)`, `ui.MarshalSSRBootstrapBinaryObserved(...)`, or `ui.RenderBootstrapScriptObserved(...)` when bootstrap payload size needs to be measured alongside render work
+- use `ui.ObserveSSR(...)` when the application wants a shared subscription for SSR and hydration observations
+- use `ui.Hydrate(...)` or `ui.HydrateInto(...)` with `HydrationOptions{Observability: ...}` when correlation ids and hydration metrics should flow into the same event stream
+- use `devtools.SnapshotNow()` or `devtools.UseSnapshot(...)` when the goal is interactive inspection of diagnostics, cache state, logs, or multi-client state rather than SSR event collection
+
+## Current Shipped Slice
+
+Today the framework-owned observability contract covers:
+
+- SSR render timing
+- bootstrap payload and inline-script size metrics for JSON and CBOR flows
+- hydration duration, mismatch counts, fallback counts, discarded-node counts, and existing DOM counts
+- request-scoped or render-scoped correlation ids provided by the application
+- process-local subscription through `ui.ObserveSSR(...)` plus per-call `OnEvent` callbacks
+
+Today it does not yet claim:
+
+- a unified emitted event stream for every router, fetch, worker, or cache lifecycle
+- production-ready sampling and backpressure controls across all subsystems
+- vendor-specific trace or metrics exporters
+- a single framework-owned client observability bus for every runtime event
+
+## Example Shape
+
+This is the current intended usage pattern for the shipped slice.
+
+```go
+package server
+
+import (
+	"log"
+
+	"github.com/atdiar/particleui/ui"
+)
+
+func renderPage(root ui.Node) (string, error) {
+	unsubscribe := ui.ObserveSSR(func(event ui.SSRObservation) {
+		log.Printf("name=%s phase=%s correlation=%s", event.Name, event.Phase, event.CorrelationID)
+	})
+	defer unsubscribe()
+
+	markup, err := ui.RenderToStringObserved(root, ui.SSRObservabilityOptions{
+		CorrelationID: "req-42",
+		OnEvent: func(event ui.SSRObservation) {
+			if event.Render != nil {
+				log.Printf("render_ns=%d", event.Render.DurationNs)
+			}
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	bootstrap := ui.SSRBootstrap{}
+	if _, err := ui.RenderBootstrapScriptObserved(bootstrap, "", ui.SSRObservabilityOptions{CorrelationID: "req-42"}); err != nil {
+		return "", err
+	}
+
+	return markup, nil
+}
+```
+
 ## Structured Runtime Event Model
 
-The intended event model is one structured envelope shared across server and browser instrumentation.
+The long-term event model is one structured envelope shared across server and browser instrumentation.
 
 Every event should carry:
 
@@ -30,7 +102,7 @@ The current intended domain coverage is:
 - worker request, progress, completion, and timeout flows
 - browser interop events where framework-owned lifecycle matters
 
-This is a contract-definition milestone, not a claim that every subsystem already emits these events today.
+This remains the direction for the broader observability surface, not a claim that every subsystem already emits these events today.
 
 ## Correlation IDs Across SSR, Bootstrap, And Hydration
 
@@ -77,6 +149,23 @@ Recommended trace attributes today:
 
 If one request fans out to internal services or external APIs, those calls should inherit the same request context and correlation id rather than generating unrelated trace roots.
 
+## Current Event Shape
+
+The shipped SSR and hydration events already use a stable public shape through `ui.SSRObservation`.
+
+Current event fields:
+
+- `Name`
+- `Domain`
+- `Phase`
+- `Timestamp`
+- `CorrelationID`
+- `Render` for SSR render timing
+- `Bootstrap` for payload and script size metrics
+- `Hydration` for browser resume metrics
+
+That means applications can start standardizing correlation ids and local sinks now, even before the wider client-lifecycle story is complete.
+
 ## Client Lifecycle Expectations
 
 Once the browser resumes, the intended client event set should cover:
@@ -95,7 +184,7 @@ For multi-client coordination, the intended event family also includes peer disc
 
 ## Client-Side Lifecycle Hooks
 
-The intended public client instrumentation surface should expose stable hooks or callback registration for:
+The broader public client instrumentation surface should eventually expose stable hooks or callback registration for:
 
 - navigation start and completion
 - loader pending, resolve, error, and cancel
@@ -122,6 +211,17 @@ Examples:
 - hydration fallback count belongs in metrics and may also produce one diagnostic entry
 - one loader timing sequence belongs in a trace
 - one tag mismatch warning belongs in diagnostics with correlation metadata
+
+## Current Inspection Surface Beyond SSR
+
+Outside the shipped SSR and hydration observer slice, the practical observability stack today is:
+
+- `devtools.Panel` for in-app inspection
+- `devtools.SnapshotNow()` and `devtools.UseSnapshot(...)` for programmatic snapshots
+- structured runtime diagnostics surfaced through devtools snapshots
+- `logging` for scoped structured logs and optional browser-console lifecycle capture
+
+Use those surfaces when the question is interactive debugging or runtime inspection, not only SSR event timing.
 
 ## Export Formats
 
@@ -180,3 +280,11 @@ These items remain separate backlog work:
 - sampling controls and backpressure policy for high-volume production traffic
 - export formats for traces and metrics
 - an end-to-end observability example
+
+## Review Checklist
+
+- does the doc distinguish the shipped SSR or hydration observer slice from the broader future instrumentation model
+- are correlation ids treated as opaque operational identifiers rather than user or session identifiers
+- are diagnostics, logs, traces, and metrics responsibilities kept distinct
+- does the instrumentation guidance avoid raw secrets, headers, cookies, and full payload dumps
+- do examples use the public `ui`, `devtools`, and `logging` surfaces instead of runtime internals

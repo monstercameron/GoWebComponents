@@ -50,6 +50,8 @@ const (
 
 	labelConceptArticle      = "Concept article"
 	labelMarkdownWriteup     = "Markdown-style write-up"
+	labelRenderedMarkdown    = "Rendered markdown"
+	labelSourceDocument      = "Source document"
 	labelAPIReference        = "API reference"
 	labelStructuredDocs      = "Structured documentation"
 	labelInteractiveExample  = "Interactive example"
@@ -72,6 +74,9 @@ const (
 	messageNothingSelected = "Nothing selected."
 	messageAdjustFilters   = "Adjust the filters or search query to bring results back into view."
 	messageNoMatches       = "No matches yet. Try a broader search or switch the active filter."
+	messageDocLoading      = "Loading the selected markdown document..."
+	messageDocUnavailable  = "This concept does not define a source markdown document."
+	messageDocEmpty        = "The selected markdown document loaded, but it did not contain renderable content."
 
 	contentKindLabelArticle = "Markdown article"
 	contentKindLabelAPI     = "Structured API"
@@ -84,6 +89,7 @@ const (
 
 	buttonBrowseExamples     = "Browse examples"
 	buttonInspectPackageAPIs = "Inspect package APIs"
+	buttonRetryDocument      = "Retry document"
 	buttonDecrement          = "Decrement"
 	buttonIncrement          = "Increment"
 	buttonReset              = "Reset"
@@ -91,4 +97,5 @@ const (
 	labelStateTonePrefix   = "State tone: "
 	catalogDataRelativeURL = "assets/data/catalog.json"
 	catalogCacheKeyPrefix  = "example-0:catalog:"
+	markdownCacheKeyPrefix = "example-0:markdown:"
 )

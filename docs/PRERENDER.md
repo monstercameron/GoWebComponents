@@ -1,14 +1,101 @@
 # Prerender
 
-This page defines the current intended static prerender story for GoWebComponents.
+This page defines the current prerender contract for GoWebComponents.
 
 Use it when you need build-time HTML output for docs, marketing pages, or hybrid sites and want to understand how prerender differs from request-time SSR.
 
+## At A Glance
+
+- Prerender in this repo means rendering HTML ahead of time with the same native SSR primitives used by request-time SSR.
+- The shipped surface today is the render and bootstrap API: `ui.RenderToString(...)`, `ui.RenderToStringObserved(...)`, `ui.MarshalSSRBootstrap(...)`, `ui.MarshalSSRBootstrapBinary(...)`, `ui.RenderBootstrapScript(...)`, and `ui.RenderBootstrapReferenceScript(...)`.
+- The repo does not yet ship a generic public site exporter that discovers routes, writes every HTML file, and copies assets for arbitrary applications.
+- Use prerender when a route can be rendered from build-time data and does not need request-bound auth, session, or CSRF context.
+- Use [HYDRATION.md](HYDRATION.md) when the main question is resume behavior after static HTML is emitted.
+
+## Quick API Chooser
+
+Use this route when the question is about:
+
+- build-time HTML generation for one known page: `ui.RenderToString(...)`
+- SSR timing and bootstrap size metrics during prerender generation: `ui.RenderToStringObserved(...)`, `ui.MarshalSSRBootstrapObserved(...)`, `ui.MarshalSSRBootstrapBinaryObserved(...)`
+- inline bootstrap payloads embedded directly into HTML: `ui.RenderBootstrapScript(...)`
+- external JSON or CBOR sidecar payloads: `ui.RenderBootstrapReferenceScript(...)`, `ui.MarshalSSRBootstrap(...)`, `ui.MarshalSSRBootstrapBinary(...)`
+- realistic reference implementations: `examples/17-ssr-routing` and `examples/18-ssr-server-routing`
+
+## Current Shipped Slice
+
+What is already real in this repo today:
+
+- native HTML rendering on non-browser targets through `ui.RenderToString(...)`
+- observed SSR rendering and bootstrap serialization for timing and payload metrics
+- inline and referenced bootstrap script generation for hydrated pages
+- bootstrap JSON and binary decoding on the wasm client
+- example SSR servers and tests that prove route rendering, bootstrap emission, and hydration reuse
+
+What remains outside the public core surface today:
+
+- generic route enumeration for arbitrary apps
+- a first-class public exporter that writes one file per route and copies assets
+- selective activation primitives beyond the normal hydration contract
+
+## Example Shape
+
+```go
+package main
+
+import (
+	"os"
+
+	. "github.com/atdiar/gowebcomponents/html/shorthand"
+	"github.com/atdiar/gowebcomponents/ui"
+)
+
+func renderPage() (string, string, error) {
+	node := Html(
+		Body(
+			Main(
+				H1("Docs"),
+				P("Generated at build time."),
+			),
+		),
+	)
+
+	markup, err := ui.RenderToString(node)
+	if err != nil {
+		return "", "", err
+	}
+
+	bootstrap, err := ui.RenderBootstrapReferenceScript(ui.SSRBootstrapReference{
+		URL:    "/bootstrap/home.cbor",
+		Format: ui.SSRBootstrapFormatCBOR,
+	}, "")
+	if err != nil {
+		return "", "", err
+	}
+
+	return markup, bootstrap, nil
+}
+
+func writePage() error {
+	markup, bootstrap, err := renderPage()
+	if err != nil {
+		return err
+	}
+	return os.WriteFile("dist/index.html", []byte(markup+bootstrap), 0644)
+}
+
+func main() {
+	_ = writePage()
+}
+```
+
+The missing piece is the exporter around that snippet: route discovery, file naming, asset copying, and cache-aware rebuild logic are still application-owned.
+
 ## First-Class Output Mode
 
-Static prerender is an intended first-class output mode for the project, but it is not the same thing as request-time SSR.
+Static prerender is a supported output mode for the project, but it is not the same thing as request-time SSR.
 
-The intended distinction is:
+The distinction is:
 
 - request-time SSR renders per incoming request and can depend on request auth, sessions, CSRF state, and dynamic server data
 - prerender renders at build time to files and targets pages whose initial HTML can be produced ahead of time
@@ -28,16 +115,22 @@ Prerender is not the right fit for:
 
 ## Tooling Boundary
 
-The intended model is:
+The current model is:
 
 - core rendering primitives stay in the current runtime and `ui.RenderToString(...)` surface
 - prerender orchestration belongs in a companion build or export workflow, not in ad hoc app scripts scattered across examples
 
-This means prerender should be treated as a supported output mode, but the route enumeration, file emission, asset copying, and rebuild orchestration can live in dedicated build tooling instead of bloating the core runtime API.
+This means prerender is supported, but the route enumeration, file emission, asset copying, and rebuild orchestration can live in dedicated build tooling instead of bloating the core runtime API.
+
+Today that boundary is visible in the repo itself:
+
+- `ui` ships the render and bootstrap primitives
+- the SSR examples prove end-to-end render, payload, and hydration behavior
+- repo tooling contains example-specific static shell generation, but not a generic public exporter for arbitrary apps
 
 ## Route Enumeration
 
-The intended prerender route model is explicit.
+The prerender route model should stay explicit.
 
 Prerender tooling should support:
 
@@ -54,7 +147,7 @@ The important constraints are:
 
 ## Output Conventions
 
-The intended output layout should be predictable across static hosts.
+The output layout should be predictable across static hosts.
 
 The baseline convention is:
 
@@ -73,7 +166,7 @@ The exact directory names can live in build tooling, but the contract should pre
 
 Prerendered output does not imply that every page hydrates.
 
-The intended activation model is:
+The activation model should be:
 
 - purely static pages may remain static with no client resume
 - interactive pages may hydrate the full page shell
@@ -90,7 +183,7 @@ Prerender tooling should not invent a separate bootstrap or resume model for sta
 
 Prerender correctness depends on rebuild discipline.
 
-The intended rebuild triggers are:
+The rebuild triggers should be:
 
 - content changes for the route itself
 - shared layout or component changes that affect emitted HTML
@@ -111,4 +204,15 @@ The important rule is that prerendered HTML still follows the same hydration con
 - bootstrap state must stay serialization-safe
 - pages that do not need activation may remain static instead of hydrating automatically
 
-More detailed file-emission tooling, example apps, and asset-pipeline helpers remain separate backlog work.
+For hydrated prerendered routes, the practical choices today are:
+
+- inline bootstrap scripts for smaller payloads
+- referenced JSON or CBOR sidecars when payload size or cache behavior matters
+- the same DOM reuse and mismatch fallback behavior documented in `HYDRATION.md`
+
+## Review Checklist
+
+- does the page clearly distinguish shipped render/bootstrap primitives from still-app-owned export orchestration
+- are prerender-safe routes separated from request-bound authenticated or mutation-driven routes
+- does the output guidance preserve the existing hydration contract instead of inventing a second resume model
+- are route enumeration, asset copying, and rebuild invalidation described as exporter responsibilities rather than core runtime behavior

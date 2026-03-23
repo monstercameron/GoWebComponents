@@ -1,5 +1,37 @@
 # Documentation Push TODO
 
+## At A Glance
+
+This document is the documentation-program backlog for the repo.
+
+It exists to coordinate three related tasks:
+
+- reviewing the full documentation surface
+- reviewing the public API surface against that documentation
+- closing gaps between package docs, guides, examples, and cross-links
+
+Treat it as a working coverage and prioritization artifact, not as end-user documentation.
+
+## Current Focus
+
+The core question behind this backlog is not just "do docs exist?" It is:
+
+- do the right docs exist for the supported public API surface?
+- can an adopter find the relevant API from guides and examples without reading source?
+- are package docs, policy docs, and workflow docs aligned enough to support a production user journey?
+
+That means this file is partly an audit list and partly a release-readiness checklist for documentation quality.
+
+## How To Use This Backlog
+
+Work through the file in this order:
+
+- use the checklist to define the documentation push outcome
+- use the documentation-files inventory to review coverage across guides, READMEs, and example docs
+- use the public API inventory to verify each supported package surface is documented and cross-linked
+
+When items are completed, this document should reflect the real documentation state rather than staying a speculative wishlist.
+
 ## Checklist
 
 - [ ] Review every repository documentation file listed below.

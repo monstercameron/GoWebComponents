@@ -4,6 +4,19 @@ This document defines the minimum ecosystem story GoWebComponents should be able
 
 Use it when deciding whether the repo has enough first-party or officially recommended answers for a team to start, validate, ship, and maintain a production app without reverse-engineering the codebase.
 
+## At A Glance
+
+The project should only present a 1.0-style adoption story when a new team can answer six practical questions without reading implementation details:
+
+- How do we start?
+- How do we test?
+- How do we render and hydrate?
+- How do we manage state and data?
+- How do we route?
+- How do we ship?
+
+This is a release-readiness baseline, not a marketing checklist. The standard is operational clarity for adopters.
+
 ## Decision
 
 Before the project should describe itself as having a 1.0-style ecosystem story, it needs a clear answer for all of these areas:
@@ -16,6 +29,29 @@ Before the project should describe itself as having a 1.0-style ecosystem story,
 - deployment guidance
 
 Those answers do not all need to be delivered as generated scaffolds or separate packages on day one, but they do need to be first-party docs or explicitly recommended first-party examples that a new team can follow without guessing.
+
+## How To Use This Baseline
+
+Use this document in three situations:
+
+- before describing the framework as production-ready for new teams
+- when reviewing whether a new feature creates another required adoption surface
+- when deciding whether examples and docs are sufficient to replace missing scaffolds or packages
+
+The goal is not to prove that every workflow is equally mature. The goal is to ensure every supported workflow has one clearly documented path that can be adopted deliberately.
+
+## Readiness Checklist
+
+Treat each area below as a pass or fail gate:
+
+- Starter path: a new team can choose an endorsed bootstrap path without inferring repo structure
+- Testing recipe: a team can validate unit behavior, browser behavior, and SSR or hydration behavior when used
+- SSR and hydration recipe: server rendering and client resume paths are documented as one coherent flow
+- State story: local, shared, and async data state all have recommended first-party answers
+- Routing story: supported navigation modes and route features are documented with runnable references
+- Deployment guidance: browser, asset, wasm, and SSR deployment expectations are explicit
+
+If one of these answers is weak, fragmented, or only implied by examples, the adoption story is incomplete.
 
 ## Minimum Required Pieces
 
@@ -118,6 +154,8 @@ The project should not describe itself as having a mature 1.0-style adoption sto
 
 The standard is not "every possible workflow has a scaffold." The standard is that a new team can choose a supported path without reading source to infer product policy.
 
+An adoption-ready repo should make the supported path obvious, narrow, and repeatable. If teams need to assemble their own answer from scattered docs, the ecosystem story is not ready yet.
+
 ## Current Gaps To Watch
 
 The current baseline is strongest in testing, SSR or hydration guidance, state, routing, and deployment docs.
@@ -128,6 +166,17 @@ The most obvious ecosystem gap before stronger 1.0-style messaging is starter sh
 - it does not yet ship a dedicated first-party starter app package or bootstrap tool
 
 That gap does not invalidate the rest of the adoption story, but it should be called out honestly whenever the project compares itself to ecosystems with polished app generators.
+
+## Review Standard
+
+When this document is used in planning or release review, prefer these questions:
+
+- Would a new team know which doc to open first for each required area?
+- Would two different maintainers recommend the same supported path?
+- Would the examples still make sense if the reader never inspected framework internals?
+- Are the docs and examples aligned enough that a production team would not need to guess which source is authoritative?
+
+If the answer to any of those is no, the gap is an adoption problem even if the underlying runtime capability already exists.
 
 ## Related Docs
 

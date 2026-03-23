@@ -4,6 +4,39 @@ This document explains how GoWebComponents compares to several mature UI framewo
 
 Use it when deciding whether the framework's current tradeoffs match your team's constraints, and when you need one honest place that separates intentional design choices from gaps that are still being closed.
 
+## At A Glance
+
+- GoWebComponents compares best when the evaluation rewards first-party ownership of routing, forms, SSR or hydration, browser interop, and a Go-first programming model.
+- It compares worst when the evaluation rewards ecosystem depth, hiring pool, starter maturity, and convention-heavy application scaffolding.
+- React remains the closest mental-model comparison for components and hooks.
+- Solid and Qwik remain the clearest comparisons for fine-grained-first or resumability-centered architectures.
+- Blazor is the strongest comparison for teams that want a non-JavaScript primary language plus a heavier official app-platform story.
+- Vue and Svelte remain stronger mainstream defaults for teams prioritizing polished convention stacks and broader ecosystem maturity today.
+
+## Quick Comparison Chooser
+
+Compare against React first when:
+
+- the team wants the closest component-and-hook mental model
+- the real question is Go-first authoring versus the JavaScript ecosystem leader
+
+Compare against Blazor first when:
+
+- the team wants a non-JavaScript primary language
+- enterprise workflow, procurement comfort, and official full-stack conventions matter heavily
+
+Compare against Solid or Qwik first when:
+
+- the evaluation centers on fine-grained reactivity, startup behavior, or resumability
+- the team is deciding how much of the framework identity should come from runtime versus compiler or optimizer assumptions
+
+Compare against Vue or Svelte first when:
+
+- the team values starter maturity, convention-heavy workflows, and mainstream DX polish
+- the real tradeoff is Go-first explicitness versus a more standardized application platform
+
+Rule of thumb: if the deciding factor is first-party breadth inside one Go-centric repo, GoWebComponents will look stronger here than it will on market maturity alone.
+
 ## How To Read This Page
 
 This is not a marketing matrix.

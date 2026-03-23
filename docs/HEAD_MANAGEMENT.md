@@ -2,6 +2,22 @@
 
 This document defines the current head-management contract for GoWebComponents.
 
+## At A Glance
+
+- Use `router.MetadataNode(...)` for the router-managed slice: title, description, and canonical URL.
+- Use the optional `head` companion package when you want small reusable helpers for robots tags, social tags, and explicit link/meta composition.
+- Treat richer head output such as Open Graph, Twitter cards, JSON-LD, verification tags, and resource hints as application-owned markup unless the repo ships a broader managed runtime.
+- Design SSR routes so the first response already contains the correct identity metadata; do not rely on client-side patch-up for the initial paint.
+
+## Quick Decision Guide
+
+Use this rule of thumb:
+
+- if the value identifies the current route itself, prefer `router.MetadataNode(...)`
+- if the value is extra SEO or integration metadata, render it explicitly or package it with `head.Compose(...)`
+- if the value needs custom ordering, deduplication, or raw script handling, keep it in the server document template instead of pretending the router owns it
+- if a feature would require the framework to diff arbitrary head state across navigations, treat it as outside the current managed contract
+
 The short version is:
 
 - route metadata is first-class only for `Title`, `Description`, and `CanonicalURL`
@@ -38,7 +54,42 @@ That includes:
 - JSON-LD and other structured-data scripts
 - verification tags, app manifests, icons, and similar integration metadata
 
-The recommended current approach is to render those tags explicitly in the server document template or outer SSR document builder, using `ui.RenderToString(...)` plus normal element construction where appropriate. For repeated SSR head composition, the optional `head` companion package can package those explicit tags without changing router ownership rules.
+The recommended current approach is to render those tags explicitly in the server document template or outer SSR document builder, using `ui.RenderToString(...)` plus normal element construction where appropriate. For repeated SSR head composition, the optional `head` companion package packages those explicit tags without changing router ownership rules.
+
+## Example Shape
+
+The current companion package is intentionally small and concrete. Use it to reduce repetitive explicit markup, not to imply that the framework already owns all head reconciliation.
+
+```go
+import (
+    headpkg "github.com/monstercameron/GoWebComponents/head"
+    "github.com/monstercameron/GoWebComponents/html"
+    "github.com/monstercameron/GoWebComponents/router"
+    "github.com/monstercameron/GoWebComponents/ui"
+)
+
+func renderHead(resolved RouteSEO) (string, error) {
+    return ui.RenderToString(headpkg.Compose(
+        router.Metadata{
+            Title:        resolved.Title,
+            Description:  resolved.Description,
+            CanonicalURL: resolved.CanonicalURL,
+        },
+        headpkg.Robots(resolved.Robots),
+        headpkg.SocialTags(headpkg.SocialMetadata{
+            Type:        "article",
+            Title:       resolved.Title,
+            Description: resolved.Description,
+            ImageURL:    resolved.PreviewImageURL,
+            URL:         resolved.CanonicalURL,
+        }),
+        html.Preconnect("https://cdn.example.com"),
+        headpkg.LinkRel("alternate", resolved.FeedURL),
+    ))
+}
+```
+
+This keeps route identity under router ownership while leaving richer metadata explicit and SSR-owned.
 
 ## SSR Emission For Route-Driven Apps
 
@@ -71,7 +122,7 @@ headMarkup, err := ui.RenderToString(ui.Fragment(
 Current recommendation:
 
 - use `router.MetadataNode(...)` for route-managed title, description, and canonical tags
-- render robots, social tags, and resource hints explicitly in the same head markup or outer document template, either directly or through the optional `head` companion package
+- render robots, social tags, and resource hints explicitly in the same head markup or outer document template, either directly or through helpers such as `head.Compose(...)`, `head.Robots(...)`, `head.SocialTags(...)`, and `head.LinkRel(...)`
 - avoid a client-only patch-up step for first paint on SSR routes whenever the data is already known on the server
 
 ## Hydration Reconciliation Rules
@@ -145,7 +196,7 @@ For the broader asset-delivery contract behind those hints, see [ASSETS.md](ASSE
 
 ## Social Metadata Examples
 
-Current recommendation for social metadata is explicit SSR markup next to the route-managed metadata:
+Current recommendation for social metadata is explicit SSR markup next to the route-managed metadata, either handwritten or produced with `head.SocialTags(...)`:
 
 ```go
 ui.Fragment(
@@ -178,6 +229,14 @@ ui.Fragment(
 ```
 
 This keeps the identity metadata under router ownership while leaving richer social metadata explicit and server-owned.
+
+## Review Checklist
+
+- does the server emit title, description, and canonical metadata before hydration starts
+- are router-managed tags limited to the three supported fields instead of mixing in broader head concerns
+- are robots, social tags, icons, manifests, and resource hints rendered explicitly and intentionally
+- does any JSON-LD or raw script content stay in the server document template until a dedicated helper exists
+- do canonical, robots, and sitemap decisions come from the same route-level source of truth
 
 ## Sitemap, Robots, and Crawl Control
 

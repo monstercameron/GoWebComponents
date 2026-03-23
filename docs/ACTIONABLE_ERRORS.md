@@ -4,6 +4,20 @@ This page audits the current framework error and warning surface with one goal: 
 
 Use it when improving runtime diagnostics, reviewing developer-experience regressions, or deciding which failures deserve first-class error codes and troubleshooting anchors.
 
+## What Good Looks Like
+
+In this repo, an error is only truly actionable when it gives the developer enough structure to move directly from failure to fix.
+
+The target shape is:
+
+- a stable code that can be searched, logged, and referenced in CI
+- a short plain-language summary of what failed
+- a `where:` hint that points at the failing route, component, handler, or subsystem
+- a `next:` hint that tells the developer what to change first
+- a `docs:` pointer when the fix depends on a documented workflow or contract
+
+That standard matters because terse failures are sometimes acceptable in tiny test helpers, but they are not acceptable at framework boundaries where app developers need to recover quickly.
+
 ## Audit Outcome
 
 The highest-friction failures today cluster into five buckets:
@@ -19,6 +33,23 @@ That means the repo does not have one uniformly poor diagnostics story. It has a
 - hydration and interop are the strongest current surfaces
 - raw hook and component-construction panics are the weakest
 - router and async-data failures sit in the middle: useful enough to debug with effort, but not yet concise enough to be called fully actionable
+
+## Example Of The Target Shape
+
+This is the style of output the rest of this document is pushing toward:
+
+```text
+panic: GoUseState called outside component context
+code: GWC-RUNTIME-HOOK-OUTSIDE-COMPONENT
+where: render UserSettingsPanel
+path: App > SettingsRoute > UserSettingsPanel
+error: hook called outside component render
+runtime: the current render cannot continue safely
+next: move the hook call into a component rendered through ui.CreateElement(...)
+docs: docs/ACTIONABLE_ERRORS.md#gwc-runtime-hook-outside-component
+```
+
+That example is intentionally compact. The point is not to dump every runtime detail into one log line. The point is to preserve the original failure signal while also attaching stable identifiers and a first remediation step.
 
 ## Current Surface Map
 

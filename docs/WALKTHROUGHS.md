@@ -4,6 +4,41 @@ This page links the current examples and docs into a few realistic app shapes.
 
 The goal is not to claim that every workflow has a first-party project template today. The goal is to show a practical route through the current public surface without forcing readers to infer architecture from unrelated examples.
 
+## Current Status
+
+- This page is a shipped navigation layer over the current examples, workflow docs, and reference docs, not a future planning note.
+- The walkthroughs intentionally point at real examples that already exist in the repo, including the integrated SSR path and the larger Atlas reference app.
+- Use this page when you want a credible adoption route quickly, then drop into [WORKFLOWS.md](WORKFLOWS.md), [REFERENCE_MAP.md](REFERENCE_MAP.md), and the linked examples for the implementation details.
+
+## At A Glance
+
+Use this page when you want a plausible end-to-end build path rather than a package-by-package reference tour.
+
+Choose a walkthrough by app shape:
+
+- Small SPA: browser-only UI with local state, forms, and optional routing
+- Server-Rendered App: request-time HTML plus hydration and route-aware resume
+- Static-Hosted App: client-rendered or hash-routed app deployed as static files
+- Data-Heavy Dashboard: shared state, cached resources, routing, revalidation, and diagnostics
+
+These are not scaffolds. They are curated reading and example paths through the current supported surface.
+
+## How To Use These Walkthroughs
+
+Each section is meant to answer three questions:
+
+- which example to open first
+- what feature layer to add next
+- which docs to keep nearby while turning the example path into a real app
+
+If a walkthrough stops short of a production-ready template, that is intentional. The purpose is to reduce guesswork, not to pretend the repo already ships a generated starter for every architecture.
+
+## Current Boundary
+
+- Shipped: curated reading paths through real examples and current documentation for common app shapes.
+- Not shipped: generator-owned starters, one-command architecture templates, or a claim that every deployment shape already has a first-party scaffold.
+- For task-by-task implementation work, use [WORKFLOWS.md](WORKFLOWS.md). For package or capability lookups, use [REFERENCE_MAP.md](REFERENCE_MAP.md).
+
 ## Small SPA
 
 Use this shape for browser-only apps that need local state, some shared state, and optional routing.

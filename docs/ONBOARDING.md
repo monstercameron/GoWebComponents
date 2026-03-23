@@ -1,12 +1,38 @@
 # Onboarding and Bootstrap
 
-This page defines the intended onboarding path for new GoWebComponents adopters.
+This page defines the current onboarding path for new GoWebComponents adopters.
 
 Use it when deciding how a team should start a new app, what prerequisites are required, how starter-based apps should evolve, and what the recommended local edit-build-refresh loop looks like.
 
+## At A Glance
+
+- the repo-standard entrypoint is now `go run ./tools/gwc ...`
+- the root README contains the smallest current starter-shaped app example
+- examples remain the official bootstrap references until first-party starter variants are shipped
+- larger adoption paths should choose client-rendered, routed, SSR, forms-heavy, or prerender-first architecture intentionally instead of cloning random examples
+
+## Quick Start Path
+
+For a new evaluation or greenfield app, the current path is:
+
+1. confirm prerequisites with `go run ./tools/gwc doctor`
+2. inspect the current starter-shaped example in the root README and the closest numbered example for the target app shape
+3. run `go run ./tools/gwc examples` when browsing the example catalog is the fastest way to compare patterns
+4. run `go run ./tools/gwc dev -app .\path\to\main.go` for the standalone wasm inner loop
+5. move onto `gwc build`, `gwc test`, and `gwc verify` once the app shape stabilizes
+
+## Current Bootstrap References
+
+The practical bootstrap references today are:
+
+- the root `README.md` starter example for the smallest current public-package shape
+- numbered examples for focused feature adoption
+- `examples/86-atlas-commerce-os` for a larger integrated reference app
+- `docs/START_HERE.md` when a team wants the broader documentation entrypoint before choosing an architecture path
+
 ## Official Starting Path
 
-The current official way to start is a documented manual flow, not a hidden bootstrap CLI.
+The current official way to start is a documented, explicit flow backed by the public runner surface rather than a hidden scaffold generator.
 
 The intended starting path is:
 
@@ -14,7 +40,7 @@ The intended starting path is:
 2. choose the adoption mode that matches the app shape
 3. start from the closest maintained example or future starter, not from unrelated repo internals
 4. keep the app on the documented public package surface: `ui`, `html`, `state`, `fetch`, `router`, `interop`, and `devtools`
-5. adopt the documented wasm build and serve workflow explicitly instead of assembling commands from commit history
+5. adopt the documented `gwc` build, dev, and validation workflow instead of assembling commands from commit history
 
 Until first-party starter apps exist, the repo examples are the official bootstrap reference points rather than disposable toys.
 
@@ -56,6 +82,17 @@ The intended path chooser is:
 
 This "choose your path" model should remain the official onboarding answer until maintained starter variants exist.
 
+## Smallest Starter Shape Today
+
+The smallest current public-package starter shape is the one documented in the root README:
+
+- `ui` for component composition and rendering
+- `html` or `html/shorthand` for element authoring
+- `go run ./tools/gwc dev -app .\main.go` for the standalone wasm inner loop
+- `gwc build`, `gwc test`, and `gwc verify` as the app matures
+
+That starter is intentionally small. Teams should add `router`, `fetch`, `state`, `interop`, `i18n`, `head`, or `hotreload` only when the target architecture actually needs them.
+
 ## Starter Upgrade And Template-Sync Guidance
 
 Starter-based apps should not be expected to stay in lockstep with the repo forever.
@@ -86,14 +123,17 @@ For repo evaluation and example work today:
 
 Recommended commands today:
 
-- example serving: `npm --prefix tools/devtools run dev:examples`
+- runner health check: `go run ./tools/gwc doctor`
+- example serving: `go run ./tools/gwc examples`
+- standalone wasm inner loop: `go run ./tools/gwc dev -app .\path\to\main.go`
+- release-style build: `go run ./tools/gwc build -app .\path\to\main.go -profile development`
 - focused native validation: `go test ./internal/runtime` or the package under change
 - focused wasm validation on Windows: `go test -exec .\tools\go_js_wasm_exec.bat ./...` for the relevant package path
 - release-style artifact validation: `.\tools\build-wasm-release.ps1 ...`
 
 Reasoning rules:
 
-- browser refresh remains a reliable fallback, but state-preserving hot reload is now the documented dev loop for standalone apps that call `hotreload.Enable()` and run through `tools/dev.ps1` or `tools/dev.sh`
+- browser refresh remains a reliable fallback, but state-preserving hot reload is now the documented dev loop for standalone apps that call `hotreload.Enable()` and run through `gwc dev`
 - treat stale wasm output as the first suspect when a browser change seems missing
 - keep local validation focused on the package or example being edited instead of rerunning every suite on every save
 
@@ -105,6 +145,13 @@ It does not yet claim:
 
 - shipped starter applications
 - a one-command project bootstrap command for new apps
-- a one-command project bootstrap command for new apps
 
 Project-local hot reload is now documented, but repo-wide scaffolding and app generation remain separate backlog work.
+
+## Review Checklist
+
+- does the page point new users to `gwc` first instead of ad hoc scripts
+- does it separate the smallest starter shape from the larger integrated reference-app path
+- does it tell users how to choose a path before copying patterns from examples
+- does the upgrade guidance point to `CHANGELOG.md` and `docs/MIGRATIONS.md`
+- does it avoid claiming a shipped scaffold generator that the repo does not actually provide

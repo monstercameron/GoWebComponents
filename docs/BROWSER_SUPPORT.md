@@ -4,6 +4,19 @@ This page defines the intended browser-support and compatibility policy for GoWe
 
 Use it when deciding which browsers your app can target safely, which features require capability checks, and what the framework assumes from a browser before `js/wasm` startup is expected to work.
 
+## At A Glance
+
+GoWebComponents targets current evergreen browsers and defines compatibility primarily by capability, not by vague labels like "modern browser."
+
+The practical rule is:
+
+- evergreen browsers are the intended baseline
+- `js/wasm` startup depends on a concrete runtime feature floor
+- advanced integrations stay opt-in and capability-gated
+- SSR and prerender should preserve meaningful content even when full interactivity is unavailable
+
+This document is the policy boundary between what the framework expects and what applications must detect, polyfill, or gracefully degrade themselves.
+
 ## Support Matrix
 
 The project targets current evergreen desktop and mobile browsers.
@@ -20,6 +33,16 @@ The intended minimum support policy is:
 The repo should treat these as the release-gate browser families for documented production workflows.
 
 Older browser versions, long-outdated embedded webviews, and legacy non-evergreen engines are not part of the intended support baseline unless a future release explicitly says otherwise.
+
+## Practical Baseline
+
+When a team asks "does the framework support this browser?" the real question should be:
+
+- does the browser meet the core runtime baseline?
+- does it support the optional APIs used by this application?
+- does the app provide a meaningful fallback when those optional APIs are missing?
+
+That is the difference between framework compatibility and application feature compatibility. A route may be supported at the core rendering level while still degrading specific advanced features.
 
 ## Required Feature Baseline
 
@@ -91,6 +114,19 @@ This means the minimum graceful path is usually:
 - core navigation and interaction activate only when the browser meets the runtime baseline
 - optional enhancements attach only when their specific APIs exist
 
+## Validation Checklist
+
+Before expanding support claims for a production app, verify all of the following:
+
+- initial `js/wasm` startup succeeds on each documented browser family
+- the matching `wasm_exec.js` and produced wasm binary come from the same Go toolchain
+- SSR or prerender output remains readable when enhanced behavior does not activate
+- advanced features fail behind capability checks rather than route-breaking runtime errors
+- touch, viewport, storage, and memory-sensitive flows have been checked on Mobile Safari when those flows matter to the product
+- any newly required browser capability is reflected in docs and release notes before release
+
+If a feature only works because one browser accidentally matches the happy path, it is not part of the support story yet.
+
 ## Workers, Offline Features, And Advanced APIs
 
 Higher-level browser integrations are intentionally not part of the universal baseline.
@@ -133,6 +169,16 @@ The intended release policy is:
 - when a supported target is being removed, the project should provide notice through the normal deprecation and migration path before the release that makes the narrower baseline effective
 
 This keeps browser compatibility aligned with the broader semver and migration contract instead of hiding it in issue comments or commit history.
+
+## Maintainer Guidance
+
+Prefer narrowing claims over widening them casually.
+
+- Do not describe a browser family as supported only because smoke tests happened to pass once.
+- Do not treat optional APIs as baseline requirements unless the docs and migration policy say so explicitly.
+- Do not introduce new runtime assumptions without updating this document and the related API or migration policy.
+
+Browser support is part of the public contract, not an implementation accident.
 
 ## Current Boundary
 

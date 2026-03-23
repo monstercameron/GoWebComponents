@@ -4,6 +4,96 @@ This page documents the current contract for first-class offline mutation suppor
 
 Use it when a browser app needs to queue writes locally, survive reloads, and replay those writes later without hand-rolling storage, deduplication, and retry timing.
 
+## At A Glance
+
+- the queue surface is already shipped and durable today
+- queue persistence is IndexedDB-first with `localStorage` fallback
+- replay remains application-owned so auth headers, merge policy, and real HTTP execution stay under app control
+- queue state is visible through replay reports, structured framework logs, and PWA diagnostics snapshots
+
+## Quick API Chooser
+
+- use `fetch.OpenMutationQueue(...)` when browser-originated writes must survive reloads or offline periods
+- use `queue.Replay(...)` when normal retry and dead-letter behavior is enough
+- use `queue.ReplayWithOptions(...)` when version or conflict handling needs an explicit `ConflictHandler`
+- use `fetch.NewMutationConflict(...)` and `fetch.MutationConflictOf(...)` when the executor must signal or inspect authoritative version conflicts
+- use `pwa.MutationQueueDiagnosticsSource(...)` plus `pwa.InspectDiagnostics(...)` when the queue should participate in a broader offline diagnostics view
+
+## Current Shipped Slice
+
+Today the first-class queue contract covers:
+
+- durable enqueue and reopen behavior
+- insertion-order replay
+- deduplication through `DedupKey`
+- exponential backoff with deferred retry scheduling
+- terminal dead-letter persistence after retry exhaustion
+- explicit conflict handling and resolution paths
+- structured queue lifecycle logs and diagnostics-friendly replay reports
+
+Today it does not claim:
+
+- automatic connectivity listeners
+- automatic service-worker registration or automatic sync orchestration
+- built-in optimistic rollback or merge semantics
+- encrypted persistence for sensitive payloads
+
+## Example Shape
+
+This is the current intended lifecycle: queue locally, replay through an authoritative executor, then expose queue state through structured diagnostics.
+
+```go
+package app
+
+import (
+    "context"
+    "fmt"
+    "time"
+
+    "github.com/atdiar/particleui/fetch"
+    "github.com/atdiar/particleui/pwa"
+)
+
+func syncOrders(ctx context.Context) error {
+    queue, err := fetch.OpenMutationQueue(fetch.MutationQueueOptions{
+        StorageKey:  "orders:offline",
+        MaxAttempts: 4,
+        BaseDelay:   2 * time.Second,
+        MaxDelay:    2 * time.Minute,
+    })
+    if err != nil {
+        return err
+    }
+
+    _, err = queue.Enqueue(fetch.MutationDraft{
+        Kind:     "order.submit",
+        DedupKey: "order:draft:123",
+        Method:   "POST",
+        URL:      "/api/orders",
+        Body:     map[string]any{"items": []string{"sku-1"}},
+    })
+    if err != nil {
+        return err
+    }
+
+    report, err := queue.Replay(ctx, func(ctx context.Context, mutation fetch.QueuedMutation) error {
+        result := <-fetch.Fetch(mutation.URL, fetch.Options{Method: mutation.Method, Body: mutation.Body})
+        return result.Err
+    })
+    if err != nil {
+        return err
+    }
+
+    snapshot, err := pwa.InspectDiagnostics(ctx, pwa.DiagnosticsOptions{
+        OfflineQueue: pwa.MutationQueueDiagnosticsSource(&queue),
+    })
+    if err == nil {
+        fmt.Println(report.DeadLetters, snapshot.OfflineQueue.DeadLetters)
+    }
+    return nil
+}
+```
+
 ## Current Shipped Surface
 
 The public surface today is:
@@ -38,6 +128,15 @@ Current shipped behavior includes:
 - application-owned replay execution, so the app keeps control over the real HTTP call and auth headers
 - explicit conflict signaling plus app-owned conflict resolution policies for dead-letter, retry, removal, or requeue-with-merge
 - an explicit service-worker Background Sync scheduling pattern through `pwa.ServiceWorkerRegistration.RegisterSync(...)`, with manual replay fallback when the browser does not expose one-shot sync
+
+## Current Inspection Surface
+
+Beyond `MutationReplayReport`, the queue already feeds two useful operational surfaces:
+
+- structured framework logs such as `mutation queued for replay`, `mutation replay succeeded`, and dead-letter transitions
+- `pwa.InspectDiagnostics(...)` snapshots when adapted through `pwa.MutationQueueDiagnosticsSource(...)`
+
+That means queue failures and dead letters do not need to live only in raw console output or ad hoc app logs.
 
 ## Scope Of First-Class Support
 
@@ -214,6 +313,14 @@ The queue currently serializes through standard JSON. If a payload cannot round-
 - keep replay executors authoritative and idempotent where possible
 - invalidate related shared-cache keys after successful replay
 - surface `dead` entries in the UI so users can retry, edit, or discard them intentionally
+
+## Review Checklist
+
+- does the app keep authoritative HTTP execution and volatile auth headers inside the replay executor
+- are `DedupKey`, retry timing, and dead-letter handling chosen deliberately per workflow
+- are queued payloads JSON-shaped and free of tokens, secrets, and browser-native handles
+- does the UI surface `dead` or conflict entries instead of silently leaving them persisted forever
+- does the diagnostics story use replay reports, framework logs, or `pwa.InspectDiagnostics(...)` instead of relying only on raw console output
 
 ## Still Open Work
 

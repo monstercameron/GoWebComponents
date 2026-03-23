@@ -1,388 +1,1691 @@
-{
-  "modules": [
-    "all",
-    "core",
-    "router",
-    "state",
-    "cli",
-    "data",
-    "rendering",
-    "design",
-    "plugins",
-    "forms",
-    "motion",
-    "commerce"
-  ],
-  "statuses": [
-    "all",
-    "stable",
-    "experimental",
-    "deprecated"
-  ],
-  "levels": [
-    "all",
-    "Beginner",
-    "Core",
-    "Intermediate",
-    "Advanced"
-  ],
-  "filters": [
-    "All",
-    "Concept",
-    "API",
-    "Example"
-  ],
-  "sortOptions": [
-    {
-      "value": "relevance",
-      "label": "Relevance"
-    },
-    {
-      "value": "alpha",
-      "label": "A-Z"
-    },
-    {
-      "value": "level",
-      "label": "Level"
-    }
-  ],
-  "items": [
-    {
-      "id": 1,
-      "title": "Start With GoWebComponents",
-      "status": "stable",
-      "module": "core",
-      "type": "Concept",
-      "level": "Beginner",
-      "tags": ["setup", "go", "wasm"],
-      "blurb": "Module install, public package surface, and the first ui.Render path.",
-      "readTime": "4 min read",
-      "content": {
-        "kind": "article",
-        "sections": [
-          {
-            "heading": "What GoWebComponents is",
-            "paragraphs": [
-              "GoWebComponents is a Go plus WebAssembly UI framework with a React-style component model, hooks, typed HTML builders, routing, shared state, SSR, hydration, and devtools.",
-              "This concept page is the lightweight on-ramp: explain why the public surface is split into ui, html, state, fetch, router, and companion tooling before readers drop into raw API tables."
-            ]
-          },
-          {
-            "heading": "First render path",
-            "paragraphs": [
-              "Start with module install, a js/wasm build target, and a minimal ui.Render call that mounts into #app. That gets readers to the first successful browser render fast.",
-              "Keep the first concept page practical: package imports, the build target, and a tiny component tree are enough to make the rest of the docs site feel grounded."
-            ]
-          }
-        ],
-        "callout": "A good GoWebComponents concept page should explain how the Go, js/wasm, and package-level authoring model fit together before the reader opens a single reference table.",
-        "code": "go get github.com/monstercameron/GoWebComponents@latest\n\nimport (\n  \"github.com/monstercameron/GoWebComponents/html\"\n  \"github.com/monstercameron/GoWebComponents/ui\"\n)"
-      }
-    },
-    {
-      "id": 2,
-      "title": "ui.CreateElement and Components",
-      "status": "stable",
-      "module": "core",
-      "type": "API",
-      "level": "Core",
-      "tags": ["components", "props", "ui"],
-      "blurb": "Typed component construction and the basic unit of composition in GoWebComponents.",
-      "readTime": "Reference",
-      "content": {
-        "kind": "api",
-        "signature": "ui.CreateElement(component, props) ui.Node",
-        "summary": "Builds a typed component node from a Go function component and props struct so the runtime can render and diff it like any other node in the tree.",
-        "params": [
-          {
-            "name": "component",
-            "type": "func(props T) ui.Node",
-            "required": "yes",
-            "description": "Go function component that renders a node tree for the provided props."
-          },
-          {
-            "name": "props",
-            "type": "T",
-            "required": "yes",
-            "description": "Typed props payload passed into the component function."
-          }
-        ],
-        "returns": "ui.Node",
-        "example": "type HelloProps struct {\n  Name string\n}\n\nfunc Hello(props HelloProps) ui.Node {\n  return Div(Text(\"Hello \" + props.Name))\n}\n\nui.CreateElement(Hello, HelloProps{Name: \"Gopher\"})",
-        "notes": [
-          "Keep component APIs tied to real package names and real return types so readers can copy examples directly into Go code.",
-          "This is the core composition primitive beneath the friendlier example pages and larger routed app shells."
-        ]
-      }
-    },
-    {
-      "id": 3,
-      "title": "ui.UseState and Local State",
-      "status": "stable",
-      "module": "state",
-      "type": "API",
-      "level": "Core",
-      "tags": ["state", "hooks", "ui"],
-      "blurb": "Local state, shared atoms, and the mutation rules that keep GoWebComponents predictable.",
-      "readTime": "Reference",
-      "content": {
-        "kind": "api",
-        "signature": "ui.UseState(initial) ui.State[T]",
-        "summary": "Creates local component state with Get, Set, and Update helpers. Use it for view-local behavior; move to the state package when multiple readers need the same source of truth.",
-        "params": [
-          {
-            "name": "initial",
-            "type": "T",
-            "required": "yes",
-            "description": "Initial state value for the current component instance."
-          }
-        ],
-        "returns": "ui.State[T]",
-        "example": "count := ui.UseState(0)\ncount.Update(func(previous int) int { return previous + 1 })",
-        "notes": [
-          "Prefer Update when the next value depends on the previous committed value.",
-          "Use ui.UseState for local behavior and state.UseAtom or state.UseDerived when the value should outlive one component subtree."
-        ]
-      }
-    },
-    {
-      "id": 4,
-      "title": "Go Counter Demo",
-      "status": "stable",
-      "module": "state",
-      "type": "Example",
-      "level": "Beginner",
-      "tags": ["interactive", "counter", "ui"],
-      "blurb": "A tiny reactive demo showing local state, typed handlers, and rerendered output.",
-      "readTime": "Interactive",
-      "content": {
-        "kind": "counter",
-        "description": "GoWebComponents examples should prove behavior, not just describe it. This counter keeps the code path tiny while still showing local state, typed handlers, and rerendered output.",
-        "tips": [
-          "Uses ui.UseState",
-          "Shows typed click interactions",
-          "Fits the feature-isolated example style"
-        ]
-      }
-    },
-    {
-      "id": 5,
-      "title": "SSR Walkthrough",
-      "status": "experimental",
-      "module": "rendering",
-      "type": "Concept",
-      "level": "Advanced",
-      "tags": ["ssr", "rendering"],
-      "blurb": "How server rendering, hydration, and data boundaries fit together.",
-      "readTime": "7 min read",
-      "content": {
-        "kind": "article",
-        "sections": [
-          {
-            "heading": "Rendering model",
-            "paragraphs": [
-              "GoWebComponents SSR docs should explain the real sequence clearly: render HTML with ui.RenderToString, emit bootstrap payloads, ship markup, then resume with hydration on the client.",
-              "Keep diagrams optional, but the prose should still stand on its own for engineers trying to understand route data reuse, bootstrap ownership, and when hydration is worth the complexity."
-            ]
-          },
-          {
-            "heading": "Why this belongs in Concepts",
-            "paragraphs": [
-              "This is not a bare function reference. Readers need the route-aware mental model first: what runs on the server, what resumes in wasm, and where bootstrap payloads and loaders belong."
-            ]
-          }
-        ],
-        "callout": "GoWebComponents SSR guidance should explain how server HTML, bootstrap payloads, and client hydration cooperate before the API reference drills into exact helper signatures.",
-        "code": "ui.RenderToString(app)\n  -> ui.RenderBootstrapScript(...)\n  -> send HTML\n  -> load wasm bundle\n  -> ui.Hydrate(...)\n  -> router.HydrateMount(...)"
-      }
-    },
-    {
-      "id": 6,
-      "title": "ui.UseForm Example",
-      "status": "stable",
-      "module": "forms",
-      "type": "Example",
-      "level": "Core",
-      "tags": ["forms", "validation"],
-      "blurb": "Touched fields, validation flow, and user-facing submit state in a GoWebComponents form.",
-      "readTime": "Interactive",
-      "content": {
-        "kind": "counter",
-        "description": "This slot is where GoWebComponents form guidance belongs: show ui.UseForm, field errors, and submit lifecycle in a pane that feels like the real examples catalog rather than a static screenshot.",
-        "tips": [
-          "Good home for ui.UseForm",
-          "Should teach pending and error UX",
-          "Keeps docs and examples visually aligned"
-        ]
-      }
-    },
-    {
-      "id": 7,
-      "title": "fetch.UseResource Data Flow",
-      "status": "experimental",
-      "module": "data",
-      "type": "API",
-      "level": "Advanced",
-      "tags": ["fetch", "data", "async"],
-      "blurb": "Typed resource loading, pending states, and cache-aware refetch rules.",
-      "readTime": "Reference",
-      "content": {
-        "kind": "api",
-        "signature": "fetch.UseResource[T](loader) fetch.Resource[T]",
-        "summary": "Loads typed async data for the current view, exposes loading and error state, and gives the page an explicit reload hook without inventing a separate query language.",
-        "params": [
-          {
-            "name": "loader",
-            "type": "func() (T, error)",
-            "required": "yes",
-            "description": "Typed loader function that returns the resource value or an error."
-          }
-        ],
-        "returns": "fetch.Resource[T]",
-        "example": "users := fetch.UseResource(func() ([]User, error) {\n  return api.ListUsers()\n})",
-        "notes": [
-          "Expose loading, ready, and error behavior clearly in the docs so readers can tell when UseResource is enough and when they need cached resources.",
-          "Link this page to the fetch and SSR bootstrap examples so the async story stays coherent across the docs site."
-        ]
-      }
-    },
-    {
-      "id": 8,
-      "title": "Devtools and Diagnostics",
-      "status": "stable",
-      "module": "design",
-      "type": "Example",
-      "level": "Intermediate",
-      "tags": ["devtools", "diagnostics", "ui"],
-      "blurb": "Snapshots, diagnostic surfaces, and runtime introspection for GoWebComponents apps.",
-      "readTime": "Interactive",
-      "content": {
-        "kind": "counter",
-        "description": "This slot can evolve into a devtools showcase, but even as a placeholder it should read like GoWebComponents: observability, snapshots, and real application debugging instead of generic design-system filler.",
-        "tips": [
-          "Good home for devtools.Panel",
-          "Pair runtime state with diagnostics",
-          "Keep it grounded in real app debugging"
-        ]
-      }
-    },
-    {
-      "id": 9,
-      "title": "Typed HTML and Design Language",
-      "status": "stable",
-      "module": "design",
-      "type": "Concept",
-      "level": "Core",
-      "tags": ["html", "design", "theme"],
-      "blurb": "How typed html builders, semantic markup, and the docs-site design language fit together.",
-      "readTime": "5 min read",
-      "content": {
-        "kind": "article",
-        "sections": [
-          {
-            "heading": "Typed markup first",
-            "paragraphs": [
-              "GoWebComponents design docs should start with typed html builders and semantic structure before they talk about decorative styling. The framework earns its keep by making real DOM shape explicit in Go code.",
-              "Once the markup model is clear, document the site-level design language: gradients, spacing, contrast, and how example pages stay recognizably part of one product surface."
-            ]
-          },
-          {
-            "heading": "Docs implication",
-            "paragraphs": [
-              "Because concepts are markdown-like, they are perfect for showing rationale, constraints, and migration guidance rather than raw API surface area."
-            ]
-          }
-        ],
-        "callout": "For GoWebComponents, design-system guidance should connect typed markup, semantic structure, and example-shell branding instead of pretending visual language is separate from the component model.",
-        "code": "html.Section(html.Props{Class: \"rounded-[24px] border border-white/10 bg-white/5\"},\n  html.H2(html.Props{}, html.Text(\"Typed HTML and design language\")),\n)"
-      }
-    },
-    {
-      "id": 10,
-      "title": "Build and Dev Workflow",
-      "status": "stable",
-      "module": "cli",
-      "type": "API",
-      "level": "Beginner",
-      "tags": ["tooling", "build", "workflow"],
-      "blurb": "The minimal commands for building wasm, serving examples, and iterating on GoWebComponents apps.",
-      "readTime": "Reference",
-      "content": {
-        "kind": "api",
-        "signature": "go build, tools/dev.ps1, npm --prefix ../tools/devtools run dev:examples",
-        "summary": "The practical workflow surface for this repo: build wasm with Go, use the example server for catalog browsing, and use the hot reload helpers when iterating on a single app.",
-        "params": [
-          {
-            "name": "command",
-            "type": "string",
-            "required": "yes",
-            "description": "One of dev, build, preview, export, or deploy."
-          },
-          {
-            "name": "flags",
-            "type": "string[]",
-            "required": "no",
-            "description": "Optional command-specific flags and overrides."
-          }
-        ],
-        "returns": "built wasm, local dev server, or static site output depending on the command",
-        "example": "go build -o ./examples/static/bin/example-0.wasm ./examples/00-example-0\nnpm --prefix ../tools/devtools run dev:examples",
-        "notes": [
-          "Keep workflow docs tied to the actual repository commands instead of inventing a generic CLI that does not exist.",
-          "This page should connect directly to examples, testing, and GitHub Pages deployment guidance."
-        ]
-      }
-    },
-    {
-      "id": 11,
-      "title": "Atlas Commerce OS",
-      "status": "deprecated",
-      "module": "commerce",
-      "type": "Example",
-      "level": "Advanced",
-      "tags": ["atlas", "commerce", "ssr"],
-      "blurb": "The production-shaped reference app for SSR, hydration, routes, mutations, and reviewer-facing docs.",
-      "readTime": "Interactive",
-      "content": {
-        "kind": "counter",
-        "description": "Atlas should anchor the larger-app story for GoWebComponents: SSR, hydration, route data, mutations, and a branded public surface backed by real review tooling.",
-        "tips": [
-          "Connect to Atlas docs",
-          "Use as the production-shaped reference",
-          "Show how the primitives compose at app scale"
-        ]
-      }
-    },
-    {
-      "id": 12,
-      "title": "Companion Packages and Plugins",
-      "status": "experimental",
-      "module": "plugins",
-      "type": "Concept",
-      "level": "Advanced",
-      "tags": ["plugins", "ecosystem", "extensibility"],
-      "blurb": "How companion packages and the experimental plugin surface extend GoWebComponents without reaching into internals.",
-      "readTime": "6 min read",
-      "content": {
-        "kind": "article",
-        "sections": [
-          {
-            "heading": "Extension boundaries",
-            "paragraphs": [
-              "GoWebComponents should prefer companion packages built on public APIs first. The plugin surface exists for explicit application-owned extension points, not as a backdoor into framework internals.",
-              "These pages work best as prose-first docs that explain capability checks, host ownership, and stability tiers before they dump hook signatures."
-            ]
-          },
-          {
-            "heading": "Authoring guidance",
-            "paragraphs": [
-              "Explain lifecycle order, capabilities, and versioning strategy in human language first. Then link to the actual plugin and ecosystem docs for the exact interfaces and support policy."
-            ]
-          }
-        ],
-        "callout": "GoWebComponents extension guidance should make one thing obvious: stay on documented public APIs unless the companion or plugin surface explicitly promises more.",
-        "code": "host := plugin.NewHost(plugin.HostOptions{Capabilities: []plugin.Capability{plugin.CapabilityRouter}})\nhost.Register(myPlugin)"
-      }
-    }
-  ]
+﻿{
+    "modules":  [
+                    "all",
+                    "commerce",
+                    "core",
+                    "data",
+                    "ecosystem",
+                    "forms",
+                    "interop",
+                    "platform",
+                    "rendering",
+                    "router"
+                ],
+    "statuses":  [
+                     "all",
+                     "experimental",
+                     "stable"
+                 ],
+    "levels":  [
+                   "all",
+                   "Advanced",
+                   "Beginner",
+                   "Core",
+                   "Intermediate"
+               ],
+    "filters":  [
+                    "All",
+                    "Concept"
+                ],
+    "sortOptions":  [
+                        {
+                            "value":  "relevance",
+                            "label":  "Relevance"
+                        },
+                        {
+                            "value":  "alpha",
+                            "label":  "A-Z"
+                        },
+                        {
+                            "value":  "level",
+                            "label":  "Level"
+                        }
+                    ],
+    "items":  [
+                  {
+                      "id":  1,
+                      "title":  "Accessibility Guidance",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Core",
+                      "tags":  [
+                                   "accessibility",
+                                   "guidance"
+                               ],
+                      "blurb":  "This document defines the accessibility support that GoWebComponents currently ships today.",
+                      "readTime":  "5 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This document defines the accessibility support that GoWebComponents currently ships today.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "It is intentionally narrower than a full accessibility framework, but it now includes first-class public primitives for focus management, composite widget keyboard flow, live-region announcements, and modal-style overlay behavior.",
+                                                                              "The supported baseline for public applications is:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/accessibility-guidance.md"
+                                  }
+                  },
+                  {
+                      "id":  2,
+                      "title":  "Actionable Errors And Diagnostics",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "actionable",
+                                   "errors",
+                                   "diagnostics"
+                               ],
+                      "blurb":  "This page audits the current framework error and warning surface with one goal: identify which failures already carry enough context to fix quickly, and which ones still need structured remediation, stable identifiers, or better developer guidance.",
+                      "readTime":  "14 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page audits the current framework error and warning surface with one goal: identify which failures already carry enough context to fix quickly, and which ones still need structured remediation, stable identifiers, or better developer guidance.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when improving runtime diagnostics, reviewing developer-experience regressions, or deciding which failures deserve first-class error codes and troubleshooting anchors.",
+                                                                              "The highest-friction failures today cluster into five buckets:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/actionable-errors-and-diagnostics.md"
+                                  }
+                  },
+                  {
+                      "id":  3,
+                      "title":  "1.0 Adoption Baseline",
+                      "status":  "stable",
+                      "module":  "ecosystem",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "adoption"
+                               ],
+                      "blurb":  "This document defines the minimum ecosystem story GoWebComponents should be able to point to before claiming 1.0-style adoption readiness.",
+                      "readTime":  "4 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This document defines the minimum ecosystem story GoWebComponents should be able to point to before claiming 1.0-style adoption readiness.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when deciding whether the repo has enough first-party or officially recommended answers for a team to start, validate, ship, and maintain a production app without reverse-engineering the codebase.",
+                                                                              "Before the project should describe itself as having a 1.0-style ecosystem story, it needs a clear answer for all of these areas:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/adoption-baseline.md"
+                                  }
+                  },
+                  {
+                      "id":  4,
+                      "title":  "API Stability and Support Policy",
+                      "status":  "stable",
+                      "module":  "ecosystem",
+                      "type":  "Concept",
+                      "level":  "Core",
+                      "tags":  [
+                                   "api",
+                                   "stability",
+                                   "policy"
+                               ],
+                      "blurb":  "This document defines which GoWebComponents surfaces are intended for long-term production use, how semantic versioning is applied, how deprecations work, and what support expectations enterprise adopters should plan around.",
+                      "readTime":  "8 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This document defines which GoWebComponents surfaces are intended for long-term production use, how semantic versioning is applied, how deprecations work, and what support expectations enterprise adopters should plan around.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "This policy applies to the module published at `github.com/monstercameron/GoWebComponents` beginning with the current `v3.x` public package layout.",
+                                                                              "GoWebComponents uses four stability tiers."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/api-stability-and-support-policy.md"
+                                  }
+                  },
+                  {
+                      "id":  5,
+                      "title":  "Assets",
+                      "status":  "stable",
+                      "module":  "rendering",
+                      "type":  "Concept",
+                      "level":  "Core",
+                      "tags":  [
+                                   "assets"
+                               ],
+                      "blurb":  "This page defines the intended framework-level asset delivery story for GoWebComponents.",
+                      "readTime":  "8 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page defines the intended framework-level asset delivery story for GoWebComponents.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when you need a consistent plan for wasm binaries, `wasm_exec.js`, CSS, images, fonts, copied static files, and hashed build outputs across SSR, prerender, and static-hosted apps.",
+                                                                              "The asset story spans three layers:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/assets.md"
+                                  }
+                  },
+                  {
+                      "id":  6,
+                      "title":  "Atlas Commerce OS Project Todo",
+                      "status":  "experimental",
+                      "module":  "commerce",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "atlas",
+                                   "commerce",
+                                   "os",
+                                   "project"
+                               ],
+                      "blurb":  "This document turns the flagship example concept into a detailed implementation backlog.",
+                      "readTime":  "46 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This document turns the flagship example concept into a detailed implementation backlog.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Project intent:",
+                                                                              "Working product framing:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/atlas-commerce-os-project-todo.md"
+                                  }
+                  },
+                  {
+                      "id":  7,
+                      "title":  "Browser Support",
+                      "status":  "stable",
+                      "module":  "platform",
+                      "type":  "Concept",
+                      "level":  "Beginner",
+                      "tags":  [
+                                   "browser"
+                               ],
+                      "blurb":  "This page defines the intended browser-support and compatibility policy for GoWebComponents.",
+                      "readTime":  "5 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page defines the intended browser-support and compatibility policy for GoWebComponents.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when deciding which browsers your app can target safely, which features require capability checks, and what the framework assumes from a browser before `js/wasm` startup is expected to work.",
+                                                                              "The project targets current evergreen desktop and mobile browsers."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/browser-support.md"
+                                  }
+                  },
+                  {
+                      "id":  8,
+                      "title":  "Code Splitting And Bundle Loading",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "code",
+                                   "splitting",
+                                   "bundle",
+                                   "loading"
+                               ],
+                      "blurb":  "This page records the intended bundle-delivery model for GoWebComponents apps.",
+                      "readTime":  "6 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page records the intended bundle-delivery model for GoWebComponents apps.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when deciding how route modules, heavy components, and deferred assets should load without turning the core runtime into a bundler.",
+                                                                              "The current recommendation is:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/code-splitting-and-bundle-loading.md"
+                                  }
+                  },
+                  {
+                      "id":  9,
+                      "title":  "Common Workflows",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Beginner",
+                      "tags":  [
+                                   "common",
+                                   "workflows"
+                               ],
+                      "blurb":  "This page reorganizes the documentation around common developer tasks instead of package-by-package reading order.",
+                      "readTime":  "4 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page reorganizes the documentation around common developer tasks instead of package-by-package reading order.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it as the main task-oriented index for the current repo.",
+                                                                              "Use this path when the app is mounted in the browser and does not need request-time HTML."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/common-workflows.md"
+                                  }
+                  },
+                  {
+                      "id":  10,
+                      "title":  "Compiler-Assisted Features",
+                      "status":  "experimental",
+                      "module":  "ecosystem",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "compiler",
+                                   "assisted",
+                                   "features"
+                               ],
+                      "blurb":  "This page records the current project direction for compiler-assisted features.",
+                      "readTime":  "6 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page records the current project direction for compiler-assisted features.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when deciding whether GoWebComponents should add compile-time ergonomics, generated helpers, or build-time optimization beyond the normal Go toolchain.",
+                                                                              "Compiler-assisted work may be explored when it fits one of these buckets:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/compiler-assisted-features.md"
+                                  }
+                  },
+                  {
+                      "id":  11,
+                      "title":  "Cross-Tab Synchronization",
+                      "status":  "stable",
+                      "module":  "interop",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "cross",
+                                   "tab",
+                                   "synchronization"
+                               ],
+                      "blurb":  "This page documents the current first-class model for cross-tab synchronization in GoWebComponents.",
+                      "readTime":  "5 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page documents the current first-class model for cross-tab synchronization in GoWebComponents.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when browser tabs need to exchange small state or invalidation signals without hand-rolling `BroadcastChannel` or `storage` event plumbing.",
+                                                                              "The public surface today is:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/cross-tab-synchronization.md"
+                                  }
+                  },
+                  {
+                      "id":  12,
+                      "title":  "Custom Elements",
+                      "status":  "stable",
+                      "module":  "interop",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "custom",
+                                   "elements"
+                               ],
+                      "blurb":  "This page defines the supported custom-element and web-component model for GoWebComponents applications.",
+                      "readTime":  "4 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page defines the supported custom-element and web-component model for GoWebComponents applications.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when you need to consume browser-defined custom elements from `html` trees without dropping into ad hoc `syscall/js`.",
+                                                                              "The supported public goal today is consuming browser-defined custom elements from GoWebComponents."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/custom-elements.md"
+                                  }
+                  },
+                  {
+                      "id":  13,
+                      "title":  "Deployment Targets And Adapter Expectations",
+                      "status":  "stable",
+                      "module":  "platform",
+                      "type":  "Concept",
+                      "level":  "Advanced",
+                      "tags":  [
+                                   "deployment",
+                                   "targets",
+                                   "adapter",
+                                   "expectations"
+                               ],
+                      "blurb":  "This page records the intended deployment-target model for GoWebComponents apps.",
+                      "readTime":  "2 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page records the intended deployment-target model for GoWebComponents apps.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when deciding whether an app should run as a static-hosted client bundle, a single Go SSR server, a reverse-proxy fronted app, or a split SSR/API deployment.",
+                                                                              "The supported deployment targets should stay intentionally small and explicit:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/deployment-targets-and-adapter-expectations.md"
+                                  }
+                  },
+                  {
+                      "id":  14,
+                      "title":  "Documentation Push TODO",
+                      "status":  "experimental",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "documentation",
+                                   "push",
+                                   "todo"
+                               ],
+                      "blurb":  "Public package set, based on the current README and API policy:",
+                      "readTime":  "10 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "Public package set, based on the current README and API policy:",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Constants: AnnouncementAssertive, AnnouncementPolite, CurrentSSRBootstrapVersion, CurrentSSRStateUpdateVersion, DefaultBootstrapReferenceScriptID, DefaultBootstrapScriptID, DefaultCSRFFormFieldName, DefaultCSRFHeaderName, DefaultRouteBootstrapPayloadKey, OverlayKindCustom, OverlayKindDialog, OverlayKindMenu, OverlayKindPopover, OverlayKindSheet, OverlayKindTooltip, SSRBootstrapFormatCBOR, SSRBootstrapFormatJSON, SSRPayloadEncodingBinary, SSRPayloadEncodingCBOR, SSRPayloadEncodingJSON, SSRPayloadEncodingText, SSRPayloadEncodingTimeRFC3339, SSRPayloadEncodingTimeUnixNano, SSRPayloadKindCacheSeed, SSRPayloadKindData, SSRPayloadKindFormDefaults, SSRPayloadKindRouteData, SSRPayloadKindSessionHint, SSRPayloadReuseClientOwned, SSRPayloadReuseRevalidateAfterResume, SSRPayloadReuseTrustOnFirstResume, SSRPayloadScopeApp, SSRPayloadScopeRoute, SSRPayloadScopeSubtree",
+                                                                              "Variables: ErrorBoundary"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/documentation-push-todo.md"
+                                  }
+                  },
+                  {
+                      "id":  15,
+                      "title":  "Ecosystem and Extension Model",
+                      "status":  "stable",
+                      "module":  "ecosystem",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "ecosystem",
+                                   "extension"
+                               ],
+                      "blurb":  "This document defines the current project stance on plugins, directives, and companion packages.",
+                      "readTime":  "17 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This document defines the current project stance on plugins, directives, and companion packages.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when deciding whether a new capability belongs in core, should ship as a companion package, or needs a package-specific extension hook.",
+                                                                              "The repo now also includes an experimental `plugin` companion package for explicit application-owned plugin hosts. That package is not a privileged core runtime registry; it is a companion abstraction built on documented public APIs."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/ecosystem-and-extension-model.md"
+                                  }
+                  },
+                  {
+                      "id":  16,
+                      "title":  "End-To-End Walkthroughs",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "end",
+                                   "to",
+                                   "end",
+                                   "walkthroughs"
+                               ],
+                      "blurb":  "This page links the current examples and docs into a few realistic app shapes.",
+                      "readTime":  "2 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page links the current examples and docs into a few realistic app shapes.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "The goal is not to claim that every workflow has a first-party project template today. The goal is to show a practical route through the current public surface without forcing readers to infer architecture from unrelated examples.",
+                                                                              "Use this shape for browser-only apps that need local state, some shared state, and optional routing."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/end-to-end-walkthroughs.md"
+                                  }
+                  },
+                  {
+                      "id":  17,
+                      "title":  "Error Boundaries",
+                      "status":  "stable",
+                      "module":  "rendering",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "error",
+                                   "boundaries"
+                               ],
+                      "blurb":  "This page records the current `ui.ErrorBoundary` contract for route composition, SSR, and hydration.",
+                      "readTime":  "3 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page records the current `ui.ErrorBoundary` contract for route composition, SSR, and hydration.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "It is intentionally about the behavior that ships today, not a future router-specific abstraction.",
+                                                                              "The public boundary surface today is still just:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/error-boundaries.md"
+                                  }
+                  },
+                  {
+                      "id":  18,
+                      "title":  "Fine-Grained Reactivity",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Advanced",
+                      "tags":  [
+                                   "fine",
+                                   "grained",
+                                   "reactivity"
+                               ],
+                      "blurb":  "Fine-grained reactivity boundaries for narrower updates in high-frequency UI paths.",
+                      "readTime":  "16 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "Fine-grained reactivity boundaries for narrower updates in high-frequency UI paths.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "This document defines the first shipped boundary for fine-grained reactivity in GoWebComponents.",
+                                                                              "The goal is narrower updates for high-frequency UI paths so atom or signal-style changes do not always force full component or page-level rerenders."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/fine-grained-reactivity.md"
+                                  }
+                  },
+                  {
+                      "id":  19,
+                      "title":  "Forms",
+                      "status":  "stable",
+                      "module":  "forms",
+                      "type":  "Concept",
+                      "level":  "Core",
+                      "tags":  [
+                                   "forms"
+                               ],
+                      "blurb":  "This page documents the current supported form model for GoWebComponents.",
+                      "readTime":  "8 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page documents the current supported form model for GoWebComponents.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "It intentionally distinguishes between shipped first-class behavior and application-owned conventions for server-backed workflows.",
+                                                                              "The current public form surface is centered on `ui.UseForm[T]` for typed local form state."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/forms.md"
+                                  }
+                  },
+                  {
+                      "id":  20,
+                      "title":  "Framework Comparisons",
+                      "status":  "stable",
+                      "module":  "ecosystem",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "framework",
+                                   "comparisons"
+                               ],
+                      "blurb":  "This document explains how GoWebComponents compares to several mature UI frameworks that adopters are likely to evaluate alongside it.",
+                      "readTime":  "17 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This document explains how GoWebComponents compares to several mature UI frameworks that adopters are likely to evaluate alongside it.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when deciding whether the framework\u0027s current tradeoffs match your team\u0027s constraints, and when you need one honest place that separates intentional design choices from gaps that are still being closed.",
+                                                                              "This is not a marketing matrix."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/framework-comparisons.md"
+                                  }
+                  },
+                  {
+                      "id":  21,
+                      "title":  "Framework Scope",
+                      "status":  "stable",
+                      "module":  "ecosystem",
+                      "type":  "Concept",
+                      "level":  "Core",
+                      "tags":  [
+                                   "framework",
+                                   "scope"
+                               ],
+                      "blurb":  "GoWebComponents remains a UI framework, not a first-party app framework.",
+                      "readTime":  "2 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "GoWebComponents remains a UI framework, not a first-party app framework.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+												      "This page defines what the framework is responsible for shipping directly and what remains application or ecosystem territory.",
+												      "Use it to separate deliberate scope boundaries from missing features when evaluating the current platform surface."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/framework-scope.md"
+                                  }
+                  },
+                  {
+                      "id":  22,
+                      "title":  "GoWebComponents Documentation",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Beginner",
+                      "tags":  [
+                                   "gowebcomponents",
+                                   "documentation"
+                               ],
+                      "blurb":  "This directory contains the project-level documentation that is still useful after the runtime and tooling cleanup on 2026-03-14.",
+                      "readTime":  "5 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This directory contains the project-level documentation that is still useful after the runtime and tooling cleanup on 2026-03-14.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Recommended entrypoint for new adopters, including the preferred package surface, first example picks, and the modern path through the docs.",
+                                                                              "Task-oriented guidance for common developer jobs such as building a client-only app, adding routing, adding SSR, testing, shipping a wasm build, and debugging hydration."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/gowebcomponents-documentation.md"
+                                  }
+                  },
+                  {
+                      "id":  23,
+                      "title":  "GoWebComponents TODO",
+                      "status":  "experimental",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "gowebcomponents",
+                                   "todo"
+                               ],
+                      "blurb":  "This backlog tracks missing, incomplete, or experimental framework capabilities compared to mature UI frameworks such as React, Svelte, Vue, Solid, Blazor, and Qwik.",
+                      "readTime":  "157 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This backlog tracks missing, incomplete, or experimental framework capabilities compared to mature UI frameworks such as React, Svelte, Vue, Solid, Blazor, and Qwik.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Organization rules for this file:",
+                                                                              "The root README, package docs, and example docs now align on the current public APIs, shipped examples, SSR/hydration behavior, and the distinction between shipped versus future-facing backlog items."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/gowebcomponents-todo.md"
+                                  }
+                  },
+                  {
+                      "id":  24,
+                      "title":  "Head Management and SEO Surface",
+                      "status":  "stable",
+                      "module":  "rendering",
+                      "type":  "Concept",
+                      "level":  "Advanced",
+                      "tags":  [
+                                   "head",
+                                   "management",
+                                   "seo",
+                                   "surface"
+                               ],
+                      "blurb":  "This document defines the current head-management contract for GoWebComponents.",
+                      "readTime":  "7 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This document defines the current head-management contract for GoWebComponents.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "The short version is:",
+                                                                              "That split is intentional. The repo now has a stable, test-covered route metadata slice, but it does not yet claim a larger dynamic head-management runtime than it actually ships."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/head-management-and-seo-surface.md"
+                                  }
+                  },
+                  {
+                      "id":  25,
+                      "title":  "Hot Reload",
+                      "status":  "stable",
+                      "module":  "rendering",
+                      "type":  "Concept",
+                      "level":  "Core",
+                      "tags":  [
+                                   "hot",
+                                   "reload"
+                               ],
+                      "blurb":  "GoWebComponents now treats state-preserving hot reload as a first-class development feature for standalone `js/wasm` apps.",
+                      "readTime":  "13 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "GoWebComponents now treats state-preserving hot reload as a first-class development feature for standalone `js/wasm` apps.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "The public surface has two parts:",
+                                                                              "The repo supports in-page WASM module replacement with a state-preserving reload bridge. It preserves shared atom state and compatible serializable component-local hook state while keeping the existing DOM in place during a hot reload, runs a pre-reload cleanup bridge for old effect resources, and falls back to a remount only when the runtime cannot safely migrate the preserved state."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/hot-reload.md"
+                                  }
+                  },
+                  {
+                      "id":  26,
+                      "title":  "HTML Sugar",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Core",
+                      "tags":  [
+                                   "html",
+                                   "sugar"
+                               ],
+                      "blurb":  "This document defines the current additive authoring sugar that lives in the `html` package.",
+                      "readTime":  "6 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This document defines the current additive authoring sugar that lives in the `html` package.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "`Children(...)` accepts these inputs:",
+                                                                              "Behavior:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/html-sugar.md"
+                                  }
+                  },
+                  {
+                      "id":  27,
+                      "title":  "Hydration",
+                      "status":  "stable",
+                      "module":  "rendering",
+                      "type":  "Concept",
+                      "level":  "Core",
+                      "tags":  [
+                                   "hydration"
+                               ],
+                      "blurb":  "This page records the current shipped hydration contract for `ui.Hydrate(...)` and `router.HydrateMount(...)`.",
+                      "readTime":  "6 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page records the current shipped hydration contract for `ui.Hydrate(...)` and `router.HydrateMount(...)`.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when you need to know what the runtime will reuse, when it gives up on reuse, and which hydration behaviors are already implemented versus still open backlog work.",
+                                                                              "This binding path is implemented in `internal/runtime/hydration.go` through `claimHydrationNode(...)`, `nextHydrationCandidate(...)`, and the per-fiber hydration boundary fields wired during reconciliation."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/hydration.md"
+                                  }
+                  },
+                  {
+                      "id":  28,
+                      "title":  "Internationalization and Localization",
+                      "status":  "stable",
+                      "module":  "interop",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "internationalization",
+                                   "localization"
+                               ],
+                      "blurb":  "This document defines the current first-class i18n surface for GoWebComponents.",
+                      "readTime":  "3 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This document defines the current first-class i18n surface for GoWebComponents.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "The shipped i18n scope now includes:",
+                                                                              "The framework does not own translation file formats, remote catalog fetching, locale-domain routing, or automatic document-level `lang` and `dir` mutation. Those stay application-owned so the public surface stays small and predictable."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/internationalization-and-localization.md"
+                                  }
+                  },
+                  {
+                      "id":  29,
+                      "title":  "Interop Guidance",
+                      "status":  "stable",
+                      "module":  "interop",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "interop",
+                                   "guidance"
+                               ],
+                      "blurb":  "This page documents the supported usage rules for the public `interop` package.",
+                      "readTime":  "4 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page documents the supported usage rules for the public `interop` package.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when an app needs browser APIs, DOM measurement, observers, or dynamic module access without dropping back to raw `syscall/js`.",
+                                                                              "The public `interop` package is the supported bridge for:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/interop-guidance.md"
+                                  }
+                  },
+                  {
+                      "id":  30,
+                      "title":  "Logging",
+                      "status":  "stable",
+                      "module":  "platform",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "logging"
+                               ],
+                      "blurb":  "This page defines the intended first-class logging surface for GoWebComponents applications and framework integrations.",
+                      "readTime":  "4 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page defines the intended first-class logging surface for GoWebComponents applications and framework integrations.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when you need one coherent logging model for runtime, router, fetch, hydration, SSR, interop, worker, and form activity instead of ad hoc `fmt.Println(...)` output.",
+                                                                              "The intended public logger contract is a structured sink with:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/logging.md"
+                                  }
+                  },
+                  {
+                      "id":  31,
+                      "title":  "Migration Guide",
+                      "status":  "stable",
+                      "module":  "ecosystem",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "migration"
+                               ],
+                      "blurb":  "This file collects release-to-release upgrade guidance for GoWebComponents adopters.",
+                      "readTime":  "5 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This file collects release-to-release upgrade guidance for GoWebComponents adopters.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "The current project-level migration window starts with the `v3.x` public package layout. Future major releases should extend this file rather than forcing adopters to reconstruct changes from commit history and changelog bullets.",
+                                                                              "No major release should be considered documentation-complete until this file includes subsystem-specific upgrade guidance for runtime and component authoring, router behavior, SSR and hydration, forms and local state, shared state and data loading, and testing or deployment expectations."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/migration-guide.md"
+                                  }
+                  },
+                  {
+                      "id":  32,
+                      "title":  "Multi-Client Coordination",
+                      "status":  "experimental",
+                      "module":  "interop",
+                      "type":  "Concept",
+                      "level":  "Advanced",
+                      "tags":  [
+                                   "multi",
+                                   "client",
+                                   "coordination"
+                               ],
+                      "blurb":  "This page defines the current first slice and near-term direction for browser coordination between two or more sovereign `js/wasm` clients.",
+                      "readTime":  "14 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page defines the current first slice and near-term direction for browser coordination between two or more sovereign `js/wasm` clients.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when each client owns its own runtime, DOM root, and release lifecycle, but the clients still need typed browser-local coordination.",
+                                                                              "This proposal is intentionally built on the existing shipped surfaces:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/multi-client-coordination.md"
+                                  }
+                  },
+                  {
+                      "id":  33,
+                      "title":  "Multi-Surface Coordination",
+                      "status":  "stable",
+                      "module":  "interop",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "multi",
+                                   "surface",
+                                   "coordination"
+                               ],
+                      "blurb":  "This page documents the current first-class model for coordinating multiple active browser surfaces in GoWebComponents.",
+                      "readTime":  "4 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page documents the current first-class model for coordinating multiple active browser surfaces in GoWebComponents.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when an application needs a popup or secondary window to cooperate with the main app without hand-rolling `window.open` and `postMessage` plumbing.",
+                                                                              "The public surface today is:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/multi-surface-coordination.md"
+                                  }
+                  },
+                  {
+                      "id":  34,
+                      "title":  "Observability",
+                      "status":  "stable",
+                      "module":  "platform",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "observability"
+                               ],
+                      "blurb":  "This page defines the current intended observability model for GoWebComponents applications.",
+                      "readTime":  "6 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page defines the current intended observability model for GoWebComponents applications.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when you need to instrument SSR requests, hydration, routed client activity, or framework lifecycle events without inventing a different event shape for each subsystem.",
+                                                                              "The intended event model is one structured envelope shared across server and browser instrumentation."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/observability.md"
+                                  }
+                  },
+                  {
+                      "id":  35,
+                      "title":  "Offline Mutation Queueing",
+                      "status":  "stable",
+                      "module":  "data",
+                      "type":  "Concept",
+                      "level":  "Advanced",
+                      "tags":  [
+                                   "offline",
+                                   "mutation",
+                                   "queueing"
+                               ],
+                      "blurb":  "This page documents the current contract for first-class offline mutation support in `fetch`.",
+                      "readTime":  "6 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page documents the current contract for first-class offline mutation support in `fetch`.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when a browser app needs to queue writes locally, survive reloads, and replay those writes later without hand-rolling storage, deduplication, and retry timing.",
+                                                                              "The public surface today is:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/offline-mutation-queueing.md"
+                                  }
+                  },
+                  {
+                      "id":  36,
+                      "title":  "Onboarding and Bootstrap",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Beginner",
+                      "tags":  [
+                                   "onboarding",
+                                   "bootstrap"
+                               ],
+                      "blurb":  "This page defines the intended onboarding path for new GoWebComponents adopters.",
+                      "readTime":  "4 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page defines the intended onboarding path for new GoWebComponents adopters.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when deciding how a team should start a new app, what prerequisites are required, how starter-based apps should evolve, and what the recommended local edit-build-refresh loop looks like.",
+                                                                              "The current official way to start is a documented manual flow, not a hidden bootstrap CLI."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/onboarding-and-bootstrap.md"
+                                  }
+                  },
+                  {
+                      "id":  37,
+                      "title":  "Overlay Layering And Portal Coordination",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "overlay",
+                                   "layering",
+                                   "portal",
+                                   "coordination"
+                               ],
+                      "blurb":  "This document describes the current first-class overlay model for GoWebComponents.",
+                      "readTime":  "4 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This document describes the current first-class overlay model for GoWebComponents.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use `ui.Overlay` when a surface must participate in shared overlay stack behavior instead of letting each dialog, popover, tooltip, or menu invent its own z-index and dismissal policy.",
+                                                                              "The stack manager currently owns:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/overlay-layering-and-portal-coordination.md"
+                                  }
+                  },
+                  {
+                      "id":  38,
+                      "title":  "Performance Notes",
+                      "status":  "stable",
+					  "module":  "platform",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "performance"
+                               ],
+                      "blurb":  "Current runtime and wasm adapter performance baselines, benchmarks, and optimization decisions.",
+                      "readTime":  "10 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "Current runtime and wasm adapter performance baselines, benchmarks, and optimization decisions.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "This file tracks the current performance state of the repo. It intentionally avoids old speculative claims and stale file references.",
+                                                                              "The runtime hot paths are:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/performance-notes.md"
+                                  }
+                  },
+                  {
+                      "id":  39,
+                      "title":  "Prerender",
+                      "status":  "stable",
+                      "module":  "rendering",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "prerender"
+                               ],
+                      "blurb":  "This page defines the current intended static prerender story for GoWebComponents.",
+                      "readTime":  "4 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page defines the current intended static prerender story for GoWebComponents.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when you need build-time HTML output for docs, marketing pages, or hybrid sites and want to understand how prerender differs from request-time SSR.",
+                                                                              "Static prerender is an intended first-class output mode for the project, but it is not the same thing as request-time SSR."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/prerender.md"
+                                  }
+                  },
+                  {
+                      "id":  40,
+                      "title":  "Production Correctness",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Core",
+                      "tags":  [
+                                   "production",
+                                   "correctness"
+                               ],
+                      "blurb":  "This page defines the current minimum production-correctness bar for the core runtime.",
+                      "readTime":  "2 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page defines the current minimum production-correctness bar for the core runtime.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "The goal is not \"some examples seem to work.\" The goal is deterministic, test-backed behavior for the flows that make real applications brittle when the runtime is underspecified.",
+                                                                              "The runtime should not claim serious production readiness until these behaviors are stable and specified:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/production-correctness.md"
+                                  }
+                  },
+                  {
+                      "id":  41,
+                      "title":  "PWA and Offline App Support",
+                      "status":  "stable",
+                      "module":  "platform",
+                      "type":  "Concept",
+                      "level":  "Advanced",
+                      "tags":  [
+                                   "pwa",
+                                   "offline",
+                                   "app"
+                               ],
+                      "blurb":  "This page defines the intended Progressive Web App and offline-application support boundary for GoWebComponents.",
+                      "readTime":  "9 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page defines the intended Progressive Web App and offline-application support boundary for GoWebComponents.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when deciding how web app manifests, service workers, offline caches, mutation replay, installability, and deployment concerns should fit around the current runtime and browser-support model.",
+                                                                              "The intended PWA scope is integration-oriented, not a hidden runtime feature."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/pwa-and-offline-app-support.md"
+                                  }
+                  },
+                  {
+                      "id":  42,
+                      "title":  "Recommended Project Structure",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Beginner",
+                      "tags":  [
+                                   "recommended",
+                                   "project",
+                                   "structure"
+                               ],
+                      "blurb":  "This is the recommended layout for a production GoWebComponents app.",
+                      "readTime":  "2 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This is the recommended layout for a production GoWebComponents app.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "The goal is to keep framework usage predictable without forcing app code to live in the same repository shape as the framework itself."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/recommended-project-structure.md"
+                                  }
+                  },
+                  {
+                      "id":  43,
+                      "title":  "Reference Map",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Core",
+                      "tags":  [
+                                   "reference",
+                                   "map"
+                               ],
+                      "blurb":  "This page cross-links major concepts to the current public APIs, runnable examples, production caveats, and related docs.",
+                      "readTime":  "4 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page cross-links major concepts to the current public APIs, runnable examples, production caveats, and related docs.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when you know the problem you are solving but do not want to guess which package docs or examples cover it best.",
+                                                                              "Public API:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/reference-map.md"
+                                  }
+                  },
+                  {
+                      "id":  44,
+                      "title":  "Router Async Guards And Auth Design",
+                      "status":  "experimental",
+                      "module":  "router",
+                      "type":  "Concept",
+                      "level":  "Advanced",
+                      "tags":  [
+                                   "router",
+                                   "async",
+                                   "guards",
+                                   "auth"
+                               ],
+                      "blurb":  "This page defines the planned public model for async navigation guards and auth-aware routing.",
+                      "readTime":  "7 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page defines the planned public model for async navigation guards and auth-aware routing.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Current shipped status:",
+                                                                              "This document is the contract the next implementation pass should follow."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/router-async-guards-and-auth-design.md"
+                                  }
+                  },
+                  {
+                      "id":  45,
+                      "title":  "Runtime Configuration and Feature Flags",
+                      "status":  "stable",
+                      "module":  "platform",
+                      "type":  "Concept",
+                      "level":  "Advanced",
+                      "tags":  [
+                                   "runtime",
+                                   "configuration",
+                                   "feature",
+                                   "flags"
+                               ],
+                      "blurb":  "This page defines the intended runtime-configuration model for GoWebComponents applications.",
+                      "readTime":  "5 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page defines the intended runtime-configuration model for GoWebComponents applications.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when deciding how public environment values, deployment metadata, and evaluated feature flags should move through server code, browser code, SSR bootstrap, and hydrated application state without relying on ad hoc globals.",
+                                                                              "The intended configuration model is layered and explicit."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/runtime-configuration-and-feature-flags.md"
+                                  }
+                  },
+                  {
+                      "id":  46,
+                      "title":  "Scheduling",
+                      "status":  "stable",
+                      "module":  "rendering",
+                      "type":  "Concept",
+                      "level":  "Core",
+                      "tags":  [
+                                   "scheduling"
+                               ],
+                      "blurb":  "This page defines the current runtime scheduling contract for `ui.StartTransition`, `ui.UseTransition`, and `ui.UseDeferredValue`.",
+                      "readTime":  "2 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page defines the current runtime scheduling contract for `ui.StartTransition`, `ui.UseTransition`, and `ui.UseDeferredValue`.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "It documents the scheduler that ships today, not a speculative concurrent renderer.",
+                                                                              "The runtime currently supports two scheduling classes:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/scheduling.md"
+                                  }
+                  },
+                  {
+                      "id":  47,
+                      "title":  "Security, Compliance, and Governance",
+                      "status":  "stable",
+                      "module":  "platform",
+                      "type":  "Concept",
+                      "level":  "Advanced",
+                      "tags":  [
+                                   "security",
+                                   "compliance",
+                                   "governance"
+                               ],
+                      "blurb":  "This page defines the intended security model and governance expectations for GoWebComponents applications and framework integrations.",
+                      "readTime":  "6 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page defines the intended security model and governance expectations for GoWebComponents applications and framework integrations.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when evaluating SSR bootstrap safety, hydration trust boundaries, server-versus-client data handling, browser storage risk, logging redaction, and supply-chain review expectations.",
+                                                                              "The primary trust boundaries in the current project are:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/security-compliance-and-governance.md"
+                                  }
+                  },
+                  {
+                      "id":  48,
+                      "title":  "Server Integration",
+                      "status":  "stable",
+                      "module":  "rendering",
+                      "type":  "Concept",
+                      "level":  "Advanced",
+                      "tags":  [
+                                   "server",
+                                   "integration"
+                               ],
+                      "blurb":  "This page defines the current production-shaped Go HTTP integration story for GoWebComponents SSR apps.",
+                      "readTime":  "6 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page defines the current production-shaped Go HTTP integration story for GoWebComponents SSR apps.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when you need to know how request handlers, middleware, SSR rendering, bootstrap payloads, asset serving, and API endpoints fit together without inventing a new server shape for each app.",
+                                                                              "The current first-party story is a normal Go `net/http` server with five responsibilities:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/server-integration.md"
+                                  }
+                  },
+                  {
+                      "id":  49,
+                      "title":  "Server-Interactive Experiments",
+                      "status":  "experimental",
+                      "module":  "rendering",
+                      "type":  "Concept",
+                      "level":  "Advanced",
+                      "tags":  [
+                                   "server",
+                                   "interactive",
+                                   "experiments"
+                               ],
+                      "blurb":  "This page records the minimum scope for any future server-owned interactive rendering experiment.",
+                      "readTime":  "8 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page records the minimum scope for any future server-owned interactive rendering experiment.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it as a containment boundary, not as a claim that the feature is part of the shipped core runtime.",
+                                                                              "Server-owned interactive rendering is not a current product direction for core. If it is explored at all, it should remain an explicitly separate experiment or sibling package."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/server-interactive-experiments.md"
+                                  }
+                  },
+                  {
+                      "id":  50,
+                      "title":  "Shared Cache Design",
+                      "status":  "stable",
+                      "module":  "data",
+                      "type":  "Concept",
+                      "level":  "Advanced",
+                      "tags":  [
+                                   "shared",
+                                   "cache",
+                                   "design"
+                               ],
+                      "blurb":  "This page documents the current and planned contract for `fetch.UseCachedResource[T]` and related shared-cache behavior.",
+                      "readTime":  "7 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page documents the current and planned contract for `fetch.UseCachedResource[T]` and related shared-cache behavior.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when a route or component needs shared async data, optimistic updates, or reuse across multiple subscribers.",
+                                                                              "The public shared-cache surface today is:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/shared-cache-design.md"
+                                  }
+                  },
+                  {
+                      "id":  51,
+                      "title":  "Start Here",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Beginner",
+                      "tags":  [
+                                   "start",
+                                   "here"
+                               ],
+                      "blurb":  "This page is the recommended path for new GoWebComponents adopters.",
+                      "readTime":  "3 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page is the recommended path for new GoWebComponents adopters.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when you want the shortest route from evaluation to a production-shaped app without guessing which docs reflect the current public surface.",
+                                                                              "For new code, treat these packages as the supported application-authoring surface:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/start-here.md"
+                                  }
+                  },
+                  {
+                      "id":  52,
+                      "title":  "State Transfer",
+                      "status":  "stable",
+                      "module":  "rendering",
+                      "type":  "Concept",
+                      "level":  "Advanced",
+                      "tags":  [
+                                   "state",
+                                   "transfer"
+                               ],
+                      "blurb":  "This page records the current server-to-client state transfer contract for `ui.SSRBootstrap`.",
+                      "readTime":  "7 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page records the current server-to-client state transfer contract for `ui.SSRBootstrap`.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when deciding what belongs in bootstrap, how transferred values merge with client state, and which parts of that payload become runtime-owned during hydration.",
+                                                                              "`ui.SSRBootstrap` currently exposes a version field plus five state buckets:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/state-transfer.md"
+                                  }
+                  },
+                  {
+                      "id":  53,
+                      "title":  "Streaming SSR",
+                      "status":  "experimental",
+                      "module":  "rendering",
+                      "type":  "Concept",
+                      "level":  "Advanced",
+                      "tags":  [
+                                   "streaming",
+                                   "ssr"
+                               ],
+                      "blurb":  "This page records the current project direction for streaming SSR work.",
+                      "readTime":  "5 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page records the current project direction for streaming SSR work.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it to understand what is intentionally deferred until after hydration correctness, and what the first streaming design should optimize for when the project starts that work.",
+                                                                              "Streaming SSR is a post-hydration milestone."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/streaming-ssr.md"
+                                  }
+                  },
+                  {
+                      "id":  54,
+                      "title":  "Testing Surface",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Core",
+                      "tags":  [
+                                   "testing",
+                                   "surface"
+                               ],
+                      "blurb":  "This document defines the intended first-party testing surface for GoWebComponents consumers.",
+                      "readTime":  "5 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This document defines the intended first-party testing surface for GoWebComponents consumers.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Testing support should be first-party, but it should not live inside the core runtime packages.",
+                                                                              "The intended shape is one companion testing module with several focused helper packages instead of one monolithic package."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/testing-surface.md"
+                                  }
+                  },
+                  {
+                      "id":  55,
+                      "title":  "Troubleshooting",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "Concept",
+                      "level":  "Beginner",
+                      "tags":  [
+                                   "troubleshooting"
+                               ],
+                      "blurb":  "This page collects the most common setup and runtime failures currently visible in the repo\u0027s documented workflows.",
+                      "readTime":  "3 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page collects the most common setup and runtime failures currently visible in the repo\u0027s documented workflows.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Symptoms:",
+                                                                              "Checks:"
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/troubleshooting.md"
+                                  }
+                  },
+                  {
+                      "id":  56,
+                      "title":  "Wasm Build Experiments",
+                      "status":  "experimental",
+                      "module":  "platform",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "wasm",
+                                   "build",
+                                   "experiments"
+                               ],
+                      "blurb":  "This page defines the intended experiment matrix for wasm build and release optimization work.",
+                      "readTime":  "8 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page defines the intended experiment matrix for wasm build and release optimization work.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when comparing build flags, artifact size, startup cost, compatibility settings, and compression choices so release decisions stay evidence-driven instead of anecdotal.",
+                                                                              "The intended comparison matrix should use a stable set of representative variants."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/wasm-build-experiments.md"
+                                  }
+                  },
+                  {
+                      "id":  57,
+                      "title":  "Wasm Build Profiles and Release Engineering",
+                      "status":  "stable",
+                      "module":  "platform",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "wasm",
+                                   "build",
+                                   "profiles",
+                                   "release"
+                               ],
+                      "blurb":  "This page defines the intended wasm build-profile and release-engineering model for GoWebComponents applications.",
+                      "readTime":  "5 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page defines the intended wasm build-profile and release-engineering model for GoWebComponents applications.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when deciding how local development builds, CI verification builds, benchmark builds, and production release builds should differ, and which production-oriented build flags are the default safe baseline.",
+                                                                              "The intended wasm build profiles are explicit, not one generic `go build` command reused for every job."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/wasm-build-profiles-and-release-engineering.md"
+                                  }
+                  },
+                  {
+                      "id":  58,
+                      "title":  "Worker Guidance",
+                      "status":  "stable",
+                      "module":  "interop",
+                      "type":  "Concept",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "worker",
+                                   "guidance"
+                               ],
+                      "blurb":  "This page documents the current worker model for the public `interop` package.",
+                      "readTime":  "4 min read",
+                      "content":  {
+                                      "kind":  "article",
+                                      "callout":  "This page documents the current worker model for the public `interop` package.",
+                                      "sections":  [
+                                                       {
+                                                           "heading":  "Overview",
+                                                           "paragraphs":  [
+                                                                              "Use it when an app has browser-only CPU-heavy work that should move off the main UI thread without dropping into raw worker wiring from application code.",
+                                                                              "The first-party worker surface is currently limited to dedicated browser `Worker` instances."
+                                                                          ]
+                                                       }
+                                                   ],
+                                      "sourcePath":  "assets/docs/worker-guidance.md"
+                                  }
+                  }
+              ]
 }
+

@@ -1,12 +1,59 @@
 # Logging
 
-This page defines the intended first-class logging surface for GoWebComponents applications and framework integrations.
+This page defines the current first-class logging surface for GoWebComponents applications and framework integrations.
 
 Use it when you need one coherent logging model for runtime, router, fetch, hydration, SSR, interop, worker, and form activity instead of ad hoc `fmt.Println(...)` output.
 
+## At A Glance
+
+- The public `logging` package already ships a small structured logger built around stable scopes, levels, messages, and field maps.
+- `logging.New(scope)` is the normal application entrypoint for emitting scoped `debug`, `info`, `warn`, and `error` events.
+- `logging.AttachBrowserConsole(...)` can wire common browser lifecycle and interaction events into that same structured surface on `js/wasm` builds.
+- Broader redaction, diagnostics, and observability rules still matter because logs are only one part of the framework feedback model.
+
+## Quick API Chooser
+
+Use this rule of thumb:
+
+- choose `logging.New(scope)` when one feature, route, or example needs a reusable scoped logger
+- choose package-level `logging.Log(...)` when you already have a level and scope and do not need a retained logger value
+- choose `AttachBrowserConsole(...)` in browser entrypoints when you want document, navigation, form, resize, rejection, and mount events logged through the same package
+- choose diagnostics or observability hooks alongside logs when the problem is framework degradation, mismatch analysis, or correlation across larger workflows rather than just event sequencing
+
+## Example Shape
+
+```go
+log := logging.New("checkout")
+
+cleanup := logging.AttachBrowserConsole(logging.BrowserConsoleOptions{Scope: "checkout"})
+defer cleanup()
+
+log.Info("checkout mounted", logging.Fields{"route": "/checkout"})
+log.Warn("payment widget slow", logging.Fields{"duration_ms": 420})
+log.Error("submit failed", logging.Fields{"status": 502, "retryable": true})
+```
+
+This is the current intended application shape: one stable scope per feature area, concise messages, structured safe fields, and optional browser-console wiring in `js/wasm` entrypoints.
+
+## Current Public Surface
+
+The current public package is `github.com/monstercameron/GoWebComponents/logging`.
+
+Current entrypoints:
+
+- `logging.New(scope)`
+- `Logger.Scope()`
+- `Logger.Log(...)`
+- `Logger.Debug(...)`
+- `Logger.Info(...)`
+- `Logger.Warn(...)`
+- `Logger.Error(...)`
+- `logging.Log(level, scope, message, fields)`
+- `logging.AttachBrowserConsole(logging.BrowserConsoleOptions{...})`
+
 ## Logger Interface And Domain Model
 
-The intended public logger contract is a structured sink with:
+The public logger contract is a structured sink with:
 
 - `level`: `debug`, `info`, `warn`, or `error`
 - `domain`: stable subsystem name such as `runtime`, `router`, `fetch`, `state`, `hydration`, `ssr`, `interop`, `worker`, or `forms`
@@ -15,7 +62,7 @@ The intended public logger contract is a structured sink with:
 - `correlation_id`: optional request or navigation id
 - `fields`: structured safe key/value attributes
 
-The intended domain rules are:
+Recommended domain rules are:
 
 - `runtime`: render, commit, boundary recovery, and scheduler-owned events
 - `hydration`: mismatch, fallback, resume, and strict-mode failures
@@ -27,7 +74,7 @@ The intended domain rules are:
 - `worker`: worker startup, timeout, restart, progress, and completion events
 - `forms`: validation, submission, redirect, and server-error shaping events
 
-The framework should prefer stable domains and structured fields over embedding operational detail in free-form message text.
+The framework should prefer stable scopes or domains and structured fields over embedding operational detail in free-form message text.
 
 ## Development Versus Production Outputs
 
@@ -112,3 +159,11 @@ These items remain separate backlog work:
 
 - a full project-wide redaction policy shared by logs, diagnostics, and traces
 - richer sink integrations beyond the in-memory and docs-defined model
+
+## Review Checklist
+
+- does application code use a stable scope through `logging.New(...)` instead of scattering unrelated free-form console output
+- are field maps structured and safe instead of dumping raw payloads, secrets, or whole request bodies
+- is `AttachBrowserConsole(...)` only enabled where browser lifecycle and interaction logging is actually useful
+- are logs, diagnostics, and observability concerns kept complementary rather than forcing one channel to explain everything
+- do production-facing logs preserve stable field names that downstream tooling can consume without parsing message text

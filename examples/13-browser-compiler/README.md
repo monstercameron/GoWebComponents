@@ -4,6 +4,12 @@ Location: `examples/13-browser-compiler/`
 
 This example explores running a browser-hosted compilation workflow and associated UI around GoWebComponents.
 
+## Current Status
+
+- This remains an experimental example, not a normal baseline app path.
+- It uses a browser-hosted compiler asset pipeline and a static `index.html` entrypoint rather than the simpler `main.go` pattern used by most examples.
+- It may generate large local package archives under `static/pkg/`, and those generated artifacts should stay out of git.
+
 ## Status
 
 - Experimental example
@@ -26,12 +32,18 @@ generates `static/pkg/index.json`.
 Use the repo dev server from the repo root:
 
 ```powershell
-npm --prefix ../../tools/devtools run dev:examples
+go run ./tools/gwc examples
 ```
 
 Then open:
 
 - `http://127.0.0.1:8090/examples/13-browser-compiler/`
+
+Compatibility path from the repo root:
+
+```powershell
+npm --prefix tools/devtools run dev:examples
+```
 
 ## Local Generated Output
 
@@ -44,4 +56,5 @@ That directory contains generated package archives and metadata. It is ignored a
 ## Notes
 
 - Older docs referenced `go run ../../tools/serve.ps1`. That was incorrect and stale.
+- This example is best treated as a contained experiment around browser-hosted compilation, not as the recommended path for module loading or code generation in normal apps. For the current importer workflow, see `go run ./tools/gwc import ...` in `tools/README.md`.
 - If you are cleaning the repo, verify that generated package archives under `static/pkg/` are not added back to git.
