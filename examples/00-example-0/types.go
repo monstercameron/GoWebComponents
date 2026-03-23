@@ -59,6 +59,7 @@ type contentPanelProps struct {
 	MarkdownLoading bool
 	MarkdownReady   bool
 	MarkdownError   string
+	AnchorScrollID  int
 	OnRetryMarkdown ui.Handler
 }
 
@@ -100,6 +101,7 @@ type detailPanelProps struct {
 	MarkdownLoading bool
 	MarkdownReady   bool
 	MarkdownError   string
+	AnchorScrollID  int
 	OnRetryMarkdown ui.Handler
 }
 

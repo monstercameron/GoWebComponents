@@ -1,5 +1,5 @@
 <style>
-    :root {
+  .api-reference-fragment {
       color-scheme: dark;
       --bg: #07111f;
       --panel: rgba(255,255,255,0.04);
@@ -11,10 +11,13 @@
       --accent-2: #c4b5fd;
       --code: #cffafe;
     }
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
-    body {
+    .api-reference-fragment,
+    .api-reference-fragment * { box-sizing: border-box; }
+    .api-reference-fragment {
+      scroll-behavior: smooth;
+      scrollbar-gutter: stable both-edges;
       margin: 0;
+      overflow-x: clip;
       font-family: Georgia, "Times New Roman", serif;
       background:
         radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 26%),
@@ -23,23 +26,24 @@
       color: var(--text);
       line-height: 1.6;
     }
-    .shell {
-      max-width: 1160px;
+    .api-reference-fragment .shell {
+      max-width: 1240px;
       margin: 0 auto;
-      padding: 32px 20px 72px;
+      padding: 22px 14px 44px;
     }
-    .hero, section {
+    .api-reference-fragment .hero,
+    .api-reference-fragment section {
       border: 1px solid var(--border);
       border-radius: 28px;
       background: var(--panel);
       backdrop-filter: blur(14px);
       box-shadow: 0 24px 60px rgba(0,0,0,0.22);
     }
-    .hero {
-      padding: 28px;
-      margin-bottom: 22px;
+    .api-reference-fragment .hero {
+      padding: 22px;
+      margin-bottom: 16px;
     }
-    .eyebrow {
+    .api-reference-fragment .eyebrow {
       display: inline-block;
       border: 1px solid rgba(125,211,252,0.28);
       background: rgba(34,211,238,0.08);
@@ -51,19 +55,19 @@
       font-size: 11px;
       font-family: Arial, sans-serif;
     }
-    h1 {
+    .api-reference-fragment h1 {
       margin: 16px 0 8px;
       font-size: clamp(2rem, 4vw, 3.5rem);
       line-height: 1.05;
       letter-spacing: -0.03em;
     }
-    h2 {
+    .api-reference-fragment h2 {
       margin: 0;
       font-size: clamp(1.8rem, 3vw, 2.4rem);
       line-height: 1.1;
       letter-spacing: -0.02em;
     }
-    h3 {
+    .api-reference-fragment h3 {
       margin: 0 0 10px;
       font-size: 13px;
       text-transform: uppercase;
@@ -71,38 +75,39 @@
       color: var(--muted);
       font-family: Arial, sans-serif;
     }
-    p, li { color: var(--muted); }
-    .lede { max-width: 78ch; font-size: 1.02rem; }
-    .toc {
+    .api-reference-fragment p,
+    .api-reference-fragment li { color: var(--muted); }
+    .api-reference-fragment .lede { max-width: 78ch; font-size: 1.02rem; }
+    .api-reference-fragment .toc {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 12px;
-      margin-top: 22px;
+      gap: 10px;
+      margin-top: 18px;
     }
-    .toc a {
+    .api-reference-fragment .toc a {
       display: block;
       text-decoration: none;
       color: var(--text);
       border: 1px solid var(--border);
       background: rgba(255,255,255,0.03);
       border-radius: 18px;
-      padding: 14px 16px;
+      padding: 12px 14px;
       font-family: Arial, sans-serif;
       font-size: 14px;
     }
-    .toc a:hover { border-color: rgba(125,211,252,0.35); color: var(--accent); }
-    section {
-      padding: 24px;
-      margin-top: 18px;
+    .api-reference-fragment .toc a:hover { border-color: rgba(125,211,252,0.35); color: var(--accent); }
+    .api-reference-fragment section {
+      padding: 18px;
+      margin-top: 14px;
       scroll-margin-top: 24px;
     }
-    .meta {
+    .api-reference-fragment .meta {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       margin: 14px 0 16px;
     }
-    .pill {
+    .api-reference-fragment .pill {
       border: 1px solid var(--border);
       border-radius: 999px;
       padding: 6px 11px;
@@ -113,25 +118,25 @@
       color: var(--text);
       background: rgba(255,255,255,0.03);
     }
-    .grid {
+    .api-reference-fragment .grid {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 14px;
-      margin-top: 18px;
+      gap: 12px;
+      margin-top: 14px;
     }
-    .guide-grid {
+    .api-reference-fragment .guide-grid {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 14px;
-      margin-top: 18px;
+      gap: 12px;
+      margin-top: 14px;
     }
-    article {
+    .api-reference-fragment article {
       border: 1px solid var(--border);
       border-radius: 22px;
-      padding: 18px;
+      padding: 14px;
       background: rgba(0,0,0,0.14);
     }
-    pre {
+    .api-reference-fragment pre {
       margin: 0;
       white-space: pre-wrap;
       word-break: break-word;
@@ -140,20 +145,20 @@
       font-size: 13px;
       line-height: 1.6;
     }
-    .callout {
-      margin-top: 14px;
+    .api-reference-fragment .callout {
+      margin-top: 12px;
       border: 1px solid rgba(196,181,253,0.22);
       background: rgba(196,181,253,0.08);
       border-radius: 20px;
-      padding: 16px;
+      padding: 13px;
     }
-    .guide-card {
+    .api-reference-fragment .guide-card {
       border: 1px solid var(--border);
       border-radius: 22px;
-      padding: 18px;
+      padding: 14px;
       background: rgba(255,255,255,0.03);
     }
-    .guide-card strong {
+    .api-reference-fragment .guide-card strong {
       display: block;
       margin-bottom: 10px;
       color: var(--text);
@@ -162,92 +167,92 @@
       letter-spacing: 0.14em;
       text-transform: uppercase;
     }
-    .do-card {
+    .api-reference-fragment .do-card {
       border-color: rgba(125,211,252,0.26);
       background: rgba(34,211,238,0.08);
     }
-    .dont-card {
+    .api-reference-fragment .dont-card {
       border-color: rgba(251,191,36,0.22);
       background: rgba(245,158,11,0.08);
     }
-    .pattern-card {
+    .api-reference-fragment .pattern-card {
       border-color: rgba(196,181,253,0.22);
       background: rgba(196,181,253,0.08);
     }
-    .inventory-title {
-      margin-top: 22px;
+    .api-reference-fragment .inventory-title {
+      margin-top: 16px;
       font-size: 12px;
       letter-spacing: 0.16em;
       text-transform: uppercase;
       color: var(--muted);
       font-family: Arial, sans-serif;
     }
-    .example-block {
-      margin-top: 18px;
+    .api-reference-fragment .example-block {
+      margin-top: 14px;
       border: 1px solid rgba(125,211,252,0.2);
       border-radius: 22px;
       background: rgba(7,17,31,0.78);
-      padding: 18px;
+      padding: 14px;
     }
-    .example-grid {
+    .api-reference-fragment .example-grid {
       display: grid;
       grid-template-columns: 1fr;
-      gap: 14px;
-      margin-top: 18px;
+      gap: 12px;
+      margin-top: 14px;
     }
-    .example-good {
+    .api-reference-fragment .example-good {
       border-color: rgba(125,211,252,0.22);
     }
-    .example-bad {
+    .api-reference-fragment .example-bad {
       border-color: rgba(251,191,36,0.22);
       background: rgba(38,24,6,0.85);
     }
-    .example-block p {
+    .api-reference-fragment .example-block p {
       margin-top: 0;
     }
-    .warning-list,
-    .check-list {
+    .api-reference-fragment .warning-list,
+    .api-reference-fragment .check-list {
       margin: 0;
       padding-left: 18px;
     }
-    .guide-stack {
+    .api-reference-fragment .guide-stack {
       display: grid;
-      gap: 12px;
-      margin-top: 18px;
+      gap: 10px;
+      margin-top: 14px;
     }
-    .snippet-note {
-      margin-top: 18px;
+    .api-reference-fragment .snippet-note {
+      margin-top: 14px;
       border: 1px solid rgba(125,211,252,0.22);
       border-radius: 20px;
-      padding: 14px 16px;
+      padding: 12px 14px;
       background: rgba(34,211,238,0.06);
     }
-    .api-list {
+    .api-reference-fragment .api-list {
       display: grid;
-      gap: 12px;
+      gap: 10px;
     }
-    .api-item {
+    .api-reference-fragment .api-item {
       border: 1px solid var(--border);
       border-radius: 18px;
-      padding: 14px 16px;
+      padding: 12px 14px;
       background: rgba(255,255,255,0.03);
     }
-    .api-item h4 {
+    .api-reference-fragment .api-item h4 {
       margin: 0 0 8px;
       color: var(--text);
       font-size: 15px;
       line-height: 1.3;
     }
-    .api-item p {
+    .api-reference-fragment .api-item p {
       margin: 0 0 12px;
       font-size: 14px;
     }
-    .api-note {
+    .api-reference-fragment .api-note {
       margin: 0 0 8px;
       font-size: 13px;
       line-height: 1.55;
     }
-    .api-label {
+    .api-reference-fragment .api-label {
       display: inline-block;
       margin-right: 8px;
       color: var(--accent);
@@ -256,50 +261,50 @@
       letter-spacing: 0.14em;
       text-transform: uppercase;
     }
-    .api-item dl {
+    .api-reference-fragment .api-item dl {
       margin: 0;
       display: grid;
       grid-template-columns: 1fr;
       gap: 6px 12px;
       align-items: start;
     }
-    .api-item dt {
+    .api-reference-fragment .api-item dt {
       color: var(--accent);
       font-family: Consolas, "Courier New", monospace;
       font-size: 12px;
     }
-    .api-item dd {
+    .api-reference-fragment .api-item dd {
       margin: 0;
       color: var(--muted);
       font-size: 13px;
       line-height: 1.55;
     }
     @media (max-width: 1100px) {
-      .shell {
+      .api-reference-fragment .shell {
         max-width: none;
-        padding: 20px 10px 40px;
+        padding: 14px 8px 26px;
       }
-      .hero {
-        padding: 20px;
-        margin-bottom: 16px;
+      .api-reference-fragment .hero {
+        padding: 16px;
+        margin-bottom: 12px;
       }
-      section {
-        padding: 18px;
-        margin-top: 14px;
+      .api-reference-fragment section {
+        padding: 14px;
+        margin-top: 10px;
       }
     }
     @media (max-width: 820px) {
-      .shell {
-        padding: 14px 6px 28px;
+      .api-reference-fragment .shell {
+        padding: 10px 4px 18px;
       }
-      .hero {
-        padding: 16px;
+      .api-reference-fragment .hero {
+        padding: 12px;
       }
-      section {
-        padding: 14px;
+      .api-reference-fragment section {
+        padding: 10px;
       }
     }
-    code { color: var(--code); }
+    .api-reference-fragment code { color: var(--code); }
   </style>
 <div class="shell">
     <div class="hero">

@@ -3,12 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>example-0 - GoWebComponents</title>
+    <title>GoWebComponents Docs, APIs, and Examples</title>
     <link rel="stylesheet" href="../static/css/tailwind.css">
     <link rel="stylesheet" href="../static/css/example-shell.css">
     <script src="../static/script/wasm_exec.js"></script>
     <script src="../static/script/example-logger.js"></script>
     <style>
+        html {
+            scrollbar-gutter: stable;
+        }
+
+        .scrollbar-stable {
+            scrollbar-gutter: stable;
+        }
+
         #boot-shell {
             position: fixed;
             inset: 0;
@@ -88,7 +96,7 @@
 <body class="bg-[#08111d] text-white min-h-screen example-shell">
     <div id="boot-shell" data-state="loading" data-indeterminate="true" aria-live="polite">
         <div id="boot-shell-card">
-            <div class="text-xs uppercase tracking-[0.18em] text-cyan-200">Example 0 bootstrap</div>
+            <div class="text-xs uppercase tracking-[0.18em] text-cyan-200">GoWebComponents runtime</div>
             <h1 class="mt-3 text-3xl font-semibold tracking-tight text-white">Loading GoWebComponents client</h1>
             <p id="boot-status" class="mt-3 text-sm leading-7 text-slate-300">Preparing WebAssembly runtime...</p>
             <div class="mt-5 flex items-center justify-between gap-3 text-xs uppercase tracking-[0.18em] text-slate-400">

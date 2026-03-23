@@ -7,8 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
+	"syscall/js"
 
 	"github.com/monstercameron/GoWebComponents/fetch"
 	"github.com/monstercameron/GoWebComponents/utils"
@@ -24,7 +26,34 @@ func docsSourceURL(sourcePath string) string {
 	if sourcePath == "" {
 		return ""
 	}
-	return utils.ResolveDocumentURL(sourcePath)
+	return appendPageVersion(utils.ResolveDocumentURL(sourcePath))
+}
+
+func appendPageVersion(resolvedURL string) string {
+	if strings.TrimSpace(resolvedURL) == "" {
+		return ""
+	}
+	window := js.Global().Get("window")
+	if window.IsUndefined() || window.IsNull() {
+		return resolvedURL
+	}
+	search := window.Get("location").Get("search")
+	if search.IsUndefined() || search.IsNull() {
+		return resolvedURL
+	}
+	pageParams := js.Global().Get("URLSearchParams").New(search.String())
+	pageVersion := strings.TrimSpace(pageParams.Call("get", "v").String())
+	if pageVersion == "" {
+		return resolvedURL
+	}
+	parsedURL, err := url.Parse(resolvedURL)
+	if err != nil {
+		return resolvedURL
+	}
+	query := parsedURL.Query()
+	query.Set("v", pageVersion)
+	parsedURL.RawQuery = query.Encode()
+	return parsedURL.String()
 }
 
 // decodeCatalogJSON validates the fetched JSON payload before the UI reads from it.

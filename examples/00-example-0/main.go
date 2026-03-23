@@ -6,11 +6,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"syscall/js"
 	"time"
 
 	"github.com/monstercameron/GoWebComponents/fetch"
 	. "github.com/monstercameron/GoWebComponents/html/shorthand"
 	"github.com/monstercameron/GoWebComponents/internal/runtime"
+	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/logging"
 	"github.com/monstercameron/GoWebComponents/ui"
 	"github.com/monstercameron/GoWebComponents/utils"
@@ -80,7 +82,7 @@ func renderCatalogFetchState(title, message, buttonLabel string, onRetry ui.Hand
 					renderLoadingSpinner(),
 					Div(Class("rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan-100"), Text("Fetching catalog")),
 				),
-				Div(Class("text-xs uppercase tracking-[0.18em] text-cyan-200"), Text("Example 0 data pipeline")),
+				Div(Class("text-xs uppercase tracking-[0.18em] text-cyan-200"), Text("GoWebComponents docs surface")),
 				H1(Class("mt-3 text-3xl font-semibold tracking-tight text-white"), Text(title)),
 				P(Class("mt-3 text-sm leading-7 text-slate-300"), Text(message)),
 				Div(Class("mt-5 flex flex-wrap gap-3"),
@@ -183,7 +185,7 @@ func renderConceptArticle(panelProps contentPanelProps) ui.Node {
 			Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(panelProps.Item.Blurb)),
 		)
 	}
-	return Div(Class("flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-4 shadow-inner shadow-black/20"),
+	return Div(Class("min-w-0 flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-4 shadow-inner shadow-black/20"),
 		Div(Class("border-b border-white/10 pb-3"),
 			Div(Class("text-sm font-medium text-white"), Text(labelConceptArticle)),
 			Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelMarkdownWriteup)),
@@ -227,7 +229,7 @@ func renderAPIReference(panelProps contentPanelProps) ui.Node {
 	noteNodes := Map(panelProps.Item.Content.Notes, func(note string) ui.Node {
 		return Li(Text(note))
 	})
-	return Div(Class("flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-4 shadow-inner shadow-black/20"),
+	return Div(Class("min-w-0 flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-4 shadow-inner shadow-black/20"),
 		Div(Class("border-b border-white/10 pb-3"),
 			Div(Class("text-sm font-medium text-white"), Text(labelAPIReference)),
 			Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelStructuredDocs)),
@@ -311,7 +313,7 @@ func renderCounterExample(panelProps contentPanelProps) ui.Node {
 		return Li(Text(tip))
 	})
 	controlButtonClass := "rounded-2xl border border-white/15 bg-black/20 px-4 py-2 text-sm font-medium text-white transition hover:bg-black/30"
-	return Div(Class("flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-4 shadow-inner shadow-black/20"),
+	return Div(Class("min-w-0 flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-4 shadow-inner shadow-black/20"),
 		Div(Class("border-b border-white/10 pb-3"),
 			Div(Class("text-sm font-medium text-white"), Text(labelInteractiveExample)),
 			Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelReactiveDemoSurface)),
@@ -365,17 +367,89 @@ func renderDisplaySurface(panelProps contentPanelProps, hasSelectedItem bool) ui
 
 // renderCatalogHero renders the top summary banner and primary CTA actions.
 func renderCatalogHero(props catalogHeroProps) ui.Node {
-	return Header(Class("relative overflow-hidden rounded-[24px] border border-white/10 bg-white/5 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-6"),
+	repoURL := "https://github.com/monstercameron/GoWebComponents"
+	cloneCommand := "git clone https://github.com/monstercameron/GoWebComponents.git"
+	copyCloneCommand := ui.UseEvent(func() {
+		document := js.Global().Get("document")
+		if document.IsUndefined() || document.IsNull() {
+			return
+		}
+		button := document.Call("getElementById", "repo-clone-copy-button")
+		icon := document.Call("getElementById", "repo-clone-copy-icon")
+		status := document.Call("getElementById", "repo-clone-copy-status")
+		if !button.IsUndefined() && !button.IsNull() {
+			button.Get("classList").Call("add", "scale-110", "border-cyan-300/40", "bg-cyan-400/15", "text-cyan-100", "shadow-lg", "shadow-cyan-950/30")
+		}
+		if !icon.IsUndefined() && !icon.IsNull() {
+			icon.Get("style").Set("transform", "scale(1.18) rotate(-8deg)")
+		}
+		if !status.IsUndefined() && !status.IsNull() {
+			status.Set("textContent", "Copied git clone command")
+			status.Get("classList").Call("remove", "hidden")
+		}
+		clipboard := js.Global().Get("navigator").Get("clipboard")
+		if !clipboard.IsUndefined() && !clipboard.IsNull() && clipboard.Get("writeText").Type() == js.TypeFunction {
+			clipboard.Call("writeText", cloneCommand)
+		} else if !status.IsUndefined() && !status.IsNull() {
+			status.Set("textContent", "Clipboard unavailable")
+		}
+		_, _ = context.Background(), cloneCommand
+		if button.IsUndefined() || button.IsNull() {
+			return
+		}
+		buttonValue := button
+		iconValue := icon
+		statusValue := status
+		_, _ = js.Global(), statusValue
+		_, _ = interop.SetTimeout(420*time.Millisecond, func() {
+			buttonValue.Get("classList").Call("remove", "scale-110", "border-cyan-300/40", "bg-cyan-400/15", "text-cyan-100", "shadow-lg", "shadow-cyan-950/30")
+			if !iconValue.IsUndefined() && !iconValue.IsNull() {
+				iconValue.Get("style").Set("transform", "scale(1) rotate(0deg)")
+			}
+		})
+		_, _ = interop.SetTimeout(1800*time.Millisecond, func() {
+			if !statusValue.IsUndefined() && !statusValue.IsNull() {
+				statusValue.Set("textContent", "")
+				statusValue.Get("classList").Call("add", "hidden")
+			}
+		})
+	})
+
+	return Header(Class("relative overflow-hidden rounded-[24px] border border-white/10 bg-white/5 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-5"),
 		Div(Class("absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),transparent_35%,rgba(255,255,255,0.03))]")),
+		Div(Class("pointer-events-none absolute -left-12 top-0 h-44 w-44 rounded-full bg-cyan-400/12 blur-3xl")),
+		Div(Class("pointer-events-none absolute right-0 top-8 h-40 w-40 rounded-full bg-sky-300/10 blur-3xl")),
 		Div(Class("relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between"),
-			Div(Class("max-w-3xl space-y-3"),
-				Div(Class("inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-cyan-200"),
-					Span(Class("h-2 w-2 rounded-full bg-cyan-300")),
-					Text("Docs • APIs • Demos"),
+			Div(Class("max-w-4xl space-y-4"),
+				Div(Class("flex flex-wrap items-center gap-2"),
+					Div(Class("inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-cyan-200"),
+						Span(Class("h-2 w-2 rounded-full bg-cyan-300")),
+						Text("Go + WebAssembly UI Framework"),
+					),
+					A(
+						FromProps(Props{Href: repoURL, Target: "_blank", Rel: "noreferrer noopener", Class: "inline-flex items-center rounded-full border border-white/10 bg-slate-950/35 px-3 py-1 font-mono text-[11px] text-slate-300 transition hover:border-cyan-300/30 hover:text-cyan-100"}),
+						Text("github.com/monstercameron/GoWebComponents"),
+					),
+					Button(
+						ID("repo-clone-copy-button"),
+						Type("button"),
+						Title("Copy git clone command"),
+						OnClick(copyCloneCommand),
+						Class("inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-slate-950/35 text-slate-300 transition duration-300 hover:border-cyan-300/30 hover:text-cyan-100"),
+						Span(ID("repo-clone-copy-icon"), Class("text-sm leading-none transition duration-300"), Text("⧉")),
+					),
+					Span(ID("repo-clone-copy-status"), Class("hidden items-center rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-cyan-100")),
 				),
-				Div(Class("space-y-2"),
-					H1(Class("text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl"), Text("GoWebComponents docs, APIs, and live wasm examples")),
-					P(Class("max-w-2xl text-sm leading-6 text-slate-300 sm:text-base sm:leading-7"), Text("Concept guides explain the package model, API panes stay copy-pasteable for Go authors, and example panels behave like the real GoWebComponents catalog instead of static mockups.")),
+				Div(Class("space-y-3"),
+					H1(Class("max-w-3xl text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl"), Text("Build browser UI in Go with GoWebComponents")),
+					P(Class("max-w-3xl text-sm leading-6 text-slate-300 sm:text-base sm:leading-7"), Text("A Go-first UI framework for teams that want typed HTML builders, React-style hooks, shared state, routing, fetch flows, and SSR or hydration support without splitting rendering into a separate frontend stack.")),
+					P(Class("max-w-2xl text-xs uppercase tracking-[0.22em] text-slate-400 sm:text-[13px]"), Text("One Go codebase. Client rendering, docs, examples, and browser behavior in the same system.")),
+				),
+				Div(Class("flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.18em] text-slate-300 sm:text-xs"),
+					Span(Class("rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 text-cyan-100"), Text("React-style hooks")),
+					Span(Class("rounded-full border border-white/10 bg-white/5 px-3 py-1.5"), Text("Typed HTML builders")),
+					Span(Class("rounded-full border border-white/10 bg-white/5 px-3 py-1.5"), Text("Router + state + fetch")),
+					Span(Class("rounded-full border border-white/10 bg-white/5 px-3 py-1.5"), Text("SSR + hydration")),
 				),
 				Div(Class("flex flex-wrap gap-2"),
 					Button(Type("button"), OnClick(props.OnBrowseExamples), Class("cursor-pointer rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0"), Text(buttonBrowseExamples)),
@@ -394,8 +468,8 @@ func renderCatalogHero(props catalogHeroProps) ui.Node {
 
 // renderCatalogSidebar renders the search, filters, and result list.
 func renderCatalogSidebar(props catalogSidebarProps) ui.Node {
-	return Section(Class("flex min-h-[420px] flex-col rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-xl lg:sticky lg:top-3 lg:h-[calc(100vh-1.5rem)] lg:w-[34%] xl:w-[31%]"),
-		Div(Class("sticky top-0 z-10 border-b border-white/10 bg-slate-950/60 p-3 backdrop-blur-xl sm:p-4"),
+	return Section(Class("min-w-0 flex min-h-[420px] flex-col rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-xl lg:sticky lg:top-3 lg:h-[calc(100vh-1.5rem)] lg:w-[34%] lg:flex-none xl:w-[31%]"),
+		Div(Class("sticky top-0 z-10 border-b border-white/10 bg-slate-950/60 p-2.5 backdrop-blur-xl sm:p-3"),
 			Div(Class("flex flex-col gap-2"),
 				Div(Class("flex flex-col gap-2 sm:flex-row sm:items-center"),
 					Div(Class("relative flex-1"),
@@ -437,7 +511,7 @@ func renderCatalogSidebar(props catalogSidebarProps) ui.Node {
 				),
 			),
 		),
-		Div(Class("min-h-0 flex-1 overflow-y-auto p-2 sm:p-3"),
+		Div(Class("scrollbar-stable min-h-0 flex-1 overflow-y-auto p-1.5 sm:p-2"),
 			Div(Class("space-y-2"), props.ItemNodes),
 		),
 	)
@@ -445,8 +519,8 @@ func renderCatalogSidebar(props catalogSidebarProps) ui.Node {
 
 // renderDetailPanel renders the selected item header and its detail surface.
 func renderDetailPanel(props detailPanelProps) ui.Node {
-	return Section(Class("flex min-h-[420px] flex-1 flex-col rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-xl lg:sticky lg:top-3 lg:h-[calc(100vh-1.5rem)]"),
-		Div(Class("sticky top-0 z-10 border-b border-white/10 bg-slate-950/60 p-4 backdrop-blur-xl sm:p-5"),
+	return Section(Class("min-w-0 flex min-h-[420px] flex-1 flex-col rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-xl lg:sticky lg:top-3 lg:h-[calc(100vh-1.5rem)]"),
+		Div(Class("sticky top-0 z-10 border-b border-white/10 bg-slate-950/60 p-3 backdrop-blur-xl sm:p-4"),
 			IfElse(props.HasSelectedItem,
 				Fragment(
 					Div(Class("flex flex-wrap items-center gap-3"),
@@ -463,7 +537,7 @@ func renderDetailPanel(props detailPanelProps) ui.Node {
 				),
 			),
 		),
-		Div(ID("demo"), Class("min-h-0 flex-1 overflow-y-auto p-3 sm:p-4"), renderDisplaySurface(contentPanelProps{Item: props.SelectedItem, MarkdownBody: props.MarkdownBody, MarkdownLoading: props.MarkdownLoading, MarkdownReady: props.MarkdownReady, MarkdownError: props.MarkdownError, OnRetryMarkdown: props.OnRetryMarkdown}, props.HasSelectedItem)),
+		Div(ID("demo"), Class("scrollbar-stable min-w-0 min-h-0 flex-1 overflow-y-auto p-2 sm:p-3"), renderDisplaySurface(contentPanelProps{Item: props.SelectedItem, MarkdownBody: props.MarkdownBody, MarkdownLoading: props.MarkdownLoading, MarkdownReady: props.MarkdownReady, MarkdownError: props.MarkdownError, OnRetryMarkdown: props.OnRetryMarkdown}, props.HasSelectedItem)),
 	)
 }
 
@@ -507,6 +581,8 @@ func renderDocsDemosSite() ui.Node {
 	selectedModuleFilter := ui.UseState(allFilterValue)
 	selectedSortOrder := ui.UseState(sortRelevance)
 	selectedItemID := ui.UseState(0)
+	anchorScrollItemID := ui.UseState(0)
+	anchorScrollRequestID := ui.UseState(0)
 
 	updateSearchQuery := ui.UseEvent(func(event ui.InputEvent) {
 		searchQuery.Set(event.GetValue())
@@ -564,6 +640,8 @@ func renderDocsDemosSite() ui.Node {
 		// Keep selection aligned with the filtered list so the detail panel never points at a stale item.
 		if len(filteredItems) == 0 {
 			selectedItemID.Set(0)
+			anchorScrollItemID.Set(0)
+			clearRequestedDemoAnchor()
 			log.Info("selection cleared", map[string]interface{}{"reason": "no filtered items"})
 			return nil
 		}
@@ -574,6 +652,8 @@ func renderDocsDemosSite() ui.Node {
 			}
 		}
 		selectedItemID.Set(filteredItems[0].ID)
+		anchorScrollItemID.Set(0)
+		clearRequestedDemoAnchor()
 		log.Info("selection repaired", map[string]interface{}{"selectedItemID": filteredItems[0].ID})
 		return nil
 	}, filteredItemsSignature(filteredItems), selectedItemID.Get())
@@ -610,10 +690,12 @@ func renderDocsDemosSite() ui.Node {
 	}, selectedDocURL, markdownRequest.Loading, markdownRequest.Ready, markdownRequest.Stale, errorString(markdownRequest.Error), len(markdownRequest.Value), selectedItemID.Get())
 	browseExamples := ui.UseEvent(func() {
 		activeTypeFilter.Set(kindExample)
+		clearRequestedDemoAnchor()
 		log.Info("quick filter selected", map[string]interface{}{"type": kindExample})
 	})
 	inspectPackageAPIs := ui.UseEvent(func() {
 		activeTypeFilter.Set(kindAPI)
+		clearRequestedDemoAnchor()
 		log.Info("quick filter selected", map[string]interface{}{"type": kindAPI})
 	})
 	ui.UseEffect(func() func() {
@@ -638,6 +720,7 @@ func renderDocsDemosSite() ui.Node {
 		)
 		return Button(Type("button"), OnClick(ui.UseEvent(func() {
 			activeTypeFilter.Set(filterValue)
+			clearRequestedDemoAnchor()
 			log.Info("type filter updated", map[string]interface{}{"type": filterValue})
 		})), Class(buttonClass), Text(filterValue))
 	})
@@ -646,6 +729,13 @@ func renderDocsDemosSite() ui.Node {
 		selectedCardID := item.ID
 		return renderItemCard(item, hasSelectedItem && selectedCatalogItem.ID == item.ID, ui.UseEvent(func() {
 			selectedItemID.Set(selectedCardID)
+			anchorScrollItemID.Set(selectedCardID)
+			anchorScrollRequestID.Set(anchorScrollRequestID.Get() + 1)
+			if item.Content.AnchorID != "" {
+				setRequestedDemoAnchor(item.Content.AnchorID)
+			} else {
+				clearRequestedDemoAnchor()
+			}
 			log.Info("catalog card clicked", map[string]interface{}{"itemID": selectedCardID, "title": item.Title})
 		}))
 	})
@@ -666,12 +756,16 @@ func renderDocsDemosSite() ui.Node {
 			return renderCatalogFetchState("Catalog request failed", catalogErrorMessage, "Retry request", retryCatalogLoad)
 		}).
 		Default(func() ui.Node {
+			anchorScrollID := 0
+			if hasSelectedItem && anchorScrollItemID.Get() == selectedCatalogItem.ID {
+				anchorScrollID = anchorScrollRequestID.Get()
+			}
 			return Div(Class("min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.20),transparent_28%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.18),transparent_24%),linear-gradient(180deg,#07111f_0%,#091427_40%,#0b1020_100%)] text-slate-100"),
-				Div(Class("mx-auto flex min-h-screen max-w-7xl flex-col px-3 py-3 sm:px-4 sm:py-4 lg:px-5"),
+				Div(Class("mx-auto flex min-h-screen w-full max-w-[96rem] flex-col px-2 py-2 sm:px-3 sm:py-3 lg:px-4"),
 					ui.Component(renderCatalogHero, catalogHeroProps{OnBrowseExamples: browseExamples, OnInspectAPIs: inspectPackageAPIs, TotalItems: len(catalogRequest.Value.Items), ExampleCount: countItemsByType(catalogRequest.Value.Items, kindExample), APICount: countItemsByType(catalogRequest.Value.Items, kindAPI)}),
-					Main(Class("mt-3 flex flex-1 flex-col gap-3 lg:min-h-0 lg:flex-row"),
+					Main(Class("mt-2 flex w-full flex-1 flex-col gap-2 lg:min-h-0 lg:flex-row"),
 						ui.Component(renderCatalogSidebar, catalogSidebarProps{SearchQuery: searchQuery.Get(), ResultCount: len(filteredItems), HasActiveFilters: hasActiveFilters, Statuses: catalogRequest.Value.Statuses, Levels: catalogRequest.Value.Levels, Modules: catalogRequest.Value.Modules, SortOptions: catalogRequest.Value.SortOptions, FilterButtons: filterButtons, SelectedStatusFilter: selectedStatusFilter.Get(), SelectedLevelFilter: selectedLevelFilter.Get(), SelectedModuleFilter: selectedModuleFilter.Get(), SelectedSortOrder: selectedSortOrder.Get(), ItemNodes: itemNodes, OnSearchInput: updateSearchQuery, OnStatusChange: updateStatusFilter, OnLevelChange: updateLevelFilter, OnModuleChange: updateModuleFilter, OnSortChange: updateSortOrder, OnResetFilters: resetFilters}),
-						ui.Component(renderDetailPanel, detailPanelProps{SelectedItem: selectedCatalogItem, HasSelectedItem: hasSelectedItem, MarkdownBody: markdownRequest.Value, MarkdownLoading: markdownRequest.Loading, MarkdownReady: markdownRequest.Ready, MarkdownError: errorString(markdownRequest.Error), OnRetryMarkdown: retryMarkdownLoad}),
+						ui.Component(renderDetailPanel, detailPanelProps{SelectedItem: selectedCatalogItem, HasSelectedItem: hasSelectedItem, MarkdownBody: markdownRequest.Value, MarkdownLoading: markdownRequest.Loading, MarkdownReady: markdownRequest.Ready, MarkdownError: errorString(markdownRequest.Error), AnchorScrollID: anchorScrollID, OnRetryMarkdown: retryMarkdownLoad}),
 					),
 				),
 			)

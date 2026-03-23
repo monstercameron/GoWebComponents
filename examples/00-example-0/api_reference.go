@@ -16,7 +16,20 @@ import (
 
 const innerHTMLProperty = "__gwc_prop__:innerHTML"
 const activeDemoAnchorProperty = "__gwc_active_demo_anchor__"
+const demoAnchorScrollRequestProperty = "__gwc_demo_anchor_scroll_request__"
 const apiReferenceSearchProperty = "__gwc_api_reference_search__"
+
+func setRequestedDemoAnchor(anchorID string) {
+	window := js.Global().Get("window")
+	if window.IsUndefined() || window.IsNull() {
+		return
+	}
+	window.Set(demoAnchorScrollRequestProperty, anchorID)
+}
+
+func clearRequestedDemoAnchor() {
+	setRequestedDemoAnchor("")
+}
 
 func findScrollableAncestor(target js.Value) js.Value {
 	if target.IsUndefined() || target.IsNull() {
@@ -57,6 +70,10 @@ func scrollToDemoAnchor(anchorID string, ready bool, body string) {
 		}
 		window := js.Global().Get("window")
 		if window.IsUndefined() || window.IsNull() {
+			return nil
+		}
+		requestedAnchor := window.Get(demoAnchorScrollRequestProperty)
+		if requestedAnchor.IsUndefined() || requestedAnchor.IsNull() || requestedAnchor.String() != anchorID {
 			return nil
 		}
 		window.Set(activeDemoAnchorProperty, anchorID)
@@ -243,26 +260,26 @@ func renderGroupedAPIReference(panelProps contentPanelProps) ui.Node {
 	scrollToDemoAnchor(panelProps.Item.Content.AnchorID, panelProps.MarkdownReady, panelProps.MarkdownBody)
 	filterAPIReferenceSections(apiSearchQuery.Get(), panelProps.MarkdownReady, panelProps.MarkdownBody)
 
-	return Div(Class("flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-4 shadow-inner shadow-black/20"),
-		Div(Class("border-b border-white/10 pb-3"),
+	return Div(Class("min-w-0 flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-3 shadow-inner shadow-black/20"),
+		Div(Class("border-b border-white/10 pb-2"),
 			Div(Class("text-sm font-medium text-white"), Text(labelAPIReference)),
 			Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text("Catalog-owned grouped API reference document")),
 		),
-		Div(Class("mt-4 rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
+		Div(Class("mt-3 rounded-[20px] border border-white/10 bg-white/[0.04] p-3"),
 			Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelReferenceSearch)),
 			Input(
 				Value(apiSearchQuery.Get()),
 				OnInput(updateAPISearchQuery),
 				Placeholder(messageReferenceSearch),
-				Class("mt-3 w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 transition focus:border-cyan-300/40 focus:bg-slate-950/60"),
+				Class("mt-2 w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 transition focus:border-cyan-300/40 focus:bg-slate-950/60"),
 			),
 		),
-		Div(Class("mt-4 rounded-[22px] border border-violet-400/20 bg-violet-400/10 p-4"),
+		Div(Class("mt-3 rounded-[22px] border border-violet-400/20 bg-violet-400/10 p-3"),
 			Div(Class("text-xs uppercase tracking-[0.18em] text-violet-200"), Text("Reference scope")),
-			P(Class("mt-3 text-sm leading-7 text-violet-50"), Text("This API group is defined in the catalog and resolves to a shared HTML reference fragment. Selecting a card fetches the fragment into this surface and then scrolls to the matching section anchor.")),
-			Div(Class("mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-cyan-100"), Text(apiReferenceDocumentURL(panelProps.Item))),
+			P(Class("mt-2 text-sm leading-7 text-violet-50"), Text("This API group is defined in the catalog and resolves to a shared HTML reference fragment. Selecting a card fetches the fragment into this surface and then scrolls to the matching section anchor.")),
+			Div(Class("mt-2 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-sm leading-6 text-cyan-100 break-all"), Text(apiReferenceDocumentURL(panelProps.Item))),
 		),
-		Div(Class("mt-4 min-h-[72vh] rounded-[22px] border border-white/10 bg-[#08111f] p-3"),
+		Div(Class("mt-3 min-h-[72vh] rounded-[22px] border border-white/10 bg-[#08111f] p-2"),
 			renderInjectedHTMLFragment("api-reference-fragment", panelProps.MarkdownBody),
 		),
 	)
