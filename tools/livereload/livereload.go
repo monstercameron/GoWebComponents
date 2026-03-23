@@ -47,6 +47,7 @@ var (
 	}
 	livereloadConfigGetwd       = os.Getwd
 	livereloadConfigUserHomeDir = os.UserHomeDir
+	livereloadExecutablePath    = os.Executable
 )
 
 func livereloadRunnerConfigFS() runnerconfig.FS {
@@ -288,6 +289,12 @@ func (lrs *LiveReloadServer) newHTTPHandler() http.Handler {
 	if lrs.staticDir != "" {
 		staticFileServer := http.StripPrefix("/static/", http.FileServer(http.Dir(lrs.staticDir)))
 		mux.Handle("/static/", staticFileServer)
+	}
+	servedWASMPath := lrs.servedWASMPath()
+	if servedWASMPath != "" {
+		mux.HandleFunc(servedWASMPath, func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, lrs.outputPath)
+		})
 	}
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
@@ -1307,16 +1314,35 @@ func resolveClientScriptPath() string {
 	if configured := resolveConfiguredClientScriptPath(); configured != "" {
 		return configured
 	}
-	if exe, err := os.Executable(); err == nil && exe != "" {
-		candidate := filepath.Join(filepath.Dir(exe), "scripts", "livereload-client.js")
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate
+	if exe, err := livereloadExecutablePath(); err == nil && exe != "" {
+		baseDir := filepath.Dir(exe)
+		if resolved := firstExistingPath(
+			filepath.Join(baseDir, "scripts", "livereload-client.js"),
+			filepath.Join(baseDir, "tools", "livereload", "scripts", "livereload-client.js"),
+			filepath.Join(baseDir, "..", "..", "..", "tools", "livereload", "scripts", "livereload-client.js"),
+		); resolved != "" {
+			return resolved
 		}
 	}
-	if cwd, err := os.Getwd(); err == nil {
-		candidate := filepath.Join(cwd, "scripts", "livereload-client.js")
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate
+	if cwd, err := livereloadConfigGetwd(); err == nil {
+		if resolved := firstExistingPath(
+			filepath.Join(cwd, "scripts", "livereload-client.js"),
+			filepath.Join(cwd, "tools", "livereload", "scripts", "livereload-client.js"),
+		); resolved != "" {
+			return resolved
+		}
+	}
+	return ""
+}
+
+func firstExistingPath(candidates ...string) string {
+	for _, candidate := range candidates {
+		if strings.TrimSpace(candidate) == "" {
+			continue
+		}
+		cleanCandidate := filepath.Clean(candidate)
+		if _, err := os.Stat(cleanCandidate); err == nil {
+			return cleanCandidate
 		}
 	}
 	return ""

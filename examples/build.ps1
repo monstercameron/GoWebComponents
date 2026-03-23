@@ -87,13 +87,14 @@ if (-not (Test-Path $binDir)) {
     Write-Host "[OK] Created bin directory" -ForegroundColor Green
 }
 
-# Discover all example directories (numbered pattern)
-$exampleDirs = Get-ChildItem -Path $scriptDir -Directory | 
-    Where-Object { $_.Name -match '^\d{2}-' } | 
+# Discover all example directories plus standalone wasm site apps that must ship with Pages.
+$specialExampleDirs = @('gwc-examples-site')
+$exampleDirs = Get-ChildItem -Path $scriptDir -Directory |
+    Where-Object { $_.Name -match '^\d{2}-' -or $specialExampleDirs -contains $_.Name } |
     Sort-Object Name
 
 if ($exampleDirs.Count -eq 0) {
-    Write-Host "[ERROR] No example directories found matching pattern '##-*'" -ForegroundColor Red
+    Write-Host "[ERROR] No example directories found matching the configured build set" -ForegroundColor Red
     Restore-BuildEnvironment
     exit 1
 }

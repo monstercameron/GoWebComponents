@@ -68,7 +68,7 @@ jobs:
           New-Item -ItemType Directory -Path $pagesStaticBinDir -Force | Out-Null
           Get-ChildItem -Path $builtExamplesDir -Filter '*.wasm' | Copy-Item -Destination $pagesStaticBinDir -Force
 
-          foreach ($requiredBinary in @('example-0.wasm', 'counter.wasm')) {
+          foreach ($requiredBinary in @('example-0.wasm', 'counter.wasm', 'gwc-examples-site.wasm')) {
             $requiredPath = Join-Path $pagesStaticBinDir $requiredBinary
             if (-not (Test-Path $requiredPath)) {
               throw "Required Pages binary missing after staging: $requiredPath"

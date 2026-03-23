@@ -33,9 +33,9 @@ popd >/dev/null
 
 mkdir -p "$BIN_DIR"
 
-mapfile -t EXAMPLE_DIRS < <(find "$SCRIPT_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | grep -E '^[0-9]{2}-' | sort)
+mapfile -t EXAMPLE_DIRS < <(find "$SCRIPT_DIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | grep -E '(^[0-9]{2}-|^gwc-examples-site$)' | sort)
 if [[ ${#EXAMPLE_DIRS[@]} -eq 0 ]]; then
-  echo "[ERROR] No example directories found matching pattern '##-*'" >&2
+  echo "[ERROR] No example directories found matching the configured build set" >&2
   exit 1
 fi
 

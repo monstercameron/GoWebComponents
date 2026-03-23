@@ -320,3 +320,87 @@ func TestNewHTTPHandlerReturnsNotFoundWithoutStaticDir(t *testing.T) {
 		t.Fatalf("expected empty static dir when none exist, got %q", server.staticDir)
 	}
 }
+
+func TestNewHTTPHandlerServesResolvedWasmOutsideProjectRoot(t *testing.T) {
+	workspaceDir := t.TempDir()
+	projectRoot := filepath.Join(workspaceDir, "examples", "98-hot-reload")
+	outputPath := filepath.Join(workspaceDir, "bin", "examples", "98-hot-reload", "main.wasm")
+	if err := os.MkdirAll(projectRoot, 0o755); err != nil {
+		t.Fatalf("failed to create project root: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
+		t.Fatalf("failed to create wasm output dir: %v", err)
+	}
+	const wasmBody = "wasm-bytes"
+	if err := os.WriteFile(outputPath, []byte(wasmBody), 0o644); err != nil {
+		t.Fatalf("failed to write wasm output: %v", err)
+	}
+
+	server := &LiveReloadServer{
+		projectRoot: projectRoot,
+		outputPath:  outputPath,
+	}
+
+	req := httptest.NewRequest("GET", "/main.wasm", nil)
+	recorder := httptest.NewRecorder()
+	server.newHTTPHandler().ServeHTTP(recorder, req)
+
+	if recorder.Code != 200 {
+		t.Fatalf("expected 200 serving wasm output, got %d with body %q", recorder.Code, recorder.Body.String())
+	}
+	if body := recorder.Body.String(); body != wasmBody {
+		t.Fatalf("expected wasm body %q, got %q", wasmBody, body)
+	}
+}
+
+func TestResolveClientScriptPathFindsRepoRelativeScriptFromCwd(t *testing.T) {
+	workspaceDir := t.TempDir()
+	scriptPath := filepath.Join(workspaceDir, "tools", "livereload", "scripts", "livereload-client.js")
+	if err := os.MkdirAll(filepath.Dir(scriptPath), 0o755); err != nil {
+		t.Fatalf("failed to create script dir: %v", err)
+	}
+	if err := os.WriteFile(scriptPath, []byte("console.log('ok');"), 0o644); err != nil {
+		t.Fatalf("failed to write script fixture: %v", err)
+	}
+
+	previousGetwd := livereloadConfigGetwd
+	previousExecutable := livereloadExecutablePath
+	livereloadConfigGetwd = func() (string, error) { return workspaceDir, nil }
+	livereloadExecutablePath = func() (string, error) { return "", os.ErrNotExist }
+	defer func() {
+		livereloadConfigGetwd = previousGetwd
+		livereloadExecutablePath = previousExecutable
+	}()
+
+	if got := resolveClientScriptPath(); got != scriptPath {
+		t.Fatalf("expected repo-relative client script %q, got %q", scriptPath, got)
+	}
+}
+
+func TestResolveClientScriptPathFindsRepoRelativeScriptFromBuiltBinary(t *testing.T) {
+	workspaceDir := t.TempDir()
+	exePath := filepath.Join(workspaceDir, "bin", "tools", "livereload", "livereload.exe")
+	scriptPath := filepath.Join(workspaceDir, "tools", "livereload", "scripts", "livereload-client.js")
+	if err := os.MkdirAll(filepath.Dir(exePath), 0o755); err != nil {
+		t.Fatalf("failed to create executable dir: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(scriptPath), 0o755); err != nil {
+		t.Fatalf("failed to create script dir: %v", err)
+	}
+	if err := os.WriteFile(scriptPath, []byte("console.log('ok');"), 0o644); err != nil {
+		t.Fatalf("failed to write script fixture: %v", err)
+	}
+
+	previousGetwd := livereloadConfigGetwd
+	previousExecutable := livereloadExecutablePath
+	livereloadConfigGetwd = func() (string, error) { return filepath.Join(workspaceDir, "examples", "98-hot-reload"), nil }
+	livereloadExecutablePath = func() (string, error) { return exePath, nil }
+	defer func() {
+		livereloadConfigGetwd = previousGetwd
+		livereloadExecutablePath = previousExecutable
+	}()
+
+	if got := resolveClientScriptPath(); got != scriptPath {
+		t.Fatalf("expected built-binary client script %q, got %q", scriptPath, got)
+	}
+}

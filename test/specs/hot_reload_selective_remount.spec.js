@@ -41,10 +41,11 @@ test.describe('GoWebComponents selective hot reload remounts', () => {
 
 		port = await findAvailablePort();
 		pageUrl = `http://127.0.0.1:${port}/hot-reload.html`;
+		const wasmUrl = `http://127.0.0.1:${port}/main.wasm`;
 		serverProcess = startStandaloneDevServer(port, (output) => {
 			serverOutput = output;
 		});
-		await waitForServer(pageUrl, 120000, serverProcess, () => serverOutput);
+		await waitForServer([pageUrl, wasmUrl], 120000, serverProcess, () => serverOutput);
 	});
 
 	test.afterAll(async () => {
@@ -169,9 +170,10 @@ async function stopStandaloneDevServer(serverProcess) {
 	});
 }
 
-async function waitForServer(url, timeoutMs, serverProcess, getOutput) {
+async function waitForServer(urls, timeoutMs, serverProcess, getOutput) {
 	const deadline = Date.now() + timeoutMs;
 	let lastError = null;
+	const pendingUrls = Array.isArray(urls) ? urls : [urls];
 
 	while (Date.now() < deadline) {
 		if (serverProcess && serverProcess.exitCode !== null) {
@@ -179,19 +181,29 @@ async function waitForServer(url, timeoutMs, serverProcess, getOutput) {
 			const detail = output ? `\n${output}` : '';
 			throw new Error(`standalone dev server exited before becoming ready (exit ${serverProcess.exitCode})${detail}`);
 		}
-		try {
-			const status = await requestStatus(url);
-			if (status === 200) {
-				return;
+		let allReady = true;
+		for (const url of pendingUrls) {
+			try {
+				const status = await requestStatus(url);
+				if (status === 200) {
+					continue;
+				}
+				allReady = false;
+				lastError = new Error(`unexpected status ${status} for ${url}`);
+				break;
+			} catch (error) {
+				allReady = false;
+				lastError = error;
+				break;
 			}
-			lastError = new Error(`unexpected status ${status}`);
-		} catch (error) {
-			lastError = error;
+		}
+		if (allReady) {
+			return;
 		}
 		await new Promise((resolve) => setTimeout(resolve, 500));
 	}
 
-	throw lastError || new Error(`timed out waiting for ${url}`);
+	throw lastError || new Error(`timed out waiting for ${pendingUrls.join(', ')}`);
 }
 
 function findAvailablePort() {
