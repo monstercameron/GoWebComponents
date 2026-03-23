@@ -28,6 +28,18 @@ jobs:
         with:
           go-version: '1.25.4'
 
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: examples/static/package-lock.json
+
+      - name: Install Static Asset Dependencies
+        working-directory: ./examples/static
+        shell: pwsh
+        run: npm ci
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
@@ -39,12 +51,32 @@ jobs:
         shell: pwsh
         run: |
           $pagesDir = Join-Path $PWD '.pages'
+          $builtExamplesDir = Join-Path $PWD 'bin\examples'
+          $pagesStaticBinDir = Join-Path $pagesDir 'static\bin'
+          $embeddedBinsDir = Join-Path $pagesDir '00-example-0\assets\bins'
+
           if (Test-Path $pagesDir) {
             Remove-Item $pagesDir -Recurse -Force
           }
 
+          if (-not (Test-Path $builtExamplesDir)) {
+            throw "Built example binaries were not found at $builtExamplesDir"
+          }
+
           New-Item -ItemType Directory -Path $pagesDir | Out-Null
           Copy-Item examples\* $pagesDir -Recurse -Force
+          New-Item -ItemType Directory -Path $pagesStaticBinDir -Force | Out-Null
+          Get-ChildItem -Path $builtExamplesDir -Filter '*.wasm' | Copy-Item -Destination $pagesStaticBinDir -Force
+
+          foreach ($requiredBinary in @('example-0.wasm', 'counter.wasm')) {
+            $requiredPath = Join-Path $pagesStaticBinDir $requiredBinary
+            if (-not (Test-Path $requiredPath)) {
+              throw "Required Pages binary missing after staging: $requiredPath"
+            }
+          }
+
+          New-Item -ItemType Directory -Path $embeddedBinsDir -Force | Out-Null
+          Copy-Item (Join-Path $builtExamplesDir 'counter.wasm') (Join-Path $embeddedBinsDir '01-counter.wasm') -Force
 
           @'
           <!doctype html>
@@ -64,7 +96,7 @@ jobs:
           New-Item -ItemType File -Path (Join-Path $pagesDir '.nojekyll') | Out-Null
 
       - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: .pages
 
