@@ -51,7 +51,30 @@ func decodeCatalogJSON(payload []byte) (docsCatalog, error) {
 	if len(catalog.Items) == 0 {
 		return docsCatalog{}, fmt.Errorf("catalog.json must define at least one item")
 	}
+	for _, item := range catalog.Items {
+		if !containsCatalogValue(catalog.Filters, item.Type) {
+			return docsCatalog{}, fmt.Errorf("catalog.json item %d type %q must appear in filters", item.ID, item.Type)
+		}
+		if !containsCatalogValue(catalog.Statuses, item.Status) {
+			return docsCatalog{}, fmt.Errorf("catalog.json item %d status %q must appear in statuses", item.ID, item.Status)
+		}
+		if !containsCatalogValue(catalog.Levels, item.Level) {
+			return docsCatalog{}, fmt.Errorf("catalog.json item %d level %q must appear in levels", item.ID, item.Level)
+		}
+		if !containsCatalogValue(catalog.Modules, item.Module) {
+			return docsCatalog{}, fmt.Errorf("catalog.json item %d module %q must appear in modules", item.ID, item.Module)
+		}
+	}
 	return catalog, nil
+}
+
+func containsCatalogValue(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }
 
 // decodeFetchedCatalog converts the low-level fetch payload into a validated catalog.
@@ -131,7 +154,9 @@ func filterItems(items []docsItem, query, activeFilter, statusFilter, levelFilte
 		statusMatches := statusFilter == allFilterValue || item.Status == statusFilter
 		levelMatches := levelFilter == allFilterValue || item.Level == levelFilter
 		moduleMatches := moduleFilter == allFilterValue || item.Module == moduleFilter
-		searchable := strings.ToLower(strings.Join(append([]string{item.Title, item.Type, item.Level, item.Status, item.Module, item.Blurb, item.ReadTime}, item.Tags...), " "))
+		searchParts := append([]string{item.Title, item.Type, item.Level, item.Status, item.Module, item.Blurb, item.ReadTime}, item.Tags...)
+		searchParts = append(searchParts, item.SearchTags...)
+		searchable := strings.ToLower(strings.Join(searchParts, " "))
 		queryMatches := normalizedQuery == "" || strings.Contains(searchable, normalizedQuery)
 		if typeMatches && statusMatches && levelMatches && moduleMatches && queryMatches {
 			filtered = append(filtered, item)

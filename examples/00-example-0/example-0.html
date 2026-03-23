@@ -114,7 +114,10 @@
             const phaseNode = document.getElementById('boot-phase');
             const progressBar = document.getElementById('boot-progress-bar');
             const errorBox = document.getElementById('boot-error-box');
-            const wasmURL = '../static/bin/example-0.wasm';
+            const pageVersion = new URLSearchParams(window.location.search).get('v');
+            const wasmURL = pageVersion
+                ? '../static/bin/example-0.wasm?v=' + encodeURIComponent(pageVersion)
+                : '../static/bin/example-0.wasm';
             const minimumVisibleMs = 1000;
             const bootStartedAt = performance.now();
 

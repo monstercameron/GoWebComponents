@@ -24,6 +24,7 @@ type docsSection struct {
 
 type docsContent struct {
 	Kind        string
+	AnchorID    string
 	Sections    []docsSection
 	Callout     string
 	SourcePath  string
@@ -39,16 +40,17 @@ type docsContent struct {
 }
 
 type docsItem struct {
-	ID       int
-	Title    string
-	Status   string
-	Module   string
-	Type     string
-	Level    string
-	Tags     []string
-	Blurb    string
-	ReadTime string
-	Content  docsContent
+	ID         int
+	Title      string
+	Status     string
+	Module     string
+	Type       string
+	Level      string
+	Tags       []string
+	SearchTags []string
+	Blurb      string
+	ReadTime   string
+	Content    docsContent
 }
 
 type contentPanelProps struct {
@@ -72,6 +74,7 @@ type catalogHeroProps struct {
 type catalogSidebarProps struct {
 	SearchQuery          string
 	ResultCount          int
+	HasActiveFilters     bool
 	Statuses             []string
 	Levels               []string
 	Modules              []string
@@ -87,6 +90,7 @@ type catalogSidebarProps struct {
 	OnLevelChange        ui.Handler
 	OnModuleChange       ui.Handler
 	OnSortChange         ui.Handler
+	OnResetFilters       ui.Handler
 }
 
 type detailPanelProps struct {

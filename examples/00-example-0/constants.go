@@ -65,6 +65,7 @@ const (
 	labelExampleMarkdown     = "Example markdown block"
 	labelExampleSource       = "Example source"
 	labelLiveWidget          = "Live widget"
+	labelReferenceSearch     = "Reference search"
 	labelNothingSelected     = "Nothing selected"
 	labelCatalogEntries      = "Catalog entries"
 	labelLiveExamples        = "Live examples"
@@ -77,6 +78,7 @@ const (
 	messageDocLoading      = "Loading the selected markdown document..."
 	messageDocUnavailable  = "This concept does not define a source markdown document."
 	messageDocEmpty        = "The selected markdown document loaded, but it did not contain renderable content."
+	messageReferenceSearch = "Search functions in this reference..."
 
 	contentKindLabelArticle = "Markdown article"
 	contentKindLabelAPI     = "Structured API"
@@ -89,6 +91,7 @@ const (
 
 	buttonBrowseExamples     = "Browse examples"
 	buttonInspectPackageAPIs = "Inspect package APIs"
+	buttonResetFilters       = "Reset filters"
 	buttonRetryDocument      = "Retry document"
 	buttonDecrement          = "Decrement"
 	buttonIncrement          = "Increment"

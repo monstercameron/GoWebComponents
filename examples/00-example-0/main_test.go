@@ -78,6 +78,37 @@ func testAPIItem() docsItem {
 	}
 }
 
+func testHTMLAPIItem() docsItem {
+	item := testAPIItem()
+	item.ID = 6
+	item.Title = "RenderToString"
+	item.Content.SourcePath = "assets/docs/public-api-reference.html"
+	item.Content.AnchorID = "core-rendering"
+	item.Content.Example = ""
+	return item
+}
+
+func testGroupedAPIItem() docsItem {
+	return docsItem{
+		ID:         59,
+		Title:      "Core Rendering Primitives",
+		Status:     statusStable,
+		Module:     moduleRendering,
+		Type:       kindAPI,
+		Level:      levelCore,
+		Tags:       []string{"ui", "render", "dom"},
+		SearchTags: []string{"CreateElement", "RenderInto", "RenderToString"},
+		Blurb:      "Render Go component trees, create nodes, and move output into the DOM or string output paths.",
+		ReadTime:   readTimeReference,
+		Content: docsContent{
+			Kind:       contentKindAPI,
+			AnchorID:   "core-rendering",
+			SourcePath: "assets/docs/public-api-reference.html",
+			Summary:    "This group is the base rendering surface for composing nodes, creating host elements, and turning component trees into HTML or live DOM output.",
+		},
+	}
+}
+
 func testExampleItem() docsItem {
 	return docsItem{
 		ID:       3,
@@ -133,7 +164,7 @@ func testUnknownLevelItem() docsItem {
 
 func testCatalog() docsCatalog {
 	return docsCatalog{
-		Modules:  []string{allFilterValue, moduleCore, moduleData, moduleState, moduleCommerce},
+		Modules:  []string{allFilterValue, moduleCore, moduleData, moduleState, moduleCommerce, moduleRendering},
 		Statuses: []string{allFilterValue, statusStable, statusExperimental, statusDeprecated},
 		Levels:   []string{allFilterValue, levelBeginner, levelCore, levelIntermediate, levelAdvanced},
 		Filters:  []string{filterAll, kindConcept, kindAPI, kindExample},
@@ -147,7 +178,7 @@ func testCatalog() docsCatalog {
 			Value: sortLevel,
 			Label: labelLevel,
 		}},
-		Items: []docsItem{testArticleItem(), testAPIItem(), testExampleItem(), testDeprecatedExampleItem()},
+		Items: []docsItem{testArticleItem(), testAPIItem(), testExampleItem(), testDeprecatedExampleItem(), testGroupedAPIItem()},
 	}
 }
 
@@ -239,6 +270,16 @@ func TestDecodeCatalogJSONValidation(t *testing.T) {
 		{name: "missing filters", mutate: func(catalog *docsCatalog) { catalog.Filters = nil }, message: "catalog.json must define filters"},
 		{name: "missing sort options", mutate: func(catalog *docsCatalog) { catalog.SortOptions = nil }, message: "catalog.json must define sortOptions"},
 		{name: "missing items", mutate: func(catalog *docsCatalog) { catalog.Items = nil }, message: "catalog.json must define at least one item"},
+		{name: "item type missing from filters", mutate: func(catalog *docsCatalog) { catalog.Filters = []string{filterAll, kindConcept, kindExample} }, message: "catalog.json item 2 type \"API\" must appear in filters"},
+		{name: "item status missing from statuses", mutate: func(catalog *docsCatalog) {
+			catalog.Statuses = []string{allFilterValue, statusStable, statusDeprecated}
+		}, message: "catalog.json item 2 status \"experimental\" must appear in statuses"},
+		{name: "item level missing from levels", mutate: func(catalog *docsCatalog) {
+			catalog.Levels = []string{allFilterValue, levelBeginner, levelIntermediate, levelAdvanced}
+		}, message: "catalog.json item 2 level \"Core\" must appear in levels"},
+		{name: "item module missing from modules", mutate: func(catalog *docsCatalog) {
+			catalog.Modules = []string{allFilterValue, moduleCore, moduleState, moduleCommerce, moduleRendering}
+		}, message: "catalog.json item 2 module \"data\" must appear in modules"},
 	}
 
 	for _, testCase := range tests {
@@ -262,8 +303,11 @@ func TestDecodeFetchedCatalogAndHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decodeFetchedCatalog returned error: %v", err)
 	}
-	if len(decoded.Items) != 4 {
-		t.Fatalf("expected four decoded items, got %d", len(decoded.Items))
+	if len(decoded.Items) != 5 {
+		t.Fatalf("expected five decoded items, got %d", len(decoded.Items))
+	}
+	if got := countItemsByType(decoded.Items, kindAPI); got != 2 {
+		t.Fatalf("expected two api items from catalog, got %d", got)
 	}
 	if _, err := decodeFetchedCatalog([]byte("nope")); err == nil || err.Error() != "catalog response must be text" {
 		t.Fatalf("expected text payload error, got %v", err)
@@ -285,6 +329,12 @@ func TestDecodeFetchedCatalogAndHelpers(t *testing.T) {
 	}
 	if got := countItemsByType(testCatalog().Items, kindExample); got != 2 {
 		t.Fatalf("expected two examples, got %d", got)
+	}
+	if !isGroupedAPIItem(testGroupedAPIItem()) {
+		t.Fatal("expected grouped api item helper to be recognized")
+	}
+	if got := apiReferenceDocumentURL(testGroupedAPIItem()); got != "assets/docs/public-api-reference.html#core-rendering" && !strings.Contains(got, "assets/docs/public-api-reference.html#core-rendering") {
+		t.Fatalf("unexpected grouped api document url: %q", got)
 	}
 	if got := getContentKindLabel(testArticleItem()); got != contentKindLabelArticle {
 		t.Fatalf("unexpected content kind label: %q", got)
@@ -354,6 +404,9 @@ func TestFilterAndSortItems(t *testing.T) {
 	}
 	if got := filterItems(items, "state", kindExample, statusStable, allFilterValue, moduleState); len(got) != 1 || got[0].Title != "Go Counter Demo" {
 		t.Fatalf("expected state example filter to return counter demo, got %+v", got)
+	}
+	if got := filterItems(items, "renderinto", kindAPI, allFilterValue, allFilterValue, allFilterValue); len(got) != 1 || got[0].Title != "Core Rendering Primitives" {
+		t.Fatalf("expected hidden search tags to match grouped api item, got %+v", got)
 	}
 	if got := filterItems(items, "missing", filterAll, allFilterValue, allFilterValue, allFilterValue); len(got) != 0 {
 		t.Fatalf("expected no query matches, got %+v", got)
@@ -427,6 +480,7 @@ func TestStaticRenderHelpersProduceExpectedMarkup(t *testing.T) {
 	sidebarMarkup, err := ui.RenderToString(ui.CreateElement(renderCatalogSidebar, catalogSidebarProps{
 		SearchQuery:          "atlas",
 		ResultCount:          1,
+		HasActiveFilters:     true,
 		Statuses:             testCatalog().Statuses,
 		Levels:               testCatalog().Levels,
 		Modules:              testCatalog().Modules,
@@ -442,14 +496,58 @@ func TestStaticRenderHelpersProduceExpectedMarkup(t *testing.T) {
 		OnLevelChange:        ui.Handler{},
 		OnModuleChange:       ui.Handler{},
 		OnSortChange:         ui.Handler{},
+		OnResetFilters:       ui.Handler{},
 	}))
 	if err != nil {
 		t.Fatalf("renderCatalogSidebar returned error: %v", err)
 	}
-	for _, snippet := range []string{"1 results", "Status", "Difficulty", "Module", "Sort", "Atlas Commerce OS"} {
+	for _, snippet := range []string{"1 results", "Status", "Difficulty", "Module", "Sort", "Atlas Commerce OS", buttonResetFilters} {
 		if !strings.Contains(sidebarMarkup, snippet) {
 			t.Fatalf("sidebar markup missing %q: %s", snippet, sidebarMarkup)
 		}
+	}
+
+	defaultSidebarMarkup, err := ui.RenderToString(ui.CreateElement(renderCatalogSidebar, catalogSidebarProps{
+		SearchQuery:          "",
+		ResultCount:          5,
+		HasActiveFilters:     false,
+		Statuses:             testCatalog().Statuses,
+		Levels:               testCatalog().Levels,
+		Modules:              testCatalog().Modules,
+		SortOptions:          testCatalog().SortOptions,
+		FilterButtons:        []ui.Node{renderItemCard(testGroupedAPIItem(), false, ui.Handler{})},
+		SelectedStatusFilter: allFilterValue,
+		SelectedLevelFilter:  allFilterValue,
+		SelectedModuleFilter: allFilterValue,
+		SelectedSortOrder:    sortRelevance,
+		ItemNodes:            []ui.Node{renderItemCard(testGroupedAPIItem(), false, ui.Handler{})},
+		OnSearchInput:        ui.Handler{},
+		OnStatusChange:       ui.Handler{},
+		OnLevelChange:        ui.Handler{},
+		OnModuleChange:       ui.Handler{},
+		OnSortChange:         ui.Handler{},
+		OnResetFilters:       ui.Handler{},
+	}))
+	if err != nil {
+		t.Fatalf("renderCatalogSidebar default returned error: %v", err)
+	}
+	for _, snippet := range []string{buttonResetFilters, "disabled"} {
+		if !strings.Contains(defaultSidebarMarkup, snippet) {
+			t.Fatalf("default sidebar markup missing %q: %s", snippet, defaultSidebarMarkup)
+		}
+	}
+
+	groupedCardMarkup, err := ui.RenderToString(renderItemCard(testGroupedAPIItem(), true, ui.Handler{}))
+	if err != nil {
+		t.Fatalf("renderItemCard grouped api returned error: %v", err)
+	}
+	for _, snippet := range []string{"<button", "Core Rendering Primitives", kindAPI} {
+		if !strings.Contains(groupedCardMarkup, snippet) {
+			t.Fatalf("grouped api card missing %q: %s", snippet, groupedCardMarkup)
+		}
+	}
+	if strings.Contains(groupedCardMarkup, "href=\"#core-rendering\"") {
+		t.Fatalf("grouped api card should not render a hash href: %s", groupedCardMarkup)
 	}
 }
 
@@ -488,6 +586,39 @@ func TestRenderDetailPanelAndDisplaySurfaceStates(t *testing.T) {
 	}
 	if !strings.Contains(apiMarkup, labelAPIReference) || !strings.Contains(apiMarkup, labelParameters) || !strings.Contains(apiMarkup, labelReturns) {
 		t.Fatalf("api surface missing expected content: %s", apiMarkup)
+	}
+	if !strings.Contains(apiMarkup, "users := fetch.UseCachedResource") {
+		t.Fatalf("api surface should render plain-text usage example by default: %s", apiMarkup)
+	}
+
+	htmlAPIMarkup, err := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testHTMLAPIItem(), MarkdownBody: `<section id="core-rendering"><h2>Core Rendering Primitives</h2></section>`, MarkdownReady: true}, true))
+	if err != nil {
+		t.Fatalf("renderDisplaySurface html api returned error: %v", err)
+	}
+	for _, snippet := range []string{"api-usage-example-fragment", labelUsageExample} {
+		if !strings.Contains(htmlAPIMarkup, snippet) {
+			t.Fatalf("html api usage example missing %q: %s", snippet, htmlAPIMarkup)
+		}
+	}
+
+	groupedAPIMarkup, err := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testGroupedAPIItem()}, true))
+	if err != nil {
+		t.Fatalf("renderDisplaySurface grouped api returned error: %v", err)
+	}
+	for _, snippet := range []string{"api-reference-fragment", "Catalog-owned grouped API reference document", "fetches the fragment into this surface", labelReferenceSearch, messageReferenceSearch} {
+		if !strings.Contains(groupedAPIMarkup, snippet) {
+			t.Fatalf("grouped api surface missing %q: %s", snippet, groupedAPIMarkup)
+		}
+	}
+
+	injectedGroupedAPIMarkup, err := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testGroupedAPIItem(), MarkdownBody: `<section id="core-rendering"><h2>Core Rendering Primitives</h2></section>`}, true))
+	if err != nil {
+		t.Fatalf("renderDisplaySurface grouped api with html returned error: %v", err)
+	}
+	for _, snippet := range []string{"api-reference-fragment", labelAPIReference} {
+		if !strings.Contains(injectedGroupedAPIMarkup, snippet) {
+			t.Fatalf("grouped api injected markup missing %q: %s", snippet, injectedGroupedAPIMarkup)
+		}
 	}
 
 	placeholderMarkup, err := ui.RenderToString(renderDisplaySurface(contentPanelProps{}, false))
@@ -551,8 +682,14 @@ func TestLoadCatalogResourceFetchesAndValidatesCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadCatalogResource returned error: %v", err)
 	}
-	if len(catalog.Items) != 4 || catalog.Items[0].Title != "Start With GoWebComponents" {
+	if len(catalog.Items) != 5 || catalog.Items[0].Title != "Start With GoWebComponents" {
 		t.Fatalf("unexpected loaded catalog: %+v", catalog)
+	}
+	if !containsString(catalog.Filters, kindAPI) {
+		t.Fatalf("expected loaded catalog filters to include %q, got %+v", kindAPI, catalog.Filters)
+	}
+	if !containsString(catalog.Filters, kindExample) {
+		t.Fatalf("expected loaded catalog filters to include %q, got %+v", kindExample, catalog.Filters)
 	}
 	if got := countItemsByType(catalog.Items, kindExample); got != 2 {
 		t.Fatalf("expected loaded catalog to preserve example count, got %d", got)
@@ -578,4 +715,13 @@ func TestLoadCatalogResourcePropagatesErrors(t *testing.T) {
 	if _, err := loadCatalogResource(cancelled, "https://example.test/assets/data/catalog.json"); err != context.Canceled {
 		t.Fatalf("expected context cancellation, got %v", err)
 	}
+}
+
+func containsString(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }

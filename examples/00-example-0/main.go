@@ -116,7 +116,7 @@ func renderSortOptionNodes(values []sortOption) []ui.Node {
 // renderItemCard renders a single searchable catalog item in the sidebar list.
 func renderItemCard(item docsItem, isActive bool, onSelect ui.Handler) ui.Node {
 	cardClass := ClassNames(
-		"group w-full cursor-pointer rounded-[22px] border p-3 text-left transition duration-200",
+		"group block w-full cursor-pointer rounded-[22px] border p-3 text-left transition duration-200",
 		When(isActive, "border-cyan-300/35 bg-cyan-400/10 shadow-xl shadow-cyan-950/25"),
 		When(!isActive, "border-white/10 bg-white/[0.04] hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.08]"),
 	)
@@ -128,7 +128,7 @@ func renderItemCard(item docsItem, isActive bool, onSelect ui.Handler) ui.Node {
 	}, Map(item.Tags, func(tag string) ui.Node {
 		return Span(Class("rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-slate-300"), Text("#"+tag))
 	})...)
-	return Button(Type("button"), OnClick(onSelect), Class(cardClass),
+	cardBody := Fragment(
 		Div(Class("flex items-start justify-between gap-2"),
 			Div(Class("min-w-0 flex-1"),
 				Div(Class("text-sm font-medium text-white"), Text(item.Title)),
@@ -138,6 +138,10 @@ func renderItemCard(item docsItem, isActive bool, onSelect ui.Handler) ui.Node {
 		),
 		Div(Class("mt-3 flex flex-wrap items-center gap-1"), tagNodes),
 	)
+	if isGroupedAPIItem(item) {
+		return Button(Type("button"), OnClick(onSelect), Class(cardClass), cardBody)
+	}
+	return Button(Type("button"), OnClick(onSelect), Class(cardClass), cardBody)
 }
 
 // renderConceptArticle renders long-form concept content for article-style entries.
@@ -213,6 +217,13 @@ func renderParameterTable(params []docsParam) ui.Node {
 
 // renderAPIReference renders the structured API reference panel.
 func renderAPIReference(panelProps contentPanelProps) ui.Node {
+	if isGroupedAPIItem(panelProps.Item) {
+		return renderGroupedAPIReference(panelProps)
+	}
+	hasHTMLUsageExample := panelProps.Item.Content.SourcePath != ""
+	if hasHTMLUsageExample {
+		scrollToDemoAnchor(panelProps.Item.Content.AnchorID, panelProps.MarkdownReady, panelProps.MarkdownBody)
+	}
 	noteNodes := Map(panelProps.Item.Content.Notes, func(note string) ui.Node {
 		return Li(Text(note))
 	})
@@ -243,7 +254,25 @@ func renderAPIReference(panelProps contentPanelProps) ui.Node {
 			),
 			Div(Class("rounded-[20px] border border-white/10 bg-[#06101d] p-4"),
 				Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelUsageExample)),
-				Pre(Class("mt-3 overflow-x-auto text-sm leading-6 text-cyan-100"), Code(Text(panelProps.Item.Content.Example))),
+				ui.If(hasHTMLUsageExample,
+					func() ui.Node {
+						return ui.Match().
+							When(panelProps.MarkdownLoading && !panelProps.MarkdownReady, func() ui.Node {
+								return Div(Class("mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-4 text-sm text-slate-300"), Text(messageDocLoading))
+							}).
+							When(panelProps.MarkdownError != "", func() ui.Node {
+								return Div(Class("mt-3 rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 py-4 text-sm text-rose-100"), Text(panelProps.MarkdownError))
+							}).
+							Default(func() ui.Node {
+								return Div(Class("mt-3 rounded-xl border border-white/10 bg-black/15 p-3"),
+									renderInjectedHTMLFragment("api-usage-example-fragment", panelProps.MarkdownBody),
+								)
+							})
+					},
+					func() ui.Node {
+						return Pre(Class("mt-3 overflow-x-auto text-sm leading-6 text-cyan-100"), Code(Text(panelProps.Item.Content.Example)))
+					},
+				),
 			),
 		),
 	)
@@ -325,7 +354,7 @@ func renderDisplaySurface(panelProps contentPanelProps, hasSelectedItem bool) ui
 					return renderConceptArticle(panelProps)
 				}).
 				When(panelProps.Item.Content.Kind == contentKindAPI, func() ui.Node {
-					return renderAPIReference(contentPanelProps{Item: panelProps.Item})
+					return renderAPIReference(panelProps)
 				}).
 				Default(func() ui.Node {
 					return ui.Component(renderCounterExample, contentPanelProps{Item: panelProps.Item})
@@ -372,7 +401,20 @@ func renderCatalogSidebar(props catalogSidebarProps) ui.Node {
 					Div(Class("relative flex-1"),
 						Input(Value(props.SearchQuery), OnInput(props.OnSearchInput), Placeholder("Search concepts, APIs, examples..."), Class("w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 transition focus:border-cyan-300/40 focus:bg-slate-950/60")),
 					),
-					Div(Class("text-xs uppercase tracking-[0.18em] text-slate-400"), Textf("%d results", props.ResultCount)),
+					Div(Class("flex items-center gap-2 self-start sm:self-auto"),
+						Div(Class("text-xs uppercase tracking-[0.18em] text-slate-400"), Textf("%d results", props.ResultCount)),
+						Button(
+							Type("button"),
+							OnClick(props.OnResetFilters),
+							Disabled(!props.HasActiveFilters),
+							Class(ClassNames(
+								"rounded-xl border px-3 py-2 text-[11px] font-medium uppercase tracking-[0.16em] transition",
+								When(props.HasActiveFilters, "cursor-pointer border-white/10 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white"),
+								When(!props.HasActiveFilters, "cursor-not-allowed border-white/5 bg-white/[0.03] text-slate-500"),
+							)),
+							Text(buttonResetFilters),
+						),
+					),
 				),
 				Div(Class("flex flex-wrap gap-2"), props.FilterButtons),
 				Div(Class("grid grid-cols-2 gap-2 xl:grid-cols-4"),
@@ -486,6 +528,21 @@ func renderDocsDemosSite() ui.Node {
 		selectedSortOrder.Set(event.GetValue())
 		log.Info("sort order updated", map[string]interface{}{"sort": event.GetValue()})
 	})
+	resetFilters := ui.UseEvent(func() {
+		activeTypeFilter.Set(filterAll)
+		selectedStatusFilter.Set(allFilterValue)
+		selectedLevelFilter.Set(allFilterValue)
+		selectedModuleFilter.Set(allFilterValue)
+		selectedSortOrder.Set(sortRelevance)
+		log.Info("filters reset", map[string]interface{}{
+			"type":   filterAll,
+			"status": allFilterValue,
+			"level":  allFilterValue,
+			"module": allFilterValue,
+			"sort":   sortRelevance,
+		})
+	})
+	hasActiveFilters := activeTypeFilter.Get() != filterAll || selectedStatusFilter.Get() != allFilterValue || selectedLevelFilter.Get() != allFilterValue || selectedModuleFilter.Get() != allFilterValue || selectedSortOrder.Get() != sortRelevance
 
 	filteredItems := ui.UseMemo(func() []docsItem {
 		return sortItems(filterItems(catalogRequest.Value.Items, deferredSearchQuery, activeTypeFilter.Get(), selectedStatusFilter.Get(), selectedLevelFilter.Get(), selectedModuleFilter.Get()), selectedSortOrder.Get())
@@ -523,7 +580,7 @@ func renderDocsDemosSite() ui.Node {
 
 	selectedCatalogItem, hasSelectedItem := findSelectedItem(filteredItems, selectedItemID.Get())
 	selectedDocURL := ""
-	if hasSelectedItem && selectedCatalogItem.Content.Kind == contentKindArticle && selectedCatalogItem.Content.SourcePath != "" {
+	if hasSelectedItem && selectedCatalogItem.Content.SourcePath != "" && (selectedCatalogItem.Content.Kind == contentKindArticle || selectedCatalogItem.Content.Kind == contentKindAPI) {
 		selectedDocURL = docsSourceURL(selectedCatalogItem.Content.SourcePath)
 	}
 	markdownResource := fetch.UseCachedResource(markdownCacheKey(selectedDocURL), func(ctx context.Context) (string, error) {
@@ -613,7 +670,7 @@ func renderDocsDemosSite() ui.Node {
 				Div(Class("mx-auto flex min-h-screen max-w-7xl flex-col px-3 py-3 sm:px-4 sm:py-4 lg:px-5"),
 					ui.Component(renderCatalogHero, catalogHeroProps{OnBrowseExamples: browseExamples, OnInspectAPIs: inspectPackageAPIs, TotalItems: len(catalogRequest.Value.Items), ExampleCount: countItemsByType(catalogRequest.Value.Items, kindExample), APICount: countItemsByType(catalogRequest.Value.Items, kindAPI)}),
 					Main(Class("mt-3 flex flex-1 flex-col gap-3 lg:min-h-0 lg:flex-row"),
-						ui.Component(renderCatalogSidebar, catalogSidebarProps{SearchQuery: searchQuery.Get(), ResultCount: len(filteredItems), Statuses: catalogRequest.Value.Statuses, Levels: catalogRequest.Value.Levels, Modules: catalogRequest.Value.Modules, SortOptions: catalogRequest.Value.SortOptions, FilterButtons: filterButtons, SelectedStatusFilter: selectedStatusFilter.Get(), SelectedLevelFilter: selectedLevelFilter.Get(), SelectedModuleFilter: selectedModuleFilter.Get(), SelectedSortOrder: selectedSortOrder.Get(), ItemNodes: itemNodes, OnSearchInput: updateSearchQuery, OnStatusChange: updateStatusFilter, OnLevelChange: updateLevelFilter, OnModuleChange: updateModuleFilter, OnSortChange: updateSortOrder}),
+						ui.Component(renderCatalogSidebar, catalogSidebarProps{SearchQuery: searchQuery.Get(), ResultCount: len(filteredItems), HasActiveFilters: hasActiveFilters, Statuses: catalogRequest.Value.Statuses, Levels: catalogRequest.Value.Levels, Modules: catalogRequest.Value.Modules, SortOptions: catalogRequest.Value.SortOptions, FilterButtons: filterButtons, SelectedStatusFilter: selectedStatusFilter.Get(), SelectedLevelFilter: selectedLevelFilter.Get(), SelectedModuleFilter: selectedModuleFilter.Get(), SelectedSortOrder: selectedSortOrder.Get(), ItemNodes: itemNodes, OnSearchInput: updateSearchQuery, OnStatusChange: updateStatusFilter, OnLevelChange: updateLevelFilter, OnModuleChange: updateModuleFilter, OnSortChange: updateSortOrder, OnResetFilters: resetFilters}),
 						ui.Component(renderDetailPanel, detailPanelProps{SelectedItem: selectedCatalogItem, HasSelectedItem: hasSelectedItem, MarkdownBody: markdownRequest.Value, MarkdownLoading: markdownRequest.Loading, MarkdownReady: markdownRequest.Ready, MarkdownError: errorString(markdownRequest.Error), OnRetryMarkdown: retryMarkdownLoad}),
 					),
 				),

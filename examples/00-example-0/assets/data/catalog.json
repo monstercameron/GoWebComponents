@@ -8,8 +8,10 @@
                     "forms",
                     "interop",
                     "platform",
+                    "plugins",
                     "rendering",
-                    "router"
+                    "router",
+                    "state"
                 ],
     "statuses":  [
                      "all",
@@ -25,7 +27,9 @@
                ],
     "filters":  [
                     "All",
-                    "Concept"
+                    "Concept",
+                    "API",
+                    "Example"
                 ],
     "sortOptions":  [
                         {
@@ -1684,6 +1688,542 @@
                                                        }
                                                    ],
                                       "sourcePath":  "assets/docs/worker-guidance.md"
+                                  }
+                  },
+                  {
+                      "id":  59,
+                      "title":  "Core Rendering Primitives",
+                      "status":  "stable",
+                      "module":  "rendering",
+                      "type":  "API",
+                      "level":  "Core",
+                      "tags":  [
+                                   "ui",
+                                   "render",
+                                   "dom"
+                               ],
+                      "searchTags":  [
+                                           "CreateElement",
+                                           "Fragment",
+                                           "RawHandler",
+                                           "Render",
+                                           "RenderInto",
+                                           "RenderToString",
+                                           "RenderToStringObserved",
+                                           "Text"
+                                       ],
+                      "blurb":  "Render Go component trees, create nodes, and move output into the DOM or string output paths.",
+                      "readTime":  "Reference",
+                      "content":  {
+                                      "kind":  "api",
+                                      "anchorID":  "core-rendering",
+                                      "summary":  "This group is the base rendering surface for composing nodes, creating host elements, and turning component trees into HTML or live DOM output.",
+                                      "sourcePath":  "assets/docs/public-api-reference.html"
+                                  }
+                  },
+                  {
+                      "id":  60,
+                      "title":  "HTML Element Constructors",
+                      "status":  "stable",
+                      "module":  "rendering",
+                      "type":  "API",
+                      "level":  "Beginner",
+                      "tags":  [
+                                   "html",
+                                   "markup",
+                                   "semantic"
+                               ],
+                      "searchTags":  [
+                                           "A",
+                                           "Article",
+                                           "Aside",
+                                           "Blockquote",
+                                           "Br",
+                                           "Button",
+                                           "Code",
+                                           "CustomElement",
+                                           "Dialog",
+                                           "Div",
+                                           "Em",
+                                           "Fieldset",
+                                           "Footer",
+                                           "Form",
+                                           "Fragment",
+                                           "H1",
+                                           "H2",
+                                           "H3",
+                                           "H4",
+                                           "H5",
+                                           "H6",
+                                           "Header",
+                                           "HiddenInput",
+                                           "Hr",
+                                           "Img",
+                                           "Input",
+                                           "Label",
+                                           "Legend",
+                                           "Li",
+                                           "Link",
+                                           "Main",
+                                           "Nav",
+                                           "Option",
+                                           "P",
+                                           "Pre",
+                                           "Section",
+                                           "Select",
+                                           "Small",
+                                           "Span",
+                                           "Strong",
+                                           "Tag",
+                                           "Text",
+                                           "Textarea",
+                                           "Time",
+                                           "Ul",
+                                           "DNSPrefetch",
+                                           "ModulePreload",
+                                           "Preconnect",
+                                           "Prefetch",
+                                           "Preload"
+                                       ],
+                      "blurb":  "Semantic HTML helpers for page structure, forms, links, media, and preload-style resource hints.",
+                      "readTime":  "Reference",
+                      "content":  {
+                                      "kind":  "api",
+                                      "anchorID":  "html-elements",
+                                      "summary":  "Use these constructors when you want Go-authored UI trees to read like HTML instead of generic element creation calls.",
+                                      "sourcePath":  "assets/docs/public-api-reference.html"
+                                  }
+                  },
+                  {
+                      "id":  61,
+                      "title":  "Hooks And Reactive Effects",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "API",
+                      "level":  "Core",
+                      "tags":  [
+                                   "hooks",
+                                   "state",
+                                   "events"
+                               ],
+                      "searchTags":  [
+                                           "StartTransition",
+                                           "UseCallback",
+                                           "UseChannel",
+                                           "UseDebounced",
+                                           "UseDeferredValue",
+                                           "UseEffect",
+                                           "UseEvent",
+                                           "UseId",
+                                           "UseMemo",
+                                           "UsePrevious",
+                                           "UseReducer",
+                                           "UseRef",
+                                           "UseState",
+                                           "UseTask",
+                                           "UseThrottled",
+                                           "UseTransition",
+                                           "UseWorkerTask"
+                                       ],
+                      "blurb":  "Component-local state, memoization, effects, transitions, events, and task helpers.",
+                      "readTime":  "Reference",
+                      "content":  {
+                                      "kind":  "api",
+                                      "anchorID":  "hooks-reactive",
+                                      "summary":  "This is the hook layer for stateful components, lifecycle work, stable callbacks, async tasks, and user-driven event wiring.",
+                                      "sourcePath":  "assets/docs/public-api-reference.html"
+                                  }
+                  },
+                  {
+                      "id":  62,
+                      "title":  "Composition, Context, And Boundaries",
+                      "status":  "stable",
+                      "module":  "core",
+                      "type":  "API",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "context",
+                                   "lazy",
+                                   "boundaries"
+                               ],
+                      "searchTags":  [
+                                           "AsyncBoundary",
+                                           "CreateContext",
+                                           "HotReloadBoundary",
+                                           "Lazy",
+                                           "ReactiveRegion",
+                                           "UseContext",
+                                           "UseLazyNode"
+                                       ],
+                      "blurb":  "Context providers, lazy nodes, async boundaries, error boundaries, and reactive region isolation.",
+                      "readTime":  "Reference",
+                      "content":  {
+                                      "kind":  "api",
+                                      "anchorID":  "composition-boundaries",
+                                      "summary":  "Reach for this group when you need shared values, deferred subtrees, failure containment, or explicit reactivity boundaries.",
+                                      "sourcePath":  "assets/docs/public-api-reference.html"
+                                  }
+                  },
+                  {
+                      "id":  63,
+                      "title":  "Accessibility, Focus, And Overlays",
+                      "status":  "stable",
+                      "module":  "forms",
+                      "type":  "API",
+                      "level":  "Core",
+                      "tags":  [
+                                   "a11y",
+                                   "focus",
+                                   "overlay"
+                               ],
+                      "searchTags":  [
+                                           "AccessibleOverlay",
+                                           "Overlay",
+                                           "Portal",
+                                           "UseAnnouncer",
+                                           "UseCompositeNavigation",
+                                           "UseFocusManager",
+                                           "UseFocusTrap",
+                                           "UseOverlayStack"
+                                       ],
+                      "blurb":  "Focus control, announcements, composite navigation, overlays, portals, and stack coordination.",
+                      "readTime":  "Reference",
+                      "content":  {
+                                      "kind":  "api",
+                                      "anchorID":  "accessibility-focus",
+                                      "summary":  "These APIs cover keyboard flow, live-region announcements, focus traps, layered surfaces, and the helpers needed to keep overlays accessible.",
+                                      "sourcePath":  "assets/docs/public-api-reference.html"
+                                  }
+                  },
+                  {
+                      "id":  64,
+                      "title":  "Forms, Files, And Validation",
+                      "status":  "stable",
+                      "module":  "forms",
+                      "type":  "API",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "forms",
+                                   "validation",
+                                   "files"
+                               ],
+                      "searchTags":  [
+                                           "ExtractFiles",
+                                           "FileFromJSValue",
+                                           "NewCSRFToken",
+                                           "UseForm"
+                                       ],
+                      "blurb":  "Form state, field-level errors, server submissions, file extraction, and file wrappers.",
+                      "readTime":  "Reference",
+                      "content":  {
+                                      "kind":  "api",
+                                      "anchorID":  "forms-validation",
+                                      "summary":  "This group is the form workflow layer, from local dirtiness tracking through server error application and multipart file handling.",
+                                      "sourcePath":  "assets/docs/public-api-reference.html"
+                                  }
+                  },
+                  {
+                      "id":  65,
+                      "title":  "Reactive State And Snapshots",
+                      "status":  "stable",
+                      "module":  "state",
+                      "type":  "API",
+                      "level":  "Core",
+                      "tags":  [
+                                   "state",
+                                   "atoms",
+                                   "snapshot"
+                               ],
+                      "searchTags":  [
+                                           "ExportSnapshot",
+                                           "ImportSnapshot",
+                                           "LoadPersistentSnapshot",
+                                           "LoadSnapshot",
+                                           "MarshalSnapshotJSON",
+                                           "RestorePersistentSnapshot",
+                                           "RestoreSnapshot",
+                                           "SavePersistentSnapshot",
+                                           "SaveSnapshot",
+                                           "Select",
+                                           "UnmarshalSnapshotJSON",
+                                           "UseAtom",
+                                           "UseComputed",
+                                           "UseDerived"
+                                       ],
+                      "blurb":  "Atoms, derived values, computed selectors, and snapshot import-export paths.",
+                      "readTime":  "Reference",
+                      "content":  {
+                                      "kind":  "api",
+                                      "anchorID":  "state-atoms",
+                                      "summary":  "The state package provides externally managed reactive values and snapshot persistence helpers that complement ui-local hooks.",
+                                      "sourcePath":  "assets/docs/public-api-reference.html"
+                                  }
+                  },
+                  {
+                      "id":  66,
+                      "title":  "Fetch, Cache, And Mutations",
+                      "status":  "stable",
+                      "module":  "data",
+                      "type":  "API",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "fetch",
+                                   "cache",
+                                   "mutations"
+                               ],
+                      "searchTags":  [
+                                           "AsMutationConflictError",
+                                           "ConfigurePersistentCache",
+                                           "DisposeResource",
+                                           "Fetch",
+                                           "InspectCachedResources",
+                                           "InvalidateResource",
+                                           "IsMutationConflict",
+                                           "LoadCached",
+                                           "MutationConflictOf",
+                                           "NewMutationConflict",
+                                           "OpenMutationQueue",
+                                           "RestoreCacheBootstrap",
+                                           "ReturnChannel",
+                                           "SweepCachedResources",
+                                           "Upload",
+                                           "UseCachedResource",
+                                           "UseFetch",
+                                           "UseResource"
+                                       ],
+                      "blurb":  "HTTP requests, cached resources, offline mutation queues, uploads, and conflict handling.",
+                      "readTime":  "Reference",
+                      "content":  {
+                                      "kind":  "api",
+                                      "anchorID":  "data-fetching",
+                                      "summary":  "This package covers async request state, resource caching, persistent cache restore, and resilient mutation replay flows.",
+                                      "sourcePath":  "assets/docs/public-api-reference.html"
+                                  }
+                  },
+                  {
+                      "id":  67,
+                      "title":  "Routing And Navigation",
+                      "status":  "stable",
+                      "module":  "router",
+                      "type":  "API",
+                      "level":  "Core",
+                      "tags":  [
+                                   "router",
+                                   "navigation",
+                                   "guards"
+                               ],
+                      "searchTags":  [
+                                           "AllowNavigation",
+                                           "BlockNavigation",
+                                           "GetCurrentPath",
+                                           "GetRoute",
+                                           "GetRouter",
+                                           "InspectCurrentRoute",
+                                           "MetadataNode",
+                                           "Navigate",
+                                           "NavigateReplace",
+                                           "NewHashRouter",
+                                           "NewRouter",
+                                           "Outlet",
+                                           "PreserveReturnTo",
+                                           "ReadReturnTo",
+                                           "RedirectNavigation",
+                                           "RegisterRoute",
+                                           "RevalidateCurrentRoute",
+                                           "RouteWithElement",
+                                           "UseNavigate",
+                                           "UseParams",
+                                           "UseQuery",
+                                           "UseRevalidator",
+                                           "UseRouteData",
+                                           "UseSearchParams"
+                                       ],
+                      "blurb":  "Route registration, guard flows, search params, loaders, revalidation, and navigation helpers.",
+                      "readTime":  "Reference",
+                      "content":  {
+                                      "kind":  "api",
+                                      "anchorID":  "routing-navigation",
+                                      "summary":  "Use the router package for declarative route trees, guarded transitions, route data loaders, and query-search param state.",
+                                      "sourcePath":  "assets/docs/public-api-reference.html"
+                                  }
+                  },
+                  {
+                      "id":  68,
+                      "title":  "SSR, Hydration, And Bootstrap Payloads",
+                      "status":  "stable",
+                      "module":  "rendering",
+                      "type":  "API",
+                      "level":  "Advanced",
+                      "tags":  [
+                                   "ssr",
+                                   "hydration",
+                                   "bootstrap"
+                               ],
+                      "searchTags":  [
+                                           "AddStateUpdatePayload",
+                                           "AnalyzeSSRBootstrapSize",
+                                           "ApplySSRStateUpdate",
+                                           "DefaultSSRBootstrapBudget",
+                                           "Hydrate",
+                                           "HydrateInto",
+                                           "InspectBootstrapPayloads",
+                                           "MarshalSSRBootstrap",
+                                           "MarshalSSRBootstrapBinary",
+                                           "MarshalSSRBootstrapBinaryObserved",
+                                           "MarshalSSRBootstrapObserved",
+                                           "MarshalSSRStateUpdateBinary",
+                                           "MarshalSSRStateUpdateText",
+                                           "ObserveSSR",
+                                           "ReadBootstrapPayload",
+                                           "ReadBootstrapReference",
+                                           "ReadBootstrapReferenceScript",
+                                           "ReadBootstrapScript",
+                                           "ReadCacheBootstrapSeed",
+                                           "ReadFormBootstrapDefaults",
+                                           "ReadRouteBootstrapData",
+                                           "ReadSessionBootstrapHint",
+                                           "RegisterBootstrapPayload",
+                                           "RegisterCacheBootstrapSeed",
+                                           "RegisterFormBootstrapDefaults",
+                                           "RegisterRouteBootstrapData",
+                                           "RegisterSessionBootstrapHint",
+                                           "RenderBootstrapReferenceScript",
+                                           "RenderBootstrapScript",
+                                           "RenderBootstrapScriptObserved",
+                                           "UnmarshalSSRBootstrap",
+                                           "UnmarshalSSRBootstrapBinary",
+                                           "UnmarshalSSRBootstrapReference",
+                                           "UnmarshalSSRStateUpdateBinary",
+                                           "UnmarshalSSRStateUpdateText",
+                                           "UnsupportedOnServer"
+                                       ],
+                      "blurb":  "Server rendering, hydration options, bootstrap serialization, payload registration, and SSR observability.",
+                      "readTime":  "Reference",
+                      "content":  {
+                                      "kind":  "api",
+                                      "anchorID":  "ssr-hydration",
+                                      "summary":  "This is the server-to-client transfer layer for rendered output, route data, form defaults, cache seeds, and hydration diagnostics.",
+                                      "sourcePath":  "assets/docs/public-api-reference.html"
+                                  }
+                  },
+                  {
+                      "id":  69,
+                      "title":  "Head And Metadata",
+                      "status":  "stable",
+                      "module":  "rendering",
+                      "type":  "API",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "head",
+                                   "meta",
+                                   "seo"
+                               ],
+                      "searchTags":  [
+                                           "Compose",
+                                           "LinkRel",
+                                           "MetaName",
+                                           "MetaProperty",
+                                           "OpenGraph",
+                                           "Robots",
+                                           "SocialTags",
+                                           "Twitter"
+                                       ],
+                      "blurb":  "Document head composition for meta tags, canonical URLs, robots directives, and social cards.",
+                      "readTime":  "Reference",
+                      "content":  {
+                                      "kind":  "api",
+                                      "anchorID":  "head-metadata",
+                                      "summary":  "The head package focuses on expressing metadata nodes cleanly from Go so route-level SEO and social previews stay centralized.",
+                                      "sourcePath":  "assets/docs/public-api-reference.html"
+                                  }
+                  },
+                  {
+                      "id":  70,
+                      "title":  "Devtools And Observability",
+                      "status":  "experimental",
+                      "module":  "plugins",
+                      "type":  "API",
+                      "level":  "Advanced",
+                      "tags":  [
+                                   "devtools",
+                                   "diagnostics",
+                                   "profiling"
+                               ],
+                      "searchTags":  [
+                                           "CompareSnapshots",
+                                           "ExportSnapshotJSON",
+                                           "InspectMultiClient",
+                                           "Panel",
+                                           "ResetMultiClientInspection",
+                                           "SetMultiClientInspection",
+                                           "SnapshotNow",
+                                           "UseSnapshot"
+                                       ],
+                      "blurb":  "Snapshot export, runtime inspection, diagnostics, profiling, and multi-client observability.",
+                      "readTime":  "Reference",
+                      "content":  {
+                                      "kind":  "api",
+                                      "anchorID":  "devtools-observability",
+                                      "summary":  "This group covers the supported companion devtools package and the runtime inspection data it exposes for debugging and analysis.",
+                                      "sourcePath":  "assets/docs/public-api-reference.html"
+                                  }
+                  },
+                  {
+                      "id":  71,
+                      "title":  "Plugins And Extension Hosts",
+                      "status":  "experimental",
+                      "module":  "plugins",
+                      "type":  "API",
+                      "level":  "Advanced",
+                      "tags":  [
+                                   "plugin",
+                                   "extensions",
+                                   "experimental"
+                               ],
+                      "searchTags":  [
+                                           "Allow",
+                                           "Block",
+                                           "Define",
+                                           "NewHost",
+                                           "Redirect"
+                                       ],
+                      "blurb":  "Experimental extension surfaces for host capabilities, route guards, request hooks, and pluggable panels.",
+                      "readTime":  "Reference",
+                      "content":  {
+                                      "kind":  "api",
+                                      "anchorID":  "plugins-extensions",
+                                      "summary":  "The plugin package is the extension boundary for opt-in host capabilities and ecosystem features that do not belong in the stable core yet.",
+                                      "sourcePath":  "assets/docs/public-api-reference.html"
+                                  }
+                  },
+                  {
+                      "id":  72,
+                      "title":  "Hot Reload Workflows",
+                      "status":  "experimental",
+                      "module":  "plugins",
+                      "type":  "API",
+                      "level":  "Intermediate",
+                      "tags":  [
+                                   "hotreload",
+                                   "dev",
+                                   "experimental"
+                               ],
+                      "searchTags":  [
+                                           "Configure",
+                                           "Disable",
+                                           "Enable",
+                                           "Enabled",
+                                           "ExportSnapshot",
+                                           "ImportSnapshot",
+                                           "Prepare"
+                                       ],
+                      "blurb":  "Experimental development-time snapshot preparation and reset-key based hot reload behavior.",
+                      "readTime":  "Reference",
+                      "content":  {
+                                      "kind":  "api",
+                                      "anchorID":  "hotreload-workflows",
+                                      "summary":  "The hotreload package is intentionally small and focused on dev-time state transfer rather than general runtime behavior.",
+                                      "sourcePath":  "assets/docs/public-api-reference.html"
                                   }
                   }
               ]

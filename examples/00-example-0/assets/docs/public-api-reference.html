@@ -1,0 +1,1352 @@
+<style>
+    :root {
+      color-scheme: dark;
+      --bg: #07111f;
+      --panel: rgba(255,255,255,0.04);
+      --panel-strong: rgba(34,211,238,0.08);
+      --border: rgba(255,255,255,0.12);
+      --text: #e5eefc;
+      --muted: #9fb0c9;
+      --accent: #7dd3fc;
+      --accent-2: #c4b5fd;
+      --code: #cffafe;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 26%),
+        radial-gradient(circle at top right, rgba(196,181,253,0.14), transparent 22%),
+        linear-gradient(180deg, #07111f 0%, #091427 42%, #0b1020 100%);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .shell {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 32px 20px 72px;
+    }
+    .hero, section {
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.22);
+    }
+    .hero {
+      padding: 28px;
+      margin-bottom: 22px;
+    }
+    .eyebrow {
+      display: inline-block;
+      border: 1px solid rgba(125,211,252,0.28);
+      background: rgba(34,211,238,0.08);
+      color: var(--accent);
+      border-radius: 999px;
+      padding: 7px 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-size: 11px;
+      font-family: Arial, sans-serif;
+    }
+    h1 {
+      margin: 16px 0 8px;
+      font-size: clamp(2rem, 4vw, 3.5rem);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+    h2 {
+      margin: 0;
+      font-size: clamp(1.8rem, 3vw, 2.4rem);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+    h3 {
+      margin: 0 0 10px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--muted);
+      font-family: Arial, sans-serif;
+    }
+    p, li { color: var(--muted); }
+    .lede { max-width: 78ch; font-size: 1.02rem; }
+    .toc {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-top: 22px;
+    }
+    .toc a {
+      display: block;
+      text-decoration: none;
+      color: var(--text);
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      border-radius: 18px;
+      padding: 14px 16px;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+    }
+    .toc a:hover { border-color: rgba(125,211,252,0.35); color: var(--accent); }
+    section {
+      padding: 24px;
+      margin-top: 18px;
+      scroll-margin-top: 24px;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 14px 0 16px;
+    }
+    .pill {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 11px;
+      font-size: 11px;
+      font-family: Arial, sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--text);
+      background: rgba(255,255,255,0.03);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .guide-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin-top: 18px;
+    }
+    article {
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 18px;
+      background: rgba(0,0,0,0.14);
+    }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--code);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .callout {
+      margin-top: 14px;
+      border: 1px solid rgba(196,181,253,0.22);
+      background: rgba(196,181,253,0.08);
+      border-radius: 20px;
+      padding: 16px;
+    }
+    .guide-card {
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 18px;
+      background: rgba(255,255,255,0.03);
+    }
+    .guide-card strong {
+      display: block;
+      margin-bottom: 10px;
+      color: var(--text);
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .do-card {
+      border-color: rgba(125,211,252,0.26);
+      background: rgba(34,211,238,0.08);
+    }
+    .dont-card {
+      border-color: rgba(251,191,36,0.22);
+      background: rgba(245,158,11,0.08);
+    }
+    .pattern-card {
+      border-color: rgba(196,181,253,0.22);
+      background: rgba(196,181,253,0.08);
+    }
+    .inventory-title {
+      margin-top: 22px;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-family: Arial, sans-serif;
+    }
+    .example-block {
+      margin-top: 18px;
+      border: 1px solid rgba(125,211,252,0.2);
+      border-radius: 22px;
+      background: rgba(7,17,31,0.78);
+      padding: 18px;
+    }
+    .example-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .example-good {
+      border-color: rgba(125,211,252,0.22);
+    }
+    .example-bad {
+      border-color: rgba(251,191,36,0.22);
+      background: rgba(38,24,6,0.85);
+    }
+    .example-block p {
+      margin-top: 0;
+    }
+    .warning-list,
+    .check-list {
+      margin: 0;
+      padding-left: 18px;
+    }
+    .guide-stack {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .snippet-note {
+      margin-top: 18px;
+      border: 1px solid rgba(125,211,252,0.22);
+      border-radius: 20px;
+      padding: 14px 16px;
+      background: rgba(34,211,238,0.06);
+    }
+    .api-list {
+      display: grid;
+      gap: 12px;
+    }
+    .api-item {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px 16px;
+      background: rgba(255,255,255,0.03);
+    }
+    .api-item h4 {
+      margin: 0 0 8px;
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.3;
+    }
+    .api-item p {
+      margin: 0 0 12px;
+      font-size: 14px;
+    }
+    .api-note {
+      margin: 0 0 8px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .api-label {
+      display: inline-block;
+      margin-right: 8px;
+      color: var(--accent);
+      font-family: Arial, sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .api-item dl {
+      margin: 0;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px 12px;
+      align-items: start;
+    }
+    .api-item dt {
+      color: var(--accent);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+    }
+    .api-item dd {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    @media (max-width: 1100px) {
+      .shell {
+        max-width: none;
+        padding: 20px 10px 40px;
+      }
+      .hero {
+        padding: 20px;
+        margin-bottom: 16px;
+      }
+      section {
+        padding: 18px;
+        margin-top: 14px;
+      }
+    }
+    @media (max-width: 820px) {
+      .shell {
+        padding: 14px 6px 28px;
+      }
+      .hero {
+        padding: 16px;
+      }
+      section {
+        padding: 14px;
+      }
+    }
+    code { color: var(--code); }
+  </style>
+<div class="shell">
+    <div class="hero">
+      <div class="eyebrow">GoWebComponents Public API</div>
+      <h1>Grouped API Reference</h1>
+      <p class="lede">This reference is meant to answer three questions quickly: which package surface solves the job in front of you, how that surface is intended to be used, and which mistakes usually mean you picked the wrong abstraction. The left-side catalog stays grouped and searchable; this page does the deeper explanation work.</p>
+      <div class="callout">
+        <strong>How to use this page</strong>
+        <p>Choose an API group from the catalog to jump here. Start with the guidance cards in each section, then use the inventory lists as a lookup table once you already know the right surface. If you find yourself reading only the raw symbol list, you are probably skipping the decision-making part that prevents misuse.</p>
+      </div>
+      <div class="guide-grid">
+        <div class="guide-card do-card">
+          <strong>Start Here When</strong>
+          <ul class="check-list">
+            <li>you know the user problem but not the package yet</li>
+            <li>you need the safe path before copying APIs into production code</li>
+            <li>you want to avoid mixing rendering, state, router, and fetch responsibilities</li>
+          </ul>
+        </div>
+        <div class="guide-card dont-card">
+          <strong>Do Not Use This Like</strong>
+          <ul class="warning-list">
+            <li>a flat alphabetical export dump</li>
+            <li>a promise that every experimental API is ready for broad production use</li>
+            <li>a substitute for package-specific docs when you need full behavior details</li>
+          </ul>
+        </div>
+        <div class="guide-card pattern-card">
+          <strong>Reading Strategy</strong>
+          <p>Pick the section by problem shape: rendering, local reactivity, app-wide state, form lifecycle, fetch lifecycle, route lifecycle, or server bootstrap. If a section's “avoid when” bullets match your case, move to the next section instead of forcing the API.</p>
+        </div>
+      </div>
+      <div class="snippet-note">
+        <strong>Snippet Policy</strong>
+        <p>Every major section now includes at least one copy-pasteable “recommended pattern” snippet and one “avoid this shape” snippet. The bad examples are intentionally short so the mistake is obvious at a glance.</p>
+      </div>
+      <div class="toc">
+        <a href="#core-rendering">Core Rendering Primitives</a>
+        <a href="#html-elements">HTML Element Constructors</a>
+        <a href="#hooks-reactive">Hooks And Reactive Effects</a>
+        <a href="#composition-boundaries">Composition, Context, And Boundaries</a>
+        <a href="#accessibility-focus">Accessibility, Focus, And Overlays</a>
+        <a href="#forms-validation">Forms, Files, And Validation</a>
+        <a href="#state-atoms">Reactive State And Snapshots</a>
+        <a href="#data-fetching">Fetch, Cache, And Mutations</a>
+        <a href="#routing-navigation">Routing And Navigation</a>
+        <a href="#ssr-hydration">SSR, Hydration, And Bootstrap Payloads</a>
+        <a href="#head-metadata">Head And Metadata</a>
+        <a href="#devtools-observability">Devtools And Observability</a>
+        <a href="#plugins-extensions">Plugins And Extension Hosts</a>
+        <a href="#hotreload-workflows">Hot Reload Workflows</a>
+      </div>
+    </div>
+
+    <section id="core-rendering">
+      <h2>Core Rendering Primitives</h2>
+      <div class="meta"><span class="pill">ui</span><span class="pill">stable</span><span class="pill">core</span></div>
+      <p>The base rendering surface for composing nodes, creating host elements, and turning component trees into HTML or live DOM output.</p>
+      <div class="guide-grid">
+        <div class="guide-card do-card"><strong>Use When</strong><p>You need to build UI trees, render a root into the browser, or produce HTML on the server. This is the layer for composition and output, not for business workflow.</p></div>
+        <div class="guide-card dont-card"><strong>Avoid When</strong><p>You are trying to solve caching, routing, validation, or cross-component data flow by hand inside render functions. Reach for fetch, router, forms, or state instead.</p></div>
+        <div class="guide-card pattern-card"><strong>How It Works</strong><p><code>CreateElement</code>, <code>Fragment</code>, and <code>Text</code> define trees. <code>Render</code> and <code>RenderInto</code> mount them. <code>RenderToString</code> is the server-side path.</p></div>
+      </div>
+      <div class="example-grid">
+      <div class="example-block example-good">
+        <h3>Recommended Pattern</h3>
+        <p>Keep rendering pure. Compute values before the returned tree, then emit a stable node shape.</p>
+        <pre>func App() ui.Node {
+    headline := "Orders"
+    return Div(
+        H1(Text(headline)),
+        P(Text("Review the current order queue.")),
+    )
+}</pre>
+      </div>
+      <div class="example-block example-bad">
+        <h3>Avoid This Shape</h3>
+        <p>Do not trigger imperative work during render.</p>
+        <pre>func App() ui.Node {
+    users, _ := http.Get("/api/users")
+    _ = users
+    return Div(Text("Loaded"))
+}</pre>
+      </div>
+      </div>
+      <div class="guide-stack">
+        <div class="guide-card dont-card"><strong>Common Misuse</strong><p>Calling network, storage, or long-running work directly during render. That creates unstable output and duplicate work across rerenders. Side effects belong in hooks or resource APIs.</p></div>
+      </div>
+      <div class="inventory-title">Inventory</div>
+      <div class="grid">
+        <article><h3>Function Quick Reference</h3><div class="api-list">
+          <div class="api-item"><h4>CreateElement</h4><p class="api-note"><span class="api-label">Description</span>Builds a host node or component node without relying on a fixed tag helper.</p><p class="api-note"><span class="api-label">Use It When</span>You need dynamic tag or component selection at runtime.</p><dl><dt>typeOrComponent</dt><dd>The host tag or component function to instantiate.</dd><dt>props</dt><dd>The props, attributes, and handlers applied to the node.</dd><dt>children</dt><dd>The nested nodes rendered under the created node.</dd></dl></div>
+          <div class="api-item"><h4>Fragment</h4><p class="api-note"><span class="api-label">Description</span>Returns sibling nodes without introducing an extra DOM wrapper.</p><p class="api-note"><span class="api-label">Use It When</span>You need multiple adjacent children but do not want another element in the output tree.</p><dl><dt>children</dt><dd>The sibling nodes that should be returned together.</dd></dl></div>
+          <div class="api-item"><h4>RawHandler</h4><p class="api-note"><span class="api-label">Description</span>Wraps lower-level event plumbing so raw browser events can still participate in the framework handler path.</p><p class="api-note"><span class="api-label">Use It When</span>You are bridging a custom event source or browser callback that is not already typed by the higher-level helpers.</p><dl><dt>handler</dt><dd>The raw callback that should receive the underlying event payload.</dd></dl></div>
+          <div class="api-item"><h4>Render</h4><p class="api-note"><span class="api-label">Description</span>Mounts a root UI tree into the standard application target.</p><p class="api-note"><span class="api-label">Use It When</span>You have a normal client-only app entrypoint and want the default mounting path.</p><dl><dt>node</dt><dd>The root UI tree to mount.</dd><dt>target</dt><dd>The default selector or target used by the framework entrypoint, when the API supports it.</dd></dl></div>
+          <div class="api-item"><h4>RenderInto</h4><p class="api-note"><span class="api-label">Description</span>Mounts a root UI tree into a specific DOM node or selector you provide.</p><p class="api-note"><span class="api-label">Use It When</span>You need to control the exact mount target rather than using the default app surface.</p><dl><dt>node</dt><dd>The root UI tree to mount.</dd><dt>target</dt><dd>The selector or DOM host that should receive the rendered UI.</dd></dl></div>
+          <div class="api-item"><h4>RenderToString</h4><p class="api-note"><span class="api-label">Description</span>Serializes a UI tree into HTML text for SSR or pre-render output.</p><p class="api-note"><span class="api-label">Use It When</span>You need HTML output on the server but do not need additional render telemetry.</p><dl><dt>node</dt><dd>The root UI tree to serialize into HTML.</dd></dl></div>
+          <div class="api-item"><h4>RenderToStringObserved</h4><p class="api-note"><span class="api-label">Description</span>Serializes a UI tree to HTML while also collecting render observations.</p><p class="api-note"><span class="api-label">Use It When</span>You need SSR output plus timing, diagnostics, or render metrics for the same pass.</p><dl><dt>node</dt><dd>The root UI tree to serialize.</dd><dt>observer</dt><dd>The observer callback or options that collect render observations.</dd></dl></div>
+          <div class="api-item"><h4>Text</h4><p class="api-note"><span class="api-label">Description</span>Creates a literal text node inside a UI tree.</p><p class="api-note"><span class="api-label">Use It When</span>You need explicit text output rather than another element node.</p><dl><dt>value</dt><dd>The string content to render as text.</dd></dl></div>
+        </div></article>
+        <article><h3>Types</h3><pre>Element [defined]
+Node [defined]</pre></article>
+      </div>
+    </section>
+
+    <section id="html-elements">
+      <h2>HTML Element Constructors</h2>
+      <div class="meta"><span class="pill">html</span><span class="pill">stable</span><span class="pill">beginner</span></div>
+      <p>Semantic HTML helpers for page structure, forms, links, media, and resource hints.</p>
+      <div class="guide-grid">
+        <div class="guide-card do-card"><strong>Use When</strong><p>You want Go-authored UI to read like HTML, keep semantic structure obvious, and attach props and handlers through typed helpers.</p></div>
+        <div class="guide-card dont-card"><strong>Avoid When</strong><p>You are trying to hide weak semantics behind generic containers. Prefer the element that matches intent instead of treating everything as a <code>Div</code>.</p></div>
+        <div class="guide-card pattern-card"><strong>How To Think About It</strong><p>The <code>html</code> package is the vocabulary layer. It does not replace state, routing, or forms; it gives those layers a semantic host tree.</p></div>
+      </div>
+      <div class="example-grid">
+      <div class="example-block example-good">
+        <h3>Recommended Pattern</h3>
+        <p>Use semantic wrappers first, then only fall back to <code>Tag</code> or <code>CustomElement</code> when there is no first-class helper.</p>
+        <pre>Form(
+    Label(For("email"), Text("Email")),
+    Input(ID("email"), Type("email"), Placeholder("you@example.com")),
+    Button(Type("submit"), Text("Save")),
+)</pre>
+      </div>
+      <div class="example-block example-bad">
+        <h3>Avoid This Shape</h3>
+        <p>Do not flatten everything into anonymous containers.</p>
+        <pre>Div(
+    Div(Text("Email")),
+    Div(Text("Save")),
+)</pre>
+      </div>
+      </div>
+      <div class="guide-stack">
+        <div class="guide-card dont-card"><strong>Common Misuse</strong><p>Stuffing framework behavior into <code>Props.Raw</code> first. Use typed props when they exist; reserve raw/property escape hatches for browser interop or unsupported attributes.</p></div>
+      </div>
+      <div class="inventory-title">Inventory</div>
+      <div class="grid">
+        <article><h3>Function Quick Reference</h3><div class="api-list">
+          <div class="api-item"><h4>A</h4><p class="api-note"><span class="api-label">Description</span>Creates a semantic anchor element for navigation or external links.</p><p class="api-note"><span class="api-label">Use It When</span>You need clickable navigation with typed link props and child content.</p><dl><dt>props</dt><dd>The anchor props such as <code>Href</code>, <code>Target</code>, <code>Rel</code>, classes, and handlers.</dd><dt>children</dt><dd>The text or inline nodes rendered inside the anchor.</dd></dl></div>
+          <div class="api-item"><h4>Article</h4><p class="api-note"><span class="api-label">Description</span>Creates a self-contained article region.</p><p class="api-note"><span class="api-label">Use It When</span>You are rendering content that should stand on its own, such as posts, cards, or stories.</p><dl><dt>props</dt><dd>The article attributes, classes, IDs, and handlers.</dd><dt>children</dt><dd>The nested content rendered inside the article.</dd></dl></div>
+          <div class="api-item"><h4>Aside</h4><p class="api-note"><span class="api-label">Description</span>Creates a complementary content region beside the main flow.</p><p class="api-note"><span class="api-label">Use It When</span>You are rendering secondary information like notes, filters, or related links.</p><dl><dt>props</dt><dd>The aside attributes, classes, IDs, and handlers.</dd><dt>children</dt><dd>The nested aside content.</dd></dl></div>
+          <div class="api-item"><h4>Blockquote</h4><p class="api-note"><span class="api-label">Description</span>Creates a quoted block of text or content.</p><p class="api-note"><span class="api-label">Use It When</span>You are rendering a citation, testimonial, or quoted excerpt.</p><dl><dt>props</dt><dd>The blockquote attributes, classes, or metadata.</dd><dt>children</dt><dd>The quoted content.</dd></dl></div>
+          <div class="api-item"><h4>Br</h4><p class="api-note"><span class="api-label">Description</span>Creates a line break element.</p><p class="api-note"><span class="api-label">Use It When</span>You need a deliberate line break inside otherwise inline text.</p><dl><dt>props</dt><dd>Optional attributes such as classes, IDs, or accessibility metadata.</dd></dl></div>
+          <div class="api-item"><h4>Button</h4><p class="api-note"><span class="api-label">Description</span>Creates an interactive button control.</p><p class="api-note"><span class="api-label">Use It When</span>You need a typed click target for actions, submissions, toggles, or commands.</p><dl><dt>props</dt><dd>The button props such as <code>Type</code>, <code>OnClick</code>, classes, and accessibility attributes.</dd><dt>children</dt><dd>The label or nested content rendered inside the button.</dd></dl></div>
+          <div class="api-item"><h4>Code</h4><p class="api-note"><span class="api-label">Description</span>Creates an inline code fragment element.</p><p class="api-note"><span class="api-label">Use It When</span>You need to highlight identifiers, commands, or snippets inside prose.</p><dl><dt>props</dt><dd>The code element classes, IDs, or metadata.</dd><dt>children</dt><dd>The inline code content.</dd></dl></div>
+          <div class="api-item"><h4>CustomElement</h4><p class="api-note"><span class="api-label">Description</span>Creates a web component or other custom element by tag name.</p><p class="api-note"><span class="api-label">Use It When</span>You need to integrate browser custom elements or external component hosts.</p><dl><dt>tagName</dt><dd>The custom element tag name to emit.</dd><dt>customProps</dt><dd>The custom-element attributes, presence flags, properties, and base props.</dd><dt>children</dt><dd>The nested content for the custom element, when it accepts children.</dd></dl></div>
+          <div class="api-item"><h4>Dialog</h4><p class="api-note"><span class="api-label">Description</span>Creates a native <code>&lt;dialog&gt;</code> element.</p><p class="api-note"><span class="api-label">Use It When</span>You want semantic dialog markup or are building on top of the browser dialog primitive.</p><dl><dt>props</dt><dd>The dialog attributes, classes, IDs, and handlers.</dd><dt>children</dt><dd>The content rendered inside the dialog.</dd></dl></div>
+          <div class="api-item"><h4>Div</h4><p class="api-note"><span class="api-label">Description</span>Creates a generic block-level container.</p><p class="api-note"><span class="api-label">Use It When</span>You need grouping but no more specific semantic element fits the job.</p><dl><dt>props</dt><dd>The div attributes, classes, IDs, and handlers.</dd><dt>children</dt><dd>The nested content rendered inside the div.</dd></dl></div>
+          <div class="api-item"><h4>Em</h4><p class="api-note"><span class="api-label">Description</span>Creates emphasized inline text.</p><p class="api-note"><span class="api-label">Use It When</span>You need semantic emphasis rather than visual styling alone.</p><dl><dt>props</dt><dd>The emphasis element metadata such as classes or IDs.</dd><dt>children</dt><dd>The emphasized inline content.</dd></dl></div>
+          <div class="api-item"><h4>Fieldset</h4><p class="api-note"><span class="api-label">Description</span>Creates a semantic group of related form controls.</p><p class="api-note"><span class="api-label">Use It When</span>You need to group checkboxes, radios, or related inputs under one labelable boundary.</p><dl><dt>props</dt><dd>The fieldset attributes, classes, IDs, and accessibility metadata.</dd><dt>children</dt><dd>The grouped form content, including inputs and legends.</dd></dl></div>
+          <div class="api-item"><h4>Footer</h4><p class="api-note"><span class="api-label">Description</span>Creates a footer landmark or section footer.</p><p class="api-note"><span class="api-label">Use It When</span>You are rendering closing metadata, actions, or navigation for a page or section.</p><dl><dt>props</dt><dd>The footer attributes, classes, IDs, and handlers.</dd><dt>children</dt><dd>The nested footer content.</dd></dl></div>
+          <div class="api-item"><h4>Form</h4><p class="api-note"><span class="api-label">Description</span>Creates a form element with typed submission hooks and field props.</p><p class="api-note"><span class="api-label">Use It When</span>You need a submit-capable container for inputs and validation flows.</p><dl><dt>props</dt><dd>The form props such as <code>Method</code>, <code>Action</code>, <code>OnSubmit</code>, classes, and IDs.</dd><dt>children</dt><dd>The controls and supporting content inside the form.</dd></dl></div>
+          <div class="api-item"><h4>Fragment</h4><p class="api-note"><span class="api-label">Description</span>Returns grouped children without emitting another HTML element.</p><p class="api-note"><span class="api-label">Use It When</span>You need sibling nodes but do not want a wrapper in the DOM.</p><dl><dt>children</dt><dd>The sibling nodes that should be returned together.</dd></dl></div>
+          <div class="api-item"><h4>H1</h4><p class="api-note"><span class="api-label">Description</span>Creates a level-one heading.</p><p class="api-note"><span class="api-label">Use It When</span>You are rendering the primary heading for a page or major surface.</p><dl><dt>props</dt><dd>The heading attributes, classes, IDs, and metadata.</dd><dt>children</dt><dd>The heading text or inline content.</dd></dl></div>
+          <div class="api-item"><h4>H2</h4><p class="api-note"><span class="api-label">Description</span>Creates a level-two heading.</p><p class="api-note"><span class="api-label">Use It When</span>You are rendering a major section heading under the page title.</p><dl><dt>props</dt><dd>The heading attributes, classes, IDs, and metadata.</dd><dt>children</dt><dd>The heading content.</dd></dl></div>
+          <div class="api-item"><h4>H3</h4><p class="api-note"><span class="api-label">Description</span>Creates a level-three heading.</p><p class="api-note"><span class="api-label">Use It When</span>You need a subsection heading under a broader section.</p><dl><dt>props</dt><dd>The heading attributes, classes, IDs, and metadata.</dd><dt>children</dt><dd>The heading content.</dd></dl></div>
+          <div class="api-item"><h4>H4</h4><p class="api-note"><span class="api-label">Description</span>Creates a level-four heading.</p><p class="api-note"><span class="api-label">Use It When</span>You are nesting one more level inside a section hierarchy.</p><dl><dt>props</dt><dd>The heading attributes, classes, IDs, and metadata.</dd><dt>children</dt><dd>The heading content.</dd></dl></div>
+          <div class="api-item"><h4>H5</h4><p class="api-note"><span class="api-label">Description</span>Creates a level-five heading.</p><p class="api-note"><span class="api-label">Use It When</span>You need a deeply nested heading while preserving semantic outline order.</p><dl><dt>props</dt><dd>The heading attributes, classes, IDs, and metadata.</dd><dt>children</dt><dd>The heading content.</dd></dl></div>
+          <div class="api-item"><h4>H6</h4><p class="api-note"><span class="api-label">Description</span>Creates a level-six heading.</p><p class="api-note"><span class="api-label">Use It When</span>You need the lowest semantic heading level supported by HTML.</p><dl><dt>props</dt><dd>The heading attributes, classes, IDs, and metadata.</dd><dt>children</dt><dd>The heading content.</dd></dl></div>
+          <div class="api-item"><h4>Header</h4><p class="api-note"><span class="api-label">Description</span>Creates a header landmark or section header.</p><p class="api-note"><span class="api-label">Use It When</span>You are rendering introductory or navigational content for a page or section.</p><dl><dt>props</dt><dd>The header attributes, classes, IDs, and handlers.</dd><dt>children</dt><dd>The nested header content.</dd></dl></div>
+          <div class="api-item"><h4>HiddenInput</h4><p class="api-note"><span class="api-label">Description</span>Creates a hidden form field for data that should submit without visible UI.</p><p class="api-note"><span class="api-label">Use It When</span>You need to post IDs, tokens, or other hidden values with a form.</p><dl><dt>props</dt><dd>The hidden input props such as <code>Name</code>, <code>Value</code>, IDs, and classes.</dd></dl></div>
+          <div class="api-item"><h4>Hr</h4><p class="api-note"><span class="api-label">Description</span>Creates a thematic break between content groups.</p><p class="api-note"><span class="api-label">Use It When</span>You need a semantic separator rather than decorative styling alone.</p><dl><dt>props</dt><dd>The horizontal-rule attributes, classes, or metadata.</dd></dl></div>
+          <div class="api-item"><h4>Img</h4><p class="api-note"><span class="api-label">Description</span>Creates an image element with typed media props.</p><p class="api-note"><span class="api-label">Use It When</span>You need to render bitmap or raster content with explicit source and alt text.</p><dl><dt>props</dt><dd>The image props such as <code>Src</code>, <code>Alt</code>, dimensions, classes, and IDs.</dd></dl></div>
+          <div class="api-item"><h4>Input</h4><p class="api-note"><span class="api-label">Description</span>Creates a single-line form input control.</p><p class="api-note"><span class="api-label">Use It When</span>You need text, email, number, password, checkbox, or other standard input types.</p><dl><dt>props</dt><dd>The input props such as <code>Type</code>, <code>Name</code>, <code>Value</code>, <code>Placeholder</code>, and event handlers.</dd></dl></div>
+          <div class="api-item"><h4>Label</h4><p class="api-note"><span class="api-label">Description</span>Creates a label associated with a form control.</p><p class="api-note"><span class="api-label">Use It When</span>You need accessible form labeling tied to an input or grouped control.</p><dl><dt>props</dt><dd>The label props such as <code>For</code>, classes, IDs, and metadata.</dd><dt>children</dt><dd>The visible label text or inline content.</dd></dl></div>
+          <div class="api-item"><h4>Legend</h4><p class="api-note"><span class="api-label">Description</span>Creates a caption for a fieldset group.</p><p class="api-note"><span class="api-label">Use It When</span>You need to name a group of related form controls.</p><dl><dt>props</dt><dd>The legend attributes, classes, IDs, and metadata.</dd><dt>children</dt><dd>The legend text or inline content.</dd></dl></div>
+          <div class="api-item"><h4>Li</h4><p class="api-note"><span class="api-label">Description</span>Creates a list item element.</p><p class="api-note"><span class="api-label">Use It When</span>You are rendering a structured list entry inside <code>Ul</code> or another list container.</p><dl><dt>props</dt><dd>The list-item attributes, classes, IDs, and metadata.</dd><dt>children</dt><dd>The content of the list item.</dd></dl></div>
+          <div class="api-item"><h4>Link</h4><p class="api-note"><span class="api-label">Description</span>Creates a document link element, typically for metadata, styles, or resource hints.</p><p class="api-note"><span class="api-label">Use It When</span>You need a head-style <code>&lt;link&gt;</code> node rather than a clickable anchor.</p><dl><dt>props</dt><dd>The link props such as <code>Href</code>, <code>Rel</code>, <code>As</code>, and related metadata.</dd></dl></div>
+          <div class="api-item"><h4>Main</h4><p class="api-note"><span class="api-label">Description</span>Creates the main landmark for primary page content.</p><p class="api-note"><span class="api-label">Use It When</span>You are defining the dominant content region for a page or app surface.</p><dl><dt>props</dt><dd>The main-region attributes, classes, IDs, and handlers.</dd><dt>children</dt><dd>The primary content rendered in the main region.</dd></dl></div>
+          <div class="api-item"><h4>Nav</h4><p class="api-note"><span class="api-label">Description</span>Creates a navigation landmark.</p><p class="api-note"><span class="api-label">Use It When</span>You are rendering menus, local navigation, or route links.</p><dl><dt>props</dt><dd>The nav attributes, classes, IDs, and handlers.</dd><dt>children</dt><dd>The navigation content.</dd></dl></div>
+          <div class="api-item"><h4>Option</h4><p class="api-note"><span class="api-label">Description</span>Creates an option inside a select control.</p><p class="api-note"><span class="api-label">Use It When</span>You need a selectable choice in a dropdown or listbox-like select.</p><dl><dt>props</dt><dd>The option props such as <code>Value</code>, <code>Selected</code>, classes, and IDs.</dd><dt>children</dt><dd>The visible label rendered for the option.</dd></dl></div>
+          <div class="api-item"><h4>P</h4><p class="api-note"><span class="api-label">Description</span>Creates a paragraph block.</p><p class="api-note"><span class="api-label">Use It When</span>You are rendering normal prose or body text.</p><dl><dt>props</dt><dd>The paragraph attributes, classes, IDs, and metadata.</dd><dt>children</dt><dd>The paragraph content.</dd></dl></div>
+          <div class="api-item"><h4>Pre</h4><p class="api-note"><span class="api-label">Description</span>Creates preformatted text output that preserves whitespace.</p><p class="api-note"><span class="api-label">Use It When</span>You need code blocks, logs, or text where spacing should remain literal.</p><dl><dt>props</dt><dd>The preformatted block attributes, classes, IDs, and metadata.</dd><dt>children</dt><dd>The content whose whitespace should be preserved.</dd></dl></div>
+          <div class="api-item"><h4>Section</h4><p class="api-note"><span class="api-label">Description</span>Creates a thematic section container.</p><p class="api-note"><span class="api-label">Use It When</span>You are grouping related content under its own heading or content theme.</p><dl><dt>props</dt><dd>The section attributes, classes, IDs, and handlers.</dd><dt>children</dt><dd>The grouped content for the section.</dd></dl></div>
+          <div class="api-item"><h4>Select</h4><p class="api-note"><span class="api-label">Description</span>Creates a select control for single or multi-choice selection.</p><p class="api-note"><span class="api-label">Use It When</span>You need a browser-native dropdown or select-based choice input.</p><dl><dt>props</dt><dd>The select props such as <code>Name</code>, <code>Value</code>, <code>Multiple</code>, and event handlers.</dd><dt>children</dt><dd>The nested option nodes.</dd></dl></div>
+          <div class="api-item"><h4>Small</h4><p class="api-note"><span class="api-label">Description</span>Creates side-note or fine-print text.</p><p class="api-note"><span class="api-label">Use It When</span>You need supporting text that is semantically secondary to surrounding copy.</p><dl><dt>props</dt><dd>The small-text attributes, classes, IDs, and metadata.</dd><dt>children</dt><dd>The supporting text content.</dd></dl></div>
+          <div class="api-item"><h4>Span</h4><p class="api-note"><span class="api-label">Description</span>Creates a generic inline container.</p><p class="api-note"><span class="api-label">Use It When</span>You need inline grouping but no more specific text semantic fits.</p><dl><dt>props</dt><dd>The span attributes, classes, IDs, and handlers.</dd><dt>children</dt><dd>The inline content grouped by the span.</dd></dl></div>
+          <div class="api-item"><h4>Strong</h4><p class="api-note"><span class="api-label">Description</span>Creates text with strong semantic importance.</p><p class="api-note"><span class="api-label">Use It When</span>You need to emphasize importance, not just apply heavier styling.</p><dl><dt>props</dt><dd>The strong-element attributes, classes, IDs, and metadata.</dd><dt>children</dt><dd>The emphasized content.</dd></dl></div>
+          <div class="api-item"><h4>Tag</h4><p class="api-note"><span class="api-label">Description</span>Creates an arbitrary HTML tag by name.</p><p class="api-note"><span class="api-label">Use It When</span>You need an element that does not already have a dedicated helper in the package.</p><dl><dt>tagName</dt><dd>The HTML tag name to emit.</dd><dt>props</dt><dd>The attributes, classes, IDs, and handlers applied to that tag.</dd><dt>children</dt><dd>The nested content rendered inside the tag.</dd></dl></div>
+          <div class="api-item"><h4>Text</h4><p class="api-note"><span class="api-label">Description</span>Creates a literal text node in the html helper layer.</p><p class="api-note"><span class="api-label">Use It When</span>You need explicit text output between other HTML builder calls.</p><dl><dt>value</dt><dd>The string content to render as plain text.</dd></dl></div>
+          <div class="api-item"><h4>Textarea</h4><p class="api-note"><span class="api-label">Description</span>Creates a multi-line text input control.</p><p class="api-note"><span class="api-label">Use It When</span>You need freeform multi-line user input such as notes, comments, or descriptions.</p><dl><dt>props</dt><dd>The textarea props such as <code>Name</code>, <code>Value</code>, <code>Rows</code>, and event handlers.</dd><dt>children</dt><dd>The fallback text content when needed by the element.</dd></dl></div>
+          <div class="api-item"><h4>Time</h4><p class="api-note"><span class="api-label">Description</span>Creates a semantic time element.</p><p class="api-note"><span class="api-label">Use It When</span>You are rendering timestamps, dates, or durations with machine-readable metadata.</p><dl><dt>props</dt><dd>The time-element props such as classes, IDs, and machine-readable values.</dd><dt>children</dt><dd>The visible date or time text.</dd></dl></div>
+          <div class="api-item"><h4>Ul</h4><p class="api-note"><span class="api-label">Description</span>Creates an unordered list container.</p><p class="api-note"><span class="api-label">Use It When</span>You need a semantic list of peer items.</p><dl><dt>props</dt><dd>The list attributes, classes, IDs, and metadata.</dd><dt>children</dt><dd>The list item nodes rendered inside the list.</dd></dl></div>
+        </div></article>
+        <article><h3>Link And Fetch Hint Reference</h3><div class="api-list">
+          <div class="api-item"><h4>DNSPrefetch</h4><p class="api-note"><span class="api-label">Description</span>Creates a resource hint that resolves DNS early for an origin.</p><p class="api-note"><span class="api-label">Use It When</span>You want to reduce connection latency for origins likely to be needed soon.</p><dl><dt>href</dt><dd>The origin whose DNS should be resolved early.</dd><dt>props</dt><dd>Optional metadata such as classes, IDs, or extra hint attributes.</dd></dl></div>
+          <div class="api-item"><h4>ModulePreload</h4><p class="api-note"><span class="api-label">Description</span>Creates a hint that preloads a JavaScript module graph.</p><p class="api-note"><span class="api-label">Use It When</span>You know a browser module will be needed soon and want to reduce startup delay.</p><dl><dt>href</dt><dd>The module URL to preload.</dd><dt>props</dt><dd>Optional attributes such as crossorigin, type, classes, or IDs.</dd></dl></div>
+          <div class="api-item"><h4>Preconnect</h4><p class="api-note"><span class="api-label">Description</span>Creates a hint that opens an early connection to an origin.</p><p class="api-note"><span class="api-label">Use It When</span>You want the browser to establish transport setup before the resource request itself begins.</p><dl><dt>href</dt><dd>The target origin to connect to early.</dd><dt>props</dt><dd>Optional attributes such as crossorigin, classes, or IDs.</dd></dl></div>
+          <div class="api-item"><h4>Prefetch</h4><p class="api-note"><span class="api-label">Description</span>Creates a hint that fetches a likely future resource at low priority.</p><p class="api-note"><span class="api-label">Use It When</span>You want to warm an asset or document that is probably needed on the next user step.</p><dl><dt>href</dt><dd>The resource URL to prefetch.</dd><dt>props</dt><dd>Optional metadata such as <code>As</code>, classes, IDs, or crossorigin settings.</dd></dl></div>
+          <div class="api-item"><h4>Preload</h4><p class="api-note"><span class="api-label">Description</span>Creates a high-priority fetch hint for a resource needed soon on the current page.</p><p class="api-note"><span class="api-label">Use It When</span>You need fonts, scripts, or critical assets available as early as possible.</p><dl><dt>href</dt><dd>The resource URL to preload.</dd><dt>as</dt><dd>The resource type so the browser prioritizes it correctly.</dd><dt>props</dt><dd>Optional attributes such as type, crossorigin, classes, or IDs.</dd></dl></div>
+        </div></article>
+        <article><h3>Types</h3><pre>CustomElementProps [struct]: Attributes, Presence, Properties, Props
+Props [struct]: Accept, Action, Alt, Aria, As, AutoComplete, AutoFocus, Checked, Class, Cols, Data, Disabled, EncType, For, Hidden, Href, ID, Key, Max, Method, Min, Multiple, Name, OnBlur, OnChange, OnClick, OnFocus, OnInput, OnKeyDown, OnKeyUp, OnSubmit, Placeholder, Raw, ReadOnly, Rel, Required, Role, Rows, Selected, Slot, Src, Step, Style, Target, Title, Type, Value</pre></article>
+      </div>
+    </section>
+
+    <section id="hooks-reactive">
+      <h2>Hooks And Reactive Effects</h2>
+      <div class="meta"><span class="pill">ui</span><span class="pill">stable</span><span class="pill">core</span></div>
+      <p>Component-local state, memoization, effects, transitions, events, and task helpers.</p>
+      <div class="guide-grid">
+        <div class="guide-card do-card"><strong>Use When</strong><p>You need component-local lifecycle, local state, derived view values, stable event handlers, or cancellable async work that belongs to one subtree.</p></div>
+        <div class="guide-card dont-card"><strong>Avoid When</strong><p>You need app-wide state shared across unrelated branches, persisted cache, or route data. Local hooks are not a substitute for the <code>state</code>, <code>fetch</code>, or <code>router</code> packages.</p></div>
+        <div class="guide-card pattern-card"><strong>How To Choose</strong><p><code>UseState</code> for local mutable view state, <code>UseMemo</code> for derived values, <code>UseEffect</code> for side effects, <code>UseEvent</code> for stable handlers, and <code>UseTask</code>/<code>UseWorkerTask</code> for explicit async units.</p></div>
+      </div>
+      <div class="example-grid">
+      <div class="example-block example-good">
+        <h3>Recommended Pattern</h3>
+        <pre>query := ui.UseState("")
+submit := ui.UseEvent(func() {
+    logSearch(query.Get())
+})
+
+return Input(
+    Value(query.Get()),
+    OnInput(ui.UseEvent(func(e ui.InputEvent) {
+        query.Set(e.GetValue())
+    })),
+)</pre>
+      </div>
+      <div class="example-block example-bad">
+      <h3>Avoid This Shape</h3>
+      <p>Do not mirror derivable state through effects.</p>
+      <pre>count := ui.UseState(0)
+  label := ui.UseState("0")
+
+  ui.UseEffect(func() func() {
+    label.Set(fmt.Sprintf("%d", count.Get()))
+    return nil
+  }, count.Get())</pre>
+      </div>
+      </div>
+      <div class="guide-stack">
+        <div class="guide-card dont-card"><strong>Common Misuse</strong><p>Using <code>UseEffect</code> to mirror state into more state when the value could be computed directly. Prefer derivation over synchronization.</p></div>
+      </div>
+      <div class="inventory-title">Inventory</div>
+      <div class="grid">
+        <article><h3>Function Quick Reference</h3><div class="api-list">
+          <div class="api-item"><h4>StartTransition</h4><p class="api-note"><span class="api-label">Description</span>Marks a state update as lower priority so urgent UI stays responsive.</p><p class="api-note"><span class="api-label">Use It When</span>You are kicking off non-urgent work like large filters, route changes, or derived UI reshaping.</p><dl><dt>work</dt><dd>The callback that performs the transition-scoped state updates.</dd></dl></div>
+          <div class="api-item"><h4>UseCallback</h4><p class="api-note"><span class="api-label">Description</span>Memoizes a callback so its identity stays stable across renders.</p><p class="api-note"><span class="api-label">Use It When</span>You need a stable function reference for child props, subscriptions, or effect dependencies.</p><dl><dt>handler</dt><dd>The function to memoize.</dd><dt>dependencies</dt><dd>The values that should refresh the callback when they change.</dd></dl></div>
+          <div class="api-item"><h4>UseChannel</h4><p class="api-note"><span class="api-label">Description</span>Reads from a channel-like async source through the hook model.</p><p class="api-note"><span class="api-label">Use It When</span>You need goroutine or stream-driven values to participate in reactive UI updates.</p><dl><dt>source</dt><dd>The channel or channel-backed source to observe.</dd><dt>options</dt><dd>Optional configuration for buffering or lifecycle behavior.</dd></dl></div>
+          <div class="api-item"><h4>UseDebounced</h4><p class="api-note"><span class="api-label">Description</span>Delays value propagation until changes stop for a defined interval.</p><p class="api-note"><span class="api-label">Use It When</span>You need to avoid firing expensive work on every keystroke or rapid change.</p><dl><dt>value</dt><dd>The live value to debounce.</dd><dt>duration</dt><dd>The wait interval before publishing the debounced value.</dd></dl></div>
+          <div class="api-item"><h4>UseDeferredValue</h4><p class="api-note"><span class="api-label">Description</span>Lets one value trail a more urgent source value to reduce visible blocking.</p><p class="api-note"><span class="api-label">Use It When</span>You want input typing or urgent interactions to stay fast while slower UI catches up.</p><dl><dt>value</dt><dd>The current value that can be safely deferred.</dd></dl></div>
+          <div class="api-item"><h4>UseEffect</h4><p class="api-note"><span class="api-label">Description</span>Runs side effects after render and can clean them up when dependencies change.</p><p class="api-note"><span class="api-label">Use It When</span>You need subscriptions, timers, DOM interop, or network orchestration outside render.</p><dl><dt>effect</dt><dd>The callback that performs the side effect and can return a cleanup function.</dd><dt>dependencies</dt><dd>The values that control when the effect should re-run.</dd></dl></div>
+          <div class="api-item"><h4>UseEvent</h4><p class="api-note"><span class="api-label">Description</span>Creates a stable event handler that still sees current state.</p><p class="api-note"><span class="api-label">Use It When</span>You need click, input, submit, or keyboard handlers without re-creating them every render.</p><dl><dt>handler</dt><dd>The event callback to wrap.</dd></dl></div>
+          <div class="api-item"><h4>UseId</h4><p class="api-note"><span class="api-label">Description</span>Generates a stable ID for the lifetime of the component instance.</p><p class="api-note"><span class="api-label">Use It When</span>You need to connect labels, descriptions, and controls without hard-coding IDs.</p><dl><dt>prefix</dt><dd>An optional prefix that makes the generated ID easier to recognize.</dd></dl></div>
+          <div class="api-item"><h4>UseMemo</h4><p class="api-note"><span class="api-label">Description</span>Memoizes a computed value so it only recomputes when dependencies change.</p><p class="api-note"><span class="api-label">Use It When</span>You have derived data that is expensive or noisy enough to justify caching between renders.</p><dl><dt>factory</dt><dd>The computation used to produce the memoized value.</dd><dt>dependencies</dt><dd>The values that invalidate and recompute the memoized value.</dd></dl></div>
+          <div class="api-item"><h4>UsePrevious</h4><p class="api-note"><span class="api-label">Description</span>Remembers the previous render value for comparison.</p><p class="api-note"><span class="api-label">Use It When</span>You need to compare current and previous values without storing the old value manually.</p><dl><dt>value</dt><dd>The current value whose previous render value should be tracked.</dd></dl></div>
+          <div class="api-item"><h4>UseReducer</h4><p class="api-note"><span class="api-label">Description</span>Creates reducer-driven state with explicit dispatch semantics.</p><p class="api-note"><span class="api-label">Use It When</span>You need state transitions represented as actions rather than scattered setters.</p><dl><dt>reducer</dt><dd>The reducer function that turns state and actions into next state.</dd><dt>initialState</dt><dd>The starting state for the reducer.</dd><dt>options</dt><dd>Optional reducer initialization behavior.</dd></dl></div>
+          <div class="api-item"><h4>UseRef</h4><p class="api-note"><span class="api-label">Description</span>Stores a mutable reference value that survives renders without causing rerenders.</p><p class="api-note"><span class="api-label">Use It When</span>You need imperative handles, DOM references, or mutable bookkeeping.</p><dl><dt>initialValue</dt><dd>The initial reference value.</dd></dl></div>
+          <div class="api-item"><h4>UseState</h4><p class="api-note"><span class="api-label">Description</span>Stores local mutable state for one component instance.</p><p class="api-note"><span class="api-label">Use It When</span>You need straightforward local UI state such as counters, form fields, or toggles.</p><dl><dt>initialValue</dt><dd>The starting state value for the first render.</dd></dl></div>
+          <div class="api-item"><h4>UseTask</h4><p class="api-note"><span class="api-label">Description</span>Runs cancellable async work through a task state wrapper.</p><p class="api-note"><span class="api-label">Use It When</span>You need an explicit async job with running, ready, error, and cancel state.</p><dl><dt>task</dt><dd>The async function or task body to execute.</dd><dt>dependencies</dt><dd>The values that should refresh or restart the task.</dd><dt>options</dt><dd>Optional timeout, cancellation, or startup behavior.</dd></dl></div>
+          <div class="api-item"><h4>UseThrottled</h4><p class="api-note"><span class="api-label">Description</span>Limits how often a changing value is published.</p><p class="api-note"><span class="api-label">Use It When</span>You need to cap update frequency for scroll, resize, or high-volume event streams.</p><dl><dt>value</dt><dd>The live value to throttle.</dd><dt>duration</dt><dd>The minimum interval between published updates.</dd></dl></div>
+          <div class="api-item"><h4>UseTransition</h4><p class="api-note"><span class="api-label">Description</span>Returns transition state and a starter function for deferred updates.</p><p class="api-note"><span class="api-label">Use It When</span>You need to show pending UI while a non-urgent update is in flight.</p><dl><dt>options</dt><dd>Optional scheduling behavior for the transition.</dd></dl></div>
+          <div class="api-item"><h4>UseWorkerTask</h4><p class="api-note"><span class="api-label">Description</span>Runs task work through a worker-backed or progress-aware execution path.</p><p class="api-note"><span class="api-label">Use It When</span>You need async work with progress reporting or isolation from the main UI flow.</p><dl><dt>task</dt><dd>The worker-backed job or async function to execute.</dd><dt>dependencies</dt><dd>The values that should refresh or restart the worker task.</dd><dt>options</dt><dd>Optional worker, progress, timeout, or cancellation behavior.</dd></dl></div>
+        </div></article>
+        <article><h3>Types</h3><pre>ChangeEvent [defined]
+Channel [struct]: methods Closed, Get, Ok
+Debounced [struct]: methods Get, Pending
+Event [defined]: methods GetKey, GetKeyCode, GetValue, IsChecked, PreventDefault, StopPropagation
+FocusEvent [defined]
+Handler [struct]: methods Value
+InputEvent [defined]
+KeyboardEvent [defined]
+MouseEvent [defined]
+Previous [struct]: methods Get, Ok
+Reducer [struct]: methods Dispatch, Get
+Ref [struct]: methods Get, Set
+Task [struct]: methods Cancel, Get, Start
+TaskState [struct]: Cancelled, Error, Ready, Running, Started, Value
+Throttled [struct]: methods Get, Pending
+Transition [struct]: methods Pending, Start
+WorkerTask [struct]: methods Cancel, Get, Start
+WorkerTaskState [struct]: Cancelled, Error, Progress, ProgressReady, Ready, Running, Started, Value</pre></article>
+      </div>
+    </section>
+
+    <section id="composition-boundaries">
+      <h2>Composition, Context, And Boundaries</h2>
+      <div class="meta"><span class="pill">ui</span><span class="pill">stable</span><span class="pill">intermediate</span></div>
+      <p>Context providers, lazy nodes, async boundaries, error boundaries, and reactive region isolation.</p>
+      <div class="guide-grid">
+        <div class="guide-card do-card"><strong>Use When</strong><p>You need to isolate failures, delay expensive subtrees, share values down a tree without prop drilling, or scope reactive updates to smaller regions.</p></div>
+        <div class="guide-card dont-card"><strong>Avoid When</strong><p>You are using context or lazy boundaries just to hide unclear component boundaries. These tools help good architecture; they do not rescue confused ownership.</p></div>
+        <div class="guide-card pattern-card"><strong>How To Choose</strong><p><code>CreateContext</code> and <code>UseContext</code> for ambient values, <code>ErrorBoundary</code> for containment, <code>AsyncBoundary</code>/<code>Lazy</code> for delayed subtrees, and <code>ReactiveRegion</code> when update isolation is the real goal.</p></div>
+      </div>
+      <div class="example-grid">
+      <div class="example-block example-good">
+        <h3>Recommended Pattern</h3>
+        <pre>ErrorBoundary(ErrorBoundaryProps{
+    Fallback: Div(Text("Something failed.")),
+    Child:    ui.Component(renderCheckoutPanel),
+})</pre>
+      </div>
+      <div class="example-block example-bad">
+        <h3>Avoid This Shape</h3>
+        <p>Do not wrap the entire app with no recovery boundary plan.</p>
+        <pre>ErrorBoundary(ErrorBoundaryProps{
+    Child: ui.Component(renderWholeApp),
+})</pre>
+      </div>
+      </div>
+      <div class="guide-stack">
+        <div class="guide-card dont-card"><strong>Common Misuse</strong><p>Wrapping the whole app in boundaries without a recovery plan. Boundaries should align with user-visible recovery zones, not hide every error globally.</p></div>
+      </div>
+      <div class="inventory-title">Inventory</div>
+      <div class="grid">
+        <article><h3>Variables</h3><pre>ErrorBoundary</pre></article>
+        <article><h3>Function Quick Reference</h3><div class="api-list">
+          <div class="api-item"><h4>AsyncBoundary</h4><p class="api-note"><span class="api-label">Description</span>Wraps async content with pending, timeout, and error fallbacks.</p><p class="api-note"><span class="api-label">Use It When</span>You need one subtree to handle loading and failure states without spreading that logic across callers.</p><dl><dt>props</dt><dd>The boundary props including content, fallback nodes, delay, timeout, and error handling behavior.</dd></dl></div>
+          <div class="api-item"><h4>CreateContext</h4><p class="api-note"><span class="api-label">Description</span>Creates a context channel for ambient values shared across descendants.</p><p class="api-note"><span class="api-label">Use It When</span>You want to avoid prop drilling for cross-cutting values like theme, session, or environment data.</p><dl><dt>defaultValue</dt><dd>The fallback value used when no provider supplies an override.</dd></dl></div>
+          <div class="api-item"><h4>HotReloadBoundary</h4><p class="api-note"><span class="api-label">Description</span>Defines a development-only reset boundary for hot reload state preservation.</p><p class="api-note"><span class="api-label">Use It When</span>You need a subtree to reset when selected keys change during local development.</p><dl><dt>props</dt><dd>The boundary props including children and reset keys.</dd></dl></div>
+          <div class="api-item"><h4>Lazy</h4><p class="api-note"><span class="api-label">Description</span>Loads a UI subtree on demand instead of creating it eagerly.</p><p class="api-note"><span class="api-label">Use It When</span>You want to defer expensive or conditional content until it is actually needed.</p><dl><dt>props</dt><dd>The lazy loader, dependency list, and fallback behavior for pending, timeout, or error states.</dd></dl></div>
+          <div class="api-item"><h4>ReactiveRegion</h4><p class="api-note"><span class="api-label">Description</span>Scopes update propagation to a smaller reactive subtree.</p><p class="api-note"><span class="api-label">Use It When</span>You want a branch to rerender only from specific reactive sources instead of broader parent churn.</p><dl><dt>sources</dt><dd>The reactive dependencies or source objects that should trigger region updates.</dd><dt>children</dt><dd>The subtree rendered inside the isolated region.</dd></dl></div>
+          <div class="api-item"><h4>UseContext</h4><p class="api-note"><span class="api-label">Description</span>Reads the current value from a context channel.</p><p class="api-note"><span class="api-label">Use It When</span>You need the nearest provider value inside a descendant component.</p><dl><dt>context</dt><dd>The context object created by <code>CreateContext</code>.</dd></dl></div>
+          <div class="api-item"><h4>UseLazyNode</h4><p class="api-note"><span class="api-label">Description</span>Loads and manages a lazy node through a hook instead of a wrapper component.</p><p class="api-note"><span class="api-label">Use It When</span>You need imperative access to lazy-node state, reload behavior, or cancellation.</p><dl><dt>loader</dt><dd>The function that resolves the lazy node.</dd><dt>dependencies</dt><dd>The values that should trigger a reload when they change.</dd><dt>options</dt><dd>The fallback, timeout, and error behavior for the lazy load.</dd></dl></div>
+        </div></article>
+        <article><h3>Types</h3><pre>AsyncBoundaryProps [struct]: Content, Delay, Error, ErrorFallback, Fallback, Pending, Timeout, TimeoutFallback
+Context [struct]: Provider
+ContextProvider [struct]
+ContextProviderProps [struct]: Child, Children, Value
+ErrorBoundaryProps [struct]: Child, Children, ErrorFallback, Fallback, OnError, ResetKeys
+HotReloadBoundaryProps [struct]: Child, Children, ResetKeys
+LazyNode [struct]: methods Cancel, Get, Reload
+LazyNodeState [struct]: Error, Loading, Node, Ready
+LazyProps [struct]: Delay, Dependencies, ErrorFallback, Fallback, Loader, Timeout, TimeoutFallback
+ReactiveSource [interface]: ReactiveRegionSourceIDs</pre></article>
+      </div>
+    </section>
+
+    <section id="accessibility-focus">
+      <h2>Accessibility, Focus, And Overlays</h2>
+      <div class="meta"><span class="pill">ui</span><span class="pill">stable</span><span class="pill">core</span></div>
+      <p>Focus control, announcements, composite navigation, overlays, portals, and stack coordination.</p>
+      <div class="guide-grid">
+        <div class="guide-card do-card"><strong>Use When</strong><p>You are building overlays, menus, dialogs, composite widgets, or flows where keyboard and focus behavior is part of the feature, not a polish task.</p></div>
+        <div class="guide-card dont-card"><strong>Avoid When</strong><p>You only need static semantics. Native labels, headings, buttons, and form controls should stay native before reaching for overlay and focus orchestration APIs.</p></div>
+        <div class="guide-card pattern-card"><strong>How To Choose</strong><p><code>UseFocusManager</code> for explicit focus movement, <code>UseFocusTrap</code> and <code>Overlay</code>/<code>AccessibleOverlay</code> for layered UI, and <code>UseAnnouncer</code> when users need status changes spoken aloud.</p></div>
+      </div>
+      <div class="example-grid">
+      <div class="example-block example-good">
+        <h3>Recommended Pattern</h3>
+        <pre>AccessibleOverlay(AccessibleOverlayProps{
+    Open: true,
+    Modal: true,
+    Role: "dialog",
+    InitialFocusSelector: "#confirm",
+    OnDismiss: closeDialog,
+})</pre>
+      </div>
+      <div class="example-block example-bad">
+        <h3>Avoid This Shape</h3>
+        <p>Do not open layered UI with no dismissal or focus policy.</p>
+        <pre>Overlay(OverlayProps{
+    Open: true,
+    Child: Div(Text("Menu")),
+})</pre>
+      </div>
+      </div>
+      <div class="guide-stack">
+        <div class="guide-card dont-card"><strong>Common Misuse</strong><p>Using portals or overlays without focus return, escape handling, or outside-click policy. If the layer changes interaction model, it must also manage focus and dismissal.</p></div>
+      </div>
+      <div class="inventory-title">Inventory</div>
+      <div class="grid">
+        <article><h3>Constants</h3><pre>AnnouncementAssertive
+AnnouncementPolite
+OverlayKindCustom
+OverlayKindDialog
+OverlayKindMenu
+OverlayKindPopover
+OverlayKindSheet
+OverlayKindTooltip</pre></article>
+        <article><h3>Function Quick Reference</h3><div class="api-list">
+          <div class="api-item"><h4>AccessibleOverlay</h4><p class="api-note"><span class="api-label">Description</span>Creates an overlay with accessibility-focused defaults for focus, dismissal, and semantics.</p><p class="api-note"><span class="api-label">Use It When</span>You need dialog, sheet, menu, or popover behavior without hand-wiring the accessibility rules yourself.</p><dl><dt>props</dt><dd>The overlay props including open state, dismissal rules, focus behavior, role, target, and children.</dd></dl></div>
+          <div class="api-item"><h4>Overlay</h4><p class="api-note"><span class="api-label">Description</span>Creates a configurable layered surface without imposing the higher-level accessibility wrapper.</p><p class="api-note"><span class="api-label">Use It When</span>You need lower-level overlay control and are intentionally managing the semantics yourself.</p><dl><dt>props</dt><dd>The overlay props covering open state, positioning, surface, dismissal, focus, and children.</dd></dl></div>
+          <div class="api-item"><h4>Portal</h4><p class="api-note"><span class="api-label">Description</span>Renders a subtree into another DOM target while preserving component ownership.</p><p class="api-note"><span class="api-label">Use It When</span>You need modals, toasts, or overlays to escape normal DOM nesting.</p><dl><dt>target</dt><dd>The selector or DOM node that should receive the portaled content.</dd><dt>children</dt><dd>The subtree rendered into the portal target.</dd></dl></div>
+          <div class="api-item"><h4>UseAnnouncer</h4><p class="api-note"><span class="api-label">Description</span>Creates a live-region announcer for assistive-technology status updates.</p><p class="api-note"><span class="api-label">Use It When</span>You need to announce validation, navigation, or async status changes to screen readers.</p><dl><dt>mode</dt><dd>The politeness mode, such as polite or assertive.</dd></dl></div>
+          <div class="api-item"><h4>UseCompositeNavigation</h4><p class="api-note"><span class="api-label">Description</span>Coordinates keyboard movement and active-item state for composite widgets.</p><p class="api-note"><span class="api-label">Use It When</span>You are building menus, tablists, listboxes, or other roving-focus widgets.</p><dl><dt>items</dt><dd>The ordered items that can become active.</dd><dt>options</dt><dd>The looping, orientation, and initial-index behavior for navigation.</dd></dl></div>
+          <div class="api-item"><h4>UseFocusManager</h4><p class="api-note"><span class="api-label">Description</span>Provides imperative focus helpers for moving or restoring focus.</p><p class="api-note"><span class="api-label">Use It When</span>You need explicit focus movement after validation, overlays, or route changes.</p><dl><dt>options</dt><dd>The focus management options such as selectors and restore behavior.</dd></dl></div>
+          <div class="api-item"><h4>UseFocusTrap</h4><p class="api-note"><span class="api-label">Description</span>Constrains tab focus to a single container while active.</p><p class="api-note"><span class="api-label">Use It When</span>You need modal or overlay flows that should not allow focus to escape.</p><dl><dt>options</dt><dd>The trap options including active state, container selector, and restore behavior.</dd></dl></div>
+          <div class="api-item"><h4>UseOverlayStack</h4><p class="api-note"><span class="api-label">Description</span>Tracks overlay layering so escape handling and z-index decisions stay consistent.</p><p class="api-note"><span class="api-label">Use It When</span>You have multiple overlays that can stack and need one source of truth for which layer is active.</p><dl><dt>options</dt><dd>The stack options such as overlay kind, open state, dismissal rules, and trap-focus behavior.</dd></dl></div>
+        </div></article>
+        <article><h3>Types</h3><pre>AccessibleOverlayProps [struct]: AnchorSelector, AppRootSelector, Backdrop, BackdropClass, BackdropStyle, BackgroundInert, BaseZIndex, Child, Children, CloseOnEscape, CloseOnOutsideClick, DescribedBy, FallbackFocusSelector, InitialFocusSelector, Kind, LabelledBy, LockScroll, Modal, OnDismiss, Open, Positioning, RestoreFocus, Role, SurfaceClass, SurfaceID, SurfaceStyle, Target, TrapFocus
+AnnouncementMode [defined]
+Announcer [struct]: methods Announce, Assertive, AssertiveID, Clear, Polite, PoliteID, Region
+CompositeItem [struct]: Disabled, ID, Text
+CompositeNavigation [struct]: methods ActiveDescendant, ActiveID, ActiveIndex, IsActive, MoveEnd, MoveHome, MoveNext, MovePrevious, OnKeyDown, SetActive, TabIndex
+CompositeNavigationOptions [struct]: InitialIndex, Loop, Orientation
+FocusManager [struct]: methods FocusByID, FocusFirst, FocusFirstError, FocusSelector, RememberActive, Restore
+FocusOptions [struct]: PreventScroll
+FocusTrapOptions [struct]: Active, ContainerSelector, FallbackFocusSelector, InitialFocusSelector, RestoreFocus
+OverlayKind [defined]
+OverlayProps [struct]: AnchorSelector, AppRootSelector, Backdrop, BackdropClass, BackdropStyle, BackgroundInert, BaseZIndex, Child, Children, CloseOnEscape, CloseOnOutsideClick, DescribedBy, FallbackFocusSelector, InitialFocusSelector, Kind, LabelledBy, LockScroll, Modal, OnDismiss, Open, Positioning, RestoreFocus, Role, SurfaceClass, SurfaceID, SurfaceStyle, Target, TrapFocus
+OverlayStack [struct]: BackdropZIndex, Depth, HandlesEscape, HandlesOutsideClick, ID, IsTop, Kind, LayerCount, SurfaceZIndex, TrapFocusActive
+OverlayStackOptions [struct]: BaseZIndex, CloseOnEscape, CloseOnOutsideClick, ID, Kind, Open, TrapFocus
+PortalProps [struct]: Child, Children, Target
+PortalTarget [struct]: Node, Selector</pre></article>
+      </div>
+    </section>
+
+    <section id="forms-validation">
+      <h2>Forms, Files, And Validation</h2>
+      <div class="meta"><span class="pill">ui</span><span class="pill">stable</span><span class="pill">intermediate</span></div>
+      <p>Form state, field-level errors, server submissions, file extraction, and file wrappers.</p>
+      <div class="guide-grid">
+        <div class="guide-card do-card"><strong>Use When</strong><p>You need form dirtiness, touch state, validation, submit lifecycle, server error application, or multipart file extraction as one coherent workflow.</p></div>
+        <div class="guide-card dont-card"><strong>Avoid When</strong><p>You just need one uncontrolled browser field with no validation model. Do not pull in form orchestration for a trivial input if the browser alone is enough.</p></div>
+        <div class="guide-card pattern-card"><strong>How To Choose</strong><p>Use <code>UseForm</code> as the state machine, <code>Validate</code>/<code>ValidateAsync</code> for rules, and <code>ApplyServerErrors</code> when the server is authoritative.</p></div>
+      </div>
+      <div class="example-grid">
+      <div class="example-block example-good">
+        <h3>Recommended Pattern</h3>
+        <pre>form := ui.UseForm(map[string]string{"email": ""})
+form.Validate(func(values map[string]string) ui.FieldErrors {
+    if values["email"] == "" {
+        return ui.FieldErrors{"email": "Email is required."}
+    }
+    return nil
+})</pre>
+      </div>
+      <div class="example-block example-bad">
+        <h3>Avoid This Shape</h3>
+        <p>Do not split field truth between the DOM and ad hoc local state.</p>
+        <pre>email := ui.UseState("")
+
+Input(OnInput(ui.UseEvent(func(e ui.InputEvent) {
+    email.Set(e.GetValue())
+})))
+
+// separate manual validation elsewhere</pre>
+      </div>
+      </div>
+      <div class="guide-stack">
+        <div class="guide-card dont-card"><strong>Common Misuse</strong><p>Mixing raw DOM reads, ad hoc local state, and form helpers in the same form. Pick one authoritative source of form truth.</p></div>
+      </div>
+      <div class="inventory-title">Inventory</div>
+      <div class="grid">
+        <article><h3>Function Quick Reference</h3><div class="api-list">
+          <div class="api-item"><h4>ExtractFiles</h4><p class="api-note"><span class="api-label">Description</span>Pulls uploaded file values out of a browser-backed form payload.</p><p class="api-note"><span class="api-label">Use It When</span>You need structured Go file values for multipart uploads or later validation.</p><dl><dt>source</dt><dd>The form event or payload that contains file inputs.</dd><dt>fieldNames</dt><dd>The optional subset of file fields to extract.</dd></dl></div>
+          <div class="api-item"><h4>FileFromJSValue</h4><p class="api-note"><span class="api-label">Description</span>Converts a raw JavaScript file value into the framework file wrapper.</p><p class="api-note"><span class="api-label">Use It When</span>You already have a JS file object and want the typed Go wrapper around it.</p><dl><dt>value</dt><dd>The raw JavaScript file value to wrap.</dd></dl></div>
+          <div class="api-item"><h4>NewCSRFToken</h4><p class="api-note"><span class="api-label">Description</span>Creates a CSRF token helper for consistent form and header usage.</p><p class="api-note"><span class="api-label">Use It When</span>You need to pass one server-issued CSRF token through form submissions and request headers.</p><dl><dt>value</dt><dd>The CSRF token string issued by the server.</dd><dt>names</dt><dd>Optional form-field or header-name overrides for how the token is sent.</dd></dl></div>
+          <div class="api-item"><h4>UseForm</h4><p class="api-note"><span class="api-label">Description</span>Creates a managed form state model with values, dirtiness, validation, and submit lifecycle.</p><p class="api-note"><span class="api-label">Use It When</span>You need one authoritative form state source instead of ad hoc local fields and DOM reads.</p><dl><dt>initialValues</dt><dd>The starting field map or initial form state.</dd><dt>options</dt><dd>Optional validation, submit, or lifecycle configuration.</dd></dl></div>
+        </div></article>
+        <article><h3>Types</h3><pre>CSRFToken [struct]: FormFieldName, HeaderName, Value; methods FormField, Header
+FieldErrors [defined]
+FieldStatus [struct]: Dirty, Error, Name, Pending, Touched
+File [struct]: methods JSValue, LastModified, Name, Size, Type
+Form [struct]: methods ApplyServerErrors, Dirty, DirtyAny, Error, Errors, FieldMessage, FieldStatus, FormError, Get, HasErrors, HasFieldError, IntentPending, Reset, Set, SetErrors, SetField, SetFormError, SetSubmitIntent, Submit, SubmitError, SubmitIntent, SubmitWithIntent, Submitted, Submitting, Touch, Touched, TouchedAny, Update, Validate, ValidateAsync, ValidateIntent, Validated, Validating
+FormEvent [defined]
+ServerFormErrors [struct]: Error, Fields, Message; methods FormMessage</pre></article>
+      </div>
+    </section>
+
+    <section id="state-atoms">
+      <h2>Reactive State And Snapshots</h2>
+      <div class="meta"><span class="pill">state</span><span class="pill">stable</span><span class="pill">core</span></div>
+      <p>Atoms, derived values, computed selectors, and snapshot import-export paths.</p>
+      <div class="guide-grid">
+        <div class="guide-card do-card"><strong>Use When</strong><p>You need shared reactive values outside one component subtree, stable cross-surface state, or snapshot export and restore across sessions or SSR hydration.</p></div>
+        <div class="guide-card dont-card"><strong>Avoid When</strong><p>You only need local component interaction. App-wide atoms are heavier than local hooks and can blur ownership when overused.</p></div>
+        <div class="guide-card pattern-card"><strong>How To Choose</strong><p><code>UseAtom</code> for shared mutable values, <code>UseDerived</code>/<code>UseComputed</code> for derived reads, and snapshot APIs for persistence or transfer.</p></div>
+      </div>
+      <div class="example-grid">
+      <div class="example-block example-good">
+        <h3>Recommended Pattern</h3>
+        <pre>cartCount := state.UseAtom("cart.count", 0)
+isEmpty := state.UseDerived(func() bool {
+    return cartCount.Get() == 0
+})</pre>
+      </div>
+      <div class="example-block example-bad">
+        <h3>Avoid This Shape</h3>
+        <p>Do not promote every local toggle into shared app state.</p>
+        <pre>sidebarOpen := state.UseAtom("sidebar.open", false)
+    tooltipOpen := state.UseAtom("tooltip.open", false)
+    rowHovered := state.UseAtom("row.hovered", false)</pre>
+      </div>
+      </div>
+      <div class="guide-stack">
+        <div class="guide-card dont-card"><strong>Common Misuse</strong><p>Creating atoms for every local UI toggle. Shared state should be shared because multiple areas need it, not because hooks are available.</p></div>
+      </div>
+      <div class="inventory-title">Inventory</div>
+      <div class="grid">
+        <article><h3>Constants</h3><pre>LocalStorage
+SessionStorage</pre></article>
+        <article><h3>Function Quick Reference</h3><div class="api-list">
+          <div class="api-item"><h4>ExportSnapshot</h4><p class="api-note"><span class="api-label">Description</span>Collects the current atom state into a snapshot value.</p><p class="api-note"><span class="api-label">Use It When</span>You need to inspect, persist, transfer, or diff the current shared-state graph.</p><dl><dt>selection</dt><dd>The atoms or scope to include in the exported snapshot.</dd></dl></div>
+          <div class="api-item"><h4>ImportSnapshot</h4><p class="api-note"><span class="api-label">Description</span>Loads a snapshot payload into the current runtime state graph.</p><p class="api-note"><span class="api-label">Use It When</span>You need to restore previously captured shared state into a live app.</p><dl><dt>snapshot</dt><dd>The snapshot value to import.</dd><dt>options</dt><dd>The import behavior such as merge rules or overwrite semantics.</dd></dl></div>
+          <div class="api-item"><h4>LoadPersistentSnapshot</h4><p class="api-note"><span class="api-label">Description</span>Reads a persisted snapshot from durable storage without immediately applying it.</p><p class="api-note"><span class="api-label">Use It When</span>You need to inspect or validate persisted state before restoring it.</p><dl><dt>options</dt><dd>The persistence resolver, database, and corruption-handling settings.</dd></dl></div>
+          <div class="api-item"><h4>LoadSnapshot</h4><p class="api-note"><span class="api-label">Description</span>Reads a previously saved snapshot payload from a source.</p><p class="api-note"><span class="api-label">Use It When</span>You need snapshot data available in memory before deciding whether to restore it.</p><dl><dt>source</dt><dd>The snapshot source to load from.</dd></dl></div>
+          <div class="api-item"><h4>MarshalSnapshotJSON</h4><p class="api-note"><span class="api-label">Description</span>Encodes a snapshot as JSON text.</p><p class="api-note"><span class="api-label">Use It When</span>You need snapshot state in a transport-friendly or human-inspectable format.</p><dl><dt>snapshot</dt><dd>The snapshot value to encode.</dd></dl></div>
+          <div class="api-item"><h4>RestorePersistentSnapshot</h4><p class="api-note"><span class="api-label">Description</span>Loads a persisted snapshot and applies it back into live atoms.</p><p class="api-note"><span class="api-label">Use It When</span>You want one-step recovery from durable storage into the current runtime.</p><dl><dt>options</dt><dd>The persistence and restore behavior used for the operation.</dd></dl></div>
+          <div class="api-item"><h4>RestoreSnapshot</h4><p class="api-note"><span class="api-label">Description</span>Applies an in-memory snapshot to the current state graph.</p><p class="api-note"><span class="api-label">Use It When</span>You already have a snapshot value and want it to become live state again.</p><dl><dt>snapshot</dt><dd>The snapshot value to restore.</dd><dt>options</dt><dd>The restore behavior such as merge or overwrite rules.</dd></dl></div>
+          <div class="api-item"><h4>SavePersistentSnapshot</h4><p class="api-note"><span class="api-label">Description</span>Saves a snapshot into durable storage for later recovery.</p><p class="api-note"><span class="api-label">Use It When</span>You need crash recovery, resume flows, or manual persistence for shared state.</p><dl><dt>snapshot</dt><dd>The snapshot to persist.</dd><dt>options</dt><dd>The storage backend and persistence settings.</dd></dl></div>
+          <div class="api-item"><h4>SaveSnapshot</h4><p class="api-note"><span class="api-label">Description</span>Saves a snapshot to a non-persistent destination or caller-managed sink.</p><p class="api-note"><span class="api-label">Use It When</span>You need a captured state artifact without using the persistent-storage path.</p><dl><dt>snapshot</dt><dd>The snapshot value to save.</dd><dt>destination</dt><dd>The target sink or destination that receives the snapshot.</dd></dl></div>
+          <div class="api-item"><h4>Select</h4><p class="api-note"><span class="api-label">Description</span>Selects a narrower portion of snapshot or atom state.</p><p class="api-note"><span class="api-label">Use It When</span>You want a focused read instead of handling the entire state graph.</p><dl><dt>selector</dt><dd>The key, path, or selector logic that chooses the desired state subset.</dd></dl></div>
+          <div class="api-item"><h4>UnmarshalSnapshotJSON</h4><p class="api-note"><span class="api-label">Description</span>Decodes JSON text into a snapshot value.</p><p class="api-note"><span class="api-label">Use It When</span>You receive snapshot data over the network, from disk, or from another runtime.</p><dl><dt>payload</dt><dd>The JSON bytes or text to decode.</dd></dl></div>
+          <div class="api-item"><h4>UseAtom</h4><p class="api-note"><span class="api-label">Description</span>Creates or reads a shared mutable atom.</p><p class="api-note"><span class="api-label">Use It When</span>You need state that must be shared across unrelated components or surfaces.</p><dl><dt>id</dt><dd>The stable atom identifier.</dd><dt>initialValue</dt><dd>The default value used when the atom does not exist yet.</dd></dl></div>
+          <div class="api-item"><h4>UseComputed</h4><p class="api-note"><span class="api-label">Description</span>Creates a computed read that derives from other reactive state.</p><p class="api-note"><span class="api-label">Use It When</span>You need a derived read that should not be manually synchronized.</p><dl><dt>compute</dt><dd>The function that derives the computed value.</dd><dt>dependencies</dt><dd>The source atoms or values used by the computation.</dd></dl></div>
+          <div class="api-item"><h4>UseDerived</h4><p class="api-note"><span class="api-label">Description</span>Creates a derived value tied to other reactive state sources.</p><p class="api-note"><span class="api-label">Use It When</span>You want a reusable derived read model that still participates in reactive updates.</p><dl><dt>derive</dt><dd>The function that produces the derived value.</dd><dt>dependencies</dt><dd>The source values or atoms the derivation depends on.</dd></dl></div>
+        </div></article>
+        <article><h3>Types</h3><pre>Atom [struct]: methods Get, ReactiveRegionSourceIDs, Set, Text, Update
+Computed [struct]: methods Get
+Derived [struct]: methods Get, ReactiveRegionSourceIDs, Text
+Element [defined]
+PersistentSnapshotOptions [struct]: DatabaseName, DeleteOnCorruption, FallbackBackend, FallbackResolver, StoreName, StoreResolver
+Snapshot [defined]: methods Select
+StorageArea [defined]</pre></article>
+      </div>
+    </section>
+
+    <section id="data-fetching">
+      <h2>Fetch, Cache, And Mutations</h2>
+      <div class="meta"><span class="pill">fetch</span><span class="pill">stable</span><span class="pill">intermediate</span></div>
+      <p>HTTP requests, cached resources, offline mutation queues, uploads, and conflict handling.</p>
+      <div class="guide-grid">
+        <div class="guide-card do-card"><strong>Use When</strong><p>You need request state, cache reuse, stale-while-revalidate behavior, optimistic workflows, or durable mutation replay under unreliable network conditions.</p></div>
+        <div class="guide-card dont-card"><strong>Avoid When</strong><p>You are trying to make every request a global cache entry by default. Cache lifetime and invalidation should match product behavior, not convenience.</p></div>
+        <div class="guide-card pattern-card"><strong>How To Choose</strong><p><code>UseCachedResource</code> for reusable keyed data, <code>UseResource</code>/<code>UseFetch</code> for simpler request lifecycles, and mutation queue APIs for offline or conflict-aware submission flows.</p></div>
+      </div>
+      <div class="example-grid">
+      <div class="example-block example-good">
+        <h3>Recommended Pattern</h3>
+        <pre>users := fetch.UseCachedResource("users", func(ctx context.Context) ([]User, error) {
+    result, err := fetch.Fetch("/api/users", fetch.Options{})
+    _ = result
+    return loadUsers(ctx)
+}, fetch.CacheOptions{StaleAfter: 2 * time.Minute})</pre>
+      </div>
+      <div class="example-block example-bad">
+        <h3>Avoid This Shape</h3>
+        <p>Do not create throwaway cache keys that defeat reuse.</p>
+        <pre>users := fetch.UseCachedResource(
+    fmt.Sprintf("users-%d", time.Now().UnixNano()),
+    loader,
+)</pre>
+      </div>
+      </div>
+      <div class="guide-stack">
+        <div class="guide-card dont-card"><strong>Common Misuse</strong><p>Using cache APIs without a stable key strategy or invalidation plan. If you cannot say when data becomes stale, your cache contract is incomplete.</p></div>
+      </div>
+      <div class="inventory-title">Inventory</div>
+      <div class="grid">
+        <article><h3>Constants</h3><pre>CacheBootstrapDataKey
+CacheResumeAlwaysRefetch
+CacheResumeStaleWhileRevalidate
+CacheResumeTrustOnce
+MutationDead
+MutationQueued
+MutationResolutionDead
+MutationResolutionRemove
+MutationResolutionReplace
+MutationResolutionRetry
+MutationRetrying</pre></article>
+        <article><h3>Function Quick Reference</h3><div class="api-list">
+          <div class="api-item"><h4>AsMutationConflictError</h4><p class="api-note"><span class="api-label">Description</span>Casts or unwraps an error into the framework's mutation-conflict error shape.</p><p class="api-note"><span class="api-label">Use It When</span>You already have an error and want typed access to conflict details.</p><dl><dt>err</dt><dd>The error to inspect and unwrap.</dd></dl></div>
+          <div class="api-item"><h4>ConfigurePersistentCache</h4><p class="api-note"><span class="api-label">Description</span>Sets up durable backing for the fetch cache.</p><p class="api-note"><span class="api-label">Use It When</span>You need cached resource data to survive reloads or offline transitions.</p><dl><dt>options</dt><dd>The persistence configuration, storage backend, and resolver settings.</dd></dl></div>
+          <div class="api-item"><h4>DisposeResource</h4><p class="api-note"><span class="api-label">Description</span>Removes a cached resource and its retained state.</p><p class="api-note"><span class="api-label">Use It When</span>You know a resource should be fully discarded rather than merely marked stale.</p><dl><dt>key</dt><dd>The cache key of the resource to dispose.</dd></dl></div>
+          <div class="api-item"><h4>Fetch</h4><p class="api-note"><span class="api-label">Description</span>Performs a direct HTTP request without wrapping it in a cached resource hook.</p><p class="api-note"><span class="api-label">Use It When</span>You need one-off request control or lower-level request access.</p><dl><dt>url</dt><dd>The endpoint to call.</dd><dt>options</dt><dd>The HTTP method, headers, body, and request options.</dd></dl></div>
+          <div class="api-item"><h4>InspectCachedResources</h4><p class="api-note"><span class="api-label">Description</span>Returns inspection data about the current cached resource set.</p><p class="api-note"><span class="api-label">Use It When</span>You need to debug cache state, subscriber counts, or stale entries.</p><dl><dt>filter</dt><dd>The optional filter that narrows which cached resources to inspect.</dd></dl></div>
+          <div class="api-item"><h4>InvalidateResource</h4><p class="api-note"><span class="api-label">Description</span>Marks a cached resource stale so it can reload on next use or immediately.</p><p class="api-note"><span class="api-label">Use It When</span>You know a mutation made cached data outdated.</p><dl><dt>key</dt><dd>The cache key of the resource to invalidate.</dd></dl></div>
+          <div class="api-item"><h4>IsMutationConflict</h4><p class="api-note"><span class="api-label">Description</span>Reports whether an error represents a mutation conflict.</p><p class="api-note"><span class="api-label">Use It When</span>You only need a boolean conflict check before branching to conflict handling.</p><dl><dt>err</dt><dd>The error value to inspect.</dd></dl></div>
+          <div class="api-item"><h4>LoadCached</h4><p class="api-note"><span class="api-label">Description</span>Reads a cached value or bootstrap seed without forcing a fresh request.</p><p class="api-note"><span class="api-label">Use It When</span>You want to inspect or reuse already-loaded data before issuing another fetch.</p><dl><dt>key</dt><dd>The cache key to load.</dd><dt>options</dt><dd>The load behavior and fallback settings.</dd></dl></div>
+          <div class="api-item"><h4>MutationConflictOf</h4><p class="api-note"><span class="api-label">Description</span>Extracts a mutation-conflict payload from a broader error or response.</p><p class="api-note"><span class="api-label">Use It When</span>You want the structured conflict object rather than a yes-or-no answer.</p><dl><dt>err</dt><dd>The error or result to inspect for conflict details.</dd></dl></div>
+          <div class="api-item"><h4>NewMutationConflict</h4><p class="api-note"><span class="api-label">Description</span>Builds a structured mutation conflict value explicitly.</p><p class="api-note"><span class="api-label">Use It When</span>You are normalizing server conflict data into the framework's conflict shape.</p><dl><dt>details</dt><dd>The conflict code, field errors, versions, and message to store in the conflict value.</dd></dl></div>
+          <div class="api-item"><h4>OpenMutationQueue</h4><p class="api-note"><span class="api-label">Description</span>Creates a durable queue for deferred or offline mutation replay.</p><p class="api-note"><span class="api-label">Use It When</span>You need resilient mutation submission under flaky connectivity or replayable write flows.</p><dl><dt>options</dt><dd>The queue configuration including storage, retry, delay, and replay rules.</dd></dl></div>
+          <div class="api-item"><h4>RestoreCacheBootstrap</h4><p class="api-note"><span class="api-label">Description</span>Restores cache entries from bootstrap payloads before live fetches begin.</p><p class="api-note"><span class="api-label">Use It When</span>You are hydrating server-provided cache data into the client cache.</p><dl><dt>bootstrap</dt><dd>The bootstrap payload or cache seed to restore.</dd></dl></div>
+          <div class="api-item"><h4>ReturnChannel</h4><p class="api-note"><span class="api-label">Description</span>Returns a value through a helper channel path used by async resource plumbing.</p><p class="api-note"><span class="api-label">Use It When</span>You need to bridge computed async data back into a channel-based loader flow.</p><dl><dt>value</dt><dd>The value to send back through the channel path.</dd></dl></div>
+          <div class="api-item"><h4>SweepCachedResources</h4><p class="api-note"><span class="api-label">Description</span>Cleans up cached resources according to sweep rules or disposal policy.</p><p class="api-note"><span class="api-label">Use It When</span>You want to proactively reclaim stale or unused cache entries.</p><dl><dt>options</dt><dd>The sweep filter and cleanup behavior.</dd></dl></div>
+          <div class="api-item"><h4>Upload</h4><p class="api-note"><span class="api-label">Description</span>Performs an upload request with progress-aware reporting.</p><p class="api-note"><span class="api-label">Use It When</span>You need file uploads, multipart payloads, or user-visible transfer progress.</p><dl><dt>url</dt><dd>The upload endpoint.</dd><dt>options</dt><dd>The request body, headers, and upload configuration.</dd><dt>progress</dt><dd>The callback or channel that receives upload progress updates.</dd></dl></div>
+          <div class="api-item"><h4>UseCachedResource</h4><p class="api-note"><span class="api-label">Description</span>Creates a cache-backed async resource keyed for reuse across subscribers.</p><p class="api-note"><span class="api-label">Use It When</span>You want one remote value to be shared, invalidated, and refreshed consistently.</p><dl><dt>key</dt><dd>The stable cache key for the resource.</dd><dt>loader</dt><dd>The function that loads the resource value.</dd><dt>options</dt><dd>The cache, stale, persistence, and lifetime behavior.</dd></dl></div>
+          <div class="api-item"><h4>UseFetch</h4><p class="api-note"><span class="api-label">Description</span>Runs a fetch request through a hook-friendly state wrapper.</p><p class="api-note"><span class="api-label">Use It When</span>You need request lifecycle state in a component without the broader cached-resource layer.</p><dl><dt>url</dt><dd>The endpoint to call.</dd><dt>options</dt><dd>The request method, headers, body, and lifecycle behavior.</dd></dl></div>
+          <div class="api-item"><h4>UseResource</h4><p class="api-note"><span class="api-label">Description</span>Creates a hook-managed async resource around a custom loader.</p><p class="api-note"><span class="api-label">Use It When</span>You need async lifecycle state for work that does not fit the direct fetch helper.</p><dl><dt>loader</dt><dd>The async function that resolves the resource value.</dd><dt>dependencies</dt><dd>The values that should refresh or rerun the resource.</dd></dl></div>
+        </div></article>
+        <article><h3>Types</h3><pre>AsyncResource [struct]: methods Cancel, Get, Reload
+CacheBootstrap [struct]: Entries
+CacheBootstrapEntry [struct]: Key, ResumePolicy, StaleAfter, UpdatedAt, Value
+CacheOptions [struct]: DisposeAfter, MaxAge, Persist, StaleAfter
+CacheResumePolicy [defined]
+CachedResource [struct]: methods Cancel, Dispose, Get, Invalidate, Reload, Set, Update
+CachedResourceInspection [struct]: Key, LastError, LastLoaded, Loading, Ready, ResumePolicy, Stale, SubscriberCount, UpdatedAt
+CachedResourceState [struct]: Error, Loading, Ready, Stale, UpdatedAt, Value
+HTTPError [struct]: Body, Headers, Status, StatusText; methods Error
+MultipartBody [struct]: Fields, Files
+MultipartFile [struct]: FieldName, File, Filename
+MutationConflict [struct]: Code, Fields, LocalVersion, Message, RemoteVersion
+MutationConflictError [struct]: Conflict, Err; methods Error, Unwrap
+MutationConflictHandler [defined]
+MutationConflictResolution [struct]: Action, Draft, Message
+MutationDraft [struct]: Body, DedupKey, Headers, ID, Kind, Metadata, Method, URL
+MutationExecutor [defined]
+MutationQueue [struct]: methods Clear, Enqueue, List, Remove, Replay, ReplayWithOptions
+MutationQueueOptions [struct]: BaseDelay, DeleteOnCorruption, MaxAttempts, MaxDelay, Now, StorageKey, StorageResolver, StoreResolver
+MutationReplayOptions [struct]: ConflictHandler
+MutationReplayReport [struct]: Conflicts, DeadLetters, Deferred, Remaining, Resolved, Retried, Succeeded
+MutationResolutionAction [defined]
+MutationState [defined]
+Options [struct]: Body, Headers, Method
+PersistentCacheOptions [struct]: DatabaseName, FallbackBackend, FallbackResolver, StoreName, StoreResolver
+QueuedMutation [struct]: Attempts, Body, CreatedAt, DedupKey, Headers, ID, Kind, LastError, MaxAttempts, Metadata, Method, NextAttemptAt, State, URL, UpdatedAt
+Resource [struct]: methods Get, Refetch
+ResourceState [struct]: Error, Loading, Ready, Value
+Result [struct]: Data, Err, Headers, Status; methods DecodeJSON, Text
+State [defined]
+UploadUpdate [struct]: Done, LengthComputable, Loaded, Result, Total</pre></article>
+      </div>
+    </section>
+
+    <section id="routing-navigation">
+      <h2>Routing And Navigation</h2>
+      <div class="meta"><span class="pill">router</span><span class="pill">stable</span><span class="pill">core</span></div>
+      <p>Route registration, guard flows, search params, loaders, revalidation, and navigation helpers.</p>
+      <div class="guide-grid">
+        <div class="guide-card do-card"><strong>Use When</strong><p>You need route ownership, route-level loaders, navigation guards, query-string state, or explicit revalidation after mutations.</p></div>
+        <div class="guide-card dont-card"><strong>Avoid When</strong><p>You are trying to represent transient widget state in the URL just because it is possible. Route state should matter to navigation, deep-linking, or recovery.</p></div>
+        <div class="guide-card pattern-card"><strong>How To Choose</strong><p>Register routes declaratively, keep navigation decisions in guards, and let loaders own route data instead of scattering fetch calls across random components.</p></div>
+      </div>
+      <div class="example-grid">
+      <div class="example-block example-good">
+        <h3>Recommended Pattern</h3>
+        <pre>router.RegisterRoute("/orders/:id", router.Options{
+    Loader: loadOrder,
+    Title: "Order detail",
+    BeforeEnter: ensureAuthenticated,
+})</pre>
+      </div>
+      <div class="example-block example-bad">
+        <h3>Avoid This Shape</h3>
+        <p>Do not hide route changes in deep feature logic.</p>
+        <pre>func saveOrder() {
+    // business logic
+    router.Navigate("/orders")
+}</pre>
+      </div>
+      </div>
+      <div class="guide-stack">
+        <div class="guide-card dont-card"><strong>Common Misuse</strong><p>Calling <code>Navigate</code> from deep business logic instead of returning guard or loader decisions through the router layer. Keep route transitions explicit and centralized.</p></div>
+      </div>
+      <div class="inventory-title">Inventory</div>
+      <div class="grid">
+        <article><h3>Constants</h3><pre>ReturnToParam</pre></article>
+        <article><h3>Function Quick Reference</h3><div class="api-list">
+          <div class="api-item"><h4>AllowNavigation</h4><p class="api-note"><span class="api-label">Description</span>Returns an explicit guard result that allows navigation to continue.</p><p class="api-note"><span class="api-label">Use It When</span>You want route guards to return a structured allow decision instead of bare booleans.</p><dl><dt>reason</dt><dd>An optional explanation or metadata attached to the allow decision.</dd></dl></div>
+          <div class="api-item"><h4>BlockNavigation</h4><p class="api-note"><span class="api-label">Description</span>Returns a structured guard result that blocks a route transition.</p><p class="api-note"><span class="api-label">Use It When</span>You need navigation to stop because prerequisites, unsaved changes, or authorization checks failed.</p><dl><dt>reason</dt><dd>The message or explanation describing why the navigation was blocked.</dd></dl></div>
+          <div class="api-item"><h4>GetCurrentPath</h4><p class="api-note"><span class="api-label">Description</span>Reads the router's current path string.</p><p class="api-note"><span class="api-label">Use It When</span>You need the live route path outside a hook-driven component flow.</p><dl><dt>params</dt><dd>None. The function returns the current path.</dd></dl></div>
+          <div class="api-item"><h4>GetRoute</h4><p class="api-note"><span class="api-label">Description</span>Looks up a registered route by path or identifier.</p><p class="api-note"><span class="api-label">Use It When</span>You need access to route metadata or loader configuration outside the normal render path.</p><dl><dt>path</dt><dd>The route path or key to look up.</dd></dl></div>
+          <div class="api-item"><h4>GetRouter</h4><p class="api-note"><span class="api-label">Description</span>Returns the active router instance.</p><p class="api-note"><span class="api-label">Use It When</span>You need router access in code that cannot rely on hook context.</p><dl><dt>params</dt><dd>None. The function returns the current router instance.</dd></dl></div>
+          <div class="api-item"><h4>InspectCurrentRoute</h4><p class="api-note"><span class="api-label">Description</span>Returns a structured view of the router's current route state.</p><p class="api-note"><span class="api-label">Use It When</span>You need the path, params, query, or loading state in one inspection call.</p><dl><dt>params</dt><dd>None. The function inspects the current route state.</dd></dl></div>
+          <div class="api-item"><h4>MetadataNode</h4><p class="api-note"><span class="api-label">Description</span>Builds a route metadata node for the document head.</p><p class="api-note"><span class="api-label">Use It When</span>You want route-specific title, description, or canonical metadata generated from router state.</p><dl><dt>metadata</dt><dd>The route metadata payload to emit into the head.</dd></dl></div>
+          <div class="api-item"><h4>Navigate</h4><p class="api-note"><span class="api-label">Description</span>Performs an imperative route transition.</p><p class="api-note"><span class="api-label">Use It When</span>You need navigation in response to user actions or controlled flows.</p><dl><dt>to</dt><dd>The destination path or URL fragment.</dd><dt>options</dt><dd>The navigation options such as query state or replace behavior.</dd></dl></div>
+          <div class="api-item"><h4>NavigateReplace</h4><p class="api-note"><span class="api-label">Description</span>Navigates while replacing the current history entry.</p><p class="api-note"><span class="api-label">Use It When</span>You want the new route to replace, not stack on top of, the current history item.</p><dl><dt>to</dt><dd>The destination path or URL fragment.</dd><dt>options</dt><dd>The navigation options applied to the replace transition.</dd></dl></div>
+          <div class="api-item"><h4>NewHashRouter</h4><p class="api-note"><span class="api-label">Description</span>Creates a router that stores navigation state in the URL hash.</p><p class="api-note"><span class="api-label">Use It When</span>You need routing on static hosting where path-based rewrites are not available.</p><dl><dt>options</dt><dd>The router options such as default route and startup configuration.</dd></dl></div>
+          <div class="api-item"><h4>NewRouter</h4><p class="api-note"><span class="api-label">Description</span>Creates a path-based router instance.</p><p class="api-note"><span class="api-label">Use It When</span>You want standard browser-path routing with loader and guard support.</p><dl><dt>options</dt><dd>The router options such as default route and integration behavior.</dd></dl></div>
+          <div class="api-item"><h4>Outlet</h4><p class="api-note"><span class="api-label">Description</span>Renders the active nested route inside a parent layout.</p><p class="api-note"><span class="api-label">Use It When</span>You are building nested route layouts that need a child-content insertion point.</p><dl><dt>params</dt><dd>None. The function renders the current nested route output.</dd></dl></div>
+          <div class="api-item"><h4>PreserveReturnTo</h4><p class="api-note"><span class="api-label">Description</span>Stores a return-to destination so a later flow can send the user back.</p><p class="api-note"><span class="api-label">Use It When</span>You are redirecting into auth or guard flows and want to restore the original destination later.</p><dl><dt>target</dt><dd>The route or URL to preserve as the later return destination.</dd></dl></div>
+          <div class="api-item"><h4>ReadReturnTo</h4><p class="api-note"><span class="api-label">Description</span>Reads the preserved return-to destination from router state or params.</p><p class="api-note"><span class="api-label">Use It When</span>You need to send a user back to the page they originally intended to visit.</p><dl><dt>source</dt><dd>The query, params, or router state to inspect for the return-to value.</dd></dl></div>
+          <div class="api-item"><h4>RedirectNavigation</h4><p class="api-note"><span class="api-label">Description</span>Returns a structured guard result that redirects to another route.</p><p class="api-note"><span class="api-label">Use It When</span>You want guard or loader logic to redirect with an explicit decision value.</p><dl><dt>to</dt><dd>The redirect destination path.</dd></dl></div>
+          <div class="api-item"><h4>RegisterRoute</h4><p class="api-note"><span class="api-label">Description</span>Registers a route definition with the router.</p><p class="api-note"><span class="api-label">Use It When</span>You need to add a path, loader, guards, metadata, or layout to the route table.</p><dl><dt>path</dt><dd>The route pattern, including dynamic segments.</dd><dt>options</dt><dd>The route configuration such as loader, guards, layout, title, and error UI.</dd></dl></div>
+          <div class="api-item"><h4>RevalidateCurrentRoute</h4><p class="api-note"><span class="api-label">Description</span>Reloads the active route's loader-owned data.</p><p class="api-note"><span class="api-label">Use It When</span>You know current route data is stale after a mutation or external change.</p><dl><dt>params</dt><dd>None. The function targets the currently active route.</dd></dl></div>
+          <div class="api-item"><h4>RouteWithElement</h4><p class="api-note"><span class="api-label">Description</span>Creates a route record that binds a path directly to an element or component output.</p><p class="api-note"><span class="api-label">Use It When</span>You want a concise route definition for a route with a specific rendered element.</p><dl><dt>path</dt><dd>The route pattern to register.</dd><dt>element</dt><dd>The element or node associated with that route.</dd><dt>options</dt><dd>Additional route configuration layered on top of the element.</dd></dl></div>
+          <div class="api-item"><h4>UseNavigate</h4><p class="api-note"><span class="api-label">Description</span>Returns a hook-friendly navigation function.</p><p class="api-note"><span class="api-label">Use It When</span>You want imperative navigation from component code without reaching for global router state.</p><dl><dt>params</dt><dd>None. The hook returns a navigator function.</dd></dl></div>
+          <div class="api-item"><h4>UseParams</h4><p class="api-note"><span class="api-label">Description</span>Returns the current route params.</p><p class="api-note"><span class="api-label">Use It When</span>You need dynamic path segment values inside a route component.</p><dl><dt>params</dt><dd>None. The hook reads params from the active route context.</dd></dl></div>
+          <div class="api-item"><h4>UseQuery</h4><p class="api-note"><span class="api-label">Description</span>Returns query-string state from the active route.</p><p class="api-note"><span class="api-label">Use It When</span>You need current query parameters without manually parsing the URL.</p><dl><dt>params</dt><dd>None. The hook reads query state from the active route.</dd></dl></div>
+          <div class="api-item"><h4>UseRevalidator</h4><p class="api-note"><span class="api-label">Description</span>Returns revalidation state and controls for the current route.</p><p class="api-note"><span class="api-label">Use It When</span>You need to trigger or track loader revalidation from component code.</p><dl><dt>params</dt><dd>None. The hook returns the current route's revalidation helper.</dd></dl></div>
+          <div class="api-item"><h4>UseRouteData</h4><p class="api-note"><span class="api-label">Description</span>Reads loader-owned data for the active route.</p><p class="api-note"><span class="api-label">Use It When</span>You want route data in component code without manually threading it through props.</p><dl><dt>params</dt><dd>None. The hook reads the active route's loaded data.</dd></dl></div>
+          <div class="api-item"><h4>UseSearchParams</h4><p class="api-note"><span class="api-label">Description</span>Returns a mutable search-param helper tied to the current route.</p><p class="api-note"><span class="api-label">Use It When</span>You need to read and write query-string state from component code.</p><dl><dt>params</dt><dd>None. The hook returns the current search-param helper.</dd></dl></div>
+        </div></article>
+        <article><h3>Types</h3><pre>AsyncGuardFunc [defined]
+AsyncLeaveGuardFunc [defined]
+Attrs [defined]
+Component [defined]
+Element [defined]
+GuardDecision [struct]: Blocked, Denied, Reason, Redirect, Retryable
+GuardFunc [defined]
+GuardResult [struct]: Blocked, Reason, Redirect
+LeaveGuardFunc [defined]
+LoaderFunc [defined]
+Metadata [struct]: CanonicalURL, Description, Title
+Navigator [struct]: methods Navigate, Replace
+Options [struct]: Authorizing, BeforeEnter, BeforeEnterAsync, BeforeLeave, BeforeLeaveAsync, CanonicalURL, Description, Error, GuardPending, Layout, Loader, Loading, Redirect, Title, Unauthorized
+Params [struct]: methods Bool, Get, Has, Int, Values
+Query [struct]: methods Encode, Get, Has, Values
+Revalidator [struct]: methods Loading, Revalidate
+RouteContext [struct]: Params, Path, Query
+RouteInspection [struct]: Loading, Params, Path, Query
+Router [struct]: methods Current, GetCurrentRouterPath, GoGetRoute, GoRegisterRoute, HydrateMount, HydrateMountElement, IsRouteLoading, Mount, MountElement, Navigate, NavigateReplace, Register, RevalidateCurrentRoute
+RouterOptions [struct]: DefaultRoute
+SearchParams [struct]: methods Delete, Encode, Get, Has, Navigate, Replace, ReplaceAll, Set, Values</pre></article>
+      </div>
+    </section>
+
+    <section id="ssr-hydration">
+      <h2>SSR, Hydration, And Bootstrap Payloads</h2>
+      <div class="meta"><span class="pill">ui</span><span class="pill">stable</span><span class="pill">advanced</span></div>
+      <p>Server rendering, hydration options, bootstrap serialization, payload registration, and SSR observability.</p>
+      <div class="guide-grid">
+        <div class="guide-card do-card"><strong>Use When</strong><p>You need server output plus client resume, preloaded route data, cache seeds, form defaults, or structured observability around hydration correctness.</p></div>
+        <div class="guide-card dont-card"><strong>Avoid When</strong><p>You are still unsure about your plain client-only data flow. SSR APIs amplify architecture decisions; they do not simplify an unstable app model.</p></div>
+        <div class="guide-card pattern-card"><strong>How To Choose</strong><p>Use render-side bootstrap registration to serialize authoritative data, then hydrate with matching IDs and payload versions. Observe size and mismatch metrics early, not after launch.</p></div>
+      </div>
+      <div class="example-grid">
+      <div class="example-block example-good">
+        <h3>Recommended Pattern</h3>
+        <pre>ui.RegisterRouteBootstrapData("order", orderPayload)
+script := ui.RenderBootstrapScript(ui.SSRBootstrap{Route: routeBootstrap})
+html, _ := ui.RenderToString(app)</pre>
+      </div>
+      <div class="example-block example-bad">
+        <h3>Avoid This Shape</h3>
+        <p>Do not hydrate without matching bootstrap ownership.</p>
+        <pre>html, _ := ui.RenderToString(app)
+    // no route data, no cache seed, no observability
+    ui.Hydrate(app, "#app")</pre>
+      </div>
+      </div>
+      <div class="guide-stack">
+        <div class="guide-card dont-card"><strong>Common Misuse</strong><p>Shipping SSR with no mismatch inspection or bootstrap size review. If hydration is part of production, observability is part of the API contract.</p></div>
+      </div>
+      <div class="inventory-title">Inventory</div>
+      <div class="grid">
+        <article><h3>Constants</h3><pre>CurrentSSRBootstrapVersion
+CurrentSSRStateUpdateVersion
+DefaultBootstrapReferenceScriptID
+DefaultBootstrapScriptID
+DefaultCSRFFormFieldName
+DefaultCSRFHeaderName
+DefaultRouteBootstrapPayloadKey
+SSRBootstrapFormatCBOR
+SSRBootstrapFormatJSON
+SSRPayloadEncodingBinary
+SSRPayloadEncodingCBOR
+SSRPayloadEncodingJSON
+SSRPayloadEncodingText
+SSRPayloadEncodingTimeRFC3339
+SSRPayloadEncodingTimeUnixNano
+SSRPayloadKindCacheSeed
+SSRPayloadKindData
+SSRPayloadKindFormDefaults
+SSRPayloadKindRouteData
+SSRPayloadKindSessionHint
+SSRPayloadReuseClientOwned
+SSRPayloadReuseRevalidateAfterResume
+SSRPayloadReuseTrustOnFirstResume
+SSRPayloadScopeApp
+SSRPayloadScopeRoute
+SSRPayloadScopeSubtree</pre></article>
+        <article><h3>Function Quick Reference</h3><div class="api-list">
+          <div class="api-item"><h4>AddStateUpdatePayload</h4><p class="api-note"><span class="api-label">Description</span>Adds one payload entry to an SSR state-update envelope.</p><p class="api-note"><span class="api-label">Use It When</span>You are building incremental state updates after the initial bootstrap.</p><dl><dt>update</dt><dd>The state-update envelope to add to.</dd><dt>payload</dt><dd>The payload entry to append.</dd></dl></div>
+          <div class="api-item"><h4>AnalyzeSSRBootstrapSize</h4><p class="api-note"><span class="api-label">Description</span>Measures bootstrap payload size against warning and error thresholds.</p><p class="api-note"><span class="api-label">Use It When</span>You want a size budget check before shipping SSR payloads broadly.</p><dl><dt>bootstrap</dt><dd>The bootstrap payload to measure.</dd><dt>budget</dt><dd>The threshold budget used for warnings and errors.</dd></dl></div>
+          <div class="api-item"><h4>ApplySSRStateUpdate</h4><p class="api-note"><span class="api-label">Description</span>Applies an incremental SSR state update to the live client state.</p><p class="api-note"><span class="api-label">Use It When</span>You need server-originated state deltas after the initial hydration phase.</p><dl><dt>update</dt><dd>The state update object to apply.</dd></dl></div>
+          <div class="api-item"><h4>DefaultSSRBootstrapBudget</h4><p class="api-note"><span class="api-label">Description</span>Returns the framework's default SSR payload budget thresholds.</p><p class="api-note"><span class="api-label">Use It When</span>You want a sensible baseline budget for payload-size analysis.</p><dl><dt>params</dt><dd>None. The function returns the default budget object.</dd></dl></div>
+          <div class="api-item"><h4>Hydrate</h4><p class="api-note"><span class="api-label">Description</span>Attaches client behavior to server-rendered markup using the default mount flow.</p><p class="api-note"><span class="api-label">Use It When</span>You have SSR markup already present and want the standard hydration path.</p><dl><dt>node</dt><dd>The UI tree that should hydrate the existing markup.</dd><dt>options</dt><dd>The hydration options such as bootstrap references, strictness, and observability.</dd></dl></div>
+          <div class="api-item"><h4>HydrateInto</h4><p class="api-note"><span class="api-label">Description</span>Hydrates server-rendered markup inside an explicit target node or selector.</p><p class="api-note"><span class="api-label">Use It When</span>You need to control the exact hydration root yourself.</p><dl><dt>node</dt><dd>The UI tree to hydrate.</dd><dt>target</dt><dd>The selector or DOM node containing the server markup.</dd><dt>options</dt><dd>The hydration options applied to the operation.</dd></dl></div>
+          <div class="api-item"><h4>InspectBootstrapPayloads</h4><p class="api-note"><span class="api-label">Description</span>Returns inspection data for the bootstrap payloads currently registered.</p><p class="api-note"><span class="api-label">Use It When</span>You need to see what SSR data will be emitted or consumed.</p><dl><dt>filter</dt><dd>The optional kind, scope, or target filter for inspected payloads.</dd></dl></div>
+          <div class="api-item"><h4>MarshalSSRBootstrap</h4><p class="api-note"><span class="api-label">Description</span>Encodes an SSR bootstrap payload into text form.</p><p class="api-note"><span class="api-label">Use It When</span>You need text-based serialization of bootstrap data.</p><dl><dt>bootstrap</dt><dd>The bootstrap payload to encode.</dd></dl></div>
+          <div class="api-item"><h4>MarshalSSRBootstrapBinary</h4><p class="api-note"><span class="api-label">Description</span>Encodes an SSR bootstrap payload into binary form.</p><p class="api-note"><span class="api-label">Use It When</span>You want a smaller or non-text bootstrap representation.</p><dl><dt>bootstrap</dt><dd>The bootstrap payload to encode.</dd></dl></div>
+          <div class="api-item"><h4>MarshalSSRBootstrapBinaryObserved</h4><p class="api-note"><span class="api-label">Description</span>Encodes a bootstrap payload to binary while also emitting serialization observations.</p><p class="api-note"><span class="api-label">Use It When</span>You need binary bootstrap output plus metrics about the serialization pass.</p><dl><dt>bootstrap</dt><dd>The bootstrap payload to encode.</dd><dt>observer</dt><dd>The callback or observer options used to capture observations.</dd></dl></div>
+          <div class="api-item"><h4>MarshalSSRBootstrapObserved</h4><p class="api-note"><span class="api-label">Description</span>Encodes a bootstrap payload to text while also emitting observations.</p><p class="api-note"><span class="api-label">Use It When</span>You need text bootstrap output and metrics from the same pass.</p><dl><dt>bootstrap</dt><dd>The bootstrap payload to encode.</dd><dt>observer</dt><dd>The callback or observer options that capture observations.</dd></dl></div>
+          <div class="api-item"><h4>MarshalSSRStateUpdateBinary</h4><p class="api-note"><span class="api-label">Description</span>Encodes an incremental SSR state update as binary.</p><p class="api-note"><span class="api-label">Use It When</span>You need compact transfer for server-driven state deltas.</p><dl><dt>update</dt><dd>The state update value to encode.</dd></dl></div>
+          <div class="api-item"><h4>MarshalSSRStateUpdateText</h4><p class="api-note"><span class="api-label">Description</span>Encodes an incremental SSR state update as text.</p><p class="api-note"><span class="api-label">Use It When</span>You need a text-friendly transfer format for state deltas.</p><dl><dt>update</dt><dd>The state update value to encode.</dd></dl></div>
+          <div class="api-item"><h4>ObserveSSR</h4><p class="api-note"><span class="api-label">Description</span>Registers SSR observation handling for render and hydration events.</p><p class="api-note"><span class="api-label">Use It When</span>You need structured observability for SSR correctness or performance.</p><dl><dt>options</dt><dd>The observation configuration such as correlation ID and event callback.</dd></dl></div>
+          <div class="api-item"><h4>ReadBootstrapPayload</h4><p class="api-note"><span class="api-label">Description</span>Reads a specific bootstrap payload by key or target.</p><p class="api-note"><span class="api-label">Use It When</span>You need direct access to one registered bootstrap value during hydration or inspection.</p><dl><dt>key</dt><dd>The payload key to read.</dd><dt>filter</dt><dd>The optional scope or target filter used to narrow the read.</dd></dl></div>
+          <div class="api-item"><h4>ReadBootstrapReference</h4><p class="api-note"><span class="api-label">Description</span>Reads a bootstrap reference object rather than the inline payload itself.</p><p class="api-note"><span class="api-label">Use It When</span>You are using sidecar or referenced bootstrap assets.</p><dl><dt>source</dt><dd>The reference source to inspect.</dd></dl></div>
+          <div class="api-item"><h4>ReadBootstrapReferenceScript</h4><p class="api-note"><span class="api-label">Description</span>Reads a bootstrap reference from the rendered reference script tag.</p><p class="api-note"><span class="api-label">Use It When</span>You need client-side access to sidecar bootstrap metadata.</p><dl><dt>scriptID</dt><dd>The reference-script identifier to inspect.</dd></dl></div>
+          <div class="api-item"><h4>ReadBootstrapScript</h4><p class="api-note"><span class="api-label">Description</span>Reads inline bootstrap data from the rendered bootstrap script tag.</p><p class="api-note"><span class="api-label">Use It When</span>You need the raw emitted bootstrap data on the client.</p><dl><dt>scriptID</dt><dd>The bootstrap-script identifier to inspect.</dd></dl></div>
+          <div class="api-item"><h4>ReadCacheBootstrapSeed</h4><p class="api-note"><span class="api-label">Description</span>Reads the cache seed registered for client cache restore.</p><p class="api-note"><span class="api-label">Use It When</span>You want to inspect or reuse server-provided cache bootstrap data.</p><dl><dt>target</dt><dd>The target or payload key holding the cache seed.</dd></dl></div>
+          <div class="api-item"><h4>ReadFormBootstrapDefaults</h4><p class="api-note"><span class="api-label">Description</span>Reads server-provided default form values from bootstrap data.</p><p class="api-note"><span class="api-label">Use It When</span>You want form defaults from SSR without an immediate follow-up request.</p><dl><dt>target</dt><dd>The form target or bootstrap key to inspect.</dd></dl></div>
+          <div class="api-item"><h4>ReadRouteBootstrapData</h4><p class="api-note"><span class="api-label">Description</span>Reads route-scoped bootstrap data registered on the server.</p><p class="api-note"><span class="api-label">Use It When</span>You need route loader data available during client resume.</p><dl><dt>target</dt><dd>The route or payload target to inspect.</dd></dl></div>
+          <div class="api-item"><h4>ReadSessionBootstrapHint</h4><p class="api-note"><span class="api-label">Description</span>Reads a session-scoped bootstrap hint value.</p><p class="api-note"><span class="api-label">Use It When</span>You need session or environment hints made available during bootstrap.</p><dl><dt>target</dt><dd>The bootstrap key or target holding the session hint.</dd></dl></div>
+          <div class="api-item"><h4>RegisterBootstrapPayload</h4><p class="api-note"><span class="api-label">Description</span>Registers a general bootstrap payload for SSR transfer.</p><p class="api-note"><span class="api-label">Use It When</span>You need arbitrary bootstrap data outside the more specialized helper APIs.</p><dl><dt>key</dt><dd>The bootstrap payload key.</dd><dt>value</dt><dd>The value to serialize into bootstrap output.</dd><dt>options</dt><dd>The payload encoding, scope, reuse, and metadata options.</dd></dl></div>
+          <div class="api-item"><h4>RegisterCacheBootstrapSeed</h4><p class="api-note"><span class="api-label">Description</span>Registers cache data so the client cache can resume warm.</p><p class="api-note"><span class="api-label">Use It When</span>You want fetch cache state available immediately after hydration.</p><dl><dt>target</dt><dd>The payload key or target used for the cache seed.</dd><dt>value</dt><dd>The cache bootstrap data to serialize.</dd></dl></div>
+          <div class="api-item"><h4>RegisterFormBootstrapDefaults</h4><p class="api-note"><span class="api-label">Description</span>Registers form default values for SSR resume.</p><p class="api-note"><span class="api-label">Use It When</span>You need forms to hydrate with authoritative server defaults already in place.</p><dl><dt>target</dt><dd>The form or payload target to associate with the defaults.</dd><dt>value</dt><dd>The default form values to serialize.</dd></dl></div>
+          <div class="api-item"><h4>RegisterRouteBootstrapData</h4><p class="api-note"><span class="api-label">Description</span>Registers route-scoped bootstrap data for later client reuse.</p><p class="api-note"><span class="api-label">Use It When</span>You want route loader data available at hydration time.</p><dl><dt>target</dt><dd>The route or payload target associated with the data.</dd><dt>value</dt><dd>The route data to serialize.</dd></dl></div>
+          <div class="api-item"><h4>RegisterSessionBootstrapHint</h4><p class="api-note"><span class="api-label">Description</span>Registers a session-scoped hint value in bootstrap output.</p><p class="api-note"><span class="api-label">Use It When</span>You need a small environment or session hint at resume time.</p><dl><dt>target</dt><dd>The payload key or target for the hint.</dd><dt>value</dt><dd>The session hint value to serialize.</dd></dl></div>
+          <div class="api-item"><h4>RenderBootstrapReferenceScript</h4><p class="api-note"><span class="api-label">Description</span>Renders a script tag that points at a bootstrap reference rather than inlining data.</p><p class="api-note"><span class="api-label">Use It When</span>You want sidecar bootstrap payloads instead of large inline scripts.</p><dl><dt>reference</dt><dd>The bootstrap reference object to render.</dd></dl></div>
+          <div class="api-item"><h4>RenderBootstrapScript</h4><p class="api-note"><span class="api-label">Description</span>Renders an inline script tag containing bootstrap data.</p><p class="api-note"><span class="api-label">Use It When</span>You want SSR data embedded directly into the initial HTML.</p><dl><dt>bootstrap</dt><dd>The bootstrap payload to serialize into the script tag.</dd></dl></div>
+          <div class="api-item"><h4>RenderBootstrapScriptObserved</h4><p class="api-note"><span class="api-label">Description</span>Renders an inline bootstrap script while also emitting serialization observations.</p><p class="api-note"><span class="api-label">Use It When</span>You need inline bootstrap output and metrics from the same render pass.</p><dl><dt>bootstrap</dt><dd>The bootstrap payload to render.</dd><dt>observer</dt><dd>The callback or observer options used to capture observations.</dd></dl></div>
+          <div class="api-item"><h4>UnmarshalSSRBootstrap</h4><p class="api-note"><span class="api-label">Description</span>Decodes a text bootstrap payload back into an SSR bootstrap value.</p><p class="api-note"><span class="api-label">Use It When</span>You receive text bootstrap data and need the structured object again.</p><dl><dt>payload</dt><dd>The text or bytes representing the bootstrap payload.</dd></dl></div>
+          <div class="api-item"><h4>UnmarshalSSRBootstrapBinary</h4><p class="api-note"><span class="api-label">Description</span>Decodes a binary bootstrap payload into an SSR bootstrap value.</p><p class="api-note"><span class="api-label">Use It When</span>You receive binary bootstrap data and need the structured object again.</p><dl><dt>payload</dt><dd>The binary bootstrap payload to decode.</dd></dl></div>
+          <div class="api-item"><h4>UnmarshalSSRBootstrapReference</h4><p class="api-note"><span class="api-label">Description</span>Decodes a bootstrap reference object from its serialized form.</p><p class="api-note"><span class="api-label">Use It When</span>You need to resolve sidecar bootstrap metadata back into a structured reference.</p><dl><dt>payload</dt><dd>The serialized bootstrap reference value.</dd></dl></div>
+          <div class="api-item"><h4>UnmarshalSSRStateUpdateBinary</h4><p class="api-note"><span class="api-label">Description</span>Decodes a binary SSR state update payload.</p><p class="api-note"><span class="api-label">Use It When</span>You receive binary state deltas from the server and need the structured update value.</p><dl><dt>payload</dt><dd>The binary state-update payload to decode.</dd></dl></div>
+          <div class="api-item"><h4>UnmarshalSSRStateUpdateText</h4><p class="api-note"><span class="api-label">Description</span>Decodes a text SSR state update payload.</p><p class="api-note"><span class="api-label">Use It When</span>You receive text state deltas and need to apply them as structured updates.</p><dl><dt>payload</dt><dd>The text state-update payload to decode.</dd></dl></div>
+          <div class="api-item"><h4>UnsupportedOnServer</h4><p class="api-note"><span class="api-label">Description</span>Marks an operation as browser-only from the server perspective.</p><p class="api-note"><span class="api-label">Use It When</span>You want an explicit failure boundary for APIs that cannot run on the server.</p><dl><dt>feature</dt><dd>The browser-only feature or operation being guarded.</dd></dl></div>
+        </div></article>
+        <article><h3>Types</h3><pre>HydrationOptions [struct]: Bootstrap, BootstrapRef, Observability, ReferenceScriptID, ScriptID, Strict
+SSRBootstrap [struct]: Atoms, Data, I18n, IDSeed, Route, Version
+SSRBootstrapBudget [struct]: BinaryErrorBytes, BinaryWarnBytes, InlineErrorBytes, InlineWarnBytes, SidecarErrorBytes, SidecarWarnBytes
+SSRBootstrapMetrics [struct]: Format, PayloadBytes, ScriptBytes
+SSRBootstrapReference [struct]: Format, URL, Version
+SSRBootstrapSizeReport [struct]: BinaryPayloadBytes, Errors, InlineScriptBytes, JSONPayloadBytes, Payloads, Recommendation, Version, Warnings
+SSRHydrationMetrics [struct]: DiscardedNodeCount, Duration, DurationNs, ExistingDOMNodeCount, Failed, Failure, FallbackCount, FinishedAt, MismatchCount, StartedAt, Strict
+SSRI18nBootstrap [struct]: Direction, FallbackLocale, Locale, Messages
+SSRI18nMessage [struct]: Default, Plural, PluralArg, Select, SelectArg, Text
+SSRObservabilityOptions [struct]: CorrelationID, OnEvent
+SSRObservation [struct]: Bootstrap, CorrelationID, Domain, Hydration, Name, Phase, Render, Timestamp
+SSRPayloadEncoding [defined]
+SSRPayloadEnvelope [struct]: Binary, Encoding, JSON, Kind, ReusePolicy, Revision, Scope, Target, Text, Version
+SSRPayloadFilter [struct]: Kind, Scope, Target
+SSRPayloadKind [defined]
+SSRPayloadMetadata [struct]: Encoding, Key, Kind, Legacy, ReusePolicy, Revision, Scope, Target, Version
+SSRPayloadOptions [struct]: Encoding, Kind, ReusePolicy, Revision, Scope, Target
+SSRPayloadReusePolicy [defined]
+SSRPayloadScope [defined]
+SSRPayloadValue [struct]: Encoding, Key, Kind, ReusePolicy, Revision, Scope, Target, Value
+SSRRenderMetrics [struct]: Duration, DurationNs
+SSRRouteBootstrap [struct]: Params, Path, Query
+SSRStateUpdate [struct]: CorrelationID, Deletes, Scope, Target, Upserts, Version</pre></article>
+      </div>
+    </section>
+
+    <section id="head-metadata">
+      <h2>Head And Metadata</h2>
+      <div class="meta"><span class="pill">head</span><span class="pill">stable</span><span class="pill">intermediate</span></div>
+      <p>Document head composition for meta tags, canonical URLs, robots directives, and social cards.</p>
+      <div class="guide-grid">
+        <div class="guide-card do-card"><strong>Use When</strong><p>You need route-owned metadata, canonical URLs, social previews, or robots directives expressed close to route intent.</p></div>
+        <div class="guide-card dont-card"><strong>Avoid When</strong><p>You are hardcoding metadata in scattered templates and then trying to patch it during navigation. Keep head state derived from route or page state.</p></div>
+        <div class="guide-card pattern-card"><strong>How To Choose</strong><p><code>Compose</code> is the orchestrator. Use small helpers like <code>MetaName</code>, <code>OpenGraph</code>, <code>Twitter</code>, and <code>Robots</code> to describe one metadata concern at a time.</p></div>
+      </div>
+        <div class="example-grid">
+        <div class="example-block example-good">
+        <h3>Recommended Pattern</h3>
+        <pre>head.Compose(
+    head.MetaName("description", "Order detail"),
+    head.OpenGraph(meta),
+    head.Twitter(meta),
+)</pre>
+      </div>
+        <div class="example-block example-bad">
+        <h3>Avoid This Shape</h3>
+        <p>Do not scatter head tags across unrelated components.</p>
+        <pre>if isAdmin {
+      head.MetaName("robots", "noindex")
+    }
+
+    if hasPreview {
+      head.MetaName("description", previewText)
+    }</pre>
+        </div>
+        </div>
+      <div class="guide-stack">
+        <div class="guide-card dont-card"><strong>Common Misuse</strong><p>Letting SEO metadata depend on unstable client-only timing. Critical head nodes should be available from route data or server-side state when possible.</p></div>
+      </div>
+      <div class="inventory-title">Inventory</div>
+      <div class="grid">
+        <article><h3>Function Quick Reference</h3><div class="api-list">
+          <div class="api-item"><h4>Compose</h4><p class="api-note"><span class="api-label">Description</span>Combines multiple head nodes into one metadata declaration.</p><p class="api-note"><span class="api-label">Use It When</span>You want one route or page to emit several coordinated head tags.</p><dl><dt>nodes</dt><dd>The head nodes that should be emitted together.</dd></dl></div>
+          <div class="api-item"><h4>LinkRel</h4><p class="api-note"><span class="api-label">Description</span>Creates a head link node for a specific relation.</p><p class="api-note"><span class="api-label">Use It When</span>You need canonical, alternate, icon, or other relation-based head links.</p><dl><dt>rel</dt><dd>The link relation to emit.</dd><dt>href</dt><dd>The target URL for the relation.</dd></dl></div>
+          <div class="api-item"><h4>MetaName</h4><p class="api-note"><span class="api-label">Description</span>Creates a meta tag keyed by the <code>name</code> attribute.</p><p class="api-note"><span class="api-label">Use It When</span>You need description, robots, author, or other standard named metadata.</p><dl><dt>name</dt><dd>The meta name attribute.</dd><dt>content</dt><dd>The content value for that meta tag.</dd></dl></div>
+          <div class="api-item"><h4>MetaProperty</h4><p class="api-note"><span class="api-label">Description</span>Creates a meta tag keyed by the <code>property</code> attribute.</p><p class="api-note"><span class="api-label">Use It When</span>You need Open Graph or other property-based metadata.</p><dl><dt>property</dt><dd>The property name to emit.</dd><dt>content</dt><dd>The content value associated with that property.</dd></dl></div>
+          <div class="api-item"><h4>OpenGraph</h4><p class="api-note"><span class="api-label">Description</span>Generates Open Graph head tags from one metadata object.</p><p class="api-note"><span class="api-label">Use It When</span>You want social-share metadata without hand-authoring each OG tag individually.</p><dl><dt>metadata</dt><dd>The social metadata object containing title, description, URL, type, and image values.</dd></dl></div>
+          <div class="api-item"><h4>Robots</h4><p class="api-note"><span class="api-label">Description</span>Creates a robots directive tag for crawlers.</p><p class="api-note"><span class="api-label">Use It When</span>You need explicit indexing behavior such as noindex or nofollow.</p><dl><dt>directives</dt><dd>The robots directives to emit.</dd></dl></div>
+          <div class="api-item"><h4>SocialTags</h4><p class="api-note"><span class="api-label">Description</span>Generates a broader social metadata tag set from one shared metadata object.</p><p class="api-note"><span class="api-label">Use It When</span>You want one helper to emit the common social preview tags together.</p><dl><dt>metadata</dt><dd>The social metadata object used to build the tags.</dd></dl></div>
+          <div class="api-item"><h4>Twitter</h4><p class="api-note"><span class="api-label">Description</span>Generates Twitter card metadata from a shared social metadata object.</p><p class="api-note"><span class="api-label">Use It When</span>You want explicit Twitter preview tags without repeating data across several meta nodes.</p><dl><dt>metadata</dt><dd>The social metadata object used to derive the Twitter tags.</dd></dl></div>
+        </div></article>
+        <article><h3>Types</h3><pre>SocialMetadata [struct]: Description, ImageURL, Title, TwitterCard, Type, URL</pre></article>
+      </div>
+    </section>
+
+    <section id="devtools-observability">
+      <h2>Devtools And Observability</h2>
+      <div class="meta"><span class="pill">devtools</span><span class="pill">experimental</span><span class="pill">advanced</span></div>
+      <p>Snapshot export, runtime inspection, diagnostics, profiling, and multi-client observability.</p>
+      <div class="guide-grid">
+        <div class="guide-card do-card"><strong>Use When</strong><p>You are diagnosing performance, runtime state drift, multi-client sync, or reviewer-facing instrumentation in development and controlled support workflows.</p></div>
+        <div class="guide-card dont-card"><strong>Avoid When</strong><p>You need a stable end-user feature contract. This package is for inspection and diagnosis, not for building primary user-facing application behavior.</p></div>
+        <div class="guide-card pattern-card"><strong>How To Choose</strong><p>Use snapshots for state inspection, comparison for regressions, and profiling structures when render cost or effect churn is the question you actually need answered.</p></div>
+      </div>
+      <div class="example-grid">
+      <div class="example-block example-good">
+        <h3>Recommended Pattern</h3>
+        <pre>snapshot := devtools.SnapshotNow()
+report := devtools.CompareSnapshots(previous, snapshot)
+if !report.Equal {
+    publishReviewerSummary(report)
+}</pre>
+      </div>
+      <div class="example-block example-bad">
+        <h3>Avoid This Shape</h3>
+        <p>Do not make application correctness depend on devtools hooks.</p>
+        <pre>if devtools.SnapshotNow().Stats.TotalFibers == 0 {
+    panic("app not ready")
+}</pre>
+      </div>
+      </div>
+      <div class="guide-stack">
+        <div class="guide-card dont-card"><strong>Common Misuse</strong><p>Depending on devtools-only structures in core runtime logic. Diagnostics should observe the app, not become a hard runtime dependency for it.</p></div>
+      </div>
+      <div class="inventory-title">Inventory</div>
+      <div class="grid">
+        <article><h3>Constants</h3><pre>SeverityError
+SeverityInfo
+SeverityWarning</pre></article>
+        <article><h3>Function Quick Reference</h3><div class="api-list">
+          <div class="api-item"><h4>CompareSnapshots</h4><p class="api-note"><span class="api-label">Description</span>Diffs two runtime snapshots and reports what changed.</p><p class="api-note"><span class="api-label">Use It When</span>You want a structured regression or state-drift comparison instead of manual inspection.</p><dl><dt>previous</dt><dd>The earlier snapshot.</dd><dt>current</dt><dd>The later snapshot to compare against.</dd></dl></div>
+          <div class="api-item"><h4>ExportSnapshotJSON</h4><p class="api-note"><span class="api-label">Description</span>Serializes a devtools snapshot to JSON.</p><p class="api-note"><span class="api-label">Use It When</span>You need an exportable artifact for inspection, logging, or review.</p><dl><dt>snapshot</dt><dd>The devtools snapshot to encode.</dd></dl></div>
+          <div class="api-item"><h4>InspectMultiClient</h4><p class="api-note"><span class="api-label">Description</span>Returns the current multi-client inspection state.</p><p class="api-note"><span class="api-label">Use It When</span>You need to inspect peers, traffic, or authority state during debugging.</p><dl><dt>params</dt><dd>None. The function reads the current inspection state.</dd></dl></div>
+          <div class="api-item"><h4>Panel</h4><p class="api-note"><span class="api-label">Description</span>Renders the devtools panel UI.</p><p class="api-note"><span class="api-label">Use It When</span>You want an embedded runtime inspection panel in a development surface.</p><dl><dt>props</dt><dd>The panel props such as title, open state, refresh cadence, and max depth.</dd></dl></div>
+          <div class="api-item"><h4>ResetMultiClientInspection</h4><p class="api-note"><span class="api-label">Description</span>Clears any overridden multi-client inspection state.</p><p class="api-note"><span class="api-label">Use It When</span>You want to reset back to live inspection behavior after a test or manual override.</p><dl><dt>params</dt><dd>None. The function resets inspection overrides.</dd></dl></div>
+          <div class="api-item"><h4>SetMultiClientInspection</h4><p class="api-note"><span class="api-label">Description</span>Applies an explicit multi-client inspection snapshot.</p><p class="api-note"><span class="api-label">Use It When</span>You need deterministic inspection state during testing or controlled debugging.</p><dl><dt>inspection</dt><dd>The inspection state to apply.</dd></dl></div>
+          <div class="api-item"><h4>SnapshotNow</h4><p class="api-note"><span class="api-label">Description</span>Captures an immediate devtools snapshot of runtime state.</p><p class="api-note"><span class="api-label">Use It When</span>You want an on-demand runtime inspection sample.</p><dl><dt>params</dt><dd>None. The function captures the current runtime snapshot.</dd></dl></div>
+          <div class="api-item"><h4>UseSnapshot</h4><p class="api-note"><span class="api-label">Description</span>Subscribes component code to live devtools snapshot state.</p><p class="api-note"><span class="api-label">Use It When</span>You want runtime inspection data to update reactively inside UI code.</p><dl><dt>options</dt><dd>The subscription or refresh behavior for the snapshot hook.</dd></dl></div>
+        </div></article>
+        <article><h3>Types</h3><pre>Branch [struct]: CleanupDurationNs, CommitDurationNs, EffectDurationNs, Kind, Name, Path, SelfDurationNs, SubtreeDurationNs
+CacheEntry [struct]: Key, LastError, LastLoaded, Loading, Ready, ResumePolicy, Stale, SubscriberCount, UpdatedAt
+Classification [defined]
+Diagnostic [struct]: Classification, Code, ComponentStack, Consequence, Count, Docs, Message, Path, Recoverable, Remediation, Severity, Source, TopFrame
+Hook [struct]: Kind, Value
+Log [struct]: Classification, Code, Consequence, CorrelationID, Docs, Domain, Fields, Level, Message, Recoverable, Remediation, Timestamp, TopFrame
+LogLevel [defined]
+MultiClient [struct]: AuthorityView, Enabled, FailedPublishes, LocalPeerID, Peers, RecentTraffic, ResolvedTransport
+MultiClientFailure [struct]: Code, Message, Op, Target, Timestamp, Topic
+MultiClientPeer [struct]: App, Compatible, Encodings, ID, LastSeen, LeaseDeadline, ProtocolVersion, Role, State, Surface, Topics
+MultiClientTraffic [struct]: CorrelationID, Direction, Failed, Kind, LatencyMs, PeerID, Timestamp, Topic
+Node [struct]: Children, CleanupDurationNs, CommitDurationNs, Dirty, EffectCount, EffectDurationNs, FineGrained, HookCount, Hooks, Kind, Name, NeedsUpdate, ReactiveSource, SelfDurationNs, Signature, SubtreeDurationNs, UpdateOrigin
+PanelProps [struct]: InitiallyOpen, MaxDepth, RefreshInterval, Title
+Profiling [struct]: CleanupExecutions, CommitCount, EffectExecutions, FineGrainedCommits, FineGrainedDescendantHostCommits, FineGrainedDescendantTextCommits, HotBranches, LastCleanupDurationNs, LastCommitDurationNs, LastEffectDurationNs, LastRenderDurationNs, ProcessedUnits, RenderCalls, ScheduledFiberMarks, ScheduledGranularMarks, ScheduledRootUpdates, WorkLoopPasses
+Route [struct]: Loading, Params, Path, Query
+Severity [defined]
+Snapshot [struct]: Cache, Diagnostics, Logs, MultiClient, Profiling, Route, Stats, Tree
+SnapshotComparison [struct]: ChangedSections, CurrentFingerprint, CurrentSize, Equal, PreviousFingerprint, PreviousSize
+Stats [struct]: ComponentFibers, DirtyFibers, Effects, FineGrainedFibers, HookEntries, HostFibers, TextFibers, TotalFibers</pre></article>
+      </div>
+    </section>
+
+    <section id="plugins-extensions">
+      <h2>Plugins And Extension Hosts</h2>
+      <div class="meta"><span class="pill">plugin</span><span class="pill">experimental</span><span class="pill">advanced</span></div>
+      <p>Experimental extension surfaces for host capabilities, route guards, request hooks, and pluggable panels.</p>
+      <div class="guide-grid">
+        <div class="guide-card do-card"><strong>Use When</strong><p>You are building an extension host or platform shell where third-party or optional features need structured integration points.</p></div>
+        <div class="guide-card dont-card"><strong>Avoid When</strong><p>You only need normal composition inside one app. A plugin host adds contracts, manifests, and lifecycle that are unnecessary for plain application code.</p></div>
+        <div class="guide-card pattern-card"><strong>How To Choose</strong><p>Use <code>NewHost</code> and <code>Define</code> when your problem is capability registration, guard decoration, request observation, or panel discovery across independently-owned extensions.</p></div>
+      </div>
+      <div class="example-grid">
+      <div class="example-block example-good">
+        <h3>Recommended Pattern</h3>
+        <pre>host := plugin.NewHost(plugin.HostOptions{Capabilities: []plugin.Capability{
+    plugin.CapabilityRouter,
+    plugin.CapabilitySSR,
+}})
+host.Register(myPlugin)</pre>
+      </div>
+      <div class="example-block example-bad">
+        <h3>Avoid This Shape</h3>
+        <p>Do not turn normal in-repo composition into a plugin system prematurely.</p>
+        <pre>host := plugin.NewHost(plugin.HostOptions{})
+    host.Register(checkoutPlugin)
+    host.Register(searchPlugin)
+    host.Register(layoutPlugin)</pre>
+      </div>
+      </div>
+      <div class="guide-stack">
+        <div class="guide-card dont-card"><strong>Common Misuse</strong><p>Using plugins as a substitute for internal package boundaries. If the code ships together and changes together, normal composition is usually the simpler answer.</p></div>
+      </div>
+      <div class="inventory-title">Inventory</div>
+      <div class="grid">
+        <article><h3>Constants</h3><pre>CapabilityAsyncData
+CapabilityDevtools
+CapabilityForms
+CapabilityRouter
+CapabilitySSR
+GuardAllow
+GuardBlock
+GuardRedirect
+TierExperimental
+TierInternal
+TierStable
+TierSupportedCompanion</pre></article>
+        <article><h3>Function Quick Reference</h3><div class="api-list">
+          <div class="api-item"><h4>Allow</h4><p class="api-note"><span class="api-label">Description</span>Returns a plugin guard decision that allows the operation.</p><p class="api-note"><span class="api-label">Use It When</span>You want plugin hooks to return explicit allow decisions rather than bare booleans.</p><dl><dt>reason</dt><dd>An optional explanation attached to the allow decision.</dd></dl></div>
+          <div class="api-item"><h4>Block</h4><p class="api-note"><span class="api-label">Description</span>Returns a plugin guard decision that blocks the operation.</p><p class="api-note"><span class="api-label">Use It When</span>You need one extension point to deny routing, submission, or request flow explicitly.</p><dl><dt>reason</dt><dd>The explanation for why the operation is blocked.</dd></dl></div>
+          <div class="api-item"><h4>Define</h4><p class="api-note"><span class="api-label">Description</span>Declares a plugin manifest and setup function as one plugin definition.</p><p class="api-note"><span class="api-label">Use It When</span>You want a structured plugin entrypoint instead of wiring host logic ad hoc.</p><dl><dt>manifest</dt><dd>The plugin identity, version, and capability requirements.</dd><dt>setup</dt><dd>The function that registers host integrations for the plugin.</dd></dl></div>
+          <div class="api-item"><h4>NewHost</h4><p class="api-note"><span class="api-label">Description</span>Creates the plugin host that owns registrations, capabilities, and extension lifecycle.</p><p class="api-note"><span class="api-label">Use It When</span>You are building an extension surface that needs independent plugins to register behavior.</p><dl><dt>options</dt><dd>The host capability and startup configuration.</dd></dl></div>
+          <div class="api-item"><h4>Redirect</h4><p class="api-note"><span class="api-label">Description</span>Returns a plugin guard decision that redirects to another destination.</p><p class="api-note"><span class="api-label">Use It When</span>You want plugin policy to redirect rather than just allow or block.</p><dl><dt>target</dt><dd>The redirect destination associated with the decision.</dd></dl></div>
+        </div></article>
+        <article><h3>Types</h3><pre>BootstrapPayload [struct]: Data, Namespace
+BootstrapProvider [defined]
+CacheKeyDecorator [defined]
+Capability [defined]
+CleanupFunc [defined]
+DefineFunc [defined]
+FormSubmission [struct]: ID, Intent, Values
+FormValidator [defined]
+GuardDecision [struct]: Outcome, Reason, Redirect
+GuardOutcome [defined]
+HeadProvider [defined]
+Host [struct]: methods AddBootstrapProvider, AddCacheKeyDecorator, AddFormValidator, AddHeadProvider, AddNavigationObserver, AddPanelProvider, AddRequestObserver, AddRouteGuard, AddSubmitObserver, BootstrapData, Capabilities, Close, DecorateCacheKey, EvaluateRoute, HeadNodes, NotifyNavigation, NotifyRequest, NotifySubmit, Panels, Plugins, Register, SetValue, ValidateForm, Value
+HostOptions [struct]: Capabilities
+Manifest [struct]: Description, ID, Requires, Tier, Version
+NavigationEvent [struct]: Path, Source
+NavigationObserver [defined]
+Panel [struct]: ID, Summary, Title
+PanelProvider [defined]
+Plugin [interface]: Manifest, Setup
+RequestEvent [struct]: Key, Phase, Source
+RequestObserver [defined]
+RouteGuard [defined]
+RouteRequest [struct]: Path, Tags
+SubmitObserver [defined]
+Tier [defined]
+ValidationIssue [struct]: Field, Message</pre></article>
+      </div>
+    </section>
+
+    <section id="hotreload-workflows">
+      <h2>Hot Reload Workflows</h2>
+      <div class="meta"><span class="pill">hotreload</span><span class="pill">experimental</span><span class="pill">intermediate</span></div>
+      <p>Experimental development-time snapshot preparation and reset-key based hot reload behavior.</p>
+      <div class="guide-grid">
+        <div class="guide-card do-card"><strong>Use When</strong><p>You want faster development loops with state carry-over and intentional reset boundaries during local iteration.</p></div>
+        <div class="guide-card dont-card"><strong>Avoid When</strong><p>You are designing production resilience behavior. Hot reload APIs are for development workflow, not for runtime state recovery contracts in shipped apps.</p></div>
+        <div class="guide-card pattern-card"><strong>How To Choose</strong><p><code>Configure</code>, <code>Prepare</code>, and snapshot import/export are the developer-experience path. Keep the set of persisted atoms explicit so reload behavior stays understandable.</p></div>
+      </div>
+      <div class="example-grid">
+      <div class="example-block example-good">
+        <h3>Recommended Pattern</h3>
+        <pre>hotreload.Configure(hotreload.Config{
+    AtomIDs: []string{"cart.count", "draft.email"},
+    ResetKey: buildID,
+})</pre>
+      </div>
+      <div class="example-block example-bad">
+        <h3>Avoid This Shape</h3>
+        <p>Do not treat hot reload as your persistence model.</p>
+        <pre>hotreload.Configure(hotreload.Config{
+    AtomIDs: []string{"*"},
+})
+// assume user state is now durable</pre>
+      </div>
+      </div>
+      <div class="guide-stack">
+        <div class="guide-card dont-card"><strong>Common Misuse</strong><p>Treating hot reload state transfer as persistence. Development carry-over should never be your only story for session restore or crash recovery.</p></div>
+      </div>
+      <div class="inventory-title">Inventory</div>
+      <div class="grid">
+        <article><h3>Function Quick Reference</h3><div class="api-list">
+          <div class="api-item"><h4>Configure</h4><p class="api-note"><span class="api-label">Description</span>Configures which state participates in the hot reload workflow.</p><p class="api-note"><span class="api-label">Use It When</span>You want explicit control over which atoms survive a development reload.</p><dl><dt>config</dt><dd>The atom ID allowlist and reset-key policy for hot reload.</dd></dl></div>
+          <div class="api-item"><h4>Disable</h4><p class="api-note"><span class="api-label">Description</span>Turns off the hot reload integration.</p><p class="api-note"><span class="api-label">Use It When</span>You want to suspend state-preserving reload behavior in development.</p><dl><dt>params</dt><dd>None. The function disables hot reload behavior.</dd></dl></div>
+          <div class="api-item"><h4>Enable</h4><p class="api-note"><span class="api-label">Description</span>Turns on the hot reload integration.</p><p class="api-note"><span class="api-label">Use It When</span>You want development reloads to preserve configured state.</p><dl><dt>params</dt><dd>None. The function enables hot reload behavior.</dd></dl></div>
+          <div class="api-item"><h4>Enabled</h4><p class="api-note"><span class="api-label">Description</span>Reports whether hot reload behavior is active.</p><p class="api-note"><span class="api-label">Use It When</span>You need to branch development behavior on current hot reload state.</p><dl><dt>params</dt><dd>None. The function returns the current enabled state.</dd></dl></div>
+          <div class="api-item"><h4>ExportSnapshot</h4><p class="api-note"><span class="api-label">Description</span>Captures the development-time hot reload snapshot.</p><p class="api-note"><span class="api-label">Use It When</span>You want the current preserved state serialized before a reload boundary.</p><dl><dt>params</dt><dd>None. The function exports the current hot reload snapshot.</dd></dl></div>
+          <div class="api-item"><h4>ImportSnapshot</h4><p class="api-note"><span class="api-label">Description</span>Restores a previously exported hot reload snapshot.</p><p class="api-note"><span class="api-label">Use It When</span>You are resuming development state after a reload cycle.</p><dl><dt>snapshot</dt><dd>The hot reload snapshot to restore.</dd></dl></div>
+          <div class="api-item"><h4>Prepare</h4><p class="api-note"><span class="api-label">Description</span>Performs the setup step that readies state for the next reload cycle.</p><p class="api-note"><span class="api-label">Use It When</span>You need the next dev reload to restore configured state cleanly.</p><dl><dt>options</dt><dd>The optional preparation behavior used before the reload begins.</dd></dl></div>
+        </div></article>
+        <article><h3>Types</h3><pre>Config [struct]: AtomIDs, ResetKey</pre></article>
+      </div>
+    </section>
+  </div>
