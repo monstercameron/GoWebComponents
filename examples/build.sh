@@ -13,8 +13,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 STATIC_DIR="$SCRIPT_DIR/static"
-BIN_DIR="$STATIC_DIR/bin"
+
+resolve_examples_build_dir() {
+  node --input-type=module -e "import { resolveWorkspaceBuildPath } from './scripts/runner-paths.mjs'; console.log(resolveWorkspaceBuildPath(process.argv[1], 'examples'));" "$REPO_ROOT"
+}
+
+BIN_DIR="$(resolve_examples_build_dir)"
 
 echo "GoWebComponents Examples Build System"
 echo "======================================"

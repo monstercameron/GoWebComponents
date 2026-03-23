@@ -3,12 +3,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import fsPromises from "node:fs/promises";
+import { resolveWorkspaceBuildPath } from "../../scripts/runner-paths.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..", "..");
 const examplesDir = path.join(repoRoot, "examples");
 const staticDir = path.join(examplesDir, "static");
+const examplesWasmDir = resolveWorkspaceBuildPath(repoRoot, "examples");
 
 const app = express();
 const host = process.env.HOST || "127.0.0.1";
@@ -118,6 +120,7 @@ app.get("/examples/", (req, res) => {
 // Primary static mounts.
 app.use("/examples", express.static(examplesDir, { extensions: ["html"] }));
 app.use("/", express.static(examplesDir, { extensions: ["html"] }));
+app.use("/static/bin", express.static(examplesWasmDir, { extensions: ["wasm"] }));
 app.use("/static", express.static(staticDir, { extensions: ["html"] }));
 
 app.get("/", (req, res) => {

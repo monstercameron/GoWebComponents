@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/monstercameron/GoWebComponents/tools/runnerconfig"
 )
 
 type config struct {
@@ -33,6 +35,10 @@ func loadConfig() (config, error) {
 	}
 	exampleRoot := filepath.Join(repoRoot, "examples", "86-atlas-commerce-os")
 	staticDir := filepath.Join(repoRoot, "examples", "static")
+	examplesWasmDir, err := runnerconfig.ResolveWorkspaceBuildPath(repoRoot, runnerconfig.FS{}, "examples")
+	if err != nil {
+		return config{}, fmt.Errorf("resolve examples build root: %w", err)
+	}
 	addr := strings.TrimSpace(os.Getenv("ATLAS_ADDR"))
 	if addr == "" {
 		addr = "127.0.0.1:8096"
@@ -48,7 +54,7 @@ func loadConfig() (config, error) {
 		TailwindCSS:       filepath.Join(staticDir, "css", "tailwind.css"),
 		WASMExecJS:        filepath.Join(staticDir, "script", "wasm_exec.js"),
 		ExampleLoggerJS:   filepath.Join(staticDir, "script", "example-logger.js"),
-		AtlasWASM:         filepath.Join(staticDir, "bin", "atlas-commerce-os.wasm"),
+		AtlasWASM:         filepath.Join(examplesWasmDir, "atlas-commerce-os.wasm"),
 		DefaultPublicHost: "http://127.0.0.1:8096",
 	}, nil
 }

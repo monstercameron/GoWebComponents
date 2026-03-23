@@ -65,7 +65,8 @@ Standalone SSR server for `86-atlas-commerce-os`:
 
 ```powershell
 Set-Location .\examples
-go build -o .\static\bin\atlas-commerce-os.wasm .\86-atlas-commerce-os\client
+New-Item -ItemType Directory -Path ..\bin\examples -Force | Out-Null
+go build -o ..\bin\examples\atlas-commerce-os.wasm .\86-atlas-commerce-os\client
 Set-Location ..
 go run ./examples/86-atlas-commerce-os/server
 ```

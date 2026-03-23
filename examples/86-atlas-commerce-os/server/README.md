@@ -18,7 +18,8 @@ What it does now:
 Run from the repo root:
 
 ```powershell
-go build -o ./examples/static/bin/atlas-commerce-os.wasm ./examples/86-atlas-commerce-os/client
+New-Item -ItemType Directory -Path ./bin/examples -Force | Out-Null
+go build -o ./bin/examples/atlas-commerce-os.wasm ./examples/86-atlas-commerce-os/client
 go run ./examples/86-atlas-commerce-os/server
 ```
 

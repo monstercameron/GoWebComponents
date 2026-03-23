@@ -380,7 +380,7 @@ Relevant directories:
 
 - `examples/`: example apps and feature-isolated catalog pages
 - `examples/static/`: shared example assets
-- `examples/static/bin/`: generated wasm binaries for example entrypoints
+- `bin/examples/`: generated wasm binaries for example entrypoints served at `/static/bin/...` by the local example servers
 - `bin/converter/`: ignored local converter outputs for inspectable imported layouts and screenshot comparisons
 - `tools/dev-server/`: local example server implementation
 - `test/`: main Playwright-based browser regression suites

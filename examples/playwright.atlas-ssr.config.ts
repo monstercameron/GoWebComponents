@@ -19,7 +19,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'powershell -NoProfile -Command "Push-Location .\\static; npm run build:css; $cssExitCode=$LASTEXITCODE; Pop-Location; if ($cssExitCode -ne 0) { exit $cssExitCode }; $env:GOOS=\'js\'; $env:GOARCH=\'wasm\'; go build -o .\\static\\bin\\atlas-commerce-os.wasm .\\86-atlas-commerce-os\\client; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Remove-Item Env:\\GOOS -ErrorAction SilentlyContinue; Remove-Item Env:\\GOARCH -ErrorAction SilentlyContinue; go run .\\86-atlas-commerce-os\\server"',
+    command: 'powershell -NoProfile -Command "Push-Location .\\static; npm run build:css; $cssExitCode=$LASTEXITCODE; Pop-Location; if ($cssExitCode -ne 0) { exit $cssExitCode }; New-Item -ItemType Directory -Path .\\..\\bin\\examples -Force | Out-Null; $env:GOOS=\'js\'; $env:GOARCH=\'wasm\'; go build -o .\\..\\bin\\examples\\atlas-commerce-os.wasm .\\86-atlas-commerce-os\\client; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Remove-Item Env:\\GOOS -ErrorAction SilentlyContinue; Remove-Item Env:\\GOARCH -ErrorAction SilentlyContinue; go run .\\86-atlas-commerce-os\\server"',
     url: 'http://127.0.0.1:8096/healthz',
     reuseExistingServer: true,
     timeout: 120 * 1000,

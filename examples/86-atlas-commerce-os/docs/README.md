@@ -67,7 +67,8 @@ Set-Location .\examples
 The example build script now detects the reorganized wasm entrypoint at `client/main.go`; the equivalent direct build is:
 
 ```powershell
-go build -o .\examples\static\bin\atlas-commerce-os.wasm ./examples/86-atlas-commerce-os/client
+New-Item -ItemType Directory -Path .\bin\examples -Force | Out-Null
+go build -o .\bin\examples\atlas-commerce-os.wasm ./examples/86-atlas-commerce-os/client
 ```
 
 ## Run

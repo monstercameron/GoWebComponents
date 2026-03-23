@@ -165,7 +165,7 @@ Use the Express catalog server when you want to browse many examples. Use `tools
 - shared images
 - common HTML entrypoints
 
-Generated wasm binaries for examples belong under `examples/static/bin/` and should not be committed unless there is a deliberate reason to do so.
+Generated wasm binaries for examples belong under `bin/examples/` and should not be committed unless there is a deliberate reason to do so. Example pages still load them via `/static/bin/...` through the local example servers.
 
 ## Running Example Browser Tests
 

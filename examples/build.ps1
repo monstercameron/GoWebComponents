@@ -32,7 +32,41 @@ function Restore-BuildEnvironment {
 
 # Get script directory
 $scriptDir = $PSScriptRoot
+$repoRoot = Split-Path -Parent $scriptDir
 $staticDir = Join-Path $scriptDir "static"
+
+function Resolve-ExamplesBuildDir {
+    $runnerConfigPath = $env:GWC_RUNNER_CONFIG
+    if ([string]::IsNullOrWhiteSpace($runnerConfigPath)) {
+        $localConfigPath = Join-Path $repoRoot "gwc-runner.json"
+        if (Test-Path $localConfigPath) {
+            $runnerConfigPath = $localConfigPath
+        } else {
+            $homeConfigPath = Join-Path $HOME ".gwc\runner.json"
+            if (Test-Path $homeConfigPath) {
+                $runnerConfigPath = $homeConfigPath
+            }
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($runnerConfigPath)) {
+        if (-not [System.IO.Path]::IsPathRooted($runnerConfigPath)) {
+            $runnerConfigPath = [System.IO.Path]::GetFullPath((Join-Path $repoRoot $runnerConfigPath))
+        }
+        if (Test-Path $runnerConfigPath) {
+            $overrides = Get-Content $runnerConfigPath -Raw | ConvertFrom-Json
+            $configuredBuildRoot = $overrides.paths.workspaceBuildRoot
+            if (-not [string]::IsNullOrWhiteSpace($configuredBuildRoot)) {
+                if ([System.IO.Path]::IsPathRooted($configuredBuildRoot)) {
+                    return Join-Path $configuredBuildRoot "examples"
+                }
+                return Join-Path (Split-Path -Parent $runnerConfigPath) $configuredBuildRoot "examples"
+            }
+        }
+    }
+
+    return Join-Path $repoRoot "bin\examples"
+}
 
 Write-Host "[INFO] Refreshing shared Tailwind CSS" -ForegroundColor Yellow
 Push-Location $staticDir
@@ -47,7 +81,7 @@ if ($cssExitCode -ne 0) {
 }
 
 # Ensure bin directory exists
-$binDir = Join-Path $scriptDir "static\bin"
+$binDir = Resolve-ExamplesBuildDir
 if (-not (Test-Path $binDir)) {
     New-Item -ItemType Directory -Path $binDir -Force | Out-Null
     Write-Host "[OK] Created bin directory" -ForegroundColor Green

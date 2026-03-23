@@ -209,7 +209,7 @@ func implementationCopy(title, feature string) (string, []string, []string) {
 	subject := exampleSubject(title, feature)
 	lead := "This example keeps the implementation small enough that the rendered behavior maps directly to the Go code driving the component tree, hook state, and event handlers."
 	bullets := []string{
-		"The compiled wasm output is generated under examples/static/bin/, and the examples dev server serves the HTML entrypoint, shared static assets, and wasm bundle together for local testing.",
+		"The compiled wasm output is generated under bin/examples/, and the examples dev server serves that build directory at /static/bin/ alongside the HTML entrypoint and shared static assets for local testing.",
 	}
 	code := []string{
 		"func main() {",

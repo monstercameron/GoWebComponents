@@ -21,6 +21,7 @@ import (
 
 	"github.com/andybalholm/brotli"
 	gwchtml "github.com/monstercameron/GoWebComponents/html"
+	"github.com/monstercameron/GoWebComponents/tools/runnerconfig"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
@@ -30,9 +31,28 @@ const (
 )
 
 type launcher struct {
-	repoRoot    string
-	examplesDir string
-	staticDir   string
+	repoRoot        string
+	examplesDir     string
+	staticDir       string
+	examplesWasmDir string
+}
+
+func (l launcher) resolvedExamplesWasmDir() string {
+	if strings.TrimSpace(l.examplesWasmDir) != "" {
+		return l.examplesWasmDir
+	}
+	if strings.TrimSpace(l.repoRoot) != "" {
+		resolved, err := runnerconfig.ResolveWorkspaceBuildPath(l.repoRoot, runnerconfig.FS{}, "examples")
+		if err == nil && strings.TrimSpace(resolved) != "" {
+			if info, statErr := os.Stat(resolved); statErr == nil && info.IsDir() {
+				return resolved
+			}
+		}
+	}
+	if strings.TrimSpace(l.staticDir) != "" {
+		return filepath.Join(l.staticDir, "bin")
+	}
+	return ""
 }
 
 type exampleLink struct {
@@ -407,11 +427,17 @@ func main() {
 		mainPrintError(err)
 		mainExit(1)
 	}
+	examplesWasmDir, err := runnerconfig.ResolveWorkspaceBuildPath(repoRoot, runnerconfig.FS{}, "examples")
+	if err != nil {
+		mainPrintError(fmt.Errorf("resolve examples build root: %w", err))
+		mainExit(1)
+	}
 
 	l := launcher{
-		repoRoot:    repoRoot,
-		examplesDir: filepath.Join(repoRoot, "examples"),
-		staticDir:   filepath.Join(repoRoot, "examples", "static"),
+		repoRoot:        repoRoot,
+		examplesDir:     filepath.Join(repoRoot, "examples"),
+		staticDir:       filepath.Join(repoRoot, "examples", "static"),
+		examplesWasmDir: examplesWasmDir,
 	}
 
 	if err := mainRunLauncher(l, mainArgs()[1:]); err != nil {
@@ -1210,6 +1236,7 @@ func (l launcher) runExamples(args []string) error {
 func (l launcher) newExamplesHandler(host string, port string) http.Handler {
 	examplesServer := http.StripPrefix("/examples/", http.FileServer(http.Dir(l.examplesDir)))
 	staticServer := http.StripPrefix("/static/", http.FileServer(http.Dir(l.staticDir)))
+	wasmServer := http.StripPrefix("/static/bin/", http.FileServer(http.Dir(l.resolvedExamplesWasmDir())))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -1324,6 +1351,7 @@ func (l launcher) newExamplesHandler(host string, port string) http.Handler {
 		}
 		examplesServer.ServeHTTP(w, r)
 	})
+	mux.Handle("/static/bin/", wasmServer)
 	mux.Handle("/static/", staticServer)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
@@ -3072,7 +3100,7 @@ func (l launcher) buildExampleCatalogEntry(dirPath string, dirName string, resol
 		return exampleCatalogEntry{}, ok, err
 	}
 	htmlPath := filepath.Join(dirPath, htmlFile)
-	wasmBinary, usesWasm, err := detectAvailableExampleWasmBinary(l.staticDir, htmlPath)
+	wasmBinary, usesWasm, err := detectAvailableExampleWasmBinary(l.resolvedExamplesWasmDir(), htmlPath)
 	if err != nil {
 		return exampleCatalogEntry{}, false, err
 	}
@@ -3161,7 +3189,7 @@ func detectExampleWasmBinary(htmlPath string) (string, bool, error) {
 	return string(matches[1]), true, nil
 }
 
-func detectAvailableExampleWasmBinary(staticDir string, htmlPath string) (string, bool, error) {
+func detectAvailableExampleWasmBinary(wasmDir string, htmlPath string) (string, bool, error) {
 	wasmBinary, usesWasm, err := detectExampleWasmBinary(htmlPath)
 	if err != nil || !usesWasm {
 		return wasmBinary, usesWasm, err
@@ -3170,7 +3198,7 @@ func detectAvailableExampleWasmBinary(staticDir string, htmlPath string) (string
 	if wasmBinary == "" {
 		return "", false, nil
 	}
-	if !fileExists(filepath.Join(staticDir, "bin", wasmBinary)) {
+	if !fileExists(filepath.Join(wasmDir, wasmBinary)) {
 		return "", false, nil
 	}
 	return wasmBinary, true, nil

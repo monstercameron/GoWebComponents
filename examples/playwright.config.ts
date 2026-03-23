@@ -27,7 +27,7 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'npx http-server . -p 8081',
+    command: `node --input-type=module -e "process.env.PORT='8081'; await import('../tools/dev-server/server.mjs');"`,
     url: 'http://127.0.0.1:8081',
     reuseExistingServer: !process.env.CI,
     stdout: 'ignore',
