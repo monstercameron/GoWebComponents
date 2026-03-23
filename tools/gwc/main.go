@@ -3466,7 +3466,7 @@ func renderExamplesShellHTML(document examplesShellDocument) string {
 		gwchtml.Meta(gwchtml.Props{Raw: map[string]interface{}{"charset": "utf-8"}}),
 		gwchtml.Meta(gwchtml.Props{Raw: map[string]interface{}{"name": "viewport", "content": "width=device-width, initial-scale=1"}}),
 		gwchtml.Meta(gwchtml.Props{Raw: map[string]interface{}{"name": "description", "content": document.Description}}),
-		gwchtml.Title(gwchtml.Props{}, gwchtml.Text(document.Title)),
+		gwchtml.Tag("title", gwchtml.Props{}, gwchtml.Text(document.Title)),
 		gwchtml.Link(gwchtml.Props{Rel: "stylesheet", Href: "/static/css/tailwind.css"}),
 		gwchtml.Link(gwchtml.Props{Rel: "stylesheet", Href: "/static/css/example-shell.css"}),
 		gwchtml.Script(gwchtml.Props{Src: "/static/script/wasm_exec.js"}),
