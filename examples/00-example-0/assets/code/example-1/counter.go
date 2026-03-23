@@ -78,13 +78,13 @@ func CounterExample() ui.Node {
 		"border-white/10 bg-slate-950/35 text-slate-200 hover:bg-white/[0.08] hover:text-white",
 	)
 	containerClass := ClassNames(
-		"box-border flex justify-center bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_26%),radial-gradient(circle_at_top_right,rgba(245,158,11,0.10),transparent_20%),linear-gradient(180deg,#020617_0%,#07111f_42%,#0f172a_100%)] text-white",
+		"flex justify-center bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_26%),radial-gradient(circle_at_top_right,rgba(245,158,11,0.10),transparent_20%),linear-gradient(180deg,#020617_0%,#07111f_42%,#0f172a_100%)] text-white",
 		When(embedded, "w-full items-start p-3 sm:p-4"),
 		When(!embedded, "min-h-screen items-center p-4 sm:p-5"),
 	)
 	cardClass := ClassNames(
-		"box-border w-full rounded-[24px] border border-white/10 bg-white/[0.05] shadow-2xl shadow-black/30 backdrop-blur-xl",
-		When(embedded, "max-w-5xl p-4 sm:p-5"),
+		"w-full rounded-[24px] border border-white/10 bg-white/[0.05] shadow-2xl shadow-black/30 backdrop-blur-xl",
+		When(embedded, "max-w-none p-4 sm:p-5"),
 		When(!embedded, "max-w-xl p-5 sm:p-6"),
 	)
 

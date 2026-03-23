@@ -24,6 +24,25 @@ func SessionStorage() (Storage, error) {
 	return resolveStorage("sessionStorage")
 }
 
+// SharedWindowEnv returns a lightweight reader for shared values attached to window.
+func SharedWindowEnv() WindowEnv {
+	rawWindow, err := globalProperty("WindowEnv", "window")
+	if err != nil {
+		return WindowEnv{}
+	}
+	return WindowEnv{lookup: func(name string) (Value, bool) {
+		key := strings.TrimSpace(name)
+		if key == "" {
+			return Value{}, false
+		}
+		value := rawWindow.Get(key)
+		if value.IsUndefined() || value.IsNull() {
+			return Value{}, false
+		}
+		return Value{raw: value}, true
+	}}
+}
+
 func resolveStorage(name string) (Storage, error) {
 	raw, err := globalProperty("Storage", name)
 	if err != nil {

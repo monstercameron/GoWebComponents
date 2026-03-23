@@ -18,6 +18,11 @@ func SessionStorage() (Storage, error) {
 	return Storage{}, unavailable("Storage", "sessionStorage")
 }
 
+// SharedWindowEnv returns an empty reader on non-browser builds.
+func SharedWindowEnv() WindowEnv {
+	return WindowEnv{}
+}
+
 func OpenPersistentStore(ctx context.Context, options PersistentStoreOptions) (PersistentStore, error) {
 	if ctx == nil {
 		ctx = context.Background()

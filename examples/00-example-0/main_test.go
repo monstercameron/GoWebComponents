@@ -128,6 +128,16 @@ func testExampleItem() docsItem {
 	}
 }
 
+func testEmbeddedExampleItem() docsItem {
+	item := testExampleItem()
+	item.ID = 73
+	item.Title = "Counter Example"
+	item.Content.EmbedPath = "assets/examples/01-counter-host.html"
+	item.Content.SourcePath = "assets/code/example-1/counter.go"
+	item.Content.Code = "fallback"
+	return item
+}
+
 func testDeprecatedExampleItem() docsItem {
 	return docsItem{
 		ID:       4,
@@ -618,6 +628,20 @@ func TestRenderDetailPanelAndDisplaySurfaceStates(t *testing.T) {
 	for _, snippet := range []string{"api-reference-fragment", labelAPIReference} {
 		if !strings.Contains(injectedGroupedAPIMarkup, snippet) {
 			t.Fatalf("grouped api injected markup missing %q: %s", snippet, injectedGroupedAPIMarkup)
+		}
+	}
+
+	embeddedExampleMarkup, err := ui.RenderToString(renderDisplaySurface(contentPanelProps{
+		Item:          testEmbeddedExampleItem(),
+		MarkdownBody:  "func Counter() ui.Node {\n  return Button()\n}",
+		MarkdownReady: true,
+	}, true))
+	if err != nil {
+		t.Fatalf("renderDisplaySurface embedded example returned error: %v", err)
+	}
+	for _, snippet := range []string{labelExampleSource, "Go + hooks + typed HTML", "func Counter() ui.Node"} {
+		if !strings.Contains(embeddedExampleMarkup, snippet) {
+			t.Fatalf("embedded example surface missing %q: %s", snippet, embeddedExampleMarkup)
 		}
 	}
 

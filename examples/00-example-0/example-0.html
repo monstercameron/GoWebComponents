@@ -115,6 +115,202 @@
     </div>
     <div id="app" data-boot="pending"></div>
     <script>
+        window.__gwcMountEmbeddedExample = (() => {
+            const mounts = new Map();
+
+            function ensureCompatibility() {
+                if (typeof WebAssembly === 'undefined') {
+                    throw new Error('WebAssembly is not available in this browser.');
+                }
+                if (typeof Go === 'undefined') {
+                    throw new Error('The Go WebAssembly runtime script did not load.');
+                }
+                if (typeof fetch !== 'function') {
+                    throw new Error('Fetch is not available in this browser.');
+                }
+            }
+
+            async function fetchWasmWithProgress(url, onProgress) {
+                onProgress(5, {
+                    indeterminate: true,
+                    phase: 'Connecting',
+                    message: 'Requesting the embedded WebAssembly binary...'
+                });
+
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error('The embedded wasm binary could not be fetched (' + response.status + ' ' + response.statusText + ').');
+                }
+
+                const contentLengthHeader = response.headers.get('content-length');
+                const totalBytes = contentLengthHeader ? Number(contentLengthHeader) : 0;
+                if (!response.body || typeof response.body.getReader !== 'function') {
+                    onProgress(50, {
+                        indeterminate: true,
+                        phase: 'Downloading',
+                        message: 'Downloading embedded WebAssembly binary...'
+                    });
+                    return new Uint8Array(await response.arrayBuffer());
+                }
+
+                const reader = response.body.getReader();
+                const chunks = [];
+                let receivedBytes = 0;
+                while (true) {
+                    const result = await reader.read();
+                    if (result.done) {
+                        break;
+                    }
+                    chunks.push(result.value);
+                    receivedBytes += result.value.length;
+                    if (totalBytes > 0) {
+                        const progress = 10 + ((receivedBytes / totalBytes) * 70);
+                        onProgress(progress, {
+                            indeterminate: false,
+                            phase: 'Downloading',
+                            message: 'Downloading embedded WebAssembly binary...'
+                        });
+                    } else {
+                        onProgress(50, {
+                            indeterminate: true,
+                            phase: 'Downloading',
+                            message: 'Downloading embedded WebAssembly binary...'
+                        });
+                    }
+                }
+
+                const bytes = new Uint8Array(receivedBytes);
+                let offset = 0;
+                for (const chunk of chunks) {
+                    bytes.set(chunk, offset);
+                    offset += chunk.length;
+                }
+                return bytes;
+            }
+
+            return async function mountEmbeddedExample(options) {
+                const root = document.getElementById(options.rootID);
+                const shell = document.getElementById(options.shellID);
+                if (!root || !shell || !options.wasmURL) {
+                    return;
+                }
+
+                const current = mounts.get(options.rootID);
+                if (current && current.root === root && (current.status === 'loading' || current.status === 'ready')) {
+                    return;
+                }
+
+                const statusNode = shell.querySelector('[data-embed-status]');
+                const phaseNode = shell.querySelector('[data-embed-phase]');
+                const percentNode = shell.querySelector('[data-embed-percent]');
+                const progressBar = shell.querySelector('[data-embed-progress]');
+                const errorBox = shell.querySelector('[data-embed-error]');
+                const minimumVisibleMs = 1000;
+                const startedAt = performance.now();
+                const state = { root, status: 'loading' };
+                mounts.set(options.rootID, state);
+
+                function setProgress(percent, meta) {
+                    const resolved = meta || {};
+                    const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+                    shell.dataset.indeterminate = resolved.indeterminate ? 'true' : 'false';
+                    if (progressBar) {
+                        progressBar.style.width = clamped + '%';
+                    }
+                    if (percentNode) {
+                        percentNode.textContent = resolved.indeterminate ? '...' : clamped + '%';
+                    }
+                    if (phaseNode && resolved.phase) {
+                        phaseNode.textContent = resolved.phase;
+                    }
+                    if (statusNode && resolved.message) {
+                        statusNode.textContent = resolved.message;
+                    }
+                }
+
+                function setError(title, detail) {
+                    state.status = 'error';
+                    shell.dataset.state = 'error';
+                    shell.dataset.indeterminate = 'false';
+                    if (progressBar) {
+                        progressBar.style.width = '100%';
+                    }
+                    if (phaseNode) {
+                        phaseNode.textContent = title;
+                    }
+                    if (percentNode) {
+                        percentNode.textContent = 'Failed';
+                    }
+                    if (statusNode) {
+                        statusNode.textContent = detail;
+                    }
+                    if (errorBox) {
+                        errorBox.textContent = detail;
+                        errorBox.classList.remove('hidden');
+                    }
+                }
+
+                async function enforceMinimumVisibleTime() {
+                    const elapsed = performance.now() - startedAt;
+                    const remaining = minimumVisibleMs - elapsed;
+                    if (remaining > 0) {
+                        await new Promise((resolve) => setTimeout(resolve, remaining));
+                    }
+                }
+
+                root.dataset.boot = 'pending';
+                root.style.visibility = 'hidden';
+                root.innerHTML = '';
+                shell.dataset.state = 'loading';
+                shell.style.opacity = '1';
+                shell.style.pointerEvents = 'auto';
+                if (errorBox) {
+                    errorBox.classList.add('hidden');
+                    errorBox.textContent = '';
+                }
+
+                try {
+                    ensureCompatibility();
+                    const wasmBytes = await fetchWasmWithProgress(options.wasmURL, setProgress);
+                    if (mounts.get(options.rootID) !== state || document.getElementById(options.rootID) !== root) {
+                        return;
+                    }
+
+                    setProgress(88, {
+                        indeterminate: false,
+                        phase: 'Compiling',
+                        message: 'Compiling and instantiating embedded WebAssembly...'
+                    });
+
+                    window.__gwcExampleMountSelector = '#' + options.rootID;
+                    const go = new Go();
+                    const result = await WebAssembly.instantiate(wasmBytes, go.importObject);
+
+                    setProgress(100, {
+                        indeterminate: false,
+                        phase: 'Starting',
+                        message: 'Starting embedded counter demo...'
+                    });
+
+                    await enforceMinimumVisibleTime();
+                    if (mounts.get(options.rootID) !== state || document.getElementById(options.rootID) !== root) {
+                        return;
+                    }
+
+                    root.dataset.boot = 'ready';
+                    root.style.visibility = 'visible';
+                    shell.dataset.state = 'ready';
+                    shell.style.opacity = '0';
+                    shell.style.pointerEvents = 'none';
+                    state.status = 'ready';
+                    go.run(result.instance);
+                } catch (error) {
+                    const detail = error instanceof Error ? error.message : String(error);
+                    setError('Compatibility error', detail);
+                }
+            };
+        })();
+
         (async function bootstrapExample0() {
             const shell = document.getElementById('boot-shell');
             const appRoot = document.getElementById('app');

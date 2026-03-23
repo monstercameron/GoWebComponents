@@ -25,6 +25,7 @@ type docsSection struct {
 type docsContent struct {
 	Kind        string
 	AnchorID    string
+	EmbedPath   string
 	Sections    []docsSection
 	Callout     string
 	SourcePath  string

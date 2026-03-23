@@ -6,8 +6,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 	"syscall/js"
 	"time"
+	"unicode"
 
 	"github.com/monstercameron/GoWebComponents/fetch"
 	. "github.com/monstercameron/GoWebComponents/html/shorthand"
@@ -109,60 +111,236 @@ func renderHeroCodeSnippet() ui.Node {
 			Div(Class("rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-400"), Text("Go + hooks + typed HTML")),
 		),
 		Pre(Class("mt-3 overflow-x-auto rounded-[18px] border border-white/10 bg-black/20 p-4 text-[13px] leading-6 text-slate-200"),
-			Code(
-				Span(Class("text-violet-300"), Text("func")),
-				Text(" "),
-				Span(Class("text-cyan-200"), Text("Counter")),
-				Text("() "),
-				Span(Class("text-violet-300"), Text("ui.Node")),
-				Text(" {\n  "),
-				Span(Class("text-amber-200"), Text("count")),
-				Text(" := "),
-				Span(Class("text-cyan-300"), Text("ui.UseState")),
-				Text("("),
-				Span(Class("text-emerald-300"), Text("0")),
-				Text(")\n  "),
-				Span(Class("text-amber-200"), Text("currentCount")),
-				Text(" := "),
-				Span(Class("text-amber-200"), Text("count")),
-				Text("."),
-				Span(Class("text-cyan-200"), Text("Get")),
-				Text("()\n  "),
-				Span(Class("text-amber-200"), Text("increment")),
-				Text(" := "),
-				Span(Class("text-cyan-300"), Text("ui.UseEvent")),
-				Text("("),
-				Span(Class("text-violet-300"), Text("func")),
-				Text("() {\n    "),
-				Span(Class("text-amber-200"), Text("count")),
-				Text("."),
-				Span(Class("text-cyan-200"), Text("Set")),
-				Text("("),
-				Span(Class("text-amber-200"), Text("count")),
-				Text("."),
-				Span(Class("text-cyan-200"), Text("Get")),
-				Text("() + "),
-				Span(Class("text-emerald-300"), Text("1")),
-				Text(")\n  })\n\n  "),
-				Span(Class("text-cyan-300"), Text("return")),
-				Text(" "),
-				Span(Class("text-cyan-200"), Text("Button")),
-				Text("(\n    "),
-				Span(Class("text-cyan-200"), Text("OnClick")),
-				Text("("),
-				Span(Class("text-amber-200"), Text("increment")),
-				Text("),\n    "),
-				Span(Class("text-cyan-200"), Text("Class")),
-				Text("("),
-				Span(Class("text-emerald-300"), Text("\"rounded-xl px-4 py-2\"")),
-				Text("),\n    "),
-				Span(Class("text-cyan-200"), Text("Textf")),
-				Text("("),
-				Span(Class("text-emerald-300"), Text("\"Clicked %d times\"")),
-				Text(", "),
-				Span(Class("text-amber-200"), Text("currentCount")),
-				Text("),\n  )\n}"),
-			),
+			renderQuickCounterSnippetCode(),
+		),
+	)
+}
+
+func renderQuickCounterSnippetCode() ui.Node {
+	return Code(
+		Span(Class("text-violet-300"), Text("func")),
+		Text(" "),
+		Span(Class("text-cyan-200"), Text("Counter")),
+		Text("() "),
+		Span(Class("text-violet-300"), Text("ui.Node")),
+		Text(" {\n  "),
+		Span(Class("text-amber-200"), Text("count")),
+		Text(" := "),
+		Span(Class("text-cyan-300"), Text("ui.UseState")),
+		Text("("),
+		Span(Class("text-emerald-300"), Text("0")),
+		Text(")\n  "),
+		Span(Class("text-amber-200"), Text("currentCount")),
+		Text(" := "),
+		Span(Class("text-amber-200"), Text("count")),
+		Text("."),
+		Span(Class("text-cyan-200"), Text("Get")),
+		Text("()\n  "),
+		Span(Class("text-amber-200"), Text("increment")),
+		Text(" := "),
+		Span(Class("text-cyan-300"), Text("ui.UseEvent")),
+		Text("("),
+		Span(Class("text-violet-300"), Text("func")),
+		Text("() {\n    "),
+		Span(Class("text-amber-200"), Text("count")),
+		Text("."),
+		Span(Class("text-cyan-200"), Text("Set")),
+		Text("("),
+		Span(Class("text-amber-200"), Text("count")),
+		Text("."),
+		Span(Class("text-cyan-200"), Text("Get")),
+		Text("() + "),
+		Span(Class("text-emerald-300"), Text("1")),
+		Text(")\n  })\n\n  "),
+		Span(Class("text-cyan-300"), Text("return")),
+		Text(" "),
+		Span(Class("text-cyan-200"), Text("Button")),
+		Text("(\n    "),
+		Span(Class("text-cyan-200"), Text("OnClick")),
+		Text("("),
+		Span(Class("text-amber-200"), Text("increment")),
+		Text("),\n    "),
+		Span(Class("text-cyan-200"), Text("Class")),
+		Text("("),
+		Span(Class("text-emerald-300"), Text("\"rounded-xl px-4 py-2\"")),
+		Text("),\n    "),
+		Span(Class("text-cyan-200"), Text("Textf")),
+		Text("("),
+		Span(Class("text-emerald-300"), Text("\"Clicked %d times\"")),
+		Text(", "),
+		Span(Class("text-amber-200"), Text("currentCount")),
+		Text("),\n  )\n}"),
+	)
+}
+
+func isQuickCounterSnippet(source string) bool {
+	normalized := strings.ReplaceAll(source, "\r\n", "\n")
+	return strings.Contains(normalized, "func Counter() ui.Node {") &&
+		strings.Contains(normalized, "count.Set(count.Get() + 1)") &&
+		strings.Contains(normalized, "Textf(\"Clicked %d times\", currentCount)")
+}
+
+func isGoIdentifierStart(char byte) bool {
+	return char == '_' || unicode.IsLetter(rune(char))
+}
+
+func isGoIdentifierPart(char byte) bool {
+	return char == '_' || unicode.IsLetter(rune(char)) || unicode.IsDigit(rune(char))
+}
+
+func renderHighlightedGoSource(source string) ui.Node {
+	keywordClasses := map[string]string{
+		"break": "text-violet-300",
+		"case": "text-violet-300",
+		"default": "text-violet-300",
+		"defer": "text-violet-300",
+		"else": "text-violet-300",
+		"fallthrough": "text-violet-300",
+		"for": "text-violet-300",
+		"func": "text-violet-300",
+		"go": "text-violet-300",
+		"if": "text-violet-300",
+		"import": "text-violet-300",
+		"package": "text-violet-300",
+		"range": "text-violet-300",
+		"return": "text-violet-300",
+		"select": "text-violet-300",
+		"switch": "text-violet-300",
+		"type": "text-violet-300",
+		"var": "text-violet-300",
+	}
+	callClasses := map[string]string{
+		"Button": "text-cyan-200",
+		"Class": "text-cyan-200",
+		"ClassNames": "text-cyan-200",
+		"CounterExample": "text-cyan-200",
+		"CreateElement": "text-cyan-200",
+		"DisableAllDebug": "text-cyan-200",
+		"Div": "text-cyan-200",
+		"Fragment": "text-cyan-200",
+		"H2": "text-cyan-200",
+		"IfElse": "text-cyan-200",
+		"LookupString": "text-cyan-200",
+		"OnClick": "text-cyan-200",
+		"P": "text-cyan-200",
+		"Render": "text-cyan-200",
+		"Span": "text-cyan-200",
+		"String": "text-cyan-200",
+		"Text": "text-cyan-200",
+		"Textf": "text-cyan-200",
+		"UseEvent": "text-cyan-300",
+		"UseState": "text-cyan-300",
+		"WaitForever": "text-cyan-200",
+		"When": "text-cyan-200",
+	}
+	moduleClasses := map[string]string{
+		"interop": "text-cyan-200",
+		"ui": "text-cyan-200",
+		"utils": "text-cyan-200",
+	}
+	var nodes []ui.Node
+	normalized := strings.ReplaceAll(source, "\r\n", "\n")
+
+	appendText := func(text string) {
+		if text != "" {
+			nodes = append(nodes, Text(text))
+		}
+	}
+	appendClassed := func(className, text string) {
+		if text == "" {
+			return
+		}
+		nodes = append(nodes, Span(Class(className), Text(text)))
+	}
+
+	for index := 0; index < len(normalized); {
+		if strings.HasPrefix(normalized[index:], "//") {
+			end := index
+			for end < len(normalized) && normalized[end] != '\n' {
+				end++
+			}
+			appendClassed("text-slate-500", normalized[index:end])
+			index = end
+			continue
+		}
+		if normalized[index] == '"' {
+			end := index + 1
+			for end < len(normalized) {
+				if normalized[end] == '\\' && end+1 < len(normalized) {
+					end += 2
+					continue
+				}
+				if normalized[end] == '"' {
+					end++
+					break
+				}
+				end++
+			}
+			appendClassed("text-emerald-300", normalized[index:end])
+			index = end
+			continue
+		}
+		if normalized[index] == '`' {
+			end := index + 1
+			for end < len(normalized) && normalized[end] != '`' {
+				end++
+			}
+			if end < len(normalized) {
+				end++
+			}
+			appendClassed("text-emerald-300", normalized[index:end])
+			index = end
+			continue
+		}
+		if unicode.IsDigit(rune(normalized[index])) {
+			end := index + 1
+			for end < len(normalized) && (unicode.IsDigit(rune(normalized[end])) || normalized[end] == '.') {
+				end++
+			}
+			appendClassed("text-emerald-300", normalized[index:end])
+			index = end
+			continue
+		}
+		if isGoIdentifierStart(normalized[index]) {
+			end := index + 1
+			for end < len(normalized) && isGoIdentifierPart(normalized[end]) {
+				end++
+			}
+			token := normalized[index:end]
+			switch {
+			case keywordClasses[token] != "":
+				appendClassed(keywordClasses[token], token)
+			case callClasses[token] != "":
+				appendClassed(callClasses[token], token)
+			case moduleClasses[token] != "":
+				appendClassed(moduleClasses[token], token)
+			case unicode.IsUpper(rune(token[0])):
+				appendClassed("text-cyan-200", token)
+			default:
+				appendClassed("text-amber-200", token)
+			}
+			index = end
+			continue
+		}
+		appendText(string(normalized[index]))
+		index++
+	}
+
+	args := make([]interface{}, 0, len(nodes))
+	for _, node := range nodes {
+		args = append(args, node)
+	}
+	return Code(args...)
+}
+
+func renderSourceSnippetCard(title, badge, source string) ui.Node {
+	return Div(Class("min-w-0 rounded-[24px] border border-cyan-300/15 bg-[#050d18]/85 p-4 shadow-xl shadow-black/20"),
+		Div(Class("flex items-center justify-between gap-3"),
+			Div(Class("text-[11px] uppercase tracking-[0.18em] text-cyan-200"), Text(title)),
+			Div(Class("rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-400"), Text(badge)),
+		),
+		Pre(Class("mt-3 overflow-x-auto rounded-[18px] border border-white/10 bg-black/20 p-4 text-[13px] leading-6 text-slate-200"),
+			IfElse(isQuickCounterSnippet(source), renderQuickCounterSnippetCode(), renderHighlightedGoSource(source)),
 		),
 	)
 }
@@ -348,6 +526,9 @@ func renderAPIReference(panelProps contentPanelProps) ui.Node {
 
 // renderCounterExample renders the interactive demo panel used by example entries.
 func renderCounterExample(panelProps contentPanelProps) ui.Node {
+	if panelProps.Item.Content.EmbedPath != "" {
+		return renderEmbeddedExample(panelProps)
+	}
 	counterValue := ui.UseState(0)
 	ui.UseEffect(func() func() {
 		// Reset the demo whenever the user switches to a different catalog item.
@@ -410,6 +591,97 @@ func renderCounterExample(panelProps contentPanelProps) ui.Node {
 	)
 }
 
+func renderEmbeddedExample(panelProps contentPanelProps) ui.Node {
+	wasmURL := embeddedExampleURL(panelProps.Item.Content.EmbedPath)
+	shellID := fmt.Sprintf("embedded-demo-shell-%d", panelProps.Item.ID)
+	rootID := fmt.Sprintf("embedded-demo-root-%d", panelProps.Item.ID)
+	sourceURL := docsSourceURL(panelProps.Item.Content.SourcePath)
+	sourceBody := panelProps.MarkdownBody
+	sourceLoading := panelProps.MarkdownLoading
+	sourceReady := panelProps.MarkdownReady
+	sourceError := panelProps.MarkdownError
+	ui.UseEffect(func() func() {
+		if wasmURL == "" {
+			return nil
+		}
+		window := js.Global().Get("window")
+		if window.IsUndefined() || window.IsNull() {
+			return nil
+		}
+		mountFunc := window.Get("__gwcMountEmbeddedExample")
+		if mountFunc.IsUndefined() || mountFunc.IsNull() || mountFunc.Type() != js.TypeFunction {
+			log.Error("embedded example mount helper missing", map[string]interface{}{"itemID": panelProps.Item.ID})
+			return nil
+		}
+		options := js.Global().Get("Object").New()
+		options.Set("wasmURL", wasmURL)
+		options.Set("rootID", rootID)
+		options.Set("shellID", shellID)
+		mountFunc.Invoke(options)
+		return nil
+	}, panelProps.Item.ID, wasmURL, rootID, shellID)
+	if sourceURL != "" && sourceBody == "" && !sourceLoading && !sourceReady && sourceError == "" {
+		sourceResource := fetch.UseCachedResource(markdownCacheKey(sourceURL), func(ctx context.Context) (string, error) {
+			return loadMarkdownResource(ctx, sourceURL)
+		}, fetch.CacheOptions{StaleAfter: 2 * time.Minute})
+		sourceRequest := sourceResource.Get()
+		sourceBody = sourceRequest.Value
+		sourceLoading = sourceRequest.Loading
+		sourceReady = sourceRequest.Ready
+		sourceError = errorString(sourceRequest.Error)
+	}
+	sourceNode := ui.Match().
+		When(sourceLoading && !sourceReady, func() ui.Node {
+			return Div(Class("rounded-[24px] border border-white/10 bg-slate-950/50 px-4 py-5 text-sm text-slate-300"), Text(messageDocLoading))
+		}).
+		When(sourceError != "", func() ui.Node {
+			return Div(Class("rounded-[24px] border border-rose-400/20 bg-rose-400/10 px-4 py-5 text-sm text-rose-100"), Text(sourceError))
+		}).
+		When(sourceReady && sourceBody != "", func() ui.Node {
+			return renderSourceSnippetCard(labelExampleSource, "Go + hooks + typed HTML", sourceBody)
+		}).
+		Default(func() ui.Node {
+			return renderSourceSnippetCard(labelExampleSource, "Go + hooks + typed HTML", panelProps.Item.Content.Code)
+		})
+	return Div(Class("min-w-0 flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-3 shadow-inner shadow-black/20"),
+		Div(Class("flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2"),
+			Div(Class("text-sm font-medium text-white"), Text(labelInteractiveExample)),
+			Div(Class("text-[11px] uppercase tracking-[0.18em] text-slate-500"), Text("Lazy-loaded embedded wasm example")),
+		),
+		Div(Class("mt-3 min-w-0 grid flex-1 gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]"),
+			Div(Class("min-w-0 space-y-2"),
+				Div(ID("embedded-demo-host"), Class("overflow-hidden rounded-[20px] bg-[#081420] shadow-inner shadow-black/20"),
+					Div(Class("relative min-h-[420px] overflow-hidden rounded-[20px] bg-[#081420]"),
+						Div(
+							ID(shellID),
+							Attr("data-state", "loading"),
+							Attr("data-indeterminate", "true"),
+							Class("absolute inset-0 z-10 flex items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_28%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.10),transparent_22%),linear-gradient(180deg,#08111d_0%,#0b1523_100%)] p-4 transition-opacity duration-200"),
+							Div(Class("w-full max-w-[34rem] rounded-[24px] border border-white/10 bg-white/[0.05] p-5 shadow-2xl shadow-black/35 backdrop-blur-xl"),
+								Div(Class("text-[11px] uppercase tracking-[0.18em] text-cyan-200"), Text("Embedded example")),
+								H3(Class("mt-3 text-2xl font-semibold tracking-tight text-white"), Text("Loading counter demo")),
+								P(Attr("data-embed-status", "true"), Class("mt-3 text-sm leading-7 text-slate-300"), Text("Preparing WebAssembly runtime...")),
+								Div(Class("mt-5 flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.18em] text-slate-400"),
+									Span(Attr("data-embed-phase", "true"), Text("Starting")),
+									Span(Attr("data-embed-percent", "true"), Text("0%")),
+								),
+								Div(Class("mt-3 h-3 w-full overflow-hidden rounded-full border border-white/10 bg-slate-400/15"),
+									Div(Attr("data-embed-progress", "true"), Class("h-full w-0 rounded-full bg-[linear-gradient(90deg,rgba(34,211,238,0.92),rgba(16,185,129,0.95))] transition-[width] duration-150")),
+								),
+								Div(Attr("data-embed-error", "true"), Class("mt-5 hidden rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm leading-6 text-rose-100")),
+							),
+						),
+						Div(ID(rootID), Attr("data-boot", "pending"), Class("min-h-[420px] w-full")),
+					),
+				),
+			),
+			Div(Class("min-w-0 space-y-2"),
+				sourceNode,
+			),
+		),
+	)
+}
+
 // renderDisplaySurface chooses the appropriate detail renderer for the selected item.
 func renderDisplaySurface(panelProps contentPanelProps, hasSelectedItem bool) ui.Node {
 	return ui.If(!hasSelectedItem,
@@ -425,7 +697,7 @@ func renderDisplaySurface(panelProps contentPanelProps, hasSelectedItem bool) ui
 					return renderAPIReference(panelProps)
 				}).
 				Default(func() ui.Node {
-					return ui.Component(renderCounterExample, contentPanelProps{Item: panelProps.Item})
+					return ui.Component(renderCounterExample, panelProps)
 				})
 		},
 	)

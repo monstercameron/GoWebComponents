@@ -820,6 +820,50 @@ func TestWindowHistoryPushStateRoundTripsDecodedState(t *testing.T) {
 	}
 }
 
+func TestSharedWindowEnvLookupStringReadsMountedSelector(t *testing.T) {
+	window := js.Global().Get("Object").New()
+	window.Set("__gwcExampleMountSelector", "#demo-root")
+	restoreWindow := setGlobalValue("window", window)
+	defer restoreWindow()
+
+	env := SharedWindowEnv()
+	selector, ok := env.LookupString("__gwcExampleMountSelector")
+	if !ok {
+		t.Fatal("expected mount selector to be present")
+	}
+	if selector != "#demo-root" {
+		t.Fatalf("unexpected mount selector: %q", selector)
+	}
+	if resolved := env.String("__gwcExampleMountSelector", "#app"); resolved != "#demo-root" {
+		t.Fatalf("expected shared env string to return mounted selector, got %q", resolved)
+	}
+}
+
+func TestSharedWindowEnvStringFallsBackForMissingOrNullishValues(t *testing.T) {
+	window := js.Global().Get("Object").New()
+	window.Set("__gwcEmpty", "")
+	window.Set("__gwcNullish", "<null>")
+	restoreWindow := setGlobalValue("window", window)
+	defer restoreWindow()
+
+	env := SharedWindowEnv()
+	if _, ok := env.LookupString("__gwcMissing"); ok {
+		t.Fatal("expected missing shared env value to be absent")
+	}
+	if _, ok := env.LookupString("__gwcEmpty"); ok {
+		t.Fatal("expected empty shared env value to be absent")
+	}
+	if _, ok := env.LookupString("__gwcNullish"); ok {
+		t.Fatal("expected nullish shared env value to be absent")
+	}
+	if resolved := env.String("__gwcMissing", "#app"); resolved != "#app" {
+		t.Fatalf("expected fallback for missing env, got %q", resolved)
+	}
+	if resolved := env.String("__gwcNullish", "#app"); resolved != "#app" {
+		t.Fatalf("expected fallback for nullish env, got %q", resolved)
+	}
+}
+
 func TestNavigatorClipboardAwaitingPromise(t *testing.T) {
 	var written string
 	writeTextFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {

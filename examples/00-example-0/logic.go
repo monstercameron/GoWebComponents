@@ -18,11 +18,18 @@ import (
 
 // catalogDataURL resolves the catalog asset relative to the current document URL.
 func catalogDataURL() string {
-	return utils.ResolveDocumentURL(catalogDataRelativeURL)
+	return appendPageVersion(utils.ResolveDocumentURL(catalogDataRelativeURL))
 }
 
 // docsSourceURL resolves a markdown source asset relative to the current document URL.
 func docsSourceURL(sourcePath string) string {
+	if sourcePath == "" {
+		return ""
+	}
+	return appendPageVersion(utils.ResolveDocumentURL(sourcePath))
+}
+
+func embeddedExampleURL(sourcePath string) string {
 	if sourcePath == "" {
 		return ""
 	}
@@ -157,6 +164,9 @@ func loadCatalogResource(ctx context.Context, url string) (docsCatalog, error) {
 
 // loadMarkdownResource fetches and validates a markdown document as plain text.
 func loadMarkdownResource(ctx context.Context, url string) (string, error) {
+	if strings.TrimSpace(url) == "" {
+		return "", nil
+	}
 	resultCh := fetch.Fetch(url, fetch.Options{})
 	select {
 	case <-ctx.Done():

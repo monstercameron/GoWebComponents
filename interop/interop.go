@@ -149,6 +149,43 @@ func (s Subscription) Cancel() {
 	}
 }
 
+// WindowEnv exposes shared values attached directly to the browser window object.
+// It is intended for simple cross-surface configuration such as mount selectors,
+// bootstrap flags, and other host-provided runtime settings.
+type WindowEnv struct {
+	lookup func(string) (Value, bool)
+}
+
+// Lookup returns the raw shared window value when present.
+func (e WindowEnv) Lookup(name string) (Value, bool) {
+	if e.lookup == nil {
+		return Value{}, false
+	}
+	return e.lookup(name)
+}
+
+// LookupString resolves a shared window value as a normalized string.
+// Empty strings and JavaScript stringified nullish sentinel values are treated as missing.
+func (e WindowEnv) LookupString(name string) (string, bool) {
+	value, ok := e.Lookup(name)
+	if !ok {
+		return "", false
+	}
+	resolved := strings.TrimSpace(value.String())
+	if resolved == "" || resolved == "<undefined>" || resolved == "<null>" {
+		return "", false
+	}
+	return resolved, true
+}
+
+// String returns a normalized shared window string or the provided fallback.
+func (e WindowEnv) String(name string, fallback string) string {
+	if resolved, ok := e.LookupString(name); ok {
+		return resolved
+	}
+	return fallback
+}
+
 // Value wraps a browser JavaScript value behind a typed interop surface.
 // Platform-specific methods are attached in build-tagged files.
 type Value struct {
