@@ -42,7 +42,14 @@ func appendPageVersion(resolvedURL string) string {
 		return resolvedURL
 	}
 	pageParams := js.Global().Get("URLSearchParams").New(search.String())
-	pageVersion := strings.TrimSpace(pageParams.Call("get", "v").String())
+	rawPageVersion := pageParams.Call("get", "v")
+	if rawPageVersion.IsUndefined() || rawPageVersion.IsNull() {
+		return resolvedURL
+	}
+	pageVersion := strings.TrimSpace(rawPageVersion.String())
+	if pageVersion == "null" || pageVersion == "undefined" || pageVersion == "<null>" || pageVersion == "<undefined>" {
+		return resolvedURL
+	}
 	if pageVersion == "" {
 		return resolvedURL
 	}
