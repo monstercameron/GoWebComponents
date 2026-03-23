@@ -30,6 +30,15 @@ func sameFunctionIdentity(a, b interface{}) bool {
 	return va.Pointer() == vb.Pointer() && aHeader.data == bHeader.data
 }
 
+func safeComparableEqual(a, b interface{}) (equal bool, ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
+	return a == b, true
+}
+
 var nilableTypeCache sync.Map
 
 func isNilableType[T any]() bool {
@@ -643,7 +652,12 @@ func fastEqual(a, b interface{}) bool {
 	}
 
 	if ta.Comparable() {
-		return a == b
+		if equal, ok := safeComparableEqual(a, b); ok {
+			return equal
+		}
+		// Comparable static types can still panic when interface-typed fields carry
+		// slices, maps, funcs, or other uncomparable concrete values.
+		return reflect.DeepEqual(a, b)
 	}
 
 	// Optimization: Use reference equality for Slices and Maps

@@ -1,7 +1,9 @@
 // Package ui provides the preferred public component API for GoWebComponents.
 //
 // It exposes:
+//   - Component as a concise alias for CreateElement
 //   - CreateElement for component composition
+//   - If and Match for lazy conditional node rendering
 //   - Render for browser mounting
 //   - Portal for rendering a subtree into a selector or explicit host node outside the current DOM parent
 //   - CreateContext, UseContext, and Provider components for subtree-scoped values

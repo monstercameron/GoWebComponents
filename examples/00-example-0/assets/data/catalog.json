@@ -1,0 +1,388 @@
+{
+  "modules": [
+    "all",
+    "core",
+    "router",
+    "state",
+    "cli",
+    "data",
+    "rendering",
+    "design",
+    "plugins",
+    "forms",
+    "motion",
+    "commerce"
+  ],
+  "statuses": [
+    "all",
+    "stable",
+    "experimental",
+    "deprecated"
+  ],
+  "levels": [
+    "all",
+    "Beginner",
+    "Core",
+    "Intermediate",
+    "Advanced"
+  ],
+  "filters": [
+    "All",
+    "Concept",
+    "API",
+    "Example"
+  ],
+  "sortOptions": [
+    {
+      "value": "relevance",
+      "label": "Relevance"
+    },
+    {
+      "value": "alpha",
+      "label": "A-Z"
+    },
+    {
+      "value": "level",
+      "label": "Level"
+    }
+  ],
+  "items": [
+    {
+      "id": 1,
+      "title": "Start With GoWebComponents",
+      "status": "stable",
+      "module": "core",
+      "type": "Concept",
+      "level": "Beginner",
+      "tags": ["setup", "go", "wasm"],
+      "blurb": "Module install, public package surface, and the first ui.Render path.",
+      "readTime": "4 min read",
+      "content": {
+        "kind": "article",
+        "sections": [
+          {
+            "heading": "What GoWebComponents is",
+            "paragraphs": [
+              "GoWebComponents is a Go plus WebAssembly UI framework with a React-style component model, hooks, typed HTML builders, routing, shared state, SSR, hydration, and devtools.",
+              "This concept page is the lightweight on-ramp: explain why the public surface is split into ui, html, state, fetch, router, and companion tooling before readers drop into raw API tables."
+            ]
+          },
+          {
+            "heading": "First render path",
+            "paragraphs": [
+              "Start with module install, a js/wasm build target, and a minimal ui.Render call that mounts into #app. That gets readers to the first successful browser render fast.",
+              "Keep the first concept page practical: package imports, the build target, and a tiny component tree are enough to make the rest of the docs site feel grounded."
+            ]
+          }
+        ],
+        "callout": "A good GoWebComponents concept page should explain how the Go, js/wasm, and package-level authoring model fit together before the reader opens a single reference table.",
+        "code": "go get github.com/monstercameron/GoWebComponents@latest\n\nimport (\n  \"github.com/monstercameron/GoWebComponents/html\"\n  \"github.com/monstercameron/GoWebComponents/ui\"\n)"
+      }
+    },
+    {
+      "id": 2,
+      "title": "ui.CreateElement and Components",
+      "status": "stable",
+      "module": "core",
+      "type": "API",
+      "level": "Core",
+      "tags": ["components", "props", "ui"],
+      "blurb": "Typed component construction and the basic unit of composition in GoWebComponents.",
+      "readTime": "Reference",
+      "content": {
+        "kind": "api",
+        "signature": "ui.CreateElement(component, props) ui.Node",
+        "summary": "Builds a typed component node from a Go function component and props struct so the runtime can render and diff it like any other node in the tree.",
+        "params": [
+          {
+            "name": "component",
+            "type": "func(props T) ui.Node",
+            "required": "yes",
+            "description": "Go function component that renders a node tree for the provided props."
+          },
+          {
+            "name": "props",
+            "type": "T",
+            "required": "yes",
+            "description": "Typed props payload passed into the component function."
+          }
+        ],
+        "returns": "ui.Node",
+        "example": "type HelloProps struct {\n  Name string\n}\n\nfunc Hello(props HelloProps) ui.Node {\n  return Div(Text(\"Hello \" + props.Name))\n}\n\nui.CreateElement(Hello, HelloProps{Name: \"Gopher\"})",
+        "notes": [
+          "Keep component APIs tied to real package names and real return types so readers can copy examples directly into Go code.",
+          "This is the core composition primitive beneath the friendlier example pages and larger routed app shells."
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "title": "ui.UseState and Local State",
+      "status": "stable",
+      "module": "state",
+      "type": "API",
+      "level": "Core",
+      "tags": ["state", "hooks", "ui"],
+      "blurb": "Local state, shared atoms, and the mutation rules that keep GoWebComponents predictable.",
+      "readTime": "Reference",
+      "content": {
+        "kind": "api",
+        "signature": "ui.UseState(initial) ui.State[T]",
+        "summary": "Creates local component state with Get, Set, and Update helpers. Use it for view-local behavior; move to the state package when multiple readers need the same source of truth.",
+        "params": [
+          {
+            "name": "initial",
+            "type": "T",
+            "required": "yes",
+            "description": "Initial state value for the current component instance."
+          }
+        ],
+        "returns": "ui.State[T]",
+        "example": "count := ui.UseState(0)\ncount.Update(func(previous int) int { return previous + 1 })",
+        "notes": [
+          "Prefer Update when the next value depends on the previous committed value.",
+          "Use ui.UseState for local behavior and state.UseAtom or state.UseDerived when the value should outlive one component subtree."
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "title": "Go Counter Demo",
+      "status": "stable",
+      "module": "state",
+      "type": "Example",
+      "level": "Beginner",
+      "tags": ["interactive", "counter", "ui"],
+      "blurb": "A tiny reactive demo showing local state, typed handlers, and rerendered output.",
+      "readTime": "Interactive",
+      "content": {
+        "kind": "counter",
+        "description": "GoWebComponents examples should prove behavior, not just describe it. This counter keeps the code path tiny while still showing local state, typed handlers, and rerendered output.",
+        "tips": [
+          "Uses ui.UseState",
+          "Shows typed click interactions",
+          "Fits the feature-isolated example style"
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "title": "SSR Walkthrough",
+      "status": "experimental",
+      "module": "rendering",
+      "type": "Concept",
+      "level": "Advanced",
+      "tags": ["ssr", "rendering"],
+      "blurb": "How server rendering, hydration, and data boundaries fit together.",
+      "readTime": "7 min read",
+      "content": {
+        "kind": "article",
+        "sections": [
+          {
+            "heading": "Rendering model",
+            "paragraphs": [
+              "GoWebComponents SSR docs should explain the real sequence clearly: render HTML with ui.RenderToString, emit bootstrap payloads, ship markup, then resume with hydration on the client.",
+              "Keep diagrams optional, but the prose should still stand on its own for engineers trying to understand route data reuse, bootstrap ownership, and when hydration is worth the complexity."
+            ]
+          },
+          {
+            "heading": "Why this belongs in Concepts",
+            "paragraphs": [
+              "This is not a bare function reference. Readers need the route-aware mental model first: what runs on the server, what resumes in wasm, and where bootstrap payloads and loaders belong."
+            ]
+          }
+        ],
+        "callout": "GoWebComponents SSR guidance should explain how server HTML, bootstrap payloads, and client hydration cooperate before the API reference drills into exact helper signatures.",
+        "code": "ui.RenderToString(app)\n  -> ui.RenderBootstrapScript(...)\n  -> send HTML\n  -> load wasm bundle\n  -> ui.Hydrate(...)\n  -> router.HydrateMount(...)"
+      }
+    },
+    {
+      "id": 6,
+      "title": "ui.UseForm Example",
+      "status": "stable",
+      "module": "forms",
+      "type": "Example",
+      "level": "Core",
+      "tags": ["forms", "validation"],
+      "blurb": "Touched fields, validation flow, and user-facing submit state in a GoWebComponents form.",
+      "readTime": "Interactive",
+      "content": {
+        "kind": "counter",
+        "description": "This slot is where GoWebComponents form guidance belongs: show ui.UseForm, field errors, and submit lifecycle in a pane that feels like the real examples catalog rather than a static screenshot.",
+        "tips": [
+          "Good home for ui.UseForm",
+          "Should teach pending and error UX",
+          "Keeps docs and examples visually aligned"
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "title": "fetch.UseResource Data Flow",
+      "status": "experimental",
+      "module": "data",
+      "type": "API",
+      "level": "Advanced",
+      "tags": ["fetch", "data", "async"],
+      "blurb": "Typed resource loading, pending states, and cache-aware refetch rules.",
+      "readTime": "Reference",
+      "content": {
+        "kind": "api",
+        "signature": "fetch.UseResource[T](loader) fetch.Resource[T]",
+        "summary": "Loads typed async data for the current view, exposes loading and error state, and gives the page an explicit reload hook without inventing a separate query language.",
+        "params": [
+          {
+            "name": "loader",
+            "type": "func() (T, error)",
+            "required": "yes",
+            "description": "Typed loader function that returns the resource value or an error."
+          }
+        ],
+        "returns": "fetch.Resource[T]",
+        "example": "users := fetch.UseResource(func() ([]User, error) {\n  return api.ListUsers()\n})",
+        "notes": [
+          "Expose loading, ready, and error behavior clearly in the docs so readers can tell when UseResource is enough and when they need cached resources.",
+          "Link this page to the fetch and SSR bootstrap examples so the async story stays coherent across the docs site."
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "title": "Devtools and Diagnostics",
+      "status": "stable",
+      "module": "design",
+      "type": "Example",
+      "level": "Intermediate",
+      "tags": ["devtools", "diagnostics", "ui"],
+      "blurb": "Snapshots, diagnostic surfaces, and runtime introspection for GoWebComponents apps.",
+      "readTime": "Interactive",
+      "content": {
+        "kind": "counter",
+        "description": "This slot can evolve into a devtools showcase, but even as a placeholder it should read like GoWebComponents: observability, snapshots, and real application debugging instead of generic design-system filler.",
+        "tips": [
+          "Good home for devtools.Panel",
+          "Pair runtime state with diagnostics",
+          "Keep it grounded in real app debugging"
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "title": "Typed HTML and Design Language",
+      "status": "stable",
+      "module": "design",
+      "type": "Concept",
+      "level": "Core",
+      "tags": ["html", "design", "theme"],
+      "blurb": "How typed html builders, semantic markup, and the docs-site design language fit together.",
+      "readTime": "5 min read",
+      "content": {
+        "kind": "article",
+        "sections": [
+          {
+            "heading": "Typed markup first",
+            "paragraphs": [
+              "GoWebComponents design docs should start with typed html builders and semantic structure before they talk about decorative styling. The framework earns its keep by making real DOM shape explicit in Go code.",
+              "Once the markup model is clear, document the site-level design language: gradients, spacing, contrast, and how example pages stay recognizably part of one product surface."
+            ]
+          },
+          {
+            "heading": "Docs implication",
+            "paragraphs": [
+              "Because concepts are markdown-like, they are perfect for showing rationale, constraints, and migration guidance rather than raw API surface area."
+            ]
+          }
+        ],
+        "callout": "For GoWebComponents, design-system guidance should connect typed markup, semantic structure, and example-shell branding instead of pretending visual language is separate from the component model.",
+        "code": "html.Section(html.Props{Class: \"rounded-[24px] border border-white/10 bg-white/5\"},\n  html.H2(html.Props{}, html.Text(\"Typed HTML and design language\")),\n)"
+      }
+    },
+    {
+      "id": 10,
+      "title": "Build and Dev Workflow",
+      "status": "stable",
+      "module": "cli",
+      "type": "API",
+      "level": "Beginner",
+      "tags": ["tooling", "build", "workflow"],
+      "blurb": "The minimal commands for building wasm, serving examples, and iterating on GoWebComponents apps.",
+      "readTime": "Reference",
+      "content": {
+        "kind": "api",
+        "signature": "go build, tools/dev.ps1, npm --prefix ../tools/devtools run dev:examples",
+        "summary": "The practical workflow surface for this repo: build wasm with Go, use the example server for catalog browsing, and use the hot reload helpers when iterating on a single app.",
+        "params": [
+          {
+            "name": "command",
+            "type": "string",
+            "required": "yes",
+            "description": "One of dev, build, preview, export, or deploy."
+          },
+          {
+            "name": "flags",
+            "type": "string[]",
+            "required": "no",
+            "description": "Optional command-specific flags and overrides."
+          }
+        ],
+        "returns": "built wasm, local dev server, or static site output depending on the command",
+        "example": "go build -o ./examples/static/bin/example-0.wasm ./examples/00-example-0\nnpm --prefix ../tools/devtools run dev:examples",
+        "notes": [
+          "Keep workflow docs tied to the actual repository commands instead of inventing a generic CLI that does not exist.",
+          "This page should connect directly to examples, testing, and GitHub Pages deployment guidance."
+        ]
+      }
+    },
+    {
+      "id": 11,
+      "title": "Atlas Commerce OS",
+      "status": "deprecated",
+      "module": "commerce",
+      "type": "Example",
+      "level": "Advanced",
+      "tags": ["atlas", "commerce", "ssr"],
+      "blurb": "The production-shaped reference app for SSR, hydration, routes, mutations, and reviewer-facing docs.",
+      "readTime": "Interactive",
+      "content": {
+        "kind": "counter",
+        "description": "Atlas should anchor the larger-app story for GoWebComponents: SSR, hydration, route data, mutations, and a branded public surface backed by real review tooling.",
+        "tips": [
+          "Connect to Atlas docs",
+          "Use as the production-shaped reference",
+          "Show how the primitives compose at app scale"
+        ]
+      }
+    },
+    {
+      "id": 12,
+      "title": "Companion Packages and Plugins",
+      "status": "experimental",
+      "module": "plugins",
+      "type": "Concept",
+      "level": "Advanced",
+      "tags": ["plugins", "ecosystem", "extensibility"],
+      "blurb": "How companion packages and the experimental plugin surface extend GoWebComponents without reaching into internals.",
+      "readTime": "6 min read",
+      "content": {
+        "kind": "article",
+        "sections": [
+          {
+            "heading": "Extension boundaries",
+            "paragraphs": [
+              "GoWebComponents should prefer companion packages built on public APIs first. The plugin surface exists for explicit application-owned extension points, not as a backdoor into framework internals.",
+              "These pages work best as prose-first docs that explain capability checks, host ownership, and stability tiers before they dump hook signatures."
+            ]
+          },
+          {
+            "heading": "Authoring guidance",
+            "paragraphs": [
+              "Explain lifecycle order, capabilities, and versioning strategy in human language first. Then link to the actual plugin and ecosystem docs for the exact interfaces and support policy."
+            ]
+          }
+        ],
+        "callout": "GoWebComponents extension guidance should make one thing obvious: stay on documented public APIs unless the companion or plugin surface explicitly promises more.",
+        "code": "host := plugin.NewHost(plugin.HostOptions{Capabilities: []plugin.Capability{plugin.CapabilityRouter}})\nhost.Register(myPlugin)"
+      }
+    }
+  ]
+}

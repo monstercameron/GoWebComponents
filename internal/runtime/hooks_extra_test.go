@@ -200,4 +200,18 @@ func TestFastEqual_FunctionsSlicesMapsAndStructs(t *testing.T) {
 	if fastEqual(1, int64(1)) {
 		t.Fatal("expected different numeric types to compare false")
 	}
+
+	type interfaceWrapper struct {
+		Value interface{}
+	}
+	sharedSlice := []int{1, 2, 3}
+	if !fastEqual(interfaceWrapper{Value: sharedSlice}, interfaceWrapper{Value: sharedSlice}) {
+		t.Fatal("expected interface-wrapped shared slice to compare equal without panicking")
+	}
+	if !fastEqual(interfaceWrapper{Value: []int{1, 2}}, interfaceWrapper{Value: []int{1, 2}}) {
+		t.Fatal("expected interface-wrapped equal slices to fall back to deep equality")
+	}
+	if fastEqual(interfaceWrapper{Value: []int{1, 2}}, interfaceWrapper{Value: []int{1, 3}}) {
+		t.Fatal("expected interface-wrapped unequal slices to compare false")
+	}
 }

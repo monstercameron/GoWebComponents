@@ -19,7 +19,7 @@ Captured on `2026-03-16`.
 - The smoke suite covers every buildable numbered example page that is served directly from the examples catalog.
 - `18-ssr-server-routing` is not part of the generic catalog smoke because the real behavior requires its standalone Go server.
 - `86-atlas-commerce-os` now uses a dedicated native-server SSR suite for focused automation coverage.
-- Dedicated example specs currently cover `01`, `02`, `05`, `06`, `07`, `08`, `10`, `12`, `13`, `16`, `17`, `18`, `19`, and `20`.
+- Dedicated example specs currently cover `00`, `01`, `02`, `05`, `06`, `07`, `08`, `10`, `12`, `13`, `16`, `17`, `18`, `19`, and `20`.
 - The last dedicated-spec baseline produced `21` passes and `6` failures.
 
 ## Automation Delta Worth Knowing
@@ -91,6 +91,7 @@ Standalone Atlas SSR URLs:
 
 ### Integrated Apps
 
+- `00-example-0`: Load the docs catalog, wait for the result count to appear, switch to the `Example` filter, open `Go Counter Demo`, then return to `All` and open `ui.UseState and Local State` plus `Start With GoWebComponents`. Expected: the catalog shell loads without page or console errors, the `#demo` container updates for example, API, and concept content, and the counter demo can increment, decrement, and reset while the detail panel stays synchronized.
 - `01-counter`: Click increment twice, decrement once, and reset. Expected: the count changes `0 -> 2 -> 1 -> 0` and the stat card stays in sync.
 - `02-text-input`: Type text, wait for the debounce window, then clear it. Expected: live preview updates immediately, debounced preview catches up, and both counts return to zero on clear.
 - `03-toggle`: Toggle on and off several times. Expected: the visual state and any boolean label remain synchronized with each click.

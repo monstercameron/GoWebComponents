@@ -3,7 +3,14 @@
 
 package utils
 
-import "github.com/monstercameron/GoWebComponents/hotreload"
+import (
+	"fmt"
+	"net/url"
+	"strings"
+
+	"github.com/monstercameron/GoWebComponents/hotreload"
+	"github.com/monstercameron/GoWebComponents/interop"
+)
 
 var hotReloadEnabled bool
 
@@ -86,4 +93,78 @@ func GetGoroutineStats() map[string]int64 {
 
 func ResetGoroutineBaseline() {}
 
-func ConsoleLog(format string, args ...interface{}) {}
+func ConsoleLog(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	ConsoleStructured("log", "", msg, nil)
+}
+
+func ConsoleStructured(level, scope, message string, fields map[string]interface{}) {
+	normalizedLevel := strings.ToLower(strings.TrimSpace(level))
+	if normalizedLevel == "" {
+		normalizedLevel = "log"
+	}
+
+	global, err := interop.GlobalThis()
+	if err != nil {
+		consoleFallback(normalizedLevel, scope, message, fields)
+		return
+	}
+	console := global.Get("console")
+	if !console.Present() {
+		consoleFallback(normalizedLevel, scope, message, fields)
+		return
+	}
+
+	entry := map[string]interface{}{"message": message}
+	if scope != "" {
+		entry["scope"] = scope
+	}
+	for key, value := range fields {
+		entry[key] = value
+	}
+	if _, err := console.Call(normalizedLevel, entry); err == nil {
+		return
+	}
+	consoleFallback(normalizedLevel, scope, message, fields)
+}
+
+func ResolveDocumentURL(relative string) string {
+	if strings.TrimSpace(relative) == "" {
+		return ""
+	}
+
+	global, err := interop.GlobalThis()
+	if err != nil {
+		return relative
+	}
+
+	base := global.Get("document").Get("baseURI").String()
+	if base == "" {
+		base = global.Get("window").Get("location").Get("href").String()
+	}
+	if base == "" {
+		return relative
+	}
+
+	baseURL, err := url.Parse(base)
+	if err != nil {
+		return relative
+	}
+	relativeURL, err := url.Parse(relative)
+	if err != nil {
+		return relative
+	}
+	return baseURL.ResolveReference(relativeURL).String()
+}
+
+func consoleFallback(level, scope, message string, fields map[string]interface{}) {
+	prefix := ""
+	if scope != "" {
+		prefix = "[" + scope + "] "
+	}
+	if len(fields) == 0 {
+		fmt.Printf("%s%s: %s\n", prefix, strings.ToUpper(level), message)
+		return
+	}
+	fmt.Printf("%s%s: %s %v\n", prefix, strings.ToUpper(level), message, fields)
+}
