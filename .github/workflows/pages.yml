@@ -83,12 +83,12 @@ jobs:
           <html lang="en">
             <head>
               <meta charset="utf-8">
-              <meta http-equiv="refresh" content="0; url=./static/index.html">
+              <meta http-equiv="refresh" content="0; url=./00-example-0/example-0.html">
               <meta name="viewport" content="width=device-width, initial-scale=1">
-              <title>GoWebComponents Examples</title>
+              <title>GoWebComponents Docs</title>
             </head>
             <body>
-              <p>Redirecting to <a href="./static/index.html">the examples showcase</a>...</p>
+              <p>Redirecting to <a href="./00-example-0/example-0.html">the docs site</a>...</p>
             </body>
           </html>
           '@ | Set-Content -Path (Join-Path $pagesDir 'index.html')
