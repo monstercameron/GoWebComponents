@@ -1,4 +1,4 @@
-﻿# GoWebComponents TODO
+# GoWebComponents TODO
 
 This backlog tracks missing, incomplete, or experimental framework capabilities compared to mature UI frameworks such as React, Svelte, Vue, Solid, Blazor, and Qwik.
 
@@ -136,7 +136,7 @@ Organization rules for this file:
 - [x] `43-use-resource`: `fetch.UseResource`
 - [x] `44-use-cached-resource`: `fetch.UseCachedResource`
 - [x] `45-fetch-imperative`: imperative `fetch.Fetch`
-- [x] `46-raw-handler`: `ui.RawHandler`
+- [x] `46-raw-handler`: `ui.WrapHandler`
 - [x] `47-portal-selector`: selector `ui.Portal`
 - [x] `48-portal-target`: `ui.PortalTarget`
 - [x] `49-use-channel`: `ui.UseChannel`
@@ -244,7 +244,7 @@ Organization rules for this file:
 	Show stable generated IDs across labeled inputs, repeated rows, and SSR-friendly markup so the purpose of the hook is concrete.
 - [x] Add a dedicated typed event handling example.
 	Demonstrate `ui.UseEvent` with `MouseEvent`, `InputEvent`, `KeyboardEvent`, and `FormEvent` so event typing is taught directly.
-- [x] Add a dedicated `ui.RawHandler` example.
+- [x] Add a dedicated `ui.WrapHandler` example.
 	Show how raw handler passthrough differs from `ui.UseEvent` and document when callers should avoid it.
 - [x] Add a dedicated `ui.Portal` selector-target example.
 	Teach the common modal or overlay case in a tiny app where only selector-based portal mounting is in play.
@@ -414,7 +414,7 @@ Organization rules for this file:
 - [x] `43-use-resource`: `fetch.UseResource`
 - [x] `44-use-cached-resource`: `fetch.UseCachedResource`
 - [x] `45-fetch-imperative`: imperative `fetch.Fetch`
-- [x] `46-raw-handler`: `ui.RawHandler`
+- [x] `46-raw-handler`: `ui.WrapHandler`
 - [x] `47-portal-selector`: selector `ui.Portal`
 - [x] `48-portal-target`: `ui.PortalTarget`
 - [x] `49-use-channel`: `ui.UseChannel`
@@ -489,7 +489,7 @@ Organization rules for this file:
 	Show stable generated IDs across labeled inputs, repeated rows, and SSR-friendly markup so the purpose of the hook is concrete.
 - [x] Add a dedicated typed event handling example.
 	Demonstrate `ui.UseEvent` with `MouseEvent`, `InputEvent`, `KeyboardEvent`, and `FormEvent` so event typing is taught directly.
-- [x] Add a dedicated `ui.RawHandler` example.
+- [x] Add a dedicated `ui.WrapHandler` example.
 	Show how raw handler passthrough differs from `ui.UseEvent` and document when callers should avoid it.
 - [x] Add a dedicated `ui.Portal` selector-target example.
 	Teach the common modal or overlay case in a tiny app where only selector-based portal mounting is in play.

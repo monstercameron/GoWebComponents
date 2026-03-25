@@ -16,7 +16,7 @@ Use it when a browser app needs to queue writes locally, survive reloads, and re
 - use `fetch.OpenMutationQueue(...)` when browser-originated writes must survive reloads or offline periods
 - use `queue.Replay(...)` when normal retry and dead-letter behavior is enough
 - use `queue.ReplayWithOptions(...)` when version or conflict handling needs an explicit `ConflictHandler`
-- use `fetch.NewMutationConflict(...)` and `fetch.MutationConflictOf(...)` when the executor must signal or inspect authoritative version conflicts
+- use `fetch.NewMutationConflict(...)` and `fetch.GetMutationConflict(...)` when the executor must signal or inspect authoritative version conflicts
 - use `pwa.MutationQueueDiagnosticsSource(...)` plus `pwa.InspectDiagnostics(...)` when the queue should participate in a broader offline diagnostics view
 
 ## Current Shipped Slice
@@ -114,7 +114,7 @@ The public surface today is:
 - `fetch.NewMutationConflict(err, conflict)`
 - `fetch.IsMutationConflict(err)`
 - `fetch.AsMutationConflictError(err)`
-- `fetch.MutationConflictOf(err)`
+- `fetch.GetMutationConflict(err)`
 - `fetch.MutationConflictResolution`
 - `fetch.MutationReplayOptions`
 
@@ -241,7 +241,7 @@ The queue still keeps replay explicit, but the shipped first-party pattern now c
 2. fall back to a visible manual replay action when it does not
 3. let the replay executor signal a conflict through `fetch.NewMutationConflict(...)`
 4. resolve that conflict through `ReplayWithOptions(...)` and an application-owned `ConflictHandler`
-5. inspect conflict details later through `fetch.MutationConflictOf(err)` when UI or telemetry needs structured branching
+5. inspect conflict details later through `fetch.GetMutationConflict(err)` when UI or telemetry needs structured branching
 
 Typical flow:
 

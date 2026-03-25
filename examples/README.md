@@ -79,7 +79,7 @@ Use the integrated apps when you want to understand how multiple primitives comp
 - `34-error-boundary`: `ui.ErrorBoundary`
 - `35-use-id`: `ui.UseId`
 - `36-typed-events`: `ui.UseEvent`, typed event aliases
-- `46-raw-handler`: `ui.RawHandler`
+- `46-raw-handler`: `ui.WrapHandler`
 - `47-portal-selector`: `ui.Portal` with selector target
 - `48-portal-target`: `ui.PortalTarget` with explicit node target
 - `49-use-channel`: `ui.UseChannel`

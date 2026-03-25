@@ -9,15 +9,19 @@
 - Added server-side `GetSelectedModel` fallback repair and persistence so normalized model preferences stay stable across sessions.
 - Added focused regression coverage for selection-repair behavior in both client wasm tests and server RPC tests.
 
-### Platform and tooling expansion wave
+### Example 100 speech synthesis fallback and opt-in flow
 
-- Expanded the `gwc` launcher with enterprise-oriented runtime and policy controls (`enterprise_config`, `enterprise_runtime`, plugin hooks), plus broad command test coverage across examples, release, start, test, and verify paths.
-- Added new first-party examples `101` through `107`, including static islands, static export generation, virtualized-feed behavior, callback/lazy-node references, single-shell auth, and staged rollout config patterns.
-- Added the new `virtualization` companion package (`List`, viewport primitives, observers) with focused tests and docs so large-list rendering has a documented package-owned path.
-- Expanded runtime diagnostics with profiling and flamegraph-style data plumbing in `internal/runtime/profiling.go` plus richer devtools snapshot support for performance analysis.
-- Expanded `head` and router contracts with new composition/render helpers and stronger routing contract docs and tests, including SSR-facing integration guidance.
-- Added browser compatibility automation through `.github/workflows/browser-compatibility.yml` and dedicated Playwright compatibility suites in `examples/tests`.
-- Added a broad docs and API-conventions refresh across onboarding, architecture, SSR/state transfer, interop/worker naming conventions, and enterprise policy examples.
+- Added an OpenAI TTS-only fallback path in `examples/100-ai-chat-wizard` so speech playback can be enabled without switching the active chat provider or selected model for normal text generation.
+- Added client-side helper coverage for selecting a speech-capable OpenAI synthesis model, plus UI copy and modal-flow updates that describe the new opt-in behavior explicitly.
+- Removed the older model-preferences speech-provider switch path and centralized speech-model resolution inside the TTS controller instead of mutating the user’s saved chat provider preference.
+
+### Tooling, devtools, and testing expansion wave
+
+- Expanded the `gwc` launcher with dashboard/start TUI work, broader release/build/import/start/verify coverage, extracted `tools/runnerconfig` docs and tests, and new starter golden fixtures for standalone, contributor-linked, browser-test, and SSR app templates.
+- Expanded `devtools` with bug-capture, support-bundle, trace-capture, serialization-boundary, extension-section, and richer runtime snapshot plumbing, backed by substantial wasm/native test coverage.
+- Broadened Example 100, Atlas Commerce OS, SSR, interop, plugin, PWA, router, UI, and runtime coverage with a large set of focused regression tests, plus new public `test/browser` helpers and additional `testkit` consumer fixtures.
+- Added and documented new example coverage for static islands, staged rollout config, SSR route helpers, virtualization, and the repo examples site while refreshing ecosystem, IDE, testing, and runner-config docs.
+- Removed checked-in generated coverage/build artifacts from the tree and tightened ignore rules so local coverage output no longer pollutes status or release-oriented workflows.
 
 ## 2026-03-24
 

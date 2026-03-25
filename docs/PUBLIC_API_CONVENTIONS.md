@@ -22,6 +22,13 @@ Every exported function must start with a verb. The verb encodes the **contract*
 | `Register*` | installs a listener or service; returns handle, subscription, or error | via returned handle |
 | `Schedule*` | enqueues a future execution; returns `(T, error)` with cancel handle | `.Cancel()` |
 | `Render*` | SSR functions return `(string, error)`; client DSL functions return `Node` | none |
+| `Is*` | returns `bool`; no error return; pure predicate | none |
+| `Load*` | returns `(T, bool, error)` -- value may be absent (bool=false); read+cache | none |
+| `Inspect*` | returns `(T, error)`; reads/analyzes complex runtime state | none |
+| `Observe*` | returns `(T, error)` with cleanup handle; installs a live observer | `.Cancel()` or `.Close()` |
+| `Enable*` / `Disable*` | void -- toggles a boolean side-effect flag | none |
+| `Wrap*` | returns `T`; adapts an existing value; never errors | none |
+| `Apply*` | applies an external payload/snapshot to internal state; returns `error` | none |
 
 **Rule: the verb determines the expected signature. Violating the contract (e.g., an `Open*` that never errors, or a `New*` that returns error) is not allowed.**
 
@@ -29,13 +36,14 @@ Every exported function must start with a verb. The verb encodes the **contract*
 
 ## DSL exemption
 
-Functions in the `html` package that build element trees are exempt from verb-first naming. These are terse by design because they appear many times per component. The exemption applies to:
+Functions in the `html` and `ui` packages that build element trees are exempt from verb-first naming. These are terse by design because they appear many times per component. The exemption applies to:
 
 - HTML element builders: `Div`, `Span`, `Button`, `Input`, `A`, `P`, etc.
 - Combinators: `If`, `IfElse`, `Unless`, `Map`, `MapKeyed`, `FlatMap`, `FilterMap`, `Join`, `Maybe`, `Switch`, `Case`, `Default`, `Fragment`, `WithKey`
 - Prop builders: `Class`, `ID`, `For`, `Name`, `Value`, `Style`, `Data`, `Aria`, `OnClick`, `OnInput`, etc.
+- UI tree builders (`ui` package): `Fragment`, `Portal`, `Text`, `Lazy`, `AsyncBoundary`, `Overlay`, `HotReloadBoundary`, `AccessibleOverlay`, `ReactiveRegion`
 
-Everything else — including any function outside `html` — must use verb-first naming.
+Everything else — including any function outside `html` and `ui` — must use verb-first naming.
 
 ---
 
@@ -177,3 +185,66 @@ The following renames were applied to bring the codebase into compliance:
 |---|---|---|
 | `ExportSnapshot()` | `GetSnapshot()` | it reads current snapshot → `Get*` |
 | `ImportSnapshot(payload)` | `ApplySnapshot(payload)` | it restores from snapshot → descriptive action verb |
+
+---
+
+## Signature reference: violations corrected in v1
+
+The following functions had their **return types** corrected to match the verb tier table. Renaming alone was not sufficient — the signatures also violated the contract.
+
+### `interop` package
+
+| Old signature | New signature | Rule violated |
+|---|---|---|
+| `GetWindowEnv() WindowEnv` | `GetWindowEnv() (WindowEnv, error)` | `Get*` must return `(T, error)` |
+| `SharedWindowEnv() WindowEnv` *(compat)* | `SharedWindowEnv() (WindowEnv, error)` | follows `GetWindowEnv` |
+
+**Before:**
+```go
+env := interop.GetWindowEnv()
+selector := env.String("__gwcMountSelector", "#app")
+```
+
+**After:**
+```go
+env, err := interop.GetWindowEnv()
+if err != nil {
+    // handle unavailable window object
+}
+selector := env.String("__gwcMountSelector", "#app")
+```
+
+When the error is non-fatal (e.g., reading optional config), discard it explicitly:
+```go
+env, _ := interop.GetWindowEnv()
+selector := env.String("__gwcMountSelector", "#app")
+```
+
+---
+
+### `state` package
+
+| Old signature | New signature | Rule violated |
+|---|---|---|
+| `GetSnapshot() Snapshot` | `GetSnapshot() (Snapshot, error)` | `Get*` must return `(T, error)` |
+| `ExportSnapshot() Snapshot` *(compat)* | `ExportSnapshot() (Snapshot, error)` | follows `GetSnapshot` |
+
+**Before:**
+```go
+snapshot := state.GetSnapshot().Select("theme", "user")
+```
+
+**After:**
+```go
+snap, err := state.GetSnapshot()
+if err != nil {
+    // handle
+}
+snapshot := snap.Select("theme", "user")
+```
+
+When the error is non-fatal, discard it explicitly:
+```go
+snap, _ := state.GetSnapshot()
+snapshot := snap.Select("theme", "user")
+```
