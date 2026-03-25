@@ -51,230 +51,230 @@ type Options struct {
 }
 
 // Build constructs a Report from the given Options, capturing and classifying a stack trace.
-func Build(options Options) Report {
-	report := Report{
-		Summary:  strings.TrimSpace(options.Summary),
-		Code:     strings.TrimSpace(options.Code),
-		Headline: strings.TrimSpace(options.Headline),
-		Path:     strings.TrimSpace(options.Path),
-		Runtime:  strings.TrimSpace(options.Runtime),
-		Next:     strings.TrimSpace(options.Next),
-		Docs:     strings.TrimSpace(options.Docs),
+func Build(parseOptions Options) Report {
+	parseReport := Report{
+		Summary:  strings.TrimSpace(parseOptions.Summary),
+		Code:     strings.TrimSpace(parseOptions.Code),
+		Headline: strings.TrimSpace(parseOptions.Headline),
+		Path:     strings.TrimSpace(parseOptions.Path),
+		Runtime:  strings.TrimSpace(parseOptions.Runtime),
+		Next:     strings.TrimSpace(parseOptions.Next),
+		Docs:     strings.TrimSpace(parseOptions.Docs),
 	}
-	if report.Summary == "" {
-		report.Summary = "error without message"
+	if parseReport.Summary == "" {
+		parseReport.Summary = "error without message"
 	}
-	if report.Error == "" {
-		report.Error = report.Summary
+	if parseReport.Error == "" {
+		parseReport.Error = parseReport.Summary
 	}
-	frames := parseFrames(debug.Stack(), options.SkipFunctions)
-	for _, current := range frames {
-		switch classifyFrame(current) {
+	parseFrames := parseFrames(debug.Stack(), parseOptions.SkipFunctions)
+	for _, parseCurrent := range parseFrames {
+		switch classifyFrame(parseCurrent) {
 		case "app":
-			report.AppFrames = appendFrame(report.AppFrames, current)
+			parseReport.AppFrames = appendFrame(parseReport.AppFrames, parseCurrent)
 		case "framework":
-			report.FrameworkFrames = appendFrame(report.FrameworkFrames, current)
+			parseReport.FrameworkFrames = appendFrame(parseReport.FrameworkFrames, parseCurrent)
 		default:
-			report.PlatformFrames = appendFrame(report.PlatformFrames, current)
+			parseReport.PlatformFrames = appendFrame(parseReport.PlatformFrames, parseCurrent)
 		}
 	}
-	if len(report.AppFrames) > 0 {
-		report.Where = report.AppFrames[0]
+	if len(parseReport.AppFrames) > 0 {
+		parseReport.Where = parseReport.AppFrames[0]
 	} else {
-		report.Where = report.Path
+		parseReport.Where = parseReport.Path
 	}
-	if report.Where == "" {
-		report.Where = report.Headline
+	if parseReport.Where == "" {
+		parseReport.Where = parseReport.Headline
 	}
-	if report.Path == "" {
-		report.Path = report.Where
+	if parseReport.Path == "" {
+		parseReport.Path = parseReport.Where
 	}
-	report.AppFrames = limitFrames(report.AppFrames, visibleAppFrameLimit, "app")
-	report.FrameworkFrames = limitFrames(report.FrameworkFrames, visibleFrameworkFrameLimit, "framework")
-	report.PlatformFrames = limitFrames(report.PlatformFrames, visiblePlatformFrameLimit, "platform")
-	return report
+	parseReport.AppFrames = limitFrames(parseReport.AppFrames, visibleAppFrameLimit, "app")
+	parseReport.FrameworkFrames = limitFrames(parseReport.FrameworkFrames, visibleFrameworkFrameLimit, "framework")
+	parseReport.PlatformFrames = limitFrames(parseReport.PlatformFrames, visiblePlatformFrameLimit, "platform")
+	return parseReport
 }
 
-func (report Report) Formatted() string {
-	lines := []string{report.Summary}
-	if report.Code != "" && report.Headline != "" {
-		lines = append(lines, fmt.Sprintf("[%s] %s", report.Code, report.Headline))
-	} else if report.Code != "" {
-		lines = append(lines, fmt.Sprintf("[%s]", report.Code))
-	} else if report.Headline != "" {
-		lines = append(lines, report.Headline)
+func (parseReport Report) Formatted() string {
+	parseLines := []string{parseReport.Summary}
+	if parseReport.Code != "" && parseReport.Headline != "" {
+		parseLines = append(parseLines, fmt.Sprintf("[%s] %s", parseReport.Code, parseReport.Headline))
+	} else if parseReport.Code != "" {
+		parseLines = append(parseLines, fmt.Sprintf("[%s]", parseReport.Code))
+	} else if parseReport.Headline != "" {
+		parseLines = append(parseLines, parseReport.Headline)
 	}
-	lines = append(lines,
-		"where: "+strings.TrimSpace(report.Where),
-		"path: "+strings.TrimSpace(report.Path),
-		"error: "+strings.TrimSpace(report.Error),
-		"runtime: "+strings.TrimSpace(report.Runtime),
-		"next: "+strings.TrimSpace(report.Next),
-		"docs: "+strings.TrimSpace(report.Docs),
+	parseLines = append(parseLines,
+		"where: "+strings.TrimSpace(parseReport.Where),
+		"path: "+strings.TrimSpace(parseReport.Path),
+		"error: "+strings.TrimSpace(parseReport.Error),
+		"runtime: "+strings.TrimSpace(parseReport.Runtime),
+		"next: "+strings.TrimSpace(parseReport.Next),
+		"docs: "+strings.TrimSpace(parseReport.Docs),
 	)
-	if len(report.AppFrames) > 0 || len(report.FrameworkFrames) > 0 || len(report.PlatformFrames) > 0 {
-		lines = append(lines, "stack:")
-		if len(report.AppFrames) > 0 {
-			lines = append(lines, "app:")
-			lines = appendSection(lines, report.AppFrames)
+	if len(parseReport.AppFrames) > 0 || len(parseReport.FrameworkFrames) > 0 || len(parseReport.PlatformFrames) > 0 {
+		parseLines = append(parseLines, "stack:")
+		if len(parseReport.AppFrames) > 0 {
+			parseLines = append(parseLines, "app:")
+			parseLines = appendSection(parseLines, parseReport.AppFrames)
 		}
-		if len(report.FrameworkFrames) > 0 {
-			lines = append(lines, "framework: GWC")
-			lines = appendSection(lines, report.FrameworkFrames)
+		if len(parseReport.FrameworkFrames) > 0 {
+			parseLines = append(parseLines, "framework: GWC")
+			parseLines = appendSection(parseLines, parseReport.FrameworkFrames)
 		}
-		if len(report.PlatformFrames) > 0 {
-			lines = append(lines, "platform: GOLANG")
-			lines = appendSection(lines, report.PlatformFrames)
+		if len(parseReport.PlatformFrames) > 0 {
+			parseLines = append(parseLines, "platform: GOLANG")
+			parseLines = appendSection(parseLines, parseReport.PlatformFrames)
 		}
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(parseLines, "\n")
 }
 
 // Emit writes the formatted report to stderr.
-func Emit(report Report) {
-	formatted := strings.TrimSpace(report.Formatted())
-	if formatted == "" {
+func Emit(parseReport Report) {
+	parseFormatted := strings.TrimSpace(parseReport.Formatted())
+	if parseFormatted == "" {
 		return
 	}
-	_, _ = fmt.Fprintln(os.Stderr, formatted)
+	_, _ = fmt.Fprintln(os.Stderr, parseFormatted)
 }
 
 // WriteHTTPError emits the report and writes it as a plain-text HTTP error response.
-func WriteHTTPError(w http.ResponseWriter, status int, report Report) {
-	Emit(report)
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(status)
-	_, _ = w.Write([]byte(report.Formatted()))
+func WriteHTTPError(parseW http.ResponseWriter, parseStatus int, parseReport Report) {
+	Emit(parseReport)
+	parseW.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	parseW.WriteHeader(parseStatus)
+	_, _ = parseW.Write([]byte(parseReport.Formatted()))
 }
 
-func parseFrames(stack []byte, extraSkip []string) []frame {
-	lines := strings.Split(strings.ReplaceAll(string(stack), "\r\n", "\n"), "\n")
-	skipFunctions := []string{
+func parseFrames(parseStack []byte, parseExtraSkip []string) []frame {
+	parseLines := strings.Split(strings.ReplaceAll(string(parseStack), "\r\n", "\n"), "\n")
+	parseSkipFunctions := []string{
 		"runtime/debug.Stack",
 		"github.com/monstercameron/GoWebComponents/internal/diagnostics.parseFrames",
 		"github.com/monstercameron/GoWebComponents/internal/diagnostics.Build",
 		"github.com/monstercameron/GoWebComponents/internal/diagnostics.WriteHTTPError",
 		"github.com/monstercameron/GoWebComponents/internal/diagnostics.Emit",
 	}
-	skipFunctions = append(skipFunctions, extraSkip...)
-	frames := make([]frame, 0, len(lines)/2)
-	for index := 1; index+1 < len(lines); index += 2 {
-		function := strings.TrimSpace(lines[index])
-		location := strings.TrimSpace(lines[index+1])
-		if function == "" || location == "" {
+	parseSkipFunctions = append(parseSkipFunctions, parseExtraSkip...)
+	parseFrames := make([]frame, 0, len(parseLines)/2)
+	for parseIndex := 1; parseIndex+1 < len(parseLines); parseIndex += 2 {
+		parseFunction := strings.TrimSpace(parseLines[parseIndex])
+		parseLocation := strings.TrimSpace(parseLines[parseIndex+1])
+		if parseFunction == "" || parseLocation == "" {
 			continue
 		}
-		skip := false
-		for _, token := range skipFunctions {
-			if token != "" && strings.Contains(function, token) {
-				skip = true
+		isParseSkip := false
+		for _, parseToken := range parseSkipFunctions {
+			if parseToken != "" && strings.Contains(parseFunction, parseToken) {
+				isParseSkip = true
 				break
 			}
 		}
-		if skip {
+		if isParseSkip {
 			continue
 		}
-		location = strings.TrimSpace(strings.SplitN(location, " +", 2)[0])
-		line := 0
-		if lastColon := strings.LastIndex(location, ":"); lastColon > 0 {
-			if parsed, err := strconv.Atoi(location[lastColon+1:]); err == nil {
-				line = parsed
-				location = location[:lastColon]
+		parseLocation = strings.TrimSpace(strings.SplitN(parseLocation, " +", 2)[0])
+		parseLine := 0
+		if parseLastColon := strings.LastIndex(parseLocation, ":"); parseLastColon > 0 {
+			if parseParsed, parseErr := strconv.Atoi(parseLocation[parseLastColon+1:]); parseErr == nil {
+				parseLine = parseParsed
+				parseLocation = parseLocation[:parseLastColon]
 			}
 		}
-		frames = append(frames, frame{Function: function, File: location, Line: line})
+		parseFrames = append(parseFrames, frame{Function: parseFunction, File: parseLocation, Line: parseLine})
 	}
-	return frames
+	return parseFrames
 }
 
-func sanitizeFunction(function string) string {
-	trimmed := strings.TrimSpace(function)
-	if trimmed == "" {
+func sanitizeFunction(parseFunction string) string {
+	parseTrimmed := strings.TrimSpace(parseFunction)
+	if parseTrimmed == "" {
 		return ""
 	}
-	if index := strings.Index(trimmed, "("); index > 0 {
-		trimmed = trimmed[:index]
+	if parseIndex := strings.Index(parseTrimmed, "("); parseIndex > 0 {
+		parseTrimmed = parseTrimmed[:parseIndex]
 	}
-	return strings.TrimSpace(trimmed)
+	return strings.TrimSpace(parseTrimmed)
 }
 
-func classifyFrame(current frame) string {
-	function := strings.ReplaceAll(sanitizeFunction(current.Function), "\\", "/")
-	file := strings.ReplaceAll(current.File, "\\", "/")
-	if strings.HasSuffix(file, "_test.go") || strings.Contains(function, ".Test") {
+func classifyFrame(parseCurrent frame) string {
+	parseFunction := strings.ReplaceAll(sanitizeFunction(parseCurrent.Function), "\\", "/")
+	parseFile := strings.ReplaceAll(parseCurrent.File, "\\", "/")
+	if strings.HasSuffix(parseFile, "_test.go") || strings.Contains(parseFunction, ".Test") {
 		return "app"
 	}
-	if strings.Contains(function, frameworkModulePath+"/") {
-		if strings.Contains(function, frameworkModulePath+"/examples/") || strings.Contains(function, frameworkModulePath+"/test/") {
+	if strings.Contains(parseFunction, frameworkModulePath+"/") {
+		if strings.Contains(parseFunction, frameworkModulePath+"/examples/") || strings.Contains(parseFunction, frameworkModulePath+"/test/") {
 			return "app"
 		}
 		return "framework"
 	}
-	if strings.Contains(file, "/"+frameworkWorkspaceName+"/") {
-		if strings.Contains(file, "/"+frameworkWorkspaceName+"/examples/") || strings.Contains(file, "/"+frameworkWorkspaceName+"/test/") {
+	if strings.Contains(parseFile, "/"+frameworkWorkspaceName+"/") {
+		if strings.Contains(parseFile, "/"+frameworkWorkspaceName+"/examples/") || strings.Contains(parseFile, "/"+frameworkWorkspaceName+"/test/") {
 			return "app"
 		}
 		return "framework"
 	}
-	if strings.HasPrefix(function, "runtime.") ||
-		strings.HasPrefix(function, "syscall/js.") ||
-		strings.HasPrefix(function, "testing.") ||
-		strings.Contains(file, "/src/runtime/") ||
-		strings.Contains(file, "/src/testing/") ||
-		strings.Contains(file, "/src/syscall/js/") {
+	if strings.HasPrefix(parseFunction, "runtime.") ||
+		strings.HasPrefix(parseFunction, "syscall/js.") ||
+		strings.HasPrefix(parseFunction, "testing.") ||
+		strings.Contains(parseFile, "/src/runtime/") ||
+		strings.Contains(parseFile, "/src/testing/") ||
+		strings.Contains(parseFile, "/src/syscall/js/") {
 		return "platform"
 	}
 	return "app"
 }
 
-func shortenFilePath(path string) string {
-	normalized := strings.ReplaceAll(strings.TrimSpace(path), "\\", "/")
-	if normalized == "" {
+func shortenFilePath(parsePath string) string {
+	parseNormalized := strings.ReplaceAll(strings.TrimSpace(parsePath), "\\", "/")
+	if parseNormalized == "" {
 		return ""
 	}
-	marker := "/" + frameworkWorkspaceName + "/"
-	if index := strings.Index(normalized, marker); index >= 0 {
-		return normalized[index+len(marker):]
+	parseMarker := "/" + frameworkWorkspaceName + "/"
+	if parseIndex := strings.Index(parseNormalized, parseMarker); parseIndex >= 0 {
+		return parseNormalized[parseIndex+len(parseMarker):]
 	}
-	parts := strings.Split(normalized, "/")
-	if len(parts) <= 3 {
-		return normalized
+	parseParts := strings.Split(parseNormalized, "/")
+	if len(parseParts) <= 3 {
+		return parseNormalized
 	}
-	return strings.Join(parts[len(parts)-3:], "/")
+	return strings.Join(parseParts[len(parseParts)-3:], "/")
 }
 
-func formatFrame(current frame) string {
-	function := sanitizeFunction(current.Function)
-	location := shortenFilePath(current.File)
-	if location == "" {
-		return function
+func formatFrame(parseCurrent frame) string {
+	parseFunction := sanitizeFunction(parseCurrent.Function)
+	parseLocation := shortenFilePath(parseCurrent.File)
+	if parseLocation == "" {
+		return parseFunction
 	}
-	if current.Line > 0 {
-		return fmt.Sprintf("%s at %s:%d", function, location, current.Line)
+	if parseCurrent.Line > 0 {
+		return fmt.Sprintf("%s at %s:%d", parseFunction, parseLocation, parseCurrent.Line)
 	}
-	return fmt.Sprintf("%s at %s", function, location)
+	return fmt.Sprintf("%s at %s", parseFunction, parseLocation)
 }
 
-func appendFrame(target []string, current frame) []string {
-	formatted := formatFrame(current)
-	if formatted == "" {
-		return target
+func appendFrame(parseTarget []string, parseCurrent frame) []string {
+	parseFormatted := formatFrame(parseCurrent)
+	if parseFormatted == "" {
+		return parseTarget
 	}
-	return append(target, formatted)
+	return append(parseTarget, parseFormatted)
 }
 
-func limitFrames(values []string, limit int, label string) []string {
-	if limit <= 0 || len(values) <= limit {
-		return values
+func limitFrames(parseValues []string, parseLimit int, parseLabel string) []string {
+	if parseLimit <= 0 || len(parseValues) <= parseLimit {
+		return parseValues
 	}
-	trimmed := append([]string(nil), values[:limit]...)
-	trimmed = append(trimmed, fmt.Sprintf("... %d more %s frames omitted", len(values)-limit, label))
-	return trimmed
+	parseTrimmed := append([]string(nil), parseValues[:parseLimit]...)
+	parseTrimmed = append(parseTrimmed, fmt.Sprintf("... %d more %s frames omitted", len(parseValues)-parseLimit, parseLabel))
+	return parseTrimmed
 }
 
-func appendSection(lines []string, values []string) []string {
-	for _, value := range values {
-		lines = append(lines, "  "+value)
+func appendSection(parseLines []string, parseValues []string) []string {
+	for _, parseValue := range parseValues {
+		parseLines = append(parseLines, "  "+parseValue)
 	}
-	return lines
+	return parseLines
 }

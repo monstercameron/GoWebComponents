@@ -6,25 +6,25 @@ import (
 	"testing"
 )
 
-func TestPublicDiagnosticsWrappers(t *testing.T) {
-	report := NewReport(Options{
+func TestPublicDiagnosticsWrappers(parseT *testing.T) {
+	parseReport := NewReport(Options{
 		Summary:  "broken",
 		Code:     "example_failure",
 		Headline: "Exploded",
 		Next:     "fix it",
 	})
-	if report.Code != "example_failure" || report.Summary != "broken" || report.Headline != "Exploded" {
-		t.Fatalf("NewReport() returned unexpected report: %+v", report)
+	if parseReport.Code != "example_failure" || parseReport.Summary != "broken" || parseReport.Headline != "Exploded" {
+		parseT.Fatalf("NewReport() returned unexpected report: %+v", parseReport)
 	}
 
-	recorder := httptest.NewRecorder()
-	WriteHTTPError(recorder, 422, report)
-	if recorder.Code != 422 {
-		t.Fatalf("WriteHTTPError() status = %d, want 422", recorder.Code)
+	parseRecorder := httptest.NewRecorder()
+	WriteHTTPError(parseRecorder, 422, parseReport)
+	if parseRecorder.Code != 422 {
+		parseT.Fatalf("WriteHTTPError() status = %d, want 422", parseRecorder.Code)
 	}
-	if body := recorder.Body.String(); !strings.Contains(body, "example_failure") || !strings.Contains(body, "broken") || !strings.Contains(body, "fix it") {
-		t.Fatalf("WriteHTTPError() body missing report details: %s", body)
+	if parseBody := parseRecorder.Body.String(); !strings.Contains(parseBody, "example_failure") || !strings.Contains(parseBody, "broken") || !strings.Contains(parseBody, "fix it") {
+		parseT.Fatalf("WriteHTTPError() body missing report details: %s", parseBody)
 	}
 
-	Emit(report)
+	Emit(parseReport)
 }

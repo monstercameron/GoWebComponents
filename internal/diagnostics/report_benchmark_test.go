@@ -2,9 +2,9 @@ package diagnostics
 
 import "testing"
 
-func BenchmarkBuild(t *testing.B) {
-	t.ReportAllocs()
-	options := Options{
+func BenchmarkBuild(parseT *testing.B) {
+	parseT.ReportAllocs()
+	parseOptions := Options{
 		Summary:  "state snapshot decode failed",
 		Code:     "snapshot_decode_failed",
 		Headline: "Could not decode snapshot payload",
@@ -13,14 +13,14 @@ func BenchmarkBuild(t *testing.B) {
 		Next:     "verify payload shape",
 		Docs:     "ACTIONABLE_ERRORS.md#snapshot-decode",
 	}
-	for t.Loop() {
-		_ = Build(options)
+	for parseT.Loop() {
+		_ = Build(parseOptions)
 	}
 }
 
-func BenchmarkReportFormatted(t *testing.B) {
-	t.ReportAllocs()
-	report := Build(Options{
+func BenchmarkReportFormatted(parseT *testing.B) {
+	parseT.ReportAllocs()
+	parseReport := Build(Options{
 		Summary:  "hook called outside component",
 		Code:     "hook_outside_component",
 		Headline: "Hook misuse",
@@ -29,7 +29,7 @@ func BenchmarkReportFormatted(t *testing.B) {
 		Next:     "move call into render path",
 		Docs:     "ACTIONABLE_ERRORS.md#gwc-runtime-hook-outside-component",
 	})
-	for t.Loop() {
-		_ = report.Formatted()
+	for parseT.Loop() {
+		_ = parseReport.Formatted()
 	}
 }

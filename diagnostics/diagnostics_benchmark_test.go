@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-func BenchmarkNewReport(b *testing.B) {
-	b.ReportAllocs()
-	options := Options{
+func BenchmarkNewReport(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseOptions := Options{
 		Summary:  "fetch failed with conflict",
 		Code:     "fetch_conflict",
 		Headline: "Replay failed",
@@ -16,21 +16,21 @@ func BenchmarkNewReport(b *testing.B) {
 		Next:     "retry later",
 		Docs:     "ACTIONABLE_ERRORS.md#fetch-conflict",
 	}
-	for b.Loop() {
-		_ = NewReport(options)
+	for parseB.Loop() {
+		_ = NewReport(parseOptions)
 	}
 }
 
-func BenchmarkWriteHTTPError(b *testing.B) {
-	b.ReportAllocs()
-	report := NewReport(Options{
+func BenchmarkWriteHTTPError(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseReport := NewReport(Options{
 		Summary:  "router rejected navigation",
 		Code:     "route_blocked",
 		Headline: "Navigation blocked",
 		Next:     "inspect route guards",
 	})
-	for b.Loop() {
-		recorder := httptest.NewRecorder()
-		WriteHTTPError(recorder, 422, report)
+	for parseB.Loop() {
+		parseRecorder := httptest.NewRecorder()
+		WriteHTTPError(parseRecorder, 422, parseReport)
 	}
 }

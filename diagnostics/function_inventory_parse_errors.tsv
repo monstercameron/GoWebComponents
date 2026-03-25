@@ -1,12 +1,1 @@
 path	detail
-i18n/i18n.go	C:\Users\Cam\Desktop\GoWebComponents\i18n\i18n.go:381:76: expected statement, found ')' (and 1 more errors)
-i18n/locale_native.go	C:\Users\Cam\Desktop\GoWebComponents\i18n\locale_native.go:7:74: expected ')', found ','
-i18n/locale_wasm.go	C:\Users\Cam\Desktop\GoWebComponents\i18n\locale_wasm.go:14:74: expected ')', found ','
-interop/interop.go	C:\Users\Cam\Desktop\GoWebComponents\interop\interop.go:1447:82: expected statement, found ',' (and 10 more errors)
-interop/interop_native.go	C:\Users\Cam\Desktop\GoWebComponents\interop\interop_native.go:27:118: expected statement, found ')' (and 1 more errors)
-interop/interop_wasm.go	C:\Users\Cam\Desktop\GoWebComponents\interop\interop_wasm.go:185:71: expected 1 expression (and 4 more errors)
-pwa/cache_storage_native.go	C:\Users\Cam\Desktop\GoWebComponents\pwa\cache_storage_native.go:14:71: expected statement, found ')'
-pwa/diagnostics_native.go	C:\Users\Cam\Desktop\GoWebComponents\pwa\diagnostics_native.go:13:104: expected 1 expression (and 1 more errors)
-pwa/installability_native.go	C:\Users\Cam\Desktop\GoWebComponents\pwa\installability_native.go:13:91: expected 1 expression
-pwa/service_worker_native.go	C:\Users\Cam\Desktop\GoWebComponents\pwa\service_worker_native.go:14:115: expected 1 expression
-tools/gwc/testdata/start_golden/reference-app-browser-tests/starter_test.go	C:\Users\Cam\Desktop\GoWebComponents\tools\gwc\testdata\start_golden\reference-app-browser-tests\starter_test.go:76:16: missing ',' in composite literal (and 3 more errors)
