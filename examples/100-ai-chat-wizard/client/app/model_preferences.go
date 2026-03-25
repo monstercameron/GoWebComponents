@@ -63,6 +63,42 @@ func modelCatalogFromResponse(resp *chatpb.ListModelOptionsResponse) modelCatalo
 	return catalog
 }
 
+func shouldApplySelectedModelBootstrap(bootstrapComplete bool, currentState appState, cacheReady bool) bool {
+	if bootstrapComplete || !cacheReady {
+		return false
+	}
+	if !currentState.GRPCReady || !currentState.Authenticated {
+		return false
+	}
+	if currentState.ActiveConvID > 0 || len(currentState.Messages) > 0 {
+		return false
+	}
+	return true
+}
+
+func shouldApplySelectedModelRecovery(recoveryComplete bool, currentState appState, cacheReady bool) bool {
+	if recoveryComplete || !cacheReady {
+		return false
+	}
+	if !currentState.GRPCReady || !currentState.Authenticated {
+		return false
+	}
+	if currentState.ActiveConvID > 0 || len(currentState.Messages) > 0 || len(currentState.ModelOptions) == 0 {
+		return false
+	}
+	return true
+}
+
+func shouldApplyThinkingPreferencesBootstrap(bootstrapComplete bool, currentState appState, enabledCacheReady, effortCacheReady bool) bool {
+	if bootstrapComplete || !enabledCacheReady || !effortCacheReady {
+		return false
+	}
+	if !currentState.GRPCReady || !currentState.Authenticated {
+		return false
+	}
+	return true
+}
+
 // useModelPreferences hides model-catalog loading, selected-model sync, and
 // thinking preference persistence behind a feature-specific hook.
 func useModelPreferences(
@@ -73,6 +109,10 @@ func useModelPreferences(
 	modelCatalogRefreshOnConnect := ui.UseRef(false)
 	modelCatalogBootstrapRequested := ui.UseRef(false)
 	selectedModelChannelRef := ui.UseRef(interop.CrossTabChannel{})
+	modelPreferenceSessionKey := ui.UseRef("")
+	selectedModelBootstrapComplete := ui.UseRef(false)
+	selectedModelRecoveryComplete := ui.UseRef(false)
+	thinkingPreferencesBootstrapComplete := ui.UseRef(false)
 	modelCatalogCacheKey := ""
 	if app.Get().GRPCReady {
 		modelCatalogCacheKey = cacheKeyModelCatalog
@@ -259,6 +299,8 @@ func useModelPreferences(
 		if resolvedModel == currentState.SelectedModel {
 			return true
 		}
+		selectedModelBootstrapComplete.Set(true)
+		selectedModelRecoveryComplete.Set(true)
 		app.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: resolvedModel})
 		persistSelectedModel(resolvedModel)
 		if len(currentState.Messages) > 0 {
@@ -284,6 +326,29 @@ func useModelPreferences(
 		modelCatalogCache.Invalidate()
 		return nil
 	}, app.Get().GRPCReady)
+
+	ui.UseEffect(func() func() {
+		currentState := app.Get()
+		if !currentState.GRPCReady || !currentState.Authenticated {
+			modelPreferenceSessionKey.Set("")
+			selectedModelBootstrapComplete.Set(false)
+			selectedModelRecoveryComplete.Set(false)
+			thinkingPreferencesBootstrapComplete.Set(false)
+			return nil
+		}
+		sessionKey := strings.TrimSpace(strings.ToLower(currentState.SessionEmail))
+		if sessionKey == "" {
+			sessionKey = "__anonymous__"
+		}
+		if modelPreferenceSessionKey.Get() == sessionKey {
+			return nil
+		}
+		modelPreferenceSessionKey.Set(sessionKey)
+		selectedModelBootstrapComplete.Set(false)
+		selectedModelRecoveryComplete.Set(false)
+		thinkingPreferencesBootstrapComplete.Set(false)
+		return nil
+	}, app.Get().GRPCReady, app.Get().Authenticated, app.Get().SessionEmail)
 
 	ui.UseEffect(func() func() {
 		currentState := app.Get()
@@ -314,6 +379,8 @@ func useModelPreferences(
 				return
 			}
 			selectedModelCache.Set(resolvedModel)
+			selectedModelBootstrapComplete.Set(true)
+			selectedModelRecoveryComplete.Set(true)
 			app.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: resolvedModel})
 		})
 		if err != nil {
@@ -365,29 +432,25 @@ func useModelPreferences(
 
 	ui.UseEffect(func() func() {
 		currentState := app.Get()
-		if !currentState.GRPCReady || !currentState.Authenticated || !selectedModelCacheState.Ready {
-			return nil
-		}
-		if currentState.ActiveConvID > 0 || len(currentState.Messages) > 0 {
+		if !shouldApplySelectedModelBootstrap(selectedModelBootstrapComplete.Get(), currentState, selectedModelCacheState.Ready) {
 			return nil
 		}
 		resolvedModel := normalizeSelectedModelID(selectedModelCacheState.Value, currentState.ModelOptions, currentState.DefaultModel)
 		if resolvedModel != currentState.SelectedModel {
 			app.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: resolvedModel})
 		}
+		selectedModelBootstrapComplete.Set(true)
 		return nil
 	}, app.Get().GRPCReady, selectedModelCacheState.Ready, selectedModelCacheState.Value, app.Get().ActiveConvID, len(app.Get().Messages))
 
 	ui.UseEffect(func() func() {
 		currentState := app.Get()
-		if !currentState.GRPCReady || !currentState.Authenticated || !selectedModelCacheState.Ready {
-			return nil
-		}
-		if currentState.ActiveConvID > 0 || len(currentState.Messages) > 0 || len(currentState.ModelOptions) == 0 {
+		if !shouldApplySelectedModelRecovery(selectedModelRecoveryComplete.Get(), currentState, selectedModelCacheState.Ready) {
 			return nil
 		}
 		recoveredModel, usedFallback := recoverPersistedModelSelection(selectedModelCacheState.Value, currentState.ModelOptions)
 		if recoveredModel == "" || strings.TrimSpace(selectedModelCacheState.Value) == recoveredModel {
+			selectedModelRecoveryComplete.Set(true)
 			return nil
 		}
 		if recoveredModel != currentState.SelectedModel {
@@ -401,8 +464,10 @@ func useModelPreferences(
 			if currentState.SelectedThinkingEffort != defaultThinkingEffort {
 				app.Dispatch(appAction{Type: appActionSetSelectedThinkingEffort, SelectedThinkingEffort: defaultThinkingEffort})
 			}
+			thinkingPreferencesBootstrapComplete.Set(true)
 			persistThinkingPreferences(true, defaultThinkingEffort)
 		}
+		selectedModelRecoveryComplete.Set(true)
 		return nil
 	}, app.Get().GRPCReady, selectedModelCacheState.Ready, selectedModelCacheState.Value, app.Get().ActiveConvID, len(app.Get().Messages), app.Get().ModelOptions, app.Get().SelectedModel, app.Get().SelectedThinkingEnabled, app.Get().SelectedThinkingEffort)
 
@@ -423,26 +488,19 @@ func useModelPreferences(
 
 	ui.UseEffect(func() func() {
 		currentState := app.Get()
-		if !currentState.GRPCReady || !currentState.Authenticated || !selectedThinkingEnabledCacheState.Ready {
+		if !shouldApplyThinkingPreferencesBootstrap(thinkingPreferencesBootstrapComplete.Get(), currentState, selectedThinkingEnabledCacheState.Ready, selectedThinkingEffortCacheState.Ready) {
 			return nil
 		}
 		if selectedThinkingEnabledCacheState.Value != currentState.SelectedThinkingEnabled {
 			app.Dispatch(appAction{Type: appActionSetSelectedThinkingEnabled, SelectedThinkingEnabled: selectedThinkingEnabledCacheState.Value})
 		}
-		return nil
-	}, app.Get().GRPCReady, selectedThinkingEnabledCacheState.Ready, selectedThinkingEnabledCacheState.Value)
-
-	ui.UseEffect(func() func() {
-		currentState := app.Get()
-		if !currentState.GRPCReady || !currentState.Authenticated || !selectedThinkingEffortCacheState.Ready {
-			return nil
-		}
 		resolvedThinkingEffort := normalizeSelectedThinkingEffort(selectedThinkingEffortCacheState.Value)
 		if resolvedThinkingEffort != currentState.SelectedThinkingEffort {
 			app.Dispatch(appAction{Type: appActionSetSelectedThinkingEffort, SelectedThinkingEffort: resolvedThinkingEffort})
 		}
+		thinkingPreferencesBootstrapComplete.Set(true)
 		return nil
-	}, app.Get().GRPCReady, selectedThinkingEffortCacheState.Ready, selectedThinkingEffortCacheState.Value)
+	}, app.Get().GRPCReady, selectedThinkingEnabledCacheState.Ready, selectedThinkingEnabledCacheState.Value, selectedThinkingEffortCacheState.Ready, selectedThinkingEffortCacheState.Value, app.Get().SelectedThinkingEnabled, app.Get().SelectedThinkingEffort)
 
 	setModel := ui.UseEvent(func(e ui.Event) {
 		if app.Get().Streaming {
@@ -494,6 +552,7 @@ func useModelPreferences(
 		if currentState.SelectedThinkingEnabled == nextEnabled && (!nextEnabled || currentState.SelectedThinkingEffort == nextEffort) {
 			return
 		}
+		thinkingPreferencesBootstrapComplete.Set(true)
 		app.Dispatch(appAction{Type: appActionSetSelectedThinkingEnabled, SelectedThinkingEnabled: nextEnabled})
 		if nextEnabled {
 			app.Dispatch(appAction{Type: appActionSetSelectedThinkingEffort, SelectedThinkingEffort: nextEffort})
