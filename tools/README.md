@@ -40,7 +40,7 @@ Current command surface:
 - `doctor`: check toolchains, runtime assets, browser-test prerequisites, and optional audit signals
 - `bootstrap`: run checks and then launch either the starter flow or the examples catalog flow
 - `start`: open the scaffold TUI for a new app
-- `examples`: serve the examples catalog
+- `examples`: serve the examples catalog or manage profile-backed example servers with `start`, `status`, and `stop`
 - `dev`: run the rebuild-and-serve inner loop for one app
 - `serve`: serve a static root, `wasm_exec.js`, one wasm artifact, and optional JSON fixtures
 - `build`: build one `js/wasm` target with an explicit profile
@@ -63,6 +63,9 @@ go run ./tools/gwc doctor
 go run ./tools/gwc start
 go run ./tools/gwc bootstrap -examples
 go run ./tools/gwc examples
+go run ./tools/gwc examples start
+go run ./tools/gwc examples status
+go run ./tools/gwc examples stop
 go run ./tools/gwc dev -app .\path\to\main.go
 go run ./tools/gwc serve -root .\static -wasm-file .\bin\app\main.wasm
 go run ./tools/gwc build -app .\path\to\main.go -profile release
