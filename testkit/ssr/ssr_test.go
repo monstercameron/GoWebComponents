@@ -54,21 +54,12 @@ func TestStructuredSnapshotParsesHeadMetadataAndJSONLD(t *testing.T) {
 	}
 
 	structured := Snapshot{HTML: markup}.Structured(t)
-	if structured.Title != "Docs" {
-		t.Fatalf("expected title, got %+v", structured)
-	}
-	if structured.MetaName("description") != "Searchable docs" {
-		t.Fatalf("expected description meta, got %+v", structured.MetaByName)
-	}
-	if structured.MetaProperty("og:title") != "Docs Social" {
-		t.Fatalf("expected og:title meta, got %+v", structured.MetaByProperty)
-	}
-	if structured.CanonicalURL() != "https://example.com/docs" {
-		t.Fatalf("expected canonical URL, got %+v", structured.LinksByRel)
-	}
-	if got := structured.JSONLD("docs-jsonld"); !strings.Contains(got, `"@type":"Article"`) {
-		t.Fatalf("expected JSON-LD block content, got %q", got)
-	}
+	structured.ApplyStructuredTitle(t, "Docs")
+	structured.ApplyStructuredMetaName(t, "description", "Searchable docs")
+	structured.ApplyStructuredMetaProperty(t, "og:title", "Docs Social")
+	structured.ApplyStructuredMetaProperty(t, "og:description", "Share docs")
+	structured.ApplyStructuredCanonicalURL(t, "https://example.com/docs")
+	structured.ApplyStructuredJSONLDType(t, "docs-jsonld", "Article")
 }
 
 func TestLoadStaticExportReadsExportedRoutesAndBootstrapSidecars(t *testing.T) {
@@ -128,9 +119,9 @@ func TestLoadStaticExportReadsExportedRoutesAndBootstrapSidecars(t *testing.T) {
 	if docs.BootstrapFile != filepath.ToSlash(filepath.Join("bootstrap", "docs.cbor")) {
 		t.Fatalf("unexpected docs bootstrap file: %+v", docs)
 	}
-	if structured := docs.Snapshot.Structured(t); structured.Title != "Docs" || structured.CanonicalURL() != "https://example.com/docs" {
-		t.Fatalf("expected structured export metadata, got %+v", structured)
-	}
+	structured := docs.Snapshot.Structured(t)
+	structured.ApplyStructuredTitle(t, "Docs")
+	structured.ApplyStructuredCanonicalURL(t, "https://example.com/docs")
 }
 
 func TestStructuredSnapshotHelperFallbacks(t *testing.T) {
@@ -155,6 +146,31 @@ func TestStructuredSnapshotHelperFallbacks(t *testing.T) {
 	}
 	if got := (StructuredSnapshot{}).JSONLD("none"); got != "" {
 		t.Fatalf("expected empty structured snapshot JSONLD to be empty, got %q", got)
+	}
+}
+
+func TestStructuredSnapshotParsesBootstrapScriptPayload(t *testing.T) {
+	script, err := ui.RenderBootstrapScript(ui.SSRBootstrap{
+		Route: ui.SSRRouteBootstrap{Path: "/docs"},
+		Atoms: map[string]any{"theme": "dark"},
+	}, "")
+	if err != nil {
+		t.Fatalf("expected bootstrap script render to succeed, got %v", err)
+	}
+
+	structured := Snapshot{HTML: "<!doctype html><html><head>" + script + "</head></html>"}.Structured(t)
+	tag := structured.ApplyStructuredScriptID(t, ui.DefaultBootstrapScriptID)
+	if tag.Type != "application/json" {
+		t.Fatalf("expected bootstrap script type application/json, got %q", tag.Type)
+	}
+
+	payload := structured.ParseStructuredBootstrapScript(t, ui.DefaultBootstrapScriptID)
+	route, ok := payload["route"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected bootstrap payload route object, got %#v", payload["route"])
+	}
+	if path, _ := route["path"].(string); path != "/docs" {
+		t.Fatalf("expected bootstrap route path /docs, got %q", path)
 	}
 }
 

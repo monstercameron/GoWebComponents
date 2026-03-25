@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/monstercameron/GoWebComponents/html"
+	"github.com/monstercameron/GoWebComponents/internal/runtime"
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
@@ -16,7 +17,9 @@ func staticHarnessApp() ui.Node {
 		html.H1(html.Props{ID: "main-heading"}, html.Text("Hello Harness")),
 		html.Button(html.Props{ID: "primary-button", Type: "button"}, html.Text("Save")),
 		html.Span(html.Props{ID: "search-label"}, html.Text("Search Catalog")),
-		html.Input(html.Props{ID: "search-input", Type: "text", Raw: map[string]interface{}{"aria-labelledby": "search-label"}}),
+		html.P(html.Props{ID: "search-description"}, html.Text("Type to filter")),
+		html.Input(html.Props{ID: "search-input", Type: "text", Raw: map[string]interface{}{"aria-labelledby": "search-label", "aria-describedby": "search-description"}}),
+		html.Div(html.Props{ID: "save-live-region", Role: "status", Raw: map[string]interface{}{"aria-live": "polite"}}, html.Text("Saved profile")),
 	)
 }
 
@@ -62,6 +65,56 @@ func transitionHarnessApp() ui.Node {
 	)
 }
 
+// overlayHarnessApp renders a nested modal overlay fixture through a shared portal root.
+func overlayHarnessApp() ui.Node {
+	isParentOpen := ui.UseState(false)
+	isChildOpen := ui.UseState(false)
+
+	handleOpenParent := ui.UseEvent(func() {
+		isParentOpen.Set(true)
+	})
+	handleOpenChild := ui.UseEvent(func() {
+		if isParentOpen.Get() {
+			isChildOpen.Set(true)
+		}
+	})
+
+	return html.Div(html.Props{ID: "overlay-shell"},
+		html.Button(html.Props{ID: "open-parent", Type: "button", OnClick: handleOpenParent}, html.Text("Open parent")),
+		html.Button(html.Props{ID: "open-child", Type: "button", OnClick: handleOpenChild}, html.Text("Open child")),
+		html.Div(html.Props{ID: "portal-root"}),
+		ui.Overlay(ui.OverlayProps{
+			Open:                isParentOpen.Get(),
+			Target:              ui.PortalTarget{Selector: "#portal-root"},
+			SurfaceID:           "parent-overlay",
+			Modal:               true,
+			Backdrop:            true,
+			CloseOnEscape:       true,
+			CloseOnOutsideClick: true,
+			LockScroll:          true,
+			OnDismiss: func() {
+				isChildOpen.Set(false)
+				isParentOpen.Set(false)
+			},
+			Child: html.Div(html.Props{ID: "parent-content"}, html.Text("Parent overlay")),
+		}),
+		ui.Overlay(ui.OverlayProps{
+			Open:                isParentOpen.Get() && isChildOpen.Get(),
+			Target:              ui.PortalTarget{Selector: "#portal-root"},
+			SurfaceID:           "child-overlay",
+			Modal:               true,
+			Backdrop:            true,
+			CloseOnEscape:       true,
+			CloseOnOutsideClick: true,
+			LockScroll:          true,
+			OnDismiss: func() {
+				isChildOpen.Set(false)
+			},
+			Child: html.Div(html.Props{ID: "child-content"}, html.Text("Child overlay")),
+		}),
+	)
+}
+
 func TestFixtureRenderAndQuery(t *testing.T) {
 	fixture := New(t)
 	fixture.Render(ui.CreateElement(staticHarnessApp))
@@ -91,6 +144,35 @@ func TestFixtureRenderAndQuery(t *testing.T) {
 	}
 	if textboxes := fixture.AllByRole("textbox"); len(textboxes) != 1 {
 		t.Fatalf("expected one textbox role match, got %d", len(textboxes))
+	}
+}
+
+// TestFixtureAccessibilityFirstQueriesAndAssertions validates label, description, and live-region helpers.
+func TestFixtureAccessibilityFirstQueriesAndAssertions(t *testing.T) {
+	fixture := New(t)
+	fixture.Render(ui.CreateElement(staticHarnessApp))
+
+	if field := fixture.ByLabel("Search Catalog"); field == nil || field.Attr("id") != "search-input" {
+		t.Fatalf("expected label query to find search input, got %#v", field)
+	}
+	if field := fixture.ByDescription("Type to filter"); field == nil || field.Attr("id") != "search-input" {
+		t.Fatalf("expected description query to find search input, got %#v", field)
+	}
+	if region := fixture.ByLiveRegion("polite", "Saved profile"); region == nil || region.Attr("id") != "save-live-region" {
+		t.Fatalf("expected live-region query to find save status, got %#v", region)
+	}
+
+	if field := fixture.ApplyByLabel("Search Catalog"); field.Attr("id") != "search-input" {
+		t.Fatalf("expected ApplyByLabel to return search input, got %#v", field)
+	}
+	if field := fixture.ApplyByDescription("Type to filter"); field.Attr("id") != "search-input" {
+		t.Fatalf("expected ApplyByDescription to return search input, got %#v", field)
+	}
+	if region := fixture.ApplyByLiveRegion("polite", "Saved profile"); region.Attr("id") != "save-live-region" {
+		t.Fatalf("expected ApplyByLiveRegion to return save live region, got %#v", region)
+	}
+	if button := fixture.ApplyByRole("button", "Save"); button.Attr("id") != "primary-button" {
+		t.Fatalf("expected ApplyByRole to return primary button, got %#v", button)
 	}
 }
 
@@ -146,5 +228,94 @@ func TestFixtureQueuedSchedulerClickHelperStabilizesTransitionWork(t *testing.T)
 
 	if got := fixture.ByID("transition-count").Text(); got != "Transition Count: 1" {
 		t.Fatalf("expected queued click helper to stabilize transition work, got %q", got)
+	}
+}
+
+// TestFixtureOverlayHelpersTrackStackAndOutsideDismiss validates overlay helper coverage for portal-backed stacks.
+func TestFixtureOverlayHelpersTrackStackAndOutsideDismiss(t *testing.T) {
+	fixture := New(t)
+	fixture.Render(ui.CreateElement(overlayHarnessApp))
+
+	if surfaces := fixture.BuildOverlaySurfaces(); len(surfaces) != 0 {
+		t.Fatalf("expected no overlays before opening, got %+v", surfaces)
+	}
+
+	fixture.ClickByID("open-parent")
+	fixture.ClickByID("open-child")
+
+	surfaces := fixture.BuildOverlaySurfaces()
+	if len(surfaces) != 2 {
+		t.Fatalf("expected two overlay surfaces, got %+v", surfaces)
+	}
+	if fixture.BuildOverlayEscapeSurfaceID() != "child-overlay" {
+		t.Fatalf("expected child overlay to own escape handling, got %q", fixture.BuildOverlayEscapeSurfaceID())
+	}
+	if fixture.BuildOverlayOutsideSurfaceID() != "child-overlay" {
+		t.Fatalf("expected child overlay to own outside-click handling, got %q", fixture.BuildOverlayOutsideSurfaceID())
+	}
+	if fixture.BuildOverlayFocusSurfaceID() != "child-overlay" {
+		t.Fatalf("expected child overlay to own trap focus, got %q", fixture.BuildOverlayFocusSurfaceID())
+	}
+	if fixture.BuildOverlayPortalTargetID("parent-overlay") != "portal-root" || fixture.BuildOverlayPortalTargetID("child-overlay") != "portal-root" {
+		t.Fatalf("expected both overlays to render into portal-root, got parent=%q child=%q", fixture.BuildOverlayPortalTargetID("parent-overlay"), fixture.BuildOverlayPortalTargetID("child-overlay"))
+	}
+	if !fixture.BuildOverlayScrollLockActive() {
+		t.Fatalf("expected scroll lock helper to report active while overlays are open; overflow=%q surfaces=%+v", fixture.BuildOverlayBodyOverflow(), surfaces)
+	}
+
+	if !fixture.HandleOverlayOutsideClick("child-overlay") {
+		t.Fatal("expected child overlay outside-click helper to dispatch through backdrop")
+	}
+	if fixture.ByID("child-overlay") != nil {
+		t.Fatalf("expected child overlay to close after outside click")
+	}
+	if fixture.ByID("parent-overlay") == nil {
+		t.Fatalf("expected parent overlay to remain open after child outside click")
+	}
+	if fixture.BuildOverlayEscapeSurfaceID() != "parent-overlay" || fixture.BuildOverlayFocusSurfaceID() != "parent-overlay" {
+		t.Fatalf("expected parent overlay to inherit top ownership after child dismissal, got escape=%q focus=%q", fixture.BuildOverlayEscapeSurfaceID(), fixture.BuildOverlayFocusSurfaceID())
+	}
+
+	if !fixture.HandleOverlayOutsideClick("parent-overlay") {
+		t.Fatal("expected parent overlay outside-click helper to dispatch through backdrop")
+	}
+	if fixture.ByID("parent-overlay") != nil {
+		t.Fatalf("expected parent overlay to close after outside click")
+	}
+	if fixture.BuildOverlayScrollLockActive() {
+		t.Fatalf("expected scroll lock helper to report inactive after all overlays close; overflow=%q surfaces=%+v", fixture.BuildOverlayBodyOverflow(), fixture.BuildOverlaySurfaces())
+	}
+}
+
+func TestFixtureDiagnosticsAndLogsHelpersExposeStructuredAssertions(t *testing.T) {
+	fixture := New(t)
+	fixture.Render(ui.CreateElement(staticHarnessApp))
+
+	runtime.ReportDiagnostic("runtime", runtime.DiagnosticWarning, "hydration fell back to client rendering for <div>: DOM node <span> did not match expected <div>")
+	runtime.ReportLogWithFields("router", runtime.LogError, runtime.DiagnosticCorrectness, "route loader failed", "", nil)
+
+	diagnostics := fixture.BuildDiagnostics()
+	if len(diagnostics) == 0 {
+		t.Fatalf("expected diagnostics helper to expose runtime diagnostics")
+	}
+	logs := fixture.BuildLogs()
+	if len(logs) == 0 {
+		t.Fatalf("expected logs helper to expose runtime logs")
+	}
+
+	diagnostic := fixture.ApplyDiagnosticCode("GWC-HYDRATION-FALLBACK")
+	if diagnostic.Source != "runtime" || !diagnostic.Recoverable {
+		t.Fatalf("expected hydration fallback diagnostic metadata, got %+v", diagnostic)
+	}
+	if match := fixture.ApplyDiagnosticMessage("hydration fell back"); match.Code != "GWC-HYDRATION-FALLBACK" {
+		t.Fatalf("expected diagnostic message assertion to resolve hydration fallback code, got %+v", match)
+	}
+
+	log := fixture.ApplyLogCode("GWC-ROUTER-LOADER-FAILED")
+	if log.Domain != "router" || log.Level != string(runtime.LogError) {
+		t.Fatalf("expected router loader log metadata, got %+v", log)
+	}
+	if match := fixture.ApplyLogMessage("route loader failed"); match.Code != "GWC-ROUTER-LOADER-FAILED" {
+		t.Fatalf("expected log message assertion to resolve loader failure code, got %+v", match)
 	}
 }

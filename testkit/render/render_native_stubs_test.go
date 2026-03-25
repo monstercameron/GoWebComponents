@@ -11,6 +11,9 @@ func TestWithQueuedSchedulerOptionMutatesConfig(t *testing.T) {
 	if cfg.synchronous {
 		t.Fatalf("expected queued scheduler option to disable synchronous mode")
 	}
+	if contract := ParallelSafetyContract(); contract == "" {
+		t.Fatalf("expected non-empty parallel safety contract message")
+	}
 }
 
 func TestNativeFixtureAndQueryNodeStubMethods(t *testing.T) {
@@ -26,6 +29,20 @@ func TestNativeFixtureAndQueryNodeStubMethods(t *testing.T) {
 	fixture.InputByID("row-1", "input")
 	fixture.ChangeByID("row-1", "change")
 	fixture.SubmitByID("form-1")
+	fixture.BuildOverlaySurfaces()
+	fixture.BuildOverlayEscapeSurfaceID()
+	fixture.BuildOverlayOutsideSurfaceID()
+	fixture.BuildOverlayFocusSurfaceID()
+	fixture.BuildOverlayScrollLockActive()
+	fixture.BuildOverlayBodyOverflow()
+	fixture.BuildOverlayPortalTargetID("overlay")
+	fixture.HandleOverlayOutsideClick("overlay")
+	fixture.BuildDiagnostics()
+	fixture.BuildLogs()
+	fixture.ApplyDiagnosticCode("GWC-EXAMPLE")
+	fixture.ApplyDiagnosticMessage("example")
+	fixture.ApplyLogCode("GWC-EXAMPLE")
+	fixture.ApplyLogMessage("example")
 
 	if fixture.Container() != nil {
 		t.Fatalf("expected nil container node in native stub")
@@ -36,11 +53,27 @@ func TestNativeFixtureAndQueryNodeStubMethods(t *testing.T) {
 	if fixture.ByRole("button", "save") != nil || len(fixture.AllByRole("button")) != 0 {
 		t.Fatalf("expected no role matches in native stub")
 	}
+	if fixture.ByLabel("Search Catalog") != nil || fixture.ByDescription("Type to filter") != nil || fixture.ByLiveRegion("polite", "Saved") != nil {
+		t.Fatalf("expected no accessibility-first query matches in native stub")
+	}
+	if fixture.ApplyByRole("button", "save") != nil || fixture.ApplyByLabel("Search Catalog") != nil || fixture.ApplyByDescription("Type to filter") != nil || fixture.ApplyByLiveRegion("polite", "Saved") != nil {
+		t.Fatalf("expected no accessibility-first assertion matches in native stub")
+	}
 	if fixture.ByID("row-1") != nil || fixture.ByText("save") != nil || len(fixture.AllByTag("div")) != 0 {
 		t.Fatalf("expected no node matches in native stub")
 	}
 	if fixture.Text() != "" {
 		t.Fatalf("expected empty fixture text in native stub")
+	}
+	if len(fixture.BuildOverlaySurfaces()) != 0 || fixture.BuildOverlayEscapeSurfaceID() != "" || fixture.BuildOverlayOutsideSurfaceID() != "" || fixture.BuildOverlayFocusSurfaceID() != "" || fixture.BuildOverlayScrollLockActive() || fixture.BuildOverlayBodyOverflow() != "" || fixture.BuildOverlayPortalTargetID("overlay") != "" || fixture.HandleOverlayOutsideClick("overlay") {
+		t.Fatalf("expected empty overlay helper defaults in native stub")
+	}
+	diagnosticCode := fixture.ApplyDiagnosticCode("GWC-EXAMPLE")
+	diagnosticMessage := fixture.ApplyDiagnosticMessage("example")
+	logCode := fixture.ApplyLogCode("GWC-EXAMPLE")
+	logMessage := fixture.ApplyLogMessage("example")
+	if len(fixture.BuildDiagnostics()) != 0 || len(fixture.BuildLogs()) != 0 || diagnosticCode.Code != "" || diagnosticCode.Message != "" || len(diagnosticCode.ComponentStack) != 0 || len(diagnosticCode.Fields) != 0 || diagnosticMessage.Code != "" || diagnosticMessage.Message != "" || len(diagnosticMessage.ComponentStack) != 0 || len(diagnosticMessage.Fields) != 0 || logCode.Code != "" || logCode.Message != "" || len(logCode.Fields) != 0 || logMessage.Code != "" || logMessage.Message != "" || len(logMessage.Fields) != 0 {
+		t.Fatalf("expected empty diagnostics and logs helper defaults in native stub")
 	}
 
 	node := &QueryNode{}
@@ -60,4 +93,3 @@ func TestNativeFixtureAndQueryNodeStubMethods(t *testing.T) {
 		t.Fatalf("expected nil children in native query node")
 	}
 }
-

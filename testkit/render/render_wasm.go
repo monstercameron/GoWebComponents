@@ -4,6 +4,8 @@
 package render
 
 import (
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall/js"
@@ -29,7 +31,57 @@ type Event struct {
 	KeyCode int
 }
 
-var fixtureMu sync.Mutex
+// OverlaySurface describes one rendered overlay surface snapshot.
+type OverlaySurface struct {
+	SurfaceID           string
+	Kind                string
+	Depth               int
+	HandlesEscape       bool
+	HandlesOutsideClick bool
+	TrapFocusOwner      bool
+	IsModal             bool
+	PortalTargetID      string
+}
+
+// DiagnosticSignal describes one runtime diagnostic entry exposed by the fixture.
+type DiagnosticSignal struct {
+	Source         string
+	Severity       string
+	Classification string
+	Code           string
+	Message        string
+	Count          int
+	Path           string
+	Recoverable    bool
+	TopFrame       string
+	Consequence    string
+	ComponentStack []string
+	Fields         map[string]string
+}
+
+// LogSignal describes one buffered runtime log entry exposed by the fixture.
+type LogSignal struct {
+	Domain         string
+	Level          string
+	Classification string
+	Code           string
+	Message        string
+	Timestamp      string
+	CorrelationID  string
+	Recoverable    bool
+	TopFrame       string
+	Consequence    string
+	Fields         map[string]string
+}
+
+var fixtureGate = make(chan struct{}, 1)
+
+const parallelSafetyContract = "testkit/render fixtures are process-global on js/wasm; keep fixture-owning tests sequential and avoid t.Parallel while a fixture is active"
+
+// ParallelSafetyContract returns the explicit js/wasm fixture parallel-safety contract.
+func ParallelSafetyContract() string {
+	return parallelSafetyContract
+}
 
 // WithQueuedScheduler configures the harness to queue work until Flush is called.
 func WithQueuedScheduler() Option {
@@ -67,7 +119,7 @@ func New(tb testing.TB, options ...Option) *Fixture {
 		}
 	}
 
-	fixtureMu.Lock()
+	applyFixtureOwnership(tb)
 	adapter := mockdom.NewMockDOMAdapter()
 	scheduler := mockdom.NewMockScheduler(cfg.synchronous)
 	container, _ := adapter.CreateElement("div").(*mockdom.MockDOMNode)
@@ -138,7 +190,7 @@ func (f *Fixture) Cleanup() {
 	f.adapter = nil
 	f.scheduler = nil
 	f.unlock.Do(func() {
-		fixtureMu.Unlock()
+		clearFixtureOwnership()
 	})
 }
 
@@ -190,6 +242,96 @@ func (f *Fixture) AllByRole(role string) []*QueryNode {
 		result = append(result, f.wrap(match))
 	}
 	return result
+}
+
+// ByLabel returns the first interactive node whose accessible label matches.
+func (f *Fixture) ByLabel(label string) *QueryNode {
+	if f == nil || f.container == nil {
+		return nil
+	}
+	parseLabel := normalizeText(label)
+	return f.wrap(findNode(f.container, func(parseNode *mockdom.MockDOMNode) bool {
+		if parseNode == nil || nodeRole(parseNode) == "" {
+			return false
+		}
+		return normalizeText(accessibleName(f.container, parseNode)) == parseLabel
+	}))
+}
+
+// ByDescription returns the first interactive node whose accessible description matches.
+func (f *Fixture) ByDescription(description string) *QueryNode {
+	if f == nil || f.container == nil {
+		return nil
+	}
+	parseDescription := normalizeText(description)
+	return f.wrap(findNode(f.container, func(parseNode *mockdom.MockDOMNode) bool {
+		if parseNode == nil || nodeRole(parseNode) == "" {
+			return false
+		}
+		return normalizeText(accessibleDescription(f.container, parseNode)) == parseDescription
+	}))
+}
+
+// ByLiveRegion returns the first live-region node matching politeness and optional text.
+func (f *Fixture) ByLiveRegion(politeness string, text string) *QueryNode {
+	if f == nil || f.container == nil {
+		return nil
+	}
+	parsePoliteness := normalizeText(politeness)
+	parseText := normalizeText(text)
+	return f.wrap(findNode(f.container, func(parseNode *mockdom.MockDOMNode) bool {
+		parseLive := normalizeText(nodeLivePoliteness(parseNode))
+		if parseLive == "" {
+			return false
+		}
+		if parsePoliteness != "" && parseLive != parsePoliteness {
+			return false
+		}
+		if parseText == "" {
+			return true
+		}
+		return normalizeText(nodeText(parseNode)) == parseText
+	}))
+}
+
+// ApplyByRole asserts one role query match and returns the node.
+func (f *Fixture) ApplyByRole(role string, name string) *QueryNode {
+	f.tb.Helper()
+	parseMatch := f.ByRole(role, name)
+	if parseMatch == nil {
+		f.tb.Fatalf("render fixture could not find role=%q name=%q", role, name)
+	}
+	return parseMatch
+}
+
+// ApplyByLabel asserts one label query match and returns the node.
+func (f *Fixture) ApplyByLabel(label string) *QueryNode {
+	f.tb.Helper()
+	parseMatch := f.ByLabel(label)
+	if parseMatch == nil {
+		f.tb.Fatalf("render fixture could not find label=%q", label)
+	}
+	return parseMatch
+}
+
+// ApplyByDescription asserts one description query match and returns the node.
+func (f *Fixture) ApplyByDescription(description string) *QueryNode {
+	f.tb.Helper()
+	parseMatch := f.ByDescription(description)
+	if parseMatch == nil {
+		f.tb.Fatalf("render fixture could not find description=%q", description)
+	}
+	return parseMatch
+}
+
+// ApplyByLiveRegion asserts one live-region query match and returns the node.
+func (f *Fixture) ApplyByLiveRegion(politeness string, text string) *QueryNode {
+	f.tb.Helper()
+	parseMatch := f.ByLiveRegion(politeness, text)
+	if parseMatch == nil {
+		f.tb.Fatalf("render fixture could not find live region politeness=%q text=%q", politeness, text)
+	}
+	return parseMatch
 }
 
 // ByID returns the first node with the requested id attribute.
@@ -264,6 +406,225 @@ func (f *Fixture) ChangeByID(id string, value string) {
 // SubmitByID invokes the matched node's `onsubmit` handler and settles the fixture.
 func (f *Fixture) SubmitByID(id string) {
 	f.DispatchByID(id, "onsubmit", Event{})
+}
+
+// BuildOverlaySurfaces returns all rendered overlay surfaces sorted by depth.
+func (f *Fixture) BuildOverlaySurfaces() []OverlaySurface {
+	if f == nil || f.container == nil {
+		return nil
+	}
+	parseMatches := collectNodes(f.container, func(parseNode *mockdom.MockDOMNode) bool {
+		return strings.TrimSpace(parseNode.Attrs["data-overlay-kind"]) != ""
+	})
+	if len(parseMatches) == 0 {
+		return nil
+	}
+	parseSurfaces := make([]OverlaySurface, 0, len(parseMatches))
+	for _, parseNode := range parseMatches {
+		parseSurfaces = append(parseSurfaces, OverlaySurface{
+			SurfaceID:           strings.TrimSpace(parseNode.Attrs["id"]),
+			Kind:                strings.TrimSpace(parseNode.Attrs["data-overlay-kind"]),
+			Depth:               buildOverlayInt(parseNode.Attrs["data-overlay-depth"]),
+			HandlesEscape:       buildOverlayBool(parseNode.Attrs["data-overlay-handles-escape"]),
+			HandlesOutsideClick: buildOverlayBool(parseNode.Attrs["data-overlay-handles-outside"]),
+			TrapFocusOwner:      buildOverlayBool(parseNode.Attrs["data-overlay-trap-owner"]),
+			IsModal:             strings.EqualFold(strings.TrimSpace(parseNode.Attrs["aria-modal"]), "true"),
+			PortalTargetID:      buildOverlayPortalTargetID(parseNode),
+		})
+	}
+	sort.SliceStable(parseSurfaces, func(parseLeft, parseRight int) bool {
+		if parseSurfaces[parseLeft].Depth == parseSurfaces[parseRight].Depth {
+			return parseSurfaces[parseLeft].SurfaceID < parseSurfaces[parseRight].SurfaceID
+		}
+		return parseSurfaces[parseLeft].Depth < parseSurfaces[parseRight].Depth
+	})
+	return parseSurfaces
+}
+
+// BuildOverlayEscapeSurfaceID returns the topmost escape-handling overlay surface id.
+func (f *Fixture) BuildOverlayEscapeSurfaceID() string {
+	return buildOverlayOwnerSurfaceID(f.BuildOverlaySurfaces(), func(parseSurface OverlaySurface) bool {
+		return parseSurface.HandlesEscape
+	})
+}
+
+// BuildOverlayOutsideSurfaceID returns the topmost outside-click-handling overlay surface id.
+func (f *Fixture) BuildOverlayOutsideSurfaceID() string {
+	return buildOverlayOwnerSurfaceID(f.BuildOverlaySurfaces(), func(parseSurface OverlaySurface) bool {
+		return parseSurface.HandlesOutsideClick
+	})
+}
+
+// BuildOverlayFocusSurfaceID returns the topmost trap-focus owner overlay surface id.
+func (f *Fixture) BuildOverlayFocusSurfaceID() string {
+	return buildOverlayOwnerSurfaceID(f.BuildOverlaySurfaces(), func(parseSurface OverlaySurface) bool {
+		return parseSurface.TrapFocusOwner
+	})
+}
+
+// BuildOverlayScrollLockActive reports whether overlay-driven scroll lock is active.
+func (f *Fixture) BuildOverlayScrollLockActive() bool {
+	parseOverflow := strings.TrimSpace(f.BuildOverlayBodyOverflow())
+	if strings.EqualFold(parseOverflow, "hidden") {
+		return true
+	}
+	for _, parseSurface := range f.BuildOverlaySurfaces() {
+		if parseSurface.IsModal {
+			return true
+		}
+	}
+	return false
+}
+
+// BuildOverlayBodyOverflow reports the current browser document body overflow style.
+func (f *Fixture) BuildOverlayBodyOverflow() string {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
+		return ""
+	}
+	parseBody := parseDocument.Get("body")
+	if !parseBody.Truthy() {
+		return ""
+	}
+	parseStyle := parseBody.Get("style")
+	if !parseStyle.Truthy() {
+		return ""
+	}
+	return strings.TrimSpace(parseStyle.Get("overflow").String())
+}
+
+// BuildOverlayPortalTargetID resolves one overlay surface to the nearest ancestor id.
+func (f *Fixture) BuildOverlayPortalTargetID(surfaceID string) string {
+	if f == nil || f.container == nil {
+		return ""
+	}
+	parseSurface := findNode(f.container, func(parseNode *mockdom.MockDOMNode) bool {
+		return strings.TrimSpace(parseNode.Attrs["id"]) == strings.TrimSpace(surfaceID) && strings.TrimSpace(parseNode.Attrs["data-overlay-kind"]) != ""
+	})
+	if parseSurface == nil {
+		return ""
+	}
+	return buildOverlayPortalTargetID(parseSurface)
+}
+
+// HandleOverlayOutsideClick dispatches one outside-click dismissal through the overlay backdrop.
+func (f *Fixture) HandleOverlayOutsideClick(surfaceID string) bool {
+	f.tb.Helper()
+	f.requireActive()
+	parseSurface := findNode(f.container, func(parseNode *mockdom.MockDOMNode) bool {
+		return strings.TrimSpace(parseNode.Attrs["id"]) == strings.TrimSpace(surfaceID) && strings.TrimSpace(parseNode.Attrs["data-overlay-kind"]) != ""
+	})
+	if parseSurface == nil || parseSurface.Parent == nil {
+		return false
+	}
+	if parseSurface.Parent.Props["onclick"] == nil {
+		return false
+	}
+	f.dispatch(parseSurface.Parent, "onclick", Event{})
+	return true
+}
+
+// BuildDiagnostics returns structured runtime diagnostics captured for this fixture run.
+func (f *Fixture) BuildDiagnostics() []DiagnosticSignal {
+	parseDiagnostics := runtime.GetDiagnostics()
+	if len(parseDiagnostics) == 0 {
+		return nil
+	}
+	parseSignals := make([]DiagnosticSignal, 0, len(parseDiagnostics))
+	for _, parseDiagnostic := range parseDiagnostics {
+		parseSignals = append(parseSignals, DiagnosticSignal{
+			Source:         parseDiagnostic.Source,
+			Severity:       string(parseDiagnostic.Severity),
+			Classification: string(parseDiagnostic.Classification),
+			Code:           parseDiagnostic.Code,
+			Message:        parseDiagnostic.Message,
+			Count:          parseDiagnostic.Count,
+			Path:           parseDiagnostic.Path,
+			Recoverable:    parseDiagnostic.Recoverable,
+			TopFrame:       parseDiagnostic.TopFrame,
+			Consequence:    parseDiagnostic.Consequence,
+			ComponentStack: append([]string(nil), parseDiagnostic.ComponentStack...),
+			Fields:         cloneSignalFields(parseDiagnostic.Fields),
+		})
+	}
+	return parseSignals
+}
+
+// BuildLogs returns buffered runtime logs captured for this fixture run.
+func (f *Fixture) BuildLogs() []LogSignal {
+	parseLogs := runtime.GetLogs()
+	if len(parseLogs) == 0 {
+		return nil
+	}
+	parseSignals := make([]LogSignal, 0, len(parseLogs))
+	for _, parseLog := range parseLogs {
+		parseSignals = append(parseSignals, LogSignal{
+			Domain:         parseLog.Domain,
+			Level:          string(parseLog.Level),
+			Classification: string(parseLog.Classification),
+			Code:           parseLog.Code,
+			Message:        parseLog.Message,
+			Timestamp:      parseLog.Timestamp,
+			CorrelationID:  parseLog.CorrelationID,
+			Recoverable:    parseLog.Recoverable,
+			TopFrame:       parseLog.TopFrame,
+			Consequence:    parseLog.Consequence,
+			Fields:         cloneSignalFields(parseLog.Fields),
+		})
+	}
+	return parseSignals
+}
+
+// ApplyDiagnosticCode asserts that one diagnostic with the requested code exists.
+func (f *Fixture) ApplyDiagnosticCode(code string) DiagnosticSignal {
+	f.tb.Helper()
+	parseCode := strings.TrimSpace(code)
+	for _, parseDiagnostic := range f.BuildDiagnostics() {
+		if strings.TrimSpace(parseDiagnostic.Code) == parseCode {
+			return parseDiagnostic
+		}
+	}
+	f.tb.Fatalf("render fixture could not find diagnostic code %q", parseCode)
+	return DiagnosticSignal{}
+}
+
+// ApplyDiagnosticMessage asserts that one diagnostic message contains the provided fragment.
+func (f *Fixture) ApplyDiagnosticMessage(fragment string) DiagnosticSignal {
+	f.tb.Helper()
+	parseFragment := strings.TrimSpace(fragment)
+	for _, parseDiagnostic := range f.BuildDiagnostics() {
+		if strings.Contains(parseDiagnostic.Message, parseFragment) {
+			return parseDiagnostic
+		}
+	}
+	f.tb.Fatalf("render fixture could not find diagnostic message fragment %q", parseFragment)
+	return DiagnosticSignal{}
+}
+
+// ApplyLogCode asserts that one buffered log with the requested code exists.
+func (f *Fixture) ApplyLogCode(code string) LogSignal {
+	f.tb.Helper()
+	parseCode := strings.TrimSpace(code)
+	for _, parseLog := range f.BuildLogs() {
+		if strings.TrimSpace(parseLog.Code) == parseCode {
+			return parseLog
+		}
+	}
+	f.tb.Fatalf("render fixture could not find log code %q", parseCode)
+	return LogSignal{}
+}
+
+// ApplyLogMessage asserts that one buffered log message contains the provided fragment.
+func (f *Fixture) ApplyLogMessage(fragment string) LogSignal {
+	f.tb.Helper()
+	parseFragment := strings.TrimSpace(fragment)
+	for _, parseLog := range f.BuildLogs() {
+		if strings.Contains(parseLog.Message, parseFragment) {
+			return parseLog
+		}
+	}
+	f.tb.Fatalf("render fixture could not find log message fragment %q", parseFragment)
+	return LogSignal{}
 }
 
 // Exists reports whether the node wrapper points at a real node.
@@ -533,6 +894,55 @@ func accessibleName(root *mockdom.MockDOMNode, node *mockdom.MockDOMNode) string
 	return normalizeText(nodeText(node))
 }
 
+// accessibleDescription resolves the accessible description for one node.
+func accessibleDescription(root *mockdom.MockDOMNode, node *mockdom.MockDOMNode) string {
+	if node == nil {
+		return ""
+	}
+	if description := normalizeText(node.Attrs["aria-description"]); description != "" {
+		return description
+	}
+	if refs := normalizeText(node.Attrs["aria-describedby"]); refs != "" {
+		parseParts := make([]string, 0)
+		for _, parseRef := range strings.Fields(refs) {
+			parseTarget := findNode(root, func(parseCandidate *mockdom.MockDOMNode) bool {
+				return parseCandidate != nil && parseCandidate.Attrs["id"] == parseRef
+			})
+			if parseTarget == nil {
+				continue
+			}
+			parseText := normalizeText(nodeText(parseTarget))
+			if parseText != "" {
+				parseParts = append(parseParts, parseText)
+			}
+		}
+		if len(parseParts) > 0 {
+			return strings.Join(parseParts, " ")
+		}
+	}
+	return ""
+}
+
+// nodeLivePoliteness resolves the live-region politeness for one node.
+func nodeLivePoliteness(node *mockdom.MockDOMNode) string {
+	if node == nil {
+		return ""
+	}
+	if parseLive := normalizeText(node.Attrs["aria-live"]); parseLive != "" {
+		if parseLive == "off" {
+			return ""
+		}
+		return parseLive
+	}
+	switch normalizeText(nodeRole(node)) {
+	case "status", "log":
+		return "polite"
+	case "alert":
+		return "assertive"
+	}
+	return ""
+}
+
 func (e Event) apply(node *mockdom.MockDOMNode) {
 	if node == nil {
 		return
@@ -559,4 +969,72 @@ func (e Event) syntheticValue() js.Value {
 	event.Set("key", e.Key)
 	event.Set("keyCode", e.KeyCode)
 	return event
+}
+
+// buildOverlayBool parses one overlay boolean attribute value.
+func buildOverlayBool(value string) bool {
+	return strings.EqualFold(strings.TrimSpace(value), "true")
+}
+
+// buildOverlayInt parses one overlay integer attribute value.
+func buildOverlayInt(value string) int {
+	parseParsed, parseErr := strconv.Atoi(strings.TrimSpace(value))
+	if parseErr != nil {
+		return 0
+	}
+	return parseParsed
+}
+
+// buildOverlayOwnerSurfaceID resolves the topmost overlay id for one ownership selector.
+func buildOverlayOwnerSurfaceID(parseSurfaces []OverlaySurface, parseMatch func(OverlaySurface) bool) string {
+	for parseIndex := len(parseSurfaces) - 1; parseIndex >= 0; parseIndex-- {
+		if parseMatch(parseSurfaces[parseIndex]) {
+			return parseSurfaces[parseIndex].SurfaceID
+		}
+	}
+	return ""
+}
+
+// buildOverlayPortalTargetID resolves the nearest ancestor id for one overlay node.
+func buildOverlayPortalTargetID(parseSurface *mockdom.MockDOMNode) string {
+	if parseSurface == nil {
+		return ""
+	}
+	for parseParent := parseSurface.Parent; parseParent != nil; parseParent = parseParent.Parent {
+		parseID := strings.TrimSpace(parseParent.Attrs["id"])
+		if parseID != "" {
+			return parseID
+		}
+	}
+	return ""
+}
+
+// cloneSignalFields clones one log or diagnostic field map.
+func cloneSignalFields(values map[string]string) map[string]string {
+	if len(values) == 0 {
+		return map[string]string{}
+	}
+	cloned := make(map[string]string, len(values))
+	for key, value := range values {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+// applyFixtureOwnership claims exclusive fixture ownership for this test process.
+func applyFixtureOwnership(tb testing.TB) {
+	tb.Helper()
+	select {
+	case fixtureGate <- struct{}{}:
+	default:
+		tb.Fatalf("render fixture ownership contention: %s", ParallelSafetyContract())
+	}
+}
+
+// clearFixtureOwnership releases exclusive fixture ownership for this test process.
+func clearFixtureOwnership() {
+	select {
+	case <-fixtureGate:
+	default:
+	}
 }

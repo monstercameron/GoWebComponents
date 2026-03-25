@@ -106,6 +106,29 @@ func RoundTripHydrate(tb testing.TB, root ui.Node, options ...HydrationOptions) 
 	return harness
 }
 
+// RoundTripHydrateMismatch seeds mutated server markup before hydration to force mismatch paths.
+func RoundTripHydrateMismatch(tb testing.TB, root ui.Node, buildMutate func(string) string, options ...HydrationOptions) *HydrationHarness {
+	tb.Helper()
+	parseMarkup, parseErr := ui.RenderToString(root)
+	if parseErr != nil {
+		tb.Fatalf("ssr.RoundTripHydrateMismatch failed to render server markup: %v", parseErr)
+	}
+	parseMutate := buildMutate
+	if parseMutate == nil {
+		parseMutate = buildHydrationMismatchMarkup
+	}
+	parseMutated := strings.TrimSpace(parseMutate(parseMarkup))
+	if parseMutated == "" {
+		parseMutated = buildHydrationMismatchMarkup(parseMarkup)
+	}
+	parseResolved := HydrationOptions{Markup: parseMutated}
+	if len(options) > 0 {
+		parseResolved = options[0]
+		parseResolved.Markup = parseMutated
+	}
+	return RoundTripHydrate(tb, root, parseResolved)
+}
+
 func (h *HydrationHarness) ByID(id string) *render.QueryNode {
 	if h == nil || h.fixture == nil {
 		return nil
@@ -136,4 +159,16 @@ func (h *HydrationHarness) Cleanup() {
 		h.fixture.Cleanup()
 		h.fixture = nil
 	}
+}
+
+// buildHydrationMismatchMarkup mutates one rendered markup string for mismatch testing.
+func buildHydrationMismatchMarkup(markup string) string {
+	parseMarkup := strings.TrimSpace(markup)
+	if parseMarkup == "" {
+		return `<div data-gwc-hydration-mismatch="server">server-mismatch</div>`
+	}
+	if strings.Contains(parseMarkup, ">") {
+		return strings.Replace(parseMarkup, ">", ` data-gwc-hydration-mismatch="server">`, 1)
+	}
+	return parseMarkup + `<!--gwc-hydration-mismatch-->`
 }

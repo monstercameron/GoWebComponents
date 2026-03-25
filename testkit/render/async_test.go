@@ -3,6 +3,7 @@ package render
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -110,3 +111,36 @@ func TestResourceControllerNilReceiverAndLoader(t *testing.T) {
 	}
 }
 
+func TestResourceControllerFailureInjectionHelpers(t *testing.T) {
+	controller := NewResourceController[string]()
+
+	cacheResult := awaitAsync(controller, context.Background())
+	requireStartedIndex(t, controller, 1)
+	controller.RejectCacheConflict("cart:42")
+	if err := (<-cacheResult).err; err == nil || !strings.Contains(err.Error(), FailureCodeCacheConflict) {
+		t.Fatalf("expected cache conflict failure code in error, got %v", err)
+	}
+
+	replayResult := awaitAsync(controller, context.Background())
+	requireStartedIndex(t, controller, 2)
+	controller.RejectOfflineReplay("mutation:17", "network down")
+	if err := (<-replayResult).err; err == nil || !strings.Contains(err.Error(), FailureCodeOfflineReplay) {
+		t.Fatalf("expected offline replay failure code in error, got %v", err)
+	}
+
+	if message := BuildHydrationMismatchError("/dashboard", "node mismatch").Error(); !strings.Contains(message, FailureCodeHydrationMismatch) || !strings.Contains(message, "path=/dashboard") {
+		t.Fatalf("expected hydration mismatch helper to include code and path, got %q", message)
+	}
+	if message := BuildLoaderFailureError("/orders", "timeout").Error(); !strings.Contains(message, FailureCodeLoaderFailure) || !strings.Contains(message, "path=/orders") {
+		t.Fatalf("expected loader failure helper to include code and path, got %q", message)
+	}
+	if message := BuildRouteGuardFailureError("/billing", "denied").Error(); !strings.Contains(message, FailureCodeRouteGuardFailure) || !strings.Contains(message, "path=/billing") {
+		t.Fatalf("expected route guard failure helper to include code and path, got %q", message)
+	}
+	if message := BuildCacheConflictError("orders:1").Error(); !strings.Contains(message, FailureCodeCacheConflict) || !strings.Contains(message, "entity=orders:1") {
+		t.Fatalf("expected cache conflict helper to include code and entity, got %q", message)
+	}
+	if message := BuildOfflineReplayError("mut-4", "queued").Error(); !strings.Contains(message, FailureCodeOfflineReplay) || !strings.Contains(message, "entity=mut-4") {
+		t.Fatalf("expected offline replay helper to include code and entity, got %q", message)
+	}
+}

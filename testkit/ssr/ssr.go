@@ -1,6 +1,7 @@
 package ssr
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -126,6 +127,99 @@ func (s StructuredSnapshot) JSONLD(id string) string {
 		return ""
 	}
 	return items[0].Content
+}
+
+// ApplyStructuredTitle asserts one parsed title value.
+func (s StructuredSnapshot) ApplyStructuredTitle(tb testing.TB, expected string) {
+	tb.Helper()
+	if s.Title != expected {
+		tb.Fatalf("ssr.StructuredSnapshot title mismatch: expected %q, got %q", expected, s.Title)
+	}
+}
+
+// ApplyStructuredMetaName asserts one parsed meta-name value.
+func (s StructuredSnapshot) ApplyStructuredMetaName(tb testing.TB, name string, expected string) {
+	tb.Helper()
+	got := s.MetaName(name)
+	if got != expected {
+		tb.Fatalf("ssr.StructuredSnapshot meta[name=%q] mismatch: expected %q, got %q", name, expected, got)
+	}
+}
+
+// ApplyStructuredMetaProperty asserts one parsed meta-property value.
+func (s StructuredSnapshot) ApplyStructuredMetaProperty(tb testing.TB, property string, expected string) {
+	tb.Helper()
+	got := s.MetaProperty(property)
+	if got != expected {
+		tb.Fatalf("ssr.StructuredSnapshot meta[property=%q] mismatch: expected %q, got %q", property, expected, got)
+	}
+}
+
+// ApplyStructuredCanonicalURL asserts one parsed canonical URL value.
+func (s StructuredSnapshot) ApplyStructuredCanonicalURL(tb testing.TB, expected string) {
+	tb.Helper()
+	got := s.CanonicalURL()
+	if got != expected {
+		tb.Fatalf("ssr.StructuredSnapshot canonical mismatch: expected %q, got %q", expected, got)
+	}
+}
+
+// ApplyStructuredScriptID asserts one parsed script id is present and returns that script.
+func (s StructuredSnapshot) ApplyStructuredScriptID(tb testing.TB, id string) ScriptTag {
+	tb.Helper()
+	trimmed := strings.TrimSpace(id)
+	if trimmed == "" {
+		tb.Fatal("ssr.StructuredSnapshot.ApplyStructuredScriptID requires a script id")
+	}
+	script, ok := s.ScriptsByID[trimmed]
+	if !ok {
+		tb.Fatalf("ssr.StructuredSnapshot missing script id %q", trimmed)
+	}
+	return script
+}
+
+// ParseStructuredJSONLD decodes one JSON-LD script into a typed map.
+func (s StructuredSnapshot) ParseStructuredJSONLD(tb testing.TB, id string) map[string]any {
+	tb.Helper()
+	payload := strings.TrimSpace(s.JSONLD(id))
+	if payload == "" {
+		tb.Fatalf("ssr.StructuredSnapshot missing JSON-LD payload for id %q", strings.TrimSpace(id))
+	}
+	return parseStructuredJSONObject(tb, payload, "jsonld:"+strings.TrimSpace(id))
+}
+
+// ApplyStructuredJSONLDType asserts one JSON-LD script has the expected `@type` value.
+func (s StructuredSnapshot) ApplyStructuredJSONLDType(tb testing.TB, id string, expected string) {
+	tb.Helper()
+	doc := s.ParseStructuredJSONLD(tb, id)
+	got, _ := doc["@type"].(string)
+	if got != expected {
+		tb.Fatalf("ssr.StructuredSnapshot JSON-LD @type mismatch for id %q: expected %q, got %q", strings.TrimSpace(id), expected, got)
+	}
+}
+
+// ParseStructuredBootstrapScript decodes one inline bootstrap script into a typed map.
+func (s StructuredSnapshot) ParseStructuredBootstrapScript(tb testing.TB, id string) map[string]any {
+	tb.Helper()
+	script := s.ApplyStructuredScriptID(tb, id)
+	if strings.TrimSpace(script.Type) != "application/json" {
+		tb.Fatalf("ssr.StructuredSnapshot bootstrap script %q expected type application/json, got %q", strings.TrimSpace(id), script.Type)
+	}
+	payload := strings.TrimSpace(script.Content)
+	if payload == "" {
+		tb.Fatalf("ssr.StructuredSnapshot bootstrap script %q is empty", strings.TrimSpace(id))
+	}
+	return parseStructuredJSONObject(tb, payload, "bootstrap:"+strings.TrimSpace(id))
+}
+
+// parseStructuredJSONObject decodes one JSON object string for structured assertions.
+func parseStructuredJSONObject(tb testing.TB, payload string, label string) map[string]any {
+	tb.Helper()
+	decoded := map[string]any{}
+	if err := json.Unmarshal([]byte(payload), &decoded); err != nil {
+		tb.Fatalf("ssr.StructuredSnapshot failed to decode %s JSON object: %v (payload=%q)", strings.TrimSpace(label), err, payload)
+	}
+	return decoded
 }
 
 // RequirePayload reads one typed bootstrap payload entry and fails the test if it is missing.

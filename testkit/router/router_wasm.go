@@ -147,6 +147,118 @@ func (f *Fixture) ByText(text string) *render.QueryNode {
 	return f.render.ByText(text)
 }
 
+// ByRole delegates role-first route queries to the rendered route fixture.
+func (f *Fixture) ByRole(role string, name string) *render.QueryNode {
+	if f == nil || f.render == nil {
+		return nil
+	}
+	return f.render.ByRole(role, name)
+}
+
+// AllByRole delegates role collection queries to the rendered route fixture.
+func (f *Fixture) AllByRole(role string) []*render.QueryNode {
+	if f == nil || f.render == nil {
+		return nil
+	}
+	return f.render.AllByRole(role)
+}
+
+// ByLabel delegates accessibility label queries to the rendered route fixture.
+func (f *Fixture) ByLabel(label string) *render.QueryNode {
+	if f == nil || f.render == nil {
+		return nil
+	}
+	return f.render.ByLabel(label)
+}
+
+// ByDescription delegates accessibility description queries to the rendered route fixture.
+func (f *Fixture) ByDescription(description string) *render.QueryNode {
+	if f == nil || f.render == nil {
+		return nil
+	}
+	return f.render.ByDescription(description)
+}
+
+// ByLiveRegion delegates live-region queries to the rendered route fixture.
+func (f *Fixture) ByLiveRegion(politeness string, text string) *render.QueryNode {
+	if f == nil || f.render == nil {
+		return nil
+	}
+	return f.render.ByLiveRegion(politeness, text)
+}
+
+// ApplyByRole delegates role assertions to the rendered route fixture.
+func (f *Fixture) ApplyByRole(role string, name string) *render.QueryNode {
+	if f == nil || f.render == nil {
+		return nil
+	}
+	return f.render.ApplyByRole(role, name)
+}
+
+// ApplyByLabel delegates label assertions to the rendered route fixture.
+func (f *Fixture) ApplyByLabel(label string) *render.QueryNode {
+	if f == nil || f.render == nil {
+		return nil
+	}
+	return f.render.ApplyByLabel(label)
+}
+
+// ApplyByDescription delegates description assertions to the rendered route fixture.
+func (f *Fixture) ApplyByDescription(description string) *render.QueryNode {
+	if f == nil || f.render == nil {
+		return nil
+	}
+	return f.render.ApplyByDescription(description)
+}
+
+// ApplyByLiveRegion delegates live-region assertions to the rendered route fixture.
+func (f *Fixture) ApplyByLiveRegion(politeness string, text string) *render.QueryNode {
+	if f == nil || f.render == nil {
+		return nil
+	}
+	return f.render.ApplyByLiveRegion(politeness, text)
+}
+
+// DispatchByID delegates synthetic event dispatch to the rendered route fixture.
+func (f *Fixture) DispatchByID(id string, property string, event render.Event) {
+	if f == nil || f.render == nil {
+		return
+	}
+	f.render.DispatchByID(id, property, event)
+}
+
+// ClickByID delegates click dispatch to the rendered route fixture.
+func (f *Fixture) ClickByID(id string) {
+	if f == nil || f.render == nil {
+		return
+	}
+	f.render.ClickByID(id)
+}
+
+// InputByID delegates input dispatch to the rendered route fixture.
+func (f *Fixture) InputByID(id string, value string) {
+	if f == nil || f.render == nil {
+		return
+	}
+	f.render.InputByID(id, value)
+}
+
+// ChangeByID delegates change dispatch to the rendered route fixture.
+func (f *Fixture) ChangeByID(id string, value string) {
+	if f == nil || f.render == nil {
+		return
+	}
+	f.render.ChangeByID(id, value)
+}
+
+// SubmitByID delegates submit dispatch to the rendered route fixture.
+func (f *Fixture) SubmitByID(id string) {
+	if f == nil || f.render == nil {
+		return
+	}
+	f.render.SubmitByID(id)
+}
+
 // Text returns the full rendered route text.
 func (f *Fixture) Text() string {
 	if f == nil || f.render == nil {

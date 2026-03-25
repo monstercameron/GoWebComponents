@@ -18,3 +18,7 @@ func WithQueuedScheduler() Option {
 func New(tb stdtesting.TB, options ...Option) *Fixture {
 	return base.New(tb, options...)
 }
+
+func ParallelSafetyContract() string {
+	return base.ParallelSafetyContract()
+}

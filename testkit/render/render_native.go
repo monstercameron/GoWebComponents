@@ -26,6 +26,56 @@ type Event struct {
 	KeyCode int
 }
 
+const parallelSafetyContract = "testkit/render fixtures are process-global on js/wasm; keep fixture-owning tests sequential and avoid t.Parallel while a fixture is active"
+
+// OverlaySurface describes one rendered overlay surface snapshot.
+type OverlaySurface struct {
+	SurfaceID           string
+	Kind                string
+	Depth               int
+	HandlesEscape       bool
+	HandlesOutsideClick bool
+	TrapFocusOwner      bool
+	IsModal             bool
+	PortalTargetID      string
+}
+
+// DiagnosticSignal describes one runtime diagnostic entry exposed by the fixture.
+type DiagnosticSignal struct {
+	Source         string
+	Severity       string
+	Classification string
+	Code           string
+	Message        string
+	Count          int
+	Path           string
+	Recoverable    bool
+	TopFrame       string
+	Consequence    string
+	ComponentStack []string
+	Fields         map[string]string
+}
+
+// LogSignal describes one buffered runtime log entry exposed by the fixture.
+type LogSignal struct {
+	Domain         string
+	Level          string
+	Classification string
+	Code           string
+	Message        string
+	Timestamp      string
+	CorrelationID  string
+	Recoverable    bool
+	TopFrame       string
+	Consequence    string
+	Fields         map[string]string
+}
+
+// ParallelSafetyContract returns the explicit js/wasm fixture parallel-safety contract.
+func ParallelSafetyContract() string {
+	return parallelSafetyContract
+}
+
 // WithQueuedScheduler configures the harness to queue work until Flush is called.
 func WithQueuedScheduler() Option {
 	return func(cfg *config) {
@@ -41,16 +91,27 @@ func New(tb testing.TB, options ...Option) *Fixture {
 	return nil
 }
 
-func (f *Fixture) Render(root interface{})                              {}
-func (f *Fixture) Rerender(root interface{})                            {}
-func (f *Fixture) Flush()                                               {}
-func (f *Fixture) FlushTimers()                                         {}
-func (f *Fixture) Stabilize()                                           {}
-func (f *Fixture) Cleanup()                                             {}
-func (f *Fixture) Container() *QueryNode                                { return nil }
-func (f *Fixture) Target() any                                          { return nil }
-func (f *Fixture) ByRole(role string, name string) *QueryNode           { return nil }
-func (f *Fixture) AllByRole(role string) []*QueryNode                   { return nil }
+func (f *Fixture) Render(root interface{})                     {}
+func (f *Fixture) Rerender(root interface{})                   {}
+func (f *Fixture) Flush()                                      {}
+func (f *Fixture) FlushTimers()                                {}
+func (f *Fixture) Stabilize()                                  {}
+func (f *Fixture) Cleanup()                                    {}
+func (f *Fixture) Container() *QueryNode                       { return nil }
+func (f *Fixture) Target() any                                 { return nil }
+func (f *Fixture) ByRole(role string, name string) *QueryNode  { return nil }
+func (f *Fixture) AllByRole(role string) []*QueryNode          { return nil }
+func (f *Fixture) ByLabel(label string) *QueryNode             { return nil }
+func (f *Fixture) ByDescription(description string) *QueryNode { return nil }
+func (f *Fixture) ByLiveRegion(politeness string, text string) *QueryNode {
+	return nil
+}
+func (f *Fixture) ApplyByRole(role string, name string) *QueryNode  { return nil }
+func (f *Fixture) ApplyByLabel(label string) *QueryNode             { return nil }
+func (f *Fixture) ApplyByDescription(description string) *QueryNode { return nil }
+func (f *Fixture) ApplyByLiveRegion(politeness string, text string) *QueryNode {
+	return nil
+}
 func (f *Fixture) ByID(id string) *QueryNode                            { return nil }
 func (f *Fixture) ByText(text string) *QueryNode                        { return nil }
 func (f *Fixture) AllByTag(tag string) []*QueryNode                     { return nil }
@@ -60,6 +121,24 @@ func (f *Fixture) ClickByID(id string)                                  {}
 func (f *Fixture) InputByID(id string, value string)                    {}
 func (f *Fixture) ChangeByID(id string, value string)                   {}
 func (f *Fixture) SubmitByID(id string)                                 {}
+func (f *Fixture) BuildOverlaySurfaces() []OverlaySurface               { return nil }
+func (f *Fixture) BuildOverlayEscapeSurfaceID() string                  { return "" }
+func (f *Fixture) BuildOverlayOutsideSurfaceID() string                 { return "" }
+func (f *Fixture) BuildOverlayFocusSurfaceID() string                   { return "" }
+func (f *Fixture) BuildOverlayScrollLockActive() bool                   { return false }
+func (f *Fixture) BuildOverlayBodyOverflow() string                     { return "" }
+func (f *Fixture) BuildOverlayPortalTargetID(surfaceID string) string   { return "" }
+func (f *Fixture) HandleOverlayOutsideClick(surfaceID string) bool      { return false }
+func (f *Fixture) BuildDiagnostics() []DiagnosticSignal                 { return nil }
+func (f *Fixture) BuildLogs() []LogSignal                               { return nil }
+func (f *Fixture) ApplyDiagnosticCode(code string) DiagnosticSignal     { return DiagnosticSignal{} }
+func (f *Fixture) ApplyDiagnosticMessage(fragment string) DiagnosticSignal {
+	return DiagnosticSignal{}
+}
+func (f *Fixture) ApplyLogCode(code string) LogSignal { return LogSignal{} }
+func (f *Fixture) ApplyLogMessage(fragment string) LogSignal {
+	return LogSignal{}
+}
 
 func (n *QueryNode) Exists() bool                          { return false }
 func (n *QueryNode) Tag() string                           { return "" }

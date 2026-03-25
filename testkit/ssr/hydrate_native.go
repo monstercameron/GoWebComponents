@@ -24,3 +24,10 @@ func RoundTripHydrate(tb testing.TB, root interface{}, options ...HydrationOptio
 	tb.Fatalf("testkit/ssr RoundTripHydrate requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
 	return nil
 }
+
+// RoundTripHydrateMismatch requires a js/wasm test environment.
+func RoundTripHydrateMismatch(tb testing.TB, root interface{}, buildMutate func(string) string, options ...HydrationOptions) *HydrationHarness {
+	tb.Helper()
+	tb.Fatalf("testkit/ssr RoundTripHydrateMismatch requires js/wasm tests; run go test with a js/wasm executor such as .\\tools\\go_js_wasm_exec.bat on Windows")
+	return nil
+}

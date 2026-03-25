@@ -2,8 +2,37 @@ package render
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"sync"
 )
+
+const (
+	FailureCodeHydrationMismatch = "hydration_mismatch"
+	FailureCodeLoaderFailure     = "loader_failure"
+	FailureCodeRouteGuardFailure = "route_guard_failure"
+	FailureCodeCacheConflict     = "cache_conflict"
+	FailureCodeOfflineReplay     = "offline_replay"
+)
+
+// FailureError represents one deterministic failure-injection error payload.
+type FailureError struct {
+	Code    string
+	Message string
+}
+
+// Error returns the printable failure-injection error message.
+func (e FailureError) Error() string {
+	parseCode := strings.TrimSpace(e.Code)
+	parseMessage := strings.TrimSpace(e.Message)
+	if parseCode == "" {
+		parseCode = "failure"
+	}
+	if parseMessage == "" {
+		return parseCode
+	}
+	return fmt.Sprintf("%s: %s", parseCode, parseMessage)
+}
 
 type ResourceAttempt struct {
 	Index     int
@@ -89,6 +118,22 @@ func (c *ResourceController[T]) Reject(err error) {
 	c.finish(resourceOutcome[T]{err: err})
 }
 
+// RejectCacheConflict completes the current pending attempt with a cache-conflict failure.
+func (c *ResourceController[T]) RejectCacheConflict(entity string) {
+	if c == nil {
+		return
+	}
+	c.Reject(BuildCacheConflictError(entity))
+}
+
+// RejectOfflineReplay completes the current pending attempt with an offline-replay failure.
+func (c *ResourceController[T]) RejectOfflineReplay(entity string, reason string) {
+	if c == nil {
+		return
+	}
+	c.Reject(BuildOfflineReplayError(entity, reason))
+}
+
 // Cancel completes the current pending attempt with context cancellation.
 func (c *ResourceController[T]) Cancel() {
 	if c == nil {
@@ -133,6 +178,86 @@ func (c *ResourceController[T]) Started() <-chan int {
 		return nil
 	}
 	return c.started
+}
+
+// BuildFailureError constructs one typed failure-injection error.
+func BuildFailureError(code string, message string) error {
+	parseCode := strings.TrimSpace(code)
+	if parseCode == "" {
+		parseCode = "failure"
+	}
+	return FailureError{
+		Code:    parseCode,
+		Message: strings.TrimSpace(message),
+	}
+}
+
+// BuildHydrationMismatchError constructs one hydration mismatch failure error.
+func BuildHydrationMismatchError(path string, reason string) error {
+	parsePath := strings.TrimSpace(path)
+	parseReason := strings.TrimSpace(reason)
+	parseMessage := parseReason
+	if parsePath != "" {
+		if parseMessage == "" {
+			parseMessage = "path=" + parsePath
+		} else {
+			parseMessage = "path=" + parsePath + " reason=" + parseMessage
+		}
+	}
+	return BuildFailureError(FailureCodeHydrationMismatch, parseMessage)
+}
+
+// BuildLoaderFailureError constructs one loader failure error.
+func BuildLoaderFailureError(path string, reason string) error {
+	parsePath := strings.TrimSpace(path)
+	parseReason := strings.TrimSpace(reason)
+	parseMessage := parseReason
+	if parsePath != "" {
+		if parseMessage == "" {
+			parseMessage = "path=" + parsePath
+		} else {
+			parseMessage = "path=" + parsePath + " reason=" + parseMessage
+		}
+	}
+	return BuildFailureError(FailureCodeLoaderFailure, parseMessage)
+}
+
+// BuildRouteGuardFailureError constructs one route-guard failure error.
+func BuildRouteGuardFailureError(path string, reason string) error {
+	parsePath := strings.TrimSpace(path)
+	parseReason := strings.TrimSpace(reason)
+	parseMessage := parseReason
+	if parsePath != "" {
+		if parseMessage == "" {
+			parseMessage = "path=" + parsePath
+		} else {
+			parseMessage = "path=" + parsePath + " reason=" + parseMessage
+		}
+	}
+	return BuildFailureError(FailureCodeRouteGuardFailure, parseMessage)
+}
+
+// BuildCacheConflictError constructs one cache-conflict failure error.
+func BuildCacheConflictError(entity string) error {
+	parseEntity := strings.TrimSpace(entity)
+	if parseEntity == "" {
+		parseEntity = "cache"
+	}
+	return BuildFailureError(FailureCodeCacheConflict, "entity="+parseEntity)
+}
+
+// BuildOfflineReplayError constructs one offline-replay failure error.
+func BuildOfflineReplayError(entity string, reason string) error {
+	parseEntity := strings.TrimSpace(entity)
+	if parseEntity == "" {
+		parseEntity = "replay"
+	}
+	parseReason := strings.TrimSpace(reason)
+	parseMessage := "entity=" + parseEntity
+	if parseReason != "" {
+		parseMessage += " reason=" + parseReason
+	}
+	return BuildFailureError(FailureCodeOfflineReplay, parseMessage)
 }
 
 func (c *ResourceController[T]) finish(outcome resourceOutcome[T], markCancelled ...bool) {

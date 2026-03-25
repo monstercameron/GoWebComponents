@@ -40,3 +40,19 @@ func TestRoundTripHydrateSeedsServerMarkupAndReusesRootNode(t *testing.T) {
 		t.Fatalf("expected hydrated root node to be reused, seeded=%d node=%#v", got, node)
 	}
 }
+
+func TestRoundTripHydrateMismatchUsesMutatedMarkup(t *testing.T) {
+	harness := RoundTripHydrateMismatch(t,
+		html.Div(html.Props{ID: "hydrated-root"}, html.Text("Hydrated")),
+		func(markup string) string {
+			return strings.Replace(markup, "Hydrated", "ServerDrift", 1)
+		},
+	)
+
+	if !strings.Contains(harness.Markup, "ServerDrift") {
+		t.Fatalf("expected mismatch helper to preserve mutated server markup, got %q", harness.Markup)
+	}
+	if node := harness.ByID("hydrated-root"); node == nil || node.Text() != "Hydrated" {
+		t.Fatalf("expected client render to recover hydrated text, got %#v", node)
+	}
+}

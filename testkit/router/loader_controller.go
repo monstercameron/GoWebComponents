@@ -67,6 +67,38 @@ func (c *LoaderController) Reject(err error) {
 	c.resource.Reject(err)
 }
 
+// RejectLoaderFailure completes the current loader attempt with a typed loader failure.
+func (c *LoaderController) RejectLoaderFailure(path string, reason string) {
+	if c == nil || c.resource == nil {
+		return
+	}
+	c.resource.Reject(baseRender.BuildLoaderFailureError(path, reason))
+}
+
+// RejectRouteGuardFailure completes the current loader attempt with a typed guard failure.
+func (c *LoaderController) RejectRouteGuardFailure(path string, reason string) {
+	if c == nil || c.resource == nil {
+		return
+	}
+	c.resource.Reject(baseRender.BuildRouteGuardFailureError(path, reason))
+}
+
+// RejectCacheConflict completes the current loader attempt with a typed cache conflict failure.
+func (c *LoaderController) RejectCacheConflict(entity string) {
+	if c == nil || c.resource == nil {
+		return
+	}
+	c.resource.RejectCacheConflict(entity)
+}
+
+// RejectOfflineReplay completes the current loader attempt with a typed offline replay failure.
+func (c *LoaderController) RejectOfflineReplay(entity string, reason string) {
+	if c == nil || c.resource == nil {
+		return
+	}
+	c.resource.RejectOfflineReplay(entity, reason)
+}
+
 // Cancel completes the current loader attempt with context cancellation.
 func (c *LoaderController) Cancel() {
 	if c == nil || c.resource == nil {

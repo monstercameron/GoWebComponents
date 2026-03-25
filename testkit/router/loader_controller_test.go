@@ -7,9 +7,11 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"strings"
 	"testing"
 
 	appRouter "github.com/monstercameron/GoWebComponents/router"
+	baseRender "github.com/monstercameron/GoWebComponents/testkit/render"
 )
 
 func TestLoaderControllerResolveRejectCancelAndNilSafety(t *testing.T) {
@@ -90,6 +92,34 @@ func TestLoaderControllerResolveRejectCancelAndNilSafety(t *testing.T) {
 		}
 	})
 
+	t.Run("failure helpers", func(t *testing.T) {
+		controller := NewLoaderController()
+
+		waitLoaderError := func(buildReject func()) error {
+			done := make(chan error, 1)
+			go func() {
+				_, err := controller.Loader()(context.Background(), appRouter.RouteContext{})
+				done <- err
+			}()
+			<-controller.Started()
+			buildReject()
+			return <-done
+		}
+
+		if err := waitLoaderError(func() { controller.RejectLoaderFailure("/orders", "timeout") }); err == nil || !strings.Contains(err.Error(), baseRender.FailureCodeLoaderFailure) {
+			t.Fatalf("expected loader failure helper to set typed code, got %v", err)
+		}
+		if err := waitLoaderError(func() { controller.RejectRouteGuardFailure("/billing", "denied") }); err == nil || !strings.Contains(err.Error(), baseRender.FailureCodeRouteGuardFailure) {
+			t.Fatalf("expected route guard failure helper to set typed code, got %v", err)
+		}
+		if err := waitLoaderError(func() { controller.RejectCacheConflict("cart:42") }); err == nil || !strings.Contains(err.Error(), baseRender.FailureCodeCacheConflict) {
+			t.Fatalf("expected cache conflict helper to set typed code, got %v", err)
+		}
+		if err := waitLoaderError(func() { controller.RejectOfflineReplay("mut-7", "offline") }); err == nil || !strings.Contains(err.Error(), baseRender.FailureCodeOfflineReplay) {
+			t.Fatalf("expected offline replay helper to set typed code, got %v", err)
+		}
+	})
+
 	t.Run("nil safety", func(t *testing.T) {
 		var controller *LoaderController
 		if controller.Pending() {
@@ -130,5 +160,22 @@ func TestCloneURLValuesAndCloneStringMap(t *testing.T) {
 	params["id"] = "99"
 	if clonedParams["id"] != "42" || clonedParams["tab"] != "history" {
 		t.Fatalf("cloneStringMap copied values incorrectly: %#v", clonedParams)
+	}
+}
+
+func TestGuardFailureBuilders(t *testing.T) {
+	blocked := BuildGuardBlocked("policy denied")(appRouter.RouteContext{Path: "/billing"})
+	if !blocked.Blocked || blocked.Reason != "policy denied" {
+		t.Fatalf("expected blocked guard result with reason, got %+v", blocked)
+	}
+
+	redirected := BuildGuardRedirect("/login")(appRouter.RouteContext{Path: "/billing"})
+	if redirected.Redirect != "/login" {
+		t.Fatalf("expected redirect guard result /login, got %+v", redirected)
+	}
+
+	denied := BuildAsyncGuardDenied("reauth required")(context.Background(), appRouter.RouteContext{Path: "/billing"})
+	if !denied.Blocked || !denied.Denied || denied.Reason != "reauth required" {
+		t.Fatalf("expected denied async guard decision, got %+v", denied)
 	}
 }

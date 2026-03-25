@@ -20,3 +20,7 @@ func SmokeHydrate(tb stdtesting.TB, root ui.Node, options ...HydrationOptions) *
 func RoundTripHydrate(tb stdtesting.TB, root ui.Node, options ...HydrationOptions) *HydrationHarness {
 	return base.RoundTripHydrate(tb, root, options...)
 }
+
+func RoundTripHydrateMismatch(tb stdtesting.TB, root ui.Node, buildMutate func(string) string, options ...HydrationOptions) *HydrationHarness {
+	return base.RoundTripHydrateMismatch(tb, root, buildMutate, options...)
+}

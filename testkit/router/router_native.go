@@ -44,5 +44,19 @@ func (f *Fixture) Params() map[string]string                                    
 func (f *Fixture) Router() any                                                         { return nil }
 func (f *Fixture) ByID(id string) *render.QueryNode                                    { return nil }
 func (f *Fixture) ByText(text string) *render.QueryNode                                { return nil }
+func (f *Fixture) ByRole(role string, name string) *render.QueryNode                   { return nil }
+func (f *Fixture) AllByRole(role string) []*render.QueryNode                           { return nil }
+func (f *Fixture) ByLabel(label string) *render.QueryNode                              { return nil }
+func (f *Fixture) ByDescription(description string) *render.QueryNode                  { return nil }
+func (f *Fixture) ByLiveRegion(politeness string, text string) *render.QueryNode       { return nil }
+func (f *Fixture) ApplyByRole(role string, name string) *render.QueryNode              { return nil }
+func (f *Fixture) ApplyByLabel(label string) *render.QueryNode                         { return nil }
+func (f *Fixture) ApplyByDescription(description string) *render.QueryNode             { return nil }
+func (f *Fixture) ApplyByLiveRegion(politeness string, text string) *render.QueryNode  { return nil }
+func (f *Fixture) DispatchByID(id string, property string, event render.Event)         {}
+func (f *Fixture) ClickByID(id string)                                                  {}
+func (f *Fixture) InputByID(id string, value string)                                    {}
+func (f *Fixture) ChangeByID(id string, value string)                                   {}
+func (f *Fixture) SubmitByID(id string)                                                 {}
 func (f *Fixture) Text() string                                                        { return "" }
 func (f *Fixture) Cleanup()                                                            {}
