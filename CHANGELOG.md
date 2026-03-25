@@ -2,6 +2,11 @@
 
 ## 2026-03-25
 
+### Grouped cleanup of legacy scripts and fixtures
+
+- Removed deprecated example shell and PowerShell helper scripts from `examples/` and Atlas docs script scaffolding paths.
+- Removed legacy Node and JSX helper artifacts, including runner path scripts, dev-server Node entrypoints, test-build script wrappers, import fixtures, and stale docs/example placeholders.
+
 ### Agent guidance refresh for gwc usage
 
 - Simplified `AGENTS.md` into a terse operator format and added a compact `gwc` command map with effective feature coverage, key flags, primary docs links, and practical command examples.
