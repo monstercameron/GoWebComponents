@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -23,32 +24,36 @@ var runBenchmarkCommand = func(l launcher, args []string) error {
 var benchmarkResolveWasmExec = resolveWasmTestExec
 
 type benchmarkConfig struct {
-	rootPath  string
-	lanes     []string
-	bench     string
-	benchtime string
-	count     int
-	json      bool
-	outPath   string
+	rootPath      string
+	lanes         []string
+	bench         string
+	benchtime     string
+	count         int
+	parallel      int
+	json          bool
+	outPath       string
+	referencePath string
 }
 
 type benchmarkReport struct {
-	OK             bool                        `json:"ok"`
-	Root           string                      `json:"root"`
-	GeneratedAt    string                      `json:"generatedAt"`
-	GoVersion      string                      `json:"goVersion"`
-	GOOS           string                      `json:"goos"`
-	GOARCH         string                      `json:"goarch"`
-	SelectedLanes  []string                    `json:"selectedLanes"`
-	Bench          string                      `json:"bench"`
-	Count          int                         `json:"count"`
-	Benchtime      string                      `json:"benchtime,omitempty"`
-	ReportPath     string                      `json:"reportPath"`
-	PackageCount   int                         `json:"packageCount"`
-	BenchmarkCount int                         `json:"benchmarkCount"`
-	FailedPackages int                         `json:"failedPackages"`
-	Packages       []benchmarkPackageReport    `json:"packages"`
-	Comparison     *benchmarkComparisonSummary `json:"comparison,omitempty"`
+	OK                 bool                        `json:"ok"`
+	Root               string                      `json:"root"`
+	GeneratedAt        string                      `json:"generatedAt"`
+	GoVersion          string                      `json:"goVersion"`
+	GOOS               string                      `json:"goos"`
+	GOARCH             string                      `json:"goarch"`
+	SelectedLanes      []string                    `json:"selectedLanes"`
+	Bench              string                      `json:"bench"`
+	Count              int                         `json:"count"`
+	PackageParallelism int                         `json:"packageParallelism"`
+	Benchtime          string                      `json:"benchtime,omitempty"`
+	ReportPath         string                      `json:"reportPath"`
+	PackageCount       int                         `json:"packageCount"`
+	BenchmarkCount     int                         `json:"benchmarkCount"`
+	FailedPackages     int                         `json:"failedPackages"`
+	Packages           []benchmarkPackageReport    `json:"packages"`
+	Scores             *benchmarkScoreSummary      `json:"scores,omitempty"`
+	Comparison         *benchmarkComparisonSummary `json:"comparison,omitempty"`
 }
 
 type benchmarkPackageReport struct {
@@ -65,8 +70,26 @@ type benchmarkPackageReport struct {
 
 type benchmarkResultReport struct {
 	Name           string             `json:"name"`
+	Bucket         string             `json:"bucket,omitempty"`
 	Samples        []benchmarkSample  `json:"samples"`
 	AverageMetrics map[string]float64 `json:"averageMetrics,omitempty"`
+}
+
+type benchmarkScoreSummary struct {
+	Method               string                 `json:"method"`
+	ReferencePath        string                 `json:"referencePath"`
+	ReferenceGeneratedAt string                 `json:"referenceGeneratedAt,omitempty"`
+	ReferenceMachine     string                 `json:"referenceMachine,omitempty"`
+	MatchedBenchmarks    int                    `json:"matchedBenchmarks"`
+	OverallScore         float64                `json:"overallScore"`
+	Buckets              []benchmarkBucketScore `json:"buckets"`
+}
+
+type benchmarkBucketScore struct {
+	ID                string  `json:"id"`
+	Label             string  `json:"label"`
+	MatchedBenchmarks int     `json:"matchedBenchmarks"`
+	Score             float64 `json:"score"`
 }
 
 type benchmarkSample struct {
@@ -104,7 +127,19 @@ type benchmarkMetricKey struct {
 	Metric    string
 }
 
+type benchmarkPackageJob struct {
+	index       int
+	lane        string
+	packagePath string
+}
+
+type benchmarkPackageResult struct {
+	index  int
+	report benchmarkPackageReport
+}
+
 const benchmarkComparisonTolerancePct = 2.0
+const benchmarkScoreMethod = "100 * geometric_mean(reference_ns / measured_ns)"
 
 func (l launcher) runBenchmark(args []string) error {
 	fs := flag.NewFlagSet("bench", flag.ContinueOnError)
@@ -113,7 +148,9 @@ func (l launcher) runBenchmark(args []string) error {
 	benchPattern := fs.String("bench", ".", "Benchmark pattern passed to go test -bench")
 	benchtime := fs.String("benchtime", "", "Optional benchtime forwarded to go test")
 	count := fs.Int("count", 1, "Number of benchmark runs per package")
+	parallel := fs.Int("parallel", 1, "Maximum number of benchmark packages to run concurrently; keep 1 for the lowest-noise regression tracking")
 	outPath := fs.String("out", "", "JSON report path; defaults to docs/benchmarks/latest.json beneath the root")
+	referencePath := fs.String("reference", "", "Optional reference benchmark JSON used for normalized scoring; defaults to docs/benchmarks/reference.json beneath the root")
 	jsonOutput := fs.Bool("json", false, "Emit the JSON report to stdout after writing it to disk")
 	var lanes stringListFlag
 	fs.Var(&lanes, "lane", "Benchmark lanes: native, wasm, or all; repeatable")
@@ -125,21 +162,27 @@ func (l launcher) runBenchmark(args []string) error {
 	}
 
 	config, err := resolveBenchmarkConfig(benchmarkConfig{
-		rootPath:  *root,
-		lanes:     lanes.Values(),
-		bench:     *benchPattern,
-		benchtime: *benchtime,
-		count:     *count,
-		json:      *jsonOutput,
-		outPath:   *outPath,
+		rootPath:      *root,
+		lanes:         lanes.Values(),
+		bench:         *benchPattern,
+		benchtime:     *benchtime,
+		count:         *count,
+		parallel:      *parallel,
+		json:          *jsonOutput,
+		outPath:       *outPath,
+		referencePath: *referencePath,
 	})
 	if err != nil {
 		return err
 	}
 
 	previous, _ := loadBenchmarkReport(config.outPath)
+	reference, _ := loadBenchmarkReport(config.referencePath)
 	report, runErr := l.executeBenchmark(config)
 	report.ReportPath = benchmarkDisplayPath(config.rootPath, config.outPath)
+	if reference.GeneratedAt != "" {
+		report.Scores = buildBenchmarkScoreSummary(reference, report, config)
+	}
 	if previous.OK || previous.GeneratedAt != "" {
 		report.Comparison = compareBenchmarkReports(previous, report)
 	}
@@ -189,6 +232,10 @@ func resolveBenchmarkConfig(config benchmarkConfig) (benchmarkConfig, error) {
 	if count <= 0 {
 		return benchmarkConfig{}, errors.New("benchmark count must be at least 1")
 	}
+	parallel := config.parallel
+	if parallel <= 0 {
+		return benchmarkConfig{}, errors.New("benchmark parallelism must be at least 1")
+	}
 	benchPattern := strings.TrimSpace(config.bench)
 	if benchPattern == "" {
 		benchPattern = "."
@@ -199,14 +246,22 @@ func resolveBenchmarkConfig(config benchmarkConfig) (benchmarkConfig, error) {
 	} else if !filepath.IsAbs(resolvedOutPath) {
 		resolvedOutPath = filepath.Join(absRoot, resolvedOutPath)
 	}
+	resolvedReferencePath := strings.TrimSpace(config.referencePath)
+	if resolvedReferencePath == "" {
+		resolvedReferencePath = filepath.Join(absRoot, "docs", "benchmarks", "reference.json")
+	} else if !filepath.IsAbs(resolvedReferencePath) {
+		resolvedReferencePath = filepath.Join(absRoot, resolvedReferencePath)
+	}
 	return benchmarkConfig{
-		rootPath:  absRoot,
-		lanes:     lanes,
-		bench:     benchPattern,
-		benchtime: strings.TrimSpace(config.benchtime),
-		count:     count,
-		json:      config.json,
-		outPath:   filepath.Clean(resolvedOutPath),
+		rootPath:      absRoot,
+		lanes:         lanes,
+		bench:         benchPattern,
+		benchtime:     strings.TrimSpace(config.benchtime),
+		count:         count,
+		parallel:      parallel,
+		json:          config.json,
+		outPath:       filepath.Clean(resolvedOutPath),
+		referencePath: filepath.Clean(resolvedReferencePath),
 	}, nil
 }
 
@@ -250,20 +305,21 @@ func (l launcher) executeBenchmark(config benchmarkConfig) (benchmarkReport, err
 	}
 
 	report := benchmarkReport{
-		OK:            true,
-		Root:          ".",
-		GeneratedAt:   time.Now().UTC().Format(time.RFC3339),
-		GoVersion:     strings.TrimSpace(goVersion),
-		GOOS:          runtime.GOOS,
-		GOARCH:        runtime.GOARCH,
-		SelectedLanes: append([]string(nil), config.lanes...),
-		Bench:         config.bench,
-		Count:         config.count,
-		Benchtime:     config.benchtime,
-		Packages:      []benchmarkPackageReport{},
+		OK:                 true,
+		Root:               ".",
+		GeneratedAt:        time.Now().UTC().Format(time.RFC3339),
+		GoVersion:          strings.TrimSpace(goVersion),
+		GOOS:               runtime.GOOS,
+		GOARCH:             runtime.GOARCH,
+		SelectedLanes:      append([]string(nil), config.lanes...),
+		Bench:              config.bench,
+		Count:              config.count,
+		PackageParallelism: config.parallel,
+		Benchtime:          config.benchtime,
+		Packages:           []benchmarkPackageReport{},
 	}
 
-	packageCountBefore := 0
+	jobs := []benchmarkPackageJob{}
 	for _, lane := range config.lanes {
 		var packages []string
 		switch lane {
@@ -272,28 +328,77 @@ func (l launcher) executeBenchmark(config benchmarkConfig) (benchmarkReport, err
 		case "wasm":
 			packages = wasmPackages
 		}
-		packageCountBefore += len(packages)
 		if lane == "wasm" && len(packages) == 0 {
 			continue
 		}
 		for _, packagePath := range packages {
-			packageReport := l.runBenchmarkPackage(config, lane, packagePath)
-			report.Packages = append(report.Packages, packageReport)
-			report.PackageCount++
-			report.BenchmarkCount += packageReport.BenchmarkCount
-			if !packageReport.OK {
-				report.OK = false
-				report.FailedPackages++
-			}
+			jobs = append(jobs, benchmarkPackageJob{
+				index:       len(jobs),
+				lane:        lane,
+				packagePath: packagePath,
+			})
 		}
 	}
-	if packageCountBefore == 0 {
+	if len(jobs) == 0 {
 		return benchmarkReport{}, fmt.Errorf("no benchmark packages were discovered under %s", config.rootPath)
+	}
+	packageReports := l.runBenchmarkJobs(config, jobs)
+	report.Packages = packageReports
+	report.PackageCount = len(packageReports)
+	for _, packageReport := range packageReports {
+		report.BenchmarkCount += packageReport.BenchmarkCount
+		if !packageReport.OK {
+			report.OK = false
+			report.FailedPackages++
+		}
 	}
 	if !report.OK {
 		return report, fmt.Errorf("one or more benchmark packages failed; see %s", config.outPath)
 	}
 	return report, nil
+}
+
+func (l launcher) runBenchmarkJobs(config benchmarkConfig, jobs []benchmarkPackageJob) []benchmarkPackageReport {
+	if len(jobs) == 0 {
+		return nil
+	}
+	if config.parallel <= 1 || len(jobs) == 1 {
+		reports := make([]benchmarkPackageReport, len(jobs))
+		for _, job := range jobs {
+			reports[job.index] = l.runBenchmarkPackage(config, job.lane, job.packagePath)
+		}
+		return reports
+	}
+	workerCount := config.parallel
+	if workerCount > len(jobs) {
+		workerCount = len(jobs)
+	}
+	jobCh := make(chan benchmarkPackageJob)
+	resultCh := make(chan benchmarkPackageResult, len(jobs))
+	var wg sync.WaitGroup
+	for i := 0; i < workerCount; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range jobCh {
+				resultCh <- benchmarkPackageResult{
+					index:  job.index,
+					report: l.runBenchmarkPackage(config, job.lane, job.packagePath),
+				}
+			}
+		}()
+	}
+	for _, job := range jobs {
+		jobCh <- job
+	}
+	close(jobCh)
+	wg.Wait()
+	close(resultCh)
+	reports := make([]benchmarkPackageReport, len(jobs))
+	for result := range resultCh {
+		reports[result.index] = result.report
+	}
+	return reports
 }
 
 func (l launcher) runBenchmarkPackage(config benchmarkConfig, lane string, packagePath string) benchmarkPackageReport {
@@ -338,6 +443,9 @@ func (l launcher) runBenchmarkPackage(config benchmarkConfig, lane string, packa
 		}
 	}
 	benchmarks := parseBenchmarkOutput(output)
+	for index := range benchmarks {
+		benchmarks[index].Bucket = benchmarkBucketID(packagePath, benchmarks[index].Name)
+	}
 	return benchmarkPackageReport{
 		Lane:           lane,
 		Package:        packagePath,
@@ -380,6 +488,207 @@ func benchmarkCommandString(args []string, sanitizeWasmExec bool) string {
 		}
 	}
 	return "go " + strings.Join(parts, " ")
+}
+
+func benchmarkBucketID(packagePath string, benchmarkName string) string {
+	lowerName := strings.ToLower(strings.TrimSpace(benchmarkName))
+	lowerPackage := strings.ToLower(strings.TrimSpace(packagePath))
+	switch {
+	case strings.Contains(lowerName, "marshal"),
+		strings.Contains(lowerName, "unmarshal"),
+		strings.Contains(lowerName, "json"),
+		strings.Contains(lowerName, "binary"),
+		strings.Contains(lowerName, "decode"),
+		strings.Contains(lowerName, "snapshot"),
+		strings.Contains(lowerName, "bootstrap"),
+		strings.Contains(lowerName, "clone"):
+		return "memory"
+	case strings.Contains(lowerName, "schedule"),
+		strings.Contains(lowerName, "scheduler"),
+		strings.Contains(lowerName, "queue"),
+		strings.Contains(lowerName, "transition"),
+		strings.Contains(lowerName, "subscribe"),
+		strings.Contains(lowerName, "unsubscribe"),
+		strings.Contains(lowerName, "listener"),
+		strings.Contains(lowerName, "enabledisable"),
+		strings.Contains(lowerName, "flushall"),
+		strings.Contains(lowerName, "exchange"),
+		strings.Contains(lowerName, "batch"):
+		return "sync_concurrency"
+	case strings.Contains(lowerName, "hydrate"),
+		strings.Contains(lowerName, "navigation"),
+		strings.Contains(lowerName, "viewport"),
+		strings.Contains(lowerName, "multipartformdata"),
+		strings.Contains(lowerName, "supportdiagnosticbundle"),
+		strings.Contains(lowerName, "serviceworker"),
+		strings.Contains(lowerName, "rendertostring"),
+		strings.HasPrefix(lowerName, "benchmarkrenderto"),
+		strings.Contains(lowerPackage, "/internal/platform/jsdom"):
+		return "end_to_end"
+	case strings.Contains(lowerPackage, "/internal/runtime"),
+		strings.Contains(lowerName, "alloc"),
+		strings.Contains(lowerName, "allocation"),
+		strings.Contains(lowerName, "runtime"),
+		strings.Contains(lowerName, "fiber"),
+		strings.Contains(lowerName, "hook"),
+		strings.Contains(lowerName, "atom"),
+		strings.Contains(lowerName, "use"),
+		strings.Contains(lowerName, "createelement"),
+		strings.Contains(lowerName, "commit"),
+		strings.Contains(lowerName, "propsequal"),
+		strings.Contains(lowerName, "portal"),
+		strings.Contains(lowerName, "shim"),
+		strings.Contains(lowerName, "layout"),
+		strings.Contains(lowerName, "refetch"):
+		return "alloc_runtime"
+	default:
+		return "compute"
+	}
+}
+
+func benchmarkBucketLabel(bucketID string) string {
+	switch bucketID {
+	case "compute":
+		return "Compute"
+	case "memory":
+		return "Memory"
+	case "alloc_runtime":
+		return "Alloc/Runtime"
+	case "sync_concurrency":
+		return "Sync/Concurrency"
+	case "end_to_end":
+		return "End-to-End"
+	default:
+		return bucketID
+	}
+}
+
+func benchmarkBucketOrder(bucketID string) int {
+	switch bucketID {
+	case "compute":
+		return 0
+	case "memory":
+		return 1
+	case "alloc_runtime":
+		return 2
+	case "sync_concurrency":
+		return 3
+	case "end_to_end":
+		return 4
+	default:
+		return 100
+	}
+}
+
+func buildBenchmarkScoreSummary(reference benchmarkReport, current benchmarkReport, config benchmarkConfig) *benchmarkScoreSummary {
+	referenceIndex := benchmarkMetricIndex(reference)
+	bucketRatios := map[string][]float64{}
+	matchedBenchmarks := 0
+	for _, packageReport := range current.Packages {
+		if !packageReport.OK {
+			continue
+		}
+		for _, benchmark := range packageReport.Benchmarks {
+			measuredNS, ok := benchmark.AverageMetrics["ns/op"]
+			if !ok || measuredNS <= 0 {
+				continue
+			}
+			referenceNS, ok := referenceIndex[benchmarkMetricKey{
+				Lane:      packageReport.Lane,
+				Package:   packageReport.Package,
+				Benchmark: benchmark.Name,
+				Metric:    "ns/op",
+			}]
+			if !ok || referenceNS <= 0 {
+				continue
+			}
+			bucketID := benchmark.Bucket
+			if strings.TrimSpace(bucketID) == "" {
+				bucketID = benchmarkBucketID(packageReport.Package, benchmark.Name)
+			}
+			bucketRatios[bucketID] = append(bucketRatios[bucketID], referenceNS/measuredNS)
+			matchedBenchmarks++
+		}
+	}
+	if matchedBenchmarks == 0 {
+		return nil
+	}
+	buckets := make([]benchmarkBucketScore, 0, len(bucketRatios))
+	bucketFactors := []float64{}
+	for bucketID, ratios := range bucketRatios {
+		if len(ratios) == 0 {
+			continue
+		}
+		factor := geometricMean(ratios)
+		if factor <= 0 {
+			continue
+		}
+		bucketFactors = append(bucketFactors, factor)
+		buckets = append(buckets, benchmarkBucketScore{
+			ID:                bucketID,
+			Label:             benchmarkBucketLabel(bucketID),
+			MatchedBenchmarks: len(ratios),
+			Score:             roundBenchmarkScore(100 * factor),
+		})
+	}
+	sort.Slice(buckets, func(i, j int) bool {
+		left := benchmarkBucketOrder(buckets[i].ID)
+		right := benchmarkBucketOrder(buckets[j].ID)
+		if left == right {
+			return buckets[i].ID < buckets[j].ID
+		}
+		return left < right
+	})
+	overall := 0.0
+	if len(bucketFactors) > 0 {
+		overall = roundBenchmarkScore(100 * geometricMean(bucketFactors))
+	}
+	return &benchmarkScoreSummary{
+		Method:               benchmarkScoreMethod,
+		ReferencePath:        benchmarkDisplayPath(config.rootPath, config.referencePath),
+		ReferenceGeneratedAt: reference.GeneratedAt,
+		ReferenceMachine:     benchmarkMachineLabel(reference),
+		MatchedBenchmarks:    matchedBenchmarks,
+		OverallScore:         overall,
+		Buckets:              buckets,
+	}
+}
+
+func geometricMean(values []float64) float64 {
+	if len(values) == 0 {
+		return 0
+	}
+	sum := 0.0
+	count := 0
+	for _, value := range values {
+		if value <= 0 {
+			continue
+		}
+		sum += math.Log(value)
+		count++
+	}
+	if count == 0 {
+		return 0
+	}
+	return math.Exp(sum / float64(count))
+}
+
+func roundBenchmarkScore(value float64) float64 {
+	return math.Round(value*10) / 10
+}
+
+func benchmarkMachineLabel(report benchmarkReport) string {
+	goos := strings.TrimSpace(report.GOOS)
+	goarch := strings.TrimSpace(report.GOARCH)
+	goVersion := strings.TrimSpace(report.GoVersion)
+	parts := []string{}
+	if goVersion != "" {
+		parts = append(parts, goVersion)
+	}
+	if goos != "" || goarch != "" {
+		parts = append(parts, strings.TrimSpace(goos+"/"+goarch))
+	}
+	return strings.Join(parts, " ")
 }
 
 func collectBenchmarkPackages(rootPath string) ([]string, []string, error) {
@@ -691,10 +1000,26 @@ func printBenchmarkReport(report benchmarkReport) {
 	fmt.Printf("report:        %s\n", report.ReportPath)
 	fmt.Printf("go version:    %s\n", report.GoVersion)
 	fmt.Printf("lanes:         %s\n", strings.Join(report.SelectedLanes, ", "))
+	fmt.Printf("parallel:      %d\n", report.PackageParallelism)
 	fmt.Printf("packages:      %d\n", report.PackageCount)
 	fmt.Printf("benchmarks:    %d\n", report.BenchmarkCount)
 	if report.FailedPackages > 0 {
 		fmt.Printf("failures:      %d\n", report.FailedPackages)
+	}
+	if report.Scores != nil {
+		fmt.Printf("reference:     %s", report.Scores.ReferencePath)
+		if strings.TrimSpace(report.Scores.ReferenceGeneratedAt) != "" {
+			fmt.Printf(" (%s", report.Scores.ReferenceGeneratedAt)
+			if machine := strings.TrimSpace(report.Scores.ReferenceMachine); machine != "" {
+				fmt.Printf(", %s", machine)
+			}
+			fmt.Print(")")
+		}
+		fmt.Println()
+		for _, bucket := range report.Scores.Buckets {
+			fmt.Printf("%-15s %.1f (%d benchmarks)\n", bucket.Label+" Score:", bucket.Score, bucket.MatchedBenchmarks)
+		}
+		fmt.Printf("Overall Score: %.1f\n", report.Scores.OverallScore)
 	}
 	if report.Comparison != nil {
 		fmt.Printf("baseline:      %s\n", report.Comparison.BaselineGeneratedAt)
