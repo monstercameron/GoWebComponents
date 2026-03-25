@@ -74,6 +74,17 @@ type LogSignal struct {
 	Fields         map[string]string
 }
 
+// RenderCountSignal describes one component render-count profile entry.
+type RenderCountSignal struct {
+	Name                    string
+	Path                    string
+	RenderCount             int
+	RerenderCount           int
+	LastTrigger             string
+	TotalRenderDurationNs   int64
+	AverageRenderDurationNs int64
+}
+
 var fixtureGate = make(chan struct{}, 1)
 
 const parallelSafetyContract = "testkit/render fixtures are process-global on js/wasm; keep fixture-owning tests sequential and avoid t.Parallel while a fixture is active"
@@ -575,6 +586,64 @@ func (f *Fixture) BuildLogs() []LogSignal {
 	return parseSignals
 }
 
+// BuildRenderCounts returns structured component render-count signals from profiling snapshots.
+func (f *Fixture) BuildRenderCounts() []RenderCountSignal {
+	parseSnapshot := runtime.GetGlobalRuntime().Inspect()
+	parseTraces := parseSnapshot.Profiling.ComponentRenders
+	if len(parseTraces) == 0 {
+		return nil
+	}
+	parseSignals := make([]RenderCountSignal, 0, len(parseTraces))
+	for _, parseTrace := range parseTraces {
+		parseSignals = append(parseSignals, RenderCountSignal{
+			Name:                    parseTrace.Name,
+			Path:                    parseTrace.Path,
+			RenderCount:             parseTrace.RenderCount,
+			RerenderCount:           parseTrace.RerenderCount,
+			LastTrigger:             parseTrace.LastTrigger,
+			TotalRenderDurationNs:   parseTrace.TotalRenderDurationNs,
+			AverageRenderDurationNs: parseTrace.AverageRenderDurationNs,
+		})
+	}
+	sort.SliceStable(parseSignals, func(parseLeft, parseRight int) bool {
+		if parseSignals[parseLeft].RenderCount == parseSignals[parseRight].RenderCount {
+			return parseSignals[parseLeft].Path < parseSignals[parseRight].Path
+		}
+		return parseSignals[parseLeft].RenderCount > parseSignals[parseRight].RenderCount
+	})
+	return parseSignals
+}
+
+// BuildWarningDiagnostics returns diagnostics whose severity is warning.
+func (f *Fixture) BuildWarningDiagnostics() []DiagnosticSignal {
+	parseDiagnostics := f.BuildDiagnostics()
+	if len(parseDiagnostics) == 0 {
+		return nil
+	}
+	parseWarnings := make([]DiagnosticSignal, 0, len(parseDiagnostics))
+	for _, parseDiagnostic := range parseDiagnostics {
+		if strings.EqualFold(strings.TrimSpace(parseDiagnostic.Severity), "warning") {
+			parseWarnings = append(parseWarnings, parseDiagnostic)
+		}
+	}
+	return parseWarnings
+}
+
+// BuildWarningLogs returns logs whose level is warn.
+func (f *Fixture) BuildWarningLogs() []LogSignal {
+	parseLogs := f.BuildLogs()
+	if len(parseLogs) == 0 {
+		return nil
+	}
+	parseWarnings := make([]LogSignal, 0, len(parseLogs))
+	for _, parseLog := range parseLogs {
+		if strings.EqualFold(strings.TrimSpace(parseLog.Level), "warn") {
+			parseWarnings = append(parseWarnings, parseLog)
+		}
+	}
+	return parseWarnings
+}
+
 // ApplyDiagnosticCode asserts that one diagnostic with the requested code exists.
 func (f *Fixture) ApplyDiagnosticCode(code string) DiagnosticSignal {
 	f.tb.Helper()
@@ -625,6 +694,43 @@ func (f *Fixture) ApplyLogMessage(fragment string) LogSignal {
 	}
 	f.tb.Fatalf("render fixture could not find log message fragment %q", parseFragment)
 	return LogSignal{}
+}
+
+// ApplyRenderCountMax asserts one component's render count does not exceed max.
+func (f *Fixture) ApplyRenderCountMax(component string, max int) RenderCountSignal {
+	f.tb.Helper()
+	parseSignal := applyRenderCountSignal(f.BuildRenderCounts(), component)
+	if parseSignal.RenderCount > max {
+		f.tb.Fatalf("render fixture component %q exceeded max render count %d with %d renders (path=%q)", strings.TrimSpace(component), max, parseSignal.RenderCount, parseSignal.Path)
+	}
+	return parseSignal
+}
+
+// ApplyRenderRerenderMax asserts one component's rerender count does not exceed max.
+func (f *Fixture) ApplyRenderRerenderMax(component string, max int) RenderCountSignal {
+	f.tb.Helper()
+	parseSignal := applyRenderCountSignal(f.BuildRenderCounts(), component)
+	if parseSignal.RerenderCount > max {
+		f.tb.Fatalf("render fixture component %q exceeded max rerender count %d with %d rerenders (path=%q)", strings.TrimSpace(component), max, parseSignal.RerenderCount, parseSignal.Path)
+	}
+	return parseSignal
+}
+
+// ApplyWarningCountMax asserts warnings across diagnostics and logs do not exceed max.
+func (f *Fixture) ApplyWarningCountMax(max int) {
+	f.tb.Helper()
+	parseWarningDiagnostics := f.BuildWarningDiagnostics()
+	parseWarningLogs := f.BuildWarningLogs()
+	parseWarningCount := len(parseWarningDiagnostics) + len(parseWarningLogs)
+	if parseWarningCount > max {
+		f.tb.Fatalf("render fixture warning count %d exceeds max %d (diagnostics=%d logs=%d)", parseWarningCount, max, len(parseWarningDiagnostics), len(parseWarningLogs))
+	}
+}
+
+// ApplyWarningNone asserts no warning diagnostics or warn-level logs were emitted.
+func (f *Fixture) ApplyWarningNone() {
+	f.tb.Helper()
+	f.ApplyWarningCountMax(0)
 }
 
 // Exists reports whether the node wrapper points at a real node.
@@ -1019,6 +1125,23 @@ func cloneSignalFields(values map[string]string) map[string]string {
 		cloned[key] = value
 	}
 	return cloned
+}
+
+// applyRenderCountSignal resolves one render-count signal by component name/path.
+func applyRenderCountSignal(signals []RenderCountSignal, component string) RenderCountSignal {
+	parseComponent := strings.TrimSpace(component)
+	if len(signals) == 0 {
+		return RenderCountSignal{}
+	}
+	if parseComponent == "" {
+		return signals[0]
+	}
+	for _, parseSignal := range signals {
+		if parseSignal.Name == parseComponent || parseSignal.Path == parseComponent || strings.Contains(parseSignal.Path, parseComponent) {
+			return parseSignal
+		}
+	}
+	return RenderCountSignal{}
 }
 
 // applyFixtureOwnership claims exclusive fixture ownership for this test process.
