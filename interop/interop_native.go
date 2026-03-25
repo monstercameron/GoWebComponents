@@ -24,11 +24,11 @@ func GetWindowEnv() (WindowEnv, error) {
 }
 
 // OpenPersistentStore is a non-browser stub that always returns an unavailable error.
-func OpenPersistentStore(ctx context.Context, options PersistentStoreOptions) (PersistentStore, error) {
-	if ctx == nil {
-		ctx = context.Background()
+func OpenPersistentStore(parseCtx context.Context, parseOptions PersistentStoreOptions) (PersistentStore, error) {
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	return PersistentStore{}, unavailable("OpenPersistentStore", options.Name)
+	return PersistentStore{}, unavailable("OpenPersistentStore", parseOptions.Name)
 }
 
 // GetWindowLocation is a non-browser stub that always returns an unavailable error.
@@ -47,16 +47,16 @@ func GetClipboard() (Clipboard, error) {
 }
 
 // ScheduleTimeout is a non-browser stub that always returns an unavailable error.
-func ScheduleTimeout(delay time.Duration, fn func()) (Timer, error) {
-	_ = delay
-	_ = fn
+func ScheduleTimeout(parseDelay time.Duration, parseFn func()) (Timer, error) {
+	_ = parseDelay
+	_ = parseFn
 	return Timer{}, unavailable("ScheduleTimeout", "")
 }
 
 // ScheduleInterval is a non-browser stub that always returns an unavailable error.
-func ScheduleInterval(interval time.Duration, fn func()) (Timer, error) {
-	_ = interval
-	_ = fn
+func ScheduleInterval(parseInterval time.Duration, parseFn func()) (Timer, error) {
+	_ = parseInterval
+	_ = parseFn
 	return Timer{}, unavailable("ScheduleInterval", "")
 }
 
@@ -76,32 +76,32 @@ func GetDocument() (Document, error) {
 }
 
 // GetMediaQuery is a non-browser stub that always returns an unavailable error.
-func GetMediaQuery(query string) (MediaQueryList, error) {
-	return MediaQueryList{}, unavailable("GetMediaQuery", query)
+func GetMediaQuery(parseQuery string) (MediaQueryList, error) {
+	return MediaQueryList{}, unavailable("GetMediaQuery", parseQuery)
 }
 
 // ImportModule is a non-browser stub that always returns an unavailable error.
-func ImportModule(ctx context.Context, specifier string) (Module, error) {
-	if ctx == nil {
-		ctx = context.Background()
+func ImportModule(parseCtx context.Context, parseSpecifier string) (Module, error) {
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	return Module{}, unavailable("ImportModule", specifier)
+	return Module{}, unavailable("ImportModule", parseSpecifier)
 }
 
 // OpenWorker is a non-browser stub that always returns an unavailable error.
-func OpenWorker(ctx context.Context, options WorkerOptions) (Worker, error) {
-	if ctx == nil {
-		ctx = context.Background()
+func OpenWorker(parseCtx context.Context, parseOptions WorkerOptions) (Worker, error) {
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	return Worker{}, unavailable("OpenWorker", options.URL)
+	return Worker{}, unavailable("OpenWorker", parseOptions.URL)
 }
 
 // OpenGoWASMWorker is a non-browser stub that always returns an unavailable error.
-func OpenGoWASMWorker(ctx context.Context, options GoWASMWorkerOptions) (Worker, error) {
-	if ctx == nil {
-		ctx = context.Background()
+func OpenGoWASMWorker(parseCtx context.Context, parseOptions GoWASMWorkerOptions) (Worker, error) {
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	return Worker{}, unavailable("OpenGoWASMWorker", options.WASMURL)
+	return Worker{}, unavailable("OpenGoWASMWorker", parseOptions.WASMURL)
 }
 
 // GetWorkerScope is a non-browser stub that always returns an unavailable error.
@@ -110,16 +110,16 @@ func GetWorkerScope() (WorkerScope, error) {
 }
 
 // OpenCrossTabChannel is a non-browser stub that always returns an unavailable error.
-func OpenCrossTabChannel(options CrossTabChannelOptions) (CrossTabChannel, error) {
-	return CrossTabChannel{}, unavailable("OpenCrossTabChannel", options.Name)
+func OpenCrossTabChannel(parseOptions CrossTabChannelOptions) (CrossTabChannel, error) {
+	return CrossTabChannel{}, unavailable("OpenCrossTabChannel", parseOptions.Name)
 }
 
 // OpenSecondaryWindowChannel is a non-browser stub that always returns an unavailable error.
-func OpenSecondaryWindowChannel(options WindowChannelOptions) (WindowChannel, error) {
-	return WindowChannel{}, unavailable("OpenSecondaryWindowChannel", options.Name)
+func OpenSecondaryWindowChannel(parseOptions WindowChannelOptions) (WindowChannel, error) {
+	return WindowChannel{}, unavailable("OpenSecondaryWindowChannel", parseOptions.Name)
 }
 
 // OpenWindowOpenerChannel is a non-browser stub that always returns an unavailable error.
-func OpenWindowOpenerChannel(options WindowChannelOptions) (WindowChannel, error) {
-	return WindowChannel{}, unavailable("OpenWindowOpenerChannel", options.Name)
+func OpenWindowOpenerChannel(parseOptions WindowChannelOptions) (WindowChannel, error) {
+	return WindowChannel{}, unavailable("OpenWindowOpenerChannel", parseOptions.Name)
 }

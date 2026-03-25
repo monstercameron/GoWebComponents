@@ -14,274 +14,274 @@ import (
 
 type sugarStringer string
 
-func (s sugarStringer) String() string {
-	return string(s)
+func (parseS sugarStringer) String() string {
+	return string(parseS)
 }
 
-func TestChildrenNormalizesMixedInputs(t *testing.T) {
-	children := Children(
+func TestChildrenNormalizesMixedInputs(parseT *testing.T) {
+	parseChildren := Children(
 		"alpha",
 		[]string{"beta", "gamma"},
 		Span(Props{}, Text("delta")),
 		[]interface{}{nil, sugarStringer("epsilon"), 42, func() string { return "zeta" }},
 	)
 
-	if len(children) != 7 {
-		t.Fatalf("expected 7 normalized children, got %d", len(children))
+	if len(parseChildren) != 7 {
+		parseT.Fatalf("expected 7 normalized children, got %d", len(parseChildren))
 	}
 
-	if children[0].TextContent != "alpha" {
-		t.Fatalf("expected first text child alpha, got %#v", children[0])
+	if parseChildren[0].TextContent != "alpha" {
+		parseT.Fatalf("expected first text child alpha, got %#v", parseChildren[0])
 	}
-	if children[1].TextContent != "beta" {
-		t.Fatalf("expected second text child beta, got %#v", children[1])
+	if parseChildren[1].TextContent != "beta" {
+		parseT.Fatalf("expected second text child beta, got %#v", parseChildren[1])
 	}
-	if children[2].TextContent != "gamma" {
-		t.Fatalf("expected third text child gamma, got %#v", children[2])
+	if parseChildren[2].TextContent != "gamma" {
+		parseT.Fatalf("expected third text child gamma, got %#v", parseChildren[2])
 	}
-	if children[3].Type != "span" {
-		t.Fatalf("expected preserved span child, got %#v", children[3].Type)
+	if parseChildren[3].Type != "span" {
+		parseT.Fatalf("expected preserved span child, got %#v", parseChildren[3].Type)
 	}
-	if children[4].TextContent != "epsilon" {
-		t.Fatalf("expected stringer child epsilon, got %#v", children[4])
+	if parseChildren[4].TextContent != "epsilon" {
+		parseT.Fatalf("expected stringer child epsilon, got %#v", parseChildren[4])
 	}
-	if children[5].TextContent != "42" {
-		t.Fatalf("expected numeric child to stringify, got %#v", children[5])
+	if parseChildren[5].TextContent != "42" {
+		parseT.Fatalf("expected numeric child to stringify, got %#v", parseChildren[5])
 	}
-	if children[6].Type != runtime.ReactiveTextNodeType {
-		t.Fatalf("expected reactive text child, got %#v", children[6].Type)
+	if parseChildren[6].Type != runtime.ReactiveTextNodeType {
+		parseT.Fatalf("expected reactive text child, got %#v", parseChildren[6].Type)
 	}
 }
 
-func TestChildrenWorksWithExistingBuilderExpansion(t *testing.T) {
-	node := Div(Props{}, Children("hello", []interface{}{" ", Textf("%s", "world")})...)
-	markup, err := ui.RenderToString(node)
-	if err != nil {
-		t.Fatalf("expected SSR render to succeed, got %v", err)
+func TestChildrenWorksWithExistingBuilderExpansion(parseT *testing.T) {
+	parseNode := Div(Props{}, Children("hello", []interface{}{" ", Textf("%s", "world")})...)
+	parseMarkup, parseErr := ui.RenderToString(parseNode)
+	if parseErr != nil {
+		parseT.Fatalf("expected SSR render to succeed, got %v", parseErr)
 	}
-	if markup != "<div>hello world</div>" {
-		t.Fatalf("expected normalized child expansion markup, got %q", markup)
+	if parseMarkup != "<div>hello world</div>" {
+		parseT.Fatalf("expected normalized child expansion markup, got %q", parseMarkup)
 	}
 }
 
-func TestTextSupportsFormattedAndReactiveContent(t *testing.T) {
+func TestTextSupportsFormattedAndReactiveContent(parseT *testing.T) {
 	if Text(nil) != nil {
-		t.Fatal("expected Text(nil) to return nil")
+		parseT.Fatal("expected Text(nil) to return nil")
 	}
-	original := Span(Props{}, Text("passthrough"))
-	if Text(original) != original {
-		t.Fatal("expected Text(ui.Node) to return the original node")
+	parseOriginal := Span(Props{}, Text("passthrough"))
+	if Text(parseOriginal) != parseOriginal {
+		parseT.Fatal("expected Text(ui.Node) to return the original node")
 	}
 	if Text(true).TextContent != "true" {
-		t.Fatalf("expected bool text conversion, got %#v", Text(true))
+		parseT.Fatalf("expected bool text conversion, got %#v", Text(true))
 	}
 	if Text(uint16(9)).TextContent != "9" {
-		t.Fatalf("expected numeric text conversion, got %#v", Text(uint16(9)))
+		parseT.Fatalf("expected numeric text conversion, got %#v", Text(uint16(9)))
 	}
 
-	formatted := Textf("count:%d", 7)
-	if formatted == nil || formatted.TextContent != "count:7" {
-		t.Fatalf("expected formatted text node, got %#v", formatted)
+	parseFormatted := Textf("count:%d", 7)
+	if parseFormatted == nil || parseFormatted.TextContent != "count:7" {
+		parseT.Fatalf("expected formatted text node, got %#v", parseFormatted)
 	}
 
 	if TextIf(false, "hidden") != nil {
-		t.Fatal("expected TextIf(false, ...) to return nil")
+		parseT.Fatal("expected TextIf(false, ...) to return nil")
 	}
-	if textIf := TextIf(true, "shown"); textIf == nil || textIf.TextContent != "shown" {
-		t.Fatalf("expected TextIf(true, ...) to return a text node, got %#v", textIf)
-	}
-
-	reactive := Text(func() string { return "live" })
-	if reactive == nil || reactive.Type != runtime.ReactiveTextNodeType {
-		t.Fatalf("expected reactive text node, got %#v", reactive)
+	if parseTextIf := TextIf(true, "shown"); parseTextIf == nil || parseTextIf.TextContent != "shown" {
+		parseT.Fatalf("expected TextIf(true, ...) to return a text node, got %#v", parseTextIf)
 	}
 
-	markup, err := ui.RenderToString(Div(Props{}, reactive))
-	if err != nil {
-		t.Fatalf("expected SSR reactive text render, got %v", err)
+	parseReactive := Text(func() string { return "live" })
+	if parseReactive == nil || parseReactive.Type != runtime.ReactiveTextNodeType {
+		parseT.Fatalf("expected reactive text node, got %#v", parseReactive)
 	}
-	if markup != "<div>live</div>" {
-		t.Fatalf("expected reactive SSR markup, got %q", markup)
+
+	parseMarkup, parseErr := ui.RenderToString(Div(Props{}, parseReactive))
+	if parseErr != nil {
+		parseT.Fatalf("expected SSR reactive text render, got %v", parseErr)
+	}
+	if parseMarkup != "<div>live</div>" {
+		parseT.Fatalf("expected reactive SSR markup, got %q", parseMarkup)
 	}
 }
 
-func TestChildrenAndClassHelpersHandleEmptyAndArrayInputs(t *testing.T) {
+func TestChildrenAndClassHelpersHandleEmptyAndArrayInputs(parseT *testing.T) {
 	if Children() != nil {
-		t.Fatal("expected Children() to return nil")
+		parseT.Fatal("expected Children() to return nil")
 	}
 	if Children(nil, []interface{}{nil}) != nil {
-		t.Fatal("expected Children with only nil values to return nil")
+		parseT.Fatal("expected Children with only nil values to return nil")
 	}
 
-	children := Children([2]int{5, 6})
-	if len(children) != 2 || children[0].TextContent != "5" || children[1].TextContent != "6" {
-		t.Fatalf("expected reflected array children, got %#v", children)
+	parseChildren := Children([2]int{5, 6})
+	if len(parseChildren) != 2 || parseChildren[0].TextContent != "5" || parseChildren[1].TextContent != "6" {
+		parseT.Fatalf("expected reflected array children, got %#v", parseChildren)
 	}
 
 	if ClassNames() != "" {
-		t.Fatal("expected empty ClassNames result")
+		parseT.Fatal("expected empty ClassNames result")
 	}
-	classes := ClassNames([2]string{"alpha", "beta"}, 7)
-	if classes != "alpha beta 7" {
-		t.Fatalf("expected reflected class fragments, got %q", classes)
+	parseClasses := ClassNames([2]string{"alpha", "beta"}, 7)
+	if parseClasses != "alpha beta 7" {
+		parseT.Fatalf("expected reflected class fragments, got %q", parseClasses)
 	}
 }
 
-func TestClassHelpersNormalizeWhitespaceAndConditionals(t *testing.T) {
-	className := ClassNames(" alpha  beta ", When(false, "hidden"), When(true, "active"), []string{"gamma delta"}, sugarStringer("epsilon"))
-	if className != "alpha beta active gamma delta epsilon" {
-		t.Fatalf("expected normalized class string, got %q", className)
+func TestClassHelpersNormalizeWhitespaceAndConditionals(parseT *testing.T) {
+	parseClassName := ClassNames(" alpha  beta ", When(false, "hidden"), When(true, "active"), []string{"gamma delta"}, sugarStringer("epsilon"))
+	if parseClassName != "alpha beta active gamma delta epsilon" {
+		parseT.Fatalf("expected normalized class string, got %q", parseClassName)
 	}
 	if When(false, "missing") != "" {
-		t.Fatal("expected false When helper to return empty string")
+		parseT.Fatal("expected false When helper to return empty string")
 	}
 }
 
-func TestConditionalHelpersSelectExpectedNodes(t *testing.T) {
-	trueNode := Span(Props{}, Text("true"))
-	falseNode := Span(Props{}, Text("false"))
+func TestConditionalHelpersSelectExpectedNodes(parseT *testing.T) {
+	parseTrueNode := Span(Props{}, Text("true"))
+	parseFalseNode := Span(Props{}, Text("false"))
 
-	if If(false, trueNode) != nil {
-		t.Fatal("expected If(false, ...) to return nil")
+	if If(false, parseTrueNode) != nil {
+		parseT.Fatal("expected If(false, ...) to return nil")
 	}
-	if If(true, trueNode) != trueNode {
-		t.Fatal("expected If(true, ...) to return provided node")
+	if If(true, parseTrueNode) != parseTrueNode {
+		parseT.Fatal("expected If(true, ...) to return provided node")
 	}
-	if IfElse(true, trueNode, falseNode) != trueNode {
-		t.Fatal("expected IfElse(true, ...) to return true branch")
+	if IfElse(true, parseTrueNode, parseFalseNode) != parseTrueNode {
+		parseT.Fatal("expected IfElse(true, ...) to return true branch")
 	}
-	if IfElse(false, trueNode, falseNode) != falseNode {
-		t.Fatal("expected IfElse(false, ...) to return false branch")
+	if IfElse(false, parseTrueNode, parseFalseNode) != parseFalseNode {
+		parseT.Fatal("expected IfElse(false, ...) to return false branch")
 	}
-	if Unless(true, falseNode) != nil {
-		t.Fatal("expected Unless(true, ...) to return nil")
+	if Unless(true, parseFalseNode) != nil {
+		parseT.Fatal("expected Unless(true, ...) to return nil")
 	}
-	if Unless(false, falseNode) != falseNode {
-		t.Fatal("expected Unless(false, ...) to return provided node")
+	if Unless(false, parseFalseNode) != parseFalseNode {
+		parseT.Fatal("expected Unless(false, ...) to return provided node")
 	}
 }
 
-func TestMapPreservesOrder(t *testing.T) {
-	nodes := Map([]int{3, 1, 4}, func(value int) ui.Node {
-		return Li(Props{}, Text(fmt.Sprintf("item-%d", value)))
+func TestMapPreservesOrder(parseT *testing.T) {
+	parseNodes := Map([]int{3, 1, 4}, func(parseValue int) ui.Node {
+		return Li(Props{}, Text(fmt.Sprintf("item-%d", parseValue)))
 	})
 
-	markup, err := ui.RenderToString(Ul(Props{}, nodes...))
-	if err != nil {
-		t.Fatalf("expected mapped list SSR render, got %v", err)
+	parseMarkup, parseErr := ui.RenderToString(Ul(Props{}, parseNodes...))
+	if parseErr != nil {
+		parseT.Fatalf("expected mapped list SSR render, got %v", parseErr)
 	}
-	if !strings.Contains(markup, "<li>item-3</li><li>item-1</li><li>item-4</li>") {
-		t.Fatalf("expected mapped order to be preserved, got %q", markup)
+	if !strings.Contains(parseMarkup, "<li>item-3</li><li>item-1</li><li>item-4</li>") {
+		parseT.Fatalf("expected mapped order to be preserved, got %q", parseMarkup)
 	}
 }
 
-func TestSecondPassCollectionHelpers(t *testing.T) {
-	if Map([]int{}, func(value int) ui.Node { return Textf("%d", value) }) != nil {
-		t.Fatal("expected empty Map result to be nil")
+func TestSecondPassCollectionHelpers(parseT *testing.T) {
+	if Map([]int{}, func(parseValue int) ui.Node { return Textf("%d", parseValue) }) != nil {
+		parseT.Fatal("expected empty Map result to be nil")
 	}
-	if MapKeyed([]int{}, func(value int) interface{} { return value }, func(value int) ui.Node { return Textf("%d", value) }) != nil {
-		t.Fatal("expected empty MapKeyed result to be nil")
+	if MapKeyed([]int{}, func(parseValue2 int) interface{} { return parseValue2 }, func(parseValue3 int) ui.Node { return Textf("%d", parseValue3) }) != nil {
+		parseT.Fatal("expected empty MapKeyed result to be nil")
 	}
-	if FlatMap([]int{}, func(value int) []ui.Node { return []ui.Node{Textf("%d", value)} }) != nil {
-		t.Fatal("expected empty FlatMap result to be nil")
+	if FlatMap([]int{}, func(parseValue4 int) []ui.Node { return []ui.Node{Textf("%d", parseValue4)} }) != nil {
+		parseT.Fatal("expected empty FlatMap result to be nil")
 	}
-	if FilterMap([]int{}, func(value int) (ui.Node, bool) { return Textf("%d", value), true }) != nil {
-		t.Fatal("expected empty FilterMap result to be nil")
+	if FilterMap([]int{}, func(parseValue5 int) (ui.Node, bool) { return Textf("%d", parseValue5), true }) != nil {
+		parseT.Fatal("expected empty FilterMap result to be nil")
 	}
 	if Join(Text("|")) != nil {
-		t.Fatal("expected Join with no nodes to return nil")
+		parseT.Fatal("expected Join with no nodes to return nil")
 	}
 	if Join(Text("|"), nil, nil) != nil {
-		t.Fatal("expected Join with only nil nodes to return nil")
+		parseT.Fatal("expected Join with only nil nodes to return nil")
 	}
 	if WithKey(nil, "missing") != nil {
-		t.Fatal("expected WithKey(nil, ...) to return nil")
+		parseT.Fatal("expected WithKey(nil, ...) to return nil")
 	}
 
-	keyed := MapKeyed([]string{"alpha", "beta"}, func(value string) interface{} { return "k:" + value }, func(value string) ui.Node {
-		return Li(Props{}, Text(value))
+	parseKeyed := MapKeyed([]string{"alpha", "beta"}, func(parseValue6 string) interface{} { return "k:" + parseValue6 }, func(parseValue7 string) ui.Node {
+		return Li(Props{}, Text(parseValue7))
 	})
-	if len(keyed) != 2 || keyed[0].Props["key"] != "k:alpha" || keyed[1].Props["key"] != "k:beta" {
-		t.Fatalf("expected keyed nodes, got %#v", keyed)
+	if len(parseKeyed) != 2 || parseKeyed[0].Props["key"] != "k:alpha" || parseKeyed[1].Props["key"] != "k:beta" {
+		parseT.Fatalf("expected keyed nodes, got %#v", parseKeyed)
 	}
 
-	flatMapped := FlatMap([]int{1, 2, 3}, func(value int) []ui.Node {
-		if value%2 == 0 {
-			return []ui.Node{Textf("even-%d", value), Text("!")}
+	parseFlatMapped := FlatMap([]int{1, 2, 3}, func(parseValue8 int) []ui.Node {
+		if parseValue8%2 == 0 {
+			return []ui.Node{Textf("even-%d", parseValue8), Text("!")}
 		}
 		return nil
 	})
-	if len(flatMapped) != 2 || flatMapped[0].TextContent != "even-2" || flatMapped[1].TextContent != "!" {
-		t.Fatalf("expected flat-mapped nodes, got %#v", flatMapped)
+	if len(parseFlatMapped) != 2 || parseFlatMapped[0].TextContent != "even-2" || parseFlatMapped[1].TextContent != "!" {
+		parseT.Fatalf("expected flat-mapped nodes, got %#v", parseFlatMapped)
 	}
 
-	filtered := FilterMap([]int{1, 2, 3, 4}, func(value int) (ui.Node, bool) {
-		if value%2 == 0 {
-			return Textf("%d", value), true
+	parseFiltered := FilterMap([]int{1, 2, 3, 4}, func(parseValue9 int) (ui.Node, bool) {
+		if parseValue9%2 == 0 {
+			return Textf("%d", parseValue9), true
 		}
 		return nil, false
 	})
-	if len(filtered) != 2 || filtered[0].TextContent != "2" || filtered[1].TextContent != "4" {
-		t.Fatalf("expected filtered nodes, got %#v", filtered)
+	if len(parseFiltered) != 2 || parseFiltered[0].TextContent != "2" || parseFiltered[1].TextContent != "4" {
+		parseT.Fatalf("expected filtered nodes, got %#v", parseFiltered)
 	}
 
-	joined := Join(Text("|"), Text("a"), nil, Text("b"), Text("c"))
-	markup, err := ui.RenderToString(Div(Props{}, joined...))
-	if err != nil {
-		t.Fatalf("expected joined render, got %v", err)
+	parseJoined := Join(Text("|"), Text("a"), nil, Text("b"), Text("c"))
+	parseMarkup, parseErr := ui.RenderToString(Div(Props{}, parseJoined...))
+	if parseErr != nil {
+		parseT.Fatalf("expected joined render, got %v", parseErr)
 	}
-	if markup != "<div>a|b|c</div>" {
-		t.Fatalf("expected joined markup, got %q", markup)
+	if parseMarkup != "<div>a|b|c</div>" {
+		parseT.Fatalf("expected joined markup, got %q", parseMarkup)
 	}
 }
 
-func TestSecondPassOptionalAndSwitchHelpers(t *testing.T) {
-	value := "ready"
-	if Maybe(nil, func(v string) ui.Node { return Text(v) }) != nil {
-		t.Fatal("expected Maybe(nil, ...) to return nil")
+func TestSecondPassOptionalAndSwitchHelpers(parseT *testing.T) {
+	parseValue := "ready"
+	if Maybe(nil, func(parseV string) ui.Node { return Text(parseV) }) != nil {
+		parseT.Fatal("expected Maybe(nil, ...) to return nil")
 	}
-	maybe := Maybe(&value, func(v string) ui.Node { return Text(strings.ToUpper(v)) })
-	if maybe == nil || maybe.TextContent != "READY" {
-		t.Fatalf("expected Maybe to render value, got %#v", maybe)
-	}
-
-	if got := OrElse(nil, "fallback"); got != "fallback" {
-		t.Fatalf("expected OrElse fallback, got %q", got)
-	}
-	if got := OrElse(&value, "fallback"); got != "ready" {
-		t.Fatalf("expected OrElse value, got %q", got)
+	parseMaybe := Maybe(&parseValue, func(parseV2 string) ui.Node { return Text(strings.ToUpper(parseV2)) })
+	if parseMaybe == nil || parseMaybe.TextContent != "READY" {
+		parseT.Fatalf("expected Maybe to render value, got %#v", parseMaybe)
 	}
 
-	alt := "alt"
-	if got := Coalesce(nil, &alt, &value); got == nil || *got != "alt" {
-		t.Fatalf("expected first non-nil pointer, got %#v", got)
+	if parseGot := OrElse(nil, "fallback"); parseGot != "fallback" {
+		parseT.Fatalf("expected OrElse fallback, got %q", parseGot)
 	}
-	if got := Coalesce[string](nil, nil); got != nil {
-		t.Fatalf("expected nil coalesce result, got %#v", got)
+	if parseGot2 := OrElse(&parseValue, "fallback"); parseGot2 != "ready" {
+		parseT.Fatalf("expected OrElse value, got %q", parseGot2)
 	}
 
-	switched := Switch("warn",
+	parseAlt := "alt"
+	if parseGot3 := Coalesce(nil, &parseAlt, &parseValue); parseGot3 == nil || *parseGot3 != "alt" {
+		parseT.Fatalf("expected first non-nil pointer, got %#v", parseGot3)
+	}
+	if parseGot4 := Coalesce[string](nil, nil); parseGot4 != nil {
+		parseT.Fatalf("expected nil coalesce result, got %#v", parseGot4)
+	}
+
+	parseSwitched := Switch("warn",
 		Case("ok", Text("ok")),
 		Case("warn", Text("warn")),
 		Default(Text("fallback")),
 	)
-	if switched == nil || switched.TextContent != "warn" {
-		t.Fatalf("expected matching switch branch, got %#v", switched)
+	if parseSwitched == nil || parseSwitched.TextContent != "warn" {
+		parseT.Fatalf("expected matching switch branch, got %#v", parseSwitched)
 	}
 
-	fallback := Switch("missing", Case("ok", Text("ok")), Default(Text("fallback")))
-	if fallback == nil || fallback.TextContent != "fallback" {
-		t.Fatalf("expected default switch branch, got %#v", fallback)
+	parseFallback := Switch("missing", Case("ok", Text("ok")), Default(Text("fallback")))
+	if parseFallback == nil || parseFallback.TextContent != "fallback" {
+		parseT.Fatalf("expected default switch branch, got %#v", parseFallback)
 	}
 	if Switch("missing", Case("ok", Text("ok"))) != nil {
-		t.Fatal("expected switch without default to return nil")
+		parseT.Fatal("expected switch without default to return nil")
 	}
 }
 
-func TestPropsOfAndOptionHelpers(t *testing.T) {
-	var skipped PropOption
-	props := PropsOf(
-		skipped,
+func TestPropsOfAndOptionHelpers(parseT *testing.T) {
+	var parseSkipped PropOption
+	parseProps := PropsOf(
+		parseSkipped,
 		Class("alpha"),
 		Class(ClassNames("alpha", "beta")),
 		ID("demo"),
@@ -310,307 +310,307 @@ func TestPropsOfAndOptionHelpers(t *testing.T) {
 		Attrs(map[string]interface{}{"data-extra": "yes"}),
 	)
 
-	elem := Button(props, Text("Save"))
-	if elem.Props["id"] != "demo" {
-		t.Fatalf("expected id prop, got %#v", elem.Props["id"])
+	parseElem := Button(parseProps, Text("Save"))
+	if parseElem.Props["id"] != "demo" {
+		parseT.Fatalf("expected id prop, got %#v", parseElem.Props["id"])
 	}
-	if elem.Props["htmlFor"] != "demo-input" {
-		t.Fatalf("expected htmlFor prop, got %#v", elem.Props["htmlFor"])
+	if parseElem.Props["htmlFor"] != "demo-input" {
+		parseT.Fatalf("expected htmlFor prop, got %#v", parseElem.Props["htmlFor"])
 	}
-	if elem.Props["name"] != "save-button" {
-		t.Fatalf("expected name prop, got %#v", elem.Props["name"])
+	if parseElem.Props["name"] != "save-button" {
+		parseT.Fatalf("expected name prop, got %#v", parseElem.Props["name"])
 	}
-	if elem.Props["class"] != "alpha beta" {
-		t.Fatalf("expected class prop, got %#v", elem.Props["class"])
+	if parseElem.Props["class"] != "alpha beta" {
+		parseT.Fatalf("expected class prop, got %#v", parseElem.Props["class"])
 	}
-	if elem.Props["role"] != "button" {
-		t.Fatalf("expected role prop, got %#v", elem.Props["role"])
+	if parseElem.Props["role"] != "button" {
+		parseT.Fatalf("expected role prop, got %#v", parseElem.Props["role"])
 	}
-	if elem.Props["rows"] != 4 {
-		t.Fatalf("expected rows prop, got %#v", elem.Props["rows"])
+	if parseElem.Props["rows"] != 4 {
+		parseT.Fatalf("expected rows prop, got %#v", parseElem.Props["rows"])
 	}
-	if elem.Props["tabIndex"] != 9 {
-		t.Fatalf("expected raw tabIndex override to win, got %#v", elem.Props["tabIndex"])
+	if parseElem.Props["tabIndex"] != 9 {
+		parseT.Fatalf("expected raw tabIndex override to win, got %#v", parseElem.Props["tabIndex"])
 	}
-	if elem.Props["disabled"] != true {
-		t.Fatalf("expected disabled prop, got %#v", elem.Props["disabled"])
+	if parseElem.Props["disabled"] != true {
+		parseT.Fatalf("expected disabled prop, got %#v", parseElem.Props["disabled"])
 	}
-	if _, ok := elem.Props["readOnly"]; ok {
-		t.Fatalf("expected readonly false to be omitted, got %#v", elem.Props["readOnly"])
+	if _, parseOk := parseElem.Props["readOnly"]; parseOk {
+		parseT.Fatalf("expected readonly false to be omitted, got %#v", parseElem.Props["readOnly"])
 	}
-	if elem.Props["selected"] != true {
-		t.Fatalf("expected selected prop, got %#v", elem.Props["selected"])
+	if parseElem.Props["selected"] != true {
+		parseT.Fatalf("expected selected prop, got %#v", parseElem.Props["selected"])
 	}
-	if elem.Props["required"] != true {
-		t.Fatalf("expected required prop, got %#v", elem.Props["required"])
+	if parseElem.Props["required"] != true {
+		parseT.Fatalf("expected required prop, got %#v", parseElem.Props["required"])
 	}
-	if elem.Props["data-mode"] != "demo" || elem.Props["data-state"] != "ready" {
-		t.Fatalf("expected merged data props, got %#v", elem.Props)
+	if parseElem.Props["data-mode"] != "demo" || parseElem.Props["data-state"] != "ready" {
+		parseT.Fatalf("expected merged data props, got %#v", parseElem.Props)
 	}
-	if elem.Props["aria-label"] != "Demo" || elem.Props["aria-describedby"] != "copy" {
-		t.Fatalf("expected merged aria props, got %#v", elem.Props)
+	if parseElem.Props["aria-label"] != "Demo" || parseElem.Props["aria-describedby"] != "copy" {
+		parseT.Fatalf("expected merged aria props, got %#v", parseElem.Props)
 	}
-	if elem.Props["data-extra"] != "yes" {
-		t.Fatalf("expected raw attrs to merge, got %#v", elem.Props["data-extra"])
+	if parseElem.Props["data-extra"] != "yes" {
+		parseT.Fatalf("expected raw attrs to merge, got %#v", parseElem.Props["data-extra"])
 	}
-	if style, ok := elem.Props["style"].(map[string]string); !ok || style["color"] != "red" || style["display"] != "flex" {
-		t.Fatalf("expected merged style map, got %#v", elem.Props["style"])
+	if parseStyle, parseOk2 := parseElem.Props["style"].(map[string]string); !parseOk2 || parseStyle["color"] != "red" || parseStyle["display"] != "flex" {
+		parseT.Fatalf("expected merged style map, got %#v", parseElem.Props["style"])
 	}
-	if elem.Props["href"] != "/settings" || elem.Props["src"] != "/hero.png" {
-		t.Fatalf("expected string option props, got %#v", elem.Props)
+	if parseElem.Props["href"] != "/settings" || parseElem.Props["src"] != "/hero.png" {
+		parseT.Fatalf("expected string option props, got %#v", parseElem.Props)
 	}
-	if elem.Props["value"] != "save" {
-		t.Fatalf("expected value prop, got %#v", elem.Props["value"])
+	if parseElem.Props["value"] != "save" {
+		parseT.Fatalf("expected value prop, got %#v", parseElem.Props["value"])
 	}
 
-	base := Props{
+	parseBase := Props{
 		Class: "base",
 		Style: map[string]string{"display": "grid"},
 		Data:  map[string]string{"base": "yes"},
 		Aria:  map[string]string{"live": "polite"},
 		Raw:   map[string]interface{}{"data-base": "ok"},
 	}
-	merged := WithProps(base, Checked(false), AutoFocus(false), Class("override"), Attr("data-extra", "value"))
-	if merged.Class != "override" || merged.Checked || merged.AutoFocus {
-		t.Fatalf("expected WithProps overrides, got %#v", merged)
+	parseMerged := WithProps(parseBase, Checked(false), AutoFocus(false), Class("override"), Attr("data-extra", "value"))
+	if parseMerged.Class != "override" || parseMerged.Checked || parseMerged.AutoFocus {
+		parseT.Fatalf("expected WithProps overrides, got %#v", parseMerged)
 	}
-	merged.Style["display"] = "flex"
-	merged.Data["base"] = "changed"
-	merged.Aria["live"] = "assertive"
-	merged.Raw["data-base"] = "changed"
-	if base.Style["display"] != "grid" || base.Data["base"] != "yes" || base.Aria["live"] != "polite" || base.Raw["data-base"] != "ok" {
-		t.Fatalf("expected WithProps to clone nested maps, base=%#v merged=%#v", base, merged)
+	parseMerged.Style["display"] = "flex"
+	parseMerged.Data["base"] = "changed"
+	parseMerged.Aria["live"] = "assertive"
+	parseMerged.Raw["data-base"] = "changed"
+	if parseBase.Style["display"] != "grid" || parseBase.Data["base"] != "yes" || parseBase.Aria["live"] != "polite" || parseBase.Raw["data-base"] != "ok" {
+		parseT.Fatalf("expected WithProps to clone nested maps, base=%#v merged=%#v", parseBase, parseMerged)
 	}
 }
 
-func TestEventOptionHelpersWrapHandlers(t *testing.T) {
+func TestEventOptionHelpersWrapHandlers(parseT *testing.T) {
 	if goRuntime.GOOS == "js" && goRuntime.GOARCH == "wasm" {
-		t.Skip("event helpers depend on hook context on js/wasm")
+		parseT.Skip("event helpers depend on hook context on js/wasm")
 	}
 
-	clicks := 0
-	inputs := 0
-	changes := 0
-	submits := 0
-	keydowns := 0
-	keyups := 0
-	mouseups := 0
-	focuses := 0
-	blurs := 0
-	props := PropsOf(
-		OnClick(func() { clicks++ }),
-		OnInput(func(event ui.InputEvent) { inputs += len(event.GetValue()) }),
-		OnChange(func(event ui.ChangeEvent) { changes += len(event.GetValue()) }),
-		OnSubmit(func(event ui.FormEvent) { submits += len(event.GetValue()) }),
-		OnKeyDown(func(event ui.KeyboardEvent) { keydowns += len(event.GetKey()) }),
-		OnKeyUp(func(event ui.KeyboardEvent) { keyups += len(event.GetKey()) }),
-		OnMouseUp(func(event ui.MouseEvent) { mouseups += event.GetKeyCode() + 1 }),
-		OnFocus(func(event ui.Event) { focuses += len(event.GetValue()) }),
-		OnBlur(func(event ui.Event) { blurs += len(event.GetValue()) }),
+	parseClicks := 0
+	parseInputs := 0
+	parseChanges := 0
+	parseSubmits := 0
+	parseKeydowns := 0
+	parseKeyups := 0
+	parseMouseups := 0
+	parseFocuses := 0
+	parseBlurs := 0
+	parseProps := PropsOf(
+		OnClick(func() { parseClicks++ }),
+		OnInput(func(parseEvent ui.InputEvent) { parseInputs += len(parseEvent.GetValue()) }),
+		OnChange(func(parseEvent2 ui.ChangeEvent) { parseChanges += len(parseEvent2.GetValue()) }),
+		OnSubmit(func(parseEvent3 ui.FormEvent) { parseSubmits += len(parseEvent3.GetValue()) }),
+		OnKeyDown(func(parseEvent4 ui.KeyboardEvent) { parseKeydowns += len(parseEvent4.GetKey()) }),
+		OnKeyUp(func(parseEvent5 ui.KeyboardEvent) { parseKeyups += len(parseEvent5.GetKey()) }),
+		OnMouseUp(func(parseEvent6 ui.MouseEvent) { parseMouseups += parseEvent6.GetKeyCode() + 1 }),
+		OnFocus(func(parseEvent7 ui.Event) { parseFocuses += len(parseEvent7.GetValue()) }),
+		OnBlur(func(parseEvent8 ui.Event) { parseBlurs += len(parseEvent8.GetValue()) }),
 	)
 
-	if props.OnClick.Value() == nil {
-		t.Fatal("expected OnClick helper to produce a handler")
+	if parseProps.OnClick.Value() == nil {
+		parseT.Fatal("expected OnClick helper to produce a handler")
 	}
-	if props.OnInput.Value() == nil || props.OnChange.Value() == nil || props.OnSubmit.Value() == nil || props.OnKeyDown.Value() == nil || props.OnFocus.Value() == nil || props.OnBlur.Value() == nil {
-		t.Fatal("expected all event helpers to produce handlers")
+	if parseProps.OnInput.Value() == nil || parseProps.OnChange.Value() == nil || parseProps.OnSubmit.Value() == nil || parseProps.OnKeyDown.Value() == nil || parseProps.OnFocus.Value() == nil || parseProps.OnBlur.Value() == nil {
+		parseT.Fatal("expected all event helpers to produce handlers")
 	}
-	if props.OnKeyUp.Value() == nil {
-		t.Fatal("expected OnKeyUp helper to produce a handler")
+	if parseProps.OnKeyUp.Value() == nil {
+		parseT.Fatal("expected OnKeyUp helper to produce a handler")
 	}
-	if props.OnMouseUp.Value() == nil {
-		t.Fatal("expected OnMouseUp helper to produce a handler")
-	}
-
-	node := Button(props, Text("Press"))
-	if node.Props["onclick"] == nil {
-		t.Fatal("expected onclick prop to be emitted")
-	}
-	if node.Props["oninput"] == nil || node.Props["onchange"] == nil || node.Props["onsubmit"] == nil || node.Props["onkeydown"] == nil || node.Props["onfocus"] == nil || node.Props["onblur"] == nil || node.Props["onkeyup"] == nil || node.Props["onmouseup"] == nil {
-		t.Fatal("expected all event props to be emitted")
+	if parseProps.OnMouseUp.Value() == nil {
+		parseT.Fatal("expected OnMouseUp helper to produce a handler")
 	}
 
-	if clicks != 0 || inputs != 0 || changes != 0 || submits != 0 || keydowns != 0 || keyups != 0 || mouseups != 0 || focuses != 0 || blurs != 0 {
-		t.Fatalf("expected handlers not to execute during props assembly, got clicks=%d inputs=%d changes=%d submits=%d keydowns=%d keyups=%d mouseups=%d focuses=%d blurs=%d", clicks, inputs, changes, submits, keydowns, keyups, mouseups, focuses, blurs)
+	parseNode := Button(parseProps, Text("Press"))
+	if parseNode.Props["onclick"] == nil {
+		parseT.Fatal("expected onclick prop to be emitted")
+	}
+	if parseNode.Props["oninput"] == nil || parseNode.Props["onchange"] == nil || parseNode.Props["onsubmit"] == nil || parseNode.Props["onkeydown"] == nil || parseNode.Props["onfocus"] == nil || parseNode.Props["onblur"] == nil || parseNode.Props["onkeyup"] == nil || parseNode.Props["onmouseup"] == nil {
+		parseT.Fatal("expected all event props to be emitted")
+	}
+
+	if parseClicks != 0 || parseInputs != 0 || parseChanges != 0 || parseSubmits != 0 || parseKeydowns != 0 || parseKeyups != 0 || parseMouseups != 0 || parseFocuses != 0 || parseBlurs != 0 {
+		parseT.Fatalf("expected handlers not to execute during props assembly, got clicks=%d inputs=%d changes=%d submits=%d keydowns=%d keyups=%d mouseups=%d focuses=%d blurs=%d", parseClicks, parseInputs, parseChanges, parseSubmits, parseKeydowns, parseKeyups, parseMouseups, parseFocuses, parseBlurs)
 	}
 }
 
-func TestPreventAndStopWrapCallbacks(t *testing.T) {
-	prevented := 0
-	stopped := 0
-	preventWrapped, ok := Prevent(func() { prevented++ }).(func(ui.Event))
-	if !ok {
-		t.Fatal("expected Prevent to return a ui.Event wrapper")
+func TestPreventAndStopWrapCallbacks(parseT *testing.T) {
+	parsePrevented := 0
+	parseStopped := 0
+	parsePreventWrapped, parseOk := Prevent(func() { parsePrevented++ }).(func(ui.Event))
+	if !parseOk {
+		parseT.Fatal("expected Prevent to return a ui.Event wrapper")
 	}
-	stopWrapped, ok := Stop(func(event ui.KeyboardEvent) { stopped += len(event.GetKey()) + 1 }).(func(ui.Event))
-	if !ok {
-		t.Fatal("expected Stop to return a ui.Event wrapper")
-	}
-
-	preventWrapped(ui.Event{})
-	stopWrapped(ui.Event{})
-
-	if prevented != 1 {
-		t.Fatalf("expected Prevent wrapper to invoke callback once, got %d", prevented)
-	}
-	if stopped != 1 {
-		t.Fatalf("expected Stop wrapper to invoke typed callback once, got %d", stopped)
+	parseStopWrapped, parseOk := Stop(func(parseEvent ui.KeyboardEvent) { parseStopped += len(parseEvent.GetKey()) + 1 }).(func(ui.Event))
+	if !parseOk {
+		parseT.Fatal("expected Stop to return a ui.Event wrapper")
 	}
 
-	nested, ok := Prevent(Stop(func() { prevented++ })).(func(ui.Event))
-	if !ok {
-		t.Fatal("expected nested wrappers to return a ui.Event wrapper")
+	parsePreventWrapped(ui.Event{})
+	parseStopWrapped(ui.Event{})
+
+	if parsePrevented != 1 {
+		parseT.Fatalf("expected Prevent wrapper to invoke callback once, got %d", parsePrevented)
 	}
-	nested(ui.Event{})
-	if prevented != 2 {
-		t.Fatalf("expected nested wrapper to preserve callback execution, got %d", prevented)
+	if parseStopped != 1 {
+		parseT.Fatalf("expected Stop wrapper to invoke typed callback once, got %d", parseStopped)
+	}
+
+	parseNested, parseOk := Prevent(Stop(func() { parsePrevented++ })).(func(ui.Event))
+	if !parseOk {
+		parseT.Fatal("expected nested wrappers to return a ui.Event wrapper")
+	}
+	parseNested(ui.Event{})
+	if parsePrevented != 2 {
+		parseT.Fatalf("expected nested wrapper to preserve callback execution, got %d", parsePrevented)
 	}
 }
 
-func TestTemporalWrappers(t *testing.T) {
-	passthrough := func() {}
-	if reflect.ValueOf(Debounce(0, passthrough)).Pointer() != reflect.ValueOf(passthrough).Pointer() {
-		t.Fatal("expected Debounce(<=0, ...) to return original callback")
+func TestTemporalWrappers(parseT *testing.T) {
+	parsePassthrough := func() {}
+	if reflect.ValueOf(Debounce(0, parsePassthrough)).Pointer() != reflect.ValueOf(parsePassthrough).Pointer() {
+		parseT.Fatal("expected Debounce(<=0, ...) to return original callback")
 	}
-	if reflect.ValueOf(Throttle(0, passthrough)).Pointer() != reflect.ValueOf(passthrough).Pointer() {
-		t.Fatal("expected Throttle(<=0, ...) to return original callback")
+	if reflect.ValueOf(Throttle(0, parsePassthrough)).Pointer() != reflect.ValueOf(parsePassthrough).Pointer() {
+		parseT.Fatal("expected Throttle(<=0, ...) to return original callback")
 	}
 
-	debouncedCount := 0
-	debounced, ok := Debounce(20*time.Millisecond, func() { debouncedCount++ }).(func(ui.Event))
-	if !ok {
-		t.Fatal("expected Debounce to return a ui.Event wrapper")
+	parseDebouncedCount := 0
+	parseDebounced, parseOk := Debounce(20*time.Millisecond, func() { parseDebouncedCount++ }).(func(ui.Event))
+	if !parseOk {
+		parseT.Fatal("expected Debounce to return a ui.Event wrapper")
 	}
-	debounced(ui.Event{})
-	debounced(ui.Event{})
-	debounced(ui.Event{})
+	parseDebounced(ui.Event{})
+	parseDebounced(ui.Event{})
+	parseDebounced(ui.Event{})
 	time.Sleep(50 * time.Millisecond)
-	if debouncedCount != 1 {
-		t.Fatalf("expected debounced callback once, got %d", debouncedCount)
+	if parseDebouncedCount != 1 {
+		parseT.Fatalf("expected debounced callback once, got %d", parseDebouncedCount)
 	}
 
-	throttledCount := 0
-	throttled, ok := Throttle(25*time.Millisecond, func(event ui.KeyboardEvent) { throttledCount += len(event.GetKey()) + 1 }).(func(ui.Event))
-	if !ok {
-		t.Fatal("expected Throttle to return a ui.Event wrapper")
+	parseThrottledCount := 0
+	parseThrottled, parseOk := Throttle(25*time.Millisecond, func(parseEvent ui.KeyboardEvent) { parseThrottledCount += len(parseEvent.GetKey()) + 1 }).(func(ui.Event))
+	if !parseOk {
+		parseT.Fatal("expected Throttle to return a ui.Event wrapper")
 	}
-	throttled(ui.Event{})
-	throttled(ui.Event{})
+	parseThrottled(ui.Event{})
+	parseThrottled(ui.Event{})
 	time.Sleep(10 * time.Millisecond)
-	if throttledCount != 1 {
-		t.Fatalf("expected immediate throttled callback, got %d", throttledCount)
+	if parseThrottledCount != 1 {
+		parseT.Fatalf("expected immediate throttled callback, got %d", parseThrottledCount)
 	}
-	throttled(ui.Event{})
+	parseThrottled(ui.Event{})
 	time.Sleep(40 * time.Millisecond)
-	if throttledCount != 2 {
-		t.Fatalf("expected trailing throttled callback, got %d", throttledCount)
+	if parseThrottledCount != 2 {
+		parseT.Fatalf("expected trailing throttled callback, got %d", parseThrottledCount)
 	}
 }
 
-func TestInternalHandlerAndMapHelpersEdgeCases(t *testing.T) {
-	if handler := toHandler(nil); handler.Value() != nil {
-		t.Fatalf("expected nil callback to produce empty handler, got %#v", handler)
+func TestInternalHandlerAndMapHelpersEdgeCases(parseT *testing.T) {
+	if parseHandler := toHandler(nil); parseHandler.Value() != nil {
+		parseT.Fatalf("expected nil callback to produce empty handler, got %#v", parseHandler)
 	}
-	raw := ui.WrapHandler("raw")
-	if handler := toHandler(raw); handler.Value() != raw.Value() {
-		t.Fatalf("expected ui.Handler passthrough, got %#v", handler)
+	parseRaw := ui.WrapHandler("raw")
+	if parseHandler2 := toHandler(parseRaw); parseHandler2.Value() != parseRaw.Value() {
+		parseT.Fatalf("expected ui.Handler passthrough, got %#v", parseHandler2)
 	}
 
-	invoked := 0
+	parseInvoked := 0
 	invokeEventCallback(nil, ui.Event{})
 	invokeEventCallback("not-a-func", ui.Event{})
-	invokeEventCallback(func(a, b int) { invoked++ }, ui.Event{})
-	invokeEventCallback(func(v int) { invoked += v }, ui.Event{})
-	invokeEventCallback(func() { invoked++ }, ui.Event{})
-	if invoked != 1 {
-		t.Fatalf("expected only zero-arg callback to run, got %d", invoked)
+	invokeEventCallback(func(parseA, parseB int) { parseInvoked++ }, ui.Event{})
+	invokeEventCallback(func(parseV int) { parseInvoked += parseV }, ui.Event{})
+	invokeEventCallback(func() { parseInvoked++ }, ui.Event{})
+	if parseInvoked != 1 {
+		parseT.Fatalf("expected only zero-arg callback to run, got %d", parseInvoked)
 	}
 
 	if cloneStringMap(nil) != nil {
-		t.Fatal("expected nil string map clone for nil input")
+		parseT.Fatal("expected nil string map clone for nil input")
 	}
 	if mergeStringMap(map[string]string{"a": "1"}, nil)["a"] != "1" {
-		t.Fatal("expected mergeStringMap with nil values to preserve destination")
+		parseT.Fatal("expected mergeStringMap with nil values to preserve destination")
 	}
 	if cloneAnyMap(nil) != nil {
-		t.Fatal("expected nil any map clone for nil input")
+		parseT.Fatal("expected nil any map clone for nil input")
 	}
 	if mergeAnyMap(map[string]interface{}{"a": 1}, nil)["a"] != 1 {
-		t.Fatal("expected mergeAnyMap with nil values to preserve destination")
+		parseT.Fatal("expected mergeAnyMap with nil values to preserve destination")
 	}
 
-	original := Props{
+	parseOriginal := Props{
 		Style: map[string]string{"display": "grid"},
 		Data:  map[string]string{"mode": "demo"},
 		Aria:  map[string]string{"label": "demo"},
 		Raw:   map[string]interface{}{"data-extra": "ok"},
 	}
-	cloned := cloneProps(original)
-	cloned.Style["display"] = "flex"
-	cloned.Data["mode"] = "changed"
-	cloned.Aria["label"] = "changed"
-	cloned.Raw["data-extra"] = "changed"
-	if original.Style["display"] != "grid" || original.Data["mode"] != "demo" || original.Aria["label"] != "demo" || original.Raw["data-extra"] != "ok" {
-		t.Fatalf("expected cloneProps to preserve the original maps, original=%#v clone=%#v", original, cloned)
+	parseCloned := cloneProps(parseOriginal)
+	parseCloned.Style["display"] = "flex"
+	parseCloned.Data["mode"] = "changed"
+	parseCloned.Aria["label"] = "changed"
+	parseCloned.Raw["data-extra"] = "changed"
+	if parseOriginal.Style["display"] != "grid" || parseOriginal.Data["mode"] != "demo" || parseOriginal.Aria["label"] != "demo" || parseOriginal.Raw["data-extra"] != "ok" {
+		parseT.Fatalf("expected cloneProps to preserve the original maps, original=%#v clone=%#v", parseOriginal, parseCloned)
 	}
-	if base := cloneProps(Props{}); base.Style != nil || base.Data != nil || base.Aria != nil || base.Raw != nil {
-		t.Fatalf("expected zero clone props to keep nil maps, got %#v", base)
-	}
-}
-
-func TestVoidTagsRemainSimpleWithPropsOf(t *testing.T) {
-	brMarkup, err := ui.RenderToString(Br(PropsOf(Class("gap"))))
-	if err != nil {
-		t.Fatalf("expected br render, got %v", err)
-	}
-	if brMarkup != `<br class="gap">` {
-		t.Fatalf("expected br markup, got %q", brMarkup)
-	}
-
-	hrMarkup, err := ui.RenderToString(Hr(PropsOf(ID("rule"))))
-	if err != nil {
-		t.Fatalf("expected hr render, got %v", err)
-	}
-	if hrMarkup != `<hr id="rule">` {
-		t.Fatalf("expected hr markup, got %q", hrMarkup)
-	}
-
-	imgMarkup, err := ui.RenderToString(Img(PropsOf(Src("/logo.png"), Attr("loading", "lazy"))))
-	if err != nil {
-		t.Fatalf("expected img render, got %v", err)
-	}
-	if imgMarkup != `<img loading="lazy" src="/logo.png">` {
-		t.Fatalf("expected img markup, got %q", imgMarkup)
-	}
-
-	inputMarkup, err := ui.RenderToString(Input(PropsOf(Type("text"), Value("hello"))))
-	if err != nil {
-		t.Fatalf("expected input render, got %v", err)
-	}
-	if inputMarkup != `<input type="text" value="hello">` {
-		t.Fatalf("expected input markup, got %q", inputMarkup)
+	if parseBase := cloneProps(Props{}); parseBase.Style != nil || parseBase.Data != nil || parseBase.Aria != nil || parseBase.Raw != nil {
+		parseT.Fatalf("expected zero clone props to keep nil maps, got %#v", parseBase)
 	}
 }
 
-func TestShorthandParityMatchesExplicitBuilders(t *testing.T) {
-	explicit := Div(Props{Class: "panel"}, Text("hello"), Span(Props{}, Text("world")))
-	shorthand := Div(PropsOf(Class("panel")), Children("hello", Span(Props{}, Text("world")))...)
+func TestVoidTagsRemainSimpleWithPropsOf(parseT *testing.T) {
+	parseBrMarkup, parseErr := ui.RenderToString(Br(PropsOf(Class("gap"))))
+	if parseErr != nil {
+		parseT.Fatalf("expected br render, got %v", parseErr)
+	}
+	if parseBrMarkup != `<br class="gap">` {
+		parseT.Fatalf("expected br markup, got %q", parseBrMarkup)
+	}
 
-	explicitMarkup, err := ui.RenderToString(explicit)
-	if err != nil {
-		t.Fatalf("expected explicit markup render, got %v", err)
+	parseHrMarkup, parseErr := ui.RenderToString(Hr(PropsOf(ID("rule"))))
+	if parseErr != nil {
+		parseT.Fatalf("expected hr render, got %v", parseErr)
 	}
-	shorthandMarkup, err := ui.RenderToString(shorthand)
-	if err != nil {
-		t.Fatalf("expected shorthand markup render, got %v", err)
+	if parseHrMarkup != `<hr id="rule">` {
+		parseT.Fatalf("expected hr markup, got %q", parseHrMarkup)
 	}
-	if explicitMarkup != shorthandMarkup {
-		t.Fatalf("expected shorthand output parity, explicit=%q shorthand=%q", explicitMarkup, shorthandMarkup)
+
+	parseImgMarkup, parseErr := ui.RenderToString(Img(PropsOf(Src("/logo.png"), Attr("loading", "lazy"))))
+	if parseErr != nil {
+		parseT.Fatalf("expected img render, got %v", parseErr)
+	}
+	if parseImgMarkup != `<img loading="lazy" src="/logo.png">` {
+		parseT.Fatalf("expected img markup, got %q", parseImgMarkup)
+	}
+
+	parseInputMarkup, parseErr := ui.RenderToString(Input(PropsOf(Type("text"), Value("hello"))))
+	if parseErr != nil {
+		parseT.Fatalf("expected input render, got %v", parseErr)
+	}
+	if parseInputMarkup != `<input type="text" value="hello">` {
+		parseT.Fatalf("expected input markup, got %q", parseInputMarkup)
 	}
 }
 
-func TestSugarHelpersRenderExactHTMLString(t *testing.T) {
-	node := Div(
+func TestShorthandParityMatchesExplicitBuilders(parseT *testing.T) {
+	parseExplicit := Div(Props{Class: "panel"}, Text("hello"), Span(Props{}, Text("world")))
+	parseShorthand := Div(PropsOf(Class("panel")), Children("hello", Span(Props{}, Text("world")))...)
+
+	parseExplicitMarkup, parseErr := ui.RenderToString(parseExplicit)
+	if parseErr != nil {
+		parseT.Fatalf("expected explicit markup render, got %v", parseErr)
+	}
+	parseShorthandMarkup, parseErr := ui.RenderToString(parseShorthand)
+	if parseErr != nil {
+		parseT.Fatalf("expected shorthand markup render, got %v", parseErr)
+	}
+	if parseExplicitMarkup != parseShorthandMarkup {
+		parseT.Fatalf("expected shorthand output parity, explicit=%q shorthand=%q", parseExplicitMarkup, parseShorthandMarkup)
+	}
+}
+
+func TestSugarHelpersRenderExactHTMLString(parseT *testing.T) {
+	parseNode := Div(
 		PropsOf(Class("panel"), Attr("data-mode", "demo")),
 		Children(
 			"hello",
@@ -620,13 +620,13 @@ func TestSugarHelpersRenderExactHTMLString(t *testing.T) {
 		)...,
 	)
 
-	markup, err := ui.RenderToString(node)
-	if err != nil {
-		t.Fatalf("expected sugar markup render, got %v", err)
+	parseMarkup, parseErr := ui.RenderToString(parseNode)
+	if parseErr != nil {
+		parseT.Fatalf("expected sugar markup render, got %v", parseErr)
 	}
 
 	const want = `<div class="panel" data-mode="demo">hello<span class="accent">world</span>!</div>`
-	if markup != want {
-		t.Fatalf("unexpected sugar markup\nwant: %s\n got: %s", want, markup)
+	if parseMarkup != want {
+		parseT.Fatalf("unexpected sugar markup\nwant: %s\n got: %s", want, parseMarkup)
 	}
 }

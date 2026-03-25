@@ -7,8 +7,8 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestCustomElementSeparatesAttributesFromProperties(t *testing.T) {
-	node := CustomElement("demo-rating-card", CustomElementProps{
+func TestCustomElementSeparatesAttributesFromProperties(parseT *testing.T) {
+	parseNode := CustomElement("demo-rating-card", CustomElementProps{
 		Props: Props{
 			ID:    "rating-card",
 			Class: "widget-shell",
@@ -25,41 +25,41 @@ func TestCustomElementSeparatesAttributesFromProperties(t *testing.T) {
 			"config": map[string]interface{}{"accent": "cyan"},
 		},
 	}, Span(Props{Slot: "actions"}, Text("Refresh")))
-	if node == nil {
-		t.Fatal("expected custom element node")
+	if parseNode == nil {
+		parseT.Fatal("expected custom element node")
 	}
-	if node.Type != "demo-rating-card" {
-		t.Fatalf("expected custom element tag, got %#v", node.Type)
+	if parseNode.Type != "demo-rating-card" {
+		parseT.Fatalf("expected custom element tag, got %#v", parseNode.Type)
 	}
-	if node.Props["id"] != "rating-card" {
-		t.Fatalf("expected id prop, got %#v", node.Props["id"])
+	if parseNode.Props["id"] != "rating-card" {
+		parseT.Fatalf("expected id prop, got %#v", parseNode.Props["id"])
 	}
-	if node.Props["palette"] != "ocean" {
-		t.Fatalf("expected reflected palette attribute, got %#v", node.Props["palette"])
+	if parseNode.Props["palette"] != "ocean" {
+		parseT.Fatalf("expected reflected palette attribute, got %#v", parseNode.Props["palette"])
 	}
-	if node.Props["interactive"] != "" {
-		t.Fatalf("expected presence attribute, got %#v", node.Props["interactive"])
+	if parseNode.Props["interactive"] != "" {
+		parseT.Fatalf("expected presence attribute, got %#v", parseNode.Props["interactive"])
 	}
-	if _, ok := node.Props["disabled"]; ok {
-		t.Fatalf("expected disabled presence attribute to be omitted, got %#v", node.Props["disabled"])
+	if _, parseOk := parseNode.Props["disabled"]; parseOk {
+		parseT.Fatalf("expected disabled presence attribute to be omitted, got %#v", parseNode.Props["disabled"])
 	}
-	if node.Props[customElementPropertyPrefix+"score"] != 4 {
-		t.Fatalf("expected score property, got %#v", node.Props[customElementPropertyPrefix+"score"])
+	if parseNode.Props[customElementPropertyPrefix+"score"] != 4 {
+		parseT.Fatalf("expected score property, got %#v", parseNode.Props[customElementPropertyPrefix+"score"])
 	}
-	if config, ok := node.Props[customElementPropertyPrefix+"config"].(map[string]interface{}); !ok || config["accent"] != "cyan" {
-		t.Fatalf("expected config property, got %#v", node.Props[customElementPropertyPrefix+"config"])
+	if parseConfig, parseOk2 := parseNode.Props[customElementPropertyPrefix+"config"].(map[string]interface{}); !parseOk2 || parseConfig["accent"] != "cyan" {
+		parseT.Fatalf("expected config property, got %#v", parseNode.Props[customElementPropertyPrefix+"config"])
 	}
-	if len(node.Children) != 1 {
-		t.Fatalf("expected one slotted child, got %d", len(node.Children))
+	if len(parseNode.Children) != 1 {
+		parseT.Fatalf("expected one slotted child, got %d", len(parseNode.Children))
 	}
-	child, ok := node.Children[0].(*ui.Element)
-	if !ok || child.Props["slot"] != "actions" {
-		t.Fatalf("expected child slot attribute, got %#v", node.Children[0])
+	parseChild, parseOk3 := parseNode.Children[0].(*ui.Element)
+	if !parseOk3 || parseChild.Props["slot"] != "actions" {
+		parseT.Fatalf("expected child slot attribute, got %#v", parseNode.Children[0])
 	}
 }
 
-func TestCustomElementSkipsPropertyOnlyValuesDuringSSR(t *testing.T) {
-	node := CustomElement("demo-rating-card", CustomElementProps{
+func TestCustomElementSkipsPropertyOnlyValuesDuringSSR(parseT *testing.T) {
+	parseNode := CustomElement("demo-rating-card", CustomElementProps{
 		Props: Props{
 			ID: "rating-card",
 		},
@@ -72,20 +72,20 @@ func TestCustomElementSkipsPropertyOnlyValuesDuringSSR(t *testing.T) {
 		},
 	}, Span(Props{Slot: "summary"}, Text("Healthy demand")))
 
-	markup, err := ui.RenderToString(node)
-	if err != nil {
-		t.Fatalf("expected custom element SSR render, got %v", err)
+	parseMarkup, parseErr := ui.RenderToString(parseNode)
+	if parseErr != nil {
+		parseT.Fatalf("expected custom element SSR render, got %v", parseErr)
 	}
-	if !strings.Contains(markup, `<demo-rating-card`) {
-		t.Fatalf("expected custom element tag in markup, got %q", markup)
+	if !strings.Contains(parseMarkup, `<demo-rating-card`) {
+		parseT.Fatalf("expected custom element tag in markup, got %q", parseMarkup)
 	}
-	if !strings.Contains(markup, `palette="sunset"`) {
-		t.Fatalf("expected reflected attribute in markup, got %q", markup)
+	if !strings.Contains(parseMarkup, `palette="sunset"`) {
+		parseT.Fatalf("expected reflected attribute in markup, got %q", parseMarkup)
 	}
-	if !strings.Contains(markup, `slot="summary"`) {
-		t.Fatalf("expected slotted child markup, got %q", markup)
+	if !strings.Contains(parseMarkup, `slot="summary"`) {
+		parseT.Fatalf("expected slotted child markup, got %q", parseMarkup)
 	}
-	if strings.Contains(markup, "score=") || strings.Contains(markup, "config=") || strings.Contains(markup, "__gwc_prop__:") {
-		t.Fatalf("expected property-only values to stay out of SSR markup, got %q", markup)
+	if strings.Contains(parseMarkup, "score=") || strings.Contains(parseMarkup, "config=") || strings.Contains(parseMarkup, "__gwc_prop__:") {
+		parseT.Fatalf("expected property-only values to stay out of SSR markup, got %q", parseMarkup)
 	}
 }

@@ -2,33 +2,33 @@ package shorthand
 
 import "testing"
 
-func BenchmarkTagWithMixedArgs(b *testing.B) {
-	b.ReportAllocs()
-	for b.Loop() {
-		node := Tag("section",
+func BenchmarkTagWithMixedArgs(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseB.Loop() {
+		parseNode := Tag("section",
 			Class("rounded-xl border border-slate-300 p-4"),
 			Data("bench", "true"),
 			Aria("label", "benchmark section"),
 			Text("alpha"),
 			Text("beta"),
 		)
-		if node == nil {
-			b.Fatal("Tag returned nil")
+		if parseNode == nil {
+			parseB.Fatal("Tag returned nil")
 		}
 	}
 }
 
-func BenchmarkClassNames(b *testing.B) {
-	b.ReportAllocs()
-	for b.Loop() {
-		value := ClassNames(
+func BenchmarkClassNames(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseB.Loop() {
+		parseValue := ClassNames(
 			"grid gap-4",
 			When(true, "items-center"),
 			When(false, "hidden"),
 			"px-4 py-2",
 		)
-		if value == "" {
-			b.Fatal("ClassNames returned empty class list")
+		if parseValue == "" {
+			parseB.Fatal("ClassNames returned empty class list")
 		}
 	}
 }

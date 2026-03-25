@@ -9,257 +9,269 @@ import (
 	"time"
 )
 
-func TestNativeInteropConstructorsReportUnavailable(t *testing.T) {
-	checks := []struct {
+func TestNativeInteropConstructorsReportUnavailable(parseT *testing.T) {
+	parseChecks := []struct {
 		name string
 		err  error
 	}{
-		{name: "GetLocalStorage", err: func() error { _, err := GetLocalStorage(); return err }()},
-		{name: "GetSessionStorage", err: func() error { _, err := GetSessionStorage(); return err }()},
+		{name: "GetLocalStorage", err: func() error { _, parseErr := GetLocalStorage(); return parseErr }()},
+		{name: "GetSessionStorage", err: func() error { _, parseErr2 := GetSessionStorage(); return parseErr2 }()},
 		{name: "OpenPersistentStore", err: func() error {
-			_, err := OpenPersistentStore(context.TODO(), PersistentStoreOptions{Name: "cache"})
-			return err
+			_, parseErr3 := OpenPersistentStore(context.TODO(), PersistentStoreOptions{Name: "cache"})
+			return parseErr3
 		}()},
-		{name: "GetWindowLocation", err: func() error { _, err := GetWindowLocation(); return err }()},
-		{name: "GetWindowHistory", err: func() error { _, err := GetWindowHistory(); return err }()},
-		{name: "GetClipboard", err: func() error { _, err := GetClipboard(); return err }()},
-		{name: "GetWindowEvents", err: func() error { _, err := GetWindowEvents(); return err }()},
-		{name: "GetDocumentEvents", err: func() error { _, err := GetDocumentEvents(); return err }()},
-		{name: "GetDocument", err: func() error { _, err := GetDocument(); return err }()},
-		{name: "GetMediaQuery", err: func() error { _, err := GetMediaQuery("(prefers-color-scheme: dark)"); return err }()},
-		{name: "ImportModule", err: func() error { _, err := ImportModule(context.TODO(), "/demo.js"); return err }()},
-		{name: "OpenWorker", err: func() error { _, err := OpenWorker(context.TODO(), WorkerOptions{URL: "/worker.js"}); return err }()},
-		{name: "OpenCrossTabChannel", err: func() error { _, err := OpenCrossTabChannel(CrossTabChannelOptions{Name: "theme"}); return err }()},
-		{name: "OpenSecondaryWindowChannel", err: func() error { _, err := OpenSecondaryWindowChannel(WindowChannelOptions{Name: "popup"}); return err }()},
-		{name: "OpenWindowOpenerChannel", err: func() error { _, err := OpenWindowOpenerChannel(WindowChannelOptions{Name: "popup"}); return err }()},
+		{name: "GetWindowLocation", err: func() error { _, parseErr4 := GetWindowLocation(); return parseErr4 }()},
+		{name: "GetWindowHistory", err: func() error { _, parseErr5 := GetWindowHistory(); return parseErr5 }()},
+		{name: "GetClipboard", err: func() error { _, parseErr6 := GetClipboard(); return parseErr6 }()},
+		{name: "GetWindowEvents", err: func() error { _, parseErr7 := GetWindowEvents(); return parseErr7 }()},
+		{name: "GetDocumentEvents", err: func() error { _, parseErr8 := GetDocumentEvents(); return parseErr8 }()},
+		{name: "GetDocument", err: func() error { _, parseErr9 := GetDocument(); return parseErr9 }()},
+		{name: "GetMediaQuery", err: func() error { _, parseErr10 := GetMediaQuery("(prefers-color-scheme: dark)"); return parseErr10 }()},
+		{name: "ImportModule", err: func() error { _, parseErr11 := ImportModule(context.TODO(), "/demo.js"); return parseErr11 }()},
+		{name: "OpenWorker", err: func() error {
+			_, parseErr12 := OpenWorker(context.TODO(), WorkerOptions{URL: "/worker.js"})
+			return parseErr12
+		}()},
+		{name: "OpenCrossTabChannel", err: func() error {
+			_, parseErr13 := OpenCrossTabChannel(CrossTabChannelOptions{Name: "theme"})
+			return parseErr13
+		}()},
+		{name: "OpenSecondaryWindowChannel", err: func() error {
+			_, parseErr14 := OpenSecondaryWindowChannel(WindowChannelOptions{Name: "popup"})
+			return parseErr14
+		}()},
+		{name: "OpenWindowOpenerChannel", err: func() error {
+			_, parseErr15 := OpenWindowOpenerChannel(WindowChannelOptions{Name: "popup"})
+			return parseErr15
+		}()},
 	}
-	for _, check := range checks {
-		if !IsCode(check.err, CodeUnavailable) {
-			t.Fatalf("%s: expected unavailable error, got %v", check.name, check.err)
+	for _, parseCheck := range parseChecks {
+		if !IsCode(parseCheck.err, CodeUnavailable) {
+			parseT.Fatalf("%s: expected unavailable error, got %v", parseCheck.name, parseCheck.err)
 		}
-		interopErr, ok := AsError(check.err)
-		if !ok || interopErr.Code != CodeUnavailable {
-			t.Fatalf("%s: expected structured interop error, got %#v ok=%t", check.name, interopErr, ok)
+		parseInteropErr, parseOk := AsError(parseCheck.err)
+		if !parseOk || parseInteropErr.Code != CodeUnavailable {
+			parseT.Fatalf("%s: expected structured interop error, got %#v ok=%t", parseCheck.name, parseInteropErr, parseOk)
 		}
-		code, ok := CodeOf(check.err)
-		if !ok || code != CodeUnavailable {
-			t.Fatalf("%s: expected code lookup to report unavailable, got %q ok=%t", check.name, code, ok)
+		parseCode, parseOk := CodeOf(parseCheck.err)
+		if !parseOk || parseCode != CodeUnavailable {
+			parseT.Fatalf("%s: expected code lookup to report unavailable, got %q ok=%t", parseCheck.name, parseCode, parseOk)
 		}
 	}
 }
 
-func TestNativeWindowEnvAndNilContextStubs(t *testing.T) {
-	nativeEnv, _ := GetWindowEnv()
-	if value, ok := nativeEnv.Lookup("demo"); ok || value.Present() {
-		t.Fatalf("expected native window env lookup to be empty, got value=%+v ok=%t", value, ok)
+func TestNativeWindowEnvAndNilContextStubs(parseT *testing.T) {
+	parseNativeEnv, _ := GetWindowEnv()
+	if parseValue, parseOk := parseNativeEnv.Lookup("demo"); parseOk || parseValue.Present() {
+		parseT.Fatalf("expected native window env lookup to be empty, got value=%+v ok=%t", parseValue, parseOk)
 	}
-	compatEnv, _ := SharedWindowEnv()
-	if value, ok := compatEnv.Lookup("demo"); ok || value.Present() {
-		t.Fatalf("expected shared window env wrapper lookup to be empty, got value=%+v ok=%t", value, ok)
+	parseCompatEnv, _ := SharedWindowEnv()
+	if parseValue2, parseOk2 := parseCompatEnv.Lookup("demo"); parseOk2 || parseValue2.Present() {
+		parseT.Fatalf("expected shared window env wrapper lookup to be empty, got value=%+v ok=%t", parseValue2, parseOk2)
 	}
 
-	checks := []struct {
+	parseChecks := []struct {
 		name string
 		err  error
 	}{
 		{name: "OpenPersistentStore", err: func() error {
-			_, err := OpenPersistentStore(context.TODO(), PersistentStoreOptions{Name: "cache"})
-			return err
+			_, parseErr := OpenPersistentStore(context.TODO(), PersistentStoreOptions{Name: "cache"})
+			return parseErr
 		}()},
 		{name: "ImportModule", err: func() error {
-			_, err := ImportModule(context.TODO(), "/demo.js")
-			return err
+			_, parseErr2 := ImportModule(context.TODO(), "/demo.js")
+			return parseErr2
 		}()},
 		{name: "OpenWorker", err: func() error {
-			_, err := OpenWorker(context.TODO(), WorkerOptions{URL: "/worker.js"})
-			return err
+			_, parseErr3 := OpenWorker(context.TODO(), WorkerOptions{URL: "/worker.js"})
+			return parseErr3
 		}()},
 		{name: "OpenGoWASMWorker", err: func() error {
-			_, err := OpenGoWASMWorker(context.TODO(), GoWASMWorkerOptions{WASMURL: "/worker.wasm"})
-			return err
+			_, parseErr4 := OpenGoWASMWorker(context.TODO(), GoWASMWorkerOptions{WASMURL: "/worker.wasm"})
+			return parseErr4
 		}()},
 		{name: "GetWorkerScope", err: func() error {
-			_, err := GetWorkerScope()
-			return err
+			_, parseErr5 := GetWorkerScope()
+			return parseErr5
 		}()},
 	}
 
-	for _, check := range checks {
-		if !IsCode(check.err, CodeUnavailable) {
-			t.Fatalf("%s: expected unavailable error, got %v", check.name, check.err)
+	for _, parseCheck := range parseChecks {
+		if !IsCode(parseCheck.err, CodeUnavailable) {
+			parseT.Fatalf("%s: expected unavailable error, got %v", parseCheck.name, parseCheck.err)
 		}
 	}
 }
 
-func TestDecodeCustomEventProjectsTypedDetail(t *testing.T) {
-	event := CustomEvent{
+func TestDecodeCustomEventProjectsTypedDetail(parseT *testing.T) {
+	parseEvent := CustomEvent{
 		Type: "asset-ready",
 		Detail: map[string]any{
 			"id":    "asset-42",
 			"score": 9,
 		},
 	}
-	decoded, err := DecodeCustomEvent[struct {
+	parseDecoded, parseErr := DecodeCustomEvent[struct {
 		ID    string `json:"id"`
 		Score int    `json:"score"`
-	}](event)
-	if err != nil {
-		t.Fatalf("expected typed custom event detail, got %v", err)
+	}](parseEvent)
+	if parseErr != nil {
+		parseT.Fatalf("expected typed custom event detail, got %v", parseErr)
 	}
-	if decoded.Type != "asset-ready" || decoded.Detail.ID != "asset-42" || decoded.Detail.Score != 9 {
-		t.Fatalf("unexpected decoded custom event: %+v", decoded)
+	if parseDecoded.Type != "asset-ready" || parseDecoded.Detail.ID != "asset-42" || parseDecoded.Detail.Score != 9 {
+		parseT.Fatalf("unexpected decoded custom event: %+v", parseDecoded)
 	}
 }
 
-func TestDecodeReportsStructuredEncodeAndDecodeErrors(t *testing.T) {
-	var target map[string]string
-	if err := Decode(func() {}, &target); !IsCode(err, CodeEncode) {
-		t.Fatalf("expected encode failure to report CodeEncode, got %v", err)
+func TestDecodeReportsStructuredEncodeAndDecodeErrors(parseT *testing.T) {
+	var parseTarget map[string]string
+	if parseErr := Decode(func() {}, &parseTarget); !IsCode(parseErr, CodeEncode) {
+		parseT.Fatalf("expected encode failure to report CodeEncode, got %v", parseErr)
 	}
 
-	var typed struct {
+	var parseTyped struct {
 		Count int `json:"count"`
 	}
-	if err := Decode(map[string]any{"count": "not-a-number"}, &typed); !IsCode(err, CodeDecode) {
-		t.Fatalf("expected decode failure to report CodeDecode, got %v", err)
+	if parseErr2 := Decode(map[string]any{"count": "not-a-number"}, &parseTyped); !IsCode(parseErr2, CodeDecode) {
+		parseT.Fatalf("expected decode failure to report CodeDecode, got %v", parseErr2)
 	}
 }
 
-func TestPublishClientHelpers(t *testing.T) {
-	self := ClientIdentity{ID: "storefront-1", App: "atlas", Surface: "tab", Role: "storefront", Version: "v1"}
+func TestPublishClientHelpers(parseT *testing.T) {
+	parseSelf := ClientIdentity{ID: "storefront-1", App: "atlas", Surface: "tab", Role: "storefront", Version: "v1"}
 
-	var crossTabPublished any
-	crossTab := CrossTabChannel{
+	var parseCrossTabPublished any
+	parseCrossTab := CrossTabChannel{
 		name: func() string { return "atlas-clients" },
-		publish: func(payload any) error {
-			crossTabPublished = payload
+		publish: func(parsePayload any) error {
+			parseCrossTabPublished = parsePayload
 			return nil
 		},
 	}
-	if err := PublishClientHello(crossTab, self); err != nil {
-		t.Fatalf("expected hello publish to succeed, got %v", err)
+	if parseErr := PublishClientHello(parseCrossTab, parseSelf); parseErr != nil {
+		parseT.Fatalf("expected hello publish to succeed, got %v", parseErr)
 	}
-	hello, ok := crossTabPublished.(ClientMessage)
-	if !ok {
-		t.Fatalf("expected client hello payload, got %T", crossTabPublished)
+	parseHello, parseOk := parseCrossTabPublished.(ClientMessage)
+	if !parseOk {
+		parseT.Fatalf("expected client hello payload, got %T", parseCrossTabPublished)
 	}
-	if hello.Kind != ClientHello || hello.Topic != ClientPresenceTopic || hello.Source.ID != "storefront-1" || hello.SentAt.IsZero() {
-		t.Fatalf("unexpected hello payload: %+v", hello)
+	if parseHello.Kind != ClientHello || parseHello.Topic != ClientPresenceTopic || parseHello.Source.ID != "storefront-1" || parseHello.SentAt.IsZero() {
+		parseT.Fatalf("unexpected hello payload: %+v", parseHello)
 	}
-	if hello.Capabilities == nil || hello.Capabilities.ProtocolVersion != "v1" || len(hello.Capabilities.Encodings) == 0 || hello.Capabilities.Encodings[0] != "json" {
-		t.Fatalf("expected default cross-tab hello capabilities, got %+v", hello.Capabilities)
-	}
-
-	if err := PublishClientInvalidation(crossTab, "cache:inventory", self, "rev-9"); err != nil {
-		t.Fatalf("expected invalidation publish to succeed, got %v", err)
-	}
-	invalidation, ok := crossTabPublished.(ClientMessage)
-	if !ok {
-		t.Fatalf("expected invalidation payload, got %T", crossTabPublished)
-	}
-	if invalidation.Kind != ClientInvalidate || invalidation.Topic != "cache:inventory" || invalidation.Revision != "rev-9" {
-		t.Fatalf("unexpected invalidation payload: %+v", invalidation)
+	if parseHello.Capabilities == nil || parseHello.Capabilities.ProtocolVersion != "v1" || len(parseHello.Capabilities.Encodings) == 0 || parseHello.Capabilities.Encodings[0] != "json" {
+		parseT.Fatalf("expected default cross-tab hello capabilities, got %+v", parseHello.Capabilities)
 	}
 
-	var windowPublished any
-	windowChannel := WindowChannel{
+	if parseErr2 := PublishClientInvalidation(parseCrossTab, "cache:inventory", parseSelf, "rev-9"); parseErr2 != nil {
+		parseT.Fatalf("expected invalidation publish to succeed, got %v", parseErr2)
+	}
+	parseInvalidation, parseOk := parseCrossTabPublished.(ClientMessage)
+	if !parseOk {
+		parseT.Fatalf("expected invalidation payload, got %T", parseCrossTabPublished)
+	}
+	if parseInvalidation.Kind != ClientInvalidate || parseInvalidation.Topic != "cache:inventory" || parseInvalidation.Revision != "rev-9" {
+		parseT.Fatalf("unexpected invalidation payload: %+v", parseInvalidation)
+	}
+
+	var parseWindowPublished any
+	parseWindowChannel := WindowChannel{
 		name: func() string { return "atlas-window" },
-		publish: func(payload any) error {
-			windowPublished = payload
+		publish: func(parsePayload2 any) error {
+			parseWindowPublished = parsePayload2
 			return nil
 		},
 	}
-	if err := PublishClientIntent(windowChannel, "selection:inspect", self, "inspector-1", map[string]any{"id": "SKU-44"}); err != nil {
-		t.Fatalf("expected intent publish to succeed, got %v", err)
+	if parseErr3 := PublishClientIntent(parseWindowChannel, "selection:inspect", parseSelf, "inspector-1", map[string]any{"id": "SKU-44"}); parseErr3 != nil {
+		parseT.Fatalf("expected intent publish to succeed, got %v", parseErr3)
 	}
-	intent, ok := windowPublished.(ClientMessage)
-	if !ok {
-		t.Fatalf("expected intent payload, got %T", windowPublished)
+	parseIntent, parseOk := parseWindowPublished.(ClientMessage)
+	if !parseOk {
+		parseT.Fatalf("expected intent payload, got %T", parseWindowPublished)
 	}
-	if intent.Kind != ClientIntent || intent.Topic != "selection:inspect" || intent.Target != "inspector-1" {
-		t.Fatalf("unexpected intent payload: %+v", intent)
-	}
-
-	if err := PublishClientIntent(windowChannel, "selection:inspect", self, "", nil); !IsCode(err, CodeInvalid) {
-		t.Fatalf("expected invalid target error, got %v", err)
-	}
-	if err := PublishClientInvalidation(crossTab, "cache:inventory", self, ""); !IsCode(err, CodeInvalid) {
-		t.Fatalf("expected invalid revision error, got %v", err)
-	}
-	if err := PublishClientHello(crossTab, ClientIdentity{}); !IsCode(err, CodeInvalid) {
-		t.Fatalf("expected invalid identity error, got %v", err)
-	}
-	if err := PublishClientMessage(crossTab, ClientMessage{Kind: ClientEvent, Topic: "ops", Source: self}); err != nil {
-		t.Fatalf("expected generic publish helper to succeed, got %v", err)
-	}
-	if err := PublishClientWindowMessage(windowChannel, ClientMessage{Kind: ClientResult, Topic: "clients", Source: self, Target: "inspector-1"}); err != nil {
-		t.Fatalf("expected generic window publish helper to succeed, got %v", err)
+	if parseIntent.Kind != ClientIntent || parseIntent.Topic != "selection:inspect" || parseIntent.Target != "inspector-1" {
+		parseT.Fatalf("unexpected intent payload: %+v", parseIntent)
 	}
 
-	if err := PublishClientBinaryCrossTab(crossTab, "asset:preview", self, ClientBinaryPayload{ContentType: "application/octet-stream", Bytes: []byte{1, 2, 3}}); err != nil {
-		t.Fatalf("expected binary cross-tab publish helper to succeed, got %v", err)
+	if parseErr4 := PublishClientIntent(parseWindowChannel, "selection:inspect", parseSelf, "", nil); !IsCode(parseErr4, CodeInvalid) {
+		parseT.Fatalf("expected invalid target error, got %v", parseErr4)
 	}
-	binaryCrossTab, ok := crossTabPublished.(ClientMessage)
-	if !ok {
-		t.Fatalf("expected binary cross-tab payload, got %T", crossTabPublished)
+	if parseErr5 := PublishClientInvalidation(parseCrossTab, "cache:inventory", parseSelf, ""); !IsCode(parseErr5, CodeInvalid) {
+		parseT.Fatalf("expected invalid revision error, got %v", parseErr5)
 	}
-	binaryBytes, ok := binaryCrossTab.Payload.([]byte)
-	if !ok || len(binaryBytes) != 3 || binaryCrossTab.Encoding != ClientPayloadBinary || binaryCrossTab.ContentType != "application/octet-stream" {
-		t.Fatalf("unexpected binary cross-tab payload: %+v", binaryCrossTab)
+	if parseErr6 := PublishClientHello(parseCrossTab, ClientIdentity{}); !IsCode(parseErr6, CodeInvalid) {
+		parseT.Fatalf("expected invalid identity error, got %v", parseErr6)
 	}
-
-	if err := PublishClientBinaryWindow(windowChannel, "asset:preview", self, "inspector-1", ClientBinaryPayload{ContentType: "application/octet-stream", Bytes: []byte{4, 5, 6}}); err != nil {
-		t.Fatalf("expected binary window publish helper to succeed, got %v", err)
+	if parseErr7 := PublishClientMessage(parseCrossTab, ClientMessage{Kind: ClientEvent, Topic: "ops", Source: parseSelf}); parseErr7 != nil {
+		parseT.Fatalf("expected generic publish helper to succeed, got %v", parseErr7)
 	}
-	binaryWindow, ok := windowPublished.(ClientMessage)
-	if !ok {
-		t.Fatalf("expected binary window payload, got %T", windowPublished)
-	}
-	windowBytes, ok := binaryWindow.Payload.([]byte)
-	if !ok || len(windowBytes) != 3 || binaryWindow.Encoding != ClientPayloadBinary || binaryWindow.ContentType != "application/octet-stream" || binaryWindow.Target != "inspector-1" {
-		t.Fatalf("unexpected binary window payload: %+v", binaryWindow)
+	if parseErr8 := PublishClientWindowMessage(parseWindowChannel, ClientMessage{Kind: ClientResult, Topic: "clients", Source: parseSelf, Target: "inspector-1"}); parseErr8 != nil {
+		parseT.Fatalf("expected generic window publish helper to succeed, got %v", parseErr8)
 	}
 
-	if err := PublishClientBinaryCrossTab(crossTab, "asset:preview", self, ClientBinaryPayload{Bytes: []byte{1}}); !IsCode(err, CodeInvalid) {
-		t.Fatalf("expected invalid content-type error for binary cross-tab publish, got %v", err)
+	if parseErr9 := PublishClientBinaryCrossTab(parseCrossTab, "asset:preview", parseSelf, ClientBinaryPayload{ContentType: "application/octet-stream", Bytes: []byte{1, 2, 3}}); parseErr9 != nil {
+		parseT.Fatalf("expected binary cross-tab publish helper to succeed, got %v", parseErr9)
 	}
-	if err := PublishClientBinaryWindow(windowChannel, "asset:preview", self, "", ClientBinaryPayload{ContentType: "application/octet-stream", Bytes: []byte{1}}); !IsCode(err, CodeInvalid) {
-		t.Fatalf("expected invalid target error for binary window publish, got %v", err)
+	parseBinaryCrossTab, parseOk := parseCrossTabPublished.(ClientMessage)
+	if !parseOk {
+		parseT.Fatalf("expected binary cross-tab payload, got %T", parseCrossTabPublished)
+	}
+	parseBinaryBytes, parseOk := parseBinaryCrossTab.Payload.([]byte)
+	if !parseOk || len(parseBinaryBytes) != 3 || parseBinaryCrossTab.Encoding != ClientPayloadBinary || parseBinaryCrossTab.ContentType != "application/octet-stream" {
+		parseT.Fatalf("unexpected binary cross-tab payload: %+v", parseBinaryCrossTab)
 	}
 
-	customCaps := ClientCapabilities{ProtocolVersion: "v2", Encodings: []string{"json", "binary"}, Topics: []string{"clients", "asset:preview"}}
-	if err := PublishClientHelloWithCapabilities(crossTab, self, customCaps); err != nil {
-		t.Fatalf("expected hello-with-capabilities publish to succeed, got %v", err)
+	if parseErr10 := PublishClientBinaryWindow(parseWindowChannel, "asset:preview", parseSelf, "inspector-1", ClientBinaryPayload{ContentType: "application/octet-stream", Bytes: []byte{4, 5, 6}}); parseErr10 != nil {
+		parseT.Fatalf("expected binary window publish helper to succeed, got %v", parseErr10)
 	}
-	customHello, ok := crossTabPublished.(ClientMessage)
-	if !ok || customHello.Capabilities == nil || customHello.Capabilities.ProtocolVersion != "v2" || len(customHello.Capabilities.Topics) != 2 {
-		t.Fatalf("unexpected custom hello capabilities payload: %+v", customHello)
+	parseBinaryWindow, parseOk := parseWindowPublished.(ClientMessage)
+	if !parseOk {
+		parseT.Fatalf("expected binary window payload, got %T", parseWindowPublished)
+	}
+	parseWindowBytes, parseOk := parseBinaryWindow.Payload.([]byte)
+	if !parseOk || len(parseWindowBytes) != 3 || parseBinaryWindow.Encoding != ClientPayloadBinary || parseBinaryWindow.ContentType != "application/octet-stream" || parseBinaryWindow.Target != "inspector-1" {
+		parseT.Fatalf("unexpected binary window payload: %+v", parseBinaryWindow)
+	}
+
+	if parseErr11 := PublishClientBinaryCrossTab(parseCrossTab, "asset:preview", parseSelf, ClientBinaryPayload{Bytes: []byte{1}}); !IsCode(parseErr11, CodeInvalid) {
+		parseT.Fatalf("expected invalid content-type error for binary cross-tab publish, got %v", parseErr11)
+	}
+	if parseErr12 := PublishClientBinaryWindow(parseWindowChannel, "asset:preview", parseSelf, "", ClientBinaryPayload{ContentType: "application/octet-stream", Bytes: []byte{1}}); !IsCode(parseErr12, CodeInvalid) {
+		parseT.Fatalf("expected invalid target error for binary window publish, got %v", parseErr12)
+	}
+
+	parseCustomCaps := ClientCapabilities{ProtocolVersion: "v2", Encodings: []string{"json", "binary"}, Topics: []string{"clients", "asset:preview"}}
+	if parseErr13 := PublishClientHelloWithCapabilities(parseCrossTab, parseSelf, parseCustomCaps); parseErr13 != nil {
+		parseT.Fatalf("expected hello-with-capabilities publish to succeed, got %v", parseErr13)
+	}
+	parseCustomHello, parseOk := parseCrossTabPublished.(ClientMessage)
+	if !parseOk || parseCustomHello.Capabilities == nil || parseCustomHello.Capabilities.ProtocolVersion != "v2" || len(parseCustomHello.Capabilities.Topics) != 2 {
+		parseT.Fatalf("unexpected custom hello capabilities payload: %+v", parseCustomHello)
 	}
 }
 
-func TestSubscribeClientMessagesDecodesPayload(t *testing.T) {
-	var crossTabHandler func(CrossTabEnvelope, error)
-	crossTab := CrossTabChannel{
+func TestSubscribeClientMessagesDecodesPayload(parseT *testing.T) {
+	var parseCrossTabHandler func(CrossTabEnvelope, error)
+	parseCrossTab := CrossTabChannel{
 		name: func() string { return "atlas-clients" },
 		subscribe: func(handler func(CrossTabEnvelope, error)) (Subscription, error) {
-			crossTabHandler = handler
+			parseCrossTabHandler = handler
 			return Subscription{}, nil
 		},
 	}
 
-	var received ClientMessage
-	subscription, err := SubscribeClientMessages(crossTab, func(message ClientMessage, err error) {
-		if err != nil {
-			t.Fatalf("expected decoded client message, got %v", err)
+	var parseReceived ClientMessage
+	parseSubscription, parseErr := SubscribeClientMessages(parseCrossTab, func(parseMessage ClientMessage, parseErr7 error) {
+		if parseErr7 != nil {
+			parseT.Fatalf("expected decoded client message, got %v", parseErr7)
 		}
-		received = message
+		parseReceived = parseMessage
 	})
-	if err != nil {
-		t.Fatalf("expected cross-tab client subscription to succeed, got %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("expected cross-tab client subscription to succeed, got %v", parseErr)
 	}
-	defer subscription.Cancel()
+	defer parseSubscription.Cancel()
 
-	crossTabHandler(CrossTabEnvelope{
+	parseCrossTabHandler(CrossTabEnvelope{
 		Name: "atlas-clients",
 		Payload: map[string]any{
 			"kind":  "result",
@@ -276,32 +288,32 @@ func TestSubscribeClientMessagesDecodesPayload(t *testing.T) {
 		},
 	}, nil)
 
-	if received.Kind != ClientResult || received.Topic != "clients" || received.Target != "storefront-1" {
-		t.Fatalf("unexpected decoded cross-tab client message: %+v", received)
+	if parseReceived.Kind != ClientResult || parseReceived.Topic != "clients" || parseReceived.Target != "storefront-1" {
+		parseT.Fatalf("unexpected decoded cross-tab client message: %+v", parseReceived)
 	}
 
-	var windowHandler func(WindowEnvelope, error)
-	windowChannel := WindowChannel{
+	var parseWindowHandler func(WindowEnvelope, error)
+	parseWindowChannel := WindowChannel{
 		name: func() string { return "atlas-window" },
 		subscribe: func(handler func(WindowEnvelope, error)) (Subscription, error) {
-			windowHandler = handler
+			parseWindowHandler = handler
 			return Subscription{}, nil
 		},
 	}
 
-	var windowReceived ClientMessage
-	windowSubscription, err := SubscribeClientWindowMessages(windowChannel, func(message ClientMessage, err error) {
-		if err != nil {
-			t.Fatalf("expected decoded client window message, got %v", err)
+	var parseWindowReceived ClientMessage
+	parseWindowSubscription, parseErr := SubscribeClientWindowMessages(parseWindowChannel, func(parseMessage2 ClientMessage, parseErr8 error) {
+		if parseErr8 != nil {
+			parseT.Fatalf("expected decoded client window message, got %v", parseErr8)
 		}
-		windowReceived = message
+		parseWindowReceived = parseMessage2
 	})
-	if err != nil {
-		t.Fatalf("expected window client subscription to succeed, got %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("expected window client subscription to succeed, got %v", parseErr)
 	}
-	defer windowSubscription.Cancel()
+	defer parseWindowSubscription.Cancel()
 
-	windowHandler(WindowEnvelope{
+	parseWindowHandler(WindowEnvelope{
 		Name: "atlas-window",
 		Payload: map[string]any{
 			"kind":  "hello",
@@ -314,11 +326,11 @@ func TestSubscribeClientMessagesDecodesPayload(t *testing.T) {
 		},
 	}, nil)
 
-	if windowReceived.Kind != ClientHello || windowReceived.Source.ID != "inspector-1" || windowReceived.Topic != ClientPresenceTopic {
-		t.Fatalf("unexpected decoded window client message: %+v", windowReceived)
+	if parseWindowReceived.Kind != ClientHello || parseWindowReceived.Source.ID != "inspector-1" || parseWindowReceived.Topic != ClientPresenceTopic {
+		parseT.Fatalf("unexpected decoded window client message: %+v", parseWindowReceived)
 	}
 
-	decoded, err := DecodeClientMessage(map[string]any{
+	parseDecoded, parseErr := DecodeClientMessage(map[string]any{
 		"kind":  "query",
 		"topic": "clients",
 		"source": map[string]any{
@@ -327,14 +339,14 @@ func TestSubscribeClientMessagesDecodesPayload(t *testing.T) {
 			"surface": "tab",
 		},
 	})
-	if err != nil {
-		t.Fatalf("expected DecodeClientMessage to succeed, got %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("expected DecodeClientMessage to succeed, got %v", parseErr)
 	}
-	if decoded.Kind != ClientQuery || decoded.Source.Surface != "tab" {
-		t.Fatalf("unexpected decoded client message: %+v", decoded)
+	if parseDecoded.Kind != ClientQuery || parseDecoded.Source.Surface != "tab" {
+		parseT.Fatalf("unexpected decoded client message: %+v", parseDecoded)
 	}
 
-	if _, err := DecodeClientMessage(map[string]any{
+	if _, parseErr2 := DecodeClientMessage(map[string]any{
 		"kind":  "mystery",
 		"topic": "clients",
 		"source": map[string]any{
@@ -342,31 +354,31 @@ func TestSubscribeClientMessagesDecodesPayload(t *testing.T) {
 			"app":     "atlas",
 			"surface": "tab",
 		},
-	}); !IsCode(err, CodeInvalid) {
-		t.Fatalf("expected invalid kind error, got %v", err)
+	}); !IsCode(parseErr2, CodeInvalid) {
+		parseT.Fatalf("expected invalid kind error, got %v", parseErr2)
 	}
 
-	if _, err := SubscribeClientMessages(crossTab, nil); !IsCode(err, CodeInvalid) {
-		t.Fatalf("expected nil handler error for cross-tab subscribe, got %v", err)
+	if _, parseErr3 := SubscribeClientMessages(parseCrossTab, nil); !IsCode(parseErr3, CodeInvalid) {
+		parseT.Fatalf("expected nil handler error for cross-tab subscribe, got %v", parseErr3)
 	}
-	if _, err := SubscribeClientWindowMessages(windowChannel, nil); !IsCode(err, CodeInvalid) {
-		t.Fatalf("expected nil handler error for window subscribe, got %v", err)
+	if _, parseErr4 := SubscribeClientWindowMessages(parseWindowChannel, nil); !IsCode(parseErr4, CodeInvalid) {
+		parseT.Fatalf("expected nil handler error for window subscribe, got %v", parseErr4)
 	}
-	publishChannel := CrossTabChannel{
+	parsePublishChannel := CrossTabChannel{
 		name: func() string { return "atlas-clients" },
-		publish: func(payload any) error {
+		publish: func(parsePayload any) error {
 			return nil
 		},
 	}
-	if err := PublishClientQuery(publishChannel, "clients", ClientIdentity{ID: "storefront-1", App: "atlas", Surface: "tab"}); err != nil {
-		t.Fatalf("expected query publish helper to validate, got %v", err)
+	if parseErr5 := PublishClientQuery(parsePublishChannel, "clients", ClientIdentity{ID: "storefront-1", App: "atlas", Surface: "tab"}); parseErr5 != nil {
+		parseT.Fatalf("expected query publish helper to validate, got %v", parseErr5)
 	}
-	if err := PublishClientResult(publishChannel, "clients", ClientIdentity{ID: "ops-1", App: "atlas", Surface: "popup"}, "storefront-1", map[string]any{"peers": 2}); err != nil {
-		t.Fatalf("expected result publish helper to validate, got %v", err)
+	if parseErr6 := PublishClientResult(parsePublishChannel, "clients", ClientIdentity{ID: "ops-1", App: "atlas", Surface: "popup"}, "storefront-1", map[string]any{"peers": 2}); parseErr6 != nil {
+		parseT.Fatalf("expected result publish helper to validate, got %v", parseErr6)
 	}
 }
 
-func TestMultiClientQueryReliabilitySemantics(t *testing.T) {
+func TestMultiClientQueryReliabilitySemantics(parseT *testing.T) {
 	type pendingRequest struct {
 		deadline time.Time
 		terminal bool
@@ -378,242 +390,242 @@ func TestMultiClientQueryReliabilitySemantics(t *testing.T) {
 		handlers     []func(CrossTabEnvelope, error)
 	}
 
-	bus := &mockBus{}
-	newChannel := func(name string, source string) CrossTabChannel {
+	parseBus := &mockBus{}
+	parseNewChannel := func(parseName string, parseSource string) CrossTabChannel {
 		return CrossTabChannel{
-			name: func() string { return name },
-			publish: func(payload any) error {
-				bus.nextSequence++
-				envelope := CrossTabEnvelope{
-					Name:     name,
-					Payload:  payload,
-					Source:   source,
-					Sequence: bus.nextSequence,
+			name: func() string { return parseName },
+			publish: func(parsePayload3 any) error {
+				parseBus.nextSequence++
+				parseEnvelope := CrossTabEnvelope{
+					Name:     parseName,
+					Payload:  parsePayload3,
+					Source:   parseSource,
+					Sequence: parseBus.nextSequence,
 					SentAt:   time.Now().UTC(),
 				}
-				for _, handler := range bus.handlers {
-					if handler != nil {
-						handler(envelope, nil)
+				for _, parseHandler := range parseBus.handlers {
+					if parseHandler != nil {
+						parseHandler(parseEnvelope, nil)
 					}
 				}
 				return nil
 			},
 			subscribe: func(handler func(CrossTabEnvelope, error)) (Subscription, error) {
-				bus.handlers = append(bus.handlers, handler)
-				index := len(bus.handlers) - 1
+				parseBus.handlers = append(parseBus.handlers, handler)
+				parseIndex := len(parseBus.handlers) - 1
 				return Subscription{cancel: func() {
-					bus.handlers[index] = nil
+					parseBus.handlers[parseIndex] = nil
 				}}, nil
 			},
 		}
 	}
 
-	alphaSelf := ClientIdentity{ID: "alpha-1", App: "atlas", Surface: "tab-a"}
-	betaSelf := ClientIdentity{ID: "beta-1", App: "atlas", Surface: "tab-b"}
-	alpha := newChannel("clients", "alpha-transport")
-	beta := newChannel("clients", "beta-transport")
+	parseAlphaSelf := ClientIdentity{ID: "alpha-1", App: "atlas", Surface: "tab-a"}
+	parseBetaSelf := ClientIdentity{ID: "beta-1", App: "atlas", Surface: "tab-b"}
+	parseAlpha := parseNewChannel("clients", "alpha-transport")
+	parseBeta := parseNewChannel("clients", "beta-transport")
 
-	betaPending := map[string]*pendingRequest{
+	parseBetaPending := map[string]*pendingRequest{
 		"req-fast":      {deadline: time.Date(2026, 3, 19, 11, 0, 1, 0, time.UTC)},
 		"req-1":         {deadline: time.Date(2026, 3, 19, 11, 0, 1, 0, time.UTC)},
 		"req-2":         {deadline: time.Date(2026, 3, 19, 11, 0, 1, 0, time.UTC)},
 		"req-slow":      {deadline: time.Date(2026, 3, 19, 11, 0, 1, 0, time.UTC)},
 		"beta-to-alpha": {deadline: time.Date(2026, 3, 19, 11, 0, 1, 0, time.UTC)},
 	}
-	alphaPending := map[string]*pendingRequest{
+	parseAlphaPending := map[string]*pendingRequest{
 		"alpha-to-beta": {deadline: time.Date(2026, 3, 19, 11, 0, 1, 0, time.UTC)},
 	}
-	betaAccepted := map[string]string{}
-	alphaAccepted := map[string]string{}
-	betaDuplicateDrops := 0
-	betaLateDrops := 0
-	betaTimeouts := 0
-	alphaTimeouts := 0
+	parseBetaAccepted := map[string]string{}
+	parseAlphaAccepted := map[string]string{}
+	parseBetaDuplicateDrops := 0
+	parseBetaLateDrops := 0
+	parseBetaTimeouts := 0
+	parseAlphaTimeouts := 0
 
-	expirePending := func(now time.Time, pending map[string]*pendingRequest) int {
-		expired := 0
-		for _, request := range pending {
-			if request == nil || request.terminal || request.timedOut {
+	parseExpirePending := func(parseNow time.Time, parsePending map[string]*pendingRequest) int {
+		parseExpired := 0
+		for _, parseRequest := range parsePending {
+			if parseRequest == nil || parseRequest.terminal || parseRequest.timedOut {
 				continue
 			}
-			if now.After(request.deadline) {
-				request.timedOut = true
-				expired++
+			if parseNow.After(parseRequest.deadline) {
+				parseRequest.timedOut = true
+				parseExpired++
 			}
 		}
-		return expired
+		return parseExpired
 	}
 
-	alphaSubscription, err := SubscribeClientMessages(alpha, func(message ClientMessage, err error) {
-		if err != nil {
-			t.Fatalf("expected alpha reliability subscription to decode messages, got %v", err)
+	parseAlphaSubscription, parseErr := SubscribeClientMessages(parseAlpha, func(parseMessage ClientMessage, parseErr4 error) {
+		if parseErr4 != nil {
+			parseT.Fatalf("expected alpha reliability subscription to decode messages, got %v", parseErr4)
 		}
-		switch message.Kind {
+		switch parseMessage.Kind {
 		case ClientQuery:
-			if message.Source.ID != betaSelf.ID {
+			if parseMessage.Source.ID != parseBetaSelf.ID {
 				return
 			}
-			switch message.ID {
+			switch parseMessage.ID {
 			case "req-fast":
-				response := ClientMessage{ID: message.ID, Kind: ClientResult, Topic: message.Topic, Source: alphaSelf, Target: betaSelf.ID, Payload: map[string]any{"slot": "fast"}}
-				if publishErr := PublishClientMessage(alpha, response); publishErr != nil {
-					t.Fatalf("expected alpha fast result publish to succeed, got %v", publishErr)
+				parseResponse := ClientMessage{ID: parseMessage.ID, Kind: ClientResult, Topic: parseMessage.Topic, Source: parseAlphaSelf, Target: parseBetaSelf.ID, Payload: map[string]any{"slot": "fast"}}
+				if parsePublishErr := PublishClientMessage(parseAlpha, parseResponse); parsePublishErr != nil {
+					parseT.Fatalf("expected alpha fast result publish to succeed, got %v", parsePublishErr)
 				}
-				if publishErr := PublishClientMessage(alpha, response); publishErr != nil {
-					t.Fatalf("expected alpha duplicate fast result publish to succeed, got %v", publishErr)
+				if parsePublishErr2 := PublishClientMessage(parseAlpha, parseResponse); parsePublishErr2 != nil {
+					parseT.Fatalf("expected alpha duplicate fast result publish to succeed, got %v", parsePublishErr2)
 				}
 			case "req-1":
-				if publishErr := PublishClientMessage(alpha, ClientMessage{ID: message.ID, Kind: ClientResult, Topic: message.Topic, Source: alphaSelf, Target: betaSelf.ID, Payload: map[string]any{"slot": "one"}}); publishErr != nil {
-					t.Fatalf("expected alpha req-1 result publish to succeed, got %v", publishErr)
+				if parsePublishErr3 := PublishClientMessage(parseAlpha, ClientMessage{ID: parseMessage.ID, Kind: ClientResult, Topic: parseMessage.Topic, Source: parseAlphaSelf, Target: parseBetaSelf.ID, Payload: map[string]any{"slot": "one"}}); parsePublishErr3 != nil {
+					parseT.Fatalf("expected alpha req-1 result publish to succeed, got %v", parsePublishErr3)
 				}
 			case "req-2":
-				if publishErr := PublishClientMessage(alpha, ClientMessage{ID: message.ID, Kind: ClientResult, Topic: message.Topic, Source: alphaSelf, Target: betaSelf.ID, Payload: map[string]any{"slot": "two"}}); publishErr != nil {
-					t.Fatalf("expected alpha req-2 result publish to succeed, got %v", publishErr)
+				if parsePublishErr4 := PublishClientMessage(parseAlpha, ClientMessage{ID: parseMessage.ID, Kind: ClientResult, Topic: parseMessage.Topic, Source: parseAlphaSelf, Target: parseBetaSelf.ID, Payload: map[string]any{"slot": "two"}}); parsePublishErr4 != nil {
+					parseT.Fatalf("expected alpha req-2 result publish to succeed, got %v", parsePublishErr4)
 				}
 			case "beta-to-alpha":
-				if publishErr := PublishClientMessage(alpha, ClientMessage{ID: message.ID, Kind: ClientResult, Topic: message.Topic, Source: alphaSelf, Target: betaSelf.ID, Payload: map[string]any{"slot": "bidirectional-beta"}}); publishErr != nil {
-					t.Fatalf("expected alpha bidirectional result publish to succeed, got %v", publishErr)
+				if parsePublishErr5 := PublishClientMessage(parseAlpha, ClientMessage{ID: parseMessage.ID, Kind: ClientResult, Topic: parseMessage.Topic, Source: parseAlphaSelf, Target: parseBetaSelf.ID, Payload: map[string]any{"slot": "bidirectional-beta"}}); parsePublishErr5 != nil {
+					parseT.Fatalf("expected alpha bidirectional result publish to succeed, got %v", parsePublishErr5)
 				}
 			}
 		case ClientResult:
-			if message.Target != alphaSelf.ID {
+			if parseMessage.Target != parseAlphaSelf.ID {
 				return
 			}
-			request := alphaPending[message.ID]
-			if request == nil || request.timedOut || request.terminal {
+			parseRequest2 := parseAlphaPending[parseMessage.ID]
+			if parseRequest2 == nil || parseRequest2.timedOut || parseRequest2.terminal {
 				return
 			}
-			payload, _ := message.Payload.(map[string]any)
-			alphaAccepted[message.ID], _ = payload["slot"].(string)
-			request.terminal = true
+			parsePayload, _ := parseMessage.Payload.(map[string]any)
+			parseAlphaAccepted[parseMessage.ID], _ = parsePayload["slot"].(string)
+			parseRequest2.terminal = true
 		}
 	})
-	if err != nil {
-		t.Fatalf("expected alpha reliability subscription to succeed, got %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("expected alpha reliability subscription to succeed, got %v", parseErr)
 	}
-	defer alphaSubscription.Cancel()
+	defer parseAlphaSubscription.Cancel()
 
-	betaSubscription, err := SubscribeClientMessages(beta, func(message ClientMessage, err error) {
-		if err != nil {
-			t.Fatalf("expected beta reliability subscription to decode messages, got %v", err)
+	parseBetaSubscription, parseErr := SubscribeClientMessages(parseBeta, func(parseMessage2 ClientMessage, parseErr5 error) {
+		if parseErr5 != nil {
+			parseT.Fatalf("expected beta reliability subscription to decode messages, got %v", parseErr5)
 		}
-		switch message.Kind {
+		switch parseMessage2.Kind {
 		case ClientQuery:
-			if message.Source.ID != alphaSelf.ID || message.ID != "alpha-to-beta" {
+			if parseMessage2.Source.ID != parseAlphaSelf.ID || parseMessage2.ID != "alpha-to-beta" {
 				return
 			}
-			if publishErr := PublishClientMessage(beta, ClientMessage{ID: message.ID, Kind: ClientResult, Topic: message.Topic, Source: betaSelf, Target: alphaSelf.ID, Payload: map[string]any{"slot": "bidirectional-alpha"}}); publishErr != nil {
-				t.Fatalf("expected beta bidirectional result publish to succeed, got %v", publishErr)
+			if parsePublishErr6 := PublishClientMessage(parseBeta, ClientMessage{ID: parseMessage2.ID, Kind: ClientResult, Topic: parseMessage2.Topic, Source: parseBetaSelf, Target: parseAlphaSelf.ID, Payload: map[string]any{"slot": "bidirectional-alpha"}}); parsePublishErr6 != nil {
+				parseT.Fatalf("expected beta bidirectional result publish to succeed, got %v", parsePublishErr6)
 			}
 		case ClientResult:
-			if message.Target != betaSelf.ID {
+			if parseMessage2.Target != parseBetaSelf.ID {
 				return
 			}
-			request := betaPending[message.ID]
-			if request == nil {
+			parseRequest3 := parseBetaPending[parseMessage2.ID]
+			if parseRequest3 == nil {
 				return
 			}
-			if request.timedOut {
-				betaLateDrops++
+			if parseRequest3.timedOut {
+				parseBetaLateDrops++
 				return
 			}
-			if request.terminal {
-				betaDuplicateDrops++
+			if parseRequest3.terminal {
+				parseBetaDuplicateDrops++
 				return
 			}
-			payload, _ := message.Payload.(map[string]any)
-			betaAccepted[message.ID], _ = payload["slot"].(string)
-			request.terminal = true
+			parsePayload2, _ := parseMessage2.Payload.(map[string]any)
+			parseBetaAccepted[parseMessage2.ID], _ = parsePayload2["slot"].(string)
+			parseRequest3.terminal = true
 		}
 	})
-	if err != nil {
-		t.Fatalf("expected beta reliability subscription to succeed, got %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("expected beta reliability subscription to succeed, got %v", parseErr)
 	}
-	defer betaSubscription.Cancel()
+	defer parseBetaSubscription.Cancel()
 
-	queryTopic := "inventory:query"
-	queries := []ClientMessage{
-		{ID: "req-fast", Kind: ClientQuery, Topic: queryTopic, Source: betaSelf},
-		{ID: "req-1", Kind: ClientQuery, Topic: queryTopic, Source: betaSelf},
-		{ID: "req-2", Kind: ClientQuery, Topic: queryTopic, Source: betaSelf},
-		{ID: "req-slow", Kind: ClientQuery, Topic: queryTopic, Source: betaSelf},
-		{ID: "alpha-to-beta", Kind: ClientQuery, Topic: queryTopic, Source: alphaSelf},
-		{ID: "beta-to-alpha", Kind: ClientQuery, Topic: queryTopic, Source: betaSelf},
+	parseQueryTopic := "inventory:query"
+	parseQueries := []ClientMessage{
+		{ID: "req-fast", Kind: ClientQuery, Topic: parseQueryTopic, Source: parseBetaSelf},
+		{ID: "req-1", Kind: ClientQuery, Topic: parseQueryTopic, Source: parseBetaSelf},
+		{ID: "req-2", Kind: ClientQuery, Topic: parseQueryTopic, Source: parseBetaSelf},
+		{ID: "req-slow", Kind: ClientQuery, Topic: parseQueryTopic, Source: parseBetaSelf},
+		{ID: "alpha-to-beta", Kind: ClientQuery, Topic: parseQueryTopic, Source: parseAlphaSelf},
+		{ID: "beta-to-alpha", Kind: ClientQuery, Topic: parseQueryTopic, Source: parseBetaSelf},
 	}
-	for _, query := range queries {
-		channel := beta
-		if query.Source.ID == alphaSelf.ID {
-			channel = alpha
+	for _, parseQuery := range parseQueries {
+		parseChannel := parseBeta
+		if parseQuery.Source.ID == parseAlphaSelf.ID {
+			parseChannel = parseAlpha
 		}
-		if err := PublishClientMessage(channel, query); err != nil {
-			t.Fatalf("expected query %q to publish, got %v", query.ID, err)
+		if parseErr2 := PublishClientMessage(parseChannel, parseQuery); parseErr2 != nil {
+			parseT.Fatalf("expected query %q to publish, got %v", parseQuery.ID, parseErr2)
 		}
 	}
 
-	betaTimeouts += expirePending(time.Date(2026, 3, 19, 11, 0, 2, 0, time.UTC), betaPending)
-	alphaTimeouts += expirePending(time.Date(2026, 3, 19, 11, 0, 2, 0, time.UTC), alphaPending)
+	parseBetaTimeouts += parseExpirePending(time.Date(2026, 3, 19, 11, 0, 2, 0, time.UTC), parseBetaPending)
+	parseAlphaTimeouts += parseExpirePending(time.Date(2026, 3, 19, 11, 0, 2, 0, time.UTC), parseAlphaPending)
 
-	if err := PublishClientMessage(alpha, ClientMessage{ID: "req-slow", Kind: ClientResult, Topic: queryTopic, Source: alphaSelf, Target: betaSelf.ID, Payload: map[string]any{"slot": "late"}}); err != nil {
-		t.Fatalf("expected late result publish to succeed, got %v", err)
+	if parseErr3 := PublishClientMessage(parseAlpha, ClientMessage{ID: "req-slow", Kind: ClientResult, Topic: parseQueryTopic, Source: parseAlphaSelf, Target: parseBetaSelf.ID, Payload: map[string]any{"slot": "late"}}); parseErr3 != nil {
+		parseT.Fatalf("expected late result publish to succeed, got %v", parseErr3)
 	}
 
-	if betaAccepted["req-fast"] != "fast" {
-		t.Fatalf("expected request correlation to retain the fast result, got %+v", betaAccepted)
+	if parseBetaAccepted["req-fast"] != "fast" {
+		parseT.Fatalf("expected request correlation to retain the fast result, got %+v", parseBetaAccepted)
 	}
-	if betaAccepted["req-1"] != "one" || betaAccepted["req-2"] != "two" {
-		t.Fatalf("expected concurrent query results to correlate by request ID, got %+v", betaAccepted)
+	if parseBetaAccepted["req-1"] != "one" || parseBetaAccepted["req-2"] != "two" {
+		parseT.Fatalf("expected concurrent query results to correlate by request ID, got %+v", parseBetaAccepted)
 	}
-	if betaAccepted["beta-to-alpha"] != "bidirectional-beta" {
-		t.Fatalf("expected simultaneous beta->alpha request to receive a reply, got %+v", betaAccepted)
+	if parseBetaAccepted["beta-to-alpha"] != "bidirectional-beta" {
+		parseT.Fatalf("expected simultaneous beta->alpha request to receive a reply, got %+v", parseBetaAccepted)
 	}
-	if alphaAccepted["alpha-to-beta"] != "bidirectional-alpha" {
-		t.Fatalf("expected simultaneous alpha->beta request to receive a reply, got %+v", alphaAccepted)
+	if parseAlphaAccepted["alpha-to-beta"] != "bidirectional-alpha" {
+		parseT.Fatalf("expected simultaneous alpha->beta request to receive a reply, got %+v", parseAlphaAccepted)
 	}
-	if betaDuplicateDrops != 1 {
-		t.Fatalf("expected duplicate result tolerance to ignore the second fast result, got %d", betaDuplicateDrops)
+	if parseBetaDuplicateDrops != 1 {
+		parseT.Fatalf("expected duplicate result tolerance to ignore the second fast result, got %d", parseBetaDuplicateDrops)
 	}
-	if betaTimeouts != 1 || alphaTimeouts != 0 {
-		t.Fatalf("expected only the slow beta request to time out, beta=%d alpha=%d", betaTimeouts, alphaTimeouts)
+	if parseBetaTimeouts != 1 || parseAlphaTimeouts != 0 {
+		parseT.Fatalf("expected only the slow beta request to time out, beta=%d alpha=%d", parseBetaTimeouts, parseAlphaTimeouts)
 	}
-	if betaLateDrops != 1 {
-		t.Fatalf("expected late result discard after timeout, got %d", betaLateDrops)
+	if parseBetaLateDrops != 1 {
+		parseT.Fatalf("expected late result discard after timeout, got %d", parseBetaLateDrops)
 	}
-	if _, ok := betaAccepted["req-slow"]; ok {
-		t.Fatalf("expected timed-out request to reject late result, got %+v", betaAccepted)
+	if _, parseOk := parseBetaAccepted["req-slow"]; parseOk {
+		parseT.Fatalf("expected timed-out request to reject late result, got %+v", parseBetaAccepted)
 	}
-	if !betaPending["req-fast"].terminal || !betaPending["req-1"].terminal || !betaPending["req-2"].terminal || !betaPending["beta-to-alpha"].terminal || !alphaPending["alpha-to-beta"].terminal {
-		t.Fatalf("expected accepted requests to be terminal, beta=%+v alpha=%+v", betaPending, alphaPending)
+	if !parseBetaPending["req-fast"].terminal || !parseBetaPending["req-1"].terminal || !parseBetaPending["req-2"].terminal || !parseBetaPending["beta-to-alpha"].terminal || !parseAlphaPending["alpha-to-beta"].terminal {
+		parseT.Fatalf("expected accepted requests to be terminal, beta=%+v alpha=%+v", parseBetaPending, parseAlphaPending)
 	}
 }
 
-func TestMultiClientSecurityAuthorizationGuards(t *testing.T) {
-	storefront := ClientIdentity{ID: "storefront-1", App: "atlas", Surface: "tab", Role: "storefront"}
-	operator := ClientIdentity{ID: "ops-1", App: "atlas", Surface: "popup", Role: "operator"}
+func TestMultiClientSecurityAuthorizationGuards(parseT *testing.T) {
+	parseStorefront := ClientIdentity{ID: "storefront-1", App: "atlas", Surface: "tab", Role: "storefront"}
+	parseOperator := ClientIdentity{ID: "ops-1", App: "atlas", Surface: "popup", Role: "operator"}
 
-	crossTab := CrossTabChannel{
+	parseCrossTab := CrossTabChannel{
 		name: func() string { return "atlas-clients" },
-		publish: func(payload any) error {
+		publish: func(parsePayload any) error {
 			return nil
 		},
 	}
-	windowChannel := WindowChannel{
+	parseWindowChannel := WindowChannel{
 		name: func() string { return "atlas-window" },
-		publish: func(payload any) error {
+		publish: func(parsePayload2 any) error {
 			return nil
 		},
 	}
 
-	if err := PublishClientMessage(crossTab, ClientMessage{Kind: ClientEvent, Topic: "operator:inventory", Source: storefront, Payload: map[string]any{"sku": "SKU-44"}}); !IsCode(err, CodeUnauthorized) {
-		t.Fatalf("expected unauthorized topic publish to fail, got %v", err)
+	if parseErr := PublishClientMessage(parseCrossTab, ClientMessage{Kind: ClientEvent, Topic: "operator:inventory", Source: parseStorefront, Payload: map[string]any{"sku": "SKU-44"}}); !IsCode(parseErr, CodeUnauthorized) {
+		parseT.Fatalf("expected unauthorized topic publish to fail, got %v", parseErr)
 	}
-	if err := PublishClientIntent(windowChannel, "session:logout", storefront, "popup-1", map[string]any{"reason": "peer-requested"}); !IsCode(err, CodeUnauthorized) {
-		t.Fatalf("expected privileged intent rejection for non-operator role, got %v", err)
+	if parseErr2 := PublishClientIntent(parseWindowChannel, "session:logout", parseStorefront, "popup-1", map[string]any{"reason": "peer-requested"}); !IsCode(parseErr2, CodeUnauthorized) {
+		parseT.Fatalf("expected privileged intent rejection for non-operator role, got %v", parseErr2)
 	}
-	if err := PublishClientIntent(windowChannel, "operator:inventory", operator, "popup-1", map[string]any{"sku": "SKU-44"}); err != nil {
-		t.Fatalf("expected operator role to publish privileged intent, got %v", err)
+	if parseErr3 := PublishClientIntent(parseWindowChannel, "operator:inventory", parseOperator, "popup-1", map[string]any{"sku": "SKU-44"}); parseErr3 != nil {
+		parseT.Fatalf("expected operator role to publish privileged intent, got %v", parseErr3)
 	}
 
-	if _, err := DecodeClientMessage(map[string]any{
+	if _, parseErr4 := DecodeClientMessage(map[string]any{
 		"kind":  "event",
 		"topic": "operator:inventory",
 		"source": map[string]any{
@@ -622,62 +634,62 @@ func TestMultiClientSecurityAuthorizationGuards(t *testing.T) {
 			"surface": "tab",
 			"role":    "storefront",
 		},
-	}); !IsCode(err, CodeUnauthorized) {
-		t.Fatalf("expected unauthorized privileged topic decode to fail, got %v", err)
+	}); !IsCode(parseErr4, CodeUnauthorized) {
+		parseT.Fatalf("expected unauthorized privileged topic decode to fail, got %v", parseErr4)
 	}
 
-	if _, err := DecodeClientMessage(map[string]any{
+	if _, parseErr5 := DecodeClientMessage(map[string]any{
 		"kind":  "hello",
 		"topic": "clients",
 		"source": map[string]any{
 			"id":      "storefront-1",
 			"surface": "tab",
 		},
-	}); !IsCode(err, CodeInvalid) {
-		t.Fatalf("expected malformed peer identity to fail validation, got %v", err)
+	}); !IsCode(parseErr5, CodeInvalid) {
+		parseT.Fatalf("expected malformed peer identity to fail validation, got %v", parseErr5)
 	}
 }
 
-func TestClientCapabilityNegotiation(t *testing.T) {
-	local := ClientCapabilities{ProtocolVersion: "v1.2", Encodings: []string{"json", "binary"}, Topics: []string{"clients", "asset:preview"}}
-	peer := ClientCapabilities{ProtocolVersion: "1.9", Encodings: []string{"json", "binary"}, Topics: []string{"asset:preview"}}
-	if !ClientProtocolCompatible(local, peer) {
-		t.Fatal("expected matching major protocol versions to be compatible")
+func TestClientCapabilityNegotiation(parseT *testing.T) {
+	parseLocal := ClientCapabilities{ProtocolVersion: "v1.2", Encodings: []string{"json", "binary"}, Topics: []string{"clients", "asset:preview"}}
+	parsePeer := ClientCapabilities{ProtocolVersion: "1.9", Encodings: []string{"json", "binary"}, Topics: []string{"asset:preview"}}
+	if !ClientProtocolCompatible(parseLocal, parsePeer) {
+		parseT.Fatal("expected matching major protocol versions to be compatible")
 	}
-	if !ClientSupportsEncoding(peer, ClientPayloadBinary) {
-		t.Fatal("expected peer to advertise binary encoding support")
+	if !ClientSupportsEncoding(parsePeer, ClientPayloadBinary) {
+		parseT.Fatal("expected peer to advertise binary encoding support")
 	}
-	if !ClientSupportsTopic(peer, "asset:preview") {
-		t.Fatal("expected peer topic support to include asset:preview")
+	if !ClientSupportsTopic(parsePeer, "asset:preview") {
+		parseT.Fatal("expected peer topic support to include asset:preview")
 	}
-	if !ClientCanExchange(local, peer, "asset:preview", ClientPayloadBinary) {
-		t.Fatal("expected local and peer capabilities to allow binary exchange on asset:preview")
-	}
-
-	missingBinary := ClientCapabilities{ProtocolVersion: "v1.4", Encodings: []string{"json"}, Topics: []string{"asset:preview"}}
-	if ClientCanExchange(local, missingBinary, "asset:preview", ClientPayloadBinary) {
-		t.Fatal("expected binary exchange to fail when one peer is json-only")
+	if !ClientCanExchange(parseLocal, parsePeer, "asset:preview", ClientPayloadBinary) {
+		parseT.Fatal("expected local and peer capabilities to allow binary exchange on asset:preview")
 	}
 
-	wrongTopic := ClientCapabilities{ProtocolVersion: "v1.4", Encodings: []string{"json", "binary"}, Topics: []string{"clients"}}
-	if ClientCanExchange(local, wrongTopic, "asset:preview", ClientPayloadJSON) {
-		t.Fatal("expected exchange to fail when the peer does not advertise the topic")
+	parseMissingBinary := ClientCapabilities{ProtocolVersion: "v1.4", Encodings: []string{"json"}, Topics: []string{"asset:preview"}}
+	if ClientCanExchange(parseLocal, parseMissingBinary, "asset:preview", ClientPayloadBinary) {
+		parseT.Fatal("expected binary exchange to fail when one peer is json-only")
 	}
 
-	incompatible := ClientCapabilities{ProtocolVersion: "v2.0", Encodings: []string{"json", "binary"}, Topics: []string{"asset:preview"}}
-	if ClientProtocolCompatible(local, incompatible) {
-		t.Fatal("expected different major protocol versions to be incompatible")
-	}
-	if ClientCanExchange(local, incompatible, "asset:preview", ClientPayloadJSON) {
-		t.Fatal("expected exchange to fail on incompatible protocol versions")
+	parseWrongTopic := ClientCapabilities{ProtocolVersion: "v1.4", Encodings: []string{"json", "binary"}, Topics: []string{"clients"}}
+	if ClientCanExchange(parseLocal, parseWrongTopic, "asset:preview", ClientPayloadJSON) {
+		parseT.Fatal("expected exchange to fail when the peer does not advertise the topic")
 	}
 
-	stagedRollout := ClientCapabilities{ProtocolVersion: "v1.5", Encodings: []string{"json", "binary"}}
-	if !ClientCanExchange(local, stagedRollout, "asset:preview", ClientPayloadJSON) {
-		t.Fatal("expected topic-unspecified peers to allow additive staged rollout negotiation")
+	parseIncompatible := ClientCapabilities{ProtocolVersion: "v2.0", Encodings: []string{"json", "binary"}, Topics: []string{"asset:preview"}}
+	if ClientProtocolCompatible(parseLocal, parseIncompatible) {
+		parseT.Fatal("expected different major protocol versions to be incompatible")
+	}
+	if ClientCanExchange(parseLocal, parseIncompatible, "asset:preview", ClientPayloadJSON) {
+		parseT.Fatal("expected exchange to fail on incompatible protocol versions")
 	}
 
-	decoded, err := DecodeClientMessage(map[string]any{
+	parseStagedRollout := ClientCapabilities{ProtocolVersion: "v1.5", Encodings: []string{"json", "binary"}}
+	if !ClientCanExchange(parseLocal, parseStagedRollout, "asset:preview", ClientPayloadJSON) {
+		parseT.Fatal("expected topic-unspecified peers to allow additive staged rollout negotiation")
+	}
+
+	parseDecoded, parseErr := DecodeClientMessage(map[string]any{
 		"kind":  "hello",
 		"topic": "clients",
 		"source": map[string]any{
@@ -691,62 +703,62 @@ func TestClientCapabilityNegotiation(t *testing.T) {
 			"topics":          []any{"clients", "asset:preview"},
 		},
 	})
-	if err != nil {
-		t.Fatalf("expected hello message with capabilities to decode, got %v", err)
-	} else if decoded.Capabilities == nil || !ClientSupportsEncoding(*decoded.Capabilities, ClientPayloadBinary) || !ClientSupportsTopic(*decoded.Capabilities, "asset:preview") {
-		t.Fatalf("unexpected decoded capabilities payload: %+v", decoded.Capabilities)
+	if parseErr != nil {
+		parseT.Fatalf("expected hello message with capabilities to decode, got %v", parseErr)
+	} else if parseDecoded.Capabilities == nil || !ClientSupportsEncoding(*parseDecoded.Capabilities, ClientPayloadBinary) || !ClientSupportsTopic(*parseDecoded.Capabilities, "asset:preview") {
+		parseT.Fatalf("unexpected decoded capabilities payload: %+v", parseDecoded.Capabilities)
 	}
 }
 
-func TestPublishSurfaceSignalHelpers(t *testing.T) {
-	var published any
-	channel := WindowChannel{
+func TestPublishSurfaceSignalHelpers(parseT *testing.T) {
+	var parsePublished any
+	parseChannel := WindowChannel{
 		name: func() string { return "ops" },
-		publish: func(payload any) error {
-			published = payload
+		publish: func(parsePayload any) error {
+			parsePublished = parsePayload
 			return nil
 		},
 	}
 
-	expiresAt := time.Date(2026, 3, 18, 19, 0, 0, 0, time.UTC)
-	if err := PublishSessionExpired(channel, "Session expired in another surface.", "/login", expiresAt); err != nil {
-		t.Fatalf("expected session-expired helper to publish, got %v", err)
+	parseExpiresAt := time.Date(2026, 3, 18, 19, 0, 0, 0, time.UTC)
+	if parseErr := PublishSessionExpired(parseChannel, "Session expired in another surface.", "/login", parseExpiresAt); parseErr != nil {
+		parseT.Fatalf("expected session-expired helper to publish, got %v", parseErr)
 	}
-	signal, ok := published.(SurfaceSignal)
-	if !ok {
-		t.Fatalf("expected surface signal payload, got %T", published)
+	parseSignal, parseOk := parsePublished.(SurfaceSignal)
+	if !parseOk {
+		parseT.Fatalf("expected surface signal payload, got %T", parsePublished)
 	}
-	if signal.Kind != SurfaceSignalSession || signal.Session == nil || signal.Session.Status != "expired" || signal.Session.ReturnTo != "/login" || !signal.Session.ExpiresAt.Equal(expiresAt) {
-		t.Fatalf("unexpected session signal payload: %+v", signal)
-	}
-
-	if err := PublishRouteFocus(channel, "/orders/42", "tab=activity", "order-heading"); err != nil {
-		t.Fatalf("expected route-focus helper to publish, got %v", err)
-	}
-	signal, ok = published.(SurfaceSignal)
-	if !ok || signal.Route == nil || signal.Route.Path != "/orders/42" || signal.Route.Query != "tab=activity" || signal.Route.FocusID != "order-heading" {
-		t.Fatalf("unexpected route signal payload: %+v", published)
+	if parseSignal.Kind != SurfaceSignalSession || parseSignal.Session == nil || parseSignal.Session.Status != "expired" || parseSignal.Session.ReturnTo != "/login" || !parseSignal.Session.ExpiresAt.Equal(parseExpiresAt) {
+		parseT.Fatalf("unexpected session signal payload: %+v", parseSignal)
 	}
 
-	if err := PublishSelection(channel, "invoice", "INV-204", "rev-12"); err != nil {
-		t.Fatalf("expected selection helper to publish, got %v", err)
+	if parseErr2 := PublishRouteFocus(parseChannel, "/orders/42", "tab=activity", "order-heading"); parseErr2 != nil {
+		parseT.Fatalf("expected route-focus helper to publish, got %v", parseErr2)
 	}
-	signal, ok = published.(SurfaceSignal)
-	if !ok || signal.Selection == nil || signal.Selection.Scope != "invoice" || signal.Selection.ID != "INV-204" || signal.Selection.Revision != "rev-12" {
-		t.Fatalf("unexpected selection signal payload: %+v", published)
+	parseSignal, parseOk = parsePublished.(SurfaceSignal)
+	if !parseOk || parseSignal.Route == nil || parseSignal.Route.Path != "/orders/42" || parseSignal.Route.Query != "tab=activity" || parseSignal.Route.FocusID != "order-heading" {
+		parseT.Fatalf("unexpected route signal payload: %+v", parsePublished)
 	}
 
-	if err := PublishIntent(channel, SurfaceIntentFocusPanel, "audit-log", map[string]string{"tab": "alerts"}); err != nil {
-		t.Fatalf("expected intent helper to publish, got %v", err)
+	if parseErr3 := PublishSelection(parseChannel, "invoice", "INV-204", "rev-12"); parseErr3 != nil {
+		parseT.Fatalf("expected selection helper to publish, got %v", parseErr3)
 	}
-	signal, ok = published.(SurfaceSignal)
-	if !ok || signal.Intent == nil || signal.Intent.Action != SurfaceIntentFocusPanel || signal.Intent.Target != "audit-log" || signal.Intent.Params["tab"] != "alerts" {
-		t.Fatalf("unexpected intent signal payload: %+v", published)
+	parseSignal, parseOk = parsePublished.(SurfaceSignal)
+	if !parseOk || parseSignal.Selection == nil || parseSignal.Selection.Scope != "invoice" || parseSignal.Selection.ID != "INV-204" || parseSignal.Selection.Revision != "rev-12" {
+		parseT.Fatalf("unexpected selection signal payload: %+v", parsePublished)
+	}
+
+	if parseErr4 := PublishIntent(parseChannel, SurfaceIntentFocusPanel, "audit-log", map[string]string{"tab": "alerts"}); parseErr4 != nil {
+		parseT.Fatalf("expected intent helper to publish, got %v", parseErr4)
+	}
+	parseSignal, parseOk = parsePublished.(SurfaceSignal)
+	if !parseOk || parseSignal.Intent == nil || parseSignal.Intent.Action != SurfaceIntentFocusPanel || parseSignal.Intent.Target != "audit-log" || parseSignal.Intent.Params["tab"] != "alerts" {
+		parseT.Fatalf("unexpected intent signal payload: %+v", parsePublished)
 	}
 }
 
-func TestDecodeSurfaceSignalProjectsTypedPayload(t *testing.T) {
-	message := WindowEnvelope{
+func TestDecodeSurfaceSignalProjectsTypedPayload(parseT *testing.T) {
+	parseMessage := WindowEnvelope{
 		Name:   "ops",
 		Source: "popup-1",
 		Payload: map[string]any{
@@ -758,14 +770,14 @@ func TestDecodeSurfaceSignalProjectsTypedPayload(t *testing.T) {
 			},
 		},
 	}
-	decoded, err := DecodeSurfaceSignal(message)
-	if err != nil {
-		t.Fatalf("expected typed surface signal, got %v", err)
+	parseDecoded, parseErr := DecodeSurfaceSignal(parseMessage)
+	if parseErr != nil {
+		parseT.Fatalf("expected typed surface signal, got %v", parseErr)
 	}
-	if decoded.Name != "ops" || decoded.Source != "popup-1" {
-		t.Fatalf("unexpected envelope metadata: %+v", decoded)
+	if parseDecoded.Name != "ops" || parseDecoded.Source != "popup-1" {
+		parseT.Fatalf("unexpected envelope metadata: %+v", parseDecoded)
 	}
-	if decoded.Payload.Kind != SurfaceSignalSelection || decoded.Payload.Selection == nil || decoded.Payload.Selection.ID != "SKU-42" {
-		t.Fatalf("unexpected decoded surface payload: %+v", decoded.Payload)
+	if parseDecoded.Payload.Kind != SurfaceSignalSelection || parseDecoded.Payload.Selection == nil || parseDecoded.Payload.Selection.ID != "SKU-42" {
+		parseT.Fatalf("unexpected decoded surface payload: %+v", parseDecoded.Payload)
 	}
 }

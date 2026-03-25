@@ -11,9 +11,9 @@ type benchmarkDecodePayload struct {
 	Meta    map[string]string `json:"meta"`
 }
 
-func BenchmarkDecodeMapToStruct(b *testing.B) {
-	b.ReportAllocs()
-	value := map[string]interface{}{
+func BenchmarkDecodeMapToStruct(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseValue := map[string]interface{}{
 		"id":      "bench",
 		"enabled": true,
 		"meta": map[string]interface{}{
@@ -21,26 +21,26 @@ func BenchmarkDecodeMapToStruct(b *testing.B) {
 			"stage": "decode",
 		},
 	}
-	for b.Loop() {
-		var payload benchmarkDecodePayload
-		if err := Decode(value, &payload); err != nil {
-			b.Fatalf("Decode: %v", err)
+	for parseB.Loop() {
+		var parsePayload benchmarkDecodePayload
+		if parseErr := Decode(parseValue, &parsePayload); parseErr != nil {
+			parseB.Fatalf("Decode: %v", parseErr)
 		}
 	}
 }
 
-func BenchmarkInteropErrorString(b *testing.B) {
-	b.ReportAllocs()
-	err := &Error{
+func BenchmarkInteropErrorString(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseErr := &Error{
 		Op:     "OpenPersistentStore",
 		Target: "indexedDB",
 		Code:   CodeInvalid,
 		Err:    errors.New("missing store name"),
 	}
-	for b.Loop() {
-		value := err.Error()
-		if value == "" {
-			b.Fatal("Error() returned empty string")
+	for parseB.Loop() {
+		parseValue := parseErr.Error()
+		if parseValue == "" {
+			parseB.Fatal("Error() returned empty string")
 		}
 	}
 }

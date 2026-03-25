@@ -46,228 +46,238 @@ type MarkdownRenderOptions struct {
 }
 
 // RenderMarkdown parses markdown text and returns semantic ui.Node values.
-func RenderMarkdown(markdown string, options ...MarkdownRenderOptions) []ui.Node {
-	config := MarkdownRenderOptions{}
-	if len(options) > 0 {
-		config = options[0]
+func RenderMarkdown(parseMarkdown string, parseOptions ...MarkdownRenderOptions) []ui.Node {
+	parseConfig := MarkdownRenderOptions{}
+	if len(parseOptions) > 0 {
+		parseConfig = parseOptions[0]
 	}
-	source := []byte(markdown)
-	root := goldmark.New().Parser().Parse(text.NewReader(source))
-	return renderMarkdownBlocks(root, source, config)
+	parseSource := []byte(parseMarkdown)
+	parseRoot := goldmark.New().Parser().Parse(text.NewReader(parseSource))
+	return renderMarkdownBlocks(parseRoot, parseSource, parseConfig)
 }
 
 // ResolveMarkdownHref resolves a markdown destination against the source document path.
-func ResolveMarkdownHref(sourcePath, destination string) string {
-	destination = strings.TrimSpace(destination)
-	if destination == "" {
+func ResolveMarkdownHref(parseSourcePath, parseDestination string) string {
+	parseDestination = strings.TrimSpace(parseDestination)
+	if parseDestination == "" {
 		return ""
 	}
-	parsedDestination, err := url.Parse(destination)
-	if err != nil {
-		return destination
+	parseParsedDestination, parseErr := url.Parse(parseDestination)
+	if parseErr != nil {
+		return parseDestination
 	}
-	if parsedDestination.IsAbs() || strings.HasPrefix(destination, "#") || strings.HasPrefix(destination, "/") {
-		return destination
+	if parseParsedDestination.IsAbs() || strings.HasPrefix(parseDestination, "#") || strings.HasPrefix(parseDestination, "/") {
+		return parseDestination
 	}
-	base := strings.TrimSpace(sourcePath)
-	if base == "" {
-		return destination
+	parseBase := strings.TrimSpace(parseSourcePath)
+	if parseBase == "" {
+		return parseDestination
 	}
-	parsedBase, err := url.Parse(base)
-	if err == nil && (parsedBase.IsAbs() || strings.HasPrefix(base, "/")) {
-		return parsedBase.ResolveReference(parsedDestination).String()
+	parseParsedBase, parseErr := url.Parse(parseBase)
+	if parseErr == nil && (parseParsedBase.IsAbs() || strings.HasPrefix(parseBase, "/")) {
+		return parseParsedBase.ResolveReference(parseParsedDestination).String()
 	}
-	basePath := strings.ReplaceAll(base, "\\", "/")
-	resolved := *parsedDestination
-	resolved.Path = path.Clean(path.Join(path.Dir(basePath), parsedDestination.Path))
-	if strings.HasPrefix(basePath, "/") && !strings.HasPrefix(resolved.Path, "/") {
-		resolved.Path = "/" + resolved.Path
+	parseBasePath := strings.ReplaceAll(parseBase, "\\", "/")
+	parseResolved := *parseParsedDestination
+	parseResolved.Path = path.Clean(path.Join(path.Dir(parseBasePath), parseParsedDestination.Path))
+	if strings.HasPrefix(parseBasePath, "/") && !strings.HasPrefix(parseResolved.Path, "/") {
+		parseResolved.Path = "/" + parseResolved.Path
 	}
-	return resolved.String()
+	return parseResolved.String()
 }
 
-func renderMarkdownBlocks(parent ast.Node, source []byte, config MarkdownRenderOptions) []ui.Node {
-	nodes := make([]ui.Node, 0)
-	for child := parent.FirstChild(); child != nil; child = child.NextSibling() {
-		if rendered, ok := renderMarkdownBlock(child, source, config); ok {
-			nodes = append(nodes, rendered)
+// renderMarkdownBlocks is a core package helper.
+func renderMarkdownBlocks(parseParent ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions) []ui.Node {
+	parseNodes := make([]ui.Node, 0)
+	for parseChild := parseParent.FirstChild(); parseChild != nil; parseChild = parseChild.NextSibling() {
+		if parseRendered, parseOk := renderMarkdownBlock(parseChild, parseSource, parseConfig); parseOk {
+			parseNodes = append(parseNodes, parseRendered)
 		}
 	}
-	return nodes
+	return parseNodes
 }
 
-func renderMarkdownBlock(node ast.Node, source []byte, config MarkdownRenderOptions) (ui.Node, bool) {
-	classes := config.Classes
-	switch typed := node.(type) {
+// renderMarkdownBlock is a core package helper.
+func renderMarkdownBlock(parseNode ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions) (ui.Node, bool) {
+	parseClasses := parseConfig.Classes
+	switch parseTyped := parseNode.(type) {
 	case *ast.Heading:
-		children := renderMarkdownInlines(typed, source, config)
-		switch typed.Level {
+		parseChildren := renderMarkdownInlines(parseTyped, parseSource, parseConfig)
+		switch parseTyped.Level {
 		case 1:
-			return H1(propsWithClass(classes.Heading1), children...), true
+			return H1(propsWithClass(parseClasses.Heading1), parseChildren...), true
 		case 2:
-			return H2(propsWithClass(classes.Heading2), children...), true
+			return H2(propsWithClass(parseClasses.Heading2), parseChildren...), true
 		case 3:
-			return H3(propsWithClass(classes.Heading3), children...), true
+			return H3(propsWithClass(parseClasses.Heading3), parseChildren...), true
 		case 4:
-			return H4(propsWithClass(classes.Heading4), children...), true
+			return H4(propsWithClass(parseClasses.Heading4), parseChildren...), true
 		case 5:
-			return H5(propsWithClass(classes.Heading5), children...), true
+			return H5(propsWithClass(parseClasses.Heading5), parseChildren...), true
 		default:
-			return H6(propsWithClass(classes.Heading6), children...), true
+			return H6(propsWithClass(parseClasses.Heading6), parseChildren...), true
 		}
 	case *ast.Paragraph:
-		return P(propsWithClass(classes.Paragraph), renderMarkdownInlines(typed, source, config)...), true
+		return P(propsWithClass(parseClasses.Paragraph), renderMarkdownInlines(parseTyped, parseSource, parseConfig)...), true
 	case *ast.Blockquote:
-		return Blockquote(propsWithClass(classes.Blockquote), renderMarkdownBlocks(typed, source, config)...), true
+		return Blockquote(propsWithClass(parseClasses.Blockquote), renderMarkdownBlocks(parseTyped, parseSource, parseConfig)...), true
 	case *ast.List:
-		items := renderMarkdownBlocks(typed, source, config)
-		className := strings.TrimSpace(classes.List)
-		if typed.IsOrdered() {
-			className = joinMarkdownClasses(className, classes.OrderedList)
-			props := propsWithClass(className)
-			if typed.Start != 1 {
-				props.Raw = map[string]interface{}{"start": typed.Start}
+		parseItems := renderMarkdownBlocks(parseTyped, parseSource, parseConfig)
+		parseClassName := strings.TrimSpace(parseClasses.List)
+		if parseTyped.IsOrdered() {
+			parseClassName = joinMarkdownClasses(parseClassName, parseClasses.OrderedList)
+			parseProps := propsWithClass(parseClassName)
+			if parseTyped.Start != 1 {
+				parseProps.Raw = map[string]interface{}{"start": parseTyped.Start}
 			}
-			return Tag("ol", props, items...), true
+			return Tag("ol", parseProps, parseItems...), true
 		}
-		className = joinMarkdownClasses(className, classes.UnorderedList)
-		return Ul(propsWithClass(className), items...), true
+		parseClassName = joinMarkdownClasses(parseClassName, parseClasses.UnorderedList)
+		return Ul(propsWithClass(parseClassName), parseItems...), true
 	case *ast.ListItem:
-		return Li(propsWithClass(classes.ListItem), renderMarkdownBlocks(typed, source, config)...), true
+		return Li(propsWithClass(parseClasses.ListItem), renderMarkdownBlocks(parseTyped, parseSource, parseConfig)...), true
 	case *ast.FencedCodeBlock:
-		return renderMarkdownCodeBlock(strings.TrimRight(markdownLinesText(typed.Lines(), source), "\n"), config), true
+		return renderMarkdownCodeBlock(strings.TrimRight(markdownLinesText(parseTyped.Lines(), parseSource), "\n"), parseConfig), true
 	case *ast.CodeBlock:
-		return renderMarkdownCodeBlock(strings.TrimRight(markdownLinesText(typed.Lines(), source), "\n"), config), true
+		return renderMarkdownCodeBlock(strings.TrimRight(markdownLinesText(parseTyped.Lines(), parseSource), "\n"), parseConfig), true
 	case *ast.ThematicBreak:
-		return Hr(propsWithClass(classes.HorizontalRule)), true
+		return Hr(propsWithClass(parseClasses.HorizontalRule)), true
 	default:
-		textValue := strings.TrimSpace(markdownPlainText(node, source))
-		if textValue == "" {
+		parseTextValue := strings.TrimSpace(markdownPlainText(parseNode, parseSource))
+		if parseTextValue == "" {
 			return nil, false
 		}
-		return P(propsWithClass(classes.Paragraph), Text(textValue)), true
+		return P(propsWithClass(parseClasses.Paragraph), Text(parseTextValue)), true
 	}
 }
 
-func renderMarkdownCodeBlock(code string, config MarkdownRenderOptions) ui.Node {
-	children := make([]ui.Node, 0, 2)
-	if strings.TrimSpace(config.CodeBlockLabel) != "" {
-		children = append(children, Div(propsWithClass(config.Classes.CodeBlockLabel), Text(config.CodeBlockLabel)))
+// renderMarkdownCodeBlock is a core package helper.
+func renderMarkdownCodeBlock(parseCode string, parseConfig MarkdownRenderOptions) ui.Node {
+	parseChildren := make([]ui.Node, 0, 2)
+	if strings.TrimSpace(parseConfig.CodeBlockLabel) != "" {
+		parseChildren = append(parseChildren, Div(propsWithClass(parseConfig.Classes.CodeBlockLabel), Text(parseConfig.CodeBlockLabel)))
 	}
-	children = append(children, Pre(propsWithClass(config.Classes.CodeBlockPre), Code(Props{}, Text(code))))
-	return Div(propsWithClass(config.Classes.CodeBlockContainer), children...)
+	parseChildren = append(parseChildren, Pre(propsWithClass(parseConfig.Classes.CodeBlockPre), Code(Props{}, Text(parseCode))))
+	return Div(propsWithClass(parseConfig.Classes.CodeBlockContainer), parseChildren...)
 }
 
-func renderMarkdownInlines(parent ast.Node, source []byte, config MarkdownRenderOptions) []ui.Node {
-	nodes := make([]ui.Node, 0)
-	for child := parent.FirstChild(); child != nil; child = child.NextSibling() {
-		nodes = append(nodes, renderMarkdownInline(child, source, config)...)
+// renderMarkdownInlines is a core package helper.
+func renderMarkdownInlines(parseParent ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions) []ui.Node {
+	parseNodes := make([]ui.Node, 0)
+	for parseChild := parseParent.FirstChild(); parseChild != nil; parseChild = parseChild.NextSibling() {
+		parseNodes = append(parseNodes, renderMarkdownInline(parseChild, parseSource, parseConfig)...)
 	}
-	return nodes
+	return parseNodes
 }
 
-func renderMarkdownInline(node ast.Node, source []byte, config MarkdownRenderOptions) []ui.Node {
-	classes := config.Classes
-	switch typed := node.(type) {
+// renderMarkdownInline is a core package helper.
+func renderMarkdownInline(parseNode ast.Node, parseSource []byte, parseConfig MarkdownRenderOptions) []ui.Node {
+	parseClasses := parseConfig.Classes
+	switch parseTyped := parseNode.(type) {
 	case *ast.Text:
-		textValue := string(typed.Segment.Value(source))
-		nodes := []ui.Node{Text(textValue)}
-		if typed.HardLineBreak() || typed.SoftLineBreak() {
-			nodes = append(nodes, Br(Props{}))
+		parseTextValue := string(parseTyped.Segment.Value(parseSource))
+		parseNodes := []ui.Node{Text(parseTextValue)}
+		if parseTyped.HardLineBreak() || parseTyped.SoftLineBreak() {
+			parseNodes = append(parseNodes, Br(Props{}))
 		}
-		return nodes
+		return parseNodes
 	case *ast.CodeSpan:
-		return []ui.Node{Code(propsWithClass(classes.InlineCode), Text(markdownPlainText(typed, source)))}
+		return []ui.Node{Code(propsWithClass(parseClasses.InlineCode), Text(markdownPlainText(parseTyped, parseSource)))}
 	case *ast.Emphasis:
-		children := renderMarkdownInlines(typed, source, config)
-		if typed.Level == 2 {
-			return []ui.Node{Tag("strong", propsWithClass(classes.Strong), children...)}
+		parseChildren := renderMarkdownInlines(parseTyped, parseSource, parseConfig)
+		if parseTyped.Level == 2 {
+			return []ui.Node{Tag("strong", propsWithClass(parseClasses.Strong), parseChildren...)}
 		}
-		return []ui.Node{Em(propsWithClass(classes.Emphasis), children...)}
+		return []ui.Node{Em(propsWithClass(parseClasses.Emphasis), parseChildren...)}
 	case *ast.Link:
-		children := renderMarkdownInlines(typed, source, config)
-		props := propsWithClass(classes.Link)
-		props.Href = resolveMarkdownHref(config, string(typed.Destination))
-		props.Target = config.LinkTarget
-		props.Rel = config.LinkRel
-		return []ui.Node{A(props, children...)}
+		parseChildren2 := renderMarkdownInlines(parseTyped, parseSource, parseConfig)
+		parseProps := propsWithClass(parseClasses.Link)
+		parseProps.Href = resolveMarkdownHref(parseConfig, string(parseTyped.Destination))
+		parseProps.Target = parseConfig.LinkTarget
+		parseProps.Rel = parseConfig.LinkRel
+		return []ui.Node{A(parseProps, parseChildren2...)}
 	case *ast.AutoLink:
-		href := string(typed.URL(source))
-		props := propsWithClass(classes.Link)
-		props.Href = href
-		props.Target = config.LinkTarget
-		props.Rel = config.LinkRel
-		return []ui.Node{A(props, Text(href))}
+		parseHref := string(parseTyped.URL(parseSource))
+		parseProps2 := propsWithClass(parseClasses.Link)
+		parseProps2.Href = parseHref
+		parseProps2.Target = parseConfig.LinkTarget
+		parseProps2.Rel = parseConfig.LinkRel
+		return []ui.Node{A(parseProps2, Text(parseHref))}
 	default:
-		textValue := markdownPlainText(typed, source)
-		if textValue == "" {
+		parseTextValue2 := markdownPlainText(parseTyped, parseSource)
+		if parseTextValue2 == "" {
 			return nil
 		}
-		return []ui.Node{Text(textValue)}
+		return []ui.Node{Text(parseTextValue2)}
 	}
 }
 
-func markdownLinesText(lines *text.Segments, source []byte) string {
-	if lines == nil {
+// markdownLinesText is a core package helper.
+func markdownLinesText(parseLines *text.Segments, parseSource []byte) string {
+	if parseLines == nil {
 		return ""
 	}
-	var builder strings.Builder
-	for index := 0; index < lines.Len(); index++ {
-		segment := lines.At(index)
-		builder.Write(segment.Value(source))
+	var parseBuilder strings.Builder
+	for parseIndex := 0; parseIndex < parseLines.Len(); parseIndex++ {
+		parseSegment := parseLines.At(parseIndex)
+		parseBuilder.Write(parseSegment.Value(parseSource))
 	}
-	return builder.String()
+	return parseBuilder.String()
 }
 
-func markdownPlainText(node ast.Node, source []byte) string {
-	var builder strings.Builder
-	var walk func(ast.Node)
-	walk = func(current ast.Node) {
-		if current == nil {
+// markdownPlainText is a core package helper.
+func markdownPlainText(parseNode ast.Node, parseSource []byte) string {
+	var parseBuilder strings.Builder
+	var parseWalk func(ast.Node)
+	parseWalk = func(parseCurrent ast.Node) {
+		if parseCurrent == nil {
 			return
 		}
-		switch typed := current.(type) {
+		switch parseTyped := parseCurrent.(type) {
 		case *ast.Text:
-			builder.Write(typed.Segment.Value(source))
-			if typed.HardLineBreak() || typed.SoftLineBreak() {
-				builder.WriteString("\n")
+			parseBuilder.Write(parseTyped.Segment.Value(parseSource))
+			if parseTyped.HardLineBreak() || parseTyped.SoftLineBreak() {
+				parseBuilder.WriteString("\n")
 			}
 		case *ast.FencedCodeBlock:
-			builder.WriteString(markdownLinesText(typed.Lines(), source))
+			parseBuilder.WriteString(markdownLinesText(parseTyped.Lines(), parseSource))
 		case *ast.CodeBlock:
-			builder.WriteString(markdownLinesText(typed.Lines(), source))
+			parseBuilder.WriteString(markdownLinesText(parseTyped.Lines(), parseSource))
 		default:
-			for child := current.FirstChild(); child != nil; child = child.NextSibling() {
-				walk(child)
+			for parseChild := parseCurrent.FirstChild(); parseChild != nil; parseChild = parseChild.NextSibling() {
+				parseWalk(parseChild)
 			}
 		}
 	}
-	walk(node)
-	return strings.TrimSpace(builder.String())
+	parseWalk(parseNode)
+	return strings.TrimSpace(parseBuilder.String())
 }
 
-func resolveMarkdownHref(config MarkdownRenderOptions, destination string) string {
-	if config.ResolveHref != nil {
-		return config.ResolveHref(config.SourcePath, destination)
+// resolveMarkdownHref is a core package helper.
+func resolveMarkdownHref(parseConfig MarkdownRenderOptions, parseDestination string) string {
+	if parseConfig.ResolveHref != nil {
+		return parseConfig.ResolveHref(parseConfig.SourcePath, parseDestination)
 	}
-	return ResolveMarkdownHref(config.SourcePath, destination)
+	return ResolveMarkdownHref(parseConfig.SourcePath, parseDestination)
 }
 
-func propsWithClass(className string) Props {
-	className = strings.TrimSpace(className)
-	if className == "" {
+// propsWithClass is a core package helper.
+func propsWithClass(parseClassName string) Props {
+	parseClassName = strings.TrimSpace(parseClassName)
+	if parseClassName == "" {
 		return Props{}
 	}
-	return Props{Class: className}
+	return Props{Class: parseClassName}
 }
 
-func joinMarkdownClasses(values ...string) string {
-	parts := make([]string, 0, len(values))
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if value != "" {
-			parts = append(parts, value)
+// joinMarkdownClasses is a core package helper.
+func joinMarkdownClasses(parseValues ...string) string {
+	parseParts := make([]string, 0, len(parseValues))
+	for _, parseValue := range parseValues {
+		parseValue = strings.TrimSpace(parseValue)
+		if parseValue != "" {
+			parseParts = append(parseParts, parseValue)
 		}
 	}
-	return strings.Join(parts, " ")
+	return strings.Join(parseParts, " ")
 }

@@ -132,258 +132,258 @@ type SSRBootstrapOptions struct {
 
 var runtimeContext = ui.CreateContext(Runtime{bundle: NewBundle()})
 
-func (s LocaleState) Get() string {
-	if s.get == nil {
+func (parseS LocaleState) Get() string {
+	if parseS.get == nil {
 		return ""
 	}
-	return s.get()
+	return parseS.get()
 }
 
-func (s LocaleState) Set(locale string) {
-	if s.set != nil {
-		s.set(locale)
+func (parseS LocaleState) Set(parseLocale string) {
+	if parseS.set != nil {
+		parseS.set(parseLocale)
 	}
 }
 
-func (s LocaleState) Direction() Direction {
-	if s.direction == nil {
+func (parseS LocaleState) Direction() Direction {
+	if parseS.direction == nil {
 		return DirectionLTR
 	}
-	return s.direction()
+	return parseS.direction()
 }
 
-func (s LocaleState) SupportedLocales() []string {
-	if s.supported == nil {
+func (parseS LocaleState) SupportedLocales() []string {
+	if parseS.supported == nil {
 		return nil
 	}
-	return s.supported()
+	return parseS.supported()
 }
 
-func (s LocaleState) FallbackLocale() string {
-	if s.fallback == nil {
+func (parseS LocaleState) FallbackLocale() string {
+	if parseS.fallback == nil {
 		return ""
 	}
-	return s.fallback()
+	return parseS.fallback()
 }
 
 // NewBundle creates a new i18n Bundle with the given options.
-func NewBundle(options ...BundleOptions) *Bundle {
-	resolved := BundleOptions{}
-	if len(options) > 0 {
-		resolved = options[0]
+func NewBundle(parseOptions ...BundleOptions) *Bundle {
+	parseResolved := BundleOptions{}
+	if len(parseOptions) > 0 {
+		parseResolved = parseOptions[0]
 	}
 	return &Bundle{
-		defaultLocale:  NormalizeLocale(resolved.DefaultLocale),
-		fallbackLocale: NormalizeLocale(resolved.FallbackLocale),
-		onMissing:      resolved.OnMissing,
+		defaultLocale:  NormalizeLocale(parseResolved.DefaultLocale),
+		fallbackLocale: NormalizeLocale(parseResolved.FallbackLocale),
+		onMissing:      parseResolved.OnMissing,
 		catalogs:       map[string]Catalog{},
 	}
 }
 
-func (b *Bundle) Register(locale string, catalog Catalog) {
-	if b == nil {
+func (parseB *Bundle) Register(parseLocale string, parseCatalog Catalog) {
+	if parseB == nil {
 		return
 	}
-	key := NormalizeLocale(locale)
-	if key == "" {
+	parseKey := NormalizeLocale(parseLocale)
+	if parseKey == "" {
 		return
 	}
-	if b.catalogs == nil {
-		b.catalogs = map[string]Catalog{}
+	if parseB.catalogs == nil {
+		parseB.catalogs = map[string]Catalog{}
 	}
-	if _, ok := b.catalogs[key]; !ok {
-		b.catalogs[key] = Catalog{}
+	if _, parseOk := parseB.catalogs[parseKey]; !parseOk {
+		parseB.catalogs[parseKey] = Catalog{}
 	}
-	for namespace, entries := range catalog {
-		if _, ok := b.catalogs[key][namespace]; !ok {
-			b.catalogs[key][namespace] = NamespaceCatalog{}
+	for parseNamespace, parseEntries := range parseCatalog {
+		if _, parseOk2 := parseB.catalogs[parseKey][parseNamespace]; !parseOk2 {
+			parseB.catalogs[parseKey][parseNamespace] = NamespaceCatalog{}
 		}
-		for messageKey, entry := range entries {
-			b.catalogs[key][namespace][messageKey] = cloneMessage(entry)
+		for parseMessageKey, parseEntry := range parseEntries {
+			parseB.catalogs[parseKey][parseNamespace][parseMessageKey] = cloneMessage(parseEntry)
 		}
 	}
-	if b.defaultLocale == "" {
-		b.defaultLocale = key
+	if parseB.defaultLocale == "" {
+		parseB.defaultLocale = parseKey
 	}
-	if b.fallbackLocale == "" {
-		b.fallbackLocale = key
+	if parseB.fallbackLocale == "" {
+		parseB.fallbackLocale = parseKey
 	}
 }
 
-func (b *Bundle) RegisterNamespace(locale string, namespace string, entries NamespaceCatalog) {
-	b.Register(locale, Catalog{namespace: entries})
+func (parseB *Bundle) RegisterNamespace(parseLocale string, parseNamespace string, parseEntries NamespaceCatalog) {
+	parseB.Register(parseLocale, Catalog{parseNamespace: parseEntries})
 }
 
-func (b *Bundle) DefaultLocale() string {
-	if b == nil {
+func (parseB *Bundle) DefaultLocale() string {
+	if parseB == nil {
 		return ""
 	}
-	return b.defaultLocale
+	return parseB.defaultLocale
 }
 
-func (b *Bundle) FallbackLocale() string {
-	if b == nil {
+func (parseB *Bundle) FallbackLocale() string {
+	if parseB == nil {
 		return ""
 	}
-	return b.fallbackLocale
+	return parseB.fallbackLocale
 }
 
-func (b *Bundle) Locales() []string {
-	if b == nil {
+func (parseB *Bundle) Locales() []string {
+	if parseB == nil {
 		return nil
 	}
-	locales := make([]string, 0, len(b.catalogs))
-	for locale := range b.catalogs {
-		locales = append(locales, locale)
+	parseLocales := make([]string, 0, len(parseB.catalogs))
+	for parseLocale := range parseB.catalogs {
+		parseLocales = append(parseLocales, parseLocale)
 	}
-	sort.Strings(locales)
-	return locales
+	sort.Strings(parseLocales)
+	return parseLocales
 }
 
 // Provider renders an i18n runtime context provider around its children.
-func Provider(props ProviderProps) ui.Node {
-	bundle := props.Bundle
-	if bundle == nil {
-		bundle = NewBundle()
+func Provider(parseProps ProviderProps) ui.Node {
+	parseBundle := parseProps.Bundle
+	if parseBundle == nil {
+		parseBundle = NewBundle()
 	}
-	localeHandle := props.Locale
-	current := props.CurrentLocale
-	if localeHandle.get != nil {
-		current = localeHandle.Get()
+	parseLocaleHandle := parseProps.Locale
+	parseCurrent := parseProps.CurrentLocale
+	if parseLocaleHandle.get != nil {
+		parseCurrent = parseLocaleHandle.Get()
 	}
-	if current == "" {
-		current = bundle.DefaultLocale()
+	if parseCurrent == "" {
+		parseCurrent = parseBundle.DefaultLocale()
 	}
-	fallback := props.FallbackLocale
-	if localeHandle.fallback != nil {
-		fallback = localeHandle.FallbackLocale()
+	parseFallback := parseProps.FallbackLocale
+	if parseLocaleHandle.fallback != nil {
+		parseFallback = parseLocaleHandle.FallbackLocale()
 	}
-	if fallback == "" {
-		fallback = bundle.FallbackLocale()
+	if parseFallback == "" {
+		parseFallback = parseBundle.FallbackLocale()
 	}
-	runtime := Runtime{
+	parseRuntime := Runtime{
 		locale: func() string {
-			if localeHandle.get != nil {
-				return localeHandle.Get()
+			if parseLocaleHandle.get != nil {
+				return parseLocaleHandle.Get()
 			}
-			return current
+			return parseCurrent
 		},
-		setLocale: func(next string) {
-			if localeHandle.set != nil {
-				localeHandle.Set(next)
+		setLocale: func(parseNext string) {
+			if parseLocaleHandle.set != nil {
+				parseLocaleHandle.Set(parseNext)
 			}
 		},
 		direction: func() Direction {
-			if localeHandle.direction != nil {
-				return localeHandle.Direction()
+			if parseLocaleHandle.direction != nil {
+				return parseLocaleHandle.Direction()
 			}
-			return DirectionForLocale(current)
+			return DirectionForLocale(parseCurrent)
 		},
-		fallbackLocale: fallback,
-		bundle:         bundle,
+		fallbackLocale: parseFallback,
+		bundle:         parseBundle,
 	}
-	children := make([]ui.Node, 0, len(props.Children)+1)
-	if props.Child != nil {
-		children = append(children, props.Child)
+	parseChildren := make([]ui.Node, 0, len(parseProps.Children)+1)
+	if parseProps.Child != nil {
+		parseChildren = append(parseChildren, parseProps.Child)
 	}
-	children = append(children, props.Children...)
+	parseChildren = append(parseChildren, parseProps.Children...)
 	return ui.CreateElement(runtimeContext.Provider, ui.ContextProviderProps[Runtime]{
-		Value:    runtime,
-		Children: children,
+		Value:    parseRuntime,
+		Children: parseChildren,
 	})
 }
 
 // UseI18n returns the i18n Runtime from the nearest Provider ancestor.
 func UseI18n() Runtime {
-	resolved := ui.UseContext(runtimeContext)
-	if resolved.bundle == nil {
-		resolved.bundle = NewBundle()
+	parseResolved := ui.UseContext(runtimeContext)
+	if parseResolved.bundle == nil {
+		parseResolved.bundle = NewBundle()
 	}
-	return resolved
+	return parseResolved
 }
 
-func (r Runtime) Locale() string {
-	if r.locale == nil {
+func (parseR Runtime) Locale() string {
+	if parseR.locale == nil {
 		return ""
 	}
-	return r.locale()
+	return parseR.locale()
 }
 
-func (r Runtime) SetLocale(locale string) {
-	if r.setLocale != nil {
-		r.setLocale(locale)
+func (parseR Runtime) SetLocale(parseLocale string) {
+	if parseR.setLocale != nil {
+		parseR.setLocale(parseLocale)
 	}
 }
 
-func (r Runtime) Direction() Direction {
-	if r.direction == nil {
+func (parseR Runtime) Direction() Direction {
+	if parseR.direction == nil {
 		return DirectionLTR
 	}
-	return r.direction()
+	return parseR.direction()
 }
 
-func (r Runtime) T(namespace string, key string, args ...Arguments) string {
-	resolvedArgs := Arguments{}
-	if len(args) > 0 {
-		resolvedArgs = args[0]
+func (parseR Runtime) T(parseNamespace string, parseKey string, parseArgs ...Arguments) string {
+	parseResolvedArgs := Arguments{}
+	if len(parseArgs) > 0 {
+		parseResolvedArgs = parseArgs[0]
 	}
-	if r.bundle == nil {
-		return defaultMissingText(r.Locale(), namespace, key)
+	if parseR.bundle == nil {
+		return defaultMissingText(parseR.Locale(), parseNamespace, parseKey)
 	}
-	return r.bundle.Translate(r.Locale(), namespace, key, resolvedArgs, r.fallbackLocale)
+	return parseR.bundle.Translate(parseR.Locale(), parseNamespace, parseKey, parseResolvedArgs, parseR.fallbackLocale)
 }
 
-func (r Runtime) FormatNumber(value float64, options ...NumberOptions) string {
-	return FormatNumber(r.Locale(), value, options...)
+func (parseR Runtime) FormatNumber(parseValue float64, parseOptions ...NumberOptions) string {
+	return FormatNumber(parseR.Locale(), parseValue, parseOptions...)
 }
 
-func (r Runtime) FormatDate(value time.Time, options ...DateOptions) string {
-	return FormatDate(r.Locale(), value, options...)
+func (parseR Runtime) FormatDate(parseValue time.Time, parseOptions ...DateOptions) string {
+	return FormatDate(parseR.Locale(), parseValue, parseOptions...)
 }
 
-func (r Runtime) PrefixPath(path string, options ...RouteOptions) string {
-	resolved := RouteOptions{}
-	if len(options) > 0 {
-		resolved = options[0]
+func (parseR Runtime) PrefixPath(parsePath string, parseOptions ...RouteOptions) string {
+	parseResolved := RouteOptions{}
+	if len(parseOptions) > 0 {
+		parseResolved = parseOptions[0]
 	}
-	if resolved.DefaultLocale == "" {
-		resolved.DefaultLocale = r.fallbackLocale
+	if parseResolved.DefaultLocale == "" {
+		parseResolved.DefaultLocale = parseR.fallbackLocale
 	}
-	return PrefixPath(r.Locale(), path, resolved)
+	return PrefixPath(parseR.Locale(), parsePath, parseResolved)
 }
 
-func (b *Bundle) Translate(locale string, namespace string, key string, args Arguments, fallbackLocale string) string {
-	if b == nil {
-		return defaultMissingText(locale, namespace, key)
+func (parseB *Bundle) Translate(parseLocale string, parseNamespace string, parseKey string, parseArgs Arguments, parseFallbackLocale string) string {
+	if parseB == nil {
+		return defaultMissingText(parseLocale, parseNamespace, parseKey)
 	}
-	entry, ok := b.lookup(locale, namespace, key, fallbackLocale)
-	if !ok {
-		if b.onMissing != nil {
-			return b.onMissing(locale, namespace, key)
+	parseEntry, parseOk := parseB.lookup(parseLocale, parseNamespace, parseKey, parseFallbackLocale)
+	if !parseOk {
+		if parseB.onMissing != nil {
+			return parseB.onMissing(parseLocale, parseNamespace, parseKey)
 		}
-		return defaultMissingText(locale, namespace, key)
+		return defaultMissingText(parseLocale, parseNamespace, parseKey)
 	}
-	template := resolveTemplate(locale, entry, args)
-	return interpolateTemplate(template, args)
+	parseTemplate := resolveTemplate(parseLocale, parseEntry, parseArgs)
+	return interpolateTemplate(parseTemplate, parseArgs)
 }
 
 // NormalizeLocale parses and canonicalizes a BCP 47 locale tag.
-func NormalizeLocale(raw string) string {
-	trimmed := strings.TrimSpace(strings.ReplaceAll(raw, "_", "-"))
-	if trimmed == "" {
+func NormalizeLocale(parseRaw string) string {
+	parseTrimmed := strings.TrimSpace(strings.ReplaceAll(parseRaw, "_", "-"))
+	if parseTrimmed == "" {
 		return ""
 	}
-	parsed, err := language.Parse(trimmed)
-	if err != nil {
-		return trimmed
+	parseParsed, parseErr := language.Parse(parseTrimmed)
+	if parseErr != nil {
+		return parseTrimmed
 	}
-	return parsed.String()
+	return parseParsed.String()
 }
 
 // DirectionForLocale returns DirectionRTL for right-to-left locales, otherwise DirectionLTR.
-func DirectionForLocale(locale string) Direction {
-	primary := strings.ToLower(primaryLanguage(NormalizeLocale(locale)))
-	switch primary {
+func DirectionForLocale(parseLocale string) Direction {
+	parsePrimary := strings.ToLower(primaryLanguage(NormalizeLocale(parseLocale)))
+	switch parsePrimary {
 	case "ar", "fa", "he", "ur", "ps", "sd", "ku":
 		return DirectionRTL
 	default:
@@ -392,365 +392,365 @@ func DirectionForLocale(locale string) Direction {
 }
 
 // FormatNumber formats value as a locale-aware number string.
-func FormatNumber(locale string, value float64, options ...NumberOptions) string {
-	resolved := NumberOptions{MaximumFractionDigits: -1}
-	if len(options) > 0 {
-		resolved = options[0]
+func FormatNumber(parseLocale string, parseValue float64, parseOptions ...NumberOptions) string {
+	parseResolved := NumberOptions{MaximumFractionDigits: -1}
+	if len(parseOptions) > 0 {
+		parseResolved = parseOptions[0]
 	}
-	if resolved.MaximumFractionDigits < 0 {
-		if value == float64(int64(value)) {
-			resolved.MaximumFractionDigits = 0
+	if parseResolved.MaximumFractionDigits < 0 {
+		if parseValue == float64(int64(parseValue)) {
+			parseResolved.MaximumFractionDigits = 0
 		} else {
-			resolved.MaximumFractionDigits = 2
+			parseResolved.MaximumFractionDigits = 2
 		}
 	}
-	printer := message.NewPrinter(language.Make(fallbackString(NormalizeLocale(locale), "en")))
-	format := "%0." + strconv.Itoa(resolved.MaximumFractionDigits) + "f"
-	return printer.Sprintf(format, value)
+	parsePrinter := message.NewPrinter(language.Make(fallbackString(NormalizeLocale(parseLocale), "en")))
+	format := "%0." + strconv.Itoa(parseResolved.MaximumFractionDigits) + "f"
+	return parsePrinter.Sprintf(format, parseValue)
 }
 
 // FormatDate formats value as a locale-aware date string.
-func FormatDate(locale string, value time.Time, options ...DateOptions) string {
-	resolved := DateOptions{Style: DateStyleMedium}
-	if len(options) > 0 {
-		resolved = options[0]
+func FormatDate(parseLocale string, parseValue time.Time, parseOptions ...DateOptions) string {
+	parseResolved := DateOptions{Style: DateStyleMedium}
+	if len(parseOptions) > 0 {
+		parseResolved = parseOptions[0]
 	}
-	if resolved.Location != nil {
-		value = value.In(resolved.Location)
+	if parseResolved.Location != nil {
+		parseValue = parseValue.In(parseResolved.Location)
 	}
-	switch localeFamily(locale) {
+	switch localeFamily(parseLocale) {
 	case "fr":
-		switch resolved.Style {
+		switch parseResolved.Style {
 		case DateStyleShort:
-			return value.Format("02/01/2006")
+			return parseValue.Format("02/01/2006")
 		case DateStyleLong:
-			return value.Format("2 January 2006")
+			return parseValue.Format("2 January 2006")
 		default:
-			return value.Format("2 Jan 2006")
+			return parseValue.Format("2 Jan 2006")
 		}
 	case "de":
-		switch resolved.Style {
+		switch parseResolved.Style {
 		case DateStyleShort:
-			return value.Format("02.01.2006")
+			return parseValue.Format("02.01.2006")
 		case DateStyleLong:
-			return value.Format("2. January 2006")
+			return parseValue.Format("2. January 2006")
 		default:
-			return value.Format("2. Jan 2006")
+			return parseValue.Format("2. Jan 2006")
 		}
 	case "ar":
-		switch resolved.Style {
+		switch parseResolved.Style {
 		case DateStyleLong:
-			return value.Format("02 Jan 2006")
+			return parseValue.Format("02 Jan 2006")
 		default:
-			return value.Format("02/01/2006")
+			return parseValue.Format("02/01/2006")
 		}
 	default:
-		switch resolved.Style {
+		switch parseResolved.Style {
 		case DateStyleShort:
-			return value.Format("01/02/2006")
+			return parseValue.Format("01/02/2006")
 		case DateStyleLong:
-			return value.Format("January 2, 2006")
+			return parseValue.Format("January 2, 2006")
 		default:
-			return value.Format("Jan 2, 2006")
+			return parseValue.Format("Jan 2, 2006")
 		}
 	}
 }
 
 // ResolvePath extracts the locale prefix from path and returns routing metadata.
-func ResolvePath(path string, options RouteOptions) ResolvedPath {
-	normalizedPath, suffix := splitPathAndQuery(path)
-	resolved := normalizeRouteOptions(options)
-	trimmed := strings.Trim(strings.TrimPrefix(normalizedPath, "/"), " ")
-	segments := []string{}
-	if trimmed != "" {
-		segments = strings.Split(trimmed, "/")
+func ResolvePath(parsePath string, parseOptions RouteOptions) ResolvedPath {
+	parseNormalizedPath, parseSuffix := splitPathAndQuery(parsePath)
+	parseResolved := normalizeRouteOptions(parseOptions)
+	parseTrimmed := strings.Trim(strings.TrimPrefix(parseNormalizedPath, "/"), " ")
+	parseSegments := []string{}
+	if parseTrimmed != "" {
+		parseSegments = strings.Split(parseTrimmed, "/")
 	}
-	locale := resolved.DefaultLocale
-	prefixPresent := false
-	basePath := normalizedPath
-	if len(segments) > 0 {
-		candidate := NormalizeLocale(segments[0])
-		if localeAllowed(candidate, resolved.SupportedLocales) {
-			locale = candidate
-			prefixPresent = true
-			remaining := strings.Join(segments[1:], "/")
-			if remaining == "" {
-				basePath = "/"
+	parseLocale := parseResolved.DefaultLocale
+	isParsePrefixPresent := false
+	parseBasePath := parseNormalizedPath
+	if len(parseSegments) > 0 {
+		parseCandidate := NormalizeLocale(parseSegments[0])
+		if localeAllowed(parseCandidate, parseResolved.SupportedLocales) {
+			parseLocale = parseCandidate
+			isParsePrefixPresent = true
+			parseRemaining := strings.Join(parseSegments[1:], "/")
+			if parseRemaining == "" {
+				parseBasePath = "/"
 			} else {
-				basePath = "/" + remaining
+				parseBasePath = "/" + parseRemaining
 			}
 		}
 	}
-	if locale == "" {
-		locale = resolved.DefaultLocale
+	if parseLocale == "" {
+		parseLocale = parseResolved.DefaultLocale
 	}
-	localizedPath := PrefixPath(locale, basePath+suffix, resolved)
+	parseLocalizedPath := PrefixPath(parseLocale, parseBasePath+parseSuffix, parseResolved)
 	return ResolvedPath{
-		Locale:        locale,
-		BasePath:      basePath,
-		LocalizedPath: localizedPath,
-		PrefixPresent: prefixPresent,
+		Locale:        parseLocale,
+		BasePath:      parseBasePath,
+		LocalizedPath: parseLocalizedPath,
+		PrefixPresent: isParsePrefixPresent,
 	}
 }
 
 // PrefixPath prepends the locale prefix to path according to the route options.
-func PrefixPath(locale string, path string, options RouteOptions) string {
-	resolved := normalizeRouteOptions(options)
-	localized := normalizeLeadingPath(path)
-	if localized == "" {
-		localized = "/"
+func PrefixPath(parseLocale string, parsePath string, parseOptions RouteOptions) string {
+	parseResolved := normalizeRouteOptions(parseOptions)
+	parseLocalized := normalizeLeadingPath(parsePath)
+	if parseLocalized == "" {
+		parseLocalized = "/"
 	}
-	resolvedLocale := chooseSupportedLocale(locale, resolved.SupportedLocales, resolved.DefaultLocale)
-	if resolved.OmitDefaultPrefix && resolvedLocale == resolved.DefaultLocale {
-		return localized
+	parseResolvedLocale := chooseSupportedLocale(parseLocale, parseResolved.SupportedLocales, parseResolved.DefaultLocale)
+	if parseResolved.OmitDefaultPrefix && parseResolvedLocale == parseResolved.DefaultLocale {
+		return parseLocalized
 	}
-	if localized == "/" {
-		return "/" + resolvedLocale
+	if parseLocalized == "/" {
+		return "/" + parseResolvedLocale
 	}
-	return "/" + resolvedLocale + localized
+	return "/" + parseResolvedLocale + parseLocalized
 }
 
-func (b *Bundle) ToSSRBootstrap(options SSRBootstrapOptions) ui.SSRI18nBootstrap {
-	if b == nil {
+func (parseB *Bundle) ToSSRBootstrap(parseOptions SSRBootstrapOptions) ui.SSRI18nBootstrap {
+	if parseB == nil {
 		return ui.SSRI18nBootstrap{}
 	}
-	locale := chooseSupportedLocale(options.Locale, b.Locales(), fallbackString(options.FallbackLocale, b.fallbackLocale))
-	includeLocales := options.IncludeLocales
-	if len(includeLocales) == 0 {
-		includeLocales = []string{locale, fallbackString(options.FallbackLocale, b.fallbackLocale)}
+	parseLocale := chooseSupportedLocale(parseOptions.Locale, parseB.Locales(), fallbackString(parseOptions.FallbackLocale, parseB.fallbackLocale))
+	parseIncludeLocales := parseOptions.IncludeLocales
+	if len(parseIncludeLocales) == 0 {
+		parseIncludeLocales = []string{parseLocale, fallbackString(parseOptions.FallbackLocale, parseB.fallbackLocale)}
 	}
-	includeNamespaces := make(map[string]struct{}, len(options.IncludeNamespaces))
-	for _, namespace := range options.IncludeNamespaces {
-		includeNamespaces[namespace] = struct{}{}
+	parseIncludeNamespaces := make(map[string]struct{}, len(parseOptions.IncludeNamespaces))
+	for _, parseNamespace := range parseOptions.IncludeNamespaces {
+		parseIncludeNamespaces[parseNamespace] = struct{}{}
 	}
-	messages := map[string]map[string]ui.SSRI18nMessage{}
-	for _, candidate := range normalizeLocales(includeLocales) {
-		catalog, ok := b.catalogs[candidate]
-		if !ok {
+	parseMessages := map[string]map[string]ui.SSRI18nMessage{}
+	for _, parseCandidate := range normalizeLocales(parseIncludeLocales) {
+		parseCatalog, parseOk := parseB.catalogs[parseCandidate]
+		if !parseOk {
 			continue
 		}
-		if _, exists := messages[candidate]; !exists {
-			messages[candidate] = map[string]ui.SSRI18nMessage{}
+		if _, parseExists := parseMessages[parseCandidate]; !parseExists {
+			parseMessages[parseCandidate] = map[string]ui.SSRI18nMessage{}
 		}
-		for namespace, entries := range catalog {
-			if len(includeNamespaces) > 0 {
-				if _, ok := includeNamespaces[namespace]; !ok {
+		for parseNamespace2, parseEntries := range parseCatalog {
+			if len(parseIncludeNamespaces) > 0 {
+				if _, parseOk2 := parseIncludeNamespaces[parseNamespace2]; !parseOk2 {
 					continue
 				}
 			}
-			for key, entry := range entries {
-				messages[candidate][namespace+"."+key] = ui.SSRI18nMessage{
-					Text:      entry.Text,
-					PluralArg: entry.PluralArg,
-					SelectArg: entry.SelectArg,
-					Default:   entry.Default,
-					Plural:    pluralToRaw(entry.Plural),
-					Select:    cloneSelect(entry.Select),
+			for parseKey, parseEntry := range parseEntries {
+				parseMessages[parseCandidate][parseNamespace2+"."+parseKey] = ui.SSRI18nMessage{
+					Text:      parseEntry.Text,
+					PluralArg: parseEntry.PluralArg,
+					SelectArg: parseEntry.SelectArg,
+					Default:   parseEntry.Default,
+					Plural:    pluralToRaw(parseEntry.Plural),
+					Select:    cloneSelect(parseEntry.Select),
 				}
 			}
 		}
 	}
-	direction := options.Direction
-	if direction == "" {
-		direction = DirectionForLocale(locale)
+	parseDirection := parseOptions.Direction
+	if parseDirection == "" {
+		parseDirection = DirectionForLocale(parseLocale)
 	}
 	return ui.SSRI18nBootstrap{
-		Locale:         locale,
-		FallbackLocale: fallbackString(options.FallbackLocale, b.fallbackLocale),
-		Direction:      string(direction),
-		Messages:       messages,
+		Locale:         parseLocale,
+		FallbackLocale: fallbackString(parseOptions.FallbackLocale, parseB.fallbackLocale),
+		Direction:      string(parseDirection),
+		Messages:       parseMessages,
 	}
 }
 
 // BundleFromSSRBootstrap reconstructs a Bundle from an SSR bootstrap payload.
-func BundleFromSSRBootstrap(payload ui.SSRI18nBootstrap) *Bundle {
-	bundle := NewBundle(BundleOptions{DefaultLocale: payload.Locale, FallbackLocale: payload.FallbackLocale})
-	for locale, entries := range payload.Messages {
-		catalog := Catalog{}
-		for combinedKey, entry := range entries {
-			namespace, messageKey := splitCombinedMessageKey(combinedKey)
-			if _, ok := catalog[namespace]; !ok {
-				catalog[namespace] = NamespaceCatalog{}
+func BundleFromSSRBootstrap(parsePayload ui.SSRI18nBootstrap) *Bundle {
+	parseBundle := NewBundle(BundleOptions{DefaultLocale: parsePayload.Locale, FallbackLocale: parsePayload.FallbackLocale})
+	for parseLocale, parseEntries := range parsePayload.Messages {
+		parseCatalog := Catalog{}
+		for parseCombinedKey, parseEntry := range parseEntries {
+			parseNamespace, parseMessageKey := splitCombinedMessageKey(parseCombinedKey)
+			if _, parseOk := parseCatalog[parseNamespace]; !parseOk {
+				parseCatalog[parseNamespace] = NamespaceCatalog{}
 			}
-			catalog[namespace][messageKey] = Message{
-				Text:      entry.Text,
-				PluralArg: entry.PluralArg,
-				SelectArg: entry.SelectArg,
-				Default:   entry.Default,
-				Plural:    rawToPlural(entry.Plural),
-				Select:    cloneSelect(entry.Select),
+			parseCatalog[parseNamespace][parseMessageKey] = Message{
+				Text:      parseEntry.Text,
+				PluralArg: parseEntry.PluralArg,
+				SelectArg: parseEntry.SelectArg,
+				Default:   parseEntry.Default,
+				Plural:    rawToPlural(parseEntry.Plural),
+				Select:    cloneSelect(parseEntry.Select),
 			}
 		}
-		bundle.Register(locale, catalog)
+		parseBundle.Register(parseLocale, parseCatalog)
 	}
-	return bundle
+	return parseBundle
 }
 
-func (b *Bundle) lookup(locale string, namespace string, key string, fallbackLocale string) (Message, bool) {
-	for _, candidate := range localeCandidates(locale, fallbackString(fallbackLocale, b.fallbackLocale), b.defaultLocale) {
-		catalog, ok := b.catalogs[candidate]
-		if !ok {
+func (parseB *Bundle) lookup(parseLocale string, parseNamespace string, parseKey string, parseFallbackLocale string) (Message, bool) {
+	for _, parseCandidate := range localeCandidates(parseLocale, fallbackString(parseFallbackLocale, parseB.fallbackLocale), parseB.defaultLocale) {
+		parseCatalog, parseOk := parseB.catalogs[parseCandidate]
+		if !parseOk {
 			continue
 		}
-		entries, ok := catalog[namespace]
-		if !ok {
+		parseEntries, parseOk := parseCatalog[parseNamespace]
+		if !parseOk {
 			continue
 		}
-		entry, ok := entries[key]
-		if ok {
-			return cloneMessage(entry), true
+		parseEntry, parseOk := parseEntries[parseKey]
+		if parseOk {
+			return cloneMessage(parseEntry), true
 		}
 	}
 	return Message{}, false
 }
 
-func resolveTemplate(locale string, entry Message, args Arguments) string {
-	if len(entry.Select) > 0 {
-		selectorKey := fallbackString(entry.SelectArg, "select")
-		selector := strings.TrimSpace(fmt.Sprint(args[selectorKey]))
-		if template, ok := entry.Select[selector]; ok {
-			return template
+func resolveTemplate(parseLocale string, parseEntry Message, parseArgs Arguments) string {
+	if len(parseEntry.Select) > 0 {
+		parseSelectorKey := fallbackString(parseEntry.SelectArg, "select")
+		parseSelector := strings.TrimSpace(fmt.Sprint(parseArgs[parseSelectorKey]))
+		if parseTemplate, parseOk := parseEntry.Select[parseSelector]; parseOk {
+			return parseTemplate
 		}
-		if template, ok := entry.Select["other"]; ok {
-			return template
+		if parseTemplate2, parseOk2 := parseEntry.Select["other"]; parseOk2 {
+			return parseTemplate2
 		}
-		if entry.Default != "" {
-			return entry.Default
-		}
-	}
-	if len(entry.Plural) > 0 {
-		pluralKey := fallbackString(entry.PluralArg, "count")
-		value := numericArgument(args[pluralKey])
-		category := pluralCategoryForLocale(locale, value)
-		if template, ok := entry.Plural[category]; ok {
-			return template
-		}
-		if template, ok := entry.Plural[PluralOther]; ok {
-			return template
-		}
-		if entry.Default != "" {
-			return entry.Default
+		if parseEntry.Default != "" {
+			return parseEntry.Default
 		}
 	}
-	if entry.Text != "" {
-		return entry.Text
+	if len(parseEntry.Plural) > 0 {
+		parsePluralKey := fallbackString(parseEntry.PluralArg, "count")
+		parseValue := numericArgument(parseArgs[parsePluralKey])
+		parseCategory := pluralCategoryForLocale(parseLocale, parseValue)
+		if parseTemplate3, parseOk3 := parseEntry.Plural[parseCategory]; parseOk3 {
+			return parseTemplate3
+		}
+		if parseTemplate4, parseOk4 := parseEntry.Plural[PluralOther]; parseOk4 {
+			return parseTemplate4
+		}
+		if parseEntry.Default != "" {
+			return parseEntry.Default
+		}
 	}
-	return entry.Default
+	if parseEntry.Text != "" {
+		return parseEntry.Text
+	}
+	return parseEntry.Default
 }
 
-func interpolateTemplate(template string, args Arguments) string {
-	resolved := template
-	for key, value := range args {
-		resolved = strings.ReplaceAll(resolved, "{"+key+"}", stringifyArgument(value))
+func interpolateTemplate(parseTemplate string, parseArgs Arguments) string {
+	parseResolved := parseTemplate
+	for parseKey, parseValue := range parseArgs {
+		parseResolved = strings.ReplaceAll(parseResolved, "{"+parseKey+"}", stringifyArgument(parseValue))
 	}
-	return resolved
+	return parseResolved
 }
 
-func stringifyArgument(value interface{}) string {
-	switch typed := value.(type) {
+func stringifyArgument(parseValue interface{}) string {
+	switch parseTyped := parseValue.(type) {
 	case string:
-		return typed
+		return parseTyped
 	case fmt.Stringer:
-		return typed.String()
+		return parseTyped.String()
 	case time.Time:
-		return typed.Format(time.RFC3339)
+		return parseTyped.Format(time.RFC3339)
 	default:
-		return fmt.Sprint(value)
+		return fmt.Sprint(parseValue)
 	}
 }
 
-func numericArgument(value interface{}) float64 {
-	switch typed := value.(type) {
+func numericArgument(parseValue interface{}) float64 {
+	switch parseTyped := parseValue.(type) {
 	case int:
-		return float64(typed)
+		return float64(parseTyped)
 	case int8:
-		return float64(typed)
+		return float64(parseTyped)
 	case int16:
-		return float64(typed)
+		return float64(parseTyped)
 	case int32:
-		return float64(typed)
+		return float64(parseTyped)
 	case int64:
-		return float64(typed)
+		return float64(parseTyped)
 	case uint:
-		return float64(typed)
+		return float64(parseTyped)
 	case uint8:
-		return float64(typed)
+		return float64(parseTyped)
 	case uint16:
-		return float64(typed)
+		return float64(parseTyped)
 	case uint32:
-		return float64(typed)
+		return float64(parseTyped)
 	case uint64:
-		return float64(typed)
+		return float64(parseTyped)
 	case float32:
-		return float64(typed)
+		return float64(parseTyped)
 	case float64:
-		return typed
+		return parseTyped
 	case string:
-		parsed, err := strconv.ParseFloat(strings.TrimSpace(typed), 64)
-		if err == nil {
-			return parsed
+		parseParsed, parseErr := strconv.ParseFloat(strings.TrimSpace(parseTyped), 64)
+		if parseErr == nil {
+			return parseParsed
 		}
 	}
 	return 0
 }
 
-func pluralCategoryForLocale(locale string, value float64) PluralCategory {
-	primary := localeFamily(locale)
-	abs := value
-	if abs < 0 {
-		abs = -abs
+func pluralCategoryForLocale(parseLocale string, parseValue float64) PluralCategory {
+	parsePrimary := localeFamily(parseLocale)
+	parseAbs := parseValue
+	if parseAbs < 0 {
+		parseAbs = -parseAbs
 	}
-	integer := int(abs)
-	mod10 := integer % 10
-	mod100 := integer % 100
-	switch primary {
+	parseInteger := int(parseAbs)
+	parseMod10 := parseInteger % 10
+	parseMod100 := parseInteger % 100
+	switch parsePrimary {
 	case "ar":
 		switch {
-		case integer == 0:
+		case parseInteger == 0:
 			return PluralZero
-		case integer == 1:
+		case parseInteger == 1:
 			return PluralOne
-		case integer == 2:
+		case parseInteger == 2:
 			return PluralTwo
-		case mod100 >= 3 && mod100 <= 10:
+		case parseMod100 >= 3 && parseMod100 <= 10:
 			return PluralFew
-		case mod100 >= 11 && mod100 <= 99:
+		case parseMod100 >= 11 && parseMod100 <= 99:
 			return PluralMany
 		default:
 			return PluralOther
 		}
 	case "fr", "pt":
-		if integer == 0 || integer == 1 {
+		if parseInteger == 0 || parseInteger == 1 {
 			return PluralOne
 		}
 		return PluralOther
 	case "ru", "uk":
 		switch {
-		case mod10 == 1 && mod100 != 11:
+		case parseMod10 == 1 && parseMod100 != 11:
 			return PluralOne
-		case mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14):
+		case parseMod10 >= 2 && parseMod10 <= 4 && (parseMod100 < 12 || parseMod100 > 14):
 			return PluralFew
-		case mod10 == 0 || (mod10 >= 5 && mod10 <= 9) || (mod100 >= 11 && mod100 <= 14):
+		case parseMod10 == 0 || (parseMod10 >= 5 && parseMod10 <= 9) || (parseMod100 >= 11 && parseMod100 <= 14):
 			return PluralMany
 		default:
 			return PluralOther
 		}
 	case "pl":
 		switch {
-		case integer == 1:
+		case parseInteger == 1:
 			return PluralOne
-		case mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14):
+		case parseMod10 >= 2 && parseMod10 <= 4 && (parseMod100 < 12 || parseMod100 > 14):
 			return PluralFew
-		case integer != 1 && (mod10 == 0 || mod10 == 1 || mod10 >= 5 || (mod100 >= 12 && mod100 <= 14)):
+		case parseInteger != 1 && (parseMod10 == 0 || parseMod10 == 1 || parseMod10 >= 5 || (parseMod100 >= 12 && parseMod100 <= 14)):
 			return PluralMany
 		default:
 			return PluralOther
 		}
 	case "cs", "sk":
 		switch {
-		case integer == 1:
+		case parseInteger == 1:
 			return PluralOne
-		case integer >= 2 && integer <= 4:
+		case parseInteger >= 2 && parseInteger <= 4:
 			return PluralFew
 		default:
 			return PluralOther
@@ -758,206 +758,206 @@ func pluralCategoryForLocale(locale string, value float64) PluralCategory {
 	case "ja", "ko", "zh", "th", "vi", "tr":
 		return PluralOther
 	default:
-		if integer == 1 {
+		if parseInteger == 1 {
 			return PluralOne
 		}
 		return PluralOther
 	}
 }
 
-func localeCandidates(locale string, fallbackLocale string, defaultLocale string) []string {
-	candidates := []string{}
-	for _, raw := range []string{locale, primaryLanguage(locale), fallbackLocale, primaryLanguage(fallbackLocale), defaultLocale, primaryLanguage(defaultLocale)} {
-		normalized := NormalizeLocale(raw)
-		if normalized == "" {
+func localeCandidates(parseLocale string, parseFallbackLocale string, parseDefaultLocale string) []string {
+	parseCandidates := []string{}
+	for _, parseRaw := range []string{parseLocale, primaryLanguage(parseLocale), parseFallbackLocale, primaryLanguage(parseFallbackLocale), parseDefaultLocale, primaryLanguage(parseDefaultLocale)} {
+		parseNormalized := NormalizeLocale(parseRaw)
+		if parseNormalized == "" {
 			continue
 		}
-		already := false
-		for _, existing := range candidates {
-			if existing == normalized {
-				already = true
+		isParseAlready := false
+		for _, parseExisting := range parseCandidates {
+			if parseExisting == parseNormalized {
+				isParseAlready = true
 				break
 			}
 		}
-		if !already {
-			candidates = append(candidates, normalized)
+		if !isParseAlready {
+			parseCandidates = append(parseCandidates, parseNormalized)
 		}
 	}
-	return candidates
+	return parseCandidates
 }
 
-func localeFamily(locale string) string {
-	return strings.ToLower(primaryLanguage(locale))
+func localeFamily(parseLocale string) string {
+	return strings.ToLower(primaryLanguage(parseLocale))
 }
 
-func primaryLanguage(locale string) string {
-	normalized := NormalizeLocale(locale)
-	if normalized == "" {
+func primaryLanguage(parseLocale string) string {
+	parseNormalized := NormalizeLocale(parseLocale)
+	if parseNormalized == "" {
 		return ""
 	}
-	parts := strings.Split(normalized, "-")
-	return parts[0]
+	parseParts := strings.Split(parseNormalized, "-")
+	return parseParts[0]
 }
 
-func normalizeLocales(locales []string) []string {
-	result := make([]string, 0, len(locales))
-	seen := map[string]struct{}{}
-	for _, locale := range locales {
-		normalized := NormalizeLocale(locale)
-		if normalized == "" {
+func normalizeLocales(parseLocales []string) []string {
+	parseResult := make([]string, 0, len(parseLocales))
+	parseSeen := map[string]struct{}{}
+	for _, parseLocale := range parseLocales {
+		parseNormalized := NormalizeLocale(parseLocale)
+		if parseNormalized == "" {
 			continue
 		}
-		if _, ok := seen[normalized]; ok {
+		if _, parseOk := parseSeen[parseNormalized]; parseOk {
 			continue
 		}
-		seen[normalized] = struct{}{}
-		result = append(result, normalized)
+		parseSeen[parseNormalized] = struct{}{}
+		parseResult = append(parseResult, parseNormalized)
 	}
-	return result
+	return parseResult
 }
 
-func localeAllowed(locale string, supported []string) bool {
-	if locale == "" {
+func localeAllowed(parseLocale string, parseSupported []string) bool {
+	if parseLocale == "" {
 		return false
 	}
-	if len(supported) == 0 {
+	if len(parseSupported) == 0 {
 		return true
 	}
-	primary := primaryLanguage(locale)
-	for _, candidate := range normalizeLocales(supported) {
-		if candidate == locale || primaryLanguage(candidate) == primary {
+	parsePrimary := primaryLanguage(parseLocale)
+	for _, parseCandidate := range normalizeLocales(parseSupported) {
+		if parseCandidate == parseLocale || primaryLanguage(parseCandidate) == parsePrimary {
 			return true
 		}
 	}
 	return false
 }
 
-func chooseSupportedLocale(locale string, supported []string, fallbackLocale string) string {
-	normalized := NormalizeLocale(locale)
-	if localeAllowed(normalized, supported) {
-		return normalized
+func chooseSupportedLocale(parseLocale string, parseSupported []string, parseFallbackLocale string) string {
+	parseNormalized := NormalizeLocale(parseLocale)
+	if localeAllowed(parseNormalized, parseSupported) {
+		return parseNormalized
 	}
-	primary := primaryLanguage(normalized)
-	for _, candidate := range normalizeLocales(supported) {
-		if primaryLanguage(candidate) == primary {
-			return candidate
+	parsePrimary := primaryLanguage(parseNormalized)
+	for _, parseCandidate := range normalizeLocales(parseSupported) {
+		if primaryLanguage(parseCandidate) == parsePrimary {
+			return parseCandidate
 		}
 	}
-	return fallbackString(fallbackLocale, normalized)
+	return fallbackString(parseFallbackLocale, parseNormalized)
 }
 
-func normalizeRouteOptions(options RouteOptions) RouteOptions {
-	options.DefaultLocale = NormalizeLocale(options.DefaultLocale)
-	options.SupportedLocales = normalizeLocales(options.SupportedLocales)
-	if options.DefaultLocale == "" && len(options.SupportedLocales) > 0 {
-		options.DefaultLocale = options.SupportedLocales[0]
+func normalizeRouteOptions(parseOptions RouteOptions) RouteOptions {
+	parseOptions.DefaultLocale = NormalizeLocale(parseOptions.DefaultLocale)
+	parseOptions.SupportedLocales = normalizeLocales(parseOptions.SupportedLocales)
+	if parseOptions.DefaultLocale == "" && len(parseOptions.SupportedLocales) > 0 {
+		parseOptions.DefaultLocale = parseOptions.SupportedLocales[0]
 	}
-	return options
+	return parseOptions
 }
 
-func splitPathAndQuery(path string) (string, string) {
-	trimmed := strings.TrimSpace(path)
-	if trimmed == "" {
+func splitPathAndQuery(parsePath string) (string, string) {
+	parseTrimmed := strings.TrimSpace(parsePath)
+	if parseTrimmed == "" {
 		return "/", ""
 	}
-	parts := strings.SplitN(trimmed, "?", 2)
-	base := normalizeLeadingPath(parts[0])
-	if len(parts) == 2 {
-		return base, "?" + parts[1]
+	parseParts := strings.SplitN(parseTrimmed, "?", 2)
+	parseBase := normalizeLeadingPath(parseParts[0])
+	if len(parseParts) == 2 {
+		return parseBase, "?" + parseParts[1]
 	}
-	return base, ""
+	return parseBase, ""
 }
 
-func normalizeLeadingPath(path string) string {
-	trimmed := strings.TrimSpace(path)
-	if trimmed == "" {
+func normalizeLeadingPath(parsePath string) string {
+	parseTrimmed := strings.TrimSpace(parsePath)
+	if parseTrimmed == "" {
 		return "/"
 	}
-	if !strings.HasPrefix(trimmed, "/") {
-		trimmed = "/" + trimmed
+	if !strings.HasPrefix(parseTrimmed, "/") {
+		parseTrimmed = "/" + parseTrimmed
 	}
-	if len(trimmed) > 1 {
-		trimmed = strings.TrimRight(trimmed, "/")
+	if len(parseTrimmed) > 1 {
+		parseTrimmed = strings.TrimRight(parseTrimmed, "/")
 	}
-	if trimmed == "" {
+	if parseTrimmed == "" {
 		return "/"
 	}
-	return trimmed
+	return parseTrimmed
 }
 
-func fallbackString(value string, fallback string) string {
-	if strings.TrimSpace(value) != "" {
-		return NormalizeLocale(value)
+func fallbackString(parseValue string, parseFallback string) string {
+	if strings.TrimSpace(parseValue) != "" {
+		return NormalizeLocale(parseValue)
 	}
-	return NormalizeLocale(fallback)
+	return NormalizeLocale(parseFallback)
 }
 
-func defaultMissingText(locale string, namespace string, key string) string {
-	if namespace == "" {
-		return key
+func defaultMissingText(parseLocale string, parseNamespace string, parseKey string) string {
+	if parseNamespace == "" {
+		return parseKey
 	}
-	return namespace + "." + key
+	return parseNamespace + "." + parseKey
 }
 
-func cloneMessage(message Message) Message {
+func cloneMessage(parseMessage Message) Message {
 	return Message{
-		Text:      message.Text,
-		PluralArg: message.PluralArg,
-		Plural:    clonePlural(message.Plural),
-		SelectArg: message.SelectArg,
-		Select:    cloneSelect(message.Select),
-		Default:   message.Default,
+		Text:      parseMessage.Text,
+		PluralArg: parseMessage.PluralArg,
+		Plural:    clonePlural(parseMessage.Plural),
+		SelectArg: parseMessage.SelectArg,
+		Select:    cloneSelect(parseMessage.Select),
+		Default:   parseMessage.Default,
 	}
 }
 
-func clonePlural(source map[PluralCategory]string) map[PluralCategory]string {
-	if len(source) == 0 {
+func clonePlural(parseSource map[PluralCategory]string) map[PluralCategory]string {
+	if len(parseSource) == 0 {
 		return nil
 	}
-	clone := make(map[PluralCategory]string, len(source))
-	for key, value := range source {
-		clone[key] = value
+	parseClone := make(map[PluralCategory]string, len(parseSource))
+	for parseKey, parseValue := range parseSource {
+		parseClone[parseKey] = parseValue
 	}
-	return clone
+	return parseClone
 }
 
-func pluralToRaw(source map[PluralCategory]string) map[string]string {
-	if len(source) == 0 {
+func pluralToRaw(parseSource map[PluralCategory]string) map[string]string {
+	if len(parseSource) == 0 {
 		return nil
 	}
-	clone := make(map[string]string, len(source))
-	for key, value := range source {
-		clone[string(key)] = value
+	parseClone := make(map[string]string, len(parseSource))
+	for parseKey, parseValue := range parseSource {
+		parseClone[string(parseKey)] = parseValue
 	}
-	return clone
+	return parseClone
 }
 
-func rawToPlural(source map[string]string) map[PluralCategory]string {
-	if len(source) == 0 {
+func rawToPlural(parseSource map[string]string) map[PluralCategory]string {
+	if len(parseSource) == 0 {
 		return nil
 	}
-	clone := make(map[PluralCategory]string, len(source))
-	for key, value := range source {
-		clone[PluralCategory(key)] = value
+	parseClone := make(map[PluralCategory]string, len(parseSource))
+	for parseKey, parseValue := range parseSource {
+		parseClone[PluralCategory(parseKey)] = parseValue
 	}
-	return clone
+	return parseClone
 }
 
-func cloneSelect(source map[string]string) map[string]string {
-	if len(source) == 0 {
+func cloneSelect(parseSource map[string]string) map[string]string {
+	if len(parseSource) == 0 {
 		return nil
 	}
-	clone := make(map[string]string, len(source))
-	for key, value := range source {
-		clone[key] = value
+	parseClone := make(map[string]string, len(parseSource))
+	for parseKey, parseValue := range parseSource {
+		parseClone[parseKey] = parseValue
 	}
-	return clone
+	return parseClone
 }
 
-func splitCombinedMessageKey(value string) (string, string) {
-	parts := strings.SplitN(value, ".", 2)
-	if len(parts) == 1 {
-		return "default", parts[0]
+func splitCombinedMessageKey(parseValue string) (string, string) {
+	parseParts := strings.SplitN(parseValue, ".", 2)
+	if len(parseParts) == 1 {
+		return "default", parseParts[0]
 	}
-	return parts[0], parts[1]
+	return parseParts[0], parseParts[1]
 }

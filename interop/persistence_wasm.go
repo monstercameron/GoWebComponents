@@ -30,418 +30,419 @@ type persistentStoreFailure struct {
 }
 
 // OpenPersistentStore opens an IndexedDB-backed PersistentStore with the given options.
-func OpenPersistentStore(ctx context.Context, options PersistentStoreOptions) (PersistentStore, error) {
-	if err != nil {
-		return PersistentStore{}, err
+func OpenPersistentStore(parseCtx context.Context, parseOptions PersistentStoreOptions) (PersistentStore, error) {
+	parseConfig, parseErr := resolvePersistentStoreConfig(parseOptions)
+	if parseErr != nil {
+		return PersistentStore{}, parseErr
 	}
-	store, err := openIndexedDBPersistentStore(ctx, config)
-	if err == nil {
+	store, parseErr := openIndexedDBPersistentStore(parseCtx, parseConfig)
+	if parseErr == nil {
 		return store, nil
 	}
-	if !IsCode(err, CodeUnavailable) || config.fallbackResolver == nil {
-		return PersistentStore{}, err
+	if !IsCode(parseErr, CodeUnavailable) || parseConfig.fallbackResolver == nil {
+		return PersistentStore{}, parseErr
 	}
-	storage, fallbackErr := config.fallbackResolver()
-	if fallbackErr != nil {
-		return PersistentStore{}, fallbackErr
+	parseStorage, parseFallbackErr := parseConfig.fallbackResolver()
+	if parseFallbackErr != nil {
+		return PersistentStore{}, parseFallbackErr
 	}
-	return wrapStoragePersistentStore(storage, config.fallbackBackend), nil
+	return wrapStoragePersistentStore(parseStorage, parseConfig.fallbackBackend), nil
 }
 
-func resolvePersistentStoreConfig(options PersistentStoreOptions) (persistentStoreConfig, error) {
-	name := strings.TrimSpace(options.Name)
-	if name == "" {
-		return persistentStoreConfig{}, wrapError("OpenPersistentStore", options.Name, CodeInvalid, errors.New("store name is empty"))
+func resolvePersistentStoreConfig(parseOptions PersistentStoreOptions) (persistentStoreConfig, error) {
+	parseName := strings.TrimSpace(parseOptions.Name)
+	if parseName == "" {
+		return persistentStoreConfig{}, wrapError("OpenPersistentStore", parseOptions.Name, CodeInvalid, errors.New("store name is empty"))
 	}
-	databaseName := strings.TrimSpace(options.DatabaseName)
-	if databaseName == "" {
-		databaseName = defaultPersistentDatabaseName
+	parseDatabaseName := strings.TrimSpace(parseOptions.DatabaseName)
+	if parseDatabaseName == "" {
+		parseDatabaseName = defaultPersistentDatabaseName
 	}
-	version := options.Version
-	if version <= 0 {
-		version = 1
+	parseVersion := parseOptions.Version
+	if parseVersion <= 0 {
+		parseVersion = 1
 	}
-	fallbackBackend := strings.TrimSpace(options.FallbackBackend)
-	if fallbackBackend == "" && options.FallbackResolver != nil {
-		fallbackBackend = "storage"
+	parseFallbackBackend := strings.TrimSpace(parseOptions.FallbackBackend)
+	if parseFallbackBackend == "" && parseOptions.FallbackResolver != nil {
+		parseFallbackBackend = "storage"
 	}
 	return persistentStoreConfig{
-		name:               name,
-		databaseName:       databaseName,
-		version:            version,
-		deleteOnCorruption: options.DeleteOnCorruption,
-		onBlocked:          options.OnBlocked,
-		fallbackResolver:   options.FallbackResolver,
-		fallbackBackend:    fallbackBackend,
+		name:               parseName,
+		databaseName:       parseDatabaseName,
+		version:            parseVersion,
+		deleteOnCorruption: parseOptions.DeleteOnCorruption,
+		onBlocked:          parseOptions.OnBlocked,
+		fallbackResolver:   parseOptions.FallbackResolver,
+		fallbackBackend:    parseFallbackBackend,
 	}, nil
 }
 
-func openIndexedDBPersistentStore(ctx context.Context, config persistentStoreConfig) (PersistentStore, error) {
-	return openIndexedDBPersistentStoreWithRecovery(ctx, config, config.deleteOnCorruption)
+func openIndexedDBPersistentStore(parseCtx context.Context, parseConfig persistentStoreConfig) (PersistentStore, error) {
+	return openIndexedDBPersistentStoreWithRecovery(parseCtx, parseConfig, parseConfig.deleteOnCorruption)
 }
 
-func openIndexedDBPersistentStoreWithRecovery(ctx context.Context, config persistentStoreConfig, allowRecovery bool) (PersistentStore, error) {
-	rawIndexedDB := js.Global().Get("indexedDB")
-	if rawIndexedDB.IsUndefined() || rawIndexedDB.IsNull() {
-		return PersistentStore{}, unavailable("OpenPersistentStore", config.name)
+func openIndexedDBPersistentStoreWithRecovery(parseCtx context.Context, parseConfig persistentStoreConfig, isAllowRecovery bool) (PersistentStore, error) {
+	parseRawIndexedDB := js.Global().Get("indexedDB")
+	if parseRawIndexedDB.IsUndefined() || parseRawIndexedDB.IsNull() {
+		return PersistentStore{}, unavailable("OpenPersistentStore", parseConfig.name)
 	}
 
-	request := rawIndexedDB.Call("open", config.databaseName, config.version)
-	resultCh := make(chan js.Value, 1)
-	failureCh := make(chan persistentStoreFailure, 1)
-	var upgradeErr error
+	parseRequest := parseRawIndexedDB.Call("open", parseConfig.databaseName, parseConfig.version)
+	parseResultCh := make(chan js.Value, 1)
+	parseFailureCh := make(chan persistentStoreFailure, 1)
+	var parseUpgradeErr error
 
-	var onUpgrade js.Func
-	var onSuccess js.Func
-	var onError js.Func
-	var onBlocked js.Func
-	cleanup := func() {
-		request.Set("onupgradeneeded", js.Undefined())
-		request.Set("onsuccess", js.Undefined())
-		request.Set("onerror", js.Undefined())
-		request.Set("onblocked", js.Undefined())
-		onUpgrade.Release()
-		onSuccess.Release()
-		onError.Release()
-		onBlocked.Release()
+	var parseOnUpgrade js.Func
+	var parseOnSuccess js.Func
+	var parseOnError js.Func
+	var parseOnBlocked js.Func
+	parseCleanup := func() {
+		parseRequest.Set("onupgradeneeded", js.Undefined())
+		parseRequest.Set("onsuccess", js.Undefined())
+		parseRequest.Set("onerror", js.Undefined())
+		parseRequest.Set("onblocked", js.Undefined())
+		parseOnUpgrade.Release()
+		parseOnSuccess.Release()
+		parseOnError.Release()
+		parseOnBlocked.Release()
 	}
 
-	onUpgrade = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		db := request.Get("result")
-		if db.IsUndefined() || db.IsNull() {
-			upgradeErr = wrapError("OpenPersistentStore", config.name, CodeUnavailable, errors.New("indexedDB open request returned no database handle"))
+	parseOnUpgrade = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseDb := parseRequest.Get("result")
+		if parseDb.IsUndefined() || parseDb.IsNull() {
+			parseUpgradeErr = wrapError("OpenPersistentStore", parseConfig.name, CodeUnavailable, errors.New("indexedDB open request returned no database handle"))
 			return nil
 		}
-		stores := db.Get("objectStoreNames")
-		contains := false
-		if !stores.IsUndefined() && !stores.IsNull() {
-			contains = stores.Call("contains", config.name).Bool()
+		parseStores := parseDb.Get("objectStoreNames")
+		isParseContains := false
+		if !parseStores.IsUndefined() && !parseStores.IsNull() {
+			isParseContains = parseStores.Call("contains", parseConfig.name).Bool()
 		}
-		if contains {
+		if isParseContains {
 			return nil
 		}
-		options := js.Global().Get("Object").New()
-		options.Set("keyPath", "key")
-		db.Call("createObjectStore", config.name, options)
+		parseOptions := js.Global().Get("Object").New()
+		parseOptions.Set("keyPath", "key")
+		parseDb.Call("createObjectStore", parseConfig.name, parseOptions)
 		return nil
 	})
-	onSuccess = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if upgradeErr != nil {
-			reportPersistentStoreFailure(failureCh, persistentStoreFailure{code: CodeInvalid, message: upgradeErr.Error()})
+	parseOnSuccess = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		if parseUpgradeErr != nil {
+			reportPersistentStoreFailure(parseFailureCh, persistentStoreFailure{code: CodeInvalid, message: parseUpgradeErr.Error()})
 			return nil
 		}
-		db := request.Get("result")
-		if db.IsUndefined() || db.IsNull() {
-			reportPersistentStoreFailure(failureCh, persistentStoreFailure{code: CodeUnavailable, message: "indexedDB open request returned no database handle"})
+		parseDb2 := parseRequest.Get("result")
+		if parseDb2.IsUndefined() || parseDb2.IsNull() {
+			reportPersistentStoreFailure(parseFailureCh, persistentStoreFailure{code: CodeUnavailable, message: "indexedDB open request returned no database handle"})
 			return nil
 		}
-		stores := db.Get("objectStoreNames")
-		if stores.IsUndefined() || stores.IsNull() || !stores.Call("contains", config.name).Bool() {
-			reportPersistentStoreFailure(failureCh, persistentStoreFailure{code: CodeInvalid, message: "object store is missing; bump the database version before adding a new store"})
+		parseStores2 := parseDb2.Get("objectStoreNames")
+		if parseStores2.IsUndefined() || parseStores2.IsNull() || !parseStores2.Call("contains", parseConfig.name).Bool() {
+			reportPersistentStoreFailure(parseFailureCh, persistentStoreFailure{code: CodeInvalid, message: "object store is missing; bump the database version before adding a new store"})
 			return nil
 		}
-		reportPersistentStoreResult(resultCh, db)
+		reportPersistentStoreResult(parseResultCh, parseDb2)
 		return nil
 	})
-	onError = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		reportPersistentStoreFailure(failureCh, classifyPersistentStoreFailure(request.Get("error"), "indexedDB open request failed"))
+	parseOnError = js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		reportPersistentStoreFailure(parseFailureCh, classifyPersistentStoreFailure(parseRequest.Get("error"), "indexedDB open request failed"))
 		return nil
 	})
-	onBlocked = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if config.onBlocked != nil {
-			config.onBlocked(PersistentStoreBlockedEvent{
-				DatabaseName:     config.databaseName,
-				StoreName:        config.name,
-				RequestedVersion: config.version,
+	parseOnBlocked = js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+		if parseConfig.onBlocked != nil {
+			parseConfig.onBlocked(PersistentStoreBlockedEvent{
+				DatabaseName:     parseConfig.databaseName,
+				StoreName:        parseConfig.name,
+				RequestedVersion: parseConfig.version,
 			})
 		}
-		reportPersistentStoreFailure(failureCh, persistentStoreFailure{code: CodeBlocked, message: "indexedDB upgrade is blocked by another open tab, worker, or window"})
+		reportPersistentStoreFailure(parseFailureCh, persistentStoreFailure{code: CodeBlocked, message: "indexedDB upgrade is blocked by another open tab, worker, or window"})
 		return nil
 	})
 
-	request.Set("onupgradeneeded", onUpgrade)
-	request.Set("onsuccess", onSuccess)
-	request.Set("onerror", onError)
-	request.Set("onblocked", onBlocked)
+	parseRequest.Set("onupgradeneeded", parseOnUpgrade)
+	parseRequest.Set("onsuccess", parseOnSuccess)
+	parseRequest.Set("onerror", parseOnError)
+	parseRequest.Set("onblocked", parseOnBlocked)
 
-	defer cleanup()
+	defer parseCleanup()
 
 	select {
-	case db := <-resultCh:
-		return newIndexedDBPersistentStore(db, config), nil
-	case failure := <-failureCh:
-		if allowRecovery && config.deleteOnCorruption && failure.recoverable {
-			if err := deleteIndexedDBDatabase(ctx, config.databaseName); err == nil {
-				return openIndexedDBPersistentStoreWithRecovery(ctx, config, false)
+	case parseDb3 := <-parseResultCh:
+		return newIndexedDBPersistentStore(parseDb3, parseConfig), nil
+	case parseFailure := <-parseFailureCh:
+		if isAllowRecovery && parseConfig.deleteOnCorruption && parseFailure.recoverable {
+			if parseErr := deleteIndexedDBDatabase(parseCtx, parseConfig.databaseName); parseErr == nil {
+				return openIndexedDBPersistentStoreWithRecovery(parseCtx, parseConfig, false)
 			} else {
-				return PersistentStore{}, wrapError("OpenPersistentStore", config.name, failure.code, errors.New(failure.message+"; automatic database reset failed: "+err.Error()))
+				return PersistentStore{}, wrapError("OpenPersistentStore", parseConfig.name, parseFailure.code, errors.New(parseFailure.message+"; automatic database reset failed: "+parseErr.Error()))
 			}
 		}
-		return PersistentStore{}, wrapError("OpenPersistentStore", config.name, failure.code, errors.New(failure.message))
-	case <-ctx.Done():
-		return PersistentStore{}, persistentContextError("OpenPersistentStore", config.name, ctx.Err())
+		return PersistentStore{}, wrapError("OpenPersistentStore", parseConfig.name, parseFailure.code, errors.New(parseFailure.message))
+	case <-parseCtx.Done():
+		return PersistentStore{}, persistentContextError("OpenPersistentStore", parseConfig.name, parseCtx.Err())
 	}
 }
 
-func newIndexedDBPersistentStore(db js.Value, config persistentStoreConfig) PersistentStore {
-	backend := func() string { return "indexedDB" }
-	target := config.databaseName + "/" + config.name
-	var onVersionChange js.Func
-	onVersionChange = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if closeFn := db.Get("close"); closeFn.Type() == js.TypeFunction {
-			db.Call("close")
+func newIndexedDBPersistentStore(parseDb js.Value, parseConfig persistentStoreConfig) PersistentStore {
+	parseBackend := func() string { return "indexedDB" }
+	parseTarget := parseConfig.databaseName + "/" + parseConfig.name
+	var parseOnVersionChange js.Func
+	parseOnVersionChange = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if parseCloseFn := parseDb.Get("close"); parseCloseFn.Type() == js.TypeFunction {
+			parseDb.Call("close")
 		}
 		return nil
 	})
-	db.Set("onversionchange", onVersionChange)
-	withStore := func(ctx context.Context, mode string, op string, run func(js.Value) (js.Value, error)) (js.Value, error) {
-		if ctx == nil {
-			ctx = context.Background()
+	parseDb.Set("onversionchange", parseOnVersionChange)
+	parseWithStore := func(parseCtx context.Context, parseMode string, parseOp string, parseRun func(js.Value) (js.Value, error)) (js.Value, error) {
+		if parseCtx == nil {
+			parseCtx = context.Background()
 		}
-		transaction := db.Call("transaction", config.name, mode)
-		store := transaction.Call("objectStore", config.name)
-		request, err := run(store)
-		if err != nil {
-			return js.Undefined(), err
+		parseTransaction := parseDb.Call("transaction", parseConfig.name, parseMode)
+		store := parseTransaction.Call("objectStore", parseConfig.name)
+		parseRequest, parseErr := parseRun(store)
+		if parseErr != nil {
+			return js.Undefined(), parseErr
 		}
-		return awaitIDBRequest(ctx, op, target, request)
+		return awaitIDBRequest(parseCtx, parseOp, parseTarget, parseRequest)
 	}
 	return PersistentStore{
-		backend: backend,
-		getItem: func(ctx context.Context, key string) (string, bool, error) {
-			result, err := withStore(ctx, "readonly", "PersistentStore.GetItem", func(store js.Value) (js.Value, error) {
-				return store.Call("get", key), nil
+		backend: parseBackend,
+		getItem: func(parseCtx2 context.Context, parseKey string) (string, bool, error) {
+			parseResult, parseErr2 := parseWithStore(parseCtx2, "readonly", "PersistentStore.GetItem", func(store js.Value) (js.Value, error) {
+				return store.Call("get", parseKey), nil
 			})
-			if err != nil {
-				return "", false, err
+			if parseErr2 != nil {
+				return "", false, parseErr2
 			}
-			if result.IsUndefined() || result.IsNull() {
+			if parseResult.IsUndefined() || parseResult.IsNull() {
 				return "", false, nil
 			}
-			value := result.Get("value")
-			if value.IsUndefined() || value.IsNull() {
+			parseValue := parseResult.Get("value")
+			if parseValue.IsUndefined() || parseValue.IsNull() {
 				return "", false, nil
 			}
-			return value.String(), true, nil
+			return parseValue.String(), true, nil
 		},
-		setItem: func(ctx context.Context, key string, value string) error {
-			entry := js.Global().Get("Object").New()
-			entry.Set("key", key)
-			entry.Set("value", value)
-			_, err := withStore(ctx, "readwrite", "PersistentStore.SetItem", func(store js.Value) (js.Value, error) {
-				return store.Call("put", entry), nil
+		setItem: func(parseCtx3 context.Context, parseKey2 string, parseValue2 string) error {
+			parseEntry := js.Global().Get("Object").New()
+			parseEntry.Set("key", parseKey2)
+			parseEntry.Set("value", parseValue2)
+			_, parseErr3 := parseWithStore(parseCtx3, "readwrite", "PersistentStore.SetItem", func(store js.Value) (js.Value, error) {
+				return store.Call("put", parseEntry), nil
 			})
-			return err
+			return parseErr3
 		},
-		removeItem: func(ctx context.Context, key string) error {
-			_, err := withStore(ctx, "readwrite", "PersistentStore.RemoveItem", func(store js.Value) (js.Value, error) {
-				return store.Call("delete", key), nil
+		removeItem: func(parseCtx4 context.Context, parseKey3 string) error {
+			_, parseErr4 := parseWithStore(parseCtx4, "readwrite", "PersistentStore.RemoveItem", func(store js.Value) (js.Value, error) {
+				return store.Call("delete", parseKey3), nil
 			})
-			return err
+			return parseErr4
 		},
-		clear: func(ctx context.Context) error {
-			_, err := withStore(ctx, "readwrite", "PersistentStore.Clear", func(store js.Value) (js.Value, error) {
+		clear: func(parseCtx5 context.Context) error {
+			_, parseErr5 := parseWithStore(parseCtx5, "readwrite", "PersistentStore.Clear", func(store js.Value) (js.Value, error) {
 				return store.Call("clear"), nil
 			})
-			return err
+			return parseErr5
 		},
-		keys: func(ctx context.Context) ([]string, error) {
-			result, err := withStore(ctx, "readonly", "PersistentStore.Keys", func(store js.Value) (js.Value, error) {
+		keys: func(parseCtx6 context.Context) ([]string, error) {
+			parseResult2, parseErr6 := parseWithStore(parseCtx6, "readonly", "PersistentStore.Keys", func(store js.Value) (js.Value, error) {
 				return store.Call("getAllKeys"), nil
 			})
-			if err != nil {
-				return nil, err
+			if parseErr6 != nil {
+				return nil, parseErr6
 			}
-			length := result.Length()
-			keys := make([]string, 0, length)
-			for i := 0; i < length; i++ {
-				keys = append(keys, result.Index(i).String())
+			parseLength := parseResult2.Length()
+			parseKeys := make([]string, 0, parseLength)
+			for parseI := 0; parseI < parseLength; parseI++ {
+				parseKeys = append(parseKeys, parseResult2.Index(parseI).String())
 			}
-			sort.Strings(keys)
-			return keys, nil
+			sort.Strings(parseKeys)
+			return parseKeys, nil
 		},
-		length: func(ctx context.Context) (int, error) {
-			result, err := withStore(ctx, "readonly", "PersistentStore.Len", func(store js.Value) (js.Value, error) {
+		length: func(parseCtx7 context.Context) (int, error) {
+			parseResult3, parseErr7 := parseWithStore(parseCtx7, "readonly", "PersistentStore.Len", func(store js.Value) (js.Value, error) {
 				return store.Call("count"), nil
 			})
-			if err != nil {
-				return 0, err
+			if parseErr7 != nil {
+				return 0, parseErr7
 			}
-			return result.Int(), nil
+			return parseResult3.Int(), nil
 		},
 		close: func() error {
-			db.Set("onversionchange", js.Undefined())
-			onVersionChange.Release()
-			if closeFn := db.Get("close"); closeFn.Type() == js.TypeFunction {
-				db.Call("close")
+			parseDb.Set("onversionchange", js.Undefined())
+			parseOnVersionChange.Release()
+			if parseCloseFn2 := parseDb.Get("close"); parseCloseFn2.Type() == js.TypeFunction {
+				parseDb.Call("close")
 			}
 			return nil
 		},
 	}
 }
 
-func wrapStoragePersistentStore(storage Storage, backend string) PersistentStore {
+func wrapStoragePersistentStore(parseStorage Storage, parseBackend string) PersistentStore {
 	return PersistentStore{
-		backend: func() string { return backend },
-		getItem: func(ctx context.Context, key string) (string, bool, error) {
-			return storage.GetItem(key)
+		backend: func() string { return parseBackend },
+		getItem: func(parseCtx context.Context, parseKey2 string) (string, bool, error) {
+			return parseStorage.GetItem(parseKey2)
 		},
-		setItem: func(ctx context.Context, key string, value string) error {
-			return storage.SetItem(key, value)
+		setItem: func(parseCtx2 context.Context, parseKey3 string, parseValue string) error {
+			return parseStorage.SetItem(parseKey3, parseValue)
 		},
-		removeItem: func(ctx context.Context, key string) error {
-			return storage.RemoveItem(key)
+		removeItem: func(parseCtx3 context.Context, parseKey4 string) error {
+			return parseStorage.RemoveItem(parseKey4)
 		},
-		clear: func(ctx context.Context) error {
-			return storage.Clear()
+		clear: func(parseCtx4 context.Context) error {
+			return parseStorage.Clear()
 		},
-		keys: func(ctx context.Context) ([]string, error) {
-			length, err := storage.Len()
-			if err != nil {
-				return nil, err
+		keys: func(parseCtx5 context.Context) ([]string, error) {
+			parseLength, parseErr := parseStorage.Len()
+			if parseErr != nil {
+				return nil, parseErr
 			}
-			keys := make([]string, 0, length)
-			for index := 0; index < length; index++ {
-				key, ok, keyErr := storage.Key(index)
-				if keyErr != nil {
-					return nil, keyErr
+			parseKeys := make([]string, 0, parseLength)
+			for parseIndex := 0; parseIndex < parseLength; parseIndex++ {
+				parseKey, parseOk, parseKeyErr := parseStorage.Key(parseIndex)
+				if parseKeyErr != nil {
+					return nil, parseKeyErr
 				}
-				if ok {
-					keys = append(keys, key)
+				if parseOk {
+					parseKeys = append(parseKeys, parseKey)
 				}
 			}
-			sort.Strings(keys)
-			return keys, nil
+			sort.Strings(parseKeys)
+			return parseKeys, nil
 		},
-		length: func(ctx context.Context) (int, error) {
-			return storage.Len()
+		length: func(parseCtx6 context.Context) (int, error) {
+			return parseStorage.Len()
 		},
 		close: func() error { return nil },
 	}
 }
 
-func awaitIDBRequest(ctx context.Context, op string, target string, request js.Value) (js.Value, error) {
-	resultCh := make(chan js.Value, 1)
-	failureCh := make(chan persistentStoreFailure, 1)
-	var onSuccess js.Func
-	var onError js.Func
-	cleanup := func() {
-		request.Set("onsuccess", js.Undefined())
-		request.Set("onerror", js.Undefined())
-		onSuccess.Release()
-		onError.Release()
+func awaitIDBRequest(parseCtx context.Context, parseOp string, parseTarget string, parseRequest js.Value) (js.Value, error) {
+	parseResultCh := make(chan js.Value, 1)
+	parseFailureCh := make(chan persistentStoreFailure, 1)
+	var parseOnSuccess js.Func
+	var parseOnError js.Func
+	parseCleanup := func() {
+		parseRequest.Set("onsuccess", js.Undefined())
+		parseRequest.Set("onerror", js.Undefined())
+		parseOnSuccess.Release()
+		parseOnError.Release()
 	}
-	onSuccess = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		reportPersistentStoreResult(resultCh, request.Get("result"))
+	parseOnSuccess = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		reportPersistentStoreResult(parseResultCh, parseRequest.Get("result"))
 		return nil
 	})
-	onError = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		reportPersistentStoreFailure(failureCh, classifyPersistentStoreFailure(request.Get("error"), "indexedDB request failed"))
+	parseOnError = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		reportPersistentStoreFailure(parseFailureCh, classifyPersistentStoreFailure(parseRequest.Get("error"), "indexedDB request failed"))
 		return nil
 	})
-	request.Set("onsuccess", onSuccess)
-	request.Set("onerror", onError)
-	defer cleanup()
+	parseRequest.Set("onsuccess", parseOnSuccess)
+	parseRequest.Set("onerror", parseOnError)
+	defer parseCleanup()
 
 	select {
-	case result := <-resultCh:
-		return result, nil
-	case failure := <-failureCh:
-		return js.Undefined(), wrapError(op, target, failure.code, errors.New(failure.message))
-	case <-ctx.Done():
-		return js.Undefined(), persistentContextError(op, target, ctx.Err())
+	case parseResult := <-parseResultCh:
+		return parseResult, nil
+	case parseFailure := <-parseFailureCh:
+		return js.Undefined(), wrapError(parseOp, parseTarget, parseFailure.code, errors.New(parseFailure.message))
+	case <-parseCtx.Done():
+		return js.Undefined(), persistentContextError(parseOp, parseTarget, parseCtx.Err())
 	}
 }
 
-func reportPersistentStoreResult(ch chan js.Value, value js.Value) {
+func reportPersistentStoreResult(parseCh chan js.Value, parseValue js.Value) {
 	select {
-	case ch <- value:
+	case parseCh <- parseValue:
 	default:
 	}
 }
 
-func reportPersistentStoreFailure(ch chan persistentStoreFailure, failure persistentStoreFailure) {
+func reportPersistentStoreFailure(parseCh chan persistentStoreFailure, parseFailure persistentStoreFailure) {
 	select {
-	case ch <- failure:
+	case parseCh <- parseFailure:
 	default:
 	}
 }
 
-func classifyPersistentStoreFailure(rawError js.Value, fallbackMessage string) persistentStoreFailure {
-	message := strings.TrimSpace(jsValueSummary(rawError))
-	if message == "" {
-		message = fallbackMessage
+func classifyPersistentStoreFailure(parseRawError js.Value, parseFallbackMessage string) persistentStoreFailure {
+	parseMessage := strings.TrimSpace(jsValueSummary(parseRawError))
+	if parseMessage == "" {
+		parseMessage = parseFallbackMessage
 	}
-	name := strings.TrimSpace(rawError.Get("name").String())
-	messageLower := strings.ToLower(message)
+	parseName := strings.TrimSpace(parseRawError.Get("name").String())
+	parseMessageLower := strings.ToLower(parseMessage)
 	switch {
-	case name == "QuotaExceededError" || strings.Contains(messageLower, "quota"):
-		return persistentStoreFailure{code: CodeQuotaExceeded, message: message}
-	case name == "VersionError" || name == "ConstraintError":
-		return persistentStoreFailure{code: CodeInvalid, message: message}
-	case name == "InvalidStateError" || name == "UnknownError" || strings.Contains(messageLower, "corrupt") || strings.Contains(messageLower, "corruption") || strings.Contains(messageLower, "malformed"):
-		return persistentStoreFailure{code: CodeUnavailable, message: message, recoverable: true}
+	case parseName == "QuotaExceededError" || strings.Contains(parseMessageLower, "quota"):
+		return persistentStoreFailure{code: CodeQuotaExceeded, message: parseMessage}
+	case parseName == "VersionError" || parseName == "ConstraintError":
+		return persistentStoreFailure{code: CodeInvalid, message: parseMessage}
+	case parseName == "InvalidStateError" || parseName == "UnknownError" || strings.Contains(parseMessageLower, "corrupt") || strings.Contains(parseMessageLower, "corruption") || strings.Contains(parseMessageLower, "malformed"):
+		return persistentStoreFailure{code: CodeUnavailable, message: parseMessage, recoverable: true}
 	default:
-		return persistentStoreFailure{code: CodeUnavailable, message: message}
+		return persistentStoreFailure{code: CodeUnavailable, message: parseMessage}
 	}
 }
 
-func deleteIndexedDBDatabase(ctx context.Context, databaseName string) error {
-	rawIndexedDB := js.Global().Get("indexedDB")
-	if rawIndexedDB.IsUndefined() || rawIndexedDB.IsNull() {
-		return unavailable("OpenPersistentStore", databaseName)
+func deleteIndexedDBDatabase(parseCtx context.Context, parseDatabaseName string) error {
+	parseRawIndexedDB := js.Global().Get("indexedDB")
+	if parseRawIndexedDB.IsUndefined() || parseRawIndexedDB.IsNull() {
+		return unavailable("OpenPersistentStore", parseDatabaseName)
 	}
-	deleteFn := rawIndexedDB.Get("deleteDatabase")
-	if deleteFn.Type() != js.TypeFunction {
-		return wrapError("OpenPersistentStore", databaseName, CodeUnavailable, errors.New("indexedDB deleteDatabase is unavailable"))
+	parseDeleteFn := parseRawIndexedDB.Get("deleteDatabase")
+	if parseDeleteFn.Type() != js.TypeFunction {
+		return wrapError("OpenPersistentStore", parseDatabaseName, CodeUnavailable, errors.New("indexedDB deleteDatabase is unavailable"))
 	}
-	request := deleteFn.Invoke(databaseName)
-	resultCh := make(chan struct{}, 1)
-	failureCh := make(chan persistentStoreFailure, 1)
-	var onSuccess js.Func
-	var onError js.Func
-	var onBlocked js.Func
-	cleanup := func() {
-		request.Set("onsuccess", js.Undefined())
-		request.Set("onerror", js.Undefined())
-		request.Set("onblocked", js.Undefined())
-		onSuccess.Release()
-		onError.Release()
-		onBlocked.Release()
+	parseRequest := parseDeleteFn.Invoke(parseDatabaseName)
+	parseResultCh := make(chan struct{}, 1)
+	parseFailureCh := make(chan persistentStoreFailure, 1)
+	var parseOnSuccess js.Func
+	var parseOnError js.Func
+	var parseOnBlocked js.Func
+	parseCleanup := func() {
+		parseRequest.Set("onsuccess", js.Undefined())
+		parseRequest.Set("onerror", js.Undefined())
+		parseRequest.Set("onblocked", js.Undefined())
+		parseOnSuccess.Release()
+		parseOnError.Release()
+		parseOnBlocked.Release()
 	}
-	onSuccess = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	parseOnSuccess = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
 		select {
-		case resultCh <- struct{}{}:
+		case parseResultCh <- struct{}{}:
 		default:
 		}
 		return nil
 	})
-	onError = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		reportPersistentStoreFailure(failureCh, classifyPersistentStoreFailure(request.Get("error"), "indexedDB delete request failed"))
+	parseOnError = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		reportPersistentStoreFailure(parseFailureCh, classifyPersistentStoreFailure(parseRequest.Get("error"), "indexedDB delete request failed"))
 		return nil
 	})
-	onBlocked = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		reportPersistentStoreFailure(failureCh, persistentStoreFailure{code: CodeBlocked, message: "indexedDB delete is blocked by another open tab, worker, or window"})
+	parseOnBlocked = js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		reportPersistentStoreFailure(parseFailureCh, persistentStoreFailure{code: CodeBlocked, message: "indexedDB delete is blocked by another open tab, worker, or window"})
 		return nil
 	})
-	request.Set("onsuccess", onSuccess)
-	request.Set("onerror", onError)
-	request.Set("onblocked", onBlocked)
-	defer cleanup()
+	parseRequest.Set("onsuccess", parseOnSuccess)
+	parseRequest.Set("onerror", parseOnError)
+	parseRequest.Set("onblocked", parseOnBlocked)
+	defer parseCleanup()
 
 	select {
-	case <-resultCh:
+	case <-parseResultCh:
 		return nil
-	case failure := <-failureCh:
-		return wrapError("OpenPersistentStore", databaseName, failure.code, errors.New(failure.message))
-	case <-ctx.Done():
-		return persistentContextError("OpenPersistentStore", databaseName, ctx.Err())
+	case parseFailure := <-parseFailureCh:
+		return wrapError("OpenPersistentStore", parseDatabaseName, parseFailure.code, errors.New(parseFailure.message))
+	case <-parseCtx.Done():
+		return persistentContextError("OpenPersistentStore", parseDatabaseName, parseCtx.Err())
 	}
 }
 
-func persistentContextError(op string, target string, err error) error {
-	if errors.Is(err, context.DeadlineExceeded) {
-		return wrapError(op, target, CodeTimeout, err)
+func persistentContextError(parseOp string, parseTarget string, parseErr error) error {
+	if errors.Is(parseErr, context.DeadlineExceeded) {
+		return wrapError(parseOp, parseTarget, CodeTimeout, parseErr)
 	}
-	return wrapError(op, target, CodeCancelled, err)
+	return wrapError(parseOp, parseTarget, CodeCancelled, parseErr)
 }

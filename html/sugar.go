@@ -14,217 +14,217 @@ import (
 const reactiveTextGetterProp = "__gwc_reactive_text_getter"
 
 // Text creates a text node from a string-like value.
-func Text(content interface{}) ui.Node {
-	switch value := content.(type) {
+func Text(parseContent interface{}) ui.Node {
+	switch parseValue := parseContent.(type) {
 	case nil:
 		return nil
 	case ui.Node:
-		return value
+		return parseValue
 	case string:
-		return ui.Text(value)
+		return ui.Text(parseValue)
 	case fmt.Stringer:
-		return ui.Text(value.String())
+		return ui.Text(parseValue.String())
 	case func() string:
 		return runtime.CreateElement(runtime.ReactiveTextNodeType, map[string]interface{}{
-			reactiveTextGetterProp: value,
+			reactiveTextGetterProp: parseValue,
 		})
 	case bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr, float32, float64:
-		return ui.Text(fmt.Sprint(value))
+		return ui.Text(fmt.Sprint(parseValue))
 	default:
-		return ui.Text(fmt.Sprint(value))
+		return ui.Text(fmt.Sprint(parseValue))
 	}
 }
 
 // Textf formats a text node without requiring an explicit fmt.Sprintf call first.
-func Textf(format string, args ...interface{}) ui.Node {
-	return Text(fmt.Sprintf(format, args...))
+func Textf(format string, parseArgs ...interface{}) ui.Node {
+	return Text(fmt.Sprintf(format, parseArgs...))
 }
 
 // TextIf emits a text node only when the condition is true.
-func TextIf(condition bool, content interface{}) ui.Node {
-	if !condition {
+func TextIf(isCondition bool, parseContent interface{}) ui.Node {
+	if !isCondition {
 		return nil
 	}
-	return Text(content)
+	return Text(parseContent)
 }
 
 // Children normalizes mixed shorthand child inputs into the existing []ui.Node builder contract.
-func Children(values ...interface{}) []ui.Node {
-	if len(values) == 0 {
+func Children(parseValues ...interface{}) []ui.Node {
+	if len(parseValues) == 0 {
 		return nil
 	}
 
-	nodes := make([]ui.Node, 0, len(values))
-	for _, value := range values {
-		appendNormalizedChild(&nodes, value)
+	parseNodes := make([]ui.Node, 0, len(parseValues))
+	for _, parseValue := range parseValues {
+		appendNormalizedChild(&parseNodes, parseValue)
 	}
-	if len(nodes) == 0 {
+	if len(parseNodes) == 0 {
 		return nil
 	}
-	return nodes
+	return parseNodes
 }
 
 // When returns a class fragment only when the condition is true.
-func When(condition bool, className string) string {
-	if !condition {
+func When(isCondition bool, parseClassName string) string {
+	if !isCondition {
 		return ""
 	}
-	return strings.TrimSpace(className)
+	return strings.TrimSpace(parseClassName)
 }
 
 // ClassNames joins class fragments while dropping empty values and normalizing whitespace.
-func ClassNames(parts ...interface{}) string {
-	if len(parts) == 0 {
+func ClassNames(parseParts ...interface{}) string {
+	if len(parseParts) == 0 {
 		return ""
 	}
 
-	fragments := make([]string, 0, len(parts))
-	appendClassFragments(&fragments, parts...)
-	return strings.Join(fragments, " ")
+	parseFragments := make([]string, 0, len(parseParts))
+	appendClassFragments(&parseFragments, parseParts...)
+	return strings.Join(parseFragments, " ")
 }
 
 // If returns the node only when the condition is true.
-func If(condition bool, node ui.Node) ui.Node {
-	if condition {
-		return node
+func If(isCondition bool, parseNode ui.Node) ui.Node {
+	if isCondition {
+		return parseNode
 	}
 	return nil
 }
 
 // IfElse selects between two node branches inline.
-func IfElse(condition bool, whenTrue ui.Node, whenFalse ui.Node) ui.Node {
-	if condition {
-		return whenTrue
+func IfElse(isCondition bool, parseWhenTrue ui.Node, parseWhenFalse ui.Node) ui.Node {
+	if isCondition {
+		return parseWhenTrue
 	}
-	return whenFalse
+	return parseWhenFalse
 }
 
 // Unless returns the node only when the condition is false.
-func Unless(condition bool, node ui.Node) ui.Node {
-	if condition {
+func Unless(isCondition bool, parseNode ui.Node) ui.Node {
+	if isCondition {
 		return nil
 	}
-	return node
+	return parseNode
 }
 
 // Map renders a typed slice into ui.Node values while preserving order.
-func Map[T any](items []T, render func(T) ui.Node) []ui.Node {
-	if len(items) == 0 {
+func Map[T any](parseItems []T, render func(T) ui.Node) []ui.Node {
+	if len(parseItems) == 0 {
 		return nil
 	}
 
-	nodes := make([]ui.Node, 0, len(items))
-	for _, item := range items {
-		nodes = append(nodes, render(item))
+	parseNodes := make([]ui.Node, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		parseNodes = append(parseNodes, render(parseItem))
 	}
-	return nodes
+	return parseNodes
 }
 
 // WithKey applies a reconciliation key to an existing node explicitly.
-func WithKey(node ui.Node, key interface{}) ui.Node {
-	if node == nil {
+func WithKey(parseNode ui.Node, parseKey interface{}) ui.Node {
+	if parseNode == nil {
 		return nil
 	}
-	if node.Props == nil {
-		node.Props = make(map[string]interface{}, 1)
+	if parseNode.Props == nil {
+		parseNode.Props = make(map[string]interface{}, 1)
 	}
-	node.Props["key"] = key
-	return node
+	parseNode.Props["key"] = parseKey
+	return parseNode
 }
 
 // MapKeyed renders a typed slice into keyed ui.Node values while preserving order.
-func MapKeyed[T any](items []T, key func(T) interface{}, render func(T) ui.Node) []ui.Node {
-	if len(items) == 0 {
+func MapKeyed[T any](parseItems []T, parseKey func(T) interface{}, render func(T) ui.Node) []ui.Node {
+	if len(parseItems) == 0 {
 		return nil
 	}
 
-	nodes := make([]ui.Node, 0, len(items))
-	for _, item := range items {
-		nodes = append(nodes, WithKey(render(item), key(item)))
+	parseNodes := make([]ui.Node, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		parseNodes = append(parseNodes, WithKey(render(parseItem), parseKey(parseItem)))
 	}
-	return nodes
+	return parseNodes
 }
 
 // FlatMap renders each item into zero or more nodes and flattens the results.
-func FlatMap[T any](items []T, render func(T) []ui.Node) []ui.Node {
-	if len(items) == 0 {
+func FlatMap[T any](parseItems []T, render func(T) []ui.Node) []ui.Node {
+	if len(parseItems) == 0 {
 		return nil
 	}
 
-	var nodes []ui.Node
-	for _, item := range items {
-		nodes = append(nodes, render(item)...)
+	var parseNodes []ui.Node
+	for _, parseItem := range parseItems {
+		parseNodes = append(parseNodes, render(parseItem)...)
 	}
-	if len(nodes) == 0 {
+	if len(parseNodes) == 0 {
 		return nil
 	}
-	return nodes
+	return parseNodes
 }
 
 // FilterMap renders each item conditionally and preserves order for realized nodes.
-func FilterMap[T any](items []T, render func(T) (ui.Node, bool)) []ui.Node {
-	if len(items) == 0 {
+func FilterMap[T any](parseItems []T, render func(T) (ui.Node, bool)) []ui.Node {
+	if len(parseItems) == 0 {
 		return nil
 	}
 
-	var nodes []ui.Node
-	for _, item := range items {
-		node, ok := render(item)
-		if ok && node != nil {
-			nodes = append(nodes, node)
+	var parseNodes []ui.Node
+	for _, parseItem := range parseItems {
+		parseNode, parseOk := render(parseItem)
+		if parseOk && parseNode != nil {
+			parseNodes = append(parseNodes, parseNode)
 		}
 	}
-	if len(nodes) == 0 {
+	if len(parseNodes) == 0 {
 		return nil
 	}
-	return nodes
+	return parseNodes
 }
 
 // Join inserts a separator between realized nodes only.
-func Join(separator ui.Node, nodes ...ui.Node) []ui.Node {
-	if len(nodes) == 0 {
+func Join(parseSeparator ui.Node, parseNodes ...ui.Node) []ui.Node {
+	if len(parseNodes) == 0 {
 		return nil
 	}
 
-	joined := make([]ui.Node, 0, len(nodes)*2)
-	realized := 0
-	for _, node := range nodes {
-		if node == nil {
+	parseJoined := make([]ui.Node, 0, len(parseNodes)*2)
+	parseRealized := 0
+	for _, parseNode := range parseNodes {
+		if parseNode == nil {
 			continue
 		}
-		if realized > 0 && separator != nil {
-			joined = append(joined, separator)
+		if parseRealized > 0 && parseSeparator != nil {
+			parseJoined = append(parseJoined, parseSeparator)
 		}
-		joined = append(joined, node)
-		realized++
+		parseJoined = append(parseJoined, parseNode)
+		parseRealized++
 	}
-	if len(joined) == 0 {
+	if len(parseJoined) == 0 {
 		return nil
 	}
-	return joined
+	return parseJoined
 }
 
 // Maybe renders a node only when a pointer value is present.
-func Maybe[T any](value *T, render func(T) ui.Node) ui.Node {
-	if value == nil {
+func Maybe[T any](parseValue *T, render func(T) ui.Node) ui.Node {
+	if parseValue == nil {
 		return nil
 	}
-	return render(*value)
+	return render(*parseValue)
 }
 
 // OrElse returns the pointed value when present, otherwise the fallback.
-func OrElse[T any](value *T, fallback T) T {
-	if value == nil {
-		return fallback
+func OrElse[T any](parseValue *T, parseFallback T) T {
+	if parseValue == nil {
+		return parseFallback
 	}
-	return *value
+	return *parseValue
 }
 
 // Coalesce returns the first non-nil pointer in order.
-func Coalesce[T any](values ...*T) *T {
-	for _, value := range values {
-		if value != nil {
-			return value
+func Coalesce[T any](parseValues ...*T) *T {
+	for _, parseValue := range parseValues {
+		if parseValue != nil {
+			return parseValue
 		}
 	}
 	return nil
@@ -238,30 +238,30 @@ type SwitchBranch struct {
 }
 
 // Case creates a value-matching branch for Switch.
-func Case(value interface{}, node ui.Node) SwitchBranch {
-	return SwitchBranch{value: value, node: node}
+func Case(parseValue interface{}, parseNode ui.Node) SwitchBranch {
+	return SwitchBranch{value: parseValue, node: parseNode}
 }
 
 // Default creates the fallback branch for Switch.
-func Default(node ui.Node) SwitchBranch {
-	return SwitchBranch{node: node, isDefault: true}
+func Default(parseNode ui.Node) SwitchBranch {
+	return SwitchBranch{node: parseNode, isDefault: true}
 }
 
 // Switch selects the first matching branch and otherwise falls back to Default.
-func Switch(value interface{}, branches ...SwitchBranch) ui.Node {
-	var fallback ui.Node
-	for _, branch := range branches {
-		if branch.isDefault {
-			if fallback == nil {
-				fallback = branch.node
+func Switch(parseValue interface{}, parseBranches ...SwitchBranch) ui.Node {
+	var parseFallback ui.Node
+	for _, parseBranch := range parseBranches {
+		if parseBranch.isDefault {
+			if parseFallback == nil {
+				parseFallback = parseBranch.node
 			}
 			continue
 		}
-		if reflect.DeepEqual(branch.value, value) {
-			return branch.node
+		if reflect.DeepEqual(parseBranch.value, parseValue) {
+			return parseBranch.node
 		}
 	}
-	return fallback
+	return parseFallback
 }
 
 // PropOption mutates Props through an explicit additive helper.
@@ -271,493 +271,527 @@ type PropOption interface {
 
 type optionFunc func(*Props)
 
-func (f optionFunc) apply(props *Props) {
-	f(props)
+// apply is a core package helper.
+func (parseF optionFunc) apply(parseProps *Props) {
+	parseF(parseProps)
 }
 
 // PropsOf builds Props from additive prop options using last-write-wins semantics.
-func PropsOf(options ...PropOption) Props {
-	var props Props
-	for _, option := range options {
-		if option == nil {
+func PropsOf(parseOptions ...PropOption) Props {
+	var parseProps Props
+	for _, parseOption := range parseOptions {
+		if parseOption == nil {
 			continue
 		}
-		option.apply(&props)
+		parseOption.apply(&parseProps)
 	}
-	return props
+	return parseProps
 }
 
 // WithProps applies additive prop options onto an existing Props value.
-func WithProps(base Props, options ...PropOption) Props {
-	props := cloneProps(base)
-	for _, option := range options {
-		if option == nil {
+func WithProps(parseBase Props, parseOptions ...PropOption) Props {
+	parseProps := cloneProps(parseBase)
+	for _, parseOption := range parseOptions {
+		if parseOption == nil {
 			continue
 		}
-		option.apply(&props)
+		parseOption.apply(&parseProps)
 	}
-	return props
+	return parseProps
 }
 
 // ID sets the id attribute on a Props.
-func ID(value string) PropOption { return optionFunc(func(props *Props) { props.ID = value }) }
+func ID(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.ID = parseValue })
+}
 
 // Class sets the class attribute on a Props.
-func Class(value string) PropOption { return optionFunc(func(props *Props) { props.Class = value }) }
+func Class(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Class = parseValue })
+}
 
 // For sets the for attribute on a Props.
-func For(value string) PropOption { return optionFunc(func(props *Props) { props.For = value }) }
+func For(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.For = parseValue })
+}
 
 // Name sets the name attribute on a Props.
-func Name(value string) PropOption { return optionFunc(func(props *Props) { props.Name = value }) }
+func Name(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Name = parseValue })
+}
 
 // Title sets the title attribute on a Props.
-func Title(value string) PropOption { return optionFunc(func(props *Props) { props.Title = value }) }
+func Title(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Title = parseValue })
+}
 
 // Value sets the value attribute on a Props.
-func Value(value string) PropOption { return optionFunc(func(props *Props) { props.Value = value }) }
+func Value(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Value = parseValue })
+}
 
 // Placeholder sets the placeholder attribute on a Props.
-func Placeholder(value string) PropOption {
-	return optionFunc(func(props *Props) { props.Placeholder = value })
+func Placeholder(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Placeholder = parseValue })
 }
 
 // Type sets the type attribute on a Props.
-func Type(value string) PropOption { return optionFunc(func(props *Props) { props.Type = value }) }
+func Type(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Type = parseValue })
+}
 
 // Href sets the href attribute on a Props.
-func Href(value string) PropOption { return optionFunc(func(props *Props) { props.Href = value }) }
+func Href(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Href = parseValue })
+}
 
 // Src sets the src attribute on a Props.
-func Src(value string) PropOption { return optionFunc(func(props *Props) { props.Src = value }) }
+func Src(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Src = parseValue })
+}
 
 // Role sets the role attribute on a Props.
-func Role(value string) PropOption { return optionFunc(func(props *Props) { props.Role = value }) }
+func Role(parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Role = parseValue })
+}
 
 // Rows sets the rows attribute on a Props.
-func Rows(value int) PropOption { return optionFunc(func(props *Props) { props.Rows = value }) }
+func Rows(parseValue int) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.Rows = parseValue })
+}
 
 // TabIndex sets the tabindex attribute on a Props.
-func TabIndex(value int) PropOption { return optionFunc(func(props *Props) { props.TabIndex = value }) }
+func TabIndex(parseValue int) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.TabIndex = parseValue })
+}
 
 // Disabled sets the disabled boolean on a Props; passes true when no argument is given.
-func Disabled(values ...bool) PropOption {
-	enabled := true
-	if len(values) > 0 {
-		enabled = values[0]
+func Disabled(parseValues ...bool) PropOption {
+	isParseEnabled := true
+	if len(parseValues) > 0 {
+		isParseEnabled = parseValues[0]
 	}
-	return optionFunc(func(props *Props) { props.Disabled = enabled })
+	return optionFunc(func(parseProps *Props) { parseProps.Disabled = isParseEnabled })
 }
 
 // Checked sets the checked boolean on a Props; passes true when no argument is given.
-func Checked(values ...bool) PropOption {
-	enabled := true
-	if len(values) > 0 {
-		enabled = values[0]
+func Checked(parseValues ...bool) PropOption {
+	isParseEnabled := true
+	if len(parseValues) > 0 {
+		isParseEnabled = parseValues[0]
 	}
-	return optionFunc(func(props *Props) { props.Checked = enabled })
+	return optionFunc(func(parseProps *Props) { parseProps.Checked = isParseEnabled })
 }
 
 // Selected sets the selected boolean on a Props; passes true when no argument is given.
-func Selected(values ...bool) PropOption {
-	enabled := true
-	if len(values) > 0 {
-		enabled = values[0]
+func Selected(parseValues ...bool) PropOption {
+	isParseEnabled := true
+	if len(parseValues) > 0 {
+		isParseEnabled = parseValues[0]
 	}
-	return optionFunc(func(props *Props) { props.Selected = enabled })
+	return optionFunc(func(parseProps *Props) { parseProps.Selected = isParseEnabled })
 }
 
 // Required sets the required boolean on a Props; passes true when no argument is given.
-func Required(values ...bool) PropOption {
-	enabled := true
-	if len(values) > 0 {
-		enabled = values[0]
+func Required(parseValues ...bool) PropOption {
+	isParseEnabled := true
+	if len(parseValues) > 0 {
+		isParseEnabled = parseValues[0]
 	}
-	return optionFunc(func(props *Props) { props.Required = enabled })
+	return optionFunc(func(parseProps *Props) { parseProps.Required = isParseEnabled })
 }
 
 // ReadOnly sets the readonly boolean on a Props; passes true when no argument is given.
-func ReadOnly(values ...bool) PropOption {
-	enabled := true
-	if len(values) > 0 {
-		enabled = values[0]
+func ReadOnly(parseValues ...bool) PropOption {
+	isParseEnabled := true
+	if len(parseValues) > 0 {
+		isParseEnabled = parseValues[0]
 	}
-	return optionFunc(func(props *Props) { props.ReadOnly = enabled })
+	return optionFunc(func(parseProps *Props) { parseProps.ReadOnly = isParseEnabled })
 }
 
 // AutoFocus sets the autofocus boolean on a Props; passes true when no argument is given.
-func AutoFocus(values ...bool) PropOption {
-	enabled := true
-	if len(values) > 0 {
-		enabled = values[0]
+func AutoFocus(parseValues ...bool) PropOption {
+	isParseEnabled := true
+	if len(parseValues) > 0 {
+		isParseEnabled = parseValues[0]
 	}
-	return optionFunc(func(props *Props) { props.AutoFocus = enabled })
+	return optionFunc(func(parseProps *Props) { parseProps.AutoFocus = isParseEnabled })
 }
 
 // DisabledIf sets the disabled boolean conditionally on a Props.
-func DisabledIf(condition bool) PropOption { return Disabled(condition) }
+func DisabledIf(isCondition bool) PropOption { return Disabled(isCondition) }
 
 // ReadOnlyIf sets the readonly boolean conditionally on a Props.
-func ReadOnlyIf(condition bool) PropOption { return ReadOnly(condition) }
+func ReadOnlyIf(isCondition bool) PropOption { return ReadOnly(isCondition) }
 
 // SelectedIf sets the selected boolean conditionally on a Props.
-func SelectedIf(condition bool) PropOption { return Selected(condition) }
+func SelectedIf(isCondition bool) PropOption { return Selected(isCondition) }
 
 // Style merges the given CSS style map into the Props Style field.
-func Style(values map[string]string) PropOption {
-	clone := cloneStringMap(values)
-	return optionFunc(func(props *Props) {
-		props.Style = mergeStringMap(props.Style, clone)
+func Style(parseValues map[string]string) PropOption {
+	parseClone := cloneStringMap(parseValues)
+	return optionFunc(func(parseProps *Props) {
+		parseProps.Style = mergeStringMap(parseProps.Style, parseClone)
 	})
 }
 
 // Data sets a single data-* attribute on the Props.
-func Data(name string, value string) PropOption {
-	return optionFunc(func(props *Props) {
-		props.Data = mergeStringMap(props.Data, map[string]string{name: value})
+func Data(parseName string, parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) {
+		parseProps.Data = mergeStringMap(parseProps.Data, map[string]string{parseName: parseValue})
 	})
 }
 
 // Dataset merges multiple data-* attributes into the Props.
-func Dataset(values map[string]string) PropOption {
-	clone := cloneStringMap(values)
-	return optionFunc(func(props *Props) {
-		props.Data = mergeStringMap(props.Data, clone)
+func Dataset(parseValues map[string]string) PropOption {
+	parseClone := cloneStringMap(parseValues)
+	return optionFunc(func(parseProps *Props) {
+		parseProps.Data = mergeStringMap(parseProps.Data, parseClone)
 	})
 }
 
 // Aria sets a single aria-* attribute on the Props.
-func Aria(name string, value string) PropOption {
-	return optionFunc(func(props *Props) {
-		props.Aria = mergeStringMap(props.Aria, map[string]string{name: value})
+func Aria(parseName string, parseValue string) PropOption {
+	return optionFunc(func(parseProps *Props) {
+		parseProps.Aria = mergeStringMap(parseProps.Aria, map[string]string{parseName: parseValue})
 	})
 }
 
 // AriaSet merges multiple aria-* attributes into the Props.
-func AriaSet(values map[string]string) PropOption {
-	clone := cloneStringMap(values)
-	return optionFunc(func(props *Props) {
-		props.Aria = mergeStringMap(props.Aria, clone)
+func AriaSet(parseValues map[string]string) PropOption {
+	parseClone := cloneStringMap(parseValues)
+	return optionFunc(func(parseProps *Props) {
+		parseProps.Aria = mergeStringMap(parseProps.Aria, parseClone)
 	})
 }
 
 // Attr sets a single raw HTML attribute on the Props.
-func Attr(key string, value interface{}) PropOption {
-	return optionFunc(func(props *Props) {
-		props.Raw = mergeAnyMap(props.Raw, map[string]interface{}{key: value})
+func Attr(parseKey string, parseValue interface{}) PropOption {
+	return optionFunc(func(parseProps *Props) {
+		parseProps.Raw = mergeAnyMap(parseProps.Raw, map[string]interface{}{parseKey: parseValue})
 	})
 }
 
 // Attrs merges multiple raw HTML attributes into the Props.
-func Attrs(values map[string]interface{}) PropOption {
-	clone := cloneAnyMap(values)
-	return optionFunc(func(props *Props) {
-		props.Raw = mergeAnyMap(props.Raw, clone)
+func Attrs(parseValues map[string]interface{}) PropOption {
+	parseClone := cloneAnyMap(parseValues)
+	return optionFunc(func(parseProps *Props) {
+		parseProps.Raw = mergeAnyMap(parseProps.Raw, parseClone)
 	})
 }
 
 // OnClick registers an onclick event handler on the Props.
-func OnClick(callback interface{}) PropOption {
-	return optionFunc(func(props *Props) { props.OnClick = toHandler(callback) })
+func OnClick(parseCallback interface{}) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnClick = toHandler(parseCallback) })
 }
 
 // OnInput registers an oninput event handler on the Props.
-func OnInput(callback interface{}) PropOption {
-	return optionFunc(func(props *Props) { props.OnInput = toHandler(callback) })
+func OnInput(parseCallback interface{}) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnInput = toHandler(parseCallback) })
 }
 
 // OnChange registers an onchange event handler on the Props.
-func OnChange(callback interface{}) PropOption {
-	return optionFunc(func(props *Props) { props.OnChange = toHandler(callback) })
+func OnChange(parseCallback interface{}) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnChange = toHandler(parseCallback) })
 }
 
 // OnSubmit registers an onsubmit event handler on the Props.
-func OnSubmit(callback interface{}) PropOption {
-	return optionFunc(func(props *Props) { props.OnSubmit = toHandler(callback) })
+func OnSubmit(parseCallback interface{}) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnSubmit = toHandler(parseCallback) })
 }
 
 // OnKeyDown registers an onkeydown event handler on the Props.
-func OnKeyDown(callback interface{}) PropOption {
-	return optionFunc(func(props *Props) { props.OnKeyDown = toHandler(callback) })
+func OnKeyDown(parseCallback interface{}) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnKeyDown = toHandler(parseCallback) })
 }
 
 // OnKeyUp registers an onkeyup event handler on the Props.
-func OnKeyUp(callback interface{}) PropOption {
-	return optionFunc(func(props *Props) { props.OnKeyUp = toHandler(callback) })
+func OnKeyUp(parseCallback interface{}) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnKeyUp = toHandler(parseCallback) })
 }
 
 // OnMouseUp registers an onmouseup event handler on the Props.
-func OnMouseUp(callback interface{}) PropOption {
-	return optionFunc(func(props *Props) { props.OnMouseUp = toHandler(callback) })
+func OnMouseUp(parseCallback interface{}) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnMouseUp = toHandler(parseCallback) })
 }
 
 // OnFocus registers an onfocus event handler on the Props.
-func OnFocus(callback interface{}) PropOption {
-	return optionFunc(func(props *Props) { props.OnFocus = toHandler(callback) })
+func OnFocus(parseCallback interface{}) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnFocus = toHandler(parseCallback) })
 }
 
 // OnBlur registers an onblur event handler on the Props.
-func OnBlur(callback interface{}) PropOption {
-	return optionFunc(func(props *Props) { props.OnBlur = toHandler(callback) })
+func OnBlur(parseCallback interface{}) PropOption {
+	return optionFunc(func(parseProps *Props) { parseProps.OnBlur = toHandler(parseCallback) })
 }
 
 // Prevent wraps a callback so the event default is prevented before callback execution.
-func Prevent(callback interface{}) interface{} {
-	return func(event ui.Event) {
-		event.PreventDefault()
-		invokeEventCallback(callback, event)
+func Prevent(parseCallback interface{}) interface{} {
+	return func(parseEvent ui.Event) {
+		parseEvent.PreventDefault()
+		invokeEventCallback(parseCallback, parseEvent)
 	}
 }
 
 // Stop wraps a callback so propagation is stopped before callback execution.
-func Stop(callback interface{}) interface{} {
-	return func(event ui.Event) {
-		event.StopPropagation()
-		invokeEventCallback(callback, event)
+func Stop(parseCallback interface{}) interface{} {
+	return func(parseEvent ui.Event) {
+		parseEvent.StopPropagation()
+		invokeEventCallback(parseCallback, parseEvent)
 	}
 }
 
 // Debounce delays callback execution until no newer event has arrived for delay.
-func Debounce(delay time.Duration, callback interface{}) interface{} {
-	if delay <= 0 {
-		return callback
+func Debounce(parseDelay time.Duration, parseCallback interface{}) interface{} {
+	if parseDelay <= 0 {
+		return parseCallback
 	}
 
-	var mu sync.Mutex
-	var timer *time.Timer
-	var latest ui.Event
+	var parseMu sync.Mutex
+	var parseTimer *time.Timer
+	var parseLatest ui.Event
 
-	return func(event ui.Event) {
-		mu.Lock()
-		latest = event
-		if timer != nil {
-			timer.Stop()
+	return func(parseEvent ui.Event) {
+		parseMu.Lock()
+		parseLatest = parseEvent
+		if parseTimer != nil {
+			parseTimer.Stop()
 		}
-		timer = time.AfterFunc(delay, func() {
-			mu.Lock()
-			eventCopy := latest
-			timer = nil
-			mu.Unlock()
-			invokeEventCallback(callback, eventCopy)
+		parseTimer = time.AfterFunc(parseDelay, func() {
+			parseMu.Lock()
+			parseEventCopy := parseLatest
+			parseTimer = nil
+			parseMu.Unlock()
+			invokeEventCallback(parseCallback, parseEventCopy)
 		})
-		mu.Unlock()
+		parseMu.Unlock()
 	}
 }
 
 // Throttle invokes immediately and then at most once per interval with the latest pending event.
-func Throttle(interval time.Duration, callback interface{}) interface{} {
-	if interval <= 0 {
-		return callback
+func Throttle(parseInterval time.Duration, parseCallback interface{}) interface{} {
+	if parseInterval <= 0 {
+		return parseCallback
 	}
 
-	var mu sync.Mutex
-	var timer *time.Timer
-	var latest ui.Event
-	var pending bool
-	var lastInvoke time.Time
+	var parseMu sync.Mutex
+	var parseTimer *time.Timer
+	var parseLatest ui.Event
+	var isPending bool
+	var parseLastInvoke time.Time
 
-	return func(event ui.Event) {
-		mu.Lock()
-		now := time.Now()
-		latest = event
-		if lastInvoke.IsZero() || now.Sub(lastInvoke) >= interval {
-			lastInvoke = now
-			pending = false
-			if timer != nil {
-				timer.Stop()
-				timer = nil
+	return func(parseEvent ui.Event) {
+		parseMu.Lock()
+		parseNow := time.Now()
+		parseLatest = parseEvent
+		if parseLastInvoke.IsZero() || parseNow.Sub(parseLastInvoke) >= parseInterval {
+			parseLastInvoke = parseNow
+			isPending = false
+			if parseTimer != nil {
+				parseTimer.Stop()
+				parseTimer = nil
 			}
-			mu.Unlock()
-			invokeEventCallback(callback, event)
+			parseMu.Unlock()
+			invokeEventCallback(parseCallback, parseEvent)
 			return
 		}
 
-		pending = true
-		wait := interval - now.Sub(lastInvoke)
-		if timer != nil {
-			timer.Stop()
+		isPending = true
+		parseWait := parseInterval - parseNow.Sub(parseLastInvoke)
+		if parseTimer != nil {
+			parseTimer.Stop()
 		}
-		timer = time.AfterFunc(wait, func() {
-			mu.Lock()
-			if !pending {
-				timer = nil
-				mu.Unlock()
+		parseTimer = time.AfterFunc(parseWait, func() {
+			parseMu.Lock()
+			if !isPending {
+				parseTimer = nil
+				parseMu.Unlock()
 				return
 			}
-			eventCopy := latest
-			pending = false
-			lastInvoke = time.Now()
-			timer = nil
-			mu.Unlock()
-			invokeEventCallback(callback, eventCopy)
+			parseEventCopy := parseLatest
+			isPending = false
+			parseLastInvoke = time.Now()
+			parseTimer = nil
+			parseMu.Unlock()
+			invokeEventCallback(parseCallback, parseEventCopy)
 		})
-		mu.Unlock()
+		parseMu.Unlock()
 	}
 }
 
-func appendNormalizedChild(dst *[]ui.Node, value interface{}) {
-	switch typed := value.(type) {
+// appendNormalizedChild is a core package helper.
+func appendNormalizedChild(parseDst *[]ui.Node, parseValue interface{}) {
+	switch parseTyped := parseValue.(type) {
 	case nil:
 		return
 	case ui.Node:
-		*dst = append(*dst, typed)
+		*parseDst = append(*parseDst, parseTyped)
 	case string:
-		*dst = append(*dst, Text(typed))
+		*parseDst = append(*parseDst, Text(parseTyped))
 	case fmt.Stringer:
-		*dst = append(*dst, Text(typed.String()))
+		*parseDst = append(*parseDst, Text(parseTyped.String()))
 	case func() string:
-		*dst = append(*dst, Text(typed))
+		*parseDst = append(*parseDst, Text(parseTyped))
 	case []ui.Node:
-		for _, child := range typed {
-			appendNormalizedChild(dst, child)
+		for _, parseChild := range parseTyped {
+			appendNormalizedChild(parseDst, parseChild)
 		}
 	case []string:
-		for _, child := range typed {
-			appendNormalizedChild(dst, child)
+		for _, parseChild2 := range parseTyped {
+			appendNormalizedChild(parseDst, parseChild2)
 		}
 	case []interface{}:
-		for _, child := range typed {
-			appendNormalizedChild(dst, child)
+		for _, parseChild3 := range parseTyped {
+			appendNormalizedChild(parseDst, parseChild3)
 		}
 	default:
-		valueOf := reflect.ValueOf(value)
-		if valueOf.IsValid() {
-			switch valueOf.Kind() {
+		parseValueOf := reflect.ValueOf(parseValue)
+		if parseValueOf.IsValid() {
+			switch parseValueOf.Kind() {
 			case reflect.Slice, reflect.Array:
-				for index := 0; index < valueOf.Len(); index++ {
-					appendNormalizedChild(dst, valueOf.Index(index).Interface())
+				for parseIndex := 0; parseIndex < parseValueOf.Len(); parseIndex++ {
+					appendNormalizedChild(parseDst, parseValueOf.Index(parseIndex).Interface())
 				}
 				return
 			}
 		}
-		*dst = append(*dst, Text(typed))
+		*parseDst = append(*parseDst, Text(parseTyped))
 	}
 }
 
-func appendClassFragments(dst *[]string, values ...interface{}) {
-	for _, value := range values {
-		switch typed := value.(type) {
+// appendClassFragments is a core package helper.
+func appendClassFragments(parseDst *[]string, parseValues ...interface{}) {
+	for _, parseValue := range parseValues {
+		switch parseTyped := parseValue.(type) {
 		case nil:
 			continue
 		case string:
-			for _, fragment := range strings.Fields(typed) {
-				if fragment != "" {
-					*dst = append(*dst, fragment)
+			for _, parseFragment := range strings.Fields(parseTyped) {
+				if parseFragment != "" {
+					*parseDst = append(*parseDst, parseFragment)
 				}
 			}
 		case fmt.Stringer:
-			appendClassFragments(dst, typed.String())
+			appendClassFragments(parseDst, parseTyped.String())
 		case []string:
-			for _, entry := range typed {
-				appendClassFragments(dst, entry)
+			for _, parseEntry := range parseTyped {
+				appendClassFragments(parseDst, parseEntry)
 			}
 		case []interface{}:
-			appendClassFragments(dst, typed...)
+			appendClassFragments(parseDst, parseTyped...)
 		default:
-			valueOf := reflect.ValueOf(value)
-			if valueOf.IsValid() {
-				switch valueOf.Kind() {
+			parseValueOf := reflect.ValueOf(parseValue)
+			if parseValueOf.IsValid() {
+				switch parseValueOf.Kind() {
 				case reflect.Slice, reflect.Array:
-					for index := 0; index < valueOf.Len(); index++ {
-						appendClassFragments(dst, valueOf.Index(index).Interface())
+					for parseIndex := 0; parseIndex < parseValueOf.Len(); parseIndex++ {
+						appendClassFragments(parseDst, parseValueOf.Index(parseIndex).Interface())
 					}
 					continue
 				}
 			}
-			appendClassFragments(dst, fmt.Sprint(typed))
+			appendClassFragments(parseDst, fmt.Sprint(parseTyped))
 		}
 	}
 }
 
-func toHandler(callback interface{}) ui.Handler {
-	switch typed := callback.(type) {
+// toHandler is a core package helper.
+func toHandler(parseCallback interface{}) ui.Handler {
+	switch parseTyped := parseCallback.(type) {
 	case nil:
 		return ui.Handler{}
 	case ui.Handler:
-		return typed
+		return parseTyped
 	default:
-		return ui.UseEvent(typed)
+		return ui.UseEvent(parseTyped)
 	}
 }
 
-func invokeEventCallback(callback interface{}, event ui.Event) {
-	if callback == nil {
+// invokeEventCallback is a core package helper.
+func invokeEventCallback(parseCallback interface{}, parseEvent ui.Event) {
+	if parseCallback == nil {
 		return
 	}
-	value := reflect.ValueOf(callback)
-	if !value.IsValid() || value.Kind() != reflect.Func {
+	parseValue := reflect.ValueOf(parseCallback)
+	if !parseValue.IsValid() || parseValue.Kind() != reflect.Func {
 		return
 	}
-	callbackType := value.Type()
-	switch callbackType.NumIn() {
+	parseCallbackType := parseValue.Type()
+	switch parseCallbackType.NumIn() {
 	case 0:
-		value.Call(nil)
+		parseValue.Call(nil)
 	case 1:
-		eventValue := reflect.ValueOf(event)
-		argType := callbackType.In(0)
-		if eventValue.Type().AssignableTo(argType) {
-			value.Call([]reflect.Value{eventValue})
+		parseEventValue := reflect.ValueOf(parseEvent)
+		parseArgType := parseCallbackType.In(0)
+		if parseEventValue.Type().AssignableTo(parseArgType) {
+			parseValue.Call([]reflect.Value{parseEventValue})
 			return
 		}
-		if eventValue.Type().ConvertibleTo(argType) {
-			value.Call([]reflect.Value{eventValue.Convert(argType)})
+		if parseEventValue.Type().ConvertibleTo(parseArgType) {
+			parseValue.Call([]reflect.Value{parseEventValue.Convert(parseArgType)})
 		}
 	}
 }
 
-func cloneStringMap(input map[string]string) map[string]string {
-	if len(input) == 0 {
+// cloneStringMap is a core package helper.
+func cloneStringMap(parseInput map[string]string) map[string]string {
+	if len(parseInput) == 0 {
 		return nil
 	}
-	clone := make(map[string]string, len(input))
-	for key, value := range input {
-		clone[key] = value
+	parseClone := make(map[string]string, len(parseInput))
+	for parseKey, parseValue := range parseInput {
+		parseClone[parseKey] = parseValue
 	}
-	return clone
+	return parseClone
 }
 
-func cloneProps(input Props) Props {
-	clone := input
-	clone.Style = cloneStringMap(input.Style)
-	clone.Data = cloneStringMap(input.Data)
-	clone.Aria = cloneStringMap(input.Aria)
-	clone.Raw = cloneAnyMap(input.Raw)
-	return clone
+// cloneProps is a core package helper.
+func cloneProps(parseInput Props) Props {
+	parseClone := parseInput
+	parseClone.Style = cloneStringMap(parseInput.Style)
+	parseClone.Data = cloneStringMap(parseInput.Data)
+	parseClone.Aria = cloneStringMap(parseInput.Aria)
+	parseClone.Raw = cloneAnyMap(parseInput.Raw)
+	return parseClone
 }
 
-func mergeStringMap(dst map[string]string, values map[string]string) map[string]string {
-	if len(values) == 0 {
-		return dst
+// mergeStringMap is a core package helper.
+func mergeStringMap(parseDst map[string]string, parseValues map[string]string) map[string]string {
+	if len(parseValues) == 0 {
+		return parseDst
 	}
-	if dst == nil {
-		dst = make(map[string]string, len(values))
+	if parseDst == nil {
+		parseDst = make(map[string]string, len(parseValues))
 	}
-	for key, value := range values {
-		dst[key] = value
+	for parseKey, parseValue := range parseValues {
+		parseDst[parseKey] = parseValue
 	}
-	return dst
+	return parseDst
 }
 
-func cloneAnyMap(input map[string]interface{}) map[string]interface{} {
-	if len(input) == 0 {
+// cloneAnyMap is a core package helper.
+func cloneAnyMap(parseInput map[string]interface{}) map[string]interface{} {
+	if len(parseInput) == 0 {
 		return nil
 	}
-	clone := make(map[string]interface{}, len(input))
-	for key, value := range input {
-		clone[key] = value
+	parseClone := make(map[string]interface{}, len(parseInput))
+	for parseKey, parseValue := range parseInput {
+		parseClone[parseKey] = parseValue
 	}
-	return clone
+	return parseClone
 }
 
-func mergeAnyMap(dst map[string]interface{}, values map[string]interface{}) map[string]interface{} {
-	if len(values) == 0 {
-		return dst
+// mergeAnyMap is a core package helper.
+func mergeAnyMap(parseDst map[string]interface{}, parseValues map[string]interface{}) map[string]interface{} {
+	if len(parseValues) == 0 {
+		return parseDst
 	}
-	if dst == nil {
-		dst = make(map[string]interface{}, len(values))
+	if parseDst == nil {
+		parseDst = make(map[string]interface{}, len(parseValues))
 	}
-	for key, value := range values {
-		dst[key] = value
+	for parseKey, parseValue := range parseValues {
+		parseDst[parseKey] = parseValue
 	}
-	return dst
+	return parseDst
 }

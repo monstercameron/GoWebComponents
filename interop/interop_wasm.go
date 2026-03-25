@@ -26,90 +26,91 @@ func GetSessionStorage() (Storage, error) {
 
 // GetWindowEnv returns a lightweight reader for shared values attached to window.
 func GetWindowEnv() (WindowEnv, error) {
-	rawWindow, err := globalProperty("WindowEnv", "window")
-	if err != nil {
-		return WindowEnv{}, err
+	parseRawWindow, parseErr := globalProperty("WindowEnv", "window")
+	if parseErr != nil {
+		return WindowEnv{}, parseErr
 	}
-	return WindowEnv{lookup: func(name string) (Value, bool) {
-		key := strings.TrimSpace(name)
-		if key == "" {
+	return WindowEnv{lookup: func(parseName string) (Value, bool) {
+		parseKey := strings.TrimSpace(parseName)
+		if parseKey == "" {
 			return Value{}, false
 		}
-		value := rawWindow.Get(key)
-		if value.IsUndefined() || value.IsNull() {
+		parseValue := parseRawWindow.Get(parseKey)
+		if parseValue.IsUndefined() || parseValue.IsNull() {
 			return Value{}, false
 		}
-		return Value{raw: value}, true
+		return Value{raw: parseValue}, true
 	}}, nil
 }
 
-func resolveStorage(name string) (Storage, error) {
-	raw, err := globalProperty("Storage", name)
-	if err != nil {
-		return Storage{}, err
+func resolveStorage(parseName string) (Storage, error) {
+	parseRaw, parseErr := globalProperty("Storage", parseName)
+	if parseErr != nil {
+		return Storage{}, parseErr
 	}
 	return Storage{
-		getItem: func(key string) (string, bool, error) {
-			value := raw.Call("getItem", key)
-			if value.IsUndefined() || value.IsNull() {
+		getItem: func(parseKey string) (string, bool, error) {
+			parseValue := parseRaw.Call("getItem", parseKey)
+			if parseValue.IsUndefined() || parseValue.IsNull() {
 				return "", false, nil
 			}
-			return value.String(), true, nil
+			return parseValue.String(), true, nil
 		},
-		getMany: func(keys []string) (map[string]string, error) {
-			return storageGetMany(raw, keys), nil
+		getMany: func(parseKeys []string) (map[string]string, error) {
+			return storageGetMany(parseRaw, parseKeys), nil
 		},
-		setItem: func(key string, value string) error {
-			raw.Call("setItem", key, value)
+		setItem: func(parseKey2 string, parseValue3 string) error {
+			parseRaw.Call("setItem", parseKey2, parseValue3)
 			return nil
 		},
-		removeItem: func(key string) (err error) {
-			defer recoverInteropException("Storage.RemoveItem", name+".removeItem", &err)
-			removeItem := raw.Get("removeItem")
-			if removeItem.Type() != js.TypeFunction {
-				return &Error{Op: "Storage.RemoveItem", Target: name + ".removeItem", Code: CodeNotFunction, Err: errors.New("storage removeItem is not callable")}
+		removeItem: func(parseKey3 string) (parseErr2 error) {
+			defer recoverInteropException("Storage.RemoveItem", parseName+".removeItem", &parseErr2)
+			parseRemoveItem := parseRaw.Get("removeItem")
+			if parseRemoveItem.Type() != js.TypeFunction {
+				return &Error{Op: "Storage.RemoveItem", Target: parseName + ".removeItem", Code: CodeNotFunction, Err: errors.New("storage removeItem is not callable")}
 			}
-			raw.Call("removeItem", key)
+			parseRaw.Call("removeItem", parseKey3)
 			return nil
 		},
 		clear: func() error {
-			raw.Call("clear")
+			parseRaw.Call("clear")
 			return nil
 		},
 		length: func() (int, error) {
-			return raw.Get("length").Int(), nil
+			return parseRaw.Get("length").Int(), nil
 		},
-		key: func(index int) (string, bool, error) {
-			value := raw.Call("key", index)
-			if value.IsUndefined() || value.IsNull() {
+		key: func(parseIndex int) (string, bool, error) {
+			parseValue2 := parseRaw.Call("key", parseIndex)
+			if parseValue2.IsUndefined() || parseValue2.IsNull() {
 				return "", false, nil
 			}
-			return value.String(), true, nil
+			return parseValue2.String(), true, nil
 		},
 	}, nil
 }
 
 // GetWindowLocation returns a Location backed by the browser window.location object.
 func GetWindowLocation() (Location, error) {
-	if err != nil {
-		return Location{}, err
+	parseRaw, parseErr := globalPath("Location", "window", "location")
+	if parseErr != nil {
+		return Location{}, parseErr
 	}
 	return Location{
-		href:     func() string { return raw.Get("href").String() },
-		pathname: func() string { return raw.Get("pathname").String() },
-		search:   func() string { return raw.Get("search").String() },
-		hash:     func() string { return raw.Get("hash").String() },
-		origin:   func() string { return raw.Get("origin").String() },
-		assign: func(rawURL string) error {
-			raw.Call("assign", rawURL)
+		href:     func() string { return parseRaw.Get("href").String() },
+		pathname: func() string { return parseRaw.Get("pathname").String() },
+		search:   func() string { return parseRaw.Get("search").String() },
+		hash:     func() string { return parseRaw.Get("hash").String() },
+		origin:   func() string { return parseRaw.Get("origin").String() },
+		assign: func(parseRawURL string) error {
+			parseRaw.Call("assign", parseRawURL)
 			return nil
 		},
-		replace: func(rawURL string) error {
-			raw.Call("replace", rawURL)
+		replace: func(parseRawURL2 string) error {
+			parseRaw.Call("replace", parseRawURL2)
 			return nil
 		},
 		reload: func() error {
-			raw.Call("reload")
+			parseRaw.Call("reload")
 			return nil
 		},
 	}, nil
@@ -117,42 +118,43 @@ func GetWindowLocation() (Location, error) {
 
 // GetWindowHistory returns a History backed by the browser window.history object.
 func GetWindowHistory() (History, error) {
-	if err != nil {
-		return History{}, err
+	parseRaw, parseErr := globalPath("History", "window", "history")
+	if parseErr != nil {
+		return History{}, parseErr
 	}
 	return History{
 		length: func() (int, error) {
-			return raw.Get("length").Int(), nil
+			return parseRaw.Get("length").Int(), nil
 		},
 		state: func() (any, error) {
-			return jsValueToGo("History.State", "history.state", raw.Get("state"))
+			return jsValueToGo("History.State", "history.state", parseRaw.Get("state"))
 		},
 		back: func() error {
-			raw.Call("back")
+			parseRaw.Call("back")
 			return nil
 		},
 		forward: func() error {
-			raw.Call("forward")
+			parseRaw.Call("forward")
 			return nil
 		},
-		goDelta: func(delta int) error {
-			raw.Call("go", delta)
+		goDelta: func(parseDelta int) error {
+			parseRaw.Call("go", parseDelta)
 			return nil
 		},
-		pushState: func(state any, title string, rawURL string) error {
-			value, err := goValueToJS("History.PushState", "state", state)
-			if err != nil {
-				return err
+		pushState: func(parseState any, parseTitle string, parseRawURL string) error {
+			parseValue, parseErr2 := goValueToJS("History.PushState", "state", parseState)
+			if parseErr2 != nil {
+				return parseErr2
 			}
-			raw.Call("pushState", value, title, rawURL)
+			parseRaw.Call("pushState", parseValue, parseTitle, parseRawURL)
 			return nil
 		},
-		replaceState: func(state any, title string, rawURL string) error {
-			value, err := goValueToJS("History.ReplaceState", "state", state)
-			if err != nil {
-				return err
+		replaceState: func(parseState2 any, parseTitle2 string, parseRawURL2 string) error {
+			parseValue2, parseErr3 := goValueToJS("History.ReplaceState", "state", parseState2)
+			if parseErr3 != nil {
+				return parseErr3
 			}
-			raw.Call("replaceState", value, title, rawURL)
+			parseRaw.Call("replaceState", parseValue2, parseTitle2, parseRawURL2)
 			return nil
 		},
 	}, nil
@@ -160,48 +162,51 @@ func GetWindowHistory() (History, error) {
 
 // GetClipboard returns a Clipboard backed by navigator.clipboard.
 func GetClipboard() (Clipboard, error) {
-	if err != nil {
-		return Clipboard{}, err
+	parseRaw, parseErr := globalPath("Clipboard", "navigator", "clipboard")
+	if parseErr != nil {
+		return Clipboard{}, parseErr
 	}
 	return Clipboard{
-		writeText: func(ctx context.Context, text string) error {
-			_, err := awaitValue(ctx, "Clipboard.WriteText", "navigator.clipboard.writeText", raw.Call("writeText", text))
-			return err
+		writeText: func(parseCtx context.Context, parseText string) error {
+			_, parseErr2 := awaitValue(parseCtx, "Clipboard.WriteText", "navigator.clipboard.writeText", parseRaw.Call("writeText", parseText))
+			return parseErr2
 		},
-		readText: func(ctx context.Context) (string, error) {
-			value, err := awaitValue(ctx, "Clipboard.ReadText", "navigator.clipboard.readText", raw.Call("readText"))
-			if err != nil {
-				return "", err
+		readText: func(parseCtx2 context.Context) (string, error) {
+			parseValue, parseErr3 := awaitValue(parseCtx2, "Clipboard.ReadText", "navigator.clipboard.readText", parseRaw.Call("readText"))
+			if parseErr3 != nil {
+				return "", parseErr3
 			}
-			if value.IsUndefined() || value.IsNull() {
+			if parseValue.IsUndefined() || parseValue.IsNull() {
 				return "", nil
 			}
-			return value.String(), nil
+			return parseValue.String(), nil
 		},
 	}, nil
 }
 
 // ScheduleTimeout schedules fn to run once after delay using window.setTimeout.
-func ScheduleTimeout(delay time.Duration, fn func()) (Timer, error) { "", CodeInvalid, errors.New("callback is nil"))
+func ScheduleTimeout(parseDelay time.Duration, parseFn func()) (Timer, error) {
+	if parseFn == nil {
+		return Timer{}, wrapError("ScheduleTimeout", "", CodeInvalid, errors.New("callback is nil"))
 	}
 	var (
-		callback js.Func
-		once     sync.Once
-		id       js.Value
+		parseCallback js.Func
+		parseOnce     sync.Once
+		parseId       js.Value
 	)
-	callback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		once.Do(func() {
-			callback.Release()
+	parseCallback = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseOnce.Do(func() {
+			parseCallback.Release()
 		})
-		fn()
+		parseFn()
 		return nil
 	})
-	id = js.Global().Call("setTimeout", callback, durationMS(delay))
+	parseId = js.Global().Call("setTimeout", parseCallback, durationMS(parseDelay))
 	return Timer{
 		cancel: func() error {
-			once.Do(func() {
-				js.Global().Call("clearTimeout", id)
-				callback.Release()
+			parseOnce.Do(func() {
+				js.Global().Call("clearTimeout", parseId)
+				parseCallback.Release()
 			})
 			return nil
 		},
@@ -209,23 +214,25 @@ func ScheduleTimeout(delay time.Duration, fn func()) (Timer, error) { "", CodeIn
 }
 
 // ScheduleInterval schedules fn to run repeatedly at interval using window.setInterval.
-func ScheduleInterval(interval time.Duration, fn func()) (Timer, error) { "", CodeInvalid, errors.New("callback is nil"))
+func ScheduleInterval(parseInterval time.Duration, parseFn func()) (Timer, error) {
+	if parseFn == nil {
+		return Timer{}, wrapError("ScheduleInterval", "", CodeInvalid, errors.New("callback is nil"))
 	}
 	var (
-		callback js.Func
-		once     sync.Once
-		id       js.Value
+		parseCallback js.Func
+		parseOnce     sync.Once
+		parseId       js.Value
 	)
-	callback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		fn()
+	parseCallback = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseFn()
 		return nil
 	})
-	id = js.Global().Call("setInterval", callback, durationMS(interval))
+	parseId = js.Global().Call("setInterval", parseCallback, durationMS(parseInterval))
 	return Timer{
 		cancel: func() error {
-			once.Do(func() {
-				js.Global().Call("clearInterval", id)
-				callback.Release()
+			parseOnce.Do(func() {
+				js.Global().Call("clearInterval", parseId)
+				parseCallback.Release()
 			})
 			return nil
 		},
@@ -233,39 +240,50 @@ func ScheduleInterval(interval time.Duration, fn func()) (Timer, error) { "", Co
 }
 
 // GetWindowEvents returns an EventTarget for the browser window object.
-func GetWindowEvents() (EventTarget, error) { raw), nil
+func GetWindowEvents() (EventTarget, error) {
+	parseRaw, parseErr := globalProperty("EventTarget", "window")
+	if parseErr != nil {
+		return EventTarget{}, parseErr
+	}
+	return newEventTarget("window", parseRaw), nil
 }
 
 // GetDocumentEvents returns an EventTarget for the browser document object.
-func GetDocumentEvents() (EventTarget, error) { raw), nil
+func GetDocumentEvents() (EventTarget, error) {
+	parseRaw, parseErr := globalProperty("EventTarget", "document")
+	if parseErr != nil {
+		return EventTarget{}, parseErr
+	}
+	return newEventTarget("document", parseRaw), nil
 }
 
 // GetDocument returns a Document backed by the browser document object.
 func GetDocument() (Document, error) {
-	if err != nil {
-		return Document{}, err
+	parseRaw, parseErr := globalProperty("Document", "document")
+	if parseErr != nil {
+		return Document{}, parseErr
 	}
 	return Document{
-		elementByID: func(id string) (Element, bool, error) {
-			value := raw.Call("getElementById", id)
-			if value.IsUndefined() || value.IsNull() {
+		elementByID: func(parseId2 string) (Element, bool, error) {
+			parseValue := parseRaw.Call("getElementById", parseId2)
+			if parseValue.IsUndefined() || parseValue.IsNull() {
 				return Element{}, false, nil
 			}
-			return newElement("document.getElementById", value), true, nil
+			return newElement("document.getElementById", parseValue), true, nil
 		},
-		elementsByID: func(ids []string) (map[string]Element, error) {
-			resolved := make(map[string]Element, len(ids))
-			for id, value := range documentElementsByID(raw, ids) {
-				resolved[id] = newElement("document.getElementById", value)
+		elementsByID: func(parseIds []string) (map[string]Element, error) {
+			parseResolved := make(map[string]Element, len(parseIds))
+			for parseId, parseValue2 := range documentElementsByID(parseRaw, parseIds) {
+				parseResolved[parseId] = newElement("document.getElementById", parseValue2)
 			}
-			return resolved, nil
+			return parseResolved, nil
 		},
-		querySelector: func(selector string) (Element, bool, error) {
-			value := raw.Call("querySelector", selector)
-			if value.IsUndefined() || value.IsNull() {
+		querySelector: func(parseSelector string) (Element, bool, error) {
+			parseValue3 := parseRaw.Call("querySelector", parseSelector)
+			if parseValue3.IsUndefined() || parseValue3.IsNull() {
 				return Element{}, false, nil
 			}
-			return newElement("document.querySelector", value), true, nil
+			return newElement("document.querySelector", parseValue3), true, nil
 		},
 	}, nil
 }
@@ -277,7 +295,7 @@ var (
 	documentByIDHelper       js.Value
 )
 
-func storageGetMany(raw js.Value, keys []string) map[string]string {
+func storageGetMany(parseRaw js.Value, parseKeys []string) map[string]string {
 	storageGetManyHelperOnce.Do(func() {
 		storageGetManyHelper = js.Global().Get("Function").New("storage", "keys", `
 			const result = {};
@@ -290,20 +308,20 @@ func storageGetMany(raw js.Value, keys []string) map[string]string {
 			return result;
 		`)
 	})
-	values := storageGetManyHelper.Invoke(raw, stringArrayValue(keys))
-	if values.IsUndefined() || values.IsNull() {
+	parseValues := storageGetManyHelper.Invoke(parseRaw, stringArrayValue(parseKeys))
+	if parseValues.IsUndefined() || parseValues.IsNull() {
 		return map[string]string{}
 	}
-	result := make(map[string]string, len(keys))
-	objectKeys := js.Global().Get("Object").Call("keys", values)
-	for index := 0; index < objectKeys.Get("length").Int(); index++ {
-		key := objectKeys.Index(index).String()
-		result[key] = values.Get(key).String()
+	parseResult := make(map[string]string, len(parseKeys))
+	parseObjectKeys := js.Global().Get("Object").Call("keys", parseValues)
+	for parseIndex := 0; parseIndex < parseObjectKeys.Get("length").Int(); parseIndex++ {
+		parseKey := parseObjectKeys.Index(parseIndex).String()
+		parseResult[parseKey] = parseValues.Get(parseKey).String()
 	}
-	return result
+	return parseResult
 }
 
-func documentElementsByID(raw js.Value, ids []string) map[string]js.Value {
+func documentElementsByID(parseRaw js.Value, parseIds []string) map[string]js.Value {
 	documentByIDHelperOnce.Do(func() {
 		documentByIDHelper = js.Global().Get("Function").New("documentRef", "ids", `
 			const result = {};
@@ -316,174 +334,186 @@ func documentElementsByID(raw js.Value, ids []string) map[string]js.Value {
 			return result;
 		`)
 	})
-	values := documentByIDHelper.Invoke(raw, stringArrayValue(ids))
-	if values.IsUndefined() || values.IsNull() {
+	parseValues := documentByIDHelper.Invoke(parseRaw, stringArrayValue(parseIds))
+	if parseValues.IsUndefined() || parseValues.IsNull() {
 		return map[string]js.Value{}
 	}
-	result := make(map[string]js.Value, len(ids))
-	objectKeys := js.Global().Get("Object").Call("keys", values)
-	for index := 0; index < objectKeys.Get("length").Int(); index++ {
-		key := objectKeys.Index(index).String()
-		result[key] = values.Get(key)
+	parseResult := make(map[string]js.Value, len(parseIds))
+	parseObjectKeys := js.Global().Get("Object").Call("keys", parseValues)
+	for parseIndex := 0; parseIndex < parseObjectKeys.Get("length").Int(); parseIndex++ {
+		parseKey := parseObjectKeys.Index(parseIndex).String()
+		parseResult[parseKey] = parseValues.Get(parseKey)
 	}
-	return result
+	return parseResult
 }
 
-func stringArrayValue(values []string) js.Value {
-	array := js.Global().Get("Array").New()
-	for _, value := range values {
-		array.Call("push", value)
+func stringArrayValue(parseValues []string) js.Value {
+	parseArray := js.Global().Get("Array").New()
+	for _, parseValue := range parseValues {
+		parseArray.Call("push", parseValue)
 	}
-	return array
+	return parseArray
 }
 
 // GetMediaQuery returns a MediaQueryList for the given CSS media query string.
-func GetMediaQuery(query string) (MediaQueryList, error) {
-	if err != nil {
-		return MediaQueryList{}, err
+func GetMediaQuery(parseQuery string) (MediaQueryList, error) {
+	parseWindow, parseErr := globalProperty("GetMediaQuery", "window")
+	if parseErr != nil {
+		return MediaQueryList{}, parseErr
 	}
-	raw := window.Call("matchMedia", query)
-	if raw.IsUndefined() || raw.IsNull() {
-		return MediaQueryList{}, unavailable("GetMediaQuery", query)
+	parseRaw := parseWindow.Call("matchMedia", parseQuery)
+	if parseRaw.IsUndefined() || parseRaw.IsNull() {
+		return MediaQueryList{}, unavailable("GetMediaQuery", parseQuery)
 	}
 	return MediaQueryList{
-		matches: func() bool { return raw.Get("matches").Bool() },
-		media:   func() string { return raw.Get("media").String() },
+		matches: func() bool { return parseRaw.Get("matches").Bool() },
+		media:   func() string { return parseRaw.Get("media").String() },
 		subscribe: func(handler func(MediaQueryEvent)) (Subscription, error) {
 			if handler == nil {
-				return Subscription{}, wrapError("MatchMedia.Subscribe", query, CodeInvalid, errors.New("handler is nil"))
+				return Subscription{}, wrapError("MatchMedia.Subscribe", parseQuery, CodeInvalid, errors.New("handler is nil"))
 			}
-			listener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				event := raw
-				if len(args) > 0 && !args[0].IsUndefined() && !args[0].IsNull() {
-					event = args[0]
+			parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				parseEvent := parseRaw
+				if len(parseArgs) > 0 && !parseArgs[0].IsUndefined() && !parseArgs[0].IsNull() {
+					parseEvent = parseArgs[0]
 				}
 				handler(MediaQueryEvent{
-					Matches: event.Get("matches").Bool(),
-					Media:   event.Get("media").String(),
+					Matches: parseEvent.Get("matches").Bool(),
+					Media:   parseEvent.Get("media").String(),
 				})
 				return nil
 			})
-			if add := raw.Get("addEventListener"); add.Type() == js.TypeFunction {
-				raw.Call("addEventListener", "change", listener)
+			if parseAdd := parseRaw.Get("addEventListener"); parseAdd.Type() == js.TypeFunction {
+				parseRaw.Call("addEventListener", "change", parseListener)
 				return Subscription{cancel: func() {
-					raw.Call("removeEventListener", "change", listener)
-					listener.Release()
+					parseRaw.Call("removeEventListener", "change", parseListener)
+					parseListener.Release()
 				}}, nil
 			}
-			raw.Call("addListener", listener)
+			parseRaw.Call("addListener", parseListener)
 			return Subscription{cancel: func() {
-				raw.Call("removeListener", listener)
-				listener.Release()
+				parseRaw.Call("removeListener", parseListener)
+				parseListener.Release()
 			}}, nil
 		},
 	}, nil
 }
 
 // ImportModule dynamically imports a JavaScript ES module by specifier.
-func ImportModule(ctx context.Context, specifier string) (Module, error) { {
-		return Module{}, wrapError("ImportModule", specifier, CodeInvalid, errors.New("specifier is empty"))
+func ImportModule(parseCtx context.Context, parseSpecifier string) (Module, error) {
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	importFn := js.Global().Get("__gwcImportModule")
-	if importFn.IsUndefined() || importFn.IsNull() {
-		constructor := js.Global().Get("Function")
-		if constructor.IsUndefined() || constructor.IsNull() {
-			return Module{}, unavailable("ImportModule", specifier)
+	if strings.TrimSpace(parseSpecifier) == "" {
+		return Module{}, wrapError("ImportModule", parseSpecifier, CodeInvalid, errors.New("specifier is empty"))
+	}
+	parseImportFn := js.Global().Get("__gwcImportModule")
+	if parseImportFn.IsUndefined() || parseImportFn.IsNull() {
+		parseConstructor := js.Global().Get("Function")
+		if parseConstructor.IsUndefined() || parseConstructor.IsNull() {
+			return Module{}, unavailable("ImportModule", parseSpecifier)
 		}
-		importFn = constructor.New("specifier", "return import(specifier);")
+		parseImportFn = parseConstructor.New("specifier", "return import(specifier);")
 	}
-	rawModule, err := awaitValue(ctx, "ImportModule", specifier, importFn.Invoke(specifier))
-	if err != nil {
-		return Module{}, err
+	parseRawModule, parseErr := awaitValue(parseCtx, "ImportModule", parseSpecifier, parseImportFn.Invoke(parseSpecifier))
+	if parseErr != nil {
+		return Module{}, parseErr
 	}
-	state := &moduleState{specifier: specifier, value: rawModule}
+	parseState := &moduleState{specifier: parseSpecifier, value: parseRawModule}
 	return Module{
-		call: func(ctx context.Context, export string, args ...any) (any, error) {
-			raw, err := state.export(export)
-			if err != nil {
-				return nil, err
+		call: func(parseCtx2 context.Context, parseExport string, parseArgs ...any) (any, error) {
+			parseRaw, parseErr2 := parseState.export(parseExport)
+			if parseErr2 != nil {
+				return nil, parseErr2
 			}
-			if raw.Type() != js.TypeFunction {
-				return nil, wrapError("Module.Call", export, CodeNotFunction, errors.New("export is not a function"))
+			if parseRaw.Type() != js.TypeFunction {
+				return nil, wrapError("Module.Call", parseExport, CodeNotFunction, errors.New("export is not a function"))
 			}
-			jsArgs := make([]interface{}, 0, len(args))
-			for _, arg := range args {
-				value, err := goValueToJS("Module.Call", export, arg)
-				if err != nil {
-					return nil, err
+			parseJsArgs := make([]interface{}, 0, len(parseArgs))
+			for _, parseArg := range parseArgs {
+				parseValue, parseErr3 := goValueToJS("Module.Call", parseExport, parseArg)
+				if parseErr3 != nil {
+					return nil, parseErr3
 				}
-				jsArgs = append(jsArgs, value)
+				parseJsArgs = append(parseJsArgs, parseValue)
 			}
-			result, err := awaitValue(ctx, "Module.Call", export, raw.Invoke(jsArgs...))
-			if err != nil {
-				return nil, err
+			parseResult, parseErr2 := awaitValue(parseCtx2, "Module.Call", parseExport, parseRaw.Invoke(parseJsArgs...))
+			if parseErr2 != nil {
+				return nil, parseErr2
 			}
-			return jsValueToGo("Module.Call", export, result)
+			return jsValueToGo("Module.Call", parseExport, parseResult)
 		},
-		callDefault: func(ctx context.Context, args ...any) (any, error) {
-			return state.callDefault(ctx, args...)
+		callDefault: func(parseCtx3 context.Context, parseArgs2 ...any) (any, error) {
+			return parseState.callDefault(parseCtx3, parseArgs2...)
 		},
-		value: func(ctx context.Context, export string) (any, error) {
-			raw, err := state.export(export)
-			if err != nil {
-				return nil, err
+		value: func(parseCtx4 context.Context, parseExport2 string) (any, error) {
+			parseRaw2, parseErr4 := parseState.export(parseExport2)
+			if parseErr4 != nil {
+				return nil, parseErr4
 			}
-			resolved, err := awaitValue(ctx, "Module.Value", export, raw)
-			if err != nil {
-				return nil, err
+			parseResolved, parseErr4 := awaitValue(parseCtx4, "Module.Value", parseExport2, parseRaw2)
+			if parseErr4 != nil {
+				return nil, parseErr4
 			}
-			return jsValueToGo("Module.Value", export, resolved)
+			return jsValueToGo("Module.Value", parseExport2, parseResolved)
 		},
-		dispose: state.dispose,
+		dispose: parseState.dispose,
 	}, nil
 }
 
 // OpenCrossTabChannel opens a BroadcastChannel or storage-fallback channel with the given options.
-func OpenCrossTabChannel(options CrossTabChannelOptions) (CrossTabChannel, error) {
-	if name == "" {
-		return CrossTabChannel{}, wrapError("OpenCrossTabChannel", options.Name, CodeInvalid, errors.New("channel name is empty"))
+func OpenCrossTabChannel(parseOptions CrossTabChannelOptions) (CrossTabChannel, error) {
+	parseName := strings.TrimSpace(parseOptions.Name)
+	if parseName == "" {
+		return CrossTabChannel{}, wrapError("OpenCrossTabChannel", parseOptions.Name, CodeInvalid, errors.New("channel name is empty"))
 	}
-	source := fmt.Sprintf("%s-%d", name, time.Now().UnixNano())
-	if ctor := js.Global().Get("BroadcastChannel"); ctor.Type() == js.TypeFunction {
-		return newBroadcastCrossTabChannel(name, source, ctor.New(name)), nil
+	parseSource := fmt.Sprintf("%s-%d", parseName, time.Now().UnixNano())
+	if parseCtor := js.Global().Get("BroadcastChannel"); parseCtor.Type() == js.TypeFunction {
+		return newBroadcastCrossTabChannel(parseName, parseSource, parseCtor.New(parseName)), nil
 	}
-	return newStorageCrossTabChannel(name, source, resolveCrossTabStorageKey(name, options.StorageKey))
+	return newStorageCrossTabChannel(parseName, parseSource, resolveCrossTabStorageKey(parseName, parseOptions.StorageKey))
 }
 
 // OpenSecondaryWindowChannel opens a postMessage channel to a window opened via window.open.
-func OpenSecondaryWindowChannel(options WindowChannelOptions) (WindowChannel, error) { options.Name, CodeInvalid, errors.New("channel name is empty"))
+func OpenSecondaryWindowChannel(parseOptions WindowChannelOptions) (WindowChannel, error) {
+	parseName := strings.TrimSpace(parseOptions.Name)
+	if parseName == "" {
+		return WindowChannel{}, wrapError("OpenSecondaryWindowChannel", parseOptions.Name, CodeInvalid, errors.New("channel name is empty"))
 	}
-	rawWindow, err := globalProperty("Window", "window")
-	if err != nil {
-		return WindowChannel{}, err
+	parseRawWindow, parseErr := globalProperty("Window", "window")
+	if parseErr != nil {
+		return WindowChannel{}, parseErr
 	}
-	openFn := rawWindow.Get("open")
-	if openFn.Type() != js.TypeFunction {
-		return WindowChannel{}, unavailable("OpenSecondaryWindowChannel", name)
+	parseOpenFn := parseRawWindow.Get("open")
+	if parseOpenFn.Type() != js.TypeFunction {
+		return WindowChannel{}, unavailable("OpenSecondaryWindowChannel", parseName)
 	}
-	rawURL := strings.TrimSpace(options.URL)
-	if rawURL == "" {
-		return WindowChannel{}, wrapError("OpenSecondaryWindowChannel", name, CodeInvalid, errors.New("window URL is empty"))
+	parseRawURL := strings.TrimSpace(parseOptions.URL)
+	if parseRawURL == "" {
+		return WindowChannel{}, wrapError("OpenSecondaryWindowChannel", parseName, CodeInvalid, errors.New("window URL is empty"))
 	}
-	raw := openFn.Invoke(rawURL, name, strings.TrimSpace(options.Features))
-	if raw.IsUndefined() || raw.IsNull() {
-		return WindowChannel{}, wrapError("OpenSecondaryWindowChannel", name, CodeUnavailable, errors.New("window.open returned no handle"))
+	parseRaw := parseOpenFn.Invoke(parseRawURL, parseName, strings.TrimSpace(parseOptions.Features))
+	if parseRaw.IsUndefined() || parseRaw.IsNull() {
+		return WindowChannel{}, wrapError("OpenSecondaryWindowChannel", parseName, CodeUnavailable, errors.New("window.open returned no handle"))
 	}
-	return newWindowChannel(name, resolveWindowTargetOrigin(strings.TrimSpace(options.TargetOrigin)), raw, true), nil
+	return newWindowChannel(parseName, resolveWindowTargetOrigin(strings.TrimSpace(parseOptions.TargetOrigin)), parseRaw, true), nil
 }
 
 // OpenWindowOpenerChannel opens a postMessage channel to the window.opener.
-func OpenWindowOpenerChannel(options WindowChannelOptions) (WindowChannel, error) { options.Name, CodeInvalid, errors.New("channel name is empty"))
+func OpenWindowOpenerChannel(parseOptions WindowChannelOptions) (WindowChannel, error) {
+	parseName := strings.TrimSpace(parseOptions.Name)
+	if parseName == "" {
+		return WindowChannel{}, wrapError("OpenWindowOpenerChannel", parseOptions.Name, CodeInvalid, errors.New("channel name is empty"))
 	}
-	rawWindow, err := globalProperty("Window", "window")
-	if err != nil {
-		return WindowChannel{}, err
+	parseRawWindow, parseErr := globalProperty("Window", "window")
+	if parseErr != nil {
+		return WindowChannel{}, parseErr
 	}
-	opener := rawWindow.Get("opener")
-	if opener.IsUndefined() || opener.IsNull() {
-		return WindowChannel{}, unavailable("OpenWindowOpenerChannel", name)
+	parseOpener := parseRawWindow.Get("opener")
+	if parseOpener.IsUndefined() || parseOpener.IsNull() {
+		return WindowChannel{}, unavailable("OpenWindowOpenerChannel", parseName)
 	}
-	return newWindowChannel(name, resolveWindowTargetOrigin(strings.TrimSpace(options.TargetOrigin)), opener, false), nil
+	return newWindowChannel(parseName, resolveWindowTargetOrigin(strings.TrimSpace(parseOptions.TargetOrigin)), parseOpener, false), nil
 }
 
 const defaultWorkerReadyTimeout = 5 * time.Second
@@ -505,502 +535,511 @@ type goWASMWorkerState struct {
 }
 
 // OpenWorker starts a browser Worker at the given URL and returns a Go wrapper.
-func OpenWorker(ctx context.Context, options WorkerOptions) (Worker, error) { {
-		return Worker{}, wrapError("OpenWorker", options.URL, CodeInvalid, errors.New("worker URL is empty"))
+func OpenWorker(parseCtx context.Context, parseOptions WorkerOptions) (Worker, error) {
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	state := &browserWorkerState{options: options}
-	if err := state.start(ctx); err != nil {
-		return Worker{}, err
+	if strings.TrimSpace(parseOptions.URL) == "" {
+		return Worker{}, wrapError("OpenWorker", parseOptions.URL, CodeInvalid, errors.New("worker URL is empty"))
+	}
+	parseState := &browserWorkerState{options: parseOptions}
+	if parseErr := parseState.start(parseCtx); parseErr != nil {
+		return Worker{}, parseErr
 	}
 	return Worker{
-		post: state.post,
+		post: parseState.post,
 		subscribe: func(handler func(WorkerMessage, error)) (Subscription, error) {
-			return state.subscribe(handler)
+			return parseState.subscribe(handler)
 		},
-		request:   state.request,
-		terminate: state.terminate,
-		restart:   state.restart,
+		request:   parseState.request,
+		terminate: parseState.terminate,
+		restart:   parseState.restart,
 	}, nil
 }
 
 // OpenGoWASMWorker starts a Go WASM worker using the given runtime and WASM URLs.
-func OpenGoWASMWorker(ctx context.Context, options GoWASMWorkerOptions) (Worker, error) { {
-		return Worker{}, wrapError("OpenGoWASMWorker", options.RuntimeURL, CodeInvalid, errors.New("runtime URL is empty"))
+func OpenGoWASMWorker(parseCtx context.Context, parseOptions GoWASMWorkerOptions) (Worker, error) {
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	if strings.TrimSpace(options.WASMURL) == "" {
-		return Worker{}, wrapError("OpenGoWASMWorker", options.WASMURL, CodeInvalid, errors.New("wasm URL is empty"))
+	if strings.TrimSpace(parseOptions.RuntimeURL) == "" {
+		return Worker{}, wrapError("OpenGoWASMWorker", parseOptions.RuntimeURL, CodeInvalid, errors.New("runtime URL is empty"))
 	}
-	state := &goWASMWorkerState{options: options}
-	if err := state.start(ctx); err != nil {
-		return Worker{}, err
+	if strings.TrimSpace(parseOptions.WASMURL) == "" {
+		return Worker{}, wrapError("OpenGoWASMWorker", parseOptions.WASMURL, CodeInvalid, errors.New("wasm URL is empty"))
+	}
+	parseState := &goWASMWorkerState{options: parseOptions}
+	if parseErr := parseState.start(parseCtx); parseErr != nil {
+		return Worker{}, parseErr
 	}
 	return Worker{
-		post: state.post,
+		post: parseState.post,
 		subscribe: func(handler func(WorkerMessage, error)) (Subscription, error) {
-			return state.subscribe(handler)
+			return parseState.subscribe(handler)
 		},
-		request:   state.request,
-		terminate: state.terminate,
-		restart:   state.restart,
+		request:   parseState.request,
+		terminate: parseState.terminate,
+		restart:   parseState.restart,
 	}, nil
 }
 
 // GetWorkerScope returns a WorkerScope for posting and receiving messages within a worker.
 func GetWorkerScope() (WorkerScope, error) {
-	if err != nil {
-		return WorkerScope{}, err
+	parseRaw, parseErr := currentWorkerGlobal("GetWorkerScope")
+	if parseErr != nil {
+		return WorkerScope{}, parseErr
 	}
 	return WorkerScope{
-		post: func(message WorkerMessage) error {
-			value, err := goValueToJS("WorkerScope.Post", "worker", message)
-			if err != nil {
-				return err
+		post: func(parseMessage2 WorkerMessage) error {
+			parseValue, parseErr2 := goValueToJS("WorkerScope.Post", "worker", parseMessage2)
+			if parseErr2 != nil {
+				return parseErr2
 			}
-			raw.Call("postMessage", value)
+			parseRaw.Call("postMessage", parseValue)
 			return nil
 		},
 		subscribe: func(handler func(WorkerMessage, error)) (Subscription, error) {
 			if handler == nil {
 				return Subscription{}, wrapError("WorkerScope.Subscribe", "worker", CodeInvalid, errors.New("handler is nil"))
 			}
-			messageFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				message, messageErr := workerMessageFromEvent("WorkerScope.Subscribe", "worker", args)
-				handler(message, messageErr)
+			parseMessageFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				parseMessage, parseMessageErr := workerMessageFromEvent("WorkerScope.Subscribe", "worker", parseArgs)
+				handler(parseMessage, parseMessageErr)
 				return nil
 			})
-			errorFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				handler(WorkerMessage{}, wrapError("WorkerScope.Subscribe", "worker", CodeRemote, errors.New(workerRemoteErrorSummary(args))))
+			parseErrorFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+				handler(WorkerMessage{}, wrapError("WorkerScope.Subscribe", "worker", CodeRemote, errors.New(workerRemoteErrorSummary(parseArgs2))))
 				return nil
 			})
-			raw.Call("addEventListener", "message", messageFn)
-			raw.Call("addEventListener", "messageerror", errorFn)
+			parseRaw.Call("addEventListener", "message", parseMessageFn)
+			parseRaw.Call("addEventListener", "messageerror", parseErrorFn)
 			return Subscription{cancel: func() {
-				raw.Call("removeEventListener", "message", messageFn)
-				raw.Call("removeEventListener", "messageerror", errorFn)
-				messageFn.Release()
-				errorFn.Release()
+				parseRaw.Call("removeEventListener", "message", parseMessageFn)
+				parseRaw.Call("removeEventListener", "messageerror", parseErrorFn)
+				parseMessageFn.Release()
+				parseErrorFn.Release()
 			}}, nil
 		},
 	}, nil
 }
 
-func (s *goWASMWorkerState) start(ctx context.Context) error {
-	workerOptions, bootstrapURL, err := buildGoWASMWorkerOptions(s.options)
-	if err != nil {
-		return err
+func (parseS *goWASMWorkerState) start(parseCtx context.Context) error {
+	parseWorkerOptions, parseBootstrapURL, parseErr := buildGoWASMWorkerOptions(parseS.options)
+	if parseErr != nil {
+		return parseErr
 	}
-	worker, err := OpenWorker(ctx, workerOptions)
-	if err != nil {
-		revokeObjectURL(bootstrapURL)
-		return err
+	parseWorker, parseErr := OpenWorker(parseCtx, parseWorkerOptions)
+	if parseErr != nil {
+		revokeObjectURL(parseBootstrapURL)
+		return parseErr
 	}
-	s.mu.Lock()
-	s.worker = worker
-	s.bootstrapURL = bootstrapURL
-	s.active = true
-	s.mu.Unlock()
+	parseS.mu.Lock()
+	parseS.worker = parseWorker
+	parseS.bootstrapURL = parseBootstrapURL
+	parseS.active = true
+	parseS.mu.Unlock()
 	return nil
 }
 
-func (s *goWASMWorkerState) current(op string, target string) (Worker, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if !s.active {
-		return Worker{}, wrapError(op, target, CodeDisposed, errors.New("worker is not active"))
+func (parseS *goWASMWorkerState) current(parseOp string, parseTarget string) (Worker, error) {
+	parseS.mu.RLock()
+	defer parseS.mu.RUnlock()
+	if !parseS.active {
+		return Worker{}, wrapError(parseOp, parseTarget, CodeDisposed, errors.New("worker is not active"))
 	}
-	return s.worker, nil
+	return parseS.worker, nil
 }
 
-func (s *goWASMWorkerState) post(message any) error {
-	worker, err := s.current("Worker.Post", s.options.WASMURL)
-	if err != nil {
-		return err
+func (parseS *goWASMWorkerState) post(parseMessage any) error {
+	parseWorker, parseErr := parseS.current("Worker.Post", parseS.options.WASMURL)
+	if parseErr != nil {
+		return parseErr
 	}
-	return worker.Post(message)
+	return parseWorker.Post(parseMessage)
 }
 
-func (s *goWASMWorkerState) subscribe(handler func(WorkerMessage, error)) (Subscription, error) {
-	worker, err := s.current("Worker.Subscribe", s.options.WASMURL)
-	if err != nil {
-		return Subscription{}, err
+func (parseS *goWASMWorkerState) subscribe(parseHandler func(WorkerMessage, error)) (Subscription, error) {
+	parseWorker, parseErr := parseS.current("Worker.Subscribe", parseS.options.WASMURL)
+	if parseErr != nil {
+		return Subscription{}, parseErr
 	}
-	return worker.Subscribe(handler)
+	return parseWorker.Subscribe(parseHandler)
 }
 
-func (s *goWASMWorkerState) request(ctx context.Context, name string, payload any, onProgress func(WorkerMessage, error)) (WorkerMessage, error) {
-	worker, err := s.current("Worker.Request", name)
-	if err != nil {
-		return WorkerMessage{}, err
+func (parseS *goWASMWorkerState) request(parseCtx context.Context, parseName string, parsePayload any, parseOnProgress func(WorkerMessage, error)) (WorkerMessage, error) {
+	parseWorker, parseErr := parseS.current("Worker.Request", parseName)
+	if parseErr != nil {
+		return WorkerMessage{}, parseErr
 	}
-	return worker.Request(ctx, name, payload, onProgress)
+	return parseWorker.Request(parseCtx, parseName, parsePayload, parseOnProgress)
 }
 
-func (s *goWASMWorkerState) terminate() error {
-	s.mu.Lock()
-	worker := s.worker
-	bootstrapURL := s.bootstrapURL
-	active := s.active
-	s.worker = Worker{}
-	s.bootstrapURL = ""
-	s.active = false
-	s.mu.Unlock()
-	if !active {
-		return wrapError("Worker.Terminate", s.options.WASMURL, CodeDisposed, errors.New("worker is not active"))
+func (parseS *goWASMWorkerState) terminate() error {
+	parseS.mu.Lock()
+	parseWorker := parseS.worker
+	parseBootstrapURL := parseS.bootstrapURL
+	parseActive := parseS.active
+	parseS.worker = Worker{}
+	parseS.bootstrapURL = ""
+	parseS.active = false
+	parseS.mu.Unlock()
+	if !parseActive {
+		return wrapError("Worker.Terminate", parseS.options.WASMURL, CodeDisposed, errors.New("worker is not active"))
 	}
-	err := worker.Terminate()
-	revokeObjectURL(bootstrapURL)
-	return err
+	parseErr := parseWorker.Terminate()
+	revokeObjectURL(parseBootstrapURL)
+	return parseErr
 }
 
-func (s *goWASMWorkerState) restart(ctx context.Context) error {
-	if err := s.terminate(); err != nil && !IsCode(err, CodeDisposed) {
-		return err
+func (parseS *goWASMWorkerState) restart(parseCtx context.Context) error {
+	if parseErr := parseS.terminate(); parseErr != nil && !IsCode(parseErr, CodeDisposed) {
+		return parseErr
 	}
-	return s.start(ctx)
+	return parseS.start(parseCtx)
 }
 
-func (s *browserWorkerState) start(ctx context.Context) error {
-	raw, err := createBrowserWorker(s.options)
-	if err != nil {
-		return err
+func (parseS *browserWorkerState) start(parseCtx context.Context) error {
+	parseRaw, parseErr := createBrowserWorker(parseS.options)
+	if parseErr != nil {
+		return parseErr
 	}
-	if s.options.Ready {
-		waitCtx := ctx
-		if _, ok := waitCtx.Deadline(); !ok {
-			timeout := s.options.ReadyTimeout
-			if timeout <= 0 {
-				timeout = defaultWorkerReadyTimeout
+	if parseS.options.Ready {
+		parseWaitCtx := parseCtx
+		if _, parseOk := parseWaitCtx.Deadline(); !parseOk {
+			parseTimeout := parseS.options.ReadyTimeout
+			if parseTimeout <= 0 {
+				parseTimeout = defaultWorkerReadyTimeout
 			}
-			var cancel context.CancelFunc
-			waitCtx, cancel = context.WithTimeout(waitCtx, timeout)
-			defer cancel()
+			var parseCancel context.CancelFunc
+			parseWaitCtx, parseCancel = context.WithTimeout(parseWaitCtx, parseTimeout)
+			defer parseCancel()
 		}
-		if err := waitWorkerReady(waitCtx, raw, s.options.URL); err != nil {
-			raw.Call("terminate")
-			return err
+		if parseErr2 := waitWorkerReady(parseWaitCtx, parseRaw, parseS.options.URL); parseErr2 != nil {
+			parseRaw.Call("terminate")
+			return parseErr2
 		}
 	}
-	s.mu.Lock()
-	s.raw = raw
-	s.active = true
-	s.mu.Unlock()
+	parseS.mu.Lock()
+	parseS.raw = parseRaw
+	parseS.active = true
+	parseS.mu.Unlock()
 	return nil
 }
 
-func (s *browserWorkerState) current(op string, target string) (js.Value, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if !s.active || s.raw.IsUndefined() || s.raw.IsNull() {
-		return js.Undefined(), wrapError(op, target, CodeDisposed, errors.New("worker is not active"))
+func (parseS *browserWorkerState) current(parseOp string, parseTarget string) (js.Value, error) {
+	parseS.mu.RLock()
+	defer parseS.mu.RUnlock()
+	if !parseS.active || parseS.raw.IsUndefined() || parseS.raw.IsNull() {
+		return js.Undefined(), wrapError(parseOp, parseTarget, CodeDisposed, errors.New("worker is not active"))
 	}
-	return s.raw, nil
+	return parseS.raw, nil
 }
 
-func (s *browserWorkerState) post(message any) error {
-	raw, err := s.current("Worker.Post", s.options.URL)
-	if err != nil {
-		return err
+func (parseS *browserWorkerState) post(parseMessage any) error {
+	parseRaw, parseErr := parseS.current("Worker.Post", parseS.options.URL)
+	if parseErr != nil {
+		return parseErr
 	}
-	value, err := goValueToJS("Worker.Post", s.options.URL, message)
-	if err != nil {
-		return err
+	parseValue, parseErr := goValueToJS("Worker.Post", parseS.options.URL, parseMessage)
+	if parseErr != nil {
+		return parseErr
 	}
-	raw.Call("postMessage", value)
+	parseRaw.Call("postMessage", parseValue)
 	return nil
 }
 
-func (s *browserWorkerState) subscribe(handler func(WorkerMessage, error)) (Subscription, error) {
-	if handler == nil {
-		return Subscription{}, wrapError("Worker.Subscribe", s.options.URL, CodeInvalid, errors.New("handler is nil"))
+func (parseS *browserWorkerState) subscribe(parseHandler func(WorkerMessage, error)) (Subscription, error) {
+	if parseHandler == nil {
+		return Subscription{}, wrapError("Worker.Subscribe", parseS.options.URL, CodeInvalid, errors.New("handler is nil"))
 	}
-	raw, err := s.current("Worker.Subscribe", s.options.URL)
-	if err != nil {
-		return Subscription{}, err
+	parseRaw, parseErr := parseS.current("Worker.Subscribe", parseS.options.URL)
+	if parseErr != nil {
+		return Subscription{}, parseErr
 	}
-	messageFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		message, err := workerMessageFromEvent("Worker.Subscribe", s.options.URL, args)
-		handler(message, err)
+	parseMessageFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseMessage, parseErr2 := workerMessageFromEvent("Worker.Subscribe", parseS.options.URL, parseArgs)
+		parseHandler(parseMessage, parseErr2)
 		return nil
 	})
-	errorFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		handler(WorkerMessage{}, wrapError("Worker.Subscribe", s.options.URL, CodeRemote, errors.New(workerRemoteErrorSummary(args))))
+	parseErrorFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		parseHandler(WorkerMessage{}, wrapError("Worker.Subscribe", parseS.options.URL, CodeRemote, errors.New(workerRemoteErrorSummary(parseArgs2))))
 		return nil
 	})
-	raw.Call("addEventListener", "message", messageFn)
-	raw.Call("addEventListener", "error", errorFn)
+	parseRaw.Call("addEventListener", "message", parseMessageFn)
+	parseRaw.Call("addEventListener", "error", parseErrorFn)
 	return Subscription{cancel: func() {
-		raw.Call("removeEventListener", "message", messageFn)
-		raw.Call("removeEventListener", "error", errorFn)
-		messageFn.Release()
-		errorFn.Release()
+		parseRaw.Call("removeEventListener", "message", parseMessageFn)
+		parseRaw.Call("removeEventListener", "error", parseErrorFn)
+		parseMessageFn.Release()
+		parseErrorFn.Release()
 	}}, nil
 }
 
-func (s *browserWorkerState) request(ctx context.Context, name string, payload any, onProgress func(WorkerMessage, error)) (WorkerMessage, error) {
-	if ctx == nil {
-		ctx = context.Background()
+func (parseS *browserWorkerState) request(parseCtx context.Context, parseName string, parsePayload any, parseOnProgress func(WorkerMessage, error)) (WorkerMessage, error) {
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	if strings.TrimSpace(name) == "" {
-		return WorkerMessage{}, wrapError("Worker.Request", name, CodeInvalid, errors.New("request name is empty"))
+	if strings.TrimSpace(parseName) == "" {
+		return WorkerMessage{}, wrapError("Worker.Request", parseName, CodeInvalid, errors.New("request name is empty"))
 	}
-	raw, err := s.current("Worker.Request", name)
-	if err != nil {
-		return WorkerMessage{}, err
+	parseRaw, parseErr := parseS.current("Worker.Request", parseName)
+	if parseErr != nil {
+		return WorkerMessage{}, parseErr
 	}
 
-	s.mu.Lock()
-	s.nextRequestID++
-	requestID := fmt.Sprintf("worker-%d", s.nextRequestID)
-	s.mu.Unlock()
+	parseS.mu.Lock()
+	parseS.nextRequestID++
+	parseRequestID := fmt.Sprintf("worker-%d", parseS.nextRequestID)
+	parseS.mu.Unlock()
 
-	resultCh := make(chan WorkerMessage, 1)
-	errCh := make(chan error, 1)
-	messageFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		message, decodeErr := workerMessageFromEvent("Worker.Request", name, args)
-		if decodeErr != nil {
-			if onProgress != nil {
-				onProgress(WorkerMessage{}, decodeErr)
+	parseResultCh := make(chan WorkerMessage, 1)
+	parseErrCh := make(chan error, 1)
+	parseMessageFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseMessage, parseDecodeErr := workerMessageFromEvent("Worker.Request", parseName, parseArgs)
+		if parseDecodeErr != nil {
+			if parseOnProgress != nil {
+				parseOnProgress(WorkerMessage{}, parseDecodeErr)
 			}
 			return nil
 		}
-		if strings.TrimSpace(message.ID) != requestID {
+		if strings.TrimSpace(parseMessage.ID) != parseRequestID {
 			return nil
 		}
-		switch strings.TrimSpace(message.Phase) {
+		switch strings.TrimSpace(parseMessage.Phase) {
 		case "progress":
-			if onProgress != nil {
-				onProgress(message, nil)
+			if parseOnProgress != nil {
+				parseOnProgress(parseMessage, nil)
 			}
 		case "error":
-			errCh <- wrapError("Worker.Request", name, CodeRemote, errors.New(workerRemoteEnvelopeError(message)))
+			parseErrCh <- wrapError("Worker.Request", parseName, CodeRemote, errors.New(workerRemoteEnvelopeError(parseMessage)))
 		case "result", "message", "":
-			resultCh <- message
+			parseResultCh <- parseMessage
 		}
 		return nil
 	})
-	errorFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		errCh <- wrapError("Worker.Request", name, CodeRemote, errors.New(workerRemoteErrorSummary(args)))
+	parseErrorFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		parseErrCh <- wrapError("Worker.Request", parseName, CodeRemote, errors.New(workerRemoteErrorSummary(parseArgs2)))
 		return nil
 	})
-	raw.Call("addEventListener", "message", messageFn)
-	raw.Call("addEventListener", "error", errorFn)
+	parseRaw.Call("addEventListener", "message", parseMessageFn)
+	parseRaw.Call("addEventListener", "error", parseErrorFn)
 	defer func() {
-		raw.Call("removeEventListener", "message", messageFn)
-		raw.Call("removeEventListener", "error", errorFn)
-		messageFn.Release()
-		errorFn.Release()
+		parseRaw.Call("removeEventListener", "message", parseMessageFn)
+		parseRaw.Call("removeEventListener", "error", parseErrorFn)
+		parseMessageFn.Release()
+		parseErrorFn.Release()
 	}()
 
-	if err := s.post(WorkerMessage{
-		ID:      requestID,
+	if parseErr2 := parseS.post(WorkerMessage{
+		ID:      parseRequestID,
 		Phase:   "request",
-		Name:    name,
-		Payload: payload,
-	}); err != nil {
-		return WorkerMessage{}, err
+		Name:    parseName,
+		Payload: parsePayload,
+	}); parseErr2 != nil {
+		return WorkerMessage{}, parseErr2
 	}
 
 	select {
-	case message := <-resultCh:
-		return message, nil
-	case err := <-errCh:
-		return WorkerMessage{}, err
-	case <-ctx.Done():
-		return WorkerMessage{}, workerContextError("Worker.Request", name, ctx.Err())
+	case parseMessage2 := <-parseResultCh:
+		return parseMessage2, nil
+	case parseErr3 := <-parseErrCh:
+		return WorkerMessage{}, parseErr3
+	case <-parseCtx.Done():
+		return WorkerMessage{}, workerContextError("Worker.Request", parseName, parseCtx.Err())
 	}
 }
 
-func (s *browserWorkerState) terminate() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if !s.active || s.raw.IsUndefined() || s.raw.IsNull() {
-		return wrapError("Worker.Terminate", s.options.URL, CodeDisposed, errors.New("worker is not active"))
+func (parseS *browserWorkerState) terminate() error {
+	parseS.mu.Lock()
+	defer parseS.mu.Unlock()
+	if !parseS.active || parseS.raw.IsUndefined() || parseS.raw.IsNull() {
+		return wrapError("Worker.Terminate", parseS.options.URL, CodeDisposed, errors.New("worker is not active"))
 	}
-	s.raw.Call("terminate")
-	s.raw = js.Undefined()
-	s.active = false
+	parseS.raw.Call("terminate")
+	parseS.raw = js.Undefined()
+	parseS.active = false
 	return nil
 }
 
-func (s *browserWorkerState) restart(ctx context.Context) error {
-	s.mu.Lock()
-	raw := s.raw
-	active := s.active
-	s.raw = js.Undefined()
-	s.active = false
-	s.mu.Unlock()
-	if active && !raw.IsUndefined() && !raw.IsNull() {
-		raw.Call("terminate")
+func (parseS *browserWorkerState) restart(parseCtx context.Context) error {
+	parseS.mu.Lock()
+	parseRaw := parseS.raw
+	parseActive := parseS.active
+	parseS.raw = js.Undefined()
+	parseS.active = false
+	parseS.mu.Unlock()
+	if parseActive && !parseRaw.IsUndefined() && !parseRaw.IsNull() {
+		parseRaw.Call("terminate")
 	}
-	return s.start(ctx)
+	return parseS.start(parseCtx)
 }
 
-func createBrowserWorker(options WorkerOptions) (js.Value, error) {
-	ctor, err := globalProperty("Worker", "Worker")
-	if err != nil {
-		return js.Undefined(), err
+func createBrowserWorker(parseOptions WorkerOptions) (js.Value, error) {
+	parseCtor, parseErr := globalProperty("Worker", "Worker")
+	if parseErr != nil {
+		return js.Undefined(), parseErr
 	}
-	workerType := strings.TrimSpace(options.Type)
-	if workerType != "" && workerType != "classic" && workerType != "module" {
-		return js.Undefined(), wrapError("NewWorker", options.URL, CodeInvalid, errors.New("worker type must be classic or module"))
+	parseWorkerType := strings.TrimSpace(parseOptions.Type)
+	if parseWorkerType != "" && parseWorkerType != "classic" && parseWorkerType != "module" {
+		return js.Undefined(), wrapError("NewWorker", parseOptions.URL, CodeInvalid, errors.New("worker type must be classic or module"))
 	}
-	if workerType == "" && strings.HasSuffix(strings.ToLower(strings.TrimSpace(options.URL)), ".mjs") {
-		workerType = "module"
+	if parseWorkerType == "" && strings.HasSuffix(strings.ToLower(strings.TrimSpace(parseOptions.URL)), ".mjs") {
+		parseWorkerType = "module"
 	}
-	if strings.TrimSpace(options.Name) == "" && workerType == "" {
-		return ctor.New(options.URL), nil
+	if strings.TrimSpace(parseOptions.Name) == "" && parseWorkerType == "" {
+		return parseCtor.New(parseOptions.URL), nil
 	}
-	init := js.Global().Get("Object").New()
-	if strings.TrimSpace(options.Name) != "" {
-		init.Set("name", options.Name)
+	parseInit := js.Global().Get("Object").New()
+	if strings.TrimSpace(parseOptions.Name) != "" {
+		parseInit.Set("name", parseOptions.Name)
 	}
-	if workerType != "" {
-		init.Set("type", workerType)
+	if parseWorkerType != "" {
+		parseInit.Set("type", parseWorkerType)
 	}
-	return ctor.New(options.URL, init), nil
+	return parseCtor.New(parseOptions.URL, parseInit), nil
 }
 
-func waitWorkerReady(ctx context.Context, raw js.Value, target string) error {
-	readyCh := make(chan struct{}, 1)
-	errCh := make(chan error, 1)
-	messageFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		message, err := workerMessageFromEvent("NewWorker", target, args)
-		if err != nil {
-			errCh <- err
+func waitWorkerReady(parseCtx context.Context, parseRaw js.Value, parseTarget string) error {
+	parseReadyCh := make(chan struct{}, 1)
+	parseErrCh := make(chan error, 1)
+	parseMessageFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseMessage, parseErr := workerMessageFromEvent("NewWorker", parseTarget, parseArgs)
+		if parseErr != nil {
+			parseErrCh <- parseErr
 			return nil
 		}
-		if strings.TrimSpace(message.Phase) == "ready" {
-			readyCh <- struct{}{}
+		if strings.TrimSpace(parseMessage.Phase) == "ready" {
+			parseReadyCh <- struct{}{}
 			return nil
 		}
-		if strings.TrimSpace(message.Phase) == "error" {
-			errCh <- wrapError("NewWorker", target, CodeRemote, errors.New(workerRemoteEnvelopeError(message)))
+		if strings.TrimSpace(parseMessage.Phase) == "error" {
+			parseErrCh <- wrapError("NewWorker", parseTarget, CodeRemote, errors.New(workerRemoteEnvelopeError(parseMessage)))
 		}
 		return nil
 	})
-	errorFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		errCh <- wrapError("NewWorker", target, CodeRemote, errors.New(workerRemoteErrorSummary(args)))
+	parseErrorFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		parseErrCh <- wrapError("NewWorker", parseTarget, CodeRemote, errors.New(workerRemoteErrorSummary(parseArgs2)))
 		return nil
 	})
-	raw.Call("addEventListener", "message", messageFn)
-	raw.Call("addEventListener", "error", errorFn)
+	parseRaw.Call("addEventListener", "message", parseMessageFn)
+	parseRaw.Call("addEventListener", "error", parseErrorFn)
 	defer func() {
-		raw.Call("removeEventListener", "message", messageFn)
-		raw.Call("removeEventListener", "error", errorFn)
-		messageFn.Release()
-		errorFn.Release()
+		parseRaw.Call("removeEventListener", "message", parseMessageFn)
+		parseRaw.Call("removeEventListener", "error", parseErrorFn)
+		parseMessageFn.Release()
+		parseErrorFn.Release()
 	}()
 	select {
-	case <-readyCh:
+	case <-parseReadyCh:
 		return nil
-	case err := <-errCh:
-		consoleError(fmt.Sprintf("[interop/NewWorker] worker %q reported an error during startup: %v", target, err))
-		return err
-	case <-ctx.Done():
-		consoleError(fmt.Sprintf("[interop/NewWorker] worker %q startup timed out — if this runs on the main goroutine inside a synchronous effect, the JS event loop is starved and the worker ready message can never arrive; wrap the call in a goroutine", target))
-		return workerContextError("NewWorker", target, ctx.Err())
+	case parseErr2 := <-parseErrCh:
+		consoleError(fmt.Sprintf("[interop/NewWorker] worker %q reported an error during startup: %v", parseTarget, parseErr2))
+		return parseErr2
+	case <-parseCtx.Done():
+		consoleError(fmt.Sprintf("[interop/NewWorker] worker %q startup timed out — if this runs on the main goroutine inside a synchronous effect, the JS event loop is starved and the worker ready message can never arrive; wrap the call in a goroutine", parseTarget))
+		return workerContextError("NewWorker", parseTarget, parseCtx.Err())
 	}
 }
 
-func currentWorkerGlobal(op string) (js.Value, error) {
-	global := js.Global()
-	if doc := global.Get("document"); !doc.IsUndefined() && !doc.IsNull() {
-		return js.Undefined(), unavailable(op, "worker")
+func currentWorkerGlobal(parseOp string) (js.Value, error) {
+	parseGlobal := js.Global()
+	if parseDoc := parseGlobal.Get("document"); !parseDoc.IsUndefined() && !parseDoc.IsNull() {
+		return js.Undefined(), unavailable(parseOp, "worker")
 	}
-	postMessage := global.Get("postMessage")
-	if postMessage.IsUndefined() || postMessage.IsNull() {
-		return js.Undefined(), unavailable(op, "worker")
+	parsePostMessage := parseGlobal.Get("postMessage")
+	if parsePostMessage.IsUndefined() || parsePostMessage.IsNull() {
+		return js.Undefined(), unavailable(parseOp, "worker")
 	}
-	return global, nil
+	return parseGlobal, nil
 }
 
-func buildGoWASMWorkerOptions(options GoWASMWorkerOptions) (WorkerOptions, string, error) {
-	runtimeURL, err := resolveURL("NewGoWASMWorker", options.RuntimeURL)
-	if err != nil {
-		return WorkerOptions{}, "", err
+func buildGoWASMWorkerOptions(parseOptions GoWASMWorkerOptions) (WorkerOptions, string, error) {
+	parseRuntimeURL, parseErr := resolveURL("NewGoWASMWorker", parseOptions.RuntimeURL)
+	if parseErr != nil {
+		return WorkerOptions{}, "", parseErr
 	}
-	wasmURL, err := resolveURL("NewGoWASMWorker", options.WASMURL)
-	if err != nil {
-		return WorkerOptions{}, "", err
+	parseWasmURL, parseErr := resolveURL("NewGoWASMWorker", parseOptions.WASMURL)
+	if parseErr != nil {
+		return WorkerOptions{}, "", parseErr
 	}
-	bootstrapURL, err := createObjectURL(goWASMWorkerBootstrapSource(runtimeURL, wasmURL))
-	if err != nil {
-		return WorkerOptions{}, "", err
+	parseBootstrapURL, parseErr := createObjectURL(goWASMWorkerBootstrapSource(parseRuntimeURL, parseWasmURL))
+	if parseErr != nil {
+		return WorkerOptions{}, "", parseErr
 	}
 	return WorkerOptions{
-		URL:          bootstrapURL,
-		Name:         options.Name,
+		URL:          parseBootstrapURL,
+		Name:         parseOptions.Name,
 		Type:         "classic",
-		Ready:        options.Ready,
-		ReadyTimeout: options.ReadyTimeout,
-	}, bootstrapURL, nil
+		Ready:        parseOptions.Ready,
+		ReadyTimeout: parseOptions.ReadyTimeout,
+	}, parseBootstrapURL, nil
 }
 
-func resolveURL(op string, input string) (string, error) {
-	trimmed := strings.TrimSpace(input)
-	if trimmed == "" {
-		return "", wrapError(op, input, CodeInvalid, errors.New("URL is empty"))
+func resolveURL(parseOp string, parseInput string) (string, error) {
+	parseTrimmed := strings.TrimSpace(parseInput)
+	if parseTrimmed == "" {
+		return "", wrapError(parseOp, parseInput, CodeInvalid, errors.New("URL is empty"))
 	}
-	urlCtor, err := globalProperty(op, "URL")
-	if err != nil {
-		return "", err
+	parseUrlCtor, parseErr := globalProperty(parseOp, "URL")
+	if parseErr != nil {
+		return "", parseErr
 	}
-	base := js.Global().Get("document").Get("baseURI")
-	if base.IsUndefined() || base.IsNull() || strings.TrimSpace(base.String()) == "" {
-		location, locationErr := globalProperty(op, "location")
-		if locationErr != nil {
-			return "", locationErr
+	parseBase := js.Global().Get("document").Get("baseURI")
+	if parseBase.IsUndefined() || parseBase.IsNull() || strings.TrimSpace(parseBase.String()) == "" {
+		parseLocation, parseLocationErr := globalProperty(parseOp, "location")
+		if parseLocationErr != nil {
+			return "", parseLocationErr
 		}
-		base = location.Get("href")
+		parseBase = parseLocation.Get("href")
 	}
-	resolved := urlCtor.New(trimmed, base).Get("href").String()
-	if looksLikeJSTypeDescriptor(resolved) {
-		consoleError(fmt.Sprintf("[interop/%s] resolveURL produced a JS type descriptor %q for input %q — this usually means js.Value.String() was called on a non-string JS value", op, resolved, input))
-		return "", wrapError(op, input, CodeInvalid, fmt.Errorf("resolved URL is a JS type descriptor %q, not a valid URL — check that the input is a string value", resolved))
+	parseResolved := parseUrlCtor.New(parseTrimmed, parseBase).Get("href").String()
+	if looksLikeJSTypeDescriptor(parseResolved) {
+		consoleError(fmt.Sprintf("[interop/%s] resolveURL produced a JS type descriptor %q for input %q — this usually means js.Value.String() was called on a non-string JS value", parseOp, parseResolved, parseInput))
+		return "", wrapError(parseOp, parseInput, CodeInvalid, fmt.Errorf("resolved URL is a JS type descriptor %q, not a valid URL — check that the input is a string value", parseResolved))
 	}
-	return resolved, nil
+	return parseResolved, nil
 }
 
-func createObjectURL(source string) (string, error) {
-	blobCtor, err := globalProperty("NewGoWASMWorker", "Blob")
-	if err != nil {
-		return "", err
+func createObjectURL(parseSource string) (string, error) {
+	parseBlobCtor, parseErr := globalProperty("NewGoWASMWorker", "Blob")
+	if parseErr != nil {
+		return "", parseErr
 	}
-	urlAPI, err := globalProperty("NewGoWASMWorker", "URL")
-	if err != nil {
-		return "", err
+	parseUrlAPI, parseErr := globalProperty("NewGoWASMWorker", "URL")
+	if parseErr != nil {
+		return "", parseErr
 	}
-	parts := js.Global().Get("Array").New()
-	parts.Call("push", source)
-	options := js.Global().Get("Object").New()
-	options.Set("type", "text/javascript")
-	blob := blobCtor.New(parts, options)
-	result := urlAPI.Call("createObjectURL", blob).String()
-	if looksLikeJSTypeDescriptor(result) {
-		consoleError(fmt.Sprintf("[interop/NewGoWASMWorker] createObjectURL returned JS type descriptor %q instead of a blob: URL", result))
-		return "", wrapError("NewGoWASMWorker", "createObjectURL", CodeInvalid, fmt.Errorf("createObjectURL returned %q, not a valid blob: URL", result))
+	parseParts := js.Global().Get("Array").New()
+	parseParts.Call("push", parseSource)
+	parseOptions := js.Global().Get("Object").New()
+	parseOptions.Set("type", "text/javascript")
+	parseBlob := parseBlobCtor.New(parseParts, parseOptions)
+	parseResult := parseUrlAPI.Call("createObjectURL", parseBlob).String()
+	if looksLikeJSTypeDescriptor(parseResult) {
+		consoleError(fmt.Sprintf("[interop/NewGoWASMWorker] createObjectURL returned JS type descriptor %q instead of a blob: URL", parseResult))
+		return "", wrapError("NewGoWASMWorker", "createObjectURL", CodeInvalid, fmt.Errorf("createObjectURL returned %q, not a valid blob: URL", parseResult))
 	}
-	return result, nil
+	return parseResult, nil
 }
 
-func revokeObjectURL(objectURL string) {
-	trimmed := strings.TrimSpace(objectURL)
-	if trimmed == "" {
+func revokeObjectURL(parseObjectURL string) {
+	parseTrimmed := strings.TrimSpace(parseObjectURL)
+	if parseTrimmed == "" {
 		return
 	}
-	urlAPI := js.Global().Get("URL")
-	if urlAPI.IsUndefined() || urlAPI.IsNull() {
+	parseUrlAPI := js.Global().Get("URL")
+	if parseUrlAPI.IsUndefined() || parseUrlAPI.IsNull() {
 		return
 	}
-	urlAPI.Call("revokeObjectURL", trimmed)
+	parseUrlAPI.Call("revokeObjectURL", parseTrimmed)
 }
 
-func goWASMWorkerBootstrapSource(runtimeURL string, wasmURL string) string {
-	runtimeJSON, _ := json.Marshal(runtimeURL)
-	wasmJSON, _ := json.Marshal(wasmURL)
+func goWASMWorkerBootstrapSource(parseRuntimeURL string, parseWasmURL string) string {
+	parseRuntimeJSON, _ := json.Marshal(parseRuntimeURL)
+	parseWasmJSON, _ := json.Marshal(parseWasmURL)
 	return `(function(){
-const runtimeURL=` + string(runtimeJSON) + `;
-const wasmURL=` + string(wasmJSON) + `;
+const runtimeURL=` + string(parseRuntimeJSON) + `;
+const wasmURL=` + string(parseWasmJSON) + `;
 const postBootstrapError = (error) => {
   const message = error && error.message ? error.message : String(error);
   try {
@@ -1046,514 +1085,514 @@ const instantiate = async (go) => {
 })();`
 }
 
-func workerMessageFromEvent(op string, target string, args []js.Value) (WorkerMessage, error) {
-	if len(args) == 0 {
-		return WorkerMessage{}, wrapError(op, target, CodeDecode, errors.New("worker event payload is missing"))
+func workerMessageFromEvent(parseOp string, parseTarget string, parseArgs []js.Value) (WorkerMessage, error) {
+	if len(parseArgs) == 0 {
+		return WorkerMessage{}, wrapError(parseOp, parseTarget, CodeDecode, errors.New("worker event payload is missing"))
 	}
-	payload := args[0]
-	if payload.IsUndefined() || payload.IsNull() {
-		return WorkerMessage{}, wrapError(op, target, CodeDecode, errors.New("worker event payload is missing"))
+	parsePayload := parseArgs[0]
+	if parsePayload.IsUndefined() || parsePayload.IsNull() {
+		return WorkerMessage{}, wrapError(parseOp, parseTarget, CodeDecode, errors.New("worker event payload is missing"))
 	}
-	data := payload.Get("data")
-	if data.IsUndefined() || data.IsNull() {
-		return WorkerMessage{}, wrapError(op, target, CodeDecode, errors.New("worker message is missing data"))
+	parseData := parsePayload.Get("data")
+	if parseData.IsUndefined() || parseData.IsNull() {
+		return WorkerMessage{}, wrapError(parseOp, parseTarget, CodeDecode, errors.New("worker message is missing data"))
 	}
-	value, err := jsValueToGo(op, target, data)
-	if err != nil {
-		return WorkerMessage{}, err
+	parseValue, parseErr := jsValueToGo(parseOp, parseTarget, parseData)
+	if parseErr != nil {
+		return WorkerMessage{}, parseErr
 	}
-	return workerMessageFromGo(value), nil
+	return workerMessageFromGo(parseValue), nil
 }
 
-func workerMessageFromGo(value any) WorkerMessage {
-	message := WorkerMessage{
+func workerMessageFromGo(parseValue any) WorkerMessage {
+	parseMessage := WorkerMessage{
 		Phase:   "message",
-		Payload: value,
+		Payload: parseValue,
 	}
-	data, ok := value.(map[string]any)
-	if !ok {
-		return message
+	parseData, parseOk := parseValue.(map[string]any)
+	if !parseOk {
+		return parseMessage
 	}
-	if id := workerStringField(data, "id"); id != "" {
-		message.ID = id
+	if parseId := workerStringField(parseData, "id"); parseId != "" {
+		parseMessage.ID = parseId
 	}
-	if phase := workerStringField(data, "phase"); phase != "" {
-		message.Phase = phase
+	if parsePhase := workerStringField(parseData, "phase"); parsePhase != "" {
+		parseMessage.Phase = parsePhase
 	}
-	if name := workerStringField(data, "name"); name != "" {
-		message.Name = name
-	} else if name := workerStringField(data, "type"); name != "" {
-		message.Name = name
+	if parseName := workerStringField(parseData, "name"); parseName != "" {
+		parseMessage.Name = parseName
+	} else if parseName2 := workerStringField(parseData, "type"); parseName2 != "" {
+		parseMessage.Name = parseName2
 	}
-	if payload, ok := data["payload"]; ok {
-		message.Payload = payload
+	if parsePayload, parseOk2 := parseData["payload"]; parseOk2 {
+		parseMessage.Payload = parsePayload
 	}
-	if remoteErr := workerStringField(data, "error"); remoteErr != "" {
-		message.Error = remoteErr
+	if parseRemoteErr := workerStringField(parseData, "error"); parseRemoteErr != "" {
+		parseMessage.Error = parseRemoteErr
 	}
-	return message
+	return parseMessage
 }
 
-func workerStringField(data map[string]any, key string) string {
-	value, ok := data[key]
-	if !ok {
+func workerStringField(parseData map[string]any, parseKey string) string {
+	parseValue, parseOk := parseData[parseKey]
+	if !parseOk {
 		return ""
 	}
-	switch typed := value.(type) {
+	switch parseTyped := parseValue.(type) {
 	case string:
-		return typed
+		return parseTyped
 	default:
-		return fmt.Sprint(typed)
+		return fmt.Sprint(parseTyped)
 	}
 }
 
-func workerRemoteEnvelopeError(message WorkerMessage) string {
-	if strings.TrimSpace(message.Error) != "" {
-		return message.Error
+func workerRemoteEnvelopeError(parseMessage WorkerMessage) string {
+	if strings.TrimSpace(parseMessage.Error) != "" {
+		return parseMessage.Error
 	}
-	if summary := strings.TrimSpace(fmt.Sprint(message.Payload)); summary != "" && summary != "<nil>" {
-		return summary
+	if parseSummary := strings.TrimSpace(fmt.Sprint(parseMessage.Payload)); parseSummary != "" && parseSummary != "<nil>" {
+		return parseSummary
 	}
 	return "worker reported an error"
 }
 
-func workerRemoteErrorSummary(args []js.Value) string {
-	if len(args) == 0 {
+func workerRemoteErrorSummary(parseArgs []js.Value) string {
+	if len(parseArgs) == 0 {
 		return "worker reported an error"
 	}
-	if message := args[0].Get("message"); !message.IsUndefined() && !message.IsNull() {
-		return strings.TrimSpace(message.String())
+	if parseMessage := parseArgs[0].Get("message"); !parseMessage.IsUndefined() && !parseMessage.IsNull() {
+		return strings.TrimSpace(parseMessage.String())
 	}
-	return strings.TrimSpace(jsValueSummary(args[0]))
+	return strings.TrimSpace(jsValueSummary(parseArgs[0]))
 }
 
-func workerContextError(op string, target string, err error) error {
-	if errors.Is(err, context.DeadlineExceeded) {
-		return wrapError(op, target, CodeTimeout, err)
+func workerContextError(parseOp string, parseTarget string, parseErr error) error {
+	if errors.Is(parseErr, context.DeadlineExceeded) {
+		return wrapError(parseOp, parseTarget, CodeTimeout, parseErr)
 	}
-	return wrapError(op, target, CodeCancelled, err)
+	return wrapError(parseOp, parseTarget, CodeCancelled, parseErr)
 }
 
-func newBroadcastCrossTabChannel(name string, source string, raw js.Value) CrossTabChannel {
+func newBroadcastCrossTabChannel(parseName string, parseSource string, parseRaw js.Value) CrossTabChannel {
 	var (
-		mu       sync.Mutex
-		sequence int64
-		active   = true
+		parseMu       sync.Mutex
+		parseSequence int64
+		isParseActive = true
 	)
-	nextEnvelope := func(payload any) CrossTabEnvelope {
-		mu.Lock()
-		defer mu.Unlock()
-		sequence++
+	parseNextEnvelope := func(parsePayload any) CrossTabEnvelope {
+		parseMu.Lock()
+		defer parseMu.Unlock()
+		parseSequence++
 		return CrossTabEnvelope{
-			Name:     name,
-			Payload:  payload,
-			Source:   source,
-			Sequence: sequence,
+			Name:     parseName,
+			Payload:  parsePayload,
+			Source:   parseSource,
+			Sequence: parseSequence,
 			SentAt:   time.Now().UTC(),
 		}
 	}
-	current := func(op string) (js.Value, error) {
-		mu.Lock()
-		defer mu.Unlock()
-		if !active || raw.IsUndefined() || raw.IsNull() {
-			return js.Undefined(), wrapError(op, name, CodeDisposed, errors.New("cross-tab channel is closed"))
+	parseCurrent := func(parseOp string) (js.Value, error) {
+		parseMu.Lock()
+		defer parseMu.Unlock()
+		if !isParseActive || parseRaw.IsUndefined() || parseRaw.IsNull() {
+			return js.Undefined(), wrapError(parseOp, parseName, CodeDisposed, errors.New("cross-tab channel is closed"))
 		}
-		return raw, nil
+		return parseRaw, nil
 	}
 	return CrossTabChannel{
-		name:      func() string { return name },
+		name:      func() string { return parseName },
 		transport: func() string { return "broadcast-channel" },
-		publish: func(payload any) error {
-			target, err := current("CrossTabChannel.Publish")
-			if err != nil {
-				return err
+		publish: func(parsePayload2 any) error {
+			parseTarget, parseErr := parseCurrent("CrossTabChannel.Publish")
+			if parseErr != nil {
+				return parseErr
 			}
-			value, err := goValueToJS("CrossTabChannel.Publish", name, nextEnvelope(payload))
-			if err != nil {
-				return err
+			parseValue, parseErr := goValueToJS("CrossTabChannel.Publish", parseName, parseNextEnvelope(parsePayload2))
+			if parseErr != nil {
+				return parseErr
 			}
-			target.Call("postMessage", value)
+			parseTarget.Call("postMessage", parseValue)
 			return nil
 		},
-		publishClientBinary: func(message ClientMessage) error {
-			target, err := current("PublishClientBinaryCrossTab")
-			if err != nil {
-				return err
+		publishClientBinary: func(parseMessage ClientMessage) error {
+			parseTarget2, parseErr2 := parseCurrent("PublishClientBinaryCrossTab")
+			if parseErr2 != nil {
+				return parseErr2
 			}
-			envelope, err := crossTabEnvelopeJS(name, source, nextEnvelope(message))
-			if err != nil {
-				return err
+			parseEnvelope, parseErr2 := crossTabEnvelopeJS(parseName, parseSource, parseNextEnvelope(parseMessage))
+			if parseErr2 != nil {
+				return parseErr2
 			}
-			target.Call("postMessage", envelope)
+			parseTarget2.Call("postMessage", parseEnvelope)
 			return nil
 		},
 		subscribe: func(handler func(CrossTabEnvelope, error)) (Subscription, error) {
 			if handler == nil {
-				return Subscription{}, wrapError("CrossTabChannel.Subscribe", name, CodeInvalid, errors.New("handler is nil"))
+				return Subscription{}, wrapError("CrossTabChannel.Subscribe", parseName, CodeInvalid, errors.New("handler is nil"))
 			}
-			target, err := current("CrossTabChannel.Subscribe")
-			if err != nil {
-				return Subscription{}, err
+			parseTarget3, parseErr3 := parseCurrent("CrossTabChannel.Subscribe")
+			if parseErr3 != nil {
+				return Subscription{}, parseErr3
 			}
-			listener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				if len(args) == 0 {
-					handler(CrossTabEnvelope{Name: name}, wrapError("CrossTabChannel.Subscribe", name, CodeDecode, errors.New("broadcast message event is missing")))
+			parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				if len(parseArgs) == 0 {
+					handler(CrossTabEnvelope{Name: parseName}, wrapError("CrossTabChannel.Subscribe", parseName, CodeDecode, errors.New("broadcast message event is missing")))
 					return nil
 				}
-				data := args[0].Get("data")
-				value, decodeErr := jsValueToGo("CrossTabChannel.Subscribe", name, data)
-				if decodeErr != nil {
-					handler(CrossTabEnvelope{Name: name}, decodeErr)
+				parseData := parseArgs[0].Get("data")
+				parseValue2, parseDecodeErr := jsValueToGo("CrossTabChannel.Subscribe", parseName, parseData)
+				if parseDecodeErr != nil {
+					handler(CrossTabEnvelope{Name: parseName}, parseDecodeErr)
 					return nil
 				}
-				handler(crossTabEnvelopeFromGo(value, name), nil)
+				handler(crossTabEnvelopeFromGo(parseValue2, parseName), nil)
 				return nil
 			})
-			target.Call("addEventListener", "message", listener)
+			parseTarget3.Call("addEventListener", "message", parseListener)
 			return Subscription{cancel: func() {
-				target.Call("removeEventListener", "message", listener)
-				listener.Release()
+				parseTarget3.Call("removeEventListener", "message", parseListener)
+				parseListener.Release()
 			}}, nil
 		},
 		close: func() error {
-			target, err := current("CrossTabChannel.Close")
-			if err != nil {
-				return err
+			parseTarget4, parseErr4 := parseCurrent("CrossTabChannel.Close")
+			if parseErr4 != nil {
+				return parseErr4
 			}
-			target.Call("close")
-			mu.Lock()
-			active = false
-			raw = js.Undefined()
-			mu.Unlock()
+			parseTarget4.Call("close")
+			parseMu.Lock()
+			isParseActive = false
+			parseRaw = js.Undefined()
+			parseMu.Unlock()
 			return nil
 		},
 	}
 }
 
-func newStorageCrossTabChannel(name string, source string, storageKey string) (CrossTabChannel, error) {
-	storage, err := GetLocalStorage()
-	if err != nil {
-		return CrossTabChannel{}, err
+func newStorageCrossTabChannel(parseName string, parseSource string, parseStorageKey string) (CrossTabChannel, error) {
+	parseStorage, parseErr := GetLocalStorage()
+	if parseErr != nil {
+		return CrossTabChannel{}, parseErr
 	}
-	window, err := globalProperty("EventTarget", "window")
-	if err != nil {
-		return CrossTabChannel{}, err
+	parseWindow, parseErr := globalProperty("EventTarget", "window")
+	if parseErr != nil {
+		return CrossTabChannel{}, parseErr
 	}
 	var (
-		mu       sync.Mutex
-		sequence int64
-		active   = true
+		parseMu       sync.Mutex
+		parseSequence int64
+		isParseActive = true
 	)
-	nextEnvelope := func(payload any) CrossTabEnvelope {
-		mu.Lock()
-		defer mu.Unlock()
-		sequence++
+	parseNextEnvelope := func(parsePayload any) CrossTabEnvelope {
+		parseMu.Lock()
+		defer parseMu.Unlock()
+		parseSequence++
 		return CrossTabEnvelope{
-			Name:     name,
-			Payload:  payload,
-			Source:   source,
-			Sequence: sequence,
+			Name:     parseName,
+			Payload:  parsePayload,
+			Source:   parseSource,
+			Sequence: parseSequence,
 			SentAt:   time.Now().UTC(),
 		}
 	}
-	ensureActive := func(op string) error {
-		mu.Lock()
-		defer mu.Unlock()
-		if !active {
-			return wrapError(op, name, CodeDisposed, errors.New("cross-tab channel is closed"))
+	parseEnsureActive := func(parseOp string) error {
+		parseMu.Lock()
+		defer parseMu.Unlock()
+		if !isParseActive {
+			return wrapError(parseOp, parseName, CodeDisposed, errors.New("cross-tab channel is closed"))
 		}
 		return nil
 	}
 	return CrossTabChannel{
-		name:      func() string { return name },
+		name:      func() string { return parseName },
 		transport: func() string { return "storage-event" },
-		publish: func(payload any) error {
-			if err := ensureActive("CrossTabChannel.Publish"); err != nil {
-				return err
+		publish: func(parsePayload2 any) error {
+			if parseErr2 := parseEnsureActive("CrossTabChannel.Publish"); parseErr2 != nil {
+				return parseErr2
 			}
-			data, err := json.Marshal(nextEnvelope(payload))
-			if err != nil {
-				return wrapError("CrossTabChannel.Publish", name, CodeEncode, err)
+			parseData, parseErr3 := json.Marshal(parseNextEnvelope(parsePayload2))
+			if parseErr3 != nil {
+				return wrapError("CrossTabChannel.Publish", parseName, CodeEncode, parseErr3)
 			}
-			if err := storage.SetItem(storageKey, string(data)); err != nil {
-				return err
+			if parseErr4 := parseStorage.SetItem(parseStorageKey, string(parseData)); parseErr4 != nil {
+				return parseErr4
 			}
-			return storage.RemoveItem(storageKey)
+			return parseStorage.RemoveItem(parseStorageKey)
 		},
-		publishClientBinary: func(message ClientMessage) error {
-			return wrapError("PublishClientBinaryCrossTab", name, CodeInvalid, errors.New("binary client payloads require broadcast-channel transport"))
+		publishClientBinary: func(parseMessage2 ClientMessage) error {
+			return wrapError("PublishClientBinaryCrossTab", parseName, CodeInvalid, errors.New("binary client payloads require broadcast-channel transport"))
 		},
 		subscribe: func(handler func(CrossTabEnvelope, error)) (Subscription, error) {
 			if handler == nil {
-				return Subscription{}, wrapError("CrossTabChannel.Subscribe", name, CodeInvalid, errors.New("handler is nil"))
+				return Subscription{}, wrapError("CrossTabChannel.Subscribe", parseName, CodeInvalid, errors.New("handler is nil"))
 			}
-			if err := ensureActive("CrossTabChannel.Subscribe"); err != nil {
-				return Subscription{}, err
+			if parseErr5 := parseEnsureActive("CrossTabChannel.Subscribe"); parseErr5 != nil {
+				return Subscription{}, parseErr5
 			}
-			listener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				if len(args) == 0 {
+			parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				if len(parseArgs) == 0 {
 					return nil
 				}
-				event := args[0]
-				if event.IsUndefined() || event.IsNull() {
+				parseEvent := parseArgs[0]
+				if parseEvent.IsUndefined() || parseEvent.IsNull() {
 					return nil
 				}
-				if event.Get("key").String() != storageKey {
+				if parseEvent.Get("key").String() != parseStorageKey {
 					return nil
 				}
-				newValue := event.Get("newValue")
-				if newValue.IsUndefined() || newValue.IsNull() || strings.TrimSpace(newValue.String()) == "" {
+				parseNewValue := parseEvent.Get("newValue")
+				if parseNewValue.IsUndefined() || parseNewValue.IsNull() || strings.TrimSpace(parseNewValue.String()) == "" {
 					return nil
 				}
-				var message CrossTabEnvelope
-				if err := json.Unmarshal([]byte(newValue.String()), &message); err != nil {
-					handler(CrossTabEnvelope{Name: name}, wrapError("CrossTabChannel.Subscribe", name, CodeDecode, err))
+				var parseMessage CrossTabEnvelope
+				if parseErr6 := json.Unmarshal([]byte(parseNewValue.String()), &parseMessage); parseErr6 != nil {
+					handler(CrossTabEnvelope{Name: parseName}, wrapError("CrossTabChannel.Subscribe", parseName, CodeDecode, parseErr6))
 					return nil
 				}
-				if strings.TrimSpace(message.Name) == "" {
-					message.Name = name
+				if strings.TrimSpace(parseMessage.Name) == "" {
+					parseMessage.Name = parseName
 				}
-				handler(message, nil)
+				handler(parseMessage, nil)
 				return nil
 			})
-			window.Call("addEventListener", "storage", listener)
+			parseWindow.Call("addEventListener", "storage", parseListener)
 			return Subscription{cancel: func() {
-				window.Call("removeEventListener", "storage", listener)
-				listener.Release()
+				parseWindow.Call("removeEventListener", "storage", parseListener)
+				parseListener.Release()
 			}}, nil
 		},
 		close: func() error {
-			if err := ensureActive("CrossTabChannel.Close"); err != nil {
-				return err
+			if parseErr7 := parseEnsureActive("CrossTabChannel.Close"); parseErr7 != nil {
+				return parseErr7
 			}
-			mu.Lock()
-			active = false
-			mu.Unlock()
+			parseMu.Lock()
+			isParseActive = false
+			parseMu.Unlock()
 			return nil
 		},
 	}, nil
 }
 
-func newWindowChannel(name string, targetOrigin string, peer js.Value, allowClose bool) WindowChannel {
-	source := fmt.Sprintf("%s-%d", name, time.Now().UnixNano())
-	rawWindow := js.Global().Get("window")
+func newWindowChannel(parseName string, parseTargetOrigin string, parsePeer js.Value, isAllowClose bool) WindowChannel {
+	parseSource := fmt.Sprintf("%s-%d", parseName, time.Now().UnixNano())
+	parseRawWindow := js.Global().Get("window")
 	return WindowChannel{
-		name:         func() string { return name },
-		targetOrigin: func() string { return targetOrigin },
-		publish: func(payload any) error {
-			if peer.IsUndefined() || peer.IsNull() {
-				return wrapError("WindowChannel.Publish", name, CodeDisposed, errors.New("window channel peer is unavailable"))
+		name:         func() string { return parseName },
+		targetOrigin: func() string { return parseTargetOrigin },
+		publish: func(parsePayload any) error {
+			if parsePeer.IsUndefined() || parsePeer.IsNull() {
+				return wrapError("WindowChannel.Publish", parseName, CodeDisposed, errors.New("window channel peer is unavailable"))
 			}
-			if closed := peer.Get("closed"); !closed.IsUndefined() && !closed.IsNull() && closed.Bool() {
-				return wrapError("WindowChannel.Publish", name, CodeDisposed, errors.New("window channel peer is closed"))
+			if parseClosed := parsePeer.Get("closed"); !parseClosed.IsUndefined() && !parseClosed.IsNull() && parseClosed.Bool() {
+				return wrapError("WindowChannel.Publish", parseName, CodeDisposed, errors.New("window channel peer is closed"))
 			}
-			value, err := goValueToJS("WindowChannel.Publish", name, WindowEnvelope{
-				Name:    name,
-				Payload: payload,
-				Source:  source,
+			parseValue, parseErr := goValueToJS("WindowChannel.Publish", parseName, WindowEnvelope{
+				Name:    parseName,
+				Payload: parsePayload,
+				Source:  parseSource,
 				SentAt:  time.Now().UTC(),
 			})
-			if err != nil {
-				return err
+			if parseErr != nil {
+				return parseErr
 			}
-			peer.Call("postMessage", value, targetOrigin)
+			parsePeer.Call("postMessage", parseValue, parseTargetOrigin)
 			return nil
 		},
-		publishClientBinary: func(message ClientMessage) error {
-			if peer.IsUndefined() || peer.IsNull() {
-				return wrapError("PublishClientBinaryWindow", name, CodeDisposed, errors.New("window channel peer is unavailable"))
+		publishClientBinary: func(parseMessage ClientMessage) error {
+			if parsePeer.IsUndefined() || parsePeer.IsNull() {
+				return wrapError("PublishClientBinaryWindow", parseName, CodeDisposed, errors.New("window channel peer is unavailable"))
 			}
-			if closed := peer.Get("closed"); !closed.IsUndefined() && !closed.IsNull() && closed.Bool() {
-				return wrapError("PublishClientBinaryWindow", name, CodeDisposed, errors.New("window channel peer is closed"))
+			if parseClosed2 := parsePeer.Get("closed"); !parseClosed2.IsUndefined() && !parseClosed2.IsNull() && parseClosed2.Bool() {
+				return wrapError("PublishClientBinaryWindow", parseName, CodeDisposed, errors.New("window channel peer is closed"))
 			}
-			envelope, err := windowEnvelopeJS(name, source, message)
-			if err != nil {
-				return err
+			parseEnvelope, parseErr2 := windowEnvelopeJS(parseName, parseSource, parseMessage)
+			if parseErr2 != nil {
+				return parseErr2
 			}
-			peer.Call("postMessage", envelope, targetOrigin)
+			parsePeer.Call("postMessage", parseEnvelope, parseTargetOrigin)
 			return nil
 		},
 		subscribe: func(handler func(WindowEnvelope, error)) (Subscription, error) {
 			if handler == nil {
-				return Subscription{}, wrapError("WindowChannel.Subscribe", name, CodeInvalid, errors.New("handler is nil"))
+				return Subscription{}, wrapError("WindowChannel.Subscribe", parseName, CodeInvalid, errors.New("handler is nil"))
 			}
-			listener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				if len(args) == 0 {
-					handler(WindowEnvelope{Name: name}, wrapError("WindowChannel.Subscribe", name, CodeDecode, errors.New("message event is missing")))
+			parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				if len(parseArgs) == 0 {
+					handler(WindowEnvelope{Name: parseName}, wrapError("WindowChannel.Subscribe", parseName, CodeDecode, errors.New("message event is missing")))
 					return nil
 				}
-				event := args[0]
-				if event.IsUndefined() || event.IsNull() {
+				parseEvent := parseArgs[0]
+				if parseEvent.IsUndefined() || parseEvent.IsNull() {
 					return nil
 				}
-				eventSource := event.Get("source")
-				if !eventSource.IsUndefined() && !eventSource.IsNull() && !eventSource.Equal(peer) {
+				parseEventSource := parseEvent.Get("source")
+				if !parseEventSource.IsUndefined() && !parseEventSource.IsNull() && !parseEventSource.Equal(parsePeer) {
 					return nil
 				}
-				if targetOrigin != "*" {
-					origin := strings.TrimSpace(event.Get("origin").String())
-					if origin != "" && origin != targetOrigin {
-						handler(WindowEnvelope{Name: name}, wrapError("WindowChannel.Subscribe", name, CodeUnauthorized, errors.New("message origin does not match target origin")))
+				if parseTargetOrigin != "*" {
+					parseOrigin := strings.TrimSpace(parseEvent.Get("origin").String())
+					if parseOrigin != "" && parseOrigin != parseTargetOrigin {
+						handler(WindowEnvelope{Name: parseName}, wrapError("WindowChannel.Subscribe", parseName, CodeUnauthorized, errors.New("message origin does not match target origin")))
 						return nil
 					}
 				}
-				value, decodeErr := jsValueToGo("WindowChannel.Subscribe", name, event.Get("data"))
-				if decodeErr != nil {
-					handler(WindowEnvelope{Name: name}, decodeErr)
+				parseValue2, parseDecodeErr := jsValueToGo("WindowChannel.Subscribe", parseName, parseEvent.Get("data"))
+				if parseDecodeErr != nil {
+					handler(WindowEnvelope{Name: parseName}, parseDecodeErr)
 					return nil
 				}
-				handler(windowEnvelopeFromGo(value, name), nil)
+				handler(windowEnvelopeFromGo(parseValue2, parseName), nil)
 				return nil
 			})
-			rawWindow.Call("addEventListener", "message", listener)
+			parseRawWindow.Call("addEventListener", "message", parseListener)
 			return Subscription{cancel: func() {
-				rawWindow.Call("removeEventListener", "message", listener)
-				listener.Release()
+				parseRawWindow.Call("removeEventListener", "message", parseListener)
+				parseListener.Release()
 			}}, nil
 		},
 		focus: func() error {
-			if peer.IsUndefined() || peer.IsNull() {
-				return wrapError("WindowChannel.Focus", name, CodeDisposed, errors.New("window channel peer is unavailable"))
+			if parsePeer.IsUndefined() || parsePeer.IsNull() {
+				return wrapError("WindowChannel.Focus", parseName, CodeDisposed, errors.New("window channel peer is unavailable"))
 			}
-			if fn := peer.Get("focus"); fn.Type() != js.TypeFunction {
-				return unavailable("WindowChannel.Focus", name)
+			if parseFn := parsePeer.Get("focus"); parseFn.Type() != js.TypeFunction {
+				return unavailable("WindowChannel.Focus", parseName)
 			}
-			peer.Call("focus")
+			parsePeer.Call("focus")
 			return nil
 		},
 		close: func() error {
-			if !allowClose {
-				return unavailable("WindowChannel.Close", name)
+			if !isAllowClose {
+				return unavailable("WindowChannel.Close", parseName)
 			}
-			if peer.IsUndefined() || peer.IsNull() {
-				return wrapError("WindowChannel.Close", name, CodeDisposed, errors.New("window channel peer is unavailable"))
+			if parsePeer.IsUndefined() || parsePeer.IsNull() {
+				return wrapError("WindowChannel.Close", parseName, CodeDisposed, errors.New("window channel peer is unavailable"))
 			}
-			if fn := peer.Get("close"); fn.Type() != js.TypeFunction {
-				return unavailable("WindowChannel.Close", name)
+			if parseFn2 := parsePeer.Get("close"); parseFn2.Type() != js.TypeFunction {
+				return unavailable("WindowChannel.Close", parseName)
 			}
-			peer.Call("close")
+			parsePeer.Call("close")
 			return nil
 		},
 		closed: func() bool {
-			if peer.IsUndefined() || peer.IsNull() {
+			if parsePeer.IsUndefined() || parsePeer.IsNull() {
 				return true
 			}
-			closed := peer.Get("closed")
-			if closed.IsUndefined() || closed.IsNull() {
+			parseClosed3 := parsePeer.Get("closed")
+			if parseClosed3.IsUndefined() || parseClosed3.IsNull() {
 				return false
 			}
-			return closed.Bool()
+			return parseClosed3.Bool()
 		},
 	}
 }
 
-func resolveCrossTabStorageKey(name string, override string) string {
-	trimmed := strings.TrimSpace(override)
-	if trimmed != "" {
-		return trimmed
+func resolveCrossTabStorageKey(parseName string, parseOverride string) string {
+	parseTrimmed := strings.TrimSpace(parseOverride)
+	if parseTrimmed != "" {
+		return parseTrimmed
 	}
-	return "__gwc_cross_tab__:" + name
+	return "__gwc_cross_tab__:" + parseName
 }
 
-func resolveWindowTargetOrigin(rawTargetOrigin string) string {
-	trimmed := strings.TrimSpace(rawTargetOrigin)
-	if trimmed != "" {
-		return trimmed
+func resolveWindowTargetOrigin(parseRawTargetOrigin string) string {
+	parseTrimmed := strings.TrimSpace(parseRawTargetOrigin)
+	if parseTrimmed != "" {
+		return parseTrimmed
 	}
-	window := js.Global().Get("window")
-	if window.IsUndefined() || window.IsNull() {
+	parseWindow := js.Global().Get("window")
+	if parseWindow.IsUndefined() || parseWindow.IsNull() {
 		return "*"
 	}
-	location := window.Get("location")
-	if location.IsUndefined() || location.IsNull() {
+	parseLocation := parseWindow.Get("location")
+	if parseLocation.IsUndefined() || parseLocation.IsNull() {
 		return "*"
 	}
-	origin := strings.TrimSpace(location.Get("origin").String())
-	if origin == "" {
+	parseOrigin := strings.TrimSpace(parseLocation.Get("origin").String())
+	if parseOrigin == "" {
 		return "*"
 	}
-	return origin
+	return parseOrigin
 }
 
-func crossTabEnvelopeFromGo(value any, fallbackName string) CrossTabEnvelope {
-	message := CrossTabEnvelope{
-		Name:    fallbackName,
-		Payload: value,
+func crossTabEnvelopeFromGo(parseValue any, parseFallbackName string) CrossTabEnvelope {
+	parseMessage := CrossTabEnvelope{
+		Name:    parseFallbackName,
+		Payload: parseValue,
 	}
-	data, ok := value.(map[string]any)
-	if !ok {
-		return message
+	parseData, parseOk := parseValue.(map[string]any)
+	if !parseOk {
+		return parseMessage
 	}
-	if name := workerStringField(data, "name"); name != "" {
-		message.Name = name
+	if parseName := workerStringField(parseData, "name"); parseName != "" {
+		parseMessage.Name = parseName
 	}
-	if payload, ok := data["payload"]; ok {
-		message.Payload = payload
+	if parsePayload, parseOk2 := parseData["payload"]; parseOk2 {
+		parseMessage.Payload = parsePayload
 	}
-	if source := workerStringField(data, "source"); source != "" {
-		message.Source = source
+	if parseSource := workerStringField(parseData, "source"); parseSource != "" {
+		parseMessage.Source = parseSource
 	}
-	if sequence, ok := crossTabInt64Field(data["sequence"]); ok {
-		message.Sequence = sequence
+	if parseSequence, parseOk3 := crossTabInt64Field(parseData["sequence"]); parseOk3 {
+		parseMessage.Sequence = parseSequence
 	}
-	if sentAt, ok := crossTabTimeField(data["sentAt"]); ok {
-		message.SentAt = sentAt
+	if parseSentAt, parseOk4 := crossTabTimeField(parseData["sentAt"]); parseOk4 {
+		parseMessage.SentAt = parseSentAt
 	}
-	return message
+	return parseMessage
 }
 
-func windowEnvelopeFromGo(value any, fallbackName string) WindowEnvelope {
-	message := WindowEnvelope{
-		Name:    fallbackName,
-		Payload: value,
+func windowEnvelopeFromGo(parseValue any, parseFallbackName string) WindowEnvelope {
+	parseMessage := WindowEnvelope{
+		Name:    parseFallbackName,
+		Payload: parseValue,
 	}
-	data, ok := value.(map[string]any)
-	if !ok {
-		return message
+	parseData, parseOk := parseValue.(map[string]any)
+	if !parseOk {
+		return parseMessage
 	}
-	if name := workerStringField(data, "name"); name != "" {
-		message.Name = name
+	if parseName := workerStringField(parseData, "name"); parseName != "" {
+		parseMessage.Name = parseName
 	}
-	if payload, ok := data["payload"]; ok {
-		message.Payload = payload
+	if parsePayload, parseOk2 := parseData["payload"]; parseOk2 {
+		parseMessage.Payload = parsePayload
 	}
-	if source := workerStringField(data, "source"); source != "" {
-		message.Source = source
+	if parseSource := workerStringField(parseData, "source"); parseSource != "" {
+		parseMessage.Source = parseSource
 	}
-	if sentAt, ok := crossTabTimeField(data["sentAt"]); ok {
-		message.SentAt = sentAt
+	if parseSentAt, parseOk3 := crossTabTimeField(parseData["sentAt"]); parseOk3 {
+		parseMessage.SentAt = parseSentAt
 	}
-	return message
+	return parseMessage
 }
 
-func crossTabInt64Field(value any) (int64, bool) {
-	switch typed := value.(type) {
+func crossTabInt64Field(parseValue any) (int64, bool) {
+	switch parseTyped := parseValue.(type) {
 	case float64:
-		return int64(typed), true
+		return int64(parseTyped), true
 	case float32:
-		return int64(typed), true
+		return int64(parseTyped), true
 	case int:
-		return int64(typed), true
+		return int64(parseTyped), true
 	case int64:
-		return typed, true
+		return parseTyped, true
 	case json.Number:
-		parsed, err := typed.Int64()
-		return parsed, err == nil
+		parseParsed, parseErr := parseTyped.Int64()
+		return parseParsed, parseErr == nil
 	default:
 		return 0, false
 	}
 }
 
-func crossTabTimeField(value any) (time.Time, bool) {
-	text, ok := value.(string)
-	if !ok || strings.TrimSpace(text) == "" {
+func crossTabTimeField(parseValue any) (time.Time, bool) {
+	parseText, parseOk := parseValue.(string)
+	if !parseOk || strings.TrimSpace(parseText) == "" {
 		return time.Time{}, false
 	}
-	parsed, err := time.Parse(time.RFC3339Nano, text)
-	if err != nil {
+	parseParsed, parseErr := time.Parse(time.RFC3339Nano, parseText)
+	if parseErr != nil {
 		return time.Time{}, false
 	}
-	return parsed, true
+	return parseParsed, true
 }
 
 type moduleState struct {
@@ -1563,631 +1602,631 @@ type moduleState struct {
 	disposed  bool
 }
 
-func (m *moduleState) export(name string) (js.Value, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if m.disposed {
-		return js.Undefined(), wrapError("Module", m.specifier, CodeDisposed, errors.New("module handle is disposed"))
+func (parseM *moduleState) export(parseName string) (js.Value, error) {
+	parseM.mu.RLock()
+	defer parseM.mu.RUnlock()
+	if parseM.disposed {
+		return js.Undefined(), wrapError("Module", parseM.specifier, CodeDisposed, errors.New("module handle is disposed"))
 	}
-	raw := m.value.Get(name)
-	if raw.IsUndefined() || raw.IsNull() {
-		return js.Undefined(), wrapError("Module.Value", name, CodeMissingExport, errors.New("export not found"))
+	parseRaw := parseM.value.Get(parseName)
+	if parseRaw.IsUndefined() || parseRaw.IsNull() {
+		return js.Undefined(), wrapError("Module.Value", parseName, CodeMissingExport, errors.New("export not found"))
 	}
-	return raw, nil
+	return parseRaw, nil
 }
 
-func (m *moduleState) callDefault(ctx context.Context, args ...any) (any, error) {
-	raw, err := m.export("default")
-	if err != nil {
-		return nil, err
+func (parseM *moduleState) callDefault(parseCtx context.Context, parseArgs ...any) (any, error) {
+	parseRaw, parseErr := parseM.export("default")
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if raw.Type() != js.TypeFunction {
+	if parseRaw.Type() != js.TypeFunction {
 		return nil, wrapError("Module.CallDefault", "default", CodeNotFunction, errors.New("default export is not a function"))
 	}
-	jsArgs := make([]interface{}, 0, len(args))
-	for _, arg := range args {
-		value, err := goValueToJS("Module.CallDefault", "default", arg)
-		if err != nil {
-			return nil, err
+	parseJsArgs := make([]interface{}, 0, len(parseArgs))
+	for _, parseArg := range parseArgs {
+		parseValue, parseErr2 := goValueToJS("Module.CallDefault", "default", parseArg)
+		if parseErr2 != nil {
+			return nil, parseErr2
 		}
-		jsArgs = append(jsArgs, value)
+		parseJsArgs = append(parseJsArgs, parseValue)
 	}
-	result, err := awaitValue(ctx, "Module.CallDefault", "default", raw.Invoke(jsArgs...))
-	if err != nil {
-		return nil, err
+	parseResult, parseErr := awaitValue(parseCtx, "Module.CallDefault", "default", parseRaw.Invoke(parseJsArgs...))
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	return jsValueToGo("Module.CallDefault", "default", result)
+	return jsValueToGo("Module.CallDefault", "default", parseResult)
 }
 
-func (m *moduleState) dispose() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.disposed = true
-	m.value = js.Undefined()
+func (parseM *moduleState) dispose() error {
+	parseM.mu.Lock()
+	defer parseM.mu.Unlock()
+	parseM.disposed = true
+	parseM.value = js.Undefined()
 	return nil
 }
 
-func newEventTarget(name string, raw js.Value) EventTarget {
+func newEventTarget(parseName string, parseRaw js.Value) EventTarget {
 	return EventTarget{
-		dispatch: func(eventName string, detail any) error {
-			customEventCtor := js.Global().Get("CustomEvent")
-			if customEventCtor.IsUndefined() || customEventCtor.IsNull() {
-				return unavailable("EventTarget.Dispatch", name)
+		dispatch: func(parseEventName string, parseDetail2 any) error {
+			parseCustomEventCtor := js.Global().Get("CustomEvent")
+			if parseCustomEventCtor.IsUndefined() || parseCustomEventCtor.IsNull() {
+				return unavailable("EventTarget.Dispatch", parseName)
 			}
-			detailValue, err := goValueToJS("EventTarget.Dispatch", eventName, detail)
-			if err != nil {
-				return err
+			parseDetailValue, parseErr := goValueToJS("EventTarget.Dispatch", parseEventName, parseDetail2)
+			if parseErr != nil {
+				return parseErr
 			}
-			init := js.Global().Get("Object").New()
-			init.Set("detail", detailValue)
-			raw.Call("dispatchEvent", customEventCtor.New(eventName, init))
+			parseInit := js.Global().Get("Object").New()
+			parseInit.Set("detail", parseDetailValue)
+			parseRaw.Call("dispatchEvent", parseCustomEventCtor.New(parseEventName, parseInit))
 			return nil
 		},
-		listen: func(eventName string, handler func(BrowserEvent)) (Subscription, error) {
+		listen: func(parseEventName2 string, handler func(BrowserEvent)) (Subscription, error) {
 			if handler == nil {
-				return Subscription{}, wrapError("EventTarget.Listen", eventName, CodeInvalid, errors.New("handler is nil"))
+				return Subscription{}, wrapError("EventTarget.Listen", parseEventName2, CodeInvalid, errors.New("handler is nil"))
 			}
-			if add := raw.Get("addEventListener"); add.Type() != js.TypeFunction {
-				return Subscription{}, unavailable("EventTarget.Listen", name)
+			if parseAdd := parseRaw.Get("addEventListener"); parseAdd.Type() != js.TypeFunction {
+				return Subscription{}, unavailable("EventTarget.Listen", parseName)
 			}
-			listener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				if len(args) == 0 {
-					handler(BrowserEvent{Type: eventName})
+			parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+				if len(parseArgs) == 0 {
+					handler(BrowserEvent{Type: parseEventName2})
 					return nil
 				}
-				event := args[0]
-				detail, _ := jsValueToGo("EventTarget.Listen", eventName, event.Get("detail"))
+				parseEvent := parseArgs[0]
+				parseDetail, _ := jsValueToGo("EventTarget.Listen", parseEventName2, parseEvent.Get("detail"))
 				handler(BrowserEvent{
-					Type:          event.Get("type").String(),
-					Detail:        detail,
-					Target:        elementFromJSValue(event.Get("target")),
-					CurrentTarget: elementFromJSValue(event.Get("currentTarget")),
+					Type:          parseEvent.Get("type").String(),
+					Detail:        parseDetail,
+					Target:        elementFromJSValue(parseEvent.Get("target")),
+					CurrentTarget: elementFromJSValue(parseEvent.Get("currentTarget")),
 				})
 				return nil
 			})
-			raw.Call("addEventListener", eventName, listener)
+			parseRaw.Call("addEventListener", parseEventName2, parseListener)
 			return Subscription{cancel: func() {
-				raw.Call("removeEventListener", eventName, listener)
-				listener.Release()
+				parseRaw.Call("removeEventListener", parseEventName2, parseListener)
+				parseListener.Release()
 			}}, nil
 		},
 	}
 }
 
-func newElement(name string, raw js.Value) Element {
+func newElement(parseName string, parseRaw js.Value) Element {
 	return Element{
-		raw:       raw,
-		tagName:   func() string { return raw.Get("tagName").String() },
-		id:        func() string { return raw.Get("id").String() },
-		className: func() string { return raw.Get("className").String() },
+		raw:       parseRaw,
+		tagName:   func() string { return parseRaw.Get("tagName").String() },
+		id:        func() string { return parseRaw.Get("id").String() },
+		className: func() string { return parseRaw.Get("className").String() },
 		focus: func() error {
-			if fn := raw.Get("focus"); fn.Type() != js.TypeFunction {
-				return unavailable("Element.Focus", name)
+			if parseFn := parseRaw.Get("focus"); parseFn.Type() != js.TypeFunction {
+				return unavailable("Element.Focus", parseName)
 			}
-			raw.Call("focus")
+			parseRaw.Call("focus")
 			return nil
 		},
 		blur: func() error {
-			if fn := raw.Get("blur"); fn.Type() != js.TypeFunction {
-				return unavailable("Element.Blur", name)
+			if parseFn2 := parseRaw.Get("blur"); parseFn2.Type() != js.TypeFunction {
+				return unavailable("Element.Blur", parseName)
 			}
-			raw.Call("blur")
+			parseRaw.Call("blur")
 			return nil
 		},
 		click: func() error {
-			if fn := raw.Get("click"); fn.Type() != js.TypeFunction {
-				return unavailable("Element.Click", name)
+			if parseFn3 := parseRaw.Get("click"); parseFn3.Type() != js.TypeFunction {
+				return unavailable("Element.Click", parseName)
 			}
-			raw.Call("click")
+			parseRaw.Call("click")
 			return nil
 		},
-		setScrollTop: func(scrollTop float64) error {
-			raw.Set("scrollTop", scrollTop)
+		setScrollTop: func(parseScrollTop float64) error {
+			parseRaw.Set("scrollTop", parseScrollTop)
 			return nil
 		},
-		scrollIntoView: func(options ScrollIntoViewOptions) error {
-			if fn := raw.Get("scrollIntoView"); fn.Type() != js.TypeFunction {
-				return unavailable("Element.ScrollIntoView", name)
+		scrollIntoView: func(parseOptions ScrollIntoViewOptions) error {
+			if parseFn4 := parseRaw.Get("scrollIntoView"); parseFn4.Type() != js.TypeFunction {
+				return unavailable("Element.ScrollIntoView", parseName)
 			}
-			init := js.Global().Get("Object").New()
+			parseInit := js.Global().Get("Object").New()
 			hasOptions := false
-			if strings.TrimSpace(options.Behavior) != "" {
-				init.Set("behavior", options.Behavior)
+			if strings.TrimSpace(parseOptions.Behavior) != "" {
+				parseInit.Set("behavior", parseOptions.Behavior)
 				hasOptions = true
 			}
-			if strings.TrimSpace(options.Block) != "" {
-				init.Set("block", options.Block)
+			if strings.TrimSpace(parseOptions.Block) != "" {
+				parseInit.Set("block", parseOptions.Block)
 				hasOptions = true
 			}
-			if strings.TrimSpace(options.Inline) != "" {
-				init.Set("inline", options.Inline)
+			if strings.TrimSpace(parseOptions.Inline) != "" {
+				parseInit.Set("inline", parseOptions.Inline)
 				hasOptions = true
 			}
 			if !hasOptions {
-				raw.Call("scrollIntoView")
+				parseRaw.Call("scrollIntoView")
 				return nil
 			}
-			raw.Call("scrollIntoView", init)
+			parseRaw.Call("scrollIntoView", parseInit)
 			return nil
 		},
 		boundingClientRect: func() (Rect, error) {
-			if fn := raw.Get("getBoundingClientRect"); fn.Type() != js.TypeFunction {
-				return Rect{}, unavailable("Element.BoundingClientRect", name)
+			if parseFn5 := parseRaw.Get("getBoundingClientRect"); parseFn5.Type() != js.TypeFunction {
+				return Rect{}, unavailable("Element.BoundingClientRect", parseName)
 			}
-			return rectFromJSValue(raw.Call("getBoundingClientRect")), nil
+			return rectFromJSValue(parseRaw.Call("getBoundingClientRect")), nil
 		},
 		events: func() (EventTarget, error) {
-			return newEventTarget(name, raw), nil
+			return newEventTarget(parseName, parseRaw), nil
 		},
 		observeResize: func(handler func(ResizeEntry)) (Subscription, error) {
-			return observeResize(name, raw, handler)
+			return observeResize(parseName, parseRaw, handler)
 		},
-		observeIntersection: func(options IntersectionObserverOptions, handler func(IntersectionEntry)) (Subscription, error) {
-			return observeIntersection(name, raw, options, handler)
+		observeIntersection: func(parseOptions2 IntersectionObserverOptions, handler func(IntersectionEntry)) (Subscription, error) {
+			return observeIntersection(parseName, parseRaw, parseOptions2, handler)
 		},
 		scrollMetrics: func() (float64, float64, float64, error) {
-			return raw.Get("scrollTop").Float(), raw.Get("scrollHeight").Float(), raw.Get("clientHeight").Float(), nil
+			return parseRaw.Get("scrollTop").Float(), parseRaw.Get("scrollHeight").Float(), parseRaw.Get("clientHeight").Float(), nil
 		},
 	}
 }
 
-func elementFromJSValue(value js.Value) Element {
-	if value.IsUndefined() || value.IsNull() {
+func elementFromJSValue(parseValue js.Value) Element {
+	if parseValue.IsUndefined() || parseValue.IsNull() {
 		return Element{}
 	}
-	return newElement("element", value)
+	return newElement("element", parseValue)
 }
 
-func rectFromJSValue(value js.Value) Rect {
-	if value.IsUndefined() || value.IsNull() {
+func rectFromJSValue(parseValue js.Value) Rect {
+	if parseValue.IsUndefined() || parseValue.IsNull() {
 		return Rect{}
 	}
 	return Rect{
-		X:      value.Get("x").Float(),
-		Y:      value.Get("y").Float(),
-		Width:  value.Get("width").Float(),
-		Height: value.Get("height").Float(),
-		Top:    value.Get("top").Float(),
-		Right:  value.Get("right").Float(),
-		Bottom: value.Get("bottom").Float(),
-		Left:   value.Get("left").Float(),
+		X:      parseValue.Get("x").Float(),
+		Y:      parseValue.Get("y").Float(),
+		Width:  parseValue.Get("width").Float(),
+		Height: parseValue.Get("height").Float(),
+		Top:    parseValue.Get("top").Float(),
+		Right:  parseValue.Get("right").Float(),
+		Bottom: parseValue.Get("bottom").Float(),
+		Left:   parseValue.Get("left").Float(),
 	}
 }
 
-func observeResize(name string, raw js.Value, handler func(ResizeEntry)) (Subscription, error) {
-	if handler == nil {
-		return Subscription{}, wrapError("Element.ObserveResize", name, CodeInvalid, errors.New("handler is nil"))
+func observeResize(parseName string, parseRaw js.Value, parseHandler func(ResizeEntry)) (Subscription, error) {
+	if parseHandler == nil {
+		return Subscription{}, wrapError("Element.ObserveResize", parseName, CodeInvalid, errors.New("handler is nil"))
 	}
-	ctor := js.Global().Get("ResizeObserver")
-	if ctor.IsUndefined() || ctor.IsNull() {
-		return Subscription{}, unavailable("Element.ObserveResize", name)
+	parseCtor := js.Global().Get("ResizeObserver")
+	if parseCtor.IsUndefined() || parseCtor.IsNull() {
+		return Subscription{}, unavailable("Element.ObserveResize", parseName)
 	}
-	callback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) == 0 {
+	parseCallback := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) == 0 {
 			return nil
 		}
-		entries := args[0]
-		length := entries.Get("length").Int()
-		for index := 0; index < length; index++ {
-			entry := entries.Index(index)
-			handler(ResizeEntry{
-				Target:      elementFromJSValue(entry.Get("target")),
-				ContentRect: rectFromJSValue(entry.Get("contentRect")),
+		parseEntries := parseArgs[0]
+		parseLength := parseEntries.Get("length").Int()
+		for parseIndex := 0; parseIndex < parseLength; parseIndex++ {
+			parseEntry := parseEntries.Index(parseIndex)
+			parseHandler(ResizeEntry{
+				Target:      elementFromJSValue(parseEntry.Get("target")),
+				ContentRect: rectFromJSValue(parseEntry.Get("contentRect")),
 			})
 		}
 		return nil
 	})
-	observer := ctor.New(callback)
-	observer.Call("observe", raw)
+	parseObserver := parseCtor.New(parseCallback)
+	parseObserver.Call("observe", parseRaw)
 	return Subscription{cancel: func() {
-		observer.Call("disconnect")
-		callback.Release()
+		parseObserver.Call("disconnect")
+		parseCallback.Release()
 	}}, nil
 }
 
-func observeIntersection(name string, raw js.Value, options IntersectionObserverOptions, handler func(IntersectionEntry)) (Subscription, error) {
-	if handler == nil {
-		return Subscription{}, wrapError("Element.ObserveIntersection", name, CodeInvalid, errors.New("handler is nil"))
+func observeIntersection(parseName string, parseRaw js.Value, parseOptions IntersectionObserverOptions, parseHandler func(IntersectionEntry)) (Subscription, error) {
+	if parseHandler == nil {
+		return Subscription{}, wrapError("Element.ObserveIntersection", parseName, CodeInvalid, errors.New("handler is nil"))
 	}
-	ctor := js.Global().Get("IntersectionObserver")
-	if ctor.IsUndefined() || ctor.IsNull() {
-		return Subscription{}, unavailable("Element.ObserveIntersection", name)
+	parseCtor := js.Global().Get("IntersectionObserver")
+	if parseCtor.IsUndefined() || parseCtor.IsNull() {
+		return Subscription{}, unavailable("Element.ObserveIntersection", parseName)
 	}
-	callback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) == 0 {
+	parseCallback := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) == 0 {
 			return nil
 		}
-		entries := args[0]
-		length := entries.Get("length").Int()
-		for index := 0; index < length; index++ {
-			entry := entries.Index(index)
-			var rootBounds *Rect
-			if bounds := entry.Get("rootBounds"); !bounds.IsUndefined() && !bounds.IsNull() {
-				rect := rectFromJSValue(bounds)
-				rootBounds = &rect
+		parseEntries := parseArgs[0]
+		parseLength := parseEntries.Get("length").Int()
+		for parseIndex := 0; parseIndex < parseLength; parseIndex++ {
+			parseEntry := parseEntries.Index(parseIndex)
+			var parseRootBounds *Rect
+			if parseBounds := parseEntry.Get("rootBounds"); !parseBounds.IsUndefined() && !parseBounds.IsNull() {
+				parseRect := rectFromJSValue(parseBounds)
+				parseRootBounds = &parseRect
 			}
-			handler(IntersectionEntry{
-				Target:             elementFromJSValue(entry.Get("target")),
-				IsIntersecting:     entry.Get("isIntersecting").Bool(),
-				IntersectionRatio:  entry.Get("intersectionRatio").Float(),
-				BoundingClientRect: rectFromJSValue(entry.Get("boundingClientRect")),
-				IntersectionRect:   rectFromJSValue(entry.Get("intersectionRect")),
-				RootBounds:         rootBounds,
+			parseHandler(IntersectionEntry{
+				Target:             elementFromJSValue(parseEntry.Get("target")),
+				IsIntersecting:     parseEntry.Get("isIntersecting").Bool(),
+				IntersectionRatio:  parseEntry.Get("intersectionRatio").Float(),
+				BoundingClientRect: rectFromJSValue(parseEntry.Get("boundingClientRect")),
+				IntersectionRect:   rectFromJSValue(parseEntry.Get("intersectionRect")),
+				RootBounds:         parseRootBounds,
 			})
 		}
 		return nil
 	})
-	if len(options.Thresholds) == 0 && options.RootMargin == "" && options.Root.raw == nil {
-		observer := ctor.New(callback)
-		observer.Call("observe", raw)
+	if len(parseOptions.Thresholds) == 0 && parseOptions.RootMargin == "" && parseOptions.Root.raw == nil {
+		parseObserver := parseCtor.New(parseCallback)
+		parseObserver.Call("observe", parseRaw)
 		return Subscription{cancel: func() {
-			observer.Call("disconnect")
-			callback.Release()
+			parseObserver.Call("disconnect")
+			parseCallback.Release()
 		}}, nil
 	}
-	init := js.Global().Get("Object").New()
-	if options.RootMargin != "" {
-		init.Set("rootMargin", options.RootMargin)
+	parseInit := js.Global().Get("Object").New()
+	if parseOptions.RootMargin != "" {
+		parseInit.Set("rootMargin", parseOptions.RootMargin)
 	}
-	if len(options.Thresholds) > 0 {
-		thresholds := js.Global().Get("Array").New()
-		for _, threshold := range options.Thresholds {
-			thresholds.Call("push", threshold)
+	if len(parseOptions.Thresholds) > 0 {
+		parseThresholds := js.Global().Get("Array").New()
+		for _, parseThreshold := range parseOptions.Thresholds {
+			parseThresholds.Call("push", parseThreshold)
 		}
-		init.Set("threshold", thresholds)
+		parseInit.Set("threshold", parseThresholds)
 	}
-	if root, ok := options.Root.raw.(js.Value); ok && !root.IsUndefined() && !root.IsNull() {
-		init.Set("root", root)
+	if parseRoot, parseOk := parseOptions.Root.raw.(js.Value); parseOk && !parseRoot.IsUndefined() && !parseRoot.IsNull() {
+		parseInit.Set("root", parseRoot)
 	}
-	observer := ctor.New(callback, init)
-	observer.Call("observe", raw)
+	parseObserver2 := parseCtor.New(parseCallback, parseInit)
+	parseObserver2.Call("observe", parseRaw)
 	return Subscription{cancel: func() {
-		observer.Call("disconnect")
-		callback.Release()
+		parseObserver2.Call("disconnect")
+		parseCallback.Release()
 	}}, nil
 }
 
-func globalProperty(op string, name string) (js.Value, error) {
-	value := js.Global().Get(name)
-	if (value.IsUndefined() || value.IsNull()) && name != "window" {
-		if window := js.Global().Get("window"); !window.IsUndefined() && !window.IsNull() {
-			value = window.Get(name)
+func globalProperty(parseOp string, parseName string) (js.Value, error) {
+	parseValue := js.Global().Get(parseName)
+	if (parseValue.IsUndefined() || parseValue.IsNull()) && parseName != "window" {
+		if parseWindow := js.Global().Get("window"); !parseWindow.IsUndefined() && !parseWindow.IsNull() {
+			parseValue = parseWindow.Get(parseName)
 		}
 	}
-	if value.IsUndefined() || value.IsNull() {
-		return js.Undefined(), unavailable(op, name)
+	if parseValue.IsUndefined() || parseValue.IsNull() {
+		return js.Undefined(), unavailable(parseOp, parseName)
 	}
-	return value, nil
+	return parseValue, nil
 }
 
-func globalPath(op string, head string, tail string) (js.Value, error) {
-	root, err := globalProperty(op, head)
-	if err != nil {
-		return js.Undefined(), err
+func globalPath(parseOp string, parseHead string, parseTail string) (js.Value, error) {
+	parseRoot, parseErr := globalProperty(parseOp, parseHead)
+	if parseErr != nil {
+		return js.Undefined(), parseErr
 	}
-	value := root.Get(tail)
-	if (value.IsUndefined() || value.IsNull()) && head != "window" {
-		if window := js.Global().Get("window"); !window.IsUndefined() && !window.IsNull() {
-			nextRoot := window.Get(head)
-			if !nextRoot.IsUndefined() && !nextRoot.IsNull() {
-				value = nextRoot.Get(tail)
+	parseValue := parseRoot.Get(parseTail)
+	if (parseValue.IsUndefined() || parseValue.IsNull()) && parseHead != "window" {
+		if parseWindow := js.Global().Get("window"); !parseWindow.IsUndefined() && !parseWindow.IsNull() {
+			parseNextRoot := parseWindow.Get(parseHead)
+			if !parseNextRoot.IsUndefined() && !parseNextRoot.IsNull() {
+				parseValue = parseNextRoot.Get(parseTail)
 			}
 		}
 	}
-	if value.IsUndefined() || value.IsNull() {
-		return js.Undefined(), unavailable(op, head+"."+tail)
+	if parseValue.IsUndefined() || parseValue.IsNull() {
+		return js.Undefined(), unavailable(parseOp, parseHead+"."+parseTail)
 	}
-	return value, nil
+	return parseValue, nil
 }
 
-func durationMS(value time.Duration) int {
-	if value <= 0 {
+func durationMS(parseValue time.Duration) int {
+	if parseValue <= 0 {
 		return 0
 	}
-	return int(value / time.Millisecond)
+	return int(parseValue / time.Millisecond)
 }
 
-func awaitValue(ctx context.Context, op string, target string, value js.Value) (js.Value, error) {
-	if !isPromise(value) {
-		return value, nil
+func awaitValue(parseCtx context.Context, parseOp string, parseTarget string, parseValue js.Value) (js.Value, error) {
+	if !isPromise(parseValue) {
+		return parseValue, nil
 	}
-	resolvedCh := make(chan js.Value, 1)
-	rejectedCh := make(chan js.Value, 1)
+	parseResolvedCh := make(chan js.Value, 1)
+	parseRejectedCh := make(chan js.Value, 1)
 	var (
-		resolve js.Func
-		reject  js.Func
-		once    sync.Once
+		parseResolve js.Func
+		parseReject  js.Func
+		parseOnce    sync.Once
 	)
-	cleanup := func() {
-		resolve.Release()
-		reject.Release()
+	parseCleanup := func() {
+		parseResolve.Release()
+		parseReject.Release()
 	}
-	resolve = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		once.Do(func() {
-			if len(args) > 0 {
-				resolvedCh <- args[0]
+	parseResolve = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseOnce.Do(func() {
+			if len(parseArgs) > 0 {
+				parseResolvedCh <- parseArgs[0]
 			} else {
-				resolvedCh <- js.Undefined()
+				parseResolvedCh <- js.Undefined()
 			}
-			cleanup()
+			parseCleanup()
 		})
 		return nil
 	})
-	reject = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		once.Do(func() {
-			if len(args) > 0 {
-				rejectedCh <- args[0]
+	parseReject = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		parseOnce.Do(func() {
+			if len(parseArgs2) > 0 {
+				parseRejectedCh <- parseArgs2[0]
 			} else {
-				rejectedCh <- js.ValueOf("promise rejected")
+				parseRejectedCh <- js.ValueOf("promise rejected")
 			}
-			cleanup()
+			parseCleanup()
 		})
 		return nil
 	})
-	value.Call("then", resolve)
-	value.Call("catch", reject)
+	parseValue.Call("then", parseResolve)
+	parseValue.Call("catch", parseReject)
 
 	select {
-	case resolved := <-resolvedCh:
-		return resolved, nil
-	case rejected := <-rejectedCh:
-		return js.Undefined(), wrapError(op, target, CodePromiseRejected, errors.New(jsValueSummary(rejected)))
-	case <-ctx.Done():
-		return js.Undefined(), wrapError(op, target, CodePromiseRejected, ctx.Err())
+	case parseResolved := <-parseResolvedCh:
+		return parseResolved, nil
+	case parseRejected := <-parseRejectedCh:
+		return js.Undefined(), wrapError(parseOp, parseTarget, CodePromiseRejected, errors.New(jsValueSummary(parseRejected)))
+	case <-parseCtx.Done():
+		return js.Undefined(), wrapError(parseOp, parseTarget, CodePromiseRejected, parseCtx.Err())
 	}
 }
 
-func isPromise(value js.Value) bool {
-	if value.IsUndefined() || value.IsNull() {
+func isPromise(parseValue js.Value) bool {
+	if parseValue.IsUndefined() || parseValue.IsNull() {
 		return false
 	}
-	if value.Type() != js.TypeObject && value.Type() != js.TypeFunction {
+	if parseValue.Type() != js.TypeObject && parseValue.Type() != js.TypeFunction {
 		return false
 	}
-	then := value.Get("then")
-	return then.Type() == js.TypeFunction
+	parseThen := parseValue.Get("then")
+	return parseThen.Type() == js.TypeFunction
 }
 
-func goValueToJS(op string, target string, value any) (interface{}, error) {
-	switch typed := value.(type) {
+func goValueToJS(parseOp string, parseTarget string, parseValue any) (interface{}, error) {
+	switch parseTyped := parseValue.(type) {
 	case nil:
 		return js.Null(), nil
 	case []byte:
-		array := js.Global().Get("Uint8Array").New(len(typed))
-		js.CopyBytesToJS(array, typed)
-		return array, nil
+		parseArray := js.Global().Get("Uint8Array").New(len(parseTyped))
+		js.CopyBytesToJS(parseArray, parseTyped)
+		return parseArray, nil
 	case Value:
-		if raw, ok := typed.rawValue(); ok {
-			return raw, nil
+		if parseRaw, parseOk := parseTyped.rawValue(); parseOk {
+			return parseRaw, nil
 		}
-		return js.Undefined(), unavailable(op, target)
+		return js.Undefined(), unavailable(parseOp, parseTarget)
 	case js.Value:
-		return typed, nil
+		return parseTyped, nil
 	case bool, string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
-		return js.ValueOf(typed), nil
+		return js.ValueOf(parseTyped), nil
 	default:
-		data, err := json.Marshal(value)
-		if err != nil {
-			return nil, wrapError(op, target, CodeEncode, err)
+		parseData, parseErr := json.Marshal(parseValue)
+		if parseErr != nil {
+			return nil, wrapError(parseOp, parseTarget, CodeEncode, parseErr)
 		}
-		return js.Global().Get("JSON").Call("parse", string(data)), nil
+		return js.Global().Get("JSON").Call("parse", string(parseData)), nil
 	}
 }
 
-func goValuesToJS(op string, target string, values ...any) ([]interface{}, error) {
-	if len(values) == 0 {
+func goValuesToJS(parseOp string, parseTarget string, parseValues ...any) ([]interface{}, error) {
+	if len(parseValues) == 0 {
 		return nil, nil
 	}
-	converted := make([]interface{}, len(values))
-	for index, value := range values {
-		jsValue, err := goValueToJS(op, target, value)
-		if err != nil {
-			return nil, err
+	parseConverted := make([]interface{}, len(parseValues))
+	for parseIndex, parseValue := range parseValues {
+		parseJsValue, parseErr := goValueToJS(parseOp, parseTarget, parseValue)
+		if parseErr != nil {
+			return nil, parseErr
 		}
-		converted[index] = jsValue
+		parseConverted[parseIndex] = parseJsValue
 	}
-	return converted, nil
+	return parseConverted, nil
 }
 
-func jsValueToGo(op string, target string, value js.Value) (any, error) {
-	if value.IsUndefined() || value.IsNull() {
+func jsValueToGo(parseOp string, parseTarget string, parseValue js.Value) (any, error) {
+	if parseValue.IsUndefined() || parseValue.IsNull() {
 		return nil, nil
 	}
-	if bytes, ok := jsValueToBytes(value); ok {
-		return bytes, nil
+	if parseBytes, parseOk := jsValueToBytes(parseValue); parseOk {
+		return parseBytes, nil
 	}
-	switch value.Type() {
+	switch parseValue.Type() {
 	case js.TypeBoolean:
-		return value.Bool(), nil
+		return parseValue.Bool(), nil
 	case js.TypeString:
-		return value.String(), nil
+		return parseValue.String(), nil
 	case js.TypeNumber:
-		return value.Float(), nil
+		return parseValue.Float(), nil
 	case js.TypeObject:
-		if value.InstanceOf(js.Global().Get("Array")) {
-			items := make([]any, value.Length())
-			for index := 0; index < value.Length(); index++ {
-				item, err := jsValueToGo(op, target, value.Index(index))
-				if err != nil {
-					return nil, err
+		if parseValue.InstanceOf(js.Global().Get("Array")) {
+			parseItems := make([]any, parseValue.Length())
+			for parseIndex := 0; parseIndex < parseValue.Length(); parseIndex++ {
+				parseItem, parseErr := jsValueToGo(parseOp, parseTarget, parseValue.Index(parseIndex))
+				if parseErr != nil {
+					return nil, parseErr
 				}
-				items[index] = item
+				parseItems[parseIndex] = parseItem
 			}
-			return items, nil
+			return parseItems, nil
 		}
-		keys := js.Global().Get("Object").Call("keys", value)
-		decoded := make(map[string]any, keys.Length())
-		for index := 0; index < keys.Length(); index++ {
-			key := keys.Index(index).String()
-			item, err := jsValueToGo(op, target, value.Get(key))
-			if err != nil {
-				return nil, err
+		parseKeys := js.Global().Get("Object").Call("keys", parseValue)
+		parseDecoded := make(map[string]any, parseKeys.Length())
+		for parseIndex2 := 0; parseIndex2 < parseKeys.Length(); parseIndex2++ {
+			parseKey := parseKeys.Index(parseIndex2).String()
+			parseItem2, parseErr2 := jsValueToGo(parseOp, parseTarget, parseValue.Get(parseKey))
+			if parseErr2 != nil {
+				return nil, parseErr2
 			}
-			decoded[key] = item
+			parseDecoded[parseKey] = parseItem2
 		}
-		return decoded, nil
+		return parseDecoded, nil
 	case js.TypeFunction:
-		return nil, wrapError(op, target, CodeDecode, errors.New("function values are not serializable"))
+		return nil, wrapError(parseOp, parseTarget, CodeDecode, errors.New("function values are not serializable"))
 	default:
-		return value.String(), nil
+		return parseValue.String(), nil
 	}
 }
 
-func jsValueToBytes(value js.Value) ([]byte, bool) {
-	if value.IsUndefined() || value.IsNull() {
+func jsValueToBytes(parseValue js.Value) ([]byte, bool) {
+	if parseValue.IsUndefined() || parseValue.IsNull() {
 		return nil, false
 	}
-	arrayBuffer := js.Global().Get("ArrayBuffer")
-	if arrayBuffer.Type() == js.TypeFunction && value.InstanceOf(arrayBuffer) {
-		view := js.Global().Get("Uint8Array").New(value)
-		bytes := make([]byte, view.Length())
-		js.CopyBytesToGo(bytes, view)
-		return bytes, true
+	parseArrayBuffer := js.Global().Get("ArrayBuffer")
+	if parseArrayBuffer.Type() == js.TypeFunction && parseValue.InstanceOf(parseArrayBuffer) {
+		parseView := js.Global().Get("Uint8Array").New(parseValue)
+		parseBytes := make([]byte, parseView.Length())
+		js.CopyBytesToGo(parseBytes, parseView)
+		return parseBytes, true
 	}
-	if arrayBuffer.Type() != js.TypeFunction {
+	if parseArrayBuffer.Type() != js.TypeFunction {
 		return nil, false
 	}
-	isView := arrayBuffer.Get("isView")
-	if isView.Type() != js.TypeFunction || !isView.Invoke(value).Bool() {
+	isView := parseArrayBuffer.Get("isView")
+	if isView.Type() != js.TypeFunction || !isView.Invoke(parseValue).Bool() {
 		return nil, false
 	}
-	view := js.Global().Get("Uint8Array").New(value.Get("buffer"), value.Get("byteOffset"), value.Get("byteLength"))
-	bytes := make([]byte, view.Length())
-	js.CopyBytesToGo(bytes, view)
-	return bytes, true
+	parseView2 := js.Global().Get("Uint8Array").New(parseValue.Get("buffer"), parseValue.Get("byteOffset"), parseValue.Get("byteLength"))
+	parseBytes2 := make([]byte, parseView2.Length())
+	js.CopyBytesToGo(parseBytes2, parseView2)
+	return parseBytes2, true
 }
 
-func crossTabEnvelopeJS(name string, source string, envelope CrossTabEnvelope) (js.Value, error) {
-	value := js.Global().Get("Object").New()
-	value.Set("name", name)
-	value.Set("source", source)
-	value.Set("sequence", envelope.Sequence)
-	value.Set("sentAt", envelope.SentAt.Format(time.RFC3339Nano))
-	payload, err := goValueToJSStructured("CrossTabChannel.Publish", name, envelope.Payload)
-	if err != nil {
-		return js.Undefined(), err
+func crossTabEnvelopeJS(parseName string, parseSource string, parseEnvelope CrossTabEnvelope) (js.Value, error) {
+	parseValue := js.Global().Get("Object").New()
+	parseValue.Set("name", parseName)
+	parseValue.Set("source", parseSource)
+	parseValue.Set("sequence", parseEnvelope.Sequence)
+	parseValue.Set("sentAt", parseEnvelope.SentAt.Format(time.RFC3339Nano))
+	parsePayload, parseErr := goValueToJSStructured("CrossTabChannel.Publish", parseName, parseEnvelope.Payload)
+	if parseErr != nil {
+		return js.Undefined(), parseErr
 	}
-	value.Set("payload", payload)
-	return value, nil
+	parseValue.Set("payload", parsePayload)
+	return parseValue, nil
 }
 
-func windowEnvelopeJS(name string, source string, payload any) (js.Value, error) {
-	value := js.Global().Get("Object").New()
-	value.Set("name", name)
-	value.Set("source", source)
-	value.Set("sentAt", time.Now().UTC().Format(time.RFC3339Nano))
-	converted, err := goValueToJSStructured("WindowChannel.Publish", name, payload)
-	if err != nil {
-		return js.Undefined(), err
+func windowEnvelopeJS(parseName string, parseSource string, parsePayload any) (js.Value, error) {
+	parseValue := js.Global().Get("Object").New()
+	parseValue.Set("name", parseName)
+	parseValue.Set("source", parseSource)
+	parseValue.Set("sentAt", time.Now().UTC().Format(time.RFC3339Nano))
+	parseConverted, parseErr := goValueToJSStructured("WindowChannel.Publish", parseName, parsePayload)
+	if parseErr != nil {
+		return js.Undefined(), parseErr
 	}
-	value.Set("payload", converted)
-	return value, nil
+	parseValue.Set("payload", parseConverted)
+	return parseValue, nil
 }
 
-func goValueToJSStructured(op string, target string, value any) (interface{}, error) {
-	switch typed := value.(type) {
+func goValueToJSStructured(parseOp string, parseTarget string, parseValue any) (interface{}, error) {
+	switch parseTyped := parseValue.(type) {
 	case ClientMessage:
-		message := js.Global().Get("Object").New()
-		if strings.TrimSpace(typed.ID) != "" {
-			message.Set("id", typed.ID)
+		parseMessage := js.Global().Get("Object").New()
+		if strings.TrimSpace(parseTyped.ID) != "" {
+			parseMessage.Set("id", parseTyped.ID)
 		}
-		message.Set("kind", string(typed.Kind))
-		message.Set("topic", typed.Topic)
-		message.Set("source", clientIdentityJS(typed.Source))
-		if typed.Capabilities != nil {
-			message.Set("capabilities", clientCapabilitiesJS(*typed.Capabilities))
+		parseMessage.Set("kind", string(parseTyped.Kind))
+		parseMessage.Set("topic", parseTyped.Topic)
+		parseMessage.Set("source", clientIdentityJS(parseTyped.Source))
+		if parseTyped.Capabilities != nil {
+			parseMessage.Set("capabilities", clientCapabilitiesJS(*parseTyped.Capabilities))
 		}
-		if strings.TrimSpace(typed.Target) != "" {
-			message.Set("target", typed.Target)
+		if strings.TrimSpace(parseTyped.Target) != "" {
+			parseMessage.Set("target", parseTyped.Target)
 		}
-		if typed.Encoding != "" {
-			message.Set("encoding", string(typed.Encoding))
+		if parseTyped.Encoding != "" {
+			parseMessage.Set("encoding", string(parseTyped.Encoding))
 		}
-		if strings.TrimSpace(typed.ContentType) != "" {
-			message.Set("contentType", typed.ContentType)
+		if strings.TrimSpace(parseTyped.ContentType) != "" {
+			parseMessage.Set("contentType", parseTyped.ContentType)
 		}
-		if strings.TrimSpace(typed.Revision) != "" {
-			message.Set("revision", typed.Revision)
+		if strings.TrimSpace(parseTyped.Revision) != "" {
+			parseMessage.Set("revision", parseTyped.Revision)
 		}
-		if strings.TrimSpace(typed.Error) != "" {
-			message.Set("error", typed.Error)
+		if strings.TrimSpace(parseTyped.Error) != "" {
+			parseMessage.Set("error", parseTyped.Error)
 		}
-		if !typed.SentAt.IsZero() {
-			message.Set("sentAt", typed.SentAt.Format(time.RFC3339Nano))
+		if !parseTyped.SentAt.IsZero() {
+			parseMessage.Set("sentAt", parseTyped.SentAt.Format(time.RFC3339Nano))
 		}
-		if typed.Payload != nil {
-			payload, err := goValueToJS(op, target, typed.Payload)
-			if err != nil {
-				return nil, err
+		if parseTyped.Payload != nil {
+			parsePayload, parseErr := goValueToJS(parseOp, parseTarget, parseTyped.Payload)
+			if parseErr != nil {
+				return nil, parseErr
 			}
-			message.Set("payload", payload)
+			parseMessage.Set("payload", parsePayload)
 		}
-		return message, nil
+		return parseMessage, nil
 	default:
-		return goValueToJS(op, target, value)
+		return goValueToJS(parseOp, parseTarget, parseValue)
 	}
 }
 
-func clientIdentityJS(identity ClientIdentity) js.Value {
-	value := js.Global().Get("Object").New()
-	value.Set("id", identity.ID)
-	value.Set("app", identity.App)
-	value.Set("surface", identity.Surface)
-	if strings.TrimSpace(identity.Role) != "" {
-		value.Set("role", identity.Role)
+func clientIdentityJS(parseIdentity ClientIdentity) js.Value {
+	parseValue := js.Global().Get("Object").New()
+	parseValue.Set("id", parseIdentity.ID)
+	parseValue.Set("app", parseIdentity.App)
+	parseValue.Set("surface", parseIdentity.Surface)
+	if strings.TrimSpace(parseIdentity.Role) != "" {
+		parseValue.Set("role", parseIdentity.Role)
 	}
-	if strings.TrimSpace(identity.Version) != "" {
-		value.Set("version", identity.Version)
+	if strings.TrimSpace(parseIdentity.Version) != "" {
+		parseValue.Set("version", parseIdentity.Version)
 	}
-	return value
+	return parseValue
 }
 
-func clientCapabilitiesJS(capabilities ClientCapabilities) js.Value {
-	value := js.Global().Get("Object").New()
-	if strings.TrimSpace(capabilities.ProtocolVersion) != "" {
-		value.Set("protocolVersion", capabilities.ProtocolVersion)
+func clientCapabilitiesJS(parseCapabilities ClientCapabilities) js.Value {
+	parseValue := js.Global().Get("Object").New()
+	if strings.TrimSpace(parseCapabilities.ProtocolVersion) != "" {
+		parseValue.Set("protocolVersion", parseCapabilities.ProtocolVersion)
 	}
-	if len(capabilities.Transports) > 0 {
-		value.Set("transports", stringArrayValue(capabilities.Transports))
+	if len(parseCapabilities.Transports) > 0 {
+		parseValue.Set("transports", stringArrayValue(parseCapabilities.Transports))
 	}
-	if len(capabilities.Encodings) > 0 {
-		value.Set("encodings", stringArrayValue(capabilities.Encodings))
+	if len(parseCapabilities.Encodings) > 0 {
+		parseValue.Set("encodings", stringArrayValue(parseCapabilities.Encodings))
 	}
-	if len(capabilities.Topics) > 0 {
-		value.Set("topics", stringArrayValue(capabilities.Topics))
+	if len(parseCapabilities.Topics) > 0 {
+		parseValue.Set("topics", stringArrayValue(parseCapabilities.Topics))
 	}
-	if capabilities.MaxJSONBytes > 0 {
-		value.Set("maxJsonBytes", capabilities.MaxJSONBytes)
+	if parseCapabilities.MaxJSONBytes > 0 {
+		parseValue.Set("maxJsonBytes", parseCapabilities.MaxJSONBytes)
 	}
-	if capabilities.MaxBinaryBytes > 0 {
-		value.Set("maxBinaryBytes", capabilities.MaxBinaryBytes)
+	if parseCapabilities.MaxBinaryBytes > 0 {
+		parseValue.Set("maxBinaryBytes", parseCapabilities.MaxBinaryBytes)
 	}
-	return value
+	return parseValue
 }
 
-func jsValueSummary(value js.Value) string {
-	if value.IsUndefined() {
+func jsValueSummary(parseValue js.Value) string {
+	if parseValue.IsUndefined() {
 		return "undefined"
 	}
-	if value.IsNull() {
+	if parseValue.IsNull() {
 		return "null"
 	}
-	switch value.Type() {
+	switch parseValue.Type() {
 	case js.TypeString:
-		return value.String()
+		return parseValue.String()
 	case js.TypeBoolean:
-		if value.Bool() {
+		if parseValue.Bool() {
 			return "true"
 		}
 		return "false"
 	case js.TypeNumber:
-		return fmt.Sprint(value.Float())
+		return fmt.Sprint(parseValue.Float())
 	default:
-		stringified := js.Global().Get("JSON").Call("stringify", value)
-		if stringified.IsUndefined() || stringified.IsNull() {
-			return value.String()
+		parseStringified := js.Global().Get("JSON").Call("stringify", parseValue)
+		if parseStringified.IsUndefined() || parseStringified.IsNull() {
+			return parseValue.String()
 		}
-		return stringified.String()
+		return parseStringified.String()
 	}
 }
 
@@ -2195,9 +2234,9 @@ func jsValueSummary(value js.Value) string {
 // type descriptor (e.g. "<object>", "<undefined>", "<null>", "<function>") rather
 // than a genuine value. Go 1.26+ returns these when js.Value.String() is called
 // on a non-string JS value.
-func looksLikeJSTypeDescriptor(s string) bool {
-	trimmed := strings.TrimSpace(s)
-	switch trimmed {
+func looksLikeJSTypeDescriptor(parseS string) bool {
+	parseTrimmed := strings.TrimSpace(parseS)
+	switch parseTrimmed {
 	case "<object>", "<undefined>", "<null>", "<function>", "<symbol>", "<number>", "<boolean>":
 		return true
 	}
@@ -2205,10 +2244,10 @@ func looksLikeJSTypeDescriptor(s string) bool {
 }
 
 // consoleError logs an error message to the browser console (console.error).
-func consoleError(msg string) {
-	c := js.Global().Get("console")
-	if c.IsUndefined() || c.IsNull() {
+func consoleError(parseMsg string) {
+	parseC := js.Global().Get("console")
+	if parseC.IsUndefined() || parseC.IsNull() {
 		return
 	}
-	c.Call("error", msg)
+	parseC.Call("error", parseMsg)
 }

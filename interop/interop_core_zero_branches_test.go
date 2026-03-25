@@ -9,69 +9,69 @@ import (
 	"time"
 )
 
-func TestClipboardTimerMediaAndWindowEnvWrappers(t *testing.T) {
-	ctx := context.TODO()
+func TestClipboardTimerMediaAndWindowEnvWrappers(parseT *testing.T) {
+	parseCtx := context.TODO()
 
-	env := WindowEnv{}
-	if _, ok := env.Lookup("x"); ok {
-		t.Fatalf("expected missing lookup when env lookup is nil")
+	parseEnv := WindowEnv{}
+	if _, parseOk := parseEnv.Lookup("x"); parseOk {
+		parseT.Fatalf("expected missing lookup when env lookup is nil")
 	}
-	if _, ok := env.LookupString("x"); ok {
-		t.Fatalf("expected missing lookup string for nil env")
+	if _, parseOk2 := parseEnv.LookupString("x"); parseOk2 {
+		parseT.Fatalf("expected missing lookup string for nil env")
 	}
-	if got := env.String("x", "fallback"); got != "fallback" {
-		t.Fatalf("expected fallback string, got %q", got)
-	}
-
-	clipboard := Clipboard{}
-	if err := clipboard.WriteText(ctx, "hello"); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable clipboard write, got %v", err)
-	}
-	if _, err := clipboard.ReadText(ctx); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable clipboard read, got %v", err)
+	if parseGot := parseEnv.String("x", "fallback"); parseGot != "fallback" {
+		parseT.Fatalf("expected fallback string, got %q", parseGot)
 	}
 
-	clipboard = Clipboard{
-		writeText: func(ctx context.Context, text string) error {
-			if ctx == nil || text != "hello" {
-				t.Fatalf("unexpected write params: ctx=%v text=%q", ctx, text)
+	parseClipboard := Clipboard{}
+	if parseErr := parseClipboard.WriteText(parseCtx, "hello"); !IsCode(parseErr, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable clipboard write, got %v", parseErr)
+	}
+	if _, parseErr2 := parseClipboard.ReadText(parseCtx); !IsCode(parseErr2, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable clipboard read, got %v", parseErr2)
+	}
+
+	parseClipboard = Clipboard{
+		writeText: func(parseCtx2 context.Context, parseText2 string) error {
+			if parseCtx2 == nil || parseText2 != "hello" {
+				parseT.Fatalf("unexpected write params: ctx=%v text=%q", parseCtx2, parseText2)
 			}
 			return nil
 		},
-		readText: func(ctx context.Context) (string, error) {
-			if ctx == nil {
-				t.Fatalf("expected context fallback")
+		readText: func(parseCtx3 context.Context) (string, error) {
+			if parseCtx3 == nil {
+				parseT.Fatalf("expected context fallback")
 			}
 			return "hello", nil
 		},
 	}
-	if err := clipboard.WriteText(ctx, "hello"); err != nil {
-		t.Fatalf("clipboard write: %v", err)
+	if parseErr3 := parseClipboard.WriteText(parseCtx, "hello"); parseErr3 != nil {
+		parseT.Fatalf("clipboard write: %v", parseErr3)
 	}
-	if text, err := clipboard.ReadText(ctx); err != nil || text != "hello" {
-		t.Fatalf("clipboard read = %q err=%v", text, err)
-	}
-
-	timer := Timer{}
-	if err := timer.Cancel(); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable timer cancel, got %v", err)
-	}
-	timer = Timer{cancel: func() error { return nil }}
-	if err := timer.Cancel(); err != nil {
-		t.Fatalf("timer cancel: %v", err)
+	if parseText, parseErr4 := parseClipboard.ReadText(parseCtx); parseErr4 != nil || parseText != "hello" {
+		parseT.Fatalf("clipboard read = %q err=%v", parseText, parseErr4)
 	}
 
-	media := MediaQueryList{}
-	if media.Matches() {
-		t.Fatalf("expected default media query matches=false")
+	parseTimer := Timer{}
+	if parseErr5 := parseTimer.Cancel(); !IsCode(parseErr5, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable timer cancel, got %v", parseErr5)
 	}
-	if media.Media() != "" {
-		t.Fatalf("expected default media query media empty")
+	parseTimer = Timer{cancel: func() error { return nil }}
+	if parseErr6 := parseTimer.Cancel(); parseErr6 != nil {
+		parseT.Fatalf("timer cancel: %v", parseErr6)
 	}
-	if _, err := media.Subscribe(func(MediaQueryEvent) {}); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable media subscribe, got %v", err)
+
+	parseMedia := MediaQueryList{}
+	if parseMedia.Matches() {
+		parseT.Fatalf("expected default media query matches=false")
 	}
-	media = MediaQueryList{
+	if parseMedia.Media() != "" {
+		parseT.Fatalf("expected default media query media empty")
+	}
+	if _, parseErr7 := parseMedia.Subscribe(func(MediaQueryEvent) {}); !IsCode(parseErr7, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable media subscribe, got %v", parseErr7)
+	}
+	parseMedia = MediaQueryList{
 		matches: func() bool { return true },
 		media:   func() string { return "(min-width: 1200px)" },
 		subscribe: func(handler func(MediaQueryEvent)) (Subscription, error) {
@@ -79,69 +79,69 @@ func TestClipboardTimerMediaAndWindowEnvWrappers(t *testing.T) {
 			return Subscription{}, nil
 		},
 	}
-	if !media.Matches() || media.Media() == "" {
-		t.Fatalf("expected media query accessors")
+	if !parseMedia.Matches() || parseMedia.Media() == "" {
+		parseT.Fatalf("expected media query accessors")
 	}
-	if _, err := media.Subscribe(func(MediaQueryEvent) {}); err != nil {
-		t.Fatalf("media subscribe: %v", err)
+	if _, parseErr8 := parseMedia.Subscribe(func(MediaQueryEvent) {}); parseErr8 != nil {
+		parseT.Fatalf("media subscribe: %v", parseErr8)
 	}
 }
 
-func TestChannelAndWorkerScopeZeroCoverageBranches(t *testing.T) {
-	crossTab := CrossTabChannel{}
-	if err := crossTab.Close(); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable cross-tab close, got %v", err)
+func TestChannelAndWorkerScopeZeroCoverageBranches(parseT *testing.T) {
+	parseCrossTab := CrossTabChannel{}
+	if parseErr := parseCrossTab.Close(); !IsCode(parseErr, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable cross-tab close, got %v", parseErr)
 	}
-	crossTab = CrossTabChannel{close: func() error { return nil }}
-	if err := crossTab.Close(); err != nil {
-		t.Fatalf("cross-tab close: %v", err)
-	}
-
-	window := WindowChannel{}
-	if got := window.TargetOrigin(); got != "" {
-		t.Fatalf("expected empty target origin, got %q", got)
-	}
-	if err := window.Focus(); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable window focus, got %v", err)
-	}
-	if err := window.Close(); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable window close, got %v", err)
-	}
-	if window.Closed() {
-		t.Fatalf("expected closed=false when closed callback is nil")
+	parseCrossTab = CrossTabChannel{close: func() error { return nil }}
+	if parseErr2 := parseCrossTab.Close(); parseErr2 != nil {
+		parseT.Fatalf("cross-tab close: %v", parseErr2)
 	}
 
-	window = WindowChannel{
+	parseWindow := WindowChannel{}
+	if parseGot := parseWindow.TargetOrigin(); parseGot != "" {
+		parseT.Fatalf("expected empty target origin, got %q", parseGot)
+	}
+	if parseErr3 := parseWindow.Focus(); !IsCode(parseErr3, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable window focus, got %v", parseErr3)
+	}
+	if parseErr4 := parseWindow.Close(); !IsCode(parseErr4, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable window close, got %v", parseErr4)
+	}
+	if parseWindow.Closed() {
+		parseT.Fatalf("expected closed=false when closed callback is nil")
+	}
+
+	parseWindow = WindowChannel{
 		targetOrigin: func() string { return "https://atlas.local" },
 		focus:        func() error { return nil },
 		close:        func() error { return nil },
 		closed:       func() bool { return true },
 	}
-	if got := window.TargetOrigin(); got != "https://atlas.local" {
-		t.Fatalf("target origin = %q", got)
+	if parseGot2 := parseWindow.TargetOrigin(); parseGot2 != "https://atlas.local" {
+		parseT.Fatalf("target origin = %q", parseGot2)
 	}
-	if err := window.Focus(); err != nil {
-		t.Fatalf("window focus: %v", err)
+	if parseErr5 := parseWindow.Focus(); parseErr5 != nil {
+		parseT.Fatalf("window focus: %v", parseErr5)
 	}
-	if err := window.Close(); err != nil {
-		t.Fatalf("window close: %v", err)
+	if parseErr6 := parseWindow.Close(); parseErr6 != nil {
+		parseT.Fatalf("window close: %v", parseErr6)
 	}
-	if !window.Closed() {
-		t.Fatalf("expected closed=true")
-	}
-
-	scope := WorkerScope{}
-	if err := scope.Post(WorkerMessage{}); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable worker scope post, got %v", err)
-	}
-	if _, err := scope.Subscribe(func(WorkerMessage, error) {}); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable worker scope subscribe, got %v", err)
+	if !parseWindow.Closed() {
+		parseT.Fatalf("expected closed=true")
 	}
 
-	posted := make([]WorkerMessage, 0, 6)
-	scope = WorkerScope{
-		post: func(message WorkerMessage) error {
-			posted = append(posted, message)
+	parseScope := WorkerScope{}
+	if parseErr7 := parseScope.Post(WorkerMessage{}); !IsCode(parseErr7, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable worker scope post, got %v", parseErr7)
+	}
+	if _, parseErr8 := parseScope.Subscribe(func(WorkerMessage, error) {}); !IsCode(parseErr8, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable worker scope subscribe, got %v", parseErr8)
+	}
+
+	parsePosted := make([]WorkerMessage, 0, 6)
+	parseScope = WorkerScope{
+		post: func(parseMessage WorkerMessage) error {
+			parsePosted = append(parsePosted, parseMessage)
 			return nil
 		},
 		subscribe: func(handler func(WorkerMessage, error)) (Subscription, error) {
@@ -149,451 +149,451 @@ func TestChannelAndWorkerScopeZeroCoverageBranches(t *testing.T) {
 			return Subscription{}, nil
 		},
 	}
-	if _, err := scope.Subscribe(func(WorkerMessage, error) {}); err != nil {
-		t.Fatalf("worker scope subscribe: %v", err)
+	if _, parseErr9 := parseScope.Subscribe(func(WorkerMessage, error) {}); parseErr9 != nil {
+		parseT.Fatalf("worker scope subscribe: %v", parseErr9)
 	}
-	_ = scope.Ready("task")
-	_ = scope.Message("task", map[string]any{"step": 1})
-	_ = scope.Progress("id-1", "task", map[string]any{"progress": 50})
-	_ = scope.Result("id-1", "task", map[string]any{"done": true})
-	_ = scope.Error("id-1", "task", "failed", map[string]any{"reason": "timeout"})
-	if len(posted) != 5 {
-		t.Fatalf("expected worker scope helper posts, got %d", len(posted))
+	_ = parseScope.Ready("task")
+	_ = parseScope.Message("task", map[string]any{"step": 1})
+	_ = parseScope.Progress("id-1", "task", map[string]any{"progress": 50})
+	_ = parseScope.Result("id-1", "task", map[string]any{"done": true})
+	_ = parseScope.Error("id-1", "task", "failed", map[string]any{"reason": "timeout"})
+	if len(parsePosted) != 5 {
+		parseT.Fatalf("expected worker scope helper posts, got %d", len(parsePosted))
 	}
 }
 
-func TestDecodedSubscribeAndPublishWindowHelpers(t *testing.T) {
-	envelope := CrossTabEnvelope{
+func TestDecodedSubscribeAndPublishWindowHelpers(parseT *testing.T) {
+	parseEnvelope := CrossTabEnvelope{
 		Name:     "clients",
 		Source:   "tab-1",
 		Sequence: 7,
 		SentAt:   time.Date(2026, 3, 24, 18, 0, 0, 0, time.UTC),
 		Payload:  map[string]any{"count": 2},
 	}
-	decoded, err := DecodeCrossTabEnvelope[map[string]int](envelope)
-	if err != nil {
-		t.Fatalf("decode cross-tab envelope: %v", err)
+	parseDecoded, parseErr := DecodeCrossTabEnvelope[map[string]int](parseEnvelope)
+	if parseErr != nil {
+		parseT.Fatalf("decode cross-tab envelope: %v", parseErr)
 	}
-	if decoded.Name != "clients" || decoded.Payload["count"] != 2 {
-		t.Fatalf("unexpected decoded cross-tab payload: %+v", decoded)
+	if parseDecoded.Name != "clients" || parseDecoded.Payload["count"] != 2 {
+		parseT.Fatalf("unexpected decoded cross-tab payload: %+v", parseDecoded)
 	}
-	if _, err := DecodeCrossTabEnvelope[map[string]int](CrossTabEnvelope{Name: "clients", Payload: "bad"}); !IsCode(err, CodeDecode) {
-		t.Fatalf("expected decode error for malformed cross-tab payload, got %v", err)
+	if _, parseErr2 := DecodeCrossTabEnvelope[map[string]int](CrossTabEnvelope{Name: "clients", Payload: "bad"}); !IsCode(parseErr2, CodeDecode) {
+		parseT.Fatalf("expected decode error for malformed cross-tab payload, got %v", parseErr2)
 	}
 
-	var crossTabHandler func(CrossTabEnvelope, error)
-	channel := CrossTabChannel{
+	var parseCrossTabHandler func(CrossTabEnvelope, error)
+	parseChannel := CrossTabChannel{
 		name: func() string { return "clients" },
-		publish: func(payload any) error {
-			_ = payload
+		publish: func(parsePayload any) error {
+			_ = parsePayload
 			return nil
 		},
 		subscribe: func(handler func(CrossTabEnvelope, error)) (Subscription, error) {
-			crossTabHandler = handler
+			parseCrossTabHandler = handler
 			return Subscription{}, nil
 		},
 	}
-	if _, err := SubscribeDecodedCrossTab[map[string]int](channel, nil); !IsCode(err, CodeInvalid) {
-		t.Fatalf("expected nil handler error for decoded cross-tab subscribe, got %v", err)
+	if _, parseErr3 := SubscribeDecodedCrossTab[map[string]int](parseChannel, nil); !IsCode(parseErr3, CodeInvalid) {
+		parseT.Fatalf("expected nil handler error for decoded cross-tab subscribe, got %v", parseErr3)
 	}
-	var gotDecoded DecodedCrossTabEnvelope[map[string]int]
-	var gotErr error
-	if _, err := SubscribeDecodedCrossTab(channel, func(msg DecodedCrossTabEnvelope[map[string]int], err error) {
-		gotDecoded = msg
-		gotErr = err
-	}); err != nil {
-		t.Fatalf("subscribe decoded cross-tab: %v", err)
+	var parseGotDecoded DecodedCrossTabEnvelope[map[string]int]
+	var parseGotErr error
+	if _, parseErr4 := SubscribeDecodedCrossTab(parseChannel, func(parseMsg DecodedCrossTabEnvelope[map[string]int], parseErr13 error) {
+		parseGotDecoded = parseMsg
+		parseGotErr = parseErr13
+	}); parseErr4 != nil {
+		parseT.Fatalf("subscribe decoded cross-tab: %v", parseErr4)
 	}
-	crossTabHandler(envelope, nil)
-	if gotErr != nil || gotDecoded.Payload["count"] != 2 {
-		t.Fatalf("decoded cross-tab callback mismatch: msg=%+v err=%v", gotDecoded, gotErr)
+	parseCrossTabHandler(parseEnvelope, nil)
+	if parseGotErr != nil || parseGotDecoded.Payload["count"] != 2 {
+		parseT.Fatalf("decoded cross-tab callback mismatch: msg=%+v err=%v", parseGotDecoded, parseGotErr)
 	}
-	crossTabHandler(CrossTabEnvelope{}, context.DeadlineExceeded)
-	if gotErr != context.DeadlineExceeded {
-		t.Fatalf("expected subscribe decoded cross-tab to pass through transport error")
+	parseCrossTabHandler(CrossTabEnvelope{}, context.DeadlineExceeded)
+	if parseGotErr != context.DeadlineExceeded {
+		parseT.Fatalf("expected subscribe decoded cross-tab to pass through transport error")
 	}
 
-	var windowHandler func(WindowEnvelope, error)
-	window := WindowChannel{
+	var parseWindowHandler func(WindowEnvelope, error)
+	parseWindow := WindowChannel{
 		name: func() string { return "atlas-window" },
-		publish: func(payload any) error {
-			_ = payload
+		publish: func(parsePayload2 any) error {
+			_ = parsePayload2
 			return nil
 		},
 		subscribe: func(handler func(WindowEnvelope, error)) (Subscription, error) {
-			windowHandler = handler
+			parseWindowHandler = handler
 			return Subscription{}, nil
 		},
 	}
-	if _, err := SubscribeDecodedWindow[map[string]int](window, nil); !IsCode(err, CodeInvalid) {
-		t.Fatalf("expected nil handler error for decoded window subscribe, got %v", err)
+	if _, parseErr5 := SubscribeDecodedWindow[map[string]int](parseWindow, nil); !IsCode(parseErr5, CodeInvalid) {
+		parseT.Fatalf("expected nil handler error for decoded window subscribe, got %v", parseErr5)
 	}
-	if _, err := SubscribeSurfaceSignals(window, nil); !IsCode(err, CodeInvalid) {
-		t.Fatalf("expected nil handler error for surface signal subscribe, got %v", err)
+	if _, parseErr6 := SubscribeSurfaceSignals(parseWindow, nil); !IsCode(parseErr6, CodeInvalid) {
+		parseT.Fatalf("expected nil handler error for surface signal subscribe, got %v", parseErr6)
 	}
 
-	var decodedWindow DecodedWindowEnvelope[map[string]int]
-	if _, err := SubscribeDecodedWindow(window, func(msg DecodedWindowEnvelope[map[string]int], err error) {
-		if err == nil {
-			decodedWindow = msg
+	var parseDecodedWindow DecodedWindowEnvelope[map[string]int]
+	if _, parseErr7 := SubscribeDecodedWindow(parseWindow, func(parseMsg2 DecodedWindowEnvelope[map[string]int], parseErr14 error) {
+		if parseErr14 == nil {
+			parseDecodedWindow = parseMsg2
 		}
-	}); err != nil {
-		t.Fatalf("subscribe decoded window: %v", err)
+	}); parseErr7 != nil {
+		parseT.Fatalf("subscribe decoded window: %v", parseErr7)
 	}
-	windowHandler(WindowEnvelope{Name: "atlas-window", Payload: map[string]any{"count": 4}}, nil)
-	if decodedWindow.Payload["count"] != 4 {
-		t.Fatalf("expected decoded window payload")
-	}
-
-	self := ClientIdentity{ID: "ops-1", App: "atlas", Surface: "window", Role: "operator"}
-	if err := PublishClientHelloWindow(window, self); err != nil {
-		t.Fatalf("publish client hello window: %v", err)
-	}
-	if err := PublishClientHelloWindowWithCapabilities(window, self, ClientCapabilities{ProtocolVersion: "v1"}); err != nil {
-		t.Fatalf("publish hello window with capabilities: %v", err)
-	}
-	if err := PublishClientGoodbye(channel, self); err != nil {
-		t.Fatalf("publish client goodbye: %v", err)
-	}
-	if err := PublishClientGoodbyeWindow(window, self); err != nil {
-		t.Fatalf("publish client goodbye window: %v", err)
-	}
-	if err := PublishClientEvent(channel, "inventory:event", self, map[string]any{"sku": "SKU-1"}); err != nil {
-		t.Fatalf("publish client event: %v", err)
+	parseWindowHandler(WindowEnvelope{Name: "atlas-window", Payload: map[string]any{"count": 4}}, nil)
+	if parseDecodedWindow.Payload["count"] != 4 {
+		parseT.Fatalf("expected decoded window payload")
 	}
 
-	caps := defaultWindowClientCapabilities(window)
-	if caps.ProtocolVersion != "v1" || len(caps.Transports) != 1 || caps.Transports[0] != "window-message" {
-		t.Fatalf("unexpected default window capabilities: %+v", caps)
+	parseSelf := ClientIdentity{ID: "ops-1", App: "atlas", Surface: "window", Role: "operator"}
+	if parseErr8 := PublishClientHelloWindow(parseWindow, parseSelf); parseErr8 != nil {
+		parseT.Fatalf("publish client hello window: %v", parseErr8)
+	}
+	if parseErr9 := PublishClientHelloWindowWithCapabilities(parseWindow, parseSelf, ClientCapabilities{ProtocolVersion: "v1"}); parseErr9 != nil {
+		parseT.Fatalf("publish hello window with capabilities: %v", parseErr9)
+	}
+	if parseErr10 := PublishClientGoodbye(parseChannel, parseSelf); parseErr10 != nil {
+		parseT.Fatalf("publish client goodbye: %v", parseErr10)
+	}
+	if parseErr11 := PublishClientGoodbyeWindow(parseWindow, parseSelf); parseErr11 != nil {
+		parseT.Fatalf("publish client goodbye window: %v", parseErr11)
+	}
+	if parseErr12 := PublishClientEvent(parseChannel, "inventory:event", parseSelf, map[string]any{"sku": "SKU-1"}); parseErr12 != nil {
+		parseT.Fatalf("publish client event: %v", parseErr12)
+	}
+
+	parseCaps := defaultWindowClientCapabilities(parseWindow)
+	if parseCaps.ProtocolVersion != "v1" || len(parseCaps.Transports) != 1 || parseCaps.Transports[0] != "window-message" {
+		parseT.Fatalf("unexpected default window capabilities: %+v", parseCaps)
 	}
 }
 
-func TestUnavailableBranchesAcrossInteropWrappers(t *testing.T) {
-	ctx := context.TODO()
+func TestUnavailableBranchesAcrossInteropWrappers(parseT *testing.T) {
+	parseCtx := context.TODO()
 
-	var storage Storage
-	_, _, err := storage.GetItem("k")
-	requireInteropCode(t, err, CodeUnavailable)
-	requireInteropCode(t, storage.SetItem("k", "v"), CodeUnavailable)
-	_, err = storage.GetMany("k")
-	requireInteropCode(t, err, CodeUnavailable)
-	requireInteropCode(t, storage.RemoveItem("k"), CodeUnavailable)
-	requireInteropCode(t, storage.Clear(), CodeUnavailable)
-	_, err = storage.Len()
-	requireInteropCode(t, err, CodeUnavailable)
-	_, _, err = storage.Key(0)
-	requireInteropCode(t, err, CodeUnavailable)
+	var parseStorage Storage
+	_, _, parseErr := parseStorage.GetItem("k")
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	requireInteropCode(parseT, parseStorage.SetItem("k", "v"), CodeUnavailable)
+	_, parseErr = parseStorage.GetMany("k")
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	requireInteropCode(parseT, parseStorage.RemoveItem("k"), CodeUnavailable)
+	requireInteropCode(parseT, parseStorage.Clear(), CodeUnavailable)
+	_, parseErr = parseStorage.Len()
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	_, _, parseErr = parseStorage.Key(0)
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
 
-	var persistent PersistentStore
-	_, _, err = persistent.GetItem(ctx, "k")
-	requireInteropCode(t, err, CodeUnavailable)
-	requireInteropCode(t, persistent.SetItem(ctx, "k", "v"), CodeUnavailable)
-	requireInteropCode(t, persistent.RemoveItem(ctx, "k"), CodeUnavailable)
-	requireInteropCode(t, persistent.Clear(ctx), CodeUnavailable)
-	_, err = persistent.Keys(ctx)
-	requireInteropCode(t, err, CodeUnavailable)
-	_, err = persistent.Len(ctx)
-	requireInteropCode(t, err, CodeUnavailable)
-	if err := persistent.Close(); err != nil {
-		t.Fatalf("expected nil close for zero-value persistent store, got %v", err)
-	}
-
-	var location Location
-	requireInteropCode(t, location.Assign("/next"), CodeUnavailable)
-	requireInteropCode(t, location.Replace("/next"), CodeUnavailable)
-	requireInteropCode(t, location.Reload(), CodeUnavailable)
-	if location.Href() != "" || location.Pathname() != "" || location.Search() != "" || location.Hash() != "" || location.Origin() != "" {
-		t.Fatalf("expected zero-value location getters to return empty strings")
+	var parsePersistent PersistentStore
+	_, _, parseErr = parsePersistent.GetItem(parseCtx, "k")
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	requireInteropCode(parseT, parsePersistent.SetItem(parseCtx, "k", "v"), CodeUnavailable)
+	requireInteropCode(parseT, parsePersistent.RemoveItem(parseCtx, "k"), CodeUnavailable)
+	requireInteropCode(parseT, parsePersistent.Clear(parseCtx), CodeUnavailable)
+	_, parseErr = parsePersistent.Keys(parseCtx)
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	_, parseErr = parsePersistent.Len(parseCtx)
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	if parseErr2 := parsePersistent.Close(); parseErr2 != nil {
+		parseT.Fatalf("expected nil close for zero-value persistent store, got %v", parseErr2)
 	}
 
-	var history History
-	_, err = history.Len()
-	requireInteropCode(t, err, CodeUnavailable)
-	_, err = history.State()
-	requireInteropCode(t, err, CodeUnavailable)
-	requireInteropCode(t, history.Back(), CodeUnavailable)
-	requireInteropCode(t, history.Forward(), CodeUnavailable)
-	requireInteropCode(t, history.Go(1), CodeUnavailable)
-	requireInteropCode(t, history.PushState(nil, "", "/"), CodeUnavailable)
-	requireInteropCode(t, history.ReplaceState(nil, "", "/"), CodeUnavailable)
-
-	var events EventTarget
-	requireInteropCode(t, events.Dispatch("ready", nil), CodeUnavailable)
-	if _, err := events.Listen("ready", func(BrowserEvent) {}); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable event listen, got %v", err)
-	}
-	if _, err := events.Subscribe("ready", func(CustomEvent) {}); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable event subscribe, got %v", err)
+	var parseLocation Location
+	requireInteropCode(parseT, parseLocation.Assign("/next"), CodeUnavailable)
+	requireInteropCode(parseT, parseLocation.Replace("/next"), CodeUnavailable)
+	requireInteropCode(parseT, parseLocation.Reload(), CodeUnavailable)
+	if parseLocation.Href() != "" || parseLocation.Pathname() != "" || parseLocation.Search() != "" || parseLocation.Hash() != "" || parseLocation.Origin() != "" {
+		parseT.Fatalf("expected zero-value location getters to return empty strings")
 	}
 
-	var element Element
-	if element.TagName() != "" || element.ID() != "" || element.ClassName() != "" {
-		t.Fatalf("expected empty zero-value element metadata")
+	var parseHistory History
+	_, parseErr = parseHistory.Len()
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	_, parseErr = parseHistory.State()
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	requireInteropCode(parseT, parseHistory.Back(), CodeUnavailable)
+	requireInteropCode(parseT, parseHistory.Forward(), CodeUnavailable)
+	requireInteropCode(parseT, parseHistory.Go(1), CodeUnavailable)
+	requireInteropCode(parseT, parseHistory.PushState(nil, "", "/"), CodeUnavailable)
+	requireInteropCode(parseT, parseHistory.ReplaceState(nil, "", "/"), CodeUnavailable)
+
+	var parseEvents EventTarget
+	requireInteropCode(parseT, parseEvents.Dispatch("ready", nil), CodeUnavailable)
+	if _, parseErr3 := parseEvents.Listen("ready", func(BrowserEvent) {}); !IsCode(parseErr3, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable event listen, got %v", parseErr3)
 	}
-	requireInteropCode(t, element.Focus(), CodeUnavailable)
-	requireInteropCode(t, element.Blur(), CodeUnavailable)
-	requireInteropCode(t, element.Click(), CodeUnavailable)
-	requireInteropCode(t, element.SetScrollTop(1), CodeUnavailable)
-	requireInteropCode(t, element.ScrollIntoView(), CodeUnavailable)
-	if _, err := element.BoundingClientRect(); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable bounding rect, got %v", err)
-	}
-	if _, err := element.Events(); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable element events, got %v", err)
-	}
-	if _, err := element.Listen("ready", func(BrowserEvent) {}); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable element listen, got %v", err)
-	}
-	if _, err := element.Subscribe("ready", func(CustomEvent) {}); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable element subscribe, got %v", err)
-	}
-	if err := element.Dispatch("ready", nil); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable element dispatch, got %v", err)
-	}
-	if _, err := element.ObserveResize(func(ResizeEntry) {}); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable resize observe, got %v", err)
-	}
-	if _, err := element.ObserveIntersection(func(IntersectionEntry) {}); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable intersection observe, got %v", err)
-	}
-	if _, _, _, err := element.ScrollMetrics(); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable scroll metrics, got %v", err)
+	if _, parseErr4 := parseEvents.Subscribe("ready", func(CustomEvent) {}); !IsCode(parseErr4, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable event subscribe, got %v", parseErr4)
 	}
 
-	var document Document
-	if _, _, err := document.ElementByID("root"); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable ElementByID, got %v", err)
+	var parseElement Element
+	if parseElement.TagName() != "" || parseElement.ID() != "" || parseElement.ClassName() != "" {
+		parseT.Fatalf("expected empty zero-value element metadata")
 	}
-	if _, _, err := document.QuerySelector("#root"); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable QuerySelector, got %v", err)
+	requireInteropCode(parseT, parseElement.Focus(), CodeUnavailable)
+	requireInteropCode(parseT, parseElement.Blur(), CodeUnavailable)
+	requireInteropCode(parseT, parseElement.Click(), CodeUnavailable)
+	requireInteropCode(parseT, parseElement.SetScrollTop(1), CodeUnavailable)
+	requireInteropCode(parseT, parseElement.ScrollIntoView(), CodeUnavailable)
+	if _, parseErr5 := parseElement.BoundingClientRect(); !IsCode(parseErr5, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable bounding rect, got %v", parseErr5)
 	}
-	if _, err := document.ElementsByID("root"); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable ElementsByID, got %v", err)
+	if _, parseErr6 := parseElement.Events(); !IsCode(parseErr6, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable element events, got %v", parseErr6)
 	}
-
-	var module Module
-	if _, err := module.Call(ctx, "x"); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable module call, got %v", err)
+	if _, parseErr7 := parseElement.Listen("ready", func(BrowserEvent) {}); !IsCode(parseErr7, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable element listen, got %v", parseErr7)
 	}
-	if _, err := module.CallDefault(ctx); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable module default call, got %v", err)
+	if _, parseErr8 := parseElement.Subscribe("ready", func(CustomEvent) {}); !IsCode(parseErr8, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable element subscribe, got %v", parseErr8)
 	}
-	if _, err := module.Value(ctx, "x"); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable module value, got %v", err)
+	if parseErr9 := parseElement.Dispatch("ready", nil); !IsCode(parseErr9, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable element dispatch, got %v", parseErr9)
 	}
-	if err := module.Dispose(); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable module dispose, got %v", err)
+	if _, parseErr10 := parseElement.ObserveResize(func(ResizeEntry) {}); !IsCode(parseErr10, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable resize observe, got %v", parseErr10)
 	}
-
-	var crossTab CrossTabChannel
-	if crossTab.Name() != "" || crossTab.Transport() != "" {
-		t.Fatalf("expected empty zero-value cross-tab metadata")
+	if _, parseErr11 := parseElement.ObserveIntersection(func(IntersectionEntry) {}); !IsCode(parseErr11, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable intersection observe, got %v", parseErr11)
 	}
-	if err := crossTab.Publish(nil); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable cross-tab publish, got %v", err)
-	}
-	if _, err := crossTab.Subscribe(func(CrossTabEnvelope, error) {}); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable cross-tab subscribe, got %v", err)
+	if _, _, _, parseErr12 := parseElement.ScrollMetrics(); !IsCode(parseErr12, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable scroll metrics, got %v", parseErr12)
 	}
 
-	var window WindowChannel
-	if window.Name() != "" {
-		t.Fatalf("expected empty zero-value window name")
+	var parseDocument Document
+	if _, _, parseErr13 := parseDocument.ElementByID("root"); !IsCode(parseErr13, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable ElementByID, got %v", parseErr13)
 	}
-	if err := window.Publish(nil); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable window publish, got %v", err)
+	if _, _, parseErr14 := parseDocument.QuerySelector("#root"); !IsCode(parseErr14, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable QuerySelector, got %v", parseErr14)
 	}
-	if _, err := window.Subscribe(func(WindowEnvelope, error) {}); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable window subscribe, got %v", err)
-	}
-
-	var worker Worker
-	if err := worker.Post("msg"); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable worker post, got %v", err)
-	}
-	if _, err := worker.Subscribe(func(WorkerMessage, error) {}); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable worker subscribe, got %v", err)
-	}
-	if _, err := worker.Request(ctx, "task", nil, nil); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable worker request, got %v", err)
-	}
-	if err := worker.Terminate(); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable worker terminate, got %v", err)
-	}
-	if err := worker.Restart(ctx); !IsCode(err, CodeUnavailable) {
-		t.Fatalf("expected unavailable worker restart, got %v", err)
-	}
-	if _, err := SubscribeDecodedWorker[map[string]int](worker, nil); !IsCode(err, CodeInvalid) {
-		t.Fatalf("expected invalid nil-handler decoded worker subscribe, got %v", err)
+	if _, parseErr15 := parseDocument.ElementsByID("root"); !IsCode(parseErr15, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable ElementsByID, got %v", parseErr15)
 	}
 
-	worker = Worker{
+	var parseModule Module
+	if _, parseErr16 := parseModule.Call(parseCtx, "x"); !IsCode(parseErr16, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable module call, got %v", parseErr16)
+	}
+	if _, parseErr17 := parseModule.CallDefault(parseCtx); !IsCode(parseErr17, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable module default call, got %v", parseErr17)
+	}
+	if _, parseErr18 := parseModule.Value(parseCtx, "x"); !IsCode(parseErr18, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable module value, got %v", parseErr18)
+	}
+	if parseErr19 := parseModule.Dispose(); !IsCode(parseErr19, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable module dispose, got %v", parseErr19)
+	}
+
+	var parseCrossTab CrossTabChannel
+	if parseCrossTab.Name() != "" || parseCrossTab.Transport() != "" {
+		parseT.Fatalf("expected empty zero-value cross-tab metadata")
+	}
+	if parseErr20 := parseCrossTab.Publish(nil); !IsCode(parseErr20, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable cross-tab publish, got %v", parseErr20)
+	}
+	if _, parseErr21 := parseCrossTab.Subscribe(func(CrossTabEnvelope, error) {}); !IsCode(parseErr21, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable cross-tab subscribe, got %v", parseErr21)
+	}
+
+	var parseWindow WindowChannel
+	if parseWindow.Name() != "" {
+		parseT.Fatalf("expected empty zero-value window name")
+	}
+	if parseErr22 := parseWindow.Publish(nil); !IsCode(parseErr22, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable window publish, got %v", parseErr22)
+	}
+	if _, parseErr23 := parseWindow.Subscribe(func(WindowEnvelope, error) {}); !IsCode(parseErr23, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable window subscribe, got %v", parseErr23)
+	}
+
+	var parseWorker Worker
+	if parseErr24 := parseWorker.Post("msg"); !IsCode(parseErr24, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable worker post, got %v", parseErr24)
+	}
+	if _, parseErr25 := parseWorker.Subscribe(func(WorkerMessage, error) {}); !IsCode(parseErr25, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable worker subscribe, got %v", parseErr25)
+	}
+	if _, parseErr26 := parseWorker.Request(parseCtx, "task", nil, nil); !IsCode(parseErr26, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable worker request, got %v", parseErr26)
+	}
+	if parseErr27 := parseWorker.Terminate(); !IsCode(parseErr27, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable worker terminate, got %v", parseErr27)
+	}
+	if parseErr28 := parseWorker.Restart(parseCtx); !IsCode(parseErr28, CodeUnavailable) {
+		parseT.Fatalf("expected unavailable worker restart, got %v", parseErr28)
+	}
+	if _, parseErr29 := SubscribeDecodedWorker[map[string]int](parseWorker, nil); !IsCode(parseErr29, CodeInvalid) {
+		parseT.Fatalf("expected invalid nil-handler decoded worker subscribe, got %v", parseErr29)
+	}
+
+	parseWorker = Worker{
 		subscribe: func(handler func(WorkerMessage, error)) (Subscription, error) {
 			handler(WorkerMessage{}, context.DeadlineExceeded)
 			handler(WorkerMessage{Name: "task", Payload: "bad"}, nil)
 			handler(WorkerMessage{Name: "task", Payload: map[string]any{"n": 2}}, nil)
 			return Subscription{}, nil
 		},
-		request: func(_ context.Context, _ string, _ any, onProgress func(WorkerMessage, error)) (WorkerMessage, error) {
-			if onProgress != nil {
-				onProgress(WorkerMessage{Name: "task", Payload: "bad"}, nil)
+		request: func(_ context.Context, _ string, _ any, parseOnProgress func(WorkerMessage, error)) (WorkerMessage, error) {
+			if parseOnProgress != nil {
+				parseOnProgress(WorkerMessage{Name: "task", Payload: "bad"}, nil)
 			}
 			return WorkerMessage{Name: "task", Payload: map[string]any{"n": 9}}, nil
 		},
 	}
-	calls := 0
-	if _, err := SubscribeDecodedWorker(worker, func(DecodedWorkerMessage[map[string]int], error) {
-		calls++
-	}); err != nil {
-		t.Fatalf("subscribe decoded worker: %v", err)
+	parseCalls := 0
+	if _, parseErr30 := SubscribeDecodedWorker(parseWorker, func(DecodedWorkerMessage[map[string]int], error) {
+		parseCalls++
+	}); parseErr30 != nil {
+		parseT.Fatalf("subscribe decoded worker: %v", parseErr30)
 	}
-	if calls != 3 {
-		t.Fatalf("expected decoded worker callback invocations, got %d", calls)
+	if parseCalls != 3 {
+		parseT.Fatalf("expected decoded worker callback invocations, got %d", parseCalls)
 	}
-	if result, err := RequestWorkerDecoded[map[string]int, map[string]int, map[string]int](ctx, worker, "task", map[string]int{"x": 1}, func(DecodedWorkerMessage[map[string]int], error) {}); err != nil || result["n"] != 9 {
-		t.Fatalf("request worker decoded result=%v err=%v", result, err)
+	if parseResult, parseErr31 := RequestWorkerDecoded[map[string]int, map[string]int, map[string]int](parseCtx, parseWorker, "task", map[string]int{"x": 1}, func(DecodedWorkerMessage[map[string]int], error) {}); parseErr31 != nil || parseResult["n"] != 9 {
+		parseT.Fatalf("request worker decoded result=%v err=%v", parseResult, parseErr31)
 	}
 }
 
-func TestClientDecodeScalarHelpers(t *testing.T) {
-	fields := map[string]any{
+func TestClientDecodeScalarHelpers(parseT *testing.T) {
+	parseFields := map[string]any{
 		"name": "atlas",
 		"kind": 7,
 	}
-	if got := stringField(fields, "name"); got != "atlas" {
-		t.Fatalf("stringField string = %q", got)
+	if parseGot := stringField(parseFields, "name"); parseGot != "atlas" {
+		parseT.Fatalf("stringField string = %q", parseGot)
 	}
-	if got := stringField(fields, "kind"); got != "" {
-		t.Fatalf("stringField non-string = %q", got)
+	if parseGot2 := stringField(parseFields, "kind"); parseGot2 != "" {
+		parseT.Fatalf("stringField non-string = %q", parseGot2)
 	}
-	if got := stringField(fields, "missing"); got != "" {
-		t.Fatalf("stringField missing = %q", got)
-	}
-
-	if got := intField(7); got != 7 {
-		t.Fatalf("intField int = %d", got)
-	}
-	if got := intField(int64(8)); got != 8 {
-		t.Fatalf("intField int64 = %d", got)
-	}
-	if got := intField(9.75); got != 9 {
-		t.Fatalf("intField float64 = %d", got)
-	}
-	if got := intField("bad"); got != 0 {
-		t.Fatalf("intField default = %d", got)
+	if parseGot3 := stringField(parseFields, "missing"); parseGot3 != "" {
+		parseT.Fatalf("stringField missing = %q", parseGot3)
 	}
 
-	if parsed, ok := clientTimeField(" "); ok || !parsed.IsZero() {
-		t.Fatalf("clientTimeField blank = %v ok=%t", parsed, ok)
+	if parseGot4 := intField(7); parseGot4 != 7 {
+		parseT.Fatalf("intField int = %d", parseGot4)
 	}
-	if parsed, ok := clientTimeField("not-a-time"); ok || !parsed.IsZero() {
-		t.Fatalf("clientTimeField invalid = %v ok=%t", parsed, ok)
+	if parseGot5 := intField(int64(8)); parseGot5 != 8 {
+		parseT.Fatalf("intField int64 = %d", parseGot5)
+	}
+	if parseGot6 := intField(9.75); parseGot6 != 9 {
+		parseT.Fatalf("intField float64 = %d", parseGot6)
+	}
+	if parseGot7 := intField("bad"); parseGot7 != 0 {
+		parseT.Fatalf("intField default = %d", parseGot7)
 	}
 
-	expected := time.Date(2026, 3, 25, 13, 30, 0, 123456789, time.UTC)
-	parsed, ok := clientTimeField(expected.Format(time.RFC3339Nano))
-	if !ok || !parsed.Equal(expected) {
-		t.Fatalf("clientTimeField valid = %v ok=%t", parsed, ok)
+	if parseParsed, parseOk := clientTimeField(" "); parseOk || !parseParsed.IsZero() {
+		parseT.Fatalf("clientTimeField blank = %v ok=%t", parseParsed, parseOk)
+	}
+	if parseParsed2, parseOk2 := clientTimeField("not-a-time"); parseOk2 || !parseParsed2.IsZero() {
+		parseT.Fatalf("clientTimeField invalid = %v ok=%t", parseParsed2, parseOk2)
+	}
+
+	parseExpected := time.Date(2026, 3, 25, 13, 30, 0, 123456789, time.UTC)
+	parseParsed3, parseOk3 := clientTimeField(parseExpected.Format(time.RFC3339Nano))
+	if !parseOk3 || !parseParsed3.Equal(parseExpected) {
+		parseT.Fatalf("clientTimeField valid = %v ok=%t", parseParsed3, parseOk3)
 	}
 }
 
-func TestClientCapabilityDefaultsAndProtocolHelpers(t *testing.T) {
-	broadcastCaps := defaultCrossTabClientCapabilities(CrossTabChannel{
+func TestClientCapabilityDefaultsAndProtocolHelpers(parseT *testing.T) {
+	parseBroadcastCaps := defaultCrossTabClientCapabilities(CrossTabChannel{
 		transport: func() string { return "broadcast-channel" },
 	})
-	if broadcastCaps.ProtocolVersion != "v1" || len(broadcastCaps.Transports) != 1 || broadcastCaps.Transports[0] != "broadcast-channel" {
-		t.Fatalf("unexpected broadcast default capabilities: %+v", broadcastCaps)
+	if parseBroadcastCaps.ProtocolVersion != "v1" || len(parseBroadcastCaps.Transports) != 1 || parseBroadcastCaps.Transports[0] != "broadcast-channel" {
+		parseT.Fatalf("unexpected broadcast default capabilities: %+v", parseBroadcastCaps)
 	}
-	if !ClientSupportsEncoding(broadcastCaps, ClientPayloadBinary) {
-		t.Fatalf("expected broadcast channel defaults to include binary encoding")
+	if !ClientSupportsEncoding(parseBroadcastCaps, ClientPayloadBinary) {
+		parseT.Fatalf("expected broadcast channel defaults to include binary encoding")
 	}
 
-	fallbackCaps := defaultCrossTabClientCapabilities(CrossTabChannel{
+	parseFallbackCaps := defaultCrossTabClientCapabilities(CrossTabChannel{
 		transport: func() string { return "  " },
 	})
-	if len(fallbackCaps.Transports) != 0 {
-		t.Fatalf("expected blank transport to be omitted, got %+v", fallbackCaps.Transports)
+	if len(parseFallbackCaps.Transports) != 0 {
+		parseT.Fatalf("expected blank transport to be omitted, got %+v", parseFallbackCaps.Transports)
 	}
-	if !ClientSupportsEncoding(fallbackCaps, "") {
-		t.Fatalf("expected blank encoding requests to default to json support")
+	if !ClientSupportsEncoding(parseFallbackCaps, "") {
+		parseT.Fatalf("expected blank encoding requests to default to json support")
 	}
 
 	if protocolMajor("") != "" {
-		t.Fatalf("expected empty protocol major for blank input")
+		parseT.Fatalf("expected empty protocol major for blank input")
 	}
 	if protocolMajor("v2") != "2" {
-		t.Fatalf("expected protocol major without dot to preserve full version")
+		parseT.Fatalf("expected protocol major without dot to preserve full version")
 	}
 	if !ClientProtocolCompatible(ClientCapabilities{ProtocolVersion: " v2 "}, ClientCapabilities{ProtocolVersion: "2.4"}) {
-		t.Fatalf("expected normalized protocol versions with matching majors to be compatible")
+		parseT.Fatalf("expected normalized protocol versions with matching majors to be compatible")
 	}
 	if ClientProtocolCompatible(ClientCapabilities{}, ClientCapabilities{ProtocolVersion: "v1"}) {
-		t.Fatalf("expected missing local protocol version to be incompatible")
+		parseT.Fatalf("expected missing local protocol version to be incompatible")
 	}
 
 	if ClientSupportsTopic(ClientCapabilities{}, "") {
-		t.Fatalf("expected blank topic to be unsupported")
+		parseT.Fatalf("expected blank topic to be unsupported")
 	}
 }
 
-func TestSurfaceSignalDecodeAndValidationBranches(t *testing.T) {
-	decoded, err := DecodeWindowEnvelope[SurfaceSignal](WindowEnvelope{
+func TestSurfaceSignalDecodeAndValidationBranches(parseT *testing.T) {
+	parseDecoded, parseErr := DecodeWindowEnvelope[SurfaceSignal](WindowEnvelope{
 		Name:    "ops",
 		Source:  "popup-1",
 		SentAt:  time.Date(2026, 3, 25, 15, 0, 0, 0, time.UTC),
 		Payload: "bad",
 	})
-	if !IsCode(err, CodeDecode) {
-		t.Fatalf("expected malformed window payload decode error, got %v", err)
+	if !IsCode(parseErr, CodeDecode) {
+		parseT.Fatalf("expected malformed window payload decode error, got %v", parseErr)
 	}
-	if decoded.Name != "ops" || decoded.Source != "popup-1" || decoded.Payload.Kind != "" {
-		t.Fatalf("unexpected malformed decode window envelope result: %+v", decoded)
+	if parseDecoded.Name != "ops" || parseDecoded.Source != "popup-1" || parseDecoded.Payload.Kind != "" {
+		parseT.Fatalf("unexpected malformed decode window envelope result: %+v", parseDecoded)
 	}
 
-	var windowHandler func(WindowEnvelope, error)
-	window := WindowChannel{
+	var parseWindowHandler func(WindowEnvelope, error)
+	parseWindow := WindowChannel{
 		name: func() string { return "ops" },
 		subscribe: func(handler func(WindowEnvelope, error)) (Subscription, error) {
-			windowHandler = handler
+			parseWindowHandler = handler
 			return Subscription{}, nil
 		},
 		publish: func(any) error { return nil },
 	}
 
-	callCount := 0
-	var lastDecoded DecodedWindowEnvelope[SurfaceSignal]
-	var lastErr error
-	if _, err := SubscribeSurfaceSignals(window, func(message DecodedWindowEnvelope[SurfaceSignal], err error) {
-		callCount++
-		lastDecoded = message
-		lastErr = err
-	}); err != nil {
-		t.Fatalf("subscribe surface signals: %v", err)
+	parseCallCount := 0
+	var parseLastDecoded DecodedWindowEnvelope[SurfaceSignal]
+	var parseLastErr error
+	if _, parseErr2 := SubscribeSurfaceSignals(parseWindow, func(parseMessage DecodedWindowEnvelope[SurfaceSignal], parseErr4 error) {
+		parseCallCount++
+		parseLastDecoded = parseMessage
+		parseLastErr = parseErr4
+	}); parseErr2 != nil {
+		parseT.Fatalf("subscribe surface signals: %v", parseErr2)
 	}
 
-	windowHandler(WindowEnvelope{Name: "ops", Payload: "bad"}, nil)
-	if !IsCode(lastErr, CodeDecode) || lastDecoded.Name != "ops" {
-		t.Fatalf("expected surface signal decode error callback, got msg=%+v err=%v", lastDecoded, lastErr)
+	parseWindowHandler(WindowEnvelope{Name: "ops", Payload: "bad"}, nil)
+	if !IsCode(parseLastErr, CodeDecode) || parseLastDecoded.Name != "ops" {
+		parseT.Fatalf("expected surface signal decode error callback, got msg=%+v err=%v", parseLastDecoded, parseLastErr)
 	}
 
-	windowHandler(WindowEnvelope{}, context.Canceled)
-	if lastErr != context.Canceled {
-		t.Fatalf("expected surface signal transport error passthrough, got %v", lastErr)
+	parseWindowHandler(WindowEnvelope{}, context.Canceled)
+	if parseLastErr != context.Canceled {
+		parseT.Fatalf("expected surface signal transport error passthrough, got %v", parseLastErr)
 	}
-	if callCount != 2 {
-		t.Fatalf("expected two surface signal callback invocations, got %d", callCount)
+	if parseCallCount != 2 {
+		parseT.Fatalf("expected two surface signal callback invocations, got %d", parseCallCount)
 	}
 
-	checks := []SurfaceSignal{
+	parseChecks := []SurfaceSignal{
 		{Kind: ""},
 		{Kind: SurfaceSignalSession},
 		{Kind: SurfaceSignalRoute, Route: &SurfaceRouteSignal{}},
 		{Kind: SurfaceSignalSelection, Selection: &SurfaceSelectionSignal{}},
 		{Kind: SurfaceSignalIntent, Intent: &SurfaceIntentSignal{}},
 	}
-	for _, signal := range checks {
-		if err := PublishSurfaceSignal(window, signal); !IsCode(err, CodeInvalid) {
-			t.Fatalf("expected invalid surface signal error for %+v, got %v", signal, err)
+	for _, parseSignal := range parseChecks {
+		if parseErr3 := PublishSurfaceSignal(parseWindow, parseSignal); !IsCode(parseErr3, CodeInvalid) {
+			parseT.Fatalf("expected invalid surface signal error for %+v, got %v", parseSignal, parseErr3)
 		}
 	}
 }

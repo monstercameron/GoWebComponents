@@ -17,300 +17,300 @@ var (
 	invokeTrapFn js.Value
 )
 
-func recoverInteropException(op, target string, errp *error) {
-	recovered := recover()
-	if recovered == nil {
+func recoverInteropException(parseOp, parseTarget string, parseErrp *error) {
+	parseRecovered := recover()
+	if parseRecovered == nil {
 		return
 	}
-	*errp = wrapError(op, target, CodeRemote, jsExceptionError(recovered))
+	*parseErrp = wrapError(parseOp, parseTarget, CodeRemote, jsExceptionError(parseRecovered))
 }
 
-func jsExceptionError(recovered interface{}) error {
-	switch typed := recovered.(type) {
+func jsExceptionError(parseRecovered interface{}) error {
+	switch parseTyped := parseRecovered.(type) {
 	case nil:
 		return errors.New("javascript exception")
 	case error:
-		return typed
+		return parseTyped
 	case string:
-		if typed == "" {
+		if parseTyped == "" {
 			return errors.New("javascript exception")
 		}
-		return errors.New(typed)
+		return errors.New(parseTyped)
 	default:
-		return fmt.Errorf("javascript exception: %v", typed)
+		return fmt.Errorf("javascript exception: %v", parseTyped)
 	}
 }
 
 // GetGlobalThis returns the browser globalThis object wrapped in the generic interop value surface.
 func GetGlobalThis() (Value, error) {
-	global := js.Global()
-	if global.IsUndefined() || global.IsNull() {
+	parseGlobal := js.Global()
+	if parseGlobal.IsUndefined() || parseGlobal.IsNull() {
 		return Value{}, unavailable("GetGlobalThis", "")
 	}
-	return Value{raw: global}, nil
+	return Value{raw: parseGlobal}, nil
 }
 
-func (v Value) rawValue() (js.Value, bool) {
-	raw, ok := v.raw.(js.Value)
-	return raw, ok
+func (parseV Value) rawValue() (js.Value, bool) {
+	parseRaw, parseOk := parseV.raw.(js.Value)
+	return parseRaw, parseOk
 }
 
 // Present reports whether the value is defined and non-null.
-func (v Value) Present() bool {
-	raw, ok := v.rawValue()
-	return ok && !raw.IsUndefined() && !raw.IsNull()
+func (parseV Value) Present() bool {
+	parseRaw, parseOk := parseV.rawValue()
+	return parseOk && !parseRaw.IsUndefined() && !parseRaw.IsNull()
 }
 
 // Truthy reports whether the value is truthy in the JavaScript sense.
-func (v Value) Truthy() bool {
-	raw, ok := v.rawValue()
-	return ok && raw.Truthy()
+func (parseV Value) Truthy() bool {
+	parseRaw, parseOk := parseV.rawValue()
+	return parseOk && parseRaw.Truthy()
 }
 
 // IsUndefined reports whether the value is undefined.
-func (v Value) IsUndefined() bool {
-	raw, ok := v.rawValue()
-	return !ok || raw.IsUndefined()
+func (parseV Value) IsUndefined() bool {
+	parseRaw, parseOk := parseV.rawValue()
+	return !parseOk || parseRaw.IsUndefined()
 }
 
 // IsNull reports whether the value is null.
-func (v Value) IsNull() bool {
-	raw, ok := v.rawValue()
-	return !ok || raw.IsNull()
+func (parseV Value) IsNull() bool {
+	parseRaw, parseOk := parseV.rawValue()
+	return !parseOk || parseRaw.IsNull()
 }
 
 // String returns the value as a string when possible.
-func (v Value) String() string {
-	raw, ok := v.rawValue()
-	if !ok {
+func (parseV Value) String() string {
+	parseRaw, parseOk := parseV.rawValue()
+	if !parseOk {
 		return ""
 	}
-	return raw.String()
+	return parseRaw.String()
 }
 
 // Bool returns the value as a boolean when possible.
-func (v Value) Bool() bool {
-	raw, ok := v.rawValue()
-	if !ok {
+func (parseV Value) Bool() bool {
+	parseRaw, parseOk := parseV.rawValue()
+	if !parseOk {
 		return false
 	}
-	return raw.Bool()
+	return parseRaw.Bool()
 }
 
 // Int returns the value as an integer when possible.
-func (v Value) Int() int {
-	raw, ok := v.rawValue()
-	if !ok {
+func (parseV Value) Int() int {
+	parseRaw, parseOk := parseV.rawValue()
+	if !parseOk {
 		return 0
 	}
-	return raw.Int()
+	return parseRaw.Int()
 }
 
 // Float returns the value as a float when possible.
-func (v Value) Float() float64 {
-	raw, ok := v.rawValue()
-	if !ok {
+func (parseV Value) Float() float64 {
+	parseRaw, parseOk := parseV.rawValue()
+	if !parseOk {
 		return 0
 	}
-	return raw.Float()
+	return parseRaw.Float()
 }
 
 // Get reads a property from the wrapped value.
-func (v Value) Get(name string) Value {
-	raw, ok := v.rawValue()
-	if !ok {
+func (parseV Value) Get(parseName string) Value {
+	parseRaw, parseOk := parseV.rawValue()
+	if !parseOk {
 		return Value{}
 	}
-	return Value{raw: raw.Get(name)}
+	return Value{raw: parseRaw.Get(parseName)}
 }
 
 // Set writes a property on the wrapped value.
-func (v Value) Set(name string, value any) error {
-	raw, ok := v.rawValue()
-	if !ok {
-		return unavailable("Value.Set", name)
+func (parseV Value) Set(parseName string, parseValue any) error {
+	parseRaw, parseOk := parseV.rawValue()
+	if !parseOk {
+		return unavailable("Value.Set", parseName)
 	}
-	jsValue, err := goValueToJS("Value.Set", name, value)
-	if err != nil {
-		return err
+	parseJsValue, parseErr := goValueToJS("Value.Set", parseName, parseValue)
+	if parseErr != nil {
+		return parseErr
 	}
-	raw.Set(name, jsValue)
+	parseRaw.Set(parseName, parseJsValue)
 	return nil
 }
 
 // Delete removes a property from the wrapped value.
-func (v Value) Delete(name string) error {
-	raw, ok := v.rawValue()
-	if !ok {
-		return unavailable("Value.Delete", name)
+func (parseV Value) Delete(parseName string) error {
+	parseRaw, parseOk := parseV.rawValue()
+	if !parseOk {
+		return unavailable("Value.Delete", parseName)
 	}
-	raw.Delete(name)
+	parseRaw.Delete(parseName)
 	return nil
 }
 
 // Call invokes a named method on the wrapped value.
-func (v Value) Call(name string, args ...any) (Value, error) {
-	raw, ok := v.rawValue()
-	if !ok {
-		return Value{}, unavailable("Value.Call", name)
+func (parseV Value) Call(parseName string, parseArgs ...any) (Value, error) {
+	parseRaw, parseOk := parseV.rawValue()
+	if !parseOk {
+		return Value{}, unavailable("Value.Call", parseName)
 	}
-	var callErr error
-	defer recoverInteropException("Value.Call", name, &callErr)
-	jsArgs, err := goValuesToJS("Value.Call", name, args...)
-	if err != nil {
-		return Value{}, err
+	var parseCallErr error
+	defer recoverInteropException("Value.Call", parseName, &parseCallErr)
+	parseJsArgs, parseErr := goValuesToJS("Value.Call", parseName, parseArgs...)
+	if parseErr != nil {
+		return Value{}, parseErr
 	}
-	callee := raw.Get(name)
-	if callee.Type() != js.TypeFunction {
-		return Value{}, wrapError("Value.Call", name, CodeNotFunction, errors.New("property is not callable"))
+	parseCallee := parseRaw.Get(parseName)
+	if parseCallee.Type() != js.TypeFunction {
+		return Value{}, wrapError("Value.Call", parseName, CodeNotFunction, errors.New("property is not callable"))
 	}
-	trapped, err := trapCall(raw, name, jsArgs)
-	if err != nil {
-		return Value{}, err
+	parseTrapped, parseErr := trapCall(parseRaw, parseName, parseJsArgs)
+	if parseErr != nil {
+		return Value{}, parseErr
 	}
-	result := Value{raw: trapped}
-	if callErr != nil {
-		return Value{}, callErr
+	parseResult := Value{raw: parseTrapped}
+	if parseCallErr != nil {
+		return Value{}, parseCallErr
 	}
-	return result, nil
+	return parseResult, nil
 }
 
 // Invoke calls the wrapped value as a function.
-func (v Value) Invoke(args ...any) (Value, error) {
-	raw, ok := v.rawValue()
-	if !ok {
+func (parseV Value) Invoke(parseArgs ...any) (Value, error) {
+	parseRaw, parseOk := parseV.rawValue()
+	if !parseOk {
 		return Value{}, unavailable("Value.Invoke", "")
 	}
-	var invokeErr error
-	defer recoverInteropException("Value.Invoke", "", &invokeErr)
-	jsArgs, err := goValuesToJS("Value.Invoke", "", args...)
-	if err != nil {
-		return Value{}, err
+	var parseInvokeErr error
+	defer recoverInteropException("Value.Invoke", "", &parseInvokeErr)
+	parseJsArgs, parseErr := goValuesToJS("Value.Invoke", "", parseArgs...)
+	if parseErr != nil {
+		return Value{}, parseErr
 	}
-	if raw.Type() != js.TypeFunction {
+	if parseRaw.Type() != js.TypeFunction {
 		return Value{}, wrapError("Value.Invoke", "", CodeNotFunction, errors.New("value is not callable"))
 	}
-	trapped, err := trapInvoke(raw, jsArgs)
-	if err != nil {
-		return Value{}, err
+	parseTrapped, parseErr := trapInvoke(parseRaw, parseJsArgs)
+	if parseErr != nil {
+		return Value{}, parseErr
 	}
-	result := Value{raw: trapped}
-	if invokeErr != nil {
-		return Value{}, invokeErr
+	parseResult := Value{raw: parseTrapped}
+	if parseInvokeErr != nil {
+		return Value{}, parseInvokeErr
 	}
-	return result, nil
+	return parseResult, nil
 }
 
-func trapCall(target js.Value, method string, args []interface{}) (js.Value, error) {
+func trapCall(parseTarget js.Value, parseMethod string, parseArgs []interface{}) (js.Value, error) {
 	ensureCallTraps()
-	envelope := callTrapFn.Invoke(target, method, jsArgsToArray(args))
-	if envelope.IsUndefined() || envelope.IsNull() {
-		return js.Undefined(), wrapError("Value.Call", method, CodeRemote, errors.New("javascript call failed without details"))
+	parseEnvelope := callTrapFn.Invoke(parseTarget, parseMethod, jsArgsToArray(parseArgs))
+	if parseEnvelope.IsUndefined() || parseEnvelope.IsNull() {
+		return js.Undefined(), wrapError("Value.Call", parseMethod, CodeRemote, errors.New("javascript call failed without details"))
 	}
-	if envelope.Get("ok").Bool() {
-		return envelope.Get("value"), nil
+	if parseEnvelope.Get("ok").Bool() {
+		return parseEnvelope.Get("value"), nil
 	}
-	return js.Undefined(), wrapError("Value.Call", method, CodeRemote, errors.New(jsErrorText(envelope.Get("error"))))
+	return js.Undefined(), wrapError("Value.Call", parseMethod, CodeRemote, errors.New(jsErrorText(parseEnvelope.Get("error"))))
 }
 
-func trapInvoke(fn js.Value, args []interface{}) (js.Value, error) {
+func trapInvoke(parseFn js.Value, parseArgs []interface{}) (js.Value, error) {
 	ensureCallTraps()
-	envelope := invokeTrapFn.Invoke(fn, jsArgsToArray(args))
-	if envelope.IsUndefined() || envelope.IsNull() {
+	parseEnvelope := invokeTrapFn.Invoke(parseFn, jsArgsToArray(parseArgs))
+	if parseEnvelope.IsUndefined() || parseEnvelope.IsNull() {
 		return js.Undefined(), wrapError("Value.Invoke", "", CodeRemote, errors.New("javascript invoke failed without details"))
 	}
-	if envelope.Get("ok").Bool() {
-		return envelope.Get("value"), nil
+	if parseEnvelope.Get("ok").Bool() {
+		return parseEnvelope.Get("value"), nil
 	}
-	return js.Undefined(), wrapError("Value.Invoke", "", CodeRemote, errors.New(jsErrorText(envelope.Get("error"))))
+	return js.Undefined(), wrapError("Value.Invoke", "", CodeRemote, errors.New(jsErrorText(parseEnvelope.Get("error"))))
 }
 
 func ensureCallTraps() {
 	callTrapInit.Do(func() {
-		functionCtor := js.Global().Get("Function")
-		callTrapFn = functionCtor.New("target", "method", "args", "try { return { ok: true, value: target[method].apply(target, args) }; } catch (error) { return { ok: false, error: error }; }")
-		invokeTrapFn = functionCtor.New("fn", "args", "try { return { ok: true, value: fn.apply(undefined, args) }; } catch (error) { return { ok: false, error: error }; }")
+		parseFunctionCtor := js.Global().Get("Function")
+		callTrapFn = parseFunctionCtor.New("target", "method", "args", "try { return { ok: true, value: target[method].apply(target, args) }; } catch (error) { return { ok: false, error: error }; }")
+		invokeTrapFn = parseFunctionCtor.New("fn", "args", "try { return { ok: true, value: fn.apply(undefined, args) }; } catch (error) { return { ok: false, error: error }; }")
 	})
 }
 
-func jsArgsToArray(values []interface{}) js.Value {
-	array := js.Global().Get("Array").New(len(values))
-	for index, value := range values {
-		array.SetIndex(index, value)
+func jsArgsToArray(parseValues []interface{}) js.Value {
+	parseArray := js.Global().Get("Array").New(len(parseValues))
+	for parseIndex, parseValue := range parseValues {
+		parseArray.SetIndex(parseIndex, parseValue)
 	}
-	return array
+	return parseArray
 }
 
-func jsErrorText(value js.Value) string {
-	if value.IsUndefined() || value.IsNull() {
+func jsErrorText(parseValue js.Value) string {
+	if parseValue.IsUndefined() || parseValue.IsNull() {
 		return "javascript exception"
 	}
-	if value.Type() == js.TypeString {
-		text := strings.TrimSpace(value.String())
-		if text != "" {
-			return text
+	if parseValue.Type() == js.TypeString {
+		parseText := strings.TrimSpace(parseValue.String())
+		if parseText != "" {
+			return parseText
 		}
 		return "javascript exception"
 	}
-	message := strings.TrimSpace(value.Get("message").String())
-	if message != "" {
-		return message
+	parseMessage := strings.TrimSpace(parseValue.Get("message").String())
+	if parseMessage != "" {
+		return parseMessage
 	}
-	summary := strings.TrimSpace(jsValueSummary(value))
-	if summary != "" {
-		return summary
+	parseSummary := strings.TrimSpace(jsValueSummary(parseValue))
+	if parseSummary != "" {
+		return parseSummary
 	}
 	return "javascript exception"
 }
 
 // ToGo converts the wrapped value into a JSON-shaped Go representation.
-func (v Value) ToGo() (any, error) {
-	raw, ok := v.rawValue()
-	if !ok {
+func (parseV Value) ToGo() (any, error) {
+	parseRaw, parseOk := parseV.rawValue()
+	if !parseOk {
 		return nil, unavailable("Value.ToGo", "")
 	}
-	return jsValueToGo("Value.ToGo", "", raw)
+	return jsValueToGo("Value.ToGo", "", parseRaw)
 }
 
 // SetFunction binds a Go handler to a property on the wrapped value and restores
 // the previous property value when the returned subscription is canceled.
-func (v Value) SetFunction(name string, handler func(args ...Value) any) (Subscription, error) {
-	if handler == nil {
-		return Subscription{}, wrapError("Value.SetFunction", name, CodeInvalid, errors.New("handler is nil"))
+func (parseV Value) SetFunction(parseName string, parseHandler func(args ...Value) any) (Subscription, error) {
+	if parseHandler == nil {
+		return Subscription{}, wrapError("Value.SetFunction", parseName, CodeInvalid, errors.New("handler is nil"))
 	}
-	raw, ok := v.rawValue()
-	if !ok {
-		return Subscription{}, unavailable("Value.SetFunction", name)
+	parseRaw, parseOk := parseV.rawValue()
+	if !parseOk {
+		return Subscription{}, unavailable("Value.SetFunction", parseName)
 	}
 
-	previous := raw.Get(name)
-	var once sync.Once
-	var callback js.Func
-	callback = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		wrapped := make([]Value, len(args))
-		for index, arg := range args {
-			wrapped[index] = Value{raw: arg}
+	parsePrevious := parseRaw.Get(parseName)
+	var parseOnce sync.Once
+	var parseCallback js.Func
+	parseCallback = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseWrapped := make([]Value, len(parseArgs))
+		for parseIndex, parseArg := range parseArgs {
+			parseWrapped[parseIndex] = Value{raw: parseArg}
 		}
-		result := handler(wrapped...)
-		if result == nil {
+		parseResult := parseHandler(parseWrapped...)
+		if parseResult == nil {
 			return nil
 		}
-		jsResult, err := goValueToJS("Value.SetFunction", name, result)
-		if err != nil {
+		parseJsResult, parseErr := goValueToJS("Value.SetFunction", parseName, parseResult)
+		if parseErr != nil {
 			return js.Undefined()
 		}
-		return jsResult
+		return parseJsResult
 	})
-	raw.Set(name, callback)
+	parseRaw.Set(parseName, parseCallback)
 
 	return Subscription{cancel: func() {
-		once.Do(func() {
-			callback.Release()
-			if previous.IsUndefined() || previous.IsNull() {
-				raw.Delete(name)
+		parseOnce.Do(func() {
+			parseCallback.Release()
+			if parsePrevious.IsUndefined() || parsePrevious.IsNull() {
+				parseRaw.Delete(parseName)
 				return
 			}
-			raw.Set(name, previous)
+			parseRaw.Set(parseName, parsePrevious)
 		})
 	}}, nil
 }

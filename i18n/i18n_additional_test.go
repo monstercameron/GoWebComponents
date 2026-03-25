@@ -6,10 +6,10 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestLocaleStateAndBundleWrapperHelpers(t *testing.T) {
-	state := LocaleState{}
-	if state.Get() != "" || state.Direction() != DirectionLTR || state.FallbackLocale() != "" || state.SupportedLocales() != nil {
-		t.Fatalf("zero LocaleState should return safe defaults, got locale=%q direction=%q fallback=%q supported=%v", state.Get(), state.Direction(), state.FallbackLocale(), state.SupportedLocales())
+func TestLocaleStateAndBundleWrapperHelpers(parseT *testing.T) {
+	parseState := LocaleState{}
+	if parseState.Get() != "" || parseState.Direction() != DirectionLTR || parseState.FallbackLocale() != "" || parseState.SupportedLocales() != nil {
+		parseT.Fatalf("zero LocaleState should return safe defaults, got locale=%q direction=%q fallback=%q supported=%v", parseState.Get(), parseState.Direction(), parseState.FallbackLocale(), parseState.SupportedLocales())
 	}
 
 	handle := UseLocale(LocaleOptions{
@@ -17,77 +17,77 @@ func TestLocaleStateAndBundleWrapperHelpers(t *testing.T) {
 		SupportedLocales: []string{"en", "fr"},
 		FallbackLocale:   "en",
 	})
-	if got := handle.Get(); got != "fr-CA" {
-		t.Fatalf("UseLocale().Get() = %q, want fr-CA", got)
+	if parseGot := handle.Get(); parseGot != "fr-CA" {
+		parseT.Fatalf("UseLocale().Get() = %q, want fr-CA", parseGot)
 	}
-	if got := handle.Direction(); got != DirectionLTR {
-		t.Fatalf("UseLocale().Direction() = %q, want ltr", got)
+	if parseGot2 := handle.Direction(); parseGot2 != DirectionLTR {
+		parseT.Fatalf("UseLocale().Direction() = %q, want ltr", parseGot2)
 	}
-	if got := handle.FallbackLocale(); got != "en" {
-		t.Fatalf("UseLocale().FallbackLocale() = %q, want en", got)
+	if parseGot3 := handle.FallbackLocale(); parseGot3 != "en" {
+		parseT.Fatalf("UseLocale().FallbackLocale() = %q, want en", parseGot3)
 	}
 	handle.Set("unknown")
-	if got := handle.Get(); got != "en" {
-		t.Fatalf("UseLocale().Set(unknown) should fall back to en, got %q", got)
+	if parseGot4 := handle.Get(); parseGot4 != "en" {
+		parseT.Fatalf("UseLocale().Set(unknown) should fall back to en, got %q", parseGot4)
 	}
-	if got := firstLocale([]string{"fr", "en"}); got != "fr" {
-		t.Fatalf("firstLocale() = %q, want fr", got)
+	if parseGot5 := firstLocale([]string{"fr", "en"}); parseGot5 != "fr" {
+		parseT.Fatalf("firstLocale() = %q, want fr", parseGot5)
 	}
-	if got := firstLocale(nil); got != "" {
-		t.Fatalf("firstLocale(nil) = %q, want empty", got)
+	if parseGot6 := firstLocale(nil); parseGot6 != "" {
+		parseT.Fatalf("firstLocale(nil) = %q, want empty", parseGot6)
 	}
 
-	bundle := NewBundle(BundleOptions{DefaultLocale: "en", FallbackLocale: "fr"})
-	bundle.RegisterNamespace("en", "common", NamespaceCatalog{"greeting": {Text: "Hello"}})
-	bundle.RegisterNamespace("fr", "common", NamespaceCatalog{"greeting": {Text: "Bonjour"}})
-	if got := bundle.DefaultLocale(); got != "en" {
-		t.Fatalf("DefaultLocale() = %q, want en", got)
+	parseBundle := NewBundle(BundleOptions{DefaultLocale: "en", FallbackLocale: "fr"})
+	parseBundle.RegisterNamespace("en", "common", NamespaceCatalog{"greeting": {Text: "Hello"}})
+	parseBundle.RegisterNamespace("fr", "common", NamespaceCatalog{"greeting": {Text: "Bonjour"}})
+	if parseGot7 := parseBundle.DefaultLocale(); parseGot7 != "en" {
+		parseT.Fatalf("DefaultLocale() = %q, want en", parseGot7)
 	}
-	if got := bundle.FallbackLocale(); got != "fr" {
-		t.Fatalf("FallbackLocale() = %q, want fr", got)
+	if parseGot8 := parseBundle.FallbackLocale(); parseGot8 != "fr" {
+		parseT.Fatalf("FallbackLocale() = %q, want fr", parseGot8)
 	}
-	locales := bundle.Locales()
-	if len(locales) != 2 || locales[0] != "en" || locales[1] != "fr" {
-		t.Fatalf("Locales() = %v, want [en fr]", locales)
+	parseLocales := parseBundle.Locales()
+	if len(parseLocales) != 2 || parseLocales[0] != "en" || parseLocales[1] != "fr" {
+		parseT.Fatalf("Locales() = %v, want [en fr]", parseLocales)
 	}
-	if translated := bundle.Translate("fr", "common", "greeting", nil, "en"); translated != "Bonjour" {
-		t.Fatalf("Translate() = %q, want Bonjour", translated)
+	if parseTranslated := parseBundle.Translate("fr", "common", "greeting", nil, "en"); parseTranslated != "Bonjour" {
+		parseT.Fatalf("Translate() = %q, want Bonjour", parseTranslated)
 	}
-	if got := defaultMissingText("fr", "common", "headline"); got != "common.headline" {
-		t.Fatalf("defaultMissingText() = %q, want common.headline", got)
+	if parseGot9 := defaultMissingText("fr", "common", "headline"); parseGot9 != "common.headline" {
+		parseT.Fatalf("defaultMissingText() = %q, want common.headline", parseGot9)
 	}
 }
 
-func TestNilBundleLocalesProviderDefaultsAndNativeUseLocaleFallback(t *testing.T) {
-	var nilBundle *Bundle
-	if got := nilBundle.Locales(); got != nil {
-		t.Fatalf("nil bundle Locales() = %v, want nil", got)
+func TestNilBundleLocalesProviderDefaultsAndNativeUseLocaleFallback(parseT *testing.T) {
+	var parseNilBundle *Bundle
+	if parseGot := parseNilBundle.Locales(); parseGot != nil {
+		parseT.Fatalf("nil bundle Locales() = %v, want nil", parseGot)
 	}
 
-	bundle := NewBundle()
-	bundle.RegisterNamespace("ar", "common", NamespaceCatalog{
+	parseBundle := NewBundle()
+	parseBundle.RegisterNamespace("ar", "common", NamespaceCatalog{
 		"greeting": {Text: "مرحبا"},
 	})
-	node := Provider(ProviderProps{
-		Bundle:   bundle,
+	parseNode := Provider(ProviderProps{
+		Bundle:   parseBundle,
 		Children: []ui.Node{ui.Text("child")},
 	})
-	if node == nil {
-		t.Fatal("expected provider node")
+	if parseNode == nil {
+		parseT.Fatal("expected provider node")
 	}
-	rawRuntime, ok := node.Props["value"].(Runtime)
-	if !ok {
-		t.Fatalf("expected runtime value in provider props, got %T", node.Props["value"])
+	parseRawRuntime, parseOk := parseNode.Props["value"].(Runtime)
+	if !parseOk {
+		parseT.Fatalf("expected runtime value in provider props, got %T", parseNode.Props["value"])
 	}
-	if got := rawRuntime.Locale(); got != "ar" {
-		t.Fatalf("runtime locale = %q, want ar from bundle default", got)
+	if parseGot2 := parseRawRuntime.Locale(); parseGot2 != "ar" {
+		parseT.Fatalf("runtime locale = %q, want ar from bundle default", parseGot2)
 	}
-	rawRuntime.SetLocale("fr")
-	if got := rawRuntime.Direction(); got != DirectionRTL {
-		t.Fatalf("runtime direction = %q, want rtl from current locale fallback", got)
+	parseRawRuntime.SetLocale("fr")
+	if parseGot3 := parseRawRuntime.Direction(); parseGot3 != DirectionRTL {
+		parseT.Fatalf("runtime direction = %q, want rtl from current locale fallback", parseGot3)
 	}
-	if got := rawRuntime.T("common", "greeting"); got != "مرحبا" {
-		t.Fatalf("runtime translation = %q, want Arabic greeting", got)
+	if parseGot4 := parseRawRuntime.T("common", "greeting"); parseGot4 != "مرحبا" {
+		parseT.Fatalf("runtime translation = %q, want Arabic greeting", parseGot4)
 	}
 
 	handle := UseLocale(LocaleOptions{
@@ -95,53 +95,53 @@ func TestNilBundleLocalesProviderDefaultsAndNativeUseLocaleFallback(t *testing.T
 		SupportedLocales: []string{"fr", "en"},
 		FallbackLocale:   "fr",
 	})
-	if got := handle.Get(); got != "fr" {
-		t.Fatalf("UseLocale() fallback current = %q, want fr", got)
+	if parseGot5 := handle.Get(); parseGot5 != "fr" {
+		parseT.Fatalf("UseLocale() fallback current = %q, want fr", parseGot5)
 	}
-	supported := handle.SupportedLocales()
-	supported[0] = "mutated"
-	if got := handle.SupportedLocales()[0]; got != "fr" {
-		t.Fatalf("expected SupportedLocales() to return a clone, got %v", handle.SupportedLocales())
+	parseSupported := handle.SupportedLocales()
+	parseSupported[0] = "mutated"
+	if parseGot6 := handle.SupportedLocales()[0]; parseGot6 != "fr" {
+		parseT.Fatalf("expected SupportedLocales() to return a clone, got %v", handle.SupportedLocales())
 	}
 }
 
-func TestTranslateMissingDefaultLookupMissAndEmptyNativeLocaleConfig(t *testing.T) {
-	bundle := NewBundle(BundleOptions{DefaultLocale: "en", FallbackLocale: "en"})
-	bundle.RegisterNamespace("en", "common", NamespaceCatalog{
+func TestTranslateMissingDefaultLookupMissAndEmptyNativeLocaleConfig(parseT *testing.T) {
+	parseBundle := NewBundle(BundleOptions{DefaultLocale: "en", FallbackLocale: "en"})
+	parseBundle.RegisterNamespace("en", "common", NamespaceCatalog{
 		"greeting": {Text: "Hello"},
 	})
 
-	if got := bundle.Translate("en", "common", "missing", nil, "en"); got != "common.missing" {
-		t.Fatalf("Translate() missing default = %q, want common.missing", got)
+	if parseGot := parseBundle.Translate("en", "common", "missing", nil, "en"); parseGot != "common.missing" {
+		parseT.Fatalf("Translate() missing default = %q, want common.missing", parseGot)
 	}
-	if _, ok := bundle.lookup("en", "missing", "greeting", "en"); ok {
-		t.Fatal("lookup() should report missing namespace as not found")
+	if _, parseOk := parseBundle.lookup("en", "missing", "greeting", "en"); parseOk {
+		parseT.Fatal("lookup() should report missing namespace as not found")
 	}
 
-	node := Provider(ProviderProps{
+	parseNode := Provider(ProviderProps{
 		FallbackLocale: "fr",
 		Children:       []ui.Node{ui.Text("child")},
 	})
-	rawRuntime, ok := node.Props["value"].(Runtime)
-	if !ok {
-		t.Fatalf("expected runtime value in provider props, got %T", node.Props["value"])
+	parseRawRuntime, parseOk2 := parseNode.Props["value"].(Runtime)
+	if !parseOk2 {
+		parseT.Fatalf("expected runtime value in provider props, got %T", parseNode.Props["value"])
 	}
-	if got := rawRuntime.Locale(); got != "" {
-		t.Fatalf("runtime locale = %q, want empty when bundle and locale handle provide none", got)
+	if parseGot2 := parseRawRuntime.Locale(); parseGot2 != "" {
+		parseT.Fatalf("runtime locale = %q, want empty when bundle and locale handle provide none", parseGot2)
 	}
-	rawRuntime.SetLocale("fr")
-	if got := rawRuntime.PrefixPath("/pricing"); got != "/fr/pricing" {
-		t.Fatalf("runtime PrefixPath() = %q, want /fr/pricing from explicit fallback locale", got)
+	parseRawRuntime.SetLocale("fr")
+	if parseGot3 := parseRawRuntime.PrefixPath("/pricing"); parseGot3 != "/fr/pricing" {
+		parseT.Fatalf("runtime PrefixPath() = %q, want /fr/pricing from explicit fallback locale", parseGot3)
 	}
 
-	emptyHandle := UseLocale(LocaleOptions{})
-	if got := emptyHandle.Get(); got != "" {
-		t.Fatalf("UseLocale() empty config current = %q, want empty", got)
+	parseEmptyHandle := UseLocale(LocaleOptions{})
+	if parseGot4 := parseEmptyHandle.Get(); parseGot4 != "" {
+		parseT.Fatalf("UseLocale() empty config current = %q, want empty", parseGot4)
 	}
-	if got := emptyHandle.FallbackLocale(); got != "" {
-		t.Fatalf("UseLocale() empty config fallback = %q, want empty", got)
+	if parseGot5 := parseEmptyHandle.FallbackLocale(); parseGot5 != "" {
+		parseT.Fatalf("UseLocale() empty config fallback = %q, want empty", parseGot5)
 	}
-	if got := emptyHandle.Direction(); got != DirectionLTR {
-		t.Fatalf("UseLocale() empty config direction = %q, want ltr", got)
+	if parseGot6 := parseEmptyHandle.Direction(); parseGot6 != DirectionLTR {
+		parseT.Fatalf("UseLocale() empty config direction = %q, want ltr", parseGot6)
 	}
 }

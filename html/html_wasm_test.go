@@ -9,21 +9,21 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestDiv_OmitsZeroValueProps(t *testing.T) {
-	elem := Div(Props{})
-	if elem == nil {
-		t.Fatal("expected element")
+func TestDiv_OmitsZeroValueProps(parseT *testing.T) {
+	parseElem := Div(Props{})
+	if parseElem == nil {
+		parseT.Fatal("expected element")
 	}
-	if len(elem.Props) != 1 {
-		t.Fatalf("expected only runtime children prop, got %#v", elem.Props)
+	if len(parseElem.Props) != 1 {
+		parseT.Fatalf("expected only runtime children prop, got %#v", parseElem.Props)
 	}
-	if _, ok := elem.Props["children"]; !ok {
-		t.Fatalf("expected runtime children prop, got %#v", elem.Props)
+	if _, parseOk := parseElem.Props["children"]; !parseOk {
+		parseT.Fatalf("expected runtime children prop, got %#v", parseElem.Props)
 	}
 }
 
-func TestInput_KeepsMeaningfulProps(t *testing.T) {
-	elem := Input(Props{
+func TestInput_KeepsMeaningfulProps(parseT *testing.T) {
+	parseElem := Input(Props{
 		ID:       "name",
 		Value:    "alice",
 		Accept:   "image/*",
@@ -34,66 +34,66 @@ func TestInput_KeepsMeaningfulProps(t *testing.T) {
 		Aria:     map[string]string{"label": "Name"},
 		Raw:      map[string]interface{}{"tabIndex": 2},
 	})
-	if elem == nil {
-		t.Fatal("expected element")
+	if parseElem == nil {
+		parseT.Fatal("expected element")
 	}
-	if elem.Props["id"] != "name" {
-		t.Fatalf("expected id prop, got %#v", elem.Props["id"])
+	if parseElem.Props["id"] != "name" {
+		parseT.Fatalf("expected id prop, got %#v", parseElem.Props["id"])
 	}
-	if elem.Props["value"] != "alice" {
-		t.Fatalf("expected value prop, got %#v", elem.Props["value"])
+	if parseElem.Props["value"] != "alice" {
+		parseT.Fatalf("expected value prop, got %#v", parseElem.Props["value"])
 	}
-	if elem.Props["accept"] != "image/*" {
-		t.Fatalf("expected accept prop, got %#v", elem.Props["accept"])
+	if parseElem.Props["accept"] != "image/*" {
+		parseT.Fatalf("expected accept prop, got %#v", parseElem.Props["accept"])
 	}
-	if elem.Props["disabled"] != true {
-		t.Fatalf("expected disabled prop, got %#v", elem.Props["disabled"])
+	if parseElem.Props["disabled"] != true {
+		parseT.Fatalf("expected disabled prop, got %#v", parseElem.Props["disabled"])
 	}
-	if elem.Props["rows"] != 4 {
-		t.Fatalf("expected rows prop, got %#v", elem.Props["rows"])
+	if parseElem.Props["rows"] != 4 {
+		parseT.Fatalf("expected rows prop, got %#v", parseElem.Props["rows"])
 	}
-	if elem.Props["data-mode"] != "demo" {
-		t.Fatalf("expected data attribute, got %#v", elem.Props["data-mode"])
+	if parseElem.Props["data-mode"] != "demo" {
+		parseT.Fatalf("expected data attribute, got %#v", parseElem.Props["data-mode"])
 	}
-	if elem.Props["aria-label"] != "Name" {
-		t.Fatalf("expected aria attribute, got %#v", elem.Props["aria-label"])
+	if parseElem.Props["aria-label"] != "Name" {
+		parseT.Fatalf("expected aria attribute, got %#v", parseElem.Props["aria-label"])
 	}
-	if elem.Props["tabIndex"] != 2 {
-		t.Fatalf("expected raw prop override, got %#v", elem.Props["tabIndex"])
+	if parseElem.Props["tabIndex"] != 2 {
+		parseT.Fatalf("expected raw prop override, got %#v", parseElem.Props["tabIndex"])
 	}
-	if _, ok := elem.Props["required"]; ok {
-		t.Fatalf("expected zero-value bool prop to be omitted, got %#v", elem.Props["required"])
-	}
-}
-
-func TestHiddenInput_UsesHiddenTypeAndProvidedNameValue(t *testing.T) {
-	elem := HiddenInput("csrf_token", "token-123")
-	if elem == nil {
-		t.Fatal("expected element")
-	}
-	if elem.Props["type"] != "hidden" {
-		t.Fatalf("expected hidden type, got %#v", elem.Props["type"])
-	}
-	if elem.Props["name"] != "csrf_token" {
-		t.Fatalf("expected hidden input name, got %#v", elem.Props["name"])
-	}
-	if elem.Props["value"] != "token-123" {
-		t.Fatalf("expected hidden input value, got %#v", elem.Props["value"])
+	if _, parseOk := parseElem.Props["required"]; parseOk {
+		parseT.Fatalf("expected zero-value bool prop to be omitted, got %#v", parseElem.Props["required"])
 	}
 }
 
-func TestFormPropsIncludeEncType(t *testing.T) {
-	elem := Form(Props{Action: "/upload", Method: "post", EncType: "multipart/form-data"})
-	if elem == nil {
-		t.Fatal("expected form element")
+func TestHiddenInput_UsesHiddenTypeAndProvidedNameValue(parseT *testing.T) {
+	parseElem := HiddenInput("csrf_token", "token-123")
+	if parseElem == nil {
+		parseT.Fatal("expected element")
 	}
-	if elem.Props["enctype"] != "multipart/form-data" {
-		t.Fatalf("expected enctype prop, got %#v", elem.Props["enctype"])
+	if parseElem.Props["type"] != "hidden" {
+		parseT.Fatalf("expected hidden type, got %#v", parseElem.Props["type"])
+	}
+	if parseElem.Props["name"] != "csrf_token" {
+		parseT.Fatalf("expected hidden input name, got %#v", parseElem.Props["name"])
+	}
+	if parseElem.Props["value"] != "token-123" {
+		parseT.Fatalf("expected hidden input value, got %#v", parseElem.Props["value"])
 	}
 }
 
-func TestTagBuildersPreservePublicProps(t *testing.T) {
-	elem := Tag("input", Props{
+func TestFormPropsIncludeEncType(parseT *testing.T) {
+	parseElem := Form(Props{Action: "/upload", Method: "post", EncType: "multipart/form-data"})
+	if parseElem == nil {
+		parseT.Fatal("expected form element")
+	}
+	if parseElem.Props["enctype"] != "multipart/form-data" {
+		parseT.Fatalf("expected enctype prop, got %#v", parseElem.Props["enctype"])
+	}
+}
+
+func TestTagBuildersPreservePublicProps(parseT *testing.T) {
+	parseElem := Tag("input", Props{
 		Key:          "k1",
 		Title:        "Title",
 		Type:         "email",
@@ -132,12 +132,12 @@ func TestTagBuildersPreservePublicProps(t *testing.T) {
 		OnFocus:      ui.WrapHandler("focus"),
 		OnBlur:       ui.WrapHandler("blur"),
 	})
-	if elem == nil {
-		t.Fatal("expected element")
+	if parseElem == nil {
+		parseT.Fatal("expected element")
 	}
-	props := elem.Props
+	parseProps := parseElem.Props
 
-	assertions := map[string]interface{}{
+	parseAssertions := map[string]interface{}{
 		"key":          "k1",
 		"title":        "Title",
 		"type":         "email",
@@ -176,60 +176,60 @@ func TestTagBuildersPreservePublicProps(t *testing.T) {
 		"onblur":       "blur",
 	}
 
-	for key, expected := range assertions {
-		if props[key] != expected {
-			t.Fatalf("expected %s to equal %#v, got %#v", key, expected, props[key])
+	for parseKey, parseExpected := range parseAssertions {
+		if parseProps[parseKey] != parseExpected {
+			parseT.Fatalf("expected %s to equal %#v, got %#v", parseKey, parseExpected, parseProps[parseKey])
 		}
 	}
-	if style, ok := props["style"].(map[string]string); !ok || style["color"] != "red" {
-		t.Fatalf("expected style map to be preserved, got %#v", props["style"])
+	if parseStyle, parseOk := parseProps["style"].(map[string]string); !parseOk || parseStyle["color"] != "red" {
+		parseT.Fatalf("expected style map to be preserved, got %#v", parseProps["style"])
 	}
 }
 
-func TestResourceHintHelpersCreateLinkElements(t *testing.T) {
-	preload := Preload("/static/bin/browser-interop.wasm", "fetch")
-	if preload == nil {
-		t.Fatal("expected preload element")
+func TestResourceHintHelpersCreateLinkElements(parseT *testing.T) {
+	parsePreload := Preload("/static/bin/browser-interop.wasm", "fetch")
+	if parsePreload == nil {
+		parseT.Fatal("expected preload element")
 	}
-	if preload.Type != "link" {
-		t.Fatalf("expected link tag, got %#v", preload.Type)
+	if parsePreload.Type != "link" {
+		parseT.Fatalf("expected link tag, got %#v", parsePreload.Type)
 	}
-	if preload.Props["rel"] != "preload" {
-		t.Fatalf("expected preload rel, got %#v", preload.Props["rel"])
+	if parsePreload.Props["rel"] != "preload" {
+		parseT.Fatalf("expected preload rel, got %#v", parsePreload.Props["rel"])
 	}
-	if preload.Props["href"] != "/static/bin/browser-interop.wasm" {
-		t.Fatalf("expected preload href, got %#v", preload.Props["href"])
+	if parsePreload.Props["href"] != "/static/bin/browser-interop.wasm" {
+		parseT.Fatalf("expected preload href, got %#v", parsePreload.Props["href"])
 	}
-	if preload.Props["as"] != "fetch" {
-		t.Fatalf("expected preload as attribute, got %#v", preload.Props["as"])
-	}
-
-	modulePreload := ModulePreload("/static/modules/browser-interop-lazy-module.js")
-	if modulePreload.Props["rel"] != "modulepreload" {
-		t.Fatalf("expected modulepreload rel, got %#v", modulePreload.Props["rel"])
-	}
-	if modulePreload.Props["as"] != "script" {
-		t.Fatalf("expected modulepreload as script, got %#v", modulePreload.Props["as"])
+	if parsePreload.Props["as"] != "fetch" {
+		parseT.Fatalf("expected preload as attribute, got %#v", parsePreload.Props["as"])
 	}
 
-	prefetch := Prefetch("/static/modules/next-route.js")
-	if prefetch.Props["rel"] != "prefetch" {
-		t.Fatalf("expected prefetch rel, got %#v", prefetch.Props["rel"])
+	parseModulePreload := ModulePreload("/static/modules/browser-interop-lazy-module.js")
+	if parseModulePreload.Props["rel"] != "modulepreload" {
+		parseT.Fatalf("expected modulepreload rel, got %#v", parseModulePreload.Props["rel"])
+	}
+	if parseModulePreload.Props["as"] != "script" {
+		parseT.Fatalf("expected modulepreload as script, got %#v", parseModulePreload.Props["as"])
 	}
 
-	preconnect := Preconnect("https://cdn.example.test")
-	if preconnect.Props["rel"] != "preconnect" {
-		t.Fatalf("expected preconnect rel, got %#v", preconnect.Props["rel"])
+	parsePrefetch := Prefetch("/static/modules/next-route.js")
+	if parsePrefetch.Props["rel"] != "prefetch" {
+		parseT.Fatalf("expected prefetch rel, got %#v", parsePrefetch.Props["rel"])
 	}
 
-	dns := DNSPrefetch("https://cdn.example.test")
-	if dns.Props["rel"] != "dns-prefetch" {
-		t.Fatalf("expected dns-prefetch rel, got %#v", dns.Props["rel"])
+	parsePreconnect := Preconnect("https://cdn.example.test")
+	if parsePreconnect.Props["rel"] != "preconnect" {
+		parseT.Fatalf("expected preconnect rel, got %#v", parsePreconnect.Props["rel"])
+	}
+
+	parseDns := DNSPrefetch("https://cdn.example.test")
+	if parseDns.Props["rel"] != "dns-prefetch" {
+		parseT.Fatalf("expected dns-prefetch rel, got %#v", parseDns.Props["rel"])
 	}
 }
 
-func TestAccessibilityPropsPreserveSemanticRelationships(t *testing.T) {
-	elem := Dialog(Props{
+func TestAccessibilityPropsPreserveSemanticRelationships(parseT *testing.T) {
+	parseElem := Dialog(Props{
 		ID:   "settings-dialog",
 		Role: "dialog",
 		Aria: map[string]string{
@@ -239,42 +239,42 @@ func TestAccessibilityPropsPreserveSemanticRelationships(t *testing.T) {
 		},
 		Raw: map[string]interface{}{"tabIndex": -1},
 	})
-	if elem == nil {
-		t.Fatal("expected element")
+	if parseElem == nil {
+		parseT.Fatal("expected element")
 	}
-	if elem.Type != "dialog" {
-		t.Fatalf("expected dialog tag, got %#v", elem.Type)
+	if parseElem.Type != "dialog" {
+		parseT.Fatalf("expected dialog tag, got %#v", parseElem.Type)
 	}
-	if elem.Props["id"] != "settings-dialog" {
-		t.Fatalf("expected id prop, got %#v", elem.Props["id"])
+	if parseElem.Props["id"] != "settings-dialog" {
+		parseT.Fatalf("expected id prop, got %#v", parseElem.Props["id"])
 	}
-	if elem.Props["role"] != "dialog" {
-		t.Fatalf("expected role prop, got %#v", elem.Props["role"])
+	if parseElem.Props["role"] != "dialog" {
+		parseT.Fatalf("expected role prop, got %#v", parseElem.Props["role"])
 	}
-	if elem.Props["aria-labelledby"] != "settings-title" {
-		t.Fatalf("expected aria-labelledby prop, got %#v", elem.Props["aria-labelledby"])
+	if parseElem.Props["aria-labelledby"] != "settings-title" {
+		parseT.Fatalf("expected aria-labelledby prop, got %#v", parseElem.Props["aria-labelledby"])
 	}
-	if elem.Props["aria-describedby"] != "settings-description" {
-		t.Fatalf("expected aria-describedby prop, got %#v", elem.Props["aria-describedby"])
+	if parseElem.Props["aria-describedby"] != "settings-description" {
+		parseT.Fatalf("expected aria-describedby prop, got %#v", parseElem.Props["aria-describedby"])
 	}
-	if elem.Props["aria-modal"] != "true" {
-		t.Fatalf("expected aria-modal prop, got %#v", elem.Props["aria-modal"])
+	if parseElem.Props["aria-modal"] != "true" {
+		parseT.Fatalf("expected aria-modal prop, got %#v", parseElem.Props["aria-modal"])
 	}
-	if elem.Props["tabIndex"] != -1 {
-		t.Fatalf("expected tabIndex prop, got %#v", elem.Props["tabIndex"])
+	if parseElem.Props["tabIndex"] != -1 {
+		parseT.Fatalf("expected tabIndex prop, got %#v", parseElem.Props["tabIndex"])
 	}
 
-	label := Label(Props{For: "field-id"}, Text("Field"))
-	if label == nil {
-		t.Fatal("expected label element")
+	parseLabel := Label(Props{For: "field-id"}, Text("Field"))
+	if parseLabel == nil {
+		parseT.Fatal("expected label element")
 	}
-	if label.Props["htmlFor"] != "field-id" {
-		t.Fatalf("expected htmlFor prop, got %#v", label.Props["htmlFor"])
+	if parseLabel.Props["htmlFor"] != "field-id" {
+		parseT.Fatalf("expected htmlFor prop, got %#v", parseLabel.Props["htmlFor"])
 	}
 }
 
-func TestTagWrappersExposeExpectedElementTypes(t *testing.T) {
-	tests := []struct {
+func TestTagWrappersExposeExpectedElementTypes(parseT *testing.T) {
+	parseTests := []struct {
 		name string
 		node ui.Node
 		tag  string
@@ -320,26 +320,26 @@ func TestTagWrappersExposeExpectedElementTypes(t *testing.T) {
 		{name: "Ul", node: Ul(Props{}), tag: "ul"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.node == nil {
-				t.Fatal("expected node")
+	for _, parseTt := range parseTests {
+		parseT.Run(parseTt.name, func(parseT2 *testing.T) {
+			if parseTt.node == nil {
+				parseT2.Fatal("expected node")
 			}
-			if tt.node.Type != tt.tag {
-				t.Fatalf("expected tag %q, got %#v", tt.tag, tt.node.Type)
+			if parseTt.node.Type != parseTt.tag {
+				parseT2.Fatalf("expected tag %q, got %#v", parseTt.tag, parseTt.node.Type)
 			}
 		})
 	}
 }
 
-func TestTextAndFragmentHelpers(t *testing.T) {
-	text := Text("hello")
-	if text == nil || text.TextContent != "hello" {
-		t.Fatalf("expected text helper to preserve content, got %#v", text)
+func TestTextAndFragmentHelpers(parseT *testing.T) {
+	parseText := Text("hello")
+	if parseText == nil || parseText.TextContent != "hello" {
+		parseT.Fatalf("expected text helper to preserve content, got %#v", parseText)
 	}
 
-	fragment := Fragment(text)
-	if fragment == nil || fragment.Type != "FRAGMENT" {
-		t.Fatalf("expected fragment helper to create fragment node, got %#v", fragment)
+	parseFragment := Fragment(parseText)
+	if parseFragment == nil || parseFragment.Type != "FRAGMENT" {
+		parseT.Fatalf("expected fragment helper to create fragment node, got %#v", parseFragment)
 	}
 }

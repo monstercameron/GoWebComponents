@@ -10,151 +10,154 @@ import (
 	"time"
 )
 
-func TestInteropNativeWrapperSurfaces(t *testing.T) {
-	_, err := GlobalThis()
-	requireInteropCode(t, err, CodeUnavailable)
-	_, err = LocalStorage()
-	requireInteropCode(t, err, CodeUnavailable)
-	_, err = SessionStorage()
-	requireInteropCode(t, err, CodeUnavailable)
-	_, err = NavigatorClipboard()
-	requireInteropCode(t, err, CodeUnavailable)
-	_, err = CurrentDocument()
-	requireInteropCode(t, err, CodeUnavailable)
-	_, err = NewGoWASMWorker(context.Background(), GoWASMWorkerOptions{})
-	requireInteropCode(t, err, CodeUnavailable)
-	_, err = SetTimeout(time.Millisecond, func() {})
-	requireInteropCode(t, err, CodeUnavailable)
-	_, err = SetInterval(time.Millisecond, func() {})
-	requireInteropCode(t, err, CodeUnavailable)
+func TestInteropNativeWrapperSurfaces(parseT *testing.T) {
+	_, parseErr := GlobalThis()
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	_, parseErr = LocalStorage()
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	_, parseErr = SessionStorage()
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	_, parseErr = NavigatorClipboard()
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	_, parseErr = CurrentDocument()
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	_, parseErr = NewGoWASMWorker(context.Background(), GoWASMWorkerOptions{})
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	_, parseErr = SetTimeout(time.Millisecond, func() {})
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	_, parseErr = SetInterval(time.Millisecond, func() {})
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
 
-	var value Value
-	_ = value.Present()
-	_ = value.Truthy()
-	_ = value.IsUndefined()
-	_ = value.IsNull()
-	_ = value.String()
-	_ = value.Bool()
-	_ = value.Int()
-	_ = value.Float()
-	_ = value.Get("x")
-	requireInteropCode(t, value.Set("x", "y"), CodeUnavailable)
-	requireInteropCode(t, value.Delete("x"), CodeUnavailable)
-	_, err = value.Call("x")
-	requireInteropCode(t, err, CodeUnavailable)
-	_, err = value.Invoke()
-	requireInteropCode(t, err, CodeUnavailable)
-	_, err = value.ToGo()
-	requireInteropCode(t, err, CodeUnavailable)
-	_, err = value.SetFunction("x", func(...Value) any { return nil })
-	requireInteropCode(t, err, CodeUnavailable)
+	var parseValue Value
+	_ = parseValue.Present()
+	_ = parseValue.Truthy()
+	_ = parseValue.IsUndefined()
+	_ = parseValue.IsNull()
+	_ = parseValue.String()
+	_ = parseValue.Bool()
+	_ = parseValue.Int()
+	_ = parseValue.Float()
+	_ = parseValue.Get("x")
+	requireInteropCode(parseT, parseValue.Set("x", "y"), CodeUnavailable)
+	requireInteropCode(parseT, parseValue.Delete("x"), CodeUnavailable)
+	_, parseErr = parseValue.Call("x")
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	_, parseErr = parseValue.Invoke()
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	_, parseErr = parseValue.ToGo()
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
+	_, parseErr = parseValue.SetFunction("x", func(...Value) any { return nil })
+	requireInteropCode(parseT, parseErr, CodeUnavailable)
 
-	e := &Error{Op: "decode", Target: "payload", Code: CodeInvalid, Err: err}
-	if !strings.Contains(e.Error(), "gwc-interop-invalid") {
-		t.Fatalf("expected actionable invalid guidance in error")
+	parseE := &Error{Op: "decode", Target: "payload", Code: CodeInvalid, Err: parseErr}
+	if !strings.Contains(parseE.Error(), "gwc-interop-invalid") {
+		parseT.Fatalf("expected actionable invalid guidance in error")
 	}
-	if e.Unwrap() == nil {
-		t.Fatalf("expected unwrap")
+	if parseE.Unwrap() == nil {
+		parseT.Fatalf("expected unwrap")
 	}
 	if wrapError("x", "y", CodeInvalid, nil) != nil {
-		t.Fatalf("expected nil wrapError when source error is nil")
+		parseT.Fatalf("expected nil wrapError when source error is nil")
 	}
 }
 
-func TestStoragePersistentAndLocationHistoryWrappers(t *testing.T) {
-	ctx := context.TODO()
+func TestStoragePersistentAndLocationHistoryWrappers(parseT *testing.T) {
+	parseCtx := context.TODO()
 
 	storeData := map[string]string{"a": "1"}
-	storage := Storage{
-		getItem: func(key string) (string, bool, error) { v, ok := storeData[key]; return v, ok, nil },
-		setItem: func(key, value string) error { storeData[key] = value; return nil },
-		removeItem: func(key string) error {
-			delete(storeData, key)
+	parseStorage := Storage{
+		getItem: func(parseKey string) (string, bool, error) {
+			parseV, parseOk := storeData[parseKey]
+			return parseV, parseOk, nil
+		},
+		setItem: func(parseKey2, parseValue string) error { storeData[parseKey2] = parseValue; return nil },
+		removeItem: func(parseKey3 string) error {
+			delete(storeData, parseKey3)
 			return nil
 		},
 		clear:  func() error { storeData = map[string]string{}; return nil },
 		length: func() (int, error) { return len(storeData), nil },
 		key:    func(int) (string, bool, error) { return "a", true, nil },
 	}
-	if _, _, err := storage.GetItem("a"); err != nil {
-		t.Fatalf("storage get item: %v", err)
+	if _, _, parseErr := parseStorage.GetItem("a"); parseErr != nil {
+		parseT.Fatalf("storage get item: %v", parseErr)
 	}
-	if _, err := storage.GetMany("a"); err != nil {
-		t.Fatalf("storage get many fallback: %v", err)
+	if _, parseErr2 := parseStorage.GetMany("a"); parseErr2 != nil {
+		parseT.Fatalf("storage get many fallback: %v", parseErr2)
 	}
-	if err := storage.SetItem("b", "2"); err != nil {
-		t.Fatalf("storage set item: %v", err)
+	if parseErr3 := parseStorage.SetItem("b", "2"); parseErr3 != nil {
+		parseT.Fatalf("storage set item: %v", parseErr3)
 	}
-	if _, err := storage.Len(); err != nil {
-		t.Fatalf("storage len: %v", err)
+	if _, parseErr4 := parseStorage.Len(); parseErr4 != nil {
+		parseT.Fatalf("storage len: %v", parseErr4)
 	}
-	if _, _, err := storage.Key(0); err != nil {
-		t.Fatalf("storage key: %v", err)
+	if _, _, parseErr5 := parseStorage.Key(0); parseErr5 != nil {
+		parseT.Fatalf("storage key: %v", parseErr5)
 	}
-	if err := storage.RemoveItem("b"); err != nil {
-		t.Fatalf("storage remove item: %v", err)
+	if parseErr6 := parseStorage.RemoveItem("b"); parseErr6 != nil {
+		parseT.Fatalf("storage remove item: %v", parseErr6)
 	}
-	if err := storage.Clear(); err != nil {
-		t.Fatalf("storage clear: %v", err)
+	if parseErr7 := parseStorage.Clear(); parseErr7 != nil {
+		parseT.Fatalf("storage clear: %v", parseErr7)
 	}
 
-	persistentData := map[string]string{"json": `{"n":7}`}
-	persistent := PersistentStore{
+	parsePersistentData := map[string]string{"json": `{"n":7}`}
+	parsePersistent := PersistentStore{
 		backend: func() string { return "memory" },
 		getItem: func(context.Context, string) (string, bool, error) {
-			v, ok := persistentData["json"]
-			return v, ok, nil
+			parseV2, parseOk2 := parsePersistentData["json"]
+			return parseV2, parseOk2, nil
 		},
 		setItem:    func(context.Context, string, string) error { return nil },
 		removeItem: func(context.Context, string) error { return nil },
 		clear:      func(context.Context) error { return nil },
 		keys:       func(context.Context) ([]string, error) { return []string{"json"}, nil },
-		length:     func(context.Context) (int, error) { return len(persistentData), nil },
+		length:     func(context.Context) (int, error) { return len(parsePersistentData), nil },
 		close:      func() error { return nil },
 	}
-	if persistent.Backend() != "memory" {
-		t.Fatalf("unexpected backend")
+	if parsePersistent.Backend() != "memory" {
+		parseT.Fatalf("unexpected backend")
 	}
-	if _, _, err := persistent.GetItem(ctx, "json"); err != nil {
-		t.Fatalf("persistent get item: %v", err)
+	if _, _, parseErr8 := parsePersistent.GetItem(parseCtx, "json"); parseErr8 != nil {
+		parseT.Fatalf("persistent get item: %v", parseErr8)
 	}
-	if _, err := persistent.GetMany(ctx, "json"); err != nil {
-		t.Fatalf("persistent get many: %v", err)
+	if _, parseErr9 := parsePersistent.GetMany(parseCtx, "json"); parseErr9 != nil {
+		parseT.Fatalf("persistent get many: %v", parseErr9)
 	}
-	if err := persistent.SetItem(ctx, "json", "{}"); err != nil {
-		t.Fatalf("persistent set item: %v", err)
+	if parseErr10 := parsePersistent.SetItem(parseCtx, "json", "{}"); parseErr10 != nil {
+		parseT.Fatalf("persistent set item: %v", parseErr10)
 	}
-	if err := persistent.SetJSON(ctx, "json", map[string]int{"n": 8}); err != nil {
-		t.Fatalf("persistent set json: %v", err)
+	if parseErr11 := parsePersistent.SetJSON(parseCtx, "json", map[string]int{"n": 8}); parseErr11 != nil {
+		parseT.Fatalf("persistent set json: %v", parseErr11)
 	}
-	var decoded struct {
-		N int `json:"n"`
+	var parseDecoded struct {
+		n int `json:"n"`
 	}
-	if _, err := persistent.DecodeJSON(ctx, "json", &decoded); err != nil {
-		t.Fatalf("persistent decode json: %v", err)
+	if _, parseErr12 := parsePersistent.DecodeJSON(parseCtx, "json", &parseDecoded); parseErr12 != nil {
+		parseT.Fatalf("persistent decode json: %v", parseErr12)
 	}
-	if _, _, err := LoadPersistentJSON[struct {
-		N int `json:"n"`
-	}](ctx, persistent, "json"); err != nil {
-		t.Fatalf("load persistent json: %v", err)
+	if _, _, parseErr13 := LoadPersistentJSON[struct {
+		n int `json:"n"`
+	}](parseCtx, parsePersistent, "json"); parseErr13 != nil {
+		parseT.Fatalf("load persistent json: %v", parseErr13)
 	}
-	if err := persistent.RemoveItem(ctx, "json"); err != nil {
-		t.Fatalf("persistent remove: %v", err)
+	if parseErr14 := parsePersistent.RemoveItem(parseCtx, "json"); parseErr14 != nil {
+		parseT.Fatalf("persistent remove: %v", parseErr14)
 	}
-	if err := persistent.Clear(ctx); err != nil {
-		t.Fatalf("persistent clear: %v", err)
+	if parseErr15 := parsePersistent.Clear(parseCtx); parseErr15 != nil {
+		parseT.Fatalf("persistent clear: %v", parseErr15)
 	}
-	if _, err := persistent.Keys(ctx); err != nil {
-		t.Fatalf("persistent keys: %v", err)
+	if _, parseErr16 := parsePersistent.Keys(parseCtx); parseErr16 != nil {
+		parseT.Fatalf("persistent keys: %v", parseErr16)
 	}
-	if _, err := persistent.Len(ctx); err != nil {
-		t.Fatalf("persistent len: %v", err)
+	if _, parseErr17 := parsePersistent.Len(parseCtx); parseErr17 != nil {
+		parseT.Fatalf("persistent len: %v", parseErr17)
 	}
-	if err := persistent.Close(); err != nil {
-		t.Fatalf("persistent close: %v", err)
+	if parseErr18 := parsePersistent.Close(); parseErr18 != nil {
+		parseT.Fatalf("persistent close: %v", parseErr18)
 	}
 
-	location := Location{
+	parseLocation := Location{
 		href:     func() string { return "https://example.com/path?q=1#h" },
 		pathname: func() string { return "/path" },
 		search:   func() string { return "?q=1" },
@@ -164,16 +167,16 @@ func TestStoragePersistentAndLocationHistoryWrappers(t *testing.T) {
 		replace:  func(string) error { return nil },
 		reload:   func() error { return nil },
 	}
-	_ = location.Href()
-	_ = location.Pathname()
-	_ = location.Search()
-	_ = location.Hash()
-	_ = location.Origin()
-	_ = location.Assign("/next")
-	_ = location.Replace("/next")
-	_ = location.Reload()
+	_ = parseLocation.Href()
+	_ = parseLocation.Pathname()
+	_ = parseLocation.Search()
+	_ = parseLocation.Hash()
+	_ = parseLocation.Origin()
+	_ = parseLocation.Assign("/next")
+	_ = parseLocation.Replace("/next")
+	_ = parseLocation.Reload()
 
-	history := History{
+	parseHistory := History{
 		length:       func() (int, error) { return 2, nil },
 		state:        func() (any, error) { return map[string]any{"p": 1}, nil },
 		back:         func() error { return nil },
@@ -182,41 +185,41 @@ func TestStoragePersistentAndLocationHistoryWrappers(t *testing.T) {
 		pushState:    func(any, string, string) error { return nil },
 		replaceState: func(any, string, string) error { return nil },
 	}
-	if _, err := history.Len(); err != nil {
-		t.Fatalf("history len: %v", err)
+	if _, parseErr19 := parseHistory.Len(); parseErr19 != nil {
+		parseT.Fatalf("history len: %v", parseErr19)
 	}
-	if _, err := history.State(); err != nil {
-		t.Fatalf("history state: %v", err)
+	if _, parseErr20 := parseHistory.State(); parseErr20 != nil {
+		parseT.Fatalf("history state: %v", parseErr20)
 	}
-	_ = history.Back()
-	_ = history.Forward()
-	_ = history.Go(1)
-	_ = history.PushState(nil, "t", "/x")
-	_ = history.ReplaceState(nil, "t", "/x")
+	_ = parseHistory.Back()
+	_ = parseHistory.Forward()
+	_ = parseHistory.Go(1)
+	_ = parseHistory.PushState(nil, "t", "/x")
+	_ = parseHistory.ReplaceState(nil, "t", "/x")
 }
 
-func TestEventsElementDocumentModuleWorkerAndSignals(t *testing.T) {
-	ctx := context.TODO()
+func TestEventsElementDocumentModuleWorkerAndSignals(parseT *testing.T) {
+	parseCtx := context.TODO()
 
-	events := EventTarget{
+	parseEvents := EventTarget{
 		dispatch: func(string, any) error { return nil },
-		listen: func(name string, handler func(BrowserEvent)) (Subscription, error) {
-			handler(BrowserEvent{Type: name, Detail: map[string]any{"count": 2}})
+		listen: func(parseName string, handler func(BrowserEvent)) (Subscription, error) {
+			handler(BrowserEvent{Type: parseName, Detail: map[string]any{"count": 2}})
 			return Subscription{}, nil
 		},
 	}
-	_ = events.Dispatch("ready", nil)
-	if _, err := events.Listen("ready", func(BrowserEvent) {}); err != nil {
-		t.Fatalf("listen: %v", err)
+	_ = parseEvents.Dispatch("ready", nil)
+	if _, parseErr := parseEvents.Listen("ready", func(BrowserEvent) {}); parseErr != nil {
+		parseT.Fatalf("listen: %v", parseErr)
 	}
-	if _, err := events.Subscribe("ready", func(CustomEvent) {}); err != nil {
-		t.Fatalf("subscribe: %v", err)
+	if _, parseErr2 := parseEvents.Subscribe("ready", func(CustomEvent) {}); parseErr2 != nil {
+		parseT.Fatalf("subscribe: %v", parseErr2)
 	}
-	if _, err := SubscribeDecoded(events, "ready", func(DecodedCustomEvent[map[string]int], error) {}); err != nil {
-		t.Fatalf("subscribe decoded: %v", err)
+	if _, parseErr3 := SubscribeDecoded(parseEvents, "ready", func(DecodedCustomEvent[map[string]int], error) {}); parseErr3 != nil {
+		parseT.Fatalf("subscribe decoded: %v", parseErr3)
 	}
 
-	element := Element{
+	parseElement := Element{
 		tagName:            func() string { return "DIV" },
 		id:                 func() string { return "root" },
 		className:          func() string { return "demo" },
@@ -226,52 +229,52 @@ func TestEventsElementDocumentModuleWorkerAndSignals(t *testing.T) {
 		setScrollTop:       func(float64) error { return nil },
 		scrollIntoView:     func(ScrollIntoViewOptions) error { return nil },
 		boundingClientRect: func() (Rect, error) { return Rect{Width: 1}, nil },
-		events:             func() (EventTarget, error) { return events, nil },
+		events:             func() (EventTarget, error) { return parseEvents, nil },
 		observeResize:      func(func(ResizeEntry)) (Subscription, error) { return Subscription{}, nil },
 		observeIntersection: func(IntersectionObserverOptions, func(IntersectionEntry)) (Subscription, error) {
 			return Subscription{}, nil
 		},
 		scrollMetrics: func() (float64, float64, float64, error) { return 1, 2, 3, nil },
 	}
-	_ = element.TagName()
-	_ = element.ID()
-	_ = element.ClassName()
-	_ = element.Focus()
-	_ = element.Blur()
-	_ = element.Click()
-	_ = element.SetScrollTop(1)
-	_ = element.ScrollIntoView()
-	_, _ = element.BoundingClientRect()
-	if _, err := element.Events(); err != nil {
-		t.Fatalf("events: %v", err)
+	_ = parseElement.TagName()
+	_ = parseElement.ID()
+	_ = parseElement.ClassName()
+	_ = parseElement.Focus()
+	_ = parseElement.Blur()
+	_ = parseElement.Click()
+	_ = parseElement.SetScrollTop(1)
+	_ = parseElement.ScrollIntoView()
+	_, _ = parseElement.BoundingClientRect()
+	if _, parseErr4 := parseElement.Events(); parseErr4 != nil {
+		parseT.Fatalf("events: %v", parseErr4)
 	}
-	_, _ = element.Listen("ready", func(BrowserEvent) {})
-	_, _ = element.Subscribe("ready", func(CustomEvent) {})
-	_ = element.Dispatch("ready", nil)
-	_, _ = element.ObserveResize(func(ResizeEntry) {})
-	_, _ = element.ObserveIntersection(func(IntersectionEntry) {})
-	_, _, _, _ = element.ScrollMetrics()
+	_, _ = parseElement.Listen("ready", func(BrowserEvent) {})
+	_, _ = parseElement.Subscribe("ready", func(CustomEvent) {})
+	_ = parseElement.Dispatch("ready", nil)
+	_, _ = parseElement.ObserveResize(func(ResizeEntry) {})
+	_, _ = parseElement.ObserveIntersection(func(IntersectionEntry) {})
+	_, _, _, _ = parseElement.ScrollMetrics()
 
-	document := Document{
-		elementByID:   func(string) (Element, bool, error) { return element, true, nil },
-		querySelector: func(string) (Element, bool, error) { return element, true, nil },
+	parseDocument := Document{
+		elementByID:   func(string) (Element, bool, error) { return parseElement, true, nil },
+		querySelector: func(string) (Element, bool, error) { return parseElement, true, nil },
 	}
-	_, _, _ = document.ElementByID("root")
-	_, _, _ = document.QuerySelector("#root")
-	_, _ = document.ElementsByID("root")
+	_, _, _ = parseDocument.ElementByID("root")
+	_, _, _ = parseDocument.QuerySelector("#root")
+	_, _ = parseDocument.ElementsByID("root")
 
-	module := Module{
+	parseModule := Module{
 		call:        func(context.Context, string, ...any) (any, error) { return "ok", nil },
 		callDefault: func(context.Context, ...any) (any, error) { return "default", nil },
 		value:       func(context.Context, string) (any, error) { return 1, nil },
 		dispose:     func() error { return nil },
 	}
-	_, _ = module.Call(ctx, "x")
-	_, _ = module.CallDefault(ctx)
-	_, _ = module.Value(ctx, "x")
-	_ = module.Dispose()
+	_, _ = parseModule.Call(parseCtx, "x")
+	_, _ = parseModule.CallDefault(parseCtx)
+	_, _ = parseModule.Value(parseCtx, "x")
+	_ = parseModule.Dispose()
 
-	worker := Worker{
+	parseWorker := Worker{
 		post:      func(any) error { return nil },
 		subscribe: func(func(WorkerMessage, error)) (Subscription, error) { return Subscription{}, nil },
 		request: func(context.Context, string, any, func(WorkerMessage, error)) (WorkerMessage, error) {
@@ -280,16 +283,16 @@ func TestEventsElementDocumentModuleWorkerAndSignals(t *testing.T) {
 		terminate: func() error { return nil },
 		restart:   func(context.Context) error { return nil },
 	}
-	_ = worker.Post("x")
-	_, _ = worker.Subscribe(func(WorkerMessage, error) {})
-	_, _ = worker.Request(ctx, "task", nil, nil)
-	_ = worker.Terminate()
-	_ = worker.Restart(ctx)
+	_ = parseWorker.Post("x")
+	_, _ = parseWorker.Subscribe(func(WorkerMessage, error) {})
+	_, _ = parseWorker.Request(parseCtx, "task", nil, nil)
+	_ = parseWorker.Terminate()
+	_ = parseWorker.Restart(parseCtx)
 	_, _ = DecodeWorkerMessage[map[string]int](WorkerMessage{Name: "task", Payload: map[string]any{"n": 1}})
-	_, _ = SubscribeDecodedWorker(worker, func(DecodedWorkerMessage[map[string]int], error) {})
-	_, _ = RequestWorkerDecoded[map[string]int, map[string]int, map[string]int](ctx, worker, "task", nil, nil)
+	_, _ = SubscribeDecodedWorker(parseWorker, func(DecodedWorkerMessage[map[string]int], error) {})
+	_, _ = RequestWorkerDecoded[map[string]int, map[string]int, map[string]int](parseCtx, parseWorker, "task", nil, nil)
 
-	window := WindowChannel{
+	parseWindow := WindowChannel{
 		name:         func() string { return "atlas-window" },
 		targetOrigin: func() string { return "https://atlas.local" },
 		publish:      func(any) error { return nil },
@@ -298,16 +301,16 @@ func TestEventsElementDocumentModuleWorkerAndSignals(t *testing.T) {
 		close:        func() error { return nil },
 		closed:       func() bool { return false },
 	}
-	_ = PublishLogout(window, "logout")
-	_ = PublishSessionExpired(window, "expired", "/login", time.Now().UTC())
-	_ = PublishRouteFocus(window, "/app/inventory", "status=risk", "row")
-	_ = PublishSelection(window, "inventory", "frame-desk", "rev-1")
-	_ = PublishIntent(window, SurfaceIntentFocusPanel, "panel", map[string]string{"id": "1"})
+	_ = PublishLogout(parseWindow, "logout")
+	_ = PublishSessionExpired(parseWindow, "expired", "/login", time.Now().UTC())
+	_ = PublishRouteFocus(parseWindow, "/app/inventory", "status=risk", "row")
+	_ = PublishSelection(parseWindow, "inventory", "frame-desk", "rev-1")
+	_ = PublishIntent(parseWindow, SurfaceIntentFocusPanel, "panel", map[string]string{"id": "1"})
 }
 
-func requireInteropCode(t *testing.T, err error, code ErrorCode) {
-	t.Helper()
-	if !IsCode(err, code) {
-		t.Fatalf("expected %q, got %v", code, err)
+func requireInteropCode(parseT *testing.T, parseErr error, parseCode ErrorCode) {
+	parseT.Helper()
+	if !IsCode(parseErr, parseCode) {
+		parseT.Fatalf("expected %q, got %v", parseCode, parseErr)
 	}
 }

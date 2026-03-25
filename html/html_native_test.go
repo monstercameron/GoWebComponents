@@ -6,14 +6,14 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestNativeToRuntimePropsOmitsZeroValues(t *testing.T) {
-	if props := toRuntimeProps(Props{}); props != nil {
-		t.Fatalf("expected zero-value props to encode as nil, got %#v", props)
+func TestNativeToRuntimePropsOmitsZeroValues(parseT *testing.T) {
+	if parseProps := toRuntimeProps(Props{}); parseProps != nil {
+		parseT.Fatalf("expected zero-value props to encode as nil, got %#v", parseProps)
 	}
 }
 
-func TestNativeToRuntimePropsIncludesFieldsAndRawOverrides(t *testing.T) {
-	encoded := toRuntimeProps(Props{
+func TestNativeToRuntimePropsIncludesFieldsAndRawOverrides(parseT *testing.T) {
+	parseEncoded := toRuntimeProps(Props{
 		ID:           "field-id",
 		Class:        "field shell",
 		Key:          "node-1",
@@ -69,7 +69,7 @@ func TestNativeToRuntimePropsIncludesFieldsAndRawOverrides(t *testing.T) {
 		OnBlur:    ui.WrapHandler("blur"),
 	})
 
-	checks := map[string]interface{}{
+	parseChecks := map[string]interface{}{
 		"id":           "field-id",
 		"class":        "raw-class",
 		"key":          "node-1",
@@ -120,73 +120,73 @@ func TestNativeToRuntimePropsIncludesFieldsAndRawOverrides(t *testing.T) {
 		"onblur":       "blur",
 	}
 
-	for key, want := range checks {
-		if got := encoded[key]; got != want {
-			t.Fatalf("expected %s=%#v, got %#v", key, want, got)
+	for parseKey, parseWant := range parseChecks {
+		if parseGot := parseEncoded[parseKey]; parseGot != parseWant {
+			parseT.Fatalf("expected %s=%#v, got %#v", parseKey, parseWant, parseGot)
 		}
 	}
 
-	style, ok := encoded["style"].(map[string]string)
-	if !ok || style["display"] != "grid" {
-		t.Fatalf("expected style map, got %#v", encoded["style"])
+	parseStyle, parseOk := parseEncoded["style"].(map[string]string)
+	if !parseOk || parseStyle["display"] != "grid" {
+		parseT.Fatalf("expected style map, got %#v", parseEncoded["style"])
 	}
 }
 
-func TestNativeToInterfacesHandlesEmptyAndPreservesOrder(t *testing.T) {
-	if values := toInterfaces(nil); values != nil {
-		t.Fatalf("expected nil for empty children, got %#v", values)
+func TestNativeToInterfacesHandlesEmptyAndPreservesOrder(parseT *testing.T) {
+	if parseValues := toInterfaces(nil); parseValues != nil {
+		parseT.Fatalf("expected nil for empty children, got %#v", parseValues)
 	}
 
-	children := []ui.Node{Text("alpha"), Span(Props{}, Text("beta"))}
-	values := toInterfaces(children)
-	if len(values) != 2 {
-		t.Fatalf("expected two interface children, got %#v", values)
+	parseChildren := []ui.Node{Text("alpha"), Span(Props{}, Text("beta"))}
+	parseValues2 := toInterfaces(parseChildren)
+	if len(parseValues2) != 2 {
+		parseT.Fatalf("expected two interface children, got %#v", parseValues2)
 	}
-	if node, ok := values[0].(*ui.Element); !ok || node.TextContent != "alpha" {
-		t.Fatalf("expected first child preserved, got %#v", values[0])
+	if parseNode, parseOk := parseValues2[0].(*ui.Element); !parseOk || parseNode.TextContent != "alpha" {
+		parseT.Fatalf("expected first child preserved, got %#v", parseValues2[0])
 	}
-	if node, ok := values[1].(*ui.Element); !ok || node.Type != "span" {
-		t.Fatalf("expected second child preserved, got %#v", values[1])
+	if parseNode2, parseOk2 := parseValues2[1].(*ui.Element); !parseOk2 || parseNode2.Type != "span" {
+		parseT.Fatalf("expected second child preserved, got %#v", parseValues2[1])
 	}
 }
 
-func TestNativeTagAndLinkBuildersPreserveChildren(t *testing.T) {
-	node := Tag("section", Props{Class: "shell"}, Text("alpha"), Span(Props{}, Text("beta")))
-	if node == nil || node.Type != "section" {
-		t.Fatalf("expected section node, got %#v", node)
+func TestNativeTagAndLinkBuildersPreserveChildren(parseT *testing.T) {
+	parseNode := Tag("section", Props{Class: "shell"}, Text("alpha"), Span(Props{}, Text("beta")))
+	if parseNode == nil || parseNode.Type != "section" {
+		parseT.Fatalf("expected section node, got %#v", parseNode)
 	}
-	if node.Props["class"] != "shell" {
-		t.Fatalf("expected class prop, got %#v", node.Props)
+	if parseNode.Props["class"] != "shell" {
+		parseT.Fatalf("expected class prop, got %#v", parseNode.Props)
 	}
-	if len(node.Children) != 2 {
-		t.Fatalf("expected two children, got %#v", node.Children)
+	if len(parseNode.Children) != 2 {
+		parseT.Fatalf("expected two children, got %#v", parseNode.Children)
 	}
 
-	link := Link(Props{Rel: "stylesheet", Href: "/app.css"})
-	if link == nil || link.Type != "link" {
-		t.Fatalf("expected link node, got %#v", link)
+	parseLink := Link(Props{Rel: "stylesheet", Href: "/app.css"})
+	if parseLink == nil || parseLink.Type != "link" {
+		parseT.Fatalf("expected link node, got %#v", parseLink)
 	}
-	if link.Props["rel"] != "stylesheet" || link.Props["href"] != "/app.css" {
-		t.Fatalf("expected link props, got %#v", link.Props)
+	if parseLink.Props["rel"] != "stylesheet" || parseLink.Props["href"] != "/app.css" {
+		parseT.Fatalf("expected link props, got %#v", parseLink.Props)
 	}
 }
 
-func TestNativeCustomElementWithoutExtraChannels(t *testing.T) {
-	node := CustomElement("demo-card", CustomElementProps{Props: Props{Class: "shell"}}, Text("child"))
-	if node == nil || node.Type != "demo-card" {
-		t.Fatalf("expected custom element, got %#v", node)
+func TestNativeCustomElementWithoutExtraChannels(parseT *testing.T) {
+	parseNode := CustomElement("demo-card", CustomElementProps{Props: Props{Class: "shell"}}, Text("child"))
+	if parseNode == nil || parseNode.Type != "demo-card" {
+		parseT.Fatalf("expected custom element, got %#v", parseNode)
 	}
-	if node.Props["class"] != "shell" {
-		t.Fatalf("expected class prop, got %#v", node.Props)
+	if parseNode.Props["class"] != "shell" {
+		parseT.Fatalf("expected class prop, got %#v", parseNode.Props)
 	}
-	child, ok := node.Children[0].(*ui.Element)
-	if len(node.Children) != 1 || !ok || child.TextContent != "child" {
-		t.Fatalf("expected child preservation, got %#v", node.Children)
+	parseChild, parseOk := parseNode.Children[0].(*ui.Element)
+	if len(parseNode.Children) != 1 || !parseOk || parseChild.TextContent != "child" {
+		parseT.Fatalf("expected child preservation, got %#v", parseNode.Children)
 	}
 }
 
-func TestNativeTagWrappersExposeExpectedElementTypes(t *testing.T) {
-	tests := []struct {
+func TestNativeTagWrappersExposeExpectedElementTypes(parseT *testing.T) {
+	parseTests := []struct {
 		name string
 		node ui.Node
 		tag  string
@@ -247,27 +247,27 @@ func TestNativeTagWrappersExposeExpectedElementTypes(t *testing.T) {
 		{name: "Ul", node: Ul(Props{}), tag: "ul"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.node == nil || tt.node.Type != tt.tag {
-				t.Fatalf("expected tag %q, got %#v", tt.tag, tt.node)
+	for _, parseTt := range parseTests {
+		parseT.Run(parseTt.name, func(parseT2 *testing.T) {
+			if parseTt.node == nil || parseTt.node.Type != parseTt.tag {
+				parseT2.Fatalf("expected tag %q, got %#v", parseTt.tag, parseTt.node)
 			}
 		})
 	}
 }
 
-func TestNativeConvenienceHelpers(t *testing.T) {
-	hidden := HiddenInput("csrf", "token")
-	if hidden.Type != "input" || hidden.Props["type"] != "hidden" || hidden.Props["name"] != "csrf" || hidden.Props["value"] != "token" {
-		t.Fatalf("expected hidden input props, got %#v", hidden)
+func TestNativeConvenienceHelpers(parseT *testing.T) {
+	parseHidden := HiddenInput("csrf", "token")
+	if parseHidden.Type != "input" || parseHidden.Props["type"] != "hidden" || parseHidden.Props["name"] != "csrf" || parseHidden.Props["value"] != "token" {
+		parseT.Fatalf("expected hidden input props, got %#v", parseHidden)
 	}
 
-	fragment := Fragment(Text("one"), Text("two"))
-	if fragment == nil || fragment.Type != "FRAGMENT" || len(fragment.Children) != 2 {
-		t.Fatalf("expected fragment children, got %#v", fragment)
+	parseFragment := Fragment(Text("one"), Text("two"))
+	if parseFragment == nil || parseFragment.Type != "FRAGMENT" || len(parseFragment.Children) != 2 {
+		parseT.Fatalf("expected fragment children, got %#v", parseFragment)
 	}
 
-	resourceHints := []struct {
+	parseResourceHints := []struct {
 		node ui.Node
 		rel  string
 		as   interface{}
@@ -278,12 +278,12 @@ func TestNativeConvenienceHelpers(t *testing.T) {
 		{node: Preconnect("https://cdn.example.test"), rel: "preconnect", as: nil},
 		{node: DNSPrefetch("https://cdn.example.test"), rel: "dns-prefetch", as: nil},
 	}
-	for _, tt := range resourceHints {
-		if tt.node.Type != "link" || tt.node.Props["rel"] != tt.rel {
-			t.Fatalf("expected rel %q, got %#v", tt.rel, tt.node)
+	for _, parseTt := range parseResourceHints {
+		if parseTt.node.Type != "link" || parseTt.node.Props["rel"] != parseTt.rel {
+			parseT.Fatalf("expected rel %q, got %#v", parseTt.rel, parseTt.node)
 		}
-		if tt.as != nil && tt.node.Props["as"] != tt.as {
-			t.Fatalf("expected as %v, got %#v", tt.as, tt.node.Props["as"])
+		if parseTt.as != nil && parseTt.node.Props["as"] != parseTt.as {
+			parseT.Fatalf("expected as %v, got %#v", parseTt.as, parseTt.node.Props["as"])
 		}
 	}
 }

@@ -8,8 +8,8 @@ import (
 )
 
 func buildTestBundle() *Bundle {
-	bundle := NewBundle(BundleOptions{DefaultLocale: "en", FallbackLocale: "en"})
-	bundle.Register("en", Catalog{
+	parseBundle := NewBundle(BundleOptions{DefaultLocale: "en", FallbackLocale: "en"})
+	parseBundle.Register("en", Catalog{
 		"marketing": {
 			"headline": Message{Text: "Hello {name}"},
 			"cart": Message{PluralArg: "count", Plural: map[PluralCategory]string{
@@ -23,7 +23,7 @@ func buildTestBundle() *Bundle {
 			}},
 		},
 	})
-	bundle.Register("fr", Catalog{
+	parseBundle.Register("fr", Catalog{
 		"marketing": {
 			"headline": Message{Text: "Bonjour {name}"},
 			"cart": Message{PluralArg: "count", Plural: map[PluralCategory]string{
@@ -32,106 +32,106 @@ func buildTestBundle() *Bundle {
 			}},
 		},
 	})
-	bundle.Register("ar", Catalog{
+	parseBundle.Register("ar", Catalog{
 		"marketing": {
 			"headline": Message{Text: "مرحبا {name}"},
 		},
 	})
-	return bundle
+	return parseBundle
 }
 
-func TestBundleTranslateUsesLocaleFallbacks(t *testing.T) {
-	bundle := buildTestBundle()
+func TestBundleTranslateUsesLocaleFallbacks(parseT *testing.T) {
+	parseBundle := buildTestBundle()
 
-	translated := bundle.Translate("fr-CA", "marketing", "headline", Arguments{"name": "Cam"}, "en")
-	if translated != "Bonjour Cam" {
-		t.Fatalf("expected locale base fallback translation, got %q", translated)
+	parseTranslated := parseBundle.Translate("fr-CA", "marketing", "headline", Arguments{"name": "Cam"}, "en")
+	if parseTranslated != "Bonjour Cam" {
+		parseT.Fatalf("expected locale base fallback translation, got %q", parseTranslated)
 	}
 
-	fallback := bundle.Translate("es", "marketing", "headline", Arguments{"name": "Cam"}, "en")
-	if fallback != "Hello Cam" {
-		t.Fatalf("expected fallback locale translation, got %q", fallback)
-	}
-}
-
-func TestBundleTranslateSupportsPluralAndSelect(t *testing.T) {
-	bundle := buildTestBundle()
-
-	one := bundle.Translate("en", "marketing", "cart", Arguments{"count": 1}, "en")
-	if one != "1 item" {
-		t.Fatalf("expected singular translation, got %q", one)
-	}
-
-	many := bundle.Translate("en", "marketing", "cart", Arguments{"count": 4}, "en")
-	if many != "4 items" {
-		t.Fatalf("expected plural translation, got %q", many)
-	}
-
-	formal := bundle.Translate("en", "marketing", "tone", Arguments{"tone": "formal"}, "en")
-	if formal != "Welcome back" {
-		t.Fatalf("expected select translation, got %q", formal)
+	parseFallback := parseBundle.Translate("es", "marketing", "headline", Arguments{"name": "Cam"}, "en")
+	if parseFallback != "Hello Cam" {
+		parseT.Fatalf("expected fallback locale translation, got %q", parseFallback)
 	}
 }
 
-func TestFormatHelpers(t *testing.T) {
-	formattedEN := FormatNumber("en-US", 1234.5)
-	formattedFR := FormatNumber("fr-FR", 1234.5)
-	if formattedEN == "" || formattedFR == "" {
-		t.Fatal("expected formatted numbers")
-	}
-	if formattedEN == formattedFR {
-		t.Fatalf("expected locale-aware number formatting to differ, got %q and %q", formattedEN, formattedFR)
+func TestBundleTranslateSupportsPluralAndSelect(parseT *testing.T) {
+	parseBundle := buildTestBundle()
+
+	parseOne := parseBundle.Translate("en", "marketing", "cart", Arguments{"count": 1}, "en")
+	if parseOne != "1 item" {
+		parseT.Fatalf("expected singular translation, got %q", parseOne)
 	}
 
-	date := time.Date(2026, time.March, 16, 10, 30, 0, 0, time.UTC)
-	if got := FormatDate("en-US", date, DateOptions{Style: DateStyleLong}); got != "March 16, 2026" {
-		t.Fatalf("expected english long date, got %q", got)
+	parseMany := parseBundle.Translate("en", "marketing", "cart", Arguments{"count": 4}, "en")
+	if parseMany != "4 items" {
+		parseT.Fatalf("expected plural translation, got %q", parseMany)
 	}
-	if got := FormatDate("fr-FR", date, DateOptions{Style: DateStyleShort}); got != "16/03/2026" {
-		t.Fatalf("expected french short date, got %q", got)
-	}
-	if got := DirectionForLocale("ar-EG"); got != DirectionRTL {
-		t.Fatalf("expected arabic locale to resolve rtl direction, got %q", got)
+
+	parseFormal := parseBundle.Translate("en", "marketing", "tone", Arguments{"tone": "formal"}, "en")
+	if parseFormal != "Welcome back" {
+		parseT.Fatalf("expected select translation, got %q", parseFormal)
 	}
 }
 
-func TestRouteHelpers(t *testing.T) {
-	options := RouteOptions{SupportedLocales: []string{"en", "fr", "ar"}, DefaultLocale: "en", OmitDefaultPrefix: true}
-
-	if got := PrefixPath("fr", "/pricing", options); got != "/fr/pricing" {
-		t.Fatalf("expected prefixed path, got %q", got)
+func TestFormatHelpers(parseT *testing.T) {
+	parseFormattedEN := FormatNumber("en-US", 1234.5)
+	parseFormattedFR := FormatNumber("fr-FR", 1234.5)
+	if parseFormattedEN == "" || parseFormattedFR == "" {
+		parseT.Fatal("expected formatted numbers")
 	}
-	if got := PrefixPath("en", "/pricing", options); got != "/pricing" {
-		t.Fatalf("expected default locale path without prefix, got %q", got)
+	if parseFormattedEN == parseFormattedFR {
+		parseT.Fatalf("expected locale-aware number formatting to differ, got %q and %q", parseFormattedEN, parseFormattedFR)
 	}
 
-	resolved := ResolvePath("/fr/pricing?plan=team", options)
-	if resolved.Locale != "fr" || resolved.BasePath != "/pricing" || resolved.LocalizedPath != "/fr/pricing?plan=team" || !resolved.PrefixPresent {
-		t.Fatalf("unexpected resolved path: %+v", resolved)
+	parseDate := time.Date(2026, time.March, 16, 10, 30, 0, 0, time.UTC)
+	if parseGot := FormatDate("en-US", parseDate, DateOptions{Style: DateStyleLong}); parseGot != "March 16, 2026" {
+		parseT.Fatalf("expected english long date, got %q", parseGot)
+	}
+	if parseGot2 := FormatDate("fr-FR", parseDate, DateOptions{Style: DateStyleShort}); parseGot2 != "16/03/2026" {
+		parseT.Fatalf("expected french short date, got %q", parseGot2)
+	}
+	if parseGot3 := DirectionForLocale("ar-EG"); parseGot3 != DirectionRTL {
+		parseT.Fatalf("expected arabic locale to resolve rtl direction, got %q", parseGot3)
 	}
 }
 
-func TestSSRBootstrapRoundTrip(t *testing.T) {
-	bundle := buildTestBundle()
-	payload := bundle.ToSSRBootstrap(SSRBootstrapOptions{
+func TestRouteHelpers(parseT *testing.T) {
+	parseOptions := RouteOptions{SupportedLocales: []string{"en", "fr", "ar"}, DefaultLocale: "en", OmitDefaultPrefix: true}
+
+	if parseGot := PrefixPath("fr", "/pricing", parseOptions); parseGot != "/fr/pricing" {
+		parseT.Fatalf("expected prefixed path, got %q", parseGot)
+	}
+	if parseGot2 := PrefixPath("en", "/pricing", parseOptions); parseGot2 != "/pricing" {
+		parseT.Fatalf("expected default locale path without prefix, got %q", parseGot2)
+	}
+
+	parseResolved := ResolvePath("/fr/pricing?plan=team", parseOptions)
+	if parseResolved.Locale != "fr" || parseResolved.BasePath != "/pricing" || parseResolved.LocalizedPath != "/fr/pricing?plan=team" || !parseResolved.PrefixPresent {
+		parseT.Fatalf("unexpected resolved path: %+v", parseResolved)
+	}
+}
+
+func TestSSRBootstrapRoundTrip(parseT *testing.T) {
+	parseBundle := buildTestBundle()
+	parsePayload := parseBundle.ToSSRBootstrap(SSRBootstrapOptions{
 		Locale:         "fr",
 		FallbackLocale: "en",
 	})
-	if payload.Locale != "fr" || payload.FallbackLocale != "en" {
-		t.Fatalf("unexpected bootstrap locale payload: %+v", payload)
+	if parsePayload.Locale != "fr" || parsePayload.FallbackLocale != "en" {
+		parseT.Fatalf("unexpected bootstrap locale payload: %+v", parsePayload)
 	}
-	if payload.Messages["fr"]["marketing.headline"].Text != "Bonjour {name}" {
-		t.Fatalf("expected french message payload, got %+v", payload.Messages)
-	}
-
-	restored := BundleFromSSRBootstrap(payload)
-	translated := restored.Translate("fr", "marketing", "headline", Arguments{"name": "Cam"}, payload.FallbackLocale)
-	if translated != "Bonjour Cam" {
-		t.Fatalf("expected bootstrap-restored translation, got %q", translated)
+	if parsePayload.Messages["fr"]["marketing.headline"].Text != "Bonjour {name}" {
+		parseT.Fatalf("expected french message payload, got %+v", parsePayload.Messages)
 	}
 
-	wrapped := ui.SSRBootstrap{I18n: payload}
-	if wrapped.I18n.Direction == "" {
-		t.Fatalf("expected direction to be set in payload: %+v", wrapped)
+	parseRestored := BundleFromSSRBootstrap(parsePayload)
+	parseTranslated := parseRestored.Translate("fr", "marketing", "headline", Arguments{"name": "Cam"}, parsePayload.FallbackLocale)
+	if parseTranslated != "Bonjour Cam" {
+		parseT.Fatalf("expected bootstrap-restored translation, got %q", parseTranslated)
+	}
+
+	parseWrapped := ui.SSRBootstrap{I18n: parsePayload}
+	if parseWrapped.I18n.Direction == "" {
+		parseT.Fatalf("expected direction to be set in payload: %+v", parseWrapped)
 	}
 }

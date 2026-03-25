@@ -9,33 +9,33 @@ import (
 	"github.com/yuin/goldmark/text"
 )
 
-func TestResolveMarkdownHrefResolvesRelativeDestinations(t *testing.T) {
-	resolved := ResolveMarkdownHref("assets/docs/start-here.md", "troubleshooting.md#hydration")
-	if resolved != "assets/docs/troubleshooting.md#hydration" {
-		t.Fatalf("expected relative href resolution, got %q", resolved)
+func TestResolveMarkdownHrefResolvesRelativeDestinations(parseT *testing.T) {
+	parseResolved := ResolveMarkdownHref("assets/docs/start-here.md", "troubleshooting.md#hydration")
+	if parseResolved != "assets/docs/troubleshooting.md#hydration" {
+		parseT.Fatalf("expected relative href resolution, got %q", parseResolved)
 	}
 
-	absolute := ResolveMarkdownHref("assets/docs/start-here.md", "https://example.test/docs")
-	if absolute != "https://example.test/docs" {
-		t.Fatalf("expected absolute href passthrough, got %q", absolute)
+	parseAbsolute := ResolveMarkdownHref("assets/docs/start-here.md", "https://example.test/docs")
+	if parseAbsolute != "https://example.test/docs" {
+		parseT.Fatalf("expected absolute href passthrough, got %q", parseAbsolute)
 	}
 }
 
-func TestRenderMarkdownRendersSemanticHTML(t *testing.T) {
-	nodes := RenderMarkdown("# Start Here\n\nParagraph with [guide](troubleshooting.md) and `code`.\n\n- First\n- Second\n\n```go\nfmt.Println(\"hi\")\n```", MarkdownRenderOptions{SourcePath: "assets/docs/start-here.md"})
-	markup, err := ui.RenderToString(Div(Props{}, nodes...))
-	if err != nil {
-		t.Fatalf("expected markdown render to stringify, got %v", err)
+func TestRenderMarkdownRendersSemanticHTML(parseT *testing.T) {
+	parseNodes := RenderMarkdown("# Start Here\n\nParagraph with [guide](troubleshooting.md) and `code`.\n\n- First\n- Second\n\n```go\nfmt.Println(\"hi\")\n```", MarkdownRenderOptions{SourcePath: "assets/docs/start-here.md"})
+	parseMarkup, parseErr := ui.RenderToString(Div(Props{}, parseNodes...))
+	if parseErr != nil {
+		parseT.Fatalf("expected markdown render to stringify, got %v", parseErr)
 	}
-	for _, snippet := range []string{"<h1>Start Here</h1>", "<a href=\"assets/docs/troubleshooting.md\">guide</a>", "<code>code</code>", "<ul>", "First", "fmt.Println(&#34;hi&#34;)"} {
-		if !strings.Contains(markup, snippet) {
-			t.Fatalf("expected markdown markup to contain %q, got %s", snippet, markup)
+	for _, parseSnippet := range []string{"<h1>Start Here</h1>", "<a href=\"assets/docs/troubleshooting.md\">guide</a>", "<code>code</code>", "<ul>", "First", "fmt.Println(&#34;hi&#34;)"} {
+		if !strings.Contains(parseMarkup, parseSnippet) {
+			parseT.Fatalf("expected markdown markup to contain %q, got %s", parseSnippet, parseMarkup)
 		}
 	}
 }
 
-func TestRenderMarkdownAppliesOptions(t *testing.T) {
-	nodes := RenderMarkdown("## Heading\n\n[Docs](guide.md)\n\n```txt\nhello\n```", MarkdownRenderOptions{
+func TestRenderMarkdownAppliesOptions(parseT *testing.T) {
+	parseNodes := RenderMarkdown("## Heading\n\n[Docs](guide.md)\n\n```txt\nhello\n```", MarkdownRenderOptions{
 		SourcePath:     "assets/docs/start-here.md",
 		CodeBlockLabel: "Snippet",
 		LinkTarget:     "_blank",
@@ -48,40 +48,40 @@ func TestRenderMarkdownAppliesOptions(t *testing.T) {
 			CodeBlockPre:       "code-pre",
 		},
 	})
-	markup, err := ui.RenderToString(Div(Props{}, nodes...))
-	if err != nil {
-		t.Fatalf("expected optioned markdown render to stringify, got %v", err)
+	parseMarkup, parseErr := ui.RenderToString(Div(Props{}, parseNodes...))
+	if parseErr != nil {
+		parseT.Fatalf("expected optioned markdown render to stringify, got %v", parseErr)
 	}
-	for _, snippet := range []string{"class=\"heading-two\"", "class=\"markdown-link\"", "target=\"_blank\"", "rel=\"noreferrer\"", "class=\"code-shell\"", "Snippet", "class=\"code-pre\""} {
-		if !strings.Contains(markup, snippet) {
-			t.Fatalf("expected markdown markup to contain %q, got %s", snippet, markup)
+	for _, parseSnippet := range []string{"class=\"heading-two\"", "class=\"markdown-link\"", "target=\"_blank\"", "rel=\"noreferrer\"", "class=\"code-shell\"", "Snippet", "class=\"code-pre\""} {
+		if !strings.Contains(parseMarkup, parseSnippet) {
+			parseT.Fatalf("expected markdown markup to contain %q, got %s", parseSnippet, parseMarkup)
 		}
 	}
 }
 
-func TestResolveMarkdownHrefEdgeCases(t *testing.T) {
-	if got := ResolveMarkdownHref("docs/start.md", ""); got != "" {
-		t.Fatalf("expected empty destination to resolve empty, got %q", got)
+func TestResolveMarkdownHrefEdgeCases(parseT *testing.T) {
+	if parseGot := ResolveMarkdownHref("docs/start.md", ""); parseGot != "" {
+		parseT.Fatalf("expected empty destination to resolve empty, got %q", parseGot)
 	}
-	if got := ResolveMarkdownHref("docs/start.md", "%zz"); got != "%zz" {
-		t.Fatalf("expected invalid URL destination passthrough, got %q", got)
+	if parseGot2 := ResolveMarkdownHref("docs/start.md", "%zz"); parseGot2 != "%zz" {
+		parseT.Fatalf("expected invalid URL destination passthrough, got %q", parseGot2)
 	}
-	if got := ResolveMarkdownHref("docs/start.md", "#section"); got != "#section" {
-		t.Fatalf("expected fragment destination passthrough, got %q", got)
+	if parseGot3 := ResolveMarkdownHref("docs/start.md", "#section"); parseGot3 != "#section" {
+		parseT.Fatalf("expected fragment destination passthrough, got %q", parseGot3)
 	}
-	if got := ResolveMarkdownHref("docs/start.md", "/guide"); got != "/guide" {
-		t.Fatalf("expected absolute path destination passthrough, got %q", got)
+	if parseGot4 := ResolveMarkdownHref("docs/start.md", "/guide"); parseGot4 != "/guide" {
+		parseT.Fatalf("expected absolute path destination passthrough, got %q", parseGot4)
 	}
-	if got := ResolveMarkdownHref("", "guide.md"); got != "guide.md" {
-		t.Fatalf("expected blank source path passthrough, got %q", got)
+	if parseGot5 := ResolveMarkdownHref("", "guide.md"); parseGot5 != "guide.md" {
+		parseT.Fatalf("expected blank source path passthrough, got %q", parseGot5)
 	}
-	if got := ResolveMarkdownHref("https://example.test/docs/start.md", "guide.md?q=1"); got != "https://example.test/docs/guide.md?q=1" {
-		t.Fatalf("expected absolute source path resolution, got %q", got)
+	if parseGot6 := ResolveMarkdownHref("https://example.test/docs/start.md", "guide.md?q=1"); parseGot6 != "https://example.test/docs/guide.md?q=1" {
+		parseT.Fatalf("expected absolute source path resolution, got %q", parseGot6)
 	}
 }
 
-func TestRenderMarkdownCoversAdditionalBlockAndInlineBranches(t *testing.T) {
-	source := strings.Join([]string{
+func TestRenderMarkdownCoversAdditionalBlockAndInlineBranches(parseT *testing.T) {
+	parseSource := strings.Join([]string{
 		"###### Heading Six",
 		"",
 		"> Quoted context",
@@ -96,10 +96,10 @@ func TestRenderMarkdownCoversAdditionalBlockAndInlineBranches(t *testing.T) {
 		"---",
 	}, "\n")
 
-	nodes := RenderMarkdown(source, MarkdownRenderOptions{
+	parseNodes := RenderMarkdown(parseSource, MarkdownRenderOptions{
 		SourcePath: "docs/start.md",
-		ResolveHref: func(sourcePath, destination string) string {
-			return "/resolved/" + strings.TrimSpace(destination)
+		ResolveHref: func(parseSourcePath, parseDestination string) string {
+			return "/resolved/" + strings.TrimSpace(parseDestination)
 		},
 		Classes: MarkdownClasses{
 			Heading6:       "h6",
@@ -113,11 +113,11 @@ func TestRenderMarkdownCoversAdditionalBlockAndInlineBranches(t *testing.T) {
 		},
 	})
 
-	markup, err := ui.RenderToString(Div(Props{}, nodes...))
-	if err != nil {
-		t.Fatalf("expected markdown render to stringify, got %v", err)
+	parseMarkup, parseErr := ui.RenderToString(Div(Props{}, parseNodes...))
+	if parseErr != nil {
+		parseT.Fatalf("expected markdown render to stringify, got %v", parseErr)
 	}
-	for _, snippet := range []string{
+	for _, parseSnippet := range []string{
 		`<h6 class="h6">Heading Six</h6>`,
 		`<blockquote class="quote"><p>Quoted context</p></blockquote>`,
 		`<ol class="list ordered" start="3">`,
@@ -128,42 +128,42 @@ func TestRenderMarkdownCoversAdditionalBlockAndInlineBranches(t *testing.T) {
 		`<br>`,
 		`<hr class="rule">`,
 	} {
-		if !strings.Contains(markup, snippet) {
-			t.Fatalf("expected markdown markup to contain %q, got %s", snippet, markup)
+		if !strings.Contains(parseMarkup, parseSnippet) {
+			parseT.Fatalf("expected markdown markup to contain %q, got %s", parseSnippet, parseMarkup)
 		}
 	}
 }
 
-func TestMarkdownHelperBranchesAndFallbackNodes(t *testing.T) {
-	if got := markdownLinesText(nil, nil); got != "" {
-		t.Fatalf("expected nil markdown lines text to be empty, got %q", got)
+func TestMarkdownHelperBranchesAndFallbackNodes(parseT *testing.T) {
+	if parseGot := markdownLinesText(nil, nil); parseGot != "" {
+		parseT.Fatalf("expected nil markdown lines text to be empty, got %q", parseGot)
 	}
-	if got := markdownPlainText(nil, []byte("ignored")); got != "" {
-		t.Fatalf("expected nil markdown node plain text to be empty, got %q", got)
-	}
-
-	source := []byte("alpha")
-	textNode := ast.NewTextSegment(text.NewSegment(0, 5))
-	rendered, ok := renderMarkdownBlock(textNode, source, MarkdownRenderOptions{})
-	if !ok || rendered == nil || rendered.Type != "p" {
-		t.Fatalf("expected text-node markdown block fallback to paragraph, got ok=%t rendered=%#v", ok, rendered)
+	if parseGot2 := markdownPlainText(nil, []byte("ignored")); parseGot2 != "" {
+		parseT.Fatalf("expected nil markdown node plain text to be empty, got %q", parseGot2)
 	}
 
-	emptyNode := ast.NewTextSegment(text.NewSegment(0, 0))
-	rendered, ok = renderMarkdownBlock(emptyNode, source, MarkdownRenderOptions{})
-	if ok || rendered != nil {
-		t.Fatalf("expected empty text-node markdown block fallback to skip render, got ok=%t rendered=%#v", ok, rendered)
+	parseSource := []byte("alpha")
+	parseTextNode := ast.NewTextSegment(text.NewSegment(0, 5))
+	parseRendered, parseOk := renderMarkdownBlock(parseTextNode, parseSource, MarkdownRenderOptions{})
+	if !parseOk || parseRendered == nil || parseRendered.Type != "p" {
+		parseT.Fatalf("expected text-node markdown block fallback to paragraph, got ok=%t rendered=%#v", parseOk, parseRendered)
 	}
 
-	inlineContainer := ast.NewParagraph()
-	inlineContainer.AppendChild(inlineContainer, ast.NewTextSegment(text.NewSegment(0, 5)))
-	inline := renderMarkdownInline(inlineContainer, source, MarkdownRenderOptions{})
-	if len(inline) != 1 || inline[0] == nil || inline[0].TextContent != "alpha" {
-		t.Fatalf("expected default inline fallback to text node, got %#v", inline)
+	parseEmptyNode := ast.NewTextSegment(text.NewSegment(0, 0))
+	parseRendered, parseOk = renderMarkdownBlock(parseEmptyNode, parseSource, MarkdownRenderOptions{})
+	if parseOk || parseRendered != nil {
+		parseT.Fatalf("expected empty text-node markdown block fallback to skip render, got ok=%t rendered=%#v", parseOk, parseRendered)
 	}
 
-	emptyInline := renderMarkdownInline(ast.NewParagraph(), source, MarkdownRenderOptions{})
-	if len(emptyInline) != 0 {
-		t.Fatalf("expected empty inline fallback to produce no nodes, got %#v", emptyInline)
+	parseInlineContainer := ast.NewParagraph()
+	parseInlineContainer.AppendChild(parseInlineContainer, ast.NewTextSegment(text.NewSegment(0, 5)))
+	parseInline := renderMarkdownInline(parseInlineContainer, parseSource, MarkdownRenderOptions{})
+	if len(parseInline) != 1 || parseInline[0] == nil || parseInline[0].TextContent != "alpha" {
+		parseT.Fatalf("expected default inline fallback to text node, got %#v", parseInline)
+	}
+
+	parseEmptyInline := renderMarkdownInline(ast.NewParagraph(), parseSource, MarkdownRenderOptions{})
+	if len(parseEmptyInline) != 0 {
+		parseT.Fatalf("expected empty inline fallback to produce no nodes, got %#v", parseEmptyInline)
 	}
 }

@@ -2,16 +2,16 @@ package i18n
 
 import "testing"
 
-func BenchmarkNormalizeLocaleMicro(b *testing.B) {
-	locales := []string{
+func BenchmarkNormalizeLocaleMicro(parseB *testing.B) {
+	parseLocales := []string{
 		"en-us",
 		"EN_us",
 		" pt-BR ",
 		"zh_hans_cn",
 	}
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = NormalizeLocale(locales[i%len(locales)])
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = NormalizeLocale(parseLocales[parseI%len(parseLocales)])
 	}
 }

@@ -35,95 +35,95 @@ type Error struct {
 	Err    error
 }
 
-func (e *Error) Error() string {
-	if e == nil {
+func (parseE *Error) Error() string {
+	if parseE == nil {
 		return ""
 	}
-	base := "interop failure"
-	if e.Op != "" {
-		base = e.Op
+	parseBase := "interop failure"
+	if parseE.Op != "" {
+		parseBase = parseE.Op
 	}
-	if e.Target != "" {
-		base += " " + e.Target
+	if parseE.Target != "" {
+		parseBase += " " + parseE.Target
 	}
-	if e.Code != "" {
-		base += " [" + string(e.Code) + "]"
+	if parseE.Code != "" {
+		parseBase += " [" + string(parseE.Code) + "]"
 	}
-	message := base
-	if e.Err != nil {
-		message += ": " + e.Err.Error()
+	parseMessage := parseBase
+	if parseE.Err != nil {
+		parseMessage += ": " + parseE.Err.Error()
 	}
-	if docs, remediation := interopActionableGuidance(e.Code); docs != "" {
-		if remediation != "" {
-			message += ". " + remediation
+	if parseDocs, parseRemediation := interopActionableGuidance(parseE.Code); parseDocs != "" {
+		if parseRemediation != "" {
+			parseMessage += ". " + parseRemediation
 		}
-		message += ". See " + docs
+		parseMessage += ". See " + parseDocs
 	}
-	return message
+	return parseMessage
 }
 
-func (e *Error) Unwrap() error {
-	if e == nil {
+func (parseE *Error) Unwrap() error {
+	if parseE == nil {
 		return nil
 	}
-	return e.Err
+	return parseE.Err
 }
 
-func wrapError(op, target string, code ErrorCode, err error) error {
-	if err == nil {
+func wrapError(parseOp, parseTarget string, parseCode ErrorCode, parseErr error) error {
+	if parseErr == nil {
 		return nil
 	}
-	return &Error{Op: op, Target: target, Code: code, Err: err}
+	return &Error{Op: parseOp, Target: parseTarget, Code: parseCode, Err: parseErr}
 }
 
-func unavailable(op, target string) error {
-	return &Error{Op: op, Target: target, Code: CodeUnavailable, Err: errors.New("browser interop is unavailable in this build")}
+func unavailable(parseOp, parseTarget string) error {
+	return &Error{Op: parseOp, Target: parseTarget, Code: CodeUnavailable, Err: errors.New("browser interop is unavailable in this build")}
 }
 
 // Decode projects JSON-shaped interop payloads into a typed target.
-func Decode(value any, target interface{}) error {
-	if target == nil {
+func Decode(parseValue any, parseTarget interface{}) error {
+	if parseTarget == nil {
 		return wrapError("Decode", "", CodeInvalid, errors.New("target is nil"))
 	}
-	data, err := json.Marshal(value)
-	if err != nil {
-		return wrapError("Decode", "", CodeEncode, err)
+	parseData, parseErr := json.Marshal(parseValue)
+	if parseErr != nil {
+		return wrapError("Decode", "", CodeEncode, parseErr)
 	}
-	if err := json.Unmarshal(data, target); err != nil {
-		return wrapError("Decode", "", CodeDecode, err)
+	if parseErr2 := json.Unmarshal(parseData, parseTarget); parseErr2 != nil {
+		return wrapError("Decode", "", CodeDecode, parseErr2)
 	}
 	return nil
 }
 
 // IsCode reports whether err is an interop error with the provided code.
-func IsCode(err error, code ErrorCode) bool {
-	var interopErr *Error
-	if !errors.As(err, &interopErr) {
+func IsCode(parseErr error, parseCode ErrorCode) bool {
+	var parseInteropErr *Error
+	if !errors.As(parseErr, &parseInteropErr) {
 		return false
 	}
-	return interopErr.Code == code
+	return parseInteropErr.Code == parseCode
 }
 
 // AsError unwraps an interop error into the structured Error form.
-func AsError(err error) (*Error, bool) {
-	var interopErr *Error
-	if !errors.As(err, &interopErr) {
+func AsError(parseErr error) (*Error, bool) {
+	var parseInteropErr *Error
+	if !errors.As(parseErr, &parseInteropErr) {
 		return nil, false
 	}
-	return interopErr, true
+	return parseInteropErr, true
 }
 
 // CodeOf returns the interop error code for err when available.
-func CodeOf(err error) (ErrorCode, bool) {
-	interopErr, ok := AsError(err)
-	if !ok {
+func CodeOf(parseErr error) (ErrorCode, bool) {
+	parseInteropErr, parseOk := AsError(parseErr)
+	if !parseOk {
 		return "", false
 	}
-	return interopErr.Code, true
+	return parseInteropErr.Code, true
 }
 
-func interopActionableGuidance(code ErrorCode) (string, string) {
-	switch code {
+func interopActionableGuidance(parseCode ErrorCode) (string, string) {
+	switch parseCode {
 	case CodeInvalid:
 		return "ACTIONABLE_ERRORS.md#gwc-interop-invalid", "Validate required names, URLs, and callbacks before creating the interop binding"
 	case CodeBlocked:
@@ -143,9 +143,9 @@ type Subscription struct {
 	cancel func()
 }
 
-func (s Subscription) Cancel() {
-	if s.cancel != nil {
-		s.cancel()
+func (parseS Subscription) Cancel() {
+	if parseS.cancel != nil {
+		parseS.cancel()
 	}
 }
 
@@ -157,33 +157,33 @@ type WindowEnv struct {
 }
 
 // Lookup returns the raw shared window value when present.
-func (e WindowEnv) Lookup(name string) (Value, bool) {
-	if e.lookup == nil {
+func (parseE WindowEnv) Lookup(parseName string) (Value, bool) {
+	if parseE.lookup == nil {
 		return Value{}, false
 	}
-	return e.lookup(name)
+	return parseE.lookup(parseName)
 }
 
 // LookupString resolves a shared window value as a normalized string.
 // Empty strings and JavaScript stringified nullish sentinel values are treated as missing.
-func (e WindowEnv) LookupString(name string) (string, bool) {
-	value, ok := e.Lookup(name)
-	if !ok {
+func (parseE WindowEnv) LookupString(parseName string) (string, bool) {
+	parseValue, parseOk := parseE.Lookup(parseName)
+	if !parseOk {
 		return "", false
 	}
-	resolved := strings.TrimSpace(value.String())
-	if resolved == "" || resolved == "<undefined>" || resolved == "<null>" {
+	parseResolved := strings.TrimSpace(parseValue.String())
+	if parseResolved == "" || parseResolved == "<undefined>" || parseResolved == "<null>" {
 		return "", false
 	}
-	return resolved, true
+	return parseResolved, true
 }
 
 // String returns a normalized shared window string or the provided fallback.
-func (e WindowEnv) String(name string, fallback string) string {
-	if resolved, ok := e.LookupString(name); ok {
-		return resolved
+func (parseE WindowEnv) String(parseName string, parseFallback string) string {
+	if parseResolved, parseOk := parseE.LookupString(parseName); parseOk {
+		return parseResolved
 	}
-	return fallback
+	return parseFallback
 }
 
 // Value wraps a browser JavaScript value behind a typed interop surface.
@@ -202,66 +202,66 @@ type Storage struct {
 	key        func(int) (string, bool, error)
 }
 
-func (s Storage) GetItem(key string) (string, bool, error) {
-	if s.getItem == nil {
+func (parseS Storage) GetItem(parseKey string) (string, bool, error) {
+	if parseS.getItem == nil {
 		return "", false, unavailable("Storage.GetItem", "")
 	}
-	return s.getItem(key)
+	return parseS.getItem(parseKey)
 }
 
-func (s Storage) SetItem(key string, value string) error {
-	if s.setItem == nil {
+func (parseS Storage) SetItem(parseKey string, parseValue string) error {
+	if parseS.setItem == nil {
 		return unavailable("Storage.SetItem", "")
 	}
-	return s.setItem(key, value)
+	return parseS.setItem(parseKey, parseValue)
 }
 
-func (s Storage) GetMany(keys ...string) (map[string]string, error) {
-	if len(keys) == 0 {
+func (parseS Storage) GetMany(parseKeys ...string) (map[string]string, error) {
+	if len(parseKeys) == 0 {
 		return map[string]string{}, nil
 	}
-	if s.getMany != nil {
-		return s.getMany(keys)
+	if parseS.getMany != nil {
+		return parseS.getMany(parseKeys)
 	}
-	values := make(map[string]string, len(keys))
-	for _, key := range keys {
-		value, ok, err := s.GetItem(key)
-		if err != nil {
-			return nil, err
+	parseValues := make(map[string]string, len(parseKeys))
+	for _, parseKey := range parseKeys {
+		parseValue, parseOk, parseErr := parseS.GetItem(parseKey)
+		if parseErr != nil {
+			return nil, parseErr
 		}
-		if ok {
-			values[key] = value
+		if parseOk {
+			parseValues[parseKey] = parseValue
 		}
 	}
-	return values, nil
+	return parseValues, nil
 }
 
-func (s Storage) RemoveItem(key string) error {
-	if s.removeItem == nil {
+func (parseS Storage) RemoveItem(parseKey string) error {
+	if parseS.removeItem == nil {
 		return unavailable("Storage.RemoveItem", "")
 	}
-	return s.removeItem(key)
+	return parseS.removeItem(parseKey)
 }
 
-func (s Storage) Clear() error {
-	if s.clear == nil {
+func (parseS Storage) Clear() error {
+	if parseS.clear == nil {
 		return unavailable("Storage.Clear", "")
 	}
-	return s.clear()
+	return parseS.clear()
 }
 
-func (s Storage) Len() (int, error) {
-	if s.length == nil {
+func (parseS Storage) Len() (int, error) {
+	if parseS.length == nil {
 		return 0, unavailable("Storage.Len", "")
 	}
-	return s.length()
+	return parseS.length()
 }
 
-func (s Storage) Key(index int) (string, bool, error) {
-	if s.key == nil {
+func (parseS Storage) Key(parseIndex int) (string, bool, error) {
+	if parseS.key == nil {
 		return "", false, unavailable("Storage.Key", "")
 	}
-	return s.key(index)
+	return parseS.key(parseIndex)
 }
 
 type PersistentStoreOptions struct {
@@ -291,129 +291,129 @@ type PersistentStore struct {
 	close      func() error
 }
 
-func (s PersistentStore) Backend() string {
-	if s.backend == nil {
+func (parseS PersistentStore) Backend() string {
+	if parseS.backend == nil {
 		return ""
 	}
-	return s.backend()
+	return parseS.backend()
 }
 
-func (s PersistentStore) GetItem(ctx context.Context, key string) (string, bool, error) {
-	if s.getItem == nil {
+func (parseS PersistentStore) GetItem(parseCtx context.Context, parseKey string) (string, bool, error) {
+	if parseS.getItem == nil {
 		return "", false, unavailable("PersistentStore.GetItem", "")
 	}
-	if ctx == nil {
-		ctx = context.Background()
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	return s.getItem(ctx, key)
+	return parseS.getItem(parseCtx, parseKey)
 }
 
-func (s PersistentStore) GetMany(ctx context.Context, keys ...string) (map[string]string, error) {
-	if len(keys) == 0 {
+func (parseS PersistentStore) GetMany(parseCtx context.Context, parseKeys ...string) (map[string]string, error) {
+	if len(parseKeys) == 0 {
 		return map[string]string{}, nil
 	}
-	if ctx == nil {
-		ctx = context.Background()
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	values := make(map[string]string, len(keys))
-	for _, key := range keys {
-		value, ok, err := s.GetItem(ctx, key)
-		if err != nil {
-			return nil, err
+	parseValues := make(map[string]string, len(parseKeys))
+	for _, parseKey := range parseKeys {
+		parseValue, parseOk, parseErr := parseS.GetItem(parseCtx, parseKey)
+		if parseErr != nil {
+			return nil, parseErr
 		}
-		if ok {
-			values[key] = value
+		if parseOk {
+			parseValues[parseKey] = parseValue
 		}
 	}
-	return values, nil
+	return parseValues, nil
 }
 
-func (s PersistentStore) SetItem(ctx context.Context, key string, value string) error {
-	if s.setItem == nil {
+func (parseS PersistentStore) SetItem(parseCtx context.Context, parseKey string, parseValue string) error {
+	if parseS.setItem == nil {
 		return unavailable("PersistentStore.SetItem", "")
 	}
-	if ctx == nil {
-		ctx = context.Background()
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	return s.setItem(ctx, key, value)
+	return parseS.setItem(parseCtx, parseKey, parseValue)
 }
 
-func (s PersistentStore) SetJSON(ctx context.Context, key string, value any) error {
-	data, err := json.Marshal(value)
-	if err != nil {
-		return wrapError("PersistentStore.SetJSON", key, CodeEncode, err)
+func (parseS PersistentStore) SetJSON(parseCtx context.Context, parseKey string, parseValue any) error {
+	parseData, parseErr := json.Marshal(parseValue)
+	if parseErr != nil {
+		return wrapError("PersistentStore.SetJSON", parseKey, CodeEncode, parseErr)
 	}
-	return s.SetItem(ctx, key, string(data))
+	return parseS.SetItem(parseCtx, parseKey, string(parseData))
 }
 
-func (s PersistentStore) DecodeJSON(ctx context.Context, key string, target any) (bool, error) {
-	if target == nil {
-		return false, wrapError("PersistentStore.DecodeJSON", key, CodeInvalid, errors.New("target is nil"))
+func (parseS PersistentStore) DecodeJSON(parseCtx context.Context, parseKey string, parseTarget any) (bool, error) {
+	if parseTarget == nil {
+		return false, wrapError("PersistentStore.DecodeJSON", parseKey, CodeInvalid, errors.New("target is nil"))
 	}
-	value, ok, err := s.GetItem(ctx, key)
-	if err != nil || !ok {
-		return ok, err
+	parseValue, parseOk, parseErr := parseS.GetItem(parseCtx, parseKey)
+	if parseErr != nil || !parseOk {
+		return parseOk, parseErr
 	}
-	if err := json.Unmarshal([]byte(value), target); err != nil {
-		return false, wrapError("PersistentStore.DecodeJSON", key, CodeDecode, err)
+	if parseErr2 := json.Unmarshal([]byte(parseValue), parseTarget); parseErr2 != nil {
+		return false, wrapError("PersistentStore.DecodeJSON", parseKey, CodeDecode, parseErr2)
 	}
 	return true, nil
 }
 
-func (s PersistentStore) RemoveItem(ctx context.Context, key string) error {
-	if s.removeItem == nil {
+func (parseS PersistentStore) RemoveItem(parseCtx context.Context, parseKey string) error {
+	if parseS.removeItem == nil {
 		return unavailable("PersistentStore.RemoveItem", "")
 	}
-	if ctx == nil {
-		ctx = context.Background()
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	return s.removeItem(ctx, key)
+	return parseS.removeItem(parseCtx, parseKey)
 }
 
-func (s PersistentStore) Clear(ctx context.Context) error {
-	if s.clear == nil {
+func (parseS PersistentStore) Clear(parseCtx context.Context) error {
+	if parseS.clear == nil {
 		return unavailable("PersistentStore.Clear", "")
 	}
-	if ctx == nil {
-		ctx = context.Background()
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	return s.clear(ctx)
+	return parseS.clear(parseCtx)
 }
 
-func (s PersistentStore) Keys(ctx context.Context) ([]string, error) {
-	if s.keys == nil {
+func (parseS PersistentStore) Keys(parseCtx context.Context) ([]string, error) {
+	if parseS.keys == nil {
 		return nil, unavailable("PersistentStore.Keys", "")
 	}
-	if ctx == nil {
-		ctx = context.Background()
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	return s.keys(ctx)
+	return parseS.keys(parseCtx)
 }
 
-func (s PersistentStore) Len(ctx context.Context) (int, error) {
-	if s.length == nil {
+func (parseS PersistentStore) Len(parseCtx context.Context) (int, error) {
+	if parseS.length == nil {
 		return 0, unavailable("PersistentStore.Len", "")
 	}
-	if ctx == nil {
-		ctx = context.Background()
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	return s.length(ctx)
+	return parseS.length(parseCtx)
 }
 
-func (s PersistentStore) Close() error {
-	if s.close == nil {
+func (parseS PersistentStore) Close() error {
+	if parseS.close == nil {
 		return nil
 	}
-	return s.close()
+	return parseS.close()
 }
 
-func LoadPersistentJSON[T any](ctx context.Context, store PersistentStore, key string) (T, bool, error) {
-	var value T
-	ok, err := store.DecodeJSON(ctx, key, &value)
-	if err != nil || !ok {
-		return value, ok, err
+func LoadPersistentJSON[T any](parseCtx context.Context, store PersistentStore, parseKey string) (T, bool, error) {
+	var parseValue T
+	parseOk, parseErr := store.DecodeJSON(parseCtx, parseKey, &parseValue)
+	if parseErr != nil || !parseOk {
+		return parseValue, parseOk, parseErr
 	}
-	return value, true, nil
+	return parseValue, true, nil
 }
 
 type Location struct {
@@ -427,60 +427,60 @@ type Location struct {
 	reload   func() error
 }
 
-func (l Location) Href() string {
-	if l.href == nil {
+func (parseL Location) Href() string {
+	if parseL.href == nil {
 		return ""
 	}
-	return l.href()
+	return parseL.href()
 }
 
-func (l Location) Pathname() string {
-	if l.pathname == nil {
+func (parseL Location) Pathname() string {
+	if parseL.pathname == nil {
 		return ""
 	}
-	return l.pathname()
+	return parseL.pathname()
 }
 
-func (l Location) Search() string {
-	if l.search == nil {
+func (parseL Location) Search() string {
+	if parseL.search == nil {
 		return ""
 	}
-	return l.search()
+	return parseL.search()
 }
 
-func (l Location) Hash() string {
-	if l.hash == nil {
+func (parseL Location) Hash() string {
+	if parseL.hash == nil {
 		return ""
 	}
-	return l.hash()
+	return parseL.hash()
 }
 
-func (l Location) Origin() string {
-	if l.origin == nil {
+func (parseL Location) Origin() string {
+	if parseL.origin == nil {
 		return ""
 	}
-	return l.origin()
+	return parseL.origin()
 }
 
-func (l Location) Assign(rawURL string) error {
-	if l.assign == nil {
+func (parseL Location) Assign(parseRawURL string) error {
+	if parseL.assign == nil {
 		return unavailable("Location.Assign", "")
 	}
-	return l.assign(rawURL)
+	return parseL.assign(parseRawURL)
 }
 
-func (l Location) Replace(rawURL string) error {
-	if l.replace == nil {
+func (parseL Location) Replace(parseRawURL string) error {
+	if parseL.replace == nil {
 		return unavailable("Location.Replace", "")
 	}
-	return l.replace(rawURL)
+	return parseL.replace(parseRawURL)
 }
 
-func (l Location) Reload() error {
-	if l.reload == nil {
+func (parseL Location) Reload() error {
+	if parseL.reload == nil {
 		return unavailable("Location.Reload", "")
 	}
-	return l.reload()
+	return parseL.reload()
 }
 
 type History struct {
@@ -493,53 +493,53 @@ type History struct {
 	replaceState func(any, string, string) error
 }
 
-func (h History) Len() (int, error) {
-	if h.length == nil {
+func (parseH History) Len() (int, error) {
+	if parseH.length == nil {
 		return 0, unavailable("History.Len", "")
 	}
-	return h.length()
+	return parseH.length()
 }
 
-func (h History) State() (any, error) {
-	if h.state == nil {
+func (parseH History) State() (any, error) {
+	if parseH.state == nil {
 		return nil, unavailable("History.State", "")
 	}
-	return h.state()
+	return parseH.state()
 }
 
-func (h History) Back() error {
-	if h.back == nil {
+func (parseH History) Back() error {
+	if parseH.back == nil {
 		return unavailable("History.Back", "")
 	}
-	return h.back()
+	return parseH.back()
 }
 
-func (h History) Forward() error {
-	if h.forward == nil {
+func (parseH History) Forward() error {
+	if parseH.forward == nil {
 		return unavailable("History.Forward", "")
 	}
-	return h.forward()
+	return parseH.forward()
 }
 
-func (h History) Go(delta int) error {
-	if h.goDelta == nil {
+func (parseH History) Go(parseDelta int) error {
+	if parseH.goDelta == nil {
 		return unavailable("History.Go", "")
 	}
-	return h.goDelta(delta)
+	return parseH.goDelta(parseDelta)
 }
 
-func (h History) PushState(state any, title string, rawURL string) error {
-	if h.pushState == nil {
+func (parseH History) PushState(parseState any, parseTitle string, parseRawURL string) error {
+	if parseH.pushState == nil {
 		return unavailable("History.PushState", "")
 	}
-	return h.pushState(state, title, rawURL)
+	return parseH.pushState(parseState, parseTitle, parseRawURL)
 }
 
-func (h History) ReplaceState(state any, title string, rawURL string) error {
-	if h.replaceState == nil {
+func (parseH History) ReplaceState(parseState any, parseTitle string, parseRawURL string) error {
+	if parseH.replaceState == nil {
 		return unavailable("History.ReplaceState", "")
 	}
-	return h.replaceState(state, title, rawURL)
+	return parseH.replaceState(parseState, parseTitle, parseRawURL)
 }
 
 type Clipboard struct {
@@ -547,35 +547,35 @@ type Clipboard struct {
 	readText  func(context.Context) (string, error)
 }
 
-func (c Clipboard) WriteText(ctx context.Context, text string) error {
-	if c.writeText == nil {
+func (parseC Clipboard) WriteText(parseCtx context.Context, parseText string) error {
+	if parseC.writeText == nil {
 		return unavailable("Clipboard.WriteText", "")
 	}
-	if ctx == nil {
-		ctx = context.Background()
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	return c.writeText(ctx, text)
+	return parseC.writeText(parseCtx, parseText)
 }
 
-func (c Clipboard) ReadText(ctx context.Context) (string, error) {
-	if c.readText == nil {
+func (parseC Clipboard) ReadText(parseCtx context.Context) (string, error) {
+	if parseC.readText == nil {
 		return "", unavailable("Clipboard.ReadText", "")
 	}
-	if ctx == nil {
-		ctx = context.Background()
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	return c.readText(ctx)
+	return parseC.readText(parseCtx)
 }
 
 type Timer struct {
 	cancel func() error
 }
 
-func (t Timer) Cancel() error {
-	if t.cancel == nil {
+func (parseT Timer) Cancel() error {
+	if parseT.cancel == nil {
 		return unavailable("Timer.Cancel", "")
 	}
-	return t.cancel()
+	return parseT.cancel()
 }
 
 type CustomEvent struct {
@@ -601,55 +601,55 @@ type EventTarget struct {
 	subscribe func(string, func(CustomEvent)) (Subscription, error)
 }
 
-func (t EventTarget) Dispatch(name string, detail any) error {
-	if t.dispatch == nil {
+func (parseT EventTarget) Dispatch(parseName string, parseDetail any) error {
+	if parseT.dispatch == nil {
 		return unavailable("EventTarget.Dispatch", "")
 	}
-	return t.dispatch(name, detail)
+	return parseT.dispatch(parseName, parseDetail)
 }
 
-func (t EventTarget) Listen(name string, handler func(BrowserEvent)) (Subscription, error) {
-	if t.listen == nil {
+func (parseT EventTarget) Listen(parseName string, parseHandler func(BrowserEvent)) (Subscription, error) {
+	if parseT.listen == nil {
 		return Subscription{}, unavailable("EventTarget.Listen", "")
 	}
-	return t.listen(name, handler)
+	return parseT.listen(parseName, parseHandler)
 }
 
-func (t EventTarget) Subscribe(name string, handler func(CustomEvent)) (Subscription, error) {
-	if t.subscribe != nil {
-		return t.subscribe(name, handler)
+func (parseT EventTarget) Subscribe(parseName string, parseHandler func(CustomEvent)) (Subscription, error) {
+	if parseT.subscribe != nil {
+		return parseT.subscribe(parseName, parseHandler)
 	}
-	if t.listen == nil {
+	if parseT.listen == nil {
 		return Subscription{}, unavailable("EventTarget.Subscribe", "")
 	}
-	return t.listen(name, func(event BrowserEvent) {
-		handler(CustomEvent{
-			Type:   event.Type,
-			Detail: event.Detail,
+	return parseT.listen(parseName, func(parseEvent BrowserEvent) {
+		parseHandler(CustomEvent{
+			Type:   parseEvent.Type,
+			Detail: parseEvent.Detail,
 		})
 	})
 }
 
 // DecodeCustomEvent projects a custom-event detail payload into a typed value.
-func DecodeCustomEvent[T any](event CustomEvent) (DecodedCustomEvent[T], error) {
-	var detail T
-	if err := Decode(event.Detail, &detail); err != nil {
-		return DecodedCustomEvent[T]{Type: event.Type}, wrapError("DecodeCustomEvent", event.Type, CodeDecode, err)
+func DecodeCustomEvent[T any](parseEvent CustomEvent) (DecodedCustomEvent[T], error) {
+	var parseDetail T
+	if parseErr := Decode(parseEvent.Detail, &parseDetail); parseErr != nil {
+		return DecodedCustomEvent[T]{Type: parseEvent.Type}, wrapError("DecodeCustomEvent", parseEvent.Type, CodeDecode, parseErr)
 	}
 	return DecodedCustomEvent[T]{
-		Type:   event.Type,
-		Detail: detail,
+		Type:   parseEvent.Type,
+		Detail: parseDetail,
 	}, nil
 }
 
 // SubscribeDecoded decodes custom-event detail payloads before invoking the handler.
-func SubscribeDecoded[T any](target EventTarget, name string, handler func(DecodedCustomEvent[T], error)) (Subscription, error) {
-	if handler == nil {
-		return Subscription{}, wrapError("SubscribeDecoded", name, CodeInvalid, errors.New("handler is nil"))
+func SubscribeDecoded[T any](parseTarget EventTarget, parseName string, parseHandler func(DecodedCustomEvent[T], error)) (Subscription, error) {
+	if parseHandler == nil {
+		return Subscription{}, wrapError("SubscribeDecoded", parseName, CodeInvalid, errors.New("handler is nil"))
 	}
-	return target.Subscribe(name, func(event CustomEvent) {
-		decoded, err := DecodeCustomEvent[T](event)
-		handler(decoded, err)
+	return parseTarget.Subscribe(parseName, func(parseEvent CustomEvent) {
+		parseDecoded, parseErr := DecodeCustomEvent[T](parseEvent)
+		parseHandler(parseDecoded, parseErr)
 	})
 }
 
@@ -664,25 +664,25 @@ type MediaQueryList struct {
 	subscribe func(func(MediaQueryEvent)) (Subscription, error)
 }
 
-func (m MediaQueryList) Matches() bool {
-	if m.matches == nil {
+func (parseM MediaQueryList) Matches() bool {
+	if parseM.matches == nil {
 		return false
 	}
-	return m.matches()
+	return parseM.matches()
 }
 
-func (m MediaQueryList) Media() string {
-	if m.media == nil {
+func (parseM MediaQueryList) Media() string {
+	if parseM.media == nil {
 		return ""
 	}
-	return m.media()
+	return parseM.media()
 }
 
-func (m MediaQueryList) Subscribe(handler func(MediaQueryEvent)) (Subscription, error) {
-	if m.subscribe == nil {
+func (parseM MediaQueryList) Subscribe(parseHandler func(MediaQueryEvent)) (Subscription, error) {
+	if parseM.subscribe == nil {
 		return Subscription{}, unavailable("MediaQueryList.Subscribe", "")
 	}
-	return m.subscribe(handler)
+	return parseM.subscribe(parseHandler)
 }
 
 type Rect struct {
@@ -739,130 +739,130 @@ type Element struct {
 	scrollMetrics       func() (float64, float64, float64, error)
 }
 
-func (e Element) TagName() string {
-	if e.tagName == nil {
+func (parseE Element) TagName() string {
+	if parseE.tagName == nil {
 		return ""
 	}
-	return e.tagName()
+	return parseE.tagName()
 }
 
-func (e Element) ID() string {
-	if e.id == nil {
+func (parseE Element) ID() string {
+	if parseE.id == nil {
 		return ""
 	}
-	return e.id()
+	return parseE.id()
 }
 
-func (e Element) ClassName() string {
-	if e.className == nil {
+func (parseE Element) ClassName() string {
+	if parseE.className == nil {
 		return ""
 	}
-	return e.className()
+	return parseE.className()
 }
 
-func (e Element) Focus() error {
-	if e.focus == nil {
+func (parseE Element) Focus() error {
+	if parseE.focus == nil {
 		return unavailable("Element.Focus", "")
 	}
-	return e.focus()
+	return parseE.focus()
 }
 
-func (e Element) Blur() error {
-	if e.blur == nil {
+func (parseE Element) Blur() error {
+	if parseE.blur == nil {
 		return unavailable("Element.Blur", "")
 	}
-	return e.blur()
+	return parseE.blur()
 }
 
-func (e Element) Click() error {
-	if e.click == nil {
+func (parseE Element) Click() error {
+	if parseE.click == nil {
 		return unavailable("Element.Click", "")
 	}
-	return e.click()
+	return parseE.click()
 }
 
-func (e Element) SetScrollTop(scrollTop float64) error {
-	if e.setScrollTop == nil {
+func (parseE Element) SetScrollTop(parseScrollTop float64) error {
+	if parseE.setScrollTop == nil {
 		return unavailable("Element.SetScrollTop", "")
 	}
-	return e.setScrollTop(scrollTop)
+	return parseE.setScrollTop(parseScrollTop)
 }
 
-func (e Element) ScrollIntoView(options ...ScrollIntoViewOptions) error {
-	if e.scrollIntoView == nil {
+func (parseE Element) ScrollIntoView(parseOptions ...ScrollIntoViewOptions) error {
+	if parseE.scrollIntoView == nil {
 		return unavailable("Element.ScrollIntoView", "")
 	}
-	var resolved ScrollIntoViewOptions
-	if len(options) > 0 {
-		resolved = options[0]
+	var parseResolved ScrollIntoViewOptions
+	if len(parseOptions) > 0 {
+		parseResolved = parseOptions[0]
 	}
-	return e.scrollIntoView(resolved)
+	return parseE.scrollIntoView(parseResolved)
 }
 
-func (e Element) BoundingClientRect() (Rect, error) {
-	if e.boundingClientRect == nil {
+func (parseE Element) BoundingClientRect() (Rect, error) {
+	if parseE.boundingClientRect == nil {
 		return Rect{}, unavailable("Element.BoundingClientRect", "")
 	}
-	return e.boundingClientRect()
+	return parseE.boundingClientRect()
 }
 
-func (e Element) Events() (EventTarget, error) {
-	if e.events == nil {
+func (parseE Element) Events() (EventTarget, error) {
+	if parseE.events == nil {
 		return EventTarget{}, unavailable("Element.Events", "")
 	}
-	return e.events()
+	return parseE.events()
 }
 
-func (e Element) Listen(name string, handler func(BrowserEvent)) (Subscription, error) {
-	target, err := e.Events()
-	if err != nil {
-		return Subscription{}, err
+func (parseE Element) Listen(parseName string, parseHandler func(BrowserEvent)) (Subscription, error) {
+	parseTarget, parseErr := parseE.Events()
+	if parseErr != nil {
+		return Subscription{}, parseErr
 	}
-	return target.Listen(name, handler)
+	return parseTarget.Listen(parseName, parseHandler)
 }
 
-func (e Element) Subscribe(name string, handler func(CustomEvent)) (Subscription, error) {
-	target, err := e.Events()
-	if err != nil {
-		return Subscription{}, err
+func (parseE Element) Subscribe(parseName string, parseHandler func(CustomEvent)) (Subscription, error) {
+	parseTarget, parseErr := parseE.Events()
+	if parseErr != nil {
+		return Subscription{}, parseErr
 	}
-	return target.Subscribe(name, handler)
+	return parseTarget.Subscribe(parseName, parseHandler)
 }
 
-func (e Element) Dispatch(name string, detail any) error {
-	target, err := e.Events()
-	if err != nil {
-		return err
+func (parseE Element) Dispatch(parseName string, parseDetail any) error {
+	parseTarget, parseErr := parseE.Events()
+	if parseErr != nil {
+		return parseErr
 	}
-	return target.Dispatch(name, detail)
+	return parseTarget.Dispatch(parseName, parseDetail)
 }
 
-func (e Element) ObserveResize(handler func(ResizeEntry)) (Subscription, error) {
-	if e.observeResize == nil {
+func (parseE Element) ObserveResize(parseHandler func(ResizeEntry)) (Subscription, error) {
+	if parseE.observeResize == nil {
 		return Subscription{}, unavailable("Element.ObserveResize", "")
 	}
-	return e.observeResize(handler)
+	return parseE.observeResize(parseHandler)
 }
 
-func (e Element) ObserveIntersection(handler func(IntersectionEntry), options ...IntersectionObserverOptions) (Subscription, error) {
-	if e.observeIntersection == nil {
+func (parseE Element) ObserveIntersection(parseHandler func(IntersectionEntry), parseOptions ...IntersectionObserverOptions) (Subscription, error) {
+	if parseE.observeIntersection == nil {
 		return Subscription{}, unavailable("Element.ObserveIntersection", "")
 	}
-	var resolved IntersectionObserverOptions
-	if len(options) > 0 {
-		resolved = options[0]
+	var parseResolved IntersectionObserverOptions
+	if len(parseOptions) > 0 {
+		parseResolved = parseOptions[0]
 	}
-	return e.observeIntersection(resolved, handler)
+	return parseE.observeIntersection(parseResolved, parseHandler)
 }
 
 // ScrollMetrics returns the scrollTop, scrollHeight, and clientHeight of the
 // element — the three values needed to determine scroll position within a
 // scrollable container.
-func (e Element) ScrollMetrics() (scrollTop, scrollHeight, clientHeight float64, err error) {
-	if e.scrollMetrics == nil {
+func (parseE Element) ScrollMetrics() (parseScrollTop, parseScrollHeight, parseClientHeight float64, parseErr error) {
+	if parseE.scrollMetrics == nil {
 		return 0, 0, 0, unavailable("Element.ScrollMetrics", "")
 	}
-	return e.scrollMetrics()
+	return parseE.scrollMetrics()
 }
 
 type Document struct {
@@ -871,38 +871,38 @@ type Document struct {
 	querySelector func(string) (Element, bool, error)
 }
 
-func (d Document) ElementByID(id string) (Element, bool, error) {
-	if d.elementByID == nil {
+func (parseD Document) ElementByID(parseId string) (Element, bool, error) {
+	if parseD.elementByID == nil {
 		return Element{}, false, unavailable("Document.ElementByID", "")
 	}
-	return d.elementByID(id)
+	return parseD.elementByID(parseId)
 }
 
-func (d Document) QuerySelector(selector string) (Element, bool, error) {
-	if d.querySelector == nil {
+func (parseD Document) QuerySelector(parseSelector string) (Element, bool, error) {
+	if parseD.querySelector == nil {
 		return Element{}, false, unavailable("Document.QuerySelector", "")
 	}
-	return d.querySelector(selector)
+	return parseD.querySelector(parseSelector)
 }
 
-func (d Document) ElementsByID(ids ...string) (map[string]Element, error) {
-	if len(ids) == 0 {
+func (parseD Document) ElementsByID(parseIds ...string) (map[string]Element, error) {
+	if len(parseIds) == 0 {
 		return map[string]Element{}, nil
 	}
-	if d.elementsByID != nil {
-		return d.elementsByID(ids)
+	if parseD.elementsByID != nil {
+		return parseD.elementsByID(parseIds)
 	}
-	values := make(map[string]Element, len(ids))
-	for _, id := range ids {
-		element, ok, err := d.ElementByID(id)
-		if err != nil {
-			return nil, err
+	parseValues := make(map[string]Element, len(parseIds))
+	for _, parseId := range parseIds {
+		parseElement, parseOk, parseErr := parseD.ElementByID(parseId)
+		if parseErr != nil {
+			return nil, parseErr
 		}
-		if ok {
-			values[id] = element
+		if parseOk {
+			parseValues[parseId] = parseElement
 		}
 	}
-	return values, nil
+	return parseValues, nil
 }
 
 type Module struct {
@@ -912,41 +912,41 @@ type Module struct {
 	dispose     func() error
 }
 
-func (m Module) Call(ctx context.Context, export string, args ...any) (any, error) {
-	if m.call == nil {
-		return nil, unavailable("Module.Call", export)
+func (parseM Module) Call(parseCtx context.Context, parseExport string, parseArgs ...any) (any, error) {
+	if parseM.call == nil {
+		return nil, unavailable("Module.Call", parseExport)
 	}
-	if ctx == nil {
-		ctx = context.Background()
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	return m.call(ctx, export, args...)
+	return parseM.call(parseCtx, parseExport, parseArgs...)
 }
 
-func (m Module) CallDefault(ctx context.Context, args ...any) (any, error) {
-	if m.callDefault == nil {
+func (parseM Module) CallDefault(parseCtx context.Context, parseArgs ...any) (any, error) {
+	if parseM.callDefault == nil {
 		return nil, unavailable("Module.CallDefault", "default")
 	}
-	if ctx == nil {
-		ctx = context.Background()
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	return m.callDefault(ctx, args...)
+	return parseM.callDefault(parseCtx, parseArgs...)
 }
 
-func (m Module) Value(ctx context.Context, export string) (any, error) {
-	if m.value == nil {
-		return nil, unavailable("Module.Value", export)
+func (parseM Module) Value(parseCtx context.Context, parseExport string) (any, error) {
+	if parseM.value == nil {
+		return nil, unavailable("Module.Value", parseExport)
 	}
-	if ctx == nil {
-		ctx = context.Background()
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	return m.value(ctx, export)
+	return parseM.value(parseCtx, parseExport)
 }
 
-func (m Module) Dispose() error {
-	if m.dispose == nil {
+func (parseM Module) Dispose() error {
+	if parseM.dispose == nil {
 		return unavailable("Module.Dispose", "")
 	}
-	return m.dispose()
+	return parseM.dispose()
 }
 
 type WorkerOptions struct {
@@ -1167,575 +1167,575 @@ type WindowChannel struct {
 	closed              func() bool
 }
 
-func (c CrossTabChannel) Name() string {
-	if c.name == nil {
+func (parseC CrossTabChannel) Name() string {
+	if parseC.name == nil {
 		return ""
 	}
-	return c.name()
+	return parseC.name()
 }
 
-func (c CrossTabChannel) Transport() string {
-	if c.transport == nil {
+func (parseC CrossTabChannel) Transport() string {
+	if parseC.transport == nil {
 		return ""
 	}
-	return c.transport()
+	return parseC.transport()
 }
 
-func (c CrossTabChannel) Publish(payload any) error {
-	if c.publish == nil {
+func (parseC CrossTabChannel) Publish(parsePayload any) error {
+	if parseC.publish == nil {
 		return unavailable("CrossTabChannel.Publish", "")
 	}
-	return c.publish(payload)
+	return parseC.publish(parsePayload)
 }
 
-func (c CrossTabChannel) Subscribe(handler func(CrossTabEnvelope, error)) (Subscription, error) {
-	if c.subscribe == nil {
+func (parseC CrossTabChannel) Subscribe(parseHandler func(CrossTabEnvelope, error)) (Subscription, error) {
+	if parseC.subscribe == nil {
 		return Subscription{}, unavailable("CrossTabChannel.Subscribe", "")
 	}
-	return c.subscribe(handler)
+	return parseC.subscribe(parseHandler)
 }
 
-func (c CrossTabChannel) Close() error {
-	if c.close == nil {
+func (parseC CrossTabChannel) Close() error {
+	if parseC.close == nil {
 		return unavailable("CrossTabChannel.Close", "")
 	}
-	return c.close()
+	return parseC.close()
 }
 
-func (c WindowChannel) Name() string {
-	if c.name == nil {
+func (parseC WindowChannel) Name() string {
+	if parseC.name == nil {
 		return ""
 	}
-	return c.name()
+	return parseC.name()
 }
 
-func (c WindowChannel) TargetOrigin() string {
-	if c.targetOrigin == nil {
+func (parseC WindowChannel) TargetOrigin() string {
+	if parseC.targetOrigin == nil {
 		return ""
 	}
-	return c.targetOrigin()
+	return parseC.targetOrigin()
 }
 
-func (c WindowChannel) Publish(payload any) error {
-	if c.publish == nil {
+func (parseC WindowChannel) Publish(parsePayload any) error {
+	if parseC.publish == nil {
 		return unavailable("WindowChannel.Publish", "")
 	}
-	return c.publish(payload)
+	return parseC.publish(parsePayload)
 }
 
-func (c WindowChannel) Subscribe(handler func(WindowEnvelope, error)) (Subscription, error) {
-	if c.subscribe == nil {
+func (parseC WindowChannel) Subscribe(parseHandler func(WindowEnvelope, error)) (Subscription, error) {
+	if parseC.subscribe == nil {
 		return Subscription{}, unavailable("WindowChannel.Subscribe", "")
 	}
-	return c.subscribe(handler)
+	return parseC.subscribe(parseHandler)
 }
 
-func (c WindowChannel) Focus() error {
-	if c.focus == nil {
+func (parseC WindowChannel) Focus() error {
+	if parseC.focus == nil {
 		return unavailable("WindowChannel.Focus", "")
 	}
-	return c.focus()
+	return parseC.focus()
 }
 
-func (c WindowChannel) Close() error {
-	if c.close == nil {
+func (parseC WindowChannel) Close() error {
+	if parseC.close == nil {
 		return unavailable("WindowChannel.Close", "")
 	}
-	return c.close()
+	return parseC.close()
 }
 
-func (c WindowChannel) Closed() bool {
-	if c.closed == nil {
+func (parseC WindowChannel) Closed() bool {
+	if parseC.closed == nil {
 		return false
 	}
-	return c.closed()
+	return parseC.closed()
 }
 
-func (w Worker) Post(message any) error {
-	if w.post == nil {
+func (parseW Worker) Post(parseMessage any) error {
+	if parseW.post == nil {
 		return unavailable("Worker.Post", "")
 	}
-	return w.post(message)
+	return parseW.post(parseMessage)
 }
 
-func (w Worker) Subscribe(handler func(WorkerMessage, error)) (Subscription, error) {
-	if w.subscribe == nil {
+func (parseW Worker) Subscribe(parseHandler func(WorkerMessage, error)) (Subscription, error) {
+	if parseW.subscribe == nil {
 		return Subscription{}, unavailable("Worker.Subscribe", "")
 	}
-	return w.subscribe(handler)
+	return parseW.subscribe(parseHandler)
 }
 
-func (w Worker) Request(ctx context.Context, name string, payload any, onProgress func(WorkerMessage, error)) (WorkerMessage, error) {
-	if w.request == nil {
-		return WorkerMessage{}, unavailable("Worker.Request", name)
+func (parseW Worker) Request(parseCtx context.Context, parseName string, parsePayload any, parseOnProgress func(WorkerMessage, error)) (WorkerMessage, error) {
+	if parseW.request == nil {
+		return WorkerMessage{}, unavailable("Worker.Request", parseName)
 	}
-	if ctx == nil {
-		ctx = context.Background()
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	return w.request(ctx, name, payload, onProgress)
+	return parseW.request(parseCtx, parseName, parsePayload, parseOnProgress)
 }
 
-func (w Worker) Terminate() error {
-	if w.terminate == nil {
+func (parseW Worker) Terminate() error {
+	if parseW.terminate == nil {
 		return unavailable("Worker.Terminate", "")
 	}
-	return w.terminate()
+	return parseW.terminate()
 }
 
-func (w Worker) Restart(ctx context.Context) error {
-	if w.restart == nil {
+func (parseW Worker) Restart(parseCtx context.Context) error {
+	if parseW.restart == nil {
 		return unavailable("Worker.Restart", "")
 	}
-	if ctx == nil {
-		ctx = context.Background()
+	if parseCtx == nil {
+		parseCtx = context.Background()
 	}
-	return w.restart(ctx)
+	return parseW.restart(parseCtx)
 }
 
-func (w WorkerScope) Post(message WorkerMessage) error {
-	if w.post == nil {
+func (parseW WorkerScope) Post(parseMessage WorkerMessage) error {
+	if parseW.post == nil {
 		return unavailable("WorkerScope.Post", "")
 	}
-	return w.post(message)
+	return parseW.post(parseMessage)
 }
 
-func (w WorkerScope) Subscribe(handler func(WorkerMessage, error)) (Subscription, error) {
-	if w.subscribe == nil {
+func (parseW WorkerScope) Subscribe(parseHandler func(WorkerMessage, error)) (Subscription, error) {
+	if parseW.subscribe == nil {
 		return Subscription{}, unavailable("WorkerScope.Subscribe", "")
 	}
-	return w.subscribe(handler)
+	return parseW.subscribe(parseHandler)
 }
 
-func (w WorkerScope) Ready(name string) error {
-	return w.Post(WorkerMessage{Phase: "ready", Name: name})
+func (parseW WorkerScope) Ready(parseName string) error {
+	return parseW.Post(WorkerMessage{Phase: "ready", Name: parseName})
 }
 
-func (w WorkerScope) Message(name string, payload any) error {
-	return w.Post(WorkerMessage{Phase: "message", Name: name, Payload: payload})
+func (parseW WorkerScope) Message(parseName string, parsePayload any) error {
+	return parseW.Post(WorkerMessage{Phase: "message", Name: parseName, Payload: parsePayload})
 }
 
-func (w WorkerScope) Progress(id string, name string, payload any) error {
-	return w.Post(WorkerMessage{ID: id, Phase: "progress", Name: name, Payload: payload})
+func (parseW WorkerScope) Progress(parseId string, parseName string, parsePayload any) error {
+	return parseW.Post(WorkerMessage{ID: parseId, Phase: "progress", Name: parseName, Payload: parsePayload})
 }
 
-func (w WorkerScope) Result(id string, name string, payload any) error {
-	return w.Post(WorkerMessage{ID: id, Phase: "result", Name: name, Payload: payload})
+func (parseW WorkerScope) Result(parseId string, parseName string, parsePayload any) error {
+	return parseW.Post(WorkerMessage{ID: parseId, Phase: "result", Name: parseName, Payload: parsePayload})
 }
 
-func (w WorkerScope) Error(id string, name string, errText string, payload any) error {
-	return w.Post(WorkerMessage{ID: id, Phase: "error", Name: name, Error: errText, Payload: payload})
+func (parseW WorkerScope) Error(parseId string, parseName string, parseErrText string, parsePayload any) error {
+	return parseW.Post(WorkerMessage{ID: parseId, Phase: "error", Name: parseName, Error: parseErrText, Payload: parsePayload})
 }
 
-func DecodeWorkerMessage[T any](message WorkerMessage) (DecodedWorkerMessage[T], error) {
-	var payload T
-	if err := Decode(message.Payload, &payload); err != nil {
+func DecodeWorkerMessage[T any](parseMessage WorkerMessage) (DecodedWorkerMessage[T], error) {
+	var parsePayload T
+	if parseErr := Decode(parseMessage.Payload, &parsePayload); parseErr != nil {
 		return DecodedWorkerMessage[T]{
-			ID:    message.ID,
-			Phase: message.Phase,
-			Name:  message.Name,
-			Error: message.Error,
-		}, wrapError("DecodeWorkerMessage", message.Name, CodeDecode, err)
+			ID:    parseMessage.ID,
+			Phase: parseMessage.Phase,
+			Name:  parseMessage.Name,
+			Error: parseMessage.Error,
+		}, wrapError("DecodeWorkerMessage", parseMessage.Name, CodeDecode, parseErr)
 	}
 	return DecodedWorkerMessage[T]{
-		ID:      message.ID,
-		Phase:   message.Phase,
-		Name:    message.Name,
-		Payload: payload,
-		Error:   message.Error,
+		ID:      parseMessage.ID,
+		Phase:   parseMessage.Phase,
+		Name:    parseMessage.Name,
+		Payload: parsePayload,
+		Error:   parseMessage.Error,
 	}, nil
 }
 
-func SubscribeDecodedWorker[T any](worker Worker, handler func(DecodedWorkerMessage[T], error)) (Subscription, error) {
-	if handler == nil {
+func SubscribeDecodedWorker[T any](parseWorker Worker, parseHandler func(DecodedWorkerMessage[T], error)) (Subscription, error) {
+	if parseHandler == nil {
 		return Subscription{}, wrapError("SubscribeDecodedWorker", "", CodeInvalid, errors.New("handler is nil"))
 	}
-	return worker.Subscribe(func(message WorkerMessage, err error) {
-		if err != nil {
-			handler(DecodedWorkerMessage[T]{}, err)
+	return parseWorker.Subscribe(func(parseMessage WorkerMessage, parseErr error) {
+		if parseErr != nil {
+			parseHandler(DecodedWorkerMessage[T]{}, parseErr)
 			return
 		}
-		decoded, decodeErr := DecodeWorkerMessage[T](message)
-		handler(decoded, decodeErr)
+		parseDecoded, parseDecodeErr := DecodeWorkerMessage[T](parseMessage)
+		parseHandler(parseDecoded, parseDecodeErr)
 	})
 }
 
-func RequestWorkerDecoded[Req any, Progress any, Result any](ctx context.Context, worker Worker, name string, payload Req, onProgress func(DecodedWorkerMessage[Progress], error)) (Result, error) {
-	var zero Result
-	response, err := worker.Request(ctx, name, payload, func(message WorkerMessage, messageErr error) {
-		if onProgress == nil {
+func RequestWorkerDecoded[Req any, Progress any, Result any](parseCtx context.Context, parseWorker Worker, parseName string, parsePayload Req, parseOnProgress func(DecodedWorkerMessage[Progress], error)) (Result, error) {
+	var parseZero Result
+	parseResponse, parseErr := parseWorker.Request(parseCtx, parseName, parsePayload, func(parseMessage WorkerMessage, parseMessageErr error) {
+		if parseOnProgress == nil {
 			return
 		}
-		if messageErr != nil {
-			onProgress(DecodedWorkerMessage[Progress]{}, messageErr)
+		if parseMessageErr != nil {
+			parseOnProgress(DecodedWorkerMessage[Progress]{}, parseMessageErr)
 			return
 		}
-		decoded, decodeErr := DecodeWorkerMessage[Progress](message)
-		onProgress(decoded, decodeErr)
+		parseDecoded, parseDecodeErr := DecodeWorkerMessage[Progress](parseMessage)
+		parseOnProgress(parseDecoded, parseDecodeErr)
 	})
-	if err != nil {
-		return zero, err
+	if parseErr != nil {
+		return parseZero, parseErr
 	}
-	decoded, err := DecodeWorkerMessage[Result](response)
-	if err != nil {
-		return zero, err
+	parseDecoded2, parseErr := DecodeWorkerMessage[Result](parseResponse)
+	if parseErr != nil {
+		return parseZero, parseErr
 	}
-	return decoded.Payload, nil
+	return parseDecoded2.Payload, nil
 }
 
-func DecodeCrossTabEnvelope[T any](message CrossTabEnvelope) (DecodedCrossTabEnvelope[T], error) {
-	var payload T
-	if err := Decode(message.Payload, &payload); err != nil {
+func DecodeCrossTabEnvelope[T any](parseMessage CrossTabEnvelope) (DecodedCrossTabEnvelope[T], error) {
+	var parsePayload T
+	if parseErr := Decode(parseMessage.Payload, &parsePayload); parseErr != nil {
 		return DecodedCrossTabEnvelope[T]{
-			Name:     message.Name,
-			Source:   message.Source,
-			Sequence: message.Sequence,
-			SentAt:   message.SentAt,
-		}, wrapError("DecodeCrossTabEnvelope", message.Name, CodeDecode, err)
+			Name:     parseMessage.Name,
+			Source:   parseMessage.Source,
+			Sequence: parseMessage.Sequence,
+			SentAt:   parseMessage.SentAt,
+		}, wrapError("DecodeCrossTabEnvelope", parseMessage.Name, CodeDecode, parseErr)
 	}
 	return DecodedCrossTabEnvelope[T]{
-		Name:     message.Name,
-		Payload:  payload,
-		Source:   message.Source,
-		Sequence: message.Sequence,
-		SentAt:   message.SentAt,
+		Name:     parseMessage.Name,
+		Payload:  parsePayload,
+		Source:   parseMessage.Source,
+		Sequence: parseMessage.Sequence,
+		SentAt:   parseMessage.SentAt,
 	}, nil
 }
 
-func SubscribeDecodedCrossTab[T any](channel CrossTabChannel, handler func(DecodedCrossTabEnvelope[T], error)) (Subscription, error) {
-	if handler == nil {
-		return Subscription{}, wrapError("SubscribeDecodedCrossTab", channel.Name(), CodeInvalid, errors.New("handler is nil"))
+func SubscribeDecodedCrossTab[T any](parseChannel CrossTabChannel, parseHandler func(DecodedCrossTabEnvelope[T], error)) (Subscription, error) {
+	if parseHandler == nil {
+		return Subscription{}, wrapError("SubscribeDecodedCrossTab", parseChannel.Name(), CodeInvalid, errors.New("handler is nil"))
 	}
-	return channel.Subscribe(func(message CrossTabEnvelope, err error) {
-		if err != nil {
-			handler(DecodedCrossTabEnvelope[T]{}, err)
+	return parseChannel.Subscribe(func(parseMessage CrossTabEnvelope, parseErr error) {
+		if parseErr != nil {
+			parseHandler(DecodedCrossTabEnvelope[T]{}, parseErr)
 			return
 		}
-		decoded, decodeErr := DecodeCrossTabEnvelope[T](message)
-		handler(decoded, decodeErr)
+		parseDecoded, parseDecodeErr := DecodeCrossTabEnvelope[T](parseMessage)
+		parseHandler(parseDecoded, parseDecodeErr)
 	})
 }
 
-func DecodeWindowEnvelope[T any](message WindowEnvelope) (DecodedWindowEnvelope[T], error) {
-	var payload T
-	if err := Decode(message.Payload, &payload); err != nil {
+func DecodeWindowEnvelope[T any](parseMessage WindowEnvelope) (DecodedWindowEnvelope[T], error) {
+	var parsePayload T
+	if parseErr := Decode(parseMessage.Payload, &parsePayload); parseErr != nil {
 		return DecodedWindowEnvelope[T]{
-			Name:   message.Name,
-			Source: message.Source,
-			SentAt: message.SentAt,
-		}, wrapError("DecodeWindowEnvelope", message.Name, CodeDecode, err)
+			Name:   parseMessage.Name,
+			Source: parseMessage.Source,
+			SentAt: parseMessage.SentAt,
+		}, wrapError("DecodeWindowEnvelope", parseMessage.Name, CodeDecode, parseErr)
 	}
 	return DecodedWindowEnvelope[T]{
-		Name:    message.Name,
-		Payload: payload,
-		Source:  message.Source,
-		SentAt:  message.SentAt,
+		Name:    parseMessage.Name,
+		Payload: parsePayload,
+		Source:  parseMessage.Source,
+		SentAt:  parseMessage.SentAt,
 	}, nil
 }
 
 // DecodeClientMessage decodes a ClientMessage from an interop payload value.
-func DecodeClientMessage(value any) (ClientMessage, error) {
-	message, err := decodeClientMessageValue(value)
-	if err != nil {
-		return ClientMessage{}, err
+func DecodeClientMessage(parseValue any) (ClientMessage, error) {
+	parseMessage, parseErr := decodeClientMessageValue(parseValue)
+	if parseErr != nil {
+		return ClientMessage{}, parseErr
 	}
-	if err := validateClientMessage("DecodeClientMessage", message.Topic, message); err != nil {
-		return ClientMessage{}, err
+	if parseErr2 := validateClientMessage("DecodeClientMessage", parseMessage.Topic, parseMessage); parseErr2 != nil {
+		return ClientMessage{}, parseErr2
 	}
-	return message, nil
+	return parseMessage, nil
 }
 
 // PublishClientMessage encodes and sends a ClientMessage over a CrossTabChannel.
-func PublishClientMessage(channel CrossTabChannel, message ClientMessage) error {
-	prepared, err := prepareClientMessage("PublishClientMessage", channel.Name(), message)
-	if err != nil {
-		return err
+func PublishClientMessage(parseChannel CrossTabChannel, parseMessage ClientMessage) error {
+	parsePrepared, parseErr := prepareClientMessage("PublishClientMessage", parseChannel.Name(), parseMessage)
+	if parseErr != nil {
+		return parseErr
 	}
-	return channel.Publish(prepared)
+	return parseChannel.Publish(parsePrepared)
 }
 
 // PublishClientWindowMessage encodes and sends a ClientMessage over a WindowChannel.
-func PublishClientWindowMessage(channel WindowChannel, message ClientMessage) error {
-	prepared, err := prepareClientMessage("PublishClientWindowMessage", channel.Name(), message)
-	if err != nil {
-		return err
+func PublishClientWindowMessage(parseChannel WindowChannel, parseMessage ClientMessage) error {
+	parsePrepared, parseErr := prepareClientMessage("PublishClientWindowMessage", parseChannel.Name(), parseMessage)
+	if parseErr != nil {
+		return parseErr
 	}
-	return channel.Publish(prepared)
+	return parseChannel.Publish(parsePrepared)
 }
 
 // SubscribeClientMessages decodes incoming CrossTabChannel envelopes as ClientMessages and invokes handler.
-func SubscribeClientMessages(channel CrossTabChannel, handler func(ClientMessage, error)) (Subscription, error) {
-	if handler == nil {
-		return Subscription{}, wrapError("SubscribeClientMessages", channel.Name(), CodeInvalid, errors.New("handler is nil"))
+func SubscribeClientMessages(parseChannel CrossTabChannel, parseHandler func(ClientMessage, error)) (Subscription, error) {
+	if parseHandler == nil {
+		return Subscription{}, wrapError("SubscribeClientMessages", parseChannel.Name(), CodeInvalid, errors.New("handler is nil"))
 	}
-	return channel.Subscribe(func(message CrossTabEnvelope, err error) {
-		if err != nil {
-			handler(ClientMessage{}, err)
+	return parseChannel.Subscribe(func(parseMessage CrossTabEnvelope, parseErr error) {
+		if parseErr != nil {
+			parseHandler(ClientMessage{}, parseErr)
 			return
 		}
-		decoded, decodeErr := DecodeClientMessage(message.Payload)
-		handler(decoded, decodeErr)
+		parseDecoded, parseDecodeErr := DecodeClientMessage(parseMessage.Payload)
+		parseHandler(parseDecoded, parseDecodeErr)
 	})
 }
 
 // SubscribeClientWindowMessages decodes incoming WindowChannel envelopes as ClientMessages and invokes handler.
-func SubscribeClientWindowMessages(channel WindowChannel, handler func(ClientMessage, error)) (Subscription, error) {
-	if handler == nil {
-		return Subscription{}, wrapError("SubscribeClientWindowMessages", channel.Name(), CodeInvalid, errors.New("handler is nil"))
+func SubscribeClientWindowMessages(parseChannel WindowChannel, parseHandler func(ClientMessage, error)) (Subscription, error) {
+	if parseHandler == nil {
+		return Subscription{}, wrapError("SubscribeClientWindowMessages", parseChannel.Name(), CodeInvalid, errors.New("handler is nil"))
 	}
-	return channel.Subscribe(func(message WindowEnvelope, err error) {
-		if err != nil {
-			handler(ClientMessage{}, err)
+	return parseChannel.Subscribe(func(parseMessage WindowEnvelope, parseErr error) {
+		if parseErr != nil {
+			parseHandler(ClientMessage{}, parseErr)
 			return
 		}
-		decoded, decodeErr := DecodeClientMessage(message.Payload)
-		handler(decoded, decodeErr)
+		parseDecoded, parseDecodeErr := DecodeClientMessage(parseMessage.Payload)
+		parseHandler(parseDecoded, parseDecodeErr)
 	})
 }
 
 // PublishClientHello sends a ClientHello presence message on a CrossTabChannel with default capabilities.
-func PublishClientHello(channel CrossTabChannel, self ClientIdentity) error {
-	capabilities := defaultCrossTabClientCapabilities(channel)
-	return PublishClientHelloWithCapabilities(channel, self, capabilities)
+func PublishClientHello(parseChannel CrossTabChannel, parseSelf ClientIdentity) error {
+	parseCapabilities := defaultCrossTabClientCapabilities(parseChannel)
+	return PublishClientHelloWithCapabilities(parseChannel, parseSelf, parseCapabilities)
 }
 
 // PublishClientHelloWithCapabilities sends a ClientHello presence message on a CrossTabChannel with explicit capabilities.
-func PublishClientHelloWithCapabilities(channel CrossTabChannel, self ClientIdentity, capabilities ClientCapabilities) error {
-	return PublishClientMessage(channel, ClientMessage{
+func PublishClientHelloWithCapabilities(parseChannel CrossTabChannel, parseSelf ClientIdentity, parseCapabilities ClientCapabilities) error {
+	return PublishClientMessage(parseChannel, ClientMessage{
 		Kind:         ClientHello,
 		Topic:        ClientPresenceTopic,
-		Source:       self,
-		Capabilities: &capabilities,
+		Source:       parseSelf,
+		Capabilities: &parseCapabilities,
 	})
 }
 
 // PublishClientHelloWindow sends a ClientHello presence message on a WindowChannel with default capabilities.
-func PublishClientHelloWindow(channel WindowChannel, self ClientIdentity) error {
-	capabilities := defaultWindowClientCapabilities(channel)
-	return PublishClientHelloWindowWithCapabilities(channel, self, capabilities)
+func PublishClientHelloWindow(parseChannel WindowChannel, parseSelf ClientIdentity) error {
+	parseCapabilities := defaultWindowClientCapabilities(parseChannel)
+	return PublishClientHelloWindowWithCapabilities(parseChannel, parseSelf, parseCapabilities)
 }
 
 // PublishClientHelloWindowWithCapabilities sends a ClientHello presence message on a WindowChannel with explicit capabilities.
-func PublishClientHelloWindowWithCapabilities(channel WindowChannel, self ClientIdentity, capabilities ClientCapabilities) error {
-	return PublishClientWindowMessage(channel, ClientMessage{
+func PublishClientHelloWindowWithCapabilities(parseChannel WindowChannel, parseSelf ClientIdentity, parseCapabilities ClientCapabilities) error {
+	return PublishClientWindowMessage(parseChannel, ClientMessage{
 		Kind:         ClientHello,
 		Topic:        ClientPresenceTopic,
-		Source:       self,
-		Capabilities: &capabilities,
+		Source:       parseSelf,
+		Capabilities: &parseCapabilities,
 	})
 }
 
 // PublishClientGoodbye sends a ClientGoodbye presence message on a CrossTabChannel.
-func PublishClientGoodbye(channel CrossTabChannel, self ClientIdentity) error {
-	return PublishClientMessage(channel, ClientMessage{
+func PublishClientGoodbye(parseChannel CrossTabChannel, parseSelf ClientIdentity) error {
+	return PublishClientMessage(parseChannel, ClientMessage{
 		Kind:   ClientGoodbye,
 		Topic:  ClientPresenceTopic,
-		Source: self,
+		Source: parseSelf,
 	})
 }
 
 // PublishClientGoodbyeWindow sends a ClientGoodbye presence message on a WindowChannel.
-func PublishClientGoodbyeWindow(channel WindowChannel, self ClientIdentity) error {
-	return PublishClientWindowMessage(channel, ClientMessage{
+func PublishClientGoodbyeWindow(parseChannel WindowChannel, parseSelf ClientIdentity) error {
+	return PublishClientWindowMessage(parseChannel, ClientMessage{
 		Kind:   ClientGoodbye,
 		Topic:  ClientPresenceTopic,
-		Source: self,
+		Source: parseSelf,
 	})
 }
 
 // PublishClientEvent sends a ClientEvent message on a CrossTabChannel to a named topic.
-func PublishClientEvent(channel CrossTabChannel, topic string, self ClientIdentity, payload any) error {
-	return PublishClientMessage(channel, ClientMessage{
+func PublishClientEvent(parseChannel CrossTabChannel, parseTopic string, parseSelf ClientIdentity, parsePayload any) error {
+	return PublishClientMessage(parseChannel, ClientMessage{
 		Kind:    ClientEvent,
-		Topic:   strings.TrimSpace(topic),
-		Source:  self,
-		Payload: payload,
+		Topic:   strings.TrimSpace(parseTopic),
+		Source:  parseSelf,
+		Payload: parsePayload,
 	})
 }
 
 // PublishClientIntent sends a directed ClientIntent message on a WindowChannel.
-func PublishClientIntent(channel WindowChannel, topic string, self ClientIdentity, target string, payload any) error {
-	trimmedTarget := strings.TrimSpace(target)
-	if trimmedTarget == "" {
-		return wrapError("PublishClientIntent", channel.Name(), CodeInvalid, errors.New("target is empty"))
+func PublishClientIntent(parseChannel WindowChannel, parseTopic string, parseSelf ClientIdentity, parseTarget string, parsePayload any) error {
+	parseTrimmedTarget := strings.TrimSpace(parseTarget)
+	if parseTrimmedTarget == "" {
+		return wrapError("PublishClientIntent", parseChannel.Name(), CodeInvalid, errors.New("target is empty"))
 	}
-	return PublishClientWindowMessage(channel, ClientMessage{
+	return PublishClientWindowMessage(parseChannel, ClientMessage{
 		Kind:    ClientIntent,
-		Topic:   strings.TrimSpace(topic),
-		Source:  self,
-		Target:  trimmedTarget,
-		Payload: payload,
+		Topic:   strings.TrimSpace(parseTopic),
+		Source:  parseSelf,
+		Target:  parseTrimmedTarget,
+		Payload: parsePayload,
 	})
 }
 
 // PublishClientInvalidation sends a ClientInvalidate message on a CrossTabChannel for a given topic and revision.
-func PublishClientInvalidation(channel CrossTabChannel, topic string, self ClientIdentity, revision string) error {
-	trimmedRevision := strings.TrimSpace(revision)
-	if trimmedRevision == "" {
-		return wrapError("PublishClientInvalidation", channel.Name(), CodeInvalid, errors.New("revision is empty"))
+func PublishClientInvalidation(parseChannel CrossTabChannel, parseTopic string, parseSelf ClientIdentity, parseRevision string) error {
+	parseTrimmedRevision := strings.TrimSpace(parseRevision)
+	if parseTrimmedRevision == "" {
+		return wrapError("PublishClientInvalidation", parseChannel.Name(), CodeInvalid, errors.New("revision is empty"))
 	}
-	return PublishClientMessage(channel, ClientMessage{
+	return PublishClientMessage(parseChannel, ClientMessage{
 		Kind:     ClientInvalidate,
-		Topic:    strings.TrimSpace(topic),
-		Source:   self,
-		Revision: trimmedRevision,
+		Topic:    strings.TrimSpace(parseTopic),
+		Source:   parseSelf,
+		Revision: parseTrimmedRevision,
 	})
 }
 
 // PublishClientQuery sends a ClientQuery message on a CrossTabChannel for a given topic.
-func PublishClientQuery(channel CrossTabChannel, topic string, self ClientIdentity) error {
-	return PublishClientMessage(channel, ClientMessage{
+func PublishClientQuery(parseChannel CrossTabChannel, parseTopic string, parseSelf ClientIdentity) error {
+	return PublishClientMessage(parseChannel, ClientMessage{
 		Kind:   ClientQuery,
-		Topic:  strings.TrimSpace(topic),
-		Source: self,
+		Topic:  strings.TrimSpace(parseTopic),
+		Source: parseSelf,
 	})
 }
 
 // PublishClientResult sends a directed ClientResult message on a CrossTabChannel.
-func PublishClientResult(channel CrossTabChannel, topic string, self ClientIdentity, target string, payload any) error {
-	trimmedTarget := strings.TrimSpace(target)
-	if trimmedTarget == "" {
-		return wrapError("PublishClientResult", channel.Name(), CodeInvalid, errors.New("target is empty"))
+func PublishClientResult(parseChannel CrossTabChannel, parseTopic string, parseSelf ClientIdentity, parseTarget string, parsePayload any) error {
+	parseTrimmedTarget := strings.TrimSpace(parseTarget)
+	if parseTrimmedTarget == "" {
+		return wrapError("PublishClientResult", parseChannel.Name(), CodeInvalid, errors.New("target is empty"))
 	}
-	return PublishClientMessage(channel, ClientMessage{
+	return PublishClientMessage(parseChannel, ClientMessage{
 		Kind:    ClientResult,
-		Topic:   strings.TrimSpace(topic),
-		Source:  self,
-		Target:  trimmedTarget,
-		Payload: payload,
+		Topic:   strings.TrimSpace(parseTopic),
+		Source:  parseSelf,
+		Target:  parseTrimmedTarget,
+		Payload: parsePayload,
 	})
 }
 
 // PublishClientBinaryWindow sends a binary ClientEvent on a WindowChannel to a specific target.
-func PublishClientBinaryWindow(channel WindowChannel, topic string, self ClientIdentity, target string, payload ClientBinaryPayload) error {
-	trimmedTarget := strings.TrimSpace(target)
-	if trimmedTarget == "" {
-		return wrapError("PublishClientBinaryWindow", channel.Name(), CodeInvalid, errors.New("target is empty"))
+func PublishClientBinaryWindow(parseChannel WindowChannel, parseTopic string, parseSelf ClientIdentity, parseTarget string, parsePayload ClientBinaryPayload) error {
+	parseTrimmedTarget := strings.TrimSpace(parseTarget)
+	if parseTrimmedTarget == "" {
+		return wrapError("PublishClientBinaryWindow", parseChannel.Name(), CodeInvalid, errors.New("target is empty"))
 	}
-	prepared, err := prepareClientBinaryMessage("PublishClientBinaryWindow", channel.Name(), ClientMessage{
+	parsePrepared, parseErr := prepareClientBinaryMessage("PublishClientBinaryWindow", parseChannel.Name(), ClientMessage{
 		Kind:        ClientEvent,
-		Topic:       strings.TrimSpace(topic),
-		Source:      self,
-		Target:      trimmedTarget,
+		Topic:       strings.TrimSpace(parseTopic),
+		Source:      parseSelf,
+		Target:      parseTrimmedTarget,
 		Encoding:    ClientPayloadBinary,
-		ContentType: strings.TrimSpace(payload.ContentType),
-		Payload:     append([]byte(nil), payload.Bytes...),
+		ContentType: strings.TrimSpace(parsePayload.ContentType),
+		Payload:     append([]byte(nil), parsePayload.Bytes...),
 	})
-	if err != nil {
-		return err
+	if parseErr != nil {
+		return parseErr
 	}
-	if channel.publishClientBinary != nil {
-		return channel.publishClientBinary(prepared)
+	if parseChannel.publishClientBinary != nil {
+		return parseChannel.publishClientBinary(parsePrepared)
 	}
-	return PublishClientWindowMessage(channel, prepared)
+	return PublishClientWindowMessage(parseChannel, parsePrepared)
 }
 
 // PublishClientBinaryCrossTab sends a binary ClientEvent on a CrossTabChannel.
-func PublishClientBinaryCrossTab(channel CrossTabChannel, topic string, self ClientIdentity, payload ClientBinaryPayload) error {
-	prepared, err := prepareClientBinaryMessage("PublishClientBinaryCrossTab", channel.Name(), ClientMessage{
+func PublishClientBinaryCrossTab(parseChannel CrossTabChannel, parseTopic string, parseSelf ClientIdentity, parsePayload ClientBinaryPayload) error {
+	parsePrepared, parseErr := prepareClientBinaryMessage("PublishClientBinaryCrossTab", parseChannel.Name(), ClientMessage{
 		Kind:        ClientEvent,
-		Topic:       strings.TrimSpace(topic),
-		Source:      self,
+		Topic:       strings.TrimSpace(parseTopic),
+		Source:      parseSelf,
 		Encoding:    ClientPayloadBinary,
-		ContentType: strings.TrimSpace(payload.ContentType),
-		Payload:     append([]byte(nil), payload.Bytes...),
+		ContentType: strings.TrimSpace(parsePayload.ContentType),
+		Payload:     append([]byte(nil), parsePayload.Bytes...),
 	})
-	if err != nil {
-		return err
+	if parseErr != nil {
+		return parseErr
 	}
-	if channel.publishClientBinary != nil {
-		return channel.publishClientBinary(prepared)
+	if parseChannel.publishClientBinary != nil {
+		return parseChannel.publishClientBinary(parsePrepared)
 	}
-	return PublishClientMessage(channel, prepared)
+	return PublishClientMessage(parseChannel, parsePrepared)
 }
 
-func prepareClientMessage(op string, target string, message ClientMessage) (ClientMessage, error) {
-	if err := validateClientMessage(op, target, message); err != nil {
-		return ClientMessage{}, err
+func prepareClientMessage(parseOp string, parseTarget string, parseMessage ClientMessage) (ClientMessage, error) {
+	if parseErr := validateClientMessage(parseOp, parseTarget, parseMessage); parseErr != nil {
+		return ClientMessage{}, parseErr
 	}
-	if message.SentAt.IsZero() {
-		message.SentAt = time.Now().UTC()
+	if parseMessage.SentAt.IsZero() {
+		parseMessage.SentAt = time.Now().UTC()
 	}
-	return message, nil
+	return parseMessage, nil
 }
 
-func prepareClientBinaryMessage(op string, target string, message ClientMessage) (ClientMessage, error) {
-	prepared, err := prepareClientMessage(op, target, message)
-	if err != nil {
-		return ClientMessage{}, err
+func prepareClientBinaryMessage(parseOp string, parseTarget string, parseMessage ClientMessage) (ClientMessage, error) {
+	parsePrepared, parseErr := prepareClientMessage(parseOp, parseTarget, parseMessage)
+	if parseErr != nil {
+		return ClientMessage{}, parseErr
 	}
-	prepared.Encoding = ClientPayloadBinary
-	bytes, ok := prepared.Payload.([]byte)
-	if !ok {
-		return ClientMessage{}, wrapError(op, target, CodeInvalid, errors.New("binary payload must be []byte"))
+	parsePrepared.Encoding = ClientPayloadBinary
+	parseBytes, parseOk := parsePrepared.Payload.([]byte)
+	if !parseOk {
+		return ClientMessage{}, wrapError(parseOp, parseTarget, CodeInvalid, errors.New("binary payload must be []byte"))
 	}
-	if len(bytes) == 0 {
-		return ClientMessage{}, wrapError(op, target, CodeInvalid, errors.New("binary payload is empty"))
+	if len(parseBytes) == 0 {
+		return ClientMessage{}, wrapError(parseOp, parseTarget, CodeInvalid, errors.New("binary payload is empty"))
 	}
-	if strings.TrimSpace(prepared.ContentType) == "" {
-		return ClientMessage{}, wrapError(op, target, CodeInvalid, errors.New("binary content type is empty"))
+	if strings.TrimSpace(parsePrepared.ContentType) == "" {
+		return ClientMessage{}, wrapError(parseOp, parseTarget, CodeInvalid, errors.New("binary content type is empty"))
 	}
-	prepared.Payload = append([]byte(nil), bytes...)
-	return prepared, nil
+	parsePrepared.Payload = append([]byte(nil), parseBytes...)
+	return parsePrepared, nil
 }
 
-func validateClientMessage(op string, target string, message ClientMessage) error {
-	if err := validateClientIdentity(op, target, message.Source); err != nil {
-		return err
+func validateClientMessage(parseOp string, parseTarget string, parseMessage ClientMessage) error {
+	if parseErr := validateClientIdentity(parseOp, parseTarget, parseMessage.Source); parseErr != nil {
+		return parseErr
 	}
-	if strings.TrimSpace(message.Topic) == "" {
-		return wrapError(op, target, CodeInvalid, errors.New("client topic is empty"))
+	if strings.TrimSpace(parseMessage.Topic) == "" {
+		return wrapError(parseOp, parseTarget, CodeInvalid, errors.New("client topic is empty"))
 	}
-	switch message.Kind {
+	switch parseMessage.Kind {
 	case ClientHello, ClientGoodbye, ClientEvent, ClientIntent, ClientQuery, ClientResult, ClientInvalidate, ClientError:
 	default:
-		return wrapError(op, target, CodeInvalid, errors.New("client message kind is empty or unknown"))
+		return wrapError(parseOp, parseTarget, CodeInvalid, errors.New("client message kind is empty or unknown"))
 	}
-	switch message.Encoding {
+	switch parseMessage.Encoding {
 	case "", ClientPayloadJSON, ClientPayloadBinary:
 	default:
-		return wrapError(op, target, CodeInvalid, errors.New("client payload encoding is empty or unknown"))
+		return wrapError(parseOp, parseTarget, CodeInvalid, errors.New("client payload encoding is empty or unknown"))
 	}
-	if message.Encoding == ClientPayloadBinary {
-		if _, ok := message.Payload.([]byte); !ok {
-			return wrapError(op, target, CodeInvalid, errors.New("binary client payload must be []byte"))
+	if parseMessage.Encoding == ClientPayloadBinary {
+		if _, parseOk := parseMessage.Payload.([]byte); !parseOk {
+			return wrapError(parseOp, parseTarget, CodeInvalid, errors.New("binary client payload must be []byte"))
 		}
 	}
-	if err := validateClientTopicAuthorization(op, target, message); err != nil {
-		return err
+	if parseErr2 := validateClientTopicAuthorization(parseOp, parseTarget, parseMessage); parseErr2 != nil {
+		return parseErr2
 	}
 	return nil
 }
 
-func validateClientTopicAuthorization(op string, target string, message ClientMessage) error {
-	topic := strings.ToLower(strings.TrimSpace(message.Topic))
-	if !isPrivilegedClientTopic(topic) {
+func validateClientTopicAuthorization(parseOp string, parseTarget string, parseMessage ClientMessage) error {
+	parseTopic := strings.ToLower(strings.TrimSpace(parseMessage.Topic))
+	if !isPrivilegedClientTopic(parseTopic) {
 		return nil
 	}
-	role := normalizeClientRole(message.Source.Role)
-	if clientRoleMayUsePrivilegedTopic(role) {
+	parseRole := normalizeClientRole(parseMessage.Source.Role)
+	if clientRoleMayUsePrivilegedTopic(parseRole) {
 		return nil
 	}
-	if message.Kind == ClientIntent {
-		return wrapError(op, target, CodeUnauthorized, errors.New("client role is not authorized to publish privileged intent topic"))
+	if parseMessage.Kind == ClientIntent {
+		return wrapError(parseOp, parseTarget, CodeUnauthorized, errors.New("client role is not authorized to publish privileged intent topic"))
 	}
-	return wrapError(op, target, CodeUnauthorized, errors.New("client role is not authorized for privileged topic"))
+	return wrapError(parseOp, parseTarget, CodeUnauthorized, errors.New("client role is not authorized for privileged topic"))
 }
 
-func isPrivilegedClientTopic(topic string) bool {
+func isPrivilegedClientTopic(parseTopic string) bool {
 	switch {
-	case strings.HasPrefix(topic, "session:"), strings.HasPrefix(topic, "operator:"), strings.HasPrefix(topic, "intent:session"), strings.HasPrefix(topic, "intent:operator"):
+	case strings.HasPrefix(parseTopic, "session:"), strings.HasPrefix(parseTopic, "operator:"), strings.HasPrefix(parseTopic, "intent:session"), strings.HasPrefix(parseTopic, "intent:operator"):
 		return true
 	default:
 		return false
 	}
 }
 
-func normalizeClientRole(role string) string {
-	return strings.ToLower(strings.TrimSpace(role))
+func normalizeClientRole(parseRole string) string {
+	return strings.ToLower(strings.TrimSpace(parseRole))
 }
 
-func clientRoleMayUsePrivilegedTopic(role string) bool {
-	switch role {
+func clientRoleMayUsePrivilegedTopic(parseRole string) bool {
+	switch parseRole {
 	case "operator", "admin", "system":
 		return true
 	default:
@@ -1743,167 +1743,167 @@ func clientRoleMayUsePrivilegedTopic(role string) bool {
 	}
 }
 
-func decodeClientMessageValue(value any) (ClientMessage, error) {
-	switch typed := value.(type) {
+func decodeClientMessageValue(parseValue any) (ClientMessage, error) {
+	switch parseTyped := parseValue.(type) {
 	case ClientMessage:
-		return typed, nil
+		return parseTyped, nil
 	case map[string]any:
-		return decodeClientMessageMap(typed)
+		return decodeClientMessageMap(parseTyped)
 	default:
-		var message ClientMessage
-		if err := Decode(value, &message); err != nil {
-			return ClientMessage{}, err
+		var parseMessage ClientMessage
+		if parseErr := Decode(parseValue, &parseMessage); parseErr != nil {
+			return ClientMessage{}, parseErr
 		}
-		return message, nil
+		return parseMessage, nil
 	}
 }
 
-func decodeClientMessageMap(data map[string]any) (ClientMessage, error) {
-	message := ClientMessage{
-		ID:          stringField(data, "id"),
-		Kind:        ClientMessageKind(stringField(data, "kind")),
-		Topic:       stringField(data, "topic"),
-		Target:      stringField(data, "target"),
-		Revision:    stringField(data, "revision"),
-		Error:       stringField(data, "error"),
-		Encoding:    ClientPayloadEncoding(stringField(data, "encoding")),
-		ContentType: stringField(data, "contentType"),
+func decodeClientMessageMap(parseData map[string]any) (ClientMessage, error) {
+	parseMessage := ClientMessage{
+		ID:          stringField(parseData, "id"),
+		Kind:        ClientMessageKind(stringField(parseData, "kind")),
+		Topic:       stringField(parseData, "topic"),
+		Target:      stringField(parseData, "target"),
+		Revision:    stringField(parseData, "revision"),
+		Error:       stringField(parseData, "error"),
+		Encoding:    ClientPayloadEncoding(stringField(parseData, "encoding")),
+		ContentType: stringField(parseData, "contentType"),
 	}
-	if source, ok := data["source"].(map[string]any); ok {
-		message.Source = ClientIdentity{
-			ID:      stringField(source, "id"),
-			App:     stringField(source, "app"),
-			Surface: stringField(source, "surface"),
-			Role:    stringField(source, "role"),
-			Version: stringField(source, "version"),
+	if parseSource, parseOk := parseData["source"].(map[string]any); parseOk {
+		parseMessage.Source = ClientIdentity{
+			ID:      stringField(parseSource, "id"),
+			App:     stringField(parseSource, "app"),
+			Surface: stringField(parseSource, "surface"),
+			Role:    stringField(parseSource, "role"),
+			Version: stringField(parseSource, "version"),
 		}
 	}
-	if capabilities, ok := data["capabilities"].(map[string]any); ok {
-		message.Capabilities = decodeClientCapabilitiesMap(capabilities)
+	if parseCapabilities, parseOk2 := parseData["capabilities"].(map[string]any); parseOk2 {
+		parseMessage.Capabilities = decodeClientCapabilitiesMap(parseCapabilities)
 	}
-	if payload, ok := data["payload"]; ok {
-		message.Payload = payload
+	if parsePayload, parseOk3 := parseData["payload"]; parseOk3 {
+		parseMessage.Payload = parsePayload
 	}
-	if sentAt, ok := clientTimeField(data["sentAt"]); ok {
-		message.SentAt = sentAt
+	if parseSentAt, parseOk4 := clientTimeField(parseData["sentAt"]); parseOk4 {
+		parseMessage.SentAt = parseSentAt
 	}
-	return message, nil
+	return parseMessage, nil
 }
 
-func decodeClientCapabilitiesMap(data map[string]any) *ClientCapabilities {
-	capabilities := &ClientCapabilities{
-		ProtocolVersion: stringField(data, "protocolVersion"),
-		Transports:      stringSliceField(data["transports"]),
-		Encodings:       stringSliceField(data["encodings"]),
-		Topics:          stringSliceField(data["topics"]),
-		MaxJSONBytes:    intField(data["maxJsonBytes"]),
-		MaxBinaryBytes:  intField(data["maxBinaryBytes"]),
+func decodeClientCapabilitiesMap(parseData map[string]any) *ClientCapabilities {
+	parseCapabilities := &ClientCapabilities{
+		ProtocolVersion: stringField(parseData, "protocolVersion"),
+		Transports:      stringSliceField(parseData["transports"]),
+		Encodings:       stringSliceField(parseData["encodings"]),
+		Topics:          stringSliceField(parseData["topics"]),
+		MaxJSONBytes:    intField(parseData["maxJsonBytes"]),
+		MaxBinaryBytes:  intField(parseData["maxBinaryBytes"]),
 	}
-	return capabilities
+	return parseCapabilities
 }
 
-func stringField(data map[string]any, key string) string {
-	value, ok := data[key]
-	if !ok {
+func stringField(parseData map[string]any, parseKey string) string {
+	parseValue, parseOk := parseData[parseKey]
+	if !parseOk {
 		return ""
 	}
-	switch typed := value.(type) {
+	switch parseTyped := parseValue.(type) {
 	case string:
-		return typed
+		return parseTyped
 	default:
 		return ""
 	}
 }
 
-func stringSliceField(value any) []string {
-	switch typed := value.(type) {
+func stringSliceField(parseValue any) []string {
+	switch parseTyped := parseValue.(type) {
 	case []string:
-		return append([]string(nil), typed...)
+		return append([]string(nil), parseTyped...)
 	case []any:
-		values := make([]string, 0, len(typed))
-		for _, entry := range typed {
-			text, ok := entry.(string)
-			if ok && strings.TrimSpace(text) != "" {
-				values = append(values, text)
+		parseValues := make([]string, 0, len(parseTyped))
+		for _, parseEntry := range parseTyped {
+			parseText, parseOk := parseEntry.(string)
+			if parseOk && strings.TrimSpace(parseText) != "" {
+				parseValues = append(parseValues, parseText)
 			}
 		}
-		return values
+		return parseValues
 	default:
 		return nil
 	}
 }
 
-func intField(value any) int {
-	switch typed := value.(type) {
+func intField(parseValue any) int {
+	switch parseTyped := parseValue.(type) {
 	case int:
-		return typed
+		return parseTyped
 	case int64:
-		return int(typed)
+		return int(parseTyped)
 	case float64:
-		return int(typed)
+		return int(parseTyped)
 	default:
 		return 0
 	}
 }
 
-func clientTimeField(value any) (time.Time, bool) {
-	text, ok := value.(string)
-	if !ok || strings.TrimSpace(text) == "" {
+func clientTimeField(parseValue any) (time.Time, bool) {
+	parseText, parseOk := parseValue.(string)
+	if !parseOk || strings.TrimSpace(parseText) == "" {
 		return time.Time{}, false
 	}
-	parsed, err := time.Parse(time.RFC3339Nano, text)
-	if err != nil {
+	parseParsed, parseErr := time.Parse(time.RFC3339Nano, parseText)
+	if parseErr != nil {
 		return time.Time{}, false
 	}
-	return parsed, true
+	return parseParsed, true
 }
 
-func defaultCrossTabClientCapabilities(channel CrossTabChannel) ClientCapabilities {
-	encodings := []string{string(ClientPayloadJSON)}
-	if channel.Transport() == "broadcast-channel" {
-		encodings = append(encodings, string(ClientPayloadBinary))
+func defaultCrossTabClientCapabilities(parseChannel CrossTabChannel) ClientCapabilities {
+	parseEncodings := []string{string(ClientPayloadJSON)}
+	if parseChannel.Transport() == "broadcast-channel" {
+		parseEncodings = append(parseEncodings, string(ClientPayloadBinary))
 	}
-	transports := []string{}
-	if transport := strings.TrimSpace(channel.Transport()); transport != "" {
-		transports = append(transports, transport)
+	parseTransports := []string{}
+	if parseTransport := strings.TrimSpace(parseChannel.Transport()); parseTransport != "" {
+		parseTransports = append(parseTransports, parseTransport)
 	}
 	return ClientCapabilities{
 		ProtocolVersion: "v1",
-		Transports:      transports,
-		Encodings:       encodings,
+		Transports:      parseTransports,
+		Encodings:       parseEncodings,
 	}
 }
 
-func defaultWindowClientCapabilities(channel WindowChannel) ClientCapabilities {
-	transports := []string{"window-message"}
-	if target := strings.TrimSpace(channel.Name()); target != "" {
-		_ = target
+func defaultWindowClientCapabilities(parseChannel WindowChannel) ClientCapabilities {
+	parseTransports := []string{"window-message"}
+	if parseTarget := strings.TrimSpace(parseChannel.Name()); parseTarget != "" {
+		_ = parseTarget
 	}
 	return ClientCapabilities{
 		ProtocolVersion: "v1",
-		Transports:      transports,
+		Transports:      parseTransports,
 		Encodings:       []string{string(ClientPayloadJSON), string(ClientPayloadBinary)},
 	}
 }
 
 // ClientProtocolCompatible reports whether two capability sets share a compatible protocol major version.
-func ClientProtocolCompatible(local ClientCapabilities, peer ClientCapabilities) bool {
-	localVersion := normalizeProtocolVersion(local.ProtocolVersion)
-	peerVersion := normalizeProtocolVersion(peer.ProtocolVersion)
-	if localVersion == "" || peerVersion == "" {
+func ClientProtocolCompatible(parseLocal ClientCapabilities, parsePeer ClientCapabilities) bool {
+	parseLocalVersion := normalizeProtocolVersion(parseLocal.ProtocolVersion)
+	parsePeerVersion := normalizeProtocolVersion(parsePeer.ProtocolVersion)
+	if parseLocalVersion == "" || parsePeerVersion == "" {
 		return false
 	}
-	return protocolMajor(localVersion) == protocolMajor(peerVersion)
+	return protocolMajor(parseLocalVersion) == protocolMajor(parsePeerVersion)
 }
 
 // ClientSupportsEncoding reports whether the capabilities include the given payload encoding.
-func ClientSupportsEncoding(capabilities ClientCapabilities, encoding ClientPayloadEncoding) bool {
-	trimmed := strings.TrimSpace(string(encoding))
-	if trimmed == "" {
-		trimmed = string(ClientPayloadJSON)
+func ClientSupportsEncoding(parseCapabilities ClientCapabilities, parseEncoding ClientPayloadEncoding) bool {
+	parseTrimmed := strings.TrimSpace(string(parseEncoding))
+	if parseTrimmed == "" {
+		parseTrimmed = string(ClientPayloadJSON)
 	}
-	for _, candidate := range capabilities.Encodings {
-		if strings.EqualFold(strings.TrimSpace(candidate), trimmed) {
+	for _, parseCandidate := range parseCapabilities.Encodings {
+		if strings.EqualFold(strings.TrimSpace(parseCandidate), parseTrimmed) {
 			return true
 		}
 	}
@@ -1911,16 +1911,16 @@ func ClientSupportsEncoding(capabilities ClientCapabilities, encoding ClientPayl
 }
 
 // ClientSupportsTopic reports whether the capabilities include the given topic (empty topic list means all).
-func ClientSupportsTopic(capabilities ClientCapabilities, topic string) bool {
-	trimmed := strings.TrimSpace(topic)
-	if trimmed == "" {
+func ClientSupportsTopic(parseCapabilities ClientCapabilities, parseTopic string) bool {
+	parseTrimmed := strings.TrimSpace(parseTopic)
+	if parseTrimmed == "" {
 		return false
 	}
-	if len(capabilities.Topics) == 0 {
+	if len(parseCapabilities.Topics) == 0 {
 		return true
 	}
-	for _, candidate := range capabilities.Topics {
-		if strings.EqualFold(strings.TrimSpace(candidate), trimmed) {
+	for _, parseCandidate := range parseCapabilities.Topics {
+		if strings.EqualFold(strings.TrimSpace(parseCandidate), parseTrimmed) {
 			return true
 		}
 	}
@@ -1928,158 +1928,157 @@ func ClientSupportsTopic(capabilities ClientCapabilities, topic string) bool {
 }
 
 // ClientCanExchange reports whether two clients can communicate on a topic with a shared encoding.
-func ClientCanExchange(local ClientCapabilities, peer ClientCapabilities, topic string, encoding ClientPayloadEncoding) bool {
-	if !ClientProtocolCompatible(local, peer) {
+func ClientCanExchange(parseLocal ClientCapabilities, parsePeer ClientCapabilities, parseTopic string, parseEncoding ClientPayloadEncoding) bool {
+	if !ClientProtocolCompatible(parseLocal, parsePeer) {
 		return false
 	}
-	if !ClientSupportsEncoding(local, encoding) || !ClientSupportsEncoding(peer, encoding) {
+	if !ClientSupportsEncoding(parseLocal, parseEncoding) || !ClientSupportsEncoding(parsePeer, parseEncoding) {
 		return false
 	}
-	if !ClientSupportsTopic(local, topic) || !ClientSupportsTopic(peer, topic) {
+	if !ClientSupportsTopic(parseLocal, parseTopic) || !ClientSupportsTopic(parsePeer, parseTopic) {
 		return false
 	}
 	return true
 }
 
-func normalizeProtocolVersion(value string) string {
-	trimmed := strings.TrimSpace(strings.ToLower(value))
-	trimmed = strings.TrimPrefix(trimmed, "v")
-	return trimmed
+func normalizeProtocolVersion(parseValue string) string {
+	parseTrimmed := strings.TrimSpace(strings.ToLower(parseValue))
+	parseTrimmed = strings.TrimPrefix(parseTrimmed, "v")
+	return parseTrimmed
 }
 
-func protocolMajor(value string) string {
-	trimmed := normalizeProtocolVersion(value)
-	if trimmed == "" {
+func protocolMajor(parseValue string) string {
+	parseTrimmed := normalizeProtocolVersion(parseValue)
+	if parseTrimmed == "" {
 		return ""
 	}
-	if dot := strings.Index(trimmed, "."); dot >= 0 {
-		return trimmed[:dot]
+	if parseDot := strings.Index(parseTrimmed, "."); parseDot >= 0 {
+		return parseTrimmed[:parseDot]
 	}
-	return trimmed
+	return parseTrimmed
 }
 
-func validateClientIdentity(op string, target string, identity ClientIdentity) error {
-	if strings.TrimSpace(identity.ID) == "" {
-		return wrapError(op, target, CodeInvalid, errors.New("client identity id is empty"))
+func validateClientIdentity(parseOp string, parseTarget string, parseIdentity ClientIdentity) error {
+	if strings.TrimSpace(parseIdentity.ID) == "" {
+		return wrapError(parseOp, parseTarget, CodeInvalid, errors.New("client identity id is empty"))
 	}
-	if strings.TrimSpace(identity.App) == "" {
-		return wrapError(op, target, CodeInvalid, errors.New("client identity app is empty"))
+	if strings.TrimSpace(parseIdentity.App) == "" {
+		return wrapError(parseOp, parseTarget, CodeInvalid, errors.New("client identity app is empty"))
 	}
-	if strings.TrimSpace(identity.Surface) == "" {
-		return wrapError(op, target, CodeInvalid, errors.New("client identity surface is empty"))
+	if strings.TrimSpace(parseIdentity.Surface) == "" {
+		return wrapError(parseOp, parseTarget, CodeInvalid, errors.New("client identity surface is empty"))
 	}
 	return nil
 }
 
-func SubscribeDecodedWindow[T any](channel WindowChannel, handler func(DecodedWindowEnvelope[T], error)) (Subscription, error) {
-	if handler == nil {
-		return Subscription{}, wrapError("SubscribeDecodedWindow", channel.Name(), CodeInvalid, errors.New("handler is nil"))
+func SubscribeDecodedWindow[T any](parseChannel WindowChannel, parseHandler func(DecodedWindowEnvelope[T], error)) (Subscription, error) {
+	if parseHandler == nil {
+		return Subscription{}, wrapError("SubscribeDecodedWindow", parseChannel.Name(), CodeInvalid, errors.New("handler is nil"))
 	}
-	return channel.Subscribe(func(message WindowEnvelope, err error) {
-		if err != nil {
-			handler(DecodedWindowEnvelope[T]{}, err)
+	return parseChannel.Subscribe(func(parseMessage WindowEnvelope, parseErr error) {
+		if parseErr != nil {
+			parseHandler(DecodedWindowEnvelope[T]{}, parseErr)
 			return
 		}
-		decoded, decodeErr := DecodeWindowEnvelope[T](message)
-		handler(decoded, decodeErr)
+		parseDecoded, parseDecodeErr := DecodeWindowEnvelope[T](parseMessage)
+		parseHandler(parseDecoded, parseDecodeErr)
 	})
 }
 
 // DecodeSurfaceSignal decodes a WindowEnvelope payload as a SurfaceSignal.
-func DecodeSurfaceSignal(message WindowEnvelope) (DecodedWindowEnvelope[SurfaceSignal], error) {
-	return DecodeWindowEnvelope[SurfaceSignal](message)
+func DecodeSurfaceSignal(parseMessage WindowEnvelope) (DecodedWindowEnvelope[SurfaceSignal], error) {
+	return DecodeWindowEnvelope[SurfaceSignal](parseMessage)
 }
 
 // SubscribeSurfaceSignals receives decoded SurfaceSignal messages on a WindowChannel.
-func SubscribeSurfaceSignals(channel WindowChannel, handler func(DecodedWindowEnvelope[SurfaceSignal], error)) (Subscription, error) {
-	if handler == nil {
-		return Subscription{}, wrapError("SubscribeSurfaceSignals", channel.Name(), CodeInvalid, errors.New("handler is nil"))
+func SubscribeSurfaceSignals(parseChannel WindowChannel, parseHandler func(DecodedWindowEnvelope[SurfaceSignal], error)) (Subscription, error) {
+	if parseHandler == nil {
+		return Subscription{}, wrapError("SubscribeSurfaceSignals", parseChannel.Name(), CodeInvalid, errors.New("handler is nil"))
 	}
-	}
-	return SubscribeDecodedWindow(channel, handler)
+	return SubscribeDecodedWindow(parseChannel, parseHandler)
 }
 
 // PublishSurfaceSignal validates and sends a SurfaceSignal over a WindowChannel.
-func PublishSurfaceSignal(channel WindowChannel, signal SurfaceSignal) error {
-	switch signal.Kind {
+func PublishSurfaceSignal(parseChannel WindowChannel, parseSignal SurfaceSignal) error {
+	switch parseSignal.Kind {
 	case SurfaceSignalSession:
-		if signal.Session == nil {
-			return wrapError("PublishSurfaceSignal", channel.Name(), CodeInvalid, errors.New("session signal is missing session payload"))
+		if parseSignal.Session == nil {
+			return wrapError("PublishSurfaceSignal", parseChannel.Name(), CodeInvalid, errors.New("session signal is missing session payload"))
 		}
 	case SurfaceSignalRoute:
-		if signal.Route == nil || strings.TrimSpace(signal.Route.Path) == "" {
-			return wrapError("PublishSurfaceSignal", channel.Name(), CodeInvalid, errors.New("route signal is missing path"))
+		if parseSignal.Route == nil || strings.TrimSpace(parseSignal.Route.Path) == "" {
+			return wrapError("PublishSurfaceSignal", parseChannel.Name(), CodeInvalid, errors.New("route signal is missing path"))
 		}
 	case SurfaceSignalSelection:
-		if signal.Selection == nil || strings.TrimSpace(signal.Selection.ID) == "" {
-			return wrapError("PublishSurfaceSignal", channel.Name(), CodeInvalid, errors.New("selection signal is missing id"))
+		if parseSignal.Selection == nil || strings.TrimSpace(parseSignal.Selection.ID) == "" {
+			return wrapError("PublishSurfaceSignal", parseChannel.Name(), CodeInvalid, errors.New("selection signal is missing id"))
 		}
 	case SurfaceSignalIntent:
-		if signal.Intent == nil || strings.TrimSpace(string(signal.Intent.Action)) == "" {
-			return wrapError("PublishSurfaceSignal", channel.Name(), CodeInvalid, errors.New("intent signal is missing action"))
+		if parseSignal.Intent == nil || strings.TrimSpace(string(parseSignal.Intent.Action)) == "" {
+			return wrapError("PublishSurfaceSignal", parseChannel.Name(), CodeInvalid, errors.New("intent signal is missing action"))
 		}
 	default:
-		return wrapError("PublishSurfaceSignal", channel.Name(), CodeInvalid, errors.New("surface signal kind is empty or unknown"))
+		return wrapError("PublishSurfaceSignal", parseChannel.Name(), CodeInvalid, errors.New("surface signal kind is empty or unknown"))
 	}
-	return channel.Publish(signal)
+	return parseChannel.Publish(parseSignal)
 }
 
 // PublishLogout sends a signed-out session signal on a WindowChannel.
-func PublishLogout(channel WindowChannel, reason string) error {
-	return PublishSurfaceSignal(channel, SurfaceSignal{
+func PublishLogout(parseChannel WindowChannel, parseReason string) error {
+	return PublishSurfaceSignal(parseChannel, SurfaceSignal{
 		Kind: SurfaceSignalSession,
 		Session: &SurfaceSessionSignal{
 			Status: "signed-out",
-			Reason: strings.TrimSpace(reason),
+			Reason: strings.TrimSpace(parseReason),
 		},
 	})
 }
 
 // PublishSessionExpired sends a session-expired signal on a WindowChannel.
-func PublishSessionExpired(channel WindowChannel, reason string, returnTo string, expiresAt time.Time) error {
-	return PublishSurfaceSignal(channel, SurfaceSignal{
+func PublishSessionExpired(parseChannel WindowChannel, parseReason string, parseReturnTo string, parseExpiresAt time.Time) error {
+	return PublishSurfaceSignal(parseChannel, SurfaceSignal{
 		Kind: SurfaceSignalSession,
 		Session: &SurfaceSessionSignal{
 			Status:    "expired",
-			Reason:    strings.TrimSpace(reason),
-			ReturnTo:  strings.TrimSpace(returnTo),
-			ExpiresAt: expiresAt,
+			Reason:    strings.TrimSpace(parseReason),
+			ReturnTo:  strings.TrimSpace(parseReturnTo),
+			ExpiresAt: parseExpiresAt,
 		},
 	})
 }
 
 // PublishRouteFocus sends a route-focus surface signal on a WindowChannel.
-func PublishRouteFocus(channel WindowChannel, path string, query string, focusID string) error {
-	return PublishSurfaceSignal(channel, SurfaceSignal{
+func PublishRouteFocus(parseChannel WindowChannel, parsePath string, parseQuery string, parseFocusID string) error {
+	return PublishSurfaceSignal(parseChannel, SurfaceSignal{
 		Kind: SurfaceSignalRoute,
 		Route: &SurfaceRouteSignal{
-			Path:    strings.TrimSpace(path),
-			Query:   strings.TrimSpace(query),
-			FocusID: strings.TrimSpace(focusID),
+			Path:    strings.TrimSpace(parsePath),
+			Query:   strings.TrimSpace(parseQuery),
+			FocusID: strings.TrimSpace(parseFocusID),
 		},
 	})
 }
 
 // PublishSelection sends a selection surface signal on a WindowChannel.
-func PublishSelection(channel WindowChannel, scope string, id string, revision string) error {
-	return PublishSurfaceSignal(channel, SurfaceSignal{
+func PublishSelection(parseChannel WindowChannel, parseScope string, parseId string, parseRevision string) error {
+	return PublishSurfaceSignal(parseChannel, SurfaceSignal{
 		Kind: SurfaceSignalSelection,
 		Selection: &SurfaceSelectionSignal{
-			Scope:    strings.TrimSpace(scope),
-			ID:       strings.TrimSpace(id),
-			Revision: strings.TrimSpace(revision),
+			Scope:    strings.TrimSpace(parseScope),
+			ID:       strings.TrimSpace(parseId),
+			Revision: strings.TrimSpace(parseRevision),
 		},
 	})
 }
 
 // PublishIntent sends an intent surface signal on a WindowChannel.
-func PublishIntent(channel WindowChannel, action SurfaceIntentAction, target string, params map[string]string) error {
-	return PublishSurfaceSignal(channel, SurfaceSignal{
+func PublishIntent(parseChannel WindowChannel, parseAction SurfaceIntentAction, parseTarget string, parseParams map[string]string) error {
+	return PublishSurfaceSignal(parseChannel, SurfaceSignal{
 		Kind: SurfaceSignalIntent,
 		Intent: &SurfaceIntentSignal{
-			Action: action,
-			Target: strings.TrimSpace(target),
-			Params: params,
+			Action: parseAction,
+			Target: strings.TrimSpace(parseTarget),
+			Params: parseParams,
 		},
 	})
 }

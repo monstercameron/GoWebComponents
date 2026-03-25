@@ -2,9 +2,9 @@ package html
 
 import "testing"
 
-func BenchmarkTagDivWithCommonProps(b *testing.B) {
-	b.ReportAllocs()
-	props := Props{
+func BenchmarkTagDivWithCommonProps(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseProps := Props{
 		ID:    "bench-node",
 		Class: "rounded-xl border border-slate-300 bg-white px-4 py-2",
 		Data: map[string]string{
@@ -15,17 +15,17 @@ func BenchmarkTagDivWithCommonProps(b *testing.B) {
 			"label": "bench node",
 		},
 	}
-	for b.Loop() {
-		node := Tag("div", props, Text("hello"), Text("world"))
-		if node == nil {
-			b.Fatal("Tag returned nil")
+	for parseB.Loop() {
+		parseNode := Tag("div", parseProps, Text("hello"), Text("world"))
+		if parseNode == nil {
+			parseB.Fatal("Tag returned nil")
 		}
 	}
 }
 
-func BenchmarkCustomElementWithAttributesAndProperties(b *testing.B) {
-	b.ReportAllocs()
-	props := CustomElementProps{
+func BenchmarkCustomElementWithAttributesAndProperties(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseProps := CustomElementProps{
 		Props: Props{
 			Class: "widget",
 		},
@@ -39,10 +39,10 @@ func BenchmarkCustomElementWithAttributesAndProperties(b *testing.B) {
 			"value": 42,
 		},
 	}
-	for b.Loop() {
-		node := CustomElement("x-widget", props, Text("payload"))
-		if node == nil {
-			b.Fatal("CustomElement returned nil")
+	for parseB.Loop() {
+		parseNode := CustomElement("x-widget", parseProps, Text("payload"))
+		if parseNode == nil {
+			parseB.Fatal("CustomElement returned nil")
 		}
 	}
 }

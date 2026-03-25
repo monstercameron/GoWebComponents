@@ -11,102 +11,102 @@ import (
 )
 
 // UseLocale creates a reactive LocaleState backed by component state, optionally detecting the browser locale.
-func UseLocale(options LocaleOptions) LocaleState {
-	supported := normalizeLocales(options.SupportedLocales)
-	fallback := fallbackString(options.FallbackLocale, firstLocale(supported))
-	initial := chooseSupportedLocale(options.InitialLocale, supported, fallback)
-	if initial == "" && options.DetectBrowser {
-		initial = chooseSupportedLocale(browserLocale(), supported, fallback)
+func UseLocale(parseOptions LocaleOptions) LocaleState {
+	parseSupported := normalizeLocales(parseOptions.SupportedLocales)
+	parseFallback := fallbackString(parseOptions.FallbackLocale, firstLocale(parseSupported))
+	parseInitial := chooseSupportedLocale(parseOptions.InitialLocale, parseSupported, parseFallback)
+	if parseInitial == "" && parseOptions.DetectBrowser {
+		parseInitial = chooseSupportedLocale(browserLocale(), parseSupported, parseFallback)
 	}
-	if initial == "" {
-		initial = fallback
+	if parseInitial == "" {
+		parseInitial = parseFallback
 	}
-	state := ui.UseState(initial)
-	loaded := ui.UseRef(false)
+	parseState := ui.UseState(parseInitial)
+	parseLoaded := ui.UseRef(false)
 
 	ui.UseEffect(func() func() {
-		if loaded.Get() {
+		if parseLoaded.Get() {
 			return nil
 		}
-		loaded.Set(true)
-		if options.PersistenceKey == "" {
+		parseLoaded.Set(true)
+		if parseOptions.PersistenceKey == "" {
 			return nil
 		}
-		stored := readPersistedLocale(options.PersistenceKey)
-		resolved := chooseSupportedLocale(stored, supported, fallback)
-		if resolved != "" && resolved != state.Get() {
-			state.Set(resolved)
+		parseStored := readPersistedLocale(parseOptions.PersistenceKey)
+		parseResolved := chooseSupportedLocale(parseStored, parseSupported, parseFallback)
+		if parseResolved != "" && parseResolved != parseState.Get() {
+			parseState.Set(parseResolved)
 		}
 		return nil
-	}, options.PersistenceKey)
+	}, parseOptions.PersistenceKey)
 
 	ui.UseEffect(func() func() {
-		current := chooseSupportedLocale(state.Get(), supported, fallback)
-		if options.PersistenceKey != "" {
-			writePersistedLocale(options.PersistenceKey, current)
+		parseCurrent := chooseSupportedLocale(parseState.Get(), parseSupported, parseFallback)
+		if parseOptions.PersistenceKey != "" {
+			writePersistedLocale(parseOptions.PersistenceKey, parseCurrent)
 		}
-		if options.OnChange != nil {
-			options.OnChange(current)
+		if parseOptions.OnChange != nil {
+			parseOptions.OnChange(parseCurrent)
 		}
 		return nil
-	}, state.Get(), options.PersistenceKey)
+	}, parseState.Get(), parseOptions.PersistenceKey)
 
 	return LocaleState{
 		get: func() string {
-			return chooseSupportedLocale(state.Get(), supported, fallback)
+			return chooseSupportedLocale(parseState.Get(), parseSupported, parseFallback)
 		},
-		set: func(next string) {
-			resolved := chooseSupportedLocale(next, supported, fallback)
-			if resolved == "" {
-				resolved = fallback
+		set: func(parseNext string) {
+			parseResolved2 := chooseSupportedLocale(parseNext, parseSupported, parseFallback)
+			if parseResolved2 == "" {
+				parseResolved2 = parseFallback
 			}
-			state.Set(resolved)
+			parseState.Set(parseResolved2)
 		},
 		direction: func() Direction {
-			return DirectionForLocale(state.Get())
+			return DirectionForLocale(parseState.Get())
 		},
 		supported: func() []string {
-			return append([]string(nil), supported...)
+			return append([]string(nil), parseSupported...)
 		},
-		fallback: func() string { return fallback },
+		fallback: func() string { return parseFallback },
 	}
 }
 
-func readPersistedLocale(key string) string {
-	storage := browserStorage()
-	if !storage.Truthy() {
+func readPersistedLocale(parseKey string) string {
+	parseStorage := browserStorage()
+	if !parseStorage.Truthy() {
 		return ""
 	}
-	return strings.TrimSpace(storage.Call("getItem", key).String())
+	return strings.TrimSpace(parseStorage.Call("getItem", parseKey).String())
 }
 
-func writePersistedLocale(key string, locale string) {
-	storage := browserStorage()
-	if !storage.Truthy() {
+func writePersistedLocale(parseKey string, parseLocale string) {
+	parseStorage := browserStorage()
+	if !parseStorage.Truthy() {
 		return
 	}
-	storage.Call("setItem", key, locale)
+	parseStorage.Call("setItem", parseKey, parseLocale)
 }
 
 func browserStorage() js.Value {
-	window := js.Global().Get("window")
-	if !window.Truthy() {
+	parseWindow := js.Global().Get("window")
+	if !parseWindow.Truthy() {
 		return js.Undefined()
 	}
-	return window.Get("localStorage")
+	return parseWindow.Get("localStorage")
 }
 
 func browserLocale() string {
-	navigator := js.Global().Get("navigator")
-	if !navigator.Truthy() {
+	parseNavigator := js.Global().Get("navigator")
+	if !parseNavigator.Truthy() {
 		return ""
 	}
-	return strings.TrimSpace(navigator.Get("language").String())
+	return strings.TrimSpace(parseNavigator.Get("language").String())
 }
 
-func firstLocale(locales []string) string {
-	if len(locales) == 0 {
+func firstLocale(parseLocales []string) string {
+	if len(parseLocales) == 0 {
 		return ""
 	}
-	return locales[0]
+	return parseLocales[0]
 }
