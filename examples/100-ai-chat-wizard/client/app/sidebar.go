@@ -64,8 +64,8 @@ func sidebar(convList []convSummary, activeConvID int64, isStreaming bool, userN
 						return Div(
 							Class(ClassNames(
 								"conv-row group flex items-center rounded-lg text-sm transition-colors",
-								When(isActive, "bg-white/15 text-white"),
-								When(!isActive, "text-white/70 hover:bg-white/10 hover:text-white"),
+								When(isActive, "bg-white/[0.13] text-white font-medium"),
+								When(!isActive, "text-white/50 hover:bg-white/[0.07] hover:text-white/85"),
 								When(isStreaming, "pointer-events-none opacity-60"),
 							)),
 							Data(dataConvID, idStr),
@@ -77,7 +77,7 @@ func sidebar(convList []convSummary, activeConvID int64, isStreaming bool, userN
 								Text(preview),
 							),
 							Button(
-								Class("shrink-0 p-1.5 mr-3 rounded opacity-0 group-hover:opacity-100 text-white/40 hover:text-red-400 hover:bg-white/10 transition-all duration-200 ease-out"),
+								Class("shrink-0 p-2 mr-2 rounded opacity-0 group-hover:opacity-100 text-white/35 hover:text-red-400 hover:bg-white/10 transition-all duration-200 ease-out"),
 								FromProps(Props{Aria: map[string]string{"label": intl.T(chatI18nNamespace, "sidebar.deleteConversation")}}),
 								Data(dataConvID, idStr),
 								OnClick(onDeleteConv),

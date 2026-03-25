@@ -36,16 +36,23 @@ func inputArea(props composerProps) ui.Node {
 					OnInput(props.OnInput),
 					OnKeyDown(props.OnKeyDown),
 				),
-				Button(
-					ID(idSendBtn),
-					Class(ClassNames(
-						"w-8 h-8 flex items-center justify-center rounded-full transition-colors shrink-0 self-end",
-						When(sendable, "bg-white text-black hover:bg-white/90"),
-						When(!sendable, "bg-white/10 text-white/30 cursor-not-allowed"),
-					)),
-					DisabledIf(!sendable),
-					OnClick(props.OnSend),
-					Span(Class("text-sm leading-none select-none"), Text("\u2191")),
+				Div(Class("flex items-center gap-2 shrink-0 self-end"),
+					Button(
+						ID(idSendBtn),
+						Class(ClassNames(
+							"w-8 h-8 flex items-center justify-center rounded-full transition-colors shrink-0",
+							When(sendable, "bg-white text-black hover:bg-white/90"),
+							When(!sendable, "bg-white/10 text-white/30 cursor-not-allowed"),
+						)),
+						DisabledIf(!sendable),
+						OnClick(props.OnSend),
+						Span(Class("text-sm leading-none select-none"), Text("\u2191")),
+					),
+					Tag("span",
+						Class("text-white/25 text-base leading-none cursor-default select-none"),
+						FromProps(Props{Raw: map[string]interface{}{"title": props.Intl.T(chatI18nNamespace, "input.disclaimer")}}),
+						Text("\u24d8"),
+					),
 				),
 			),
 			If(props.ThreadCostSummary.HasAnyExactCosts && props.ThreadCostSummary.TotalCost > 0,
@@ -58,9 +65,6 @@ func inputArea(props composerProps) ui.Node {
 						return props.Intl.T(chatI18nNamespace, "input.threadTotalPartial", i18n.Arguments{"cost": cost})
 					}()),
 				),
-			),
-			P(Class("text-center text-base text-white/20 mt-1"),
-				Text(props.Intl.T(chatI18nNamespace, "input.disclaimer")),
 			),
 		),
 	)

@@ -169,7 +169,7 @@ func renderMobileControlBar(intl i18n.Runtime, providerOptions []providerOption,
 }
 
 func renderDesktopControlBar(intl i18n.Runtime, providerOptions []providerOption, activeProvider providerOption, visibleModelOptions []modelOption, curModel, currentThinkingMode, requiredCapability string, isStreaming, thinkingSupported, sidebarOpen bool, onToggleSidebar, setProvider, setModel, setThinkingMode ui.Handler) ui.Node {
-	return Div(Class("hidden md:flex items-center gap-2 px-3 py-2 border-b border-white/5 bg-[#212121]/70 backdrop-blur-md sticky top-0 z-10"),
+	return Div(Class("hidden md:flex items-center gap-2 px-3 py-1 border-b border-white/5 bg-[#212121]/70 backdrop-blur-md sticky top-0 z-10"),
 		Button(
 			Class(ClassNames(
 				"p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all duration-200 ease-out",
@@ -222,7 +222,7 @@ func renderDesktopControlBar(intl i18n.Runtime, providerOptions []providerOption
 
 func renderToolbarSelect(containerClass, label, value string, disabled bool, onChange ui.Handler, options []ui.Node) ui.Node {
 	return Label(Class(ClassNames(
-		"flex min-w-0 items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2",
+		"flex min-w-0 items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-2.5 py-1",
 		containerClass,
 	)),
 		Span(Class("control-group-label shrink-0 min-w-[5.4rem]"), Text(label)),
@@ -231,7 +231,7 @@ func renderToolbarSelect(containerClass, label, value string, disabled bool, onC
 			DisabledIf(disabled),
 			OnChange(onChange),
 			Class(ClassNames(
-				"toolbar-select h-9 min-w-0 flex-1 rounded-xl border border-white/10 bg-[#3a3a3a] px-3 text-sm text-white outline-none",
+				"toolbar-select h-7 min-w-0 flex-1 rounded-lg border border-white/8 bg-[#2f2f2f] px-2 text-sm text-white/80 outline-none",
 				When(disabled, "cursor-not-allowed opacity-60"),
 			)),
 			options,

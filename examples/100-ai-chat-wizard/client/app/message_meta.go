@@ -34,7 +34,7 @@ func assistantMessageMetaRow(props assistantMessageMetaProps) ui.Node {
 	return Div(Class("mt-1 flex flex-col gap-1"),
 		Div(Class("flex items-center gap-2"),
 			If(hasExactCost || hasPerformanceStats,
-				Div(Class("flex flex-wrap items-center gap-1.5 px-2 py-1 text-xs text-white/30 select-none"),
+				Div(Class("flex flex-wrap items-center gap-1.5 px-2 py-1 text-xs text-white/45 select-none"),
 					If(hasExactCost,
 						Span(Text(strings.TrimSpace(modelLabelForID(messageCost.ModelID, props.ModelOptions)+" "+formatCostUSD(messageCost.Cost)))),
 					),

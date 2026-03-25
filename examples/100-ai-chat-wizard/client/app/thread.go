@@ -84,7 +84,7 @@ func messageList(props messageListProps) ui.Node {
 		Div(
 			ID(idMessageList),
 			Class("chat-scrollbar chat-scrollbar--panel h-full overflow-y-auto"),
-			Div(ID(idThreadScreen), Class("thread-screen max-w-[72rem] mx-auto px-4 py-8 flex flex-col gap-6"), rows),
+			Div(ID(idThreadScreen), Class("thread-screen max-w-[72rem] mx-auto px-4 py-4 flex flex-col gap-6"), rows),
 		),
 		If(props.ShowScrollToBottom,
 			Button(

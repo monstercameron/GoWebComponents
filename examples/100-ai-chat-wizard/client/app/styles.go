@@ -758,8 +758,8 @@ input[type="submit"]:disabled {
 }
 
 .control-group-label {
-  color: rgba(255,255,255,0.42);
-  font-size: 0.62rem;
+  color: rgba(255,255,255,0.28);
+  font-size: 0.60rem;
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
