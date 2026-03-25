@@ -1801,7 +1801,7 @@ Organization rules for this file:
 - [x] Add scaffold-generated baseline tests keyed to selected features.
 	`gwc start` now emits a baseline `starter_test.go` file for generated apps, always validates the recorded feature selection through `gwc-start.json` and `FEATURE_MATRIX.md`, and adds feature-specific assertions for routed, forms, fetch, and browser-test scaffolds so new starters begin with a real `go test ./...` path instead of an empty test folder.
 - [x] Add starter-generated GitHub Actions workflows for the default CI path.
-	`gwc start` now emits `.github/workflows/ci.yml` for generated starters, using `actions/setup-go`, `go test ./...`, and a js/wasm `mkdir -p bin && go build -o bin/main.wasm .` baseline so new standalone apps begin with a functional GitHub Actions CI path instead of reverse-engineering repo workflows.
+	`gwc start` now emits `.github/workflows/ci.yml` for generated starters, using `actions/setup-go`, `go test ./...`, and a js/wasm `go build -o main.wasm .` baseline so new standalone apps begin with a functional GitHub Actions CI path instead of reverse-engineering repo workflows.
 - [x] Verify scaffolded GitHub Actions against generated starters.
 	`tools/gwc/start_test.go` now covers the emitted CI workflow across multiple generated starter shapes, checking that `.github/workflows/ci.yml` stays aligned with `starter_test.go`, `main.go`, and optional browser-smoke output, while the end-to-end generated-starter smoke test still builds wasm and runs the emitted `go test ./...` baseline so scaffold CI cannot silently drift from what `gwc start` actually produces.
 - [x] Make `gwc start` generate standalone apps in user-owned workspaces by default.
