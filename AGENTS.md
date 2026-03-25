@@ -1,4 +1,3 @@
-```text
 AGENTS.md
 
 Naming
@@ -53,6 +52,18 @@ go run ./tools/gwc <command> -h
 go run ./tools/gwc wasm measure -h
 go run ./tools/gwc wasm compare -h
 go run ./tools/gwc bench -h
+
+Flags (terse)
+doctor: -json -host -port -audit(-policy/-baseline/-suppress/-write-baseline)
+test: -lane -app/-main -root -json
+build: -app/-main -root -profile -out/-output -json
+dev: -app/-main -root -html/-index -wasm/-output -host -port -dry-run -json
+serve: -root -host -port -index -wasm-file -wasm-route -fixture-json
+release: -app/-main -root -out-dir -compression -post-link-opt -validate-smoke -json
+verify: -app/-main -root -skip-tests -audit(-policy/-min-severity/-baseline/-suppress/-write-baseline) -json
+examples/start/bootstrap: examples(-host,-port,-export-static-catalog) start(-mode,-init-git,-skip-*) bootstrap(-examples,-host,-port)
+files/import/tailwind: files(-root,-ext,-exclude-dir,-json) import(-src,-out,-json) tailwind(-root,-input,-output,-manifest,-skip-manifest,-json)
+bench/wasm/dashboard/seed: bench(-root,-lane,-bench,-count,-parallel,-out,-reference,-json) wasm(measure|compare|compare-compression|compare-cache|compare-toolchain; use subcommand -h) dashboard(-root,-status-url,-json) seed(-root,-command,-db-path,-json)
 
 Typical usage
 go run ./tools/gwc doctor
@@ -139,4 +150,3 @@ Final report
 - what changed
 - validation run
 - remaining risk or follow-up
-```

@@ -2,6 +2,10 @@
 
 ## 2026-03-25
 
+### Agent guidance refresh for gwc usage
+
+- Simplified `AGENTS.md` into a terse operator format and added a compact `gwc` command map with effective feature coverage, key flags, primary docs links, and practical command examples.
+
 ### Tailwind CLI first-class launcher workflow
 
 - Added a first-class `gwc tailwind` command in `tools/gwc` that regenerates the shared Tailwind manifest and stylesheet without npm, with machine-readable `-json` output support.
