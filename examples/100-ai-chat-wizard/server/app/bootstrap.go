@@ -106,6 +106,24 @@ body {
   transition: width 300ms ease;
 }
 
+.boot-progress-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.24), transparent);
+  transform: translateX(-100%);
+  animation: boot-shimmer 1.6s linear infinite;
+}
+
+.boot-progress-fill.is-indeterminate {
+  width: 32%;
+  animation: boot-indeterminate 1.4s ease-in-out infinite;
+}
+
+.boot-progress-fill.is-indeterminate::after {
+  animation-duration: 1s;
+}
+
 .boot-footer-row {
   display: flex;
   align-items: center;
@@ -119,6 +137,13 @@ body {
   font-size: 0.6875rem;
   text-transform: uppercase;
   letter-spacing: 0.18em;
+}
+
+.boot-footer-row .boot-detail {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.5);
+  text-transform: none;
+  letter-spacing: 0.02em;
 }
 
 /* finalizing state */
@@ -177,6 +202,15 @@ body {
 @keyframes boot-spin {
   to { transform: rotate(360deg); }
 }
+
+@keyframes boot-shimmer {
+  to { transform: translateX(100%); }
+}
+
+@keyframes boot-indeterminate {
+  0% { transform: translateX(-10%); }
+  100% { transform: translateX(240%); }
+}
 </style>`
 
 const chatShellHTML = `<!DOCTYPE html>
@@ -198,7 +232,7 @@ const chatShellHTML = `<!DOCTYPE html>
       <div class="boot-header-row">
         <div class="boot-labels">
           <p class="boot-brand">RelayDesk</p>
-          <p class="boot-heading">Preparing interface</p>
+          <p id="boot-heading" class="boot-heading">Preparing interface</p>
         </div>
         <span id="boot-percent" class="boot-percent">0%</span>
       </div>
@@ -207,14 +241,14 @@ const chatShellHTML = `<!DOCTYPE html>
           <div id="boot-progress-fill" class="boot-progress-fill"></div>
         </div>
         <div class="boot-footer-row">
-          <span>Loading</span>
-          <span class="boot-wait">Please wait</span>
+          <span id="boot-stage">Loading</span>
+          <span id="boot-detail" class="boot-detail">Please wait</span>
         </div>
       </div>
       <div class="boot-finalizing" aria-hidden="true">
         <div class="boot-finalizing-text">
-          <p class="boot-fin-label">Finalizing</p>
-          <p class="boot-fin-heading">Almost ready</p>
+          <p id="boot-fin-label" class="boot-fin-label">Finalizing</p>
+          <p id="boot-fin-heading" class="boot-fin-heading">Almost ready</p>
         </div>
         <div class="boot-spinner-wrap">
           <div class="boot-spinner-ring"></div>
@@ -449,18 +483,43 @@ function formatBytes(bytes) {
   return rounded + ' ' + units[unitIndex];
 }
 
+function setBootText(id, value) {
+  const getTarget = document.getElementById(id);
+  if (!getTarget) {
+    return;
+  }
+  const setValue = String(value || '').trim();
+  if (setValue === '') {
+    return;
+  }
+  getTarget.textContent = setValue;
+}
+
 function setBootProgress(progress, options) {
   const config = options || {};
   const clamped = Math.max(0, Math.min(100, progress));
   bootProgressValue = Math.max(bootProgressValue, clamped);
-  const finalizing = bootProgressValue >= 98 || !!config.indeterminate;
-  bootShell.classList.toggle('is-finalizing', finalizing);
-  bootProgressFill.style.width = bootProgressValue + '%';
-  bootPercent.textContent = finalizing ? '100%' : Math.round(bootProgressValue) + '%';
+  const isFinalizing = !!config.finalizing;
+  const isIndeterminate = !!config.indeterminate && !isFinalizing;
+  bootShell.classList.toggle('is-finalizing', isFinalizing);
+  bootProgressFill.classList.toggle('is-indeterminate', isIndeterminate);
+  if (isIndeterminate) {
+    bootProgressFill.style.width = '';
+  } else {
+    bootProgressFill.style.width = bootProgressValue + '%';
+  }
+  bootPercent.textContent = isFinalizing ? '100%' : Math.round(bootProgressValue) + '%';
 }
 
 function setBootPhase(statusText, detailText, stageLabel, progress, options) {
   setBootProgress(progress, options);
+  setBootText('boot-heading', statusText);
+  setBootText('boot-stage', stageLabel);
+  setBootText('boot-detail', detailText);
+  if (options && options.finalizing) {
+    setBootText('boot-fin-label', stageLabel);
+    setBootText('boot-fin-heading', statusText);
+  }
 }
 
 function appHasMounted() {
@@ -537,13 +596,13 @@ async function loadChatWasm() {
   if (contentEncoding && contentEncoding !== 'identity') {
     setBootPhase(
       'Loading your workspace',
-      'Preparing your workspace...',
+      'Downloading WebAssembly...',
       'Loading',
       88,
       { indeterminate: true }
     );
     const result = await WebAssembly.instantiateStreaming(Promise.resolve(response), go.importObject);
-    setBootPhase('Almost ready', 'Your workspace is almost ready...', 'Starting', 98, { indeterminate: true });
+    setBootPhase('Almost ready', 'Your workspace is almost ready...', 'Finalizing', 98, { indeterminate: true, finalizing: true });
     const runPromise = go.run(result.instance);
     await waitForAppMount(8000);
     finishBoot();
@@ -555,7 +614,7 @@ async function loadChatWasm() {
     setBootPhase('Loading your workspace', 'Loading...', 'Loading', 34, { indeterminate: true });
     const result = await WebAssembly.instantiateStreaming(Promise.resolve(response), go.importObject);
     setBootPhase('Almost there', 'Getting the final pieces ready...', 'Loading', 92, { indeterminate: true });
-    setBootPhase('Almost ready', 'Your workspace is almost ready...', 'Starting', 98, { indeterminate: true });
+    setBootPhase('Almost ready', 'Your workspace is almost ready...', 'Finalizing', 98, { indeterminate: true, finalizing: true });
     const runPromise = go.run(result.instance);
     await waitForAppMount(8000);
     finishBoot();
@@ -592,7 +651,7 @@ async function loadChatWasm() {
   });
   const result = await WebAssembly.instantiateStreaming(Promise.resolve(wasmResponse), go.importObject);
 
-  setBootPhase('Almost ready', 'Your workspace is almost ready...', 'Starting', 98, { indeterminate: true });
+  setBootPhase('Almost ready', 'Your workspace is almost ready...', 'Finalizing', 98, { indeterminate: true, finalizing: true });
   const runPromise = go.run(result.instance);
   await waitForAppMount(8000);
   finishBoot();

@@ -177,6 +177,36 @@ func TestChatShellRoutingHelpers(t *testing.T) {
 	})
 }
 
+func TestChatBootstrapLoaderTracksDownloadPhase(t *testing.T) {
+	if !strings.Contains(chatShellHTML, `id="boot-heading"`) {
+		t.Fatal("expected boot shell html to expose a dynamic heading target")
+	}
+	if !strings.Contains(chatShellHTML, `id="boot-stage"`) {
+		t.Fatal("expected boot shell html to expose a dynamic stage target")
+	}
+	if !strings.Contains(chatShellHTML, `id="boot-detail"`) {
+		t.Fatal("expected boot shell html to expose a dynamic detail target")
+	}
+	if !strings.Contains(chatShellHTML, `id="boot-fin-label"`) || !strings.Contains(chatShellHTML, `id="boot-fin-heading"`) {
+		t.Fatal("expected boot shell html to expose finalizing text targets")
+	}
+	if !strings.Contains(chatBootstrapJS, `bootProgressFill.classList.toggle('is-indeterminate', isIndeterminate);`) {
+		t.Fatal("expected bootstrap js to toggle the indeterminate progress state")
+	}
+	if !strings.Contains(chatBootstrapJS, `bootShell.classList.toggle('is-finalizing', isFinalizing);`) {
+		t.Fatal("expected bootstrap js to gate finalizing separately from indeterminate loading")
+	}
+	if !strings.Contains(chatBootstrapJS, `setBootText('boot-heading', statusText);`) {
+		t.Fatal("expected bootstrap js to update the boot heading text")
+	}
+	if !strings.Contains(chatBootstrapJS, `setBootText('boot-detail', detailText);`) {
+		t.Fatal("expected bootstrap js to update the boot detail text")
+	}
+	if !strings.Contains(chatBootstrapJS, `setBootText('boot-fin-heading', statusText);`) {
+		t.Fatal("expected bootstrap js to update the finalizing heading text")
+	}
+}
+
 func TestResolveStaticDirectoriesAndLoadStoreQueries(t *testing.T) {
 	wd, err := os.Getwd()
 	if err != nil {
