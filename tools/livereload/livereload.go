@@ -275,10 +275,12 @@ func fatalLivereloadStartup(subject string, path string, err error, next string)
 	os.Exit(1)
 }
 
+// NewLiveReloadServer creates a LiveReloadServer rooted at projectRoot with default options.
 func NewLiveReloadServer(projectRoot string) (*LiveReloadServer, error) {
 	return NewLiveReloadServerWithOptions(LiveReloadOptions{ProjectRoot: projectRoot})
 }
 
+// NewLiveReloadServerWithOptions creates a LiveReloadServer from the given options.
 func NewLiveReloadServerWithOptions(options LiveReloadOptions) (*LiveReloadServer, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {

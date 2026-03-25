@@ -2241,6 +2241,13 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 	originalRunDevCommand := runDevCommand
 	originalRunServeCommand := runServeCommand
 	originalRunFilesCommand := runFilesCommand
+	originalRunInitCommand := runInitCommand
+	originalRunInspectCommand := runInspectCommand
+	originalRunUpgradeCommand := runUpgradeCommand
+	originalRunMigrateCommand := runMigrateCommand
+	originalRunPrerenderCommand := runPrerenderCommand
+	originalRunExportCommand := runExportCommand
+	originalRunDeployCommand := runDeployCommand
 	originalRunTailwindCommand := runTailwindCommand
 	originalRunDoctorCommand := runDoctorCommand
 	originalRunEnvCommand := runEnvCommand
@@ -2256,6 +2263,13 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 		runDevCommand = originalRunDevCommand
 		runServeCommand = originalRunServeCommand
 		runFilesCommand = originalRunFilesCommand
+		runInitCommand = originalRunInitCommand
+		runInspectCommand = originalRunInspectCommand
+		runUpgradeCommand = originalRunUpgradeCommand
+		runMigrateCommand = originalRunMigrateCommand
+		runPrerenderCommand = originalRunPrerenderCommand
+		runExportCommand = originalRunExportCommand
+		runDeployCommand = originalRunDeployCommand
 		runTailwindCommand = originalRunTailwindCommand
 		runDoctorCommand = originalRunDoctorCommand
 		runEnvCommand = originalRunEnvCommand
@@ -2305,6 +2319,27 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 		{name: "files", args: []string{"files", "-ext", "js"}, installStub: func(t *testing.T, called *bool) {
 			runFilesCommand = func(l launcher, args []string) error { *called = true; return nil }
 		}},
+		{name: "init", args: []string{"init", "-json"}, installStub: func(t *testing.T, called *bool) {
+			runInitCommand = func(l launcher, args []string) error { *called = true; return nil }
+		}},
+		{name: "inspect", args: []string{"inspect", "-json"}, installStub: func(t *testing.T, called *bool) {
+			runInspectCommand = func(l launcher, args []string) error { *called = true; return nil }
+		}},
+		{name: "upgrade", args: []string{"upgrade", "-json"}, installStub: func(t *testing.T, called *bool) {
+			runUpgradeCommand = func(l launcher, args []string) error { *called = true; return nil }
+		}},
+		{name: "migrate", args: []string{"migrate", "-json"}, installStub: func(t *testing.T, called *bool) {
+			runMigrateCommand = func(l launcher, args []string) error { *called = true; return nil }
+		}},
+		{name: "prerender", args: []string{"prerender", "-json"}, installStub: func(t *testing.T, called *bool) {
+			runPrerenderCommand = func(l launcher, args []string) error { *called = true; return nil }
+		}},
+		{name: "export", args: []string{"export", "-json"}, installStub: func(t *testing.T, called *bool) {
+			runExportCommand = func(l launcher, args []string) error { *called = true; return nil }
+		}},
+		{name: "deploy", args: []string{"deploy", "-json"}, installStub: func(t *testing.T, called *bool) {
+			runDeployCommand = func(l launcher, args []string) error { *called = true; return nil }
+		}},
 		{name: "tailwind", args: []string{"tailwind", "-json"}, installStub: func(t *testing.T, called *bool) {
 			runTailwindCommand = func(l launcher, args []string) error { *called = true; return nil }
 		}},
@@ -2336,6 +2371,13 @@ func TestLauncherRunDispatchesEachSubcommand(t *testing.T) {
 			runDevCommand = originalRunDevCommand
 			runServeCommand = originalRunServeCommand
 			runFilesCommand = originalRunFilesCommand
+			runInitCommand = originalRunInitCommand
+			runInspectCommand = originalRunInspectCommand
+			runUpgradeCommand = originalRunUpgradeCommand
+			runMigrateCommand = originalRunMigrateCommand
+			runPrerenderCommand = originalRunPrerenderCommand
+			runExportCommand = originalRunExportCommand
+			runDeployCommand = originalRunDeployCommand
 			runTailwindCommand = originalRunTailwindCommand
 			runDoctorCommand = originalRunDoctorCommand
 			runEnvCommand = originalRunEnvCommand

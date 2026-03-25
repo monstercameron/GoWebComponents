@@ -61,7 +61,7 @@ func (l launcher) runDev(args []string) error {
 		return err
 	}
 
-	forwarded := []string{"run", "."}
+	forwarded := []string{"run", "./tools/livereload/livereload.go"}
 	forwarded = append(forwarded, "-app", config.appPath)
 	if config.rootPath != "" {
 		forwarded = append(forwarded, "-root", config.rootPath)
@@ -95,13 +95,9 @@ func (l launcher) runDev(args []string) error {
 	if *dryRun {
 		return nil
 	}
-	livereloadWorkspace, err := resolveLauncherLivereloadWorkspace(l.repoRoot, config.rootPath)
-	if err != nil {
-		return err
-	}
 	plan := describeDevPlan(config)
 	cmd := exec.Command("go", forwarded...)
-	cmd.Dir = livereloadWorkspace
+	cmd.Dir = l.repoRoot
 	cmd.Env = os.Environ()
 	if *tui {
 		if plan.ServerMode != "livereload-wasm" || strings.TrimSpace(plan.StatusURL) == "" {

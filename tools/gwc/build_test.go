@@ -90,7 +90,7 @@ func TestResolveBuildConfigDefaults(t *testing.T) {
 	if config.rootPath != tempApp {
 		t.Fatalf("expected root path %q, got %q", tempApp, config.rootPath)
 	}
-	if config.outputPath != filepath.Join(tempApp, "main.wasm") {
+	if config.outputPath != filepath.Join(tempApp, "bin", "main.wasm") {
 		t.Fatalf("expected default output under root, got %q", config.outputPath)
 	}
 	if config.profile != "development" {
@@ -154,7 +154,7 @@ func TestResolveBuildConfigUsesArtifactRootOverride(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve build config: %v", err)
 	}
-	want := filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "main.wasm")
+	want := filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "bin", "main.wasm")
 	if config.outputPath != want {
 		t.Fatalf("expected artifact-root output path %q, got %#v", want, config)
 	}
@@ -182,7 +182,7 @@ func TestResolveBuildConfigDirectoryAppPathAndInvalidMetadata(t *testing.T) {
 		if err != nil {
 			t.Fatalf("resolve build config: %v", err)
 		}
-		if config.rootPath != appDir || config.outputPath != filepath.Join(appDir, "main.wasm") || config.profile != "benchmark" {
+		if config.rootPath != appDir || config.outputPath != filepath.Join(appDir, "bin", "main.wasm") || config.profile != "benchmark" {
 			t.Fatalf("expected directory app path defaults, got %#v", config)
 		}
 	})

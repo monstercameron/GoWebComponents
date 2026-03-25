@@ -57,6 +57,7 @@ func (fs FS) pathExists(path string) bool {
 	return err == nil
 }
 
+// Load reads and parses the runner override file found from cwd.
 func Load(cwd string, fs FS) (Overrides, string, bool, error) {
 	fs = fs.withDefaults()
 	configPath, err := ResolveConfigPath(cwd, fs)
@@ -77,6 +78,7 @@ func Load(cwd string, fs FS) (Overrides, string, bool, error) {
 	return overrides, configPath, true, nil
 }
 
+// ResolveConfigPath determines the absolute path to the runner config file starting from cwd.
 func ResolveConfigPath(cwd string, fs FS) (string, error) {
 	fs = fs.withDefaults()
 	if explicit := strings.TrimSpace(os.Getenv(OverrideEnvVar)); explicit != "" {
@@ -106,6 +108,7 @@ func ResolveConfigPath(cwd string, fs FS) (string, error) {
 	return "", nil
 }
 
+// LocateConfigInParents walks up the directory tree from cwd looking for a gwc-runner.json file.
 func LocateConfigInParents(cwd string, fs FS) string {
 	fs = fs.withDefaults()
 	current := strings.TrimSpace(cwd)
@@ -129,6 +132,7 @@ func LocateConfigInParents(cwd string, fs FS) string {
 	}
 }
 
+// ResolveValue resolves a raw config path value relative to the config file location.
 func ResolveValue(configPath string, raw string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -148,6 +152,7 @@ func ResolveValue(configPath string, raw string) (string, error) {
 	return resolved, nil
 }
 
+// ResolveConfiguredPath resolves a path from the runner config using the given selector.
 func ResolveConfiguredPath(cwd string, selector func(Paths) string, label string, fs FS) (string, bool, error) {
 	overrides, configPath, ok, err := Load(cwd, fs)
 	if err != nil {
@@ -166,12 +171,14 @@ func ResolveConfiguredPath(cwd string, selector func(Paths) string, label string
 	return overridePath, true, nil
 }
 
+// ResolveArtifactRoot resolves the configured artifact root directory for the workspace.
 func ResolveArtifactRoot(cwd string, fs FS) (string, bool, error) {
 	return ResolveConfiguredPath(cwd, func(paths Paths) string {
 		return paths.ArtifactRoot
 	}, "artifactRoot", fs)
 }
 
+// ResolveWorkspaceBuildRoot resolves the build output root for the workspace, defaulting to bin/.
 func ResolveWorkspaceBuildRoot(rootPath string, fs FS) (string, error) {
 	configured, ok, err := ResolveConfiguredPath(rootPath, func(paths Paths) string {
 		return paths.WorkspaceBuildRoot
@@ -197,6 +204,7 @@ func ResolveWorkspaceBuildRoot(rootPath string, fs FS) (string, error) {
 	return filepath.Join(cleaned, "bin"), nil
 }
 
+// ResolveWorkspaceBuildPath resolves a path within the workspace build root.
 func ResolveWorkspaceBuildPath(rootPath string, fs FS, segments ...string) (string, error) {
 	buildRoot, err := ResolveWorkspaceBuildRoot(rootPath, fs)
 	if err != nil {
@@ -207,6 +215,7 @@ func ResolveWorkspaceBuildPath(rootPath string, fs FS, segments ...string) (stri
 	return filepath.Join(parts...), nil
 }
 
+// GetArtifactNamespace returns the artifact namespace derived from the workspace root path.
 func GetArtifactNamespace(rootPath string) string {
 	cleaned := filepath.Clean(strings.TrimSpace(rootPath))
 	if cleaned == "" || cleaned == "." {
@@ -219,6 +228,7 @@ func GetArtifactNamespace(rootPath string) string {
 	return base
 }
 
+// ResolveArtifactPath resolves the path to an artifact within the configured artifact root.
 func ResolveArtifactPath(rootPath string, fs FS, segments ...string) (string, bool, error) {
 	artifactRoot, ok, err := ResolveArtifactRoot(rootPath, fs)
 	if err != nil || !ok {

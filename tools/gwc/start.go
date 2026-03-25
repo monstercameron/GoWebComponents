@@ -308,7 +308,7 @@ func devArgsFromScaffold(result scaffoldResult) []string {
 }
 
 func scaffoldWASMOutputPath() string {
-	return "main.wasm"
+	return filepath.ToSlash(filepath.Join("bin", "main.wasm"))
 }
 
 func defaultScaffoldBuildProfile() string {
@@ -964,11 +964,13 @@ jobs:
         run: go test ./...
 
       - name: Build WASM Entry
-        run: go build -o main.wasm .
+        run: |
+          mkdir -p bin
+          go build -o %s .
         env:
           GOOS: js
           GOARCH: wasm
-`, selection.ProjectName)
+`, selection.ProjectName, scaffoldWASMOutputPath())
 }
 
 func renderScaffoldExtraFiles(selection startSelection) map[string][]byte {
@@ -1299,7 +1301,7 @@ func renderScaffoldHTML(selection startSelection) string {
 	<script>
 		const go = new Go();
 		const errorBox = document.getElementById('boot-error');
-		WebAssembly.instantiateStreaming(fetch('./main.wasm'), go.importObject)
+		WebAssembly.instantiateStreaming(fetch('./__GWC_WASM_PATH__'), go.importObject)
 			.then(result => go.run(result.instance))
 			.catch(error => {
 				errorBox.style.display = 'block';
@@ -1310,7 +1312,8 @@ func renderScaffoldHTML(selection startSelection) string {
 </body>
 </html>
 `
-	return strings.ReplaceAll(template, "__GWC_PROJECT_TITLE__", selection.ProjectName)
+	rendered := strings.ReplaceAll(template, "__GWC_PROJECT_TITLE__", selection.ProjectName)
+	return strings.ReplaceAll(rendered, "__GWC_WASM_PATH__", scaffoldWASMOutputPath())
 }
 
 func renderScaffoldMetadata(selection startSelection) string {

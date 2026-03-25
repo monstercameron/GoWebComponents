@@ -275,7 +275,7 @@ func TestState(t *testing.T) {
 
 func buildBenchmarkWasm(t *testing.T, repoRoot string) string {
 	t.Helper()
-	outputDir := filepath.Join(repoRoot, "test", "benchmark", "bin")
+	outputDir := filepath.Join(repoRoot, "bin", "test", "benchmark")
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		t.Fatalf("mkdir benchmark output dir: %v", err)
 	}
@@ -293,7 +293,7 @@ func buildBenchmarkWasm(t *testing.T, repoRoot string) string {
 func TestBenchmark(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
 	repoRoot := repoRootFromFile(file)
-	_ = buildBenchmarkWasm(t, repoRoot)
+	wasmPath := buildBenchmarkWasm(t, repoRoot)
 	stop := startCommand(
 		t,
 		repoRoot,
@@ -302,6 +302,8 @@ func TestBenchmark(t *testing.T) {
 		"-root", "./test/benchmark",
 		"-host", "127.0.0.1",
 		"-port", "18082",
+		"-wasm-route", "/bin/benchmark.wasm",
+		"-wasm-file", wasmPath,
 	)
 	t.Cleanup(stop)
 	baseURL := "http://127.0.0.1:18082"

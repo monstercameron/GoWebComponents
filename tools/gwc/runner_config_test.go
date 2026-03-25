@@ -155,7 +155,7 @@ func TestResolveLauncherDefaultBuildOutputUsesSharedResolver(t *testing.T) {
 		if err != nil {
 			t.Fatalf("resolve default build output: %v", err)
 		}
-		want := filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "main.wasm")
+		want := filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "bin", "main.wasm")
 		if got != want || source != "gwc-runner.json paths.artifactRoot" {
 			t.Fatalf("expected shared build output resolver to return %q via gwc-runner.json paths.artifactRoot, got path=%q source=%q", want, got, source)
 		}
@@ -167,7 +167,7 @@ func TestResolveLauncherDefaultBuildOutputUsesSharedResolver(t *testing.T) {
 		if err != nil {
 			t.Fatalf("resolve default build output: %v", err)
 		}
-		want := filepath.Join(root, "main.wasm")
+		want := filepath.Join(root, "bin", "main.wasm")
 		if got != want || source != "convention fallback" {
 			t.Fatalf("expected convention fallback build output %q, got path=%q source=%q", want, got, source)
 		}
@@ -424,7 +424,7 @@ func TestRunnerConfigPathOverridesApplyAcrossLauncherCommands(t *testing.T) {
 	if err := json.Unmarshal([]byte(buildOutput), &buildSummary); err != nil {
 		t.Fatalf("unmarshal build summary: %v\n%s", err, buildOutput)
 	}
-	if buildSummary.OutputPath != filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "main.wasm") {
+	if buildSummary.OutputPath != filepath.Join(root, "enterprise-artifacts", filepath.Base(root), "bin", "main.wasm") {
 		t.Fatalf("expected build output to honor artifactRoot, got %#v", buildSummary)
 	}
 

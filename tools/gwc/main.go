@@ -431,7 +431,7 @@ func launcherCommandAndArgs(args []string) (string, []string) {
 
 func launcherCommandSupportsJSON(command string) bool {
 	switch strings.TrimSpace(strings.ToLower(command)) {
-	case "bench", "benchmark", "build", "dev", "doctor", "env", "files", "release", "seed", "tailwind", "test", "verify", "wasm":
+	case "bench", "benchmark", "build", "deploy", "dev", "doctor", "env", "export", "files", "init", "inspect", "migrate", "prerender", "release", "seed", "tailwind", "test", "upgrade", "verify", "wasm":
 		return true
 	default:
 		return false
@@ -658,12 +658,26 @@ func (l launcher) dispatchCommand(command string, args []string) error {
 		return runServeCommand(l, args)
 	case "files":
 		return runFilesCommand(l, args)
+	case "init":
+		return runInitCommand(l, args)
+	case "inspect":
+		return runInspectCommand(l, args)
+	case "upgrade":
+		return runUpgradeCommand(l, args)
+	case "migrate":
+		return runMigrateCommand(l, args)
+	case "prerender":
+		return runPrerenderCommand(l, args)
+	case "export":
+		return runExportCommand(l, args)
 	case "tailwind":
 		return runTailwindCommand(l, args)
 	case "dashboard":
 		return runDashboardCommand(l, args)
 	case "doctor":
 		return runDoctorCommand(l, args)
+	case "deploy":
+		return runDeployCommand(l, args)
 	case "env":
 		return runEnvCommand(l, args)
 	case "verify":
@@ -3294,12 +3308,19 @@ func printUsage() {
 	fmt.Println("  build      Build a js/wasm app with an explicit launcher profile")
 	fmt.Println("  test       Run explicit launcher-owned test lanes such as unit, wasm, hydration, browser, and release")
 	fmt.Println("  examples   Serve the examples catalog from a Go-native server")
-	fmt.Println("  dev        Run the Go-native dev entrypoint and forward to livereload")
+	fmt.Println("  dev        Run the native gwc dev orchestration path with integrated livereload runtime")
 	fmt.Println("  serve      Serve a static directory, wasm artifact, wasm_exec.js, and optional JSON fixtures")
 	fmt.Println("  files      List project files with repeatable extension and directory filters")
+	fmt.Println("  init       Non-interactive project initialization that writes gwc-start.json and lifecycle defaults")
+	fmt.Println("  inspect    Build higher-level route, dependency, ownership, and file-type project reports")
+	fmt.Println("  upgrade    Non-interactive lifecycle upgrade for gwc-start.json schema and runtime assets")
+	fmt.Println("  migrate    Non-interactive migration helper with compatibility API findings and report export")
+	fmt.Println("  prerender  Build one static export output with route HTML, wasm artifacts, and a manifest")
+	fmt.Println("  export     Alias for `prerender`")
 	fmt.Println("  tailwind   Build shared Tailwind CSS and generated class manifests through the launcher-owned Tailwind path")
 	fmt.Println("  dashboard  Monitor live-reload clients and project AI provider configuration from a launcher-owned dashboard")
 	fmt.Println("  doctor     Check local toolchains, runtime assets, project signals, and optional golden-path audit anchors")
+	fmt.Println("  deploy     Package validated release artifacts through explicit deployment adapters")
 	fmt.Println("  env        Print launcher-relevant environment variables and current values")
 	fmt.Println("  seed       Provision local dev identities and fixture data through a seed package")
 	fmt.Println("  import     Convert a static HTML or JSX file into an inspectable GWC project")

@@ -1540,7 +1540,7 @@ func TestRenderScaffoldMetadataIncludesToolingDefaults(t *testing.T) {
 	if metadata.SchemaVersion != currentScaffoldMetadataSchemaVersion {
 		t.Fatalf("expected scaffold metadata schema version %d, got %#v", currentScaffoldMetadataSchemaVersion, metadata)
 	}
-	if metadata.Tooling.AppPath != "main.go" || metadata.Tooling.HTMLPath != "index.html" || metadata.Tooling.WASMPath != "main.wasm" {
+	if metadata.Tooling.AppPath != "main.go" || metadata.Tooling.HTMLPath != "index.html" || metadata.Tooling.WASMPath != filepath.ToSlash(filepath.Join("bin", "main.wasm")) {
 		t.Fatalf("expected default tooling paths, got %#v", metadata.Tooling)
 	}
 	if metadata.Tooling.ReleaseOutDir != filepath.ToSlash(filepath.Join("bin", "wasm-release")) || metadata.Tooling.ReleaseBinaryName != "app.wasm" || metadata.Tooling.ReleaseCompression != "gzip+brotli" {
@@ -1643,7 +1643,7 @@ func TestRenderScaffoldExtraFilesAddsBrowserTestScaffold(t *testing.T) {
 		}
 	}
 	workflowSource := string(files[".github/workflows/ci.yml"])
-	for _, expected := range []string{"actions/checkout@v6", "actions/setup-go@v6", "go test ./...", "go build -o main.wasm .", "GOOS: js", "GOARCH: wasm"} {
+	for _, expected := range []string{"actions/checkout@v6", "actions/setup-go@v6", "go test ./...", "mkdir -p bin", "go build -o bin/main.wasm .", "GOOS: js", "GOARCH: wasm"} {
 		if !strings.Contains(workflowSource, expected) {
 			t.Fatalf("expected generated ci workflow to contain %q", expected)
 		}
@@ -2035,8 +2035,8 @@ func TestGenerateStartScaffoldWritesStarterFiles(t *testing.T) {
 	if metadata.Tooling.HTMLPath != "index.html" {
 		t.Fatalf("expected metadata html path index.html, got %#v", metadata.Tooling)
 	}
-	if metadata.Tooling.WASMPath != "main.wasm" {
-		t.Fatalf("expected metadata wasm path main.wasm, got %#v", metadata.Tooling)
+	if metadata.Tooling.WASMPath != filepath.ToSlash(filepath.Join("bin", "main.wasm")) {
+		t.Fatalf("expected metadata wasm path bin/main.wasm, got %#v", metadata.Tooling)
 	}
 	if metadata.Tooling.DefaultBuildProfile != "development" {
 		t.Fatalf("expected default build profile metadata, got %#v", metadata.Tooling)
@@ -2058,7 +2058,7 @@ func TestGenerateStartScaffoldWritesStarterFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read generated README file: %v", err)
 	}
-	if !strings.Contains(string(readmeBytes), "-wasm \"main.wasm\"") {
+	if !strings.Contains(string(readmeBytes), "-wasm \"bin/main.wasm\"") {
 		t.Fatalf("expected generated README to include explicit wasm output flag, got:\n%s", string(readmeBytes))
 	}
 	for _, expected := range []string{"## Starter Output Rules", "treat this scaffold as disposable starter code", "FEATURE_MATRIX.md", "## Verify", "go test ./..."} {
@@ -2071,7 +2071,7 @@ func TestGenerateStartScaffoldWritesStarterFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read generated workflow file: %v", err)
 	}
-	for _, expected := range []string{"actions/checkout@v6", "actions/setup-go@v6", "go test ./...", "go build -o main.wasm ."} {
+	for _, expected := range []string{"actions/checkout@v6", "actions/setup-go@v6", "go test ./...", "mkdir -p bin", "go build -o bin/main.wasm ."} {
 		if !strings.Contains(string(workflowBytes), expected) {
 			t.Fatalf("expected generated workflow to contain %q", expected)
 		}
@@ -2113,7 +2113,10 @@ func TestGenerateStartScaffoldWritesStarterFiles(t *testing.T) {
 		}
 	}
 
-	buildCmd := exec.Command("go", "build", "-o", "main.wasm", ".")
+	if err := os.MkdirAll(filepath.Join(targetDir, "bin"), 0755); err != nil {
+		t.Fatalf("create scaffold bin directory: %v", err)
+	}
+	buildCmd := exec.Command("go", "build", "-o", filepath.Join("bin", "main.wasm"), ".")
 	buildCmd.Dir = targetDir
 	buildCmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	buildOutput, err := buildCmd.CombinedOutput()
@@ -2197,7 +2200,7 @@ func TestGenerateStartScaffoldCIWorkflowMatchesStarterOutputs(t *testing.T) {
 				t.Fatalf("read workflow file: %v", err)
 			}
 			workflowText := string(workflowBytes)
-			for _, expected := range []string{"go test ./...", "go build -o main.wasm .", "GOOS: js", "GOARCH: wasm"} {
+			for _, expected := range []string{"go test ./...", "mkdir -p bin", "go build -o bin/main.wasm .", "GOOS: js", "GOARCH: wasm"} {
 				if !strings.Contains(workflowText, expected) {
 					t.Fatalf("expected workflow to contain %q", expected)
 				}
@@ -2439,7 +2442,7 @@ func TestRunDevExecutesForwardedCommandAndSurfacesFailure(t *testing.T) {
 		t.Fatalf("read forwarded args: %v", err)
 	}
 	argsText := string(argsBytes)
-	for _, expected := range []string{"run .", "-app " + appPath, "-root " + appDir, "-html " + htmlPath, "-wasm dist/app.wasm", "-host 0.0.0.0", "-port 9123", "-hot false", "-client-script custom-client.js"} {
+	for _, expected := range []string{"run ./tools/livereload/livereload.go", "-app " + appPath, "-root " + appDir, "-html " + htmlPath, "-wasm dist/app.wasm", "-host 0.0.0.0", "-port 9123", "-hot false", "-client-script custom-client.js"} {
 		if !strings.Contains(argsText, expected) {
 			t.Fatalf("expected forwarded args to contain %q, got %q", expected, argsText)
 		}
