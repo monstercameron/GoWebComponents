@@ -55,6 +55,8 @@ func TestLoadFirstDotEnvAndRuntimeConfig(t *testing.T) {
 			return " ./chat.db "
 		case "CHAT_AUTH_SECRET":
 			return " secret "
+		case "CHAT_USAGE_PREMIUM_PERCENT":
+			return " 7.5 "
 		default:
 			return ""
 		}
@@ -65,12 +67,12 @@ func TestLoadFirstDotEnvAndRuntimeConfig(t *testing.T) {
 	if len(config.stubProviders) != 2 || config.stubProviders[0] != "anthropic" || config.stubProviders[1] != "cerebras" {
 		t.Fatalf("unexpected stub provider config: %+v", config)
 	}
-	if config.defaultModel != "gpt-5.4-mini" || config.addr != "0.0.0.0:9999" || config.dbPath != "./chat.db" || config.authSecret != "secret" {
+	if config.defaultModel != "gpt-5.4-mini" || config.addr != "0.0.0.0:9999" || config.dbPath != "./chat.db" || config.authSecret != "secret" || config.usagePremiumPct != 7.5 {
 		t.Fatalf("unexpected runtime config values: %+v", config)
 	}
 
 	defaultConfig := readServerRuntimeConfig(func(string) string { return "" })
-	if defaultConfig.addr != "127.0.0.1:8095" || defaultConfig.dbPath != "examples/100-ai-chat-wizard/bin/runtime/chat_history.db" || defaultConfig.defaultModel != "" {
+	if defaultConfig.addr != "127.0.0.1:8095" || defaultConfig.dbPath != "examples/100-ai-chat-wizard/bin/runtime/chat_history.db" || defaultConfig.defaultModel != "" || defaultConfig.usagePremiumPct != 5 {
 		t.Fatalf("unexpected default runtime config: %+v", defaultConfig)
 	}
 	if len(defaultConfig.stubProviders) != 0 {

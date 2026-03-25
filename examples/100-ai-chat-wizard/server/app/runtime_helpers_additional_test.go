@@ -40,6 +40,8 @@ func TestRuntimeConfigHelperBranches(t *testing.T) {
 			return " runtime/chat.db "
 		case "CHAT_AUTH_SECRET":
 			return " secret "
+		case "CHAT_USAGE_PREMIUM_PERCENT":
+			return " 6.25 "
 		default:
 			return ""
 		}
@@ -50,7 +52,7 @@ func TestRuntimeConfigHelperBranches(t *testing.T) {
 	if got := strings.Join(config.stubProviders, ","); got != "openai,anthropic,cerebras" {
 		t.Fatalf("stubProviders = %q, want openai,anthropic,cerebras", got)
 	}
-	if config.defaultModel != "gpt-5.4-mini" || config.addr != "0.0.0.0:9000" || config.dbPath != "runtime/chat.db" || config.authSecret != "secret" {
+	if config.defaultModel != "gpt-5.4-mini" || config.addr != "0.0.0.0:9000" || config.dbPath != "runtime/chat.db" || config.authSecret != "secret" || config.usagePremiumPct != 6.25 {
 		t.Fatalf("unexpected runtime config: %+v", config)
 	}
 
@@ -69,12 +71,27 @@ func TestRuntimeConfigHelperBranches(t *testing.T) {
 	if defaults.dbPath != "examples/100-ai-chat-wizard/bin/runtime/chat_history.db" {
 		t.Fatalf("default dbPath = %q", defaults.dbPath)
 	}
+	if defaults.usagePremiumPct != 5 {
+		t.Fatalf("default usage premium pct = %.2f, want 5.00", defaults.usagePremiumPct)
+	}
 
 	if got := splitAndTrim(" one, two ,, three "); strings.Join(got, "|") != "one|two|three" {
 		t.Fatalf("splitAndTrim() = %q, want one|two|three", strings.Join(got, "|"))
 	}
 	if got := splitAndTrim("   "); got != nil {
 		t.Fatalf("splitAndTrim(blank) = %#v, want nil", got)
+	}
+	if got := parseUsagePremiumPercent("12.5", 5); got != 12.5 {
+		t.Fatalf("parseUsagePremiumPercent(valid) = %.2f, want 12.50", got)
+	}
+	if got := parseUsagePremiumPercent("-2", 5); got != 5 {
+		t.Fatalf("parseUsagePremiumPercent(negative) = %.2f, want fallback 5.00", got)
+	}
+	if got := parseUsagePremiumPercent("oops", 5); got != 5 {
+		t.Fatalf("parseUsagePremiumPercent(invalid) = %.2f, want fallback 5.00", got)
+	}
+	if got := parseUsagePremiumPercent("5000", 5); got != 1000 {
+		t.Fatalf("parseUsagePremiumPercent(clamped) = %.2f, want 1000.00", got)
 	}
 }
 
@@ -131,9 +148,13 @@ func TestChatShellRoutingHelpers(t *testing.T) {
 		handler := chatShellHandler(fileServer)
 
 		bootstrapWriter := httptest.NewRecorder()
+		setChatUsagePremiumPercent(8.25)
 		handler.ServeHTTP(bootstrapWriter, httptest.NewRequest(http.MethodGet, "http://example.com/chat-bootstrap.js", nil))
 		if !strings.Contains(bootstrapWriter.Body.String(), "loadChatWasm") {
 			t.Fatalf("expected bootstrap route to serve JS, got %q", bootstrapWriter.Body.String())
+		}
+		if !strings.Contains(bootstrapWriter.Body.String(), "window.__relaydesk_usage_premium_percent = 8.250000;") {
+			t.Fatalf("expected bootstrap route to include usage premium percent, got %q", bootstrapWriter.Body.String())
 		}
 
 		assetWriter := httptest.NewRecorder()

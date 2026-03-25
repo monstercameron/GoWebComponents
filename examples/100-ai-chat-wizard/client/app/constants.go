@@ -97,6 +97,8 @@ const backgroundWorkerRequestRenderMarkdownBatch = "render-markdown-batch"
 const backgroundWorkerCommandStartTicker = "start-ticker"
 const backgroundWorkerCommandStopTicker = "stop-ticker"
 const backgroundWorkerEventTick = "tick"
+const usagePremiumWindowKey = "__relaydesk_usage_premium_percent"
+const defaultUsagePremiumPercent = 5.0
 
 // ─── scroll ───────────────────────────────────────────────────────────────────
 
@@ -183,6 +185,19 @@ type threadCostSummary struct {
 	AssistantMessageCosts  map[int]assistantMessageCost
 	HasAnyExactCosts       bool
 	AllAssistantCostsExact bool
+}
+
+type accountCostSummary struct {
+	ThreadCount          int
+	UsageCost            float64
+	PremiumPercent       float64
+	PremiumCost          float64
+	TotalCost            float64
+	HasAnyExactCosts     bool
+	AllThreadCostsExact  bool
+	HasCoverageGaps      bool
+	FailedThreadLookups  int
+	ExactThreadCostCount int
 }
 
 type markdownRenderRequest struct {

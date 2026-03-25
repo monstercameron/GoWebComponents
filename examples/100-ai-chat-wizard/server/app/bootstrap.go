@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -285,7 +286,18 @@ const chatShellHTML = `<!DOCTYPE html>
 </html>
 `
 
-const chatBootstrapJS = `const bootShell = document.getElementById('boot-shell');
+var chatUsagePremiumPercent = 5.0
+
+func setChatUsagePremiumPercent(percent float64) {
+	chatUsagePremiumPercent = percent
+}
+
+func currentChatUsagePremiumPercent() float64 {
+	return chatUsagePremiumPercent
+}
+
+const chatBootstrapJS = `window.__relaydesk_usage_premium_percent = {{USAGE_PREMIUM_PERCENT}};
+const bootShell = document.getElementById('boot-shell');
 const bootStatusText = document.getElementById('boot-status-text');
 const bootProgressFill = document.getElementById('boot-progress-fill');
 const bootPercent = document.getElementById('boot-percent');
@@ -898,5 +910,6 @@ func serveChatShell(w http.ResponseWriter, _ *http.Request) {
 
 func serveChatBootstrapJS(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-	_, _ = fmt.Fprint(w, chatBootstrapJS)
+	premiumLiteral := strconv.FormatFloat(currentChatUsagePremiumPercent(), 'f', 6, 64)
+	_, _ = fmt.Fprint(w, strings.Replace(chatBootstrapJS, "{{USAGE_PREMIUM_PERCENT}}", premiumLiteral, 1))
 }
