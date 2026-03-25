@@ -10,8 +10,12 @@
 
 - Added launcher-owned wasm experiment helpers under `gwc wasm` (`measure`, `compare`, `compare-compression`, `compare-cache`, `compare-toolchain`) plus `gwc bench` compare/capture follow-ups and updated launcher docs around the expanded benchmark and wasm workflow.
 - Added `gwc env` so operator-facing environment variables can be inspected in text or JSON output with secret-shaped values redacted by default.
+- Documented `gwc env` in both `docs/GWC.md` and `tools/README.md`, including JSON output and redaction behavior guidance.
 - Migrated remaining browser-suite and workspace wiring from npm/TypeScript Playwright configs to launcher-owned Playwright-Go flows, removed deprecated npm test workspaces and legacy spec/config files, and updated docs/workflow references to match.
 - Refreshed `examples/100-ai-chat-wizard` landing/auth/pricing surfaces, updated chat-shell bootstrap copy and related server tests, and rebuilt shared Tailwind output through the launcher-owned CSS pipeline.
+- Fixed Example 100 landing-header navigation actions to use app-route-aware links for home/pricing/login/chat entry behavior.
+- Removed deprecated `tools/*.ps1` and `tools/*.sh` wrapper scripts now superseded by the launcher-owned `gwc` command surface.
+- Removed legacy `test/browser/index.ts` and `test/browser/index.test.ts` bridge files that were tied to the older browser-harness path.
 - Removed checked-in generated browser helper/service-worker/static-script artifacts from examples static/script paths that are now treated as generated runtime assets.
 
 ### Tailwind CLI first-class launcher workflow
