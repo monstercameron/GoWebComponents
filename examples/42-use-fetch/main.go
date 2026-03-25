@@ -20,26 +20,26 @@ const (
 )
 
 func useFetchExample() ui.Node {
-	currentURL := ui.UseState(teamFeedURL)
-	resource := fetch.UseFetch(currentURL.Get())
-	state := resource.Get()
+	parseCurrentURL := ui.UseState(teamFeedURL)
+	parseResource := fetch.UseFetch(parseCurrentURL.Get())
+	parseState := parseResource.Get()
 
-	showTeam := ui.UseEvent(func() { currentURL.Set(teamFeedURL) })
-	showMetrics := ui.UseEvent(func() { currentURL.Set(metricsFeedURL) })
-	refetch := ui.UseEvent(func() { resource.Refetch() })
+	parseShowTeam := ui.UseEvent(func() { parseCurrentURL.Set(teamFeedURL) })
+	parseShowMetrics := ui.UseEvent(func() { parseCurrentURL.Set(metricsFeedURL) })
+	parseRefetch := ui.UseEvent(func() { parseResource.Refetch() })
 
-	status := "Idle"
-	if state.Loading {
-		status = "Loading"
-	} else if state.Error != "" {
-		status = "Error"
-	} else if state.Data != nil {
-		status = "Ready"
+	parseStatus := "Idle"
+	if parseState.Loading {
+		parseStatus = "Loading"
+	} else if parseState.Error != "" {
+		parseStatus = "Error"
+	} else if parseState.Data != nil {
+		parseStatus = "Ready"
 	}
 
-	payload := "No response yet"
-	if state.Data != nil {
-		payload = fmt.Sprint(state.Data)
+	parsePayload := "No response yet"
+	if parseState.Data != nil {
+		parsePayload = fmt.Sprint(parseState.Data)
 	}
 
 	return shared.ExamplePage(
@@ -48,18 +48,18 @@ func useFetchExample() ui.Node {
 		"UseFetch is the lightest hook in the package: give it a URL, read the raw loading and error state, and parse the response body yourself.",
 		shared.ExamplePanel("Request controls",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-				shared.ExampleButton("Team payload", showTeam),
-				shared.ExampleButton("Metrics payload", showMetrics),
-				shared.ExampleButton("Refetch", refetch),
+				shared.ExampleButton("Team payload", parseShowTeam),
+				shared.ExampleButton("Metrics payload", parseShowMetrics),
+				shared.ExampleButton("Refetch", parseRefetch),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
-				shared.ExampleStat("Status", status),
-				shared.ExampleStat("Error", state.Error),
-				shared.ExampleStat("URL kind", map[bool]string{true: "Team", false: "Metrics"}[currentURL.Get() == teamFeedURL]),
+				shared.ExampleStat("Status", parseStatus),
+				shared.ExampleStat("Error", parseState.Error),
+				shared.ExampleStat("URL kind", map[bool]string{true: "Team", false: "Metrics"}[parseCurrentURL.Get() == teamFeedURL]),
 			),
 		),
 		shared.ExamplePanel("Raw response data",
-			shared.ExampleCode(payload),
+			shared.ExampleCode(parsePayload),
 		),
 	)
 }

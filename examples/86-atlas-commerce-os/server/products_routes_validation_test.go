@@ -12,14 +12,14 @@ import (
 	serverauth "github.com/monstercameron/GoWebComponents/examples/86-atlas-commerce-os/server/auth"
 )
 
-func TestInternalProductCRUDWarehouseReturnRedirects(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestInternalProductCRUDWarehouseReturnRedirects(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	csrfToken, csrfCookie := loadCSRFFromPage(t, server, "/app/products")
+	parseCsrfToken, parseCsrfCookie := loadCSRFFromPage(parseT, parseServer, "/app/products")
 
-	createForm := url.Values{
-		"csrf_token":          {csrfToken},
+	parseCreateForm := url.Values{
+		"csrf_token":          {parseCsrfToken},
 		"sku":                 {"task-lamp-return"},
 		"slug":                {"task-lamp-return"},
 		"title":               {"Task Lamp Return"},
@@ -36,25 +36,25 @@ func TestInternalProductCRUDWarehouseReturnRedirects(t *testing.T) {
 		"available":           {"11"},
 		"inbound":             {"4"},
 	}
-	createReq := httptest.NewRequest(http.MethodPost, "/api/app/products", strings.NewReader(createForm.Encode()))
-	createReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	createReq.Header.Set("Origin", "http://example.com")
-	createReq.Header.Set("Referer", "http://example.com/app/products")
-	createReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	createReq.AddCookie(csrfCookie)
-	createRes := httptest.NewRecorder()
+	parseCreateReq := httptest.NewRequest(http.MethodPost, "/api/app/products", strings.NewReader(parseCreateForm.Encode()))
+	parseCreateReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseCreateReq.Header.Set("Origin", "http://example.com")
+	parseCreateReq.Header.Set("Referer", "http://example.com/app/products")
+	parseCreateReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseCreateReq.AddCookie(parseCsrfCookie)
+	parseCreateRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(createRes, createReq)
+	parseServer.routes().ServeHTTP(parseCreateRes, parseCreateReq)
 
-	if createRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, createRes.Code)
+	if parseCreateRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseCreateRes.Code)
 	}
-	if location := createRes.Header().Get("Location"); !strings.Contains(location, "/app/warehouses/illinois-hub/items/task-lamp-return") || !strings.Contains(location, "product-created") {
-		t.Fatalf("expected warehouse item redirect for create, got %q", location)
+	if parseLocation := parseCreateRes.Header().Get("Location"); !strings.Contains(parseLocation, "/app/warehouses/illinois-hub/items/task-lamp-return") || !strings.Contains(parseLocation, "product-created") {
+		parseT.Fatalf("expected warehouse item redirect for create, got %q", parseLocation)
 	}
 
-	updateForm := url.Values{
-		"csrf_token":           {csrfToken},
+	parseUpdateForm := url.Values{
+		"csrf_token":           {parseCsrfToken},
 		"sku":                  {"task-lamp-return"},
 		"slug":                 {"task-lamp-return-pro"},
 		"title":                {"Task Lamp Return Pro"},
@@ -70,56 +70,56 @@ func TestInternalProductCRUDWarehouseReturnRedirects(t *testing.T) {
 		"available":            {"2"},
 		"inbound":              {"8"},
 	}
-	updateReq := httptest.NewRequest(http.MethodPost, "/api/app/products/task-lamp-return/update", strings.NewReader(updateForm.Encode()))
-	updateReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	updateReq.Header.Set("Origin", "http://example.com")
-	updateReq.Header.Set("Referer", "http://example.com/app/products/task-lamp-return")
-	updateReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	updateReq.AddCookie(csrfCookie)
-	updateRes := httptest.NewRecorder()
+	parseUpdateReq := httptest.NewRequest(http.MethodPost, "/api/app/products/task-lamp-return/update", strings.NewReader(parseUpdateForm.Encode()))
+	parseUpdateReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseUpdateReq.Header.Set("Origin", "http://example.com")
+	parseUpdateReq.Header.Set("Referer", "http://example.com/app/products/task-lamp-return")
+	parseUpdateReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseUpdateReq.AddCookie(parseCsrfCookie)
+	parseUpdateRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(updateRes, updateReq)
+	parseServer.routes().ServeHTTP(parseUpdateRes, parseUpdateReq)
 
-	if updateRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, updateRes.Code)
+	if parseUpdateRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseUpdateRes.Code)
 	}
-	if location := updateRes.Header().Get("Location"); !strings.Contains(location, "/app/warehouses/new-jersey-hub/items/task-lamp-return") || !strings.Contains(location, "product-updated") {
-		t.Fatalf("expected warehouse item redirect for update, got %q", location)
+	if parseLocation2 := parseUpdateRes.Header().Get("Location"); !strings.Contains(parseLocation2, "/app/warehouses/new-jersey-hub/items/task-lamp-return") || !strings.Contains(parseLocation2, "product-updated") {
+		parseT.Fatalf("expected warehouse item redirect for update, got %q", parseLocation2)
 	}
 
-	deleteForm := url.Values{
-		"csrf_token":          {csrfToken},
+	parseDeleteForm := url.Values{
+		"csrf_token":          {parseCsrfToken},
 		"return_warehouse_id": {"new-jersey-hub"},
 	}
-	deleteReq := httptest.NewRequest(http.MethodPost, "/api/app/products/task-lamp-return-pro/delete", strings.NewReader(deleteForm.Encode()))
-	deleteReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	deleteReq.Header.Set("Origin", "http://example.com")
-	deleteReq.Header.Set("Referer", "http://example.com/app/products/task-lamp-return-pro")
-	deleteReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	deleteReq.AddCookie(csrfCookie)
-	deleteRes := httptest.NewRecorder()
+	parseDeleteReq := httptest.NewRequest(http.MethodPost, "/api/app/products/task-lamp-return-pro/delete", strings.NewReader(parseDeleteForm.Encode()))
+	parseDeleteReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseDeleteReq.Header.Set("Origin", "http://example.com")
+	parseDeleteReq.Header.Set("Referer", "http://example.com/app/products/task-lamp-return-pro")
+	parseDeleteReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseDeleteReq.AddCookie(parseCsrfCookie)
+	parseDeleteRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(deleteRes, deleteReq)
+	parseServer.routes().ServeHTTP(parseDeleteRes, parseDeleteReq)
 
-	if deleteRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, deleteRes.Code)
+	if parseDeleteRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseDeleteRes.Code)
 	}
-	if location := deleteRes.Header().Get("Location"); !strings.Contains(location, "/app/warehouses/new-jersey-hub") || !strings.Contains(location, "product-deleted") {
-		t.Fatalf("expected warehouse redirect for delete, got %q", location)
+	if parseLocation3 := parseDeleteRes.Header().Get("Location"); !strings.Contains(parseLocation3, "/app/warehouses/new-jersey-hub") || !strings.Contains(parseLocation3, "product-deleted") {
+		parseT.Fatalf("expected warehouse redirect for delete, got %q", parseLocation3)
 	}
-	if _, err := server.store.ProductAdminBySlug(context.Background(), "task-lamp-return-pro"); err == nil {
-		t.Fatal("expected deleted product lookup to fail")
+	if _, parseErr := parseServer.store.ProductAdminBySlug(context.Background(), "task-lamp-return-pro"); parseErr == nil {
+		parseT.Fatal("expected deleted product lookup to fail")
 	}
 }
 
-func TestInternalProductCreateValidationError(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestInternalProductCreateValidationError(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	csrfToken, csrfCookie := loadCSRFFromPage(t, server, "/app/products")
+	parseCsrfToken, parseCsrfCookie := loadCSRFFromPage(parseT, parseServer, "/app/products")
 
-	form := url.Values{
-		"csrf_token":   {csrfToken},
+	parseForm := url.Values{
+		"csrf_token":   {parseCsrfToken},
 		"sku":          {"task-lamp-invalid"},
 		"slug":         {"task-lamp-invalid"},
 		"title":        {""},
@@ -131,34 +131,34 @@ func TestInternalProductCreateValidationError(t *testing.T) {
 		"available":    {"11"},
 		"inbound":      {"4"},
 	}
-	req := httptest.NewRequest(http.MethodPost, "/api/app/products", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Origin", "http://example.com")
-	req.Header.Set("Referer", "http://example.com/app/products")
-	req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	req.AddCookie(csrfCookie)
-	res := httptest.NewRecorder()
+	parseReq := httptest.NewRequest(http.MethodPost, "/api/app/products", strings.NewReader(parseForm.Encode()))
+	parseReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseReq.Header.Set("Origin", "http://example.com")
+	parseReq.Header.Set("Referer", "http://example.com/app/products")
+	parseReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseReq.AddCookie(parseCsrfCookie)
+	parseRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(res, req)
+	parseServer.routes().ServeHTTP(parseRes, parseReq)
 
-	if res.Code != http.StatusBadRequest {
-		t.Fatalf("expected %d, got %d", http.StatusBadRequest, res.Code)
+	if parseRes.Code != http.StatusBadRequest {
+		parseT.Fatalf("expected %d, got %d", http.StatusBadRequest, parseRes.Code)
 	}
-	var payload struct {
+	var parsePayload struct {
 		Error   string            `json:"error"`
 		Message string            `json:"message"`
 		Fields  map[string]string `json:"fields"`
 	}
-	if err := json.Unmarshal(res.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("unmarshal validation payload: %v", err)
+	if parseErr := json.Unmarshal(parseRes.Body.Bytes(), &parsePayload); parseErr != nil {
+		parseT.Fatalf("unmarshal validation payload: %v", parseErr)
 	}
-	if payload.Error != "invalid_product_request" {
-		t.Fatalf("unexpected error payload: %+v", payload)
+	if parsePayload.Error != "invalid_product_request" {
+		parseT.Fatalf("unexpected error payload: %+v", parsePayload)
 	}
-	if payload.Fields["title"] == "" {
-		t.Fatalf("expected title validation message, got %+v", payload.Fields)
+	if parsePayload.Fields["title"] == "" {
+		parseT.Fatalf("expected title validation message, got %+v", parsePayload.Fields)
 	}
-	if _, err := server.store.ProductAdminBySlug(context.Background(), "task-lamp-invalid"); err == nil {
-		t.Fatal("expected invalid product create to leave no persisted record")
+	if _, parseErr2 := parseServer.store.ProductAdminBySlug(context.Background(), "task-lamp-invalid"); parseErr2 == nil {
+		parseT.Fatal("expected invalid product create to leave no persisted record")
 	}
 }

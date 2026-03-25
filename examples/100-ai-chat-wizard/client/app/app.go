@@ -17,302 +17,302 @@ import (
 )
 
 // App renders the chat wizard application shell.
-func App() ui.Node {
-	intl := i18n.UseI18n()
-	app := ui.UseReducer(reduceAppState, initialAppState())
-	currentState := app.Get()
+func ParseApp() ui.Node {
+	parseIntl := i18n.UseI18n()
+	parseApp := ui.UseReducer(parseReduceAppState, parseInitialAppState())
+	parseCurrentState := parseApp.Get()
 
-	markdownRenderVersion := ui.UseState(0)
-	markdownRenderTick := markdownRenderVersion.Get()
-	userNameState := state.UseAtom("chat-wizard:user-name", "User")
-	sidebarOpenState := state.UseAtom("chat-wizard:sidebar-open", true)
-	ttsProviderState := state.UseAtom("chat-wizard:tts-provider", defaultTTSProvider)
-	storedTTSProvider := resolveTTSProviderID(ttsProviderState.Get())
-	userName := userNameState.Get()
-	sidebarOpen := sidebarOpenState.Get()
-	nav := router.UseNavigate()
-	threadRoutePublicID := currentThreadRoutePublicID()
-	canvasRouteID := currentCanvasRouteID()
+	parseMarkdownRenderVersion := ui.UseState(0)
+	parseMarkdownRenderTick := parseMarkdownRenderVersion.Get()
+	parseUserNameState := state.UseAtom("chat-wizard:user-name", "User")
+	parseSidebarOpenState := state.UseAtom("chat-wizard:sidebar-open", true)
+	parseTtsProviderState := state.UseAtom("chat-wizard:tts-provider", defaultTTSProvider)
+	parseStoredTTSProvider := parseResolveTTSProviderID(parseTtsProviderState.Get())
+	parseUserName := parseUserNameState.Get()
+	parseSidebarOpen := parseSidebarOpenState.Get()
+	parseNav := router.UseNavigate()
+	parseThreadRoutePublicID := parseCurrentThreadRoutePublicID()
+	parseCanvasRouteID := parseCurrentCanvasRouteID()
 
-	chatClientRef := ui.UseRef[chatpb.ChatServiceClient](nil)
-	markdownWorkerRef := ui.UseRef[*interop.Worker](nil)
-	markdownRenderInFlight := ui.UseRef(map[string]bool{})
+	parseChatClientRef := ui.UseRef[chatpb.ChatServiceClient](nil)
+	parseMarkdownWorkerRef := ui.UseRef[*interop.Worker](nil)
+	parseMarkdownRenderInFlight := ui.UseRef(map[string]bool{})
 
-	userNameFetchedAt := ui.UseRef(time.Time{})
-	convListFetchedAt := ui.UseRef(time.Time{})
-	pendingRootRouteWarningConvID := ui.UseRef(int64(0))
-	pendingThreadRouteResolution := ui.UseRef("")
-	lastRouteMismatchWarning := ui.UseRef("")
-	lastRouteNormalizationWarning := ui.UseRef("")
-	settingsReturnRouteRef := ui.UseRef("")
-	currentPath := router.GetCurrentPath()
-	settingsPanelRouteID := currentSettingsPanelRouteID()
-	deferredMessages := ui.UseDeferredValue(currentState.Messages)
+	parseUserNameFetchedAt := ui.UseRef(time.Time{})
+	parseConvListFetchedAt := ui.UseRef(time.Time{})
+	parsePendingRootRouteWarningConvID := ui.UseRef(int64(0))
+	parsePendingThreadRouteResolution := ui.UseRef("")
+	parseLastRouteMismatchWarning := ui.UseRef("")
+	parseLastRouteNormalizationWarning := ui.UseRef("")
+	parseSettingsReturnRouteRef := ui.UseRef("")
+	parseCurrentPath := router.GetCurrentPath()
+	parseSettingsPanelRouteID := parseCurrentSettingsPanelRouteID()
+	parseDeferredMessages := ui.UseDeferredValue(parseCurrentState.Messages)
 
-	completedMarkdownSignature := ui.UseMemo(func() string {
-		return completedAssistantMessagesMarkdownSignature(deferredMessages)
-	}, deferredMessages)
+	parseCompletedMarkdownSignature := ui.UseMemo(func() string {
+		return parseCompletedAssistantMessagesMarkdownSignature(parseDeferredMessages)
+	}, parseDeferredMessages)
 
-	threadCostSummary := ui.UseMemo(func() threadCostSummary {
-		return deriveThreadCostSummary(deferredMessages, currentState.ModelOptions)
-	}, deferredMessages, currentState.ModelOptions)
+	parseThreadCostSummary := ui.UseMemo(func() threadCostSummary {
+		return parseDeriveThreadCostSummary(parseDeferredMessages, parseCurrentState.ParseModelOptions)
+	}, parseDeferredMessages, parseCurrentState.ParseModelOptions)
 
-	scrollMemory := useThreadScrollMemory(currentState.ActiveConvID, len(currentState.Messages))
-	modelCatalogState := modelCatalog{DefaultModel: currentState.DefaultModel, Models: currentState.ModelOptions}
+	parseScrollMemory := parseUseThreadScrollMemory(parseCurrentState.ActiveConvID, len(parseCurrentState.Messages))
+	parseModelCatalogState := modelCatalog{DefaultModel: parseCurrentState.ParseDefaultModel, Models: parseCurrentState.ParseModelOptions}
 
-	ttsAudio := useTTSAudio(currentState.ActiveConvID, modelCatalogState, chatClientRef, currentState.SelectedTTSProvider)
-	redirectToAuthLanding := func() {
-		nav.Replace(authLandingRoute)
+	parseTtsAudio := parseUseTTSAudio(parseCurrentState.ActiveConvID, parseModelCatalogState, parseChatClientRef, parseCurrentState.SelectedTTSProvider)
+	parseRedirectToAuthLanding := func() {
+		parseNav.Replace(authLandingRoute)
 	}
-	handleAuthFailure := func(err error) bool {
-		if !handleUnauthenticatedRPC(app, userNameState, err) {
+	handleAuthFailure := func(parseErr error) bool {
+		if !handleUnauthenticatedRPC(parseApp, parseUserNameState, parseErr) {
 			return false
 		}
-		redirectToAuthLanding()
+		parseRedirectToAuthLanding()
 		return true
 	}
-	modelPreferences := useModelPreferences(app, chatClientRef, handleAuthFailure)
-	speechModalOpen := ui.UseState(false)
-	speechModalError := ui.UseState("")
+	parseModelPreferences := parseUseModelPreferences(parseApp, parseChatClientRef, handleAuthFailure)
+	parseSpeechModalOpen := ui.UseState(false)
+	parseSpeechModalError := ui.UseState("")
 
-	profileSettings := useProfileSettings(intl, app, userNameState, ttsProviderState, chatClientRef, nav, currentPath, settingsPanelRouteID, settingsReturnRouteRef, userNameFetchedAt, modelPreferences.SelectedToneCache, modelPreferences.SelectedThinkingEnabledCache, modelPreferences.SelectedThinkingEffortCache, handleAuthFailure)
+	parseProfileSettings := parseUseProfileSettings(parseIntl, parseApp, parseUserNameState, parseTtsProviderState, parseChatClientRef, parseNav, parseCurrentPath, parseSettingsPanelRouteID, parseSettingsReturnRouteRef, parseUserNameFetchedAt, parseModelPreferences.SelectedToneCache, parseModelPreferences.SelectedThinkingEnabledCache, parseModelPreferences.SelectedThinkingEffortCache, handleAuthFailure)
 
-	conversationList := useConversationList(app, chatClientRef, convListFetchedAt, scrollMemory, func(publicID string) {
-		path := chatThreadPath(publicID)
-		if router.GetCurrentPath() != path {
-			nav.Navigate(path)
+	parseConversationList := parseUseConversationList(parseApp, parseChatClientRef, parseConvListFetchedAt, parseScrollMemory, func(parsePublicID2 string) {
+		parsePath := parseChatThreadPath(parsePublicID2)
+		if router.GetCurrentPath() != parsePath {
+			parseNav.Navigate(parsePath)
 		}
 	}, handleAuthFailure)
-	accountCostSummary := useAccountCostSummary(currentState, chatClientRef, handleAuthFailure)
+	parseAccountCostSummary := parseUseAccountCostSummary(parseCurrentState, parseChatClientRef, handleAuthFailure)
 
-	authSession := useAuthSession(app, userNameState, chatClientRef, func() {
+	parseAuthSession := parseUseAuthSession(parseApp, parseUserNameState, parseChatClientRef, func() {
 		if !isChatRoute(router.GetCurrentPath()) {
-			nav.Replace(chatRouteRoot)
+			parseNav.Replace(chatRouteRoot)
 		}
-		conversationList.Refresh(true)
-		profileSettings.Refresh(true)
+		parseConversationList.Refresh(true)
+		parseProfileSettings.Refresh(true)
 	}, func() {
-		redirectToAuthLanding()
+		parseRedirectToAuthLanding()
 	})
 
-	chatStream := useChatStream(intl, app, chatClientRef, scrollMemory, nil, func(newConvID int64) {
-		conversationList.Refresh(true)
-	}, func(publicID string) {
-		path := chatThreadPath(publicID)
-		if router.GetCurrentPath() != path {
-			nav.Navigate(path)
+	parseChatStream := parseUseChatStream(parseIntl, parseApp, parseChatClientRef, parseScrollMemory, nil, func(parseNewConvID int64) {
+		parseConversationList.Refresh(true)
+	}, func(parsePublicID3 string) {
+		parsePath2 := parseChatThreadPath(parsePublicID3)
+		if router.GetCurrentPath() != parsePath2 {
+			parseNav.Navigate(parsePath2)
 		}
 	}, handleAuthFailure)
-	quoteSelection := useQuoteSelection(app)
-	canvasWorkspace := useCanvasWorkspace(app, nav, sidebarOpenState, threadRoutePublicID, canvasRouteID)
-	requestSpeechUpgrade := func() {
-		speechModalError.Set("")
-		speechModalOpen.Set(true)
+	parseQuoteSelection := parseUseQuoteSelection(parseApp)
+	parseCanvasWorkspace := parseUseCanvasWorkspace(parseApp, parseNav, parseSidebarOpenState, parseThreadRoutePublicID, parseCanvasRouteID)
+	parseRequestSpeechUpgrade := func() {
+		parseSpeechModalError.Set("")
+		parseSpeechModalOpen.Set(true)
 	}
-	cancelSpeechUpgrade := ui.UseEvent(func() {
-		speechModalError.Set("")
-		speechModalOpen.Set(false)
+	parseCancelSpeechUpgrade := ui.UseEvent(func() {
+		parseSpeechModalError.Set("")
+		parseSpeechModalOpen.Set(false)
 	})
-	confirmSpeechUpgrade := ui.UseEvent(func() {
-		currentState := app.Get()
-		if !ttsProviderSupportsSpeech(ttsProviderOpenAI, currentState.ModelOptions, currentState.DefaultModel) {
-			speechModalError.Set(intl.T(chatI18nNamespace, "modal.speechProviderUnavailable"))
+	parseConfirmSpeechUpgrade := ui.UseEvent(func() {
+		parseCurrentState2 := parseApp.Get()
+		if !parseTtsProviderSupportsSpeech(ttsProviderOpenAI, parseCurrentState2.ParseModelOptions, parseCurrentState2.ParseDefaultModel) {
+			parseSpeechModalError.Set(parseIntl.T(chatI18nNamespace, "modal.speechProviderUnavailable"))
 			return
 		}
-		ttsProviderState.Set(ttsProviderOpenAI)
-		app.Dispatch(appAction{Type: appActionSetSelectedTTSProvider, SelectedTTSProvider: ttsProviderOpenAI})
-		app.Dispatch(appAction{Type: appActionSetTTSProviderInput, TTSProviderInput: ttsProviderOpenAI})
-		speechModalError.Set("")
-		speechModalOpen.Set(false)
+		parseTtsProviderState.Set(ttsProviderOpenAI)
+		parseApp.Dispatch(appAction{Type: appActionSetSelectedTTSProvider, SelectedTTSProvider: ttsProviderOpenAI})
+		parseApp.Dispatch(appAction{Type: appActionSetTTSProviderInput, TTSProviderInput: ttsProviderOpenAI})
+		parseSpeechModalError.Set("")
+		parseSpeechModalOpen.Set(false)
 	})
 
 	ui.UseEffect(func() func() {
-		if storedTTSProvider == currentState.SelectedTTSProvider {
+		if parseStoredTTSProvider == parseCurrentState.SelectedTTSProvider {
 			return nil
 		}
-		app.Dispatch(appAction{Type: appActionSetSelectedTTSProvider, SelectedTTSProvider: storedTTSProvider})
-		if !currentState.ShowNameModal {
-			app.Dispatch(appAction{Type: appActionSetTTSProviderInput, TTSProviderInput: storedTTSProvider})
+		parseApp.Dispatch(appAction{Type: appActionSetSelectedTTSProvider, SelectedTTSProvider: parseStoredTTSProvider})
+		if !parseCurrentState.ShowNameModal {
+			parseApp.Dispatch(appAction{Type: appActionSetTTSProviderInput, TTSProviderInput: parseStoredTTSProvider})
 		}
 		return nil
-	}, storedTTSProvider, currentState.SelectedTTSProvider, currentState.ShowNameModal)
+	}, parseStoredTTSProvider, parseCurrentState.SelectedTTSProvider, parseCurrentState.ShowNameModal)
 
-	useAppRuntime(
-		app,
-		chatClientRef,
-		markdownWorkerRef,
-		markdownRenderInFlight,
-		markdownRenderVersion,
-		markdownRenderTick,
-		completedMarkdownSignature,
-		conversationList.Refresh,
-		profileSettings.Refresh,
+	parseUseAppRuntime(
+		parseApp,
+		parseChatClientRef,
+		parseMarkdownWorkerRef,
+		parseMarkdownRenderInFlight,
+		parseMarkdownRenderVersion,
+		parseMarkdownRenderTick,
+		parseCompletedMarkdownSignature,
+		parseConversationList.Refresh,
+		parseProfileSettings.Refresh,
 	)
 
 	ui.UseEffect(func() func() {
-		if !currentState.Authenticated || !currentState.GRPCReady || len(currentState.ModelOptions) > 0 {
+		if !parseCurrentState.Authenticated || !parseCurrentState.GRPCReady || len(parseCurrentState.ParseModelOptions) > 0 {
 			return nil
 		}
-		if modelPreferences.RefreshCatalog != nil {
-			modelPreferences.RefreshCatalog()
+		if parseModelPreferences.RefreshCatalog != nil {
+			parseModelPreferences.RefreshCatalog()
 		}
 		return nil
-	}, currentState.Authenticated, currentState.GRPCReady, len(currentState.ModelOptions))
+	}, parseCurrentState.Authenticated, parseCurrentState.GRPCReady, len(parseCurrentState.ParseModelOptions))
 
 	ui.UseEffect(func() func() {
-		if !currentState.Authenticated || !currentState.GRPCReady || currentState.Streaming || isSettingsRoute(currentPath) {
-			pendingThreadRouteResolution.Set("")
-			lastRouteMismatchWarning.Set("")
+		if !parseCurrentState.Authenticated || !parseCurrentState.GRPCReady || parseCurrentState.Streaming || isSettingsRoute(parseCurrentPath) {
+			parsePendingThreadRouteResolution.Set("")
+			parseLastRouteMismatchWarning.Set("")
 			return nil
 		}
 		switch {
-		case shouldResolveConversationRoute(threadRoutePublicID, currentState.ActiveConvPublicID):
-			if mismatchKey := routeSyncMismatchKey(threadRoutePublicID, currentState.ActiveConvPublicID); mismatchKey != "" && lastRouteMismatchWarning.Get() != mismatchKey {
+		case shouldResolveConversationRoute(parseThreadRoutePublicID, parseCurrentState.ActiveConvPublicID):
+			if parseMismatchKey := parseRouteSyncMismatchKey(parseThreadRoutePublicID, parseCurrentState.ActiveConvPublicID); parseMismatchKey != "" && parseLastRouteMismatchWarning.Get() != parseMismatchKey {
 				chatLog.Warn("route mismatch detected; resolving requested thread route", logging.Fields{
-					"requested_public_id": threadRoutePublicID,
-					"active_public_id":    currentState.ActiveConvPublicID,
-					"active_conv_id":      currentState.ActiveConvID,
-					"conversation_list":   len(currentState.ConversationList),
-					"path":                currentPath,
+					"requested_public_id": parseThreadRoutePublicID,
+					"active_public_id":    parseCurrentState.ActiveConvPublicID,
+					"active_conv_id":      parseCurrentState.ActiveConvID,
+					"conversation_list":   len(parseCurrentState.ConversationList),
+					"path":                parseCurrentPath,
 				})
-				lastRouteMismatchWarning.Set(mismatchKey)
+				parseLastRouteMismatchWarning.Set(parseMismatchKey)
 			}
-			if pendingThreadRouteResolution.Get() == threadRoutePublicID {
+			if parsePendingThreadRouteResolution.Get() == parseThreadRoutePublicID {
 				return nil
 			}
-			pendingThreadRouteResolution.Set(threadRoutePublicID)
-			pendingRootRouteWarningConvID.Set(0)
-			conversationList.ResolveRoute(threadRoutePublicID)
-		case shouldResetDraftForRootRoute(threadRoutePublicID, currentState.ActiveConvID, currentState.ActiveConvPublicID):
-			pendingThreadRouteResolution.Set("")
-			lastRouteMismatchWarning.Set("")
-			pendingRootRouteWarningConvID.Set(0)
-			scrollMemory.CancelPendingPersist()
-			scrollMemory.PersistNow(currentState.ActiveConvID)
-			scrollMemory.PrepareRestore(0)
-			app.Dispatch(appAction{Type: appActionSetMessages, Messages: []message{}})
-			app.Dispatch(appAction{Type: appActionSetInputText, InputText: ""})
-			app.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: 0, ActiveConvPublicID: ""})
-			app.Dispatch(appAction{Type: appActionSetEditIdx, EditIdx: -1})
-			app.Dispatch(appAction{Type: appActionSetEditText, EditText: ""})
-		case shouldWarnPendingRootRoute(threadRoutePublicID, currentState.ActiveConvID, currentState.ActiveConvPublicID):
-			pendingThreadRouteResolution.Set("")
-			lastRouteMismatchWarning.Set("")
-			if pendingRootRouteWarningConvID.Get() != currentState.ActiveConvID {
+			parsePendingThreadRouteResolution.Set(parseThreadRoutePublicID)
+			parsePendingRootRouteWarningConvID.Set(0)
+			parseConversationList.ResolveRoute(parseThreadRoutePublicID)
+		case shouldResetDraftForRootRoute(parseThreadRoutePublicID, parseCurrentState.ActiveConvID, parseCurrentState.ActiveConvPublicID):
+			parsePendingThreadRouteResolution.Set("")
+			parseLastRouteMismatchWarning.Set("")
+			parsePendingRootRouteWarningConvID.Set(0)
+			parseScrollMemory.CancelPendingPersist()
+			parseScrollMemory.ParsePersistNow(parseCurrentState.ActiveConvID)
+			parseScrollMemory.ParsePrepareRestore(0)
+			parseApp.Dispatch(appAction{Type: appActionSetMessages, Messages: []message{}})
+			parseApp.Dispatch(appAction{Type: appActionSetInputText, InputText: ""})
+			parseApp.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: 0, ActiveConvPublicID: ""})
+			parseApp.Dispatch(appAction{Type: appActionSetEditIdx, EditIdx: -1})
+			parseApp.Dispatch(appAction{Type: appActionSetEditText, EditText: ""})
+		case shouldWarnPendingRootRoute(parseThreadRoutePublicID, parseCurrentState.ActiveConvID, parseCurrentState.ActiveConvPublicID):
+			parsePendingThreadRouteResolution.Set("")
+			parseLastRouteMismatchWarning.Set("")
+			if parsePendingRootRouteWarningConvID.Get() != parseCurrentState.ActiveConvID {
 				chatLog.Warn("route sync deferred for unresolved conversation public id", logging.Fields{
-					"conv_id":           currentState.ActiveConvID,
-					"conversation_list": len(currentState.ConversationList),
+					"conv_id":           parseCurrentState.ActiveConvID,
+					"conversation_list": len(parseCurrentState.ConversationList),
 				})
-				pendingRootRouteWarningConvID.Set(currentState.ActiveConvID)
+				parsePendingRootRouteWarningConvID.Set(parseCurrentState.ActiveConvID)
 			}
 		default:
-			pendingThreadRouteResolution.Set("")
-			lastRouteMismatchWarning.Set("")
-			pendingRootRouteWarningConvID.Set(0)
+			parsePendingThreadRouteResolution.Set("")
+			parseLastRouteMismatchWarning.Set("")
+			parsePendingRootRouteWarningConvID.Set(0)
 		}
 		return nil
-	}, currentState.Authenticated, currentState.GRPCReady, currentState.Streaming, currentState.ActiveConvID, currentState.ActiveConvPublicID, threadRoutePublicID, currentState.ConversationList, currentPath)
+	}, parseCurrentState.Authenticated, parseCurrentState.GRPCReady, parseCurrentState.Streaming, parseCurrentState.ActiveConvID, parseCurrentState.ActiveConvPublicID, parseThreadRoutePublicID, parseCurrentState.ConversationList, parseCurrentPath)
 
 	ui.UseEffect(func() func() {
-		if currentState.ActiveConvID <= 0 {
+		if parseCurrentState.ActiveConvID <= 0 {
 			return nil
 		}
-		publicID := summaryPublicIDForID(currentState.ConversationList, currentState.ActiveConvID)
-		if publicID != "" && publicID != currentState.ActiveConvPublicID {
-			app.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: currentState.ActiveConvID, ActiveConvPublicID: publicID})
+		parsePublicID := parseSummaryPublicIDForID(parseCurrentState.ConversationList, parseCurrentState.ActiveConvID)
+		if parsePublicID != "" && parsePublicID != parseCurrentState.ActiveConvPublicID {
+			parseApp.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: parseCurrentState.ActiveConvID, ActiveConvPublicID: parsePublicID})
 		}
 		return nil
-	}, currentState.ActiveConvID, currentState.ActiveConvPublicID, currentState.ConversationList)
+	}, parseCurrentState.ActiveConvID, parseCurrentState.ActiveConvPublicID, parseCurrentState.ConversationList)
 
 	ui.UseEffect(func() func() {
-		if !currentState.Authenticated || isSettingsRoute(currentPath) {
-			lastRouteNormalizationWarning.Set("")
+		if !parseCurrentState.Authenticated || isSettingsRoute(parseCurrentPath) {
+			parseLastRouteNormalizationWarning.Set("")
 			return nil
 		}
-		if !shouldNormalizeActiveConversationRoute(threadRoutePublicID, currentState.ActiveConvPublicID) {
-			mismatchKey := routeSyncMismatchKey(threadRoutePublicID, currentState.ActiveConvPublicID)
-			if mismatchKey != "" && lastRouteNormalizationWarning.Get() != mismatchKey {
+		if !shouldNormalizeActiveConversationRoute(parseThreadRoutePublicID, parseCurrentState.ActiveConvPublicID) {
+			parseMismatchKey2 := parseRouteSyncMismatchKey(parseThreadRoutePublicID, parseCurrentState.ActiveConvPublicID)
+			if parseMismatchKey2 != "" && parseLastRouteNormalizationWarning.Get() != parseMismatchKey2 {
 				chatLog.Warn("suppressed route normalization while requested thread differs from active conversation", logging.Fields{
-					"requested_public_id": threadRoutePublicID,
-					"active_public_id":    currentState.ActiveConvPublicID,
-					"active_conv_id":      currentState.ActiveConvID,
-					"path":                currentPath,
+					"requested_public_id": parseThreadRoutePublicID,
+					"active_public_id":    parseCurrentState.ActiveConvPublicID,
+					"active_conv_id":      parseCurrentState.ActiveConvID,
+					"path":                parseCurrentPath,
 				})
-				lastRouteNormalizationWarning.Set(mismatchKey)
+				parseLastRouteNormalizationWarning.Set(parseMismatchKey2)
 			}
-			if mismatchKey == "" {
-				lastRouteNormalizationWarning.Set("")
+			if parseMismatchKey2 == "" {
+				parseLastRouteNormalizationWarning.Set("")
 			}
 			return nil
 		}
-		lastRouteNormalizationWarning.Set("")
-		expectedPath := chatThreadPath(currentState.ActiveConvPublicID)
-		if strings.TrimSpace(canvasRouteID) != "" && currentState.CanvasSession.Active {
-			expectedPath = chatCanvasPath(currentState.ActiveConvPublicID, currentState.CanvasSession.ArtifactID)
+		parseLastRouteNormalizationWarning.Set("")
+		parseExpectedPath := parseChatThreadPath(parseCurrentState.ActiveConvPublicID)
+		if strings.TrimSpace(parseCanvasRouteID) != "" && parseCurrentState.CanvasSession.Active {
+			parseExpectedPath = parseChatCanvasPath(parseCurrentState.ActiveConvPublicID, parseCurrentState.CanvasSession.ArtifactID)
 		}
-		if router.GetCurrentPath() != expectedPath {
-			nav.Replace(expectedPath)
+		if router.GetCurrentPath() != parseExpectedPath {
+			parseNav.Replace(parseExpectedPath)
 		}
 		return nil
-	}, currentState.Authenticated, currentState.ActiveConvPublicID, currentState.CanvasSession.Active, currentState.CanvasSession.ArtifactID, canvasRouteID, threadRoutePublicID, currentPath)
+	}, parseCurrentState.Authenticated, parseCurrentState.ActiveConvPublicID, parseCurrentState.CanvasSession.Active, parseCurrentState.CanvasSession.ArtifactID, parseCanvasRouteID, parseThreadRoutePublicID, parseCurrentPath)
 
-	view := deriveAppViewState(currentState, userName, sidebarOpen, threadCostSummary, accountCostSummary, strings.TrimSpace(canvasRouteID) != "")
+	parseView := parseDeriveAppViewState(parseCurrentState, parseUserName, parseSidebarOpen, parseThreadCostSummary, parseAccountCostSummary, strings.TrimSpace(parseCanvasRouteID) != "")
 
 	return renderAppShell(appShellProps{
-		Intl:                 intl,
-		View:                 view,
-		ResetChat:            newChatHandler(app, scrollMemory, func() { nav.Navigate(chatRouteRoot) }),
-		ToggleSidebar:        toggleSidebarHandler(sidebarOpenState),
-		ToggleThoughtSection: toggleThoughtSectionHandler(app),
-		RequestSpeechUpgrade: requestSpeechUpgrade,
-		ShowSpeechModal:      speechModalOpen.Get(),
-		SpeechModalError:     speechModalError.Get(),
-		ConfirmSpeechModal:   confirmSpeechUpgrade,
-		CancelSpeechModal:    cancelSpeechUpgrade,
-		StopBubble:           ui.UseEvent(func(e ui.Event) { e.StopPropagation() }),
-		ConversationList:     conversationList,
-		ChatStream:           chatStream,
-		ProfileSettings:      profileSettings,
-		ModelPreferences:     modelPreferences,
-		AuthSession:          authSession,
-		QuoteSelection:       quoteSelection,
-		TTSAudio:             ttsAudio,
-		ScrollMemory:         scrollMemory,
-		CanvasWorkspace:      canvasWorkspace,
+		Intl:                 parseIntl,
+		View:                 parseView,
+		ResetChat:            parseNewChatHandler(parseApp, parseScrollMemory, func() { parseNav.Navigate(chatRouteRoot) }),
+		ToggleSidebar:        parseToggleSidebarHandler(parseSidebarOpenState),
+		ToggleThoughtSection: parseToggleThoughtSectionHandler(parseApp),
+		RequestSpeechUpgrade: parseRequestSpeechUpgrade,
+		ShowSpeechModal:      parseSpeechModalOpen.Get(),
+		SpeechModalError:     parseSpeechModalError.Get(),
+		ConfirmSpeechModal:   parseConfirmSpeechUpgrade,
+		CancelSpeechModal:    parseCancelSpeechUpgrade,
+		StopBubble:           ui.UseEvent(func(parseE ui.Event) { parseE.StopPropagation() }),
+		ConversationList:     parseConversationList,
+		ChatStream:           parseChatStream,
+		ProfileSettings:      parseProfileSettings,
+		ModelPreferences:     parseModelPreferences,
+		AuthSession:          parseAuthSession,
+		QuoteSelection:       parseQuoteSelection,
+		TTSAudio:             parseTtsAudio,
+		ScrollMemory:         parseScrollMemory,
+		CanvasWorkspace:      parseCanvasWorkspace,
 	})
 }
 
 // --- entry point -------------------------------------------------------------
 
-func Run() {
-	r := router.NewHistoryRouter(router.RouterOptions{DefaultRoute: chatRouteRoot})
-	r.Register(authLandingRoute, func(router.Attrs) *router.Element {
-		return ui.CreateElement(chatWizardRoot)
+func ParseRun() {
+	parseR := router.NewHistoryRouter(router.RouterOptions{DefaultRoute: chatRouteRoot})
+	parseR.Register(authLandingRoute, func(router.Attrs) *router.Element {
+		return ui.CreateElement(parseChatWizardRoot)
 	})
-	r.Register(marketingHomeRoute, func(router.Attrs) *router.Element {
-		return ui.CreateElement(chatWizardRoot)
+	parseR.Register(marketingHomeRoute, func(router.Attrs) *router.Element {
+		return ui.CreateElement(parseChatWizardRoot)
 	})
-	r.Register(marketingCapabilitiesRoute, func(router.Attrs) *router.Element {
-		return ui.CreateElement(chatWizardRoot)
+	parseR.Register(marketingCapabilitiesRoute, func(router.Attrs) *router.Element {
+		return ui.CreateElement(parseChatWizardRoot)
 	})
-	r.Register(marketingPricingRoute, func(router.Attrs) *router.Element {
-		return ui.CreateElement(chatWizardRoot)
+	parseR.Register(marketingPricingRoute, func(router.Attrs) *router.Element {
+		return ui.CreateElement(parseChatWizardRoot)
 	})
-	r.Register(chatRouteRoot, func(router.Attrs) *router.Element {
-		return ui.CreateElement(chatWizardRoot)
+	parseR.Register(chatRouteRoot, func(router.Attrs) *router.Element {
+		return ui.CreateElement(parseChatWizardRoot)
 	})
-	r.Register(chatRouteThreadPattern, func(router.Attrs) *router.Element {
-		return ui.CreateElement(chatWizardRoot)
+	parseR.Register(chatRouteThreadPattern, func(router.Attrs) *router.Element {
+		return ui.CreateElement(parseChatWizardRoot)
 	})
-	r.Register(chatRouteCanvasPattern, func(router.Attrs) *router.Element {
-		return ui.CreateElement(chatWizardRoot)
+	parseR.Register(chatRouteCanvasPattern, func(router.Attrs) *router.Element {
+		return ui.CreateElement(parseChatWizardRoot)
 	})
-	r.Register(settingsRoutePath, func(router.Attrs) *router.Element {
-		return ui.CreateElement(chatWizardRoot)
+	parseR.Register(settingsRoutePath, func(router.Attrs) *router.Element {
+		return ui.CreateElement(parseChatWizardRoot)
 	})
-	r.Register("*", func(router.Attrs) *router.Element {
-		return ui.CreateElement(chatWizardRoot)
+	parseR.Register("*", func(router.Attrs) *router.Element {
+		return ui.CreateElement(parseChatWizardRoot)
 	})
-	r.Mount(appSelector)
+	parseR.Mount(appSelector)
 	utils.WaitForever()
 }

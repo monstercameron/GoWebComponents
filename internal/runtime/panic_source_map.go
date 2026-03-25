@@ -19,10 +19,10 @@ var wasmStackFrameMapper struct {
 }
 
 // SetWASMStackFrameMapper installs the current wasm stack-frame mapper.
-func SetWASMStackFrameMapper(parseMapper WASMStackFrameMapper) {
+func SetWASMStackFrameMapper(parseFrameMapper WASMStackFrameMapper) {
 	wasmStackFrameMapper.mu.Lock()
 	defer wasmStackFrameMapper.mu.Unlock()
-	wasmStackFrameMapper.mapper = parseMapper
+	wasmStackFrameMapper.mapper = parseFrameMapper
 }
 
 // ResetWASMStackFrameMapper clears the current wasm stack-frame mapper.
@@ -31,33 +31,33 @@ func ResetWASMStackFrameMapper() {
 }
 
 // translateWASMStackFrame is a core package helper.
-func translateWASMStackFrame(parseFrame panicFrame) panicFrame {
+func translateWASMStackFrame(parsePanicFrame panicFrame) panicFrame {
 	wasmStackFrameMapper.mu.RLock()
-	parseMapper := wasmStackFrameMapper.mapper
+	parseFrameMapper := wasmStackFrameMapper.mapper
 	wasmStackFrameMapper.mu.RUnlock()
-	if parseMapper == nil {
-		return parseFrame
+	if parseFrameMapper == nil {
+		return parsePanicFrame
 	}
-	parseMapped, parseOk := parseMapper(WASMStackFrame{
-		Function: parseFrame.Function,
-		File:     parseFrame.File,
-		Line:     parseFrame.Line,
+	parseMappedFrame, parseMappedOK := parseFrameMapper(WASMStackFrame{
+		Function: parsePanicFrame.Function,
+		File:     parsePanicFrame.File,
+		Line:     parsePanicFrame.Line,
 	})
-	if !parseOk {
-		return parseFrame
+	if !parseMappedOK {
+		return parsePanicFrame
 	}
-	if parseMapped.Function == "" {
-		parseMapped.Function = parseFrame.Function
+	if parseMappedFrame.Function == "" {
+		parseMappedFrame.Function = parsePanicFrame.Function
 	}
-	if parseMapped.File == "" {
-		parseMapped.File = parseFrame.File
+	if parseMappedFrame.File == "" {
+		parseMappedFrame.File = parsePanicFrame.File
 	}
-	if parseMapped.Line == 0 {
-		parseMapped.Line = parseFrame.Line
+	if parseMappedFrame.Line == 0 {
+		parseMappedFrame.Line = parsePanicFrame.Line
 	}
 	return panicFrame{
-		Function: parseMapped.Function,
-		File:     parseMapped.File,
-		Line:     parseMapped.Line,
+		Function: parseMappedFrame.Function,
+		File:     parseMappedFrame.File,
+		Line:     parseMappedFrame.Line,
 	}
 }

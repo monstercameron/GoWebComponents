@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	bootstrapEndpointPath = "/_gwc/bootstrap"
+	bootstrapEndpointPath  = "/_gwc/bootstrap"
 	serverCanonicalBaseURL = "http://127.0.0.1:8079"
 )
 
@@ -27,179 +27,179 @@ type resolvedRoute struct {
 	View         demoShellView
 }
 
-func buildBootstrap(path string, query url.Values, params map[string]string, routeData bootstrapRouteData) ui.SSRBootstrap {
-	queryMap := make(map[string][]string, len(query))
-	for key, values := range query {
-		queryMap[key] = append([]string(nil), values...)
+func buildBootstrap(parsePath string, parseQuery url.Values, parseParams map[string]string, parseRouteData bootstrapRouteData) ui.SSRBootstrap {
+	parseQueryMap := make(map[string][]string, len(parseQuery))
+	for parseKey, parseValues := range parseQuery {
+		parseQueryMap[parseKey] = append([]string(nil), parseValues...)
 	}
 
 	return ui.SSRBootstrap{
 		Route: ui.SSRRouteBootstrap{
-			Path:   path,
-			Query:  queryMap,
-			Params: cloneParams(params),
+			Path:   parsePath,
+			Query:  parseQueryMap,
+			Params: cloneParams(parseParams),
 		},
 		Data: map[string]interface{}{
 			"transport": serverBootstrapTransport,
-			"routeData": routeData,
+			"routeData": parseRouteData,
 		},
-		IDSeed: routeData.Revision,
+		IDSeed: parseRouteData.Revision,
 	}
 }
 
-func cloneParams(params map[string]string) map[string]string {
-	if len(params) == 0 {
+func cloneParams(parseParams map[string]string) map[string]string {
+	if len(parseParams) == 0 {
 		return map[string]string{}
 	}
-	clone := make(map[string]string, len(params))
-	for key, value := range params {
-		clone[key] = value
+	parseClone := make(map[string]string, len(parseParams))
+	for parseKey, parseValue := range parseParams {
+		parseClone[parseKey] = parseValue
 	}
-	return clone
+	return parseClone
 }
 
-func resolveRoute(path string, query url.Values) resolvedRoute {
-	normalizedPath := normalizePath(path)
+func resolveRoute(parsePath string, parseQuery url.Values) resolvedRoute {
+	parseNormalizedPath := normalizePath(parsePath)
 	switch {
-	case normalizedPath == "/":
-		data := bootstrapRouteData{
+	case parseNormalizedPath == "/":
+		parseData := bootstrapRouteData{
 			Page:     serverPageHome,
 			Notice:   "This page is rendered by the Go HTTP server on every request. Use the links below to trigger new server-side renders over real URLs.",
-			Revision: revisionFromQuery(query),
+			Revision: revisionFromQuery(parseQuery),
 		}
-		bootstrap := buildBootstrap(normalizedPath, query, nil, data)
+		parseBootstrap := buildBootstrap(parseNormalizedPath, parseQuery, nil, parseData)
 		return resolvedRoute{
 			Status:       200,
-			Path:         normalizedPath,
+			Path:         parseNormalizedPath,
 			Title:        "GWC Server SSR Demo",
 			Description:  "Request-time SSR shell rendered by a Go server and hydrated by the wasm client.",
 			CanonicalURL: serverCanonicalBaseURL + "/",
-			Bootstrap:    bootstrap,
-			View:         viewFromRouteData(normalizedPath, transportFromBootstrap(bootstrap), data),
+			Bootstrap:    parseBootstrap,
+			View:         viewFromRouteData(parseNormalizedPath, transportFromBootstrap(parseBootstrap), parseData),
 		}
-	case normalizedPath == "/legacy":
+	case parseNormalizedPath == "/legacy":
 		return resolvedRoute{Status: 302, Redirect: legacyRedirectPath}
-	case strings.HasPrefix(normalizedPath, "/docs/"):
-		section := strings.TrimPrefix(normalizedPath, "/docs/")
-		article := articleForSection(section)
-		currentTab := emptyFallback(strings.TrimSpace(query.Get("tab")), serverTabOverview)
-		data := bootstrapRouteData{
+	case strings.HasPrefix(parseNormalizedPath, "/docs/"):
+		parseSection := strings.TrimPrefix(parseNormalizedPath, "/docs/")
+		parseArticle := articleForSection(parseSection)
+		parseCurrentTab := emptyFallback(strings.TrimSpace(parseQuery.Get("tab")), serverTabOverview)
+		parseData2 := bootstrapRouteData{
 			Page:         serverPageDocs,
-			SectionID:    article.ID,
-			SectionTitle: article.Title,
-			SectionBody:  article.Summary,
-			CurrentTab:   currentTab,
-			StreamMode:   normalizeStreamMode(query.Get("stream")),
-			Notice:       fmt.Sprintf("Server-rendered docs response for %s with tab=%s.", article.ID, currentTab),
-			Revision:     revisionFromQuery(query),
+			SectionID:    parseArticle.ID,
+			SectionTitle: parseArticle.Title,
+			SectionBody:  parseArticle.Summary,
+			CurrentTab:   parseCurrentTab,
+			StreamMode:   normalizeStreamMode(parseQuery.Get("stream")),
+			Notice:       fmt.Sprintf("Server-rendered docs response for %s with tab=%s.", parseArticle.ID, parseCurrentTab),
+			Revision:     revisionFromQuery(parseQuery),
 		}
-		params := map[string]string{"section": article.ID}
-		bootstrap := buildBootstrap(normalizedPath, query, params, data)
+		parseParams := map[string]string{"section": parseArticle.ID}
+		parseBootstrap2 := buildBootstrap(parseNormalizedPath, parseQuery, parseParams, parseData2)
 		return resolvedRoute{
 			Status:       200,
-			Path:         normalizedPath,
-			Title:        article.Title + " | GWC Server SSR Demo",
-			Description:  article.Summary,
-			CanonicalURL: serverCanonicalBaseURL + buildPathWithQuery(normalizedPath, query),
-			Bootstrap:    bootstrap,
-			View:         viewFromRouteData(normalizedPath, transportFromBootstrap(bootstrap), data),
+			Path:         parseNormalizedPath,
+			Title:        parseArticle.Title + " | GWC Server SSR Demo",
+			Description:  parseArticle.Summary,
+			CanonicalURL: serverCanonicalBaseURL + buildPathWithQuery(parseNormalizedPath, parseQuery),
+			Bootstrap:    parseBootstrap2,
+			View:         viewFromRouteData(parseNormalizedPath, transportFromBootstrap(parseBootstrap2), parseData2),
 		}
-	case normalizedPath == "/search":
-		searchQuery := strings.TrimSpace(query.Get("q"))
-		data := bootstrapRouteData{
+	case parseNormalizedPath == "/search":
+		parseSearchQuery := strings.TrimSpace(parseQuery.Get("q"))
+		parseData3 := bootstrapRouteData{
 			Page:          serverPageSearch,
-			SearchQuery:   searchQuery,
-			SearchResults: filterCatalog(searchQuery),
+			SearchQuery:   parseSearchQuery,
+			SearchResults: filterCatalog(parseSearchQuery),
 			Notice:        "Every direct search navigation renders fresh HTML and a fresh bootstrap payload on the server.",
-			Revision:      revisionFromQuery(query),
+			Revision:      revisionFromQuery(parseQuery),
 		}
-		bootstrap := buildBootstrap(normalizedPath, query, nil, data)
+		parseBootstrap3 := buildBootstrap(parseNormalizedPath, parseQuery, nil, parseData3)
 		return resolvedRoute{
 			Status:       200,
-			Path:         normalizedPath,
+			Path:         parseNormalizedPath,
 			Title:        "Search | GWC Server SSR Demo",
 			Description:  "Server-rendered search results over real URLs.",
-			CanonicalURL: serverCanonicalBaseURL + buildPathWithQuery(normalizedPath, query),
-			Bootstrap:    bootstrap,
-			View:         viewFromRouteData(normalizedPath, transportFromBootstrap(bootstrap), data),
+			CanonicalURL: serverCanonicalBaseURL + buildPathWithQuery(parseNormalizedPath, parseQuery),
+			Bootstrap:    parseBootstrap3,
+			View:         viewFromRouteData(parseNormalizedPath, transportFromBootstrap(parseBootstrap3), parseData3),
 		}
-	case normalizedPath == "/secure":
-		if query.Get("auth") != "true" {
+	case parseNormalizedPath == "/secure":
+		if parseQuery.Get("auth") != "true" {
 			return resolvedRoute{Status: 302, Redirect: secureRedirectPath}
 		}
-		role := emptyFallback(strings.TrimSpace(query.Get("role")), serverSecureRoleMaintainer)
-		data := bootstrapRouteData{
+		parseRole := emptyFallback(strings.TrimSpace(parseQuery.Get("role")), serverSecureRoleMaintainer)
+		parseData4 := bootstrapRouteData{
 			Page:       serverPageSecure,
-			SecureRole: role,
+			SecureRole: parseRole,
 			SecureUser: serverSecureUserDefault,
 			Notice:     "The secure route was allowed by the server and mirrored by the client browser router after hydration.",
-			Revision:   revisionFromQuery(query),
+			Revision:   revisionFromQuery(parseQuery),
 		}
-		bootstrap := buildBootstrap(normalizedPath, query, nil, data)
+		parseBootstrap4 := buildBootstrap(parseNormalizedPath, parseQuery, nil, parseData4)
 		return resolvedRoute{
 			Status:       200,
-			Path:         normalizedPath,
+			Path:         parseNormalizedPath,
 			Title:        "Secure | GWC Server SSR Demo",
 			Description:  "Protected route rendered on the server and hydrated on the client.",
-			CanonicalURL: serverCanonicalBaseURL + buildPathWithQuery(normalizedPath, query),
-			Bootstrap:    bootstrap,
-			View:         viewFromRouteData(normalizedPath, transportFromBootstrap(bootstrap), data),
+			CanonicalURL: serverCanonicalBaseURL + buildPathWithQuery(parseNormalizedPath, parseQuery),
+			Bootstrap:    parseBootstrap4,
+			View:         viewFromRouteData(parseNormalizedPath, transportFromBootstrap(parseBootstrap4), parseData4),
 		}
-	case normalizedPath == "/signin":
-		from := strings.TrimSpace(query.Get("from"))
-		notice := "The protected route redirected here because auth=true was not present."
-		if from != "" {
-			notice = "The protected route redirected here from " + from + "."
+	case parseNormalizedPath == "/signin":
+		parseFrom := strings.TrimSpace(parseQuery.Get("from"))
+		parseNotice := "The protected route redirected here because auth=true was not present."
+		if parseFrom != "" {
+			parseNotice = "The protected route redirected here from " + parseFrom + "."
 		}
-		data := bootstrapRouteData{
+		parseData5 := bootstrapRouteData{
 			Page:     serverPageSignIn,
-			Notice:   notice,
-			Revision: revisionFromQuery(query),
+			Notice:   parseNotice,
+			Revision: revisionFromQuery(parseQuery),
 		}
-		bootstrap := buildBootstrap(normalizedPath, query, nil, data)
+		parseBootstrap5 := buildBootstrap(parseNormalizedPath, parseQuery, nil, parseData5)
 		return resolvedRoute{
 			Status:       200,
-			Path:         normalizedPath,
+			Path:         parseNormalizedPath,
 			Title:        "Sign In | GWC Server SSR Demo",
 			Description:  "Guard redirect target for the protected server-rendered route.",
-			CanonicalURL: serverCanonicalBaseURL + buildPathWithQuery(normalizedPath, query),
-			Bootstrap:    bootstrap,
-			View:         viewFromRouteData(normalizedPath, transportFromBootstrap(bootstrap), data),
+			CanonicalURL: serverCanonicalBaseURL + buildPathWithQuery(parseNormalizedPath, parseQuery),
+			Bootstrap:    parseBootstrap5,
+			View:         viewFromRouteData(parseNormalizedPath, transportFromBootstrap(parseBootstrap5), parseData5),
 		}
 	default:
-		data := bootstrapRouteData{
+		parseData6 := bootstrapRouteData{
 			Page:     serverPageNotFound,
 			Notice:   "This path is not registered by the server SSR demo.",
 			Revision: 1,
 		}
-		bootstrap := buildBootstrap(normalizedPath, query, nil, data)
+		parseBootstrap6 := buildBootstrap(parseNormalizedPath, parseQuery, nil, parseData6)
 		return resolvedRoute{
 			Status:       404,
-			Path:         normalizedPath,
+			Path:         parseNormalizedPath,
 			Title:        "Not Found | GWC Server SSR Demo",
 			Description:  "Unknown route for the server-rendered SSR demo.",
-			CanonicalURL: serverCanonicalBaseURL + buildPathWithQuery(normalizedPath, query),
-			Bootstrap:    bootstrap,
-			View:         viewFromRouteData(normalizedPath, transportFromBootstrap(bootstrap), data),
+			CanonicalURL: serverCanonicalBaseURL + buildPathWithQuery(parseNormalizedPath, parseQuery),
+			Bootstrap:    parseBootstrap6,
+			View:         viewFromRouteData(parseNormalizedPath, transportFromBootstrap(parseBootstrap6), parseData6),
 		}
 	}
 }
 
-func buildPathWithQuery(path string, query url.Values) string {
-	encoded := query.Encode()
-	if encoded == "" {
-		return path
+func buildPathWithQuery(parsePath string, parseQuery url.Values) string {
+	parseEncoded := parseQuery.Encode()
+	if parseEncoded == "" {
+		return parsePath
 	}
-	return path + "?" + encoded
+	return parsePath + "?" + parseEncoded
 }
 
-func bootstrapReferenceURL(path string, query url.Values) string {
-	values := url.Values{}
-	values.Set("path", path)
-	for key, items := range query {
-		for _, item := range items {
-			values.Add(key, item)
+func bootstrapReferenceURL(parsePath string, parseQuery url.Values) string {
+	parseValues := url.Values{}
+	parseValues.Set("path", parsePath)
+	for parseKey, parseItems := range parseQuery {
+		for _, parseItem := range parseItems {
+			parseValues.Add(parseKey, parseItem)
 		}
 	}
-	return bootstrapEndpointPath + "?" + values.Encode()
+	return bootstrapEndpointPath + "?" + parseValues.Encode()
 }

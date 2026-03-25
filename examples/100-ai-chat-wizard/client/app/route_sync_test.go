@@ -4,8 +4,8 @@ package app
 
 import "testing"
 
-func TestShouldResetDraftForRootRoute(t *testing.T) {
-	tests := []struct {
+func TestShouldResetDraftForRootRoute(parseT *testing.T) {
+	parseTests := []struct {
 		name                string
 		threadRoutePublicID string
 		activeConvID        int64
@@ -49,17 +49,17 @@ func TestShouldResetDraftForRootRoute(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := shouldResetDraftForRootRoute(test.threadRoutePublicID, test.activeConvID, test.activeConvPublicID); got != test.want {
-				t.Fatalf("shouldResetDraftForRootRoute(%q, %d, %q) = %v, want %v", test.threadRoutePublicID, test.activeConvID, test.activeConvPublicID, got, test.want)
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			if parseGot := shouldResetDraftForRootRoute(parseTest.threadRoutePublicID, parseTest.activeConvID, parseTest.activeConvPublicID); parseGot != parseTest.want {
+				parseT2.Fatalf("shouldResetDraftForRootRoute(%q, %d, %q) = %v, want %v", parseTest.threadRoutePublicID, parseTest.activeConvID, parseTest.activeConvPublicID, parseGot, parseTest.want)
 			}
 		})
 	}
 }
 
-func TestShouldWarnPendingRootRoute(t *testing.T) {
-	tests := []struct {
+func TestShouldWarnPendingRootRoute(parseT *testing.T) {
+	parseTests := []struct {
 		name                string
 		threadRoutePublicID string
 		activeConvID        int64
@@ -96,17 +96,17 @@ func TestShouldWarnPendingRootRoute(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := shouldWarnPendingRootRoute(test.threadRoutePublicID, test.activeConvID, test.activeConvPublicID); got != test.want {
-				t.Fatalf("shouldWarnPendingRootRoute(%q, %d, %q) = %v, want %v", test.threadRoutePublicID, test.activeConvID, test.activeConvPublicID, got, test.want)
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			if parseGot := shouldWarnPendingRootRoute(parseTest.threadRoutePublicID, parseTest.activeConvID, parseTest.activeConvPublicID); parseGot != parseTest.want {
+				parseT2.Fatalf("shouldWarnPendingRootRoute(%q, %d, %q) = %v, want %v", parseTest.threadRoutePublicID, parseTest.activeConvID, parseTest.activeConvPublicID, parseGot, parseTest.want)
 			}
 		})
 	}
 }
 
-func TestShouldResolveConversationRoute(t *testing.T) {
-	tests := []struct {
+func TestShouldResolveConversationRoute(parseT *testing.T) {
+	parseTests := []struct {
 		name                string
 		threadRoutePublicID string
 		activeConvPublicID  string
@@ -132,17 +132,17 @@ func TestShouldResolveConversationRoute(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := shouldResolveConversationRoute(test.threadRoutePublicID, test.activeConvPublicID); got != test.want {
-				t.Fatalf("shouldResolveConversationRoute(%q, %q) = %v, want %v", test.threadRoutePublicID, test.activeConvPublicID, got, test.want)
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			if parseGot := shouldResolveConversationRoute(parseTest.threadRoutePublicID, parseTest.activeConvPublicID); parseGot != parseTest.want {
+				parseT2.Fatalf("shouldResolveConversationRoute(%q, %q) = %v, want %v", parseTest.threadRoutePublicID, parseTest.activeConvPublicID, parseGot, parseTest.want)
 			}
 		})
 	}
 }
 
-func TestShouldNormalizeActiveConversationRoute(t *testing.T) {
-	tests := []struct {
+func TestShouldNormalizeActiveConversationRoute(parseT *testing.T) {
+	parseTests := []struct {
 		name                string
 		threadRoutePublicID string
 		activeConvPublicID  string
@@ -174,17 +174,17 @@ func TestShouldNormalizeActiveConversationRoute(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := shouldNormalizeActiveConversationRoute(test.threadRoutePublicID, test.activeConvPublicID); got != test.want {
-				t.Fatalf("shouldNormalizeActiveConversationRoute(%q, %q) = %v, want %v", test.threadRoutePublicID, test.activeConvPublicID, got, test.want)
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			if parseGot := shouldNormalizeActiveConversationRoute(parseTest.threadRoutePublicID, parseTest.activeConvPublicID); parseGot != parseTest.want {
+				parseT2.Fatalf("shouldNormalizeActiveConversationRoute(%q, %q) = %v, want %v", parseTest.threadRoutePublicID, parseTest.activeConvPublicID, parseGot, parseTest.want)
 			}
 		})
 	}
 }
 
-func TestThreadRoutePublicIDFromPath(t *testing.T) {
-	tests := []struct {
+func TestThreadRoutePublicIDFromPath(parseT *testing.T) {
+	parseTests := []struct {
 		path string
 		want string
 	}{
@@ -195,9 +195,9 @@ func TestThreadRoutePublicIDFromPath(t *testing.T) {
 		{path: "/", want: ""},
 	}
 
-	for _, test := range tests {
-		if got := threadRoutePublicIDFromPath(test.path); got != test.want {
-			t.Fatalf("threadRoutePublicIDFromPath(%q) = %q, want %q", test.path, got, test.want)
+	for _, parseTest := range parseTests {
+		if parseGot := parseThreadRoutePublicIDFromPath(parseTest.path); parseGot != parseTest.want {
+			parseT.Fatalf("threadRoutePublicIDFromPath(%q) = %q, want %q", parseTest.path, parseGot, parseTest.want)
 		}
 	}
 }

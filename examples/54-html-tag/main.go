@@ -12,22 +12,22 @@ import (
 )
 
 func htmlTagExample() ui.Node {
-	tone := ui.UseState("calm")
-	setCalm := ui.UseEvent(func() { tone.Set("calm") })
-	setAlert := ui.UseEvent(func() { tone.Set("alert") })
+	parseTone := ui.UseState("calm")
+	setCalm := ui.UseEvent(func() { parseTone.Set("calm") })
+	setAlert := ui.UseEvent(func() { parseTone.Set("alert") })
 
-	widgetClass := "mt-6 block rounded-[1.5rem] border border-white/10 bg-slate-950/40 p-6"
-	if tone.Get() == "alert" {
-		widgetClass = "mt-6 block rounded-[1.5rem] border border-amber-400/30 bg-amber-400/10 p-6"
+	parseWidgetClass := "mt-6 block rounded-[1.5rem] border border-white/10 bg-slate-950/40 p-6"
+	if parseTone.Get() == "alert" {
+		parseWidgetClass = "mt-6 block rounded-[1.5rem] border border-amber-400/30 bg-amber-400/10 p-6"
 	}
 
-	customWidget := html.Tag("status-widget", html.Props{Class: widgetClass, Data: map[string]string{"tone": tone.Get()}, Raw: map[string]interface{}{"data-owner": "html.Tag"}},
+	parseCustomWidget := html.Tag("status-widget", html.Props{Class: parseWidgetClass, Data: map[string]string{"tone": parseTone.Get()}, Raw: map[string]interface{}{"data-owner": "html.Tag"}},
 		html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Custom element")),
 		html.H2(html.Props{Class: "mt-3 text-2xl font-bold text-white"}, html.Text("status-widget")),
 		html.P(html.Props{Class: "mt-4 leading-7 text-slate-300"}, html.Text("html.Tag is the escape hatch for simple custom elements and uncommon tags that do not need explicit property mapping or custom-event helpers.")),
 	)
 
-	highlight := html.Mark(html.Props{Class: "rounded px-2 py-1 bg-cyan-400/20 text-cyan-100"}, html.Text("Uncommon standard tag"))
+	parseHighlight := html.Mark(html.Props{Class: "rounded px-2 py-1 bg-cyan-400/20 text-cyan-100"}, html.Text("Uncommon standard tag"))
 
 	return shared.ExamplePage(
 		"html.Tag",
@@ -38,8 +38,8 @@ func htmlTagExample() ui.Node {
 				shared.ExampleButton("Calm", setCalm),
 				shared.ExampleButton("Alert", setAlert),
 			),
-			customWidget,
-			html.P(html.Props{Class: "mt-6 text-slate-300"}, html.Text("The same helper also works for standard-but-uncommon tags like ")), highlight, html.Text("."),
+			parseCustomWidget,
+			html.P(html.Props{Class: "mt-6 text-slate-300"}, html.Text("The same helper also works for standard-but-uncommon tags like ")), parseHighlight, html.Text("."),
 			shared.ExampleCode(
 				`html.Tag("status-widget", html.Props{Data: map[string]string{"tone": tone}} , children...)`,
 				`html.Mark(html.Props{}, html.Text("highlight"))`,

@@ -13,50 +13,50 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestBootstrapHelpersAndRenderedView(t *testing.T) {
-	payload := ui.SSRBootstrap{
+func TestBootstrapHelpersAndRenderedView(parseT *testing.T) {
+	parsePayload := ui.SSRBootstrap{
 		Route: ui.SSRRouteBootstrap{Path: ""},
 		Data:  map[string]interface{}{"message": "hydrated"},
 	}
-	view := bootstrapViewFromPayload(payload)
-	if view.Path != "/bootstrap" || view.Message != "hydrated" {
-		t.Fatalf("bootstrapViewFromPayload() = %+v, want default path and custom message", view)
+	parseView := bootstrapViewFromPayload(parsePayload)
+	if parseView.Path != "/bootstrap" || parseView.Message != "hydrated" {
+		parseT.Fatalf("bootstrapViewFromPayload() = %+v, want default path and custom message", parseView)
 	}
 
-	markup, err := ui.RenderToString(renderBootstrapView(view))
-	if err != nil {
-		t.Fatalf("RenderToString(renderBootstrapView) error = %v", err)
+	parseMarkup, parseErr := ui.RenderToString(renderBootstrapView(parseView))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(renderBootstrapView) error = %v", parseErr)
 	}
-	for _, expected := range []string{"Dedicated SSR bootstrap", "hydrated", "/bootstrap"} {
-		if !strings.Contains(markup, expected) {
-			t.Fatalf("rendered bootstrap markup missing %q\n%s", expected, markup)
+	for _, parseExpected := range []string{"Dedicated SSR bootstrap", "hydrated", "/bootstrap"} {
+		if !strings.Contains(parseMarkup, parseExpected) {
+			parseT.Fatalf("rendered bootstrap markup missing %q\n%s", parseExpected, parseMarkup)
 		}
 	}
 }
 
-func TestBootstrapRequestReportAndRepoRoot(t *testing.T) {
-	report := bootstrapRequestReport("/orders", errors.New("render failed"), "request could not complete", "inspect the server log")
-	if report.Code != "GWC-EXAMPLE-SERVER-REQUEST" || report.Path != "/orders" || !strings.Contains(report.Runtime, "request could not complete") || !strings.Contains(report.Next, "inspect the server log") {
-		t.Fatalf("bootstrapRequestReport() = %+v, want populated diagnostics report", report)
+func TestBootstrapRequestReportAndRepoRoot(parseT *testing.T) {
+	parseReport := bootstrapRequestReport("/orders", errors.New("render failed"), "request could not complete", "inspect the server log")
+	if parseReport.Code != "GWC-EXAMPLE-SERVER-REQUEST" || parseReport.Path != "/orders" || !strings.Contains(parseReport.Runtime, "request could not complete") || !strings.Contains(parseReport.Next, "inspect the server log") {
+		parseT.Fatalf("bootstrapRequestReport() = %+v, want populated diagnostics report", parseReport)
 	}
 
-	root := t.TempDir()
-	nested := filepath.Join(root, "examples", "73-ssr-bootstrap")
-	if err := os.MkdirAll(nested, 0755); err != nil {
-		t.Fatalf("MkdirAll() error = %v", err)
+	parseRoot := parseT.TempDir()
+	parseNested := filepath.Join(parseRoot, "examples", "73-ssr-bootstrap")
+	if parseErr := os.MkdirAll(parseNested, 0755); parseErr != nil {
+		parseT.Fatalf("MkdirAll() error = %v", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/test\n"), 0644); err != nil {
-		t.Fatalf("WriteFile(go.mod) error = %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseRoot, "go.mod"), []byte("module example.com/test\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("WriteFile(go.mod) error = %v", parseErr2)
 	}
-	resolved, err := repoRoot(nested)
-	if err != nil {
-		t.Fatalf("repoRoot() error = %v", err)
+	parseResolved, parseErr3 := repoRoot(parseNested)
+	if parseErr3 != nil {
+		parseT.Fatalf("repoRoot() error = %v", parseErr3)
 	}
-	if resolved != root {
-		t.Fatalf("repoRoot() = %q, want %q", resolved, root)
+	if parseResolved != parseRoot {
+		parseT.Fatalf("repoRoot() = %q, want %q", parseResolved, parseRoot)
 	}
 
-	if _, err := repoRoot(t.TempDir()); err == nil || !strings.Contains(err.Error(), "could not find repo root") {
-		t.Fatalf("repoRoot() error = %v, want missing go.mod error", err)
+	if _, parseErr4 := repoRoot(parseT.TempDir()); parseErr4 == nil || !strings.Contains(parseErr4.Error(), "could not find repo root") {
+		parseT.Fatalf("repoRoot() error = %v, want missing go.mod error", parseErr4)
 	}
 }

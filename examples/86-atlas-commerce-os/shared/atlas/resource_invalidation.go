@@ -118,24 +118,24 @@ var mutationInvalidationRules = map[string][]string{
 	},
 }
 
-func MutationRoutePrefixes(path string, notice string) []string {
-	trimmed := strings.TrimSpace(strings.ToLower(notice))
-	if prefixes, ok := mutationInvalidationRules[trimmed]; ok {
-		return append([]string(nil), prefixes...)
+func MutationRoutePrefixes(parsePath string, parseNotice string) []string {
+	parseTrimmed := strings.TrimSpace(strings.ToLower(parseNotice))
+	if parsePrefixes, parseOk := mutationInvalidationRules[parseTrimmed]; parseOk {
+		return append([]string(nil), parsePrefixes...)
 	}
-	return []string{path}
+	return []string{parsePath}
 }
 
-func MutationRequestPrefixes(routePrefixes []string) []string {
-	requestPrefixes := make([]string, 0, len(routePrefixes))
-	for _, prefix := range routePrefixes {
-		requestPrefixes = append(requestPrefixes, mutationRequestPrefixesForRoutePrefix(prefix)...)
+func MutationRequestPrefixes(parseRoutePrefixes []string) []string {
+	parseRequestPrefixes := make([]string, 0, len(parseRoutePrefixes))
+	for _, parsePrefix := range parseRoutePrefixes {
+		parseRequestPrefixes = append(parseRequestPrefixes, mutationRequestPrefixesForRoutePrefix(parsePrefix)...)
 	}
-	return requestPrefixes
+	return parseRequestPrefixes
 }
 
-func mutationRequestPrefixesForRoutePrefix(prefix string) []string {
-	switch prefix {
+func mutationRequestPrefixesForRoutePrefix(parsePrefix string) []string {
+	switch parsePrefix {
 	case "/shop":
 		return []string{"/api/public/catalog", "/api/public/products"}
 	case "/warehouses":

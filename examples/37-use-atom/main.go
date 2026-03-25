@@ -17,39 +17,39 @@ import (
 const sharedCounterID = "catalog-state-use-atom-count"
 
 func atomWriter() ui.Node {
-	count := state.UseAtom(sharedCounterID, 3)
-	decrement := ui.UseEvent(func() { count.Update(func(previous int) int { return previous - 1 }) })
-	increment := ui.UseEvent(func() { count.Update(func(previous int) int { return previous + 1 }) })
-	boost := ui.UseEvent(func() { count.Update(func(previous int) int { return previous + 5 }) })
-	reset := ui.UseEvent(func() { count.Set(3) })
+	parseCount := state.UseAtom(sharedCounterID, 3)
+	parseDecrement := ui.UseEvent(func() { parseCount.Update(func(parsePrevious int) int { return parsePrevious - 1 }) })
+	parseIncrement := ui.UseEvent(func() { parseCount.Update(func(parsePrevious2 int) int { return parsePrevious2 + 1 }) })
+	parseBoost := ui.UseEvent(func() { parseCount.Update(func(parsePrevious3 int) int { return parsePrevious3 + 5 }) })
+	reset := ui.UseEvent(func() { parseCount.Set(3) })
 
 	return shared.ExamplePanel("Write from one component",
 		html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("This component initializes the atom and updates it with Set and Update helpers.")),
 		html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-			shared.ExampleStat("Current value", fmt.Sprintf("%d", count.Get())),
+			shared.ExampleStat("Current value", fmt.Sprintf("%d", parseCount.Get())),
 			shared.ExampleStat("Last action target", "Shared global atom"),
 		),
 		html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-			shared.ExampleButton("-1", decrement),
-			shared.ExampleButton("+1", increment),
-			shared.ExampleButton("+5", boost),
+			shared.ExampleButton("-1", parseDecrement),
+			shared.ExampleButton("+1", parseIncrement),
+			shared.ExampleButton("+5", parseBoost),
 			shared.ExampleButton("Reset", reset),
 		),
 	)
 }
 
 func atomReader() ui.Node {
-	count := state.UseAtom(sharedCounterID, 0)
-	parity := "Odd"
-	if count.Get()%2 == 0 {
-		parity = "Even"
+	parseCount := state.UseAtom(sharedCounterID, 0)
+	parseParity := "Odd"
+	if parseCount.Get()%2 == 0 {
+		parseParity = "Even"
 	}
 
 	return shared.ExamplePanel("Read from another component",
 		html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("This panel never receives props. It subscribes to the same atom by ID and re-renders automatically.")),
 		html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-			shared.ExampleStat("Mirrored value", fmt.Sprintf("%d", count.Get())),
-			shared.ExampleStat("Parity", parity),
+			shared.ExampleStat("Mirrored value", fmt.Sprintf("%d", parseCount.Get())),
+			shared.ExampleStat("Parity", parseParity),
 		),
 		shared.ExampleCode(
 			`count := state.UseAtom("catalog-state-use-atom-count", 3)`,

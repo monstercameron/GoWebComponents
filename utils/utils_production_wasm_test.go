@@ -9,17 +9,17 @@ import (
 	"github.com/monstercameron/GoWebComponents/hotreload"
 )
 
-func TestEnableHotReloadIsDisabledInProduction(t *testing.T) {
+func TestEnableHotReloadIsDisabledInProduction(parseT *testing.T) {
 	if !productionBuildForTests {
-		t.Skip("production-only test")
+		parseT.Skip("production-only test")
 	}
 
 	EnableHotReload(true)
 
 	if IsHotReloadEnabled() {
-		t.Fatal("expected hot reload to remain disabled in production")
+		parseT.Fatal("expected hot reload to remain disabled in production")
 	}
 	if hotreload.IsEnabled() {
-		t.Fatal("expected hotreload package to remain disabled in production")
+		parseT.Fatal("expected hotreload package to remain disabled in production")
 	}
 }

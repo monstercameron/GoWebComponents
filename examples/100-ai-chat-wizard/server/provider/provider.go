@@ -23,12 +23,12 @@ type ModelCapabilities struct {
 	SupportsSpeech   bool
 }
 
-func (c ModelCapabilities) Supports(capability Capability) bool {
-	switch capability {
+func (parseC ModelCapabilities) ParseSupports(parseCapability Capability) bool {
+	switch parseCapability {
 	case CapabilityThinking:
-		return c.SupportsThinking
+		return parseC.SupportsThinking
 	case CapabilitySpeech:
-		return c.SupportsSpeech
+		return parseC.SupportsSpeech
 	default:
 		return false
 	}
@@ -48,14 +48,14 @@ type UnsupportedCapabilityError struct {
 	ProviderID string
 }
 
-func (e *UnsupportedCapabilityError) Error() string {
-	if e == nil {
+func (parseE *UnsupportedCapabilityError) ParseError() string {
+	if parseE == nil {
 		return "unsupported capability"
 	}
-	if strings.TrimSpace(e.Model) == "" {
-		return fmt.Sprintf("provider %q does not support %s", e.ProviderID, e.Capability)
+	if strings.TrimSpace(parseE.Model) == "" {
+		return fmt.Sprintf("provider %q does not support %s", parseE.ProviderID, parseE.Capability)
 	}
-	return fmt.Sprintf("model %q does not support %s", e.Model, e.Capability)
+	return fmt.Sprintf("model %q does not support %s", parseE.Model, parseE.Capability)
 }
 
 type ChatMessage struct {
@@ -127,159 +127,159 @@ type SpeechResult struct {
 }
 
 type ChatProvider interface {
-	ID() string
-	Available() bool
-	Info() ProviderInfo
-	DefaultModel() string
-	SupportsModel(model string) bool
-	ModelOptions() []ModelOption
-	ModelMetadata(model string) (ModelMetadata, bool)
-	Capabilities(model string) ModelCapabilities
-	Health() ProviderHealth
-	CurrentRateLimits() RateLimitSnapshot
-	StreamChat(ctx context.Context, req ChatRequest, emit func(ChatEvent) error) (ChatResult, error)
-	GenerateTitle(ctx context.Context, req TitleRequest) (string, error)
-	ExtractUserMemories(ctx context.Context, req MemoryExtractionRequest) ([]UserMemoryCandidate, error)
-	SynthesizeSpeech(ctx context.Context, req SpeechRequest, emit func(SpeechChunk) error) (SpeechResult, error)
+	ParseID() string
+	ParseAvailable() bool
+	ParseInfo() ProviderInfo
+	ParseDefaultModel() string
+	ParseSupportsModel(model string) bool
+	ParseModelOptions() []ModelOption
+	ParseModelMetadata(model string) (ModelMetadata, bool)
+	ParseCapabilities(model string) ModelCapabilities
+	ParseHealth() ProviderHealth
+	ParseCurrentRateLimits() RateLimitSnapshot
+	ParseStreamChat(ctx context.Context, req ChatRequest, emit func(ChatEvent) error) (ChatResult, error)
+	ParseGenerateTitle(ctx context.Context, req TitleRequest) (string, error)
+	ParseExtractUserMemories(ctx context.Context, req MemoryExtractionRequest) ([]UserMemoryCandidate, error)
+	ParseSynthesizeSpeech(ctx context.Context, req SpeechRequest, emit func(SpeechChunk) error) (SpeechResult, error)
 }
 
 type Registry struct {
 	providers []ChatProvider
 }
 
-func NewRegistry(providers ...ChatProvider) *Registry {
-	available := make([]ChatProvider, 0, len(providers))
-	for _, currentProvider := range providers {
-		if currentProvider == nil || !currentProvider.Available() {
+func ParseNewRegistry(parseProviders ...ChatProvider) *Registry {
+	parseAvailable := make([]ChatProvider, 0, len(parseProviders))
+	for _, parseCurrentProvider := range parseProviders {
+		if parseCurrentProvider == nil || !parseCurrentProvider.ParseAvailable() {
 			continue
 		}
-		available = append(available, currentProvider)
+		parseAvailable = append(parseAvailable, parseCurrentProvider)
 	}
-	return &Registry{providers: available}
+	return &Registry{providers: parseAvailable}
 }
 
-func (r *Registry) Resolve(model string) (ChatProvider, string, error) {
-	if r == nil || len(r.providers) == 0 {
+func (parseR *Registry) ParseResolve(parseModel string) (ChatProvider, string, error) {
+	if parseR == nil || len(parseR.providers) == 0 {
 		return nil, "", ErrNoProvidersAvailable
 	}
 
-	trimmedModel := strings.TrimSpace(model)
-	if trimmedModel != "" {
-		for _, currentProvider := range r.providers {
-			if currentProvider.SupportsModel(trimmedModel) {
-				return currentProvider, trimmedModel, nil
+	parseTrimmedModel := strings.TrimSpace(parseModel)
+	if parseTrimmedModel != "" {
+		for _, parseCurrentProvider := range parseR.providers {
+			if parseCurrentProvider.ParseSupportsModel(parseTrimmedModel) {
+				return parseCurrentProvider, parseTrimmedModel, nil
 			}
 		}
-		return nil, "", fmt.Errorf("unsupported model %q", trimmedModel)
+		return nil, "", fmt.Errorf("unsupported model %q", parseTrimmedModel)
 	}
 
-	return r.providers[0], r.providers[0].DefaultModel(), nil
+	return parseR.providers[0], parseR.providers[0].ParseDefaultModel(), nil
 }
 
-func (r *Registry) DefaultModel() string {
-	if r == nil || len(r.providers) == 0 {
+func (parseR *Registry) ParseDefaultModel() string {
+	if parseR == nil || len(parseR.providers) == 0 {
 		return ""
 	}
-	return strings.TrimSpace(r.providers[0].DefaultModel())
+	return strings.TrimSpace(parseR.providers[0].ParseDefaultModel())
 }
 
-func (r *Registry) ModelOptions() []ModelOption {
-	if r == nil || len(r.providers) == 0 {
+func (parseR *Registry) ParseModelOptions() []ModelOption {
+	if parseR == nil || len(parseR.providers) == 0 {
 		return nil
 	}
-	options := make([]ModelOption, 0, len(r.providers)*4)
-	for _, currentProvider := range r.providers {
-		options = append(options, currentProvider.ModelOptions()...)
+	parseOptions := make([]ModelOption, 0, len(parseR.providers)*4)
+	for _, parseCurrentProvider := range parseR.providers {
+		parseOptions = append(parseOptions, parseCurrentProvider.ParseModelOptions()...)
 	}
-	return options
+	return parseOptions
 }
 
-func (r *Registry) Capabilities(model string) (ModelCapabilities, string, error) {
-	currentProvider, resolvedModel, err := r.Resolve(model)
-	if err != nil {
-		return ModelCapabilities{}, "", err
+func (parseR *Registry) ParseCapabilities(parseModel string) (ModelCapabilities, string, error) {
+	parseCurrentProvider, parseResolvedModel, parseErr := parseR.ParseResolve(parseModel)
+	if parseErr != nil {
+		return ModelCapabilities{}, "", parseErr
 	}
-	return currentProvider.Capabilities(resolvedModel), resolvedModel, nil
+	return parseCurrentProvider.ParseCapabilities(parseResolvedModel), parseResolvedModel, nil
 }
 
-func (r *Registry) ProviderInfos() []ProviderInfo {
-	if r == nil || len(r.providers) == 0 {
+func (parseR *Registry) ParseProviderInfos() []ProviderInfo {
+	if parseR == nil || len(parseR.providers) == 0 {
 		return nil
 	}
-	infos := make([]ProviderInfo, 0, len(r.providers))
-	for _, currentProvider := range r.providers {
-		infos = append(infos, currentProvider.Info())
+	parseInfos := make([]ProviderInfo, 0, len(parseR.providers))
+	for _, parseCurrentProvider := range parseR.providers {
+		parseInfos = append(parseInfos, parseCurrentProvider.ParseInfo())
 	}
-	return infos
+	return parseInfos
 }
 
-func (r *Registry) ModelMetadata(model string) (ModelMetadata, string, error) {
-	currentProvider, resolvedModel, err := r.Resolve(model)
-	if err != nil {
-		return ModelMetadata{}, "", err
+func (parseR *Registry) ParseModelMetadata(parseModel string) (ModelMetadata, string, error) {
+	parseCurrentProvider, parseResolvedModel, parseErr := parseR.ParseResolve(parseModel)
+	if parseErr != nil {
+		return ModelMetadata{}, "", parseErr
 	}
-	metadata, ok := currentProvider.ModelMetadata(resolvedModel)
-	if !ok {
-		return ModelMetadata{}, resolvedModel, fmt.Errorf("metadata unavailable for model %q", resolvedModel)
+	parseMetadata, parseOk := parseCurrentProvider.ParseModelMetadata(parseResolvedModel)
+	if !parseOk {
+		return ModelMetadata{}, parseResolvedModel, fmt.Errorf("metadata unavailable for model %q", parseResolvedModel)
 	}
-	return metadata, resolvedModel, nil
+	return parseMetadata, parseResolvedModel, nil
 }
 
-func (r *Registry) Pricing(model string) (ModelPricing, string, error) {
-	metadata, resolvedModel, err := r.ModelMetadata(model)
-	if err != nil {
-		return ModelPricing{}, "", err
+func (parseR *Registry) ParsePricing(parseModel string) (ModelPricing, string, error) {
+	parseMetadata, parseResolvedModel, parseErr := parseR.ParseModelMetadata(parseModel)
+	if parseErr != nil {
+		return ModelPricing{}, "", parseErr
 	}
-	return metadata.Pricing, resolvedModel, nil
+	return parseMetadata.ParsePricing, parseResolvedModel, nil
 }
 
-func (r *Registry) HealthSnapshots() []ProviderHealth {
-	if r == nil || len(r.providers) == 0 {
+func (parseR *Registry) ParseHealthSnapshots() []ProviderHealth {
+	if parseR == nil || len(parseR.providers) == 0 {
 		return nil
 	}
-	snapshots := make([]ProviderHealth, 0, len(r.providers))
-	for _, currentProvider := range r.providers {
-		snapshots = append(snapshots, currentProvider.Health())
+	parseSnapshots := make([]ProviderHealth, 0, len(parseR.providers))
+	for _, parseCurrentProvider := range parseR.providers {
+		parseSnapshots = append(parseSnapshots, parseCurrentProvider.ParseHealth())
 	}
-	return snapshots
+	return parseSnapshots
 }
 
-func (r *Registry) RequireCapability(model string, capability Capability) (ChatProvider, string, ModelCapabilities, error) {
-	currentProvider, resolvedModel, err := r.Resolve(model)
-	if err != nil {
-		return nil, "", ModelCapabilities{}, err
+func (parseR *Registry) ParseRequireCapability(parseModel string, parseCapability Capability) (ChatProvider, string, ModelCapabilities, error) {
+	parseCurrentProvider, parseResolvedModel, parseErr := parseR.ParseResolve(parseModel)
+	if parseErr != nil {
+		return nil, "", ModelCapabilities{}, parseErr
 	}
-	capabilities := currentProvider.Capabilities(resolvedModel)
-	if !capabilities.Supports(capability) {
-		return nil, resolvedModel, capabilities, &UnsupportedCapabilityError{
-			Capability: capability,
-			Model:      resolvedModel,
-			ProviderID: currentProvider.ID(),
+	parseCapabilities := parseCurrentProvider.ParseCapabilities(parseResolvedModel)
+	if !parseCapabilities.ParseSupports(parseCapability) {
+		return nil, parseResolvedModel, parseCapabilities, &UnsupportedCapabilityError{
+			Capability: parseCapability,
+			Model:      parseResolvedModel,
+			ProviderID: parseCurrentProvider.ParseID(),
 		}
 	}
-	return currentProvider, resolvedModel, capabilities, nil
+	return parseCurrentProvider, parseResolvedModel, parseCapabilities, nil
 }
 
-func NormalizeRole(role string) string {
-	resolvedRole := strings.TrimSpace(strings.ToLower(role))
-	switch resolvedRole {
+func ParseNormalizeRole(parseRole string) string {
+	parseResolvedRole := strings.TrimSpace(strings.ToLower(parseRole))
+	switch parseResolvedRole {
 	case "assistant", "system", "developer", "tool":
-		return resolvedRole
+		return parseResolvedRole
 	default:
 		return "user"
 	}
 }
 
-func BuildConversationInput(history []ChatMessage, userMessage string) string {
-	var builder strings.Builder
-	builder.WriteString("Continue this conversation naturally. The latest user turn is last.\n\n")
-	for _, chatMessage := range history {
-		builder.WriteString(NormalizeRole(chatMessage.Role))
-		builder.WriteString(":\n")
-		builder.WriteString(strings.TrimSpace(chatMessage.Content))
-		builder.WriteString("\n\n")
+func BuildConversationInput(parseHistory []ChatMessage, parseUserMessage string) string {
+	var parseBuilder strings.Builder
+	parseBuilder.WriteString("Continue this conversation naturally. The latest user turn is last.\n\n")
+	for _, parseChatMessage := range parseHistory {
+		parseBuilder.WriteString(ParseNormalizeRole(parseChatMessage.Role))
+		parseBuilder.WriteString(":\n")
+		parseBuilder.WriteString(strings.TrimSpace(parseChatMessage.Content))
+		parseBuilder.WriteString("\n\n")
 	}
-	builder.WriteString("user:\n")
-	builder.WriteString(strings.TrimSpace(userMessage))
-	return builder.String()
+	parseBuilder.WriteString("user:\n")
+	parseBuilder.WriteString(strings.TrimSpace(parseUserMessage))
+	return parseBuilder.ParseString()
 }

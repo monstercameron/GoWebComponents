@@ -32,18 +32,18 @@ var (
 )
 
 func loadBootstrapPayload() ui.SSRBootstrap {
-	bootstrapReference, err := ui.ReadBootstrapReferenceScript("")
-	if err != nil {
+	parseBootstrapReference, parseErr := ui.ReadBootstrapReferenceScript("")
+	if parseErr != nil {
 		return defaultBootstrapPayload()
 	}
-	bootstrapPayload, err := ui.ReadBootstrapReference(bootstrapReference)
-	if err != nil {
+	parseBootstrapPayload, parseErr := ui.ReadBootstrapReference(parseBootstrapReference)
+	if parseErr != nil {
 		return defaultBootstrapPayload()
 	}
-	return bootstrapPayload
+	return parseBootstrapPayload
 }
 
-func homePage(props router.Attrs) ui.Node {
+func homePage(parseProps router.Attrs) ui.Node {
 	return renderDemoShell(demoShellView{
 		Mode:          modeHome,
 		ActivePath:    "/",
@@ -54,86 +54,86 @@ func homePage(props router.Attrs) ui.Node {
 	})
 }
 
-func docsPage(props router.Attrs) ui.Node {
-	params := router.UseParams()
-	query := router.UseQuery()
-	search := router.UseSearchParams()
-	revalidator := router.UseRevalidator()
+func docsPage(parseProps router.Attrs) ui.Node {
+	parseParams := router.UseParams()
+	parseQuery := router.UseQuery()
+	parseSearch := router.UseSearchParams()
+	parseRevalidator := router.UseRevalidator()
 
-	article := articleForSection(params.Get("section"))
-	if value, ok := props["section"].(string); ok && value != "" {
-		article = articleForSection(value)
+	parseArticle := articleForSection(parseParams.Get("section"))
+	if parseValue, parseOk := parseProps["section"].(string); parseOk && parseValue != "" {
+		parseArticle = articleForSection(parseValue)
 	}
-	tab := query.Get("tab")
-	if tab == "" {
-		tab = tabOverview
+	parseTab := parseQuery.Get("tab")
+	if parseTab == "" {
+		parseTab = tabOverview
 	}
-	revision, _ := props["revision"].(int)
+	parseRevision, _ := parseProps["revision"].(int)
 
 	return renderDemoShell(demoShellView{
 		Mode:          modeDocs,
-		ActivePath:    "/docs/" + article.ID,
+		ActivePath:    "/docs/" + parseArticle.ID,
 		BootstrapPath: hydratedBootstrap.Route.Path,
 		Transport:     bootstrapTransport(hydratedBootstrap),
-		SectionID:     article.ID,
-		SectionTitle:  article.Title,
-		SectionBody:   article.Summary,
-		CurrentTab:    tab,
-		LoadRevision:  revision,
-		Notice:        fmt.Sprintf("Route params and query state resolved this docs view. The current query string is %q.", search.Encode()),
+		SectionID:     parseArticle.ID,
+		SectionTitle:  parseArticle.Title,
+		SectionBody:   parseArticle.Summary,
+		CurrentTab:    parseTab,
+		LoadRevision:  parseRevision,
+		Notice:        fmt.Sprintf("Route params and query state resolved this docs view. The current query string is %q.", parseSearch.Encode()),
 	},
-		uiButton("Show overview", func() { search.Replace("tab", tabOverview) }),
-		uiButton("Show loader", func() { search.Replace("tab", tabLoader) }),
-		uiButton("Revalidate", func() { revalidator.Revalidate() }),
+		uiButton("Show overview", func() { parseSearch.Replace("tab", tabOverview) }),
+		uiButton("Show loader", func() { parseSearch.Replace("tab", tabLoader) }),
+		uiButton("Revalidate", func() { parseRevalidator.Revalidate() }),
 	)
 }
 
-func searchPage(props router.Attrs) ui.Node {
-	search := router.UseSearchParams()
-	query := router.UseQuery()
-	revalidator := router.UseRevalidator()
+func searchPage(parseProps router.Attrs) ui.Node {
+	parseSearch := router.UseSearchParams()
+	parseQuery := router.UseQuery()
+	parseRevalidator := router.UseRevalidator()
 
-	results, _ := props["results"].([]guideArticle)
-	revision, _ := props["revision"].(int)
-	searchQuery := query.Get("q")
+	parseResults, _ := parseProps["results"].([]guideArticle)
+	parseRevision, _ := parseProps["revision"].(int)
+	parseSearchQuery := parseQuery.Get("q")
 
 	return renderDemoShell(demoShellView{
 		Mode:          modeSearch,
 		ActivePath:    "/search",
 		BootstrapPath: hydratedBootstrap.Route.Path,
 		Transport:     bootstrapTransport(hydratedBootstrap),
-		SearchQuery:   searchQuery,
-		SearchResults: results,
-		LoadRevision:  revision,
+		SearchQuery:   parseSearchQuery,
+		SearchResults: parseResults,
+		LoadRevision:  parseRevision,
 		Notice:        "The search route uses query-keyed loader results and route-level revalidation.",
 	},
-		uiButton("Filter SSR", func() { search.Replace("q", searchQuerySSR) }),
-		uiButton("Filter routing", func() { search.Replace("q", searchQueryRouting) }),
-		uiButton("Revalidate", func() { revalidator.Revalidate() }),
+		uiButton("Filter SSR", func() { parseSearch.Replace("q", searchQuerySSR) }),
+		uiButton("Filter routing", func() { parseSearch.Replace("q", searchQueryRouting) }),
+		uiButton("Revalidate", func() { parseRevalidator.Revalidate() }),
 	)
 }
 
-func filterCatalog(query string) []guideArticle {
-	trimmed := strings.TrimSpace(strings.ToLower(query))
-	if trimmed == "" {
+func filterCatalog(parseQuery string) []guideArticle {
+	parseTrimmed := strings.TrimSpace(strings.ToLower(parseQuery))
+	if parseTrimmed == "" {
 		return catalogList()
 	}
 
-	matches := make([]guideArticle, 0, len(guideCatalog))
-	for _, article := range catalogList() {
-		if strings.Contains(strings.ToLower(article.Title), trimmed) || strings.Contains(strings.ToLower(article.Summary), trimmed) {
-			matches = append(matches, article)
+	parseMatches := make([]guideArticle, 0, len(guideCatalog))
+	for _, parseArticle := range catalogList() {
+		if strings.Contains(strings.ToLower(parseArticle.Title), parseTrimmed) || strings.Contains(strings.ToLower(parseArticle.Summary), parseTrimmed) {
+			parseMatches = append(parseMatches, parseArticle)
 		}
 	}
-	return matches
+	return parseMatches
 }
 
-func signInPage(props router.Attrs) ui.Node {
-	nav := router.UseNavigate()
-	from := router.UseQuery().Get("from")
-	notice := "The secure route redirected here because the auth query flag was missing."
-	if from != "" {
-		notice = "The secure route redirected here from " + from + "."
+func signInPage(parseProps router.Attrs) ui.Node {
+	parseNav := router.UseNavigate()
+	parseFrom := router.UseQuery().Get("from")
+	parseNotice := "The secure route redirected here because the auth query flag was missing."
+	if parseFrom != "" {
+		parseNotice = "The secure route redirected here from " + parseFrom + "."
 	}
 
 	return renderDemoShell(demoShellView{
@@ -142,54 +142,54 @@ func signInPage(props router.Attrs) ui.Node {
 		BootstrapPath: hydratedBootstrap.Route.Path,
 		Transport:     bootstrapTransport(hydratedBootstrap),
 		LoadRevision:  1,
-		Notice:        notice,
+		Notice:        parseNotice,
 	},
-		uiButton("Grant access", func() { nav.Replace("/secure?auth=true&role=" + secureRoleMaintainer) }),
+		uiButton("Grant access", func() { parseNav.Replace("/secure?auth=true&role=" + secureRoleMaintainer) }),
 	)
 }
 
-func securePage(props router.Attrs) ui.Node {
-	revalidator := router.UseRevalidator()
-	nav := router.UseNavigate()
-	role, _ := props["role"].(string)
-	user, _ := props["user"].(string)
-	revision, _ := props["revision"].(int)
+func securePage(parseProps router.Attrs) ui.Node {
+	parseRevalidator := router.UseRevalidator()
+	parseNav := router.UseNavigate()
+	parseRole, _ := parseProps["role"].(string)
+	parseUser, _ := parseProps["user"].(string)
+	parseRevision, _ := parseProps["revision"].(int)
 
 	return renderDemoShell(demoShellView{
 		Mode:          modeSecure,
 		ActivePath:    "/secure",
 		BootstrapPath: hydratedBootstrap.Route.Path,
 		Transport:     bootstrapTransport(hydratedBootstrap),
-		SecureRole:    role,
-		SecureUser:    user,
-		LoadRevision:  revision,
+		SecureRole:    parseRole,
+		SecureUser:    parseUser,
+		LoadRevision:  parseRevision,
 		Notice:        "A before-enter redirect protected the route and the loader returned role-specific content.",
 	},
-		uiButton("Switch role", func() { nav.Replace("/secure?auth=true&role=auditor") }),
-		uiButton("Revalidate", func() { revalidator.Revalidate() }),
+		uiButton("Switch role", func() { parseNav.Replace("/secure?auth=true&role=auditor") }),
+		uiButton("Revalidate", func() { parseRevalidator.Revalidate() }),
 	)
 }
 
-func docsLoadingPage(props router.Attrs) ui.Node {
-	section, _ := props["section"].(string)
-	article := articleForSection(section)
-	view := defaultServerView()
-	view.SectionID = article.ID
-	view.SectionTitle = "Loading " + article.Title
-	view.SectionBody = "Route loader is resolving the current docs section before hydration settles."
-	view.ActivePath = "/docs/" + article.ID
-	return renderDemoShell(view)
+func docsLoadingPage(parseProps router.Attrs) ui.Node {
+	parseSection, _ := parseProps["section"].(string)
+	parseArticle := articleForSection(parseSection)
+	parseView := defaultServerView()
+	parseView.SectionID = parseArticle.ID
+	parseView.SectionTitle = "Loading " + parseArticle.Title
+	parseView.SectionBody = "Route loader is resolving the current docs section before hydration settles."
+	parseView.ActivePath = "/docs/" + parseArticle.ID
+	return renderDemoShell(parseView)
 }
 
-func docsErrorPage(props router.Attrs) ui.Node {
-	message, _ := props["error"].(string)
-	view := defaultServerView()
-	view.SectionTitle = "Docs route failed"
-	view.SectionBody = message
-	return renderDemoShell(view)
+func docsErrorPage(parseProps router.Attrs) ui.Node {
+	parseMessage, _ := parseProps["error"].(string)
+	parseView := defaultServerView()
+	parseView.SectionTitle = "Docs route failed"
+	parseView.SectionBody = parseMessage
+	return renderDemoShell(parseView)
 }
 
-func searchLoadingPage(props router.Attrs) ui.Node {
+func searchLoadingPage(parseProps router.Attrs) ui.Node {
 	return renderDemoShell(demoShellView{
 		Mode:          modeSearch,
 		ActivePath:    "/search",
@@ -201,8 +201,8 @@ func searchLoadingPage(props router.Attrs) ui.Node {
 	})
 }
 
-func searchErrorPage(props router.Attrs) ui.Node {
-	message, _ := props["error"].(string)
+func searchErrorPage(parseProps router.Attrs) ui.Node {
+	parseMessage, _ := parseProps["error"].(string)
 	return renderDemoShell(demoShellView{
 		Mode:          modeSearch,
 		ActivePath:    "/search",
@@ -210,11 +210,11 @@ func searchErrorPage(props router.Attrs) ui.Node {
 		Transport:     bootstrapTransport(hydratedBootstrap),
 		SearchQuery:   "",
 		LoadRevision:  0,
-		Notice:        message,
+		Notice:        parseMessage,
 	})
 }
 
-func secureLoadingPage(props router.Attrs) ui.Node {
+func secureLoadingPage(parseProps router.Attrs) ui.Node {
 	return renderDemoShell(demoShellView{
 		Mode:          modeSecure,
 		ActivePath:    "/secure",
@@ -224,156 +224,156 @@ func secureLoadingPage(props router.Attrs) ui.Node {
 	})
 }
 
-func secureErrorPage(props router.Attrs) ui.Node {
-	message, _ := props["error"].(string)
+func secureErrorPage(parseProps router.Attrs) ui.Node {
+	parseMessage, _ := parseProps["error"].(string)
 	return renderDemoShell(demoShellView{
 		Mode:          modeSignIn,
 		ActivePath:    "/signin",
 		BootstrapPath: hydratedBootstrap.Route.Path,
 		Transport:     bootstrapTransport(hydratedBootstrap),
-		Notice:        message,
+		Notice:        parseMessage,
 	})
 }
 
-func uiButton(label string, onClick func()) ui.Node {
-	return html.Button(html.Props{OnClick: ui.UseEvent(func() { onClick() }), Class: "inline-flex rounded-full border border-cyan-900/80 bg-cyan-950/70 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/80"}, html.Text(label))
+func uiButton(parseLabel string, parseOnClick func()) ui.Node {
+	return html.Button(html.Props{OnClick: ui.UseEvent(func() { parseOnClick() }), Class: "inline-flex rounded-full border border-cyan-900/80 bg-cyan-950/70 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/80"}, html.Text(parseLabel))
 }
 
-func routedApp(r *router.Router) ui.Node {
-	hashTick := ui.UseState(0)
-	_ = hashTick.Get()
+func routedApp(parseR *router.Router) ui.Node {
+	parseHashTick := ui.UseState(0)
+	_ = parseHashTick.Get()
 
 	ui.UseEffect(func() func() {
-		window := js.Global().Get("window")
-		if !window.Truthy() {
+		parseWindow := js.Global().Get("window")
+		if !parseWindow.Truthy() {
 			return nil
 		}
 
-		listener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			hashTick.Update(func(prev int) int { return prev + 1 })
+		parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseHashTick.Update(func(parsePrev int) int { return parsePrev + 1 })
 			return nil
 		})
-		window.Call("addEventListener", "hashchange", listener)
+		parseWindow.Call("addEventListener", "hashchange", parseListener)
 		return func() {
-			window.Call("removeEventListener", "hashchange", listener)
-			listener.Release()
+			parseWindow.Call("removeEventListener", "hashchange", parseListener)
+			parseListener.Release()
 		}
 	}, true)
 
 	ui.UseEffect(func() func() {
-		ticker := time.NewTicker(75 * time.Millisecond)
-		stop := make(chan struct{})
+		parseTicker := time.NewTicker(75 * time.Millisecond)
+		parseStop := make(chan struct{})
 
 		go func() {
 			for {
 				select {
-				case <-stop:
+				case <-parseStop:
 					return
-				case <-ticker.C:
-					hashTick.Update(func(prev int) int { return prev + 1 })
+				case <-parseTicker.C:
+					parseHashTick.Update(func(parsePrev2 int) int { return parsePrev2 + 1 })
 				}
 			}
 		}()
 
 		return func() {
-			close(stop)
-			ticker.Stop()
+			close(parseStop)
+			parseTicker.Stop()
 		}
 	}, true)
 
-	return r.Current()
+	return parseR.Current()
 }
 
 func main() {
 	hydratedBootstrap = loadBootstrapPayload()
 
-	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/docs/" + guideSectionSSR})
-	r.Register("/", homePage, router.Options{Title: "SSR Routing Demo"})
-	r.Register("/docs/:section", docsPage, router.Options{
+	parseR := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/docs/" + guideSectionSSR})
+	parseR.Register("/", homePage, router.Options{Title: "SSR Routing Demo"})
+	parseR.Register("/docs/:section", docsPage, router.Options{
 		Title:        "SSR Routing Docs",
 		Description:  "Server-rendered shell with route params, query-aware loaders, and manual revalidation.",
 		CanonicalURL: "https://example.local/ssr-routing/docs",
-		Loader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
+		Loader: func(parseCtx context.Context, parseRouteCtx router.RouteContext) (router.Attrs, error) {
 			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
+			case <-parseCtx.Done():
+				return nil, parseCtx.Err()
 			case <-time.After(40 * time.Millisecond):
 			}
 
-			article := articleForSection(routeCtx.Params.Get("section"))
+			parseArticle := articleForSection(parseRouteCtx.Params.Get("section"))
 			docsRevision++
 			return router.Attrs{
-				"section":  article.ID,
+				"section":  parseArticle.ID,
 				"revision": docsRevision,
 			}, nil
 		},
 		Loading: docsLoadingPage,
 		Error:   docsErrorPage,
 	})
-	r.Register("/search", searchPage, router.Options{
+	parseR.Register("/search", searchPage, router.Options{
 		Title:        "SSR Routing Search",
 		Description:  "Query-aware route loader results inside a hydrated routed shell.",
 		CanonicalURL: "https://example.local/ssr-routing/search",
-		Loader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
+		Loader: func(parseCtx2 context.Context, parseRouteCtx2 router.RouteContext) (router.Attrs, error) {
 			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
+			case <-parseCtx2.Done():
+				return nil, parseCtx2.Err()
 			case <-time.After(35 * time.Millisecond):
 			}
 
 			searchRevision++
-			query := strings.TrimSpace(strings.ToLower(routeCtx.Query.Get("q")))
+			parseQuery := strings.TrimSpace(strings.ToLower(parseRouteCtx2.Query.Get("q")))
 			return router.Attrs{
 				"revision": searchRevision,
-				"results":  filterCatalog(query),
+				"results":  filterCatalog(parseQuery),
 			}, nil
 		},
 		Loading: searchLoadingPage,
 		Error:   searchErrorPage,
 	})
-	r.Register("/signin", signInPage, router.Options{Title: "SSR Routing Sign In"})
-	r.Register("/secure", securePage, router.Options{
+	parseR.Register("/signin", signInPage, router.Options{Title: "SSR Routing Sign In"})
+	parseR.Register("/secure", securePage, router.Options{
 		Title:        "SSR Routing Secure",
 		Description:  "Guarded route rendered after a before-enter redirect and route loader approval.",
 		CanonicalURL: "https://example.local/ssr-routing/secure",
-		BeforeEnter: func(ctx router.RouteContext) router.GuardResult {
-			if ctx.Query.Get("auth") != "true" {
+		BeforeEnter: func(parseCtx3 router.RouteContext) router.GuardResult {
+			if parseCtx3.Query.Get("auth") != "true" {
 				return router.RedirectNavigation("/signin?from=secure")
 			}
 			return router.AllowNavigation()
 		},
-		Loader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
+		Loader: func(parseCtx4 context.Context, parseRouteCtx3 router.RouteContext) (router.Attrs, error) {
 			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
+			case <-parseCtx4.Done():
+				return nil, parseCtx4.Err()
 			case <-time.After(30 * time.Millisecond):
 			}
 
 			secureRevision++
-			role := routeCtx.Query.Get("role")
-			if role == "" {
-				role = secureRoleMaintainer
+			parseRole := parseRouteCtx3.Query.Get("role")
+			if parseRole == "" {
+				parseRole = secureRoleMaintainer
 			}
 			return router.Attrs{
 				"revision": secureRevision,
-				"role":     role,
+				"role":     parseRole,
 				"user":     "Morgan Reconciler",
 			}, nil
 		},
 		Loading: secureLoadingPage,
 		Error:   secureErrorPage,
 	})
-	r.Register("/legacy", docsPage, router.Options{
+	parseR.Register("/legacy", docsPage, router.Options{
 		Redirect:     "/docs/routing?tab=loader",
 		Title:        "SSR Routing Legacy",
 		Description:  "Redirect route for the SSR routing demo.",
 		CanonicalURL: "https://example.local/ssr-routing/legacy",
 	})
-	r.Register("*", homePage, router.Options{Title: "SSR Routing Demo"})
+	parseR.Register("*", homePage, router.Options{Title: "SSR Routing Demo"})
 
-	root := ui.CreateElement(func() ui.Node { return routedApp(r) })
-	if _, err := ui.Hydrate(root, "#app", ui.HydrationOptions{Bootstrap: hydratedBootstrap}); err != nil {
-		ui.Render(root, "#app")
+	parseRoot := ui.CreateElement(func() ui.Node { return routedApp(parseR) })
+	if _, parseErr := ui.Hydrate(parseRoot, "#app", ui.HydrationOptions{Bootstrap: hydratedBootstrap}); parseErr != nil {
+		ui.Render(parseRoot, "#app")
 	}
 
 	select {}

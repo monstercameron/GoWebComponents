@@ -11,28 +11,28 @@ import (
 	"strings"
 )
 
-func Migrate(ctx context.Context, database *sql.DB, migrationsDir string, fallbackSchemaPath string) error {
-	if _, err := database.ExecContext(ctx, `create table if not exists schema_migrations (version text primary key, applied_at text not null default current_timestamp)`); err != nil {
-		return fmt.Errorf("create schema_migrations: %w", err)
+func Migrate(parseCtx context.Context, parseDatabase *sql.DB, parseMigrationsDir string, parseFallbackSchemaPath string) error {
+	if _, parseErr := parseDatabase.ExecContext(parseCtx, `create table if not exists schema_migrations (version text primary key, applied_at text not null default current_timestamp)`); parseErr != nil {
+		return fmt.Errorf("create schema_migrations: %w", parseErr)
 	}
-	migrations, err := loadMigrations(migrationsDir, fallbackSchemaPath)
-	if err != nil {
-		return err
+	parseMigrations, parseErr2 := loadMigrations(parseMigrationsDir, parseFallbackSchemaPath)
+	if parseErr2 != nil {
+		return parseErr2
 	}
-	for _, migration := range migrations {
-		var applied string
-		scanErr := database.QueryRowContext(ctx, `select version from schema_migrations where version = ?`, migration.Version).Scan(&applied)
-		if scanErr == nil {
+	for _, parseMigration := range parseMigrations {
+		var parseApplied string
+		parseScanErr := parseDatabase.QueryRowContext(parseCtx, `select version from schema_migrations where version = ?`, parseMigration.Version).Scan(&parseApplied)
+		if parseScanErr == nil {
 			continue
 		}
-		if scanErr != sql.ErrNoRows {
-			return fmt.Errorf("check migration %s: %w", migration.Version, scanErr)
+		if parseScanErr != sql.ErrNoRows {
+			return fmt.Errorf("check migration %s: %w", parseMigration.Version, parseScanErr)
 		}
-		if _, err := database.ExecContext(ctx, migration.SQL); err != nil {
-			return fmt.Errorf("apply migration %s: %w", migration.Version, err)
+		if _, parseErr3 := parseDatabase.ExecContext(parseCtx, parseMigration.SQL); parseErr3 != nil {
+			return fmt.Errorf("apply migration %s: %w", parseMigration.Version, parseErr3)
 		}
-		if _, err := database.ExecContext(ctx, `insert into schema_migrations(version) values (?)`, migration.Version); err != nil {
-			return fmt.Errorf("record migration %s: %w", migration.Version, err)
+		if _, parseErr4 := parseDatabase.ExecContext(parseCtx, `insert into schema_migrations(version) values (?)`, parseMigration.Version); parseErr4 != nil {
+			return fmt.Errorf("record migration %s: %w", parseMigration.Version, parseErr4)
 		}
 	}
 	return nil
@@ -43,34 +43,36 @@ type migration struct {
 	SQL     string
 }
 
-func loadMigrations(migrationsDir string, fallbackSchemaPath string) ([]migration, error) {
-	entries, err := os.ReadDir(migrationsDir)
-	if err == nil {
-		migrations := make([]migration, 0, len(entries))
-		for _, entry := range entries {
-			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
+func loadMigrations(parseMigrationsDir string, parseFallbackSchemaPath string) ([]migration, error) {
+	parseEntries, parseErr := os.ReadDir(parseMigrationsDir)
+	if parseErr == nil {
+		parseMigrations := make([]migration, 0, len(parseEntries))
+		for _, parseEntry := range parseEntries {
+			if parseEntry.IsDir() || !strings.HasSuffix(parseEntry.Name(), ".sql") {
 				continue
 			}
-			content, readErr := os.ReadFile(filepath.Join(migrationsDir, entry.Name()))
-			if readErr != nil {
-				return nil, fmt.Errorf("read migration %s: %w", entry.Name(), readErr)
+			parseContent, parseReadErr := os.ReadFile(filepath.Join(parseMigrationsDir, parseEntry.Name()))
+			if parseReadErr != nil {
+				return nil, fmt.Errorf("read migration %s: %w", parseEntry.Name(), parseReadErr)
 			}
-			migrations = append(migrations, migration{Version: entry.Name(), SQL: string(content)})
+			parseMigrations = append(parseMigrations, migration{Version: parseEntry.Name(), SQL: string(parseContent)})
 		}
-		sort.Slice(migrations, func(i, j int) bool { return migrations[i].Version < migrations[j].Version })
-		if len(migrations) > 0 {
-			return migrations, nil
+		sort.Slice(parseMigrations, func(parseI, parseJ int) bool {
+			return parseMigrations[parseI].Version < parseMigrations[parseJ].Version
+		})
+		if len(parseMigrations) > 0 {
+			return parseMigrations, nil
 		}
-	} else if !os.IsNotExist(err) {
-		return nil, fmt.Errorf("read migrations dir: %w", err)
+	} else if !os.IsNotExist(parseErr) {
+		return nil, fmt.Errorf("read migrations dir: %w", parseErr)
 	}
 
-	content, err := os.ReadFile(fallbackSchemaPath)
-	if err != nil {
-		if err == fs.ErrNotExist || os.IsNotExist(err) {
-			return nil, fmt.Errorf("no migrations and no fallback schema at %s", fallbackSchemaPath)
+	parseContent2, parseErr := os.ReadFile(parseFallbackSchemaPath)
+	if parseErr != nil {
+		if parseErr == fs.ErrNotExist || os.IsNotExist(parseErr) {
+			return nil, fmt.Errorf("no migrations and no fallback schema at %s", parseFallbackSchemaPath)
 		}
-		return nil, fmt.Errorf("read fallback schema: %w", err)
+		return nil, fmt.Errorf("read fallback schema: %w", parseErr)
 	}
-	return []migration{{Version: "001_initial_schema.sql", SQL: string(content)}}, nil
+	return []migration{{Version: "001_initial_schema.sql", SQL: string(parseContent2)}}, nil
 }

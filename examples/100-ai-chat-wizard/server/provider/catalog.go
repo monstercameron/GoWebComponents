@@ -9,80 +9,80 @@ type Catalog struct {
 	TitleModel   string
 }
 
-func (c Catalog) SupportsModel(model string) bool {
-	_, ok := c.ModelMetadata(model)
-	return ok
+func (parseC Catalog) ParseSupportsModel(parseModel string) bool {
+	_, parseOk := parseC.ParseModelMetadata(parseModel)
+	return parseOk
 }
 
-func (c Catalog) ModelMetadata(model string) (ModelMetadata, bool) {
-	resolvedModel := strings.TrimSpace(strings.ToLower(model))
-	for _, metadata := range c.Models {
-		if strings.TrimSpace(strings.ToLower(metadata.ID)) == resolvedModel {
-			return metadata, true
+func (parseC Catalog) ParseModelMetadata(parseModel string) (ModelMetadata, bool) {
+	parseResolvedModel := strings.TrimSpace(strings.ToLower(parseModel))
+	for _, parseMetadata := range parseC.Models {
+		if strings.TrimSpace(strings.ToLower(parseMetadata.ParseID)) == parseResolvedModel {
+			return parseMetadata, true
 		}
 	}
 	return ModelMetadata{}, false
 }
 
-func (c Catalog) ModelOptions() []ModelOption {
-	return append([]ModelOption(nil), c.Options...)
+func (parseC Catalog) ParseModelOptions() []ModelOption {
+	return append([]ModelOption(nil), parseC.Options...)
 }
 
-func normalizeCatalog(providerID, providerLabel string, catalog Catalog) Catalog {
-	normalized := Catalog{
-		Models:       make([]ModelMetadata, 0, len(catalog.Models)),
-		Options:      make([]ModelOption, 0, len(catalog.Options)),
-		DefaultModel: strings.TrimSpace(catalog.DefaultModel),
-		TitleModel:   strings.TrimSpace(catalog.TitleModel),
+func parseNormalizeCatalog(parseProviderID, parseProviderLabel string, parseCatalog Catalog) Catalog {
+	parseNormalized := Catalog{
+		Models:       make([]ModelMetadata, 0, len(parseCatalog.Models)),
+		Options:      make([]ModelOption, 0, len(parseCatalog.Options)),
+		DefaultModel: strings.TrimSpace(parseCatalog.ParseDefaultModel),
+		TitleModel:   strings.TrimSpace(parseCatalog.TitleModel),
 	}
-	for _, metadata := range catalog.Models {
-		resolved := metadata
-		resolved.ID = strings.TrimSpace(resolved.ID)
-		resolved.ProviderID = providerID
-		if strings.TrimSpace(resolved.ProviderLabel) == "" {
-			resolved.ProviderLabel = providerLabel
+	for _, parseMetadata := range parseCatalog.Models {
+		parseResolved := parseMetadata
+		parseResolved.ParseID = strings.TrimSpace(parseResolved.ParseID)
+		parseResolved.ProviderID = parseProviderID
+		if strings.TrimSpace(parseResolved.ProviderLabel) == "" {
+			parseResolved.ProviderLabel = parseProviderLabel
 		}
-		if resolved.Capabilities.ProviderID == "" {
-			resolved.Capabilities.ProviderID = providerID
+		if parseResolved.ParseCapabilities.ProviderID == "" {
+			parseResolved.ParseCapabilities.ProviderID = parseProviderID
 		}
-		if resolved.Capabilities.ProviderLabel == "" {
-			resolved.Capabilities.ProviderLabel = resolved.ProviderLabel
+		if parseResolved.ParseCapabilities.ProviderLabel == "" {
+			parseResolved.ParseCapabilities.ProviderLabel = parseResolved.ProviderLabel
 		}
-		if resolved.ID == "" {
+		if parseResolved.ParseID == "" {
 			continue
 		}
-		normalized.Models = append(normalized.Models, resolved)
+		parseNormalized.Models = append(parseNormalized.Models, parseResolved)
 	}
-	if normalized.DefaultModel == "" && len(normalized.Models) > 0 {
-		normalized.DefaultModel = normalized.Models[0].ID
+	if parseNormalized.ParseDefaultModel == "" && len(parseNormalized.Models) > 0 {
+		parseNormalized.ParseDefaultModel = parseNormalized.Models[0].ParseID
 	}
-	if normalized.TitleModel == "" {
-		normalized.TitleModel = normalized.DefaultModel
+	if parseNormalized.TitleModel == "" {
+		parseNormalized.TitleModel = parseNormalized.ParseDefaultModel
 	}
-	if len(catalog.Options) > 0 {
-		for _, option := range catalog.Options {
-			resolved := option
-			resolved.ID = strings.TrimSpace(resolved.ID)
-			if resolved.ID == "" {
+	if len(parseCatalog.Options) > 0 {
+		for _, parseOption := range parseCatalog.Options {
+			parseResolved2 := parseOption
+			parseResolved2.ParseID = strings.TrimSpace(parseResolved2.ParseID)
+			if parseResolved2.ParseID == "" {
 				continue
 			}
-			if resolved.Capabilities.ProviderID == "" {
-				resolved.Capabilities.ProviderID = providerID
+			if parseResolved2.ParseCapabilities.ProviderID == "" {
+				parseResolved2.ParseCapabilities.ProviderID = parseProviderID
 			}
-			if resolved.Capabilities.ProviderLabel == "" {
-				resolved.Capabilities.ProviderLabel = providerLabel
+			if parseResolved2.ParseCapabilities.ProviderLabel == "" {
+				parseResolved2.ParseCapabilities.ProviderLabel = parseProviderLabel
 			}
-			normalized.Options = append(normalized.Options, resolved)
+			parseNormalized.Options = append(parseNormalized.Options, parseResolved2)
 		}
-		return normalized
+		return parseNormalized
 	}
-	for _, metadata := range normalized.Models {
-		normalized.Options = append(normalized.Options, ModelOption{
-			ID:           metadata.ID,
-			Label:        metadata.DisplayName,
-			Capabilities: metadata.Capabilities,
-			Pricing:      metadata.Pricing,
+	for _, parseMetadata2 := range parseNormalized.Models {
+		parseNormalized.Options = append(parseNormalized.Options, ModelOption{
+			ID:           parseMetadata2.ParseID,
+			Label:        parseMetadata2.DisplayName,
+			Capabilities: parseMetadata2.ParseCapabilities,
+			Pricing:      parseMetadata2.ParsePricing,
 		})
 	}
-	return normalized
+	return parseNormalized
 }

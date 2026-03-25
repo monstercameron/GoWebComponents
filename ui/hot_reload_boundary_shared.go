@@ -10,14 +10,14 @@ type HotReloadBoundaryProps struct {
 
 // HotReloadBoundary wraps a subtree in a keyed fragment so changing ResetKeys
 // forces that subtree to remount during the next render, including hot reload.
-func HotReloadBoundary(parseProps HotReloadBoundaryProps) Node {
-	parseChildren := make([]interface{}, 0, len(parseProps.Children)+1)
-	if parseProps.Child != nil {
-		parseChildren = append(parseChildren, parseProps.Child)
+func HotReloadBoundary(parseBoundaryProps HotReloadBoundaryProps) Node {
+	parseBoundaryChildren := make([]interface{}, 0, len(parseBoundaryProps.Children)+1)
+	if parseBoundaryProps.Child != nil {
+		parseBoundaryChildren = append(parseBoundaryChildren, parseBoundaryProps.Child)
 	}
-	parseChildren = append(parseChildren, toInterfaces(parseProps.Children)...)
+	parseBoundaryChildren = append(parseBoundaryChildren, toInterfaces(parseBoundaryProps.Children)...)
 
 	return runtime.CreateElement("FRAGMENT", map[string]interface{}{
-		"key": hotReloadBoundaryKey(parseProps.ResetKeys),
-	}, parseChildren...)
+		"key": hotReloadBoundaryKey(parseBoundaryProps.ResetKeys),
+	}, parseBoundaryChildren...)
 }

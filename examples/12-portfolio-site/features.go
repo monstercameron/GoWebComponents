@@ -84,12 +84,12 @@ func HeroSection(_ Attrs) *Element {
 
 // FeaturePreviewCard renders a glassmorphism-styled card highlighting key framework features.
 // Used in the hero section to provide quick feature overview with icons and descriptions.
-func FeaturePreviewCard(icon, title, description string) *Element {
+func FeaturePreviewCard(parseIcon, parseTitle, parseDescription string) *Element {
 	return Div(
 		Attrs{"class": "bg-white/5 backdrop-blur-sm p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-white/10 hover:border-white/20"},
-		Div(Attrs{"class": "text-3xl mb-3"}, icon),
-		H3(Attrs{"class": "text-lg font-semibold text-white mb-2"}, title),
-		P(Attrs{"class": "text-gray-400 text-sm"}, description),
+		Div(Attrs{"class": "text-3xl mb-3"}, parseIcon),
+		H3(Attrs{"class": "text-lg font-semibold text-white mb-2"}, parseTitle),
+		P(Attrs{"class": "text-gray-400 text-sm"}, parseDescription),
 	)
 }
 
@@ -123,11 +123,11 @@ func FeaturesSection(_ Attrs) *Element {
 
 // FeatureCard renders an individual feature with icon, title, and detailed description.
 // Includes hover animations and gradient styling for enhanced visual appeal.
-func FeatureCard(icon, title, description string) *Element {
+func FeatureCard(parseIcon, parseTitle, parseDescription string) *Element {
 	return Div(
 		Attrs{"class": "bg-white/5 p-8 rounded-2xl hover:shadow-lg transition-all duration-300 border border-white/10 hover:border-indigo-500/50 group backdrop-blur-sm"},
-		Div(Attrs{"class": "text-4xl mb-4 group-hover:scale-110 transition-transform duration-300"}, icon),
-		H3(Attrs{"class": "text-xl font-bold text-white mb-4"}, title),
-		P(Attrs{"class": "text-gray-400 leading-relaxed"}, description),
+		Div(Attrs{"class": "text-4xl mb-4 group-hover:scale-110 transition-transform duration-300"}, parseIcon),
+		H3(Attrs{"class": "text-xl font-bold text-white mb-4"}, parseTitle),
+		P(Attrs{"class": "text-gray-400 leading-relaxed"}, parseDescription),
 	)
 }

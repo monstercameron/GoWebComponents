@@ -127,30 +127,30 @@ func renderPricingPlans() ui.Node {
 			),
 			Div(
 				Class("grid gap-4 sm:gap-5 lg:grid-cols-3"),
-				Map(buildPlans, func(p plan) ui.Node {
+				Map(buildPlans, func(parseP plan) ui.Node {
 					buildBg := "bg-[linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))]"
 					buildBodyColor := "text-[#b8c2d9]"
 					buildCTAClass := "bg-white/10 text-white hover:bg-white/15"
-					if p.featured {
+					if parseP.featured {
 						buildBg = "bg-[linear-gradient(180deg,rgba(139,92,246,.24),rgba(255,255,255,.10))]"
 						buildBodyColor = "text-[#e6ebf8]/92"
 						buildCTAClass = "bg-white text-[#1a1330]"
 					}
 
 					var buildBadge ui.Node
-					if p.badge != "" {
-						buildBadge = Div(Class("mb-4 inline-flex rounded-full bg-[#8b5cf6]/12 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b5cf6] sm:text-[11px] sm:tracking-[0.18em]"), Text(p.badge))
+					if parseP.badge != "" {
+						buildBadge = Div(Class("mb-4 inline-flex rounded-full bg-[#8b5cf6]/12 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b5cf6] sm:text-[11px] sm:tracking-[0.18em]"), Text(parseP.badge))
 					}
 
 					var buildSuffix ui.Node
-					if p.suffix != "" {
-						buildSuffix = Span(Class("text-lg text-[#b8c2d9]"), Text(p.suffix))
+					if parseP.suffix != "" {
+						buildSuffix = Span(Class("text-lg text-[#b8c2d9]"), Text(parseP.suffix))
 					}
 
 					// build Ul args with the class prop followed by each Li
-					buildUlArgs := make([]interface{}, 0, len(p.features)+1)
+					buildUlArgs := make([]interface{}, 0, len(parseP.features)+1)
 					buildUlArgs = append(buildUlArgs, Class("mt-6 space-y-3 text-sm text-[#dfe6f7]"))
-					for _, buildFeature := range p.features {
+					for _, buildFeature := range parseP.features {
 						buildUlArgs = append(buildUlArgs, Li(
 							Class("flex items-start gap-3"),
 							Span(Class("mt-1 h-2 w-2 shrink-0 rounded-full bg-[#8b5cf6]"), nil),
@@ -161,21 +161,21 @@ func renderPricingPlans() ui.Node {
 					return Article(
 						Class("rounded-[24px] px-5 py-6 sm:rounded-[30px] sm:px-7 sm:py-8 "+buildBg),
 						buildBadge,
-						Div(Class("mt-4 text-sm font-semibold text-[#dfe6f7]"), Text(p.name)),
-						Div(Class("mt-1 text-sm text-[#b8c2d9]"), Text(p.tone)),
+						Div(Class("mt-4 text-sm font-semibold text-[#dfe6f7]"), Text(parseP.name)),
+						Div(Class("mt-1 text-sm text-[#b8c2d9]"), Text(parseP.tone)),
 						Div(
 							Class("mt-5 text-4xl font-semibold tracking-[-0.04em] text-white sm:text-5xl"),
-							Text(p.price),
+							Text(parseP.price),
 							buildSuffix,
 						),
-						P(Class("mt-4 text-sm leading-7 "+buildBodyColor), Text(p.description)),
+						P(Class("mt-4 text-sm leading-7 "+buildBodyColor), Text(parseP.description)),
 						Ul(buildUlArgs...),
 						// CTA navigates into the chat app via the SW router
 						A(
 							Class("mt-8 inline-flex w-full items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition hover:-translate-y-[1px] "+buildCTAClass),
 							Href(chatRouteRoot),
-							OnClick(landingNavigateHandler(chatRouteRoot)),
-							Text(p.cta),
+							OnClick(parseLandingNavigateHandler(chatRouteRoot)),
+							Text(parseP.cta),
 						),
 					)
 				}),
@@ -256,11 +256,11 @@ func renderPricingFAQ() ui.Node {
 			),
 			Div(
 				Class("grid gap-4"),
-				Map(buildFaqs, func(f faq) ui.Node {
+				Map(buildFaqs, func(parseF faq) ui.Node {
 					return Div(
 						Class("rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.06))] px-5 py-6 sm:px-6"),
-						Div(Class("text-lg font-semibold text-white"), Text(f.q)),
-						P(Class("mt-3 text-sm leading-7 text-[#b8c2d9]"), Text(f.a)),
+						Div(Class("text-lg font-semibold text-white"), Text(parseF.q)),
+						P(Class("mt-3 text-sm leading-7 text-[#b8c2d9]"), Text(parseF.a)),
 					)
 				}),
 			),
@@ -287,13 +287,13 @@ func renderPricingContact() ui.Node {
 						A(
 							Class("inline-flex items-center justify-center rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-[#1a1330] transition hover:-translate-y-[1px]"),
 							Href(chatRouteRoot),
-							OnClick(landingNavigateHandler(chatRouteRoot)),
+							OnClick(parseLandingNavigateHandler(chatRouteRoot)),
 							Text("Book a sales call"),
 						),
 						A(
 							Class("inline-flex items-center justify-center rounded-full bg-white/15 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-white/20"),
 							Href(chatRouteRoot),
-							OnClick(landingNavigateHandler(chatRouteRoot)),
+							OnClick(parseLandingNavigateHandler(chatRouteRoot)),
 							Text("Email the team"),
 						),
 					),

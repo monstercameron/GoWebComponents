@@ -11,8 +11,8 @@ import (
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-func fragmentNotices(expanded bool) ui.Node {
-	if !expanded {
+func fragmentNotices(isExpanded bool) ui.Node {
+	if !isExpanded {
 		return ui.Fragment(
 			html.P(html.Props{Class: "rounded-xl border border-cyan-400/20 bg-cyan-400/10 p-4 text-cyan-50"}, html.Text("Fragments can return sibling nodes without adding an extra wrapper.")),
 		)
@@ -26,9 +26,9 @@ func fragmentNotices(expanded bool) ui.Node {
 }
 
 func fragmentExample() ui.Node {
-	expanded := ui.UseState(false)
-	toggle := ui.UseEvent(func() {
-		expanded.Update(func(prev bool) bool { return !prev })
+	parseExpanded := ui.UseState(false)
+	parseToggle := ui.UseEvent(func() {
+		parseExpanded.Update(func(isPrev bool) bool { return !isPrev })
 	})
 
 	return shared.ExamplePage(
@@ -36,8 +36,8 @@ func fragmentExample() ui.Node {
 		"Return sibling nodes without wrapper markup",
 		"Fragments are useful when a component needs to yield multiple sibling nodes but you do not want to add an extra DOM container.",
 		shared.ExamplePanel("Fragment output",
-			html.Div(html.Props{Class: "mt-6 flex gap-3"}, shared.ExampleButton("Toggle sibling set", toggle)),
-			html.Div(html.Props{Class: "mt-6 grid gap-3"}, fragmentNotices(expanded.Get())),
+			html.Div(html.Props{Class: "mt-6 flex gap-3"}, shared.ExampleButton("Toggle sibling set", parseToggle)),
+			html.Div(html.Props{Class: "mt-6 grid gap-3"}, fragmentNotices(parseExpanded.Get())),
 		),
 	)
 }

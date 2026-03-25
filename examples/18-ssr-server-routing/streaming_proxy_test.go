@@ -23,24 +23,24 @@ func newBufferingProxyRecorder() *bufferingProxyRecorder {
 	return &bufferingProxyRecorder{header: make(http.Header)}
 }
 
-func (r *bufferingProxyRecorder) Header() http.Header {
-	return r.header
+func (parseR *bufferingProxyRecorder) Header() http.Header {
+	return parseR.header
 }
 
-func (r *bufferingProxyRecorder) WriteHeader(statusCode int) {
-	if r.status == 0 {
-		r.status = statusCode
+func (parseR *bufferingProxyRecorder) WriteHeader(parseStatusCode int) {
+	if parseR.status == 0 {
+		parseR.status = parseStatusCode
 	}
 }
 
-func (r *bufferingProxyRecorder) Write(data []byte) (int, error) {
-	if r.status == 0 {
-		r.status = http.StatusOK
+func (parseR *bufferingProxyRecorder) Write(parseData []byte) (int, error) {
+	if parseR.status == 0 {
+		parseR.status = http.StatusOK
 	}
-	return r.body.Write(data)
+	return parseR.body.Write(parseData)
 }
 
-func (r *bufferingProxyRecorder) Flush() {}
+func (parseR *bufferingProxyRecorder) Flush() {}
 
 type gzipBufferingProxyRecorder struct {
 	header http.Header
@@ -50,94 +50,94 @@ type gzipBufferingProxyRecorder struct {
 }
 
 func newGzipBufferingProxyRecorder() *gzipBufferingProxyRecorder {
-	recorder := &gzipBufferingProxyRecorder{header: make(http.Header)}
-	recorder.writer = gzip.NewWriter(&recorder.body)
-	recorder.header.Set("Content-Encoding", "gzip")
-	return recorder
+	parseRecorder := &gzipBufferingProxyRecorder{header: make(http.Header)}
+	parseRecorder.writer = gzip.NewWriter(&parseRecorder.body)
+	parseRecorder.header.Set("Content-Encoding", "gzip")
+	return parseRecorder
 }
 
-func (r *gzipBufferingProxyRecorder) Header() http.Header {
-	return r.header
+func (parseR *gzipBufferingProxyRecorder) Header() http.Header {
+	return parseR.header
 }
 
-func (r *gzipBufferingProxyRecorder) WriteHeader(statusCode int) {
-	if r.status == 0 {
-		r.status = statusCode
+func (parseR *gzipBufferingProxyRecorder) WriteHeader(parseStatusCode int) {
+	if parseR.status == 0 {
+		parseR.status = parseStatusCode
 	}
 }
 
-func (r *gzipBufferingProxyRecorder) Write(data []byte) (int, error) {
-	if r.status == 0 {
-		r.status = http.StatusOK
+func (parseR *gzipBufferingProxyRecorder) Write(parseData []byte) (int, error) {
+	if parseR.status == 0 {
+		parseR.status = http.StatusOK
 	}
-	return r.writer.Write(data)
+	return parseR.writer.Write(parseData)
 }
 
-func (r *gzipBufferingProxyRecorder) Flush() {}
+func (parseR *gzipBufferingProxyRecorder) Flush() {}
 
-func (r *gzipBufferingProxyRecorder) Close() error {
-	return r.writer.Close()
+func (parseR *gzipBufferingProxyRecorder) Close() error {
+	return parseR.writer.Close()
 }
 
-func (r *gzipBufferingProxyRecorder) DecompressedBody(t *testing.T) string {
-	t.Helper()
-	if err := r.Close(); err != nil {
-		t.Fatalf("close gzip writer: %v", err)
+func (parseR *gzipBufferingProxyRecorder) DecompressedBody(parseT *testing.T) string {
+	parseT.Helper()
+	if parseErr := parseR.Close(); parseErr != nil {
+		parseT.Fatalf("close gzip writer: %v", parseErr)
 	}
-	reader, err := gzip.NewReader(bytes.NewReader(r.body.Bytes()))
-	if err != nil {
-		t.Fatalf("new gzip reader: %v", err)
+	parseReader, parseErr2 := gzip.NewReader(bytes.NewReader(parseR.body.Bytes()))
+	if parseErr2 != nil {
+		parseT.Fatalf("new gzip reader: %v", parseErr2)
 	}
-	defer reader.Close()
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		t.Fatalf("read gzip body: %v", err)
+	defer parseReader.Close()
+	parseData, parseErr2 := io.ReadAll(parseReader)
+	if parseErr2 != nil {
+		parseT.Fatalf("read gzip body: %v", parseErr2)
 	}
-	return string(data)
+	return string(parseData)
 }
 
-func TestStreamedPageCompletesThroughBufferingProxyFixture(t *testing.T) {
-	server := testServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/docs/ssr?tab=loader", nil)
-	res := newBufferingProxyRecorder()
+func TestStreamedPageCompletesThroughBufferingProxyFixture(parseT *testing.T) {
+	parseServer := testServer(parseT)
+	parseReq := httptest.NewRequest(http.MethodGet, "/docs/ssr?tab=loader", nil)
+	parseRes := newBufferingProxyRecorder()
 
-	server.handlePage(res, req)
-	if res.status != http.StatusOK {
-		t.Fatalf("expected OK status, got %d", res.status)
+	parseServer.handlePage(parseRes, parseReq)
+	if parseRes.status != http.StatusOK {
+		parseT.Fatalf("expected OK status, got %d", parseRes.status)
 	}
-	body := res.body.String()
-	checks := []string{
+	parseBody := parseRes.body.String()
+	parseChecks := []string{
 		"Streaming nested docs panel...",
 		"Streamed docs insights ready",
 		"target.outerHTML=",
 		"ssr-server-routing.wasm",
 	}
-	for _, check := range checks {
-		if !strings.Contains(body, check) {
-			t.Fatalf("expected buffered proxy body to contain %q, got %q", check, body)
+	for _, parseCheck := range parseChecks {
+		if !strings.Contains(parseBody, parseCheck) {
+			parseT.Fatalf("expected buffered proxy body to contain %q, got %q", parseCheck, parseBody)
 		}
 	}
 }
 
-func TestStreamedPageCompletesThroughGzipBufferingFixture(t *testing.T) {
-	server := testServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/docs/ssr?tab=loader&stream=nested", nil)
-	res := newGzipBufferingProxyRecorder()
+func TestStreamedPageCompletesThroughGzipBufferingFixture(parseT *testing.T) {
+	parseServer := testServer(parseT)
+	parseReq := httptest.NewRequest(http.MethodGet, "/docs/ssr?tab=loader&stream=nested", nil)
+	parseRes := newGzipBufferingProxyRecorder()
 
-	server.handlePage(res, req)
-	if res.status != http.StatusOK {
-		t.Fatalf("expected OK status, got %d", res.status)
+	parseServer.handlePage(parseRes, parseReq)
+	if parseRes.status != http.StatusOK {
+		parseT.Fatalf("expected OK status, got %d", parseRes.status)
 	}
-	body := res.DecompressedBody(t)
-	checks := []string{
+	parseBody := parseRes.DecompressedBody(parseT)
+	parseChecks := []string{
 		"Nested streamed layout ready",
 		"Outer layout",
 		"Nested child panel",
 		"target.outerHTML=",
 	}
-	for _, check := range checks {
-		if !strings.Contains(body, check) {
-			t.Fatalf("expected gzip-buffered proxy body to contain %q, got %q", check, body)
+	for _, parseCheck := range parseChecks {
+		if !strings.Contains(parseBody, parseCheck) {
+			parseT.Fatalf("expected gzip-buffered proxy body to contain %q, got %q", parseCheck, parseBody)
 		}
 	}
 }

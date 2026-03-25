@@ -18,48 +18,48 @@ type Evaluation struct {
 	Error      string
 }
 
-func EvaluateExpression(expression string, angleMode string, precision int) Evaluation {
-	trimmed := strings.TrimSpace(expression)
-	if trimmed == "" {
-		return Evaluation{Expression: expression, Error: "Enter an expression"}
+func EvaluateExpression(parseExpression string, parseAngleMode string, parsePrecision int) Evaluation {
+	parseTrimmed := strings.TrimSpace(parseExpression)
+	if parseTrimmed == "" {
+		return Evaluation{Expression: parseExpression, Error: "Enter an expression"}
 	}
 
-	parser := parser{
-		input:     trimmed,
-		angleMode: angleMode,
+	parseParser := parser{
+		input:     parseTrimmed,
+		angleMode: parseAngleMode,
 	}
 
-	value, err := parser.parse()
-	if err != nil {
-		return Evaluation{Expression: expression, Error: err.Error()}
+	parseValue, parseErr := parseParser.parse()
+	if parseErr != nil {
+		return Evaluation{Expression: parseExpression, Error: parseErr.Error()}
 	}
-	if math.IsNaN(value) || math.IsInf(value, 0) {
-		return Evaluation{Expression: expression, Error: "Expression produced a non-finite result"}
+	if math.IsNaN(parseValue) || math.IsInf(parseValue, 0) {
+		return Evaluation{Expression: parseExpression, Error: "Expression produced a non-finite result"}
 	}
 
 	return Evaluation{
-		Expression: expression,
-		Value:      value,
-		Formatted:  formatNumber(value, precision),
+		Expression: parseExpression,
+		Value:      parseValue,
+		Formatted:  formatNumber(parseValue, parsePrecision),
 	}
 }
 
-func formatNumber(value float64, precision int) string {
-	if precision < 0 {
-		precision = 0
+func formatNumber(parseValue float64, parsePrecision int) string {
+	if parsePrecision < 0 {
+		parsePrecision = 0
 	}
 
-	if math.Abs(value-math.Round(value)) < 1e-9 {
-		return strconv.FormatInt(int64(math.Round(value)), 10)
+	if math.Abs(parseValue-math.Round(parseValue)) < 1e-9 {
+		return strconv.FormatInt(int64(math.Round(parseValue)), 10)
 	}
 
-	text := strconv.FormatFloat(value, 'f', precision, 64)
-	text = strings.TrimRight(text, "0")
-	text = strings.TrimRight(text, ".")
-	if text == "-0" {
+	parseText := strconv.FormatFloat(parseValue, 'f', parsePrecision, 64)
+	parseText = strings.TrimRight(parseText, "0")
+	parseText = strings.TrimRight(parseText, ".")
+	if parseText == "-0" {
 		return "0"
 	}
-	return text
+	return parseText
 }
 
 type parser struct {
@@ -68,313 +68,313 @@ type parser struct {
 	angleMode string
 }
 
-func (p *parser) parse() (float64, error) {
-	value, err := p.parseExpression()
-	if err != nil {
-		return 0, err
+func (parseP *parser) parse() (float64, error) {
+	parseValue, parseErr := parseP.parseExpression()
+	if parseErr != nil {
+		return 0, parseErr
 	}
-	p.skipSpaces()
-	if p.pos < len(p.input) {
-		return 0, fmt.Errorf("unexpected token %q", p.input[p.pos:])
+	parseP.skipSpaces()
+	if parseP.pos < len(parseP.input) {
+		return 0, fmt.Errorf("unexpected token %q", parseP.input[parseP.pos:])
 	}
-	return value, nil
+	return parseValue, nil
 }
 
-func (p *parser) parseExpression() (float64, error) {
-	left, err := p.parseTerm()
-	if err != nil {
-		return 0, err
+func (parseP *parser) parseExpression() (float64, error) {
+	parseLeft, parseErr := parseP.parseTerm()
+	if parseErr != nil {
+		return 0, parseErr
 	}
 
 	for {
-		p.skipSpaces()
-		switch p.peek() {
+		parseP.skipSpaces()
+		switch parseP.peek() {
 		case '+':
-			p.pos++
-			right, err := p.parseTerm()
-			if err != nil {
-				return 0, err
+			parseP.pos++
+			parseRight, parseErr2 := parseP.parseTerm()
+			if parseErr2 != nil {
+				return 0, parseErr2
 			}
-			left += right
+			parseLeft += parseRight
 		case '-':
-			p.pos++
-			right, err := p.parseTerm()
-			if err != nil {
-				return 0, err
+			parseP.pos++
+			parseRight2, parseErr3 := parseP.parseTerm()
+			if parseErr3 != nil {
+				return 0, parseErr3
 			}
-			left -= right
+			parseLeft -= parseRight2
 		default:
-			return left, nil
+			return parseLeft, nil
 		}
 	}
 }
 
-func (p *parser) parseTerm() (float64, error) {
-	left, err := p.parsePower()
-	if err != nil {
-		return 0, err
+func (parseP *parser) parseTerm() (float64, error) {
+	parseLeft, parseErr := parseP.parsePower()
+	if parseErr != nil {
+		return 0, parseErr
 	}
 
 	for {
-		p.skipSpaces()
-		switch p.peek() {
+		parseP.skipSpaces()
+		switch parseP.peek() {
 		case '*':
-			p.pos++
-			right, err := p.parsePower()
-			if err != nil {
-				return 0, err
+			parseP.pos++
+			parseRight, parseErr2 := parseP.parsePower()
+			if parseErr2 != nil {
+				return 0, parseErr2
 			}
-			left *= right
+			parseLeft *= parseRight
 		case '/':
-			p.pos++
-			right, err := p.parsePower()
-			if err != nil {
-				return 0, err
+			parseP.pos++
+			parseRight2, parseErr3 := parseP.parsePower()
+			if parseErr3 != nil {
+				return 0, parseErr3
 			}
-			if math.Abs(right) < 1e-12 {
+			if math.Abs(parseRight2) < 1e-12 {
 				return 0, fmt.Errorf("division by zero")
 			}
-			left /= right
+			parseLeft /= parseRight2
 		default:
-			return left, nil
+			return parseLeft, nil
 		}
 	}
 }
 
-func (p *parser) parsePower() (float64, error) {
-	left, err := p.parseUnary()
-	if err != nil {
-		return 0, err
+func (parseP *parser) parsePower() (float64, error) {
+	parseLeft, parseErr := parseP.parseUnary()
+	if parseErr != nil {
+		return 0, parseErr
 	}
 
-	p.skipSpaces()
-	if p.peek() == '^' {
-		p.pos++
-		right, err := p.parsePower()
-		if err != nil {
-			return 0, err
+	parseP.skipSpaces()
+	if parseP.peek() == '^' {
+		parseP.pos++
+		parseRight, parseErr2 := parseP.parsePower()
+		if parseErr2 != nil {
+			return 0, parseErr2
 		}
-		return math.Pow(left, right), nil
+		return math.Pow(parseLeft, parseRight), nil
 	}
 
-	return left, nil
+	return parseLeft, nil
 }
 
-func (p *parser) parseUnary() (float64, error) {
-	p.skipSpaces()
-	switch p.peek() {
+func (parseP *parser) parseUnary() (float64, error) {
+	parseP.skipSpaces()
+	switch parseP.peek() {
 	case '+':
-		p.pos++
-		return p.parseUnary()
+		parseP.pos++
+		return parseP.parseUnary()
 	case '-':
-		p.pos++
-		value, err := p.parseUnary()
-		if err != nil {
-			return 0, err
+		parseP.pos++
+		parseValue, parseErr := parseP.parseUnary()
+		if parseErr != nil {
+			return 0, parseErr
 		}
-		return -value, nil
+		return -parseValue, nil
 	default:
-		return p.parsePrimary()
+		return parseP.parsePrimary()
 	}
 }
 
-func (p *parser) parsePrimary() (float64, error) {
-	p.skipSpaces()
-	ch := p.peek()
+func (parseP *parser) parsePrimary() (float64, error) {
+	parseP.skipSpaces()
+	parseCh := parseP.peek()
 	switch {
-	case ch == '(':
-		p.pos++
-		value, err := p.parseExpression()
-		if err != nil {
-			return 0, err
+	case parseCh == '(':
+		parseP.pos++
+		parseValue, parseErr := parseP.parseExpression()
+		if parseErr != nil {
+			return 0, parseErr
 		}
-		p.skipSpaces()
-		if p.peek() != ')' {
+		parseP.skipSpaces()
+		if parseP.peek() != ')' {
 			return 0, fmt.Errorf("expected )")
 		}
-		p.pos++
-		return value, nil
-	case unicode.IsDigit(rune(ch)) || ch == '.':
-		return p.parseNumber()
-	case unicode.IsLetter(rune(ch)):
-		return p.parseIdentifier()
+		parseP.pos++
+		return parseValue, nil
+	case unicode.IsDigit(rune(parseCh)) || parseCh == '.':
+		return parseP.parseNumber()
+	case unicode.IsLetter(rune(parseCh)):
+		return parseP.parseIdentifier()
 	default:
-		return 0, fmt.Errorf("unexpected character %q", string(ch))
+		return 0, fmt.Errorf("unexpected character %q", string(parseCh))
 	}
 }
 
-func (p *parser) parseNumber() (float64, error) {
-	start := p.pos
-	dotSeen := false
-	for p.pos < len(p.input) {
-		ch := p.input[p.pos]
-		if ch == '.' {
-			if dotSeen {
+func (parseP *parser) parseNumber() (float64, error) {
+	parseStart := parseP.pos
+	isParseDotSeen := false
+	for parseP.pos < len(parseP.input) {
+		parseCh := parseP.input[parseP.pos]
+		if parseCh == '.' {
+			if isParseDotSeen {
 				break
 			}
-			dotSeen = true
-			p.pos++
+			isParseDotSeen = true
+			parseP.pos++
 			continue
 		}
-		if !unicode.IsDigit(rune(ch)) {
+		if !unicode.IsDigit(rune(parseCh)) {
 			break
 		}
-		p.pos++
+		parseP.pos++
 	}
 
-	value, err := strconv.ParseFloat(p.input[start:p.pos], 64)
-	if err != nil {
+	parseValue, parseErr := strconv.ParseFloat(parseP.input[parseStart:parseP.pos], 64)
+	if parseErr != nil {
 		return 0, fmt.Errorf("invalid number")
 	}
-	return value, nil
+	return parseValue, nil
 }
 
-func (p *parser) parseIdentifier() (float64, error) {
-	start := p.pos
-	for p.pos < len(p.input) && (unicode.IsLetter(rune(p.input[p.pos])) || unicode.IsDigit(rune(p.input[p.pos]))) {
-		p.pos++
+func (parseP *parser) parseIdentifier() (float64, error) {
+	parseStart := parseP.pos
+	for parseP.pos < len(parseP.input) && (unicode.IsLetter(rune(parseP.input[parseP.pos])) || unicode.IsDigit(rune(parseP.input[parseP.pos]))) {
+		parseP.pos++
 	}
 
-	name := strings.ToLower(p.input[start:p.pos])
-	p.skipSpaces()
-	if p.peek() != '(' {
-		switch name {
+	parseName := strings.ToLower(parseP.input[parseStart:parseP.pos])
+	parseP.skipSpaces()
+	if parseP.peek() != '(' {
+		switch parseName {
 		case "pi":
 			return math.Pi, nil
 		case "e":
 			return math.E, nil
 		default:
-			return 0, fmt.Errorf("unknown identifier %q", name)
+			return 0, fmt.Errorf("unknown identifier %q", parseName)
 		}
 	}
 
-	p.pos++
-	args := []float64{}
+	parseP.pos++
+	parseArgs := []float64{}
 	for {
-		p.skipSpaces()
-		if p.peek() == ')' {
-			p.pos++
+		parseP.skipSpaces()
+		if parseP.peek() == ')' {
+			parseP.pos++
 			break
 		}
 
-		value, err := p.parseExpression()
-		if err != nil {
-			return 0, err
+		parseValue, parseErr := parseP.parseExpression()
+		if parseErr != nil {
+			return 0, parseErr
 		}
-		args = append(args, value)
+		parseArgs = append(parseArgs, parseValue)
 
-		p.skipSpaces()
-		if p.peek() == ',' {
-			p.pos++
+		parseP.skipSpaces()
+		if parseP.peek() == ',' {
+			parseP.pos++
 			continue
 		}
-		if p.peek() != ')' {
+		if parseP.peek() != ')' {
 			return 0, fmt.Errorf("expected , or )")
 		}
-		p.pos++
+		parseP.pos++
 		break
 	}
 
-	return p.callFunction(name, args)
+	return parseP.callFunction(parseName, parseArgs)
 }
 
-func (p *parser) callFunction(name string, args []float64) (float64, error) {
-	switch name {
+func (parseP *parser) callFunction(parseName string, parseArgs []float64) (float64, error) {
+	switch parseName {
 	case "sin":
-		if len(args) != 1 {
+		if len(parseArgs) != 1 {
 			return 0, fmt.Errorf("sin expects 1 argument")
 		}
-		return math.Sin(p.toRadians(args[0])), nil
+		return math.Sin(parseP.toRadians(parseArgs[0])), nil
 	case "cos":
-		if len(args) != 1 {
+		if len(parseArgs) != 1 {
 			return 0, fmt.Errorf("cos expects 1 argument")
 		}
-		return math.Cos(p.toRadians(args[0])), nil
+		return math.Cos(parseP.toRadians(parseArgs[0])), nil
 	case "tan":
-		if len(args) != 1 {
+		if len(parseArgs) != 1 {
 			return 0, fmt.Errorf("tan expects 1 argument")
 		}
-		return math.Tan(p.toRadians(args[0])), nil
+		return math.Tan(parseP.toRadians(parseArgs[0])), nil
 	case "sqrt":
-		if len(args) != 1 {
+		if len(parseArgs) != 1 {
 			return 0, fmt.Errorf("sqrt expects 1 argument")
 		}
-		if args[0] < 0 {
+		if parseArgs[0] < 0 {
 			return 0, fmt.Errorf("sqrt expects a non-negative value")
 		}
-		return math.Sqrt(args[0]), nil
+		return math.Sqrt(parseArgs[0]), nil
 	case "abs":
-		if len(args) != 1 {
+		if len(parseArgs) != 1 {
 			return 0, fmt.Errorf("abs expects 1 argument")
 		}
-		return math.Abs(args[0]), nil
+		return math.Abs(parseArgs[0]), nil
 	case "log":
-		if len(args) != 1 {
+		if len(parseArgs) != 1 {
 			return 0, fmt.Errorf("log expects 1 argument")
 		}
-		if args[0] <= 0 {
+		if parseArgs[0] <= 0 {
 			return 0, fmt.Errorf("log expects a positive value")
 		}
-		return math.Log10(args[0]), nil
+		return math.Log10(parseArgs[0]), nil
 	case "ln":
-		if len(args) != 1 {
+		if len(parseArgs) != 1 {
 			return 0, fmt.Errorf("ln expects 1 argument")
 		}
-		if args[0] <= 0 {
+		if parseArgs[0] <= 0 {
 			return 0, fmt.Errorf("ln expects a positive value")
 		}
-		return math.Log(args[0]), nil
+		return math.Log(parseArgs[0]), nil
 	case "round":
-		if len(args) != 1 {
+		if len(parseArgs) != 1 {
 			return 0, fmt.Errorf("round expects 1 argument")
 		}
-		return math.Round(args[0]), nil
+		return math.Round(parseArgs[0]), nil
 	case "floor":
-		if len(args) != 1 {
+		if len(parseArgs) != 1 {
 			return 0, fmt.Errorf("floor expects 1 argument")
 		}
-		return math.Floor(args[0]), nil
+		return math.Floor(parseArgs[0]), nil
 	case "ceil":
-		if len(args) != 1 {
+		if len(parseArgs) != 1 {
 			return 0, fmt.Errorf("ceil expects 1 argument")
 		}
-		return math.Ceil(args[0]), nil
+		return math.Ceil(parseArgs[0]), nil
 	case "pow":
-		if len(args) != 2 {
+		if len(parseArgs) != 2 {
 			return 0, fmt.Errorf("pow expects 2 arguments")
 		}
-		return math.Pow(args[0], args[1]), nil
+		return math.Pow(parseArgs[0], parseArgs[1]), nil
 	case "max":
-		if len(args) != 2 {
+		if len(parseArgs) != 2 {
 			return 0, fmt.Errorf("max expects 2 arguments")
 		}
-		return math.Max(args[0], args[1]), nil
+		return math.Max(parseArgs[0], parseArgs[1]), nil
 	case "min":
-		if len(args) != 2 {
+		if len(parseArgs) != 2 {
 			return 0, fmt.Errorf("min expects 2 arguments")
 		}
-		return math.Min(args[0], args[1]), nil
+		return math.Min(parseArgs[0], parseArgs[1]), nil
 	default:
-		return 0, fmt.Errorf("unknown function %q", name)
+		return 0, fmt.Errorf("unknown function %q", parseName)
 	}
 }
 
-func (p *parser) toRadians(value float64) float64 {
-	if strings.ToLower(p.angleMode) == "deg" {
-		return value * math.Pi / 180
+func (parseP *parser) toRadians(parseValue float64) float64 {
+	if strings.ToLower(parseP.angleMode) == "deg" {
+		return parseValue * math.Pi / 180
 	}
-	return value
+	return parseValue
 }
 
-func (p *parser) skipSpaces() {
-	for p.pos < len(p.input) && unicode.IsSpace(rune(p.input[p.pos])) {
-		p.pos++
+func (parseP *parser) skipSpaces() {
+	for parseP.pos < len(parseP.input) && unicode.IsSpace(rune(parseP.input[parseP.pos])) {
+		parseP.pos++
 	}
 }
 
-func (p *parser) peek() byte {
-	if p.pos >= len(p.input) {
+func (parseP *parser) peek() byte {
+	if parseP.pos >= len(parseP.input) {
 		return 0
 	}
-	return p.input[p.pos]
+	return parseP.input[parseP.pos]
 }

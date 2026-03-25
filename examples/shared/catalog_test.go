@@ -7,8 +7,8 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestExampleSubjectSelectsBestCandidate(t *testing.T) {
-	tests := []struct {
+func TestExampleSubjectSelectsBestCandidate(parseT *testing.T) {
+	parseTests := []struct {
 		name    string
 		title   string
 		feature string
@@ -19,99 +19,99 @@ func TestExampleSubjectSelectsBestCandidate(t *testing.T) {
 		{name: "router-like feature wins", title: "Screen", feature: "Route Hydrate", want: "Route Hydrate"},
 		{name: "falls back to trimmed title", title: "  Plain demo  ", feature: "", want: "Plain demo"},
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := exampleSubject(test.title, test.feature); got != test.want {
-				t.Fatalf("exampleSubject(%q, %q) = %q, want %q", test.title, test.feature, got, test.want)
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			if parseGot := exampleSubject(parseTest.title, parseTest.feature); parseGot != parseTest.want {
+				parseT2.Fatalf("exampleSubject(%q, %q) = %q, want %q", parseTest.title, parseTest.feature, parseGot, parseTest.want)
 			}
 		})
 	}
 }
 
-func TestExampleCopyBranches(t *testing.T) {
-	lead, bullets := overviewCopy("Use state", "ui.UseState")
-	if !strings.Contains(lead, "single component owns interactive local state") {
-		t.Fatalf("unexpected overview lead: %q", lead)
+func TestExampleCopyBranches(parseT *testing.T) {
+	parseLead, parseBullets := overviewCopy("Use state", "ui.UseState")
+	if !strings.Contains(parseLead, "single component owns interactive local state") {
+		parseT.Fatalf("unexpected overview lead: %q", parseLead)
 	}
-	if len(bullets) != 2 {
-		t.Fatalf("expected 2 overview bullets for ui.UseState, got %d", len(bullets))
-	}
-
-	functional := functionalCopy("Offline", "pwa.RegisterServiceWorker")
-	if len(functional) < 4 {
-		t.Fatalf("expected pwa functional copy to include specialized bullets, got %v", functional)
-	}
-	if !strings.Contains(strings.Join(functional, "\n"), "offline support matters") {
-		t.Fatalf("expected pwa-specific functional guidance, got %v", functional)
+	if len(parseBullets) != 2 {
+		parseT.Fatalf("expected 2 overview bullets for ui.UseState, got %d", len(parseBullets))
 	}
 
-	implementationLead, implementationBullets, codeLines := implementationCopy("Plugin host", "plugin.NewHost")
-	if !strings.Contains(implementationLead, "explicit host") {
-		t.Fatalf("unexpected implementation lead: %q", implementationLead)
+	parseFunctional := functionalCopy("Offline", "pwa.RegisterServiceWorker")
+	if len(parseFunctional) < 4 {
+		parseT.Fatalf("expected pwa functional copy to include specialized bullets, got %v", parseFunctional)
 	}
-	if len(implementationBullets) < 4 {
-		t.Fatalf("expected implementation bullets to include plugin-specific guidance, got %v", implementationBullets)
+	if !strings.Contains(strings.Join(parseFunctional, "\n"), "offline support matters") {
+		parseT.Fatalf("expected pwa-specific functional guidance, got %v", parseFunctional)
 	}
-	if strings.Join(codeLines, "\n") == "" || !strings.Contains(strings.Join(codeLines, "\n"), "plugin.NewHost") {
-		t.Fatalf("expected plugin implementation code example, got %v", codeLines)
+
+	parseImplementationLead, parseImplementationBullets, parseCodeLines := implementationCopy("Plugin host", "plugin.NewHost")
+	if !strings.Contains(parseImplementationLead, "explicit host") {
+		parseT.Fatalf("unexpected implementation lead: %q", parseImplementationLead)
+	}
+	if len(parseImplementationBullets) < 4 {
+		parseT.Fatalf("expected implementation bullets to include plugin-specific guidance, got %v", parseImplementationBullets)
+	}
+	if strings.Join(parseCodeLines, "\n") == "" || !strings.Contains(strings.Join(parseCodeLines, "\n"), "plugin.NewHost") {
+		parseT.Fatalf("expected plugin implementation code example, got %v", parseCodeLines)
 	}
 }
 
-func TestExampleComponentsRenderExpectedMarkup(t *testing.T) {
-	page := ExamplePage("Catalog demo", "ui.UseState", "Short summary")
-	markup, err := ui.RenderToString(page)
-	if err != nil {
-		t.Fatalf("RenderToString(ExamplePage): %v", err)
+func TestExampleComponentsRenderExpectedMarkup(parseT *testing.T) {
+	parsePage := ExamplePage("Catalog demo", "ui.UseState", "Short summary")
+	parseMarkup, parseErr := ui.RenderToString(parsePage)
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(ExamplePage): %v", parseErr)
 	}
-	for _, expected := range []string{
+	for _, parseExpected := range []string{
 		"Catalog demo",
 		"Short summary",
 		"Overview",
 		"Functional",
 		"Implementation",
 	} {
-		if !strings.Contains(markup, expected) {
-			t.Fatalf("expected ExamplePage markup to contain %q, got %s", expected, markup)
+		if !strings.Contains(parseMarkup, parseExpected) {
+			parseT.Fatalf("expected ExamplePage markup to contain %q, got %s", parseExpected, parseMarkup)
 		}
 	}
 
-	listMarkup, err := ui.RenderToString(ExampleBulletList(" keep ", "", "trim me"))
-	if err != nil {
-		t.Fatalf("RenderToString(ExampleBulletList): %v", err)
+	parseListMarkup, parseErr := ui.RenderToString(ExampleBulletList(" keep ", "", "trim me"))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(ExampleBulletList): %v", parseErr)
 	}
-	if !strings.Contains(listMarkup, "keep") || !strings.Contains(listMarkup, "trim me") {
-		t.Fatalf("unexpected bullet list markup: %s", listMarkup)
-	}
-
-	codeMarkup, err := ui.RenderToString(ExampleCode("line one", "line two"))
-	if err != nil {
-		t.Fatalf("RenderToString(ExampleCode): %v", err)
-	}
-	if !strings.Contains(codeMarkup, "<pre") || !strings.Contains(codeMarkup, "line one") || !strings.Contains(codeMarkup, "line two") {
-		t.Fatalf("unexpected code markup: %s", codeMarkup)
+	if !strings.Contains(parseListMarkup, "keep") || !strings.Contains(parseListMarkup, "trim me") {
+		parseT.Fatalf("unexpected bullet list markup: %s", parseListMarkup)
 	}
 
-	panelMarkup, err := ui.RenderToString(ExamplePanel("Panel", ui.Text("body")))
-	if err != nil {
-		t.Fatalf("RenderToString(ExamplePanel): %v", err)
+	parseCodeMarkup, parseErr := ui.RenderToString(ExampleCode("line one", "line two"))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(ExampleCode): %v", parseErr)
 	}
-	if !strings.Contains(panelMarkup, "Panel") || !strings.Contains(panelMarkup, "body") {
-		t.Fatalf("unexpected panel markup: %s", panelMarkup)
-	}
-
-	buttonMarkup, err := ui.RenderToString(ExampleButton("Click", ui.Handler{}))
-	if err != nil {
-		t.Fatalf("RenderToString(ExampleButton): %v", err)
-	}
-	if !strings.Contains(buttonMarkup, "<button") || !strings.Contains(buttonMarkup, "Click") {
-		t.Fatalf("unexpected button markup: %s", buttonMarkup)
+	if !strings.Contains(parseCodeMarkup, "<pre") || !strings.Contains(parseCodeMarkup, "line one") || !strings.Contains(parseCodeMarkup, "line two") {
+		parseT.Fatalf("unexpected code markup: %s", parseCodeMarkup)
 	}
 
-	statMarkup, err := ui.RenderToString(ExampleStat("Latency", "42ms"))
-	if err != nil {
-		t.Fatalf("RenderToString(ExampleStat): %v", err)
+	parsePanelMarkup, parseErr := ui.RenderToString(ExamplePanel("Panel", ui.Text("body")))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(ExamplePanel): %v", parseErr)
 	}
-	if !strings.Contains(statMarkup, "Latency") || !strings.Contains(statMarkup, "42ms") {
-		t.Fatalf("unexpected stat markup: %s", statMarkup)
+	if !strings.Contains(parsePanelMarkup, "Panel") || !strings.Contains(parsePanelMarkup, "body") {
+		parseT.Fatalf("unexpected panel markup: %s", parsePanelMarkup)
+	}
+
+	parseButtonMarkup, parseErr := ui.RenderToString(ExampleButton("Click", ui.Handler{}))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(ExampleButton): %v", parseErr)
+	}
+	if !strings.Contains(parseButtonMarkup, "<button") || !strings.Contains(parseButtonMarkup, "Click") {
+		parseT.Fatalf("unexpected button markup: %s", parseButtonMarkup)
+	}
+
+	parseStatMarkup, parseErr := ui.RenderToString(ExampleStat("Latency", "42ms"))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(ExampleStat): %v", parseErr)
+	}
+	if !strings.Contains(parseStatMarkup, "Latency") || !strings.Contains(parseStatMarkup, "42ms") {
+		parseT.Fatalf("unexpected stat markup: %s", parseStatMarkup)
 	}
 }

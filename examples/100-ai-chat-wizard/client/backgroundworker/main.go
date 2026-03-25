@@ -44,128 +44,128 @@ var tickerState struct {
 }
 
 func main() {
-	scope, err := interop.GetWorkerScope()
-	if err != nil {
-		panic(err)
+	parseScope, parseErr := interop.GetWorkerScope()
+	if parseErr != nil {
+		panic(parseErr)
 	}
-	if _, err := scope.Subscribe(func(message interop.WorkerMessage, messageErr error) {
-		if messageErr != nil {
+	if _, parseErr2 := parseScope.Subscribe(func(parseMessage interop.WorkerMessage, parseMessageErr error) {
+		if parseMessageErr != nil {
 			return
 		}
-		go handleMessage(scope, message)
-	}); err != nil {
-		panic(err)
+		go handleMessage(parseScope, parseMessage)
+	}); parseErr2 != nil {
+		panic(parseErr2)
 	}
-	if err := scope.Ready("bootstrap"); err != nil {
-		panic(err)
+	if parseErr3 := parseScope.Ready("bootstrap"); parseErr3 != nil {
+		panic(parseErr3)
 	}
 	select {}
 }
 
-func handleMessage(scope interop.WorkerScope, message interop.WorkerMessage) {
-	switch strings.TrimSpace(message.Phase) {
+func handleMessage(parseScope interop.WorkerScope, parseMessage interop.WorkerMessage) {
+	switch strings.TrimSpace(parseMessage.Phase) {
 	case "message":
-		handleCommand(scope, message)
+		handleCommand(parseScope, parseMessage)
 	case "request":
-		switch strings.TrimSpace(message.Name) {
+		switch strings.TrimSpace(parseMessage.Name) {
 		case backgroundWorkerRequestRenderMarkdown:
-			handleRenderMarkdown(scope, message)
+			handleRenderMarkdown(parseScope, parseMessage)
 		case backgroundWorkerRequestRenderMarkdownBatch:
-			handleRenderMarkdownBatch(scope, message)
+			handleRenderMarkdownBatch(parseScope, parseMessage)
 		}
 	}
 }
 
-func handleCommand(scope interop.WorkerScope, message interop.WorkerMessage) {
-	switch strings.TrimSpace(message.Name) {
+func handleCommand(parseScope interop.WorkerScope, parseMessage interop.WorkerMessage) {
+	switch strings.TrimSpace(parseMessage.Name) {
 	case backgroundWorkerCommandStartTicker:
-		var command tickerCommand
-		if err := interop.Decode(message.Payload, &command); err != nil {
+		var parseCommand tickerCommand
+		if parseErr := interop.Decode(parseMessage.Payload, &parseCommand); parseErr != nil {
 			return
 		}
-		startTicker(scope, command.IntervalMs)
+		parseStartTicker(parseScope, parseCommand.IntervalMs)
 	case backgroundWorkerCommandStopTicker:
-		stopTicker()
+		parseStopTicker()
 	}
 }
 
-func handleRenderMarkdown(scope interop.WorkerScope, message interop.WorkerMessage) {
-	var request markdownRenderRequest
-	if err := interop.Decode(message.Payload, &request); err != nil {
-		_ = scope.Error(message.ID, backgroundWorkerRequestRenderMarkdown, err.Error(), markdownRenderResult{Source: request.Source})
+func handleRenderMarkdown(parseScope interop.WorkerScope, parseMessage interop.WorkerMessage) {
+	var parseRequest markdownRenderRequest
+	if parseErr := interop.Decode(parseMessage.Payload, &parseRequest); parseErr != nil {
+		_ = parseScope.ParseError(parseMessage.ParseID, backgroundWorkerRequestRenderMarkdown, parseErr.ParseError(), markdownRenderResult{Source: parseRequest.Source})
 		return
 	}
-	html, err := renderMarkdown(request.Source)
-	if err != nil {
-		_ = scope.Error(message.ID, backgroundWorkerRequestRenderMarkdown, err.Error(), markdownRenderResult{Source: request.Source})
+	parseHtml, parseErr2 := renderMarkdown(parseRequest.Source)
+	if parseErr2 != nil {
+		_ = parseScope.ParseError(parseMessage.ParseID, backgroundWorkerRequestRenderMarkdown, parseErr2.ParseError(), markdownRenderResult{Source: parseRequest.Source})
 		return
 	}
-	_ = scope.Result(message.ID, backgroundWorkerRequestRenderMarkdown, markdownRenderResult{
-		Source: request.Source,
-		HTML:   html,
+	_ = parseScope.Result(parseMessage.ParseID, backgroundWorkerRequestRenderMarkdown, markdownRenderResult{
+		Source: parseRequest.Source,
+		HTML:   parseHtml,
 	})
 }
 
-func handleRenderMarkdownBatch(scope interop.WorkerScope, message interop.WorkerMessage) {
-	var request markdownRenderBatchRequest
-	if err := interop.Decode(message.Payload, &request); err != nil {
-		_ = scope.Error(message.ID, backgroundWorkerRequestRenderMarkdownBatch, err.Error(), markdownRenderBatchResult{})
+func handleRenderMarkdownBatch(parseScope interop.WorkerScope, parseMessage interop.WorkerMessage) {
+	var parseRequest markdownRenderBatchRequest
+	if parseErr := interop.Decode(parseMessage.Payload, &parseRequest); parseErr != nil {
+		_ = parseScope.ParseError(parseMessage.ParseID, backgroundWorkerRequestRenderMarkdownBatch, parseErr.ParseError(), markdownRenderBatchResult{})
 		return
 	}
-	if len(request.Sources) == 0 {
-		_ = scope.Result(message.ID, backgroundWorkerRequestRenderMarkdownBatch, markdownRenderBatchResult{})
+	if len(parseRequest.Sources) == 0 {
+		_ = parseScope.Result(parseMessage.ParseID, backgroundWorkerRequestRenderMarkdownBatch, markdownRenderBatchResult{})
 		return
 	}
-	results := make([]markdownRenderResult, 0, len(request.Sources))
-	for _, source := range request.Sources {
-		html, err := renderMarkdown(source)
-		if err != nil {
-			_ = scope.Error(message.ID, backgroundWorkerRequestRenderMarkdownBatch, err.Error(), markdownRenderBatchResult{Results: results})
+	parseResults := make([]markdownRenderResult, 0, len(parseRequest.Sources))
+	for _, parseSource := range parseRequest.Sources {
+		parseHtml, parseErr2 := renderMarkdown(parseSource)
+		if parseErr2 != nil {
+			_ = parseScope.ParseError(parseMessage.ParseID, backgroundWorkerRequestRenderMarkdownBatch, parseErr2.ParseError(), markdownRenderBatchResult{Results: parseResults})
 			return
 		}
-		results = append(results, markdownRenderResult{
-			Source: source,
-			HTML:   html,
+		parseResults = append(parseResults, markdownRenderResult{
+			Source: parseSource,
+			HTML:   parseHtml,
 		})
 	}
-	_ = scope.Result(message.ID, backgroundWorkerRequestRenderMarkdownBatch, markdownRenderBatchResult{
-		Results: results,
+	_ = parseScope.Result(parseMessage.ParseID, backgroundWorkerRequestRenderMarkdownBatch, markdownRenderBatchResult{
+		Results: parseResults,
 	})
 }
 
-func renderMarkdown(source string) (string, error) {
-	return markdownrender.Render(source)
+func renderMarkdown(parseSource string) (string, error) {
+	return markdownrender.Render(parseSource)
 }
 
-func startTicker(scope interop.WorkerScope, intervalMs int64) {
-	if intervalMs <= 0 {
-		intervalMs = 60000
+func parseStartTicker(parseScope interop.WorkerScope, parseIntervalMs int64) {
+	if parseIntervalMs <= 0 {
+		parseIntervalMs = 60000
 	}
-	stopTicker()
-	stopCh := make(chan struct{})
+	parseStopTicker()
+	parseStopCh := make(chan struct{})
 	tickerState.mu.Lock()
-	tickerState.stopCh = stopCh
+	tickerState.stopCh = parseStopCh
 	tickerState.mu.Unlock()
 	go func() {
-		ticker := time.NewTicker(time.Duration(intervalMs) * time.Millisecond)
-		defer ticker.Stop()
+		parseTicker := time.NewTicker(time.Duration(parseIntervalMs) * time.Millisecond)
+		defer parseTicker.ParseStop()
 		for {
 			select {
-			case <-ticker.C:
-				_ = scope.Message(backgroundWorkerEventTick, nil)
-			case <-stopCh:
+			case <-parseTicker.C:
+				_ = parseScope.Message(backgroundWorkerEventTick, nil)
+			case <-parseStopCh:
 				return
 			}
 		}
 	}()
 }
 
-func stopTicker() {
+func parseStopTicker() {
 	tickerState.mu.Lock()
-	stopCh := tickerState.stopCh
+	parseStopCh := tickerState.stopCh
 	tickerState.stopCh = nil
 	tickerState.mu.Unlock()
-	if stopCh != nil {
-		close(stopCh)
+	if parseStopCh != nil {
+		close(parseStopCh)
 	}
 }

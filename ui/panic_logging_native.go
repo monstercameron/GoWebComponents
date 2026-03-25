@@ -11,24 +11,24 @@ import (
 )
 
 // actionableUnsupportedOnServerPanic is a core package helper.
-func actionableUnsupportedOnServerPanic(parseName string) string {
-	parseTrimmed := strings.TrimSpace(parseName)
-	if parseTrimmed == "" {
-		parseTrimmed = "API"
+func actionableUnsupportedOnServerPanic(parseAPIName string) string {
+	parseAPINameTrimmed := strings.TrimSpace(parseAPIName)
+	if parseAPINameTrimmed == "" {
+		parseAPINameTrimmed = "API"
 	}
 	return runtime.ActionableFrameworkPanic(runtime.ActionablePanicOptions{
 		Source:  "ui",
-		Subject: "ui." + parseTrimmed,
-		Message: unsupportedOnServerMessage(parseTrimmed),
-		Path:    "ui." + parseTrimmed,
+		Subject: "ui." + parseAPINameTrimmed,
+		Message: unsupportedOnServerMessage(parseAPINameTrimmed),
+		Path:    "ui." + parseAPINameTrimmed,
 	})
 }
 
 // unsupportedOnServerMessage is a core package helper.
-func unsupportedOnServerMessage(parseName string) string {
-	parseTrimmed := strings.TrimSpace(parseName)
-	if parseTrimmed == "" {
-		parseTrimmed = "API"
+func unsupportedOnServerMessage(parseAPIName string) string {
+	parseAPINameTrimmed := strings.TrimSpace(parseAPIName)
+	if parseAPINameTrimmed == "" {
+		parseAPINameTrimmed = "API"
 	}
-	return fmt.Sprintf("ui.%s is not available on non-js/wasm builds in the current SSR slice", parseTrimmed)
+	return fmt.Sprintf("ui.%s is not available on non-js/wasm builds in the current SSR slice", parseAPINameTrimmed)
 }

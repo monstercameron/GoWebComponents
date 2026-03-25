@@ -16,31 +16,31 @@ const landingPageCapabilities = "capabilities"
 const landingPagePricing = "pricing"
 
 // setLandingDocumentTitle updates the browser tab title to match the current marketing page.
-func setLandingDocumentTitle(page string) {
-	doc := js.Global().Get("document")
-	if !doc.Truthy() {
+func setLandingDocumentTitle(parsePage string) {
+	parseDoc := js.Global().Get("document")
+	if !parseDoc.Truthy() {
 		return
 	}
-	var title string
-	switch page {
+	var parseTitle string
+	switch parsePage {
 	case landingPagePricing:
-		title = "RelayDesk \u2013 Pricing"
+		parseTitle = "RelayDesk \u2013 Pricing"
 	case landingPageCapabilities:
-		title = "RelayDesk \u2013 Capabilities"
+		parseTitle = "RelayDesk \u2013 Capabilities"
 	default:
-		title = "RelayDesk \u2013 AI Chat Workspace"
+		parseTitle = "RelayDesk \u2013 AI Chat Workspace"
 	}
-	doc.Set("title", title)
+	parseDoc.Set("title", parseTitle)
 }
 
 // renderLandingShell renders the full marketing landing page with header, content sections, and footer.
 // For the pricing route it delegates to renderPricingShell, which has its own richer layout.
-func renderLandingShell(_ i18n.Runtime, view appViewState, _ authSessionController) ui.Node {
-	page := landingPageForPath(view.CurrentPath)
+func renderLandingShell(_ i18n.Runtime, parseView appViewState, _ authSessionController) ui.Node {
+	parsePage := parseLandingPageForPath(parseView.CurrentPath)
 	// keep the browser tab title in sync with whichever marketing page is active
-	setLandingDocumentTitle(page)
-	if page == landingPagePricing {
-		return renderPricingShell(view)
+	setLandingDocumentTitle(parsePage)
+	if parsePage == landingPagePricing {
+		return renderPricingShell(parseView)
 	}
 	return Div(
 		// dark gradient background with purple/pink radial glows
@@ -50,26 +50,26 @@ func renderLandingShell(_ i18n.Runtime, view appViewState, _ authSessionControll
 			Div(Class("absolute left-[6%] top-[6%] h-40 w-40 rounded-full bg-[#8b5cf6]/12 blur-3xl sm:h-56 sm:w-56 lg:h-64 lg:w-64"), nil),
 			Div(Class("absolute right-[8%] top-[10%] h-44 w-44 rounded-full bg-[#ec4899]/12 blur-3xl sm:h-60 sm:w-60 lg:h-72 lg:w-72"), nil),
 		),
-		renderLandingHeader(view.CurrentPath),
+		renderLandingHeader(parseView.CurrentPath),
 		Main(
 			Class("relative z-10"),
-			renderLandingHeroSection(page),
-			renderLandingProductSection(page),
-			renderLandingWhySection(page),
-			renderLandingPricingSection(page),
+			renderLandingHeroSection(parsePage),
+			renderLandingProductSection(parsePage),
+			renderLandingWhySection(parsePage),
+			renderLandingPricingSection(parsePage),
 		),
 		renderLandingFooter(),
 	)
 }
 
 // renderLandingHeader renders the top header bar with brand, nav, and CTA buttons.
-func renderLandingHeader(currentPath string) ui.Node {
+func renderLandingHeader(parseCurrentPath string) ui.Node {
 	return renderMarketingHeaderShell(
 		renderMarketingHeaderBrand("Clear AI for real work", ""),
 		Tag("nav",
 			Class("hidden items-center gap-5 lg:flex xl:gap-8"),
-			landingNavLink(currentPath, marketingHomeRoute, "Product"),
-			landingNavLink(currentPath, marketingPricingRoute, "Pricing"),
+			parseLandingNavLink(parseCurrentPath, marketingHomeRoute, "Product"),
+			parseLandingNavLink(parseCurrentPath, marketingPricingRoute, "Pricing"),
 		),
 		Div(
 			Class("flex w-full items-center gap-2 sm:gap-3 md:w-auto"),
@@ -80,8 +80,8 @@ func renderLandingHeader(currentPath string) ui.Node {
 }
 
 // landingPageForPath maps a URL path to the landing page variant constant.
-func landingPageForPath(path string) string {
-	switch strings.TrimSpace(path) {
+func parseLandingPageForPath(parsePath string) string {
+	switch strings.TrimSpace(parsePath) {
 	case marketingCapabilitiesRoute:
 		return landingPageCapabilities
 	case marketingPricingRoute:
@@ -94,32 +94,32 @@ func landingPageForPath(path string) string {
 }
 
 // landingNavLink renders a router-aware nav link, styling it active when its route matches the current path.
-func landingNavLink(currentPath, targetPath, label string) ui.Node {
-	isActive := strings.TrimSpace(currentPath) == targetPath ||
-		(targetPath == authLandingRoute && strings.TrimSpace(currentPath) == marketingHomeRoute)
+func parseLandingNavLink(parseCurrentPath, parseTargetPath, parseLabel string) ui.Node {
+	isActive := strings.TrimSpace(parseCurrentPath) == parseTargetPath ||
+		(parseTargetPath == authLandingRoute && strings.TrimSpace(parseCurrentPath) == marketingHomeRoute)
 	return A(
 		Class(ClassNames(
 			"text-sm transition",
 			When(isActive, "text-white"),
 			When(!isActive, "text-[#b8c2d9] hover:text-white"),
 		)),
-		Href(targetPath),
-		OnClick(landingNavigateHandler(targetPath)),
-		Text(label),
+		Href(parseTargetPath),
+		OnClick(parseLandingNavigateHandler(parseTargetPath)),
+		Text(parseLabel),
 	)
 }
 
 // landingActionButton renders a rounded-pill CTA button, primary (white fill) or secondary (glass).
-func landingActionButton(label, targetPath string, primary bool) ui.Node {
+func parseLandingActionButton(parseLabel, parseTargetPath string, isPrimary bool) ui.Node {
 	return A(
 		Class(ClassNames(
 			"inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition sm:px-6 sm:py-3.5",
-			When(primary, "bg-white text-[#1a1330] hover:-translate-y-[1px]"),
-			When(!primary, "bg-white/10 text-white hover:bg-white/15"),
+			When(isPrimary, "bg-white text-[#1a1330] hover:-translate-y-[1px]"),
+			When(!isPrimary, "bg-white/10 text-white hover:bg-white/15"),
 		)),
-		Href(targetPath),
-		OnClick(landingNavigateHandler(targetPath)),
-		Text(label),
+		Href(parseTargetPath),
+		OnClick(parseLandingNavigateHandler(parseTargetPath)),
+		Text(parseLabel),
 	)
 }
 

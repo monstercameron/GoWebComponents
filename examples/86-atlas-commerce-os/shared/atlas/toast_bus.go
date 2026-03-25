@@ -10,12 +10,12 @@ type atlasShellToast struct {
 
 var atlasShellToastBus = make(chan atlasShellToast, 16)
 
-func dispatchAtlasShellToast(toast atlasShellToast) {
-	if strings.TrimSpace(toast.Title) == "" {
+func dispatchAtlasShellToast(parseToast atlasShellToast) {
+	if strings.TrimSpace(parseToast.Title) == "" {
 		return
 	}
 	select {
-	case atlasShellToastBus <- toast:
+	case atlasShellToastBus <- parseToast:
 	default:
 	}
 }

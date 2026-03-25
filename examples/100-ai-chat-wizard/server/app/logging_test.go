@@ -9,79 +9,79 @@ import (
 	"testing"
 )
 
-func TestOTELSeverityNumberMapping(t *testing.T) {
-	if got := otelSeverityNumber(-4); got != 5 {
-		t.Fatalf("otelSeverityNumber(debug) = %d, want 5", got)
+func TestOTELSeverityNumberMapping(parseT *testing.T) {
+	if parseGot := parseOtelSeverityNumber(-4); parseGot != 5 {
+		parseT.Fatalf("otelSeverityNumber(debug) = %d, want 5", parseGot)
 	}
-	if got := otelSeverityNumber(0); got != 9 {
-		t.Fatalf("otelSeverityNumber(info) = %d, want 9", got)
+	if parseGot2 := parseOtelSeverityNumber(0); parseGot2 != 9 {
+		parseT.Fatalf("otelSeverityNumber(info) = %d, want 9", parseGot2)
 	}
-	if got := otelSeverityNumber(4); got != 13 {
-		t.Fatalf("otelSeverityNumber(warn) = %d, want 13", got)
+	if parseGot3 := parseOtelSeverityNumber(4); parseGot3 != 13 {
+		parseT.Fatalf("otelSeverityNumber(warn) = %d, want 13", parseGot3)
 	}
-	if got := otelSeverityNumber(8); got != 17 {
-		t.Fatalf("otelSeverityNumber(error) = %d, want 17", got)
-	}
-}
-
-func TestErrorBoundaryFromMessage(t *testing.T) {
-	if got := errorBoundaryFromMessage("rpc.Send: provider stream error"); got != "rpc.Send" {
-		t.Fatalf("errorBoundaryFromMessage() = %q, want rpc.Send", got)
-	}
-	if got := errorBoundaryFromMessage("single-boundary"); got != "single-boundary" {
-		t.Fatalf("errorBoundaryFromMessage() = %q, want single-boundary", got)
+	if parseGot4 := parseOtelSeverityNumber(8); parseGot4 != 17 {
+		parseT.Fatalf("otelSeverityNumber(error) = %d, want 17", parseGot4)
 	}
 }
 
-func TestOTELLoggerAddsBoundaryFieldsForErrors(t *testing.T) {
-	var output bytes.Buffer
-	logger := newOTELLogger(&output, serverServiceName)
-	logger.Error("rpc.Send: provider stream error", slog.String("error", "provider timeout"))
-
-	logLine := strings.TrimSpace(output.String())
-	if logLine == "" {
-		t.Fatal("expected one log line")
+func TestErrorBoundaryFromMessage(parseT *testing.T) {
+	if parseGot := parseErrorBoundaryFromMessage("rpc.Send: provider stream error"); parseGot != "rpc.Send" {
+		parseT.Fatalf("errorBoundaryFromMessage() = %q, want rpc.Send", parseGot)
 	}
-
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(logLine), &payload); err != nil {
-		t.Fatalf("json.Unmarshal: %v", err)
-	}
-	if payload["severity_text"] != "ERROR" {
-		t.Fatalf("severity_text = %v, want ERROR", payload["severity_text"])
-	}
-	if payload["severity_number"] != float64(17) {
-		t.Fatalf("severity_number = %v, want 17", payload["severity_number"])
-	}
-	if payload["error.boundary"] != "rpc.Send" {
-		t.Fatalf("error.boundary = %v, want rpc.Send", payload["error.boundary"])
-	}
-	if payload["error.message"] != "provider timeout" {
-		t.Fatalf("error.message = %v, want provider timeout", payload["error.message"])
-	}
-	if payload["service.name"] != serverServiceName {
-		t.Fatalf("service.name = %v, want %s", payload["service.name"], serverServiceName)
+	if parseGot2 := parseErrorBoundaryFromMessage("single-boundary"); parseGot2 != "single-boundary" {
+		parseT.Fatalf("errorBoundaryFromMessage() = %q, want single-boundary", parseGot2)
 	}
 }
 
-func TestOTELLoggerAddsErrorTypeForErrorValues(t *testing.T) {
-	var output bytes.Buffer
-	logger := newOTELLogger(&output, serverServiceName)
-	logger.Error("db: failed to open", slog.Any("error", errors.New("permission denied")))
+func TestOTELLoggerAddsBoundaryFieldsForErrors(parseT *testing.T) {
+	var parseOutput bytes.Buffer
+	parseLogger := parseNewOTELLogger(&parseOutput, serverServiceName)
+	parseLogger.ParseError("rpc.Send: provider stream error", slog.String("error", "provider timeout"))
 
-	logLine := strings.TrimSpace(output.String())
-	if logLine == "" {
-		t.Fatal("expected one log line")
+	parseLogLine := strings.TrimSpace(parseOutput.ParseString())
+	if parseLogLine == "" {
+		parseT.Fatal("expected one log line")
 	}
 
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(logLine), &payload); err != nil {
-		t.Fatalf("json.Unmarshal: %v", err)
+	var parsePayload map[string]any
+	if parseErr := json.Unmarshal([]byte(parseLogLine), &parsePayload); parseErr != nil {
+		parseT.Fatalf("json.Unmarshal: %v", parseErr)
 	}
-	if payload["error.message"] != "permission denied" {
-		t.Fatalf("error.message = %v, want permission denied", payload["error.message"])
+	if parsePayload["severity_text"] != "ERROR" {
+		parseT.Fatalf("severity_text = %v, want ERROR", parsePayload["severity_text"])
 	}
-	if payload["error.type"] == "" {
-		t.Fatalf("expected error.type to be populated, got %v", payload["error.type"])
+	if parsePayload["severity_number"] != float64(17) {
+		parseT.Fatalf("severity_number = %v, want 17", parsePayload["severity_number"])
+	}
+	if parsePayload["error.boundary"] != "rpc.Send" {
+		parseT.Fatalf("error.boundary = %v, want rpc.Send", parsePayload["error.boundary"])
+	}
+	if parsePayload["error.message"] != "provider timeout" {
+		parseT.Fatalf("error.message = %v, want provider timeout", parsePayload["error.message"])
+	}
+	if parsePayload["service.name"] != serverServiceName {
+		parseT.Fatalf("service.name = %v, want %s", parsePayload["service.name"], serverServiceName)
+	}
+}
+
+func TestOTELLoggerAddsErrorTypeForErrorValues(parseT *testing.T) {
+	var parseOutput bytes.Buffer
+	parseLogger := parseNewOTELLogger(&parseOutput, serverServiceName)
+	parseLogger.ParseError("db: failed to open", slog.Any("error", errors.New("permission denied")))
+
+	parseLogLine := strings.TrimSpace(parseOutput.ParseString())
+	if parseLogLine == "" {
+		parseT.Fatal("expected one log line")
+	}
+
+	var parsePayload map[string]any
+	if parseErr := json.Unmarshal([]byte(parseLogLine), &parsePayload); parseErr != nil {
+		parseT.Fatalf("json.Unmarshal: %v", parseErr)
+	}
+	if parsePayload["error.message"] != "permission denied" {
+		parseT.Fatalf("error.message = %v, want permission denied", parsePayload["error.message"])
+	}
+	if parsePayload["error.type"] == "" {
+		parseT.Fatalf("expected error.type to be populated, got %v", parsePayload["error.type"])
 	}
 }

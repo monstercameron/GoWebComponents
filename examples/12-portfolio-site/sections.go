@@ -5,7 +5,7 @@ package main
 
 // AboutSection explains the value proposition of GoWebComponents over traditional development.
 // Features side-by-side comparison cards and key statistics to highlight framework benefits.
-func AboutSection(props Attrs) *Element {
+func AboutSection(parseProps Attrs) *Element {
 	return Section(
 		Attrs{
 			"id":    "about",
@@ -91,19 +91,19 @@ func AboutSection(props Attrs) *Element {
 
 // StatCard displays a key metric with large number, title, and description.
 // Used to highlight quantifiable benefits of choosing GoWebComponents.
-func StatCard(stat, title, description string) *Element {
+func StatCard(parseStat, parseTitle, parseDescription string) *Element {
 	return Div(
 		Attrs{"class": "text-center bg-white/5 rounded-xl p-6 shadow-lg border border-white/10 hover:border-white/20 transition-all duration-300 backdrop-blur-sm"},
-		Div(Attrs{"class": "text-4xl font-bold text-indigo-400 mb-2"}, stat),
-		H4(Attrs{"class": "text-xl font-bold text-white mb-2"}, title),
-		P(Attrs{"class": "text-gray-400"}, description),
+		Div(Attrs{"class": "text-4xl font-bold text-indigo-400 mb-2"}, parseStat),
+		H4(Attrs{"class": "text-xl font-bold text-white mb-2"}, parseTitle),
+		P(Attrs{"class": "text-gray-400"}, parseDescription),
 	)
 }
 
 // GettingStartedSection provides step-by-step instructions for new developers.
 // Includes installation commands, running examples, and a simple component example
 // to demonstrate the framework's ease of use.
-func GettingStartedSection(props Attrs) *Element {
+func GettingStartedSection(parseProps Attrs) *Element {
 	return Section(
 		Attrs{
 			"id":    "getting-started",
@@ -160,17 +160,17 @@ func GettingStartedSection(props Attrs) *Element {
 
 // InstallationStep renders a numbered instruction with icon and content.
 // Provides consistent styling for multi-step processes and tutorials.
-func InstallationStep(number, title string, content *Element) *Element {
+func InstallationStep(parseNumber, parseTitle string, parseContent *Element) *Element {
 	return Div(
 		Attrs{"class": "flex items-start space-x-6"},
 		Div(
 			Attrs{"class": "flex-shrink-0 w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xl font-bold shadow-lg shadow-indigo-500/20"},
-			number,
+			parseNumber,
 		),
 		Div(
 			Attrs{"class": "flex-1"},
-			H3(Attrs{"class": "text-2xl font-bold text-white mb-4"}, title),
-			content,
+			H3(Attrs{"class": "text-2xl font-bold text-white mb-4"}, parseTitle),
+			parseContent,
 		),
 	)
 }
@@ -178,7 +178,7 @@ func InstallationStep(number, title string, content *Element) *Element {
 // ExamplesSection displays a gallery of interactive examples with live demos.
 // Each example card includes a working demo and links to detailed explanations
 // and source code viewing functionality.
-func ExamplesSection(props Attrs) *Element {
+func ExamplesSection(parseProps Attrs) *Element {
 	return Section(
 		Attrs{
 			"id":    "examples",
@@ -273,21 +273,21 @@ func ExamplesSection(props Attrs) *Element {
 }
 
 // ExampleCard creates a card for showcasing an example
-func ExampleCard(icon, title, description, code, id string) *Element {
+func ExampleCard(parseIcon, parseTitle, parseDescription, parseCode, parseId string) *Element {
 	return Div(
 		Attrs{"class": "bg-white/5 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-white/10 group hover:scale-105 hover:bg-white/10 backdrop-blur-sm"},
 		Div(
 			Attrs{"class": "text-center mb-6"},
-			Div(Attrs{"class": "text-4xl mb-4 group-hover:scale-110 transition-transform duration-300"}, icon),
-			H3(Attrs{"class": "text-xl font-bold text-white mb-2"}, title),
-			P(Attrs{"class": "text-gray-400 text-sm leading-relaxed"}, description),
+			Div(Attrs{"class": "text-4xl mb-4 group-hover:scale-110 transition-transform duration-300"}, parseIcon),
+			H3(Attrs{"class": "text-xl font-bold text-white mb-2"}, parseTitle),
+			P(Attrs{"class": "text-gray-400 text-sm leading-relaxed"}, parseDescription),
 		),
 
 		Div(
 			Attrs{"class": "space-y-4"},
 			// Code snippet
 			Pre(Attrs{"class": "bg-black/50 text-green-400 p-3 rounded-lg text-xs overflow-x-auto border border-white/5"},
-				Code(nil, code)),
+				Code(nil, parseCode)),
 
 			// Action buttons
 			Div(
@@ -295,14 +295,14 @@ func ExampleCard(icon, title, description, code, id string) *Element {
 				Button(
 					Attrs{
 						"class":   "flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 text-sm font-medium shadow-lg shadow-indigo-500/20",
-						"onclick": "runExample('" + id + "')",
+						"onclick": "runExample('" + parseId + "')",
 					},
 					"▶ Run",
 				),
 				Button(
 					Attrs{
 						"class":   "px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors duration-200 text-sm font-medium border border-white/10",
-						"onclick": "viewSource('" + id + "')",
+						"onclick": "viewSource('" + parseId + "')",
 					},
 					"{ }",
 				),
@@ -312,18 +312,18 @@ func ExampleCard(icon, title, description, code, id string) *Element {
 }
 
 // DemoButton creates a button for the live demo section
-func DemoButton(label, onclick string) *Element {
+func DemoButton(parseLabel, parseOnclick string) *Element {
 	return Button(
 		Attrs{
 			"class":   "px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5",
-			"onclick": onclick,
+			"onclick": parseOnclick,
 		},
-		label,
+		parseLabel,
 	)
 }
 
 // ApiDocumentationSection provides comprehensive API documentation
-func ApiDocumentationSection(props Attrs) *Element {
+func ApiDocumentationSection(parseProps Attrs) *Element {
 	return Section(
 		Attrs{
 			"id":    "api",
@@ -424,19 +424,19 @@ func ApiDocumentationSection(props Attrs) *Element {
 }
 
 // ApiSection creates a section for API documentation
-func ApiSection(title, description string, items []ApiItem) *Element {
+func ApiSection(parseTitle, parseDescription string, parseItems []ApiItem) *Element {
 	return Div(
 		Attrs{"class": ""},
-		H3(Attrs{"class": "text-3xl font-bold text-white mb-4"}, title),
-		P(Attrs{"class": "text-lg text-gray-400 mb-8"}, description),
+		H3(Attrs{"class": "text-3xl font-bold text-white mb-4"}, parseTitle),
+		P(Attrs{"class": "text-lg text-gray-400 mb-8"}, parseDescription),
 		Div(
 			Attrs{"class": "grid grid-cols-1 lg:grid-cols-2 gap-6"},
 			func() []interface{} {
-				var elements []interface{}
-				for _, item := range items {
-					elements = append(elements, ApiItemCard(item))
+				var parseElements []interface{}
+				for _, parseItem := range parseItems {
+					parseElements = append(parseElements, ApiItemCard(parseItem))
 				}
-				return elements
+				return parseElements
 			}()...,
 		),
 	)
@@ -450,20 +450,20 @@ type ApiItem struct {
 }
 
 // ApiItemCard creates a card for an API item
-func ApiItemCard(item ApiItem) *Element {
+func ApiItemCard(parseItem ApiItem) *Element {
 	return Div(
 		Attrs{"class": "bg-white/5 rounded-xl p-6 border border-white/10 hover:border-indigo-500/50 hover:shadow-lg transition-all duration-300 backdrop-blur-sm"},
-		H4(Attrs{"class": "text-lg font-bold text-white mb-2"}, item.Name),
-		P(Attrs{"class": "text-gray-400 mb-4"}, item.Description),
+		H4(Attrs{"class": "text-lg font-bold text-white mb-2"}, parseItem.Name),
+		P(Attrs{"class": "text-gray-400 mb-4"}, parseItem.Description),
 		Pre(Attrs{"class": "bg-black/50 text-green-400 p-3 rounded-lg text-sm overflow-x-auto border border-white/5"},
-			Code(nil, item.Example)),
+			Code(nil, parseItem.Example)),
 	)
 }
 
 // FooterSection renders comprehensive site footer with organized links and information.
 // Includes project links, documentation navigation, social media, and professional
 // contact information in a responsive multi-column layout.
-func FooterSection(props Attrs) *Element {
+func FooterSection(parseProps Attrs) *Element {
 	return Footer(
 		Attrs{"class": "bg-[#0a0a0a] text-white py-16 border-t border-white/10"},
 		Div(
@@ -542,28 +542,28 @@ func FooterSection(props Attrs) *Element {
 }
 
 // SocialLink creates a social media link
-func SocialLink(href, text string) *Element {
+func SocialLink(parseHref, parseText string) *Element {
 	return A(
 		Attrs{
-			"href":   href,
+			"href":   parseHref,
 			"target": "_blank",
 			"class":  "text-gray-400 hover:text-white transition-colors duration-200 text-sm",
 		},
-		text,
+		parseText,
 	)
 }
 
 // FooterLink creates a footer navigation link
-func FooterLink(text, href string) *Element {
+func FooterLink(parseText, parseHref string) *Element {
 	return Li(
 		Attrs{"class": ""},
 		A(
 			Attrs{
-				"href":    href,
+				"href":    parseHref,
 				"class":   "text-gray-400 hover:text-white transition-colors duration-200 text-sm",
-				"onclick": "scrollToSection('" + href[1:] + "')",
+				"onclick": "scrollToSection('" + parseHref[1:] + "')",
 			},
-			text,
+			parseText,
 		),
 	)
 }

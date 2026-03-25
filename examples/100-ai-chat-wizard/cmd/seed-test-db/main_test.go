@@ -9,76 +9,76 @@ import (
 	_ "github.com/ncruces/go-sqlite3/driver"
 )
 
-func TestLoadSeedQueriesLoadsExpectedStatements(t *testing.T) {
-	queries, err := loadSeedQueries()
-	if err != nil {
-		t.Fatalf("loadSeedQueries() error = %v", err)
+func TestLoadSeedQueriesLoadsExpectedStatements(parseT *testing.T) {
+	parseQueries, parseErr := parseLoadSeedQueries()
+	if parseErr != nil {
+		parseT.Fatalf("loadSeedQueries() error = %v", parseErr)
 	}
-	if !strings.Contains(queries.schema, "CREATE TABLE IF NOT EXISTS users") {
-		t.Fatal("schema query missing users table")
+	if !strings.Contains(parseQueries.schema, "CREATE TABLE IF NOT EXISTS users") {
+		parseT.Fatal("schema query missing users table")
 	}
-	if !strings.Contains(queries.createUser, "INSERT INTO users") {
-		t.Fatal("createUser query missing insert")
+	if !strings.Contains(parseQueries.parseCreateUser, "INSERT INTO users") {
+		parseT.Fatal("createUser query missing insert")
 	}
-	if !strings.Contains(queries.insertUserProfile, "INSERT INTO user_profile") {
-		t.Fatal("insertUserProfile query missing insert")
+	if !strings.Contains(parseQueries.insertUserProfile, "INSERT INTO user_profile") {
+		parseT.Fatal("insertUserProfile query missing insert")
 	}
-	if !strings.Contains(queries.insertConversation, "INSERT INTO conversations") {
-		t.Fatal("insertConversation query missing insert")
+	if !strings.Contains(parseQueries.insertConversation, "INSERT INTO conversations") {
+		parseT.Fatal("insertConversation query missing insert")
 	}
-	if !strings.Contains(queries.insertMessage, "INSERT INTO messages") {
-		t.Fatal("insertMessage query missing insert")
+	if !strings.Contains(parseQueries.insertMessage, "INSERT INTO messages") {
+		parseT.Fatal("insertMessage query missing insert")
 	}
 }
 
-func TestInsertSeedUserCreatesUserAndProfile(t *testing.T) {
-	queries, err := loadSeedQueries()
-	if err != nil {
-		t.Fatalf("loadSeedQueries() error = %v", err)
+func TestInsertSeedUserCreatesUserAndProfile(parseT *testing.T) {
+	parseQueries, parseErr := parseLoadSeedQueries()
+	if parseErr != nil {
+		parseT.Fatalf("loadSeedQueries() error = %v", parseErr)
 	}
-	db, err := sql.Open("sqlite3", "file::memory:?cache=shared")
-	if err != nil {
-		t.Fatalf("sql.Open() error = %v", err)
+	parseDb, parseErr := sql.Open("sqlite3", "file::memory:?cache=shared")
+	if parseErr != nil {
+		parseT.Fatalf("sql.Open() error = %v", parseErr)
 	}
-	defer db.Close()
+	defer parseDb.Close()
 
-	if _, err := db.Exec(queries.schema); err != nil {
-		t.Fatalf("db.Exec(schema) error = %v", err)
-	}
-
-	now := time.Date(2026, 3, 25, 14, 30, 0, 0, time.UTC)
-	userID, err := insertSeedUser(db, queries, now, "demo@example.com", "password123", "Demo User", "gpt-5.4-mini", "balanced", "medium", 1)
-	if err != nil {
-		t.Fatalf("insertSeedUser() error = %v", err)
-	}
-	if userID <= 0 {
-		t.Fatalf("insertSeedUser() userID = %d, want positive ID", userID)
+	if _, parseErr2 := parseDb.Exec(parseQueries.schema); parseErr2 != nil {
+		parseT.Fatalf("db.Exec(schema) error = %v", parseErr2)
 	}
 
-	var email string
-	var passwordHash string
-	var createdAt string
-	if err := db.QueryRow(`SELECT email, password_hash, created_at FROM users WHERE id = ?`, userID).Scan(&email, &passwordHash, &createdAt); err != nil {
-		t.Fatalf("QueryRow(users) error = %v", err)
+	parseNow := time.Date(2026, 3, 25, 14, 30, 0, 0, time.UTC)
+	parseUserID, parseErr := parseInsertSeedUser(parseDb, parseQueries, parseNow, "demo@example.com", "password123", "Demo User", "gpt-5.4-mini", "balanced", "medium", 1)
+	if parseErr != nil {
+		parseT.Fatalf("insertSeedUser() error = %v", parseErr)
 	}
-	if email != "demo@example.com" || createdAt != now.Format(time.RFC3339) {
-		t.Fatalf("users row = (%q, %q), want demo@example.com and %q", email, createdAt, now.Format(time.RFC3339))
-	}
-	if passwordHash == "password123" || passwordHash == "" {
-		t.Fatalf("password hash = %q, want non-empty bcrypt hash", passwordHash)
+	if parseUserID <= 0 {
+		parseT.Fatalf("insertSeedUser() userID = %d, want positive ID", parseUserID)
 	}
 
-	var name, model, tone, effort string
-	var updatedAt int64
-	var enabled int
-	if err := db.QueryRow(`SELECT name, updated_at, selected_model, selected_tone, selected_thinking_enabled, selected_thinking_effort FROM user_profile WHERE user_id = ?`, userID).Scan(&name, &updatedAt, &model, &tone, &enabled, &effort); err != nil {
-		t.Fatalf("QueryRow(user_profile) error = %v", err)
+	var parseEmail string
+	var parsePasswordHash string
+	var parseCreatedAt string
+	if parseErr3 := parseDb.QueryRow(`SELECT email, password_hash, created_at FROM users WHERE id = ?`, parseUserID).Scan(&parseEmail, &parsePasswordHash, &parseCreatedAt); parseErr3 != nil {
+		parseT.Fatalf("QueryRow(users) error = %v", parseErr3)
 	}
-	if name != "Demo User" || updatedAt != now.Unix() || model != "gpt-5.4-mini" || tone != "balanced" || enabled != 1 || effort != "medium" {
-		t.Fatalf("user_profile row = (%q, %d, %q, %q, %d, %q), want Demo User/%d/gpt-5.4-mini/balanced/1/medium", name, updatedAt, model, tone, enabled, effort, now.Unix())
+	if parseEmail != "demo@example.com" || parseCreatedAt != parseNow.Format(time.RFC3339) {
+		parseT.Fatalf("users row = (%q, %q), want demo@example.com and %q", parseEmail, parseCreatedAt, parseNow.Format(time.RFC3339))
+	}
+	if parsePasswordHash == "password123" || parsePasswordHash == "" {
+		parseT.Fatalf("password hash = %q, want non-empty bcrypt hash", parsePasswordHash)
 	}
 
-	if _, err := insertSeedUser(db, queries, now, "demo@example.com", "password123", "Demo User", "gpt-5.4-mini", "balanced", "medium", 1); err == nil {
-		t.Fatal("insertSeedUser() duplicate email error = nil, want unique-constraint failure")
+	var parseName, parseModel, parseTone, parseEffort string
+	var parseUpdatedAt int64
+	var parseEnabled int
+	if parseErr4 := parseDb.QueryRow(`SELECT name, updated_at, selected_model, selected_tone, selected_thinking_enabled, selected_thinking_effort FROM user_profile WHERE user_id = ?`, parseUserID).Scan(&parseName, &parseUpdatedAt, &parseModel, &parseTone, &parseEnabled, &parseEffort); parseErr4 != nil {
+		parseT.Fatalf("QueryRow(user_profile) error = %v", parseErr4)
+	}
+	if parseName != "Demo User" || parseUpdatedAt != parseNow.Unix() || parseModel != "gpt-5.4-mini" || parseTone != "balanced" || parseEnabled != 1 || parseEffort != "medium" {
+		parseT.Fatalf("user_profile row = (%q, %d, %q, %q, %d, %q), want Demo User/%d/gpt-5.4-mini/balanced/1/medium", parseName, parseUpdatedAt, parseModel, parseTone, parseEnabled, parseEffort, parseNow.Unix())
+	}
+
+	if _, parseErr5 := parseInsertSeedUser(parseDb, parseQueries, parseNow, "demo@example.com", "password123", "Demo User", "gpt-5.4-mini", "balanced", "medium", 1); parseErr5 == nil {
+		parseT.Fatal("insertSeedUser() duplicate email error = nil, want unique-constraint failure")
 	}
 }

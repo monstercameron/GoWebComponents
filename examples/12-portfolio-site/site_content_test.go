@@ -9,172 +9,172 @@ import (
 )
 
 func renderPortfolioSnapshot() ui.Node {
-	stats := portfolioHeroStats()
-	projects := featuredPortfolioProjects()
+	parseStats := portfolioHeroStats()
+	parseProjects := featuredPortfolioProjects()
 
-	statNodes := make([]ui.Node, 0, len(stats))
-	for _, stat := range stats {
-		stat := stat
-		statNodes = append(statNodes, html.Div(html.Props{Class: "stat-card"},
-			html.Strong(html.Props{}, html.Text(stat.Number)),
-			html.Span(html.Props{}, html.Text(stat.Label)),
+	parseStatNodes := make([]ui.Node, 0, len(parseStats))
+	for _, parseStat := range parseStats {
+		parseStat2 := parseStat
+		parseStatNodes = append(parseStatNodes, html.Div(html.Props{Class: "stat-card"},
+			html.Strong(html.Props{}, html.Text(parseStat2.Number)),
+			html.Span(html.Props{}, html.Text(parseStat2.Label)),
 		))
 	}
 
-	projectNodes := make([]ui.Node, 0, len(projects))
-	for _, project := range projects {
-		project := project
-		projectNodes = append(projectNodes, html.Article(html.Props{Class: "project-card"},
-			html.H2(html.Props{}, html.Text(project.Title)),
-			html.P(html.Props{}, html.Text(project.Subtitle)),
-			html.P(html.Props{}, html.Text(project.Description)),
+	parseProjectNodes := make([]ui.Node, 0, len(parseProjects))
+	for _, parseProject := range parseProjects {
+		parseProject2 := parseProject
+		parseProjectNodes = append(parseProjectNodes, html.Article(html.Props{Class: "project-card"},
+			html.H2(html.Props{}, html.Text(parseProject2.Title)),
+			html.P(html.Props{}, html.Text(parseProject2.Subtitle)),
+			html.P(html.Props{}, html.Text(parseProject2.Description)),
 		))
 	}
 
 	return html.Main(html.Props{ID: "portfolio-snapshot"},
 		html.H1(html.Props{}, html.Text("Earl Cameron")),
-		html.Section(html.Props{ID: "hero-stats"}, statNodes...),
-		html.Section(html.Props{ID: "projects"}, projectNodes...),
+		html.Section(html.Props{ID: "hero-stats"}, parseStatNodes...),
+		html.Section(html.Props{ID: "projects"}, parseProjectNodes...),
 	)
 }
 
 func renderPortfolioProjectsGridSnapshot() ui.Node {
-	projects := portfolioProjects()
-	projectNodes := make([]ui.Node, 0, len(projects))
-	for _, project := range projects {
-		technologyNodes := make([]ui.Node, 0, len(project.Technologies))
-		for _, tech := range project.Technologies {
-			technologyNodes = append(technologyNodes, html.Span(html.Props{Class: "tech-chip"}, html.Text(tech)))
+	parseProjects := portfolioProjects()
+	parseProjectNodes := make([]ui.Node, 0, len(parseProjects))
+	for _, parseProject := range parseProjects {
+		parseTechnologyNodes := make([]ui.Node, 0, len(parseProject.Technologies))
+		for _, parseTech := range parseProject.Technologies {
+			parseTechnologyNodes = append(parseTechnologyNodes, html.Span(html.Props{Class: "tech-chip"}, html.Text(parseTech)))
 		}
 
-		projectNodes = append(projectNodes, html.Article(html.Props{Class: "project-card"},
-			html.H2(html.Props{}, html.Text(project.Title)),
-			html.P(html.Props{}, html.Text(project.Subtitle)),
-			html.P(html.Props{}, html.Text(project.Description)),
-			html.Div(html.Props{Class: "technology-stack"}, technologyNodes...),
-			html.A(html.Props{Href: project.Link}, html.Text("View Project")),
+		parseProjectNodes = append(parseProjectNodes, html.Article(html.Props{Class: "project-card"},
+			html.H2(html.Props{}, html.Text(parseProject.Title)),
+			html.P(html.Props{}, html.Text(parseProject.Subtitle)),
+			html.P(html.Props{}, html.Text(parseProject.Description)),
+			html.Div(html.Props{Class: "technology-stack"}, parseTechnologyNodes...),
+			html.A(html.Props{Href: parseProject.Link}, html.Text("View Project")),
 		))
 	}
 
-	return html.Section(html.Props{ID: "portfolio-project-grid"}, projectNodes...)
+	return html.Section(html.Props{ID: "portfolio-project-grid"}, parseProjectNodes...)
 }
 
-func TestPortfolioHeroStatsStable(t *testing.T) {
-	stats := portfolioHeroStats()
-	if len(stats) != 4 {
-		t.Fatalf("expected 4 portfolio hero stats, got %d", len(stats))
+func TestPortfolioHeroStatsStable(parseT *testing.T) {
+	parseStats := portfolioHeroStats()
+	if len(parseStats) != 4 {
+		parseT.Fatalf("expected 4 portfolio hero stats, got %d", len(parseStats))
 	}
-	if stats[0].Number != "100%" || stats[0].Label != "Go Powered" {
-		t.Fatalf("unexpected first stat: %+v", stats[0])
+	if parseStats[0].Number != "100%" || parseStats[0].Label != "Go Powered" {
+		parseT.Fatalf("unexpected first stat: %+v", parseStats[0])
 	}
-	if stats[1].Number != "0" || stats[1].Label != "JavaScript Required" {
-		t.Fatalf("unexpected second stat: %+v", stats[1])
-	}
-}
-
-func TestPortfolioProjectsLookupAndTechnologyTotals(t *testing.T) {
-	projects := portfolioProjects()
-	if len(projects) != 2 {
-		t.Fatalf("expected 2 portfolio projects, got %d", len(projects))
-	}
-	if total := totalPortfolioTechnologies(projects); total != 10 {
-		t.Fatalf("expected 10 total technology tags, got %d", total)
-	}
-
-	project, ok := findPortfolioProject("GoWebComponents")
-	if !ok {
-		t.Fatal("expected GoWebComponents project lookup to succeed")
-	}
-	if !project.Featured {
-		t.Fatalf("expected GoWebComponents to be featured, got %+v", project)
-	}
-
-	project, ok = findPortfolioProject("grpc tunnel")
-	if !ok {
-		t.Fatal("expected case-insensitive gRPC Tunnel lookup to succeed")
-	}
-	if !strings.Contains(project.Description, "WebSocket") {
-		t.Fatalf("expected gRPC Tunnel description to mention WebSocket, got %q", project.Description)
-	}
-	if _, ok := findPortfolioProject("missing"); ok {
-		t.Fatal("expected missing project lookup to fail")
+	if parseStats[1].Number != "0" || parseStats[1].Label != "JavaScript Required" {
+		parseT.Fatalf("unexpected second stat: %+v", parseStats[1])
 	}
 }
 
-func TestFeaturedPortfolioProjectsAreStableAndOrdered(t *testing.T) {
-	featured := featuredPortfolioProjects()
-	if len(featured) != 2 {
-		t.Fatalf("expected 2 featured portfolio projects, got %d", len(featured))
+func TestPortfolioProjectsLookupAndTechnologyTotals(parseT *testing.T) {
+	parseProjects := portfolioProjects()
+	if len(parseProjects) != 2 {
+		parseT.Fatalf("expected 2 portfolio projects, got %d", len(parseProjects))
 	}
-	if featured[0].Title != "GoWebComponents" || featured[1].Title != "gRPC Tunnel" {
-		t.Fatalf("unexpected featured project ordering: %+v", featured)
+	if parseTotal := totalPortfolioTechnologies(parseProjects); parseTotal != 10 {
+		parseT.Fatalf("expected 10 total technology tags, got %d", parseTotal)
 	}
-	for _, project := range featured {
-		if !project.Featured {
-			t.Fatalf("expected featured project list to contain only featured projects, got %+v", project)
+
+	parseProject, parseOk := findPortfolioProject("GoWebComponents")
+	if !parseOk {
+		parseT.Fatal("expected GoWebComponents project lookup to succeed")
+	}
+	if !parseProject.Featured {
+		parseT.Fatalf("expected GoWebComponents to be featured, got %+v", parseProject)
+	}
+
+	parseProject, parseOk = findPortfolioProject("grpc tunnel")
+	if !parseOk {
+		parseT.Fatal("expected case-insensitive gRPC Tunnel lookup to succeed")
+	}
+	if !strings.Contains(parseProject.Description, "WebSocket") {
+		parseT.Fatalf("expected gRPC Tunnel description to mention WebSocket, got %q", parseProject.Description)
+	}
+	if _, parseOk2 := findPortfolioProject("missing"); parseOk2 {
+		parseT.Fatal("expected missing project lookup to fail")
+	}
+}
+
+func TestFeaturedPortfolioProjectsAreStableAndOrdered(parseT *testing.T) {
+	parseFeatured := featuredPortfolioProjects()
+	if len(parseFeatured) != 2 {
+		parseT.Fatalf("expected 2 featured portfolio projects, got %d", len(parseFeatured))
+	}
+	if parseFeatured[0].Title != "GoWebComponents" || parseFeatured[1].Title != "gRPC Tunnel" {
+		parseT.Fatalf("unexpected featured project ordering: %+v", parseFeatured)
+	}
+	for _, parseProject := range parseFeatured {
+		if !parseProject.Featured {
+			parseT.Fatalf("expected featured project list to contain only featured projects, got %+v", parseProject)
 		}
 	}
 }
 
-func TestPortfolioProjectMetadataValidity(t *testing.T) {
-	projects := portfolioProjects()
-	seenTitles := make(map[string]bool, len(projects))
-	for _, project := range projects {
-		if project.Title == "" || project.Subtitle == "" || project.Description == "" {
-			t.Fatalf("expected complete project metadata, got %+v", project)
+func TestPortfolioProjectMetadataValidity(parseT *testing.T) {
+	parseProjects := portfolioProjects()
+	parseSeenTitles := make(map[string]bool, len(parseProjects))
+	for _, parseProject := range parseProjects {
+		if parseProject.Title == "" || parseProject.Subtitle == "" || parseProject.Description == "" {
+			parseT.Fatalf("expected complete project metadata, got %+v", parseProject)
 		}
-		if !strings.HasPrefix(project.Link, "https://") {
-			t.Fatalf("expected secure project link, got %q", project.Link)
+		if !strings.HasPrefix(parseProject.Link, "https://") {
+			parseT.Fatalf("expected secure project link, got %q", parseProject.Link)
 		}
-		if len(project.Technologies) == 0 {
-			t.Fatalf("expected technologies for project %+v", project)
+		if len(parseProject.Technologies) == 0 {
+			parseT.Fatalf("expected technologies for project %+v", parseProject)
 		}
-		key := strings.ToLower(project.Title)
-		if seenTitles[key] {
-			t.Fatalf("expected unique project title, duplicate %q", project.Title)
+		parseKey := strings.ToLower(parseProject.Title)
+		if parseSeenTitles[parseKey] {
+			parseT.Fatalf("expected unique project title, duplicate %q", parseProject.Title)
 		}
-		seenTitles[key] = true
+		parseSeenTitles[parseKey] = true
 	}
 
 	if portfolioHomeRoute != "/" || portfolioDocsRoute != "/docs" || portfolioCatchAllRoute != "*" {
-		t.Fatalf("unexpected route constants: home=%q docs=%q catchAll=%q", portfolioHomeRoute, portfolioDocsRoute, portfolioCatchAllRoute)
+		parseT.Fatalf("unexpected route constants: home=%q docs=%q catchAll=%q", portfolioHomeRoute, portfolioDocsRoute, portfolioCatchAllRoute)
 	}
 }
 
-func TestPortfolioSnapshotRenderToString(t *testing.T) {
-	markup, err := ui.RenderToString(renderPortfolioSnapshot())
-	if err != nil {
-		t.Fatalf("unexpected render error: %v", err)
+func TestPortfolioSnapshotRenderToString(parseT *testing.T) {
+	parseMarkup, parseErr := ui.RenderToString(renderPortfolioSnapshot())
+	if parseErr != nil {
+		parseT.Fatalf("unexpected render error: %v", parseErr)
 	}
 
-	checks := []string{
+	parseChecks := []string{
 		"Earl Cameron",
 		"Go Powered",
 		"GoWebComponents",
 		"gRPC Tunnel",
 	}
-	for _, check := range checks {
-		if !strings.Contains(markup, check) {
-			t.Fatalf("expected snapshot markup to contain %q, got %q", check, markup)
+	for _, parseCheck := range parseChecks {
+		if !strings.Contains(parseMarkup, parseCheck) {
+			parseT.Fatalf("expected snapshot markup to contain %q, got %q", parseCheck, parseMarkup)
 		}
 	}
 }
 
-func TestPortfolioProjectsGridSnapshotRenderToString(t *testing.T) {
-	markup, err := ui.RenderToString(renderPortfolioProjectsGridSnapshot())
-	if err != nil {
-		t.Fatalf("unexpected grid render error: %v", err)
+func TestPortfolioProjectsGridSnapshotRenderToString(parseT *testing.T) {
+	parseMarkup, parseErr := ui.RenderToString(renderPortfolioProjectsGridSnapshot())
+	if parseErr != nil {
+		parseT.Fatalf("unexpected grid render error: %v", parseErr)
 	}
 
-	checks := []string{
+	parseChecks := []string{
 		"Revolutionary Frontend Framework",
 		"Native gRPC-over-WebSocket Solution",
 		"Frontend Framework",
 		"https://github.com/monstercameron/grpc-tunnel",
 	}
-	for _, check := range checks {
-		if !strings.Contains(markup, check) {
-			t.Fatalf("expected project-grid markup to contain %q, got %q", check, markup)
+	for _, parseCheck := range parseChecks {
+		if !strings.Contains(parseMarkup, parseCheck) {
+			parseT.Fatalf("expected project-grid markup to contain %q, got %q", parseCheck, parseMarkup)
 		}
 	}
 }

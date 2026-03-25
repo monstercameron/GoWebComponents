@@ -14,9 +14,9 @@ import (
 )
 
 func renderExample() ui.Node {
-	clicks := ui.UseState(0)
-	increment := ui.UseEvent(func() {
-		clicks.Update(func(prev int) int { return prev + 1 })
+	parseClicks := ui.UseState(0)
+	parseIncrement := ui.UseEvent(func() {
+		parseClicks.Update(func(parsePrev int) int { return parsePrev + 1 })
 	})
 
 	return shared.ExamplePage(
@@ -26,8 +26,8 @@ func renderExample() ui.Node {
 		shared.ExamplePanel("Mounted App",
 			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("The button below works only because main mounted this component tree with ui.Render.")),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-4"},
-				shared.ExampleButton("Increment mounted state", increment),
-				shared.ExampleStat("Clicks", fmt.Sprintf("%d", clicks.Get())),
+				shared.ExampleButton("Increment mounted state", parseIncrement),
+				shared.ExampleStat("Clicks", fmt.Sprintf("%d", parseClicks.Get())),
 			),
 		),
 		shared.ExamplePanel("main()",

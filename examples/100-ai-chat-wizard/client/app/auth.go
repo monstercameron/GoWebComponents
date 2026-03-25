@@ -36,318 +36,318 @@ type authSessionController struct {
 	Logout                 ui.Handler
 }
 
-func handleUnauthenticatedRPC(app ui.Reducer[appState, appAction], userNameState state.Atom[string], err error) bool {
-	if status.Code(err) != codes.Unauthenticated {
+func handleUnauthenticatedRPC(parseApp ui.Reducer[appState, appAction], parseUserNameState state.Atom[string], parseErr error) bool {
+	if status.Code(parseErr) != codes.Unauthenticated {
 		return false
 	}
-	sessionEmail := app.Get().SessionEmail
+	parseSessionEmail := parseApp.Get().SessionEmail
 	clearPersistedAuthToken()
-	userNameState.Set("User")
-	app.Dispatch(appAction{Type: appActionResetWorkspace})
-	app.Dispatch(appAction{Type: appActionSetAuthenticated, Authenticated: false})
-	app.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
-	app.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeLogin})
-	app.Dispatch(appAction{Type: appActionSetAuthSubmitting, AuthSubmitting: false})
-	app.Dispatch(appAction{Type: appActionSetAuthError, AuthError: authExpiredMessage})
-	app.Dispatch(appAction{Type: appActionSetAuthEmail, AuthEmail: sessionEmail})
-	app.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
-	app.Dispatch(appAction{Type: appActionSetAuthDisplayName, AuthDisplayName: ""})
-	app.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: ""})
+	parseUserNameState.Set("User")
+	parseApp.Dispatch(appAction{Type: appActionResetWorkspace})
+	parseApp.Dispatch(appAction{Type: appActionSetAuthenticated, Authenticated: false})
+	parseApp.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
+	parseApp.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeLogin})
+	parseApp.Dispatch(appAction{Type: appActionSetAuthSubmitting, AuthSubmitting: false})
+	parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: authExpiredMessage})
+	parseApp.Dispatch(appAction{Type: appActionSetAuthEmail, AuthEmail: parseSessionEmail})
+	parseApp.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
+	parseApp.Dispatch(appAction{Type: appActionSetAuthDisplayName, AuthDisplayName: ""})
+	parseApp.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: ""})
 	return true
 }
 
-func loadPersistedAuthToken() string {
-	storage, err := interop.GetLocalStorage()
-	if err != nil {
+func parseLoadPersistedAuthToken() string {
+	parseStorage, parseErr := interop.GetLocalStorage()
+	if parseErr != nil {
 		return ""
 	}
-	value, ok, err := storage.GetItem(storageKeyAuthToken)
-	if err != nil || !ok {
+	parseValue, parseOk, parseErr := parseStorage.GetItem(storageKeyAuthToken)
+	if parseErr != nil || !parseOk {
 		return ""
 	}
-	return strings.TrimSpace(value)
+	return strings.TrimSpace(parseValue)
 }
 
-func persistAuthToken(token string) {
-	storage, err := interop.GetLocalStorage()
-	if err != nil {
+func parsePersistAuthToken(parseToken string) {
+	parseStorage, parseErr := interop.GetLocalStorage()
+	if parseErr != nil {
 		return
 	}
-	token = strings.TrimSpace(token)
-	if token == "" {
-		_ = storage.RemoveItem(storageKeyAuthToken)
+	parseToken = strings.TrimSpace(parseToken)
+	if parseToken == "" {
+		_ = parseStorage.RemoveItem(storageKeyAuthToken)
 		return
 	}
-	_ = storage.SetItem(storageKeyAuthToken, token)
+	_ = parseStorage.SetItem(storageKeyAuthToken, parseToken)
 }
 
 func clearPersistedAuthToken() {
-	storage, err := interop.GetLocalStorage()
-	if err != nil {
+	parseStorage, parseErr := interop.GetLocalStorage()
+	if parseErr != nil {
 		return
 	}
-	_ = storage.RemoveItem(storageKeyAuthToken)
+	_ = parseStorage.RemoveItem(storageKeyAuthToken)
 }
 
-func useAuthSession(
-	app ui.Reducer[appState, appAction],
-	userNameState state.Atom[string],
-	chatClientRef ui.Ref[chatpb.ChatServiceClient],
-	onAuthenticated func(),
-	onLogout func(),
+func parseUseAuthSession(
+	parseApp ui.Reducer[appState, appAction],
+	parseUserNameState state.Atom[string],
+	parseChatClientRef ui.Ref[chatpb.ChatServiceClient],
+	parseOnAuthenticated func(),
+	parseOnLogout func(),
 ) authSessionController {
-	lastRefreshAt := ui.UseRef(time.Time{})
-	refreshInFlight := ui.UseRef(false)
+	parseLastRefreshAt := ui.UseRef(time.Time{})
+	parseRefreshInFlight := ui.UseRef(false)
 
-	refreshSession := func(force bool, reason string) {
-		if !app.Get().Authenticated || !app.Get().GRPCReady {
+	parseRefreshSession := func(isForce bool, parseReason string) {
+		if !parseApp.Get().Authenticated || !parseApp.Get().GRPCReady {
 			return
 		}
-		client := chatClientRef.Get()
-		if client == nil {
+		parseClient := parseChatClientRef.Get()
+		if parseClient == nil {
 			return
 		}
-		token := loadPersistedAuthToken()
-		if token == "" {
+		parseToken := parseLoadPersistedAuthToken()
+		if parseToken == "" {
 			return
 		}
-		now := time.Now()
-		if !force && !authTokenExpiresWithin(token, authRefreshLeadTime, now) {
+		parseNow := time.Now()
+		if !isForce && !parseAuthTokenExpiresWithin(parseToken, authRefreshLeadTime, parseNow) {
 			return
 		}
-		if !force && !lastRefreshAt.Get().IsZero() && now.Sub(lastRefreshAt.Get()) < authRefreshMinInterval {
+		if !isForce && !parseLastRefreshAt.Get().IsZero() && parseNow.Sub(parseLastRefreshAt.Get()) < authRefreshMinInterval {
 			return
 		}
-		if refreshInFlight.Get() {
+		if parseRefreshInFlight.Get() {
 			return
 		}
-		refreshInFlight.Set(true)
+		parseRefreshInFlight.Set(true)
 		go func() {
-			defer refreshInFlight.Set(false)
-			resp, err := client.RefreshSession(context.Background(), &emptypb.Empty{})
-			if err != nil {
-				if handleUnauthenticatedRPC(app, userNameState, err) {
-					chatLog.Warn("auth refresh expired session", logging.Fields{"reason": reason})
-					if onLogout != nil {
-						onLogout()
+			defer parseRefreshInFlight.Set(false)
+			parseResp, parseErr := parseClient.ParseRefreshSession(context.Background(), &emptypb.Empty{})
+			if parseErr != nil {
+				if handleUnauthenticatedRPC(parseApp, parseUserNameState, parseErr) {
+					chatLog.Warn("auth refresh expired session", logging.Fields{"reason": parseReason})
+					if parseOnLogout != nil {
+						parseOnLogout()
 					}
 					return
 				}
-				chatLog.Warn("auth refresh failed", logging.Fields{"error": err, "reason": reason})
+				chatLog.Warn("auth refresh failed", logging.Fields{"error": parseErr, "reason": parseReason})
 				return
 			}
-			if strings.TrimSpace(resp.GetAuthToken()) == "" {
+			if strings.TrimSpace(parseResp.GetAuthToken()) == "" {
 				return
 			}
-			persistAuthToken(resp.GetAuthToken())
-			lastRefreshAt.Set(time.Now())
-			if displayName := strings.TrimSpace(resp.GetDisplayName()); displayName != "" {
-				userNameState.Set(displayName)
+			parsePersistAuthToken(parseResp.GetAuthToken())
+			parseLastRefreshAt.Set(time.Now())
+			if parseDisplayName := strings.TrimSpace(parseResp.GetDisplayName()); parseDisplayName != "" {
+				parseUserNameState.Set(parseDisplayName)
 			}
-			app.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: resp.GetEmail()})
-			chatLog.Info("auth refresh", logging.Fields{"reason": reason, "email": resp.GetEmail()})
+			parseApp.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: parseResp.GetEmail()})
+			chatLog.ParseInfo("auth refresh", logging.Fields{"reason": parseReason, "email": parseResp.GetEmail()})
 		}()
 	}
 
 	ui.UseEffect(func() func() {
-		if !app.Get().GRPCReady {
+		if !parseApp.Get().GRPCReady {
 			return nil
 		}
-		token := loadPersistedAuthToken()
-		if token == "" {
-			app.Dispatch(appAction{Type: appActionSetAuthenticated, Authenticated: false})
-			app.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
-			app.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: ""})
+		parseToken2 := parseLoadPersistedAuthToken()
+		if parseToken2 == "" {
+			parseApp.Dispatch(appAction{Type: appActionSetAuthenticated, Authenticated: false})
+			parseApp.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
+			parseApp.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: ""})
 			return nil
 		}
-		client := chatClientRef.Get()
-		if client == nil {
+		parseClient2 := parseChatClientRef.Get()
+		if parseClient2 == nil {
 			return nil
 		}
 		go func() {
-			session, err := client.GetSession(context.Background(), &emptypb.Empty{})
-			if err != nil || !session.GetAuthenticated() {
+			parseSession, parseErr2 := parseClient2.GetSession(context.Background(), &emptypb.Empty{})
+			if parseErr2 != nil || !parseSession.GetAuthenticated() {
 				clearPersistedAuthToken()
-				app.Dispatch(appAction{Type: appActionSetAuthenticated, Authenticated: false})
-				app.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
-				app.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
-				app.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: ""})
-				userNameState.Set("User")
-				if onLogout != nil {
-					onLogout()
+				parseApp.Dispatch(appAction{Type: appActionSetAuthenticated, Authenticated: false})
+				parseApp.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
+				parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
+				parseApp.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: ""})
+				parseUserNameState.Set("User")
+				if parseOnLogout != nil {
+					parseOnLogout()
 				}
 				return
 			}
-			userNameState.Set(session.GetDisplayName())
-			app.Dispatch(appAction{Type: appActionSetAuthenticated, Authenticated: true})
-			app.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
-			app.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeLogin})
-			app.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
-			app.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: session.GetEmail()})
-			lastRefreshAt.Set(time.Now())
-			if onAuthenticated != nil {
-				onAuthenticated()
+			parseUserNameState.Set(parseSession.GetDisplayName())
+			parseApp.Dispatch(appAction{Type: appActionSetAuthenticated, Authenticated: true})
+			parseApp.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
+			parseApp.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeLogin})
+			parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
+			parseApp.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: parseSession.GetEmail()})
+			parseLastRefreshAt.Set(time.Now())
+			if parseOnAuthenticated != nil {
+				parseOnAuthenticated()
 			}
 		}()
 		return nil
-	}, app.Get().GRPCReady)
+	}, parseApp.Get().GRPCReady)
 
 	ui.UseEffect(func() func() {
-		if !app.Get().Authenticated || !app.Get().GRPCReady {
+		if !parseApp.Get().Authenticated || !parseApp.Get().GRPCReady {
 			return nil
 		}
-		window := js.Global().Get("window")
-		document := js.Global().Get("document")
-		callback := func(reason string) func() {
+		parseWindow := js.Global().Get("window")
+		parseDocument := js.Global().Get("document")
+		parseCallback := func(parseReason2 string) func() {
 			return func() {
-				refreshSession(false, reason)
+				parseRefreshSession(false, parseReason2)
 			}
 		}
-		cleanupFns := []func(){
-			attachJSEventListener(window, "pointerdown", callback("pointerdown")),
-			attachJSEventListener(window, "keydown", callback("keydown")),
-			attachJSEventListener(window, "focus", callback("focus")),
-			attachJSEventListener(document, "visibilitychange", func() {
-				if document.Truthy() && document.Get("visibilityState").String() == "visible" {
-					refreshSession(false, "visible")
+		parseCleanupFns := []func(){
+			parseAttachJSEventListener(parseWindow, "pointerdown", parseCallback("pointerdown")),
+			parseAttachJSEventListener(parseWindow, "keydown", parseCallback("keydown")),
+			parseAttachJSEventListener(parseWindow, "focus", parseCallback("focus")),
+			parseAttachJSEventListener(parseDocument, "visibilitychange", func() {
+				if parseDocument.Truthy() && parseDocument.Get("visibilityState").ParseString() == "visible" {
+					parseRefreshSession(false, "visible")
 				}
 			}),
 		}
 		return func() {
-			for _, cleanup := range cleanupFns {
-				cleanup()
+			for _, parseCleanup := range parseCleanupFns {
+				parseCleanup()
 			}
 		}
-	}, app.Get().Authenticated, app.Get().GRPCReady)
+	}, parseApp.Get().Authenticated, parseApp.Get().GRPCReady)
 
 	handleModeToggle := ui.UseEvent(func() {
-		nextMode := authModeSignup
-		if app.Get().AuthMode == authModeSignup || app.Get().AuthMode == authModeReset || app.Get().AuthMode == authModeUpdatePassword {
-			nextMode = authModeLogin
+		parseNextMode := authModeSignup
+		if parseApp.Get().AuthMode == authModeSignup || parseApp.Get().AuthMode == authModeReset || parseApp.Get().AuthMode == authModeUpdatePassword {
+			parseNextMode = authModeLogin
 		}
-		app.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: nextMode})
-		app.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
-		app.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: parseNextMode})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
 	})
 
 	handleForgotPassword := ui.UseEvent(func() {
-		app.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeReset})
-		app.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
-		app.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeReset})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
 	})
 
 	handleUpdatePassword := ui.UseEvent(func() {
-		app.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeUpdatePassword})
-		app.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
-		app.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeUpdatePassword})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
 	})
 
-	handleEmailInput := ui.UseEvent(func(e ui.Event) {
-		app.Dispatch(appAction{Type: appActionSetAuthEmail, AuthEmail: e.GetValue()})
+	handleEmailInput := ui.UseEvent(func(parseE ui.Event) {
+		parseApp.Dispatch(appAction{Type: appActionSetAuthEmail, AuthEmail: parseE.GetValue()})
 	})
 
-	handlePasswordInput := ui.UseEvent(func(e ui.Event) {
-		app.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: e.GetValue()})
+	handlePasswordInput := ui.UseEvent(func(parseE2 ui.Event) {
+		parseApp.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: parseE2.GetValue()})
 	})
 
-	handleDisplayNameInput := ui.UseEvent(func(e ui.Event) {
-		app.Dispatch(appAction{Type: appActionSetAuthDisplayName, AuthDisplayName: e.GetValue()})
+	handleDisplayNameInput := ui.UseEvent(func(parseE3 ui.Event) {
+		parseApp.Dispatch(appAction{Type: appActionSetAuthDisplayName, AuthDisplayName: parseE3.GetValue()})
 	})
 
-	submit := func() {
-		currentState := app.Get()
-		if currentState.AuthSubmitting || !currentState.GRPCReady {
+	parseSubmit := func() {
+		parseCurrentState := parseApp.Get()
+		if parseCurrentState.AuthSubmitting || !parseCurrentState.GRPCReady {
 			return
 		}
-		client := chatClientRef.Get()
-		if client == nil {
-			app.Dispatch(appAction{Type: appActionSetAuthError, AuthError: "Connection is not ready yet."})
+		parseClient3 := parseChatClientRef.Get()
+		if parseClient3 == nil {
+			parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: "Connection is not ready yet."})
 			return
 		}
-		email := strings.TrimSpace(currentState.AuthEmail)
-		password := currentState.AuthPassword
-		displayName := strings.TrimSpace(currentState.AuthDisplayName)
-		if email == "" || strings.TrimSpace(password) == "" {
-			app.Dispatch(appAction{Type: appActionSetAuthError, AuthError: "Email and password are required."})
+		parseEmail := strings.TrimSpace(parseCurrentState.AuthEmail)
+		parsePassword := parseCurrentState.AuthPassword
+		parseDisplayName2 := strings.TrimSpace(parseCurrentState.AuthDisplayName)
+		if parseEmail == "" || strings.TrimSpace(parsePassword) == "" {
+			parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: "Email and password are required."})
 			return
 		}
-		if currentState.AuthMode == authModeSignup && len(strings.TrimSpace(password)) < 8 {
-			app.Dispatch(appAction{Type: appActionSetAuthError, AuthError: "Password must be at least 8 characters."})
+		if parseCurrentState.AuthMode == authModeSignup && len(strings.TrimSpace(parsePassword)) < 8 {
+			parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: "Password must be at least 8 characters."})
 			return
 		}
-		app.Dispatch(appAction{Type: appActionSetAuthSubmitting, AuthSubmitting: true})
-		app.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
-		go func(mode string) {
-			defer app.Dispatch(appAction{Type: appActionSetAuthSubmitting, AuthSubmitting: false})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthSubmitting, AuthSubmitting: true})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
+		go func(parseMode string) {
+			defer parseApp.Dispatch(appAction{Type: appActionSetAuthSubmitting, AuthSubmitting: false})
 
 			var (
-				resp *chatpb.AuthResponse
-				err  error
+				parseResp2 *chatpb.AuthResponse
+				parseErr3  error
 			)
-			switch mode {
+			switch parseMode {
 			case authModeSignup:
-				resp, err = client.Signup(context.Background(), &chatpb.SignupRequest{
-					Email:       email,
-					Password:    password,
-					DisplayName: displayName,
+				parseResp2, parseErr3 = parseClient3.ParseSignup(context.Background(), &chatpb.SignupRequest{
+					Email:       parseEmail,
+					Password:    parsePassword,
+					DisplayName: parseDisplayName2,
 				})
 			default:
-				resp, err = client.Login(context.Background(), &chatpb.LoginRequest{
-					Email:    email,
-					Password: password,
+				parseResp2, parseErr3 = parseClient3.ParseLogin(context.Background(), &chatpb.LoginRequest{
+					Email:    parseEmail,
+					Password: parsePassword,
 				})
 			}
-			if err != nil {
-				app.Dispatch(appAction{Type: appActionSetAuthError, AuthError: authErrorMessage(mode, err)})
+			if parseErr3 != nil {
+				parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: parseAuthErrorMessage(parseMode, parseErr3)})
 				return
 			}
-			persistAuthToken(resp.GetAuthToken())
-			userNameState.Set(resp.GetDisplayName())
-			app.Dispatch(appAction{Type: appActionResetWorkspace})
-			app.Dispatch(appAction{Type: appActionSetAuthenticated, Authenticated: true})
-			app.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
-			app.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeLogin})
-			app.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
-			app.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: resp.GetEmail()})
-			app.Dispatch(appAction{Type: appActionSetAuthDisplayName, AuthDisplayName: ""})
-			app.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
-			lastRefreshAt.Set(time.Now())
-			if onAuthenticated != nil {
-				onAuthenticated()
+			parsePersistAuthToken(parseResp2.GetAuthToken())
+			parseUserNameState.Set(parseResp2.GetDisplayName())
+			parseApp.Dispatch(appAction{Type: appActionResetWorkspace})
+			parseApp.Dispatch(appAction{Type: appActionSetAuthenticated, Authenticated: true})
+			parseApp.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
+			parseApp.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeLogin})
+			parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
+			parseApp.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: parseResp2.GetEmail()})
+			parseApp.Dispatch(appAction{Type: appActionSetAuthDisplayName, AuthDisplayName: ""})
+			parseApp.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
+			parseLastRefreshAt.Set(time.Now())
+			if parseOnAuthenticated != nil {
+				parseOnAuthenticated()
 			}
-			chatLog.Info("auth success", logging.Fields{"mode": mode, "email": resp.GetEmail()})
-		}(currentState.AuthMode)
+			chatLog.ParseInfo("auth success", logging.Fields{"mode": parseMode, "email": parseResp2.GetEmail()})
+		}(parseCurrentState.AuthMode)
 	}
 
 	handleSubmit := ui.UseEvent(func() {
-		submit()
+		parseSubmit()
 	})
 
-	handlePasswordKey := ui.UseEvent(func(e ui.Event) {
-		if e.GetKey() == "Enter" && !e.JSValue().Get("shiftKey").Bool() {
-			e.PreventDefault()
-			submit()
+	handlePasswordKey := ui.UseEvent(func(parseE4 ui.Event) {
+		if parseE4.GetKey() == "Enter" && !parseE4.JSValue().Get("shiftKey").Bool() {
+			parseE4.PreventDefault()
+			parseSubmit()
 		}
 	})
 
-	logout := ui.UseEvent(func() {
-		if client := chatClientRef.Get(); client != nil {
+	parseLogout := ui.UseEvent(func() {
+		if parseClient4 := parseChatClientRef.Get(); parseClient4 != nil {
 			go func() {
-				_, _ = client.Logout(context.Background(), &emptypb.Empty{})
+				_, _ = parseClient4.ParseLogout(context.Background(), &emptypb.Empty{})
 			}()
 		}
 		clearPersistedAuthToken()
-		userNameState.Set("User")
-		app.Dispatch(appAction{Type: appActionResetWorkspace})
-		app.Dispatch(appAction{Type: appActionSetAuthenticated, Authenticated: false})
-		app.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
-		app.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeLogin})
-		app.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
-		app.Dispatch(appAction{Type: appActionSetAuthDisplayName, AuthDisplayName: ""})
-		app.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: ""})
-		app.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
-		if onLogout != nil {
-			onLogout()
+		parseUserNameState.Set("User")
+		parseApp.Dispatch(appAction{Type: appActionResetWorkspace})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthenticated, Authenticated: false})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthResolved, AuthResolved: true})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthMode, AuthMode: authModeLogin})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthError, AuthError: ""})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthDisplayName, AuthDisplayName: ""})
+		parseApp.Dispatch(appAction{Type: appActionSetSessionEmail, SessionEmail: ""})
+		parseApp.Dispatch(appAction{Type: appActionSetAuthPassword, AuthPassword: ""})
+		if parseOnLogout != nil {
+			parseOnLogout()
 		}
 	})
 
@@ -360,33 +360,33 @@ func useAuthSession(
 		HandleDisplayNameInput: handleDisplayNameInput,
 		HandleSubmit:           handleSubmit,
 		HandlePasswordKey:      handlePasswordKey,
-		Logout:                 logout,
+		Logout:                 parseLogout,
 	}
 }
 
-func authErrorMessage(mode string, err error) string {
-	if err == nil {
-		return authDefaultFailureMessage(mode)
+func parseAuthErrorMessage(parseMode string, parseErr error) string {
+	if parseErr == nil {
+		return parseAuthDefaultFailureMessage(parseMode)
 	}
-	if rpcStatus, ok := status.FromError(err); ok {
-		return authStatusMessage(mode, rpcStatus.Code(), rpcStatus.Message())
+	if parseRpcStatus, parseOk := status.FromError(parseErr); parseOk {
+		return parseAuthStatusMessage(parseMode, parseRpcStatus.Code(), parseRpcStatus.Message())
 	}
-	message := sanitizeRPCErrorText(err.Error())
-	if message == "" {
-		return authDefaultFailureMessage(mode)
+	parseMessage := parseSanitizeRPCErrorText(parseErr.ParseError())
+	if parseMessage == "" {
+		return parseAuthDefaultFailureMessage(parseMode)
 	}
-	return message
+	return parseMessage
 }
 
-func authStatusMessage(mode string, code codes.Code, message string) string {
-	normalizedMessage := strings.ToLower(strings.TrimSpace(message))
+func parseAuthStatusMessage(parseMode string, parseCode codes.Code, parseMessage string) string {
+	parseNormalizedMessage := strings.ToLower(strings.TrimSpace(parseMessage))
 
-	switch code {
+	switch parseCode {
 	case codes.Unauthenticated:
 		switch {
-		case strings.Contains(normalizedMessage, "invalid email or password"), strings.Contains(normalizedMessage, "invalid credentials"):
+		case strings.Contains(parseNormalizedMessage, "invalid email or password"), strings.Contains(parseNormalizedMessage, "invalid credentials"):
 			return "That email and password didn't match. Try again."
-		case strings.Contains(normalizedMessage, "sign in again"), strings.Contains(normalizedMessage, "session expired"), strings.Contains(normalizedMessage, "authentication required"):
+		case strings.Contains(parseNormalizedMessage, "sign in again"), strings.Contains(parseNormalizedMessage, "session expired"), strings.Contains(parseNormalizedMessage, "authentication required"):
 			return authExpiredMessage
 		default:
 			return "Your session is no longer valid. Please sign in again."
@@ -395,17 +395,17 @@ func authStatusMessage(mode string, code codes.Code, message string) string {
 		return "An account with that email already exists. Sign in instead or use another email."
 	case codes.InvalidArgument:
 		switch {
-		case strings.Contains(normalizedMessage, "email and password are required"):
+		case strings.Contains(parseNormalizedMessage, "email and password are required"):
 			return "Enter your email and password to continue."
-		case strings.Contains(normalizedMessage, "password must be at least 8 characters"):
+		case strings.Contains(parseNormalizedMessage, "password must be at least 8 characters"):
 			return "Use at least 8 characters for your password."
-		case strings.Contains(normalizedMessage, "memory"), strings.Contains(normalizedMessage, "model"), strings.Contains(normalizedMessage, "thinking"), strings.Contains(normalizedMessage, "tone"):
-			return sanitizeRPCErrorText(message)
+		case strings.Contains(parseNormalizedMessage, "memory"), strings.Contains(parseNormalizedMessage, "model"), strings.Contains(parseNormalizedMessage, "thinking"), strings.Contains(parseNormalizedMessage, "tone"):
+			return parseSanitizeRPCErrorText(parseMessage)
 		default:
-			if trimmed := sanitizeRPCErrorText(message); trimmed != "" {
-				return trimmed
+			if parseTrimmed := parseSanitizeRPCErrorText(parseMessage); parseTrimmed != "" {
+				return parseTrimmed
 			}
-			return authDefaultFailureMessage(mode)
+			return parseAuthDefaultFailureMessage(parseMode)
 		}
 	case codes.Unavailable:
 		return "The service is temporarily unavailable. Try again in a moment."
@@ -416,77 +416,77 @@ func authStatusMessage(mode string, code codes.Code, message string) string {
 	case codes.Internal:
 		return "Something went wrong on our side. Please try again."
 	default:
-		if trimmed := sanitizeRPCErrorText(message); trimmed != "" {
-			return trimmed
+		if parseTrimmed2 := parseSanitizeRPCErrorText(parseMessage); parseTrimmed2 != "" {
+			return parseTrimmed2
 		}
-		return authDefaultFailureMessage(mode)
+		return parseAuthDefaultFailureMessage(parseMode)
 	}
 }
 
-func authDefaultFailureMessage(mode string) string {
-	if mode == authModeSignup {
+func parseAuthDefaultFailureMessage(parseMode string) string {
+	if parseMode == authModeSignup {
 		return "Could not create your account right now."
 	}
 	return "Could not sign you in right now."
 }
 
-func sanitizeRPCErrorText(message string) string {
-	trimmed := strings.TrimSpace(message)
-	if trimmed == "" {
+func parseSanitizeRPCErrorText(parseMessage string) string {
+	parseTrimmed := strings.TrimSpace(parseMessage)
+	if parseTrimmed == "" {
 		return ""
 	}
-	lower := strings.ToLower(trimmed)
-	if strings.HasPrefix(lower, "rpc error:") {
-		if idx := strings.Index(lower, "desc ="); idx >= 0 {
-			trimmed = strings.TrimSpace(trimmed[idx+len("desc ="):])
+	parseLower := strings.ToLower(parseTrimmed)
+	if strings.HasPrefix(parseLower, "rpc error:") {
+		if parseIdx := strings.Index(parseLower, "desc ="); parseIdx >= 0 {
+			parseTrimmed = strings.TrimSpace(parseTrimmed[parseIdx+len("desc ="):])
 		}
 	}
-	switch trimmed {
+	switch parseTrimmed {
 	case "issue auth token":
 		return "Could not start your session right now."
 	case "auth unavailable":
 		return "Sign-in is unavailable right now."
 	}
-	return trimmed
+	return parseTrimmed
 }
 
-func authTokenExpiresWithin(token string, window time.Duration, now time.Time) bool {
-	expiry, ok := authTokenExpiry(token)
-	if !ok {
+func parseAuthTokenExpiresWithin(parseToken string, parseWindow time.Duration, parseNow time.Time) bool {
+	parseExpiry, parseOk := parseAuthTokenExpiry(parseToken)
+	if !parseOk {
 		return true
 	}
-	return !expiry.After(now.Add(window))
+	return !parseExpiry.After(parseNow.Add(parseWindow))
 }
 
-func authTokenExpiry(token string) (time.Time, bool) {
-	parts := strings.Split(strings.TrimSpace(token), ".")
-	if len(parts) != 3 {
+func parseAuthTokenExpiry(parseToken string) (time.Time, bool) {
+	parseParts := strings.Split(strings.TrimSpace(parseToken), ".")
+	if len(parseParts) != 3 {
 		return time.Time{}, false
 	}
-	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
+	parsePayload, parseErr := base64.RawURLEncoding.DecodeString(parseParts[1])
+	if parseErr != nil {
 		return time.Time{}, false
 	}
-	var claims struct {
-		ExpiresAt int64 `json:"exp"`
+	var parseClaims struct {
+		expiresAt int64 `json:"exp"`
 	}
-	if err := json.Unmarshal(payload, &claims); err != nil || claims.ExpiresAt <= 0 {
+	if parseErr2 := json.Unmarshal(parsePayload, &parseClaims); parseErr2 != nil || parseClaims.ExpiresAt <= 0 {
 		return time.Time{}, false
 	}
-	return time.Unix(claims.ExpiresAt, 0), true
+	return time.Unix(parseClaims.ExpiresAt, 0), true
 }
 
-func attachJSEventListener(target js.Value, eventName string, handler func()) func() {
-	if !target.Truthy() || target.Get("addEventListener").Type() != js.TypeFunction {
+func parseAttachJSEventListener(parseTarget js.Value, parseEventName string, parseHandler func()) func() {
+	if !parseTarget.Truthy() || parseTarget.Get("addEventListener").Type() != js.TypeFunction {
 		return func() {}
 	}
-	listener := js.FuncOf(func(js.Value, []js.Value) interface{} {
-		handler()
+	parseListener := js.FuncOf(func(js.Value, []js.Value) interface{} {
+		parseHandler()
 		return nil
 	})
-	target.Call("addEventListener", eventName, listener)
+	parseTarget.Call("addEventListener", parseEventName, parseListener)
 	return func() {
-		target.Call("removeEventListener", eventName, listener)
-		listener.Release()
+		parseTarget.Call("removeEventListener", parseEventName, parseListener)
+		parseListener.Release()
 	}
 }

@@ -12,8 +12,8 @@ import (
 )
 
 func useIDExample() ui.Node {
-	nameID := ui.UseId()
-	notesID := ui.UseId()
+	parseNameID := ui.UseId()
+	parseNotesID := ui.UseId()
 
 	return shared.ExamplePage(
 		"ui.UseId",
@@ -22,14 +22,14 @@ func useIDExample() ui.Node {
 		shared.ExamplePanel("Generated IDs",
 			html.Div(html.Props{Class: "mt-3 grid gap-4"},
 				html.Div(html.Props{},
-					html.Label(html.Props{For: nameID, Class: "block text-sm uppercase tracking-[0.25em] text-slate-400"}, html.Text("Project name")),
-					html.Input(html.Props{ID: nameID, Placeholder: "Stable generated ID", Class: "mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100"}),
-					html.P(html.Props{Class: "mt-2 text-xs text-slate-500"}, html.Text("Input ID: "+nameID)),
+					html.Label(html.Props{For: parseNameID, Class: "block text-sm uppercase tracking-[0.25em] text-slate-400"}, html.Text("Project name")),
+					html.Input(html.Props{ID: parseNameID, Placeholder: "Stable generated ID", Class: "mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100"}),
+					html.P(html.Props{Class: "mt-2 text-xs text-slate-500"}, html.Text("Input ID: "+parseNameID)),
 				),
 				html.Div(html.Props{},
-					html.Label(html.Props{For: notesID, Class: "block text-sm uppercase tracking-[0.25em] text-slate-400"}, html.Text("Release notes")),
-					html.Textarea(html.Props{ID: notesID, Rows: 4, Placeholder: "Another stable generated ID", Class: "mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100"}),
-					html.P(html.Props{Class: "mt-2 text-xs text-slate-500"}, html.Text("Textarea ID: "+notesID)),
+					html.Label(html.Props{For: parseNotesID, Class: "block text-sm uppercase tracking-[0.25em] text-slate-400"}, html.Text("Release notes")),
+					html.Textarea(html.Props{ID: parseNotesID, Rows: 4, Placeholder: "Another stable generated ID", Class: "mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100"}),
+					html.P(html.Props{Class: "mt-2 text-xs text-slate-500"}, html.Text("Textarea ID: "+parseNotesID)),
 				),
 			),
 		),

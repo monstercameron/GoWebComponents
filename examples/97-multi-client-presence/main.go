@@ -31,90 +31,90 @@ type peerStatus struct {
 	Summary  string
 }
 
-func newClientIdentity(surface string, role string) interop.ClientIdentity {
-	trimmedSurface := strings.TrimSpace(surface)
-	trimmedRole := strings.TrimSpace(role)
+func newClientIdentity(parseSurface string, parseRole string) interop.ClientIdentity {
+	parseTrimmedSurface := strings.TrimSpace(parseSurface)
+	parseTrimmedRole := strings.TrimSpace(parseRole)
 	return interop.ClientIdentity{
-		ID:      fmt.Sprintf("%s-%d", trimmedSurface, time.Now().UTC().UnixNano()),
+		ID:      fmt.Sprintf("%s-%d", parseTrimmedSurface, time.Now().UTC().UnixNano()),
 		App:     "examples/multi-client-presence",
-		Surface: trimmedSurface,
-		Role:    trimmedRole,
+		Surface: parseTrimmedSurface,
+		Role:    parseTrimmedRole,
 		Version: "v1",
 	}
 }
 
-func clonePeerStatuses(previous map[string]peerStatus) map[string]peerStatus {
-	next := make(map[string]peerStatus, len(previous))
-	for key, value := range previous {
-		next[key] = value
+func clonePeerStatuses(parsePrevious map[string]peerStatus) map[string]peerStatus {
+	parseNext := make(map[string]peerStatus, len(parsePrevious))
+	for parseKey, parseValue := range parsePrevious {
+		parseNext[parseKey] = parseValue
 	}
-	return next
+	return parseNext
 }
 
-func describeError(prefix string, err error) string {
-	if err == nil {
-		return prefix
+func describeError(parsePrefix string, parseErr error) string {
+	if parseErr == nil {
+		return parsePrefix
 	}
-	if code, ok := interop.CodeOf(err); ok {
-		return fmt.Sprintf("%s [%s]: %v", prefix, code, err)
+	if parseCode, parseOk := interop.CodeOf(parseErr); parseOk {
+		return fmt.Sprintf("%s [%s]: %v", parsePrefix, parseCode, parseErr)
 	}
-	return fmt.Sprintf("%s: %v", prefix, err)
+	return fmt.Sprintf("%s: %v", parsePrefix, parseErr)
 }
 
-func describePayload(payload any) string {
-	text := strings.TrimSpace(fmt.Sprintf("%v", payload))
-	if text == "" || text == "<nil>" {
+func describePayload(parsePayload any) string {
+	parseText := strings.TrimSpace(fmt.Sprintf("%v", parsePayload))
+	if parseText == "" || parseText == "<nil>" {
 		return "No payload"
 	}
-	return text
+	return parseText
 }
 
-func formatSeenAt(value time.Time) string {
-	if value.IsZero() {
+func formatSeenAt(parseValue time.Time) string {
+	if parseValue.IsZero() {
 		return "waiting"
 	}
-	return value.Local().Format("15:04:05")
+	return parseValue.Local().Format("15:04:05")
 }
 
-func renderPeerList(peers map[string]peerStatus) []ui.Node {
-	if len(peers) == 0 {
+func renderPeerList(parsePeers map[string]peerStatus) []ui.Node {
+	if len(parsePeers) == 0 {
 		return []ui.Node{
 			html.Li(html.Props{Class: "rounded-2xl border border-dashed border-white/10 bg-slate-950/35 px-4 py-3 text-sm leading-7 text-slate-400"}, html.Text("No remote peers discovered yet. Open this page in a second tab, or reconnect a paused tab to watch hello and result traffic populate the registry.")),
 		}
 	}
 
-	keys := make([]string, 0, len(peers))
-	for key := range peers {
-		keys = append(keys, key)
+	parseKeys := make([]string, 0, len(parsePeers))
+	for parseKey := range parsePeers {
+		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(keys)
+	sort.Strings(parseKeys)
 
-	nodes := make([]ui.Node, 0, len(keys))
-	for _, key := range keys {
-		peer := peers[key]
-		label := fmt.Sprintf("%s | %s | %s | %s | last seen %s", peer.Identity.Surface, peer.Identity.Role, peer.State, peer.Summary, formatSeenAt(peer.LastSeen))
-		nodes = append(nodes,
-			html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm leading-7 text-slate-300"}, html.Text(label)),
+	parseNodes := make([]ui.Node, 0, len(parseKeys))
+	for _, parseKey2 := range parseKeys {
+		parsePeer := parsePeers[parseKey2]
+		parseLabel := fmt.Sprintf("%s | %s | %s | %s | last seen %s", parsePeer.Identity.Surface, parsePeer.Identity.Role, parsePeer.State, parsePeer.Summary, formatSeenAt(parsePeer.LastSeen))
+		parseNodes = append(parseNodes,
+			html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm leading-7 text-slate-300"}, html.Text(parseLabel)),
 		)
 	}
-	return nodes
+	return parseNodes
 }
 
-func renderLogList(entries []string) []ui.Node {
-	nodes := make([]ui.Node, 0, len(entries))
-	for _, entry := range entries {
-		nodes = append(nodes,
-			html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm leading-7 text-slate-300"}, html.Text(entry)),
+func renderLogList(parseEntries []string) []ui.Node {
+	parseNodes := make([]ui.Node, 0, len(parseEntries))
+	for _, parseEntry := range parseEntries {
+		parseNodes = append(parseNodes,
+			html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm leading-7 text-slate-300"}, html.Text(parseEntry)),
 		)
 	}
-	return nodes
+	return parseNodes
 }
 
 func multiClientPresenceRoot() ui.Node {
-	location, err := interop.GetWindowLocation()
-	if err == nil {
-		path := strings.ToLower(strings.TrimSpace(location.Pathname()))
-		if strings.Contains(path, "popup") {
+	parseLocation, parseErr := interop.GetWindowLocation()
+	if parseErr == nil {
+		parsePath := strings.ToLower(strings.TrimSpace(parseLocation.Pathname()))
+		if strings.Contains(parsePath, "popup") {
 			return multiClientPopupSurface()
 		}
 	}
@@ -122,401 +122,401 @@ func multiClientPresenceRoot() ui.Node {
 }
 
 func multiClientOpenerSurface() ui.Node {
-	self := ui.UseState(newClientIdentity("storefront-tab", "storefront"))
-	presenceOnline := ui.UseState(true)
-	presenceTransport := ui.UseState("pending")
-	popupStatus := ui.UseState("Closed")
-	popupPeerID := ui.UseState("")
-	popupResult := ui.UseState("No popup query result yet.")
-	peerRegistry := ui.UseState(map[string]peerStatus{})
-	logs := ui.UseState([]string{"Open this page in a second tab, then use the popup to watch hello, query, result, lease expiry, and reconnect behavior."})
-	presenceChannelRef := ui.UseRef(interop.CrossTabChannel{})
-	presenceCancelRef := ui.UseRef((func())(nil))
-	popupChannelRef := ui.UseRef(interop.WindowChannel{})
-	popupCancelRef := ui.UseRef((func())(nil))
+	parseSelf := ui.UseState(newClientIdentity("storefront-tab", "storefront"))
+	parsePresenceOnline := ui.UseState(true)
+	parsePresenceTransport := ui.UseState("pending")
+	parsePopupStatus := ui.UseState("Closed")
+	parsePopupPeerID := ui.UseState("")
+	parsePopupResult := ui.UseState("No popup query result yet.")
+	parsePeerRegistry := ui.UseState(map[string]peerStatus{})
+	parseLogs := ui.UseState([]string{"Open this page in a second tab, then use the popup to watch hello, query, result, lease expiry, and reconnect behavior."})
+	parsePresenceChannelRef := ui.UseRef(interop.CrossTabChannel{})
+	parsePresenceCancelRef := ui.UseRef((func())(nil))
+	parsePopupChannelRef := ui.UseRef(interop.WindowChannel{})
+	parsePopupCancelRef := ui.UseRef((func())(nil))
 
-	appendLog := func(line string) {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
+	parseAppendLog := func(parseLine string) {
+		parseTrimmed := strings.TrimSpace(parseLine)
+		if parseTrimmed == "" {
 			return
 		}
-		logs.Update(func(previous []string) []string {
-			next := append([]string{trimmed}, previous...)
-			if len(next) > 10 {
-				next = next[:10]
+		parseLogs.Update(func(parsePrevious []string) []string {
+			parseNext := append([]string{parseTrimmed}, parsePrevious...)
+			if len(parseNext) > 10 {
+				parseNext = parseNext[:10]
 			}
-			return next
+			return parseNext
 		})
 	}
 
-	upsertPeer := func(identity interop.ClientIdentity, state string, summary string) {
-		if strings.TrimSpace(identity.ID) == "" || identity.ID == self.Get().ID {
+	parseUpsertPeer := func(parseIdentity interop.ClientIdentity, parseState string, parseSummary string) {
+		if strings.TrimSpace(parseIdentity.ID) == "" || parseIdentity.ID == parseSelf.Get().ID {
 			return
 		}
-		next := clonePeerStatuses(peerRegistry.Get())
-		entry := next[identity.ID]
-		entry.Identity = identity
-		if strings.TrimSpace(state) != "" {
-			entry.State = state
+		parseNext2 := clonePeerStatuses(parsePeerRegistry.Get())
+		parseEntry := parseNext2[parseIdentity.ID]
+		parseEntry.Identity = parseIdentity
+		if strings.TrimSpace(parseState) != "" {
+			parseEntry.State = parseState
 		}
-		entry.LastSeen = time.Now().UTC()
-		if strings.TrimSpace(summary) != "" {
-			entry.Summary = summary
+		parseEntry.LastSeen = time.Now().UTC()
+		if strings.TrimSpace(parseSummary) != "" {
+			parseEntry.Summary = parseSummary
 		}
-		next[identity.ID] = entry
-		peerRegistry.Set(next)
+		parseNext2[parseIdentity.ID] = parseEntry
+		parsePeerRegistry.Set(parseNext2)
 	}
 
-	markPeerState := func(id string, state string, summary string) {
-		trimmedID := strings.TrimSpace(id)
-		if trimmedID == "" {
+	parseMarkPeerState := func(parseId2 string, parseState2 string, parseSummary2 string) {
+		parseTrimmedID := strings.TrimSpace(parseId2)
+		if parseTrimmedID == "" {
 			return
 		}
-		current := peerRegistry.Get()
-		entry, ok := current[trimmedID]
-		if !ok {
+		parseCurrent := parsePeerRegistry.Get()
+		parseEntry2, parseOk := parseCurrent[parseTrimmedID]
+		if !parseOk {
 			return
 		}
-		next := clonePeerStatuses(current)
-		entry.State = state
-		if strings.TrimSpace(summary) != "" {
-			entry.Summary = summary
+		parseNext3 := clonePeerStatuses(parseCurrent)
+		parseEntry2.State = parseState2
+		if strings.TrimSpace(parseSummary2) != "" {
+			parseEntry2.Summary = parseSummary2
 		}
-		next[trimmedID] = entry
-		peerRegistry.Set(next)
+		parseNext3[parseTrimmedID] = parseEntry2
+		parsePeerRegistry.Set(parseNext3)
 	}
 
-	releasePopup := func(closeWindow bool) {
-		if cancel := popupCancelRef.Get(); cancel != nil {
-			cancel()
-			popupCancelRef.Set(nil)
+	parseReleasePopup := func(isCloseWindow bool) {
+		if parseCancel := parsePopupCancelRef.Get(); parseCancel != nil {
+			parseCancel()
+			parsePopupCancelRef.Set(nil)
 		}
-		channel := popupChannelRef.Get()
-		if closeWindow && channel.Name() != "" && !channel.Closed() {
-			_ = interop.PublishClientGoodbyeWindow(channel, self.Get())
-			_ = channel.Close()
+		parseChannel := parsePopupChannelRef.Get()
+		if isCloseWindow && parseChannel.Name() != "" && !parseChannel.Closed() {
+			_ = interop.PublishClientGoodbyeWindow(parseChannel, parseSelf.Get())
+			_ = parseChannel.Close()
 		}
-		popupChannelRef.Set(interop.WindowChannel{})
-		popupPeerID.Set("")
+		parsePopupChannelRef.Set(interop.WindowChannel{})
+		parsePopupPeerID.Set("")
 	}
 
-	handlePopupMessage := func(channel interop.WindowChannel, message interop.ClientMessage, err error) {
-		if err != nil {
-			appendLog(describeError("Popup message failed", err))
+	handlePopupMessage := func(parseChannel9 interop.WindowChannel, parseMessage2 interop.ClientMessage, parseErr10 error) {
+		if parseErr10 != nil {
+			parseAppendLog(describeError("Popup message failed", parseErr10))
 			return
 		}
-		if message.Source.ID == self.Get().ID {
+		if parseMessage2.Source.ID == parseSelf.Get().ID {
 			return
 		}
 
-		switch message.Kind {
+		switch parseMessage2.Kind {
 		case interop.ClientHello:
-			popupPeerID.Set(message.Source.ID)
-			popupStatus.Set("Connected")
-			appendLog(fmt.Sprintf("Popup hello from %s (%s)", message.Source.Surface, message.Source.ID))
+			parsePopupPeerID.Set(parseMessage2.Source.ID)
+			parsePopupStatus.Set("Connected")
+			parseAppendLog(fmt.Sprintf("Popup hello from %s (%s)", parseMessage2.Source.Surface, parseMessage2.Source.ID))
 		case interop.ClientQuery:
-			if message.Target != "" && message.Target != self.Get().ID {
+			if parseMessage2.Target != "" && parseMessage2.Target != parseSelf.Get().ID {
 				return
 			}
-			response := interop.ClientMessage{
+			parseResponse := interop.ClientMessage{
 				Kind:   interop.ClientResult,
-				Topic:  message.Topic,
-				Source: self.Get(),
-				Target: message.Source.ID,
+				Topic:  parseMessage2.Topic,
+				Source: parseSelf.Get(),
+				Target: parseMessage2.Source.ID,
 				Payload: map[string]string{
 					"status":   "opener-ready",
-					"presence": fmt.Sprintf("%t", presenceOnline.Get()),
-					"surface":  self.Get().Surface,
+					"presence": fmt.Sprintf("%t", parsePresenceOnline.Get()),
+					"surface":  parseSelf.Get().Surface,
 				},
 			}
-			if publishErr := interop.PublishClientWindowMessage(channel, response); publishErr != nil {
-				appendLog(describeError("Popup query reply failed", publishErr))
+			if parsePublishErr := interop.PublishClientWindowMessage(parseChannel9, parseResponse); parsePublishErr != nil {
+				parseAppendLog(describeError("Popup query reply failed", parsePublishErr))
 				return
 			}
-			appendLog("Answered popup query with a targeted window result.")
+			parseAppendLog("Answered popup query with a targeted window result.")
 		case interop.ClientResult:
-			if message.Target != self.Get().ID {
+			if parseMessage2.Target != parseSelf.Get().ID {
 				return
 			}
-			popupStatus.Set("Ready")
-			popupResult.Set(describePayload(message.Payload))
-			appendLog(fmt.Sprintf("Popup result on %s: %s", message.Topic, describePayload(message.Payload)))
+			parsePopupStatus.Set("Ready")
+			parsePopupResult.Set(describePayload(parseMessage2.Payload))
+			parseAppendLog(fmt.Sprintf("Popup result on %s: %s", parseMessage2.Topic, describePayload(parseMessage2.Payload)))
 		case interop.ClientGoodbye:
-			popupStatus.Set("Disconnected")
-			popupPeerID.Set("")
-			appendLog("Popup sent goodbye and left the targeted channel.")
+			parsePopupStatus.Set("Disconnected")
+			parsePopupPeerID.Set("")
+			parseAppendLog("Popup sent goodbye and left the targeted channel.")
 		}
 	}
 
 	ui.UseEffect(func() func() {
-		if !presenceOnline.Get() {
-			presenceTransport.Set("offline")
+		if !parsePresenceOnline.Get() {
+			parsePresenceTransport.Set("offline")
 			return nil
 		}
 
-		channel, err := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{Name: multiClientPresenceChannelName})
-		if err != nil {
-			appendLog(describeError("Presence channel unavailable", err))
-			presenceTransport.Set("unavailable")
+		parseChannel2, parseErr := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{Name: multiClientPresenceChannelName})
+		if parseErr != nil {
+			parseAppendLog(describeError("Presence channel unavailable", parseErr))
+			parsePresenceTransport.Set("unavailable")
 			return nil
 		}
 
-		presenceChannelRef.Set(channel)
-		presenceTransport.Set(channel.Transport())
+		parsePresenceChannelRef.Set(parseChannel2)
+		parsePresenceTransport.Set(parseChannel2.Transport())
 
-		subscription, err := interop.SubscribeClientMessages(channel, func(message interop.ClientMessage, receiveErr error) {
-			if receiveErr != nil {
-				appendLog(describeError("Presence receive failed", receiveErr))
+		parseSubscription, parseErr := interop.SubscribeClientMessages(parseChannel2, func(parseMessage3 interop.ClientMessage, parseReceiveErr error) {
+			if parseReceiveErr != nil {
+				parseAppendLog(describeError("Presence receive failed", parseReceiveErr))
 				return
 			}
-			if message.Source.ID == self.Get().ID {
+			if parseMessage3.Source.ID == parseSelf.Get().ID {
 				return
 			}
 
-			switch message.Kind {
+			switch parseMessage3.Kind {
 			case interop.ClientHello:
-				upsertPeer(message.Source, "seen", "hello received")
-				appendLog(fmt.Sprintf("Peer hello from %s via %s", message.Source.Surface, channel.Transport()))
+				parseUpsertPeer(parseMessage3.Source, "seen", "hello received")
+				parseAppendLog(fmt.Sprintf("Peer hello from %s via %s", parseMessage3.Source.Surface, parseChannel2.Transport()))
 			case interop.ClientQuery:
-				upsertPeer(message.Source, "seen", "discovery query received")
-				if message.Topic != interop.ClientPresenceTopic {
+				parseUpsertPeer(parseMessage3.Source, "seen", "discovery query received")
+				if parseMessage3.Topic != interop.ClientPresenceTopic {
 					return
 				}
-				if publishErr := interop.PublishClientResult(channel, interop.ClientPresenceTopic, self.Get(), message.Source.ID, map[string]string{
-					"surface": self.Get().Surface,
-					"role":    self.Get().Role,
+				if parsePublishErr2 := interop.PublishClientResult(parseChannel2, interop.ClientPresenceTopic, parseSelf.Get(), parseMessage3.Source.ID, map[string]string{
+					"surface": parseSelf.Get().Surface,
+					"role":    parseSelf.Get().Role,
 					"state":   "ready",
-				}); publishErr != nil {
-					appendLog(describeError("Presence query reply failed", publishErr))
+				}); parsePublishErr2 != nil {
+					parseAppendLog(describeError("Presence query reply failed", parsePublishErr2))
 					return
 				}
-				appendLog(fmt.Sprintf("Answered discovery query for %s.", message.Source.Surface))
+				parseAppendLog(fmt.Sprintf("Answered discovery query for %s.", parseMessage3.Source.Surface))
 			case interop.ClientResult:
-				if message.Target != self.Get().ID {
+				if parseMessage3.Target != parseSelf.Get().ID {
 					return
 				}
-				upsertPeer(message.Source, "ready", describePayload(message.Payload))
-				appendLog(fmt.Sprintf("Targeted result from %s: %s", message.Source.Surface, describePayload(message.Payload)))
+				parseUpsertPeer(parseMessage3.Source, "ready", describePayload(parseMessage3.Payload))
+				parseAppendLog(fmt.Sprintf("Targeted result from %s: %s", parseMessage3.Source.Surface, describePayload(parseMessage3.Payload)))
 			case interop.ClientGoodbye:
-				markPeerState(message.Source.ID, "disconnected", "goodbye received")
-				appendLog(fmt.Sprintf("Peer goodbye from %s.", message.Source.Surface))
+				parseMarkPeerState(parseMessage3.Source.ID, "disconnected", "goodbye received")
+				parseAppendLog(fmt.Sprintf("Peer goodbye from %s.", parseMessage3.Source.Surface))
 			}
 		})
-		if err != nil {
-			appendLog(describeError("Presence subscription failed", err))
-			_ = channel.Close()
-			presenceChannelRef.Set(interop.CrossTabChannel{})
+		if parseErr != nil {
+			parseAppendLog(describeError("Presence subscription failed", parseErr))
+			_ = parseChannel2.Close()
+			parsePresenceChannelRef.Set(interop.CrossTabChannel{})
 			return nil
 		}
-		presenceCancelRef.Set(subscription.Cancel)
+		parsePresenceCancelRef.Set(parseSubscription.Cancel)
 
-		if err := interop.PublishClientHello(channel, self.Get()); err != nil {
-			appendLog(describeError("Initial hello failed", err))
+		if parseErr2 := interop.PublishClientHello(parseChannel2, parseSelf.Get()); parseErr2 != nil {
+			parseAppendLog(describeError("Initial hello failed", parseErr2))
 		} else {
-			appendLog("Published local hello on the cross-tab presence channel.")
+			parseAppendLog("Published local hello on the cross-tab presence channel.")
 		}
 
-		if err := interop.PublishClientQuery(channel, interop.ClientPresenceTopic, self.Get()); err != nil {
-			appendLog(describeError("Initial discovery query failed", err))
+		if parseErr3 := interop.PublishClientQuery(parseChannel2, interop.ClientPresenceTopic, parseSelf.Get()); parseErr3 != nil {
+			parseAppendLog(describeError("Initial discovery query failed", parseErr3))
 		} else {
-			appendLog("Published query(topic=clients) to discover live peers.")
+			parseAppendLog("Published query(topic=clients) to discover live peers.")
 		}
 
-		timer, timerErr := interop.ScheduleInterval(time.Second, func() {
-			current := peerRegistry.Get()
-			if len(current) == 0 {
+		parseTimer, parseTimerErr := interop.ScheduleInterval(time.Second, func() {
+			parseCurrent2 := parsePeerRegistry.Get()
+			if len(parseCurrent2) == 0 {
 				return
 			}
 
-			now := time.Now().UTC()
-			next := clonePeerStatuses(current)
-			expired := make([]string, 0)
-			for id, entry := range current {
-				if entry.State == "expired" || entry.State == "disconnected" {
+			parseNow := time.Now().UTC()
+			parseNext4 := clonePeerStatuses(parseCurrent2)
+			parseExpired := make([]string, 0)
+			for parseId, parseEntry3 := range parseCurrent2 {
+				if parseEntry3.State == "expired" || parseEntry3.State == "disconnected" {
 					continue
 				}
-				if now.Sub(entry.LastSeen) <= peerLeaseTimeout {
+				if parseNow.Sub(parseEntry3.LastSeen) <= peerLeaseTimeout {
 					continue
 				}
-				entry.State = "expired"
-				entry.Summary = "lease expired; waiting for fresh hello"
-				next[id] = entry
-				expired = append(expired, entry.Identity.Surface)
+				parseEntry3.State = "expired"
+				parseEntry3.Summary = "lease expired; waiting for fresh hello"
+				parseNext4[parseId] = parseEntry3
+				parseExpired = append(parseExpired, parseEntry3.Identity.Surface)
 			}
-			if len(expired) == 0 {
+			if len(parseExpired) == 0 {
 				return
 			}
-			peerRegistry.Set(next)
-			for _, surface := range expired {
-				appendLog("Peer lease expired: " + surface)
+			parsePeerRegistry.Set(parseNext4)
+			for _, parseSurface := range parseExpired {
+				parseAppendLog("Peer lease expired: " + parseSurface)
 			}
 		})
 
 		return func() {
-			if cancel := presenceCancelRef.Get(); cancel != nil {
-				cancel()
-				presenceCancelRef.Set(nil)
+			if parseCancel2 := parsePresenceCancelRef.Get(); parseCancel2 != nil {
+				parseCancel2()
+				parsePresenceCancelRef.Set(nil)
 			}
-			if timerErr == nil {
-				_ = timer.Cancel()
+			if parseTimerErr == nil {
+				_ = parseTimer.Cancel()
 			}
-			_ = interop.PublishClientGoodbye(channel, self.Get())
-			_ = channel.Close()
-			presenceChannelRef.Set(interop.CrossTabChannel{})
+			_ = interop.PublishClientGoodbye(parseChannel2, parseSelf.Get())
+			_ = parseChannel2.Close()
+			parsePresenceChannelRef.Set(interop.CrossTabChannel{})
 		}
-	}, presenceOnline.Get())
+	}, parsePresenceOnline.Get())
 
 	ui.UseEffect(func() func() {
-		timer, err := interop.ScheduleInterval(500*time.Millisecond, func() {
-			channel := popupChannelRef.Get()
-			if channel.Name() == "" {
+		parseTimer2, parseErr4 := interop.ScheduleInterval(500*time.Millisecond, func() {
+			parseChannel3 := parsePopupChannelRef.Get()
+			if parseChannel3.Name() == "" {
 				return
 			}
-			if !channel.Closed() {
+			if !parseChannel3.Closed() {
 				return
 			}
-			releasePopup(false)
-			popupStatus.Set("Closed")
-			appendLog("Popup closed unexpectedly. Reopen it to restore targeted coordination.")
+			parseReleasePopup(false)
+			parsePopupStatus.Set("Closed")
+			parseAppendLog("Popup closed unexpectedly. Reopen it to restore targeted coordination.")
 		})
 		return func() {
-			if err == nil {
-				_ = timer.Cancel()
+			if parseErr4 == nil {
+				_ = parseTimer2.Cancel()
 			}
-			releasePopup(true)
+			parseReleasePopup(true)
 		}
 	}, true)
 
-	reannounceHello := ui.UseEvent(func() {
-		channel := presenceChannelRef.Get()
-		if channel.Name() == "" {
-			appendLog("Reconnect the presence channel before re-announcing hello.")
+	parseReannounceHello := ui.UseEvent(func() {
+		parseChannel4 := parsePresenceChannelRef.Get()
+		if parseChannel4.Name() == "" {
+			parseAppendLog("Reconnect the presence channel before re-announcing hello.")
 			return
 		}
-		if err := interop.PublishClientHello(channel, self.Get()); err != nil {
-			appendLog(describeError("Hello publish failed", err))
+		if parseErr5 := interop.PublishClientHello(parseChannel4, parseSelf.Get()); parseErr5 != nil {
+			parseAppendLog(describeError("Hello publish failed", parseErr5))
 			return
 		}
-		appendLog("Re-announced hello to refresh presence without a full reconnect.")
+		parseAppendLog("Re-announced hello to refresh presence without a full reconnect.")
 	})
 
-	queryPeers := ui.UseEvent(func() {
-		channel := presenceChannelRef.Get()
-		if channel.Name() == "" {
-			appendLog("Reconnect the presence channel before querying peers.")
+	parseQueryPeers := ui.UseEvent(func() {
+		parseChannel5 := parsePresenceChannelRef.Get()
+		if parseChannel5.Name() == "" {
+			parseAppendLog("Reconnect the presence channel before querying peers.")
 			return
 		}
-		if err := interop.PublishClientQuery(channel, interop.ClientPresenceTopic, self.Get()); err != nil {
-			appendLog(describeError("Discovery query failed", err))
+		if parseErr6 := interop.PublishClientQuery(parseChannel5, interop.ClientPresenceTopic, parseSelf.Get()); parseErr6 != nil {
+			parseAppendLog(describeError("Discovery query failed", parseErr6))
 			return
 		}
-		appendLog("Published a fresh clients query for late join discovery.")
+		parseAppendLog("Published a fresh clients query for late join discovery.")
 	})
 
-	disconnectPresence := ui.UseEvent(func() {
-		if !presenceOnline.Get() {
-			appendLog("Presence channel is already offline.")
+	parseDisconnectPresence := ui.UseEvent(func() {
+		if !parsePresenceOnline.Get() {
+			parseAppendLog("Presence channel is already offline.")
 			return
 		}
-		presenceOnline.Set(false)
-		presenceTransport.Set("offline")
-		appendLog("Disconnected the local presence channel. Other tabs should eventually mark this lease expired.")
+		parsePresenceOnline.Set(false)
+		parsePresenceTransport.Set("offline")
+		parseAppendLog("Disconnected the local presence channel. Other tabs should eventually mark this lease expired.")
 	})
 
-	reconnectPresence := ui.UseEvent(func() {
-		if presenceOnline.Get() {
-			appendLog("Presence channel is already connected.")
+	parseReconnectPresence := ui.UseEvent(func() {
+		if parsePresenceOnline.Get() {
+			parseAppendLog("Presence channel is already connected.")
 			return
 		}
-		presenceOnline.Set(true)
-		appendLog("Reconnecting the local presence channel and replaying hello plus discovery.")
+		parsePresenceOnline.Set(true)
+		parseAppendLog("Reconnecting the local presence channel and replaying hello plus discovery.")
 	})
 
-	openPopup := ui.UseEvent(func() {
-		current := popupChannelRef.Get()
-		if current.Name() != "" && !current.Closed() {
-			_ = current.Focus()
-			popupStatus.Set("Connected")
-			appendLog("Reused the existing popup and focused it.")
+	parseOpenPopup := ui.UseEvent(func() {
+		parseCurrent3 := parsePopupChannelRef.Get()
+		if parseCurrent3.Name() != "" && !parseCurrent3.Closed() {
+			_ = parseCurrent3.Focus()
+			parsePopupStatus.Set("Connected")
+			parseAppendLog("Reused the existing popup and focused it.")
 			return
 		}
 
-		releasePopup(false)
-		channel, err := interop.OpenSecondaryWindowChannel(interop.WindowChannelOptions{
+		parseReleasePopup(false)
+		parseChannel6, parseErr7 := interop.OpenSecondaryWindowChannel(interop.WindowChannelOptions{
 			URL:      multiClientPopupURL,
 			Name:     multiClientPopupChannelName,
 			Features: "popup=yes,width=560,height=760",
 		})
-		if err != nil {
-			appendLog(describeError("Opening popup failed", err))
+		if parseErr7 != nil {
+			parseAppendLog(describeError("Opening popup failed", parseErr7))
 			return
 		}
 
-		subscription, err := interop.SubscribeClientWindowMessages(channel, func(message interop.ClientMessage, receiveErr error) {
-			handlePopupMessage(channel, message, receiveErr)
+		parseSubscription2, parseErr7 := interop.SubscribeClientWindowMessages(parseChannel6, func(parseMessage4 interop.ClientMessage, parseReceiveErr2 error) {
+			handlePopupMessage(parseChannel6, parseMessage4, parseReceiveErr2)
 		})
-		if err != nil {
-			_ = channel.Close()
-			appendLog(describeError("Popup subscription failed", err))
+		if parseErr7 != nil {
+			_ = parseChannel6.Close()
+			parseAppendLog(describeError("Popup subscription failed", parseErr7))
 			return
 		}
 
-		popupChannelRef.Set(channel)
-		popupCancelRef.Set(subscription.Cancel)
-		popupStatus.Set("Connecting")
-		appendLog("Opened the popup inspector and subscribed to its window channel.")
+		parsePopupChannelRef.Set(parseChannel6)
+		parsePopupCancelRef.Set(parseSubscription2.Cancel)
+		parsePopupStatus.Set("Connecting")
+		parseAppendLog("Opened the popup inspector and subscribed to its window channel.")
 
-		if err := interop.PublishClientHelloWindow(channel, self.Get()); err != nil {
-			appendLog(describeError("Popup hello failed", err))
+		if parseErr8 := interop.PublishClientHelloWindow(parseChannel6, parseSelf.Get()); parseErr8 != nil {
+			parseAppendLog(describeError("Popup hello failed", parseErr8))
 			return
 		}
-		appendLog("Sent opener hello on the popup channel.")
+		parseAppendLog("Sent opener hello on the popup channel.")
 	})
 
-	queryPopup := ui.UseEvent(func() {
-		channel := popupChannelRef.Get()
-		if channel.Name() == "" || channel.Closed() {
-			popupStatus.Set("Closed")
-			appendLog("Open the popup before sending a targeted query.")
+	parseQueryPopup := ui.UseEvent(func() {
+		parseChannel7 := parsePopupChannelRef.Get()
+		if parseChannel7.Name() == "" || parseChannel7.Closed() {
+			parsePopupStatus.Set("Closed")
+			parseAppendLog("Open the popup before sending a targeted query.")
 			return
 		}
-		target := strings.TrimSpace(popupPeerID.Get())
-		if target == "" {
-			appendLog("Waiting for popup hello before sending a targeted query.")
+		parseTarget := strings.TrimSpace(parsePopupPeerID.Get())
+		if parseTarget == "" {
+			parseAppendLog("Waiting for popup hello before sending a targeted query.")
 			return
 		}
 
-		message := interop.ClientMessage{
+		parseMessage := interop.ClientMessage{
 			Kind:   interop.ClientQuery,
 			Topic:  "popup-status",
-			Source: self.Get(),
-			Target: target,
+			Source: parseSelf.Get(),
+			Target: parseTarget,
 			Payload: map[string]string{
 				"request": "status",
 			},
 		}
-		if err := interop.PublishClientWindowMessage(channel, message); err != nil {
-			appendLog(describeError("Popup query failed", err))
+		if parseErr9 := interop.PublishClientWindowMessage(parseChannel7, parseMessage); parseErr9 != nil {
+			parseAppendLog(describeError("Popup query failed", parseErr9))
 			return
 		}
-		appendLog("Sent a targeted popup query. The reply should return only to this opener.")
+		parseAppendLog("Sent a targeted popup query. The reply should return only to this opener.")
 	})
 
-	closePopup := ui.UseEvent(func() {
-		channel := popupChannelRef.Get()
-		if channel.Name() == "" || channel.Closed() {
-			popupStatus.Set("Closed")
-			appendLog("Popup is already closed.")
-			releasePopup(false)
+	parseClosePopup := ui.UseEvent(func() {
+		parseChannel8 := parsePopupChannelRef.Get()
+		if parseChannel8.Name() == "" || parseChannel8.Closed() {
+			parsePopupStatus.Set("Closed")
+			parseAppendLog("Popup is already closed.")
+			parseReleasePopup(false)
 			return
 		}
-		releasePopup(true)
-		popupStatus.Set("Closed")
-		appendLog("Closed the popup and sent goodbye on the window channel.")
+		parseReleasePopup(true)
+		parsePopupStatus.Set("Closed")
+		parseAppendLog("Closed the popup and sent goodbye on the window channel.")
 	})
 
-	peerNodes := renderPeerList(peerRegistry.Get())
-	logNodes := renderLogList(logs.Get())
+	parsePeerNodes := renderPeerList(parsePeerRegistry.Get())
+	parseLogNodes := renderLogList(parseLogs.Get())
 
 	return shared.ExamplePage(
 		"Multi-Client Presence",
@@ -524,39 +524,39 @@ func multiClientOpenerSurface() ui.Node {
 		"Demonstrate hello, late join discovery, targeted result replies, lease expiry, and reconnect behavior across cross-tab and popup window channels.",
 		shared.ExamplePanel("Cross-tab presence",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-4"},
-				shared.ExampleStat("Client", self.Get().Surface),
-				shared.ExampleStat("Role", self.Get().Role),
-				shared.ExampleStat("Presence", map[bool]string{true: "connected", false: "offline"}[presenceOnline.Get()]),
-				shared.ExampleStat("Transport", presenceTransport.Get()),
+				shared.ExampleStat("Client", parseSelf.Get().Surface),
+				shared.ExampleStat("Role", parseSelf.Get().Role),
+				shared.ExampleStat("Presence", map[bool]string{true: "connected", false: "offline"}[parsePresenceOnline.Get()]),
+				shared.ExampleStat("Transport", parsePresenceTransport.Get()),
 			),
 			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text("Open this example in a second tab. Each tab publishes hello on boot, asks query(topic=clients) for late-join discovery, answers with targeted result replies, and expires peers locally when their lease ages out.")),
 			html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"},
-				shared.ExampleButton("Re-announce hello", reannounceHello),
-				shared.ExampleButton("Query clients", queryPeers),
-				shared.ExampleButton("Disconnect presence", disconnectPresence),
-				shared.ExampleButton("Reconnect presence", reconnectPresence),
+				shared.ExampleButton("Re-announce hello", parseReannounceHello),
+				shared.ExampleButton("Query clients", parseQueryPeers),
+				shared.ExampleButton("Disconnect presence", parseDisconnectPresence),
+				shared.ExampleButton("Reconnect presence", parseReconnectPresence),
 			),
 		),
 		shared.ExamplePanel("Peer registry",
 			html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-300"}, html.Text("Lease expiry is local state, not a browser-wide scan. If a tab disconnects and does not re-announce, the remaining tab marks it expired and waits for a fresh hello before treating it as ready again.")),
-			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, peerNodes...),
+			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, parsePeerNodes...),
 		),
 		shared.ExamplePanel("Popup handshake",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-3"},
-				shared.ExampleStat("Popup", popupStatus.Get()),
-				shared.ExampleStat("Popup peer id", popupPeerID.Get()),
-				shared.ExampleStat("Last popup result", popupResult.Get()),
+				shared.ExampleStat("Popup", parsePopupStatus.Get()),
+				shared.ExampleStat("Popup peer id", parsePopupPeerID.Get()),
+				shared.ExampleStat("Last popup result", parsePopupResult.Get()),
 			),
 			html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"},
-				shared.ExampleButton("Open popup", openPopup),
-				shared.ExampleButton("Query popup", queryPopup),
-				shared.ExampleButton("Close popup", closePopup),
+				shared.ExampleButton("Open popup", parseOpenPopup),
+				shared.ExampleButton("Query popup", parseQueryPopup),
+				shared.ExampleButton("Close popup", parseClosePopup),
 			),
 			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text("The popup uses WindowOpenerChannel and the opener uses OpenSecondaryWindowChannel. Both sides exchange hello, then targeted query and result messages rather than pretending the popup is just another broadcast peer.")),
 		),
 		shared.ExamplePanel("Diagnostics",
 			html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-300"}, html.Text("Use the log below to watch the exact hello, query, result, goodbye, expiry, and reconnect transitions. This is the intended control-plane shape for multi-client coordination in the browser.")),
-			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, logNodes...),
+			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, parseLogNodes...),
 		),
 		shared.ExamplePanel("Integration shape",
 			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("Cross-tab presence answers the late-join question, while targeted popup queries cover sovereign child surfaces. The example deliberately keeps business authority local and uses typed JSON messages instead of shared mutable state.")),
@@ -572,164 +572,164 @@ func multiClientOpenerSurface() ui.Node {
 }
 
 func multiClientPopupSurface() ui.Node {
-	self := ui.UseState(newClientIdentity("popup-inspector", "inspector"))
-	openerID := ui.UseState("")
-	connection := ui.UseState("Connecting to opener...")
-	orphaned := ui.UseState(false)
-	lastResult := ui.UseState("No opener result yet.")
-	logs := ui.UseState([]string{"This popup waits for the opener hello, then answers targeted queries with result messages."})
-	channelRef := ui.UseRef(interop.WindowChannel{})
-	cancelRef := ui.UseRef((func())(nil))
+	parseSelf := ui.UseState(newClientIdentity("popup-inspector", "inspector"))
+	parseOpenerID := ui.UseState("")
+	parseConnection := ui.UseState("Connecting to opener...")
+	parseOrphaned := ui.UseState(false)
+	parseLastResult := ui.UseState("No opener result yet.")
+	parseLogs := ui.UseState([]string{"This popup waits for the opener hello, then answers targeted queries with result messages."})
+	parseChannelRef := ui.UseRef(interop.WindowChannel{})
+	parseCancelRef := ui.UseRef((func())(nil))
 
-	appendLog := func(line string) {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
+	parseAppendLog := func(parseLine string) {
+		parseTrimmed := strings.TrimSpace(parseLine)
+		if parseTrimmed == "" {
 			return
 		}
-		logs.Update(func(previous []string) []string {
-			next := append([]string{trimmed}, previous...)
-			if len(next) > 10 {
-				next = next[:10]
+		parseLogs.Update(func(parsePrevious []string) []string {
+			parseNext := append([]string{parseTrimmed}, parsePrevious...)
+			if len(parseNext) > 10 {
+				parseNext = parseNext[:10]
 			}
-			return next
+			return parseNext
 		})
 	}
 
-	handleMessage := func(channel interop.WindowChannel, message interop.ClientMessage, err error) {
-		if err != nil {
-			appendLog(describeError("Opener message failed", err))
+	handleMessage := func(parseChannel3 interop.WindowChannel, parseMessage2 interop.ClientMessage, parseErr4 error) {
+		if parseErr4 != nil {
+			parseAppendLog(describeError("Opener message failed", parseErr4))
 			return
 		}
-		if message.Source.ID == self.Get().ID {
+		if parseMessage2.Source.ID == parseSelf.Get().ID {
 			return
 		}
 
-		switch message.Kind {
+		switch parseMessage2.Kind {
 		case interop.ClientHello:
-			openerID.Set(message.Source.ID)
-			connection.Set("Connected")
-			orphaned.Set(false)
-			appendLog(fmt.Sprintf("Received opener hello from %s.", message.Source.Surface))
+			parseOpenerID.Set(parseMessage2.Source.ID)
+			parseConnection.Set("Connected")
+			parseOrphaned.Set(false)
+			parseAppendLog(fmt.Sprintf("Received opener hello from %s.", parseMessage2.Source.Surface))
 		case interop.ClientQuery:
-			if message.Target != "" && message.Target != self.Get().ID {
+			if parseMessage2.Target != "" && parseMessage2.Target != parseSelf.Get().ID {
 				return
 			}
-			response := interop.ClientMessage{
+			parseResponse := interop.ClientMessage{
 				Kind:   interop.ClientResult,
-				Topic:  message.Topic,
-				Source: self.Get(),
-				Target: message.Source.ID,
+				Topic:  parseMessage2.Topic,
+				Source: parseSelf.Get(),
+				Target: parseMessage2.Source.ID,
 				Payload: map[string]string{
 					"status":   "popup-ready",
-					"orphaned": fmt.Sprintf("%t", orphaned.Get()),
-					"surface":  self.Get().Surface,
+					"orphaned": fmt.Sprintf("%t", parseOrphaned.Get()),
+					"surface":  parseSelf.Get().Surface,
 				},
 			}
-			if publishErr := interop.PublishClientWindowMessage(channel, response); publishErr != nil {
-				appendLog(describeError("Popup result publish failed", publishErr))
+			if parsePublishErr := interop.PublishClientWindowMessage(parseChannel3, parseResponse); parsePublishErr != nil {
+				parseAppendLog(describeError("Popup result publish failed", parsePublishErr))
 				return
 			}
-			appendLog("Answered opener query with a targeted popup result.")
+			parseAppendLog("Answered opener query with a targeted popup result.")
 		case interop.ClientResult:
-			if message.Target != self.Get().ID {
+			if parseMessage2.Target != parseSelf.Get().ID {
 				return
 			}
-			lastResult.Set(describePayload(message.Payload))
-			appendLog(fmt.Sprintf("Received targeted result on %s: %s", message.Topic, describePayload(message.Payload)))
+			parseLastResult.Set(describePayload(parseMessage2.Payload))
+			parseAppendLog(fmt.Sprintf("Received targeted result on %s: %s", parseMessage2.Topic, describePayload(parseMessage2.Payload)))
 		case interop.ClientGoodbye:
-			orphaned.Set(true)
-			connection.Set("Opener closed")
-			appendLog("Opener sent goodbye. This popup is now orphaned.")
+			parseOrphaned.Set(true)
+			parseConnection.Set("Opener closed")
+			parseAppendLog("Opener sent goodbye. This popup is now orphaned.")
 		}
 	}
 
 	ui.UseEffect(func() func() {
-		channel, err := interop.OpenWindowOpenerChannel(interop.WindowChannelOptions{Name: multiClientPopupChannelName})
-		if err != nil {
-			orphaned.Set(true)
-			connection.Set("Opened without an opener")
-			appendLog(describeError("No opener channel available", err))
+		parseChannel, parseErr := interop.OpenWindowOpenerChannel(interop.WindowChannelOptions{Name: multiClientPopupChannelName})
+		if parseErr != nil {
+			parseOrphaned.Set(true)
+			parseConnection.Set("Opened without an opener")
+			parseAppendLog(describeError("No opener channel available", parseErr))
 			return nil
 		}
 
-		channelRef.Set(channel)
-		orphaned.Set(channel.Closed())
-		connection.Set("Connected")
+		parseChannelRef.Set(parseChannel)
+		parseOrphaned.Set(parseChannel.Closed())
+		parseConnection.Set("Connected")
 
-		subscription, err := interop.SubscribeClientWindowMessages(channel, func(message interop.ClientMessage, receiveErr error) {
-			handleMessage(channel, message, receiveErr)
+		parseSubscription, parseErr := interop.SubscribeClientWindowMessages(parseChannel, func(parseMessage3 interop.ClientMessage, parseReceiveErr error) {
+			handleMessage(parseChannel, parseMessage3, parseReceiveErr)
 		})
-		if err != nil {
-			connection.Set("Subscription failed")
-			appendLog(describeError("Popup subscription failed", err))
+		if parseErr != nil {
+			parseConnection.Set("Subscription failed")
+			parseAppendLog(describeError("Popup subscription failed", parseErr))
 			return nil
 		}
-		cancelRef.Set(subscription.Cancel)
+		parseCancelRef.Set(parseSubscription.Cancel)
 
-		if err := interop.PublishClientHelloWindow(channel, self.Get()); err != nil {
-			appendLog(describeError("Popup hello failed", err))
+		if parseErr2 := interop.PublishClientHelloWindow(parseChannel, parseSelf.Get()); parseErr2 != nil {
+			parseAppendLog(describeError("Popup hello failed", parseErr2))
 		} else {
-			appendLog("Published popup hello to the opener channel.")
+			parseAppendLog("Published popup hello to the opener channel.")
 		}
 
-		timer, timerErr := interop.ScheduleInterval(500*time.Millisecond, func() {
-			current := channelRef.Get()
-			if current.Name() == "" {
+		parseTimer, parseTimerErr := interop.ScheduleInterval(500*time.Millisecond, func() {
+			parseCurrent := parseChannelRef.Get()
+			if parseCurrent.Name() == "" {
 				return
 			}
-			if !current.Closed() {
+			if !parseCurrent.Closed() {
 				return
 			}
-			orphaned.Set(true)
-			connection.Set("Opener disconnected")
+			parseOrphaned.Set(true)
+			parseConnection.Set("Opener disconnected")
 		})
 
 		return func() {
-			if cancel := cancelRef.Get(); cancel != nil {
-				cancel()
-				cancelRef.Set(nil)
+			if parseCancel := parseCancelRef.Get(); parseCancel != nil {
+				parseCancel()
+				parseCancelRef.Set(nil)
 			}
-			if timerErr == nil {
-				_ = timer.Cancel()
+			if parseTimerErr == nil {
+				_ = parseTimer.Cancel()
 			}
-			_ = interop.PublishClientGoodbyeWindow(channel, self.Get())
+			_ = interop.PublishClientGoodbyeWindow(parseChannel, parseSelf.Get())
 		}
 	}, true)
 
-	queryOpener := ui.UseEvent(func() {
-		channel := channelRef.Get()
-		if channel.Name() == "" || channel.Closed() {
-			orphaned.Set(true)
-			connection.Set("Opener unavailable")
-			appendLog("Opener is unavailable; the popup cannot send a targeted query.")
+	parseQueryOpener := ui.UseEvent(func() {
+		parseChannel2 := parseChannelRef.Get()
+		if parseChannel2.Name() == "" || parseChannel2.Closed() {
+			parseOrphaned.Set(true)
+			parseConnection.Set("Opener unavailable")
+			parseAppendLog("Opener is unavailable; the popup cannot send a targeted query.")
 			return
 		}
-		target := strings.TrimSpace(openerID.Get())
-		if target == "" {
-			appendLog("Waiting for opener hello before sending a targeted query.")
+		parseTarget := strings.TrimSpace(parseOpenerID.Get())
+		if parseTarget == "" {
+			parseAppendLog("Waiting for opener hello before sending a targeted query.")
 			return
 		}
 
-		message := interop.ClientMessage{
+		parseMessage := interop.ClientMessage{
 			Kind:   interop.ClientQuery,
 			Topic:  "opener-status",
-			Source: self.Get(),
-			Target: target,
+			Source: parseSelf.Get(),
+			Target: parseTarget,
 			Payload: map[string]string{
 				"request": "status",
 			},
 		}
-		if err := interop.PublishClientWindowMessage(channel, message); err != nil {
-			appendLog(describeError("Opener query failed", err))
+		if parseErr3 := interop.PublishClientWindowMessage(parseChannel2, parseMessage); parseErr3 != nil {
+			parseAppendLog(describeError("Opener query failed", parseErr3))
 			return
 		}
-		appendLog("Sent a targeted opener query from the popup.")
+		parseAppendLog("Sent a targeted opener query from the popup.")
 	})
 
-	logNodes := renderLogList(logs.Get())
-	orphanMessage := "The opener is still present and can answer targeted queries."
-	if orphaned.Get() {
-		orphanMessage = "The opener disappeared or this page was opened directly. Keep diagnostics visible, but do not assume the coordinator still exists."
+	parseLogNodes := renderLogList(parseLogs.Get())
+	parseOrphanMessage := "The opener is still present and can answer targeted queries."
+	if parseOrphaned.Get() {
+		parseOrphanMessage = "The opener disappeared or this page was opened directly. Keep diagnostics visible, but do not assume the coordinator still exists."
 	}
 
 	return shared.ExamplePage(
@@ -738,22 +738,22 @@ func multiClientPopupSurface() ui.Node {
 		"This popup exchanges hello, query, result, and goodbye messages with its opener without pretending the child surface shares the opener's lifecycle or authority.",
 		shared.ExamplePanel("Popup state",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-4"},
-				shared.ExampleStat("Client", self.Get().Surface),
-				shared.ExampleStat("Role", self.Get().Role),
-				shared.ExampleStat("Connection", connection.Get()),
-				shared.ExampleStat("Opener id", openerID.Get()),
+				shared.ExampleStat("Client", parseSelf.Get().Surface),
+				shared.ExampleStat("Role", parseSelf.Get().Role),
+				shared.ExampleStat("Connection", parseConnection.Get()),
+				shared.ExampleStat("Opener id", parseOpenerID.Get()),
 			),
-			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text(orphanMessage)),
+			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text(parseOrphanMessage)),
 			html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"},
-				shared.ExampleButton("Query opener", queryOpener),
+				shared.ExampleButton("Query opener", parseQueryOpener),
 			),
 		),
 		shared.ExamplePanel("Latest opener result",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Targeted result", lastResult.Get()),
-				shared.ExampleStat("Orphaned", fmt.Sprintf("%t", orphaned.Get())),
+				shared.ExampleStat("Targeted result", parseLastResult.Get()),
+				shared.ExampleStat("Orphaned", fmt.Sprintf("%t", parseOrphaned.Get())),
 			),
-			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, logNodes...),
+			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, parseLogNodes...),
 		),
 	)
 }

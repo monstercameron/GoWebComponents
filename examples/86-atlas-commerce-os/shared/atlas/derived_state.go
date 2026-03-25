@@ -20,112 +20,112 @@ type InventoryRollup struct {
 	SKUsWithInbound  int
 }
 
-func InventoryRollupFromRepositoryRows(rows []repository.InventoryRow) InventoryRollup {
-	rollup := InventoryRollup{VisibleLanes: len(rows)}
-	seenSKUs := map[string]bool{}
-	skusWithInbound := map[string]bool{}
-	for _, row := range rows {
-		rollup.TotalAvailable += row.Available
-		rollup.InboundUnits += row.Inbound
-		rollup.ReorderUnits += row.ReorderUnits
-		switch normalizedAtlasStatus(row.Status) {
+func InventoryRollupFromRepositoryRows(parseRows []repository.InventoryRow) InventoryRollup {
+	parseRollup := InventoryRollup{VisibleLanes: len(parseRows)}
+	parseSeenSKUs := map[string]bool{}
+	parseSkusWithInbound := map[string]bool{}
+	for _, parseRow := range parseRows {
+		parseRollup.TotalAvailable += parseRow.Available
+		parseRollup.InboundUnits += parseRow.Inbound
+		parseRollup.ReorderUnits += parseRow.ReorderUnits
+		switch normalizedAtlasStatus(parseRow.Status) {
 		case "critical":
-			rollup.CriticalLanes++
-			rollup.RiskLanes++
+			parseRollup.CriticalLanes++
+			parseRollup.RiskLanes++
 		case "promise_risk", "recovery":
-			rollup.PromiseRiskLanes++
-			rollup.RiskLanes++
+			parseRollup.PromiseRiskLanes++
+			parseRollup.RiskLanes++
 		}
-		if row.ReorderUnits > 0 {
-			rollup.ReorderLanes++
+		if parseRow.ReorderUnits > 0 {
+			parseRollup.ReorderLanes++
 		}
-		if !seenSKUs[row.SKU] {
-			seenSKUs[row.SKU] = true
-			rollup.SKUCount++
+		if !parseSeenSKUs[parseRow.SKU] {
+			parseSeenSKUs[parseRow.SKU] = true
+			parseRollup.SKUCount++
 		}
-		if row.Inbound > 0 && !skusWithInbound[row.SKU] {
-			skusWithInbound[row.SKU] = true
-			rollup.SKUsWithInbound++
+		if parseRow.Inbound > 0 && !parseSkusWithInbound[parseRow.SKU] {
+			parseSkusWithInbound[parseRow.SKU] = true
+			parseRollup.SKUsWithInbound++
 		}
 	}
-	return rollup
+	return parseRollup
 }
 
-func inventoryRollupFromRows(rows []inventoryRow) InventoryRollup {
-	rollup := InventoryRollup{VisibleLanes: len(rows)}
-	seenSKUs := map[string]bool{}
-	skusWithInbound := map[string]bool{}
-	for _, row := range rows {
-		rollup.TotalAvailable += row.Available
-		rollup.InboundUnits += row.Inbound
-		rollup.ReorderUnits += row.ReorderUnits
-		switch normalizedAtlasStatus(row.Status) {
+func inventoryRollupFromRows(parseRows []inventoryRow) InventoryRollup {
+	parseRollup := InventoryRollup{VisibleLanes: len(parseRows)}
+	parseSeenSKUs := map[string]bool{}
+	parseSkusWithInbound := map[string]bool{}
+	for _, parseRow := range parseRows {
+		parseRollup.TotalAvailable += parseRow.Available
+		parseRollup.InboundUnits += parseRow.Inbound
+		parseRollup.ReorderUnits += parseRow.ReorderUnits
+		switch normalizedAtlasStatus(parseRow.Status) {
 		case "critical":
-			rollup.CriticalLanes++
-			rollup.RiskLanes++
+			parseRollup.CriticalLanes++
+			parseRollup.RiskLanes++
 		case "promise_risk", "recovery":
-			rollup.PromiseRiskLanes++
-			rollup.RiskLanes++
+			parseRollup.PromiseRiskLanes++
+			parseRollup.RiskLanes++
 		}
-		if row.ReorderUnits > 0 {
-			rollup.ReorderLanes++
+		if parseRow.ReorderUnits > 0 {
+			parseRollup.ReorderLanes++
 		}
-		if !seenSKUs[row.SKU] {
-			seenSKUs[row.SKU] = true
-			rollup.SKUCount++
+		if !parseSeenSKUs[parseRow.SKU] {
+			parseSeenSKUs[parseRow.SKU] = true
+			parseRollup.SKUCount++
 		}
-		if row.Inbound > 0 && !skusWithInbound[row.SKU] {
-			skusWithInbound[row.SKU] = true
-			rollup.SKUsWithInbound++
+		if parseRow.Inbound > 0 && !parseSkusWithInbound[parseRow.SKU] {
+			parseSkusWithInbound[parseRow.SKU] = true
+			parseRollup.SKUsWithInbound++
 		}
 	}
-	return rollup
+	return parseRollup
 }
 
-func inventorySummaryCards(rows []inventoryRow) []inventorySummaryCard {
-	grouped := map[string]*inventorySummaryCard{}
-	for _, row := range rows {
-		entry, ok := grouped[row.SKU]
-		if !ok {
-			entry = &inventorySummaryCard{
-				SKU:         row.SKU,
-				Title:       row.Title,
-				Status:      row.Status,
-				PrimaryLane: fallback(row.WarehouseName, row.WarehouseID),
-				LastUpdated: row.UpdatedAt,
+func inventorySummaryCards(parseRows []inventoryRow) []inventorySummaryCard {
+	parseGrouped := map[string]*inventorySummaryCard{}
+	for _, parseRow := range parseRows {
+		parseEntry, parseOk := parseGrouped[parseRow.SKU]
+		if !parseOk {
+			parseEntry = &inventorySummaryCard{
+				SKU:         parseRow.SKU,
+				Title:       parseRow.Title,
+				Status:      parseRow.Status,
+				PrimaryLane: fallback(parseRow.WarehouseName, parseRow.WarehouseID),
+				LastUpdated: parseRow.UpdatedAt,
 			}
-			grouped[row.SKU] = entry
+			parseGrouped[parseRow.SKU] = parseEntry
 		}
-		entry.Available += row.Available
-		entry.Inbound += row.Inbound
-		entry.LaneCount++
-		if normalizedAtlasStatus(row.Status) != "balanced" {
-			entry.RiskLaneCount++
-			entry.Status = row.Status
+		parseEntry.Available += parseRow.Available
+		parseEntry.Inbound += parseRow.Inbound
+		parseEntry.LaneCount++
+		if normalizedAtlasStatus(parseRow.Status) != "balanced" {
+			parseEntry.RiskLaneCount++
+			parseEntry.Status = parseRow.Status
 		}
-		if row.UpdatedAt > entry.LastUpdated {
-			entry.LastUpdated = row.UpdatedAt
+		if parseRow.UpdatedAt > parseEntry.LastUpdated {
+			parseEntry.LastUpdated = parseRow.UpdatedAt
 		}
 	}
-	items := make([]inventorySummaryCard, 0, len(grouped))
-	for _, item := range grouped {
-		items = append(items, *item)
+	parseItems := make([]inventorySummaryCard, 0, len(parseGrouped))
+	for _, parseItem := range parseGrouped {
+		parseItems = append(parseItems, *parseItem)
 	}
-	sort.Slice(items, func(left, right int) bool {
-		if items[left].Title == items[right].Title {
-			return items[left].SKU < items[right].SKU
+	sort.Slice(parseItems, func(parseLeft, parseRight int) bool {
+		if parseItems[parseLeft].Title == parseItems[parseRight].Title {
+			return parseItems[parseLeft].SKU < parseItems[parseRight].SKU
 		}
-		return items[left].Title < items[right].Title
+		return parseItems[parseLeft].Title < parseItems[parseRight].Title
 	})
-	return items
+	return parseItems
 }
 
-func normalizedAtlasStatus(value string) string {
-	return strings.TrimSpace(strings.ToLower(value))
+func normalizedAtlasStatus(parseValue string) string {
+	return strings.TrimSpace(strings.ToLower(parseValue))
 }
 
-func catalogPromiseCopy(status string) string {
-	switch normalizedAtlasStatus(status) {
+func catalogPromiseCopy(parseStatus string) string {
+	switch normalizedAtlasStatus(parseStatus) {
 	case "in_stock", "healthy", "approved", "available":
 		return "Ready for active projects"
 	case "low_stock", "pending", "submitted", "in_review":
@@ -135,8 +135,8 @@ func catalogPromiseCopy(status string) string {
 	}
 }
 
-func catalogActionPlan(status string) (string, string) {
-	switch normalizedAtlasStatus(status) {
+func catalogActionPlan(parseStatus string) (string, string) {
+	switch normalizedAtlasStatus(parseStatus) {
 	case "in_stock", "healthy", "approved", "available":
 		return "View quote-ready product", "Ready for pricing and project review"
 	case "low_stock", "pending", "submitted", "in_review":
@@ -146,15 +146,15 @@ func catalogActionPlan(status string) (string, string) {
 	}
 }
 
-func catalogEditorialCopy(product productCard) string {
-	if strings.TrimSpace(product.SEODescription) != "" {
-		return product.SEODescription
+func catalogEditorialCopy(parseProduct productCard) string {
+	if strings.TrimSpace(parseProduct.SEODescription) != "" {
+		return parseProduct.SEODescription
 	}
 	return "Built to keep material quality, fulfillment posture, and commercial next steps readable in one route."
 }
 
-func productCategoryCue(category string) string {
-	switch strings.TrimSpace(strings.ToLower(category)) {
+func productCategoryCue(parseCategory string) string {
+	switch strings.TrimSpace(strings.ToLower(parseCategory)) {
 	case "desks":
 		return "Focused workstation layouts and planning conversations."
 	case "storage":
@@ -168,8 +168,8 @@ func productCategoryCue(category string) string {
 	}
 }
 
-func productSupportCue(status string) string {
-	switch normalizedAtlasStatus(status) {
+func productSupportCue(parseStatus string) string {
+	switch normalizedAtlasStatus(parseStatus) {
 	case "in_stock", "healthy", "approved", "available":
 		return "Stock posture supports immediate quoting and fulfillment follow-through."
 	case "low_stock", "pending", "submitted", "in_review":
@@ -179,8 +179,8 @@ func productSupportCue(status string) string {
 	}
 }
 
-func productBuyingMotion(status string) string {
-	switch normalizedAtlasStatus(status) {
+func productBuyingMotion(parseStatus string) string {
+	switch normalizedAtlasStatus(parseStatus) {
 	case "in_stock", "healthy", "approved", "available":
 		return "Lead with a project quote, then use warehouse context to confirm delivery confidence."
 	case "low_stock", "pending", "submitted", "in_review":
@@ -190,8 +190,8 @@ func productBuyingMotion(status string) string {
 	}
 }
 
-func productSupportPlan(status string) (string, string, []string) {
-	switch normalizedAtlasStatus(status) {
+func productSupportPlan(parseStatus string) (string, string, []string) {
+	switch normalizedAtlasStatus(parseStatus) {
 	case "in_stock", "healthy", "approved", "available":
 		return "Move from shortlist to quote.", "This SKU can support an active buying conversation now. Lead with pricing, timing, and regional delivery confidence.", []string{
 			"Use the quote form as the primary action for real project intent.",
@@ -213,8 +213,8 @@ func productSupportPlan(status string) (string, string, []string) {
 	}
 }
 
-func warehouseServiceTone(serviceLevel string) string {
-	switch strings.TrimSpace(strings.ToLower(serviceLevel)) {
+func warehouseServiceTone(parseServiceLevel string) string {
+	switch strings.TrimSpace(strings.ToLower(parseServiceLevel)) {
 	case "next-day", "priority", "priority coverage":
 		return "Fastest fit for tighter delivery windows and higher-priority installs."
 	case "two-day", "standard-plus":
@@ -224,8 +224,8 @@ func warehouseServiceTone(serviceLevel string) string {
 	}
 }
 
-func warehouseRegionCue(region string) string {
-	switch strings.TrimSpace(strings.ToLower(region)) {
+func warehouseRegionCue(parseRegion string) string {
+	switch strings.TrimSpace(strings.ToLower(parseRegion)) {
 	case "west", "west coast", "western":
 		return "Supports west-coast schedules and shorter transit expectations for nearby teams."
 	case "midwest", "central":
@@ -237,24 +237,24 @@ func warehouseRegionCue(region string) string {
 	}
 }
 
-func availabilityStoryCopy(available int, inbound int) string {
-	if available > 0 && inbound > 0 {
+func availabilityStoryCopy(parseAvailable int, parseInbound int) string {
+	if parseAvailable > 0 && parseInbound > 0 {
 		return "Current stock covers near-term demand while inbound units support the next replenishment wave."
 	}
-	if available > 0 {
+	if parseAvailable > 0 {
 		return "This hub can support immediate demand from on-hand inventory without relying on inbound receipts."
 	}
-	if inbound > 0 {
+	if parseInbound > 0 {
 		return "Stock is constrained now, but replenishment is already moving into the lane for recovery planning."
 	}
 	return "Inventory is currently constrained, so demand recovery and warehouse-specific follow-up are the right next steps."
 }
 
-func availabilitySupportPlan(available int, inbound int) (string, string) {
-	if available > 0 {
+func availabilitySupportPlan(parseAvailable int, parseInbound int) (string, string) {
+	if parseAvailable > 0 {
 		return "This region can support the project now.", "Use this route to confirm regional promise, then move directly into quote capture while the delivery context is still fresh."
 	}
-	if inbound > 0 {
+	if parseInbound > 0 {
 		return "Reserve the next inbound wave.", "This region is constrained today, but inbound units are already moving. Preserve buyer intent against this specific hub instead of sending them back to a generic form."
 	}
 	return "Stay attached to this region.", "Immediate fulfillment is not realistic here, so the right UX is a notification path plus a support channel for alternative planning."

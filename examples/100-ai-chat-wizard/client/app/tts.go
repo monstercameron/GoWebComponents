@@ -43,340 +43,340 @@ type ttsAudioController struct {
 	stopCurrent func()
 }
 
-func (c ttsAudioController) Status(key, model string) ttsClipStatus {
-	if c.clipStatus == nil {
+func (parseC ttsAudioController) ParseStatus(parseKey, parseModel string) ttsClipStatus {
+	if parseC.clipStatus == nil {
 		return ttsClipStatus{}
 	}
-	return c.clipStatus(key, model)
+	return parseC.clipStatus(parseKey, parseModel)
 }
 
-func (c ttsAudioController) Toggle(key, text, model string) {
-	if c.toggle != nil {
-		c.toggle(key, text, model)
+func (parseC ttsAudioController) ParseToggle(parseKey, parseText, parseModel string) {
+	if parseC.toggle != nil {
+		parseC.toggle(parseKey, parseText, parseModel)
 	}
 }
 
-func (c ttsAudioController) Stop(key string) {
-	if c.stop != nil {
-		c.stop(key)
+func (parseC ttsAudioController) ParseStop(parseKey string) {
+	if parseC.stop != nil {
+		parseC.stop(parseKey)
 	}
 }
 
-func (c ttsAudioController) StopCurrent() {
-	if c.stopCurrent != nil {
-		c.stopCurrent()
+func (parseC ttsAudioController) ParseStopCurrent() {
+	if parseC.stopCurrent != nil {
+		parseC.stopCurrent()
 	}
 }
 
-func useTTSAudio(activeConvID int64, catalog modelCatalog, chatClientRef ui.Ref[chatpb.ChatServiceClient], selectedTTSProvider string) ttsAudioController {
-	intl := i18n.UseI18n()
-	playbackState := ui.UseState(ttsPlaybackState{})
-	audioElementRef := ui.UseRef(interop.Value{})
-	audioSubscriptionRef := ui.UseRef([]interop.Subscription{})
-	clipCacheRef := ui.UseRef(map[string]ttsClip{})
-	requestIDRef := ui.UseRef(0)
-	requestCancelRef := ui.UseRef(context.CancelFunc(nil))
+func parseUseTTSAudio(parseActiveConvID int64, parseCatalog modelCatalog, parseChatClientRef ui.Ref[chatpb.ChatServiceClient], parseSelectedTTSProvider string) ttsAudioController {
+	parseIntl := i18n.UseI18n()
+	parsePlaybackState := ui.UseState(ttsPlaybackState{})
+	parseAudioElementRef := ui.UseRef(interop.Value{})
+	parseAudioSubscriptionRef := ui.UseRef([]interop.Subscription{})
+	parseClipCacheRef := ui.UseRef(map[string]ttsClip{})
+	parseRequestIDRef := ui.UseRef(0)
+	parseRequestCancelRef := ui.UseRef(context.CancelFunc(nil))
 
-	setPlaybackState := func(next ttsPlaybackState) {
-		playbackState.Set(next)
+	setPlaybackState := func(parseNext ttsPlaybackState) {
+		parsePlaybackState.Set(parseNext)
 	}
 
 	clearPendingRequest := func() {
-		cancel := requestCancelRef.Get()
-		if cancel == nil {
+		parseCancel := parseRequestCancelRef.Get()
+		if parseCancel == nil {
 			return
 		}
-		cancel()
-		requestCancelRef.Set(nil)
+		parseCancel()
+		parseRequestCancelRef.Set(nil)
 	}
 
-	createAudioElement := func() (interop.Value, bool) {
-		global, err := interop.GetGlobalThis()
-		if err != nil {
+	parseCreateAudioElement := func() (interop.Value, bool) {
+		parseGlobal, parseErr := interop.GetGlobalThis()
+		if parseErr != nil {
 			return interop.Value{}, false
 		}
 
-		audioFactory := global.Get("Audio")
-		if audioFactory.Present() {
-			if audioElement, invokeErr := audioFactory.Invoke(); invokeErr == nil && audioElement.Present() {
-				return audioElement, true
+		parseAudioFactory := parseGlobal.Get("Audio")
+		if parseAudioFactory.Present() {
+			if parseAudioElement, parseInvokeErr := parseAudioFactory.ParseInvoke(); parseInvokeErr == nil && parseAudioElement.Present() {
+				return parseAudioElement, true
 			}
 		}
 
-		document := global.Get("document")
-		if !document.Present() {
+		parseDocument := parseGlobal.Get("document")
+		if !parseDocument.Present() {
 			return interop.Value{}, false
 		}
-		audioElement, err := document.Call("createElement", "audio")
-		if err != nil || !audioElement.Present() {
+		parseAudioElement2, parseErr := parseDocument.Call("createElement", "audio")
+		if parseErr != nil || !parseAudioElement2.Present() {
 			return interop.Value{}, false
 		}
-		return audioElement, true
+		return parseAudioElement2, true
 	}
 
-	ensureAudioElement := func() (interop.Value, bool) {
-		audioElement := audioElementRef.Get()
-		if audioElement.Present() {
-			return audioElement, true
+	parseEnsureAudioElement := func() (interop.Value, bool) {
+		parseAudioElement3 := parseAudioElementRef.Get()
+		if parseAudioElement3.Present() {
+			return parseAudioElement3, true
 		}
 
-		audioElement, ok := createAudioElement()
-		if !ok {
+		parseAudioElement3, parseOk := parseCreateAudioElement()
+		if !parseOk {
 			return interop.Value{}, false
 		}
-		_ = audioElement.Set("preload", "auto")
-		_ = audioElement.Set("playsInline", true)
+		_ = parseAudioElement3.Set("preload", "auto")
+		_ = parseAudioElement3.Set("playsInline", true)
 
-		subscriptions := make([]interop.Subscription, 0, 4)
-		if sub, subErr := audioElement.SetFunction("onplay", func(args ...interop.Value) any {
-			current := playbackState.Get()
-			current.IsPlaying = true
-			current.Error = ""
-			setPlaybackState(current)
+		parseSubscriptions := make([]interop.Subscription, 0, 4)
+		if parseSub, parseSubErr := parseAudioElement3.SetFunction("onplay", func(parseArgs ...interop.Value) any {
+			parseCurrent := parsePlaybackState.Get()
+			parseCurrent.IsPlaying = true
+			parseCurrent.ParseError = ""
+			setPlaybackState(parseCurrent)
 			return nil
-		}); subErr == nil {
-			subscriptions = append(subscriptions, sub)
+		}); parseSubErr == nil {
+			parseSubscriptions = append(parseSubscriptions, parseSub)
 		}
-		if sub, subErr := audioElement.SetFunction("onpause", func(args ...interop.Value) any {
-			current := playbackState.Get()
-			current.IsPlaying = false
-			setPlaybackState(current)
+		if parseSub2, parseSubErr2 := parseAudioElement3.SetFunction("onpause", func(parseArgs2 ...interop.Value) any {
+			parseCurrent2 := parsePlaybackState.Get()
+			parseCurrent2.IsPlaying = false
+			setPlaybackState(parseCurrent2)
 			return nil
-		}); subErr == nil {
-			subscriptions = append(subscriptions, sub)
+		}); parseSubErr2 == nil {
+			parseSubscriptions = append(parseSubscriptions, parseSub2)
 		}
-		if sub, subErr := audioElement.SetFunction("onended", func(args ...interop.Value) any {
-			current := playbackState.Get()
-			current.IsPlaying = false
-			current.LoadingKey = ""
-			setPlaybackState(current)
+		if parseSub3, parseSubErr3 := parseAudioElement3.SetFunction("onended", func(parseArgs3 ...interop.Value) any {
+			parseCurrent3 := parsePlaybackState.Get()
+			parseCurrent3.IsPlaying = false
+			parseCurrent3.LoadingKey = ""
+			setPlaybackState(parseCurrent3)
 			return nil
-		}); subErr == nil {
-			subscriptions = append(subscriptions, sub)
+		}); parseSubErr3 == nil {
+			parseSubscriptions = append(parseSubscriptions, parseSub3)
 		}
-		if sub, subErr := audioElement.SetFunction("onerror", func(args ...interop.Value) any {
-			current := playbackState.Get()
-			current.IsPlaying = false
-			current.LoadingKey = ""
-			current.Error = intl.T(chatI18nNamespace, "tts.audioPlaybackFailed")
-			setPlaybackState(current)
+		if parseSub4, parseSubErr4 := parseAudioElement3.SetFunction("onerror", func(parseArgs4 ...interop.Value) any {
+			parseCurrent4 := parsePlaybackState.Get()
+			parseCurrent4.IsPlaying = false
+			parseCurrent4.LoadingKey = ""
+			parseCurrent4.ParseError = parseIntl.T(chatI18nNamespace, "tts.audioPlaybackFailed")
+			setPlaybackState(parseCurrent4)
 			return nil
-		}); subErr == nil {
-			subscriptions = append(subscriptions, sub)
+		}); parseSubErr4 == nil {
+			parseSubscriptions = append(parseSubscriptions, parseSub4)
 		}
 
-		audioSubscriptionRef.Set(subscriptions)
-		audioElementRef.Set(audioElement)
-		return audioElement, true
+		parseAudioSubscriptionRef.Set(parseSubscriptions)
+		parseAudioElementRef.Set(parseAudioElement3)
+		return parseAudioElement3, true
 	}
 
-	stopPlayback := func(clearActiveKey bool) {
-		requestIDRef.Set(requestIDRef.Get() + 1)
+	parseStopPlayback := func(isClearActiveKey bool) {
+		parseRequestIDRef.Set(parseRequestIDRef.Get() + 1)
 		clearPendingRequest()
-		if audioElement, ok := ensureAudioElement(); ok {
-			_, _ = audioElement.Call("pause")
-			_ = audioElement.Set("currentTime", 0)
+		if parseAudioElement4, parseOk2 := parseEnsureAudioElement(); parseOk2 {
+			_, _ = parseAudioElement4.Call("pause")
+			_ = parseAudioElement4.Set("currentTime", 0)
 		}
-		current := playbackState.Get()
-		current.IsPlaying = false
-		current.LoadingKey = ""
-		if clearActiveKey {
-			current.ActiveKey = ""
-			current.Error = ""
+		parseCurrent5 := parsePlaybackState.Get()
+		parseCurrent5.IsPlaying = false
+		parseCurrent5.LoadingKey = ""
+		if isClearActiveKey {
+			parseCurrent5.ActiveKey = ""
+			parseCurrent5.ParseError = ""
 		}
-		setPlaybackState(current)
+		setPlaybackState(parseCurrent5)
 	}
 
-	playClip := func(key string, clip ttsClip) {
-		audioElement, ok := ensureAudioElement()
-		if !ok {
-			setPlaybackState(ttsPlaybackState{ActiveKey: key, Error: intl.T(chatI18nNamespace, "tts.audioUnavailable")})
+	parsePlayClip := func(parseKey string, parseClip2 ttsClip) {
+		parseAudioElement5, parseOk3 := parseEnsureAudioElement()
+		if !parseOk3 {
+			setPlaybackState(ttsPlaybackState{ActiveKey: parseKey, Error: parseIntl.T(chatI18nNamespace, "tts.audioUnavailable")})
 			return
 		}
-		_ = audioElement.Set("src", clip.DataURL)
-		_ = audioElement.Set("currentTime", 0)
-		if _, err := audioElement.Call("play"); err != nil {
-			setPlaybackState(ttsPlaybackState{ActiveKey: key, Error: intl.T(chatI18nNamespace, "tts.audioCouldNotStart")})
+		_ = parseAudioElement5.Set("src", parseClip2.DataURL)
+		_ = parseAudioElement5.Set("currentTime", 0)
+		if _, parseErr2 := parseAudioElement5.Call("play"); parseErr2 != nil {
+			setPlaybackState(ttsPlaybackState{ActiveKey: parseKey, Error: parseIntl.T(chatI18nNamespace, "tts.audioCouldNotStart")})
 			return
 		}
-		setPlaybackState(ttsPlaybackState{ActiveKey: key, IsPlaying: true})
+		setPlaybackState(ttsPlaybackState{ActiveKey: parseKey, IsPlaying: true})
 	}
 
-	toggle := func(key, text, model string) {
-		trimmed := strings.TrimSpace(text)
-		if trimmed == "" {
-			setPlaybackState(ttsPlaybackState{ActiveKey: key, Error: intl.T(chatI18nNamespace, "tts.noText")})
+	parseToggle := func(parseKey2, parseText, parseModel string) {
+		parseTrimmed := strings.TrimSpace(parseText)
+		if parseTrimmed == "" {
+			setPlaybackState(ttsPlaybackState{ActiveKey: parseKey2, Error: parseIntl.T(chatI18nNamespace, "tts.noText")})
 			return
 		}
 
-		resolvedModel, supported := resolveSpeechSynthesisModelForProvider(model, catalog.Models, catalog.DefaultModel, selectedTTSProvider)
-		if !supported {
-			setPlaybackState(ttsPlaybackState{ActiveKey: key, Error: intl.T(chatI18nNamespace, "assistant.speechUnavailable")})
+		parseResolvedModel, parseSupported := parseResolveSpeechSynthesisModelForProvider(parseModel, parseCatalog.Models, parseCatalog.ParseDefaultModel, parseSelectedTTSProvider)
+		if !parseSupported {
+			setPlaybackState(ttsPlaybackState{ActiveKey: parseKey2, Error: parseIntl.T(chatI18nNamespace, "assistant.speechUnavailable")})
 			return
 		}
 
-		current := playbackState.Get()
-		if current.LoadingKey == key {
+		parseCurrent6 := parsePlaybackState.Get()
+		if parseCurrent6.LoadingKey == parseKey2 {
 			return
 		}
 
-		audioElement, ok := ensureAudioElement()
-		if !ok {
-			setPlaybackState(ttsPlaybackState{ActiveKey: key, Error: intl.T(chatI18nNamespace, "tts.audioUnavailable")})
+		parseAudioElement6, parseOk4 := parseEnsureAudioElement()
+		if !parseOk4 {
+			setPlaybackState(ttsPlaybackState{ActiveKey: parseKey2, Error: parseIntl.T(chatI18nNamespace, "tts.audioUnavailable")})
 			return
 		}
 
-		if current.ActiveKey == key && current.IsPlaying {
-			_, _ = audioElement.Call("pause")
-			current.IsPlaying = false
-			setPlaybackState(current)
+		if parseCurrent6.ActiveKey == parseKey2 && parseCurrent6.IsPlaying {
+			_, _ = parseAudioElement6.Call("pause")
+			parseCurrent6.IsPlaying = false
+			setPlaybackState(parseCurrent6)
 			return
 		}
 
-		if current.ActiveKey == key && !current.IsPlaying && current.LoadingKey == "" {
-			if _, err := audioElement.Call("play"); err != nil {
-				setPlaybackState(ttsPlaybackState{ActiveKey: key, Error: intl.T(chatI18nNamespace, "tts.audioCouldNotResume")})
+		if parseCurrent6.ActiveKey == parseKey2 && !parseCurrent6.IsPlaying && parseCurrent6.LoadingKey == "" {
+			if _, parseErr3 := parseAudioElement6.Call("play"); parseErr3 != nil {
+				setPlaybackState(ttsPlaybackState{ActiveKey: parseKey2, Error: parseIntl.T(chatI18nNamespace, "tts.audioCouldNotResume")})
 				return
 			}
-			current.IsPlaying = true
-			current.Error = ""
-			setPlaybackState(current)
+			parseCurrent6.IsPlaying = true
+			parseCurrent6.ParseError = ""
+			setPlaybackState(parseCurrent6)
 			return
 		}
 
-		stopPlayback(false)
-		if clip, ok := clipCacheRef.Get()[key]; ok {
-			playClip(key, clip)
+		parseStopPlayback(false)
+		if parseClip, parseOk5 := parseClipCacheRef.Get()[parseKey2]; parseOk5 {
+			parsePlayClip(parseKey2, parseClip)
 			return
 		}
 
-		client := chatClientRef.Get()
-		if client == nil {
-			setPlaybackState(ttsPlaybackState{ActiveKey: key, Error: intl.T(chatI18nNamespace, "tts.connectionNotReady")})
+		parseClient := parseChatClientRef.Get()
+		if parseClient == nil {
+			setPlaybackState(ttsPlaybackState{ActiveKey: parseKey2, Error: parseIntl.T(chatI18nNamespace, "tts.connectionNotReady")})
 			return
 		}
 
-		requestID := requestIDRef.Get() + 1
-		requestIDRef.Set(requestID)
-		setPlaybackState(ttsPlaybackState{ActiveKey: key, LoadingKey: key})
+		parseRequestID := parseRequestIDRef.Get() + 1
+		parseRequestIDRef.Set(parseRequestID)
+		setPlaybackState(ttsPlaybackState{ActiveKey: parseKey2, LoadingKey: parseKey2})
 
-		go func(currentRequestID int, responseKey string, responseText string, responseModel string) {
-			ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
-			requestCancelRef.Set(cancel)
+		go func(parseCurrentRequestID int, parseResponseKey string, parseResponseText string, parseResponseModel string) {
+			parseCtx, parseCancel2 := context.WithTimeout(context.Background(), 45*time.Second)
+			parseRequestCancelRef.Set(parseCancel2)
 			defer func() {
-				cancel()
-				if requestIDRef.Get() == currentRequestID {
-					requestCancelRef.Set(nil)
+				parseCancel2()
+				if parseRequestIDRef.Get() == parseCurrentRequestID {
+					parseRequestCancelRef.Set(nil)
 				}
 			}()
 
-			stream, err := client.SynthesizeSpeech(ctx, &chatpb.SynthesizeSpeechRequest{Text: responseText, Model: responseModel})
-			if currentRequestID != requestIDRef.Get() {
+			parseStream, parseErr4 := parseClient.ParseSynthesizeSpeech(parseCtx, &chatpb.SynthesizeSpeechRequest{Text: parseResponseText, Model: parseResponseModel})
+			if parseCurrentRequestID != parseRequestIDRef.Get() {
 				return
 			}
-			if err != nil {
-				setPlaybackState(ttsPlaybackState{ActiveKey: responseKey, Error: intl.T(chatI18nNamespace, "tts.speechSynthesisFailed")})
+			if parseErr4 != nil {
+				setPlaybackState(ttsPlaybackState{ActiveKey: parseResponseKey, Error: parseIntl.T(chatI18nNamespace, "tts.speechSynthesisFailed")})
 				return
 			}
 
-			resolvedMimeType := "audio/mpeg"
-			resolvedScript := ""
-			audioBytes := make([]byte, 0, 64*1024)
-			streamDone := false
+			parseResolvedMimeType := "audio/mpeg"
+			parseResolvedScript := ""
+			parseAudioBytes := make([]byte, 0, 64*1024)
+			isParseStreamDone := false
 			for {
-				chunk, recvErr := stream.Recv()
-				if recvErr == io.EOF {
+				parseChunk, parseRecvErr := parseStream.Recv()
+				if parseRecvErr == io.EOF {
 					break
 				}
-				if currentRequestID != requestIDRef.Get() {
+				if parseCurrentRequestID != parseRequestIDRef.Get() {
 					return
 				}
-				if recvErr != nil {
-					setPlaybackState(ttsPlaybackState{ActiveKey: responseKey, Error: intl.T(chatI18nNamespace, "tts.speechSynthesisFailed")})
+				if parseRecvErr != nil {
+					setPlaybackState(ttsPlaybackState{ActiveKey: parseResponseKey, Error: parseIntl.T(chatI18nNamespace, "tts.speechSynthesisFailed")})
 					return
 				}
-				if chunk.GetError() != "" {
-					setPlaybackState(ttsPlaybackState{ActiveKey: responseKey, Error: chunk.GetError()})
+				if parseChunk.GetError() != "" {
+					setPlaybackState(ttsPlaybackState{ActiveKey: parseResponseKey, Error: parseChunk.GetError()})
 					return
 				}
-				if mimeType := strings.TrimSpace(chunk.GetMimeType()); mimeType != "" {
-					resolvedMimeType = mimeType
+				if parseMimeType := strings.TrimSpace(parseChunk.GetMimeType()); parseMimeType != "" {
+					parseResolvedMimeType = parseMimeType
 				}
-				if resolvedScript == "" {
-					resolvedScript = chunk.GetScript()
+				if parseResolvedScript == "" {
+					parseResolvedScript = parseChunk.GetScript()
 				}
-				if audioChunk := chunk.GetAudioChunk(); len(audioChunk) > 0 {
-					audioBytes = append(audioBytes, audioChunk...)
+				if parseAudioChunk := parseChunk.GetAudioChunk(); len(parseAudioChunk) > 0 {
+					parseAudioBytes = append(parseAudioBytes, parseAudioChunk...)
 				}
-				if chunk.GetDone() {
-					streamDone = true
+				if parseChunk.GetDone() {
+					isParseStreamDone = true
 					break
 				}
 			}
-			if currentRequestID != requestIDRef.Get() {
+			if parseCurrentRequestID != parseRequestIDRef.Get() {
 				return
 			}
-			if !streamDone || len(audioBytes) == 0 {
-				setPlaybackState(ttsPlaybackState{ActiveKey: responseKey, Error: intl.T(chatI18nNamespace, "tts.speechSynthesisReturnedNoAudio")})
+			if !isParseStreamDone || len(parseAudioBytes) == 0 {
+				setPlaybackState(ttsPlaybackState{ActiveKey: parseResponseKey, Error: parseIntl.T(chatI18nNamespace, "tts.speechSynthesisReturnedNoAudio")})
 				return
 			}
 
-			clipCache := clipCacheRef.Get()
-			clipCache[responseKey] = ttsClip{
-				DataURL:  "data:" + resolvedMimeType + ";base64," + base64.StdEncoding.EncodeToString(audioBytes),
-				MimeType: resolvedMimeType,
-				Script:   resolvedScript,
+			parseClipCache := parseClipCacheRef.Get()
+			parseClipCache[parseResponseKey] = ttsClip{
+				DataURL:  "data:" + parseResolvedMimeType + ";base64," + base64.StdEncoding.EncodeToString(parseAudioBytes),
+				MimeType: parseResolvedMimeType,
+				Script:   parseResolvedScript,
 			}
-			clipCacheRef.Set(clipCache)
-			playClip(responseKey, clipCache[responseKey])
-		}(requestID, key, trimmed, resolvedModel)
+			parseClipCacheRef.Set(parseClipCache)
+			parsePlayClip(parseResponseKey, parseClipCache[parseResponseKey])
+		}(parseRequestID, parseKey2, parseTrimmed, parseResolvedModel)
 	}
 
-	stop := func(key string) {
-		current := playbackState.Get()
-		if key != "" && current.ActiveKey != key && current.LoadingKey != key {
+	parseStop := func(parseKey3 string) {
+		parseCurrent7 := parsePlaybackState.Get()
+		if parseKey3 != "" && parseCurrent7.ActiveKey != parseKey3 && parseCurrent7.LoadingKey != parseKey3 {
 			return
 		}
-		stopPlayback(true)
+		parseStopPlayback(true)
 	}
 
 	ui.UseEffect(func() func() {
-		_, _ = ensureAudioElement()
+		_, _ = parseEnsureAudioElement()
 		return nil
 	}, true)
 
 	ui.UseEffect(func() func() {
-		stopPlayback(true)
+		parseStopPlayback(true)
 		return nil
-	}, activeConvID)
+	}, parseActiveConvID)
 
 	ui.UseEffect(func() func() {
 		return func() {
-			stopPlayback(true)
-			for _, sub := range audioSubscriptionRef.Get() {
-				sub.Cancel()
+			parseStopPlayback(true)
+			for _, parseSub5 := range parseAudioSubscriptionRef.Get() {
+				parseSub5.Cancel()
 			}
-			audioSubscriptionRef.Set(nil)
+			parseAudioSubscriptionRef.Set(nil)
 		}
 	}, true)
 
 	return ttsAudioController{
-		clipStatus: func(key, model string) ttsClipStatus {
-			current := playbackState.Get()
-			_, supported := resolveSpeechSynthesisModelForProvider(model, catalog.Models, catalog.DefaultModel, selectedTTSProvider)
-			status := ttsClipStatus{
-				Supported: supported,
-				IsLoading: current.LoadingKey == key,
-				IsPlaying: current.ActiveKey == key && current.IsPlaying,
-				CanStop:   current.ActiveKey == key || current.LoadingKey == key,
+		clipStatus: func(parseKey4, parseModel2 string) ttsClipStatus {
+			parseCurrent8 := parsePlaybackState.Get()
+			_, parseSupported2 := parseResolveSpeechSynthesisModelForProvider(parseModel2, parseCatalog.Models, parseCatalog.ParseDefaultModel, parseSelectedTTSProvider)
+			parseStatus := ttsClipStatus{
+				Supported: parseSupported2,
+				IsLoading: parseCurrent8.LoadingKey == parseKey4,
+				IsPlaying: parseCurrent8.ActiveKey == parseKey4 && parseCurrent8.IsPlaying,
+				CanStop:   parseCurrent8.ActiveKey == parseKey4 || parseCurrent8.LoadingKey == parseKey4,
 			}
-			if current.ActiveKey == key || current.LoadingKey == key {
-				status.Error = current.Error
+			if parseCurrent8.ActiveKey == parseKey4 || parseCurrent8.LoadingKey == parseKey4 {
+				parseStatus.ParseError = parseCurrent8.ParseError
 			}
-			return status
+			return parseStatus
 		},
-		toggle:      toggle,
-		stop:        stop,
-		stopCurrent: func() { stopPlayback(true) },
+		toggle:      parseToggle,
+		stop:        parseStop,
+		stopCurrent: func() { parseStopPlayback(true) },
 	}
 }

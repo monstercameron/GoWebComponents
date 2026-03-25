@@ -13,7 +13,7 @@ func injectBlobCSS() {
 		return // Style already injected, skip to prevent duplicates
 	}
 
-	css := `
+	parseCss := `
 <style id="gwc-blob-css">
 @keyframes blob {
   0%   { transform: translate(0px,   0px)   scale(1); }
@@ -32,5 +32,5 @@ func injectBlobCSS() {
 }
 </style>`
 
-	js.Global().Get("document").Get("head").Call("insertAdjacentHTML", "beforeend", css)
+	js.Global().Get("document").Get("head").Call("insertAdjacentHTML", "beforeend", parseCss)
 }

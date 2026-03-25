@@ -18,71 +18,71 @@ var (
 )
 
 // Load reads one SQL file from the example's sql directory and caches the result.
-func Load(relativePath string) (string, error) {
-	normalizedPath := filepath.ToSlash(strings.TrimSpace(relativePath))
-	if normalizedPath == "" {
+func ParseLoad(parseRelativePath string) (string, error) {
+	parseNormalizedPath := filepath.ToSlash(strings.TrimSpace(parseRelativePath))
+	if parseNormalizedPath == "" {
 		return "", errors.New("sql path is empty")
 	}
-	if cachedValue, ok := cache.Load(normalizedPath); ok {
-		return cachedValue.(string), nil
+	if parseCachedValue, parseOk := cache.Load(parseNormalizedPath); parseOk {
+		return parseCachedValue.(string), nil
 	}
-	candidateRoots, err := exampleRoots()
-	if err != nil {
-		return "", err
+	parseCandidateRoots, parseErr := parseExampleRoots()
+	if parseErr != nil {
+		return "", parseErr
 	}
-	triedPaths := make([]string, 0, len(candidateRoots))
-	for _, root := range candidateRoots {
-		sqlPath := filepath.Join(root, "sql", filepath.FromSlash(normalizedPath))
-		triedPaths = append(triedPaths, sqlPath)
-		contents, readErr := os.ReadFile(sqlPath)
-		if readErr == nil {
-			sqlText := string(contents)
-			cache.Store(normalizedPath, sqlText)
-			return sqlText, nil
+	parseTriedPaths := make([]string, 0, len(parseCandidateRoots))
+	for _, parseRoot := range parseCandidateRoots {
+		parseSqlPath := filepath.Join(parseRoot, "sql", filepath.FromSlash(parseNormalizedPath))
+		parseTriedPaths = append(parseTriedPaths, parseSqlPath)
+		parseContents, parseReadErr := os.ReadFile(parseSqlPath)
+		if parseReadErr == nil {
+			parseSqlText := string(parseContents)
+			cache.Store(parseNormalizedPath, parseSqlText)
+			return parseSqlText, nil
 		}
-		if !errors.Is(readErr, os.ErrNotExist) {
-			return "", readErr
+		if !errors.Is(parseReadErr, os.ErrNotExist) {
+			return "", parseReadErr
 		}
 	}
-	return "", fmt.Errorf("sql file not found: %s (tried %s)", normalizedPath, strings.Join(triedPaths, ", "))
+	return "", fmt.Errorf("sql file not found: %s (tried %s)", parseNormalizedPath, strings.Join(parseTriedPaths, ", "))
 }
 
-func exampleRoots() ([]string, error) {
+func parseExampleRoots() ([]string, error) {
 	rootOnce.Do(func() {
-		seen := map[string]struct{}{}
-		addRoot := func(path string) {
-			if strings.TrimSpace(path) == "" {
+		parseSeen := map[string]struct{}{}
+		parseAddRoot := func(parsePath string) {
+			if strings.TrimSpace(parsePath) == "" {
 				return
 			}
-			cleanPath := filepath.Clean(path)
-			if _, exists := seen[cleanPath]; exists {
+			parseCleanPath := filepath.Clean(parsePath)
+			if _, parseExists := parseSeen[parseCleanPath]; parseExists {
 				return
 			}
-			seen[cleanPath] = struct{}{}
-			roots = append(roots, cleanPath)
+			parseSeen[parseCleanPath] = struct{}{}
+			roots = append(roots, parseCleanPath)
 		}
 
-		if configuredRoot := os.Getenv("CHAT_WIZARD_ROOT"); configuredRoot != "" {
-			addRoot(configuredRoot)
+		if parseConfiguredRoot := os.Getenv("CHAT_WIZARD_ROOT"); parseConfiguredRoot != "" {
+			parseAddRoot(parseConfiguredRoot)
 		}
-		if workingDir, err := os.Getwd(); err == nil {
-			addRoot(workingDir)
-			addRoot(filepath.Join(workingDir, "examples", "100-ai-chat-wizard"))
+		if parseWorkingDir, parseErr := os.Getwd(); parseErr == nil {
+			parseAddRoot(parseWorkingDir)
+			parseAddRoot(filepath.Join(parseWorkingDir, "examples", "100-ai-chat-wizard"))
 		}
-		if executablePath, err := os.Executable(); err == nil {
-			currentDir := filepath.Dir(executablePath)
-			for i := 0; i < 5; i++ {
-				addRoot(currentDir)
-				addRoot(filepath.Join(currentDir, "examples", "100-ai-chat-wizard"))
-				parentDir := filepath.Dir(currentDir)
-				if parentDir == currentDir {
+		if parseExecutablePath, parseErr2 := os.Executable(); parseErr2 == nil {
+			parseCurrentDir := filepath.Dir(parseExecutablePath)
+			for parseI := 0; parseI < 5; parseI++ {
+				parseAddRoot(parseCurrentDir)
+				parseAddRoot(filepath.Join(parseCurrentDir, "examples", "100-ai-chat-wizard"))
+				parseParentDir := filepath.Dir(parseCurrentDir)
+				if parseParentDir == parseCurrentDir {
 					break
 				}
-				currentDir = parentDir
+				parseCurrentDir = parseParentDir
 			}
 		}
-		if _, sourceFile, _, ok := runtime.Caller(0); ok {
-			addRoot(filepath.Join(filepath.Dir(sourceFile), "..", ".."))
+		if _, parseSourceFile, _, parseOk := runtime.Caller(0); parseOk {
+			parseAddRoot(filepath.Join(filepath.Dir(parseSourceFile), "..", ".."))
 		}
 		if len(roots) == 0 {
 			rootErr = errors.New("could not determine chat wizard sql root")

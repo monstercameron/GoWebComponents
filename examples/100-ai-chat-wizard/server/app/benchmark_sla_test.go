@@ -37,10 +37,10 @@ type coreSweepSummary struct {
 }
 
 type cumulativeSweepPoint struct {
-	coreCount        int
-	rawClientCount   int
+	coreCount         int
+	rawClientCount    int
 	cumulativeClients int
-	clippedByCap     bool
+	clippedByCap      bool
 }
 
 type linearRegressionResult struct {
@@ -48,373 +48,373 @@ type linearRegressionResult struct {
 	intercept float64
 }
 
-func TestSendSLASweep(t *testing.T) {
-	maxCores := min(sendSLAEnvInt("CHAT_WIZARD_BENCH_MAX_CORES", defaultSendSLAMaxCores), runtime.NumCPU())
-	if maxCores < 1 {
-		maxCores = 1
+func TestSendSLASweep(parseT *testing.T) {
+	parseMaxCores := min(parseSendSLAEnvInt("CHAT_WIZARD_BENCH_MAX_CORES", defaultSendSLAMaxCores), runtime.NumCPU())
+	if parseMaxCores < 1 {
+		parseMaxCores = 1
 	}
-	maxClients := sendSLAEnvInt("CHAT_WIZARD_BENCH_MAX_CLIENTS", defaultSendSLAMaxClients)
-	if maxClients < 1 {
-		maxClients = 1
+	parseMaxClients := parseSendSLAEnvInt("CHAT_WIZARD_BENCH_MAX_CLIENTS", defaultSendSLAMaxClients)
+	if parseMaxClients < 1 {
+		parseMaxClients = 1
 	}
-	burstRuns := sendSLAEnvInt("CHAT_WIZARD_BENCH_BURST_RUNS", defaultSendSLABurstRuns)
-	if burstRuns < 1 {
-		burstRuns = 1
+	parseBurstRuns := parseSendSLAEnvInt("CHAT_WIZARD_BENCH_BURST_RUNS", defaultSendSLABurstRuns)
+	if parseBurstRuns < 1 {
+		parseBurstRuns = 1
 	}
-	slaTarget := sendSLAEnvDuration("CHAT_WIZARD_BENCH_SLA_MS", defaultSendSLATargetLatency)
-	predictionCores := sendSLAEnvInt("CHAT_WIZARD_BENCH_PREDICT_CORES", 32)
-	if predictionCores < 1 {
-		predictionCores = 32
+	parseSlaTarget := parseSendSLAEnvDuration("CHAT_WIZARD_BENCH_SLA_MS", defaultSendSLATargetLatency)
+	parsePredictionCores := parseSendSLAEnvInt("CHAT_WIZARD_BENCH_PREDICT_CORES", 32)
+	if parsePredictionCores < 1 {
+		parsePredictionCores = 32
 	}
 
-	t.Logf("send SLA sweep config: cores=1..%d max_clients=%d burst_runs=%d sla=%s predict_cores=%d", maxCores, maxClients, burstRuns, slaTarget, predictionCores)
+	parseT.Logf("send SLA sweep config: cores=1..%d max_clients=%d burst_runs=%d sla=%s predict_cores=%d", parseMaxCores, parseMaxClients, parseBurstRuns, parseSlaTarget, parsePredictionCores)
 
-	summaries := make([]coreSweepSummary, 0, maxCores)
+	parseSummaries := make([]coreSweepSummary, 0, parseMaxCores)
 
-	for coreCount := 1; coreCount <= maxCores; coreCount++ {
-		coreCount := coreCount
-		t.Run(fmt.Sprintf("%d_core", coreCount), func(t *testing.T) {
-			previousMaxProcs := runtime.GOMAXPROCS(coreCount)
-			defer runtime.GOMAXPROCS(previousMaxProcs)
+	for parseCoreCount := 1; parseCoreCount <= parseMaxCores; parseCoreCount++ {
+		parseCoreCount2 := parseCoreCount
+		parseT.Run(fmt.Sprintf("%d_core", parseCoreCount2), func(parseT2 *testing.T) {
+			parsePreviousMaxProcs := runtime.GOMAXPROCS(parseCoreCount2)
+			defer runtime.GOMAXPROCS(parsePreviousMaxProcs)
 
-			bestClientCount := 0
-			clippedByCap := true
-			for clientCount := 1; clientCount <= maxClients; clientCount++ {
-				result := runSendSweepBurst(t, coreCount, clientCount, burstRuns)
-				t.Logf(
+			parseBestClientCount := 0
+			isParseClippedByCap := true
+			for parseClientCount := 1; parseClientCount <= parseMaxClients; parseClientCount++ {
+				parseResult := parseRunSendSweepBurst(parseT2, parseCoreCount2, parseClientCount, parseBurstRuns)
+				parseT2.Logf(
 					"cores=%d clients=%d avg=%s p95=%s max=%s requests=%d",
-					coreCount,
-					clientCount,
-					result.avg,
-					result.p95,
-					result.max,
-					len(result.latencies),
+					parseCoreCount2,
+					parseClientCount,
+					parseResult.avg,
+					parseResult.p95,
+					parseResult.max,
+					len(parseResult.latencies),
 				)
-				if result.p95 > slaTarget {
-					t.Logf("SLA breach at cores=%d clients=%d: p95=%s > %s", coreCount, clientCount, result.p95, slaTarget)
-					clippedByCap = false
+				if parseResult.p95 > parseSlaTarget {
+					parseT2.Logf("SLA breach at cores=%d clients=%d: p95=%s > %s", parseCoreCount2, parseClientCount, parseResult.p95, parseSlaTarget)
+					isParseClippedByCap = false
 					break
 				}
-				bestClientCount = clientCount
+				parseBestClientCount = parseClientCount
 			}
 
-			t.Logf("core summary: cores=%d max_clients_under_sla=%d sla=%s", coreCount, bestClientCount, slaTarget)
-			summaries = append(summaries, coreSweepSummary{
-				coreCount:       coreCount,
-				bestClientCount: bestClientCount,
-				clippedByCap:    clippedByCap && bestClientCount == maxClients,
+			parseT2.Logf("core summary: cores=%d max_clients_under_sla=%d sla=%s", parseCoreCount2, parseBestClientCount, parseSlaTarget)
+			parseSummaries = append(parseSummaries, coreSweepSummary{
+				coreCount:       parseCoreCount2,
+				bestClientCount: parseBestClientCount,
+				clippedByCap:    isParseClippedByCap && parseBestClientCount == parseMaxClients,
 			})
 		})
 	}
 
-	if len(summaries) == 0 {
+	if len(parseSummaries) == 0 {
 		return
 	}
 
-	baseline := summaries[0]
-	for _, summary := range summaries {
-		clientsPerCore := float64(summary.bestClientCount) / float64(summary.coreCount)
-		scalingFactor := 0.0
-		if baseline.bestClientCount > 0 {
-			scalingFactor = float64(summary.bestClientCount) / float64(baseline.bestClientCount)
+	parseBaseline := parseSummaries[0]
+	for _, parseSummary := range parseSummaries {
+		parseClientsPerCore := float64(parseSummary.bestClientCount) / float64(parseSummary.coreCount)
+		parseScalingFactor := 0.0
+		if parseBaseline.bestClientCount > 0 {
+			parseScalingFactor = float64(parseSummary.bestClientCount) / float64(parseBaseline.bestClientCount)
 		}
-		if summary.clippedByCap {
-			t.Logf(
+		if parseSummary.clippedByCap {
+			parseT.Logf(
 				"curve point: cores=%d total_clients=%d+ clients_per_core=%.2f scaling_vs_1_core=%.3f clipped_by_cap=true",
-				summary.coreCount,
-				summary.bestClientCount,
-				clientsPerCore,
-				scalingFactor,
+				parseSummary.coreCount,
+				parseSummary.bestClientCount,
+				parseClientsPerCore,
+				parseScalingFactor,
 			)
 			continue
 		}
-		t.Logf(
+		parseT.Logf(
 			"curve point: cores=%d total_clients=%d clients_per_core=%.2f scaling_vs_1_core=%.3f clipped_by_cap=false",
-			summary.coreCount,
-			summary.bestClientCount,
-			clientsPerCore,
-			scalingFactor,
+			parseSummary.coreCount,
+			parseSummary.bestClientCount,
+			parseClientsPerCore,
+			parseScalingFactor,
 		)
 	}
 
-	cumulativePoints := buildCumulativeSweepPoints(summaries)
-	for _, point := range cumulativePoints {
-		cumulativeClientsPerCore := float64(point.cumulativeClients) / float64(point.coreCount)
-		if point.clippedByCap {
-			t.Logf(
+	parseCumulativePoints := buildCumulativeSweepPoints(parseSummaries)
+	for _, parsePoint := range parseCumulativePoints {
+		parseCumulativeClientsPerCore := float64(parsePoint.cumulativeClients) / float64(parsePoint.coreCount)
+		if parsePoint.clippedByCap {
+			parseT.Logf(
 				"rollup point: cores=%d raw_total_clients=%d+ cumulative_total_clients=%d+ cumulative_clients_per_core=%.2f clipped_by_cap=true",
-				point.coreCount,
-				point.rawClientCount,
-				point.cumulativeClients,
-				cumulativeClientsPerCore,
+				parsePoint.coreCount,
+				parsePoint.rawClientCount,
+				parsePoint.cumulativeClients,
+				parseCumulativeClientsPerCore,
 			)
 			continue
 		}
-		t.Logf(
+		parseT.Logf(
 			"rollup point: cores=%d raw_total_clients=%d cumulative_total_clients=%d cumulative_clients_per_core=%.2f clipped_by_cap=false",
-			point.coreCount,
-			point.rawClientCount,
-			point.cumulativeClients,
-			cumulativeClientsPerCore,
+			parsePoint.coreCount,
+			parsePoint.rawClientCount,
+			parsePoint.cumulativeClients,
+			parseCumulativeClientsPerCore,
 		)
 	}
 
-	regressionPoints := make([]cumulativeSweepPoint, 0, len(cumulativePoints))
-	for _, point := range cumulativePoints {
-		if point.clippedByCap {
+	parseRegressionPoints := make([]cumulativeSweepPoint, 0, len(parseCumulativePoints))
+	for _, parsePoint2 := range parseCumulativePoints {
+		if parsePoint2.clippedByCap {
 			continue
 		}
-		regressionPoints = append(regressionPoints, point)
+		parseRegressionPoints = append(parseRegressionPoints, parsePoint2)
 	}
-	if len(regressionPoints) < 2 {
-		t.Logf("projection skipped: need at least 2 uncensored cumulative points, got %d", len(regressionPoints))
+	if len(parseRegressionPoints) < 2 {
+		parseT.Logf("projection skipped: need at least 2 uncensored cumulative points, got %d", len(parseRegressionPoints))
 		return
 	}
 
-	regression := fitCumulativeLinearRegression(regressionPoints)
-	predictedClients := regression.intercept + regression.slope*float64(predictionCores)
-	if predictedClients < 0 {
-		predictedClients = 0
+	parseRegression := parseFitCumulativeLinearRegression(parseRegressionPoints)
+	parsePredictedClients := parseRegression.intercept + parseRegression.slope*float64(parsePredictionCores)
+	if parsePredictedClients < 0 {
+		parsePredictedClients = 0
 	}
-	t.Logf(
+	parseT.Logf(
 		"projection: method=linear_regression_rollup cores=%d predicted_total_clients=%.2f slope=%.4f intercept=%.4f source_points=%d",
-		predictionCores,
-		predictedClients,
-		regression.slope,
-		regression.intercept,
-		len(regressionPoints),
+		parsePredictionCores,
+		parsePredictedClients,
+		parseRegression.slope,
+		parseRegression.intercept,
+		len(parseRegressionPoints),
 	)
 }
 
-func buildCumulativeSweepPoints(points []coreSweepSummary) []cumulativeSweepPoint {
-	cumulative := make([]cumulativeSweepPoint, 0, len(points))
-	runningTotal := 0
-	for _, point := range points {
-		runningTotal += point.bestClientCount
-		cumulative = append(cumulative, cumulativeSweepPoint{
-			coreCount:         point.coreCount,
-			rawClientCount:    point.bestClientCount,
-			cumulativeClients: runningTotal,
-			clippedByCap:      point.clippedByCap,
+func buildCumulativeSweepPoints(parsePoints []coreSweepSummary) []cumulativeSweepPoint {
+	parseCumulative := make([]cumulativeSweepPoint, 0, len(parsePoints))
+	parseRunningTotal := 0
+	for _, parsePoint := range parsePoints {
+		parseRunningTotal += parsePoint.bestClientCount
+		parseCumulative = append(parseCumulative, cumulativeSweepPoint{
+			coreCount:         parsePoint.coreCount,
+			rawClientCount:    parsePoint.bestClientCount,
+			cumulativeClients: parseRunningTotal,
+			clippedByCap:      parsePoint.clippedByCap,
 		})
 	}
-	return cumulative
+	return parseCumulative
 }
 
-func fitCumulativeLinearRegression(points []cumulativeSweepPoint) linearRegressionResult {
-	if len(points) == 0 {
+func parseFitCumulativeLinearRegression(parsePoints []cumulativeSweepPoint) linearRegressionResult {
+	if len(parsePoints) == 0 {
 		return linearRegressionResult{}
 	}
-	if len(points) == 1 {
+	if len(parsePoints) == 1 {
 		return linearRegressionResult{
 			slope:     0,
-			intercept: float64(points[0].cumulativeClients),
+			intercept: float64(parsePoints[0].cumulativeClients),
 		}
 	}
 
-	var sumX float64
-	var sumY float64
-	var sumXY float64
-	var sumX2 float64
-	for _, point := range points {
-		x := float64(point.coreCount)
-		y := float64(point.cumulativeClients)
-		sumX += x
-		sumY += y
-		sumXY += x * y
-		sumX2 += x * x
+	var parseSumX float64
+	var parseSumY float64
+	var parseSumXY float64
+	var parseSumX2 float64
+	for _, parsePoint := range parsePoints {
+		parseX := float64(parsePoint.coreCount)
+		parseY := float64(parsePoint.cumulativeClients)
+		parseSumX += parseX
+		parseSumY += parseY
+		parseSumXY += parseX * parseY
+		parseSumX2 += parseX * parseX
 	}
-	n := float64(len(points))
-	denominator := n*sumX2 - sumX*sumX
-	if denominator == 0 {
+	parseN := float64(len(parsePoints))
+	parseDenominator := parseN*parseSumX2 - parseSumX*parseSumX
+	if parseDenominator == 0 {
 		return linearRegressionResult{
 			slope:     0,
-			intercept: sumY / n,
+			intercept: parseSumY / parseN,
 		}
 	}
-	slope := (n*sumXY - sumX*sumY) / denominator
-	intercept := (sumY - slope*sumX) / n
+	parseSlope := (parseN*parseSumXY - parseSumX*parseSumY) / parseDenominator
+	parseIntercept := (parseSumY - parseSlope*parseSumX) / parseN
 	return linearRegressionResult{
-		slope:     slope,
-		intercept: intercept,
+		slope:     parseSlope,
+		intercept: parseIntercept,
 	}
 }
 
-func fitLinearRegression(points []coreSweepSummary) linearRegressionResult {
-	if len(points) == 0 {
+func parseFitLinearRegression(parsePoints []coreSweepSummary) linearRegressionResult {
+	if len(parsePoints) == 0 {
 		return linearRegressionResult{}
 	}
-	if len(points) == 1 {
+	if len(parsePoints) == 1 {
 		return linearRegressionResult{
 			slope:     0,
-			intercept: float64(points[0].bestClientCount),
+			intercept: float64(parsePoints[0].bestClientCount),
 		}
 	}
 
-	var sumX float64
-	var sumY float64
-	var sumXY float64
-	var sumX2 float64
-	for _, point := range points {
-		x := float64(point.coreCount)
-		y := float64(point.bestClientCount)
-		sumX += x
-		sumY += y
-		sumXY += x * y
-		sumX2 += x * x
+	var parseSumX float64
+	var parseSumY float64
+	var parseSumXY float64
+	var parseSumX2 float64
+	for _, parsePoint := range parsePoints {
+		parseX := float64(parsePoint.coreCount)
+		parseY := float64(parsePoint.bestClientCount)
+		parseSumX += parseX
+		parseSumY += parseY
+		parseSumXY += parseX * parseY
+		parseSumX2 += parseX * parseX
 	}
-	n := float64(len(points))
-	denominator := n*sumX2 - sumX*sumX
-	if denominator == 0 {
+	parseN := float64(len(parsePoints))
+	parseDenominator := parseN*parseSumX2 - parseSumX*parseSumX
+	if parseDenominator == 0 {
 		return linearRegressionResult{
 			slope:     0,
-			intercept: sumY / n,
+			intercept: parseSumY / parseN,
 		}
 	}
-	slope := (n*sumXY - sumX*sumY) / denominator
-	intercept := (sumY - slope*sumX) / n
+	parseSlope := (parseN*parseSumXY - parseSumX*parseSumY) / parseDenominator
+	parseIntercept := (parseSumY - parseSlope*parseSumX) / parseN
 	return linearRegressionResult{
-		slope:     slope,
-		intercept: intercept,
+		slope:     parseSlope,
+		intercept: parseIntercept,
 	}
 }
 
-func runSendSweepBurst(t *testing.T, coreCount, clientCount, burstRuns int) sendSweepResult {
-	t.Helper()
+func parseRunSendSweepBurst(parseT *testing.T, parseCoreCount, parseClientCount, parseBurstRuns int) sendSweepResult {
+	parseT.Helper()
 
-	store, err := openChatStore(filepath.Join(t.TempDir(), fmt.Sprintf("send-sla-%d-%d.db", coreCount, clientCount)))
-	if err != nil {
-		t.Fatalf("openChatStore: %v", err)
+	store, parseErr := parseOpenChatStore(filepath.Join(parseT.TempDir(), fmt.Sprintf("send-sla-%d-%d.db", parseCoreCount, parseClientCount)))
+	if parseErr != nil {
+		parseT.Fatalf("openChatStore: %v", parseErr)
 	}
-	t.Cleanup(store.close)
+	parseT.Cleanup(store.parseClose)
 
-	userID, err := store.createUser(fmt.Sprintf("send-sla-%d-%d@example.com", coreCount, clientCount), "hash", "Benchmark User")
-	if err != nil {
-		t.Fatalf("createUser: %v", err)
+	parseUserID, parseErr := store.parseCreateUser(fmt.Sprintf("send-sla-%d-%d@example.com", parseCoreCount, parseClientCount), "hash", "Benchmark User")
+	if parseErr != nil {
+		parseT.Fatalf("createUser: %v", parseErr)
 	}
-	user := authUser{ID: userID, Email: normalizeAuthEmail(fmt.Sprintf("send-sla-%d-%d@example.com", coreCount, clientCount))}
+	parseUser := authUser{ID: parseUserID, Email: parseNormalizeAuthEmail(fmt.Sprintf("send-sla-%d-%d@example.com", parseCoreCount, parseClientCount))}
 
-	server := &chatServer{
-		providerRegistry:      provider.NewRegistry(benchmarkProvider{model: modelGPT54Mini}),
+	parseServer := &chatServer{
+		providerRegistry:      provider.ParseNewRegistry(benchmarkProvider{model: modelGPT54Mini}),
 		defaultModel:          modelGPT54Mini,
 		store:                 store,
-		logger:                newBenchmarkLogger(),
+		logger:                parseNewBenchmarkLogger(),
 		sessions:              map[string]*sessionState{},
 		authUsers:             map[string]authUser{},
 		memoryExtractionSlots: make(chan struct{}, 2),
 	}
 
-	latencies := make([]time.Duration, 0, clientCount*burstRuns)
-	for runIndex := 0; runIndex < burstRuns; runIndex++ {
-		runLatencies := make([]time.Duration, clientCount)
-		errCh := make(chan error, clientCount)
-		var waitGroup sync.WaitGroup
-		waitGroup.Add(clientCount)
+	parseLatencies := make([]time.Duration, 0, parseClientCount*parseBurstRuns)
+	for parseRunIndex := 0; parseRunIndex < parseBurstRuns; parseRunIndex++ {
+		parseRunLatencies := make([]time.Duration, parseClientCount)
+		parseErrCh := make(chan error, parseClientCount)
+		var parseWaitGroup sync.WaitGroup
+		parseWaitGroup.Add(parseClientCount)
 
-		for clientIndex := 0; clientIndex < clientCount; clientIndex++ {
-			clientIndex := clientIndex
+		for parseClientIndex := 0; parseClientIndex < parseClientCount; parseClientIndex++ {
+			parseClientIndex2 := parseClientIndex
 			go func() {
-				defer waitGroup.Done()
+				defer parseWaitGroup.Done()
 
-				peerName := fmt.Sprintf("bench-sla-peer-%d-%d-%d", coreCount, runIndex, clientIndex)
-				ctx := bindAuthUser(server, peerName, user.ID, user.Email)
-				defer server.unbindAuthenticatedPeer(peerName)
+				parsePeerName := fmt.Sprintf("bench-sla-peer-%d-%d-%d", parseCoreCount, parseRunIndex, parseClientIndex2)
+				parseCtx := parseBindAuthUser(parseServer, parsePeerName, parseUser.ParseID, parseUser.Email)
+				defer parseServer.parseUnbindAuthenticatedPeer(parsePeerName)
 
-				conversationID, createErr := store.createConversation(user.ID)
-				if createErr != nil {
-					errCh <- fmt.Errorf("createConversation: %w", createErr)
+				parseConversationID, parseCreateErr := store.parseCreateConversation(parseUser.ParseID)
+				if parseCreateErr != nil {
+					parseErrCh <- fmt.Errorf("createConversation: %w", parseCreateErr)
 					return
 				}
-				history := []*chatpb.ChatMessage{
+				parseHistory := []*chatpb.ChatMessage{
 					{Role: "user", Content: "Seed request"},
 					{Role: "assistant", Content: "Seed response", ModelId: modelGPT54Mini, PromptTokens: 16, CompletionTokens: 8},
 				}
-				for _, message := range history {
-					if saveErr := store.saveConversationMessage(user.ID, conversationID, message.GetRole(), message.GetContent(), message.GetModelId(), message.GetPromptTokens(), message.GetCompletionTokens()); saveErr != nil {
-						errCh <- fmt.Errorf("saveConversationMessage seed: %w", saveErr)
+				for _, parseMessage := range parseHistory {
+					if parseSaveErr := store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, parseMessage.GetRole(), parseMessage.GetContent(), parseMessage.GetModelId(), parseMessage.GetPromptTokens(), parseMessage.GetCompletionTokens()); parseSaveErr != nil {
+						parseErrCh <- fmt.Errorf("saveConversationMessage seed: %w", parseSaveErr)
 						return
 					}
 				}
 
-				stream := &fakeChatSendStream{ctx: ctx}
-				req := &chatpb.SendRequest{
-					ConversationId:  conversationID,
+				parseStream := &fakeChatSendStream{ctx: parseCtx}
+				parseReq := &chatpb.SendRequest{
+					ConversationId:  parseConversationID,
 					Model:           modelGPT54Mini,
 					Message:         "Profile the bridge under benchmark load.",
-					History:         history,
+					History:         parseHistory,
 					Tone:            defaultToneID,
 					ThinkingEnabled: true,
 					ThinkingEffort:  defaultThinkingEffort,
 				}
 
-				startedAt := time.Now()
-				if sendErr := server.Send(req, stream); sendErr != nil {
-					errCh <- fmt.Errorf("Send: %w", sendErr)
+				parseStartedAt := time.Now()
+				if parseSendErr := parseServer.ParseSend(parseReq, parseStream); parseSendErr != nil {
+					parseErrCh <- fmt.Errorf("Send: %w", parseSendErr)
 					return
 				}
-				runLatencies[clientIndex] = time.Since(startedAt)
+				parseRunLatencies[parseClientIndex2] = time.Since(parseStartedAt)
 			}()
 		}
 
-		waitGroup.Wait()
-		close(errCh)
-		for err := range errCh {
-			if err != nil {
-				t.Fatal(err)
+		parseWaitGroup.Wait()
+		close(parseErrCh)
+		for parseErr2 := range parseErrCh {
+			if parseErr2 != nil {
+				parseT.Fatal(parseErr2)
 			}
 		}
-		latencies = append(latencies, runLatencies...)
+		parseLatencies = append(parseLatencies, parseRunLatencies...)
 	}
 
-	slices.Sort(latencies)
-	var total time.Duration
-	var maxLatency time.Duration
-	for _, latency := range latencies {
-		total += latency
-		if latency > maxLatency {
-			maxLatency = latency
+	slices.Sort(parseLatencies)
+	var parseTotal time.Duration
+	var parseMaxLatency time.Duration
+	for _, parseLatency := range parseLatencies {
+		parseTotal += parseLatency
+		if parseLatency > parseMaxLatency {
+			parseMaxLatency = parseLatency
 		}
 	}
-	avgLatency := time.Duration(0)
-	if len(latencies) > 0 {
-		avgLatency = total / time.Duration(len(latencies))
+	parseAvgLatency := time.Duration(0)
+	if len(parseLatencies) > 0 {
+		parseAvgLatency = parseTotal / time.Duration(len(parseLatencies))
 	}
-	p95Latency := time.Duration(0)
-	if len(latencies) > 0 {
-		p95Index := int(math.Ceil(float64(len(latencies))*0.95)) - 1
-		if p95Index < 0 {
-			p95Index = 0
+	parseP95Latency := time.Duration(0)
+	if len(parseLatencies) > 0 {
+		parseP95Index := int(math.Ceil(float64(len(parseLatencies))*0.95)) - 1
+		if parseP95Index < 0 {
+			parseP95Index = 0
 		}
-		if p95Index >= len(latencies) {
-			p95Index = len(latencies) - 1
+		if parseP95Index >= len(parseLatencies) {
+			parseP95Index = len(parseLatencies) - 1
 		}
-		p95Latency = latencies[p95Index]
+		parseP95Latency = parseLatencies[parseP95Index]
 	}
 
 	return sendSweepResult{
-		latencies: latencies,
-		avg:       avgLatency,
-		p95:       p95Latency,
-		max:       maxLatency,
+		latencies: parseLatencies,
+		avg:       parseAvgLatency,
+		p95:       parseP95Latency,
+		max:       parseMaxLatency,
 	}
 }
 
-func sendSLAEnvInt(name string, fallback int) int {
-	rawValue := os.Getenv(name)
-	if rawValue == "" {
-		return fallback
+func parseSendSLAEnvInt(parseName string, parseFallback int) int {
+	parseRawValue := os.Getenv(parseName)
+	if parseRawValue == "" {
+		return parseFallback
 	}
-	parsedValue, err := strconv.Atoi(rawValue)
-	if err != nil {
-		return fallback
+	parseParsedValue, parseErr := strconv.Atoi(parseRawValue)
+	if parseErr != nil {
+		return parseFallback
 	}
-	return parsedValue
+	return parseParsedValue
 }
 
-func sendSLAEnvDuration(name string, fallback time.Duration) time.Duration {
-	parsedMilliseconds := sendSLAEnvInt(name, int(fallback/time.Millisecond))
-	if parsedMilliseconds <= 0 {
-		return fallback
+func parseSendSLAEnvDuration(parseName string, parseFallback time.Duration) time.Duration {
+	parseParsedMilliseconds := parseSendSLAEnvInt(parseName, int(parseFallback/time.Millisecond))
+	if parseParsedMilliseconds <= 0 {
+		return parseFallback
 	}
-	return time.Duration(parsedMilliseconds) * time.Millisecond
+	return time.Duration(parseParsedMilliseconds) * time.Millisecond
 }

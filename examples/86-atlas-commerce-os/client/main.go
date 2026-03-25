@@ -45,924 +45,924 @@ var atlasCacheOptions = fetch.CacheOptions{
 	DisposeAfter: 90 * time.Minute,
 }
 
-func debugLog(event string, details map[string]any) {
-	console := js.Global().Get("console")
-	if !console.Truthy() || !console.Get("log").Truthy() {
+func debugLog(parseEvent string, parseDetails map[string]any) {
+	parseConsole := js.Global().Get("console")
+	if !parseConsole.Truthy() || !parseConsole.Get("log").Truthy() {
 		return
 	}
-	if details == nil {
-		details = map[string]any{}
+	if parseDetails == nil {
+		parseDetails = map[string]any{}
 	}
-	details["event"] = event
-	console.Call("log", "[atlas-wasm]", details)
-	window := js.Global().Get("window")
-	if window.Truthy() {
-		window.Set("__atlasDebugLast", js.ValueOf(details))
+	parseDetails["event"] = parseEvent
+	parseConsole.Call("log", "[atlas-wasm]", parseDetails)
+	parseWindow := js.Global().Get("window")
+	if parseWindow.Truthy() {
+		parseWindow.Set("__atlasDebugLast", js.ValueOf(parseDetails))
 	}
 }
 
 func loadBootstrap() ui.SSRBootstrap {
-	bootstrap, err := ui.ReadBootstrapScript(atlasBootstrapScriptID)
-	if err == nil {
+	parseBootstrap, parseErr := ui.ReadBootstrapScript(atlasBootstrapScriptID)
+	if parseErr == nil {
 		debugLog("bootstrap.read.ok", map[string]any{
-			"path":      bootstrap.Route.Path,
-			"queryKeys": len(bootstrap.Route.Query),
-			"paramKeys": len(bootstrap.Route.Params),
+			"path":      parseBootstrap.Route.Path,
+			"queryKeys": len(parseBootstrap.Route.Query),
+			"paramKeys": len(parseBootstrap.Route.Params),
 			"mode":      "inline",
 		})
-		return bootstrap
+		return parseBootstrap
 	}
-	ref, refErr := ui.ReadBootstrapReferenceScript(atlasBootstrapReferenceScriptID)
-	if refErr != nil {
-		debugLog("bootstrap.read.failed", map[string]any{"error": err.Error(), "referenceError": refErr.Error()})
+	parseRef, parseRefErr := ui.ReadBootstrapReferenceScript(atlasBootstrapReferenceScriptID)
+	if parseRefErr != nil {
+		debugLog("bootstrap.read.failed", map[string]any{"error": parseErr.Error(), "referenceError": parseRefErr.Error()})
 		return ui.SSRBootstrap{}
 	}
-	bootstrap, refErr = ui.ReadBootstrapReference(ref)
-	if refErr != nil {
-		debugLog("bootstrap.reference.failed", map[string]any{"url": ref.URL, "error": refErr.Error()})
+	parseBootstrap, parseRefErr = ui.ReadBootstrapReference(parseRef)
+	if parseRefErr != nil {
+		debugLog("bootstrap.reference.failed", map[string]any{"url": parseRef.URL, "error": parseRefErr.Error()})
 		return ui.SSRBootstrap{}
 	}
 	debugLog("bootstrap.read.ok", map[string]any{
-		"path":      bootstrap.Route.Path,
-		"queryKeys": len(bootstrap.Route.Query),
-		"paramKeys": len(bootstrap.Route.Params),
+		"path":      parseBootstrap.Route.Path,
+		"queryKeys": len(parseBootstrap.Route.Query),
+		"paramKeys": len(parseBootstrap.Route.Params),
 		"mode":      "external",
-		"url":       ref.URL,
+		"url":       parseRef.URL,
 	})
-	return bootstrap
+	return parseBootstrap
 }
 
-func cloneQueryValues(values url.Values) map[string][]string {
-	cloned := make(map[string][]string, len(values))
-	for key, item := range values {
-		cloned[key] = append([]string(nil), item...)
+func cloneQueryValues(parseValues url.Values) map[string][]string {
+	parseCloned := make(map[string][]string, len(parseValues))
+	for parseKey, parseItem := range parseValues {
+		parseCloned[parseKey] = append([]string(nil), parseItem...)
 	}
-	return cloned
+	return parseCloned
 }
 
-func cloneDataMap(input map[string]any) map[string]any {
-	cloned := make(map[string]any, len(input))
-	for key, value := range input {
-		cloned[key] = value
+func cloneDataMap(parseInput map[string]any) map[string]any {
+	parseCloned := make(map[string]any, len(parseInput))
+	for parseKey, parseValue := range parseInput {
+		parseCloned[parseKey] = parseValue
 	}
-	return cloned
+	return parseCloned
 }
 
-func cloneRequests(input map[string]atlas.Request) map[string]atlas.Request {
-	cloned := make(map[string]atlas.Request, len(input))
-	for key, request := range input {
-		cloned[key] = atlas.Request{
-			Method: request.Method,
-			URL:    request.URL,
-			Status: request.Status,
-			Data:   cloneDataMap(request.Data),
+func cloneRequests(parseInput map[string]atlas.Request) map[string]atlas.Request {
+	parseCloned := make(map[string]atlas.Request, len(parseInput))
+	for parseKey, parseRequest := range parseInput {
+		parseCloned[parseKey] = atlas.Request{
+			Method: parseRequest.Method,
+			URL:    parseRequest.URL,
+			Status: parseRequest.Status,
+			Data:   cloneDataMap(parseRequest.Data),
 		}
 	}
-	return cloned
+	return parseCloned
 }
 
-func queryValuesFromMap(input map[string][]string) url.Values {
-	values := url.Values{}
-	for key, items := range input {
-		for _, item := range items {
-			values.Add(key, item)
+func queryValuesFromMap(parseInput map[string][]string) url.Values {
+	parseValues := url.Values{}
+	for parseKey, parseItems := range parseInput {
+		for _, parseItem := range parseItems {
+			parseValues.Add(parseKey, parseItem)
 		}
 	}
-	return values
+	return parseValues
 }
 
-func decodeJSONBody(response *http.Response, target any) error {
-	defer response.Body.Close()
-	return json.NewDecoder(response.Body).Decode(target)
+func decodeJSONBody(parseResponse *http.Response, parseTarget any) error {
+	defer parseResponse.Body.Close()
+	return json.NewDecoder(parseResponse.Body).Decode(parseTarget)
 }
 
-func routeDataQuery(query url.Values) url.Values {
-	filtered := url.Values{}
-	for key, items := range query {
-		trimmedKey := strings.TrimSpace(key)
-		if strings.EqualFold(trimmedKey, atlasNoticeQueryKey) || strings.EqualFold(trimmedKey, atlasBootstrapModeQueryKey) {
+func routeDataQuery(parseQuery url.Values) url.Values {
+	parseFiltered := url.Values{}
+	for parseKey, parseItems := range parseQuery {
+		parseTrimmedKey := strings.TrimSpace(parseKey)
+		if strings.EqualFold(parseTrimmedKey, atlasNoticeQueryKey) || strings.EqualFold(parseTrimmedKey, atlasBootstrapModeQueryKey) {
 			continue
 		}
-		for _, item := range items {
-			filtered.Add(key, item)
+		for _, parseItem := range parseItems {
+			parseFiltered.Add(parseKey, parseItem)
 		}
 	}
-	return filtered
+	return parseFiltered
 }
 
-func routeKey(path string, query map[string][]string) string {
-	values := url.Values{}
-	for key, items := range query {
-		for _, item := range items {
-			values.Add(key, item)
+func routeKey(parsePath string, parseQuery map[string][]string) string {
+	parseValues := url.Values{}
+	for parseKey, parseItems := range parseQuery {
+		for _, parseItem := range parseItems {
+			parseValues.Add(parseKey, parseItem)
 		}
 	}
-	encoded := values.Encode()
-	if encoded == "" {
-		return path
+	parseEncoded := parseValues.Encode()
+	if parseEncoded == "" {
+		return parsePath
 	}
-	return path + "?" + encoded
+	return parsePath + "?" + parseEncoded
 }
 
-func pathWithQuery(path string, query url.Values) string {
-	encoded := query.Encode()
-	if encoded == "" {
-		return path
+func pathWithQuery(parsePath string, parseQuery url.Values) string {
+	parseEncoded := parseQuery.Encode()
+	if parseEncoded == "" {
+		return parsePath
 	}
-	return path + "?" + encoded
+	return parsePath + "?" + parseEncoded
 }
 
-func restoreAtlasFetchCacheBootstrap(payload atlas.Payload) error {
-	atlas.SeedFetchCacheBootstrap(&initialBootstrap, payload, atlasCacheOptions, time.Now())
+func restoreAtlasFetchCacheBootstrap(parsePayload atlas.Payload) error {
+	atlas.SeedFetchCacheBootstrap(&initialBootstrap, parsePayload, atlasCacheOptions, time.Now())
 	return fetch.RestoreCacheBootstrap(initialBootstrap)
 }
 
-func fetchPageData(ctx context.Context, path string, query url.Values) (any, string, error) {
-	requestURL := atlas.StartupRequestURL(path, routeDataQuery(query))
-	debugLog("route.fetch.start", map[string]any{"path": path, "query": query.Encode(), "requestURL": requestURL})
-	if strings.TrimSpace(requestURL) == "" {
-		debugLog("route.fetch.skipped", map[string]any{"path": path, "reason": "empty request url"})
+func fetchPageData(parseCtx context.Context, parsePath string, parseQuery url.Values) (any, string, error) {
+	parseRequestURL := atlas.StartupRequestURL(parsePath, routeDataQuery(parseQuery))
+	debugLog("route.fetch.start", map[string]any{"path": parsePath, "query": parseQuery.Encode(), "requestURL": parseRequestURL})
+	if strings.TrimSpace(parseRequestURL) == "" {
+		debugLog("route.fetch.skipped", map[string]any{"path": parsePath, "reason": "empty request url"})
 		return nil, "", nil
 	}
-	data, err := fetchRequestData(ctx, requestURL, "page")
-	if err != nil {
-		return nil, requestURL, err
+	parseData, parseErr := fetchRequestData(parseCtx, parseRequestURL, "page")
+	if parseErr != nil {
+		return nil, parseRequestURL, parseErr
 	}
-	return data, requestURL, nil
+	return parseData, parseRequestURL, nil
 }
 
-func fetchRequestData(ctx context.Context, requestURL string, dataKey string) (any, error) {
-	payloadData, err := fetch.LoadCached[any](ctx, atlas.CachedRequestResourceKey(requestURL, dataKey), func(loadCtx context.Context) (any, error) {
-		request, err := http.NewRequestWithContext(loadCtx, http.MethodGet, requestURL, nil)
-		if err != nil {
-			debugLog("route.fetch.request.error", map[string]any{"requestURL": requestURL, "dataKey": dataKey, "error": err.Error()})
-			return nil, err
+func fetchRequestData(parseCtx context.Context, parseRequestURL string, parseDataKey string) (any, error) {
+	parsePayloadData, parseErr := fetch.LoadCached[any](parseCtx, atlas.CachedRequestResourceKey(parseRequestURL, parseDataKey), func(parseLoadCtx context.Context) (any, error) {
+		parseRequest, parseErr2 := http.NewRequestWithContext(parseLoadCtx, http.MethodGet, parseRequestURL, nil)
+		if parseErr2 != nil {
+			debugLog("route.fetch.request.error", map[string]any{"requestURL": parseRequestURL, "dataKey": parseDataKey, "error": parseErr2.Error()})
+			return nil, parseErr2
 		}
-		response, err := http.DefaultClient.Do(request)
-		if err != nil {
-			debugLog("route.fetch.network.error", map[string]any{"requestURL": requestURL, "dataKey": dataKey, "error": err.Error()})
-			return nil, err
+		parseResponse, parseErr2 := http.DefaultClient.Do(parseRequest)
+		if parseErr2 != nil {
+			debugLog("route.fetch.network.error", map[string]any{"requestURL": parseRequestURL, "dataKey": parseDataKey, "error": parseErr2.Error()})
+			return nil, parseErr2
 		}
-		if response.StatusCode < 200 || response.StatusCode >= 300 {
-			debugLog("route.fetch.non_ok", map[string]any{"requestURL": requestURL, "dataKey": dataKey, "status": response.StatusCode})
-			response.Body.Close()
+		if parseResponse.StatusCode < 200 || parseResponse.StatusCode >= 300 {
+			debugLog("route.fetch.non_ok", map[string]any{"requestURL": parseRequestURL, "dataKey": parseDataKey, "status": parseResponse.StatusCode})
+			parseResponse.Body.Close()
 			return nil, nil
 		}
-		var loaded any
-		if err := decodeJSONBody(response, &loaded); err != nil {
-			debugLog("route.fetch.decode.error", map[string]any{"requestURL": requestURL, "dataKey": dataKey, "error": err.Error()})
-			return nil, err
+		var parseLoaded any
+		if parseErr3 := decodeJSONBody(parseResponse, &parseLoaded); parseErr3 != nil {
+			debugLog("route.fetch.decode.error", map[string]any{"requestURL": parseRequestURL, "dataKey": parseDataKey, "error": parseErr3.Error()})
+			return nil, parseErr3
 		}
-		debugLog("route.fetch.ok", map[string]any{"requestURL": requestURL, "dataKey": dataKey})
-		return loaded, nil
+		debugLog("route.fetch.ok", map[string]any{"requestURL": parseRequestURL, "dataKey": parseDataKey})
+		return parseLoaded, nil
 	}, atlasCacheOptions)
-	if err == nil {
-		debugLog("route.fetch.cache.hit", map[string]any{"requestURL": requestURL, "dataKey": dataKey})
+	if parseErr == nil {
+		debugLog("route.fetch.cache.hit", map[string]any{"requestURL": parseRequestURL, "dataKey": parseDataKey})
 	}
-	return payloadData, err
+	return parsePayloadData, parseErr
 }
 
-func routeSurface(path string) string {
-	if path == atlas.RouteAppRoot || strings.HasPrefix(path, "/app/") {
+func routeSurface(parsePath string) string {
+	if parsePath == atlas.RouteAppRoot || strings.HasPrefix(parsePath, "/app/") {
 		return "internal"
 	}
 	return "public"
 }
 
-func routeScreen(path string) string {
+func routeScreen(parsePath string) string {
 	switch {
-	case strings.HasPrefix(path, atlas.RouteInventory+"/") && strings.HasSuffix(path, "/threshold-history"):
+	case strings.HasPrefix(parsePath, atlas.RouteInventory+"/") && strings.HasSuffix(parsePath, "/threshold-history"):
 		return "sku-threshold-history"
-	case path == atlas.RouteLanding:
+	case parsePath == atlas.RouteLanding:
 		return "landing"
-	case path == atlas.RouteCatalog:
+	case parsePath == atlas.RouteCatalog:
 		return "catalog"
-	case strings.HasPrefix(path, atlas.RouteCatalog+"/"):
+	case strings.HasPrefix(parsePath, atlas.RouteCatalog+"/"):
 		return "product"
-	case path == atlas.RouteWarehouses:
+	case parsePath == atlas.RouteWarehouses:
 		return "warehouses"
-	case strings.Contains(path, "/availability/"):
+	case strings.Contains(parsePath, "/availability/"):
 		return "warehouse-availability"
-	case strings.HasPrefix(path, atlas.RouteWarehouses+"/"):
+	case strings.HasPrefix(parsePath, atlas.RouteWarehouses+"/"):
 		return "warehouse-detail"
-	case path == atlas.RouteAppRoot || path == atlas.RouteDashboard:
+	case parsePath == atlas.RouteAppRoot || parsePath == atlas.RouteDashboard:
 		return "dashboard"
-	case path == "/app/products":
+	case parsePath == "/app/products":
 		return "products"
-	case strings.HasPrefix(path, "/app/products/"):
+	case strings.HasPrefix(parsePath, "/app/products/"):
 		return "product-editor"
-	case path == atlas.RouteInventory:
+	case parsePath == atlas.RouteInventory:
 		return "inventory"
-	case strings.HasPrefix(path, atlas.RouteInventory+"/"):
+	case strings.HasPrefix(parsePath, atlas.RouteInventory+"/"):
 		return "sku-detail"
-	case path == atlas.RouteWarehouseOps:
+	case parsePath == atlas.RouteWarehouseOps:
 		return "warehouse-ops"
-	case strings.HasPrefix(path, atlas.RouteWarehouseOps+"/") && strings.Contains(path, "/items/"):
+	case strings.HasPrefix(parsePath, atlas.RouteWarehouseOps+"/") && strings.Contains(parsePath, "/items/"):
 		return "warehouse-item-detail"
-	case strings.HasPrefix(path, atlas.RouteWarehouseOps+"/"):
+	case strings.HasPrefix(parsePath, atlas.RouteWarehouseOps+"/"):
 		return "warehouse-detail"
-	case path == atlas.RouteTransfers:
+	case parsePath == atlas.RouteTransfers:
 		return "transfers"
-	case strings.HasPrefix(path, atlas.RouteTransfers+"/"):
+	case strings.HasPrefix(parsePath, atlas.RouteTransfers+"/"):
 		return "transfer-detail"
-	case path == atlas.RoutePurchaseOrders:
+	case parsePath == atlas.RoutePurchaseOrders:
 		return "purchase-orders"
-	case strings.HasPrefix(path, atlas.RoutePurchaseOrders+"/"):
+	case strings.HasPrefix(parsePath, atlas.RoutePurchaseOrders+"/"):
 		return "purchase-order-detail"
-	case path == atlas.RouteReceiving:
+	case parsePath == atlas.RouteReceiving:
 		return "receiving"
-	case strings.HasPrefix(path, atlas.RouteReceiving+"/"):
+	case strings.HasPrefix(parsePath, atlas.RouteReceiving+"/"):
 		return "receiving-session-detail"
-	case path == atlas.RouteComments:
+	case parsePath == atlas.RouteComments:
 		return "comments"
-	case path == atlas.RouteSettings:
+	case parsePath == atlas.RouteSettings:
 		return "settings"
 	default:
 		return "recovery"
 	}
 }
 
-func decodeMapValue[T any](input any) (T, bool) {
-	var target T
-	encoded, err := json.Marshal(input)
-	if err != nil {
-		return target, false
+func decodeMapValue[T any](parseInput any) (T, bool) {
+	var parseTarget T
+	parseEncoded, parseErr := json.Marshal(parseInput)
+	if parseErr != nil {
+		return parseTarget, false
 	}
-	if err := json.Unmarshal(encoded, &target); err != nil {
-		return target, false
+	if parseErr2 := json.Unmarshal(parseEncoded, &parseTarget); parseErr2 != nil {
+		return parseTarget, false
 	}
-	return target, true
+	return parseTarget, true
 }
 
-func routeTitle(path string, pageData any) string {
-	metadata := atlas.MetadataForPath(path)
+func routeTitle(parsePath string, parsePageData any) string {
+	parseMetadata := atlas.MetadataForPath(parsePath)
 	switch {
-	case strings.HasPrefix(path, atlas.RouteCatalog+"/"):
-		if product, ok := decodeMapValue[struct {
-			Title   string `json:"title"`
-			Product struct {
-				Title string `json:"title"`
+	case strings.HasPrefix(parsePath, atlas.RouteCatalog+"/"):
+		if parseProduct, parseOk := decodeMapValue[struct {
+			title   string `json:"title"`
+			product struct {
+				title string `json:"title"`
 			} `json:"product"`
-		}](pageData); ok && strings.TrimSpace(product.Title) != "" {
-			return "Atlas " + product.Title
-		} else if ok && strings.TrimSpace(product.Product.Title) != "" {
-			return "Atlas " + product.Product.Title
+		}](parsePageData); parseOk && strings.TrimSpace(parseProduct.Title) != "" {
+			return "Atlas " + parseProduct.Title
+		} else if parseOk && strings.TrimSpace(parseProduct.Product.Title) != "" {
+			return "Atlas " + parseProduct.Product.Title
 		}
-	case strings.HasPrefix(path, atlas.RouteWarehouses+"/") && !strings.Contains(path, "/availability/"):
+	case strings.HasPrefix(parsePath, atlas.RouteWarehouses+"/") && !strings.Contains(parsePath, "/availability/"):
 		return "Atlas Warehouse Detail"
-	case strings.HasPrefix(path, atlas.RouteWarehouseOps+"/") && strings.Contains(path, "/items/"):
-		if itemPage, ok := decodeMapValue[struct {
-			Item struct {
-				Title string `json:"title"`
+	case strings.HasPrefix(parsePath, atlas.RouteWarehouseOps+"/") && strings.Contains(parsePath, "/items/"):
+		if parseItemPage, parseOk2 := decodeMapValue[struct {
+			item struct {
+				title string `json:"title"`
 			} `json:"item"`
-			Product struct {
-				Title string `json:"title"`
+			product struct {
+				title string `json:"title"`
 			} `json:"product"`
-		}](pageData); ok {
-			if strings.TrimSpace(itemPage.Product.Title) != "" {
-				return "Atlas " + itemPage.Product.Title
+		}](parsePageData); parseOk2 {
+			if strings.TrimSpace(parseItemPage.Product.Title) != "" {
+				return "Atlas " + parseItemPage.Product.Title
 			}
-			if strings.TrimSpace(itemPage.Item.Title) != "" {
-				return "Atlas " + itemPage.Item.Title
+			if strings.TrimSpace(parseItemPage.Item.Title) != "" {
+				return "Atlas " + parseItemPage.Item.Title
 			}
 		}
 	}
-	return metadata.Title
+	return parseMetadata.Title
 }
 
-func routeDescription(path string, pageData any) string {
-	metadata := atlas.MetadataForPath(path)
+func routeDescription(parsePath string, parsePageData any) string {
+	parseMetadata := atlas.MetadataForPath(parsePath)
 	switch {
-	case strings.HasPrefix(path, atlas.RouteCatalog+"/"):
-		if product, ok := decodeMapValue[struct {
+	case strings.HasPrefix(parsePath, atlas.RouteCatalog+"/"):
+		if parseProduct, parseOk := decodeMapValue[struct {
 			SEODescription string `json:"seoDescription"`
-			Summary        string `json:"summary"`
-			Product        struct {
+			summary        string `json:"summary"`
+			product        struct {
 				SEODescription string `json:"seoDescription"`
-				Summary        string `json:"summary"`
+				summary        string `json:"summary"`
 			} `json:"product"`
-		}](pageData); ok {
-			if strings.TrimSpace(product.SEODescription) != "" {
-				return product.SEODescription
+		}](parsePageData); parseOk {
+			if strings.TrimSpace(parseProduct.SEODescription) != "" {
+				return parseProduct.SEODescription
 			}
-			if strings.TrimSpace(product.Summary) != "" {
-				return product.Summary
+			if strings.TrimSpace(parseProduct.Summary) != "" {
+				return parseProduct.Summary
 			}
-			if strings.TrimSpace(product.Product.SEODescription) != "" {
-				return product.Product.SEODescription
+			if strings.TrimSpace(parseProduct.Product.SEODescription) != "" {
+				return parseProduct.Product.SEODescription
 			}
-			if strings.TrimSpace(product.Product.Summary) != "" {
-				return product.Product.Summary
+			if strings.TrimSpace(parseProduct.Product.Summary) != "" {
+				return parseProduct.Product.Summary
 			}
 		}
-	case strings.HasPrefix(path, atlas.RouteWarehouses+"/") && !strings.Contains(path, "/availability/"):
-		if warehousePage, ok := decodeMapValue[struct {
-			Warehouse struct {
-				PublicSummary string `json:"publicSummary"`
+	case strings.HasPrefix(parsePath, atlas.RouteWarehouses+"/") && !strings.Contains(parsePath, "/availability/"):
+		if parseWarehousePage, parseOk2 := decodeMapValue[struct {
+			warehouse struct {
+				publicSummary string `json:"publicSummary"`
 			} `json:"warehouse"`
-		}](pageData); ok && strings.TrimSpace(warehousePage.Warehouse.PublicSummary) != "" {
-			return warehousePage.Warehouse.PublicSummary
+		}](parsePageData); parseOk2 && strings.TrimSpace(parseWarehousePage.Warehouse.PublicSummary) != "" {
+			return parseWarehousePage.Warehouse.PublicSummary
 		}
 	}
-	return metadata.Description
+	return parseMetadata.Description
 }
 
-func routeCanonical(path string) string {
-	return path
+func routeCanonical(parsePath string) string {
+	return parsePath
 }
 
-func ensureManagedTitle(document js.Value) js.Value {
-	title := document.Call("querySelector", `title[`+atlasManagedAttr+`="true"]`)
-	if title.Truthy() {
-		return title
+func ensureManagedTitle(parseDocument js.Value) js.Value {
+	parseTitle := parseDocument.Call("querySelector", `title[`+atlasManagedAttr+`="true"]`)
+	if parseTitle.Truthy() {
+		return parseTitle
 	}
-	title = document.Call("querySelector", "title")
-	if title.Truthy() {
-		title.Call("setAttribute", atlasManagedAttr, "true")
-		return title
+	parseTitle = parseDocument.Call("querySelector", "title")
+	if parseTitle.Truthy() {
+		parseTitle.Call("setAttribute", atlasManagedAttr, "true")
+		return parseTitle
 	}
-	head := document.Get("head")
-	if !head.Truthy() {
+	parseHead := parseDocument.Get("head")
+	if !parseHead.Truthy() {
 		return js.Undefined()
 	}
-	title = document.Call("createElement", "title")
-	title.Call("setAttribute", atlasManagedAttr, "true")
-	head.Call("appendChild", title)
-	return title
+	parseTitle = parseDocument.Call("createElement", "title")
+	parseTitle.Call("setAttribute", atlasManagedAttr, "true")
+	parseHead.Call("appendChild", parseTitle)
+	return parseTitle
 }
 
-func ensureManagedHeadNode(document js.Value, selector string, tag string, init func(js.Value)) js.Value {
-	node := document.Call("querySelector", selector+`[`+atlasManagedAttr+`="true"]`)
-	if node.Truthy() {
-		return node
+func ensureManagedHeadNode(parseDocument js.Value, parseSelector string, parseTag string, parseInit func(js.Value)) js.Value {
+	parseNode := parseDocument.Call("querySelector", parseSelector+`[`+atlasManagedAttr+`="true"]`)
+	if parseNode.Truthy() {
+		return parseNode
 	}
-	node = document.Call("querySelector", selector)
-	if node.Truthy() {
-		node.Call("setAttribute", atlasManagedAttr, "true")
-		return node
+	parseNode = parseDocument.Call("querySelector", parseSelector)
+	if parseNode.Truthy() {
+		parseNode.Call("setAttribute", atlasManagedAttr, "true")
+		return parseNode
 	}
-	head := document.Get("head")
-	if !head.Truthy() {
+	parseHead := parseDocument.Get("head")
+	if !parseHead.Truthy() {
 		return js.Undefined()
 	}
-	node = document.Call("createElement", tag)
-	if init != nil {
-		init(node)
+	parseNode = parseDocument.Call("createElement", parseTag)
+	if parseInit != nil {
+		parseInit(parseNode)
 	}
-	node.Call("setAttribute", atlasManagedAttr, "true")
-	head.Call("appendChild", node)
-	return node
+	parseNode.Call("setAttribute", atlasManagedAttr, "true")
+	parseHead.Call("appendChild", parseNode)
+	return parseNode
 }
 
-func updateDocumentMetadata(payload atlas.Payload) {
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+func updateDocumentMetadata(parsePayload atlas.Payload) {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return
 	}
 	debugLog("metadata.update", map[string]any{
-		"path":        payload.Route.Path,
-		"title":       payload.Route.Title,
-		"description": payload.Route.Description,
-		"canonical":   payload.Route.Canonical,
+		"path":        parsePayload.Route.Path,
+		"title":       parsePayload.Route.Title,
+		"description": parsePayload.Route.Description,
+		"canonical":   parsePayload.Route.Canonical,
 	})
-	if strings.TrimSpace(payload.Route.Title) != "" {
-		title := ensureManagedTitle(document)
-		if title.Truthy() {
-			title.Set("textContent", payload.Route.Title)
+	if strings.TrimSpace(parsePayload.Route.Title) != "" {
+		parseTitle := ensureManagedTitle(parseDocument)
+		if parseTitle.Truthy() {
+			parseTitle.Set("textContent", parsePayload.Route.Title)
 		}
-		document.Set("title", payload.Route.Title)
+		parseDocument.Set("title", parsePayload.Route.Title)
 	}
-	if description := strings.TrimSpace(payload.Route.Description); description != "" {
-		meta := ensureManagedHeadNode(document, `meta[name="description"]`, "meta", func(node js.Value) {
-			node.Call("setAttribute", "name", "description")
+	if parseDescription := strings.TrimSpace(parsePayload.Route.Description); parseDescription != "" {
+		parseMeta := ensureManagedHeadNode(parseDocument, `meta[name="description"]`, "meta", func(parseNode js.Value) {
+			parseNode.Call("setAttribute", "name", "description")
 		})
-		if meta.Truthy() {
-			meta.Call("setAttribute", "content", description)
+		if parseMeta.Truthy() {
+			parseMeta.Call("setAttribute", "content", parseDescription)
 		}
 	}
-	if canonicalValue := strings.TrimSpace(payload.Route.Canonical); canonicalValue != "" {
-		canonical := ensureManagedHeadNode(document, `link[rel="canonical"]`, "link", func(node js.Value) {
-			node.Call("setAttribute", "rel", "canonical")
+	if parseCanonicalValue := strings.TrimSpace(parsePayload.Route.Canonical); parseCanonicalValue != "" {
+		parseCanonical := ensureManagedHeadNode(parseDocument, `link[rel="canonical"]`, "link", func(parseNode2 js.Value) {
+			parseNode2.Call("setAttribute", "rel", "canonical")
 		})
-		if canonical.Truthy() {
-			canonical.Call("setAttribute", "href", canonicalValue)
+		if parseCanonical.Truthy() {
+			parseCanonical.Call("setAttribute", "href", parseCanonicalValue)
 		}
 	}
 }
 
-func syncNavigationPosition(payload atlas.Payload) {
-	currentKey := routeKey(payload.Route.Path, payload.Route.Query)
+func syncNavigationPosition(parsePayload atlas.Payload) {
+	parseCurrentKey := routeKey(parsePayload.Route.Path, parsePayload.Route.Query)
 	if !hasRenderedRoute {
 		hasRenderedRoute = true
-		lastRenderedRouteKey = currentKey
+		lastRenderedRouteKey = parseCurrentKey
 		return
 	}
-	if currentKey == lastRenderedRouteKey {
+	if parseCurrentKey == lastRenderedRouteKey {
 		return
 	}
-	lastRenderedRouteKey = currentKey
-	window := js.Global().Get("window")
-	if window.Truthy() && window.Get("scrollTo").Truthy() {
-		window.Call("scrollTo", 0, 0)
+	lastRenderedRouteKey = parseCurrentKey
+	parseWindow := js.Global().Get("window")
+	if parseWindow.Truthy() && parseWindow.Get("scrollTo").Truthy() {
+		parseWindow.Call("scrollTo", 0, 0)
 	}
-	debugLog("navigation.scroll.reset", map[string]any{"path": payload.Route.Path, "key": currentKey})
+	debugLog("navigation.scroll.reset", map[string]any{"path": parsePayload.Route.Path, "key": parseCurrentKey})
 }
 
-func buildPayload(path string, query url.Values, pageData any, requestURL string) atlas.Payload {
-	data := map[string]any{"page": pageData}
-	requests := map[string]atlas.Request{}
-	if strings.TrimSpace(requestURL) != "" {
-		requests["page"] = atlas.Request{
+func buildPayload(parsePath string, parseQuery url.Values, parsePageData any, parseRequestURL string) atlas.Payload {
+	parseData := map[string]any{"page": parsePageData}
+	parseRequests := map[string]atlas.Request{}
+	if strings.TrimSpace(parseRequestURL) != "" {
+		parseRequests["page"] = atlas.Request{
 			Method: http.MethodGet,
-			URL:    requestURL,
+			URL:    parseRequestURL,
 			Status: http.StatusOK,
-			Data:   map[string]any{"page": pageData},
+			Data:   map[string]any{"page": parsePageData},
 		}
 	}
-	return buildPayloadWithData(path, query, data, requests)
+	return buildPayloadWithData(parsePath, parseQuery, parseData, parseRequests)
 }
 
-func buildPayloadWithData(path string, query url.Values, data map[string]any, requests map[string]atlas.Request) atlas.Payload {
-	pageData := data["page"]
-	payload := initialPayload
-	payload.Route = atlas.RouteBootstrap{
-		Path:        path,
-		Query:       cloneQueryValues(query),
+func buildPayloadWithData(parsePath string, parseQuery url.Values, parseData map[string]any, parseRequests map[string]atlas.Request) atlas.Payload {
+	parsePageData := parseData["page"]
+	parsePayload := initialPayload
+	parsePayload.Route = atlas.RouteBootstrap{
+		Path:        parsePath,
+		Query:       cloneQueryValues(parseQuery),
 		Params:      map[string]string{},
-		Surface:     routeSurface(path),
-		Screen:      routeScreen(path),
-		Title:       routeTitle(path, pageData),
-		Description: routeDescription(path, pageData),
-		Canonical:   routeCanonical(path),
+		Surface:     routeSurface(parsePath),
+		Screen:      routeScreen(parsePath),
+		Title:       routeTitle(parsePath, parsePageData),
+		Description: routeDescription(parsePath, parsePageData),
+		Canonical:   routeCanonical(parsePath),
 	}
-	payload.Data = cloneDataMap(data)
-	payload.Requests = cloneRequests(requests)
+	parsePayload.Data = cloneDataMap(parseData)
+	parsePayload.Requests = cloneRequests(parseRequests)
 	debugLog("payload.build", map[string]any{
-		"path":        path,
-		"screen":      payload.Route.Screen,
-		"surface":     payload.Route.Surface,
-		"requestKeys": len(payload.Requests),
+		"path":        parsePath,
+		"screen":      parsePayload.Route.Screen,
+		"surface":     parsePayload.Route.Surface,
+		"requestKeys": len(parsePayload.Requests),
 	})
-	return payload
+	return parsePayload
 }
 
-func routeRecoveryFallback(path string) (string, string) {
-	if routeSurface(path) == "internal" {
+func routeRecoveryFallback(parsePath string) (string, string) {
+	if routeSurface(parsePath) == "internal" {
 		return atlas.RouteDashboard, "Back to dashboard"
 	}
 	return atlas.RouteLanding, "Back to Atlas"
 }
 
-func routeRecoveryCopy(path string) (string, string) {
-	if routeSurface(path) == "internal" {
+func routeRecoveryCopy(parsePath string) (string, string) {
+	if routeSurface(parsePath) == "internal" {
 		return "Atlas could not load this admin screen right now.", "The page shell is still active, so you can recover without losing the rest of the session."
 	}
 	return "Atlas could not load this page right now.", "The page shell is still active, so you can recover without a full crash."
 }
 
-func buildRecoveryPayload(path string, query url.Values, requestURL string, err error) atlas.Payload {
-	metadata := atlas.MetadataForPath(path)
-	title := strings.TrimSpace(metadata.Title)
-	if title == "" {
-		title = "Atlas"
+func buildRecoveryPayload(parsePath string, parseQuery url.Values, parseRequestURL string, parseErr error) atlas.Payload {
+	parseMetadata := atlas.MetadataForPath(parsePath)
+	parseTitle := strings.TrimSpace(parseMetadata.Title)
+	if parseTitle == "" {
+		parseTitle = "Atlas"
 	}
-	recoveryHref, recoveryLabel := routeRecoveryFallback(path)
-	message, summary := routeRecoveryCopy(path)
-	detailParts := []string{summary}
-	if strings.TrimSpace(requestURL) != "" {
-		detailParts = append(detailParts, fmt.Sprintf("Request: %s", requestURL))
+	parseRecoveryHref, parseRecoveryLabel := routeRecoveryFallback(parsePath)
+	parseMessage, parseSummary := routeRecoveryCopy(parsePath)
+	parseDetailParts := []string{parseSummary}
+	if strings.TrimSpace(parseRequestURL) != "" {
+		parseDetailParts = append(parseDetailParts, fmt.Sprintf("Request: %s", parseRequestURL))
 	}
-	if err != nil {
-		detailParts = append(detailParts, "Technical detail: "+err.Error())
+	if parseErr != nil {
+		parseDetailParts = append(parseDetailParts, "Technical detail: "+parseErr.Error())
 	}
-	payload := initialPayload
-	payload.Route = atlas.RouteBootstrap{
-		Path:        path,
-		Query:       cloneQueryValues(query),
+	parsePayload := initialPayload
+	parsePayload.Route = atlas.RouteBootstrap{
+		Path:        parsePath,
+		Query:       cloneQueryValues(parseQuery),
 		Params:      map[string]string{},
-		Surface:     routeSurface(path),
+		Surface:     routeSurface(parsePath),
 		Screen:      "recovery",
-		Title:       metadata.Title + " Unavailable",
-		Description: metadata.Description,
-		Canonical:   routeCanonical(path),
+		Title:       parseMetadata.Title + " Unavailable",
+		Description: parseMetadata.Description,
+		Canonical:   routeCanonical(parsePath),
 	}
-	payload.Data = map[string]any{"page": map[string]any{
-		"title":         title + " unavailable",
-		"message":       message,
-		"recoveryHref":  recoveryHref,
-		"recoveryLabel": recoveryLabel,
-		"detail":        strings.Join(detailParts, " "),
+	parsePayload.Data = map[string]any{"page": map[string]any{
+		"title":         parseTitle + " unavailable",
+		"message":       parseMessage,
+		"recoveryHref":  parseRecoveryHref,
+		"recoveryLabel": parseRecoveryLabel,
+		"detail":        strings.Join(parseDetailParts, " "),
 	}}
-	payload.Requests = map[string]atlas.Request{}
-	if strings.TrimSpace(requestURL) != "" {
-		status := http.StatusServiceUnavailable
-		if err == nil {
-			status = http.StatusBadGateway
+	parsePayload.Requests = map[string]atlas.Request{}
+	if strings.TrimSpace(parseRequestURL) != "" {
+		parseStatus := http.StatusServiceUnavailable
+		if parseErr == nil {
+			parseStatus = http.StatusBadGateway
 		}
-		payload.Requests["page"] = atlas.Request{
+		parsePayload.Requests["page"] = atlas.Request{
 			Method: http.MethodGet,
-			URL:    requestURL,
-			Status: status,
+			URL:    parseRequestURL,
+			Status: parseStatus,
 		}
 	}
 	debugLog("payload.recovery", map[string]any{
-		"path":       path,
-		"screen":     payload.Route.Screen,
-		"requestURL": requestURL,
+		"path":       parsePath,
+		"screen":     parsePayload.Route.Screen,
+		"requestURL": parseRequestURL,
 		"error": func() string {
-			if err == nil {
+			if parseErr == nil {
 				return ""
 			}
-			return err.Error()
+			return parseErr.Error()
 		}(),
 	})
-	return payload
+	return parsePayload
 }
 
-func loadRoutePayload(ctx context.Context, routeCtx router.RouteContext) (atlas.Payload, error) {
+func loadRoutePayload(parseCtx context.Context, parseRouteCtx router.RouteContext) (atlas.Payload, error) {
 	debugLog("route.load.start", map[string]any{
-		"path":  routeCtx.Path,
-		"query": routeCtx.Query.Values().Encode(),
+		"path":  parseRouteCtx.Path,
+		"query": parseRouteCtx.Query.Values().Encode(),
 	})
-	fullQuery := routeCtx.Query.Values()
-	return fetch.LoadCached(ctx, atlas.RoutePayloadResourceKey(routeCtx.Path, fullQuery), func(loadCtx context.Context) (atlas.Payload, error) {
-		pageData, requestURL, err := fetchPageData(loadCtx, routeCtx.Path, fullQuery)
-		if err != nil {
-			debugLog("route.load.error", map[string]any{"path": routeCtx.Path, "error": err.Error()})
-			return buildRecoveryPayload(routeCtx.Path, fullQuery, requestURL, err), nil
+	parseFullQuery := parseRouteCtx.Query.Values()
+	return fetch.LoadCached(parseCtx, atlas.RoutePayloadResourceKey(parseRouteCtx.Path, parseFullQuery), func(parseLoadCtx context.Context) (atlas.Payload, error) {
+		parsePageData, parseRequestURL, parseErr := fetchPageData(parseLoadCtx, parseRouteCtx.Path, parseFullQuery)
+		if parseErr != nil {
+			debugLog("route.load.error", map[string]any{"path": parseRouteCtx.Path, "error": parseErr.Error()})
+			return buildRecoveryPayload(parseRouteCtx.Path, parseFullQuery, parseRequestURL, parseErr), nil
 		}
-		if pageData == nil && strings.TrimSpace(requestURL) == "" && routeCtx.Path == atlas.RouteLanding {
-			debugLog("route.load.static", map[string]any{"path": routeCtx.Path, "reason": "static landing route"})
-			return buildPayload(routeCtx.Path, fullQuery, map[string]any{}, ""), nil
+		if parsePageData == nil && strings.TrimSpace(parseRequestURL) == "" && parseRouteCtx.Path == atlas.RouteLanding {
+			debugLog("route.load.static", map[string]any{"path": parseRouteCtx.Path, "reason": "static landing route"})
+			return buildPayload(parseRouteCtx.Path, parseFullQuery, map[string]any{}, ""), nil
 		}
-		if pageData == nil {
-			debugLog("route.load.missing", map[string]any{"path": routeCtx.Path, "requestURL": requestURL})
-			return buildRecoveryPayload(routeCtx.Path, fullQuery, requestURL, nil), nil
+		if parsePageData == nil {
+			debugLog("route.load.missing", map[string]any{"path": parseRouteCtx.Path, "requestURL": parseRequestURL})
+			return buildRecoveryPayload(parseRouteCtx.Path, parseFullQuery, parseRequestURL, nil), nil
 		}
-		payload := buildPayload(routeCtx.Path, fullQuery, pageData, requestURL)
-		debugLog("route.load.ok", map[string]any{"path": routeCtx.Path, "title": payload.Route.Title})
-		return payload, nil
+		parsePayload := buildPayload(parseRouteCtx.Path, parseFullQuery, parsePageData, parseRequestURL)
+		debugLog("route.load.ok", map[string]any{"path": parseRouteCtx.Path, "title": parsePayload.Route.Title})
+		return parsePayload, nil
 	}, atlasCacheOptions)
 }
 
-func serializeGuardedForm(form js.Value) string {
-	fields := form.Call("querySelectorAll", "input, textarea, select")
-	parts := make([]string, 0, fields.Get("length").Int())
-	for i := 0; i < fields.Get("length").Int(); i++ {
-		field := fields.Index(i)
-		if !field.Truthy() || field.Get("disabled").Bool() {
+func serializeGuardedForm(parseForm js.Value) string {
+	parseFields := parseForm.Call("querySelectorAll", "input, textarea, select")
+	parseParts := make([]string, 0, parseFields.Get("length").Int())
+	for parseI := 0; parseI < parseFields.Get("length").Int(); parseI++ {
+		parseField := parseFields.Index(parseI)
+		if !parseField.Truthy() || parseField.Get("disabled").Bool() {
 			continue
 		}
-		name := strings.TrimSpace(field.Get("name").String())
-		if name == "" {
+		parseName := strings.TrimSpace(parseField.Get("name").String())
+		if parseName == "" {
 			continue
 		}
-		fieldType := strings.ToLower(strings.TrimSpace(field.Get("type").String()))
-		switch fieldType {
+		parseFieldType := strings.ToLower(strings.TrimSpace(parseField.Get("type").String()))
+		switch parseFieldType {
 		case "submit", "button", "reset", "file":
 			continue
 		}
-		value := field.Get("value").String()
-		if fieldType == "checkbox" || fieldType == "radio" {
-			if field.Get("checked").Bool() {
-				value = "1"
+		parseValue := parseField.Get("value").String()
+		if parseFieldType == "checkbox" || parseFieldType == "radio" {
+			if parseField.Get("checked").Bool() {
+				parseValue = "1"
 			} else {
-				value = "0"
+				parseValue = "0"
 			}
 		}
-		parts = append(parts, name+"="+value)
+		parseParts = append(parseParts, parseName+"="+parseValue)
 	}
-	return strings.Join(parts, "\x1f")
+	return strings.Join(parseParts, "\x1f")
 }
 
-func refreshDirtyGuardState(form js.Value) {
-	initial := form.Get("__atlasDirtyGuardInitial").String()
-	current := serializeGuardedForm(form)
-	form.Set("__atlasDirtyGuardDirty", current != initial)
+func refreshDirtyGuardState(parseForm js.Value) {
+	parseInitial := parseForm.Get("__atlasDirtyGuardInitial").String()
+	parseCurrent := serializeGuardedForm(parseForm)
+	parseForm.Set("__atlasDirtyGuardDirty", parseCurrent != parseInitial)
 }
 
 func bindDirtyGuardForms() {
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return
 	}
-	forms := document.Call("querySelectorAll", "form["+atlasDirtyGuardAttr+"]")
-	for i := 0; i < forms.Get("length").Int(); i++ {
-		form := forms.Index(i)
-		if !form.Truthy() {
+	parseForms := parseDocument.Call("querySelectorAll", "form["+atlasDirtyGuardAttr+"]")
+	for parseI := 0; parseI < parseForms.Get("length").Int(); parseI++ {
+		parseForm := parseForms.Index(parseI)
+		if !parseForm.Truthy() {
 			continue
 		}
-		if form.Get("__atlasDirtyGuardBound").Truthy() && form.Get("__atlasDirtyGuardBound").Bool() {
-			refreshDirtyGuardState(form)
+		if parseForm.Get("__atlasDirtyGuardBound").Truthy() && parseForm.Get("__atlasDirtyGuardBound").Bool() {
+			refreshDirtyGuardState(parseForm)
 			continue
 		}
-		form.Set("__atlasDirtyGuardInitial", serializeGuardedForm(form))
-		form.Set("__atlasDirtyGuardDirty", false)
-		form.Set("__atlasDirtyGuardSubmitting", false)
+		parseForm.Set("__atlasDirtyGuardInitial", serializeGuardedForm(parseForm))
+		parseForm.Set("__atlasDirtyGuardDirty", false)
+		parseForm.Set("__atlasDirtyGuardSubmitting", false)
 
-		updateHandler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			form.Set("__atlasDirtyGuardSubmitting", false)
-			refreshDirtyGuardState(form)
+		parseUpdateHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseForm.Set("__atlasDirtyGuardSubmitting", false)
+			refreshDirtyGuardState(parseForm)
 			return nil
 		})
-		submitHandler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			form.Set("__atlasDirtyGuardSubmitting", true)
-			form.Set("__atlasDirtyGuardDirty", false)
+		parseSubmitHandler := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			parseForm.Set("__atlasDirtyGuardSubmitting", true)
+			parseForm.Set("__atlasDirtyGuardDirty", false)
 			return nil
 		})
-		form.Call("addEventListener", "input", updateHandler)
-		form.Call("addEventListener", "change", updateHandler)
-		form.Call("addEventListener", "submit", submitHandler)
-		dirtyGuardHandlers = append(dirtyGuardHandlers, updateHandler, submitHandler)
-		form.Set("__atlasDirtyGuardBound", true)
+		parseForm.Call("addEventListener", "input", parseUpdateHandler)
+		parseForm.Call("addEventListener", "change", parseUpdateHandler)
+		parseForm.Call("addEventListener", "submit", parseSubmitHandler)
+		dirtyGuardHandlers = append(dirtyGuardHandlers, parseUpdateHandler, parseSubmitHandler)
+		parseForm.Set("__atlasDirtyGuardBound", true)
 	}
 }
 
 func activeDirtyGuardMessage() string {
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return ""
 	}
-	form := document.Call("querySelector", "form["+atlasDirtyGuardAttr+"]")
-	if !form.Truthy() || form.Get("__atlasDirtyGuardSubmitting").Bool() {
+	parseForm := parseDocument.Call("querySelector", "form["+atlasDirtyGuardAttr+"]")
+	if !parseForm.Truthy() || parseForm.Get("__atlasDirtyGuardSubmitting").Bool() {
 		return ""
 	}
-	refreshDirtyGuardState(form)
-	if !form.Get("__atlasDirtyGuardDirty").Bool() {
+	refreshDirtyGuardState(parseForm)
+	if !parseForm.Get("__atlasDirtyGuardDirty").Bool() {
 		return ""
 	}
-	message := strings.TrimSpace(form.Call("getAttribute", atlasDirtyMessageAttr).String())
-	if message == "" {
-		message = "Leave this route and discard unsaved Atlas changes?"
+	parseMessage := strings.TrimSpace(parseForm.Call("getAttribute", atlasDirtyMessageAttr).String())
+	if parseMessage == "" {
+		parseMessage = "Leave this route and discard unsaved Atlas changes?"
 	}
-	return message
+	return parseMessage
 }
 
 func registerBeforeUnloadGuard() {
-	window := js.Global().Get("window")
-	if !window.Truthy() || !window.Get("addEventListener").Truthy() {
+	parseWindow := js.Global().Get("window")
+	if !parseWindow.Truthy() || !parseWindow.Get("addEventListener").Truthy() {
 		return
 	}
-	beforeUnloadHandler = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) == 0 {
+	beforeUnloadHandler = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) == 0 {
 			return nil
 		}
-		message := activeDirtyGuardMessage()
-		if message == "" {
+		parseMessage := activeDirtyGuardMessage()
+		if parseMessage == "" {
 			return nil
 		}
-		event := args[0]
-		if event.Get("preventDefault").Truthy() {
-			event.Call("preventDefault")
+		parseEvent := parseArgs[0]
+		if parseEvent.Get("preventDefault").Truthy() {
+			parseEvent.Call("preventDefault")
 		}
-		event.Set("returnValue", message)
-		return message
+		parseEvent.Set("returnValue", parseMessage)
+		return parseMessage
 	})
-	window.Call("addEventListener", "beforeunload", beforeUnloadHandler)
+	parseWindow.Call("addEventListener", "beforeunload", beforeUnloadHandler)
 }
 
-func shouldUseDocumentNavigation(path string) bool {
-	return strings.HasPrefix(path, "/auth/")
+func shouldUseDocumentNavigation(parsePath string) bool {
+	return strings.HasPrefix(parsePath, "/auth/")
 }
 
-func navigateDocument(target string) {
-	window := js.Global().Get("window")
-	if !window.Truthy() {
+func navigateDocument(parseTarget string) {
+	parseWindow := js.Global().Get("window")
+	if !parseWindow.Truthy() {
 		return
 	}
-	location := window.Get("location")
-	if location.Truthy() && location.Get("assign").Truthy() {
-		location.Call("assign", target)
+	parseLocation := parseWindow.Get("location")
+	if parseLocation.Truthy() && parseLocation.Get("assign").Truthy() {
+		parseLocation.Call("assign", parseTarget)
 	}
 }
 
-func requireInternalSessionGuard(ctx router.RouteContext) router.GuardResult {
+func requireInternalSessionGuard(parseCtx router.RouteContext) router.GuardResult {
 	if initialPayload.User != nil {
 		return router.AllowNavigation()
 	}
-	next := pathWithQuery(ctx.Path, ctx.Query.Values())
-	values := url.Values{}
-	values.Set("next", next)
-	target := atlasMockSignInPath + "?" + values.Encode()
-	debugLog("route.guard.auth.redirect", map[string]any{"path": ctx.Path, "target": target})
-	navigateDocument(target)
+	parseNext := pathWithQuery(parseCtx.Path, parseCtx.Query.Values())
+	parseValues := url.Values{}
+	parseValues.Set("next", parseNext)
+	parseTarget := atlasMockSignInPath + "?" + parseValues.Encode()
+	debugLog("route.guard.auth.redirect", map[string]any{"path": parseCtx.Path, "target": parseTarget})
+	navigateDocument(parseTarget)
 	return router.BlockNavigation("Redirecting to mock sign in.")
 }
 
-func productEditorBeforeLeaveGuard(current router.RouteContext, next router.RouteContext) router.GuardResult {
-	message := activeDirtyGuardMessage()
-	if message == "" {
+func productEditorBeforeLeaveGuard(parseCurrent router.RouteContext, parseNext router.RouteContext) router.GuardResult {
+	parseMessage := activeDirtyGuardMessage()
+	if parseMessage == "" {
 		return router.AllowNavigation()
 	}
-	window := js.Global().Get("window")
-	if window.Truthy() && window.Get("confirm").Truthy() && window.Call("confirm", message).Bool() {
+	parseWindow := js.Global().Get("window")
+	if parseWindow.Truthy() && parseWindow.Get("confirm").Truthy() && parseWindow.Call("confirm", parseMessage).Bool() {
 		return router.AllowNavigation()
 	}
-	return router.BlockNavigation(message)
+	return router.BlockNavigation(parseMessage)
 }
 
-func invalidateCachesForPayload(payload atlas.Payload) {
-	notice := strings.TrimSpace(queryValuesFromMap(payload.Route.Query).Get(atlasNoticeQueryKey))
-	if notice == "" {
+func invalidateCachesForPayload(parsePayload atlas.Payload) {
+	parseNotice := strings.TrimSpace(queryValuesFromMap(parsePayload.Route.Query).Get(atlasNoticeQueryKey))
+	if parseNotice == "" {
 		return
 	}
-	routePrefixes := atlas.MutationRoutePrefixes(payload.Route.Path, notice)
-	activeKeys := atlas.PayloadResourceKeys(payload)
-	routeResourcePrefixes := make([]string, 0, len(routePrefixes))
-	for _, prefix := range routePrefixes {
-		routeResourcePrefixes = append(routeResourcePrefixes, "atlas:route:"+prefix)
+	parseRoutePrefixes := atlas.MutationRoutePrefixes(parsePayload.Route.Path, parseNotice)
+	parseActiveKeys := atlas.PayloadResourceKeys(parsePayload)
+	parseRouteResourcePrefixes := make([]string, 0, len(parseRoutePrefixes))
+	for _, parsePrefix := range parseRoutePrefixes {
+		parseRouteResourcePrefixes = append(parseRouteResourcePrefixes, "atlas:route:"+parsePrefix)
 	}
-	requestPrefixes := atlas.MutationRequestPrefixes(routePrefixes)
-	requestResourcePrefixes := make([]string, 0, len(requestPrefixes))
-	for _, prefix := range requestPrefixes {
-		requestResourcePrefixes = append(requestResourcePrefixes, "atlas:request:"+prefix)
+	parseRequestPrefixes := atlas.MutationRequestPrefixes(parseRoutePrefixes)
+	parseRequestResourcePrefixes := make([]string, 0, len(parseRequestPrefixes))
+	for _, parsePrefix2 := range parseRequestPrefixes {
+		parseRequestResourcePrefixes = append(parseRequestResourcePrefixes, "atlas:request:"+parsePrefix2)
 	}
-	for _, inspection := range fetch.InspectCachedResources() {
-		key := inspection.Key
-		if key == "" {
+	for _, parseInspection := range fetch.InspectCachedResources() {
+		parseKey := parseInspection.Key
+		if parseKey == "" {
 			continue
 		}
-		if _, ok := activeKeys[key]; ok {
+		if _, parseOk := parseActiveKeys[parseKey]; parseOk {
 			continue
 		}
-		matched := false
-		for _, prefix := range routeResourcePrefixes {
-			if strings.HasPrefix(key, prefix) {
-				fetch.InvalidateResource(key)
-				matched = true
+		isParseMatched := false
+		for _, parsePrefix3 := range parseRouteResourcePrefixes {
+			if strings.HasPrefix(parseKey, parsePrefix3) {
+				fetch.InvalidateResource(parseKey)
+				isParseMatched = true
 				break
 			}
 		}
-		if matched {
+		if isParseMatched {
 			continue
 		}
-		for _, prefix := range requestResourcePrefixes {
-			if strings.HasPrefix(key, prefix) {
-				fetch.InvalidateResource(key)
+		for _, parsePrefix4 := range parseRequestResourcePrefixes {
+			if strings.HasPrefix(parseKey, parsePrefix4) {
+				fetch.InvalidateResource(parseKey)
 				break
 			}
 		}
 	}
 	debugLog("route.cache.invalidate", map[string]any{
-		"path":         payload.Route.Path,
-		"notice":       notice,
-		"routeTargets": routePrefixes,
+		"path":         parsePayload.Route.Path,
+		"notice":       parseNotice,
+		"routeTargets": parseRoutePrefixes,
 	})
 }
 
-func atlasRouteLoader(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
-	debugLog("router.loader", map[string]any{"path": routeCtx.Path})
-	payload, err := loadRoutePayload(ctx, routeCtx)
-	if err != nil {
-		debugLog("router.loader.error", map[string]any{"path": routeCtx.Path, "error": err.Error()})
-		return nil, err
+func atlasRouteLoader(parseCtx context.Context, parseRouteCtx router.RouteContext) (router.Attrs, error) {
+	debugLog("router.loader", map[string]any{"path": parseRouteCtx.Path})
+	parsePayload, parseErr := loadRoutePayload(parseCtx, parseRouteCtx)
+	if parseErr != nil {
+		debugLog("router.loader.error", map[string]any{"path": parseRouteCtx.Path, "error": parseErr.Error()})
+		return nil, parseErr
 	}
-	return router.Attrs{"payload": payload}, nil
+	return router.Attrs{"payload": parsePayload}, nil
 }
 
-func loadInventoryThresholdHistoryPayload(ctx context.Context, routeCtx router.RouteContext) (atlas.Payload, error) {
-	fullQuery := routeCtx.Query.Values()
-	return fetch.LoadCached(ctx, atlas.RoutePayloadResourceKey(routeCtx.Path, fullQuery), func(loadCtx context.Context) (atlas.Payload, error) {
-		sku := strings.TrimSpace(routeCtx.Params.Get("sku"))
-		parentPath := atlas.RouteInventory + "/" + sku
-		pageData, pageRequestURL, err := fetchPageData(loadCtx, parentPath, fullQuery)
-		if err != nil {
-			debugLog("route.overlay.page.error", map[string]any{"path": routeCtx.Path, "error": err.Error()})
-			return buildRecoveryPayload(routeCtx.Path, fullQuery, pageRequestURL, err), nil
+func loadInventoryThresholdHistoryPayload(parseCtx context.Context, parseRouteCtx router.RouteContext) (atlas.Payload, error) {
+	parseFullQuery := parseRouteCtx.Query.Values()
+	return fetch.LoadCached(parseCtx, atlas.RoutePayloadResourceKey(parseRouteCtx.Path, parseFullQuery), func(parseLoadCtx context.Context) (atlas.Payload, error) {
+		parseSku := strings.TrimSpace(parseRouteCtx.Params.Get("sku"))
+		parseParentPath := atlas.RouteInventory + "/" + parseSku
+		parsePageData, parsePageRequestURL, parseErr := fetchPageData(parseLoadCtx, parseParentPath, parseFullQuery)
+		if parseErr != nil {
+			debugLog("route.overlay.page.error", map[string]any{"path": parseRouteCtx.Path, "error": parseErr.Error()})
+			return buildRecoveryPayload(parseRouteCtx.Path, parseFullQuery, parsePageRequestURL, parseErr), nil
 		}
-		if pageData == nil {
-			debugLog("route.overlay.page.missing", map[string]any{"path": routeCtx.Path, "requestURL": pageRequestURL})
-			return buildRecoveryPayload(routeCtx.Path, fullQuery, pageRequestURL, nil), nil
+		if parsePageData == nil {
+			debugLog("route.overlay.page.missing", map[string]any{"path": parseRouteCtx.Path, "requestURL": parsePageRequestURL})
+			return buildRecoveryPayload(parseRouteCtx.Path, parseFullQuery, parsePageRequestURL, nil), nil
 		}
-		overlayRequestURL := atlas.StartupRequestURL(routeCtx.Path, routeDataQuery(fullQuery))
-		overlayData, err := fetchRequestData(loadCtx, overlayRequestURL, "overlay")
-		if err != nil {
-			debugLog("route.overlay.data.error", map[string]any{"path": routeCtx.Path, "requestURL": overlayRequestURL, "error": err.Error()})
-			return buildRecoveryPayload(routeCtx.Path, fullQuery, overlayRequestURL, err), nil
+		parseOverlayRequestURL := atlas.StartupRequestURL(parseRouteCtx.Path, routeDataQuery(parseFullQuery))
+		parseOverlayData, parseErr := fetchRequestData(parseLoadCtx, parseOverlayRequestURL, "overlay")
+		if parseErr != nil {
+			debugLog("route.overlay.data.error", map[string]any{"path": parseRouteCtx.Path, "requestURL": parseOverlayRequestURL, "error": parseErr.Error()})
+			return buildRecoveryPayload(parseRouteCtx.Path, parseFullQuery, parseOverlayRequestURL, parseErr), nil
 		}
-		requests := map[string]atlas.Request{}
-		if strings.TrimSpace(pageRequestURL) != "" {
-			requests["page"] = atlas.Request{
+		parseRequests := map[string]atlas.Request{}
+		if strings.TrimSpace(parsePageRequestURL) != "" {
+			parseRequests["page"] = atlas.Request{
 				Method: http.MethodGet,
-				URL:    pageRequestURL,
+				URL:    parsePageRequestURL,
 				Status: http.StatusOK,
-				Data:   map[string]any{"page": pageData},
+				Data:   map[string]any{"page": parsePageData},
 			}
 		}
-		if strings.TrimSpace(overlayRequestURL) != "" && overlayData != nil {
-			requests["overlay"] = atlas.Request{
+		if strings.TrimSpace(parseOverlayRequestURL) != "" && parseOverlayData != nil {
+			parseRequests["overlay"] = atlas.Request{
 				Method: http.MethodGet,
-				URL:    overlayRequestURL,
+				URL:    parseOverlayRequestURL,
 				Status: http.StatusOK,
-				Data:   map[string]any{"overlay": overlayData},
+				Data:   map[string]any{"overlay": parseOverlayData},
 			}
 		}
-		return buildPayloadWithData(routeCtx.Path, fullQuery, map[string]any{
-			"page":    pageData,
-			"overlay": overlayData,
-		}, requests), nil
+		return buildPayloadWithData(parseRouteCtx.Path, parseFullQuery, map[string]any{
+			"page":    parsePageData,
+			"overlay": parseOverlayData,
+		}, parseRequests), nil
 	}, atlasCacheOptions)
 }
 
-func loadWarehouseItemNestedPayload(ctx context.Context, routeCtx router.RouteContext) (atlas.Payload, error) {
-	fullQuery := routeCtx.Query.Values()
-	return fetch.LoadCached(ctx, atlas.RoutePayloadResourceKey(routeCtx.Path, fullQuery), func(loadCtx context.Context) (atlas.Payload, error) {
-		warehouseID := strings.TrimSpace(routeCtx.Params.Get("warehouseId"))
-		parentPath := atlas.RouteWarehouseOps + "/" + warehouseID
-		pageData, pageRequestURL, err := fetchPageData(loadCtx, parentPath, fullQuery)
-		if err != nil {
-			debugLog("route.nested.page.error", map[string]any{"path": routeCtx.Path, "error": err.Error()})
-			return buildRecoveryPayload(routeCtx.Path, fullQuery, pageRequestURL, err), nil
+func loadWarehouseItemNestedPayload(parseCtx context.Context, parseRouteCtx router.RouteContext) (atlas.Payload, error) {
+	parseFullQuery := parseRouteCtx.Query.Values()
+	return fetch.LoadCached(parseCtx, atlas.RoutePayloadResourceKey(parseRouteCtx.Path, parseFullQuery), func(parseLoadCtx context.Context) (atlas.Payload, error) {
+		parseWarehouseID := strings.TrimSpace(parseRouteCtx.Params.Get("warehouseId"))
+		parseParentPath := atlas.RouteWarehouseOps + "/" + parseWarehouseID
+		parsePageData, parsePageRequestURL, parseErr := fetchPageData(parseLoadCtx, parseParentPath, parseFullQuery)
+		if parseErr != nil {
+			debugLog("route.nested.page.error", map[string]any{"path": parseRouteCtx.Path, "error": parseErr.Error()})
+			return buildRecoveryPayload(parseRouteCtx.Path, parseFullQuery, parsePageRequestURL, parseErr), nil
 		}
-		if pageData == nil {
-			debugLog("route.nested.page.missing", map[string]any{"path": routeCtx.Path, "requestURL": pageRequestURL})
-			return buildRecoveryPayload(routeCtx.Path, fullQuery, pageRequestURL, nil), nil
+		if parsePageData == nil {
+			debugLog("route.nested.page.missing", map[string]any{"path": parseRouteCtx.Path, "requestURL": parsePageRequestURL})
+			return buildRecoveryPayload(parseRouteCtx.Path, parseFullQuery, parsePageRequestURL, nil), nil
 		}
-		itemRequestURL := atlas.StartupRequestURL(routeCtx.Path, routeDataQuery(fullQuery))
-		itemData, err := fetchRequestData(loadCtx, itemRequestURL, "item")
-		if err != nil {
-			debugLog("route.nested.item.error", map[string]any{"path": routeCtx.Path, "requestURL": itemRequestURL, "error": err.Error()})
-			return buildRecoveryPayload(routeCtx.Path, fullQuery, itemRequestURL, err), nil
+		parseItemRequestURL := atlas.StartupRequestURL(parseRouteCtx.Path, routeDataQuery(parseFullQuery))
+		parseItemData, parseErr := fetchRequestData(parseLoadCtx, parseItemRequestURL, "item")
+		if parseErr != nil {
+			debugLog("route.nested.item.error", map[string]any{"path": parseRouteCtx.Path, "requestURL": parseItemRequestURL, "error": parseErr.Error()})
+			return buildRecoveryPayload(parseRouteCtx.Path, parseFullQuery, parseItemRequestURL, parseErr), nil
 		}
-		if itemData == nil {
-			debugLog("route.nested.item.missing", map[string]any{"path": routeCtx.Path, "requestURL": itemRequestURL})
-			return buildRecoveryPayload(routeCtx.Path, fullQuery, itemRequestURL, nil), nil
+		if parseItemData == nil {
+			debugLog("route.nested.item.missing", map[string]any{"path": parseRouteCtx.Path, "requestURL": parseItemRequestURL})
+			return buildRecoveryPayload(parseRouteCtx.Path, parseFullQuery, parseItemRequestURL, nil), nil
 		}
-		requests := map[string]atlas.Request{}
-		if strings.TrimSpace(pageRequestURL) != "" {
-			requests["page"] = atlas.Request{
+		parseRequests := map[string]atlas.Request{}
+		if strings.TrimSpace(parsePageRequestURL) != "" {
+			parseRequests["page"] = atlas.Request{
 				Method: http.MethodGet,
-				URL:    pageRequestURL,
+				URL:    parsePageRequestURL,
 				Status: http.StatusOK,
-				Data:   map[string]any{"page": pageData},
+				Data:   map[string]any{"page": parsePageData},
 			}
 		}
-		if strings.TrimSpace(itemRequestURL) != "" {
-			requests["item"] = atlas.Request{
+		if strings.TrimSpace(parseItemRequestURL) != "" {
+			parseRequests["item"] = atlas.Request{
 				Method: http.MethodGet,
-				URL:    itemRequestURL,
+				URL:    parseItemRequestURL,
 				Status: http.StatusOK,
-				Data:   map[string]any{"item": itemData},
+				Data:   map[string]any{"item": parseItemData},
 			}
 		}
-		return buildPayloadWithData(routeCtx.Path, fullQuery, map[string]any{
-			"page": pageData,
-			"item": itemData,
-		}, requests), nil
+		return buildPayloadWithData(parseRouteCtx.Path, parseFullQuery, map[string]any{
+			"page": parsePageData,
+			"item": parseItemData,
+		}, parseRequests), nil
 	}, atlasCacheOptions)
 }
 
-func atlasThresholdHistoryOverlayLoader(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
-	debugLog("router.loader.overlay", map[string]any{"path": routeCtx.Path})
-	payload, err := loadInventoryThresholdHistoryPayload(ctx, routeCtx)
-	if err != nil {
-		return nil, err
+func atlasThresholdHistoryOverlayLoader(parseCtx context.Context, parseRouteCtx router.RouteContext) (router.Attrs, error) {
+	debugLog("router.loader.overlay", map[string]any{"path": parseRouteCtx.Path})
+	parsePayload, parseErr := loadInventoryThresholdHistoryPayload(parseCtx, parseRouteCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	return router.Attrs{"payload": payload}, nil
+	return router.Attrs{"payload": parsePayload}, nil
 }
 
-func atlasWarehouseItemNestedLoader(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
-	debugLog("router.loader.nested", map[string]any{"path": routeCtx.Path})
-	payload, err := loadWarehouseItemNestedPayload(ctx, routeCtx)
-	if err != nil {
-		return nil, err
+func atlasWarehouseItemNestedLoader(parseCtx context.Context, parseRouteCtx router.RouteContext) (router.Attrs, error) {
+	debugLog("router.loader.nested", map[string]any{"path": parseRouteCtx.Path})
+	parsePayload, parseErr := loadWarehouseItemNestedPayload(parseCtx, parseRouteCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	return router.Attrs{"payload": payload}, nil
+	return router.Attrs{"payload": parsePayload}, nil
 }
 
-func applyPayloadSideEffects(payload atlas.Payload, resetScroll bool) {
-	invalidateCachesForPayload(payload)
-	updateDocumentMetadata(payload)
-	if resetScroll {
-		syncNavigationPosition(payload)
+func applyPayloadSideEffects(parsePayload atlas.Payload, isResetScroll bool) {
+	invalidateCachesForPayload(parsePayload)
+	updateDocumentMetadata(parsePayload)
+	if isResetScroll {
+		syncNavigationPosition(parsePayload)
 	}
 	bindDirtyGuardForms()
 }
 
-func atlasRouteComponent(attrs router.Attrs) *router.Element {
-	payload, _ := attrs["payload"].(atlas.Payload)
-	debugLog("route.render", map[string]any{"path": payload.Route.Path, "screen": payload.Route.Screen})
-	applyPayloadSideEffects(payload, true)
+func atlasRouteComponent(parseAttrs router.Attrs) *router.Element {
+	parsePayload, _ := parseAttrs["payload"].(atlas.Payload)
+	debugLog("route.render", map[string]any{"path": parsePayload.Route.Path, "screen": parsePayload.Route.Screen})
+	applyPayloadSideEffects(parsePayload, true)
 	return ui.CreateElement(func() ui.Node {
-		return atlas.App(payload)
+		return atlas.App(parsePayload)
 	})
 }
 
-func atlasThresholdHistoryOverlayComponent(attrs router.Attrs) *router.Element {
-	payload, _ := attrs["payload"].(atlas.Payload)
-	debugLog("route.render.overlay", map[string]any{"path": payload.Route.Path, "screen": payload.Route.Screen})
-	applyPayloadSideEffects(payload, false)
+func atlasThresholdHistoryOverlayComponent(parseAttrs router.Attrs) *router.Element {
+	parsePayload, _ := parseAttrs["payload"].(atlas.Payload)
+	debugLog("route.render.overlay", map[string]any{"path": parsePayload.Route.Path, "screen": parsePayload.Route.Screen})
+	applyPayloadSideEffects(parsePayload, false)
 	return ui.CreateElement(func() ui.Node {
-		return atlas.InventoryThresholdHistoryOverlay(payload)
+		return atlas.InventoryThresholdHistoryOverlay(parsePayload)
 	})
 }
 
-func atlasWarehouseItemNestedComponent(attrs router.Attrs) *router.Element {
-	payload, _ := attrs["payload"].(atlas.Payload)
-	debugLog("route.render.nested", map[string]any{"path": payload.Route.Path, "screen": payload.Route.Screen})
-	applyPayloadSideEffects(payload, false)
+func atlasWarehouseItemNestedComponent(parseAttrs router.Attrs) *router.Element {
+	parsePayload, _ := parseAttrs["payload"].(atlas.Payload)
+	debugLog("route.render.nested", map[string]any{"path": parsePayload.Route.Path, "screen": parsePayload.Route.Screen})
+	applyPayloadSideEffects(parsePayload, false)
 	return ui.CreateElement(func() ui.Node {
-		return atlas.WarehouseOpsItemPanel(payload)
+		return atlas.WarehouseOpsItemPanel(parsePayload)
 	})
 }
 
@@ -984,34 +984,34 @@ func atlasLoadingElement() *router.Element {
 	})
 }
 
-func routeOptionsForDefinition(def atlasRouteDefinition) router.Options {
-	options := router.Options{
-		Redirect:    def.Redirect,
-		BeforeLeave: def.BeforeLeave,
-		Layout:      def.Layout,
+func routeOptionsForDefinition(parseDef atlasRouteDefinition) router.Options {
+	parseOptions := router.Options{
+		Redirect:    parseDef.Redirect,
+		BeforeLeave: parseDef.BeforeLeave,
+		Layout:      parseDef.Layout,
 	}
-	if strings.TrimSpace(def.MetadataKey) != "" {
-		metadata := atlas.MetadataForPath(def.MetadataKey)
-		options.Title = metadata.Title
-		options.Description = metadata.Description
-		options.CanonicalURL = metadata.Canonical
+	if strings.TrimSpace(parseDef.MetadataKey) != "" {
+		parseMetadata := atlas.MetadataForPath(parseDef.MetadataKey)
+		parseOptions.Title = parseMetadata.Title
+		parseOptions.Description = parseMetadata.Description
+		parseOptions.CanonicalURL = parseMetadata.Canonical
 	}
-	if def.Internal {
-		options.BeforeEnter = requireInternalSessionGuard
+	if parseDef.Internal {
+		parseOptions.BeforeEnter = requireInternalSessionGuard
 	}
-	if def.UseLoader {
-		if def.Loader != nil {
-			options.Loader = def.Loader
+	if parseDef.UseLoader {
+		if parseDef.Loader != nil {
+			parseOptions.Loader = parseDef.Loader
 		} else {
-			options.Loader = atlasRouteLoader
+			parseOptions.Loader = atlasRouteLoader
 		}
-		options.Loading = atlasLoadingElement()
+		parseOptions.Loading = atlasLoadingElement()
 	}
-	return options
+	return parseOptions
 }
 
-func registerAtlasRoutes(r *router.Router) {
-	definitions := []atlasRouteDefinition{
+func registerAtlasRoutes(parseR *router.Router) {
+	parseDefinitions := []atlasRouteDefinition{
 		{Path: atlas.RouteLanding, MetadataKey: atlas.RouteLanding, UseLoader: true},
 		{Path: atlas.RouteCatalog, MetadataKey: atlas.RouteCatalog, UseLoader: true},
 		{Path: atlas.RouteProductPattern, MetadataKey: atlas.RouteProduct, UseLoader: true},
@@ -1038,83 +1038,83 @@ func registerAtlasRoutes(r *router.Router) {
 		{Path: atlas.RouteSettings, MetadataKey: atlas.RouteSettings, UseLoader: true, Internal: true},
 		{Path: atlas.RouteCatchAll, UseLoader: true},
 	}
-	for _, def := range definitions {
-		component := atlasRouteComponent
-		if def.Component != nil {
-			component = def.Component
+	for _, parseDef := range parseDefinitions {
+		parseComponent := atlasRouteComponent
+		if parseDef.Component != nil {
+			parseComponent = parseDef.Component
 		}
-		r.Register(def.Path, component, routeOptionsForDefinition(def))
+		parseR.Register(parseDef.Path, parseComponent, routeOptionsForDefinition(parseDef))
 	}
 }
 
-func registerAnchorNavigation(routerInstance *router.Router) {
-	document := js.Global().Get("document")
-	window := js.Global().Get("window")
-	if !document.Truthy() || !window.Truthy() || !document.Get("addEventListener").Truthy() {
+func registerAnchorNavigation(parseRouterInstance *router.Router) {
+	parseDocument := js.Global().Get("document")
+	parseWindow := js.Global().Get("window")
+	if !parseDocument.Truthy() || !parseWindow.Truthy() || !parseDocument.Get("addEventListener").Truthy() {
 		return
 	}
-	anchorNavigationHandler = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) == 0 {
+	anchorNavigationHandler = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) == 0 {
 			return nil
 		}
-		event := args[0]
-		if event.Get("defaultPrevented").Bool() {
+		parseEvent := parseArgs[0]
+		if parseEvent.Get("defaultPrevented").Bool() {
 			return nil
 		}
-		if event.Get("button").Truthy() && event.Get("button").Int() != 0 {
+		if parseEvent.Get("button").Truthy() && parseEvent.Get("button").Int() != 0 {
 			return nil
 		}
-		if event.Get("metaKey").Bool() || event.Get("ctrlKey").Bool() || event.Get("shiftKey").Bool() || event.Get("altKey").Bool() {
+		if parseEvent.Get("metaKey").Bool() || parseEvent.Get("ctrlKey").Bool() || parseEvent.Get("shiftKey").Bool() || parseEvent.Get("altKey").Bool() {
 			return nil
 		}
-		target := event.Get("target")
-		if !target.Truthy() {
+		parseTarget := parseEvent.Get("target")
+		if !parseTarget.Truthy() {
 			return nil
 		}
-		anchor := target.Call("closest", "a[href]")
-		if !anchor.Truthy() {
+		parseAnchor := parseTarget.Call("closest", "a[href]")
+		if !parseAnchor.Truthy() {
 			return nil
 		}
-		if strings.TrimSpace(anchor.Get("target").String()) != "" || anchor.Get("download").Truthy() {
+		if strings.TrimSpace(parseAnchor.Get("target").String()) != "" || parseAnchor.Get("download").Truthy() {
 			return nil
 		}
-		href := strings.TrimSpace(anchor.Get("href").String())
-		if href == "" || strings.HasPrefix(href, "mailto:") || strings.HasPrefix(href, "tel:") || strings.HasPrefix(href, "javascript:") {
+		parseHref := strings.TrimSpace(parseAnchor.Get("href").String())
+		if parseHref == "" || strings.HasPrefix(parseHref, "mailto:") || strings.HasPrefix(parseHref, "tel:") || strings.HasPrefix(parseHref, "javascript:") {
 			return nil
 		}
-		location := window.Get("location")
-		anchorURL := js.Global().Get("URL").New(href, location.Get("href"))
-		if anchorURL.Get("origin").String() != location.Get("origin").String() {
+		parseLocation := parseWindow.Get("location")
+		parseAnchorURL := js.Global().Get("URL").New(parseHref, parseLocation.Get("href"))
+		if parseAnchorURL.Get("origin").String() != parseLocation.Get("origin").String() {
 			return nil
 		}
-		pathname := anchorURL.Get("pathname").String()
-		search := anchorURL.Get("search").String()
-		hash := anchorURL.Get("hash").String()
-		if shouldUseDocumentNavigation(pathname) {
+		parsePathname := parseAnchorURL.Get("pathname").String()
+		parseSearch := parseAnchorURL.Get("search").String()
+		parseHash := parseAnchorURL.Get("hash").String()
+		if shouldUseDocumentNavigation(parsePathname) {
 			return nil
 		}
-		if hash != "" && pathname == location.Get("pathname").String() && search == location.Get("search").String() {
+		if parseHash != "" && parsePathname == parseLocation.Get("pathname").String() && parseSearch == parseLocation.Get("search").String() {
 			return nil
 		}
 		debugLog("navigation.anchor.intercept", map[string]any{
-			"href":     href,
-			"pathname": pathname,
-			"search":   search,
-			"hash":     hash,
+			"href":     parseHref,
+			"pathname": parsePathname,
+			"search":   parseSearch,
+			"hash":     parseHash,
 		})
-		event.Call("preventDefault")
-		routerInstance.Navigate(pathname + search)
+		parseEvent.Call("preventDefault")
+		parseRouterInstance.Navigate(parsePathname + parseSearch)
 		return nil
 	})
-	document.Call("addEventListener", "click", anchorNavigationHandler)
+	parseDocument.Call("addEventListener", "click", anchorNavigationHandler)
 	debugLog("navigation.anchor.registered", nil)
 }
 
 func main() {
 	initialBootstrap = loadBootstrap()
 	initialPayload = atlas.PayloadFromSSRBootstrap(initialBootstrap)
-	if err := restoreAtlasFetchCacheBootstrap(initialPayload); err != nil {
-		debugLog("bootstrap.cache.restore.failed", map[string]any{"error": err.Error()})
+	if parseErr := restoreAtlasFetchCacheBootstrap(initialPayload); parseErr != nil {
+		debugLog("bootstrap.cache.restore.failed", map[string]any{"error": parseErr.Error()})
 	}
 	debugLog("app.init", map[string]any{
 		"path":    initialPayload.Route.Path,
@@ -1125,16 +1125,16 @@ func main() {
 	hasRenderedRoute = true
 	updateDocumentMetadata(initialPayload)
 
-	r := router.NewHistoryRouter(router.RouterOptions{DefaultRoute: atlas.RouteLanding})
-	registerAtlasRoutes(r)
+	parseR := router.NewHistoryRouter(router.RouterOptions{DefaultRoute: atlas.RouteLanding})
+	registerAtlasRoutes(parseR)
 
 	debugLog("hydrate.start", map[string]any{"selector": "#app", "path": initialPayload.Route.Path})
 	_, _ = ui.Hydrate(atlas.App(initialPayload), "#app", ui.HydrationOptions{Bootstrap: initialBootstrap})
 	debugLog("hydrate.done", map[string]any{"selector": "#app"})
 	bindDirtyGuardForms()
 	registerBeforeUnloadGuard()
-	r.HydrateMount("#app")
+	parseR.HydrateMount("#app")
 	debugLog("router.mount", map[string]any{"selector": "#app"})
-	registerAnchorNavigation(r)
+	registerAnchorNavigation(parseR)
 	select {}
 }

@@ -14,19 +14,19 @@ import (
 )
 
 func StableCounterPanel() ui.Node {
-	count := ui.UseState(0)
-	increment := ui.UseEvent(func() {
-		count.Update(func(prev int) int { return prev + 1 })
+	parseCount := ui.UseState(0)
+	parseIncrement := ui.UseEvent(func() {
+		parseCount.Update(func(parsePrev int) int { return parsePrev + 1 })
 	})
 
 	return html.Div(html.Props{Class: "bg-slate-900 p-5 rounded-xl border border-emerald-500/40", ID: "stable-panel"},
 		html.H2(html.Props{Class: "text-lg font-semibold text-emerald-300 mb-2"}, html.Text("Stable sibling subtree")),
 		html.P(html.Props{Class: "text-sm text-slate-300 mb-3"}, html.Text("This subtree should preserve its local state when a different sibling component changes.")),
-		html.P(html.Props{Class: "font-mono text-base", ID: "stable-count"}, html.Text(fmt.Sprintf("Stable count: %d", count.Get()))),
+		html.P(html.Props{Class: "font-mono text-base", ID: "stable-count"}, html.Text(fmt.Sprintf("Stable count: %d", parseCount.Get()))),
 		html.Button(html.Props{
 			Class:   "mt-3 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold px-4 py-2 rounded",
 			ID:      "stable-increment",
-			OnClick: increment,
+			OnClick: parseIncrement,
 		}, html.Text("Increment Stable Counter")),
 	)
 }
@@ -50,8 +50,8 @@ func App() ui.Node {
 func main() {
 	hotreload.Enable()
 
-	app := ui.CreateElement(App)
-	ui.Render(app, "#app")
+	parseApp := ui.CreateElement(App)
+	ui.Render(parseApp, "#app")
 
 	// Keep the Go program running
 	select {}

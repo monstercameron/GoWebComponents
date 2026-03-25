@@ -10,8 +10,8 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func sidebar(convList []convSummary, activeConvID int64, isStreaming bool, userName, userInitials string, isOpen bool, onNew, onLoadConv, onDeleteConv, onEditName, onToggle ui.Handler) ui.Node {
-	intl := i18n.UseI18n()
+func parseSidebar(parseConvList []convSummary, parseActiveConvID int64, isStreaming bool, parseUserName, parseUserInitials string, isOpen bool, parseOnNew, parseOnLoadConv, parseOnDeleteConv, parseOnEditName, parseOnToggle ui.Handler) ui.Node {
+	parseIntl := i18n.UseI18n()
 	return Div(
 		Class(ClassNames(
 			"sidebar flex-col shrink-0 bg-[#171717] border-r border-white/5 h-full overflow-hidden hidden md:flex",
@@ -28,8 +28,8 @@ func sidebar(convList []convSummary, activeConvID int64, isStreaming bool, userN
 			),
 			Button(
 				Class("p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-all duration-200 ease-out shrink-0"),
-				OnClick(onToggle),
-				sidebarToggleIcon(!isOpen),
+				OnClick(parseOnToggle),
+				parseSidebarToggleIcon(!isOpen),
 			),
 		),
 		Div(Class("px-2 mt-2"),
@@ -39,27 +39,27 @@ func sidebar(convList []convSummary, activeConvID int64, isStreaming bool, userN
 					When(isStreaming, "opacity-50 cursor-not-allowed"),
 				)),
 				DisabledIf(isStreaming),
-				OnClick(onNew),
+				OnClick(parseOnNew),
 				Span(Class("text-lg leading-none"), Text("+")),
-				Text(intl.T(chatI18nNamespace, "sidebar.newChat")),
+				Text(parseIntl.T(chatI18nNamespace, "sidebar.newChat")),
 			),
 		),
 		Div(
 			ID(idConvList),
 			Class("chat-scrollbar chat-scrollbar--sidebar flex-1 overflow-y-auto px-2 pt-3 flex flex-col gap-0.5"),
 			IfElse(
-				len(convList) == 0,
-				Span(Class("text-white/30 text-xs px-2"), Text(intl.T(chatI18nNamespace, "sidebar.noConversations"))),
+				len(parseConvList) == 0,
+				Span(Class("text-white/30 text-xs px-2"), Text(parseIntl.T(chatI18nNamespace, "sidebar.noConversations"))),
 				Div(Class("flex flex-col gap-0.5"),
-					Map(convList, func(summary convSummary) ui.Node {
-						isActive := summary.ID == activeConvID
-						idStr := fmt.Sprintf("%d", summary.ID)
-						preview := summary.Preview
-						if len(preview) > sidebarPreviewLen {
-							preview = preview[:sidebarPreviewLen] + "..."
+					Map(parseConvList, func(parseSummary convSummary) ui.Node {
+						isActive := parseSummary.ParseID == parseActiveConvID
+						parseIdStr := fmt.Sprintf("%d", parseSummary.ParseID)
+						parsePreview := parseSummary.Preview
+						if len(parsePreview) > sidebarPreviewLen {
+							parsePreview = parsePreview[:sidebarPreviewLen] + "..."
 						}
-						if preview == "" {
-							preview = intl.T(chatI18nNamespace, "sidebar.emptyConversation")
+						if parsePreview == "" {
+							parsePreview = parseIntl.T(chatI18nNamespace, "sidebar.emptyConversation")
 						}
 						return Div(
 							Class(ClassNames(
@@ -68,20 +68,20 @@ func sidebar(convList []convSummary, activeConvID int64, isStreaming bool, userN
 								When(!isActive, "text-white/50 hover:bg-white/[0.07] hover:text-white/85"),
 								When(isStreaming, "pointer-events-none opacity-60"),
 							)),
-							Data(dataConvID, idStr),
+							Data(dataConvID, parseIdStr),
 							Data(dataConvRow, "1"),
 							Button(
 								Class("flex-1 text-left px-3 py-2 truncate min-w-0"),
-								Data(dataConvID, idStr),
-								OnClick(onLoadConv),
-								Text(preview),
+								Data(dataConvID, parseIdStr),
+								OnClick(parseOnLoadConv),
+								Text(parsePreview),
 							),
 							Button(
 								Class("shrink-0 p-2 mr-2 rounded opacity-0 group-hover:opacity-100 text-white/35 hover:text-red-400 hover:bg-white/10 transition-all duration-200 ease-out"),
-								FromProps(Props{Aria: map[string]string{"label": intl.T(chatI18nNamespace, "sidebar.deleteConversation")}}),
-								Data(dataConvID, idStr),
-								OnClick(onDeleteConv),
-								conversationDeleteIcon(),
+								FromProps(Props{Aria: map[string]string{"label": parseIntl.T(chatI18nNamespace, "sidebar.deleteConversation")}}),
+								Data(dataConvID, parseIdStr),
+								OnClick(parseOnDeleteConv),
+								parseConversationDeleteIcon(),
 							),
 						)
 					}),
@@ -91,13 +91,13 @@ func sidebar(convList []convSummary, activeConvID int64, isStreaming bool, userN
 		Div(Class("mt-auto border-t border-white/5"),
 			Button(
 				Class("w-full flex items-center gap-3 px-3 py-3 hover:bg-white/10 transition-colors text-left"),
-				OnClick(onEditName),
+				OnClick(parseOnEditName),
 				Div(Class("h-8 w-8 rounded-full bg-gradient-to-br from-[#6366f1] to-[#4f46e5] flex items-center justify-center shrink-0 text-xs font-medium"),
-					Text(userInitials),
+					Text(parseUserInitials),
 				),
 				Div(Class("flex flex-col items-start min-w-0 flex-1 overflow-hidden"),
-					Span(Class("text-sm text-white truncate w-full"), Text(userName)),
-					Span(Class("text-xs text-white/40"), Text(intl.T(chatI18nNamespace, "sidebar.editSettings"))),
+					Span(Class("text-sm text-white truncate w-full"), Text(parseUserName)),
+					Span(Class("text-xs text-white/40"), Text(parseIntl.T(chatI18nNamespace, "sidebar.editSettings"))),
 				),
 				Span(Class("text-white/30 text-sm shrink-0"), Text("\u270e")),
 			),

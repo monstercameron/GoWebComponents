@@ -58,26 +58,26 @@ type UserSession struct {
 	DefaultWarehouse string `json:"defaultWarehouse"`
 }
 
-func (p Payload) ToSSRBootstrap() ui.SSRBootstrap {
+func (parseP Payload) ToSSRBootstrap() ui.SSRBootstrap {
 	return ui.SSRBootstrap{
 		Route: ui.SSRRouteBootstrap{
-			Path:   p.Route.Path,
-			Query:  p.Route.Query,
-			Params: p.Route.Params,
+			Path:   parseP.Route.Path,
+			Query:  parseP.Route.Query,
+			Params: parseP.Route.Params,
 		},
 		Data: map[string]any{
-			"route":       p.Route,
-			"preferences": p.Preferences,
-			"theme":       p.Theme,
-			"savedViews":  p.SavedViews,
-			"user":        p.User,
-			"workspace":   p.Workspace,
-			"csrf":        p.CSRF,
-			"payload":     p.Data,
+			"route":       parseP.Route,
+			"preferences": parseP.Preferences,
+			"theme":       parseP.Theme,
+			"savedViews":  parseP.SavedViews,
+			"user":        parseP.User,
+			"workspace":   parseP.Workspace,
+			"csrf":        parseP.CSRF,
+			"payload":     parseP.Data,
 		},
 		I18n: ui.SSRI18nBootstrap{
-			Locale:    p.I18n.Locale,
-			Direction: p.I18n.Direction,
+			Locale:    parseP.I18n.Locale,
+			Direction: parseP.I18n.Direction,
 		},
 	}
 }

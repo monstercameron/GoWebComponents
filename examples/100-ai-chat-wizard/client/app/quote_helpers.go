@@ -14,130 +14,130 @@ type quoteSelectionAnchor struct {
 	Y    float64
 }
 
-func readQuoteSelection(fallbackX, fallbackY float64) (quoteSelectionAnchor, bool) {
-	global := js.Global()
-	if global.IsUndefined() || global.IsNull() {
+func parseReadQuoteSelection(parseFallbackX, parseFallbackY float64) (quoteSelectionAnchor, bool) {
+	parseGlobal := js.Global()
+	if parseGlobal.IsUndefined() || parseGlobal.IsNull() {
 		return quoteSelectionAnchor{}, false
 	}
-	selection := global.Call("getSelection")
-	if selection.IsUndefined() || selection.IsNull() {
+	parseSelection := parseGlobal.Call("getSelection")
+	if parseSelection.IsUndefined() || parseSelection.IsNull() {
 		return quoteSelectionAnchor{}, false
 	}
-	if selection.Get("rangeCount").Int() == 0 || selection.Get("isCollapsed").Bool() {
+	if parseSelection.Get("rangeCount").Int() == 0 || parseSelection.Get("isCollapsed").Bool() {
 		return quoteSelectionAnchor{}, false
 	}
-	text := normalizeQuoteSelectionText(selection.Call("toString").String())
-	if text == "" {
+	parseText := parseNormalizeQuoteSelectionText(parseSelection.Call("toString").ParseString())
+	if parseText == "" {
 		return quoteSelectionAnchor{}, false
 	}
-	x := fallbackX
-	y := fallbackY
-	rng := selection.Call("getRangeAt", 0)
-	if !rng.IsUndefined() && !rng.IsNull() {
-		rect := rng.Call("getBoundingClientRect")
-		width := rect.Get("width").Float()
-		height := rect.Get("height").Float()
-		left := rect.Get("left").Float()
-		top := rect.Get("top").Float()
-		if width > 0 {
-			x = left + (width / 2)
+	parseX := parseFallbackX
+	parseY := parseFallbackY
+	parseRng := parseSelection.Call("getRangeAt", 0)
+	if !parseRng.IsUndefined() && !parseRng.IsNull() {
+		parseRect := parseRng.Call("getBoundingClientRect")
+		parseWidth := parseRect.Get("width").Float()
+		parseHeight := parseRect.Get("height").Float()
+		parseLeft := parseRect.Get("left").Float()
+		parseTop := parseRect.Get("top").Float()
+		if parseWidth > 0 {
+			parseX = parseLeft + (parseWidth / 2)
 		}
-		if height > 0 {
-			y = top - 10
+		if parseHeight > 0 {
+			parseY = parseTop - 10
 		}
 	}
 	return quoteSelectionAnchor{
-		Text: text,
-		X:    clampQuotePromptX(global, x),
-		Y:    clampQuotePromptY(y),
+		Text: parseText,
+		X:    parseClampQuotePromptX(parseGlobal, parseX),
+		Y:    parseClampQuotePromptY(parseY),
 	}, true
 }
 
 func clearQuoteSelection() {
-	global := js.Global()
-	if global.IsUndefined() || global.IsNull() {
+	parseGlobal := js.Global()
+	if parseGlobal.IsUndefined() || parseGlobal.IsNull() {
 		return
 	}
-	selection := global.Call("getSelection")
-	if selection.IsUndefined() || selection.IsNull() {
+	parseSelection := parseGlobal.Call("getSelection")
+	if parseSelection.IsUndefined() || parseSelection.IsNull() {
 		return
 	}
-	selection.Call("removeAllRanges")
+	parseSelection.Call("removeAllRanges")
 }
 
-func selectionTargetMatches(target js.Value, selector string) bool {
-	if selector == "" || target.IsUndefined() || target.IsNull() {
+func parseSelectionTargetMatches(parseTarget js.Value, parseSelector string) bool {
+	if parseSelector == "" || parseTarget.IsUndefined() || parseTarget.IsNull() {
 		return false
 	}
-	closest := target.Get("closest")
-	if closest.IsUndefined() || closest.IsNull() || closest.Type() != js.TypeFunction {
+	parseClosest := parseTarget.Get("closest")
+	if parseClosest.IsUndefined() || parseClosest.IsNull() || parseClosest.Type() != js.TypeFunction {
 		return false
 	}
-	match := target.Call("closest", selector)
-	return !match.IsUndefined() && !match.IsNull()
+	parseMatch := parseTarget.Call("closest", parseSelector)
+	return !parseMatch.IsUndefined() && !parseMatch.IsNull()
 }
 
-func normalizeQuoteSelectionText(text string) string {
-	text = strings.ReplaceAll(text, "\r\n", "\n")
-	lines := strings.Split(text, "\n")
-	normalized := make([]string, 0, len(lines))
-	lastBlank := false
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			if lastBlank {
+func parseNormalizeQuoteSelectionText(parseText string) string {
+	parseText = strings.ReplaceAll(parseText, "\r\n", "\n")
+	parseLines := strings.Split(parseText, "\n")
+	parseNormalized := make([]string, 0, len(parseLines))
+	isParseLastBlank := false
+	for _, parseLine := range parseLines {
+		parseTrimmed := strings.TrimSpace(parseLine)
+		if parseTrimmed == "" {
+			if isParseLastBlank {
 				continue
 			}
-			normalized = append(normalized, "")
-			lastBlank = true
+			parseNormalized = append(parseNormalized, "")
+			isParseLastBlank = true
 			continue
 		}
-		normalized = append(normalized, strings.TrimRight(line, " \t"))
-		lastBlank = false
+		parseNormalized = append(parseNormalized, strings.TrimRight(parseLine, " \t"))
+		isParseLastBlank = false
 	}
-	return strings.TrimSpace(strings.Join(normalized, "\n"))
+	return strings.TrimSpace(strings.Join(parseNormalized, "\n"))
 }
 
-func formatQuotedInput(existing, selected string) string {
-	selected = normalizeQuoteSelectionText(selected)
-	if selected == "" {
-		return existing
+func formatQuotedInput(parseExisting, parseSelected string) string {
+	parseSelected = parseNormalizeQuoteSelectionText(parseSelected)
+	if parseSelected == "" {
+		return parseExisting
 	}
-	lines := strings.Split(selected, "\n")
-	quotedLines := make([]string, 0, len(lines))
-	for _, line := range lines {
-		if strings.TrimSpace(line) == "" {
-			quotedLines = append(quotedLines, ">")
+	parseLines := strings.Split(parseSelected, "\n")
+	parseQuotedLines := make([]string, 0, len(parseLines))
+	for _, parseLine := range parseLines {
+		if strings.TrimSpace(parseLine) == "" {
+			parseQuotedLines = append(parseQuotedLines, ">")
 			continue
 		}
-		quotedLines = append(quotedLines, "> "+line)
+		parseQuotedLines = append(parseQuotedLines, "> "+parseLine)
 	}
-	quotedText := strings.Join(quotedLines, "\n")
-	existing = strings.TrimRight(existing, " \n\t")
-	if existing == "" {
-		return quotedText + "\n\n"
+	parseQuotedText := strings.Join(parseQuotedLines, "\n")
+	parseExisting = strings.TrimRight(parseExisting, " \n\t")
+	if parseExisting == "" {
+		return parseQuotedText + "\n\n"
 	}
-	return fmt.Sprintf("%s\n\n%s\n\n", existing, quotedText)
+	return fmt.Sprintf("%s\n\n%s\n\n", parseExisting, parseQuotedText)
 }
 
-func clampQuotePromptX(global js.Value, x float64) float64 {
-	width := global.Get("innerWidth").Float()
-	if width <= 0 {
-		width = 1280
+func parseClampQuotePromptX(parseGlobal js.Value, parseX float64) float64 {
+	parseWidth := parseGlobal.Get("innerWidth").Float()
+	if parseWidth <= 0 {
+		parseWidth = 1280
 	}
-	if x < 96 {
+	if parseX < 96 {
 		return 96
 	}
-	maxX := width - 96
-	if x > maxX {
-		return maxX
+	parseMaxX := parseWidth - 96
+	if parseX > parseMaxX {
+		return parseMaxX
 	}
-	return x
+	return parseX
 }
 
-func clampQuotePromptY(y float64) float64 {
-	if y < 72 {
+func parseClampQuotePromptY(parseY float64) float64 {
+	if parseY < 72 {
 		return 72
 	}
-	return y
+	return parseY
 }

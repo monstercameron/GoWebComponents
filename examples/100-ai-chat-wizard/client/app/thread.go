@@ -34,64 +34,64 @@ type messageListProps struct {
 	ScrollToBottom          ui.Handler
 }
 
-func messageList(props messageListProps) ui.Node {
-	if len(props.Messages) == 0 {
+func parseMessageList(parseProps messageListProps) ui.Node {
+	if len(parseProps.Messages) == 0 {
 		return Div(
 			Class("relative flex-1 min-h-0"),
 			Div(
 				ID(idMessageList),
 				Class("chat-scrollbar chat-scrollbar--panel flex h-full flex-col items-center justify-center gap-4 overflow-y-auto"),
-				emptyState(),
+				parseEmptyState(),
 			),
 		)
 	}
 
-	rows := make([]ui.Node, 0, len(props.Messages)+1)
-	for idx, msg := range props.Messages {
-		isEditing := props.EditIdx == idx && msg.Role == roleUser
-		rows = append(rows, WithKey(
-			messageBubble(messageBubbleProps{
-				Intl:                    props.Intl,
-				Message:                 msg,
-				Index:                   idx,
-				ActiveStream:            idx == len(props.Messages)-1 && props.IsStreaming,
+	parseRows := make([]ui.Node, 0, len(parseProps.Messages)+1)
+	for parseIdx, parseMsg := range parseProps.Messages {
+		isEditing := parseProps.EditIdx == parseIdx && parseMsg.Role == roleUser
+		parseRows = append(parseRows, WithKey(
+			parseMessageBubble(messageBubbleProps{
+				Intl:                    parseProps.Intl,
+				Message:                 parseMsg,
+				Index:                   parseIdx,
+				ActiveStream:            parseIdx == len(parseProps.Messages)-1 && parseProps.IsStreaming,
 				IsEditing:               isEditing,
-				EditValue:               props.EditText,
-				StartEdit:               props.StartEdit,
-				CancelEdit:              props.CancelEdit,
-				HandleEditChange:        props.HandleEditChange,
-				SubmitEdit:              props.SubmitEdit,
-				HandleEditKey:           props.HandleEditKey,
-				OnFork:                  props.OnFork,
-				OnOpenCanvas:            props.OnOpenCanvas,
-				ToggleThoughtSection:    props.ToggleThoughtSection,
-				ModelOptions:            props.ModelOptions,
-				DefaultModelID:          props.DefaultModelID,
-				ThreadCostSummary:       props.ThreadCostSummary,
-				UserInitials:            props.UserInitials,
-				UseMarkdownFallback:     props.UseMarkdownFallback,
-				ExpandedThoughtSections: props.ExpandedThoughtSections,
-				TTSAudio:                props.TTSAudio,
-				OnSpeechUpgrade:         props.OnSpeechUpgrade,
+				EditValue:               parseProps.EditText,
+				StartEdit:               parseProps.StartEdit,
+				CancelEdit:              parseProps.CancelEdit,
+				HandleEditChange:        parseProps.HandleEditChange,
+				SubmitEdit:              parseProps.SubmitEdit,
+				HandleEditKey:           parseProps.HandleEditKey,
+				OnFork:                  parseProps.OnFork,
+				OnOpenCanvas:            parseProps.OnOpenCanvas,
+				ToggleThoughtSection:    parseProps.ToggleThoughtSection,
+				ModelOptions:            parseProps.ParseModelOptions,
+				DefaultModelID:          parseProps.DefaultModelID,
+				ThreadCostSummary:       parseProps.ThreadCostSummary,
+				UserInitials:            parseProps.UserInitials,
+				UseMarkdownFallback:     parseProps.UseMarkdownFallback,
+				ExpandedThoughtSections: parseProps.ExpandedThoughtSections,
+				TTSAudio:                parseProps.TTSAudio,
+				OnSpeechUpgrade:         parseProps.OnSpeechUpgrade,
 			}),
-			idx,
+			parseIdx,
 		))
 	}
-	rows = append(rows, Div(ID(idScrollAnchor)))
+	parseRows = append(parseRows, Div(ID(idScrollAnchor)))
 
 	return Div(
 		Class("relative flex-1 min-h-0"),
 		Div(
 			ID(idMessageList),
 			Class("chat-scrollbar chat-scrollbar--panel h-full overflow-y-auto"),
-			Div(ID(idThreadScreen), Class("thread-screen max-w-[72rem] mx-auto px-4 py-4 flex flex-col gap-6"), rows),
+			Div(ID(idThreadScreen), Class("thread-screen max-w-[72rem] mx-auto px-4 py-4 flex flex-col gap-6"), parseRows),
 		),
-		If(props.ShowScrollToBottom,
+		If(parseProps.ParseShowScrollToBottom,
 			Button(
 				ID(idScrollToBottomBtn),
 				Class("absolute bottom-4 left-1/2 z-30 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border-2 border-white/50 bg-[#171717]/92 text-white shadow-[0_16px_36px_rgba(0,0,0,0.34)] backdrop-blur transition-all duration-200 ease-out hover:-translate-x-1/2 hover:-translate-y-1 hover:border-[#19c37d]/60 hover:bg-[#1d1d1d]/98 active:-translate-x-1/2 active:translate-y-0 active:scale-[0.97]"),
 				FromProps(Props{Aria: map[string]string{"label": "Scroll to bottom"}}),
-				OnClick(props.ScrollToBottom),
+				OnClick(parseProps.ParseScrollToBottom),
 				Text("\u2193"),
 			),
 		),

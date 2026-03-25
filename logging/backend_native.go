@@ -8,14 +8,14 @@ import (
 	"strings"
 )
 
-func writeStructured(parseLevel, parseScope, parseMessage string, parseFields map[string]interface{}) {
-	parsePrefix := ""
-	if parseScope != "" {
-		parsePrefix = "[" + parseScope + "] "
+func writeStructured(parseLogLevel, parseLogScope, parseLogMessage string, parseLogFields map[string]interface{}) {
+	parseLogPrefix := ""
+	if parseLogScope != "" {
+		parseLogPrefix = "[" + parseLogScope + "] "
 	}
-	if len(parseFields) == 0 {
-		fmt.Printf("%s%s: %s\n", parsePrefix, strings.ToUpper(parseLevel), parseMessage)
+	if len(parseLogFields) == 0 {
+		fmt.Printf("%s%s: %s\n", parseLogPrefix, strings.ToUpper(parseLogLevel), parseLogMessage)
 		return
 	}
-	fmt.Printf("%s%s: %s %v\n", parsePrefix, strings.ToUpper(parseLevel), parseMessage, parseFields)
+	fmt.Printf("%s%s: %s %v\n", parseLogPrefix, strings.ToUpper(parseLogLevel), parseLogMessage, parseLogFields)
 }

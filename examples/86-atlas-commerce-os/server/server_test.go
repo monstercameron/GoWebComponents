@@ -16,94 +16,94 @@ import (
 	serverdb "github.com/monstercameron/GoWebComponents/examples/86-atlas-commerce-os/server/db"
 )
 
-func TestAppRootRedirectsToDashboard(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestAppRootRedirectsToDashboard(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	req := httptest.NewRequest(http.MethodGet, "/app", nil)
-	res := httptest.NewRecorder()
+	parseReq := httptest.NewRequest(http.MethodGet, "/app", nil)
+	parseRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(res, req)
+	parseServer.routes().ServeHTTP(parseRes, parseReq)
 
-	if res.Code != http.StatusFound {
-		t.Fatalf("expected %d, got %d", http.StatusFound, res.Code)
+	if parseRes.Code != http.StatusFound {
+		parseT.Fatalf("expected %d, got %d", http.StatusFound, parseRes.Code)
 	}
-	if location := res.Header().Get("Location"); location != "/app/dashboard" {
-		t.Fatalf("expected redirect to /app/dashboard, got %q", location)
-	}
-}
-
-func TestInternalRouteRedirectsToMockSignInWithoutSession(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
-
-	req := httptest.NewRequest(http.MethodGet, "/app/dashboard", nil)
-	res := httptest.NewRecorder()
-
-	server.routes().ServeHTTP(res, req)
-
-	if res.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, res.Code)
-	}
-	if location := res.Header().Get("Location"); !strings.Contains(location, "/auth/mock-sign-in?next=%2Fapp%2Fdashboard") {
-		t.Fatalf("expected mock sign-in redirect, got %q", location)
+	if parseLocation := parseRes.Header().Get("Location"); parseLocation != "/app/dashboard" {
+		parseT.Fatalf("expected redirect to /app/dashboard, got %q", parseLocation)
 	}
 }
 
-func TestInternalAPIRequiresMockSignInRecovery(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestInternalRouteRedirectsToMockSignInWithoutSession(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/app/preferences", nil)
-	res := httptest.NewRecorder()
+	parseReq := httptest.NewRequest(http.MethodGet, "/app/dashboard", nil)
+	parseRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(res, req)
+	parseServer.routes().ServeHTTP(parseRes, parseReq)
 
-	if res.Code != http.StatusUnauthorized {
-		t.Fatalf("expected %d, got %d", http.StatusUnauthorized, res.Code)
+	if parseRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseRes.Code)
 	}
-	body := res.Body.String()
-	if !strings.Contains(body, "mock_sign_in_required") {
-		t.Fatalf("expected mock_sign_in_required payload, got %q", body)
-	}
-	if !strings.Contains(body, "/auth/mock-sign-in") {
-		t.Fatalf("expected mock sign-in recovery url, got %q", body)
+	if parseLocation := parseRes.Header().Get("Location"); !strings.Contains(parseLocation, "/auth/mock-sign-in?next=%2Fapp%2Fdashboard") {
+		parseT.Fatalf("expected mock sign-in redirect, got %q", parseLocation)
 	}
 }
 
-func TestMockSignInSetsCookieAndRedirects(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestInternalAPIRequiresMockSignInRecovery(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	body := strings.NewReader("role=warehouse_supervisor&next=%2Fapp%2Fwarehouses")
-	req := httptest.NewRequest(http.MethodPost, "/auth/mock-sign-in", body)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	res := httptest.NewRecorder()
+	parseReq := httptest.NewRequest(http.MethodGet, "/api/app/preferences", nil)
+	parseRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(res, req)
+	parseServer.routes().ServeHTTP(parseRes, parseReq)
 
-	if res.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, res.Code)
+	if parseRes.Code != http.StatusUnauthorized {
+		parseT.Fatalf("expected %d, got %d", http.StatusUnauthorized, parseRes.Code)
 	}
-	if location := res.Header().Get("Location"); !strings.Contains(location, "/app/warehouses") {
-		t.Fatalf("expected internal redirect, got %q", location)
+	parseBody := parseRes.Body.String()
+	if !strings.Contains(parseBody, "mock_sign_in_required") {
+		parseT.Fatalf("expected mock_sign_in_required payload, got %q", parseBody)
 	}
-	var found bool
-	for _, cookie := range res.Result().Cookies() {
-		if cookie.Name == serverauth.MockSessionCookieName && cookie.Value == "warehouse_supervisor" {
-			found = true
+	if !strings.Contains(parseBody, "/auth/mock-sign-in") {
+		parseT.Fatalf("expected mock sign-in recovery url, got %q", parseBody)
+	}
+}
+
+func TestMockSignInSetsCookieAndRedirects(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
+
+	parseBody := strings.NewReader("role=warehouse_supervisor&next=%2Fapp%2Fwarehouses")
+	parseReq := httptest.NewRequest(http.MethodPost, "/auth/mock-sign-in", parseBody)
+	parseReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseRes := httptest.NewRecorder()
+
+	parseServer.routes().ServeHTTP(parseRes, parseReq)
+
+	if parseRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseRes.Code)
+	}
+	if parseLocation := parseRes.Header().Get("Location"); !strings.Contains(parseLocation, "/app/warehouses") {
+		parseT.Fatalf("expected internal redirect, got %q", parseLocation)
+	}
+	var isFound bool
+	for _, parseCookie := range parseRes.Result().Cookies() {
+		if parseCookie.Name == serverauth.MockSessionCookieName && parseCookie.Value == "warehouse_supervisor" {
+			isFound = true
 		}
 	}
-	if !found {
-		t.Fatal("expected mock session cookie in sign-in response")
+	if !isFound {
+		parseT.Fatal("expected mock session cookie in sign-in response")
 	}
 }
 
-func TestInternalSSRRoutes(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestInternalSSRRoutes(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	tests := []struct {
+	parseTests := []struct {
 		path  string
 		title string
 	}{
@@ -125,164 +125,164 @@ func TestInternalSSRRoutes(t *testing.T) {
 		{path: "/app/settings", title: "Atlas Settings"},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.path, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
-			req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-			res := httptest.NewRecorder()
+	for _, parseTc := range parseTests {
+		parseT.Run(parseTc.path, func(parseT2 *testing.T) {
+			parseReq := httptest.NewRequest(http.MethodGet, parseTc.path, nil)
+			parseReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+			parseRes := httptest.NewRecorder()
 
-			server.routes().ServeHTTP(res, req)
+			parseServer.routes().ServeHTTP(parseRes, parseReq)
 
-			if res.Code != http.StatusOK {
-				t.Fatalf("expected %d, got %d", http.StatusOK, res.Code)
+			if parseRes.Code != http.StatusOK {
+				parseT2.Fatalf("expected %d, got %d", http.StatusOK, parseRes.Code)
 			}
-			body := res.Body.String()
-			if !strings.Contains(body, tc.title) {
-				t.Fatalf("expected body to contain %q", tc.title)
+			parseBody := parseRes.Body.String()
+			if !strings.Contains(parseBody, parseTc.title) {
+				parseT2.Fatalf("expected body to contain %q", parseTc.title)
 			}
-			if !strings.Contains(body, `<div id="app"></div>`) {
-				t.Fatalf("expected wasm app shell in response body, got %q", body)
+			if !strings.Contains(parseBody, `<div id="app"></div>`) {
+				parseT2.Fatalf("expected wasm app shell in response body, got %q", parseBody)
 			}
-			if !strings.Contains(body, `id="__ATLAS_BOOTSTRAP__"`) {
-				t.Fatalf("expected bootstrap script in response body, got %q", body)
+			if !strings.Contains(parseBody, `id="__ATLAS_BOOTSTRAP__"`) {
+				parseT2.Fatalf("expected bootstrap script in response body, got %q", parseBody)
 			}
-			for _, snippet := range []string{
+			for _, parseSnippet := range []string{
 				`<title data-gwc-router-managed="true">`,
 				`<meta name="description"`,
 				`<link rel="canonical"`,
 			} {
-				if !strings.Contains(body, snippet) {
-					t.Fatalf("expected router-managed metadata snippet %q, got %q", snippet, body)
+				if !strings.Contains(parseBody, parseSnippet) {
+					parseT2.Fatalf("expected router-managed metadata snippet %q, got %q", parseSnippet, parseBody)
 				}
 			}
-			if !strings.Contains(body, tc.path) {
-				t.Fatalf("expected bootstrap payload to include route path %q", tc.path)
+			if !strings.Contains(parseBody, parseTc.path) {
+				parseT2.Fatalf("expected bootstrap payload to include route path %q", parseTc.path)
 			}
-			if !strings.Contains(body, `"description":"`) {
-				t.Fatalf("expected bootstrap payload to include route description, got %q", body)
+			if !strings.Contains(parseBody, `"description":"`) {
+				parseT2.Fatalf("expected bootstrap payload to include route description, got %q", parseBody)
 			}
-			if !strings.Contains(body, `"canonical":"`+tc.path+`"`) {
-				t.Fatalf("expected bootstrap payload to include canonical %q, got %q", tc.path, body)
+			if !strings.Contains(parseBody, `"canonical":"`+parseTc.path+`"`) {
+				parseT2.Fatalf("expected bootstrap payload to include canonical %q, got %q", parseTc.path, parseBody)
 			}
-			if tc.path == "/app/dashboard" && !strings.Contains(body, "/api/app/dashboard") {
-				t.Fatalf("expected dashboard startup request to use /api/app/dashboard, got %q", body)
+			if parseTc.path == "/app/dashboard" && !strings.Contains(parseBody, "/api/app/dashboard") {
+				parseT2.Fatalf("expected dashboard startup request to use /api/app/dashboard, got %q", parseBody)
 			}
-			if tc.path == "/app/settings" && !strings.Contains(body, "/api/app/settings") {
-				t.Fatalf("expected settings startup request to use /api/app/settings, got %q", body)
+			if parseTc.path == "/app/settings" && !strings.Contains(parseBody, "/api/app/settings") {
+				parseT2.Fatalf("expected settings startup request to use /api/app/settings, got %q", parseBody)
 			}
-			if tc.path == "/app/inventory/frame-desk" && strings.Contains(body, "/shop?q=frame-desk") {
-				t.Fatalf("expected inventory detail to stay in internal workflows, got %q", body)
+			if parseTc.path == "/app/inventory/frame-desk" && strings.Contains(parseBody, "/shop?q=frame-desk") {
+				parseT2.Fatalf("expected inventory detail to stay in internal workflows, got %q", parseBody)
 			}
-			if tc.path == "/app/inventory/frame-desk/threshold-history" && !strings.Contains(body, `"overlay":`) {
-				t.Fatalf("expected threshold-history route bootstrap to include overlay data, got %q", body)
+			if parseTc.path == "/app/inventory/frame-desk/threshold-history" && !strings.Contains(parseBody, `"overlay":`) {
+				parseT2.Fatalf("expected threshold-history route bootstrap to include overlay data, got %q", parseBody)
 			}
 		})
 	}
 }
 
-func TestWarehouseItemDirectEntryBootstrapsParentAndChildData(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestWarehouseItemDirectEntryBootstrapsParentAndChildData(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	req := httptest.NewRequest(http.MethodGet, "/app/warehouses/new-jersey-hub/items/frame-desk?status=promise_risk", nil)
-	req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	res := httptest.NewRecorder()
+	parseReq := httptest.NewRequest(http.MethodGet, "/app/warehouses/new-jersey-hub/items/frame-desk?status=promise_risk", nil)
+	parseReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(res, req)
+	parseServer.routes().ServeHTTP(parseRes, parseReq)
 
-	if res.Code != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, res.Code)
+	if parseRes.Code != http.StatusOK {
+		parseT.Fatalf("expected %d, got %d", http.StatusOK, parseRes.Code)
 	}
-	body := res.Body.String()
-	if !strings.Contains(body, "/api/app/warehouses/new-jersey-hub?status=promise_risk") {
-		t.Fatalf("expected nested warehouse item bootstrap to include parent warehouse request, got %q", body)
+	parseBody := parseRes.Body.String()
+	if !strings.Contains(parseBody, "/api/app/warehouses/new-jersey-hub?status=promise_risk") {
+		parseT.Fatalf("expected nested warehouse item bootstrap to include parent warehouse request, got %q", parseBody)
 	}
-	if !strings.Contains(body, "/api/app/warehouses/new-jersey-hub/items/frame-desk?status=promise_risk") {
-		t.Fatalf("expected nested warehouse item bootstrap to include child item request, got %q", body)
-	}
-}
-
-func TestInventoryThresholdHistoryExternalBootstrapMode(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
-
-	req := httptest.NewRequest(http.MethodGet, "/app/inventory/frame-desk/threshold-history?atlas_bootstrap=external", nil)
-	req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	res := httptest.NewRecorder()
-
-	server.routes().ServeHTTP(res, req)
-
-	if res.Code != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, res.Code)
-	}
-	if mode := res.Header().Get("X-Atlas-Bootstrap-Mode"); mode != "external" {
-		t.Fatalf("expected external bootstrap mode, got %q", mode)
-	}
-	body := res.Body.String()
-	if !strings.Contains(body, `id="__ATLAS_BOOTSTRAP_REF__"`) {
-		t.Fatalf("expected bootstrap reference script, got %q", body)
-	}
-	if strings.Contains(body, `id="__ATLAS_BOOTSTRAP__"`) {
-		t.Fatalf("expected inline bootstrap script to be omitted in external mode, got %q", body)
-	}
-	if !strings.Contains(body, `/__atlas/bootstrap.json?`) {
-		t.Fatalf("expected external bootstrap endpoint reference, got %q", body)
+	if !strings.Contains(parseBody, "/api/app/warehouses/new-jersey-hub/items/frame-desk?status=promise_risk") {
+		parseT.Fatalf("expected nested warehouse item bootstrap to include child item request, got %q", parseBody)
 	}
 }
 
-func TestUnsupportedRouteFallsBackToInlineBootstrapMode(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestInventoryThresholdHistoryExternalBootstrapMode(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	req := httptest.NewRequest(http.MethodGet, "/app/dashboard?atlas_bootstrap=external", nil)
-	req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	res := httptest.NewRecorder()
+	parseReq := httptest.NewRequest(http.MethodGet, "/app/inventory/frame-desk/threshold-history?atlas_bootstrap=external", nil)
+	parseReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(res, req)
+	parseServer.routes().ServeHTTP(parseRes, parseReq)
 
-	if res.Code != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, res.Code)
+	if parseRes.Code != http.StatusOK {
+		parseT.Fatalf("expected %d, got %d", http.StatusOK, parseRes.Code)
 	}
-	if mode := res.Header().Get("X-Atlas-Bootstrap-Mode"); mode != "inline" {
-		t.Fatalf("expected unsupported route to stay inline, got %q", mode)
+	if parseMode := parseRes.Header().Get("X-Atlas-Bootstrap-Mode"); parseMode != "external" {
+		parseT.Fatalf("expected external bootstrap mode, got %q", parseMode)
 	}
-	if !strings.Contains(res.Body.String(), `id="__ATLAS_BOOTSTRAP__"`) {
-		t.Fatalf("expected inline bootstrap script for unsupported route, got %q", res.Body.String())
+	parseBody := parseRes.Body.String()
+	if !strings.Contains(parseBody, `id="__ATLAS_BOOTSTRAP_REF__"`) {
+		parseT.Fatalf("expected bootstrap reference script, got %q", parseBody)
+	}
+	if strings.Contains(parseBody, `id="__ATLAS_BOOTSTRAP__"`) {
+		parseT.Fatalf("expected inline bootstrap script to be omitted in external mode, got %q", parseBody)
+	}
+	if !strings.Contains(parseBody, `/__atlas/bootstrap.json?`) {
+		parseT.Fatalf("expected external bootstrap endpoint reference, got %q", parseBody)
 	}
 }
 
-func TestExternalBootstrapEndpointReturnsThresholdHistoryPayload(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestUnsupportedRouteFallsBackToInlineBootstrapMode(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	routeQuery := url.QueryEscape("atlas_bootstrap=external")
-	req := httptest.NewRequest(http.MethodGet, "/__atlas/bootstrap.json?path=%2Fapp%2Finventory%2Fframe-desk%2Fthreshold-history&route_query="+routeQuery, nil)
-	req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	res := httptest.NewRecorder()
+	parseReq := httptest.NewRequest(http.MethodGet, "/app/dashboard?atlas_bootstrap=external", nil)
+	parseReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(res, req)
+	parseServer.routes().ServeHTTP(parseRes, parseReq)
 
-	if res.Code != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, res.Code)
+	if parseRes.Code != http.StatusOK {
+		parseT.Fatalf("expected %d, got %d", http.StatusOK, parseRes.Code)
 	}
-	body := res.Body.String()
-	for _, expected := range []string{
+	if parseMode := parseRes.Header().Get("X-Atlas-Bootstrap-Mode"); parseMode != "inline" {
+		parseT.Fatalf("expected unsupported route to stay inline, got %q", parseMode)
+	}
+	if !strings.Contains(parseRes.Body.String(), `id="__ATLAS_BOOTSTRAP__"`) {
+		parseT.Fatalf("expected inline bootstrap script for unsupported route, got %q", parseRes.Body.String())
+	}
+}
+
+func TestExternalBootstrapEndpointReturnsThresholdHistoryPayload(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
+
+	parseRouteQuery := url.QueryEscape("atlas_bootstrap=external")
+	parseReq := httptest.NewRequest(http.MethodGet, "/__atlas/bootstrap.json?path=%2Fapp%2Finventory%2Fframe-desk%2Fthreshold-history&route_query="+parseRouteQuery, nil)
+	parseReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseRes := httptest.NewRecorder()
+
+	parseServer.routes().ServeHTTP(parseRes, parseReq)
+
+	if parseRes.Code != http.StatusOK {
+		parseT.Fatalf("expected %d, got %d", http.StatusOK, parseRes.Code)
+	}
+	parseBody := parseRes.Body.String()
+	for _, parseExpected := range []string{
 		`"path":"/app/inventory/frame-desk/threshold-history"`,
 		`"screen":"sku-threshold-history"`,
 		`"overlay"`,
 		`"/api/app/inventory/frame-desk/threshold-panel"`,
 	} {
-		if !strings.Contains(body, expected) {
-			t.Fatalf("expected external bootstrap payload to contain %q, got %q", expected, body)
+		if !strings.Contains(parseBody, parseExpected) {
+			parseT.Fatalf("expected external bootstrap payload to contain %q, got %q", parseExpected, parseBody)
 		}
 	}
 }
 
-func TestPublicSSRRoutes(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestPublicSSRRoutes(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	tests := []struct {
+	parseTests := []struct {
 		path  string
 		title string
 	}{
@@ -294,175 +294,175 @@ func TestPublicSSRRoutes(t *testing.T) {
 		{path: "/warehouses/new-jersey-hub/availability/frame-desk", title: "Atlas Warehouse Availability"},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.path, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
-			res := httptest.NewRecorder()
+	for _, parseTc := range parseTests {
+		parseT.Run(parseTc.path, func(parseT2 *testing.T) {
+			parseReq := httptest.NewRequest(http.MethodGet, parseTc.path, nil)
+			parseRes := httptest.NewRecorder()
 
-			server.routes().ServeHTTP(res, req)
+			parseServer.routes().ServeHTTP(parseRes, parseReq)
 
-			if res.Code != http.StatusOK {
-				t.Fatalf("expected %d, got %d", http.StatusOK, res.Code)
+			if parseRes.Code != http.StatusOK {
+				parseT2.Fatalf("expected %d, got %d", http.StatusOK, parseRes.Code)
 			}
-			body := res.Body.String()
-			if !strings.Contains(body, tc.title) {
-				t.Fatalf("expected body to contain %q", tc.title)
+			parseBody := parseRes.Body.String()
+			if !strings.Contains(parseBody, parseTc.title) {
+				parseT2.Fatalf("expected body to contain %q", parseTc.title)
 			}
-			if !strings.Contains(body, `<div id="app"></div>`) {
-				t.Fatalf("expected wasm app shell in response body, got %q", body)
+			if !strings.Contains(parseBody, `<div id="app"></div>`) {
+				parseT2.Fatalf("expected wasm app shell in response body, got %q", parseBody)
 			}
-			if !strings.Contains(body, `id="__ATLAS_BOOTSTRAP__"`) {
-				t.Fatalf("expected bootstrap script in response body, got %q", body)
+			if !strings.Contains(parseBody, `id="__ATLAS_BOOTSTRAP__"`) {
+				parseT2.Fatalf("expected bootstrap script in response body, got %q", parseBody)
 			}
-			for _, snippet := range []string{
+			for _, parseSnippet := range []string{
 				`<title data-gwc-router-managed="true">`,
 				`<meta name="description"`,
 				`<link rel="canonical"`,
 			} {
-				if !strings.Contains(body, snippet) {
-					t.Fatalf("expected router-managed metadata snippet %q, got %q", snippet, body)
+				if !strings.Contains(parseBody, parseSnippet) {
+					parseT2.Fatalf("expected router-managed metadata snippet %q, got %q", parseSnippet, parseBody)
 				}
 			}
-			if !strings.Contains(body, `"description":"`) {
-				t.Fatalf("expected bootstrap payload to include route description, got %q", body)
+			if !strings.Contains(parseBody, `"description":"`) {
+				parseT2.Fatalf("expected bootstrap payload to include route description, got %q", parseBody)
 			}
-			if !strings.Contains(body, `"canonical":"`+tc.path+`"`) {
-				t.Fatalf("expected bootstrap payload to include canonical %q, got %q", tc.path, body)
+			if !strings.Contains(parseBody, `"canonical":"`+parseTc.path+`"`) {
+				parseT2.Fatalf("expected bootstrap payload to include canonical %q, got %q", parseTc.path, parseBody)
 			}
-			if tc.path == "/warehouses" && !strings.Contains(body, "/api/public/warehouses") {
-				t.Fatalf("expected warehouses startup request to use /api/public/warehouses, got %q", body)
+			if parseTc.path == "/warehouses" && !strings.Contains(parseBody, "/api/public/warehouses") {
+				parseT2.Fatalf("expected warehouses startup request to use /api/public/warehouses, got %q", parseBody)
 			}
 		})
 	}
 }
 
-func TestInternalMutationRejectsMissingCSRFTokens(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestInternalMutationRejectsMissingCSRFTokens(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	body := strings.NewReader("theme=light&locale=fr&density=comfortable&default_warehouse_id=illinois-hub")
-	req := httptest.NewRequest(http.MethodPost, "/api/app/preferences", body)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Origin", "http://example.com")
-	req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	res := httptest.NewRecorder()
+	parseBody := strings.NewReader("theme=light&locale=fr&density=comfortable&default_warehouse_id=illinois-hub")
+	parseReq := httptest.NewRequest(http.MethodPost, "/api/app/preferences", parseBody)
+	parseReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseReq.Header.Set("Origin", "http://example.com")
+	parseReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(res, req)
+	parseServer.routes().ServeHTTP(parseRes, parseReq)
 
-	if res.Code != http.StatusForbidden {
-		t.Fatalf("expected %d, got %d", http.StatusForbidden, res.Code)
+	if parseRes.Code != http.StatusForbidden {
+		parseT.Fatalf("expected %d, got %d", http.StatusForbidden, parseRes.Code)
 	}
-	if !strings.Contains(res.Body.String(), "csrf") {
-		t.Fatalf("expected csrf error payload, got %q", res.Body.String())
+	if !strings.Contains(parseRes.Body.String(), "csrf") {
+		parseT.Fatalf("expected csrf error payload, got %q", parseRes.Body.String())
 	}
 }
 
-func TestPublicMutationValidationReturnsFieldErrors(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestPublicMutationValidationReturnsFieldErrors(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	csrfToken, csrfCookie := loadCSRFFromPage(t, server, "/shop/frame-desk")
-	form := url.Values{
-		"csrf_token": {csrfToken},
+	parseCsrfToken, parseCsrfCookie := loadCSRFFromPage(parseT, parseServer, "/shop/frame-desk")
+	parseForm := url.Values{
+		"csrf_token": {parseCsrfToken},
 		"email":      {"not-an-email"},
 		"quantity":   {"0"},
 	}
-	req := httptest.NewRequest(http.MethodPost, "/api/public/products/frame-desk/quote-requests", strings.NewReader(form.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Origin", "http://example.com")
-	req.Header.Set("Referer", "http://example.com/shop/frame-desk")
-	req.AddCookie(csrfCookie)
-	res := httptest.NewRecorder()
+	parseReq := httptest.NewRequest(http.MethodPost, "/api/public/products/frame-desk/quote-requests", strings.NewReader(parseForm.Encode()))
+	parseReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseReq.Header.Set("Origin", "http://example.com")
+	parseReq.Header.Set("Referer", "http://example.com/shop/frame-desk")
+	parseReq.AddCookie(parseCsrfCookie)
+	parseRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(res, req)
+	parseServer.routes().ServeHTTP(parseRes, parseReq)
 
-	if res.Code != http.StatusBadRequest {
-		t.Fatalf("expected %d, got %d", http.StatusBadRequest, res.Code)
+	if parseRes.Code != http.StatusBadRequest {
+		parseT.Fatalf("expected %d, got %d", http.StatusBadRequest, parseRes.Code)
 	}
-	body := res.Body.String()
-	for _, expected := range []string{"fields", "requester_name", "company_name", "email", "quantity"} {
-		if !strings.Contains(body, expected) {
-			t.Fatalf("expected validation response to contain %q, got %q", expected, body)
+	parseBody := parseRes.Body.String()
+	for _, parseExpected := range []string{"fields", "requester_name", "company_name", "email", "quantity"} {
+		if !strings.Contains(parseBody, parseExpected) {
+			parseT.Fatalf("expected validation response to contain %q, got %q", parseExpected, parseBody)
 		}
 	}
 }
 
-func TestInternalPurchaseOrderAndReceivingMutationsWithCSRFTokens(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestInternalPurchaseOrderAndReceivingMutationsWithCSRFTokens(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	csrfToken, csrfCookie := loadCSRFFromPage(t, server, "/app/purchase-orders/po-1042")
+	parseCsrfToken, parseCsrfCookie := loadCSRFFromPage(parseT, parseServer, "/app/purchase-orders/po-1042")
 
-	purchaseOrderForm := url.Values{
-		"csrf_token": {csrfToken},
+	parsePurchaseOrderForm := url.Values{
+		"csrf_token": {parseCsrfToken},
 		"status":     {"approved"},
 		"note":       {"Validated by Atlas operations."},
 	}
-	purchaseOrderReq := httptest.NewRequest(http.MethodPost, "/api/app/purchase-orders/po-1042/status", strings.NewReader(purchaseOrderForm.Encode()))
-	purchaseOrderReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	purchaseOrderReq.Header.Set("Origin", "http://example.com")
-	purchaseOrderReq.Header.Set("Referer", "http://example.com/app/purchase-orders/po-1042")
-	purchaseOrderReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	purchaseOrderReq.AddCookie(csrfCookie)
-	purchaseOrderRes := httptest.NewRecorder()
+	parsePurchaseOrderReq := httptest.NewRequest(http.MethodPost, "/api/app/purchase-orders/po-1042/status", strings.NewReader(parsePurchaseOrderForm.Encode()))
+	parsePurchaseOrderReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parsePurchaseOrderReq.Header.Set("Origin", "http://example.com")
+	parsePurchaseOrderReq.Header.Set("Referer", "http://example.com/app/purchase-orders/po-1042")
+	parsePurchaseOrderReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parsePurchaseOrderReq.AddCookie(parseCsrfCookie)
+	parsePurchaseOrderRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(purchaseOrderRes, purchaseOrderReq)
+	parseServer.routes().ServeHTTP(parsePurchaseOrderRes, parsePurchaseOrderReq)
 
-	if purchaseOrderRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, purchaseOrderRes.Code)
+	if parsePurchaseOrderRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parsePurchaseOrderRes.Code)
 	}
-	if location := purchaseOrderRes.Header().Get("Location"); !strings.Contains(location, "purchase-order-updated") {
-		t.Fatalf("expected purchase-order-updated redirect notice, got %q", location)
+	if parseLocation := parsePurchaseOrderRes.Header().Get("Location"); !strings.Contains(parseLocation, "purchase-order-updated") {
+		parseT.Fatalf("expected purchase-order-updated redirect notice, got %q", parseLocation)
 	}
-	purchaseOrder, err := server.store.PurchaseOrderByID(context.Background(), "po-1042")
-	if err != nil {
-		t.Fatalf("load purchase order: %v", err)
+	parsePurchaseOrder, parseErr := parseServer.store.PurchaseOrderByID(context.Background(), "po-1042")
+	if parseErr != nil {
+		parseT.Fatalf("load purchase order: %v", parseErr)
 	}
-	if purchaseOrder.Status != "approved" {
-		t.Fatalf("expected purchase order status approved, got %q", purchaseOrder.Status)
+	if parsePurchaseOrder.Status != "approved" {
+		parseT.Fatalf("expected purchase order status approved, got %q", parsePurchaseOrder.Status)
 	}
 
-	receivingForm := url.Values{
-		"csrf_token":          {csrfToken},
+	parseReceivingForm := url.Values{
+		"csrf_token":          {parseCsrfToken},
 		"status":              {"closed"},
 		"discrepancy_summary": {"SSR reconcile complete."},
 	}
-	receivingReq := httptest.NewRequest(http.MethodPost, "/api/app/receiving/rcv-illinois-001/reconcile", strings.NewReader(receivingForm.Encode()))
-	receivingReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	receivingReq.Header.Set("Origin", "http://example.com")
-	receivingReq.Header.Set("Referer", "http://example.com/app/receiving/rcv-illinois-001")
-	receivingReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	receivingReq.AddCookie(csrfCookie)
-	receivingRes := httptest.NewRecorder()
+	parseReceivingReq := httptest.NewRequest(http.MethodPost, "/api/app/receiving/rcv-illinois-001/reconcile", strings.NewReader(parseReceivingForm.Encode()))
+	parseReceivingReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseReceivingReq.Header.Set("Origin", "http://example.com")
+	parseReceivingReq.Header.Set("Referer", "http://example.com/app/receiving/rcv-illinois-001")
+	parseReceivingReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseReceivingReq.AddCookie(parseCsrfCookie)
+	parseReceivingRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(receivingRes, receivingReq)
+	parseServer.routes().ServeHTTP(parseReceivingRes, parseReceivingReq)
 
-	if receivingRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, receivingRes.Code)
+	if parseReceivingRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseReceivingRes.Code)
 	}
-	if location := receivingRes.Header().Get("Location"); !strings.Contains(location, "receiving-reconciled") {
-		t.Fatalf("expected receiving-reconciled redirect notice, got %q", location)
+	if parseLocation2 := parseReceivingRes.Header().Get("Location"); !strings.Contains(parseLocation2, "receiving-reconciled") {
+		parseT.Fatalf("expected receiving-reconciled redirect notice, got %q", parseLocation2)
 	}
-	receivingDetail, err := server.store.ReceivingDetail(context.Background(), "rcv-illinois-001")
-	if err != nil {
-		t.Fatalf("load receiving detail: %v", err)
+	parseReceivingDetail, parseErr := parseServer.store.ReceivingDetail(context.Background(), "rcv-illinois-001")
+	if parseErr != nil {
+		parseT.Fatalf("load receiving detail: %v", parseErr)
 	}
-	if receivingDetail.Session.Status != "closed" {
-		t.Fatalf("expected receiving status closed, got %q", receivingDetail.Session.Status)
+	if parseReceivingDetail.Session.Status != "closed" {
+		parseT.Fatalf("expected receiving status closed, got %q", parseReceivingDetail.Session.Status)
 	}
-	if receivingDetail.Session.DiscrepancySummary != "SSR reconcile complete." {
-		t.Fatalf("expected updated discrepancy summary, got %q", receivingDetail.Session.DiscrepancySummary)
+	if parseReceivingDetail.Session.DiscrepancySummary != "SSR reconcile complete." {
+		parseT.Fatalf("expected updated discrepancy summary, got %q", parseReceivingDetail.Session.DiscrepancySummary)
 	}
 }
 
-func TestInternalProductCRUDWithCSRFTokens(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestInternalProductCRUDWithCSRFTokens(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	csrfToken, csrfCookie := loadCSRFFromPage(t, server, "/app/products")
+	parseCsrfToken, parseCsrfCookie := loadCSRFFromPage(parseT, parseServer, "/app/products")
 
-	createForm := url.Values{
-		"csrf_token":      {csrfToken},
+	parseCreateForm := url.Values{
+		"csrf_token":      {parseCsrfToken},
 		"sku":             {"task-lamp"},
 		"slug":            {"task-lamp"},
 		"title":           {"Task Lamp"},
@@ -478,35 +478,35 @@ func TestInternalProductCRUDWithCSRFTokens(t *testing.T) {
 		"available":       {"11"},
 		"inbound":         {"4"},
 	}
-	createReq := httptest.NewRequest(http.MethodPost, "/api/app/products", strings.NewReader(createForm.Encode()))
-	createReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	createReq.Header.Set("Origin", "http://example.com")
-	createReq.Header.Set("Referer", "http://example.com/app/products")
-	createReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	createReq.AddCookie(csrfCookie)
-	createRes := httptest.NewRecorder()
+	parseCreateReq := httptest.NewRequest(http.MethodPost, "/api/app/products", strings.NewReader(parseCreateForm.Encode()))
+	parseCreateReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseCreateReq.Header.Set("Origin", "http://example.com")
+	parseCreateReq.Header.Set("Referer", "http://example.com/app/products")
+	parseCreateReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseCreateReq.AddCookie(parseCsrfCookie)
+	parseCreateRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(createRes, createReq)
+	parseServer.routes().ServeHTTP(parseCreateRes, parseCreateReq)
 
-	if createRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, createRes.Code)
+	if parseCreateRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseCreateRes.Code)
 	}
-	if location := createRes.Header().Get("Location"); !strings.Contains(location, "product-created") || !strings.Contains(location, "/app/products/task-lamp") {
-		t.Fatalf("expected product-created redirect, got %q", location)
+	if parseLocation := parseCreateRes.Header().Get("Location"); !strings.Contains(parseLocation, "product-created") || !strings.Contains(parseLocation, "/app/products/task-lamp") {
+		parseT.Fatalf("expected product-created redirect, got %q", parseLocation)
 	}
-	created, err := server.store.ProductAdminBySlug(context.Background(), "task-lamp")
-	if err != nil {
-		t.Fatalf("load created product: %v", err)
+	parseCreated, parseErr := parseServer.store.ProductAdminBySlug(context.Background(), "task-lamp")
+	if parseErr != nil {
+		parseT.Fatalf("load created product: %v", parseErr)
 	}
-	if created.Title != "Task Lamp" {
-		t.Fatalf("expected created product title Task Lamp, got %q", created.Title)
+	if parseCreated.Title != "Task Lamp" {
+		parseT.Fatalf("expected created product title Task Lamp, got %q", parseCreated.Title)
 	}
-	if created.WarehouseID != "illinois-hub" {
-		t.Fatalf("expected created warehouse illinois-hub, got %q", created.WarehouseID)
+	if parseCreated.WarehouseID != "illinois-hub" {
+		parseT.Fatalf("expected created warehouse illinois-hub, got %q", parseCreated.WarehouseID)
 	}
 
-	updateForm := url.Values{
-		"csrf_token":           {csrfToken},
+	parseUpdateForm := url.Values{
+		"csrf_token":           {parseCsrfToken},
 		"sku":                  {"task-lamp"},
 		"slug":                 {"task-lamp-pro"},
 		"title":                {"Task Lamp Pro"},
@@ -523,66 +523,66 @@ func TestInternalProductCRUDWithCSRFTokens(t *testing.T) {
 		"available":            {"2"},
 		"inbound":              {"8"},
 	}
-	updateReq := httptest.NewRequest(http.MethodPost, "/api/app/products/task-lamp/update", strings.NewReader(updateForm.Encode()))
-	updateReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	updateReq.Header.Set("Origin", "http://example.com")
-	updateReq.Header.Set("Referer", "http://example.com/app/products/task-lamp")
-	updateReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	updateReq.AddCookie(csrfCookie)
-	updateRes := httptest.NewRecorder()
+	parseUpdateReq := httptest.NewRequest(http.MethodPost, "/api/app/products/task-lamp/update", strings.NewReader(parseUpdateForm.Encode()))
+	parseUpdateReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseUpdateReq.Header.Set("Origin", "http://example.com")
+	parseUpdateReq.Header.Set("Referer", "http://example.com/app/products/task-lamp")
+	parseUpdateReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseUpdateReq.AddCookie(parseCsrfCookie)
+	parseUpdateRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(updateRes, updateReq)
+	parseServer.routes().ServeHTTP(parseUpdateRes, parseUpdateReq)
 
-	if updateRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, updateRes.Code)
+	if parseUpdateRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseUpdateRes.Code)
 	}
-	if location := updateRes.Header().Get("Location"); !strings.Contains(location, "product-updated") || !strings.Contains(location, "/app/products/task-lamp-pro") {
-		t.Fatalf("expected product-updated redirect, got %q", location)
+	if parseLocation2 := parseUpdateRes.Header().Get("Location"); !strings.Contains(parseLocation2, "product-updated") || !strings.Contains(parseLocation2, "/app/products/task-lamp-pro") {
+		parseT.Fatalf("expected product-updated redirect, got %q", parseLocation2)
 	}
-	updated, err := server.store.ProductAdminBySlug(context.Background(), "task-lamp-pro")
-	if err != nil {
-		t.Fatalf("load updated product: %v", err)
+	parseUpdated, parseErr := parseServer.store.ProductAdminBySlug(context.Background(), "task-lamp-pro")
+	if parseErr != nil {
+		parseT.Fatalf("load updated product: %v", parseErr)
 	}
-	if updated.Title != "Task Lamp Pro" {
-		t.Fatalf("expected updated product title Task Lamp Pro, got %q", updated.Title)
+	if parseUpdated.Title != "Task Lamp Pro" {
+		parseT.Fatalf("expected updated product title Task Lamp Pro, got %q", parseUpdated.Title)
 	}
-	if updated.WarehouseID != "new-jersey-hub" {
-		t.Fatalf("expected moved warehouse new-jersey-hub, got %q", updated.WarehouseID)
+	if parseUpdated.WarehouseID != "new-jersey-hub" {
+		parseT.Fatalf("expected moved warehouse new-jersey-hub, got %q", parseUpdated.WarehouseID)
 	}
-	if updated.Available != 2 {
-		t.Fatalf("expected available units 2, got %d", updated.Available)
+	if parseUpdated.Available != 2 {
+		parseT.Fatalf("expected available units 2, got %d", parseUpdated.Available)
 	}
 
-	deleteForm := url.Values{"csrf_token": {csrfToken}}
-	deleteReq := httptest.NewRequest(http.MethodPost, "/api/app/products/task-lamp-pro/delete", strings.NewReader(deleteForm.Encode()))
-	deleteReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	deleteReq.Header.Set("Origin", "http://example.com")
-	deleteReq.Header.Set("Referer", "http://example.com/app/products/task-lamp-pro")
-	deleteReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	deleteReq.AddCookie(csrfCookie)
-	deleteRes := httptest.NewRecorder()
+	parseDeleteForm := url.Values{"csrf_token": {parseCsrfToken}}
+	parseDeleteReq := httptest.NewRequest(http.MethodPost, "/api/app/products/task-lamp-pro/delete", strings.NewReader(parseDeleteForm.Encode()))
+	parseDeleteReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseDeleteReq.Header.Set("Origin", "http://example.com")
+	parseDeleteReq.Header.Set("Referer", "http://example.com/app/products/task-lamp-pro")
+	parseDeleteReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseDeleteReq.AddCookie(parseCsrfCookie)
+	parseDeleteRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(deleteRes, deleteReq)
+	parseServer.routes().ServeHTTP(parseDeleteRes, parseDeleteReq)
 
-	if deleteRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, deleteRes.Code)
+	if parseDeleteRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseDeleteRes.Code)
 	}
-	if location := deleteRes.Header().Get("Location"); !strings.Contains(location, "product-deleted") || !strings.Contains(location, "/app/products") {
-		t.Fatalf("expected product-deleted redirect, got %q", location)
+	if parseLocation3 := parseDeleteRes.Header().Get("Location"); !strings.Contains(parseLocation3, "product-deleted") || !strings.Contains(parseLocation3, "/app/products") {
+		parseT.Fatalf("expected product-deleted redirect, got %q", parseLocation3)
 	}
-	if _, err := server.store.ProductAdminBySlug(context.Background(), "task-lamp-pro"); err == nil {
-		t.Fatal("expected deleted product lookup to fail")
+	if _, parseErr2 := parseServer.store.ProductAdminBySlug(context.Background(), "task-lamp-pro"); parseErr2 == nil {
+		parseT.Fatal("expected deleted product lookup to fail")
 	}
 }
 
-func TestInternalInventoryAndPurchaseOrderCreateWithCSRFTokens(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestInternalInventoryAndPurchaseOrderCreateWithCSRFTokens(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	csrfToken, csrfCookie := loadCSRFFromPage(t, server, "/app/inventory/frame-desk")
+	parseCsrfToken, parseCsrfCookie := loadCSRFFromPage(parseT, parseServer, "/app/inventory/frame-desk")
 
-	updateForm := url.Values{
-		"csrf_token":    {csrfToken},
+	parseUpdateForm := url.Values{
+		"csrf_token":    {parseCsrfToken},
 		"warehouse_id":  {"new-jersey-hub"},
 		"on_hand":       {"10"},
 		"reserved":      {"2"},
@@ -592,51 +592,51 @@ func TestInternalInventoryAndPurchaseOrderCreateWithCSRFTokens(t *testing.T) {
 		"safety_stock":  {"5"},
 		"status":        {"recovery"},
 	}
-	updateReq := httptest.NewRequest(http.MethodPost, "/api/app/inventory/frame-desk/update", strings.NewReader(updateForm.Encode()))
-	updateReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	updateReq.Header.Set("Origin", "http://example.com")
-	updateReq.Header.Set("Referer", "http://example.com/app/inventory/frame-desk")
-	updateReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	updateReq.AddCookie(csrfCookie)
-	updateRes := httptest.NewRecorder()
+	parseUpdateReq := httptest.NewRequest(http.MethodPost, "/api/app/inventory/frame-desk/update", strings.NewReader(parseUpdateForm.Encode()))
+	parseUpdateReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseUpdateReq.Header.Set("Origin", "http://example.com")
+	parseUpdateReq.Header.Set("Referer", "http://example.com/app/inventory/frame-desk")
+	parseUpdateReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseUpdateReq.AddCookie(parseCsrfCookie)
+	parseUpdateRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(updateRes, updateReq)
+	parseServer.routes().ServeHTTP(parseUpdateRes, parseUpdateReq)
 
-	if updateRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, updateRes.Code)
+	if parseUpdateRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseUpdateRes.Code)
 	}
-	if location := updateRes.Header().Get("Location"); !strings.Contains(location, "inventory-updated") || !strings.Contains(location, "/app/inventory/frame-desk") {
-		t.Fatalf("expected inventory-updated redirect, got %q", location)
+	if parseLocation := parseUpdateRes.Header().Get("Location"); !strings.Contains(parseLocation, "inventory-updated") || !strings.Contains(parseLocation, "/app/inventory/frame-desk") {
+		parseT.Fatalf("expected inventory-updated redirect, got %q", parseLocation)
 	}
-	rows, err := server.store.InventoryRowsBySKU(context.Background(), "frame-desk")
-	if err != nil {
-		t.Fatalf("load inventory rows: %v", err)
+	parseRows, parseErr := parseServer.store.InventoryRowsBySKU(context.Background(), "frame-desk")
+	if parseErr != nil {
+		parseT.Fatalf("load inventory rows: %v", parseErr)
 	}
-	var updated bool
-	for _, row := range rows {
-		if row.WarehouseID != "new-jersey-hub" {
+	var isUpdated bool
+	for _, parseRow := range parseRows {
+		if parseRow.WarehouseID != "new-jersey-hub" {
 			continue
 		}
-		updated = true
-		if row.Available != 7 {
-			t.Fatalf("expected recomputed available units 7, got %d", row.Available)
+		isUpdated = true
+		if parseRow.Available != 7 {
+			parseT.Fatalf("expected recomputed available units 7, got %d", parseRow.Available)
 		}
-		if row.Inbound != 6 {
-			t.Fatalf("expected inbound units 6, got %d", row.Inbound)
+		if parseRow.Inbound != 6 {
+			parseT.Fatalf("expected inbound units 6, got %d", parseRow.Inbound)
 		}
-		if row.Status != "recovery" {
-			t.Fatalf("expected recovery status, got %q", row.Status)
+		if parseRow.Status != "recovery" {
+			parseT.Fatalf("expected recovery status, got %q", parseRow.Status)
 		}
-		if row.ReorderPoint != 14 {
-			t.Fatalf("expected reorder point 14, got %d", row.ReorderPoint)
+		if parseRow.ReorderPoint != 14 {
+			parseT.Fatalf("expected reorder point 14, got %d", parseRow.ReorderPoint)
 		}
 	}
-	if !updated {
-		t.Fatal("expected updated new-jersey-hub inventory lane")
+	if !isUpdated {
+		parseT.Fatal("expected updated new-jersey-hub inventory lane")
 	}
 
-	orderForm := url.Values{
-		"csrf_token":    {csrfToken},
+	parseOrderForm := url.Values{
+		"csrf_token":    {parseCsrfToken},
 		"vendor_name":   {"Northline Fabrication"},
 		"warehouse_id":  {"new-jersey-hub"},
 		"product_sku":   {"frame-desk"},
@@ -645,112 +645,112 @@ func TestInternalInventoryAndPurchaseOrderCreateWithCSRFTokens(t *testing.T) {
 		"priority_note": {"Top up east coast lane"},
 		"status":        {"submitted"},
 	}
-	orderReq := httptest.NewRequest(http.MethodPost, "/api/app/purchase-orders", strings.NewReader(orderForm.Encode()))
-	orderReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	orderReq.Header.Set("Origin", "http://example.com")
-	orderReq.Header.Set("Referer", "http://example.com/app/inventory/frame-desk")
-	orderReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	orderReq.AddCookie(csrfCookie)
-	orderRes := httptest.NewRecorder()
+	parseOrderReq := httptest.NewRequest(http.MethodPost, "/api/app/purchase-orders", strings.NewReader(parseOrderForm.Encode()))
+	parseOrderReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseOrderReq.Header.Set("Origin", "http://example.com")
+	parseOrderReq.Header.Set("Referer", "http://example.com/app/inventory/frame-desk")
+	parseOrderReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseOrderReq.AddCookie(parseCsrfCookie)
+	parseOrderRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(orderRes, orderReq)
+	parseServer.routes().ServeHTTP(parseOrderRes, parseOrderReq)
 
-	if orderRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, orderRes.Code)
+	if parseOrderRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseOrderRes.Code)
 	}
-	if location := orderRes.Header().Get("Location"); !strings.Contains(location, "purchase-order-created") || !strings.Contains(location, "/app/purchase-orders/") {
-		t.Fatalf("expected purchase-order-created redirect, got %q", location)
+	if parseLocation2 := parseOrderRes.Header().Get("Location"); !strings.Contains(parseLocation2, "purchase-order-created") || !strings.Contains(parseLocation2, "/app/purchase-orders/") {
+		parseT.Fatalf("expected purchase-order-created redirect, got %q", parseLocation2)
 	}
-	orders, err := server.store.PurchaseOrdersByWarehouse(context.Background(), "new-jersey-hub")
-	if err != nil {
-		t.Fatalf("load purchase orders by warehouse: %v", err)
+	parseOrders, parseErr := parseServer.store.PurchaseOrdersByWarehouse(context.Background(), "new-jersey-hub")
+	if parseErr != nil {
+		parseT.Fatalf("load purchase orders by warehouse: %v", parseErr)
 	}
-	if len(orders) == 0 {
-		t.Fatal("expected at least one purchase order for new-jersey-hub")
+	if len(parseOrders) == 0 {
+		parseT.Fatal("expected at least one purchase order for new-jersey-hub")
 	}
-	if orders[0].PriorityNote != "Top up east coast lane" {
-		t.Fatalf("expected newest order priority note to match, got %q", orders[0].PriorityNote)
+	if parseOrders[0].PriorityNote != "Top up east coast lane" {
+		parseT.Fatalf("expected newest order priority note to match, got %q", parseOrders[0].PriorityNote)
 	}
-	rows, err = server.store.InventoryRowsBySKU(context.Background(), "frame-desk")
-	if err != nil {
-		t.Fatalf("reload inventory rows: %v", err)
+	parseRows, parseErr = parseServer.store.InventoryRowsBySKU(context.Background(), "frame-desk")
+	if parseErr != nil {
+		parseT.Fatalf("reload inventory rows: %v", parseErr)
 	}
-	for _, row := range rows {
-		if row.WarehouseID == "new-jersey-hub" && row.Inbound != 15 {
-			t.Fatalf("expected inbound to increase to 15 after order create, got %d", row.Inbound)
+	for _, parseRow2 := range parseRows {
+		if parseRow2.WarehouseID == "new-jersey-hub" && parseRow2.Inbound != 15 {
+			parseT.Fatalf("expected inbound to increase to 15 after order create, got %d", parseRow2.Inbound)
 		}
 	}
 }
 
-func TestInternalBulkModerationAndSavedViewTransfer(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestInternalBulkModerationAndSavedViewTransfer(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	csrfToken, csrfCookie := loadCSRFFromPage(t, server, "/app/comments")
-	comments, err := server.store.Comments(context.Background(), "")
-	if err != nil {
-		t.Fatalf("load comments: %v", err)
+	parseCsrfToken, parseCsrfCookie := loadCSRFFromPage(parseT, parseServer, "/app/comments")
+	parseComments, parseErr := parseServer.store.Comments(context.Background(), "")
+	if parseErr != nil {
+		parseT.Fatalf("load comments: %v", parseErr)
 	}
-	if len(comments) < 2 {
-		t.Fatalf("expected at least 2 comments, got %d", len(comments))
+	if len(parseComments) < 2 {
+		parseT.Fatalf("expected at least 2 comments, got %d", len(parseComments))
 	}
-	ids := []string{comments[0].ID, comments[1].ID}
+	parseIds := []string{parseComments[0].ID, parseComments[1].ID}
 
-	bulkForm := url.Values{
-		"csrf_token": {csrfToken},
-		"ids":        {strings.Join(ids, ",")},
+	parseBulkForm := url.Values{
+		"csrf_token": {parseCsrfToken},
+		"ids":        {strings.Join(parseIds, ",")},
 		"status":     {"approved"},
 		"reason":     {"Bulk review from SSR test."},
 	}
-	bulkReq := httptest.NewRequest(http.MethodPost, "/api/app/comments/bulk-moderate", strings.NewReader(bulkForm.Encode()))
-	bulkReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	bulkReq.Header.Set("Origin", "http://example.com")
-	bulkReq.Header.Set("Referer", "http://example.com/app/comments")
-	bulkReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	bulkReq.AddCookie(csrfCookie)
-	bulkRes := httptest.NewRecorder()
+	parseBulkReq := httptest.NewRequest(http.MethodPost, "/api/app/comments/bulk-moderate", strings.NewReader(parseBulkForm.Encode()))
+	parseBulkReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseBulkReq.Header.Set("Origin", "http://example.com")
+	parseBulkReq.Header.Set("Referer", "http://example.com/app/comments")
+	parseBulkReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseBulkReq.AddCookie(parseCsrfCookie)
+	parseBulkRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(bulkRes, bulkReq)
+	parseServer.routes().ServeHTTP(parseBulkRes, parseBulkReq)
 
-	if bulkRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, bulkRes.Code)
+	if parseBulkRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseBulkRes.Code)
 	}
-	if location := bulkRes.Header().Get("Location"); !strings.Contains(location, "comments-bulk-moderated") {
-		t.Fatalf("expected comments-bulk-moderated redirect notice, got %q", location)
+	if parseLocation := parseBulkRes.Header().Get("Location"); !strings.Contains(parseLocation, "comments-bulk-moderated") {
+		parseT.Fatalf("expected comments-bulk-moderated redirect notice, got %q", parseLocation)
 	}
-	updatedComments, err := server.store.Comments(context.Background(), "")
-	if err != nil {
-		t.Fatalf("reload comments: %v", err)
+	parseUpdatedComments, parseErr := parseServer.store.Comments(context.Background(), "")
+	if parseErr != nil {
+		parseT.Fatalf("reload comments: %v", parseErr)
 	}
-	for _, id := range ids {
-		var found bool
-		for _, item := range updatedComments {
-			if item.ID != id {
+	for _, parseId := range parseIds {
+		var isFound bool
+		for _, parseItem := range parseUpdatedComments {
+			if parseItem.ID != parseId {
 				continue
 			}
-			found = true
-			if item.Status != "approved" {
-				t.Fatalf("expected comment %q to move into approved status, got %q", id, item.Status)
+			isFound = true
+			if parseItem.Status != "approved" {
+				parseT.Fatalf("expected comment %q to move into approved status, got %q", parseId, parseItem.Status)
 			}
-			if item.ModerationReason != "Bulk review from SSR test." {
-				t.Fatalf("expected bulk moderation reason to persist for %q, got %q", id, item.ModerationReason)
+			if parseItem.ModerationReason != "Bulk review from SSR test." {
+				parseT.Fatalf("expected bulk moderation reason to persist for %q, got %q", parseId, parseItem.ModerationReason)
 			}
 		}
-		if !found {
-			t.Fatalf("expected comment %q to move into approved status", id)
+		if !isFound {
+			parseT.Fatalf("expected comment %q to move into approved status", parseId)
 		}
 	}
 
-	exportReq := httptest.NewRequest(http.MethodGet, "/api/app/saved-views/export", nil)
-	exportReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	exportRes := httptest.NewRecorder()
+	parseExportReq := httptest.NewRequest(http.MethodGet, "/api/app/saved-views/export", nil)
+	parseExportReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseExportRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(exportRes, exportReq)
+	parseServer.routes().ServeHTTP(parseExportRes, parseExportReq)
 
-	if exportRes.Code != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, exportRes.Code)
+	if parseExportRes.Code != http.StatusOK {
+		parseT.Fatalf("expected %d, got %d", http.StatusOK, parseExportRes.Code)
 	}
-	var exportPayload struct {
+	var parseExportPayload struct {
 		Items []struct {
 			Name          string `json:"name"`
 			Scope         string `json:"scope"`
@@ -761,128 +761,128 @@ func TestInternalBulkModerationAndSavedViewTransfer(t *testing.T) {
 			FiltersJSON   string `json:"filtersJSON"`
 		} `json:"items"`
 	}
-	if err := json.Unmarshal(exportRes.Body.Bytes(), &exportPayload); err != nil {
-		t.Fatalf("decode saved-view export payload: %v", err)
+	if parseErr2 := json.Unmarshal(parseExportRes.Body.Bytes(), &parseExportPayload); parseErr2 != nil {
+		parseT.Fatalf("decode saved-view export payload: %v", parseErr2)
 	}
-	if len(exportPayload.Items) == 0 {
-		t.Fatal("expected saved-view export payload to include at least one item")
+	if len(parseExportPayload.Items) == 0 {
+		parseT.Fatal("expected saved-view export payload to include at least one item")
 	}
 
-	importBody := `{"items":[{"name":"SSR imported triage","scope":"inventory","sortKey":"updated","sortDirection":"desc","density":"compact","warehouseId":"illinois-hub","filtersJSON":"{\"status\":\"promise_risk\"}"}]}`
-	importForm := url.Values{
-		"csrf_token": {csrfToken},
-		"views_json": {importBody},
+	parseImportBody := `{"items":[{"name":"SSR imported triage","scope":"inventory","sortKey":"updated","sortDirection":"desc","density":"compact","warehouseId":"illinois-hub","filtersJSON":"{\"status\":\"promise_risk\"}"}]}`
+	parseImportForm := url.Values{
+		"csrf_token": {parseCsrfToken},
+		"views_json": {parseImportBody},
 	}
-	importReq := httptest.NewRequest(http.MethodPost, "/api/app/saved-views/import", strings.NewReader(importForm.Encode()))
-	importReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	importReq.Header.Set("Origin", "http://example.com")
-	importReq.Header.Set("Referer", "http://example.com/app/settings")
-	importReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	importReq.AddCookie(csrfCookie)
-	importRes := httptest.NewRecorder()
+	parseImportReq := httptest.NewRequest(http.MethodPost, "/api/app/saved-views/import", strings.NewReader(parseImportForm.Encode()))
+	parseImportReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseImportReq.Header.Set("Origin", "http://example.com")
+	parseImportReq.Header.Set("Referer", "http://example.com/app/settings")
+	parseImportReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseImportReq.AddCookie(parseCsrfCookie)
+	parseImportRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(importRes, importReq)
+	parseServer.routes().ServeHTTP(parseImportRes, parseImportReq)
 
-	if importRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, importRes.Code)
+	if parseImportRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseImportRes.Code)
 	}
-	if location := importRes.Header().Get("Location"); !strings.Contains(location, "saved-views-imported") {
-		t.Fatalf("expected saved-views-imported redirect notice, got %q", location)
+	if parseLocation2 := parseImportRes.Header().Get("Location"); !strings.Contains(parseLocation2, "saved-views-imported") {
+		parseT.Fatalf("expected saved-views-imported redirect notice, got %q", parseLocation2)
 	}
-	savedViews, err := server.store.SavedViewsByOwner(context.Background(), "demo-operator")
-	if err != nil {
-		t.Fatalf("reload saved views: %v", err)
+	parseSavedViews, parseErr := parseServer.store.SavedViewsByOwner(context.Background(), "demo-operator")
+	if parseErr != nil {
+		parseT.Fatalf("reload saved views: %v", parseErr)
 	}
-	var imported bool
-	for _, view := range savedViews {
-		if view.Name == "SSR imported triage" {
-			imported = true
+	var isImported bool
+	for _, parseView := range parseSavedViews {
+		if parseView.Name == "SSR imported triage" {
+			isImported = true
 		}
 	}
-	if !imported {
-		t.Fatal("expected imported saved view to be persisted for demo-operator")
+	if !isImported {
+		parseT.Fatal("expected imported saved view to be persisted for demo-operator")
 	}
 }
 
-func TestDirectEntrySSRUsesFreshBootstrapAfterPreferenceSave(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestDirectEntrySSRUsesFreshBootstrapAfterPreferenceSave(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	csrfToken, csrfCookie := loadCSRFFromPage(t, server, "/app/settings")
-	saveForm := url.Values{
-		"csrf_token":           {csrfToken},
+	parseCsrfToken, parseCsrfCookie := loadCSRFFromPage(parseT, parseServer, "/app/settings")
+	parseSaveForm := url.Values{
+		"csrf_token":           {parseCsrfToken},
 		"theme":                {"light"},
 		"locale":               {"ar"},
 		"density":              {"comfortable"},
 		"default_warehouse_id": {"illinois-hub"},
 	}
-	saveReq := httptest.NewRequest(http.MethodPost, "/api/app/preferences", strings.NewReader(saveForm.Encode()))
-	saveReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	saveReq.Header.Set("Origin", "http://example.com")
-	saveReq.Header.Set("Referer", "http://example.com/app/settings")
-	saveReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	saveReq.AddCookie(csrfCookie)
-	saveRes := httptest.NewRecorder()
+	parseSaveReq := httptest.NewRequest(http.MethodPost, "/api/app/preferences", strings.NewReader(parseSaveForm.Encode()))
+	parseSaveReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseSaveReq.Header.Set("Origin", "http://example.com")
+	parseSaveReq.Header.Set("Referer", "http://example.com/app/settings")
+	parseSaveReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseSaveReq.AddCookie(parseCsrfCookie)
+	parseSaveRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(saveRes, saveReq)
+	parseServer.routes().ServeHTTP(parseSaveRes, parseSaveReq)
 
-	if saveRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, saveRes.Code)
+	if parseSaveRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseSaveRes.Code)
 	}
-	if location := saveRes.Header().Get("Location"); !strings.Contains(location, "preferences-saved") {
-		t.Fatalf("expected preferences-saved redirect notice, got %q", location)
+	if parseLocation := parseSaveRes.Header().Get("Location"); !strings.Contains(parseLocation, "preferences-saved") {
+		parseT.Fatalf("expected preferences-saved redirect notice, got %q", parseLocation)
 	}
 
-	directReq := httptest.NewRequest(http.MethodGet, "/app/inventory", nil)
-	directReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	directRes := httptest.NewRecorder()
+	parseDirectReq := httptest.NewRequest(http.MethodGet, "/app/inventory", nil)
+	parseDirectReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseDirectRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(directRes, directReq)
+	parseServer.routes().ServeHTTP(parseDirectRes, parseDirectReq)
 
-	if directRes.Code != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, directRes.Code)
+	if parseDirectRes.Code != http.StatusOK {
+		parseT.Fatalf("expected %d, got %d", http.StatusOK, parseDirectRes.Code)
 	}
-	body := directRes.Body.String()
-	for _, expected := range []string{
+	parseBody := parseDirectRes.Body.String()
+	for _, parseExpected := range []string{
 		`<html lang="ar" class="atlas-theme-light atlas-density-comfortable"`,
 		`"locale":"ar"`,
 		`"direction":"rtl"`,
 		`"defaultWarehouse":"illinois-hub"`,
 		`"theme":{"mode":"light"`,
 	} {
-		if !strings.Contains(body, expected) {
-			t.Fatalf("expected direct-entry SSR body to contain %q, got %q", expected, body)
+		if !strings.Contains(parseBody, parseExpected) {
+			parseT.Fatalf("expected direct-entry SSR body to contain %q, got %q", parseExpected, parseBody)
 		}
 	}
 }
 
-func TestSSRBootstrapOmitsDuplicatedRequestPageData(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestSSRBootstrapOmitsDuplicatedRequestPageData(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	req := httptest.NewRequest(http.MethodGet, "/app/inventory", nil)
-	req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	res := httptest.NewRecorder()
+	parseReq := httptest.NewRequest(http.MethodGet, "/app/inventory", nil)
+	parseReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(res, req)
+	parseServer.routes().ServeHTTP(parseRes, parseReq)
 
-	if res.Code != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, res.Code)
+	if parseRes.Code != http.StatusOK {
+		parseT.Fatalf("expected %d, got %d", http.StatusOK, parseRes.Code)
 	}
-	body := res.Body.String()
-	if !strings.Contains(body, `"requests":{"page":{"method":"GET","url":"/api/app/inventory","status":200}}`) {
-		t.Fatalf("expected bootstrap request metadata without duplicated page payload, got %q", body)
+	parseBody := parseRes.Body.String()
+	if !strings.Contains(parseBody, `"requests":{"page":{"method":"GET","url":"/api/app/inventory","status":200}}`) {
+		parseT.Fatalf("expected bootstrap request metadata without duplicated page payload, got %q", parseBody)
 	}
-	if strings.Contains(body, `"/api/app/inventory","status":200,"data":{"page":`) {
-		t.Fatalf("expected duplicated request page payload to be trimmed from bootstrap, got %q", body)
+	if strings.Contains(parseBody, `"/api/app/inventory","status":200,"data":{"page":`) {
+		parseT.Fatalf("expected duplicated request page payload to be trimmed from bootstrap, got %q", parseBody)
 	}
 }
 
-func TestPublicAndInternalJSONAPIsReturnData(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestPublicAndInternalJSONAPIsReturnData(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	publicCases := []struct {
+	parsePublicCases := []struct {
 		path    string
 		snippet string
 	}{
@@ -895,24 +895,24 @@ func TestPublicAndInternalJSONAPIsReturnData(t *testing.T) {
 		{path: "/api/public/warehouses/new-jersey-hub", snippet: `"slug":"new-jersey-hub"`},
 		{path: "/api/public/warehouses/new-jersey-hub/availability/frame-desk", snippet: `"warehouse":{"id":"new-jersey-hub"`},
 	}
-	for _, tc := range publicCases {
-		t.Run("public:"+tc.path, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
-			res := httptest.NewRecorder()
-			server.routes().ServeHTTP(res, req)
-			if res.Code != http.StatusOK {
-				t.Fatalf("expected %d, got %d", http.StatusOK, res.Code)
+	for _, parseTc := range parsePublicCases {
+		parseT.Run("public:"+parseTc.path, func(parseT2 *testing.T) {
+			parseReq := httptest.NewRequest(http.MethodGet, parseTc.path, nil)
+			parseRes := httptest.NewRecorder()
+			parseServer.routes().ServeHTTP(parseRes, parseReq)
+			if parseRes.Code != http.StatusOK {
+				parseT2.Fatalf("expected %d, got %d", http.StatusOK, parseRes.Code)
 			}
-			if !strings.Contains(strings.ToLower(res.Header().Get("Content-Type")), "application/json") {
-				t.Fatalf("expected JSON content type, got %q", res.Header().Get("Content-Type"))
+			if !strings.Contains(strings.ToLower(parseRes.Header().Get("Content-Type")), "application/json") {
+				parseT2.Fatalf("expected JSON content type, got %q", parseRes.Header().Get("Content-Type"))
 			}
-			if !strings.Contains(res.Body.String(), tc.snippet) {
-				t.Fatalf("expected %q in payload, got %q", tc.snippet, res.Body.String())
+			if !strings.Contains(parseRes.Body.String(), parseTc.snippet) {
+				parseT2.Fatalf("expected %q in payload, got %q", parseTc.snippet, parseRes.Body.String())
 			}
 		})
 	}
 
-	internalCases := []struct {
+	parseInternalCases := []struct {
 		path    string
 		snippet string
 	}{
@@ -939,145 +939,145 @@ func TestPublicAndInternalJSONAPIsReturnData(t *testing.T) {
 		{path: "/api/app/purchase-orders", snippet: `"items"`},
 		{path: "/api/app/purchase-orders/po-1042", snippet: `"order"`},
 	}
-	for _, tc := range internalCases {
-		t.Run("internal:"+tc.path, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
-			req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-			res := httptest.NewRecorder()
-			server.routes().ServeHTTP(res, req)
-			if res.Code != http.StatusOK {
-				t.Fatalf("expected %d, got %d", http.StatusOK, res.Code)
+	for _, parseTc2 := range parseInternalCases {
+		parseT.Run("internal:"+parseTc2.path, func(parseT3 *testing.T) {
+			parseReq2 := httptest.NewRequest(http.MethodGet, parseTc2.path, nil)
+			parseReq2.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+			parseRes2 := httptest.NewRecorder()
+			parseServer.routes().ServeHTTP(parseRes2, parseReq2)
+			if parseRes2.Code != http.StatusOK {
+				parseT3.Fatalf("expected %d, got %d", http.StatusOK, parseRes2.Code)
 			}
-			if !strings.Contains(strings.ToLower(res.Header().Get("Content-Type")), "application/json") {
-				t.Fatalf("expected JSON content type, got %q", res.Header().Get("Content-Type"))
+			if !strings.Contains(strings.ToLower(parseRes2.Header().Get("Content-Type")), "application/json") {
+				parseT3.Fatalf("expected JSON content type, got %q", parseRes2.Header().Get("Content-Type"))
 			}
-			if !strings.Contains(res.Body.String(), tc.snippet) {
-				t.Fatalf("expected %q in payload, got %q", tc.snippet, res.Body.String())
+			if !strings.Contains(parseRes2.Body.String(), parseTc2.snippet) {
+				parseT3.Fatalf("expected %q in payload, got %q", parseTc2.snippet, parseRes2.Body.String())
 			}
 		})
 	}
 }
 
-func TestAdditionalMutationSuccessPaths(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestAdditionalMutationSuccessPaths(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	publicCSRFToken, publicCSRFCookie := loadCSRFFromPage(t, server, "/shop/frame-desk")
+	parsePublicCSRFToken, parsePublicCSRFCookie := loadCSRFFromPage(parseT, parseServer, "/shop/frame-desk")
 
-	commentForm := url.Values{
-		"csrf_token":  {publicCSRFToken},
+	parseCommentForm := url.Values{
+		"csrf_token":  {parsePublicCSRFToken},
 		"author_name": {"Cam"},
 		"reaction":    {"up"},
 		"subject":     {"Shipping update"},
 		"body":        {"Could you share the warehouse ETA details?"},
 	}
-	commentReq := httptest.NewRequest(http.MethodPost, "/api/public/products/frame-desk/comments", strings.NewReader(commentForm.Encode()))
-	commentReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	commentReq.Header.Set("Origin", "http://example.com")
-	commentReq.Header.Set("Referer", "http://example.com/shop/frame-desk")
-	commentReq.AddCookie(publicCSRFCookie)
-	commentRes := httptest.NewRecorder()
-	server.routes().ServeHTTP(commentRes, commentReq)
-	if commentRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, commentRes.Code)
+	parseCommentReq := httptest.NewRequest(http.MethodPost, "/api/public/products/frame-desk/comments", strings.NewReader(parseCommentForm.Encode()))
+	parseCommentReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseCommentReq.Header.Set("Origin", "http://example.com")
+	parseCommentReq.Header.Set("Referer", "http://example.com/shop/frame-desk")
+	parseCommentReq.AddCookie(parsePublicCSRFCookie)
+	parseCommentRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parseCommentRes, parseCommentReq)
+	if parseCommentRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseCommentRes.Code)
 	}
-	if location := commentRes.Header().Get("Location"); !strings.Contains(location, "comment-submitted") {
-		t.Fatalf("expected comment-submitted redirect notice, got %q", location)
+	if parseLocation := parseCommentRes.Header().Get("Location"); !strings.Contains(parseLocation, "comment-submitted") {
+		parseT.Fatalf("expected comment-submitted redirect notice, got %q", parseLocation)
 	}
 
-	quoteForm := url.Values{
-		"csrf_token":     {publicCSRFToken},
+	parseQuoteForm := url.Values{
+		"csrf_token":     {parsePublicCSRFToken},
 		"requester_name": {"Cam"},
 		"company_name":   {"Atlas QA"},
 		"email":          {"cam@example.com"},
 		"quantity":       {"3"},
 		"note":           {"Need a quick quote for design review."},
 	}
-	quoteReq := httptest.NewRequest(http.MethodPost, "/api/public/products/frame-desk/quote-requests", strings.NewReader(quoteForm.Encode()))
-	quoteReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	quoteReq.Header.Set("Origin", "http://example.com")
-	quoteReq.Header.Set("Referer", "http://example.com/shop/frame-desk")
-	quoteReq.AddCookie(publicCSRFCookie)
-	quoteRes := httptest.NewRecorder()
-	server.routes().ServeHTTP(quoteRes, quoteReq)
-	if quoteRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, quoteRes.Code)
+	parseQuoteReq := httptest.NewRequest(http.MethodPost, "/api/public/products/frame-desk/quote-requests", strings.NewReader(parseQuoteForm.Encode()))
+	parseQuoteReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseQuoteReq.Header.Set("Origin", "http://example.com")
+	parseQuoteReq.Header.Set("Referer", "http://example.com/shop/frame-desk")
+	parseQuoteReq.AddCookie(parsePublicCSRFCookie)
+	parseQuoteRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parseQuoteRes, parseQuoteReq)
+	if parseQuoteRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseQuoteRes.Code)
 	}
-	if location := quoteRes.Header().Get("Location"); !strings.Contains(location, "quote-request-submitted") {
-		t.Fatalf("expected quote-request-submitted redirect notice, got %q", location)
+	if parseLocation2 := parseQuoteRes.Header().Get("Location"); !strings.Contains(parseLocation2, "quote-request-submitted") {
+		parseT.Fatalf("expected quote-request-submitted redirect notice, got %q", parseLocation2)
 	}
 
-	restockForm := url.Values{
-		"csrf_token":             {publicCSRFToken},
+	parseRestockForm := url.Values{
+		"csrf_token":             {parsePublicCSRFToken},
 		"email":                  {"cam@example.com"},
 		"preferred_warehouse_id": {"new-jersey-hub"},
 	}
-	restockReq := httptest.NewRequest(http.MethodPost, "/api/public/products/frame-desk/restock-requests", strings.NewReader(restockForm.Encode()))
-	restockReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	restockReq.Header.Set("Origin", "http://example.com")
-	restockReq.Header.Set("Referer", "http://example.com/shop/frame-desk")
-	restockReq.AddCookie(publicCSRFCookie)
-	restockRes := httptest.NewRecorder()
-	server.routes().ServeHTTP(restockRes, restockReq)
-	if restockRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, restockRes.Code)
+	parseRestockReq := httptest.NewRequest(http.MethodPost, "/api/public/products/frame-desk/restock-requests", strings.NewReader(parseRestockForm.Encode()))
+	parseRestockReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseRestockReq.Header.Set("Origin", "http://example.com")
+	parseRestockReq.Header.Set("Referer", "http://example.com/shop/frame-desk")
+	parseRestockReq.AddCookie(parsePublicCSRFCookie)
+	parseRestockRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parseRestockRes, parseRestockReq)
+	if parseRestockRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseRestockRes.Code)
 	}
-	if location := restockRes.Header().Get("Location"); !strings.Contains(location, "restock-request-submitted") {
-		t.Fatalf("expected restock-request-submitted redirect notice, got %q", location)
-	}
-
-	internalCSRFToken, internalCSRFCookie := loadCSRFFromPage(t, server, "/app/comments")
-	comments, err := server.store.Comments(context.Background(), "")
-	if err != nil {
-		t.Fatalf("load comments: %v", err)
-	}
-	if len(comments) == 0 {
-		t.Fatal("expected seeded comments")
+	if parseLocation3 := parseRestockRes.Header().Get("Location"); !strings.Contains(parseLocation3, "restock-request-submitted") {
+		parseT.Fatalf("expected restock-request-submitted redirect notice, got %q", parseLocation3)
 	}
 
-	moderateForm := url.Values{
-		"csrf_token": {internalCSRFToken},
+	parseInternalCSRFToken, parseInternalCSRFCookie := loadCSRFFromPage(parseT, parseServer, "/app/comments")
+	parseComments, parseErr := parseServer.store.Comments(context.Background(), "")
+	if parseErr != nil {
+		parseT.Fatalf("load comments: %v", parseErr)
+	}
+	if len(parseComments) == 0 {
+		parseT.Fatal("expected seeded comments")
+	}
+
+	parseModerateForm := url.Values{
+		"csrf_token": {parseInternalCSRFToken},
 		"status":     {"flagged"},
 		"reason":     {"Escalated by QA scenario."},
 	}
-	moderateReq := httptest.NewRequest(http.MethodPost, "/api/app/comments/"+comments[0].ID+"/moderate", strings.NewReader(moderateForm.Encode()))
-	moderateReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	moderateReq.Header.Set("Origin", "http://example.com")
-	moderateReq.Header.Set("Referer", "http://example.com/app/comments")
-	moderateReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	moderateReq.AddCookie(internalCSRFCookie)
-	moderateRes := httptest.NewRecorder()
-	server.routes().ServeHTTP(moderateRes, moderateReq)
-	if moderateRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, moderateRes.Code)
+	parseModerateReq := httptest.NewRequest(http.MethodPost, "/api/app/comments/"+parseComments[0].ID+"/moderate", strings.NewReader(parseModerateForm.Encode()))
+	parseModerateReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseModerateReq.Header.Set("Origin", "http://example.com")
+	parseModerateReq.Header.Set("Referer", "http://example.com/app/comments")
+	parseModerateReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseModerateReq.AddCookie(parseInternalCSRFCookie)
+	parseModerateRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parseModerateRes, parseModerateReq)
+	if parseModerateRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseModerateRes.Code)
 	}
-	if location := moderateRes.Header().Get("Location"); !strings.Contains(location, "comment-moderated") {
-		t.Fatalf("expected comment-moderated redirect notice, got %q", location)
+	if parseLocation4 := parseModerateRes.Header().Get("Location"); !strings.Contains(parseLocation4, "comment-moderated") {
+		parseT.Fatalf("expected comment-moderated redirect notice, got %q", parseLocation4)
 	}
 
-	thresholdForm := url.Values{
-		"csrf_token":    {internalCSRFToken},
+	parseThresholdForm := url.Values{
+		"csrf_token":    {parseInternalCSRFToken},
 		"warehouse_id":  {"new-jersey-hub"},
 		"reorder_point": {"13"},
 		"safety_stock":  {"4"},
 	}
-	thresholdReq := httptest.NewRequest(http.MethodPost, "/api/app/inventory/frame-desk/threshold", strings.NewReader(thresholdForm.Encode()))
-	thresholdReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	thresholdReq.Header.Set("Origin", "http://example.com")
-	thresholdReq.Header.Set("Referer", "http://example.com/app/inventory/frame-desk")
-	thresholdReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	thresholdReq.AddCookie(internalCSRFCookie)
-	thresholdRes := httptest.NewRecorder()
-	server.routes().ServeHTTP(thresholdRes, thresholdReq)
-	if thresholdRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, thresholdRes.Code)
+	parseThresholdReq := httptest.NewRequest(http.MethodPost, "/api/app/inventory/frame-desk/threshold", strings.NewReader(parseThresholdForm.Encode()))
+	parseThresholdReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseThresholdReq.Header.Set("Origin", "http://example.com")
+	parseThresholdReq.Header.Set("Referer", "http://example.com/app/inventory/frame-desk")
+	parseThresholdReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseThresholdReq.AddCookie(parseInternalCSRFCookie)
+	parseThresholdRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parseThresholdRes, parseThresholdReq)
+	if parseThresholdRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseThresholdRes.Code)
 	}
-	if location := thresholdRes.Header().Get("Location"); !strings.Contains(location, "threshold-updated") {
-		t.Fatalf("expected threshold-updated redirect notice, got %q", location)
+	if parseLocation5 := parseThresholdRes.Header().Get("Location"); !strings.Contains(parseLocation5, "threshold-updated") {
+		parseT.Fatalf("expected threshold-updated redirect notice, got %q", parseLocation5)
 	}
 
-	savedViewForm := url.Values{
-		"csrf_token":     {internalCSRFToken},
+	parseSavedViewForm := url.Values{
+		"csrf_token":     {parseInternalCSRFToken},
 		"name":           {"Ops triage"},
 		"scope":          {"inventory"},
 		"filters_json":   {`{"status":"critical"}`},
@@ -1086,201 +1086,201 @@ func TestAdditionalMutationSuccessPaths(t *testing.T) {
 		"density":        {"compact"},
 		"warehouse_id":   {"illinois-hub"},
 	}
-	savedViewReq := httptest.NewRequest(http.MethodPost, "/api/app/saved-views", strings.NewReader(savedViewForm.Encode()))
-	savedViewReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	savedViewReq.Header.Set("Origin", "http://example.com")
-	savedViewReq.Header.Set("Referer", "http://example.com/app/settings")
-	savedViewReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	savedViewReq.AddCookie(internalCSRFCookie)
-	savedViewRes := httptest.NewRecorder()
-	server.routes().ServeHTTP(savedViewRes, savedViewReq)
-	if savedViewRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, savedViewRes.Code)
+	parseSavedViewReq := httptest.NewRequest(http.MethodPost, "/api/app/saved-views", strings.NewReader(parseSavedViewForm.Encode()))
+	parseSavedViewReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseSavedViewReq.Header.Set("Origin", "http://example.com")
+	parseSavedViewReq.Header.Set("Referer", "http://example.com/app/settings")
+	parseSavedViewReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseSavedViewReq.AddCookie(parseInternalCSRFCookie)
+	parseSavedViewRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parseSavedViewRes, parseSavedViewReq)
+	if parseSavedViewRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseSavedViewRes.Code)
 	}
-	if location := savedViewRes.Header().Get("Location"); !strings.Contains(location, "saved-view-created") {
-		t.Fatalf("expected saved-view-created redirect notice, got %q", location)
+	if parseLocation6 := parseSavedViewRes.Header().Get("Location"); !strings.Contains(parseLocation6, "saved-view-created") {
+		parseT.Fatalf("expected saved-view-created redirect notice, got %q", parseLocation6)
 	}
 
-	transferForm := url.Values{
-		"csrf_token":              {internalCSRFToken},
-		"source_warehouse_id":     {"illinois-hub"},
+	parseTransferForm := url.Values{
+		"csrf_token":               {parseInternalCSRFToken},
+		"source_warehouse_id":      {"illinois-hub"},
 		"destination_warehouse_id": {"new-jersey-hub"},
-		"reason":                  {"Rebalance due to east-coast demand."},
-		"recommended_by":          {"ops_lead"},
+		"reason":                   {"Rebalance due to east-coast demand."},
+		"recommended_by":           {"ops_lead"},
 	}
-	transferReq := httptest.NewRequest(http.MethodPost, "/api/app/transfers", strings.NewReader(transferForm.Encode()))
-	transferReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	transferReq.Header.Set("Origin", "http://example.com")
-	transferReq.Header.Set("Referer", "http://example.com/app/transfers")
-	transferReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	transferReq.AddCookie(internalCSRFCookie)
-	transferRes := httptest.NewRecorder()
-	server.routes().ServeHTTP(transferRes, transferReq)
-	if transferRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, transferRes.Code)
+	parseTransferReq := httptest.NewRequest(http.MethodPost, "/api/app/transfers", strings.NewReader(parseTransferForm.Encode()))
+	parseTransferReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseTransferReq.Header.Set("Origin", "http://example.com")
+	parseTransferReq.Header.Set("Referer", "http://example.com/app/transfers")
+	parseTransferReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseTransferReq.AddCookie(parseInternalCSRFCookie)
+	parseTransferRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parseTransferRes, parseTransferReq)
+	if parseTransferRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseTransferRes.Code)
 	}
-	if location := transferRes.Header().Get("Location"); !strings.Contains(location, "transfer-created") {
-		t.Fatalf("expected transfer-created redirect notice, got %q", location)
-	}
-}
-
-func TestRecoveryAndBootstrapErrorPaths(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
-
-	mockSignInPageReq := httptest.NewRequest(http.MethodGet, "/auth/mock-sign-in?next=%2Fapp%2Fdashboard", nil)
-	mockSignInPageRes := httptest.NewRecorder()
-	server.routes().ServeHTTP(mockSignInPageRes, mockSignInPageReq)
-	if mockSignInPageRes.Code != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, mockSignInPageRes.Code)
-	}
-	if !strings.Contains(mockSignInPageRes.Body.String(), "Atlas Mock Sign In") {
-		t.Fatalf("expected mock sign-in page content, got %q", mockSignInPageRes.Body.String())
-	}
-
-	mockSignOutReq := httptest.NewRequest(http.MethodPost, "/auth/mock-sign-out", nil)
-	mockSignOutReq.Header.Set("Accept", "application/json")
-	mockSignOutRes := httptest.NewRecorder()
-	server.routes().ServeHTTP(mockSignOutRes, mockSignOutReq)
-	if mockSignOutRes.Code != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, mockSignOutRes.Code)
-	}
-	if !strings.Contains(mockSignOutRes.Body.String(), `"ok":true`) {
-		t.Fatalf("expected mock sign-out JSON payload, got %q", mockSignOutRes.Body.String())
-	}
-
-	publicRecoveryReq := httptest.NewRequest(http.MethodGet, "/unknown-public-route", nil)
-	publicRecoveryRes := httptest.NewRecorder()
-	server.routes().ServeHTTP(publicRecoveryRes, publicRecoveryReq)
-	if publicRecoveryRes.Code != http.StatusNotFound {
-		t.Fatalf("expected %d, got %d", http.StatusNotFound, publicRecoveryRes.Code)
-	}
-	if !strings.Contains(publicRecoveryRes.Body.String(), "Back to shop") {
-		t.Fatalf("expected public recovery content, got %q", publicRecoveryRes.Body.String())
-	}
-
-	internalRecoveryNoSessionReq := httptest.NewRequest(http.MethodGet, "/app/unknown-route", nil)
-	internalRecoveryNoSessionRes := httptest.NewRecorder()
-	server.routes().ServeHTTP(internalRecoveryNoSessionRes, internalRecoveryNoSessionReq)
-	if internalRecoveryNoSessionRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, internalRecoveryNoSessionRes.Code)
-	}
-	if location := internalRecoveryNoSessionRes.Header().Get("Location"); !strings.Contains(location, "/auth/mock-sign-in") {
-		t.Fatalf("expected internal recovery without session to redirect to mock sign-in, got %q", location)
-	}
-
-	internalRecoveryReq := httptest.NewRequest(http.MethodGet, "/app/unknown-route", nil)
-	internalRecoveryReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	internalRecoveryRes := httptest.NewRecorder()
-	server.routes().ServeHTTP(internalRecoveryRes, internalRecoveryReq)
-	if internalRecoveryRes.Code != http.StatusNotFound {
-		t.Fatalf("expected %d, got %d", http.StatusNotFound, internalRecoveryRes.Code)
-	}
-	if !strings.Contains(internalRecoveryRes.Body.String(), "Back to dashboard") {
-		t.Fatalf("expected internal recovery content, got %q", internalRecoveryRes.Body.String())
-	}
-
-	unsupportedReq := httptest.NewRequest(http.MethodGet, "/__atlas/bootstrap.json?path=%2Fapp%2Fdashboard", nil)
-	unsupportedRes := httptest.NewRecorder()
-	server.routes().ServeHTTP(unsupportedRes, unsupportedReq)
-	if unsupportedRes.Code != http.StatusBadRequest {
-		t.Fatalf("expected %d, got %d", http.StatusBadRequest, unsupportedRes.Code)
-	}
-	if !strings.Contains(unsupportedRes.Body.String(), "bootstrap_route_unsupported") {
-		t.Fatalf("expected bootstrap_route_unsupported payload, got %q", unsupportedRes.Body.String())
-	}
-
-	invalidQueryReq := httptest.NewRequest(http.MethodGet, "/__atlas/bootstrap.json?path=%2Fapp%2Finventory%2Fframe-desk%2Fthreshold-history&route_query=%25zz", nil)
-	invalidQueryRes := httptest.NewRecorder()
-	server.routes().ServeHTTP(invalidQueryRes, invalidQueryReq)
-	if invalidQueryRes.Code != http.StatusBadRequest {
-		t.Fatalf("expected %d, got %d", http.StatusBadRequest, invalidQueryRes.Code)
-	}
-	if !strings.Contains(invalidQueryRes.Body.String(), "bootstrap_query_invalid") {
-		t.Fatalf("expected bootstrap_query_invalid payload, got %q", invalidQueryRes.Body.String())
-	}
-
-	missingSessionReq := httptest.NewRequest(http.MethodGet, "/__atlas/bootstrap.json?path=%2Fapp%2Finventory%2Fframe-desk%2Fthreshold-history", nil)
-	missingSessionRes := httptest.NewRecorder()
-	server.routes().ServeHTTP(missingSessionRes, missingSessionReq)
-	if missingSessionRes.Code != http.StatusSeeOther {
-		t.Fatalf("expected %d, got %d", http.StatusSeeOther, missingSessionRes.Code)
-	}
-	if location := missingSessionRes.Header().Get("Location"); !strings.Contains(location, "/auth/mock-sign-in") {
-		t.Fatalf("expected missing session redirect to mock sign-in, got %q", location)
-	}
-
-	notFoundReq := httptest.NewRequest(http.MethodGet, "/__atlas/bootstrap.json?path=%2Fapp%2Finventory%2Fnot-a-real-sku%2Fthreshold-history", nil)
-	notFoundReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	notFoundRes := httptest.NewRecorder()
-	server.routes().ServeHTTP(notFoundRes, notFoundReq)
-	if notFoundRes.Code != http.StatusNotFound {
-		t.Fatalf("expected %d, got %d", http.StatusNotFound, notFoundRes.Code)
-	}
-	if !strings.Contains(notFoundRes.Body.String(), "Atlas Route Not Found") {
-		t.Fatalf("expected not-found recovery page payload, got %q", notFoundRes.Body.String())
+	if parseLocation7 := parseTransferRes.Header().Get("Location"); !strings.Contains(parseLocation7, "transfer-created") {
+		parseT.Fatalf("expected transfer-created redirect notice, got %q", parseLocation7)
 	}
 }
 
-func loadCSRFFromPage(t *testing.T, server *atlasServer, path string) (string, *http.Cookie) {
-	t.Helper()
+func TestRecoveryAndBootstrapErrorPaths(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	req := httptest.NewRequest(http.MethodGet, path, nil)
-	req.Header.Set("Host", "example.com")
-	req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	res := httptest.NewRecorder()
+	parseMockSignInPageReq := httptest.NewRequest(http.MethodGet, "/auth/mock-sign-in?next=%2Fapp%2Fdashboard", nil)
+	parseMockSignInPageRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parseMockSignInPageRes, parseMockSignInPageReq)
+	if parseMockSignInPageRes.Code != http.StatusOK {
+		parseT.Fatalf("expected %d, got %d", http.StatusOK, parseMockSignInPageRes.Code)
+	}
+	if !strings.Contains(parseMockSignInPageRes.Body.String(), "Atlas Mock Sign In") {
+		parseT.Fatalf("expected mock sign-in page content, got %q", parseMockSignInPageRes.Body.String())
+	}
 
-	server.routes().ServeHTTP(res, req)
+	parseMockSignOutReq := httptest.NewRequest(http.MethodPost, "/auth/mock-sign-out", nil)
+	parseMockSignOutReq.Header.Set("Accept", "application/json")
+	parseMockSignOutRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parseMockSignOutRes, parseMockSignOutReq)
+	if parseMockSignOutRes.Code != http.StatusOK {
+		parseT.Fatalf("expected %d, got %d", http.StatusOK, parseMockSignOutRes.Code)
+	}
+	if !strings.Contains(parseMockSignOutRes.Body.String(), `"ok":true`) {
+		parseT.Fatalf("expected mock sign-out JSON payload, got %q", parseMockSignOutRes.Body.String())
+	}
 
-	if res.Code != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, res.Code)
+	parsePublicRecoveryReq := httptest.NewRequest(http.MethodGet, "/unknown-public-route", nil)
+	parsePublicRecoveryRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parsePublicRecoveryRes, parsePublicRecoveryReq)
+	if parsePublicRecoveryRes.Code != http.StatusNotFound {
+		parseT.Fatalf("expected %d, got %d", http.StatusNotFound, parsePublicRecoveryRes.Code)
 	}
-	bodyBytes, err := io.ReadAll(res.Result().Body)
-	if err != nil {
-		t.Fatalf("read response body: %v", err)
+	if !strings.Contains(parsePublicRecoveryRes.Body.String(), "Back to shop") {
+		parseT.Fatalf("expected public recovery content, got %q", parsePublicRecoveryRes.Body.String())
 	}
-	tokenMatch := regexp.MustCompile(`"csrf":"([^"]+)"`).FindStringSubmatch(string(bodyBytes))
-	if len(tokenMatch) != 2 {
-		t.Fatalf("expected csrf token in bootstrap payload, got %q", string(bodyBytes))
+
+	parseInternalRecoveryNoSessionReq := httptest.NewRequest(http.MethodGet, "/app/unknown-route", nil)
+	parseInternalRecoveryNoSessionRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parseInternalRecoveryNoSessionRes, parseInternalRecoveryNoSessionReq)
+	if parseInternalRecoveryNoSessionRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseInternalRecoveryNoSessionRes.Code)
 	}
-	token := tokenMatch[1]
-	if token == "" {
-		t.Fatalf("expected csrf token capture, got %q", string(bodyBytes))
+	if parseLocation := parseInternalRecoveryNoSessionRes.Header().Get("Location"); !strings.Contains(parseLocation, "/auth/mock-sign-in") {
+		parseT.Fatalf("expected internal recovery without session to redirect to mock sign-in, got %q", parseLocation)
 	}
-	for _, cookie := range res.Result().Cookies() {
-		if cookie.Name == csrfCookieName {
-			return token, cookie
+
+	parseInternalRecoveryReq := httptest.NewRequest(http.MethodGet, "/app/unknown-route", nil)
+	parseInternalRecoveryReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseInternalRecoveryRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parseInternalRecoveryRes, parseInternalRecoveryReq)
+	if parseInternalRecoveryRes.Code != http.StatusNotFound {
+		parseT.Fatalf("expected %d, got %d", http.StatusNotFound, parseInternalRecoveryRes.Code)
+	}
+	if !strings.Contains(parseInternalRecoveryRes.Body.String(), "Back to dashboard") {
+		parseT.Fatalf("expected internal recovery content, got %q", parseInternalRecoveryRes.Body.String())
+	}
+
+	parseUnsupportedReq := httptest.NewRequest(http.MethodGet, "/__atlas/bootstrap.json?path=%2Fapp%2Fdashboard", nil)
+	parseUnsupportedRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parseUnsupportedRes, parseUnsupportedReq)
+	if parseUnsupportedRes.Code != http.StatusBadRequest {
+		parseT.Fatalf("expected %d, got %d", http.StatusBadRequest, parseUnsupportedRes.Code)
+	}
+	if !strings.Contains(parseUnsupportedRes.Body.String(), "bootstrap_route_unsupported") {
+		parseT.Fatalf("expected bootstrap_route_unsupported payload, got %q", parseUnsupportedRes.Body.String())
+	}
+
+	parseInvalidQueryReq := httptest.NewRequest(http.MethodGet, "/__atlas/bootstrap.json?path=%2Fapp%2Finventory%2Fframe-desk%2Fthreshold-history&route_query=%25zz", nil)
+	parseInvalidQueryRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parseInvalidQueryRes, parseInvalidQueryReq)
+	if parseInvalidQueryRes.Code != http.StatusBadRequest {
+		parseT.Fatalf("expected %d, got %d", http.StatusBadRequest, parseInvalidQueryRes.Code)
+	}
+	if !strings.Contains(parseInvalidQueryRes.Body.String(), "bootstrap_query_invalid") {
+		parseT.Fatalf("expected bootstrap_query_invalid payload, got %q", parseInvalidQueryRes.Body.String())
+	}
+
+	parseMissingSessionReq := httptest.NewRequest(http.MethodGet, "/__atlas/bootstrap.json?path=%2Fapp%2Finventory%2Fframe-desk%2Fthreshold-history", nil)
+	parseMissingSessionRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parseMissingSessionRes, parseMissingSessionReq)
+	if parseMissingSessionRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected %d, got %d", http.StatusSeeOther, parseMissingSessionRes.Code)
+	}
+	if parseLocation2 := parseMissingSessionRes.Header().Get("Location"); !strings.Contains(parseLocation2, "/auth/mock-sign-in") {
+		parseT.Fatalf("expected missing session redirect to mock sign-in, got %q", parseLocation2)
+	}
+
+	parseNotFoundReq := httptest.NewRequest(http.MethodGet, "/__atlas/bootstrap.json?path=%2Fapp%2Finventory%2Fnot-a-real-sku%2Fthreshold-history", nil)
+	parseNotFoundReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseNotFoundRes := httptest.NewRecorder()
+	parseServer.routes().ServeHTTP(parseNotFoundRes, parseNotFoundReq)
+	if parseNotFoundRes.Code != http.StatusNotFound {
+		parseT.Fatalf("expected %d, got %d", http.StatusNotFound, parseNotFoundRes.Code)
+	}
+	if !strings.Contains(parseNotFoundRes.Body.String(), "Atlas Route Not Found") {
+		parseT.Fatalf("expected not-found recovery page payload, got %q", parseNotFoundRes.Body.String())
+	}
+}
+
+func loadCSRFFromPage(parseT *testing.T, parseServer *atlasServer, parsePath string) (string, *http.Cookie) {
+	parseT.Helper()
+
+	parseReq := httptest.NewRequest(http.MethodGet, parsePath, nil)
+	parseReq.Header.Set("Host", "example.com")
+	parseReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseRes := httptest.NewRecorder()
+
+	parseServer.routes().ServeHTTP(parseRes, parseReq)
+
+	if parseRes.Code != http.StatusOK {
+		parseT.Fatalf("expected %d, got %d", http.StatusOK, parseRes.Code)
+	}
+	parseBodyBytes, parseErr := io.ReadAll(parseRes.Result().Body)
+	if parseErr != nil {
+		parseT.Fatalf("read response body: %v", parseErr)
+	}
+	parseTokenMatch := regexp.MustCompile(`"csrf":"([^"]+)"`).FindStringSubmatch(string(parseBodyBytes))
+	if len(parseTokenMatch) != 2 {
+		parseT.Fatalf("expected csrf token in bootstrap payload, got %q", string(parseBodyBytes))
+	}
+	parseToken := parseTokenMatch[1]
+	if parseToken == "" {
+		parseT.Fatalf("expected csrf token capture, got %q", string(parseBodyBytes))
+	}
+	for _, parseCookie := range parseRes.Result().Cookies() {
+		if parseCookie.Name == csrfCookieName {
+			return parseToken, parseCookie
 		}
 	}
-	t.Fatal("expected csrf cookie in response")
+	parseT.Fatal("expected csrf cookie in response")
 	return "", nil
 }
 
-func newTestAtlasServer(t *testing.T) (*atlasServer, func()) {
-	t.Helper()
+func newTestAtlasServer(parseT *testing.T) (*atlasServer, func()) {
+	parseT.Helper()
 
-	cfg, err := loadConfig()
-	if err != nil {
-		t.Fatalf("load config: %v", err)
+	parseCfg, parseErr := loadConfig()
+	if parseErr != nil {
+		parseT.Fatalf("load config: %v", parseErr)
 	}
-	cfg.SQLitePath = filepath.Join(t.TempDir(), "atlas-commerce-os-test.db")
+	parseCfg.SQLitePath = filepath.Join(parseT.TempDir(), "atlas-commerce-os-test.db")
 
-	database, err := serverdb.Open(context.Background(), cfg.SQLitePath)
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
+	parseDatabase, parseErr := serverdb.Open(context.Background(), parseCfg.SQLitePath)
+	if parseErr != nil {
+		parseT.Fatalf("open sqlite: %v", parseErr)
 	}
-	if err := serverdb.Migrate(context.Background(), database, cfg.MigrationsDir, cfg.FallbackSchema); err != nil {
-		database.Close()
-		t.Fatalf("migrate sqlite: %v", err)
+	if parseErr2 := serverdb.Migrate(context.Background(), parseDatabase, parseCfg.MigrationsDir, parseCfg.FallbackSchema); parseErr2 != nil {
+		parseDatabase.Close()
+		parseT.Fatalf("migrate sqlite: %v", parseErr2)
 	}
-	if err := serverdb.Seed(context.Background(), database); err != nil {
-		database.Close()
-		t.Fatalf("seed sqlite: %v", err)
+	if parseErr3 := serverdb.Seed(context.Background(), parseDatabase); parseErr3 != nil {
+		parseDatabase.Close()
+		parseT.Fatalf("seed sqlite: %v", parseErr3)
 	}
 
-	server := newAtlasServer(cfg, serverdb.NewStore(database), serverauth.NewMockSessionManager())
-	cleanup := func() {
-		_ = database.Close()
+	parseServer := newAtlasServer(parseCfg, serverdb.NewStore(parseDatabase), serverauth.NewMockSessionManager())
+	parseCleanup := func() {
+		_ = parseDatabase.Close()
 	}
-	return server, cleanup
+	return parseServer, parseCleanup
 }

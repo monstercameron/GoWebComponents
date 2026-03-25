@@ -47,122 +47,122 @@ type warehouseItemDetailPageData struct {
 	Filters   map[string]string                `json:"filters"`
 }
 
-func (s *atlasServer) internalInventoryPageData(ctx context.Context, values url.Values) (inventoryPageData, error) {
-	filters := map[string]string{
-		"q":         strings.TrimSpace(values.Get("q")),
-		"warehouse": strings.TrimSpace(values.Get("warehouse")),
-		"status":    strings.TrimSpace(values.Get("status")),
-		"sort":      strings.TrimSpace(values.Get("sort")),
+func (parseS *atlasServer) internalInventoryPageData(parseCtx context.Context, parseValues url.Values) (inventoryPageData, error) {
+	parseFilters := map[string]string{
+		"q":         strings.TrimSpace(parseValues.Get("q")),
+		"warehouse": strings.TrimSpace(parseValues.Get("warehouse")),
+		"status":    strings.TrimSpace(parseValues.Get("status")),
+		"sort":      strings.TrimSpace(parseValues.Get("sort")),
 	}
-	query := repository.InventoryQuery{
-		Warehouse:   filters["warehouse"],
-		StockHealth: filters["status"],
-		Search:      filters["q"],
+	parseQuery := repository.InventoryQuery{
+		Warehouse:   parseFilters["warehouse"],
+		StockHealth: parseFilters["status"],
+		Search:      parseFilters["q"],
 	}
-	switch filters["sort"] {
+	switch parseFilters["sort"] {
 	case "inbound":
-		query.SortKey = "inbound"
+		parseQuery.SortKey = "inbound"
 	case "updated":
-		query.SortKey = "updated"
+		parseQuery.SortKey = "updated"
 	}
-	items, err := s.store.InventoryList(ctx, query)
-	if err != nil {
-		return inventoryPageData{}, err
+	parseItems, parseErr := parseS.store.InventoryList(parseCtx, parseQuery)
+	if parseErr != nil {
+		return inventoryPageData{}, parseErr
 	}
-	return inventoryPageData{Summary: buildInventorySummary(items), Items: items, Filters: filters}, nil
+	return inventoryPageData{Summary: buildInventorySummary(parseItems), Items: parseItems, Filters: parseFilters}, nil
 }
 
-func (s *atlasServer) internalInventoryDetailPageData(ctx context.Context, sku string) (inventoryDetailPageData, error) {
-	rows, err := s.store.InventoryRowsBySKU(ctx, sku)
-	if err != nil {
-		return inventoryDetailPageData{}, err
+func (parseS *atlasServer) internalInventoryDetailPageData(parseCtx context.Context, parseSku string) (inventoryDetailPageData, error) {
+	parseRows, parseErr := parseS.store.InventoryRowsBySKU(parseCtx, parseSku)
+	if parseErr != nil {
+		return inventoryDetailPageData{}, parseErr
 	}
-	return inventoryDetailPageData{SKU: rows[0].SKU, Title: rows[0].Title, Rows: rows}, nil
+	return inventoryDetailPageData{SKU: parseRows[0].SKU, Title: parseRows[0].Title, Rows: parseRows}, nil
 }
 
-func (s *atlasServer) internalInventoryThresholdPanelPageData(ctx context.Context, sku string) (inventoryThresholdPanelPageData, error) {
-	items, err := s.store.ThresholdHistory(ctx, sku)
-	if err != nil {
-		return inventoryThresholdPanelPageData{}, fmt.Errorf("load threshold history: %w", err)
+func (parseS *atlasServer) internalInventoryThresholdPanelPageData(parseCtx context.Context, parseSku string) (inventoryThresholdPanelPageData, error) {
+	parseItems, parseErr := parseS.store.ThresholdHistory(parseCtx, parseSku)
+	if parseErr != nil {
+		return inventoryThresholdPanelPageData{}, fmt.Errorf("load threshold history: %w", parseErr)
 	}
-	recommendations, err := s.store.TransferRecommendations(ctx, sku)
-	if err != nil {
-		return inventoryThresholdPanelPageData{}, fmt.Errorf("load transfer recommendations: %w", err)
+	parseRecommendations, parseErr := parseS.store.TransferRecommendations(parseCtx, parseSku)
+	if parseErr != nil {
+		return inventoryThresholdPanelPageData{}, fmt.Errorf("load transfer recommendations: %w", parseErr)
 	}
 	return inventoryThresholdPanelPageData{
-		SKU:             sku,
-		Items:           items,
-		Recommendations: recommendations,
+		SKU:             parseSku,
+		Items:           parseItems,
+		Recommendations: parseRecommendations,
 	}, nil
 }
 
-func (s *atlasServer) internalWarehouseDetailPageDataWithFilters(ctx context.Context, warehouseID string, values url.Values) (warehouseDetailPageData, error) {
-	warehouse, err := s.store.WarehousePressureByID(ctx, warehouseID)
-	if err != nil {
-		return warehouseDetailPageData{}, err
+func (parseS *atlasServer) internalWarehouseDetailPageDataWithFilters(parseCtx context.Context, parseWarehouseID string, parseValues url.Values) (warehouseDetailPageData, error) {
+	parseWarehouse, parseErr := parseS.store.WarehousePressureByID(parseCtx, parseWarehouseID)
+	if parseErr != nil {
+		return warehouseDetailPageData{}, parseErr
 	}
-	filters := map[string]string{
-		"q":      strings.TrimSpace(values.Get("q")),
-		"status": strings.TrimSpace(values.Get("status")),
-		"sort":   strings.TrimSpace(values.Get("sort")),
+	parseFilters := map[string]string{
+		"q":      strings.TrimSpace(parseValues.Get("q")),
+		"status": strings.TrimSpace(parseValues.Get("status")),
+		"sort":   strings.TrimSpace(parseValues.Get("sort")),
 	}
-	inventory, err := s.store.InventoryList(ctx, repository.InventoryQuery{Warehouse: warehouseID})
-	if err != nil {
-		return warehouseDetailPageData{}, fmt.Errorf("load warehouse inventory: %w", err)
+	parseInventory, parseErr := parseS.store.InventoryList(parseCtx, repository.InventoryQuery{Warehouse: parseWarehouseID})
+	if parseErr != nil {
+		return warehouseDetailPageData{}, fmt.Errorf("load warehouse inventory: %w", parseErr)
 	}
-	inventory = filterWarehouseInventoryRows(inventory, filters)
-	sortWarehouseInventoryRows(inventory, filters["sort"])
-	orders, err := s.store.PurchaseOrdersByWarehouse(ctx, warehouseID)
-	if err != nil {
-		return warehouseDetailPageData{}, fmt.Errorf("load warehouse purchase orders: %w", err)
+	parseInventory = filterWarehouseInventoryRows(parseInventory, parseFilters)
+	sortWarehouseInventoryRows(parseInventory, parseFilters["sort"])
+	parseOrders, parseErr := parseS.store.PurchaseOrdersByWarehouse(parseCtx, parseWarehouseID)
+	if parseErr != nil {
+		return warehouseDetailPageData{}, fmt.Errorf("load warehouse purchase orders: %w", parseErr)
 	}
-	return warehouseDetailPageData{Summary: buildWarehouseDetailSummary(inventory, orders, warehouseID), Warehouse: warehouse, Inventory: inventory, Orders: orders, Filters: filters}, nil
+	return warehouseDetailPageData{Summary: buildWarehouseDetailSummary(parseInventory, parseOrders, parseWarehouseID), Warehouse: parseWarehouse, Inventory: parseInventory, Orders: parseOrders, Filters: parseFilters}, nil
 }
 
-func (s *atlasServer) internalWarehouseItemPageData(ctx context.Context, warehouseID string, sku string, values url.Values) (warehouseItemDetailPageData, error) {
-	warehouse, err := s.store.WarehousePressureByID(ctx, warehouseID)
-	if err != nil {
-		return warehouseItemDetailPageData{}, err
+func (parseS *atlasServer) internalWarehouseItemPageData(parseCtx context.Context, parseWarehouseID string, parseSku string, parseValues url.Values) (warehouseItemDetailPageData, error) {
+	parseWarehouse, parseErr := parseS.store.WarehousePressureByID(parseCtx, parseWarehouseID)
+	if parseErr != nil {
+		return warehouseItemDetailPageData{}, parseErr
 	}
-	filters := map[string]string{
-		"sort": normalizeWarehouseItemSort(strings.TrimSpace(values.Get("sort"))),
-		"dir":  normalizeWarehouseItemDirection(strings.TrimSpace(values.Get("sort")), strings.TrimSpace(values.Get("dir"))),
+	parseFilters := map[string]string{
+		"sort": normalizeWarehouseItemSort(strings.TrimSpace(parseValues.Get("sort"))),
+		"dir":  normalizeWarehouseItemDirection(strings.TrimSpace(parseValues.Get("sort")), strings.TrimSpace(parseValues.Get("dir"))),
 	}
-	network, err := s.store.InventoryRowsBySKU(ctx, sku)
-	if err != nil {
-		return warehouseItemDetailPageData{}, err
+	parseNetwork, parseErr := parseS.store.InventoryRowsBySKU(parseCtx, parseSku)
+	if parseErr != nil {
+		return warehouseItemDetailPageData{}, parseErr
 	}
-	item, ok := findWarehouseInventoryRow(network, warehouseID)
-	if !ok {
+	parseItem, parseOk := findWarehouseInventoryRow(parseNetwork, parseWarehouseID)
+	if !parseOk {
 		return warehouseItemDetailPageData{}, sql.ErrNoRows
 	}
-	sortWarehouseItemRows(network, filters["sort"], filters["dir"])
-	product, err := s.store.ProductAdminBySlug(ctx, item.Slug)
-	if err != nil {
-		return warehouseItemDetailPageData{}, fmt.Errorf("load warehouse item product: %w", err)
+	sortWarehouseItemRows(parseNetwork, parseFilters["sort"], parseFilters["dir"])
+	parseProduct, parseErr := parseS.store.ProductAdminBySlug(parseCtx, parseItem.Slug)
+	if parseErr != nil {
+		return warehouseItemDetailPageData{}, fmt.Errorf("load warehouse item product: %w", parseErr)
 	}
-	orders, err := s.warehouseOrdersForSKU(ctx, warehouseID, sku)
-	if err != nil {
-		return warehouseItemDetailPageData{}, err
+	parseOrders, parseErr := parseS.warehouseOrdersForSKU(parseCtx, parseWarehouseID, parseSku)
+	if parseErr != nil {
+		return warehouseItemDetailPageData{}, parseErr
 	}
-	return warehouseItemDetailPageData{Warehouse: warehouse, Item: item, Product: product, Network: network, Orders: orders, Filters: filters}, nil
+	return warehouseItemDetailPageData{Warehouse: parseWarehouse, Item: parseItem, Product: parseProduct, Network: parseNetwork, Orders: parseOrders, Filters: parseFilters}, nil
 }
 
-func normalizeWarehouseItemSort(sortKey string) string {
-	switch strings.TrimSpace(strings.ToLower(sortKey)) {
+func normalizeWarehouseItemSort(parseSortKey string) string {
+	switch strings.TrimSpace(strings.ToLower(parseSortKey)) {
 	case "warehouse", "available", "cover", "inbound", "demand", "share", "updated":
-		return strings.TrimSpace(strings.ToLower(sortKey))
+		return strings.TrimSpace(strings.ToLower(parseSortKey))
 	default:
 		return "updated"
 	}
 }
 
-func normalizeWarehouseItemDirection(sortKey string, direction string) string {
-	switch strings.TrimSpace(strings.ToLower(direction)) {
+func normalizeWarehouseItemDirection(parseSortKey string, parseDirection string) string {
+	switch strings.TrimSpace(strings.ToLower(parseDirection)) {
 	case "asc", "desc":
-		return strings.TrimSpace(strings.ToLower(direction))
+		return strings.TrimSpace(strings.ToLower(parseDirection))
 	}
-	switch normalizeWarehouseItemSort(sortKey) {
+	switch normalizeWarehouseItemSort(parseSortKey) {
 	case "warehouse":
 		return "asc"
 	case "cover":
@@ -172,155 +172,155 @@ func normalizeWarehouseItemDirection(sortKey string, direction string) string {
 	}
 }
 
-func sortWarehouseItemRows(items []repository.InventoryRow, sortKey string, direction string) {
-	key := normalizeWarehouseItemSort(sortKey)
-	dir := normalizeWarehouseItemDirection(key, direction)
-	compareText := func(left string, right string) int {
-		leftValue := strings.ToLower(strings.TrimSpace(left))
-		rightValue := strings.ToLower(strings.TrimSpace(right))
+func sortWarehouseItemRows(parseItems []repository.InventoryRow, parseSortKey string, parseDirection string) {
+	parseKey := normalizeWarehouseItemSort(parseSortKey)
+	parseDir := normalizeWarehouseItemDirection(parseKey, parseDirection)
+	parseCompareText := func(parseLeft string, parseRight string) int {
+		parseLeftValue := strings.ToLower(strings.TrimSpace(parseLeft))
+		parseRightValue := strings.ToLower(strings.TrimSpace(parseRight))
 		switch {
-		case leftValue < rightValue:
+		case parseLeftValue < parseRightValue:
 			return -1
-		case leftValue > rightValue:
+		case parseLeftValue > parseRightValue:
 			return 1
 		default:
 			return 0
 		}
 	}
-	compareInt := func(left int, right int) int {
+	parseCompareInt := func(parseLeft2 int, parseRight2 int) int {
 		switch {
-		case left < right:
+		case parseLeft2 < parseRight2:
 			return -1
-		case left > right:
+		case parseLeft2 > parseRight2:
 			return 1
 		default:
 			return 0
 		}
 	}
-	compareUpdated := func(left string, right string) int {
-		return compareText(left, right)
+	parseCompareUpdated := func(parseLeft3 string, parseRight3 string) int {
+		return parseCompareText(parseLeft3, parseRight3)
 	}
-	sort.Slice(items, func(left, right int) bool {
-		leftItem := items[left]
-		rightItem := items[right]
-		result := 0
-		switch key {
+	sort.Slice(parseItems, func(parseLeft4, parseRight4 int) bool {
+		parseLeftItem := parseItems[parseLeft4]
+		parseRightItem := parseItems[parseRight4]
+		parseResult := 0
+		switch parseKey {
 		case "warehouse":
-			result = compareText(fallbackWarehouseLabel(leftItem), fallbackWarehouseLabel(rightItem))
+			parseResult = parseCompareText(fallbackWarehouseLabel(parseLeftItem), fallbackWarehouseLabel(parseRightItem))
 		case "available":
-			result = compareInt(leftItem.Available, rightItem.Available)
+			parseResult = parseCompareInt(parseLeftItem.Available, parseRightItem.Available)
 		case "cover":
-			result = compareInt(leftItem.CoverDays, rightItem.CoverDays)
+			parseResult = parseCompareInt(parseLeftItem.CoverDays, parseRightItem.CoverDays)
 		case "inbound":
-			result = compareInt(leftItem.Inbound, rightItem.Inbound)
+			parseResult = parseCompareInt(parseLeftItem.Inbound, parseRightItem.Inbound)
 		case "demand":
-			result = compareInt(leftItem.WeeklyUnits, rightItem.WeeklyUnits)
+			parseResult = parseCompareInt(parseLeftItem.WeeklyUnits, parseRightItem.WeeklyUnits)
 		case "share":
-			result = compareInt(leftItem.RegionalShare, rightItem.RegionalShare)
+			parseResult = parseCompareInt(parseLeftItem.RegionalShare, parseRightItem.RegionalShare)
 		default:
-			result = compareUpdated(leftItem.UpdatedAt, rightItem.UpdatedAt)
+			parseResult = parseCompareUpdated(parseLeftItem.UpdatedAt, parseRightItem.UpdatedAt)
 		}
-		if result == 0 {
-			result = compareText(leftItem.Title, rightItem.Title)
+		if parseResult == 0 {
+			parseResult = parseCompareText(parseLeftItem.Title, parseRightItem.Title)
 		}
-		if result == 0 {
-			result = compareText(leftItem.WarehouseID, rightItem.WarehouseID)
+		if parseResult == 0 {
+			parseResult = parseCompareText(parseLeftItem.WarehouseID, parseRightItem.WarehouseID)
 		}
-		if dir == "asc" {
-			return result < 0
+		if parseDir == "asc" {
+			return parseResult < 0
 		}
-		return result > 0
+		return parseResult > 0
 	})
 }
 
-func fallbackWarehouseLabel(item repository.InventoryRow) string {
-	if strings.TrimSpace(item.WarehouseName) != "" {
-		return item.WarehouseName
+func fallbackWarehouseLabel(parseItem repository.InventoryRow) string {
+	if strings.TrimSpace(parseItem.WarehouseName) != "" {
+		return parseItem.WarehouseName
 	}
-	return item.WarehouseID
+	return parseItem.WarehouseID
 }
 
-func filterWarehouseInventoryRows(items []repository.InventoryRow, filters map[string]string) []repository.InventoryRow {
-	if len(items) == 0 {
-		return items
+func filterWarehouseInventoryRows(parseItems []repository.InventoryRow, parseFilters map[string]string) []repository.InventoryRow {
+	if len(parseItems) == 0 {
+		return parseItems
 	}
-	query := strings.TrimSpace(strings.ToLower(filters["q"]))
-	status := strings.TrimSpace(strings.ToLower(filters["status"]))
-	filtered := make([]repository.InventoryRow, 0, len(items))
-	for _, item := range items {
-		if status != "" && status != "all" && strings.TrimSpace(strings.ToLower(item.Status)) != status {
+	parseQuery := strings.TrimSpace(strings.ToLower(parseFilters["q"]))
+	parseStatus := strings.TrimSpace(strings.ToLower(parseFilters["status"]))
+	parseFiltered := make([]repository.InventoryRow, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		if parseStatus != "" && parseStatus != "all" && strings.TrimSpace(strings.ToLower(parseItem.Status)) != parseStatus {
 			continue
 		}
-		if query != "" {
-			haystack := strings.ToLower(strings.Join([]string{item.SKU, item.Title, item.Category, item.MarketPressure}, " "))
-			if !strings.Contains(haystack, query) {
+		if parseQuery != "" {
+			parseHaystack := strings.ToLower(strings.Join([]string{parseItem.SKU, parseItem.Title, parseItem.Category, parseItem.MarketPressure}, " "))
+			if !strings.Contains(parseHaystack, parseQuery) {
 				continue
 			}
 		}
-		filtered = append(filtered, item)
+		parseFiltered = append(parseFiltered, parseItem)
 	}
-	return filtered
+	return parseFiltered
 }
 
-func sortWarehouseInventoryRows(items []repository.InventoryRow, sortKey string) {
-	switch strings.TrimSpace(strings.ToLower(sortKey)) {
+func sortWarehouseInventoryRows(parseItems []repository.InventoryRow, parseSortKey string) {
+	switch strings.TrimSpace(strings.ToLower(parseSortKey)) {
 	case "available":
-		sort.Slice(items, func(left, right int) bool {
-			if items[left].Available == items[right].Available {
-				return items[left].Title < items[right].Title
+		sort.Slice(parseItems, func(parseLeft, parseRight int) bool {
+			if parseItems[parseLeft].Available == parseItems[parseRight].Available {
+				return parseItems[parseLeft].Title < parseItems[parseRight].Title
 			}
-			return items[left].Available < items[right].Available
+			return parseItems[parseLeft].Available < parseItems[parseRight].Available
 		})
 	case "demand":
-		sort.Slice(items, func(left, right int) bool {
-			if items[left].DemandScore == items[right].DemandScore {
-				return items[left].Title < items[right].Title
+		sort.Slice(parseItems, func(parseLeft2, parseRight2 int) bool {
+			if parseItems[parseLeft2].DemandScore == parseItems[parseRight2].DemandScore {
+				return parseItems[parseLeft2].Title < parseItems[parseRight2].Title
 			}
-			return items[left].DemandScore > items[right].DemandScore
+			return parseItems[parseLeft2].DemandScore > parseItems[parseRight2].DemandScore
 		})
 	case "revenue":
-		sort.Slice(items, func(left, right int) bool {
-			if items[left].WeeklyRevenue == items[right].WeeklyRevenue {
-				return items[left].Title < items[right].Title
+		sort.Slice(parseItems, func(parseLeft3, parseRight3 int) bool {
+			if parseItems[parseLeft3].WeeklyRevenue == parseItems[parseRight3].WeeklyRevenue {
+				return parseItems[parseLeft3].Title < parseItems[parseRight3].Title
 			}
-			return items[left].WeeklyRevenue > items[right].WeeklyRevenue
+			return parseItems[parseLeft3].WeeklyRevenue > parseItems[parseRight3].WeeklyRevenue
 		})
 	default:
-		sort.Slice(items, func(left, right int) bool {
-			if items[left].UpdatedAt == items[right].UpdatedAt {
-				return items[left].Title < items[right].Title
+		sort.Slice(parseItems, func(parseLeft4, parseRight4 int) bool {
+			if parseItems[parseLeft4].UpdatedAt == parseItems[parseRight4].UpdatedAt {
+				return parseItems[parseLeft4].Title < parseItems[parseRight4].Title
 			}
-			return items[left].UpdatedAt > items[right].UpdatedAt
+			return parseItems[parseLeft4].UpdatedAt > parseItems[parseRight4].UpdatedAt
 		})
 	}
 }
 
-func findWarehouseInventoryRow(items []repository.InventoryRow, warehouseID string) (repository.InventoryRow, bool) {
-	for _, item := range items {
-		if strings.EqualFold(strings.TrimSpace(item.WarehouseID), strings.TrimSpace(warehouseID)) {
-			return item, true
+func findWarehouseInventoryRow(parseItems []repository.InventoryRow, parseWarehouseID string) (repository.InventoryRow, bool) {
+	for _, parseItem := range parseItems {
+		if strings.EqualFold(strings.TrimSpace(parseItem.WarehouseID), strings.TrimSpace(parseWarehouseID)) {
+			return parseItem, true
 		}
 	}
 	return repository.InventoryRow{}, false
 }
 
-func (s *atlasServer) warehouseOrdersForSKU(ctx context.Context, warehouseID string, sku string) ([]serverdb.PurchaseOrderRecord, error) {
-	orders, err := s.store.PurchaseOrdersByWarehouse(ctx, warehouseID)
-	if err != nil {
-		return nil, fmt.Errorf("load warehouse sku orders: %w", err)
+func (parseS *atlasServer) warehouseOrdersForSKU(parseCtx context.Context, parseWarehouseID string, parseSku string) ([]serverdb.PurchaseOrderRecord, error) {
+	parseOrders, parseErr := parseS.store.PurchaseOrdersByWarehouse(parseCtx, parseWarehouseID)
+	if parseErr != nil {
+		return nil, fmt.Errorf("load warehouse sku orders: %w", parseErr)
 	}
-	filtered := make([]serverdb.PurchaseOrderRecord, 0, len(orders))
-	for _, order := range orders {
-		detail, err := s.store.PurchaseOrderDetail(ctx, order.ID)
-		if err != nil {
-			return nil, fmt.Errorf("load purchase order detail: %w", err)
+	parseFiltered := make([]serverdb.PurchaseOrderRecord, 0, len(parseOrders))
+	for _, parseOrder := range parseOrders {
+		parseDetail, parseErr2 := parseS.store.PurchaseOrderDetail(parseCtx, parseOrder.ID)
+		if parseErr2 != nil {
+			return nil, fmt.Errorf("load purchase order detail: %w", parseErr2)
 		}
-		for _, line := range detail.Lines {
-			if strings.EqualFold(strings.TrimSpace(line.ProductSKU), strings.TrimSpace(sku)) {
-				filtered = append(filtered, order)
+		for _, parseLine := range parseDetail.Lines {
+			if strings.EqualFold(strings.TrimSpace(parseLine.ProductSKU), strings.TrimSpace(parseSku)) {
+				parseFiltered = append(parseFiltered, parseOrder)
 				break
 			}
 		}
 	}
-	return filtered, nil
+	return parseFiltered, nil
 }

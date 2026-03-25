@@ -8,8 +8,8 @@ import (
 	"github.com/monstercameron/GoWebComponents/examples/86-atlas-commerce-os/shared/repository"
 )
 
-func TestPayloadBootstrapRoundTripAndRequestDedup(t *testing.T) {
-	payload := Payload{
+func TestPayloadBootstrapRoundTripAndRequestDedup(parseT *testing.T) {
+	parsePayload := Payload{
 		Route: RouteBootstrap{
 			Path:      RouteCatalog,
 			Query:     map[string][]string{"q": {"desk"}, "atlas_notice": {"saved"}},
@@ -40,43 +40,43 @@ func TestPayloadBootstrapRoundTripAndRequestDedup(t *testing.T) {
 		User:       &UserSession{ID: "u-1", DisplayName: "Atlas Demo", Role: "admin"},
 	}
 
-	bootstrap := payload.ToSSRBootstrap()
-	got := PayloadFromSSRBootstrap(bootstrap)
-	if got.Route.Path != payload.Route.Path || got.Route.Screen != payload.Route.Screen {
-		t.Fatalf("expected route to survive bootstrap round-trip, got %#v", got.Route)
+	parseBootstrap := parsePayload.ToSSRBootstrap()
+	parseGot := PayloadFromSSRBootstrap(parseBootstrap)
+	if parseGot.Route.Path != parsePayload.Route.Path || parseGot.Route.Screen != parsePayload.Route.Screen {
+		parseT.Fatalf("expected route to survive bootstrap round-trip, got %#v", parseGot.Route)
 	}
-	if got.CSRF != payload.CSRF || got.User == nil || got.User.ID != payload.User.ID {
-		t.Fatalf("expected auth context to survive bootstrap round-trip, got %#v", got)
+	if parseGot.CSRF != parsePayload.CSRF || parseGot.User == nil || parseGot.User.ID != parsePayload.User.ID {
+		parseT.Fatalf("expected auth context to survive bootstrap round-trip, got %#v", parseGot)
 	}
-	request, ok := got.Requests["catalog"]
-	if !ok {
-		t.Fatalf("expected request payload to survive bootstrap round-trip, got %#v", got.Requests)
+	parseRequest, parseOk := parseGot.Requests["catalog"]
+	if !parseOk {
+		parseT.Fatalf("expected request payload to survive bootstrap round-trip, got %#v", parseGot.Requests)
 	}
-	if _, duplicated := request.Data["page"]; duplicated {
-		t.Fatalf("expected duplicate route-data keys to be filtered, got %#v", request.Data)
+	if _, parseDuplicated := parseRequest.Data["page"]; parseDuplicated {
+		parseT.Fatalf("expected duplicate route-data keys to be filtered, got %#v", parseRequest.Data)
 	}
-	if _, kept := request.Data["items"]; !kept {
-		t.Fatalf("expected non-duplicate request data to be preserved, got %#v", request.Data)
+	if _, parseKept := parseRequest.Data["items"]; !parseKept {
+		parseT.Fatalf("expected non-duplicate request data to be preserved, got %#v", parseRequest.Data)
 	}
 
-	minimal := PayloadFromSSRBootstrap(Payload{}.ToSSRBootstrap())
-	if strings.TrimSpace(minimal.I18n.Locale) == "" || strings.TrimSpace(minimal.I18n.Direction) == "" {
-		t.Fatalf("expected fallback i18n defaults, got %#v", minimal.I18n)
+	parseMinimal := PayloadFromSSRBootstrap(Payload{}.ToSSRBootstrap())
+	if strings.TrimSpace(parseMinimal.I18n.Locale) == "" || strings.TrimSpace(parseMinimal.I18n.Direction) == "" {
+		parseT.Fatalf("expected fallback i18n defaults, got %#v", parseMinimal.I18n)
 	}
 }
 
-func TestBootstrapAndLegacyHelpersCoverRouteVariants(t *testing.T) {
-	if got := SupportedLocales(); len(got) < 3 {
-		t.Fatalf("expected supported locales to include baseline locales, got %#v", got)
+func TestBootstrapAndLegacyHelpersCoverRouteVariants(parseT *testing.T) {
+	if parseGot := SupportedLocales(); len(parseGot) < 3 {
+		parseT.Fatalf("expected supported locales to include baseline locales, got %#v", parseGot)
 	}
-	if got := LocaleDirection("ar"); got != "rtl" {
-		t.Fatalf("expected arabic locale direction rtl, got %q", got)
+	if parseGot2 := LocaleDirection("ar"); parseGot2 != "rtl" {
+		parseT.Fatalf("expected arabic locale direction rtl, got %q", parseGot2)
 	}
-	if got := LocaleDirection("en"); got != "ltr" {
-		t.Fatalf("expected english locale direction ltr, got %q", got)
+	if parseGot3 := LocaleDirection("en"); parseGot3 != "ltr" {
+		parseT.Fatalf("expected english locale direction ltr, got %q", parseGot3)
 	}
 
-	for _, path := range []string{
+	for _, parsePath := range []string{
 		RouteLanding,
 		RouteCatalog,
 		RouteProduct,
@@ -93,70 +93,70 @@ func TestBootstrapAndLegacyHelpersCoverRouteVariants(t *testing.T) {
 		RouteSettings,
 		"/unknown",
 	} {
-		meta := MetadataForPath(path)
-		if strings.TrimSpace(meta.Title) == "" || strings.TrimSpace(meta.Canonical) == "" {
-			t.Fatalf("expected metadata title and canonical for %q, got %#v", path, meta)
+		parseMeta := MetadataForPath(parsePath)
+		if strings.TrimSpace(parseMeta.Title) == "" || strings.TrimSpace(parseMeta.Canonical) == "" {
+			parseT.Fatalf("expected metadata title and canonical for %q, got %#v", parsePath, parseMeta)
 		}
 	}
 
-	if route, ok := RouteBootstrapForPath(RouteCatalog); !ok || route.Path != RouteCatalog {
-		t.Fatalf("expected route bootstrap for catalog, got ok=%t route=%#v", ok, route)
+	if parseRoute, parseOk := RouteBootstrapForPath(RouteCatalog); !parseOk || parseRoute.Path != RouteCatalog {
+		parseT.Fatalf("expected route bootstrap for catalog, got ok=%t route=%#v", parseOk, parseRoute)
 	}
-	if _, ok := RouteBootstrapForPath("/missing"); ok {
-		t.Fatal("expected unknown route to skip route bootstrap lookup")
-	}
-
-	values := BuildCatalogQueryValues("desk", "desks", "illinois-hub", "warehouse", 2)
-	if values.Get("q") != "desk" || values.Get("category") != "desks" || values.Get("warehouse") != "illinois-hub" || values.Get("sort") != "warehouse" || values.Get("page") != "2" {
-		t.Fatalf("unexpected catalog query values: %s", values.Encode())
-	}
-	if page := CatalogPageValue(" 0 "); page != 1 {
-		t.Fatalf("expected invalid page to clamp to 1, got %d", page)
+	if _, parseOk2 := RouteBootstrapForPath("/missing"); parseOk2 {
+		parseT.Fatal("expected unknown route to skip route bootstrap lookup")
 	}
 
-	startupCases := map[string]string{
-		RouteCatalog:                                             "/api/public/catalog",
-		RouteCatalog + "/frame-desk":                            "/api/public/products/frame-desk",
-		RouteWarehouses:                                          "/api/public/warehouses",
-		RouteWarehouseAvailability:                               "/api/public/warehouses/new-jersey-hub/availability/frame-desk",
-		RouteWarehousePublicDetail:                               "/api/public/warehouses/new-jersey-hub",
-		RouteDashboard:                                           "/api/app/dashboard",
-		RouteInventory:                                           "/api/app/inventory",
-		RouteSKUThresholdHistory:                                 "/api/app/inventory/frame-desk/threshold-panel",
-		RouteWarehouseOps:                                        "/api/app/warehouses",
-		RouteWarehouseItemDetail:                                 "/api/app/warehouses/illinois-hub/items/frame-desk",
-		RouteTransfers:                                           "/api/app/transfers",
-		RouteTransferDetail:                                      "/api/app/transfers/tr-2048",
-		RoutePurchaseOrders:                                      "/api/app/purchase-orders",
-		RoutePurchaseOrderDetail:                                 "/api/app/purchase-orders/po-1042",
-		RouteReceiving:                                           "/api/app/receiving",
-		RouteReceivingSessionDetail:                              "/api/app/receiving/illinois-accessories-042",
-		RouteComments:                                            "/api/app/comments",
-		RouteSettings:                                            "/api/app/settings",
+	parseValues := BuildCatalogQueryValues("desk", "desks", "illinois-hub", "warehouse", 2)
+	if parseValues.Get("q") != "desk" || parseValues.Get("category") != "desks" || parseValues.Get("warehouse") != "illinois-hub" || parseValues.Get("sort") != "warehouse" || parseValues.Get("page") != "2" {
+		parseT.Fatalf("unexpected catalog query values: %s", parseValues.Encode())
 	}
-	for path, want := range startupCases {
-		if got := StartupRequestURL(path, url.Values{}); got != want {
-			t.Fatalf("StartupRequestURL(%q) = %q, want %q", path, got, want)
+	if parsePage := CatalogPageValue(" 0 "); parsePage != 1 {
+		parseT.Fatalf("expected invalid page to clamp to 1, got %d", parsePage)
+	}
+
+	parseStartupCases := map[string]string{
+		RouteCatalog:                 "/api/public/catalog",
+		RouteCatalog + "/frame-desk": "/api/public/products/frame-desk",
+		RouteWarehouses:              "/api/public/warehouses",
+		RouteWarehouseAvailability:   "/api/public/warehouses/new-jersey-hub/availability/frame-desk",
+		RouteWarehousePublicDetail:   "/api/public/warehouses/new-jersey-hub",
+		RouteDashboard:               "/api/app/dashboard",
+		RouteInventory:               "/api/app/inventory",
+		RouteSKUThresholdHistory:     "/api/app/inventory/frame-desk/threshold-panel",
+		RouteWarehouseOps:            "/api/app/warehouses",
+		RouteWarehouseItemDetail:     "/api/app/warehouses/illinois-hub/items/frame-desk",
+		RouteTransfers:               "/api/app/transfers",
+		RouteTransferDetail:          "/api/app/transfers/tr-2048",
+		RoutePurchaseOrders:          "/api/app/purchase-orders",
+		RoutePurchaseOrderDetail:     "/api/app/purchase-orders/po-1042",
+		RouteReceiving:               "/api/app/receiving",
+		RouteReceivingSessionDetail:  "/api/app/receiving/illinois-accessories-042",
+		RouteComments:                "/api/app/comments",
+		RouteSettings:                "/api/app/settings",
+	}
+	for parsePath2, parseWant := range parseStartupCases {
+		if parseGot4 := StartupRequestURL(parsePath2, url.Values{}); parseGot4 != parseWant {
+			parseT.Fatalf("StartupRequestURL(%q) = %q, want %q", parsePath2, parseGot4, parseWant)
 		}
 	}
-	if got := StartupRequestURL("/unknown", url.Values{}); got != "" {
-		t.Fatalf("expected unknown startup path to return empty request URL, got %q", got)
+	if parseGot5 := StartupRequestURL("/unknown", url.Values{}); parseGot5 != "" {
+		parseT.Fatalf("expected unknown startup path to return empty request URL, got %q", parseGot5)
 	}
 }
 
-func TestLegacyDecisionAndDerivedStateHelpers(t *testing.T) {
-	for _, finish := range []string{"Graphite oak", "Drift ash", "Walnut ember"} {
-		hero := ResolveAtlasProductHeroState("frame-desk", finish)
-		if strings.TrimSpace(hero.Label) == "" || strings.TrimSpace(hero.WarehousePromise) == "" {
-			t.Fatalf("expected product hero copy for finish %q, got %#v", finish, hero)
+func TestLegacyDecisionAndDerivedStateHelpers(parseT *testing.T) {
+	for _, parseFinish := range []string{"Graphite oak", "Drift ash", "Walnut ember"} {
+		parseHero := ResolveAtlasProductHeroState("frame-desk", parseFinish)
+		if strings.TrimSpace(parseHero.Label) == "" || strings.TrimSpace(parseHero.WarehousePromise) == "" {
+			parseT.Fatalf("expected product hero copy for finish %q, got %#v", parseFinish, parseHero)
 		}
 	}
-	lanes := ResolveAtlasPromiseLanes("frame-desk")
-	if len(lanes) != 3 || !strings.Contains(lanes[0].Href, "frame-desk") {
-		t.Fatalf("expected three promise lanes with product-specific href, got %#v", lanes)
+	parseLanes := ResolveAtlasPromiseLanes("frame-desk")
+	if len(parseLanes) != 3 || !strings.Contains(parseLanes[0].Href, "frame-desk") {
+		parseT.Fatalf("expected three promise lanes with product-specific href, got %#v", parseLanes)
 	}
 
-	for _, scenario := range []struct {
+	for _, parseScenario := range []struct {
 		savedView string
 		warehouse string
 	}{
@@ -164,96 +164,96 @@ func TestLegacyDecisionAndDerivedStateHelpers(t *testing.T) {
 		{"Low stock triage", "illinois-hub"},
 		{"Balanced", "nevada-hub"},
 	} {
-		summary := InventorySummaryFor(scenario.savedView, scenario.warehouse)
-		if summary.TotalAvailable == 0 || strings.TrimSpace(summary.StatusLabel) == "" || strings.TrimSpace(summary.SuggestedAction) == "" {
-			t.Fatalf("expected inventory summary copy for %+v, got %#v", scenario, summary)
+		parseSummary := InventorySummaryFor(parseScenario.savedView, parseScenario.warehouse)
+		if parseSummary.TotalAvailable == 0 || strings.TrimSpace(parseSummary.StatusLabel) == "" || strings.TrimSpace(parseSummary.SuggestedAction) == "" {
+			parseT.Fatalf("expected inventory summary copy for %+v, got %#v", parseScenario, parseSummary)
 		}
 	}
-	for _, status := range []string{"approved", "flagged", "rejected", "pending"} {
-		scenario := ModerationScenarioForStatus(status)
-		if strings.TrimSpace(scenario.Record) == "" || strings.TrimSpace(scenario.Decision) == "" {
-			t.Fatalf("expected moderation scenario for %q, got %#v", status, scenario)
+	for _, parseStatus := range []string{"approved", "flagged", "rejected", "pending"} {
+		parseScenario2 := ModerationScenarioForStatus(parseStatus)
+		if strings.TrimSpace(parseScenario2.Record) == "" || strings.TrimSpace(parseScenario2.Decision) == "" {
+			parseT.Fatalf("expected moderation scenario for %q, got %#v", parseStatus, parseScenario2)
 		}
 	}
-	for _, action := range []string{"approve", "reject", "flag", "unknown"} {
-		outcome := ModerationDecisionForAction(action)
-		if strings.TrimSpace(outcome.Status) == "" {
-			t.Fatalf("expected moderation decision outcome for %q, got %#v", action, outcome)
+	for _, parseAction := range []string{"approve", "reject", "flag", "unknown"} {
+		parseOutcome := ModerationDecisionForAction(parseAction)
+		if strings.TrimSpace(parseOutcome.Status) == "" {
+			parseT.Fatalf("expected moderation decision outcome for %q, got %#v", parseAction, parseOutcome)
 		}
 	}
-	if got := WarehouseLabel("new-jersey-hub"); got != "New Jersey Hub" {
-		t.Fatalf("expected known warehouse label to expand, got %q", got)
+	if parseGot := WarehouseLabel("new-jersey-hub"); parseGot != "New Jersey Hub" {
+		parseT.Fatalf("expected known warehouse label to expand, got %q", parseGot)
 	}
-	if got := WarehouseLabel("custom-lane"); got != "custom lane" {
-		t.Fatalf("expected unknown warehouse label to normalize hyphens, got %q", got)
+	if parseGot2 := WarehouseLabel("custom-lane"); parseGot2 != "custom lane" {
+		parseT.Fatalf("expected unknown warehouse label to normalize hyphens, got %q", parseGot2)
 	}
 
-	repositoryRows := []repository.InventoryRow{
+	parseRepositoryRows := []repository.InventoryRow{
 		{SKU: "frame-desk", Available: 3, Inbound: 4, ReorderUnits: 2, Status: "critical"},
 		{SKU: "frame-desk", Available: 7, Inbound: 0, ReorderUnits: 0, Status: "balanced"},
 		{SKU: "studio-console", Available: 2, Inbound: 1, ReorderUnits: 5, Status: "promise_risk"},
 	}
-	rollup := InventoryRollupFromRepositoryRows(repositoryRows)
-	if rollup.VisibleLanes != 3 || rollup.SKUCount != 2 || rollup.RiskLanes < 2 || rollup.SKUsWithInbound != 2 {
-		t.Fatalf("unexpected inventory rollup summary: %#v", rollup)
+	parseRollup := InventoryRollupFromRepositoryRows(parseRepositoryRows)
+	if parseRollup.VisibleLanes != 3 || parseRollup.SKUCount != 2 || parseRollup.RiskLanes < 2 || parseRollup.SKUsWithInbound != 2 {
+		parseT.Fatalf("unexpected inventory rollup summary: %#v", parseRollup)
 	}
 
-	rows := []inventoryRow{
+	parseRows := []inventoryRow{
 		{SKU: "frame-desk", Title: "Frame Desk", WarehouseName: "New Jersey Hub", Available: 3, Inbound: 2, ReorderUnits: 2, Status: "critical", UpdatedAt: "2026-03-01"},
 		{SKU: "frame-desk", Title: "Frame Desk", WarehouseName: "Illinois Hub", Available: 5, Inbound: 1, ReorderUnits: 0, Status: "balanced", UpdatedAt: "2026-03-02"},
 		{SKU: "studio-console", Title: "Studio Console", WarehouseName: "Nevada Hub", Available: 7, Inbound: 0, ReorderUnits: 0, Status: "promise_risk", UpdatedAt: "2026-03-03"},
 	}
-	_ = inventoryRollupFromRows(rows)
-	summaries := inventorySummaryCards(rows)
-	if len(summaries) != 2 || summaries[0].SKU != "frame-desk" {
-		t.Fatalf("expected grouped inventory summary cards sorted by title, got %#v", summaries)
+	_ = inventoryRollupFromRows(parseRows)
+	parseSummaries := inventorySummaryCards(parseRows)
+	if len(parseSummaries) != 2 || parseSummaries[0].SKU != "frame-desk" {
+		parseT.Fatalf("expected grouped inventory summary cards sorted by title, got %#v", parseSummaries)
 	}
 
-	for _, status := range []string{"in_stock", "low_stock", "unknown"} {
-		if promise := catalogPromiseCopy(status); strings.TrimSpace(promise) == "" {
-			t.Fatalf("expected catalog promise copy for status %q", status)
+	for _, parseStatus2 := range []string{"in_stock", "low_stock", "unknown"} {
+		if parsePromise := catalogPromiseCopy(parseStatus2); strings.TrimSpace(parsePromise) == "" {
+			parseT.Fatalf("expected catalog promise copy for status %q", parseStatus2)
 		}
-		actionLabel, actionDetail := catalogActionPlan(status)
-		if strings.TrimSpace(actionLabel) == "" || strings.TrimSpace(actionDetail) == "" {
-			t.Fatalf("expected action plan copy for status %q", status)
+		parseActionLabel, parseActionDetail := catalogActionPlan(parseStatus2)
+		if strings.TrimSpace(parseActionLabel) == "" || strings.TrimSpace(parseActionDetail) == "" {
+			parseT.Fatalf("expected action plan copy for status %q", parseStatus2)
 		}
-		if support := productSupportCue(status); strings.TrimSpace(support) == "" {
-			t.Fatalf("expected product support cue for status %q", status)
+		if parseSupport := productSupportCue(parseStatus2); strings.TrimSpace(parseSupport) == "" {
+			parseT.Fatalf("expected product support cue for status %q", parseStatus2)
 		}
-		if motion := productBuyingMotion(status); strings.TrimSpace(motion) == "" {
-			t.Fatalf("expected product buying motion for status %q", status)
+		if parseMotion := productBuyingMotion(parseStatus2); strings.TrimSpace(parseMotion) == "" {
+			parseT.Fatalf("expected product buying motion for status %q", parseStatus2)
 		}
-		planTitle, planDetail, bullets := productSupportPlan(status)
-		if strings.TrimSpace(planTitle) == "" || strings.TrimSpace(planDetail) == "" || len(bullets) == 0 {
-			t.Fatalf("expected product support plan for status %q", status)
-		}
-	}
-	if copy := catalogEditorialCopy(productCard{}); strings.TrimSpace(copy) == "" {
-		t.Fatal("expected fallback editorial copy to be non-empty")
-	}
-	if copy := catalogEditorialCopy(productCard{SEODescription: "SEO copy"}); copy != "SEO copy" {
-		t.Fatalf("expected SEO description to win editorial copy fallback, got %q", copy)
-	}
-	for _, category := range []string{"desks", "storage", "lighting", "bundles", "other"} {
-		if cue := productCategoryCue(category); strings.TrimSpace(cue) == "" {
-			t.Fatalf("expected non-empty product category cue for %q", category)
+		parsePlanTitle, parsePlanDetail, parseBullets := productSupportPlan(parseStatus2)
+		if strings.TrimSpace(parsePlanTitle) == "" || strings.TrimSpace(parsePlanDetail) == "" || len(parseBullets) == 0 {
+			parseT.Fatalf("expected product support plan for status %q", parseStatus2)
 		}
 	}
-	for _, service := range []string{"priority", "two-day", "standard"} {
-		if tone := warehouseServiceTone(service); strings.TrimSpace(tone) == "" {
-			t.Fatalf("expected non-empty warehouse service tone for %q", service)
+	if parseCopy := catalogEditorialCopy(productCard{}); strings.TrimSpace(parseCopy) == "" {
+		parseT.Fatal("expected fallback editorial copy to be non-empty")
+	}
+	if parseCopy2 := catalogEditorialCopy(productCard{SEODescription: "SEO copy"}); parseCopy2 != "SEO copy" {
+		parseT.Fatalf("expected SEO description to win editorial copy fallback, got %q", parseCopy2)
+	}
+	for _, parseCategory := range []string{"desks", "storage", "lighting", "bundles", "other"} {
+		if parseCue := productCategoryCue(parseCategory); strings.TrimSpace(parseCue) == "" {
+			parseT.Fatalf("expected non-empty product category cue for %q", parseCategory)
 		}
 	}
-	for _, region := range []string{"west coast", "midwest", "east coast", "other"} {
-		if cue := warehouseRegionCue(region); strings.TrimSpace(cue) == "" {
-			t.Fatalf("expected non-empty warehouse region cue for %q", region)
+	for _, parseService := range []string{"priority", "two-day", "standard"} {
+		if parseTone := warehouseServiceTone(parseService); strings.TrimSpace(parseTone) == "" {
+			parseT.Fatalf("expected non-empty warehouse service tone for %q", parseService)
 		}
 	}
-	if story := availabilityStoryCopy(10, 2); strings.TrimSpace(story) == "" {
-		t.Fatal("expected availability story copy to be non-empty")
+	for _, parseRegion := range []string{"west coast", "midwest", "east coast", "other"} {
+		if parseCue2 := warehouseRegionCue(parseRegion); strings.TrimSpace(parseCue2) == "" {
+			parseT.Fatalf("expected non-empty warehouse region cue for %q", parseRegion)
+		}
 	}
-	title, detail := availabilitySupportPlan(1, 0)
-	if strings.TrimSpace(title) == "" || strings.TrimSpace(detail) == "" {
-		t.Fatal("expected availability support plan to return copy")
+	if parseStory := availabilityStoryCopy(10, 2); strings.TrimSpace(parseStory) == "" {
+		parseT.Fatal("expected availability story copy to be non-empty")
+	}
+	parseTitle, parseDetail := availabilitySupportPlan(1, 0)
+	if strings.TrimSpace(parseTitle) == "" || strings.TrimSpace(parseDetail) == "" {
+		parseT.Fatal("expected availability support plan to return copy")
 	}
 }

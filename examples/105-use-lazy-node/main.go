@@ -17,55 +17,55 @@ import (
 )
 
 func useLazyNodeExample() ui.Node {
-	panel := ui.UseState("inventory summary")
-	failNext := ui.UseState(false)
+	parsePanel := ui.UseState("inventory summary")
+	parseFailNext := ui.UseState(false)
 
-	handle := ui.UseLazyNode(func(ctx context.Context) (ui.Node, error) {
+	handle := ui.UseLazyNode(func(parseCtx context.Context) (ui.Node, error) {
 		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
+		case <-parseCtx.Done():
+			return nil, parseCtx.Err()
 		case <-time.After(420 * time.Millisecond):
 		}
 
-		if failNext.Get() {
+		if parseFailNext.Get() {
 			return nil, errors.New("deferred panel failed to load")
 		}
 
 		return html.Div(html.Props{Class: "rounded-[1.6rem] border border-emerald-400/25 bg-emerald-400/10 p-6 text-emerald-50"},
 			html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200"}, html.Text("Loaded with ui.UseLazyNode")),
-			html.H3(html.Props{Class: "mt-3 text-2xl font-semibold"}, html.Text(panel.Get())),
+			html.H3(html.Props{Class: "mt-3 text-2xl font-semibold"}, html.Text(parsePanel.Get())),
 			html.P(html.Props{Class: "mt-3 text-sm leading-7 text-emerald-100"}, html.Text("The hook resolved this subtree asynchronously, and the page decides how loading, error, reload, and cancel states should render.")),
 		), nil
-	}, panel.Get(), failNext.Get())
+	}, parsePanel.Get(), parseFailNext.Get())
 
-	state := handle.Get()
+	parseState := handle.Get()
 
-	switchPanel := ui.UseEvent(func() {
-		if panel.Get() == "inventory summary" {
-			panel.Set("delivery exceptions")
+	parseSwitchPanel := ui.UseEvent(func() {
+		if parsePanel.Get() == "inventory summary" {
+			parsePanel.Set("delivery exceptions")
 			return
 		}
-		panel.Set("inventory summary")
+		parsePanel.Set("inventory summary")
 	})
-	reload := ui.UseEvent(func() {
+	parseReload := ui.UseEvent(func() {
 		handle.Reload()
 	})
-	cancel := ui.UseEvent(func() {
+	parseCancel := ui.UseEvent(func() {
 		handle.Cancel()
 	})
-	toggleFailure := ui.UseEvent(func() {
-		failNext.Update(func(previous bool) bool {
-			return !previous
+	parseToggleFailure := ui.UseEvent(func() {
+		parseFailNext.Update(func(isPrevious bool) bool {
+			return !isPrevious
 		})
 	})
 
-	status := "Idle with the latest committed node."
-	if state.Loading {
-		status = "Loader is running; AsyncBoundary will show the delayed fallback."
-	} else if state.Error != nil {
-		status = state.Error.Error()
-	} else if state.Ready {
-		status = "Lazy node resolved successfully."
+	parseStatus := "Idle with the latest committed node."
+	if parseState.Loading {
+		parseStatus = "Loader is running; AsyncBoundary will show the delayed fallback."
+	} else if parseState.Error != nil {
+		parseStatus = parseState.Error.Error()
+	} else if parseState.Ready {
+		parseStatus = "Lazy node resolved successfully."
 	}
 
 	return shared.ExamplePage(
@@ -74,35 +74,35 @@ func useLazyNodeExample() ui.Node {
 		"UseLazyNode is the hook-level lazy primitive. It gives you the current lazy-node state plus Reload and Cancel so you can decide how the fallback, timing, and error UI should behave before reaching for the simpler ui.Lazy wrapper.",
 		shared.ExamplePanel("Hook-managed lazy node",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-				shared.ExampleButton("Switch panel", switchPanel),
-				shared.ExampleButton("Reload node", reload),
-				shared.ExampleButton("Cancel load", cancel),
-				shared.ExampleButton("Toggle failure", toggleFailure),
+				shared.ExampleButton("Switch panel", parseSwitchPanel),
+				shared.ExampleButton("Reload node", parseReload),
+				shared.ExampleButton("Cancel load", parseCancel),
+				shared.ExampleButton("Toggle failure", parseToggleFailure),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-5"},
-				shared.ExampleStat("Panel", panel.Get()),
-				shared.ExampleStat("Loading", fmt.Sprintf("%t", state.Loading)),
-				shared.ExampleStat("Ready", fmt.Sprintf("%t", state.Ready)),
-				shared.ExampleStat("Error", fmt.Sprintf("%t", state.Error != nil)),
-				shared.ExampleStat("Fail next", fmt.Sprintf("%t", failNext.Get())),
+				shared.ExampleStat("Panel", parsePanel.Get()),
+				shared.ExampleStat("Loading", fmt.Sprintf("%t", parseState.Loading)),
+				shared.ExampleStat("Ready", fmt.Sprintf("%t", parseState.Ready)),
+				shared.ExampleStat("Error", fmt.Sprintf("%t", parseState.Error != nil)),
+				shared.ExampleStat("Fail next", fmt.Sprintf("%t", parseFailNext.Get())),
 			),
-			html.P(html.Props{Class: "mt-5 text-sm leading-7 text-slate-300"}, html.Text(status)),
+			html.P(html.Props{Class: "mt-5 text-sm leading-7 text-slate-300"}, html.Text(parseStatus)),
 			html.Div(html.Props{Class: "mt-6"},
 				ui.AsyncBoundary(ui.AsyncBoundaryProps{
-					Pending: state.Loading,
-					Error:   state.Error,
+					Pending: parseState.Loading,
+					Error:   parseState.Error,
 					Delay:   140 * time.Millisecond,
 					Fallback: html.Div(html.Props{Class: "rounded-[1.6rem] border border-cyan-400/25 bg-cyan-400/10 p-6 text-cyan-50"},
 						html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200"}, html.Text("Fallback after 140ms")),
 						html.P(html.Props{Class: "mt-3 text-sm leading-7 text-cyan-100"}, html.Text("UseLazyNode only gives you state. AsyncBoundary is what turns that loading state into a delayed fallback UI.")),
 					),
-					ErrorFallback: func(err error) ui.Node {
+					ErrorFallback: func(parseErr error) ui.Node {
 						return html.Div(html.Props{Class: "rounded-[1.6rem] border border-red-400/25 bg-red-400/10 p-6 text-red-50"},
 							html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.28em] text-red-200"}, html.Text("Hook-level error surface")),
-							html.P(html.Props{Class: "mt-3 text-sm leading-7 text-red-100"}, html.Text(err.Error())),
+							html.P(html.Props{Class: "mt-3 text-sm leading-7 text-red-100"}, html.Text(parseErr.Error())),
 						)
 					},
-					Content: state.Node,
+					Content: parseState.Node,
 				}),
 			),
 		),

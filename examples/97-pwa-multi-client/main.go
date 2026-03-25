@@ -61,7 +61,7 @@ func multiClientPWAManifest() pwa.Manifest {
 }
 
 func multiClientPWACachePlan() pwa.CacheStoragePlan {
-	plan, _ := pwa.BuildCacheStoragePlan(pwa.ServiceWorkerAssetPlan{
+	parsePlan, _ := pwa.BuildCacheStoragePlan(pwa.ServiceWorkerAssetPlan{
 		CacheName:        "pwa-multi-client-demo-v1",
 		ManifestRevision: "demo-v1",
 		WasmURL:          "/static/bin/pwa-multi-client.wasm",
@@ -72,104 +72,104 @@ func multiClientPWACachePlan() pwa.CacheStoragePlan {
 			"/static/script/wasm_exec.js",
 		},
 	}, pwa.CacheStoragePlanOptions{CachePrefix: "pwa-multi-client-demo-"})
-	return plan
+	return parsePlan
 }
 
-func cloneMultiClientPWAPeers(previous map[string]multiClientPWAPeer) map[string]multiClientPWAPeer {
-	next := make(map[string]multiClientPWAPeer, len(previous))
-	for key, value := range previous {
-		next[key] = value
+func cloneMultiClientPWAPeers(parsePrevious map[string]multiClientPWAPeer) map[string]multiClientPWAPeer {
+	parseNext := make(map[string]multiClientPWAPeer, len(parsePrevious))
+	for parseKey, parseValue := range parsePrevious {
+		parseNext[parseKey] = parseValue
 	}
-	return next
+	return parseNext
 }
 
-func describeMultiClientPWAError(prefix string, err error) string {
-	if err == nil {
-		return prefix
+func describeMultiClientPWAError(parsePrefix string, parseErr error) string {
+	if parseErr == nil {
+		return parsePrefix
 	}
-	if code, ok := interop.CodeOf(err); ok {
-		return fmt.Sprintf("%s [%s]: %v", prefix, code, err)
+	if parseCode, parseOk := interop.CodeOf(parseErr); parseOk {
+		return fmt.Sprintf("%s [%s]: %v", parsePrefix, parseCode, parseErr)
 	}
-	return fmt.Sprintf("%s: %v", prefix, err)
+	return fmt.Sprintf("%s: %v", parsePrefix, parseErr)
 }
 
-func formatMultiClientPWAPayload(payload any) string {
-	text := strings.TrimSpace(fmt.Sprintf("%v", payload))
-	if text == "" || text == "<nil>" {
+func formatMultiClientPWAPayload(parsePayload any) string {
+	parseText := strings.TrimSpace(fmt.Sprintf("%v", parsePayload))
+	if parseText == "" || parseText == "<nil>" {
 		return "No payload"
 	}
-	return text
+	return parseText
 }
 
-func renderMultiClientPWAPeers(peers map[string]multiClientPWAPeer) []ui.Node {
-	if len(peers) == 0 {
+func renderMultiClientPWAPeers(parsePeers map[string]multiClientPWAPeer) []ui.Node {
+	if len(parsePeers) == 0 {
 		return []ui.Node{
 			html.Li(html.Props{Class: "rounded-2xl border border-dashed border-white/10 bg-slate-950/35 px-4 py-3 text-sm leading-7 text-slate-400"}, html.Text("Open this page in a second tab to watch another wasm client appear here through the cross-tab multi-client channel.")),
 		}
 	}
-	keys := make([]string, 0, len(peers))
-	for key := range peers {
-		keys = append(keys, key)
+	parseKeys := make([]string, 0, len(parsePeers))
+	for parseKey := range parsePeers {
+		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(keys)
-	nodes := make([]ui.Node, 0, len(keys))
-	for _, key := range keys {
-		peer := peers[key]
-		label := fmt.Sprintf("%s | %s | %s | last seen %s", peer.Identity.Surface, peer.State, peer.Summary, peer.LastSeen.Local().Format("15:04:05"))
-		nodes = append(nodes,
-			html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm leading-7 text-slate-300"}, html.Text(label)),
+	sort.Strings(parseKeys)
+	parseNodes := make([]ui.Node, 0, len(parseKeys))
+	for _, parseKey2 := range parseKeys {
+		parsePeer := parsePeers[parseKey2]
+		parseLabel := fmt.Sprintf("%s | %s | %s | last seen %s", parsePeer.Identity.Surface, parsePeer.State, parsePeer.Summary, parsePeer.LastSeen.Local().Format("15:04:05"))
+		parseNodes = append(parseNodes,
+			html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm leading-7 text-slate-300"}, html.Text(parseLabel)),
 		)
 	}
-	return nodes
+	return parseNodes
 }
 
-func multiClientPWASummary(snapshot pwa.DiagnosticsSnapshot, peerCount int) string {
-	return fmt.Sprintf("peers=%d | cache entries=%d | queued=%d | storage=%s", peerCount, snapshot.CacheStorage.EntryCount, snapshot.OfflineQueue.TotalEntries, snapshot.Storage.Pressure)
+func multiClientPWASummary(parseSnapshot pwa.DiagnosticsSnapshot, parsePeerCount int) string {
+	return fmt.Sprintf("peers=%d | cache entries=%d | queued=%d | storage=%s", parsePeerCount, parseSnapshot.CacheStorage.EntryCount, parseSnapshot.OfflineQueue.TotalEntries, parseSnapshot.Storage.Pressure)
 }
 
 func multiClientPWARoot() ui.Node {
-	self := ui.UseState(newMultiClientPWAIdentity())
-	manifest := multiClientPWAManifest()
+	parseSelf := ui.UseState(newMultiClientPWAIdentity())
+	parseManifest := multiClientPWAManifest()
 	cachePlan := multiClientPWACachePlan()
-	transportStatus := ui.UseState("pending")
-	serviceWorkerStatus := ui.UseState("Registering service worker...")
+	parseTransportStatus := ui.UseState("pending")
+	parseServiceWorkerStatus := ui.UseState("Registering service worker...")
 	cacheStatus := ui.UseState("Offline shell is idle.")
-	lastSent := ui.UseState("No multi-client traffic sent yet.")
-	lastReceived := ui.UseState("No multi-client traffic received yet.")
-	diagnosticsSummary := ui.UseState("No diagnostics snapshot captured yet.")
-	diagnosticsPreview := ui.UseState("Click Inspect diagnostics after warming the shell or exchanging peer traffic.")
-	peers := ui.UseState(map[string]multiClientPWAPeer{})
-	channelRef := ui.UseRef(interop.CrossTabChannel{})
-	channelCancelRef := ui.UseRef((func())(nil))
+	parseLastSent := ui.UseState("No multi-client traffic sent yet.")
+	parseLastReceived := ui.UseState("No multi-client traffic received yet.")
+	parseDiagnosticsSummary := ui.UseState("No diagnostics snapshot captured yet.")
+	parseDiagnosticsPreview := ui.UseState("Click Inspect diagnostics after warming the shell or exchanging peer traffic.")
+	parsePeers := ui.UseState(map[string]multiClientPWAPeer{})
+	parseChannelRef := ui.UseRef(interop.CrossTabChannel{})
+	parseChannelCancelRef := ui.UseRef((func())(nil))
 	cacheManagerRef := ui.UseRef[*pwa.CacheStorageManager](nil)
-	registrationRef := ui.UseRef[*pwa.ServiceWorkerRegistration](nil)
+	parseRegistrationRef := ui.UseRef[*pwa.ServiceWorkerRegistration](nil)
 	cacheManagerStartedRef := ui.UseRef(false)
-	serviceWorkerStartedRef := ui.UseRef(false)
+	parseServiceWorkerStartedRef := ui.UseRef(false)
 
-	upsertPeer := func(identity interop.ClientIdentity, state string, summary string) {
-		if strings.TrimSpace(identity.ID) == "" || identity.ID == self.Get().ID {
+	parseUpsertPeer := func(parseIdentity interop.ClientIdentity, parseState string, parseSummary string) {
+		if strings.TrimSpace(parseIdentity.ID) == "" || parseIdentity.ID == parseSelf.Get().ID {
 			return
 		}
-		next := cloneMultiClientPWAPeers(peers.Get())
-		entry := next[identity.ID]
-		entry.Identity = identity
-		entry.State = state
-		entry.Summary = summary
-		entry.LastSeen = time.Now().UTC()
-		next[identity.ID] = entry
-		peers.Set(next)
+		parseNext := cloneMultiClientPWAPeers(parsePeers.Get())
+		parseEntry := parseNext[parseIdentity.ID]
+		parseEntry.Identity = parseIdentity
+		parseEntry.State = parseState
+		parseEntry.Summary = parseSummary
+		parseEntry.LastSeen = time.Now().UTC()
+		parseNext[parseIdentity.ID] = parseEntry
+		parsePeers.Set(parseNext)
 	}
 
 	ui.UseEffect(func() func() {
 		if cacheManagerRef.Get() == nil && !cacheManagerStartedRef.Get() {
 			cacheManagerStartedRef.Set(true)
 			go func() {
-				manager, err := pwa.OpenCacheStorageManager()
-				if err != nil {
-					cacheStatus.Set(describeMultiClientPWAError("Cache Storage manager unavailable", err))
+				parseManager, parseErr := pwa.OpenCacheStorageManager()
+				if parseErr != nil {
+					cacheStatus.Set(describeMultiClientPWAError("Cache Storage manager unavailable", parseErr))
 					return
 				}
-				cacheManagerRef.Set(&manager)
+				cacheManagerRef.Set(&parseManager)
 				cacheStatus.Set("Cache Storage manager ready.")
 			}()
 		}
@@ -177,181 +177,181 @@ func multiClientPWARoot() ui.Node {
 	}, "multi-client-pwa-cache-manager")
 
 	ui.UseEffect(func() func() {
-		if registrationRef.Get() == nil && !serviceWorkerStartedRef.Get() {
-			serviceWorkerStartedRef.Set(true)
+		if parseRegistrationRef.Get() == nil && !parseServiceWorkerStartedRef.Get() {
+			parseServiceWorkerStartedRef.Set(true)
 			go func() {
-				registration, err := pwa.RegisterServiceWorker(context.Background(), pwa.ServiceWorkerOptions{
+				parseRegistration, parseErr2 := pwa.RegisterServiceWorker(context.Background(), pwa.ServiceWorkerOptions{
 					URL:   "/97-pwa-multi-client/sw.js",
 					Scope: "/97-pwa-multi-client/",
 				})
-				if err != nil {
-					serviceWorkerStatus.Set(describeMultiClientPWAError("Service worker registration failed", err))
+				if parseErr2 != nil {
+					parseServiceWorkerStatus.Set(describeMultiClientPWAError("Service worker registration failed", parseErr2))
 					return
 				}
-				registrationRef.Set(&registration)
-				serviceWorkerStatus.Set("Service worker registered for the multi-client PWA shell.")
+				parseRegistrationRef.Set(&parseRegistration)
+				parseServiceWorkerStatus.Set("Service worker registered for the multi-client PWA shell.")
 			}()
 		}
 		return nil
 	}, "multi-client-pwa-service-worker")
 
 	ui.UseEffect(func() func() {
-		channel, err := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{Name: multiClientPWAChannelName})
-		if err != nil {
-			transportStatus.Set(describeMultiClientPWAError("Cross-tab channel unavailable", err))
+		parseChannel, parseErr3 := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{Name: multiClientPWAChannelName})
+		if parseErr3 != nil {
+			parseTransportStatus.Set(describeMultiClientPWAError("Cross-tab channel unavailable", parseErr3))
 			return nil
 		}
-		channelRef.Set(channel)
-		transportStatus.Set(channel.Transport())
+		parseChannelRef.Set(parseChannel)
+		parseTransportStatus.Set(parseChannel.Transport())
 
-		subscription, err := interop.SubscribeClientMessages(channel, func(message interop.ClientMessage, receiveErr error) {
-			if receiveErr != nil {
-				lastReceived.Set(describeMultiClientPWAError("Peer message failed", receiveErr))
+		parseSubscription, parseErr3 := interop.SubscribeClientMessages(parseChannel, func(parseMessage interop.ClientMessage, parseReceiveErr error) {
+			if parseReceiveErr != nil {
+				parseLastReceived.Set(describeMultiClientPWAError("Peer message failed", parseReceiveErr))
 				return
 			}
-			if message.Source.ID == self.Get().ID {
+			if parseMessage.Source.ID == parseSelf.Get().ID {
 				return
 			}
-			switch message.Kind {
+			switch parseMessage.Kind {
 			case interop.ClientHello:
-				upsertPeer(message.Source, "ready", "hello received")
-				lastReceived.Set(fmt.Sprintf("Peer hello from %s over %s.", message.Source.ID, channel.Transport()))
+				parseUpsertPeer(parseMessage.Source, "ready", "hello received")
+				parseLastReceived.Set(fmt.Sprintf("Peer hello from %s over %s.", parseMessage.Source.ID, parseChannel.Transport()))
 			case interop.ClientEvent:
-				if message.Topic != multiClientPWASyncTopic {
+				if parseMessage.Topic != multiClientPWASyncTopic {
 					return
 				}
-				upsertPeer(message.Source, "event", formatMultiClientPWAPayload(message.Payload))
-				lastReceived.Set(fmt.Sprintf("Received sync event from %s: %s", message.Source.ID, formatMultiClientPWAPayload(message.Payload)))
+				parseUpsertPeer(parseMessage.Source, "event", formatMultiClientPWAPayload(parseMessage.Payload))
+				parseLastReceived.Set(fmt.Sprintf("Received sync event from %s: %s", parseMessage.Source.ID, formatMultiClientPWAPayload(parseMessage.Payload)))
 			case interop.ClientInvalidate:
-				if message.Topic != multiClientPWAInvalidateTopic {
+				if parseMessage.Topic != multiClientPWAInvalidateTopic {
 					return
 				}
-				upsertPeer(message.Source, "invalidate", message.Revision)
-				lastReceived.Set(fmt.Sprintf("Received cache invalidation for %s rev %s.", message.Topic, message.Revision))
+				parseUpsertPeer(parseMessage.Source, "invalidate", parseMessage.Revision)
+				parseLastReceived.Set(fmt.Sprintf("Received cache invalidation for %s rev %s.", parseMessage.Topic, parseMessage.Revision))
 			case interop.ClientGoodbye:
-				next := cloneMultiClientPWAPeers(peers.Get())
-				entry := next[message.Source.ID]
-				entry.Identity = message.Source
-				entry.State = "disconnected"
-				entry.Summary = "goodbye received"
-				entry.LastSeen = time.Now().UTC()
-				next[message.Source.ID] = entry
-				peers.Set(next)
-				lastReceived.Set(fmt.Sprintf("Peer goodbye from %s.", message.Source.ID))
+				parseNext2 := cloneMultiClientPWAPeers(parsePeers.Get())
+				parseEntry2 := parseNext2[parseMessage.Source.ID]
+				parseEntry2.Identity = parseMessage.Source
+				parseEntry2.State = "disconnected"
+				parseEntry2.Summary = "goodbye received"
+				parseEntry2.LastSeen = time.Now().UTC()
+				parseNext2[parseMessage.Source.ID] = parseEntry2
+				parsePeers.Set(parseNext2)
+				parseLastReceived.Set(fmt.Sprintf("Peer goodbye from %s.", parseMessage.Source.ID))
 			}
 		})
-		if err != nil {
-			transportStatus.Set(describeMultiClientPWAError("Cross-tab subscription failed", err))
-			_ = channel.Close()
-			channelRef.Set(interop.CrossTabChannel{})
+		if parseErr3 != nil {
+			parseTransportStatus.Set(describeMultiClientPWAError("Cross-tab subscription failed", parseErr3))
+			_ = parseChannel.Close()
+			parseChannelRef.Set(interop.CrossTabChannel{})
 			return nil
 		}
-		channelCancelRef.Set(subscription.Cancel)
+		parseChannelCancelRef.Set(parseSubscription.Cancel)
 
-		if err := interop.PublishClientHello(channel, self.Get()); err != nil {
-			lastSent.Set(describeMultiClientPWAError("Initial hello failed", err))
+		if parseErr4 := interop.PublishClientHello(parseChannel, parseSelf.Get()); parseErr4 != nil {
+			parseLastSent.Set(describeMultiClientPWAError("Initial hello failed", parseErr4))
 		} else {
-			lastSent.Set("Published initial multi-client hello.")
+			parseLastSent.Set("Published initial multi-client hello.")
 		}
 
 		return func() {
-			if cancel := channelCancelRef.Get(); cancel != nil {
-				cancel()
-				channelCancelRef.Set(nil)
+			if parseCancel := parseChannelCancelRef.Get(); parseCancel != nil {
+				parseCancel()
+				parseChannelCancelRef.Set(nil)
 			}
-			_ = interop.PublishClientGoodbye(channel, self.Get())
-			_ = channel.Close()
-			channelRef.Set(interop.CrossTabChannel{})
+			_ = interop.PublishClientGoodbye(parseChannel, parseSelf.Get())
+			_ = parseChannel.Close()
+			parseChannelRef.Set(interop.CrossTabChannel{})
 		}
 	}, true)
 
-	announcePeer := ui.UseEvent(func() {
-		channel := channelRef.Get()
-		if channel.Name() == "" {
-			lastSent.Set("Cross-tab channel is not ready yet.")
+	parseAnnouncePeer := ui.UseEvent(func() {
+		parseChannel2 := parseChannelRef.Get()
+		if parseChannel2.Name() == "" {
+			parseLastSent.Set("Cross-tab channel is not ready yet.")
 			return
 		}
-		if err := interop.PublishClientHello(channel, self.Get()); err != nil {
-			lastSent.Set(describeMultiClientPWAError("Peer hello failed", err))
+		if parseErr5 := interop.PublishClientHello(parseChannel2, parseSelf.Get()); parseErr5 != nil {
+			parseLastSent.Set(describeMultiClientPWAError("Peer hello failed", parseErr5))
 			return
 		}
-		lastSent.Set("Re-announced peer hello to the multi-client channel.")
+		parseLastSent.Set("Re-announced peer hello to the multi-client channel.")
 	})
 
-	broadcastSyncEvent := ui.UseEvent(func() {
-		channel := channelRef.Get()
-		if channel.Name() == "" {
-			lastSent.Set("Cross-tab channel is not ready yet.")
+	parseBroadcastSyncEvent := ui.UseEvent(func() {
+		parseChannel3 := parseChannelRef.Get()
+		if parseChannel3.Name() == "" {
+			parseLastSent.Set("Cross-tab channel is not ready yet.")
 			return
 		}
-		payload := map[string]string{
+		parsePayload := map[string]string{
 			"status":    "shell-ready",
-			"transport": transportStatus.Get(),
-			"sender":    self.Get().ID,
+			"transport": parseTransportStatus.Get(),
+			"sender":    parseSelf.Get().ID,
 		}
-		if err := interop.PublishClientEvent(channel, multiClientPWASyncTopic, self.Get(), payload); err != nil {
-			lastSent.Set(describeMultiClientPWAError("Sync event failed", err))
+		if parseErr6 := interop.PublishClientEvent(parseChannel3, multiClientPWASyncTopic, parseSelf.Get(), parsePayload); parseErr6 != nil {
+			parseLastSent.Set(describeMultiClientPWAError("Sync event failed", parseErr6))
 			return
 		}
-		lastSent.Set("Broadcast sync event across the inter-wasm peer channel.")
+		parseLastSent.Set("Broadcast sync event across the inter-wasm peer channel.")
 	})
 
-	broadcastCacheInvalidation := ui.UseEvent(func() {
-		channel := channelRef.Get()
-		if channel.Name() == "" {
-			lastSent.Set("Cross-tab channel is not ready yet.")
+	parseBroadcastCacheInvalidation := ui.UseEvent(func() {
+		parseChannel4 := parseChannelRef.Get()
+		if parseChannel4.Name() == "" {
+			parseLastSent.Set("Cross-tab channel is not ready yet.")
 			return
 		}
-		if err := interop.PublishClientInvalidation(channel, multiClientPWAInvalidateTopic, self.Get(), cachePlan.ManifestRevision); err != nil {
-			lastSent.Set(describeMultiClientPWAError("Cache invalidation failed", err))
+		if parseErr7 := interop.PublishClientInvalidation(parseChannel4, multiClientPWAInvalidateTopic, parseSelf.Get(), cachePlan.ManifestRevision); parseErr7 != nil {
+			parseLastSent.Set(describeMultiClientPWAError("Cache invalidation failed", parseErr7))
 			return
 		}
-		lastSent.Set(fmt.Sprintf("Broadcast cache invalidation rev %s.", cachePlan.ManifestRevision))
+		parseLastSent.Set(fmt.Sprintf("Broadcast cache invalidation rev %s.", cachePlan.ManifestRevision))
 	})
 
-	warmOfflineShell := ui.UseEvent(func() {
-		manager := cacheManagerRef.Get()
-		if manager == nil {
+	parseWarmOfflineShell := ui.UseEvent(func() {
+		parseManager2 := cacheManagerRef.Get()
+		if parseManager2 == nil {
 			cacheStatus.Set("Cache Storage manager is not ready yet.")
 			return
 		}
 		cacheStatus.Set("Warming multi-client offline shell...")
 		go func() {
-			snapshot, err := manager.Sync(context.Background(), cachePlan)
-			if err != nil {
-				cacheStatus.Set(describeMultiClientPWAError("Shell warmup failed", err))
+			parseSnapshot, parseErr8 := parseManager2.Sync(context.Background(), cachePlan)
+			if parseErr8 != nil {
+				cacheStatus.Set(describeMultiClientPWAError("Shell warmup failed", parseErr8))
 				return
 			}
-			cacheStatus.Set(fmt.Sprintf("Cached %d entries into %s.", snapshot.EntryCount, snapshot.CacheName))
+			cacheStatus.Set(fmt.Sprintf("Cached %d entries into %s.", parseSnapshot.EntryCount, parseSnapshot.CacheName))
 		}()
 	})
 
-	inspectDiagnostics := ui.UseEvent(func() {
-		options := pwa.DiagnosticsOptions{Manifest: &manifest}
-		if manager := cacheManagerRef.Get(); manager != nil {
-			options.CacheStorage = manager
-			options.CacheStoragePlan = &cachePlan
+	parseInspectDiagnostics := ui.UseEvent(func() {
+		parseOptions := pwa.DiagnosticsOptions{Manifest: &parseManifest}
+		if parseManager3 := cacheManagerRef.Get(); parseManager3 != nil {
+			parseOptions.CacheStorage = parseManager3
+			parseOptions.CacheStoragePlan = &cachePlan
 		}
-		if registration := registrationRef.Get(); registration != nil {
-			options.ServiceWorker = registration
+		if parseRegistration2 := parseRegistrationRef.Get(); parseRegistration2 != nil {
+			parseOptions.ServiceWorker = parseRegistration2
 		}
-		diagnosticsPreview.Set("Capturing diagnostics snapshot...")
+		parseDiagnosticsPreview.Set("Capturing diagnostics snapshot...")
 		go func() {
-			snapshot, err := pwa.InspectDiagnostics(context.Background(), options)
-			if err != nil {
-				diagnosticsPreview.Set(describeMultiClientPWAError("Diagnostics snapshot failed", err))
+			parseSnapshot2, parseErr9 := pwa.InspectDiagnostics(context.Background(), parseOptions)
+			if parseErr9 != nil {
+				parseDiagnosticsPreview.Set(describeMultiClientPWAError("Diagnostics snapshot failed", parseErr9))
 				return
 			}
-			lines := []string{
-				fmt.Sprintf("manifest valid: %t", snapshot.Manifest.Valid),
-				fmt.Sprintf("cache entries: %d", snapshot.CacheStorage.EntryCount),
-				fmt.Sprintf("storage pressure: %s", snapshot.Storage.Pressure),
+			parseLines := []string{
+				fmt.Sprintf("manifest valid: %t", parseSnapshot2.Manifest.Valid),
+				fmt.Sprintf("cache entries: %d", parseSnapshot2.CacheStorage.EntryCount),
+				fmt.Sprintf("storage pressure: %s", parseSnapshot2.Storage.Pressure),
 			}
-			if snapshot.ServiceWorker.Scope != "" {
-				lines = append(lines, "service worker scope: "+snapshot.ServiceWorker.Scope)
+			if parseSnapshot2.ServiceWorker.Scope != "" {
+				parseLines = append(parseLines, "service worker scope: "+parseSnapshot2.ServiceWorker.Scope)
 			}
-			diagnosticsPreview.Set(strings.Join(lines, "\n"))
-			diagnosticsSummary.Set(multiClientPWASummary(snapshot, len(peers.Get())))
+			parseDiagnosticsPreview.Set(strings.Join(parseLines, "\n"))
+			parseDiagnosticsSummary.Set(multiClientPWASummary(parseSnapshot2, len(parsePeers.Get())))
 		}()
 	})
 
@@ -362,30 +362,30 @@ func multiClientPWARoot() ui.Node {
 		shared.ExamplePanel("PWA and peer controls",
 			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("This example combines the multi-client cross-tab message helpers with explicit PWA ownership. Each tab is its own wasm client, but they still coordinate shell revision and peer state through a typed browser-local channel.")),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-				shared.ExampleButton("Announce peer", announcePeer),
-				shared.ExampleButton("Broadcast sync event", broadcastSyncEvent),
-				shared.ExampleButton("Broadcast cache invalidation", broadcastCacheInvalidation),
-				shared.ExampleButton("Warm offline shell", warmOfflineShell),
-				shared.ExampleButton("Inspect diagnostics", inspectDiagnostics),
+				shared.ExampleButton("Announce peer", parseAnnouncePeer),
+				shared.ExampleButton("Broadcast sync event", parseBroadcastSyncEvent),
+				shared.ExampleButton("Broadcast cache invalidation", parseBroadcastCacheInvalidation),
+				shared.ExampleButton("Warm offline shell", parseWarmOfflineShell),
+				shared.ExampleButton("Inspect diagnostics", parseInspectDiagnostics),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-3 md:grid-cols-3"},
-				shared.ExampleStat("Transport", transportStatus.Get()),
-				shared.ExampleStat("Peer count", fmt.Sprintf("%d", len(peers.Get()))),
+				shared.ExampleStat("Transport", parseTransportStatus.Get()),
+				shared.ExampleStat("Peer count", fmt.Sprintf("%d", len(parsePeers.Get()))),
 				shared.ExampleStat("Shell revision", cachePlan.ManifestRevision),
 			),
-			html.P(html.Props{Class: "mt-4 text-sm text-slate-300", ID: "multi-client-pwa-sw-status"}, html.Text(serviceWorkerStatus.Get())),
+			html.P(html.Props{Class: "mt-4 text-sm text-slate-300", ID: "multi-client-pwa-sw-status"}, html.Text(parseServiceWorkerStatus.Get())),
 			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "multi-client-pwa-cache-status"}, html.Text(cacheStatus.Get())),
-			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "multi-client-pwa-last-sent"}, html.Text(lastSent.Get())),
-			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "multi-client-pwa-last-received"}, html.Text(lastReceived.Get())),
-			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "multi-client-pwa-diagnostics-summary"}, html.Text(diagnosticsSummary.Get())),
+			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "multi-client-pwa-last-sent"}, html.Text(parseLastSent.Get())),
+			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "multi-client-pwa-last-received"}, html.Text(parseLastReceived.Get())),
+			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "multi-client-pwa-diagnostics-summary"}, html.Text(parseDiagnosticsSummary.Get())),
 		),
 		shared.ExamplePanel("Discovered peers",
 			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("Open a second tab of this same page. Each tab publishes a multi-client hello and receives typed event or invalidation messages from the other wasm runtime.")),
-			html.Ul(html.Props{Class: "mt-5 grid gap-3", ID: "multi-client-pwa-peer-list"}, renderMultiClientPWAPeers(peers.Get())...),
+			html.Ul(html.Props{Class: "mt-5 grid gap-3", ID: "multi-client-pwa-peer-list"}, renderMultiClientPWAPeers(parsePeers.Get())...),
 		),
 		shared.ExamplePanel("Structured diagnostics output",
 			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("The diagnostics helper stays separate from peer transport. The page combines them at the app layer so PWA shell state and inter-wasm coordination remain reviewable instead of implicit.")),
-			html.Pre(html.Props{Class: "mt-4 overflow-x-auto rounded-2xl border border-white/10 bg-black/40 p-4 text-sm text-slate-300", ID: "multi-client-pwa-diagnostics-preview"}, html.Text(diagnosticsPreview.Get())),
+			html.Pre(html.Props{Class: "mt-4 overflow-x-auto rounded-2xl border border-white/10 bg-black/40 p-4 text-sm text-slate-300", ID: "multi-client-pwa-diagnostics-preview"}, html.Text(parseDiagnosticsPreview.Get())),
 		),
 	)
 }

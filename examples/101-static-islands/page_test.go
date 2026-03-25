@@ -7,46 +7,46 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestStaticIslandsRenderHelpers(t *testing.T) {
+func TestStaticIslandsRenderHelpers(parseT *testing.T) {
 	if len(quoteCards) != 3 {
-		t.Fatalf("quoteCards len = %d, want 3", len(quoteCards))
+		parseT.Fatalf("quoteCards len = %d, want 3", len(quoteCards))
 	}
 	if quoteCards[0].Phase != "Pipeline" || quoteCards[2].Phase != "Iteration" {
-		t.Fatalf("quoteCards = %+v", quoteCards)
+		parseT.Fatalf("quoteCards = %+v", quoteCards)
 	}
 
-	pillMarkup, err := ui.RenderToString(metricPill("Selected tier", "Starter", "selected-tier"))
-	if err != nil {
-		t.Fatalf("RenderToString(metricPill) error = %v", err)
+	parsePillMarkup, parseErr := ui.RenderToString(metricPill("Selected tier", "Starter", "selected-tier"))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(metricPill) error = %v", parseErr)
 	}
-	for _, expected := range []string{"Selected tier", "Starter", `id="selected-tier"`} {
-		if !strings.Contains(pillMarkup, expected) {
-			t.Fatalf("metricPill markup missing %q\n%s", expected, pillMarkup)
+	for _, parseExpected := range []string{"Selected tier", "Starter", `id="selected-tier"`} {
+		if !strings.Contains(parsePillMarkup, parseExpected) {
+			parseT.Fatalf("metricPill markup missing %q\n%s", parseExpected, parsePillMarkup)
 		}
 	}
 
-	activeButton, err := ui.RenderToString(islandButton("Starter", true, ui.WrapHandler("click")))
-	if err != nil {
-		t.Fatalf("RenderToString(islandButton active) error = %v", err)
+	parseActiveButton, parseErr := ui.RenderToString(islandButton("Starter", true, ui.WrapHandler("click")))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(islandButton active) error = %v", parseErr)
 	}
-	if !strings.Contains(activeButton, "border-emerald-300 bg-emerald-300/20") {
-		t.Fatalf("active islandButton markup = %q", activeButton)
+	if !strings.Contains(parseActiveButton, "border-emerald-300 bg-emerald-300/20") {
+		parseT.Fatalf("active islandButton markup = %q", parseActiveButton)
 	}
-	inactiveButton, err := ui.RenderToString(islandButton("Team", false, ui.WrapHandler("click")))
-	if err != nil {
-		t.Fatalf("RenderToString(islandButton inactive) error = %v", err)
+	parseInactiveButton, parseErr := ui.RenderToString(islandButton("Team", false, ui.WrapHandler("click")))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(islandButton inactive) error = %v", parseErr)
 	}
-	if !strings.Contains(inactiveButton, "hover:bg-white/10") {
-		t.Fatalf("inactive islandButton markup = %q", inactiveButton)
+	if !strings.Contains(parseInactiveButton, "hover:bg-white/10") {
+		parseT.Fatalf("inactive islandButton markup = %q", parseInactiveButton)
 	}
 }
 
-func TestStaticIslandsRenderSurfaceNodes(t *testing.T) {
-	newsletterMarkup, err := ui.RenderToString(renderNewsletterIsland("Enterprise", 7))
-	if err != nil {
-		t.Fatalf("RenderToString(renderNewsletterIsland) error = %v", err)
+func TestStaticIslandsRenderSurfaceNodes(parseT *testing.T) {
+	parseNewsletterMarkup, parseErr := ui.RenderToString(renderNewsletterIsland("Enterprise", 7))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(renderNewsletterIsland) error = %v", parseErr)
 	}
-	for _, expected := range []string{
+	for _, parseExpected := range []string{
 		"Pricing focus rail",
 		"Enterprise",
 		"7",
@@ -54,16 +54,16 @@ func TestStaticIslandsRenderSurfaceNodes(t *testing.T) {
 		"newsletter-demo-count",
 		"Book a walkthrough",
 	} {
-		if !strings.Contains(newsletterMarkup, expected) {
-			t.Fatalf("renderNewsletterIsland markup missing %q\n%s", expected, newsletterMarkup)
+		if !strings.Contains(parseNewsletterMarkup, parseExpected) {
+			parseT.Fatalf("renderNewsletterIsland markup missing %q\n%s", parseExpected, parseNewsletterMarkup)
 		}
 	}
 
-	quoteMarkup, err := ui.RenderToString(renderQuoteIsland(quoteCards[1], 1))
-	if err != nil {
-		t.Fatalf("RenderToString(renderQuoteIsland) error = %v", err)
+	parseQuoteMarkup, parseErr := ui.RenderToString(renderQuoteIsland(quoteCards[1], 1))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(renderQuoteIsland) error = %v", parseErr)
 	}
-	for _, expected := range []string{
+	for _, parseExpected2 := range []string{
 		"Handoff",
 		"Hydrate the narrow decision rails.",
 		"2 / 3",
@@ -73,18 +73,18 @@ func TestStaticIslandsRenderSurfaceNodes(t *testing.T) {
 		`id="quote-index"`,
 		"Next note",
 	} {
-		if !strings.Contains(quoteMarkup, expected) {
-			t.Fatalf("renderQuoteIsland markup missing %q\n%s", expected, quoteMarkup)
+		if !strings.Contains(parseQuoteMarkup, parseExpected2) {
+			parseT.Fatalf("renderQuoteIsland markup missing %q\n%s", parseExpected2, parseQuoteMarkup)
 		}
 	}
 }
 
-func TestStaticIslandsComponentNodesRender(t *testing.T) {
-	newsletterComponentMarkup, err := ui.RenderToString(ui.CreateElement(newsletterIsland))
-	if err != nil {
-		t.Fatalf("RenderToString(newsletterIsland) error = %v", err)
+func TestStaticIslandsComponentNodesRender(parseT *testing.T) {
+	parseNewsletterComponentMarkup, parseErr := ui.RenderToString(ui.CreateElement(newsletterIsland))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(newsletterIsland) error = %v", parseErr)
 	}
-	for _, expected := range []string{
+	for _, parseExpected := range []string{
 		"Pricing focus rail",
 		"Starter",
 		"3",
@@ -92,30 +92,30 @@ func TestStaticIslandsComponentNodesRender(t *testing.T) {
 		"newsletter-selected-tier",
 		"newsletter-demo-count",
 	} {
-		if !strings.Contains(newsletterComponentMarkup, expected) {
-			t.Fatalf("newsletterIsland markup missing %q\n%s", expected, newsletterComponentMarkup)
+		if !strings.Contains(parseNewsletterComponentMarkup, parseExpected) {
+			parseT.Fatalf("newsletterIsland markup missing %q\n%s", parseExpected, parseNewsletterComponentMarkup)
 		}
 	}
 
-	quoteComponentMarkup, err := ui.RenderToString(ui.CreateElement(quoteIsland))
-	if err != nil {
-		t.Fatalf("RenderToString(quoteIsland) error = %v", err)
+	parseQuoteComponentMarkup, parseErr := ui.RenderToString(ui.CreateElement(quoteIsland))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(quoteIsland) error = %v", parseErr)
 	}
-	for _, expected := range []string{
+	for _, parseExpected2 := range []string{
 		"Pipeline",
 		"Ship the launch page first.",
 		"1 / 3",
 		"Next note",
 	} {
-		if !strings.Contains(quoteComponentMarkup, expected) {
-			t.Fatalf("quoteIsland markup missing %q\n%s", expected, quoteComponentMarkup)
+		if !strings.Contains(parseQuoteComponentMarkup, parseExpected2) {
+			parseT.Fatalf("quoteIsland markup missing %q\n%s", parseExpected2, parseQuoteComponentMarkup)
 		}
 	}
 }
 
-func TestStaticIslandsNativeMetricsStub(t *testing.T) {
-	if got := nowMillis(); got != 0 {
-		t.Fatalf("nowMillis() = %v, want 0 in native stub", got)
+func TestStaticIslandsNativeMetricsStub(parseT *testing.T) {
+	if parseGot := nowMillis(); parseGot != 0 {
+		parseT.Fatalf("nowMillis() = %v, want 0 in native stub", parseGot)
 	}
 	writeMetric("metric-startup-total", "5.00 ms")
 }

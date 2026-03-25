@@ -25,16 +25,16 @@ type errorPageProps struct {
 	Message string
 }
 
-func loaderPageView(props loaderPageProps) ui.Node {
-	nav := router.UseNavigate()
-	data := router.UseRouteData()
-	if data == nil {
-		data = props.FallbackData
+func loaderPageView(parseProps loaderPageProps) ui.Node {
+	parseNav := router.UseNavigate()
+	parseData := router.UseRouteData()
+	if parseData == nil {
+		parseData = parseProps.FallbackData
 	}
 
-	title, _ := data["title"].(string)
-	status, _ := data["status"].(string)
-	path := router.InspectCurrentRoute().Path
+	parseTitle, _ := parseData["title"].(string)
+	parseStatus, _ := parseData["status"].(string)
+	parsePath := router.InspectCurrentRoute().Path
 
 	return shared.ExamplePage(
 		"router route loaders",
@@ -42,14 +42,14 @@ func loaderPageView(props loaderPageProps) ui.Node {
 		"Route loaders let a route fetch or derive data with a typed route context. The loading and error states can also be routed through dedicated route-level views.",
 		shared.ExamplePanel("Loader-driven route",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-				shared.ExampleButton("Report 7", ui.UseEvent(func() { nav.Navigate("/reports/7") })),
-				shared.ExampleButton("Report 12", ui.UseEvent(func() { nav.Navigate("/reports/12") })),
-				shared.ExampleButton("Trigger error", ui.UseEvent(func() { nav.Navigate("/reports/500") })),
+				shared.ExampleButton("Report 7", ui.UseEvent(func() { parseNav.Navigate("/reports/7") })),
+				shared.ExampleButton("Report 12", ui.UseEvent(func() { parseNav.Navigate("/reports/12") })),
+				shared.ExampleButton("Trigger error", ui.UseEvent(func() { parseNav.Navigate("/reports/500") })),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
-				shared.ExampleStat("Path", path),
-				shared.ExampleStat("Title", title),
-				shared.ExampleStat("Status", status),
+				shared.ExampleStat("Path", parsePath),
+				shared.ExampleStat("Title", parseTitle),
+				shared.ExampleStat("Status", parseStatus),
 			),
 			shared.ExampleCode(
 				`r.Register("/reports/:id", ReportPage, router.Options{Loader: ...})`,
@@ -59,65 +59,65 @@ func loaderPageView(props loaderPageProps) ui.Node {
 	)
 }
 
-func loaderPage(props router.Attrs) *router.Element {
-	return ui.CreateElement(loaderPageView, loaderPageProps{FallbackData: props})
+func loaderPage(parseProps router.Attrs) *router.Element {
+	return ui.CreateElement(loaderPageView, loaderPageProps{FallbackData: parseProps})
 }
 
-func loadingPage(props router.Attrs) *router.Element {
-	path, _ := props["path"].(string)
+func loadingPage(parseProps router.Attrs) *router.Element {
+	parsePath, _ := parseProps["path"].(string)
 	return shared.ExamplePage(
 		"Loader pending",
 		"Route-level loading fallback",
 		"This route is showing the explicit Loading renderer while the loader is still in flight.",
 		shared.ExamplePanel("Pending state",
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Path", path),
+				shared.ExampleStat("Path", parsePath),
 				shared.ExampleStat("Loading", "true"),
 			),
 		),
 	)
 }
 
-func errorPageView(props errorPageProps) ui.Node {
-	nav := router.UseNavigate()
+func errorPageView(parseProps errorPageProps) ui.Node {
+	parseNav := router.UseNavigate()
 	return shared.ExamplePage(
 		"Loader error",
 		"Route-level error renderer",
 		"The route provided an Error renderer, so a loader failure becomes a focused route-level fallback instead of a generic crash.",
 		shared.ExamplePanel("Error state",
-			html.P(html.Props{Class: "mt-3 text-rose-300"}, html.Text(props.Message)),
-			html.Div(html.Props{Class: "mt-6 flex gap-3"}, shared.ExampleButton("Back to report 7", ui.UseEvent(func() { nav.Navigate("/reports/7") }))),
+			html.P(html.Props{Class: "mt-3 text-rose-300"}, html.Text(parseProps.Message)),
+			html.Div(html.Props{Class: "mt-6 flex gap-3"}, shared.ExampleButton("Back to report 7", ui.UseEvent(func() { parseNav.Navigate("/reports/7") }))),
 		),
 	)
 }
 
-func errorPage(props router.Attrs) *router.Element {
-	message, _ := props["error"].(string)
-	return ui.CreateElement(errorPageView, errorPageProps{Message: message})
+func errorPage(parseProps router.Attrs) *router.Element {
+	parseMessage, _ := parseProps["error"].(string)
+	return ui.CreateElement(errorPageView, errorPageProps{Message: parseMessage})
 }
 
 func main() {
 	utils.DisableAllDebug()
-	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/reports/7"})
-	r.Register("/reports/:id", loaderPage, router.Options{
-		Loader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
+	parseR := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/reports/7"})
+	parseR.Register("/reports/:id", loaderPage, router.Options{
+		Loader: func(parseCtx context.Context, parseRouteCtx router.RouteContext) (router.Attrs, error) {
 			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
+			case <-parseCtx.Done():
+				return nil, parseCtx.Err()
 			case <-time.After(320 * time.Millisecond):
 			}
-			id := routeCtx.Params.Get("id")
-			if id == "500" {
-				return nil, fmt.Errorf("loader failed for report %s", id)
+			parseId := parseRouteCtx.Params.Get("id")
+			if parseId == "500" {
+				return nil, fmt.Errorf("loader failed for report %s", parseId)
 			}
 			return router.Attrs{
-				"title":  "Report " + id,
+				"title":  "Report " + parseId,
 				"status": "Loaded through router.Options.Loader",
 			}, nil
 		},
 		Loading: loadingPage,
 		Error:   errorPage,
 	})
-	r.Mount("#app")
+	parseR.Mount("#app")
 	select {}
 }

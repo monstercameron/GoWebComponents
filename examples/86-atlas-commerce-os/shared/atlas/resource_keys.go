@@ -63,84 +63,84 @@ type atlasChannelValue[T any] struct {
 	closed func() bool
 }
 
-func (r atlasCachedResource[T]) Get() atlasCachedResourceState[T] {
-	if r.get == nil {
-		var zero atlasCachedResourceState[T]
-		return zero
+func (parseR atlasCachedResource[T]) Get() atlasCachedResourceState[T] {
+	if parseR.get == nil {
+		var parseZero atlasCachedResourceState[T]
+		return parseZero
 	}
-	return r.get()
+	return parseR.get()
 }
 
-func (r atlasCachedResource[T]) Reload() {
-	if r.reload != nil {
-		r.reload()
-	}
-}
-
-func (r atlasCachedResource[T]) Set(value T) {
-	if r.set != nil {
-		r.set(value)
+func (parseR atlasCachedResource[T]) Reload() {
+	if parseR.reload != nil {
+		parseR.reload()
 	}
 }
 
-func (r atlasCachedResource[T]) Update(fn func(T) T) {
-	if r.update != nil {
-		r.update(fn)
+func (parseR atlasCachedResource[T]) Set(parseValue T) {
+	if parseR.set != nil {
+		parseR.set(parseValue)
 	}
 }
 
-func (r atlasResource[T]) Get() atlasResourceState[T] {
-	if r.get == nil {
-		var zero atlasResourceState[T]
-		return zero
-	}
-	return r.get()
-}
-
-func (r atlasResource[T]) Reload() {
-	if r.reload != nil {
-		r.reload()
+func (parseR atlasCachedResource[T]) Update(parseFn func(T) T) {
+	if parseR.update != nil {
+		parseR.update(parseFn)
 	}
 }
 
-func (t atlasWorkerTask[Request, Progress, Result]) Get() atlasWorkerTaskState[Progress, Result] {
-	if t.get == nil {
-		var zero atlasWorkerTaskState[Progress, Result]
-		return zero
+func (parseR atlasResource[T]) Get() atlasResourceState[T] {
+	if parseR.get == nil {
+		var parseZero atlasResourceState[T]
+		return parseZero
 	}
-	return t.get()
+	return parseR.get()
 }
 
-func (t atlasWorkerTask[Request, Progress, Result]) Start(payload Request) {
-	if t.start != nil {
-		t.start(payload)
-	}
-}
-
-func (t atlasWorkerTask[Request, Progress, Result]) Cancel() {
-	if t.cancel != nil {
-		t.cancel()
+func (parseR atlasResource[T]) Reload() {
+	if parseR.reload != nil {
+		parseR.reload()
 	}
 }
 
-func (c atlasChannelValue[T]) Get() T {
-	if c.get == nil {
-		var zero T
-		return zero
+func (parseT atlasWorkerTask[Request, Progress, Result]) Get() atlasWorkerTaskState[Progress, Result] {
+	if parseT.get == nil {
+		var parseZero atlasWorkerTaskState[Progress, Result]
+		return parseZero
 	}
-	return c.get()
+	return parseT.get()
 }
 
-func (c atlasChannelValue[T]) Ok() bool {
-	if c.ok == nil {
+func (parseT atlasWorkerTask[Request, Progress, Result]) Start(parsePayload Request) {
+	if parseT.start != nil {
+		parseT.start(parsePayload)
+	}
+}
+
+func (parseT atlasWorkerTask[Request, Progress, Result]) Cancel() {
+	if parseT.cancel != nil {
+		parseT.cancel()
+	}
+}
+
+func (parseC atlasChannelValue[T]) Get() T {
+	if parseC.get == nil {
+		var parseZero T
+		return parseZero
+	}
+	return parseC.get()
+}
+
+func (parseC atlasChannelValue[T]) Ok() bool {
+	if parseC.ok == nil {
 		return false
 	}
-	return c.ok()
+	return parseC.ok()
 }
 
-func (c atlasChannelValue[T]) Closed() bool {
-	if c.closed == nil {
+func (parseC atlasChannelValue[T]) Closed() bool {
+	if parseC.closed == nil {
 		return false
 	}
-	return c.closed()
+	return parseC.closed()
 }

@@ -79,13 +79,13 @@ func testAPIItem() docsItem {
 }
 
 func testHTMLAPIItem() docsItem {
-	item := testAPIItem()
-	item.ID = 6
-	item.Title = "RenderToString"
-	item.Content.SourcePath = "assets/docs/public-api-reference.html"
-	item.Content.AnchorID = "core-rendering"
-	item.Content.Example = ""
-	return item
+	parseItem := testAPIItem()
+	parseItem.ID = 6
+	parseItem.Title = "RenderToString"
+	parseItem.Content.SourcePath = "assets/docs/public-api-reference.html"
+	parseItem.Content.AnchorID = "core-rendering"
+	parseItem.Content.Example = ""
+	return parseItem
 }
 
 func testGroupedAPIItem() docsItem {
@@ -129,13 +129,13 @@ func testExampleItem() docsItem {
 }
 
 func testEmbeddedExampleItem() docsItem {
-	item := testExampleItem()
-	item.ID = 73
-	item.Title = "Counter Example"
-	item.Content.EmbedPath = "assets/examples/01-counter-host.html"
-	item.Content.SourcePath = "assets/code/example-1/counter.go"
-	item.Content.Code = "fallback"
-	return item
+	parseItem := testExampleItem()
+	parseItem.ID = 73
+	parseItem.Title = "Counter Example"
+	parseItem.Content.EmbedPath = "assets/examples/01-counter-host.html"
+	parseItem.Content.SourcePath = "assets/code/example-1/counter.go"
+	parseItem.Content.Code = "fallback"
+	return parseItem
 }
 
 func testDeprecatedExampleItem() docsItem {
@@ -192,302 +192,304 @@ func testCatalog() docsCatalog {
 	}
 }
 
-func mustMarshalCatalog(t *testing.T, catalog docsCatalog) string {
-	t.Helper()
-	payload, err := json.Marshal(catalog)
-	if err != nil {
-		t.Fatalf("json.Marshal catalog failed: %v", err)
+func mustMarshalCatalog(parseT *testing.T, parseCatalog docsCatalog) string {
+	parseT.Helper()
+	parsePayload, parseErr := json.Marshal(parseCatalog)
+	if parseErr != nil {
+		parseT.Fatalf("json.Marshal catalog failed: %v", parseErr)
 	}
-	return string(payload)
+	return string(parsePayload)
 }
 
-func installMockFetchText(t *testing.T, payload string, status int, statusText string) {
-	t.Helper()
-	global := js.Global()
-	objectCtor := global.Get("Object")
-	promiseCtor := global.Get("Promise")
-	prevFetch := global.Get("fetch")
+func installMockFetchText(parseT *testing.T, parsePayload string, parseStatus int, parseStatusText string) {
+	parseT.Helper()
+	parseGlobal := js.Global()
+	parseObjectCtor := parseGlobal.Get("Object")
+	parsePromiseCtor := parseGlobal.Get("Promise")
+	parsePrevFetch := parseGlobal.Get("fetch")
 
-	headers := objectCtor.New()
-	headersForEach := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	parseHeaders := parseObjectCtor.New()
+	parseHeadersForEach := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
 		return nil
 	})
-	headers.Set("forEach", headersForEach)
+	parseHeaders.Set("forEach", parseHeadersForEach)
 
-	response := objectCtor.New()
-	response.Set("status", status)
-	response.Set("statusText", statusText)
-	response.Set("headers", headers)
-	textFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		return promiseCtor.Call("resolve", payload)
+	parseResponse := parseObjectCtor.New()
+	parseResponse.Set("status", parseStatus)
+	parseResponse.Set("statusText", parseStatusText)
+	parseResponse.Set("headers", parseHeaders)
+	parseTextFn := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		return parsePromiseCtor.Call("resolve", parsePayload)
 	})
-	response.Set("text", textFn)
+	parseResponse.Set("text", parseTextFn)
 
-	fetchFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		return promiseCtor.Call("resolve", response)
+	parseFetchFn := js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+		return parsePromiseCtor.Call("resolve", parseResponse)
 	})
 
-	global.Set("fetch", fetchFn)
-	t.Cleanup(func() {
-		global.Set("fetch", prevFetch)
-		fetchFn.Release()
-		textFn.Release()
-		headersForEach.Release()
-	})
-}
-
-func installMockDocumentBaseURI(t *testing.T, href string) {
-	t.Helper()
-	global := js.Global()
-	objectCtor := global.Get("Object")
-	prevDocument := global.Get("document")
-	prevWindow := global.Get("window")
-
-	document := objectCtor.New()
-	document.Set("baseURI", href)
-
-	location := objectCtor.New()
-	location.Set("href", href)
-	window := objectCtor.New()
-	window.Set("location", location)
-
-	global.Set("document", document)
-	global.Set("window", window)
-	t.Cleanup(func() {
-		global.Set("document", prevDocument)
-		global.Set("window", prevWindow)
+	parseGlobal.Set("fetch", parseFetchFn)
+	parseT.Cleanup(func() {
+		parseGlobal.Set("fetch", parsePrevFetch)
+		parseFetchFn.Release()
+		parseTextFn.Release()
+		parseHeadersForEach.Release()
 	})
 }
 
-func TestDecodeCatalogJSONValidation(t *testing.T) {
-	valid := testCatalog()
-	decoded, err := decodeCatalogJSON([]byte(mustMarshalCatalog(t, valid)))
-	if err != nil {
-		t.Fatalf("decodeCatalogJSON returned error: %v", err)
+func installMockDocumentBaseURI(parseT *testing.T, parseHref string) {
+	parseT.Helper()
+	parseGlobal := js.Global()
+	parseObjectCtor := parseGlobal.Get("Object")
+	parsePrevDocument := parseGlobal.Get("document")
+	parsePrevWindow := parseGlobal.Get("window")
+
+	parseDocument := parseObjectCtor.New()
+	parseDocument.Set("baseURI", parseHref)
+
+	parseLocation := parseObjectCtor.New()
+	parseLocation.Set("href", parseHref)
+	parseWindow := parseObjectCtor.New()
+	parseWindow.Set("location", parseLocation)
+
+	parseGlobal.Set("document", parseDocument)
+	parseGlobal.Set("window", parseWindow)
+	parseT.Cleanup(func() {
+		parseGlobal.Set("document", parsePrevDocument)
+		parseGlobal.Set("window", parsePrevWindow)
+	})
+}
+
+func TestDecodeCatalogJSONValidation(parseT *testing.T) {
+	parseValid := testCatalog()
+	parseDecoded, parseErr := decodeCatalogJSON([]byte(mustMarshalCatalog(parseT, parseValid)))
+	if parseErr != nil {
+		parseT.Fatalf("decodeCatalogJSON returned error: %v", parseErr)
 	}
-	if len(decoded.Items) != len(valid.Items) || decoded.Items[0].Title != valid.Items[0].Title {
-		t.Fatalf("decoded catalog did not preserve items: %+v", decoded)
+	if len(parseDecoded.Items) != len(parseValid.Items) || parseDecoded.Items[0].Title != parseValid.Items[0].Title {
+		parseT.Fatalf("decoded catalog did not preserve items: %+v", parseDecoded)
 	}
 
-	tests := []struct {
+	parseTests := []struct {
 		name    string
 		mutate  func(*docsCatalog)
 		message string
 	}{
-		{name: "missing modules", mutate: func(catalog *docsCatalog) { catalog.Modules = nil }, message: "catalog.json must define modules"},
-		{name: "missing statuses", mutate: func(catalog *docsCatalog) { catalog.Statuses = nil }, message: "catalog.json must define statuses"},
-		{name: "missing levels", mutate: func(catalog *docsCatalog) { catalog.Levels = nil }, message: "catalog.json must define levels"},
-		{name: "missing filters", mutate: func(catalog *docsCatalog) { catalog.Filters = nil }, message: "catalog.json must define filters"},
-		{name: "missing sort options", mutate: func(catalog *docsCatalog) { catalog.SortOptions = nil }, message: "catalog.json must define sortOptions"},
-		{name: "missing items", mutate: func(catalog *docsCatalog) { catalog.Items = nil }, message: "catalog.json must define at least one item"},
-		{name: "item type missing from filters", mutate: func(catalog *docsCatalog) { catalog.Filters = []string{filterAll, kindConcept, kindExample} }, message: "catalog.json item 2 type \"API\" must appear in filters"},
-		{name: "item status missing from statuses", mutate: func(catalog *docsCatalog) {
-			catalog.Statuses = []string{allFilterValue, statusStable, statusDeprecated}
+		{name: "missing modules", mutate: func(parseCatalog2 *docsCatalog) { parseCatalog2.Modules = nil }, message: "catalog.json must define modules"},
+		{name: "missing statuses", mutate: func(parseCatalog3 *docsCatalog) { parseCatalog3.Statuses = nil }, message: "catalog.json must define statuses"},
+		{name: "missing levels", mutate: func(parseCatalog4 *docsCatalog) { parseCatalog4.Levels = nil }, message: "catalog.json must define levels"},
+		{name: "missing filters", mutate: func(parseCatalog5 *docsCatalog) { parseCatalog5.Filters = nil }, message: "catalog.json must define filters"},
+		{name: "missing sort options", mutate: func(parseCatalog6 *docsCatalog) { parseCatalog6.SortOptions = nil }, message: "catalog.json must define sortOptions"},
+		{name: "missing items", mutate: func(parseCatalog7 *docsCatalog) { parseCatalog7.Items = nil }, message: "catalog.json must define at least one item"},
+		{name: "item type missing from filters", mutate: func(parseCatalog8 *docsCatalog) {
+			parseCatalog8.Filters = []string{filterAll, kindConcept, kindExample}
+		}, message: "catalog.json item 2 type \"API\" must appear in filters"},
+		{name: "item status missing from statuses", mutate: func(parseCatalog9 *docsCatalog) {
+			parseCatalog9.Statuses = []string{allFilterValue, statusStable, statusDeprecated}
 		}, message: "catalog.json item 2 status \"experimental\" must appear in statuses"},
-		{name: "item level missing from levels", mutate: func(catalog *docsCatalog) {
-			catalog.Levels = []string{allFilterValue, levelBeginner, levelIntermediate, levelAdvanced}
+		{name: "item level missing from levels", mutate: func(parseCatalog10 *docsCatalog) {
+			parseCatalog10.Levels = []string{allFilterValue, levelBeginner, levelIntermediate, levelAdvanced}
 		}, message: "catalog.json item 2 level \"Core\" must appear in levels"},
-		{name: "item module missing from modules", mutate: func(catalog *docsCatalog) {
-			catalog.Modules = []string{allFilterValue, moduleCore, moduleState, moduleCommerce, moduleRendering}
+		{name: "item module missing from modules", mutate: func(parseCatalog11 *docsCatalog) {
+			parseCatalog11.Modules = []string{allFilterValue, moduleCore, moduleState, moduleCommerce, moduleRendering}
 		}, message: "catalog.json item 2 module \"data\" must appear in modules"},
 	}
 
-	for _, testCase := range tests {
-		t.Run(testCase.name, func(t *testing.T) {
-			catalog := testCatalog()
-			testCase.mutate(&catalog)
-			_, err := decodeCatalogJSON([]byte(mustMarshalCatalog(t, catalog)))
-			if err == nil || !strings.Contains(err.Error(), testCase.message) {
-				t.Fatalf("expected %q, got %v", testCase.message, err)
+	for _, parseTestCase := range parseTests {
+		parseT.Run(parseTestCase.name, func(parseT2 *testing.T) {
+			parseCatalog := testCatalog()
+			parseTestCase.mutate(&parseCatalog)
+			_, parseErr2 := decodeCatalogJSON([]byte(mustMarshalCatalog(parseT2, parseCatalog)))
+			if parseErr2 == nil || !strings.Contains(parseErr2.Error(), parseTestCase.message) {
+				parseT2.Fatalf("expected %q, got %v", parseTestCase.message, parseErr2)
 			}
 		})
 	}
 
-	if _, err := decodeCatalogJSON([]byte("{")); err == nil || !strings.Contains(err.Error(), "invalid catalog.json") {
-		t.Fatalf("expected invalid catalog json error, got %v", err)
+	if _, parseErr3 := decodeCatalogJSON([]byte("{")); parseErr3 == nil || !strings.Contains(parseErr3.Error(), "invalid catalog.json") {
+		parseT.Fatalf("expected invalid catalog json error, got %v", parseErr3)
 	}
 }
 
-func TestDecodeFetchedCatalogAndHelpers(t *testing.T) {
-	decoded, err := decodeFetchedCatalog(mustMarshalCatalog(t, testCatalog()))
-	if err != nil {
-		t.Fatalf("decodeFetchedCatalog returned error: %v", err)
+func TestDecodeFetchedCatalogAndHelpers(parseT *testing.T) {
+	parseDecoded, parseErr := decodeFetchedCatalog(mustMarshalCatalog(parseT, testCatalog()))
+	if parseErr != nil {
+		parseT.Fatalf("decodeFetchedCatalog returned error: %v", parseErr)
 	}
-	if len(decoded.Items) != 5 {
-		t.Fatalf("expected five decoded items, got %d", len(decoded.Items))
+	if len(parseDecoded.Items) != 5 {
+		parseT.Fatalf("expected five decoded items, got %d", len(parseDecoded.Items))
 	}
-	if got := countItemsByType(decoded.Items, kindAPI); got != 2 {
-		t.Fatalf("expected two api items from catalog, got %d", got)
+	if parseGot := countItemsByType(parseDecoded.Items, kindAPI); parseGot != 2 {
+		parseT.Fatalf("expected two api items from catalog, got %d", parseGot)
 	}
-	if _, err := decodeFetchedCatalog([]byte("nope")); err == nil || err.Error() != "catalog response must be text" {
-		t.Fatalf("expected text payload error, got %v", err)
+	if _, parseErr2 := decodeFetchedCatalog([]byte("nope")); parseErr2 == nil || parseErr2.Error() != "catalog response must be text" {
+		parseT.Fatalf("expected text payload error, got %v", parseErr2)
 	}
-	if got := catalogCacheKey("/docs/catalog.json"); got != catalogCacheKeyPrefix+"/docs/catalog.json" {
-		t.Fatalf("unexpected cache key: %q", got)
+	if parseGot2 := catalogCacheKey("/docs/catalog.json"); parseGot2 != catalogCacheKeyPrefix+"/docs/catalog.json" {
+		parseT.Fatalf("unexpected cache key: %q", parseGot2)
 	}
-	if got := normalizeLowercase("  AtLaS  "); got != "atlas" {
-		t.Fatalf("unexpected normalized query: %q", got)
+	if parseGot3 := normalizeLowercase("  AtLaS  "); parseGot3 != "atlas" {
+		parseT.Fatalf("unexpected normalized query: %q", parseGot3)
 	}
-	if got := filteredItemsSignature([]docsItem{testArticleItem(), testAPIItem(), testExampleItem()}); got != "1,2,3" {
-		t.Fatalf("unexpected filtered signature: %q", got)
+	if parseGot4 := filteredItemsSignature([]docsItem{testArticleItem(), testAPIItem(), testExampleItem()}); parseGot4 != "1,2,3" {
+		parseT.Fatalf("unexpected filtered signature: %q", parseGot4)
 	}
-	if item, ok := findSelectedItem(testCatalog().Items, 3); !ok || item.Title != "Go Counter Demo" {
-		t.Fatalf("expected selected item lookup to succeed, got %+v ok=%v", item, ok)
+	if parseItem, parseOk := findSelectedItem(testCatalog().Items, 3); !parseOk || parseItem.Title != "Go Counter Demo" {
+		parseT.Fatalf("expected selected item lookup to succeed, got %+v ok=%v", parseItem, parseOk)
 	}
-	if _, ok := findSelectedItem(testCatalog().Items, 999); ok {
-		t.Fatal("expected missing selected item lookup to fail")
+	if _, parseOk2 := findSelectedItem(testCatalog().Items, 999); parseOk2 {
+		parseT.Fatal("expected missing selected item lookup to fail")
 	}
-	if got := countItemsByType(testCatalog().Items, kindExample); got != 2 {
-		t.Fatalf("expected two examples, got %d", got)
+	if parseGot5 := countItemsByType(testCatalog().Items, kindExample); parseGot5 != 2 {
+		parseT.Fatalf("expected two examples, got %d", parseGot5)
 	}
 	if !isGroupedAPIItem(testGroupedAPIItem()) {
-		t.Fatal("expected grouped api item helper to be recognized")
+		parseT.Fatal("expected grouped api item helper to be recognized")
 	}
-	if got := apiReferenceDocumentURL(testGroupedAPIItem()); got != "assets/docs/public-api-reference.html#core-rendering" && !strings.Contains(got, "assets/docs/public-api-reference.html#core-rendering") {
-		t.Fatalf("unexpected grouped api document url: %q", got)
+	if parseGot6 := apiReferenceDocumentURL(testGroupedAPIItem()); parseGot6 != "assets/docs/public-api-reference.html#core-rendering" && !strings.Contains(parseGot6, "assets/docs/public-api-reference.html#core-rendering") {
+		parseT.Fatalf("unexpected grouped api document url: %q", parseGot6)
 	}
-	if got := getContentKindLabel(testArticleItem()); got != contentKindLabelArticle {
-		t.Fatalf("unexpected content kind label: %q", got)
+	if parseGot7 := getContentKindLabel(testArticleItem()); parseGot7 != contentKindLabelArticle {
+		parseT.Fatalf("unexpected content kind label: %q", parseGot7)
 	}
-	if got := getContentKindLabel(testAPIItem()); got != contentKindLabelAPI {
-		t.Fatalf("unexpected API kind label: %q", got)
+	if parseGot8 := getContentKindLabel(testAPIItem()); parseGot8 != contentKindLabelAPI {
+		parseT.Fatalf("unexpected API kind label: %q", parseGot8)
 	}
-	if got := getContentKindLabel(testExampleItem()); got != contentKindLabelDemo {
-		t.Fatalf("unexpected example kind label: %q", got)
+	if parseGot9 := getContentKindLabel(testExampleItem()); parseGot9 != contentKindLabelDemo {
+		parseT.Fatalf("unexpected example kind label: %q", parseGot9)
 	}
-	unknown := testExampleItem()
-	unknown.Content.Kind = "mystery"
-	if got := getContentKindLabel(unknown); got != contentKindLabelUnknown {
-		t.Fatalf("unexpected unknown kind label: %q", got)
+	parseUnknown := testExampleItem()
+	parseUnknown.Content.Kind = "mystery"
+	if parseGot10 := getContentKindLabel(parseUnknown); parseGot10 != contentKindLabelUnknown {
+		parseT.Fatalf("unexpected unknown kind label: %q", parseGot10)
 	}
-	if got := statusBadgeClass(statusStable); !strings.Contains(got, "emerald") {
-		t.Fatalf("unexpected stable badge class: %q", got)
+	if parseGot11 := statusBadgeClass(statusStable); !strings.Contains(parseGot11, "emerald") {
+		parseT.Fatalf("unexpected stable badge class: %q", parseGot11)
 	}
-	if got := statusBadgeClass(statusExperimental); !strings.Contains(got, "amber") {
-		t.Fatalf("unexpected experimental badge class: %q", got)
+	if parseGot12 := statusBadgeClass(statusExperimental); !strings.Contains(parseGot12, "amber") {
+		parseT.Fatalf("unexpected experimental badge class: %q", parseGot12)
 	}
-	if got := statusBadgeClass(statusDeprecated); !strings.Contains(got, "rose") {
-		t.Fatalf("unexpected deprecated badge class: %q", got)
+	if parseGot13 := statusBadgeClass(statusDeprecated); !strings.Contains(parseGot13, "rose") {
+		parseT.Fatalf("unexpected deprecated badge class: %q", parseGot13)
 	}
-	if got := typeBadgeClass(kindConcept); !strings.Contains(got, "cyan") {
-		t.Fatalf("unexpected concept badge class: %q", got)
+	if parseGot14 := typeBadgeClass(kindConcept); !strings.Contains(parseGot14, "cyan") {
+		parseT.Fatalf("unexpected concept badge class: %q", parseGot14)
 	}
-	if got := typeBadgeClass(kindAPI); !strings.Contains(got, "violet") {
-		t.Fatalf("unexpected API badge class: %q", got)
+	if parseGot15 := typeBadgeClass(kindAPI); !strings.Contains(parseGot15, "violet") {
+		parseT.Fatalf("unexpected API badge class: %q", parseGot15)
 	}
-	if got := typeBadgeClass(kindExample); !strings.Contains(got, "emerald") {
-		t.Fatalf("unexpected example badge class: %q", got)
+	if parseGot16 := typeBadgeClass(kindExample); !strings.Contains(parseGot16, "emerald") {
+		parseT.Fatalf("unexpected example badge class: %q", parseGot16)
 	}
 }
 
-func TestLoadMarkdownResourceAndRenderDocument(t *testing.T) {
-	installMockDocumentBaseURI(t, "https://example.test/examples/00-example-0/example-0.html")
-	installMockFetchText(t, testArticleMarkdown(), 200, "OK")
-	markdownURL := docsSourceURL("assets/docs/start-here.md")
-	loaded, err := loadMarkdownResource(context.Background(), markdownURL)
-	if err != nil {
-		t.Fatalf("loadMarkdownResource returned error: %v", err)
+func TestLoadMarkdownResourceAndRenderDocument(parseT *testing.T) {
+	installMockDocumentBaseURI(parseT, "https://example.test/examples/00-example-0/example-0.html")
+	installMockFetchText(parseT, testArticleMarkdown(), 200, "OK")
+	parseMarkdownURL := docsSourceURL("assets/docs/start-here.md")
+	parseLoaded, parseErr := loadMarkdownResource(context.Background(), parseMarkdownURL)
+	if parseErr != nil {
+		parseT.Fatalf("loadMarkdownResource returned error: %v", parseErr)
 	}
-	if loaded != testArticleMarkdown() {
-		t.Fatalf("unexpected markdown payload: %q", loaded)
+	if parseLoaded != testArticleMarkdown() {
+		parseT.Fatalf("unexpected markdown payload: %q", parseLoaded)
 	}
 
-	markup, renderErr := ui.RenderToString(Div(Class("space-y-4"), gwchtml.RenderMarkdown(testArticleMarkdown(), markdownRenderOptions("assets/docs/start-here.md"))))
+	parseMarkup, renderErr := ui.RenderToString(Div(Class("space-y-4"), gwchtml.RenderMarkdown(testArticleMarkdown(), markdownRenderOptions("assets/docs/start-here.md"))))
 	if renderErr != nil {
-		t.Fatalf("RenderMarkdown returned error: %v", renderErr)
+		parseT.Fatalf("RenderMarkdown returned error: %v", renderErr)
 	}
-	for _, snippet := range []string{"<h1", "Start Here", "<h2", "Checklist", "<li", "First", "func main() {}", "assets/docs/troubleshooting.md"} {
-		if !strings.Contains(markup, snippet) {
-			t.Fatalf("expected markdown markup to contain %q, got %s", snippet, markup)
+	for _, parseSnippet := range []string{"<h1", "Start Here", "<h2", "Checklist", "<li", "First", "func main() {}", "assets/docs/troubleshooting.md"} {
+		if !strings.Contains(parseMarkup, parseSnippet) {
+			parseT.Fatalf("expected markdown markup to contain %q, got %s", parseSnippet, parseMarkup)
 		}
 	}
 }
 
-func TestFilterAndSortItems(t *testing.T) {
-	items := append(testCatalog().Items, testUnknownLevelItem())
+func TestFilterAndSortItems(parseT *testing.T) {
+	parseItems := append(testCatalog().Items, testUnknownLevelItem())
 
-	if got := filterItems(items, "atlas", filterAll, allFilterValue, allFilterValue, allFilterValue); len(got) != 1 || got[0].Title != "Atlas Commerce OS" {
-		t.Fatalf("expected atlas query to return one item, got %+v", got)
+	if parseGot := filterItems(parseItems, "atlas", filterAll, allFilterValue, allFilterValue, allFilterValue); len(parseGot) != 1 || parseGot[0].Title != "Atlas Commerce OS" {
+		parseT.Fatalf("expected atlas query to return one item, got %+v", parseGot)
 	}
-	if got := filterItems(items, "", kindExample, statusDeprecated, levelAdvanced, moduleCommerce); len(got) != 1 || got[0].Title != "Atlas Commerce OS" {
-		t.Fatalf("expected combined filters to return atlas item, got %+v", got)
+	if parseGot2 := filterItems(parseItems, "", kindExample, statusDeprecated, levelAdvanced, moduleCommerce); len(parseGot2) != 1 || parseGot2[0].Title != "Atlas Commerce OS" {
+		parseT.Fatalf("expected combined filters to return atlas item, got %+v", parseGot2)
 	}
-	if got := filterItems(items, "state", kindExample, statusStable, allFilterValue, moduleState); len(got) != 1 || got[0].Title != "Go Counter Demo" {
-		t.Fatalf("expected state example filter to return counter demo, got %+v", got)
+	if parseGot3 := filterItems(parseItems, "state", kindExample, statusStable, allFilterValue, moduleState); len(parseGot3) != 1 || parseGot3[0].Title != "Go Counter Demo" {
+		parseT.Fatalf("expected state example filter to return counter demo, got %+v", parseGot3)
 	}
-	if got := filterItems(items, "renderinto", kindAPI, allFilterValue, allFilterValue, allFilterValue); len(got) != 1 || got[0].Title != "Core Rendering Primitives" {
-		t.Fatalf("expected hidden search tags to match grouped api item, got %+v", got)
+	if parseGot4 := filterItems(parseItems, "renderinto", kindAPI, allFilterValue, allFilterValue, allFilterValue); len(parseGot4) != 1 || parseGot4[0].Title != "Core Rendering Primitives" {
+		parseT.Fatalf("expected hidden search tags to match grouped api item, got %+v", parseGot4)
 	}
-	if got := filterItems(items, "missing", filterAll, allFilterValue, allFilterValue, allFilterValue); len(got) != 0 {
-		t.Fatalf("expected no query matches, got %+v", got)
-	}
-
-	alphaSorted := sortItems(items, sortAlpha)
-	if alphaSorted[0].Title != "Atlas Commerce OS" || alphaSorted[len(alphaSorted)-1].Title != "Zeta Unknown" {
-		t.Fatalf("unexpected alpha sort order: %+v", alphaSorted)
+	if parseGot5 := filterItems(parseItems, "missing", filterAll, allFilterValue, allFilterValue, allFilterValue); len(parseGot5) != 0 {
+		parseT.Fatalf("expected no query matches, got %+v", parseGot5)
 	}
 
-	levelSorted := sortItems(items, sortLevel)
-	if levelSorted[0].Level != levelBeginner || levelSorted[1].Level != levelCore || levelSorted[2].Level != levelIntermediate || levelSorted[3].Level != levelAdvanced || levelSorted[4].Level != "Unknown" {
-		t.Fatalf("unexpected level sort order: %+v", levelSorted)
+	parseAlphaSorted := sortItems(parseItems, sortAlpha)
+	if parseAlphaSorted[0].Title != "Atlas Commerce OS" || parseAlphaSorted[len(parseAlphaSorted)-1].Title != "Zeta Unknown" {
+		parseT.Fatalf("unexpected alpha sort order: %+v", parseAlphaSorted)
 	}
 
-	relevanceSorted := sortItems(items, sortRelevance)
-	if relevanceSorted[0].ID != items[0].ID || relevanceSorted[len(relevanceSorted)-1].ID != items[len(items)-1].ID {
-		t.Fatalf("expected relevance sort to preserve input order, got %+v", relevanceSorted)
+	parseLevelSorted := sortItems(parseItems, sortLevel)
+	if parseLevelSorted[0].Level != levelBeginner || parseLevelSorted[1].Level != levelCore || parseLevelSorted[2].Level != levelIntermediate || parseLevelSorted[3].Level != levelAdvanced || parseLevelSorted[4].Level != "Unknown" {
+		parseT.Fatalf("unexpected level sort order: %+v", parseLevelSorted)
+	}
+
+	parseRelevanceSorted := sortItems(parseItems, sortRelevance)
+	if parseRelevanceSorted[0].ID != parseItems[0].ID || parseRelevanceSorted[len(parseRelevanceSorted)-1].ID != parseItems[len(parseItems)-1].ID {
+		parseT.Fatalf("expected relevance sort to preserve input order, got %+v", parseRelevanceSorted)
 	}
 }
 
-func TestOptionRenderingAndDirectSliceExpansion(t *testing.T) {
-	options := renderOptionNodes([]string{"one", "two"})
-	sortOptions := renderSortOptionNodes([]sortOption{{Value: sortAlpha, Label: labelAlpha}})
-	markup, err := ui.RenderToString(Div(Class("stack"), append(options, sortOptions...)))
-	if err != nil {
-		t.Fatalf("direct slice expansion render failed: %v", err)
+func TestOptionRenderingAndDirectSliceExpansion(parseT *testing.T) {
+	parseOptions := renderOptionNodes([]string{"one", "two"})
+	parseSortOptions := renderSortOptionNodes([]sortOption{{Value: sortAlpha, Label: labelAlpha}})
+	parseMarkup, parseErr := ui.RenderToString(Div(Class("stack"), append(parseOptions, parseSortOptions...)))
+	if parseErr != nil {
+		parseT.Fatalf("direct slice expansion render failed: %v", parseErr)
 	}
-	for _, snippet := range []string{"<div class=\"stack\"", "<option value=\"one\">one</option>", "<option value=\"two\">two</option>", labelAlpha} {
-		if !strings.Contains(markup, snippet) {
-			t.Fatalf("expected markup to contain %q, got %s", snippet, markup)
+	for _, parseSnippet := range []string{"<div class=\"stack\"", "<option value=\"one\">one</option>", "<option value=\"two\">two</option>", labelAlpha} {
+		if !strings.Contains(parseMarkup, parseSnippet) {
+			parseT.Fatalf("expected markup to contain %q, got %s", parseSnippet, parseMarkup)
 		}
 	}
 }
 
-func TestStaticRenderHelpersProduceExpectedMarkup(t *testing.T) {
-	parameterMarkup, err := ui.RenderToString(renderParameterTable(testAPIItem().Content.Params))
-	if err != nil {
-		t.Fatalf("renderParameterTable returned error: %v", err)
+func TestStaticRenderHelpersProduceExpectedMarkup(parseT *testing.T) {
+	parseParameterMarkup, parseErr := ui.RenderToString(renderParameterTable(testAPIItem().Content.Params))
+	if parseErr != nil {
+		parseT.Fatalf("renderParameterTable returned error: %v", parseErr)
 	}
-	if !strings.Contains(parameterMarkup, "Stable cache key for the resource entry.") || !strings.Contains(parameterMarkup, "func(context.Context) (T, error)") {
-		t.Fatalf("parameter table markup missing expected content: %s", parameterMarkup)
+	if !strings.Contains(parseParameterMarkup, "Stable cache key for the resource entry.") || !strings.Contains(parseParameterMarkup, "func(context.Context) (T, error)") {
+		parseT.Fatalf("parameter table markup missing expected content: %s", parseParameterMarkup)
 	}
 
-	fetchStateMarkup, err := ui.RenderToString(renderCatalogFetchState("Loading catalog", "Requesting the example catalog JSON before the docs surface renders.", "Retry request", ui.Handler{}))
-	if err != nil {
-		t.Fatalf("renderCatalogFetchState returned error: %v", err)
+	parseFetchStateMarkup, parseErr := ui.RenderToString(renderCatalogFetchState("Loading catalog", "Requesting the example catalog JSON before the docs surface renders.", "Retry request", ui.Handler{}))
+	if parseErr != nil {
+		parseT.Fatalf("renderCatalogFetchState returned error: %v", parseErr)
 	}
-	for _, snippet := range []string{"Loading catalog", "Retry request", "Fetching catalog", "Example 0 data pipeline"} {
-		if !strings.Contains(fetchStateMarkup, snippet) {
-			t.Fatalf("fetch state markup missing %q: %s", snippet, fetchStateMarkup)
+	for _, parseSnippet := range []string{"Loading catalog", "Retry request", "Fetching catalog", "Example 0 data pipeline"} {
+		if !strings.Contains(parseFetchStateMarkup, parseSnippet) {
+			parseT.Fatalf("fetch state markup missing %q: %s", parseSnippet, parseFetchStateMarkup)
 		}
 	}
 
-	heroMarkup, err := ui.RenderToString(ui.CreateElement(renderCatalogHero, catalogHeroProps{
+	parseHeroMarkup, parseErr := ui.RenderToString(ui.CreateElement(renderCatalogHero, catalogHeroProps{
 		OnBrowseExamples: ui.Handler{},
 		OnInspectAPIs:    ui.Handler{},
 		TotalItems:       4,
 		ExampleCount:     2,
 		APICount:         1,
 	}))
-	if err != nil {
-		t.Fatalf("renderCatalogHero returned error: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("renderCatalogHero returned error: %v", parseErr)
 	}
-	for _, snippet := range []string{"GoWebComponents docs, APIs, and live wasm examples", buttonBrowseExamples, buttonInspectPackageAPIs, labelCatalogEntries, "Go + WASM"} {
-		if !strings.Contains(heroMarkup, snippet) {
-			t.Fatalf("hero markup missing %q: %s", snippet, heroMarkup)
+	for _, parseSnippet2 := range []string{"GoWebComponents docs, APIs, and live wasm examples", buttonBrowseExamples, buttonInspectPackageAPIs, labelCatalogEntries, "Go + WASM"} {
+		if !strings.Contains(parseHeroMarkup, parseSnippet2) {
+			parseT.Fatalf("hero markup missing %q: %s", parseSnippet2, parseHeroMarkup)
 		}
 	}
 
-	sidebarMarkup, err := ui.RenderToString(ui.CreateElement(renderCatalogSidebar, catalogSidebarProps{
+	parseSidebarMarkup, parseErr := ui.RenderToString(ui.CreateElement(renderCatalogSidebar, catalogSidebarProps{
 		SearchQuery:          "atlas",
 		ResultCount:          1,
 		HasActiveFilters:     true,
@@ -508,16 +510,16 @@ func TestStaticRenderHelpersProduceExpectedMarkup(t *testing.T) {
 		OnSortChange:         ui.Handler{},
 		OnResetFilters:       ui.Handler{},
 	}))
-	if err != nil {
-		t.Fatalf("renderCatalogSidebar returned error: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("renderCatalogSidebar returned error: %v", parseErr)
 	}
-	for _, snippet := range []string{"1 results", "Status", "Difficulty", "Module", "Sort", "Atlas Commerce OS", buttonResetFilters} {
-		if !strings.Contains(sidebarMarkup, snippet) {
-			t.Fatalf("sidebar markup missing %q: %s", snippet, sidebarMarkup)
+	for _, parseSnippet3 := range []string{"1 results", "Status", "Difficulty", "Module", "Sort", "Atlas Commerce OS", buttonResetFilters} {
+		if !strings.Contains(parseSidebarMarkup, parseSnippet3) {
+			parseT.Fatalf("sidebar markup missing %q: %s", parseSnippet3, parseSidebarMarkup)
 		}
 	}
 
-	defaultSidebarMarkup, err := ui.RenderToString(ui.CreateElement(renderCatalogSidebar, catalogSidebarProps{
+	parseDefaultSidebarMarkup, parseErr := ui.RenderToString(ui.CreateElement(renderCatalogSidebar, catalogSidebarProps{
 		SearchQuery:          "",
 		ResultCount:          5,
 		HasActiveFilters:     false,
@@ -538,212 +540,212 @@ func TestStaticRenderHelpersProduceExpectedMarkup(t *testing.T) {
 		OnSortChange:         ui.Handler{},
 		OnResetFilters:       ui.Handler{},
 	}))
-	if err != nil {
-		t.Fatalf("renderCatalogSidebar default returned error: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("renderCatalogSidebar default returned error: %v", parseErr)
 	}
-	for _, snippet := range []string{buttonResetFilters, "disabled"} {
-		if !strings.Contains(defaultSidebarMarkup, snippet) {
-			t.Fatalf("default sidebar markup missing %q: %s", snippet, defaultSidebarMarkup)
+	for _, parseSnippet4 := range []string{buttonResetFilters, "disabled"} {
+		if !strings.Contains(parseDefaultSidebarMarkup, parseSnippet4) {
+			parseT.Fatalf("default sidebar markup missing %q: %s", parseSnippet4, parseDefaultSidebarMarkup)
 		}
 	}
 
-	groupedCardMarkup, err := ui.RenderToString(renderItemCard(testGroupedAPIItem(), true, ui.Handler{}))
-	if err != nil {
-		t.Fatalf("renderItemCard grouped api returned error: %v", err)
+	parseGroupedCardMarkup, parseErr := ui.RenderToString(renderItemCard(testGroupedAPIItem(), true, ui.Handler{}))
+	if parseErr != nil {
+		parseT.Fatalf("renderItemCard grouped api returned error: %v", parseErr)
 	}
-	for _, snippet := range []string{"<button", "Core Rendering Primitives", kindAPI} {
-		if !strings.Contains(groupedCardMarkup, snippet) {
-			t.Fatalf("grouped api card missing %q: %s", snippet, groupedCardMarkup)
+	for _, parseSnippet5 := range []string{"<button", "Core Rendering Primitives", kindAPI} {
+		if !strings.Contains(parseGroupedCardMarkup, parseSnippet5) {
+			parseT.Fatalf("grouped api card missing %q: %s", parseSnippet5, parseGroupedCardMarkup)
 		}
 	}
-	if strings.Contains(groupedCardMarkup, "href=\"#core-rendering\"") {
-		t.Fatalf("grouped api card should not render a hash href: %s", groupedCardMarkup)
+	if strings.Contains(parseGroupedCardMarkup, "href=\"#core-rendering\"") {
+		parseT.Fatalf("grouped api card should not render a hash href: %s", parseGroupedCardMarkup)
 	}
 }
 
-func TestRenderDetailPanelAndDisplaySurfaceStates(t *testing.T) {
-	emptyMarkup, err := ui.RenderToString(ui.CreateElement(renderDetailPanel, detailPanelProps{}))
-	if err != nil {
-		t.Fatalf("renderDetailPanel empty returned error: %v", err)
+func TestRenderDetailPanelAndDisplaySurfaceStates(parseT *testing.T) {
+	parseEmptyMarkup, parseErr := ui.RenderToString(ui.CreateElement(renderDetailPanel, detailPanelProps{}))
+	if parseErr != nil {
+		parseT.Fatalf("renderDetailPanel empty returned error: %v", parseErr)
 	}
-	for _, snippet := range []string{labelNothingSelected, messageAdjustFilters, `id="demo"`} {
-		if !strings.Contains(emptyMarkup, snippet) {
-			t.Fatalf("empty detail panel missing %q: %s", snippet, emptyMarkup)
+	for _, parseSnippet := range []string{labelNothingSelected, messageAdjustFilters, `id="demo"`} {
+		if !strings.Contains(parseEmptyMarkup, parseSnippet) {
+			parseT.Fatalf("empty detail panel missing %q: %s", parseSnippet, parseEmptyMarkup)
 		}
 	}
 
-	selectedMarkup, err := ui.RenderToString(ui.CreateElement(renderDetailPanel, detailPanelProps{SelectedItem: testAPIItem(), HasSelectedItem: true}))
-	if err != nil {
-		t.Fatalf("renderDetailPanel selected returned error: %v", err)
+	parseSelectedMarkup, parseErr := ui.RenderToString(ui.CreateElement(renderDetailPanel, detailPanelProps{SelectedItem: testAPIItem(), HasSelectedItem: true}))
+	if parseErr != nil {
+		parseT.Fatalf("renderDetailPanel selected returned error: %v", parseErr)
 	}
-	for _, snippet := range []string{"UseCachedResource", "Typed cached resources with stale-while-revalidate semantics.", contentKindLabelAPI} {
-		if !strings.Contains(selectedMarkup, snippet) {
-			t.Fatalf("selected detail panel missing %q: %s", snippet, selectedMarkup)
+	for _, parseSnippet2 := range []string{"UseCachedResource", "Typed cached resources with stale-while-revalidate semantics.", contentKindLabelAPI} {
+		if !strings.Contains(parseSelectedMarkup, parseSnippet2) {
+			parseT.Fatalf("selected detail panel missing %q: %s", parseSnippet2, parseSelectedMarkup)
 		}
 	}
 
-	articleMarkup, err := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testArticleItem(), MarkdownBody: testArticleMarkdown(), MarkdownReady: true}, true))
-	if err != nil {
-		t.Fatalf("renderDisplaySurface article returned error: %v", err)
+	parseArticleMarkup, parseErr := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testArticleItem(), MarkdownBody: testArticleMarkdown(), MarkdownReady: true}, true))
+	if parseErr != nil {
+		parseT.Fatalf("renderDisplaySurface article returned error: %v", parseErr)
 	}
-	if !strings.Contains(articleMarkup, labelConceptArticle) || !strings.Contains(articleMarkup, labelRenderedMarkdown) || !strings.Contains(articleMarkup, "assets/docs/start-here.md") || !strings.Contains(articleMarkup, "Start Here") {
-		t.Fatalf("article surface missing expected content: %s", articleMarkup)
-	}
-
-	apiMarkup, err := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testAPIItem()}, true))
-	if err != nil {
-		t.Fatalf("renderDisplaySurface api returned error: %v", err)
-	}
-	if !strings.Contains(apiMarkup, labelAPIReference) || !strings.Contains(apiMarkup, labelParameters) || !strings.Contains(apiMarkup, labelReturns) {
-		t.Fatalf("api surface missing expected content: %s", apiMarkup)
-	}
-	if !strings.Contains(apiMarkup, "users := fetch.UseCachedResource") {
-		t.Fatalf("api surface should render plain-text usage example by default: %s", apiMarkup)
+	if !strings.Contains(parseArticleMarkup, labelConceptArticle) || !strings.Contains(parseArticleMarkup, labelRenderedMarkdown) || !strings.Contains(parseArticleMarkup, "assets/docs/start-here.md") || !strings.Contains(parseArticleMarkup, "Start Here") {
+		parseT.Fatalf("article surface missing expected content: %s", parseArticleMarkup)
 	}
 
-	htmlAPIMarkup, err := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testHTMLAPIItem(), MarkdownBody: `<section id="core-rendering"><h2>Core Rendering Primitives</h2></section>`, MarkdownReady: true}, true))
-	if err != nil {
-		t.Fatalf("renderDisplaySurface html api returned error: %v", err)
+	parseApiMarkup, parseErr := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testAPIItem()}, true))
+	if parseErr != nil {
+		parseT.Fatalf("renderDisplaySurface api returned error: %v", parseErr)
 	}
-	for _, snippet := range []string{"api-usage-example-fragment", labelUsageExample} {
-		if !strings.Contains(htmlAPIMarkup, snippet) {
-			t.Fatalf("html api usage example missing %q: %s", snippet, htmlAPIMarkup)
+	if !strings.Contains(parseApiMarkup, labelAPIReference) || !strings.Contains(parseApiMarkup, labelParameters) || !strings.Contains(parseApiMarkup, labelReturns) {
+		parseT.Fatalf("api surface missing expected content: %s", parseApiMarkup)
+	}
+	if !strings.Contains(parseApiMarkup, "users := fetch.UseCachedResource") {
+		parseT.Fatalf("api surface should render plain-text usage example by default: %s", parseApiMarkup)
+	}
+
+	parseHtmlAPIMarkup, parseErr := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testHTMLAPIItem(), MarkdownBody: `<section id="core-rendering"><h2>Core Rendering Primitives</h2></section>`, MarkdownReady: true}, true))
+	if parseErr != nil {
+		parseT.Fatalf("renderDisplaySurface html api returned error: %v", parseErr)
+	}
+	for _, parseSnippet3 := range []string{"api-usage-example-fragment", labelUsageExample} {
+		if !strings.Contains(parseHtmlAPIMarkup, parseSnippet3) {
+			parseT.Fatalf("html api usage example missing %q: %s", parseSnippet3, parseHtmlAPIMarkup)
 		}
 	}
 
-	groupedAPIMarkup, err := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testGroupedAPIItem()}, true))
-	if err != nil {
-		t.Fatalf("renderDisplaySurface grouped api returned error: %v", err)
+	parseGroupedAPIMarkup, parseErr := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testGroupedAPIItem()}, true))
+	if parseErr != nil {
+		parseT.Fatalf("renderDisplaySurface grouped api returned error: %v", parseErr)
 	}
-	for _, snippet := range []string{"api-reference-fragment", "Catalog-owned grouped API reference document", "fetches the fragment into this surface", labelReferenceSearch, messageReferenceSearch} {
-		if !strings.Contains(groupedAPIMarkup, snippet) {
-			t.Fatalf("grouped api surface missing %q: %s", snippet, groupedAPIMarkup)
+	for _, parseSnippet4 := range []string{"api-reference-fragment", "Catalog-owned grouped API reference document", "fetches the fragment into this surface", labelReferenceSearch, messageReferenceSearch} {
+		if !strings.Contains(parseGroupedAPIMarkup, parseSnippet4) {
+			parseT.Fatalf("grouped api surface missing %q: %s", parseSnippet4, parseGroupedAPIMarkup)
 		}
 	}
 
-	injectedGroupedAPIMarkup, err := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testGroupedAPIItem(), MarkdownBody: `<section id="core-rendering"><h2>Core Rendering Primitives</h2></section>`}, true))
-	if err != nil {
-		t.Fatalf("renderDisplaySurface grouped api with html returned error: %v", err)
+	parseInjectedGroupedAPIMarkup, parseErr := ui.RenderToString(renderDisplaySurface(contentPanelProps{Item: testGroupedAPIItem(), MarkdownBody: `<section id="core-rendering"><h2>Core Rendering Primitives</h2></section>`}, true))
+	if parseErr != nil {
+		parseT.Fatalf("renderDisplaySurface grouped api with html returned error: %v", parseErr)
 	}
-	for _, snippet := range []string{"api-reference-fragment", labelAPIReference} {
-		if !strings.Contains(injectedGroupedAPIMarkup, snippet) {
-			t.Fatalf("grouped api injected markup missing %q: %s", snippet, injectedGroupedAPIMarkup)
+	for _, parseSnippet5 := range []string{"api-reference-fragment", labelAPIReference} {
+		if !strings.Contains(parseInjectedGroupedAPIMarkup, parseSnippet5) {
+			parseT.Fatalf("grouped api injected markup missing %q: %s", parseSnippet5, parseInjectedGroupedAPIMarkup)
 		}
 	}
 
-	embeddedExampleMarkup, err := ui.RenderToString(renderDisplaySurface(contentPanelProps{
+	parseEmbeddedExampleMarkup, parseErr := ui.RenderToString(renderDisplaySurface(contentPanelProps{
 		Item:          testEmbeddedExampleItem(),
 		MarkdownBody:  "func Counter() ui.Node {\n  return Button()\n}",
 		MarkdownReady: true,
 	}, true))
-	if err != nil {
-		t.Fatalf("renderDisplaySurface embedded example returned error: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("renderDisplaySurface embedded example returned error: %v", parseErr)
 	}
-	for _, snippet := range []string{labelExampleSource, "Go + hooks + typed HTML", "func Counter() ui.Node"} {
-		if !strings.Contains(embeddedExampleMarkup, snippet) {
-			t.Fatalf("embedded example surface missing %q: %s", snippet, embeddedExampleMarkup)
+	for _, parseSnippet6 := range []string{labelExampleSource, "Go + hooks + typed HTML", "func Counter() ui.Node"} {
+		if !strings.Contains(parseEmbeddedExampleMarkup, parseSnippet6) {
+			parseT.Fatalf("embedded example surface missing %q: %s", parseSnippet6, parseEmbeddedExampleMarkup)
 		}
 	}
 
-	placeholderMarkup, err := ui.RenderToString(renderDisplaySurface(contentPanelProps{}, false))
-	if err != nil {
-		t.Fatalf("renderDisplaySurface placeholder returned error: %v", err)
+	parsePlaceholderMarkup, parseErr := ui.RenderToString(renderDisplaySurface(contentPanelProps{}, false))
+	if parseErr != nil {
+		parseT.Fatalf("renderDisplaySurface placeholder returned error: %v", parseErr)
 	}
-	if !strings.Contains(placeholderMarkup, messageNothingSelected) {
-		t.Fatalf("placeholder surface missing empty-state message: %s", placeholderMarkup)
+	if !strings.Contains(parsePlaceholderMarkup, messageNothingSelected) {
+		parseT.Fatalf("placeholder surface missing empty-state message: %s", parsePlaceholderMarkup)
 	}
 }
 
-func TestRenderCounterExampleInteractions(t *testing.T) {
-	fixture := render.New(t)
-	fixture.Render(ui.CreateElement(renderCounterExample, contentPanelProps{Item: testExampleItem()}))
+func TestRenderCounterExampleInteractions(parseT *testing.T) {
+	parseFixture := render.New(parseT)
+	parseFixture.Render(ui.CreateElement(renderCounterExample, contentPanelProps{Item: testExampleItem()}))
 
-	if !strings.Contains(fixture.Text(), labelStateTonePrefix+toneReady) {
-		t.Fatalf("expected initial ready tone, got %q", fixture.Text())
-	}
-
-	increment := fixture.ByRole("button", buttonIncrement)
-	if increment == nil {
-		t.Fatal("expected increment button")
-	}
-	increment.Click()
-	if !strings.Contains(fixture.Text(), labelStateTonePrefix+tonePositive) {
-		t.Fatalf("expected positive tone after increment, got %q", fixture.Text())
+	if !strings.Contains(parseFixture.Text(), labelStateTonePrefix+toneReady) {
+		parseT.Fatalf("expected initial ready tone, got %q", parseFixture.Text())
 	}
 
-	decrement := fixture.ByRole("button", buttonDecrement)
-	if decrement == nil {
-		t.Fatal("expected decrement button")
+	parseIncrement := parseFixture.ByRole("button", buttonIncrement)
+	if parseIncrement == nil {
+		parseT.Fatal("expected increment button")
 	}
-	decrement.Click()
-	decrement.Click()
-	if !strings.Contains(fixture.Text(), labelStateTonePrefix+toneNegative) {
-		t.Fatalf("expected negative tone after decrement, got %q", fixture.Text())
+	parseIncrement.Click()
+	if !strings.Contains(parseFixture.Text(), labelStateTonePrefix+tonePositive) {
+		parseT.Fatalf("expected positive tone after increment, got %q", parseFixture.Text())
 	}
 
-	reset := fixture.ByRole("button", buttonReset)
+	parseDecrement := parseFixture.ByRole("button", buttonDecrement)
+	if parseDecrement == nil {
+		parseT.Fatal("expected decrement button")
+	}
+	parseDecrement.Click()
+	parseDecrement.Click()
+	if !strings.Contains(parseFixture.Text(), labelStateTonePrefix+toneNegative) {
+		parseT.Fatalf("expected negative tone after decrement, got %q", parseFixture.Text())
+	}
+
+	reset := parseFixture.ByRole("button", buttonReset)
 	if reset == nil {
-		t.Fatal("expected reset button")
+		parseT.Fatal("expected reset button")
 	}
 	reset.Click()
-	if !strings.Contains(fixture.Text(), labelStateTonePrefix+toneReady) {
-		t.Fatalf("expected ready tone after reset, got %q", fixture.Text())
+	if !strings.Contains(parseFixture.Text(), labelStateTonePrefix+toneReady) {
+		parseT.Fatalf("expected ready tone after reset, got %q", parseFixture.Text())
 	}
 }
 
-func TestCatalogDataURLResolvesAgainstDocumentBaseURI(t *testing.T) {
-	installMockDocumentBaseURI(t, "https://example.test/examples/00-example-0/example-0.html")
-	if got := catalogDataURL(); got != "https://example.test/examples/00-example-0/assets/data/catalog.json" {
-		t.Fatalf("unexpected catalog data url: %q", got)
+func TestCatalogDataURLResolvesAgainstDocumentBaseURI(parseT *testing.T) {
+	installMockDocumentBaseURI(parseT, "https://example.test/examples/00-example-0/example-0.html")
+	if parseGot := catalogDataURL(); parseGot != "https://example.test/examples/00-example-0/assets/data/catalog.json" {
+		parseT.Fatalf("unexpected catalog data url: %q", parseGot)
 	}
 }
 
-func TestLoadCatalogResourceFetchesAndValidatesCatalog(t *testing.T) {
-	payload := mustMarshalCatalog(t, testCatalog())
-	installMockFetchText(t, payload, 200, "OK")
+func TestLoadCatalogResourceFetchesAndValidatesCatalog(parseT *testing.T) {
+	parsePayload := mustMarshalCatalog(parseT, testCatalog())
+	installMockFetchText(parseT, parsePayload, 200, "OK")
 
-	catalog, err := loadCatalogResource(context.Background(), "https://example.test/assets/data/catalog.json")
-	if err != nil {
-		t.Fatalf("loadCatalogResource returned error: %v", err)
+	parseCatalog, parseErr := loadCatalogResource(context.Background(), "https://example.test/assets/data/catalog.json")
+	if parseErr != nil {
+		parseT.Fatalf("loadCatalogResource returned error: %v", parseErr)
 	}
-	if len(catalog.Items) != 5 || catalog.Items[0].Title != "Start With GoWebComponents" {
-		t.Fatalf("unexpected loaded catalog: %+v", catalog)
+	if len(parseCatalog.Items) != 5 || parseCatalog.Items[0].Title != "Start With GoWebComponents" {
+		parseT.Fatalf("unexpected loaded catalog: %+v", parseCatalog)
 	}
-	if !containsString(catalog.Filters, kindAPI) {
-		t.Fatalf("expected loaded catalog filters to include %q, got %+v", kindAPI, catalog.Filters)
+	if !containsString(parseCatalog.Filters, kindAPI) {
+		parseT.Fatalf("expected loaded catalog filters to include %q, got %+v", kindAPI, parseCatalog.Filters)
 	}
-	if !containsString(catalog.Filters, kindExample) {
-		t.Fatalf("expected loaded catalog filters to include %q, got %+v", kindExample, catalog.Filters)
+	if !containsString(parseCatalog.Filters, kindExample) {
+		parseT.Fatalf("expected loaded catalog filters to include %q, got %+v", kindExample, parseCatalog.Filters)
 	}
-	if got := countItemsByType(catalog.Items, kindExample); got != 2 {
-		t.Fatalf("expected loaded catalog to preserve example count, got %d", got)
+	if parseGot := countItemsByType(parseCatalog.Items, kindExample); parseGot != 2 {
+		parseT.Fatalf("expected loaded catalog to preserve example count, got %d", parseGot)
 	}
 	cacheKey := catalogCacheKey("https://example.test/assets/data/catalog.json")
 	fetch.DisposeResource(cacheKey)
 }
 
-func TestLoadCatalogResourcePropagatesErrors(t *testing.T) {
-	installMockFetchText(t, "{", 200, "OK")
-	if _, err := loadCatalogResource(context.Background(), "https://example.test/assets/data/catalog.json"); err == nil || !strings.Contains(err.Error(), "invalid catalog.json") {
-		t.Fatalf("expected decode error, got %v", err)
+func TestLoadCatalogResourcePropagatesErrors(parseT *testing.T) {
+	installMockFetchText(parseT, "{", 200, "OK")
+	if _, parseErr := loadCatalogResource(context.Background(), "https://example.test/assets/data/catalog.json"); parseErr == nil || !strings.Contains(parseErr.Error(), "invalid catalog.json") {
+		parseT.Fatalf("expected decode error, got %v", parseErr)
 	}
 
-	installMockFetchText(t, "boom", 500, "Internal Server Error")
-	if _, err := loadCatalogResource(context.Background(), "https://example.test/assets/data/catalog.json"); err == nil || !strings.Contains(err.Error(), "request failed with status 500") {
-		t.Fatalf("expected http error, got %v", err)
+	installMockFetchText(parseT, "boom", 500, "Internal Server Error")
+	if _, parseErr2 := loadCatalogResource(context.Background(), "https://example.test/assets/data/catalog.json"); parseErr2 == nil || !strings.Contains(parseErr2.Error(), "request failed with status 500") {
+		parseT.Fatalf("expected http error, got %v", parseErr2)
 	}
 
-	cancelled, cancel := context.WithCancel(context.Background())
-	cancel()
-	installMockFetchText(t, mustMarshalCatalog(t, testCatalog()), 200, "OK")
-	if _, err := loadCatalogResource(cancelled, "https://example.test/assets/data/catalog.json"); err != context.Canceled {
-		t.Fatalf("expected context cancellation, got %v", err)
+	parseCancelled, parseCancel := context.WithCancel(context.Background())
+	parseCancel()
+	installMockFetchText(parseT, mustMarshalCatalog(parseT, testCatalog()), 200, "OK")
+	if _, parseErr3 := loadCatalogResource(parseCancelled, "https://example.test/assets/data/catalog.json"); parseErr3 != context.Canceled {
+		parseT.Fatalf("expected context cancellation, got %v", parseErr3)
 	}
 }
 
-func containsString(values []string, expected string) bool {
-	for _, value := range values {
-		if value == expected {
+func containsString(parseValues []string, parseExpected string) bool {
+	for _, parseValue := range parseValues {
+		if parseValue == parseExpected {
 			return true
 		}
 	}

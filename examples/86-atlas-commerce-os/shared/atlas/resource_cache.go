@@ -16,123 +16,123 @@ const (
 	atlasRequestResourcePrefix         = "atlas:request:"
 )
 
-func RoutePayloadResourceKey(path string, query url.Values) string {
-	return atlasRouteResourcePrefix + routeDataResourceKey(path, query)
+func RoutePayloadResourceKey(parsePath string, parseQuery url.Values) string {
+	return atlasRouteResourcePrefix + routeDataResourceKey(parsePath, parseQuery)
 }
 
-func CachedRequestResourceKey(requestURL string, dataKey string) string {
-	return atlasRequestResourcePrefix + strings.TrimSpace(requestURL) + "::" + strings.TrimSpace(dataKey)
+func CachedRequestResourceKey(parseRequestURL string, parseDataKey string) string {
+	return atlasRequestResourcePrefix + strings.TrimSpace(parseRequestURL) + "::" + strings.TrimSpace(parseDataKey)
 }
 
-func PayloadResourceKeys(payload Payload) map[string]struct{} {
-	keys := map[string]struct{}{
-		RoutePayloadResourceKey(payload.Route.Path, resourceQueryValues(payload.Route.Query)): {},
+func PayloadResourceKeys(parsePayload Payload) map[string]struct{} {
+	parseKeys := map[string]struct{}{
+		RoutePayloadResourceKey(parsePayload.Route.Path, resourceQueryValues(parsePayload.Route.Query)): {},
 	}
-	visitPayloadRequestData(payload, func(requestURL string, dataKey string, _ any) {
-		keys[CachedRequestResourceKey(requestURL, dataKey)] = struct{}{}
+	visitPayloadRequestData(parsePayload, func(parseRequestURL string, parseDataKey string, _ any) {
+		parseKeys[CachedRequestResourceKey(parseRequestURL, parseDataKey)] = struct{}{}
 	})
-	return keys
+	return parseKeys
 }
 
-func fetchAtlasJSON[T any](ctx context.Context, requestURL string) (T, error) {
-	var zero T
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
-	if err != nil {
-		return zero, err
+func fetchAtlasJSON[T any](parseCtx context.Context, parseRequestURL string) (T, error) {
+	var parseZero T
+	parseRequest, parseErr := http.NewRequestWithContext(parseCtx, http.MethodGet, parseRequestURL, nil)
+	if parseErr != nil {
+		return parseZero, parseErr
 	}
-	request.Header.Set("Accept", "application/json")
+	parseRequest.Header.Set("Accept", "application/json")
 
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		return zero, err
+	parseResponse, parseErr := http.DefaultClient.Do(parseRequest)
+	if parseErr != nil {
+		return parseZero, parseErr
 	}
-	defer response.Body.Close()
+	defer parseResponse.Body.Close()
 
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return zero, fmt.Errorf("request %s returned status %d", requestURL, response.StatusCode)
+	if parseResponse.StatusCode < http.StatusOK || parseResponse.StatusCode >= http.StatusMultipleChoices {
+		return parseZero, fmt.Errorf("request %s returned status %d", parseRequestURL, parseResponse.StatusCode)
 	}
 
-	var payload T
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-		return zero, err
+	var parsePayload T
+	if parseErr2 := json.NewDecoder(parseResponse.Body).Decode(&parsePayload); parseErr2 != nil {
+		return parseZero, parseErr2
 	}
-	return payload, nil
+	return parsePayload, nil
 }
 
-func useAtlasStartupPageResource(payload Payload) atlasCachedResource[any] {
-	request, ok := StartupRequest(payload, "page")
-	if !ok {
+func useAtlasStartupPageResource(parsePayload Payload) atlasCachedResource[any] {
+	parseRequest, parseOk := StartupRequest(parsePayload, "page")
+	if !parseOk {
 		return atlasCachedResource[any]{}
 	}
-	requestURL := strings.TrimSpace(request.URL)
-	if requestURL == "" {
+	parseRequestURL := strings.TrimSpace(parseRequest.URL)
+	if parseRequestURL == "" {
 		return atlasCachedResource[any]{}
 	}
-	return useAtlasCachedResource(CachedRequestResourceKey(requestURL, "page"), func(ctx context.Context) (any, error) {
-		return fetchAtlasJSON[any](ctx, requestURL)
+	return useAtlasCachedResource(CachedRequestResourceKey(parseRequestURL, "page"), func(parseCtx context.Context) (any, error) {
+		return fetchAtlasJSON[any](parseCtx, parseRequestURL)
 	})
 }
 
-func resourceQueryValues(input map[string][]string) url.Values {
-	values := url.Values{}
-	for key, items := range input {
-		for _, item := range items {
-			values.Add(key, item)
+func resourceQueryValues(parseInput map[string][]string) url.Values {
+	parseValues := url.Values{}
+	for parseKey, parseItems := range parseInput {
+		for _, parseItem := range parseItems {
+			parseValues.Add(parseKey, parseItem)
 		}
 	}
-	return values
+	return parseValues
 }
 
-func routeDataResourceKey(path string, query url.Values) string {
-	filtered := url.Values{}
-	for key, items := range query {
-		trimmedKey := strings.TrimSpace(key)
-		if strings.EqualFold(trimmedKey, atlasNoticeQueryResourceKey) || strings.EqualFold(trimmedKey, atlasBootstrapModeQueryResourceKey) {
+func routeDataResourceKey(parsePath string, parseQuery url.Values) string {
+	parseFiltered := url.Values{}
+	for parseKey, parseItems := range parseQuery {
+		parseTrimmedKey := strings.TrimSpace(parseKey)
+		if strings.EqualFold(parseTrimmedKey, atlasNoticeQueryResourceKey) || strings.EqualFold(parseTrimmedKey, atlasBootstrapModeQueryResourceKey) {
 			continue
 		}
-		for _, item := range items {
-			filtered.Add(key, item)
+		for _, parseItem := range parseItems {
+			parseFiltered.Add(parseKey, parseItem)
 		}
 	}
-	encoded := filtered.Encode()
-	if encoded == "" {
-		return path
+	parseEncoded := parseFiltered.Encode()
+	if parseEncoded == "" {
+		return parsePath
 	}
-	return path + "?" + encoded
+	return parsePath + "?" + parseEncoded
 }
 
-func clonePayloadForResourceCache(input Payload) Payload {
-	payload := input
-	payload.Route.Query = cloneQuery(input.Route.Query)
-	payload.Route.Params = cloneParams(input.Route.Params)
-	payload.Data = cloneData(input.Data)
-	payload.Requests = cloneRequests(input.Requests)
-	payload.SavedViews = append([]SavedViewPayload(nil), input.SavedViews...)
-	if input.User != nil {
-		user := *input.User
-		payload.User = &user
+func clonePayloadForResourceCache(parseInput Payload) Payload {
+	parsePayload := parseInput
+	parsePayload.Route.Query = cloneQuery(parseInput.Route.Query)
+	parsePayload.Route.Params = cloneParams(parseInput.Route.Params)
+	parsePayload.Data = cloneData(parseInput.Data)
+	parsePayload.Requests = cloneRequests(parseInput.Requests)
+	parsePayload.SavedViews = append([]SavedViewPayload(nil), parseInput.SavedViews...)
+	if parseInput.User != nil {
+		parseUser := *parseInput.User
+		parsePayload.User = &parseUser
 	}
-	return payload
+	return parsePayload
 }
 
-func visitPayloadRequestData(payload Payload, visit func(requestURL string, dataKey string, value any)) {
-	for key, request := range payload.Requests {
-		requestURL := strings.TrimSpace(request.URL)
-		if requestURL == "" {
+func visitPayloadRequestData(parsePayload Payload, parseVisit func(requestURL string, dataKey string, value any)) {
+	for parseKey, parseRequest := range parsePayload.Requests {
+		parseRequestURL := strings.TrimSpace(parseRequest.URL)
+		if parseRequestURL == "" {
 			continue
 		}
-		requestData := cloneData(request.Data)
-		if len(requestData) == 0 {
-			if value, ok := payload.Data[key]; ok {
-				requestData[key] = value
-			} else if key == "page" {
-				if value, ok := payload.Data["page"]; ok {
-					requestData["page"] = value
+		parseRequestData := cloneData(parseRequest.Data)
+		if len(parseRequestData) == 0 {
+			if parseValue, parseOk := parsePayload.Data[parseKey]; parseOk {
+				parseRequestData[parseKey] = parseValue
+			} else if parseKey == "page" {
+				if parseValue2, parseOk2 := parsePayload.Data["page"]; parseOk2 {
+					parseRequestData["page"] = parseValue2
 				}
 			}
 		}
-		for dataKey, value := range requestData {
-			visit(requestURL, dataKey, value)
+		for parseDataKey, parseValue3 := range parseRequestData {
+			parseVisit(parseRequestURL, parseDataKey, parseValue3)
 		}
 	}
 }

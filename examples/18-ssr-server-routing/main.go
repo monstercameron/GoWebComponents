@@ -21,183 +21,183 @@ var initialRouteDataAvailable bool
 var initialRouteDataConsumed bool
 
 func loadBootstrapPayload() ui.SSRBootstrap {
-	bootstrapReference, err := ui.ReadBootstrapReferenceScript("")
-	if err != nil {
+	parseBootstrapReference, parseErr := ui.ReadBootstrapReferenceScript("")
+	if parseErr != nil {
 		return ui.SSRBootstrap{}
 	}
-	bootstrapPayload, err := ui.ReadBootstrapReference(bootstrapReference)
-	if err != nil {
+	parseBootstrapPayload, parseErr := ui.ReadBootstrapReference(parseBootstrapReference)
+	if parseErr != nil {
 		return ui.SSRBootstrap{}
 	}
-	return bootstrapPayload
+	return parseBootstrapPayload
 }
 
-func decodeBootstrapRouteData(payload ui.SSRBootstrap) (bootstrapRouteData, bool) {
-	if payload.Data == nil {
+func decodeBootstrapRouteData(parsePayload ui.SSRBootstrap) (bootstrapRouteData, bool) {
+	if parsePayload.Data == nil {
 		return bootstrapRouteData{}, false
 	}
-	raw, ok := payload.Data["routeData"]
-	if !ok {
+	parseRaw, parseOk := parsePayload.Data["routeData"]
+	if !parseOk {
 		return bootstrapRouteData{}, false
 	}
-	data, err := json.Marshal(raw)
-	if err != nil {
+	parseData, parseErr := json.Marshal(parseRaw)
+	if parseErr != nil {
 		return bootstrapRouteData{}, false
 	}
-	var decoded bootstrapRouteData
-	if err := json.Unmarshal(data, &decoded); err != nil {
+	var parseDecoded bootstrapRouteData
+	if parseErr2 := json.Unmarshal(parseData, &parseDecoded); parseErr2 != nil {
 		return bootstrapRouteData{}, false
 	}
-	return decoded, true
+	return parseDecoded, true
 }
 
-func consumeInitialRouteData(routeCtx router.RouteContext, pageName string) (bootstrapRouteData, bool) {
+func consumeInitialRouteData(parseRouteCtx router.RouteContext, parsePageName string) (bootstrapRouteData, bool) {
 	if !initialRouteDataAvailable || initialRouteDataConsumed {
 		return bootstrapRouteData{}, false
 	}
-	if normalizePath(initialBootstrap.Route.Path) != normalizePath(routeCtx.Path) {
+	if normalizePath(initialBootstrap.Route.Path) != normalizePath(parseRouteCtx.Path) {
 		return bootstrapRouteData{}, false
 	}
-	if initialRouteData.Page != pageName {
+	if initialRouteData.Page != parsePageName {
 		return bootstrapRouteData{}, false
 	}
-	if pageName == serverPageDocs && initialBootstrap.Route.Params["section"] != routeCtx.Params.Get("section") {
+	if parsePageName == serverPageDocs && initialBootstrap.Route.Params["section"] != parseRouteCtx.Params.Get("section") {
 		return bootstrapRouteData{}, false
 	}
-	if pageName == serverPageSearch && strings.TrimSpace(initialRouteData.SearchQuery) != strings.TrimSpace(routeCtx.Query.Get("q")) {
+	if parsePageName == serverPageSearch && strings.TrimSpace(initialRouteData.SearchQuery) != strings.TrimSpace(parseRouteCtx.Query.Get("q")) {
 		return bootstrapRouteData{}, false
 	}
-	if pageName == serverPageSecure && strings.TrimSpace(initialRouteData.SecureRole) != emptyFallback(strings.TrimSpace(routeCtx.Query.Get("role")), serverSecureRoleMaintainer) {
+	if parsePageName == serverPageSecure && strings.TrimSpace(initialRouteData.SecureRole) != emptyFallback(strings.TrimSpace(parseRouteCtx.Query.Get("role")), serverSecureRoleMaintainer) {
 		return bootstrapRouteData{}, false
 	}
 	initialRouteDataConsumed = true
 	return initialRouteData, true
 }
 
-func homePage(props router.Attrs) ui.Node {
-	data := bootstrapRouteData{
+func homePage(parseProps router.Attrs) ui.Node {
+	parseData := bootstrapRouteData{
 		Page:     serverPageHome,
 		Notice:   "The client is now running on a real browser route after the server generated the initial HTML.",
 		Revision: 1,
 	}
-	return renderDemoShell(viewFromRouteData("/", transportFromBootstrap(initialBootstrap), data))
+	return renderDemoShell(viewFromRouteData("/", transportFromBootstrap(initialBootstrap), parseData))
 }
 
-func docsPage(props router.Attrs) ui.Node {
-	params := router.UseParams()
-	query := router.UseQuery()
-	section := params.Get("section")
-	article := articleForSection(section)
-	revision, _ := props["revision"].(int)
-	tab := emptyFallback(strings.TrimSpace(query.Get("tab")), serverTabOverview)
-	streamMode := normalizeStreamMode(query.Get("stream"))
-	data := bootstrapRouteData{
+func docsPage(parseProps router.Attrs) ui.Node {
+	parseParams := router.UseParams()
+	parseQuery := router.UseQuery()
+	parseSection := parseParams.Get("section")
+	parseArticle := articleForSection(parseSection)
+	parseRevision, _ := parseProps["revision"].(int)
+	parseTab := emptyFallback(strings.TrimSpace(parseQuery.Get("tab")), serverTabOverview)
+	parseStreamMode := normalizeStreamMode(parseQuery.Get("stream"))
+	parseData := bootstrapRouteData{
 		Page:         serverPageDocs,
-		SectionID:    article.ID,
-		SectionTitle: article.Title,
-		SectionBody:  article.Summary,
-		CurrentTab:   tab,
-		StreamMode:   streamMode,
-		Notice:       fmt.Sprintf("Client router resumed on %s with tab=%s.", article.ID, tab),
-		Revision:     maxInt(revision, 1),
+		SectionID:    parseArticle.ID,
+		SectionTitle: parseArticle.Title,
+		SectionBody:  parseArticle.Summary,
+		CurrentTab:   parseTab,
+		StreamMode:   parseStreamMode,
+		Notice:       fmt.Sprintf("Client router resumed on %s with tab=%s.", parseArticle.ID, parseTab),
+		Revision:     maxInt(parseRevision, 1),
 	}
-	return renderDemoShell(viewFromRouteData("/docs/"+article.ID, transportFromBootstrap(initialBootstrap), data))
+	return renderDemoShell(viewFromRouteData("/docs/"+parseArticle.ID, transportFromBootstrap(initialBootstrap), parseData))
 }
 
-func searchPage(props router.Attrs) ui.Node {
-	query := router.UseQuery()
-	results, _ := props["results"].([]guideArticle)
-	revision, _ := props["revision"].(int)
-	searchQuery := strings.TrimSpace(query.Get("q"))
-	data := bootstrapRouteData{
+func searchPage(parseProps router.Attrs) ui.Node {
+	parseQuery := router.UseQuery()
+	parseResults, _ := parseProps["results"].([]guideArticle)
+	parseRevision, _ := parseProps["revision"].(int)
+	parseSearchQuery := strings.TrimSpace(parseQuery.Get("q"))
+	parseData := bootstrapRouteData{
 		Page:          serverPageSearch,
-		SearchQuery:   searchQuery,
-		SearchResults: results,
+		SearchQuery:   parseSearchQuery,
+		SearchResults: parseResults,
 		Notice:        "Client browser routing mirrors the same search route while direct links still trigger full server SSR navigations.",
-		Revision:      maxInt(revision, 1),
+		Revision:      maxInt(parseRevision, 1),
 	}
-	return renderDemoShell(viewFromRouteData("/search", transportFromBootstrap(initialBootstrap), data))
+	return renderDemoShell(viewFromRouteData("/search", transportFromBootstrap(initialBootstrap), parseData))
 }
 
-func signInPage(props router.Attrs) ui.Node {
-	from := strings.TrimSpace(router.UseQuery().Get("from"))
-	notice := "The server redirected this protected request into the sign-in route."
-	if from != "" {
-		notice = "The server redirected this protected request from " + from + "."
+func signInPage(parseProps router.Attrs) ui.Node {
+	parseFrom := strings.TrimSpace(router.UseQuery().Get("from"))
+	parseNotice := "The server redirected this protected request into the sign-in route."
+	if parseFrom != "" {
+		parseNotice = "The server redirected this protected request from " + parseFrom + "."
 	}
-	data := bootstrapRouteData{Page: serverPageSignIn, Notice: notice, Revision: 1}
-	return renderDemoShell(viewFromRouteData("/signin", transportFromBootstrap(initialBootstrap), data))
+	parseData := bootstrapRouteData{Page: serverPageSignIn, Notice: parseNotice, Revision: 1}
+	return renderDemoShell(viewFromRouteData("/signin", transportFromBootstrap(initialBootstrap), parseData))
 }
 
-func securePage(props router.Attrs) ui.Node {
-	role, _ := props["role"].(string)
-	user, _ := props["user"].(string)
-	revision, _ := props["revision"].(int)
-	data := bootstrapRouteData{
+func securePage(parseProps router.Attrs) ui.Node {
+	parseRole, _ := parseProps["role"].(string)
+	parseUser, _ := parseProps["user"].(string)
+	parseRevision, _ := parseProps["revision"].(int)
+	parseData := bootstrapRouteData{
 		Page:       serverPageSecure,
-		SecureRole: emptyFallback(role, serverSecureRoleMaintainer),
-		SecureUser: emptyFallback(user, serverSecureUserDefault),
+		SecureRole: emptyFallback(parseRole, serverSecureRoleMaintainer),
+		SecureUser: emptyFallback(parseUser, serverSecureUserDefault),
 		Notice:     "The client resumed the protected route using the same role payload that the server rendered.",
-		Revision:   maxInt(revision, 1),
+		Revision:   maxInt(parseRevision, 1),
 	}
-	return renderDemoShell(viewFromRouteData("/secure", transportFromBootstrap(initialBootstrap), data))
+	return renderDemoShell(viewFromRouteData("/secure", transportFromBootstrap(initialBootstrap), parseData))
 }
 
-func notFoundPage(props router.Attrs) ui.Node {
-	data := bootstrapRouteData{Page: serverPageNotFound, Notice: "Unknown route in the browser router.", Revision: 1}
-	return renderDemoShell(viewFromRouteData(router.GetCurrentPath(), transportFromBootstrap(initialBootstrap), data))
+func notFoundPage(parseProps router.Attrs) ui.Node {
+	parseData := bootstrapRouteData{Page: serverPageNotFound, Notice: "Unknown route in the browser router.", Revision: 1}
+	return renderDemoShell(viewFromRouteData(router.GetCurrentPath(), transportFromBootstrap(initialBootstrap), parseData))
 }
 
 func main() {
 	initialBootstrap = loadBootstrapPayload()
-	decoded, ok := decodeBootstrapRouteData(initialBootstrap)
-	initialRouteData = decoded
-	initialRouteDataAvailable = ok
+	parseDecoded, parseOk := decodeBootstrapRouteData(initialBootstrap)
+	initialRouteData = parseDecoded
+	initialRouteDataAvailable = parseOk
 
-	r := router.NewHistoryRouter(router.RouterOptions{DefaultRoute: "/"})
-	r.Register("/", homePage, router.Options{Title: "GWC Server SSR Demo"})
-	r.Register("/docs/:section", docsPage, router.Options{
+	parseR := router.NewHistoryRouter(router.RouterOptions{DefaultRoute: "/"})
+	parseR.Register("/", homePage, router.Options{Title: "GWC Server SSR Demo"})
+	parseR.Register("/docs/:section", docsPage, router.Options{
 		Title: "GWC Server SSR Demo Docs",
-		Loader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
-			if data, ok := consumeInitialRouteData(routeCtx, serverPageDocs); ok {
-				return router.Attrs{"revision": data.Revision}, nil
+		Loader: func(parseCtx context.Context, parseRouteCtx router.RouteContext) (router.Attrs, error) {
+			if parseData, parseOk2 := consumeInitialRouteData(parseRouteCtx, serverPageDocs); parseOk2 {
+				return router.Attrs{"revision": parseData.Revision}, nil
 			}
-			return router.Attrs{"revision": revisionFromQuery(routeCtx.Query.Values())}, nil
+			return router.Attrs{"revision": revisionFromQuery(parseRouteCtx.Query.Values())}, nil
 		},
 	})
-	r.Register("/search", searchPage, router.Options{
+	parseR.Register("/search", searchPage, router.Options{
 		Title: "GWC Server SSR Demo Search",
-		Loader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
-			if data, ok := consumeInitialRouteData(routeCtx, serverPageSearch); ok {
-				return router.Attrs{"revision": data.Revision, "results": data.SearchResults}, nil
+		Loader: func(parseCtx2 context.Context, parseRouteCtx2 router.RouteContext) (router.Attrs, error) {
+			if parseData2, parseOk3 := consumeInitialRouteData(parseRouteCtx2, serverPageSearch); parseOk3 {
+				return router.Attrs{"revision": parseData2.Revision, "results": parseData2.SearchResults}, nil
 			}
-			searchQuery := strings.TrimSpace(routeCtx.Query.Get("q"))
-			return router.Attrs{"revision": revisionFromQuery(routeCtx.Query.Values()), "results": filterCatalog(searchQuery)}, nil
+			parseSearchQuery := strings.TrimSpace(parseRouteCtx2.Query.Get("q"))
+			return router.Attrs{"revision": revisionFromQuery(parseRouteCtx2.Query.Values()), "results": filterCatalog(parseSearchQuery)}, nil
 		},
 	})
-	r.Register("/signin", signInPage, router.Options{Title: "GWC Server SSR Demo Sign In"})
-	r.Register("/secure", securePage, router.Options{
+	parseR.Register("/signin", signInPage, router.Options{Title: "GWC Server SSR Demo Sign In"})
+	parseR.Register("/secure", securePage, router.Options{
 		Title: "GWC Server SSR Demo Secure",
-		BeforeEnter: func(ctx router.RouteContext) router.GuardResult {
-			if ctx.Query.Get("auth") != "true" {
+		BeforeEnter: func(parseCtx3 router.RouteContext) router.GuardResult {
+			if parseCtx3.Query.Get("auth") != "true" {
 				return router.RedirectNavigation(secureRedirectPath)
 			}
 			return router.AllowNavigation()
 		},
-		Loader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
-			if data, ok := consumeInitialRouteData(routeCtx, serverPageSecure); ok {
-				return router.Attrs{"revision": data.Revision, "role": data.SecureRole, "user": data.SecureUser}, nil
+		Loader: func(parseCtx4 context.Context, parseRouteCtx3 router.RouteContext) (router.Attrs, error) {
+			if parseData3, parseOk4 := consumeInitialRouteData(parseRouteCtx3, serverPageSecure); parseOk4 {
+				return router.Attrs{"revision": parseData3.Revision, "role": parseData3.SecureRole, "user": parseData3.SecureUser}, nil
 			}
-			role := emptyFallback(strings.TrimSpace(routeCtx.Query.Get("role")), serverSecureRoleMaintainer)
-			return router.Attrs{"revision": revisionFromQuery(routeCtx.Query.Values()), "role": role, "user": serverSecureUserDefault}, nil
+			parseRole := emptyFallback(strings.TrimSpace(parseRouteCtx3.Query.Get("role")), serverSecureRoleMaintainer)
+			return router.Attrs{"revision": revisionFromQuery(parseRouteCtx3.Query.Values()), "role": parseRole, "user": serverSecureUserDefault}, nil
 		},
 	})
-	r.Register("/legacy", docsPage, router.Options{Redirect: legacyRedirectPath, Title: "GWC Server SSR Demo Legacy"})
-	r.Register("*", notFoundPage, router.Options{Title: "GWC Server SSR Demo Not Found"})
+	parseR.Register("/legacy", docsPage, router.Options{Redirect: legacyRedirectPath, Title: "GWC Server SSR Demo Legacy"})
+	parseR.Register("*", notFoundPage, router.Options{Title: "GWC Server SSR Demo Not Found"})
 
-	root := ui.CreateElement(func() ui.Node { return r.Current() })
-	_, _ = ui.Hydrate(root, "#app", ui.HydrationOptions{Bootstrap: initialBootstrap})
-	r.HydrateMount("#app")
+	parseRoot := ui.CreateElement(func() ui.Node { return parseR.Current() })
+	_, _ = ui.Hydrate(parseRoot, "#app", ui.HydrationOptions{Bootstrap: initialBootstrap})
+	parseR.HydrateMount("#app")
 
 	select {}
 }

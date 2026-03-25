@@ -12,13 +12,13 @@ import (
 	serverdb "github.com/monstercameron/GoWebComponents/examples/86-atlas-commerce-os/server/db"
 )
 
-func TestInternalProductCRUDJSONMutations(t *testing.T) {
-	server, cleanup := newTestAtlasServer(t)
-	defer cleanup()
+func TestInternalProductCRUDJSONMutations(parseT *testing.T) {
+	parseServer, parseCleanup := newTestAtlasServer(parseT)
+	defer parseCleanup()
 
-	csrfToken, csrfCookie := loadCSRFFromPage(t, server, "/app/products")
+	parseCsrfToken, parseCsrfCookie := loadCSRFFromPage(parseT, parseServer, "/app/products")
 
-	createReq := httptest.NewRequest(http.MethodPost, "/api/app/products", strings.NewReader(`{
+	parseCreateReq := httptest.NewRequest(http.MethodPost, "/api/app/products", strings.NewReader(`{
 		"sku":"task-lamp-json",
 		"slug":"task-lamp-json",
 		"title":"Task Lamp JSON",
@@ -34,37 +34,37 @@ func TestInternalProductCRUDJSONMutations(t *testing.T) {
 		"available":11,
 		"inbound":4
 	}`))
-	createReq.Header.Set("Content-Type", "application/json")
-	createReq.Header.Set("Origin", "http://example.com")
-	createReq.Header.Set(csrfHeaderName, csrfToken)
-	createReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	createReq.AddCookie(csrfCookie)
-	createRes := httptest.NewRecorder()
+	parseCreateReq.Header.Set("Content-Type", "application/json")
+	parseCreateReq.Header.Set("Origin", "http://example.com")
+	parseCreateReq.Header.Set(csrfHeaderName, parseCsrfToken)
+	parseCreateReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseCreateReq.AddCookie(parseCsrfCookie)
+	parseCreateRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(createRes, createReq)
+	parseServer.routes().ServeHTTP(parseCreateRes, parseCreateReq)
 
-	if createRes.Code != http.StatusCreated {
-		t.Fatalf("expected %d, got %d", http.StatusCreated, createRes.Code)
+	if parseCreateRes.Code != http.StatusCreated {
+		parseT.Fatalf("expected %d, got %d", http.StatusCreated, parseCreateRes.Code)
 	}
-	if location := createRes.Header().Get("Location"); location != "" {
-		t.Fatalf("expected no redirect location for JSON create, got %q", location)
+	if parseLocation := parseCreateRes.Header().Get("Location"); parseLocation != "" {
+		parseT.Fatalf("expected no redirect location for JSON create, got %q", parseLocation)
 	}
-	var created serverdb.ProductAdminRecord
-	if err := json.Unmarshal(createRes.Body.Bytes(), &created); err != nil {
-		t.Fatalf("unmarshal create response: %v", err)
+	var parseCreated serverdb.ProductAdminRecord
+	if parseErr := json.Unmarshal(parseCreateRes.Body.Bytes(), &parseCreated); parseErr != nil {
+		parseT.Fatalf("unmarshal create response: %v", parseErr)
 	}
-	if created.Slug != "task-lamp-json" || created.WarehouseID != "illinois-hub" || created.PriceCents != 45900 {
-		t.Fatalf("unexpected create response: %+v", created)
+	if parseCreated.Slug != "task-lamp-json" || parseCreated.WarehouseID != "illinois-hub" || parseCreated.PriceCents != 45900 {
+		parseT.Fatalf("unexpected create response: %+v", parseCreated)
 	}
-	persistedCreate, err := server.store.ProductAdminBySlug(context.Background(), "task-lamp-json")
-	if err != nil {
-		t.Fatalf("load created json product: %v", err)
+	parsePersistedCreate, parseErr2 := parseServer.store.ProductAdminBySlug(context.Background(), "task-lamp-json")
+	if parseErr2 != nil {
+		parseT.Fatalf("load created json product: %v", parseErr2)
 	}
-	if persistedCreate.Title != "Task Lamp JSON" || persistedCreate.WarehouseID != "illinois-hub" {
-		t.Fatalf("unexpected persisted create state: %+v", persistedCreate)
+	if parsePersistedCreate.Title != "Task Lamp JSON" || parsePersistedCreate.WarehouseID != "illinois-hub" {
+		parseT.Fatalf("unexpected persisted create state: %+v", parsePersistedCreate)
 	}
 
-	updateReq := httptest.NewRequest(http.MethodPost, "/api/app/products/task-lamp-json/update", strings.NewReader(`{
+	parseUpdateReq := httptest.NewRequest(http.MethodPost, "/api/app/products/task-lamp-json/update", strings.NewReader(`{
 		"sku":"task-lamp-json",
 		"slug":"task-lamp-json-pro",
 		"title":"Task Lamp JSON Pro",
@@ -81,60 +81,60 @@ func TestInternalProductCRUDJSONMutations(t *testing.T) {
 		"available":2,
 		"inbound":8
 	}`))
-	updateReq.Header.Set("Content-Type", "application/json")
-	updateReq.Header.Set("Origin", "http://example.com")
-	updateReq.Header.Set(csrfHeaderName, csrfToken)
-	updateReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	updateReq.AddCookie(csrfCookie)
-	updateRes := httptest.NewRecorder()
+	parseUpdateReq.Header.Set("Content-Type", "application/json")
+	parseUpdateReq.Header.Set("Origin", "http://example.com")
+	parseUpdateReq.Header.Set(csrfHeaderName, parseCsrfToken)
+	parseUpdateReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseUpdateReq.AddCookie(parseCsrfCookie)
+	parseUpdateRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(updateRes, updateReq)
+	parseServer.routes().ServeHTTP(parseUpdateRes, parseUpdateReq)
 
-	if updateRes.Code != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, updateRes.Code)
+	if parseUpdateRes.Code != http.StatusOK {
+		parseT.Fatalf("expected %d, got %d", http.StatusOK, parseUpdateRes.Code)
 	}
-	if location := updateRes.Header().Get("Location"); location != "" {
-		t.Fatalf("expected no redirect location for JSON update, got %q", location)
+	if parseLocation2 := parseUpdateRes.Header().Get("Location"); parseLocation2 != "" {
+		parseT.Fatalf("expected no redirect location for JSON update, got %q", parseLocation2)
 	}
-	var updated serverdb.ProductAdminRecord
-	if err := json.Unmarshal(updateRes.Body.Bytes(), &updated); err != nil {
-		t.Fatalf("unmarshal update response: %v", err)
+	var parseUpdated serverdb.ProductAdminRecord
+	if parseErr3 := json.Unmarshal(parseUpdateRes.Body.Bytes(), &parseUpdated); parseErr3 != nil {
+		parseT.Fatalf("unmarshal update response: %v", parseErr3)
 	}
-	if updated.Slug != "task-lamp-json-pro" || updated.WarehouseID != "new-jersey-hub" || updated.Available != 2 || updated.PriceCents != 55900 {
-		t.Fatalf("unexpected update response: %+v", updated)
+	if parseUpdated.Slug != "task-lamp-json-pro" || parseUpdated.WarehouseID != "new-jersey-hub" || parseUpdated.Available != 2 || parseUpdated.PriceCents != 55900 {
+		parseT.Fatalf("unexpected update response: %+v", parseUpdated)
 	}
-	persistedUpdate, err := server.store.ProductAdminBySlug(context.Background(), "task-lamp-json-pro")
-	if err != nil {
-		t.Fatalf("load updated json product: %v", err)
+	parsePersistedUpdate, parseErr2 := parseServer.store.ProductAdminBySlug(context.Background(), "task-lamp-json-pro")
+	if parseErr2 != nil {
+		parseT.Fatalf("load updated json product: %v", parseErr2)
 	}
-	if persistedUpdate.Title != "Task Lamp JSON Pro" || persistedUpdate.WarehouseID != "new-jersey-hub" || persistedUpdate.Available != 2 {
-		t.Fatalf("unexpected persisted update state: %+v", persistedUpdate)
+	if parsePersistedUpdate.Title != "Task Lamp JSON Pro" || parsePersistedUpdate.WarehouseID != "new-jersey-hub" || parsePersistedUpdate.Available != 2 {
+		parseT.Fatalf("unexpected persisted update state: %+v", parsePersistedUpdate)
 	}
 
-	deleteReq := httptest.NewRequest(http.MethodPost, "/api/app/products/task-lamp-json-pro/delete", nil)
-	deleteReq.Header.Set("Content-Type", "application/json")
-	deleteReq.Header.Set("Origin", "http://example.com")
-	deleteReq.Header.Set(csrfHeaderName, csrfToken)
-	deleteReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-	deleteReq.AddCookie(csrfCookie)
-	deleteRes := httptest.NewRecorder()
+	parseDeleteReq := httptest.NewRequest(http.MethodPost, "/api/app/products/task-lamp-json-pro/delete", nil)
+	parseDeleteReq.Header.Set("Content-Type", "application/json")
+	parseDeleteReq.Header.Set("Origin", "http://example.com")
+	parseDeleteReq.Header.Set(csrfHeaderName, parseCsrfToken)
+	parseDeleteReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+	parseDeleteReq.AddCookie(parseCsrfCookie)
+	parseDeleteRes := httptest.NewRecorder()
 
-	server.routes().ServeHTTP(deleteRes, deleteReq)
+	parseServer.routes().ServeHTTP(parseDeleteRes, parseDeleteReq)
 
-	if deleteRes.Code != http.StatusOK {
-		t.Fatalf("expected %d, got %d", http.StatusOK, deleteRes.Code)
+	if parseDeleteRes.Code != http.StatusOK {
+		parseT.Fatalf("expected %d, got %d", http.StatusOK, parseDeleteRes.Code)
 	}
-	if location := deleteRes.Header().Get("Location"); location != "" {
-		t.Fatalf("expected no redirect location for JSON delete, got %q", location)
+	if parseLocation3 := parseDeleteRes.Header().Get("Location"); parseLocation3 != "" {
+		parseT.Fatalf("expected no redirect location for JSON delete, got %q", parseLocation3)
 	}
-	var deleted map[string]bool
-	if err := json.Unmarshal(deleteRes.Body.Bytes(), &deleted); err != nil {
-		t.Fatalf("unmarshal delete response: %v", err)
+	var parseDeleted map[string]bool
+	if parseErr4 := json.Unmarshal(parseDeleteRes.Body.Bytes(), &parseDeleted); parseErr4 != nil {
+		parseT.Fatalf("unmarshal delete response: %v", parseErr4)
 	}
-	if !deleted["ok"] {
-		t.Fatalf("unexpected delete response: %+v", deleted)
+	if !parseDeleted["ok"] {
+		parseT.Fatalf("unexpected delete response: %+v", parseDeleted)
 	}
-	if _, err := server.store.ProductAdminBySlug(context.Background(), "task-lamp-json-pro"); err == nil {
-		t.Fatal("expected deleted JSON product lookup to fail")
+	if _, parseErr5 := parseServer.store.ProductAdminBySlug(context.Background(), "task-lamp-json-pro"); parseErr5 == nil {
+		parseT.Fatal("expected deleted JSON product lookup to fail")
 	}
 }

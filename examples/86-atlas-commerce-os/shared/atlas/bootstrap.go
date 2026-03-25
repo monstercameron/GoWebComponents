@@ -76,8 +76,8 @@ func SupportedLocales() []string {
 	return []string{"en", "fr", "ar"}
 }
 
-func LocaleDirection(locale string) string {
-	if strings.EqualFold(strings.TrimSpace(locale), "ar") {
+func LocaleDirection(parseLocale string) string {
+	if strings.EqualFold(strings.TrimSpace(parseLocale), "ar") {
 		return "rtl"
 	}
 	return "ltr"
@@ -93,19 +93,19 @@ func DefaultPreferences() PreferencesState {
 }
 
 func DefaultTheme() ThemeState {
-	prefs := DefaultPreferences()
-	return ThemeState{Mode: prefs.Theme, PrefersReducedMotion: false}
+	parsePrefs := DefaultPreferences()
+	return ThemeState{Mode: parsePrefs.Theme, PrefersReducedMotion: false}
 }
 
-func DefaultI18n(locale string) I18nState {
-	trimmed := strings.TrimSpace(locale)
-	if trimmed == "" {
-		trimmed = DefaultPreferences().Locale
+func DefaultI18n(parseLocale string) I18nState {
+	parseTrimmed := strings.TrimSpace(parseLocale)
+	if parseTrimmed == "" {
+		parseTrimmed = DefaultPreferences().Locale
 	}
 	return I18nState{
-		Locale:           trimmed,
+		Locale:           parseTrimmed,
 		SupportedLocales: SupportedLocales(),
-		Direction:        LocaleDirection(trimmed),
+		Direction:        LocaleDirection(parseTrimmed),
 	}
 }
 
@@ -121,167 +121,167 @@ type bootstrapData struct {
 	User        *UserSession       `json:"user,omitempty"`
 }
 
-func (p Payload) ToSSRBootstrap() ui.SSRBootstrap {
+func (parseP Payload) ToSSRBootstrap() ui.SSRBootstrap {
 	return ui.SSRBootstrap{
 		Route: ui.SSRRouteBootstrap{
-			Path:   p.Route.Path,
-			Query:  cloneQuery(p.Route.Query),
-			Params: cloneParams(p.Route.Params),
+			Path:   parseP.Route.Path,
+			Query:  cloneQuery(parseP.Route.Query),
+			Params: cloneParams(parseP.Route.Params),
 		},
 		I18n: ui.SSRI18nBootstrap{
-			Locale:         p.I18n.Locale,
+			Locale:         parseP.I18n.Locale,
 			FallbackLocale: "en",
-			Direction:      p.I18n.Direction,
+			Direction:      parseP.I18n.Direction,
 		},
 		Data: map[string]any{
 			atlasBootstrapDataKey: bootstrapData{
-				Route:       p.Route,
-				Preferences: p.Preferences,
-				I18n:        p.I18n,
-				Theme:       p.Theme,
-				Data:        cloneData(p.Data),
-				Requests:    cloneRequestsForBootstrap(p.Data, p.Requests),
-				SavedViews:  append([]SavedViewPayload(nil), p.SavedViews...),
-				CSRF:        p.CSRF,
-				User:        p.User,
+				Route:       parseP.Route,
+				Preferences: parseP.Preferences,
+				I18n:        parseP.I18n,
+				Theme:       parseP.Theme,
+				Data:        cloneData(parseP.Data),
+				Requests:    cloneRequestsForBootstrap(parseP.Data, parseP.Requests),
+				SavedViews:  append([]SavedViewPayload(nil), parseP.SavedViews...),
+				CSRF:        parseP.CSRF,
+				User:        parseP.User,
 			},
 		},
 	}
 }
 
-func PayloadFromSSRBootstrap(input ui.SSRBootstrap) Payload {
-	payload := Payload{
+func PayloadFromSSRBootstrap(parseInput ui.SSRBootstrap) Payload {
+	parsePayload := Payload{
 		Route: RouteBootstrap{
-			Path:   input.Route.Path,
-			Query:  cloneQuery(input.Route.Query),
-			Params: cloneParams(input.Route.Params),
+			Path:   parseInput.Route.Path,
+			Query:  cloneQuery(parseInput.Route.Query),
+			Params: cloneParams(parseInput.Route.Params),
 		},
 		Preferences: DefaultPreferences(),
-		I18n:        DefaultI18n(input.I18n.Locale),
+		I18n:        DefaultI18n(parseInput.I18n.Locale),
 		Theme:       DefaultTheme(),
 		Data:        map[string]any{},
 		Requests:    map[string]Request{},
 	}
-	if raw, ok := input.Data[atlasBootstrapDataKey]; ok {
-		decoded := bootstrapData{}
-		if decodeInto(raw, &decoded) == nil {
-			if decoded.Route.Path != "" {
-				payload.Route.Path = decoded.Route.Path
+	if parseRaw, parseOk := parseInput.Data[atlasBootstrapDataKey]; parseOk {
+		parseDecoded := bootstrapData{}
+		if decodeInto(parseRaw, &parseDecoded) == nil {
+			if parseDecoded.Route.Path != "" {
+				parsePayload.Route.Path = parseDecoded.Route.Path
 			}
-			payload.Route.Surface = decoded.Route.Surface
-			payload.Route.Screen = decoded.Route.Screen
-			payload.Route.Title = decoded.Route.Title
-			payload.Route.Description = decoded.Route.Description
-			payload.Route.Canonical = decoded.Route.Canonical
-			payload.Preferences = decoded.Preferences
-			payload.I18n = decoded.I18n
-			payload.Theme = decoded.Theme
-			payload.Data = cloneData(decoded.Data)
-			payload.Requests = cloneRequests(decoded.Requests)
-			payload.SavedViews = append([]SavedViewPayload(nil), decoded.SavedViews...)
-			payload.CSRF = decoded.CSRF
-			payload.User = decoded.User
+			parsePayload.Route.Surface = parseDecoded.Route.Surface
+			parsePayload.Route.Screen = parseDecoded.Route.Screen
+			parsePayload.Route.Title = parseDecoded.Route.Title
+			parsePayload.Route.Description = parseDecoded.Route.Description
+			parsePayload.Route.Canonical = parseDecoded.Route.Canonical
+			parsePayload.Preferences = parseDecoded.Preferences
+			parsePayload.I18n = parseDecoded.I18n
+			parsePayload.Theme = parseDecoded.Theme
+			parsePayload.Data = cloneData(parseDecoded.Data)
+			parsePayload.Requests = cloneRequests(parseDecoded.Requests)
+			parsePayload.SavedViews = append([]SavedViewPayload(nil), parseDecoded.SavedViews...)
+			parsePayload.CSRF = parseDecoded.CSRF
+			parsePayload.User = parseDecoded.User
 		}
 	}
-	if payload.I18n.Locale == "" {
-		payload.I18n = DefaultI18n(payload.Preferences.Locale)
+	if parsePayload.I18n.Locale == "" {
+		parsePayload.I18n = DefaultI18n(parsePayload.Preferences.Locale)
 	}
-	return payload
+	return parsePayload
 }
 
-func decodeInto(input any, target any) error {
-	encoded, err := json.Marshal(input)
-	if err != nil {
-		return err
+func decodeInto(parseInput any, parseTarget any) error {
+	parseEncoded, parseErr := json.Marshal(parseInput)
+	if parseErr != nil {
+		return parseErr
 	}
-	return json.Unmarshal(encoded, target)
+	return json.Unmarshal(parseEncoded, parseTarget)
 }
 
-func cloneQuery(input map[string][]string) map[string][]string {
-	if len(input) == 0 {
+func cloneQuery(parseInput map[string][]string) map[string][]string {
+	if len(parseInput) == 0 {
 		return map[string][]string{}
 	}
-	clone := make(map[string][]string, len(input))
-	for key, values := range input {
-		clone[key] = append([]string(nil), values...)
+	parseClone := make(map[string][]string, len(parseInput))
+	for parseKey, parseValues := range parseInput {
+		parseClone[parseKey] = append([]string(nil), parseValues...)
 	}
-	return clone
+	return parseClone
 }
 
-func cloneParams(input map[string]string) map[string]string {
-	if len(input) == 0 {
+func cloneParams(parseInput map[string]string) map[string]string {
+	if len(parseInput) == 0 {
 		return map[string]string{}
 	}
-	clone := make(map[string]string, len(input))
-	for key, value := range input {
-		clone[key] = value
+	parseClone := make(map[string]string, len(parseInput))
+	for parseKey, parseValue := range parseInput {
+		parseClone[parseKey] = parseValue
 	}
-	return clone
+	return parseClone
 }
 
-func cloneData(input map[string]any) map[string]any {
-	if len(input) == 0 {
+func cloneData(parseInput map[string]any) map[string]any {
+	if len(parseInput) == 0 {
 		return map[string]any{}
 	}
-	clone := make(map[string]any, len(input))
-	for key, value := range input {
-		clone[key] = value
+	parseClone := make(map[string]any, len(parseInput))
+	for parseKey, parseValue := range parseInput {
+		parseClone[parseKey] = parseValue
 	}
-	return clone
+	return parseClone
 }
 
-func cloneRequests(input map[string]Request) map[string]Request {
-	if len(input) == 0 {
+func cloneRequests(parseInput map[string]Request) map[string]Request {
+	if len(parseInput) == 0 {
 		return map[string]Request{}
 	}
-	clone := make(map[string]Request, len(input))
-	for key, value := range input {
-		clone[key] = Request{
-			Method: value.Method,
-			URL:    value.URL,
-			Status: value.Status,
-			Data:   cloneData(value.Data),
+	parseClone := make(map[string]Request, len(parseInput))
+	for parseKey, parseValue := range parseInput {
+		parseClone[parseKey] = Request{
+			Method: parseValue.Method,
+			URL:    parseValue.URL,
+			Status: parseValue.Status,
+			Data:   cloneData(parseValue.Data),
 		}
 	}
-	return clone
+	return parseClone
 }
 
-func cloneRequestsForBootstrap(routeData map[string]any, input map[string]Request) map[string]Request {
-	if len(input) == 0 {
+func cloneRequestsForBootstrap(parseRouteData map[string]any, parseInput map[string]Request) map[string]Request {
+	if len(parseInput) == 0 {
 		return map[string]Request{}
 	}
-	clone := make(map[string]Request, len(input))
-	for key, value := range input {
-		request := Request{
-			Method: value.Method,
-			URL:    value.URL,
-			Status: value.Status,
+	parseClone := make(map[string]Request, len(parseInput))
+	for parseKey, parseValue := range parseInput {
+		parseRequest := Request{
+			Method: parseValue.Method,
+			URL:    parseValue.URL,
+			Status: parseValue.Status,
 		}
-		if len(value.Data) > 0 {
-			data := map[string]any{}
-			for dataKey, item := range value.Data {
-				if _, duplicated := routeData[dataKey]; duplicated {
+		if len(parseValue.Data) > 0 {
+			parseData := map[string]any{}
+			for parseDataKey, parseItem := range parseValue.Data {
+				if _, parseDuplicated := parseRouteData[parseDataKey]; parseDuplicated {
 					continue
 				}
-				data[dataKey] = item
+				parseData[parseDataKey] = parseItem
 			}
-			if len(data) > 0 {
-				request.Data = cloneData(data)
+			if len(parseData) > 0 {
+				parseRequest.Data = cloneData(parseData)
 			}
 		}
-		clone[key] = request
+		parseClone[parseKey] = parseRequest
 	}
-	return clone
+	return parseClone
 }
 
-func StartupRequest(payload Payload, key string) (Request, bool) {
-	if len(payload.Requests) == 0 {
+func StartupRequest(parsePayload Payload, parseKey string) (Request, bool) {
+	if len(parsePayload.Requests) == 0 {
 		return Request{}, false
 	}
-	request, ok := payload.Requests[strings.TrimSpace(key)]
-	if !ok {
+	parseRequest, parseOk := parsePayload.Requests[strings.TrimSpace(parseKey)]
+	if !parseOk {
 		return Request{}, false
 	}
-	request.Data = cloneData(request.Data)
-	return request, true
+	parseRequest.Data = cloneData(parseRequest.Data)
+	return parseRequest, true
 }

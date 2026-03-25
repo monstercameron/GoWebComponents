@@ -54,48 +54,48 @@ type DiagnosticsSnapshot struct {
 	Storage        StoragePressureDiagnostics
 }
 
-func summarizeOfflineQueue(parseEntries []OfflineQueueEntry) OfflineQueueDiagnostics {
-	parseSummary := OfflineQueueDiagnostics{TotalEntries: len(parseEntries)}
-	for _, parseEntry := range parseEntries {
-		switch parseEntry.State {
+func summarizeOfflineQueue(parseOfflineEntries []OfflineQueueEntry) OfflineQueueDiagnostics {
+	parseOfflineSummary := OfflineQueueDiagnostics{TotalEntries: len(parseOfflineEntries)}
+	for _, parseOfflineEntry := range parseOfflineEntries {
+		switch parseOfflineEntry.State {
 		case "retrying":
-			parseSummary.RetryingEntries++
+			parseOfflineSummary.RetryingEntries++
 		case "dead":
-			parseSummary.DeadEntries++
+			parseOfflineSummary.DeadEntries++
 		default:
-			parseSummary.QueuedEntries++
+			parseOfflineSummary.QueuedEntries++
 		}
-		if parseSummary.OldestCreatedAt.IsZero() || (!parseEntry.CreatedAt.IsZero() && parseEntry.CreatedAt.Before(parseSummary.OldestCreatedAt)) {
-			parseSummary.OldestCreatedAt = parseEntry.CreatedAt
+		if parseOfflineSummary.OldestCreatedAt.IsZero() || (!parseOfflineEntry.CreatedAt.IsZero() && parseOfflineEntry.CreatedAt.Before(parseOfflineSummary.OldestCreatedAt)) {
+			parseOfflineSummary.OldestCreatedAt = parseOfflineEntry.CreatedAt
 		}
-		if parseEntry.UpdatedAt.After(parseSummary.LatestUpdatedAt) {
-			parseSummary.LatestUpdatedAt = parseEntry.UpdatedAt
+		if parseOfflineEntry.UpdatedAt.After(parseOfflineSummary.LatestUpdatedAt) {
+			parseOfflineSummary.LatestUpdatedAt = parseOfflineEntry.UpdatedAt
 		}
 	}
-	return parseSummary
+	return parseOfflineSummary
 }
 
-func pressureLabel(parseRatio float64) string {
+func pressureLabel(parsePressureRatio float64) string {
 	switch {
-	case parseRatio >= 0.9:
+	case parsePressureRatio >= 0.9:
 		return "critical"
-	case parseRatio >= 0.75:
+	case parsePressureRatio >= 0.75:
 		return "elevated"
-	case parseRatio > 0:
+	case parsePressureRatio > 0:
 		return "normal"
 	default:
 		return "unknown"
 	}
 }
 
-func (parseS StoragePressureDiagnostics) normalized() StoragePressureDiagnostics {
-	if parseS.QuotaBytes > 0 && parseS.UsageRatio == 0 {
-		parseS.UsageRatio = float64(parseS.UsageBytes) / float64(parseS.QuotaBytes)
+func (parseStorage StoragePressureDiagnostics) normalized() StoragePressureDiagnostics {
+	if parseStorage.QuotaBytes > 0 && parseStorage.UsageRatio == 0 {
+		parseStorage.UsageRatio = float64(parseStorage.UsageBytes) / float64(parseStorage.QuotaBytes)
 	}
-	if parseS.Pressure == "" {
-		parseS.Pressure = pressureLabel(parseS.UsageRatio)
+	if parseStorage.Pressure == "" {
+		parseStorage.Pressure = pressureLabel(parseStorage.UsageRatio)
 	}
-	return parseS
+	return parseStorage
 }
 
 func _diagnosticsContext(_ context.Context) {}

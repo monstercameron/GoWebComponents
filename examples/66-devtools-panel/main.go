@@ -16,7 +16,7 @@ import (
 )
 
 func devtoolsPanelExample() ui.Node {
-	count := ui.UseState(0)
+	parseCount := ui.UseState(0)
 	return ui.Fragment(
 		shared.ExamplePage(
 			"devtools.Panel",
@@ -25,8 +25,8 @@ func devtoolsPanelExample() ui.Node {
 			shared.ExamplePanel("Live app state",
 				html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("Use the button below, then open the devtools panel in the bottom-right corner to see the tree and hook state update.")),
 				html.Div(html.Props{Class: "mt-6 flex gap-3"},
-					shared.ExampleButton("Increment state", ui.UseEvent(func() { count.Update(func(previous int) int { return previous + 1 }) })),
-					shared.ExampleStat("Count", ui.UseMemo(func() string { return htmlText(count.Get()) }, count.Get())),
+					shared.ExampleButton("Increment state", ui.UseEvent(func() { parseCount.Update(func(parsePrevious int) int { return parsePrevious + 1 }) })),
+					shared.ExampleStat("Count", ui.UseMemo(func() string { return htmlText(parseCount.Get()) }, parseCount.Get())),
 				),
 			),
 		),
@@ -39,8 +39,8 @@ func devtoolsPanelExample() ui.Node {
 	)
 }
 
-func htmlText(value int) string {
-	return fmt.Sprintf("%d", value)
+func htmlText(parseValue int) string {
+	return fmt.Sprintf("%d", parseValue)
 }
 
 func main() {

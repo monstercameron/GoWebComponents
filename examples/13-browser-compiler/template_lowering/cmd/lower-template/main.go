@@ -9,34 +9,34 @@ import (
 )
 
 func main() {
-	inputPath := flag.String("input", "", "path to the constrained HTML-like template")
-	outputPath := flag.String("output", "", "path to write the generated Go file; omit to print to stdout")
-	packageName := flag.String("package", "templatelowering", "generated package name")
-	structName := flag.String("struct", "LandingProps", "generated props struct name")
-	funcName := flag.String("func", "RenderLanding", "generated render function name")
+	parseInputPath := flag.String("input", "", "path to the constrained HTML-like template")
+	parseOutputPath := flag.String("output", "", "path to write the generated Go file; omit to print to stdout")
+	parsePackageName := flag.String("package", "templatelowering", "generated package name")
+	parseStructName := flag.String("struct", "LandingProps", "generated props struct name")
+	parseFuncName := flag.String("func", "RenderLanding", "generated render function name")
 	flag.Parse()
 
-	if *inputPath == "" {
+	if *parseInputPath == "" {
 		fmt.Fprintln(os.Stderr, "lower-template: -input is required")
 		os.Exit(1)
 	}
 
-	output, err := templatelowering.GenerateFromFile(*inputPath, templatelowering.TemplateConfig{
-		PackageName: *packageName,
-		StructName:  *structName,
-		FuncName:    *funcName,
+	parseOutput, parseErr := templatelowering.GenerateFromFile(*parseInputPath, templatelowering.TemplateConfig{
+		PackageName: *parsePackageName,
+		StructName:  *parseStructName,
+		FuncName:    *parseFuncName,
 	})
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	if parseErr != nil {
+		fmt.Fprintln(os.Stderr, parseErr)
 		os.Exit(1)
 	}
 
-	if *outputPath == "" {
-		fmt.Print(output)
+	if *parseOutputPath == "" {
+		fmt.Print(parseOutput)
 		return
 	}
-	if err := os.WriteFile(*outputPath, []byte(output), 0o644); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	if parseErr2 := os.WriteFile(*parseOutputPath, []byte(parseOutput), 0o644); parseErr2 != nil {
+		fmt.Fprintln(os.Stderr, parseErr2)
 		os.Exit(1)
 	}
 }

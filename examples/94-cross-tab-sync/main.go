@@ -43,213 +43,213 @@ type draftSignal struct {
 }
 
 func crossTabExample() ui.Node {
-	theme := ui.UseState("light")
-	session := ui.UseState("signed-in")
+	parseTheme := ui.UseState("light")
+	parseSession := ui.UseState("signed-in")
 	cacheStatus := ui.UseState("products:list is fresh.")
 	cacheRevision := ui.UseState(1)
-	draft := ui.UseState("Open this page in a second tab, then broadcast a new draft.")
-	draftVersion := ui.UseState(1)
-	themeTransport := ui.UseState("pending")
-	authTransport := ui.UseState("pending")
+	parseDraft := ui.UseState("Open this page in a second tab, then broadcast a new draft.")
+	parseDraftVersion := ui.UseState(1)
+	parseThemeTransport := ui.UseState("pending")
+	parseAuthTransport := ui.UseState("pending")
 	cacheTransport := ui.UseState("pending")
-	draftTransport := ui.UseState("pending")
-	logs := ui.UseState([]string{"Open this example in two tabs to watch cross-tab updates arrive."})
+	parseDraftTransport := ui.UseState("pending")
+	parseLogs := ui.UseState([]string{"Open this example in two tabs to watch cross-tab updates arrive."})
 
-	appendLog := func(line string) {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
+	parseAppendLog := func(parseLine string) {
+		parseTrimmed := strings.TrimSpace(parseLine)
+		if parseTrimmed == "" {
 			return
 		}
-		logs.Update(func(previous []string) []string {
-			next := append([]string{trimmed}, previous...)
-			if len(next) > 8 {
-				next = next[:8]
+		parseLogs.Update(func(parsePrevious []string) []string {
+			parseNext := append([]string{parseTrimmed}, parsePrevious...)
+			if len(parseNext) > 8 {
+				parseNext = parseNext[:8]
 			}
-			return next
+			return parseNext
 		})
 	}
 
-	describeError := func(prefix string, err error) string {
-		if err == nil {
-			return prefix
+	parseDescribeError := func(parsePrefix string, parseErr8 error) string {
+		if parseErr8 == nil {
+			return parsePrefix
 		}
-		if code, ok := interop.CodeOf(err); ok {
-			return fmt.Sprintf("%s [%s]: %v", prefix, code, err)
+		if parseCode, parseOk := interop.CodeOf(parseErr8); parseOk {
+			return fmt.Sprintf("%s [%s]: %v", parsePrefix, parseCode, parseErr8)
 		}
-		return fmt.Sprintf("%s: %v", prefix, err)
+		return fmt.Sprintf("%s: %v", parsePrefix, parseErr8)
 	}
 
-	publish := func(name string, payload any, after func(interop.CrossTabChannel)) {
-		channel, err := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{Name: name})
-		if err != nil {
-			appendLog(describeError("Cross-tab channel unavailable", err))
+	parsePublish := func(parseName string, parsePayload any, parseAfter func(interop.CrossTabChannel)) {
+		parseChannel, parseErr := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{Name: parseName})
+		if parseErr != nil {
+			parseAppendLog(parseDescribeError("Cross-tab channel unavailable", parseErr))
 			return
 		}
-		defer channel.Close()
-		if err := channel.Publish(payload); err != nil {
-			appendLog(describeError("Cross-tab publish failed", err))
+		defer parseChannel.Close()
+		if parseErr2 := parseChannel.Publish(parsePayload); parseErr2 != nil {
+			parseAppendLog(parseDescribeError("Cross-tab publish failed", parseErr2))
 			return
 		}
-		if after != nil {
-			after(channel)
+		if parseAfter != nil {
+			parseAfter(parseChannel)
 		}
 	}
 
-	setDraft := ui.UseEvent(func(e ui.Event) {
-		draft.Set(e.GetValue())
+	setDraft := ui.UseEvent(func(parseE ui.Event) {
+		parseDraft.Set(parseE.GetValue())
 	})
-	broadcastLight := ui.UseEvent(func() {
-		publish(themeChannelName, themeSignal{Theme: "light"}, func(channel interop.CrossTabChannel) {
-			theme.Set("light")
-			themeTransport.Set(channel.Transport())
-			appendLog("Sent theme update: light via " + channel.Transport())
+	parseBroadcastLight := ui.UseEvent(func() {
+		parsePublish(themeChannelName, themeSignal{Theme: "light"}, func(parseChannel2 interop.CrossTabChannel) {
+			parseTheme.Set("light")
+			parseThemeTransport.Set(parseChannel2.Transport())
+			parseAppendLog("Sent theme update: light via " + parseChannel2.Transport())
 		})
 	})
-	broadcastDark := ui.UseEvent(func() {
-		publish(themeChannelName, themeSignal{Theme: "dark"}, func(channel interop.CrossTabChannel) {
-			theme.Set("dark")
-			themeTransport.Set(channel.Transport())
-			appendLog("Sent theme update: dark via " + channel.Transport())
+	parseBroadcastDark := ui.UseEvent(func() {
+		parsePublish(themeChannelName, themeSignal{Theme: "dark"}, func(parseChannel3 interop.CrossTabChannel) {
+			parseTheme.Set("dark")
+			parseThemeTransport.Set(parseChannel3.Transport())
+			parseAppendLog("Sent theme update: dark via " + parseChannel3.Transport())
 		})
 	})
-	broadcastLogout := ui.UseEvent(func() {
-		publish(authChannelName, authSignal{Status: "signed-out", Reason: "Operator signed out in another tab."}, func(channel interop.CrossTabChannel) {
-			session.Set("signed-out")
-			authTransport.Set(channel.Transport())
-			appendLog("Broadcast a signed-out auth hint via " + channel.Transport())
+	parseBroadcastLogout := ui.UseEvent(func() {
+		parsePublish(authChannelName, authSignal{Status: "signed-out", Reason: "Operator signed out in another tab."}, func(parseChannel4 interop.CrossTabChannel) {
+			parseSession.Set("signed-out")
+			parseAuthTransport.Set(parseChannel4.Transport())
+			parseAppendLog("Broadcast a signed-out auth hint via " + parseChannel4.Transport())
 		})
 	})
-	invalidateCache := ui.UseEvent(func() {
-		nextRevision := cacheRevision.Get() + 1
-		publish(cacheChannelName, cacheSignal{Key: "products:list", Revision: nextRevision}, func(channel interop.CrossTabChannel) {
-			cacheRevision.Set(nextRevision)
-			cacheStatus.Set(fmt.Sprintf("Published invalidation for products:list rev %d.", nextRevision))
-			cacheTransport.Set(channel.Transport())
-			appendLog(fmt.Sprintf("Broadcast cache invalidation rev %d via %s", nextRevision, channel.Transport()))
+	parseInvalidateCache := ui.UseEvent(func() {
+		parseNextRevision := cacheRevision.Get() + 1
+		parsePublish(cacheChannelName, cacheSignal{Key: "products:list", Revision: parseNextRevision}, func(parseChannel5 interop.CrossTabChannel) {
+			cacheRevision.Set(parseNextRevision)
+			cacheStatus.Set(fmt.Sprintf("Published invalidation for products:list rev %d.", parseNextRevision))
+			cacheTransport.Set(parseChannel5.Transport())
+			parseAppendLog(fmt.Sprintf("Broadcast cache invalidation rev %d via %s", parseNextRevision, parseChannel5.Transport()))
 		})
 	})
-	broadcastDraft := ui.UseEvent(func() {
-		nextVersion := draftVersion.Get() + 1
-		publish(draftChannelName, draftSignal{
-			Draft:   draft.Get(),
-			Version: nextVersion,
+	parseBroadcastDraft := ui.UseEvent(func() {
+		parseNextVersion := parseDraftVersion.Get() + 1
+		parsePublish(draftChannelName, draftSignal{
+			Draft:   parseDraft.Get(),
+			Version: parseNextVersion,
 			Editor:  "local tab",
-		}, func(channel interop.CrossTabChannel) {
-			draftVersion.Set(nextVersion)
-			draftTransport.Set(channel.Transport())
-			appendLog(fmt.Sprintf("Broadcast draft version %d via %s", nextVersion, channel.Transport()))
+		}, func(parseChannel6 interop.CrossTabChannel) {
+			parseDraftVersion.Set(parseNextVersion)
+			parseDraftTransport.Set(parseChannel6.Transport())
+			parseAppendLog(fmt.Sprintf("Broadcast draft version %d via %s", parseNextVersion, parseChannel6.Transport()))
 		})
 	})
 
 	ui.UseEffect(func() func() {
 		type channelBinding struct {
 			channel interop.CrossTabChannel
-			cancel  func()
+			cel     func()
 		}
-		bindings := make([]channelBinding, 0, 4)
+		parseBindings := make([]channelBinding, 0, 4)
 
-		openTheme, err := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{Name: themeChannelName})
-		if err != nil {
-			appendLog(describeError("Theme channel unavailable", err))
+		parseOpenTheme, parseErr3 := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{Name: themeChannelName})
+		if parseErr3 != nil {
+			parseAppendLog(parseDescribeError("Theme channel unavailable", parseErr3))
 		} else {
-			themeTransport.Set(openTheme.Transport())
-			subscription, err := interop.SubscribeDecodedCrossTab[themeSignal](openTheme, func(message interop.DecodedCrossTabEnvelope[themeSignal], err error) {
-				if err != nil {
-					appendLog(describeError("Theme sync failed", err))
+			parseThemeTransport.Set(parseOpenTheme.Transport())
+			parseSubscription, parseErr4 := interop.SubscribeDecodedCrossTab[themeSignal](parseOpenTheme, func(parseMessage interop.DecodedCrossTabEnvelope[themeSignal], parseErr9 error) {
+				if parseErr9 != nil {
+					parseAppendLog(parseDescribeError("Theme sync failed", parseErr9))
 					return
 				}
-				theme.Set(strings.TrimSpace(message.Payload.Theme))
-				appendLog(fmt.Sprintf("Received theme %q from %s.", message.Payload.Theme, message.Source))
+				parseTheme.Set(strings.TrimSpace(parseMessage.Payload.Theme))
+				parseAppendLog(fmt.Sprintf("Received theme %q from %s.", parseMessage.Payload.Theme, parseMessage.Source))
 			})
-			if err != nil {
-				appendLog(describeError("Theme subscription failed", err))
-				openTheme.Close()
+			if parseErr4 != nil {
+				parseAppendLog(parseDescribeError("Theme subscription failed", parseErr4))
+				parseOpenTheme.Close()
 			} else {
-				bindings = append(bindings, channelBinding{channel: openTheme, cancel: subscription.Cancel})
+				parseBindings = append(parseBindings, channelBinding{channel: parseOpenTheme, cancel: parseSubscription.Cancel})
 			}
 		}
 
-		openAuth, err := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{Name: authChannelName})
-		if err != nil {
-			appendLog(describeError("Auth channel unavailable", err))
+		parseOpenAuth, parseErr3 := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{Name: authChannelName})
+		if parseErr3 != nil {
+			parseAppendLog(parseDescribeError("Auth channel unavailable", parseErr3))
 		} else {
-			authTransport.Set(openAuth.Transport())
-			subscription, err := interop.SubscribeDecodedCrossTab[authSignal](openAuth, func(message interop.DecodedCrossTabEnvelope[authSignal], err error) {
-				if err != nil {
-					appendLog(describeError("Auth sync failed", err))
+			parseAuthTransport.Set(parseOpenAuth.Transport())
+			parseSubscription2, parseErr5 := interop.SubscribeDecodedCrossTab[authSignal](parseOpenAuth, func(parseMessage2 interop.DecodedCrossTabEnvelope[authSignal], parseErr10 error) {
+				if parseErr10 != nil {
+					parseAppendLog(parseDescribeError("Auth sync failed", parseErr10))
 					return
 				}
-				session.Set(message.Payload.Status)
-				appendLog(fmt.Sprintf("Received auth signal %q: %s", message.Payload.Status, message.Payload.Reason))
+				parseSession.Set(parseMessage2.Payload.Status)
+				parseAppendLog(fmt.Sprintf("Received auth signal %q: %s", parseMessage2.Payload.Status, parseMessage2.Payload.Reason))
 			})
-			if err != nil {
-				appendLog(describeError("Auth subscription failed", err))
-				openAuth.Close()
+			if parseErr5 != nil {
+				parseAppendLog(parseDescribeError("Auth subscription failed", parseErr5))
+				parseOpenAuth.Close()
 			} else {
-				bindings = append(bindings, channelBinding{channel: openAuth, cancel: subscription.Cancel})
+				parseBindings = append(parseBindings, channelBinding{channel: parseOpenAuth, cancel: parseSubscription2.Cancel})
 			}
 		}
 
-		openCache, err := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{Name: cacheChannelName})
-		if err != nil {
-			appendLog(describeError("Cache channel unavailable", err))
+		parseOpenCache, parseErr3 := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{Name: cacheChannelName})
+		if parseErr3 != nil {
+			parseAppendLog(parseDescribeError("Cache channel unavailable", parseErr3))
 		} else {
-			cacheTransport.Set(openCache.Transport())
-			subscription, err := interop.SubscribeDecodedCrossTab[cacheSignal](openCache, func(message interop.DecodedCrossTabEnvelope[cacheSignal], err error) {
-				if err != nil {
-					appendLog(describeError("Cache sync failed", err))
+			cacheTransport.Set(parseOpenCache.Transport())
+			parseSubscription3, parseErr6 := interop.SubscribeDecodedCrossTab[cacheSignal](parseOpenCache, func(parseMessage3 interop.DecodedCrossTabEnvelope[cacheSignal], parseErr11 error) {
+				if parseErr11 != nil {
+					parseAppendLog(parseDescribeError("Cache sync failed", parseErr11))
 					return
 				}
-				cacheRevision.Set(message.Payload.Revision)
-				cacheStatus.Set(fmt.Sprintf("Received invalidation for %s rev %d. Revalidate authoritative data now.", message.Payload.Key, message.Payload.Revision))
-				appendLog(fmt.Sprintf("Received cache invalidation for %s rev %d.", message.Payload.Key, message.Payload.Revision))
+				cacheRevision.Set(parseMessage3.Payload.Revision)
+				cacheStatus.Set(fmt.Sprintf("Received invalidation for %s rev %d. Revalidate authoritative data now.", parseMessage3.Payload.Key, parseMessage3.Payload.Revision))
+				parseAppendLog(fmt.Sprintf("Received cache invalidation for %s rev %d.", parseMessage3.Payload.Key, parseMessage3.Payload.Revision))
 			})
-			if err != nil {
-				appendLog(describeError("Cache subscription failed", err))
-				openCache.Close()
+			if parseErr6 != nil {
+				parseAppendLog(parseDescribeError("Cache subscription failed", parseErr6))
+				parseOpenCache.Close()
 			} else {
-				bindings = append(bindings, channelBinding{channel: openCache, cancel: subscription.Cancel})
+				parseBindings = append(parseBindings, channelBinding{channel: parseOpenCache, cancel: parseSubscription3.Cancel})
 			}
 		}
 
-		openDraft, err := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{Name: draftChannelName})
-		if err != nil {
-			appendLog(describeError("Draft channel unavailable", err))
+		parseOpenDraft, parseErr3 := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{Name: draftChannelName})
+		if parseErr3 != nil {
+			parseAppendLog(parseDescribeError("Draft channel unavailable", parseErr3))
 		} else {
-			draftTransport.Set(openDraft.Transport())
-			subscription, err := interop.SubscribeDecodedCrossTab[draftSignal](openDraft, func(message interop.DecodedCrossTabEnvelope[draftSignal], err error) {
-				if err != nil {
-					appendLog(describeError("Draft sync failed", err))
+			parseDraftTransport.Set(parseOpenDraft.Transport())
+			parseSubscription4, parseErr7 := interop.SubscribeDecodedCrossTab[draftSignal](parseOpenDraft, func(parseMessage4 interop.DecodedCrossTabEnvelope[draftSignal], parseErr12 error) {
+				if parseErr12 != nil {
+					parseAppendLog(parseDescribeError("Draft sync failed", parseErr12))
 					return
 				}
-				if message.Payload.Version >= draftVersion.Get() {
-					draft.Set(message.Payload.Draft)
-					draftVersion.Set(message.Payload.Version)
+				if parseMessage4.Payload.Version >= parseDraftVersion.Get() {
+					parseDraft.Set(parseMessage4.Payload.Draft)
+					parseDraftVersion.Set(parseMessage4.Payload.Version)
 				}
-				appendLog(fmt.Sprintf("Received draft version %d from %s.", message.Payload.Version, message.Payload.Editor))
+				parseAppendLog(fmt.Sprintf("Received draft version %d from %s.", parseMessage4.Payload.Version, parseMessage4.Payload.Editor))
 			})
-			if err != nil {
-				appendLog(describeError("Draft subscription failed", err))
-				openDraft.Close()
+			if parseErr7 != nil {
+				parseAppendLog(parseDescribeError("Draft subscription failed", parseErr7))
+				parseOpenDraft.Close()
 			} else {
-				bindings = append(bindings, channelBinding{channel: openDraft, cancel: subscription.Cancel})
+				parseBindings = append(parseBindings, channelBinding{channel: parseOpenDraft, cancel: parseSubscription4.Cancel})
 			}
 		}
 
 		return func() {
-			for i := len(bindings) - 1; i >= 0; i-- {
-				if bindings[i].cancel != nil {
-					bindings[i].cancel()
+			for parseI := len(parseBindings) - 1; parseI >= 0; parseI-- {
+				if parseBindings[parseI].cancel != nil {
+					parseBindings[parseI].cancel()
 				}
-				_ = bindings[i].channel.Close()
+				_ = parseBindings[parseI].channel.Close()
 			}
 		}
 	}, true)
 
-	logNodes := make([]ui.Node, 0, len(logs.Get()))
-	for _, entry := range logs.Get() {
-		logNodes = append(logNodes,
-			html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm leading-7 text-slate-300"}, html.Text(entry)),
+	parseLogNodes := make([]ui.Node, 0, len(parseLogs.Get()))
+	for _, parseEntry := range parseLogs.Get() {
+		parseLogNodes = append(parseLogNodes,
+			html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm leading-7 text-slate-300"}, html.Text(parseEntry)),
 		)
 	}
 
@@ -260,16 +260,16 @@ func crossTabExample() ui.Node {
 		shared.ExamplePanel("Cross-tab state hints",
 			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("Each concern uses its own named channel instead of one global bus. The sender updates its own local state immediately, while the second tab receives the typed signal through SubscribeDecodedCrossTab(...).")),
 			html.Div(html.Props{Class: "mt-5 grid gap-4 md:grid-cols-4"},
-				shared.ExampleStat("Theme", theme.Get()),
-				shared.ExampleStat("Session", session.Get()),
+				shared.ExampleStat("Theme", parseTheme.Get()),
+				shared.ExampleStat("Session", parseSession.Get()),
 				shared.ExampleStat("Cache rev", fmt.Sprintf("%d", cacheRevision.Get())),
-				shared.ExampleStat("Draft version", fmt.Sprintf("%d", draftVersion.Get())),
+				shared.ExampleStat("Draft version", fmt.Sprintf("%d", parseDraftVersion.Get())),
 			),
 			html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"},
-				shared.ExampleButton("Theme: light", broadcastLight),
-				shared.ExampleButton("Theme: dark", broadcastDark),
-				shared.ExampleButton("Broadcast logout", broadcastLogout),
-				shared.ExampleButton("Invalidate cache", invalidateCache),
+				shared.ExampleButton("Theme: light", parseBroadcastLight),
+				shared.ExampleButton("Theme: dark", parseBroadcastDark),
+				shared.ExampleButton("Broadcast logout", parseBroadcastLogout),
+				shared.ExampleButton("Invalidate cache", parseInvalidateCache),
 			),
 			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text(cacheStatus.Get())),
 		),
@@ -278,25 +278,25 @@ func crossTabExample() ui.Node {
 			html.Textarea(html.Props{
 				ID:          "cross-tab-draft",
 				Rows:        7,
-				Value:       draft.Get(),
+				Value:       parseDraft.Get(),
 				OnInput:     setDraft,
 				Placeholder: "Edit this draft in one tab, then broadcast it to the other.",
 				Class:       "mt-2 w-full rounded-[1.35rem] border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100",
 			}),
 			html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"},
-				shared.ExampleButton("Broadcast draft", broadcastDraft),
+				shared.ExampleButton("Broadcast draft", parseBroadcastDraft),
 			),
 			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text("Draft updates carry a version field so receivers can ignore obviously older state after their own restore or local edits.")),
 		),
 		shared.ExamplePanel("Diagnostics",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-4"},
-				shared.ExampleStat("Theme transport", themeTransport.Get()),
-				shared.ExampleStat("Auth transport", authTransport.Get()),
+				shared.ExampleStat("Theme transport", parseThemeTransport.Get()),
+				shared.ExampleStat("Auth transport", parseAuthTransport.Get()),
 				shared.ExampleStat("Cache transport", cacheTransport.Get()),
-				shared.ExampleStat("Draft transport", draftTransport.Get()),
+				shared.ExampleStat("Draft transport", parseDraftTransport.Get()),
 			),
 			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text("The diagnostics log shows what arrived from another tab and which transport the browser resolved. BroadcastChannel is preferred, and localStorage storage events are the fallback.")),
-			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, logNodes...),
+			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, parseLogNodes...),
 		),
 		shared.ExamplePanel("Integration shape",
 			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("Use one named channel per concern, restore local bootstrap or persisted state first, then open the channel and ignore incoming messages that are older than the local revision when conflict risk is real.")),

@@ -7,125 +7,125 @@ import (
 	"testing"
 )
 
-func TestRemoveLegacyArtifactHandlesExistingMissingAndErrors(t *testing.T) {
-	dir := t.TempDir()
-	filePath := filepath.Join(dir, "artifact.wasm")
-	if err := os.WriteFile(filePath, []byte("data"), 0o644); err != nil {
-		t.Fatalf("WriteFile(): %v", err)
+func TestRemoveLegacyArtifactHandlesExistingMissingAndErrors(parseT *testing.T) {
+	parseDir := parseT.TempDir()
+	parseFilePath := filepath.Join(parseDir, "artifact.wasm")
+	if parseErr := os.WriteFile(parseFilePath, []byte("data"), 0o644); parseErr != nil {
+		parseT.Fatalf("WriteFile(): %v", parseErr)
 	}
-	if err := removeLegacyArtifact(filePath); err != nil {
-		t.Fatalf("removeLegacyArtifact(existing): %v", err)
+	if parseErr2 := parseRemoveLegacyArtifact(parseFilePath); parseErr2 != nil {
+		parseT.Fatalf("removeLegacyArtifact(existing): %v", parseErr2)
 	}
-	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
-		t.Fatalf("expected artifact to be removed, stat err=%v", err)
+	if _, parseErr3 := os.Stat(parseFilePath); !os.IsNotExist(parseErr3) {
+		parseT.Fatalf("expected artifact to be removed, stat err=%v", parseErr3)
 	}
-	if err := removeLegacyArtifact(filePath); err != nil {
-		t.Fatalf("removeLegacyArtifact(missing): %v", err)
+	if parseErr4 := parseRemoveLegacyArtifact(parseFilePath); parseErr4 != nil {
+		parseT.Fatalf("removeLegacyArtifact(missing): %v", parseErr4)
 	}
 
-	blockedPath := filepath.Join(dir, "blocked")
-	if err := os.MkdirAll(blockedPath, 0o755); err != nil {
-		t.Fatalf("MkdirAll(): %v", err)
+	parseBlockedPath := filepath.Join(parseDir, "blocked")
+	if parseErr5 := os.MkdirAll(parseBlockedPath, 0o755); parseErr5 != nil {
+		parseT.Fatalf("MkdirAll(): %v", parseErr5)
 	}
-	if err := os.WriteFile(filepath.Join(blockedPath, "child.txt"), []byte("child"), 0o644); err != nil {
-		t.Fatalf("WriteFile(child): %v", err)
+	if parseErr6 := os.WriteFile(filepath.Join(parseBlockedPath, "child.txt"), []byte("child"), 0o644); parseErr6 != nil {
+		parseT.Fatalf("WriteFile(child): %v", parseErr6)
 	}
-	if err := removeLegacyArtifact(blockedPath); err == nil || !strings.Contains(err.Error(), "remove legacy artifact") {
-		t.Fatalf("expected directory removal error, got %v", err)
+	if parseErr7 := parseRemoveLegacyArtifact(parseBlockedPath); parseErr7 == nil || !strings.Contains(parseErr7.ParseError(), "remove legacy artifact") {
+		parseT.Fatalf("expected directory removal error, got %v", parseErr7)
 	}
 }
 
-func TestFindRepoRootWalksUpwardAndFailsWhenMissing(t *testing.T) {
-	root := t.TempDir()
-	nested := filepath.Join(root, "a", "b", "c")
-	if err := os.MkdirAll(nested, 0o755); err != nil {
-		t.Fatalf("MkdirAll(): %v", err)
+func TestFindRepoRootWalksUpwardAndFailsWhenMissing(parseT *testing.T) {
+	parseRoot := parseT.TempDir()
+	parseNested := filepath.Join(parseRoot, "a", "b", "c")
+	if parseErr := os.MkdirAll(parseNested, 0o755); parseErr != nil {
+		parseT.Fatalf("MkdirAll(): %v", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/test\n"), 0o644); err != nil {
-		t.Fatalf("WriteFile(go.mod): %v", err)
-	}
-
-	originalWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Getwd(): %v", err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(originalWD) })
-
-	if err := os.Chdir(nested); err != nil {
-		t.Fatalf("Chdir(nested): %v", err)
-	}
-	resolved, err := findRepoRoot()
-	if err != nil {
-		t.Fatalf("findRepoRoot(): %v", err)
-	}
-	if resolved != root {
-		t.Fatalf("findRepoRoot() = %q, want %q", resolved, root)
+	if parseErr2 := os.WriteFile(filepath.Join(parseRoot, "go.mod"), []byte("module example.com/test\n"), 0o644); parseErr2 != nil {
+		parseT.Fatalf("WriteFile(go.mod): %v", parseErr2)
 	}
 
-	other := t.TempDir()
-	if err := os.Chdir(other); err != nil {
-		t.Fatalf("Chdir(other): %v", err)
+	parseOriginalWD, parseErr3 := os.Getwd()
+	if parseErr3 != nil {
+		parseT.Fatalf("Getwd(): %v", parseErr3)
 	}
-	if _, err := findRepoRoot(); err == nil || !strings.Contains(err.Error(), "go.mod not found") {
-		t.Fatalf("expected missing go.mod error, got %v", err)
+	parseT.Cleanup(func() { _ = os.Chdir(parseOriginalWD) })
+
+	if parseErr4 := os.Chdir(parseNested); parseErr4 != nil {
+		parseT.Fatalf("Chdir(nested): %v", parseErr4)
+	}
+	parseResolved, parseErr3 := parseFindRepoRoot()
+	if parseErr3 != nil {
+		parseT.Fatalf("findRepoRoot(): %v", parseErr3)
+	}
+	if parseResolved != parseRoot {
+		parseT.Fatalf("findRepoRoot() = %q, want %q", parseResolved, parseRoot)
+	}
+
+	parseOther := parseT.TempDir()
+	if parseErr5 := os.Chdir(parseOther); parseErr5 != nil {
+		parseT.Fatalf("Chdir(other): %v", parseErr5)
+	}
+	if _, parseErr6 := parseFindRepoRoot(); parseErr6 == nil || !strings.Contains(parseErr6.ParseError(), "go.mod not found") {
+		parseT.Fatalf("expected missing go.mod error, got %v", parseErr6)
 	}
 }
 
-func TestWriteBrotliSidecarProducesCompressedArtifactAndErrorsOnMissingSource(t *testing.T) {
-	dir := t.TempDir()
-	sourcePath := filepath.Join(dir, "chat.wasm")
-	targetPath := filepath.Join(dir, "chat.wasm.br")
-	if err := os.WriteFile(sourcePath, []byte(strings.Repeat("hello wasm\n", 20)), 0o644); err != nil {
-		t.Fatalf("WriteFile(source): %v", err)
+func TestWriteBrotliSidecarProducesCompressedArtifactAndErrorsOnMissingSource(parseT *testing.T) {
+	parseDir := parseT.TempDir()
+	parseSourcePath := filepath.Join(parseDir, "chat.wasm")
+	parseTargetPath := filepath.Join(parseDir, "chat.wasm.br")
+	if parseErr := os.WriteFile(parseSourcePath, []byte(strings.Repeat("hello wasm\n", 20)), 0o644); parseErr != nil {
+		parseT.Fatalf("WriteFile(source): %v", parseErr)
 	}
 
-	if err := writeBrotliSidecar(sourcePath, targetPath); err != nil {
-		t.Fatalf("writeBrotliSidecar(): %v", err)
+	if parseErr2 := parseWriteBrotliSidecar(parseSourcePath, parseTargetPath); parseErr2 != nil {
+		parseT.Fatalf("writeBrotliSidecar(): %v", parseErr2)
 	}
-	info, err := os.Stat(targetPath)
-	if err != nil {
-		t.Fatalf("Stat(target): %v", err)
+	parseInfo, parseErr3 := os.Stat(parseTargetPath)
+	if parseErr3 != nil {
+		parseT.Fatalf("Stat(target): %v", parseErr3)
 	}
-	if info.Size() == 0 {
-		t.Fatal("expected non-empty brotli sidecar")
+	if parseInfo.Size() == 0 {
+		parseT.Fatal("expected non-empty brotli sidecar")
 	}
 
-	missingSource := filepath.Join(dir, "missing.wasm")
-	if err := writeBrotliSidecar(missingSource, filepath.Join(dir, "missing.wasm.br")); err == nil || !strings.Contains(err.Error(), "read source artifact for brotli") {
-		t.Fatalf("expected missing source error, got %v", err)
+	parseMissingSource := filepath.Join(parseDir, "missing.wasm")
+	if parseErr4 := parseWriteBrotliSidecar(parseMissingSource, filepath.Join(parseDir, "missing.wasm.br")); parseErr4 == nil || !strings.Contains(parseErr4.ParseError(), "read source artifact for brotli") {
+		parseT.Fatalf("expected missing source error, got %v", parseErr4)
 	}
 }
 
-func TestBuildTargetUsesGoCommandAndSurfacesFailures(t *testing.T) {
-	dir := t.TempDir()
-	outputPath := filepath.Join(dir, "bin", "chat.wasm")
-	shimDir := filepath.Join(dir, "shim")
-	if err := os.MkdirAll(shimDir, 0o755); err != nil {
-		t.Fatalf("MkdirAll(shimDir): %v", err)
+func TestBuildTargetUsesGoCommandAndSurfacesFailures(parseT *testing.T) {
+	parseDir := parseT.TempDir()
+	parseOutputPath := filepath.Join(parseDir, "bin", "chat.wasm")
+	parseShimDir := filepath.Join(parseDir, "shim")
+	if parseErr := os.MkdirAll(parseShimDir, 0o755); parseErr != nil {
+		parseT.Fatalf("MkdirAll(shimDir): %v", parseErr)
 	}
 
-	successShim := filepath.Join(shimDir, "go.cmd")
-	if err := os.WriteFile(successShim, []byte("@echo off\r\nset out=\r\n:loop\r\nif \"%1\"==\"\" goto done\r\nif \"%1\"==\"-o\" (\r\n  set out=%2\r\n  shift\r\n)\r\nshift\r\ngoto loop\r\n:done\r\necho wasm>%out%\r\n"), 0o644); err != nil {
-		t.Fatalf("WriteFile(success shim): %v", err)
+	parseSuccessShim := filepath.Join(parseShimDir, "go.cmd")
+	if parseErr2 := os.WriteFile(parseSuccessShim, []byte("@echo off\r\nset out=\r\n:loop\r\nif \"%1\"==\"\" goto done\r\nif \"%1\"==\"-o\" (\r\n  set out=%2\r\n  shift\r\n)\r\nshift\r\ngoto loop\r\n:done\r\necho wasm>%out%\r\n"), 0o644); parseErr2 != nil {
+		parseT.Fatalf("WriteFile(success shim): %v", parseErr2)
 	}
 
-	originalPath := os.Getenv("PATH")
-	t.Cleanup(func() { _ = os.Setenv("PATH", originalPath) })
-	if err := os.Setenv("PATH", shimDir+string(os.PathListSeparator)+originalPath); err != nil {
-		t.Fatalf("Setenv(PATH): %v", err)
+	parseOriginalPath := os.Getenv("PATH")
+	parseT.Cleanup(func() { _ = os.Setenv("PATH", parseOriginalPath) })
+	if parseErr3 := os.Setenv("PATH", parseShimDir+string(os.PathListSeparator)+parseOriginalPath); parseErr3 != nil {
+		parseT.Fatalf("Setenv(PATH): %v", parseErr3)
 	}
 
-	if err := buildTarget(dir, "chat client", "./client", outputPath); err != nil {
-		t.Fatalf("buildTarget(success): %v", err)
+	if parseErr4 := buildTarget(parseDir, "chat client", "./client", parseOutputPath); parseErr4 != nil {
+		parseT.Fatalf("buildTarget(success): %v", parseErr4)
 	}
-	if info, err := os.Stat(outputPath); err != nil || info.Size() == 0 {
-		t.Fatalf("expected built artifact at %q, stat err=%v size=%v", outputPath, err, info)
+	if parseInfo, parseErr5 := os.Stat(parseOutputPath); parseErr5 != nil || parseInfo.Size() == 0 {
+		parseT.Fatalf("expected built artifact at %q, stat err=%v size=%v", parseOutputPath, parseErr5, parseInfo)
 	}
 
-	if err := os.WriteFile(successShim, []byte("@echo off\r\nexit /b 9\r\n"), 0o644); err != nil {
-		t.Fatalf("WriteFile(failure shim): %v", err)
+	if parseErr6 := os.WriteFile(parseSuccessShim, []byte("@echo off\r\nexit /b 9\r\n"), 0o644); parseErr6 != nil {
+		parseT.Fatalf("WriteFile(failure shim): %v", parseErr6)
 	}
-	if err := buildTarget(dir, "chat client", "./client", filepath.Join(dir, "bin", "failed.wasm")); err == nil || !strings.Contains(err.Error(), "build chat client") {
-		t.Fatalf("expected buildTarget failure, got %v", err)
+	if parseErr7 := buildTarget(parseDir, "chat client", "./client", filepath.Join(parseDir, "bin", "failed.wasm")); parseErr7 == nil || !strings.Contains(parseErr7.ParseError(), "build chat client") {
+		parseT.Fatalf("expected buildTarget failure, got %v", parseErr7)
 	}
 }

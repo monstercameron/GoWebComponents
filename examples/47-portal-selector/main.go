@@ -14,33 +14,33 @@ import (
 const selectorPortalRoot = "#catalog-selector-portal-root"
 
 func portalSelectorExample() ui.Node {
-	open := ui.UseState(false)
-	show := ui.UseEvent(func() { open.Set(true) })
-	close := ui.UseEvent(func() { open.Set(false) })
+	parseOpen := ui.UseState(false)
+	parseShow := ui.UseEvent(func() { parseOpen.Set(true) })
+	parseClose := ui.UseEvent(func() { parseOpen.Set(false) })
 
-	page := shared.ExamplePage(
+	parsePage := shared.ExamplePage(
 		"ui.Portal selector target",
 		"Render an overlay into a DOM node found by selector",
 		"Selector-based portals are the common case for modals, toasts, and overlays that belong outside the current app container but still share app state.",
 		shared.ExamplePanel("App tree",
 			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("The button below lives under #app. The overlay renders into a sibling portal root resolved from a selector string.")),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-				shared.ExampleButton("Open selector portal", show),
-				shared.ExampleButton("Close portal", close),
+				shared.ExampleButton("Open selector portal", parseShow),
+				shared.ExampleButton("Close portal", parseClose),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
 				shared.ExampleStat("Target selector", selectorPortalRoot),
-				shared.ExampleStat("Portal open", map[bool]string{true: "Yes", false: "No"}[open.Get()]),
+				shared.ExampleStat("Portal open", map[bool]string{true: "Yes", false: "No"}[parseOpen.Get()]),
 			),
 		),
 	)
 
-	if !open.Get() {
-		return page
+	if !parseOpen.Get() {
+		return parsePage
 	}
 
 	return ui.Fragment(
-		page,
+		parsePage,
 		ui.Portal(ui.PortalProps{
 			Target: ui.PortalTarget{Selector: selectorPortalRoot},
 			Child: html.Div(html.Props{Class: "fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-6"},
@@ -48,7 +48,7 @@ func portalSelectorExample() ui.Node {
 					html.P(html.Props{Class: "text-xs uppercase tracking-[0.3em] text-cyan-300"}, html.Text("Selector Portal")),
 					html.H2(html.Props{Class: "mt-4 text-3xl font-black"}, html.Text("Mounted outside #app")),
 					html.P(html.Props{Class: "mt-4 leading-7 text-slate-300"}, html.Text("The runtime found the host using the selector string and mounted this subtree there.")),
-					html.Div(html.Props{Class: "mt-6 flex gap-3"}, shared.ExampleButton("Close overlay", close)),
+					html.Div(html.Props{Class: "mt-6 flex gap-3"}, shared.ExampleButton("Close overlay", parseClose)),
 				),
 			),
 		}),

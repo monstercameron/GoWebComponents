@@ -71,6 +71,9 @@ func (parseL launcher) runExamples(parseArgs []string) error {
 	if isExamplesManagedAction(parseArgs) {
 		return parseL.runExamplesManaged(parseArgs)
 	}
+	if len(parseArgs) >= 2 && isExamplesManagedPathCommand(parseArgs[0], parseArgs[1:]) {
+		return parseL.runExamplesManaged(buildExamplesManagedPathCommandArgs(parseArgs[0], parseArgs[1:]))
+	}
 
 	parseFs := flag.NewFlagSet("examples", flag.ContinueOnError)
 	parseFs.SetOutput(os.Stdout)

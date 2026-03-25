@@ -15,52 +15,52 @@ import (
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-func snapshotText(snapshot state.Snapshot) string {
-	if len(snapshot) == 0 {
+func snapshotText(parseSnapshot state.Snapshot) string {
+	if len(parseSnapshot) == 0 {
 		return "{}"
 	}
-	data, err := state.MarshalSnapshotJSON(snapshot)
-	if err != nil {
-		return err.Error()
+	parseData, parseErr := state.MarshalSnapshotJSON(parseSnapshot)
+	if parseErr != nil {
+		return parseErr.Error()
 	}
-	return string(data)
+	return string(parseData)
 }
 
 func snapshotExportImportExample() ui.Node {
-	theme := state.UseAtom("catalog-state-snapshot-theme", "Launch")
-	seats := state.UseAtom("catalog-state-snapshot-seats", 12)
-	captured := ui.UseState(state.Snapshot{})
-	status := ui.UseState("Capture a subset of atoms, mutate them, then restore the exact in-memory values.")
+	parseTheme := state.UseAtom("catalog-state-snapshot-theme", "Launch")
+	parseSeats := state.UseAtom("catalog-state-snapshot-seats", 12)
+	parseCaptured := ui.UseState(state.Snapshot{})
+	parseStatus := ui.UseState("Capture a subset of atoms, mutate them, then restore the exact in-memory values.")
 
-	setLaunch := ui.UseEvent(func() { theme.Set("Launch") })
-	setGrowth := ui.UseEvent(func() { theme.Set("Growth") })
-	addSeats := ui.UseEvent(func() { seats.Update(func(previous int) int { return previous + 4 }) })
-	removeSeats := ui.UseEvent(func() {
-		if seats.Get() > 4 {
-			seats.Update(func(previous int) int { return previous - 4 })
+	setLaunch := ui.UseEvent(func() { parseTheme.Set("Launch") })
+	setGrowth := ui.UseEvent(func() { parseTheme.Set("Growth") })
+	parseAddSeats := ui.UseEvent(func() { parseSeats.Update(func(parsePrevious int) int { return parsePrevious + 4 }) })
+	parseRemoveSeats := ui.UseEvent(func() {
+		if parseSeats.Get() > 4 {
+			parseSeats.Update(func(parsePrevious2 int) int { return parsePrevious2 - 4 })
 		}
 	})
-	capture := ui.UseEvent(func() {
-		snap, _ := state.GetSnapshot()
-		snapshot := snap.Select("catalog-state-snapshot-theme", "catalog-state-snapshot-seats")
-		captured.Set(snapshot)
-		status.Set("Captured the selected atoms into a memory snapshot.")
+	parseCapture := ui.UseEvent(func() {
+		parseSnap, _ := state.GetSnapshot()
+		parseSnapshot := parseSnap.Select("catalog-state-snapshot-theme", "catalog-state-snapshot-seats")
+		parseCaptured.Set(parseSnapshot)
+		parseStatus.Set("Captured the selected atoms into a memory snapshot.")
 	})
-	mutate := ui.UseEvent(func() {
-		theme.Set("Recovery")
-		seats.Set(2)
-		status.Set("Live atoms changed after capture. Restore the snapshot to roll back.")
+	parseMutate := ui.UseEvent(func() {
+		parseTheme.Set("Recovery")
+		parseSeats.Set(2)
+		parseStatus.Set("Live atoms changed after capture. Restore the snapshot to roll back.")
 	})
-	restore := ui.UseEvent(func() {
-		if len(captured.Get()) == 0 {
-			status.Set("Capture a snapshot first.")
+	parseRestore := ui.UseEvent(func() {
+		if len(parseCaptured.Get()) == 0 {
+			parseStatus.Set("Capture a snapshot first.")
 			return
 		}
-		if err := state.ApplySnapshot(captured.Get()); err != nil {
-			status.Set("Import failed: " + err.Error())
+		if parseErr := state.ApplySnapshot(parseCaptured.Get()); parseErr != nil {
+			parseStatus.Set("Import failed: " + parseErr.Error())
 			return
 		}
-		status.Set("Imported the saved snapshot back into the runtime.")
+		parseStatus.Set("Imported the saved snapshot back into the runtime.")
 	})
 
 	return shared.ExamplePage(
@@ -71,22 +71,22 @@ func snapshotExportImportExample() ui.Node {
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
 				shared.ExampleButton("Theme: Launch", setLaunch),
 				shared.ExampleButton("Theme: Growth", setGrowth),
-				shared.ExampleButton("+4 seats", addSeats),
-				shared.ExampleButton("-4 seats", removeSeats),
+				shared.ExampleButton("+4 seats", parseAddSeats),
+				shared.ExampleButton("-4 seats", parseRemoveSeats),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Theme", theme.Get()),
-				shared.ExampleStat("Seats", fmt.Sprintf("%d", seats.Get())),
+				shared.ExampleStat("Theme", parseTheme.Get()),
+				shared.ExampleStat("Seats", fmt.Sprintf("%d", parseSeats.Get())),
 			),
 		),
 		shared.ExamplePanel("Snapshot controls",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-				shared.ExampleButton("Capture", capture),
-				shared.ExampleButton("Mutate live state", mutate),
-				shared.ExampleButton("Restore", restore),
+				shared.ExampleButton("Capture", parseCapture),
+				shared.ExampleButton("Mutate live state", parseMutate),
+				shared.ExampleButton("Restore", parseRestore),
 			),
-			html.P(html.Props{Class: "mt-6 text-slate-300"}, html.Text(status.Get())),
-			shared.ExampleCode(snapshotText(captured.Get())),
+			html.P(html.Props{Class: "mt-6 text-slate-300"}, html.Text(parseStatus.Get())),
+			shared.ExampleCode(snapshotText(parseCaptured.Get())),
 		),
 	)
 }

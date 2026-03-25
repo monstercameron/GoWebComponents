@@ -23,44 +23,44 @@ type User struct {
 	Website  string `json:"website"`
 }
 
-func loadJSON[T any](ctx context.Context, url string) (T, error) {
-	var zero T
-	resultCh := fetch.Fetch(url, fetch.Options{})
+func loadJSON[T any](parseCtx context.Context, parseUrl string) (T, error) {
+	var parseZero T
+	parseResultCh := fetch.Fetch(parseUrl, fetch.Options{})
 
 	select {
-	case <-ctx.Done():
-		return zero, ctx.Err()
-	case result := <-resultCh:
-		if result.Err != nil {
-			return zero, result.Err
+	case <-parseCtx.Done():
+		return parseZero, parseCtx.Err()
+	case parseResult := <-parseResultCh:
+		if parseResult.Err != nil {
+			return parseZero, parseResult.Err
 		}
 
-		payload, ok := result.Data.(string)
-		if !ok || payload == "" {
-			return zero, fmt.Errorf("empty fetch payload")
+		parsePayload, parseOk := parseResult.Data.(string)
+		if !parseOk || parsePayload == "" {
+			return parseZero, fmt.Errorf("empty fetch payload")
 		}
 
-		if err := json.Unmarshal([]byte(payload), &zero); err != nil {
-			return zero, err
+		if parseErr := json.Unmarshal([]byte(parsePayload), &parseZero); parseErr != nil {
+			return parseZero, parseErr
 		}
 
-		return zero, nil
+		return parseZero, nil
 	}
 }
 
-func UserCard(user User) ui.Node {
+func UserCard(parseUser User) ui.Node {
 	return html.Div(
 		html.Props{Class: "bg-white/5 border border-white/10 p-6 rounded-xl backdrop-blur-sm hover:bg-white/10 transition-all duration-300"},
 		html.Div(
 			html.Props{Class: "flex items-center space-x-4 mb-4"},
 			html.Div(
 				html.Props{Class: "w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg"},
-				html.Text(string(user.Name[0])),
+				html.Text(string(parseUser.Name[0])),
 			),
 			html.Div(
 				html.Props{},
-				html.H3(html.Props{Class: "text-lg font-bold text-white"}, html.Text(user.Name)),
-				html.P(html.Props{Class: "text-sm text-blue-400"}, html.Text("@"+user.Username)),
+				html.H3(html.Props{Class: "text-lg font-bold text-white"}, html.Text(parseUser.Name)),
+				html.P(html.Props{Class: "text-sm text-blue-400"}, html.Text("@"+parseUser.Username)),
 			),
 		),
 		html.Div(
@@ -68,44 +68,44 @@ func UserCard(user User) ui.Node {
 			html.P(
 				html.Props{Class: "flex items-center"},
 				html.Span(html.Props{Class: "mr-2"}, html.Text("Email")),
-				html.Text(user.Email),
+				html.Text(parseUser.Email),
 			),
 			html.P(
 				html.Props{Class: "flex items-center"},
 				html.Span(html.Props{Class: "mr-2"}, html.Text("Web")),
-				html.Text(user.Website),
+				html.Text(parseUser.Website),
 			),
 		),
 	)
 }
 
 func App() ui.Node {
-	selectedUserID := ui.UseState(1)
-	usersResource := fetch.UseCachedResource("users", func(ctx context.Context) ([]User, error) {
-		return loadJSON[[]User](ctx, "https://jsonplaceholder.typicode.com/users")
+	parseSelectedUserID := ui.UseState(1)
+	parseUsersResource := fetch.UseCachedResource("users", func(parseCtx context.Context) ([]User, error) {
+		return loadJSON[[]User](parseCtx, "https://jsonplaceholder.typicode.com/users")
 	}, fetch.CacheOptions{StaleAfter: 20 * time.Second})
-	summaryResource := fetch.UseCachedResource("users", func(ctx context.Context) ([]User, error) {
-		return loadJSON[[]User](ctx, "https://jsonplaceholder.typicode.com/users")
+	parseSummaryResource := fetch.UseCachedResource("users", func(parseCtx2 context.Context) ([]User, error) {
+		return loadJSON[[]User](parseCtx2, "https://jsonplaceholder.typicode.com/users")
 	}, fetch.CacheOptions{StaleAfter: 20 * time.Second})
-	usersState := usersResource.Get()
-	summaryState := summaryResource.Get()
+	parseUsersState := parseUsersResource.Get()
+	parseSummaryState := parseSummaryResource.Get()
 
-	detailCacheKey := fmt.Sprintf("user:%d", selectedUserID.Get())
-	detailResource := fetch.UseCachedResource(detailCacheKey, func(ctx context.Context) (User, error) {
+	parseDetailCacheKey := fmt.Sprintf("user:%d", parseSelectedUserID.Get())
+	parseDetailResource := fetch.UseCachedResource(parseDetailCacheKey, func(parseCtx3 context.Context) (User, error) {
 		select {
-		case <-ctx.Done():
-			return User{}, ctx.Err()
+		case <-parseCtx3.Done():
+			return User{}, parseCtx3.Err()
 		case <-time.After(350 * time.Millisecond):
 		}
 
-		return loadJSON[User](ctx, fmt.Sprintf("https://jsonplaceholder.typicode.com/users/%d", selectedUserID.Get()))
+		return loadJSON[User](parseCtx3, fmt.Sprintf("https://jsonplaceholder.typicode.com/users/%d", parseSelectedUserID.Get()))
 	}, fetch.CacheOptions{StaleAfter: 15 * time.Second})
-	detailState := detailResource.Get()
-	deferredInsights := ui.CreateElement(ui.Lazy, ui.LazyProps{
-		Loader: func(ctx context.Context) (ui.Node, error) {
+	parseDetailState := parseDetailResource.Get()
+	parseDeferredInsights := ui.CreateElement(ui.Lazy, ui.LazyProps{
+		Loader: func(parseCtx4 context.Context) (ui.Node, error) {
 			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
+			case <-parseCtx4.Done():
+				return nil, parseCtx4.Err()
 			case <-time.After(250 * time.Millisecond):
 			}
 
@@ -115,24 +115,24 @@ func App() ui.Node {
 				html.P(html.Props{Class: "mt-2 text-cyan-50/80"}, html.Text("This note is resolved through ui.Lazy, while the surrounding panels use ui.AsyncBoundary instead of open-coded loading branches.")),
 			), nil
 		},
-		Dependencies: []interface{}{selectedUserID.Get()},
+		Dependencies: []interface{}{parseSelectedUserID.Get()},
 		Delay:        100 * time.Millisecond,
 		Fallback: html.Div(
 			html.Props{Class: "mt-6 rounded-xl border border-white/10 bg-white/5 p-4 animate-pulse"},
 			html.Div(html.Props{Class: "h-4 w-40 rounded bg-white/10"}),
 			html.Div(html.Props{Class: "mt-3 h-4 w-full rounded bg-white/10"}),
 		),
-		ErrorFallback: func(err error) ui.Node {
+		ErrorFallback: func(parseErr error) ui.Node {
 			return html.Div(
 				html.Props{Class: "mt-6 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300"},
-				html.Text("Deferred insights failed: "+err.Error()),
+				html.Text("Deferred insights failed: "+parseErr.Error()),
 			)
 		},
 	})
 
 	handleRefresh := ui.UseEvent(func() {
-		usersResource.Reload()
-		detailResource.Reload()
+		parseUsersResource.Reload()
+		parseDetailResource.Reload()
 	})
 
 	handleInvalidateShared := ui.UseEvent(func() {
@@ -140,84 +140,84 @@ func App() ui.Node {
 	})
 
 	handleCancel := ui.UseEvent(func() {
-		usersResource.Cancel()
-		detailResource.Cancel()
+		parseUsersResource.Cancel()
+		parseDetailResource.Cancel()
 	})
 
 	handleOptimisticRename := ui.UseEvent(func() {
-		if !detailState.Ready {
+		if !parseDetailState.Ready {
 			return
 		}
 
-		updatedName := detailState.Value.Name + " (local)"
-		detailResource.Update(func(prev User) User {
-			prev.Name = updatedName
-			return prev
+		parseUpdatedName := parseDetailState.Value.Name + " (local)"
+		parseDetailResource.Update(func(parsePrev User) User {
+			parsePrev.Name = parseUpdatedName
+			return parsePrev
 		})
-		usersResource.Update(func(prev []User) []User {
-			next := make([]User, len(prev))
-			copy(next, prev)
-			for i := range next {
-				if next[i].ID == detailState.Value.ID {
-					next[i].Name = updatedName
+		parseUsersResource.Update(func(parsePrev2 []User) []User {
+			parseNext := make([]User, len(parsePrev2))
+			copy(parseNext, parsePrev2)
+			for parseI := range parseNext {
+				if parseNext[parseI].ID == parseDetailState.Value.ID {
+					parseNext[parseI].Name = parseUpdatedName
 					break
 				}
 			}
-			return next
+			return parseNext
 		})
 	})
 
-	var content ui.Node
+	var parseContent ui.Node
 	{
-		userElements := make([]ui.Node, len(usersState.Value))
-		for i, user := range usersState.Value {
-			selected := user.ID == selectedUserID.Get()
-			userElements[i] = html.Div(
+		parseUserElements := make([]ui.Node, len(parseUsersState.Value))
+		for parseI2, parseUser := range parseUsersState.Value {
+			isParseSelected := parseUser.ID == parseSelectedUserID.Get()
+			parseUserElements[parseI2] = html.Div(
 				html.Props{},
 				html.Button(
 					html.Props{
 						OnClick: ui.UseEvent(func() {
-							selectedUserID.Set(user.ID)
+							parseSelectedUserID.Set(parseUser.ID)
 						}),
 						Class: func() string {
-							if selected {
+							if isParseSelected {
 								return "block w-full text-left ring-2 ring-cyan-400 rounded-xl"
 							}
 							return "block w-full text-left rounded-xl"
 						}(),
 					},
-					UserCard(user),
+					UserCard(parseUser),
 				),
 			)
 		}
-		content = html.Div(
+		parseContent = html.Div(
 			html.Props{Class: "grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]"},
 			ui.CreateElement(ui.AsyncBoundary, ui.AsyncBoundaryProps{
-				Pending: (usersState.Loading && !usersState.Ready) || (!usersState.Ready && len(usersState.Value) == 0),
-				Error:   usersState.Error,
+				Pending: (parseUsersState.Loading && !parseUsersState.Ready) || (!parseUsersState.Ready && len(parseUsersState.Value) == 0),
+				Error:   parseUsersState.Error,
 				Fallback: html.Div(
 					html.Props{Class: "grid grid-cols-1 gap-6 sm:grid-cols-2"},
 					html.Div(html.Props{Class: "bg-white/5 border border-white/5 p-6 rounded-xl animate-pulse h-48"}),
 					html.Div(html.Props{Class: "bg-white/5 border border-white/5 p-6 rounded-xl animate-pulse h-48"}),
 					html.Div(html.Props{Class: "bg-white/5 border border-white/5 p-6 rounded-xl animate-pulse h-48"}),
 				),
-				ErrorFallback: func(err error) ui.Node {
+				ErrorFallback: func(parseErr2 error) ui.Node {
 					return html.Div(
 						html.Props{Class: "bg-red-500/10 border border-red-500/20 p-6 rounded-xl mb-8 mx-auto max-w-2xl text-center"},
-						html.P(html.Props{Class: "text-red-400 font-medium"}, html.Text("Error: "+err.Error())),
+						html.P(html.Props{Class: "text-red-400 font-medium"}, html.Text("Error: "+parseErr2.Error())),
 					)
 				},
 				Content: html.Div(
 					html.Props{Class: "grid grid-cols-1 gap-6 sm:grid-cols-2"},
 					append([]ui.Node{func() ui.Node {
-						if usersState.Loading && usersState.Ready {
+						if parseUsersState.Loading && parseUsersState.Ready {
 							return html.Div(
 								html.Props{Class: "sm:col-span-2 rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100"},
 								html.Text("Revalidating the shared users query in the background while cached results stay on screen."),
 							)
 						}
 						return html.Fragment()
-					}()}, userElements...)...,
+					}()}, parseUserElements...)...,
 				),
 			}),
 			html.Div(
@@ -227,39 +227,39 @@ func App() ui.Node {
 				html.Div(
 					html.Props{Class: "mb-6 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-gray-300"},
 					html.P(html.Props{Class: "font-semibold text-white"}, html.Text("Shared cache status")),
-					html.P(html.Props{Class: "mt-2 text-gray-400"}, html.Text(fmt.Sprintf("%d users cached; background reloads are deduplicated across panels.", len(summaryState.Value)))),
+					html.P(html.Props{Class: "mt-2 text-gray-400"}, html.Text(fmt.Sprintf("%d users cached; background reloads are deduplicated across panels.", len(parseSummaryState.Value)))),
 					func() ui.Node {
-						if summaryState.UpdatedAt.IsZero() {
+						if parseSummaryState.UpdatedAt.IsZero() {
 							return html.P(html.Props{Class: "mt-2 text-gray-500"}, html.Text("No successful shared query yet."))
 						}
-						return html.P(html.Props{Class: "mt-2 text-gray-500"}, html.Text("Last shared update: "+summaryState.UpdatedAt.Format(time.Kitchen)))
+						return html.P(html.Props{Class: "mt-2 text-gray-500"}, html.Text("Last shared update: "+parseSummaryState.UpdatedAt.Format(time.Kitchen)))
 					}(),
 				),
 				ui.CreateElement(ui.AsyncBoundary, ui.AsyncBoundaryProps{
-					Pending: detailState.Loading && !detailState.Ready,
-					Error:   detailState.Error,
+					Pending: parseDetailState.Loading && !parseDetailState.Ready,
+					Error:   parseDetailState.Error,
 					Fallback: html.Div(
 						html.Props{},
 						html.Div(html.Props{Class: "bg-white/5 border border-white/5 rounded-lg animate-pulse h-8 mb-4"}),
 						html.Div(html.Props{Class: "bg-white/5 border border-white/5 rounded-lg animate-pulse h-24"}),
 					),
-					ErrorFallback: func(err error) ui.Node {
+					ErrorFallback: func(parseErr3 error) ui.Node {
 						return html.Div(
 							html.Props{Class: "text-red-400 space-y-3"},
-							html.P(html.Props{}, html.Text("Detail error: "+err.Error())),
-							html.Button(html.Props{OnClick: ui.UseEvent(func() { detailResource.Reload() }), Class: "px-4 py-2 bg-red-500/20 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"}, html.Text("Retry Detail")),
+							html.P(html.Props{}, html.Text("Detail error: "+parseErr3.Error())),
+							html.Button(html.Props{OnClick: ui.UseEvent(func() { parseDetailResource.Reload() }), Class: "px-4 py-2 bg-red-500/20 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors"}, html.Text("Retry Detail")),
 						)
 					},
 					Content: func() ui.Node {
-						if !detailState.Ready {
+						if !parseDetailState.Ready {
 							return html.P(html.Props{Class: "text-gray-500"}, html.Text("Select a user to inspect details."))
 						}
 
-						user := detailState.Value
+						parseUser2 := parseDetailState.Value
 						return html.Div(
 							html.Props{Class: "space-y-3 text-sm text-gray-300"},
 							func() ui.Node {
-								if detailState.Loading && detailState.Ready {
+								if parseDetailState.Loading && parseDetailState.Ready {
 									return html.Div(
 										html.Props{Class: "rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100"},
 										html.Text("Showing cached detail while the selected user refreshes in the background."),
@@ -267,20 +267,20 @@ func App() ui.Node {
 								}
 								return html.Fragment()
 							}(),
-							html.H3(html.Props{Class: "text-2xl font-semibold text-white"}, html.Text(user.Name)),
-							html.P(html.Props{}, html.Text("Username: @"+user.Username)),
-							html.P(html.Props{}, html.Text("Email: "+user.Email)),
-							html.P(html.Props{}, html.Text("Website: "+user.Website)),
+							html.H3(html.Props{Class: "text-2xl font-semibold text-white"}, html.Text(parseUser2.Name)),
+							html.P(html.Props{}, html.Text("Username: @"+parseUser2.Username)),
+							html.P(html.Props{}, html.Text("Email: "+parseUser2.Email)),
+							html.P(html.Props{}, html.Text("Website: "+parseUser2.Website)),
 							html.Div(
 								html.Props{Class: "flex flex-wrap gap-3 pt-4"},
-								html.Button(html.Props{OnClick: ui.UseEvent(func() { detailResource.Reload() }), Class: "px-4 py-2 bg-cyan-500 text-black rounded-lg hover:bg-cyan-400 transition-colors font-semibold"}, html.Text("Reload Detail")),
+								html.Button(html.Props{OnClick: ui.UseEvent(func() { parseDetailResource.Reload() }), Class: "px-4 py-2 bg-cyan-500 text-black rounded-lg hover:bg-cyan-400 transition-colors font-semibold"}, html.Text("Reload Detail")),
 								html.Button(html.Props{OnClick: handleOptimisticRename, Class: "px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-400 transition-colors font-semibold"}, html.Text("Optimistic Rename")),
-								html.Button(html.Props{OnClick: ui.UseEvent(func() { detailResource.Cancel() }), Class: "px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors border border-white/10"}, html.Text("Cancel Detail")),
+								html.Button(html.Props{OnClick: ui.UseEvent(func() { parseDetailResource.Cancel() }), Class: "px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors border border-white/10"}, html.Text("Cancel Detail")),
 							),
 						)
 					}(),
 				}),
-				deferredInsights,
+				parseDeferredInsights,
 			),
 		)
 	}
@@ -307,7 +307,7 @@ func App() ui.Node {
 							OnClick: handleRefresh,
 						},
 						html.Text(func() string {
-							if usersState.Loading || detailState.Loading {
+							if parseUsersState.Loading || parseDetailState.Loading {
 								return "Refreshing..."
 							}
 							return "Reload Resources"
@@ -329,7 +329,7 @@ func App() ui.Node {
 					),
 				),
 			),
-			content,
+			parseContent,
 		),
 	)
 }

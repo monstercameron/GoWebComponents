@@ -9,87 +9,87 @@ import (
 	"github.com/openai/openai-go/shared"
 )
 
-func TestCerebrasProviderNonNetworkHelpers(t *testing.T) {
-	provider := NewCerebrasProvider("test-key", testCerebrasCatalog())
-	if !provider.Available() {
-		t.Fatal("expected cerebras provider with test key to be available")
+func TestCerebrasProviderNonNetworkHelpers(parseT *testing.T) {
+	parseProvider := ParseNewCerebrasProvider("test-key", parseTestCerebrasCatalog())
+	if !parseProvider.ParseAvailable() {
+		parseT.Fatal("expected cerebras provider with test key to be available")
 	}
-	if provider.ID() != "cerebras" {
-		t.Fatalf("unexpected provider ID: %q", provider.ID())
+	if parseProvider.ParseID() != "cerebras" {
+		parseT.Fatalf("unexpected provider ID: %q", parseProvider.ParseID())
 	}
-	if provider.DefaultModel() != "gpt-oss-120b" {
-		t.Fatalf("unexpected default model: %q", provider.DefaultModel())
+	if parseProvider.ParseDefaultModel() != "gpt-oss-120b" {
+		parseT.Fatalf("unexpected default model: %q", parseProvider.ParseDefaultModel())
 	}
-	if !provider.SupportsModel("gpt-oss-120b") || provider.SupportsModel("gpt-5.4-mini") {
-		t.Fatal("unexpected SupportsModel behavior for Cerebras provider")
+	if !parseProvider.ParseSupportsModel("gpt-oss-120b") || parseProvider.ParseSupportsModel("gpt-5.4-mini") {
+		parseT.Fatal("unexpected SupportsModel behavior for Cerebras provider")
 	}
-	if len(provider.ModelOptions()) != 4 {
-		t.Fatalf("expected four Cerebras model options, got %d", len(provider.ModelOptions()))
+	if len(parseProvider.ParseModelOptions()) != 4 {
+		parseT.Fatalf("expected four Cerebras model options, got %d", len(parseProvider.ParseModelOptions()))
 	}
-	if caps := provider.Capabilities("gpt-oss-120b"); !caps.SupportsThinking || caps.SupportsSpeech {
-		t.Fatalf("unexpected default Cerebras capabilities: %+v", caps)
+	if parseCaps := parseProvider.ParseCapabilities("gpt-oss-120b"); !parseCaps.SupportsThinking || parseCaps.SupportsSpeech {
+		parseT.Fatalf("unexpected default Cerebras capabilities: %+v", parseCaps)
 	}
-	if caps := provider.Capabilities("llama3.1-8b"); caps.SupportsThinking || caps.SupportsSpeech {
-		t.Fatalf("unexpected fast Cerebras capabilities: %+v", caps)
+	if parseCaps2 := parseProvider.ParseCapabilities("llama3.1-8b"); parseCaps2.SupportsThinking || parseCaps2.SupportsSpeech {
+		parseT.Fatalf("unexpected fast Cerebras capabilities: %+v", parseCaps2)
 	}
-	if got := cerebrasReasoningEffort("HIGH"); got != shared.ReasoningEffortHigh {
-		t.Fatalf("unexpected reasoning effort normalization: %q", got)
+	if parseGot := parseCerebrasReasoningEffort("HIGH"); parseGot != shared.ReasoningEffortHigh {
+		parseT.Fatalf("unexpected reasoning effort normalization: %q", parseGot)
 	}
-	if got := cerebrasReasoningEffort("weird"); got != shared.ReasoningEffortMedium {
-		t.Fatalf("expected medium reasoning effort fallback, got %q", got)
+	if parseGot2 := parseCerebrasReasoningEffort("weird"); parseGot2 != shared.ReasoningEffortMedium {
+		parseT.Fatalf("expected medium reasoning effort fallback, got %q", parseGot2)
 	}
-	if delta := cerebrasReasoningDelta(`{"choices":[{"delta":{"reasoning":"step 1"}}]}`); delta != "step 1" {
-		t.Fatalf("unexpected reasoning delta parse: %q", delta)
+	if parseDelta := parseCerebrasReasoningDelta(`{"choices":[{"delta":{"reasoning":"step 1"}}]}`); parseDelta != "step 1" {
+		parseT.Fatalf("unexpected reasoning delta parse: %q", parseDelta)
 	}
-	if delta := cerebrasReasoningDelta(`{"choices":[{"delta":{"reasoning_content":"step 2"}}]}`); delta != "step 2" {
-		t.Fatalf("unexpected reasoning_content delta parse: %q", delta)
+	if parseDelta2 := parseCerebrasReasoningDelta(`{"choices":[{"delta":{"reasoning_content":"step 2"}}]}`); parseDelta2 != "step 2" {
+		parseT.Fatalf("unexpected reasoning_content delta parse: %q", parseDelta2)
 	}
-	if delta := cerebrasReasoningDelta(`{}`); delta != "" {
-		t.Fatalf("expected empty reasoning delta, got %q", delta)
-	}
-}
-
-func TestCerebrasProviderMetadataAndUnavailableBranches(t *testing.T) {
-	provider := NewCerebrasProvider("test-key", testCerebrasCatalog())
-	if info := provider.Info(); info.ID != "cerebras" || info.Label != "Cerebras" || !info.Available || !info.AuthConfigured || info.BaseURL != cerebrasBaseURL {
-		t.Fatalf("unexpected Cerebras info: %+v", info)
-	}
-	if health := provider.Health(); health.ProviderID != "cerebras" || health.Status != ProviderHealthUnknown {
-		t.Fatalf("unexpected Cerebras health: %+v", health)
-	}
-	if limits := provider.CurrentRateLimits(); !limits.Empty() {
-		t.Fatalf("expected Cerebras rate limits to be empty, got %+v", limits)
-	}
-	if metadata, ok := provider.ModelMetadata(" GPT-OSS-120B "); !ok || metadata.ID != "gpt-oss-120b" {
-		t.Fatalf("unexpected Cerebras metadata resolution: ok=%v metadata=%+v", ok, metadata)
-	}
-	if metadata, ok := provider.ModelMetadata("unsupported-model"); ok || metadata.ID != "" {
-		t.Fatalf("expected unknown Cerebras model metadata to be unavailable, got ok=%v metadata=%+v", ok, metadata)
-	}
-	if fallback := provider.mustModelMetadata(" custom-cerebras "); fallback.ID != "custom-cerebras" || fallback.DisplayName != "custom-cerebras" || fallback.ProviderID != "cerebras" {
-		t.Fatalf("unexpected Cerebras fallback metadata: %+v", fallback)
-	}
-
-	unavailable := NewCerebrasProvider("", testCerebrasCatalog())
-	if unavailable.Available() {
-		t.Fatal("expected provider without key to be unavailable")
-	}
-	if _, err := unavailable.GenerateTitle(context.Background(), TitleRequest{Prompt: "hello"}); err != ErrNoProvidersAvailable {
-		t.Fatalf("expected unavailable GenerateTitle to return ErrNoProvidersAvailable, got %v", err)
-	}
-	if _, err := unavailable.ExtractUserMemories(context.Background(), MemoryExtractionRequest{UserMessage: "remember"}); err != ErrNoProvidersAvailable {
-		t.Fatalf("expected unavailable ExtractUserMemories to return ErrNoProvidersAvailable, got %v", err)
-	}
-	if _, err := unavailable.StreamChat(context.Background(), ChatRequest{UserMessage: "hello"}, func(ChatEvent) error { return nil }); err != ErrNoProvidersAvailable {
-		t.Fatalf("expected unavailable StreamChat to return ErrNoProvidersAvailable, got %v", err)
-	}
-	if _, err := unavailable.SynthesizeSpeech(context.Background(), SpeechRequest{Model: "gpt-oss-120b", Text: "hello"}, func(SpeechChunk) error { return nil }); err != ErrNoProvidersAvailable {
-		t.Fatalf("expected unavailable SynthesizeSpeech to return ErrNoProvidersAvailable, got %v", err)
+	if parseDelta3 := parseCerebrasReasoningDelta(`{}`); parseDelta3 != "" {
+		parseT.Fatalf("expected empty reasoning delta, got %q", parseDelta3)
 	}
 }
 
-func TestCerebrasMessageMappingAndModelNormalization(t *testing.T) {
-	history := []ChatMessage{
+func TestCerebrasProviderMetadataAndUnavailableBranches(parseT *testing.T) {
+	parseProvider := ParseNewCerebrasProvider("test-key", parseTestCerebrasCatalog())
+	if parseInfo := parseProvider.ParseInfo(); parseInfo.ParseID != "cerebras" || parseInfo.Label != "Cerebras" || !parseInfo.ParseAvailable || !parseInfo.AuthConfigured || parseInfo.BaseURL != cerebrasBaseURL {
+		parseT.Fatalf("unexpected Cerebras info: %+v", parseInfo)
+	}
+	if parseHealth := parseProvider.ParseHealth(); parseHealth.ProviderID != "cerebras" || parseHealth.ParseStatus != ProviderHealthUnknown {
+		parseT.Fatalf("unexpected Cerebras health: %+v", parseHealth)
+	}
+	if parseLimits := parseProvider.ParseCurrentRateLimits(); !parseLimits.ParseEmpty() {
+		parseT.Fatalf("expected Cerebras rate limits to be empty, got %+v", parseLimits)
+	}
+	if parseMetadata, parseOk := parseProvider.ParseModelMetadata(" GPT-OSS-120B "); !parseOk || parseMetadata.ParseID != "gpt-oss-120b" {
+		parseT.Fatalf("unexpected Cerebras metadata resolution: ok=%v metadata=%+v", parseOk, parseMetadata)
+	}
+	if parseMetadata2, parseOk2 := parseProvider.ParseModelMetadata("unsupported-model"); parseOk2 || parseMetadata2.ParseID != "" {
+		parseT.Fatalf("expected unknown Cerebras model metadata to be unavailable, got ok=%v metadata=%+v", parseOk2, parseMetadata2)
+	}
+	if parseFallback := parseProvider.parseMustModelMetadata(" custom-cerebras "); parseFallback.ParseID != "custom-cerebras" || parseFallback.DisplayName != "custom-cerebras" || parseFallback.ProviderID != "cerebras" {
+		parseT.Fatalf("unexpected Cerebras fallback metadata: %+v", parseFallback)
+	}
+
+	parseUnavailable := ParseNewCerebrasProvider("", parseTestCerebrasCatalog())
+	if parseUnavailable.ParseAvailable() {
+		parseT.Fatal("expected provider without key to be unavailable")
+	}
+	if _, parseErr := parseUnavailable.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "hello"}); parseErr != ErrNoProvidersAvailable {
+		parseT.Fatalf("expected unavailable GenerateTitle to return ErrNoProvidersAvailable, got %v", parseErr)
+	}
+	if _, parseErr2 := parseUnavailable.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{UserMessage: "remember"}); parseErr2 != ErrNoProvidersAvailable {
+		parseT.Fatalf("expected unavailable ExtractUserMemories to return ErrNoProvidersAvailable, got %v", parseErr2)
+	}
+	if _, parseErr3 := parseUnavailable.ParseStreamChat(context.Background(), ChatRequest{UserMessage: "hello"}, func(ChatEvent) error { return nil }); parseErr3 != ErrNoProvidersAvailable {
+		parseT.Fatalf("expected unavailable StreamChat to return ErrNoProvidersAvailable, got %v", parseErr3)
+	}
+	if _, parseErr4 := parseUnavailable.ParseSynthesizeSpeech(context.Background(), SpeechRequest{Model: "gpt-oss-120b", Text: "hello"}, func(SpeechChunk) error { return nil }); parseErr4 != ErrNoProvidersAvailable {
+		parseT.Fatalf("expected unavailable SynthesizeSpeech to return ErrNoProvidersAvailable, got %v", parseErr4)
+	}
+}
+
+func TestCerebrasMessageMappingAndModelNormalization(parseT *testing.T) {
+	parseHistory := []ChatMessage{
 		{Role: "assistant", Content: " assistant message "},
 		{Role: "developer", Content: " developer message "},
 		{Role: "system", Content: " system message "},
@@ -98,33 +98,33 @@ func TestCerebrasMessageMappingAndModelNormalization(t *testing.T) {
 		{Role: "unknown", Content: " unknown role message "},
 	}
 
-	messages := cerebrasChatMessages(" system prompt ", history, " final user message ")
-	if len(messages) != 8 {
-		t.Fatalf("expected 8 chat messages (system + history + user), got %d", len(messages))
+	parseMessages := parseCerebrasChatMessages(" system prompt ", parseHistory, " final user message ")
+	if len(parseMessages) != 8 {
+		parseT.Fatalf("expected 8 chat messages (system + history + user), got %d", len(parseMessages))
 	}
 
-	expectedRoles := []string{"system", "assistant", "developer", "system", "tool", "user", "user", "user"}
-	for index, expectedRole := range expectedRoles {
-		payload, err := json.Marshal(messages[index])
-		if err != nil {
-			t.Fatalf("marshal chat message %d: %v", index, err)
+	parseExpectedRoles := []string{"system", "assistant", "developer", "system", "tool", "user", "user", "user"}
+	for parseIndex, parseExpectedRole := range parseExpectedRoles {
+		parsePayload, parseErr := json.Marshal(parseMessages[parseIndex])
+		if parseErr != nil {
+			parseT.Fatalf("marshal chat message %d: %v", parseIndex, parseErr)
 		}
-		if !strings.Contains(string(payload), `"role":"`+expectedRole+`"`) {
-			t.Fatalf("expected role %q at index %d, got payload %s", expectedRole, index, string(payload))
+		if !strings.Contains(string(parsePayload), `"role":"`+parseExpectedRole+`"`) {
+			parseT.Fatalf("expected role %q at index %d, got payload %s", parseExpectedRole, parseIndex, string(parsePayload))
 		}
 	}
 
-	toolCallID := messages[4].GetToolCallID()
-	if toolCallID == nil || *toolCallID != "tool" {
-		t.Fatalf("expected tool-call ID \"tool\", got %v", toolCallID)
+	parseToolCallID := parseMessages[4].GetToolCallID()
+	if parseToolCallID == nil || *parseToolCallID != "tool" {
+		parseT.Fatalf("expected tool-call ID \"tool\", got %v", parseToolCallID)
 	}
 
-	payload, err := json.Marshal(messages)
-	if err != nil {
-		t.Fatalf("marshal mapped chat messages: %v", err)
+	parsePayload2, parseErr2 := json.Marshal(parseMessages)
+	if parseErr2 != nil {
+		parseT.Fatalf("marshal mapped chat messages: %v", parseErr2)
 	}
-	body := string(payload)
-	for _, snippet := range []string{
+	parseBody := string(parsePayload2)
+	for _, parseSnippet := range []string{
 		`"content":"system prompt"`,
 		`"content":"assistant message"`,
 		`"content":"developer message"`,
@@ -134,20 +134,20 @@ func TestCerebrasMessageMappingAndModelNormalization(t *testing.T) {
 		`"content":"unknown role message"`,
 		`"content":"final user message"`,
 	} {
-		if !strings.Contains(body, snippet) {
-			t.Fatalf("expected mapped message payload to contain %q, got %s", snippet, body)
+		if !strings.Contains(parseBody, parseSnippet) {
+			parseT.Fatalf("expected mapped message payload to contain %q, got %s", parseSnippet, parseBody)
 		}
 	}
 
-	if got := cerebrasReasoningEffort("LOW"); got != shared.ReasoningEffortLow {
-		t.Fatalf("unexpected low reasoning effort normalization: %q", got)
+	if parseGot := parseCerebrasReasoningEffort("LOW"); parseGot != shared.ReasoningEffortLow {
+		parseT.Fatalf("unexpected low reasoning effort normalization: %q", parseGot)
 	}
-	if got := normalizeCerebrasModel(" GPT-OSS-120B "); got != "gpt-oss-120b" {
-		t.Fatalf("unexpected cerebras model normalization: %q", got)
+	if parseGot2 := parseNormalizeCerebrasModel(" GPT-OSS-120B "); parseGot2 != "gpt-oss-120b" {
+		parseT.Fatalf("unexpected cerebras model normalization: %q", parseGot2)
 	}
 
-	provider := NewCerebrasProvider("test-key", testCerebrasCatalog())
-	if metadata := provider.mustModelMetadata("gpt-oss-120b"); metadata.ID != "gpt-oss-120b" || metadata.ProviderID != "cerebras" {
-		t.Fatalf("expected known model metadata lookup path, got %+v", metadata)
+	parseProvider := ParseNewCerebrasProvider("test-key", parseTestCerebrasCatalog())
+	if parseMetadata := parseProvider.parseMustModelMetadata("gpt-oss-120b"); parseMetadata.ParseID != "gpt-oss-120b" || parseMetadata.ProviderID != "cerebras" {
+		parseT.Fatalf("expected known model metadata lookup path, got %+v", parseMetadata)
 	}
 }

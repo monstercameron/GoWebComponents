@@ -15,13 +15,13 @@ import (
 )
 
 func useThrottledExample() ui.Node {
-	value := ui.UseState(0)
-	throttled := ui.UseThrottled(value.Get(), 400*time.Millisecond)
-	increment := ui.UseEvent(func() { value.Update(func(prev int) int { return prev + 1 }) })
+	parseValue := ui.UseState(0)
+	parseThrottled := ui.UseThrottled(parseValue.Get(), 400*time.Millisecond)
+	parseIncrement := ui.UseEvent(func() { parseValue.Update(func(parsePrev int) int { return parsePrev + 1 }) })
 
-	status := "Synced"
-	if throttled.Pending() {
-		status = "Rate limited"
+	parseStatus := "Synced"
+	if parseThrottled.Pending() {
+		parseStatus = "Rate limited"
 	}
 
 	return shared.ExamplePage(
@@ -30,10 +30,10 @@ func useThrottledExample() ui.Node {
 		"Throttle is useful when rapid updates should still flow regularly, just not on every single event.",
 		shared.ExamplePanel("Throttled counter",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-4"},
-				shared.ExampleButton("Increment quickly", increment),
-				shared.ExampleStat("Immediate", fmt.Sprintf("%d", value.Get())),
-				shared.ExampleStat("Throttled", fmt.Sprintf("%d", throttled.Get())),
-				shared.ExampleStat("State", status),
+				shared.ExampleButton("Increment quickly", parseIncrement),
+				shared.ExampleStat("Immediate", fmt.Sprintf("%d", parseValue.Get())),
+				shared.ExampleStat("Throttled", fmt.Sprintf("%d", parseThrottled.Get())),
+				shared.ExampleStat("State", parseStatus),
 			),
 		),
 	)

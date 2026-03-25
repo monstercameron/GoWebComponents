@@ -43,12 +43,12 @@ type ModelMetadata struct {
 
 // ModelOptionFromMetadata collapses a rich catalog entry into the compact UI
 // shape used by the current example picker.
-func ModelOptionFromMetadata(metadata ModelMetadata, note string) ModelOption {
+func ParseModelOptionFromMetadata(parseMetadata ModelMetadata, parseNote string) ModelOption {
 	return ModelOption{
-		ID:           metadata.ID,
-		Label:        metadata.DisplayName,
-		Note:         note,
-		Capabilities: metadata.Capabilities,
-		Pricing:      metadata.Pricing,
+		ID:           parseMetadata.ParseID,
+		Label:        parseMetadata.DisplayName,
+		Note:         parseNote,
+		Capabilities: parseMetadata.ParseCapabilities,
+		Pricing:      parseMetadata.ParsePricing,
 	}
 }

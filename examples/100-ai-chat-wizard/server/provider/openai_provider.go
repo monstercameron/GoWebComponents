@@ -79,108 +79,108 @@ type OpenAIProvider struct {
 	catalog Catalog
 }
 
-func NewOpenAIProvider(apiKey string, catalog Catalog) *OpenAIProvider {
-	trimmedAPIKey := strings.TrimSpace(apiKey)
-	resolvedCatalog := normalizeCatalog("openai", "OpenAI", catalog)
-	if trimmedAPIKey == "" {
-		return &OpenAIProvider{catalog: resolvedCatalog}
+func ParseNewOpenAIProvider(parseApiKey string, parseCatalog Catalog) *OpenAIProvider {
+	parseTrimmedAPIKey := strings.TrimSpace(parseApiKey)
+	parseResolvedCatalog := parseNormalizeCatalog("openai", "OpenAI", parseCatalog)
+	if parseTrimmedAPIKey == "" {
+		return &OpenAIProvider{catalog: parseResolvedCatalog}
 	}
-	client := openai.NewClient(option.WithAPIKey(trimmedAPIKey))
-	return &OpenAIProvider{client: &client, catalog: resolvedCatalog}
+	parseClient := openai.NewClient(option.WithAPIKey(parseTrimmedAPIKey))
+	return &OpenAIProvider{client: &parseClient, catalog: parseResolvedCatalog}
 }
 
-func (p *OpenAIProvider) ID() string {
+func (parseP *OpenAIProvider) ParseID() string {
 	return "openai"
 }
 
-func (p *OpenAIProvider) Available() bool {
-	return p != nil && p.client != nil && len(p.catalog.Options) > 0
+func (parseP *OpenAIProvider) ParseAvailable() bool {
+	return parseP != nil && parseP.client != nil && len(parseP.catalog.Options) > 0
 }
 
-func (p *OpenAIProvider) Info() ProviderInfo {
+func (parseP *OpenAIProvider) ParseInfo() ProviderInfo {
 	return ProviderInfo{
-		ID:                 p.ID(),
+		ID:                 parseP.ParseID(),
 		Label:              "OpenAI",
 		BaseURL:            openAIBaseURL,
-		AuthConfigured:     p.Available(),
-		Available:          p.Available(),
+		AuthConfigured:     parseP.ParseAvailable(),
+		Available:          parseP.ParseAvailable(),
 		StreamingSupported: true,
 		ReasoningSupported: true,
 		ToolUseSupported:   true,
 	}
 }
 
-func (p *OpenAIProvider) DefaultModel() string {
-	return strings.TrimSpace(p.catalog.DefaultModel)
+func (parseP *OpenAIProvider) ParseDefaultModel() string {
+	return strings.TrimSpace(parseP.catalog.ParseDefaultModel)
 }
 
-func (p *OpenAIProvider) SupportsModel(model string) bool {
-	return p.catalog.SupportsModel(model)
+func (parseP *OpenAIProvider) ParseSupportsModel(parseModel string) bool {
+	return parseP.catalog.ParseSupportsModel(parseModel)
 }
 
-func (p *OpenAIProvider) ModelOptions() []ModelOption {
-	return p.catalog.ModelOptions()
+func (parseP *OpenAIProvider) ParseModelOptions() []ModelOption {
+	return parseP.catalog.ParseModelOptions()
 }
 
-func (p *OpenAIProvider) ModelMetadata(model string) (ModelMetadata, bool) {
-	return p.catalog.ModelMetadata(model)
+func (parseP *OpenAIProvider) ParseModelMetadata(parseModel string) (ModelMetadata, bool) {
+	return parseP.catalog.ParseModelMetadata(parseModel)
 }
 
-func (p *OpenAIProvider) Capabilities(model string) ModelCapabilities {
-	if metadata, ok := p.catalog.ModelMetadata(model); ok {
-		return metadata.Capabilities
+func (parseP *OpenAIProvider) ParseCapabilities(parseModel string) ModelCapabilities {
+	if parseMetadata, parseOk := parseP.catalog.ParseModelMetadata(parseModel); parseOk {
+		return parseMetadata.ParseCapabilities
 	}
-	return ModelCapabilities{ProviderID: p.ID(), ProviderLabel: "OpenAI"}
+	return ModelCapabilities{ProviderID: parseP.ParseID(), ProviderLabel: "OpenAI"}
 }
 
-func (p *OpenAIProvider) Health() ProviderHealth {
-	status := ProviderHealthUnavailable
-	if p.Available() {
-		status = ProviderHealthUnknown
+func (parseP *OpenAIProvider) ParseHealth() ProviderHealth {
+	parseStatus := ProviderHealthUnavailable
+	if parseP.ParseAvailable() {
+		parseStatus = ProviderHealthUnknown
 	}
-	return ProviderHealth{ProviderID: p.ID(), Status: status}
+	return ProviderHealth{ProviderID: parseP.ParseID(), Status: parseStatus}
 }
 
-func (p *OpenAIProvider) CurrentRateLimits() RateLimitSnapshot {
+func (parseP *OpenAIProvider) ParseCurrentRateLimits() RateLimitSnapshot {
 	return RateLimitSnapshot{}
 }
 
-func (p *OpenAIProvider) GenerateTitle(ctx context.Context, req TitleRequest) (string, error) {
-	if !p.Available() {
+func (parseP *OpenAIProvider) ParseGenerateTitle(parseCtx context.Context, parseReq TitleRequest) (string, error) {
+	if !parseP.ParseAvailable() {
 		return "", ErrNoProvidersAvailable
 	}
 
-	response, err := p.client.Responses.New(ctx, responses.ResponseNewParams{
-		Model:        shared.ResponsesModel(p.catalog.TitleModel),
-		Instructions: openai.String(req.SystemPrompt),
+	parseResponse, parseErr := parseP.client.Responses.New(parseCtx, responses.ResponseNewParams{
+		Model:        shared.ResponsesModel(parseP.catalog.TitleModel),
+		Instructions: openai.ParseString(parseReq.SystemPrompt),
 		Input: responses.ResponseNewParamsInputUnion{
-			OfString: openai.String(req.Prompt),
+			OfString: openai.ParseString(parseReq.Prompt),
 		},
 	})
-	if err != nil {
-		return "", fmt.Errorf("openai title: %w", err)
+	if parseErr != nil {
+		return "", fmt.Errorf("openai title: %w", parseErr)
 	}
 
-	title := strings.TrimSpace(response.OutputText())
-	if title == "" {
+	parseTitle := strings.TrimSpace(parseResponse.OutputText())
+	if parseTitle == "" {
 		return "", errors.New("openai title: empty title")
 	}
-	return title, nil
+	return parseTitle, nil
 }
 
-func (p *OpenAIProvider) ExtractUserMemories(ctx context.Context, req MemoryExtractionRequest) ([]UserMemoryCandidate, error) {
-	if !p.Available() {
+func (parseP *OpenAIProvider) ParseExtractUserMemories(parseCtx context.Context, parseReq MemoryExtractionRequest) ([]UserMemoryCandidate, error) {
+	if !parseP.ParseAvailable() {
 		return nil, ErrNoProvidersAvailable
 	}
 
-	resolvedModel := strings.TrimSpace(req.Model)
-	if resolvedModel == "" {
-		resolvedModel = p.DefaultModel()
+	parseResolvedModel := strings.TrimSpace(parseReq.Model)
+	if parseResolvedModel == "" {
+		parseResolvedModel = parseP.ParseDefaultModel()
 	}
 
-	response, err := p.client.Responses.New(ctx, responses.ResponseNewParams{
-		Model: shared.ResponsesModel(resolvedModel),
-		Instructions: openai.String(strings.TrimSpace(`You extract stable, reusable user memory candidates from a single user message.
+	parseResponse, parseErr := parseP.client.Responses.New(parseCtx, responses.ResponseNewParams{
+		Model: shared.ResponsesModel(parseResolvedModel),
+		Instructions: openai.ParseString(strings.TrimSpace(`You extract stable, reusable user memory candidates from a single user message.
 Rubric:
 - Score 0-39: ephemeral, one-off, or not useful later.
 - Score 40-59: maybe useful, but weak or uncertain.
@@ -191,7 +191,7 @@ Only include memories that are likely to help future replies. Prefer stable pref
 Do not store secrets, passwords, API keys, payment details, government IDs, or exact street addresses.
 If nothing qualifies, return {"memories":[]}.`)),
 		Input: responses.ResponseNewParamsInputUnion{
-			OfString: openai.String("User message:\n" + strings.TrimSpace(req.UserMessage)),
+			OfString: openai.ParseString("User message:\n" + strings.TrimSpace(parseReq.UserMessage)),
 		},
 		Text: responses.ResponseTextConfigParam{
 			Format: responses.ResponseFormatTextConfigUnionParam{
@@ -203,208 +203,208 @@ If nothing qualifies, return {"memories":[]}.`)),
 			},
 		},
 	})
-	if err != nil {
-		return nil, fmt.Errorf("openai memory extraction: %w", err)
+	if parseErr != nil {
+		return nil, fmt.Errorf("openai memory extraction: %w", parseErr)
 	}
 
-	var payload struct {
+	var parsePayload struct {
 		Memories []UserMemoryCandidate `json:"memories"`
 	}
-	output := strings.TrimSpace(response.OutputText())
-	if err := json.Unmarshal([]byte(output), &payload); err != nil {
-		fallbackOutput := extractJSONObject(output)
-		if fallbackErr := json.Unmarshal([]byte(fallbackOutput), &payload); fallbackErr != nil {
-			return nil, fmt.Errorf("openai memory extraction parse: strict=%v fallback=%v", err, fallbackErr)
+	parseOutput := strings.TrimSpace(parseResponse.OutputText())
+	if parseErr2 := json.Unmarshal([]byte(parseOutput), &parsePayload); parseErr2 != nil {
+		parseFallbackOutput := parseExtractJSONObject(parseOutput)
+		if parseFallbackErr := json.Unmarshal([]byte(parseFallbackOutput), &parsePayload); parseFallbackErr != nil {
+			return nil, fmt.Errorf("openai memory extraction parse: strict=%v fallback=%v", parseErr2, parseFallbackErr)
 		}
 	}
-	return payload.Memories, nil
+	return parsePayload.Memories, nil
 }
 
-func (p *OpenAIProvider) StreamChat(ctx context.Context, req ChatRequest, emit func(ChatEvent) error) (ChatResult, error) {
-	if !p.Available() {
+func (parseP *OpenAIProvider) ParseStreamChat(parseCtx context.Context, parseReq ChatRequest, parseEmit func(ChatEvent) error) (ChatResult, error) {
+	if !parseP.ParseAvailable() {
 		return ChatResult{}, ErrNoProvidersAvailable
 	}
 
-	resolvedModel := strings.TrimSpace(req.Model)
-	if resolvedModel == "" {
-		resolvedModel = p.DefaultModel()
+	parseResolvedModel := strings.TrimSpace(parseReq.Model)
+	if parseResolvedModel == "" {
+		parseResolvedModel = parseP.ParseDefaultModel()
 	}
 
-	buildResponseParams := func(includeReasoningSummary bool) responses.ResponseNewParams {
-		params := responses.ResponseNewParams{
-			Model:        shared.ResponsesModel(resolvedModel),
-			Instructions: openai.String(req.SystemPrompt),
+	buildResponseParams := func(isIncludeReasoningSummary bool) responses.ResponseNewParams {
+		parseParams := responses.ResponseNewParams{
+			Model:        shared.ResponsesModel(parseResolvedModel),
+			Instructions: openai.ParseString(parseReq.SystemPrompt),
 			Input: responses.ResponseNewParamsInputUnion{
-				OfString: openai.String(BuildConversationInput(req.History, req.UserMessage)),
+				OfString: openai.ParseString(BuildConversationInput(parseReq.History, parseReq.UserMessage)),
 			},
 		}
-		if req.ThinkingEnabled {
-			reasoningParam := shared.ReasoningParam{
-				Effort: openAIReasoningEffort(req.ThinkingEffort),
+		if parseReq.ThinkingEnabled {
+			parseReasoningParam := shared.ReasoningParam{
+				Effort: parseOpenAIReasoningEffort(parseReq.ThinkingEffort),
 			}
-			if includeReasoningSummary {
-				reasoningParam.Summary = shared.ReasoningSummaryDetailed
+			if isIncludeReasoningSummary {
+				parseReasoningParam.Summary = shared.ReasoningSummaryDetailed
 			}
-			params.Reasoning = reasoningParam
+			parseParams.Reasoning = parseReasoningParam
 		}
-		return params
+		return parseParams
 	}
 
-	responseStream := p.client.Responses.NewStreaming(ctx, buildResponseParams(req.ThinkingEnabled))
-	retriedWithoutReasoningSummary := false
-	thoughtStarted := false
-	thoughtDoneSent := false
-	var promptTokens int64
-	var completionTokens int64
+	parseResponseStream := parseP.client.Responses.NewStreaming(parseCtx, buildResponseParams(parseReq.ThinkingEnabled))
+	isParseRetriedWithoutReasoningSummary := false
+	isParseThoughtStarted := false
+	isParseThoughtDoneSent := false
+	var parsePromptTokens int64
+	var parseCompletionTokens int64
 
-	emitThoughtDone := func() error {
-		if thoughtDoneSent {
+	parseEmitThoughtDone := func() error {
+		if isParseThoughtDoneSent {
 			return nil
 		}
-		thoughtDoneSent = true
-		return emit(ChatEvent{ThoughtDone: true})
+		isParseThoughtDoneSent = true
+		return parseEmit(ChatEvent{ThoughtDone: true})
 	}
 
-	var processStream func() error
-	processStream = func() error {
-		for responseStream.Next() {
-			switch event := responseStream.Current().AsAny().(type) {
+	var parseProcessStream func() error
+	parseProcessStream = func() error {
+		for parseResponseStream.Next() {
+			switch parseEvent := parseResponseStream.Current().AsAny().(type) {
 			case responses.ResponseCompletedEvent:
-				promptTokens = event.Response.Usage.InputTokens
-				completionTokens = event.Response.Usage.OutputTokens
+				parsePromptTokens = parseEvent.Response.Usage.InputTokens
+				parseCompletionTokens = parseEvent.Response.Usage.OutputTokens
 			case responses.ResponseReasoningSummaryTextDeltaEvent:
-				if event.Delta == "" {
+				if parseEvent.Delta == "" {
 					continue
 				}
-				thoughtStarted = true
-				if err := emit(ChatEvent{ThoughtDelta: event.Delta}); err != nil {
-					return err
+				isParseThoughtStarted = true
+				if parseErr := parseEmit(ChatEvent{ThoughtDelta: parseEvent.Delta}); parseErr != nil {
+					return parseErr
 				}
 			case responses.ResponseReasoningSummaryTextDoneEvent:
-				if err := emitThoughtDone(); err != nil {
-					return err
+				if parseErr2 := parseEmitThoughtDone(); parseErr2 != nil {
+					return parseErr2
 				}
 			case responses.ResponseTextDeltaEvent:
-				if event.Delta == "" {
+				if parseEvent.Delta == "" {
 					continue
 				}
-				if thoughtStarted && !thoughtDoneSent {
-					if err := emitThoughtDone(); err != nil {
-						return err
+				if isParseThoughtStarted && !isParseThoughtDoneSent {
+					if parseErr3 := parseEmitThoughtDone(); parseErr3 != nil {
+						return parseErr3
 					}
 				}
-				if err := emit(ChatEvent{TextDelta: event.Delta}); err != nil {
-					return err
+				if parseErr4 := parseEmit(ChatEvent{TextDelta: parseEvent.Delta}); parseErr4 != nil {
+					return parseErr4
 				}
 			}
 		}
-		if err := responseStream.Err(); err != nil {
-			if req.ThinkingEnabled && !retriedWithoutReasoningSummary && strings.Contains(err.Error(), "reasoning.summary") && strings.Contains(err.Error(), "unsupported_value") {
-				retriedWithoutReasoningSummary = true
-				if !thoughtStarted {
-					if sendErr := emit(ChatEvent{ThoughtDelta: "Reasoning summaries are unavailable for this account, so continuing without live thought output."}); sendErr != nil {
-						return sendErr
+		if parseErr5 := parseResponseStream.Err(); parseErr5 != nil {
+			if parseReq.ThinkingEnabled && !isParseRetriedWithoutReasoningSummary && strings.Contains(parseErr5.ParseError(), "reasoning.summary") && strings.Contains(parseErr5.ParseError(), "unsupported_value") {
+				isParseRetriedWithoutReasoningSummary = true
+				if !isParseThoughtStarted {
+					if parseSendErr := parseEmit(ChatEvent{ThoughtDelta: "Reasoning summaries are unavailable for this account, so continuing without live thought output."}); parseSendErr != nil {
+						return parseSendErr
 					}
-					thoughtStarted = true
+					isParseThoughtStarted = true
 				}
-				if sendErr := emitThoughtDone(); sendErr != nil {
-					return sendErr
+				if parseSendErr2 := parseEmitThoughtDone(); parseSendErr2 != nil {
+					return parseSendErr2
 				}
-				responseStream = p.client.Responses.NewStreaming(ctx, buildResponseParams(false))
-				return processStream()
+				parseResponseStream = parseP.client.Responses.NewStreaming(parseCtx, buildResponseParams(false))
+				return parseProcessStream()
 			}
-			return fmt.Errorf("openai stream: %w", err)
+			return fmt.Errorf("openai stream: %w", parseErr5)
 		}
 		return nil
 	}
 
-	if err := processStream(); err != nil {
-		return ChatResult{}, err
+	if parseErr6 := parseProcessStream(); parseErr6 != nil {
+		return ChatResult{}, parseErr6
 	}
-	if thoughtStarted && !thoughtDoneSent {
-		if err := emitThoughtDone(); err != nil {
-			return ChatResult{}, err
+	if isParseThoughtStarted && !isParseThoughtDoneSent {
+		if parseErr7 := parseEmitThoughtDone(); parseErr7 != nil {
+			return ChatResult{}, parseErr7
 		}
 	}
 
 	return ChatResult{
-		Model:            resolvedModel,
-		PromptTokens:     promptTokens,
-		CompletionTokens: completionTokens,
+		Model:            parseResolvedModel,
+		PromptTokens:     parsePromptTokens,
+		CompletionTokens: parseCompletionTokens,
 	}, nil
 }
 
-func (p *OpenAIProvider) SynthesizeSpeech(ctx context.Context, req SpeechRequest, emit func(SpeechChunk) error) (SpeechResult, error) {
-	if !p.Available() {
+func (parseP *OpenAIProvider) ParseSynthesizeSpeech(parseCtx context.Context, parseReq SpeechRequest, parseEmit func(SpeechChunk) error) (SpeechResult, error) {
+	if !parseP.ParseAvailable() {
 		return SpeechResult{}, ErrNoProvidersAvailable
 	}
-	if !p.Capabilities(req.Model).SupportsSpeech {
-		return SpeechResult{}, &UnsupportedCapabilityError{Capability: CapabilitySpeech, Model: strings.TrimSpace(req.Model), ProviderID: p.ID()}
+	if !parseP.ParseCapabilities(parseReq.Model).SupportsSpeech {
+		return SpeechResult{}, &UnsupportedCapabilityError{Capability: CapabilitySpeech, Model: strings.TrimSpace(parseReq.Model), ProviderID: parseP.ParseID()}
 	}
 
-	response, err := p.client.Audio.Speech.New(ctx, openai.AudioSpeechNewParams{
-		Input:          strings.TrimSpace(req.Text),
+	parseResponse, parseErr := parseP.client.Audio.Speech.New(parseCtx, openai.AudioSpeechNewParams{
+		Input:          strings.TrimSpace(parseReq.Text),
 		Model:          openAITTSDaultModel,
 		Voice:          openAITTSDefaultVoice,
 		ResponseFormat: openai.AudioSpeechNewParamsResponseFormatMP3,
 		StreamFormat:   openai.AudioSpeechNewParamsStreamFormatAudio,
 	})
-	if err != nil {
-		return SpeechResult{}, fmt.Errorf("openai speech: %w", err)
+	if parseErr != nil {
+		return SpeechResult{}, fmt.Errorf("openai speech: %w", parseErr)
 	}
-	defer response.Body.Close()
+	defer parseResponse.Body.Close()
 
-	result := SpeechResult{
+	parseResult := SpeechResult{
 		MimeType: openAITTSDefaultMimeType,
 		Model:    string(openAITTSDaultModel),
 		Voice:    string(openAITTSDefaultVoice),
-		Script:   strings.TrimSpace(req.Text),
+		Script:   strings.TrimSpace(parseReq.Text),
 	}
 
-	buffer := make([]byte, openAITTSStreamChunkSize)
-	totalAudioBytes := 0
-	metadataSent := false
+	parseBuffer := make([]byte, openAITTSStreamChunkSize)
+	parseTotalAudioBytes := 0
+	isParseMetadataSent := false
 	for {
-		readBytes, readErr := response.Body.Read(buffer)
-		if readBytes > 0 {
-			chunk := SpeechChunk{AudioChunk: append([]byte(nil), buffer[:readBytes]...)}
-			if !metadataSent {
-				chunk.MimeType = result.MimeType
-				chunk.Model = result.Model
-				chunk.Voice = result.Voice
-				chunk.Script = result.Script
-				metadataSent = true
+		parseReadBytes, parseReadErr := parseResponse.Body.Read(parseBuffer)
+		if parseReadBytes > 0 {
+			parseChunk := SpeechChunk{AudioChunk: append([]byte(nil), parseBuffer[:parseReadBytes]...)}
+			if !isParseMetadataSent {
+				parseChunk.MimeType = parseResult.MimeType
+				parseChunk.Model = parseResult.Model
+				parseChunk.Voice = parseResult.Voice
+				parseChunk.Script = parseResult.Script
+				isParseMetadataSent = true
 			}
-			if err := emit(chunk); err != nil {
-				return SpeechResult{}, err
+			if parseErr2 := parseEmit(parseChunk); parseErr2 != nil {
+				return SpeechResult{}, parseErr2
 			}
-			totalAudioBytes += readBytes
+			parseTotalAudioBytes += parseReadBytes
 		}
-		if readErr == io.EOF {
+		if parseReadErr == io.EOF {
 			break
 		}
-		if readErr != nil {
-			return SpeechResult{}, fmt.Errorf("openai speech read: %w", readErr)
+		if parseReadErr != nil {
+			return SpeechResult{}, fmt.Errorf("openai speech read: %w", parseReadErr)
 		}
 	}
-	if totalAudioBytes == 0 {
+	if parseTotalAudioBytes == 0 {
 		return SpeechResult{}, errors.New("openai speech: synthesized audio was empty")
 	}
-	if err := emit(SpeechChunk{
+	if parseErr3 := parseEmit(SpeechChunk{
 		Done:     true,
-		MimeType: result.MimeType,
-		Model:    result.Model,
-		Voice:    result.Voice,
-		Script:   result.Script,
-	}); err != nil {
-		return SpeechResult{}, err
+		MimeType: parseResult.MimeType,
+		Model:    parseResult.Model,
+		Voice:    parseResult.Voice,
+		Script:   parseResult.Script,
+	}); parseErr3 != nil {
+		return SpeechResult{}, parseErr3
 	}
 
-	return result, nil
+	return parseResult, nil
 }
 
-func openAIReasoningEffort(effort string) shared.ReasoningEffort {
-	switch strings.TrimSpace(strings.ToLower(effort)) {
+func parseOpenAIReasoningEffort(parseEffort string) shared.ReasoningEffort {
+	switch strings.TrimSpace(strings.ToLower(parseEffort)) {
 	case "low":
 		return shared.ReasoningEffortLow
 	case "high":
@@ -416,36 +416,36 @@ func openAIReasoningEffort(effort string) shared.ReasoningEffort {
 
 var jsonFencePattern = regexp.MustCompile("(?s)^```(?:json)?\\s*(.*?)\\s*```$")
 
-func extractJSONObject(source string) string {
-	trimmed := strings.TrimSpace(source)
-	if trimmed == "" {
+func parseExtractJSONObject(parseSource string) string {
+	parseTrimmed := strings.TrimSpace(parseSource)
+	if parseTrimmed == "" {
 		return `{"memories":[]}`
 	}
-	if matches := jsonFencePattern.FindStringSubmatch(trimmed); len(matches) == 2 {
-		trimmed = strings.TrimSpace(matches[1])
+	if parseMatches := jsonFencePattern.FindStringSubmatch(parseTrimmed); len(parseMatches) == 2 {
+		parseTrimmed = strings.TrimSpace(parseMatches[1])
 	}
-	start := strings.Index(trimmed, "{")
-	end := strings.LastIndex(trimmed, "}")
-	if start >= 0 && end > start {
-		return trimmed[start : end+1]
+	parseStart := strings.Index(parseTrimmed, "{")
+	parseEnd := strings.LastIndex(parseTrimmed, "}")
+	if parseStart >= 0 && parseEnd > parseStart {
+		return parseTrimmed[parseStart : parseEnd+1]
 	}
-	return trimmed
+	return parseTrimmed
 }
 
-func normalizeOpenAIModel(model string) string {
-	return strings.TrimSpace(strings.ToLower(model))
+func parseNormalizeOpenAIModel(parseModel string) string {
+	return strings.TrimSpace(strings.ToLower(parseModel))
 }
 
-func (p *OpenAIProvider) mustModelMetadata(model string) ModelMetadata {
-	metadata, ok := p.ModelMetadata(model)
-	if !ok {
+func (parseP *OpenAIProvider) parseMustModelMetadata(parseModel string) ModelMetadata {
+	parseMetadata, parseOk := parseP.ParseModelMetadata(parseModel)
+	if !parseOk {
 		return ModelMetadata{
-			ID:            strings.TrimSpace(model),
-			DisplayName:   strings.TrimSpace(model),
-			ProviderID:    p.ID(),
+			ID:            strings.TrimSpace(parseModel),
+			DisplayName:   strings.TrimSpace(parseModel),
+			ProviderID:    parseP.ParseID(),
 			ProviderLabel: "OpenAI",
-			Capabilities:  p.Capabilities(model),
+			Capabilities:  parseP.ParseCapabilities(parseModel),
 		}
 	}
-	return metadata
+	return parseMetadata
 }

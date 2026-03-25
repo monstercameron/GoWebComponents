@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/monstercameron/GoWebComponents/devtools"
 	"github.com/monstercameron/GoWebComponents/html"
 	"github.com/monstercameron/GoWebComponents/interop"
 	"github.com/monstercameron/GoWebComponents/ui"
@@ -325,129 +326,129 @@ const (
 	atlasOverlayRootID             = "atlas-overlay-root"
 )
 
-func App(payload Payload) ui.Node {
-	surface := strings.TrimSpace(payload.Route.Surface)
-	rootClass := "min-h-screen bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.16),transparent_22%),linear-gradient(180deg,rgba(7,10,18,1),rgba(13,18,30,1)_42%,rgba(7,10,18,1))] text-stone-100"
-	mainClass := "mx-auto grid w-full max-w-7xl gap-8 px-5 pb-12 pt-6 sm:px-6 lg:px-10"
-	if surface != "" && surface != "public" {
-		rootClass = "min-h-screen bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.12),transparent_28%),linear-gradient(180deg,rgba(2,6,23,1),rgba(15,23,42,1))] text-white"
-		mainClass = "mx-auto grid w-full max-w-6xl gap-8 px-6 pb-12 pt-6 lg:px-10"
+func App(parsePayload Payload) ui.Node {
+	parseSurface := strings.TrimSpace(parsePayload.Route.Surface)
+	parseRootClass := "min-h-screen bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.16),transparent_22%),linear-gradient(180deg,rgba(7,10,18,1),rgba(13,18,30,1)_42%,rgba(7,10,18,1))] text-stone-100"
+	parseMainClass := "mx-auto grid w-full max-w-7xl gap-8 px-5 pb-12 pt-6 sm:px-6 lg:px-10"
+	if parseSurface != "" && parseSurface != "public" {
+		parseRootClass = "min-h-screen bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.12),transparent_28%),linear-gradient(180deg,rgba(2,6,23,1),rgba(15,23,42,1))] text-white"
+		parseMainClass = "mx-auto grid w-full max-w-6xl gap-8 px-6 pb-12 pt-6 lg:px-10"
 	}
-	desiredPresentation := shellPresentationStateFromPayload(payload)
-	presentationAtom := useAtlasAtom(atlasShellPresentationAtomID, desiredPresentation)
-	presentation := presentationAtom.Get()
-	if presentation.RouteKey != desiredPresentation.RouteKey {
-		presentation = desiredPresentation
+	parseDesiredPresentation := shellPresentationStateFromPayload(parsePayload)
+	parsePresentationAtom := useAtlasAtom(atlasShellPresentationAtomID, parseDesiredPresentation)
+	parsePresentation := parsePresentationAtom.Get()
+	if parsePresentation.RouteKey != parseDesiredPresentation.RouteKey {
+		parsePresentation = parseDesiredPresentation
 	}
 	useAtlasEffect(func() func() {
-		if presentationAtom.Get() != desiredPresentation {
-			presentationAtom.Set(desiredPresentation)
+		if parsePresentationAtom.Get() != parseDesiredPresentation {
+			parsePresentationAtom.Set(parseDesiredPresentation)
 		}
 		return nil
-	}, desiredPresentation)
+	}, parseDesiredPresentation)
 	useAtlasEffect(func() func() {
 		_ = persistAtlasSnapshot(atlasShellPresentationStoreKey, atlasShellPresentationAtomID)
 		return nil
-	}, presentation)
-	desiredWorkspace := useAtlasComputed(func() internalShellState {
-		return internalShellStateForPayload(payload)
-	}, payload.Route.Path, payload.Data, payload.SavedViews).Get()
-	workspaceAtom := useAtlasAtom(atlasRouteWorkspaceAtomID, desiredWorkspace)
-	shellState := workspaceAtom.Get()
-	if shellState.RouteKey != desiredWorkspace.RouteKey {
-		shellState = desiredWorkspace
+	}, parsePresentation)
+	parseDesiredWorkspace := useAtlasComputed(func() internalShellState {
+		return internalShellStateForPayload(parsePayload)
+	}, parsePayload.Route.Path, parsePayload.Data, parsePayload.SavedViews).Get()
+	parseWorkspaceAtom := useAtlasAtom(atlasRouteWorkspaceAtomID, parseDesiredWorkspace)
+	parseShellState := parseWorkspaceAtom.Get()
+	if parseShellState.RouteKey != parseDesiredWorkspace.RouteKey {
+		parseShellState = parseDesiredWorkspace
 	}
 	useAtlasEffect(func() func() {
-		workspaceAtom.Set(desiredWorkspace)
+		parseWorkspaceAtom.Set(parseDesiredWorkspace)
 		return nil
-	}, desiredWorkspace)
-	toastChannel := useAtlasChannel(atlasShellToastBus)
-	toastState := useAtlasState(atlasShellToast{})
-	announcer := ui.UseAnnouncer()
-	if toastChannel.Ok() {
-		latest := toastChannel.Get()
-		if latest != toastState.Get() {
-			toastState.Set(latest)
+	}, parseDesiredWorkspace)
+	parseToastChannel := useAtlasChannel(atlasShellToastBus)
+	parseToastState := useAtlasState(atlasShellToast{})
+	parseAnnouncer := ui.UseAnnouncer()
+	if parseToastChannel.Ok() {
+		parseLatest := parseToastChannel.Get()
+		if parseLatest != parseToastState.Get() {
+			parseToastState.Set(parseLatest)
 		}
 	}
-	routeAnnouncement := strings.TrimSpace(fallback(payload.Route.Title, payload.Route.Screen))
-	previousRouteAnnouncement := ui.UsePrevious(routeAnnouncement)
+	parseRouteAnnouncement := strings.TrimSpace(fallback(parsePayload.Route.Title, parsePayload.Route.Screen))
+	parsePreviousRouteAnnouncement := ui.UsePrevious(parseRouteAnnouncement)
 	useAtlasEffect(func() func() {
-		if !previousRouteAnnouncement.Ok() || strings.TrimSpace(routeAnnouncement) == "" || previousRouteAnnouncement.Get() == routeAnnouncement {
+		if !parsePreviousRouteAnnouncement.Ok() || strings.TrimSpace(parseRouteAnnouncement) == "" || parsePreviousRouteAnnouncement.Get() == parseRouteAnnouncement {
 			return nil
 		}
-		announcer.Polite("Route changed to " + routeAnnouncement + ".")
+		parseAnnouncer.Polite("Route changed to " + parseRouteAnnouncement + ".")
 		return nil
-	}, routeAnnouncement)
-	noticeMessage := atlasNoticeMessage(payload)
-	previousNotice := ui.UsePrevious(noticeMessage)
+	}, parseRouteAnnouncement)
+	parseNoticeMessage := atlasNoticeMessage(parsePayload)
+	parsePreviousNotice := ui.UsePrevious(parseNoticeMessage)
 	useAtlasEffect(func() func() {
-		if strings.TrimSpace(noticeMessage) == "" || (previousNotice.Ok() && previousNotice.Get() == noticeMessage) {
+		if strings.TrimSpace(parseNoticeMessage) == "" || (parsePreviousNotice.Ok() && parsePreviousNotice.Get() == parseNoticeMessage) {
 			return nil
 		}
-		announcer.Polite(noticeMessage)
+		parseAnnouncer.Polite(parseNoticeMessage)
 		return nil
-	}, noticeMessage)
-	previousToast := ui.UsePrevious(toastState.Get())
+	}, parseNoticeMessage)
+	parsePreviousToast := ui.UsePrevious(parseToastState.Get())
 	useAtlasEffect(func() func() {
-		current := toastState.Get()
-		if strings.TrimSpace(current.Title) == "" || (previousToast.Ok() && previousToast.Get() == current) {
+		parseCurrent := parseToastState.Get()
+		if strings.TrimSpace(parseCurrent.Title) == "" || (parsePreviousToast.Ok() && parsePreviousToast.Get() == parseCurrent) {
 			return nil
 		}
-		announcement := current.Title
-		if detail := strings.TrimSpace(current.Detail); detail != "" {
-			announcement += ". " + detail
+		parseAnnouncement := parseCurrent.Title
+		if parseDetail := strings.TrimSpace(parseCurrent.Detail); parseDetail != "" {
+			parseAnnouncement += ". " + parseDetail
 		}
-		announcer.Polite(announcement)
+		parseAnnouncer.Polite(parseAnnouncement)
 		return nil
-	}, toastState.Get())
+	}, parseToastState.Get())
 	useAtlasEffect(func() func() {
-		current := toastState.Get()
-		if strings.TrimSpace(current.Title) == "" {
+		parseCurrent2 := parseToastState.Get()
+		if strings.TrimSpace(parseCurrent2.Title) == "" {
 			return nil
 		}
-		stop := make(chan struct{})
-		go func(expected atlasShellToast) {
+		parseStop := make(chan struct{})
+		go func(parseExpected atlasShellToast) {
 			select {
 			case <-time.After(4 * time.Second):
-				if toastState.Get() == expected {
-					toastState.Set(atlasShellToast{})
+				if parseToastState.Get() == parseExpected {
+					parseToastState.Set(atlasShellToast{})
 				}
-			case <-stop:
+			case <-parseStop:
 			}
-		}(current)
+		}(parseCurrent2)
 		return func() {
-			close(stop)
+			close(parseStop)
 		}
-	}, toastState.Get())
-	children := []ui.Node{header(payload, shellState)}
-	mainChildren := []ui.Node{}
-	if toast := shellToastBanner(toastState.Get()); toast != nil {
-		mainChildren = append(mainChildren, toast)
+	}, parseToastState.Get())
+	parseChildren := []ui.Node{header(parsePayload, parseShellState)}
+	parseMainChildren := []ui.Node{}
+	if parseToast := shellToastBanner(parseToastState.Get()); parseToast != nil {
+		parseMainChildren = append(parseMainChildren, parseToast)
 	}
-	if banner := noticeBanner(payload); banner != nil {
-		mainChildren = append(mainChildren, banner)
+	if parseBanner := noticeBanner(parsePayload); parseBanner != nil {
+		parseMainChildren = append(parseMainChildren, parseBanner)
 	}
-	if diagnostics := atlasDiagnosticsPanel(payload, shellState, presentation); diagnostics != nil {
-		mainChildren = append(mainChildren, diagnostics)
+	if parseDiagnostics := atlasDiagnosticsPanel(parsePayload, parseShellState, parsePresentation); parseDiagnostics != nil {
+		parseMainChildren = append(parseMainChildren, parseDiagnostics)
 	}
-	mainChildren = append(mainChildren, hero(payload, shellState, presentation), pageContent(payload))
-	children = append(children, html.Main(html.Props{Class: mainClass}, mainChildren...))
+	parseMainChildren = append(parseMainChildren, hero(parsePayload, parseShellState, parsePresentation), pageContent(parsePayload))
+	parseChildren = append(parseChildren, html.Main(html.Props{Class: parseMainClass}, parseMainChildren...))
 	return html.Div(html.Props{},
-		html.Div(html.Props{ID: atlasShellRootID, Class: rootClass}, children...),
-		announcer.Region(),
+		html.Div(html.Props{ID: atlasShellRootID, Class: parseRootClass}, parseChildren...),
+		parseAnnouncer.Region(),
 		html.Div(html.Props{ID: atlasOverlayRootID}),
 	)
 }
 
-func header(payload Payload, shellState internalShellState) ui.Node {
-	links := []atlasPublicNavLink{
+func header(parsePayload Payload, parseShellState internalShellState) ui.Node {
+	parseLinks := []atlasPublicNavLink{
 		{Label: publicNavStorefrontLabel, Href: RouteLanding},
 		{Label: publicNavShopLabel, Href: RouteCatalog},
 		{Label: publicNavWarehousesLabel, Href: RouteWarehouses},
 	}
-	if payload.User != nil {
-		links = append(links,
+	if parsePayload.User != nil {
+		parseLinks = append(parseLinks,
 			atlasPublicNavLink{Label: "Dashboard", Href: RouteDashboard},
 			atlasPublicNavLink{Label: "Inventory", Href: RouteInventory},
 			atlasPublicNavLink{Label: "Products", Href: "/app/products"},
@@ -459,10 +460,10 @@ func header(payload Payload, shellState internalShellState) ui.Node {
 			atlasPublicNavLink{Label: "Settings", Href: RouteSettings},
 		)
 	}
-	if payload.Route.Surface == "public" || payload.Route.Surface == "" {
-		return publicHeader(payload, links)
+	if parsePayload.Route.Surface == "public" || parsePayload.Route.Surface == "" {
+		return publicHeader(parsePayload, parseLinks)
 	}
-	return internalHeader(payload, shellState)
+	return internalHeader(parsePayload, parseShellState)
 }
 
 type atlasPublicNavLink struct {
@@ -470,55 +471,55 @@ type atlasPublicNavLink struct {
 	Href  string
 }
 
-func publicHeader(payload Payload, links []atlasPublicNavLink) ui.Node {
+func publicHeader(parsePayload Payload, parseLinks []atlasPublicNavLink) ui.Node {
 	return ui.CreateElement(func() ui.Node {
-		open := ui.UseState(false)
-		sheetID := ui.UseId() + "-public-nav"
-		titleID := sheetID + "-title"
-		descriptionID := sheetID + "-description"
-		closeID := sheetID + "-close"
-		openDrawer := ui.UseEvent(func() { open.Set(true) })
-		closeDrawer := func() { open.Set(false) }
-		identity := publicIdentityLabel
-		if payload.User != nil {
-			identity = payload.User.DisplayName + " | " + strings.ReplaceAll(payload.User.Role, "_", " ")
+		parseOpen := ui.UseState(false)
+		parseSheetID := ui.UseId() + "-public-nav"
+		parseTitleID := parseSheetID + "-title"
+		parseDescriptionID := parseSheetID + "-description"
+		parseCloseID := parseSheetID + "-close"
+		parseOpenDrawer := ui.UseEvent(func() { parseOpen.Set(true) })
+		parseCloseDrawer := func() { parseOpen.Set(false) }
+		parseIdentity := publicIdentityLabel
+		if parsePayload.User != nil {
+			parseIdentity = parsePayload.User.DisplayName + " | " + strings.ReplaceAll(parsePayload.User.Role, "_", " ")
 		}
-		desktopNodes := make([]ui.Node, 0, len(links))
-		mobileNodes := make([]ui.Node, 0, len(links))
-		for _, link := range links {
-			className := "rounded-full border border-white/12 bg-white/6 px-4 py-2.5 text-sm font-medium text-stone-300 shadow-[0_10px_25px_rgba(0,0,0,0.16)] transition hover:border-amber-300/60 hover:bg-white/10 hover:text-white"
-			mobileClassName := "flex items-center justify-between rounded-[1.35rem] border border-white/10 bg-white/5 px-4 py-4 text-left text-sm font-medium text-stone-200 transition hover:border-amber-300/45 hover:bg-white/10 hover:text-white"
-			if activeNavLink(payload.Route.Path, link.Href) {
-				className = "rounded-full border border-amber-300/70 bg-amber-300/12 px-4 py-2.5 text-sm font-semibold text-amber-100 shadow-[0_12px_28px_rgba(245,158,11,0.14)]"
-				mobileClassName = "flex items-center justify-between rounded-[1.35rem] border border-amber-300/60 bg-amber-300/12 px-4 py-4 text-left text-sm font-semibold text-amber-100 shadow-[0_12px_28px_rgba(245,158,11,0.14)]"
+		parseDesktopNodes := make([]ui.Node, 0, len(parseLinks))
+		parseMobileNodes := make([]ui.Node, 0, len(parseLinks))
+		for _, parseLink := range parseLinks {
+			parseClassName := "rounded-full border border-white/12 bg-white/6 px-4 py-2.5 text-sm font-medium text-stone-300 shadow-[0_10px_25px_rgba(0,0,0,0.16)] transition hover:border-amber-300/60 hover:bg-white/10 hover:text-white"
+			parseMobileClassName := "flex items-center justify-between rounded-[1.35rem] border border-white/10 bg-white/5 px-4 py-4 text-left text-sm font-medium text-stone-200 transition hover:border-amber-300/45 hover:bg-white/10 hover:text-white"
+			if activeNavLink(parsePayload.Route.Path, parseLink.Href) {
+				parseClassName = "rounded-full border border-amber-300/70 bg-amber-300/12 px-4 py-2.5 text-sm font-semibold text-amber-100 shadow-[0_12px_28px_rgba(245,158,11,0.14)]"
+				parseMobileClassName = "flex items-center justify-between rounded-[1.35rem] border border-amber-300/60 bg-amber-300/12 px-4 py-4 text-left text-sm font-semibold text-amber-100 shadow-[0_12px_28px_rgba(245,158,11,0.14)]"
 			}
-			desktopNodes = append(desktopNodes, html.A(html.Props{Href: link.Href, Class: className}, html.Text(link.Label)))
-			mobileNodes = append(mobileNodes, html.A(html.Props{Href: link.Href, Class: mobileClassName}, html.Text(link.Label)))
+			parseDesktopNodes = append(parseDesktopNodes, html.A(html.Props{Href: parseLink.Href, Class: parseClassName}, html.Text(parseLink.Label)))
+			parseMobileNodes = append(parseMobileNodes, html.A(html.Props{Href: parseLink.Href, Class: parseMobileClassName}, html.Text(parseLink.Label)))
 		}
 		return html.Header(html.Props{Class: "sticky top-0 z-20 border-b border-white/10 bg-[rgba(7,10,18,0.86)] backdrop-blur-xl"},
 			html.Div(html.Props{Class: "mx-auto flex w-full max-w-7xl flex-col gap-4 px-5 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-10"},
 				html.Div(html.Props{Class: "flex items-center justify-between gap-4"},
 					html.Div(html.Props{Class: "flex flex-col"},
 						html.P(html.Props{Class: "text-[0.7rem] font-semibold uppercase tracking-[0.42em] text-amber-700"}, html.Text(publicBrandLabel)),
-						html.P(html.Props{Class: "mt-2 text-sm text-stone-400"}, html.Text(identity)),
+						html.P(html.Props{Class: "mt-2 text-sm text-stone-400"}, html.Text(parseIdentity)),
 					),
 					html.Div(html.Props{Class: "flex items-center gap-3 lg:hidden"},
 						html.A(html.Props{Href: RouteCatalog, Class: "inline-flex rounded-full border border-amber-300/60 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:bg-amber-300/12"}, html.Text(publicBrowseShopLabel)),
-						html.Button(html.Props{Type: "button", Class: "inline-flex rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm font-semibold text-stone-100 transition hover:border-amber-300/45 hover:bg-white/12", OnClick: openDrawer}, html.Text("Menu")),
+						html.Button(html.Props{Type: "button", Class: "inline-flex rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm font-semibold text-stone-100 transition hover:border-amber-300/45 hover:bg-white/12", OnClick: parseOpenDrawer}, html.Text("Menu")),
 					),
 				),
-				html.Nav(html.Props{Class: "hidden flex-wrap items-center gap-2 lg:flex lg:justify-end"}, desktopNodes...),
+				html.Nav(html.Props{Class: "hidden flex-wrap items-center gap-2 lg:flex lg:justify-end"}, parseDesktopNodes...),
 			),
-			atlasDismissibleSheet(open.Get(), sheetID, titleID, descriptionID, "#"+closeID, closeDrawer, html.Div(html.Props{Class: "grid gap-5"},
+			atlasDismissibleSheet(parseOpen.Get(), parseSheetID, parseTitleID, parseDescriptionID, "#"+parseCloseID, parseCloseDrawer, html.Div(html.Props{Class: "grid gap-5"},
 				html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
 					html.Div(html.Props{Class: "grid gap-2"},
 						html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-300"}, html.Text("Storefront navigation")),
-						html.P(html.Props{ID: titleID, Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text("Browse Atlas")),
-						html.P(html.Props{ID: descriptionID, Class: "text-sm leading-7 text-stone-300"}, html.Text("Open the public menu to jump between landing, shop, and warehouse discovery routes without losing the current storefront context.")),
+						html.P(html.Props{ID: parseTitleID, Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text("Browse Atlas")),
+						html.P(html.Props{ID: parseDescriptionID, Class: "text-sm leading-7 text-stone-300"}, html.Text("Open the public menu to jump between landing, shop, and warehouse discovery routes without losing the current storefront context.")),
 					),
-					html.Button(html.Props{ID: closeID, Type: "button", Class: "rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-stone-200", OnClick: ui.UseEvent(func() { closeDrawer() })}, html.Text("Close")),
+					html.Button(html.Props{ID: parseCloseID, Type: "button", Class: "rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-stone-200", OnClick: ui.UseEvent(func() { parseCloseDrawer() })}, html.Text("Close")),
 				),
-				html.Div(html.Props{Class: "grid gap-3"}, mobileNodes...),
+				html.Div(html.Props{Class: "grid gap-3"}, parseMobileNodes...),
 			)),
 		)
 	})
@@ -534,61 +535,61 @@ type atlasInternalNavGroup struct {
 	Links []atlasInternalNavLink
 }
 
-func internalHeader(payload Payload, shellState internalShellState) ui.Node {
+func internalHeader(parsePayload Payload, parseShellState internalShellState) ui.Node {
 	return ui.CreateElement(func() ui.Node {
-		open := ui.UseState(false)
-		sheetID := ui.UseId() + "-internal-nav"
-		titleID := sheetID + "-title"
-		descriptionID := sheetID + "-description"
-		closeID := sheetID + "-close"
-		openDrawer := ui.UseEvent(func() { open.Set(true) })
-		closeDrawer := func() { open.Set(false) }
-		identity := "Public browsing"
-		if payload.User != nil {
-			identity = payload.User.DisplayName + " | " + strings.ReplaceAll(payload.User.Role, "_", " ")
+		parseOpen := ui.UseState(false)
+		parseSheetID := ui.UseId() + "-internal-nav"
+		parseTitleID := parseSheetID + "-title"
+		parseDescriptionID := parseSheetID + "-description"
+		parseCloseID := parseSheetID + "-close"
+		parseOpenDrawer := ui.UseEvent(func() { parseOpen.Set(true) })
+		parseCloseDrawer := func() { parseOpen.Set(false) }
+		parseIdentity := "Public browsing"
+		if parsePayload.User != nil {
+			parseIdentity = parsePayload.User.DisplayName + " | " + strings.ReplaceAll(parsePayload.User.Role, "_", " ")
 		}
-		contextPills := internalHeaderContextPills(payload, shellState)
-		groups := internalNavGroups()
+		parseContextPills := internalHeaderContextPills(parsePayload, parseShellState)
+		parseGroups := internalNavGroups()
 		return html.Header(html.Props{Class: "sticky top-0 z-20 border-b border-white/10 bg-slate-950/88 backdrop-blur-xl"},
 			html.Div(html.Props{Class: "mx-auto grid w-full max-w-7xl gap-4 px-5 py-4 sm:px-6 lg:px-10"},
 				html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
 					html.Div(html.Props{Class: "grid gap-2"},
 						html.P(html.Props{Class: "text-[0.7rem] font-semibold uppercase tracking-[0.42em] text-cyan-300"}, html.Text(publicBrandLabel)),
-						html.H1(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(fallback(payload.Route.Title, "Atlas workspace"))),
-						html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text(routeSummary(payload.Route.Path))),
-						html.P(html.Props{Class: "text-xs uppercase tracking-[0.24em] text-slate-400"}, html.Text(identity)),
+						html.H1(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(fallback(parsePayload.Route.Title, "Atlas workspace"))),
+						html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text(routeSummary(parsePayload.Route.Path))),
+						html.P(html.Props{Class: "text-xs uppercase tracking-[0.24em] text-slate-400"}, html.Text(parseIdentity)),
 					),
 					html.Div(html.Props{Class: "flex items-center gap-3"},
 						html.A(html.Props{Href: RouteLanding, Class: "hidden rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-cyan-300/50 hover:text-white sm:inline-flex"}, html.Text("View storefront")),
-						html.Button(html.Props{Type: "button", Class: "inline-flex items-center rounded-full border border-cyan-300/40 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/16 lg:hidden", OnClick: openDrawer}, html.Text("Workspace nav")),
+						html.Button(html.Props{Type: "button", Class: "inline-flex items-center rounded-full border border-cyan-300/40 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/16 lg:hidden", OnClick: parseOpenDrawer}, html.Text("Workspace nav")),
 					),
 				),
-				html.Div(html.Props{Class: "flex flex-wrap gap-2"}, contextPills...),
+				html.Div(html.Props{Class: "flex flex-wrap gap-2"}, parseContextPills...),
 				html.Div(html.Props{Class: "hidden gap-3 lg:grid lg:grid-cols-4"},
-					internalNavGroupCard(payload, shellState, groups[0]),
-					internalNavGroupCard(payload, shellState, groups[1]),
-					internalNavGroupCard(payload, shellState, groups[2]),
-					internalNavGroupCard(payload, shellState, groups[3]),
+					internalNavGroupCard(parsePayload, parseShellState, parseGroups[0]),
+					internalNavGroupCard(parsePayload, parseShellState, parseGroups[1]),
+					internalNavGroupCard(parsePayload, parseShellState, parseGroups[2]),
+					internalNavGroupCard(parsePayload, parseShellState, parseGroups[3]),
 				),
 				html.Div(html.Props{Class: "flex gap-2 overflow-x-auto pb-1 lg:hidden"},
-					internalMobileQuickLinks(payload, shellState)...,
+					internalMobileQuickLinks(parsePayload, parseShellState)...,
 				),
 			),
-			atlasDismissibleSheet(open.Get(), sheetID, titleID, descriptionID, "#"+closeID, closeDrawer, html.Div(html.Props{Class: "grid gap-5"},
+			atlasDismissibleSheet(parseOpen.Get(), parseSheetID, parseTitleID, parseDescriptionID, "#"+parseCloseID, parseCloseDrawer, html.Div(html.Props{Class: "grid gap-5"},
 				html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
 					html.Div(html.Props{Class: "grid gap-2"},
 						html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300"}, html.Text("Workspace navigation")),
-						html.P(html.Props{ID: titleID, Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(fallback(payload.Route.Title, "Atlas workspace"))),
-						html.P(html.Props{ID: descriptionID, Class: "text-sm leading-7 text-slate-300"}, html.Text("Use the grouped mobile drawer to jump across overview, catalog, operations, and support routes without losing the current shell context.")),
+						html.P(html.Props{ID: parseTitleID, Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(fallback(parsePayload.Route.Title, "Atlas workspace"))),
+						html.P(html.Props{ID: parseDescriptionID, Class: "text-sm leading-7 text-slate-300"}, html.Text("Use the grouped mobile drawer to jump across overview, catalog, operations, and support routes without losing the current shell context.")),
 					),
-					html.Button(html.Props{ID: closeID, Type: "button", Class: "rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200", OnClick: ui.UseEvent(func() { closeDrawer() })}, html.Text("Close")),
+					html.Button(html.Props{ID: parseCloseID, Type: "button", Class: "rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200", OnClick: ui.UseEvent(func() { parseCloseDrawer() })}, html.Text("Close")),
 				),
-				html.Div(html.Props{Class: "flex flex-wrap gap-2"}, contextPills...),
+				html.Div(html.Props{Class: "flex flex-wrap gap-2"}, parseContextPills...),
 				html.Div(html.Props{Class: "grid gap-3"},
-					internalNavGroupCard(payload, shellState, groups[0]),
-					internalNavGroupCard(payload, shellState, groups[1]),
-					internalNavGroupCard(payload, shellState, groups[2]),
-					internalNavGroupCard(payload, shellState, groups[3]),
+					internalNavGroupCard(parsePayload, parseShellState, parseGroups[0]),
+					internalNavGroupCard(parsePayload, parseShellState, parseGroups[1]),
+					internalNavGroupCard(parsePayload, parseShellState, parseGroups[2]),
+					internalNavGroupCard(parsePayload, parseShellState, parseGroups[3]),
 				),
 			)),
 		)
@@ -629,67 +630,67 @@ func internalNavGroups() []atlasInternalNavGroup {
 	}
 }
 
-func internalHeaderContextPills(payload Payload, shellState internalShellState) []ui.Node {
-	items := []ui.Node{
-		internalHeaderContextPill("Surface", fallback(payload.Route.Surface, "app")),
-		internalHeaderContextPill("Warehouse", fallback(payload.Preferences.DefaultWarehouse, "new-jersey-hub")),
+func internalHeaderContextPills(parsePayload Payload, parseShellState internalShellState) []ui.Node {
+	parseItems := []ui.Node{
+		internalHeaderContextPill("Surface", fallback(parsePayload.Route.Surface, "app")),
+		internalHeaderContextPill("Warehouse", fallback(parsePayload.Preferences.DefaultWarehouse, "new-jersey-hub")),
 	}
-	if strings.TrimSpace(shellState.SummaryValue) != "" {
-		items = append(items, internalHeaderContextPill(fallback(shellState.SummaryLabel, "Summary"), shellState.SummaryValue))
+	if strings.TrimSpace(parseShellState.SummaryValue) != "" {
+		parseItems = append(parseItems, internalHeaderContextPill(fallback(parseShellState.SummaryLabel, "Summary"), parseShellState.SummaryValue))
 	}
-	if strings.TrimSpace(shellState.ActiveSavedView) != "" {
-		items = append(items, internalHeaderContextPill("Saved view", shellState.ActiveSavedView))
+	if strings.TrimSpace(parseShellState.ActiveSavedView) != "" {
+		parseItems = append(parseItems, internalHeaderContextPill("Saved view", parseShellState.ActiveSavedView))
 	}
-	if len(shellState.ActiveFilters) > 0 {
-		items = append(items, internalHeaderContextPill("Filters", fmt.Sprintf("%d active", len(shellState.ActiveFilters))))
+	if len(parseShellState.ActiveFilters) > 0 {
+		parseItems = append(parseItems, internalHeaderContextPill("Filters", fmt.Sprintf("%d active", len(parseShellState.ActiveFilters))))
 	}
-	return items
+	return parseItems
 }
 
-func internalHeaderContextPill(label, value string) ui.Node {
+func internalHeaderContextPill(parseLabel, parseValue string) ui.Node {
 	return html.Div(html.Props{Class: internalSurfacePillClass()},
-		html.Span(html.Props{Class: "text-slate-400"}, html.Text(label)),
-		html.Span(html.Props{Class: "text-cyan-100"}, html.Text(value)),
+		html.Span(html.Props{Class: "text-slate-400"}, html.Text(parseLabel)),
+		html.Span(html.Props{Class: "text-cyan-100"}, html.Text(parseValue)),
 	)
 }
 
-func internalNavGroupCard(payload Payload, shellState internalShellState, group atlasInternalNavGroup) ui.Node {
-	links := make([]ui.Node, 0, len(group.Links))
-	for _, link := range group.Links {
-		links = append(links, internalNavLink(payload.Route.Path, shellState, link))
+func internalNavGroupCard(parsePayload Payload, parseShellState internalShellState, parseGroup atlasInternalNavGroup) ui.Node {
+	parseLinks := make([]ui.Node, 0, len(parseGroup.Links))
+	for _, parseLink := range parseGroup.Links {
+		parseLinks = append(parseLinks, internalNavLink(parsePayload.Route.Path, parseShellState, parseLink))
 	}
 	return html.Div(html.Props{Class: "grid gap-3 " + internalSurfaceCardClass() + " p-4"},
-		html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text(group.Label)),
-		html.Div(html.Props{Class: "grid gap-2"}, links...),
+		html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text(parseGroup.Label)),
+		html.Div(html.Props{Class: "grid gap-2"}, parseLinks...),
 	)
 }
 
-func internalNavLink(currentPath string, shellState internalShellState, link atlasInternalNavLink) ui.Node {
-	className := "inline-flex items-center justify-between gap-3 " + internalInsetSurfaceClass() + " px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-300/55 hover:text-white"
-	if activeNavLink(currentPath, link.Href) {
-		className = "inline-flex items-center justify-between gap-3 rounded-[1rem] border border-cyan-300/45 bg-[linear-gradient(180deg,rgba(8,26,42,0.96),rgba(7,14,26,0.98))] px-4 py-3 text-sm font-semibold text-cyan-100 shadow-[0_14px_30px_rgba(34,211,238,0.12)]"
+func internalNavLink(parseCurrentPath string, parseShellState internalShellState, parseLink atlasInternalNavLink) ui.Node {
+	parseClassName := "inline-flex items-center justify-between gap-3 " + internalInsetSurfaceClass() + " px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-cyan-300/55 hover:text-white"
+	if activeNavLink(parseCurrentPath, parseLink.Href) {
+		parseClassName = "inline-flex items-center justify-between gap-3 rounded-[1rem] border border-cyan-300/45 bg-[linear-gradient(180deg,rgba(8,26,42,0.96),rgba(7,14,26,0.98))] px-4 py-3 text-sm font-semibold text-cyan-100 shadow-[0_14px_30px_rgba(34,211,238,0.12)]"
 	}
-	children := []ui.Node{
-		html.Span(html.Props{}, html.Text(link.Label)),
+	parseChildren := []ui.Node{
+		html.Span(html.Props{}, html.Text(parseLink.Label)),
 	}
-	if badge := strings.TrimSpace(shellState.RouteBadges[link.Href]); badge != "" {
-		children = append(children, html.Span(html.Props{Class: "rounded-full border border-cyan-300/35 bg-cyan-400/10 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-cyan-100"}, html.Text(badge)))
+	if parseBadge := strings.TrimSpace(parseShellState.RouteBadges[parseLink.Href]); parseBadge != "" {
+		parseChildren = append(parseChildren, html.Span(html.Props{Class: "rounded-full border border-cyan-300/35 bg-cyan-400/10 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-cyan-100"}, html.Text(parseBadge)))
 	}
-	return html.A(html.Props{Href: link.Href, Class: className}, children...)
+	return html.A(html.Props{Href: parseLink.Href, Class: parseClassName}, parseChildren...)
 }
 
-func internalMobileQuickLinks(payload Payload, shellState internalShellState) []ui.Node {
-	links := []atlasInternalNavLink{
+func internalMobileQuickLinks(parsePayload Payload, parseShellState internalShellState) []ui.Node {
+	parseLinks := []atlasInternalNavLink{
 		{Label: "Dashboard", Href: RouteDashboard},
 		{Label: "Inventory", Href: RouteInventory},
 		{Label: "Products", Href: "/app/products"},
 		{Label: "Warehouses", Href: RouteWarehouseOps},
 	}
-	nodes := make([]ui.Node, 0, len(links))
-	for _, link := range links {
-		nodes = append(nodes, internalNavLink(payload.Route.Path, shellState, link))
+	parseNodes := make([]ui.Node, 0, len(parseLinks))
+	for _, parseLink := range parseLinks {
+		parseNodes = append(parseNodes, internalNavLink(parsePayload.Route.Path, parseShellState, parseLink))
 	}
-	return nodes
+	return parseNodes
 }
 
 func internalHeroSurfaceClass() string {
@@ -724,429 +725,448 @@ func internalTableRowClass() string {
 	return "border-t border-slate-800/90 bg-transparent text-sm text-slate-200"
 }
 
-func noticeBanner(payload Payload) ui.Node {
-	notice := atlasNoticeMessage(payload)
-	if notice == "" {
+func noticeBanner(parsePayload Payload) ui.Node {
+	parseNotice := atlasNoticeMessage(parsePayload)
+	if parseNotice == "" {
 		return nil
 	}
-	if payload.Route.Surface == "public" || payload.Route.Surface == "" {
-		return html.Div(html.Props{Class: "rounded-[1.75rem] border border-emerald-400/30 bg-emerald-400/10 px-5 py-4 text-sm font-medium text-emerald-100 shadow-[0_18px_40px_rgba(16,185,129,0.12)]"}, html.Text(notice))
+	if parsePayload.Route.Surface == "public" || parsePayload.Route.Surface == "" {
+		return html.Div(html.Props{Class: "rounded-[1.75rem] border border-emerald-400/30 bg-emerald-400/10 px-5 py-4 text-sm font-medium text-emerald-100 shadow-[0_18px_40px_rgba(16,185,129,0.12)]"}, html.Text(parseNotice))
 	}
-	return html.Div(html.Props{Class: "rounded-3xl border border-emerald-300/25 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100"}, html.Text(notice))
+	return html.Div(html.Props{Class: "rounded-3xl border border-emerald-300/25 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100"}, html.Text(parseNotice))
 }
 
-func atlasNoticeMessage(payload Payload) string {
-	return strings.ReplaceAll(firstQueryValue(payload.Route.Query, "atlas_notice"), "+", " ")
+func atlasNoticeMessage(parsePayload Payload) string {
+	return strings.ReplaceAll(firstQueryValue(parsePayload.Route.Query, "atlas_notice"), "+", " ")
 }
 
-func shellToastBanner(toast atlasShellToast) ui.Node {
-	if strings.TrimSpace(toast.Title) == "" {
+func shellToastBanner(parseToast atlasShellToast) ui.Node {
+	if strings.TrimSpace(parseToast.Title) == "" {
 		return nil
 	}
-	className := "grid gap-2 rounded-[1.6rem] border px-5 py-4 text-sm shadow-[0_18px_40px_rgba(2,6,23,0.18)]"
-	switch strings.TrimSpace(strings.ToLower(toast.Tone)) {
+	parseClassName := "grid gap-2 rounded-[1.6rem] border px-5 py-4 text-sm shadow-[0_18px_40px_rgba(2,6,23,0.18)]"
+	switch strings.TrimSpace(strings.ToLower(parseToast.Tone)) {
 	case "success":
-		className += " border-emerald-400/30 bg-emerald-400/12 text-emerald-50"
+		parseClassName += " border-emerald-400/30 bg-emerald-400/12 text-emerald-50"
 	case "warn", "warning", "warm":
-		className += " border-amber-400/30 bg-amber-400/12 text-amber-50"
+		parseClassName += " border-amber-400/30 bg-amber-400/12 text-amber-50"
 	case "danger", "error":
-		className += " border-rose-400/30 bg-rose-400/12 text-rose-50"
+		parseClassName += " border-rose-400/30 bg-rose-400/12 text-rose-50"
 	default:
-		className += " border-cyan-300/30 bg-cyan-300/12 text-cyan-50"
+		parseClassName += " border-cyan-300/30 bg-cyan-300/12 text-cyan-50"
 	}
-	children := []ui.Node{
-		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.22em]"}, html.Text(toast.Title)),
+	parseChildren := []ui.Node{
+		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.22em]"}, html.Text(parseToast.Title)),
 	}
-	if strings.TrimSpace(toast.Detail) != "" {
-		children = append(children, html.P(html.Props{Class: "text-sm leading-6"}, html.Text(toast.Detail)))
+	if strings.TrimSpace(parseToast.Detail) != "" {
+		parseChildren = append(parseChildren, html.P(html.Props{Class: "text-sm leading-6"}, html.Text(parseToast.Detail)))
 	}
-	return html.Div(html.Props{Class: className}, children...)
+	return html.Div(html.Props{Class: parseClassName}, parseChildren...)
 }
 
-func atlasDiagnosticsPanel(payload Payload, shellState internalShellState, presentation shellPresentationState) ui.Node {
-	if !presentation.Diagnostics || payload.User == nil {
+func atlasDiagnosticsPanel(parsePayload Payload, parseShellState internalShellState, parsePresentation shellPresentationState) ui.Node {
+	if !parsePresentation.Diagnostics || parsePayload.User == nil {
 		return nil
 	}
 	return ui.CreateElement(func() ui.Node {
-		metrics := useAtlasViewportMetrics()
-		throttled := useAtlasThrottled(metrics, 180*time.Millisecond)
-		current := throttled.Get()
-		stickyState := "top of shell"
-		if current.ScrollY > 48 {
-			stickyState = "sticky header engaged"
+		parseMetrics := useAtlasViewportMetrics()
+		parseThrottled := useAtlasThrottled(parseMetrics, 180*time.Millisecond)
+		parseCurrent := parseThrottled.Get()
+		parseSnapshot := devtools.SnapshotNow()
+		parseStickyState := "top of shell"
+		if parseCurrent.ScrollY > 48 {
+			parseStickyState = "sticky header engaged"
 		}
-		workspaceState := "general shell route"
-		if strings.HasPrefix(payload.Route.Path, RouteInventory) {
-			workspaceState = "inventory workspace in view"
-		} else if strings.HasPrefix(payload.Route.Path, RouteWarehouseOps) {
-			workspaceState = "warehouse workspace in view"
+		parseWorkspaceState := "general shell route"
+		if strings.HasPrefix(parsePayload.Route.Path, RouteInventory) {
+			parseWorkspaceState = "inventory workspace in view"
+		} else if strings.HasPrefix(parsePayload.Route.Path, RouteWarehouseOps) {
+			parseWorkspaceState = "warehouse workspace in view"
 		}
-		copy := "Atlas is sampling shell viewport and sticky-state diagnostics through a throttled stream so scroll and resize bursts do not redraw the panel on every browser event."
-		if throttled.Pending() {
-			copy = "Atlas is rate-limiting the latest viewport measurement while scroll or resize events are still arriving."
+		parseCopy := "Atlas is sampling shell viewport and sticky-state diagnostics through a throttled stream so scroll and resize bursts do not redraw the panel on every browser event."
+		if parseThrottled.Pending() {
+			parseCopy = "Atlas is rate-limiting the latest viewport measurement while scroll or resize events are still arriving."
 		}
-		return html.Div(html.Props{Class: "grid gap-4 rounded-[1.5rem] border border-cyan-300/20 bg-cyan-400/8 p-5"},
-			html.Div(html.Props{Class: "grid gap-2"},
-				html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"}, html.Text("Atlas diagnostics")),
-				html.P(html.Props{Class: "text-sm leading-6 text-cyan-50"}, html.Text(copy)),
+		parseSnapshotRoute := fallback(parseSnapshot.Route.Path, parsePayload.Route.Path)
+		parseSnapshotSummary := fmt.Sprintf(
+			"SnapshotNow: route=%s | fibers=%d | diagnostics=%d | cache=%d | loaders=%d",
+			parseSnapshotRoute,
+			parseSnapshot.Stats.TotalFibers,
+			len(parseSnapshot.Diagnostics),
+			len(parseSnapshot.Cache),
+			len(parseSnapshot.Route.Loaders),
+		)
+		return ui.Fragment(
+			html.Div(html.Props{Class: "grid gap-4 rounded-[1.5rem] border border-cyan-300/20 bg-cyan-400/8 p-5"},
+				html.Div(html.Props{Class: "grid gap-2"},
+					html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200"}, html.Text("Atlas diagnostics")),
+					html.P(html.Props{Class: "text-sm leading-6 text-cyan-50"}, html.Text(parseCopy)),
+				),
+				html.Div(html.Props{Class: "grid gap-3 md:grid-cols-4"},
+					statCard("Scroll Y", fmt.Sprintf("%dpx", parseCurrent.ScrollY)),
+					statCard("Viewport", fmt.Sprintf("%dx%d", parseCurrent.Width, parseCurrent.Height)),
+					statCard("Sticky shell", parseStickyState),
+					statCard("Samples", fmt.Sprintf("%d", parseCurrent.SampleCount)),
+				),
+				html.Div(html.Props{Class: "grid gap-3 md:grid-cols-3"},
+					statCard("Route", fallback(parsePayload.Route.Path, "/")),
+					statCard("Workspace", parseWorkspaceState),
+					statCard("Measured", fallback(parseCurrent.MeasuredAtUTC, "Awaiting browser metrics")),
+				),
+				html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-cyan-100/80"}, html.Text(parseSnapshotSummary)),
+				html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-cyan-100/80"}, html.Text("Shell summary: "+fallback(parseShellState.SummaryLabel, "route")+" | "+fallback(parseShellState.SummaryValue, "n/a"))),
 			),
-			html.Div(html.Props{Class: "grid gap-3 md:grid-cols-4"},
-				statCard("Scroll Y", fmt.Sprintf("%dpx", current.ScrollY)),
-				statCard("Viewport", fmt.Sprintf("%dx%d", current.Width, current.Height)),
-				statCard("Sticky shell", stickyState),
-				statCard("Samples", fmt.Sprintf("%d", current.SampleCount)),
-			),
-			html.Div(html.Props{Class: "grid gap-3 md:grid-cols-3"},
-				statCard("Route", fallback(payload.Route.Path, "/")),
-				statCard("Workspace", workspaceState),
-				statCard("Measured", fallback(current.MeasuredAtUTC, "Awaiting browser metrics")),
-			),
-			html.P(html.Props{Class: "text-xs uppercase tracking-[0.22em] text-cyan-100/80"}, html.Text("Shell summary: "+fallback(shellState.SummaryLabel, "route")+" | "+fallback(shellState.SummaryValue, "n/a"))),
+			ui.CreateElement(devtools.Panel, devtools.PanelProps{
+				Title:           "Atlas Devtools",
+				InitiallyOpen:   false,
+				RefreshInterval: 750 * time.Millisecond,
+				MaxDepth:        5,
+			}),
 		)
 	})
 }
 
-func hero(payload Payload, shellState internalShellState, presentation shellPresentationState) ui.Node {
-	if payload.Route.Surface == "public" || payload.Route.Surface == "" {
-		return renderPublicHero(payload)
+func hero(parsePayload Payload, parseShellState internalShellState, parsePresentation shellPresentationState) ui.Node {
+	if parsePayload.Route.Surface == "public" || parsePayload.Route.Surface == "" {
+		return renderPublicHero(parsePayload)
 	}
-	meta := []ui.Node{
-		statCard("Surface", fallback(payload.Route.Surface, "public")),
-		statCard("Theme", fallback(presentation.Theme, "dark")),
-		statCard("Locale", fallback(presentation.Locale, "en")),
-		statCard("Density", fallback(presentation.Density, "compact")),
+	parseMeta := []ui.Node{
+		statCard("Surface", fallback(parsePayload.Route.Surface, "public")),
+		statCard("Theme", fallback(parsePresentation.Theme, "dark")),
+		statCard("Locale", fallback(parsePresentation.Locale, "en")),
+		statCard("Density", fallback(parsePresentation.Density, "compact")),
 	}
-	meta = append(meta, statCard("Warehouse", fallback(presentation.DefaultWarehouse, "new-jersey-hub")))
-	if presentation.Diagnostics {
-		meta = append(meta, statCard("Diagnostics", "on"))
+	parseMeta = append(parseMeta, statCard("Warehouse", fallback(parsePresentation.DefaultWarehouse, "new-jersey-hub")))
+	if parsePresentation.Diagnostics {
+		parseMeta = append(parseMeta, statCard("Diagnostics", "on"))
 	}
-	if strings.TrimSpace(shellState.ActiveSavedView) != "" {
-		meta = append(meta, statCard("Saved view", shellState.ActiveSavedView))
+	if strings.TrimSpace(parseShellState.ActiveSavedView) != "" {
+		parseMeta = append(parseMeta, statCard("Saved view", parseShellState.ActiveSavedView))
 	}
-	if len(shellState.ActiveFilters) > 0 {
-		meta = append(meta, statCard("Filters", fmt.Sprintf("%d active", len(shellState.ActiveFilters))))
+	if len(parseShellState.ActiveFilters) > 0 {
+		parseMeta = append(parseMeta, statCard("Filters", fmt.Sprintf("%d active", len(parseShellState.ActiveFilters))))
 	}
-	if strings.TrimSpace(shellState.SummaryValue) != "" {
-		meta = append([]ui.Node{statCard(fallback(shellState.SummaryLabel, "Shell summary"), shellState.SummaryValue)}, meta...)
+	if strings.TrimSpace(parseShellState.SummaryValue) != "" {
+		parseMeta = append([]ui.Node{statCard(fallback(parseShellState.SummaryLabel, "Shell summary"), parseShellState.SummaryValue)}, parseMeta...)
 	}
 	return html.Section(html.Props{Class: "grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.8fr)]"},
 		html.Div(html.Props{Class: internalHeroSurfaceClass()},
-			html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.35em] text-cyan-300"}, html.Text(fallback(payload.Route.Screen, "route"))),
-			html.H1(html.Props{Class: "mt-4 text-4xl font-black tracking-tight text-white lg:text-5xl"}, html.Text(fallback(payload.Route.Title, "Atlas"))),
-			html.P(html.Props{Class: "mt-4 max-w-3xl text-base leading-7 text-slate-300"}, html.Text(routeSummary(payload.Route.Path))),
+			html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.35em] text-cyan-300"}, html.Text(fallback(parsePayload.Route.Screen, "route"))),
+			html.H1(html.Props{Class: "mt-4 text-4xl font-black tracking-tight text-white lg:text-5xl"}, html.Text(fallback(parsePayload.Route.Title, "Atlas"))),
+			html.P(html.Props{Class: "mt-4 max-w-3xl text-base leading-7 text-slate-300"}, html.Text(routeSummary(parsePayload.Route.Path))),
 		),
-		html.Div(html.Props{Class: "grid gap-4"}, meta...),
+		html.Div(html.Props{Class: "grid gap-4"}, parseMeta...),
 	)
 }
 
-func shellPresentationStateFromPayload(payload Payload) shellPresentationState {
+func shellPresentationStateFromPayload(parsePayload Payload) shellPresentationState {
 	return shellPresentationState{
-		RouteKey:         shellRouteKey(payload.Route.Path, payload.Route.Query),
-		Theme:            payload.Theme.Mode,
-		Locale:           payload.I18n.Locale,
-		Density:          payload.Preferences.Density,
-		DefaultWarehouse: payload.Preferences.DefaultWarehouse,
-		Diagnostics:      strings.EqualFold(strings.TrimSpace(firstQueryValue(payload.Route.Query, "diag")), "1"),
+		RouteKey:         shellRouteKey(parsePayload.Route.Path, parsePayload.Route.Query),
+		Theme:            parsePayload.Theme.Mode,
+		Locale:           parsePayload.I18n.Locale,
+		Density:          parsePayload.Preferences.Density,
+		DefaultWarehouse: parsePayload.Preferences.DefaultWarehouse,
+		Diagnostics:      strings.EqualFold(strings.TrimSpace(firstQueryValue(parsePayload.Route.Query, "diag")), "1"),
 	}
 }
 
-func currentShellPresentationState(payload Payload) shellPresentationState {
-	return useAtlasAtom(atlasShellPresentationAtomID, shellPresentationStateFromPayload(payload)).Get()
+func currentShellPresentationState(parsePayload Payload) shellPresentationState {
+	return useAtlasAtom(atlasShellPresentationAtomID, shellPresentationStateFromPayload(parsePayload)).Get()
 }
 
-func currentRouteWorkspaceState(payload Payload) internalShellState {
-	return useAtlasAtom(atlasRouteWorkspaceAtomID, internalShellStateForPayload(payload)).Get()
+func currentRouteWorkspaceState(parsePayload Payload) internalShellState {
+	return useAtlasAtom(atlasRouteWorkspaceAtomID, internalShellStateForPayload(parsePayload)).Get()
 }
 
-func shellRouteKey(path string, query map[string][]string) string {
-	values := url.Values{}
-	for key, items := range query {
-		for _, item := range items {
-			values.Add(key, item)
+func shellRouteKey(parsePath string, parseQuery map[string][]string) string {
+	parseValues := url.Values{}
+	for parseKey, parseItems := range parseQuery {
+		for _, parseItem := range parseItems {
+			parseValues.Add(parseKey, parseItem)
 		}
 	}
-	if encoded := values.Encode(); encoded != "" {
-		return path + "?" + encoded
+	if parseEncoded := parseValues.Encode(); parseEncoded != "" {
+		return parsePath + "?" + parseEncoded
 	}
-	return path
+	return parsePath
 }
 
-func internalShellStateForPayload(payload Payload) internalShellState {
-	state := internalShellState{
-		RouteKey:    shellRouteKey(payload.Route.Path, payload.Route.Query),
+func internalShellStateForPayload(parsePayload Payload) internalShellState {
+	parseState := internalShellState{
+		RouteKey:    shellRouteKey(parsePayload.Route.Path, parsePayload.Route.Query),
 		RouteBadges: map[string]string{},
 	}
-	if payload.User == nil {
-		return state
+	if parsePayload.User == nil {
+		return parseState
 	}
-	path := strings.TrimSpace(payload.Route.Path)
+	parsePath := strings.TrimSpace(parsePayload.Route.Path)
 	switch {
-	case path == RouteDashboard:
-		page := decode[dashboardPage](pageData(payload))
-		state.SummaryLabel = "Open alerts"
-		state.SummaryValue = fmt.Sprintf("%d", page.Alerts)
-		state.RouteBadges[RouteDashboard] = fmt.Sprintf("%d", page.Alerts)
-		state.RouteBadges[RouteTransfers] = fmt.Sprintf("%d", len(page.Transfers))
-		state.RouteBadges[RouteReceiving] = fmt.Sprintf("%d", len(page.Receiving))
-		state.RouteBadges[RouteComments] = fmt.Sprintf("%d", len(page.Comments))
-		state.WorkspaceStats = []pageSummaryItem{
-			{Label: "Alerts", Value: fmt.Sprintf("%d", page.Alerts)},
-			{Label: "Transfers", Value: fmt.Sprintf("%d", len(page.Transfers))},
-			{Label: "Receiving", Value: fmt.Sprintf("%d", len(page.Receiving))},
-			{Label: "Comments", Value: fmt.Sprintf("%d", len(page.Comments))},
+	case parsePath == RouteDashboard:
+		parsePage := decode[dashboardPage](pageData(parsePayload))
+		parseState.SummaryLabel = "Open alerts"
+		parseState.SummaryValue = fmt.Sprintf("%d", parsePage.Alerts)
+		parseState.RouteBadges[RouteDashboard] = fmt.Sprintf("%d", parsePage.Alerts)
+		parseState.RouteBadges[RouteTransfers] = fmt.Sprintf("%d", len(parsePage.Transfers))
+		parseState.RouteBadges[RouteReceiving] = fmt.Sprintf("%d", len(parsePage.Receiving))
+		parseState.RouteBadges[RouteComments] = fmt.Sprintf("%d", len(parsePage.Comments))
+		parseState.WorkspaceStats = []pageSummaryItem{
+			{Label: "Alerts", Value: fmt.Sprintf("%d", parsePage.Alerts)},
+			{Label: "Transfers", Value: fmt.Sprintf("%d", len(parsePage.Transfers))},
+			{Label: "Receiving", Value: fmt.Sprintf("%d", len(parsePage.Receiving))},
+			{Label: "Comments", Value: fmt.Sprintf("%d", len(parsePage.Comments))},
 		}
-	case path == "/app/products":
-		page := decode[productCMSPageData](pageData(payload))
-		total := page.Total
-		if total == 0 {
-			total = len(page.Items)
+	case parsePath == "/app/products":
+		parsePage2 := decode[productCMSPageData](pageData(parsePayload))
+		parseTotal := parsePage2.Total
+		if parseTotal == 0 {
+			parseTotal = len(parsePage2.Items)
 		}
-		state.SummaryLabel = "Catalog items"
-		state.SummaryValue = fmt.Sprintf("%d", total)
-		state.RouteBadges["/app/products"] = fmt.Sprintf("%d", total)
-	case path == RouteInventory:
-		page := decode[inventoryCMSPage](pageData(payload))
-		workspace := inventoryWorkspaceSnapshotFromRows(page.Items)
-		state.SummaryLabel = "Risk lanes"
-		state.SummaryValue = fmt.Sprintf("%d", workspace.Rollup.RiskLanes)
-		state.RouteBadges[RouteInventory] = fmt.Sprintf("%d", workspace.Rollup.RiskLanes)
-		state.ActiveFilters = inventoryFilterSummaryLabels(page.Filters)
-		state.ActiveSavedView = matchingInventorySavedViewName(payload, page.Filters)
-		state.WorkspaceStats = []pageSummaryItem{
-			{Label: "Visible SKUs", Value: fmt.Sprintf("%d", len(workspace.Summaries))},
-			{Label: "Visible lanes", Value: fmt.Sprintf("%d", workspace.Rollup.VisibleLanes)},
-			{Label: "Risk lanes", Value: fmt.Sprintf("%d", workspace.Rollup.RiskLanes)},
-			{Label: "Inbound units", Value: fmt.Sprintf("%d", workspace.Rollup.InboundUnits)},
+		parseState.SummaryLabel = "Catalog items"
+		parseState.SummaryValue = fmt.Sprintf("%d", parseTotal)
+		parseState.RouteBadges["/app/products"] = fmt.Sprintf("%d", parseTotal)
+	case parsePath == RouteInventory:
+		parsePage3 := decode[inventoryCMSPage](pageData(parsePayload))
+		parseWorkspace := inventoryWorkspaceSnapshotFromRows(parsePage3.Items)
+		parseState.SummaryLabel = "Risk lanes"
+		parseState.SummaryValue = fmt.Sprintf("%d", parseWorkspace.Rollup.RiskLanes)
+		parseState.RouteBadges[RouteInventory] = fmt.Sprintf("%d", parseWorkspace.Rollup.RiskLanes)
+		parseState.ActiveFilters = inventoryFilterSummaryLabels(parsePage3.Filters)
+		parseState.ActiveSavedView = matchingInventorySavedViewName(parsePayload, parsePage3.Filters)
+		parseState.WorkspaceStats = []pageSummaryItem{
+			{Label: "Visible SKUs", Value: fmt.Sprintf("%d", len(parseWorkspace.Summaries))},
+			{Label: "Visible lanes", Value: fmt.Sprintf("%d", parseWorkspace.Rollup.VisibleLanes)},
+			{Label: "Risk lanes", Value: fmt.Sprintf("%d", parseWorkspace.Rollup.RiskLanes)},
+			{Label: "Inbound units", Value: fmt.Sprintf("%d", parseWorkspace.Rollup.InboundUnits)},
 		}
-	case strings.HasPrefix(path, RouteInventory+"/"):
-		page := decode[inventoryDetailPage](pageData(payload))
-		rollup := inventoryRollupFromRows(page.Rows)
-		state.SummaryLabel = "Tracked lanes"
-		state.SummaryValue = fmt.Sprintf("%d", rollup.VisibleLanes)
-		state.RouteBadges[RouteInventory] = fmt.Sprintf("%d", rollup.RiskLanes)
-	case path == RouteWarehouseOps:
-		page := decode[warehouseOpsList](pageData(payload))
-		riskCount := countRiskWarehouses(page.Items)
-		state.SummaryLabel = "Risk facilities"
-		state.SummaryValue = fmt.Sprintf("%d", riskCount)
-		state.RouteBadges[RouteWarehouseOps] = fmt.Sprintf("%d", riskCount)
-	case strings.HasPrefix(path, RouteWarehouseOps+"/"):
-		page := decode[warehouseInventoryDetailPage](pageData(payload))
-		if strings.TrimSpace(page.Warehouse.ID) != "" {
-			workspace := warehouseDetailWorkspaceSnapshotFromPage(page)
-			state.SummaryLabel = "Warehouse filters"
-			state.SummaryValue = fmt.Sprintf("%d", len(warehouseFilterSummaryLabels(page.Filters)))
-			state.RouteBadges[RouteWarehouseOps] = fmt.Sprintf("%d", workspace.RiskLanes)
-			state.ActiveFilters = warehouseFilterSummaryLabels(page.Filters)
-			state.WorkspaceStats = []pageSummaryItem{
-				{Label: "Visible items", Value: fmt.Sprintf("%d", len(page.Inventory))},
-				{Label: "Risk lanes", Value: fmt.Sprintf("%d", workspace.RiskLanes)},
-				{Label: "Open orders", Value: fmt.Sprintf("%d", len(page.Orders))},
-				{Label: "Weekly demand", Value: fmt.Sprintf("%d", workspace.TotalDemand)},
+	case strings.HasPrefix(parsePath, RouteInventory+"/"):
+		parsePage4 := decode[inventoryDetailPage](pageData(parsePayload))
+		parseRollup := inventoryRollupFromRows(parsePage4.Rows)
+		parseState.SummaryLabel = "Tracked lanes"
+		parseState.SummaryValue = fmt.Sprintf("%d", parseRollup.VisibleLanes)
+		parseState.RouteBadges[RouteInventory] = fmt.Sprintf("%d", parseRollup.RiskLanes)
+	case parsePath == RouteWarehouseOps:
+		parsePage5 := decode[warehouseOpsList](pageData(parsePayload))
+		parseRiskCount := countRiskWarehouses(parsePage5.Items)
+		parseState.SummaryLabel = "Risk facilities"
+		parseState.SummaryValue = fmt.Sprintf("%d", parseRiskCount)
+		parseState.RouteBadges[RouteWarehouseOps] = fmt.Sprintf("%d", parseRiskCount)
+	case strings.HasPrefix(parsePath, RouteWarehouseOps+"/"):
+		parsePage6 := decode[warehouseInventoryDetailPage](pageData(parsePayload))
+		if strings.TrimSpace(parsePage6.Warehouse.ID) != "" {
+			parseWorkspace2 := warehouseDetailWorkspaceSnapshotFromPage(parsePage6)
+			parseState.SummaryLabel = "Warehouse filters"
+			parseState.SummaryValue = fmt.Sprintf("%d", len(warehouseFilterSummaryLabels(parsePage6.Filters)))
+			parseState.RouteBadges[RouteWarehouseOps] = fmt.Sprintf("%d", parseWorkspace2.RiskLanes)
+			parseState.ActiveFilters = warehouseFilterSummaryLabels(parsePage6.Filters)
+			parseState.WorkspaceStats = []pageSummaryItem{
+				{Label: "Visible items", Value: fmt.Sprintf("%d", len(parsePage6.Inventory))},
+				{Label: "Risk lanes", Value: fmt.Sprintf("%d", parseWorkspace2.RiskLanes)},
+				{Label: "Open orders", Value: fmt.Sprintf("%d", len(parsePage6.Orders))},
+				{Label: "Weekly demand", Value: fmt.Sprintf("%d", parseWorkspace2.TotalDemand)},
 			}
 		}
-	case path == RouteTransfers:
-		page := decode[transferList](pageData(payload))
-		state.SummaryLabel = "Active transfers"
-		state.SummaryValue = fmt.Sprintf("%d", len(page.Items))
-		state.RouteBadges[RouteTransfers] = fmt.Sprintf("%d", len(page.Items))
-	case strings.HasPrefix(path, RouteTransfers+"/"):
-		page := decode[transferDetailPage](pageData(payload))
-		state.SummaryLabel = "Transfer lines"
-		state.SummaryValue = fmt.Sprintf("%d", len(page.Lines))
-		state.RouteBadges[RouteTransfers] = fmt.Sprintf("%d", len(page.Lines))
-	case path == RoutePurchaseOrders:
-		page := decode[purchaseOrderList](pageData(payload))
-		state.SummaryLabel = "Open purchase orders"
-		state.SummaryValue = fmt.Sprintf("%d", len(page.Items))
-		state.RouteBadges[RoutePurchaseOrders] = fmt.Sprintf("%d", len(page.Items))
-	case strings.HasPrefix(path, RoutePurchaseOrders+"/"):
-		page := decode[purchaseOrderDetailPage](pageData(payload))
-		state.SummaryLabel = "Inbound lines"
-		state.SummaryValue = fmt.Sprintf("%d", len(page.Lines))
-		state.RouteBadges[RoutePurchaseOrders] = fmt.Sprintf("%d", len(page.Lines))
-	case path == RouteReceiving:
-		page := decode[receivingList](pageData(payload))
-		state.SummaryLabel = "Receiving sessions"
-		state.SummaryValue = fmt.Sprintf("%d", len(page.Items))
-		state.RouteBadges[RouteReceiving] = fmt.Sprintf("%d", len(page.Items))
-	case strings.HasPrefix(path, RouteReceiving+"/"):
-		page := decode[receivingDetailPage](pageData(payload))
-		state.SummaryLabel = "Receiving lines"
-		state.SummaryValue = fmt.Sprintf("%d", len(page.Lines))
-		state.RouteBadges[RouteReceiving] = fmt.Sprintf("%d", len(page.Lines))
-	case path == RouteComments:
-		page := decode[commentList](pageData(payload))
-		state.SummaryLabel = "Visible comments"
-		state.SummaryValue = fmt.Sprintf("%d", len(page.Items))
-		state.RouteBadges[RouteComments] = fmt.Sprintf("%d", len(page.Items))
-	case path == RouteSettings:
-		state.SummaryLabel = "Saved views"
-		state.SummaryValue = fmt.Sprintf("%d", len(payload.SavedViews))
-		state.RouteBadges[RouteSettings] = fmt.Sprintf("%d", len(payload.SavedViews))
+	case parsePath == RouteTransfers:
+		parsePage7 := decode[transferList](pageData(parsePayload))
+		parseState.SummaryLabel = "Active transfers"
+		parseState.SummaryValue = fmt.Sprintf("%d", len(parsePage7.Items))
+		parseState.RouteBadges[RouteTransfers] = fmt.Sprintf("%d", len(parsePage7.Items))
+	case strings.HasPrefix(parsePath, RouteTransfers+"/"):
+		parsePage8 := decode[transferDetailPage](pageData(parsePayload))
+		parseState.SummaryLabel = "Transfer lines"
+		parseState.SummaryValue = fmt.Sprintf("%d", len(parsePage8.Lines))
+		parseState.RouteBadges[RouteTransfers] = fmt.Sprintf("%d", len(parsePage8.Lines))
+	case parsePath == RoutePurchaseOrders:
+		parsePage9 := decode[purchaseOrderList](pageData(parsePayload))
+		parseState.SummaryLabel = "Open purchase orders"
+		parseState.SummaryValue = fmt.Sprintf("%d", len(parsePage9.Items))
+		parseState.RouteBadges[RoutePurchaseOrders] = fmt.Sprintf("%d", len(parsePage9.Items))
+	case strings.HasPrefix(parsePath, RoutePurchaseOrders+"/"):
+		parsePage10 := decode[purchaseOrderDetailPage](pageData(parsePayload))
+		parseState.SummaryLabel = "Inbound lines"
+		parseState.SummaryValue = fmt.Sprintf("%d", len(parsePage10.Lines))
+		parseState.RouteBadges[RoutePurchaseOrders] = fmt.Sprintf("%d", len(parsePage10.Lines))
+	case parsePath == RouteReceiving:
+		parsePage11 := decode[receivingList](pageData(parsePayload))
+		parseState.SummaryLabel = "Receiving sessions"
+		parseState.SummaryValue = fmt.Sprintf("%d", len(parsePage11.Items))
+		parseState.RouteBadges[RouteReceiving] = fmt.Sprintf("%d", len(parsePage11.Items))
+	case strings.HasPrefix(parsePath, RouteReceiving+"/"):
+		parsePage12 := decode[receivingDetailPage](pageData(parsePayload))
+		parseState.SummaryLabel = "Receiving lines"
+		parseState.SummaryValue = fmt.Sprintf("%d", len(parsePage12.Lines))
+		parseState.RouteBadges[RouteReceiving] = fmt.Sprintf("%d", len(parsePage12.Lines))
+	case parsePath == RouteComments:
+		parsePage13 := decode[commentList](pageData(parsePayload))
+		parseState.SummaryLabel = "Visible comments"
+		parseState.SummaryValue = fmt.Sprintf("%d", len(parsePage13.Items))
+		parseState.RouteBadges[RouteComments] = fmt.Sprintf("%d", len(parsePage13.Items))
+	case parsePath == RouteSettings:
+		parseState.SummaryLabel = "Saved views"
+		parseState.SummaryValue = fmt.Sprintf("%d", len(parsePayload.SavedViews))
+		parseState.RouteBadges[RouteSettings] = fmt.Sprintf("%d", len(parsePayload.SavedViews))
 	}
-	return state
+	return parseState
 }
 
-func countRiskWarehouses(items []warehouseOpsRecord) int {
-	count := 0
-	for _, item := range items {
-		if item.RiskCount > 0 {
-			count++
+func countRiskWarehouses(parseItems []warehouseOpsRecord) int {
+	parseCount := 0
+	for _, parseItem := range parseItems {
+		if parseItem.RiskCount > 0 {
+			parseCount++
 		}
 	}
-	return count
+	return parseCount
 }
 
-func inventoryFilterSummaryLabels(filters map[string]string) []string {
-	labels := []string{}
-	if value := strings.TrimSpace(filters["q"]); value != "" {
-		labels = append(labels, "Search: "+value)
+func inventoryFilterSummaryLabels(parseFilters map[string]string) []string {
+	parseLabels := []string{}
+	if parseValue := strings.TrimSpace(parseFilters["q"]); parseValue != "" {
+		parseLabels = append(parseLabels, "Search: "+parseValue)
 	}
-	if value := strings.TrimSpace(filters["warehouse"]); value != "" && !strings.EqualFold(value, "all") {
-		labels = append(labels, "Warehouse: "+value)
+	if parseValue2 := strings.TrimSpace(parseFilters["warehouse"]); parseValue2 != "" && !strings.EqualFold(parseValue2, "all") {
+		parseLabels = append(parseLabels, "Warehouse: "+parseValue2)
 	}
-	if value := strings.TrimSpace(filters["status"]); value != "" && !strings.EqualFold(value, "all") {
-		labels = append(labels, "Status: "+strings.ReplaceAll(value, "_", " "))
+	if parseValue3 := strings.TrimSpace(parseFilters["status"]); parseValue3 != "" && !strings.EqualFold(parseValue3, "all") {
+		parseLabels = append(parseLabels, "Status: "+strings.ReplaceAll(parseValue3, "_", " "))
 	}
-	if value := strings.TrimSpace(filters["sort"]); value != "" {
-		labels = append(labels, "Sort: "+value)
+	if parseValue4 := strings.TrimSpace(parseFilters["sort"]); parseValue4 != "" {
+		parseLabels = append(parseLabels, "Sort: "+parseValue4)
 	}
-	return labels
+	return parseLabels
 }
 
-func warehouseFilterSummaryLabels(filters map[string]string) []string {
-	labels := []string{}
-	if value := strings.TrimSpace(filters["q"]); value != "" {
-		labels = append(labels, "Search: "+value)
+func warehouseFilterSummaryLabels(parseFilters map[string]string) []string {
+	parseLabels := []string{}
+	if parseValue := strings.TrimSpace(parseFilters["q"]); parseValue != "" {
+		parseLabels = append(parseLabels, "Search: "+parseValue)
 	}
-	if value := strings.TrimSpace(filters["status"]); value != "" && !strings.EqualFold(value, "all") {
-		labels = append(labels, "Status: "+strings.ReplaceAll(value, "_", " "))
+	if parseValue2 := strings.TrimSpace(parseFilters["status"]); parseValue2 != "" && !strings.EqualFold(parseValue2, "all") {
+		parseLabels = append(parseLabels, "Status: "+strings.ReplaceAll(parseValue2, "_", " "))
 	}
-	if value := strings.TrimSpace(filters["sort"]); value != "" {
-		labels = append(labels, "Sort: "+value)
+	if parseValue3 := strings.TrimSpace(parseFilters["sort"]); parseValue3 != "" {
+		parseLabels = append(parseLabels, "Sort: "+parseValue3)
 	}
-	return labels
+	return parseLabels
 }
 
-func matchingInventorySavedViewName(payload Payload, filters map[string]string) string {
-	currentWarehouse := strings.TrimSpace(filters["warehouse"])
-	currentStatus := strings.TrimSpace(filters["status"])
-	currentSort := strings.TrimSpace(filters["sort"])
-	for _, saved := range payload.SavedViews {
-		if !strings.EqualFold(strings.TrimSpace(saved.Scope), "inventory") {
+func matchingInventorySavedViewName(parsePayload Payload, parseFilters map[string]string) string {
+	parseCurrentWarehouse := strings.TrimSpace(parseFilters["warehouse"])
+	parseCurrentStatus := strings.TrimSpace(parseFilters["status"])
+	parseCurrentSort := strings.TrimSpace(parseFilters["sort"])
+	for _, parseSaved := range parsePayload.SavedViews {
+		if !strings.EqualFold(strings.TrimSpace(parseSaved.Scope), "inventory") {
 			continue
 		}
-		savedWarehouse := strings.TrimSpace(saved.Filters["warehouse"])
-		savedStatus := strings.TrimSpace(saved.Filters["status"])
-		if savedStatus == "" {
-			savedStatus = strings.TrimSpace(saved.Filters["stock-health"])
+		parseSavedWarehouse := strings.TrimSpace(parseSaved.Filters["warehouse"])
+		parseSavedStatus := strings.TrimSpace(parseSaved.Filters["status"])
+		if parseSavedStatus == "" {
+			parseSavedStatus = strings.TrimSpace(parseSaved.Filters["stock-health"])
 		}
-		matchesWarehouse := savedWarehouse == "" || strings.EqualFold(savedWarehouse, currentWarehouse)
-		matchesStatus := savedStatus == "" || strings.EqualFold(savedStatus, currentStatus)
-		matchesSort := strings.TrimSpace(saved.SortKey) == "" || strings.EqualFold(strings.TrimSpace(saved.SortKey), currentSort)
-		if matchesWarehouse && matchesStatus && matchesSort {
-			return saved.Name
+		isParseMatchesWarehouse := parseSavedWarehouse == "" || strings.EqualFold(parseSavedWarehouse, parseCurrentWarehouse)
+		isParseMatchesStatus := parseSavedStatus == "" || strings.EqualFold(parseSavedStatus, parseCurrentStatus)
+		isParseMatchesSort := strings.TrimSpace(parseSaved.SortKey) == "" || strings.EqualFold(strings.TrimSpace(parseSaved.SortKey), parseCurrentSort)
+		if isParseMatchesWarehouse && isParseMatchesStatus && isParseMatchesSort {
+			return parseSaved.Name
 		}
 	}
 	return ""
 }
 
-func pageContent(payload Payload) ui.Node {
-	if payload.Route.Screen == "mock-sign-in" {
-		return mockSignInContent(payload)
+func pageContent(parsePayload Payload) ui.Node {
+	if parsePayload.Route.Screen == "mock-sign-in" {
+		return mockSignInContent(parsePayload)
 	}
-	if payload.Route.Screen == "recovery" {
-		return recoveryContent(payload)
+	if parsePayload.Route.Screen == "recovery" {
+		return recoveryContent(parsePayload)
 	}
-	switch payload.Route.Path {
+	switch parsePayload.Route.Path {
 	case RouteLanding:
 		return renderLandingContent()
 	case RouteCatalog:
-		return renderCatalogContent(decode[catalogPage](pageData(payload)))
+		return renderCatalogContent(decode[catalogPage](pageData(parsePayload)))
 	case RouteWarehouses:
-		return renderWarehouseDirectoryContent(decode[warehouseDirectoryPage](pageData(payload)))
+		return renderWarehouseDirectoryContent(decode[warehouseDirectoryPage](pageData(parsePayload)))
 	case RouteInventory:
-		return inventoryContent(payload)
+		return inventoryContent(parsePayload)
 	case "/app/products":
-		return productsCMSContent(payload)
+		return productsCMSContent(parsePayload)
 	case RouteDashboard:
-		return dashboardContent(payload)
+		return dashboardContent(parsePayload)
 	case RouteWarehouseOps:
-		return warehouseOpsContent(payload)
+		return warehouseOpsContent(parsePayload)
 	case RouteTransfers:
-		return transfersContent(payload)
+		return transfersContent(parsePayload)
 	case RoutePurchaseOrders:
-		return purchaseOrdersContent(payload)
+		return purchaseOrdersContent(parsePayload)
 	case RouteReceiving:
-		return receivingContent(payload)
+		return receivingContent(parsePayload)
 	case RouteComments:
-		return commentsContent(payload)
+		return commentsContent(parsePayload)
 	case RouteSettings:
-		return settingsContent(payload)
+		return settingsContent(parsePayload)
 	default:
-		if strings.HasPrefix(payload.Route.Path, RouteCatalog+"/") {
-			return renderProductContent(decode[productDetailPage](pageData(payload)), payload)
+		if strings.HasPrefix(parsePayload.Route.Path, RouteCatalog+"/") {
+			return renderProductContent(decode[productDetailPage](pageData(parsePayload)), parsePayload)
 		}
-		if strings.Contains(payload.Route.Path, "/availability/") {
-			return renderAvailabilityContent(decode[availabilityPage](pageData(payload)), payload)
+		if strings.Contains(parsePayload.Route.Path, "/availability/") {
+			return renderAvailabilityContent(decode[availabilityPage](pageData(parsePayload)), parsePayload)
 		}
-		if strings.HasPrefix(payload.Route.Path, RouteWarehouseOps+"/") && strings.Contains(payload.Route.Path, "/items/") {
-			return warehouseOpsDetailContent(payload)
+		if strings.HasPrefix(parsePayload.Route.Path, RouteWarehouseOps+"/") && strings.Contains(parsePayload.Route.Path, "/items/") {
+			return warehouseOpsDetailContent(parsePayload)
 		}
-		if strings.HasPrefix(payload.Route.Path, RouteWarehouseOps+"/") {
-			return warehouseOpsDetailContent(payload)
+		if strings.HasPrefix(parsePayload.Route.Path, RouteWarehouseOps+"/") {
+			return warehouseOpsDetailContent(parsePayload)
 		}
-		if strings.HasPrefix(payload.Route.Path, "/app/products/") {
-			return productEditorContent(payload)
+		if strings.HasPrefix(parsePayload.Route.Path, "/app/products/") {
+			return productEditorContent(parsePayload)
 		}
-		if strings.HasPrefix(payload.Route.Path, RouteInventory+"/") {
-			return skuContent(payload)
+		if strings.HasPrefix(parsePayload.Route.Path, RouteInventory+"/") {
+			return skuContent(parsePayload)
 		}
-		if strings.HasPrefix(payload.Route.Path, RouteTransfers+"/") {
-			return transferDetailContent(payload)
+		if strings.HasPrefix(parsePayload.Route.Path, RouteTransfers+"/") {
+			return transferDetailContent(parsePayload)
 		}
-		if strings.HasPrefix(payload.Route.Path, RoutePurchaseOrders+"/") {
-			return purchaseOrderDetailContent(payload)
+		if strings.HasPrefix(parsePayload.Route.Path, RoutePurchaseOrders+"/") {
+			return purchaseOrderDetailContent(parsePayload)
 		}
-		if strings.HasPrefix(payload.Route.Path, RouteReceiving+"/") {
-			return receivingDetailContent(payload)
+		if strings.HasPrefix(parsePayload.Route.Path, RouteReceiving+"/") {
+			return receivingDetailContent(parsePayload)
 		}
-		if strings.HasPrefix(payload.Route.Path, RouteWarehouses+"/") {
-			page := decode[warehouseDetailPage](pageData(payload))
-			if strings.TrimSpace(page.Warehouse.ID) == "" {
-				page.Warehouse = decode[warehouseCard](pageData(payload))
+		if strings.HasPrefix(parsePayload.Route.Path, RouteWarehouses+"/") {
+			parsePage := decode[warehouseDetailPage](pageData(parsePayload))
+			if strings.TrimSpace(parsePage.Warehouse.ID) == "" {
+				parsePage.Warehouse = decode[warehouseCard](pageData(parsePayload))
 			}
-			return renderWarehouseDetailContent(page, payload)
+			return renderWarehouseDetailContent(parsePage, parsePayload)
 		}
-		return fallbackContent(payload)
+		return fallbackContent(parsePayload)
 	}
 }
 
-func dashboardContent(payload Payload) ui.Node {
-	page := decode[dashboardPage](pageData(payload))
+func dashboardContent(parsePayload Payload) ui.Node {
+	parsePage := decode[dashboardPage](pageData(parsePayload))
 	return html.Section(html.Props{Class: "grid gap-6"},
-		dashboardSummaryBand(page),
+		dashboardSummaryBand(parsePage),
 		html.Div(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.18fr)_minmax(22rem,0.82fr)] xl:items-start"},
 			html.Div(html.Props{Class: "grid gap-6"},
 				dashboardActionCluster(),
-				dashboardActivityFeed(page),
+				dashboardActivityFeed(parsePage),
 			),
 			html.Div(html.Props{Class: "grid gap-6"},
-				dashboardAttentionPanel(page),
-				dashboardPurchaseOrderSummary(page.Orders),
+				dashboardAttentionPanel(parsePage),
+				dashboardPurchaseOrderSummary(parsePage.Orders),
 			),
 		),
 	)
 }
 
-func dashboardSummaryBand(page dashboardPage) ui.Node {
+func dashboardSummaryBand(parsePage dashboardPage) ui.Node {
 	return html.Div(html.Props{Class: "grid gap-4"},
 		html.Div(html.Props{Class: "grid gap-2"},
 			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Dashboard summary band")),
 			html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text("The dashboard should read like a triage surface first: one summary band, one action cluster, one attention stack, one activity feed, and one purchase-order watch panel.")),
 		),
-		routeSummaryStrip(page.Summary),
+		routeSummaryStrip(parsePage.Summary),
 	)
 }
 
@@ -1159,51 +1179,51 @@ func dashboardActionCluster() ui.Node {
 	)
 }
 
-func dashboardAttentionPanel(page dashboardPage) ui.Node {
-	pendingComments := dashboardCommentStatusCount(page.Comments, "pending")
-	flaggedComments := dashboardCommentStatusCount(page.Comments, "flagged")
-	openReceiving := dashboardOpenReceivingCount(page.Receiving)
-	submittedOrders := dashboardPurchaseOrderStatusCount(page.Orders, "submitted")
+func dashboardAttentionPanel(parsePage dashboardPage) ui.Node {
+	parsePendingComments := dashboardCommentStatusCount(parsePage.Comments, "pending")
+	parseFlaggedComments := dashboardCommentStatusCount(parsePage.Comments, "flagged")
+	parseOpenReceiving := dashboardOpenReceivingCount(parsePage.Receiving)
+	parseSubmittedOrders := dashboardPurchaseOrderStatusCount(parsePage.Orders, "submitted")
 	return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"},
 		html.Div(html.Props{Class: "grid gap-2"},
 			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("High-attention panel")),
-			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(fmt.Sprintf("%d alerts need a route decision.", page.Alerts))),
+			html.P(html.Props{Class: "text-2xl font-black tracking-[-0.03em] text-white"}, html.Text(fmt.Sprintf("%d alerts need a route decision.", parsePage.Alerts))),
 			html.P(html.Props{Class: "text-sm leading-7 text-slate-300"}, html.Text("These are the work queues most likely to change customer promise, inbound readiness, or moderation posture if an operator waits too long.")),
 		),
 		html.Div(html.Props{Class: "grid gap-3"},
-			dashboardAttentionLink("Pending comments", fmt.Sprintf("%d waiting", pendingComments), "Review questions and moderation decisions that are shaping buyer follow-up right now.", "/app/comments?status=pending"),
-			dashboardAttentionLink("Flagged comments", fmt.Sprintf("%d flagged", flaggedComments), "Handle risky or unclear public notes before they create merch or support confusion.", "/app/comments?status=flagged"),
-			dashboardAttentionLink("Receiving closeout", fmt.Sprintf("%d open sessions", openReceiving), "Resolve discrepancies and close receiving sessions so inbound stock can become trustworthy availability.", "/app/receiving"),
-			dashboardAttentionLink("Submitted purchase orders", fmt.Sprintf("%d need review", submittedOrders), "Move draft or submitted vendor work forward before the replenishment lane stalls.", "/app/purchase-orders"),
+			dashboardAttentionLink("Pending comments", fmt.Sprintf("%d waiting", parsePendingComments), "Review questions and moderation decisions that are shaping buyer follow-up right now.", "/app/comments?status=pending"),
+			dashboardAttentionLink("Flagged comments", fmt.Sprintf("%d flagged", parseFlaggedComments), "Handle risky or unclear public notes before they create merch or support confusion.", "/app/comments?status=flagged"),
+			dashboardAttentionLink("Receiving closeout", fmt.Sprintf("%d open sessions", parseOpenReceiving), "Resolve discrepancies and close receiving sessions so inbound stock can become trustworthy availability.", "/app/receiving"),
+			dashboardAttentionLink("Submitted purchase orders", fmt.Sprintf("%d need review", parseSubmittedOrders), "Move draft or submitted vendor work forward before the replenishment lane stalls.", "/app/purchase-orders"),
 		),
 	)
 }
 
-func dashboardAttentionLink(title, value, copy, href string) ui.Node {
-	return html.A(html.Props{Href: href, Class: "grid gap-2 " + internalInsetSurfaceClass() + " px-4 py-4 transition hover:border-cyan-300/45 hover:text-white"},
+func dashboardAttentionLink(parseTitle, parseValue, parseCopy, parseHref string) ui.Node {
+	return html.A(html.Props{Href: parseHref, Class: "grid gap-2 " + internalInsetSurfaceClass() + " px-4 py-4 transition hover:border-cyan-300/45 hover:text-white"},
 		html.Div(html.Props{Class: "flex items-start justify-between gap-3"},
-			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(title)),
-			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text(value)),
+			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseTitle)),
+			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text(parseValue)),
 		),
-		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(copy)),
+		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseCopy)),
 	)
 }
 
-func dashboardActivityFeed(page dashboardPage) ui.Node {
-	items := dashboardActivityItems(page)
-	nodes := make([]ui.Node, 0, len(items))
-	for _, item := range items {
-		nodes = append(nodes, html.A(html.Props{Href: item.Href, Class: "grid gap-2 " + internalInsetSurfaceClass() + " px-4 py-4 transition hover:border-cyan-300/45 hover:text-white"},
+func dashboardActivityFeed(parsePage dashboardPage) ui.Node {
+	parseItems := dashboardActivityItems(parsePage)
+	parseNodes := make([]ui.Node, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		parseNodes = append(parseNodes, html.A(html.Props{Href: parseItem.Href, Class: "grid gap-2 " + internalInsetSurfaceClass() + " px-4 py-4 transition hover:border-cyan-300/45 hover:text-white"},
 			html.Div(html.Props{Class: "flex items-start justify-between gap-3"},
-				html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text(item.Kicker)),
-				html.P(html.Props{Class: "text-xs uppercase tracking-[0.18em] text-slate-400"}, html.Text(item.Meta)),
+				html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text(parseItem.Kicker)),
+				html.P(html.Props{Class: "text-xs uppercase tracking-[0.18em] text-slate-400"}, html.Text(parseItem.Meta)),
 			),
-			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(item.Title)),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(item.Detail)),
+			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseItem.Title)),
+			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseItem.Detail)),
 		))
 	}
-	if len(nodes) == 0 {
-		nodes = append(nodes, html.Div(html.Props{Class: "grid gap-2 " + internalInsetSurfaceClass() + " px-4 py-4"},
+	if len(parseNodes) == 0 {
+		parseNodes = append(parseNodes, html.Div(html.Props{Class: "grid gap-2 " + internalInsetSurfaceClass() + " px-4 py-4"},
 			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text("No operator activity queued.")),
 			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Comments, transfers, receiving sessions, and purchase orders will populate this feed as soon as Atlas has active work.")),
 		))
@@ -1213,7 +1233,7 @@ func dashboardActivityFeed(page dashboardPage) ui.Node {
 			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Activity feed")),
 			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("The dashboard feed should show the latest moderation, transfer, receiving, and purchase-order motion in one scan instead of making operators open four routes just to check momentum.")),
 		),
-		html.Div(html.Props{Class: "grid gap-3"}, nodes...),
+		html.Div(html.Props{Class: "grid gap-3"}, parseNodes...),
 	)
 }
 
@@ -1225,76 +1245,76 @@ type dashboardActivityItem struct {
 	Href   string
 }
 
-func dashboardActivityItems(page dashboardPage) []dashboardActivityItem {
-	items := []dashboardActivityItem{}
-	for index, item := range page.Comments {
-		if index >= 2 {
+func dashboardActivityItems(parsePage dashboardPage) []dashboardActivityItem {
+	parseItems := []dashboardActivityItem{}
+	for parseIndex, parseItem := range parsePage.Comments {
+		if parseIndex >= 2 {
 			break
 		}
-		items = append(items, dashboardActivityItem{
+		parseItems = append(parseItems, dashboardActivityItem{
 			Kicker: "Moderation",
-			Title:  fallback(item.Subject, "Buyer question"),
-			Detail: fallback(item.Body, "Public feedback needs a routing decision."),
-			Meta:   strings.ReplaceAll(fallback(item.Status, "pending"), "_", " "),
+			Title:  fallback(parseItem.Subject, "Buyer question"),
+			Detail: fallback(parseItem.Body, "Public feedback needs a routing decision."),
+			Meta:   strings.ReplaceAll(fallback(parseItem.Status, "pending"), "_", " "),
 			Href:   "/app/comments",
 		})
 	}
-	for index, item := range page.Transfers {
-		if index >= 2 {
+	for parseIndex2, parseItem2 := range parsePage.Transfers {
+		if parseIndex2 >= 2 {
 			break
 		}
-		items = append(items, dashboardActivityItem{
+		parseItems = append(parseItems, dashboardActivityItem{
 			Kicker: "Transfer",
-			Title:  item.SourceWarehouseID + " to " + item.DestinationWarehouse,
-			Detail: fallback(item.Reason, "Balancing action in flight."),
-			Meta:   strings.ReplaceAll(fallback(item.Status, "submitted"), "_", " "),
-			Href:   "/app/transfers/" + item.ID,
+			Title:  parseItem2.SourceWarehouseID + " to " + parseItem2.DestinationWarehouse,
+			Detail: fallback(parseItem2.Reason, "Balancing action in flight."),
+			Meta:   strings.ReplaceAll(fallback(parseItem2.Status, "submitted"), "_", " "),
+			Href:   "/app/transfers/" + parseItem2.ID,
 		})
 	}
-	for index, item := range page.Receiving {
-		if index >= 2 {
+	for parseIndex3, parseItem3 := range parsePage.Receiving {
+		if parseIndex3 >= 2 {
 			break
 		}
-		items = append(items, dashboardActivityItem{
+		parseItems = append(parseItems, dashboardActivityItem{
 			Kicker: "Receiving",
-			Title:  item.ID,
-			Detail: fallback(item.DiscrepancySummary, "Inbound session still needs closeout."),
-			Meta:   strings.ReplaceAll(fallback(item.Status, "open"), "_", " "),
-			Href:   "/app/receiving/" + item.ID,
+			Title:  parseItem3.ID,
+			Detail: fallback(parseItem3.DiscrepancySummary, "Inbound session still needs closeout."),
+			Meta:   strings.ReplaceAll(fallback(parseItem3.Status, "open"), "_", " "),
+			Href:   "/app/receiving/" + parseItem3.ID,
 		})
 	}
-	for index, item := range page.Orders {
-		if index >= 2 {
+	for parseIndex4, parseItem4 := range parsePage.Orders {
+		if parseIndex4 >= 2 {
 			break
 		}
-		items = append(items, dashboardActivityItem{
+		parseItems = append(parseItems, dashboardActivityItem{
 			Kicker: "Purchase order",
-			Title:  fallback(item.VendorName, item.ID),
-			Detail: fallback(item.PriorityNote, "Vendor replenishment still in motion."),
-			Meta:   strings.ReplaceAll(fallback(item.Status, "submitted"), "_", " "),
-			Href:   "/app/purchase-orders/" + item.ID,
+			Title:  fallback(parseItem4.VendorName, parseItem4.ID),
+			Detail: fallback(parseItem4.PriorityNote, "Vendor replenishment still in motion."),
+			Meta:   strings.ReplaceAll(fallback(parseItem4.Status, "submitted"), "_", " "),
+			Href:   "/app/purchase-orders/" + parseItem4.ID,
 		})
 	}
-	return items
+	return parseItems
 }
 
-func dashboardPurchaseOrderSummary(orders []purchaseOrderRecord) ui.Node {
-	nodes := make([]ui.Node, 0, len(orders))
-	for index, item := range orders {
-		if index >= 4 {
+func dashboardPurchaseOrderSummary(parseOrders []purchaseOrderRecord) ui.Node {
+	parseNodes := make([]ui.Node, 0, len(parseOrders))
+	for parseIndex, parseItem := range parseOrders {
+		if parseIndex >= 4 {
 			break
 		}
-		nodes = append(nodes, html.A(html.Props{Href: "/app/purchase-orders/" + item.ID, Class: "grid gap-2 " + internalInsetSurfaceClass() + " px-4 py-4 transition hover:border-cyan-300/45 hover:text-white"},
+		parseNodes = append(parseNodes, html.A(html.Props{Href: "/app/purchase-orders/" + parseItem.ID, Class: "grid gap-2 " + internalInsetSurfaceClass() + " px-4 py-4 transition hover:border-cyan-300/45 hover:text-white"},
 			html.Div(html.Props{Class: "flex items-start justify-between gap-3"},
-				html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(fallback(item.VendorName, item.ID))),
-				html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text(strings.ReplaceAll(fallback(item.Status, "submitted"), "_", " "))),
+				html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(fallback(parseItem.VendorName, parseItem.ID))),
+				html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text(strings.ReplaceAll(fallback(parseItem.Status, "submitted"), "_", " "))),
 			),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(fallback(item.PriorityNote, "Vendor replenishment still needs operator follow-through."))),
-			html.P(html.Props{Class: "text-xs uppercase tracking-[0.18em] text-slate-400"}, html.Text(fallback(item.WarehouseName, item.WarehouseID)+" | ETA "+fallback(item.ETA, "pending"))),
+			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(fallback(parseItem.PriorityNote, "Vendor replenishment still needs operator follow-through."))),
+			html.P(html.Props{Class: "text-xs uppercase tracking-[0.18em] text-slate-400"}, html.Text(fallback(parseItem.WarehouseName, parseItem.WarehouseID)+" | ETA "+fallback(parseItem.ETA, "pending"))),
 		))
 	}
-	if len(nodes) == 0 {
-		nodes = append(nodes, html.Div(html.Props{Class: "grid gap-2 " + internalInsetSurfaceClass() + " px-4 py-4"},
+	if len(parseNodes) == 0 {
+		parseNodes = append(parseNodes, html.Div(html.Props{Class: "grid gap-2 " + internalInsetSurfaceClass() + " px-4 py-4"},
 			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text("No purchase orders are open.")),
 			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Atlas will list the highest-priority vendor work here once replenishment needs a formal PO lane.")),
 		))
@@ -1304,60 +1324,60 @@ func dashboardPurchaseOrderSummary(orders []purchaseOrderRecord) ui.Node {
 			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Purchase-order summary")),
 			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Keep vendor work visible from the dashboard so replenishment planning does not disappear behind the logistics route boundary.")),
 		),
-		html.Div(html.Props{Class: "grid gap-3"}, nodes...),
+		html.Div(html.Props{Class: "grid gap-3"}, parseNodes...),
 	)
 }
 
-func dashboardCommentStatusCount(items []commentRecord, status string) int {
-	count := 0
-	for _, item := range items {
-		if strings.EqualFold(strings.TrimSpace(item.Status), status) {
-			count++
+func dashboardCommentStatusCount(parseItems []commentRecord, parseStatus string) int {
+	parseCount := 0
+	for _, parseItem := range parseItems {
+		if strings.EqualFold(strings.TrimSpace(parseItem.Status), parseStatus) {
+			parseCount++
 		}
 	}
-	return count
+	return parseCount
 }
 
-func dashboardOpenReceivingCount(items []receivingRecord) int {
-	count := 0
-	for _, item := range items {
-		status := strings.TrimSpace(strings.ToLower(item.Status))
-		if status != "reconciled" && status != "closed" {
-			count++
+func dashboardOpenReceivingCount(parseItems []receivingRecord) int {
+	parseCount := 0
+	for _, parseItem := range parseItems {
+		parseStatus := strings.TrimSpace(strings.ToLower(parseItem.Status))
+		if parseStatus != "reconciled" && parseStatus != "closed" {
+			parseCount++
 		}
 	}
-	return count
+	return parseCount
 }
 
-func dashboardPurchaseOrderStatusCount(items []purchaseOrderRecord, status string) int {
-	count := 0
-	for _, item := range items {
-		if strings.EqualFold(strings.TrimSpace(item.Status), status) {
-			count++
+func dashboardPurchaseOrderStatusCount(parseItems []purchaseOrderRecord, parseStatus string) int {
+	parseCount := 0
+	for _, parseItem := range parseItems {
+		if strings.EqualFold(strings.TrimSpace(parseItem.Status), parseStatus) {
+			parseCount++
 		}
 	}
-	return count
+	return parseCount
 }
 
-func inventoryContent(payload Payload) ui.Node {
-	return inventoryCMSContent(payload)
+func inventoryContent(parsePayload Payload) ui.Node {
+	return inventoryCMSContent(parsePayload)
 }
 
-func skuContent(payload Payload) ui.Node {
-	return inventoryDetailContent(payload)
+func skuContent(parsePayload Payload) ui.Node {
+	return inventoryDetailContent(parsePayload)
 }
 
-func warehouseOpsContent(payload Payload) ui.Node {
-	page := decode[warehouseOpsList](pageData(payload))
+func warehouseOpsContent(parsePayload Payload) ui.Node {
+	parsePage := decode[warehouseOpsList](pageData(parsePayload))
 	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.16fr)_minmax(22rem,0.84fr)] xl:items-start"},
 		html.Div(html.Props{Class: "grid gap-5"},
 			warehouseBreadcrumbBar(
 				warehouseBreadcrumbLink{Label: "Dashboard", Href: RouteDashboard},
 				warehouseBreadcrumbLink{Label: "Warehouses", Href: RouteWarehouseOps, Current: true},
 			),
-			warehouseOpsSummaryBand(page),
+			warehouseOpsSummaryBand(parsePage),
 			warehouseOpsActionCluster(),
-			warehouseOpsTable(page.Items),
+			warehouseOpsTable(parsePage.Items),
 		),
 		html.Div(html.Props{Class: "grid gap-5"},
 			inventoryRailCard("Cross-route handoffs", "Warehouse work should hand off cleanly into inventory, purchasing, and receiving instead of trapping the operator in one facility view.",
@@ -1374,18 +1394,18 @@ func warehouseOpsContent(payload Payload) ui.Node {
 	)
 }
 
-func warehouseOpsSummaryBand(page warehouseOpsList) ui.Node {
+func warehouseOpsSummaryBand(parsePage warehouseOpsList) ui.Node {
 	return html.Div(html.Props{Class: "grid gap-4"},
 		html.Div(html.Props{Class: "grid gap-2"},
 			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Warehouse operations shell")),
 			html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text("Treat the warehouse route as a facility triage board first: visible backlog pressure, clear service posture, and direct drill-ins into the facility that actually needs action.")),
 		),
-		routeSummaryStrip(page.Summary),
+		routeSummaryStrip(parsePage.Summary),
 		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-4"},
-			statCard("Facilities", fmt.Sprintf("%d active", len(page.Items))),
-			statCard("Available", fmt.Sprintf("%d units", totalWarehouseAvailable(page.Items))),
-			statCard("Inbound", fmt.Sprintf("%d units", totalWarehouseInbound(page.Items))),
-			statCard("Risk facilities", fmt.Sprintf("%d flagged", countRiskWarehouses(page.Items))),
+			statCard("Facilities", fmt.Sprintf("%d active", len(parsePage.Items))),
+			statCard("Available", fmt.Sprintf("%d units", totalWarehouseAvailable(parsePage.Items))),
+			statCard("Inbound", fmt.Sprintf("%d units", totalWarehouseInbound(parsePage.Items))),
+			statCard("Risk facilities", fmt.Sprintf("%d flagged", countRiskWarehouses(parsePage.Items))),
 		),
 	)
 }
@@ -1405,13 +1425,13 @@ func warehouseOpsActionCluster() ui.Node {
 	)
 }
 
-func warehouseOpsTable(items []warehouseOpsRecord) ui.Node {
-	rows := make([]ui.Node, 0, len(items))
-	for _, item := range items {
-		rows = append(rows, warehouseOpsTableRow(item))
+func warehouseOpsTable(parseItems []warehouseOpsRecord) ui.Node {
+	parseRows := make([]ui.Node, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		parseRows = append(parseRows, warehouseOpsTableRow(parseItem))
 	}
-	if len(rows) == 0 {
-		rows = append(rows, html.Tag("tr", html.Props{},
+	if len(parseRows) == 0 {
+		parseRows = append(parseRows, html.Tag("tr", html.Props{},
 			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 6}}, html.Text("No warehouses are available in the current Atlas workspace.")),
 		))
 	}
@@ -1421,7 +1441,7 @@ func warehouseOpsTable(items []warehouseOpsRecord) ui.Node {
 				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Facility table")),
 				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Scan service posture, backlog, inbound exposure, and risk count in one dense table before drilling into a specific facility workspace.")),
 			),
-			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text(fmt.Sprintf("%d facilities", len(items)))),
+			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text(fmt.Sprintf("%d facilities", len(parseItems)))),
 		),
 		html.Div(html.Props{Class: internalTableContainerClass()},
 			html.Tag("table", html.Props{Class: "min-w-full border-collapse text-left"},
@@ -1435,64 +1455,64 @@ func warehouseOpsTable(items []warehouseOpsRecord) ui.Node {
 						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Actions")),
 					),
 				),
-				html.Tag("tbody", html.Props{}, rows...),
+				html.Tag("tbody", html.Props{}, parseRows...),
 			),
 		),
 	)
 }
 
-func warehouseOpsTableRow(item warehouseOpsRecord) ui.Node {
+func warehouseOpsTableRow(parseItem warehouseOpsRecord) ui.Node {
 	return html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
 		html.Tag("td", html.Props{Class: "px-4 py-4"},
 			html.Div(html.Props{Class: "grid gap-2"},
-				html.A(html.Props{Href: "/app/warehouses/" + item.ID, Class: "text-sm font-semibold text-white transition hover:text-cyan-200"}, html.Text(item.Name)),
-				html.P(html.Props{Class: "text-[0.68rem] uppercase tracking-[0.22em] text-slate-400"}, html.Text(item.Region+" | "+item.ServiceLevel)),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(item.Focus)),
+				html.A(html.Props{Href: "/app/warehouses/" + parseItem.ID, Class: "text-sm font-semibold text-white transition hover:text-cyan-200"}, html.Text(parseItem.Name)),
+				html.P(html.Props{Class: "text-[0.68rem] uppercase tracking-[0.22em] text-slate-400"}, html.Text(parseItem.Region+" | "+parseItem.ServiceLevel)),
+				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseItem.Focus)),
 			),
 		),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(item.Pressure+" | "+item.Backlog)),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d", item.Available))),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d", item.Inbound))),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d active", item.RiskCount))),
+		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(parseItem.Pressure+" | "+parseItem.Backlog)),
+		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d", parseItem.Available))),
+		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d", parseItem.Inbound))),
+		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d active", parseItem.RiskCount))),
 		html.Tag("td", html.Props{Class: "px-4 py-4"},
 			html.Div(html.Props{Class: "grid gap-2"},
-				html.A(html.Props{Href: "/app/warehouses/" + item.ID, Class: "text-sm font-semibold text-cyan-200 transition hover:text-cyan-100"}, html.Text("Open workspace")),
-				html.A(html.Props{Href: "/app/warehouses/" + item.ID + "#warehouse-replenishment", Class: "text-sm text-slate-300 transition hover:text-white"}, html.Text("Open replenishment")),
+				html.A(html.Props{Href: "/app/warehouses/" + parseItem.ID, Class: "text-sm font-semibold text-cyan-200 transition hover:text-cyan-100"}, html.Text("Open workspace")),
+				html.A(html.Props{Href: "/app/warehouses/" + parseItem.ID + "#warehouse-replenishment", Class: "text-sm text-slate-300 transition hover:text-white"}, html.Text("Open replenishment")),
 			),
 		),
 	)
 }
 
-func totalWarehouseAvailable(items []warehouseOpsRecord) int {
-	total := 0
-	for _, item := range items {
-		total += item.Available
+func totalWarehouseAvailable(parseItems []warehouseOpsRecord) int {
+	parseTotal := 0
+	for _, parseItem := range parseItems {
+		parseTotal += parseItem.Available
 	}
-	return total
+	return parseTotal
 }
 
-func totalWarehouseInbound(items []warehouseOpsRecord) int {
-	total := 0
-	for _, item := range items {
-		total += item.Inbound
+func totalWarehouseInbound(parseItems []warehouseOpsRecord) int {
+	parseTotal := 0
+	for _, parseItem := range parseItems {
+		parseTotal += parseItem.Inbound
 	}
-	return total
+	return parseTotal
 }
 
-func warehouseOpsDetailContent(payload Payload) ui.Node {
-	return warehouseInventoryDetailContent(payload)
+func warehouseOpsDetailContent(parsePayload Payload) ui.Node {
+	return warehouseInventoryDetailContent(parsePayload)
 }
 
-func transfersContent(payload Payload) ui.Node {
-	page := decode[transferList](pageData(payload))
+func transfersContent(parsePayload Payload) ui.Node {
+	parsePage := decode[transferList](pageData(parsePayload))
 	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(22rem,0.84fr)] xl:items-start"},
 		html.Div(html.Props{Class: "grid gap-5"},
-			transfersSummaryBand(page),
+			transfersSummaryBand(parsePage),
 			transfersActionCluster(),
-			transfersTable(page.Items),
+			transfersTable(parsePage.Items),
 		),
 		html.Div(html.Props{Class: "grid gap-5"},
-			transferForm(payload),
+			transferForm(parsePayload),
 			inventoryRailCard("Transfer handoffs", "Transfers should stay tied to the larger warehouse recovery path rather than becoming an isolated page-level queue.",
 				html.Div(html.Props{Class: "grid gap-3"},
 					inventoryActionCard("Review warehouse pressure", "Check which warehouse is starving before you commit a transfer lane.", "/app/warehouses"),
@@ -1504,17 +1524,17 @@ func transfersContent(payload Payload) ui.Node {
 	)
 }
 
-func transfersSummaryBand(page transferList) ui.Node {
+func transfersSummaryBand(parsePage transferList) ui.Node {
 	return html.Div(html.Props{Class: "grid gap-4"},
 		html.Div(html.Props{Class: "grid gap-2"},
 			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Transfer shell")),
 			html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text("Treat transfers as a balancing board: source and destination lanes, recommendation context, and direct handoff into receiving once the movement is committed.")),
 		),
 		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-4"},
-			statCard("Transfers", fmt.Sprintf("%d active", len(page.Items))),
-			statCard("Pending", fmt.Sprintf("%d queued", countTransferStatus(page.Items, "pending"))),
-			statCard("Approved", fmt.Sprintf("%d moving", countTransferStatus(page.Items, "approved"))),
-			statCard("Cancelled", fmt.Sprintf("%d dropped", countTransferStatus(page.Items, "cancelled"))),
+			statCard("Transfers", fmt.Sprintf("%d active", len(parsePage.Items))),
+			statCard("Pending", fmt.Sprintf("%d queued", countTransferStatus(parsePage.Items, "pending"))),
+			statCard("Approved", fmt.Sprintf("%d moving", countTransferStatus(parsePage.Items, "approved"))),
+			statCard("Cancelled", fmt.Sprintf("%d dropped", countTransferStatus(parsePage.Items, "cancelled"))),
 		),
 	)
 }
@@ -1534,13 +1554,13 @@ func transfersActionCluster() ui.Node {
 	)
 }
 
-func transfersTable(items []transferRecord) ui.Node {
-	rows := make([]ui.Node, 0, len(items))
-	for _, item := range items {
-		rows = append(rows, transferTableRow(item))
+func transfersTable(parseItems []transferRecord) ui.Node {
+	parseRows := make([]ui.Node, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		parseRows = append(parseRows, transferTableRow(parseItem))
 	}
-	if len(rows) == 0 {
-		rows = append(rows, html.Tag("tr", html.Props{},
+	if len(parseRows) == 0 {
+		parseRows = append(parseRows, html.Tag("tr", html.Props{},
 			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 6}}, html.Text("No transfer recommendations are available in the current Atlas workspace.")),
 		))
 	}
@@ -1550,7 +1570,7 @@ func transfersTable(items []transferRecord) ui.Node {
 				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Transfer table")),
 				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Review source, destination, status, and recommendation context in one dense table before opening a transfer detail route.")),
 			),
-			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text(fmt.Sprintf("%d transfers", len(items)))),
+			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text(fmt.Sprintf("%d transfers", len(parseItems)))),
 		),
 		html.Div(html.Props{Class: internalTableContainerClass()},
 			html.Tag("table", html.Props{Class: "min-w-full border-collapse text-left"},
@@ -1564,85 +1584,85 @@ func transfersTable(items []transferRecord) ui.Node {
 						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Actions")),
 					),
 				),
-				html.Tag("tbody", html.Props{}, rows...),
+				html.Tag("tbody", html.Props{}, parseRows...),
 			),
 		),
 	)
 }
 
-func transferTableRow(item transferRecord) ui.Node {
-	lane := item.SourceWarehouseID + " -> " + item.DestinationWarehouse
+func transferTableRow(parseItem transferRecord) ui.Node {
+	parseLane := parseItem.SourceWarehouseID + " -> " + parseItem.DestinationWarehouse
 	return html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
 		html.Tag("td", html.Props{Class: "px-4 py-4"},
 			html.Div(html.Props{Class: "grid gap-2"},
-				html.A(html.Props{Href: "/app/transfers/" + item.ID, Class: "text-sm font-semibold text-white transition hover:text-cyan-200"}, html.Text(item.ID)),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(lane)),
+				html.A(html.Props{Href: "/app/transfers/" + parseItem.ID, Class: "text-sm font-semibold text-white transition hover:text-cyan-200"}, html.Text(parseItem.ID)),
+				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseLane)),
 			),
 		),
-		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.Span(html.Props{Class: warehouseStatusClass(item.Status)}, html.Text(strings.ReplaceAll(item.Status, "_", " ")))),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-300"}, html.Text(item.Reason)),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fallback(item.RecommendedBy, "Atlas planning"))),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-400"}, html.Text(item.UpdatedAt)),
-		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.A(html.Props{Href: "/app/transfers/" + item.ID, Class: "text-sm font-semibold text-cyan-200 transition hover:text-cyan-100"}, html.Text("Open transfer"))),
+		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.Span(html.Props{Class: warehouseStatusClass(parseItem.Status)}, html.Text(strings.ReplaceAll(parseItem.Status, "_", " ")))),
+		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-300"}, html.Text(parseItem.Reason)),
+		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fallback(parseItem.RecommendedBy, "Atlas planning"))),
+		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-400"}, html.Text(parseItem.UpdatedAt)),
+		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.A(html.Props{Href: "/app/transfers/" + parseItem.ID, Class: "text-sm font-semibold text-cyan-200 transition hover:text-cyan-100"}, html.Text("Open transfer"))),
 	)
 }
 
-func countTransferStatus(items []transferRecord, status string) int {
-	count := 0
-	for _, item := range items {
-		if strings.EqualFold(strings.TrimSpace(item.Status), status) {
-			count++
+func countTransferStatus(parseItems []transferRecord, parseStatus string) int {
+	parseCount := 0
+	for _, parseItem := range parseItems {
+		if strings.EqualFold(strings.TrimSpace(parseItem.Status), parseStatus) {
+			parseCount++
 		}
 	}
-	return count
+	return parseCount
 }
 
-func transferDetailContent(payload Payload) ui.Node {
-	page := decode[transferDetailPage](pageData(payload))
+func transferDetailContent(parsePayload Payload) ui.Node {
+	parsePage := decode[transferDetailPage](pageData(parsePayload))
 	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(22rem,0.82fr)] xl:items-start"},
 		html.Div(html.Props{Class: "grid gap-5"},
-			transferDetailHero(page),
-			transferLineTable(page.Lines),
+			transferDetailHero(parsePage),
+			transferLineTable(parsePage.Lines),
 		),
 		html.Div(html.Props{Class: "grid gap-4"},
 			routeRevalidationCard("Transfer route refresh", "Re-run the transfer loader after approval or cancellation work if you want to confirm the latest lane state without leaving the detail route."),
-			statCard("Lane", page.Transfer.SourceWarehouseID+" -> "+page.Transfer.DestinationWarehouse),
-			statCard("Status", page.Transfer.Status),
-			statCard("Recommended by", fallback(page.Transfer.RecommendedBy, "Atlas planning")),
+			statCard("Lane", parsePage.Transfer.SourceWarehouseID+" -> "+parsePage.Transfer.DestinationWarehouse),
+			statCard("Status", parsePage.Transfer.Status),
+			statCard("Recommended by", fallback(parsePage.Transfer.RecommendedBy, "Atlas planning")),
 		),
 	)
 }
 
-func transferDetailHero(page transferDetailPage) ui.Node {
+func transferDetailHero(parsePage transferDetailPage) ui.Node {
 	return html.Div(html.Props{Class: "grid gap-5 " + internalHeroSurfaceClass()},
 		html.Div(html.Props{Class: "flex flex-wrap items-start justify-between gap-4"},
 			html.Div(html.Props{Class: "grid gap-3"},
 				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300"}, html.Text("Transfer workspace")),
 				html.Div(html.Props{Class: "grid gap-2"},
-					html.H2(html.Props{Class: "text-3xl font-semibold text-white"}, html.Text(page.Transfer.ID)),
-					html.P(html.Props{Class: "text-sm leading-7 text-slate-300"}, html.Text(page.Transfer.Reason)),
+					html.H2(html.Props{Class: "text-3xl font-semibold text-white"}, html.Text(parsePage.Transfer.ID)),
+					html.P(html.Props{Class: "text-sm leading-7 text-slate-300"}, html.Text(parsePage.Transfer.Reason)),
 				),
 			),
 			html.A(html.Props{Href: "/app/transfers", Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Back to transfers")),
 		),
 		html.Div(html.Props{Class: "flex flex-wrap gap-3"},
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(page.Transfer.SourceWarehouseID+" -> "+page.Transfer.DestinationWarehouse)),
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(strings.ReplaceAll(page.Transfer.Status, "_", " "))),
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(fallback(page.Transfer.RecommendedBy, "Atlas planning"))),
+			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(parsePage.Transfer.SourceWarehouseID+" -> "+parsePage.Transfer.DestinationWarehouse)),
+			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(strings.ReplaceAll(parsePage.Transfer.Status, "_", " "))),
+			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(fallback(parsePage.Transfer.RecommendedBy, "Atlas planning"))),
 		),
 	)
 }
 
-func transferLineTable(lines []transferLineRecord) ui.Node {
-	rows := make([]ui.Node, 0, len(lines))
-	for _, line := range lines {
-		rows = append(rows, html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm font-semibold text-white"}, html.Text(line.ProductSKU)),
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d units", line.Quantity))),
+func transferLineTable(parseLines []transferLineRecord) ui.Node {
+	parseRows := make([]ui.Node, 0, len(parseLines))
+	for _, parseLine := range parseLines {
+		parseRows = append(parseRows, html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
+			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm font-semibold text-white"}, html.Text(parseLine.ProductSKU)),
+			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d units", parseLine.Quantity))),
 		))
 	}
-	if len(rows) == 0 {
-		rows = append(rows, html.Tag("tr", html.Props{},
+	if len(parseRows) == 0 {
+		parseRows = append(parseRows, html.Tag("tr", html.Props{},
 			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 2}}, html.Text("No transfer lines are recorded for this movement yet.")),
 		))
 	}
@@ -1657,39 +1677,39 @@ func transferLineTable(lines []transferLineRecord) ui.Node {
 					html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Product")),
 					html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Quantity")),
 				)),
-				html.Tag("tbody", html.Props{}, rows...),
+				html.Tag("tbody", html.Props{}, parseRows...),
 			),
 		),
 	)
 }
 
-func routeRevalidationCard(title string, detail string) ui.Node {
-	revalidator := useAtlasRevalidator()
-	label := "Refresh route data"
-	if revalidator.Loading() {
-		label = "Refreshing route..."
+func routeRevalidationCard(parseTitle string, parseDetail string) ui.Node {
+	parseRevalidator := useAtlasRevalidator()
+	parseLabel := "Refresh route data"
+	if parseRevalidator.Loading() {
+		parseLabel = "Refreshing route..."
 	}
 	return html.Div(html.Props{Class: "grid gap-3 " + internalSurfaceCardClass() + " p-5"},
 		html.Div(html.Props{Class: "grid gap-1"},
-			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text(title)),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(detail)),
+			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text(parseTitle)),
+			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseDetail)),
 		),
 		html.Button(html.Props{
 			Type:     "button",
 			Class:    "inline-flex items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/15 hover:text-white disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-900 disabled:text-slate-500",
-			Disabled: revalidator.Loading(),
-			OnClick:  ui.UseEvent(func() { revalidator.Revalidate() }),
-		}, html.Text(label)),
+			Disabled: parseRevalidator.Loading(),
+			OnClick:  ui.UseEvent(func() { parseRevalidator.Revalidate() }),
+		}, html.Text(parseLabel)),
 	)
 }
 
-func purchaseOrdersContent(payload Payload) ui.Node {
-	page := decode[purchaseOrderList](pageData(payload))
+func purchaseOrdersContent(parsePayload Payload) ui.Node {
+	parsePage := decode[purchaseOrderList](pageData(parsePayload))
 	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.14fr)_minmax(22rem,0.84fr)] xl:items-start"},
 		html.Div(html.Props{Class: "grid gap-5"},
-			purchaseOrdersSummaryBand(page),
+			purchaseOrdersSummaryBand(parsePage),
 			purchaseOrdersActionCluster(),
-			purchaseOrdersTable(page.Items),
+			purchaseOrdersTable(parsePage.Items),
 		),
 		html.Div(html.Props{Class: "grid gap-5"},
 			inventoryRailCard("Purchase-order handoffs", "The purchase-order workspace should hand off forward into receiving and backward into warehouse or inventory context without losing the vendor decision thread.",
@@ -1703,18 +1723,18 @@ func purchaseOrdersContent(payload Payload) ui.Node {
 	)
 }
 
-func purchaseOrdersSummaryBand(page purchaseOrderList) ui.Node {
+func purchaseOrdersSummaryBand(parsePage purchaseOrderList) ui.Node {
 	return html.Div(html.Props{Class: "grid gap-4"},
 		html.Div(html.Props{Class: "grid gap-2"},
 			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Purchase-order shell")),
 			html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text("Treat purchase orders as a vendor-side recovery board: visible status posture, ETA clarity, and direct movement into approval, hold, and receiving follow-through.")),
 		),
-		routeSummaryStrip(page.Summary),
+		routeSummaryStrip(parsePage.Summary),
 		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-4"},
-			statCard("Orders", fmt.Sprintf("%d active", len(page.Items))),
-			statCard("Submitted", fmt.Sprintf("%d queued", countPurchaseOrdersByStatus(page.Items, "submitted"))),
-			statCard("Approved", fmt.Sprintf("%d inbound", countPurchaseOrdersByStatus(page.Items, "approved"))),
-			statCard("On hold", fmt.Sprintf("%d blocked", countPurchaseOrdersByStatus(page.Items, "on_hold"))),
+			statCard("Orders", fmt.Sprintf("%d active", len(parsePage.Items))),
+			statCard("Submitted", fmt.Sprintf("%d queued", countPurchaseOrdersByStatus(parsePage.Items, "submitted"))),
+			statCard("Approved", fmt.Sprintf("%d inbound", countPurchaseOrdersByStatus(parsePage.Items, "approved"))),
+			statCard("On hold", fmt.Sprintf("%d blocked", countPurchaseOrdersByStatus(parsePage.Items, "on_hold"))),
 		),
 	)
 }
@@ -1734,13 +1754,13 @@ func purchaseOrdersActionCluster() ui.Node {
 	)
 }
 
-func purchaseOrdersTable(items []purchaseOrderRecord) ui.Node {
-	rows := make([]ui.Node, 0, len(items))
-	for _, item := range items {
-		rows = append(rows, purchaseOrdersTableRow(item))
+func purchaseOrdersTable(parseItems []purchaseOrderRecord) ui.Node {
+	parseRows := make([]ui.Node, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		parseRows = append(parseRows, purchaseOrdersTableRow(parseItem))
 	}
-	if len(rows) == 0 {
-		rows = append(rows, html.Tag("tr", html.Props{},
+	if len(parseRows) == 0 {
+		parseRows = append(parseRows, html.Tag("tr", html.Props{},
 			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 7}}, html.Text("No purchase orders are available in the current Atlas workspace.")),
 		))
 	}
@@ -1750,7 +1770,7 @@ func purchaseOrdersTable(items []purchaseOrderRecord) ui.Node {
 				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Vendor order table")),
 				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Scan vendor, owning warehouse, ETA posture, and status decisions in one dense table before opening the order detail route.")),
 			),
-			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text(fmt.Sprintf("%d orders", len(items)))),
+			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text(fmt.Sprintf("%d orders", len(parseItems)))),
 		),
 		html.Div(html.Props{Class: internalTableContainerClass()},
 			html.Tag("table", html.Props{Class: "min-w-full border-collapse text-left"},
@@ -1765,85 +1785,85 @@ func purchaseOrdersTable(items []purchaseOrderRecord) ui.Node {
 						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Actions")),
 					),
 				),
-				html.Tag("tbody", html.Props{}, rows...),
+				html.Tag("tbody", html.Props{}, parseRows...),
 			),
 		),
 	)
 }
 
-func purchaseOrdersTableRow(item purchaseOrderRecord) ui.Node {
+func purchaseOrdersTableRow(parseItem purchaseOrderRecord) ui.Node {
 	return html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
 		html.Tag("td", html.Props{Class: "px-4 py-4"},
 			html.Div(html.Props{Class: "grid gap-2"},
-				html.A(html.Props{Href: "/app/purchase-orders/" + item.ID, Class: "text-sm font-semibold text-white transition hover:text-cyan-200"}, html.Text(item.ID)),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(item.VendorName)),
+				html.A(html.Props{Href: "/app/purchase-orders/" + parseItem.ID, Class: "text-sm font-semibold text-white transition hover:text-cyan-200"}, html.Text(parseItem.ID)),
+				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseItem.VendorName)),
 			),
 		),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(item.WarehouseName)),
-		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.Span(html.Props{Class: warehouseStatusClass(item.Status)}, html.Text(strings.ReplaceAll(item.Status, "_", " ")))),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(item.ETA)),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-300"}, html.Text(fallback(item.PriorityNote, "No priority note"))),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-400"}, html.Text(item.UpdatedAt)),
+		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(parseItem.WarehouseName)),
+		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.Span(html.Props{Class: warehouseStatusClass(parseItem.Status)}, html.Text(strings.ReplaceAll(parseItem.Status, "_", " ")))),
+		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(parseItem.ETA)),
+		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-300"}, html.Text(fallback(parseItem.PriorityNote, "No priority note"))),
+		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-400"}, html.Text(parseItem.UpdatedAt)),
 		html.Tag("td", html.Props{Class: "px-4 py-4"},
-			html.A(html.Props{Href: "/app/purchase-orders/" + item.ID, Class: "text-sm font-semibold text-cyan-200 transition hover:text-cyan-100"}, html.Text("Open order")),
+			html.A(html.Props{Href: "/app/purchase-orders/" + parseItem.ID, Class: "text-sm font-semibold text-cyan-200 transition hover:text-cyan-100"}, html.Text("Open order")),
 		),
 	)
 }
 
-func countPurchaseOrdersByStatus(items []purchaseOrderRecord, status string) int {
-	count := 0
-	for _, item := range items {
-		if strings.EqualFold(strings.TrimSpace(item.Status), status) {
-			count++
+func countPurchaseOrdersByStatus(parseItems []purchaseOrderRecord, parseStatus string) int {
+	parseCount := 0
+	for _, parseItem := range parseItems {
+		if strings.EqualFold(strings.TrimSpace(parseItem.Status), parseStatus) {
+			parseCount++
 		}
 	}
-	return count
+	return parseCount
 }
 
-func purchaseOrderDetailContent(payload Payload) ui.Node {
-	page := decode[purchaseOrderDetailPage](pageData(payload))
+func purchaseOrderDetailContent(parsePayload Payload) ui.Node {
+	parsePage := decode[purchaseOrderDetailPage](pageData(parsePayload))
 	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(22rem,0.82fr)] xl:items-start"},
 		html.Div(html.Props{Class: "grid gap-5"},
-			purchaseOrderDetailHero(page),
-			purchaseOrderLineTable(page.Lines),
+			purchaseOrderDetailHero(parsePage),
+			purchaseOrderLineTable(parsePage.Lines),
 		),
-		purchaseOrderDetailRail(payload, page),
+		purchaseOrderDetailRail(parsePayload, parsePage),
 	)
 }
 
-func purchaseOrderDetailHero(page purchaseOrderDetailPage) ui.Node {
+func purchaseOrderDetailHero(parsePage purchaseOrderDetailPage) ui.Node {
 	return html.Div(html.Props{Class: "grid gap-5 " + internalHeroSurfaceClass()},
 		html.Div(html.Props{Class: "flex flex-wrap items-start justify-between gap-4"},
 			html.Div(html.Props{Class: "grid gap-3"},
 				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300"}, html.Text("Purchase-order workspace")),
 				html.Div(html.Props{Class: "grid gap-2"},
-					html.H2(html.Props{Class: "text-3xl font-semibold text-white"}, html.Text(page.Order.VendorName)),
-					html.P(html.Props{Class: "text-sm leading-7 text-slate-300"}, html.Text(fallback(page.Order.PriorityNote, "Vendor replenishment lane"))),
+					html.H2(html.Props{Class: "text-3xl font-semibold text-white"}, html.Text(parsePage.Order.VendorName)),
+					html.P(html.Props{Class: "text-sm leading-7 text-slate-300"}, html.Text(fallback(parsePage.Order.PriorityNote, "Vendor replenishment lane"))),
 				),
 			),
 			html.A(html.Props{Href: "/app/purchase-orders", Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Back to PO table")),
 		),
 		html.Div(html.Props{Class: "flex flex-wrap gap-3"},
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(page.Order.ID)),
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(page.Order.WarehouseName)),
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(page.Order.ETA)),
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(strings.ReplaceAll(page.Order.Status, "_", " "))),
+			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(parsePage.Order.ID)),
+			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(parsePage.Order.WarehouseName)),
+			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(parsePage.Order.ETA)),
+			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(strings.ReplaceAll(parsePage.Order.Status, "_", " "))),
 		),
 	)
 }
 
-func purchaseOrderLineTable(lines []purchaseOrderLineRecord) ui.Node {
-	rows := make([]ui.Node, 0, len(lines))
-	for _, line := range lines {
-		rows = append(rows, html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm font-semibold text-white"}, html.Text(line.ProductSKU)),
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d units", line.Quantity))),
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(line.ETA)),
-			html.Tag("td", html.Props{Class: "px-4 py-4"}, html.Span(html.Props{Class: warehouseStatusClass(line.Status)}, html.Text(strings.ReplaceAll(line.Status, "_", " ")))),
+func purchaseOrderLineTable(parseLines []purchaseOrderLineRecord) ui.Node {
+	parseRows := make([]ui.Node, 0, len(parseLines))
+	for _, parseLine := range parseLines {
+		parseRows = append(parseRows, html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
+			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm font-semibold text-white"}, html.Text(parseLine.ProductSKU)),
+			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d units", parseLine.Quantity))),
+			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(parseLine.ETA)),
+			html.Tag("td", html.Props{Class: "px-4 py-4"}, html.Span(html.Props{Class: warehouseStatusClass(parseLine.Status)}, html.Text(strings.ReplaceAll(parseLine.Status, "_", " ")))),
 		))
 	}
-	if len(rows) == 0 {
-		rows = append(rows, html.Tag("tr", html.Props{},
+	if len(parseRows) == 0 {
+		parseRows = append(parseRows, html.Tag("tr", html.Props{},
 			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 4}}, html.Text("No inbound lines are recorded for this purchase order yet.")),
 		))
 	}
@@ -1862,22 +1882,22 @@ func purchaseOrderLineTable(lines []purchaseOrderLineRecord) ui.Node {
 						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Status")),
 					),
 				),
-				html.Tag("tbody", html.Props{}, rows...),
+				html.Tag("tbody", html.Props{}, parseRows...),
 			),
 		),
 	)
 }
 
-func receivingContent(payload Payload) ui.Node {
-	page := decode[receivingList](pageData(payload))
+func receivingContent(parsePayload Payload) ui.Node {
+	parsePage := decode[receivingList](pageData(parsePayload))
 	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(22rem,0.84fr)] xl:items-start"},
 		html.Div(html.Props{Class: "grid gap-5"},
-			receivingSummaryBand(page),
+			receivingSummaryBand(parsePage),
 			receivingActionCluster(),
-			receivingTable(page.Items),
+			receivingTable(parsePage.Items),
 		),
 		html.Div(html.Props{Class: "grid gap-5"},
-			receivingForm(payload),
+			receivingForm(parsePayload),
 			inventoryRailCard("Receiving handoffs", "Receiving closes the loop on purchase orders, transfer lanes, and warehouse recovery work.",
 				html.Div(html.Props{Class: "grid gap-3"},
 					inventoryActionCard("Review purchase orders", "Confirm the inbound plan before you reconcile a warehouse session.", "/app/purchase-orders"),
@@ -1889,17 +1909,17 @@ func receivingContent(payload Payload) ui.Node {
 	)
 }
 
-func receivingSummaryBand(page receivingList) ui.Node {
+func receivingSummaryBand(parsePage receivingList) ui.Node {
 	return html.Div(html.Props{Class: "grid gap-4"},
 		html.Div(html.Props{Class: "grid gap-2"},
 			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Receiving shell")),
 			html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text("Treat receiving as the closeout board for inbound work: visible discrepancy posture, owning source, and direct movement into reconciliation and inventory verification.")),
 		),
 		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-4"},
-			statCard("Sessions", fmt.Sprintf("%d active", len(page.Items))),
-			statCard("Open", fmt.Sprintf("%d live", countReceivingStatus(page.Items, "open"))),
-			statCard("Closed", fmt.Sprintf("%d closed", countReceivingStatus(page.Items, "closed"))),
-			statCard("Discrepancies", fmt.Sprintf("%d flagged", countReceivingWithDiscrepancy(page.Items))),
+			statCard("Sessions", fmt.Sprintf("%d active", len(parsePage.Items))),
+			statCard("Open", fmt.Sprintf("%d live", countReceivingStatus(parsePage.Items, "open"))),
+			statCard("Closed", fmt.Sprintf("%d closed", countReceivingStatus(parsePage.Items, "closed"))),
+			statCard("Discrepancies", fmt.Sprintf("%d flagged", countReceivingWithDiscrepancy(parsePage.Items))),
 		),
 	)
 }
@@ -1919,13 +1939,13 @@ func receivingActionCluster() ui.Node {
 	)
 }
 
-func receivingTable(items []receivingRecord) ui.Node {
-	rows := make([]ui.Node, 0, len(items))
-	for _, item := range items {
-		rows = append(rows, receivingTableRow(item))
+func receivingTable(parseItems []receivingRecord) ui.Node {
+	parseRows := make([]ui.Node, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		parseRows = append(parseRows, receivingTableRow(parseItem))
 	}
-	if len(rows) == 0 {
-		rows = append(rows, html.Tag("tr", html.Props{},
+	if len(parseRows) == 0 {
+		parseRows = append(parseRows, html.Tag("tr", html.Props{},
 			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 6}}, html.Text("No receiving sessions are available in the current Atlas workspace.")),
 		))
 	}
@@ -1935,7 +1955,7 @@ func receivingTable(items []receivingRecord) ui.Node {
 				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Receiving table")),
 				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Review source, warehouse, discrepancy posture, and closeout status in one dense table before opening the receiving detail route.")),
 			),
-			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text(fmt.Sprintf("%d sessions", len(items)))),
+			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text(fmt.Sprintf("%d sessions", len(parseItems)))),
 		),
 		html.Div(html.Props{Class: internalTableContainerClass()},
 			html.Tag("table", html.Props{Class: "min-w-full border-collapse text-left"},
@@ -1949,93 +1969,93 @@ func receivingTable(items []receivingRecord) ui.Node {
 						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Actions")),
 					),
 				),
-				html.Tag("tbody", html.Props{}, rows...),
+				html.Tag("tbody", html.Props{}, parseRows...),
 			),
 		),
 	)
 }
 
-func receivingTableRow(item receivingRecord) ui.Node {
-	source := item.SourceType + " " + item.SourceID
+func receivingTableRow(parseItem receivingRecord) ui.Node {
+	parseSource := parseItem.SourceType + " " + parseItem.SourceID
 	return html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
 		html.Tag("td", html.Props{Class: "px-4 py-4"},
 			html.Div(html.Props{Class: "grid gap-2"},
-				html.A(html.Props{Href: "/app/receiving/" + item.ID, Class: "text-sm font-semibold text-white transition hover:text-cyan-200"}, html.Text(item.ID)),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(item.CreatedAt)),
+				html.A(html.Props{Href: "/app/receiving/" + parseItem.ID, Class: "text-sm font-semibold text-white transition hover:text-cyan-200"}, html.Text(parseItem.ID)),
+				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseItem.CreatedAt)),
 			),
 		),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(item.WarehouseID)),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(source)),
-		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.Span(html.Props{Class: warehouseStatusClass(item.Status)}, html.Text(strings.ReplaceAll(item.Status, "_", " ")))),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-300"}, html.Text(fallback(item.DiscrepancySummary, "No discrepancy recorded"))),
-		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.A(html.Props{Href: "/app/receiving/" + item.ID, Class: "text-sm font-semibold text-cyan-200 transition hover:text-cyan-100"}, html.Text("Open session"))),
+		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(parseItem.WarehouseID)),
+		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(parseSource)),
+		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.Span(html.Props{Class: warehouseStatusClass(parseItem.Status)}, html.Text(strings.ReplaceAll(parseItem.Status, "_", " ")))),
+		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-300"}, html.Text(fallback(parseItem.DiscrepancySummary, "No discrepancy recorded"))),
+		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.A(html.Props{Href: "/app/receiving/" + parseItem.ID, Class: "text-sm font-semibold text-cyan-200 transition hover:text-cyan-100"}, html.Text("Open session"))),
 	)
 }
 
-func countReceivingStatus(items []receivingRecord, status string) int {
-	count := 0
-	for _, item := range items {
-		if strings.EqualFold(strings.TrimSpace(item.Status), status) {
-			count++
+func countReceivingStatus(parseItems []receivingRecord, parseStatus string) int {
+	parseCount := 0
+	for _, parseItem := range parseItems {
+		if strings.EqualFold(strings.TrimSpace(parseItem.Status), parseStatus) {
+			parseCount++
 		}
 	}
-	return count
+	return parseCount
 }
 
-func countReceivingWithDiscrepancy(items []receivingRecord) int {
-	count := 0
-	for _, item := range items {
-		if strings.TrimSpace(item.DiscrepancySummary) != "" {
-			count++
+func countReceivingWithDiscrepancy(parseItems []receivingRecord) int {
+	parseCount := 0
+	for _, parseItem := range parseItems {
+		if strings.TrimSpace(parseItem.DiscrepancySummary) != "" {
+			parseCount++
 		}
 	}
-	return count
+	return parseCount
 }
 
-func receivingDetailContent(payload Payload) ui.Node {
-	page := decode[receivingDetailPage](pageData(payload))
+func receivingDetailContent(parsePayload Payload) ui.Node {
+	parsePage := decode[receivingDetailPage](pageData(parsePayload))
 	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(22rem,0.82fr)] xl:items-start"},
 		html.Div(html.Props{Class: "grid gap-5"},
-			receivingDetailHero(page),
-			receivingLineTable(page.Lines),
+			receivingDetailHero(parsePage),
+			receivingLineTable(parsePage.Lines),
 		),
-		receivingDetailRail(payload, page),
+		receivingDetailRail(parsePayload, parsePage),
 	)
 }
 
-func receivingDetailHero(page receivingDetailPage) ui.Node {
+func receivingDetailHero(parsePage receivingDetailPage) ui.Node {
 	return html.Div(html.Props{Class: "grid gap-5 " + internalHeroSurfaceClass()},
 		html.Div(html.Props{Class: "flex flex-wrap items-start justify-between gap-4"},
 			html.Div(html.Props{Class: "grid gap-3"},
 				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300"}, html.Text("Receiving workspace")),
 				html.Div(html.Props{Class: "grid gap-2"},
-					html.H2(html.Props{Class: "text-3xl font-semibold text-white"}, html.Text(page.Session.ID)),
-					html.P(html.Props{Class: "text-sm leading-7 text-slate-300"}, html.Text(fallback(page.Session.DiscrepancySummary, "Receiving session is ready for closeout."))),
+					html.H2(html.Props{Class: "text-3xl font-semibold text-white"}, html.Text(parsePage.Session.ID)),
+					html.P(html.Props{Class: "text-sm leading-7 text-slate-300"}, html.Text(fallback(parsePage.Session.DiscrepancySummary, "Receiving session is ready for closeout."))),
 				),
 			),
 			html.A(html.Props{Href: "/app/receiving", Class: "inline-flex items-center justify-center rounded-full border border-slate-700 px-4 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-slate-200 transition hover:border-cyan-300/45 hover:text-white"}, html.Text("Back to receiving")),
 		),
 		html.Div(html.Props{Class: "flex flex-wrap gap-3"},
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(page.Session.WarehouseID)),
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(page.Session.SourceType+" "+page.Session.SourceID)),
-			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(strings.ReplaceAll(page.Session.Status, "_", " "))),
+			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(parsePage.Session.WarehouseID)),
+			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(parsePage.Session.SourceType+" "+parsePage.Session.SourceID)),
+			html.Span(html.Props{Class: internalSurfacePillClass()}, html.Text(strings.ReplaceAll(parsePage.Session.Status, "_", " "))),
 		),
 	)
 }
 
-func receivingLineTable(lines []receivingLineRecord) ui.Node {
-	rows := make([]ui.Node, 0, len(lines))
-	for _, line := range lines {
-		reason := fallback(line.DiscrepancyReason, "matched")
-		rows = append(rows, html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm font-semibold text-white"}, html.Text(line.ProductSKU)),
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d", line.ExpectedQuantity))),
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d", line.ActualQuantity))),
-			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-300"}, html.Text(reason)),
+func receivingLineTable(parseLines []receivingLineRecord) ui.Node {
+	parseRows := make([]ui.Node, 0, len(parseLines))
+	for _, parseLine := range parseLines {
+		parseReason := fallback(parseLine.DiscrepancyReason, "matched")
+		parseRows = append(parseRows, html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
+			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm font-semibold text-white"}, html.Text(parseLine.ProductSKU)),
+			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d", parseLine.ExpectedQuantity))),
+			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(fmt.Sprintf("%d", parseLine.ActualQuantity))),
+			html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-300"}, html.Text(parseReason)),
 		))
 	}
-	if len(rows) == 0 {
-		rows = append(rows, html.Tag("tr", html.Props{},
+	if len(parseRows) == 0 {
+		parseRows = append(parseRows, html.Tag("tr", html.Props{},
 			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 4}}, html.Text("No receiving lines are recorded for this session yet.")),
 		))
 	}
@@ -2052,60 +2072,60 @@ func receivingLineTable(lines []receivingLineRecord) ui.Node {
 					html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Actual")),
 					html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Discrepancy")),
 				)),
-				html.Tag("tbody", html.Props{}, rows...),
+				html.Tag("tbody", html.Props{}, parseRows...),
 			),
 		),
 	)
 }
 
-func atlasLazySection(loader func() ui.Node, fallback ui.Node, deps ...interface{}) ui.Node {
+func atlasLazySection(parseLoader func() ui.Node, parseFallback ui.Node, parseDeps ...interface{}) ui.Node {
 	return ui.CreateElement(func() ui.Node {
 		handle := ui.UseLazyNode(func(context.Context) (ui.Node, error) {
-			return loader(), nil
-		}, deps...)
-		state := handle.Get()
+			return parseLoader(), nil
+		}, parseDeps...)
+		parseState := handle.Get()
 		return ui.AsyncBoundary(ui.AsyncBoundaryProps{
-			Pending:  state.Loading,
-			Error:    state.Error,
-			Fallback: fallback,
-			ErrorFallback: func(err error) ui.Node {
-				return fallback
+			Pending:  parseState.Loading,
+			Error:    parseState.Error,
+			Fallback: parseFallback,
+			ErrorFallback: func(parseErr error) ui.Node {
+				return parseFallback
 			},
-			Content: state.Node,
+			Content: parseState.Node,
 			Delay:   120 * time.Millisecond,
 		})
 	})
 }
 
-func internalLazyRailFallback(title, copy string) ui.Node {
+func internalLazyRailFallback(parseTitle, parseCopy string) ui.Node {
 	return html.Div(html.Props{Class: "grid gap-3 " + internalSurfaceCardClass() + " p-5"},
-		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text(title)),
-		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(copy)),
+		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text(parseTitle)),
+		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseCopy)),
 	)
 }
 
-func useAtlasFocusContainment(active bool, containerSelector, initialFocusSelector string) {
-	manager := ui.UseFocusManager()
-	armed := ui.UseRef(false)
+func useAtlasFocusContainment(isActive bool, parseContainerSelector, parseInitialFocusSelector string) {
+	parseManager := ui.UseFocusManager()
+	parseArmed := ui.UseRef(false)
 	ui.UseEffect(func() func() {
-		if !active {
-			armed.Set(false)
+		if !isActive {
+			parseArmed.Set(false)
 			return nil
 		}
-		manager.RememberActive()
-		armed.Set(true)
+		parseManager.RememberActive()
+		parseArmed.Set(true)
 		return func() {
-			if armed.Get() {
-				manager.Restore()
-				armed.Set(false)
+			if parseArmed.Get() {
+				parseManager.Restore()
+				parseArmed.Set(false)
 			}
 		}
-	}, active, containerSelector, initialFocusSelector)
+	}, isActive, parseContainerSelector, parseInitialFocusSelector)
 	ui.UseFocusTrap(ui.FocusTrapOptions{
-		Active:                active,
-		ContainerSelector:     containerSelector,
-		InitialFocusSelector:  initialFocusSelector,
-		FallbackFocusSelector: containerSelector,
+		Active:                isActive,
+		ContainerSelector:     parseContainerSelector,
+		InitialFocusSelector:  parseInitialFocusSelector,
+		FallbackFocusSelector: parseContainerSelector,
 	})
 }
 
@@ -2113,40 +2133,40 @@ func atlasOverlayTarget() ui.PortalTarget {
 	return ui.PortalTarget{Selector: "#" + atlasOverlayRootID}
 }
 
-func atlasDialogOverlay(open bool, modalID, labelledBy, describedBy, initialFocusSelector string, onDismiss func(), child ui.Node) ui.Node {
+func atlasDialogOverlay(isOpen bool, parseModalID, parseLabelledBy, parseDescribedBy, parseInitialFocusSelector string, parseOnDismiss func(), parseChild ui.Node) ui.Node {
 	return ui.CreateElement(ui.AccessibleOverlay, ui.AccessibleOverlayProps{
-		Open:                  open,
-		SurfaceID:             modalID,
+		Open:                  isOpen,
+		SurfaceID:             parseModalID,
 		Kind:                  ui.OverlayKindDialog,
-		LabelledBy:            labelledBy,
-		DescribedBy:           describedBy,
-		InitialFocusSelector:  initialFocusSelector,
-		FallbackFocusSelector: "#" + modalID,
+		LabelledBy:            parseLabelledBy,
+		DescribedBy:           parseDescribedBy,
+		InitialFocusSelector:  parseInitialFocusSelector,
+		FallbackFocusSelector: "#" + parseModalID,
 		Modal:                 true,
 		TrapFocus:             true,
 		RestoreFocus:          true,
-		CloseOnEscape:         onDismiss != nil,
-		CloseOnOutsideClick:   onDismiss != nil,
+		CloseOnEscape:         parseOnDismiss != nil,
+		CloseOnOutsideClick:   parseOnDismiss != nil,
 		LockScroll:            true,
 		Backdrop:              true,
 		BackdropClass:         "fixed inset-0 flex items-center justify-center bg-slate-950/75 p-4",
 		SurfaceClass:          "w-[min(92vw,34rem)] grid gap-4 border border-slate-700 bg-[linear-gradient(180deg,rgba(17,24,39,0.99),rgba(2,6,23,1))] p-5 shadow-[0_24px_72px_rgba(0,0,0,0.55)]",
-		OnDismiss:             onDismiss,
-		Child:                 child,
+		OnDismiss:             parseOnDismiss,
+		Child:                 parseChild,
 	})
 }
 
-func atlasRouteSheetOverlay(surfaceID, labelledBy, describedBy, initialFocusSelector string, child ui.Node) ui.Node {
+func atlasRouteSheetOverlay(parseSurfaceID, parseLabelledBy, parseDescribedBy, parseInitialFocusSelector string, parseChild ui.Node) ui.Node {
 	return ui.CreateElement(ui.AccessibleOverlay, ui.AccessibleOverlayProps{
 		Open:                  true,
 		Target:                atlasOverlayTarget(),
 		AppRootSelector:       "#" + atlasShellRootID,
-		SurfaceID:             surfaceID,
+		SurfaceID:             parseSurfaceID,
 		Kind:                  ui.OverlayKindSheet,
-		LabelledBy:            labelledBy,
-		DescribedBy:           describedBy,
-		InitialFocusSelector:  initialFocusSelector,
-		FallbackFocusSelector: "#" + surfaceID,
+		LabelledBy:            parseLabelledBy,
+		DescribedBy:           parseDescribedBy,
+		InitialFocusSelector:  parseInitialFocusSelector,
+		FallbackFocusSelector: "#" + parseSurfaceID,
 		Modal:                 true,
 		TrapFocus:             true,
 		RestoreFocus:          true,
@@ -2156,307 +2176,307 @@ func atlasRouteSheetOverlay(surfaceID, labelledBy, describedBy, initialFocusSele
 		Backdrop:              true,
 		BackdropClass:         "fixed inset-0 flex items-stretch justify-end bg-slate-950/72 p-4",
 		SurfaceClass:          "grid h-full w-[min(92vw,36rem)] gap-4 overflow-y-auto rounded-sm border border-cyan-400/35 bg-[linear-gradient(180deg,rgba(11,18,32,0.98),rgba(2,6,23,1))] p-4 shadow-[0_18px_48px_rgba(6,182,212,0.08)]",
-		Child:                 child,
+		Child:                 parseChild,
 	})
 }
 
-func atlasDismissibleSheet(open bool, surfaceID, labelledBy, describedBy, initialFocusSelector string, onDismiss func(), child ui.Node) ui.Node {
+func atlasDismissibleSheet(isOpen bool, parseSurfaceID, parseLabelledBy, parseDescribedBy, parseInitialFocusSelector string, parseOnDismiss func(), parseChild ui.Node) ui.Node {
 	return ui.CreateElement(ui.AccessibleOverlay, ui.AccessibleOverlayProps{
-		Open:                  open,
+		Open:                  isOpen,
 		Target:                atlasOverlayTarget(),
 		AppRootSelector:       "#" + atlasShellRootID,
-		SurfaceID:             surfaceID,
+		SurfaceID:             parseSurfaceID,
 		Kind:                  ui.OverlayKindSheet,
-		LabelledBy:            labelledBy,
-		DescribedBy:           describedBy,
-		InitialFocusSelector:  initialFocusSelector,
-		FallbackFocusSelector: "#" + surfaceID,
+		LabelledBy:            parseLabelledBy,
+		DescribedBy:           parseDescribedBy,
+		InitialFocusSelector:  parseInitialFocusSelector,
+		FallbackFocusSelector: "#" + parseSurfaceID,
 		Modal:                 true,
 		TrapFocus:             true,
 		RestoreFocus:          true,
-		CloseOnEscape:         onDismiss != nil,
-		CloseOnOutsideClick:   onDismiss != nil,
+		CloseOnEscape:         parseOnDismiss != nil,
+		CloseOnOutsideClick:   parseOnDismiss != nil,
 		LockScroll:            true,
 		Backdrop:              true,
 		BackdropClass:         "fixed inset-0 flex items-stretch justify-end bg-slate-950/72 p-4",
 		SurfaceClass:          "grid h-full w-[min(92vw,34rem)] gap-4 overflow-y-auto rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.99),rgba(2,6,23,1))] p-5 shadow-[0_24px_72px_rgba(0,0,0,0.55)]",
-		OnDismiss:             onDismiss,
-		Child:                 child,
+		OnDismiss:             parseOnDismiss,
+		Child:                 parseChild,
 	})
 }
 
-func atlasConfirmationDialog(open bool, modalID, title, copy, confirmLabel string, onDismiss func(), body ...ui.Node) ui.Node {
-	if !open {
+func atlasConfirmationDialog(isOpen bool, parseModalID, parseTitle, parseCopy, parseConfirmLabel string, parseOnDismiss func(), parseBody ...ui.Node) ui.Node {
+	if !isOpen {
 		return nil
 	}
-	titleID := modalID + "-title"
-	descriptionID := modalID + "-description"
-	dismissHandler := ui.UseEvent(func() {
-		if onDismiss != nil {
-			onDismiss()
+	parseTitleID := parseModalID + "-title"
+	parseDescriptionID := parseModalID + "-description"
+	parseDismissHandler := ui.UseEvent(func() {
+		if parseOnDismiss != nil {
+			parseOnDismiss()
 		}
 	})
-	children := []ui.Node{
+	parseChildren := []ui.Node{
 		html.Div(html.Props{Class: "grid gap-2"},
 			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300"}, html.Text("Confirmation")),
-			html.P(html.Props{ID: titleID, Class: "text-lg font-semibold text-white"}, html.Text(title)),
-			html.P(html.Props{ID: descriptionID, Class: "text-sm leading-6 text-slate-400"}, html.Text(copy)),
+			html.P(html.Props{ID: parseTitleID, Class: "text-lg font-semibold text-white"}, html.Text(parseTitle)),
+			html.P(html.Props{ID: parseDescriptionID, Class: "text-sm leading-6 text-slate-400"}, html.Text(parseCopy)),
 		),
 	}
-	children = append(children, body...)
-	children = append(children,
+	parseChildren = append(parseChildren, parseBody...)
+	parseChildren = append(parseChildren,
 		html.Div(html.Props{Class: "flex flex-wrap items-center justify-end gap-3"},
-			html.Button(html.Props{Type: "button", Class: warehouseSecondaryButtonClass(), OnClick: dismissHandler}, html.Text("Cancel")),
-			html.Button(html.Props{ID: modalID + "-confirm", Type: "submit", Class: warehousePrimaryButtonClass()}, html.Text(confirmLabel)),
+			html.Button(html.Props{Type: "button", Class: warehouseSecondaryButtonClass(), OnClick: parseDismissHandler}, html.Text("Cancel")),
+			html.Button(html.Props{ID: parseModalID + "-confirm", Type: "submit", Class: warehousePrimaryButtonClass()}, html.Text(parseConfirmLabel)),
 		),
 	)
-	return atlasDialogOverlay(open, modalID, titleID, descriptionID, "#"+modalID+"-confirm", onDismiss, html.Div(html.Props{Class: "grid gap-4"}, children...))
+	return atlasDialogOverlay(isOpen, parseModalID, parseTitleID, parseDescriptionID, "#"+parseModalID+"-confirm", parseOnDismiss, html.Div(html.Props{Class: "grid gap-4"}, parseChildren...))
 }
 
-func atlasSidePanelErrorBoundary(child ui.Node, title string, fallback ui.Node, resetKeys ...interface{}) ui.Node {
+func atlasSidePanelErrorBoundary(parseChild ui.Node, parseTitle string, parseFallback ui.Node, resetKeys ...interface{}) ui.Node {
 	return ui.CreateElement(ui.ErrorBoundary, ui.ErrorBoundaryProps{
-		Child:     child,
+		Child:     parseChild,
 		ResetKeys: resetKeys,
-		ErrorFallback: func(err error, reset func()) ui.Node {
-			return detailRailErrorIsland(title, err, reset, fallback)
+		ErrorFallback: func(parseErr error, reset func()) ui.Node {
+			return detailRailErrorIsland(parseTitle, parseErr, reset, parseFallback)
 		},
 	})
 }
 
-func purchaseOrderDetailRail(payload Payload, page purchaseOrderDetailPage) ui.Node {
-	fallbackNode := internalLazyRailFallback("Loading purchase-order rail", "Atlas is preparing the secondary vendor panel after the primary route body stabilizes.")
+func purchaseOrderDetailRail(parsePayload Payload, parsePage purchaseOrderDetailPage) ui.Node {
+	parseFallbackNode := internalLazyRailFallback("Loading purchase-order rail", "Atlas is preparing the secondary vendor panel after the primary route body stabilizes.")
 	return atlasSidePanelErrorBoundary(atlasLazySection(func() ui.Node {
 		return html.Div(html.Props{Class: "grid gap-5"},
 			routeRevalidationCard("Purchase-order route refresh", "Re-run the current purchase-order loader after an approval or hold action so the latest vendor posture and inbound timing stay authoritative on this screen."),
-			purchaseOrderDetailStatsIsland(payload, page),
-			purchaseOrderStatusForm(page.Order.ID, page.Order.Status, payload),
+			purchaseOrderDetailStatsIsland(parsePayload, parsePage),
+			purchaseOrderStatusForm(parsePage.Order.ID, parsePage.Order.Status, parsePayload),
 		)
-	}, fallbackNode, page.Order.ID, page.Order.Status, page.Order.ETA), "Purchase-order side panel", fallbackNode, page.Order.ID, page.Order.Status, page.Order.ETA)
+	}, parseFallbackNode, parsePage.Order.ID, parsePage.Order.Status, parsePage.Order.ETA), "Purchase-order side panel", parseFallbackNode, parsePage.Order.ID, parsePage.Order.Status, parsePage.Order.ETA)
 }
 
-func receivingDetailRail(payload Payload, page receivingDetailPage) ui.Node {
-	fallbackNode := internalLazyRailFallback("Loading receiving rail", "Atlas is preparing the secondary receiving panel after the primary route body stabilizes.")
+func receivingDetailRail(parsePayload Payload, parsePage receivingDetailPage) ui.Node {
+	parseFallbackNode := internalLazyRailFallback("Loading receiving rail", "Atlas is preparing the secondary receiving panel after the primary route body stabilizes.")
 	return atlasSidePanelErrorBoundary(atlasLazySection(func() ui.Node {
 		return html.Div(html.Props{Class: "grid gap-5"},
 			routeRevalidationCard("Receiving route refresh", "Re-run the receiving loader after reconcile or classification work so discrepancy status and closeout readiness refresh in place."),
-			receivingDetailStatsIsland(payload, page),
-			receivingFormForID(page.Session.ID, payload),
+			receivingDetailStatsIsland(parsePayload, parsePage),
+			receivingFormForID(parsePage.Session.ID, parsePayload),
 		)
-	}, fallbackNode, page.Session.ID, page.Session.Status, page.Session.DiscrepancySummary), "Receiving side panel", fallbackNode, page.Session.ID, page.Session.Status, page.Session.DiscrepancySummary)
+	}, parseFallbackNode, parsePage.Session.ID, parsePage.Session.Status, parsePage.Session.DiscrepancySummary), "Receiving side panel", parseFallbackNode, parsePage.Session.ID, parsePage.Session.Status, parsePage.Session.DiscrepancySummary)
 }
 
-func purchaseOrderDetailStatsIsland(payload Payload, page purchaseOrderDetailPage) ui.Node {
-	request, ok := StartupRequest(payload, "page")
-	requestURL := strings.TrimSpace(request.URL)
-	fallbackNode := purchaseOrderDetailStatsContent(page, false, false, "", ui.Handler{})
-	if !ok || requestURL == "" {
-		return fallbackNode
+func purchaseOrderDetailStatsIsland(parsePayload Payload, parsePage purchaseOrderDetailPage) ui.Node {
+	parseRequest, parseOk := StartupRequest(parsePayload, "page")
+	parseRequestURL := strings.TrimSpace(parseRequest.URL)
+	parseFallbackNode := purchaseOrderDetailStatsContent(parsePage, false, false, "", ui.Handler{})
+	if !parseOk || parseRequestURL == "" {
+		return parseFallbackNode
 	}
 	return ui.CreateElement(func() ui.Node {
-		panelState := useAtlasState(page)
-		refreshingState := useAtlasState(false)
-		refreshErrorState := useAtlasState("")
-		resource := useAtlasStartupPageResource(payload)
-		resourceState := resource.Get()
-		cachedPage := purchaseOrderDetailPage{}
-		if resourceState.Ready {
-			cachedPage = decode[purchaseOrderDetailPage](resourceState.Value)
+		parsePanelState := useAtlasState(parsePage)
+		parseRefreshingState := useAtlasState(false)
+		parseRefreshErrorState := useAtlasState("")
+		parseResource := useAtlasStartupPageResource(parsePayload)
+		parseResourceState := parseResource.Get()
+		parseCachedPage := purchaseOrderDetailPage{}
+		if parseResourceState.Ready {
+			parseCachedPage = decode[purchaseOrderDetailPage](parseResourceState.Value)
 		}
 		useAtlasEffect(func() func() {
-			if resourceState.Ready && strings.TrimSpace(cachedPage.Order.ID) != "" {
-				panelState.Set(cachedPage)
+			if parseResourceState.Ready && strings.TrimSpace(parseCachedPage.Order.ID) != "" {
+				parsePanelState.Set(parseCachedPage)
 			}
 			return nil
-		}, resourceState.Ready, cachedPage.Order.ID, cachedPage.Order.Status, cachedPage.Order.ETA, cachedPage.Order.WarehouseName)
-		refreshPanel := ui.UseEvent(func() {
-			if refreshingState.Get() {
+		}, parseResourceState.Ready, parseCachedPage.Order.ID, parseCachedPage.Order.Status, parseCachedPage.Order.ETA, parseCachedPage.Order.WarehouseName)
+		parseRefreshPanel := ui.UseEvent(func() {
+			if parseRefreshingState.Get() {
 				return
 			}
-			refreshingState.Set(true)
-			refreshErrorState.Set("")
+			parseRefreshingState.Set(true)
+			parseRefreshErrorState.Set("")
 			go func() {
-				result := <-atlasFetch(requestURL, atlasFetchOptions{
+				parseResult := <-atlasFetch(parseRequestURL, atlasFetchOptions{
 					Method: "GET",
 					Headers: map[string]interface{}{
 						"Accept": "application/json",
 					},
 				})
-				if strings.TrimSpace(result.Error) != "" {
-					refreshErrorState.Set(result.Error)
-					refreshingState.Set(false)
+				if strings.TrimSpace(parseResult.Error) != "" {
+					parseRefreshErrorState.Set(parseResult.Error)
+					parseRefreshingState.Set(false)
 					return
 				}
-				decoded := decodeJSONText[purchaseOrderDetailPage](result.Data)
-				if strings.TrimSpace(decoded.Order.ID) == "" {
-					refreshErrorState.Set("Atlas returned an empty purchase-order panel payload.")
-					refreshingState.Set(false)
+				parseDecoded := decodeJSONText[purchaseOrderDetailPage](parseResult.Data)
+				if strings.TrimSpace(parseDecoded.Order.ID) == "" {
+					parseRefreshErrorState.Set("Atlas returned an empty purchase-order panel payload.")
+					parseRefreshingState.Set(false)
 					return
 				}
-				panelState.Set(decoded)
-				resource.Set(decoded)
+				parsePanelState.Set(parseDecoded)
+				parseResource.Set(parseDecoded)
 				dispatchAtlasShellToast(atlasShellToast{
 					Title:  "Purchase-order panel refreshed",
 					Detail: "The vendor-side status panel picked up the latest order snapshot without rerendering the whole route.",
 					Tone:   "success",
 				})
-				refreshingState.Set(false)
+				parseRefreshingState.Set(false)
 			}()
 		})
-		current := panelState.Get()
+		parseCurrent := parsePanelState.Get()
 		return ui.CreateElement(ui.AsyncBoundary, ui.AsyncBoundaryProps{
-			Pending:  !resourceState.Ready && resourceState.Error == nil,
-			Error:    resourceState.Error,
-			Fallback: fallbackNode,
-			ErrorFallback: func(err error) ui.Node {
-				return detailRailErrorIsland("Purchase-order side panel", err, resource.Reload, fallbackNode)
+			Pending:  !parseResourceState.Ready && parseResourceState.Error == nil,
+			Error:    parseResourceState.Error,
+			Fallback: parseFallbackNode,
+			ErrorFallback: func(parseErr error) ui.Node {
+				return detailRailErrorIsland("Purchase-order side panel", parseErr, parseResource.Reload, parseFallbackNode)
 			},
-			Content: purchaseOrderDetailStatsContent(current, resourceState.Loading && resourceState.Ready, refreshingState.Get(), refreshErrorState.Get(), refreshPanel),
+			Content: purchaseOrderDetailStatsContent(parseCurrent, parseResourceState.Loading && parseResourceState.Ready, parseRefreshingState.Get(), parseRefreshErrorState.Get(), parseRefreshPanel),
 		})
 	})
 }
 
-func purchaseOrderDetailStatsContent(page purchaseOrderDetailPage, refreshing bool, fetchRefreshing bool, refreshError string, refetch ui.Handler) ui.Node {
-	children := []ui.Node{}
-	label := "Refresh panel snapshot"
-	if fetchRefreshing {
-		label = "Refreshing panel..."
+func purchaseOrderDetailStatsContent(parsePage purchaseOrderDetailPage, isRefreshing bool, isFetchRefreshing bool, parseRefreshError string, parseRefetch ui.Handler) ui.Node {
+	parseChildren := []ui.Node{}
+	parseLabel := "Refresh panel snapshot"
+	if isFetchRefreshing {
+		parseLabel = "Refreshing panel..."
 	}
-	children = append(children, html.Button(html.Props{
+	parseChildren = append(parseChildren, html.Button(html.Props{
 		Type:     "button",
 		Class:    "inline-flex items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/15 hover:text-white disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-900 disabled:text-slate-500",
-		Disabled: fetchRefreshing,
-		OnClick:  refetch,
-	}, html.Text(label)))
-	if refreshing || fetchRefreshing {
-		children = append(children, html.P(html.Props{Class: "rounded-[1.35rem] border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm leading-6 text-cyan-100"}, html.Text("Refreshing the purchase-order side panel while the current snapshot stays visible.")))
+		Disabled: isFetchRefreshing,
+		OnClick:  parseRefetch,
+	}, html.Text(parseLabel)))
+	if isRefreshing || isFetchRefreshing {
+		parseChildren = append(parseChildren, html.P(html.Props{Class: "rounded-[1.35rem] border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm leading-6 text-cyan-100"}, html.Text("Refreshing the purchase-order side panel while the current snapshot stays visible.")))
 	}
-	if strings.TrimSpace(refreshError) != "" {
-		children = append(children, html.P(html.Props{Class: "rounded-[1.35rem] border border-rose-400/25 bg-rose-400/10 px-4 py-3 text-sm leading-6 text-rose-100"}, html.Text(refreshError)))
+	if strings.TrimSpace(parseRefreshError) != "" {
+		parseChildren = append(parseChildren, html.P(html.Props{Class: "rounded-[1.35rem] border border-rose-400/25 bg-rose-400/10 px-4 py-3 text-sm leading-6 text-rose-100"}, html.Text(parseRefreshError)))
 	}
-	children = append(children,
-		statCard("Warehouse", page.Order.WarehouseName),
-		statCard("ETA", page.Order.ETA),
+	parseChildren = append(parseChildren,
+		statCard("Warehouse", parsePage.Order.WarehouseName),
+		statCard("ETA", parsePage.Order.ETA),
 	)
-	return html.Div(html.Props{Class: "grid gap-5"}, children...)
+	return html.Div(html.Props{Class: "grid gap-5"}, parseChildren...)
 }
 
-func receivingDetailStatsIsland(payload Payload, page receivingDetailPage) ui.Node {
-	request, ok := StartupRequest(payload, "page")
-	requestURL := strings.TrimSpace(request.URL)
-	fallbackNode := receivingDetailStatsContent(page, false, false, "", ui.Handler{})
-	if !ok || requestURL == "" {
-		return fallbackNode
+func receivingDetailStatsIsland(parsePayload Payload, parsePage receivingDetailPage) ui.Node {
+	parseRequest, parseOk := StartupRequest(parsePayload, "page")
+	parseRequestURL := strings.TrimSpace(parseRequest.URL)
+	parseFallbackNode := receivingDetailStatsContent(parsePage, false, false, "", ui.Handler{})
+	if !parseOk || parseRequestURL == "" {
+		return parseFallbackNode
 	}
 	return ui.CreateElement(func() ui.Node {
-		panelState := useAtlasState(page)
-		refreshingState := useAtlasState(false)
-		refreshErrorState := useAtlasState("")
-		resource := useAtlasStartupPageResource(payload)
-		resourceState := resource.Get()
-		cachedPage := receivingDetailPage{}
-		if resourceState.Ready {
-			cachedPage = decode[receivingDetailPage](resourceState.Value)
+		parsePanelState := useAtlasState(parsePage)
+		parseRefreshingState := useAtlasState(false)
+		parseRefreshErrorState := useAtlasState("")
+		parseResource := useAtlasStartupPageResource(parsePayload)
+		parseResourceState := parseResource.Get()
+		parseCachedPage := receivingDetailPage{}
+		if parseResourceState.Ready {
+			parseCachedPage = decode[receivingDetailPage](parseResourceState.Value)
 		}
 		useAtlasEffect(func() func() {
-			if resourceState.Ready && strings.TrimSpace(cachedPage.Session.ID) != "" {
-				panelState.Set(cachedPage)
+			if parseResourceState.Ready && strings.TrimSpace(parseCachedPage.Session.ID) != "" {
+				parsePanelState.Set(parseCachedPage)
 			}
 			return nil
-		}, resourceState.Ready, cachedPage.Session.ID, cachedPage.Session.Status, cachedPage.Session.WarehouseID)
-		refreshPanel := ui.UseEvent(func() {
-			if refreshingState.Get() {
+		}, parseResourceState.Ready, parseCachedPage.Session.ID, parseCachedPage.Session.Status, parseCachedPage.Session.WarehouseID)
+		parseRefreshPanel := ui.UseEvent(func() {
+			if parseRefreshingState.Get() {
 				return
 			}
-			refreshingState.Set(true)
-			refreshErrorState.Set("")
+			parseRefreshingState.Set(true)
+			parseRefreshErrorState.Set("")
 			go func() {
-				result := <-atlasFetch(requestURL, atlasFetchOptions{
+				parseResult := <-atlasFetch(parseRequestURL, atlasFetchOptions{
 					Method: "GET",
 					Headers: map[string]interface{}{
 						"Accept": "application/json",
 					},
 				})
-				if strings.TrimSpace(result.Error) != "" {
-					refreshErrorState.Set(result.Error)
-					refreshingState.Set(false)
+				if strings.TrimSpace(parseResult.Error) != "" {
+					parseRefreshErrorState.Set(parseResult.Error)
+					parseRefreshingState.Set(false)
 					return
 				}
-				decoded := decodeJSONText[receivingDetailPage](result.Data)
-				if strings.TrimSpace(decoded.Session.ID) == "" {
-					refreshErrorState.Set("Atlas returned an empty receiving panel payload.")
-					refreshingState.Set(false)
+				parseDecoded := decodeJSONText[receivingDetailPage](parseResult.Data)
+				if strings.TrimSpace(parseDecoded.Session.ID) == "" {
+					parseRefreshErrorState.Set("Atlas returned an empty receiving panel payload.")
+					parseRefreshingState.Set(false)
 					return
 				}
-				panelState.Set(decoded)
-				resource.Set(decoded)
+				parsePanelState.Set(parseDecoded)
+				parseResource.Set(parseDecoded)
 				dispatchAtlasShellToast(atlasShellToast{
 					Title:  "Receiving panel refreshed",
 					Detail: "The receiving side panel picked up the latest session snapshot without rerendering the whole route.",
 					Tone:   "success",
 				})
-				refreshingState.Set(false)
+				parseRefreshingState.Set(false)
 			}()
 		})
-		current := panelState.Get()
+		parseCurrent := parsePanelState.Get()
 		return ui.CreateElement(ui.AsyncBoundary, ui.AsyncBoundaryProps{
-			Pending:  !resourceState.Ready && resourceState.Error == nil,
-			Error:    resourceState.Error,
-			Fallback: fallbackNode,
-			ErrorFallback: func(err error) ui.Node {
-				return detailRailErrorIsland("Receiving side panel", err, resource.Reload, fallbackNode)
+			Pending:  !parseResourceState.Ready && parseResourceState.Error == nil,
+			Error:    parseResourceState.Error,
+			Fallback: parseFallbackNode,
+			ErrorFallback: func(parseErr error) ui.Node {
+				return detailRailErrorIsland("Receiving side panel", parseErr, parseResource.Reload, parseFallbackNode)
 			},
-			Content: receivingDetailStatsContent(current, resourceState.Loading && resourceState.Ready, refreshingState.Get(), refreshErrorState.Get(), refreshPanel),
+			Content: receivingDetailStatsContent(parseCurrent, parseResourceState.Loading && parseResourceState.Ready, parseRefreshingState.Get(), parseRefreshErrorState.Get(), parseRefreshPanel),
 		})
 	})
 }
 
-func receivingDetailStatsContent(page receivingDetailPage, refreshing bool, fetchRefreshing bool, refreshError string, refetch ui.Handler) ui.Node {
-	children := []ui.Node{}
-	label := "Refresh panel snapshot"
-	if fetchRefreshing {
-		label = "Refreshing panel..."
+func receivingDetailStatsContent(parsePage receivingDetailPage, isRefreshing bool, isFetchRefreshing bool, parseRefreshError string, parseRefetch ui.Handler) ui.Node {
+	parseChildren := []ui.Node{}
+	parseLabel := "Refresh panel snapshot"
+	if isFetchRefreshing {
+		parseLabel = "Refreshing panel..."
 	}
-	children = append(children, html.Button(html.Props{
+	parseChildren = append(parseChildren, html.Button(html.Props{
 		Type:     "button",
 		Class:    "inline-flex items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/15 hover:text-white disabled:cursor-not-allowed disabled:border-slate-700 disabled:bg-slate-900 disabled:text-slate-500",
-		Disabled: fetchRefreshing,
-		OnClick:  refetch,
-	}, html.Text(label)))
-	if refreshing || fetchRefreshing {
-		children = append(children, html.P(html.Props{Class: "rounded-[1.35rem] border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm leading-6 text-cyan-100"}, html.Text("Refreshing the receiving side panel while the current snapshot stays visible.")))
+		Disabled: isFetchRefreshing,
+		OnClick:  parseRefetch,
+	}, html.Text(parseLabel)))
+	if isRefreshing || isFetchRefreshing {
+		parseChildren = append(parseChildren, html.P(html.Props{Class: "rounded-[1.35rem] border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm leading-6 text-cyan-100"}, html.Text("Refreshing the receiving side panel while the current snapshot stays visible.")))
 	}
-	if strings.TrimSpace(refreshError) != "" {
-		children = append(children, html.P(html.Props{Class: "rounded-[1.35rem] border border-rose-400/25 bg-rose-400/10 px-4 py-3 text-sm leading-6 text-rose-100"}, html.Text(refreshError)))
+	if strings.TrimSpace(parseRefreshError) != "" {
+		parseChildren = append(parseChildren, html.P(html.Props{Class: "rounded-[1.35rem] border border-rose-400/25 bg-rose-400/10 px-4 py-3 text-sm leading-6 text-rose-100"}, html.Text(parseRefreshError)))
 	}
-	children = append(children,
-		statCard("Warehouse", page.Session.WarehouseID),
-		statCard("Status", page.Session.Status),
+	parseChildren = append(parseChildren,
+		statCard("Warehouse", parsePage.Session.WarehouseID),
+		statCard("Status", parsePage.Session.Status),
 	)
-	return html.Div(html.Props{Class: "grid gap-5"}, children...)
+	return html.Div(html.Props{Class: "grid gap-5"}, parseChildren...)
 }
 
-func detailRailErrorIsland(title string, err error, retry func(), fallbackNode ui.Node) ui.Node {
+func detailRailErrorIsland(parseTitle string, parseErr error, parseRetry func(), parseFallbackNode ui.Node) ui.Node {
 	return html.Div(html.Props{Class: "grid gap-4"},
 		html.Div(html.Props{Class: "grid gap-3 rounded-[1.35rem] border border-rose-400/25 bg-rose-400/10 p-4"},
-			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.22em] text-rose-200"}, html.Text(title)),
-			html.P(html.Props{Class: "text-sm leading-6 text-rose-100"}, html.Text(err.Error())),
+			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.22em] text-rose-200"}, html.Text(parseTitle)),
+			html.P(html.Props{Class: "text-sm leading-6 text-rose-100"}, html.Text(parseErr.Error())),
 			html.Button(html.Props{
 				Type:    "button",
 				Class:   "inline-flex items-center justify-center rounded-full border border-rose-200/40 bg-rose-200/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-rose-200/20",
-				OnClick: ui.UseEvent(func() { retry() }),
+				OnClick: ui.UseEvent(func() { parseRetry() }),
 			}, html.Text("Retry panel")),
 		),
-		fallbackNode,
+		parseFallbackNode,
 	)
 }
 
-func commentsContent(payload Payload) ui.Node {
-	page := decode[commentList](pageData(payload))
+func commentsContent(parsePayload Payload) ui.Node {
+	parsePage := decode[commentList](pageData(parsePayload))
 	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(22rem,0.84fr)] xl:items-start"},
 		html.Div(html.Props{Class: "grid gap-5"},
-			commentsSummaryBand(page),
+			commentsSummaryBand(parsePage),
 			commentsActionCluster(),
-			commentsTable(page.Items),
+			commentsTable(parsePage.Items),
 		),
 		html.Div(html.Props{Class: "grid gap-5"},
 			inventoryRailCard("Buyer inbox handoffs", "Move from public feedback into the right internal route without losing the original question context.",
@@ -2466,41 +2486,41 @@ func commentsContent(payload Payload) ui.Node {
 					inventoryActionCard("Open warehouse ops", "Use warehouse-native routes when the answer depends on a specific hub or recovery lane.", "/app/warehouses"),
 				),
 			),
-			moderationForm(page.Items, payload),
-			bulkModerationForm(page.Items, payload),
+			moderationForm(parsePage.Items, parsePayload),
+			bulkModerationForm(parsePage.Items, parsePayload),
 		),
 	)
 }
 
-func settingsContent(payload Payload) ui.Node {
-	page := decode[settingsPage](pageData(payload))
-	presentation := currentShellPresentationState(payload)
+func settingsContent(parsePayload Payload) ui.Node {
+	parsePage := decode[settingsPage](pageData(parsePayload))
+	parsePresentation := currentShellPresentationState(parsePayload)
 	return html.Section(html.Props{Class: "grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(22rem,0.84fr)] xl:items-start"},
 		html.Div(html.Props{Class: "grid gap-5"},
-			settingsSummaryBand(page, presentation),
+			settingsSummaryBand(parsePage, parsePresentation),
 			settingsActionCluster(),
 		),
 		html.Div(html.Props{Class: "grid gap-5"},
-			preferenceForm(payload),
-			savedViewBrowserCard(payload),
-			savedViewTransferCard(payload),
-			operatorWorkspaceSnapshotCard(payload),
+			preferenceForm(parsePayload),
+			savedViewBrowserCard(parsePayload),
+			savedViewTransferCard(parsePayload),
+			operatorWorkspaceSnapshotCard(parsePayload),
 		),
 	)
 }
 
-func commentsSummaryBand(page commentList) ui.Node {
+func commentsSummaryBand(parsePage commentList) ui.Node {
 	return html.Div(html.Props{Class: "grid gap-4"},
 		html.Div(html.Props{Class: "grid gap-2"},
 			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Buyer inbox shell")),
 			html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text("Treat buyer comments as an operator inbox: visible moderation posture, product context, and direct handoff into merchandising or supply routes when the question reveals a broader issue.")),
 		),
-		routeSummaryStrip(page.Summary),
+		routeSummaryStrip(parsePage.Summary),
 		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-4"},
-			statCard("Comments", fmt.Sprintf("%d open", len(page.Items))),
-			statCard("Pending", fmt.Sprintf("%d queued", countCommentStatus(page.Items, "pending"))),
-			statCard("Approved", fmt.Sprintf("%d live", countCommentStatus(page.Items, "approved"))),
-			statCard("Flagged", fmt.Sprintf("%d escalated", countCommentStatus(page.Items, "flagged"))),
+			statCard("Comments", fmt.Sprintf("%d open", len(parsePage.Items))),
+			statCard("Pending", fmt.Sprintf("%d queued", countCommentStatus(parsePage.Items, "pending"))),
+			statCard("Approved", fmt.Sprintf("%d live", countCommentStatus(parsePage.Items, "approved"))),
+			statCard("Flagged", fmt.Sprintf("%d escalated", countCommentStatus(parsePage.Items, "flagged"))),
 		),
 	)
 }
@@ -2519,13 +2539,13 @@ func commentsActionCluster() ui.Node {
 	)
 }
 
-func commentsTable(items []commentRecord) ui.Node {
-	rows := make([]ui.Node, 0, len(items))
-	for _, item := range items {
-		rows = append(rows, commentTableRow(item))
+func commentsTable(parseItems []commentRecord) ui.Node {
+	parseRows := make([]ui.Node, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		parseRows = append(parseRows, commentTableRow(parseItem))
 	}
-	if len(rows) == 0 {
-		rows = append(rows, html.Tag("tr", html.Props{},
+	if len(parseRows) == 0 {
+		parseRows = append(parseRows, html.Tag("tr", html.Props{},
 			html.Tag("td", html.Props{Class: "px-4 py-6 text-sm text-slate-400", Raw: map[string]interface{}{"colSpan": 5}}, html.Text("No buyer questions are waiting in the Atlas inbox.")),
 		))
 	}
@@ -2535,7 +2555,7 @@ func commentsTable(items []commentRecord) ui.Node {
 				html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Buyer question table")),
 				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Review subject, product context, author, and moderation posture in one dense table before opening a workflow on the right rail.")),
 			),
-			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text(fmt.Sprintf("%d comments", len(items)))),
+			html.P(html.Props{Class: "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text(fmt.Sprintf("%d comments", len(parseItems)))),
 		),
 		html.Div(html.Props{Class: internalTableContainerClass()},
 			html.Tag("table", html.Props{Class: "min-w-full border-collapse text-left"},
@@ -2548,50 +2568,50 @@ func commentsTable(items []commentRecord) ui.Node {
 						html.Tag("th", html.Props{Class: internalTableHeaderCellClass()}, html.Text("Updated")),
 					),
 				),
-				html.Tag("tbody", html.Props{}, rows...),
+				html.Tag("tbody", html.Props{}, parseRows...),
 			),
 		),
 	)
 }
 
-func commentTableRow(item commentRecord) ui.Node {
+func commentTableRow(parseItem commentRecord) ui.Node {
 	return html.Tag("tr", html.Props{Class: internalTableRowClass() + " align-top"},
 		html.Tag("td", html.Props{Class: "px-4 py-4"},
 			html.Div(html.Props{Class: "grid gap-2"},
-				html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(item.Subject)),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(item.Body)),
+				html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseItem.Subject)),
+				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseItem.Body)),
 			),
 		),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(item.ProductSKU)),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(item.AuthorName+" | "+strings.ReplaceAll(item.AuthorType, "_", " "))),
-		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.Span(html.Props{Class: warehouseStatusClass(item.Status)}, html.Text(strings.ReplaceAll(item.Status, "_", " ")))),
-		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-400"}, html.Text(item.UpdatedAt)),
+		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(parseItem.ProductSKU)),
+		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-200"}, html.Text(parseItem.AuthorName+" | "+strings.ReplaceAll(parseItem.AuthorType, "_", " "))),
+		html.Tag("td", html.Props{Class: "px-4 py-4"}, html.Span(html.Props{Class: warehouseStatusClass(parseItem.Status)}, html.Text(strings.ReplaceAll(parseItem.Status, "_", " ")))),
+		html.Tag("td", html.Props{Class: "px-4 py-4 text-sm text-slate-400"}, html.Text(parseItem.UpdatedAt)),
 	)
 }
 
-func countCommentStatus(items []commentRecord, status string) int {
-	count := 0
-	for _, item := range items {
-		if strings.EqualFold(strings.TrimSpace(item.Status), status) {
-			count++
+func countCommentStatus(parseItems []commentRecord, parseStatus string) int {
+	parseCount := 0
+	for _, parseItem := range parseItems {
+		if strings.EqualFold(strings.TrimSpace(parseItem.Status), parseStatus) {
+			parseCount++
 		}
 	}
-	return count
+	return parseCount
 }
 
-func settingsSummaryBand(page settingsPage, presentation shellPresentationState) ui.Node {
+func settingsSummaryBand(parsePage settingsPage, parsePresentation shellPresentationState) ui.Node {
 	return html.Div(html.Props{Class: "grid gap-4"},
 		html.Div(html.Props{Class: "grid gap-2"},
 			html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Settings shell")),
 			html.P(html.Props{Class: "max-w-3xl text-sm leading-6 text-slate-300"}, html.Text("Treat settings as the operator control room for shell presentation, saved-view exchange, and workspace snapshot handoff rather than a narrow preference form.")),
 		),
-		routeSummaryStrip(page.Summary),
+		routeSummaryStrip(parsePage.Summary),
 		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-5"},
-			statCard("Theme", fallback(presentation.Theme, "dark")),
-			statCard("Locale", fallback(presentation.Locale, "en")),
-			statCard("Density", fallback(presentation.Density, "compact")),
-			statCard("Warehouse", fallback(presentation.DefaultWarehouse, "new-jersey-hub")),
-			statCard("Diagnostics", map[bool]string{true: "on", false: "off"}[presentation.Diagnostics]),
+			statCard("Theme", fallback(parsePresentation.Theme, "dark")),
+			statCard("Locale", fallback(parsePresentation.Locale, "en")),
+			statCard("Density", fallback(parsePresentation.Density, "compact")),
+			statCard("Warehouse", fallback(parsePresentation.DefaultWarehouse, "new-jersey-hub")),
+			statCard("Diagnostics", map[bool]string{true: "on", false: "off"}[parsePresentation.Diagnostics]),
 		),
 	)
 }
@@ -2610,203 +2630,203 @@ func settingsActionCluster() ui.Node {
 	)
 }
 
-func savedViewBrowserCard(payload Payload) ui.Node {
-	if len(payload.SavedViews) == 0 {
+func savedViewBrowserCard(parsePayload Payload) ui.Node {
+	if len(parsePayload.SavedViews) == 0 {
 		return listCard("Saved views", html.P(html.Props{Class: "text-sm text-slate-400"}, html.Text("No records yet.")))
 	}
-	items := make([]ui.CompositeItem, 0, len(payload.SavedViews))
-	for index, saved := range payload.SavedViews {
-		items = append(items, ui.CompositeItem{
-			ID:   fmt.Sprintf("atlas-saved-view-%d", index),
-			Text: strings.TrimSpace(saved.Name + " " + saved.Scope + " " + saved.SortKey + " " + saved.SortDirection),
+	parseItems := make([]ui.CompositeItem, 0, len(parsePayload.SavedViews))
+	for parseIndex, parseSaved := range parsePayload.SavedViews {
+		parseItems = append(parseItems, ui.CompositeItem{
+			ID:   fmt.Sprintf("atlas-saved-view-%d", parseIndex),
+			Text: strings.TrimSpace(parseSaved.Name + " " + parseSaved.Scope + " " + parseSaved.SortKey + " " + parseSaved.SortDirection),
 		})
 	}
 	return ui.CreateElement(func() ui.Node {
-		nav := ui.UseCompositeNavigation(items, ui.CompositeNavigationOptions{Orientation: "vertical", Loop: true})
-		listboxKeyDown := ui.UseEvent(func(event ui.KeyboardEvent) {
-			nav.OnKeyDown(event)
+		parseNav := ui.UseCompositeNavigation(parseItems, ui.CompositeNavigationOptions{Orientation: "vertical", Loop: true})
+		parseListboxKeyDown := ui.UseEvent(func(parseEvent ui.KeyboardEvent) {
+			parseNav.OnKeyDown(parseEvent)
 		})
-		activeIndex := nav.ActiveIndex()
-		if activeIndex < 0 || activeIndex >= len(payload.SavedViews) {
-			activeIndex = 0
+		parseActiveIndex := parseNav.ActiveIndex()
+		if parseActiveIndex < 0 || parseActiveIndex >= len(parsePayload.SavedViews) {
+			parseActiveIndex = 0
 		}
-		active := payload.SavedViews[activeIndex]
-		options := make([]ui.Node, 0, len(payload.SavedViews))
-		for index, saved := range payload.SavedViews {
-			currentIndex := index
-			currentItem := items[index]
-			className := "grid gap-2 rounded-[1.2rem] border px-4 py-3 text-left text-sm transition"
-			if nav.IsActive(index) {
-				className += " border-cyan-300/35 bg-cyan-300/10 text-cyan-50"
+		parseActive := parsePayload.SavedViews[parseActiveIndex]
+		parseOptions := make([]ui.Node, 0, len(parsePayload.SavedViews))
+		for parseIndex2, parseSaved2 := range parsePayload.SavedViews {
+			parseCurrentIndex := parseIndex2
+			parseCurrentItem := parseItems[parseIndex2]
+			parseClassName := "grid gap-2 rounded-[1.2rem] border px-4 py-3 text-left text-sm transition"
+			if parseNav.IsActive(parseIndex2) {
+				parseClassName += " border-cyan-300/35 bg-cyan-300/10 text-cyan-50"
 			} else {
-				className += " border-white/10 bg-slate-950/40 text-slate-200"
+				parseClassName += " border-white/10 bg-slate-950/40 text-slate-200"
 			}
-			options = append(options, html.Div(html.Props{
-				ID:    currentItem.ID,
+			parseOptions = append(parseOptions, html.Div(html.Props{
+				ID:    parseCurrentItem.ID,
 				Role:  "option",
-				Class: className,
+				Class: parseClassName,
 				OnClick: ui.UseEvent(func() {
-					nav.SetActive(currentIndex)
+					parseNav.SetActive(parseCurrentIndex)
 				}),
 				Aria: map[string]string{
-					"selected": map[bool]string{true: "true", false: "false"}[nav.IsActive(index)],
+					"selected": map[bool]string{true: "true", false: "false"}[parseNav.IsActive(parseIndex2)],
 				},
 			},
-				html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(saved.Name)),
-				html.P(html.Props{Class: "text-[0.72rem] uppercase tracking-[0.22em] text-slate-400"}, html.Text(saved.Scope+" | "+saved.SortKey+"/"+saved.SortDirection)),
+				html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseSaved2.Name)),
+				html.P(html.Props{Class: "text-[0.72rem] uppercase tracking-[0.22em] text-slate-400"}, html.Text(parseSaved2.Scope+" | "+parseSaved2.SortKey+"/"+parseSaved2.SortDirection)),
 			))
 		}
-		filterEntries := make([]string, 0, len(active.Filters))
-		for key, value := range active.Filters {
-			filterEntries = append(filterEntries, key+": "+value)
+		filterEntries := make([]string, 0, len(parseActive.Filters))
+		for parseKey, parseValue := range parseActive.Filters {
+			filterEntries = append(filterEntries, parseKey+": "+parseValue)
 		}
 		sort.Strings(filterEntries)
 		filterNodes := make([]ui.Node, 0, len(filterEntries))
-		for _, entry := range filterEntries {
-			filterNodes = append(filterNodes, html.P(html.Props{Class: "rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.18em] text-slate-300"}, html.Text(entry)))
+		for _, parseEntry := range filterEntries {
+			filterNodes = append(filterNodes, html.P(html.Props{Class: "rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.18em] text-slate-300"}, html.Text(parseEntry)))
 		}
-		children := []ui.Node{
+		parseChildren := []ui.Node{
 			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Saved views")),
 			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Focus the list and use ArrowUp, ArrowDown, Home, End, or typeahead to inspect Atlas workspace presets without leaving the settings route.")),
 			html.Div(html.Props{
 				Role:      "listbox",
 				Class:     "grid gap-3 rounded-[1.35rem] border border-white/10 bg-slate-950/55 p-4",
-				OnKeyDown: listboxKeyDown,
+				OnKeyDown: parseListboxKeyDown,
 				Aria: map[string]string{
-					"activedescendant": nav.ActiveDescendant(),
+					"activedescendant": parseNav.ActiveDescendant(),
 				},
 				Raw: map[string]interface{}{
 					"tabIndex": 0,
 				},
-			}, options...),
+			}, parseOptions...),
 			html.Div(html.Props{Class: "grid gap-3 rounded-[1.35rem] border border-white/10 bg-white/5 p-4"},
 				html.Div(html.Props{Class: "grid gap-3 md:grid-cols-3"},
-					statCard("Scope", active.Scope),
-					statCard("Sort key", active.SortKey),
-					statCard("Direction", active.SortDirection),
+					statCard("Scope", parseActive.Scope),
+					statCard("Sort key", parseActive.SortKey),
+					statCard("Direction", parseActive.SortDirection),
 				),
 			),
 		}
 		if len(filterNodes) > 0 {
-			children = append(children, html.Div(html.Props{Class: "flex flex-wrap gap-2"}, filterNodes...))
+			parseChildren = append(parseChildren, html.Div(html.Props{Class: "flex flex-wrap gap-2"}, filterNodes...))
 		}
-		return html.Div(html.Props{Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, children...)
+		return html.Div(html.Props{Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, parseChildren...)
 	})
 }
 
-func mockSignInContent(payload Payload) ui.Node {
-	page := decode[mockSignInPage](pageData(payload))
-	if len(page.Roles) == 0 {
-		page.Roles = []mockSignInRole{{Value: "inventory_manager", Label: "Inventory Manager", Description: "Default Atlas internal operator role."}}
+func mockSignInContent(parsePayload Payload) ui.Node {
+	parsePage := decode[mockSignInPage](pageData(parsePayload))
+	if len(parsePage.Roles) == 0 {
+		parsePage.Roles = []mockSignInRole{{Value: "inventory_manager", Label: "Inventory Manager", Description: "Default Atlas internal operator role."}}
 	}
-	roleCards := make([]ui.Node, 0, len(page.Roles))
-	for _, role := range page.Roles {
-		roleCards = append(roleCards,
+	parseRoleCards := make([]ui.Node, 0, len(parsePage.Roles))
+	for _, parseRole := range parsePage.Roles {
+		parseRoleCards = append(parseRoleCards,
 			html.Form(html.Props{Action: "/auth/mock-sign-in", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"},
-				html.Input(html.Props{Type: "hidden", Name: "role", Value: role.Value}),
-				html.Input(html.Props{Type: "hidden", Name: "next", Value: fallback(page.Next, "/app/dashboard")}),
-				html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text(role.Label)),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(role.Description)),
+				html.Input(html.Props{Type: "hidden", Name: "role", Value: parseRole.Value}),
+				html.Input(html.Props{Type: "hidden", Name: "next", Value: fallback(parsePage.Next, "/app/dashboard")}),
+				html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text(parseRole.Label)),
+				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseRole.Description)),
 				html.Button(html.Props{Type: "submit", Class: "rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950"}, html.Text("Start session")),
 			),
 		)
 	}
 	return html.Section(html.Props{Class: "grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.85fr)]"},
 		html.Div(html.Props{Class: "grid gap-5"},
-			featureCard("Mock internal access", fallback(page.Message, "Start a mock Atlas internal session to access the operator console.")),
+			featureCard("Mock internal access", fallback(parsePage.Message, "Start a mock Atlas internal session to access the operator console.")),
 			listCard("Recovery path",
-				infoRow("Next route", fallback(page.Next, "/app/dashboard")),
+				infoRow("Next route", fallback(parsePage.Next, "/app/dashboard")),
 				infoRow("Session model", "Cookie-backed mock operator role"),
 			),
 		),
-		html.Div(html.Props{Class: "grid gap-4"}, roleCards...),
+		html.Div(html.Props{Class: "grid gap-4"}, parseRoleCards...),
 	)
 }
 
-func recoveryContent(payload Payload) ui.Node {
-	page := decode[recoveryPage](pageData(payload))
-	children := []ui.Node{
-		featureCard(fallback(page.Title, "Route recovery"), fallback(page.Message, "Atlas could not resolve the requested route.")),
-		html.A(html.Props{Href: fallback(page.RecoveryHref, "/"), Class: "inline-flex w-fit rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950"}, html.Text(fallback(page.RecoveryLabel, "Back to Atlas"))),
+func recoveryContent(parsePayload Payload) ui.Node {
+	parsePage := decode[recoveryPage](pageData(parsePayload))
+	parseChildren := []ui.Node{
+		featureCard(fallback(parsePage.Title, "Route recovery"), fallback(parsePage.Message, "Atlas could not resolve the requested route.")),
+		html.A(html.Props{Href: fallback(parsePage.RecoveryHref, "/"), Class: "inline-flex w-fit rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950"}, html.Text(fallback(parsePage.RecoveryLabel, "Back to Atlas"))),
 	}
-	if strings.TrimSpace(page.Detail) != "" {
-		children = append(children, listCard("Recovery detail", html.P(html.Props{Class: "text-sm text-slate-300"}, html.Text(page.Detail))))
+	if strings.TrimSpace(parsePage.Detail) != "" {
+		parseChildren = append(parseChildren, listCard("Recovery detail", html.P(html.Props{Class: "text-sm text-slate-300"}, html.Text(parsePage.Detail))))
 	}
-	return html.Section(html.Props{Class: "grid gap-6"}, children...)
+	return html.Section(html.Props{Class: "grid gap-6"}, parseChildren...)
 }
 
-func fallbackContent(payload Payload) ui.Node {
-	entries := sortedMapStrings(payload.Data)
-	nodes := make([]ui.Node, 0, len(entries))
-	for _, entry := range entries {
-		nodes = append(nodes, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300"}, html.Text(entry)))
+func fallbackContent(parsePayload Payload) ui.Node {
+	parseEntries := sortedMapStrings(parsePayload.Data)
+	parseNodes := make([]ui.Node, 0, len(parseEntries))
+	for _, parseEntry := range parseEntries {
+		parseNodes = append(parseNodes, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300"}, html.Text(parseEntry)))
 	}
-	return listCard("Route data", nodes...)
+	return listCard("Route data", parseNodes...)
 }
 
-func routeSummaryStrip(summary pageSummary) ui.Node {
-	if len(summary.Items) == 0 {
+func routeSummaryStrip(parseSummary pageSummary) ui.Node {
+	if len(parseSummary.Items) == 0 {
 		return html.Div(html.Props{})
 	}
-	nodes := make([]ui.Node, 0, len(summary.Items))
-	for _, item := range summary.Items {
-		nodes = append(nodes, html.Div(html.Props{Class: "grid gap-2 " + internalInsetSurfaceClass() + " p-4"},
-			html.P(html.Props{Class: "text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-cyan-300"}, html.Text(item.Label)),
-			html.P(html.Props{Class: "text-xl font-semibold text-white"}, html.Text(item.Value)),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(item.Detail)),
+	parseNodes := make([]ui.Node, 0, len(parseSummary.Items))
+	for _, parseItem := range parseSummary.Items {
+		parseNodes = append(parseNodes, html.Div(html.Props{Class: "grid gap-2 " + internalInsetSurfaceClass() + " p-4"},
+			html.P(html.Props{Class: "text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-cyan-300"}, html.Text(parseItem.Label)),
+			html.P(html.Props{Class: "text-xl font-semibold text-white"}, html.Text(parseItem.Value)),
+			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseItem.Detail)),
 		))
 	}
 	return html.Div(html.Props{Class: "grid gap-4"},
-		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-slate-400"}, html.Text(fallback(summary.Headline, "Route summary"))),
-		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-2 xl:grid-cols-4"}, nodes...),
+		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-slate-400"}, html.Text(fallback(parseSummary.Headline, "Route summary"))),
+		html.Div(html.Props{Class: "grid gap-4 md:grid-cols-2 xl:grid-cols-4"}, parseNodes...),
 	)
 }
 
-func featureCard(title, copy string) ui.Node {
+func featureCard(parseTitle, parseCopy string) ui.Node {
 	return html.Div(html.Props{Class: internalSurfaceCardClass() + " p-5"},
-		html.P(html.Props{Class: "text-lg font-semibold text-white"}, html.Text(title)),
-		html.P(html.Props{Class: "mt-3 text-sm leading-6 text-slate-300"}, html.Text(copy)),
+		html.P(html.Props{Class: "text-lg font-semibold text-white"}, html.Text(parseTitle)),
+		html.P(html.Props{Class: "mt-3 text-sm leading-6 text-slate-300"}, html.Text(parseCopy)),
 	)
 }
 
-func publicFeatureCard(title, copy string) ui.Node {
+func publicFeatureCard(parseTitle, parseCopy string) ui.Node {
 	return html.Div(html.Props{Class: "rounded-[1.8rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"},
-		html.P(html.Props{Class: "text-lg font-semibold text-white"}, html.Text(title)),
-		html.P(html.Props{Class: "mt-3 text-sm leading-7 text-stone-300"}, html.Text(copy)),
+		html.P(html.Props{Class: "text-lg font-semibold text-white"}, html.Text(parseTitle)),
+		html.P(html.Props{Class: "mt-3 text-sm leading-7 text-stone-300"}, html.Text(parseCopy)),
 	)
 }
 
-func publicMetricCard(title, copy string) ui.Node {
+func publicMetricCard(parseTitle, parseCopy string) ui.Node {
 	return html.Div(html.Props{Class: "rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] p-5 shadow-[0_14px_32px_rgba(0,0,0,0.18)]"},
-		html.P(html.Props{Class: "text-xl font-bold tracking-[-0.03em] text-white"}, html.Text(title)),
-		html.P(html.Props{Class: "mt-2 text-sm leading-6 text-stone-300"}, html.Text(copy)),
+		html.P(html.Props{Class: "text-xl font-bold tracking-[-0.03em] text-white"}, html.Text(parseTitle)),
+		html.P(html.Props{Class: "mt-2 text-sm leading-6 text-stone-300"}, html.Text(parseCopy)),
 	)
 }
 
-func publicSignalPill(label string) ui.Node {
-	return html.Div(html.Props{Class: "rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm font-semibold text-stone-200"}, html.Text(label))
+func publicSignalPill(parseLabel string) ui.Node {
+	return html.Div(html.Props{Class: "rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm font-semibold text-stone-200"}, html.Text(parseLabel))
 }
 
-func publicStatusClass(status string) string {
-	base := "rounded-full border px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.22em]"
-	switch strings.TrimSpace(strings.ToLower(status)) {
+func publicStatusClass(parseStatus string) string {
+	parseBase := "rounded-full border px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.22em]"
+	switch strings.TrimSpace(strings.ToLower(parseStatus)) {
 	case "in_stock", "healthy", "approved", "available":
-		return base + " border-emerald-400/30 bg-emerald-400/12 text-emerald-200"
+		return parseBase + " border-emerald-400/30 bg-emerald-400/12 text-emerald-200"
 	case "low_stock", "pending", "submitted", "in_review":
-		return base + " border-amber-400/30 bg-amber-400/12 text-amber-200"
+		return parseBase + " border-amber-400/30 bg-amber-400/12 text-amber-200"
 	default:
-		return base + " border-white/12 bg-white/8 text-stone-300"
+		return parseBase + " border-white/12 bg-white/8 text-stone-300"
 	}
 }
 
-func publicStatusLabel(status string) string {
-	return strings.ReplaceAll(strings.TrimSpace(strings.ToLower(status)), "_", " ")
+func publicStatusLabel(parseStatus string) string {
+	return strings.ReplaceAll(strings.TrimSpace(strings.ToLower(parseStatus)), "_", " ")
 }
 
-func productPrimaryActionForm(product productCard, payload Payload) ui.Node {
-	switch strings.TrimSpace(strings.ToLower(product.Status)) {
+func productPrimaryActionForm(parseProduct productCard, parsePayload Payload) ui.Node {
+	switch strings.TrimSpace(strings.ToLower(parseProduct.Status)) {
 	case "in_stock", "healthy", "approved", "available":
-		return publicFormCard("Start a project quote", "Capture pricing, volume, and install timing while this item is ready to support an active project.", "/api/public/products/"+product.Slug+"/quote-requests", "Request pricing", payload.CSRF, []ui.Node{
+		return publicFormCard("Start a project quote", "Capture pricing, volume, and install timing while this item is ready to support an active project.", "/api/public/products/"+parseProduct.Slug+"/quote-requests", "Request pricing", parsePayload.CSRF, []ui.Node{
 			publicInput("requester_name", "Name"),
 			publicInput("company_name", "Company"),
 			publicInput("email", "Email"),
@@ -2814,37 +2834,37 @@ func productPrimaryActionForm(product productCard, payload Payload) ui.Node {
 			publicTextarea("note", "Project note"),
 		})
 	case "low_stock", "pending", "submitted", "in_review":
-		return publicFormCard("Reserve upcoming availability", "Hold intent against the next recovery window so the team can plan around constrained stock.", "/api/public/products/"+product.Slug+"/restock-requests", "Reserve availability", payload.CSRF, []ui.Node{
+		return publicFormCard("Reserve upcoming availability", "Hold intent against the next recovery window so the team can plan around constrained stock.", "/api/public/products/"+parseProduct.Slug+"/restock-requests", "Reserve availability", parsePayload.CSRF, []ui.Node{
 			publicInput("email", "Email"),
 			publicInput("preferred_warehouse_id", "Preferred delivery region"),
 		})
 	default:
-		return publicFormCard("Notify me when available", "Stay attached to this SKU without forcing a buyer to think in replenishment or internal operations terms.", "/api/public/products/"+product.Slug+"/restock-requests", "Notify me", payload.CSRF, []ui.Node{
+		return publicFormCard("Notify me when available", "Stay attached to this SKU without forcing a buyer to think in replenishment or internal operations terms.", "/api/public/products/"+parseProduct.Slug+"/restock-requests", "Notify me", parsePayload.CSRF, []ui.Node{
 			publicInput("email", "Email"),
 			publicInput("preferred_warehouse_id", "Preferred delivery region"),
 		})
 	}
 }
 
-func productSecondaryActionCard(product productCard) ui.Node {
-	status := strings.TrimSpace(strings.ToLower(product.Status))
-	if status == "in_stock" || status == "healthy" || status == "approved" || status == "available" {
+func productSecondaryActionCard(parseProduct productCard) ui.Node {
+	parseStatus := strings.TrimSpace(strings.ToLower(parseProduct.Status))
+	if parseStatus == "in_stock" || parseStatus == "healthy" || parseStatus == "approved" || parseStatus == "available" {
 		return html.A(html.Props{Href: "/warehouses", Class: "grid gap-3 rounded-[1.7rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] transition hover:border-amber-300/35 hover:bg-white/10"},
 			html.P(html.Props{Class: "text-lg font-semibold text-white"}, html.Text("Check delivery for your region")),
 			html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text("Compare regional delivery options before you lock in your project timeline and installation plan.")),
 			html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.25em] text-amber-700"}, html.Text("See regional delivery options")),
 		)
 	}
-	return html.A(html.Props{Href: "/shop?category=" + url.QueryEscape(product.Category), Class: "grid gap-3 rounded-[1.7rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] transition hover:border-amber-300/35 hover:bg-white/10"},
+	return html.A(html.Props{Href: "/shop?category=" + url.QueryEscape(parseProduct.Category), Class: "grid gap-3 rounded-[1.7rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] transition hover:border-amber-300/35 hover:bg-white/10"},
 		html.P(html.Props{Class: "text-lg font-semibold text-white"}, html.Text("See similar options")),
 		html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text("If this SKU cannot support the buyer timeline, keep momentum by browsing adjacent in-category systems.")),
 		html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.25em] text-amber-700"}, html.Text("Browse alternatives")),
 	)
 }
 
-func availabilityPrimaryActionForm(availability availabilityPage, payload Payload) ui.Node {
-	if availability.Available > 0 {
-		return publicFormCard("Request pricing for this region", "Capture pricing and project timing while this warehouse can still support the current demand window.", "/api/public/products/"+availability.Product.Slug+"/quote-requests", "Start quote", payload.CSRF, []ui.Node{
+func availabilityPrimaryActionForm(parseAvailability availabilityPage, parsePayload Payload) ui.Node {
+	if parseAvailability.Available > 0 {
+		return publicFormCard("Request pricing for this region", "Capture pricing and project timing while this warehouse can still support the current demand window.", "/api/public/products/"+parseAvailability.Product.Slug+"/quote-requests", "Start quote", parsePayload.CSRF, []ui.Node{
 			publicInput("requester_name", "Name"),
 			publicInput("company_name", "Company"),
 			publicInput("email", "Email"),
@@ -2852,55 +2872,55 @@ func availabilityPrimaryActionForm(availability availabilityPage, payload Payloa
 			publicTextarea("note", "Project note"),
 		})
 	}
-	title := "Notify me when available"
-	copy := "Stay tied to this regional lane without making the buyer restate the product and warehouse context later."
-	button := "Notify me"
-	if availability.Inbound > 0 {
-		title = "Reserve upcoming availability"
-		copy = "Hold this buyer against the next inbound recovery window for the current warehouse lane."
-		button = "Reserve availability"
+	parseTitle := "Notify me when available"
+	parseCopy := "Stay tied to this regional lane without making the buyer restate the product and warehouse context later."
+	parseButton := "Notify me"
+	if parseAvailability.Inbound > 0 {
+		parseTitle = "Reserve upcoming availability"
+		parseCopy = "Hold this buyer against the next inbound recovery window for the current warehouse lane."
+		parseButton = "Reserve availability"
 	}
-	return publicFormCard(title, copy, "/api/public/products/"+availability.Product.Slug+"/restock-requests", button, payload.CSRF, []ui.Node{
+	return publicFormCard(parseTitle, parseCopy, "/api/public/products/"+parseAvailability.Product.Slug+"/restock-requests", parseButton, parsePayload.CSRF, []ui.Node{
 		publicInput("email", "Email"),
-		publicInputWithValue("preferred_warehouse_id", "Preferred delivery region", availability.Warehouse.ID),
+		publicInputWithValue("preferred_warehouse_id", "Preferred delivery region", parseAvailability.Warehouse.ID),
 	})
 }
 
-func availabilityQuestionActionForm(availability availabilityPage, payload Payload) ui.Node {
-	return publicFormCard("Ask about delivery or fit", "Keep regional delivery, installation, and substitution questions attached to the actual availability context.", "/api/public/products/"+availability.Product.Slug+"/comments", "Send question", payload.CSRF, []ui.Node{
+func availabilityQuestionActionForm(parseAvailability availabilityPage, parsePayload Payload) ui.Node {
+	return publicFormCard("Ask about delivery or fit", "Keep regional delivery, installation, and substitution questions attached to the actual availability context.", "/api/public/products/"+parseAvailability.Product.Slug+"/comments", "Send question", parsePayload.CSRF, []ui.Node{
 		publicInput("author_name", "Name"),
 		publicInput("subject", "Subject"),
 		publicTextarea("body", "Question"),
 	})
 }
 
-func statCard(label, value string) ui.Node {
+func statCard(parseLabel, parseValue string) ui.Node {
 	return html.Div(html.Props{Class: internalSurfaceCardClass() + " p-5"},
-		html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.25em] text-slate-400"}, html.Text(label)),
-		html.P(html.Props{Class: "mt-3 text-xl font-bold text-white"}, html.Text(value)),
+		html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.25em] text-slate-400"}, html.Text(parseLabel)),
+		html.P(html.Props{Class: "mt-3 text-xl font-bold text-white"}, html.Text(parseValue)),
 	)
 }
 
-func listCard(title string, children ...ui.Node) ui.Node {
-	if len(children) == 0 {
-		children = []ui.Node{html.P(html.Props{Class: "text-sm text-slate-400"}, html.Text("No records yet."))}
+func listCard(parseTitle string, parseChildren ...ui.Node) ui.Node {
+	if len(parseChildren) == 0 {
+		parseChildren = []ui.Node{html.P(html.Props{Class: "text-sm text-slate-400"}, html.Text("No records yet."))}
 	}
-	content := []ui.Node{html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text(title))}
-	content = append(content, children...)
-	return html.Div(html.Props{Class: "grid gap-3 " + internalSurfaceCardClass() + " p-5"}, content...)
+	parseContent := []ui.Node{html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text(parseTitle))}
+	parseContent = append(parseContent, parseChildren...)
+	return html.Div(html.Props{Class: "grid gap-3 " + internalSurfaceCardClass() + " p-5"}, parseContent...)
 }
 
-func publicFormCard(title, copy, action, submitLabel string, csrfToken string, fields []ui.Node) ui.Node {
-	children := []ui.Node{
-		html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(title)),
+func publicFormCard(parseTitle, parseCopy, parseAction, parseSubmitLabel string, parseCsrfToken string, parseFields []ui.Node) ui.Node {
+	parseChildren := []ui.Node{
+		html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-amber-700"}, html.Text(parseTitle)),
 	}
-	if strings.TrimSpace(copy) != "" {
-		children = append(children, html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text(copy)))
+	if strings.TrimSpace(parseCopy) != "" {
+		parseChildren = append(parseChildren, html.P(html.Props{Class: "text-sm leading-7 text-stone-300"}, html.Text(parseCopy)))
 	}
-	children = append(children, prependCSRFToken(csrfToken)...)
-	children = append(children, fields...)
-	children = append(children, html.Button(html.Props{Type: "submit", Class: "rounded-full bg-amber-300 px-5 py-3 text-sm font-semibold text-stone-950 transition hover:bg-amber-200"}, html.Text(fallback(strings.TrimSpace(submitLabel), "Submit"))))
-	return html.Form(html.Props{Action: action, Method: "post", Class: "grid gap-4 rounded-[1.7rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"}, children...)
+	parseChildren = append(parseChildren, prependCSRFToken(parseCsrfToken)...)
+	parseChildren = append(parseChildren, parseFields...)
+	parseChildren = append(parseChildren, html.Button(html.Props{Type: "submit", Class: "rounded-full bg-amber-300 px-5 py-3 text-sm font-semibold text-stone-950 transition hover:bg-amber-200"}, html.Text(fallback(strings.TrimSpace(parseSubmitLabel), "Submit"))))
+	return html.Form(html.Props{Action: parseAction, Method: "post", Class: "grid gap-4 rounded-[1.7rem] border border-white/10 bg-white/6 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.18)] backdrop-blur-sm"}, parseChildren...)
 }
 
 type preferenceFormState struct {
@@ -2953,115 +2973,115 @@ type receivingResolutionWorkflowAction struct {
 	Value string
 }
 
-func normalizeReceivingResolutionWorkflowState(state receivingResolutionWorkflowState) receivingResolutionWorkflowState {
-	status := strings.TrimSpace(strings.ToLower(state.Status))
-	summary := strings.TrimSpace(state.DiscrepancySummary)
+func normalizeReceivingResolutionWorkflowState(parseState receivingResolutionWorkflowState) receivingResolutionWorkflowState {
+	parseStatus := strings.TrimSpace(strings.ToLower(parseState.Status))
+	parseSummary := strings.TrimSpace(parseState.DiscrepancySummary)
 	switch {
-	case status == "closed" && summary == "":
-		state.Stage = "closeout-needs-note"
-	case status == "closed":
-		state.Stage = "closeout-ready"
-	case status == "review":
-		state.Stage = "discrepancy-review"
+	case parseStatus == "closed" && parseSummary == "":
+		parseState.Stage = "closeout-needs-note"
+	case parseStatus == "closed":
+		parseState.Stage = "closeout-ready"
+	case parseStatus == "review":
+		parseState.Stage = "discrepancy-review"
 	default:
-		state.Stage = "classification-open"
+		parseState.Stage = "classification-open"
 	}
-	return state
+	return parseState
 }
 
-func reduceReceivingResolutionWorkflowState(state receivingResolutionWorkflowState, action receivingResolutionWorkflowAction) receivingResolutionWorkflowState {
-	switch action.Field {
+func reduceReceivingResolutionWorkflowState(parseState receivingResolutionWorkflowState, parseAction receivingResolutionWorkflowAction) receivingResolutionWorkflowState {
+	switch parseAction.Field {
 	case "status":
-		state.Status = action.Value
+		parseState.Status = parseAction.Value
 	case "discrepancy_summary":
-		state.DiscrepancySummary = action.Value
+		parseState.DiscrepancySummary = parseAction.Value
 	}
-	state.LastEditedField = action.Field
-	return normalizeReceivingResolutionWorkflowState(state)
+	parseState.LastEditedField = parseAction.Field
+	return normalizeReceivingResolutionWorkflowState(parseState)
 }
 
-func preferenceForm(payload Payload) ui.Node {
-	presentation := currentShellPresentationState(payload)
+func preferenceForm(parsePayload Payload) ui.Node {
+	parsePresentation := currentShellPresentationState(parsePayload)
 	return ui.CreateElement(func() ui.Node {
-		form := ui.UseForm(preferenceFormState{
-			Theme:              fallback(presentation.Theme, "dark"),
-			Locale:             fallback(presentation.Locale, "en"),
-			Density:            fallback(presentation.Density, "compact"),
-			DefaultWarehouseID: fallback(presentation.DefaultWarehouse, "new-jersey-hub"),
+		parseForm := ui.UseForm(preferenceFormState{
+			Theme:              fallback(parsePresentation.Theme, "dark"),
+			Locale:             fallback(parsePresentation.Locale, "en"),
+			Density:            fallback(parsePresentation.Density, "compact"),
+			DefaultWarehouseID: fallback(parsePresentation.DefaultWarehouse, "new-jersey-hub"),
 		})
-		transition := useAtlasTransition()
-		value := form.Get()
-		children := []ui.Node{
+		parseTransition := useAtlasTransition()
+		parseValue := parseForm.Get()
+		parseChildren := []ui.Node{
 			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Operator preferences")),
-			boundInputWithValue("theme", "Theme", value.Theme, "Theme", form),
-			boundInputWithValue("locale", "Locale", value.Locale, "Locale", form),
-			boundTransitionSelectWithValue("density", "Density", value.Density, "Density", []optionItem{{"compact", "Compact"}, {"comfortable", "Comfortable"}}, form, transition),
-			preferenceDensityPreviewCard(value.Density, transition.Pending()),
-			boundInputWithValue("default_warehouse_id", "Default warehouse", value.DefaultWarehouseID, "DefaultWarehouseID", form),
+			boundInputWithValue("theme", "Theme", parseValue.Theme, "Theme", parseForm),
+			boundInputWithValue("locale", "Locale", parseValue.Locale, "Locale", parseForm),
+			boundTransitionSelectWithValue("density", "Density", parseValue.Density, "Density", []optionItem{{"compact", "Compact"}, {"comfortable", "Comfortable"}}, parseForm, parseTransition),
+			preferenceDensityPreviewCard(parseValue.Density, parseTransition.Pending()),
+			boundInputWithValue("default_warehouse_id", "Default warehouse", parseValue.DefaultWarehouseID, "DefaultWarehouseID", parseForm),
 			submitButton("Save preferences"),
 		}
-		return html.Form(html.Props{Action: "/api/app/preferences", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(payload.CSRF, children...)...)
+		return html.Form(html.Props{Action: "/api/app/preferences", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 	})
 }
 
-func moderationForm(items []commentRecord, payload Payload) ui.Node {
-	id := ""
-	if len(items) > 0 {
-		id = items[0].ID
+func moderationForm(parseItems []commentRecord, parsePayload Payload) ui.Node {
+	parseId := ""
+	if len(parseItems) > 0 {
+		parseId = parseItems[0].ID
 	}
 	return ui.CreateElement(func() ui.Node {
-		form := ui.UseForm(moderationActionFormState{Status: "approved", Reason: "Reviewed by Atlas operations."})
-		confirmOpen := ui.UseState(false)
-		value := form.Get()
-		openConfirm := ui.UseEvent(func() { confirmOpen.Set(true) })
-		closeConfirm := func() { confirmOpen.Set(false) }
-		children := []ui.Node{
+		parseForm := ui.UseForm(moderationActionFormState{Status: "approved", Reason: "Reviewed by Atlas operations."})
+		parseConfirmOpen := ui.UseState(false)
+		parseValue := parseForm.Get()
+		parseOpenConfirm := ui.UseEvent(func() { parseConfirmOpen.Set(true) })
+		parseCloseConfirm := func() { parseConfirmOpen.Set(false) }
+		parseChildren := []ui.Node{
 			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Review first queued buyer question")),
-			boundInputWithValue("status", "Status", value.Status, "Status", form),
-			boundTextareaWithValue("reason", "Reason", value.Reason, "Reason", form),
-			html.Button(html.Props{Type: "button", Class: "rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950", OnClick: openConfirm}, html.Text("Review decision")),
-			atlasConfirmationDialog(confirmOpen.Get(), "atlas-comment-review-confirm", "Confirm buyer review", "Atlas keeps keyboard focus inside the moderation confirmation step until you either cancel or apply the review.", "Apply review", closeConfirm,
-				statCard("Status", value.Status),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(value.Reason)),
+			boundInputWithValue("status", "Status", parseValue.Status, "Status", parseForm),
+			boundTextareaWithValue("reason", "Reason", parseValue.Reason, "Reason", parseForm),
+			html.Button(html.Props{Type: "button", Class: "rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950", OnClick: parseOpenConfirm}, html.Text("Review decision")),
+			atlasConfirmationDialog(parseConfirmOpen.Get(), "atlas-comment-review-confirm", "Confirm buyer review", "Atlas keeps keyboard focus inside the moderation confirmation step until you either cancel or apply the review.", "Apply review", parseCloseConfirm,
+				statCard("Status", parseValue.Status),
+				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseValue.Reason)),
 			),
 		}
-		return html.Form(html.Props{Action: "/api/app/comments/" + id + "/moderate", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(payload.CSRF, children...)...)
+		return html.Form(html.Props{Action: "/api/app/comments/" + parseId + "/moderate", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 	})
 }
 
-func bulkModerationForm(items []commentRecord, payload Payload) ui.Node {
-	ids := make([]string, 0, len(items))
-	for _, item := range items {
-		ids = append(ids, item.ID)
+func bulkModerationForm(parseItems []commentRecord, parsePayload Payload) ui.Node {
+	parseIds := make([]string, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		parseIds = append(parseIds, parseItem.ID)
 	}
 	return ui.CreateElement(func() ui.Node {
-		form := ui.UseForm(bulkModerationActionFormState{
-			IDs:    strings.Join(ids, ","),
+		parseForm := ui.UseForm(bulkModerationActionFormState{
+			IDs:    strings.Join(parseIds, ","),
 			Status: "approved",
 			Reason: "Bulk-reviewed from the visible Atlas buyer inbox queue.",
 		})
-		confirmOpen := ui.UseState(false)
-		value := form.Get()
-		openConfirm := ui.UseEvent(func() { confirmOpen.Set(true) })
-		closeConfirm := func() { confirmOpen.Set(false) }
-		children := []ui.Node{
+		parseConfirmOpen := ui.UseState(false)
+		parseValue := parseForm.Get()
+		parseOpenConfirm := ui.UseEvent(func() { parseConfirmOpen.Set(true) })
+		parseCloseConfirm := func() { parseConfirmOpen.Set(false) }
+		parseChildren := []ui.Node{
 			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Bulk review visible queue")),
-			html.Input(html.Props{Type: "hidden", Name: "ids", Value: value.IDs}),
-			boundInputWithValue("status", "Status", value.Status, "Status", form),
-			boundTextareaWithValue("reason", "Reason", value.Reason, "Reason", form),
-			html.Button(html.Props{Type: "button", Class: "rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950", OnClick: openConfirm}, html.Text("Review bulk action")),
-			atlasConfirmationDialog(confirmOpen.Get(), "atlas-bulk-review-confirm", "Confirm bulk moderation", "The buyer-inbox bulk action now traps focus inside its confirmation step instead of leaving focus scattered behind the modal.", "Apply bulk review", closeConfirm,
-				statCard("Items", fmt.Sprintf("%d", len(items))),
-				statCard("Status", value.Status),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(value.Reason)),
+			html.Input(html.Props{Type: "hidden", Name: "ids", Value: parseValue.IDs}),
+			boundInputWithValue("status", "Status", parseValue.Status, "Status", parseForm),
+			boundTextareaWithValue("reason", "Reason", parseValue.Reason, "Reason", parseForm),
+			html.Button(html.Props{Type: "button", Class: "rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950", OnClick: parseOpenConfirm}, html.Text("Review bulk action")),
+			atlasConfirmationDialog(parseConfirmOpen.Get(), "atlas-bulk-review-confirm", "Confirm bulk moderation", "The buyer-inbox bulk action now traps focus inside its confirmation step instead of leaving focus scattered behind the modal.", "Apply bulk review", parseCloseConfirm,
+				statCard("Items", fmt.Sprintf("%d", len(parseItems))),
+				statCard("Status", parseValue.Status),
+				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseValue.Reason)),
 			),
 		}
-		return html.Form(html.Props{Action: "/api/app/comments/bulk-moderate", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(payload.CSRF, children...)...)
+		return html.Form(html.Props{Action: "/api/app/comments/bulk-moderate", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 	})
 }
 
-func savedViewForm(payload Payload) ui.Node {
-	children := []ui.Node{
+func savedViewForm(parsePayload Payload) ui.Node {
+	parseChildren := []ui.Node{
 		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Create saved view")),
 		input("name", "Name"),
 		inputWithValue("scope", "Scope", "inventory"),
@@ -3072,11 +3092,11 @@ func savedViewForm(payload Payload) ui.Node {
 		textareaWithValue("filters_json", "Filters JSON", `{"warehouse":"new-jersey-hub"}`),
 		submitButton("Save view"),
 	}
-	return html.Form(html.Props{Action: "/api/app/saved-views", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(payload.CSRF, children...)...)
+	return html.Form(html.Props{Action: "/api/app/saved-views", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 }
 
-func savedViewTransferCard(payload Payload) ui.Node {
-	presentation := currentShellPresentationState(payload)
+func savedViewTransferCard(parsePayload Payload) ui.Node {
+	parsePresentation := currentShellPresentationState(parsePayload)
 	type savedViewTransferItem struct {
 		Name          string `json:"name"`
 		Scope         string `json:"scope"`
@@ -3086,62 +3106,62 @@ func savedViewTransferCard(payload Payload) ui.Node {
 		WarehouseID   string `json:"warehouseId"`
 		FiltersJSON   string `json:"filtersJSON"`
 	}
-	items := make([]savedViewTransferItem, 0, len(payload.SavedViews))
-	for _, saved := range payload.SavedViews {
-		filtersJSON, err := json.Marshal(saved.Filters)
-		if err != nil {
-			filtersJSON = []byte(`{}`)
+	parseItems := make([]savedViewTransferItem, 0, len(parsePayload.SavedViews))
+	for _, parseSaved := range parsePayload.SavedViews {
+		parseFiltersJSON, parseErr := json.Marshal(parseSaved.Filters)
+		if parseErr != nil {
+			parseFiltersJSON = []byte(`{}`)
 		}
-		items = append(items, savedViewTransferItem{
-			Name:          saved.Name,
-			Scope:         saved.Scope,
-			SortKey:       saved.SortKey,
-			SortDirection: saved.SortDirection,
-			Density:       fallback(presentation.Density, "compact"),
-			WarehouseID:   fallback(saved.Filters["warehouse"], presentation.DefaultWarehouse),
-			FiltersJSON:   string(filtersJSON),
+		parseItems = append(parseItems, savedViewTransferItem{
+			Name:          parseSaved.Name,
+			Scope:         parseSaved.Scope,
+			SortKey:       parseSaved.SortKey,
+			SortDirection: parseSaved.SortDirection,
+			Density:       fallback(parsePresentation.Density, "compact"),
+			WarehouseID:   fallback(parseSaved.Filters["warehouse"], parsePresentation.DefaultWarehouse),
+			FiltersJSON:   string(parseFiltersJSON),
 		})
 	}
-	exportPayload := map[string]any{"items": items}
-	encoded, err := json.MarshalIndent(exportPayload, "", "  ")
-	if err != nil {
-		encoded = []byte(`{"items":[]}`)
+	parseExportPayload := map[string]any{"items": parseItems}
+	parseEncoded, parseErr2 := json.MarshalIndent(parseExportPayload, "", "  ")
+	if parseErr2 != nil {
+		parseEncoded = []byte(`{"items":[]}`)
 	}
-	defaultImportPayload := string(encoded)
+	parseDefaultImportPayload := string(parseEncoded)
 	return ui.CreateElement(func() ui.Node {
-		form := ui.UseForm(savedViewImportFormState{ViewsJSON: defaultImportPayload})
-		validator := useAtlasWorkerTask[savedViewImportValidationRequest, savedViewImportValidationProgress, savedViewImportValidationResult](interop.WorkerOptions{
+		parseForm := ui.UseForm(savedViewImportFormState{ViewsJSON: parseDefaultImportPayload})
+		parseValidator := useAtlasWorkerTask[savedViewImportValidationRequest, savedViewImportValidationProgress, savedViewImportValidationResult](interop.WorkerOptions{
 			URL:   "/assets/script/atlas-saved-view-import-worker.js",
 			Ready: true,
 			Name:  "atlas-saved-view-import",
 		}, "validate-saved-view-import")
 		useAtlasEffect(func() func() {
-			trimmed := strings.TrimSpace(form.Get().ViewsJSON)
-			if trimmed == "" {
-				validator.Cancel()
+			parseTrimmed := strings.TrimSpace(parseForm.Get().ViewsJSON)
+			if parseTrimmed == "" {
+				parseValidator.Cancel()
 				return nil
 			}
-			validator.Start(savedViewImportValidationRequest{Text: form.Get().ViewsJSON})
+			parseValidator.Start(savedViewImportValidationRequest{Text: parseForm.Get().ViewsJSON})
 			return nil
-		}, form.Get().ViewsJSON)
-		validationState := validator.Get()
-		value := form.Get()
-		children := []ui.Node{
+		}, parseForm.Get().ViewsJSON)
+		parseValidationState := parseValidator.Get()
+		parseValue := parseForm.Get()
+		parseChildren := []ui.Node{
 			html.Div(html.Props{Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"},
 				html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Export saved views")),
 				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Download or copy the current saved-view payload so Atlas presets can move between runs without rebuilding them by hand.")),
 				html.A(html.Props{Href: "/api/app/saved-views/export", Class: "inline-flex w-fit rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950"}, html.Text("Open export payload")),
-				html.Pre(html.Props{Class: "overflow-x-auto rounded-[1.2rem] border border-white/10 bg-slate-950/70 p-4 text-xs leading-6 text-slate-300"}, html.Text(defaultImportPayload)),
+				html.Pre(html.Props{Class: "overflow-x-auto rounded-[1.2rem] border border-white/10 bg-slate-950/70 p-4 text-xs leading-6 text-slate-300"}, html.Text(parseDefaultImportPayload)),
 			),
 		}
-		importChildren := []ui.Node{
+		parseImportChildren := []ui.Node{
 			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Import saved views")),
-			boundTextareaWithValue("views_json", "Saved-view payload", value.ViewsJSON, "ViewsJSON", form),
-			savedViewImportValidationCard(validationState),
+			boundTextareaWithValue("views_json", "Saved-view payload", parseValue.ViewsJSON, "ViewsJSON", parseForm),
+			savedViewImportValidationCard(parseValidationState),
 			submitButton("Import saved views"),
 		}
-		children = append(children, html.Form(html.Props{Action: "/api/app/saved-views/import", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(payload.CSRF, importChildren...)...))
-		return html.Div(html.Props{Class: "grid gap-5"}, children...)
+		parseChildren = append(parseChildren, html.Form(html.Props{Action: "/api/app/saved-views/import", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(parsePayload.CSRF, parseImportChildren...)...))
+		return html.Div(html.Props{Class: "grid gap-5"}, parseChildren...)
 	})
 }
 
@@ -3164,57 +3184,57 @@ type savedViewImportValidationResult struct {
 	Warnings     []string `json:"warnings"`
 }
 
-func savedViewImportValidationCard(state atlasWorkerTaskState[savedViewImportValidationProgress, savedViewImportValidationResult]) ui.Node {
-	if state.Error != nil {
+func savedViewImportValidationCard(parseState atlasWorkerTaskState[savedViewImportValidationProgress, savedViewImportValidationResult]) ui.Node {
+	if parseState.Error != nil {
 		return html.Div(html.Props{Class: "grid gap-2 rounded-[1.35rem] border border-rose-400/25 bg-rose-400/10 p-4"},
 			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.22em] text-rose-200"}, html.Text("Worker validation failed")),
-			html.P(html.Props{Class: "text-sm leading-6 text-rose-100"}, html.Text(state.Error.Error())),
+			html.P(html.Props{Class: "text-sm leading-6 text-rose-100"}, html.Text(parseState.Error.Error())),
 		)
 	}
-	if state.Running {
-		stage := "validating saved-view payload"
-		progress := "Worker running"
-		if state.ProgressReady {
-			stage = fallback(state.Progress.Stage, stage)
-			progress = fmt.Sprintf("%d%% complete", state.Progress.Percent)
+	if parseState.Running {
+		parseStage := "validating saved-view payload"
+		parseProgress := "Worker running"
+		if parseState.ProgressReady {
+			parseStage = fallback(parseState.Progress.Stage, parseStage)
+			parseProgress = fmt.Sprintf("%d%% complete", parseState.Progress.Percent)
 		}
 		return html.Div(html.Props{Class: "grid gap-2 rounded-[1.35rem] border border-cyan-300/30 bg-cyan-300/10 p-4"},
 			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.22em] text-cyan-100"}, html.Text("Worker validation in progress")),
-			html.P(html.Props{Class: "text-sm leading-6 text-cyan-50"}, html.Text(progress+" · "+stage)),
+			html.P(html.Props{Class: "text-sm leading-6 text-cyan-50"}, html.Text(parseProgress+" · "+parseStage)),
 		)
 	}
-	if state.Ready {
-		summary := "Payload is ready to import."
-		if !state.Value.Valid {
-			summary = "Payload needs fixes before import."
+	if parseState.Ready {
+		parseSummary := "Payload is ready to import."
+		if !parseState.Value.Valid {
+			parseSummary = "Payload needs fixes before import."
 		}
-		preview := "No saved-view names detected yet."
-		if len(state.Value.Preview) > 0 {
-			preview = strings.Join(state.Value.Preview, " · ")
+		parsePreview := "No saved-view names detected yet."
+		if len(parseState.Value.Preview) > 0 {
+			parsePreview = strings.Join(parseState.Value.Preview, " · ")
 		}
-		scopeSummary := "No scopes detected."
-		if len(state.Value.Scopes) > 0 {
-			scopeSummary = strings.Join(state.Value.Scopes, ", ")
+		parseScopeSummary := "No scopes detected."
+		if len(parseState.Value.Scopes) > 0 {
+			parseScopeSummary = strings.Join(parseState.Value.Scopes, ", ")
 		}
-		children := []ui.Node{
+		parseChildren := []ui.Node{
 			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text("Worker import preview")),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(summary)),
+			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseSummary)),
 			html.Div(html.Props{Class: "grid gap-3 md:grid-cols-3"},
-				statCard("Items", fmt.Sprintf("%d", state.Value.ItemCount)),
-				statCard("Scopes", fmt.Sprintf("%d", state.Value.ScopeCount)),
-				statCard("Invalid", fmt.Sprintf("%d", state.Value.InvalidCount)),
+				statCard("Items", fmt.Sprintf("%d", parseState.Value.ItemCount)),
+				statCard("Scopes", fmt.Sprintf("%d", parseState.Value.ScopeCount)),
+				statCard("Invalid", fmt.Sprintf("%d", parseState.Value.InvalidCount)),
 			),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Preview: "+preview)),
-			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Scopes: "+scopeSummary)),
+			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Preview: "+parsePreview)),
+			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Scopes: "+parseScopeSummary)),
 		}
-		if len(state.Value.Warnings) > 0 {
-			warnings := make([]ui.Node, 0, len(state.Value.Warnings))
-			for _, warning := range state.Value.Warnings {
-				warnings = append(warnings, html.P(html.Props{Class: "rounded-[1.1rem] border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-sm text-amber-100"}, html.Text(warning)))
+		if len(parseState.Value.Warnings) > 0 {
+			parseWarnings := make([]ui.Node, 0, len(parseState.Value.Warnings))
+			for _, parseWarning := range parseState.Value.Warnings {
+				parseWarnings = append(parseWarnings, html.P(html.Props{Class: "rounded-[1.1rem] border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-sm text-amber-100"}, html.Text(parseWarning)))
 			}
-			children = append(children, html.Div(html.Props{Class: "grid gap-2"}, warnings...))
+			parseChildren = append(parseChildren, html.Div(html.Props{Class: "grid gap-2"}, parseWarnings...))
 		}
-		return html.Div(html.Props{Class: "grid gap-3 rounded-[1.35rem] border border-white/10 bg-slate-950/40 p-4"}, children...)
+		return html.Div(html.Props{Class: "grid gap-3 rounded-[1.35rem] border border-white/10 bg-slate-950/40 p-4"}, parseChildren...)
 	}
 	return html.Div(html.Props{Class: "grid gap-2 rounded-[1.35rem] border border-white/10 bg-slate-950/40 p-4"},
 		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.22em] text-slate-300"}, html.Text("Worker import preview")),
@@ -3222,19 +3242,19 @@ func savedViewImportValidationCard(state atlasWorkerTaskState[savedViewImportVal
 	)
 }
 
-func operatorWorkspaceSnapshotCard(payload Payload) ui.Node {
+func operatorWorkspaceSnapshotCard(parsePayload Payload) ui.Node {
 	return ui.CreateElement(func() ui.Node {
-		form := ui.UseForm(workspaceSnapshotFormState{WorkspaceSnapshotJSON: operatorWorkspaceSnapshotJSON(payload)})
-		value := form.Get()
+		parseForm := ui.UseForm(workspaceSnapshotFormState{WorkspaceSnapshotJSON: operatorWorkspaceSnapshotJSON(parsePayload)})
+		parseValue := parseForm.Get()
 		return html.Div(html.Props{Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"},
 			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Export workspace snapshot")),
 			html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text("Copy the current operator shell, route workspace, and saved-view snapshot when a reviewer or another operator needs the same Atlas context without opening diagnostics mode.")),
-			boundTextareaWithValue("workspace_snapshot_json", "Workspace snapshot", value.WorkspaceSnapshotJSON, "WorkspaceSnapshotJSON", form),
+			boundTextareaWithValue("workspace_snapshot_json", "Workspace snapshot", parseValue.WorkspaceSnapshotJSON, "WorkspaceSnapshotJSON", parseForm),
 		)
 	})
 }
 
-func operatorWorkspaceSnapshotJSON(payload Payload) string {
+func operatorWorkspaceSnapshotJSON(parsePayload Payload) string {
 	type savedViewSnapshotItem struct {
 		Name          string            `json:"name"`
 		Scope         string            `json:"scope"`
@@ -3244,500 +3264,500 @@ func operatorWorkspaceSnapshotJSON(payload Payload) string {
 		WarehouseID   string            `json:"warehouseId"`
 		Filters       map[string]string `json:"filters"`
 	}
-	presentation := currentShellPresentationState(payload)
-	workspace := currentRouteWorkspaceState(payload)
-	savedViews := make([]savedViewSnapshotItem, 0, len(payload.SavedViews))
-	for _, saved := range payload.SavedViews {
-		savedViews = append(savedViews, savedViewSnapshotItem{
-			Name:          saved.Name,
-			Scope:         saved.Scope,
-			SortKey:       saved.SortKey,
-			SortDirection: saved.SortDirection,
-			Density:       presentation.Density,
-			WarehouseID:   fallback(saved.Filters["warehouse"], presentation.DefaultWarehouse),
-			Filters:       saved.Filters,
+	parsePresentation := currentShellPresentationState(parsePayload)
+	parseWorkspace := currentRouteWorkspaceState(parsePayload)
+	parseSavedViews := make([]savedViewSnapshotItem, 0, len(parsePayload.SavedViews))
+	for _, parseSaved := range parsePayload.SavedViews {
+		parseSavedViews = append(parseSavedViews, savedViewSnapshotItem{
+			Name:          parseSaved.Name,
+			Scope:         parseSaved.Scope,
+			SortKey:       parseSaved.SortKey,
+			SortDirection: parseSaved.SortDirection,
+			Density:       parsePresentation.Density,
+			WarehouseID:   fallback(parseSaved.Filters["warehouse"], parsePresentation.DefaultWarehouse),
+			Filters:       parseSaved.Filters,
 		})
 	}
-	exportPayload := map[string]any{
+	parseExportPayload := map[string]any{
 		"route": map[string]any{
-			"path":   payload.Route.Path,
-			"screen": payload.Route.Screen,
-			"query":  payload.Route.Query,
+			"path":   parsePayload.Route.Path,
+			"screen": parsePayload.Route.Screen,
+			"query":  parsePayload.Route.Query,
 		},
-		"shellPresentation": presentation,
-		"routeWorkspace":    workspace,
-		"savedViews":        savedViews,
+		"shellPresentation": parsePresentation,
+		"routeWorkspace":    parseWorkspace,
+		"savedViews":        parseSavedViews,
 	}
-	encoded, err := json.MarshalIndent(exportPayload, "", "  ")
-	if err != nil {
+	parseEncoded, parseErr := json.MarshalIndent(parseExportPayload, "", "  ")
+	if parseErr != nil {
 		return `{"error":"workspace snapshot encode failed"}`
 	}
-	return string(encoded)
+	return string(parseEncoded)
 }
 
-func transferForm(payload Payload) ui.Node {
+func transferForm(parsePayload Payload) ui.Node {
 	return ui.CreateElement(func() ui.Node {
-		form := ui.UseForm(transferFormState{
+		parseForm := ui.UseForm(transferFormState{
 			SourceWarehouseID:      "nevada-hub",
 			DestinationWarehouseID: "new-jersey-hub",
 			Reason:                 "Support east-coast promise windows",
 			RecommendedBy:          "Atlas Hydration Demo",
 		})
-		confirmOpen := ui.UseState(false)
-		value := form.Get()
-		openConfirm := ui.UseEvent(func() { confirmOpen.Set(true) })
-		closeConfirm := func() { confirmOpen.Set(false) }
-		children := []ui.Node{
+		parseConfirmOpen := ui.UseState(false)
+		parseValue := parseForm.Get()
+		parseOpenConfirm := ui.UseEvent(func() { parseConfirmOpen.Set(true) })
+		parseCloseConfirm := func() { parseConfirmOpen.Set(false) }
+		parseChildren := []ui.Node{
 			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Create transfer")),
-			boundInputWithValue("source_warehouse_id", "Source warehouse", value.SourceWarehouseID, "SourceWarehouseID", form),
-			boundInputWithValue("destination_warehouse_id", "Destination warehouse", value.DestinationWarehouseID, "DestinationWarehouseID", form),
-			boundInputWithValue("reason", "Reason", value.Reason, "Reason", form),
-			boundInputWithValue("recommended_by", "Recommended by", value.RecommendedBy, "RecommendedBy", form),
-			html.Button(html.Props{Type: "button", Class: "rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950", OnClick: openConfirm}, html.Text("Review transfer")),
-			atlasConfirmationDialog(confirmOpen.Get(), "atlas-transfer-confirm", "Confirm transfer plan", "Review the transfer before Atlas posts it so focus stays inside the confirmation step until you dismiss or submit.", "Create transfer", closeConfirm,
-				statCard("From", value.SourceWarehouseID),
-				statCard("To", value.DestinationWarehouseID),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(value.Reason)),
+			boundInputWithValue("source_warehouse_id", "Source warehouse", parseValue.SourceWarehouseID, "SourceWarehouseID", parseForm),
+			boundInputWithValue("destination_warehouse_id", "Destination warehouse", parseValue.DestinationWarehouseID, "DestinationWarehouseID", parseForm),
+			boundInputWithValue("reason", "Reason", parseValue.Reason, "Reason", parseForm),
+			boundInputWithValue("recommended_by", "Recommended by", parseValue.RecommendedBy, "RecommendedBy", parseForm),
+			html.Button(html.Props{Type: "button", Class: "rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950", OnClick: parseOpenConfirm}, html.Text("Review transfer")),
+			atlasConfirmationDialog(parseConfirmOpen.Get(), "atlas-transfer-confirm", "Confirm transfer plan", "Review the transfer before Atlas posts it so focus stays inside the confirmation step until you dismiss or submit.", "Create transfer", parseCloseConfirm,
+				statCard("From", parseValue.SourceWarehouseID),
+				statCard("To", parseValue.DestinationWarehouseID),
+				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseValue.Reason)),
 			),
 		}
-		return html.Form(html.Props{Action: "/api/app/transfers", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(payload.CSRF, children...)...)
+		return html.Form(html.Props{Action: "/api/app/transfers", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 	})
 }
 
-func thresholdForm(item inventoryRow, payload Payload) ui.Node {
-	children := []ui.Node{
+func thresholdForm(parseItem inventoryRow, parsePayload Payload) ui.Node {
+	parseChildren := []ui.Node{
 		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Adjust thresholds")),
-		inputWithValue("warehouse_id", "Warehouse", item.WarehouseID),
+		inputWithValue("warehouse_id", "Warehouse", parseItem.WarehouseID),
 		inputWithValue("reorder_point", "Reorder point", "18"),
 		inputWithValue("safety_stock", "Safety stock", "9"),
 		submitButton("Save threshold"),
 	}
-	return html.Form(html.Props{Action: "/api/app/inventory/" + item.SKU + "/threshold", Method: "post", Class: "grid gap-3 " + internalSurfaceCardClass() + " p-5"}, prependCSRFToken(payload.CSRF, children...)...)
+	return html.Form(html.Props{Action: "/api/app/inventory/" + parseItem.SKU + "/threshold", Method: "post", Class: "grid gap-3 " + internalSurfaceCardClass() + " p-5"}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 }
 
-func receivingForm(payload Payload) ui.Node {
-	return receivingFormForID("rcv-illinois-001", payload)
+func receivingForm(parsePayload Payload) ui.Node {
+	return receivingFormForID("rcv-illinois-001", parsePayload)
 }
 
-func receivingFormForID(sessionID string, payload Payload) ui.Node {
+func receivingFormForID(parseSessionID string, parsePayload Payload) ui.Node {
 	return ui.CreateElement(func() ui.Node {
-		form := ui.UseForm(receivingFormState{
+		parseForm := ui.UseForm(receivingFormState{
 			Status:             "closed",
 			DiscrepancySummary: "Short shipment recorded and available stock released.",
 		})
-		confirmOpen := ui.UseState(false)
-		value := form.Get()
-		previous := ui.UsePrevious(value)
-		workflow := ui.UseReducer(reduceReceivingResolutionWorkflowState, normalizeReceivingResolutionWorkflowState(receivingResolutionWorkflowState{
-			Status:             value.Status,
-			DiscrepancySummary: value.DiscrepancySummary,
+		parseConfirmOpen := ui.UseState(false)
+		parseValue := parseForm.Get()
+		parsePrevious := ui.UsePrevious(parseValue)
+		parseWorkflow := ui.UseReducer(reduceReceivingResolutionWorkflowState, normalizeReceivingResolutionWorkflowState(receivingResolutionWorkflowState{
+			Status:             parseValue.Status,
+			DiscrepancySummary: parseValue.DiscrepancySummary,
 		}))
-		workflowState := workflow.Get()
-		openConfirm := ui.UseEvent(func() { confirmOpen.Set(true) })
-		closeConfirm := func() { confirmOpen.Set(false) }
-		children := []ui.Node{
-			receivingResolutionSummaryCard(workflowState),
+		parseWorkflowState := parseWorkflow.Get()
+		parseOpenConfirm := ui.UseEvent(func() { parseConfirmOpen.Set(true) })
+		parseCloseConfirm := func() { parseConfirmOpen.Set(false) }
+		parseChildren := []ui.Node{
+			receivingResolutionSummaryCard(parseWorkflowState),
 			html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Reconcile receiving")),
-			receivingWorkflowInputWithValue("status", "Status", value.Status, "Status", form, workflow),
-			receivingWorkflowTextareaWithValue("discrepancy_summary", "Discrepancy summary", value.DiscrepancySummary, "DiscrepancySummary", form, workflow),
-			html.Button(html.Props{Type: "button", Class: "rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950", OnClick: openConfirm}, html.Text("Review closeout")),
-			atlasConfirmationDialog(confirmOpen.Get(), "atlas-receiving-confirm", "Confirm receiving closeout", "Atlas keeps focus inside the discrepancy confirmation step until you cancel or submit the reconciliation.", "Close session", closeConfirm,
-				statCard("Status", value.Status),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(fallback(value.DiscrepancySummary, "No discrepancy note entered."))),
+			receivingWorkflowInputWithValue("status", "Status", parseValue.Status, "Status", parseForm, parseWorkflow),
+			receivingWorkflowTextareaWithValue("discrepancy_summary", "Discrepancy summary", parseValue.DiscrepancySummary, "DiscrepancySummary", parseForm, parseWorkflow),
+			html.Button(html.Props{Type: "button", Class: "rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950", OnClick: parseOpenConfirm}, html.Text("Review closeout")),
+			atlasConfirmationDialog(parseConfirmOpen.Get(), "atlas-receiving-confirm", "Confirm receiving closeout", "Atlas keeps focus inside the discrepancy confirmation step until you cancel or submit the reconciliation.", "Close session", parseCloseConfirm,
+				statCard("Status", parseValue.Status),
+				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(fallback(parseValue.DiscrepancySummary, "No discrepancy note entered."))),
 			),
 		}
-		if changeSummary := receivingDraftChangeSummary(value, previous); changeSummary != nil {
-			children = append([]ui.Node{changeSummary}, children...)
+		if parseChangeSummary := receivingDraftChangeSummary(parseValue, parsePrevious); parseChangeSummary != nil {
+			parseChildren = append([]ui.Node{parseChangeSummary}, parseChildren...)
 		}
-		return html.Form(html.Props{Action: "/api/app/receiving/" + sessionID + "/reconcile", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(payload.CSRF, children...)...)
+		return html.Form(html.Props{Action: "/api/app/receiving/" + parseSessionID + "/reconcile", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 	})
 }
 
-func receivingDraftChangeSummary(current receivingFormState, previous ui.Previous[receivingFormState]) ui.Node {
-	if !previous.Ok() {
+func receivingDraftChangeSummary(parseCurrent receivingFormState, parsePrevious ui.Previous[receivingFormState]) ui.Node {
+	if !parsePrevious.Ok() {
 		return nil
 	}
-	prior := previous.Get()
-	summary := ""
+	parsePrior := parsePrevious.Get()
+	parseSummary := ""
 	switch {
-	case strings.TrimSpace(prior.Status) != strings.TrimSpace(current.Status):
-		summary = "Status changed from " + fallback(prior.Status, "unset") + " to " + fallback(current.Status, "unset")
-	case strings.TrimSpace(prior.DiscrepancySummary) != strings.TrimSpace(current.DiscrepancySummary):
-		summary = "Discrepancy notes were updated for the current reconciliation draft."
+	case strings.TrimSpace(parsePrior.Status) != strings.TrimSpace(parseCurrent.Status):
+		parseSummary = "Status changed from " + fallback(parsePrior.Status, "unset") + " to " + fallback(parseCurrent.Status, "unset")
+	case strings.TrimSpace(parsePrior.DiscrepancySummary) != strings.TrimSpace(parseCurrent.DiscrepancySummary):
+		parseSummary = "Discrepancy notes were updated for the current reconciliation draft."
 	}
-	if summary == "" {
+	if parseSummary == "" {
 		return nil
 	}
 	return html.Div(html.Props{Class: "rounded-[1.2rem] border border-cyan-300/20 bg-cyan-400/8 px-4 py-3 text-sm text-cyan-100"},
 		html.P(html.Props{Class: "font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text("Recent reconcile edit")),
-		html.P(html.Props{Class: "mt-2 leading-6"}, html.Text(summary)),
+		html.P(html.Props{Class: "mt-2 leading-6"}, html.Text(parseSummary)),
 	)
 }
 
-func receivingResolutionSummaryCard(state receivingResolutionWorkflowState) ui.Node {
-	stageLabel := "Classification open"
-	stageCopy := "Atlas is still waiting for the reconcile outcome and discrepancy note to settle."
-	switch state.Stage {
+func receivingResolutionSummaryCard(parseState receivingResolutionWorkflowState) ui.Node {
+	parseStageLabel := "Classification open"
+	parseStageCopy := "Atlas is still waiting for the reconcile outcome and discrepancy note to settle."
+	switch parseState.Stage {
 	case "closeout-ready":
-		stageLabel = "Closeout ready"
-		stageCopy = "Status and discrepancy notes line up, so this session can close cleanly."
+		parseStageLabel = "Closeout ready"
+		parseStageCopy = "Status and discrepancy notes line up, so this session can close cleanly."
 	case "closeout-needs-note":
-		stageLabel = "Closeout needs note"
-		stageCopy = "Closed sessions should still explain the discrepancy or closeout outcome before submit."
+		parseStageLabel = "Closeout needs note"
+		parseStageCopy = "Closed sessions should still explain the discrepancy or closeout outcome before submit."
 	case "discrepancy-review":
-		stageLabel = "Discrepancy review"
-		stageCopy = "The session is still under review, so Atlas treats this as an active exception workflow."
+		parseStageLabel = "Discrepancy review"
+		parseStageCopy = "The session is still under review, so Atlas treats this as an active exception workflow."
 	}
-	edited := "Workflow staged from the current receiving defaults."
-	if strings.TrimSpace(state.LastEditedField) != "" {
-		edited = "Last updated field: " + strings.ReplaceAll(state.LastEditedField, "_", " ") + "."
+	parseEdited := "Workflow staged from the current receiving defaults."
+	if strings.TrimSpace(parseState.LastEditedField) != "" {
+		parseEdited = "Last updated field: " + strings.ReplaceAll(parseState.LastEditedField, "_", " ") + "."
 	}
 	return html.Div(html.Props{Class: "rounded-[1.2rem] border border-cyan-300/20 bg-cyan-400/8 px-4 py-3 text-sm text-cyan-100"},
-		html.P(html.Props{Class: "font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text(stageLabel)),
-		html.P(html.Props{Class: "mt-2 leading-6"}, html.Text(stageCopy)),
-		html.P(html.Props{Class: "mt-2 text-xs uppercase tracking-[0.2em] text-cyan-200/75"}, html.Text(edited)),
+		html.P(html.Props{Class: "font-semibold uppercase tracking-[0.22em] text-cyan-300"}, html.Text(parseStageLabel)),
+		html.P(html.Props{Class: "mt-2 leading-6"}, html.Text(parseStageCopy)),
+		html.P(html.Props{Class: "mt-2 text-xs uppercase tracking-[0.2em] text-cyan-200/75"}, html.Text(parseEdited)),
 	)
 }
 
-func receivingWorkflowInputWithValue(name, label, value, field string, form ui.Form[receivingFormState], workflow ui.Reducer[receivingResolutionWorkflowState, receivingResolutionWorkflowAction]) ui.Node {
-	id := ui.UseId()
+func receivingWorkflowInputWithValue(parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[receivingFormState], parseWorkflow ui.Reducer[receivingResolutionWorkflowState, receivingResolutionWorkflowAction]) ui.Node {
+	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
-		html.Span(html.Props{ID: id + "-label"}, html.Text(label)),
+		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
 		html.Input(html.Props{
-			ID: id, Name: name, Value: value, Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100",
-			OnInput: ui.UseEvent(func(event ui.InputEvent) {
-				next := event.GetValue()
-				form.SetField(field, next)
-				workflow.Dispatch(receivingResolutionWorkflowAction{Field: name, Value: next})
+			ID: parseId, Name: parseName, Value: parseValue, Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100",
+			OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) {
+				parseNext := parseEvent.GetValue()
+				parseForm.SetField(parseField, parseNext)
+				parseWorkflow.Dispatch(receivingResolutionWorkflowAction{Field: parseName, Value: parseNext})
 			}),
-			Raw: map[string]interface{}{"aria-labelledby": id + "-label"},
+			Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"},
 		}),
 	)
 }
 
-func receivingWorkflowTextareaWithValue(name, label, value, field string, form ui.Form[receivingFormState], workflow ui.Reducer[receivingResolutionWorkflowState, receivingResolutionWorkflowAction]) ui.Node {
-	id := ui.UseId()
+func receivingWorkflowTextareaWithValue(parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[receivingFormState], parseWorkflow ui.Reducer[receivingResolutionWorkflowState, receivingResolutionWorkflowAction]) ui.Node {
+	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
-		html.Span(html.Props{ID: id + "-label"}, html.Text(label)),
+		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
 		html.Textarea(html.Props{
-			ID: id, Name: name, Value: value, Class: "min-h-28 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100",
-			OnInput: ui.UseEvent(func(event ui.InputEvent) {
-				next := event.GetValue()
-				form.SetField(field, next)
-				workflow.Dispatch(receivingResolutionWorkflowAction{Field: name, Value: next})
+			ID: parseId, Name: parseName, Value: parseValue, Class: "min-h-28 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100",
+			OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) {
+				parseNext := parseEvent.GetValue()
+				parseForm.SetField(parseField, parseNext)
+				parseWorkflow.Dispatch(receivingResolutionWorkflowAction{Field: parseName, Value: parseNext})
 			}),
-			Raw: map[string]interface{}{"aria-labelledby": id + "-label"},
-		}, html.Text(value)),
+			Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"},
+		}, html.Text(parseValue)),
 	)
 }
 
-func purchaseOrderStatusForm(id string, status string, payload Payload) ui.Node {
-	children := []ui.Node{
+func purchaseOrderStatusForm(parseId string, parseStatus string, parsePayload Payload) ui.Node {
+	parseChildren := []ui.Node{
 		html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Update order status")),
-		inputWithValue("status", "Status", fallback(status, "submitted")),
+		inputWithValue("status", "Status", fallback(parseStatus, "submitted")),
 		textareaWithValue("note", "Note", "Validated by Atlas operations."),
 		submitButton("Update order"),
 	}
-	return html.Form(html.Props{Action: "/api/app/purchase-orders/" + id + "/status", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(payload.CSRF, children...)...)
+	return html.Form(html.Props{Action: "/api/app/purchase-orders/" + parseId + "/status", Method: "post", Class: "grid gap-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-5"}, prependCSRFToken(parsePayload.CSRF, parseChildren...)...)
 }
 
-func prependCSRFToken(token string, children ...ui.Node) []ui.Node {
-	if strings.TrimSpace(token) == "" {
-		return children
+func prependCSRFToken(parseToken string, parseChildren ...ui.Node) []ui.Node {
+	if strings.TrimSpace(parseToken) == "" {
+		return parseChildren
 	}
-	fieldName, fieldValue := ui.NewCSRFToken(token).FormField()
-	result := make([]ui.Node, 0, len(children)+1)
-	result = append(result, html.HiddenInput(fieldName, fieldValue))
-	result = append(result, children...)
-	return result
+	parseFieldName, parseFieldValue := ui.NewCSRFToken(parseToken).FormField()
+	parseResult := make([]ui.Node, 0, len(parseChildren)+1)
+	parseResult = append(parseResult, html.HiddenInput(parseFieldName, parseFieldValue))
+	parseResult = append(parseResult, parseChildren...)
+	return parseResult
 }
 
-func input(name, label string) ui.Node {
-	return inputWithValue(name, label, "")
+func input(parseName, parseLabel string) ui.Node {
+	return inputWithValue(parseName, parseLabel, "")
 }
 
-func publicInput(name, label string) ui.Node {
-	return publicInputWithValue(name, label, "")
+func publicInput(parseName, parseLabel string) ui.Node {
+	return publicInputWithValue(parseName, parseLabel, "")
 }
 
-func publicInputWithValue(name, label, value string) ui.Node {
-	id := ui.UseId()
+func publicInputWithValue(parseName, parseLabel, parseValue string) ui.Node {
+	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
-		html.Span(html.Props{ID: id + "-label"}, html.Text(label)),
-		html.Input(html.Props{ID: id, Name: name, Value: value, Class: "rounded-[1.1rem] border border-white/10 bg-[rgba(8,12,20,0.9)] px-4 py-3 text-white outline-none transition focus:border-amber-300/60 focus:bg-[rgba(10,15,24,1)]", Raw: map[string]interface{}{"aria-labelledby": id + "-label"}}),
+		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
+		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, Class: "rounded-[1.1rem] border border-white/10 bg-[rgba(8,12,20,0.9)] px-4 py-3 text-white outline-none transition focus:border-amber-300/60 focus:bg-[rgba(10,15,24,1)]", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
-func inputWithValue(name, label, value string) ui.Node {
-	id := ui.UseId()
+func inputWithValue(parseName, parseLabel, parseValue string) ui.Node {
+	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
-		html.Span(html.Props{ID: id + "-label"}, html.Text(label)),
-		html.Input(html.Props{ID: id, Name: name, Value: value, Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": id + "-label"}}),
+		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
+		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
-func boundInputWithValue[T any](name, label, value, field string, form ui.Form[T]) ui.Node {
-	id := ui.UseId()
+func boundInputWithValue[T any](parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[T]) ui.Node {
+	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
-		html.Span(html.Props{ID: id + "-label"}, html.Text(label)),
-		html.Input(html.Props{ID: id, Name: name, Value: value, OnInput: ui.UseEvent(func(event ui.InputEvent) { form.SetField(field, event.GetValue()) }), Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": id + "-label"}}),
+		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
+		html.Input(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
-func boundTransitionSelectWithValue[T any](name, label, value, field string, options []optionItem, form ui.Form[T], transition atlasTransition) ui.Node {
-	id := ui.UseId()
-	children := make([]ui.Node, 0, len(options))
-	for _, option := range options {
-		selected := strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(option.Value)) || (strings.TrimSpace(value) == "" && option.Value == "")
-		children = append(children, html.Option(html.Props{Value: option.Value, Selected: selected}, html.Text(option.Label)))
+func boundTransitionSelectWithValue[T any](parseName, parseLabel, parseValue, parseField string, parseOptions []optionItem, parseForm ui.Form[T], parseTransition atlasTransition) ui.Node {
+	parseId := ui.UseId()
+	parseChildren := make([]ui.Node, 0, len(parseOptions))
+	for _, parseOption := range parseOptions {
+		isParseSelected := strings.EqualFold(strings.TrimSpace(parseValue), strings.TrimSpace(parseOption.Value)) || (strings.TrimSpace(parseValue) == "" && parseOption.Value == "")
+		parseChildren = append(parseChildren, html.Option(html.Props{Value: parseOption.Value, Selected: isParseSelected}, html.Text(parseOption.Label)))
 	}
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
-		html.Span(html.Props{ID: id + "-label"}, html.Text(label)),
+		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
 		html.Select(html.Props{
-			ID:   id,
-			Name: name,
-			OnChange: ui.UseEvent(func(event ui.ChangeEvent) {
-				atlasSetFormFieldInTransition(form, field, event.GetValue())
+			ID:   parseId,
+			Name: parseName,
+			OnChange: ui.UseEvent(func(parseEvent ui.ChangeEvent) {
+				atlasSetFormFieldInTransition(parseForm, parseField, parseEvent.GetValue())
 			}),
 			Class: "rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100",
-			Raw:   map[string]interface{}{"aria-labelledby": id + "-label", "data-transition": transition.Pending()},
-		}, children...),
+			Raw:   map[string]interface{}{"aria-labelledby": parseId + "-label", "data-transition": parseTransition.Pending()},
+		}, parseChildren...),
 	)
 }
 
-func publicTextarea(name, label string) ui.Node {
-	id := ui.UseId()
+func publicTextarea(parseName, parseLabel string) ui.Node {
+	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm font-medium text-stone-300"},
-		html.Span(html.Props{ID: id + "-label"}, html.Text(label)),
-		html.Textarea(html.Props{ID: id, Name: name, Class: "min-h-28 rounded-[1.1rem] border border-white/10 bg-[rgba(8,12,20,0.9)] px-4 py-3 text-white outline-none transition focus:border-amber-300/60 focus:bg-[rgba(10,15,24,1)]", Raw: map[string]interface{}{"aria-labelledby": id + "-label"}}),
+		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
+		html.Textarea(html.Props{ID: parseId, Name: parseName, Class: "min-h-28 rounded-[1.1rem] border border-white/10 bg-[rgba(8,12,20,0.9)] px-4 py-3 text-white outline-none transition focus:border-amber-300/60 focus:bg-[rgba(10,15,24,1)]", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}),
 	)
 }
 
-func textareaWithValue(name, label, value string) ui.Node {
-	id := ui.UseId()
+func textareaWithValue(parseName, parseLabel, parseValue string) ui.Node {
+	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
-		html.Span(html.Props{ID: id + "-label"}, html.Text(label)),
-		html.Textarea(html.Props{ID: id, Name: name, Class: "min-h-28 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": id + "-label"}}, html.Text(value)),
+		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
+		html.Textarea(html.Props{ID: parseId, Name: parseName, Class: "min-h-28 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
 	)
 }
 
-func boundTextareaWithValue[T any](name, label, value, field string, form ui.Form[T]) ui.Node {
-	id := ui.UseId()
+func boundTextareaWithValue[T any](parseName, parseLabel, parseValue, parseField string, parseForm ui.Form[T]) ui.Node {
+	parseId := ui.UseId()
 	return html.Label(html.Props{Class: "grid gap-2 text-sm text-slate-200"},
-		html.Span(html.Props{ID: id + "-label"}, html.Text(label)),
-		html.Textarea(html.Props{ID: id, Name: name, Value: value, OnInput: ui.UseEvent(func(event ui.InputEvent) { form.SetField(field, event.GetValue()) }), Class: "min-h-28 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": id + "-label"}}, html.Text(value)),
+		html.Span(html.Props{ID: parseId + "-label"}, html.Text(parseLabel)),
+		html.Textarea(html.Props{ID: parseId, Name: parseName, Value: parseValue, OnInput: ui.UseEvent(func(parseEvent ui.InputEvent) { parseForm.SetField(parseField, parseEvent.GetValue()) }), Class: "min-h-28 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-slate-100", Raw: map[string]interface{}{"aria-labelledby": parseId + "-label"}}, html.Text(parseValue)),
 	)
 }
 
-func preferenceDensityPreviewCard(value string, pending bool) ui.Node {
-	density := atlasNormalizedFilterValue(value)
-	if density == "" {
-		density = "compact"
+func preferenceDensityPreviewCard(parseValue string, isPending bool) ui.Node {
+	parseDensity := atlasNormalizedFilterValue(parseValue)
+	if parseDensity == "" {
+		parseDensity = "compact"
 	}
-	className := "atlas-density-preview atlas-density-preview-compact"
-	copy := "Compact density keeps Atlas information-dense for operators working wide tables and queue summaries."
-	if density == "comfortable" {
-		className = "atlas-density-preview atlas-density-preview-comfortable"
-		copy = "Comfortable density increases whitespace so route summaries and action rails breathe more during review."
+	parseClassName := "atlas-density-preview atlas-density-preview-compact"
+	parseCopy := "Compact density keeps Atlas information-dense for operators working wide tables and queue summaries."
+	if parseDensity == "comfortable" {
+		parseClassName = "atlas-density-preview atlas-density-preview-comfortable"
+		parseCopy = "Comfortable density increases whitespace so route summaries and action rails breathe more during review."
 	}
-	if pending {
-		copy = "Applying the next density preview in a transition so the settings form stays responsive."
+	if isPending {
+		parseCopy = "Applying the next density preview in a transition so the settings form stays responsive."
 	}
 	return html.Div(html.Props{Class: "grid gap-3 rounded-[1.35rem] border border-white/10 bg-slate-950/45 p-4"},
 		html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.22em] text-slate-400"}, html.Text("Density preview")),
-		html.Div(html.Props{Class: className},
-			html.Div(html.Props{Class: "rounded-full border border-cyan-300/35 bg-cyan-300/12 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100"}, html.Text(strings.Title(density))),
+		html.Div(html.Props{Class: parseClassName},
+			html.Div(html.Props{Class: "rounded-full border border-cyan-300/35 bg-cyan-300/12 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100"}, html.Text(strings.Title(parseDensity))),
 			html.Div(html.Props{Class: "rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.2em] text-slate-300"}, html.Text("Warehouse shell")),
 			html.Div(html.Props{Class: "rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.2em] text-slate-300"}, html.Text("Inventory rail")),
 		),
-		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(copy)),
+		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseCopy)),
 	)
 }
 
-func submitButton(label string) ui.Node {
-	return html.Button(html.Props{Type: "submit", Class: "rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950"}, html.Text(label))
+func submitButton(parseLabel string) ui.Node {
+	return html.Button(html.Props{Type: "submit", Class: "rounded-full bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950"}, html.Text(parseLabel))
 }
 
-func commentNodes(items []commentRecord) []ui.Node {
-	nodes := make([]ui.Node, 0, len(items))
-	for _, item := range items {
-		nodes = append(nodes, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3"},
-			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(item.Subject+" · "+item.Status)),
-			html.P(html.Props{Class: "mt-2 text-xs uppercase tracking-[0.22em] text-slate-400"}, html.Text(item.ProductSKU+" · "+item.AuthorName+" · "+strings.ReplaceAll(item.AuthorType, "_", " "))),
-			html.P(html.Props{Class: "mt-2 text-sm text-slate-300"}, html.Text(item.Body)),
+func commentNodes(parseItems []commentRecord) []ui.Node {
+	parseNodes := make([]ui.Node, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		parseNodes = append(parseNodes, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3"},
+			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseItem.Subject+" · "+parseItem.Status)),
+			html.P(html.Props{Class: "mt-2 text-xs uppercase tracking-[0.22em] text-slate-400"}, html.Text(parseItem.ProductSKU+" · "+parseItem.AuthorName+" · "+strings.ReplaceAll(parseItem.AuthorType, "_", " "))),
+			html.P(html.Props{Class: "mt-2 text-sm text-slate-300"}, html.Text(parseItem.Body)),
 		))
 	}
-	return nodes
+	return parseNodes
 }
 
-func internalWorkflowSection(title, copy string, cards ...ui.Node) ui.Node {
+func internalWorkflowSection(parseTitle, parseCopy string, parseCards ...ui.Node) ui.Node {
 	return ui.CreateElement(func() ui.Node {
-		open := ui.UseState(false)
-		sheetID := ui.UseId() + "-workflow-sheet"
-		titleID := sheetID + "-title"
-		descriptionID := sheetID + "-description"
-		closeID := sheetID + "-close"
-		openDrawer := ui.UseEvent(func() { open.Set(true) })
-		closeDrawer := func() { open.Set(false) }
-		children := []ui.Node{
+		parseOpen := ui.UseState(false)
+		parseSheetID := ui.UseId() + "-workflow-sheet"
+		parseTitleID := parseSheetID + "-title"
+		parseDescriptionID := parseSheetID + "-description"
+		parseCloseID := parseSheetID + "-close"
+		parseOpenDrawer := ui.UseEvent(func() { parseOpen.Set(true) })
+		parseCloseDrawer := func() { parseOpen.Set(false) }
+		parseChildren := []ui.Node{
 			html.Div(html.Props{Class: "grid gap-2"},
-				html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text(title)),
-				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(copy)),
+				html.P(html.Props{Class: "text-sm font-semibold uppercase tracking-[0.25em] text-cyan-300"}, html.Text(parseTitle)),
+				html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseCopy)),
 			),
-			html.Button(html.Props{Type: "button", Class: "inline-flex w-fit items-center rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-100 lg:hidden", OnClick: openDrawer}, html.Text("Open quick actions")),
-			html.Div(html.Props{Class: "hidden gap-4 md:grid-cols-2 xl:grid-cols-3 lg:grid"}, cards...),
-			atlasDismissibleSheet(open.Get(), sheetID, titleID, descriptionID, "#"+closeID, closeDrawer, html.Div(html.Props{Class: "grid gap-4"},
+			html.Button(html.Props{Type: "button", Class: "inline-flex w-fit items-center rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-3 text-sm font-semibold text-cyan-100 lg:hidden", OnClick: parseOpenDrawer}, html.Text("Open quick actions")),
+			html.Div(html.Props{Class: "hidden gap-4 md:grid-cols-2 xl:grid-cols-3 lg:grid"}, parseCards...),
+			atlasDismissibleSheet(parseOpen.Get(), parseSheetID, parseTitleID, parseDescriptionID, "#"+parseCloseID, parseCloseDrawer, html.Div(html.Props{Class: "grid gap-4"},
 				html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
 					html.Div(html.Props{Class: "grid gap-2"},
 						html.P(html.Props{Class: "text-[0.72rem] font-semibold uppercase tracking-[0.3em] text-cyan-300"}, html.Text("Quick actions")),
-						html.P(html.Props{ID: titleID, Class: "text-lg font-semibold text-white"}, html.Text(title)),
-						html.P(html.Props{ID: descriptionID, Class: "text-sm leading-6 text-slate-400"}, html.Text(copy)),
+						html.P(html.Props{ID: parseTitleID, Class: "text-lg font-semibold text-white"}, html.Text(parseTitle)),
+						html.P(html.Props{ID: parseDescriptionID, Class: "text-sm leading-6 text-slate-400"}, html.Text(parseCopy)),
 					),
-					html.Button(html.Props{ID: closeID, Type: "button", Class: warehouseSecondaryButtonClass(), OnClick: ui.UseEvent(func() { closeDrawer() })}, html.Text("Close")),
+					html.Button(html.Props{ID: parseCloseID, Type: "button", Class: warehouseSecondaryButtonClass(), OnClick: ui.UseEvent(func() { parseCloseDrawer() })}, html.Text("Close")),
 				),
-				html.Div(html.Props{Class: "grid gap-4"}, cards...),
+				html.Div(html.Props{Class: "grid gap-4"}, parseCards...),
 			)),
 		}
-		return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"}, children...)
+		return html.Div(html.Props{Class: "grid gap-4 " + internalSurfaceCardClass() + " p-5"}, parseChildren...)
 	})
 }
 
-func internalWorkflowCard(step, title, copy, href string) ui.Node {
-	return html.A(html.Props{Href: href, Class: "grid gap-3 " + internalAccentSurfaceClass() + " p-4 transition hover:border-cyan-300/55 hover:bg-[linear-gradient(180deg,rgba(10,24,42,0.96),rgba(7,14,26,0.99))]"},
-		html.P(html.Props{Class: "text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text(step)),
-		html.P(html.Props{Class: "text-base font-semibold text-white"}, html.Text(title)),
-		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(copy)),
+func internalWorkflowCard(parseStep, parseTitle, parseCopy, parseHref string) ui.Node {
+	return html.A(html.Props{Href: parseHref, Class: "grid gap-3 " + internalAccentSurfaceClass() + " p-4 transition hover:border-cyan-300/55 hover:bg-[linear-gradient(180deg,rgba(10,24,42,0.96),rgba(7,14,26,0.99))]"},
+		html.P(html.Props{Class: "text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-cyan-300"}, html.Text(parseStep)),
+		html.P(html.Props{Class: "text-base font-semibold text-white"}, html.Text(parseTitle)),
+		html.P(html.Props{Class: "text-sm leading-6 text-slate-300"}, html.Text(parseCopy)),
 		html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.25em] text-slate-400"}, html.Text("Open workflow")),
 	)
 }
 
-func transferNodes(items []transferRecord) []ui.Node {
-	nodes := make([]ui.Node, 0, len(items))
-	for _, item := range items {
-		nodes = append(nodes, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3"},
-			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(item.SourceWarehouseID+" → "+item.DestinationWarehouse)),
-			html.P(html.Props{Class: "mt-2 text-sm text-slate-300"}, html.Text(item.Reason+" · "+item.Status)),
+func transferNodes(parseItems []transferRecord) []ui.Node {
+	parseNodes := make([]ui.Node, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		parseNodes = append(parseNodes, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3"},
+			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseItem.SourceWarehouseID+" → "+parseItem.DestinationWarehouse)),
+			html.P(html.Props{Class: "mt-2 text-sm text-slate-300"}, html.Text(parseItem.Reason+" · "+parseItem.Status)),
 		))
 	}
-	return nodes
+	return parseNodes
 }
 
-func receivingNodes(items []receivingRecord) []ui.Node {
-	nodes := make([]ui.Node, 0, len(items))
-	for _, item := range items {
-		nodes = append(nodes, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3"},
-			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(item.ID+" · "+item.Status)),
-			html.P(html.Props{Class: "mt-2 text-sm text-slate-300"}, html.Text(fallback(item.DiscrepancySummary, "No discrepancies recorded."))),
+func receivingNodes(parseItems []receivingRecord) []ui.Node {
+	parseNodes := make([]ui.Node, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		parseNodes = append(parseNodes, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3"},
+			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseItem.ID+" · "+parseItem.Status)),
+			html.P(html.Props{Class: "mt-2 text-sm text-slate-300"}, html.Text(fallback(parseItem.DiscrepancySummary, "No discrepancies recorded."))),
 		))
 	}
-	return nodes
+	return parseNodes
 }
 
-func infoRow(primary string, secondary string) ui.Node {
+func infoRow(parsePrimary string, parseSecondary string) ui.Node {
 	return html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3"},
-		html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(primary)),
-		html.P(html.Props{Class: "mt-2 text-sm text-slate-300"}, html.Text(secondary)),
+		html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parsePrimary)),
+		html.P(html.Props{Class: "mt-2 text-sm text-slate-300"}, html.Text(parseSecondary)),
 	)
 }
 
-func activeNavLink(currentPath string, href string) bool {
-	current := strings.TrimSpace(currentPath)
-	target := strings.TrimSpace(href)
-	if current == target {
+func activeNavLink(parseCurrentPath string, parseHref string) bool {
+	parseCurrent := strings.TrimSpace(parseCurrentPath)
+	parseTarget := strings.TrimSpace(parseHref)
+	if parseCurrent == parseTarget {
 		return true
 	}
-	if target == "/" {
+	if parseTarget == "/" {
 		return false
 	}
-	return strings.HasPrefix(current, target+"/")
+	return strings.HasPrefix(parseCurrent, parseTarget+"/")
 }
 
-func routeSummary(path string) string {
+func routeSummary(parsePath string) string {
 	switch {
-	case path == "/":
+	case parsePath == "/":
 		return "Atlas helps teams discover workspace products, compare regional delivery options, and request pricing without losing context."
-	case strings.HasPrefix(path, "/shop/"):
+	case strings.HasPrefix(parsePath, "/shop/"):
 		return "This product page keeps pricing, delivery questions, and next steps together so buyers can decide with confidence."
-	case path == "/shop":
+	case parsePath == "/shop":
 		return "Browse workspace systems with clear pricing cues, delivery context, and straightforward next steps."
-	case strings.HasPrefix(path, "/warehouses"):
+	case strings.HasPrefix(parsePath, "/warehouses"):
 		return "Explore Atlas delivery regions, compare service levels, and open the warehouse view that best fits your project timing."
-	case strings.HasPrefix(path, "/app"):
+	case strings.HasPrefix(parsePath, "/app"):
 		return "Internal routes keep buyer inbox, merchandising, inventory, transfers, receiving, and preferences inside one server-backed Atlas console."
 	default:
 		return "Atlas route payload hydrated successfully from the server bootstrap."
 	}
 }
 
-func payloadDataValue(payload Payload, key string) any {
-	if request, ok := payload.Requests[strings.TrimSpace(key)]; ok && len(request.Data) > 0 {
-		if value, exists := request.Data[strings.TrimSpace(key)]; exists {
-			return value
+func payloadDataValue(parsePayload Payload, parseKey string) any {
+	if parseRequest, parseOk := parsePayload.Requests[strings.TrimSpace(parseKey)]; parseOk && len(parseRequest.Data) > 0 {
+		if parseValue, parseExists := parseRequest.Data[strings.TrimSpace(parseKey)]; parseExists {
+			return parseValue
 		}
 	}
-	if payload.Data == nil {
+	if parsePayload.Data == nil {
 		return nil
 	}
-	return payload.Data[strings.TrimSpace(key)]
+	return parsePayload.Data[strings.TrimSpace(parseKey)]
 }
 
-func pageData(payload Payload) any {
-	return payloadDataValue(payload, "page")
+func pageData(parsePayload Payload) any {
+	return payloadDataValue(parsePayload, "page")
 }
 
-func decode[T any](value any) T {
-	var result T
-	if value == nil {
-		return result
+func decode[T any](parseValue any) T {
+	var parseResult T
+	if parseValue == nil {
+		return parseResult
 	}
-	encoded, err := json.Marshal(value)
-	if err != nil {
-		return result
+	parseEncoded, parseErr := json.Marshal(parseValue)
+	if parseErr != nil {
+		return parseResult
 	}
-	_ = json.Unmarshal(encoded, &result)
-	return result
+	_ = json.Unmarshal(parseEncoded, &parseResult)
+	return parseResult
 }
 
-func decodeJSONText[T any](value string) T {
-	var result T
-	if strings.TrimSpace(value) == "" {
-		return result
+func decodeJSONText[T any](parseValue string) T {
+	var parseResult T
+	if strings.TrimSpace(parseValue) == "" {
+		return parseResult
 	}
-	_ = json.Unmarshal([]byte(value), &result)
-	return result
+	_ = json.Unmarshal([]byte(parseValue), &parseResult)
+	return parseResult
 }
 
-func fallback(value string, defaultValue string) string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return defaultValue
+func fallback(parseValue string, parseDefaultValue string) string {
+	parseTrimmed := strings.TrimSpace(parseValue)
+	if parseTrimmed == "" {
+		return parseDefaultValue
 	}
-	return trimmed
+	return parseTrimmed
 }
 
-func firstQueryValue(values map[string][]string, key string) string {
-	if len(values[key]) == 0 {
+func firstQueryValue(parseValues map[string][]string, parseKey string) string {
+	if len(parseValues[parseKey]) == 0 {
 		return ""
 	}
-	return values[key][0]
+	return parseValues[parseKey][0]
 }
 
-func formatPrice(cents int) string {
-	return fmt.Sprintf("$%0.2f", float64(cents)/100)
+func formatPrice(parseCents int) string {
+	return fmt.Sprintf("$%0.2f", float64(parseCents)/100)
 }
 
-func sortedMapStrings(values map[string]any) []string {
-	if len(values) == 0 {
+func sortedMapStrings(parseValues map[string]any) []string {
+	if len(parseValues) == 0 {
 		return nil
 	}
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
+	parseKeys := make([]string, 0, len(parseValues))
+	for parseKey := range parseValues {
+		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(keys)
-	lines := make([]string, 0, len(keys))
-	for _, key := range keys {
-		lines = append(lines, fmt.Sprintf("%s: %v", key, values[key]))
+	sort.Strings(parseKeys)
+	parseLines := make([]string, 0, len(parseKeys))
+	for _, parseKey2 := range parseKeys {
+		parseLines = append(parseLines, fmt.Sprintf("%s: %v", parseKey2, parseValues[parseKey2]))
 	}
-	return lines
+	return parseLines
 }

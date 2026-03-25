@@ -12,320 +12,320 @@ import (
 	"github.com/monstercameron/GoWebComponents/examples/86-atlas-commerce-os/shared/repository"
 )
 
-func TestLoadMigrationsAndMigrateFallback(t *testing.T) {
-	t.Parallel()
+func TestLoadMigrationsAndMigrateFallback(parseT *testing.T) {
+	parseT.Parallel()
 
-	tempDir := t.TempDir()
-	migrationsDir := filepath.Join(tempDir, "migrations")
-	if err := os.MkdirAll(migrationsDir, 0o755); err != nil {
-		t.Fatalf("mkdir migrations: %v", err)
+	parseTempDir := parseT.TempDir()
+	parseMigrationsDir := filepath.Join(parseTempDir, "migrations")
+	if parseErr := os.MkdirAll(parseMigrationsDir, 0o755); parseErr != nil {
+		parseT.Fatalf("mkdir migrations: %v", parseErr)
 	}
-	if err := os.WriteFile(filepath.Join(migrationsDir, "002_b.sql"), []byte("create table if not exists b(id text);"), 0o644); err != nil {
-		t.Fatalf("write migration b: %v", err)
+	if parseErr2 := os.WriteFile(filepath.Join(parseMigrationsDir, "002_b.sql"), []byte("create table if not exists b(id text);"), 0o644); parseErr2 != nil {
+		parseT.Fatalf("write migration b: %v", parseErr2)
 	}
-	if err := os.WriteFile(filepath.Join(migrationsDir, "001_a.sql"), []byte("create table if not exists a(id text);"), 0o644); err != nil {
-		t.Fatalf("write migration a: %v", err)
+	if parseErr3 := os.WriteFile(filepath.Join(parseMigrationsDir, "001_a.sql"), []byte("create table if not exists a(id text);"), 0o644); parseErr3 != nil {
+		parseT.Fatalf("write migration a: %v", parseErr3)
 	}
-	if err := os.WriteFile(filepath.Join(migrationsDir, "README.txt"), []byte("ignored"), 0o644); err != nil {
-		t.Fatalf("write migration noise: %v", err)
-	}
-
-	fallback := filepath.Join(tempDir, "schema.sql")
-	if err := os.WriteFile(fallback, []byte("create table if not exists fallback_only(id text);"), 0o644); err != nil {
-		t.Fatalf("write fallback schema: %v", err)
+	if parseErr4 := os.WriteFile(filepath.Join(parseMigrationsDir, "README.txt"), []byte("ignored"), 0o644); parseErr4 != nil {
+		parseT.Fatalf("write migration noise: %v", parseErr4)
 	}
 
-	loaded, err := loadMigrations(migrationsDir, fallback)
-	if err != nil {
-		t.Fatalf("load migrations: %v", err)
-	}
-	if len(loaded) != 2 {
-		t.Fatalf("expected 2 migrations, got %d", len(loaded))
-	}
-	if loaded[0].Version != "001_a.sql" || loaded[1].Version != "002_b.sql" {
-		t.Fatalf("migrations not sorted: %#v", loaded)
+	parseFallback := filepath.Join(parseTempDir, "schema.sql")
+	if parseErr5 := os.WriteFile(parseFallback, []byte("create table if not exists fallback_only(id text);"), 0o644); parseErr5 != nil {
+		parseT.Fatalf("write fallback schema: %v", parseErr5)
 	}
 
-	fallbackOnlyDir := filepath.Join(tempDir, "missing-migrations")
-	loadedFallback, err := loadMigrations(fallbackOnlyDir, fallback)
-	if err != nil {
-		t.Fatalf("load fallback migrations: %v", err)
+	parseLoaded, parseErr6 := loadMigrations(parseMigrationsDir, parseFallback)
+	if parseErr6 != nil {
+		parseT.Fatalf("load migrations: %v", parseErr6)
 	}
-	if len(loadedFallback) != 1 || loadedFallback[0].Version != "001_initial_schema.sql" {
-		t.Fatalf("unexpected fallback migration payload: %#v", loadedFallback)
+	if len(parseLoaded) != 2 {
+		parseT.Fatalf("expected 2 migrations, got %d", len(parseLoaded))
 	}
-
-	_, err = loadMigrations(fallbackOnlyDir, filepath.Join(tempDir, "missing-schema.sql"))
-	if err == nil {
-		t.Fatalf("expected error when no migrations and no fallback schema")
+	if parseLoaded[0].Version != "001_a.sql" || parseLoaded[1].Version != "002_b.sql" {
+		parseT.Fatalf("migrations not sorted: %#v", parseLoaded)
 	}
 
-	ctx := context.Background()
-	database, err := Open(ctx, filepath.Join(tempDir, "atlas.db"))
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
+	parseFallbackOnlyDir := filepath.Join(parseTempDir, "missing-migrations")
+	parseLoadedFallback, parseErr6 := loadMigrations(parseFallbackOnlyDir, parseFallback)
+	if parseErr6 != nil {
+		parseT.Fatalf("load fallback migrations: %v", parseErr6)
 	}
-	t.Cleanup(func() {
-		_ = database.Close()
+	if len(parseLoadedFallback) != 1 || parseLoadedFallback[0].Version != "001_initial_schema.sql" {
+		parseT.Fatalf("unexpected fallback migration payload: %#v", parseLoadedFallback)
+	}
+
+	_, parseErr6 = loadMigrations(parseFallbackOnlyDir, filepath.Join(parseTempDir, "missing-schema.sql"))
+	if parseErr6 == nil {
+		parseT.Fatalf("expected error when no migrations and no fallback schema")
+	}
+
+	parseCtx := context.Background()
+	parseDatabase, parseErr6 := Open(parseCtx, filepath.Join(parseTempDir, "atlas.db"))
+	if parseErr6 != nil {
+		parseT.Fatalf("open sqlite: %v", parseErr6)
+	}
+	parseT.Cleanup(func() {
+		_ = parseDatabase.Close()
 	})
-	if err := Migrate(ctx, database, fallbackOnlyDir, fallback); err != nil {
-		t.Fatalf("migrate with fallback: %v", err)
+	if parseErr7 := Migrate(parseCtx, parseDatabase, parseFallbackOnlyDir, parseFallback); parseErr7 != nil {
+		parseT.Fatalf("migrate with fallback: %v", parseErr7)
 	}
-	if err := Migrate(ctx, database, fallbackOnlyDir, fallback); err != nil {
-		t.Fatalf("migrate idempotency: %v", err)
+	if parseErr8 := Migrate(parseCtx, parseDatabase, parseFallbackOnlyDir, parseFallback); parseErr8 != nil {
+		parseT.Fatalf("migrate idempotency: %v", parseErr8)
 	}
 
-	var migrationCount int
-	if err := database.QueryRowContext(ctx, `select count(*) from schema_migrations`).Scan(&migrationCount); err != nil {
-		t.Fatalf("count schema migrations: %v", err)
+	var parseMigrationCount int
+	if parseErr9 := parseDatabase.QueryRowContext(parseCtx, `select count(*) from schema_migrations`).Scan(&parseMigrationCount); parseErr9 != nil {
+		parseT.Fatalf("count schema migrations: %v", parseErr9)
 	}
-	if migrationCount != 1 {
-		t.Fatalf("expected one applied migration, got %d", migrationCount)
+	if parseMigrationCount != 1 {
+		parseT.Fatalf("expected one applied migration, got %d", parseMigrationCount)
 	}
 }
 
-func TestStoreReadFlows(t *testing.T) {
-	t.Parallel()
+func TestStoreReadFlows(parseT *testing.T) {
+	parseT.Parallel()
 
-	ctx, store, database := newSeededStore(t)
-	if err := Seed(ctx, database); err != nil {
-		t.Fatalf("seed second pass: %v", err)
+	parseCtx, store, parseDatabase := newSeededStore(parseT)
+	if parseErr := Seed(parseCtx, parseDatabase); parseErr != nil {
+		parseT.Fatalf("seed second pass: %v", parseErr)
 	}
 
-	catalog, err := store.Catalog(ctx, CatalogQuery{
+	parseCatalog, parseErr2 := store.Catalog(parseCtx, CatalogQuery{
 		Search:    "frame",
 		Category:  "desks",
 		Warehouse: "new-jersey-hub",
 		Sort:      "warehouse",
 	})
-	if err != nil {
-		t.Fatalf("catalog: %v", err)
+	if parseErr2 != nil {
+		parseT.Fatalf("catalog: %v", parseErr2)
 	}
-	if catalog.Page != 1 || catalog.PageSize != 12 {
-		t.Fatalf("catalog paging defaults not applied: %#v", catalog.Query)
+	if parseCatalog.Page != 1 || parseCatalog.PageSize != 12 {
+		parseT.Fatalf("catalog paging defaults not applied: %#v", parseCatalog.Query)
 	}
-	if catalog.Total < 1 || len(catalog.Items) < 1 {
-		t.Fatalf("expected catalog rows, got total=%d items=%d", catalog.Total, len(catalog.Items))
-	}
-
-	product, err := store.ProductBySlug(ctx, "frame-desk")
-	if err != nil {
-		t.Fatalf("product by slug: %v", err)
-	}
-	if product.SKU != "frame-desk" {
-		t.Fatalf("unexpected product sku: %s", product.SKU)
+	if parseCatalog.Total < 1 || len(parseCatalog.Items) < 1 {
+		parseT.Fatalf("expected catalog rows, got total=%d items=%d", parseCatalog.Total, len(parseCatalog.Items))
 	}
 
-	warehouses, err := store.Warehouses(ctx)
-	if err != nil {
-		t.Fatalf("warehouses: %v", err)
+	parseProduct, parseErr2 := store.ProductBySlug(parseCtx, "frame-desk")
+	if parseErr2 != nil {
+		parseT.Fatalf("product by slug: %v", parseErr2)
 	}
-	if len(warehouses) < 3 {
-		t.Fatalf("expected seeded warehouses, got %d", len(warehouses))
-	}
-	warehouse, err := store.WarehouseBySlug(ctx, "new-jersey-hub")
-	if err != nil {
-		t.Fatalf("warehouse by slug: %v", err)
-	}
-	if warehouse.ID != "new-jersey-hub" {
-		t.Fatalf("unexpected warehouse id: %s", warehouse.ID)
+	if parseProduct.SKU != "frame-desk" {
+		parseT.Fatalf("unexpected product sku: %s", parseProduct.SKU)
 	}
 
-	availability, err := store.Availability(ctx, "new-jersey-hub", "frame-desk")
-	if err != nil {
-		t.Fatalf("availability: %v", err)
+	parseWarehouses, parseErr2 := store.Warehouses(parseCtx)
+	if parseErr2 != nil {
+		parseT.Fatalf("warehouses: %v", parseErr2)
 	}
-	if availability.Product.SKU != "frame-desk" || availability.Warehouse.ID != "new-jersey-hub" {
-		t.Fatalf("unexpected availability payload: %#v", availability)
+	if len(parseWarehouses) < 3 {
+		parseT.Fatalf("expected seeded warehouses, got %d", len(parseWarehouses))
+	}
+	parseWarehouse, parseErr2 := store.WarehouseBySlug(parseCtx, "new-jersey-hub")
+	if parseErr2 != nil {
+		parseT.Fatalf("warehouse by slug: %v", parseErr2)
+	}
+	if parseWarehouse.ID != "new-jersey-hub" {
+		parseT.Fatalf("unexpected warehouse id: %s", parseWarehouse.ID)
 	}
 
-	inventoryRows, err := store.InventoryList(ctx, repository.InventoryQuery{
+	parseAvailability, parseErr2 := store.Availability(parseCtx, "new-jersey-hub", "frame-desk")
+	if parseErr2 != nil {
+		parseT.Fatalf("availability: %v", parseErr2)
+	}
+	if parseAvailability.Product.SKU != "frame-desk" || parseAvailability.Warehouse.ID != "new-jersey-hub" {
+		parseT.Fatalf("unexpected availability payload: %#v", parseAvailability)
+	}
+
+	parseInventoryRows, parseErr2 := store.InventoryList(parseCtx, repository.InventoryQuery{
 		Warehouse:   "new-jersey-hub",
 		StockHealth: "promise_risk",
 		Search:      "frame",
 		SortKey:     "inbound",
 	})
-	if err != nil {
-		t.Fatalf("inventory list: %v", err)
+	if parseErr2 != nil {
+		parseT.Fatalf("inventory list: %v", parseErr2)
 	}
-	if len(inventoryRows) == 0 {
-		t.Fatalf("expected inventory rows")
+	if len(parseInventoryRows) == 0 {
+		parseT.Fatalf("expected inventory rows")
 	}
-	for _, row := range inventoryRows {
-		if row.MarketPressure == "" || row.MarketSignal == "" {
-			t.Fatalf("inventory enrichment missing: %#v", row)
+	for _, parseRow := range parseInventoryRows {
+		if parseRow.MarketPressure == "" || parseRow.MarketSignal == "" {
+			parseT.Fatalf("inventory enrichment missing: %#v", parseRow)
 		}
 	}
 
-	bestInventory, err := store.InventoryBySKU(ctx, "frame-desk")
-	if err != nil {
-		t.Fatalf("inventory by sku: %v", err)
+	parseBestInventory, parseErr2 := store.InventoryBySKU(parseCtx, "frame-desk")
+	if parseErr2 != nil {
+		parseT.Fatalf("inventory by sku: %v", parseErr2)
 	}
-	if bestInventory.SKU != "frame-desk" || bestInventory.WarehouseID == "" {
-		t.Fatalf("unexpected best inventory row: %#v", bestInventory)
-	}
-
-	allRows, err := store.InventoryRowsBySKU(ctx, "frame-desk")
-	if err != nil {
-		t.Fatalf("inventory rows by sku: %v", err)
-	}
-	if len(allRows) < 2 {
-		t.Fatalf("expected multiple warehouse rows, got %d", len(allRows))
-	}
-	_, err = store.InventoryRowsBySKU(ctx, "missing-sku")
-	if !errors.Is(err, sql.ErrNoRows) {
-		t.Fatalf("expected sql.ErrNoRows for missing sku, got %v", err)
+	if parseBestInventory.SKU != "frame-desk" || parseBestInventory.WarehouseID == "" {
+		parseT.Fatalf("unexpected best inventory row: %#v", parseBestInventory)
 	}
 
-	pref, err := store.PreferencesByOwner(ctx, "demo-operator")
-	if err != nil {
-		t.Fatalf("preferences existing owner: %v", err)
+	parseAllRows, parseErr2 := store.InventoryRowsBySKU(parseCtx, "frame-desk")
+	if parseErr2 != nil {
+		parseT.Fatalf("inventory rows by sku: %v", parseErr2)
 	}
-	if pref.OwnerID != "demo-operator" {
-		t.Fatalf("unexpected preferences owner: %s", pref.OwnerID)
+	if len(parseAllRows) < 2 {
+		parseT.Fatalf("expected multiple warehouse rows, got %d", len(parseAllRows))
 	}
-	defaultPref, err := store.PreferencesByOwner(ctx, "missing-owner")
-	if err != nil {
-		t.Fatalf("preferences default owner: %v", err)
-	}
-	if defaultPref.Theme == "" || defaultPref.DefaultWarehouseID == "" {
-		t.Fatalf("expected default preference fallback values: %#v", defaultPref)
+	_, parseErr2 = store.InventoryRowsBySKU(parseCtx, "missing-sku")
+	if !errors.Is(parseErr2, sql.ErrNoRows) {
+		parseT.Fatalf("expected sql.ErrNoRows for missing sku, got %v", parseErr2)
 	}
 
-	views, err := store.SavedViewsByOwner(ctx, "demo-operator")
-	if err != nil {
-		t.Fatalf("saved views: %v", err)
+	parsePref, parseErr2 := store.PreferencesByOwner(parseCtx, "demo-operator")
+	if parseErr2 != nil {
+		parseT.Fatalf("preferences existing owner: %v", parseErr2)
 	}
-	if len(views) == 0 {
-		t.Fatalf("expected seeded saved views")
+	if parsePref.OwnerID != "demo-operator" {
+		parseT.Fatalf("unexpected preferences owner: %s", parsePref.OwnerID)
 	}
-
-	productComments, err := store.ProductComments(ctx, "studio-console", "approved")
-	if err != nil {
-		t.Fatalf("product comments: %v", err)
+	parseDefaultPref, parseErr2 := store.PreferencesByOwner(parseCtx, "missing-owner")
+	if parseErr2 != nil {
+		parseT.Fatalf("preferences default owner: %v", parseErr2)
 	}
-	if len(productComments) == 0 {
-		t.Fatalf("expected approved comments for studio-console")
-	}
-
-	related, err := store.RelatedProducts(ctx, "frame-desk")
-	if err != nil {
-		t.Fatalf("related products: %v", err)
-	}
-	if len(related) == 0 {
-		t.Fatalf("expected related products")
-	}
-	if related[0].Reason == "" || related[0].WarehouseID == "" {
-		t.Fatalf("related product missing derived fields: %#v", related[0])
+	if parseDefaultPref.Theme == "" || parseDefaultPref.DefaultWarehouseID == "" {
+		parseT.Fatalf("expected default preference fallback values: %#v", parseDefaultPref)
 	}
 
-	pressureList, err := store.WarehousePressure(ctx)
-	if err != nil {
-		t.Fatalf("warehouse pressure: %v", err)
+	parseViews, parseErr2 := store.SavedViewsByOwner(parseCtx, "demo-operator")
+	if parseErr2 != nil {
+		parseT.Fatalf("saved views: %v", parseErr2)
 	}
-	if len(pressureList) != len(warehouses) {
-		t.Fatalf("expected pressure for each warehouse, got %d for %d warehouses", len(pressureList), len(warehouses))
-	}
-	pressureByID, err := store.WarehousePressureByID(ctx, "illinois-hub")
-	if err != nil {
-		t.Fatalf("warehouse pressure by id: %v", err)
-	}
-	if pressureByID.ID != "illinois-hub" {
-		t.Fatalf("unexpected warehouse pressure id: %s", pressureByID.ID)
+	if len(parseViews) == 0 {
+		parseT.Fatalf("expected seeded saved views")
 	}
 
-	history, err := store.ThresholdHistory(ctx, "frame-desk")
-	if err != nil {
-		t.Fatalf("threshold history: %v", err)
+	parseProductComments, parseErr2 := store.ProductComments(parseCtx, "studio-console", "approved")
+	if parseErr2 != nil {
+		parseT.Fatalf("product comments: %v", parseErr2)
 	}
-	if len(history) == 0 {
-		t.Fatalf("expected threshold history rows")
+	if len(parseProductComments) == 0 {
+		parseT.Fatalf("expected approved comments for studio-console")
 	}
 
-	recommendations, err := store.TransferRecommendations(ctx, "frame-desk")
-	if err != nil {
-		t.Fatalf("transfer recommendations: %v", err)
+	parseRelated, parseErr2 := store.RelatedProducts(parseCtx, "frame-desk")
+	if parseErr2 != nil {
+		parseT.Fatalf("related products: %v", parseErr2)
 	}
-	if len(recommendations) > 0 {
-		if recommendations[0].SourceWarehouseID == "" || recommendations[0].DestinationWarehouseID == "" {
-			t.Fatalf("invalid transfer recommendation: %#v", recommendations[0])
+	if len(parseRelated) == 0 {
+		parseT.Fatalf("expected related products")
+	}
+	if parseRelated[0].Reason == "" || parseRelated[0].WarehouseID == "" {
+		parseT.Fatalf("related product missing derived fields: %#v", parseRelated[0])
+	}
+
+	parsePressureList, parseErr2 := store.WarehousePressure(parseCtx)
+	if parseErr2 != nil {
+		parseT.Fatalf("warehouse pressure: %v", parseErr2)
+	}
+	if len(parsePressureList) != len(parseWarehouses) {
+		parseT.Fatalf("expected pressure for each warehouse, got %d for %d warehouses", len(parsePressureList), len(parseWarehouses))
+	}
+	parsePressureByID, parseErr2 := store.WarehousePressureByID(parseCtx, "illinois-hub")
+	if parseErr2 != nil {
+		parseT.Fatalf("warehouse pressure by id: %v", parseErr2)
+	}
+	if parsePressureByID.ID != "illinois-hub" {
+		parseT.Fatalf("unexpected warehouse pressure id: %s", parsePressureByID.ID)
+	}
+
+	parseHistory, parseErr2 := store.ThresholdHistory(parseCtx, "frame-desk")
+	if parseErr2 != nil {
+		parseT.Fatalf("threshold history: %v", parseErr2)
+	}
+	if len(parseHistory) == 0 {
+		parseT.Fatalf("expected threshold history rows")
+	}
+
+	parseRecommendations, parseErr2 := store.TransferRecommendations(parseCtx, "frame-desk")
+	if parseErr2 != nil {
+		parseT.Fatalf("transfer recommendations: %v", parseErr2)
+	}
+	if len(parseRecommendations) > 0 {
+		if parseRecommendations[0].SourceWarehouseID == "" || parseRecommendations[0].DestinationWarehouseID == "" {
+			parseT.Fatalf("invalid transfer recommendation: %#v", parseRecommendations[0])
 		}
 	}
 
-	transfer, err := store.TransferByID(ctx, "tr-seed-001")
-	if err != nil {
-		t.Fatalf("transfer by id: %v", err)
+	parseTransfer, parseErr2 := store.TransferByID(parseCtx, "tr-seed-001")
+	if parseErr2 != nil {
+		parseT.Fatalf("transfer by id: %v", parseErr2)
 	}
-	lines, err := store.TransferLines(ctx, transfer.ID)
-	if err != nil {
-		t.Fatalf("transfer lines: %v", err)
+	parseLines, parseErr2 := store.TransferLines(parseCtx, parseTransfer.ID)
+	if parseErr2 != nil {
+		parseT.Fatalf("transfer lines: %v", parseErr2)
 	}
-	if len(lines) == 0 {
-		t.Fatalf("expected transfer lines")
+	if len(parseLines) == 0 {
+		parseT.Fatalf("expected transfer lines")
 	}
-	transferDetail, err := store.TransferDetail(ctx, transfer.ID)
-	if err != nil {
-		t.Fatalf("transfer detail: %v", err)
+	parseTransferDetail, parseErr2 := store.TransferDetail(parseCtx, parseTransfer.ID)
+	if parseErr2 != nil {
+		parseT.Fatalf("transfer detail: %v", parseErr2)
 	}
-	if len(transferDetail.Lines) == 0 {
-		t.Fatalf("expected transfer detail lines")
-	}
-
-	receivingLines, err := store.ReceivingLines(ctx, "rcv-illinois-001")
-	if err != nil {
-		t.Fatalf("receiving lines: %v", err)
-	}
-	if len(receivingLines) == 0 {
-		t.Fatalf("expected receiving lines")
-	}
-	receivingDetail, err := store.ReceivingDetail(ctx, "rcv-illinois-001")
-	if err != nil {
-		t.Fatalf("receiving detail: %v", err)
-	}
-	if receivingDetail.Session.ID != "rcv-illinois-001" {
-		t.Fatalf("unexpected receiving detail session id: %s", receivingDetail.Session.ID)
+	if len(parseTransferDetail.Lines) == 0 {
+		parseT.Fatalf("expected transfer detail lines")
 	}
 
-	purchaseOrders, err := store.PurchaseOrders(ctx)
-	if err != nil {
-		t.Fatalf("purchase orders: %v", err)
+	parseReceivingLines, parseErr2 := store.ReceivingLines(parseCtx, "rcv-illinois-001")
+	if parseErr2 != nil {
+		parseT.Fatalf("receiving lines: %v", parseErr2)
 	}
-	if len(purchaseOrders) == 0 {
-		t.Fatalf("expected purchase orders")
+	if len(parseReceivingLines) == 0 {
+		parseT.Fatalf("expected receiving lines")
 	}
-	byWarehouse, err := store.PurchaseOrdersByWarehouse(ctx, "illinois-hub")
-	if err != nil {
-		t.Fatalf("purchase orders by warehouse: %v", err)
+	parseReceivingDetail, parseErr2 := store.ReceivingDetail(parseCtx, "rcv-illinois-001")
+	if parseErr2 != nil {
+		parseT.Fatalf("receiving detail: %v", parseErr2)
 	}
-	if len(byWarehouse) == 0 {
-		t.Fatalf("expected purchase orders in illinois-hub")
+	if parseReceivingDetail.Session.ID != "rcv-illinois-001" {
+		parseT.Fatalf("unexpected receiving detail session id: %s", parseReceivingDetail.Session.ID)
 	}
-	order, err := store.PurchaseOrderByID(ctx, "po-1042")
-	if err != nil {
-		t.Fatalf("purchase order by id: %v", err)
+
+	parsePurchaseOrders, parseErr2 := store.PurchaseOrders(parseCtx)
+	if parseErr2 != nil {
+		parseT.Fatalf("purchase orders: %v", parseErr2)
 	}
-	orderLines, err := store.PurchaseOrderLines(ctx, order.ID)
-	if err != nil {
-		t.Fatalf("purchase order lines: %v", err)
+	if len(parsePurchaseOrders) == 0 {
+		parseT.Fatalf("expected purchase orders")
 	}
-	if len(orderLines) == 0 {
-		t.Fatalf("expected purchase order lines")
+	parseByWarehouse, parseErr2 := store.PurchaseOrdersByWarehouse(parseCtx, "illinois-hub")
+	if parseErr2 != nil {
+		parseT.Fatalf("purchase orders by warehouse: %v", parseErr2)
 	}
-	orderDetail, err := store.PurchaseOrderDetail(ctx, order.ID)
-	if err != nil {
-		t.Fatalf("purchase order detail: %v", err)
+	if len(parseByWarehouse) == 0 {
+		parseT.Fatalf("expected purchase orders in illinois-hub")
 	}
-	if len(orderDetail.Lines) == 0 {
-		t.Fatalf("expected purchase order detail lines")
+	parseOrder, parseErr2 := store.PurchaseOrderByID(parseCtx, "po-1042")
+	if parseErr2 != nil {
+		parseT.Fatalf("purchase order by id: %v", parseErr2)
+	}
+	parseOrderLines, parseErr2 := store.PurchaseOrderLines(parseCtx, parseOrder.ID)
+	if parseErr2 != nil {
+		parseT.Fatalf("purchase order lines: %v", parseErr2)
+	}
+	if len(parseOrderLines) == 0 {
+		parseT.Fatalf("expected purchase order lines")
+	}
+	parseOrderDetail, parseErr2 := store.PurchaseOrderDetail(parseCtx, parseOrder.ID)
+	if parseErr2 != nil {
+		parseT.Fatalf("purchase order detail: %v", parseErr2)
+	}
+	if len(parseOrderDetail.Lines) == 0 {
+		parseT.Fatalf("expected purchase order detail lines")
 	}
 }
 
-func TestStoreAdminAndMutationFlows(t *testing.T) {
-	t.Parallel()
+func TestStoreAdminAndMutationFlows(parseT *testing.T) {
+	parseT.Parallel()
 
-	ctx, store, _ := newSeededStore(t)
+	parseCtx, store, _ := newSeededStore(parseT)
 
-	createdProduct, err := store.CreateProduct(ctx, CreateProductInput{
+	parseCreatedProduct, parseErr := store.CreateProduct(parseCtx, CreateProductInput{
 		SKU:        "  integration-widget  ",
 		Slug:       " integration-widget ",
 		Status:     "low_stock",
@@ -333,33 +333,33 @@ func TestStoreAdminAndMutationFlows(t *testing.T) {
 		Available:  -5,
 		Inbound:    -2,
 	})
-	if err != nil {
-		t.Fatalf("create product: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("create product: %v", parseErr)
 	}
-	if createdProduct.SKU != "integration-widget" || createdProduct.PriceCents != 0 {
-		t.Fatalf("unexpected created product normalization: %#v", createdProduct)
+	if parseCreatedProduct.SKU != "integration-widget" || parseCreatedProduct.PriceCents != 0 {
+		parseT.Fatalf("unexpected created product normalization: %#v", parseCreatedProduct)
 	}
 
-	adminList, err := store.ProductAdminList(ctx, ProductAdminQuery{
+	parseAdminList, parseErr := store.ProductAdminList(parseCtx, ProductAdminQuery{
 		Search: "integration-widget",
 		Status: "all",
 		Sort:   "price",
 	})
-	if err != nil {
-		t.Fatalf("product admin list: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("product admin list: %v", parseErr)
 	}
-	if len(adminList) == 0 {
-		t.Fatalf("expected product in admin list")
+	if len(parseAdminList) == 0 {
+		parseT.Fatalf("expected product in admin list")
 	}
-	adminBySlug, err := store.ProductAdminBySlug(ctx, createdProduct.Slug)
-	if err != nil {
-		t.Fatalf("product admin by slug: %v", err)
+	parseAdminBySlug, parseErr := store.ProductAdminBySlug(parseCtx, parseCreatedProduct.Slug)
+	if parseErr != nil {
+		parseT.Fatalf("product admin by slug: %v", parseErr)
 	}
-	if adminBySlug.SKU != createdProduct.SKU {
-		t.Fatalf("unexpected admin by slug product: %#v", adminBySlug)
+	if parseAdminBySlug.SKU != parseCreatedProduct.SKU {
+		parseT.Fatalf("unexpected admin by slug product: %#v", parseAdminBySlug)
 	}
 
-	updatedProduct, err := store.UpdateProduct(ctx, createdProduct.Slug, UpdateProductInput{
+	parseUpdatedProduct, parseErr := store.UpdateProduct(parseCtx, parseCreatedProduct.Slug, UpdateProductInput{
 		Slug:             "integration-widget-v2",
 		Title:            "Integration Widget v2",
 		Category:         "accessories",
@@ -369,71 +369,71 @@ func TestStoreAdminAndMutationFlows(t *testing.T) {
 		Available:        -1,
 		Inbound:          -1,
 	})
-	if err != nil {
-		t.Fatalf("update product: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("update product: %v", parseErr)
 	}
-	if updatedProduct.Slug != "integration-widget-v2" || updatedProduct.WarehouseID != "illinois-hub" {
-		t.Fatalf("unexpected updated product payload: %#v", updatedProduct)
-	}
-
-	if err := store.DeleteProduct(ctx, updatedProduct.Slug); err != nil {
-		t.Fatalf("delete product: %v", err)
-	}
-	if err := store.DeleteProduct(ctx, "missing-product"); !errors.Is(err, sql.ErrNoRows) {
-		t.Fatalf("expected sql.ErrNoRows for missing product, got %v", err)
+	if parseUpdatedProduct.Slug != "integration-widget-v2" || parseUpdatedProduct.WarehouseID != "illinois-hub" {
+		parseT.Fatalf("unexpected updated product payload: %#v", parseUpdatedProduct)
 	}
 
-	_, err = store.CreateComment(ctx, CreateCommentInput{
+	if parseErr2 := store.DeleteProduct(parseCtx, parseUpdatedProduct.Slug); parseErr2 != nil {
+		parseT.Fatalf("delete product: %v", parseErr2)
+	}
+	if parseErr3 := store.DeleteProduct(parseCtx, "missing-product"); !errors.Is(parseErr3, sql.ErrNoRows) {
+		parseT.Fatalf("expected sql.ErrNoRows for missing product, got %v", parseErr3)
+	}
+
+	_, parseErr = store.CreateComment(parseCtx, CreateCommentInput{
 		ProductSKU: "frame-desk",
 		Body:       "   ",
 	})
-	if err == nil {
-		t.Fatalf("expected create comment validation error")
+	if parseErr == nil {
+		parseT.Fatalf("expected create comment validation error")
 	}
-	createdComment, err := store.CreateComment(ctx, CreateCommentInput{
+	parseCreatedComment, parseErr := store.CreateComment(parseCtx, CreateCommentInput{
 		ProductSKU: "frame-desk",
 		AuthorName: "Integration Tester",
 		Reaction:   "thumbs_down",
 		Subject:    "Coverage",
 		Body:       "Integration moderation flow check.",
 	})
-	if err != nil {
-		t.Fatalf("create comment success: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("create comment success: %v", parseErr)
 	}
-	if createdComment.Reaction != "down" || createdComment.Status != "pending" {
-		t.Fatalf("unexpected created comment fields: %#v", createdComment)
+	if parseCreatedComment.Reaction != "down" || parseCreatedComment.Status != "pending" {
+		parseT.Fatalf("unexpected created comment fields: %#v", parseCreatedComment)
 	}
-	moderatedComment, err := store.ModerateComment(ctx, createdComment.ID, "", "")
-	if err != nil {
-		t.Fatalf("moderate comment: %v", err)
+	parseModeratedComment, parseErr := store.ModerateComment(parseCtx, parseCreatedComment.ID, "", "")
+	if parseErr != nil {
+		parseT.Fatalf("moderate comment: %v", parseErr)
 	}
-	if moderatedComment.Status != "approved" {
-		t.Fatalf("expected default approved moderation status, got %s", moderatedComment.Status)
-	}
-
-	moderatedBatch, err := store.ModerateComments(ctx, []string{createdComment.ID, "cmt-seed-studio-console-flagged", " "}, "rejected", "triage")
-	if err != nil {
-		t.Fatalf("moderate comments: %v", err)
-	}
-	if len(moderatedBatch) != 2 {
-		t.Fatalf("expected 2 moderated comments, got %d", len(moderatedBatch))
-	}
-	rejectedComments, err := store.Comments(ctx, "rejected")
-	if err != nil {
-		t.Fatalf("list rejected comments: %v", err)
-	}
-	if len(rejectedComments) == 0 {
-		t.Fatalf("expected rejected comments after moderation")
+	if parseModeratedComment.Status != "approved" {
+		parseT.Fatalf("expected default approved moderation status, got %s", parseModeratedComment.Status)
 	}
 
-	_, err = store.CreateQuoteRequest(ctx, CreateQuoteRequestInput{
+	parseModeratedBatch, parseErr := store.ModerateComments(parseCtx, []string{parseCreatedComment.ID, "cmt-seed-studio-console-flagged", " "}, "rejected", "triage")
+	if parseErr != nil {
+		parseT.Fatalf("moderate comments: %v", parseErr)
+	}
+	if len(parseModeratedBatch) != 2 {
+		parseT.Fatalf("expected 2 moderated comments, got %d", len(parseModeratedBatch))
+	}
+	parseRejectedComments, parseErr := store.Comments(parseCtx, "rejected")
+	if parseErr != nil {
+		parseT.Fatalf("list rejected comments: %v", parseErr)
+	}
+	if len(parseRejectedComments) == 0 {
+		parseT.Fatalf("expected rejected comments after moderation")
+	}
+
+	_, parseErr = store.CreateQuoteRequest(parseCtx, CreateQuoteRequestInput{
 		ProductSKU: "frame-desk",
 		Email:      "",
 	})
-	if err == nil {
-		t.Fatalf("expected quote request validation error")
+	if parseErr == nil {
+		parseT.Fatalf("expected quote request validation error")
 	}
-	quote, err := store.CreateQuoteRequest(ctx, CreateQuoteRequestInput{
+	parseQuote, parseErr := store.CreateQuoteRequest(parseCtx, CreateQuoteRequestInput{
 		ProductSKU:    "frame-desk",
 		RequesterName: "Ops Lead",
 		CompanyName:   "Atlas QA",
@@ -441,122 +441,122 @@ func TestStoreAdminAndMutationFlows(t *testing.T) {
 		Quantity:      0,
 		Note:          "Need rapid quote.",
 	})
-	if err != nil {
-		t.Fatalf("create quote request: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("create quote request: %v", parseErr)
 	}
-	if quote.Quantity != 1 {
-		t.Fatalf("expected quote quantity normalization to 1, got %d", quote.Quantity)
+	if parseQuote.Quantity != 1 {
+		parseT.Fatalf("expected quote quantity normalization to 1, got %d", parseQuote.Quantity)
 	}
 
-	_, err = store.CreateRestockRequest(ctx, CreateRestockRequestInput{
+	_, parseErr = store.CreateRestockRequest(parseCtx, CreateRestockRequestInput{
 		ProductSKU: "frame-desk",
 		Email:      "",
 	})
-	if err == nil {
-		t.Fatalf("expected restock request validation error")
+	if parseErr == nil {
+		parseT.Fatalf("expected restock request validation error")
 	}
-	restock, err := store.CreateRestockRequest(ctx, CreateRestockRequestInput{
+	parseRestock, parseErr := store.CreateRestockRequest(parseCtx, CreateRestockRequestInput{
 		ProductSKU:           "frame-desk",
 		Email:                "notify@example.com",
 		PreferredWarehouseID: "new-jersey-hub",
 	})
-	if err != nil {
-		t.Fatalf("create restock request: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("create restock request: %v", parseErr)
 	}
-	if restock.Email == "" || restock.ID == "" {
-		t.Fatalf("unexpected restock request payload: %#v", restock)
+	if parseRestock.Email == "" || parseRestock.ID == "" {
+		parseT.Fatalf("unexpected restock request payload: %#v", parseRestock)
 	}
 
-	updatedPrefs, err := store.SavePreferences(ctx, PreferencesRecord{
+	parseUpdatedPrefs, parseErr := store.SavePreferences(parseCtx, PreferencesRecord{
 		OwnerID: "ops-owner",
 		Theme:   "",
 	})
-	if err != nil {
-		t.Fatalf("save preferences: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("save preferences: %v", parseErr)
 	}
-	if updatedPrefs.Theme == "" || updatedPrefs.Locale == "" {
-		t.Fatalf("expected normalized preferences: %#v", updatedPrefs)
+	if parseUpdatedPrefs.Theme == "" || parseUpdatedPrefs.Locale == "" {
+		parseT.Fatalf("expected normalized preferences: %#v", parseUpdatedPrefs)
 	}
-	savedView, err := store.SaveView(ctx, SaveViewInput{
+	parseSavedView, parseErr := store.SaveView(parseCtx, SaveViewInput{
 		OwnerID: "ops-owner",
 		Name:    "Ops critical queue",
 		Scope:   "",
 	})
-	if err != nil {
-		t.Fatalf("save view: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("save view: %v", parseErr)
 	}
-	if savedView.ID == "" || savedView.Scope == "" {
-		t.Fatalf("unexpected saved view payload: %#v", savedView)
+	if parseSavedView.ID == "" || parseSavedView.Scope == "" {
+		parseT.Fatalf("unexpected saved view payload: %#v", parseSavedView)
 	}
-	importedViews, err := store.ImportSavedViews(ctx, "ops-owner", []repository.SavedView{
+	parseImportedViews, parseErr := store.ImportSavedViews(parseCtx, "ops-owner", []repository.SavedView{
 		{Name: "Imported A", Scope: "inventory", FiltersJSON: `{"status":"risk"}`},
 	})
-	if err != nil {
-		t.Fatalf("import saved views: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("import saved views: %v", parseErr)
 	}
-	if len(importedViews) != 1 {
-		t.Fatalf("expected one imported view, got %d", len(importedViews))
+	if len(parseImportedViews) != 1 {
+		parseT.Fatalf("expected one imported view, got %d", len(parseImportedViews))
 	}
-	ownerViews, err := store.SavedViewsByOwner(ctx, "ops-owner")
-	if err != nil {
-		t.Fatalf("saved views by owner after import: %v", err)
+	parseOwnerViews, parseErr := store.SavedViewsByOwner(parseCtx, "ops-owner")
+	if parseErr != nil {
+		parseT.Fatalf("saved views by owner after import: %v", parseErr)
 	}
-	if len(ownerViews) < 2 {
-		t.Fatalf("expected multiple owner views after save/import, got %d", len(ownerViews))
-	}
-
-	existingTransfers, err := store.Transfers(ctx)
-	if err != nil {
-		t.Fatalf("list transfers: %v", err)
-	}
-	createdTransfer, err := store.CreateTransfer(ctx, CreateTransferInput{})
-	if err != nil {
-		t.Fatalf("create transfer: %v", err)
-	}
-	if createdTransfer.Status != "draft" {
-		t.Fatalf("unexpected created transfer status: %s", createdTransfer.Status)
-	}
-	updatedTransfers, err := store.Transfers(ctx)
-	if err != nil {
-		t.Fatalf("list transfers after create: %v", err)
-	}
-	if len(updatedTransfers) < len(existingTransfers)+1 {
-		t.Fatalf("expected transfer count increase, before=%d after=%d", len(existingTransfers), len(updatedTransfers))
+	if len(parseOwnerViews) < 2 {
+		parseT.Fatalf("expected multiple owner views after save/import, got %d", len(parseOwnerViews))
 	}
 
-	receivingSessions, err := store.ReceivingSessions(ctx)
-	if err != nil {
-		t.Fatalf("receiving sessions: %v", err)
+	parseExistingTransfers, parseErr := store.Transfers(parseCtx)
+	if parseErr != nil {
+		parseT.Fatalf("list transfers: %v", parseErr)
 	}
-	if len(receivingSessions) == 0 {
-		t.Fatalf("expected receiving sessions")
+	parseCreatedTransfer, parseErr := store.CreateTransfer(parseCtx, CreateTransferInput{})
+	if parseErr != nil {
+		parseT.Fatalf("create transfer: %v", parseErr)
 	}
-	reconciled, err := store.ReconcileReceiving(ctx, "rcv-illinois-001", ReconcileReceivingInput{
+	if parseCreatedTransfer.Status != "draft" {
+		parseT.Fatalf("unexpected created transfer status: %s", parseCreatedTransfer.Status)
+	}
+	parseUpdatedTransfers, parseErr := store.Transfers(parseCtx)
+	if parseErr != nil {
+		parseT.Fatalf("list transfers after create: %v", parseErr)
+	}
+	if len(parseUpdatedTransfers) < len(parseExistingTransfers)+1 {
+		parseT.Fatalf("expected transfer count increase, before=%d after=%d", len(parseExistingTransfers), len(parseUpdatedTransfers))
+	}
+
+	parseReceivingSessions, parseErr := store.ReceivingSessions(parseCtx)
+	if parseErr != nil {
+		parseT.Fatalf("receiving sessions: %v", parseErr)
+	}
+	if len(parseReceivingSessions) == 0 {
+		parseT.Fatalf("expected receiving sessions")
+	}
+	parseReconciled, parseErr := store.ReconcileReceiving(parseCtx, "rcv-illinois-001", ReconcileReceivingInput{
 		Status:             "",
 		DiscrepancySummary: "Resolved in integration test",
 	})
-	if err != nil {
-		t.Fatalf("reconcile receiving: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("reconcile receiving: %v", parseErr)
 	}
-	if reconciled.Status != "closed" {
-		t.Fatalf("expected reconcile default closed status, got %s", reconciled.Status)
+	if parseReconciled.Status != "closed" {
+		parseT.Fatalf("expected reconcile default closed status, got %s", parseReconciled.Status)
 	}
 
-	orderStatusUpdated, err := store.UpdatePurchaseOrderStatus(ctx, "po-1042", UpdatePurchaseOrderStatusInput{
+	parseOrderStatusUpdated, parseErr := store.UpdatePurchaseOrderStatus(parseCtx, "po-1042", UpdatePurchaseOrderStatusInput{
 		Status: "approved",
 	})
-	if err != nil {
-		t.Fatalf("update purchase order status: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("update purchase order status: %v", parseErr)
 	}
-	if orderStatusUpdated.Status != "approved" {
-		t.Fatalf("unexpected purchase order status: %s", orderStatusUpdated.Status)
+	if parseOrderStatusUpdated.Status != "approved" {
+		parseT.Fatalf("unexpected purchase order status: %s", parseOrderStatusUpdated.Status)
 	}
 
-	_, err = store.UpdateInventoryLevel(ctx, "frame-desk", UpdateInventoryLevelInput{})
-	if err == nil {
-		t.Fatalf("expected update inventory level warehouse validation error")
+	_, parseErr = store.UpdateInventoryLevel(parseCtx, "frame-desk", UpdateInventoryLevelInput{})
+	if parseErr == nil {
+		parseT.Fatalf("expected update inventory level warehouse validation error")
 	}
-	updatedInventory, err := store.UpdateInventoryLevel(ctx, "frame-desk", UpdateInventoryLevelInput{
+	parseUpdatedInventory, parseErr := store.UpdateInventoryLevel(parseCtx, "frame-desk", UpdateInventoryLevelInput{
 		WarehouseID:  "new-jersey-hub",
 		OnHand:       -2,
 		Reserved:     -1,
@@ -566,268 +566,268 @@ func TestStoreAdminAndMutationFlows(t *testing.T) {
 		SafetyStock:  -2,
 		Status:       "",
 	})
-	if err != nil {
-		t.Fatalf("update inventory level: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("update inventory level: %v", parseErr)
 	}
-	if updatedInventory.Available != 0 || updatedInventory.ReorderPoint != 1 || updatedInventory.Status != "balanced" {
-		t.Fatalf("unexpected normalized inventory row: %#v", updatedInventory)
-	}
-
-	beforeHistory, err := store.ThresholdHistory(ctx, "frame-desk")
-	if err != nil {
-		t.Fatalf("threshold history before update: %v", err)
-	}
-	_, err = store.UpdateThreshold(ctx, "frame-desk", "new-jersey-hub", 0, -1)
-	if err != nil {
-		t.Fatalf("update threshold: %v", err)
-	}
-	afterHistory, err := store.ThresholdHistory(ctx, "frame-desk")
-	if err != nil {
-		t.Fatalf("threshold history after update: %v", err)
-	}
-	if len(afterHistory) < len(beforeHistory)+1 {
-		t.Fatalf("expected threshold history growth, before=%d after=%d", len(beforeHistory), len(afterHistory))
+	if parseUpdatedInventory.Available != 0 || parseUpdatedInventory.ReorderPoint != 1 || parseUpdatedInventory.Status != "balanced" {
+		parseT.Fatalf("unexpected normalized inventory row: %#v", parseUpdatedInventory)
 	}
 
-	_, err = store.CreatePurchaseOrder(ctx, CreatePurchaseOrderInput{
+	parseBeforeHistory, parseErr := store.ThresholdHistory(parseCtx, "frame-desk")
+	if parseErr != nil {
+		parseT.Fatalf("threshold history before update: %v", parseErr)
+	}
+	_, parseErr = store.UpdateThreshold(parseCtx, "frame-desk", "new-jersey-hub", 0, -1)
+	if parseErr != nil {
+		parseT.Fatalf("update threshold: %v", parseErr)
+	}
+	parseAfterHistory, parseErr := store.ThresholdHistory(parseCtx, "frame-desk")
+	if parseErr != nil {
+		parseT.Fatalf("threshold history after update: %v", parseErr)
+	}
+	if len(parseAfterHistory) < len(parseBeforeHistory)+1 {
+		parseT.Fatalf("expected threshold history growth, before=%d after=%d", len(parseBeforeHistory), len(parseAfterHistory))
+	}
+
+	_, parseErr = store.CreatePurchaseOrder(parseCtx, CreatePurchaseOrderInput{
 		WarehouseID: "new-jersey-hub",
 		ProductSKU:  "",
 	})
-	if err == nil {
-		t.Fatalf("expected create purchase order validation error")
+	if parseErr == nil {
+		parseT.Fatalf("expected create purchase order validation error")
 	}
-	beforeInbound, err := store.inventoryLevelBySKUWarehouse(ctx, "frame-desk", "new-jersey-hub")
-	if err != nil {
-		t.Fatalf("inventory level before purchase order: %v", err)
+	parseBeforeInbound, parseErr := store.inventoryLevelBySKUWarehouse(parseCtx, "frame-desk", "new-jersey-hub")
+	if parseErr != nil {
+		parseT.Fatalf("inventory level before purchase order: %v", parseErr)
 	}
-	createdPO, err := store.CreatePurchaseOrder(ctx, CreatePurchaseOrderInput{
+	parseCreatedPO, parseErr := store.CreatePurchaseOrder(parseCtx, CreatePurchaseOrderInput{
 		WarehouseID: "new-jersey-hub",
 		ProductSKU:  "frame-desk",
 		Quantity:    0,
 		Status:      "",
 	})
-	if err != nil {
-		t.Fatalf("create purchase order: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("create purchase order: %v", parseErr)
 	}
-	if createdPO.Order.ID == "" || len(createdPO.Lines) != 1 {
-		t.Fatalf("unexpected purchase order payload: %#v", createdPO)
+	if parseCreatedPO.Order.ID == "" || len(parseCreatedPO.Lines) != 1 {
+		parseT.Fatalf("unexpected purchase order payload: %#v", parseCreatedPO)
 	}
-	afterInbound, err := store.inventoryLevelBySKUWarehouse(ctx, "frame-desk", "new-jersey-hub")
-	if err != nil {
-		t.Fatalf("inventory level after purchase order: %v", err)
+	parseAfterInbound, parseErr := store.inventoryLevelBySKUWarehouse(parseCtx, "frame-desk", "new-jersey-hub")
+	if parseErr != nil {
+		parseT.Fatalf("inventory level after purchase order: %v", parseErr)
 	}
-	if afterInbound.Inbound <= beforeInbound.Inbound {
-		t.Fatalf("expected inbound increase after purchase order, before=%d after=%d", beforeInbound.Inbound, afterInbound.Inbound)
+	if parseAfterInbound.Inbound <= parseBeforeInbound.Inbound {
+		parseT.Fatalf("expected inbound increase after purchase order, before=%d after=%d", parseBeforeInbound.Inbound, parseAfterInbound.Inbound)
 	}
 }
 
-func TestPureHelperFunctions(t *testing.T) {
-	t.Parallel()
+func TestPureHelperFunctions(parseT *testing.T) {
+	parseT.Parallel()
 
-	if got := normalizeCommentReaction("thumbs-down"); got != "down" {
-		t.Fatalf("normalizeCommentReaction thumbs-down=%s", got)
+	if parseGot := normalizeCommentReaction("thumbs-down"); parseGot != "down" {
+		parseT.Fatalf("normalizeCommentReaction thumbs-down=%s", parseGot)
 	}
-	if got := normalizeCommentReaction("something-else"); got != "up" {
-		t.Fatalf("normalizeCommentReaction default=%s", got)
-	}
-
-	if got := nonEmptyString("  ", "fallback"); got != "fallback" {
-		t.Fatalf("nonEmptyString fallback=%s", got)
-	}
-	if got := nonEmptyString(" value ", "fallback"); got != "value" {
-		t.Fatalf("nonEmptyString trim=%s", got)
+	if parseGot2 := normalizeCommentReaction("something-else"); parseGot2 != "up" {
+		parseT.Fatalf("normalizeCommentReaction default=%s", parseGot2)
 	}
 
-	if got := nullableString("  "); got.(sql.NullString).Valid {
-		t.Fatalf("nullableString empty should be invalid null string")
+	if parseGot3 := nonEmptyString("  ", "fallback"); parseGot3 != "fallback" {
+		parseT.Fatalf("nonEmptyString fallback=%s", parseGot3)
 	}
-	if got := nullableString("x"); got.(string) != "x" {
-		t.Fatalf("nullableString value=%v", got)
-	}
-
-	if got := clampInt(2, 3, 5); got != 3 {
-		t.Fatalf("clampInt low=%d", got)
-	}
-	if got := clampInt(6, 3, 5); got != 5 {
-		t.Fatalf("clampInt high=%d", got)
-	}
-	if got := clampInt(4, 3, 5); got != 4 {
-		t.Fatalf("clampInt middle=%d", got)
-	}
-	if got := maxInt(8, 3); got != 8 {
-		t.Fatalf("maxInt expected 8 got %d", got)
+	if parseGot4 := nonEmptyString(" value ", "fallback"); parseGot4 != "value" {
+		parseT.Fatalf("nonEmptyString trim=%s", parseGot4)
 	}
 
-	if got := inventoryWeeklyUnits("frame-desk", "new-jersey-hub"); got <= 0 {
-		t.Fatalf("inventoryWeeklyUnits unexpected %d", got)
+	if parseGot5 := nullableString("  "); parseGot5.(sql.NullString).Valid {
+		parseT.Fatalf("nullableString empty should be invalid null string")
 	}
-	if got := inventoryWeeklyUnits("unknown", "unknown"); got != 4 {
-		t.Fatalf("inventoryWeeklyUnits default expected 4 got %d", got)
-	}
-	if got := inventoryRegionalShare("new-jersey-hub"); got != 42 {
-		t.Fatalf("inventoryRegionalShare new jersey %d", got)
-	}
-	if got := inventoryRegionalShare("unknown"); got != 20 {
-		t.Fatalf("inventoryRegionalShare default %d", got)
+	if parseGot6 := nullableString("x"); parseGot6.(string) != "x" {
+		parseT.Fatalf("nullableString value=%v", parseGot6)
 	}
 
-	if got := inventoryMarketPressure(82, 4, 0); got != "Hot market" {
-		t.Fatalf("inventoryMarketPressure hot=%s", got)
+	if parseGot7 := clampInt(2, 3, 5); parseGot7 != 3 {
+		parseT.Fatalf("clampInt low=%d", parseGot7)
 	}
-	if got := inventoryMarketPressure(70, 9, 12); got != "Growing demand" {
-		t.Fatalf("inventoryMarketPressure growth=%s", got)
+	if parseGot8 := clampInt(6, 3, 5); parseGot8 != 5 {
+		parseT.Fatalf("clampInt high=%d", parseGot8)
 	}
-	if got := inventoryMarketPressure(50, 20, 0); got != "Softening" {
-		t.Fatalf("inventoryMarketPressure softening=%s", got)
+	if parseGot9 := clampInt(4, 3, 5); parseGot9 != 4 {
+		parseT.Fatalf("clampInt middle=%d", parseGot9)
 	}
-	if got := inventoryMarketPressure(50, 10, 2); got != "Stable" {
-		t.Fatalf("inventoryMarketPressure stable=%s", got)
-	}
-
-	if got := inventoryMarketSignal("accessories", "new-jersey-hub", 5); got == "" {
-		t.Fatalf("inventoryMarketSignal accessories empty")
-	}
-	if got := inventoryMarketSignal("desks", "nevada-hub", 5); got == "" {
-		t.Fatalf("inventoryMarketSignal desks empty")
-	}
-	if got := inventoryMarketSignal("other", "other", 12); got == "" {
-		t.Fatalf("inventoryMarketSignal high velocity empty")
-	}
-	if got := inventoryMarketSignal("other", "other", 2); got == "" {
-		t.Fatalf("inventoryMarketSignal default empty")
+	if parseGot10 := maxInt(8, 3); parseGot10 != 8 {
+		parseT.Fatalf("maxInt expected 8 got %d", parseGot10)
 	}
 
-	if got := inventoryStatusForProduct("low_stock", 20); got != "promise_risk" {
-		t.Fatalf("inventoryStatusForProduct low stock=%s", got)
+	if parseGot11 := inventoryWeeklyUnits("frame-desk", "new-jersey-hub"); parseGot11 <= 0 {
+		parseT.Fatalf("inventoryWeeklyUnits unexpected %d", parseGot11)
 	}
-	if got := inventoryStatusForProduct("in_stock", 0); got != "promise_risk" {
-		t.Fatalf("inventoryStatusForProduct zero=%s", got)
+	if parseGot12 := inventoryWeeklyUnits("unknown", "unknown"); parseGot12 != 4 {
+		parseT.Fatalf("inventoryWeeklyUnits default expected 4 got %d", parseGot12)
 	}
-	if got := inventoryStatusForProduct("in_stock", 10); got != "balanced" {
-		t.Fatalf("inventoryStatusForProduct balanced=%s", got)
+	if parseGot13 := inventoryRegionalShare("new-jersey-hub"); parseGot13 != 42 {
+		parseT.Fatalf("inventoryRegionalShare new jersey %d", parseGot13)
+	}
+	if parseGot14 := inventoryRegionalShare("unknown"); parseGot14 != 20 {
+		parseT.Fatalf("inventoryRegionalShare default %d", parseGot14)
 	}
 
-	createdInput := prepareCreateProductInput(CreateProductInput{
+	if parseGot15 := inventoryMarketPressure(82, 4, 0); parseGot15 != "Hot market" {
+		parseT.Fatalf("inventoryMarketPressure hot=%s", parseGot15)
+	}
+	if parseGot16 := inventoryMarketPressure(70, 9, 12); parseGot16 != "Growing demand" {
+		parseT.Fatalf("inventoryMarketPressure growth=%s", parseGot16)
+	}
+	if parseGot17 := inventoryMarketPressure(50, 20, 0); parseGot17 != "Softening" {
+		parseT.Fatalf("inventoryMarketPressure softening=%s", parseGot17)
+	}
+	if parseGot18 := inventoryMarketPressure(50, 10, 2); parseGot18 != "Stable" {
+		parseT.Fatalf("inventoryMarketPressure stable=%s", parseGot18)
+	}
+
+	if parseGot19 := inventoryMarketSignal("accessories", "new-jersey-hub", 5); parseGot19 == "" {
+		parseT.Fatalf("inventoryMarketSignal accessories empty")
+	}
+	if parseGot20 := inventoryMarketSignal("desks", "nevada-hub", 5); parseGot20 == "" {
+		parseT.Fatalf("inventoryMarketSignal desks empty")
+	}
+	if parseGot21 := inventoryMarketSignal("other", "other", 12); parseGot21 == "" {
+		parseT.Fatalf("inventoryMarketSignal high velocity empty")
+	}
+	if parseGot22 := inventoryMarketSignal("other", "other", 2); parseGot22 == "" {
+		parseT.Fatalf("inventoryMarketSignal default empty")
+	}
+
+	if parseGot23 := inventoryStatusForProduct("low_stock", 20); parseGot23 != "promise_risk" {
+		parseT.Fatalf("inventoryStatusForProduct low stock=%s", parseGot23)
+	}
+	if parseGot24 := inventoryStatusForProduct("in_stock", 0); parseGot24 != "promise_risk" {
+		parseT.Fatalf("inventoryStatusForProduct zero=%s", parseGot24)
+	}
+	if parseGot25 := inventoryStatusForProduct("in_stock", 10); parseGot25 != "balanced" {
+		parseT.Fatalf("inventoryStatusForProduct balanced=%s", parseGot25)
+	}
+
+	parseCreatedInput := prepareCreateProductInput(CreateProductInput{
 		SKU:        "  sku-1  ",
 		Slug:       " slug-1 ",
 		PriceCents: -1,
 		Available:  -2,
 		Inbound:    -3,
 	})
-	if createdInput.SKU != "sku-1" || createdInput.Slug != "slug-1" {
-		t.Fatalf("prepareCreateProductInput trim failed: %#v", createdInput)
+	if parseCreatedInput.SKU != "sku-1" || parseCreatedInput.Slug != "slug-1" {
+		parseT.Fatalf("prepareCreateProductInput trim failed: %#v", parseCreatedInput)
 	}
-	if createdInput.PriceCents != 0 || createdInput.Available != 0 || createdInput.Inbound != 0 {
-		t.Fatalf("prepareCreateProductInput numeric normalization failed: %#v", createdInput)
+	if parseCreatedInput.PriceCents != 0 || parseCreatedInput.Available != 0 || parseCreatedInput.Inbound != 0 {
+		parseT.Fatalf("prepareCreateProductInput numeric normalization failed: %#v", parseCreatedInput)
 	}
-	if createdInput.Title == "" || createdInput.WarehouseID == "" {
-		t.Fatalf("prepareCreateProductInput defaults missing: %#v", createdInput)
+	if parseCreatedInput.Title == "" || parseCreatedInput.WarehouseID == "" {
+		parseT.Fatalf("prepareCreateProductInput defaults missing: %#v", parseCreatedInput)
 	}
 
-	current := ProductAdminRecord{
-		SKU:          "sku",
-		Slug:         "slug",
-		Title:        "title",
-		Category:     "category",
-		PriceCents:   900,
-		Status:       "in_stock",
-		Finish:       "finish",
-		Summary:      "summary",
-		Details:      "details",
-		SEOTitle:     "seo title",
+	parseCurrent := ProductAdminRecord{
+		SKU:            "sku",
+		Slug:           "slug",
+		Title:          "title",
+		Category:       "category",
+		PriceCents:     900,
+		Status:         "in_stock",
+		Finish:         "finish",
+		Summary:        "summary",
+		Details:        "details",
+		SEOTitle:       "seo title",
 		SEODescription: "seo desc",
-		WarehouseID:  "new-jersey-hub",
-		Available:    4,
-		Inbound:      2,
+		WarehouseID:    "new-jersey-hub",
+		Available:      4,
+		Inbound:        2,
 	}
-	updatedInput := prepareUpdateProductInput(current, UpdateProductInput{
+	parseUpdatedInput := prepareUpdateProductInput(parseCurrent, UpdateProductInput{
 		PriceCents: -1,
 		Available:  -1,
 		Inbound:    -1,
 	})
-	if updatedInput.SKU != "sku" || updatedInput.PriceCents != 900 {
-		t.Fatalf("prepareUpdateProductInput normalization failed: %#v", updatedInput)
+	if parseUpdatedInput.SKU != "sku" || parseUpdatedInput.PriceCents != 900 {
+		parseT.Fatalf("prepareUpdateProductInput normalization failed: %#v", parseUpdatedInput)
 	}
-	if updatedInput.Available != 4 || updatedInput.Inbound != 2 {
-		t.Fatalf("prepareUpdateProductInput quantity fallback failed: %#v", updatedInput)
+	if parseUpdatedInput.Available != 4 || parseUpdatedInput.Inbound != 2 {
+		parseT.Fatalf("prepareUpdateProductInput quantity fallback failed: %#v", parseUpdatedInput)
 	}
 
-	items := []ProductAdminRecord{
+	parseItems := []ProductAdminRecord{
 		{Title: "B", PriceCents: 100, Volume: 1, Status: "in_stock", UpdatedAt: "1"},
 		{Title: "A", PriceCents: 1000, Volume: 10, Status: "flagged", UpdatedAt: "2"},
 	}
-	sortProductAdminItems(items, "price")
-	if items[0].Title != "A" {
-		t.Fatalf("sort by price failed: %#v", items)
+	sortProductAdminItems(parseItems, "price")
+	if parseItems[0].Title != "A" {
+		parseT.Fatalf("sort by price failed: %#v", parseItems)
 	}
-	sortProductAdminItems(items, "volume")
-	if items[0].Title != "A" {
-		t.Fatalf("sort by volume failed: %#v", items)
+	sortProductAdminItems(parseItems, "volume")
+	if parseItems[0].Title != "A" {
+		parseT.Fatalf("sort by volume failed: %#v", parseItems)
 	}
-	sortProductAdminItems(items, "status")
-	if !sort.SliceIsSorted(items, func(i, j int) bool { return items[i].Status <= items[j].Status }) {
-		t.Fatalf("sort by status failed: %#v", items)
+	sortProductAdminItems(parseItems, "status")
+	if !sort.SliceIsSorted(parseItems, func(parseI, parseJ int) bool { return parseItems[parseI].Status <= parseItems[parseJ].Status }) {
+		parseT.Fatalf("sort by status failed: %#v", parseItems)
 	}
-	sortProductAdminItems(items, "updated")
-	if items[0].UpdatedAt != "2" {
-		t.Fatalf("sort by default updated failed: %#v", items)
-	}
-
-	base := repository.Product{Category: "desks"}
-	if reason := relatedProductReason(base, repository.Product{Category: "desks"}); reason == "" {
-		t.Fatalf("relatedProductReason same-category empty")
-	}
-	if reason := relatedProductReason(base, repository.Product{Category: "storage"}); reason == "" {
-		t.Fatalf("relatedProductReason cross-category empty")
+	sortProductAdminItems(parseItems, "updated")
+	if parseItems[0].UpdatedAt != "2" {
+		parseT.Fatalf("sort by default updated failed: %#v", parseItems)
 	}
 
-	if pressure, _, _, _ := warehouseOperationalProfile("new-jersey-hub"); pressure == "" {
-		t.Fatalf("warehouseOperationalProfile new jersey empty")
+	parseBase := repository.Product{Category: "desks"}
+	if parseReason := relatedProductReason(parseBase, repository.Product{Category: "desks"}); parseReason == "" {
+		parseT.Fatalf("relatedProductReason same-category empty")
 	}
-	if pressure, _, _, _ := warehouseOperationalProfile("nevada-hub"); pressure == "" {
-		t.Fatalf("warehouseOperationalProfile nevada empty")
+	if parseReason2 := relatedProductReason(parseBase, repository.Product{Category: "storage"}); parseReason2 == "" {
+		parseT.Fatalf("relatedProductReason cross-category empty")
 	}
-	if pressure, _, _, _ := warehouseOperationalProfile("unknown"); pressure == "" {
-		t.Fatalf("warehouseOperationalProfile default empty")
+
+	if parsePressure, _, _, _ := warehouseOperationalProfile("new-jersey-hub"); parsePressure == "" {
+		parseT.Fatalf("warehouseOperationalProfile new jersey empty")
+	}
+	if parsePressure2, _, _, _ := warehouseOperationalProfile("nevada-hub"); parsePressure2 == "" {
+		parseT.Fatalf("warehouseOperationalProfile nevada empty")
+	}
+	if parsePressure3, _, _, _ := warehouseOperationalProfile("unknown"); parsePressure3 == "" {
+		parseT.Fatalf("warehouseOperationalProfile default empty")
 	}
 }
 
-func newSeededStore(t *testing.T) (context.Context, *Store, *sql.DB) {
-	t.Helper()
+func newSeededStore(parseT *testing.T) (context.Context, *Store, *sql.DB) {
+	parseT.Helper()
 
-	ctx := context.Background()
-	databasePath := filepath.Join(t.TempDir(), "atlas.db")
-	database, err := Open(ctx, databasePath)
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
+	parseCtx := context.Background()
+	parseDatabasePath := filepath.Join(parseT.TempDir(), "atlas.db")
+	parseDatabase, parseErr := Open(parseCtx, parseDatabasePath)
+	if parseErr != nil {
+		parseT.Fatalf("open sqlite: %v", parseErr)
 	}
-	t.Cleanup(func() {
-		_ = database.Close()
+	parseT.Cleanup(func() {
+		_ = parseDatabase.Close()
 	})
 
-	migrationsPath := resolveDataPath(t, "migrations")
-	fallbackSchemaPath := resolveDataPath(t, "schema.sql")
-	if err := Migrate(ctx, database, migrationsPath, fallbackSchemaPath); err != nil {
-		t.Fatalf("migrate database: %v", err)
+	parseMigrationsPath := resolveDataPath(parseT, "migrations")
+	parseFallbackSchemaPath := resolveDataPath(parseT, "schema.sql")
+	if parseErr2 := Migrate(parseCtx, parseDatabase, parseMigrationsPath, parseFallbackSchemaPath); parseErr2 != nil {
+		parseT.Fatalf("migrate database: %v", parseErr2)
 	}
-	if err := Seed(ctx, database); err != nil {
-		t.Fatalf("seed database: %v", err)
+	if parseErr3 := Seed(parseCtx, parseDatabase); parseErr3 != nil {
+		parseT.Fatalf("seed database: %v", parseErr3)
 	}
-	return ctx, NewStore(database), database
+	return parseCtx, NewStore(parseDatabase), parseDatabase
 }
 
-func resolveDataPath(t *testing.T, parts ...string) string {
-	t.Helper()
+func resolveDataPath(parseT *testing.T, parseParts ...string) string {
+	parseT.Helper()
 
-	candidates := []string{
-		filepath.Join(append([]string{"..", "data"}, parts...)...),
-		filepath.Join(append([]string{"examples", "86-atlas-commerce-os", "server", "data"}, parts...)...),
+	parseCandidates := []string{
+		filepath.Join(append([]string{"..", "data"}, parseParts...)...),
+		filepath.Join(append([]string{"examples", "86-atlas-commerce-os", "server", "data"}, parseParts...)...),
 	}
-	for _, candidate := range candidates {
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate
+	for _, parseCandidate := range parseCandidates {
+		if _, parseErr := os.Stat(parseCandidate); parseErr == nil {
+			return parseCandidate
 		}
 	}
-	t.Fatalf("unable to resolve data path for %v", parts)
+	parseT.Fatalf("unable to resolve data path for %v", parseParts)
 	return ""
 }

@@ -35,66 +35,66 @@ type InputFieldProps struct {
 
 var defaultFormData = FormData{AccountType: "personal", Newsletter: true}
 
-func InputField(props InputFieldProps) ui.Node {
-	borderClass := "border-white/10 focus:border-blue-500 focus:ring-blue-500"
-	if props.ErrorMsg != "" {
-		borderClass = "border-red-500/50 text-red-400 placeholder-red-300 focus:border-red-500 focus:ring-red-500"
+func InputField(parseProps InputFieldProps) ui.Node {
+	parseBorderClass := "border-white/10 focus:border-blue-500 focus:ring-blue-500"
+	if parseProps.ErrorMsg != "" {
+		parseBorderClass = "border-red-500/50 text-red-400 placeholder-red-300 focus:border-red-500 focus:ring-red-500"
 	}
 
 	return html.Div(html.Props{Class: "mb-5"},
-		html.Label(html.Props{Class: "block text-sm font-medium text-gray-400 mb-2"}, html.Text(props.Label)),
+		html.Label(html.Props{Class: "block text-sm font-medium text-gray-400 mb-2"}, html.Text(parseProps.Label)),
 		html.Input(html.Props{
-			Type:        props.InputType,
-			Name:        props.Name,
-			Value:       props.Value,
-			Class:       "block w-full px-4 py-3 bg-black/20 border rounded-lg shadow-sm focus:outline-none focus:ring-1 sm:text-sm text-white placeholder-gray-600 transition-all " + borderClass,
-			OnInput:     ui.UseEvent(props.OnChange),
-			Placeholder: "Enter " + strings.ToLower(props.Label),
+			Type:        parseProps.InputType,
+			Name:        parseProps.Name,
+			Value:       parseProps.Value,
+			Class:       "block w-full px-4 py-3 bg-black/20 border rounded-lg shadow-sm focus:outline-none focus:ring-1 sm:text-sm text-white placeholder-gray-600 transition-all " + parseBorderClass,
+			OnInput:     ui.UseEvent(parseProps.OnChange),
+			Placeholder: "Enter " + strings.ToLower(parseProps.Label),
 		}),
 		func() ui.Node {
-			if props.ErrorMsg != "" {
-				return html.P(html.Props{Class: "mt-2 text-sm text-red-400"}, html.Text(props.ErrorMsg))
+			if parseProps.ErrorMsg != "" {
+				return html.P(html.Props{Class: "mt-2 text-sm text-red-400"}, html.Text(parseProps.ErrorMsg))
 			}
 			return nil
 		}(),
 	)
 }
 
-func formPage(registration ui.Form[FormData], validate func(FormData) ui.FieldErrors) ui.Node {
-	nav := router.UseNavigate()
-	currentForm := registration.Get()
-	currentErrors := registration.Errors()
+func formPage(parseRegistration ui.Form[FormData], parseValidate func(FormData) ui.FieldErrors) ui.Node {
+	parseNav := router.UseNavigate()
+	parseCurrentForm := parseRegistration.Get()
+	parseCurrentErrors := parseRegistration.Errors()
 
-	handleChange := func(field string) func(ui.Event) {
-		return func(e ui.Event) {
-			registration.SetField(field, e.GetValue())
+	handleChange := func(parseField string) func(ui.Event) {
+		return func(parseE ui.Event) {
+			parseRegistration.SetField(parseField, parseE.GetValue())
 		}
 	}
 
-	handleSubmit := ui.UseEvent(func(e ui.Event) {
-		e.PreventDefault()
+	handleSubmit := ui.UseEvent(func(parseE2 ui.Event) {
+		parseE2.PreventDefault()
 
-		if registration.Validate(validate) {
-			registration.ValidateAsync(func(value FormData) (ui.FieldErrors, string) {
+		if parseRegistration.Validate(parseValidate) {
+			parseRegistration.ValidateAsync(func(parseValue FormData) (ui.FieldErrors, string) {
 				time.Sleep(40 * time.Millisecond)
-				errs := ui.FieldErrors{}
-				if strings.EqualFold(value.Username, "admin") {
-					errs["Username"] = "Username is reserved"
+				parseErrs := ui.FieldErrors{}
+				if strings.EqualFold(parseValue.Username, "admin") {
+					parseErrs["Username"] = "Username is reserved"
 				}
-				if strings.HasSuffix(strings.ToLower(strings.TrimSpace(value.Email)), "@blocked.test") {
-					return errs, "Registrations from blocked.test are disabled"
+				if strings.HasSuffix(strings.ToLower(strings.TrimSpace(parseValue.Email)), "@blocked.test") {
+					return parseErrs, "Registrations from blocked.test are disabled"
 				}
-				return errs, ""
-			}, func(valid bool) {
-				if !valid {
+				return parseErrs, ""
+			}, func(isValid bool) {
+				if !isValid {
 					return
 				}
-				registration.Submit(func(value FormData) error {
+				parseRegistration.Submit(func(parseValue2 FormData) error {
 					time.Sleep(40 * time.Millisecond)
-					if strings.HasSuffix(strings.ToLower(strings.TrimSpace(value.Email)), "@retry.test") {
+					if strings.HasSuffix(strings.ToLower(strings.TrimSpace(parseValue2.Email)), "@retry.test") {
 						return errors.New("Temporary signup outage. Please retry.")
 					}
-					nav.Replace("/success")
+					parseNav.Replace("/success")
 					return nil
 				})
 			})
@@ -110,48 +110,48 @@ func formPage(registration ui.Form[FormData], validate func(FormData) ui.FieldEr
 			html.Div(html.Props{Class: "bg-white/5 border border-white/10 py-8 px-4 shadow-2xl sm:rounded-xl sm:px-10 backdrop-blur-sm"},
 				html.Form(html.Props{},
 					func() ui.Node {
-						if registration.FormError() == "" {
+						if parseRegistration.FormError() == "" {
 							return nil
 						}
-						return html.Div(html.Props{Class: "mb-5 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200"}, html.Text(registration.FormError()))
+						return html.Div(html.Props{Class: "mb-5 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200"}, html.Text(parseRegistration.FormError()))
 					}(),
-					ui.CreateElement(InputField, InputFieldProps{Label: "Username", Name: "username", InputType: "text", Value: currentForm.Username, ErrorMsg: currentErrors["Username"], OnChange: handleChange("Username")}),
-					ui.CreateElement(InputField, InputFieldProps{Label: "Email Address", Name: "email", InputType: "email", Value: currentForm.Email, ErrorMsg: currentErrors["Email"], OnChange: handleChange("Email")}),
-					ui.CreateElement(InputField, InputFieldProps{Label: "Password", Name: "password", InputType: "password", Value: currentForm.Password, ErrorMsg: currentErrors["Password"], OnChange: handleChange("Password")}),
-					ui.CreateElement(InputField, InputFieldProps{Label: "Confirm Password", Name: "confirm_password", InputType: "password", Value: currentForm.ConfirmPass, ErrorMsg: currentErrors["ConfirmPass"], OnChange: handleChange("ConfirmPass")}),
+					ui.CreateElement(InputField, InputFieldProps{Label: "Username", Name: "username", InputType: "text", Value: parseCurrentForm.Username, ErrorMsg: parseCurrentErrors["Username"], OnChange: handleChange("Username")}),
+					ui.CreateElement(InputField, InputFieldProps{Label: "Email Address", Name: "email", InputType: "email", Value: parseCurrentForm.Email, ErrorMsg: parseCurrentErrors["Email"], OnChange: handleChange("Email")}),
+					ui.CreateElement(InputField, InputFieldProps{Label: "Password", Name: "password", InputType: "password", Value: parseCurrentForm.Password, ErrorMsg: parseCurrentErrors["Password"], OnChange: handleChange("Password")}),
+					ui.CreateElement(InputField, InputFieldProps{Label: "Confirm Password", Name: "confirm_password", InputType: "password", Value: parseCurrentForm.ConfirmPass, ErrorMsg: parseCurrentErrors["ConfirmPass"], OnChange: handleChange("ConfirmPass")}),
 					html.Div(html.Props{Class: "mb-5"},
 						html.Label(html.Props{Class: "block text-sm font-medium text-gray-400 mb-2"}, html.Text("Account Type")),
-						html.Select(html.Props{Class: "block w-full px-4 py-3 bg-black/20 border border-white/10 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-white", Value: currentForm.AccountType, OnChange: ui.UseEvent(func(e ui.Event) {
-							registration.SetField("AccountType", e.GetValue())
+						html.Select(html.Props{Class: "block w-full px-4 py-3 bg-black/20 border border-white/10 rounded-lg shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-white", Value: parseCurrentForm.AccountType, OnChange: ui.UseEvent(func(parseE3 ui.Event) {
+							parseRegistration.SetField("AccountType", parseE3.GetValue())
 						})},
-							html.Option(html.Props{Value: "personal", Selected: currentForm.AccountType == "personal"}, html.Text("Personal")),
-							html.Option(html.Props{Value: "business", Selected: currentForm.AccountType == "business"}, html.Text("Business")),
-							html.Option(html.Props{Value: "enterprise", Selected: currentForm.AccountType == "enterprise"}, html.Text("Enterprise")),
+							html.Option(html.Props{Value: "personal", Selected: parseCurrentForm.AccountType == "personal"}, html.Text("Personal")),
+							html.Option(html.Props{Value: "business", Selected: parseCurrentForm.AccountType == "business"}, html.Text("Business")),
+							html.Option(html.Props{Value: "enterprise", Selected: parseCurrentForm.AccountType == "enterprise"}, html.Text("Enterprise")),
 						),
 					),
 					html.Div(html.Props{Class: "flex items-center mb-8"},
-						html.Input(html.Props{ID: "newsletter", Type: "checkbox", Class: "h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-600 rounded bg-black/20", Checked: currentForm.Newsletter, OnChange: ui.UseEvent(func(e ui.Event) {
-							registration.SetField("Newsletter", e.IsChecked())
+						html.Input(html.Props{ID: "newsletter", Type: "checkbox", Class: "h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-600 rounded bg-black/20", Checked: parseCurrentForm.Newsletter, OnChange: ui.UseEvent(func(parseE4 ui.Event) {
+							parseRegistration.SetField("Newsletter", parseE4.IsChecked())
 						})}),
 						html.Label(html.Props{For: "newsletter", Class: "ml-2 block text-sm text-gray-300"}, html.Text("Subscribe to our newsletter")),
 					),
 					html.Div(html.Props{Class: "mb-4 text-xs text-slate-400"}, html.Text(func() string {
-						if registration.Validating() {
+						if parseRegistration.Validating() {
 							return "Running async validation"
 						}
-						if registration.DirtyAny() {
+						if parseRegistration.DirtyAny() {
 							return "Form has unsaved changes"
 						}
 						return "Form is pristine"
 					}())),
-					html.Button(html.Props{Type: "button", OnClick: handleSubmit, Disabled: registration.Submitting() || registration.Validating(), Class: "w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-500/20"}, html.Text(func() string {
-						if registration.Validating() {
+					html.Button(html.Props{Type: "button", OnClick: handleSubmit, Disabled: parseRegistration.Submitting() || parseRegistration.Validating(), Class: "w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-purple-500/20"}, html.Text(func() string {
+						if parseRegistration.Validating() {
 							return "Checking Account..."
 						}
-						if registration.Submitting() {
+						if parseRegistration.Submitting() {
 							return "Creating Account..."
 						}
-						if registration.SubmitError() != nil {
+						if parseRegistration.SubmitError() != nil {
 							return "Retry Sign Up"
 						}
 						return "Sign Up"
@@ -162,9 +162,9 @@ func formPage(registration ui.Form[FormData], validate func(FormData) ui.FieldEr
 	)
 }
 
-func successPage(registration ui.Form[FormData]) ui.Node {
-	nav := router.UseNavigate()
-	currentForm := registration.Get()
+func successPage(parseRegistration ui.Form[FormData]) ui.Node {
+	parseNav := router.UseNavigate()
+	parseCurrentForm := parseRegistration.Get()
 	return html.Div(html.Props{Class: "min-h-screen bg-[#0a0a0a] flex flex-col justify-center py-12 sm:px-6 lg:px-8"},
 		html.Div(html.Props{Class: "mt-8 sm:mx-auto sm:w-full sm:max-w-md"},
 			html.Div(html.Props{Class: "bg-white/5 border border-white/10 py-8 px-4 shadow-2xl sm:rounded-xl sm:px-10 text-center backdrop-blur-sm"},
@@ -172,13 +172,13 @@ func successPage(registration ui.Form[FormData]) ui.Node {
 					html.Span(html.Props{Class: "text-green-400 text-2xl"}, html.Text("✓")),
 				),
 				html.H3(html.Props{Class: "text-xl font-bold text-white mb-2"}, html.Text("Registration Successful!")),
-				html.P(html.Props{Class: "mt-2 text-sm text-gray-400"}, html.Text("Welcome aboard, "+currentForm.Username)),
+				html.P(html.Props{Class: "mt-2 text-sm text-gray-400"}, html.Text("Welcome aboard, "+parseCurrentForm.Username)),
 				html.P(html.Props{Class: "mt-3 text-xs uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Route-integrated success state")),
 				html.Button(html.Props{
 					Class: "mt-8 w-full inline-flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-purple-600 hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all",
 					OnClick: ui.UseEvent(func() {
-						registration.Reset(defaultFormData)
-						nav.Replace("/")
+						parseRegistration.Reset(defaultFormData)
+						parseNav.Replace("/")
 					}),
 				}, html.Text("Register Another Account")),
 			),
@@ -187,37 +187,37 @@ func successPage(registration ui.Form[FormData]) ui.Node {
 }
 
 func App() ui.Node {
-	registration := ui.UseForm(defaultFormData)
-	validate := func(data FormData) ui.FieldErrors {
-		errs := ui.FieldErrors{}
+	parseRegistration := ui.UseForm(defaultFormData)
+	parseValidate := func(parseData FormData) ui.FieldErrors {
+		parseErrs := ui.FieldErrors{}
 
-		if len(data.Username) < 3 {
-			errs["Username"] = "Username must be at least 3 characters"
+		if len(parseData.Username) < 3 {
+			parseErrs["Username"] = "Username must be at least 3 characters"
 		}
-		if !strings.Contains(data.Email, "@") {
-			errs["Email"] = "Please enter a valid email"
+		if !strings.Contains(parseData.Email, "@") {
+			parseErrs["Email"] = "Please enter a valid email"
 		}
-		if len(data.Password) < 6 {
-			errs["Password"] = "Password must be at least 6 characters"
+		if len(parseData.Password) < 6 {
+			parseErrs["Password"] = "Password must be at least 6 characters"
 		}
-		if data.Password != data.ConfirmPass {
-			errs["ConfirmPass"] = "Passwords do not match"
+		if parseData.Password != parseData.ConfirmPass {
+			parseErrs["ConfirmPass"] = "Passwords do not match"
 		}
 
-		return errs
+		return parseErrs
 	}
 
-	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
-	r.Register("/", func(_ router.Attrs) *router.Element {
-		return formPage(registration, validate)
+	parseR := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
+	parseR.Register("/", func(_ router.Attrs) *router.Element {
+		return formPage(parseRegistration, parseValidate)
 	})
-	r.Register("/success", func(_ router.Attrs) *router.Element {
-		return successPage(registration)
+	parseR.Register("/success", func(_ router.Attrs) *router.Element {
+		return successPage(parseRegistration)
 	})
-	r.Register("*", func(_ router.Attrs) *router.Element {
-		return formPage(registration, validate)
+	parseR.Register("*", func(_ router.Attrs) *router.Element {
+		return formPage(parseRegistration, parseValidate)
 	})
-	return r.Current()
+	return parseR.Current()
 }
 
 func main() {

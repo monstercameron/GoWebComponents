@@ -14,10 +14,10 @@ import (
 
 func ToggleExample() ui.Node {
 	isOn := ui.UseState(false)
-	currentState := isOn.Get()
+	parseCurrentState := isOn.Get()
 
-	toggle := ui.UseEvent(func() {
-		isOn.Set(!currentState)
+	parseToggle := ui.UseEvent(func() {
+		isOn.Set(!parseCurrentState)
 	})
 
 	return h.Div(
@@ -34,14 +34,14 @@ func ToggleExample() ui.Node {
 				h.Class("flex flex-col items-center justify-center mb-10"),
 				h.Div(
 					h.Class(func() string {
-						base := "w-24 h-24 rounded-full flex items-center justify-center text-4xl mb-6 transition-all duration-500 shadow-lg "
-						if currentState {
-							return base + "bg-green-500/20 text-green-400 shadow-green-500/20 border border-green-500/50"
+						parseBase := "w-24 h-24 rounded-full flex items-center justify-center text-4xl mb-6 transition-all duration-500 shadow-lg "
+						if parseCurrentState {
+							return parseBase + "bg-green-500/20 text-green-400 shadow-green-500/20 border border-green-500/50"
 						}
-						return base + "bg-red-500/20 text-red-400 shadow-red-500/20 border border-red-500/50"
+						return parseBase + "bg-red-500/20 text-red-400 shadow-red-500/20 border border-red-500/50"
 					}()),
 					h.Text(func() string {
-						if currentState {
+						if parseCurrentState {
 							return "ON"
 						}
 						return "OFF"
@@ -50,7 +50,7 @@ func ToggleExample() ui.Node {
 				h.P(
 					h.Class("text-gray-400 uppercase tracking-widest text-xs font-semibold"),
 					h.Textf("System Status: %s", func() string {
-						if currentState {
+						if parseCurrentState {
 							return "ACTIVE"
 						}
 						return "INACTIVE"
@@ -58,16 +58,16 @@ func ToggleExample() ui.Node {
 				),
 			),
 			h.Button(
-				h.OnClick(toggle),
+				h.OnClick(parseToggle),
 				h.Class(func() string {
-					base := "w-full px-6 py-4 font-bold rounded-lg transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] "
-					if currentState {
-						return base + "bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300"
+					parseBase2 := "w-full px-6 py-4 font-bold rounded-lg transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] "
+					if parseCurrentState {
+						return parseBase2 + "bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300"
 					}
-					return base + "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg shadow-purple-500/20"
+					return parseBase2 + "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg shadow-purple-500/20"
 				}()),
 				h.Text(func() string {
-					if currentState {
+					if parseCurrentState {
 						return "Power Down System"
 					}
 					return "Initialize System"

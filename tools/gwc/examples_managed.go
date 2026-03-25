@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -10,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -18,6 +21,8 @@ const examplesManagedDefaultProfile = "chat-wizard-local"
 
 type examplesManagedProfile struct {
 	profileName       string
+	serverPath        string
+	buildTargetPath   string
 	commandPath       string
 	commandArgs       []string
 	commandDir        string
@@ -36,6 +41,7 @@ type examplesManagedLaunchConfig struct {
 
 type examplesManagedServerState struct {
 	ProfileName string   `json:"profileName"`
+	ServerPath  string   `json:"serverPath,omitempty"`
 	PID         int      `json:"pid"`
 	Host        string   `json:"host"`
 	Port        string   `json:"port"`
@@ -54,6 +60,7 @@ type examplesManagedSummary struct {
 	OK          bool   `json:"ok"`
 	Action      string `json:"action"`
 	ProfileName string `json:"profileName"`
+	ServerPath  string `json:"serverPath,omitempty"`
 	IsRunning   bool   `json:"isRunning"`
 	IsHealthy   bool   `json:"isHealthy,omitempty"`
 	PID         int    `json:"pid,omitempty"`
@@ -69,6 +76,8 @@ var examplesManagedResolveProfile = resolveExamplesManagedProfile
 var examplesManagedLaunchProcess = launchExamplesManagedProcess
 
 var examplesManagedWaitServerReady = waitExamplesManagedServerReady
+
+var examplesManagedBuildBinary = buildExamplesManagedServerBinary
 
 var examplesManagedCheckPIDRunning = checkLauncherPIDRunning
 
@@ -89,6 +98,36 @@ func isExamplesManagedAction(parseArgs []string) bool {
 	default:
 		return false
 	}
+}
+
+// isExamplesManagedPathCommand reports whether a top-level path command should dispatch to managed examples actions.
+func isExamplesManagedPathCommand(parseCommand string, parseArgs []string) bool {
+	parseCommand = strings.TrimSpace(parseCommand)
+	if parseCommand == "" {
+		return false
+	}
+	if !isExamplesManagedAction(parseArgs) {
+		return false
+	}
+	if strings.Contains(parseCommand, `\`) || strings.Contains(parseCommand, "/") || strings.HasPrefix(parseCommand, ".") {
+		return true
+	}
+	if len(parseCommand) >= 2 && parseCommand[1] == ':' {
+		return true
+	}
+	return false
+}
+
+// buildExamplesManagedPathCommandArgs rewrites path-first argv into managed examples argv.
+func buildExamplesManagedPathCommandArgs(parseCommand string, parseArgs []string) []string {
+	if len(parseArgs) == 0 {
+		return nil
+	}
+	parseManagedArgs := []string{parseArgs[0], "-path", parseCommand}
+	if len(parseArgs) > 1 {
+		parseManagedArgs = append(parseManagedArgs, parseArgs[1:]...)
+	}
+	return parseManagedArgs
 }
 
 // runExamplesManaged dispatches managed example-server lifecycle actions.
@@ -115,6 +154,7 @@ func (parseL launcher) runExamplesManagedStart(parseArgs []string) error {
 	parseFlags := flag.NewFlagSet("examples start", flag.ContinueOnError)
 	parseFlags.SetOutput(os.Stdout)
 	parseProfileName := parseFlags.String("profile", examplesManagedDefaultProfile, "Managed profile name to start")
+	parseServerPath := parseFlags.String("path", "", "Path to a Go server package directory or main.go file")
 	parseHost := parseFlags.String("host", "", "Optional host override for LISTEN_ADDR and health probing")
 	parsePort := parseFlags.String("port", "", "Optional port override for LISTEN_ADDR and health probing")
 	parseHealthPath := parseFlags.String("health-path", "", "Optional health endpoint path override")
@@ -126,10 +166,11 @@ func (parseL launcher) runExamplesManagedStart(parseArgs []string) error {
 		}
 		return parseErr
 	}
-	if len(parseFlags.Args()) > 0 {
-		return fmt.Errorf("examples start does not accept positional arguments: %s", strings.Join(parseFlags.Args(), " "))
+	parseResolvedPath, parseErr := resolveExamplesManagedServerPath(*parseServerPath, parseFlags.Args())
+	if parseErr != nil {
+		return parseErr
 	}
-	parseSummary, parseErr := parseL.applyExamplesManagedStart(*parseProfileName, *parseHost, *parsePort, *parseHealthPath, *parseHealthTimeout)
+	parseSummary, parseErr := parseL.applyExamplesManagedStart(*parseProfileName, parseResolvedPath, *parseHost, *parsePort, *parseHealthPath, *parseHealthTimeout)
 	if parseErr != nil {
 		return parseErr
 	}
@@ -141,6 +182,7 @@ func (parseL launcher) runExamplesManagedStatus(parseArgs []string) error {
 	parseFlags := flag.NewFlagSet("examples status", flag.ContinueOnError)
 	parseFlags.SetOutput(os.Stdout)
 	parseProfileName := parseFlags.String("profile", examplesManagedDefaultProfile, "Managed profile name to inspect")
+	parseServerPath := parseFlags.String("path", "", "Path to the managed Go server package directory or main.go file")
 	parseJSON := parseFlags.Bool("json", false, "Emit machine-readable JSON output")
 	if parseErr := parseFlags.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
@@ -148,10 +190,11 @@ func (parseL launcher) runExamplesManagedStatus(parseArgs []string) error {
 		}
 		return parseErr
 	}
-	if len(parseFlags.Args()) > 0 {
-		return fmt.Errorf("examples status does not accept positional arguments: %s", strings.Join(parseFlags.Args(), " "))
+	parseResolvedPath, parseErr := resolveExamplesManagedServerPath(*parseServerPath, parseFlags.Args())
+	if parseErr != nil {
+		return parseErr
 	}
-	parseSummary, parseErr := parseL.applyExamplesManagedStatus(*parseProfileName)
+	parseSummary, parseErr := parseL.applyExamplesManagedStatus(*parseProfileName, parseResolvedPath)
 	if parseErr != nil {
 		return parseErr
 	}
@@ -163,6 +206,7 @@ func (parseL launcher) runExamplesManagedStop(parseArgs []string) error {
 	parseFlags := flag.NewFlagSet("examples stop", flag.ContinueOnError)
 	parseFlags.SetOutput(os.Stdout)
 	parseProfileName := parseFlags.String("profile", examplesManagedDefaultProfile, "Managed profile name to stop")
+	parseServerPath := parseFlags.String("path", "", "Path to the managed Go server package directory or main.go file")
 	parseJSON := parseFlags.Bool("json", false, "Emit machine-readable JSON output")
 	if parseErr := parseFlags.Parse(parseArgs); parseErr != nil {
 		if errors.Is(parseErr, flag.ErrHelp) {
@@ -170,22 +214,43 @@ func (parseL launcher) runExamplesManagedStop(parseArgs []string) error {
 		}
 		return parseErr
 	}
-	if len(parseFlags.Args()) > 0 {
-		return fmt.Errorf("examples stop does not accept positional arguments: %s", strings.Join(parseFlags.Args(), " "))
+	parseResolvedPath, parseErr := resolveExamplesManagedServerPath(*parseServerPath, parseFlags.Args())
+	if parseErr != nil {
+		return parseErr
 	}
-	parseSummary, parseErr := parseL.applyExamplesManagedStop(*parseProfileName)
+	parseSummary, parseErr := parseL.applyExamplesManagedStop(*parseProfileName, parseResolvedPath)
 	if parseErr != nil {
 		return parseErr
 	}
 	return renderExamplesManagedSummary(parseSummary, *parseJSON)
 }
 
+// resolveExamplesManagedServerPath resolves a `-path` flag or one positional server path argument.
+func resolveExamplesManagedServerPath(parseFlagPath string, parseArgs []string) (string, error) {
+	parseFlagPath = strings.TrimSpace(parseFlagPath)
+	if len(parseArgs) > 1 {
+		return "", fmt.Errorf("expected at most one server path argument, got %d", len(parseArgs))
+	}
+	if parseFlagPath != "" && len(parseArgs) == 1 {
+		return "", errors.New("use either -path or one positional server path argument, not both")
+	}
+	if parseFlagPath == "" && len(parseArgs) == 1 {
+		parseFlagPath = strings.TrimSpace(parseArgs[0])
+	}
+	return parseFlagPath, nil
+}
+
 // applyExamplesManagedStart resolves config, launches a profile process, persists state, and waits for health.
-func (parseL launcher) applyExamplesManagedStart(parseProfileName string, parseHost string, parsePort string, parseHealthPath string, parseHealthTimeout time.Duration) (examplesManagedSummary, error) {
-	parseProfile, parseErr := examplesManagedResolveProfile(parseL, parseProfileName)
+func (parseL launcher) applyExamplesManagedStart(parseProfileName string, parseServerPath string, parseHost string, parsePort string, parseHealthPath string, parseHealthTimeout time.Duration) (examplesManagedSummary, error) {
+	parseProfile, parseErr := parseL.resolveExamplesManagedCommand(parseProfileName, parseServerPath)
 	if parseErr != nil {
 		return examplesManagedSummary{}, parseErr
 	}
+	return parseL.applyExamplesManagedStartForProfile(parseProfile, parseHost, parsePort, parseHealthPath, parseHealthTimeout)
+}
+
+// applyExamplesManagedStartForProfile launches and persists state for a fully resolved managed profile.
+func (parseL launcher) applyExamplesManagedStartForProfile(parseProfile examplesManagedProfile, parseHost string, parsePort string, parseHealthPath string, parseHealthTimeout time.Duration) (examplesManagedSummary, error) {
 	parseHost = firstNonEmpty(strings.TrimSpace(parseHost), parseProfile.defaultHost)
 	parsePort = firstNonEmpty(strings.TrimSpace(parsePort), parseProfile.defaultPort)
 	parseHealthPath = normalizeExamplesManagedHealthPath(firstNonEmpty(strings.TrimSpace(parseHealthPath), parseProfile.defaultHealthPath))
@@ -204,6 +269,7 @@ func (parseL launcher) applyExamplesManagedStart(parseProfileName string, parseH
 			OK:          true,
 			Action:      "start",
 			ProfileName: parseState.ProfileName,
+			ServerPath:  parseState.ServerPath,
 			IsRunning:   true,
 			IsHealthy:   parseHealthy,
 			PID:         parseState.PID,
@@ -220,19 +286,18 @@ func (parseL launcher) applyExamplesManagedStart(parseProfileName string, parseH
 	parseListenAddr := joinHostPort(parseHost, parsePort)
 	parseURL := "http://" + parseListenAddr
 	parseHealthURL := parseURL + parseHealthPath
-	parsePID, parseErr := examplesManagedLaunchProcess(examplesManagedLaunchConfig{
-		commandPath: parseProfile.commandPath,
-		commandArgs: append([]string(nil), parseProfile.commandArgs...),
-		commandDir:  parseProfile.commandDir,
-		listenAddr:  parseListenAddr,
-		logPath:     parseLogPath,
-	})
+	parseLaunchConfig, parseErr := parseL.resolveExamplesManagedLaunchConfig(parseProfile, parseStatePath, parseLogPath, parseListenAddr)
+	if parseErr != nil {
+		return examplesManagedSummary{}, parseErr
+	}
+	parsePID, parseErr := examplesManagedLaunchProcess(parseLaunchConfig)
 	if parseErr != nil {
 		return examplesManagedSummary{}, parseErr
 	}
 
 	parseState = examplesManagedServerState{
 		ProfileName: parseProfile.profileName,
+		ServerPath:  parseProfile.serverPath,
 		PID:         parsePID,
 		Host:        parseHost,
 		Port:        parsePort,
@@ -240,9 +305,9 @@ func (parseL launcher) applyExamplesManagedStart(parseProfileName string, parseH
 		URL:         parseURL,
 		HealthURL:   parseHealthURL,
 		HealthPath:  parseHealthPath,
-		CommandPath: parseProfile.commandPath,
-		CommandArgs: append([]string(nil), parseProfile.commandArgs...),
-		CommandDir:  parseProfile.commandDir,
+		CommandPath: parseLaunchConfig.commandPath,
+		CommandArgs: append([]string(nil), parseLaunchConfig.commandArgs...),
+		CommandDir:  parseLaunchConfig.commandDir,
 		LogPath:     parseLogPath,
 		StartedAt:   examplesManagedNowUTC().Format(time.RFC3339),
 	}
@@ -263,6 +328,7 @@ func (parseL launcher) applyExamplesManagedStart(parseProfileName string, parseH
 		OK:          true,
 		Action:      "start",
 		ProfileName: parseProfile.profileName,
+		ServerPath:  parseProfile.serverPath,
 		IsRunning:   true,
 		IsHealthy:   true,
 		PID:         parsePID,
@@ -275,8 +341,8 @@ func (parseL launcher) applyExamplesManagedStart(parseProfileName string, parseH
 }
 
 // applyExamplesManagedStatus reads managed runtime state and reports process plus health signals.
-func (parseL launcher) applyExamplesManagedStatus(parseProfileName string) (examplesManagedSummary, error) {
-	parseProfile, parseErr := examplesManagedResolveProfile(parseL, parseProfileName)
+func (parseL launcher) applyExamplesManagedStatus(parseProfileName string, parseServerPath string) (examplesManagedSummary, error) {
+	parseProfile, parseErr := parseL.resolveExamplesManagedCommand(parseProfileName, parseServerPath)
 	if parseErr != nil {
 		return examplesManagedSummary{}, parseErr
 	}
@@ -293,6 +359,7 @@ func (parseL launcher) applyExamplesManagedStatus(parseProfileName string) (exam
 			OK:          true,
 			Action:      "status",
 			ProfileName: parseProfile.profileName,
+			ServerPath:  parseProfile.serverPath,
 			IsRunning:   false,
 			StatePath:   parseStatePath,
 			LogPath:     parseLogPath,
@@ -303,6 +370,7 @@ func (parseL launcher) applyExamplesManagedStatus(parseProfileName string) (exam
 		OK:          true,
 		Action:      "status",
 		ProfileName: parseState.ProfileName,
+		ServerPath:  firstNonEmpty(parseState.ServerPath, parseProfile.serverPath),
 		IsRunning:   false,
 		PID:         parseState.PID,
 		URL:         parseState.URL,
@@ -331,8 +399,8 @@ func (parseL launcher) applyExamplesManagedStatus(parseProfileName string) (exam
 }
 
 // applyExamplesManagedStop terminates the managed profile process tree and removes persisted state.
-func (parseL launcher) applyExamplesManagedStop(parseProfileName string) (examplesManagedSummary, error) {
-	parseProfile, parseErr := examplesManagedResolveProfile(parseL, parseProfileName)
+func (parseL launcher) applyExamplesManagedStop(parseProfileName string, parseServerPath string) (examplesManagedSummary, error) {
+	parseProfile, parseErr := parseL.resolveExamplesManagedCommand(parseProfileName, parseServerPath)
 	if parseErr != nil {
 		return examplesManagedSummary{}, parseErr
 	}
@@ -349,6 +417,7 @@ func (parseL launcher) applyExamplesManagedStop(parseProfileName string) (exampl
 			OK:          true,
 			Action:      "stop",
 			ProfileName: parseProfile.profileName,
+			ServerPath:  parseProfile.serverPath,
 			IsRunning:   false,
 			StatePath:   parseStatePath,
 			LogPath:     parseLogPath,
@@ -359,6 +428,7 @@ func (parseL launcher) applyExamplesManagedStop(parseProfileName string) (exampl
 		OK:          true,
 		Action:      "stop",
 		ProfileName: parseState.ProfileName,
+		ServerPath:  firstNonEmpty(parseState.ServerPath, parseProfile.serverPath),
 		IsRunning:   false,
 		PID:         parseState.PID,
 		URL:         parseState.URL,
@@ -380,6 +450,76 @@ func (parseL launcher) applyExamplesManagedStop(parseProfileName string) (exampl
 	return parseSummary, nil
 }
 
+// resolveExamplesManagedCommand resolves either a path-target command or a named profile command.
+func (parseL launcher) resolveExamplesManagedCommand(parseProfileName string, parseServerPath string) (examplesManagedProfile, error) {
+	if strings.TrimSpace(parseServerPath) != "" {
+		return parseL.resolveExamplesManagedPathCommand(parseServerPath)
+	}
+	return examplesManagedResolveProfile(parseL, parseProfileName)
+}
+
+// resolveExamplesManagedPathCommand resolves one managed path into a deterministic runtime state key and command plan.
+func (parseL launcher) resolveExamplesManagedPathCommand(parseServerPath string) (examplesManagedProfile, error) {
+	parseServerPath = strings.TrimSpace(parseServerPath)
+	if parseServerPath == "" {
+		return examplesManagedProfile{}, errors.New("managed examples server path is required")
+	}
+	parseBasePath := firstNonEmpty(strings.TrimSpace(parseL.repoRoot), ".")
+	parseResolvedPath, parseErr := normalizePath(parseBasePath, parseServerPath)
+	if parseErr != nil {
+		return examplesManagedProfile{}, fmt.Errorf("resolve managed server path: %w", parseErr)
+	}
+	parseInfo, parseErr := os.Stat(parseResolvedPath)
+	if parseErr != nil {
+		return examplesManagedProfile{}, fmt.Errorf("stat managed server path: %w", parseErr)
+	}
+	if !parseInfo.IsDir() && strings.ToLower(filepath.Ext(parseResolvedPath)) != ".go" {
+		return examplesManagedProfile{}, fmt.Errorf("managed server path %q must be a Go package directory or .go entrypoint", parseResolvedPath)
+	}
+	parseCommandDir := strings.TrimSpace(parseL.repoRoot)
+	if parseCommandDir == "" || !isExamplesManagedPathUnderRoot(parseResolvedPath, parseCommandDir) {
+		if parseInfo.IsDir() {
+			parseCommandDir = parseResolvedPath
+		} else {
+			parseCommandDir = filepath.Dir(parseResolvedPath)
+		}
+	}
+	parseStateKey := buildExamplesManagedPathStateKey(parseResolvedPath)
+	return examplesManagedProfile{
+		profileName:       parseStateKey,
+		serverPath:        parseResolvedPath,
+		buildTargetPath:   parseResolvedPath,
+		commandPath:       "go",
+		commandArgs:       []string{"run", parseResolvedPath},
+		commandDir:        parseCommandDir,
+		defaultHost:       defaultHost,
+		defaultPort:       "8095",
+		defaultHealthPath: "/healthz",
+	}, nil
+}
+
+// isExamplesManagedPathUnderRoot reports whether a resolved path is within a candidate root directory.
+func isExamplesManagedPathUnderRoot(parseResolvedPath string, parseRootPath string) bool {
+	parseResolvedPath = strings.TrimSpace(parseResolvedPath)
+	parseRootPath = strings.TrimSpace(parseRootPath)
+	if parseResolvedPath == "" || parseRootPath == "" {
+		return false
+	}
+	parseRelativePath, parseErr := filepath.Rel(parseRootPath, parseResolvedPath)
+	if parseErr != nil {
+		return false
+	}
+	parseRelativePath = strings.TrimSpace(parseRelativePath)
+	if parseRelativePath == "." {
+		return true
+	}
+	if parseRelativePath == ".." {
+		return false
+	}
+	parseUpPrefix := ".." + string(filepath.Separator)
+	return !strings.HasPrefix(parseRelativePath, parseUpPrefix)
+}
+
 // resolveExamplesManagedProfile resolves one supported managed example-server profile.
 func resolveExamplesManagedProfile(parseL launcher, parseProfileName string) (examplesManagedProfile, error) {
 	parseProfileName = strings.ToLower(strings.TrimSpace(parseProfileName))
@@ -392,6 +532,8 @@ func resolveExamplesManagedProfile(parseL launcher, parseProfileName string) (ex
 		}
 		return examplesManagedProfile{
 			profileName:       examplesManagedDefaultProfile,
+			serverPath:        parseCommandDir,
+			buildTargetPath:   parseCommandDir,
 			commandPath:       "go",
 			commandArgs:       []string{"run", "./examples/100-ai-chat-wizard/cmd/server"},
 			commandDir:        parseL.repoRoot,
@@ -402,6 +544,45 @@ func resolveExamplesManagedProfile(parseL launcher, parseProfileName string) (ex
 	default:
 		return examplesManagedProfile{}, fmt.Errorf("unknown managed examples profile %q", parseProfileName)
 	}
+}
+
+// buildExamplesManagedPathStateKey builds a deterministic runtime-state key from a managed server path.
+func buildExamplesManagedPathStateKey(parseServerPath string) string {
+	parseNormalizedPath := filepath.ToSlash(filepath.Clean(strings.TrimSpace(parseServerPath)))
+	parseDigest := sha1.Sum([]byte(parseNormalizedPath))
+	parseEncoded := hex.EncodeToString(parseDigest[:])
+	return "path-" + parseEncoded[:16]
+}
+
+// resolveExamplesManagedLaunchConfig resolves command launch configuration and builds an executable when requested.
+func (parseL launcher) resolveExamplesManagedLaunchConfig(parseProfile examplesManagedProfile, parseStatePath string, parseLogPath string, parseListenAddr string) (examplesManagedLaunchConfig, error) {
+	_ = parseL
+	parseCommandPath := parseProfile.commandPath
+	parseCommandArgs := append([]string(nil), parseProfile.commandArgs...)
+	if strings.TrimSpace(parseProfile.buildTargetPath) != "" {
+		parseBinaryPath := buildExamplesManagedBinaryPath(parseStatePath)
+		if parseErr := examplesManagedBuildBinary(parseProfile.buildTargetPath, parseBinaryPath, parseProfile.commandDir); parseErr != nil {
+			return examplesManagedLaunchConfig{}, parseErr
+		}
+		parseCommandPath = parseBinaryPath
+		parseCommandArgs = nil
+	}
+	return examplesManagedLaunchConfig{
+		commandPath: parseCommandPath,
+		commandArgs: parseCommandArgs,
+		commandDir:  parseProfile.commandDir,
+		listenAddr:  parseListenAddr,
+		logPath:     parseLogPath,
+	}, nil
+}
+
+// buildExamplesManagedBinaryPath resolves one managed-server binary artifact path from a state-file path.
+func buildExamplesManagedBinaryPath(parseStatePath string) string {
+	parseBinaryPath := strings.TrimSuffix(parseStatePath, filepath.Ext(parseStatePath))
+	if runtime.GOOS == "windows" {
+		return parseBinaryPath + ".exe"
+	}
+	return parseBinaryPath
 }
 
 // resolveExamplesManagedRuntimeDir resolves the runtime directory used for managed example-server artifacts.
@@ -502,6 +683,9 @@ func printExamplesManagedSummary(parseSummary examplesManagedSummary) {
 	fmt.Println("GWC examples managed")
 	fmt.Printf("  action:   %s\n", parseSummary.Action)
 	fmt.Printf("  profile:  %s\n", parseSummary.ProfileName)
+	if strings.TrimSpace(parseSummary.ServerPath) != "" {
+		fmt.Printf("  path:     %s\n", parseSummary.ServerPath)
+	}
 	fmt.Printf("  running:  %t\n", parseSummary.IsRunning)
 	if parseSummary.PID > 0 {
 		fmt.Printf("  pid:      %d\n", parseSummary.PID)
@@ -560,6 +744,26 @@ func launchExamplesManagedProcess(parseConfig examplesManagedLaunchConfig) (int,
 		return 0, errors.New("start managed profile command: missing process handle")
 	}
 	return parseCmd.Process.Pid, nil
+}
+
+// buildExamplesManagedServerBinary builds a managed server target into a launcher-owned runtime binary path.
+func buildExamplesManagedServerBinary(parseTargetPath string, parseBinaryPath string, parseWorkingDir string) error {
+	parseTargetPath = strings.TrimSpace(parseTargetPath)
+	parseBinaryPath = strings.TrimSpace(parseBinaryPath)
+	parseWorkingDir = strings.TrimSpace(parseWorkingDir)
+	if parseTargetPath == "" || parseBinaryPath == "" {
+		return errors.New("managed server build target and output path are required")
+	}
+	if parseWorkingDir == "" {
+		parseWorkingDir = "."
+	}
+	if parseErr := os.MkdirAll(filepath.Dir(parseBinaryPath), 0755); parseErr != nil {
+		return fmt.Errorf("create managed server binary directory: %w", parseErr)
+	}
+	if _, parseErr := launcherRunCommand("go", []string{"build", "-o", parseBinaryPath, parseTargetPath}, parseWorkingDir, buildNativeGoEnv()); parseErr != nil {
+		return fmt.Errorf("build managed server binary: %w", parseErr)
+	}
+	return nil
 }
 
 // buildExamplesManagedProcessEnv builds the process environment with a launcher-owned LISTEN_ADDR override.

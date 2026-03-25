@@ -15,65 +15,65 @@ import (
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-func isActivePath(currentPath, targetPath string) bool {
-	if currentPath == targetPath {
+func isActivePath(parseCurrentPath, parseTargetPath string) bool {
+	if parseCurrentPath == parseTargetPath {
 		return true
 	}
-	if targetPath == "/" {
-		return currentPath == "/"
+	if parseTargetPath == "/" {
+		return parseCurrentPath == "/"
 	}
-	return len(currentPath) > len(targetPath) && currentPath[:len(targetPath)] == targetPath && currentPath[len(targetPath)] == '/'
+	return len(parseCurrentPath) > len(parseTargetPath) && parseCurrentPath[:len(parseTargetPath)] == parseTargetPath && parseCurrentPath[len(parseTargetPath)] == '/'
 }
 
-func navButton(label, path, currentPath string, navigate func(string), activeClass string) ui.Node {
-	className := "inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-cyan-500/15 hover:text-white"
-	if isActivePath(currentPath, path) {
-		className = activeClass
+func navButton(parseLabel, parsePath, parseCurrentPath string, parseNavigate func(string), parseActiveClass string) ui.Node {
+	parseClassName := "inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-cyan-500/15 hover:text-white"
+	if isActivePath(parseCurrentPath, parsePath) {
+		parseClassName = parseActiveClass
 	}
-	return html.Button(html.Props{Type: "button", OnClick: ui.UseEvent(func() { navigate(path) }), Class: className}, html.Text(label))
+	return html.Button(html.Props{Type: "button", OnClick: ui.UseEvent(func() { parseNavigate(parsePath) }), Class: parseClassName}, html.Text(parseLabel))
 }
 
-func shellPanel(title, subtitle string, links ...ui.Node) ui.Node {
+func shellPanel(parseTitle, parseSubtitle string, parseLinks ...ui.Node) ui.Node {
 	return html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-slate-950/75 p-6 shadow-[0_20px_70px_rgba(2,6,23,0.42)]"},
-		html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-cyan-300"}, html.Text(title)),
-		html.H2(html.Props{Class: "mt-3 text-3xl font-black text-white"}, html.Text(subtitle)),
-		html.Div(html.Props{Class: "mt-5 flex flex-wrap gap-3"}, links...),
+		html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-cyan-300"}, html.Text(parseTitle)),
+		html.H2(html.Props{Class: "mt-3 text-3xl font-black text-white"}, html.Text(parseSubtitle)),
+		html.Div(html.Props{Class: "mt-5 flex flex-wrap gap-3"}, parseLinks...),
 	)
 }
 
-func lazyPanel(panelKey, label, summary string) ui.Node {
-	version := ui.UseState(1)
-	refresh := ui.UseEvent(func() {
-		version.Update(func(prev int) int { return prev + 1 })
+func lazyPanel(parsePanelKey, parseLabel, parseSummary string) ui.Node {
+	parseVersion := ui.UseState(1)
+	parseRefresh := ui.UseEvent(func() {
+		parseVersion.Update(func(parsePrev int) int { return parsePrev + 1 })
 	})
 
-	panel := ui.CreateElement(ui.Lazy, ui.LazyProps{
-		Loader: func(ctx context.Context) (ui.Node, error) {
+	parsePanel := ui.CreateElement(ui.Lazy, ui.LazyProps{
+		Loader: func(parseCtx context.Context) (ui.Node, error) {
 			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
+			case <-parseCtx.Done():
+				return nil, parseCtx.Err()
 			case <-time.After(320 * time.Millisecond):
 			}
 
 			return html.Div(html.Props{Class: "rounded-[1.5rem] border border-cyan-400/30 bg-cyan-500/10 p-6 text-cyan-50"},
 				html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-cyan-200"}, html.Text("Deferred panel")),
-				html.H3(html.Props{Class: "mt-3 text-2xl font-black"}, html.Text(label)),
-				html.P(html.Props{Class: "mt-3 leading-7 text-cyan-50/80"}, html.Text(fmt.Sprintf("%s Version %d resolves after the route shell is already on screen.", label, version.Get()))),
-				html.P(html.Props{Class: "mt-3 leading-7 text-cyan-50/80"}, html.Text(summary)),
-				html.P(html.Props{Class: "mt-4 text-sm font-semibold text-cyan-100"}, html.Text(fmt.Sprintf("Chunk key: %s", panelKey))),
+				html.H3(html.Props{Class: "mt-3 text-2xl font-black"}, html.Text(parseLabel)),
+				html.P(html.Props{Class: "mt-3 leading-7 text-cyan-50/80"}, html.Text(fmt.Sprintf("%s Version %d resolves after the route shell is already on screen.", parseLabel, parseVersion.Get()))),
+				html.P(html.Props{Class: "mt-3 leading-7 text-cyan-50/80"}, html.Text(parseSummary)),
+				html.P(html.Props{Class: "mt-4 text-sm font-semibold text-cyan-100"}, html.Text(fmt.Sprintf("Chunk key: %s", parsePanelKey))),
 			), nil
 		},
-		Dependencies: []interface{}{panelKey, version.Get()},
+		Dependencies: []interface{}{parsePanelKey, parseVersion.Get()},
 		Delay:        50 * time.Millisecond,
 		Fallback: html.Div(html.Props{Class: "rounded-[1.5rem] border border-cyan-400/20 bg-cyan-500/8 p-6 text-cyan-100"},
 			html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-cyan-200"}, html.Text("Deferred panel")),
-			html.P(html.Props{Class: "mt-3 text-lg font-semibold"}, html.Text(fmt.Sprintf("Resolving %s...", label))),
-			html.P(html.Props{Class: "mt-2 text-sm text-cyan-100/80"}, html.Text(summary)),
+			html.P(html.Props{Class: "mt-3 text-lg font-semibold"}, html.Text(fmt.Sprintf("Resolving %s...", parseLabel))),
+			html.P(html.Props{Class: "mt-2 text-sm text-cyan-100/80"}, html.Text(parseSummary)),
 		),
-		ErrorFallback: func(err error) ui.Node {
+		ErrorFallback: func(parseErr error) ui.Node {
 			return html.Div(html.Props{Class: "rounded-[1.5rem] border border-red-400/30 bg-red-500/10 p-6 text-red-50"},
 				html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-red-200"}, html.Text("Deferred panel failed")),
-				html.P(html.Props{Class: "mt-3 text-lg font-semibold"}, html.Text(err.Error())),
+				html.P(html.Props{Class: "mt-3 text-lg font-semibold"}, html.Text(parseErr.Error())),
 			)
 		},
 	})
@@ -82,22 +82,22 @@ func lazyPanel(panelKey, label, summary string) ui.Node {
 		html.Div(html.Props{Class: "flex flex-wrap items-center justify-between gap-3"},
 			html.Div(html.Props{},
 				html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Lazy subtree")),
-				html.H3(html.Props{Class: "mt-2 text-2xl font-black text-white"}, html.Text(label)),
+				html.H3(html.Props{Class: "mt-2 text-2xl font-black text-white"}, html.Text(parseLabel)),
 			),
 			html.Button(html.Props{
-				OnClick: refresh,
+				OnClick: parseRefresh,
 				Class:   "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/30",
 			}, html.Text("Reload panel")),
 		),
-		html.P(html.Props{Class: "max-w-3xl text-base leading-7 text-slate-300"}, html.Text(summary)),
-		panel,
+		html.P(html.Props{Class: "max-w-3xl text-base leading-7 text-slate-300"}, html.Text(parseSummary)),
+		parsePanel,
 	)
 }
 
 func homePageView() ui.Node {
-	currentPath := router.GetCurrentPath()
-	nav := router.UseNavigate()
-	goTo := func(path string) { nav.Navigate(path) }
+	parseCurrentPath := router.GetCurrentPath()
+	parseNav := router.UseNavigate()
+	parseGoTo := func(parsePath string) { parseNav.Navigate(parsePath) }
 	return html.Div(html.Props{Class: "min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.18),_transparent_28%),linear-gradient(180deg,#08111d_0%,#030712_100%)] px-6 py-10 text-slate-100"},
 		html.Div(html.Props{Class: "mx-auto max-w-6xl"},
 			html.Div(html.Props{Class: "rounded-[2.5rem] border border-white/10 bg-slate-950/80 p-8 shadow-[0_25px_90px_rgba(2,6,23,0.48)] md:p-12"},
@@ -105,8 +105,8 @@ func homePageView() ui.Node {
 				html.H1(html.Props{Class: "mt-4 max-w-3xl text-5xl font-black leading-tight text-white md:text-6xl"}, html.Text("Keep route shells stable while lazy panels resolve underneath them.")),
 				html.P(html.Props{Class: "mt-5 max-w-2xl text-lg leading-8 text-slate-300"}, html.Text("This demo keeps the route shell mounted across navigation, while each leaf route resolves a deferred panel on demand. It is a compact reference for route-family boundaries, lazy child boundaries, and fallback behavior.")),
 				html.Div(html.Props{Class: "mt-8 flex flex-wrap gap-4"},
-					navButton("Open Catalog", "/catalog", currentPath, goTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
-					navButton("Open Operations", "/operations", currentPath, goTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+					navButton("Open Catalog", "/catalog", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+					navButton("Open Operations", "/operations", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
 				),
 				html.Div(html.Props{Class: "mt-8 grid gap-4 md:grid-cols-3"},
 					html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4 text-slate-200"}, html.Text("Route shells stay in the base app tree while the outlet changes underneath them.")),
@@ -123,9 +123,9 @@ func homePage(_ router.Attrs) *router.Element {
 }
 
 func catalogLayoutView() ui.Node {
-	currentPath := router.GetCurrentPath()
-	nav := router.UseNavigate()
-	goTo := func(path string) { nav.Navigate(path) }
+	parseCurrentPath := router.GetCurrentPath()
+	parseNav := router.UseNavigate()
+	parseGoTo := func(parsePath string) { parseNav.Navigate(parsePath) }
 	return html.Div(html.Props{Class: "min-h-screen bg-[linear-gradient(180deg,#08111d_0%,#020617_100%)] px-6 py-8 text-slate-100"},
 		html.Div(html.Props{Class: "mx-auto max-w-6xl"},
 			html.Div(html.Props{Class: "flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-white/10 bg-slate-950/85 px-6 py-5 text-slate-100 shadow-[0_24px_80px_rgba(2,6,23,0.45)]"},
@@ -134,9 +134,9 @@ func catalogLayoutView() ui.Node {
 					html.H1(html.Props{Class: "mt-2 text-3xl font-black"}, html.Text("Catalog route family")),
 				),
 				html.Div(html.Props{Class: "flex flex-wrap gap-3"},
-					navButton("Home", "/", currentPath, goTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
-					navButton("Catalog", "/catalog", currentPath, goTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
-					navButton("Operations", "/operations", currentPath, goTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+					navButton("Home", "/", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+					navButton("Catalog", "/catalog", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+					navButton("Operations", "/operations", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
 				),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]"},
@@ -160,9 +160,9 @@ func catalogLayout(_ router.Attrs) *router.Element {
 }
 
 func operationsLayoutView() ui.Node {
-	currentPath := router.GetCurrentPath()
-	nav := router.UseNavigate()
-	goTo := func(path string) { nav.Navigate(path) }
+	parseCurrentPath := router.GetCurrentPath()
+	parseNav := router.UseNavigate()
+	parseGoTo := func(parsePath string) { parseNav.Navigate(parsePath) }
 	return html.Div(html.Props{Class: "min-h-screen bg-[linear-gradient(180deg,#111827_0%,#020617_100%)] px-6 py-8 text-slate-100"},
 		html.Div(html.Props{Class: "mx-auto max-w-6xl"},
 			html.Div(html.Props{Class: "flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-white/10 bg-slate-950/85 px-6 py-5 text-slate-100 shadow-[0_24px_80px_rgba(2,6,23,0.45)]"},
@@ -171,9 +171,9 @@ func operationsLayoutView() ui.Node {
 					html.H1(html.Props{Class: "mt-2 text-3xl font-black"}, html.Text("Operations route family")),
 				),
 				html.Div(html.Props{Class: "flex flex-wrap gap-3"},
-					navButton("Home", "/", currentPath, goTo, "inline-flex rounded-full border border-amber-500/30 bg-amber-500/20 px-4 py-2 text-sm font-semibold text-amber-100"),
-					navButton("Catalog", "/catalog", currentPath, goTo, "inline-flex rounded-full border border-amber-500/30 bg-amber-500/20 px-4 py-2 text-sm font-semibold text-amber-100"),
-					navButton("Operations", "/operations", currentPath, goTo, "inline-flex rounded-full border border-amber-500/30 bg-amber-500/20 px-4 py-2 text-sm font-semibold text-amber-100"),
+					navButton("Home", "/", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-amber-500/30 bg-amber-500/20 px-4 py-2 text-sm font-semibold text-amber-100"),
+					navButton("Catalog", "/catalog", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-amber-500/30 bg-amber-500/20 px-4 py-2 text-sm font-semibold text-amber-100"),
+					navButton("Operations", "/operations", parseCurrentPath, parseGoTo, "inline-flex rounded-full border border-amber-500/30 bg-amber-500/20 px-4 py-2 text-sm font-semibold text-amber-100"),
 				),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]"},
@@ -257,17 +257,17 @@ func operationsRiskPage(_ router.Attrs) *router.Element {
 }
 
 func notFoundView() ui.Node {
-	nav := router.UseNavigate()
-	goTo := func(path string) { nav.Navigate(path) }
+	parseNav := router.UseNavigate()
+	parseGoTo := func(parsePath string) { parseNav.Navigate(parsePath) }
 	return html.Div(html.Props{Class: "min-h-screen bg-[linear-gradient(180deg,#08111d_0%,#020617_100%)] px-6 py-10 text-slate-100"},
 		html.Div(html.Props{Class: "mx-auto max-w-4xl rounded-[2.5rem] border border-white/10 bg-slate-950/80 p-10 shadow-[0_24px_80px_rgba(2,6,23,0.45)]"},
 			html.P(html.Props{Class: "text-xs font-black uppercase tracking-[0.28em] text-cyan-300"}, html.Text("Not Found")),
 			html.H1(html.Props{Class: "mt-3 text-5xl font-black text-white"}, html.Text("That route does not exist.")),
 			html.P(html.Props{Class: "mt-5 text-lg leading-8 text-slate-300"}, html.Text("Use the demo links to jump back into the catalog or operations route trees.")),
 			html.Div(html.Props{Class: "mt-8 flex flex-wrap gap-4"},
-				navButton("Home", "/", router.GetCurrentPath(), goTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
-				navButton("Catalog", "/catalog/overview", router.GetCurrentPath(), goTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
-				navButton("Operations", "/operations/queue", router.GetCurrentPath(), goTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+				navButton("Home", "/", router.GetCurrentPath(), parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+				navButton("Catalog", "/catalog/overview", router.GetCurrentPath(), parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
+				navButton("Operations", "/operations/queue", router.GetCurrentPath(), parseGoTo, "inline-flex rounded-full border border-cyan-500/30 bg-cyan-500/20 px-4 py-2 text-sm font-semibold text-cyan-100"),
 			),
 		),
 	)
@@ -280,16 +280,16 @@ func notFoundPage(_ router.Attrs) *router.Element {
 func main() {
 	utils.DisableAllDebug()
 
-	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
-	r.Register("/", homePage)
-	r.Register("/catalog", catalogLayout, router.Options{Layout: true, Title: "Route and Component Splitting - Catalog"})
-	r.Register("/catalog/overview", catalogOverviewPage, router.Options{Title: "Catalog Overview"})
-	r.Register("/catalog/insights", catalogInsightsPage, router.Options{Title: "Catalog Insights"})
-	r.Register("/operations", operationsLayout, router.Options{Layout: true, Title: "Route and Component Splitting - Operations"})
-	r.Register("/operations/queue", operationsQueuePage, router.Options{Title: "Operations Queue"})
-	r.Register("/operations/risk", operationsRiskPage, router.Options{Title: "Operations Risk"})
-	r.Register("*", notFoundPage, router.Options{Title: "Route and Component Splitting Not Found"})
+	parseR := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
+	parseR.Register("/", homePage)
+	parseR.Register("/catalog", catalogLayout, router.Options{Layout: true, Title: "Route and Component Splitting - Catalog"})
+	parseR.Register("/catalog/overview", catalogOverviewPage, router.Options{Title: "Catalog Overview"})
+	parseR.Register("/catalog/insights", catalogInsightsPage, router.Options{Title: "Catalog Insights"})
+	parseR.Register("/operations", operationsLayout, router.Options{Layout: true, Title: "Route and Component Splitting - Operations"})
+	parseR.Register("/operations/queue", operationsQueuePage, router.Options{Title: "Operations Queue"})
+	parseR.Register("/operations/risk", operationsRiskPage, router.Options{Title: "Operations Risk"})
+	parseR.Register("*", notFoundPage, router.Options{Title: "Route and Component Splitting Not Found"})
 
-	r.Mount("#app")
+	parseR.Mount("#app")
 	select {}
 }

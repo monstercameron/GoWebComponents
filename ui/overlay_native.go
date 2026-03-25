@@ -4,28 +4,28 @@
 package ui
 
 // UseOverlayStack registers and manages an overlay layer for the given stack options.
-func UseOverlayStack(parseOptions OverlayStackOptions) OverlayStack {
-	parseId := parseOptions.ID
-	if parseId == "" {
-		parseId = "overlay-layer"
+func UseOverlayStack(parseOverlayOptions OverlayStackOptions) OverlayStack {
+	parseOverlayID := parseOverlayOptions.ID
+	if parseOverlayID == "" {
+		parseOverlayID = "overlay-layer"
 	}
-	parseRegistration := overlayManagerRegistration{
-		ID:                  parseId,
-		Kind:                normalizeOverlayKind(parseOptions.Kind),
-		BaseZIndex:          normalizeOverlayBaseZIndex(parseOptions.BaseZIndex),
-		TrapFocus:           parseOptions.TrapFocus,
-		CloseOnEscape:       parseOptions.CloseOnEscape,
-		CloseOnOutsideClick: parseOptions.CloseOnOutsideClick,
+	parseOverlayRegistration := overlayManagerRegistration{
+		ID:                  parseOverlayID,
+		Kind:                normalizeOverlayKind(parseOverlayOptions.Kind),
+		BaseZIndex:          normalizeOverlayBaseZIndex(parseOverlayOptions.BaseZIndex),
+		TrapFocus:           parseOverlayOptions.TrapFocus,
+		CloseOnEscape:       parseOverlayOptions.CloseOnEscape,
+		CloseOnOutsideClick: parseOverlayOptions.CloseOnOutsideClick,
 	}
-	return globalOverlayStackManager.snapshot(parseId, parseRegistration, parseOptions.Open)
+	return globalOverlayStackManager.snapshot(parseOverlayID, parseOverlayRegistration, parseOverlayOptions.Open)
 }
 
 // Overlay renders overlay children as a Fragment on the server.
-func Overlay(parseProps OverlayProps) Node {
-	parseChildren := make([]Node, 0, len(parseProps.Children)+1)
-	if parseProps.Child != nil {
-		parseChildren = append(parseChildren, parseProps.Child)
+func Overlay(parseOverlayProps OverlayProps) Node {
+	parseOverlayChildren := make([]Node, 0, len(parseOverlayProps.Children)+1)
+	if parseOverlayProps.Child != nil {
+		parseOverlayChildren = append(parseOverlayChildren, parseOverlayProps.Child)
 	}
-	parseChildren = append(parseChildren, parseProps.Children...)
-	return Fragment(parseChildren...)
+	parseOverlayChildren = append(parseOverlayChildren, parseOverlayProps.Children...)
+	return Fragment(parseOverlayChildren...)
 }

@@ -25,22 +25,22 @@ type NormalizedError struct {
 	Err        error
 }
 
-func (e *NormalizedError) Error() string {
-	if e == nil {
+func (parseE *NormalizedError) ParseError() string {
+	if parseE == nil {
 		return "provider error"
 	}
-	if e.ProviderID == "" {
-		return e.Message
+	if parseE.ProviderID == "" {
+		return parseE.Message
 	}
-	if e.Model == "" {
-		return fmt.Sprintf("%s provider error: %s", e.ProviderID, e.Message)
+	if parseE.Model == "" {
+		return fmt.Sprintf("%s provider error: %s", parseE.ProviderID, parseE.Message)
 	}
-	return fmt.Sprintf("%s provider error for model %q: %s", e.ProviderID, e.Model, e.Message)
+	return fmt.Sprintf("%s provider error for model %q: %s", parseE.ProviderID, parseE.Model, parseE.Message)
 }
 
-func (e *NormalizedError) Unwrap() error {
-	if e == nil {
+func (parseE *NormalizedError) ParseUnwrap() error {
+	if parseE == nil {
 		return nil
 	}
-	return e.Err
+	return parseE.Err
 }

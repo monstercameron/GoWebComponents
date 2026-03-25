@@ -14,77 +14,77 @@ func ExampleUseFetch() {
 	// Note: Hooks can only be used inside a component function
 
 	// UseFetch is the low-level hook when you want raw fetch state.
-	resource := fetch.UseFetch("https://api.example.com/data")
+	parseResource := fetch.UseFetch("https://api.example.com/data")
 
-	state := resource.Get()
+	parseState := parseResource.Get()
 
-	if state.Loading {
+	if parseState.Loading {
 		fmt.Println("Loading...")
 		return
 	}
 
-	if state.Error != "" {
-		fmt.Printf("Error: %s\n", state.Error)
+	if parseState.Error != "" {
+		fmt.Printf("Error: %s\n", parseState.Error)
 		return
 	}
 
 	// Use the data
-	fmt.Printf("Data: %v\n", state.Data)
+	fmt.Printf("Data: %v\n", parseState.Data)
 
 	// Manually trigger a refetch
-	resource.Refetch()
+	parseResource.Refetch()
 }
 
 func ExampleUseResource() {
 	// Note: Hooks can only be used inside a component function
 
 	// UseResource is the preferred hook for typed, non-trivial loading.
-	resource := fetch.UseResource(func(ctx context.Context) (int, error) {
-		_ = ctx
+	parseResource := fetch.UseResource(func(parseCtx context.Context) (int, error) {
+		_ = parseCtx
 		return 42, nil
 	})
 
-	state := resource.Get()
-	if state.Loading {
+	parseState := parseResource.Get()
+	if parseState.Loading {
 		fmt.Println("Loading typed resource...")
 		return
 	}
-	if state.Error != nil {
-		fmt.Printf("Error: %v\n", state.Error)
+	if parseState.Error != nil {
+		fmt.Printf("Error: %v\n", parseState.Error)
 		return
 	}
-	if state.Ready {
-		fmt.Printf("Value: %d\n", state.Value)
+	if parseState.Ready {
+		fmt.Printf("Value: %d\n", parseState.Value)
 	}
 
-	resource.Reload()
-	resource.Cancel()
+	parseResource.Reload()
+	parseResource.Cancel()
 }
 
 func ExampleUseCachedResource() {
 	// Note: Hooks can only be used inside a component function
 
-	resource := fetch.UseCachedResource("users", func(ctx context.Context) ([]string, error) {
-		_ = ctx
+	parseResource := fetch.UseCachedResource("users", func(parseCtx context.Context) ([]string, error) {
+		_ = parseCtx
 		return []string{"Ada", "Grace"}, nil
 	}, fetch.CacheOptions{})
 
-	state := resource.Get()
-	if state.Loading && !state.Ready {
+	parseState := parseResource.Get()
+	if parseState.Loading && !parseState.Ready {
 		fmt.Println("Loading shared cache...")
 		return
 	}
-	if state.Error != nil {
-		fmt.Printf("Error: %v\n", state.Error)
+	if parseState.Error != nil {
+		fmt.Printf("Error: %v\n", parseState.Error)
 		return
 	}
-	if state.Ready {
-		fmt.Printf("Cached users: %d\n", len(state.Value))
+	if parseState.Ready {
+		fmt.Printf("Cached users: %d\n", len(parseState.Value))
 	}
 
-	resource.Update(func(prev []string) []string {
-		return append(prev, "Linus")
+	parseResource.Update(func(parsePrev []string) []string {
+		return append(parsePrev, "Linus")
 	})
-	resource.Invalidate()
-	resource.Reload()
+	parseResource.Invalidate()
+	parseResource.Reload()
 }

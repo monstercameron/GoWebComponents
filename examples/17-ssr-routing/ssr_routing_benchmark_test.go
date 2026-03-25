@@ -9,47 +9,47 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func BenchmarkSSRRoutingDemoRenderToString(b *testing.B) {
-	node := renderDemoShell(defaultServerView())
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		markup, err := ui.RenderToString(node)
-		if err != nil {
-			b.Fatal(err)
+func BenchmarkSSRRoutingDemoRenderToString(parseB *testing.B) {
+	parseNode := renderDemoShell(defaultServerView())
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseMarkup, parseErr := ui.RenderToString(parseNode)
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
 		}
-		if len(markup) == 0 {
-			b.Fatal("expected SSR markup")
-		}
-	}
-}
-
-func BenchmarkSSRRoutingDemoMarshalBootstrapJSON(b *testing.B) {
-	payload := defaultBootstrapPayload()
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		encoded, err := ui.MarshalSSRBootstrap(payload)
-		if err != nil {
-			b.Fatal(err)
-		}
-		if len(encoded) == 0 {
-			b.Fatal("expected bootstrap payload")
+		if len(parseMarkup) == 0 {
+			parseB.Fatal("expected SSR markup")
 		}
 	}
 }
 
-func BenchmarkSSRRoutingDemoRenderReferenceScript(b *testing.B) {
-	bootstrapReference := ui.SSRBootstrapReference{URL: "bootstrap.json", Format: ui.SSRBootstrapFormatJSON}
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		script, err := ui.RenderBootstrapReferenceScript(bootstrapReference, "")
-		if err != nil {
-			b.Fatal(err)
+func BenchmarkSSRRoutingDemoMarshalBootstrapJSON(parseB *testing.B) {
+	parsePayload := defaultBootstrapPayload()
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseEncoded, parseErr := ui.MarshalSSRBootstrap(parsePayload)
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
 		}
-		if len(script) == 0 {
-			b.Fatal("expected reference script")
+		if len(parseEncoded) == 0 {
+			parseB.Fatal("expected bootstrap payload")
+		}
+	}
+}
+
+func BenchmarkSSRRoutingDemoRenderReferenceScript(parseB *testing.B) {
+	parseBootstrapReference := ui.SSRBootstrapReference{URL: "bootstrap.json", Format: ui.SSRBootstrapFormatJSON}
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseScript, parseErr := ui.RenderBootstrapReferenceScript(parseBootstrapReference, "")
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
+		}
+		if len(parseScript) == 0 {
+			parseB.Fatal("expected reference script")
 		}
 	}
 }

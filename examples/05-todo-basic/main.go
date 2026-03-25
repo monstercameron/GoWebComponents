@@ -22,58 +22,58 @@ type todoRow struct {
 	Text  string
 }
 
-func TodoItem(props TodoItemProps) ui.Node {
-	remove := ui.UseEvent(props.OnRemove)
+func TodoItem(parseProps TodoItemProps) ui.Node {
+	parseRemove := ui.UseEvent(parseProps.OnRemove)
 
 	return html.Li(html.Props{
 		Class: "flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-lg mb-2 group hover:border-white/10 transition-all",
 	},
 		html.Span(html.Props{
 			Class: "text-gray-200",
-		}, html.Text(props.Text)),
+		}, html.Text(parseProps.Text)),
 		html.Button(html.Props{
-			OnClick: remove,
+			OnClick: parseRemove,
 			Class:   "px-3 py-1 bg-red-500/10 text-red-400 border border-red-500/20 rounded hover:bg-red-500/20 transition-colors text-sm opacity-0 group-hover:opacity-100",
 		}, html.Text("Remove")),
 	)
 }
 
 func TodoList() ui.Node {
-	todos := ui.UseState([]string{})
-	newTodo := ui.UseState("")
-	currentTodos := todos.Get()
-	currentNewTodo := newTodo.Get()
+	parseTodos := ui.UseState([]string{})
+	parseNewTodo := ui.UseState("")
+	parseCurrentTodos := parseTodos.Get()
+	parseCurrentNewTodo := parseNewTodo.Get()
 
-	handleInput := ui.UseEvent(func(event ui.InputEvent) {
-		newTodo.Set(event.GetValue())
+	handleInput := ui.UseEvent(func(parseEvent ui.InputEvent) {
+		parseNewTodo.Set(parseEvent.GetValue())
 	})
 
-	addTodo := ui.UseEvent(func() {
-		if currentNewTodo != "" {
-			newTodos := make([]string, len(currentTodos)+1)
-			copy(newTodos, currentTodos)
-			newTodos[len(currentTodos)] = currentNewTodo
-			todos.Set(newTodos)
-			newTodo.Set("")
+	parseAddTodo := ui.UseEvent(func() {
+		if parseCurrentNewTodo != "" {
+			parseNewTodos := make([]string, len(parseCurrentTodos)+1)
+			copy(parseNewTodos, parseCurrentTodos)
+			parseNewTodos[len(parseCurrentTodos)] = parseCurrentNewTodo
+			parseTodos.Set(parseNewTodos)
+			parseNewTodo.Set("")
 		}
 	})
 
 	clearAll := ui.UseEvent(func() {
-		todos.Set([]string{})
+		parseTodos.Set([]string{})
 	})
 
-	todoRows := make([]todoRow, len(currentTodos))
-	for i, todo := range currentTodos {
-		todoRows[i] = todoRow{Index: i, Text: todo}
+	parseTodoRows := make([]todoRow, len(parseCurrentTodos))
+	for parseI, parseTodo := range parseCurrentTodos {
+		parseTodoRows[parseI] = todoRow{Index: parseI, Text: parseTodo}
 	}
-	todoItems := html.Map(todoRows, func(row todoRow) ui.Node {
+	parseTodoItems := html.Map(parseTodoRows, func(parseRow todoRow) ui.Node {
 		return ui.CreateElement(TodoItem, TodoItemProps{
-			Text: row.Text,
+			Text: parseRow.Text,
 			OnRemove: func() {
-				newTodos := make([]string, 0, len(currentTodos)-1)
-				newTodos = append(newTodos, currentTodos[:row.Index]...)
-				newTodos = append(newTodos, currentTodos[row.Index+1:]...)
-				todos.Set(newTodos)
+				parseNewTodos2 := make([]string, 0, len(parseCurrentTodos)-1)
+				parseNewTodos2 = append(parseNewTodos2, parseCurrentTodos[:parseRow.Index]...)
+				parseNewTodos2 = append(parseNewTodos2, parseCurrentTodos[parseRow.Index+1:]...)
+				parseTodos.Set(parseNewTodos2)
 			},
 		})
 	})
@@ -91,13 +91,13 @@ func TodoList() ui.Node {
 			html.Div(html.Props{Class: "flex gap-3 mb-8"},
 				html.Input(html.Props{
 					Type:        "text",
-					Value:       currentNewTodo,
+					Value:       parseCurrentNewTodo,
 					OnInput:     handleInput,
 					Placeholder: "Enter a new todo...",
 					Class:       "flex-1 px-4 py-3 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-white placeholder-gray-600 transition-all",
 				}),
 				html.Button(html.Props{
-					OnClick: addTodo,
+					OnClick: parseAddTodo,
 					Class:   "px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity shadow-lg shadow-purple-500/20",
 				}, html.Text("Add")),
 			),
@@ -107,7 +107,7 @@ func TodoList() ui.Node {
 			},
 				html.P(html.Props{
 					Class: "text-gray-400 text-sm font-medium",
-				}, html.Textf("Tasks: %d", len(currentTodos))),
+				}, html.Textf("Tasks: %d", len(parseCurrentTodos))),
 
 				html.Button(html.Props{
 					OnClick: clearAll,
@@ -115,14 +115,14 @@ func TodoList() ui.Node {
 				}, html.Text("Clear All")),
 			),
 
-			html.If(len(currentTodos) == 0,
+			html.If(len(parseCurrentTodos) == 0,
 				html.P(html.Props{Class: "rounded-lg border border-dashed border-white/10 px-4 py-6 text-center text-sm text-gray-500"}, html.Text("No tasks yet. Add your first item above.")),
 			),
-			html.Unless(len(currentTodos) == 0,
+			html.Unless(len(parseCurrentTodos) == 0,
 				html.Ul(html.Props{
 					Class: "space-y-2",
-					ID:    "todo-list-" + strconv.Itoa(len(currentTodos)),
-				}, todoItems...),
+					ID:    "todo-list-" + strconv.Itoa(len(parseCurrentTodos)),
+				}, parseTodoItems...),
 			),
 		),
 	)

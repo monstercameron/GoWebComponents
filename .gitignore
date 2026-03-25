@@ -119,6 +119,12 @@ temp/
 *.patch
 *.txt
 
+# Diagnostics artifacts
+/diagnostics/*
+!/diagnostics/*.go
+!/diagnostics/*_test.go
+!/diagnostics/README.md
+
 # Legacy merged workspace residue
 /tests/
 .gotmp

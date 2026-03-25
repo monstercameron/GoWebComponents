@@ -6,65 +6,65 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func BenchmarkPortfolioProjectLookup(b *testing.B) {
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		project, ok := findPortfolioProject("GoWebComponents")
-		if !ok || project.Title == "" {
-			b.Fatal("expected GoWebComponents project lookup")
+func BenchmarkPortfolioProjectLookup(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseProject, parseOk := findPortfolioProject("GoWebComponents")
+		if !parseOk || parseProject.Title == "" {
+			parseB.Fatal("expected GoWebComponents project lookup")
 		}
 	}
 }
 
-func BenchmarkPortfolioTechnologyCounting(b *testing.B) {
-	projects := portfolioProjects()
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if total := totalPortfolioTechnologies(projects); total != 10 {
-			b.Fatalf("expected 10 technology tags, got %d", total)
+func BenchmarkPortfolioTechnologyCounting(parseB *testing.B) {
+	parseProjects := portfolioProjects()
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		if parseTotal := totalPortfolioTechnologies(parseProjects); parseTotal != 10 {
+			parseB.Fatalf("expected 10 technology tags, got %d", parseTotal)
 		}
 	}
 }
 
-func BenchmarkFeaturedPortfolioProjects(b *testing.B) {
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		featured := featuredPortfolioProjects()
-		if len(featured) != 2 {
-			b.Fatalf("expected 2 featured projects, got %d", len(featured))
+func BenchmarkFeaturedPortfolioProjects(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseFeatured := featuredPortfolioProjects()
+		if len(parseFeatured) != 2 {
+			parseB.Fatalf("expected 2 featured projects, got %d", len(parseFeatured))
 		}
 	}
 }
 
-func BenchmarkPortfolioSnapshotRenderToString(b *testing.B) {
-	node := renderPortfolioSnapshot()
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		markup, err := ui.RenderToString(node)
-		if err != nil {
-			b.Fatal(err)
+func BenchmarkPortfolioSnapshotRenderToString(parseB *testing.B) {
+	parseNode := renderPortfolioSnapshot()
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseMarkup, parseErr := ui.RenderToString(parseNode)
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
 		}
-		if len(markup) == 0 {
-			b.Fatal("expected rendered portfolio snapshot")
+		if len(parseMarkup) == 0 {
+			parseB.Fatal("expected rendered portfolio snapshot")
 		}
 	}
 }
 
-func BenchmarkPortfolioProjectsGridRenderToString(b *testing.B) {
-	node := renderPortfolioProjectsGridSnapshot()
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		markup, err := ui.RenderToString(node)
-		if err != nil {
-			b.Fatal(err)
+func BenchmarkPortfolioProjectsGridRenderToString(parseB *testing.B) {
+	parseNode := renderPortfolioProjectsGridSnapshot()
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseMarkup, parseErr := ui.RenderToString(parseNode)
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
 		}
-		if len(markup) == 0 {
-			b.Fatal("expected rendered project grid snapshot")
+		if len(parseMarkup) == 0 {
+			parseB.Fatal("expected rendered project grid snapshot")
 		}
 	}
 }

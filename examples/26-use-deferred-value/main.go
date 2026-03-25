@@ -20,16 +20,16 @@ var catalog = []string{
 }
 
 func useDeferredValueExample() ui.Node {
-	query := ui.UseState("")
-	deferred := ui.UseDeferredValue(query.Get())
-	update := ui.UseEvent(func(event ui.InputEvent) { query.Set(event.GetValue()) })
+	parseQuery := ui.UseState("")
+	parseDeferred := ui.UseDeferredValue(parseQuery.Get())
+	parseUpdate := ui.UseEvent(func(parseEvent ui.InputEvent) { parseQuery.Set(parseEvent.GetValue()) })
 
-	results := make([]ui.Node, 0, len(catalog))
-	for _, item := range catalog {
-		if deferred != "" && !strings.Contains(item, strings.ToLower(deferred)) {
+	parseResults := make([]ui.Node, 0, len(catalog))
+	for _, parseItem := range catalog {
+		if parseDeferred != "" && !strings.Contains(parseItem, strings.ToLower(parseDeferred)) {
 			continue
 		}
-		results = append(results, html.Li(html.Props{Class: "rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3"}, html.Text(item)))
+		parseResults = append(parseResults, html.Li(html.Props{Class: "rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3"}, html.Text(parseItem)))
 	}
 
 	return shared.ExamplePage(
@@ -37,13 +37,13 @@ func useDeferredValueExample() ui.Node {
 		"Keep rendering the last committed value until a transition catches up",
 		"The input changes immediately, but the result list follows the deferred value so fast updates do not need to block the rest of the UI.",
 		shared.ExamplePanel("Deferred search",
-			html.Input(html.Props{Value: query.Get(), OnInput: update, Placeholder: "Filter the feature list", Class: "mt-3 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100"}),
+			html.Input(html.Props{Value: parseQuery.Get(), OnInput: parseUpdate, Placeholder: "Filter the feature list", Class: "mt-3 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100"}),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Immediate", query.Get()),
-				shared.ExampleStat("Deferred", deferred),
+				shared.ExampleStat("Immediate", parseQuery.Get()),
+				shared.ExampleStat("Deferred", parseDeferred),
 			),
-			html.P(html.Props{Class: "mt-6 text-slate-400"}, html.Text(fmt.Sprintf("Showing %d results from the deferred value", len(results)))),
-			html.Ul(html.Props{Class: "mt-4 grid gap-3"}, results...),
+			html.P(html.Props{Class: "mt-6 text-slate-400"}, html.Text(fmt.Sprintf("Showing %d results from the deferred value", len(parseResults)))),
+			html.Ul(html.Props{Class: "mt-4 grid gap-3"}, parseResults...),
 		),
 	)
 }

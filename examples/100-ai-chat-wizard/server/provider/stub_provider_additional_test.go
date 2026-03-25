@@ -7,37 +7,37 @@ import (
 	"testing"
 )
 
-func TestNewStubProviderEmptyAndInfoHealth(t *testing.T) {
-	provider := NewStubProvider("   ", Catalog{})
-	if provider == nil {
-		t.Fatal("expected provider")
+func TestNewStubProviderEmptyAndInfoHealth(parseT *testing.T) {
+	parseProvider := ParseNewStubProvider("   ", Catalog{})
+	if parseProvider == nil {
+		parseT.Fatal("expected provider")
 	}
-	if provider.ID() != "" {
-		t.Fatalf("unexpected id: %q", provider.ID())
+	if parseProvider.ParseID() != "" {
+		parseT.Fatalf("unexpected id: %q", parseProvider.ParseID())
 	}
-	if provider.Available() {
-		t.Fatal("expected empty provider to be unavailable")
-	}
-
-	info := provider.Info()
-	if info.BaseURL != "stub://" || info.Available {
-		t.Fatalf("unexpected info: %+v", info)
-	}
-	if info.StreamingSupported != true || info.ReasoningSupported != true || info.ToolUseSupported {
-		t.Fatalf("unexpected capability flags: %+v", info)
+	if parseProvider.ParseAvailable() {
+		parseT.Fatal("expected empty provider to be unavailable")
 	}
 
-	health := provider.Health()
-	if health.ProviderID != "" || health.Status != ProviderHealthUnavailable {
-		t.Fatalf("unexpected health: %+v", health)
+	parseInfo := parseProvider.ParseInfo()
+	if parseInfo.BaseURL != "stub://" || parseInfo.ParseAvailable {
+		parseT.Fatalf("unexpected info: %+v", parseInfo)
 	}
-	if limits := provider.CurrentRateLimits(); limits != (RateLimitSnapshot{}) {
-		t.Fatalf("unexpected rate limits: %+v", limits)
+	if parseInfo.StreamingSupported != true || parseInfo.ReasoningSupported != true || parseInfo.ToolUseSupported {
+		parseT.Fatalf("unexpected capability flags: %+v", parseInfo)
+	}
+
+	parseHealth := parseProvider.ParseHealth()
+	if parseHealth.ProviderID != "" || parseHealth.ParseStatus != ProviderHealthUnavailable {
+		parseT.Fatalf("unexpected health: %+v", parseHealth)
+	}
+	if parseLimits := parseProvider.ParseCurrentRateLimits(); parseLimits != (RateLimitSnapshot{}) {
+		parseT.Fatalf("unexpected rate limits: %+v", parseLimits)
 	}
 }
 
-func TestStubProviderGenerateTitleAndSpeech(t *testing.T) {
-	provider := NewStubProvider("openai", Catalog{
+func TestStubProviderGenerateTitleAndSpeech(parseT *testing.T) {
+	parseProvider := ParseNewStubProvider("openai", Catalog{
 		DefaultModel: "gpt-5-mini",
 		Models: []ModelMetadata{{
 			ID:          "gpt-5-mini",
@@ -46,71 +46,71 @@ func TestStubProviderGenerateTitleAndSpeech(t *testing.T) {
 		}},
 	})
 
-	title, err := provider.GenerateTitle(context.Background(), TitleRequest{})
-	if err != nil {
-		t.Fatalf("GenerateTitle empty: %v", err)
+	parseTitle, parseErr := parseProvider.ParseGenerateTitle(context.Background(), TitleRequest{})
+	if parseErr != nil {
+		parseT.Fatalf("GenerateTitle empty: %v", parseErr)
 	}
-	if title != "OpenAI stub conversation" {
-		t.Fatalf("unexpected empty title: %q", title)
+	if parseTitle != "OpenAI stub conversation" {
+		parseT.Fatalf("unexpected empty title: %q", parseTitle)
 	}
 
-	title, err = provider.GenerateTitle(context.Background(), TitleRequest{
+	parseTitle, parseErr = parseProvider.ParseGenerateTitle(context.Background(), TitleRequest{
 		Prompt: strings.Repeat("word ", 20),
 	})
-	if err != nil {
-		t.Fatalf("GenerateTitle prompt: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("GenerateTitle prompt: %v", parseErr)
 	}
-	if !strings.HasPrefix(title, "OpenAI stub: ") || !strings.Contains(title, "…") {
-		t.Fatalf("unexpected truncated title: %q", title)
-	}
-
-	options := provider.ModelOptions()
-	if len(options) != 1 || options[0].ID != "gpt-5-mini" {
-		t.Fatalf("unexpected model options: %+v", options)
-	}
-	capabilities := provider.Capabilities("gpt-5-mini")
-	if capabilities.ProviderID != "openai" {
-		t.Fatalf("unexpected capabilities: %+v", capabilities)
-	}
-	missingCapabilities := provider.Capabilities("missing")
-	if missingCapabilities.ProviderID != "openai" || missingCapabilities.ProviderLabel != "OpenAI" {
-		t.Fatalf("unexpected fallback capabilities: %+v", missingCapabilities)
+	if !strings.HasPrefix(parseTitle, "OpenAI stub: ") || !strings.Contains(parseTitle, "…") {
+		parseT.Fatalf("unexpected truncated title: %q", parseTitle)
 	}
 
-	memories, err := provider.ExtractUserMemories(context.Background(), MemoryExtractionRequest{})
-	if err != nil {
-		t.Fatalf("ExtractUserMemories: %v", err)
+	parseOptions := parseProvider.ParseModelOptions()
+	if len(parseOptions) != 1 || parseOptions[0].ParseID != "gpt-5-mini" {
+		parseT.Fatalf("unexpected model options: %+v", parseOptions)
 	}
-	if memories != nil {
-		t.Fatalf("expected nil memories, got %+v", memories)
+	parseCapabilities := parseProvider.ParseCapabilities("gpt-5-mini")
+	if parseCapabilities.ProviderID != "openai" {
+		parseT.Fatalf("unexpected capabilities: %+v", parseCapabilities)
+	}
+	parseMissingCapabilities := parseProvider.ParseCapabilities("missing")
+	if parseMissingCapabilities.ProviderID != "openai" || parseMissingCapabilities.ProviderLabel != "OpenAI" {
+		parseT.Fatalf("unexpected fallback capabilities: %+v", parseMissingCapabilities)
 	}
 
-	var chunks []SpeechChunk
-	result, err := provider.SynthesizeSpeech(context.Background(), SpeechRequest{
+	parseMemories, parseErr := parseProvider.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{})
+	if parseErr != nil {
+		parseT.Fatalf("ExtractUserMemories: %v", parseErr)
+	}
+	if parseMemories != nil {
+		parseT.Fatalf("expected nil memories, got %+v", parseMemories)
+	}
+
+	var parseChunks []SpeechChunk
+	parseResult, parseErr := parseProvider.ParseSynthesizeSpeech(context.Background(), SpeechRequest{
 		Text: "hello",
-	}, func(chunk SpeechChunk) error {
-		chunks = append(chunks, chunk)
+	}, func(parseChunk SpeechChunk) error {
+		parseChunks = append(parseChunks, parseChunk)
 		return nil
 	})
-	if err != nil {
-		t.Fatalf("SynthesizeSpeech: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("SynthesizeSpeech: %v", parseErr)
 	}
-	if result.Model != "gpt-5-mini" || result.MimeType != "audio/mpeg" || result.Voice != "stub" {
-		t.Fatalf("unexpected speech result: %+v", result)
+	if parseResult.Model != "gpt-5-mini" || parseResult.MimeType != "audio/mpeg" || parseResult.Voice != "stub" {
+		parseT.Fatalf("unexpected speech result: %+v", parseResult)
 	}
-	if len(chunks) != 2 {
-		t.Fatalf("expected two chunks, got %+v", chunks)
+	if len(parseChunks) != 2 {
+		parseT.Fatalf("expected two chunks, got %+v", parseChunks)
 	}
-	if string(chunks[0].AudioChunk) != "stub-audio" || chunks[0].Done {
-		t.Fatalf("unexpected first chunk: %+v", chunks[0])
+	if string(parseChunks[0].AudioChunk) != "stub-audio" || parseChunks[0].Done {
+		parseT.Fatalf("unexpected first chunk: %+v", parseChunks[0])
 	}
-	if !chunks[1].Done || len(chunks[1].AudioChunk) != 0 {
-		t.Fatalf("unexpected done chunk: %+v", chunks[1])
+	if !parseChunks[1].Done || len(parseChunks[1].AudioChunk) != 0 {
+		parseT.Fatalf("unexpected done chunk: %+v", parseChunks[1])
 	}
 }
 
-func TestStubProviderEmitFailuresAndHelpers(t *testing.T) {
-	provider := NewStubProvider("cerebras", Catalog{
+func TestStubProviderEmitFailuresAndHelpers(parseT *testing.T) {
+	parseProvider := ParseNewStubProvider("cerebras", Catalog{
 		DefaultModel: "cerebras-gpt",
 		Models: []ModelMetadata{{
 			ID:          "cerebras-gpt",
@@ -119,40 +119,40 @@ func TestStubProviderEmitFailuresAndHelpers(t *testing.T) {
 		}},
 	})
 
-	chatErr := errors.New("chat emit failed")
-	_, err := provider.StreamChat(context.Background(), ChatRequest{
+	parseChatErr := errors.New("chat emit failed")
+	_, parseErr := parseProvider.ParseStreamChat(context.Background(), ChatRequest{
 		ThinkingEnabled: true,
-	}, func(event ChatEvent) error {
-		if event.ThoughtDelta != "" {
-			return chatErr
+	}, func(parseEvent ChatEvent) error {
+		if parseEvent.ThoughtDelta != "" {
+			return parseChatErr
 		}
 		return nil
 	})
-	if !errors.Is(err, chatErr) {
-		t.Fatalf("expected chat emit failure, got %v", err)
+	if !errors.Is(parseErr, parseChatErr) {
+		parseT.Fatalf("expected chat emit failure, got %v", parseErr)
 	}
 
-	speechErr := errors.New("speech emit failed")
-	_, err = provider.SynthesizeSpeech(context.Background(), SpeechRequest{
+	parseSpeechErr := errors.New("speech emit failed")
+	_, parseErr = parseProvider.ParseSynthesizeSpeech(context.Background(), SpeechRequest{
 		Model: "cerebras-gpt",
 		Text:  "hello",
 	}, func(SpeechChunk) error {
-		return speechErr
+		return parseSpeechErr
 	})
-	if !errors.Is(err, speechErr) {
-		t.Fatalf("expected speech emit failure, got %v", err)
+	if !errors.Is(parseErr, parseSpeechErr) {
+		parseT.Fatalf("expected speech emit failure, got %v", parseErr)
 	}
 
-	if got := stubProviderLabel(" OpenAI "); got != "OpenAI" {
-		t.Fatalf("stubProviderLabel openai = %q", got)
+	if parseGot := parseStubProviderLabel(" OpenAI "); parseGot != "OpenAI" {
+		parseT.Fatalf("stubProviderLabel openai = %q", parseGot)
 	}
-	if got := stubProviderLabel(" unknown "); got != "UNKNOWN" {
-		t.Fatalf("stubProviderLabel default = %q", got)
+	if parseGot2 := parseStubProviderLabel(" unknown "); parseGot2 != "UNKNOWN" {
+		parseT.Fatalf("stubProviderLabel default = %q", parseGot2)
 	}
-	if got := normalizeStubThinkingEffort(" HIGH "); got != "high" {
-		t.Fatalf("normalizeStubThinkingEffort high = %q", got)
+	if parseGot3 := parseNormalizeStubThinkingEffort(" HIGH "); parseGot3 != "high" {
+		parseT.Fatalf("normalizeStubThinkingEffort high = %q", parseGot3)
 	}
-	if got := normalizeStubThinkingEffort("turbo"); got != "medium" {
-		t.Fatalf("normalizeStubThinkingEffort default = %q", got)
+	if parseGot4 := parseNormalizeStubThinkingEffort("turbo"); parseGot4 != "medium" {
+		parseT.Fatalf("normalizeStubThinkingEffort default = %q", parseGot4)
 	}
 }

@@ -17,12 +17,12 @@ type CostEstimate struct {
 
 // EstimateCost calculates approximate request cost from token counts and model
 // pricing metadata.
-func EstimateCost(promptTokens, completionTokens int64, pricing ModelPricing) CostEstimate {
-	inputCost := (float64(promptTokens) / 1_000_000) * pricing.InputPerMillionUSD
-	outputCost := (float64(completionTokens) / 1_000_000) * pricing.OutputPerMillionUSD
+func ParseEstimateCost(parsePromptTokens, parseCompletionTokens int64, parsePricing ModelPricing) CostEstimate {
+	parseInputCost := (float64(parsePromptTokens) / 1_000_000) * parsePricing.InputPerMillionUSD
+	parseOutputCost := (float64(parseCompletionTokens) / 1_000_000) * parsePricing.OutputPerMillionUSD
 	return CostEstimate{
-		InputCostUSD:  inputCost,
-		OutputCostUSD: outputCost,
-		TotalCostUSD:  inputCost + outputCost,
+		InputCostUSD:  parseInputCost,
+		OutputCostUSD: parseOutputCost,
+		TotalCostUSD:  parseInputCost + parseOutputCost,
 	}
 }

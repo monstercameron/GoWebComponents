@@ -7,46 +7,46 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestSharedHelpersAndFallbacks(t *testing.T) {
-	payload := defaultBootstrapPayload()
-	if payload.Route.Path != "/docs/"+guideSectionSSR {
-		t.Fatalf("defaultBootstrapPayload() path = %q", payload.Route.Path)
+func TestSharedHelpersAndFallbacks(parseT *testing.T) {
+	parsePayload := defaultBootstrapPayload()
+	if parsePayload.Route.Path != "/docs/"+guideSectionSSR {
+		parseT.Fatalf("defaultBootstrapPayload() path = %q", parsePayload.Route.Path)
 	}
-	if payload.Route.Params["section"] != guideSectionSSR || payload.IDSeed != 17 {
-		t.Fatalf("defaultBootstrapPayload() = %+v", payload)
+	if parsePayload.Route.Params["section"] != guideSectionSSR || parsePayload.IDSeed != 17 {
+		parseT.Fatalf("defaultBootstrapPayload() = %+v", parsePayload)
 	}
-	if got := bootstrapTransport(payload); got != transportJSONSidecar {
-		t.Fatalf("bootstrapTransport(default) = %q, want %q", got, transportJSONSidecar)
+	if parseGot := bootstrapTransport(parsePayload); parseGot != transportJSONSidecar {
+		parseT.Fatalf("bootstrapTransport(default) = %q, want %q", parseGot, transportJSONSidecar)
 	}
-	if got := bootstrapTransport(ui.SSRBootstrap{}); got != transportJSONSidecar {
-		t.Fatalf("bootstrapTransport(empty) = %q, want default transport", got)
+	if parseGot2 := bootstrapTransport(ui.SSRBootstrap{}); parseGot2 != transportJSONSidecar {
+		parseT.Fatalf("bootstrapTransport(empty) = %q, want default transport", parseGot2)
 	}
-	customPayload := ui.SSRBootstrap{Data: map[string]interface{}{"transport": "binary"}}
-	if got := bootstrapTransport(customPayload); got != "binary" {
-		t.Fatalf("bootstrapTransport(custom) = %q, want binary", got)
+	parseCustomPayload := ui.SSRBootstrap{Data: map[string]interface{}{"transport": "binary"}}
+	if parseGot3 := bootstrapTransport(parseCustomPayload); parseGot3 != "binary" {
+		parseT.Fatalf("bootstrapTransport(custom) = %q, want binary", parseGot3)
 	}
 
-	view := defaultServerView()
-	if view.Mode != modeDocs || view.ActivePath != payload.Route.Path || view.Transport != transportJSONSidecar {
-		t.Fatalf("defaultServerView() = %+v", view)
+	parseView := defaultServerView()
+	if parseView.Mode != modeDocs || parseView.ActivePath != parsePayload.Route.Path || parseView.Transport != transportJSONSidecar {
+		parseT.Fatalf("defaultServerView() = %+v", parseView)
 	}
-	if article := articleForSection("missing"); article.ID != guideSectionSSR {
-		t.Fatalf("articleForSection(fallback) = %+v, want SSR article", article)
+	if parseArticle := articleForSection("missing"); parseArticle.ID != guideSectionSSR {
+		parseT.Fatalf("articleForSection(fallback) = %+v, want SSR article", parseArticle)
 	}
-	articles := catalogList()
-	if len(articles) != 3 || articles[0].ID != guideSectionBenchmarks || articles[1].ID != guideSectionRouting || articles[2].ID != guideSectionSSR {
-		t.Fatalf("catalogList() order = %+v", articles)
+	parseArticles := catalogList()
+	if len(parseArticles) != 3 || parseArticles[0].ID != guideSectionBenchmarks || parseArticles[1].ID != guideSectionRouting || parseArticles[2].ID != guideSectionSSR {
+		parseT.Fatalf("catalogList() order = %+v", parseArticles)
 	}
-	if got := emptyFallback("   ", "fallback"); got != "fallback" {
-		t.Fatalf("emptyFallback(blank) = %q, want fallback", got)
+	if parseGot4 := emptyFallback("   ", "fallback"); parseGot4 != "fallback" {
+		parseT.Fatalf("emptyFallback(blank) = %q, want fallback", parseGot4)
 	}
-	if got := emptyFallback("value", "fallback"); got != "value" {
-		t.Fatalf("emptyFallback(value) = %q, want value", got)
+	if parseGot5 := emptyFallback("value", "fallback"); parseGot5 != "value" {
+		parseT.Fatalf("emptyFallback(value) = %q, want value", parseGot5)
 	}
 }
 
-func TestRenderPageModesAndHelpers(t *testing.T) {
-	tests := []struct {
+func TestRenderPageModesAndHelpers(parseT *testing.T) {
+	parseTests := []struct {
 		name string
 		view demoShellView
 		want string
@@ -78,19 +78,19 @@ func TestRenderPageModesAndHelpers(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			markup, err := ui.RenderToString(renderPage(test.view))
-			if err != nil {
-				t.Fatalf("RenderToString(renderPage(%s)) error = %v", test.name, err)
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			parseMarkup, parseErr := ui.RenderToString(renderPage(parseTest.view))
+			if parseErr != nil {
+				parseT2.Fatalf("RenderToString(renderPage(%s)) error = %v", parseTest.name, parseErr)
 			}
-			if !strings.Contains(markup, test.want) {
-				t.Fatalf("renderPage(%s) missing %q\n%s", test.name, test.want, markup)
+			if !strings.Contains(parseMarkup, parseTest.want) {
+				parseT2.Fatalf("renderPage(%s) missing %q\n%s", parseTest.name, parseTest.want, parseMarkup)
 			}
 		})
 	}
 
-	demoMarkup, err := ui.RenderToString(renderDemoShell(demoShellView{
+	parseDemoMarkup, parseErr2 := ui.RenderToString(renderDemoShell(demoShellView{
 		Mode:          modeDocs,
 		ActivePath:    "/docs/ssr",
 		BootstrapPath: "/docs/ssr",
@@ -102,48 +102,48 @@ func TestRenderPageModesAndHelpers(t *testing.T) {
 		LoadRevision:  4,
 		Notice:        "Hydration path",
 	}))
-	if err != nil {
-		t.Fatalf("RenderToString(renderDemoShell) error = %v", err)
+	if parseErr2 != nil {
+		parseT.Fatalf("RenderToString(renderDemoShell) error = %v", parseErr2)
 	}
-	for _, expected := range []string{"SSR Routing Demo", "Bootstrap route", "/docs/ssr", "Transport", transportJSONSidecar} {
-		if !strings.Contains(demoMarkup, expected) {
-			t.Fatalf("renderDemoShell() missing %q\n%s", expected, demoMarkup)
+	for _, parseExpected := range []string{"SSR Routing Demo", "Bootstrap route", "/docs/ssr", "Transport", transportJSONSidecar} {
+		if !strings.Contains(parseDemoMarkup, parseExpected) {
+			parseT.Fatalf("renderDemoShell() missing %q\n%s", parseExpected, parseDemoMarkup)
 		}
 	}
 
-	if key := deferredRouteKey(demoShellView{Mode: modeDocs, SectionID: guideSectionSSR, CurrentTab: tabLoader, LoadRevision: 2}); key != "docs:ssr:loader:2" {
-		t.Fatalf("deferredRouteKey(docs) = %q", key)
+	if parseKey := deferredRouteKey(demoShellView{Mode: modeDocs, SectionID: guideSectionSSR, CurrentTab: tabLoader, LoadRevision: 2}); parseKey != "docs:ssr:loader:2" {
+		parseT.Fatalf("deferredRouteKey(docs) = %q", parseKey)
 	}
-	if key := deferredRouteKey(demoShellView{Mode: "search", SearchQuery: "", LoadRevision: 3}); key != "search:all:3" {
-		t.Fatalf("deferredRouteKey(search) = %q", key)
+	if parseKey2 := deferredRouteKey(demoShellView{Mode: "search", SearchQuery: "", LoadRevision: 3}); parseKey2 != "search:all:3" {
+		parseT.Fatalf("deferredRouteKey(search) = %q", parseKey2)
 	}
-	if key := deferredRouteKey(demoShellView{Mode: "secure", SecureUser: "", SecureRole: "", LoadRevision: 4}); key != "secure:guest:none:4" {
-		t.Fatalf("deferredRouteKey(secure) = %q", key)
+	if parseKey3 := deferredRouteKey(demoShellView{Mode: "secure", SecureUser: "", SecureRole: "", LoadRevision: 4}); parseKey3 != "secure:guest:none:4" {
+		parseT.Fatalf("deferredRouteKey(secure) = %q", parseKey3)
 	}
-	if key := deferredRouteKey(demoShellView{Mode: "", LoadRevision: 5}); key != "route:5" {
-		t.Fatalf("deferredRouteKey(default) = %q", key)
-	}
-
-	activeLink, err := ui.RenderToString(navLink("Docs", routeDocsSSRHash, true))
-	if err != nil {
-		t.Fatalf("RenderToString(navLink active) error = %v", err)
-	}
-	if !strings.Contains(activeLink, "border-cyan-900/90") {
-		t.Fatalf("active navLink markup = %q, want active class", activeLink)
-	}
-	inactiveLink, err := ui.RenderToString(navLink("Docs", routeDocsSSRHash, false))
-	if err != nil {
-		t.Fatalf("RenderToString(navLink inactive) error = %v", err)
-	}
-	if !strings.Contains(inactiveLink, "hover:bg-white/10") {
-		t.Fatalf("inactive navLink markup = %q, want hover class", inactiveLink)
+	if parseKey4 := deferredRouteKey(demoShellView{Mode: "", LoadRevision: 5}); parseKey4 != "route:5" {
+		parseT.Fatalf("deferredRouteKey(default) = %q", parseKey4)
 	}
 
-	card, err := ui.RenderToString(statCard("Revision", "7"))
-	if err != nil {
-		t.Fatalf("RenderToString(statCard) error = %v", err)
+	parseActiveLink, parseErr2 := ui.RenderToString(navLink("Docs", routeDocsSSRHash, true))
+	if parseErr2 != nil {
+		parseT.Fatalf("RenderToString(navLink active) error = %v", parseErr2)
 	}
-	if !strings.Contains(card, "Revision") || !strings.Contains(card, "7") {
-		t.Fatalf("statCard markup = %q, want label and value", card)
+	if !strings.Contains(parseActiveLink, "border-cyan-900/90") {
+		parseT.Fatalf("active navLink markup = %q, want active class", parseActiveLink)
+	}
+	parseInactiveLink, parseErr2 := ui.RenderToString(navLink("Docs", routeDocsSSRHash, false))
+	if parseErr2 != nil {
+		parseT.Fatalf("RenderToString(navLink inactive) error = %v", parseErr2)
+	}
+	if !strings.Contains(parseInactiveLink, "hover:bg-white/10") {
+		parseT.Fatalf("inactive navLink markup = %q, want hover class", parseInactiveLink)
+	}
+
+	parseCard, parseErr2 := ui.RenderToString(statCard("Revision", "7"))
+	if parseErr2 != nil {
+		parseT.Fatalf("RenderToString(statCard) error = %v", parseErr2)
+	}
+	if !strings.Contains(parseCard, "Revision") || !strings.Contains(parseCard, "7") {
+		parseT.Fatalf("statCard markup = %q, want label and value", parseCard)
 	}
 }

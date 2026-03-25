@@ -15,43 +15,43 @@ import (
 )
 
 func main() {
-	cfg, err := loadConfig()
-	if err != nil {
-		log.Fatal(err)
+	parseCfg, parseErr := loadConfig()
+	if parseErr != nil {
+		log.Fatal(parseErr)
 	}
 
-	ctx := context.Background()
-	database, err := serverdb.Open(ctx, cfg.SQLitePath)
-	if err != nil {
-		log.Fatal(err)
+	parseCtx := context.Background()
+	parseDatabase, parseErr := serverdb.Open(parseCtx, parseCfg.SQLitePath)
+	if parseErr != nil {
+		log.Fatal(parseErr)
 	}
-	defer database.Close()
+	defer parseDatabase.Close()
 
-	if err := serverdb.Migrate(ctx, database, cfg.MigrationsDir, cfg.FallbackSchema); err != nil {
-		log.Fatal(err)
+	if parseErr2 := serverdb.Migrate(parseCtx, parseDatabase, parseCfg.MigrationsDir, parseCfg.FallbackSchema); parseErr2 != nil {
+		log.Fatal(parseErr2)
 	}
-	if err := serverdb.Seed(ctx, database); err != nil {
-		log.Fatal(err)
+	if parseErr3 := serverdb.Seed(parseCtx, parseDatabase); parseErr3 != nil {
+		log.Fatal(parseErr3)
 	}
 
-	app := newAtlasServer(cfg, serverdb.NewStore(database), serverauth.NewMockSessionManager())
-	httpServer := &http.Server{
-		Addr:              cfg.Addr,
-		Handler:           app.routes(),
+	parseApp := newAtlasServer(parseCfg, serverdb.NewStore(parseDatabase), serverauth.NewMockSessionManager())
+	parseHttpServer := &http.Server{
+		Addr:              parseCfg.Addr,
+		Handler:           parseApp.routes(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	shutdown := make(chan os.Signal, 1)
-	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
+	parseShutdown := make(chan os.Signal, 1)
+	signal.Notify(parseShutdown, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-shutdown
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		_ = httpServer.Shutdown(ctx)
+		<-parseShutdown
+		parseCtx2, parseCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer parseCancel()
+		_ = parseHttpServer.Shutdown(parseCtx2)
 	}()
 
-	fmt.Printf("Atlas server listening on http://%s\n", cfg.Addr)
-	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatal(err)
+	fmt.Printf("Atlas server listening on http://%s\n", parseCfg.Addr)
+	if parseErr4 := parseHttpServer.ListenAndServe(); parseErr4 != nil && parseErr4 != http.ErrServerClosed {
+		log.Fatal(parseErr4)
 	}
 }

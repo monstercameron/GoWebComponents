@@ -11,88 +11,88 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestStoreConversationAndPreferenceLifecycle(t *testing.T) {
-	store := newTestStore(t)
-	user := mustCreateUser(t, store, "demo@example.com")
+func TestStoreConversationAndPreferenceLifecycle(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "demo@example.com")
 
-	conversationID, err := store.createConversation(user.ID)
-	if err != nil {
-		t.Fatalf("createConversation: %v", err)
+	parseConversationID, parseErr := store.parseCreateConversation(parseUser.ParseID)
+	if parseErr != nil {
+		parseT.Fatalf("createConversation: %v", parseErr)
 	}
-	if err := store.saveConversationMessage(user.ID, conversationID, "user", "Hello", "", 0, 0); err != nil {
-		t.Fatalf("saveConversationMessage user: %v", err)
+	if parseErr2 := store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, "user", "Hello", "", 0, 0); parseErr2 != nil {
+		parseT.Fatalf("saveConversationMessage user: %v", parseErr2)
 	}
-	if err := store.saveConversationMessage(user.ID, conversationID, "assistant", "Hi there", modelGPT54Mini, 11, 7); err != nil {
-		t.Fatalf("saveConversationMessage assistant: %v", err)
+	if parseErr3 := store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, "assistant", "Hi there", modelGPT54Mini, 11, 7); parseErr3 != nil {
+		parseT.Fatalf("saveConversationMessage assistant: %v", parseErr3)
 	}
-	if err := store.saveConversationTitle(user.ID, conversationID, "Greeting thread"); err != nil {
-		t.Fatalf("saveConversationTitle: %v", err)
-	}
-
-	owned, err := store.conversationOwnedByUser(user.ID, conversationID)
-	if err != nil {
-		t.Fatalf("conversationOwnedByUser: %v", err)
-	}
-	if !owned {
-		t.Fatal("expected conversation to belong to user")
+	if parseErr4 := store.parseSaveConversationTitle(parseUser.ParseID, parseConversationID, "Greeting thread"); parseErr4 != nil {
+		parseT.Fatalf("saveConversationTitle: %v", parseErr4)
 	}
 
-	conversations, err := store.listConversations(user.ID)
-	if err != nil {
-		t.Fatalf("listConversations: %v", err)
+	parseOwned, parseErr := store.parseConversationOwnedByUser(parseUser.ParseID, parseConversationID)
+	if parseErr != nil {
+		parseT.Fatalf("conversationOwnedByUser: %v", parseErr)
 	}
-	if len(conversations) != 1 {
-		t.Fatalf("expected one conversation, got %d", len(conversations))
-	}
-	if conversations[0].PublicID == "" {
-		t.Fatal("expected conversation public_id to be populated")
-	}
-	if _, err := uuid.Parse(conversations[0].PublicID); err != nil {
-		t.Fatalf("expected conversation public_id to be a UUID, got %q: %v", conversations[0].PublicID, err)
-	}
-	if conversations[0].Preview != "Greeting thread" {
-		t.Fatalf("expected title-backed preview, got %q", conversations[0].Preview)
+	if !parseOwned {
+		parseT.Fatal("expected conversation to belong to user")
 	}
 
-	messages, err := store.loadConversation(user.ID, conversationID)
-	if err != nil {
-		t.Fatalf("loadConversation: %v", err)
+	parseConversations, parseErr := store.parseListConversations(parseUser.ParseID)
+	if parseErr != nil {
+		parseT.Fatalf("listConversations: %v", parseErr)
 	}
-	if len(messages) != 2 {
-		t.Fatalf("expected two messages, got %d", len(messages))
+	if len(parseConversations) != 1 {
+		parseT.Fatalf("expected one conversation, got %d", len(parseConversations))
 	}
-	if messages[1].ModelID != modelGPT54Mini || messages[1].PromptTokens != 11 || messages[1].CompletionTokens != 7 {
-		t.Fatalf("assistant message metadata mismatch: %+v", messages[1])
+	if parseConversations[0].PublicID == "" {
+		parseT.Fatal("expected conversation public_id to be populated")
 	}
-
-	updatedAt := time.Now().Unix()
-	if err := store.setUserName(user.ID, "Renamed User", updatedAt); err != nil {
-		t.Fatalf("setUserName: %v", err)
+	if _, parseErr5 := uuid.Parse(parseConversations[0].PublicID); parseErr5 != nil {
+		parseT.Fatalf("expected conversation public_id to be a UUID, got %q: %v", parseConversations[0].PublicID, parseErr5)
 	}
-	name, gotUpdatedAt, err := store.getUserName(user.ID)
-	if err != nil {
-		t.Fatalf("getUserName: %v", err)
-	}
-	if name != "Renamed User" || gotUpdatedAt != updatedAt {
-		t.Fatalf("unexpected user name state: name=%q updatedAt=%d", name, gotUpdatedAt)
+	if parseConversations[0].Preview != "Greeting thread" {
+		parseT.Fatalf("expected title-backed preview, got %q", parseConversations[0].Preview)
 	}
 
-	if err := store.setSelectedModel(user.ID, modelGPT54); err != nil {
-		t.Fatalf("setSelectedModel: %v", err)
+	parseMessages, parseErr := store.parseLoadConversation(parseUser.ParseID, parseConversationID)
+	if parseErr != nil {
+		parseT.Fatalf("loadConversation: %v", parseErr)
 	}
-	if err := store.setSelectedTone(user.ID, "professional"); err != nil {
-		t.Fatalf("setSelectedTone: %v", err)
+	if len(parseMessages) != 2 {
+		parseT.Fatalf("expected two messages, got %d", len(parseMessages))
 	}
-	if err := store.setSelectedThinkingEnabled(user.ID, false); err != nil {
-		t.Fatalf("setSelectedThinkingEnabled: %v", err)
+	if parseMessages[1].ModelID != modelGPT54Mini || parseMessages[1].PromptTokens != 11 || parseMessages[1].CompletionTokens != 7 {
+		parseT.Fatalf("assistant message metadata mismatch: %+v", parseMessages[1])
 	}
-	if err := store.setSelectedThinkingEffort(user.ID, "high"); err != nil {
-		t.Fatalf("setSelectedThinkingEffort: %v", err)
+
+	parseUpdatedAt := time.Now().Unix()
+	if parseErr6 := store.setUserName(parseUser.ParseID, "Renamed User", parseUpdatedAt); parseErr6 != nil {
+		parseT.Fatalf("setUserName: %v", parseErr6)
 	}
-	if err := store.setSelectedSystemPrompt(user.ID, "Always answer with short bullet points."); err != nil {
-		t.Fatalf("setSelectedSystemPrompt: %v", err)
+	parseName, parseGotUpdatedAt, parseErr := store.getUserName(parseUser.ParseID)
+	if parseErr != nil {
+		parseT.Fatalf("getUserName: %v", parseErr)
 	}
-	if err := store.upsertUserMemory(user.ID, userMemoryRow{
+	if parseName != "Renamed User" || parseGotUpdatedAt != parseUpdatedAt {
+		parseT.Fatalf("unexpected user name state: name=%q updatedAt=%d", parseName, parseGotUpdatedAt)
+	}
+
+	if parseErr7 := store.setSelectedModel(parseUser.ParseID, modelGPT54); parseErr7 != nil {
+		parseT.Fatalf("setSelectedModel: %v", parseErr7)
+	}
+	if parseErr8 := store.setSelectedTone(parseUser.ParseID, "professional"); parseErr8 != nil {
+		parseT.Fatalf("setSelectedTone: %v", parseErr8)
+	}
+	if parseErr9 := store.setSelectedThinkingEnabled(parseUser.ParseID, false); parseErr9 != nil {
+		parseT.Fatalf("setSelectedThinkingEnabled: %v", parseErr9)
+	}
+	if parseErr10 := store.setSelectedThinkingEffort(parseUser.ParseID, "high"); parseErr10 != nil {
+		parseT.Fatalf("setSelectedThinkingEffort: %v", parseErr10)
+	}
+	if parseErr11 := store.setSelectedSystemPrompt(parseUser.ParseID, "Always answer with short bullet points."); parseErr11 != nil {
+		parseT.Fatalf("setSelectedSystemPrompt: %v", parseErr11)
+	}
+	if parseErr12 := store.parseUpsertUserMemory(parseUser.ParseID, userMemoryRow{
 		Key:             "preference-editor",
 		Category:        "preference",
 		Summary:         "Prefers Neovim",
@@ -101,288 +101,288 @@ func TestStoreConversationAndPreferenceLifecycle(t *testing.T) {
 		UsefulnessScore: 84,
 		ConfidenceScore: 0.91,
 		RubricReason:    "Stable tooling preference",
-	}); err != nil {
-		t.Fatalf("upsertUserMemory: %v", err)
+	}); parseErr12 != nil {
+		parseT.Fatalf("upsertUserMemory: %v", parseErr12)
 	}
 
-	selectedModel, err := store.getSelectedModel(user.ID, modelGPT54Mini)
-	if err != nil || selectedModel != modelGPT54 {
-		t.Fatalf("getSelectedModel: model=%q err=%v", selectedModel, err)
+	parseSelectedModel, parseErr := store.getSelectedModel(parseUser.ParseID, modelGPT54Mini)
+	if parseErr != nil || parseSelectedModel != modelGPT54 {
+		parseT.Fatalf("getSelectedModel: model=%q err=%v", parseSelectedModel, parseErr)
 	}
-	selectedTone, err := store.getSelectedTone(user.ID, defaultToneID)
-	if err != nil || selectedTone != "professional" {
-		t.Fatalf("getSelectedTone: tone=%q err=%v", selectedTone, err)
+	parseSelectedTone, parseErr := store.getSelectedTone(parseUser.ParseID, defaultToneID)
+	if parseErr != nil || parseSelectedTone != "professional" {
+		parseT.Fatalf("getSelectedTone: tone=%q err=%v", parseSelectedTone, parseErr)
 	}
-	thinkingEnabled, err := store.getSelectedThinkingEnabled(user.ID, true)
-	if err != nil || thinkingEnabled {
-		t.Fatalf("getSelectedThinkingEnabled: enabled=%v err=%v", thinkingEnabled, err)
+	parseThinkingEnabled, parseErr := store.getSelectedThinkingEnabled(parseUser.ParseID, true)
+	if parseErr != nil || parseThinkingEnabled {
+		parseT.Fatalf("getSelectedThinkingEnabled: enabled=%v err=%v", parseThinkingEnabled, parseErr)
 	}
-	thinkingEffort, err := store.getSelectedThinkingEffort(user.ID, defaultThinkingEffort)
-	if err != nil || thinkingEffort != "high" {
-		t.Fatalf("getSelectedThinkingEffort: effort=%q err=%v", thinkingEffort, err)
+	parseThinkingEffort, parseErr := store.getSelectedThinkingEffort(parseUser.ParseID, defaultThinkingEffort)
+	if parseErr != nil || parseThinkingEffort != "high" {
+		parseT.Fatalf("getSelectedThinkingEffort: effort=%q err=%v", parseThinkingEffort, parseErr)
 	}
-	customSystemPrompt, err := store.getSelectedSystemPrompt(user.ID, "")
-	if err != nil || customSystemPrompt != "Always answer with short bullet points." {
-		t.Fatalf("getSelectedSystemPrompt: prompt=%q err=%v", customSystemPrompt, err)
+	parseCustomSystemPrompt, parseErr := store.getSelectedSystemPrompt(parseUser.ParseID, "")
+	if parseErr != nil || parseCustomSystemPrompt != "Always answer with short bullet points." {
+		parseT.Fatalf("getSelectedSystemPrompt: prompt=%q err=%v", parseCustomSystemPrompt, parseErr)
 	}
-	memories, err := store.listUserMemories(user.ID)
-	if err != nil {
-		t.Fatalf("listUserMemories: %v", err)
+	parseMemories, parseErr := store.parseListUserMemories(parseUser.ParseID)
+	if parseErr != nil {
+		parseT.Fatalf("listUserMemories: %v", parseErr)
 	}
-	if len(memories) != 1 || memories[0].Summary != "Prefers Neovim" {
-		t.Fatalf("unexpected stored memories: %+v", memories)
+	if len(parseMemories) != 1 || parseMemories[0].Summary != "Prefers Neovim" {
+		parseT.Fatalf("unexpected stored memories: %+v", parseMemories)
 	}
 
-	if err := store.deleteConversation(user.ID, conversationID); err != nil {
-		t.Fatalf("deleteConversation: %v", err)
+	if parseErr13 := store.parseDeleteConversation(parseUser.ParseID, parseConversationID); parseErr13 != nil {
+		parseT.Fatalf("deleteConversation: %v", parseErr13)
 	}
-	remaining, err := store.listConversations(user.ID)
-	if err != nil {
-		t.Fatalf("listConversations after delete: %v", err)
+	parseRemaining, parseErr := store.parseListConversations(parseUser.ParseID)
+	if parseErr != nil {
+		parseT.Fatalf("listConversations after delete: %v", parseErr)
 	}
-	if len(remaining) != 0 {
-		t.Fatalf("expected zero conversations after delete, got %d", len(remaining))
+	if len(parseRemaining) != 0 {
+		parseT.Fatalf("expected zero conversations after delete, got %d", len(parseRemaining))
 	}
 }
 
-func TestStoreFallbacksAndUniqueness(t *testing.T) {
-	store := newTestStore(t)
-	userID, err := store.createUser("fallback@example.com", "hash", "")
-	if err != nil {
-		t.Fatalf("createUser: %v", err)
+func TestStoreFallbacksAndUniqueness(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUserID, parseErr := store.parseCreateUser("fallback@example.com", "hash", "")
+	if parseErr != nil {
+		parseT.Fatalf("createUser: %v", parseErr)
 	}
-	if _, err := store.createUser("fallback@example.com", "hash", ""); err != errUserAlreadyExists {
-		t.Fatalf("expected duplicate user error, got %v", err)
-	}
-
-	name, updatedAt, err := store.getUserName(userID + 100)
-	if err != nil {
-		t.Fatalf("getUserName fallback: %v", err)
-	}
-	if name != "User" || updatedAt != 0 {
-		t.Fatalf("unexpected fallback profile: name=%q updatedAt=%d", name, updatedAt)
+	if _, parseErr2 := store.parseCreateUser("fallback@example.com", "hash", ""); parseErr2 != errUserAlreadyExists {
+		parseT.Fatalf("expected duplicate user error, got %v", parseErr2)
 	}
 
-	selectedModel, err := store.getSelectedModel(userID+100, modelGPT54Mini)
-	if err != nil || selectedModel != modelGPT54Mini {
-		t.Fatalf("fallback selected model mismatch: model=%q err=%v", selectedModel, err)
+	parseName, parseUpdatedAt, parseErr := store.getUserName(parseUserID + 100)
+	if parseErr != nil {
+		parseT.Fatalf("getUserName fallback: %v", parseErr)
 	}
-	selectedTone, err := store.getSelectedTone(userID+100, defaultToneID)
-	if err != nil || selectedTone != defaultToneID {
-		t.Fatalf("fallback selected tone mismatch: tone=%q err=%v", selectedTone, err)
-	}
-	thinkingEnabled, err := store.getSelectedThinkingEnabled(userID+100, true)
-	if err != nil || !thinkingEnabled {
-		t.Fatalf("fallback thinking enabled mismatch: enabled=%v err=%v", thinkingEnabled, err)
-	}
-	thinkingEffort, err := store.getSelectedThinkingEffort(userID+100, defaultThinkingEffort)
-	if err != nil || thinkingEffort != defaultThinkingEffort {
-		t.Fatalf("fallback thinking effort mismatch: effort=%q err=%v", thinkingEffort, err)
-	}
-	customSystemPrompt, err := store.getSelectedSystemPrompt(userID+100, "")
-	if err != nil || customSystemPrompt != "" {
-		t.Fatalf("fallback custom system prompt mismatch: prompt=%q err=%v", customSystemPrompt, err)
+	if parseName != "User" || parseUpdatedAt != 0 {
+		parseT.Fatalf("unexpected fallback profile: name=%q updatedAt=%d", parseName, parseUpdatedAt)
 	}
 
-	derivedName, derivedUpdatedAt, err := store.getUserName(userID)
-	if err != nil {
-		t.Fatalf("getUserName derived: %v", err)
+	parseSelectedModel, parseErr := store.getSelectedModel(parseUserID+100, modelGPT54Mini)
+	if parseErr != nil || parseSelectedModel != modelGPT54Mini {
+		parseT.Fatalf("fallback selected model mismatch: model=%q err=%v", parseSelectedModel, parseErr)
 	}
-	if derivedName != "fallback" || derivedUpdatedAt == 0 {
-		t.Fatalf("expected default display name derived from email, got name=%q updatedAt=%d", derivedName, derivedUpdatedAt)
+	parseSelectedTone, parseErr := store.getSelectedTone(parseUserID+100, defaultToneID)
+	if parseErr != nil || parseSelectedTone != defaultToneID {
+		parseT.Fatalf("fallback selected tone mismatch: tone=%q err=%v", parseSelectedTone, parseErr)
+	}
+	parseThinkingEnabled, parseErr := store.getSelectedThinkingEnabled(parseUserID+100, true)
+	if parseErr != nil || !parseThinkingEnabled {
+		parseT.Fatalf("fallback thinking enabled mismatch: enabled=%v err=%v", parseThinkingEnabled, parseErr)
+	}
+	parseThinkingEffort, parseErr := store.getSelectedThinkingEffort(parseUserID+100, defaultThinkingEffort)
+	if parseErr != nil || parseThinkingEffort != defaultThinkingEffort {
+		parseT.Fatalf("fallback thinking effort mismatch: effort=%q err=%v", parseThinkingEffort, parseErr)
+	}
+	parseCustomSystemPrompt, parseErr := store.getSelectedSystemPrompt(parseUserID+100, "")
+	if parseErr != nil || parseCustomSystemPrompt != "" {
+		parseT.Fatalf("fallback custom system prompt mismatch: prompt=%q err=%v", parseCustomSystemPrompt, parseErr)
 	}
 
-	owned, err := store.conversationOwnedByUser(userID, userID+999)
-	if err != nil {
-		t.Fatalf("conversationOwnedByUser false branch: %v", err)
+	parseDerivedName, parseDerivedUpdatedAt, parseErr := store.getUserName(parseUserID)
+	if parseErr != nil {
+		parseT.Fatalf("getUserName derived: %v", parseErr)
 	}
-	if owned {
-		t.Fatal("expected unrelated conversation to not belong to user")
+	if parseDerivedName != "fallback" || parseDerivedUpdatedAt == 0 {
+		parseT.Fatalf("expected default display name derived from email, got name=%q updatedAt=%d", parseDerivedName, parseDerivedUpdatedAt)
+	}
+
+	parseOwned, parseErr := store.parseConversationOwnedByUser(parseUserID, parseUserID+999)
+	if parseErr != nil {
+		parseT.Fatalf("conversationOwnedByUser false branch: %v", parseErr)
+	}
+	if parseOwned {
+		parseT.Fatal("expected unrelated conversation to not belong to user")
 	}
 }
 
-func TestCreateConversationRetriesPublicIDConflicts(t *testing.T) {
-	store := newTestStore(t)
-	user := mustCreateUser(t, store, "uuid-retry@example.com")
+func TestCreateConversationRetriesPublicIDConflicts(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "uuid-retry@example.com")
 
-	originalGenerator := newConversationPublicID
-	defer func() { newConversationPublicID = originalGenerator }()
+	parseOriginalGenerator := newConversationPublicID
+	defer func() { newConversationPublicID = parseOriginalGenerator }()
 
-	collisionID := uuid.NewString()
-	recoveredID := uuid.NewString()
-	callCount := 0
+	parseCollisionID := uuid.NewString()
+	parseRecoveredID := uuid.NewString()
+	parseCallCount := 0
 	newConversationPublicID = func() string {
-		callCount++
-		if callCount <= 2 {
-			return collisionID
+		parseCallCount++
+		if parseCallCount <= 2 {
+			return parseCollisionID
 		}
-		return recoveredID
+		return parseRecoveredID
 	}
 
-	firstConversationID, err := store.createConversation(user.ID)
-	if err != nil {
-		t.Fatalf("createConversation first: %v", err)
+	parseFirstConversationID, parseErr := store.parseCreateConversation(parseUser.ParseID)
+	if parseErr != nil {
+		parseT.Fatalf("createConversation first: %v", parseErr)
 	}
-	secondConversationID, err := store.createConversation(user.ID)
-	if err != nil {
-		t.Fatalf("createConversation second: %v", err)
+	parseSecondConversationID, parseErr := store.parseCreateConversation(parseUser.ParseID)
+	if parseErr != nil {
+		parseT.Fatalf("createConversation second: %v", parseErr)
 	}
-	if firstConversationID == secondConversationID {
-		t.Fatalf("expected distinct conversation rows, got %d and %d", firstConversationID, secondConversationID)
-	}
-
-	conversations, err := store.listConversations(user.ID)
-	if err != nil {
-		t.Fatalf("listConversations: %v", err)
-	}
-	if len(conversations) != 2 {
-		t.Fatalf("expected two conversations, got %d", len(conversations))
+	if parseFirstConversationID == parseSecondConversationID {
+		parseT.Fatalf("expected distinct conversation rows, got %d and %d", parseFirstConversationID, parseSecondConversationID)
 	}
 
-	publicIDs := map[string]bool{}
-	for _, conversation := range conversations {
-		if conversation.PublicID == "" {
-			t.Fatal("expected non-empty public_id")
+	parseConversations, parseErr := store.parseListConversations(parseUser.ParseID)
+	if parseErr != nil {
+		parseT.Fatalf("listConversations: %v", parseErr)
+	}
+	if len(parseConversations) != 2 {
+		parseT.Fatalf("expected two conversations, got %d", len(parseConversations))
+	}
+
+	parsePublicIDs := map[string]bool{}
+	for _, parseConversation := range parseConversations {
+		if parseConversation.PublicID == "" {
+			parseT.Fatal("expected non-empty public_id")
 		}
-		if _, err := uuid.Parse(conversation.PublicID); err != nil {
-			t.Fatalf("expected parseable UUID, got %q: %v", conversation.PublicID, err)
+		if _, parseErr2 := uuid.Parse(parseConversation.PublicID); parseErr2 != nil {
+			parseT.Fatalf("expected parseable UUID, got %q: %v", parseConversation.PublicID, parseErr2)
 		}
-		if publicIDs[conversation.PublicID] {
-			t.Fatalf("expected unique public_ids, got duplicate %q", conversation.PublicID)
+		if parsePublicIDs[parseConversation.PublicID] {
+			parseT.Fatalf("expected unique public_ids, got duplicate %q", parseConversation.PublicID)
 		}
-		publicIDs[conversation.PublicID] = true
+		parsePublicIDs[parseConversation.PublicID] = true
 	}
-	if !publicIDs[collisionID] {
-		t.Fatalf("expected initial conversation to keep first generated UUID %q", collisionID)
+	if !parsePublicIDs[parseCollisionID] {
+		parseT.Fatalf("expected initial conversation to keep first generated UUID %q", parseCollisionID)
 	}
-	if !publicIDs[recoveredID] {
-		t.Fatalf("expected retry path to use fallback UUID %q", recoveredID)
+	if !parsePublicIDs[parseRecoveredID] {
+		parseT.Fatalf("expected retry path to use fallback UUID %q", parseRecoveredID)
 	}
-	if callCount < 3 {
-		t.Fatalf("expected generator to be called at least 3 times, got %d", callCount)
-	}
-}
-
-func TestCreateConversationReturnsUserMissingWhenParentUserDoesNotExist(t *testing.T) {
-	store := newTestStore(t)
-
-	_, err := store.createConversation(999999)
-	if !errors.Is(err, errStoreUserMissing) {
-		t.Fatalf("expected errStoreUserMissing, got %v", err)
+	if parseCallCount < 3 {
+		parseT.Fatalf("expected generator to be called at least 3 times, got %d", parseCallCount)
 	}
 }
 
-func TestSaveConversationMessageReturnsConversationMissingWhenParentConversationDeleted(t *testing.T) {
-	store := newTestStore(t)
-	user := mustCreateUser(t, store, "missing-conversation@example.com")
-	conversationID, err := store.createConversation(user.ID)
-	if err != nil {
-		t.Fatalf("createConversation: %v", err)
-	}
-	if err := store.deleteConversation(user.ID, conversationID); err != nil {
-		t.Fatalf("deleteConversation: %v", err)
-	}
+func TestCreateConversationReturnsUserMissingWhenParentUserDoesNotExist(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
 
-	err = store.saveConversationMessage(user.ID, conversationID, "user", "hello", "", 0, 0)
-	if !errors.Is(err, errStoreConversationMissing) {
-		t.Fatalf("expected errStoreConversationMissing, got %v", err)
+	_, parseErr := store.parseCreateConversation(999999)
+	if !errors.Is(parseErr, errStoreUserMissing) {
+		parseT.Fatalf("expected errStoreUserMissing, got %v", parseErr)
 	}
 }
 
-func TestResolveConversationRouteIsOwnerScoped(t *testing.T) {
-	store := newTestStore(t)
-	owner := mustCreateUser(t, store, "route-owner@example.com")
-	other := mustCreateUser(t, store, "route-other@example.com")
-
-	conversationID, err := store.createConversation(owner.ID)
-	if err != nil {
-		t.Fatalf("createConversation: %v", err)
+func TestSaveConversationMessageReturnsConversationMissingWhenParentConversationDeleted(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "missing-conversation@example.com")
+	parseConversationID, parseErr := store.parseCreateConversation(parseUser.ParseID)
+	if parseErr != nil {
+		parseT.Fatalf("createConversation: %v", parseErr)
 	}
-	conversations, err := store.listConversations(owner.ID)
-	if err != nil {
-		t.Fatalf("listConversations: %v", err)
-	}
-	if len(conversations) != 1 {
-		t.Fatalf("expected one conversation, got %d", len(conversations))
-	}
-	publicID := conversations[0].PublicID
-
-	summary, ok, err := store.resolveConversationRoute(owner.ID, publicID)
-	if err != nil {
-		t.Fatalf("resolveConversationRoute owner: %v", err)
-	}
-	if !ok || summary.ID != conversationID || summary.PublicID != publicID {
-		t.Fatalf("unexpected owner route resolution: ok=%v summary=%+v", ok, summary)
+	if parseErr2 := store.parseDeleteConversation(parseUser.ParseID, parseConversationID); parseErr2 != nil {
+		parseT.Fatalf("deleteConversation: %v", parseErr2)
 	}
 
-	summary, ok, err = store.resolveConversationRoute(other.ID, publicID)
-	if err != nil {
-		t.Fatalf("resolveConversationRoute other: %v", err)
-	}
-	if ok {
-		t.Fatalf("expected non-owner route resolution to be inaccessible, got %+v", summary)
+	parseErr = store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, "user", "hello", "", 0, 0)
+	if !errors.Is(parseErr, errStoreConversationMissing) {
+		parseT.Fatalf("expected errStoreConversationMissing, got %v", parseErr)
 	}
 }
 
-func TestOpenChatStoreRecoversFromIncompatibleLegacySchema(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "chat_history.db")
+func TestResolveConversationRouteIsOwnerScoped(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseOwner := parseMustCreateUser(parseT, store, "route-owner@example.com")
+	parseOther := parseMustCreateUser(parseT, store, "route-other@example.com")
 
-	db, err := sql.Open("sqlite3", "file:"+dbPath)
-	if err != nil {
-		t.Fatalf("sql.Open: %v", err)
+	parseConversationID, parseErr := store.parseCreateConversation(parseOwner.ParseID)
+	if parseErr != nil {
+		parseT.Fatalf("createConversation: %v", parseErr)
 	}
-	if _, err := db.Exec(`CREATE TABLE user_profile (id INTEGER PRIMARY KEY, name TEXT NOT NULL);`); err != nil {
-		_ = db.Close()
-		t.Fatalf("create legacy schema: %v", err)
+	parseConversations, parseErr := store.parseListConversations(parseOwner.ParseID)
+	if parseErr != nil {
+		parseT.Fatalf("listConversations: %v", parseErr)
 	}
-	if err := db.Close(); err != nil {
-		t.Fatalf("close legacy db: %v", err)
+	if len(parseConversations) != 1 {
+		parseT.Fatalf("expected one conversation, got %d", len(parseConversations))
 	}
+	parsePublicID := parseConversations[0].PublicID
 
-	store, err := openChatStore(dbPath)
-	if err != nil {
-		t.Fatalf("openChatStore recovery: %v", err)
+	parseSummary, parseOk, parseErr := store.parseResolveConversationRoute(parseOwner.ParseID, parsePublicID)
+	if parseErr != nil {
+		parseT.Fatalf("resolveConversationRoute owner: %v", parseErr)
 	}
-	defer store.close()
-
-	matches, err := filepath.Glob(dbPath + ".incompatible-*.bak")
-	if err != nil {
-		t.Fatalf("glob backup: %v", err)
-	}
-	if len(matches) != 1 {
-		t.Fatalf("expected one backup file, got %v", matches)
-	}
-	if _, err := os.Stat(dbPath); err != nil {
-		t.Fatalf("expected recreated db at %q: %v", dbPath, err)
+	if !parseOk || parseSummary.ParseID != parseConversationID || parseSummary.PublicID != parsePublicID {
+		parseT.Fatalf("unexpected owner route resolution: ok=%v summary=%+v", parseOk, parseSummary)
 	}
 
-	userID, err := store.createUser("recover@example.com", "hash", "Recover")
-	if err != nil {
-		t.Fatalf("createUser after recovery: %v", err)
+	parseSummary, parseOk, parseErr = store.parseResolveConversationRoute(parseOther.ParseID, parsePublicID)
+	if parseErr != nil {
+		parseT.Fatalf("resolveConversationRoute other: %v", parseErr)
 	}
-	if userID <= 0 {
-		t.Fatalf("expected valid recovered user id, got %d", userID)
+	if parseOk {
+		parseT.Fatalf("expected non-owner route resolution to be inaccessible, got %+v", parseSummary)
 	}
 }
 
-func TestOpenChatStoreCreatesMissingParentDirectory(t *testing.T) {
-	dbPath := filepath.Join(t.TempDir(), "missing", "runtime", "chat_history.db")
-	dbDir := filepath.Dir(dbPath)
+func TestOpenChatStoreRecoversFromIncompatibleLegacySchema(parseT *testing.T) {
+	parseDbPath := filepath.Join(parseT.TempDir(), "chat_history.db")
 
-	if _, err := os.Stat(dbDir); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("expected missing db directory before open, stat err=%v", err)
+	parseDb, parseErr := sql.Open("sqlite3", "file:"+parseDbPath)
+	if parseErr != nil {
+		parseT.Fatalf("sql.Open: %v", parseErr)
+	}
+	if _, parseErr2 := parseDb.Exec(`CREATE TABLE user_profile (id INTEGER PRIMARY KEY, name TEXT NOT NULL);`); parseErr2 != nil {
+		_ = parseDb.Close()
+		parseT.Fatalf("create legacy schema: %v", parseErr2)
+	}
+	if parseErr3 := parseDb.Close(); parseErr3 != nil {
+		parseT.Fatalf("close legacy db: %v", parseErr3)
 	}
 
-	store, err := openChatStore(dbPath)
-	if err != nil {
-		t.Fatalf("openChatStore create parent dir: %v", err)
+	store, parseErr := parseOpenChatStore(parseDbPath)
+	if parseErr != nil {
+		parseT.Fatalf("openChatStore recovery: %v", parseErr)
 	}
-	defer store.close()
+	defer store.parseClose()
 
-	if _, err := os.Stat(dbDir); err != nil {
-		t.Fatalf("expected db directory to exist after open, got %v", err)
+	parseMatches, parseErr := filepath.Glob(parseDbPath + ".incompatible-*.bak")
+	if parseErr != nil {
+		parseT.Fatalf("glob backup: %v", parseErr)
 	}
-	if _, err := os.Stat(dbPath); err != nil {
-		t.Fatalf("expected db file to exist after open, got %v", err)
+	if len(parseMatches) != 1 {
+		parseT.Fatalf("expected one backup file, got %v", parseMatches)
+	}
+	if _, parseErr4 := os.Stat(parseDbPath); parseErr4 != nil {
+		parseT.Fatalf("expected recreated db at %q: %v", parseDbPath, parseErr4)
+	}
+
+	parseUserID, parseErr := store.parseCreateUser("recover@example.com", "hash", "Recover")
+	if parseErr != nil {
+		parseT.Fatalf("createUser after recovery: %v", parseErr)
+	}
+	if parseUserID <= 0 {
+		parseT.Fatalf("expected valid recovered user id, got %d", parseUserID)
+	}
+}
+
+func TestOpenChatStoreCreatesMissingParentDirectory(parseT *testing.T) {
+	parseDbPath := filepath.Join(parseT.TempDir(), "missing", "runtime", "chat_history.db")
+	parseDbDir := filepath.Dir(parseDbPath)
+
+	if _, parseErr := os.Stat(parseDbDir); !errors.Is(parseErr, os.ErrNotExist) {
+		parseT.Fatalf("expected missing db directory before open, stat err=%v", parseErr)
+	}
+
+	store, parseErr2 := parseOpenChatStore(parseDbPath)
+	if parseErr2 != nil {
+		parseT.Fatalf("openChatStore create parent dir: %v", parseErr2)
+	}
+	defer store.parseClose()
+
+	if _, parseErr3 := os.Stat(parseDbDir); parseErr3 != nil {
+		parseT.Fatalf("expected db directory to exist after open, got %v", parseErr3)
+	}
+	if _, parseErr4 := os.Stat(parseDbPath); parseErr4 != nil {
+		parseT.Fatalf("expected db file to exist after open, got %v", parseErr4)
 	}
 }

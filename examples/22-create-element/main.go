@@ -18,33 +18,33 @@ type badgeProps struct {
 	Tone  string
 }
 
-func badge(props badgeProps) ui.Node {
-	className := "rounded-full px-4 py-2 text-sm font-semibold "
-	switch props.Tone {
+func badge(parseProps badgeProps) ui.Node {
+	parseClassName := "rounded-full px-4 py-2 text-sm font-semibold "
+	switch parseProps.Tone {
 	case "warn":
-		className += "bg-amber-400/15 text-amber-100 border border-amber-400/30"
+		parseClassName += "bg-amber-400/15 text-amber-100 border border-amber-400/30"
 	case "good":
-		className += "bg-emerald-400/15 text-emerald-100 border border-emerald-400/30"
+		parseClassName += "bg-emerald-400/15 text-emerald-100 border border-emerald-400/30"
 	default:
-		className += "bg-cyan-400/15 text-cyan-100 border border-cyan-400/30"
+		parseClassName += "bg-cyan-400/15 text-cyan-100 border border-cyan-400/30"
 	}
-	return html.Span(html.Props{Class: className}, html.Text(props.Label))
+	return html.Span(html.Props{Class: parseClassName}, html.Text(parseProps.Label))
 }
 
 func createElementExample() ui.Node {
-	selected := ui.UseState("base")
-	setTone := func(tone string) ui.Handler {
-		return ui.UseEvent(func() { selected.Set(tone) })
+	parseSelected := ui.UseState("base")
+	setTone := func(parseTone string) ui.Handler {
+		return ui.UseEvent(func() { parseSelected.Set(parseTone) })
 	}
 
-	labels := []badgeProps{
-		{Label: "Dynamic component", Tone: selected.Get()},
-		{Label: strings.ToUpper(selected.Get()) + " props", Tone: selected.Get()},
+	parseLabels := []badgeProps{
+		{Label: "Dynamic component", Tone: parseSelected.Get()},
+		{Label: strings.ToUpper(parseSelected.Get()) + " props", Tone: parseSelected.Get()},
 	}
 
-	items := make([]ui.Node, 0, len(labels))
-	for _, item := range labels {
-		items = append(items, ui.CreateElement(badge, item))
+	parseItems := make([]ui.Node, 0, len(parseLabels))
+	for _, parseItem := range parseLabels {
+		parseItems = append(parseItems, ui.CreateElement(badge, parseItem))
 	}
 
 	return shared.ExamplePage(
@@ -52,7 +52,7 @@ func createElementExample() ui.Node {
 		"Create elements from component functions and typed props",
 		"This example builds the same badge component multiple times by calling ui.CreateElement directly with a props struct.",
 		shared.ExamplePanel("Created components",
-			html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"}, items...),
+			html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"}, parseItems...),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
 				shared.ExampleButton("Base", setTone("base")),
 				shared.ExampleButton("Warn", setTone("warn")),

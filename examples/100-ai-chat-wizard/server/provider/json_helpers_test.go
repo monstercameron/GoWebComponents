@@ -2,17 +2,17 @@ package provider
 
 import "testing"
 
-func TestExtractJSONObject(t *testing.T) {
-	if got := extractJSONObject(""); got != `{"memories":[]}` {
-		t.Fatalf("expected empty extractJSONObject fallback payload, got %q", got)
+func TestExtractJSONObject(parseT *testing.T) {
+	if parseGot := parseExtractJSONObject(""); parseGot != `{"memories":[]}` {
+		parseT.Fatalf("expected empty extractJSONObject fallback payload, got %q", parseGot)
 	}
-	if got := extractJSONObject("```json\n{\"memories\":[{\"summary\":\"x\"}]}\n```"); got != `{"memories":[{"summary":"x"}]}` {
-		t.Fatalf("expected fenced JSON to be unwrapped, got %q", got)
+	if parseGot2 := parseExtractJSONObject("```json\n{\"memories\":[{\"summary\":\"x\"}]}\n```"); parseGot2 != `{"memories":[{"summary":"x"}]}` {
+		parseT.Fatalf("expected fenced JSON to be unwrapped, got %q", parseGot2)
 	}
-	if got := extractJSONObject("prefix text {\"memories\":[]} suffix"); got != `{"memories":[]}` {
-		t.Fatalf("expected surrounding prose to be stripped, got %q", got)
+	if parseGot3 := parseExtractJSONObject("prefix text {\"memories\":[]} suffix"); parseGot3 != `{"memories":[]}` {
+		parseT.Fatalf("expected surrounding prose to be stripped, got %q", parseGot3)
 	}
-	if got := extractJSONObject("not-json"); got != "not-json" {
-		t.Fatalf("expected non-object source to pass through, got %q", got)
+	if parseGot4 := parseExtractJSONObject("not-json"); parseGot4 != "not-json" {
+		parseT.Fatalf("expected non-object source to pass through, got %q", parseGot4)
 	}
 }

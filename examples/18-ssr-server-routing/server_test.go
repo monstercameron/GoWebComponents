@@ -13,83 +13,83 @@ import (
 	"testing"
 )
 
-func testServer(t *testing.T) *appServer {
-	t.Helper()
-	workingDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("unexpected getwd error: %v", err)
+func testServer(parseT *testing.T) *appServer {
+	parseT.Helper()
+	parseWorkingDir, parseErr := os.Getwd()
+	if parseErr != nil {
+		parseT.Fatalf("unexpected getwd error: %v", parseErr)
 	}
-	root, err := findRepoRoot(workingDir)
-	if err != nil {
-		t.Fatalf("unexpected repo root resolution error: %v", err)
+	parseRoot, parseErr := findRepoRoot(parseWorkingDir)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected repo root resolution error: %v", parseErr)
 	}
-	return newAppServer(root)
+	return newAppServer(parseRoot)
 }
 
-func TestResolveRouteRedirectsAndSecureGuard(t *testing.T) {
-	legacy := resolveRoute("/legacy", url.Values{})
-	if legacy.Redirect != legacyRedirectPath || legacy.Status != http.StatusFound {
-		t.Fatalf("expected legacy redirect, got %+v", legacy)
+func TestResolveRouteRedirectsAndSecureGuard(parseT *testing.T) {
+	parseLegacy := resolveRoute("/legacy", url.Values{})
+	if parseLegacy.Redirect != legacyRedirectPath || parseLegacy.Status != http.StatusFound {
+		parseT.Fatalf("expected legacy redirect, got %+v", parseLegacy)
 	}
 
-	secure := resolveRoute("/secure", url.Values{})
-	if secure.Redirect != secureRedirectPath || secure.Status != http.StatusFound {
-		t.Fatalf("expected secure redirect, got %+v", secure)
-	}
-}
-
-func TestResolveRouteBuildsServerRenderedDocsView(t *testing.T) {
-	resolved := resolveRoute("/docs/"+serverGuideSectionSSR, url.Values{"tab": {serverTabLoader}, "refresh": {"3"}})
-	if resolved.Status != http.StatusOK {
-		t.Fatalf("expected OK status, got %d", resolved.Status)
-	}
-	if resolved.View.SectionID != serverGuideSectionSSR || resolved.View.CurrentTab != serverTabLoader || resolved.View.Revision != 3 {
-		t.Fatalf("unexpected docs view: %+v", resolved.View)
-	}
-	expectedRoutePath := "/docs/" + serverGuideSectionSSR
-	if resolved.Bootstrap.Route.Path != expectedRoutePath {
-		t.Fatalf("expected bootstrap path %s, got %+v", expectedRoutePath, resolved.Bootstrap.Route)
+	parseSecure := resolveRoute("/secure", url.Values{})
+	if parseSecure.Redirect != secureRedirectPath || parseSecure.Status != http.StatusFound {
+		parseT.Fatalf("expected secure redirect, got %+v", parseSecure)
 	}
 }
 
-func TestBootstrapReferenceURLIncludesRouteAndQuery(t *testing.T) {
-	query := url.Values{"tab": {serverTabLoader}, "q": {serverGuideSectionRouting}}
-	bootstrapURL := bootstrapReferenceURL("/docs/"+serverGuideSectionSSR, query)
-	if !strings.Contains(bootstrapURL, "path=%2Fdocs%2Fssr") || !strings.Contains(bootstrapURL, "tab=loader") || !strings.Contains(bootstrapURL, "q=routing") {
-		t.Fatalf("unexpected bootstrap reference url: %s", bootstrapURL)
+func TestResolveRouteBuildsServerRenderedDocsView(parseT *testing.T) {
+	parseResolved := resolveRoute("/docs/"+serverGuideSectionSSR, url.Values{"tab": {serverTabLoader}, "refresh": {"3"}})
+	if parseResolved.Status != http.StatusOK {
+		parseT.Fatalf("expected OK status, got %d", parseResolved.Status)
+	}
+	if parseResolved.View.SectionID != serverGuideSectionSSR || parseResolved.View.CurrentTab != serverTabLoader || parseResolved.View.Revision != 3 {
+		parseT.Fatalf("unexpected docs view: %+v", parseResolved.View)
+	}
+	parseExpectedRoutePath := "/docs/" + serverGuideSectionSSR
+	if parseResolved.Bootstrap.Route.Path != parseExpectedRoutePath {
+		parseT.Fatalf("expected bootstrap path %s, got %+v", parseExpectedRoutePath, parseResolved.Bootstrap.Route)
 	}
 }
 
-func TestBootstrapEndpointServesRouteSpecificPayload(t *testing.T) {
-	server := testServer(t)
-	req := httptest.NewRequest(http.MethodGet, bootstrapEndpointPath+"?path=%2Fsearch&q=routing", nil)
-	res := httptest.NewRecorder()
-
-	server.handleBootstrap(res, req)
-	if res.Code != http.StatusOK {
-		t.Fatalf("expected bootstrap endpoint OK, got %d", res.Code)
-	}
-	var payload map[string]interface{}
-	if err := json.Unmarshal(res.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("unexpected bootstrap json error: %v", err)
-	}
-	route := payload["route"].(map[string]interface{})
-	if route["path"] != "/search" {
-		t.Fatalf("expected bootstrap path /search, got %#v", route["path"])
+func TestBootstrapReferenceURLIncludesRouteAndQuery(parseT *testing.T) {
+	parseQuery := url.Values{"tab": {serverTabLoader}, "q": {serverGuideSectionRouting}}
+	parseBootstrapURL := bootstrapReferenceURL("/docs/"+serverGuideSectionSSR, parseQuery)
+	if !strings.Contains(parseBootstrapURL, "path=%2Fdocs%2Fssr") || !strings.Contains(parseBootstrapURL, "tab=loader") || !strings.Contains(parseBootstrapURL, "q=routing") {
+		parseT.Fatalf("unexpected bootstrap reference url: %s", parseBootstrapURL)
 	}
 }
 
-func TestPageHandlerRendersSSRDocument(t *testing.T) {
-	server := testServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/docs/ssr?tab=loader", nil)
-	res := httptest.NewRecorder()
+func TestBootstrapEndpointServesRouteSpecificPayload(parseT *testing.T) {
+	parseServer := testServer(parseT)
+	parseReq := httptest.NewRequest(http.MethodGet, bootstrapEndpointPath+"?path=%2Fsearch&q=routing", nil)
+	parseRes := httptest.NewRecorder()
 
-	server.handlePage(res, req)
-	if res.Code != http.StatusOK {
-		t.Fatalf("expected page handler OK, got %d", res.Code)
+	parseServer.handleBootstrap(parseRes, parseReq)
+	if parseRes.Code != http.StatusOK {
+		parseT.Fatalf("expected bootstrap endpoint OK, got %d", parseRes.Code)
 	}
-	body := res.Body.String()
-	checks := []string{
+	var parsePayload map[string]interface{}
+	if parseErr := json.Unmarshal(parseRes.Body.Bytes(), &parsePayload); parseErr != nil {
+		parseT.Fatalf("unexpected bootstrap json error: %v", parseErr)
+	}
+	parseRoute := parsePayload["route"].(map[string]interface{})
+	if parseRoute["path"] != "/search" {
+		parseT.Fatalf("expected bootstrap path /search, got %#v", parseRoute["path"])
+	}
+}
+
+func TestPageHandlerRendersSSRDocument(parseT *testing.T) {
+	parseServer := testServer(parseT)
+	parseReq := httptest.NewRequest(http.MethodGet, "/docs/ssr?tab=loader", nil)
+	parseRes := httptest.NewRecorder()
+
+	parseServer.handlePage(parseRes, parseReq)
+	if parseRes.Code != http.StatusOK {
+		parseT.Fatalf("expected page handler OK, got %d", parseRes.Code)
+	}
+	parseBody := parseRes.Body.String()
+	parseChecks := []string{
 		"Server SSR Demo",
 		"Server-rendered bootstrap flow",
 		bootstrapEndpointPath,
@@ -101,95 +101,95 @@ func TestPageHandlerRendersSSRDocument(t *testing.T) {
 		`type="application/ld+json"`,
 		`rel="preload"`,
 	}
-	for _, check := range checks {
-		if !strings.Contains(body, check) {
-			t.Fatalf("expected SSR document to contain %q, got %q", check, body)
+	for _, parseCheck := range parseChecks {
+		if !strings.Contains(parseBody, parseCheck) {
+			parseT.Fatalf("expected SSR document to contain %q, got %q", parseCheck, parseBody)
 		}
 	}
-	if got := strings.Count(body, `data-gwc-router-managed="true"`); got != 3 {
-		t.Fatalf("expected exactly 3 managed head tags in SSR output, got %d in %q", got, body)
+	if parseGot := strings.Count(parseBody, `data-gwc-router-managed="true"`); parseGot != 3 {
+		parseT.Fatalf("expected exactly 3 managed head tags in SSR output, got %d in %q", parseGot, parseBody)
 	}
-	if got := strings.Count(body, `<title `); got != 1 {
-		t.Fatalf("expected exactly one title tag in SSR output, got %d in %q", got, body)
+	if parseGot2 := strings.Count(parseBody, `<title `); parseGot2 != 1 {
+		parseT.Fatalf("expected exactly one title tag in SSR output, got %d in %q", parseGot2, parseBody)
 	}
-	if !strings.Contains(body, `name="description"`) {
-		t.Fatalf("expected SSR document to include description metadata, got %q", body)
+	if !strings.Contains(parseBody, `name="description"`) {
+		parseT.Fatalf("expected SSR document to include description metadata, got %q", parseBody)
 	}
-	if !strings.Contains(body, `href="http://127.0.0.1:8079/docs/ssr?tab=loader"`) {
-		t.Fatalf("expected SSR document to include route canonical URL, got %q", body)
+	if !strings.Contains(parseBody, `href="http://127.0.0.1:8079/docs/ssr?tab=loader"`) {
+		parseT.Fatalf("expected SSR document to include route canonical URL, got %q", parseBody)
 	}
-	if !strings.Contains(body, `content="index,follow"`) {
-		t.Fatalf("expected SSR document to include robots metadata, got %q", body)
+	if !strings.Contains(parseBody, `content="index,follow"`) {
+		parseT.Fatalf("expected SSR document to include robots metadata, got %q", parseBody)
 	}
-	if !strings.Contains(body, `id="route-jsonld"`) {
-		t.Fatalf("expected SSR document to include JSON-LD markup, got %q", body)
+	if !strings.Contains(parseBody, `id="route-jsonld"`) {
+		parseT.Fatalf("expected SSR document to include JSON-LD markup, got %q", parseBody)
 	}
 }
 
-func TestPageHandlerStreamsDeferredDocsPanel(t *testing.T) {
-	server := testServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/docs/ssr?tab=loader", nil)
-	res := httptest.NewRecorder()
+func TestPageHandlerStreamsDeferredDocsPanel(parseT *testing.T) {
+	parseServer := testServer(parseT)
+	parseReq := httptest.NewRequest(http.MethodGet, "/docs/ssr?tab=loader", nil)
+	parseRes := httptest.NewRecorder()
 
-	server.handlePage(res, req)
-	if !res.Flushed {
-		t.Fatal("expected streamed docs response to flush shell output")
+	parseServer.handlePage(parseRes, parseReq)
+	if !parseRes.Flushed {
+		parseT.Fatal("expected streamed docs response to flush shell output")
 	}
-	body := res.Body.String()
-	checks := []string{
+	parseBody := parseRes.Body.String()
+	parseChecks := []string{
 		`id="` + serverDeferredPanelID + `"`,
 		"Streaming nested docs panel...",
 		"Streamed docs insights ready",
 		"target.outerHTML=",
 		"ssr-server-routing.wasm",
 	}
-	for _, check := range checks {
-		if !strings.Contains(body, check) {
-			t.Fatalf("expected streamed document to contain %q, got %q", check, body)
+	for _, parseCheck := range parseChecks {
+		if !strings.Contains(parseBody, parseCheck) {
+			parseT.Fatalf("expected streamed document to contain %q, got %q", parseCheck, parseBody)
 		}
 	}
 }
 
-func TestPageHandlerStreamsDeferredDocsErrorReplacement(t *testing.T) {
-	server := testServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/docs/ssr?tab=loader&stream=error", nil)
-	res := httptest.NewRecorder()
+func TestPageHandlerStreamsDeferredDocsErrorReplacement(parseT *testing.T) {
+	parseServer := testServer(parseT)
+	parseReq := httptest.NewRequest(http.MethodGet, "/docs/ssr?tab=loader&stream=error", nil)
+	parseRes := httptest.NewRecorder()
 
-	server.handlePage(res, req)
-	if !res.Flushed {
-		t.Fatal("expected streamed docs error response to flush shell output")
+	parseServer.handlePage(parseRes, parseReq)
+	if !parseRes.Flushed {
+		parseT.Fatal("expected streamed docs error response to flush shell output")
 	}
-	body := res.Body.String()
-	checks := []string{
+	parseBody := parseRes.Body.String()
+	parseChecks := []string{
 		"Deferred docs panel failed after shell flush",
 		"explicit error region",
 		"target.outerHTML=",
 	}
-	for _, check := range checks {
-		if !strings.Contains(body, check) {
-			t.Fatalf("expected streamed error document to contain %q, got %q", check, body)
+	for _, parseCheck := range parseChecks {
+		if !strings.Contains(parseBody, parseCheck) {
+			parseT.Fatalf("expected streamed error document to contain %q, got %q", parseCheck, parseBody)
 		}
 	}
 }
 
-func TestPageHandlerStreamsNestedDocsLayout(t *testing.T) {
-	server := testServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/docs/ssr?tab=loader&stream=nested", nil)
-	res := httptest.NewRecorder()
+func TestPageHandlerStreamsNestedDocsLayout(parseT *testing.T) {
+	parseServer := testServer(parseT)
+	parseReq := httptest.NewRequest(http.MethodGet, "/docs/ssr?tab=loader&stream=nested", nil)
+	parseRes := httptest.NewRecorder()
 
-	server.handlePage(res, req)
-	if !res.Flushed {
-		t.Fatal("expected streamed nested docs response to flush shell output")
+	parseServer.handlePage(parseRes, parseReq)
+	if !parseRes.Flushed {
+		parseT.Fatal("expected streamed nested docs response to flush shell output")
 	}
-	body := res.Body.String()
-	checks := []string{
+	parseBody := parseRes.Body.String()
+	parseChecks := []string{
 		"Nested streamed layout ready",
 		"Outer layout",
 		"Nested child panel",
 	}
-	for _, check := range checks {
-		if !strings.Contains(body, check) {
-			t.Fatalf("expected streamed nested-layout document to contain %q, got %q", check, body)
+	for _, parseCheck := range parseChecks {
+		if !strings.Contains(parseBody, parseCheck) {
+			parseT.Fatalf("expected streamed nested-layout document to contain %q, got %q", parseCheck, parseBody)
 		}
 	}
 }

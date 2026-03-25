@@ -7,37 +7,37 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestExampleComponentsRenderMarkup(t *testing.T) {
-	page := ExamplePage("Plugin Host", "plugin.NewHost", "Reviewable extension wiring", ExampleStat("Plugins", "3"))
-	markup, err := ui.RenderToString(page)
-	if err != nil {
-		t.Fatalf("RenderToString(ExamplePage) error = %v", err)
+func TestExampleComponentsRenderMarkup(parseT *testing.T) {
+	parsePage := ExamplePage("Plugin Host", "plugin.NewHost", "Reviewable extension wiring", ExampleStat("Plugins", "3"))
+	parseMarkup, parseErr := ui.RenderToString(parsePage)
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(ExamplePage) error = %v", parseErr)
 	}
-	for _, expected := range []string{"Plugin Host", "plugin.NewHost", "Reviewable extension wiring", "Plugins", "3"} {
-		if !strings.Contains(markup, expected) {
-			t.Fatalf("ExamplePage markup missing %q\n%s", expected, markup)
+	for _, parseExpected := range []string{"Plugin Host", "plugin.NewHost", "Reviewable extension wiring", "Plugins", "3"} {
+		if !strings.Contains(parseMarkup, parseExpected) {
+			parseT.Fatalf("ExamplePage markup missing %q\n%s", parseExpected, parseMarkup)
 		}
 	}
 
-	code, err := ui.RenderToString(ExampleCode("line one", "line two"))
-	if err != nil {
-		t.Fatalf("RenderToString(ExampleCode) error = %v", err)
+	parseCode, parseErr := ui.RenderToString(ExampleCode("line one", "line two"))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(ExampleCode) error = %v", parseErr)
 	}
-	if !strings.Contains(code, "line one") || !strings.Contains(code, "line two") {
-		t.Fatalf("ExampleCode markup = %q, want both lines", code)
+	if !strings.Contains(parseCode, "line one") || !strings.Contains(parseCode, "line two") {
+		parseT.Fatalf("ExampleCode markup = %q, want both lines", parseCode)
 	}
 
-	button, err := ui.RenderToString(ExampleButton("Inspect", ui.WrapHandler("click")))
-	if err != nil {
-		t.Fatalf("RenderToString(ExampleButton) error = %v", err)
+	parseButton, parseErr := ui.RenderToString(ExampleButton("Inspect", ui.WrapHandler("click")))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(ExampleButton) error = %v", parseErr)
 	}
-	if !strings.Contains(button, "Inspect") {
-		t.Fatalf("ExampleButton markup = %q, want label", button)
+	if !strings.Contains(parseButton, "Inspect") {
+		parseT.Fatalf("ExampleButton markup = %q, want label", parseButton)
 	}
 }
 
-func TestExampleCopyCoversAdditionalSubjectFamilies(t *testing.T) {
-	tests := []struct {
+func TestExampleCopyCoversAdditionalSubjectFamilies(parseT *testing.T) {
+	parseTests := []struct {
 		title   string
 		feature string
 		want    string
@@ -51,25 +51,25 @@ func TestExampleCopyCoversAdditionalSubjectFamilies(t *testing.T) {
 		{title: "Generic Example", feature: "feature", want: "understand the purpose"},
 	}
 
-	for _, test := range tests {
-		t.Run(test.feature, func(t *testing.T) {
-			overviewLead, overviewBullets := overviewCopy(test.title, test.feature)
-			functionalBullets := functionalCopy(test.title, test.feature)
-			implementationLead, implementationBullets, codeLines := implementationCopy(test.title, test.feature)
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.feature, func(parseT2 *testing.T) {
+			parseOverviewLead, parseOverviewBullets := overviewCopy(parseTest.title, parseTest.feature)
+			parseFunctionalBullets := functionalCopy(parseTest.title, parseTest.feature)
+			parseImplementationLead, parseImplementationBullets, parseCodeLines := implementationCopy(parseTest.title, parseTest.feature)
 
-			allText := strings.ToLower(strings.Join(append(append([]string{overviewLead, implementationLead}, overviewBullets...), append(functionalBullets, implementationBullets...)...), " "))
-			if !strings.Contains(allText, test.want) {
-				t.Fatalf("combined example copy for %q missing %q\n%s", test.feature, test.want, allText)
+			parseAllText := strings.ToLower(strings.Join(append(append([]string{parseOverviewLead, parseImplementationLead}, parseOverviewBullets...), append(parseFunctionalBullets, parseImplementationBullets...)...), " "))
+			if !strings.Contains(parseAllText, parseTest.want) {
+				parseT2.Fatalf("combined example copy for %q missing %q\n%s", parseTest.feature, parseTest.want, parseAllText)
 			}
-			if len(codeLines) == 0 {
-				t.Fatalf("implementationCopy(%q) returned no code lines", test.feature)
+			if len(parseCodeLines) == 0 {
+				parseT2.Fatalf("implementationCopy(%q) returned no code lines", parseTest.feature)
 			}
 		})
 	}
 }
 
-func TestExampleDocumentationAdditionalBranches(t *testing.T) {
-	tests := []struct {
+func TestExampleDocumentationAdditionalBranches(parseT *testing.T) {
+	parseTests := []struct {
 		title   string
 		feature string
 		want    string
@@ -80,32 +80,32 @@ func TestExampleDocumentationAdditionalBranches(t *testing.T) {
 		{title: "Resume Existing DOM", feature: "router.HydrateMount", want: "existing html already being in the document"},
 	}
 
-	for _, test := range tests {
-		t.Run(test.feature, func(t *testing.T) {
-			lead, bullets, code := implementationCopy(test.title, test.feature)
-			allText := strings.ToLower(strings.Join(append([]string{lead}, bullets...), " "))
-			if !strings.Contains(allText, test.want) {
-				t.Fatalf("implementationCopy(%q) missing %q\n%s", test.feature, test.want, allText)
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.feature, func(parseT2 *testing.T) {
+			parseLead, parseBullets, parseCode := implementationCopy(parseTest.title, parseTest.feature)
+			parseAllText := strings.ToLower(strings.Join(append([]string{parseLead}, parseBullets...), " "))
+			if !strings.Contains(parseAllText, parseTest.want) {
+				parseT2.Fatalf("implementationCopy(%q) missing %q\n%s", parseTest.feature, parseTest.want, parseAllText)
 			}
-			if len(code) == 0 {
-				t.Fatalf("implementationCopy(%q) returned no code lines", test.feature)
+			if len(parseCode) == 0 {
+				parseT2.Fatalf("implementationCopy(%q) returned no code lines", parseTest.feature)
 			}
 		})
 	}
 
-	bulletsMarkup, err := ui.RenderToString(ExampleBulletList("first", "", "second"))
-	if err != nil {
-		t.Fatalf("RenderToString(ExampleBulletList) error = %v", err)
+	parseBulletsMarkup, parseErr := ui.RenderToString(ExampleBulletList("first", "", "second"))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(ExampleBulletList) error = %v", parseErr)
 	}
-	if strings.Contains(bulletsMarkup, "<li></li>") || !strings.Contains(bulletsMarkup, "first") || !strings.Contains(bulletsMarkup, "second") {
-		t.Fatalf("ExampleBulletList markup = %q, want trimmed non-empty bullets", bulletsMarkup)
+	if strings.Contains(parseBulletsMarkup, "<li></li>") || !strings.Contains(parseBulletsMarkup, "first") || !strings.Contains(parseBulletsMarkup, "second") {
+		parseT.Fatalf("ExampleBulletList markup = %q, want trimmed non-empty bullets", parseBulletsMarkup)
 	}
 
-	panelMarkup, err := ui.RenderToString(ExamplePanel("Implementation", ExampleStat("Coverage", "80%")))
-	if err != nil {
-		t.Fatalf("RenderToString(ExamplePanel) error = %v", err)
+	parsePanelMarkup, parseErr := ui.RenderToString(ExamplePanel("Implementation", ExampleStat("Coverage", "80%")))
+	if parseErr != nil {
+		parseT.Fatalf("RenderToString(ExamplePanel) error = %v", parseErr)
 	}
-	if !strings.Contains(panelMarkup, "Implementation") || !strings.Contains(panelMarkup, "Coverage") {
-		t.Fatalf("ExamplePanel markup = %q, want title and content", panelMarkup)
+	if !strings.Contains(parsePanelMarkup, "Implementation") || !strings.Contains(parsePanelMarkup, "Coverage") {
+		parseT.Fatalf("ExamplePanel markup = %q, want title and content", parsePanelMarkup)
 	}
 }

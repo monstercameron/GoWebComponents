@@ -4,10 +4,10 @@ package app
 
 import "testing"
 
-func TestShouldApplySelectedModelBootstrap(t *testing.T) {
-	t.Parallel()
+func TestShouldApplySelectedModelBootstrap(parseT *testing.T) {
+	parseT.Parallel()
 
-	base := appState{
+	parseBase := appState{
 		GRPCReady:        true,
 		Authenticated:    true,
 		ActiveConvID:     0,
@@ -19,7 +19,7 @@ func TestShouldApplySelectedModelBootstrap(t *testing.T) {
 		ConversationList: []convSummary{},
 	}
 
-	tests := []struct {
+	parseTests := []struct {
 		name              string
 		bootstrapComplete bool
 		cacheReady        bool
@@ -30,23 +30,23 @@ func TestShouldApplySelectedModelBootstrap(t *testing.T) {
 			name:              "applies during empty draft bootstrap",
 			bootstrapComplete: false,
 			cacheReady:        true,
-			mutate:            func(state appState) appState { return state },
+			mutate:            func(parseState2 appState) appState { return parseState2 },
 			want:              true,
 		},
 		{
 			name:              "does not apply after bootstrap completes",
 			bootstrapComplete: true,
 			cacheReady:        true,
-			mutate:            func(state appState) appState { return state },
+			mutate:            func(parseState3 appState) appState { return parseState3 },
 			want:              false,
 		},
 		{
 			name:              "does not apply while conversation is active",
 			bootstrapComplete: false,
 			cacheReady:        true,
-			mutate: func(state appState) appState {
-				state.ActiveConvID = 42
-				return state
+			mutate: func(parseState4 appState) appState {
+				parseState4.ActiveConvID = 42
+				return parseState4
 			},
 			want: false,
 		},
@@ -54,9 +54,9 @@ func TestShouldApplySelectedModelBootstrap(t *testing.T) {
 			name:              "does not apply when draft has messages",
 			bootstrapComplete: false,
 			cacheReady:        true,
-			mutate: func(state appState) appState {
-				state.Messages = []message{{Role: roleUser, Content: "hello"}}
-				return state
+			mutate: func(parseState5 appState) appState {
+				parseState5.Messages = []message{{Role: roleUser, Content: "hello"}}
+				return parseState5
 			},
 			want: false,
 		},
@@ -64,28 +64,28 @@ func TestShouldApplySelectedModelBootstrap(t *testing.T) {
 			name:              "does not apply when cache is not ready",
 			bootstrapComplete: false,
 			cacheReady:        false,
-			mutate:            func(state appState) appState { return state },
+			mutate:            func(parseState6 appState) appState { return parseState6 },
 			want:              false,
 		},
 	}
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			state := tt.mutate(base)
-			got := shouldApplySelectedModelBootstrap(tt.bootstrapComplete, state, tt.cacheReady)
-			if got != tt.want {
-				t.Fatalf("shouldApplySelectedModelBootstrap() = %v, want %v", got, tt.want)
+	for _, parseTt := range parseTests {
+		parseTt2 := parseTt
+		parseT.Run(parseTt2.name, func(parseT2 *testing.T) {
+			parseT2.Parallel()
+			parseState := parseTt2.mutate(parseBase)
+			parseGot := shouldApplySelectedModelBootstrap(parseTt2.bootstrapComplete, parseState, parseTt2.cacheReady)
+			if parseGot != parseTt2.want {
+				parseT2.Fatalf("shouldApplySelectedModelBootstrap() = %v, want %v", parseGot, parseTt2.want)
 			}
 		})
 	}
 }
 
-func TestShouldApplySelectedModelRecovery(t *testing.T) {
-	t.Parallel()
+func TestShouldApplySelectedModelRecovery(parseT *testing.T) {
+	parseT.Parallel()
 
-	base := appState{
+	parseBase := appState{
 		GRPCReady:        true,
 		Authenticated:    true,
 		ActiveConvID:     0,
@@ -97,7 +97,7 @@ func TestShouldApplySelectedModelRecovery(t *testing.T) {
 		ConversationList: []convSummary{},
 	}
 
-	tests := []struct {
+	parseTests := []struct {
 		name             string
 		recoveryComplete bool
 		cacheReady       bool
@@ -108,23 +108,23 @@ func TestShouldApplySelectedModelRecovery(t *testing.T) {
 			name:             "applies when catalog is loaded and draft is empty",
 			recoveryComplete: false,
 			cacheReady:       true,
-			mutate:           func(state appState) appState { return state },
+			mutate:           func(parseState2 appState) appState { return parseState2 },
 			want:             true,
 		},
 		{
 			name:             "does not apply after recovery completes",
 			recoveryComplete: true,
 			cacheReady:       true,
-			mutate:           func(state appState) appState { return state },
+			mutate:           func(parseState3 appState) appState { return parseState3 },
 			want:             false,
 		},
 		{
 			name:             "does not apply without model options",
 			recoveryComplete: false,
 			cacheReady:       true,
-			mutate: func(state appState) appState {
-				state.ModelOptions = nil
-				return state
+			mutate: func(parseState4 appState) appState {
+				parseState4.ParseModelOptions = nil
+				return parseState4
 			},
 			want: false,
 		},
@@ -132,36 +132,36 @@ func TestShouldApplySelectedModelRecovery(t *testing.T) {
 			name:             "does not apply while messages exist",
 			recoveryComplete: false,
 			cacheReady:       true,
-			mutate: func(state appState) appState {
-				state.Messages = []message{{Role: roleUser, Content: "hello"}}
-				return state
+			mutate: func(parseState5 appState) appState {
+				parseState5.Messages = []message{{Role: roleUser, Content: "hello"}}
+				return parseState5
 			},
 			want: false,
 		},
 	}
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			state := tt.mutate(base)
-			got := shouldApplySelectedModelRecovery(tt.recoveryComplete, state, tt.cacheReady)
-			if got != tt.want {
-				t.Fatalf("shouldApplySelectedModelRecovery() = %v, want %v", got, tt.want)
+	for _, parseTt := range parseTests {
+		parseTt2 := parseTt
+		parseT.Run(parseTt2.name, func(parseT2 *testing.T) {
+			parseT2.Parallel()
+			parseState := parseTt2.mutate(parseBase)
+			parseGot := shouldApplySelectedModelRecovery(parseTt2.recoveryComplete, parseState, parseTt2.cacheReady)
+			if parseGot != parseTt2.want {
+				parseT2.Fatalf("shouldApplySelectedModelRecovery() = %v, want %v", parseGot, parseTt2.want)
 			}
 		})
 	}
 }
 
-func TestShouldApplyThinkingPreferencesBootstrap(t *testing.T) {
-	t.Parallel()
+func TestShouldApplyThinkingPreferencesBootstrap(parseT *testing.T) {
+	parseT.Parallel()
 
-	base := appState{
+	parseBase := appState{
 		GRPCReady:     true,
 		Authenticated: true,
 	}
 
-	tests := []struct {
+	parseTests := []struct {
 		name              string
 		bootstrapComplete bool
 		enabledReady      bool
@@ -174,7 +174,7 @@ func TestShouldApplyThinkingPreferencesBootstrap(t *testing.T) {
 			bootstrapComplete: false,
 			enabledReady:      true,
 			effortReady:       true,
-			mutate:            func(state appState) appState { return state },
+			mutate:            func(parseState2 appState) appState { return parseState2 },
 			want:              true,
 		},
 		{
@@ -182,7 +182,7 @@ func TestShouldApplyThinkingPreferencesBootstrap(t *testing.T) {
 			bootstrapComplete: true,
 			enabledReady:      true,
 			effortReady:       true,
-			mutate:            func(state appState) appState { return state },
+			mutate:            func(parseState3 appState) appState { return parseState3 },
 			want:              false,
 		},
 		{
@@ -190,7 +190,7 @@ func TestShouldApplyThinkingPreferencesBootstrap(t *testing.T) {
 			bootstrapComplete: false,
 			enabledReady:      true,
 			effortReady:       false,
-			mutate:            func(state appState) appState { return state },
+			mutate:            func(parseState4 appState) appState { return parseState4 },
 			want:              false,
 		},
 		{
@@ -198,22 +198,22 @@ func TestShouldApplyThinkingPreferencesBootstrap(t *testing.T) {
 			bootstrapComplete: false,
 			enabledReady:      true,
 			effortReady:       true,
-			mutate: func(state appState) appState {
-				state.Authenticated = false
-				return state
+			mutate: func(parseState5 appState) appState {
+				parseState5.Authenticated = false
+				return parseState5
 			},
 			want: false,
 		},
 	}
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			state := tt.mutate(base)
-			got := shouldApplyThinkingPreferencesBootstrap(tt.bootstrapComplete, state, tt.enabledReady, tt.effortReady)
-			if got != tt.want {
-				t.Fatalf("shouldApplyThinkingPreferencesBootstrap() = %v, want %v", got, tt.want)
+	for _, parseTt := range parseTests {
+		parseTt2 := parseTt
+		parseT.Run(parseTt2.name, func(parseT2 *testing.T) {
+			parseT2.Parallel()
+			parseState := parseTt2.mutate(parseBase)
+			parseGot := shouldApplyThinkingPreferencesBootstrap(parseTt2.bootstrapComplete, parseState, parseTt2.enabledReady, parseTt2.effortReady)
+			if parseGot != parseTt2.want {
+				parseT2.Fatalf("shouldApplyThinkingPreferencesBootstrap() = %v, want %v", parseGot, parseTt2.want)
 			}
 		})
 	}

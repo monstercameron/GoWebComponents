@@ -10,30 +10,30 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func BenchmarkServerSSRResolveRouteDocs(b *testing.B) {
-	query := url.Values{"tab": {serverTabLoader}, "refresh": {"2"}}
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		resolved := resolveRoute("/docs/"+serverGuideSectionSSR, query)
-		if resolved.Status != 200 || resolved.View.SectionID == "" {
-			b.Fatal("expected docs route to resolve")
+func BenchmarkServerSSRResolveRouteDocs(parseB *testing.B) {
+	parseQuery := url.Values{"tab": {serverTabLoader}, "refresh": {"2"}}
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseResolved := resolveRoute("/docs/"+serverGuideSectionSSR, parseQuery)
+		if parseResolved.Status != 200 || parseResolved.View.SectionID == "" {
+			parseB.Fatal("expected docs route to resolve")
 		}
 	}
 }
 
-func BenchmarkServerSSRRenderDocumentBody(b *testing.B) {
-	resolved := resolveRoute("/docs/"+serverGuideSectionSSR, url.Values{"tab": {serverTabLoader}})
-	node := renderDemoShell(resolved.View)
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		markup, err := ui.RenderToString(node)
-		if err != nil {
-			b.Fatal(err)
+func BenchmarkServerSSRRenderDocumentBody(parseB *testing.B) {
+	parseResolved := resolveRoute("/docs/"+serverGuideSectionSSR, url.Values{"tab": {serverTabLoader}})
+	parseNode := renderDemoShell(parseResolved.View)
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseMarkup, parseErr := ui.RenderToString(parseNode)
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
 		}
-		if len(markup) == 0 {
-			b.Fatal("expected markup")
+		if len(parseMarkup) == 0 {
+			parseB.Fatal("expected markup")
 		}
 	}
 }

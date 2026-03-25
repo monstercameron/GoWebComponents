@@ -24,13 +24,13 @@ type RateLimitSnapshot struct {
 }
 
 // Empty reports whether the snapshot contains any usable quota information.
-func (snapshot RateLimitSnapshot) Empty() bool {
-	return snapshot.RequestsPerMinute == (RateLimitBucket{}) &&
-		snapshot.RequestsPerHour == (RateLimitBucket{}) &&
-		snapshot.RequestsPerDay == (RateLimitBucket{}) &&
-		snapshot.TokensPerMinute == (RateLimitBucket{}) &&
-		snapshot.TokensPerHour == (RateLimitBucket{}) &&
-		snapshot.TokensPerDay == (RateLimitBucket{}) &&
-		snapshot.LastUpdated.IsZero() &&
-		snapshot.Source == ""
+func (parseSnapshot RateLimitSnapshot) ParseEmpty() bool {
+	return parseSnapshot.RequestsPerMinute == (RateLimitBucket{}) &&
+		parseSnapshot.RequestsPerHour == (RateLimitBucket{}) &&
+		parseSnapshot.RequestsPerDay == (RateLimitBucket{}) &&
+		parseSnapshot.TokensPerMinute == (RateLimitBucket{}) &&
+		parseSnapshot.TokensPerHour == (RateLimitBucket{}) &&
+		parseSnapshot.TokensPerDay == (RateLimitBucket{}) &&
+		parseSnapshot.LastUpdated.IsZero() &&
+		parseSnapshot.Source == ""
 }

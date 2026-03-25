@@ -12,29 +12,29 @@ import (
 // Supports both main website and documentation routes with 404 fallback.
 func AppRouter(_ Attrs) *Element {
 	// Initialize hash router with homepage as default
-	r := router.NewHashRouter(router.RouterOptions{
+	parseR := router.NewHashRouter(router.RouterOptions{
 		DefaultRoute: portfolioHomeRoute,
 	})
 
 	// Register application routes
-	r.Register(portfolioHomeRoute, DocsWebsite)      // Main personal website
-	r.Register(portfolioDocsRoute, DocsPage)         // API documentation
-	r.Register(portfolioCatchAllRoute, NotFoundPage) // 404 fallback for unmatched routes
+	parseR.Register(portfolioHomeRoute, DocsWebsite)      // Main personal website
+	parseR.Register(portfolioDocsRoute, DocsPage)         // API documentation
+	parseR.Register(portfolioCatchAllRoute, NotFoundPage) // 404 fallback for unmatched routes
 
 	// Return active route component (handles re-rendering automatically)
-	return r.Current()
+	return parseR.Current()
 }
 
 // GetSiteRouter returns a configured router instance for use outside components
 func GetSiteRouter() *router.Router {
-	r := router.NewHashRouter(router.RouterOptions{
+	parseR := router.NewHashRouter(router.RouterOptions{
 		DefaultRoute: portfolioHomeRoute,
 	})
 
 	// Register application routes
-	r.Register(portfolioHomeRoute, DocsWebsite)
-	r.Register(portfolioDocsRoute, DocsPage)
-	r.Register(portfolioCatchAllRoute, NotFoundPage)
+	parseR.Register(portfolioHomeRoute, DocsWebsite)
+	parseR.Register(portfolioDocsRoute, DocsPage)
+	parseR.Register(portfolioCatchAllRoute, NotFoundPage)
 
-	return r
+	return parseR
 }

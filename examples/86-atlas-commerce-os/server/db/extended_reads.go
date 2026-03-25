@@ -111,366 +111,366 @@ type PurchaseOrderDetailRecord struct {
 	Lines []PurchaseOrderLineRecord `json:"lines"`
 }
 
-func (s *Store) ProductComments(ctx context.Context, productSlug string, status string) ([]CommentRecord, error) {
-	product, err := s.ProductBySlug(ctx, productSlug)
-	if err != nil {
-		return nil, err
+func (parseS *Store) ProductComments(parseCtx context.Context, parseProductSlug string, parseStatus string) ([]CommentRecord, error) {
+	parseProduct, parseErr := parseS.ProductBySlug(parseCtx, parseProductSlug)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	query := `select id, product_sku, author_name, author_type, reaction, subject, body, status, coalesce(moderation_reason, ''), created_at, updated_at from comments where product_sku = ?`
-	args := []any{product.SKU}
-	trimmedStatus := strings.TrimSpace(status)
-	if trimmedStatus != "" {
-		query += ` and status = ?`
-		args = append(args, trimmedStatus)
+	parseQuery := `select id, product_sku, author_name, author_type, reaction, subject, body, status, coalesce(moderation_reason, ''), created_at, updated_at from comments where product_sku = ?`
+	parseArgs := []any{parseProduct.SKU}
+	parseTrimmedStatus := strings.TrimSpace(parseStatus)
+	if parseTrimmedStatus != "" {
+		parseQuery += ` and status = ?`
+		parseArgs = append(parseArgs, parseTrimmedStatus)
 	}
-	query += ` order by created_at desc`
-	rows, err := s.db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("query product comments: %w", err)
+	parseQuery += ` order by created_at desc`
+	parseRows, parseErr := parseS.db.QueryContext(parseCtx, parseQuery, parseArgs...)
+	if parseErr != nil {
+		return nil, fmt.Errorf("query product comments: %w", parseErr)
 	}
-	defer rows.Close()
-	items := []CommentRecord{}
-	for rows.Next() {
-		var item CommentRecord
-		if err := rows.Scan(&item.ID, &item.ProductSKU, &item.AuthorName, &item.AuthorType, &item.Reaction, &item.Subject, &item.Body, &item.Status, &item.ModerationReason, &item.CreatedAt, &item.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("scan product comment: %w", err)
+	defer parseRows.Close()
+	parseItems := []CommentRecord{}
+	for parseRows.Next() {
+		var parseItem CommentRecord
+		if parseErr2 := parseRows.Scan(&parseItem.ID, &parseItem.ProductSKU, &parseItem.AuthorName, &parseItem.AuthorType, &parseItem.Reaction, &parseItem.Subject, &parseItem.Body, &parseItem.Status, &parseItem.ModerationReason, &parseItem.CreatedAt, &parseItem.UpdatedAt); parseErr2 != nil {
+			return nil, fmt.Errorf("scan product comment: %w", parseErr2)
 		}
-		items = append(items, item)
+		parseItems = append(parseItems, parseItem)
 	}
-	return items, nil
+	return parseItems, nil
 }
 
-func (s *Store) RelatedProducts(ctx context.Context, productSlug string) ([]RelatedProductRecord, error) {
-	product, err := s.ProductBySlug(ctx, productSlug)
-	if err != nil {
-		return nil, err
+func (parseS *Store) RelatedProducts(parseCtx context.Context, parseProductSlug string) ([]RelatedProductRecord, error) {
+	parseProduct, parseErr := parseS.ProductBySlug(parseCtx, parseProductSlug)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	items := []repository.Product{}
-	rows, err := s.db.QueryContext(ctx, `select sku, slug, title, category, price_cents, status, summary, seo_description from products where category = ? and sku <> ? order by title asc limit 3`, product.Category, product.SKU)
-	if err != nil {
-		return nil, fmt.Errorf("query related products: %w", err)
+	parseItems := []repository.Product{}
+	parseRows, parseErr := parseS.db.QueryContext(parseCtx, `select sku, slug, title, category, price_cents, status, summary, seo_description from products where category = ? and sku <> ? order by title asc limit 3`, parseProduct.Category, parseProduct.SKU)
+	if parseErr != nil {
+		return nil, fmt.Errorf("query related products: %w", parseErr)
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var item repository.Product
-		if err := rows.Scan(&item.SKU, &item.Slug, &item.Title, &item.Category, &item.PriceCents, &item.Status, &item.Summary, &item.SEODescription); err != nil {
-			return nil, fmt.Errorf("scan related product: %w", err)
+	defer parseRows.Close()
+	for parseRows.Next() {
+		var parseItem repository.Product
+		if parseErr2 := parseRows.Scan(&parseItem.SKU, &parseItem.Slug, &parseItem.Title, &parseItem.Category, &parseItem.PriceCents, &parseItem.Status, &parseItem.Summary, &parseItem.SEODescription); parseErr2 != nil {
+			return nil, fmt.Errorf("scan related product: %w", parseErr2)
 		}
-		items = append(items, item)
+		parseItems = append(parseItems, parseItem)
 	}
-	if len(items) < 3 {
-		fallbackRows, err := s.db.QueryContext(ctx, `select sku, slug, title, category, price_cents, status, summary, seo_description from products where sku <> ? and category <> ? order by title asc limit ?`, product.SKU, product.Category, 3-len(items))
-		if err != nil {
-			return nil, fmt.Errorf("query fallback related products: %w", err)
+	if len(parseItems) < 3 {
+		parseFallbackRows, parseErr3 := parseS.db.QueryContext(parseCtx, `select sku, slug, title, category, price_cents, status, summary, seo_description from products where sku <> ? and category <> ? order by title asc limit ?`, parseProduct.SKU, parseProduct.Category, 3-len(parseItems))
+		if parseErr3 != nil {
+			return nil, fmt.Errorf("query fallback related products: %w", parseErr3)
 		}
-		defer fallbackRows.Close()
-		for fallbackRows.Next() {
-			var item repository.Product
-			if err := fallbackRows.Scan(&item.SKU, &item.Slug, &item.Title, &item.Category, &item.PriceCents, &item.Status, &item.Summary, &item.SEODescription); err != nil {
-				return nil, fmt.Errorf("scan fallback related product: %w", err)
+		defer parseFallbackRows.Close()
+		for parseFallbackRows.Next() {
+			var parseItem2 repository.Product
+			if parseErr4 := parseFallbackRows.Scan(&parseItem2.SKU, &parseItem2.Slug, &parseItem2.Title, &parseItem2.Category, &parseItem2.PriceCents, &parseItem2.Status, &parseItem2.Summary, &parseItem2.SEODescription); parseErr4 != nil {
+				return nil, fmt.Errorf("scan fallback related product: %w", parseErr4)
 			}
-			items = append(items, item)
+			parseItems = append(parseItems, parseItem2)
 		}
 	}
-	result := make([]RelatedProductRecord, 0, len(items))
-	for _, item := range items {
-		warehouse, err := s.topWarehouseForProduct(ctx, item.SKU)
-		if err != nil {
-			return nil, err
+	parseResult := make([]RelatedProductRecord, 0, len(parseItems))
+	for _, parseItem3 := range parseItems {
+		parseWarehouse, parseErr5 := parseS.topWarehouseForProduct(parseCtx, parseItem3.SKU)
+		if parseErr5 != nil {
+			return nil, parseErr5
 		}
-		result = append(result, RelatedProductRecord{
-			SKU:           item.SKU,
-			Slug:          item.Slug,
-			Title:         item.Title,
-			Category:      item.Category,
-			Summary:       item.Summary,
-			WarehouseID:   warehouse.ID,
-			WarehouseName: warehouse.Name,
-			Reason:        relatedProductReason(product, item),
+		parseResult = append(parseResult, RelatedProductRecord{
+			SKU:           parseItem3.SKU,
+			Slug:          parseItem3.Slug,
+			Title:         parseItem3.Title,
+			Category:      parseItem3.Category,
+			Summary:       parseItem3.Summary,
+			WarehouseID:   parseWarehouse.ID,
+			WarehouseName: parseWarehouse.Name,
+			Reason:        relatedProductReason(parseProduct, parseItem3),
 		})
 	}
-	return result, nil
+	return parseResult, nil
 }
 
-func (s *Store) WarehousePressure(ctx context.Context) ([]WarehousePressureRecord, error) {
-	warehouses, err := s.Warehouses(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *Store) WarehousePressure(parseCtx context.Context) ([]WarehousePressureRecord, error) {
+	parseWarehouses, parseErr := parseS.Warehouses(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	items := make([]WarehousePressureRecord, 0, len(warehouses))
-	for _, warehouse := range warehouses {
-		item, err := s.WarehousePressureByID(ctx, warehouse.ID)
-		if err != nil {
-			return nil, err
+	parseItems := make([]WarehousePressureRecord, 0, len(parseWarehouses))
+	for _, parseWarehouse := range parseWarehouses {
+		parseItem, parseErr2 := parseS.WarehousePressureByID(parseCtx, parseWarehouse.ID)
+		if parseErr2 != nil {
+			return nil, parseErr2
 		}
-		items = append(items, item)
+		parseItems = append(parseItems, parseItem)
 	}
-	return items, nil
+	return parseItems, nil
 }
 
-func (s *Store) WarehousePressureByID(ctx context.Context, warehouseID string) (WarehousePressureRecord, error) {
-	warehouse, err := s.warehouseByID(ctx, warehouseID)
-	if err != nil {
-		return WarehousePressureRecord{}, err
+func (parseS *Store) WarehousePressureByID(parseCtx context.Context, parseWarehouseID string) (WarehousePressureRecord, error) {
+	parseWarehouse, parseErr := parseS.warehouseByID(parseCtx, parseWarehouseID)
+	if parseErr != nil {
+		return WarehousePressureRecord{}, parseErr
 	}
-	item := WarehousePressureRecord{
-		ID:            warehouse.ID,
-		Slug:          warehouse.Slug,
-		Name:          warehouse.Name,
-		Region:        warehouse.Region,
-		ServiceLevel:  warehouse.ServiceLevel,
-		PublicSummary: warehouse.PublicSummary,
+	parseItem := WarehousePressureRecord{
+		ID:            parseWarehouse.ID,
+		Slug:          parseWarehouse.Slug,
+		Name:          parseWarehouse.Name,
+		Region:        parseWarehouse.Region,
+		ServiceLevel:  parseWarehouse.ServiceLevel,
+		PublicSummary: parseWarehouse.PublicSummary,
 	}
-	if err := s.db.QueryRowContext(ctx, `select coalesce(sum(available), 0), coalesce(sum(inbound), 0), coalesce(sum(case when status = 'promise_risk' then 1 else 0 end), 0) from inventory_levels where warehouse_id = ?`, warehouse.ID).Scan(&item.Available, &item.Inbound, &item.RiskCount); err != nil {
-		return WarehousePressureRecord{}, fmt.Errorf("query warehouse pressure: %w", err)
+	if parseErr2 := parseS.db.QueryRowContext(parseCtx, `select coalesce(sum(available), 0), coalesce(sum(inbound), 0), coalesce(sum(case when status = 'promise_risk' then 1 else 0 end), 0) from inventory_levels where warehouse_id = ?`, parseWarehouse.ID).Scan(&parseItem.Available, &parseItem.Inbound, &parseItem.RiskCount); parseErr2 != nil {
+		return WarehousePressureRecord{}, fmt.Errorf("query warehouse pressure: %w", parseErr2)
 	}
-	item.Pressure, item.Staffing, item.Backlog, item.Focus = warehouseOperationalProfile(warehouse.ID)
-	if item.RiskCount > 0 && item.Pressure == "Balancing lane" {
-		item.Pressure = "Promise risk"
+	parseItem.Pressure, parseItem.Staffing, parseItem.Backlog, parseItem.Focus = warehouseOperationalProfile(parseWarehouse.ID)
+	if parseItem.RiskCount > 0 && parseItem.Pressure == "Balancing lane" {
+		parseItem.Pressure = "Promise risk"
 	}
-	return item, nil
+	return parseItem, nil
 }
 
-func (s *Store) ThresholdHistory(ctx context.Context, sku string) ([]ThresholdHistoryRecord, error) {
-	rows, err := s.db.QueryContext(ctx, `select id, product_sku, warehouse_id, reorder_point, safety_stock, actor_name, summary, detail, created_at from inventory_threshold_events where product_sku = ? order by created_at desc`, strings.TrimSpace(sku))
-	if err != nil {
-		return nil, fmt.Errorf("query threshold history: %w", err)
+func (parseS *Store) ThresholdHistory(parseCtx context.Context, parseSku string) ([]ThresholdHistoryRecord, error) {
+	parseRows, parseErr := parseS.db.QueryContext(parseCtx, `select id, product_sku, warehouse_id, reorder_point, safety_stock, actor_name, summary, detail, created_at from inventory_threshold_events where product_sku = ? order by created_at desc`, strings.TrimSpace(parseSku))
+	if parseErr != nil {
+		return nil, fmt.Errorf("query threshold history: %w", parseErr)
 	}
-	defer rows.Close()
-	items := []ThresholdHistoryRecord{}
-	for rows.Next() {
-		var item ThresholdHistoryRecord
-		if err := rows.Scan(&item.ID, &item.ProductSKU, &item.WarehouseID, &item.ReorderPoint, &item.SafetyStock, &item.ActorName, &item.Summary, &item.Detail, &item.CreatedAt); err != nil {
-			return nil, fmt.Errorf("scan threshold history: %w", err)
+	defer parseRows.Close()
+	parseItems := []ThresholdHistoryRecord{}
+	for parseRows.Next() {
+		var parseItem ThresholdHistoryRecord
+		if parseErr2 := parseRows.Scan(&parseItem.ID, &parseItem.ProductSKU, &parseItem.WarehouseID, &parseItem.ReorderPoint, &parseItem.SafetyStock, &parseItem.ActorName, &parseItem.Summary, &parseItem.Detail, &parseItem.CreatedAt); parseErr2 != nil {
+			return nil, fmt.Errorf("scan threshold history: %w", parseErr2)
 		}
-		items = append(items, item)
+		parseItems = append(parseItems, parseItem)
 	}
-	return items, nil
+	return parseItems, nil
 }
 
-func (s *Store) TransferRecommendations(ctx context.Context, sku string) ([]TransferRecommendationRecord, error) {
-	rows, err := s.db.QueryContext(ctx, `select warehouse_id, available from inventory_levels where product_sku = ? order by available desc`, strings.TrimSpace(sku))
-	if err != nil {
-		return nil, fmt.Errorf("query transfer recommendations: %w", err)
+func (parseS *Store) TransferRecommendations(parseCtx context.Context, parseSku string) ([]TransferRecommendationRecord, error) {
+	parseRows, parseErr := parseS.db.QueryContext(parseCtx, `select warehouse_id, available from inventory_levels where product_sku = ? order by available desc`, strings.TrimSpace(parseSku))
+	if parseErr != nil {
+		return nil, fmt.Errorf("query transfer recommendations: %w", parseErr)
 	}
-	defer rows.Close()
+	defer parseRows.Close()
 	type lane struct {
 		warehouseID string
 		available   int
 	}
-	lanes := []lane{}
-	for rows.Next() {
-		var item lane
-		if err := rows.Scan(&item.warehouseID, &item.available); err != nil {
-			return nil, fmt.Errorf("scan transfer recommendation lane: %w", err)
+	parseLanes := []lane{}
+	for parseRows.Next() {
+		var parseItem lane
+		if parseErr2 := parseRows.Scan(&parseItem.warehouseID, &parseItem.available); parseErr2 != nil {
+			return nil, fmt.Errorf("scan transfer recommendation lane: %w", parseErr2)
 		}
-		lanes = append(lanes, item)
+		parseLanes = append(parseLanes, parseItem)
 	}
-	if len(lanes) < 2 {
+	if len(parseLanes) < 2 {
 		return []TransferRecommendationRecord{}, nil
 	}
-	source := lanes[0]
-	destination := lanes[len(lanes)-1]
-	if source.available <= destination.available {
+	parseSource := parseLanes[0]
+	parseDestination := parseLanes[len(parseLanes)-1]
+	if parseSource.available <= parseDestination.available {
 		return []TransferRecommendationRecord{}, nil
 	}
-	quantity := (source.available - destination.available) / 2
-	if quantity < 1 {
-		quantity = 1
+	parseQuantity := (parseSource.available - parseDestination.available) / 2
+	if parseQuantity < 1 {
+		parseQuantity = 1
 	}
-	sourceWarehouse, err := s.warehouseByID(ctx, source.warehouseID)
-	if err != nil {
-		return nil, err
+	parseSourceWarehouse, parseErr := parseS.warehouseByID(parseCtx, parseSource.warehouseID)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	destinationWarehouse, err := s.warehouseByID(ctx, destination.warehouseID)
-	if err != nil {
-		return nil, err
+	parseDestinationWarehouse, parseErr := parseS.warehouseByID(parseCtx, parseDestination.warehouseID)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	priority := "Balancing move"
-	if destination.available <= 3 {
-		priority = "Promise recovery"
+	parsePriority := "Balancing move"
+	if parseDestination.available <= 3 {
+		parsePriority = "Promise recovery"
 	}
 	return []TransferRecommendationRecord{{
-		ProductSKU:               strings.TrimSpace(sku),
-		SourceWarehouseID:        sourceWarehouse.ID,
-		SourceWarehouseName:      sourceWarehouse.Name,
-		DestinationWarehouseID:   destinationWarehouse.ID,
-		DestinationWarehouseName: destinationWarehouse.Name,
-		Quantity:                 quantity,
-		Priority:                 priority,
-		Reason:                   fmt.Sprintf("Shift %d units from %s to %s to stabilize the lowest availability lane.", quantity, sourceWarehouse.Name, destinationWarehouse.Name),
+		ProductSKU:               strings.TrimSpace(parseSku),
+		SourceWarehouseID:        parseSourceWarehouse.ID,
+		SourceWarehouseName:      parseSourceWarehouse.Name,
+		DestinationWarehouseID:   parseDestinationWarehouse.ID,
+		DestinationWarehouseName: parseDestinationWarehouse.Name,
+		Quantity:                 parseQuantity,
+		Priority:                 parsePriority,
+		Reason:                   fmt.Sprintf("Shift %d units from %s to %s to stabilize the lowest availability lane.", parseQuantity, parseSourceWarehouse.Name, parseDestinationWarehouse.Name),
 	}}, nil
 }
 
-func (s *Store) TransferByID(ctx context.Context, id string) (TransferRecord, error) {
-	var item TransferRecord
-	err := s.db.QueryRowContext(ctx, `select id, source_warehouse_id, destination_warehouse_id, status, reason, recommended_by, created_at, updated_at from transfers where id = ?`, strings.TrimSpace(id)).Scan(&item.ID, &item.SourceWarehouseID, &item.DestinationWarehouse, &item.Status, &item.Reason, &item.RecommendedBy, &item.CreatedAt, &item.UpdatedAt)
-	if err != nil {
-		return TransferRecord{}, fmt.Errorf("query transfer by id: %w", err)
+func (parseS *Store) TransferByID(parseCtx context.Context, parseId string) (TransferRecord, error) {
+	var parseItem TransferRecord
+	parseErr := parseS.db.QueryRowContext(parseCtx, `select id, source_warehouse_id, destination_warehouse_id, status, reason, recommended_by, created_at, updated_at from transfers where id = ?`, strings.TrimSpace(parseId)).Scan(&parseItem.ID, &parseItem.SourceWarehouseID, &parseItem.DestinationWarehouse, &parseItem.Status, &parseItem.Reason, &parseItem.RecommendedBy, &parseItem.CreatedAt, &parseItem.UpdatedAt)
+	if parseErr != nil {
+		return TransferRecord{}, fmt.Errorf("query transfer by id: %w", parseErr)
 	}
-	return item, nil
+	return parseItem, nil
 }
 
-func (s *Store) TransferLines(ctx context.Context, transferID string) ([]TransferLineRecord, error) {
-	rows, err := s.db.QueryContext(ctx, `select id, transfer_id, product_sku, quantity from transfer_lines where transfer_id = ? order by id asc`, strings.TrimSpace(transferID))
-	if err != nil {
-		return nil, fmt.Errorf("query transfer lines: %w", err)
+func (parseS *Store) TransferLines(parseCtx context.Context, parseTransferID string) ([]TransferLineRecord, error) {
+	parseRows, parseErr := parseS.db.QueryContext(parseCtx, `select id, transfer_id, product_sku, quantity from transfer_lines where transfer_id = ? order by id asc`, strings.TrimSpace(parseTransferID))
+	if parseErr != nil {
+		return nil, fmt.Errorf("query transfer lines: %w", parseErr)
 	}
-	defer rows.Close()
-	items := []TransferLineRecord{}
-	for rows.Next() {
-		var item TransferLineRecord
-		if err := rows.Scan(&item.ID, &item.TransferID, &item.ProductSKU, &item.Quantity); err != nil {
-			return nil, fmt.Errorf("scan transfer line: %w", err)
+	defer parseRows.Close()
+	parseItems := []TransferLineRecord{}
+	for parseRows.Next() {
+		var parseItem TransferLineRecord
+		if parseErr2 := parseRows.Scan(&parseItem.ID, &parseItem.TransferID, &parseItem.ProductSKU, &parseItem.Quantity); parseErr2 != nil {
+			return nil, fmt.Errorf("scan transfer line: %w", parseErr2)
 		}
-		items = append(items, item)
+		parseItems = append(parseItems, parseItem)
 	}
-	return items, nil
+	return parseItems, nil
 }
 
-func (s *Store) TransferDetail(ctx context.Context, id string) (TransferDetailRecord, error) {
-	transfer, err := s.TransferByID(ctx, id)
-	if err != nil {
-		return TransferDetailRecord{}, err
+func (parseS *Store) TransferDetail(parseCtx context.Context, parseId string) (TransferDetailRecord, error) {
+	parseTransfer, parseErr := parseS.TransferByID(parseCtx, parseId)
+	if parseErr != nil {
+		return TransferDetailRecord{}, parseErr
 	}
-	lines, err := s.TransferLines(ctx, id)
-	if err != nil {
-		return TransferDetailRecord{}, err
+	parseLines, parseErr := parseS.TransferLines(parseCtx, parseId)
+	if parseErr != nil {
+		return TransferDetailRecord{}, parseErr
 	}
-	return TransferDetailRecord{Transfer: transfer, Lines: lines}, nil
+	return TransferDetailRecord{Transfer: parseTransfer, Lines: parseLines}, nil
 }
 
-func (s *Store) ReceivingLines(ctx context.Context, sessionID string) ([]ReceivingLineRecord, error) {
-	rows, err := s.db.QueryContext(ctx, `select id, receiving_session_id, product_sku, expected_quantity, actual_quantity, discrepancy_reason from receiving_lines where receiving_session_id = ? order by id asc`, strings.TrimSpace(sessionID))
-	if err != nil {
-		return nil, fmt.Errorf("query receiving lines: %w", err)
+func (parseS *Store) ReceivingLines(parseCtx context.Context, parseSessionID string) ([]ReceivingLineRecord, error) {
+	parseRows, parseErr := parseS.db.QueryContext(parseCtx, `select id, receiving_session_id, product_sku, expected_quantity, actual_quantity, discrepancy_reason from receiving_lines where receiving_session_id = ? order by id asc`, strings.TrimSpace(parseSessionID))
+	if parseErr != nil {
+		return nil, fmt.Errorf("query receiving lines: %w", parseErr)
 	}
-	defer rows.Close()
-	items := []ReceivingLineRecord{}
-	for rows.Next() {
-		var item ReceivingLineRecord
-		if err := rows.Scan(&item.ID, &item.ReceivingSessionID, &item.ProductSKU, &item.ExpectedQuantity, &item.ActualQuantity, &item.DiscrepancyReason); err != nil {
-			return nil, fmt.Errorf("scan receiving line: %w", err)
+	defer parseRows.Close()
+	parseItems := []ReceivingLineRecord{}
+	for parseRows.Next() {
+		var parseItem ReceivingLineRecord
+		if parseErr2 := parseRows.Scan(&parseItem.ID, &parseItem.ReceivingSessionID, &parseItem.ProductSKU, &parseItem.ExpectedQuantity, &parseItem.ActualQuantity, &parseItem.DiscrepancyReason); parseErr2 != nil {
+			return nil, fmt.Errorf("scan receiving line: %w", parseErr2)
 		}
-		items = append(items, item)
+		parseItems = append(parseItems, parseItem)
 	}
-	return items, nil
+	return parseItems, nil
 }
 
-func (s *Store) ReceivingDetail(ctx context.Context, id string) (ReceivingDetailRecord, error) {
-	session, err := s.receivingByID(ctx, id)
-	if err != nil {
-		return ReceivingDetailRecord{}, err
+func (parseS *Store) ReceivingDetail(parseCtx context.Context, parseId string) (ReceivingDetailRecord, error) {
+	parseSession, parseErr := parseS.receivingByID(parseCtx, parseId)
+	if parseErr != nil {
+		return ReceivingDetailRecord{}, parseErr
 	}
-	lines, err := s.ReceivingLines(ctx, id)
-	if err != nil {
-		return ReceivingDetailRecord{}, err
+	parseLines, parseErr := parseS.ReceivingLines(parseCtx, parseId)
+	if parseErr != nil {
+		return ReceivingDetailRecord{}, parseErr
 	}
-	return ReceivingDetailRecord{Session: session, Lines: lines}, nil
+	return ReceivingDetailRecord{Session: parseSession, Lines: parseLines}, nil
 }
 
-func (s *Store) PurchaseOrders(ctx context.Context) ([]PurchaseOrderRecord, error) {
-	rows, err := s.db.QueryContext(ctx, `select po.id, po.vendor_name, po.warehouse_id, w.name, po.status, po.priority_note, po.eta, po.created_at, po.updated_at from purchase_orders po join warehouses w on w.id = po.warehouse_id order by po.created_at desc`)
-	if err != nil {
-		return nil, fmt.Errorf("query purchase orders: %w", err)
+func (parseS *Store) PurchaseOrders(parseCtx context.Context) ([]PurchaseOrderRecord, error) {
+	parseRows, parseErr := parseS.db.QueryContext(parseCtx, `select po.id, po.vendor_name, po.warehouse_id, w.name, po.status, po.priority_note, po.eta, po.created_at, po.updated_at from purchase_orders po join warehouses w on w.id = po.warehouse_id order by po.created_at desc`)
+	if parseErr != nil {
+		return nil, fmt.Errorf("query purchase orders: %w", parseErr)
 	}
-	defer rows.Close()
-	items := []PurchaseOrderRecord{}
-	for rows.Next() {
-		var item PurchaseOrderRecord
-		if err := rows.Scan(&item.ID, &item.VendorName, &item.WarehouseID, &item.WarehouseName, &item.Status, &item.PriorityNote, &item.ETA, &item.CreatedAt, &item.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("scan purchase order: %w", err)
+	defer parseRows.Close()
+	parseItems := []PurchaseOrderRecord{}
+	for parseRows.Next() {
+		var parseItem PurchaseOrderRecord
+		if parseErr2 := parseRows.Scan(&parseItem.ID, &parseItem.VendorName, &parseItem.WarehouseID, &parseItem.WarehouseName, &parseItem.Status, &parseItem.PriorityNote, &parseItem.ETA, &parseItem.CreatedAt, &parseItem.UpdatedAt); parseErr2 != nil {
+			return nil, fmt.Errorf("scan purchase order: %w", parseErr2)
 		}
-		items = append(items, item)
+		parseItems = append(parseItems, parseItem)
 	}
-	return items, nil
+	return parseItems, nil
 }
 
-func (s *Store) PurchaseOrdersByWarehouse(ctx context.Context, warehouseID string) ([]PurchaseOrderRecord, error) {
-	rows, err := s.db.QueryContext(ctx, `select po.id, po.vendor_name, po.warehouse_id, w.name, po.status, po.priority_note, po.eta, po.created_at, po.updated_at from purchase_orders po join warehouses w on w.id = po.warehouse_id where po.warehouse_id = ? order by po.created_at desc`, strings.TrimSpace(warehouseID))
-	if err != nil {
-		return nil, fmt.Errorf("query purchase orders by warehouse: %w", err)
+func (parseS *Store) PurchaseOrdersByWarehouse(parseCtx context.Context, parseWarehouseID string) ([]PurchaseOrderRecord, error) {
+	parseRows, parseErr := parseS.db.QueryContext(parseCtx, `select po.id, po.vendor_name, po.warehouse_id, w.name, po.status, po.priority_note, po.eta, po.created_at, po.updated_at from purchase_orders po join warehouses w on w.id = po.warehouse_id where po.warehouse_id = ? order by po.created_at desc`, strings.TrimSpace(parseWarehouseID))
+	if parseErr != nil {
+		return nil, fmt.Errorf("query purchase orders by warehouse: %w", parseErr)
 	}
-	defer rows.Close()
-	items := []PurchaseOrderRecord{}
-	for rows.Next() {
-		var item PurchaseOrderRecord
-		if err := rows.Scan(&item.ID, &item.VendorName, &item.WarehouseID, &item.WarehouseName, &item.Status, &item.PriorityNote, &item.ETA, &item.CreatedAt, &item.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("scan purchase order by warehouse: %w", err)
+	defer parseRows.Close()
+	parseItems := []PurchaseOrderRecord{}
+	for parseRows.Next() {
+		var parseItem PurchaseOrderRecord
+		if parseErr2 := parseRows.Scan(&parseItem.ID, &parseItem.VendorName, &parseItem.WarehouseID, &parseItem.WarehouseName, &parseItem.Status, &parseItem.PriorityNote, &parseItem.ETA, &parseItem.CreatedAt, &parseItem.UpdatedAt); parseErr2 != nil {
+			return nil, fmt.Errorf("scan purchase order by warehouse: %w", parseErr2)
 		}
-		items = append(items, item)
+		parseItems = append(parseItems, parseItem)
 	}
-	return items, nil
+	return parseItems, nil
 }
 
-func (s *Store) PurchaseOrderByID(ctx context.Context, id string) (PurchaseOrderRecord, error) {
-	var item PurchaseOrderRecord
-	err := s.db.QueryRowContext(ctx, `select po.id, po.vendor_name, po.warehouse_id, w.name, po.status, po.priority_note, po.eta, po.created_at, po.updated_at from purchase_orders po join warehouses w on w.id = po.warehouse_id where po.id = ?`, strings.TrimSpace(id)).Scan(&item.ID, &item.VendorName, &item.WarehouseID, &item.WarehouseName, &item.Status, &item.PriorityNote, &item.ETA, &item.CreatedAt, &item.UpdatedAt)
-	if err != nil {
-		return PurchaseOrderRecord{}, fmt.Errorf("query purchase order by id: %w", err)
+func (parseS *Store) PurchaseOrderByID(parseCtx context.Context, parseId string) (PurchaseOrderRecord, error) {
+	var parseItem PurchaseOrderRecord
+	parseErr := parseS.db.QueryRowContext(parseCtx, `select po.id, po.vendor_name, po.warehouse_id, w.name, po.status, po.priority_note, po.eta, po.created_at, po.updated_at from purchase_orders po join warehouses w on w.id = po.warehouse_id where po.id = ?`, strings.TrimSpace(parseId)).Scan(&parseItem.ID, &parseItem.VendorName, &parseItem.WarehouseID, &parseItem.WarehouseName, &parseItem.Status, &parseItem.PriorityNote, &parseItem.ETA, &parseItem.CreatedAt, &parseItem.UpdatedAt)
+	if parseErr != nil {
+		return PurchaseOrderRecord{}, fmt.Errorf("query purchase order by id: %w", parseErr)
 	}
-	return item, nil
+	return parseItem, nil
 }
 
-func (s *Store) PurchaseOrderLines(ctx context.Context, purchaseOrderID string) ([]PurchaseOrderLineRecord, error) {
-	rows, err := s.db.QueryContext(ctx, `select id, purchase_order_id, product_sku, quantity, eta, status from purchase_order_lines where purchase_order_id = ? order by id asc`, strings.TrimSpace(purchaseOrderID))
-	if err != nil {
-		return nil, fmt.Errorf("query purchase order lines: %w", err)
+func (parseS *Store) PurchaseOrderLines(parseCtx context.Context, parsePurchaseOrderID string) ([]PurchaseOrderLineRecord, error) {
+	parseRows, parseErr := parseS.db.QueryContext(parseCtx, `select id, purchase_order_id, product_sku, quantity, eta, status from purchase_order_lines where purchase_order_id = ? order by id asc`, strings.TrimSpace(parsePurchaseOrderID))
+	if parseErr != nil {
+		return nil, fmt.Errorf("query purchase order lines: %w", parseErr)
 	}
-	defer rows.Close()
-	items := []PurchaseOrderLineRecord{}
-	for rows.Next() {
-		var item PurchaseOrderLineRecord
-		if err := rows.Scan(&item.ID, &item.PurchaseOrderID, &item.ProductSKU, &item.Quantity, &item.ETA, &item.Status); err != nil {
-			return nil, fmt.Errorf("scan purchase order line: %w", err)
+	defer parseRows.Close()
+	parseItems := []PurchaseOrderLineRecord{}
+	for parseRows.Next() {
+		var parseItem PurchaseOrderLineRecord
+		if parseErr2 := parseRows.Scan(&parseItem.ID, &parseItem.PurchaseOrderID, &parseItem.ProductSKU, &parseItem.Quantity, &parseItem.ETA, &parseItem.Status); parseErr2 != nil {
+			return nil, fmt.Errorf("scan purchase order line: %w", parseErr2)
 		}
-		items = append(items, item)
+		parseItems = append(parseItems, parseItem)
 	}
-	return items, nil
+	return parseItems, nil
 }
 
-func (s *Store) PurchaseOrderDetail(ctx context.Context, id string) (PurchaseOrderDetailRecord, error) {
-	order, err := s.PurchaseOrderByID(ctx, id)
-	if err != nil {
-		return PurchaseOrderDetailRecord{}, err
+func (parseS *Store) PurchaseOrderDetail(parseCtx context.Context, parseId string) (PurchaseOrderDetailRecord, error) {
+	parseOrder, parseErr := parseS.PurchaseOrderByID(parseCtx, parseId)
+	if parseErr != nil {
+		return PurchaseOrderDetailRecord{}, parseErr
 	}
-	lines, err := s.PurchaseOrderLines(ctx, id)
-	if err != nil {
-		return PurchaseOrderDetailRecord{}, err
+	parseLines, parseErr := parseS.PurchaseOrderLines(parseCtx, parseId)
+	if parseErr != nil {
+		return PurchaseOrderDetailRecord{}, parseErr
 	}
-	return PurchaseOrderDetailRecord{Order: order, Lines: lines}, nil
+	return PurchaseOrderDetailRecord{Order: parseOrder, Lines: parseLines}, nil
 }
 
-func (s *Store) topWarehouseForProduct(ctx context.Context, sku string) (Warehouse, error) {
-	var warehouseID string
-	err := s.db.QueryRowContext(ctx, `select warehouse_id from inventory_levels where product_sku = ? order by available desc, inbound desc limit 1`, sku).Scan(&warehouseID)
-	if err != nil {
-		if err == sql.ErrNoRows {
+func (parseS *Store) topWarehouseForProduct(parseCtx context.Context, parseSku string) (Warehouse, error) {
+	var parseWarehouseID string
+	parseErr := parseS.db.QueryRowContext(parseCtx, `select warehouse_id from inventory_levels where product_sku = ? order by available desc, inbound desc limit 1`, parseSku).Scan(&parseWarehouseID)
+	if parseErr != nil {
+		if parseErr == sql.ErrNoRows {
 			return Warehouse{ID: "new-jersey-hub", Slug: "new-jersey-hub", Name: "New Jersey Hub"}, nil
 		}
-		return Warehouse{}, fmt.Errorf("query top warehouse for product: %w", err)
+		return Warehouse{}, fmt.Errorf("query top warehouse for product: %w", parseErr)
 	}
-	return s.warehouseByID(ctx, warehouseID)
+	return parseS.warehouseByID(parseCtx, parseWarehouseID)
 }
 
-func (s *Store) warehouseByID(ctx context.Context, id string) (Warehouse, error) {
-	var item Warehouse
-	err := s.db.QueryRowContext(ctx, `select id, slug, name, region, service_level, public_summary from warehouses where id = ?`, strings.TrimSpace(id)).Scan(&item.ID, &item.Slug, &item.Name, &item.Region, &item.ServiceLevel, &item.PublicSummary)
-	if err != nil {
-		return Warehouse{}, fmt.Errorf("query warehouse by id: %w", err)
+func (parseS *Store) warehouseByID(parseCtx context.Context, parseId string) (Warehouse, error) {
+	var parseItem Warehouse
+	parseErr := parseS.db.QueryRowContext(parseCtx, `select id, slug, name, region, service_level, public_summary from warehouses where id = ?`, strings.TrimSpace(parseId)).Scan(&parseItem.ID, &parseItem.Slug, &parseItem.Name, &parseItem.Region, &parseItem.ServiceLevel, &parseItem.PublicSummary)
+	if parseErr != nil {
+		return Warehouse{}, fmt.Errorf("query warehouse by id: %w", parseErr)
 	}
-	return item, nil
+	return parseItem, nil
 }
 
-func relatedProductReason(base repository.Product, candidate repository.Product) string {
-	if candidate.Category == base.Category {
+func relatedProductReason(parseBase repository.Product, parseCandidate repository.Product) string {
+	if parseCandidate.Category == parseBase.Category {
 		return "Extends the same merchandising family for buyers comparing adjacent configurations."
 	}
 	return "Pairs naturally with the current product story when the buyer needs a broader system view."
 }
 
-func warehouseOperationalProfile(warehouseID string) (pressure string, staffing string, backlog string, focus string) {
-	switch strings.TrimSpace(warehouseID) {
+func warehouseOperationalProfile(parseWarehouseID string) (parsePressure string, parseStaffing string, parseBacklog string, parseFocus string) {
+	switch strings.TrimSpace(parseWarehouseID) {
 	case "new-jersey-hub":
 		return "Promise risk", "88% staffed", "2 blocked receipts", "Protect east-coast promise windows and clear blocked receiving before launch traffic spikes."
 	case "nevada-hub":

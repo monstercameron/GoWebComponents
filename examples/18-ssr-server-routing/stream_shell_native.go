@@ -5,6 +5,6 @@ package main
 
 import "github.com/monstercameron/GoWebComponents/ui"
 
-func renderDemoShellStreamShell(view demoShellView) ui.Node {
-	return renderDemoShellWithDeferredMode(view, true)
+func renderDemoShellStreamShell(parseView demoShellView) ui.Node {
+	return renderDemoShellWithDeferredMode(parseView, true)
 }

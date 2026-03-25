@@ -17,23 +17,23 @@ type Person struct {
 }
 
 func PersonForm() ui.Node {
-	person := ui.UseState(Person{Name: "", Age: 0})
-	currentPerson := person.Get()
+	parsePerson := ui.UseState(Person{Name: "", Age: 0})
+	parseCurrentPerson := parsePerson.Get()
 
-	updateName := ui.UseEvent(func(event ui.InputEvent) {
-		newName := event.GetValue()
-		person.Set(Person{Name: newName, Age: currentPerson.Age})
+	parseUpdateName := ui.UseEvent(func(parseEvent ui.InputEvent) {
+		parseNewName := parseEvent.GetValue()
+		parsePerson.Set(Person{Name: parseNewName, Age: parseCurrentPerson.Age})
 	})
 
-	updateAge := ui.UseEvent(func(event ui.InputEvent) {
-		ageStr := event.GetValue()
-		if age, err := strconv.Atoi(ageStr); err == nil {
-			person.Set(Person{Name: currentPerson.Name, Age: age})
+	parseUpdateAge := ui.UseEvent(func(parseEvent2 ui.InputEvent) {
+		parseAgeStr := parseEvent2.GetValue()
+		if parseAge, parseErr := strconv.Atoi(parseAgeStr); parseErr == nil {
+			parsePerson.Set(Person{Name: parseCurrentPerson.Name, Age: parseAge})
 		}
 	})
 
 	reset := ui.UseEvent(func() {
-		person.Set(Person{Name: "", Age: 0})
+		parsePerson.Set(Person{Name: "", Age: 0})
 	})
 
 	return html.Div(html.Props{
@@ -53,8 +53,8 @@ func PersonForm() ui.Node {
 					), html.Text("Name")),
 					html.Input(html.PropsOf(
 						html.Type("text"),
-						html.Value(currentPerson.Name),
-						html.OnInput(updateName),
+						html.Value(parseCurrentPerson.Name),
+						html.OnInput(parseUpdateName),
 						html.Class("w-full px-4 py-3 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-white placeholder-gray-600 transition-all"),
 						html.Placeholder("Enter name"),
 					)),
@@ -66,8 +66,8 @@ func PersonForm() ui.Node {
 					), html.Text("Age")),
 					html.Input(html.PropsOf(
 						html.Type("number"),
-						html.Value(strconv.Itoa(currentPerson.Age)),
-						html.OnInput(updateAge),
+						html.Value(strconv.Itoa(parseCurrentPerson.Age)),
+						html.OnInput(parseUpdateAge),
 						html.Class("w-full px-4 py-3 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-white placeholder-gray-600 transition-all"),
 					)),
 				),
@@ -91,15 +91,15 @@ func PersonForm() ui.Node {
 					html.Div(html.PropsOf(html.Class("flex justify-between")),
 						html.Span(html.PropsOf(html.Class("text-gray-500")), html.Text("Name")),
 						html.Span(html.PropsOf(html.Class("text-white font-medium")), html.Text(func() string {
-							if currentPerson.Name == "" {
+							if parseCurrentPerson.Name == "" {
 								return "-"
 							}
-							return currentPerson.Name
+							return parseCurrentPerson.Name
 						})),
 					),
 					html.Div(html.PropsOf(html.Class("flex justify-between")),
 						html.Span(html.PropsOf(html.Class("text-gray-500")), html.Text("Age")),
-						html.Span(html.PropsOf(html.Class("text-blue-400 font-mono")), html.Textf("%d", currentPerson.Age)),
+						html.Span(html.PropsOf(html.Class("text-blue-400 font-mono")), html.Textf("%d", parseCurrentPerson.Age)),
 					),
 				),
 			),

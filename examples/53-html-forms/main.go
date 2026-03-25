@@ -15,15 +15,15 @@ import (
 )
 
 func htmlFormsExample() ui.Node {
-	name := ui.UseState("")
-	team := ui.UseState("platform")
-	notes := ui.UseState("")
-	updates := ui.UseState(false)
+	parseName := ui.UseState("")
+	parseTeam := ui.UseState("platform")
+	parseNotes := ui.UseState("")
+	parseUpdates := ui.UseState(false)
 
-	setName := ui.UseEvent(func(event ui.InputEvent) { name.Set(event.GetValue()) })
-	setTeam := ui.UseEvent(func(event ui.ChangeEvent) { team.Set(event.GetValue()) })
-	setNotes := ui.UseEvent(func(event ui.InputEvent) { notes.Set(event.GetValue()) })
-	setUpdates := ui.UseEvent(func(event ui.ChangeEvent) { updates.Set(event.IsChecked()) })
+	setName := ui.UseEvent(func(parseEvent ui.InputEvent) { parseName.Set(parseEvent.GetValue()) })
+	setTeam := ui.UseEvent(func(parseEvent2 ui.ChangeEvent) { parseTeam.Set(parseEvent2.GetValue()) })
+	setNotes := ui.UseEvent(func(parseEvent3 ui.InputEvent) { parseNotes.Set(parseEvent3.GetValue()) })
+	setUpdates := ui.UseEvent(func(parseEvent4 ui.ChangeEvent) { parseUpdates.Set(parseEvent4.IsChecked()) })
 
 	return shared.ExamplePage(
 		"html form controls",
@@ -38,7 +38,7 @@ func htmlFormsExample() ui.Node {
 					), html.Text("Name")),
 					html.Input(html.PropsOf(
 						html.ID("html-form-name"),
-						html.Value(name.Get()),
+						html.Value(parseName.Get()),
 						html.OnInput(setName),
 						html.Placeholder("Cam"),
 						html.Class("mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100"),
@@ -51,7 +51,7 @@ func htmlFormsExample() ui.Node {
 					), html.Text("Team")),
 					html.Select(html.PropsOf(
 						html.ID("html-form-team"),
-						html.Value(team.Get()),
+						html.Value(parseTeam.Get()),
 						html.OnChange(setTeam),
 						html.Class("mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100"),
 					),
@@ -63,7 +63,7 @@ func htmlFormsExample() ui.Node {
 				html.Label(html.PropsOf(html.Class("flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3")),
 					html.Input(html.PropsOf(
 						html.Type("checkbox"),
-						html.Checked(updates.Get()),
+						html.Checked(parseUpdates.Get()),
 						html.OnChange(setUpdates),
 					)),
 					html.Text("Receive weekly release notes"),
@@ -76,7 +76,7 @@ func htmlFormsExample() ui.Node {
 					html.Textarea(html.PropsOf(
 						html.ID("html-form-notes"),
 						html.Rows(5),
-						html.Value(notes.Get()),
+						html.Value(parseNotes.Get()),
 						html.OnInput(setNotes),
 						html.Placeholder("What should the team know?"),
 						html.Class("mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100"),
@@ -86,10 +86,10 @@ func htmlFormsExample() ui.Node {
 		),
 		shared.ExamplePanel("Current values",
 			html.Div(html.PropsOf(html.Class("mt-3 grid gap-4 md:grid-cols-4")),
-				shared.ExampleStat("Name", name.Get()),
-				shared.ExampleStat("Team", team.Get()),
-				shared.ExampleStat("Updates", fmt.Sprintf("%t", updates.Get())),
-				shared.ExampleStat("Notes chars", fmt.Sprintf("%d", len(notes.Get()))),
+				shared.ExampleStat("Name", parseName.Get()),
+				shared.ExampleStat("Team", parseTeam.Get()),
+				shared.ExampleStat("Updates", fmt.Sprintf("%t", parseUpdates.Get())),
+				shared.ExampleStat("Notes chars", fmt.Sprintf("%d", len(parseNotes.Get()))),
 			),
 			shared.ExampleCode(
 				`html.Input(html.Props{Value: name, OnInput: setName})`,

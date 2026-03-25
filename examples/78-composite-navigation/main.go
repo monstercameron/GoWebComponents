@@ -37,62 +37,62 @@ var listboxItems = []ui.CompositeItem{
 }
 
 func compositeNavigationExample() ui.Node {
-	tabNav := ui.UseCompositeNavigation(tabItems, ui.CompositeNavigationOptions{Orientation: "horizontal", Loop: true})
-	listboxNav := ui.UseCompositeNavigation(listboxItems, ui.CompositeNavigationOptions{Orientation: "vertical", Loop: true})
+	parseTabNav := ui.UseCompositeNavigation(tabItems, ui.CompositeNavigationOptions{Orientation: "horizontal", Loop: true})
+	parseListboxNav := ui.UseCompositeNavigation(listboxItems, ui.CompositeNavigationOptions{Orientation: "vertical", Loop: true})
 
-	selectedTab := tabPanels[tabNav.ActiveIndex()]
-	selectedOwner := listboxItems[listboxNav.ActiveIndex()]
-	tabKeyDown := ui.UseEvent(func(event ui.KeyboardEvent) { tabNav.OnKeyDown(event) })
-	listboxKeyDown := ui.UseEvent(func(event ui.KeyboardEvent) { listboxNav.OnKeyDown(event) })
+	parseSelectedTab := tabPanels[parseTabNav.ActiveIndex()]
+	parseSelectedOwner := listboxItems[parseListboxNav.ActiveIndex()]
+	parseTabKeyDown := ui.UseEvent(func(parseEvent ui.KeyboardEvent) { parseTabNav.OnKeyDown(parseEvent) })
+	parseListboxKeyDown := ui.UseEvent(func(parseEvent2 ui.KeyboardEvent) { parseListboxNav.OnKeyDown(parseEvent2) })
 
-	tabButtons := make([]ui.Node, 0, len(tabItems))
-	for index, item := range tabItems {
-		currentIndex := index
-		currentItem := item
-		className := "rounded-full border px-4 py-3 text-sm font-semibold transition"
-		if tabNav.IsActive(index) {
-			className += " border-cyan-400/40 bg-cyan-400/10 text-cyan-100"
+	parseTabButtons := make([]ui.Node, 0, len(tabItems))
+	for parseIndex, parseItem := range tabItems {
+		parseCurrentIndex := parseIndex
+		parseCurrentItem := parseItem
+		parseClassName := "rounded-full border px-4 py-3 text-sm font-semibold transition"
+		if parseTabNav.IsActive(parseIndex) {
+			parseClassName += " border-cyan-400/40 bg-cyan-400/10 text-cyan-100"
 		} else {
-			className += " border-white/10 text-slate-200"
+			parseClassName += " border-white/10 text-slate-200"
 		}
-		tabButtons = append(tabButtons,
+		parseTabButtons = append(parseTabButtons,
 			html.Button(html.Props{
-				ID:        currentItem.ID,
+				ID:        parseCurrentItem.ID,
 				Role:      "tab",
-				Class:     className,
-				OnKeyDown: tabKeyDown,
-				OnClick:   ui.UseEvent(func() { tabNav.SetActive(currentIndex) }),
+				Class:     parseClassName,
+				OnKeyDown: parseTabKeyDown,
+				OnClick:   ui.UseEvent(func() { parseTabNav.SetActive(parseCurrentIndex) }),
 				Aria: map[string]string{
-					"selected": map[bool]string{true: "true", false: "false"}[tabNav.IsActive(index)],
+					"selected": map[bool]string{true: "true", false: "false"}[parseTabNav.IsActive(parseIndex)],
 					"controls": "tab-panel",
 				},
-				Raw: map[string]interface{}{"tabIndex": tabNav.TabIndex(index)},
-			}, html.Text(currentItem.Text)),
+				Raw: map[string]interface{}{"tabIndex": parseTabNav.TabIndex(parseIndex)},
+			}, html.Text(parseCurrentItem.Text)),
 		)
 	}
 
-	options := make([]ui.Node, 0, len(listboxItems))
-	for index, item := range listboxItems {
-		currentIndex := index
-		currentItem := item
-		className := "rounded-[1.25rem] border px-4 py-3 text-left text-sm transition"
-		if listboxNav.IsActive(index) {
-			className += " border-emerald-400/40 bg-emerald-400/10 text-emerald-50"
+	parseOptions := make([]ui.Node, 0, len(listboxItems))
+	for parseIndex2, parseItem2 := range listboxItems {
+		parseCurrentIndex2 := parseIndex2
+		parseCurrentItem2 := parseItem2
+		parseClassName2 := "rounded-[1.25rem] border px-4 py-3 text-left text-sm transition"
+		if parseListboxNav.IsActive(parseIndex2) {
+			parseClassName2 += " border-emerald-400/40 bg-emerald-400/10 text-emerald-50"
 		} else {
-			className += " border-white/10 bg-slate-950/50 text-slate-200"
+			parseClassName2 += " border-white/10 bg-slate-950/50 text-slate-200"
 		}
-		options = append(options,
+		parseOptions = append(parseOptions,
 			html.Div(html.Props{
-				ID:    currentItem.ID,
+				ID:    parseCurrentItem2.ID,
 				Role:  "option",
-				Class: className,
+				Class: parseClassName2,
 				OnClick: ui.UseEvent(func() {
-					listboxNav.SetActive(currentIndex)
+					parseListboxNav.SetActive(parseCurrentIndex2)
 				}),
 				Aria: map[string]string{
-					"selected": map[bool]string{true: "true", false: "false"}[listboxNav.IsActive(index)],
+					"selected": map[bool]string{true: "true", false: "false"}[parseListboxNav.IsActive(parseIndex2)],
 				},
-			}, html.Text(currentItem.Text)),
+			}, html.Text(parseCurrentItem2.Text)),
 		)
 	}
 
@@ -102,10 +102,10 @@ func compositeNavigationExample() ui.Node {
 		"UseCompositeNavigation keeps the keyboard model reusable for tabs, listboxes, menus, and similar widgets. The page below applies the same hook to a roving-tabindex tablist and an aria-activedescendant listbox.",
 		shared.ExamplePanel("Tabs",
 			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("Focus any tab and use ArrowLeft, ArrowRight, Home, or End. The hook controls tabindex, selection state, and active-descendant data without owning the visual styling.")),
-			html.Div(html.Props{Role: "tablist", Class: "mt-6 flex flex-wrap gap-3"}, tabButtons...),
+			html.Div(html.Props{Role: "tablist", Class: "mt-6 flex flex-wrap gap-3"}, parseTabButtons...),
 			html.Div(html.Props{ID: "tab-panel", Role: "tabpanel", Class: "mt-6 rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6"},
-				html.H2(html.Props{Class: "text-2xl font-bold text-white"}, html.Text(selectedTab.Title)),
-				html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-300"}, html.Text(selectedTab.Summary)),
+				html.H2(html.Props{Class: "text-2xl font-bold text-white"}, html.Text(parseSelectedTab.Title)),
+				html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-300"}, html.Text(parseSelectedTab.Summary)),
 			),
 		),
 		shared.ExamplePanel("Listbox and typeahead",
@@ -114,15 +114,15 @@ func compositeNavigationExample() ui.Node {
 				ID:        "owner-listbox",
 				Role:      "listbox",
 				Class:     "mt-6 grid gap-3 rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-5",
-				OnKeyDown: listboxKeyDown,
+				OnKeyDown: parseListboxKeyDown,
 				Aria: map[string]string{
-					"activedescendant": listboxNav.ActiveDescendant(),
+					"activedescendant": parseListboxNav.ActiveDescendant(),
 				},
 				Raw: map[string]interface{}{"tabIndex": 0},
-			}, options...),
+			}, parseOptions...),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Active tab", selectedTab.Title),
-				shared.ExampleStat("Active owner", selectedOwner.Text),
+				shared.ExampleStat("Active tab", parseSelectedTab.Title),
+				shared.ExampleStat("Active owner", parseSelectedOwner.Text),
 			),
 		),
 	)

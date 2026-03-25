@@ -16,27 +16,27 @@ import (
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-func TestLoadFirstDotEnvAndRuntimeConfig(t *testing.T) {
-	loaded := []string{}
-	chosen := loadFirstDotEnv(func(path string) error {
-		loaded = append(loaded, path)
-		if path == "../.env" {
+func TestLoadFirstDotEnvAndRuntimeConfig(parseT *testing.T) {
+	parseLoaded := []string{}
+	parseChosen := parseLoadFirstDotEnv(func(parsePath string) error {
+		parseLoaded = append(parseLoaded, parsePath)
+		if parsePath == "../.env" {
 			return nil
 		}
-		return url.EscapeError(path)
+		return url.EscapeError(parsePath)
 	}, []string{".env", "../.env", "ignored.env"})
-	if chosen != "../.env" {
-		t.Fatalf("expected ../.env to be selected, got %q", chosen)
+	if parseChosen != "../.env" {
+		parseT.Fatalf("expected ../.env to be selected, got %q", parseChosen)
 	}
-	if len(loaded) != 2 {
-		t.Fatalf("expected loader to stop after first success, got %v", loaded)
+	if len(parseLoaded) != 2 {
+		parseT.Fatalf("expected loader to stop after first success, got %v", parseLoaded)
 	}
-	if got := loadFirstDotEnv(func(string) error { return url.EscapeError("miss") }, []string{"a.env"}); got != "" {
-		t.Fatalf("expected empty result when no env files load, got %q", got)
+	if parseGot := parseLoadFirstDotEnv(func(string) error { return url.EscapeError("miss") }, []string{"a.env"}); parseGot != "" {
+		parseT.Fatalf("expected empty result when no env files load, got %q", parseGot)
 	}
 
-	config := readServerRuntimeConfig(func(key string) string {
-		switch key {
+	parseConfig := parseReadServerRuntimeConfig(func(parseKey string) string {
+		switch parseKey {
 		case "OPENAI_API_KEY":
 			return " openai-key "
 		case "ANTHROPIC_API_KEY":
@@ -61,205 +61,208 @@ func TestLoadFirstDotEnvAndRuntimeConfig(t *testing.T) {
 			return ""
 		}
 	})
-	if config.openAIAPIKey != "openai-key" || config.anthropicAPIKey != "anthropic-key" || config.cerebrasAPIKey != "cerebras-key" {
-		t.Fatalf("unexpected API key trimming: %+v", config)
+	if parseConfig.openAIAPIKey != "openai-key" || parseConfig.anthropicAPIKey != "anthropic-key" || parseConfig.cerebrasAPIKey != "cerebras-key" {
+		parseT.Fatalf("unexpected API key trimming: %+v", parseConfig)
 	}
-	if len(config.stubProviders) != 2 || config.stubProviders[0] != "anthropic" || config.stubProviders[1] != "cerebras" {
-		t.Fatalf("unexpected stub provider config: %+v", config)
+	if len(parseConfig.stubProviders) != 2 || parseConfig.stubProviders[0] != "anthropic" || parseConfig.stubProviders[1] != "cerebras" {
+		parseT.Fatalf("unexpected stub provider config: %+v", parseConfig)
 	}
-	if config.defaultModel != "gpt-5.4-mini" || config.addr != "0.0.0.0:9999" || config.dbPath != "./chat.db" || config.authSecret != "secret" || config.usagePremiumPct != 7.5 {
-		t.Fatalf("unexpected runtime config values: %+v", config)
+	if parseConfig.defaultModel != "gpt-5.4-mini" || parseConfig.addr != "0.0.0.0:9999" || parseConfig.dbPath != "./chat.db" || parseConfig.authSecret != "secret" || parseConfig.usagePremiumPct != 7.5 {
+		parseT.Fatalf("unexpected runtime config values: %+v", parseConfig)
 	}
 
-	defaultConfig := readServerRuntimeConfig(func(string) string { return "" })
-	if defaultConfig.addr != "127.0.0.1:8095" || defaultConfig.dbPath != "examples/100-ai-chat-wizard/bin/runtime/chat_history.db" || defaultConfig.defaultModel != "" || defaultConfig.usagePremiumPct != 5 {
-		t.Fatalf("unexpected default runtime config: %+v", defaultConfig)
+	parseDefaultConfig := parseReadServerRuntimeConfig(func(string) string { return "" })
+	if parseDefaultConfig.addr != "127.0.0.1:8095" || parseDefaultConfig.dbPath != "examples/100-ai-chat-wizard/bin/runtime/chat_history.db" || parseDefaultConfig.defaultModel != "" || parseDefaultConfig.usagePremiumPct != 5 {
+		parseT.Fatalf("unexpected default runtime config: %+v", parseDefaultConfig)
 	}
-	if len(defaultConfig.stubProviders) != 0 {
-		t.Fatalf("expected default config to omit provider stubs, got %+v", defaultConfig)
+	if len(parseDefaultConfig.stubProviders) != 0 {
+		parseT.Fatalf("expected default config to omit provider stubs, got %+v", parseDefaultConfig)
 	}
 }
 
-func TestNewChatServiceServerSupportsProviderStubs(t *testing.T) {
-	store := newTestStore(t)
-	server := newChatServiceServer("", "", "", "", store, newTestLogger(), "anthropic", "cerebras")
+func TestNewChatServiceServerSupportsProviderStubs(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseServer := parseNewChatServiceServer("", "", "", "", store, parseNewTestLogger(), "anthropic", "cerebras")
 
-	resp, err := server.ListModelOptions(context.Background(), &chatpb.ListModelOptionsRequest{})
-	if err != nil {
-		t.Fatalf("ListModelOptions: %v", err)
+	parseResp, parseErr := parseServer.ParseListModelOptions(context.Background(), &chatpb.ListModelOptionsRequest{})
+	if parseErr != nil {
+		parseT.Fatalf("ListModelOptions: %v", parseErr)
 	}
-	if len(resp.GetModels()) == 0 {
-		t.Fatalf("expected stub-backed model options, got %+v", resp)
+	if len(parseResp.GetModels()) == 0 {
+		parseT.Fatalf("expected stub-backed model options, got %+v", parseResp)
 	}
-	if resp.GetDefaultModel() == "" {
-		t.Fatalf("expected default model from stub providers, got %+v", resp)
+	if parseResp.GetDefaultModel() == "" {
+		parseT.Fatalf("expected default model from stub providers, got %+v", parseResp)
 	}
-	providers := map[string]struct{}{}
-	for _, model := range resp.GetModels() {
-		providers[model.GetCapabilities().GetProviderId()] = struct{}{}
+	parseProviders := map[string]struct{}{}
+	for _, parseModel := range parseResp.GetModels() {
+		parseProviders[parseModel.GetCapabilities().GetProviderId()] = struct{}{}
 	}
-	if _, ok := providers["anthropic"]; !ok {
-		t.Fatalf("expected anthropic stub provider in model catalog, got %+v", resp)
+	if _, parseOk := parseProviders["anthropic"]; !parseOk {
+		parseT.Fatalf("expected anthropic stub provider in model catalog, got %+v", parseResp)
 	}
-	if _, ok := providers["cerebras"]; !ok {
-		t.Fatalf("expected cerebras stub provider in model catalog, got %+v", resp)
+	if _, parseOk2 := parseProviders["cerebras"]; !parseOk2 {
+		parseT.Fatalf("expected cerebras stub provider in model catalog, got %+v", parseResp)
 	}
 }
 
-func TestProviderStubRuntimeSupportsCrossProviderSelection(t *testing.T) {
-	store := newTestStore(t)
-	user := mustCreateUser(t, store, "stub-switch@example.com")
-	server := newChatServiceServer("", "", "", "", store, newTestLogger(), "anthropic", "cerebras")
-	ctx := bindAuthUser(server, "peer-stub-switch", user.ID, user.Email)
-	t.Cleanup(func() { server.unbindAuthenticatedPeer("peer-stub-switch") })
+func TestProviderStubRuntimeSupportsCrossProviderSelection(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "stub-switch@example.com")
+	parseServer := parseNewChatServiceServer("", "", "", "", store, parseNewTestLogger(), "anthropic", "cerebras")
+	parseCtx := parseBindAuthUser(parseServer, "peer-stub-switch", parseUser.ParseID, parseUser.Email)
+	parseT.Cleanup(func() { parseServer.parseUnbindAuthenticatedPeer("peer-stub-switch") })
 
-	if _, err := server.SetSelectedModel(ctx, wrapperspb.String("claude-sonnet-4-5")); err != nil {
-		t.Fatalf("SetSelectedModel anthropic stub: %v", err)
+	if _, parseErr := parseServer.SetSelectedModel(parseCtx, wrapperspb.String("claude-sonnet-4-5")); parseErr != nil {
+		parseT.Fatalf("SetSelectedModel anthropic stub: %v", parseErr)
 	}
-	selectedAnthropic, err := server.GetSelectedModel(ctx, &emptypb.Empty{})
-	if err != nil {
-		t.Fatalf("GetSelectedModel anthropic stub: %v", err)
+	parseSelectedAnthropic, parseErr2 := parseServer.GetSelectedModel(parseCtx, &emptypb.Empty{})
+	if parseErr2 != nil {
+		parseT.Fatalf("GetSelectedModel anthropic stub: %v", parseErr2)
 	}
-	if selectedAnthropic.GetValue() != "claude-sonnet-4-5" {
-		t.Fatalf("expected anthropic stub model selection, got %+v", selectedAnthropic)
+	if parseSelectedAnthropic.GetValue() != "claude-sonnet-4-5" {
+		parseT.Fatalf("expected anthropic stub model selection, got %+v", parseSelectedAnthropic)
 	}
 
-	if _, err := server.SetSelectedModel(ctx, wrapperspb.String("gpt-oss-120b")); err != nil {
-		t.Fatalf("SetSelectedModel cerebras stub: %v", err)
+	if _, parseErr3 := parseServer.SetSelectedModel(parseCtx, wrapperspb.String("gpt-oss-120b")); parseErr3 != nil {
+		parseT.Fatalf("SetSelectedModel cerebras stub: %v", parseErr3)
 	}
-	selectedCerebras, err := server.GetSelectedModel(ctx, &emptypb.Empty{})
-	if err != nil {
-		t.Fatalf("GetSelectedModel cerebras stub: %v", err)
+	parseSelectedCerebras, parseErr2 := parseServer.GetSelectedModel(parseCtx, &emptypb.Empty{})
+	if parseErr2 != nil {
+		parseT.Fatalf("GetSelectedModel cerebras stub: %v", parseErr2)
 	}
-	if selectedCerebras.GetValue() != "gpt-oss-120b" {
-		t.Fatalf("expected cerebras stub model selection, got %+v", selectedCerebras)
+	if parseSelectedCerebras.GetValue() != "gpt-oss-120b" {
+		parseT.Fatalf("expected cerebras stub model selection, got %+v", parseSelectedCerebras)
 	}
 }
 
-func TestChatServerAuthRPCs(t *testing.T) {
-	store := newTestStore(t)
-	auth := newAuthManager("test-secret", store, newTestLogger())
-	server := newChatServiceServer("", "", "", modelGPT54Mini, store, newTestLogger())
-	server.authManager = auth
+func TestChatServerAuthRPCs(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseAuth := parseNewAuthManager("test-secret", store, parseNewTestLogger())
+	parseServer := parseNewChatServiceServer("", "", "", modelGPT54Mini, store, parseNewTestLogger())
+	parseServer.authManager = parseAuth
 
-	signupResp, err := server.Signup(context.Background(), &chatpb.SignupRequest{
+	parseSignupResp, parseErr := parseServer.ParseSignup(context.Background(), &chatpb.SignupRequest{
 		Email:       "startup@example.com",
 		Password:    "password123",
 		DisplayName: "Startup",
 	})
-	if err != nil {
-		t.Fatalf("Signup: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("Signup: %v", parseErr)
 	}
-	if signupResp.GetAuthToken() == "" || signupResp.GetEmail() != "startup@example.com" || signupResp.GetDisplayName() != "Startup" {
-		t.Fatalf("unexpected signup response: %+v", signupResp)
+	if parseSignupResp.GetAuthToken() == "" || parseSignupResp.GetEmail() != "startup@example.com" || parseSignupResp.GetDisplayName() != "Startup" {
+		parseT.Fatalf("unexpected signup response: %+v", parseSignupResp)
 	}
 
-	_, err = server.Signup(context.Background(), &chatpb.SignupRequest{
+	_, parseErr = parseServer.ParseSignup(context.Background(), &chatpb.SignupRequest{
 		Email:    "startup@example.com",
 		Password: "password123",
 	})
-	if status.Code(err) != codes.AlreadyExists {
-		t.Fatalf("expected duplicate signup to return AlreadyExists, got %v", status.Code(err))
+	if status.Code(parseErr) != codes.AlreadyExists {
+		parseT.Fatalf("expected duplicate signup to return AlreadyExists, got %v", status.Code(parseErr))
 	}
 
-	_, err = server.Login(context.Background(), &chatpb.LoginRequest{
+	_, parseErr = parseServer.ParseLogin(context.Background(), &chatpb.LoginRequest{
 		Email:    "startup@example.com",
 		Password: "wrong",
 	})
-	if status.Code(err) != codes.Unauthenticated {
-		t.Fatalf("expected invalid login to return Unauthenticated, got %v", status.Code(err))
+	if status.Code(parseErr) != codes.Unauthenticated {
+		parseT.Fatalf("expected invalid login to return Unauthenticated, got %v", status.Code(parseErr))
 	}
 
-	loginResp, err := server.Login(context.Background(), &chatpb.LoginRequest{
+	parseLoginResp, parseErr := parseServer.ParseLogin(context.Background(), &chatpb.LoginRequest{
 		Email:    "startup@example.com",
 		Password: "password123",
 	})
-	if err != nil {
-		t.Fatalf("Login: %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("Login: %v", parseErr)
 	}
-	if loginResp.GetAuthToken() == "" || loginResp.GetEmail() != "startup@example.com" {
-		t.Fatalf("unexpected login response: %+v", loginResp)
-	}
-
-	unauthSession, err := server.GetSession(context.Background(), &emptypb.Empty{})
-	if err != nil {
-		t.Fatalf("GetSession unauthenticated: %v", err)
-	}
-	if unauthSession.GetAuthenticated() {
-		t.Fatalf("expected empty session without metadata auth, got %+v", unauthSession)
+	if parseLoginResp.GetAuthToken() == "" || parseLoginResp.GetEmail() != "startup@example.com" {
+		parseT.Fatalf("unexpected login response: %+v", parseLoginResp)
 	}
 
-	authCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(authMetadataKey, "Bearer "+loginResp.GetAuthToken()))
-	session, err := server.GetSession(authCtx, &emptypb.Empty{})
-	if err != nil {
-		t.Fatalf("GetSession authenticated: %v", err)
+	parseUnauthSession, parseErr := parseServer.GetSession(context.Background(), &emptypb.Empty{})
+	if parseErr != nil {
+		parseT.Fatalf("GetSession unauthenticated: %v", parseErr)
 	}
-	if !session.GetAuthenticated() || session.GetEmail() != "startup@example.com" || session.GetDisplayName() != "Startup" {
-		t.Fatalf("unexpected authenticated session: %+v", session)
-	}
-
-	refreshResp, err := server.RefreshSession(authCtx, &emptypb.Empty{})
-	if err != nil {
-		t.Fatalf("RefreshSession authenticated: %v", err)
-	}
-	if refreshResp.GetAuthToken() == "" || refreshResp.GetEmail() != "startup@example.com" || refreshResp.GetDisplayName() != "Startup" {
-		t.Fatalf("unexpected refresh response: %+v", refreshResp)
+	if parseUnauthSession.GetAuthenticated() {
+		parseT.Fatalf("expected empty session without metadata auth, got %+v", parseUnauthSession)
 	}
 
-	_, err = server.RefreshSession(context.Background(), &emptypb.Empty{})
-	if status.Code(err) != codes.Unauthenticated {
-		t.Fatalf("expected RefreshSession without auth to be unauthenticated, got %v", status.Code(err))
+	parseAuthCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(authMetadataKey, "Bearer "+parseLoginResp.GetAuthToken()))
+	parseSession, parseErr := parseServer.GetSession(parseAuthCtx, &emptypb.Empty{})
+	if parseErr != nil {
+		parseT.Fatalf("GetSession authenticated: %v", parseErr)
+	}
+	if !parseSession.GetAuthenticated() || parseSession.GetEmail() != "startup@example.com" || parseSession.GetDisplayName() != "Startup" {
+		parseT.Fatalf("unexpected authenticated session: %+v", parseSession)
 	}
 
-	if _, err := server.Logout(authCtx, &emptypb.Empty{}); err != nil {
-		t.Fatalf("Logout: %v", err)
+	parseRefreshResp, parseErr := parseServer.ParseRefreshSession(parseAuthCtx, &emptypb.Empty{})
+	if parseErr != nil {
+		parseT.Fatalf("RefreshSession authenticated: %v", parseErr)
+	}
+	if parseRefreshResp.GetAuthToken() == "" || parseRefreshResp.GetEmail() != "startup@example.com" || parseRefreshResp.GetDisplayName() != "Startup" {
+		parseT.Fatalf("unexpected refresh response: %+v", parseRefreshResp)
+	}
+
+	_, parseErr = parseServer.ParseRefreshSession(context.Background(), &emptypb.Empty{})
+	if status.Code(parseErr) != codes.Unauthenticated {
+		parseT.Fatalf("expected RefreshSession without auth to be unauthenticated, got %v", status.Code(parseErr))
+	}
+
+	if _, parseErr2 := parseServer.ParseLogout(parseAuthCtx, &emptypb.Empty{}); parseErr2 != nil {
+		parseT.Fatalf("Logout: %v", parseErr2)
 	}
 }
 
-func TestChatShellHandler(t *testing.T) {
-	fileServer := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("asset:" + r.URL.Path))
+func TestChatShellHandler(parseT *testing.T) {
+	parseFileServer := http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseW.Write([]byte("asset:" + parseR.URL.Path))
 	})
-	handler := chatShellHandler(fileServer)
+	parseHandler := parseChatShellHandler(parseFileServer)
 
-	unauthResp := httptest.NewRecorder()
-	handler.ServeHTTP(unauthResp, httptest.NewRequest(http.MethodGet, "http://example.com/", nil))
-	if unauthResp.Code != http.StatusOK || !strings.Contains(unauthResp.Body.String(), "Setting up your workspace") {
-		t.Fatalf("expected public shell content, got code=%d body=%q", unauthResp.Code, unauthResp.Body.String())
+	parseUnauthResp := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseUnauthResp, httptest.NewRequest(http.MethodGet, "http://example.com/", nil))
+	parseUnauthBody := parseUnauthResp.Body.ParseString()
+	if parseUnauthResp.Code != http.StatusOK || !strings.Contains(parseUnauthBody, `id="boot-shell"`) || !strings.Contains(parseUnauthBody, "chat-bootstrap.js") {
+		parseT.Fatalf("expected public shell content, got code=%d body=%q", parseUnauthResp.Code, parseUnauthResp.Body.ParseString())
 	}
 
-	bootstrapReq := httptest.NewRequest(http.MethodGet, "http://example.com/chat-bootstrap.js", nil)
-	bootstrapResp := httptest.NewRecorder()
-	handler.ServeHTTP(bootstrapResp, bootstrapReq)
-	if bootstrapResp.Code != http.StatusOK || !strings.Contains(bootstrapResp.Body.String(), "loadChatWasm") {
-		t.Fatalf("expected bootstrap response, got code=%d body=%q", bootstrapResp.Code, bootstrapResp.Body.String())
+	parseBootstrapReq := httptest.NewRequest(http.MethodGet, "http://example.com/chat-bootstrap.js", nil)
+	parseBootstrapResp := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseBootstrapResp, parseBootstrapReq)
+	if parseBootstrapResp.Code != http.StatusOK || !strings.Contains(parseBootstrapResp.Body.ParseString(), "loadChatWasm") {
+		parseT.Fatalf("expected bootstrap response, got code=%d body=%q", parseBootstrapResp.Code, parseBootstrapResp.Body.ParseString())
 	}
 
-	deepLinkReq := httptest.NewRequest(http.MethodGet, "http://example.com/thread/42", nil)
-	deepLinkResp := httptest.NewRecorder()
-	handler.ServeHTTP(deepLinkResp, deepLinkReq)
-	if deepLinkResp.Code != http.StatusOK || !strings.Contains(deepLinkResp.Body.String(), "Setting up your workspace") {
-		t.Fatalf("expected thread deep-link shell content, got code=%d body=%q", deepLinkResp.Code, deepLinkResp.Body.String())
+	parseDeepLinkReq := httptest.NewRequest(http.MethodGet, "http://example.com/thread/42", nil)
+	parseDeepLinkResp := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseDeepLinkResp, parseDeepLinkReq)
+	parseDeepLinkBody := parseDeepLinkResp.Body.ParseString()
+	if parseDeepLinkResp.Code != http.StatusOK || !strings.Contains(parseDeepLinkBody, `id="boot-shell"`) || !strings.Contains(parseDeepLinkBody, "chat-bootstrap.js") {
+		parseT.Fatalf("expected thread deep-link shell content, got code=%d body=%q", parseDeepLinkResp.Code, parseDeepLinkResp.Body.ParseString())
 	}
 
-	assetReq := httptest.NewRequest(http.MethodGet, "http://example.com/app/chat.wasm", nil)
-	assetResp := httptest.NewRecorder()
-	handler.ServeHTTP(assetResp, assetReq)
-	if assetResp.Code != http.StatusOK || assetResp.Body.String() != "asset:/app/chat.wasm" {
-		t.Fatalf("expected file server fallback, got code=%d body=%q", assetResp.Code, assetResp.Body.String())
+	parseAssetReq := httptest.NewRequest(http.MethodGet, "http://example.com/app/chat.wasm", nil)
+	parseAssetResp := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseAssetResp, parseAssetReq)
+	if parseAssetResp.Code != http.StatusOK || parseAssetResp.Body.ParseString() != "asset:/app/chat.wasm" {
+		parseT.Fatalf("expected file server fallback, got code=%d body=%q", parseAssetResp.Code, parseAssetResp.Body.ParseString())
 	}
 
-	legacyAssetReq := httptest.NewRequest(http.MethodGet, "http://example.com/chat.wasm?br=true", nil)
-	legacyAssetResp := httptest.NewRecorder()
-	handler.ServeHTTP(legacyAssetResp, legacyAssetReq)
-	if legacyAssetResp.Code != http.StatusOK || legacyAssetResp.Body.String() != "asset:/app/chat.wasm" {
-		t.Fatalf("expected legacy wasm path rewrite, got code=%d body=%q", legacyAssetResp.Code, legacyAssetResp.Body.String())
+	parseLegacyAssetReq := httptest.NewRequest(http.MethodGet, "http://example.com/chat.wasm?br=true", nil)
+	parseLegacyAssetResp := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseLegacyAssetResp, parseLegacyAssetReq)
+	if parseLegacyAssetResp.Code != http.StatusOK || parseLegacyAssetResp.Body.ParseString() != "asset:/app/chat.wasm" {
+		parseT.Fatalf("expected legacy wasm path rewrite, got code=%d body=%q", parseLegacyAssetResp.Code, parseLegacyAssetResp.Body.ParseString())
 	}
 
-	legacyRouteReq := httptest.NewRequest(http.MethodGet, "http://example.com/login", nil)
-	legacyRouteResp := httptest.NewRecorder()
-	handler.ServeHTTP(legacyRouteResp, legacyRouteReq)
-	if legacyRouteResp.Code != http.StatusOK || !strings.Contains(legacyRouteResp.Body.String(), "Setting up your workspace") {
-		t.Fatalf("expected legacy auth route to resolve to the client shell, got code=%d body=%q", legacyRouteResp.Code, legacyRouteResp.Body.String())
+	parseLegacyRouteReq := httptest.NewRequest(http.MethodGet, "http://example.com/login", nil)
+	parseLegacyRouteResp := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseLegacyRouteResp, parseLegacyRouteReq)
+	parseLegacyRouteBody := parseLegacyRouteResp.Body.ParseString()
+	if parseLegacyRouteResp.Code != http.StatusOK || !strings.Contains(parseLegacyRouteBody, `id="boot-shell"`) || !strings.Contains(parseLegacyRouteBody, "chat-bootstrap.js") {
+		parseT.Fatalf("expected legacy auth route to resolve to the client shell, got code=%d body=%q", parseLegacyRouteResp.Code, parseLegacyRouteResp.Body.ParseString())
 	}
 }

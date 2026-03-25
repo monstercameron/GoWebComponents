@@ -64,35 +64,36 @@ type HTTPError struct {
 	Headers    map[string]string
 }
 
-func (e HTTPError) Error() string {
-	if e.Status <= 0 {
+// Error is a core package helper.
+func (parseE HTTPError) Error() string {
+	if parseE.Status <= 0 {
 		return "request failed"
 	}
-	if statusText := strings.TrimSpace(e.StatusText); statusText != "" {
-		return fmt.Sprintf("request failed with status %d %s", e.Status, statusText)
+	if parseStatusText := strings.TrimSpace(parseE.StatusText); parseStatusText != "" {
+		return fmt.Sprintf("request failed with status %d %s", parseE.Status, parseStatusText)
 	}
-	return fmt.Sprintf("request failed with status %d", e.Status)
+	return fmt.Sprintf("request failed with status %d", parseE.Status)
 }
 
 // Text returns the response body when it is string-backed.
-func (r Result) Text() string {
-	if text, ok := r.Data.(string); ok {
-		return text
+func (parseR Result) Text() string {
+	if parseText, parseOk := parseR.Data.(string); parseOk {
+		return parseText
 	}
-	return fmt.Sprint(r.Data)
+	return fmt.Sprint(parseR.Data)
 }
 
 // DecodeJSON decodes a string-backed response body into target.
-func (r Result) DecodeJSON(target interface{}) error {
-	if target == nil {
+func (parseR Result) DecodeJSON(parseTarget interface{}) error {
+	if parseTarget == nil {
 		return errors.New("decode target is nil")
 	}
-	body := strings.TrimSpace(r.Text())
-	if body == "" {
+	parseBody := strings.TrimSpace(parseR.Text())
+	if parseBody == "" {
 		return errors.New("response body is empty")
 	}
-	if err := json.Unmarshal([]byte(body), target); err != nil {
-		return fmt.Errorf("decode response json: %w", err)
+	if parseErr := json.Unmarshal([]byte(parseBody), parseTarget); parseErr != nil {
+		return fmt.Errorf("decode response json: %w", parseErr)
 	}
 	return nil
 }
@@ -120,23 +121,23 @@ type AsyncResource[T any] struct {
 
 // UseFetch is a hook that simplifies data fetching within a component.
 // It uses the runtime fetch hook directly.
-func UseFetch(url string, options ...Options) Resource {
-	args := make([]interface{}, len(options))
-	for i, opt := range options {
-		args[i] = opt
+func UseFetch(parseUrl string, parseOptions ...Options) Resource {
+	parseArgs := make([]interface{}, len(parseOptions))
+	for parseI, parseOpt := range parseOptions {
+		parseArgs[parseI] = parseOpt
 	}
-	get, refetch := runtime.GoUseFetch(url, args...)
-	return Resource{get: get, refetch: refetch}
+	get, parseRefetch := runtime.GoUseFetch(parseUrl, parseArgs...)
+	return Resource{get: get, refetch: parseRefetch}
 }
 
 // Get returns the current low-level fetch state.
-func (r Resource) Get() State {
-	return r.get()
+func (parseR Resource) Get() State {
+	return parseR.get()
 }
 
 // Refetch restarts the underlying fetch request.
-func (r Resource) Refetch() {
-	r.refetch()
+func (parseR Resource) Refetch() {
+	parseR.refetch()
 }
 
 // UseResource provides a typed async resource hook driven by a Go loader.
@@ -144,467 +145,472 @@ func (r Resource) Refetch() {
 // The loader runs on mount and whenever deps or the reload token change. It
 // receives a context that is cancelled when the component unmounts, the
 // dependency list changes, or Cancel is called on the returned handle.
-func UseResource[T any](loader func(context.Context) (T, error), deps ...interface{}) AsyncResource[T] {
-	state := ui.UseState(ResourceState[T]{})
-	reloadTick := ui.UseState(0)
-	cancelRef := ui.UseRef((context.CancelFunc)(nil))
-	requestSeq := ui.UseRef(0)
+func UseResource[T any](parseLoader func(context.Context) (T, error), parseDeps ...interface{}) AsyncResource[T] {
+	parseState := ui.UseState(ResourceState[T]{})
+	parseReloadTick := ui.UseState(0)
+	parseCancelRef := ui.UseRef((context.CancelFunc)(nil))
+	parseRequestSeq := ui.UseRef(0)
 
-	startLoad := func() {
-		if cancel := cancelRef.Get(); cancel != nil {
-			cancel()
+	parseStartLoad := func() {
+		if parseCancel := parseCancelRef.Get(); parseCancel != nil {
+			parseCancel()
 		}
 
-		requestSeq.Set(requestSeq.Get() + 1)
-		seq := requestSeq.Get()
-		ctx, cancel := context.WithCancel(context.Background())
-		cancelRef.Set(cancel)
+		parseRequestSeq.Set(parseRequestSeq.Get() + 1)
+		parseSeq := parseRequestSeq.Get()
+		parseCtx, parseCancel2 := context.WithCancel(context.Background())
+		parseCancelRef.Set(parseCancel2)
 
-		state.Update(func(prev ResourceState[T]) ResourceState[T] {
-			prev.Loading = true
-			prev.Error = nil
-			return prev
+		parseState.Update(func(parsePrev ResourceState[T]) ResourceState[T] {
+			parsePrev.Loading = true
+			parsePrev.Error = nil
+			return parsePrev
 		})
 
 		go func() {
-			value, err := loader(ctx)
-			if ctx.Err() != nil || requestSeq.Get() != seq {
+			parseValue, parseErr := parseLoader(parseCtx)
+			if parseCtx.Err() != nil || parseRequestSeq.Get() != parseSeq {
 				return
 			}
 
-			state.Set(ResourceState[T]{
-				Value:   value,
+			parseState.Set(ResourceState[T]{
+				Value:   parseValue,
 				Loading: false,
-				Error:   err,
-				Ready:   err == nil,
+				Error:   parseErr,
+				Ready:   parseErr == nil,
 			})
 		}()
 	}
 
-	effectDeps := make([]interface{}, 0, len(deps)+1)
-	effectDeps = append(effectDeps, reloadTick.Get())
-	effectDeps = append(effectDeps, deps...)
+	parseEffectDeps := make([]interface{}, 0, len(parseDeps)+1)
+	parseEffectDeps = append(parseEffectDeps, parseReloadTick.Get())
+	parseEffectDeps = append(parseEffectDeps, parseDeps...)
 
 	ui.UseEffect(func() func() {
-		startLoad()
+		parseStartLoad()
 		return func() {
-			if cancel := cancelRef.Get(); cancel != nil {
-				cancel()
-				cancelRef.Set(nil)
+			if parseCancel3 := parseCancelRef.Get(); parseCancel3 != nil {
+				parseCancel3()
+				parseCancelRef.Set(nil)
 			}
 		}
-	}, effectDeps...)
+	}, parseEffectDeps...)
 
 	return AsyncResource[T]{
-		get: func() ResourceState[T] { return state.Get() },
+		get: func() ResourceState[T] { return parseState.Get() },
 		reload: func() {
-			reloadTick.Update(func(prev int) int { return prev + 1 })
+			parseReloadTick.Update(func(parsePrev2 int) int { return parsePrev2 + 1 })
 		},
 		cancel: func() {
-			if cancel := cancelRef.Get(); cancel != nil {
-				cancel()
-				cancelRef.Set(nil)
+			if parseCancel4 := parseCancelRef.Get(); parseCancel4 != nil {
+				parseCancel4()
+				parseCancelRef.Set(nil)
 			}
-			state.Update(func(prev ResourceState[T]) ResourceState[T] {
-				prev.Loading = false
-				return prev
+			parseState.Update(func(parsePrev3 ResourceState[T]) ResourceState[T] {
+				parsePrev3.Loading = false
+				return parsePrev3
 			})
 		},
 	}
 }
 
 // Get returns the current typed resource state.
-func (r AsyncResource[T]) Get() ResourceState[T] {
-	if r.get == nil {
-		var zero ResourceState[T]
-		return zero
+func (parseR AsyncResource[T]) Get() ResourceState[T] {
+	if parseR.get == nil {
+		var parseZero ResourceState[T]
+		return parseZero
 	}
 
-	return r.get()
+	return parseR.get()
 }
 
 // Reload starts a new resource load.
-func (r AsyncResource[T]) Reload() {
-	if r.reload != nil {
-		r.reload()
+func (parseR AsyncResource[T]) Reload() {
+	if parseR.reload != nil {
+		parseR.reload()
 	}
 }
 
 // Cancel cancels the active resource load, if any.
-func (r AsyncResource[T]) Cancel() {
-	if r.cancel != nil {
-		r.cancel()
+func (parseR AsyncResource[T]) Cancel() {
+	if parseR.cancel != nil {
+		parseR.cancel()
 	}
 }
 
 // Fetch performs an asynchronous HTTP fetch operation and returns a channel for the result.
 // This uses the browser Fetch API from WASM; it currently returns the response body as text.
-func Fetch(url string, options Options) <-chan Result {
-	ch := make(chan Result, 1)
+func Fetch(parseUrl string, parseOptions Options) <-chan Result {
+	parseCh := make(chan Result, 1)
 
 	go func() {
-		fetchFunction := js.Global().Get("fetch")
-		if !fetchFunction.Truthy() {
-			ch <- Result{Err: errors.New("fetch API unavailable in this environment")}
+		parseFetchFunction := js.Global().Get("fetch")
+		if !parseFetchFunction.Truthy() {
+			parseCh <- Result{Err: errors.New("fetch API unavailable in this environment")}
 			return
 		}
 
-		requestOptions := js.Global().Get("Object").New()
+		parseRequestOptions := js.Global().Get("Object").New()
 
-		method := options.Method
-		if method == "" {
-			method = "GET"
+		parseMethod := parseOptions.Method
+		if parseMethod == "" {
+			parseMethod = "GET"
 		}
-		requestOptions.Set("method", method)
+		parseRequestOptions.Set("method", parseMethod)
 
-		bodyValue, isFormData, err := bodyToJSValue(options.Body)
-		if err != nil {
-			ch <- Result{Err: err}
+		parseBodyValue, isFormData, parseErr := bodyToJSValue(parseOptions.Body)
+		if parseErr != nil {
+			parseCh <- Result{Err: parseErr}
 			return
 		}
 
-		if options.Headers != nil {
-			headers := js.Global().Get("Object").New()
-			for k, v := range options.Headers {
-				if isFormData && strings.EqualFold(k, "Content-Type") {
+		if parseOptions.Headers != nil {
+			parseHeaders := js.Global().Get("Object").New()
+			for parseK, parseV := range parseOptions.Headers {
+				if isFormData && strings.EqualFold(parseK, "Content-Type") {
 					continue
 				}
-				headers.Set(k, fmt.Sprint(v))
+				parseHeaders.Set(parseK, fmt.Sprint(parseV))
 			}
-			requestOptions.Set("headers", headers)
+			parseRequestOptions.Set("headers", parseHeaders)
 		}
 
-		if !bodyValue.IsUndefined() && !bodyValue.IsNull() {
-			requestOptions.Set("body", bodyValue)
+		if !parseBodyValue.IsUndefined() && !parseBodyValue.IsNull() {
+			parseRequestOptions.Set("body", parseBodyValue)
 		}
 
-		promise := fetchFunction.Invoke(url, requestOptions)
+		parsePromise := parseFetchFunction.Invoke(parseUrl, parseRequestOptions)
 
-		var bodyThen js.Func
-		var bodyCatch js.Func
-		var resolve js.Func
-		var reject js.Func
+		var parseBodyThen js.Func
+		var parseBodyCatch js.Func
+		var parseResolve js.Func
+		var parseReject js.Func
 
-		resolve = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			defer resolve.Release()
-			defer reject.Release()
+		parseResolve = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			defer parseResolve.Release()
+			defer parseReject.Release()
 
-			resp := args[0]
-			status := resp.Get("status").Int()
-			statusText := resp.Get("statusText").String()
-			headers := responseHeadersToMap(resp.Get("headers"))
-			textPromise := resp.Call("text")
+			parseResp := parseArgs[0]
+			parseStatus := parseResp.Get("status").Int()
+			parseStatusText := parseResp.Get("statusText").String()
+			parseHeaders2 := responseHeadersToMap(parseResp.Get("headers"))
+			parseTextPromise := parseResp.Call("text")
 
-			bodyThen = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				defer bodyThen.Release()
-				defer bodyCatch.Release()
-				result := Result{
-					Status:  status,
-					Headers: headers,
+			parseBodyThen = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+				defer parseBodyThen.Release()
+				defer parseBodyCatch.Release()
+				parseResult := Result{
+					Status:  parseStatus,
+					Headers: parseHeaders2,
 				}
-				if len(args) > 0 {
-					result.Data = args[0].String()
-					if status < 200 || status >= 300 {
-						result.Err = HTTPError{Status: status, StatusText: statusText, Body: result.Text(), Headers: headers}
+				if len(parseArgs2) > 0 {
+					parseResult.Data = parseArgs2[0].String()
+					if parseStatus < 200 || parseStatus >= 300 {
+						parseResult.Err = HTTPError{Status: parseStatus, StatusText: parseStatusText, Body: parseResult.Text(), Headers: parseHeaders2}
 					}
-					ch <- result
+					parseCh <- parseResult
 					return nil
 				}
-				result.Err = errors.New("empty response from fetch")
-				ch <- result
+				parseResult.Err = errors.New("empty response from fetch")
+				parseCh <- parseResult
 				return nil
 			})
 
-			bodyCatch = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				defer bodyThen.Release()
-				defer bodyCatch.Release()
-				ch <- Result{
-					Status:  status,
-					Headers: headers,
-					Err:     fmt.Errorf("failed to read body: %v", args),
+			parseBodyCatch = js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+				defer parseBodyThen.Release()
+				defer parseBodyCatch.Release()
+				parseCh <- Result{
+					Status:  parseStatus,
+					Headers: parseHeaders2,
+					Err:     fmt.Errorf("failed to read body: %v", parseArgs3),
 				}
 				return nil
 			})
 
-			textPromise.Call("then", bodyThen)
-			textPromise.Call("catch", bodyCatch)
+			parseTextPromise.Call("then", parseBodyThen)
+			parseTextPromise.Call("catch", parseBodyCatch)
 			return nil
 		})
 
-		reject = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			defer resolve.Release()
-			defer reject.Release()
-			ch <- Result{Err: fmt.Errorf("fetch failed: %v", args)}
+		parseReject = js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			defer parseResolve.Release()
+			defer parseReject.Release()
+			parseCh <- Result{Err: fmt.Errorf("fetch failed: %v", parseArgs4)}
 			return nil
 		})
 
-		promise.Call("then", resolve)
-		promise.Call("catch", reject)
+		parsePromise.Call("then", parseResolve)
+		parsePromise.Call("catch", parseReject)
 	}()
 
-	return ch
+	return parseCh
 }
 
 // Upload performs an XHR-backed upload so callers can observe progress and cancel through context.
-func Upload(ctx context.Context, url string, options Options) <-chan UploadUpdate {
-	ch := make(chan UploadUpdate, 8)
+func Upload(parseCtx context.Context, parseUrl string, parseOptions Options) <-chan UploadUpdate {
+	parseCh := make(chan UploadUpdate, 8)
 
 	go func() {
-		xhrCtor := js.Global().Get("XMLHttpRequest")
-		if !xhrCtor.Truthy() {
-			ch <- UploadUpdate{Done: true, Result: Result{Err: errors.New("XMLHttpRequest unavailable in this environment")}}
-			close(ch)
+		parseXhrCtor := js.Global().Get("XMLHttpRequest")
+		if !parseXhrCtor.Truthy() {
+			parseCh <- UploadUpdate{Done: true, Result: Result{Err: errors.New("XMLHttpRequest unavailable in this environment")}}
+			close(parseCh)
 			return
 		}
 
-		bodyValue, isFormData, err := bodyToJSValue(options.Body)
-		if err != nil {
-			ch <- UploadUpdate{Done: true, Result: Result{Err: err}}
-			close(ch)
+		parseBodyValue, isFormData, parseErr := bodyToJSValue(parseOptions.Body)
+		if parseErr != nil {
+			parseCh <- UploadUpdate{Done: true, Result: Result{Err: parseErr}}
+			close(parseCh)
 			return
 		}
 
-		xhr := xhrCtor.New()
-		method := options.Method
-		if method == "" {
-			method = "POST"
+		parseXhr := parseXhrCtor.New()
+		parseMethod := parseOptions.Method
+		if parseMethod == "" {
+			parseMethod = "POST"
 		}
-		xhr.Call("open", method, url, true)
-		if options.Headers != nil {
-			for k, v := range options.Headers {
-				if isFormData && strings.EqualFold(k, "Content-Type") {
+		parseXhr.Call("open", parseMethod, parseUrl, true)
+		if parseOptions.Headers != nil {
+			for parseK, parseV := range parseOptions.Headers {
+				if isFormData && strings.EqualFold(parseK, "Content-Type") {
 					continue
 				}
-				xhr.Call("setRequestHeader", k, fmt.Sprint(v))
+				parseXhr.Call("setRequestHeader", parseK, fmt.Sprint(parseV))
 			}
 		}
 
-		var progressFn js.Func
-		var loadFn js.Func
-		var errorFn js.Func
-		var abortFn js.Func
-		var progressRegistered bool
-		var loadRegistered bool
-		var errorRegistered bool
-		var abortRegistered bool
-		var once sync.Once
-		done := make(chan struct{})
-		cleanup := func() {
-			if progressRegistered {
-				progressFn.Release()
+		var parseProgressFn js.Func
+		var parseLoadFn js.Func
+		var parseErrorFn js.Func
+		var parseAbortFn js.Func
+		var isProgressRegistered bool
+		var isLoadRegistered bool
+		var isErrorRegistered bool
+		var isAbortRegistered bool
+		var parseOnce sync.Once
+		parseDone := make(chan struct{})
+		parseCleanup := func() {
+			if isProgressRegistered {
+				parseProgressFn.Release()
 			}
-			if loadRegistered {
-				loadFn.Release()
+			if isLoadRegistered {
+				parseLoadFn.Release()
 			}
-			if errorRegistered {
-				errorFn.Release()
+			if isErrorRegistered {
+				parseErrorFn.Release()
 			}
-			if abortRegistered {
-				abortFn.Release()
+			if isAbortRegistered {
+				parseAbortFn.Release()
 			}
 		}
-		finalize := func(update UploadUpdate) {
-			once.Do(func() {
-				close(done)
-				ch <- update
-				close(ch)
-				cleanup()
+		parseFinalize := func(parseUpdate2 UploadUpdate) {
+			parseOnce.Do(func() {
+				close(parseDone)
+				parseCh <- parseUpdate2
+				close(parseCh)
+				parseCleanup()
 			})
 		}
 
-		progressFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			if len(args) == 0 {
+		parseProgressFn = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			if len(parseArgs) == 0 {
 				return nil
 			}
-			event := args[0]
-			update := UploadUpdate{
-				Loaded:           int64(event.Get("loaded").Float()),
-				Total:            int64(event.Get("total").Float()),
-				LengthComputable: event.Get("lengthComputable").Truthy(),
+			parseEvent := parseArgs[0]
+			parseUpdate := UploadUpdate{
+				Loaded:           int64(parseEvent.Get("loaded").Float()),
+				Total:            int64(parseEvent.Get("total").Float()),
+				LengthComputable: parseEvent.Get("lengthComputable").Truthy(),
 			}
 			select {
-			case ch <- update:
+			case parseCh <- parseUpdate:
 			default:
 			}
 			return nil
 		})
-		progressRegistered = true
+		isProgressRegistered = true
 
-		loadFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			status := xhr.Get("status").Int()
-			statusText := xhr.Get("statusText").String()
-			responseText := xhr.Get("responseText")
-			headers := parseRawHeaders(xhr.Call("getAllResponseHeaders").String())
-			result := Result{
-				Data:    responseText.String(),
-				Status:  status,
-				Headers: headers,
+		parseLoadFn = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			parseStatus := parseXhr.Get("status").Int()
+			parseStatusText := parseXhr.Get("statusText").String()
+			parseResponseText := parseXhr.Get("responseText")
+			parseHeaders := parseRawHeaders(parseXhr.Call("getAllResponseHeaders").String())
+			parseResult := Result{
+				Data:    parseResponseText.String(),
+				Status:  parseStatus,
+				Headers: parseHeaders,
 			}
-			if status < 200 || status >= 300 {
-				result.Err = HTTPError{Status: status, StatusText: statusText, Body: result.Text(), Headers: headers}
+			if parseStatus < 200 || parseStatus >= 300 {
+				parseResult.Err = HTTPError{Status: parseStatus, StatusText: parseStatusText, Body: parseResult.Text(), Headers: parseHeaders}
 			}
-			loaded, total, computable := progressFromEvent(args)
-			finalize(UploadUpdate{
-				Loaded:           loaded,
-				Total:            total,
-				LengthComputable: computable,
+			parseLoaded, parseTotal, parseComputable := progressFromEvent(parseArgs2)
+			parseFinalize(UploadUpdate{
+				Loaded:           parseLoaded,
+				Total:            parseTotal,
+				LengthComputable: parseComputable,
 				Done:             true,
-				Result:           result,
+				Result:           parseResult,
 			})
 			return nil
 		})
-		loadRegistered = true
+		isLoadRegistered = true
 
-		errorFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			finalize(UploadUpdate{Done: true, Result: Result{Err: errors.New("upload request failed")}})
+		parseErrorFn = js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			parseFinalize(UploadUpdate{Done: true, Result: Result{Err: errors.New("upload request failed")}})
 			return nil
 		})
-		errorRegistered = true
+		isErrorRegistered = true
 
-		abortFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			err := errors.New("upload aborted")
-			if ctx != nil && ctx.Err() != nil {
-				err = ctx.Err()
+		parseAbortFn = js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			parseErr2 := errors.New("upload aborted")
+			if parseCtx != nil && parseCtx.Err() != nil {
+				parseErr2 = parseCtx.Err()
 			}
-			finalize(UploadUpdate{Done: true, Result: Result{Err: err}})
+			parseFinalize(UploadUpdate{Done: true, Result: Result{Err: parseErr2}})
 			return nil
 		})
-		abortRegistered = true
+		isAbortRegistered = true
 
-		if upload := xhr.Get("upload"); upload.Truthy() {
-			upload.Call("addEventListener", "progress", progressFn)
+		if parseUpload := parseXhr.Get("upload"); parseUpload.Truthy() {
+			parseUpload.Call("addEventListener", "progress", parseProgressFn)
 		}
-		xhr.Call("addEventListener", "load", loadFn)
-		xhr.Call("addEventListener", "error", errorFn)
-		xhr.Call("addEventListener", "abort", abortFn)
+		parseXhr.Call("addEventListener", "load", parseLoadFn)
+		parseXhr.Call("addEventListener", "error", parseErrorFn)
+		parseXhr.Call("addEventListener", "abort", parseAbortFn)
 
-		if ctx != nil {
+		if parseCtx != nil {
 			go func() {
 				select {
-				case <-ctx.Done():
-					xhr.Call("abort")
-				case <-done:
+				case <-parseCtx.Done():
+					parseXhr.Call("abort")
+				case <-parseDone:
 				}
 			}()
 		}
 
-		if !bodyValue.IsUndefined() && !bodyValue.IsNull() {
-			xhr.Call("send", bodyValue)
+		if !parseBodyValue.IsUndefined() && !parseBodyValue.IsNull() {
+			parseXhr.Call("send", parseBodyValue)
 		} else {
-			xhr.Call("send")
+			parseXhr.Call("send")
 		}
 	}()
 
-	return ch
+	return parseCh
 }
 
-func responseHeadersToMap(headers js.Value) map[string]string {
-	if headers.IsUndefined() || headers.IsNull() {
+// responseHeadersToMap is a core package helper.
+func responseHeadersToMap(parseHeaders js.Value) map[string]string {
+	if parseHeaders.IsUndefined() || parseHeaders.IsNull() {
 		return nil
 	}
-	values := map[string]string{}
-	callback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) < 2 {
+	parseValues := map[string]string{}
+	parseCallback := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) < 2 {
 			return nil
 		}
-		values[args[1].String()] = args[0].String()
+		parseValues[parseArgs[1].String()] = parseArgs[0].String()
 		return nil
 	})
-	defer callback.Release()
-	headers.Call("forEach", callback)
-	if len(values) == 0 {
+	defer parseCallback.Release()
+	parseHeaders.Call("forEach", parseCallback)
+	if len(parseValues) == 0 {
 		return nil
 	}
-	return values
+	return parseValues
 }
 
-func parseRawHeaders(raw string) map[string]string {
-	lines := strings.Split(raw, "\n")
-	headers := make(map[string]string, len(lines))
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
+// parseRawHeaders is a core package helper.
+func parseRawHeaders(parseRaw string) map[string]string {
+	parseLines := strings.Split(parseRaw, "\n")
+	parseHeaders := make(map[string]string, len(parseLines))
+	for _, parseLine := range parseLines {
+		parseLine = strings.TrimSpace(parseLine)
+		if parseLine == "" {
 			continue
 		}
-		parts := strings.SplitN(line, ":", 2)
-		if len(parts) != 2 {
+		parseParts := strings.SplitN(parseLine, ":", 2)
+		if len(parseParts) != 2 {
 			continue
 		}
-		headers[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+		parseHeaders[strings.TrimSpace(parseParts[0])] = strings.TrimSpace(parseParts[1])
 	}
-	if len(headers) == 0 {
+	if len(parseHeaders) == 0 {
 		return nil
 	}
-	return headers
+	return parseHeaders
 }
 
-func progressFromEvent(args []js.Value) (loaded int64, total int64, computable bool) {
-	if len(args) == 0 {
+// progressFromEvent is a core package helper.
+func progressFromEvent(parseArgs []js.Value) (parseLoaded int64, parseTotal int64, isComputable bool) {
+	if len(parseArgs) == 0 {
 		return 0, 0, false
 	}
-	event := args[0]
-	if event.IsUndefined() || event.IsNull() {
+	parseEvent := parseArgs[0]
+	if parseEvent.IsUndefined() || parseEvent.IsNull() {
 		return 0, 0, false
 	}
-	loaded = int64(event.Get("loaded").Float())
-	total = int64(event.Get("total").Float())
-	computable = event.Get("lengthComputable").Truthy()
-	return loaded, total, computable
+	parseLoaded = int64(parseEvent.Get("loaded").Float())
+	parseTotal = int64(parseEvent.Get("total").Float())
+	isComputable = parseEvent.Get("lengthComputable").Truthy()
+	return parseLoaded, parseTotal, isComputable
 }
 
-func bodyToJSValue(body interface{}) (js.Value, bool, error) {
-	if body == nil {
+// bodyToJSValue is a core package helper.
+func bodyToJSValue(parseBody interface{}) (js.Value, bool, error) {
+	if parseBody == nil {
 		return js.Undefined(), false, nil
 	}
-	switch typed := body.(type) {
+	switch parseTyped := parseBody.(type) {
 	case string:
-		return js.ValueOf(typed), false, nil
+		return js.ValueOf(parseTyped), false, nil
 	case MultipartBody:
-		value, err := buildMultipartFormData(typed)
-		return value, true, err
+		parseValue, parseErr := buildMultipartFormData(parseTyped)
+		return parseValue, true, parseErr
 	case *MultipartBody:
-		if typed == nil {
+		if parseTyped == nil {
 			return js.Undefined(), false, nil
 		}
-		value, err := buildMultipartFormData(*typed)
-		return value, true, err
+		parseValue2, parseErr2 := buildMultipartFormData(*parseTyped)
+		return parseValue2, true, parseErr2
 	default:
-		encoded, err := json.Marshal(body)
-		if err != nil {
-			return js.Undefined(), false, fmt.Errorf("failed to encode body: %w", err)
+		parseEncoded, parseErr3 := json.Marshal(parseBody)
+		if parseErr3 != nil {
+			return js.Undefined(), false, fmt.Errorf("failed to encode body: %w", parseErr3)
 		}
-		return js.ValueOf(string(encoded)), false, nil
+		return js.ValueOf(string(parseEncoded)), false, nil
 	}
 }
 
-func buildMultipartFormData(body MultipartBody) (js.Value, error) {
-	formDataCtor := js.Global().Get("FormData")
-	if !formDataCtor.Truthy() {
+// buildMultipartFormData is a core package helper.
+func buildMultipartFormData(parseBody MultipartBody) (js.Value, error) {
+	parseFormDataCtor := js.Global().Get("FormData")
+	if !parseFormDataCtor.Truthy() {
 		return js.Undefined(), errors.New("FormData unavailable in this environment")
 	}
-	form := formDataCtor.New()
-	for key, value := range body.Fields {
-		form.Call("append", key, value)
+	parseForm := parseFormDataCtor.New()
+	for parseKey, parseValue := range parseBody.Fields {
+		parseForm.Call("append", parseKey, parseValue)
 	}
-	for _, file := range body.Files {
-		if strings.TrimSpace(file.FieldName) == "" {
+	for _, parseFile := range parseBody.Files {
+		if strings.TrimSpace(parseFile.FieldName) == "" {
 			continue
 		}
-		raw := file.File.JSValue()
-		if raw.IsUndefined() || raw.IsNull() {
+		parseRaw := parseFile.File.JSValue()
+		if parseRaw.IsUndefined() || parseRaw.IsNull() {
 			continue
 		}
-		if strings.TrimSpace(file.Filename) != "" {
-			form.Call("append", file.FieldName, raw, file.Filename)
+		if strings.TrimSpace(parseFile.Filename) != "" {
+			parseForm.Call("append", parseFile.FieldName, parseRaw, parseFile.Filename)
 		} else {
-			form.Call("append", file.FieldName, raw)
+			parseForm.Call("append", parseFile.FieldName, parseRaw)
 		}
 	}
-	return form, nil
+	return parseForm, nil
 }
 
 // ReturnChannel returns a fetch result channel to the pool for reuse.
 // With the new implementation channels are one-shot, so this is a no-op kept for API compatibility.
-func ReturnChannel(ch <-chan Result) {
-	_ = ch
+func ReturnChannel(parseCh <-chan Result) {
+	_ = parseCh
 }

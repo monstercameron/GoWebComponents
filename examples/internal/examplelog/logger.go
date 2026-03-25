@@ -12,356 +12,356 @@ import (
 var retainedCallbacks []js.Func
 
 func init() {
-	window := js.Global().Get("window")
-	document := js.Global().Get("document")
-	if !window.Truthy() || !document.Truthy() {
+	parseWindow := js.Global().Get("window")
+	parseDocument := js.Global().Get("document")
+	if !parseWindow.Truthy() || !parseDocument.Truthy() {
 		return
 	}
 
-	label := deriveLabel(window, document)
-	logInfo(label, "logger attached", map[string]interface{}{
-		"path": pathValue(window),
-		"hash": valueOrEmpty(window.Get("location").Get("hash").String()),
+	parseLabel := deriveLabel(parseWindow, parseDocument)
+	logInfo(parseLabel, "logger attached", map[string]interface{}{
+		"path": pathValue(parseWindow),
+		"hash": valueOrEmpty(parseWindow.Get("location").Get("hash").String()),
 	})
 
-	installClickLogger(label, document)
-	installChangeLogger(label, document)
-	installSubmitLogger(label, document)
-	installWindowErrorLogger(label, window)
-	installNavigationLogger(label, window)
-	installMountObserver(label, document)
-	installReadyStateLogger(label, document)
-	installUnhandledRejectionLogger(label, window)
-	installVisibilityLogger(label, document)
-	installResizeLogger(label, window)
-	installBeforeUnloadLogger(label, window)
-	logInfo(label, "logger ready", nil)
+	installClickLogger(parseLabel, parseDocument)
+	installChangeLogger(parseLabel, parseDocument)
+	installSubmitLogger(parseLabel, parseDocument)
+	installWindowErrorLogger(parseLabel, parseWindow)
+	installNavigationLogger(parseLabel, parseWindow)
+	installMountObserver(parseLabel, parseDocument)
+	installReadyStateLogger(parseLabel, parseDocument)
+	installUnhandledRejectionLogger(parseLabel, parseWindow)
+	installVisibilityLogger(parseLabel, parseDocument)
+	installResizeLogger(parseLabel, parseWindow)
+	installBeforeUnloadLogger(parseLabel, parseWindow)
+	logInfo(parseLabel, "logger ready", nil)
 }
 
-func deriveLabel(window, document js.Value) string {
-	title := strings.TrimSpace(document.Get("title").String())
-	if title != "" {
-		return title
+func deriveLabel(parseWindow, parseDocument js.Value) string {
+	parseTitle := strings.TrimSpace(parseDocument.Get("title").String())
+	if parseTitle != "" {
+		return parseTitle
 	}
-	path := pathValue(window)
-	if path != "" {
-		return path
+	parsePath := pathValue(parseWindow)
+	if parsePath != "" {
+		return parsePath
 	}
 	return "unknown example"
 }
 
-func pathValue(window js.Value) string {
-	location := window.Get("location")
-	if !location.Truthy() {
+func pathValue(parseWindow js.Value) string {
+	parseLocation := parseWindow.Get("location")
+	if !parseLocation.Truthy() {
 		return ""
 	}
-	path := strings.TrimSpace(location.Get("pathname").String())
-	hash := strings.TrimSpace(location.Get("hash").String())
-	if hash != "" {
-		return path + hash
+	parsePath := strings.TrimSpace(parseLocation.Get("pathname").String())
+	parseHash := strings.TrimSpace(parseLocation.Get("hash").String())
+	if parseHash != "" {
+		return parsePath + parseHash
 	}
-	return path
+	return parsePath
 }
 
-func installClickLogger(label string, document js.Value) {
-	handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		target := eventTarget(args)
-		candidate := closestActionTarget(target)
-		if !candidate.Truthy() {
+func installClickLogger(parseLabel string, parseDocument js.Value) {
+	parseHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseTarget := eventTarget(parseArgs)
+		parseCandidate := closestActionTarget(parseTarget)
+		if !parseCandidate.Truthy() {
 			return nil
 		}
-		logInfo(label, "interaction", targetDetails(candidate, false))
+		logInfo(parseLabel, "interaction", targetDetails(parseCandidate, false))
 		return nil
 	})
-	retainedCallbacks = append(retainedCallbacks, handler)
-	document.Call("addEventListener", "click", handler, true)
+	retainedCallbacks = append(retainedCallbacks, parseHandler)
+	parseDocument.Call("addEventListener", "click", parseHandler, true)
 }
 
-func installChangeLogger(label string, document js.Value) {
-	handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		target := eventTarget(args)
-		if !isFormField(target) {
+func installChangeLogger(parseLabel string, parseDocument js.Value) {
+	parseHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseTarget := eventTarget(parseArgs)
+		if !isFormField(parseTarget) {
 			return nil
 		}
-		logInfo(label, "field change", targetDetails(target, true))
+		logInfo(parseLabel, "field change", targetDetails(parseTarget, true))
 		return nil
 	})
-	retainedCallbacks = append(retainedCallbacks, handler)
-	document.Call("addEventListener", "change", handler, true)
+	retainedCallbacks = append(retainedCallbacks, parseHandler)
+	parseDocument.Call("addEventListener", "change", parseHandler, true)
 }
 
-func installSubmitLogger(label string, document js.Value) {
-	handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		target := eventTarget(args)
-		if !target.Truthy() {
+func installSubmitLogger(parseLabel string, parseDocument js.Value) {
+	parseHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseTarget := eventTarget(parseArgs)
+		if !parseTarget.Truthy() {
 			return nil
 		}
-		logInfo(label, "form submit", targetDetails(target, false))
+		logInfo(parseLabel, "form submit", targetDetails(parseTarget, false))
 		return nil
 	})
-	retainedCallbacks = append(retainedCallbacks, handler)
-	document.Call("addEventListener", "submit", handler, true)
+	retainedCallbacks = append(retainedCallbacks, parseHandler)
+	parseDocument.Call("addEventListener", "submit", parseHandler, true)
 }
 
-func installWindowErrorLogger(label string, window js.Value) {
-	handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) == 0 {
+func installWindowErrorLogger(parseLabel string, parseWindow js.Value) {
+	parseHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) == 0 {
 			return nil
 		}
-		event := args[0]
-		logError(label, "window error", map[string]interface{}{
-			"message": valueOrEmpty(event.Get("message").String()),
-			"source":  valueOrEmpty(event.Get("filename").String()),
-			"line":    safeNumber(event.Get("lineno")),
-			"column":  safeNumber(event.Get("colno")),
+		parseEvent := parseArgs[0]
+		logError(parseLabel, "window error", map[string]interface{}{
+			"message": valueOrEmpty(parseEvent.Get("message").String()),
+			"source":  valueOrEmpty(parseEvent.Get("filename").String()),
+			"line":    safeNumber(parseEvent.Get("lineno")),
+			"column":  safeNumber(parseEvent.Get("colno")),
 		})
 		return nil
 	})
-	retainedCallbacks = append(retainedCallbacks, handler)
-	window.Call("addEventListener", "error", handler)
+	retainedCallbacks = append(retainedCallbacks, parseHandler)
+	parseWindow.Call("addEventListener", "error", parseHandler)
 }
 
-func installUnhandledRejectionLogger(label string, window js.Value) {
-	handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) == 0 {
+func installUnhandledRejectionLogger(parseLabel string, parseWindow js.Value) {
+	parseHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) == 0 {
 			return nil
 		}
-		event := args[0]
-		logError(label, "unhandled rejection", map[string]interface{}{
-			"reason": valueOrEmpty(fmt.Sprint(event.Get("reason"))),
+		parseEvent := parseArgs[0]
+		logError(parseLabel, "unhandled rejection", map[string]interface{}{
+			"reason": valueOrEmpty(fmt.Sprint(parseEvent.Get("reason"))),
 		})
 		return nil
 	})
-	retainedCallbacks = append(retainedCallbacks, handler)
-	window.Call("addEventListener", "unhandledrejection", handler)
+	retainedCallbacks = append(retainedCallbacks, parseHandler)
+	parseWindow.Call("addEventListener", "unhandledrejection", parseHandler)
 }
 
-func installNavigationLogger(label string, window js.Value) {
-	hashHandler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		logInfo(label, "hash navigation", map[string]interface{}{"path": pathValue(window)})
+func installNavigationLogger(parseLabel string, parseWindow js.Value) {
+	parseHashHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		logInfo(parseLabel, "hash navigation", map[string]interface{}{"path": pathValue(parseWindow)})
 		return nil
 	})
-	popHandler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		logInfo(label, "history navigation", map[string]interface{}{"path": pathValue(window)})
+	parsePopHandler := js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		logInfo(parseLabel, "history navigation", map[string]interface{}{"path": pathValue(parseWindow)})
 		return nil
 	})
-	retainedCallbacks = append(retainedCallbacks, hashHandler, popHandler)
-	window.Call("addEventListener", "hashchange", hashHandler)
-	window.Call("addEventListener", "popstate", popHandler)
+	retainedCallbacks = append(retainedCallbacks, parseHashHandler, parsePopHandler)
+	parseWindow.Call("addEventListener", "hashchange", parseHashHandler)
+	parseWindow.Call("addEventListener", "popstate", parsePopHandler)
 }
 
-func installMountObserver(label string, document js.Value) {
-	observerCtor := js.Global().Get("MutationObserver")
-	if !observerCtor.Truthy() {
+func installMountObserver(parseLabel string, parseDocument js.Value) {
+	parseObserverCtor := js.Global().Get("MutationObserver")
+	if !parseObserverCtor.Truthy() {
 		return
 	}
-	root := document.Call("querySelector", "#app")
-	if !root.Truthy() {
-		root = document.Get("body")
+	parseRoot := parseDocument.Call("querySelector", "#app")
+	if !parseRoot.Truthy() {
+		parseRoot = parseDocument.Get("body")
 	}
-	if !root.Truthy() {
+	if !parseRoot.Truthy() {
 		return
 	}
 
-	mountedLogged := false
-	callback := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if mountedLogged {
+	isParseMountedLogged := false
+	parseCallback := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if isParseMountedLogged {
 			return nil
 		}
-		text := strings.TrimSpace(root.Get("textContent").String())
-		childCount := root.Get("childElementCount").Int()
-		if text == "" && childCount == 0 {
+		parseText := strings.TrimSpace(parseRoot.Get("textContent").String())
+		parseChildCount := parseRoot.Get("childElementCount").Int()
+		if parseText == "" && parseChildCount == 0 {
 			return nil
 		}
-		mountedLogged = true
-		logInfo(label, "render surface ready", map[string]interface{}{
-			"target":      elementTag(root),
-			"childCount":  childCount,
-			"textPreview": preview(text),
+		isParseMountedLogged = true
+		logInfo(parseLabel, "render surface ready", map[string]interface{}{
+			"target":      elementTag(parseRoot),
+			"childCount":  parseChildCount,
+			"textPreview": preview(parseText),
 		})
-		this.Call("disconnect")
+		parseThis.Call("disconnect")
 		return nil
 	})
-	retainedCallbacks = append(retainedCallbacks, callback)
-	observer := observerCtor.New(callback)
-	config := js.Global().Get("Object").New()
-	config.Set("childList", true)
-	config.Set("subtree", true)
-	config.Set("characterData", true)
-	observer.Call("observe", root, config)
+	retainedCallbacks = append(retainedCallbacks, parseCallback)
+	parseObserver := parseObserverCtor.New(parseCallback)
+	parseConfig := js.Global().Get("Object").New()
+	parseConfig.Set("childList", true)
+	parseConfig.Set("subtree", true)
+	parseConfig.Set("characterData", true)
+	parseObserver.Call("observe", parseRoot, parseConfig)
 }
 
-func installReadyStateLogger(label string, document js.Value) {
-	state := document.Get("readyState").String()
-	logInfo(label, "document state", map[string]interface{}{"state": valueOrEmpty(state)})
-	if document.Get("addEventListener").Type() != js.TypeFunction {
+func installReadyStateLogger(parseLabel string, parseDocument js.Value) {
+	parseState := parseDocument.Get("readyState").String()
+	logInfo(parseLabel, "document state", map[string]interface{}{"state": valueOrEmpty(parseState)})
+	if parseDocument.Get("addEventListener").Type() != js.TypeFunction {
 		return
 	}
-	handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		logInfo(label, "document ready", map[string]interface{}{"state": valueOrEmpty(document.Get("readyState").String())})
+	parseHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		logInfo(parseLabel, "document ready", map[string]interface{}{"state": valueOrEmpty(parseDocument.Get("readyState").String())})
 		return nil
 	})
-	retainedCallbacks = append(retainedCallbacks, handler)
-	document.Call("addEventListener", "DOMContentLoaded", handler)
+	retainedCallbacks = append(retainedCallbacks, parseHandler)
+	parseDocument.Call("addEventListener", "DOMContentLoaded", parseHandler)
 }
 
-func installVisibilityLogger(label string, document js.Value) {
-	handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		logInfo(label, "visibility changed", map[string]interface{}{"state": valueOrEmpty(document.Get("visibilityState").String())})
+func installVisibilityLogger(parseLabel string, parseDocument js.Value) {
+	parseHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		logInfo(parseLabel, "visibility changed", map[string]interface{}{"state": valueOrEmpty(parseDocument.Get("visibilityState").String())})
 		return nil
 	})
-	retainedCallbacks = append(retainedCallbacks, handler)
-	document.Call("addEventListener", "visibilitychange", handler)
+	retainedCallbacks = append(retainedCallbacks, parseHandler)
+	parseDocument.Call("addEventListener", "visibilitychange", parseHandler)
 }
 
-func installResizeLogger(label string, window js.Value) {
-	handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		logInfo(label, "window resized", map[string]interface{}{
-			"width":  safeNumber(window.Get("innerWidth")),
-			"height": safeNumber(window.Get("innerHeight")),
+func installResizeLogger(parseLabel string, parseWindow js.Value) {
+	parseHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		logInfo(parseLabel, "window resized", map[string]interface{}{
+			"width":  safeNumber(parseWindow.Get("innerWidth")),
+			"height": safeNumber(parseWindow.Get("innerHeight")),
 		})
 		return nil
 	})
-	retainedCallbacks = append(retainedCallbacks, handler)
-	window.Call("addEventListener", "resize", handler)
+	retainedCallbacks = append(retainedCallbacks, parseHandler)
+	parseWindow.Call("addEventListener", "resize", parseHandler)
 }
 
-func installBeforeUnloadLogger(label string, window js.Value) {
-	handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		logInfo(label, "page unloading", map[string]interface{}{"path": pathValue(window)})
+func installBeforeUnloadLogger(parseLabel string, parseWindow js.Value) {
+	parseHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		logInfo(parseLabel, "page unloading", map[string]interface{}{"path": pathValue(parseWindow)})
 		return nil
 	})
-	retainedCallbacks = append(retainedCallbacks, handler)
-	window.Call("addEventListener", "beforeunload", handler)
+	retainedCallbacks = append(retainedCallbacks, parseHandler)
+	parseWindow.Call("addEventListener", "beforeunload", parseHandler)
 }
 
-func eventTarget(args []js.Value) js.Value {
-	if len(args) == 0 {
+func eventTarget(parseArgs []js.Value) js.Value {
+	if len(parseArgs) == 0 {
 		return js.Null()
 	}
-	event := args[0]
-	if !event.Truthy() {
+	parseEvent := parseArgs[0]
+	if !parseEvent.Truthy() {
 		return js.Null()
 	}
-	return event.Get("target")
+	return parseEvent.Get("target")
 }
 
-func closestActionTarget(target js.Value) js.Value {
-	if !target.Truthy() {
+func closestActionTarget(parseTarget js.Value) js.Value {
+	if !parseTarget.Truthy() {
 		return js.Null()
 	}
-	closest := target.Get("closest")
-	if closest.Type() == js.TypeFunction {
-		candidate := target.Call("closest", "button, a, [role='button']")
-		if candidate.Truthy() {
-			return candidate
+	parseClosest := parseTarget.Get("closest")
+	if parseClosest.Type() == js.TypeFunction {
+		parseCandidate := parseTarget.Call("closest", "button, a, [role='button']")
+		if parseCandidate.Truthy() {
+			return parseCandidate
 		}
 	}
-	return target
+	return parseTarget
 }
 
-func isFormField(target js.Value) bool {
-	if !target.Truthy() {
+func isFormField(parseTarget js.Value) bool {
+	if !parseTarget.Truthy() {
 		return false
 	}
-	tag := elementTag(target)
-	return tag == "input" || tag == "select" || tag == "textarea"
+	parseTag := elementTag(parseTarget)
+	return parseTag == "input" || parseTag == "select" || parseTag == "textarea"
 }
 
-func targetDetails(target js.Value, includeValue bool) map[string]interface{} {
-	if !target.Truthy() {
+func targetDetails(parseTarget js.Value, isIncludeValue bool) map[string]interface{} {
+	if !parseTarget.Truthy() {
 		return map[string]interface{}{}
 	}
-	details := map[string]interface{}{
-		"tag":  valueOrEmpty(elementTag(target)),
-		"id":   valueOrEmpty(target.Get("id").String()),
-		"name": valueOrEmpty(target.Get("name").String()),
-		"text": preview(strings.TrimSpace(target.Get("textContent").String())),
+	parseDetails := map[string]interface{}{
+		"tag":  valueOrEmpty(elementTag(parseTarget)),
+		"id":   valueOrEmpty(parseTarget.Get("id").String()),
+		"name": valueOrEmpty(parseTarget.Get("name").String()),
+		"text": preview(strings.TrimSpace(parseTarget.Get("textContent").String())),
 	}
-	if href := valueOrEmpty(target.Get("href").String()); href != "" {
-		details["href"] = href
+	if parseHref := valueOrEmpty(parseTarget.Get("href").String()); parseHref != "" {
+		parseDetails["href"] = parseHref
 	}
-	if role := valueOrEmpty(target.Get("role").String()); role != "" {
-		details["role"] = role
+	if parseRole := valueOrEmpty(parseTarget.Get("role").String()); parseRole != "" {
+		parseDetails["role"] = parseRole
 	}
-	if kind := valueOrEmpty(target.Get("type").String()); kind != "" {
-		details["type"] = kind
+	if parseKind := valueOrEmpty(parseTarget.Get("type").String()); parseKind != "" {
+		parseDetails["type"] = parseKind
 	}
-	if includeValue {
-		value := target.Get("value").String()
-		if strings.EqualFold(target.Get("type").String(), "password") {
-			value = "[redacted]"
+	if isIncludeValue {
+		parseValue := parseTarget.Get("value").String()
+		if strings.EqualFold(parseTarget.Get("type").String(), "password") {
+			parseValue = "[redacted]"
 		}
-		details["value"] = preview(strings.TrimSpace(value))
+		parseDetails["value"] = preview(strings.TrimSpace(parseValue))
 	}
-	return details
+	return parseDetails
 }
 
-func elementTag(target js.Value) string {
-	if !target.Truthy() {
+func elementTag(parseTarget js.Value) string {
+	if !parseTarget.Truthy() {
 		return ""
 	}
-	tag := strings.TrimSpace(target.Get("tagName").String())
-	return strings.ToLower(tag)
+	parseTag := strings.TrimSpace(parseTarget.Get("tagName").String())
+	return strings.ToLower(parseTag)
 }
 
-func preview(value string) string {
-	trimmed := strings.Join(strings.Fields(strings.TrimSpace(value)), " ")
-	if len(trimmed) > 120 {
-		return trimmed[:120]
+func preview(parseValue string) string {
+	parseTrimmed := strings.Join(strings.Fields(strings.TrimSpace(parseValue)), " ")
+	if len(parseTrimmed) > 120 {
+		return parseTrimmed[:120]
 	}
-	return trimmed
+	return parseTrimmed
 }
 
-func valueOrEmpty(value string) string {
-	return strings.TrimSpace(value)
+func valueOrEmpty(parseValue string) string {
+	return strings.TrimSpace(parseValue)
 }
 
-func safeNumber(value js.Value) int {
-	if !value.Truthy() {
+func safeNumber(parseValue js.Value) int {
+	if !parseValue.Truthy() {
 		return 0
 	}
-	return value.Int()
+	return parseValue.Int()
 }
 
-func logInfo(label, message string, details map[string]interface{}) {
-	logWithMethod("log", label, message, details)
+func logInfo(parseLabel, parseMessage string, parseDetails map[string]interface{}) {
+	logWithMethod("log", parseLabel, parseMessage, parseDetails)
 }
 
-func logError(label, message string, details map[string]interface{}) {
-	logWithMethod("error", label, message, details)
+func logError(parseLabel, parseMessage string, parseDetails map[string]interface{}) {
+	logWithMethod("error", parseLabel, parseMessage, parseDetails)
 }
 
-func logWithMethod(method, label, message string, details map[string]interface{}) {
-	console := js.Global().Get("console")
-	if !console.Truthy() {
+func logWithMethod(parseMethod, parseLabel, parseMessage string, parseDetails map[string]interface{}) {
+	parseConsole := js.Global().Get("console")
+	if !parseConsole.Truthy() {
 		return
 	}
-	prefix := fmt.Sprintf("[GoWebComponents example][Go] %s", label)
-	if len(details) == 0 {
-		console.Call(method, prefix, message)
+	parsePrefix := fmt.Sprintf("[GoWebComponents example][Go] %s", parseLabel)
+	if len(parseDetails) == 0 {
+		parseConsole.Call(parseMethod, parsePrefix, parseMessage)
 		return
 	}
-	console.Call(method, prefix, message, toObject(details))
+	parseConsole.Call(parseMethod, parsePrefix, parseMessage, toObject(parseDetails))
 }
 
-func toObject(details map[string]interface{}) js.Value {
-	obj := js.Global().Get("Object").New()
-	for key, value := range details {
-		switch typed := value.(type) {
+func toObject(parseDetails map[string]interface{}) js.Value {
+	parseObj := js.Global().Get("Object").New()
+	for parseKey, parseValue := range parseDetails {
+		switch parseTyped := parseValue.(type) {
 		case string:
-			if typed != "" {
-				obj.Set(key, typed)
+			if parseTyped != "" {
+				parseObj.Set(parseKey, parseTyped)
 			}
 		case int:
-			obj.Set(key, typed)
+			parseObj.Set(parseKey, parseTyped)
 		case bool:
-			obj.Set(key, typed)
+			parseObj.Set(parseKey, parseTyped)
 		default:
-			if value != nil {
-				obj.Set(key, fmt.Sprint(value))
+			if parseValue != nil {
+				parseObj.Set(parseKey, fmt.Sprint(parseValue))
 			}
 		}
 	}
-	return obj
+	return parseObj
 }

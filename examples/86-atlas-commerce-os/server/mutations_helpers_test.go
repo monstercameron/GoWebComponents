@@ -11,340 +11,343 @@ import (
 	"github.com/monstercameron/GoWebComponents/examples/86-atlas-commerce-os/shared/repository"
 )
 
-func TestDecodeBodyOrForm_JSONFormAndErrors(t *testing.T) {
-	t.Run("json", func(t *testing.T) {
+func TestDecodeBodyOrForm_JSONFormAndErrors(parseT *testing.T) {
+	parseT.Run("json", func(parseT2 *testing.T) {
 		type payload struct {
 			Name string `json:"name"`
 		}
-		req := httptest.NewRequest(http.MethodPost, "/decode", strings.NewReader(`{"name":"atlas"}`))
-		req.Header.Set("Content-Type", "application/json")
-		var got payload
-		if err := decodeBodyOrForm(req, &got, func(values url.Values) {}); err != nil {
-			t.Fatalf("decodeBodyOrForm json: %v", err)
+		parseReq := httptest.NewRequest(http.MethodPost, "/decode", strings.NewReader(`{"name":"atlas"}`))
+		parseReq.Header.Set("Content-Type", "application/json")
+		var parseGot payload
+		if parseErr := decodeBodyOrForm(parseReq, &parseGot, func(parseValues url.Values) {}); parseErr != nil {
+			parseT2.Fatalf("decodeBodyOrForm json: %v", parseErr)
 		}
-		if got.Name != "atlas" {
-			t.Fatalf("expected json decode to set name=atlas, got %q", got.Name)
-		}
-	})
-
-	t.Run("form", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/decode", strings.NewReader("name=atlas"))
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		gotName := ""
-		if err := decodeBodyOrForm(req, &struct{}{}, func(values url.Values) {
-			gotName = values.Get("name")
-		}); err != nil {
-			t.Fatalf("decodeBodyOrForm form: %v", err)
-		}
-		if gotName != "atlas" {
-			t.Fatalf("expected form decode to set name=atlas, got %q", gotName)
+		if parseGot.Name != "atlas" {
+			parseT2.Fatalf("expected json decode to set name=atlas, got %q", parseGot.Name)
 		}
 	})
 
-	t.Run("invalid json", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/decode", strings.NewReader("{"))
-		req.Header.Set("Content-Type", "application/json")
-		if err := decodeBodyOrForm(req, &struct{}{}, func(values url.Values) {}); err == nil {
-			t.Fatal("expected json decode error")
+	parseT.Run("form", func(parseT3 *testing.T) {
+		parseReq2 := httptest.NewRequest(http.MethodPost, "/decode", strings.NewReader("name=atlas"))
+		parseReq2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		parseGotName := ""
+		if parseErr2 := decodeBodyOrForm(parseReq2, &struct{}{}, func(parseValues2 url.Values) {
+			parseGotName = parseValues2.Get("name")
+		}); parseErr2 != nil {
+			parseT3.Fatalf("decodeBodyOrForm form: %v", parseErr2)
+		}
+		if parseGotName != "atlas" {
+			parseT3.Fatalf("expected form decode to set name=atlas, got %q", parseGotName)
 		}
 	})
 
-	t.Run("invalid form", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/decode", strings.NewReader("a=%zz"))
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		if err := decodeBodyOrForm(req, &struct{}{}, func(values url.Values) {}); err == nil {
-			t.Fatal("expected form parse error")
+	parseT.Run("invalid json", func(parseT4 *testing.T) {
+		parseReq3 := httptest.NewRequest(http.MethodPost, "/decode", strings.NewReader("{"))
+		parseReq3.Header.Set("Content-Type", "application/json")
+		if parseErr3 := decodeBodyOrForm(parseReq3, &struct{}{}, func(parseValues3 url.Values) {}); parseErr3 == nil {
+			parseT4.Fatal("expected json decode error")
+		}
+	})
+
+	parseT.Run("invalid form", func(parseT5 *testing.T) {
+		parseReq4 := httptest.NewRequest(http.MethodPost, "/decode", strings.NewReader("a=%zz"))
+		parseReq4.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		if parseErr4 := decodeBodyOrForm(parseReq4, &struct{}{}, func(parseValues4 url.Values) {}); parseErr4 == nil {
+			parseT5.Fatal("expected form parse error")
 		}
 	})
 }
 
-func TestDecodeRequestHelpers_FromForm(t *testing.T) {
-	formRequest := func(body string) *http.Request {
-		req := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(body))
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		return req
+func TestDecodeRequestHelpers_FromForm(parseT *testing.T) {
+	parseFormRequest := func(parseBody string) *http.Request {
+		parseReq := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(parseBody))
+		parseReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		return parseReq
 	}
 
-	comment, err := decodeCommentRequest(formRequest("author_name=Cam&reaction=up&subject=Hi&body=Looks+great"))
-	if err != nil {
-		t.Fatalf("decodeCommentRequest: %v", err)
+	parseComment, parseErr := decodeCommentRequest(parseFormRequest("author_name=Cam&reaction=up&subject=Hi&body=Looks+great"))
+	if parseErr != nil {
+		parseT.Fatalf("decodeCommentRequest: %v", parseErr)
 	}
-	if comment.AuthorName != "Cam" || comment.Reaction != "up" {
-		t.Fatalf("unexpected comment decode: %+v", comment)
-	}
-
-	quote, err := decodeQuoteRequest(formRequest("requester_name=Amy&company_name=Atlas&email=amy%40x.com&quantity=4&note=fast"))
-	if err != nil {
-		t.Fatalf("decodeQuoteRequest: %v", err)
-	}
-	if quote.Quantity != 4 || quote.Email != "amy@x.com" {
-		t.Fatalf("unexpected quote decode: %+v", quote)
+	if parseComment.AuthorName != "Cam" || parseComment.Reaction != "up" {
+		parseT.Fatalf("unexpected comment decode: %+v", parseComment)
 	}
 
-	restock, err := decodeRestockRequest(formRequest("email=restock%40x.com&preferred_warehouse_id=illinois-hub"))
-	if err != nil {
-		t.Fatalf("decodeRestockRequest: %v", err)
+	parseQuote, parseErr := decodeQuoteRequest(parseFormRequest("requester_name=Amy&company_name=Atlas&email=amy%40x.com&quantity=4&note=fast"))
+	if parseErr != nil {
+		parseT.Fatalf("decodeQuoteRequest: %v", parseErr)
 	}
-	if restock.PreferredWarehouseID != "illinois-hub" {
-		t.Fatalf("unexpected restock decode: %+v", restock)
-	}
-
-	moderation, err := decodeModerationRequest(formRequest("status=approved&reason=clear"))
-	if err != nil {
-		t.Fatalf("decodeModerationRequest: %v", err)
-	}
-	if moderation.Status != "approved" {
-		t.Fatalf("unexpected moderation decode: %+v", moderation)
+	if parseQuote.Quantity != 4 || parseQuote.Email != "amy@x.com" {
+		parseT.Fatalf("unexpected quote decode: %+v", parseQuote)
 	}
 
-	bulk, err := decodeBulkModerationRequest(formRequest("ids=a%2Cb&ids=c&status=flagged&reason=spam"))
-	if err != nil {
-		t.Fatalf("decodeBulkModerationRequest: %v", err)
+	parseRestock, parseErr := decodeRestockRequest(parseFormRequest("email=restock%40x.com&preferred_warehouse_id=illinois-hub"))
+	if parseErr != nil {
+		parseT.Fatalf("decodeRestockRequest: %v", parseErr)
 	}
-	if !reflect.DeepEqual(bulk.IDs, []string{"a", "b", "c"}) {
-		t.Fatalf("unexpected bulk ids: %#v", bulk.IDs)
-	}
-
-	threshold, err := decodeThresholdRequest(formRequest("warehouse_id=illinois-hub&reorder_point=5&safety_stock=2"))
-	if err != nil {
-		t.Fatalf("decodeThresholdRequest: %v", err)
-	}
-	if threshold.ReorderPoint != 5 || threshold.SafetyStock != 2 {
-		t.Fatalf("unexpected threshold decode: %+v", threshold)
+	if parseRestock.PreferredWarehouseID != "illinois-hub" {
+		parseT.Fatalf("unexpected restock decode: %+v", parseRestock)
 	}
 
-	inv, err := decodeInventoryUpdateRequest(formRequest("warehouse_id=illinois-hub&on_hand=7&reserved=1&inbound=3&damaged=0&reorder_point=2&safety_stock=1&status=balanced&return_path=%2Fapp%2Finventory"))
-	if err != nil {
-		t.Fatalf("decodeInventoryUpdateRequest: %v", err)
+	parseModeration, parseErr := decodeModerationRequest(parseFormRequest("status=approved&reason=clear"))
+	if parseErr != nil {
+		parseT.Fatalf("decodeModerationRequest: %v", parseErr)
 	}
-	if inv.OnHand != 7 || inv.Status != "balanced" || inv.ReturnPath != "/app/inventory" {
-		t.Fatalf("unexpected inventory decode: %+v", inv)
-	}
-
-	prefs, err := decodePreferencesRequest(formRequest("theme=light&locale=en&density=compact&default_warehouse_id=illinois-hub"))
-	if err != nil {
-		t.Fatalf("decodePreferencesRequest: %v", err)
-	}
-	if prefs.Theme != "light" || prefs.Locale != "en" {
-		t.Fatalf("unexpected preferences decode: %+v", prefs)
+	if parseModeration.Status != "approved" {
+		parseT.Fatalf("unexpected moderation decode: %+v", parseModeration)
 	}
 
-	view, err := decodeSavedViewRequest(formRequest("name=Backlog&scope=inventory&filters_json=%7B%7D&sort_key=urgency&sort_direction=asc&density=compact&warehouse_id=illinois-hub"))
-	if err != nil {
-		t.Fatalf("decodeSavedViewRequest: %v", err)
+	parseBulk, parseErr := decodeBulkModerationRequest(parseFormRequest("ids=a%2Cb&ids=c&status=flagged&reason=spam"))
+	if parseErr != nil {
+		parseT.Fatalf("decodeBulkModerationRequest: %v", parseErr)
 	}
-	if view.Name != "Backlog" || view.SortDirection != "asc" {
-		t.Fatalf("unexpected saved view decode: %+v", view)
-	}
-
-	importReq, err := decodeSavedViewImportRequest(formRequest("views_json=%5B%5D"))
-	if err != nil {
-		t.Fatalf("decodeSavedViewImportRequest: %v", err)
-	}
-	if importReq.ViewsJSON != "[]" {
-		t.Fatalf("unexpected saved view import decode: %+v", importReq)
+	if !reflect.DeepEqual(parseBulk.IDs, []string{"a", "b", "c"}) {
+		parseT.Fatalf("unexpected bulk ids: %#v", parseBulk.IDs)
 	}
 
-	transfer, err := decodeTransferRequest(formRequest("source_warehouse_id=illinois-hub&destination_warehouse_id=new-jersey-hub&reason=rebalance&recommended_by=ops"))
-	if err != nil {
-		t.Fatalf("decodeTransferRequest: %v", err)
+	parseThreshold, parseErr := decodeThresholdRequest(parseFormRequest("warehouse_id=illinois-hub&reorder_point=5&safety_stock=2"))
+	if parseErr != nil {
+		parseT.Fatalf("decodeThresholdRequest: %v", parseErr)
 	}
-	if transfer.SourceWarehouseID != "illinois-hub" || transfer.DestinationWarehouseID != "new-jersey-hub" {
-		t.Fatalf("unexpected transfer decode: %+v", transfer)
-	}
-
-	receiving, err := decodeReceivingRequest(formRequest("status=closed&discrepancy_summary=none"))
-	if err != nil {
-		t.Fatalf("decodeReceivingRequest: %v", err)
-	}
-	if receiving.Status != "closed" {
-		t.Fatalf("unexpected receiving decode: %+v", receiving)
+	if parseThreshold.ReorderPoint != 5 || parseThreshold.SafetyStock != 2 {
+		parseT.Fatalf("unexpected threshold decode: %+v", parseThreshold)
 	}
 
-	poStatus, err := decodePurchaseOrderStatusRequest(formRequest("status=approved"))
-	if err != nil {
-		t.Fatalf("decodePurchaseOrderStatusRequest: %v", err)
+	parseInv, parseErr := decodeInventoryUpdateRequest(parseFormRequest("warehouse_id=illinois-hub&on_hand=7&reserved=1&inbound=3&damaged=0&reorder_point=2&safety_stock=1&status=balanced&return_path=%2Fapp%2Finventory"))
+	if parseErr != nil {
+		parseT.Fatalf("decodeInventoryUpdateRequest: %v", parseErr)
 	}
-	if poStatus.Status != "approved" {
-		t.Fatalf("unexpected purchase order status decode: %+v", poStatus)
+	if parseInv.OnHand != 7 || parseInv.Status != "balanced" || parseInv.ReturnPath != "/app/inventory" {
+		parseT.Fatalf("unexpected inventory decode: %+v", parseInv)
 	}
 
-	poCreate, err := decodePurchaseOrderCreateRequest(formRequest("vendor_name=Northwind&warehouse_id=illinois-hub&product_sku=frame-desk&quantity=12&eta=next+week&priority_note=critical&status=submitted&return_path=%2Fapp%2Fpurchase-orders"))
-	if err != nil {
-		t.Fatalf("decodePurchaseOrderCreateRequest: %v", err)
+	parsePrefs, parseErr := decodePreferencesRequest(parseFormRequest("theme=light&locale=en&density=compact&default_warehouse_id=illinois-hub"))
+	if parseErr != nil {
+		parseT.Fatalf("decodePreferencesRequest: %v", parseErr)
 	}
-	if poCreate.Quantity != 12 || poCreate.ReturnPath != "/app/purchase-orders" {
-		t.Fatalf("unexpected purchase order create decode: %+v", poCreate)
+	if parsePrefs.Theme != "light" || parsePrefs.Locale != "en" {
+		parseT.Fatalf("unexpected preferences decode: %+v", parsePrefs)
+	}
+
+	parseView, parseErr := decodeSavedViewRequest(parseFormRequest("name=Backlog&scope=inventory&filters_json=%7B%7D&sort_key=urgency&sort_direction=asc&density=compact&warehouse_id=illinois-hub"))
+	if parseErr != nil {
+		parseT.Fatalf("decodeSavedViewRequest: %v", parseErr)
+	}
+	if parseView.Name != "Backlog" || parseView.SortDirection != "asc" {
+		parseT.Fatalf("unexpected saved view decode: %+v", parseView)
+	}
+
+	parseImportReq, parseErr := decodeSavedViewImportRequest(parseFormRequest("views_json=%5B%5D"))
+	if parseErr != nil {
+		parseT.Fatalf("decodeSavedViewImportRequest: %v", parseErr)
+	}
+	if parseImportReq.ViewsJSON != "[]" {
+		parseT.Fatalf("unexpected saved view import decode: %+v", parseImportReq)
+	}
+
+	parseTransfer, parseErr := decodeTransferRequest(parseFormRequest("source_warehouse_id=illinois-hub&destination_warehouse_id=new-jersey-hub&reason=rebalance&recommended_by=ops"))
+	if parseErr != nil {
+		parseT.Fatalf("decodeTransferRequest: %v", parseErr)
+	}
+	if parseTransfer.SourceWarehouseID != "illinois-hub" || parseTransfer.DestinationWarehouseID != "new-jersey-hub" {
+		parseT.Fatalf("unexpected transfer decode: %+v", parseTransfer)
+	}
+
+	parseReceiving, parseErr := decodeReceivingRequest(parseFormRequest("status=closed&discrepancy_summary=none"))
+	if parseErr != nil {
+		parseT.Fatalf("decodeReceivingRequest: %v", parseErr)
+	}
+	if parseReceiving.Status != "closed" {
+		parseT.Fatalf("unexpected receiving decode: %+v", parseReceiving)
+	}
+
+	parsePoStatus, parseErr := decodePurchaseOrderStatusRequest(parseFormRequest("status=approved"))
+	if parseErr != nil {
+		parseT.Fatalf("decodePurchaseOrderStatusRequest: %v", parseErr)
+	}
+	if parsePoStatus.Status != "approved" {
+		parseT.Fatalf("unexpected purchase order status decode: %+v", parsePoStatus)
+	}
+
+	parsePoCreate, parseErr := decodePurchaseOrderCreateRequest(parseFormRequest("vendor_name=Northwind&warehouse_id=illinois-hub&product_sku=frame-desk&quantity=12&eta=next+week&priority_note=critical&status=submitted&return_path=%2Fapp%2Fpurchase-orders"))
+	if parseErr != nil {
+		parseT.Fatalf("decodePurchaseOrderCreateRequest: %v", parseErr)
+	}
+	if parsePoCreate.Quantity != 12 || parsePoCreate.ReturnPath != "/app/purchase-orders" {
+		parseT.Fatalf("unexpected purchase order create decode: %+v", parsePoCreate)
 	}
 }
 
-func TestDecodeRequestHelpers_FromJSON(t *testing.T) {
-	jsonRequest := func(body string) *http.Request {
-		req := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
-		return req
+func TestDecodeRequestHelpers_FromJSON(parseT *testing.T) {
+	parseJsonRequest := func(parseBody string) *http.Request {
+		parseReq := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(parseBody))
+		parseReq.Header.Set("Content-Type", "application/json")
+		return parseReq
 	}
 
-	comment, err := decodeCommentRequest(jsonRequest(`{"author_name":"Cam","reaction":"up","subject":"Hello","body":"Long enough body"}`))
-	if err != nil {
-		t.Fatalf("decodeCommentRequest json: %v", err)
+	parseComment, parseErr := decodeCommentRequest(parseJsonRequest(`{"author_name":"Cam","reaction":"up","subject":"Hello","body":"Long enough body"}`))
+	if parseErr != nil {
+		parseT.Fatalf("decodeCommentRequest json: %v", parseErr)
 	}
-	if comment.AuthorName != "Cam" || comment.Body == "" {
-		t.Fatalf("unexpected json comment decode: %+v", comment)
+	if parseComment.AuthorName != "Cam" || parseComment.Body == "" {
+		parseT.Fatalf("unexpected json comment decode: %+v", parseComment)
 	}
 
-	poCreate, err := decodePurchaseOrderCreateRequest(jsonRequest(`{"vendor_name":"Northwind","warehouse_id":"illinois-hub","product_sku":"frame-desk","quantity":9,"eta":"tomorrow","priority_note":"rush","status":"draft","return_path":"/app/purchase-orders"}`))
-	if err != nil {
-		t.Fatalf("decodePurchaseOrderCreateRequest json: %v", err)
+	parsePoCreate, parseErr := decodePurchaseOrderCreateRequest(parseJsonRequest(`{"vendor_name":"Northwind","warehouse_id":"illinois-hub","product_sku":"frame-desk","quantity":9,"eta":"tomorrow","priority_note":"rush","status":"draft","return_path":"/app/purchase-orders"}`))
+	if parseErr != nil {
+		parseT.Fatalf("decodePurchaseOrderCreateRequest json: %v", parseErr)
 	}
-	if poCreate.Quantity != 9 || poCreate.Status != "draft" {
-		t.Fatalf("unexpected json purchase order decode: %+v", poCreate)
+	if parsePoCreate.Quantity != 9 || parsePoCreate.Status != "draft" {
+		parseT.Fatalf("unexpected json purchase order decode: %+v", parsePoCreate)
 	}
 }
 
-func TestMutationsHelpers_Basics(t *testing.T) {
-	if got := mustAtoi(" 8 ", 1); got != 8 {
-		t.Fatalf("mustAtoi expected 8, got %d", got)
+func TestMutationsHelpers_Basics(parseT *testing.T) {
+	if parseGot := mustAtoi(" 8 ", 1); parseGot != 8 {
+		parseT.Fatalf("mustAtoi expected 8, got %d", parseGot)
 	}
-	if got := mustAtoi("bad", 3); got != 3 {
-		t.Fatalf("mustAtoi fallback expected 3, got %d", got)
+	if parseGot2 := mustAtoi("bad", 3); parseGot2 != 3 {
+		parseT.Fatalf("mustAtoi fallback expected 3, got %d", parseGot2)
 	}
 
-	ids := collectListField(url.Values{"ids": {"a,b", " c ", "", "d"}}, "ids")
-	if !reflect.DeepEqual(ids, []string{"a", "b", "c", "d"}) {
-		t.Fatalf("collectListField mismatch: %#v", ids)
+	parseIds := collectListField(url.Values{"ids": {"a,b", " c ", "", "d"}}, "ids")
+	if !reflect.DeepEqual(parseIds, []string{"a", "b", "c", "d"}) {
+		parseT.Fatalf("collectListField mismatch: %#v", parseIds)
 	}
 
 	if !looksLikeEmail("user@example.com") || looksLikeEmail("bad") {
-		t.Fatal("looksLikeEmail did not validate expected addresses")
+		parseT.Fatal("looksLikeEmail did not validate expected addresses")
 	}
 	if !isOneOf(" Approved ", "pending", "approved") {
-		t.Fatal("isOneOf should trim and compare case-insensitively")
+		parseT.Fatal("isOneOf should trim and compare case-insensitively")
 	}
 	if isOneOf("unknown", "pending", "approved") {
-		t.Fatal("isOneOf should reject unknown value")
+		parseT.Fatal("isOneOf should reject unknown value")
 	}
 }
 
-func TestWantsHTMLResponseAndNotice(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/x", nil)
-	req.Header.Set("Accept", "text/html")
-	if !wantsHTMLResponse(req) {
-		t.Fatal("expected html response from accept header")
+func TestWantsHTMLResponseAndNotice(parseT *testing.T) {
+	parseReq := httptest.NewRequest(http.MethodPost, "/x", nil)
+	parseReq.Header.Set("Accept", "text/html")
+	if !wantsHTMLResponse(parseReq) {
+		parseT.Fatal("expected html response from accept header")
 	}
 
-	req = httptest.NewRequest(http.MethodPost, "/x", nil)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if !wantsHTMLResponse(req) {
-		t.Fatal("expected html response from form content-type")
+	parseReq = httptest.NewRequest(http.MethodPost, "/x", nil)
+	parseReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if !wantsHTMLResponse(parseReq) {
+		parseT.Fatal("expected html response from form content-type")
 	}
 
-	req = httptest.NewRequest(http.MethodPost, "/x", nil)
-	req.Header.Set("Content-Type", "application/json")
-	if wantsHTMLResponse(req) {
-		t.Fatal("expected json request to avoid html response mode")
+	parseReq = httptest.NewRequest(http.MethodPost, "/x", nil)
+	parseReq.Header.Set("Content-Type", "application/json")
+	if wantsHTMLResponse(parseReq) {
+		parseT.Fatal("expected json request to avoid html response mode")
 	}
 
-	with := withNotice("/app/dashboard?x=1", "saved")
-	if !strings.Contains(with, "atlas_notice=saved") || !strings.Contains(with, "x=1") {
-		t.Fatalf("withNotice should append notice query: %q", with)
+	parseWith := withNotice("/app/dashboard?x=1", "saved")
+	if !strings.Contains(parseWith, "atlas_notice=saved") || !strings.Contains(parseWith, "x=1") {
+		parseT.Fatalf("withNotice should append notice query: %q", parseWith)
 	}
-	raw := "http://%"
-	if got := withNotice(raw, "saved"); got != raw {
-		t.Fatalf("expected invalid URL fallback to return raw %q, got %q", raw, got)
+	parseRaw := "http://%"
+	if parseGot := withNotice(parseRaw, "saved"); parseGot != parseRaw {
+		parseT.Fatalf("expected invalid URL fallback to return raw %q, got %q", parseRaw, parseGot)
 	}
 }
 
-func TestValidateRequests_InvalidAndValid(t *testing.T) {
-	assertHas := func(t *testing.T, fields map[string]string, key string) {
-		t.Helper()
-		if _, ok := fields[key]; !ok {
-			t.Fatalf("expected validation field %q in %#v", key, fields)
+func TestValidateRequests_InvalidAndValid(parseT *testing.T) {
+	parseAssertHas := func(parseT2 *testing.T, parseFields map[string]string, parseKey string) {
+		parseT2.Helper()
+		if _, parseOk := parseFields[parseKey]; !parseOk {
+			parseT2.Fatalf("expected validation field %q in %#v", parseKey, parseFields)
 		}
 	}
 
-	assertEmpty := func(t *testing.T, fields map[string]string) {
-		t.Helper()
-		if len(fields) != 0 {
-			t.Fatalf("expected no validation fields, got %#v", fields)
+	parseAssertEmpty := func(parseT3 *testing.T, parseFields2 map[string]string) {
+		parseT3.Helper()
+		if len(parseFields2) != 0 {
+			parseT3.Fatalf("expected no validation fields, got %#v", parseFields2)
 		}
 	}
 
-	assertHas(t, validateCommentRequest(commentRequest{}), "author_name")
-	assertHas(t, validateCommentRequest(commentRequest{}), "reaction")
-	assertHas(t, validateCommentRequest(commentRequest{}), "subject")
-	assertHas(t, validateCommentRequest(commentRequest{}), "body")
-	assertEmpty(t, validateCommentRequest(commentRequest{AuthorName: "Cam", Reaction: "up", Subject: "Hi", Body: "Long enough body"}))
+	parseAssertHas(parseT, validateCommentRequest(commentRequest{}), "author_name")
+	parseAssertHas(parseT, validateCommentRequest(commentRequest{}), "reaction")
+	parseAssertHas(parseT, validateCommentRequest(commentRequest{}), "subject")
+	parseAssertHas(parseT, validateCommentRequest(commentRequest{}), "body")
+	parseAssertEmpty(parseT, validateCommentRequest(commentRequest{AuthorName: "Cam", Reaction: "up", Subject: "Hi", Body: "Long enough body"}))
 
-	assertHas(t, validateQuoteRequest(quoteRequest{}), "requester_name")
-	assertHas(t, validateQuoteRequest(quoteRequest{}), "company_name")
-	assertHas(t, validateQuoteRequest(quoteRequest{}), "email")
-	assertHas(t, validateQuoteRequest(quoteRequest{}), "quantity")
-	assertEmpty(t, validateQuoteRequest(quoteRequest{RequesterName: "A", CompanyName: "B", Email: "a@b.com", Quantity: 2}))
+	parseAssertHas(parseT, validateQuoteRequest(quoteRequest{}), "requester_name")
+	parseAssertHas(parseT, validateQuoteRequest(quoteRequest{}), "company_name")
+	parseAssertHas(parseT, validateQuoteRequest(quoteRequest{}), "email")
+	parseAssertHas(parseT, validateQuoteRequest(quoteRequest{}), "quantity")
+	parseAssertEmpty(parseT, validateQuoteRequest(quoteRequest{RequesterName: "A", CompanyName: "B", Email: "a@b.com", Quantity: 2}))
 
-	assertHas(t, validateRestockRequest(restockRequest{}), "email")
-	assertHas(t, validateRestockRequest(restockRequest{}), "preferred_warehouse_id")
-	assertEmpty(t, validateRestockRequest(restockRequest{Email: "x@y.com", PreferredWarehouseID: "illinois-hub"}))
+	parseAssertHas(parseT, validateRestockRequest(restockRequest{}), "email")
+	parseAssertHas(parseT, validateRestockRequest(restockRequest{}), "preferred_warehouse_id")
+	parseAssertEmpty(parseT, validateRestockRequest(restockRequest{Email: "x@y.com", PreferredWarehouseID: "illinois-hub"}))
 
-	assertHas(t, validateModerationRequest(moderationRequest{}), "status")
-	assertEmpty(t, validateModerationRequest(moderationRequest{Status: "approved"}))
+	parseAssertHas(parseT, validateModerationRequest(moderationRequest{}), "status")
+	parseAssertEmpty(parseT, validateModerationRequest(moderationRequest{Status: "approved"}))
 
-	assertHas(t, validateBulkModerationRequest(bulkModerationRequest{}), "ids")
-	assertHas(t, validateBulkModerationRequest(bulkModerationRequest{}), "status")
-	assertEmpty(t, validateBulkModerationRequest(bulkModerationRequest{IDs: []string{"a"}, Status: "flagged"}))
+	parseAssertHas(parseT, validateBulkModerationRequest(bulkModerationRequest{}), "ids")
+	parseAssertHas(parseT, validateBulkModerationRequest(bulkModerationRequest{}), "status")
+	parseAssertEmpty(parseT, validateBulkModerationRequest(bulkModerationRequest{IDs: []string{"a"}, Status: "flagged"}))
 
-	assertHas(t, validateThresholdRequest(thresholdRequest{}), "warehouse_id")
-	assertHas(t, validateThresholdRequest(thresholdRequest{WarehouseID: "illinois-hub", ReorderPoint: 0, SafetyStock: -1}), "reorder_point")
-	assertHas(t, validateThresholdRequest(thresholdRequest{WarehouseID: "illinois-hub", ReorderPoint: 1, SafetyStock: -1}), "safety_stock")
-	assertEmpty(t, validateThresholdRequest(thresholdRequest{WarehouseID: "illinois-hub", ReorderPoint: 1, SafetyStock: 0}))
+	parseAssertHas(parseT, validateThresholdRequest(thresholdRequest{}), "warehouse_id")
+	parseAssertHas(parseT, validateThresholdRequest(thresholdRequest{WarehouseID: "illinois-hub", ReorderPoint: 0, SafetyStock: -1}), "reorder_point")
+	parseAssertHas(parseT, validateThresholdRequest(thresholdRequest{WarehouseID: "illinois-hub", ReorderPoint: 1, SafetyStock: -1}), "safety_stock")
+	parseAssertEmpty(parseT, validateThresholdRequest(thresholdRequest{WarehouseID: "illinois-hub", ReorderPoint: 1, SafetyStock: 0}))
 
-	assertHas(t, validateInventoryUpdateRequest(inventoryUpdateRequest{}), "warehouse_id")
-	assertHas(t, validateInventoryUpdateRequest(inventoryUpdateRequest{WarehouseID: "w", Status: "bad"}), "status")
-	assertHas(t, validateInventoryUpdateRequest(inventoryUpdateRequest{WarehouseID: "w", Status: "balanced", OnHand: -1}), "on_hand")
-	assertHas(t, validateInventoryUpdateRequest(inventoryUpdateRequest{WarehouseID: "w", Status: "balanced", Reserved: -1}), "reserved")
-	assertHas(t, validateInventoryUpdateRequest(inventoryUpdateRequest{WarehouseID: "w", Status: "balanced", Inbound: -1}), "inbound")
-	assertHas(t, validateInventoryUpdateRequest(inventoryUpdateRequest{WarehouseID: "w", Status: "balanced", Damaged: -1}), "damaged")
-	assertHas(t, validateInventoryUpdateRequest(inventoryUpdateRequest{WarehouseID: "w", Status: "balanced", ReorderPoint: 0}), "reorder_point")
-	assertHas(t, validateInventoryUpdateRequest(inventoryUpdateRequest{WarehouseID: "w", Status: "balanced", ReorderPoint: 1, SafetyStock: -1}), "safety_stock")
-	assertEmpty(t, validateInventoryUpdateRequest(inventoryUpdateRequest{WarehouseID: "w", Status: "balanced", ReorderPoint: 1}))
+	parseAssertHas(parseT, validateInventoryUpdateRequest(inventoryUpdateRequest{}), "warehouse_id")
+	parseAssertHas(parseT, validateInventoryUpdateRequest(inventoryUpdateRequest{WarehouseID: "w", Status: "bad"}), "status")
+	parseAssertHas(parseT, validateInventoryUpdateRequest(inventoryUpdateRequest{WarehouseID: "w", Status: "balanced", OnHand: -1}), "on_hand")
+	parseAssertHas(parseT, validateInventoryUpdateRequest(inventoryUpdateRequest{WarehouseID: "w", Status: "balanced", Reserved: -1}), "reserved")
+	parseAssertHas(parseT, validateInventoryUpdateRequest(inventoryUpdateRequest{WarehouseID: "w", Status: "balanced", Inbound: -1}), "inbound")
+	parseAssertHas(parseT, validateInventoryUpdateRequest(inventoryUpdateRequest{WarehouseID: "w", Status: "balanced", Damaged: -1}), "damaged")
+	parseAssertHas(parseT, validateInventoryUpdateRequest(inventoryUpdateRequest{WarehouseID: "w", Status: "balanced", ReorderPoint: 0}), "reorder_point")
+	parseAssertHas(parseT, validateInventoryUpdateRequest(inventoryUpdateRequest{WarehouseID: "w", Status: "balanced", ReorderPoint: 1, SafetyStock: -1}), "safety_stock")
+	parseAssertEmpty(parseT, validateInventoryUpdateRequest(inventoryUpdateRequest{WarehouseID: "w", Status: "balanced", ReorderPoint: 1}))
 
-	assertHas(t, validatePreferencesRequest(preferencesRequest{}), "theme")
-	assertHas(t, validatePreferencesRequest(preferencesRequest{}), "locale")
-	assertHas(t, validatePreferencesRequest(preferencesRequest{}), "density")
-	assertHas(t, validatePreferencesRequest(preferencesRequest{}), "default_warehouse_id")
-	assertEmpty(t, validatePreferencesRequest(preferencesRequest{Theme: "dark", Locale: "en", Density: "compact", DefaultWarehouseID: "illinois-hub"}))
+	parseAssertHas(parseT, validatePreferencesRequest(preferencesRequest{}), "theme")
+	parseAssertHas(parseT, validatePreferencesRequest(preferencesRequest{}), "locale")
+	parseAssertHas(parseT, validatePreferencesRequest(preferencesRequest{}), "density")
+	parseAssertHas(parseT, validatePreferencesRequest(preferencesRequest{}), "default_warehouse_id")
+	parseAssertEmpty(parseT, validatePreferencesRequest(preferencesRequest{Theme: "dark", Locale: "en", Density: "compact", DefaultWarehouseID: "illinois-hub"}))
 
-	assertHas(t, validateSavedViewRequest(savedViewRequest{}), "name")
-	assertHas(t, validateSavedViewRequest(savedViewRequest{}), "scope")
-	assertHas(t, validateSavedViewRequest(savedViewRequest{}), "sort_direction")
-	assertHas(t, validateSavedViewRequest(savedViewRequest{Name: "x", Scope: "inventory", SortDirection: "asc", FiltersJSON: "{bad"}), "filters_json")
-	assertEmpty(t, validateSavedViewRequest(savedViewRequest{Name: "x", Scope: "inventory", SortDirection: "desc", FiltersJSON: `{"k":"v"}`}))
+	parseAssertHas(parseT, validateSavedViewRequest(savedViewRequest{}), "name")
+	parseAssertHas(parseT, validateSavedViewRequest(savedViewRequest{}), "scope")
+	parseAssertHas(parseT, validateSavedViewRequest(savedViewRequest{}), "sort_direction")
+	parseAssertHas(parseT, validateSavedViewRequest(savedViewRequest{Name: "x", Scope: "inventory", SortDirection: "asc", FiltersJSON: "{bad"}), "filters_json")
+	parseAssertEmpty(parseT, validateSavedViewRequest(savedViewRequest{Name: "x", Scope: "inventory", SortDirection: "desc", FiltersJSON: `{"k":"v"}`}))
 
-	assertHas(t, validateSavedViewImportRequest(savedViewImportRequest{}), "views_json")
-	assertHas(t, validateSavedViewImportRequest(savedViewImportRequest{ViewsJSON: "{"}), "views_json")
-	assertEmpty(t, validateSavedViewImportRequest(savedViewImportRequest{ViewsJSON: `{"items":[{"name":"n","scope":"inventory"}]}`}))
+	parseAssertHas(parseT, validateSavedViewImportRequest(savedViewImportRequest{}), "views_json")
+	parseAssertHas(parseT, validateSavedViewImportRequest(savedViewImportRequest{ViewsJSON: "{"}), "views_json")
+	parseAssertEmpty(parseT, validateSavedViewImportRequest(savedViewImportRequest{ViewsJSON: `{"items":[{"name":"n","scope":"inventory"}]}`}))
 
-	assertHas(t, validateTransferRequest(transferRequest{}), "source_warehouse_id")
-	assertHas(t, validateTransferRequest(transferRequest{}), "destination_warehouse_id")
-	assertHas(t, validateTransferRequest(transferRequest{}), "reason")
-	assertHas(t, validateTransferRequest(transferRequest{SourceWarehouseID: "a", DestinationWarehouseID: "a", Reason: "x"}), "destination_warehouse_id")
-	assertEmpty(t, validateTransferRequest(transferRequest{SourceWarehouseID: "a", DestinationWarehouseID: "b", Reason: "x"}))
+	parseAssertHas(parseT, validateTransferRequest(transferRequest{}), "source_warehouse_id")
+	parseAssertHas(parseT, validateTransferRequest(transferRequest{}), "destination_warehouse_id")
+	parseAssertHas(parseT, validateTransferRequest(transferRequest{}), "reason")
+	parseAssertHas(parseT, validateTransferRequest(transferRequest{SourceWarehouseID: "a", DestinationWarehouseID: "a", Reason: "x"}), "destination_warehouse_id")
+	parseAssertEmpty(parseT, validateTransferRequest(transferRequest{SourceWarehouseID: "a", DestinationWarehouseID: "b", Reason: "x"}))
 
-	assertHas(t, validateReceivingRequest(receivingRequest{}), "status")
-	assertHas(t, validateReceivingRequest(receivingRequest{}), "discrepancy_summary")
-	assertEmpty(t, validateReceivingRequest(receivingRequest{Status: "closed", DiscrepancySummary: "none"}))
+	parseAssertHas(parseT, validateReceivingRequest(receivingRequest{}), "status")
+	parseAssertHas(parseT, validateReceivingRequest(receivingRequest{}), "discrepancy_summary")
+	parseAssertHas(parseT, validateReceivingRequest(receivingRequest{Status: "review", DiscrepancySummary: "legacy value"}), "status")
+	parseAssertEmpty(parseT, validateReceivingRequest(receivingRequest{Status: "open", DiscrepancySummary: "waiting for count"}))
+	parseAssertEmpty(parseT, validateReceivingRequest(receivingRequest{Status: "in_review", DiscrepancySummary: "classification in progress"}))
+	parseAssertEmpty(parseT, validateReceivingRequest(receivingRequest{Status: "closed", DiscrepancySummary: "none"}))
 
-	assertHas(t, validatePurchaseOrderStatusRequest(purchaseOrderStatusRequest{}), "status")
-	assertEmpty(t, validatePurchaseOrderStatusRequest(purchaseOrderStatusRequest{Status: "approved"}))
+	parseAssertHas(parseT, validatePurchaseOrderStatusRequest(purchaseOrderStatusRequest{}), "status")
+	parseAssertEmpty(parseT, validatePurchaseOrderStatusRequest(purchaseOrderStatusRequest{Status: "approved"}))
 
-	assertHas(t, validatePurchaseOrderCreateRequest(purchaseOrderCreateRequest{}), "vendor_name")
-	assertHas(t, validatePurchaseOrderCreateRequest(purchaseOrderCreateRequest{}), "warehouse_id")
-	assertHas(t, validatePurchaseOrderCreateRequest(purchaseOrderCreateRequest{}), "product_sku")
-	assertHas(t, validatePurchaseOrderCreateRequest(purchaseOrderCreateRequest{}), "quantity")
-	assertHas(t, validatePurchaseOrderCreateRequest(purchaseOrderCreateRequest{}), "eta")
-	assertHas(t, validatePurchaseOrderCreateRequest(purchaseOrderCreateRequest{}), "priority_note")
-	assertHas(t, validatePurchaseOrderCreateRequest(purchaseOrderCreateRequest{}), "status")
-	assertEmpty(t, validatePurchaseOrderCreateRequest(purchaseOrderCreateRequest{
+	parseAssertHas(parseT, validatePurchaseOrderCreateRequest(purchaseOrderCreateRequest{}), "vendor_name")
+	parseAssertHas(parseT, validatePurchaseOrderCreateRequest(purchaseOrderCreateRequest{}), "warehouse_id")
+	parseAssertHas(parseT, validatePurchaseOrderCreateRequest(purchaseOrderCreateRequest{}), "product_sku")
+	parseAssertHas(parseT, validatePurchaseOrderCreateRequest(purchaseOrderCreateRequest{}), "quantity")
+	parseAssertHas(parseT, validatePurchaseOrderCreateRequest(purchaseOrderCreateRequest{}), "eta")
+	parseAssertHas(parseT, validatePurchaseOrderCreateRequest(purchaseOrderCreateRequest{}), "priority_note")
+	parseAssertHas(parseT, validatePurchaseOrderCreateRequest(purchaseOrderCreateRequest{}), "status")
+	parseAssertEmpty(parseT, validatePurchaseOrderCreateRequest(purchaseOrderCreateRequest{
 		VendorName:   "Northwind",
 		WarehouseID:  "illinois-hub",
 		ProductSKU:   "frame-desk",
@@ -355,8 +358,8 @@ func TestValidateRequests_InvalidAndValid(t *testing.T) {
 	}))
 }
 
-func TestSavedViewTransferDocumentHelpers(t *testing.T) {
-	input := []repository.SavedView{{
+func TestSavedViewTransferDocumentHelpers(parseT *testing.T) {
+	parseInput := []repository.SavedView{{
 		Name:          "Backlog",
 		Scope:         "inventory",
 		SortKey:       "urgency",
@@ -365,31 +368,31 @@ func TestSavedViewTransferDocumentHelpers(t *testing.T) {
 		WarehouseID:   "illinois-hub",
 		FiltersJSON:   `{"status":"critical"}`,
 	}}
-	doc := buildSavedViewTransferDocument(input)
-	if len(doc.Items) != 1 || doc.Items[0].Name != "Backlog" {
-		t.Fatalf("unexpected transfer document: %#v", doc)
+	parseDoc := buildSavedViewTransferDocument(parseInput)
+	if len(parseDoc.Items) != 1 || parseDoc.Items[0].Name != "Backlog" {
+		parseT.Fatalf("unexpected transfer document: %#v", parseDoc)
 	}
 
-	parsed, err := parseSavedViewTransferDocument(`{"items":[{"name":"Backlog","scope":"inventory","sortKey":"urgency","sortDirection":"asc","density":"compact","warehouseId":"illinois-hub","filtersJSON":"{}"}]}`)
-	if err != nil {
-		t.Fatalf("parseSavedViewTransferDocument object: %v", err)
+	parseParsed, parseErr := parseSavedViewTransferDocument(`{"items":[{"name":"Backlog","scope":"inventory","sortKey":"urgency","sortDirection":"asc","density":"compact","warehouseId":"illinois-hub","filtersJSON":"{}"}]}`)
+	if parseErr != nil {
+		parseT.Fatalf("parseSavedViewTransferDocument object: %v", parseErr)
 	}
-	if len(parsed) != 1 || parsed[0].Name != "Backlog" {
-		t.Fatalf("unexpected parsed object payload: %#v", parsed)
-	}
-
-	parsed, err = parseSavedViewTransferDocument(`[{"name":"Fallback","scope":"inventory","sortKey":"urgency","sortDirection":"desc","density":"comfortable","warehouseId":"new-jersey-hub","filtersJSON":"{}"}]`)
-	if err != nil {
-		t.Fatalf("parseSavedViewTransferDocument array: %v", err)
-	}
-	if len(parsed) != 1 || parsed[0].Name != "Fallback" {
-		t.Fatalf("unexpected parsed array payload: %#v", parsed)
+	if len(parseParsed) != 1 || parseParsed[0].Name != "Backlog" {
+		parseT.Fatalf("unexpected parsed object payload: %#v", parseParsed)
 	}
 
-	if _, err := parseSavedViewTransferDocument(" "); err == nil {
-		t.Fatal("expected error for empty payload")
+	parseParsed, parseErr = parseSavedViewTransferDocument(`[{"name":"Fallback","scope":"inventory","sortKey":"urgency","sortDirection":"desc","density":"comfortable","warehouseId":"new-jersey-hub","filtersJSON":"{}"}]`)
+	if parseErr != nil {
+		parseT.Fatalf("parseSavedViewTransferDocument array: %v", parseErr)
 	}
-	if _, err := parseSavedViewTransferDocument("{"); err == nil {
-		t.Fatal("expected error for invalid payload")
+	if len(parseParsed) != 1 || parseParsed[0].Name != "Fallback" {
+		parseT.Fatalf("unexpected parsed array payload: %#v", parseParsed)
+	}
+
+	if _, parseErr2 := parseSavedViewTransferDocument(" "); parseErr2 == nil {
+		parseT.Fatal("expected error for empty payload")
+	}
+	if _, parseErr3 := parseSavedViewTransferDocument("{"); parseErr3 == nil {
+		parseT.Fatal("expected error for invalid payload")
 	}
 }

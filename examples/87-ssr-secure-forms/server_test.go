@@ -18,164 +18,164 @@ func newTestServer() *secureFormsServer {
 	return &secureFormsServer{}
 }
 
-func TestIndexRendersCSRFAndMultipartForm(t *testing.T) {
-	server := newTestServer()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	res := httptest.NewRecorder()
+func TestIndexRendersCSRFAndMultipartForm(parseT *testing.T) {
+	parseServer := newTestServer()
+	parseReq := httptest.NewRequest(http.MethodGet, "/", nil)
+	parseRes := httptest.NewRecorder()
 
-	server.handleIndex(res, req)
-	if res.Code != http.StatusOK {
-		t.Fatalf("expected OK, got %d", res.Code)
+	parseServer.handleIndex(parseRes, parseReq)
+	if parseRes.Code != http.StatusOK {
+		parseT.Fatalf("expected OK, got %d", parseRes.Code)
 	}
-	body := res.Body.String()
-	checks := []string{
+	parseBody := parseRes.Body.String()
+	parseChecks := []string{
 		`name="csrf_token"`,
 		`enctype="multipart/form-data"`,
 		`Request pricing`,
 		`Upload asset`,
 	}
-	for _, check := range checks {
-		if !strings.Contains(body, check) {
-			t.Fatalf("expected body to contain %q, got %q", check, body)
+	for _, parseCheck := range parseChecks {
+		if !strings.Contains(parseBody, parseCheck) {
+			parseT.Fatalf("expected body to contain %q, got %q", parseCheck, parseBody)
 		}
 	}
-	if len(res.Result().Cookies()) == 0 {
-		t.Fatal("expected csrf cookie")
+	if len(parseRes.Result().Cookies()) == 0 {
+		parseT.Fatal("expected csrf cookie")
 	}
 }
 
-func TestQuoteValidationRoundTripPreservesValues(t *testing.T) {
-	server := newTestServer()
-	csrfToken, csrfCookie := loadCSRF(t, server)
-	form := strings.NewReader("csrf_token=" + csrfToken + "&name=&email=buyer%40example.com&company=Atlas+Studio&timeline=quarter&notes=Need+review")
-	req := httptest.NewRequest(http.MethodPost, "/quote", form)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Origin", "http://example.com")
-	req.Host = "example.com"
-	req.AddCookie(csrfCookie)
-	res := httptest.NewRecorder()
+func TestQuoteValidationRoundTripPreservesValues(parseT *testing.T) {
+	parseServer := newTestServer()
+	parseCsrfToken, parseCsrfCookie := loadCSRF(parseT, parseServer)
+	parseForm := strings.NewReader("csrf_token=" + parseCsrfToken + "&name=&email=buyer%40example.com&company=Atlas+Studio&timeline=quarter&notes=Need+review")
+	parseReq := httptest.NewRequest(http.MethodPost, "/quote", parseForm)
+	parseReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseReq.Header.Set("Origin", "http://example.com")
+	parseReq.Host = "example.com"
+	parseReq.AddCookie(parseCsrfCookie)
+	parseRes := httptest.NewRecorder()
 
-	server.handleQuote(res, req)
-	if res.Code != http.StatusBadRequest {
-		t.Fatalf("expected validation error status, got %d", res.Code)
+	parseServer.handleQuote(parseRes, parseReq)
+	if parseRes.Code != http.StatusBadRequest {
+		parseT.Fatalf("expected validation error status, got %d", parseRes.Code)
 	}
-	body := res.Body.String()
-	if !strings.Contains(body, "Name is required.") || !strings.Contains(body, `value="buyer@example.com"`) || !strings.Contains(body, `value="Atlas Studio"`) {
-		t.Fatalf("expected validation round-trip body, got %q", body)
+	parseBody := parseRes.Body.String()
+	if !strings.Contains(parseBody, "Name is required.") || !strings.Contains(parseBody, `value="buyer@example.com"`) || !strings.Contains(parseBody, `value="Atlas Studio"`) {
+		parseT.Fatalf("expected validation round-trip body, got %q", parseBody)
 	}
 }
 
-func TestQuoteSuccessRedirectsAfterSubmit(t *testing.T) {
-	server := newTestServer()
-	csrfToken, csrfCookie := loadCSRF(t, server)
-	form := strings.NewReader("csrf_token=" + csrfToken + "&name=Ada+Buyer&email=buyer%40example.com&company=Atlas+Studio&timeline=30_days&notes=Ship+quote")
-	req := httptest.NewRequest(http.MethodPost, "/quote", form)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Origin", "http://example.com")
-	req.Host = "example.com"
-	req.AddCookie(csrfCookie)
-	res := httptest.NewRecorder()
+func TestQuoteSuccessRedirectsAfterSubmit(parseT *testing.T) {
+	parseServer := newTestServer()
+	parseCsrfToken, parseCsrfCookie := loadCSRF(parseT, parseServer)
+	parseForm := strings.NewReader("csrf_token=" + parseCsrfToken + "&name=Ada+Buyer&email=buyer%40example.com&company=Atlas+Studio&timeline=30_days&notes=Ship+quote")
+	parseReq := httptest.NewRequest(http.MethodPost, "/quote", parseForm)
+	parseReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseReq.Header.Set("Origin", "http://example.com")
+	parseReq.Host = "example.com"
+	parseReq.AddCookie(parseCsrfCookie)
+	parseRes := httptest.NewRecorder()
 
-	server.handleQuote(res, req)
-	if res.Code != http.StatusSeeOther {
-		t.Fatalf("expected redirect, got %d", res.Code)
+	parseServer.handleQuote(parseRes, parseReq)
+	if parseRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected redirect, got %d", parseRes.Code)
 	}
-	if location := res.Header().Get("Location"); !strings.Contains(location, "notice=") {
-		t.Fatalf("expected redirect notice, got %q", location)
+	if parseLocation := parseRes.Header().Get("Location"); !strings.Contains(parseLocation, "notice=") {
+		parseT.Fatalf("expected redirect notice, got %q", parseLocation)
 	}
 }
 
-func TestUploadValidationRoundTripPreservesLabel(t *testing.T) {
-	server := newTestServer()
-	csrfToken, csrfCookie := loadCSRF(t, server)
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	_ = writer.WriteField("csrf_token", csrfToken)
-	_ = writer.WriteField("label", "Warehouse board")
-	_ = writer.Close()
+func TestUploadValidationRoundTripPreservesLabel(parseT *testing.T) {
+	parseServer := newTestServer()
+	parseCsrfToken, parseCsrfCookie := loadCSRF(parseT, parseServer)
+	parseBody := &bytes.Buffer{}
+	parseWriter := multipart.NewWriter(parseBody)
+	_ = parseWriter.WriteField("csrf_token", parseCsrfToken)
+	_ = parseWriter.WriteField("label", "Warehouse board")
+	_ = parseWriter.Close()
 
-	req := httptest.NewRequest(http.MethodPost, "/upload", body)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.Header.Set("Origin", "http://example.com")
-	req.Host = "example.com"
-	req.AddCookie(csrfCookie)
-	res := httptest.NewRecorder()
+	parseReq := httptest.NewRequest(http.MethodPost, "/upload", parseBody)
+	parseReq.Header.Set("Content-Type", parseWriter.FormDataContentType())
+	parseReq.Header.Set("Origin", "http://example.com")
+	parseReq.Host = "example.com"
+	parseReq.AddCookie(parseCsrfCookie)
+	parseRes := httptest.NewRecorder()
 
-	server.handleUpload(res, req)
-	if res.Code != http.StatusBadRequest {
-		t.Fatalf("expected upload validation error, got %d", res.Code)
+	parseServer.handleUpload(parseRes, parseReq)
+	if parseRes.Code != http.StatusBadRequest {
+		parseT.Fatalf("expected upload validation error, got %d", parseRes.Code)
 	}
-	if got := res.Body.String(); !strings.Contains(got, "Choose a PNG or JPEG file.") || !strings.Contains(got, `value="Warehouse board"`) {
-		t.Fatalf("expected upload validation round-trip, got %q", got)
+	if parseGot := parseRes.Body.String(); !strings.Contains(parseGot, "Choose a PNG or JPEG file.") || !strings.Contains(parseGot, `value="Warehouse board"`) {
+		parseT.Fatalf("expected upload validation round-trip, got %q", parseGot)
 	}
 }
 
-func TestUploadSuccessRedirectsAfterMultipartSubmit(t *testing.T) {
-	server := newTestServer()
-	csrfToken, csrfCookie := loadCSRF(t, server)
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	_ = writer.WriteField("csrf_token", csrfToken)
-	_ = writer.WriteField("label", "Warehouse board")
-	part, err := writer.CreateFormFile("asset", "board.png")
-	if err != nil {
-		t.Fatalf("unexpected multipart file creation error: %v", err)
+func TestUploadSuccessRedirectsAfterMultipartSubmit(parseT *testing.T) {
+	parseServer := newTestServer()
+	parseCsrfToken, parseCsrfCookie := loadCSRF(parseT, parseServer)
+	parseBody := &bytes.Buffer{}
+	parseWriter := multipart.NewWriter(parseBody)
+	_ = parseWriter.WriteField("csrf_token", parseCsrfToken)
+	_ = parseWriter.WriteField("label", "Warehouse board")
+	parsePart, parseErr := parseWriter.CreateFormFile("asset", "board.png")
+	if parseErr != nil {
+		parseT.Fatalf("unexpected multipart file creation error: %v", parseErr)
 	}
-	if _, err := io.Copy(part, bytes.NewBufferString("\x89PNG\r\n\x1a\nfakepng")); err != nil {
-		t.Fatalf("unexpected multipart write error: %v", err)
+	if _, parseErr2 := io.Copy(parsePart, bytes.NewBufferString("\x89PNG\r\n\x1a\nfakepng")); parseErr2 != nil {
+		parseT.Fatalf("unexpected multipart write error: %v", parseErr2)
 	}
-	_ = writer.Close()
+	_ = parseWriter.Close()
 
-	req := httptest.NewRequest(http.MethodPost, "/upload", body)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.Header.Set("Origin", "http://example.com")
-	req.Host = "example.com"
-	req.AddCookie(csrfCookie)
-	res := httptest.NewRecorder()
+	parseReq := httptest.NewRequest(http.MethodPost, "/upload", parseBody)
+	parseReq.Header.Set("Content-Type", parseWriter.FormDataContentType())
+	parseReq.Header.Set("Origin", "http://example.com")
+	parseReq.Host = "example.com"
+	parseReq.AddCookie(parseCsrfCookie)
+	parseRes := httptest.NewRecorder()
 
-	server.handleUpload(res, req)
-	if res.Code != http.StatusSeeOther {
-		t.Fatalf("expected upload redirect, got %d", res.Code)
+	parseServer.handleUpload(parseRes, parseReq)
+	if parseRes.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected upload redirect, got %d", parseRes.Code)
 	}
-	location := res.Header().Get("Location")
-	if !strings.Contains(location, "asset=board.png") || !strings.Contains(location, "notice=") {
-		t.Fatalf("expected asset redirect summary, got %q", location)
+	parseLocation := parseRes.Header().Get("Location")
+	if !strings.Contains(parseLocation, "asset=board.png") || !strings.Contains(parseLocation, "notice=") {
+		parseT.Fatalf("expected asset redirect summary, got %q", parseLocation)
 	}
 }
 
-func TestPostRejectsMissingCSRFTokens(t *testing.T) {
-	server := newTestServer()
-	req := httptest.NewRequest(http.MethodPost, "/quote", strings.NewReader("name=Ada"))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Origin", "http://example.com")
-	req.Host = "example.com"
-	res := httptest.NewRecorder()
+func TestPostRejectsMissingCSRFTokens(parseT *testing.T) {
+	parseServer := newTestServer()
+	parseReq := httptest.NewRequest(http.MethodPost, "/quote", strings.NewReader("name=Ada"))
+	parseReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	parseReq.Header.Set("Origin", "http://example.com")
+	parseReq.Host = "example.com"
+	parseRes := httptest.NewRecorder()
 
-	server.handleQuote(res, req)
-	if res.Code != http.StatusForbidden {
-		t.Fatalf("expected forbidden, got %d", res.Code)
+	parseServer.handleQuote(parseRes, parseReq)
+	if parseRes.Code != http.StatusForbidden {
+		parseT.Fatalf("expected forbidden, got %d", parseRes.Code)
 	}
-	if !strings.Contains(res.Body.String(), "csrf") {
-		t.Fatalf("expected csrf failure body, got %q", res.Body.String())
+	if !strings.Contains(parseRes.Body.String(), "csrf") {
+		parseT.Fatalf("expected csrf failure body, got %q", parseRes.Body.String())
 	}
 }
 
-func loadCSRF(t *testing.T, server *secureFormsServer) (string, *http.Cookie) {
-	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Host = "example.com"
-	res := httptest.NewRecorder()
-	server.handleIndex(res, req)
-	body := res.Body.String()
-	match := regexp.MustCompile(`name="csrf_token"[^>]*value="([^"]+)"`).FindStringSubmatch(body)
-	if len(match) != 2 {
-		t.Fatalf("expected csrf token in body, got %q", body)
+func loadCSRF(parseT *testing.T, parseServer *secureFormsServer) (string, *http.Cookie) {
+	parseT.Helper()
+	parseReq := httptest.NewRequest(http.MethodGet, "/", nil)
+	parseReq.Host = "example.com"
+	parseRes := httptest.NewRecorder()
+	parseServer.handleIndex(parseRes, parseReq)
+	parseBody := parseRes.Body.String()
+	parseMatch := regexp.MustCompile(`name="csrf_token"[^>]*value="([^"]+)"`).FindStringSubmatch(parseBody)
+	if len(parseMatch) != 2 {
+		parseT.Fatalf("expected csrf token in body, got %q", parseBody)
 	}
-	for _, cookie := range res.Result().Cookies() {
-		if cookie.Name == secureFormsCSRFCookie {
-			return match[1], cookie
+	for _, parseCookie := range parseRes.Result().Cookies() {
+		if parseCookie.Name == secureFormsCSRFCookie {
+			return parseMatch[1], parseCookie
 		}
 	}
-	t.Fatal("expected csrf cookie")
+	parseT.Fatal("expected csrf cookie")
 	return "", nil
 }

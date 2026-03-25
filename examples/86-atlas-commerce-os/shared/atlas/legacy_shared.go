@@ -101,20 +101,20 @@ type PageMetadata struct {
 	OGImage     string
 }
 
-func MetadataForPath(path string) PageMetadata {
-	if strings.HasPrefix(path, RouteWarehouses+"/") && strings.Contains(path, "/availability/") {
+func MetadataForPath(parsePath string) PageMetadata {
+	if strings.HasPrefix(parsePath, RouteWarehouses+"/") && strings.Contains(parsePath, "/availability/") {
 		return PageMetadata{Title: "Atlas Warehouse Availability", Description: "Inspect a warehouse-specific product promise for one Atlas item and one regional fulfillment hub.", Canonical: RouteWarehouseAvailability, OGImage: "/examples/static/img/atlas-warehouse-availability-og.png"}
 	}
-	if strings.HasPrefix(path, RouteWarehouseOps+"/") && strings.Contains(path, "/items/") {
+	if strings.HasPrefix(parsePath, RouteWarehouseOps+"/") && strings.Contains(parsePath, "/items/") {
 		return PageMetadata{Title: "Atlas Warehouse Item", Description: "Manage one warehouse item with inventory edits, replenishment, and local demand context.", Canonical: RouteWarehouseItemDetail, OGImage: "/examples/static/img/atlas-warehouse-detail-og.png"}
 	}
-	if strings.HasPrefix(path, RouteInventory+"/") && strings.HasSuffix(path, "/threshold-history") {
+	if strings.HasPrefix(parsePath, RouteInventory+"/") && strings.HasSuffix(parsePath, "/threshold-history") {
 		return PageMetadata{Title: "Atlas Threshold History", Description: "Review threshold edits and transfer cues for one Atlas SKU without leaving the inventory route context.", Canonical: RouteSKUThresholdHistory, OGImage: "/examples/static/img/atlas-sku-og.png"}
 	}
-	if strings.HasPrefix(path, RouteWarehouses+"/") {
+	if strings.HasPrefix(parsePath, RouteWarehouses+"/") {
 		return PageMetadata{Title: "Atlas Warehouse Region", Description: "Inspect one Atlas delivery region, including service posture, stocked highlights, and product-specific availability links.", Canonical: RouteWarehousePublicDetail, OGImage: "/examples/static/img/atlas-warehouse-public-detail-og.png"}
 	}
-	switch path {
+	switch parsePath {
 	case RouteLanding:
 		return PageMetadata{Title: "Atlas Commerce OS", Description: "Premium modular workspace systems with warehouse-aware availability.", Canonical: "/", OGImage: "/examples/static/img/atlas-landing-og.png"}
 	case RouteCatalog:
@@ -150,122 +150,122 @@ func MetadataForPath(path string) PageMetadata {
 	case RouteSettings:
 		return PageMetadata{Title: "Atlas Settings", Description: "Manage theme, locale, density, default warehouse, and saved-view preferences.", Canonical: "/app/settings", OGImage: "/examples/static/img/atlas-settings-og.png"}
 	default:
-		return PageMetadata{Title: "Atlas Commerce OS", Description: "Flagship example for GoWebComponents.", Canonical: path, OGImage: "/examples/static/img/atlas-default-og.png"}
+		return PageMetadata{Title: "Atlas Commerce OS", Description: "Flagship example for GoWebComponents.", Canonical: parsePath, OGImage: "/examples/static/img/atlas-default-og.png"}
 	}
 }
 
-func RouteBootstrapForPath(path string) (RouteBootstrap, bool) {
-	for _, route := range RouteManifest {
-		if route.Path == path {
-			meta := MetadataForPath(path)
+func RouteBootstrapForPath(parsePath string) (RouteBootstrap, bool) {
+	for _, parseRoute := range RouteManifest {
+		if parseRoute.Path == parsePath {
+			parseMeta := MetadataForPath(parsePath)
 			return RouteBootstrap{
-				Path:        route.Path,
-				Surface:     route.Surface,
-				Screen:      route.Screen,
-				Title:       meta.Title,
-				Description: meta.Description,
-				Canonical:   meta.Canonical,
+				Path:        parseRoute.Path,
+				Surface:     parseRoute.Surface,
+				Screen:      parseRoute.Screen,
+				Title:       parseMeta.Title,
+				Description: parseMeta.Description,
+				Canonical:   parseMeta.Canonical,
 			}, true
 		}
 	}
 	return RouteBootstrap{}, false
 }
 
-func CatalogPageValue(value string) int {
-	parsed, err := strconv.Atoi(strings.TrimSpace(value))
-	if err != nil || parsed < 1 {
+func CatalogPageValue(parseValue string) int {
+	parseParsed, parseErr := strconv.Atoi(strings.TrimSpace(parseValue))
+	if parseErr != nil || parseParsed < 1 {
 		return 1
 	}
-	return parsed
+	return parseParsed
 }
 
-func BuildCatalogQueryValues(searchQuery, category, warehouse, sortKey string, page int) url.Values {
-	values := url.Values{}
-	if strings.TrimSpace(searchQuery) != "" {
-		values.Set("q", strings.TrimSpace(searchQuery))
+func BuildCatalogQueryValues(parseSearchQuery, parseCategory, parseWarehouse, parseSortKey string, parsePage int) url.Values {
+	parseValues := url.Values{}
+	if strings.TrimSpace(parseSearchQuery) != "" {
+		parseValues.Set("q", strings.TrimSpace(parseSearchQuery))
 	}
-	if category != "" && category != "all" {
-		values.Set("category", category)
+	if parseCategory != "" && parseCategory != "all" {
+		parseValues.Set("category", parseCategory)
 	}
-	if warehouse != "" && warehouse != "all" {
-		values.Set("warehouse", warehouse)
+	if parseWarehouse != "" && parseWarehouse != "all" {
+		parseValues.Set("warehouse", parseWarehouse)
 	}
-	if sortKey != "" && sortKey != "featured" {
-		values.Set("sort", sortKey)
+	if parseSortKey != "" && parseSortKey != "featured" {
+		parseValues.Set("sort", parseSortKey)
 	}
-	if page > 1 {
-		values.Set("page", fmt.Sprintf("%d", page))
+	if parsePage > 1 {
+		parseValues.Set("page", fmt.Sprintf("%d", parsePage))
 	}
-	return values
+	return parseValues
 }
 
-func StartupRequestURL(path string, query url.Values) string {
+func StartupRequestURL(parsePath string, parseQuery url.Values) string {
 	switch {
-	case path == RouteCatalog:
-		if encoded := query.Encode(); encoded != "" {
-			return "/api/public/catalog?" + encoded
+	case parsePath == RouteCatalog:
+		if parseEncoded := parseQuery.Encode(); parseEncoded != "" {
+			return "/api/public/catalog?" + parseEncoded
 		}
 		return "/api/public/catalog"
-	case strings.HasPrefix(path, RouteCatalog+"/"):
-		return "/api/public/products/" + strings.TrimPrefix(path, RouteCatalog+"/")
-	case path == RouteWarehouses:
-		if encoded := query.Encode(); encoded != "" {
-			return "/api/public/warehouses?" + encoded
+	case strings.HasPrefix(parsePath, RouteCatalog+"/"):
+		return "/api/public/products/" + strings.TrimPrefix(parsePath, RouteCatalog+"/")
+	case parsePath == RouteWarehouses:
+		if parseEncoded2 := parseQuery.Encode(); parseEncoded2 != "" {
+			return "/api/public/warehouses?" + parseEncoded2
 		}
 		return "/api/public/warehouses"
-	case strings.Contains(path, "/availability/"):
-		parts := strings.Split(strings.TrimPrefix(path, RouteWarehouses+"/"), "/availability/")
-		if len(parts) != 2 {
+	case strings.Contains(parsePath, "/availability/"):
+		parseParts := strings.Split(strings.TrimPrefix(parsePath, RouteWarehouses+"/"), "/availability/")
+		if len(parseParts) != 2 {
 			return ""
 		}
-		return "/api/public/warehouses/" + parts[0] + "/availability/" + parts[1]
-	case strings.HasPrefix(path, RouteWarehouses+"/"):
-		return "/api/public/warehouses/" + strings.TrimPrefix(path, RouteWarehouses+"/")
-	case path == RouteDashboard:
+		return "/api/public/warehouses/" + parseParts[0] + "/availability/" + parseParts[1]
+	case strings.HasPrefix(parsePath, RouteWarehouses+"/"):
+		return "/api/public/warehouses/" + strings.TrimPrefix(parsePath, RouteWarehouses+"/")
+	case parsePath == RouteDashboard:
 		return "/api/app/dashboard"
-	case path == "/app/products":
-		if encoded := query.Encode(); encoded != "" {
-			return "/api/app/products?" + encoded
+	case parsePath == "/app/products":
+		if parseEncoded3 := parseQuery.Encode(); parseEncoded3 != "" {
+			return "/api/app/products?" + parseEncoded3
 		}
 		return "/api/app/products"
-	case strings.HasPrefix(path, "/app/products/"):
-		return "/api/app/products/" + strings.TrimPrefix(path, "/app/products/")
-	case path == RouteInventory:
-		if encoded := query.Encode(); encoded != "" {
-			return "/api/app/inventory?" + encoded
+	case strings.HasPrefix(parsePath, "/app/products/"):
+		return "/api/app/products/" + strings.TrimPrefix(parsePath, "/app/products/")
+	case parsePath == RouteInventory:
+		if parseEncoded4 := parseQuery.Encode(); parseEncoded4 != "" {
+			return "/api/app/inventory?" + parseEncoded4
 		}
 		return "/api/app/inventory"
-	case strings.HasPrefix(path, RouteInventory+"/") && strings.HasSuffix(path, "/threshold-history"):
-		return "/api/app/inventory/" + strings.TrimSuffix(strings.TrimPrefix(path, RouteInventory+"/"), "/threshold-history") + "/threshold-panel"
-	case strings.HasPrefix(path, RouteInventory+"/"):
-		return "/api/app/inventory/" + strings.TrimPrefix(path, RouteInventory+"/")
-	case path == RouteWarehouseOps:
+	case strings.HasPrefix(parsePath, RouteInventory+"/") && strings.HasSuffix(parsePath, "/threshold-history"):
+		return "/api/app/inventory/" + strings.TrimSuffix(strings.TrimPrefix(parsePath, RouteInventory+"/"), "/threshold-history") + "/threshold-panel"
+	case strings.HasPrefix(parsePath, RouteInventory+"/"):
+		return "/api/app/inventory/" + strings.TrimPrefix(parsePath, RouteInventory+"/")
+	case parsePath == RouteWarehouseOps:
 		return "/api/app/warehouses"
-	case strings.HasPrefix(path, RouteWarehouseOps+"/") && strings.Contains(strings.TrimPrefix(path, RouteWarehouseOps+"/"), "/items/"):
-		if encoded := query.Encode(); encoded != "" {
-			return "/api/app/warehouses/" + strings.TrimPrefix(path, RouteWarehouseOps+"/") + "?" + encoded
+	case strings.HasPrefix(parsePath, RouteWarehouseOps+"/") && strings.Contains(strings.TrimPrefix(parsePath, RouteWarehouseOps+"/"), "/items/"):
+		if parseEncoded5 := parseQuery.Encode(); parseEncoded5 != "" {
+			return "/api/app/warehouses/" + strings.TrimPrefix(parsePath, RouteWarehouseOps+"/") + "?" + parseEncoded5
 		}
-		return "/api/app/warehouses/" + strings.TrimPrefix(path, RouteWarehouseOps+"/")
-	case strings.HasPrefix(path, RouteWarehouseOps+"/"):
-		if encoded := query.Encode(); encoded != "" {
-			return "/api/app/warehouses/" + strings.TrimPrefix(path, RouteWarehouseOps+"/") + "?" + encoded
+		return "/api/app/warehouses/" + strings.TrimPrefix(parsePath, RouteWarehouseOps+"/")
+	case strings.HasPrefix(parsePath, RouteWarehouseOps+"/"):
+		if parseEncoded6 := parseQuery.Encode(); parseEncoded6 != "" {
+			return "/api/app/warehouses/" + strings.TrimPrefix(parsePath, RouteWarehouseOps+"/") + "?" + parseEncoded6
 		}
-		return "/api/app/warehouses/" + strings.TrimPrefix(path, RouteWarehouseOps+"/")
-	case path == RouteTransfers:
+		return "/api/app/warehouses/" + strings.TrimPrefix(parsePath, RouteWarehouseOps+"/")
+	case parsePath == RouteTransfers:
 		return "/api/app/transfers"
-	case strings.HasPrefix(path, RouteTransfers+"/"):
-		return "/api/app/transfers/" + strings.TrimPrefix(path, RouteTransfers+"/")
-	case path == RoutePurchaseOrders:
+	case strings.HasPrefix(parsePath, RouteTransfers+"/"):
+		return "/api/app/transfers/" + strings.TrimPrefix(parsePath, RouteTransfers+"/")
+	case parsePath == RoutePurchaseOrders:
 		return "/api/app/purchase-orders"
-	case strings.HasPrefix(path, RoutePurchaseOrders+"/"):
-		return "/api/app/purchase-orders/" + strings.TrimPrefix(path, RoutePurchaseOrders+"/")
-	case path == RouteReceiving:
+	case strings.HasPrefix(parsePath, RoutePurchaseOrders+"/"):
+		return "/api/app/purchase-orders/" + strings.TrimPrefix(parsePath, RoutePurchaseOrders+"/")
+	case parsePath == RouteReceiving:
 		return "/api/app/receiving"
-	case strings.HasPrefix(path, RouteReceiving+"/"):
-		return "/api/app/receiving/" + strings.TrimPrefix(path, RouteReceiving+"/")
-	case path == RouteComments:
+	case strings.HasPrefix(parsePath, RouteReceiving+"/"):
+		return "/api/app/receiving/" + strings.TrimPrefix(parsePath, RouteReceiving+"/")
+	case parsePath == RouteComments:
 		return "/api/app/comments"
-	case path == RouteSettings:
+	case parsePath == RouteSettings:
 		return "/api/app/settings"
 	default:
 		return ""
@@ -290,28 +290,28 @@ type WarehousePromise struct {
 	Href      string
 }
 
-func ResolveAtlasProductHeroState(productSlug, finish string) ProductHeroState {
-	state := ProductHeroState{Slug: productSlug, Label: strings.Title(strings.ReplaceAll(productSlug, "-", " ")), Finish: finish, LeadTime: "2-4 days", Availability: "Low stock", AvailabilityTone: "warm", WarehousePromise: "Rebalanced from Illinois and New Jersey for east-coast installs."}
-	switch finish {
+func ResolveAtlasProductHeroState(parseProductSlug, parseFinish string) ProductHeroState {
+	parseState := ProductHeroState{Slug: parseProductSlug, Label: strings.Title(strings.ReplaceAll(parseProductSlug, "-", " ")), Finish: parseFinish, LeadTime: "2-4 days", Availability: "Low stock", AvailabilityTone: "warm", WarehousePromise: "Rebalanced from Illinois and New Jersey for east-coast installs."}
+	switch parseFinish {
 	case "Drift ash":
-		state.LeadTime = "5-7 days"
-		state.Availability = "Made to order"
-		state.AvailabilityTone = "neutral"
-		state.WarehousePromise = "Built in the next upholstery batch with receiving priority held in Nevada."
+		parseState.LeadTime = "5-7 days"
+		parseState.Availability = "Made to order"
+		parseState.AvailabilityTone = "neutral"
+		parseState.WarehousePromise = "Built in the next upholstery batch with receiving priority held in Nevada."
 	case "Walnut ember":
-		state.LeadTime = "Ready this week"
-		state.Availability = "In stock"
-		state.AvailabilityTone = "success"
-		state.WarehousePromise = "Reserved on-hand inventory is available for premium studio and boardroom projects."
+		parseState.LeadTime = "Ready this week"
+		parseState.Availability = "In stock"
+		parseState.AvailabilityTone = "success"
+		parseState.WarehousePromise = "Reserved on-hand inventory is available for premium studio and boardroom projects."
 	}
-	return state
+	return parseState
 }
 
-func ResolveAtlasPromiseLanes(productSlug string) []WarehousePromise {
+func ResolveAtlasPromiseLanes(parseProductSlug string) []WarehousePromise {
 	return []WarehousePromise{
-		{Warehouse: "New Jersey Hub", Promise: "2-4 days", Note: "Fastest east-coast install window for the flagship route, but inventory should stay explicit because launch traffic drains this lane first.", Tone: "warm", Href: "#/warehouses/new-jersey-hub/availability/" + productSlug},
-		{Warehouse: "Illinois Hub", Promise: "4-6 days", Note: "Most balanced mixed-region lane when the product needs a calmer promise and Atlas wants to preserve east-coast depth.", Tone: "neutral", Href: "#/warehouses/illinois-hub/availability/" + productSlug},
-		{Warehouse: "Nevada Hub", Promise: "Ready this week", Note: "Strongest western stock story for larger project orders or premium finishes that need deeper inventory coverage.", Tone: "success", Href: "#/warehouses/nevada-hub/availability/" + productSlug},
+		{Warehouse: "New Jersey Hub", Promise: "2-4 days", Note: "Fastest east-coast install window for the flagship route, but inventory should stay explicit because launch traffic drains this lane first.", Tone: "warm", Href: "#/warehouses/new-jersey-hub/availability/" + parseProductSlug},
+		{Warehouse: "Illinois Hub", Promise: "4-6 days", Note: "Most balanced mixed-region lane when the product needs a calmer promise and Atlas wants to preserve east-coast depth.", Tone: "neutral", Href: "#/warehouses/illinois-hub/availability/" + parseProductSlug},
+		{Warehouse: "Nevada Hub", Promise: "Ready this week", Note: "Strongest western stock story for larger project orders or premium finishes that need deeper inventory coverage.", Tone: "success", Href: "#/warehouses/nevada-hub/availability/" + parseProductSlug},
 	}
 }
 
@@ -324,26 +324,26 @@ type InventorySummary struct {
 	StatusLabel          string
 }
 
-func InventorySummaryFor(savedView, warehouse string) InventorySummary {
-	availableByWarehouse := map[string]int{"illinois-hub": 7, "nevada-hub": 12, "new-jersey-hub": 3}
-	totalAvailable := 0
-	pressureWarehouses := 0
-	for warehouseID, available := range availableByWarehouse {
-		totalAvailable += available
-		if warehouseID == "new-jersey-hub" || available <= 4 {
-			pressureWarehouses++
+func InventorySummaryFor(parseSavedView, parseWarehouse string) InventorySummary {
+	parseAvailableByWarehouse := map[string]int{"illinois-hub": 7, "nevada-hub": 12, "new-jersey-hub": 3}
+	parseTotalAvailable := 0
+	parsePressureWarehouses := 0
+	for parseWarehouseID, parseAvailable := range parseAvailableByWarehouse {
+		parseTotalAvailable += parseAvailable
+		if parseWarehouseID == "new-jersey-hub" || parseAvailable <= 4 {
+			parsePressureWarehouses++
 		}
 	}
-	statusLabel := "Balanced"
-	suggestedAction := "Keep monitoring inbound receiving and moderate threshold edits through the SKU route."
-	if savedView == "East coast shortages" || warehouse == "new-jersey-hub" {
-		statusLabel = "Promise risk"
-		suggestedAction = "Prioritize east-coast replenishment and hand the operator into transfer planning before SLA copy slips."
-	} else if savedView == "Low stock triage" {
-		statusLabel = "Low stock watch"
-		suggestedAction = "Review low-cover SKUs, confirm thresholds, and clear receiving blockers before broader catalog demand spikes."
+	parseStatusLabel := "Balanced"
+	parseSuggestedAction := "Keep monitoring inbound receiving and moderate threshold edits through the SKU route."
+	if parseSavedView == "East coast shortages" || parseWarehouse == "new-jersey-hub" {
+		parseStatusLabel = "Promise risk"
+		parseSuggestedAction = "Prioritize east-coast replenishment and hand the operator into transfer planning before SLA copy slips."
+	} else if parseSavedView == "Low stock triage" {
+		parseStatusLabel = "Low stock watch"
+		parseSuggestedAction = "Review low-cover SKUs, confirm thresholds, and clear receiving blockers before broader catalog demand spikes."
 	}
-	return InventorySummary{TotalAvailable: totalAvailable, PressureWarehouses: pressureWarehouses, ActiveWarehouseLabel: WarehouseLabel(warehouse), ActiveSavedView: savedView, SuggestedAction: suggestedAction, StatusLabel: statusLabel}
+	return InventorySummary{TotalAvailable: parseTotalAvailable, PressureWarehouses: parsePressureWarehouses, ActiveWarehouseLabel: WarehouseLabel(parseWarehouse), ActiveSavedView: parseSavedView, SuggestedAction: parseSuggestedAction, StatusLabel: parseStatusLabel}
 }
 
 type ModerationScenario struct {
@@ -362,27 +362,27 @@ type ModerationDecisionOutcome struct {
 	ScenarioStatus string
 }
 
-func ModerationScenarioForStatus(status string) ModerationScenario {
-	scenario := ModerationScenario{Status: status, Record: "Frame Desk cable tray question", Decision: "Awaiting moderator decision", Detail: "Buyer asks about cable-tray clearance on the flagship desk."}
-	switch status {
+func ModerationScenarioForStatus(parseStatus string) ModerationScenario {
+	parseScenario := ModerationScenario{Status: parseStatus, Record: "Frame Desk cable tray question", Decision: "Awaiting moderator decision", Detail: "Buyer asks about cable-tray clearance on the flagship desk."}
+	switch parseStatus {
 	case "approved":
-		scenario.Record = "Shelf finish delivery praise"
-		scenario.Decision = "Approved and returned to the public thread"
-		scenario.Detail = "Short positive delivery feedback that reinforces the launch experience."
+		parseScenario.Record = "Shelf finish delivery praise"
+		parseScenario.Decision = "Approved and returned to the public thread"
+		parseScenario.Detail = "Short positive delivery feedback that reinforces the launch experience."
 	case "flagged":
-		scenario.Record = "Aggressive stock complaint"
-		scenario.Decision = "Flagged for escalation and staff follow-up"
-		scenario.Detail = "Escalated complaint references stock accuracy and needs a careful response path."
+		parseScenario.Record = "Aggressive stock complaint"
+		parseScenario.Decision = "Flagged for escalation and staff follow-up"
+		parseScenario.Detail = "Escalated complaint references stock accuracy and needs a careful response path."
 	case "rejected":
-		scenario.Record = "Promotional spam post"
-		scenario.Decision = "Rejected and withheld from the public thread"
-		scenario.Detail = "Promotional spam content is removed to keep the product thread credible."
+		parseScenario.Record = "Promotional spam post"
+		parseScenario.Decision = "Rejected and withheld from the public thread"
+		parseScenario.Detail = "Promotional spam content is removed to keep the product thread credible."
 	}
-	return scenario
+	return parseScenario
 }
 
-func ModerationDecisionForAction(action string) ModerationDecisionOutcome {
-	switch action {
+func ModerationDecisionForAction(parseAction string) ModerationDecisionOutcome {
+	switch parseAction {
 	case "approve":
 		return ModerationDecisionOutcome{Status: "approved", Confirmation: "Moderation decision confirmed through the Atlas overlay.", ToastTitle: "Comment approved", ToastDetail: "Moderation approval was confirmed through the Atlas overlay.", ToastTone: "success", ScenarioStatus: "approved"}
 	case "reject":
@@ -394,8 +394,8 @@ func ModerationDecisionForAction(action string) ModerationDecisionOutcome {
 	}
 }
 
-func WarehouseLabel(value string) string {
-	switch value {
+func WarehouseLabel(parseValue string) string {
+	switch parseValue {
 	case "illinois-hub":
 		return "Illinois Hub"
 	case "nevada-hub":
@@ -403,6 +403,6 @@ func WarehouseLabel(value string) string {
 	case "new-jersey-hub":
 		return "New Jersey Hub"
 	default:
-		return strings.ReplaceAll(value, "-", " ")
+		return strings.ReplaceAll(parseValue, "-", " ")
 	}
 }

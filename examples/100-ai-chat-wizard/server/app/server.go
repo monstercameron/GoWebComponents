@@ -73,91 +73,91 @@ type sessionState struct {
 	savedMessageCount int // number of messages already persisted in this conversation
 }
 
-func newChatServiceServer(openAIAPIKey, anthropicAPIKey, cerebrasAPIKey, defaultModel string, store *Store, logger *slog.Logger, stubProviders ...string) *chatServer {
-	defaultModel = normalizeSelectedModelID(defaultModel)
-	catalogConfig, err := loadModelCatalogConfig(store)
-	if err != nil {
-		logger.Warn("chat provider catalog load failed", slog.String("error", err.Error()))
+func parseNewChatServiceServer(parseOpenAIAPIKey, parseAnthropicAPIKey, parseCerebrasAPIKey, parseDefaultModel string, store *Store, parseLogger *slog.Logger, parseStubProviders ...string) *chatServer {
+	parseDefaultModel = parseNormalizeSelectedModelID(parseDefaultModel)
+	parseCatalogConfig, parseErr := parseLoadModelCatalogConfig(store)
+	if parseErr != nil {
+		parseLogger.Warn("chat provider catalog load failed", slog.String("error", parseErr.ParseError()))
 	}
-	stubSet := normalizeStubProviders(stubProviders)
-	providerRegistry := provider.NewRegistry(
-		selectRuntimeProvider("openai", strings.TrimSpace(openAIAPIKey), stubSet, catalogConfig.ProviderCatalogs["openai"]),
-		selectRuntimeProvider("anthropic", strings.TrimSpace(anthropicAPIKey), stubSet, catalogConfig.ProviderCatalogs["anthropic"]),
-		selectRuntimeProvider("cerebras", strings.TrimSpace(cerebrasAPIKey), stubSet, catalogConfig.ProviderCatalogs["cerebras"]),
+	parseStubSet := parseNormalizeStubProviders(parseStubProviders)
+	parseProviderRegistry := provider.ParseNewRegistry(
+		parseSelectRuntimeProvider("openai", strings.TrimSpace(parseOpenAIAPIKey), parseStubSet, parseCatalogConfig.ProviderCatalogs["openai"]),
+		parseSelectRuntimeProvider("anthropic", strings.TrimSpace(parseAnthropicAPIKey), parseStubSet, parseCatalogConfig.ProviderCatalogs["anthropic"]),
+		parseSelectRuntimeProvider("cerebras", strings.TrimSpace(parseCerebrasAPIKey), parseStubSet, parseCatalogConfig.ProviderCatalogs["cerebras"]),
 	)
-	if defaultModel == "" {
-		defaultModel = normalizeSelectedModelID(catalogConfig.DefaultModel)
+	if parseDefaultModel == "" {
+		parseDefaultModel = parseNormalizeSelectedModelID(parseCatalogConfig.ParseDefaultModel)
 	}
-	if _, resolvedModel, err := providerRegistry.Resolve(defaultModel); err == nil {
-		defaultModel = normalizeSelectedModelID(resolvedModel)
-	} else if _, resolvedModel, fallbackErr := providerRegistry.Resolve(""); fallbackErr == nil {
-		defaultModel = normalizeSelectedModelID(resolvedModel)
-		logger.Warn("chat provider default model override",
-			slog.String("requested_model", strings.TrimSpace(defaultModel)),
-			slog.String("fallback_model", resolvedModel),
-			slog.String("error", err.Error()),
+	if _, parseResolvedModel, parseErr2 := parseProviderRegistry.ParseResolve(parseDefaultModel); parseErr2 == nil {
+		parseDefaultModel = parseNormalizeSelectedModelID(parseResolvedModel)
+	} else if _, parseResolvedModel2, parseFallbackErr := parseProviderRegistry.ParseResolve(""); parseFallbackErr == nil {
+		parseDefaultModel = parseNormalizeSelectedModelID(parseResolvedModel2)
+		parseLogger.Warn("chat provider default model override",
+			slog.String("requested_model", strings.TrimSpace(parseDefaultModel)),
+			slog.String("fallback_model", parseResolvedModel2),
+			slog.String("error", parseErr2.ParseError()),
 		)
 	}
-	chatService := &chatServer{
-		providerRegistry:      providerRegistry,
-		defaultModel:          defaultModel,
+	parseChatService := &chatServer{
+		providerRegistry:      parseProviderRegistry,
+		defaultModel:          parseDefaultModel,
 		store:                 store,
-		logger:                logger,
+		logger:                parseLogger,
 		sessions:              make(map[string]*sessionState),
 		authUsers:             make(map[string]authUser),
-		authManager:           newAuthManager("", store, logger.With(slog.String("component", "auth"))),
+		authManager:           parseNewAuthManager("", store, parseLogger.With(slog.String("component", "auth"))),
 		memoryExtractionSlots: make(chan struct{}, 2),
-		memoryExtractionModel: normalizeSelectedModelID(catalogConfig.MemoryExtractionModel),
+		memoryExtractionModel: parseNormalizeSelectedModelID(parseCatalogConfig.MemoryExtractionModel),
 	}
-	if chatService.memoryExtractionModel == "" {
-		chatService.memoryExtractionModel = defaultModel
+	if parseChatService.memoryExtractionModel == "" {
+		parseChatService.memoryExtractionModel = parseDefaultModel
 	}
-	return chatService
+	return parseChatService
 }
 
-func normalizeStubProviders(values []string) map[string]struct{} {
-	normalized := map[string]struct{}{}
-	for _, value := range values {
-		for _, token := range strings.Split(value, ",") {
-			resolved := strings.TrimSpace(strings.ToLower(token))
-			if resolved == "" {
+func parseNormalizeStubProviders(parseValues []string) map[string]struct{} {
+	parseNormalized := map[string]struct{}{}
+	for _, parseValue := range parseValues {
+		for _, parseToken := range strings.Split(parseValue, ",") {
+			parseResolved := strings.TrimSpace(strings.ToLower(parseToken))
+			if parseResolved == "" {
 				continue
 			}
-			if resolved == "all" {
-				normalized["openai"] = struct{}{}
-				normalized["anthropic"] = struct{}{}
-				normalized["cerebras"] = struct{}{}
+			if parseResolved == "all" {
+				parseNormalized["openai"] = struct{}{}
+				parseNormalized["anthropic"] = struct{}{}
+				parseNormalized["cerebras"] = struct{}{}
 				continue
 			}
-			normalized[resolved] = struct{}{}
+			parseNormalized[parseResolved] = struct{}{}
 		}
 	}
-	return normalized
+	return parseNormalized
 }
 
-func selectRuntimeProvider(providerID string, apiKey string, stubProviders map[string]struct{}, catalog provider.Catalog) provider.ChatProvider {
-	if strings.TrimSpace(apiKey) != "" {
-		switch providerID {
+func parseSelectRuntimeProvider(parseProviderID string, parseApiKey string, parseStubProviders map[string]struct{}, parseCatalog provider.Catalog) provider.ChatProvider {
+	if strings.TrimSpace(parseApiKey) != "" {
+		switch parseProviderID {
 		case "openai":
-			return provider.NewOpenAIProvider(apiKey, catalog)
+			return provider.ParseNewOpenAIProvider(parseApiKey, parseCatalog)
 		case "anthropic":
-			return provider.NewAnthropicProvider(apiKey, catalog)
+			return provider.ParseNewAnthropicProvider(parseApiKey, parseCatalog)
 		case "cerebras":
-			return provider.NewCerebrasProvider(apiKey, catalog)
+			return provider.ParseNewCerebrasProvider(parseApiKey, parseCatalog)
 		default:
 			return nil
 		}
 	}
-	if _, ok := stubProviders[strings.TrimSpace(providerID)]; ok {
-		return provider.NewStubProvider(providerID, catalog)
+	if _, parseOk := parseStubProviders[strings.TrimSpace(parseProviderID)]; parseOk {
+		return provider.ParseNewStubProvider(parseProviderID, parseCatalog)
 	}
-	switch providerID {
+	switch parseProviderID {
 	case "openai":
-		return provider.NewOpenAIProvider("", catalog)
+		return provider.ParseNewOpenAIProvider("", parseCatalog)
 	case "anthropic":
-		return provider.NewAnthropicProvider("", catalog)
+		return provider.ParseNewAnthropicProvider("", parseCatalog)
 	case "cerebras":
-		return provider.NewCerebrasProvider("", catalog)
+		return provider.ParseNewCerebrasProvider("", parseCatalog)
 	default:
 		return nil
 	}
@@ -171,1053 +171,1053 @@ func selectRuntimeProvider(providerID string, apiKey string, stubProviders map[s
 //   - requestedConversationID == 0: start a fresh conversation row.
 //     This covers empty new chats and branch/fork drafts that intentionally send
 //     prior history into a new thread lineage.
-func (s *chatServer) loadOrCreateConversationSession(peerAddress string, userID, requestedConversationID int64, historyLength int) (int64, int, error) {
-	s.sessionsMutex.Lock()
-	defer s.sessionsMutex.Unlock()
+func (parseS *chatServer) parseLoadOrCreateConversationSession(parsePeerAddress string, parseUserID, parseRequestedConversationID int64, parseHistoryLength int) (int64, int, error) {
+	parseS.sessionsMutex.Lock()
+	defer parseS.sessionsMutex.Unlock()
 
-	if requestedConversationID > 0 {
-		owned, err := s.store.conversationOwnedByUser(userID, requestedConversationID)
-		if err != nil {
-			return 0, 0, err
+	if parseRequestedConversationID > 0 {
+		parseOwned, parseErr := parseS.store.parseConversationOwnedByUser(parseUserID, parseRequestedConversationID)
+		if parseErr != nil {
+			return 0, 0, parseErr
 		}
-		if !owned {
+		if !parseOwned {
 			return 0, 0, status.Error(codes.NotFound, "conversation no longer exists for authenticated user")
 		}
-		s.sessions[peerAddress] = &sessionState{userID: userID, conversationID: requestedConversationID, savedMessageCount: historyLength}
-		return requestedConversationID, historyLength, nil
+		parseS.sessions[parsePeerAddress] = &sessionState{userID: parseUserID, conversationID: parseRequestedConversationID, savedMessageCount: parseHistoryLength}
+		return parseRequestedConversationID, parseHistoryLength, nil
 	}
 
-	conversationID, err := s.store.createConversation(userID)
-	if err != nil {
-		return 0, 0, err
+	parseConversationID, parseErr2 := parseS.store.parseCreateConversation(parseUserID)
+	if parseErr2 != nil {
+		return 0, 0, parseErr2
 	}
-	s.sessions[peerAddress] = &sessionState{userID: userID, conversationID: conversationID, savedMessageCount: 0}
-	return conversationID, 0, nil
+	parseS.sessions[parsePeerAddress] = &sessionState{userID: parseUserID, conversationID: parseConversationID, savedMessageCount: 0}
+	return parseConversationID, 0, nil
 }
 
-func (s *chatServer) markConversationMessagesSaved(peerAddress string, savedMessageCount int) {
-	s.sessionsMutex.Lock()
-	defer s.sessionsMutex.Unlock()
-	if session, ok := s.sessions[peerAddress]; ok {
-		session.savedMessageCount = savedMessageCount
+func (parseS *chatServer) parseMarkConversationMessagesSaved(parsePeerAddress string, parseSavedMessageCount int) {
+	parseS.sessionsMutex.Lock()
+	defer parseS.sessionsMutex.Unlock()
+	if parseSession, parseOk := parseS.sessions[parsePeerAddress]; parseOk {
+		parseSession.savedMessageCount = parseSavedMessageCount
 	}
 }
 
-func (s *chatServer) bindAuthenticatedPeer(peerAddress string, user authUser) {
-	s.authMutex.Lock()
-	defer s.authMutex.Unlock()
-	s.authUsers[peerAddress] = user
+func (parseS *chatServer) parseBindAuthenticatedPeer(parsePeerAddress string, parseUser authUser) {
+	parseS.authMutex.Lock()
+	defer parseS.authMutex.Unlock()
+	parseS.authUsers[parsePeerAddress] = parseUser
 }
 
-func (s *chatServer) unbindAuthenticatedPeer(peerAddress string) {
-	s.authMutex.Lock()
-	defer s.authMutex.Unlock()
-	delete(s.authUsers, peerAddress)
+func (parseS *chatServer) parseUnbindAuthenticatedPeer(parsePeerAddress string) {
+	parseS.authMutex.Lock()
+	defer parseS.authMutex.Unlock()
+	delete(parseS.authUsers, parsePeerAddress)
 
-	s.clearPeerSession(peerAddress)
+	parseS.clearPeerSession(parsePeerAddress)
 }
 
-func (s *chatServer) clearPeerSession(peerAddress string) {
-	s.sessionsMutex.Lock()
-	defer s.sessionsMutex.Unlock()
-	delete(s.sessions, peerAddress)
+func (parseS *chatServer) clearPeerSession(parsePeerAddress string) {
+	parseS.sessionsMutex.Lock()
+	defer parseS.sessionsMutex.Unlock()
+	delete(parseS.sessions, parsePeerAddress)
 }
 
-func (s *chatServer) authenticatedUserFromContext(ctx context.Context) (authUser, bool) {
-	if s.authManager != nil {
-		if user, ok := s.authManager.authenticatedUserFromContext(ctx); ok && user.ID > 0 {
-			return user, true
+func (parseS *chatServer) parseAuthenticatedUserFromContext(parseCtx context.Context) (authUser, bool) {
+	if parseS.authManager != nil {
+		if parseUser, parseOk := parseS.authManager.parseAuthenticatedUserFromContext(parseCtx); parseOk && parseUser.ParseID > 0 {
+			return parseUser, true
 		}
 	}
-	peerInfo, ok := peer.FromContext(ctx)
-	if !ok || peerInfo.Addr == nil {
+	parsePeerInfo, parseOk2 := peer.FromContext(parseCtx)
+	if !parseOk2 || parsePeerInfo.Addr == nil {
 		return authUser{}, false
 	}
-	peerAddress := peerInfo.Addr.String()
+	parsePeerAddress := parsePeerInfo.Addr.ParseString()
 
-	s.authMutex.RLock()
-	user, foundUser := s.authUsers[peerAddress]
-	s.authMutex.RUnlock()
-	if !foundUser || user.ID <= 0 {
+	parseS.authMutex.RLock()
+	parseUser2, parseFoundUser := parseS.authUsers[parsePeerAddress]
+	parseS.authMutex.RUnlock()
+	if !parseFoundUser || parseUser2.ParseID <= 0 {
 		return authUser{}, false
 	}
-	return user, true
+	return parseUser2, true
 }
 
-func (s *chatServer) requireAuthenticatedUserID(ctx context.Context) (int64, error) {
-	authUser, ok := s.authenticatedUserFromContext(ctx)
-	if !ok || authUser.ID <= 0 {
+func (parseS *chatServer) parseRequireAuthenticatedUserID(parseCtx context.Context) (int64, error) {
+	parseAuthUser, parseOk := parseS.parseAuthenticatedUserFromContext(parseCtx)
+	if !parseOk || parseAuthUser.ParseID <= 0 {
 		return 0, status.Error(codes.Unauthenticated, "authentication required")
 	}
-	return authUser.ID, nil
+	return parseAuthUser.ParseID, nil
 }
 
-func statusForStoreGuard(err error) error {
+func parseStatusForStoreGuard(parseErr error) error {
 	switch {
-	case errors.Is(err, errStoreUserMissing):
+	case errors.Is(parseErr, errStoreUserMissing):
 		return status.Error(codes.Unauthenticated, "authenticated user no longer exists; sign in again")
-	case errors.Is(err, errStoreConversationMissing):
+	case errors.Is(parseErr, errStoreConversationMissing):
 		return status.Error(codes.FailedPrecondition, "conversation no longer exists; refresh and retry")
 	default:
-		return err
+		return parseErr
 	}
 }
 
-func isStoreGuardError(err error) bool {
-	return errors.Is(err, errStoreUserMissing) || errors.Is(err, errStoreConversationMissing)
+func isStoreGuardError(parseErr error) bool {
+	return errors.Is(parseErr, errStoreUserMissing) || errors.Is(parseErr, errStoreConversationMissing)
 }
 
-func (s *chatServer) displayNameForUser(userID int64, fallbackEmail string) string {
-	if s.store == nil || userID <= 0 {
-		return defaultDisplayNameFromEmail(fallbackEmail)
+func (parseS *chatServer) parseDisplayNameForUser(parseUserID int64, parseFallbackEmail string) string {
+	if parseS.store == nil || parseUserID <= 0 {
+		return parseDefaultDisplayNameFromEmail(parseFallbackEmail)
 	}
-	name, _, err := s.store.getUserName(userID)
-	if err != nil {
-		return defaultDisplayNameFromEmail(fallbackEmail)
+	parseName, _, parseErr := parseS.store.getUserName(parseUserID)
+	if parseErr != nil {
+		return parseDefaultDisplayNameFromEmail(parseFallbackEmail)
 	}
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return defaultDisplayNameFromEmail(fallbackEmail)
+	parseName = strings.TrimSpace(parseName)
+	if parseName == "" {
+		return parseDefaultDisplayNameFromEmail(parseFallbackEmail)
 	}
-	return name
+	return parseName
 }
 
-func (s *chatServer) authResponseForUser(user authUser, token string) *chatpb.AuthResponse {
+func (parseS *chatServer) parseAuthResponseForUser(parseUser authUser, parseToken string) *chatpb.AuthResponse {
 	return &chatpb.AuthResponse{
-		AuthToken:   token,
-		UserId:      user.ID,
-		Email:       user.Email,
-		DisplayName: s.displayNameForUser(user.ID, user.Email),
+		AuthToken:   parseToken,
+		UserId:      parseUser.ParseID,
+		Email:       parseUser.Email,
+		DisplayName: parseS.parseDisplayNameForUser(parseUser.ParseID, parseUser.Email),
 	}
 }
 
-func (s *chatServer) Signup(ctx context.Context, req *chatpb.SignupRequest) (*chatpb.AuthResponse, error) {
-	if s.authManager == nil {
+func (parseS *chatServer) ParseSignup(parseCtx context.Context, parseReq *chatpb.SignupRequest) (*chatpb.AuthResponse, error) {
+	if parseS.authManager == nil {
 		return nil, status.Error(codes.Internal, "auth unavailable")
 	}
-	user, err := s.authManager.signup(req.GetEmail(), req.GetPassword(), req.GetDisplayName())
-	if err != nil {
-		if errors.Is(err, errUserAlreadyExists) {
+	parseUser, parseErr := parseS.authManager.parseSignup(parseReq.GetEmail(), parseReq.GetPassword(), parseReq.GetDisplayName())
+	if parseErr != nil {
+		if errors.Is(parseErr, errUserAlreadyExists) {
 			return nil, status.Error(codes.AlreadyExists, "an account with that email already exists")
 		}
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, status.Error(codes.InvalidArgument, parseErr.ParseError())
 	}
-	token, err := s.authManager.issueToken(user)
-	if err != nil {
+	parseToken, parseErr := parseS.authManager.issueToken(parseUser)
+	if parseErr != nil {
 		return nil, status.Error(codes.Internal, "issue auth token")
 	}
-	return s.authResponseForUser(user, token), nil
+	return parseS.parseAuthResponseForUser(parseUser, parseToken), nil
 }
 
-func (s *chatServer) Login(ctx context.Context, req *chatpb.LoginRequest) (*chatpb.AuthResponse, error) {
-	if s.authManager == nil {
+func (parseS *chatServer) ParseLogin(parseCtx context.Context, parseReq *chatpb.LoginRequest) (*chatpb.AuthResponse, error) {
+	if parseS.authManager == nil {
 		return nil, status.Error(codes.Internal, "auth unavailable")
 	}
-	user, err := s.authManager.login(req.GetEmail(), req.GetPassword())
-	if err != nil {
-		if errors.Is(err, errInvalidCredentials) {
+	parseUser, parseErr := parseS.authManager.parseLogin(parseReq.GetEmail(), parseReq.GetPassword())
+	if parseErr != nil {
+		if errors.Is(parseErr, errInvalidCredentials) {
 			return nil, status.Error(codes.Unauthenticated, "invalid email or password")
 		}
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, status.Error(codes.InvalidArgument, parseErr.ParseError())
 	}
-	token, err := s.authManager.issueToken(user)
-	if err != nil {
+	parseToken, parseErr := parseS.authManager.issueToken(parseUser)
+	if parseErr != nil {
 		return nil, status.Error(codes.Internal, "issue auth token")
 	}
-	return s.authResponseForUser(user, token), nil
+	return parseS.parseAuthResponseForUser(parseUser, parseToken), nil
 }
 
-func (s *chatServer) Logout(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
-	if peerInfo, ok := peer.FromContext(ctx); ok && peerInfo.Addr != nil {
-		s.clearPeerSession(peerInfo.Addr.String())
+func (parseS *chatServer) ParseLogout(parseCtx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	if parsePeerInfo, parseOk := peer.FromContext(parseCtx); parseOk && parsePeerInfo.Addr != nil {
+		parseS.clearPeerSession(parsePeerInfo.Addr.ParseString())
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (s *chatServer) GetSession(ctx context.Context, _ *emptypb.Empty) (*chatpb.GetSessionResponse, error) {
-	user, ok := s.authenticatedUserFromContext(ctx)
-	if !ok || user.ID <= 0 {
+func (parseS *chatServer) GetSession(parseCtx context.Context, _ *emptypb.Empty) (*chatpb.GetSessionResponse, error) {
+	parseUser, parseOk := parseS.parseAuthenticatedUserFromContext(parseCtx)
+	if !parseOk || parseUser.ParseID <= 0 {
 		return &chatpb.GetSessionResponse{}, nil
 	}
 	return &chatpb.GetSessionResponse{
 		Authenticated: true,
-		UserId:        user.ID,
-		Email:         user.Email,
-		DisplayName:   s.displayNameForUser(user.ID, user.Email),
+		UserId:        parseUser.ParseID,
+		Email:         parseUser.Email,
+		DisplayName:   parseS.parseDisplayNameForUser(parseUser.ParseID, parseUser.Email),
 	}, nil
 }
 
-func (s *chatServer) RefreshSession(ctx context.Context, _ *emptypb.Empty) (*chatpb.AuthResponse, error) {
-	if s.authManager == nil {
+func (parseS *chatServer) ParseRefreshSession(parseCtx context.Context, _ *emptypb.Empty) (*chatpb.AuthResponse, error) {
+	if parseS.authManager == nil {
 		return nil, status.Error(codes.Internal, "auth unavailable")
 	}
-	user, ok := s.authenticatedUserFromContext(ctx)
-	if !ok || user.ID <= 0 {
+	parseUser, parseOk := parseS.parseAuthenticatedUserFromContext(parseCtx)
+	if !parseOk || parseUser.ParseID <= 0 {
 		return nil, status.Error(codes.Unauthenticated, "authentication required")
 	}
-	token, err := s.authManager.issueToken(user)
-	if err != nil {
+	parseToken, parseErr := parseS.authManager.issueToken(parseUser)
+	if parseErr != nil {
 		return nil, status.Error(codes.Internal, "issue auth token")
 	}
-	return s.authResponseForUser(user, token), nil
+	return parseS.parseAuthResponseForUser(parseUser, parseToken), nil
 }
 
 // generateAndSaveConversationTitle calls OpenAI (fastest model) to produce a concise 3-7 word
 // title from the very first user message and assistant reply, then persists it.
 // Must be called in a goroutine — it blocks until the completion returns.
-func (s *chatServer) generateAndSaveConversationTitle(userID, conversationID int64, model, userMessage, assistantMessage string) {
-	logger := s.logger.With(slog.String("op", "generateTitle"), slog.Int64("conv_id", conversationID))
-	if s.providerRegistry == nil || s.store == nil {
+func (parseS *chatServer) parseGenerateAndSaveConversationTitle(parseUserID, parseConversationID int64, parseModel, parseUserMessage, parseAssistantMessage string) {
+	parseLogger := parseS.logger.With(slog.String("op", "generateTitle"), slog.Int64("conv_id", parseConversationID))
+	if parseS.providerRegistry == nil || parseS.store == nil {
 		return
 	}
 
 	// Truncate inputs so the title-gen call is fast and cheap.
-	truncateText := func(text string, maxLength int) string {
-		if len(text) <= maxLength {
-			return text
+	parseTruncateText := func(parseText string, parseMaxLength int) string {
+		if len(parseText) <= parseMaxLength {
+			return parseText
 		}
-		return text[:maxLength] + "…"
+		return parseText[:parseMaxLength] + "…"
 	}
-	titlePrompt := "User: " + truncateText(userMessage, 400) + "\n\nAssistant: " + truncateText(assistantMessage, 400)
+	parseTitlePrompt := "User: " + parseTruncateText(parseUserMessage, 400) + "\n\nAssistant: " + parseTruncateText(parseAssistantMessage, 400)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	parseCtx, parseCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer parseCancel()
 
-	chatProvider, _, err := s.providerRegistry.Resolve(model)
-	if err != nil {
-		logger.Warn("generateTitle: provider unavailable", slog.String("model", model), slog.String("error", err.Error()))
+	parseChatProvider, _, parseErr := parseS.providerRegistry.ParseResolve(parseModel)
+	if parseErr != nil {
+		parseLogger.Warn("generateTitle: provider unavailable", slog.String("model", parseModel), slog.String("error", parseErr.ParseError()))
 		return
 	}
-	title, err := chatProvider.GenerateTitle(ctx, provider.TitleRequest{
-		Model: model,
+	parseTitle, parseErr := parseChatProvider.ParseGenerateTitle(parseCtx, provider.TitleRequest{
+		Model: parseModel,
 		SystemPrompt: "You are a conversation title generator. " +
 			"Given the first user message and assistant reply, produce a clear and concise title of 3-7 words " +
 			"that captures the topic. Return only the title with no punctuation at the end, no quotes, and no explanation.",
-		Prompt: titlePrompt,
+		Prompt: parseTitlePrompt,
 	})
-	if err != nil {
-		logger.Error("generateTitle: provider call failed", slog.String("model", model), slog.String("error", err.Error()))
+	if parseErr != nil {
+		parseLogger.ParseError("generateTitle: provider call failed", slog.String("model", parseModel), slog.String("error", parseErr.ParseError()))
 		return
 	}
-	if title == "" {
-		logger.Warn("generateTitle: empty title returned")
+	if parseTitle == "" {
+		parseLogger.Warn("generateTitle: empty title returned")
 		return
 	}
-	if err := s.store.saveConversationTitle(userID, conversationID, title); err != nil {
-		logger.Error("generateTitle: db save failed", slog.String("error", err.Error()))
+	if parseErr2 := parseS.store.parseSaveConversationTitle(parseUserID, parseConversationID, parseTitle); parseErr2 != nil {
+		parseLogger.ParseError("generateTitle: db save failed", slog.String("error", parseErr2.ParseError()))
 		return
 	}
-	logger.Info("generateTitle: saved", slog.String("title", title))
+	parseLogger.ParseInfo("generateTitle: saved", slog.String("title", parseTitle))
 }
 
 // Send streams a chat completion from OpenAI and forwards each token to the
 // gRPC client via the tunnel.
-func (s *chatServer) Send(req *chatpb.SendRequest, stream chatpb.ChatService_SendServer) error {
-	peerAddress := ""
-	if p, ok := peer.FromContext(stream.Context()); ok {
-		peerAddress = p.Addr.String()
+func (parseS *chatServer) ParseSend(parseReq *chatpb.SendRequest, parseStream chatpb.ChatService_SendServer) error {
+	parsePeerAddress := ""
+	if parseP, parseOk := peer.FromContext(parseStream.ParseContext()); parseOk {
+		parsePeerAddress = parseP.Addr.ParseString()
 	}
-	userID, err := s.requireAuthenticatedUserID(stream.Context())
-	if err != nil {
-		return err
-	}
-
-	messagePreview := req.GetMessage()
-	if len(messagePreview) > 80 {
-		messagePreview = messagePreview[:80] + "…"
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseStream.ParseContext())
+	if parseErr != nil {
+		return parseErr
 	}
 
-	logger := s.logger.With(
+	parseMessagePreview := parseReq.GetMessage()
+	if len(parseMessagePreview) > 80 {
+		parseMessagePreview = parseMessagePreview[:80] + "…"
+	}
+
+	parseLogger := parseS.logger.With(
 		slog.String("rpc", "Send"),
-		slog.String("peer", peerAddress),
-		slog.String("model", req.GetModel()),
-		slog.Int("history_len", len(req.History)),
-		slog.Int64("conv_id_req", req.GetConversationId()),
+		slog.String("peer", parsePeerAddress),
+		slog.String("model", parseReq.GetModel()),
+		slog.Int("history_len", len(parseReq.History)),
+		slog.Int64("conv_id_req", parseReq.GetConversationId()),
 	)
-	logger.Info("rpc.Send: started", slog.String("message_preview", messagePreview))
-	if s.store != nil {
-		userExists, userErr := s.store.userExists(userID)
-		if userErr != nil {
-			logger.Error("rpc.Send: authenticated user lookup failed",
-				slog.Int64("user_id", userID),
-				slog.String("error", userErr.Error()),
+	parseLogger.ParseInfo("rpc.Send: started", slog.String("message_preview", parseMessagePreview))
+	if parseS.store != nil {
+		parseUserExists, parseUserErr := parseS.store.parseUserExists(parseUserID)
+		if parseUserErr != nil {
+			parseLogger.ParseError("rpc.Send: authenticated user lookup failed",
+				slog.Int64("user_id", parseUserID),
+				slog.String("error", parseUserErr.ParseError()),
 			)
-			return status.Errorf(codes.Internal, "lookup authenticated user: %v", userErr)
+			return status.Errorf(codes.Internal, "lookup authenticated user: %v", parseUserErr)
 		}
-		if !userExists {
-			logger.Warn("rpc.Send: authenticated user missing from store",
-				slog.Int64("user_id", userID),
-				slog.String("peer", peerAddress),
+		if !parseUserExists {
+			parseLogger.Warn("rpc.Send: authenticated user missing from store",
+				slog.Int64("user_id", parseUserID),
+				slog.String("peer", parsePeerAddress),
 			)
 			return status.Error(codes.Unauthenticated, "authenticated user no longer exists; sign in again")
 		}
-		if req.GetConversationId() > 0 {
-			owned, ownedErr := s.store.conversationOwnedByUser(userID, req.GetConversationId())
-			if ownedErr != nil {
-				logger.Error("rpc.Send: requested conversation lookup failed",
-					slog.Int64("user_id", userID),
-					slog.Int64("requested_conv_id", req.GetConversationId()),
-					slog.String("error", ownedErr.Error()),
+		if parseReq.GetConversationId() > 0 {
+			parseOwned, parseOwnedErr := parseS.store.parseConversationOwnedByUser(parseUserID, parseReq.GetConversationId())
+			if parseOwnedErr != nil {
+				parseLogger.ParseError("rpc.Send: requested conversation lookup failed",
+					slog.Int64("user_id", parseUserID),
+					slog.Int64("requested_conv_id", parseReq.GetConversationId()),
+					slog.String("error", parseOwnedErr.ParseError()),
 				)
-				return status.Errorf(codes.Internal, "lookup conversation: %v", ownedErr)
+				return status.Errorf(codes.Internal, "lookup conversation: %v", parseOwnedErr)
 			}
-			if !owned {
-				logger.Warn("rpc.Send: requested conversation missing or inaccessible",
-					slog.Int64("user_id", userID),
-					slog.Int64("requested_conv_id", req.GetConversationId()),
+			if !parseOwned {
+				parseLogger.Warn("rpc.Send: requested conversation missing or inaccessible",
+					slog.Int64("user_id", parseUserID),
+					slog.Int64("requested_conv_id", parseReq.GetConversationId()),
 				)
 				return status.Error(codes.NotFound, "conversation no longer exists for authenticated user")
 			}
 		}
 	}
 
-	customSystemPrompt := ""
-	var injectedUserMemories []userMemoryRow
-	if s.store != nil {
-		storedPrompt, promptErr := s.store.getSelectedSystemPrompt(userID, "")
-		if promptErr != nil {
-			logger.Warn("rpc.Send: custom system prompt lookup failed", slog.String("error", promptErr.Error()))
+	parseCustomSystemPrompt := ""
+	var parseInjectedUserMemories []userMemoryRow
+	if parseS.store != nil {
+		parseStoredPrompt, parsePromptErr := parseS.store.getSelectedSystemPrompt(parseUserID, "")
+		if parsePromptErr != nil {
+			parseLogger.Warn("rpc.Send: custom system prompt lookup failed", slog.String("error", parsePromptErr.ParseError()))
 		} else {
-			customSystemPrompt = storedPrompt
+			parseCustomSystemPrompt = parseStoredPrompt
 		}
-		storedMemories, memoryErr := s.store.listUserMemories(userID)
-		if memoryErr != nil {
-			logger.Warn("rpc.Send: user memory lookup failed", slog.String("error", memoryErr.Error()))
+		parseStoredMemories, parseMemoryErr := parseS.store.parseListUserMemories(parseUserID)
+		if parseMemoryErr != nil {
+			parseLogger.Warn("rpc.Send: user memory lookup failed", slog.String("error", parseMemoryErr.ParseError()))
 		} else {
-			injectedUserMemories = storedMemories
+			parseInjectedUserMemories = parseStoredMemories
 		}
 	}
 
 	// Build the system prompt: base + tone modifier + user custom prompt + remembered preferences.
-	systemPrompt := buildSystemPrompt(req.GetTone(), customSystemPrompt, injectedUserMemories)
+	parseSystemPrompt := buildSystemPrompt(parseReq.GetTone(), parseCustomSystemPrompt, parseInjectedUserMemories)
 
 	// Use the per-request model when the client sends one; fall back to the
 	// server default (OPENAI_MODEL env / hard-coded default).
-	resolvedModel := s.defaultModel
-	if requestedModel := strings.TrimSpace(req.GetModel()); requestedModel != "" {
-		resolvedModel = normalizeSelectedModelID(requestedModel)
+	parseResolvedModel := parseS.defaultModel
+	if parseRequestedModel := strings.TrimSpace(parseReq.GetModel()); parseRequestedModel != "" {
+		parseResolvedModel = parseNormalizeSelectedModelID(parseRequestedModel)
 	}
 
-	logger.Debug("rpc.Send: opening OpenAI stream",
-		slog.String("resolved_model", resolvedModel),
-		slog.String("tone", req.GetTone()),
-		slog.Bool("thinking_enabled", req.GetThinkingEnabled()),
-		slog.String("thinking_effort", req.GetThinkingEffort()),
+	parseLogger.Debug("rpc.Send: opening OpenAI stream",
+		slog.String("resolved_model", parseResolvedModel),
+		slog.String("tone", parseReq.GetTone()),
+		slog.Bool("thinking_enabled", parseReq.GetThinkingEnabled()),
+		slog.String("thinking_effort", parseReq.GetThinkingEffort()),
 	)
-	var chatProvider provider.ChatProvider
-	if req.GetThinkingEnabled() {
-		chatProvider, resolvedModel, _, err = s.providerRegistry.RequireCapability(resolvedModel, provider.CapabilityThinking)
+	var parseChatProvider provider.ChatProvider
+	if parseReq.GetThinkingEnabled() {
+		parseChatProvider, parseResolvedModel, _, parseErr = parseS.providerRegistry.ParseRequireCapability(parseResolvedModel, provider.CapabilityThinking)
 	} else {
-		chatProvider, resolvedModel, err = s.providerRegistry.Resolve(resolvedModel)
+		parseChatProvider, parseResolvedModel, parseErr = parseS.providerRegistry.ParseResolve(parseResolvedModel)
 	}
-	if err != nil {
-		logger.Error("rpc.Send: provider resolution failed",
-			slog.String("requested_model", req.GetModel()),
-			slog.String("resolved_model", resolvedModel),
-			slog.String("error", err.Error()),
+	if parseErr != nil {
+		parseLogger.ParseError("rpc.Send: provider resolution failed",
+			slog.String("requested_model", parseReq.GetModel()),
+			slog.String("resolved_model", parseResolvedModel),
+			slog.String("error", parseErr.ParseError()),
 		)
-		if capabilityErr := capabilityStatusError(err); capabilityErr != nil {
-			return capabilityErr
+		if parseCapabilityErr := parseCapabilityStatusError(parseErr); parseCapabilityErr != nil {
+			return parseCapabilityErr
 		}
-		if strings.TrimSpace(req.GetModel()) != "" {
-			return status.Errorf(codes.InvalidArgument, "unsupported model %q", strings.TrimSpace(req.GetModel()))
+		if strings.TrimSpace(parseReq.GetModel()) != "" {
+			return status.Errorf(codes.InvalidArgument, "unsupported model %q", strings.TrimSpace(parseReq.GetModel()))
 		}
 		return status.Error(codes.Unavailable, "no configured model provider available")
 	}
 
-	history := make([]provider.ChatMessage, 0, len(req.History))
-	for _, historyMessage := range req.History {
-		history = append(history, provider.ChatMessage{
-			Role:    provider.NormalizeRole(historyMessage.GetRole()),
-			Content: historyMessage.GetContent(),
+	parseHistory := make([]provider.ChatMessage, 0, len(parseReq.History))
+	for _, parseHistoryMessage := range parseReq.History {
+		parseHistory = append(parseHistory, provider.ChatMessage{
+			Role:    provider.ParseNormalizeRole(parseHistoryMessage.GetRole()),
+			Content: parseHistoryMessage.GetContent(),
 		})
 	}
 
-	var assistantResponseBuffer strings.Builder
-	var promptTokenCount int64
-	var completionTokenCount int64
-	sendThoughtDelta := func(deltaText string) error {
-		if deltaText == "" {
+	var parseAssistantResponseBuffer strings.Builder
+	var parsePromptTokenCount int64
+	var parseCompletionTokenCount int64
+	parseSendThoughtDelta := func(parseDeltaText string) error {
+		if parseDeltaText == "" {
 			return nil
 		}
-		if err := stream.Send(&chatpb.ChatChunk{Model: thoughtChunkModelPrefix + deltaText}); err != nil {
-			logger.Error("rpc.Send: downstream thought stream send failed",
-				slog.String("error", err.Error()),
+		if parseErr2 := parseStream.ParseSend(&chatpb.ChatChunk{Model: thoughtChunkModelPrefix + parseDeltaText}); parseErr2 != nil {
+			parseLogger.ParseError("rpc.Send: downstream thought stream send failed",
+				slog.String("error", parseErr2.ParseError()),
 			)
-			return status.Errorf(codes.Canceled, "thought stream send: %v", err)
+			return status.Errorf(codes.Canceled, "thought stream send: %v", parseErr2)
 		}
 		return nil
 	}
-	thoughtDoneSent := false
-	sendThoughtDone := func() error {
-		if thoughtDoneSent {
+	isParseThoughtDoneSent := false
+	parseSendThoughtDone := func() error {
+		if isParseThoughtDoneSent {
 			return nil
 		}
-		thoughtDoneSent = true
-		if err := stream.Send(&chatpb.ChatChunk{Model: thoughtChunkModelDone}); err != nil {
-			logger.Error("rpc.Send: downstream thought complete send failed",
-				slog.String("error", err.Error()),
+		isParseThoughtDoneSent = true
+		if parseErr3 := parseStream.ParseSend(&chatpb.ChatChunk{Model: thoughtChunkModelDone}); parseErr3 != nil {
+			parseLogger.ParseError("rpc.Send: downstream thought complete send failed",
+				slog.String("error", parseErr3.ParseError()),
 			)
-			return status.Errorf(codes.Canceled, "thought complete send: %v", err)
+			return status.Errorf(codes.Canceled, "thought complete send: %v", parseErr3)
 		}
 		return nil
 	}
-	chatResult, err := chatProvider.StreamChat(stream.Context(), provider.ChatRequest{
-		Model:           resolvedModel,
-		SystemPrompt:    systemPrompt,
-		History:         history,
-		UserMessage:     req.Message,
-		ThinkingEnabled: req.GetThinkingEnabled(),
-		ThinkingEffort:  req.GetThinkingEffort(),
-	}, func(event provider.ChatEvent) error {
-		if event.ThoughtDelta != "" {
-			if err := sendThoughtDelta(event.ThoughtDelta); err != nil {
-				return err
+	parseChatResult, parseErr := parseChatProvider.ParseStreamChat(parseStream.ParseContext(), provider.ChatRequest{
+		Model:           parseResolvedModel,
+		SystemPrompt:    parseSystemPrompt,
+		History:         parseHistory,
+		UserMessage:     parseReq.Message,
+		ThinkingEnabled: parseReq.GetThinkingEnabled(),
+		ThinkingEffort:  parseReq.GetThinkingEffort(),
+	}, func(parseEvent provider.ChatEvent) error {
+		if parseEvent.ThoughtDelta != "" {
+			if parseErr4 := parseSendThoughtDelta(parseEvent.ThoughtDelta); parseErr4 != nil {
+				return parseErr4
 			}
 		}
-		if event.TextDelta != "" {
-			assistantResponseBuffer.WriteString(event.TextDelta)
-			if err := stream.Send(&chatpb.ChatChunk{Delta: event.TextDelta}); err != nil {
-				logger.Error("rpc.Send: downstream stream send failed",
-					slog.String("error", err.Error()),
+		if parseEvent.TextDelta != "" {
+			parseAssistantResponseBuffer.WriteString(parseEvent.TextDelta)
+			if parseErr5 := parseStream.ParseSend(&chatpb.ChatChunk{Delta: parseEvent.TextDelta}); parseErr5 != nil {
+				parseLogger.ParseError("rpc.Send: downstream stream send failed",
+					slog.String("error", parseErr5.ParseError()),
 				)
-				return status.Errorf(codes.Canceled, "stream send: %v", err)
+				return status.Errorf(codes.Canceled, "stream send: %v", parseErr5)
 			}
 		}
-		if event.ThoughtDone {
-			if err := sendThoughtDone(); err != nil {
-				return err
+		if parseEvent.ThoughtDone {
+			if parseErr6 := parseSendThoughtDone(); parseErr6 != nil {
+				return parseErr6
 			}
 		}
 		return nil
 	})
-	if err != nil {
-		logger.Error("rpc.Send: provider stream error",
-			slog.String("error", err.Error()),
-			slog.String("resolved_model", resolvedModel),
-			slog.String("provider", chatProvider.ID()),
+	if parseErr != nil {
+		parseLogger.ParseError("rpc.Send: provider stream error",
+			slog.String("error", parseErr.ParseError()),
+			slog.String("resolved_model", parseResolvedModel),
+			slog.String("provider", parseChatProvider.ParseID()),
 		)
-		if thoughtDoneErr := sendThoughtDone(); thoughtDoneErr != nil {
-			return thoughtDoneErr
+		if parseThoughtDoneErr := parseSendThoughtDone(); parseThoughtDoneErr != nil {
+			return parseThoughtDoneErr
 		}
-		if streamErr := stream.Send(&chatpb.ChatChunk{
+		if parseStreamErr := parseStream.ParseSend(&chatpb.ChatChunk{
 			Done:           true,
-			Error:          userFacingStreamError(chatProvider.ID(), resolvedModel, err),
-			ConversationId: req.GetConversationId(),
-			Model:          resolvedModel,
-		}); streamErr != nil {
-			return status.Errorf(codes.Canceled, "stream error send: %v", streamErr)
+			Error:          parseUserFacingStreamError(parseChatProvider.ParseID(), parseResolvedModel, parseErr),
+			ConversationId: parseReq.GetConversationId(),
+			Model:          parseResolvedModel,
+		}); parseStreamErr != nil {
+			return status.Errorf(codes.Canceled, "stream error send: %v", parseStreamErr)
 		}
 		return nil
 	}
-	if chatResult.Model != "" {
-		resolvedModel = normalizeSelectedModelID(chatResult.Model)
+	if parseChatResult.Model != "" {
+		parseResolvedModel = parseNormalizeSelectedModelID(parseChatResult.Model)
 	}
-	promptTokenCount = chatResult.PromptTokens
-	completionTokenCount = chatResult.CompletionTokens
+	parsePromptTokenCount = parseChatResult.PromptTokens
+	parseCompletionTokenCount = parseChatResult.CompletionTokens
 
-	logger.Debug("rpc.Send: provider stream complete",
-		slog.String("provider", chatProvider.ID()),
-		slog.String("resolved_model", resolvedModel),
+	parseLogger.Debug("rpc.Send: provider stream complete",
+		slog.String("provider", parseChatProvider.ParseID()),
+		slog.String("resolved_model", parseResolvedModel),
 	)
 
 	// ── Persist the exchange ────────────────────────────────────────────────
-	var conversationID int64
-	if s.store != nil {
-		var savedMessageCount int
-		conversationID, savedMessageCount, err = s.loadOrCreateConversationSession(peerAddress, userID, req.GetConversationId(), len(req.History))
-		if err != nil {
-			logger.Error("rpc.Send: db: loadOrCreateConversationSession failed",
-				slog.Int64("user_id", userID),
-				slog.Int64("requested_conv_id", req.GetConversationId()),
-				slog.String("error", err.Error()),
+	var parseConversationID int64
+	if parseS.store != nil {
+		var parseSavedMessageCount int
+		parseConversationID, parseSavedMessageCount, parseErr = parseS.parseLoadOrCreateConversationSession(parsePeerAddress, parseUserID, parseReq.GetConversationId(), len(parseReq.History))
+		if parseErr != nil {
+			parseLogger.ParseError("rpc.Send: db: loadOrCreateConversationSession failed",
+				slog.Int64("user_id", parseUserID),
+				slog.Int64("requested_conv_id", parseReq.GetConversationId()),
+				slog.String("error", parseErr.ParseError()),
 			)
-			if isStoreGuardError(err) {
-				return statusForStoreGuard(err)
+			if isStoreGuardError(parseErr) {
+				return parseStatusForStoreGuard(parseErr)
 			}
-			return err
+			return parseErr
 		} else {
-			logger.Debug("rpc.Send: db: session resolved",
-				slog.Int64("user_id", userID),
-				slog.Int64("conv_id", conversationID),
-				slog.Int("already_saved", savedMessageCount),
-				slog.Int("history_len", len(req.History)),
+			parseLogger.Debug("rpc.Send: db: session resolved",
+				slog.Int64("user_id", parseUserID),
+				slog.Int64("conv_id", parseConversationID),
+				slog.Int("already_saved", parseSavedMessageCount),
+				slog.Int("history_len", len(parseReq.History)),
 			)
 			// Save any history messages not yet persisted.
-			for historyIndex := savedMessageCount; historyIndex < len(req.History); historyIndex++ {
-				historyMessage := req.History[historyIndex]
-				if dbErr := s.store.saveConversationMessage(userID, conversationID, historyMessage.Role, historyMessage.Content, historyMessage.GetModelId(), historyMessage.GetPromptTokens(), historyMessage.GetCompletionTokens()); dbErr != nil {
-					logger.Error("rpc.Send: db: save history message failed",
-						slog.Int64("user_id", userID),
-						slog.Int64("requested_conv_id", req.GetConversationId()),
-						slog.Int64("conv_id", conversationID),
-						slog.Int("index", historyIndex),
-						slog.String("role", historyMessage.Role),
-						slog.String("error", dbErr.Error()),
+			for parseHistoryIndex := parseSavedMessageCount; parseHistoryIndex < len(parseReq.History); parseHistoryIndex++ {
+				parseHistoryMessage2 := parseReq.History[parseHistoryIndex]
+				if parseDbErr := parseS.store.parseSaveConversationMessage(parseUserID, parseConversationID, parseHistoryMessage2.Role, parseHistoryMessage2.Content, parseHistoryMessage2.GetModelId(), parseHistoryMessage2.GetPromptTokens(), parseHistoryMessage2.GetCompletionTokens()); parseDbErr != nil {
+					parseLogger.ParseError("rpc.Send: db: save history message failed",
+						slog.Int64("user_id", parseUserID),
+						slog.Int64("requested_conv_id", parseReq.GetConversationId()),
+						slog.Int64("conv_id", parseConversationID),
+						slog.Int("index", parseHistoryIndex),
+						slog.String("role", parseHistoryMessage2.Role),
+						slog.String("error", parseDbErr.ParseError()),
 					)
-					if errors.Is(dbErr, errStoreConversationMissing) {
-						s.clearPeerSession(peerAddress)
+					if errors.Is(parseDbErr, errStoreConversationMissing) {
+						parseS.clearPeerSession(parsePeerAddress)
 						break
 					}
 				}
 			}
-			if dbErr := s.store.saveConversationMessage(userID, conversationID, "user", req.Message, "", 0, 0); dbErr != nil {
-				logger.Error("rpc.Send: db: save user message failed",
-					slog.Int64("user_id", userID),
-					slog.Int64("requested_conv_id", req.GetConversationId()),
-					slog.Int64("conv_id", conversationID),
-					slog.String("error", dbErr.Error()),
+			if parseDbErr2 := parseS.store.parseSaveConversationMessage(parseUserID, parseConversationID, "user", parseReq.Message, "", 0, 0); parseDbErr2 != nil {
+				parseLogger.ParseError("rpc.Send: db: save user message failed",
+					slog.Int64("user_id", parseUserID),
+					slog.Int64("requested_conv_id", parseReq.GetConversationId()),
+					slog.Int64("conv_id", parseConversationID),
+					slog.String("error", parseDbErr2.ParseError()),
 				)
-				if errors.Is(dbErr, errStoreConversationMissing) {
-					s.clearPeerSession(peerAddress)
+				if errors.Is(parseDbErr2, errStoreConversationMissing) {
+					parseS.clearPeerSession(parsePeerAddress)
 				}
 			}
-			if dbErr := s.store.saveConversationMessage(userID, conversationID, "assistant", assistantResponseBuffer.String(), resolvedModel, promptTokenCount, completionTokenCount); dbErr != nil {
-				logger.Error("rpc.Send: db: save assistant message failed",
-					slog.Int64("user_id", userID),
-					slog.Int64("requested_conv_id", req.GetConversationId()),
-					slog.Int64("conv_id", conversationID),
-					slog.String("resolved_model", resolvedModel),
-					slog.Int64("prompt_tokens", promptTokenCount),
-					slog.Int64("completion_tokens", completionTokenCount),
-					slog.String("error", dbErr.Error()),
+			if parseDbErr3 := parseS.store.parseSaveConversationMessage(parseUserID, parseConversationID, "assistant", parseAssistantResponseBuffer.ParseString(), parseResolvedModel, parsePromptTokenCount, parseCompletionTokenCount); parseDbErr3 != nil {
+				parseLogger.ParseError("rpc.Send: db: save assistant message failed",
+					slog.Int64("user_id", parseUserID),
+					slog.Int64("requested_conv_id", parseReq.GetConversationId()),
+					slog.Int64("conv_id", parseConversationID),
+					slog.String("resolved_model", parseResolvedModel),
+					slog.Int64("prompt_tokens", parsePromptTokenCount),
+					slog.Int64("completion_tokens", parseCompletionTokenCount),
+					slog.String("error", parseDbErr3.ParseError()),
 				)
-				if errors.Is(dbErr, errStoreConversationMissing) {
-					s.clearPeerSession(peerAddress)
+				if errors.Is(parseDbErr3, errStoreConversationMissing) {
+					parseS.clearPeerSession(parsePeerAddress)
 				}
 			}
-			s.markConversationMessagesSaved(peerAddress, len(req.History)+2)
-			go s.extractAndStoreUserMemories(userID, req.Message)
+			parseS.parseMarkConversationMessagesSaved(parsePeerAddress, len(parseReq.History)+2)
+			go parseS.parseExtractAndStoreUserMemories(parseUserID, parseReq.Message)
 			// Generate a title for any conversation that is completing its first
 			// exchange (savedMessageCount == 0 means no prior messages existed in the DB).
-			if savedMessageCount == 0 {
-				go s.generateAndSaveConversationTitle(userID, conversationID, resolvedModel, req.Message, assistantResponseBuffer.String())
+			if parseSavedMessageCount == 0 {
+				go parseS.parseGenerateAndSaveConversationTitle(parseUserID, parseConversationID, parseResolvedModel, parseReq.Message, parseAssistantResponseBuffer.ParseString())
 			}
 		}
 	}
 
-	logger.Info("rpc.Send: complete",
-		slog.Int64("conv_id", conversationID),
-		slog.Int64("prompt_tokens", promptTokenCount),
-		slog.Int64("completion_tokens", completionTokenCount),
-		slog.String("resolved_model", resolvedModel),
+	parseLogger.ParseInfo("rpc.Send: complete",
+		slog.Int64("conv_id", parseConversationID),
+		slog.Int64("prompt_tokens", parsePromptTokenCount),
+		slog.Int64("completion_tokens", parseCompletionTokenCount),
+		slog.String("resolved_model", parseResolvedModel),
 	)
-	return stream.Send(&chatpb.ChatChunk{Done: true, ConversationId: conversationID, Model: resolvedModel, PromptTokens: promptTokenCount, CompletionTokens: completionTokenCount})
+	return parseStream.ParseSend(&chatpb.ChatChunk{Done: true, ConversationId: parseConversationID, Model: parseResolvedModel, PromptTokens: parsePromptTokenCount, CompletionTokens: parseCompletionTokenCount})
 }
 
 // ─── Conversation management RPCs ────────────────────────────────────────────
 
-func (s *chatServer) ListConversations(ctx context.Context, _ *chatpb.ListConversationsRequest) (*chatpb.ListConversationsResponse, error) {
-	logger := s.logger.With(slog.String("rpc", "ListConversations"))
-	logger.Info("rpc.ListConversations: started")
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) ParseListConversations(parseCtx context.Context, _ *chatpb.ListConversationsRequest) (*chatpb.ListConversationsResponse, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "ListConversations"))
+	parseLogger.ParseInfo("rpc.ListConversations: started")
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
 
-	if s.store == nil {
-		logger.Warn("rpc.ListConversations: store unavailable — returning empty list")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.ListConversations: store unavailable — returning empty list")
 		return &chatpb.ListConversationsResponse{}, nil
 	}
-	conversationSummaries, err := s.store.listConversations(userID)
-	if err != nil {
-		logger.Error("rpc.ListConversations: db query failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "list conversations: %v", err)
+	parseConversationSummaries, parseErr := parseS.store.parseListConversations(parseUserID)
+	if parseErr != nil {
+		parseLogger.ParseError("rpc.ListConversations: db query failed", slog.String("error", parseErr.ParseError()))
+		return nil, status.Errorf(codes.Internal, "list conversations: %v", parseErr)
 	}
-	responseSummaries := make([]*chatpb.ConversationSummary, 0, len(conversationSummaries))
-	for _, conversationSummary := range conversationSummaries {
-		preview := conversationSummary.Preview
-		if len(preview) > 60 {
-			preview = preview[:60] + "…"
+	parseResponseSummaries := make([]*chatpb.ConversationSummary, 0, len(parseConversationSummaries))
+	for _, parseConversationSummary := range parseConversationSummaries {
+		parsePreview := parseConversationSummary.Preview
+		if len(parsePreview) > 60 {
+			parsePreview = parsePreview[:60] + "…"
 		}
-		responseSummaries = append(responseSummaries, &chatpb.ConversationSummary{
-			Id:        conversationSummary.ID,
-			PublicId:  conversationSummary.PublicID,
-			StartedAt: conversationSummary.StartedAt,
-			Preview:   preview,
+		parseResponseSummaries = append(parseResponseSummaries, &chatpb.ConversationSummary{
+			Id:        parseConversationSummary.ParseID,
+			PublicId:  parseConversationSummary.PublicID,
+			StartedAt: parseConversationSummary.StartedAt,
+			Preview:   parsePreview,
 		})
 	}
-	logger.Info("rpc.ListConversations: complete", slog.Int("count", len(responseSummaries)))
-	return &chatpb.ListConversationsResponse{Conversations: responseSummaries}, nil
+	parseLogger.ParseInfo("rpc.ListConversations: complete", slog.Int("count", len(parseResponseSummaries)))
+	return &chatpb.ListConversationsResponse{Conversations: parseResponseSummaries}, nil
 }
 
-func (s *chatServer) ResolveConversationRoute(ctx context.Context, req *chatpb.ResolveConversationRouteRequest) (*chatpb.ResolveConversationRouteResponse, error) {
-	logger := s.logger.With(slog.String("rpc", "ResolveConversationRoute"), slog.String("public_id", strings.TrimSpace(req.GetPublicId())))
-	logger.Info("rpc.ResolveConversationRoute: started")
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) ParseResolveConversationRoute(parseCtx context.Context, parseReq *chatpb.ResolveConversationRouteRequest) (*chatpb.ResolveConversationRouteResponse, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "ResolveConversationRoute"), slog.String("public_id", strings.TrimSpace(parseReq.GetPublicId())))
+	parseLogger.ParseInfo("rpc.ResolveConversationRoute: started")
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if s.store == nil {
-		logger.Warn("rpc.ResolveConversationRoute: store unavailable — returning inaccessible")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.ResolveConversationRoute: store unavailable — returning inaccessible")
 		return &chatpb.ResolveConversationRouteResponse{Accessible: false}, nil
 	}
-	summary, ok, err := s.store.resolveConversationRoute(userID, req.GetPublicId())
-	if err != nil {
-		logger.Error("rpc.ResolveConversationRoute: db query failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "resolve conversation route: %v", err)
+	parseSummary, parseOk, parseErr := parseS.store.parseResolveConversationRoute(parseUserID, parseReq.GetPublicId())
+	if parseErr != nil {
+		parseLogger.ParseError("rpc.ResolveConversationRoute: db query failed", slog.String("error", parseErr.ParseError()))
+		return nil, status.Errorf(codes.Internal, "resolve conversation route: %v", parseErr)
 	}
-	if !ok {
-		logger.Info("rpc.ResolveConversationRoute: inaccessible")
+	if !parseOk {
+		parseLogger.ParseInfo("rpc.ResolveConversationRoute: inaccessible")
 		return &chatpb.ResolveConversationRouteResponse{Accessible: false}, nil
 	}
-	logger.Info("rpc.ResolveConversationRoute: complete", slog.Int64("conv_id", summary.ID))
+	parseLogger.ParseInfo("rpc.ResolveConversationRoute: complete", slog.Int64("conv_id", parseSummary.ParseID))
 	return &chatpb.ResolveConversationRouteResponse{
-		Id:         summary.ID,
-		PublicId:   summary.PublicID,
+		Id:         parseSummary.ParseID,
+		PublicId:   parseSummary.PublicID,
 		Accessible: true,
 	}, nil
 }
 
-func (s *chatServer) LoadConversation(ctx context.Context, req *chatpb.LoadConversationRequest) (*chatpb.LoadConversationResponse, error) {
-	logger := s.logger.With(slog.String("rpc", "LoadConversation"), slog.Int64("conv_id", req.GetId()))
-	logger.Info("rpc.LoadConversation: started")
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) ParseLoadConversation(parseCtx context.Context, parseReq *chatpb.LoadConversationRequest) (*chatpb.LoadConversationResponse, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "LoadConversation"), slog.Int64("conv_id", parseReq.GetId()))
+	parseLogger.ParseInfo("rpc.LoadConversation: started")
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
 
-	if s.store == nil {
-		logger.Warn("rpc.LoadConversation: store unavailable — returning empty response")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.LoadConversation: store unavailable — returning empty response")
 		return &chatpb.LoadConversationResponse{}, nil
 	}
-	conversationRows, err := s.store.loadConversation(userID, req.GetId())
-	if err != nil {
-		logger.Error("rpc.LoadConversation: db query failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "load conversation: %v", err)
+	parseConversationRows, parseErr := parseS.store.parseLoadConversation(parseUserID, parseReq.GetId())
+	if parseErr != nil {
+		parseLogger.ParseError("rpc.LoadConversation: db query failed", slog.String("error", parseErr.ParseError()))
+		return nil, status.Errorf(codes.Internal, "load conversation: %v", parseErr)
 	}
-	responseMessages := make([]*chatpb.ChatMessage, 0, len(conversationRows))
-	for _, row := range conversationRows {
-		responseMessages = append(responseMessages, &chatpb.ChatMessage{Role: provider.NormalizeRole(row.Role), Content: row.Content, ModelId: row.ModelID, PromptTokens: row.PromptTokens, CompletionTokens: row.CompletionTokens})
+	parseResponseMessages := make([]*chatpb.ChatMessage, 0, len(parseConversationRows))
+	for _, parseRow := range parseConversationRows {
+		parseResponseMessages = append(parseResponseMessages, &chatpb.ChatMessage{Role: provider.ParseNormalizeRole(parseRow.Role), Content: parseRow.Content, ModelId: parseRow.ModelID, PromptTokens: parseRow.PromptTokens, CompletionTokens: parseRow.CompletionTokens})
 	}
-	logger.Info("rpc.LoadConversation: complete", slog.Int("messages", len(responseMessages)))
-	return &chatpb.LoadConversationResponse{Messages: responseMessages}, nil
+	parseLogger.ParseInfo("rpc.LoadConversation: complete", slog.Int("messages", len(parseResponseMessages)))
+	return &chatpb.LoadConversationResponse{Messages: parseResponseMessages}, nil
 }
 
-func (s *chatServer) ListModelOptions(_ context.Context, _ *chatpb.ListModelOptionsRequest) (*chatpb.ListModelOptionsResponse, error) {
-	logger := s.logger.With(slog.String("rpc", "ListModelOptions"))
-	if s.providerRegistry == nil {
-		logger.Warn("rpc.ListModelOptions: provider registry unavailable")
+func (parseS *chatServer) ParseListModelOptions(_ context.Context, _ *chatpb.ListModelOptionsRequest) (*chatpb.ListModelOptionsResponse, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "ListModelOptions"))
+	if parseS.providerRegistry == nil {
+		parseLogger.Warn("rpc.ListModelOptions: provider registry unavailable")
 		return &chatpb.ListModelOptionsResponse{}, nil
 	}
-	options := s.providerRegistry.ModelOptions()
-	responseOptions := make([]*chatpb.ModelOption, 0, len(options))
-	for _, option := range options {
-		responseOptions = append(responseOptions, &chatpb.ModelOption{
-			Id:    option.ID,
-			Label: option.Label,
-			Note:  option.Note,
+	parseOptions := parseS.providerRegistry.ParseModelOptions()
+	parseResponseOptions := make([]*chatpb.ModelOption, 0, len(parseOptions))
+	for _, parseOption := range parseOptions {
+		parseResponseOptions = append(parseResponseOptions, &chatpb.ModelOption{
+			Id:    parseOption.ParseID,
+			Label: parseOption.Label,
+			Note:  parseOption.Note,
 			Capabilities: &chatpb.ModelCapabilities{
-				SupportsThinking: option.Capabilities.SupportsThinking,
-				SupportsSpeech:   option.Capabilities.SupportsSpeech,
-				ProviderId:       option.Capabilities.ProviderID,
-				ProviderLabel:    option.Capabilities.ProviderLabel,
+				SupportsThinking: parseOption.ParseCapabilities.SupportsThinking,
+				SupportsSpeech:   parseOption.ParseCapabilities.SupportsSpeech,
+				ProviderId:       parseOption.ParseCapabilities.ProviderID,
+				ProviderLabel:    parseOption.ParseCapabilities.ProviderLabel,
 			},
 			Pricing: &chatpb.ModelPricing{
-				InputCostPerMillionUsd:  option.Pricing.InputPerMillionUSD,
-				OutputCostPerMillionUsd: option.Pricing.OutputPerMillionUSD,
-				Currency:                option.Pricing.Currency,
+				InputCostPerMillionUsd:  parseOption.ParsePricing.InputPerMillionUSD,
+				OutputCostPerMillionUsd: parseOption.ParsePricing.OutputPerMillionUSD,
+				Currency:                parseOption.ParsePricing.Currency,
 			},
 		})
 	}
-	defaultModel := s.defaultModel
-	if defaultModel == "" {
-		defaultModel = s.providerRegistry.DefaultModel()
+	parseDefaultModel := parseS.defaultModel
+	if parseDefaultModel == "" {
+		parseDefaultModel = parseS.providerRegistry.ParseDefaultModel()
 	}
-	logger.Info("rpc.ListModelOptions: complete", slog.Int("count", len(responseOptions)), slog.String("default_model", defaultModel))
-	return &chatpb.ListModelOptionsResponse{Models: responseOptions, DefaultModel: defaultModel}, nil
+	parseLogger.ParseInfo("rpc.ListModelOptions: complete", slog.Int("count", len(parseResponseOptions)), slog.String("default_model", parseDefaultModel))
+	return &chatpb.ListModelOptionsResponse{Models: parseResponseOptions, DefaultModel: parseDefaultModel}, nil
 }
 
-func (s *chatServer) DeleteConversation(ctx context.Context, req *chatpb.DeleteConversationRequest) (*chatpb.DeleteConversationResponse, error) {
-	logger := s.logger.With(slog.String("rpc", "DeleteConversation"), slog.Int64("conv_id", req.GetId()))
-	logger.Info("rpc.DeleteConversation: started")
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) ParseDeleteConversation(parseCtx context.Context, parseReq *chatpb.DeleteConversationRequest) (*chatpb.DeleteConversationResponse, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "DeleteConversation"), slog.Int64("conv_id", parseReq.GetId()))
+	parseLogger.ParseInfo("rpc.DeleteConversation: started")
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
 
-	if s.store == nil {
-		logger.Warn("rpc.DeleteConversation: store unavailable — no-op")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.DeleteConversation: store unavailable — no-op")
 		return &chatpb.DeleteConversationResponse{}, nil
 	}
-	if err := s.store.deleteConversation(userID, req.GetId()); err != nil {
-		logger.Error("rpc.DeleteConversation: db delete failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "delete conversation: %v", err)
+	if parseErr2 := parseS.store.parseDeleteConversation(parseUserID, parseReq.GetId()); parseErr2 != nil {
+		parseLogger.ParseError("rpc.DeleteConversation: db delete failed", slog.String("error", parseErr2.ParseError()))
+		return nil, status.Errorf(codes.Internal, "delete conversation: %v", parseErr2)
 	}
-	logger.Info("rpc.DeleteConversation: complete")
+	parseLogger.ParseInfo("rpc.DeleteConversation: complete")
 	return &chatpb.DeleteConversationResponse{}, nil
 }
 
-func (s *chatServer) SetUserName(ctx context.Context, req *chatpb.SetUserNameRequest) (*chatpb.SetUserNameResponse, error) {
-	logger := s.logger.With(slog.String("rpc", "SetUserName"))
-	name := strings.TrimSpace(req.GetName())
-	if name == "" {
+func (parseS *chatServer) SetUserName(parseCtx context.Context, parseReq *chatpb.SetUserNameRequest) (*chatpb.SetUserNameResponse, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "SetUserName"))
+	parseName := strings.TrimSpace(parseReq.GetName())
+	if parseName == "" {
 		return nil, status.Error(codes.InvalidArgument, "name must not be empty")
 	}
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if s.store == nil {
-		logger.Warn("rpc.SetUserName: store unavailable — no-op")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.SetUserName: store unavailable — no-op")
 		return &chatpb.SetUserNameResponse{}, nil
 	}
-	now := time.Now().Unix()
-	if err := s.store.setUserName(userID, name, now); err != nil {
-		logger.Error("rpc.SetUserName: db upsert failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "set user name: %v", err)
+	parseNow := time.Now().Unix()
+	if parseErr2 := parseS.store.setUserName(parseUserID, parseName, parseNow); parseErr2 != nil {
+		parseLogger.ParseError("rpc.SetUserName: db upsert failed", slog.String("error", parseErr2.ParseError()))
+		return nil, status.Errorf(codes.Internal, "set user name: %v", parseErr2)
 	}
-	logger.Info("rpc.SetUserName: complete", slog.String("name", name))
+	parseLogger.ParseInfo("rpc.SetUserName: complete", slog.String("name", parseName))
 	return &chatpb.SetUserNameResponse{}, nil
 }
 
-func (s *chatServer) GetUserName(ctx context.Context, _ *chatpb.GetUserNameRequest) (*chatpb.GetUserNameResponse, error) {
-	logger := s.logger.With(slog.String("rpc", "GetUserName"))
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) GetUserName(parseCtx context.Context, _ *chatpb.GetUserNameRequest) (*chatpb.GetUserNameResponse, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "GetUserName"))
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if s.store == nil {
-		logger.Warn("rpc.GetUserName: store unavailable — returning default")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.GetUserName: store unavailable — returning default")
 		return &chatpb.GetUserNameResponse{Name: "User", UpdatedAt: 0}, nil
 	}
-	name, updatedAt, err := s.store.getUserName(userID)
-	if err != nil {
-		logger.Error("rpc.GetUserName: db query failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "get user name: %v", err)
+	parseName, parseUpdatedAt, parseErr := parseS.store.getUserName(parseUserID)
+	if parseErr != nil {
+		parseLogger.ParseError("rpc.GetUserName: db query failed", slog.String("error", parseErr.ParseError()))
+		return nil, status.Errorf(codes.Internal, "get user name: %v", parseErr)
 	}
-	logger.Info("rpc.GetUserName: complete", slog.String("name", name), slog.Int64("updated_at", updatedAt))
-	return &chatpb.GetUserNameResponse{Name: name, UpdatedAt: updatedAt}, nil
+	parseLogger.ParseInfo("rpc.GetUserName: complete", slog.String("name", parseName), slog.Int64("updated_at", parseUpdatedAt))
+	return &chatpb.GetUserNameResponse{Name: parseName, UpdatedAt: parseUpdatedAt}, nil
 }
 
-func (s *chatServer) ListUserMemories(ctx context.Context, _ *chatpb.ListUserMemoriesRequest) (*chatpb.ListUserMemoriesResponse, error) {
-	logger := s.logger.With(slog.String("rpc", "ListUserMemories"))
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) ParseListUserMemories(parseCtx context.Context, _ *chatpb.ListUserMemoriesRequest) (*chatpb.ListUserMemoriesResponse, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "ListUserMemories"))
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if s.store == nil {
-		logger.Warn("rpc.ListUserMemories: store unavailable — returning empty list")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.ListUserMemories: store unavailable — returning empty list")
 		return &chatpb.ListUserMemoriesResponse{}, nil
 	}
-	rows, err := s.store.listUserMemories(userID)
-	if err != nil {
-		logger.Error("rpc.ListUserMemories: db query failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "list user memories: %v", err)
+	parseRows, parseErr := parseS.store.parseListUserMemories(parseUserID)
+	if parseErr != nil {
+		parseLogger.ParseError("rpc.ListUserMemories: db query failed", slog.String("error", parseErr.ParseError()))
+		return nil, status.Errorf(codes.Internal, "list user memories: %v", parseErr)
 	}
-	memories := make([]*chatpb.UserMemory, 0, len(rows))
-	for _, row := range rows {
-		memories = append(memories, &chatpb.UserMemory{
-			Key:             row.Key,
-			Category:        row.Category,
-			Summary:         row.Summary,
-			Detail:          row.Detail,
-			SourceMessage:   row.SourceMessage,
-			UsefulnessScore: int32(row.UsefulnessScore),
-			ConfidenceScore: row.ConfidenceScore,
-			RubricReason:    row.RubricReason,
-			UpdatedAt:       row.UpdatedAt,
+	parseMemories := make([]*chatpb.UserMemory, 0, len(parseRows))
+	for _, parseRow := range parseRows {
+		parseMemories = append(parseMemories, &chatpb.UserMemory{
+			Key:             parseRow.Key,
+			Category:        parseRow.Category,
+			Summary:         parseRow.Summary,
+			Detail:          parseRow.Detail,
+			SourceMessage:   parseRow.SourceMessage,
+			UsefulnessScore: int32(parseRow.UsefulnessScore),
+			ConfidenceScore: parseRow.ConfidenceScore,
+			RubricReason:    parseRow.RubricReason,
+			UpdatedAt:       parseRow.UpdatedAt,
 		})
 	}
-	return &chatpb.ListUserMemoriesResponse{Memories: memories}, nil
+	return &chatpb.ListUserMemoriesResponse{Memories: parseMemories}, nil
 }
 
-func (s *chatServer) UpsertUserMemory(ctx context.Context, req *chatpb.UpsertUserMemoryRequest) (*emptypb.Empty, error) {
-	logger := s.logger.With(slog.String("rpc", "UpsertUserMemory"))
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) ParseUpsertUserMemory(parseCtx context.Context, parseReq *chatpb.UpsertUserMemoryRequest) (*emptypb.Empty, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "UpsertUserMemory"))
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if s.store == nil {
-		logger.Warn("rpc.UpsertUserMemory: store unavailable — no-op")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.UpsertUserMemory: store unavailable — no-op")
 		return &emptypb.Empty{}, nil
 	}
-	memory := req.GetMemory()
-	if memory == nil {
+	parseMemory := parseReq.GetMemory()
+	if parseMemory == nil {
 		return nil, status.Error(codes.InvalidArgument, "memory is required")
 	}
-	summary := strings.TrimSpace(memory.GetSummary())
-	if summary == "" {
+	parseSummary := strings.TrimSpace(parseMemory.GetSummary())
+	if parseSummary == "" {
 		return nil, status.Error(codes.InvalidArgument, "memory summary is required")
 	}
-	category := normalizeUserMemoryCategory(memory.GetCategory())
-	key := normalizeUserMemoryKey(memory.GetKey(), category, summary)
-	if key == "" {
+	parseCategory := parseNormalizeUserMemoryCategory(parseMemory.GetCategory())
+	parseKey := parseNormalizeUserMemoryKey(parseMemory.GetKey(), parseCategory, parseSummary)
+	if parseKey == "" {
 		return nil, status.Error(codes.InvalidArgument, "memory key could not be derived")
 	}
-	if err := s.store.upsertUserMemory(userID, userMemoryRow{
-		Key:             key,
-		Category:        category,
-		Summary:         summary,
-		Detail:          strings.TrimSpace(memory.GetDetail()),
-		SourceMessage:   strings.TrimSpace(memory.GetSourceMessage()),
-		UsefulnessScore: clampUsefulnessScore(int(memory.GetUsefulnessScore())),
-		ConfidenceScore: clampConfidenceScore(memory.GetConfidenceScore()),
-		RubricReason:    strings.TrimSpace(memory.GetRubricReason()),
-	}); err != nil {
-		logger.Error("rpc.UpsertUserMemory: db upsert failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "upsert user memory: %v", err)
+	if parseErr2 := parseS.store.parseUpsertUserMemory(parseUserID, userMemoryRow{
+		Key:             parseKey,
+		Category:        parseCategory,
+		Summary:         parseSummary,
+		Detail:          strings.TrimSpace(parseMemory.GetDetail()),
+		SourceMessage:   strings.TrimSpace(parseMemory.GetSourceMessage()),
+		UsefulnessScore: parseClampUsefulnessScore(int(parseMemory.GetUsefulnessScore())),
+		ConfidenceScore: parseClampConfidenceScore(parseMemory.GetConfidenceScore()),
+		RubricReason:    strings.TrimSpace(parseMemory.GetRubricReason()),
+	}); parseErr2 != nil {
+		parseLogger.ParseError("rpc.UpsertUserMemory: db upsert failed", slog.String("error", parseErr2.ParseError()))
+		return nil, status.Errorf(codes.Internal, "upsert user memory: %v", parseErr2)
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (s *chatServer) DeleteUserMemory(ctx context.Context, req *chatpb.DeleteUserMemoryRequest) (*emptypb.Empty, error) {
-	logger := s.logger.With(slog.String("rpc", "DeleteUserMemory"))
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) ParseDeleteUserMemory(parseCtx context.Context, parseReq *chatpb.DeleteUserMemoryRequest) (*emptypb.Empty, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "DeleteUserMemory"))
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if s.store == nil {
-		logger.Warn("rpc.DeleteUserMemory: store unavailable — no-op")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.DeleteUserMemory: store unavailable — no-op")
 		return &emptypb.Empty{}, nil
 	}
-	key := strings.TrimSpace(req.GetKey())
-	if key == "" {
+	parseKey := strings.TrimSpace(parseReq.GetKey())
+	if parseKey == "" {
 		return nil, status.Error(codes.InvalidArgument, "memory key is required")
 	}
-	if err := s.store.deleteUserMemory(userID, key); err != nil {
-		logger.Error("rpc.DeleteUserMemory: db delete failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "delete user memory: %v", err)
+	if parseErr2 := parseS.store.parseDeleteUserMemory(parseUserID, parseKey); parseErr2 != nil {
+		parseLogger.ParseError("rpc.DeleteUserMemory: db delete failed", slog.String("error", parseErr2.ParseError()))
+		return nil, status.Errorf(codes.Internal, "delete user memory: %v", parseErr2)
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (s *chatServer) SynthesizeSpeech(req *chatpb.SynthesizeSpeechRequest, stream grpc.ServerStreamingServer[chatpb.SynthesizeSpeechChunk]) error {
-	logger := s.logger.With(slog.String("rpc", "SynthesizeSpeech"))
-	if _, err := s.requireAuthenticatedUserID(stream.Context()); err != nil {
-		return err
+func (parseS *chatServer) ParseSynthesizeSpeech(parseReq *chatpb.SynthesizeSpeechRequest, parseStream grpc.ServerStreamingServer[chatpb.SynthesizeSpeechChunk]) error {
+	parseLogger := parseS.logger.With(slog.String("rpc", "SynthesizeSpeech"))
+	if _, parseErr := parseS.parseRequireAuthenticatedUserID(parseStream.ParseContext()); parseErr != nil {
+		return parseErr
 	}
-	if s.providerRegistry == nil {
-		logger.Error("rpc.SynthesizeSpeech: provider registry unavailable")
+	if parseS.providerRegistry == nil {
+		parseLogger.ParseError("rpc.SynthesizeSpeech: provider registry unavailable")
 		return status.Error(codes.Unavailable, "no configured model provider available")
 	}
 
-	script := sanitizeTextForTTS(req.GetText())
-	if script == "" {
+	parseScript := parseSanitizeTextForTTS(parseReq.GetText())
+	if parseScript == "" {
 		return status.Error(codes.InvalidArgument, "text must contain speakable content")
 	}
-	resolvedModel := s.defaultModel
-	if requestedModel := strings.TrimSpace(req.GetModel()); requestedModel != "" {
-		resolvedModel = normalizeSelectedModelID(requestedModel)
+	parseResolvedModel := parseS.defaultModel
+	if parseRequestedModel := strings.TrimSpace(parseReq.GetModel()); parseRequestedModel != "" {
+		parseResolvedModel = parseNormalizeSelectedModelID(parseRequestedModel)
 	}
-	speechProvider, resolvedModel, _, err := s.providerRegistry.RequireCapability(resolvedModel, provider.CapabilitySpeech)
-	if err != nil {
-		logger.Error("rpc.SynthesizeSpeech: provider resolution failed",
-			slog.String("requested_model", req.GetModel()),
-			slog.String("resolved_model", resolvedModel),
-			slog.String("error", err.Error()),
+	parseSpeechProvider, parseResolvedModel, _, parseErr2 := parseS.providerRegistry.ParseRequireCapability(parseResolvedModel, provider.CapabilitySpeech)
+	if parseErr2 != nil {
+		parseLogger.ParseError("rpc.SynthesizeSpeech: provider resolution failed",
+			slog.String("requested_model", parseReq.GetModel()),
+			slog.String("resolved_model", parseResolvedModel),
+			slog.String("error", parseErr2.ParseError()),
 		)
-		if capabilityErr := capabilityStatusError(err); capabilityErr != nil {
-			return capabilityErr
+		if parseCapabilityErr := parseCapabilityStatusError(parseErr2); parseCapabilityErr != nil {
+			return parseCapabilityErr
 		}
-		if strings.TrimSpace(req.GetModel()) != "" {
-			return status.Errorf(codes.InvalidArgument, "unsupported model %q", strings.TrimSpace(req.GetModel()))
+		if strings.TrimSpace(parseReq.GetModel()) != "" {
+			return status.Errorf(codes.InvalidArgument, "unsupported model %q", strings.TrimSpace(parseReq.GetModel()))
 		}
 		return status.Error(codes.Unavailable, "no configured model provider available")
 	}
 
-	activeStreams := s.activeTTSStreams.Add(1)
-	defer s.activeTTSStreams.Add(-1)
-	totalAudioBytes := 0
-	speechResult, err := speechProvider.SynthesizeSpeech(stream.Context(), provider.SpeechRequest{Model: resolvedModel, Text: script}, func(chunk provider.SpeechChunk) error {
-		if len(chunk.AudioChunk) > 0 {
-			totalAudioBytes += len(chunk.AudioChunk)
+	parseActiveStreams := parseS.activeTTSStreams.Add(1)
+	defer parseS.activeTTSStreams.Add(-1)
+	parseTotalAudioBytes := 0
+	parseSpeechResult, parseErr2 := parseSpeechProvider.ParseSynthesizeSpeech(parseStream.ParseContext(), provider.SpeechRequest{Model: parseResolvedModel, Text: parseScript}, func(parseChunk provider.SpeechChunk) error {
+		if len(parseChunk.AudioChunk) > 0 {
+			parseTotalAudioBytes += len(parseChunk.AudioChunk)
 		}
-		if err := stream.Send(&chatpb.SynthesizeSpeechChunk{
-			AudioChunk: chunk.AudioChunk,
-			Done:       chunk.Done,
-			MimeType:   chunk.MimeType,
-			Model:      chunk.Model,
-			Voice:      chunk.Voice,
-			Script:     chunk.Script,
-		}); err != nil {
-			logger.Warn("rpc.SynthesizeSpeech: downstream stream send failed",
-				slog.String("error", err.Error()),
-				slog.Int("audio_bytes", totalAudioBytes),
+		if parseErr3 := parseStream.ParseSend(&chatpb.SynthesizeSpeechChunk{
+			AudioChunk: parseChunk.AudioChunk,
+			Done:       parseChunk.Done,
+			MimeType:   parseChunk.MimeType,
+			Model:      parseChunk.Model,
+			Voice:      parseChunk.Voice,
+			Script:     parseChunk.Script,
+		}); parseErr3 != nil {
+			parseLogger.Warn("rpc.SynthesizeSpeech: downstream stream send failed",
+				slog.String("error", parseErr3.ParseError()),
+				slog.Int("audio_bytes", parseTotalAudioBytes),
 			)
-			return status.Errorf(codes.Canceled, "speech stream send: %v", err)
+			return status.Errorf(codes.Canceled, "speech stream send: %v", parseErr3)
 		}
 		return nil
 	})
-	if err != nil {
-		logger.Error("rpc.SynthesizeSpeech: provider call failed",
-			slog.String("provider", speechProvider.ID()),
-			slog.String("model", resolvedModel),
-			slog.String("error", err.Error()),
+	if parseErr2 != nil {
+		parseLogger.ParseError("rpc.SynthesizeSpeech: provider call failed",
+			slog.String("provider", parseSpeechProvider.ParseID()),
+			slog.String("model", parseResolvedModel),
+			slog.String("error", parseErr2.ParseError()),
 		)
-		if capabilityErr := capabilityStatusError(err); capabilityErr != nil {
-			return capabilityErr
+		if parseCapabilityErr2 := parseCapabilityStatusError(parseErr2); parseCapabilityErr2 != nil {
+			return parseCapabilityErr2
 		}
-		if status.Code(err) != codes.Unknown {
-			return err
+		if status.Code(parseErr2) != codes.Unknown {
+			return parseErr2
 		}
-		return status.Errorf(codes.Internal, "synthesize speech: %v", err)
+		return status.Errorf(codes.Internal, "synthesize speech: %v", parseErr2)
 	}
-	if totalAudioBytes == 0 {
+	if parseTotalAudioBytes == 0 {
 		return status.Error(codes.Internal, "synthesized audio was empty")
 	}
 
-	logger.Info("rpc.SynthesizeSpeech: complete",
-		slog.Int("script_len", len(script)),
-		slog.Int("audio_bytes", totalAudioBytes),
-		slog.Int64("active_streams", activeStreams),
-		slog.String("provider", speechProvider.ID()),
-		slog.String("model", speechResult.Model),
-		slog.String("voice", speechResult.Voice),
+	parseLogger.ParseInfo("rpc.SynthesizeSpeech: complete",
+		slog.Int("script_len", len(parseScript)),
+		slog.Int("audio_bytes", parseTotalAudioBytes),
+		slog.Int64("active_streams", parseActiveStreams),
+		slog.String("provider", parseSpeechProvider.ParseID()),
+		slog.String("model", parseSpeechResult.Model),
+		slog.String("voice", parseSpeechResult.Voice),
 	)
 
 	return nil
 }
 
-func (s *chatServer) SetSelectedModel(ctx context.Context, req *wrapperspb.StringValue) (*emptypb.Empty, error) {
-	logger := s.logger.With(slog.String("rpc", "SetSelectedModel"))
-	selectedModel := normalizeSelectedModelID(req.GetValue())
-	if selectedModel == "" {
+func (parseS *chatServer) SetSelectedModel(parseCtx context.Context, parseReq *wrapperspb.StringValue) (*emptypb.Empty, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "SetSelectedModel"))
+	parseSelectedModel := parseNormalizeSelectedModelID(parseReq.GetValue())
+	if parseSelectedModel == "" {
 		return nil, status.Error(codes.InvalidArgument, "model must not be empty")
 	}
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if s.providerRegistry != nil {
-		if _, _, err := s.providerRegistry.Resolve(selectedModel); err != nil {
-			if capabilityErr := capabilityStatusError(err); capabilityErr != nil {
-				return nil, capabilityErr
+	if parseS.providerRegistry != nil {
+		if _, _, parseErr2 := parseS.providerRegistry.ParseResolve(parseSelectedModel); parseErr2 != nil {
+			if parseCapabilityErr := parseCapabilityStatusError(parseErr2); parseCapabilityErr != nil {
+				return nil, parseCapabilityErr
 			}
-			return nil, status.Errorf(codes.InvalidArgument, "unsupported model %q", selectedModel)
+			return nil, status.Errorf(codes.InvalidArgument, "unsupported model %q", parseSelectedModel)
 		}
 	}
-	if s.store == nil {
-		logger.Warn("rpc.SetSelectedModel: store unavailable — no-op")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.SetSelectedModel: store unavailable — no-op")
 		return &emptypb.Empty{}, nil
 	}
-	if err := s.store.setSelectedModel(userID, selectedModel); err != nil {
-		logger.Error("rpc.SetSelectedModel: db upsert failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "set selected model: %v", err)
+	if parseErr3 := parseS.store.setSelectedModel(parseUserID, parseSelectedModel); parseErr3 != nil {
+		parseLogger.ParseError("rpc.SetSelectedModel: db upsert failed", slog.String("error", parseErr3.ParseError()))
+		return nil, status.Errorf(codes.Internal, "set selected model: %v", parseErr3)
 	}
-	logger.Info("rpc.SetSelectedModel: complete", slog.String("model", selectedModel))
+	parseLogger.ParseInfo("rpc.SetSelectedModel: complete", slog.String("model", parseSelectedModel))
 	return &emptypb.Empty{}, nil
 }
 
-func (s *chatServer) getSelectedModelLegacy(ctx context.Context, _ *emptypb.Empty) (*wrapperspb.StringValue, error) {
-	logger := s.logger.With(slog.String("rpc", "GetSelectedModel"))
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) getSelectedModelLegacy(parseCtx context.Context, _ *emptypb.Empty) (*wrapperspb.StringValue, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "GetSelectedModel"))
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if s.store == nil {
-		logger.Warn("rpc.GetSelectedModel: store unavailable — returning default")
-		return wrapperspb.String(s.defaultModel), nil
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.GetSelectedModel: store unavailable — returning default")
+		return wrapperspb.String(parseS.defaultModel), nil
 	}
-	selectedModel, err := s.store.getSelectedModel(userID, s.defaultModel)
-	if err != nil {
-		logger.Error("rpc.GetSelectedModel: db query failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "get selected model: %v", err)
+	parseSelectedModel, parseErr := parseS.store.getSelectedModel(parseUserID, parseS.defaultModel)
+	if parseErr != nil {
+		parseLogger.ParseError("rpc.GetSelectedModel: db query failed", slog.String("error", parseErr.ParseError()))
+		return nil, status.Errorf(codes.Internal, "get selected model: %v", parseErr)
 	}
-	selectedModel = normalizeSelectedModelID(selectedModel)
-	if s.providerRegistry != nil {
-		if _, resolvedModel, resolveErr := s.providerRegistry.Resolve(selectedModel); resolveErr == nil {
-			selectedModel = normalizeSelectedModelID(resolvedModel)
-		} else if fallbackModel := s.providerRegistry.DefaultModel(); fallbackModel != "" {
-			selectedModel = normalizeSelectedModelID(fallbackModel)
+	parseSelectedModel = parseNormalizeSelectedModelID(parseSelectedModel)
+	if parseS.providerRegistry != nil {
+		if _, parseResolvedModel, parseResolveErr := parseS.providerRegistry.ParseResolve(parseSelectedModel); parseResolveErr == nil {
+			parseSelectedModel = parseNormalizeSelectedModelID(parseResolvedModel)
+		} else if parseFallbackModel := parseS.providerRegistry.ParseDefaultModel(); parseFallbackModel != "" {
+			parseSelectedModel = parseNormalizeSelectedModelID(parseFallbackModel)
 		}
 	}
-	logger.Info("rpc.GetSelectedModel: complete", slog.String("model", selectedModel))
-	return wrapperspb.String(selectedModel), nil
+	parseLogger.ParseInfo("rpc.GetSelectedModel: complete", slog.String("model", parseSelectedModel))
+	return wrapperspb.String(parseSelectedModel), nil
 }
 
-func (s *chatServer) GetSelectedModel(ctx context.Context, _ *emptypb.Empty) (*wrapperspb.StringValue, error) {
-	logger := s.logger.With(slog.String("rpc", "GetSelectedModel"))
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) GetSelectedModel(parseCtx context.Context, _ *emptypb.Empty) (*wrapperspb.StringValue, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "GetSelectedModel"))
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if s.store == nil {
-		logger.Warn("rpc.GetSelectedModel: store unavailable, returning default")
-		return wrapperspb.String(s.defaultModel), nil
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.GetSelectedModel: store unavailable, returning default")
+		return wrapperspb.String(parseS.defaultModel), nil
 	}
 
-	fallbackModel := normalizeSelectedModelID(s.defaultModel)
-	if s.providerRegistry != nil {
-		modelOptions := s.providerRegistry.ModelOptions()
-		if len(modelOptions) > 0 {
-			firstModel := normalizeSelectedModelID(modelOptions[0].ID)
-			if firstModel != "" {
-				fallbackModel = firstModel
+	parseFallbackModel := parseNormalizeSelectedModelID(parseS.defaultModel)
+	if parseS.providerRegistry != nil {
+		parseModelOptions := parseS.providerRegistry.ParseModelOptions()
+		if len(parseModelOptions) > 0 {
+			parseFirstModel := parseNormalizeSelectedModelID(parseModelOptions[0].ParseID)
+			if parseFirstModel != "" {
+				parseFallbackModel = parseFirstModel
 			}
 		}
-		if fallbackModel == "" {
-			fallbackModel = normalizeSelectedModelID(s.providerRegistry.DefaultModel())
+		if parseFallbackModel == "" {
+			parseFallbackModel = parseNormalizeSelectedModelID(parseS.providerRegistry.ParseDefaultModel())
 		}
 	}
-	if fallbackModel == "" {
-		fallbackModel = normalizeSelectedModelID("")
+	if parseFallbackModel == "" {
+		parseFallbackModel = parseNormalizeSelectedModelID("")
 	}
 
-	selectedModel, err := s.store.getSelectedModel(userID, fallbackModel)
-	if err != nil {
-		logger.Error("rpc.GetSelectedModel: db query failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "get selected model: %v", err)
+	parseSelectedModel, parseErr := parseS.store.getSelectedModel(parseUserID, parseFallbackModel)
+	if parseErr != nil {
+		parseLogger.ParseError("rpc.GetSelectedModel: db query failed", slog.String("error", parseErr.ParseError()))
+		return nil, status.Errorf(codes.Internal, "get selected model: %v", parseErr)
 	}
-	originalSelectedModel := strings.TrimSpace(selectedModel)
-	selectedModel = normalizeSelectedModelID(selectedModel)
+	parseOriginalSelectedModel := strings.TrimSpace(parseSelectedModel)
+	parseSelectedModel = parseNormalizeSelectedModelID(parseSelectedModel)
 
-	if s.providerRegistry != nil {
-		if _, resolvedModel, resolveErr := s.providerRegistry.Resolve(selectedModel); resolveErr == nil {
-			selectedModel = normalizeSelectedModelID(resolvedModel)
-		} else if fallbackModel != "" {
-			selectedModel = fallbackModel
-		} else if registryDefault := s.providerRegistry.DefaultModel(); registryDefault != "" {
-			selectedModel = normalizeSelectedModelID(registryDefault)
+	if parseS.providerRegistry != nil {
+		if _, parseResolvedModel, parseResolveErr := parseS.providerRegistry.ParseResolve(parseSelectedModel); parseResolveErr == nil {
+			parseSelectedModel = parseNormalizeSelectedModelID(parseResolvedModel)
+		} else if parseFallbackModel != "" {
+			parseSelectedModel = parseFallbackModel
+		} else if parseRegistryDefault := parseS.providerRegistry.ParseDefaultModel(); parseRegistryDefault != "" {
+			parseSelectedModel = parseNormalizeSelectedModelID(parseRegistryDefault)
 		}
 	}
-	if selectedModel == "" {
-		selectedModel = fallbackModel
+	if parseSelectedModel == "" {
+		parseSelectedModel = parseFallbackModel
 	}
-	if selectedModel == "" {
-		selectedModel = normalizeSelectedModelID("")
-	}
-
-	if setErr := s.store.setSelectedModel(userID, selectedModel); setErr != nil {
-		logger.Warn("rpc.GetSelectedModel: failed to persist repaired model", slog.String("error", setErr.Error()), slog.String("model", selectedModel))
-	} else if selectedModel != originalSelectedModel {
-		logger.Info("rpc.GetSelectedModel: repaired persisted model", slog.String("from", originalSelectedModel), slog.String("to", selectedModel))
+	if parseSelectedModel == "" {
+		parseSelectedModel = parseNormalizeSelectedModelID("")
 	}
 
-	logger.Info("rpc.GetSelectedModel: complete", slog.String("model", selectedModel))
-	return wrapperspb.String(selectedModel), nil
+	if setErr := parseS.store.setSelectedModel(parseUserID, parseSelectedModel); setErr != nil {
+		parseLogger.Warn("rpc.GetSelectedModel: failed to persist repaired model", slog.String("error", setErr.ParseError()), slog.String("model", parseSelectedModel))
+	} else if parseSelectedModel != parseOriginalSelectedModel {
+		parseLogger.ParseInfo("rpc.GetSelectedModel: repaired persisted model", slog.String("from", parseOriginalSelectedModel), slog.String("to", parseSelectedModel))
+	}
+
+	parseLogger.ParseInfo("rpc.GetSelectedModel: complete", slog.String("model", parseSelectedModel))
+	return wrapperspb.String(parseSelectedModel), nil
 }
 
-func capabilityStatusError(err error) error {
-	var capabilityErr *provider.UnsupportedCapabilityError
-	if !errors.As(err, &capabilityErr) {
+func parseCapabilityStatusError(parseErr error) error {
+	var parseCapabilityErr *provider.UnsupportedCapabilityError
+	if !errors.As(parseErr, &parseCapabilityErr) {
 		return nil
 	}
-	return status.Errorf(codes.FailedPrecondition, "model %q does not support %s", capabilityErr.Model, capabilityErr.Capability)
+	return status.Errorf(codes.FailedPrecondition, "model %q does not support %s", parseCapabilityErr.Model, parseCapabilityErr.Capability)
 }
 
-func userFacingStreamError(providerID string, modelID string, err error) string {
-	providerID = strings.TrimSpace(providerID)
-	modelID = strings.TrimSpace(modelID)
-	raw := strings.TrimSpace(err.Error())
-	if raw == "" {
-		if providerID == "" {
+func parseUserFacingStreamError(parseProviderID string, parseModelID string, parseErr error) string {
+	parseProviderID = strings.TrimSpace(parseProviderID)
+	parseModelID = strings.TrimSpace(parseModelID)
+	parseRaw := strings.TrimSpace(parseErr.ParseError())
+	if parseRaw == "" {
+		if parseProviderID == "" {
 			return "model provider stream failed"
 		}
-		return fmt.Sprintf("%s stream failed", providerID)
+		return fmt.Sprintf("%s stream failed", parseProviderID)
 	}
-	if providerID == "cerebras" && strings.Contains(raw, "404 Not Found") {
-		if modelID != "" {
-			return fmt.Sprintf("Cerebras model %q is unavailable for this API key. Try llama3.1-8b or another available Cerebras model.", modelID)
+	if parseProviderID == "cerebras" && strings.Contains(parseRaw, "404 Not Found") {
+		if parseModelID != "" {
+			return fmt.Sprintf("Cerebras model %q is unavailable for this API key. Try llama3.1-8b or another available Cerebras model.", parseModelID)
 		}
 		return "Selected Cerebras model is unavailable for this API key. Try llama3.1-8b or another available Cerebras model."
 	}
-	return raw
+	return parseRaw
 }
 
-func normalizeSelectedModelID(modelID string) string {
-	modelID = strings.TrimSpace(modelID)
-	switch modelID {
+func parseNormalizeSelectedModelID(parseModelID string) string {
+	parseModelID = strings.TrimSpace(parseModelID)
+	switch parseModelID {
 	case "", modelGPT54Mini, "gpt-5.4-mini-2026-03-17":
 		return modelGPT54Mini
 	case modelGPT54, "gpt-5.4-2026-03-17":
@@ -1225,162 +1225,162 @@ func normalizeSelectedModelID(modelID string) string {
 	case modelGPT54Nano, "gpt-5.4-nano-2026-03-17":
 		return modelGPT54Nano
 	default:
-		return modelID
+		return parseModelID
 	}
 }
 
-func (s *chatServer) SetSelectedTone(ctx context.Context, req *wrapperspb.StringValue) (*emptypb.Empty, error) {
-	logger := s.logger.With(slog.String("rpc", "SetSelectedTone"))
-	selectedTone := normalizeSelectedToneID(req.GetValue())
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) SetSelectedTone(parseCtx context.Context, parseReq *wrapperspb.StringValue) (*emptypb.Empty, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "SetSelectedTone"))
+	parseSelectedTone := parseNormalizeSelectedToneID(parseReq.GetValue())
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if s.store == nil {
-		logger.Warn("rpc.SetSelectedTone: store unavailable — no-op")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.SetSelectedTone: store unavailable — no-op")
 		return &emptypb.Empty{}, nil
 	}
-	if err := s.store.setSelectedTone(userID, selectedTone); err != nil {
-		logger.Error("rpc.SetSelectedTone: db upsert failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "set selected tone: %v", err)
+	if parseErr2 := parseS.store.setSelectedTone(parseUserID, parseSelectedTone); parseErr2 != nil {
+		parseLogger.ParseError("rpc.SetSelectedTone: db upsert failed", slog.String("error", parseErr2.ParseError()))
+		return nil, status.Errorf(codes.Internal, "set selected tone: %v", parseErr2)
 	}
-	logger.Info("rpc.SetSelectedTone: complete", slog.String("tone", selectedTone))
+	parseLogger.ParseInfo("rpc.SetSelectedTone: complete", slog.String("tone", parseSelectedTone))
 	return &emptypb.Empty{}, nil
 }
 
-func (s *chatServer) GetSelectedTone(ctx context.Context, _ *emptypb.Empty) (*wrapperspb.StringValue, error) {
-	logger := s.logger.With(slog.String("rpc", "GetSelectedTone"))
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) GetSelectedTone(parseCtx context.Context, _ *emptypb.Empty) (*wrapperspb.StringValue, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "GetSelectedTone"))
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if s.store == nil {
-		logger.Warn("rpc.GetSelectedTone: store unavailable — returning default")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.GetSelectedTone: store unavailable — returning default")
 		return wrapperspb.String(defaultToneID), nil
 	}
-	selectedTone, err := s.store.getSelectedTone(userID, defaultToneID)
-	if err != nil {
-		logger.Error("rpc.GetSelectedTone: db query failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "get selected tone: %v", err)
+	parseSelectedTone, parseErr := parseS.store.getSelectedTone(parseUserID, defaultToneID)
+	if parseErr != nil {
+		parseLogger.ParseError("rpc.GetSelectedTone: db query failed", slog.String("error", parseErr.ParseError()))
+		return nil, status.Errorf(codes.Internal, "get selected tone: %v", parseErr)
 	}
-	selectedTone = normalizeSelectedToneID(selectedTone)
-	logger.Info("rpc.GetSelectedTone: complete", slog.String("tone", selectedTone))
-	return wrapperspb.String(selectedTone), nil
+	parseSelectedTone = parseNormalizeSelectedToneID(parseSelectedTone)
+	parseLogger.ParseInfo("rpc.GetSelectedTone: complete", slog.String("tone", parseSelectedTone))
+	return wrapperspb.String(parseSelectedTone), nil
 }
 
-func (s *chatServer) SetSelectedThinkingEnabled(ctx context.Context, req *wrapperspb.BoolValue) (*emptypb.Empty, error) {
-	logger := s.logger.With(slog.String("rpc", "SetSelectedThinkingEnabled"))
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) SetSelectedThinkingEnabled(parseCtx context.Context, parseReq *wrapperspb.BoolValue) (*emptypb.Empty, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "SetSelectedThinkingEnabled"))
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if s.store == nil {
-		logger.Warn("rpc.SetSelectedThinkingEnabled: store unavailable — no-op")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.SetSelectedThinkingEnabled: store unavailable — no-op")
 		return &emptypb.Empty{}, nil
 	}
-	if err := s.store.setSelectedThinkingEnabled(userID, req.GetValue()); err != nil {
-		logger.Error("rpc.SetSelectedThinkingEnabled: db upsert failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "set selected thinking enabled: %v", err)
+	if parseErr2 := parseS.store.setSelectedThinkingEnabled(parseUserID, parseReq.GetValue()); parseErr2 != nil {
+		parseLogger.ParseError("rpc.SetSelectedThinkingEnabled: db upsert failed", slog.String("error", parseErr2.ParseError()))
+		return nil, status.Errorf(codes.Internal, "set selected thinking enabled: %v", parseErr2)
 	}
-	logger.Info("rpc.SetSelectedThinkingEnabled: complete", slog.Bool("enabled", req.GetValue()))
+	parseLogger.ParseInfo("rpc.SetSelectedThinkingEnabled: complete", slog.Bool("enabled", parseReq.GetValue()))
 	return &emptypb.Empty{}, nil
 }
 
-func (s *chatServer) GetSelectedThinkingEnabled(ctx context.Context, _ *emptypb.Empty) (*wrapperspb.BoolValue, error) {
-	logger := s.logger.With(slog.String("rpc", "GetSelectedThinkingEnabled"))
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) GetSelectedThinkingEnabled(parseCtx context.Context, _ *emptypb.Empty) (*wrapperspb.BoolValue, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "GetSelectedThinkingEnabled"))
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if s.store == nil {
-		logger.Warn("rpc.GetSelectedThinkingEnabled: store unavailable — returning default")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.GetSelectedThinkingEnabled: store unavailable — returning default")
 		return wrapperspb.Bool(defaultThinkingEnabled), nil
 	}
-	enabled, err := s.store.getSelectedThinkingEnabled(userID, defaultThinkingEnabled)
-	if err != nil {
-		logger.Error("rpc.GetSelectedThinkingEnabled: db query failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "get selected thinking enabled: %v", err)
+	parseEnabled, parseErr := parseS.store.getSelectedThinkingEnabled(parseUserID, defaultThinkingEnabled)
+	if parseErr != nil {
+		parseLogger.ParseError("rpc.GetSelectedThinkingEnabled: db query failed", slog.String("error", parseErr.ParseError()))
+		return nil, status.Errorf(codes.Internal, "get selected thinking enabled: %v", parseErr)
 	}
-	logger.Info("rpc.GetSelectedThinkingEnabled: complete", slog.Bool("enabled", enabled))
-	return wrapperspb.Bool(enabled), nil
+	parseLogger.ParseInfo("rpc.GetSelectedThinkingEnabled: complete", slog.Bool("enabled", parseEnabled))
+	return wrapperspb.Bool(parseEnabled), nil
 }
 
-func (s *chatServer) SetSelectedThinkingEffort(ctx context.Context, req *wrapperspb.StringValue) (*emptypb.Empty, error) {
-	logger := s.logger.With(slog.String("rpc", "SetSelectedThinkingEffort"))
-	selectedThinkingEffort := normalizeSelectedThinkingEffort(req.GetValue())
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) SetSelectedThinkingEffort(parseCtx context.Context, parseReq *wrapperspb.StringValue) (*emptypb.Empty, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "SetSelectedThinkingEffort"))
+	parseSelectedThinkingEffort := parseNormalizeSelectedThinkingEffort(parseReq.GetValue())
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if s.store == nil {
-		logger.Warn("rpc.SetSelectedThinkingEffort: store unavailable — no-op")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.SetSelectedThinkingEffort: store unavailable — no-op")
 		return &emptypb.Empty{}, nil
 	}
-	if err := s.store.setSelectedThinkingEffort(userID, selectedThinkingEffort); err != nil {
-		logger.Error("rpc.SetSelectedThinkingEffort: db upsert failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "set selected thinking effort: %v", err)
+	if parseErr2 := parseS.store.setSelectedThinkingEffort(parseUserID, parseSelectedThinkingEffort); parseErr2 != nil {
+		parseLogger.ParseError("rpc.SetSelectedThinkingEffort: db upsert failed", slog.String("error", parseErr2.ParseError()))
+		return nil, status.Errorf(codes.Internal, "set selected thinking effort: %v", parseErr2)
 	}
-	logger.Info("rpc.SetSelectedThinkingEffort: complete", slog.String("effort", selectedThinkingEffort))
+	parseLogger.ParseInfo("rpc.SetSelectedThinkingEffort: complete", slog.String("effort", parseSelectedThinkingEffort))
 	return &emptypb.Empty{}, nil
 }
 
-func (s *chatServer) GetSelectedThinkingEffort(ctx context.Context, _ *emptypb.Empty) (*wrapperspb.StringValue, error) {
-	logger := s.logger.With(slog.String("rpc", "GetSelectedThinkingEffort"))
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) GetSelectedThinkingEffort(parseCtx context.Context, _ *emptypb.Empty) (*wrapperspb.StringValue, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "GetSelectedThinkingEffort"))
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if s.store == nil {
-		logger.Warn("rpc.GetSelectedThinkingEffort: store unavailable — returning default")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.GetSelectedThinkingEffort: store unavailable — returning default")
 		return wrapperspb.String(defaultThinkingEffort), nil
 	}
-	selectedThinkingEffort, err := s.store.getSelectedThinkingEffort(userID, defaultThinkingEffort)
-	if err != nil {
-		logger.Error("rpc.GetSelectedThinkingEffort: db query failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "get selected thinking effort: %v", err)
+	parseSelectedThinkingEffort, parseErr := parseS.store.getSelectedThinkingEffort(parseUserID, defaultThinkingEffort)
+	if parseErr != nil {
+		parseLogger.ParseError("rpc.GetSelectedThinkingEffort: db query failed", slog.String("error", parseErr.ParseError()))
+		return nil, status.Errorf(codes.Internal, "get selected thinking effort: %v", parseErr)
 	}
-	selectedThinkingEffort = normalizeSelectedThinkingEffort(selectedThinkingEffort)
-	logger.Info("rpc.GetSelectedThinkingEffort: complete", slog.String("effort", selectedThinkingEffort))
-	return wrapperspb.String(selectedThinkingEffort), nil
+	parseSelectedThinkingEffort = parseNormalizeSelectedThinkingEffort(parseSelectedThinkingEffort)
+	parseLogger.ParseInfo("rpc.GetSelectedThinkingEffort: complete", slog.String("effort", parseSelectedThinkingEffort))
+	return wrapperspb.String(parseSelectedThinkingEffort), nil
 }
 
-func (s *chatServer) SetCustomSystemPrompt(ctx context.Context, req *wrapperspb.StringValue) (*emptypb.Empty, error) {
-	logger := s.logger.With(slog.String("rpc", "SetCustomSystemPrompt"))
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) SetCustomSystemPrompt(parseCtx context.Context, parseReq *wrapperspb.StringValue) (*emptypb.Empty, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "SetCustomSystemPrompt"))
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if s.store == nil {
-		logger.Warn("rpc.SetCustomSystemPrompt: store unavailable — no-op")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.SetCustomSystemPrompt: store unavailable — no-op")
 		return &emptypb.Empty{}, nil
 	}
-	customPrompt := normalizeCustomSystemPrompt(req.GetValue())
-	if err := s.store.setSelectedSystemPrompt(userID, customPrompt); err != nil {
-		logger.Error("rpc.SetCustomSystemPrompt: db upsert failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "set custom system prompt: %v", err)
+	parseCustomPrompt := parseNormalizeCustomSystemPrompt(parseReq.GetValue())
+	if parseErr2 := parseS.store.setSelectedSystemPrompt(parseUserID, parseCustomPrompt); parseErr2 != nil {
+		parseLogger.ParseError("rpc.SetCustomSystemPrompt: db upsert failed", slog.String("error", parseErr2.ParseError()))
+		return nil, status.Errorf(codes.Internal, "set custom system prompt: %v", parseErr2)
 	}
-	logger.Info("rpc.SetCustomSystemPrompt: complete", slog.Int("runes", len([]rune(customPrompt))))
+	parseLogger.ParseInfo("rpc.SetCustomSystemPrompt: complete", slog.Int("runes", len([]rune(parseCustomPrompt))))
 	return &emptypb.Empty{}, nil
 }
 
-func (s *chatServer) GetCustomSystemPrompt(ctx context.Context, _ *emptypb.Empty) (*wrapperspb.StringValue, error) {
-	logger := s.logger.With(slog.String("rpc", "GetCustomSystemPrompt"))
-	userID, err := s.requireAuthenticatedUserID(ctx)
-	if err != nil {
-		return nil, err
+func (parseS *chatServer) GetCustomSystemPrompt(parseCtx context.Context, _ *emptypb.Empty) (*wrapperspb.StringValue, error) {
+	parseLogger := parseS.logger.With(slog.String("rpc", "GetCustomSystemPrompt"))
+	parseUserID, parseErr := parseS.parseRequireAuthenticatedUserID(parseCtx)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if s.store == nil {
-		logger.Warn("rpc.GetCustomSystemPrompt: store unavailable — returning default")
+	if parseS.store == nil {
+		parseLogger.Warn("rpc.GetCustomSystemPrompt: store unavailable — returning default")
 		return wrapperspb.String(""), nil
 	}
-	customPrompt, err := s.store.getSelectedSystemPrompt(userID, "")
-	if err != nil {
-		logger.Error("rpc.GetCustomSystemPrompt: db query failed", slog.String("error", err.Error()))
-		return nil, status.Errorf(codes.Internal, "get custom system prompt: %v", err)
+	parseCustomPrompt, parseErr := parseS.store.getSelectedSystemPrompt(parseUserID, "")
+	if parseErr != nil {
+		parseLogger.ParseError("rpc.GetCustomSystemPrompt: db query failed", slog.String("error", parseErr.ParseError()))
+		return nil, status.Errorf(codes.Internal, "get custom system prompt: %v", parseErr)
 	}
-	customPrompt = normalizeCustomSystemPrompt(customPrompt)
-	logger.Info("rpc.GetCustomSystemPrompt: complete", slog.Int("runes", len([]rune(customPrompt))))
-	return wrapperspb.String(customPrompt), nil
+	parseCustomPrompt = parseNormalizeCustomSystemPrompt(parseCustomPrompt)
+	parseLogger.ParseInfo("rpc.GetCustomSystemPrompt: complete", slog.Int("runes", len([]rune(parseCustomPrompt))))
+	return wrapperspb.String(parseCustomPrompt), nil
 }
 
 // baseAssistantSystemPrompt is the foundation injected on every request. Extend this
@@ -1398,22 +1398,22 @@ var toneInstructionByID = map[string]string{
 	"concise":      "Be as brief as possible. Omit pleasantries and filler. Lead with the answer, then add detail only if essential.",
 }
 
-func normalizeSelectedToneID(toneID string) string {
-	toneID = strings.TrimSpace(toneID)
-	if toneID == "" {
+func parseNormalizeSelectedToneID(parseToneID string) string {
+	parseToneID = strings.TrimSpace(parseToneID)
+	if parseToneID == "" {
 		return defaultToneID
 	}
-	if _, ok := toneInstructionByID[toneID]; ok {
-		return toneID
+	if _, parseOk := toneInstructionByID[parseToneID]; parseOk {
+		return parseToneID
 	}
 	return defaultToneID
 }
 
-func normalizeSelectedThinkingEffort(effort string) string {
-	effort = strings.TrimSpace(strings.ToLower(effort))
-	switch effort {
+func parseNormalizeSelectedThinkingEffort(parseEffort string) string {
+	parseEffort = strings.TrimSpace(strings.ToLower(parseEffort))
+	switch parseEffort {
 	case "low", "medium", "high":
-		return effort
+		return parseEffort
 	default:
 		return defaultThinkingEffort
 	}
@@ -1426,309 +1426,309 @@ var markdownFormattingPattern = regexp.MustCompile(`(?m)^#{1,6}\s+|[*_~]+|^>\s?`
 var htmlCommentPattern = regexp.MustCompile(`(?s)<!--.*?-->`)
 var blankLinePattern = regexp.MustCompile(`\n{3,}`)
 
-func sanitizeTextForTTS(source string) string {
-	trimmed := strings.TrimSpace(source)
-	if trimmed == "" {
+func parseSanitizeTextForTTS(parseSource string) string {
+	parseTrimmed := strings.TrimSpace(parseSource)
+	if parseTrimmed == "" {
 		return ""
 	}
-	trimmed = htmlCommentPattern.ReplaceAllString(trimmed, " ")
-	trimmed = fencedCodeBlockPattern.ReplaceAllString(trimmed, " ")
-	trimmed = inlineCodePattern.ReplaceAllString(trimmed, " ")
-	trimmed = markdownLinkPattern.ReplaceAllString(trimmed, "$1")
-	trimmed = markdownFormattingPattern.ReplaceAllString(trimmed, "")
+	parseTrimmed = htmlCommentPattern.ReplaceAllString(parseTrimmed, " ")
+	parseTrimmed = fencedCodeBlockPattern.ReplaceAllString(parseTrimmed, " ")
+	parseTrimmed = inlineCodePattern.ReplaceAllString(parseTrimmed, " ")
+	parseTrimmed = markdownLinkPattern.ReplaceAllString(parseTrimmed, "$1")
+	parseTrimmed = markdownFormattingPattern.ReplaceAllString(parseTrimmed, "")
 
-	lines := strings.Split(trimmed, "\n")
-	kept := make([]string, 0, len(lines))
-	for _, line := range lines {
-		resolved := strings.TrimSpace(line)
-		if resolved == "" {
-			kept = append(kept, "")
+	parseLines := strings.Split(parseTrimmed, "\n")
+	parseKept := make([]string, 0, len(parseLines))
+	for _, parseLine := range parseLines {
+		parseResolved := strings.TrimSpace(parseLine)
+		if parseResolved == "" {
+			parseKept = append(parseKept, "")
 			continue
 		}
-		if strings.HasPrefix(resolved, "//") || strings.HasPrefix(resolved, "/*") || strings.HasPrefix(resolved, "*") || strings.HasPrefix(resolved, "*/") {
+		if strings.HasPrefix(parseResolved, "//") || strings.HasPrefix(parseResolved, "/*") || strings.HasPrefix(parseResolved, "*") || strings.HasPrefix(parseResolved, "*/") {
 			continue
 		}
-		kept = append(kept, resolved)
+		parseKept = append(parseKept, parseResolved)
 	}
 
-	trimmed = strings.TrimSpace(strings.Join(kept, "\n"))
-	trimmed = blankLinePattern.ReplaceAllString(trimmed, "\n\n")
-	trimmed = strings.Join(strings.Fields(trimmed), " ")
-	if trimmed == "" {
+	parseTrimmed = strings.TrimSpace(strings.Join(parseKept, "\n"))
+	parseTrimmed = blankLinePattern.ReplaceAllString(parseTrimmed, "\n\n")
+	parseTrimmed = strings.Join(strings.Fields(parseTrimmed), " ")
+	if parseTrimmed == "" {
 		return ""
 	}
-	runes := []rune(trimmed)
-	if len(runes) > maxTTSScriptRunes {
-		trimmed = strings.TrimSpace(string(runes[:maxTTSScriptRunes]))
+	parseRunes := []rune(parseTrimmed)
+	if len(parseRunes) > maxTTSScriptRunes {
+		parseTrimmed = strings.TrimSpace(string(parseRunes[:maxTTSScriptRunes]))
 	}
-	return trimmed
+	return parseTrimmed
 }
 
 // buildSystemPrompt combines the base prompt with the tone directive for the
 // given tone ID. Falls back to balanced when the ID is unrecognised.
-func buildSystemPrompt(tone string, customPrompt string, memories []userMemoryRow) string {
-	instruction := toneInstructionByID[normalizeSelectedToneID(tone)]
-	customPrompt = normalizeCustomSystemPrompt(customPrompt)
-	memoryBlock := buildUserMemoryPromptBlock(memories)
-	customPromptUsesMemories := strings.Contains(customPrompt, "{{memories}}")
-	customPrompt = resolveSystemPromptTemplate(customPrompt, memoryBlock, time.Now())
-	prompt := baseAssistantSystemPrompt + "\n\n" + instruction
-	if customPrompt != "" {
-		prompt += "\n\nAdditional user-configured instructions:\n" + customPrompt
+func buildSystemPrompt(parseTone string, parseCustomPrompt string, parseMemories []userMemoryRow) string {
+	parseInstruction := toneInstructionByID[parseNormalizeSelectedToneID(parseTone)]
+	parseCustomPrompt = parseNormalizeCustomSystemPrompt(parseCustomPrompt)
+	parseMemoryBlock := buildUserMemoryPromptBlock(parseMemories)
+	parseCustomPromptUsesMemories := strings.Contains(parseCustomPrompt, "{{memories}}")
+	parseCustomPrompt = parseResolveSystemPromptTemplate(parseCustomPrompt, parseMemoryBlock, time.Now())
+	parsePrompt := baseAssistantSystemPrompt + "\n\n" + parseInstruction
+	if parseCustomPrompt != "" {
+		parsePrompt += "\n\nAdditional user-configured instructions:\n" + parseCustomPrompt
 	}
-	if memoryBlock != "" && !customPromptUsesMemories {
-		prompt += "\n\nKnown user context:\n" + memoryBlock
+	if parseMemoryBlock != "" && !parseCustomPromptUsesMemories {
+		parsePrompt += "\n\nKnown user context:\n" + parseMemoryBlock
 	}
-	return prompt
+	return parsePrompt
 }
 
-func resolveSystemPromptTemplate(prompt, memoryBlock string, now time.Time) string {
-	resolved := strings.TrimSpace(prompt)
-	if resolved == "" {
+func parseResolveSystemPromptTemplate(parsePrompt, parseMemoryBlock string, parseNow time.Time) string {
+	parseResolved := strings.TrimSpace(parsePrompt)
+	if parseResolved == "" {
 		return ""
 	}
-	resolvedMemories := strings.TrimSpace(memoryBlock)
-	if resolvedMemories == "" {
-		resolvedMemories = "- No stored memories yet."
+	parseResolvedMemories := strings.TrimSpace(parseMemoryBlock)
+	if parseResolvedMemories == "" {
+		parseResolvedMemories = "- No stored memories yet."
 	}
-	replacer := strings.NewReplacer(
-		"{{date}}", now.Format("2006-01-02"),
-		"{{time}}", now.Format("15:04:05 -0700"),
-		"{{memories}}", resolvedMemories,
+	parseReplacer := strings.NewReplacer(
+		"{{date}}", parseNow.Format("2006-01-02"),
+		"{{time}}", parseNow.Format("15:04:05 -0700"),
+		"{{memories}}", parseResolvedMemories,
 	)
-	return replacer.Replace(resolved)
+	return parseReplacer.Replace(parseResolved)
 }
 
-func normalizeCustomSystemPrompt(prompt string) string {
-	trimmed := strings.TrimSpace(prompt)
-	if trimmed == "" {
+func parseNormalizeCustomSystemPrompt(parsePrompt string) string {
+	parseTrimmed := strings.TrimSpace(parsePrompt)
+	if parseTrimmed == "" {
 		return ""
 	}
-	runes := []rune(trimmed)
-	if len(runes) > maxCustomSystemPromptRunes {
-		trimmed = strings.TrimSpace(string(runes[:maxCustomSystemPromptRunes]))
+	parseRunes := []rune(parseTrimmed)
+	if len(parseRunes) > maxCustomSystemPromptRunes {
+		parseTrimmed = strings.TrimSpace(string(parseRunes[:maxCustomSystemPromptRunes]))
 	}
-	return trimmed
+	return parseTrimmed
 }
 
-func (s *chatServer) extractAndStoreUserMemories(userID int64, userMessage string) {
-	if s == nil || s.store == nil || s.providerRegistry == nil {
+func (parseS *chatServer) parseExtractAndStoreUserMemories(parseUserID int64, parseUserMessage string) {
+	if parseS == nil || parseS.store == nil || parseS.providerRegistry == nil {
 		return
 	}
-	startedAt := time.Now()
-	trimmedMessage := strings.TrimSpace(userMessage)
-	if trimmedMessage == "" {
-		s.logger.Debug("memory extraction skipped: blank message", slog.Int64("user_id", userID))
+	parseStartedAt := time.Now()
+	parseTrimmedMessage := strings.TrimSpace(parseUserMessage)
+	if parseTrimmedMessage == "" {
+		parseS.logger.Debug("memory extraction skipped: blank message", slog.Int64("user_id", parseUserID))
 		return
 	}
-	if slots := s.memoryExtractionSlots; slots != nil {
+	if parseSlots := parseS.memoryExtractionSlots; parseSlots != nil {
 		select {
-		case slots <- struct{}{}:
-			defer func() { <-slots }()
+		case parseSlots <- struct{}{}:
+			defer func() { <-parseSlots }()
 		default:
-			s.logger.Info("memory extraction skipped: queue full",
-				slog.Int64("user_id", userID),
-				slog.Int("message_chars", len([]rune(trimmedMessage))),
+			parseS.logger.ParseInfo("memory extraction skipped: queue full",
+				slog.Int64("user_id", parseUserID),
+				slog.Int("message_chars", len([]rune(parseTrimmedMessage))),
 			)
 			return
 		}
 	}
 
-	extractionModel := normalizeSelectedModelID(s.memoryExtractionModel)
-	if extractionModel == "" {
-		extractionModel = s.defaultModel
+	parseExtractionModel := parseNormalizeSelectedModelID(parseS.memoryExtractionModel)
+	if parseExtractionModel == "" {
+		parseExtractionModel = parseS.defaultModel
 	}
-	extractionProvider, resolvedModel, err := s.providerRegistry.Resolve(extractionModel)
-	if err != nil {
-		s.logger.Warn("memory extraction skipped: provider unavailable",
-			slog.Int64("user_id", userID),
-			slog.String("requested_model", extractionModel),
-			slog.String("error", err.Error()),
-			slog.Int64("duration_ms", time.Since(startedAt).Milliseconds()),
+	parseExtractionProvider, parseResolvedModel, parseErr := parseS.providerRegistry.ParseResolve(parseExtractionModel)
+	if parseErr != nil {
+		parseS.logger.Warn("memory extraction skipped: provider unavailable",
+			slog.Int64("user_id", parseUserID),
+			slog.String("requested_model", parseExtractionModel),
+			slog.String("error", parseErr.ParseError()),
+			slog.Int64("duration_ms", time.Since(parseStartedAt).Milliseconds()),
 		)
 		return
 	}
-	s.logger.Debug("memory extraction started",
-		slog.Int64("user_id", userID),
-		slog.String("provider", extractionProvider.ID()),
-		slog.String("model", resolvedModel),
-		slog.Int("message_chars", len([]rune(trimmedMessage))),
+	parseS.logger.Debug("memory extraction started",
+		slog.Int64("user_id", parseUserID),
+		slog.String("provider", parseExtractionProvider.ParseID()),
+		slog.String("model", parseResolvedModel),
+		slog.Int("message_chars", len([]rune(parseTrimmedMessage))),
 	)
 
-	ctx, cancel := context.WithTimeout(context.Background(), userMemoryExtractionTimeout)
-	defer cancel()
+	parseCtx, parseCancel := context.WithTimeout(context.Background(), userMemoryExtractionTimeout)
+	defer parseCancel()
 
-	candidates, err := extractionProvider.ExtractUserMemories(ctx, provider.MemoryExtractionRequest{
-		Model:       resolvedModel,
-		UserMessage: trimmedMessage,
+	parseCandidates, parseErr := parseExtractionProvider.ParseExtractUserMemories(parseCtx, provider.MemoryExtractionRequest{
+		Model:       parseResolvedModel,
+		UserMessage: parseTrimmedMessage,
 	})
-	if err != nil {
-		s.logger.Warn("memory extraction failed",
-			slog.Int64("user_id", userID),
-			slog.String("provider", extractionProvider.ID()),
-			slog.String("model", resolvedModel),
-			slog.String("error", err.Error()),
-			slog.Int64("duration_ms", time.Since(startedAt).Milliseconds()),
+	if parseErr != nil {
+		parseS.logger.Warn("memory extraction failed",
+			slog.Int64("user_id", parseUserID),
+			slog.String("provider", parseExtractionProvider.ParseID()),
+			slog.String("model", parseResolvedModel),
+			slog.String("error", parseErr.ParseError()),
+			slog.Int64("duration_ms", time.Since(parseStartedAt).Milliseconds()),
 		)
 		return
 	}
 
-	usefulCandidates := filterUsefulUserMemories(candidates)
-	savedCount := 0
-	saveFailureCount := 0
-	for _, candidate := range usefulCandidates {
-		if err := s.store.upsertUserMemory(userID, userMemoryRow{
-			Key:             normalizeUserMemoryKey(candidate.Key, candidate.Category, candidate.Summary),
-			Category:        normalizeUserMemoryCategory(candidate.Category),
-			Summary:         strings.TrimSpace(candidate.Summary),
-			Detail:          strings.TrimSpace(candidate.Detail),
-			SourceMessage:   trimmedMessage,
-			UsefulnessScore: clampUsefulnessScore(candidate.UsefulnessScore),
-			ConfidenceScore: clampConfidenceScore(candidate.ConfidenceScore),
-			RubricReason:    strings.TrimSpace(candidate.RubricReason),
-		}); err != nil {
-			saveFailureCount++
-			s.logger.Warn("memory extraction save failed",
-				slog.Int64("user_id", userID),
-				slog.String("provider", extractionProvider.ID()),
-				slog.String("model", resolvedModel),
-				slog.String("memory_key", candidate.Key),
-				slog.String("error", err.Error()),
+	parseUsefulCandidates := filterUsefulUserMemories(parseCandidates)
+	parseSavedCount := 0
+	parseSaveFailureCount := 0
+	for _, parseCandidate := range parseUsefulCandidates {
+		if parseErr2 := parseS.store.parseUpsertUserMemory(parseUserID, userMemoryRow{
+			Key:             parseNormalizeUserMemoryKey(parseCandidate.Key, parseCandidate.Category, parseCandidate.Summary),
+			Category:        parseNormalizeUserMemoryCategory(parseCandidate.Category),
+			Summary:         strings.TrimSpace(parseCandidate.Summary),
+			Detail:          strings.TrimSpace(parseCandidate.Detail),
+			SourceMessage:   parseTrimmedMessage,
+			UsefulnessScore: parseClampUsefulnessScore(parseCandidate.UsefulnessScore),
+			ConfidenceScore: parseClampConfidenceScore(parseCandidate.ConfidenceScore),
+			RubricReason:    strings.TrimSpace(parseCandidate.RubricReason),
+		}); parseErr2 != nil {
+			parseSaveFailureCount++
+			parseS.logger.Warn("memory extraction save failed",
+				slog.Int64("user_id", parseUserID),
+				slog.String("provider", parseExtractionProvider.ParseID()),
+				slog.String("model", parseResolvedModel),
+				slog.String("memory_key", parseCandidate.Key),
+				slog.String("error", parseErr2.ParseError()),
 			)
 			continue
 		}
-		savedCount++
+		parseSavedCount++
 	}
-	s.logger.Info("memory extraction completed",
-		slog.Int64("user_id", userID),
-		slog.String("provider", extractionProvider.ID()),
-		slog.String("model", resolvedModel),
-		slog.Int("candidate_count", len(candidates)),
-		slog.Int("useful_candidate_count", len(usefulCandidates)),
-		slog.Int("saved_count", savedCount),
-		slog.Int("save_failure_count", saveFailureCount),
-		slog.Int64("duration_ms", time.Since(startedAt).Milliseconds()),
+	parseS.logger.ParseInfo("memory extraction completed",
+		slog.Int64("user_id", parseUserID),
+		slog.String("provider", parseExtractionProvider.ParseID()),
+		slog.String("model", parseResolvedModel),
+		slog.Int("candidate_count", len(parseCandidates)),
+		slog.Int("useful_candidate_count", len(parseUsefulCandidates)),
+		slog.Int("saved_count", parseSavedCount),
+		slog.Int("save_failure_count", parseSaveFailureCount),
+		slog.Int64("duration_ms", time.Since(parseStartedAt).Milliseconds()),
 	)
 }
 
-func filterUsefulUserMemories(candidates []provider.UserMemoryCandidate) []provider.UserMemoryCandidate {
-	filtered := make([]provider.UserMemoryCandidate, 0, len(candidates))
-	for _, candidate := range candidates {
-		candidate.Category = normalizeUserMemoryCategory(candidate.Category)
-		candidate.Key = normalizeUserMemoryKey(candidate.Key, candidate.Category, candidate.Summary)
-		candidate.Summary = strings.TrimSpace(candidate.Summary)
-		candidate.Detail = strings.TrimSpace(candidate.Detail)
-		candidate.RubricReason = strings.TrimSpace(candidate.RubricReason)
-		candidate.UsefulnessScore = clampUsefulnessScore(candidate.UsefulnessScore)
-		candidate.ConfidenceScore = clampConfidenceScore(candidate.ConfidenceScore)
-		if candidate.Key == "" || candidate.Summary == "" {
+func filterUsefulUserMemories(parseCandidates []provider.UserMemoryCandidate) []provider.UserMemoryCandidate {
+	parseFiltered := make([]provider.UserMemoryCandidate, 0, len(parseCandidates))
+	for _, parseCandidate := range parseCandidates {
+		parseCandidate.Category = parseNormalizeUserMemoryCategory(parseCandidate.Category)
+		parseCandidate.Key = parseNormalizeUserMemoryKey(parseCandidate.Key, parseCandidate.Category, parseCandidate.Summary)
+		parseCandidate.Summary = strings.TrimSpace(parseCandidate.Summary)
+		parseCandidate.Detail = strings.TrimSpace(parseCandidate.Detail)
+		parseCandidate.RubricReason = strings.TrimSpace(parseCandidate.RubricReason)
+		parseCandidate.UsefulnessScore = parseClampUsefulnessScore(parseCandidate.UsefulnessScore)
+		parseCandidate.ConfidenceScore = parseClampConfidenceScore(parseCandidate.ConfidenceScore)
+		if parseCandidate.Key == "" || parseCandidate.Summary == "" {
 			continue
 		}
-		if candidate.UsefulnessScore < userMemoryUsefulnessThreshold || candidate.ConfidenceScore < userMemoryConfidenceThreshold {
+		if parseCandidate.UsefulnessScore < userMemoryUsefulnessThreshold || parseCandidate.ConfidenceScore < userMemoryConfidenceThreshold {
 			continue
 		}
-		filtered = append(filtered, candidate)
+		parseFiltered = append(parseFiltered, parseCandidate)
 	}
-	return filtered
+	return parseFiltered
 }
 
-func normalizeUserMemoryCategory(category string) string {
-	switch strings.TrimSpace(strings.ToLower(category)) {
+func parseNormalizeUserMemoryCategory(parseCategory string) string {
+	switch strings.TrimSpace(strings.ToLower(parseCategory)) {
 	case "preference", "profile", "constraint", "project":
-		return strings.TrimSpace(strings.ToLower(category))
+		return strings.TrimSpace(strings.ToLower(parseCategory))
 	default:
 		return "other"
 	}
 }
 
-func normalizeUserMemoryKey(key, category, summary string) string {
-	base := strings.TrimSpace(strings.ToLower(key))
-	if base == "" {
-		base = normalizeUserMemoryCategory(category) + "-" + strings.TrimSpace(strings.ToLower(summary))
+func parseNormalizeUserMemoryKey(parseKey, parseCategory, parseSummary string) string {
+	parseBase := strings.TrimSpace(strings.ToLower(parseKey))
+	if parseBase == "" {
+		parseBase = parseNormalizeUserMemoryCategory(parseCategory) + "-" + strings.TrimSpace(strings.ToLower(parseSummary))
 	}
-	var builder strings.Builder
-	lastDash := false
-	for _, currentRune := range base {
+	var parseBuilder strings.Builder
+	isParseLastDash := false
+	for _, parseCurrentRune := range parseBase {
 		switch {
-		case currentRune >= 'a' && currentRune <= 'z', currentRune >= '0' && currentRune <= '9':
-			builder.WriteRune(currentRune)
-			lastDash = false
+		case parseCurrentRune >= 'a' && parseCurrentRune <= 'z', parseCurrentRune >= '0' && parseCurrentRune <= '9':
+			parseBuilder.WriteRune(parseCurrentRune)
+			isParseLastDash = false
 		default:
-			if !lastDash {
-				builder.WriteRune('-')
-				lastDash = true
+			if !isParseLastDash {
+				parseBuilder.WriteRune('-')
+				isParseLastDash = true
 			}
 		}
 	}
-	return strings.Trim(builder.String(), "-")
+	return strings.Trim(parseBuilder.ParseString(), "-")
 }
 
-func clampUsefulnessScore(score int) int {
+func parseClampUsefulnessScore(parseScore int) int {
 	switch {
-	case score < 0:
+	case parseScore < 0:
 		return 0
-	case score > 100:
+	case parseScore > 100:
 		return 100
 	default:
-		return score
+		return parseScore
 	}
 }
 
-func clampConfidenceScore(score float64) float64 {
+func parseClampConfidenceScore(parseScore float64) float64 {
 	switch {
-	case score < 0:
+	case parseScore < 0:
 		return 0
-	case score > 1:
+	case parseScore > 1:
 		return 1
 	default:
-		return score
+		return parseScore
 	}
 }
 
-func buildUserMemoryPromptBlock(memories []userMemoryRow) string {
-	if len(memories) == 0 {
+func buildUserMemoryPromptBlock(parseMemories []userMemoryRow) string {
+	if len(parseMemories) == 0 {
 		return ""
 	}
-	var builder strings.Builder
-	count := 0
-	for _, memory := range memories {
-		if count >= maxInjectedUserMemoryCount {
+	var parseBuilder strings.Builder
+	parseCount := 0
+	for _, parseMemory := range parseMemories {
+		if parseCount >= maxInjectedUserMemoryCount {
 			break
 		}
-		summary := strings.TrimSpace(memory.Summary)
-		if summary == "" {
+		parseSummary := strings.TrimSpace(parseMemory.Summary)
+		if parseSummary == "" {
 			continue
 		}
-		builder.WriteString("- ")
-		builder.WriteString(summary)
-		if detail := strings.TrimSpace(memory.Detail); detail != "" && !strings.EqualFold(detail, summary) {
-			builder.WriteString(" (")
-			builder.WriteString(detail)
-			builder.WriteString(")")
+		parseBuilder.WriteString("- ")
+		parseBuilder.WriteString(parseSummary)
+		if parseDetail := strings.TrimSpace(parseMemory.Detail); parseDetail != "" && !strings.EqualFold(parseDetail, parseSummary) {
+			parseBuilder.WriteString(" (")
+			parseBuilder.WriteString(parseDetail)
+			parseBuilder.WriteString(")")
 		}
-		builder.WriteString("\n")
-		count++
-		if builder.Len() >= maxInjectedUserMemoryRunes {
+		parseBuilder.WriteString("\n")
+		parseCount++
+		if parseBuilder.Len() >= maxInjectedUserMemoryRunes {
 			break
 		}
 	}
-	block := strings.TrimSpace(builder.String())
-	if block == "" {
+	parseBlock := strings.TrimSpace(parseBuilder.ParseString())
+	if parseBlock == "" {
 		return ""
 	}
-	runes := []rune(block)
-	if len(runes) > maxInjectedUserMemoryRunes {
-		block = strings.TrimSpace(string(runes[:maxInjectedUserMemoryRunes]))
+	parseRunes := []rune(parseBlock)
+	if len(parseRunes) > maxInjectedUserMemoryRunes {
+		parseBlock = strings.TrimSpace(string(parseRunes[:maxInjectedUserMemoryRunes]))
 	}
-	return block
+	return parseBlock
 }
 
 // ─── main ────────────────────────────────────────────────────────────────────
 
-func loadFirstDotEnv(load func(string) error, candidates []string) string {
-	for _, candidate := range candidates {
-		if err := load(candidate); err == nil {
-			return candidate
+func parseLoadFirstDotEnv(parseLoad func(string) error, parseCandidates []string) string {
+	for _, parseCandidate := range parseCandidates {
+		if parseErr := parseLoad(parseCandidate); parseErr == nil {
+			return parseCandidate
 		}
 	}
 	return ""
@@ -1746,116 +1746,116 @@ type serverRuntimeConfig struct {
 	usagePremiumPct float64
 }
 
-func readServerRuntimeConfig(getenv func(string) string) serverRuntimeConfig {
-	defaultModel := strings.TrimSpace(getenv("CHAT_MODEL"))
-	if defaultModel == "" {
-		defaultModel = strings.TrimSpace(getenv("OPENAI_MODEL"))
+func parseReadServerRuntimeConfig(parseGetenv func(string) string) serverRuntimeConfig {
+	parseDefaultModel := strings.TrimSpace(parseGetenv("CHAT_MODEL"))
+	if parseDefaultModel == "" {
+		parseDefaultModel = strings.TrimSpace(parseGetenv("OPENAI_MODEL"))
 	}
-	addr := strings.TrimSpace(getenv("LISTEN_ADDR"))
-	if addr == "" {
-		addr = "127.0.0.1:8095"
+	parseAddr := strings.TrimSpace(parseGetenv("LISTEN_ADDR"))
+	if parseAddr == "" {
+		parseAddr = "127.0.0.1:8095"
 	}
-	dbPath := strings.TrimSpace(getenv("CHAT_DB_PATH"))
-	if dbPath == "" {
-		dbPath = "examples/100-ai-chat-wizard/bin/runtime/chat_history.db"
+	parseDbPath := strings.TrimSpace(parseGetenv("CHAT_DB_PATH"))
+	if parseDbPath == "" {
+		parseDbPath = "examples/100-ai-chat-wizard/bin/runtime/chat_history.db"
 	}
-	usagePremiumPct := parseUsagePremiumPercent(getenv("CHAT_USAGE_PREMIUM_PERCENT"), 5.0)
+	parseUsagePremiumPct := parseUsagePremiumPercent(parseGetenv("CHAT_USAGE_PREMIUM_PERCENT"), 5.0)
 	return serverRuntimeConfig{
-		openAIAPIKey:    strings.TrimSpace(getenv("OPENAI_API_KEY")),
-		anthropicAPIKey: strings.TrimSpace(getenv("ANTHROPIC_API_KEY")),
-		cerebrasAPIKey:  strings.TrimSpace(getenv("CEREBRAS_API_KEY")),
-		stubProviders:   splitAndTrim(getenv("CHAT_PROVIDER_STUBS")),
-		defaultModel:    defaultModel,
-		addr:            addr,
-		dbPath:          dbPath,
-		authSecret:      strings.TrimSpace(getenv("CHAT_AUTH_SECRET")),
-		usagePremiumPct: usagePremiumPct,
+		openAIAPIKey:    strings.TrimSpace(parseGetenv("OPENAI_API_KEY")),
+		anthropicAPIKey: strings.TrimSpace(parseGetenv("ANTHROPIC_API_KEY")),
+		cerebrasAPIKey:  strings.TrimSpace(parseGetenv("CEREBRAS_API_KEY")),
+		stubProviders:   parseSplitAndTrim(parseGetenv("CHAT_PROVIDER_STUBS")),
+		defaultModel:    parseDefaultModel,
+		addr:            parseAddr,
+		dbPath:          parseDbPath,
+		authSecret:      strings.TrimSpace(parseGetenv("CHAT_AUTH_SECRET")),
+		usagePremiumPct: parseUsagePremiumPct,
 	}
 }
 
-func splitAndTrim(value string) []string {
-	if strings.TrimSpace(value) == "" {
+func parseSplitAndTrim(parseValue string) []string {
+	if strings.TrimSpace(parseValue) == "" {
 		return nil
 	}
-	parts := strings.Split(value, ",")
-	trimmed := make([]string, 0, len(parts))
-	for _, part := range parts {
-		resolved := strings.TrimSpace(part)
-		if resolved != "" {
-			trimmed = append(trimmed, resolved)
+	parseParts := strings.Split(parseValue, ",")
+	parseTrimmed := make([]string, 0, len(parseParts))
+	for _, parsePart := range parseParts {
+		parseResolved := strings.TrimSpace(parsePart)
+		if parseResolved != "" {
+			parseTrimmed = append(parseTrimmed, parseResolved)
 		}
 	}
-	return trimmed
+	return parseTrimmed
 }
 
-func parseUsagePremiumPercent(rawValue string, fallback float64) float64 {
-	trimmed := strings.TrimSpace(rawValue)
-	if trimmed == "" {
-		return fallback
+func parseUsagePremiumPercent(parseRawValue string, parseFallback float64) float64 {
+	parseTrimmed := strings.TrimSpace(parseRawValue)
+	if parseTrimmed == "" {
+		return parseFallback
 	}
-	parsed, err := strconv.ParseFloat(trimmed, 64)
-	if err != nil || parsed < 0 {
-		return fallback
+	parseParsed, parseErr := strconv.ParseFloat(parseTrimmed, 64)
+	if parseErr != nil || parseParsed < 0 {
+		return parseFallback
 	}
-	if parsed > 1000 {
+	if parseParsed > 1000 {
 		return 1000
 	}
-	return parsed
+	return parseParsed
 }
 
-func chatShellHandler(fileServer http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
+func parseChatShellHandler(parseFileServer http.Handler) http.Handler {
+	return http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		switch parseR.URL.Path {
 		case "/chat-bootstrap.js", "/app/chat-bootstrap.js":
-			serveChatBootstrapJS(w, r)
+			parseServeChatBootstrapJS(parseW, parseR)
 			return
 		}
-		rewritten := rewriteLegacyClientAssetRequest(r)
-		if rewritten != r {
-			fileServer.ServeHTTP(w, rewritten)
+		parseRewritten := parseRewriteLegacyClientAssetRequest(parseR)
+		if parseRewritten != parseR {
+			parseFileServer.ServeHTTP(parseW, parseRewritten)
 			return
 		}
-		if shouldServeClientShell(r.URL.Path) {
-			serveChatShell(w, r)
+		if shouldServeClientShell(parseR.URL.Path) {
+			parseServeChatShell(parseW, parseR)
 			return
 		}
-		fileServer.ServeHTTP(w, r)
+		parseFileServer.ServeHTTP(parseW, parseR)
 	})
 }
 
-func rewriteLegacyClientAssetRequest(r *http.Request) *http.Request {
-	switch r.URL.Path {
+func parseRewriteLegacyClientAssetRequest(parseR *http.Request) *http.Request {
+	switch parseR.URL.Path {
 	case "/chat.wasm":
-		return cloneRequestWithPath(r, "/app/chat.wasm")
+		return parseCloneRequestWithPath(parseR, "/app/chat.wasm")
 	case "/background-worker.wasm":
-		return cloneRequestWithPath(r, "/worker/background-worker.wasm")
+		return parseCloneRequestWithPath(parseR, "/worker/background-worker.wasm")
 	default:
-		return r
+		return parseR
 	}
 }
 
-func shouldServeClientShell(requestPath string) bool {
-	trimmedPath := strings.TrimSpace(requestPath)
-	if trimmedPath == "" || trimmedPath == "/" {
+func shouldServeClientShell(parseRequestPath string) bool {
+	parseTrimmedPath := strings.TrimSpace(parseRequestPath)
+	if parseTrimmedPath == "" || parseTrimmedPath == "/" {
 		return true
 	}
-	cleanedPath := filepath.ToSlash(filepath.Clean("/" + strings.TrimLeft(trimmedPath, "/")))
-	if cleanedPath == "/" || cleanedPath == "/app" || cleanedPath == "/app/" {
+	parseCleanedPath := filepath.ToSlash(filepath.Clean("/" + strings.TrimLeft(parseTrimmedPath, "/")))
+	if parseCleanedPath == "/" || parseCleanedPath == "/app" || parseCleanedPath == "/app/" {
 		return true
 	}
-	if cleanedPath == "/home" || cleanedPath == "/capabilities" || cleanedPath == "/pricing" {
+	if parseCleanedPath == "/home" || parseCleanedPath == "/capabilities" || parseCleanedPath == "/pricing" {
 		return true
 	}
-	if cleanedPath == "/thread" || strings.HasPrefix(cleanedPath, "/thread/") {
+	if parseCleanedPath == "/thread" || strings.HasPrefix(parseCleanedPath, "/thread/") {
 		return true
 	}
-	if strings.HasPrefix(cleanedPath, "/app/thread/") {
+	if strings.HasPrefix(parseCleanedPath, "/app/thread/") {
 		return true
 	}
-	if filepath.Ext(cleanedPath) != "" {
+	if filepath.Ext(parseCleanedPath) != "" {
 		return false
 	}
-	switch cleanedPath {
+	switch parseCleanedPath {
 	case "/login", "/signup", "/logout":
 		return true
 	default:
@@ -1863,187 +1863,187 @@ func shouldServeClientShell(requestPath string) bool {
 	}
 }
 
-func cloneRequestWithPath(r *http.Request, path string) *http.Request {
-	cloned := r.Clone(r.Context())
-	if cloned.URL != nil {
-		urlCopy := *cloned.URL
-		cloned.URL = &urlCopy
+func parseCloneRequestWithPath(parseR *http.Request, parsePath string) *http.Request {
+	parseCloned := parseR.Clone(parseR.ParseContext())
+	if parseCloned.URL != nil {
+		parseUrlCopy := *parseCloned.URL
+		parseCloned.URL = &parseUrlCopy
 	}
-	cloned.URL.Path = path
-	cloned.URL.RawPath = path
-	cloned.RequestURI = path
-	if cloned.URL.RawQuery != "" {
-		cloned.RequestURI += "?" + cloned.URL.RawQuery
+	parseCloned.URL.Path = parsePath
+	parseCloned.URL.RawPath = parsePath
+	parseCloned.RequestURI = parsePath
+	if parseCloned.URL.RawQuery != "" {
+		parseCloned.RequestURI += "?" + parseCloned.URL.RawQuery
 	}
-	return cloned
+	return parseCloned
 }
-func Run() {
-	logger, closeLogger, loggerErr := newServerLogger()
-	if loggerErr != nil {
-		logger = newOTELLogger(os.Stderr, serverServiceName)
-		logger.Error("logging: failed to initialize file sink; continuing with stderr only",
-			slog.String("error", loggerErr.Error()),
+func ParseRun() {
+	parseLogger, parseCloseLogger, parseLoggerErr := parseNewServerLogger()
+	if parseLoggerErr != nil {
+		parseLogger = parseNewOTELLogger(os.Stderr, serverServiceName)
+		parseLogger.ParseError("logging: failed to initialize file sink; continuing with stderr only",
+			slog.String("error", parseLoggerErr.ParseError()),
 			slog.String("log.dir", serverLogDir),
 		)
-		closeLogger = func() {}
+		parseCloseLogger = func() {}
 	}
-	defer closeLogger()
-	slog.SetDefault(logger)
+	defer parseCloseLogger()
+	slog.SetDefault(parseLogger)
 	// Load .env from the example directory, the server directory, or the repo
 	// root — whichever is found first. Existing environment variables are never
 	// overwritten, so explicit exports always take precedence.
-	loadedEnvPath := loadFirstDotEnv(func(path string) error { return godotenv.Load(path) }, []string{
+	parseLoadedEnvPath := parseLoadFirstDotEnv(func(parsePath string) error { return godotenv.Load(parsePath) }, []string{
 		".env",
 		"../.env",
 		"examples/100-ai-chat-wizard/.env",
 	})
-	if loadedEnvPath != "" {
-		logger.Info("env: loaded .env file", slog.String("path", loadedEnvPath))
+	if parseLoadedEnvPath != "" {
+		parseLogger.ParseInfo("env: loaded .env file", slog.String("path", parseLoadedEnvPath))
 	}
 
-	config := readServerRuntimeConfig(os.Getenv)
-	setChatUsagePremiumPercent(config.usagePremiumPct)
-	logger.Info("billing: usage premium configured", slog.Float64("usage_premium_percent", config.usagePremiumPct))
-	stubSet := normalizeStubProviders(config.stubProviders)
+	parseConfig := parseReadServerRuntimeConfig(os.Getenv)
+	setChatUsagePremiumPercent(parseConfig.usagePremiumPct)
+	parseLogger.ParseInfo("billing: usage premium configured", slog.Float64("usage_premium_percent", parseConfig.usagePremiumPct))
+	parseStubSet := parseNormalizeStubProviders(parseConfig.stubProviders)
 
-	openAIAPIKey := config.openAIAPIKey
-	if openAIAPIKey == "" {
-		if _, ok := stubSet["openai"]; ok {
-			logger.Info("env: OPENAI_API_KEY not set; using OpenAI stub provider for local development")
+	parseOpenAIAPIKey := parseConfig.openAIAPIKey
+	if parseOpenAIAPIKey == "" {
+		if _, parseOk := parseStubSet["openai"]; parseOk {
+			parseLogger.ParseInfo("env: OPENAI_API_KEY not set; using OpenAI stub provider for local development")
 		} else {
-			logger.Warn("env: OPENAI_API_KEY not set — chat RPCs will return Unavailable until configured")
+			parseLogger.Warn("env: OPENAI_API_KEY not set — chat RPCs will return Unavailable until configured")
 		}
 	}
-	anthropicAPIKey := config.anthropicAPIKey
-	if anthropicAPIKey == "" {
-		if _, ok := stubSet["anthropic"]; ok {
-			logger.Info("env: ANTHROPIC_API_KEY not set; using Anthropic stub provider for local development")
+	parseAnthropicAPIKey := parseConfig.anthropicAPIKey
+	if parseAnthropicAPIKey == "" {
+		if _, parseOk2 := parseStubSet["anthropic"]; parseOk2 {
+			parseLogger.ParseInfo("env: ANTHROPIC_API_KEY not set; using Anthropic stub provider for local development")
 		} else {
-			logger.Warn("env: ANTHROPIC_API_KEY not set — Claude models will be unavailable until configured")
-		}
-	}
-
-	cerebrasAPIKey := config.cerebrasAPIKey
-	if cerebrasAPIKey == "" {
-		if _, ok := stubSet["cerebras"]; ok {
-			logger.Info("env: CEREBRAS_API_KEY not set; using Cerebras stub provider for local development")
-		} else {
-			logger.Warn("env: CEREBRAS_API_KEY not set â€” Cerebras models will be unavailable until configured")
+			parseLogger.Warn("env: ANTHROPIC_API_KEY not set — Claude models will be unavailable until configured")
 		}
 	}
 
-	defaultModel := config.defaultModel
-	if defaultModel == "" {
-		logger.Debug("env: CHAT_MODEL not set — server default will be chosen from available providers")
+	parseCerebrasAPIKey := parseConfig.cerebrasAPIKey
+	if parseCerebrasAPIKey == "" {
+		if _, parseOk3 := parseStubSet["cerebras"]; parseOk3 {
+			parseLogger.ParseInfo("env: CEREBRAS_API_KEY not set; using Cerebras stub provider for local development")
+		} else {
+			parseLogger.Warn("env: CEREBRAS_API_KEY not set â€” Cerebras models will be unavailable until configured")
+		}
+	}
+
+	parseDefaultModel := parseConfig.defaultModel
+	if parseDefaultModel == "" {
+		parseLogger.Debug("env: CHAT_MODEL not set — server default will be chosen from available providers")
 	} else {
-		logger.Info("env: model override", slog.String("model", defaultModel))
+		parseLogger.ParseInfo("env: model override", slog.String("model", parseDefaultModel))
 	}
 
-	addr := config.addr
+	parseAddr := parseConfig.addr
 
 	// ── SQLite persistence ────────────────────────────────────────────────────
-	dbPath := config.dbPath
-	store, dbErr := openChatStore(dbPath)
-	if dbErr != nil {
-		logger.Error("db: failed to open — running without persistence",
-			slog.String("path", dbPath),
-			slog.String("error", dbErr.Error()),
+	parseDbPath := parseConfig.dbPath
+	store, parseDbErr := parseOpenChatStore(parseDbPath)
+	if parseDbErr != nil {
+		parseLogger.ParseError("db: failed to open — running without persistence",
+			slog.String("path", parseDbPath),
+			slog.String("error", parseDbErr.ParseError()),
 		)
 		store = nil
 	} else {
-		logger.Info("db: opened", slog.String("path", dbPath))
-		defer store.close()
+		parseLogger.ParseInfo("db: opened", slog.String("path", parseDbPath))
+		defer store.parseClose()
 	}
-	authManager := newAuthManager(config.authSecret, store, logger.With(slog.String("component", "auth")))
+	parseAuthManager := parseNewAuthManager(parseConfig.authSecret, store, parseLogger.With(slog.String("component", "auth")))
 
 	// ── gRPC server ───────────────────────────────────────────────────────────
-	grpcSrv := grpc.NewServer()
-	svcLog := logger.With(slog.String("component", "chat-service"))
-	chatService := newChatServiceServer(openAIAPIKey, anthropicAPIKey, cerebrasAPIKey, defaultModel, store, svcLog, config.stubProviders...)
-	chatService.authManager = authManager
-	chatpb.RegisterChatServiceServer(grpcSrv, chatService)
+	parseGrpcSrv := grpc.NewServer()
+	parseSvcLog := parseLogger.With(slog.String("component", "chat-service"))
+	parseChatService := parseNewChatServiceServer(parseOpenAIAPIKey, parseAnthropicAPIKey, parseCerebrasAPIKey, parseDefaultModel, store, parseSvcLog, parseConfig.stubProviders...)
+	parseChatService.authManager = parseAuthManager
+	chatpb.RegisterChatServiceServer(parseGrpcSrv, parseChatService)
 
 	// ── GoGRPCBridge: expose gRPC over WebSocket ──────────────────────────────
-	tunnelHandler := newGRPCTunnelHandler(grpcSrv, logger)
+	parseTunnelHandler := parseNewGRPCTunnelHandler(parseGrpcSrv, parseLogger)
 
 	// ── HTTP mux ──────────────────────────────────────────────────────────────
-	mux := http.NewServeMux()
-	mux.Handle("/socket", tunnelHandler)
-	mux.Handle("/socket/", tunnelHandler)
+	parseMux := http.NewServeMux()
+	parseMux.Handle("/socket", parseTunnelHandler)
+	parseMux.Handle("/socket/", parseTunnelHandler)
 
-	clientDir, sharedDir := resolveStaticDirectories()
-	if sharedDir != "" {
-		mux.Handle("/static/", http.StripPrefix("/static/", newPrecompressedWASMFileServer(sharedDir)))
+	parseClientDir, parseSharedDir := parseResolveStaticDirectories()
+	if parseSharedDir != "" {
+		parseMux.Handle("/static/", http.StripPrefix("/static/", parseNewPrecompressedWASMFileServer(parseSharedDir)))
 	}
 	// wasm_exec.js is served from its known location in third_party.
-	wasmExecPath := resolveWasmExecPath()
-	mux.HandleFunc("/static/script/wasm_exec.js", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/javascript")
-		http.ServeFile(w, r, wasmExecPath)
+	parseWasmExecPath := parseResolveWasmExecPath()
+	parseMux.HandleFunc("/static/script/wasm_exec.js", func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseW.ParseHeader().Set("Content-Type", "application/javascript")
+		http.ServeFile(parseW, parseR, parseWasmExecPath)
 	})
-	fileServer := newPrecompressedWASMFileServer(clientDir)
-	mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNoContent)
+	parseFileServer := parseNewPrecompressedWASMFileServer(parseClientDir)
+	parseMux.HandleFunc("/favicon.ico", func(parseW2 http.ResponseWriter, _ *http.Request) {
+		parseW2.WriteHeader(http.StatusNoContent)
 	})
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprintln(w, "ok")
+	parseMux.HandleFunc("/healthz", func(parseW3 http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintln(parseW3, "ok")
 	})
 
 	// ── Marketing pages (public, no auth required) ────────────────────────────
 
 	// ── Catch-all: bare "/" → marketing home; all other paths → chat shell ───
-	mux.Handle("/", chatShellHandler(fileServer))
+	parseMux.Handle("/", parseChatShellHandler(parseFileServer))
 
-	logger.Info("server: starting",
-		slog.String("addr", addr),
-		slog.String("client_dir", clientDir),
-		slog.String("static_dir", sharedDir),
-		slog.String("grpc_ws", "ws://"+addr+"/socket"),
+	parseLogger.ParseInfo("server: starting",
+		slog.String("addr", parseAddr),
+		slog.String("client_dir", parseClientDir),
+		slog.String("static_dir", parseSharedDir),
+		slog.String("grpc_ws", "ws://"+parseAddr+"/socket"),
 	)
 
-	srv := &http.Server{
-		Addr:              addr,
-		Handler:           mux,
+	parseSrv := &http.Server{
+		Addr:              parseAddr,
+		Handler:           parseMux,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	parseQuit := make(chan os.Signal, 1)
+	signal.Notify(parseQuit, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		sig := <-quit
-		logger.Info("server: shutdown signal received", slog.String("signal", sig.String()))
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		grpcSrv.GracefulStop()
-		if err := srv.Shutdown(ctx); err != nil {
-			logger.Error("server: graceful shutdown failed", slog.String("error", err.Error()))
+		parseSig := <-parseQuit
+		parseLogger.ParseInfo("server: shutdown signal received", slog.String("signal", parseSig.ParseString()))
+		parseCtx, parseCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer parseCancel()
+		parseGrpcSrv.GracefulStop()
+		if parseErr := parseSrv.Shutdown(parseCtx); parseErr != nil {
+			parseLogger.ParseError("server: graceful shutdown failed", slog.String("error", parseErr.ParseError()))
 		} else {
-			logger.Info("server: shutdown complete")
+			parseLogger.ParseInfo("server: shutdown complete")
 		}
 	}()
 
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		logger.Error("server: ListenAndServe failed",
-			slog.String("addr", addr),
-			slog.String("error", err.Error()),
+	if parseErr2 := parseSrv.ListenAndServe(); parseErr2 != nil && parseErr2 != http.ErrServerClosed {
+		parseLogger.ParseError("server: ListenAndServe failed",
+			slog.String("addr", parseAddr),
+			slog.String("error", parseErr2.ParseError()),
 		)
 		os.Exit(1)
 	}
 }
 
 // resolveWasmExecPath locates wasm_exec.js relative to common invocation roots.
-func resolveWasmExecPath() string {
-	candidates := []string{
+func parseResolveWasmExecPath() string {
+	parseCandidates := []string{
 		"third_party/GoGRPCBridge/examples/_shared/public/wasm_exec.js",
 		"../../../third_party/GoGRPCBridge/examples/_shared/public/wasm_exec.js",
 		"../../../../third_party/GoGRPCBridge/examples/_shared/public/wasm_exec.js",
 	}
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c
+	for _, parseC := range parseCandidates {
+		if _, parseErr := os.Stat(parseC); parseErr == nil {
+			return parseC
 		}
 	}
-	return candidates[0]
+	return parseCandidates[0]
 }
 
 // resolveStaticDirectories returns (clientDir, sharedStaticDir).
@@ -2051,94 +2051,94 @@ func resolveWasmExecPath() string {
 // sharedStaticDir contains the examples-wide static assets (tailwind, wasm_exec.js).
 // Both resolve relative to common invocation roots (from repo root or from
 // the server/ subdirectory).
-func resolveStaticDirectories() (clientDir, sharedDir string) {
-	clientCandidates := []string{
+func parseResolveStaticDirectories() (parseClientDir, parseSharedDir string) {
+	parseClientCandidates := []string{
 		"../bin/client",
 		"bin/client",
 		"examples/100-ai-chat-wizard/bin/client",
 	}
-	for _, c := range clientCandidates {
-		if info, err := os.Stat(c); err == nil && info.IsDir() {
-			clientDir = c
+	for _, parseC := range parseClientCandidates {
+		if parseInfo, parseErr := os.Stat(parseC); parseErr == nil && parseInfo.IsDir() {
+			parseClientDir = parseC
 			break
 		}
 	}
-	if clientDir == "" {
-		clientDir = "bin/client"
+	if parseClientDir == "" {
+		parseClientDir = "bin/client"
 	}
 
-	sharedCandidates := []string{
+	parseSharedCandidates := []string{
 		"../../static",
 		"../../../static",
 		"examples/static",
 	}
-	for _, c := range sharedCandidates {
-		if info, err := os.Stat(c); err == nil && info.IsDir() {
-			sharedDir = c
+	for _, parseC2 := range parseSharedCandidates {
+		if parseInfo2, parseErr2 := os.Stat(parseC2); parseErr2 == nil && parseInfo2.IsDir() {
+			parseSharedDir = parseC2
 			break
 		}
 	}
 	return
 }
 
-func newPrecompressedWASMFileServer(rootDir string) http.Handler {
-	fileServer := http.FileServer(http.Dir(rootDir))
+func parseNewPrecompressedWASMFileServer(parseRootDir string) http.Handler {
+	parseFileServer := http.FileServer(http.Dir(parseRootDir))
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if tryServeBrotliWASM(w, r, rootDir) {
+	return http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		if parseTryServeBrotliWASM(parseW, parseR, parseRootDir) {
 			return
 		}
-		fileServer.ServeHTTP(w, r)
+		parseFileServer.ServeHTTP(parseW, parseR)
 	})
 }
 
-func tryServeBrotliWASM(w http.ResponseWriter, r *http.Request, rootDir string) bool {
-	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+func parseTryServeBrotliWASM(parseW http.ResponseWriter, parseR *http.Request, parseRootDir string) bool {
+	if parseR.Method != http.MethodGet && parseR.Method != http.MethodHead {
 		return false
 	}
-	if filepath.Ext(r.URL.Path) != ".wasm" {
+	if filepath.Ext(parseR.URL.Path) != ".wasm" {
 		return false
 	}
-	queryValue := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("br")))
-	if queryValue == "false" || queryValue == "0" {
+	parseQueryValue := strings.ToLower(strings.TrimSpace(parseR.URL.Query().Get("br")))
+	if parseQueryValue == "false" || parseQueryValue == "0" {
 		return false
 	}
-	if queryValue != "" && queryValue != "true" && queryValue != "1" {
-		return false
-	}
-
-	relativePath, ok := resolveRelativeAssetPath(r.URL.Path)
-	if !ok {
-		return false
-	}
-	brotliPath := filepath.Join(rootDir, relativePath) + ".br"
-	artifactInfo, err := os.Stat(brotliPath)
-	if err != nil || artifactInfo.IsDir() {
-		return false
-	}
-	if artifactInfo.Size() <= 0 {
+	if parseQueryValue != "" && parseQueryValue != "true" && parseQueryValue != "1" {
 		return false
 	}
 
-	outputFile, err := os.Open(brotliPath)
-	if err != nil {
+	parseRelativePath, parseOk := parseResolveRelativeAssetPath(parseR.URL.Path)
+	if !parseOk {
 		return false
 	}
-	defer outputFile.Close()
+	parseBrotliPath := filepath.Join(parseRootDir, parseRelativePath) + ".br"
+	parseArtifactInfo, parseErr := os.Stat(parseBrotliPath)
+	if parseErr != nil || parseArtifactInfo.IsDir() {
+		return false
+	}
+	if parseArtifactInfo.Size() <= 0 {
+		return false
+	}
 
-	w.Header().Set("Content-Encoding", "br")
-	w.Header().Set("Content-Type", "application/wasm")
-	w.Header().Set("Vary", "Accept-Encoding")
-	http.ServeContent(w, r, filepath.Base(r.URL.Path), artifactInfo.ModTime(), outputFile)
+	parseOutputFile, parseErr := os.Open(parseBrotliPath)
+	if parseErr != nil {
+		return false
+	}
+	defer parseOutputFile.Close()
+
+	parseW.ParseHeader().Set("Content-Encoding", "br")
+	parseW.ParseHeader().Set("Content-Type", "application/wasm")
+	parseW.ParseHeader().Set("Vary", "Accept-Encoding")
+	http.ServeContent(parseW, parseR, filepath.Base(parseR.URL.Path), parseArtifactInfo.ModTime(), parseOutputFile)
 	return true
 }
 
-func resolveRelativeAssetPath(requestPath string) (string, bool) {
-	cleanedPath := filepath.ToSlash(filepath.Clean("/" + requestPath))
-	if strings.Contains(cleanedPath, "..") {
+func parseResolveRelativeAssetPath(parseRequestPath string) (string, bool) {
+	parseCleanedPath := filepath.ToSlash(filepath.Clean("/" + parseRequestPath))
+	if strings.Contains(parseCleanedPath, "..") {
 		return "", false
 	}
-	cleanedPath = strings.TrimLeft(cleanedPath, "/")
-	cleanedPath = strings.TrimPrefix(cleanedPath, "./")
-	return cleanedPath, cleanedPath != ""
+	parseCleanedPath = strings.TrimLeft(parseCleanedPath, "/")
+	parseCleanedPath = strings.TrimPrefix(parseCleanedPath, "./")
+	return parseCleanedPath, parseCleanedPath != ""
 }

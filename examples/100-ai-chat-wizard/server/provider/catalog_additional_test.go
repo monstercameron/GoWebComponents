@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-func TestNormalizeCatalogBuildsDefaultsAndCopiesOptions(t *testing.T) {
-	normalized := normalizeCatalog("stub", "Stub", Catalog{
+func TestNormalizeCatalogBuildsDefaultsAndCopiesOptions(parseT *testing.T) {
+	parseNormalized := parseNormalizeCatalog("stub", "Stub", Catalog{
 		Models: []ModelMetadata{
 			{
 				ID:          " model-a ",
@@ -25,23 +25,23 @@ func TestNormalizeCatalogBuildsDefaultsAndCopiesOptions(t *testing.T) {
 			},
 		},
 	})
-	if normalized.DefaultModel != "model-a" || normalized.TitleModel != "model-a" {
-		t.Fatalf("normalizeCatalog() defaults = %+v", normalized)
+	if parseNormalized.ParseDefaultModel != "model-a" || parseNormalized.TitleModel != "model-a" {
+		parseT.Fatalf("normalizeCatalog() defaults = %+v", parseNormalized)
 	}
-	if len(normalized.Models) != 2 || len(normalized.Options) != 2 {
-		t.Fatalf("normalizeCatalog() models/options = %+v", normalized)
+	if len(parseNormalized.Models) != 2 || len(parseNormalized.Options) != 2 {
+		parseT.Fatalf("normalizeCatalog() models/options = %+v", parseNormalized)
 	}
-	if normalized.Models[0].ProviderID != "stub" || normalized.Models[0].ProviderLabel != "Stub" || normalized.Models[0].Capabilities.ProviderID != "stub" || normalized.Models[0].Capabilities.ProviderLabel != "Stub" {
-		t.Fatalf("normalizeCatalog() first model normalization = %+v", normalized.Models[0])
+	if parseNormalized.Models[0].ProviderID != "stub" || parseNormalized.Models[0].ProviderLabel != "Stub" || parseNormalized.Models[0].ParseCapabilities.ProviderID != "stub" || parseNormalized.Models[0].ParseCapabilities.ProviderLabel != "Stub" {
+		parseT.Fatalf("normalizeCatalog() first model normalization = %+v", parseNormalized.Models[0])
 	}
-	if normalized.Models[1].ProviderLabel != "Custom Stub" || normalized.Models[1].Capabilities.ProviderID != "existing-provider" || normalized.Models[1].Capabilities.ProviderLabel != "Custom Stub" {
-		t.Fatalf("normalizeCatalog() second model normalization = %+v", normalized.Models[1])
+	if parseNormalized.Models[1].ProviderLabel != "Custom Stub" || parseNormalized.Models[1].ParseCapabilities.ProviderID != "existing-provider" || parseNormalized.Models[1].ParseCapabilities.ProviderLabel != "Custom Stub" {
+		parseT.Fatalf("normalizeCatalog() second model normalization = %+v", parseNormalized.Models[1])
 	}
-	if normalized.Options[0].ID != "model-a" || normalized.Options[0].Label != "Model A" || normalized.Options[0].Pricing.InputPerMillionUSD != 1.25 {
-		t.Fatalf("normalizeCatalog() derived options = %+v", normalized.Options)
+	if parseNormalized.Options[0].ParseID != "model-a" || parseNormalized.Options[0].Label != "Model A" || parseNormalized.Options[0].ParsePricing.InputPerMillionUSD != 1.25 {
+		parseT.Fatalf("normalizeCatalog() derived options = %+v", parseNormalized.Options)
 	}
 
-	withExplicitOptions := normalizeCatalog("stub", "Stub", Catalog{
+	parseWithExplicitOptions := parseNormalizeCatalog("stub", "Stub", Catalog{
 		Models: []ModelMetadata{{ID: "model-a", DisplayName: "Model A"}},
 		Options: []ModelOption{
 			{ID: " model-x ", Label: "Model X"},
@@ -50,64 +50,64 @@ func TestNormalizeCatalogBuildsDefaultsAndCopiesOptions(t *testing.T) {
 		DefaultModel: " model-a ",
 		TitleModel:   " model-x ",
 	})
-	if withExplicitOptions.DefaultModel != "model-a" || withExplicitOptions.TitleModel != "model-x" {
-		t.Fatalf("normalizeCatalog(explicit defaults) = %+v", withExplicitOptions)
+	if parseWithExplicitOptions.ParseDefaultModel != "model-a" || parseWithExplicitOptions.TitleModel != "model-x" {
+		parseT.Fatalf("normalizeCatalog(explicit defaults) = %+v", parseWithExplicitOptions)
 	}
-	if len(withExplicitOptions.Options) != 1 || withExplicitOptions.Options[0].ID != "model-x" || withExplicitOptions.Options[0].Capabilities.ProviderID != "stub" || withExplicitOptions.Options[0].Capabilities.ProviderLabel != "Stub" {
-		t.Fatalf("normalizeCatalog(explicit options) = %+v", withExplicitOptions.Options)
+	if len(parseWithExplicitOptions.Options) != 1 || parseWithExplicitOptions.Options[0].ParseID != "model-x" || parseWithExplicitOptions.Options[0].ParseCapabilities.ProviderID != "stub" || parseWithExplicitOptions.Options[0].ParseCapabilities.ProviderLabel != "Stub" {
+		parseT.Fatalf("normalizeCatalog(explicit options) = %+v", parseWithExplicitOptions.Options)
 	}
 }
 
-func TestCatalogAndRegistryAdditionalErrorBranches(t *testing.T) {
-	catalog := Catalog{
+func TestCatalogAndRegistryAdditionalErrorBranches(parseT *testing.T) {
+	parseCatalog := Catalog{
 		Models: []ModelMetadata{{ID: "model-a", DisplayName: "Model A"}},
 		Options: []ModelOption{
 			{ID: "model-a", Label: "Model A"},
 		},
 	}
-	if !catalog.SupportsModel(" MODEL-A ") || catalog.SupportsModel("missing") {
-		t.Fatalf("Catalog.SupportsModel() behavior mismatch")
+	if !parseCatalog.ParseSupportsModel(" MODEL-A ") || parseCatalog.ParseSupportsModel("missing") {
+		parseT.Fatalf("Catalog.SupportsModel() behavior mismatch")
 	}
-	options := catalog.ModelOptions()
-	options[0].Label = "mutated"
-	if catalog.Options[0].Label != "Model A" {
-		t.Fatalf("Catalog.ModelOptions() did not clone options: %+v", catalog.Options)
-	}
-
-	if got := (*Registry)(nil).DefaultModel(); got != "" {
-		t.Fatalf("(*Registry)(nil).DefaultModel() = %q, want empty", got)
-	}
-	if got := (*Registry)(nil).ModelOptions(); got != nil {
-		t.Fatalf("(*Registry)(nil).ModelOptions() = %#v, want nil", got)
-	}
-	if got := (*Registry)(nil).ProviderInfos(); got != nil {
-		t.Fatalf("(*Registry)(nil).ProviderInfos() = %#v, want nil", got)
-	}
-	if got := (*Registry)(nil).HealthSnapshots(); got != nil {
-		t.Fatalf("(*Registry)(nil).HealthSnapshots() = %#v, want nil", got)
+	parseOptions := parseCatalog.ParseModelOptions()
+	parseOptions[0].Label = "mutated"
+	if parseCatalog.Options[0].Label != "Model A" {
+		parseT.Fatalf("Catalog.ModelOptions() did not clone options: %+v", parseCatalog.Options)
 	}
 
-	registry := NewRegistry(&stubProvider{
+	if parseGot := (*Registry)(nil).ParseDefaultModel(); parseGot != "" {
+		parseT.Fatalf("(*Registry)(nil).DefaultModel() = %q, want empty", parseGot)
+	}
+	if parseGot2 := (*Registry)(nil).ParseModelOptions(); parseGot2 != nil {
+		parseT.Fatalf("(*Registry)(nil).ModelOptions() = %#v, want nil", parseGot2)
+	}
+	if parseGot3 := (*Registry)(nil).ParseProviderInfos(); parseGot3 != nil {
+		parseT.Fatalf("(*Registry)(nil).ProviderInfos() = %#v, want nil", parseGot3)
+	}
+	if parseGot4 := (*Registry)(nil).ParseHealthSnapshots(); parseGot4 != nil {
+		parseT.Fatalf("(*Registry)(nil).HealthSnapshots() = %#v, want nil", parseGot4)
+	}
+
+	parseRegistry := ParseNewRegistry(&stubProvider{
 		id:           "meta",
 		available:    true,
 		defaultModel: "model-a",
 		models:       map[string]ModelCapabilities{"model-a": {ProviderID: "meta", ProviderLabel: "Meta"}},
 		metadata:     map[string]ModelMetadata{},
 	})
-	if _, resolved, err := registry.ModelMetadata("model-a"); err == nil || resolved != "model-a" || !strings.Contains(err.Error(), "metadata unavailable") {
-		t.Fatalf("Registry.ModelMetadata() error = %v resolved=%q, want metadata unavailable", err, resolved)
+	if _, parseResolved, parseErr := parseRegistry.ParseModelMetadata("model-a"); parseErr == nil || parseResolved != "model-a" || !strings.Contains(parseErr.ParseError(), "metadata unavailable") {
+		parseT.Fatalf("Registry.ModelMetadata() error = %v resolved=%q, want metadata unavailable", parseErr, parseResolved)
 	}
-	if _, _, err := registry.Pricing("model-a"); err == nil || !strings.Contains(err.Error(), "metadata unavailable") {
-		t.Fatalf("Registry.Pricing() error = %v, want metadata unavailable", err)
+	if _, _, parseErr2 := parseRegistry.ParsePricing("model-a"); parseErr2 == nil || !strings.Contains(parseErr2.ParseError(), "metadata unavailable") {
+		parseT.Fatalf("Registry.Pricing() error = %v, want metadata unavailable", parseErr2)
 	}
 
-	var nilErr *NormalizedError
-	if err := nilErr.Unwrap(); err != nil {
-		t.Fatalf("(*NormalizedError)(nil).Unwrap() = %v, want nil", err)
+	var parseNilErr *NormalizedError
+	if parseErr3 := parseNilErr.ParseUnwrap(); parseErr3 != nil {
+		parseT.Fatalf("(*NormalizedError)(nil).Unwrap() = %v, want nil", parseErr3)
 	}
-	rootErr := errors.New("boom")
-	withProviderNoModel := (&NormalizedError{ProviderID: "openai", Message: "failed", Err: rootErr}).Error()
-	if !strings.Contains(withProviderNoModel, "openai provider error: failed") {
-		t.Fatalf("NormalizedError without model = %q", withProviderNoModel)
+	parseRootErr := errors.New("boom")
+	parseWithProviderNoModel := (&NormalizedError{ProviderID: "openai", Message: "failed", Err: parseRootErr}).ParseError()
+	if !strings.Contains(parseWithProviderNoModel, "openai provider error: failed") {
+		parseT.Fatalf("NormalizedError without model = %q", parseWithProviderNoModel)
 	}
 }

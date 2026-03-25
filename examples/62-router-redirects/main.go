@@ -13,19 +13,19 @@ import (
 )
 
 func redirectsPageView() ui.Node {
-	nav := router.UseNavigate()
-	inspection := router.InspectCurrentRoute()
+	parseNav := router.UseNavigate()
+	parseInspection := router.InspectCurrentRoute()
 	return shared.ExamplePage(
 		"router redirects",
 		"Send a matched route to a different destination declaratively",
 		"Redirects belong in route options when the route itself is just legacy or alias surface. The router swaps in the target path without needing a special component body.",
 		shared.ExamplePanel("Redirect flow",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-				shared.ExampleButton("Go to legacy route", ui.UseEvent(func() { nav.Navigate("/legacy-dashboard") })),
-				shared.ExampleButton("Go to modern route", ui.UseEvent(func() { nav.Navigate("/dashboard") })),
+				shared.ExampleButton("Go to legacy route", ui.UseEvent(func() { parseNav.Navigate("/legacy-dashboard") })),
+				shared.ExampleButton("Go to modern route", ui.UseEvent(func() { parseNav.Navigate("/dashboard") })),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Current path", inspection.Path),
+				shared.ExampleStat("Current path", parseInspection.Path),
 				shared.ExampleStat("Legacy target", "/legacy-dashboard -> /dashboard"),
 			),
 			shared.ExampleCode(
@@ -41,11 +41,11 @@ func redirectsPage(_ router.Attrs) *router.Element {
 
 func main() {
 	utils.DisableAllDebug()
-	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/dashboard"})
-	r.Register("/legacy-dashboard", func(router.Attrs) *router.Element {
+	parseR := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/dashboard"})
+	parseR.Register("/legacy-dashboard", func(router.Attrs) *router.Element {
 		return redirectsPage(nil)
 	}, router.Options{Redirect: "/dashboard"})
-	r.Register("/dashboard", redirectsPage)
-	r.Mount("#app")
+	parseR.Register("/dashboard", redirectsPage)
+	parseR.Mount("#app")
 	select {}
 }

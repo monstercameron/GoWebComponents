@@ -27,239 +27,239 @@ type grpcMonitorResult struct {
 
 // useAppRuntime owns the worker lifecycle, gRPC connection, and markdown
 // rendering side effects so App() can stay focused on state and composition.
-func useAppRuntime(
-	app ui.Reducer[appState, appAction],
-	chatClientRef ui.Ref[chatpb.ChatServiceClient],
-	markdownWorkerRef ui.Ref[*interop.Worker],
-	markdownRenderInFlight ui.Ref[map[string]bool],
-	markdownRenderVersion ui.State[int],
-	markdownRenderTick int,
-	completedMarkdownSignature string,
-	onConversationRefresh func(bool),
-	onProfileRefresh func(bool),
+func parseUseAppRuntime(
+	parseApp ui.Reducer[appState, appAction],
+	parseChatClientRef ui.Ref[chatpb.ChatServiceClient],
+	parseMarkdownWorkerRef ui.Ref[*interop.Worker],
+	parseMarkdownRenderInFlight ui.Ref[map[string]bool],
+	parseMarkdownRenderVersion ui.State[int],
+	parseMarkdownRenderTick int,
+	parseCompletedMarkdownSignature string,
+	parseOnConversationRefresh func(bool),
+	parseOnProfileRefresh func(bool),
 ) {
 	ui.UseEffect(func() func() {
-		if !app.Get().AuthResolved || app.Get().MarkdownWorkerFallback || markdownWorkerRef.Get() != nil {
+		if !parseApp.Get().AuthResolved || parseApp.Get().MarkdownWorkerFallback || parseMarkdownWorkerRef.Get() != nil {
 			return nil
 		}
-		ctx, cancel := context.WithCancel(context.Background())
+		parseCtx, parseCancel := context.WithCancel(context.Background())
 
 		// Worker startup blocks on a channel select waiting for the worker's
 		// "ready" message.  Effects run synchronously on the main goroutine,
 		// so blocking here would starve the JS event loop and prevent the
 		// worker callback from ever firing.  Run it in a separate goroutine.
 		go func() {
-			buildWorker := func(readyTimeout time.Duration) (interop.Worker, error) {
-				return interop.OpenGoWASMWorker(ctx, interop.GoWASMWorkerOptions{
+			buildWorker := func(parseReadyTimeout time.Duration) (interop.Worker, error) {
+				return interop.OpenGoWASMWorker(parseCtx, interop.GoWASMWorkerOptions{
 					RuntimeURL:   backgroundWorkerRuntimeURL,
-					WASMURL:      backgroundWorkerWASMURL + currentWASMQuerySuffix(),
+					WASMURL:      backgroundWorkerWASMURL + parseCurrentWASMQuerySuffix(),
 					Name:         "chat-background",
 					Ready:        true,
-					ReadyTimeout: readyTimeout,
+					ReadyTimeout: parseReadyTimeout,
 				})
 			}
 
-			worker, err := buildWorker(5 * time.Second)
-			if err != nil && interop.IsCode(err, interop.CodeTimeout) {
-				chatLog.Info("background worker startup timed out; retrying", logging.Fields{"error": err})
+			parseWorker, parseErr := buildWorker(5 * time.Second)
+			if parseErr != nil && interop.IsCode(parseErr, interop.CodeTimeout) {
+				chatLog.ParseInfo("background worker startup timed out; retrying", logging.Fields{"error": parseErr})
 				select {
-				case <-ctx.Done():
+				case <-parseCtx.Done():
 					return
 				case <-time.After(1200 * time.Millisecond):
 				}
-				worker, err = buildWorker(12 * time.Second)
+				parseWorker, parseErr = buildWorker(12 * time.Second)
 			}
-			if err != nil && interop.IsCode(err, interop.CodeTimeout) {
-				chatLog.Info("background worker startup timed out; continuing without worker", logging.Fields{"error": err})
+			if parseErr != nil && interop.IsCode(parseErr, interop.CodeTimeout) {
+				chatLog.ParseInfo("background worker startup timed out; continuing without worker", logging.Fields{"error": parseErr})
 				return
 			}
-			if err != nil {
-				app.Dispatch(appAction{Type: appActionSetMarkdownWorkerFallback, MarkdownWorkerFallback: true})
-				chatLog.Warn("background worker unavailable; falling back to main-thread work", logging.Fields{"error": err})
+			if parseErr != nil {
+				parseApp.Dispatch(appAction{Type: appActionSetMarkdownWorkerFallback, MarkdownWorkerFallback: true})
+				chatLog.Warn("background worker unavailable; falling back to main-thread work", logging.Fields{"error": parseErr})
 				return
 			}
-			sub, subErr := worker.Subscribe(func(msg interop.WorkerMessage, err error) {
-				if err != nil {
-					chatLog.Warn("background worker subscription error", logging.Fields{"error": err})
+			parseSub, parseSubErr := parseWorker.Subscribe(func(parseMsg2 interop.WorkerMessage, parseErr4 error) {
+				if parseErr4 != nil {
+					chatLog.Warn("background worker subscription error", logging.Fields{"error": parseErr4})
 					return
 				}
-				if msg.Name == backgroundWorkerEventTick && onConversationRefresh != nil {
-					onConversationRefresh(false)
+				if parseMsg2.Name == backgroundWorkerEventTick && parseOnConversationRefresh != nil {
+					parseOnConversationRefresh(false)
 				}
 			})
-			if subErr != nil {
-				app.Dispatch(appAction{Type: appActionSetMarkdownWorkerFallback, MarkdownWorkerFallback: true})
-				chatLog.Warn("background worker subscribe failed; falling back to main-thread work", logging.Fields{"error": subErr})
-				_ = worker.Terminate()
+			if parseSubErr != nil {
+				parseApp.Dispatch(appAction{Type: appActionSetMarkdownWorkerFallback, MarkdownWorkerFallback: true})
+				chatLog.Warn("background worker subscribe failed; falling back to main-thread work", logging.Fields{"error": parseSubErr})
+				_ = parseWorker.Terminate()
 				return
 			}
-			_ = sub // cancelled implicitly when the worker is terminated during cleanup
-			chatLog.Info("worker ready", nil)
-			markdownWorkerRef.Set(&worker)
+			_ = parseSub // cancelled implicitly when the worker is terminated during cleanup
+			chatLog.ParseInfo("worker ready", nil)
+			parseMarkdownWorkerRef.Set(&parseWorker)
 			// Nudge the markdown-render effect once the worker is available, but
 			// do not let that state change retrigger worker startup itself.
-			markdownRenderVersion.Update(func(previous int) int {
-				return previous + 1
+			parseMarkdownRenderVersion.Update(func(parsePrevious int) int {
+				return parsePrevious + 1
 			})
 		}()
 
 		return func() {
-			cancel()
-			chatLog.Info("worker stop", nil)
-			if w := markdownWorkerRef.Get(); w != nil {
-				markdownWorkerRef.Set(nil)
-				_ = w.Terminate()
+			parseCancel()
+			chatLog.ParseInfo("worker stop", nil)
+			if parseW := parseMarkdownWorkerRef.Get(); parseW != nil {
+				parseMarkdownWorkerRef.Set(nil)
+				_ = parseW.Terminate()
 			}
 		}
-	}, app.Get().AuthResolved, app.Get().MarkdownWorkerFallback)
+	}, parseApp.Get().AuthResolved, parseApp.Get().MarkdownWorkerFallback)
 
 	ui.UseEffect(func() func() {
-		ctx, cancel := context.WithCancel(context.Background())
-		wakeCh := make(chan string, 1)
-		sleepCh := make(chan string, 1)
-		reconnectCh := make(chan string, 1)
+		parseCtx2, parseCancel2 := context.WithCancel(context.Background())
+		parseWakeCh := make(chan string, 1)
+		parseSleepCh := make(chan string, 1)
+		parseReconnectCh := make(chan string, 1)
 
-		signal := func(ch chan string, reason string) {
-			reason = strings.TrimSpace(reason)
+		parseSignal := func(parseCh chan string, parseReason string) {
+			parseReason = strings.TrimSpace(parseReason)
 			select {
-			case ch <- reason:
+			case parseCh <- parseReason:
 			default:
 			}
 		}
-		disconnect := func(conn *grpc.ClientConn, reason string) {
-			syncGRPCReadyState(app, chatClientRef, markdownWorkerRef, nil, false, reason, onConversationRefresh, onProfileRefresh)
-			if conn != nil {
-				_ = conn.Close()
+		parseDisconnect := func(parseConn2 *grpc.ClientConn, parseReason2 string) {
+			parseSyncGRPCReadyState(parseApp, parseChatClientRef, parseMarkdownWorkerRef, nil, false, parseReason2, parseOnConversationRefresh, parseOnProfileRefresh)
+			if parseConn2 != nil {
+				_ = parseConn2.Close()
 			}
 		}
 
-		unregisterReconnect := registerGRPCReconnectHandler(func(reason string) {
-			signal(reconnectCh, reason)
+		parseUnregisterReconnect := parseRegisterGRPCReconnectHandler(func(parseReason3 string) {
+			parseSignal(parseReconnectCh, parseReason3)
 		})
 
-		window := js.Global().Get("window")
-		document := js.Global().Get("document")
-		stopHiddenSleep := func() {}
-		var startHiddenSleep func(time.Duration)
-		startHiddenSleep = func(delay time.Duration) {
-			stopHiddenSleep()
-			if runtimePageVisible() {
+		parseWindow := js.Global().Get("window")
+		parseDocument := js.Global().Get("document")
+		parseStopHiddenSleep := func() {}
+		var parseStartHiddenSleep func(time.Duration)
+		parseStartHiddenSleep = func(parseDelay3 time.Duration) {
+			parseStopHiddenSleep()
+			if parseRuntimePageVisible() {
 				return
 			}
-			timer := time.AfterFunc(delay, func() {
-				if runtimePageVisible() {
+			parseTimer := time.AfterFunc(parseDelay3, func() {
+				if parseRuntimePageVisible() {
 					return
 				}
-				if app.Get().Streaming {
-					startHiddenSleep(grpcSleepRetry)
+				if parseApp.Get().Streaming {
+					parseStartHiddenSleep(grpcSleepRetry)
 					return
 				}
-				signal(sleepCh, "hidden idle")
+				parseSignal(parseSleepCh, "hidden idle")
 			})
-			stopHiddenSleep = func() {
-				if timer != nil {
-					timer.Stop()
+			parseStopHiddenSleep = func() {
+				if parseTimer != nil {
+					parseTimer.ParseStop()
 				}
 			}
 		}
 
-		cleanupOnline := attachWindowListener(window, "online", func() {
-			stopHiddenSleep()
-			signal(wakeCh, "browser online")
+		parseCleanupOnline := parseAttachWindowListener(parseWindow, "online", func() {
+			parseStopHiddenSleep()
+			parseSignal(parseWakeCh, "browser online")
 		})
-		cleanupOffline := attachWindowListener(window, "offline", func() {
-			stopHiddenSleep()
-			signal(sleepCh, "browser offline")
+		parseCleanupOffline := parseAttachWindowListener(parseWindow, "offline", func() {
+			parseStopHiddenSleep()
+			parseSignal(parseSleepCh, "browser offline")
 		})
-		cleanupFocus := attachWindowListener(window, "focus", func() {
-			stopHiddenSleep()
-			signal(wakeCh, "window focus")
+		parseCleanupFocus := parseAttachWindowListener(parseWindow, "focus", func() {
+			parseStopHiddenSleep()
+			parseSignal(parseWakeCh, "window focus")
 		})
-		cleanupVisibility := attachDocumentListener(document, "visibilitychange", func() {
-			if runtimePageVisible() {
-				stopHiddenSleep()
-				signal(wakeCh, "document visible")
+		parseCleanupVisibility := parseAttachDocumentListener(parseDocument, "visibilitychange", func() {
+			if parseRuntimePageVisible() {
+				parseStopHiddenSleep()
+				parseSignal(parseWakeCh, "document visible")
 				return
 			}
-			startHiddenSleep(grpcSleepAfter)
+			parseStartHiddenSleep(grpcSleepAfter)
 		})
-		if !runtimePageVisible() {
-			startHiddenSleep(grpcSleepAfter)
+		if !parseRuntimePageVisible() {
+			parseStartHiddenSleep(grpcSleepAfter)
 		}
 
 		go func() {
-			defer syncGRPCReadyState(app, chatClientRef, markdownWorkerRef, nil, false, "runtime stopped", onConversationRefresh, onProfileRefresh)
+			defer parseSyncGRPCReadyState(parseApp, parseChatClientRef, parseMarkdownWorkerRef, nil, false, "runtime stopped", parseOnConversationRefresh, parseOnProfileRefresh)
 
-			sleeping := false
-			attempt := 0
+			isParseSleeping := false
+			parseAttempt := 0
 			for {
-				if ctx.Err() != nil {
+				if parseCtx2.Err() != nil {
 					return
 				}
-				if sleeping || !runtimeNavigatorOnline() {
-					syncGRPCReadyState(app, chatClientRef, markdownWorkerRef, nil, false, "bridge sleeping", onConversationRefresh, onProfileRefresh)
-					wakeReason, ok := waitForWakeSignal(ctx, wakeCh)
-					if !ok {
+				if isParseSleeping || !parseRuntimeNavigatorOnline() {
+					parseSyncGRPCReadyState(parseApp, parseChatClientRef, parseMarkdownWorkerRef, nil, false, "bridge sleeping", parseOnConversationRefresh, parseOnProfileRefresh)
+					parseWakeReason, parseOk := parseWaitForWakeSignal(parseCtx2, parseWakeCh)
+					if !parseOk {
 						return
 					}
-					sleeping = false
-					attempt = 0
-					if wakeReason != "" {
-						chatLog.Info("grpc wake", logging.Fields{"reason": wakeReason})
+					isParseSleeping = false
+					parseAttempt = 0
+					if parseWakeReason != "" {
+						chatLog.ParseInfo("grpc wake", logging.Fields{"reason": parseWakeReason})
 					}
 				}
 
-				dialCtx, cancelDial := context.WithTimeout(ctx, grpcDialTimeout)
-				conn, err := grpctunnel.DialContext(
-					dialCtx,
+				parseDialCtx, parseCancelDial := context.WithTimeout(parseCtx2, grpcDialTimeout)
+				parseConn, parseErr2 := grpctunnel.DialContext(
+					parseDialCtx,
 					grpcEndpoint,
 					grpc.WithTransportCredentials(insecure.NewCredentials()),
-					grpc.WithUnaryInterceptor(func(ctx context.Context, method string, req interface{}, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-						return invoker(authContextWithMetadata(ctx), method, req, reply, cc, opts...)
+					grpc.WithUnaryInterceptor(func(parseCtx3 context.Context, parseMethod string, parseReq interface{}, parseReply interface{}, parseCc *grpc.ClientConn, parseInvoker grpc.UnaryInvoker, parseOpts ...grpc.CallOption) error {
+						return parseInvoker(parseAuthContextWithMetadata(parseCtx3), parseMethod, parseReq, parseReply, parseCc, parseOpts...)
 					}),
-					grpc.WithStreamInterceptor(func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-						return streamer(authContextWithMetadata(ctx), desc, cc, method, opts...)
+					grpc.WithStreamInterceptor(func(parseCtx4 context.Context, parseDesc *grpc.StreamDesc, parseCc2 *grpc.ClientConn, parseMethod2 string, parseStreamer grpc.Streamer, parseOpts2 ...grpc.CallOption) (grpc.ClientStream, error) {
+						return parseStreamer(parseAuthContextWithMetadata(parseCtx4), parseDesc, parseCc2, parseMethod2, parseOpts2...)
 					}),
 					grpc.WithBlock(),
 				)
-				cancelDial()
-				if err != nil {
-					delay := grpcReconnectDelay(attempt)
-					attempt++
-					syncGRPCReadyState(app, chatClientRef, markdownWorkerRef, nil, false, "dial failed", onConversationRefresh, onProfileRefresh)
-					chatLog.Warn("grpc dial failed", logging.Fields{"error": err, "retry_in_ms": int(delay / time.Millisecond)})
-					switch waitForReconnectDelay(ctx, delay, wakeCh, sleepCh, reconnectCh) {
+				parseCancelDial()
+				if parseErr2 != nil {
+					parseDelay := parseGrpcReconnectDelay(parseAttempt)
+					parseAttempt++
+					parseSyncGRPCReadyState(parseApp, parseChatClientRef, parseMarkdownWorkerRef, nil, false, "dial failed", parseOnConversationRefresh, parseOnProfileRefresh)
+					chatLog.Warn("grpc dial failed", logging.Fields{"error": parseErr2, "retry_in_ms": int(parseDelay / time.Millisecond)})
+					switch parseWaitForReconnectDelay(parseCtx2, parseDelay, parseWakeCh, parseSleepCh, parseReconnectCh) {
 					case "sleep":
-						sleeping = true
+						isParseSleeping = true
 					case "wake", "reconnect":
-						attempt = 0
+						parseAttempt = 0
 					case "done":
 						return
 					}
 					continue
 				}
 
-				attempt = 0
-				syncGRPCReadyState(app, chatClientRef, markdownWorkerRef, conn, true, "bridge connected", onConversationRefresh, onProfileRefresh)
-				result := monitorGRPCConnection(ctx, app, chatClientRef, markdownWorkerRef, conn, wakeCh, sleepCh, reconnectCh)
-				disconnect(conn, result.Reason)
-				if ctx.Err() != nil {
+				parseAttempt = 0
+				parseSyncGRPCReadyState(parseApp, parseChatClientRef, parseMarkdownWorkerRef, parseConn, true, "bridge connected", parseOnConversationRefresh, parseOnProfileRefresh)
+				parseResult := parseMonitorGRPCConnection(parseCtx2, parseApp, parseChatClientRef, parseMarkdownWorkerRef, parseConn, parseWakeCh, parseSleepCh, parseReconnectCh)
+				parseDisconnect(parseConn, parseResult.Reason)
+				if parseCtx2.Err() != nil {
 					return
 				}
-				if result.Sleep {
-					sleeping = true
+				if parseResult.Sleep {
+					isParseSleeping = true
 					continue
 				}
-				if result.Immediate {
+				if parseResult.Immediate {
 					continue
 				}
-				delay := grpcReconnectDelay(attempt)
-				attempt++
-				switch waitForReconnectDelay(ctx, delay, wakeCh, sleepCh, reconnectCh) {
+				parseDelay2 := parseGrpcReconnectDelay(parseAttempt)
+				parseAttempt++
+				switch parseWaitForReconnectDelay(parseCtx2, parseDelay2, parseWakeCh, parseSleepCh, parseReconnectCh) {
 				case "sleep":
-					sleeping = true
+					isParseSleeping = true
 				case "wake", "reconnect":
-					attempt = 0
+					parseAttempt = 0
 				case "done":
 					return
 				}
@@ -267,297 +267,297 @@ func useAppRuntime(
 		}()
 
 		return func() {
-			cancel()
-			stopHiddenSleep()
-			cleanupVisibility()
-			cleanupFocus()
-			cleanupOffline()
-			cleanupOnline()
-			unregisterReconnect()
+			parseCancel2()
+			parseStopHiddenSleep()
+			parseCleanupVisibility()
+			parseCleanupFocus()
+			parseCleanupOffline()
+			parseCleanupOnline()
+			parseUnregisterReconnect()
 		}
 	}, true)
 
 	ui.UseEffect(func() func() {
-		if app.Get().MarkdownWorkerFallback {
+		if parseApp.Get().MarkdownWorkerFallback {
 			return nil
 		}
-		worker := markdownWorkerRef.Get()
-		if worker == nil {
+		parseWorker2 := parseMarkdownWorkerRef.Get()
+		if parseWorker2 == nil {
 			return nil
 		}
-		inFlight := markdownRenderInFlight.Get()
-		sources := make([]string, 0, len(app.Get().Messages))
-		for _, msg := range app.Get().Messages {
-			if msg.Role != roleAssistant || msg.Pending {
+		parseInFlight := parseMarkdownRenderInFlight.Get()
+		parseSources := make([]string, 0, len(parseApp.Get().Messages))
+		for _, parseMsg := range parseApp.Get().Messages {
+			if parseMsg.Role != roleAssistant || parseMsg.Pending {
 				continue
 			}
-			source := strings.TrimSpace(msg.Content)
-			if source == "" {
+			parseSource := strings.TrimSpace(parseMsg.Content)
+			if parseSource == "" {
 				continue
 			}
-			if _, ok := cachedRenderedMarkdown(source); ok {
+			if _, parseOk2 := cachedRenderedMarkdown(parseSource); parseOk2 {
 				continue
 			}
-			if inFlight[source] {
+			if parseInFlight[parseSource] {
 				continue
 			}
-			inFlight[source] = true
-			sources = append(sources, source)
+			parseInFlight[parseSource] = true
+			parseSources = append(parseSources, parseSource)
 		}
-		if len(sources) == 0 {
+		if len(parseSources) == 0 {
 			return nil
 		}
 		go func() {
-			result, err := interop.RequestWorkerDecoded[markdownRenderBatchRequest, struct{}, markdownRenderBatchResult](
+			parseResult2, parseErr3 := interop.RequestWorkerDecoded[markdownRenderBatchRequest, struct{}, markdownRenderBatchResult](
 				context.Background(),
-				*worker,
+				*parseWorker2,
 				backgroundWorkerRequestRenderMarkdownBatch,
-				markdownRenderBatchRequest{Sources: sources},
+				markdownRenderBatchRequest{Sources: parseSources},
 				nil,
 			)
-			if err != nil {
-				for _, source := range sources {
-					delete(inFlight, source)
-					cacheRenderedMarkdown(source, renderMarkdownSync(source))
+			if parseErr3 != nil {
+				for _, parseSource2 := range parseSources {
+					delete(parseInFlight, parseSource2)
+					cacheRenderedMarkdown(parseSource2, renderMarkdownSync(parseSource2))
 				}
-				app.Dispatch(appAction{Type: appActionSetMarkdownWorkerFallback, MarkdownWorkerFallback: true})
-				markdownRenderVersion.Set(markdownRenderVersion.Get() + 1)
-				chatLog.Warn("markdown worker batch request failed; using main-thread fallback", logging.Fields{"error": err, "sources": len(sources)})
+				parseApp.Dispatch(appAction{Type: appActionSetMarkdownWorkerFallback, MarkdownWorkerFallback: true})
+				parseMarkdownRenderVersion.Set(parseMarkdownRenderVersion.Get() + 1)
+				chatLog.Warn("markdown worker batch request failed; using main-thread fallback", logging.Fields{"error": parseErr3, "sources": len(parseSources)})
 				return
 			}
-			for _, rendered := range result.Results {
-				delete(inFlight, rendered.Source)
-				cacheRenderedMarkdown(rendered.Source, rendered.HTML)
+			for _, parseRendered := range parseResult2.Results {
+				delete(parseInFlight, parseRendered.Source)
+				cacheRenderedMarkdown(parseRendered.Source, parseRendered.HTML)
 			}
-			for _, source := range sources {
-				delete(inFlight, source)
+			for _, parseSource3 := range parseSources {
+				delete(parseInFlight, parseSource3)
 			}
-			markdownRenderVersion.Set(markdownRenderVersion.Get() + 1)
+			parseMarkdownRenderVersion.Set(parseMarkdownRenderVersion.Get() + 1)
 		}()
 		return nil
-	}, app.Get().MarkdownWorkerFallback, completedMarkdownSignature, markdownRenderTick)
+	}, parseApp.Get().MarkdownWorkerFallback, parseCompletedMarkdownSignature, parseMarkdownRenderTick)
 }
 
-func monitorGRPCConnection(
-	ctx context.Context,
-	app ui.Reducer[appState, appAction],
-	chatClientRef ui.Ref[chatpb.ChatServiceClient],
-	markdownWorkerRef ui.Ref[*interop.Worker],
-	conn *grpc.ClientConn,
-	wakeCh <-chan string,
-	sleepCh <-chan string,
-	reconnectCh <-chan string,
+func parseMonitorGRPCConnection(
+	parseCtx context.Context,
+	parseApp ui.Reducer[appState, appAction],
+	parseChatClientRef ui.Ref[chatpb.ChatServiceClient],
+	parseMarkdownWorkerRef ui.Ref[*interop.Worker],
+	parseConn *grpc.ClientConn,
+	parseWakeCh <-chan string,
+	parseSleepCh <-chan string,
+	parseReconnectCh <-chan string,
 ) grpcMonitorResult {
-	ticker := time.NewTicker(grpcStatePoll)
-	defer ticker.Stop()
+	parseTicker := time.NewTicker(grpcStatePoll)
+	defer parseTicker.ParseStop()
 
-	lastState := connectivity.Idle
-	notReadySince := time.Now()
-	applyState := func(state connectivity.State, reason string) {
-		if state == lastState {
+	parseLastState := connectivity.Idle
+	parseNotReadySince := time.Now()
+	applyState := func(parseState2 connectivity.State, parseReason3 string) {
+		if parseState2 == parseLastState {
 			return
 		}
-		lastState = state
-		chatLog.Info("grpc state", logging.Fields{"state": state.String(), "reason": reason})
+		parseLastState = parseState2
+		chatLog.ParseInfo("grpc state", logging.Fields{"state": parseState2.ParseString(), "reason": parseReason3})
 	}
 
 	for {
-		state := conn.GetState()
-		applyState(state, "poll")
-		switch state {
+		parseState := parseConn.GetState()
+		applyState(parseState, "poll")
+		switch parseState {
 		case connectivity.Ready:
-			notReadySince = time.Time{}
-			syncGRPCReadyState(app, chatClientRef, markdownWorkerRef, conn, true, "bridge ready", nil, nil)
+			parseNotReadySince = time.Time{}
+			parseSyncGRPCReadyState(parseApp, parseChatClientRef, parseMarkdownWorkerRef, parseConn, true, "bridge ready", nil, nil)
 		case connectivity.Idle:
-			notReadySince = time.Time{}
-			syncGRPCReadyState(app, chatClientRef, markdownWorkerRef, conn, true, "bridge idle", nil, nil)
+			parseNotReadySince = time.Time{}
+			parseSyncGRPCReadyState(parseApp, parseChatClientRef, parseMarkdownWorkerRef, parseConn, true, "bridge idle", nil, nil)
 		case connectivity.Connecting:
-			syncGRPCReadyState(app, chatClientRef, markdownWorkerRef, conn, true, "bridge reconnecting", nil, nil)
-			if notReadySince.IsZero() {
-				notReadySince = time.Now()
+			parseSyncGRPCReadyState(parseApp, parseChatClientRef, parseMarkdownWorkerRef, parseConn, true, "bridge reconnecting", nil, nil)
+			if parseNotReadySince.IsZero() {
+				parseNotReadySince = time.Now()
 			}
 		case connectivity.TransientFailure, connectivity.Shutdown:
-			return grpcMonitorResult{Reason: "bridge " + state.String()}
+			return grpcMonitorResult{Reason: "bridge " + parseState.ParseString()}
 		default:
-			syncGRPCReadyState(app, chatClientRef, markdownWorkerRef, conn, true, "bridge unavailable", nil, nil)
-			if notReadySince.IsZero() {
-				notReadySince = time.Now()
+			parseSyncGRPCReadyState(parseApp, parseChatClientRef, parseMarkdownWorkerRef, parseConn, true, "bridge unavailable", nil, nil)
+			if parseNotReadySince.IsZero() {
+				parseNotReadySince = time.Now()
 			}
 		}
-		if !notReadySince.IsZero() && time.Since(notReadySince) >= grpcStallLimit {
-			return grpcMonitorResult{Reason: "bridge stalled in " + state.String()}
+		if !parseNotReadySince.IsZero() && time.Since(parseNotReadySince) >= grpcStallLimit {
+			return grpcMonitorResult{Reason: "bridge stalled in " + parseState.ParseString()}
 		}
 
 		select {
-		case <-ctx.Done():
+		case <-parseCtx.Done():
 			return grpcMonitorResult{Reason: "runtime canceled"}
-		case reason := <-sleepCh:
-			return grpcMonitorResult{Reason: reason, Sleep: true}
-		case reason := <-reconnectCh:
-			return grpcMonitorResult{Reason: reason, Immediate: true}
-		case <-wakeCh:
-			if runtimeNavigatorOnline() {
-				conn.Connect()
+		case parseReason := <-parseSleepCh:
+			return grpcMonitorResult{Reason: parseReason, Sleep: true}
+		case parseReason2 := <-parseReconnectCh:
+			return grpcMonitorResult{Reason: parseReason2, Immediate: true}
+		case <-parseWakeCh:
+			if parseRuntimeNavigatorOnline() {
+				parseConn.Connect()
 			}
-		case <-ticker.C:
+		case <-parseTicker.C:
 		}
 	}
 }
 
-func syncGRPCReadyState(
-	app ui.Reducer[appState, appAction],
-	chatClientRef ui.Ref[chatpb.ChatServiceClient],
-	markdownWorkerRef ui.Ref[*interop.Worker],
-	conn *grpc.ClientConn,
-	ready bool,
-	reason string,
-	onConversationRefresh func(bool),
-	onProfileRefresh func(bool),
+func parseSyncGRPCReadyState(
+	parseApp ui.Reducer[appState, appAction],
+	parseChatClientRef ui.Ref[chatpb.ChatServiceClient],
+	parseMarkdownWorkerRef ui.Ref[*interop.Worker],
+	parseConn *grpc.ClientConn,
+	isReady bool,
+	parseReason string,
+	parseOnConversationRefresh func(bool),
+	parseOnProfileRefresh func(bool),
 ) {
-	if ready && conn != nil {
-		if app.Get().GRPCReady && chatClientRef.Get() != nil {
+	if isReady && parseConn != nil {
+		if parseApp.Get().GRPCReady && parseChatClientRef.Get() != nil {
 			return
 		}
-		chatClientRef.Set(chatpb.NewChatServiceClient(conn))
-		app.Dispatch(appAction{Type: appActionSetGRPCReady, GRPCReady: true})
-		postBackgroundWorkerTicker(markdownWorkerRef, backgroundWorkerCommandStartTicker)
-		if onConversationRefresh != nil {
+		parseChatClientRef.Set(chatpb.NewChatServiceClient(parseConn))
+		parseApp.Dispatch(appAction{Type: appActionSetGRPCReady, GRPCReady: true})
+		parsePostBackgroundWorkerTicker(parseMarkdownWorkerRef, backgroundWorkerCommandStartTicker)
+		if parseOnConversationRefresh != nil {
 			// Respect the feature TTLs on reconnect so a flapping bridge does not
 			// repeatedly force list/profile RPCs while still allowing the initial
 			// post-connect load to run when nothing has been fetched yet.
-			go onConversationRefresh(false)
+			go parseOnConversationRefresh(false)
 		}
-		if onProfileRefresh != nil {
-			go onProfileRefresh(false)
+		if parseOnProfileRefresh != nil {
+			go parseOnProfileRefresh(false)
 		}
-		chatLog.Info("grpc ready", logging.Fields{"endpoint": grpcEndpoint, "reason": reason})
+		chatLog.ParseInfo("grpc ready", logging.Fields{"endpoint": grpcEndpoint, "reason": parseReason})
 		return
 	}
-	if !app.Get().GRPCReady && chatClientRef.Get() == nil {
+	if !parseApp.Get().GRPCReady && parseChatClientRef.Get() == nil {
 		return
 	}
-	chatClientRef.Set(nil)
-	app.Dispatch(appAction{Type: appActionSetGRPCReady, GRPCReady: false})
-	postBackgroundWorkerTicker(markdownWorkerRef, backgroundWorkerCommandStopTicker)
-	chatLog.Warn("grpc unavailable", logging.Fields{"reason": reason})
+	parseChatClientRef.Set(nil)
+	parseApp.Dispatch(appAction{Type: appActionSetGRPCReady, GRPCReady: false})
+	parsePostBackgroundWorkerTicker(parseMarkdownWorkerRef, backgroundWorkerCommandStopTicker)
+	chatLog.Warn("grpc unavailable", logging.Fields{"reason": parseReason})
 }
 
-func postBackgroundWorkerTicker(markdownWorkerRef ui.Ref[*interop.Worker], command string) {
-	worker := markdownWorkerRef.Get()
-	if worker == nil {
+func parsePostBackgroundWorkerTicker(parseMarkdownWorkerRef ui.Ref[*interop.Worker], parseCommand string) {
+	parseWorker := parseMarkdownWorkerRef.Get()
+	if parseWorker == nil {
 		return
 	}
-	payload := map[string]any{}
-	if command == backgroundWorkerCommandStartTicker {
-		payload["intervalMs"] = int64(bgRefreshInterval / time.Millisecond)
+	parsePayload := map[string]any{}
+	if parseCommand == backgroundWorkerCommandStartTicker {
+		parsePayload["intervalMs"] = int64(bgRefreshInterval / time.Millisecond)
 	}
-	if err := worker.Post(interop.WorkerMessage{Phase: "message", Name: command, Payload: payload}); err != nil {
-		chatLog.Warn("background worker ticker command failed", logging.Fields{"error": err, "command": command})
+	if parseErr := parseWorker.Post(interop.WorkerMessage{Phase: "message", Name: parseCommand, Payload: parsePayload}); parseErr != nil {
+		chatLog.Warn("background worker ticker command failed", logging.Fields{"error": parseErr, "command": parseCommand})
 	}
 }
 
-func waitForWakeSignal(ctx context.Context, wakeCh <-chan string) (string, bool) {
+func parseWaitForWakeSignal(parseCtx context.Context, parseWakeCh <-chan string) (string, bool) {
 	for {
 		select {
-		case <-ctx.Done():
+		case <-parseCtx.Done():
 			return "", false
-		case reason := <-wakeCh:
-			if runtimeNavigatorOnline() {
-				return reason, true
+		case parseReason := <-parseWakeCh:
+			if parseRuntimeNavigatorOnline() {
+				return parseReason, true
 			}
 		}
 	}
 }
 
-func waitForReconnectDelay(ctx context.Context, delay time.Duration, wakeCh <-chan string, sleepCh <-chan string, reconnectCh <-chan string) string {
-	timer := time.NewTimer(delay)
-	defer timer.Stop()
+func parseWaitForReconnectDelay(parseCtx context.Context, parseDelay time.Duration, parseWakeCh <-chan string, parseSleepCh <-chan string, parseReconnectCh <-chan string) string {
+	parseTimer := time.NewTimer(parseDelay)
+	defer parseTimer.ParseStop()
 	select {
-	case <-ctx.Done():
+	case <-parseCtx.Done():
 		return "done"
-	case <-timer.C:
+	case <-parseTimer.C:
 		return "timer"
-	case <-sleepCh:
+	case <-parseSleepCh:
 		return "sleep"
-	case <-wakeCh:
+	case <-parseWakeCh:
 		return "wake"
-	case <-reconnectCh:
+	case <-parseReconnectCh:
 		return "reconnect"
 	}
 }
 
-func grpcReconnectDelay(attempt int) time.Duration {
-	delay := grpcBackoffBase
-	for i := 0; i < attempt; i++ {
-		delay *= 2
-		if delay >= grpcBackoffMax {
+func parseGrpcReconnectDelay(parseAttempt int) time.Duration {
+	parseDelay := grpcBackoffBase
+	for parseI := 0; parseI < parseAttempt; parseI++ {
+		parseDelay *= 2
+		if parseDelay >= grpcBackoffMax {
 			return grpcBackoffMax
 		}
 	}
-	if delay > grpcBackoffMax {
+	if parseDelay > grpcBackoffMax {
 		return grpcBackoffMax
 	}
-	return delay
+	return parseDelay
 }
 
-func runtimeNavigatorOnline() bool {
-	window := js.Global().Get("window")
-	if !window.Truthy() {
+func parseRuntimeNavigatorOnline() bool {
+	parseWindow := js.Global().Get("window")
+	if !parseWindow.Truthy() {
 		return true
 	}
-	navigator := window.Get("navigator")
-	if !navigator.Truthy() {
+	parseNavigator := parseWindow.Get("navigator")
+	if !parseNavigator.Truthy() {
 		return true
 	}
-	onLine := navigator.Get("onLine")
-	if onLine.Type() == js.TypeBoolean {
-		return onLine.Bool()
+	parseOnLine := parseNavigator.Get("onLine")
+	if parseOnLine.Type() == js.TypeBoolean {
+		return parseOnLine.Bool()
 	}
 	return true
 }
 
-func runtimePageVisible() bool {
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+func parseRuntimePageVisible() bool {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return true
 	}
-	return document.Get("visibilityState").String() != "hidden"
+	return parseDocument.Get("visibilityState").ParseString() != "hidden"
 }
 
-func attachWindowListener(window js.Value, eventName string, handler func()) func() {
-	if !window.Truthy() || window.Get("addEventListener").Type() != js.TypeFunction {
+func parseAttachWindowListener(parseWindow js.Value, parseEventName string, parseHandler func()) func() {
+	if !parseWindow.Truthy() || parseWindow.Get("addEventListener").Type() != js.TypeFunction {
 		return func() {}
 	}
-	listener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		handler()
+	parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseHandler()
 		return nil
 	})
-	window.Call("addEventListener", eventName, listener)
+	parseWindow.Call("addEventListener", parseEventName, parseListener)
 	return func() {
-		window.Call("removeEventListener", eventName, listener)
-		listener.Release()
+		parseWindow.Call("removeEventListener", parseEventName, parseListener)
+		parseListener.Release()
 	}
 }
 
-func attachDocumentListener(document js.Value, eventName string, handler func()) func() {
-	if !document.Truthy() || document.Get("addEventListener").Type() != js.TypeFunction {
+func parseAttachDocumentListener(parseDocument js.Value, parseEventName string, parseHandler func()) func() {
+	if !parseDocument.Truthy() || parseDocument.Get("addEventListener").Type() != js.TypeFunction {
 		return func() {}
 	}
-	listener := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		handler()
+	parseListener := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseHandler()
 		return nil
 	})
-	document.Call("addEventListener", eventName, listener)
+	parseDocument.Call("addEventListener", parseEventName, parseListener)
 	return func() {
-		document.Call("removeEventListener", eventName, listener)
-		listener.Release()
+		parseDocument.Call("removeEventListener", parseEventName, parseListener)
+		parseListener.Release()
 	}
 }
 
-func authContextWithMetadata(ctx context.Context) context.Context {
-	token := loadPersistedAuthToken()
-	if token == "" {
-		return ctx
+func parseAuthContextWithMetadata(parseCtx context.Context) context.Context {
+	parseToken := parseLoadPersistedAuthToken()
+	if parseToken == "" {
+		return parseCtx
 	}
-	return metadata.AppendToOutgoingContext(ctx, authMetadataKey, "Bearer "+token)
+	return metadata.AppendToOutgoingContext(parseCtx, authMetadataKey, "Bearer "+parseToken)
 }

@@ -55,28 +55,28 @@ func DisableDebug() {
 }
 
 // ConfigureDebugNamespace enables or disables debug logs for a specific namespace.
-func ConfigureDebugNamespace(namespace string, enabled bool) {
-	debugNamespaces[namespace] = enabled
+func ConfigureDebugNamespace(parseNamespace string, isEnabled bool) {
+	debugNamespaces[parseNamespace] = isEnabled
 }
 
 // ConfigureDebugNamespaces enables multiple namespaces at once.
-func ConfigureDebugNamespaces(namespaces map[string]bool) {
-	for ns, enabled := range namespaces {
-		debugNamespaces[ns] = enabled
+func ConfigureDebugNamespaces(parseNamespaces map[string]bool) {
+	for parseNs, parseEnabled := range parseNamespaces {
+		debugNamespaces[parseNs] = parseEnabled
 	}
 }
 
 // ConfigureDebugNamespacesExclusive disables global debug and only enables specified namespaces.
-func ConfigureDebugNamespacesExclusive(namespaces map[string]bool) {
+func ConfigureDebugNamespacesExclusive(parseNamespaces map[string]bool) {
 	// Disable global debug first
 	debugEnabled = false
 	// Clear existing namespace settings efficiently without creating new map
-	for k := range debugNamespaces {
-		delete(debugNamespaces, k)
+	for parseK := range debugNamespaces {
+		delete(debugNamespaces, parseK)
 	}
 	// Set only the specified namespaces
-	for ns, enabled := range namespaces {
-		debugNamespaces[ns] = enabled
+	for parseNs, parseEnabled := range parseNamespaces {
+		debugNamespaces[parseNs] = parseEnabled
 	}
 }
 
@@ -88,7 +88,7 @@ func ConfigureDebugNamespacesExclusive(namespaces map[string]bool) {
 // 2. Conditional compilation support via build tags
 // 3. Efficient namespace lookup with map access
 // 4. Deferred string formatting until actually needed
-func debugf(namespace, format string, a ...interface{}) {
+func debugf(parseNamespace, format string, parseA ...interface{}) {
 	// Ultra-fast path: compile-time optimization for production builds
 	// When built with -tags=production, debug calls become no-ops
 	if !isDebugBuild() {
@@ -97,19 +97,19 @@ func debugf(namespace, format string, a ...interface{}) {
 
 	// Fast path: runtime check if debug is enabled before any string operations
 	// This avoids expensive fmt.Sprintf calls when debug is disabled
-	if !debugEnabled && !debugNamespaces[namespace] {
+	if !debugEnabled && !debugNamespaces[parseNamespace] {
 		return
 	}
 
 	// Only perform expensive string formatting when debug is actually enabled
 	// This reduces CPU overhead by 2-8% in production when debug is disabled
 	// Optimized string concatenation for debug output
-	var output strings.Builder
-	output.WriteByte('[')
-	output.WriteString(namespace)
-	output.WriteString("] ")
-	output.WriteString(fmt.Sprintf(format, a...))
-	fmt.Print(output.String())
+	var parseOutput strings.Builder
+	parseOutput.WriteByte('[')
+	parseOutput.WriteString(parseNamespace)
+	parseOutput.WriteString("] ")
+	parseOutput.WriteString(fmt.Sprintf(format, parseA...))
+	fmt.Print(parseOutput.String())
 }
 
 // isDebugBuild returns true if this is a debug build
@@ -126,11 +126,11 @@ var memStatsSampleRate int64 = 100 // Collect stats every N calls (configurable)
 // ConfigureMemStatsSampleRate configures how often memory stats are collected.
 // Higher values = less frequent collection = better performance.
 // Lower values = more frequent collection = more detailed monitoring.
-func ConfigureMemStatsSampleRate(rate int64) {
-	if rate <= 0 {
-		rate = 1 // Minimum sample rate
+func ConfigureMemStatsSampleRate(parseRate int64) {
+	if parseRate <= 0 {
+		parseRate = 1 // Minimum sample rate
 	}
-	atomic.StoreInt64(&memStatsSampleRate, rate)
+	atomic.StoreInt64(&memStatsSampleRate, parseRate)
 }
 
 // GetMemStatsSampleRate returns the current memory stats sample rate
@@ -147,8 +147,8 @@ func EnableAllDebug() {
 func DisableAllDebug() {
 	DisableDebug()
 	// Clear namespace-specific settings efficiently without creating new map
-	for k := range debugNamespaces {
-		delete(debugNamespaces, k)
+	for parseK := range debugNamespaces {
+		delete(debugNamespaces, parseK)
 	}
 }
 
@@ -159,20 +159,20 @@ func WaitForever() {
 
 // GetDebugStatus returns current debug settings
 func GetDebugStatus() map[string]bool {
-	status := make(map[string]bool)
-	status["global"] = debugEnabled
-	status["hotReload"] = hotreload.IsEnabled()
-	for ns, enabled := range debugNamespaces {
-		status[ns] = enabled
+	parseStatus := make(map[string]bool)
+	parseStatus["global"] = debugEnabled
+	parseStatus["hotReload"] = hotreload.IsEnabled()
+	for parseNs, parseEnabled := range debugNamespaces {
+		parseStatus[parseNs] = parseEnabled
 	}
-	return status
+	return parseStatus
 }
 
 // EnableHotReload is a compatibility wrapper around the hotreload package.
 // New code should prefer hotreload.Enable() or hotreload.Disable().
-func EnableHotReload(enabled bool) {
-	debugf("UTILS", "🔥 EnableHotReload: hot reload %s\n", map[bool]string{true: "enabled", false: "disabled"}[enabled])
-	if enabled {
+func EnableHotReload(isEnabled bool) {
+	debugf("UTILS", "🔥 EnableHotReload: hot reload %s\n", map[bool]string{true: "enabled", false: "disabled"}[isEnabled])
+	if isEnabled {
 		hotreload.Enable()
 		return
 	}
@@ -187,8 +187,8 @@ func IsHotReloadEnabled() bool {
 // InstallHotReloadBridge is a compatibility wrapper around
 // hotreload.Configure(hotreload.Config{AtomIDs: ...}).
 // New code should prefer the hotreload package directly.
-func InstallHotReloadBridge(atomIDs ...string) {
-	hotreload.Configure(hotreload.Config{AtomIDs: atomIDs})
+func InstallHotReloadBridge(parseAtomIDs ...string) {
+	hotreload.Configure(hotreload.Config{AtomIDs: parseAtomIDs})
 }
 
 // EnableGoroutineMonitoring starts monitoring for potential goroutine leaks
@@ -206,15 +206,15 @@ func EnableGoroutineMonitoring() {
 
 	// Start monitoring goroutine in background
 	go func() {
-		ticker := time.NewTicker(goroutineCheckInterval)
-		defer ticker.Stop()
+		parseTicker := time.NewTicker(goroutineCheckInterval)
+		defer parseTicker.Stop()
 
 		for {
 			select {
 			case <-goroutineMonitorContext.Done():
 				debugf("UTILS", "🛑 EnableGoroutineMonitoring: monitoring stopped\n")
 				return
-			case <-ticker.C:
+			case <-parseTicker.C:
 				checkGoroutineLeaks()
 			}
 		}
@@ -233,22 +233,22 @@ func DisableGoroutineMonitoring() {
 
 // checkGoroutineLeaks monitors goroutine count and detects potential leaks
 func checkGoroutineLeaks() {
-	currentCount := runtime.NumGoroutine()
-	growth := currentCount - baselineGoroutineCount
+	parseCurrentCount := runtime.NumGoroutine()
+	parseGrowth := parseCurrentCount - baselineGoroutineCount
 
-	if currentCount > maxGoroutineThreshold {
+	if parseCurrentCount > maxGoroutineThreshold {
 		atomic.AddInt64(&goroutineLeakDetected, 1)
 		debugf("UTILS", "🚨 checkGoroutineLeaks: HIGH goroutine count detected: %d (baseline: %d, growth: +%d)\n",
-			currentCount, baselineGoroutineCount, growth)
+			parseCurrentCount, baselineGoroutineCount, parseGrowth)
 
 		// Trigger aggressive cleanup
 		triggerGoroutineCleanup()
-	} else if growth > 50 {
+	} else if parseGrowth > 50 {
 		debugf("UTILS", "⚠️ checkGoroutineLeaks: elevated goroutine count: %d (baseline: %d, growth: +%d)\n",
-			currentCount, baselineGoroutineCount, growth)
+			parseCurrentCount, baselineGoroutineCount, parseGrowth)
 	} else {
 		debugf("UTILS", "✅ checkGoroutineLeaks: normal goroutine count: %d (baseline: %d, growth: +%d)\n",
-			currentCount, baselineGoroutineCount, growth)
+			parseCurrentCount, baselineGoroutineCount, parseGrowth)
 	}
 }
 
@@ -261,137 +261,137 @@ func triggerGoroutineCleanup() {
 
 	// Wait a moment for cleanup to take effect
 	time.Sleep(100 * time.Millisecond)
-	newCount := runtime.NumGoroutine()
-	debugf("UTILS", "🧹 triggerGoroutineCleanup: goroutine count after cleanup: %d\n", newCount)
+	parseNewCount := runtime.NumGoroutine()
+	debugf("UTILS", "🧹 triggerGoroutineCleanup: goroutine count after cleanup: %d\n", parseNewCount)
 
 	// Note: Specific cleanup functions (CancelAllEventCallbacks, CancelAllFetchOperations, etc.)
 	// should be called directly by the application when needed to avoid circular dependencies
 }
 
 // ConfigureGoroutineThreshold configures the threshold for goroutine leak detection.
-func ConfigureGoroutineThreshold(threshold int) {
-	if threshold <= 0 {
-		threshold = 1000 // Default fallback
+func ConfigureGoroutineThreshold(parseThreshold int) {
+	if parseThreshold <= 0 {
+		parseThreshold = 1000 // Default fallback
 	}
-	maxGoroutineThreshold = threshold
-	debugf("UTILS", "🔍 ConfigureGoroutineThreshold: set to %d\n", threshold)
+	maxGoroutineThreshold = parseThreshold
+	debugf("UTILS", "🔍 ConfigureGoroutineThreshold: set to %d\n", parseThreshold)
 }
 
 // GetGoroutineStats returns current goroutine statistics
 func GetGoroutineStats() map[string]int64 {
-	current := int64(runtime.NumGoroutine())
-	baseline := int64(baselineGoroutineCount)
-	growth := current - baseline
-	leakCount := atomic.LoadInt64(&goroutineLeakDetected)
+	parseCurrent := int64(runtime.NumGoroutine())
+	parseBaseline := int64(baselineGoroutineCount)
+	parseGrowth := parseCurrent - parseBaseline
+	parseLeakCount := atomic.LoadInt64(&goroutineLeakDetected)
 
 	return map[string]int64{
-		"current":       current,
-		"baseline":      baseline,
-		"growth":        growth,
+		"current":       parseCurrent,
+		"baseline":      parseBaseline,
+		"growth":        parseGrowth,
 		"threshold":     int64(maxGoroutineThreshold),
-		"leaksDetected": leakCount,
+		"leaksDetected": parseLeakCount,
 	}
 }
 
 // ResetGoroutineBaseline resets the baseline goroutine count to current count
 // This is useful after major application state changes
 func ResetGoroutineBaseline() {
-	oldBaseline := baselineGoroutineCount
+	parseOldBaseline := baselineGoroutineCount
 	baselineGoroutineCount = runtime.NumGoroutine()
-	debugf("UTILS", "🔄 ResetGoroutineBaseline: reset from %d to %d\n", oldBaseline, baselineGoroutineCount)
+	debugf("UTILS", "🔄 ResetGoroutineBaseline: reset from %d to %d\n", parseOldBaseline, baselineGoroutineCount)
 }
 
 // WriteConsole wraps the browser console for easier debugging.
-func WriteConsole(format string, args ...interface{}) {
-	msg := fmt.Sprintf(format, args...)
-	WriteConsoleStructured("log", "", msg, nil)
+func WriteConsole(format string, parseArgs ...interface{}) {
+	parseMsg := fmt.Sprintf(format, parseArgs...)
+	WriteConsoleStructured("log", "", parseMsg, nil)
 }
 
 // WriteConsoleStructured writes a structured entry to the browser console when available.
-func WriteConsoleStructured(level, scope, message string, fields map[string]interface{}) {
-	normalizedLevel := strings.ToLower(strings.TrimSpace(level))
-	if normalizedLevel == "" {
-		normalizedLevel = "log"
+func WriteConsoleStructured(parseLevel, parseScope, parseMessage string, parseFields map[string]interface{}) {
+	parseNormalizedLevel := strings.ToLower(strings.TrimSpace(parseLevel))
+	if parseNormalizedLevel == "" {
+		parseNormalizedLevel = "log"
 	}
 
-	global, err := interop.GetGlobalThis()
-	if err != nil {
-		consoleFallback(normalizedLevel, scope, message, fields)
+	parseGlobal, parseErr := interop.GetGlobalThis()
+	if parseErr != nil {
+		consoleFallback(parseNormalizedLevel, parseScope, parseMessage, parseFields)
 		return
 	}
-	console := global.Get("console")
-	if !console.Present() {
-		consoleFallback(normalizedLevel, scope, message, fields)
+	parseConsole := parseGlobal.Get("console")
+	if !parseConsole.Present() {
+		consoleFallback(parseNormalizedLevel, parseScope, parseMessage, parseFields)
 		return
 	}
 
-	entry := map[string]interface{}{"message": message}
-	if scope != "" {
-		entry["scope"] = scope
+	parseEntry := map[string]interface{}{"message": parseMessage}
+	if parseScope != "" {
+		parseEntry["scope"] = parseScope
 	}
-	for key, value := range fields {
-		entry[key] = value
+	for parseKey, parseValue := range parseFields {
+		parseEntry[parseKey] = parseValue
 	}
-	if _, err := console.Call(normalizedLevel, entry); err == nil {
+	if _, parseErr2 := parseConsole.Call(parseNormalizedLevel, parseEntry); parseErr2 == nil {
 		return
 	}
-	consoleFallback(normalizedLevel, scope, message, fields)
+	consoleFallback(parseNormalizedLevel, parseScope, parseMessage, parseFields)
 }
 
 // ResolveDocumentURL resolves a relative asset path against the current document URL.
-func ResolveDocumentURL(relative string) string {
-	if strings.TrimSpace(relative) == "" {
+func ResolveDocumentURL(parseRelative string) string {
+	if strings.TrimSpace(parseRelative) == "" {
 		return ""
 	}
 
-	global, err := interop.GetGlobalThis()
-	if err != nil {
-		return relative
+	parseGlobal, parseErr := interop.GetGlobalThis()
+	if parseErr != nil {
+		return parseRelative
 	}
 
-	base := ""
-	document := global.Get("document")
-	if document.Present() {
-		baseURI := document.Get("baseURI")
-		if baseURI.Present() {
-			base = strings.TrimSpace(baseURI.String())
+	parseBase := ""
+	parseDocument := parseGlobal.Get("document")
+	if parseDocument.Present() {
+		parseBaseURI := parseDocument.Get("baseURI")
+		if parseBaseURI.Present() {
+			parseBase = strings.TrimSpace(parseBaseURI.String())
 		}
 	}
-	if base == "" {
-		window := global.Get("window")
-		if window.Present() {
-			location := window.Get("location")
-			if location.Present() {
-				href := location.Get("href")
-				if href.Present() {
-					base = strings.TrimSpace(href.String())
+	if parseBase == "" {
+		parseWindow := parseGlobal.Get("window")
+		if parseWindow.Present() {
+			parseLocation := parseWindow.Get("location")
+			if parseLocation.Present() {
+				parseHref := parseLocation.Get("href")
+				if parseHref.Present() {
+					parseBase = strings.TrimSpace(parseHref.String())
 				}
 			}
 		}
 	}
-	if base == "" {
-		return relative
+	if parseBase == "" {
+		return parseRelative
 	}
 
-	baseURL, err := url.Parse(base)
-	if err != nil {
-		return relative
+	parseBaseURL, parseErr := url.Parse(parseBase)
+	if parseErr != nil {
+		return parseRelative
 	}
-	relativeURL, err := url.Parse(relative)
-	if err != nil {
-		return relative
+	parseRelativeURL, parseErr := url.Parse(parseRelative)
+	if parseErr != nil {
+		return parseRelative
 	}
-	return baseURL.ResolveReference(relativeURL).String()
+	return parseBaseURL.ResolveReference(parseRelativeURL).String()
 }
 
-func consoleFallback(level, scope, message string, fields map[string]interface{}) {
-	prefix := ""
-	if scope != "" {
-		prefix = "[" + scope + "] "
+func consoleFallback(parseLevel, parseScope, parseMessage string, parseFields map[string]interface{}) {
+	parsePrefix := ""
+	if parseScope != "" {
+		parsePrefix = "[" + parseScope + "] "
 	}
-	if len(fields) == 0 {
-		fmt.Printf("%s%s: %s\n", prefix, strings.ToUpper(level), message)
+	if len(parseFields) == 0 {
+		fmt.Printf("%s%s: %s\n", parsePrefix, strings.ToUpper(parseLevel), parseMessage)
 		return
 	}
-	fmt.Printf("%s%s: %s %v\n", prefix, strings.ToUpper(level), message, fields)
+	fmt.Printf("%s%s: %s %v\n", parsePrefix, strings.ToUpper(parseLevel), parseMessage, parseFields)
 }

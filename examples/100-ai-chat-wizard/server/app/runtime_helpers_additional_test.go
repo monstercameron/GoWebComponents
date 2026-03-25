@@ -9,21 +9,21 @@ import (
 	"testing"
 )
 
-func TestRuntimeConfigHelperBranches(t *testing.T) {
-	if loaded := loadFirstDotEnv(func(path string) error {
-		if path == "second.env" {
+func TestRuntimeConfigHelperBranches(parseT *testing.T) {
+	if parseLoaded := parseLoadFirstDotEnv(func(parsePath string) error {
+		if parsePath == "second.env" {
 			return nil
 		}
 		return os.ErrNotExist
-	}, []string{"first.env", "second.env", "third.env"}); loaded != "second.env" {
-		t.Fatalf("loadFirstDotEnv() = %q, want second.env", loaded)
+	}, []string{"first.env", "second.env", "third.env"}); parseLoaded != "second.env" {
+		parseT.Fatalf("loadFirstDotEnv() = %q, want second.env", parseLoaded)
 	}
-	if loaded := loadFirstDotEnv(func(string) error { return os.ErrNotExist }, []string{"missing.env"}); loaded != "" {
-		t.Fatalf("loadFirstDotEnv() = %q, want empty string", loaded)
+	if parseLoaded2 := parseLoadFirstDotEnv(func(string) error { return os.ErrNotExist }, []string{"missing.env"}); parseLoaded2 != "" {
+		parseT.Fatalf("loadFirstDotEnv() = %q, want empty string", parseLoaded2)
 	}
 
-	config := readServerRuntimeConfig(func(key string) string {
-		switch key {
+	parseConfig := parseReadServerRuntimeConfig(func(parseKey string) string {
+		switch parseKey {
 		case "OPENAI_API_KEY":
 			return " openai-key "
 		case "ANTHROPIC_API_KEY":
@@ -46,58 +46,58 @@ func TestRuntimeConfigHelperBranches(t *testing.T) {
 			return ""
 		}
 	})
-	if config.openAIAPIKey != "openai-key" || config.anthropicAPIKey != "anthropic-key" || config.cerebrasAPIKey != "cerebras-key" {
-		t.Fatalf("unexpected API key config: %+v", config)
+	if parseConfig.openAIAPIKey != "openai-key" || parseConfig.anthropicAPIKey != "anthropic-key" || parseConfig.cerebrasAPIKey != "cerebras-key" {
+		parseT.Fatalf("unexpected API key config: %+v", parseConfig)
 	}
-	if got := strings.Join(config.stubProviders, ","); got != "openai,anthropic,cerebras" {
-		t.Fatalf("stubProviders = %q, want openai,anthropic,cerebras", got)
+	if parseGot := strings.Join(parseConfig.stubProviders, ","); parseGot != "openai,anthropic,cerebras" {
+		parseT.Fatalf("stubProviders = %q, want openai,anthropic,cerebras", parseGot)
 	}
-	if config.defaultModel != "gpt-5.4-mini" || config.addr != "0.0.0.0:9000" || config.dbPath != "runtime/chat.db" || config.authSecret != "secret" || config.usagePremiumPct != 6.25 {
-		t.Fatalf("unexpected runtime config: %+v", config)
+	if parseConfig.defaultModel != "gpt-5.4-mini" || parseConfig.addr != "0.0.0.0:9000" || parseConfig.dbPath != "runtime/chat.db" || parseConfig.authSecret != "secret" || parseConfig.usagePremiumPct != 6.25 {
+		parseT.Fatalf("unexpected runtime config: %+v", parseConfig)
 	}
 
-	defaults := readServerRuntimeConfig(func(key string) string {
-		if key == "OPENAI_MODEL" {
+	parseDefaults := parseReadServerRuntimeConfig(func(parseKey2 string) string {
+		if parseKey2 == "OPENAI_MODEL" {
 			return " gpt-5.4 "
 		}
 		return ""
 	})
-	if defaults.defaultModel != "gpt-5.4" {
-		t.Fatalf("default model fallback = %q, want gpt-5.4", defaults.defaultModel)
+	if parseDefaults.defaultModel != "gpt-5.4" {
+		parseT.Fatalf("default model fallback = %q, want gpt-5.4", parseDefaults.defaultModel)
 	}
-	if defaults.addr != "127.0.0.1:8095" {
-		t.Fatalf("default addr = %q, want 127.0.0.1:8095", defaults.addr)
+	if parseDefaults.addr != "127.0.0.1:8095" {
+		parseT.Fatalf("default addr = %q, want 127.0.0.1:8095", parseDefaults.addr)
 	}
-	if defaults.dbPath != "examples/100-ai-chat-wizard/bin/runtime/chat_history.db" {
-		t.Fatalf("default dbPath = %q", defaults.dbPath)
+	if parseDefaults.dbPath != "examples/100-ai-chat-wizard/bin/runtime/chat_history.db" {
+		parseT.Fatalf("default dbPath = %q", parseDefaults.dbPath)
 	}
-	if defaults.usagePremiumPct != 5 {
-		t.Fatalf("default usage premium pct = %.2f, want 5.00", defaults.usagePremiumPct)
+	if parseDefaults.usagePremiumPct != 5 {
+		parseT.Fatalf("default usage premium pct = %.2f, want 5.00", parseDefaults.usagePremiumPct)
 	}
 
-	if got := splitAndTrim(" one, two ,, three "); strings.Join(got, "|") != "one|two|three" {
-		t.Fatalf("splitAndTrim() = %q, want one|two|three", strings.Join(got, "|"))
+	if parseGot2 := parseSplitAndTrim(" one, two ,, three "); strings.Join(parseGot2, "|") != "one|two|three" {
+		parseT.Fatalf("splitAndTrim() = %q, want one|two|three", strings.Join(parseGot2, "|"))
 	}
-	if got := splitAndTrim("   "); got != nil {
-		t.Fatalf("splitAndTrim(blank) = %#v, want nil", got)
+	if parseGot3 := parseSplitAndTrim("   "); parseGot3 != nil {
+		parseT.Fatalf("splitAndTrim(blank) = %#v, want nil", parseGot3)
 	}
-	if got := parseUsagePremiumPercent("12.5", 5); got != 12.5 {
-		t.Fatalf("parseUsagePremiumPercent(valid) = %.2f, want 12.50", got)
+	if parseGot4 := parseUsagePremiumPercent("12.5", 5); parseGot4 != 12.5 {
+		parseT.Fatalf("parseUsagePremiumPercent(valid) = %.2f, want 12.50", parseGot4)
 	}
-	if got := parseUsagePremiumPercent("-2", 5); got != 5 {
-		t.Fatalf("parseUsagePremiumPercent(negative) = %.2f, want fallback 5.00", got)
+	if parseGot5 := parseUsagePremiumPercent("-2", 5); parseGot5 != 5 {
+		parseT.Fatalf("parseUsagePremiumPercent(negative) = %.2f, want fallback 5.00", parseGot5)
 	}
-	if got := parseUsagePremiumPercent("oops", 5); got != 5 {
-		t.Fatalf("parseUsagePremiumPercent(invalid) = %.2f, want fallback 5.00", got)
+	if parseGot6 := parseUsagePremiumPercent("oops", 5); parseGot6 != 5 {
+		parseT.Fatalf("parseUsagePremiumPercent(invalid) = %.2f, want fallback 5.00", parseGot6)
 	}
-	if got := parseUsagePremiumPercent("5000", 5); got != 1000 {
-		t.Fatalf("parseUsagePremiumPercent(clamped) = %.2f, want 1000.00", got)
+	if parseGot7 := parseUsagePremiumPercent("5000", 5); parseGot7 != 1000 {
+		parseT.Fatalf("parseUsagePremiumPercent(clamped) = %.2f, want 1000.00", parseGot7)
 	}
 }
 
-func TestChatShellRoutingHelpers(t *testing.T) {
-	t.Run("shouldServeClientShell", func(t *testing.T) {
-		cases := map[string]bool{
+func TestChatShellRoutingHelpers(parseT *testing.T) {
+	parseT.Run("shouldServeClientShell", func(parseT2 *testing.T) {
+		parseCases := map[string]bool{
 			"":                   true,
 			"/":                  true,
 			"/app":               true,
@@ -115,138 +115,138 @@ func TestChatShellRoutingHelpers(t *testing.T) {
 			"/images/logo.svg":   false,
 			"/unknown/deep/link": false,
 		}
-		for path, want := range cases {
-			if got := shouldServeClientShell(path); got != want {
-				t.Fatalf("shouldServeClientShell(%q) = %v, want %v", path, got, want)
+		for parsePath, parseWant := range parseCases {
+			if parseGot := shouldServeClientShell(parsePath); parseGot != parseWant {
+				parseT2.Fatalf("shouldServeClientShell(%q) = %v, want %v", parsePath, parseGot, parseWant)
 			}
 		}
 	})
 
-	t.Run("cloneRequestWithPath", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "http://example.com/old/path?br=true", nil)
-		cloned := cloneRequestWithPath(req, "/app/chat.wasm")
-		if cloned == req {
-			t.Fatal("expected cloneRequestWithPath to return a cloned request")
+	parseT.Run("cloneRequestWithPath", func(parseT3 *testing.T) {
+		parseReq := httptest.NewRequest(http.MethodGet, "http://example.com/old/path?br=true", nil)
+		parseCloned := parseCloneRequestWithPath(parseReq, "/app/chat.wasm")
+		if parseCloned == parseReq {
+			parseT3.Fatal("expected cloneRequestWithPath to return a cloned request")
 		}
-		if cloned.URL.Path != "/app/chat.wasm" || cloned.URL.RawPath != "/app/chat.wasm" {
-			t.Fatalf("unexpected cloned path: %q raw=%q", cloned.URL.Path, cloned.URL.RawPath)
+		if parseCloned.URL.Path != "/app/chat.wasm" || parseCloned.URL.RawPath != "/app/chat.wasm" {
+			parseT3.Fatalf("unexpected cloned path: %q raw=%q", parseCloned.URL.Path, parseCloned.URL.RawPath)
 		}
-		if cloned.RequestURI != "/app/chat.wasm?br=true" {
-			t.Fatalf("unexpected RequestURI: %q", cloned.RequestURI)
+		if parseCloned.RequestURI != "/app/chat.wasm?br=true" {
+			parseT3.Fatalf("unexpected RequestURI: %q", parseCloned.RequestURI)
 		}
-		if req.URL.Path != "/old/path" {
-			t.Fatalf("expected original request path to remain unchanged, got %q", req.URL.Path)
+		if parseReq.URL.Path != "/old/path" {
+			parseT3.Fatalf("expected original request path to remain unchanged, got %q", parseReq.URL.Path)
 		}
 	})
 
-	t.Run("chatShellHandler", func(t *testing.T) {
-		var servedPaths []string
-		fileServer := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			servedPaths = append(servedPaths, r.URL.Path)
-			_, _ = w.Write([]byte("file:" + r.URL.Path))
+	parseT.Run("chatShellHandler", func(parseT4 *testing.T) {
+		var parseServedPaths []string
+		parseFileServer := http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+			parseServedPaths = append(parseServedPaths, parseR.URL.Path)
+			_, _ = parseW.Write([]byte("file:" + parseR.URL.Path))
 		})
-		handler := chatShellHandler(fileServer)
+		parseHandler := parseChatShellHandler(parseFileServer)
 
-		bootstrapWriter := httptest.NewRecorder()
+		parseBootstrapWriter := httptest.NewRecorder()
 		setChatUsagePremiumPercent(8.25)
-		handler.ServeHTTP(bootstrapWriter, httptest.NewRequest(http.MethodGet, "http://example.com/chat-bootstrap.js", nil))
-		if !strings.Contains(bootstrapWriter.Body.String(), "loadChatWasm") {
-			t.Fatalf("expected bootstrap route to serve JS, got %q", bootstrapWriter.Body.String())
+		parseHandler.ServeHTTP(parseBootstrapWriter, httptest.NewRequest(http.MethodGet, "http://example.com/chat-bootstrap.js", nil))
+		if !strings.Contains(parseBootstrapWriter.Body.ParseString(), "loadChatWasm") {
+			parseT4.Fatalf("expected bootstrap route to serve JS, got %q", parseBootstrapWriter.Body.ParseString())
 		}
-		if !strings.Contains(bootstrapWriter.Body.String(), "window.__relaydesk_usage_premium_percent = 8.250000;") {
-			t.Fatalf("expected bootstrap route to include usage premium percent, got %q", bootstrapWriter.Body.String())
-		}
-
-		assetWriter := httptest.NewRecorder()
-		handler.ServeHTTP(assetWriter, httptest.NewRequest(http.MethodGet, "http://example.com/chat.wasm?br=true", nil))
-		if len(servedPaths) == 0 || servedPaths[0] != "/app/chat.wasm" {
-			t.Fatalf("rewritten file server path = %#v, want /app/chat.wasm", servedPaths)
+		if !strings.Contains(parseBootstrapWriter.Body.ParseString(), "window.__relaydesk_usage_premium_percent = 8.250000;") {
+			parseT4.Fatalf("expected bootstrap route to include usage premium percent, got %q", parseBootstrapWriter.Body.ParseString())
 		}
 
-		shellWriter := httptest.NewRecorder()
-		handler.ServeHTTP(shellWriter, httptest.NewRequest(http.MethodGet, "http://example.com/thread/42", nil))
-		if !strings.Contains(shellWriter.Body.String(), "chat-bootstrap.js") {
-			t.Fatalf("expected shell route to return app shell, got %q", shellWriter.Body.String())
+		parseAssetWriter := httptest.NewRecorder()
+		parseHandler.ServeHTTP(parseAssetWriter, httptest.NewRequest(http.MethodGet, "http://example.com/chat.wasm?br=true", nil))
+		if len(parseServedPaths) == 0 || parseServedPaths[0] != "/app/chat.wasm" {
+			parseT4.Fatalf("rewritten file server path = %#v, want /app/chat.wasm", parseServedPaths)
 		}
 
-		staticWriter := httptest.NewRecorder()
-		handler.ServeHTTP(staticWriter, httptest.NewRequest(http.MethodGet, "http://example.com/static/app.css", nil))
-		if len(servedPaths) < 2 || servedPaths[1] != "/static/app.css" {
-			t.Fatalf("fallback file server path = %#v, want /static/app.css", servedPaths)
+		parseShellWriter := httptest.NewRecorder()
+		parseHandler.ServeHTTP(parseShellWriter, httptest.NewRequest(http.MethodGet, "http://example.com/thread/42", nil))
+		if !strings.Contains(parseShellWriter.Body.ParseString(), "chat-bootstrap.js") {
+			parseT4.Fatalf("expected shell route to return app shell, got %q", parseShellWriter.Body.ParseString())
+		}
+
+		parseStaticWriter := httptest.NewRecorder()
+		parseHandler.ServeHTTP(parseStaticWriter, httptest.NewRequest(http.MethodGet, "http://example.com/static/app.css", nil))
+		if len(parseServedPaths) < 2 || parseServedPaths[1] != "/static/app.css" {
+			parseT4.Fatalf("fallback file server path = %#v, want /static/app.css", parseServedPaths)
 		}
 	})
 }
 
-func TestChatBootstrapLoaderTracksDownloadPhase(t *testing.T) {
+func TestChatBootstrapLoaderTracksDownloadPhase(parseT *testing.T) {
 	if !strings.Contains(chatShellHTML, `id="boot-heading"`) {
-		t.Fatal("expected boot shell html to expose a dynamic heading target")
+		parseT.Fatal("expected boot shell html to expose a dynamic heading target")
 	}
 	if !strings.Contains(chatShellHTML, `id="boot-stage"`) {
-		t.Fatal("expected boot shell html to expose a dynamic stage target")
+		parseT.Fatal("expected boot shell html to expose a dynamic stage target")
 	}
 	if !strings.Contains(chatShellHTML, `id="boot-detail"`) {
-		t.Fatal("expected boot shell html to expose a dynamic detail target")
+		parseT.Fatal("expected boot shell html to expose a dynamic detail target")
 	}
 	if !strings.Contains(chatShellHTML, `id="boot-fin-label"`) || !strings.Contains(chatShellHTML, `id="boot-fin-heading"`) {
-		t.Fatal("expected boot shell html to expose finalizing text targets")
+		parseT.Fatal("expected boot shell html to expose finalizing text targets")
 	}
 	if !strings.Contains(chatBootstrapJS, `bootProgressFill.classList.toggle('is-indeterminate', isIndeterminate);`) {
-		t.Fatal("expected bootstrap js to toggle the indeterminate progress state")
+		parseT.Fatal("expected bootstrap js to toggle the indeterminate progress state")
 	}
 	if !strings.Contains(chatBootstrapJS, `bootShell.classList.toggle('is-finalizing', isFinalizing);`) {
-		t.Fatal("expected bootstrap js to gate finalizing separately from indeterminate loading")
+		parseT.Fatal("expected bootstrap js to gate finalizing separately from indeterminate loading")
 	}
 	if !strings.Contains(chatBootstrapJS, `setBootText('boot-heading', statusText);`) {
-		t.Fatal("expected bootstrap js to update the boot heading text")
+		parseT.Fatal("expected bootstrap js to update the boot heading text")
 	}
 	if !strings.Contains(chatBootstrapJS, `setBootText('boot-detail', detailText);`) {
-		t.Fatal("expected bootstrap js to update the boot detail text")
+		parseT.Fatal("expected bootstrap js to update the boot detail text")
 	}
 	if !strings.Contains(chatBootstrapJS, `setBootText('boot-fin-heading', statusText);`) {
-		t.Fatal("expected bootstrap js to update the finalizing heading text")
+		parseT.Fatal("expected bootstrap js to update the finalizing heading text")
 	}
 }
 
-func TestResolveStaticDirectoriesAndLoadStoreQueries(t *testing.T) {
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Getwd: %v", err)
+func TestResolveStaticDirectoriesAndLoadStoreQueries(parseT *testing.T) {
+	parseWd, parseErr := os.Getwd()
+	if parseErr != nil {
+		parseT.Fatalf("Getwd: %v", parseErr)
 	}
-	tempDir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempDir, "examples", "100-ai-chat-wizard", "bin", "client"), 0o755); err != nil {
-		t.Fatalf("MkdirAll client dir: %v", err)
+	parseTempDir := parseT.TempDir()
+	if parseErr2 := os.MkdirAll(filepath.Join(parseTempDir, "examples", "100-ai-chat-wizard", "bin", "client"), 0o755); parseErr2 != nil {
+		parseT.Fatalf("MkdirAll client dir: %v", parseErr2)
 	}
-	if err := os.MkdirAll(filepath.Join(tempDir, "examples", "static"), 0o755); err != nil {
-		t.Fatalf("MkdirAll static dir: %v", err)
+	if parseErr3 := os.MkdirAll(filepath.Join(parseTempDir, "examples", "static"), 0o755); parseErr3 != nil {
+		parseT.Fatalf("MkdirAll static dir: %v", parseErr3)
 	}
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatalf("Chdir temp dir: %v", err)
+	if parseErr4 := os.Chdir(parseTempDir); parseErr4 != nil {
+		parseT.Fatalf("Chdir temp dir: %v", parseErr4)
 	}
 	defer func() {
-		if chdirErr := os.Chdir(wd); chdirErr != nil {
-			t.Fatalf("restore cwd: %v", chdirErr)
+		if parseChdirErr := os.Chdir(parseWd); parseChdirErr != nil {
+			parseT.Fatalf("restore cwd: %v", parseChdirErr)
 		}
 	}()
 
-	clientDir, sharedDir := resolveStaticDirectories()
-	if clientDir != "examples/100-ai-chat-wizard/bin/client" {
-		t.Fatalf("clientDir = %q, want examples/100-ai-chat-wizard/bin/client", clientDir)
+	parseClientDir, parseSharedDir := parseResolveStaticDirectories()
+	if parseClientDir != "examples/100-ai-chat-wizard/bin/client" {
+		parseT.Fatalf("clientDir = %q, want examples/100-ai-chat-wizard/bin/client", parseClientDir)
 	}
-	if sharedDir != "examples/static" {
-		t.Fatalf("sharedDir = %q, want examples/static", sharedDir)
+	if parseSharedDir != "examples/static" {
+		parseT.Fatalf("sharedDir = %q, want examples/static", parseSharedDir)
 	}
 
-	queries, err := loadStoreQueries()
-	if err != nil {
-		t.Fatalf("loadStoreQueries: %v", err)
+	parseQueries, parseErr := parseLoadStoreQueries()
+	if parseErr != nil {
+		parseT.Fatalf("loadStoreQueries: %v", parseErr)
 	}
-	if !strings.Contains(strings.ToUpper(queries.schema), "CREATE TABLE") {
-		t.Fatalf("schema query missing CREATE TABLE: %q", queries.schema)
+	if !strings.Contains(strings.ToUpper(parseQueries.schema), "CREATE TABLE") {
+		parseT.Fatalf("schema query missing CREATE TABLE: %q", parseQueries.schema)
 	}
-	if !strings.Contains(strings.ToUpper(queries.createUser), "INSERT") {
-		t.Fatalf("createUser query missing INSERT: %q", queries.createUser)
+	if !strings.Contains(strings.ToUpper(parseQueries.parseCreateUser), "INSERT") {
+		parseT.Fatalf("createUser query missing INSERT: %q", parseQueries.parseCreateUser)
 	}
-	if !strings.Contains(strings.ToUpper(queries.listModelCatalog), "SELECT") {
-		t.Fatalf("listModelCatalog query missing SELECT: %q", queries.listModelCatalog)
+	if !strings.Contains(strings.ToUpper(parseQueries.parseListModelCatalog), "SELECT") {
+		parseT.Fatalf("listModelCatalog query missing SELECT: %q", parseQueries.parseListModelCatalog)
 	}
 }

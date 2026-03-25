@@ -25,37 +25,37 @@ const (
 	binaryContentType            = "application/octet-stream"
 )
 
-func newBinaryIdentity(surface string, role string) interop.ClientIdentity {
+func newBinaryIdentity(parseSurface string, parseRole string) interop.ClientIdentity {
 	return interop.ClientIdentity{
-		ID:      fmt.Sprintf("%s-%d", strings.TrimSpace(surface), time.Now().UTC().UnixNano()),
+		ID:      fmt.Sprintf("%s-%d", strings.TrimSpace(parseSurface), time.Now().UTC().UnixNano()),
 		App:     "examples/multi-client-binary",
-		Surface: strings.TrimSpace(surface),
-		Role:    strings.TrimSpace(role),
+		Surface: strings.TrimSpace(parseSurface),
+		Role:    strings.TrimSpace(parseRole),
 		Version: "v1",
 	}
 }
 
-func describeBinaryError(prefix string, err error) string {
-	if err == nil {
-		return prefix
+func describeBinaryError(parsePrefix string, parseErr error) string {
+	if parseErr == nil {
+		return parsePrefix
 	}
-	if code, ok := interop.CodeOf(err); ok {
-		return fmt.Sprintf("%s [%s]: %v", prefix, code, err)
+	if parseCode, parseOk := interop.CodeOf(parseErr); parseOk {
+		return fmt.Sprintf("%s [%s]: %v", parsePrefix, parseCode, parseErr)
 	}
-	return fmt.Sprintf("%s: %v", prefix, err)
+	return fmt.Sprintf("%s: %v", parsePrefix, parseErr)
 }
 
-func appendBinaryLog(logs ui.State[[]string], line string) {
-	trimmed := strings.TrimSpace(line)
-	if trimmed == "" {
+func appendBinaryLog(parseLogs ui.State[[]string], parseLine string) {
+	parseTrimmed := strings.TrimSpace(parseLine)
+	if parseTrimmed == "" {
 		return
 	}
-	logs.Update(func(previous []string) []string {
-		next := append([]string{trimmed}, previous...)
-		if len(next) > 10 {
-			next = next[:10]
+	parseLogs.Update(func(parsePrevious []string) []string {
+		parseNext := append([]string{parseTrimmed}, parsePrevious...)
+		if len(parseNext) > 10 {
+			parseNext = parseNext[:10]
 		}
-		return next
+		return parseNext
 	})
 }
 
@@ -63,37 +63,37 @@ func previewBytes() []byte {
 	return []byte{0x47, 0x57, 0x43, 0x00, 0x13, 0x37, 0x42, 0x99, 0x10, 0xAF, 0xC0, 0xDE}
 }
 
-func previewSummary(payload any) string {
-	bytes, ok := payload.([]byte)
-	if !ok {
-		return fmt.Sprintf("non-binary payload: %v", payload)
+func previewSummary(parsePayload any) string {
+	parseBytes, parseOk := parsePayload.([]byte)
+	if !parseOk {
+		return fmt.Sprintf("non-binary payload: %v", parsePayload)
 	}
-	limit := len(bytes)
-	if limit > 6 {
-		limit = 6
+	parseLimit := len(parseBytes)
+	if parseLimit > 6 {
+		parseLimit = 6
 	}
-	parts := make([]string, 0, limit)
-	for _, value := range bytes[:limit] {
-		parts = append(parts, fmt.Sprintf("%02X", value))
+	parseParts := make([]string, 0, parseLimit)
+	for _, parseValue := range parseBytes[:parseLimit] {
+		parseParts = append(parseParts, fmt.Sprintf("%02X", parseValue))
 	}
-	return fmt.Sprintf("%d bytes [%s]", len(bytes), strings.Join(parts, " "))
+	return fmt.Sprintf("%d bytes [%s]", len(parseBytes), strings.Join(parseParts, " "))
 }
 
-func renderBinaryLogs(entries []string) []ui.Node {
-	nodes := make([]ui.Node, 0, len(entries))
-	for _, entry := range entries {
-		nodes = append(nodes,
-			html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm leading-7 text-slate-300"}, html.Text(entry)),
+func renderBinaryLogs(parseEntries []string) []ui.Node {
+	parseNodes := make([]ui.Node, 0, len(parseEntries))
+	for _, parseEntry := range parseEntries {
+		parseNodes = append(parseNodes,
+			html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm leading-7 text-slate-300"}, html.Text(parseEntry)),
 		)
 	}
-	return nodes
+	return parseNodes
 }
 
 func multiClientBinaryRoot() ui.Node {
-	location, err := interop.GetWindowLocation()
-	if err == nil {
-		path := strings.ToLower(strings.TrimSpace(location.Pathname()))
-		if strings.Contains(path, "popup") {
+	parseLocation, parseErr := interop.GetWindowLocation()
+	if parseErr == nil {
+		parsePath := strings.ToLower(strings.TrimSpace(parseLocation.Pathname()))
+		if strings.Contains(parsePath, "popup") {
 			return multiClientBinaryPopupSurface()
 		}
 	}
@@ -101,238 +101,238 @@ func multiClientBinaryRoot() ui.Node {
 }
 
 func multiClientBinaryOpenerSurface() ui.Node {
-	self := ui.UseState(newBinaryIdentity("catalog-tab", "storefront"))
-	crossTabTransport := ui.UseState("pending")
-	crossTabMode := ui.UseState("No cross-tab preview sent yet.")
-	crossTabReceived := ui.UseState("Waiting for another tab or a fallback event.")
-	popupStatus := ui.UseState("Closed")
-	popupPeerID := ui.UseState("")
-	popupAck := ui.UseState("No popup ack yet.")
-	logs := ui.UseState([]string{"Open this example in a second tab for cross-tab preview delivery, then open the popup to watch JSON handshake plus binary preview flow."})
-	crossTabRef := ui.UseRef(interop.CrossTabChannel{})
-	crossTabCancelRef := ui.UseRef((func())(nil))
-	popupRef := ui.UseRef(interop.WindowChannel{})
-	popupCancelRef := ui.UseRef((func())(nil))
+	parseSelf := ui.UseState(newBinaryIdentity("catalog-tab", "storefront"))
+	parseCrossTabTransport := ui.UseState("pending")
+	parseCrossTabMode := ui.UseState("No cross-tab preview sent yet.")
+	parseCrossTabReceived := ui.UseState("Waiting for another tab or a fallback event.")
+	parsePopupStatus := ui.UseState("Closed")
+	parsePopupPeerID := ui.UseState("")
+	parsePopupAck := ui.UseState("No popup ack yet.")
+	parseLogs := ui.UseState([]string{"Open this example in a second tab for cross-tab preview delivery, then open the popup to watch JSON handshake plus binary preview flow."})
+	parseCrossTabRef := ui.UseRef(interop.CrossTabChannel{})
+	parseCrossTabCancelRef := ui.UseRef((func())(nil))
+	parsePopupRef := ui.UseRef(interop.WindowChannel{})
+	parsePopupCancelRef := ui.UseRef((func())(nil))
 
-	handleCrossTabMessage := func(message interop.ClientMessage, err error) {
-		if err != nil {
-			appendBinaryLog(logs, describeBinaryError("Cross-tab message failed", err))
+	handleCrossTabMessage := func(parseMessage interop.ClientMessage, parseErr9 error) {
+		if parseErr9 != nil {
+			appendBinaryLog(parseLogs, describeBinaryError("Cross-tab message failed", parseErr9))
 			return
 		}
-		if message.Source.ID == self.Get().ID {
+		if parseMessage.Source.ID == parseSelf.Get().ID {
 			return
 		}
-		if message.Kind == interop.ClientHello {
-			appendBinaryLog(logs, fmt.Sprintf("Peer hello from %s on %s", message.Source.Surface, crossTabTransport.Get()))
+		if parseMessage.Kind == interop.ClientHello {
+			appendBinaryLog(parseLogs, fmt.Sprintf("Peer hello from %s on %s", parseMessage.Source.Surface, parseCrossTabTransport.Get()))
 			return
 		}
-		if message.Kind != interop.ClientEvent || message.Topic != binaryPreviewTopic {
+		if parseMessage.Kind != interop.ClientEvent || parseMessage.Topic != binaryPreviewTopic {
 			return
 		}
-		if message.Encoding == interop.ClientPayloadBinary {
-			crossTabReceived.Set("Binary preview received from another tab: " + previewSummary(message.Payload))
-			crossTabMode.Set("Last cross-tab delivery used binary over " + crossTabTransport.Get())
-			appendBinaryLog(logs, fmt.Sprintf("Received binary preview from %s: %s", message.Source.Surface, previewSummary(message.Payload)))
+		if parseMessage.Encoding == interop.ClientPayloadBinary {
+			parseCrossTabReceived.Set("Binary preview received from another tab: " + previewSummary(parseMessage.Payload))
+			parseCrossTabMode.Set("Last cross-tab delivery used binary over " + parseCrossTabTransport.Get())
+			appendBinaryLog(parseLogs, fmt.Sprintf("Received binary preview from %s: %s", parseMessage.Source.Surface, previewSummary(parseMessage.Payload)))
 			return
 		}
-		crossTabReceived.Set(fmt.Sprintf("JSON fallback event from another tab: %v", message.Payload))
-		crossTabMode.Set("Last cross-tab delivery fell back to JSON metadata")
-		appendBinaryLog(logs, fmt.Sprintf("Received JSON fallback from %s because the transport could not carry binary.", message.Source.Surface))
+		parseCrossTabReceived.Set(fmt.Sprintf("JSON fallback event from another tab: %v", parseMessage.Payload))
+		parseCrossTabMode.Set("Last cross-tab delivery fell back to JSON metadata")
+		appendBinaryLog(parseLogs, fmt.Sprintf("Received JSON fallback from %s because the transport could not carry binary.", parseMessage.Source.Surface))
 	}
 
-	handlePopupMessage := func(_ interop.WindowChannel, message interop.ClientMessage, err error) {
-		if err != nil {
-			appendBinaryLog(logs, describeBinaryError("Popup message failed", err))
+	handlePopupMessage := func(_ interop.WindowChannel, parseMessage2 interop.ClientMessage, parseErr10 error) {
+		if parseErr10 != nil {
+			appendBinaryLog(parseLogs, describeBinaryError("Popup message failed", parseErr10))
 			return
 		}
-		if message.Source.ID == self.Get().ID {
+		if parseMessage2.Source.ID == parseSelf.Get().ID {
 			return
 		}
-		switch message.Kind {
+		switch parseMessage2.Kind {
 		case interop.ClientHello:
-			popupPeerID.Set(message.Source.ID)
-			popupStatus.Set("Connected")
-			appendBinaryLog(logs, fmt.Sprintf("Popup hello from %s", message.Source.Surface))
+			parsePopupPeerID.Set(parseMessage2.Source.ID)
+			parsePopupStatus.Set("Connected")
+			appendBinaryLog(parseLogs, fmt.Sprintf("Popup hello from %s", parseMessage2.Source.Surface))
 		case interop.ClientResult:
-			if message.Topic != binaryAckTopic || message.Target != self.Get().ID {
+			if parseMessage2.Topic != binaryAckTopic || parseMessage2.Target != parseSelf.Get().ID {
 				return
 			}
-			popupAck.Set(fmt.Sprintf("Popup ack: %v", message.Payload))
-			appendBinaryLog(logs, fmt.Sprintf("Popup acknowledged binary preview with %v", message.Payload))
+			parsePopupAck.Set(fmt.Sprintf("Popup ack: %v", parseMessage2.Payload))
+			appendBinaryLog(parseLogs, fmt.Sprintf("Popup acknowledged binary preview with %v", parseMessage2.Payload))
 		case interop.ClientGoodbye:
-			popupStatus.Set("Disconnected")
-			popupPeerID.Set("")
-			appendBinaryLog(logs, "Popup sent goodbye and closed its targeted channel.")
+			parsePopupStatus.Set("Disconnected")
+			parsePopupPeerID.Set("")
+			appendBinaryLog(parseLogs, "Popup sent goodbye and closed its targeted channel.")
 		}
 	}
 
-	releasePopup := func(closeWindow bool) {
-		if cancel := popupCancelRef.Get(); cancel != nil {
-			cancel()
-			popupCancelRef.Set(nil)
+	parseReleasePopup := func(isCloseWindow bool) {
+		if parseCancel := parsePopupCancelRef.Get(); parseCancel != nil {
+			parseCancel()
+			parsePopupCancelRef.Set(nil)
 		}
-		channel := popupRef.Get()
-		if closeWindow && channel.Name() != "" && !channel.Closed() {
-			_ = interop.PublishClientGoodbyeWindow(channel, self.Get())
-			_ = channel.Close()
+		parseChannel := parsePopupRef.Get()
+		if isCloseWindow && parseChannel.Name() != "" && !parseChannel.Closed() {
+			_ = interop.PublishClientGoodbyeWindow(parseChannel, parseSelf.Get())
+			_ = parseChannel.Close()
 		}
-		popupRef.Set(interop.WindowChannel{})
-		popupPeerID.Set("")
+		parsePopupRef.Set(interop.WindowChannel{})
+		parsePopupPeerID.Set("")
 	}
 
 	ui.UseEffect(func() func() {
-		channel, err := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{Name: multiClientBinaryChannelName})
-		if err != nil {
-			appendBinaryLog(logs, describeBinaryError("Cross-tab channel unavailable", err))
-			crossTabTransport.Set("unavailable")
+		parseChannel2, parseErr := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{Name: multiClientBinaryChannelName})
+		if parseErr != nil {
+			appendBinaryLog(parseLogs, describeBinaryError("Cross-tab channel unavailable", parseErr))
+			parseCrossTabTransport.Set("unavailable")
 			return nil
 		}
-		crossTabRef.Set(channel)
-		crossTabTransport.Set(channel.Transport())
+		parseCrossTabRef.Set(parseChannel2)
+		parseCrossTabTransport.Set(parseChannel2.Transport())
 
-		subscription, err := interop.SubscribeClientMessages(channel, handleCrossTabMessage)
-		if err != nil {
-			appendBinaryLog(logs, describeBinaryError("Cross-tab subscription failed", err))
-			_ = channel.Close()
-			crossTabRef.Set(interop.CrossTabChannel{})
+		parseSubscription, parseErr := interop.SubscribeClientMessages(parseChannel2, handleCrossTabMessage)
+		if parseErr != nil {
+			appendBinaryLog(parseLogs, describeBinaryError("Cross-tab subscription failed", parseErr))
+			_ = parseChannel2.Close()
+			parseCrossTabRef.Set(interop.CrossTabChannel{})
 			return nil
 		}
-		crossTabCancelRef.Set(subscription.Cancel)
+		parseCrossTabCancelRef.Set(parseSubscription.Cancel)
 
-		if err := interop.PublishClientHello(channel, self.Get()); err != nil {
-			appendBinaryLog(logs, describeBinaryError("Cross-tab hello failed", err))
+		if parseErr2 := interop.PublishClientHello(parseChannel2, parseSelf.Get()); parseErr2 != nil {
+			appendBinaryLog(parseLogs, describeBinaryError("Cross-tab hello failed", parseErr2))
 		} else {
-			appendBinaryLog(logs, "Published JSON hello on the cross-tab control plane.")
+			appendBinaryLog(parseLogs, "Published JSON hello on the cross-tab control plane.")
 		}
 
 		return func() {
-			if cancel := crossTabCancelRef.Get(); cancel != nil {
-				cancel()
-				crossTabCancelRef.Set(nil)
+			if parseCancel2 := parseCrossTabCancelRef.Get(); parseCancel2 != nil {
+				parseCancel2()
+				parseCrossTabCancelRef.Set(nil)
 			}
-			_ = interop.PublishClientGoodbye(channel, self.Get())
-			_ = channel.Close()
-			crossTabRef.Set(interop.CrossTabChannel{})
+			_ = interop.PublishClientGoodbye(parseChannel2, parseSelf.Get())
+			_ = parseChannel2.Close()
+			parseCrossTabRef.Set(interop.CrossTabChannel{})
 		}
 	}, true)
 
 	ui.UseEffect(func() func() {
-		timer, err := interop.ScheduleInterval(500*time.Millisecond, func() {
-			channel := popupRef.Get()
-			if channel.Name() == "" || !channel.Closed() {
+		parseTimer, parseErr3 := interop.ScheduleInterval(500*time.Millisecond, func() {
+			parseChannel3 := parsePopupRef.Get()
+			if parseChannel3.Name() == "" || !parseChannel3.Closed() {
 				return
 			}
-			releasePopup(false)
-			popupStatus.Set("Closed")
-			appendBinaryLog(logs, "Popup closed unexpectedly. Reopen it to restore targeted binary preview delivery.")
+			parseReleasePopup(false)
+			parsePopupStatus.Set("Closed")
+			appendBinaryLog(parseLogs, "Popup closed unexpectedly. Reopen it to restore targeted binary preview delivery.")
 		})
 		return func() {
-			if err == nil {
-				_ = timer.Cancel()
+			if parseErr3 == nil {
+				_ = parseTimer.Cancel()
 			}
-			releasePopup(true)
+			parseReleasePopup(true)
 		}
 	}, true)
 
-	broadcastPreview := ui.UseEvent(func() {
-		channel := crossTabRef.Get()
-		if channel.Name() == "" {
-			appendBinaryLog(logs, "Cross-tab channel is not ready yet.")
+	parseBroadcastPreview := ui.UseEvent(func() {
+		parseChannel4 := parseCrossTabRef.Get()
+		if parseChannel4.Name() == "" {
+			appendBinaryLog(parseLogs, "Cross-tab channel is not ready yet.")
 			return
 		}
-		payload := previewBytes()
-		if channel.Transport() == "broadcast-channel" {
-			if err := interop.PublishClientBinaryCrossTab(channel, binaryPreviewTopic, self.Get(), interop.ClientBinaryPayload{ContentType: binaryContentType, Bytes: payload}); err != nil {
-				appendBinaryLog(logs, describeBinaryError("Binary cross-tab publish failed", err))
+		parsePayload := previewBytes()
+		if parseChannel4.Transport() == "broadcast-channel" {
+			if parseErr4 := interop.PublishClientBinaryCrossTab(parseChannel4, binaryPreviewTopic, parseSelf.Get(), interop.ClientBinaryPayload{ContentType: binaryContentType, Bytes: parsePayload}); parseErr4 != nil {
+				appendBinaryLog(parseLogs, describeBinaryError("Binary cross-tab publish failed", parseErr4))
 				return
 			}
-			crossTabMode.Set("Sent binary preview over BroadcastChannel")
-			appendBinaryLog(logs, "Published binary preview to other tabs through BroadcastChannel.")
+			parseCrossTabMode.Set("Sent binary preview over BroadcastChannel")
+			appendBinaryLog(parseLogs, "Published binary preview to other tabs through BroadcastChannel.")
 			return
 		}
-		fallback := map[string]any{
+		parseFallback := map[string]any{
 			"fallback":    "json",
 			"contentType": binaryContentType,
-			"byteCount":   len(payload),
+			"byteCount":   len(parsePayload),
 			"reason":      "resolved cross-tab transport cannot carry binary",
 		}
-		if err := interop.PublishClientEvent(channel, binaryPreviewTopic, self.Get(), fallback); err != nil {
-			appendBinaryLog(logs, describeBinaryError("JSON fallback publish failed", err))
+		if parseErr5 := interop.PublishClientEvent(parseChannel4, binaryPreviewTopic, parseSelf.Get(), parseFallback); parseErr5 != nil {
+			appendBinaryLog(parseLogs, describeBinaryError("JSON fallback publish failed", parseErr5))
 			return
 		}
-		crossTabMode.Set("Sent JSON fallback because the resolved transport was " + channel.Transport())
-		appendBinaryLog(logs, "Cross-tab transport could not carry binary, so the example sent JSON metadata instead.")
+		parseCrossTabMode.Set("Sent JSON fallback because the resolved transport was " + parseChannel4.Transport())
+		appendBinaryLog(parseLogs, "Cross-tab transport could not carry binary, so the example sent JSON metadata instead.")
 	})
 
-	openPopup := ui.UseEvent(func() {
-		current := popupRef.Get()
-		if current.Name() != "" && !current.Closed() {
-			_ = current.Focus()
-			popupStatus.Set("Connected")
-			appendBinaryLog(logs, "Reused the existing popup and focused it.")
+	parseOpenPopup := ui.UseEvent(func() {
+		parseCurrent := parsePopupRef.Get()
+		if parseCurrent.Name() != "" && !parseCurrent.Closed() {
+			_ = parseCurrent.Focus()
+			parsePopupStatus.Set("Connected")
+			appendBinaryLog(parseLogs, "Reused the existing popup and focused it.")
 			return
 		}
 
-		releasePopup(false)
-		channel, err := interop.OpenSecondaryWindowChannel(interop.WindowChannelOptions{
+		parseReleasePopup(false)
+		parseChannel5, parseErr6 := interop.OpenSecondaryWindowChannel(interop.WindowChannelOptions{
 			URL:      multiClientBinaryPopupURL,
 			Name:     multiClientBinaryPopupName,
 			Features: "popup=yes,width=560,height=760",
 		})
-		if err != nil {
-			appendBinaryLog(logs, describeBinaryError("Opening popup failed", err))
+		if parseErr6 != nil {
+			appendBinaryLog(parseLogs, describeBinaryError("Opening popup failed", parseErr6))
 			return
 		}
-		subscription, err := interop.SubscribeClientWindowMessages(channel, func(message interop.ClientMessage, receiveErr error) {
-			handlePopupMessage(channel, message, receiveErr)
+		parseSubscription2, parseErr6 := interop.SubscribeClientWindowMessages(parseChannel5, func(parseMessage3 interop.ClientMessage, parseReceiveErr error) {
+			handlePopupMessage(parseChannel5, parseMessage3, parseReceiveErr)
 		})
-		if err != nil {
-			_ = channel.Close()
-			appendBinaryLog(logs, describeBinaryError("Popup subscription failed", err))
+		if parseErr6 != nil {
+			_ = parseChannel5.Close()
+			appendBinaryLog(parseLogs, describeBinaryError("Popup subscription failed", parseErr6))
 			return
 		}
-		popupRef.Set(channel)
-		popupCancelRef.Set(subscription.Cancel)
-		popupStatus.Set("Connecting")
+		parsePopupRef.Set(parseChannel5)
+		parsePopupCancelRef.Set(parseSubscription2.Cancel)
+		parsePopupStatus.Set("Connecting")
 
-		if err := interop.PublishClientHelloWindow(channel, self.Get()); err != nil {
-			appendBinaryLog(logs, describeBinaryError("Popup hello failed", err))
+		if parseErr7 := interop.PublishClientHelloWindow(parseChannel5, parseSelf.Get()); parseErr7 != nil {
+			appendBinaryLog(parseLogs, describeBinaryError("Popup hello failed", parseErr7))
 			return
 		}
-		appendBinaryLog(logs, "Sent JSON hello to the popup before any binary payload traffic.")
+		appendBinaryLog(parseLogs, "Sent JSON hello to the popup before any binary payload traffic.")
 	})
 
-	sendPopupPreview := ui.UseEvent(func() {
-		channel := popupRef.Get()
-		if channel.Name() == "" || channel.Closed() {
-			appendBinaryLog(logs, "Open the popup before sending a targeted binary preview.")
-			popupStatus.Set("Closed")
+	parseSendPopupPreview := ui.UseEvent(func() {
+		parseChannel6 := parsePopupRef.Get()
+		if parseChannel6.Name() == "" || parseChannel6.Closed() {
+			appendBinaryLog(parseLogs, "Open the popup before sending a targeted binary preview.")
+			parsePopupStatus.Set("Closed")
 			return
 		}
-		target := strings.TrimSpace(popupPeerID.Get())
-		if target == "" {
-			appendBinaryLog(logs, "Waiting for popup hello before sending the targeted binary preview.")
+		parseTarget := strings.TrimSpace(parsePopupPeerID.Get())
+		if parseTarget == "" {
+			appendBinaryLog(parseLogs, "Waiting for popup hello before sending the targeted binary preview.")
 			return
 		}
-		if err := interop.PublishClientBinaryWindow(channel, binaryPreviewTopic, self.Get(), target, interop.ClientBinaryPayload{ContentType: binaryContentType, Bytes: previewBytes()}); err != nil {
-			appendBinaryLog(logs, describeBinaryError("Popup binary publish failed", err))
+		if parseErr8 := interop.PublishClientBinaryWindow(parseChannel6, binaryPreviewTopic, parseSelf.Get(), parseTarget, interop.ClientBinaryPayload{ContentType: binaryContentType, Bytes: previewBytes()}); parseErr8 != nil {
+			appendBinaryLog(parseLogs, describeBinaryError("Popup binary publish failed", parseErr8))
 			return
 		}
-		popupStatus.Set("Preview sent")
-		appendBinaryLog(logs, "Published binary preview to the popup, with JSON ack expected back on the control plane.")
+		parsePopupStatus.Set("Preview sent")
+		appendBinaryLog(parseLogs, "Published binary preview to the popup, with JSON ack expected back on the control plane.")
 	})
 
-	closePopup := ui.UseEvent(func() {
-		channel := popupRef.Get()
-		if channel.Name() == "" || channel.Closed() {
-			popupStatus.Set("Closed")
-			appendBinaryLog(logs, "Popup is already closed.")
-			releasePopup(false)
+	parseClosePopup := ui.UseEvent(func() {
+		parseChannel7 := parsePopupRef.Get()
+		if parseChannel7.Name() == "" || parseChannel7.Closed() {
+			parsePopupStatus.Set("Closed")
+			appendBinaryLog(parseLogs, "Popup is already closed.")
+			parseReleasePopup(false)
 			return
 		}
-		releasePopup(true)
-		popupStatus.Set("Closed")
-		appendBinaryLog(logs, "Closed the popup after targeted preview flow completed.")
+		parseReleasePopup(true)
+		parsePopupStatus.Set("Closed")
+		appendBinaryLog(parseLogs, "Closed the popup after targeted preview flow completed.")
 	})
 
 	return shared.ExamplePage(
@@ -341,33 +341,33 @@ func multiClientBinaryOpenerSurface() ui.Node {
 		"Use JSON for handshake and acknowledgement traffic, use binary only for payload-heavy preview delivery on supported transports, and fall back to JSON metadata when the resolved cross-tab transport cannot carry bytes.",
 		shared.ExamplePanel("Cross-tab preview",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-4"},
-				shared.ExampleStat("Client", self.Get().Surface),
-				shared.ExampleStat("Role", self.Get().Role),
-				shared.ExampleStat("Transport", crossTabTransport.Get()),
-				shared.ExampleStat("Last mode", crossTabMode.Get()),
+				shared.ExampleStat("Client", parseSelf.Get().Surface),
+				shared.ExampleStat("Role", parseSelf.Get().Role),
+				shared.ExampleStat("Transport", parseCrossTabTransport.Get()),
+				shared.ExampleStat("Last mode", parseCrossTabMode.Get()),
 			),
 			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text("Open this example in a second tab. The control plane stays JSON, but the preview payload uses binary only when the resolved cross-tab transport is BroadcastChannel. If the browser falls back to storage events, the example publishes JSON metadata instead of pretending bytes are portable there.")),
 			html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"},
-				shared.ExampleButton("Broadcast preview", broadcastPreview),
+				shared.ExampleButton("Broadcast preview", parseBroadcastPreview),
 			),
-			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text(crossTabReceived.Get())),
+			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text(parseCrossTabReceived.Get())),
 		),
 		shared.ExamplePanel("Popup preview",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-3"},
-				shared.ExampleStat("Popup", popupStatus.Get()),
-				shared.ExampleStat("Popup peer", popupPeerID.Get()),
-				shared.ExampleStat("Ack", popupAck.Get()),
+				shared.ExampleStat("Popup", parsePopupStatus.Get()),
+				shared.ExampleStat("Popup peer", parsePopupPeerID.Get()),
+				shared.ExampleStat("Ack", parsePopupAck.Get()),
 			),
 			html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"},
-				shared.ExampleButton("Open popup", openPopup),
-				shared.ExampleButton("Send popup preview", sendPopupPreview),
-				shared.ExampleButton("Close popup", closePopup),
+				shared.ExampleButton("Open popup", parseOpenPopup),
+				shared.ExampleButton("Send popup preview", parseSendPopupPreview),
+				shared.ExampleButton("Close popup", parseClosePopup),
 			),
 			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text("The popup channel demonstrates the mixed control/data plane directly: JSON hello and result frames wrap the lifecycle, while the preview bytes themselves travel as structured-clone binary.")),
 		),
 		shared.ExamplePanel("Diagnostics",
 			html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-300"}, html.Text("The log records whether the example used JSON or binary, whether the popup handshake completed, and when the cross-tab flow had to degrade because the resolved transport could not carry raw bytes.")),
-			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, renderBinaryLogs(logs.Get())...),
+			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, renderBinaryLogs(parseLogs.Get())...),
 		),
 		shared.ExamplePanel("Integration shape",
 			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("The intended pattern is simple: keep presence, ack, timeout, and authority traffic JSON-shaped; reserve binary for the payload-heavy topic itself; and treat unsupported transport as a normal fallback decision rather than a surprise runtime failure.")),
@@ -382,109 +382,109 @@ func multiClientBinaryOpenerSurface() ui.Node {
 }
 
 func multiClientBinaryPopupSurface() ui.Node {
-	self := ui.UseState(newBinaryIdentity("popup-preview", "inspector"))
-	openerID := ui.UseState("")
-	connection := ui.UseState("Connecting to opener...")
-	lastPreview := ui.UseState("No preview received yet.")
-	orphaned := ui.UseState(false)
-	logs := ui.UseState([]string{"This popup waits for a JSON hello, then accepts targeted binary preview traffic from its opener."})
-	channelRef := ui.UseRef(interop.WindowChannel{})
-	cancelRef := ui.UseRef((func())(nil))
+	parseSelf := ui.UseState(newBinaryIdentity("popup-preview", "inspector"))
+	parseOpenerID := ui.UseState("")
+	parseConnection := ui.UseState("Connecting to opener...")
+	parseLastPreview := ui.UseState("No preview received yet.")
+	parseOrphaned := ui.UseState(false)
+	parseLogs := ui.UseState([]string{"This popup waits for a JSON hello, then accepts targeted binary preview traffic from its opener."})
+	parseChannelRef := ui.UseRef(interop.WindowChannel{})
+	parseCancelRef := ui.UseRef((func())(nil))
 
-	handlePopupMessage := func(channel interop.WindowChannel, message interop.ClientMessage, err error) {
-		if err != nil {
-			appendBinaryLog(logs, describeBinaryError("Opener message failed", err))
+	handlePopupMessage := func(parseChannel2 interop.WindowChannel, parseMessage interop.ClientMessage, parseErr3 error) {
+		if parseErr3 != nil {
+			appendBinaryLog(parseLogs, describeBinaryError("Opener message failed", parseErr3))
 			return
 		}
-		if message.Source.ID == self.Get().ID {
+		if parseMessage.Source.ID == parseSelf.Get().ID {
 			return
 		}
-		switch message.Kind {
+		switch parseMessage.Kind {
 		case interop.ClientHello:
-			openerID.Set(message.Source.ID)
-			connection.Set("Connected")
-			orphaned.Set(false)
-			appendBinaryLog(logs, fmt.Sprintf("Received JSON hello from %s", message.Source.Surface))
+			parseOpenerID.Set(parseMessage.Source.ID)
+			parseConnection.Set("Connected")
+			parseOrphaned.Set(false)
+			appendBinaryLog(parseLogs, fmt.Sprintf("Received JSON hello from %s", parseMessage.Source.Surface))
 		case interop.ClientEvent:
-			if message.Topic != binaryPreviewTopic || message.Target != self.Get().ID || message.Encoding != interop.ClientPayloadBinary {
+			if parseMessage.Topic != binaryPreviewTopic || parseMessage.Target != parseSelf.Get().ID || parseMessage.Encoding != interop.ClientPayloadBinary {
 				return
 			}
-			lastPreview.Set(fmt.Sprintf("Binary preview received: %s (%s)", previewSummary(message.Payload), message.ContentType))
-			appendBinaryLog(logs, fmt.Sprintf("Received targeted binary preview from %s: %s", message.Source.Surface, previewSummary(message.Payload)))
-			ack := interop.ClientMessage{
+			parseLastPreview.Set(fmt.Sprintf("Binary preview received: %s (%s)", previewSummary(parseMessage.Payload), parseMessage.ContentType))
+			appendBinaryLog(parseLogs, fmt.Sprintf("Received targeted binary preview from %s: %s", parseMessage.Source.Surface, previewSummary(parseMessage.Payload)))
+			parseAck := interop.ClientMessage{
 				Kind:   interop.ClientResult,
 				Topic:  binaryAckTopic,
-				Source: self.Get(),
-				Target: message.Source.ID,
+				Source: parseSelf.Get(),
+				Target: parseMessage.Source.ID,
 				Payload: map[string]any{
-					"contentType": message.ContentType,
-					"summary":     previewSummary(message.Payload),
+					"contentType": parseMessage.ContentType,
+					"summary":     previewSummary(parseMessage.Payload),
 				},
 			}
-			if publishErr := interop.PublishClientWindowMessage(channel, ack); publishErr != nil {
-				appendBinaryLog(logs, describeBinaryError("Popup ack failed", publishErr))
+			if parsePublishErr := interop.PublishClientWindowMessage(parseChannel2, parseAck); parsePublishErr != nil {
+				appendBinaryLog(parseLogs, describeBinaryError("Popup ack failed", parsePublishErr))
 				return
 			}
-			appendBinaryLog(logs, "Sent JSON ack back to the opener after binary preview receipt.")
+			appendBinaryLog(parseLogs, "Sent JSON ack back to the opener after binary preview receipt.")
 		case interop.ClientGoodbye:
-			orphaned.Set(true)
-			connection.Set("Opener disconnected")
-			appendBinaryLog(logs, "Opener sent goodbye. The popup is now orphaned.")
+			parseOrphaned.Set(true)
+			parseConnection.Set("Opener disconnected")
+			appendBinaryLog(parseLogs, "Opener sent goodbye. The popup is now orphaned.")
 		}
 	}
 
 	ui.UseEffect(func() func() {
-		channel, err := interop.OpenWindowOpenerChannel(interop.WindowChannelOptions{Name: multiClientBinaryPopupName})
-		if err != nil {
-			orphaned.Set(true)
-			connection.Set("Opened without an opener")
-			appendBinaryLog(logs, describeBinaryError("No opener channel available", err))
+		parseChannel, parseErr := interop.OpenWindowOpenerChannel(interop.WindowChannelOptions{Name: multiClientBinaryPopupName})
+		if parseErr != nil {
+			parseOrphaned.Set(true)
+			parseConnection.Set("Opened without an opener")
+			appendBinaryLog(parseLogs, describeBinaryError("No opener channel available", parseErr))
 			return nil
 		}
-		channelRef.Set(channel)
-		connection.Set("Connected")
-		orphaned.Set(channel.Closed())
+		parseChannelRef.Set(parseChannel)
+		parseConnection.Set("Connected")
+		parseOrphaned.Set(parseChannel.Closed())
 
-		subscription, err := interop.SubscribeClientWindowMessages(channel, func(message interop.ClientMessage, receiveErr error) {
-			handlePopupMessage(channel, message, receiveErr)
+		parseSubscription, parseErr := interop.SubscribeClientWindowMessages(parseChannel, func(parseMessage2 interop.ClientMessage, parseReceiveErr error) {
+			handlePopupMessage(parseChannel, parseMessage2, parseReceiveErr)
 		})
-		if err != nil {
-			appendBinaryLog(logs, describeBinaryError("Popup subscription failed", err))
-			connection.Set("Subscription failed")
+		if parseErr != nil {
+			appendBinaryLog(parseLogs, describeBinaryError("Popup subscription failed", parseErr))
+			parseConnection.Set("Subscription failed")
 			return nil
 		}
-		cancelRef.Set(subscription.Cancel)
+		parseCancelRef.Set(parseSubscription.Cancel)
 
-		if err := interop.PublishClientHelloWindow(channel, self.Get()); err != nil {
-			appendBinaryLog(logs, describeBinaryError("Popup hello failed", err))
+		if parseErr2 := interop.PublishClientHelloWindow(parseChannel, parseSelf.Get()); parseErr2 != nil {
+			appendBinaryLog(parseLogs, describeBinaryError("Popup hello failed", parseErr2))
 		} else {
-			appendBinaryLog(logs, "Published JSON hello to the opener control plane.")
+			appendBinaryLog(parseLogs, "Published JSON hello to the opener control plane.")
 		}
 
-		timer, timerErr := interop.ScheduleInterval(500*time.Millisecond, func() {
-			current := channelRef.Get()
-			if current.Name() == "" || !current.Closed() {
+		parseTimer, parseTimerErr := interop.ScheduleInterval(500*time.Millisecond, func() {
+			parseCurrent := parseChannelRef.Get()
+			if parseCurrent.Name() == "" || !parseCurrent.Closed() {
 				return
 			}
-			orphaned.Set(true)
-			connection.Set("Opener disconnected")
+			parseOrphaned.Set(true)
+			parseConnection.Set("Opener disconnected")
 		})
 
 		return func() {
-			if cancel := cancelRef.Get(); cancel != nil {
-				cancel()
-				cancelRef.Set(nil)
+			if parseCancel := parseCancelRef.Get(); parseCancel != nil {
+				parseCancel()
+				parseCancelRef.Set(nil)
 			}
-			if timerErr == nil {
-				_ = timer.Cancel()
+			if parseTimerErr == nil {
+				_ = parseTimer.Cancel()
 			}
-			_ = interop.PublishClientGoodbyeWindow(channel, self.Get())
+			_ = interop.PublishClientGoodbyeWindow(parseChannel, parseSelf.Get())
 		}
 	}, true)
 
-	orphanMessage := "The opener is still available for targeted preview traffic."
-	if orphaned.Get() {
-		orphanMessage = "The opener disappeared or this page was opened directly. Keep the diagnostic view visible, but do not assume the coordinator is still present."
+	parseOrphanMessage := "The opener is still available for targeted preview traffic."
+	if parseOrphaned.Get() {
+		parseOrphanMessage = "The opener disappeared or this page was opened directly. Keep the diagnostic view visible, but do not assume the coordinator is still present."
 	}
 
 	return shared.ExamplePage(
@@ -493,19 +493,19 @@ func multiClientBinaryPopupSurface() ui.Node {
 		"This popup accepts a targeted binary preview over the window channel and replies with a JSON acknowledgement so the control plane remains easy to inspect.",
 		shared.ExamplePanel("Popup state",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-4"},
-				shared.ExampleStat("Client", self.Get().Surface),
-				shared.ExampleStat("Role", self.Get().Role),
-				shared.ExampleStat("Connection", connection.Get()),
-				shared.ExampleStat("Opener id", openerID.Get()),
+				shared.ExampleStat("Client", parseSelf.Get().Surface),
+				shared.ExampleStat("Role", parseSelf.Get().Role),
+				shared.ExampleStat("Connection", parseConnection.Get()),
+				shared.ExampleStat("Opener id", parseOpenerID.Get()),
 			),
-			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text(orphanMessage)),
+			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text(parseOrphanMessage)),
 		),
 		shared.ExamplePanel("Latest preview",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Preview", lastPreview.Get()),
-				shared.ExampleStat("Orphaned", fmt.Sprintf("%t", orphaned.Get())),
+				shared.ExampleStat("Preview", parseLastPreview.Get()),
+				shared.ExampleStat("Orphaned", fmt.Sprintf("%t", parseOrphaned.Get())),
 			),
-			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, renderBinaryLogs(logs.Get())...),
+			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, renderBinaryLogs(parseLogs.Get())...),
 		),
 	)
 }

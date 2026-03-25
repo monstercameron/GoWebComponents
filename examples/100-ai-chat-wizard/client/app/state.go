@@ -181,7 +181,7 @@ type appAction struct {
 	EditText                string
 }
 
-func initialAppState() appState {
+func parseInitialAppState() appState {
 	return appState{
 		Messages:                []message{},
 		ExpandedThoughtSections: map[string]bool{},
@@ -224,7 +224,7 @@ func initialAppState() appState {
 		SystemPromptInput:       "",
 		UserMemories:            []editableUserMemory{},
 		DeletedUserMemoryKeys:   []string{},
-		LocaleInput:             normalizeChatLocaleID("en"),
+		LocaleInput:             parseNormalizeChatLocaleID("en"),
 		GRPCReady:               false,
 		MarkdownWorkerFallback:  false,
 		EditIdx:                 -1,
@@ -232,33 +232,33 @@ func initialAppState() appState {
 	}
 }
 
-func reduceAppState(state appState, action appAction) appState {
-	next := state
-	switch action.Type {
+func parseReduceAppState(parseState appState, parseAction appAction) appState {
+	parseNext := parseState
+	switch parseAction.Type {
 	case appActionSetMessages:
-		next.Messages = action.Messages
-		next.ExpandedThoughtSections = map[string]bool{}
+		parseNext.Messages = parseAction.Messages
+		parseNext.ExpandedThoughtSections = map[string]bool{}
 	case appActionUpdateMessages:
-		if action.UpdateMessages != nil {
-			next.Messages = action.UpdateMessages(state.Messages)
+		if parseAction.UpdateMessages != nil {
+			parseNext.Messages = parseAction.UpdateMessages(parseState.Messages)
 		}
 	case appActionOpenCanvasSession:
-		artifact := action.CanvasArtifact
-		splitRatio := state.CanvasSession.SplitRatio
-		if action.CanvasSplitRatio >= canvasSplitMin && action.CanvasSplitRatio <= canvasSplitMax {
-			splitRatio = action.CanvasSplitRatio
+		parseArtifact := parseAction.CanvasArtifact
+		parseSplitRatio := parseState.CanvasSession.SplitRatio
+		if parseAction.CanvasSplitRatio >= canvasSplitMin && parseAction.CanvasSplitRatio <= canvasSplitMax {
+			parseSplitRatio = parseAction.CanvasSplitRatio
 		}
-		next.CanvasSession = canvasSessionState{
+		parseNext.CanvasSession = canvasSessionState{
 			Active:                true,
-			SessionID:             artifact.ID,
-			ArtifactID:            artifact.ID,
-			SourceMessageIndex:    artifact.MessageIndex,
-			CurrentFileID:         artifact.Label,
-			FocusedRegion:         artifact.Focus,
-			FocusOptions:          append([]canvasFocusRegion(nil), artifact.FocusOptions...),
-			OriginalSource:        artifact.Source,
-			CurrentSource:         artifact.Source,
-			FocusDraft:            canvasFocusSnippet(artifact.Source, artifact.Focus),
+			SessionID:             parseArtifact.ParseID,
+			ArtifactID:            parseArtifact.ParseID,
+			SourceMessageIndex:    parseArtifact.MessageIndex,
+			CurrentFileID:         parseArtifact.Label,
+			FocusedRegion:         parseArtifact.Focus,
+			FocusOptions:          append([]canvasFocusRegion(nil), parseArtifact.FocusOptions...),
+			OriginalSource:        parseArtifact.Source,
+			CurrentSource:         parseArtifact.Source,
+			FocusDraft:            canvasFocusSnippet(parseArtifact.Source, parseArtifact.Focus),
 			LatestRenderedVersion: 1,
 			LatestPatchVersion:    0,
 			Dirty:                 false,
@@ -269,244 +269,244 @@ func reduceAppState(state appState, action appAction) appState {
 			},
 			PatchHistory: nil,
 			LayoutMode:   canvasLayoutSplit,
-			SplitRatio:   splitRatio,
+			SplitRatio:   parseSplitRatio,
 			ConsoleOpen:  false,
 		}
 	case appActionCloseCanvasSession:
-		next.CanvasSession.Active = false
-		next.CanvasSession.LayoutMode = canvasLayoutHidden
-		next.CanvasSession.ConsoleOpen = false
+		parseNext.CanvasSession.Active = false
+		parseNext.CanvasSession.LayoutMode = canvasLayoutHidden
+		parseNext.CanvasSession.ConsoleOpen = false
 	case appActionApplyCanvasArtifact:
-		artifact := action.CanvasArtifact
-		if !state.CanvasSession.Active {
-			next.CanvasSession = state.CanvasSession
-			next.CanvasSession.Active = true
+		parseArtifact2 := parseAction.CanvasArtifact
+		if !parseState.CanvasSession.Active {
+			parseNext.CanvasSession = parseState.CanvasSession
+			parseNext.CanvasSession.Active = true
 		}
-		next.CanvasSession.LayoutMode = canvasLayoutSplit
-		next.CanvasSession.SessionID = artifact.ID
-		next.CanvasSession.ArtifactID = artifact.ID
-		next.CanvasSession.SourceMessageIndex = artifact.MessageIndex
-		next.CanvasSession.CurrentFileID = artifact.Label
-		next.CanvasSession.FocusOptions = append([]canvasFocusRegion(nil), artifact.FocusOptions...)
-		if len(next.CanvasSession.FocusOptions) == 0 {
-			next.CanvasSession.FocusOptions = []canvasFocusRegion{artifact.Focus}
+		parseNext.CanvasSession.LayoutMode = canvasLayoutSplit
+		parseNext.CanvasSession.SessionID = parseArtifact2.ParseID
+		parseNext.CanvasSession.ArtifactID = parseArtifact2.ParseID
+		parseNext.CanvasSession.SourceMessageIndex = parseArtifact2.MessageIndex
+		parseNext.CanvasSession.CurrentFileID = parseArtifact2.Label
+		parseNext.CanvasSession.FocusOptions = append([]canvasFocusRegion(nil), parseArtifact2.FocusOptions...)
+		if len(parseNext.CanvasSession.FocusOptions) == 0 {
+			parseNext.CanvasSession.FocusOptions = []canvasFocusRegion{parseArtifact2.Focus}
 		}
-		focus := state.CanvasSession.FocusedRegion
-		if focus.StartLine <= 0 {
-			focus = artifact.Focus
+		parseFocus := parseState.CanvasSession.FocusedRegion
+		if parseFocus.StartLine <= 0 {
+			parseFocus = parseArtifact2.Focus
 		}
-		patch, ok := deriveCanvasPatch(state.CanvasSession.CurrentSource, artifact.Source, focus)
-		if ok {
-			patch.ID = fmt.Sprintf("patch-%d", state.CanvasSession.LatestPatchVersion+1)
-			next.CanvasSession.PatchHistory = append(append([]canvasPatchRecord(nil), state.CanvasSession.PatchHistory...), patch)
-			next.CanvasSession.LatestPatchVersion = state.CanvasSession.LatestPatchVersion + 1
+		parsePatch, parseOk := parseDeriveCanvasPatch(parseState.CanvasSession.CurrentSource, parseArtifact2.Source, parseFocus)
+		if parseOk {
+			parsePatch.ParseID = fmt.Sprintf("patch-%d", parseState.CanvasSession.LatestPatchVersion+1)
+			parseNext.CanvasSession.PatchHistory = append(append([]canvasPatchRecord(nil), parseState.CanvasSession.PatchHistory...), parsePatch)
+			parseNext.CanvasSession.LatestPatchVersion = parseState.CanvasSession.LatestPatchVersion + 1
 		}
-		next.CanvasSession.CurrentSource = artifact.Source
-		next.CanvasSession.FocusedRegion = artifact.Focus
-		next.CanvasSession.FocusDraft = canvasFocusSnippet(artifact.Source, artifact.Focus)
-		next.CanvasSession.Dirty = false
-		next.CanvasSession.PreviewStatus = canvasPreviewRendering
-		next.CanvasSession.RuntimeStatus = "booting"
-		next.CanvasSession.LatestRenderedVersion = state.CanvasSession.LatestRenderedVersion + 1
+		parseNext.CanvasSession.CurrentSource = parseArtifact2.Source
+		parseNext.CanvasSession.FocusedRegion = parseArtifact2.Focus
+		parseNext.CanvasSession.FocusDraft = canvasFocusSnippet(parseArtifact2.Source, parseArtifact2.Focus)
+		parseNext.CanvasSession.Dirty = false
+		parseNext.CanvasSession.PreviewStatus = canvasPreviewRendering
+		parseNext.CanvasSession.RuntimeStatus = "booting"
+		parseNext.CanvasSession.LatestRenderedVersion = parseState.CanvasSession.LatestRenderedVersion + 1
 	case appActionSetCanvasLayoutMode:
-		next.CanvasSession.LayoutMode = action.CanvasLayoutMode
+		parseNext.CanvasSession.LayoutMode = parseAction.CanvasLayoutMode
 	case appActionSetCanvasSplitRatio:
-		if action.CanvasSplitRatio >= canvasSplitMin && action.CanvasSplitRatio <= canvasSplitMax {
-			next.CanvasSession.SplitRatio = action.CanvasSplitRatio
+		if parseAction.CanvasSplitRatio >= canvasSplitMin && parseAction.CanvasSplitRatio <= canvasSplitMax {
+			parseNext.CanvasSession.SplitRatio = parseAction.CanvasSplitRatio
 		}
 	case appActionSetCanvasFocus:
-		next.CanvasSession.FocusedRegion = action.CanvasFocus
-		next.CanvasSession.FocusDraft = canvasFocusSnippet(state.CanvasSession.CurrentSource, action.CanvasFocus)
+		parseNext.CanvasSession.FocusedRegion = parseAction.CanvasFocus
+		parseNext.CanvasSession.FocusDraft = canvasFocusSnippet(parseState.CanvasSession.CurrentSource, parseAction.CanvasFocus)
 	case appActionSetCanvasFocusDraft:
-		next.CanvasSession.FocusDraft = action.CanvasFocusDraft
+		parseNext.CanvasSession.FocusDraft = parseAction.CanvasFocusDraft
 	case appActionApplyCanvasFocusDraft:
-		nextSource, patch, ok := replaceCanvasFocusRegion(state.CanvasSession.CurrentSource, state.CanvasSession.FocusedRegion, state.CanvasSession.FocusDraft)
-		if ok {
-			patch.ID = fmt.Sprintf("patch-%d", state.CanvasSession.LatestPatchVersion+1)
-			next.CanvasSession.CurrentSource = nextSource
-			next.CanvasSession.PatchHistory = append(append([]canvasPatchRecord(nil), state.CanvasSession.PatchHistory...), patch)
-			next.CanvasSession.LatestPatchVersion = state.CanvasSession.LatestPatchVersion + 1
-			next.CanvasSession.Dirty = state.CanvasSession.OriginalSource != nextSource
-			next.CanvasSession.PreviewStatus = canvasPreviewPatched
-			next.CanvasSession.RuntimeStatus = "patched"
+		parseNextSource, parsePatch2, parseOk2 := parseReplaceCanvasFocusRegion(parseState.CanvasSession.CurrentSource, parseState.CanvasSession.FocusedRegion, parseState.CanvasSession.FocusDraft)
+		if parseOk2 {
+			parsePatch2.ParseID = fmt.Sprintf("patch-%d", parseState.CanvasSession.LatestPatchVersion+1)
+			parseNext.CanvasSession.CurrentSource = parseNextSource
+			parseNext.CanvasSession.PatchHistory = append(append([]canvasPatchRecord(nil), parseState.CanvasSession.PatchHistory...), parsePatch2)
+			parseNext.CanvasSession.LatestPatchVersion = parseState.CanvasSession.LatestPatchVersion + 1
+			parseNext.CanvasSession.Dirty = parseState.CanvasSession.OriginalSource != parseNextSource
+			parseNext.CanvasSession.PreviewStatus = canvasPreviewPatched
+			parseNext.CanvasSession.RuntimeStatus = "patched"
 		}
 	case appActionCanvasRefreshPreview:
-		next.CanvasSession.LatestRenderedVersion = state.CanvasSession.LatestRenderedVersion + 1
-		next.CanvasSession.PreviewStatus = canvasPreviewRendering
-		next.CanvasSession.RuntimeStatus = "booting"
+		parseNext.CanvasSession.LatestRenderedVersion = parseState.CanvasSession.LatestRenderedVersion + 1
+		parseNext.CanvasSession.PreviewStatus = canvasPreviewRendering
+		parseNext.CanvasSession.RuntimeStatus = "booting"
 	case appActionCanvasToggleConsole:
-		next.CanvasSession.ConsoleOpen = !state.CanvasSession.ConsoleOpen
+		parseNext.CanvasSession.ConsoleOpen = !parseState.CanvasSession.ConsoleOpen
 	case appActionCanvasClearConsole:
-		next.CanvasSession.ConsoleEntries = nil
+		parseNext.CanvasSession.ConsoleEntries = nil
 	case appActionCanvasAppendConsole:
-		next.CanvasSession.ConsoleEntries = append(append([]canvasConsoleEntry(nil), state.CanvasSession.ConsoleEntries...), action.CanvasConsoleEntry)
+		parseNext.CanvasSession.ConsoleEntries = append(append([]canvasConsoleEntry(nil), parseState.CanvasSession.ConsoleEntries...), parseAction.CanvasConsoleEntry)
 	case appActionCanvasSetStatus:
-		if action.CanvasPreviewStatus != "" {
-			next.CanvasSession.PreviewStatus = action.CanvasPreviewStatus
+		if parseAction.CanvasPreviewStatus != "" {
+			parseNext.CanvasSession.PreviewStatus = parseAction.CanvasPreviewStatus
 		}
-		if action.CanvasRuntimeStatus != "" {
-			next.CanvasSession.RuntimeStatus = action.CanvasRuntimeStatus
+		if parseAction.CanvasRuntimeStatus != "" {
+			parseNext.CanvasSession.RuntimeStatus = parseAction.CanvasRuntimeStatus
 		}
 	case appActionCanvasResetOriginal:
-		next.CanvasSession.CurrentSource = state.CanvasSession.OriginalSource
-		next.CanvasSession.FocusDraft = canvasFocusSnippet(state.CanvasSession.OriginalSource, state.CanvasSession.FocusedRegion)
-		next.CanvasSession.Dirty = false
-		next.CanvasSession.PreviewStatus = canvasPreviewStale
-		next.CanvasSession.RuntimeStatus = "reset"
+		parseNext.CanvasSession.CurrentSource = parseState.CanvasSession.OriginalSource
+		parseNext.CanvasSession.FocusDraft = canvasFocusSnippet(parseState.CanvasSession.OriginalSource, parseState.CanvasSession.FocusedRegion)
+		parseNext.CanvasSession.Dirty = false
+		parseNext.CanvasSession.PreviewStatus = canvasPreviewStale
+		parseNext.CanvasSession.RuntimeStatus = "reset"
 	case appActionCanvasRevertLastPatch:
-		if len(state.CanvasSession.PatchHistory) > 0 {
-			lastPatch := state.CanvasSession.PatchHistory[len(state.CanvasSession.PatchHistory)-1]
-			reverted := lastPatch.SourceBefore
-			next.CanvasSession.CurrentSource = reverted
-			next.CanvasSession.PatchHistory = append([]canvasPatchRecord(nil), state.CanvasSession.PatchHistory[:len(state.CanvasSession.PatchHistory)-1]...)
-			next.CanvasSession.LatestPatchVersion = maxInt(0, state.CanvasSession.LatestPatchVersion-1)
-			next.CanvasSession.Dirty = state.CanvasSession.OriginalSource != reverted
-			next.CanvasSession.FocusDraft = canvasFocusSnippet(reverted, state.CanvasSession.FocusedRegion)
-			next.CanvasSession.PreviewStatus = canvasPreviewStale
-			next.CanvasSession.RuntimeStatus = "reverted"
+		if len(parseState.CanvasSession.PatchHistory) > 0 {
+			parseLastPatch := parseState.CanvasSession.PatchHistory[len(parseState.CanvasSession.PatchHistory)-1]
+			parseReverted := parseLastPatch.SourceBefore
+			parseNext.CanvasSession.CurrentSource = parseReverted
+			parseNext.CanvasSession.PatchHistory = append([]canvasPatchRecord(nil), parseState.CanvasSession.PatchHistory[:len(parseState.CanvasSession.PatchHistory)-1]...)
+			parseNext.CanvasSession.LatestPatchVersion = parseMaxInt(0, parseState.CanvasSession.LatestPatchVersion-1)
+			parseNext.CanvasSession.Dirty = parseState.CanvasSession.OriginalSource != parseReverted
+			parseNext.CanvasSession.FocusDraft = canvasFocusSnippet(parseReverted, parseState.CanvasSession.FocusedRegion)
+			parseNext.CanvasSession.PreviewStatus = canvasPreviewStale
+			parseNext.CanvasSession.RuntimeStatus = "reverted"
 		}
 	case appActionToggleThoughtSection:
-		next.ExpandedThoughtSections = make(map[string]bool, len(state.ExpandedThoughtSections))
-		for key, expanded := range state.ExpandedThoughtSections {
-			next.ExpandedThoughtSections[key] = expanded
+		parseNext.ExpandedThoughtSections = make(map[string]bool, len(parseState.ExpandedThoughtSections))
+		for parseKey, parseExpanded := range parseState.ExpandedThoughtSections {
+			parseNext.ExpandedThoughtSections[parseKey] = parseExpanded
 		}
-		next.ExpandedThoughtSections[action.ThoughtSectionKey] = !state.ExpandedThoughtSections[action.ThoughtSectionKey]
+		parseNext.ExpandedThoughtSections[parseAction.ThoughtSectionKey] = !parseState.ExpandedThoughtSections[parseAction.ThoughtSectionKey]
 	case appActionSetInputText:
-		next.InputText = action.InputText
+		parseNext.InputText = parseAction.InputText
 	case appActionSetStreaming:
-		next.Streaming = action.Streaming
+		parseNext.Streaming = parseAction.Streaming
 	case appActionSetModelCatalog:
-		next.ModelOptions = append([]modelOption(nil), action.ModelOptions...)
-		next.DefaultModel = action.DefaultModel
-		next.SelectedModel = normalizeSelectedModelID(state.SelectedModel, next.ModelOptions, next.DefaultModel)
+		parseNext.ParseModelOptions = append([]modelOption(nil), parseAction.ParseModelOptions...)
+		parseNext.ParseDefaultModel = parseAction.ParseDefaultModel
+		parseNext.SelectedModel = parseNormalizeSelectedModelID(parseState.SelectedModel, parseNext.ParseModelOptions, parseNext.ParseDefaultModel)
 	case appActionSetSelectedModel:
-		next.SelectedModel = action.SelectedModel
+		parseNext.SelectedModel = parseAction.SelectedModel
 	case appActionSetConversationList:
-		next.ConversationList = action.ConversationList
+		parseNext.ConversationList = parseAction.ConversationList
 	case appActionSetActiveConvID:
-		next.ActiveConvID = action.ActiveConvID
-		next.ActiveConvPublicID = action.ActiveConvPublicID
+		parseNext.ActiveConvID = parseAction.ActiveConvID
+		parseNext.ActiveConvPublicID = parseAction.ActiveConvPublicID
 	case appActionSetDeleteTarget:
-		next.DeleteTarget = action.DeleteTarget
+		parseNext.DeleteTarget = parseAction.DeleteTarget
 	case appActionSetSelectedTone:
-		next.SelectedTone = action.SelectedTone
+		parseNext.SelectedTone = parseAction.SelectedTone
 	case appActionSetCustomSystemPrompt:
-		next.CustomSystemPrompt = action.CustomSystemPrompt
+		parseNext.CustomSystemPrompt = parseAction.CustomSystemPrompt
 	case appActionSetSelectedThinkingEnabled:
-		next.SelectedThinkingEnabled = action.SelectedThinkingEnabled
+		parseNext.SelectedThinkingEnabled = parseAction.SelectedThinkingEnabled
 	case appActionSetSelectedThinkingEffort:
-		next.SelectedThinkingEffort = action.SelectedThinkingEffort
+		parseNext.SelectedThinkingEffort = parseAction.SelectedThinkingEffort
 	case appActionSetSelectedTTSProvider:
-		next.SelectedTTSProvider = resolveTTSProviderID(action.SelectedTTSProvider)
+		parseNext.SelectedTTSProvider = parseResolveTTSProviderID(parseAction.SelectedTTSProvider)
 	case appActionSetAuthResolved:
-		next.AuthResolved = action.AuthResolved
+		parseNext.AuthResolved = parseAction.AuthResolved
 	case appActionSetAuthenticated:
-		next.Authenticated = action.Authenticated
+		parseNext.Authenticated = parseAction.Authenticated
 	case appActionSetAuthMode:
-		next.AuthMode = action.AuthMode
+		parseNext.AuthMode = parseAction.AuthMode
 	case appActionSetAuthError:
-		next.AuthError = action.AuthError
+		parseNext.AuthError = parseAction.AuthError
 	case appActionSetAuthSubmitting:
-		next.AuthSubmitting = action.AuthSubmitting
+		parseNext.AuthSubmitting = parseAction.AuthSubmitting
 	case appActionSetAuthEmail:
-		next.AuthEmail = action.AuthEmail
+		parseNext.AuthEmail = parseAction.AuthEmail
 	case appActionSetAuthPassword:
-		next.AuthPassword = action.AuthPassword
+		parseNext.AuthPassword = parseAction.AuthPassword
 	case appActionSetAuthDisplayName:
-		next.AuthDisplayName = action.AuthDisplayName
+		parseNext.AuthDisplayName = parseAction.AuthDisplayName
 	case appActionSetSessionEmail:
-		next.SessionEmail = action.SessionEmail
+		parseNext.SessionEmail = parseAction.SessionEmail
 	case appActionResetWorkspace:
-		next.Messages = []message{}
-		next.ExpandedThoughtSections = map[string]bool{}
-		next.CanvasSession = canvasSessionState{
+		parseNext.Messages = []message{}
+		parseNext.ExpandedThoughtSections = map[string]bool{}
+		parseNext.CanvasSession = canvasSessionState{
 			LayoutMode:    canvasLayoutHidden,
-			SplitRatio:    state.CanvasSession.SplitRatio,
+			SplitRatio:    parseState.CanvasSession.SplitRatio,
 			PreviewStatus: canvasPreviewNotRendered,
 			RuntimeStatus: "idle",
 		}
-		next.InputText = ""
-		next.Streaming = false
-		next.ConversationList = []convSummary{}
-		next.ActiveConvID = 0
-		next.ActiveConvPublicID = ""
-		next.DeleteTarget = 0
-		next.CustomSystemPrompt = ""
-		next.ShowNameModal = false
-		next.NameInput = ""
-		next.ToneInput = next.SelectedTone
-		next.ThinkingEnabledInput = next.SelectedThinkingEnabled
-		next.ThinkingEffortInput = next.SelectedThinkingEffort
-		next.TTSProviderInput = next.SelectedTTSProvider
-		next.SystemPromptInput = ""
-		next.UserMemories = []editableUserMemory{}
-		next.DeletedUserMemoryKeys = []string{}
-		next.EditIdx = -1
-		next.EditText = ""
+		parseNext.InputText = ""
+		parseNext.Streaming = false
+		parseNext.ConversationList = []convSummary{}
+		parseNext.ActiveConvID = 0
+		parseNext.ActiveConvPublicID = ""
+		parseNext.DeleteTarget = 0
+		parseNext.CustomSystemPrompt = ""
+		parseNext.ShowNameModal = false
+		parseNext.NameInput = ""
+		parseNext.ToneInput = parseNext.SelectedTone
+		parseNext.ThinkingEnabledInput = parseNext.SelectedThinkingEnabled
+		parseNext.ThinkingEffortInput = parseNext.SelectedThinkingEffort
+		parseNext.TTSProviderInput = parseNext.SelectedTTSProvider
+		parseNext.SystemPromptInput = ""
+		parseNext.UserMemories = []editableUserMemory{}
+		parseNext.DeletedUserMemoryKeys = []string{}
+		parseNext.EditIdx = -1
+		parseNext.EditText = ""
 	case appActionSetShowNameModal:
-		next.ShowNameModal = action.ShowNameModal
+		parseNext.ShowNameModal = parseAction.ShowNameModal
 	case appActionSetActiveSettingsSection:
-		next.ActiveSettingsSection = normalizeSettingsSectionID(action.ActiveSettingsSection)
-		if next.ActiveSettingsSection == "" {
-			next.ActiveSettingsSection = defaultSettingsSectionID
+		parseNext.ActiveSettingsSection = parseNormalizeSettingsSectionID(parseAction.ActiveSettingsSection)
+		if parseNext.ActiveSettingsSection == "" {
+			parseNext.ActiveSettingsSection = defaultSettingsSectionID
 		}
 	case appActionSetNameInput:
-		next.NameInput = action.NameInput
+		parseNext.NameInput = parseAction.NameInput
 	case appActionSetToneInput:
-		next.ToneInput = action.ToneInput
+		parseNext.ToneInput = parseAction.ToneInput
 	case appActionSetThinkingEnabledInput:
-		next.ThinkingEnabledInput = action.ThinkingEnabledInput
+		parseNext.ThinkingEnabledInput = parseAction.ThinkingEnabledInput
 	case appActionSetThinkingEffortInput:
-		next.ThinkingEffortInput = action.ThinkingEffortInput
+		parseNext.ThinkingEffortInput = parseAction.ThinkingEffortInput
 	case appActionSetTTSProviderInput:
-		next.TTSProviderInput = resolveTTSProviderID(action.TTSProviderInput)
+		parseNext.TTSProviderInput = parseResolveTTSProviderID(parseAction.TTSProviderInput)
 	case appActionSetSystemPromptInput:
-		next.SystemPromptInput = action.SystemPromptInput
+		parseNext.SystemPromptInput = parseAction.SystemPromptInput
 	case appActionSetUserMemories:
-		next.UserMemories = append([]editableUserMemory(nil), action.UserMemories...)
-		next.DeletedUserMemoryKeys = append([]string(nil), action.DeletedUserMemoryKeys...)
+		parseNext.UserMemories = append([]editableUserMemory(nil), parseAction.UserMemories...)
+		parseNext.DeletedUserMemoryKeys = append([]string(nil), parseAction.DeletedUserMemoryKeys...)
 	case appActionAddUserMemory:
-		next.UserMemories = append(append([]editableUserMemory(nil), state.UserMemories...), editableUserMemory{
+		parseNext.UserMemories = append(append([]editableUserMemory(nil), parseState.UserMemories...), editableUserMemory{
 			Category:        "preference",
 			UsefulnessScore: 70,
 			ConfidenceScore: 0.8,
 		})
 	case appActionUpdateUserMemoryField:
-		next.UserMemories = append([]editableUserMemory(nil), state.UserMemories...)
-		if action.UserMemoryIndex >= 0 && action.UserMemoryIndex < len(next.UserMemories) {
-			current := next.UserMemories[action.UserMemoryIndex]
-			switch action.UserMemoryField {
+		parseNext.UserMemories = append([]editableUserMemory(nil), parseState.UserMemories...)
+		if parseAction.UserMemoryIndex >= 0 && parseAction.UserMemoryIndex < len(parseNext.UserMemories) {
+			parseCurrent := parseNext.UserMemories[parseAction.UserMemoryIndex]
+			switch parseAction.UserMemoryField {
 			case "category":
-				current.Category = action.UserMemoryValue
+				parseCurrent.Category = parseAction.UserMemoryValue
 			case "summary":
-				current.Summary = action.UserMemoryValue
+				parseCurrent.Summary = parseAction.UserMemoryValue
 			case "detail":
-				current.Detail = action.UserMemoryValue
+				parseCurrent.Detail = parseAction.UserMemoryValue
 			case "rubric_reason":
-				current.RubricReason = action.UserMemoryValue
+				parseCurrent.RubricReason = parseAction.UserMemoryValue
 			}
-			next.UserMemories[action.UserMemoryIndex] = current
+			parseNext.UserMemories[parseAction.UserMemoryIndex] = parseCurrent
 		}
 	case appActionDeleteUserMemory:
-		if action.UserMemoryIndex >= 0 && action.UserMemoryIndex < len(state.UserMemories) {
-			current := state.UserMemories[action.UserMemoryIndex]
-			next.UserMemories = append([]editableUserMemory(nil), state.UserMemories[:action.UserMemoryIndex]...)
-			next.UserMemories = append(next.UserMemories, state.UserMemories[action.UserMemoryIndex+1:]...)
-			next.DeletedUserMemoryKeys = append([]string(nil), state.DeletedUserMemoryKeys...)
-			if current.Key != "" {
-				next.DeletedUserMemoryKeys = append(next.DeletedUserMemoryKeys, current.Key)
+		if parseAction.UserMemoryIndex >= 0 && parseAction.UserMemoryIndex < len(parseState.UserMemories) {
+			parseCurrent2 := parseState.UserMemories[parseAction.UserMemoryIndex]
+			parseNext.UserMemories = append([]editableUserMemory(nil), parseState.UserMemories[:parseAction.UserMemoryIndex]...)
+			parseNext.UserMemories = append(parseNext.UserMemories, parseState.UserMemories[parseAction.UserMemoryIndex+1:]...)
+			parseNext.DeletedUserMemoryKeys = append([]string(nil), parseState.DeletedUserMemoryKeys...)
+			if parseCurrent2.Key != "" {
+				parseNext.DeletedUserMemoryKeys = append(parseNext.DeletedUserMemoryKeys, parseCurrent2.Key)
 			}
 		}
 	case appActionSetLocaleInput:
-		next.LocaleInput = action.LocaleInput
+		parseNext.LocaleInput = parseAction.LocaleInput
 	case appActionSetGRPCReady:
-		next.GRPCReady = action.GRPCReady
+		parseNext.GRPCReady = parseAction.GRPCReady
 	case appActionSetMarkdownWorkerFallback:
-		next.MarkdownWorkerFallback = action.MarkdownWorkerFallback
+		parseNext.MarkdownWorkerFallback = parseAction.MarkdownWorkerFallback
 	case appActionSetEditIdx:
-		next.EditIdx = action.EditIdx
+		parseNext.EditIdx = parseAction.EditIdx
 	case appActionSetEditText:
-		next.EditText = action.EditText
+		parseNext.EditText = parseAction.EditText
 	}
-	return next
+	return parseNext
 }

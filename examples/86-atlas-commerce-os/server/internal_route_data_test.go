@@ -7,144 +7,144 @@ import (
 	"github.com/monstercameron/GoWebComponents/examples/86-atlas-commerce-os/shared/repository"
 )
 
-func TestInternalRouteDataCountAndFallbackHelpers(t *testing.T) {
-	comments := []serverdb.CommentRecord{
+func TestInternalRouteDataCountAndFallbackHelpers(parseT *testing.T) {
+	parseComments := []serverdb.CommentRecord{
 		{Status: " pending "},
 		{Status: "FLAGGED"},
 		{Status: "approved"},
 	}
-	if got := countCommentsByStatus(comments, "pending"); got != 1 {
-		t.Fatalf("countCommentsByStatus(pending) = %d, want 1", got)
+	if parseGot := countCommentsByStatus(parseComments, "pending"); parseGot != 1 {
+		parseT.Fatalf("countCommentsByStatus(pending) = %d, want 1", parseGot)
 	}
-	if got := countCommentsByStatus(comments, "flagged"); got != 1 {
-		t.Fatalf("countCommentsByStatus(flagged) = %d, want 1", got)
+	if parseGot2 := countCommentsByStatus(parseComments, "flagged"); parseGot2 != 1 {
+		parseT.Fatalf("countCommentsByStatus(flagged) = %d, want 1", parseGot2)
 	}
 
-	transfers := []serverdb.TransferRecord{
+	parseTransfers := []serverdb.TransferRecord{
 		{Status: "submitted"},
 		{Status: " approved "},
 		{Status: "submitted"},
 	}
-	if got := countTransfersByStatus(transfers, "submitted"); got != 2 {
-		t.Fatalf("countTransfersByStatus(submitted) = %d, want 2", got)
+	if parseGot3 := countTransfersByStatus(parseTransfers, "submitted"); parseGot3 != 2 {
+		parseT.Fatalf("countTransfersByStatus(submitted) = %d, want 2", parseGot3)
 	}
 
-	receiving := []serverdb.ReceivingSessionRecord{
+	parseReceiving := []serverdb.ReceivingSessionRecord{
 		{Status: "open"},
 		{Status: " closed "},
 		{Status: "review"},
 	}
-	if got := countOpenReceivingSessions(receiving); got != 2 {
-		t.Fatalf("countOpenReceivingSessions() = %d, want 2", got)
+	if parseGot4 := countOpenReceivingSessions(parseReceiving); parseGot4 != 2 {
+		parseT.Fatalf("countOpenReceivingSessions() = %d, want 2", parseGot4)
 	}
 
-	warehousePressure := []serverdb.WarehousePressureRecord{
+	parseWarehousePressure := []serverdb.WarehousePressureRecord{
 		{ID: "nj", Name: "New Jersey", RiskCount: 2, Inbound: 4},
 		{ID: "nv", Name: "", RiskCount: 5, Inbound: 6},
 	}
-	if got := countWarehouseRiskLanes(warehousePressure); got != 7 {
-		t.Fatalf("countWarehouseRiskLanes() = %d, want 7", got)
+	if parseGot5 := countWarehouseRiskLanes(parseWarehousePressure); parseGot5 != 7 {
+		parseT.Fatalf("countWarehouseRiskLanes() = %d, want 7", parseGot5)
 	}
-	if got := countWarehouseInbound(warehousePressure); got != 10 {
-		t.Fatalf("countWarehouseInbound() = %d, want 10", got)
+	if parseGot6 := countWarehouseInbound(parseWarehousePressure); parseGot6 != 10 {
+		parseT.Fatalf("countWarehouseInbound() = %d, want 10", parseGot6)
 	}
-	if got := fallbackWarehousePressure(nil); got != "No active lane" {
-		t.Fatalf("fallbackWarehousePressure(nil) = %q, want No active lane", got)
+	if parseGot7 := fallbackWarehousePressure(nil); parseGot7 != "No active lane" {
+		parseT.Fatalf("fallbackWarehousePressure(nil) = %q, want No active lane", parseGot7)
 	}
-	if got := fallbackWarehousePressure(warehousePressure); got != "nv" {
-		t.Fatalf("fallbackWarehousePressure() = %q, want nv", got)
+	if parseGot8 := fallbackWarehousePressure(parseWarehousePressure); parseGot8 != "nv" {
+		parseT.Fatalf("fallbackWarehousePressure() = %q, want nv", parseGot8)
 	}
 
-	inventory := []repository.InventoryRow{
+	parseInventory := []repository.InventoryRow{
 		{WeeklyUnits: 7, ReorderUnits: 0, MarketPressure: "stable"},
 		{WeeklyUnits: 5, ReorderUnits: 3, MarketPressure: "steady"},
 		{WeeklyUnits: 6, ReorderUnits: 0, MarketPressure: " hot market "},
 	}
-	if got := countWarehouseDemand(inventory); got != 18 {
-		t.Fatalf("countWarehouseDemand() = %d, want 18", got)
+	if parseGot9 := countWarehouseDemand(parseInventory); parseGot9 != 18 {
+		parseT.Fatalf("countWarehouseDemand() = %d, want 18", parseGot9)
 	}
-	if got := countWarehouseUrgentItems(inventory); got != 2 {
-		t.Fatalf("countWarehouseUrgentItems() = %d, want 2", got)
+	if parseGot10 := countWarehouseUrgentItems(parseInventory); parseGot10 != 2 {
+		parseT.Fatalf("countWarehouseUrgentItems() = %d, want 2", parseGot10)
 	}
 
-	orders := []serverdb.PurchaseOrderRecord{
+	parseOrders := []serverdb.PurchaseOrderRecord{
 		{WarehouseID: "nj", WarehouseName: "New Jersey Hub", Status: "submitted"},
 		{WarehouseID: "nj", WarehouseName: "New Jersey Hub", Status: "approved"},
 		{WarehouseID: "il", WarehouseName: "Illinois Hub", Status: "submitted"},
 	}
-	if got := countPurchaseOrdersByStatus(orders, "submitted"); got != 2 {
-		t.Fatalf("countPurchaseOrdersByStatus(submitted) = %d, want 2", got)
+	if parseGot11 := countPurchaseOrdersByStatus(parseOrders, "submitted"); parseGot11 != 2 {
+		parseT.Fatalf("countPurchaseOrdersByStatus(submitted) = %d, want 2", parseGot11)
 	}
-	if got := fallbackPurchaseOrderWarehouse(nil); got != "No active inbound lane" {
-		t.Fatalf("fallbackPurchaseOrderWarehouse(nil) = %q, want No active inbound lane", got)
+	if parseGot12 := fallbackPurchaseOrderWarehouse(nil); parseGot12 != "No active inbound lane" {
+		parseT.Fatalf("fallbackPurchaseOrderWarehouse(nil) = %q, want No active inbound lane", parseGot12)
 	}
-	if got := fallbackPurchaseOrderWarehouse(orders); got != "New Jersey Hub" {
-		t.Fatalf("fallbackPurchaseOrderWarehouse() = %q, want New Jersey Hub", got)
+	if parseGot13 := fallbackPurchaseOrderWarehouse(parseOrders); parseGot13 != "New Jersey Hub" {
+		parseT.Fatalf("fallbackPurchaseOrderWarehouse() = %q, want New Jersey Hub", parseGot13)
 	}
 }
 
-func TestInternalRouteDataSummaryBuilders(t *testing.T) {
-	comments := []serverdb.CommentRecord{
+func TestInternalRouteDataSummaryBuilders(parseT *testing.T) {
+	parseComments := []serverdb.CommentRecord{
 		{Status: "pending"},
 		{Status: "flagged"},
 		{Status: "approved"},
 	}
-	transfers := []serverdb.TransferRecord{
+	parseTransfers := []serverdb.TransferRecord{
 		{Status: "submitted"},
 		{Status: "approved"},
 	}
-	receiving := []serverdb.ReceivingSessionRecord{
+	parseReceiving := []serverdb.ReceivingSessionRecord{
 		{Status: "open"},
 		{Status: "closed"},
 	}
-	orders := []serverdb.PurchaseOrderRecord{
+	parseOrders := []serverdb.PurchaseOrderRecord{
 		{WarehouseID: "nj", WarehouseName: "New Jersey Hub", Status: "submitted"},
 		{WarehouseID: "nj", WarehouseName: "New Jersey Hub", Status: "approved"},
 		{WarehouseID: "il", WarehouseName: "Illinois Hub", Status: "on_hold"},
 	}
-	inventory := []repository.InventoryRow{
+	parseInventory := []repository.InventoryRow{
 		{SKU: "frame-desk", WarehouseID: "new-jersey-hub", Available: 2, Inbound: 1, ReorderUnits: 5, Status: "promise_risk", WeeklyUnits: 8},
 		{SKU: "cable-bridge", WarehouseID: "new-jersey-hub", Available: 20, Inbound: 0, ReorderUnits: 0, Status: "balanced", WeeklyUnits: 14},
 	}
 
-	dashboard := buildDashboardSummary(comments, transfers, receiving, orders)
-	if dashboard.Headline != "Demand and operations overview" || len(dashboard.Items) != 4 {
-		t.Fatalf("buildDashboardSummary() = %+v", dashboard)
+	parseDashboard := buildDashboardSummary(parseComments, parseTransfers, parseReceiving, parseOrders)
+	if parseDashboard.Headline != "Demand and operations overview" || len(parseDashboard.Items) != 4 {
+		parseT.Fatalf("buildDashboardSummary() = %+v", parseDashboard)
 	}
-	if dashboard.Items[0].Value != "3 queued" {
-		t.Fatalf("unexpected dashboard buyer inbox value: %+v", dashboard.Items[0])
-	}
-
-	inventorySummary := buildInventorySummary(inventory)
-	if inventorySummary.Headline != "Inventory pressure baseline" || len(inventorySummary.Items) != 4 {
-		t.Fatalf("buildInventorySummary() = %+v", inventorySummary)
+	if parseDashboard.Items[0].Value != "3 queued" {
+		parseT.Fatalf("unexpected dashboard buyer inbox value: %+v", parseDashboard.Items[0])
 	}
 
-	warehouseOps := buildWarehouseOpsSummary([]serverdb.WarehousePressureRecord{
+	parseInventorySummary := buildInventorySummary(parseInventory)
+	if parseInventorySummary.Headline != "Inventory pressure baseline" || len(parseInventorySummary.Items) != 4 {
+		parseT.Fatalf("buildInventorySummary() = %+v", parseInventorySummary)
+	}
+
+	parseWarehouseOps := buildWarehouseOpsSummary([]serverdb.WarehousePressureRecord{
 		{ID: "nj", Name: "New Jersey Hub", RiskCount: 2, Inbound: 4},
 		{ID: "nv", Name: "", RiskCount: 5, Inbound: 6},
 	})
-	if warehouseOps.Items[3].Value != "nv" {
-		t.Fatalf("unexpected warehouse priority lane: %+v", warehouseOps.Items[3])
+	if parseWarehouseOps.Items[3].Value != "nv" {
+		parseT.Fatalf("unexpected warehouse priority lane: %+v", parseWarehouseOps.Items[3])
 	}
 
-	warehouseDetail := buildWarehouseDetailSummary(inventory, orders[:2], "new-jersey-hub")
-	if warehouseDetail.Headline != "Warehouse route baseline" || warehouseDetail.Items[2].Value != "2" {
-		t.Fatalf("buildWarehouseDetailSummary() = %+v", warehouseDetail)
+	parseWarehouseDetail := buildWarehouseDetailSummary(parseInventory, parseOrders[:2], "new-jersey-hub")
+	if parseWarehouseDetail.Headline != "Warehouse route baseline" || parseWarehouseDetail.Items[2].Value != "2" {
+		parseT.Fatalf("buildWarehouseDetailSummary() = %+v", parseWarehouseDetail)
 	}
 
-	purchaseOrders := buildPurchaseOrderSummary(orders)
-	if purchaseOrders.Headline != "Vendor replenishment baseline" || purchaseOrders.Items[3].Value != "New Jersey Hub" {
-		t.Fatalf("buildPurchaseOrderSummary() = %+v", purchaseOrders)
+	parsePurchaseOrders := buildPurchaseOrderSummary(parseOrders)
+	if parsePurchaseOrders.Headline != "Vendor replenishment baseline" || parsePurchaseOrders.Items[3].Value != "New Jersey Hub" {
+		parseT.Fatalf("buildPurchaseOrderSummary() = %+v", parsePurchaseOrders)
 	}
 
-	commentSummary := buildCommentSummary(comments)
-	if commentSummary.Headline != "Buyer inbox baseline" || commentSummary.Items[1].Value != "1" || commentSummary.Items[2].Value != "1" {
-		t.Fatalf("buildCommentSummary() = %+v", commentSummary)
+	parseCommentSummary := buildCommentSummary(parseComments)
+	if parseCommentSummary.Headline != "Buyer inbox baseline" || parseCommentSummary.Items[1].Value != "1" || parseCommentSummary.Items[2].Value != "1" {
+		parseT.Fatalf("buildCommentSummary() = %+v", parseCommentSummary)
 	}
 
-	settings := buildSettingsSummary(serverdb.PreferencesRecord{}, []repository.SavedView{{Name: "Low stock"}})
-	if settings.Headline != "Workspace preferences and transfer tools" || settings.Items[0].Value != "dark" || settings.Items[1].Value != "en" || settings.Items[2].Value != "1" || settings.Items[3].Value != "new-jersey-hub" {
-		t.Fatalf("buildSettingsSummary() = %+v", settings)
+	parseSettings := buildSettingsSummary(serverdb.PreferencesRecord{}, []repository.SavedView{{Name: "Low stock"}})
+	if parseSettings.Headline != "Workspace preferences and transfer tools" || parseSettings.Items[0].Value != "dark" || parseSettings.Items[1].Value != "en" || parseSettings.Items[2].Value != "1" || parseSettings.Items[3].Value != "new-jersey-hub" {
+		parseT.Fatalf("buildSettingsSummary() = %+v", parseSettings)
 	}
 }

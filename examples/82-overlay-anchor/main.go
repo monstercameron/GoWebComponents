@@ -20,36 +20,36 @@ const (
 )
 
 func overlayAnchorExample() ui.Node {
-	menuOpen := ui.UseState(false)
-	tooltipOpen := ui.UseState(false)
-	targetMode := ui.UseState("selector")
-	host := js.Global().Get("document").Call("getElementById", overlayAnchorExplicitID)
-	hostReady := host.Truthy()
+	parseMenuOpen := ui.UseState(false)
+	parseTooltipOpen := ui.UseState(false)
+	parseTargetMode := ui.UseState("selector")
+	parseHost := js.Global().Get("document").Call("getElementById", overlayAnchorExplicitID)
+	parseHostReady := parseHost.Truthy()
 
-	openMenu := ui.UseEvent(func() {
-		menuOpen.Set(true)
+	parseOpenMenu := ui.UseEvent(func() {
+		parseMenuOpen.Set(true)
 	})
-	dismissMenu := func() {
-		tooltipOpen.Set(false)
-		menuOpen.Set(false)
+	parseDismissMenu := func() {
+		parseTooltipOpen.Set(false)
+		parseMenuOpen.Set(false)
 	}
-	toggleTooltip := ui.UseEvent(func() {
-		tooltipOpen.Set(!tooltipOpen.Get())
+	parseToggleTooltip := ui.UseEvent(func() {
+		parseTooltipOpen.Set(!parseTooltipOpen.Get())
 	})
-	useExplicitTarget := ui.UseEvent(func() {
-		targetMode.Set("explicit")
+	parseUseExplicitTarget := ui.UseEvent(func() {
+		parseTargetMode.Set("explicit")
 	})
-	useSelectorTarget := ui.UseEvent(func() {
-		targetMode.Set("selector")
+	parseUseSelectorTarget := ui.UseEvent(func() {
+		parseTargetMode.Set("selector")
 	})
 
-	tooltipTarget := ui.PortalTarget{Selector: overlayAnchorSelectorRoot}
-	if targetMode.Get() == "explicit" && hostReady {
-		tooltipTarget = ui.PortalTarget{Node: host}
+	parseTooltipTarget := ui.PortalTarget{Selector: overlayAnchorSelectorRoot}
+	if parseTargetMode.Get() == "explicit" && parseHostReady {
+		parseTooltipTarget = ui.PortalTarget{Node: parseHost}
 	}
 
-	menuOverlay := ui.CreateElement(ui.Overlay, ui.OverlayProps{
-		Open:                menuOpen.Get(),
+	parseMenuOverlay := ui.CreateElement(ui.Overlay, ui.OverlayProps{
+		Open:                parseMenuOpen.Get(),
 		Target:              ui.PortalTarget{Selector: overlayAnchorSelectorRoot},
 		SurfaceID:           "overlay-anchor-menu",
 		Kind:                ui.OverlayKindMenu,
@@ -59,30 +59,30 @@ func overlayAnchorExample() ui.Node {
 		AnchorSelector:      "#open-overlay-anchor-menu",
 		Positioning:         "anchored menu with viewport clamping guidance",
 		SurfaceClass:        "fixed left-[calc(50%-13rem)] top-[calc(50%-1rem)] w-96 rounded-[1.75rem] border border-cyan-300/20 bg-slate-950/98 p-6 text-slate-100 shadow-[0_28px_110px_rgba(8,145,178,0.22)]",
-		OnDismiss:           dismissMenu,
+		OnDismiss:           parseDismissMenu,
 		Child: html.Div(html.Props{},
 			html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-cyan-300"}, html.Text("Anchored menu")),
 			html.H2(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text("Portal target lab")),
 			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text("Switch the tooltip target between the shared selector root and an explicitly resolved DOM node. The tooltip stays above the menu because stack order is global even when portal hosts differ.")),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-				html.Button(html.Props{ID: "use-selector-overlay-target", Class: "rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100", OnClick: useSelectorTarget}, html.Text("Tooltip to selector root")),
-				html.Button(html.Props{ID: "use-explicit-overlay-target", Class: "rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200", OnClick: useExplicitTarget}, html.Text("Tooltip to explicit node")),
-				html.Button(html.Props{ID: "toggle-overlay-tooltip", Class: "rounded-full border border-amber-300/25 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-amber-100", OnClick: toggleTooltip}, html.Text("Toggle tooltip")),
+				html.Button(html.Props{ID: "use-selector-overlay-target", Class: "rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100", OnClick: parseUseSelectorTarget}, html.Text("Tooltip to selector root")),
+				html.Button(html.Props{ID: "use-explicit-overlay-target", Class: "rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200", OnClick: parseUseExplicitTarget}, html.Text("Tooltip to explicit node")),
+				html.Button(html.Props{ID: "toggle-overlay-tooltip", Class: "rounded-full border border-amber-300/25 bg-amber-300/10 px-4 py-2 text-sm font-semibold text-amber-100", OnClick: parseToggleTooltip}, html.Text("Toggle tooltip")),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
-				shared.ExampleStat("Tooltip target", targetMode.Get()),
-				shared.ExampleStat("Tooltip open", fmt.Sprintf("%t", tooltipOpen.Get())),
-				shared.ExampleStat("Explicit host", map[bool]string{true: "Ready", false: "Missing"}[hostReady]),
+				shared.ExampleStat("Tooltip target", parseTargetMode.Get()),
+				shared.ExampleStat("Tooltip open", fmt.Sprintf("%t", parseTooltipOpen.Get())),
+				shared.ExampleStat("Explicit host", map[bool]string{true: "Ready", false: "Missing"}[parseHostReady]),
 			),
 			html.Div(html.Props{Class: "mt-6 flex gap-3"},
-				html.Button(html.Props{ID: "dismiss-overlay-anchor-menu", Class: "rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200", OnClick: ui.UseEvent(func() { dismissMenu() })}, html.Text("Dismiss menu")),
+				html.Button(html.Props{ID: "dismiss-overlay-anchor-menu", Class: "rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200", OnClick: ui.UseEvent(func() { parseDismissMenu() })}, html.Text("Dismiss menu")),
 			),
 		),
 	})
 
-	tooltipOverlay := ui.CreateElement(ui.Overlay, ui.OverlayProps{
-		Open:           menuOpen.Get() && tooltipOpen.Get(),
-		Target:         tooltipTarget,
+	parseTooltipOverlay := ui.CreateElement(ui.Overlay, ui.OverlayProps{
+		Open:           parseMenuOpen.Get() && parseTooltipOpen.Get(),
+		Target:         parseTooltipTarget,
 		SurfaceID:      "overlay-anchor-tooltip",
 		Kind:           ui.OverlayKindTooltip,
 		Role:           "tooltip",
@@ -100,7 +100,7 @@ func overlayAnchorExample() ui.Node {
 			shared.ExamplePanel("Anchored menu and tooltip",
 				html.P(html.Props{Class: "mt-3 max-w-3xl text-slate-300"}, html.Text("Open the menu, switch the tooltip host between selector and explicit-node targets, then toggle the tooltip. The menu and tooltip should remain layered consistently even though they can render into different physical DOM containers.")),
 				html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-					html.Button(html.Props{ID: "open-overlay-anchor-menu", Class: "rounded-full border border-cyan-400/30 bg-cyan-400/10 px-5 py-3 text-sm font-semibold text-cyan-100", OnClick: openMenu}, html.Text("Open anchored menu")),
+					html.Button(html.Props{ID: "open-overlay-anchor-menu", Class: "rounded-full border border-cyan-400/30 bg-cyan-400/10 px-5 py-3 text-sm font-semibold text-cyan-100", OnClick: parseOpenMenu}, html.Text("Open anchored menu")),
 					html.A(html.Props{Href: "#overlay-anchor-guidance", Class: "rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-slate-200"}, html.Text("Read positioning notes")),
 				),
 			),
@@ -111,8 +111,8 @@ func overlayAnchorExample() ui.Node {
 				),
 			),
 		),
-		menuOverlay,
-		tooltipOverlay,
+		parseMenuOverlay,
+		parseTooltipOverlay,
 	)
 }
 

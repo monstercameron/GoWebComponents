@@ -431,7 +431,7 @@ func launcherCommandAndArgs(parseArgs []string) (string, []string) {
 
 func launcherCommandSupportsJSON(parseCommand string) bool {
 	switch strings.TrimSpace(strings.ToLower(parseCommand)) {
-	case "bench", "benchmark", "build", "deploy", "dev", "doctor", "env", "export", "files", "init", "inspect", "migrate", "prerender", "release", "seed", "tailwind", "test", "upgrade", "verify", "wasm":
+	case "bench", "benchmark", "build", "deploy", "dev", "doctor", "env", "examples", "export", "files", "init", "inspect", "migrate", "prerender", "release", "seed", "tailwind", "test", "upgrade", "verify", "wasm":
 		return true
 	default:
 		return false
@@ -439,6 +439,9 @@ func launcherCommandSupportsJSON(parseCommand string) bool {
 }
 
 func launcherJSONRequestedForCommand(parseCommand string, parseArgs []string) bool {
+	if isExamplesManagedPathCommand(parseCommand, parseArgs) {
+		return launcherJSONRequestedForCommand("examples", buildExamplesManagedPathCommandArgs(parseCommand, parseArgs))
+	}
 	if !launcherCommandSupportsJSON(parseCommand) {
 		return false
 	}
@@ -693,6 +696,9 @@ func (parseL launcher) dispatchCommand(parseCommand string, parseArgs []string) 
 	case "wasm":
 		return runWasmCommand(parseL, parseArgs)
 	default:
+		if isExamplesManagedPathCommand(parseCommand, parseArgs) {
+			return parseL.runExamplesManaged(buildExamplesManagedPathCommandArgs(parseCommand, parseArgs))
+		}
 		return fmt.Errorf("unknown command %q", parseCommand)
 	}
 }

@@ -18,10 +18,10 @@ var wasmArtifactMetadata struct {
 }
 
 // SetWASMArtifactMetadata stores the current emitted artifact metadata for panic correlation.
-func SetWASMArtifactMetadata(parseMeta WASMArtifactMetadata) {
+func SetWASMArtifactMetadata(parseArtifactMeta WASMArtifactMetadata) {
 	wasmArtifactMetadata.mu.Lock()
 	defer wasmArtifactMetadata.mu.Unlock()
-	wasmArtifactMetadata.meta = parseMeta
+	wasmArtifactMetadata.meta = parseArtifactMeta
 }
 
 // ResetWASMArtifactMetadata clears the current emitted artifact metadata.
@@ -37,28 +37,28 @@ func currentWASMArtifactMetadata() WASMArtifactMetadata {
 }
 
 // panicArtifactFields is a core package helper.
-func panicArtifactFields(parseMeta WASMArtifactMetadata) map[string]string {
-	parseFields := map[string]string{}
-	if parseMeta.BuildID != "" {
-		parseFields["artifact_build_id"] = parseMeta.BuildID
+func panicArtifactFields(parseArtifactMeta WASMArtifactMetadata) map[string]string {
+	parseArtifactFields := map[string]string{}
+	if parseArtifactMeta.BuildID != "" {
+		parseArtifactFields["artifact_build_id"] = parseArtifactMeta.BuildID
 	}
-	if parseMeta.ArtifactPath != "" {
-		parseFields["artifact_path"] = parseMeta.ArtifactPath
+	if parseArtifactMeta.ArtifactPath != "" {
+		parseArtifactFields["artifact_path"] = parseArtifactMeta.ArtifactPath
 	}
-	if parseMeta.SHA256 != "" {
-		parseFields["artifact_sha256"] = parseMeta.SHA256
+	if parseArtifactMeta.SHA256 != "" {
+		parseArtifactFields["artifact_sha256"] = parseArtifactMeta.SHA256
 	}
-	if parseMeta.ManifestPath != "" {
-		parseFields["artifact_manifest"] = parseMeta.ManifestPath
+	if parseArtifactMeta.ManifestPath != "" {
+		parseArtifactFields["artifact_manifest"] = parseArtifactMeta.ManifestPath
 	}
-	if parseMeta.SymbolSet != "" {
-		parseFields["artifact_symbols"] = parseMeta.SymbolSet
+	if parseArtifactMeta.SymbolSet != "" {
+		parseArtifactFields["artifact_symbols"] = parseArtifactMeta.SymbolSet
 	}
-	if parseMeta.Version != "" {
-		parseFields["artifact_version"] = parseMeta.Version
+	if parseArtifactMeta.Version != "" {
+		parseArtifactFields["artifact_version"] = parseArtifactMeta.Version
 	}
-	if len(parseFields) == 0 {
+	if len(parseArtifactFields) == 0 {
 		return nil
 	}
-	return parseFields
+	return parseArtifactFields
 }

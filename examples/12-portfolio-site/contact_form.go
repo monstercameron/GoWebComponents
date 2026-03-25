@@ -152,18 +152,18 @@ func ContactSection(_ Attrs) *Element {
 
 // ContactMethod renders a structured contact option with icon and call-to-action.
 // Provides consistent styling for different communication channels.
-func ContactMethod(icon, title, description, link string) *Element {
+func ContactMethod(parseIcon, parseTitle, parseDescription, parseLink string) *Element {
 	return Div(
 		Attrs{"class": "flex items-start space-x-4"},
-		Span(Attrs{"class": "text-2xl"}, icon),
+		Span(Attrs{"class": "text-2xl"}, parseIcon),
 		Div(
 			Attrs{"class": "flex-1"},
-			H4(Attrs{"class": "text-lg font-semibold text-white"}, title),
-			P(Attrs{"class": "text-gray-400 mb-2"}, description),
+			H4(Attrs{"class": "text-lg font-semibold text-white"}, parseTitle),
+			P(Attrs{"class": "text-gray-400 mb-2"}, parseDescription),
 			Button(
 				Attrs{
 					"class":   "text-purple-400 hover:text-purple-300 transition-colors duration-200",
-					"onclick": OpenContactLink(link),
+					"onclick": OpenContactLink(parseLink),
 				},
 				"Connect →",
 			),
@@ -183,19 +183,19 @@ func ContactForm(_ Attrs) *Element {
 	isSubmitting, setIsSubmitting := UseState(false)
 	isSubmitted, setIsSubmitted := UseState(false)
 
-	handleSubmit := UseEvent(func(event FormEvent) {
-		event.PreventDefault()
+	handleSubmit := UseEvent(func(parseEvent FormEvent) {
+		parseEvent.PreventDefault()
 
 		// Set submitting state
 		setIsSubmitting(true)
 
 		// Simulate form submission
-		js.Global().Call("setTimeout", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		js.Global().Call("setTimeout", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
 			setIsSubmitting(false)
 			setIsSubmitted(true)
 
 			// Reset form after 3 seconds
-			js.Global().Call("setTimeout", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+			js.Global().Call("setTimeout", js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
 				setIsSubmitted(false)
 				setFormData(map[string]string{
 					"name":    "",
@@ -209,7 +209,7 @@ func ContactForm(_ Attrs) *Element {
 		}), 2000)
 	})
 
-	handleInputChange := UseEvent(func(event InputEvent) {
+	handleInputChange := UseEvent(func(parseEvent2 InputEvent) {
 		// Note: This is a simplified version - actual implementation would need proper event handling
 		// For now, this is a placeholder for the form interaction
 	})
@@ -289,8 +289,8 @@ func ContactForm(_ Attrs) *Element {
 }
 
 // OpenContactLink creates a JavaScript function to open a contact link
-func OpenContactLink(url string) interface{} {
-	return UseEvent(func(e MouseEvent) {
-		js.Global().Get("window").Call("open", url, "_blank")
+func OpenContactLink(parseUrl string) interface{} {
+	return UseEvent(func(parseE MouseEvent) {
+		js.Global().Get("window").Call("open", parseUrl, "_blank")
 	})
 }

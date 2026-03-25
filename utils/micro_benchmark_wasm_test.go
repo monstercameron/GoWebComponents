@@ -5,27 +5,27 @@ package utils
 
 import "testing"
 
-func BenchmarkConfigureAndReadMemStatsSampleRateMicro(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		ConfigureMemStatsSampleRate(int64((i%512)+1))
+func BenchmarkConfigureAndReadMemStatsSampleRateMicro(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		ConfigureMemStatsSampleRate(int64((parseI % 512) + 1))
 		if GetMemStatsSampleRate() == 0 {
-			b.Fatal("expected non-zero mem stats sample rate")
+			parseB.Fatal("expected non-zero mem stats sample rate")
 		}
 	}
 }
 
-func BenchmarkConfigureDebugNamespacesAndGetStatusMicro(b *testing.B) {
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+func BenchmarkConfigureDebugNamespacesAndGetStatusMicro(parseB *testing.B) {
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
 		ConfigureDebugNamespaces(map[string]bool{
-			"fetch": i%2 == 0,
+			"fetch": parseI%2 == 0,
 			"ui":    true,
 			"state": false,
 		})
-		status := GetDebugStatus()
-		if _, ok := status["ui"]; !ok {
-			b.Fatal("expected debug status to include configured namespace")
+		parseStatus := GetDebugStatus()
+		if _, parseOk := parseStatus["ui"]; !parseOk {
+			parseB.Fatal("expected debug status to include configured namespace")
 		}
 	}
 }

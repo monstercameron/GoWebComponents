@@ -8,29 +8,29 @@ import (
 )
 
 // renderLandingHeroSection renders the full-width hero: headline copy on the left, demo chat card on the right.
-func renderLandingHeroSection(page string) ui.Node {
-	eyebrow := "Moody \u00b7 modern \u00b7 business-ready"
-	headline := "The AI workspace people understand in one glance."
-	body := "RelayDesk takes the power of an advanced chat system and turns it into something calm, clear, and easy to trust. It feels premium, but it sells on simplicity."
-	primaryLabel := "See the product"
-	secondaryLabel := "Why teams buy it"
-	secondaryRoute := marketingCapabilitiesRoute
+func renderLandingHeroSection(parsePage string) ui.Node {
+	parseEyebrow := "Moody \u00b7 modern \u00b7 business-ready"
+	parseHeadline := "The AI workspace people understand in one glance."
+	parseBody := "RelayDesk takes the power of an advanced chat system and turns it into something calm, clear, and easy to trust. It feels premium, but it sells on simplicity."
+	parsePrimaryLabel := "See the product"
+	parseSecondaryLabel := "Why teams buy it"
+	parseSecondaryRoute := marketingCapabilitiesRoute
 
-	switch page {
+	switch parsePage {
 	case landingPageCapabilities:
-		eyebrow = "What makes it sell"
-		headline = "It looks sharp, but the win is usability."
-		body = "RelayDesk is not trying to impress buyers with technical complexity. It makes advanced AI feel organized, premium, and commercially useful."
-		primaryLabel = "See the product"
-		secondaryLabel = "See pricing"
-		secondaryRoute = marketingPricingRoute
+		parseEyebrow = "What makes it sell"
+		parseHeadline = "It looks sharp, but the win is usability."
+		parseBody = "RelayDesk is not trying to impress buyers with technical complexity. It makes advanced AI feel organized, premium, and commercially useful."
+		parsePrimaryLabel = "See the product"
+		parseSecondaryLabel = "See pricing"
+		parseSecondaryRoute = marketingPricingRoute
 	case landingPagePricing:
-		eyebrow = "Simple pricing"
-		headline = "Package it like a business tool, not a science experiment."
-		body = "Choose the tier that fits your team today. Scale without rebuilding workflows every quarter."
-		primaryLabel = "Get started"
-		secondaryLabel = "See solutions"
-		secondaryRoute = marketingCapabilitiesRoute
+		parseEyebrow = "Simple pricing"
+		parseHeadline = "Package it like a business tool, not a science experiment."
+		parseBody = "Choose the tier that fits your team today. Scale without rebuilding workflows every quarter."
+		parsePrimaryLabel = "Get started"
+		parseSecondaryLabel = "See solutions"
+		parseSecondaryRoute = marketingCapabilitiesRoute
 	}
 
 	return Section(
@@ -41,11 +41,11 @@ func renderLandingHeroSection(page string) ui.Node {
 			Div(
 				Class("max-w-[700px] pt-2 sm:pt-4"),
 				renderMarketingHeroHeading(
-					eyebrow,
-					headline,
-					body,
-					landingActionButton(primaryLabel, chatRouteRoot, true),
-					landingActionButton(secondaryLabel, secondaryRoute, false),
+					parseEyebrow,
+					parseHeadline,
+					parseBody,
+					parseLandingActionButton(parsePrimaryLabel, chatRouteRoot, true),
+					parseLandingActionButton(parseSecondaryLabel, parseSecondaryRoute, false),
 				),
 				Div(
 					Class("mt-10 grid gap-6 sm:mt-12 sm:grid-cols-3 sm:gap-8 lg:mt-14"),
@@ -61,10 +61,10 @@ func renderLandingHeroSection(page string) ui.Node {
 }
 
 // renderLandingHeroStat renders a single headline/body stat cell shown below the hero copy.
-func renderLandingHeroStat(title, body string) ui.Node {
+func renderLandingHeroStat(parseTitle, parseBody string) ui.Node {
 	return Div(
-		Div(Class("text-2xl font-semibold tracking-[-0.04em] text-white sm:text-3xl"), Text(title)),
-		P(Class("mt-2 max-w-[28ch] text-sm leading-6 text-[#b8c2d9]"), Text(body)),
+		Div(Class("text-2xl font-semibold tracking-[-0.04em] text-white sm:text-3xl"), Text(parseTitle)),
+		P(Class("mt-2 max-w-[28ch] text-sm leading-6 text-[#b8c2d9]"), Text(parseBody)),
 	)
 }
 
@@ -144,10 +144,10 @@ func renderLandingDemoCard() ui.Node {
 }
 
 // renderLandingDemoChip renders a small label/value chip inside the demo card.
-func renderLandingDemoChip(label, value string) ui.Node {
+func renderLandingDemoChip(parseLabel, parseValue string) ui.Node {
 	return Div(
 		Class("rounded-[18px] bg-white/[0.03] px-4 py-4 sm:rounded-[24px]"),
-		Div(Class("text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text(label)),
-		Div(Class("mt-2 text-base font-semibold text-white"), Text(value)),
+		Div(Class("text-[10px] uppercase tracking-[0.16em] text-[#b8c2d9] sm:text-[11px] sm:tracking-[0.18em]"), Text(parseLabel)),
+		Div(Class("mt-2 text-base font-semibold text-white"), Text(parseValue)),
 	)
 }

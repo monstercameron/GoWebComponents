@@ -17,32 +17,32 @@ import (
 const focusMinutesID = "catalog-state-derived-focus-minutes"
 
 func derivedSourcePanel() ui.Node {
-	minutes := state.UseAtom(focusMinutesID, 45)
-	shortSprint := ui.UseEvent(func() { minutes.Set(30) })
-	deepWork := ui.UseEvent(func() { minutes.Set(90) })
-	addQuarterHour := ui.UseEvent(func() { minutes.Update(func(previous int) int { return previous + 15 }) })
+	parseMinutes := state.UseAtom(focusMinutesID, 45)
+	parseShortSprint := ui.UseEvent(func() { parseMinutes.Set(30) })
+	parseDeepWork := ui.UseEvent(func() { parseMinutes.Set(90) })
+	parseAddQuarterHour := ui.UseEvent(func() { parseMinutes.Update(func(parsePrevious int) int { return parsePrevious + 15 }) })
 
 	return shared.ExamplePanel("Source atom",
 		html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("The source atom is writable. The derived atom in the next panel stays read-only and recomputes when this ID changes.")),
 		html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-			shared.ExampleStat("Focus block", fmt.Sprintf("%d min", minutes.Get())),
+			shared.ExampleStat("Focus block", fmt.Sprintf("%d min", parseMinutes.Get())),
 			shared.ExampleStat("Source atom ID", focusMinutesID),
 		),
 		html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-			shared.ExampleButton("30 min", shortSprint),
-			shared.ExampleButton("90 min", deepWork),
-			shared.ExampleButton("+15 min", addQuarterHour),
+			shared.ExampleButton("30 min", parseShortSprint),
+			shared.ExampleButton("90 min", parseDeepWork),
+			shared.ExampleButton("+15 min", parseAddQuarterHour),
 		),
 	)
 }
 
 func derivedReaderPanel() ui.Node {
-	minutes := state.UseAtom(focusMinutesID, 0)
-	band := state.UseDerived("catalog-state-derived-focus-band", func() string {
+	parseMinutes := state.UseAtom(focusMinutesID, 0)
+	parseBand := state.UseDerived("catalog-state-derived-focus-band", func() string {
 		switch {
-		case minutes.Get() >= 90:
+		case parseMinutes.Get() >= 90:
 			return "Deep work"
-		case minutes.Get() >= 60:
+		case parseMinutes.Get() >= 60:
 			return "Sustained focus"
 		default:
 			return "Warm-up"
@@ -52,8 +52,8 @@ func derivedReaderPanel() ui.Node {
 	return shared.ExamplePanel("Derived atom",
 		html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("UseDerived registers a shared read-only atom by ID. Consumers read the computed value, but only the source atom can be written.")),
 		html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-			shared.ExampleStat("Focus band", band.Get()),
-			shared.ExampleStat("Observed minutes", fmt.Sprintf("%d", minutes.Get())),
+			shared.ExampleStat("Focus band", parseBand.Get()),
+			shared.ExampleStat("Observed minutes", fmt.Sprintf("%d", parseMinutes.Get())),
 		),
 		shared.ExampleCode(
 			`band := state.UseDerived("catalog-state-derived-focus-band", func() string { ... }, "catalog-state-derived-focus-minutes")`,

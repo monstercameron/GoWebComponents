@@ -11,205 +11,205 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func TestAuthManagerSignupLoginAndTokenRoundTrip(t *testing.T) {
-	store := newTestStore(t)
-	auth := newAuthManager("test-secret", store, newTestLogger())
+func TestAuthManagerSignupLoginAndTokenRoundTrip(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseAuth := parseNewAuthManager("test-secret", store, parseNewTestLogger())
 
-	user, err := auth.signup(" Test@Example.com ", "password123", "")
-	if err != nil {
-		t.Fatalf("signup: %v", err)
+	parseUser, parseErr := parseAuth.parseSignup(" Test@Example.com ", "password123", "")
+	if parseErr != nil {
+		parseT.Fatalf("signup: %v", parseErr)
 	}
-	if user.Email != "test@example.com" {
-		t.Fatalf("normalized email mismatch: %q", user.Email)
-	}
-
-	record, err := store.getUserAuthByEmail("test@example.com")
-	if err != nil {
-		t.Fatalf("getUserAuthByEmail: %v", err)
-	}
-	if bcrypt.CompareHashAndPassword([]byte(record.PasswordHash), []byte("password123")) != nil {
-		t.Fatal("stored password hash does not match original password")
+	if parseUser.Email != "test@example.com" {
+		parseT.Fatalf("normalized email mismatch: %q", parseUser.Email)
 	}
 
-	loggedIn, err := auth.login("TEST@example.com", "password123")
-	if err != nil {
-		t.Fatalf("login: %v", err)
+	parseRecord, parseErr := store.getUserAuthByEmail("test@example.com")
+	if parseErr != nil {
+		parseT.Fatalf("getUserAuthByEmail: %v", parseErr)
 	}
-	if loggedIn.ID != user.ID {
-		t.Fatalf("login user mismatch: got %d want %d", loggedIn.ID, user.ID)
+	if bcrypt.CompareHashAndPassword([]byte(parseRecord.PasswordHash), []byte("password123")) != nil {
+		parseT.Fatal("stored password hash does not match original password")
 	}
 
-	token, err := auth.issueToken(user)
-	if err != nil {
-		t.Fatalf("issueToken: %v", err)
+	parseLoggedIn, parseErr := parseAuth.parseLogin("TEST@example.com", "password123")
+	if parseErr != nil {
+		parseT.Fatalf("login: %v", parseErr)
 	}
-	parsed, err := auth.parseToken(token)
-	if err != nil {
-		t.Fatalf("parseToken: %v", err)
+	if parseLoggedIn.ParseID != parseUser.ParseID {
+		parseT.Fatalf("login user mismatch: got %d want %d", parseLoggedIn.ParseID, parseUser.ParseID)
 	}
-	if parsed != user {
-		t.Fatalf("parsed user mismatch: got %+v want %+v", parsed, user)
+
+	parseToken, parseErr := parseAuth.issueToken(parseUser)
+	if parseErr != nil {
+		parseT.Fatalf("issueToken: %v", parseErr)
+	}
+	parseParsed, parseErr := parseAuth.parseToken(parseToken)
+	if parseErr != nil {
+		parseT.Fatalf("parseToken: %v", parseErr)
+	}
+	if parseParsed != parseUser {
+		parseT.Fatalf("parsed user mismatch: got %+v want %+v", parseParsed, parseUser)
 	}
 }
 
-func TestAuthManagerNegativePaths(t *testing.T) {
-	store := newTestStore(t)
-	auth := newAuthManager("test-secret", store, newTestLogger())
-	devFallback := newAuthManager(" ", store, newTestLogger())
-	noStoreAuth := newAuthManager("test-secret", nil, newTestLogger())
-	if len(devFallback.secret) == 0 {
-		t.Fatal("expected fallback auth secret to be populated")
+func TestAuthManagerNegativePaths(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseAuth := parseNewAuthManager("test-secret", store, parseNewTestLogger())
+	parseDevFallback := parseNewAuthManager(" ", store, parseNewTestLogger())
+	parseNoStoreAuth := parseNewAuthManager("test-secret", nil, parseNewTestLogger())
+	if len(parseDevFallback.secret) == 0 {
+		parseT.Fatal("expected fallback auth secret to be populated")
 	}
-	if defaultDisplayNameFromEmail("   ") != "User" {
-		t.Fatal("expected blank email to fall back to default display name")
+	if parseDefaultDisplayNameFromEmail("   ") != "User" {
+		parseT.Fatal("expected blank email to fall back to default display name")
 	}
-	if _, err := noStoreAuth.signup("nostore@example.com", "password123", ""); err == nil {
-		t.Fatal("expected signup to fail when store is unavailable")
+	if _, parseErr := parseNoStoreAuth.parseSignup("nostore@example.com", "password123", ""); parseErr == nil {
+		parseT.Fatal("expected signup to fail when store is unavailable")
 	}
-	if _, err := noStoreAuth.login("nostore@example.com", "password123"); err == nil {
-		t.Fatal("expected login to fail when store is unavailable")
-	}
-
-	if _, err := auth.signup("", "password123", ""); err == nil {
-		t.Fatal("expected signup to reject missing email")
-	}
-	if _, err := auth.signup("a@example.com", "short", ""); err == nil {
-		t.Fatal("expected signup to reject short password")
+	if _, parseErr2 := parseNoStoreAuth.parseLogin("nostore@example.com", "password123"); parseErr2 == nil {
+		parseT.Fatal("expected login to fail when store is unavailable")
 	}
 
-	if _, err := auth.signup("user@example.com", "password123", "User"); err != nil {
-		t.Fatalf("initial signup: %v", err)
+	if _, parseErr3 := parseAuth.parseSignup("", "password123", ""); parseErr3 == nil {
+		parseT.Fatal("expected signup to reject missing email")
 	}
-	if _, err := auth.signup("user@example.com", "password123", "User"); !errors.Is(err, errUserAlreadyExists) {
-		t.Fatalf("expected duplicate signup to return errUserAlreadyExists, got %v", err)
+	if _, parseErr4 := parseAuth.parseSignup("a@example.com", "short", ""); parseErr4 == nil {
+		parseT.Fatal("expected signup to reject short password")
 	}
 
-	if _, err := auth.login("user@example.com", "wrong-password"); !errors.Is(err, errInvalidCredentials) {
-		t.Fatalf("expected invalid credentials for wrong password, got %v", err)
+	if _, parseErr5 := parseAuth.parseSignup("user@example.com", "password123", "User"); parseErr5 != nil {
+		parseT.Fatalf("initial signup: %v", parseErr5)
 	}
-	if _, err := auth.parseToken("not-a-jwt"); err == nil {
-		t.Fatal("expected parseToken to reject invalid JWT")
+	if _, parseErr6 := parseAuth.parseSignup("user@example.com", "password123", "User"); !errors.Is(parseErr6, errUserAlreadyExists) {
+		parseT.Fatalf("expected duplicate signup to return errUserAlreadyExists, got %v", parseErr6)
 	}
-	nonHMACToken := jwt.NewWithClaims(jwt.SigningMethodNone, jwt.MapClaims{"uid": 1, "email": "user@example.com"})
-	tokenString, err := nonHMACToken.SignedString(jwt.UnsafeAllowNoneSignatureType)
-	if err != nil {
-		t.Fatalf("SignedString none token: %v", err)
+
+	if _, parseErr7 := parseAuth.parseLogin("user@example.com", "wrong-password"); !errors.Is(parseErr7, errInvalidCredentials) {
+		parseT.Fatalf("expected invalid credentials for wrong password, got %v", parseErr7)
 	}
-	if _, err := auth.parseToken(tokenString); err == nil {
-		t.Fatal("expected parseToken to reject unexpected signing method")
+	if _, parseErr8 := parseAuth.parseToken("not-a-jwt"); parseErr8 == nil {
+		parseT.Fatal("expected parseToken to reject invalid JWT")
 	}
-	if _, err := auth.parseToken(""); !errors.Is(err, errInvalidCredentials) {
-		t.Fatalf("expected empty token to return invalid credentials, got %v", err)
+	parseNonHMACToken := jwt.NewWithClaims(jwt.SigningMethodNone, jwt.MapClaims{"uid": 1, "email": "user@example.com"})
+	parseTokenString, parseErr9 := parseNonHMACToken.SignedString(jwt.UnsafeAllowNoneSignatureType)
+	if parseErr9 != nil {
+		parseT.Fatalf("SignedString none token: %v", parseErr9)
+	}
+	if _, parseErr10 := parseAuth.parseToken(parseTokenString); parseErr10 == nil {
+		parseT.Fatal("expected parseToken to reject unexpected signing method")
+	}
+	if _, parseErr11 := parseAuth.parseToken(""); !errors.Is(parseErr11, errInvalidCredentials) {
+		parseT.Fatalf("expected empty token to return invalid credentials, got %v", parseErr11)
 	}
 }
 
-func TestRequestUsesHTTPSAndCookieHelpers(t *testing.T) {
-	auth := newAuthManager("test-secret", newTestStore(t), newTestLogger())
+func TestRequestUsesHTTPSAndCookieHelpers(parseT *testing.T) {
+	parseAuth := parseNewAuthManager("test-secret", parseNewTestStore(parseT), parseNewTestLogger())
 
-	plainReq := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
-	if requestUsesHTTPS(nil) {
-		t.Fatal("nil request should not be treated as HTTPS")
+	parsePlainReq := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
+	if parseRequestUsesHTTPS(nil) {
+		parseT.Fatal("nil request should not be treated as HTTPS")
 	}
-	if requestUsesHTTPS(plainReq) {
-		t.Fatal("plain request should not be treated as HTTPS")
-	}
-
-	forwardedReq := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
-	forwardedReq.Header.Set("X-Forwarded-Proto", "https")
-	if !requestUsesHTTPS(forwardedReq) {
-		t.Fatal("forwarded https request should be treated as HTTPS")
+	if parseRequestUsesHTTPS(parsePlainReq) {
+		parseT.Fatal("plain request should not be treated as HTTPS")
 	}
 
-	tlsReq := httptest.NewRequest(http.MethodGet, "https://example.com/", nil)
-	tlsReq.TLS = &tls.ConnectionState{}
-	if !requestUsesHTTPS(tlsReq) {
-		t.Fatal("TLS request should be treated as HTTPS")
+	parseForwardedReq := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
+	parseForwardedReq.ParseHeader.Set("X-Forwarded-Proto", "https")
+	if !parseRequestUsesHTTPS(parseForwardedReq) {
+		parseT.Fatal("forwarded https request should be treated as HTTPS")
 	}
 
-	writer := httptest.NewRecorder()
-	auth.setAuthCookie(writer, forwardedReq, "token-value")
-	resp := writer.Result()
-	if len(resp.Cookies()) != 1 {
-		t.Fatalf("expected one cookie, got %d", len(resp.Cookies()))
+	parseTlsReq := httptest.NewRequest(http.MethodGet, "https://example.com/", nil)
+	parseTlsReq.TLS = &tls.ConnectionState{}
+	if !parseRequestUsesHTTPS(parseTlsReq) {
+		parseT.Fatal("TLS request should be treated as HTTPS")
 	}
-	cookie := resp.Cookies()[0]
-	if !cookie.HttpOnly || !cookie.Secure || cookie.Value != "token-value" {
-		t.Fatalf("unexpected auth cookie: %+v", cookie)
+
+	parseWriter := httptest.NewRecorder()
+	parseAuth.setAuthCookie(parseWriter, parseForwardedReq, "token-value")
+	parseResp := parseWriter.Result()
+	if len(parseResp.Cookies()) != 1 {
+		parseT.Fatalf("expected one cookie, got %d", len(parseResp.Cookies()))
+	}
+	parseCookie := parseResp.Cookies()[0]
+	if !parseCookie.HttpOnly || !parseCookie.Secure || parseCookie.Value != "token-value" {
+		parseT.Fatalf("unexpected auth cookie: %+v", parseCookie)
 	}
 
 	clearWriter := httptest.NewRecorder()
-	auth.clearAuthCookie(clearWriter, plainReq)
-	clearedCookie := clearWriter.Result().Cookies()[0]
-	if clearedCookie.MaxAge != -1 {
-		t.Fatalf("expected cleared cookie MaxAge -1, got %d", clearedCookie.MaxAge)
+	parseAuth.clearAuthCookie(clearWriter, parsePlainReq)
+	parseClearedCookie := clearWriter.Result().Cookies()[0]
+	if parseClearedCookie.MaxAge != -1 {
+		parseT.Fatalf("expected cleared cookie MaxAge -1, got %d", parseClearedCookie.MaxAge)
 	}
-	if clearedCookie.Value != "" {
-		t.Fatalf("expected cleared cookie value to be empty, got %q", clearedCookie.Value)
+	if parseClearedCookie.Value != "" {
+		parseT.Fatalf("expected cleared cookie value to be empty, got %q", parseClearedCookie.Value)
 	}
 }
 
-func TestAuthenticatedHandlers(t *testing.T) {
-	store := newTestStore(t)
-	auth := newAuthManager("test-secret", store, newTestLogger())
-	user, err := auth.signup("demo@example.com", "password123", "Demo")
-	if err != nil {
-		t.Fatalf("signup: %v", err)
+func TestAuthenticatedHandlers(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseAuth := parseNewAuthManager("test-secret", store, parseNewTestLogger())
+	parseUser, parseErr := parseAuth.parseSignup("demo@example.com", "password123", "Demo")
+	if parseErr != nil {
+		parseT.Fatalf("signup: %v", parseErr)
 	}
-	token, err := auth.issueToken(user)
-	if err != nil {
-		t.Fatalf("issueToken: %v", err)
+	parseToken, parseErr := parseAuth.issueToken(parseUser)
+	if parseErr != nil {
+		parseT.Fatalf("issueToken: %v", parseErr)
 	}
 
-	pageHandler := auth.requireAuthenticatedPage(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNoContent)
+	parsePageHandler := parseAuth.parseRequireAuthenticatedPage(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseW.WriteHeader(http.StatusNoContent)
 	}))
 
-	unauthorizedReq := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
-	unauthorizedWriter := httptest.NewRecorder()
-	pageHandler.ServeHTTP(unauthorizedWriter, unauthorizedReq)
-	if unauthorizedWriter.Code != http.StatusSeeOther {
-		t.Fatalf("expected redirect for unauthenticated page request, got %d", unauthorizedWriter.Code)
+	parseUnauthorizedReq := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
+	parseUnauthorizedWriter := httptest.NewRecorder()
+	parsePageHandler.ServeHTTP(parseUnauthorizedWriter, parseUnauthorizedReq)
+	if parseUnauthorizedWriter.Code != http.StatusSeeOther {
+		parseT.Fatalf("expected redirect for unauthenticated page request, got %d", parseUnauthorizedWriter.Code)
 	}
-	if location := unauthorizedWriter.Result().Header.Get("Location"); location != "/app" {
-		t.Fatalf("unexpected redirect location: %q", location)
-	}
-
-	authorizedReq := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
-	authorizedReq.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
-	authorizedWriter := httptest.NewRecorder()
-	pageHandler.ServeHTTP(authorizedWriter, authorizedReq)
-	if authorizedWriter.Code != http.StatusNoContent {
-		t.Fatalf("expected protected page handler to run, got %d", authorizedWriter.Code)
+	if parseLocation := parseUnauthorizedWriter.Result().ParseHeader.Get("Location"); parseLocation != "/app" {
+		parseT.Fatalf("unexpected redirect location: %q", parseLocation)
 	}
 
-	tunnelCalled := false
-	callbackCalled := false
-	tunnelHandler := auth.requireAuthenticatedTunnel(func(w http.ResponseWriter, r *http.Request) {
-		tunnelCalled = true
-		w.WriteHeader(http.StatusAccepted)
-	}, func(r *http.Request, user authUser) {
-		callbackCalled = user.ID == user.ID && r.URL.Path == "/grpc"
+	parseAuthorizedReq := httptest.NewRequest(http.MethodGet, "http://example.com/", nil)
+	parseAuthorizedReq.AddCookie(&http.Cookie{Name: authCookieName, Value: parseToken})
+	parseAuthorizedWriter := httptest.NewRecorder()
+	parsePageHandler.ServeHTTP(parseAuthorizedWriter, parseAuthorizedReq)
+	if parseAuthorizedWriter.Code != http.StatusNoContent {
+		parseT.Fatalf("expected protected page handler to run, got %d", parseAuthorizedWriter.Code)
+	}
+
+	isParseTunnelCalled := false
+	isParseCallbackCalled := false
+	parseTunnelHandler := parseAuth.parseRequireAuthenticatedTunnel(func(parseW2 http.ResponseWriter, parseR2 *http.Request) {
+		isParseTunnelCalled = true
+		parseW2.WriteHeader(http.StatusAccepted)
+	}, func(parseR3 *http.Request, parseUser2 authUser) {
+		isParseCallbackCalled = parseUser2.ParseID == parseUser2.ParseID && parseR3.URL.Path == "/grpc"
 	})
 
-	unauthorizedTunnelWriter := httptest.NewRecorder()
-	auth.requireAuthenticatedTunnel(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNoContent)
-	}, nil)(unauthorizedTunnelWriter, httptest.NewRequest(http.MethodGet, "http://example.com/grpc", nil))
-	if unauthorizedTunnelWriter.Code != http.StatusUnauthorized {
-		t.Fatalf("expected unauthorized tunnel response, got %d", unauthorizedTunnelWriter.Code)
+	parseUnauthorizedTunnelWriter := httptest.NewRecorder()
+	parseAuth.parseRequireAuthenticatedTunnel(func(parseW3 http.ResponseWriter, parseR4 *http.Request) {
+		parseW3.WriteHeader(http.StatusNoContent)
+	}, nil)(parseUnauthorizedTunnelWriter, httptest.NewRequest(http.MethodGet, "http://example.com/grpc", nil))
+	if parseUnauthorizedTunnelWriter.Code != http.StatusUnauthorized {
+		parseT.Fatalf("expected unauthorized tunnel response, got %d", parseUnauthorizedTunnelWriter.Code)
 	}
 
-	tunnelReq := httptest.NewRequest(http.MethodGet, "http://example.com/grpc", nil)
-	tunnelReq.AddCookie(&http.Cookie{Name: authCookieName, Value: token})
-	tunnelWriter := httptest.NewRecorder()
-	tunnelHandler(tunnelWriter, tunnelReq)
-	if !tunnelCalled {
-		t.Fatal("expected authenticated tunnel handler to run")
+	parseTunnelReq := httptest.NewRequest(http.MethodGet, "http://example.com/grpc", nil)
+	parseTunnelReq.AddCookie(&http.Cookie{Name: authCookieName, Value: parseToken})
+	parseTunnelWriter := httptest.NewRecorder()
+	parseTunnelHandler(parseTunnelWriter, parseTunnelReq)
+	if !isParseTunnelCalled {
+		parseT.Fatal("expected authenticated tunnel handler to run")
 	}
-	if !callbackCalled {
-		t.Fatal("expected authenticated tunnel callback to run")
+	if !isParseCallbackCalled {
+		parseT.Fatal("expected authenticated tunnel callback to run")
 	}
-	if tunnelWriter.Code != http.StatusAccepted {
-		t.Fatalf("expected authenticated tunnel response, got %d", tunnelWriter.Code)
+	if parseTunnelWriter.Code != http.StatusAccepted {
+		parseT.Fatalf("expected authenticated tunnel response, got %d", parseTunnelWriter.Code)
 	}
 }

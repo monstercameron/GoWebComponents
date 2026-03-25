@@ -45,58 +45,58 @@ GoWebComponents can keep UI state on the main thread while a dedicated worker ha
 This sample text is intentionally repetitive so the top-term list becomes obvious after indexing. Atlas atlas atlas worker worker router router inventory inventory search search search status status status.`
 
 func workerTextIndexExample() ui.Node {
-	text := ui.UseState(defaultWorkerCorpus)
-	query := ui.UseState("atlas")
-	task := ui.UseWorkerTask[indexRequest, indexProgress, indexResult](interop.WorkerOptions{
+	parseText := ui.UseState(defaultWorkerCorpus)
+	parseQuery := ui.UseState("atlas")
+	parseTask := ui.UseWorkerTask[indexRequest, indexProgress, indexResult](interop.WorkerOptions{
 		URL:   "./text-index-worker.js",
 		Ready: true,
 		Name:  "text-index",
 	}, "build-index")
 
-	setText := ui.UseEvent(func(e ui.Event) {
-		text.Set(e.GetValue())
+	setText := ui.UseEvent(func(parseE ui.Event) {
+		parseText.Set(parseE.GetValue())
 	})
-	setQuery := ui.UseEvent(func(e ui.Event) {
-		query.Set(strings.TrimSpace(e.GetValue()))
+	setQuery := ui.UseEvent(func(parseE2 ui.Event) {
+		parseQuery.Set(strings.TrimSpace(parseE2.GetValue()))
 	})
-	start := ui.UseEvent(func() {
-		task.Start(indexRequest{Text: text.Get(), Query: query.Get()})
+	parseStart := ui.UseEvent(func() {
+		parseTask.Start(indexRequest{Text: parseText.Get(), Query: parseQuery.Get()})
 	})
-	cancel := ui.UseEvent(func() { task.Cancel() })
+	parseCancel := ui.UseEvent(func() { parseTask.Cancel() })
 	reset := ui.UseEvent(func() {
-		task.Cancel()
-		text.Set(defaultWorkerCorpus)
-		query.Set("atlas")
+		parseTask.Cancel()
+		parseText.Set(defaultWorkerCorpus)
+		parseQuery.Set("atlas")
 	})
 
-	state := task.Get()
-	status := "Ready to build a worker-side index."
-	if state.Running {
-		status = "Worker indexing is in flight."
-	} else if state.Cancelled {
-		status = "Worker indexing was cancelled."
-	} else if state.Error != nil {
-		status = state.Error.Error()
-	} else if state.Ready {
-		status = "Worker index completed."
+	parseState := parseTask.Get()
+	parseStatus := "Ready to build a worker-side index."
+	if parseState.Running {
+		parseStatus = "Worker indexing is in flight."
+	} else if parseState.Cancelled {
+		parseStatus = "Worker indexing was cancelled."
+	} else if parseState.Error != nil {
+		parseStatus = parseState.Error.Error()
+	} else if parseState.Ready {
+		parseStatus = "Worker index completed."
 	}
 
-	progressValue := "0%"
-	progressStage := "idle"
-	if state.ProgressReady {
-		progressValue = fmt.Sprintf("%d%%", state.Progress.Percent)
-		progressStage = state.Progress.Stage
+	parseProgressValue := "0%"
+	parseProgressStage := "idle"
+	if parseState.ProgressReady {
+		parseProgressValue = fmt.Sprintf("%d%%", parseState.Progress.Percent)
+		parseProgressStage = parseState.Progress.Stage
 	}
 
-	topTerms := []ui.Node{
+	parseTopTerms := []ui.Node{
 		html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm text-slate-300"}, html.Text("Run the worker to see the top terms.")),
 	}
-	if state.Ready && len(state.Value.TopTerms) > 0 {
-		topTerms = make([]ui.Node, 0, len(state.Value.TopTerms))
-		for _, term := range state.Value.TopTerms {
-			topTerms = append(topTerms,
+	if parseState.Ready && len(parseState.Value.TopTerms) > 0 {
+		parseTopTerms = make([]ui.Node, 0, len(parseState.Value.TopTerms))
+		for _, parseTerm := range parseState.Value.TopTerms {
+			parseTopTerms = append(parseTopTerms,
 				html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm text-slate-300"},
-					html.Text(fmt.Sprintf("%s · %d", term.Term, term.Count)),
+					html.Text(fmt.Sprintf("%s · %d", parseTerm.Term, parseTerm.Count)),
 				),
 			)
 		}
@@ -111,7 +111,7 @@ func workerTextIndexExample() ui.Node {
 			html.Textarea(html.Props{
 				ID:          "worker-index-text",
 				Rows:        12,
-				Value:       text.Get(),
+				Value:       parseText.Get(),
 				OnInput:     setText,
 				Placeholder: "Paste a large text block",
 				Class:       "mt-2 w-full rounded-[1.35rem] border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100",
@@ -121,29 +121,29 @@ func workerTextIndexExample() ui.Node {
 					html.Label(html.Props{For: "worker-index-query", Class: "text-sm font-semibold text-slate-200"}, html.Text("Search term")),
 					html.Input(html.Props{
 						ID:          "worker-index-query",
-						Value:       query.Get(),
+						Value:       parseQuery.Get(),
 						OnInput:     setQuery,
 						Placeholder: "atlas",
 						Class:       "mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100",
 					}),
 				),
 				html.Div(html.Props{Class: "flex flex-wrap items-end gap-3"},
-					shared.ExampleButton("Build index", start),
-					shared.ExampleButton("Cancel", cancel),
+					shared.ExampleButton("Build index", parseStart),
+					shared.ExampleButton("Cancel", parseCancel),
 					shared.ExampleButton("Reset sample", reset),
 				),
 			),
 		),
 		shared.ExamplePanel("Worker state",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-5"},
-				shared.ExampleStat("Running", fmt.Sprintf("%t", state.Running)),
-				shared.ExampleStat("Progress", progressValue),
-				shared.ExampleStat("Stage", progressStage),
-				shared.ExampleStat("Unique words", fmt.Sprintf("%d", state.Value.UniqueWords)),
-				shared.ExampleStat("Query hits", fmt.Sprintf("%d", state.Value.QueryHits)),
+				shared.ExampleStat("Running", fmt.Sprintf("%t", parseState.Running)),
+				shared.ExampleStat("Progress", parseProgressValue),
+				shared.ExampleStat("Stage", parseProgressStage),
+				shared.ExampleStat("Unique words", fmt.Sprintf("%d", parseState.Value.UniqueWords)),
+				shared.ExampleStat("Query hits", fmt.Sprintf("%d", parseState.Value.QueryHits)),
 			),
-			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text(status)),
-			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, topTerms...),
+			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text(parseStatus)),
+			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, parseTopTerms...),
 		),
 		shared.ExamplePanel("Integration shape",
 			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("The component only owns local UI state and calls ui.UseWorkerTask(...). Worker creation, request correlation, progress routing, cancellation, and teardown stay behind the public helper instead of leaking into the page.")),

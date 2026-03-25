@@ -37,245 +37,245 @@ type authManager struct {
 	logger *slog.Logger
 }
 
-func newAuthManager(secret string, store *Store, logger *slog.Logger) *authManager {
-	if strings.TrimSpace(secret) == "" {
-		secret = "dev-insecure-chat-auth-secret-change-me"
-		logger.Warn("auth: CHAT_AUTH_SECRET not set; using development fallback secret")
+func parseNewAuthManager(parseSecret string, store *Store, parseLogger *slog.Logger) *authManager {
+	if strings.TrimSpace(parseSecret) == "" {
+		parseSecret = "dev-insecure-chat-auth-secret-change-me"
+		parseLogger.Warn("auth: CHAT_AUTH_SECRET not set; using development fallback secret")
 	}
 	return &authManager{
-		secret: []byte(secret),
+		secret: []byte(parseSecret),
 		store:  store,
-		logger: logger,
+		logger: parseLogger,
 	}
 }
 
-func normalizeAuthEmail(email string) string {
-	return strings.ToLower(strings.TrimSpace(email))
+func parseNormalizeAuthEmail(parseEmail string) string {
+	return strings.ToLower(strings.TrimSpace(parseEmail))
 }
 
-func defaultDisplayNameFromEmail(email string) string {
-	localPart := strings.TrimSpace(strings.SplitN(email, "@", 2)[0])
-	if localPart == "" {
+func parseDefaultDisplayNameFromEmail(parseEmail string) string {
+	parseLocalPart := strings.TrimSpace(strings.SplitN(parseEmail, "@", 2)[0])
+	if parseLocalPart == "" {
 		return "User"
 	}
-	return localPart
+	return parseLocalPart
 }
 
-func (a *authManager) issueToken(user authUser) (string, error) {
-	now := time.Now()
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, authClaims{
-		UserID: user.ID,
-		Email:  user.Email,
+func (parseA *authManager) issueToken(parseUser authUser) (string, error) {
+	parseNow := time.Now()
+	parseToken := jwt.NewWithClaims(jwt.SigningMethodHS256, authClaims{
+		UserID: parseUser.ParseID,
+		Email:  parseUser.Email,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   "user",
-			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(authTokenTTL)),
+			IssuedAt:  jwt.NewNumericDate(parseNow),
+			ExpiresAt: jwt.NewNumericDate(parseNow.Add(authTokenTTL)),
 		},
 	})
-	return token.SignedString(a.secret)
+	return parseToken.SignedString(parseA.secret)
 }
 
-func (a *authManager) parseToken(tokenString string) (authUser, error) {
-	if strings.TrimSpace(tokenString) == "" {
+func (parseA *authManager) parseToken(parseTokenString string) (authUser, error) {
+	if strings.TrimSpace(parseTokenString) == "" {
 		return authUser{}, errInvalidCredentials
 	}
-	parsedToken, err := jwt.ParseWithClaims(tokenString, &authClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+	parseParsedToken, parseErr := jwt.ParseWithClaims(parseTokenString, &authClaims{}, func(parseToken *jwt.Token) (interface{}, error) {
+		if _, parseOk := parseToken.Method.(*jwt.SigningMethodHMAC); !parseOk {
 			return nil, errors.New("unexpected signing method")
 		}
-		return a.secret, nil
+		return parseA.secret, nil
 	})
-	if err != nil {
-		return authUser{}, err
+	if parseErr != nil {
+		return authUser{}, parseErr
 	}
-	claims, ok := parsedToken.Claims.(*authClaims)
-	if !ok || !parsedToken.Valid || claims.UserID <= 0 {
+	parseClaims, parseOk2 := parseParsedToken.Claims.(*authClaims)
+	if !parseOk2 || !parseParsedToken.Valid || parseClaims.UserID <= 0 {
 		return authUser{}, errInvalidCredentials
 	}
-	return authUser{ID: claims.UserID, Email: normalizeAuthEmail(claims.Email)}, nil
+	return authUser{ID: parseClaims.UserID, Email: parseNormalizeAuthEmail(parseClaims.Email)}, nil
 }
 
-func (a *authManager) authenticatedUserFromContext(ctx context.Context) (authUser, bool) {
-	if a == nil {
+func (parseA *authManager) parseAuthenticatedUserFromContext(parseCtx context.Context) (authUser, bool) {
+	if parseA == nil {
 		return authUser{}, false
 	}
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
+	parseMd, parseOk := metadata.FromIncomingContext(parseCtx)
+	if !parseOk {
 		return authUser{}, false
 	}
-	for _, rawValue := range md.Get(authMetadataKey) {
-		tokenString, ok := authTokenFromAuthorizationValue(rawValue)
-		if !ok {
+	for _, parseRawValue := range parseMd.Get(authMetadataKey) {
+		parseTokenString, parseOk2 := parseAuthTokenFromAuthorizationValue(parseRawValue)
+		if !parseOk2 {
 			continue
 		}
-		user, err := a.parseToken(tokenString)
-		if err != nil {
+		parseUser, parseErr := parseA.parseToken(parseTokenString)
+		if parseErr != nil {
 			return authUser{}, false
 		}
-		return a.validateActiveUser(user, "grpc-metadata")
+		return parseA.parseValidateActiveUser(parseUser, "grpc-metadata")
 	}
 	return authUser{}, false
 }
 
-func authTokenFromAuthorizationValue(value string) (string, bool) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
+func parseAuthTokenFromAuthorizationValue(parseValue string) (string, bool) {
+	parseTrimmed := strings.TrimSpace(parseValue)
+	if parseTrimmed == "" {
 		return "", false
 	}
-	if len(trimmed) >= 7 && strings.EqualFold(trimmed[:7], "Bearer ") {
-		trimmed = strings.TrimSpace(trimmed[7:])
+	if len(parseTrimmed) >= 7 && strings.EqualFold(parseTrimmed[:7], "Bearer ") {
+		parseTrimmed = strings.TrimSpace(parseTrimmed[7:])
 	}
-	if trimmed == "" {
+	if parseTrimmed == "" {
 		return "", false
 	}
-	return trimmed, true
+	return parseTrimmed, true
 }
 
-func (a *authManager) authenticatedUserFromRequest(r *http.Request) (authUser, bool) {
-	if a == nil {
+func (parseA *authManager) parseAuthenticatedUserFromRequest(parseR *http.Request) (authUser, bool) {
+	if parseA == nil {
 		return authUser{}, false
 	}
-	cookie, err := r.Cookie(authCookieName)
-	if err != nil {
+	parseCookie, parseErr := parseR.Cookie(authCookieName)
+	if parseErr != nil {
 		return authUser{}, false
 	}
-	user, err := a.parseToken(cookie.Value)
-	if err != nil {
+	parseUser, parseErr := parseA.parseToken(parseCookie.Value)
+	if parseErr != nil {
 		return authUser{}, false
 	}
-	return a.validateActiveUser(user, "http-cookie")
+	return parseA.parseValidateActiveUser(parseUser, "http-cookie")
 }
 
-func (a *authManager) validateActiveUser(user authUser, source string) (authUser, bool) {
-	if a == nil || user.ID <= 0 {
+func (parseA *authManager) parseValidateActiveUser(parseUser authUser, parseSource string) (authUser, bool) {
+	if parseA == nil || parseUser.ParseID <= 0 {
 		return authUser{}, false
 	}
-	if a.store == nil {
-		return user, true
+	if parseA.store == nil {
+		return parseUser, true
 	}
-	exists, err := a.store.userExists(user.ID)
-	if err != nil {
-		if a.logger != nil {
-			a.logger.Warn("auth: user existence lookup failed",
-				slog.Int64("user_id", user.ID),
-				slog.String("email", user.Email),
-				slog.String("source", source),
-				slog.String("error", err.Error()),
+	parseExists, parseErr := parseA.store.parseUserExists(parseUser.ParseID)
+	if parseErr != nil {
+		if parseA.logger != nil {
+			parseA.logger.Warn("auth: user existence lookup failed",
+				slog.Int64("user_id", parseUser.ParseID),
+				slog.String("email", parseUser.Email),
+				slog.String("source", parseSource),
+				slog.String("error", parseErr.ParseError()),
 			)
 		}
 		return authUser{}, false
 	}
-	if !exists {
-		if a.logger != nil {
-			a.logger.Warn("auth: token references missing user",
-				slog.Int64("user_id", user.ID),
-				slog.String("email", user.Email),
-				slog.String("source", source),
+	if !parseExists {
+		if parseA.logger != nil {
+			parseA.logger.Warn("auth: token references missing user",
+				slog.Int64("user_id", parseUser.ParseID),
+				slog.String("email", parseUser.Email),
+				slog.String("source", parseSource),
 			)
 		}
 		return authUser{}, false
 	}
-	return user, true
+	return parseUser, true
 }
 
-func (a *authManager) setAuthCookie(w http.ResponseWriter, r *http.Request, token string) {
-	http.SetCookie(w, &http.Cookie{
+func (parseA *authManager) setAuthCookie(parseW http.ResponseWriter, parseR *http.Request, parseToken string) {
+	http.SetCookie(parseW, &http.Cookie{
 		Name:     authCookieName,
-		Value:    token,
+		Value:    parseToken,
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   requestUsesHTTPS(r),
+		Secure:   parseRequestUsesHTTPS(parseR),
 		Expires:  time.Now().Add(authTokenTTL),
 		MaxAge:   int(authTokenTTL / time.Second),
 	})
 }
 
-func (a *authManager) clearAuthCookie(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{
+func (parseA *authManager) clearAuthCookie(parseW http.ResponseWriter, parseR *http.Request) {
+	http.SetCookie(parseW, &http.Cookie{
 		Name:     authCookieName,
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   requestUsesHTTPS(r),
+		Secure:   parseRequestUsesHTTPS(parseR),
 		Expires:  time.Unix(0, 0),
 		MaxAge:   -1,
 	})
 }
 
-func requestUsesHTTPS(r *http.Request) bool {
-	if r == nil {
+func parseRequestUsesHTTPS(parseR *http.Request) bool {
+	if parseR == nil {
 		return false
 	}
-	if r.TLS != nil {
+	if parseR.TLS != nil {
 		return true
 	}
-	return strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")), "https")
+	return strings.EqualFold(strings.TrimSpace(parseR.ParseHeader.Get("X-Forwarded-Proto")), "https")
 }
 
-func (a *authManager) requireAuthenticatedPage(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := a.authenticatedUserFromRequest(r); !ok {
-			a.clearAuthCookie(w, r)
-			http.Redirect(w, r, "/app", http.StatusSeeOther)
+func (parseA *authManager) parseRequireAuthenticatedPage(parseNext http.Handler) http.Handler {
+	return http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+		if _, parseOk := parseA.parseAuthenticatedUserFromRequest(parseR); !parseOk {
+			parseA.clearAuthCookie(parseW, parseR)
+			http.Redirect(parseW, parseR, "/app", http.StatusSeeOther)
 			return
 		}
-		next.ServeHTTP(w, r)
+		parseNext.ServeHTTP(parseW, parseR)
 	})
 }
 
-func (a *authManager) requireAuthenticatedTunnel(next http.HandlerFunc, onAuthenticated func(*http.Request, authUser)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		user, ok := a.authenticatedUserFromRequest(r)
-		if !ok {
-			a.clearAuthCookie(w, r)
-			http.Error(w, "authentication required", http.StatusUnauthorized)
+func (parseA *authManager) parseRequireAuthenticatedTunnel(parseNext http.HandlerFunc, parseOnAuthenticated func(*http.Request, authUser)) http.HandlerFunc {
+	return func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseUser, parseOk := parseA.parseAuthenticatedUserFromRequest(parseR)
+		if !parseOk {
+			parseA.clearAuthCookie(parseW, parseR)
+			http.Error(parseW, "authentication required", http.StatusUnauthorized)
 			return
 		}
-		if onAuthenticated != nil {
-			onAuthenticated(r, user)
+		if parseOnAuthenticated != nil {
+			parseOnAuthenticated(parseR, parseUser)
 		}
-		next(w, r)
+		parseNext(parseW, parseR)
 	}
 }
 
-func (a *authManager) signup(email, password, displayName string) (authUser, error) {
-	if a.store == nil {
+func (parseA *authManager) parseSignup(parseEmail, parsePassword, parseDisplayName string) (authUser, error) {
+	if parseA.store == nil {
 		return authUser{}, errors.New("store unavailable")
 	}
-	normalizedEmail := normalizeAuthEmail(email)
-	trimmedPassword := strings.TrimSpace(password)
-	if normalizedEmail == "" || trimmedPassword == "" {
+	parseNormalizedEmail := parseNormalizeAuthEmail(parseEmail)
+	parseTrimmedPassword := strings.TrimSpace(parsePassword)
+	if parseNormalizedEmail == "" || parseTrimmedPassword == "" {
 		return authUser{}, errors.New("email and password are required")
 	}
-	if len(trimmedPassword) < 8 {
+	if len(parseTrimmedPassword) < 8 {
 		return authUser{}, errors.New("password must be at least 8 characters")
 	}
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte(trimmedPassword), bcrypt.DefaultCost)
-	if err != nil {
-		return authUser{}, err
+	parsePasswordHash, parseErr := bcrypt.GenerateFromPassword([]byte(parseTrimmedPassword), bcrypt.DefaultCost)
+	if parseErr != nil {
+		return authUser{}, parseErr
 	}
-	if strings.TrimSpace(displayName) == "" {
-		displayName = defaultDisplayNameFromEmail(normalizedEmail)
+	if strings.TrimSpace(parseDisplayName) == "" {
+		parseDisplayName = parseDefaultDisplayNameFromEmail(parseNormalizedEmail)
 	}
-	userID, err := a.store.createUser(normalizedEmail, string(passwordHash), displayName)
-	if err != nil {
-		return authUser{}, err
+	parseUserID, parseErr := parseA.store.parseCreateUser(parseNormalizedEmail, string(parsePasswordHash), parseDisplayName)
+	if parseErr != nil {
+		return authUser{}, parseErr
 	}
-	return authUser{ID: userID, Email: normalizedEmail}, nil
+	return authUser{ID: parseUserID, Email: parseNormalizedEmail}, nil
 }
 
-func (a *authManager) login(email, password string) (authUser, error) {
-	if a.store == nil {
+func (parseA *authManager) parseLogin(parseEmail, parsePassword string) (authUser, error) {
+	if parseA.store == nil {
 		return authUser{}, errors.New("store unavailable")
 	}
-	record, err := a.store.getUserAuthByEmail(email)
-	if err != nil {
+	parseRecord, parseErr := parseA.store.getUserAuthByEmail(parseEmail)
+	if parseErr != nil {
 		return authUser{}, errInvalidCredentials
 	}
-	if compareErr := bcrypt.CompareHashAndPassword([]byte(record.PasswordHash), []byte(password)); compareErr != nil {
+	if parseCompareErr := bcrypt.CompareHashAndPassword([]byte(parseRecord.PasswordHash), []byte(parsePassword)); parseCompareErr != nil {
 		return authUser{}, errInvalidCredentials
 	}
-	return authUser{ID: record.ID, Email: record.Email}, nil
+	return authUser{ID: parseRecord.ParseID, Email: parseRecord.Email}, nil
 }

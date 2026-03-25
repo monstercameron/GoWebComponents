@@ -19,32 +19,32 @@ const (
 	manualOpsURL      = "data:text/plain,ops%20payload%20loaded"
 )
 
-func runManualFetch(url string, status ui.State[string], loading ui.State[bool]) {
-	loading.Set(true)
-	status.Set("Request started...")
-	resultChan := fetch.Fetch(url, fetch.Options{})
+func runManualFetch(parseUrl string, parseStatus ui.State[string], parseLoading ui.State[bool]) {
+	parseLoading.Set(true)
+	parseStatus.Set("Request started...")
+	parseResultChan := fetch.Fetch(parseUrl, fetch.Options{})
 
 	go func() {
-		result := <-resultChan
-		fetch.ReturnChannel(resultChan)
-		loading.Set(false)
-		if result.Err != nil {
-			status.Set("Error: " + result.Err.Error())
+		parseResult := <-parseResultChan
+		fetch.ReturnChannel(parseResultChan)
+		parseLoading.Set(false)
+		if parseResult.Err != nil {
+			parseStatus.Set("Error: " + parseResult.Err.Error())
 			return
 		}
-		status.Set(fmt.Sprintf("Result: %v", result.Data))
+		parseStatus.Set(fmt.Sprintf("Result: %v", parseResult.Data))
 	}()
 }
 
 func fetchImperativeExample() ui.Node {
-	status := ui.UseState("Press a button to issue an imperative request from an event handler.")
-	loading := ui.UseState(false)
-	loadGreeting := ui.UseEvent(func() { runManualFetch(manualGreetingURL, status, loading) })
-	loadOps := ui.UseEvent(func() { runManualFetch(manualOpsURL, status, loading) })
+	parseStatus := ui.UseState("Press a button to issue an imperative request from an event handler.")
+	parseLoading := ui.UseState(false)
+	parseLoadGreeting := ui.UseEvent(func() { runManualFetch(manualGreetingURL, parseStatus, parseLoading) })
+	parseLoadOps := ui.UseEvent(func() { runManualFetch(manualOpsURL, parseStatus, parseLoading) })
 
-	mode := "Idle"
-	if loading.Get() {
-		mode = "Loading"
+	parseMode := "Idle"
+	if parseLoading.Get() {
+		parseMode = "Loading"
 	}
 
 	return shared.ExamplePage(
@@ -53,14 +53,14 @@ func fetchImperativeExample() ui.Node {
 		"The imperative API is useful from event handlers, goroutines, or utility code where a component-scoped hook is not the right abstraction.",
 		shared.ExamplePanel("Imperative requests",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-				shared.ExampleButton("Load greeting", loadGreeting),
-				shared.ExampleButton("Load ops payload", loadOps),
+				shared.ExampleButton("Load greeting", parseLoadGreeting),
+				shared.ExampleButton("Load ops payload", parseLoadOps),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Mode", mode),
+				shared.ExampleStat("Mode", parseMode),
 				shared.ExampleStat("API", "fetch.Fetch"),
 			),
-			html.P(html.Props{Class: "mt-6 text-slate-300"}, html.Text(status.Get())),
+			html.P(html.Props{Class: "mt-6 text-slate-300"}, html.Text(parseStatus.Get())),
 			shared.ExampleCode(
 				`resultChan := fetch.Fetch(url, fetch.Options{})`,
 				`go func() { result := <-resultChan; ... }()`,

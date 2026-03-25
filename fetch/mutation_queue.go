@@ -83,62 +83,64 @@ type MutationConflictError struct {
 	Err      error
 }
 
-func (e *MutationConflictError) Error() string {
-	if e == nil {
+// Error is a core package helper.
+func (parseE *MutationConflictError) Error() string {
+	if parseE == nil {
 		return "mutation conflict"
 	}
-	parts := []string{"mutation conflict"}
-	if message := strings.TrimSpace(e.Conflict.Message); message != "" {
-		parts = append(parts, message)
+	parseParts := []string{"mutation conflict"}
+	if parseMessage := strings.TrimSpace(parseE.Conflict.Message); parseMessage != "" {
+		parseParts = append(parseParts, parseMessage)
 	}
-	if e.Err != nil {
-		parts = append(parts, e.Err.Error())
+	if parseE.Err != nil {
+		parseParts = append(parseParts, parseE.Err.Error())
 	}
-	return strings.Join(parts, ": ")
+	return strings.Join(parseParts, ": ")
 }
 
-func (e *MutationConflictError) Unwrap() error {
-	if e == nil {
+// Unwrap is a core package helper.
+func (parseE *MutationConflictError) Unwrap() error {
+	if parseE == nil {
 		return nil
 	}
-	return e.Err
+	return parseE.Err
 }
 
 // NewMutationConflict wraps err with structured conflict metadata, returning a *MutationConflictError.
-func NewMutationConflict(err error, conflict MutationConflict) error {
-	conflict.Code = strings.TrimSpace(conflict.Code)
-	conflict.Message = strings.TrimSpace(conflict.Message)
-	conflict.LocalVersion = strings.TrimSpace(conflict.LocalVersion)
-	conflict.RemoteVersion = strings.TrimSpace(conflict.RemoteVersion)
-	conflict.Fields = cloneStringMap(conflict.Fields)
-	if err == nil {
-		err = errors.New("mutation conflict")
+func NewMutationConflict(parseErr error, parseConflict MutationConflict) error {
+	parseConflict.Code = strings.TrimSpace(parseConflict.Code)
+	parseConflict.Message = strings.TrimSpace(parseConflict.Message)
+	parseConflict.LocalVersion = strings.TrimSpace(parseConflict.LocalVersion)
+	parseConflict.RemoteVersion = strings.TrimSpace(parseConflict.RemoteVersion)
+	parseConflict.Fields = cloneStringMap(parseConflict.Fields)
+	if parseErr == nil {
+		parseErr = errors.New("mutation conflict")
 	}
-	return &MutationConflictError{Conflict: conflict, Err: err}
+	return &MutationConflictError{Conflict: parseConflict, Err: parseErr}
 }
 
 // IsMutationConflict reports whether err unwraps to a MutationConflictError.
-func IsMutationConflict(err error) bool {
-	_, ok := AsMutationConflictError(err)
-	return ok
+func IsMutationConflict(parseErr error) bool {
+	_, parseOk := AsMutationConflictError(parseErr)
+	return parseOk
 }
 
 // AsMutationConflictError unwraps err into the structured MutationConflictError form.
-func AsMutationConflictError(err error) (*MutationConflictError, bool) {
-	var conflictErr *MutationConflictError
-	if !errors.As(err, &conflictErr) {
+func AsMutationConflictError(parseErr error) (*MutationConflictError, bool) {
+	var parseConflictErr *MutationConflictError
+	if !errors.As(parseErr, &parseConflictErr) {
 		return nil, false
 	}
-	return conflictErr, true
+	return parseConflictErr, true
 }
 
 // GetMutationConflict returns the structured conflict details carried by err.
-func GetMutationConflict(err error) (MutationConflict, bool) {
-	conflictErr, ok := AsMutationConflictError(err)
-	if !ok || conflictErr == nil {
+func GetMutationConflict(parseErr error) (MutationConflict, bool) {
+	parseConflictErr, parseOk := AsMutationConflictError(parseErr)
+	if !parseOk || parseConflictErr == nil {
 		return MutationConflict{}, false
 	}
-	return conflictErr.Conflict, true
+	return parseConflictErr.Conflict, true
 }
 
 type MutationResolutionAction string
@@ -187,460 +189,469 @@ type MutationQueue struct {
 }
 
 // OpenMutationQueue opens the persistent mutation queue backed by browser storage.
-func OpenMutationQueue(options ...MutationQueueOptions) (MutationQueue, error) {
-	cfg := resolveMutationQueueOptions(options)
+func OpenMutationQueue(parseOptions ...MutationQueueOptions) (MutationQueue, error) {
+	parseCfg := resolveMutationQueueOptions(parseOptions)
 
-	resolver := cfg.StoreResolver
-	if resolver == nil {
-		fallbackResolver := cfg.StorageResolver
-		if fallbackResolver == nil {
-			fallbackResolver = interop.LocalStorage
+	parseResolver := parseCfg.StoreResolver
+	if parseResolver == nil {
+		parseFallbackResolver := parseCfg.StorageResolver
+		if parseFallbackResolver == nil {
+			parseFallbackResolver = interop.LocalStorage
 		}
-		resolver = func(ctx context.Context) (interop.PersistentStore, error) {
-			return interop.OpenPersistentStore(ctx, interop.PersistentStoreOptions{
+		parseResolver = func(parseCtx context.Context) (interop.PersistentStore, error) {
+			return interop.OpenPersistentStore(parseCtx, interop.PersistentStoreOptions{
 				Name:               defaultMutationQueueStoreName,
-				DeleteOnCorruption: cfg.DeleteOnCorruption,
-				FallbackResolver:   fallbackResolver,
+				DeleteOnCorruption: parseCfg.DeleteOnCorruption,
+				FallbackResolver:   parseFallbackResolver,
 				FallbackBackend:    "localStorage",
 			})
 		}
 	}
-	store, err := resolver(context.Background())
-	if err != nil {
-		return MutationQueue{}, err
+	store, parseErr := parseResolver(context.Background())
+	if parseErr != nil {
+		return MutationQueue{}, parseErr
 	}
 
 	return MutationQueue{
-		storageKey:  cfg.StorageKey,
+		storageKey:  parseCfg.StorageKey,
 		store:       store,
-		maxAttempts: cfg.MaxAttempts,
-		baseDelay:   cfg.BaseDelay,
-		maxDelay:    cfg.MaxDelay,
-		now:         cfg.Now,
+		maxAttempts: parseCfg.MaxAttempts,
+		baseDelay:   parseCfg.BaseDelay,
+		maxDelay:    parseCfg.MaxDelay,
+		now:         parseCfg.Now,
 	}, nil
 }
 
 // Enqueue stores a write for later replay, suppressing duplicates that share the same dedup key.
-func (q MutationQueue) Enqueue(draft MutationDraft) (QueuedMutation, error) {
-	if strings.TrimSpace(draft.URL) == "" {
+func (parseQ MutationQueue) Enqueue(parseDraft MutationDraft) (QueuedMutation, error) {
+	if strings.TrimSpace(parseDraft.URL) == "" {
 		return QueuedMutation{}, fmt.Errorf("fetch mutation queue requires a non-empty URL")
 	}
-	method := strings.ToUpper(strings.TrimSpace(draft.Method))
-	if method == "" {
-		method = "POST"
+	parseMethod := strings.ToUpper(strings.TrimSpace(parseDraft.Method))
+	if parseMethod == "" {
+		parseMethod = "POST"
 	}
 
-	entries, err := q.load()
-	if err != nil {
-		return QueuedMutation{}, err
+	parseEntries, parseErr := parseQ.load()
+	if parseErr != nil {
+		return QueuedMutation{}, parseErr
 	}
-	for _, existing := range entries {
-		if existing.State == MutationDead {
+	for _, parseExisting := range parseEntries {
+		if parseExisting.State == MutationDead {
 			continue
 		}
-		if draft.DedupKey != "" && existing.DedupKey == draft.DedupKey {
-			return existing, nil
+		if parseDraft.DedupKey != "" && parseExisting.DedupKey == parseDraft.DedupKey {
+			return parseExisting, nil
 		}
 	}
 
-	now := q.currentTime()
-	entry := QueuedMutation{
-		ID:          normalizeMutationID(draft.ID, now, len(entries)+1),
-		Kind:        strings.TrimSpace(draft.Kind),
-		DedupKey:    strings.TrimSpace(draft.DedupKey),
-		Method:      method,
-		URL:         strings.TrimSpace(draft.URL),
-		Headers:     cloneStringMap(draft.Headers),
-		Body:        draft.Body,
-		Metadata:    cloneStringMap(draft.Metadata),
+	parseNow := parseQ.currentTime()
+	parseEntry := QueuedMutation{
+		ID:          normalizeMutationID(parseDraft.ID, parseNow, len(parseEntries)+1),
+		Kind:        strings.TrimSpace(parseDraft.Kind),
+		DedupKey:    strings.TrimSpace(parseDraft.DedupKey),
+		Method:      parseMethod,
+		URL:         strings.TrimSpace(parseDraft.URL),
+		Headers:     cloneStringMap(parseDraft.Headers),
+		Body:        parseDraft.Body,
+		Metadata:    cloneStringMap(parseDraft.Metadata),
 		State:       MutationQueued,
-		MaxAttempts: q.maxAttempts,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		MaxAttempts: parseQ.maxAttempts,
+		CreatedAt:   parseNow,
+		UpdatedAt:   parseNow,
 	}
 
-	entries = append(entries, entry)
-	if err := q.save(entries); err != nil {
-		return QueuedMutation{}, err
+	parseEntries = append(parseEntries, parseEntry)
+	if parseErr2 := parseQ.save(parseEntries); parseErr2 != nil {
+		return QueuedMutation{}, parseErr2
 	}
 	runtime.ReportLogWithFields("fetch", runtime.LogInfo, runtime.DiagnosticInformational, "mutation queued for replay", "", map[string]string{
-		"id":   entry.ID,
-		"kind": entry.Kind,
-		"url":  entry.URL,
+		"id":   parseEntry.ID,
+		"kind": parseEntry.Kind,
+		"url":  parseEntry.URL,
 	})
-	return entry, nil
+	return parseEntry, nil
 }
 
 // List returns all currently persisted queue entries in creation order.
-func (q MutationQueue) List() ([]QueuedMutation, error) {
-	entries, err := q.load()
-	if err != nil {
-		return nil, err
+func (parseQ MutationQueue) List() ([]QueuedMutation, error) {
+	parseEntries, parseErr := parseQ.load()
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	sort.SliceStable(entries, func(i, j int) bool {
-		return entries[i].CreatedAt.Before(entries[j].CreatedAt)
+	sort.SliceStable(parseEntries, func(parseI, parseJ int) bool {
+		return parseEntries[parseI].CreatedAt.Before(parseEntries[parseJ].CreatedAt)
 	})
-	return entries, nil
+	return parseEntries, nil
 }
 
 // Remove deletes one queue entry by id.
-func (q MutationQueue) Remove(id string) error {
-	trimmed := strings.TrimSpace(id)
-	if trimmed == "" {
+func (parseQ MutationQueue) Remove(parseId string) error {
+	parseTrimmed := strings.TrimSpace(parseId)
+	if parseTrimmed == "" {
 		return nil
 	}
-	entries, err := q.load()
-	if err != nil {
-		return err
+	parseEntries, parseErr := parseQ.load()
+	if parseErr != nil {
+		return parseErr
 	}
-	filtered := make([]QueuedMutation, 0, len(entries))
-	for _, entry := range entries {
-		if entry.ID != trimmed {
-			filtered = append(filtered, entry)
+	parseFiltered := make([]QueuedMutation, 0, len(parseEntries))
+	for _, parseEntry := range parseEntries {
+		if parseEntry.ID != parseTrimmed {
+			parseFiltered = append(parseFiltered, parseEntry)
 		}
 	}
-	return q.save(filtered)
+	return parseQ.save(parseFiltered)
 }
 
 // Clear removes every persisted queue entry.
-func (q MutationQueue) Clear() error {
-	return q.store.RemoveItem(context.Background(), q.storageKey)
+func (parseQ MutationQueue) Clear() error {
+	return parseQ.store.RemoveItem(context.Background(), parseQ.storageKey)
 }
 
 // Replay replays due entries through the provided executor and persists the updated queue state.
-func (q MutationQueue) Replay(ctx context.Context, executor MutationExecutor) (MutationReplayReport, error) {
-	return q.ReplayWithOptions(ctx, executor)
+func (parseQ MutationQueue) Replay(parseCtx context.Context, parseExecutor MutationExecutor) (MutationReplayReport, error) {
+	return parseQ.ReplayWithOptions(parseCtx, parseExecutor)
 }
 
 // ReplayWithOptions replays due entries and applies optional conflict-resolution policy.
-func (q MutationQueue) ReplayWithOptions(ctx context.Context, executor MutationExecutor, options ...MutationReplayOptions) (MutationReplayReport, error) {
-	if executor == nil {
+func (parseQ MutationQueue) ReplayWithOptions(parseCtx context.Context, parseExecutor MutationExecutor, parseOptions ...MutationReplayOptions) (MutationReplayReport, error) {
+	if parseExecutor == nil {
 		return MutationReplayReport{}, fmt.Errorf("fetch mutation queue requires an executor")
 	}
-	replayOptions := MutationReplayOptions{}
-	if len(options) > 0 {
-		replayOptions = options[0]
+	parseReplayOptions := MutationReplayOptions{}
+	if len(parseOptions) > 0 {
+		parseReplayOptions = parseOptions[0]
 	}
 
-	entries, err := q.load()
-	if err != nil {
-		return MutationReplayReport{}, err
+	parseEntries, parseErr := parseQ.load()
+	if parseErr != nil {
+		return MutationReplayReport{}, parseErr
 	}
-	report := MutationReplayReport{}
-	now := q.currentTime()
-	remaining := make([]QueuedMutation, 0, len(entries))
+	parseReport := MutationReplayReport{}
+	parseNow := parseQ.currentTime()
+	parseRemaining := make([]QueuedMutation, 0, len(parseEntries))
 
-	for index, entry := range entries {
-		if ctx != nil {
+	for parseIndex, parseEntry := range parseEntries {
+		if parseCtx != nil {
 			select {
-			case <-ctx.Done():
-				remaining = append(remaining, entries[index:]...)
-				report.Remaining = len(remaining)
-				if saveErr := q.save(remaining); saveErr != nil {
-					return report, saveErr
+			case <-parseCtx.Done():
+				parseRemaining = append(parseRemaining, parseEntries[parseIndex:]...)
+				parseReport.Remaining = len(parseRemaining)
+				if parseSaveErr := parseQ.save(parseRemaining); parseSaveErr != nil {
+					return parseReport, parseSaveErr
 				}
-				return report, ctx.Err()
+				return parseReport, parseCtx.Err()
 			default:
 			}
 		}
 
-		if entry.State == MutationDead {
-			report.DeadLetters++
-			remaining = append(remaining, entry)
+		if parseEntry.State == MutationDead {
+			parseReport.DeadLetters++
+			parseRemaining = append(parseRemaining, parseEntry)
 			continue
 		}
-		if !entry.NextAttemptAt.IsZero() && entry.NextAttemptAt.After(now) {
-			report.Deferred++
-			remaining = append(remaining, entry)
+		if !parseEntry.NextAttemptAt.IsZero() && parseEntry.NextAttemptAt.After(parseNow) {
+			parseReport.Deferred++
+			parseRemaining = append(parseRemaining, parseEntry)
 			continue
 		}
 
-		if err := executor(ctx, entry); err != nil {
-			if conflictErr, ok := AsMutationConflictError(err); ok {
-				report.Conflicts++
-				resolved, handled, resolveErr := q.handleConflict(ctx, entry, conflictErr, replayOptions.ConflictHandler, now)
-				if resolveErr != nil {
-					return report, resolveErr
+		if parseErr2 := parseExecutor(parseCtx, parseEntry); parseErr2 != nil {
+			if parseConflictErr, parseOk := AsMutationConflictError(parseErr2); parseOk {
+				parseReport.Conflicts++
+				parseResolved, parseHandled, parseResolveErr := parseQ.handleConflict(parseCtx, parseEntry, parseConflictErr, parseReplayOptions.ConflictHandler, parseNow)
+				if parseResolveErr != nil {
+					return parseReport, parseResolveErr
 				}
-				if handled {
-					switch resolved.State {
+				if parseHandled {
+					switch parseResolved.State {
 					case MutationDead:
-						report.DeadLetters++
-						remaining = append(remaining, resolved)
+						parseReport.DeadLetters++
+						parseRemaining = append(parseRemaining, parseResolved)
 					case MutationQueued, MutationRetrying:
-						report.Resolved++
-						remaining = append(remaining, resolved)
+						parseReport.Resolved++
+						parseRemaining = append(parseRemaining, parseResolved)
 					default:
-						report.Resolved++
+						parseReport.Resolved++
 					}
 					continue
 				}
 			}
-			entry.Attempts++
-			entry.UpdatedAt = now
-			entry.LastError = err.Error()
-			if entry.Attempts >= entry.MaxAttempts {
-				entry.State = MutationDead
-				entry.NextAttemptAt = time.Time{}
-				report.DeadLetters++
+			parseEntry.Attempts++
+			parseEntry.UpdatedAt = parseNow
+			parseEntry.LastError = parseErr2.Error()
+			if parseEntry.Attempts >= parseEntry.MaxAttempts {
+				parseEntry.State = MutationDead
+				parseEntry.NextAttemptAt = time.Time{}
+				parseReport.DeadLetters++
 				runtime.ReportLogWithFields("fetch", runtime.LogError, runtime.DiagnosticCorrectness, "mutation replay moved to dead-letter state", "", map[string]string{
-					"id":      entry.ID,
-					"kind":    entry.Kind,
-					"url":     entry.URL,
-					"attempt": fmt.Sprintf("%d", entry.Attempts),
-					"error":   entry.LastError,
+					"id":      parseEntry.ID,
+					"kind":    parseEntry.Kind,
+					"url":     parseEntry.URL,
+					"attempt": fmt.Sprintf("%d", parseEntry.Attempts),
+					"error":   parseEntry.LastError,
 				})
 			} else {
-				entry.State = MutationRetrying
-				entry.NextAttemptAt = now.Add(q.retryDelay(entry.Attempts))
-				report.Retried++
+				parseEntry.State = MutationRetrying
+				parseEntry.NextAttemptAt = parseNow.Add(parseQ.retryDelay(parseEntry.Attempts))
+				parseReport.Retried++
 				runtime.ReportLogWithFields("fetch", runtime.LogWarn, runtime.DiagnosticRecovered, "mutation replay scheduled for retry", "", map[string]string{
-					"id":      entry.ID,
-					"kind":    entry.Kind,
-					"url":     entry.URL,
-					"attempt": fmt.Sprintf("%d", entry.Attempts),
-					"error":   entry.LastError,
+					"id":      parseEntry.ID,
+					"kind":    parseEntry.Kind,
+					"url":     parseEntry.URL,
+					"attempt": fmt.Sprintf("%d", parseEntry.Attempts),
+					"error":   parseEntry.LastError,
 				})
 			}
-			remaining = append(remaining, entry)
+			parseRemaining = append(parseRemaining, parseEntry)
 			continue
 		}
 
-		report.Succeeded++
+		parseReport.Succeeded++
 		runtime.ReportLogWithFields("fetch", runtime.LogInfo, runtime.DiagnosticInformational, "mutation replay succeeded", "", map[string]string{
-			"id":   entry.ID,
-			"kind": entry.Kind,
-			"url":  entry.URL,
+			"id":   parseEntry.ID,
+			"kind": parseEntry.Kind,
+			"url":  parseEntry.URL,
 		})
 	}
 
-	report.Remaining = len(remaining)
-	if err := q.save(remaining); err != nil {
-		return report, err
+	parseReport.Remaining = len(parseRemaining)
+	if parseErr3 := parseQ.save(parseRemaining); parseErr3 != nil {
+		return parseReport, parseErr3
 	}
-	return report, nil
+	return parseReport, nil
 }
 
-func (q MutationQueue) handleConflict(ctx context.Context, entry QueuedMutation, conflictErr *MutationConflictError, handler MutationConflictHandler, now time.Time) (QueuedMutation, bool, error) {
-	if handler == nil {
-		entry.Attempts++
-		entry.State = MutationDead
-		entry.UpdatedAt = now
-		entry.NextAttemptAt = time.Time{}
-		entry.LastError = conflictErr.Error()
+// handleConflict is a core package helper.
+func (parseQ MutationQueue) handleConflict(parseCtx context.Context, parseEntry QueuedMutation, parseConflictErr *MutationConflictError, parseHandler MutationConflictHandler, parseNow time.Time) (QueuedMutation, bool, error) {
+	if parseHandler == nil {
+		parseEntry.Attempts++
+		parseEntry.State = MutationDead
+		parseEntry.UpdatedAt = parseNow
+		parseEntry.NextAttemptAt = time.Time{}
+		parseEntry.LastError = parseConflictErr.Error()
 		runtime.ReportLogWithFields("fetch", runtime.LogError, runtime.DiagnosticCorrectness, "mutation replay requires conflict resolution", "", map[string]string{
-			"id":             entry.ID,
-			"kind":           entry.Kind,
-			"url":            entry.URL,
-			"conflict_code":  conflictErr.Conflict.Code,
-			"local_version":  conflictErr.Conflict.LocalVersion,
-			"remote_version": conflictErr.Conflict.RemoteVersion,
+			"id":             parseEntry.ID,
+			"kind":           parseEntry.Kind,
+			"url":            parseEntry.URL,
+			"conflict_code":  parseConflictErr.Conflict.Code,
+			"local_version":  parseConflictErr.Conflict.LocalVersion,
+			"remote_version": parseConflictErr.Conflict.RemoteVersion,
 		})
-		return entry, true, nil
+		return parseEntry, true, nil
 	}
-	resolution, err := handler(ctx, entry, conflictErr.Conflict)
-	if err != nil {
-		return QueuedMutation{}, false, err
+	parseResolution, parseErr := parseHandler(parseCtx, parseEntry, parseConflictErr.Conflict)
+	if parseErr != nil {
+		return QueuedMutation{}, false, parseErr
 	}
-	message := strings.TrimSpace(resolution.Message)
-	if message == "" {
-		message = conflictErr.Error()
+	parseMessage := strings.TrimSpace(parseResolution.Message)
+	if parseMessage == "" {
+		parseMessage = parseConflictErr.Error()
 	}
-	switch resolution.Action {
+	switch parseResolution.Action {
 	case MutationResolutionRemove:
 		runtime.ReportLogWithFields("fetch", runtime.LogInfo, runtime.DiagnosticRecovered, "mutation conflict resolved by removal", "", map[string]string{
-			"id":   entry.ID,
-			"kind": entry.Kind,
-			"url":  entry.URL,
+			"id":   parseEntry.ID,
+			"kind": parseEntry.Kind,
+			"url":  parseEntry.URL,
 		})
 		return QueuedMutation{}, true, nil
 	case MutationResolutionReplace:
-		resolved := mergeResolvedMutation(entry, resolution.Draft, now, message)
+		parseResolved := mergeResolvedMutation(parseEntry, parseResolution.Draft, parseNow, parseMessage)
 		runtime.ReportLogWithFields("fetch", runtime.LogInfo, runtime.DiagnosticRecovered, "mutation conflict resolved by requeue", "", map[string]string{
-			"id":             resolved.ID,
-			"kind":           resolved.Kind,
-			"url":            resolved.URL,
-			"conflict_code":  conflictErr.Conflict.Code,
-			"local_version":  conflictErr.Conflict.LocalVersion,
-			"remote_version": conflictErr.Conflict.RemoteVersion,
+			"id":             parseResolved.ID,
+			"kind":           parseResolved.Kind,
+			"url":            parseResolved.URL,
+			"conflict_code":  parseConflictErr.Conflict.Code,
+			"local_version":  parseConflictErr.Conflict.LocalVersion,
+			"remote_version": parseConflictErr.Conflict.RemoteVersion,
 		})
-		return resolved, true, nil
+		return parseResolved, true, nil
 	case MutationResolutionDead:
-		entry.Attempts++
-		entry.State = MutationDead
-		entry.UpdatedAt = now
-		entry.NextAttemptAt = time.Time{}
-		entry.LastError = message
+		parseEntry.Attempts++
+		parseEntry.State = MutationDead
+		parseEntry.UpdatedAt = parseNow
+		parseEntry.NextAttemptAt = time.Time{}
+		parseEntry.LastError = parseMessage
 		runtime.ReportLogWithFields("fetch", runtime.LogError, runtime.DiagnosticCorrectness, "mutation conflict moved to dead-letter state", "", map[string]string{
-			"id":             entry.ID,
-			"kind":           entry.Kind,
-			"url":            entry.URL,
-			"conflict_code":  conflictErr.Conflict.Code,
-			"local_version":  conflictErr.Conflict.LocalVersion,
-			"remote_version": conflictErr.Conflict.RemoteVersion,
+			"id":             parseEntry.ID,
+			"kind":           parseEntry.Kind,
+			"url":            parseEntry.URL,
+			"conflict_code":  parseConflictErr.Conflict.Code,
+			"local_version":  parseConflictErr.Conflict.LocalVersion,
+			"remote_version": parseConflictErr.Conflict.RemoteVersion,
 		})
-		return entry, true, nil
+		return parseEntry, true, nil
 	case MutationResolutionRetry, "":
 		return QueuedMutation{}, false, nil
 	default:
-		return QueuedMutation{}, false, fmt.Errorf("unsupported mutation conflict resolution action %q", resolution.Action)
+		return QueuedMutation{}, false, fmt.Errorf("unsupported mutation conflict resolution action %q", parseResolution.Action)
 	}
 }
 
-func (q MutationQueue) load() ([]QueuedMutation, error) {
-	value, ok, err := q.store.GetItem(context.Background(), q.storageKey)
-	if err != nil {
-		return nil, err
+// load is a core package helper.
+func (parseQ MutationQueue) load() ([]QueuedMutation, error) {
+	parseValue, parseOk, parseErr := parseQ.store.GetItem(context.Background(), parseQ.storageKey)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if !ok || strings.TrimSpace(value) == "" {
+	if !parseOk || strings.TrimSpace(parseValue) == "" {
 		return []QueuedMutation{}, nil
 	}
-	var entries []QueuedMutation
-	if err := json.Unmarshal([]byte(value), &entries); err != nil {
-		return nil, err
+	var parseEntries []QueuedMutation
+	if parseErr2 := json.Unmarshal([]byte(parseValue), &parseEntries); parseErr2 != nil {
+		return nil, parseErr2
 	}
-	for index := range entries {
-		if entries[index].MaxAttempts <= 0 {
-			entries[index].MaxAttempts = q.maxAttempts
+	for parseIndex := range parseEntries {
+		if parseEntries[parseIndex].MaxAttempts <= 0 {
+			parseEntries[parseIndex].MaxAttempts = parseQ.maxAttempts
 		}
-		if strings.TrimSpace(entries[index].Method) == "" {
-			entries[index].Method = "POST"
+		if strings.TrimSpace(parseEntries[parseIndex].Method) == "" {
+			parseEntries[parseIndex].Method = "POST"
 		}
-		if entries[index].State == "" {
-			if entries[index].Attempts > 0 {
-				entries[index].State = MutationRetrying
+		if parseEntries[parseIndex].State == "" {
+			if parseEntries[parseIndex].Attempts > 0 {
+				parseEntries[parseIndex].State = MutationRetrying
 			} else {
-				entries[index].State = MutationQueued
+				parseEntries[parseIndex].State = MutationQueued
 			}
 		}
 	}
-	return entries, nil
+	return parseEntries, nil
 }
 
-func (q MutationQueue) save(entries []QueuedMutation) error {
-	if len(entries) == 0 {
-		return q.store.RemoveItem(context.Background(), q.storageKey)
+// save is a core package helper.
+func (parseQ MutationQueue) save(parseEntries []QueuedMutation) error {
+	if len(parseEntries) == 0 {
+		return parseQ.store.RemoveItem(context.Background(), parseQ.storageKey)
 	}
-	data, err := json.Marshal(entries)
-	if err != nil {
-		return err
+	parseData, parseErr := json.Marshal(parseEntries)
+	if parseErr != nil {
+		return parseErr
 	}
-	return q.store.SetItem(context.Background(), q.storageKey, string(data))
+	return parseQ.store.SetItem(context.Background(), parseQ.storageKey, string(parseData))
 }
 
-func (q MutationQueue) currentTime() time.Time {
-	if q.now != nil {
-		return q.now()
+// currentTime is a core package helper.
+func (parseQ MutationQueue) currentTime() time.Time {
+	if parseQ.now != nil {
+		return parseQ.now()
 	}
 	return time.Now()
 }
 
-func (q MutationQueue) retryDelay(attempt int) time.Duration {
-	delay := q.baseDelay
-	if delay <= 0 {
-		delay = 2 * time.Second
+// retryDelay is a core package helper.
+func (parseQ MutationQueue) retryDelay(parseAttempt int) time.Duration {
+	parseDelay := parseQ.baseDelay
+	if parseDelay <= 0 {
+		parseDelay = 2 * time.Second
 	}
-	maxDelay := q.maxDelay
-	if maxDelay <= 0 {
-		maxDelay = 2 * time.Minute
+	parseMaxDelay := parseQ.maxDelay
+	if parseMaxDelay <= 0 {
+		parseMaxDelay = 2 * time.Minute
 	}
-	for i := 1; i < attempt; i++ {
-		if delay >= maxDelay/2 {
-			return maxDelay
+	for parseI := 1; parseI < parseAttempt; parseI++ {
+		if parseDelay >= parseMaxDelay/2 {
+			return parseMaxDelay
 		}
-		delay *= 2
+		parseDelay *= 2
 	}
-	if delay > maxDelay {
-		return maxDelay
+	if parseDelay > parseMaxDelay {
+		return parseMaxDelay
 	}
-	return delay
+	return parseDelay
 }
 
-func resolveMutationQueueOptions(options []MutationQueueOptions) MutationQueueOptions {
-	cfg := MutationQueueOptions{
+// resolveMutationQueueOptions is a core package helper.
+func resolveMutationQueueOptions(parseOptions []MutationQueueOptions) MutationQueueOptions {
+	parseCfg := MutationQueueOptions{
 		StorageKey:  defaultMutationQueueStorageKey,
 		MaxAttempts: 5,
 		BaseDelay:   2 * time.Second,
 		MaxDelay:    2 * time.Minute,
 		Now:         time.Now,
 	}
-	if len(options) == 0 {
-		return cfg
+	if len(parseOptions) == 0 {
+		return parseCfg
 	}
-	overrides := options[0]
-	if strings.TrimSpace(overrides.StorageKey) != "" {
-		cfg.StorageKey = strings.TrimSpace(overrides.StorageKey)
+	parseOverrides := parseOptions[0]
+	if strings.TrimSpace(parseOverrides.StorageKey) != "" {
+		parseCfg.StorageKey = strings.TrimSpace(parseOverrides.StorageKey)
 	}
-	if overrides.MaxAttempts > 0 {
-		cfg.MaxAttempts = overrides.MaxAttempts
+	if parseOverrides.MaxAttempts > 0 {
+		parseCfg.MaxAttempts = parseOverrides.MaxAttempts
 	}
-	if overrides.BaseDelay > 0 {
-		cfg.BaseDelay = overrides.BaseDelay
+	if parseOverrides.BaseDelay > 0 {
+		parseCfg.BaseDelay = parseOverrides.BaseDelay
 	}
-	if overrides.MaxDelay > 0 {
-		cfg.MaxDelay = overrides.MaxDelay
+	if parseOverrides.MaxDelay > 0 {
+		parseCfg.MaxDelay = parseOverrides.MaxDelay
 	}
-	if overrides.StorageResolver != nil {
-		cfg.StorageResolver = overrides.StorageResolver
+	if parseOverrides.StorageResolver != nil {
+		parseCfg.StorageResolver = parseOverrides.StorageResolver
 	}
-	if overrides.StoreResolver != nil {
-		cfg.StoreResolver = overrides.StoreResolver
+	if parseOverrides.StoreResolver != nil {
+		parseCfg.StoreResolver = parseOverrides.StoreResolver
 	}
-	if overrides.Now != nil {
-		cfg.Now = overrides.Now
+	if parseOverrides.Now != nil {
+		parseCfg.Now = parseOverrides.Now
 	}
-	return cfg
+	return parseCfg
 }
 
-func normalizeMutationID(id string, now time.Time, ordinal int) string {
-	trimmed := strings.TrimSpace(id)
-	if trimmed != "" {
-		return trimmed
+// normalizeMutationID is a core package helper.
+func normalizeMutationID(parseId string, parseNow time.Time, parseOrdinal int) string {
+	parseTrimmed := strings.TrimSpace(parseId)
+	if parseTrimmed != "" {
+		return parseTrimmed
 	}
-	return fmt.Sprintf("mutation-%d-%d", now.UnixNano(), ordinal)
+	return fmt.Sprintf("mutation-%d-%d", parseNow.UnixNano(), parseOrdinal)
 }
 
-func cloneStringMap(input map[string]string) map[string]string {
-	if len(input) == 0 {
+// cloneStringMap is a core package helper.
+func cloneStringMap(parseInput map[string]string) map[string]string {
+	if len(parseInput) == 0 {
 		return nil
 	}
-	clone := make(map[string]string, len(input))
-	for key, value := range input {
-		clone[key] = value
+	parseClone := make(map[string]string, len(parseInput))
+	for parseKey, parseValue := range parseInput {
+		parseClone[parseKey] = parseValue
 	}
-	return clone
+	return parseClone
 }
 
-func mergeResolvedMutation(existing QueuedMutation, draft MutationDraft, now time.Time, message string) QueuedMutation {
-	resolved := existing
-	if id := strings.TrimSpace(draft.ID); id != "" {
-		resolved.ID = id
+// mergeResolvedMutation is a core package helper.
+func mergeResolvedMutation(parseExisting QueuedMutation, parseDraft MutationDraft, parseNow time.Time, parseMessage string) QueuedMutation {
+	parseResolved := parseExisting
+	if parseId := strings.TrimSpace(parseDraft.ID); parseId != "" {
+		parseResolved.ID = parseId
 	}
-	if kind := strings.TrimSpace(draft.Kind); kind != "" {
-		resolved.Kind = kind
+	if parseKind := strings.TrimSpace(parseDraft.Kind); parseKind != "" {
+		parseResolved.Kind = parseKind
 	}
-	if dedupKey := strings.TrimSpace(draft.DedupKey); dedupKey != "" {
-		resolved.DedupKey = dedupKey
+	if parseDedupKey := strings.TrimSpace(parseDraft.DedupKey); parseDedupKey != "" {
+		parseResolved.DedupKey = parseDedupKey
 	}
-	if method := strings.ToUpper(strings.TrimSpace(draft.Method)); method != "" {
-		resolved.Method = method
+	if parseMethod := strings.ToUpper(strings.TrimSpace(parseDraft.Method)); parseMethod != "" {
+		parseResolved.Method = parseMethod
 	}
-	if url := strings.TrimSpace(draft.URL); url != "" {
-		resolved.URL = url
+	if parseUrl := strings.TrimSpace(parseDraft.URL); parseUrl != "" {
+		parseResolved.URL = parseUrl
 	}
-	if draft.Headers != nil {
-		resolved.Headers = cloneStringMap(draft.Headers)
+	if parseDraft.Headers != nil {
+		parseResolved.Headers = cloneStringMap(parseDraft.Headers)
 	}
-	if draft.Body != nil {
-		resolved.Body = draft.Body
+	if parseDraft.Body != nil {
+		parseResolved.Body = parseDraft.Body
 	}
-	if draft.Metadata != nil {
-		resolved.Metadata = cloneStringMap(draft.Metadata)
+	if parseDraft.Metadata != nil {
+		parseResolved.Metadata = cloneStringMap(parseDraft.Metadata)
 	}
-	resolved.State = MutationQueued
-	resolved.Attempts = 0
-	resolved.NextAttemptAt = time.Time{}
-	resolved.LastError = message
-	resolved.UpdatedAt = now
-	return resolved
+	parseResolved.State = MutationQueued
+	parseResolved.Attempts = 0
+	parseResolved.NextAttemptAt = time.Time{}
+	parseResolved.LastError = parseMessage
+	parseResolved.UpdatedAt = parseNow
+	return parseResolved
 }

@@ -17,33 +17,33 @@ const marketingHomeRoute = "/home"
 const marketingCapabilitiesRoute = "/capabilities"
 const marketingPricingRoute = "/pricing"
 
-func chatThreadPath(publicID string) string {
-	publicID = strings.TrimSpace(publicID)
-	if publicID == "" {
+func parseChatThreadPath(parsePublicID string) string {
+	parsePublicID = strings.TrimSpace(parsePublicID)
+	if parsePublicID == "" {
 		return chatRouteRoot
 	}
-	return fmt.Sprintf("/app/thread/%s", publicID)
+	return fmt.Sprintf("/app/thread/%s", parsePublicID)
 }
 
-func currentThreadRoutePublicID() string {
+func parseCurrentThreadRoutePublicID() string {
 	return strings.TrimSpace(router.UseParams().Get("publicID"))
 }
 
-func currentCanvasRouteID() string {
+func parseCurrentCanvasRouteID() string {
 	return strings.TrimSpace(router.UseParams().Get("canvasID"))
 }
 
-func chatCanvasPath(publicID, canvasID string) string {
-	publicID = strings.TrimSpace(publicID)
-	canvasID = strings.TrimSpace(canvasID)
-	if publicID == "" || canvasID == "" {
-		return chatThreadPath(publicID)
+func parseChatCanvasPath(parsePublicID, parseCanvasID string) string {
+	parsePublicID = strings.TrimSpace(parsePublicID)
+	parseCanvasID = strings.TrimSpace(parseCanvasID)
+	if parsePublicID == "" || parseCanvasID == "" {
+		return parseChatThreadPath(parsePublicID)
 	}
-	return fmt.Sprintf("/app/thread/%s/canvas/%s", publicID, canvasID)
+	return fmt.Sprintf("/app/thread/%s/canvas/%s", parsePublicID, parseCanvasID)
 }
 
-func isLandingRoute(path string) bool {
-	switch strings.TrimSpace(path) {
+func isLandingRoute(parsePath string) bool {
+	switch strings.TrimSpace(parsePath) {
 	case authLandingRoute, marketingHomeRoute, marketingCapabilitiesRoute, marketingPricingRoute:
 		return true
 	default:
@@ -51,58 +51,58 @@ func isLandingRoute(path string) bool {
 	}
 }
 
-func isChatRoute(path string) bool {
-	path = strings.TrimSpace(path)
-	return path == chatRouteRoot || strings.HasPrefix(path, chatRouteRoot+"/")
+func isChatRoute(parsePath string) bool {
+	parsePath = strings.TrimSpace(parsePath)
+	return parsePath == chatRouteRoot || strings.HasPrefix(parsePath, chatRouteRoot+"/")
 }
 
-func threadRoutePublicIDFromPath(path string) string {
-	path = strings.TrimSpace(path)
-	if path == "" {
+func parseThreadRoutePublicIDFromPath(parsePath string) string {
+	parsePath = strings.TrimSpace(parsePath)
+	if parsePath == "" {
 		return ""
 	}
-	if idx := strings.Index(path, "#"); idx >= 0 {
-		path = path[:idx]
+	if parseIdx := strings.Index(parsePath, "#"); parseIdx >= 0 {
+		parsePath = parsePath[:parseIdx]
 	}
-	if idx := strings.Index(path, "?"); idx >= 0 {
-		path = path[:idx]
+	if parseIdx2 := strings.Index(parsePath, "?"); parseIdx2 >= 0 {
+		parsePath = parsePath[:parseIdx2]
 	}
-	trimmed := strings.Trim(strings.TrimSpace(path), "/")
-	if trimmed == "" {
+	parseTrimmed := strings.Trim(strings.TrimSpace(parsePath), "/")
+	if parseTrimmed == "" {
 		return ""
 	}
-	segments := strings.Split(trimmed, "/")
-	if len(segments) < 3 || segments[0] != "app" || segments[1] != "thread" {
+	parseSegments := strings.Split(parseTrimmed, "/")
+	if len(parseSegments) < 3 || parseSegments[0] != "app" || parseSegments[1] != "thread" {
 		return ""
 	}
-	return strings.TrimSpace(segments[2])
+	return strings.TrimSpace(parseSegments[2])
 }
 
-func findConversationSummaryByID(conversations []convSummary, id int64) (convSummary, bool) {
-	for _, summary := range conversations {
-		if summary.ID == id {
-			return summary, true
+func parseFindConversationSummaryByID(parseConversations []convSummary, parseId int64) (convSummary, bool) {
+	for _, parseSummary := range parseConversations {
+		if parseSummary.ParseID == parseId {
+			return parseSummary, true
 		}
 	}
 	return convSummary{}, false
 }
 
-func summaryPublicIDForID(conversations []convSummary, id int64) string {
-	summary, ok := findConversationSummaryByID(conversations, id)
-	if !ok {
+func parseSummaryPublicIDForID(parseConversations []convSummary, parseId int64) string {
+	parseSummary, parseOk := parseFindConversationSummaryByID(parseConversations, parseId)
+	if !parseOk {
 		return ""
 	}
-	return strings.TrimSpace(summary.PublicID)
+	return strings.TrimSpace(parseSummary.PublicID)
 }
 
-func findConversationSummaryByPublicID(conversations []convSummary, publicID string) (convSummary, bool) {
-	publicID = strings.TrimSpace(publicID)
-	if publicID == "" {
+func parseFindConversationSummaryByPublicID(parseConversations []convSummary, parsePublicID string) (convSummary, bool) {
+	parsePublicID = strings.TrimSpace(parsePublicID)
+	if parsePublicID == "" {
 		return convSummary{}, false
 	}
-	for _, summary := range conversations {
-		if summary.PublicID == publicID {
-			return summary, true
+	for _, parseSummary := range parseConversations {
+		if parseSummary.PublicID == parsePublicID {
+			return parseSummary, true
 		}
 	}
 	return convSummary{}, false

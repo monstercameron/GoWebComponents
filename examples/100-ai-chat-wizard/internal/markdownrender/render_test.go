@@ -5,45 +5,45 @@ import (
 	"testing"
 )
 
-func TestNormalizeFenceLanguageAliases(t *testing.T) {
-	input := "```golang title=demo\nfmt.Println(\"hi\")\n```\n~~~c#\nConsole.WriteLine(\"hi\");\n~~~\n"
-	normalized := normalizeFenceLanguageAliases(input)
-	if !strings.Contains(normalized, "``` go title=demo") {
-		t.Fatalf("expected golang alias normalization, got %q", normalized)
+func TestNormalizeFenceLanguageAliases(parseT *testing.T) {
+	parseInput := "```golang title=demo\nfmt.Println(\"hi\")\n```\n~~~c#\nConsole.WriteLine(\"hi\");\n~~~\n"
+	parseNormalized := parseNormalizeFenceLanguageAliases(parseInput)
+	if !strings.Contains(parseNormalized, "``` go title=demo") {
+		parseT.Fatalf("expected golang alias normalization, got %q", parseNormalized)
 	}
-	if !strings.Contains(normalized, "~~~ csharp") {
-		t.Fatalf("expected c# alias normalization, got %q", normalized)
-	}
-}
-
-func TestNormalizeFenceHelpers(t *testing.T) {
-	if got := leadingFenceLength("```go"); got != 3 {
-		t.Fatalf("leadingFenceLength() = %d, want 3", got)
-	}
-	if got := leadingFenceLength(""); got != 0 {
-		t.Fatalf("leadingFenceLength(empty) = %d, want 0", got)
-	}
-	if got := normalizeFenceInfoString("js linenos"); got != "javascript linenos" {
-		t.Fatalf("normalizeFenceInfoString() = %q, want javascript linenos", got)
-	}
-	if got := normalizeFenceInfoString("   "); got != "   " {
-		t.Fatalf("normalizeFenceInfoString(blank) = %q, want original spacing", got)
+	if !strings.Contains(parseNormalized, "~~~ csharp") {
+		parseT.Fatalf("expected c# alias normalization, got %q", parseNormalized)
 	}
 }
 
-func TestRenderConvertsMarkdownAndNormalizesAliases(t *testing.T) {
-	markup, err := Render("# Heading\n\n```sh\necho hi\n```\n")
-	if err != nil {
-		t.Fatalf("Render(): %v", err)
+func TestNormalizeFenceHelpers(parseT *testing.T) {
+	if parseGot := parseLeadingFenceLength("```go"); parseGot != 3 {
+		parseT.Fatalf("leadingFenceLength() = %d, want 3", parseGot)
 	}
-	for _, expected := range []string{"<h1>Heading</h1>", "<pre", "echo hi"} {
-		if !strings.Contains(markup, expected) {
-			t.Fatalf("expected rendered markup to contain %q, got %s", expected, markup)
+	if parseGot2 := parseLeadingFenceLength(""); parseGot2 != 0 {
+		parseT.Fatalf("leadingFenceLength(empty) = %d, want 0", parseGot2)
+	}
+	if parseGot3 := parseNormalizeFenceInfoString("js linenos"); parseGot3 != "javascript linenos" {
+		parseT.Fatalf("normalizeFenceInfoString() = %q, want javascript linenos", parseGot3)
+	}
+	if parseGot4 := parseNormalizeFenceInfoString("   "); parseGot4 != "   " {
+		parseT.Fatalf("normalizeFenceInfoString(blank) = %q, want original spacing", parseGot4)
+	}
+}
+
+func TestRenderConvertsMarkdownAndNormalizesAliases(parseT *testing.T) {
+	parseMarkup, parseErr := Render("# Heading\n\n```sh\necho hi\n```\n")
+	if parseErr != nil {
+		parseT.Fatalf("Render(): %v", parseErr)
+	}
+	for _, parseExpected := range []string{"<h1>Heading</h1>", "<pre", "echo hi"} {
+		if !strings.Contains(parseMarkup, parseExpected) {
+			parseT.Fatalf("expected rendered markup to contain %q, got %s", parseExpected, parseMarkup)
 		}
 	}
 
-	plain := "no fences here"
-	if got := normalizeFenceLanguageAliases(plain); got != plain {
-		t.Fatalf("expected plain input to remain unchanged, got %q", got)
+	parsePlain := "no fences here"
+	if parseGot := parseNormalizeFenceLanguageAliases(parsePlain); parseGot != parsePlain {
+		parseT.Fatalf("expected plain input to remain unchanged, got %q", parseGot)
 	}
 }

@@ -5,6 +5,6 @@ package logging
 
 import "github.com/monstercameron/GoWebComponents/utils"
 
-func writeStructured(parseLevel, parseScope, parseMessage string, parseFields map[string]interface{}) {
-	utils.WriteConsoleStructured(parseLevel, parseScope, parseMessage, parseFields)
+func writeStructured(parseLogLevel, parseLogScope, parseLogMessage string, parseLogFields map[string]interface{}) {
+	utils.WriteConsoleStructured(parseLogLevel, parseLogScope, parseLogMessage, parseLogFields)
 }

@@ -32,12 +32,12 @@ func main() {
 	hotreload.Enable()
 
 	// Initialize and mount the global router
-	r := router.GetRouter()
-	r.Register(portfolioHomeRoute, DocsWebsite)
-	r.Register(portfolioDocsRoute, DocsPage)
-	r.Register(portfolioCatchAllRoute, NotFoundPage)
+	parseR := router.GetRouter()
+	parseR.Register(portfolioHomeRoute, DocsWebsite)
+	parseR.Register(portfolioDocsRoute, DocsPage)
+	parseR.Register(portfolioCatchAllRoute, NotFoundPage)
 
-	r.Mount("#app")
+	parseR.Mount("#app")
 
 	fmt.Println("✅ Portfolio Site rendered")
 	select {}

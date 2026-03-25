@@ -23,95 +23,95 @@ const (
 	defaultSettingsSectionID    = settingsSectionProfile
 )
 
-func normalizeSettingsSectionID(raw string) string {
-	trimmed := strings.ToLower(strings.TrimSpace(raw))
-	trimmed = strings.TrimPrefix(trimmed, "#")
-	switch trimmed {
+func parseNormalizeSettingsSectionID(parseRaw string) string {
+	parseTrimmed := strings.ToLower(strings.TrimSpace(parseRaw))
+	parseTrimmed = strings.TrimPrefix(parseTrimmed, "#")
+	switch parseTrimmed {
 	case settingsSectionProfile, settingsSectionTone, settingsSectionPrompt, settingsSectionIntelligence, settingsSectionSpeech, settingsSectionMemories, settingsSectionLanguage:
-		return trimmed
+		return parseTrimmed
 	default:
 		return ""
 	}
 }
 
-func isSettingsRoute(path string) bool {
-	return strings.TrimSpace(path) == settingsRoutePath
+func isSettingsRoute(parsePath string) bool {
+	return strings.TrimSpace(parsePath) == settingsRoutePath
 }
 
-func buildSettingsRoute(section string) string {
-	normalized := normalizeSettingsSectionID(section)
-	if normalized == "" {
-		normalized = defaultSettingsSectionID
+func buildSettingsRoute(parseSection string) string {
+	parseNormalized := parseNormalizeSettingsSectionID(parseSection)
+	if parseNormalized == "" {
+		parseNormalized = defaultSettingsSectionID
 	}
-	values := url.Values{}
-	values.Set(settingsPanelQueryKey, normalized)
-	return settingsRoutePath + "?" + values.Encode()
+	parseValues := url.Values{}
+	parseValues.Set(settingsPanelQueryKey, parseNormalized)
+	return settingsRoutePath + "?" + parseValues.Encode()
 }
 
-func currentSettingsPanelRouteID() string {
-	return normalizeSettingsSectionID(router.UseQuery().Get(settingsPanelQueryKey))
+func parseCurrentSettingsPanelRouteID() string {
+	return parseNormalizeSettingsSectionID(router.UseQuery().Get(settingsPanelQueryKey))
 }
 
-func currentLocationPathSearch() string {
-	window := js.Global().Get("window")
-	if !window.Truthy() {
+func parseCurrentLocationPathSearch() string {
+	parseWindow := js.Global().Get("window")
+	if !parseWindow.Truthy() {
 		return ""
 	}
-	location := window.Get("location")
-	if !location.Truthy() {
+	parseLocation := parseWindow.Get("location")
+	if !parseLocation.Truthy() {
 		return ""
 	}
-	return strings.TrimSpace(location.Get("pathname").String()) + strings.TrimSpace(location.Get("search").String())
+	return strings.TrimSpace(parseLocation.Get("pathname").ParseString()) + strings.TrimSpace(parseLocation.Get("search").ParseString())
 }
 
-func buildSettingsReturnRoute(path, section string) string {
-	base := strings.TrimSpace(path)
-	if base == "" {
-		base = chatRouteRoot
+func buildSettingsReturnRoute(parsePath, parseSection string) string {
+	parseBase := strings.TrimSpace(parsePath)
+	if parseBase == "" {
+		parseBase = chatRouteRoot
 	}
-	normalized := normalizeSettingsSectionID(section)
-	if normalized == "" {
-		return base
+	parseNormalized := parseNormalizeSettingsSectionID(parseSection)
+	if parseNormalized == "" {
+		return parseBase
 	}
-	return strings.TrimPrefix(base, "#") + "#" + normalized
+	return strings.TrimPrefix(parseBase, "#") + "#" + parseNormalized
 }
 
-func replaceSettingsSectionHash(section string) {
-	normalized := normalizeSettingsSectionID(section)
-	if normalized == "" {
+func parseReplaceSettingsSectionHash(parseSection string) {
+	parseNormalized := parseNormalizeSettingsSectionID(parseSection)
+	if parseNormalized == "" {
 		return
 	}
-	window := js.Global().Get("window")
-	if !window.Truthy() {
+	parseWindow := js.Global().Get("window")
+	if !parseWindow.Truthy() {
 		return
 	}
-	location := window.Get("location")
-	if !location.Truthy() {
+	parseLocation := parseWindow.Get("location")
+	if !parseLocation.Truthy() {
 		return
 	}
-	history := window.Get("history")
-	url := buildSettingsReturnRoute(currentLocationPathSearch(), normalized)
-	if history.Truthy() && history.Get("replaceState").Type() == js.TypeFunction {
-		history.Call("replaceState", nil, "", url)
+	parseHistory := parseWindow.Get("history")
+	parseUrl := buildSettingsReturnRoute(parseCurrentLocationPathSearch(), parseNormalized)
+	if parseHistory.Truthy() && parseHistory.Get("replaceState").Type() == js.TypeFunction {
+		parseHistory.Call("replaceState", nil, "", parseUrl)
 		return
 	}
-	location.Set("hash", normalized)
+	parseLocation.Set("hash", parseNormalized)
 }
 
-func scrollSettingsSectionIntoView(section string) {
-	normalized := normalizeSettingsSectionID(section)
-	if normalized == "" {
+func parseScrollSettingsSectionIntoView(parseSection string) {
+	parseNormalized := parseNormalizeSettingsSectionID(parseSection)
+	if parseNormalized == "" {
 		return
 	}
-	document := js.Global().Get("document")
-	if !document.Truthy() || document.Get("getElementById").Type() != js.TypeFunction {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() || parseDocument.Get("getElementById").Type() != js.TypeFunction {
 		return
 	}
-	target := document.Call("getElementById", normalized)
-	if !target.Truthy() || target.Get("scrollIntoView").Type() != js.TypeFunction {
+	parseTarget := parseDocument.Call("getElementById", parseNormalized)
+	if !parseTarget.Truthy() || parseTarget.Get("scrollIntoView").Type() != js.TypeFunction {
 		return
 	}
-	target.Call("scrollIntoView", map[string]interface{}{
+	parseTarget.Call("scrollIntoView", map[string]interface{}{
 		"behavior": "smooth",
 		"block":    "start",
 	})

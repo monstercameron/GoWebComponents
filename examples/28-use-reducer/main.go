@@ -25,8 +25,8 @@ const (
 	actionReset  workflowAction = "reset"
 )
 
-func reducer(state workflowState, action workflowAction) workflowState {
-	switch action {
+func reducer(parseState workflowState, parseAction workflowAction) workflowState {
+	switch parseAction {
 	case actionDraft:
 		return workflowState{Step: "Draft", Review: false}
 	case actionReview:
@@ -36,13 +36,13 @@ func reducer(state workflowState, action workflowAction) workflowState {
 	case actionReset:
 		return workflowState{Step: "Draft", Review: false}
 	default:
-		return state
+		return parseState
 	}
 }
 
 func useReducerExample() ui.Node {
-	workflow := ui.UseReducer(reducer, workflowState{Step: "Draft", Review: false})
-	state := workflow.Get()
+	parseWorkflow := ui.UseReducer(reducer, workflowState{Step: "Draft", Review: false})
+	parseState := parseWorkflow.Get()
 
 	return shared.ExamplePage(
 		"ui.UseReducer",
@@ -50,14 +50,14 @@ func useReducerExample() ui.Node {
 		"This example uses reducer actions for a small editorial workflow so each state transition is named instead of scattered across manual updates.",
 		shared.ExamplePanel("Workflow reducer",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Step", state.Step),
-				shared.ExampleStat("Review required", map[bool]string{true: "Yes", false: "No"}[state.Review]),
+				shared.ExampleStat("Step", parseState.Step),
+				shared.ExampleStat("Review required", map[bool]string{true: "Yes", false: "No"}[parseState.Review]),
 			),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-				shared.ExampleButton("Draft", ui.UseEvent(func() { workflow.Dispatch(actionDraft) })),
-				shared.ExampleButton("Review", ui.UseEvent(func() { workflow.Dispatch(actionReview) })),
-				shared.ExampleButton("Ship", ui.UseEvent(func() { workflow.Dispatch(actionShip) })),
-				shared.ExampleButton("Reset", ui.UseEvent(func() { workflow.Dispatch(actionReset) })),
+				shared.ExampleButton("Draft", ui.UseEvent(func() { parseWorkflow.Dispatch(actionDraft) })),
+				shared.ExampleButton("Review", ui.UseEvent(func() { parseWorkflow.Dispatch(actionReview) })),
+				shared.ExampleButton("Ship", ui.UseEvent(func() { parseWorkflow.Dispatch(actionShip) })),
+				shared.ExampleButton("Reset", ui.UseEvent(func() { parseWorkflow.Dispatch(actionReset) })),
 			),
 			shared.ExampleCode(
 				"workflow := ui.UseReducer(reducer, workflowState{Step: \"Draft\"})",

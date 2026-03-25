@@ -11,11 +11,11 @@ import (
 )
 
 // RegisterServiceWorker is a non-browser stub that always returns an unavailable error.
-func RegisterServiceWorker(parseCtx context.Context, parseOptions ServiceWorkerOptions) (ServiceWorkerRegistration, error) {
-	_ = parseCtx
-	return ServiceWorkerRegistration{}, serviceWorkerUnavailable("RegisterServiceWorker", parseOptions.URL)
+func RegisterServiceWorker(parseServiceCtx context.Context, parseServiceOptions ServiceWorkerOptions) (ServiceWorkerRegistration, error) {
+	_ = parseServiceCtx
+	return ServiceWorkerRegistration{}, serviceWorkerUnavailable("RegisterServiceWorker", parseServiceOptions.URL)
 }
 
-func serviceWorkerUnavailable(parseOp string, parseTarget string) error {
-	return &interop.Error{Op: parseOp, Target: parseTarget, Code: interop.CodeUnavailable, Err: errors.New("service workers are unavailable in this build")}
+func serviceWorkerUnavailable(parseServiceOp string, parseServiceTarget string) error {
+	return &interop.Error{Op: parseServiceOp, Target: parseServiceTarget, Code: interop.CodeUnavailable, Err: errors.New("service workers are unavailable in this build")}
 }

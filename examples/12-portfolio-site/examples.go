@@ -174,30 +174,30 @@ func TodoApp(_ Attrs) *Element {
 
 // TodoItem renders an individual todo with checkbox, text, and delete button.
 // Handles state-based styling for completed items and provides interaction handlers.
-func TodoItem(text string, completed bool, id int) *Element {
-	completedClass := ""
-	if completed {
-		completedClass = "line-through text-gray-500"
+func TodoItem(parseText string, isCompleted bool, parseId int) *Element {
+	parseCompletedClass := ""
+	if isCompleted {
+		parseCompletedClass = "line-through text-gray-500"
 	}
 
 	return Div(
 		Attrs{
 			"class":        "flex items-center space-x-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-colors duration-200 text-gray-200",
-			"data-todo-id": string(rune(id)),
+			"data-todo-id": string(rune(parseId)),
 		},
 		Input(Attrs{
 			"type":     "checkbox",
 			"class":    "w-4 h-4 text-blue-600 rounded focus:ring-blue-500 bg-black/20 border-white/10",
-			"onchange": "toggleTodo(" + string(rune(id)) + ")",
+			"onchange": "toggleTodo(" + string(rune(parseId)) + ")",
 		}),
 		Span(
-			Attrs{"class": "flex-1 " + completedClass},
-			text,
+			Attrs{"class": "flex-1 " + parseCompletedClass},
+			parseText,
 		),
 		Button(
 			Attrs{
 				"class":   "text-red-500 hover:text-red-400 transition-colors duration-200",
-				"onclick": "deleteTodo(" + string(rune(id)) + ")",
+				"onclick": "deleteTodo(" + string(rune(parseId)) + ")",
 			},
 			"🗑️",
 		),
@@ -237,32 +237,32 @@ func Dashboard(_ Attrs) *Element {
 
 // DashboardCard renders a metric display with value, title, and trend indicator.
 // Supports color-coded change indicators and hover animations.
-func DashboardCard(title, value, change, changeColor string) *Element {
+func DashboardCard(parseTitle, parseValue, parseChange, parseChangeColor string) *Element {
 	return Div(
 		Attrs{"class": "bg-white/5 border border-white/10 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow duration-300"},
-		H4(Attrs{"class": "text-sm font-medium text-gray-400 mb-2"}, title),
-		P(Attrs{"class": "text-3xl font-bold text-white mb-1"}, value),
-		P(Attrs{"class": "text-sm " + changeColor}, change),
+		H4(Attrs{"class": "text-sm font-medium text-gray-400 mb-2"}, parseTitle),
+		P(Attrs{"class": "text-3xl font-bold text-white mb-1"}, parseValue),
+		P(Attrs{"class": "text-sm " + parseChangeColor}, parseChange),
 	)
 }
 
 // ActivityItem displays a single activity with icon, message, and timestamp.
 // Provides consistent formatting for activity streams and notification lists.
-func ActivityItem(icon, message, time string) *Element {
+func ActivityItem(parseIcon, parseMessage, parseTime string) *Element {
 	return Div(
 		Attrs{"class": "flex items-center space-x-3 p-3 hover:bg-white/5 rounded-lg transition-colors duration-200 text-gray-200"},
-		Span(Attrs{"class": "text-2xl"}, icon),
+		Span(Attrs{"class": "text-2xl"}, parseIcon),
 		Div(
 			Attrs{"class": "flex-1"},
-			P(Attrs{"class": "text-sm font-medium text-gray-200"}, message),
-			P(Attrs{"class": "text-xs text-gray-500"}, time),
+			P(Attrs{"class": "text-sm font-medium text-gray-200"}, parseMessage),
+			P(Attrs{"class": "text-xs text-gray-500"}, parseTime),
 		),
 	)
 }
 
 // GetExampleContent returns the appropriate example component based on ID
-func GetExampleContent(exampleId string) *Element {
-	switch exampleId {
+func GetExampleContent(parseExampleId string) *Element {
+	switch parseExampleId {
 	case "click-counter":
 		return ClickCounter(nil)
 	case "todo-app":
@@ -279,8 +279,8 @@ func GetExampleContent(exampleId string) *Element {
 }
 
 // ExampleSourceCode returns the source code for examples
-func GetExampleSourceCode(exampleId string) string {
-	switch exampleId {
+func GetExampleSourceCode(parseExampleId string) string {
+	switch parseExampleId {
 	case "click-counter":
 		return `func ClickCounter(props Attrs) *Element {
     count, setCount := UseState(0)

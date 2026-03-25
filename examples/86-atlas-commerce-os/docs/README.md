@@ -1797,7 +1797,8 @@ Status legend:
 
 ## devtools
 
-- [ ] `devtools.Panel`, `devtools.SnapshotNow`, and `devtools.UseSnapshot` are documented for future Atlas diagnostics but are not currently wired in the shipped example.
+- [x] Diagnostics mode now mounts `devtools.Panel` behind `?diag=1` from `shared/atlas/page.go`, with `devtools.UseSnapshot` driving the live overlay.
+- [x] Atlas diagnostics now include a `devtools.SnapshotNow()` summary card that surfaces route identity, runtime fiber count, diagnostics count, cache-entry count, and loader count for immediate checks during review.
 
 ## bootstrap and SSR
 

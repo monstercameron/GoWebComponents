@@ -9,39 +9,39 @@ import "reflect"
 // These match the old fiber package API
 
 // GoUseStateGlobal wraps GoUseState with global fiber context
-func GoUseStateGlobal[T any](parseInitialValue T) (func() T, func(interface{})) {
-	parseRt := GetGlobalRuntime()
-	return GoUseState(parseRt, parseInitialValue)
+func GoUseStateGlobal[T any](parseStateInitialValue T) (func() T, func(interface{})) {
+	parseRuntime := GetGlobalRuntime()
+	return GoUseState(parseRuntime, parseStateInitialValue)
 }
 
 // GoUseEffectGlobal wraps GoUseEffect
-func GoUseEffectGlobal(parseEffect func() func(), parseDeps ...interface{}) {
+func GoUseEffectGlobal(parseEffectFn func() func(), parseEffectDeps ...interface{}) {
 	// GoUseEffect doesn't need Runtime, it works with current fiber
-	GoUseEffect(parseEffect, parseDeps...)
+	GoUseEffect(parseEffectFn, parseEffectDeps...)
 }
 
 // GoUseMemoGlobal wraps GoUseMemo
-func GoUseMemoGlobal(parseCompute func() interface{}, parseDeps ...interface{}) interface{} {
+func GoUseMemoGlobal(parseMemoCompute func() interface{}, parseMemoDeps ...interface{}) interface{} {
 	// GoUseMemo doesn't need Runtime, it works with current fiber
-	return GoUseMemo(parseCompute, parseDeps...)
+	return GoUseMemo(parseMemoCompute, parseMemoDeps...)
 }
 
 // GoUseMemoGlobalTyped wraps GoUseMemo with an expected target type for
 // hot-reload restoration.
-func GoUseMemoGlobalTyped(parseCompute func() interface{}, parseTargetType reflect.Type, parseDeps ...interface{}) interface{} {
-	return GoUseMemoTyped(parseCompute, parseTargetType, parseDeps...)
+func GoUseMemoGlobalTyped(parseMemoCompute func() interface{}, parseMemoTargetType reflect.Type, parseMemoDeps ...interface{}) interface{} {
+	return GoUseMemoTyped(parseMemoCompute, parseMemoTargetType, parseMemoDeps...)
 }
 
 // GoUseCallbackGlobal wraps GoUseCallback
-func GoUseCallbackGlobal(parseFn interface{}, parseDeps ...interface{}) interface{} {
+func GoUseCallbackGlobal(parseCallbackFn interface{}, parseCallbackDeps ...interface{}) interface{} {
 	// GoUseCallback doesn't need Runtime, it works with current fiber
-	return GoUseCallback(parseFn, parseDeps...)
+	return GoUseCallback(parseCallbackFn, parseCallbackDeps...)
 }
 
 // GoUseRefGlobal wraps GoUseRef
-func GoUseRefGlobal(parseInitialValue interface{}) *RefValue {
+func GoUseRefGlobal(parseRefInitialValue interface{}) *RefValue {
 	// GoUseRef doesn't need Runtime, it works with current fiber
-	return GoUseRef(parseInitialValue)
+	return GoUseRef(parseRefInitialValue)
 }
 
 // GoUseIdGlobal wraps GoUseId
@@ -51,26 +51,26 @@ func GoUseIdGlobal() string {
 }
 
 // GoUseFetchGlobal wraps GoUseFetch with global fiber context
-func GoUseFetchGlobal(parseUrl string, parseOptions ...interface{}) (func() FetchState, func()) {
+func GoUseFetchGlobal(parseFetchURL string, parseFetchOptions ...interface{}) (func() FetchState, func()) {
 	// GoUseFetch doesn't need Runtime, it works with current fiber
-	return GoUseFetch(parseUrl, parseOptions...)
+	return GoUseFetch(parseFetchURL, parseFetchOptions...)
 }
 
 // GoUseFuncGlobal wraps GoUseFunc with WASM event handler wrapping
-func GoUseFuncGlobal(parseFn interface{}) interface{} {
+func GoUseFuncGlobal(parseHandlerFn interface{}) interface{} {
 	// The core GoUseFunc now handles wrapping via DOMAdapter
-	return GoUseFunc(parseFn)
+	return GoUseFunc(parseHandlerFn)
 }
 
 // GoUseAtomGlobal wraps GoUseAtom with global runtime
-func GoUseAtomGlobal[T any](parseId string, parseInitialValue T) (func() T, func(T)) {
-	parseRt := GetGlobalRuntime()
-	get, set := GoUseAtom(parseRt, parseId, parseInitialValue)
+func GoUseAtomGlobal[T any](parseAtomID string, parseAtomInitialValue T) (func() T, func(T)) {
+	parseRuntime := GetGlobalRuntime()
+	get, set := GoUseAtom(parseRuntime, parseAtomID, parseAtomInitialValue)
 	// Convert internal setter func(interface{}) to typed setter func(T)
-	parseTypedSet := func(parseV T) {
-		set(parseV)
+	parseAtomSetTyped := func(parseAtomValue T) {
+		set(parseAtomValue)
 	}
-	return get, parseTypedSet
+	return get, parseAtomSetTyped
 }
 
 // GoUseTransitionPendingGlobal exposes the shared transition pending flag as a subscribed atom.
@@ -79,15 +79,15 @@ func GoUseTransitionPendingGlobal() (func() bool, func(bool)) {
 }
 
 // StartTransitionGlobal runs fn in a non-urgent transition context.
-func StartTransitionGlobal(parseFn func()) {
-	GetGlobalRuntime().StartTransition(parseFn)
+func StartTransitionGlobal(parseTransitionFn func()) {
+	GetGlobalRuntime().StartTransition(parseTransitionFn)
 }
 
 // Text creates a text node
-func Text(parseContent string) *Element {
+func Text(parseTextContent string) *Element {
 	return &Element{
 		Type:        "TEXT_ELEMENT",
-		TextContent: parseContent,
+		TextContent: parseTextContent,
 		Children:    emptyChildren,
 	}
 }

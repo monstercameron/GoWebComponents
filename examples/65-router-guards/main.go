@@ -20,8 +20,8 @@ var guardAuth bool
 var guardDirty bool
 
 func loginPageView() ui.Node {
-	nav := router.UseNavigate()
-	authed := state.UseAtom(authAtomID, false)
+	parseNav := router.UseNavigate()
+	parseAuthed := state.UseAtom(authAtomID, false)
 	return shared.ExamplePage(
 		"router guards",
 		"Block or redirect navigation through BeforeEnter and BeforeLeave",
@@ -30,9 +30,9 @@ func loginPageView() ui.Node {
 			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("The protected route redirects here when auth is false.")),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
 				shared.ExampleButton("Sign in and open editor", ui.UseEvent(func() {
-					authed.Set(true)
+					parseAuthed.Set(true)
 					guardAuth = true
-					nav.Navigate("/editor")
+					parseNav.Navigate("/editor")
 				})),
 			),
 		),
@@ -44,9 +44,9 @@ func loginPage(router.Attrs) *router.Element {
 }
 
 func editorPageView() ui.Node {
-	nav := router.UseNavigate()
-	authed := state.UseAtom(authAtomID, false)
-	dirty := state.UseAtom(dirtyAtomID, false)
+	parseNav := router.UseNavigate()
+	parseAuthed := state.UseAtom(authAtomID, false)
+	parseDirty := state.UseAtom(dirtyAtomID, false)
 	return shared.ExamplePage(
 		"Protected editor",
 		"Guarded route target",
@@ -54,25 +54,25 @@ func editorPageView() ui.Node {
 		shared.ExamplePanel("Guard actions",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
 				shared.ExampleButton("Mark unsaved changes", ui.UseEvent(func() {
-					dirty.Set(true)
+					parseDirty.Set(true)
 					guardDirty = true
 				})),
 				shared.ExampleButton("Save changes", ui.UseEvent(func() {
-					dirty.Set(false)
+					parseDirty.Set(false)
 					guardDirty = false
 				})),
-				shared.ExampleButton("Try leaving to home", ui.UseEvent(func() { nav.Navigate("/") })),
+				shared.ExampleButton("Try leaving to home", ui.UseEvent(func() { parseNav.Navigate("/") })),
 				shared.ExampleButton("Sign out", ui.UseEvent(func() {
-					authed.Set(false)
-					dirty.Set(false)
+					parseAuthed.Set(false)
+					parseDirty.Set(false)
 					guardAuth = false
 					guardDirty = false
-					nav.Navigate("/")
+					parseNav.Navigate("/")
 				})),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Signed in", map[bool]string{true: "Yes", false: "No"}[authed.Get()]),
-				shared.ExampleStat("Unsaved changes", map[bool]string{true: "Yes", false: "No"}[dirty.Get()]),
+				shared.ExampleStat("Signed in", map[bool]string{true: "Yes", false: "No"}[parseAuthed.Get()]),
+				shared.ExampleStat("Unsaved changes", map[bool]string{true: "Yes", false: "No"}[parseDirty.Get()]),
 			),
 		),
 	)
@@ -83,23 +83,23 @@ func editorPage(router.Attrs) *router.Element {
 }
 
 func homePageView() ui.Node {
-	nav := router.UseNavigate()
-	authed := state.UseAtom(authAtomID, false)
+	parseNav := router.UseNavigate()
+	parseAuthed := state.UseAtom(authAtomID, false)
 	return shared.ExamplePage(
 		"Guard home",
 		"Guard entry point",
 		"Use the button below to try entering the protected editor route. The route guard will either redirect to login or allow navigation based on auth state.",
 		shared.ExamplePanel("Entry flow",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-				shared.ExampleButton("Open protected editor", ui.UseEvent(func() { nav.Navigate("/editor") })),
+				shared.ExampleButton("Open protected editor", ui.UseEvent(func() { parseNav.Navigate("/editor") })),
 				shared.ExampleButton("Reset auth", ui.UseEvent(func() {
-					authed.Set(false)
+					parseAuthed.Set(false)
 					guardAuth = false
 					guardDirty = false
 				})),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Signed in", map[bool]string{true: "Yes", false: "No"}[authed.Get()]),
+				shared.ExampleStat("Signed in", map[bool]string{true: "Yes", false: "No"}[parseAuthed.Get()]),
 				shared.ExampleStat("Protected path", "/editor"),
 			),
 		),
@@ -112,23 +112,23 @@ func homePage(router.Attrs) *router.Element {
 
 func main() {
 	utils.DisableAllDebug()
-	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
-	r.Register("/", homePage)
-	r.Register("/login", loginPage)
-	r.Register("/editor", editorPage, router.Options{
-		BeforeEnter: func(ctx router.RouteContext) router.GuardResult {
+	parseR := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
+	parseR.Register("/", homePage)
+	parseR.Register("/login", loginPage)
+	parseR.Register("/editor", editorPage, router.Options{
+		BeforeEnter: func(parseCtx router.RouteContext) router.GuardResult {
 			if !guardAuth {
 				return router.RedirectNavigation("/login")
 			}
 			return router.AllowNavigation()
 		},
-		BeforeLeave: func(current router.RouteContext, next router.RouteContext) router.GuardResult {
+		BeforeLeave: func(parseCurrent router.RouteContext, parseNext router.RouteContext) router.GuardResult {
 			if guardDirty {
 				return router.BlockNavigation("Unsaved changes are blocking navigation")
 			}
 			return router.AllowNavigation()
 		},
 	})
-	r.Mount("#app")
+	parseR.Mount("#app")
 	select {}
 }

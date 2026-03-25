@@ -13,15 +13,15 @@ import (
 )
 
 func navigateHomeView() ui.Node {
-	nav := router.UseNavigate()
+	parseNav := router.UseNavigate()
 	return shared.ExamplePage(
 		"router.UseNavigate",
 		"Push or replace routes from event handlers",
 		"UseNavigate is the imperative routing handle. It keeps navigation logic inside normal UI events instead of relying only on links.",
 		shared.ExamplePanel("Navigation actions",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-				shared.ExampleButton("Navigate to review", ui.UseEvent(func() { nav.Navigate("/review") })),
-				shared.ExampleButton("Replace with final", ui.UseEvent(func() { nav.Replace("/final") })),
+				shared.ExampleButton("Navigate to review", ui.UseEvent(func() { parseNav.Navigate("/review") })),
+				shared.ExampleButton("Replace with final", ui.UseEvent(func() { parseNav.Replace("/final") })),
 			),
 			shared.ExampleCode(
 				`nav := router.UseNavigate()`,
@@ -41,40 +41,40 @@ type navigateLeafProps struct {
 	Summary string
 }
 
-func navigateLeafView(props navigateLeafProps) ui.Node {
-	nav := router.UseNavigate()
-	inspection := router.InspectCurrentRoute()
+func navigateLeafView(parseProps navigateLeafProps) ui.Node {
+	parseNav := router.UseNavigate()
+	parseInspection := router.InspectCurrentRoute()
 	return shared.ExamplePage(
-		props.Title,
+		parseProps.Title,
 		"Imperative routing handle",
-		props.Summary,
+		parseProps.Summary,
 		shared.ExamplePanel("Current route",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Path", inspection.Path),
+				shared.ExampleStat("Path", parseInspection.Path),
 				shared.ExampleStat("API", "router.UseNavigate"),
 			),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-				shared.ExampleButton("Back home", ui.UseEvent(func() { nav.Navigate("/") })),
-				shared.ExampleButton("Replace home", ui.UseEvent(func() { nav.Replace("/") })),
+				shared.ExampleButton("Back home", ui.UseEvent(func() { parseNav.Navigate("/") })),
+				shared.ExampleButton("Replace home", ui.UseEvent(func() { parseNav.Replace("/") })),
 			),
 		),
 	)
 }
 
-func navigateLeaf(title, summary string) *router.Element {
-	return ui.CreateElement(navigateLeafView, navigateLeafProps{Title: title, Summary: summary})
+func navigateLeaf(parseTitle, parseSummary string) *router.Element {
+	return ui.CreateElement(navigateLeafView, navigateLeafProps{Title: parseTitle, Summary: parseSummary})
 }
 
 func main() {
 	utils.DisableAllDebug()
-	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
-	r.Register("/", navigateHome)
-	r.Register("/review", func(router.Attrs) *router.Element {
+	parseR := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
+	parseR.Register("/", navigateHome)
+	parseR.Register("/review", func(router.Attrs) *router.Element {
 		return navigateLeaf("Review route", "Navigate pushed this route as a new entry.")
 	})
-	r.Register("/final", func(router.Attrs) *router.Element {
+	parseR.Register("/final", func(router.Attrs) *router.Element {
 		return navigateLeaf("Final route", "Replace swapped the current entry instead of pushing a new one.")
 	})
-	r.Mount("#app")
+	parseR.Mount("#app")
 	select {}
 }

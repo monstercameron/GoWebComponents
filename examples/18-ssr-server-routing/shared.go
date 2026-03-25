@@ -85,108 +85,108 @@ var guideCatalog = map[string]guideArticle{
 }
 
 func catalogList() []guideArticle {
-	keys := make([]string, 0, len(guideCatalog))
-	for key := range guideCatalog {
-		keys = append(keys, key)
+	parseKeys := make([]string, 0, len(guideCatalog))
+	for parseKey := range guideCatalog {
+		parseKeys = append(parseKeys, parseKey)
 	}
-	sort.Strings(keys)
-	articles := make([]guideArticle, 0, len(keys))
-	for _, key := range keys {
-		articles = append(articles, guideCatalog[key])
+	sort.Strings(parseKeys)
+	parseArticles := make([]guideArticle, 0, len(parseKeys))
+	for _, parseKey2 := range parseKeys {
+		parseArticles = append(parseArticles, guideCatalog[parseKey2])
 	}
-	return articles
+	return parseArticles
 }
 
-func articleForSection(section string) guideArticle {
-	if article, ok := guideCatalog[section]; ok {
-		return article
+func articleForSection(parseSection string) guideArticle {
+	if parseArticle, parseOk := guideCatalog[parseSection]; parseOk {
+		return parseArticle
 	}
 	return guideCatalog[serverGuideSectionSSR]
 }
 
-func filterCatalog(query string) []guideArticle {
-	trimmed := strings.TrimSpace(strings.ToLower(query))
-	if trimmed == "" {
+func filterCatalog(parseQuery string) []guideArticle {
+	parseTrimmed := strings.TrimSpace(strings.ToLower(parseQuery))
+	if parseTrimmed == "" {
 		return catalogList()
 	}
-	results := make([]guideArticle, 0, len(guideCatalog))
-	for _, article := range catalogList() {
-		if strings.Contains(strings.ToLower(article.Title), trimmed) || strings.Contains(strings.ToLower(article.Summary), trimmed) {
-			results = append(results, article)
+	parseResults := make([]guideArticle, 0, len(guideCatalog))
+	for _, parseArticle := range catalogList() {
+		if strings.Contains(strings.ToLower(parseArticle.Title), parseTrimmed) || strings.Contains(strings.ToLower(parseArticle.Summary), parseTrimmed) {
+			parseResults = append(parseResults, parseArticle)
 		}
 	}
-	return results
+	return parseResults
 }
 
-func revisionFromQuery(query url.Values) int {
-	value := strings.TrimSpace(query.Get("refresh"))
-	if value == "" {
+func revisionFromQuery(parseQuery url.Values) int {
+	parseValue := strings.TrimSpace(parseQuery.Get("refresh"))
+	if parseValue == "" {
 		return 1
 	}
-	revision, err := strconv.Atoi(value)
-	if err != nil || revision < 1 {
+	parseRevision, parseErr := strconv.Atoi(parseValue)
+	if parseErr != nil || parseRevision < 1 {
 		return 1
 	}
-	return revision
+	return parseRevision
 }
 
-func transportFromBootstrap(payload ui.SSRBootstrap) string {
-	if payload.Data == nil {
+func transportFromBootstrap(parsePayload ui.SSRBootstrap) string {
+	if parsePayload.Data == nil {
 		return serverBootstrapTransport
 	}
-	value, _ := payload.Data["transport"].(string)
-	if value == "" {
+	parseValue, _ := parsePayload.Data["transport"].(string)
+	if parseValue == "" {
 		return serverBootstrapTransport
 	}
-	return value
+	return parseValue
 }
 
-func viewFromRouteData(path string, transport string, data bootstrapRouteData) demoShellView {
+func viewFromRouteData(parsePath string, parseTransport string, parseData bootstrapRouteData) demoShellView {
 	return demoShellView{
-		Page:          data.Page,
-		ActivePath:    path,
-		Transport:     transport,
-		SectionID:     data.SectionID,
-		SectionTitle:  data.SectionTitle,
-		SectionBody:   data.SectionBody,
-		CurrentTab:    emptyFallback(data.CurrentTab, serverTabOverview),
-		StreamMode:    normalizeStreamMode(data.StreamMode),
-		SearchQuery:   data.SearchQuery,
-		SearchResults: data.SearchResults,
-		SecureRole:    data.SecureRole,
-		SecureUser:    data.SecureUser,
-		Notice:        data.Notice,
-		Revision:      maxInt(data.Revision, 1),
+		Page:          parseData.Page,
+		ActivePath:    parsePath,
+		Transport:     parseTransport,
+		SectionID:     parseData.SectionID,
+		SectionTitle:  parseData.SectionTitle,
+		SectionBody:   parseData.SectionBody,
+		CurrentTab:    emptyFallback(parseData.CurrentTab, serverTabOverview),
+		StreamMode:    normalizeStreamMode(parseData.StreamMode),
+		SearchQuery:   parseData.SearchQuery,
+		SearchResults: parseData.SearchResults,
+		SecureRole:    parseData.SecureRole,
+		SecureUser:    parseData.SecureUser,
+		Notice:        parseData.Notice,
+		Revision:      maxInt(parseData.Revision, 1),
 	}
 }
 
-func maxInt(value int, fallback int) int {
-	if value <= 0 {
-		return fallback
+func maxInt(parseValue int, parseFallback int) int {
+	if parseValue <= 0 {
+		return parseFallback
 	}
-	return value
+	return parseValue
 }
 
-func normalizePath(path string) string {
-	trimmed := strings.TrimSpace(path)
-	if trimmed == "" {
+func normalizePath(parsePath string) string {
+	parseTrimmed := strings.TrimSpace(parsePath)
+	if parseTrimmed == "" {
 		return "/"
 	}
-	if !strings.HasPrefix(trimmed, "/") {
-		trimmed = "/" + trimmed
+	if !strings.HasPrefix(parseTrimmed, "/") {
+		parseTrimmed = "/" + parseTrimmed
 	}
-	if len(trimmed) > 1 {
-		trimmed = strings.TrimRight(trimmed, "/")
+	if len(parseTrimmed) > 1 {
+		parseTrimmed = strings.TrimRight(parseTrimmed, "/")
 	}
-	return trimmed
+	return parseTrimmed
 }
 
-func renderDemoShell(view demoShellView) ui.Node {
-	return renderDemoShellWithDeferredMode(view, false)
+func renderDemoShell(parseView demoShellView) ui.Node {
+	return renderDemoShellWithDeferredMode(parseView, false)
 }
 
-func normalizeStreamMode(mode string) string {
-	switch strings.TrimSpace(strings.ToLower(mode)) {
+func normalizeStreamMode(parseMode string) string {
+	switch strings.TrimSpace(strings.ToLower(parseMode)) {
 	case serverStreamModeError:
 		return serverStreamModeError
 	case serverStreamModeNested:
@@ -196,7 +196,7 @@ func normalizeStreamMode(mode string) string {
 	}
 }
 
-func renderDemoShellWithDeferredMode(view demoShellView, streamDeferred bool) ui.Node {
+func renderDemoShellWithDeferredMode(parseView demoShellView, isStreamDeferred bool) ui.Node {
 	return html.Div(html.Props{Class: "min-h-screen bg-[#07131d] text-slate-100"},
 		html.Div(html.Props{Class: "mx-auto max-w-6xl px-6 py-10"},
 			html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.16),_transparent_42%),rgba(15,23,42,0.94)] p-8 shadow-2xl"},
@@ -204,113 +204,113 @@ func renderDemoShellWithDeferredMode(view demoShellView, streamDeferred bool) ui
 				html.H1(html.Props{Class: "mt-4 text-5xl font-black tracking-tight text-white"}, html.Text("Request-time SSR with real URLs and browser hydration")),
 				html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text("Every navigation link below can hit the Go server for fresh HTML. The wasm client then restores a route-specific bootstrap payload, reuses matching DOM during hydration, and mirrors the same route model in the browser.")),
 				html.Div(html.Props{Class: "mt-8 flex flex-wrap gap-3"},
-					navLink("Overview", "/", view.ActivePath == "/"),
-					navLink("Docs", "/docs/ssr", strings.HasPrefix(view.ActivePath, "/docs")),
-					navLink("Search", "/search", strings.HasPrefix(view.ActivePath, "/search")),
-					navLink("Protected", "/secure", strings.HasPrefix(view.ActivePath, "/secure")),
+					navLink("Overview", "/", parseView.ActivePath == "/"),
+					navLink("Docs", "/docs/ssr", strings.HasPrefix(parseView.ActivePath, "/docs")),
+					navLink("Search", "/search", strings.HasPrefix(parseView.ActivePath, "/search")),
+					navLink("Protected", "/secure", strings.HasPrefix(parseView.ActivePath, "/secure")),
 					navLink("Legacy Redirect", "/legacy", false),
-					navLink("Sign In", "/signin", strings.HasPrefix(view.ActivePath, "/signin")),
+					navLink("Sign In", "/signin", strings.HasPrefix(parseView.ActivePath, "/signin")),
 				),
 				html.Div(html.Props{Class: "mt-8 grid gap-4 md:grid-cols-3"},
-					statCard("Active path", view.ActivePath),
-					statCard("Transport", emptyFallback(view.Transport, serverBootstrapTransport)),
-					statCard("Revision", fmt.Sprintf("%d", maxInt(view.Revision, 1))),
+					statCard("Active path", parseView.ActivePath),
+					statCard("Transport", emptyFallback(parseView.Transport, serverBootstrapTransport)),
+					statCard("Revision", fmt.Sprintf("%d", maxInt(parseView.Revision, 1))),
 				),
 			),
-			renderPage(view, streamDeferred),
+			renderPage(parseView, isStreamDeferred),
 		),
 	)
 }
 
-func renderPage(view demoShellView, streamDeferred bool) ui.Node {
-	switch view.Page {
+func renderPage(parseView demoShellView, isStreamDeferred bool) ui.Node {
+	switch parseView.Page {
 	case serverPageHome:
-		cards := make([]ui.Node, 0, len(catalogList()))
-		for _, article := range catalogList() {
-			article := article
-			cards = append(cards, html.Article(html.Props{Class: "rounded-[1.5rem] border border-white/10 bg-white/5 p-6"},
-				html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-cyan-300"}, html.Text(strings.ToUpper(article.ID))),
-				html.H2(html.Props{Class: "mt-3 text-2xl font-bold text-white"}, html.Text(article.Title)),
-				html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-300"}, html.Text(article.Summary)),
-				navLink("Open route", "/docs/"+article.ID+"?tab=overview", false),
+		parseCards := make([]ui.Node, 0, len(catalogList()))
+		for _, parseArticle := range catalogList() {
+			parseArticle2 := parseArticle
+			parseCards = append(parseCards, html.Article(html.Props{Class: "rounded-[1.5rem] border border-white/10 bg-white/5 p-6"},
+				html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-cyan-300"}, html.Text(strings.ToUpper(parseArticle2.ID))),
+				html.H2(html.Props{Class: "mt-3 text-2xl font-bold text-white"}, html.Text(parseArticle2.Title)),
+				html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-300"}, html.Text(parseArticle2.Summary)),
+				navLink("Open route", "/docs/"+parseArticle2.ID+"?tab=overview", false),
 			))
 		}
-		return html.Section(html.Props{Class: "mt-8 grid gap-4 md:grid-cols-3"}, cards...)
+		return html.Section(html.Props{Class: "mt-8 grid gap-4 md:grid-cols-3"}, parseCards...)
 	case serverPageDocs:
-		actionLinks := []ui.Node{
-			navLink("Overview tab", "/docs/"+view.SectionID+"?tab="+serverTabOverview, view.CurrentTab == serverTabOverview),
-			navLink("Loader tab", "/docs/"+view.SectionID+"?tab="+serverTabLoader, view.CurrentTab == serverTabLoader),
-			navLink("Transport tab", "/docs/"+view.SectionID+"?tab="+serverTabTransport, view.CurrentTab == serverTabTransport),
-			navLink("Server rerender", "/docs/"+view.SectionID+"?tab="+url.QueryEscape(view.CurrentTab)+"&refresh="+strconv.Itoa(view.Revision+1), false),
+		parseActionLinks := []ui.Node{
+			navLink("Overview tab", "/docs/"+parseView.SectionID+"?tab="+serverTabOverview, parseView.CurrentTab == serverTabOverview),
+			navLink("Loader tab", "/docs/"+parseView.SectionID+"?tab="+serverTabLoader, parseView.CurrentTab == serverTabLoader),
+			navLink("Transport tab", "/docs/"+parseView.SectionID+"?tab="+serverTabTransport, parseView.CurrentTab == serverTabTransport),
+			navLink("Server rerender", "/docs/"+parseView.SectionID+"?tab="+url.QueryEscape(parseView.CurrentTab)+"&refresh="+strconv.Itoa(parseView.Revision+1), false),
 		}
-		article := articleForSection(view.SectionID)
-		highlights := make([]ui.Node, 0, len(article.Highlights))
-		for _, item := range article.Highlights {
-			highlights = append(highlights, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4 text-slate-200"}, html.Text(item)))
+		parseArticle3 := articleForSection(parseView.SectionID)
+		parseHighlights := make([]ui.Node, 0, len(parseArticle3.Highlights))
+		for _, parseItem := range parseArticle3.Highlights {
+			parseHighlights = append(parseHighlights, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4 text-slate-200"}, html.Text(parseItem)))
 		}
-		contentNodes := []ui.Node{
+		parseContentNodes := []ui.Node{
 			html.Section(html.Props{Class: "rounded-[1.75rem] border border-white/10 bg-white/5 p-8"},
 				html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Docs route")),
-				html.H2(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text(view.SectionTitle)),
-				html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text(view.SectionBody)),
-				html.P(html.Props{Class: "mt-4 text-sm uppercase tracking-[0.28em] text-slate-400"}, html.Text("Current tab: "+view.CurrentTab)),
-				html.P(html.Props{Class: "mt-2 text-sm text-slate-500"}, html.Text(view.Notice)),
-				html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"}, actionLinks...),
+				html.H2(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text(parseView.SectionTitle)),
+				html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text(parseView.SectionBody)),
+				html.P(html.Props{Class: "mt-4 text-sm uppercase tracking-[0.28em] text-slate-400"}, html.Text("Current tab: "+parseView.CurrentTab)),
+				html.P(html.Props{Class: "mt-2 text-sm text-slate-500"}, html.Text(parseView.Notice)),
+				html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"}, parseActionLinks...),
 			),
-			html.Section(html.Props{Class: "grid gap-4 md:grid-cols-3"}, highlights...),
+			html.Section(html.Props{Class: "grid gap-4 md:grid-cols-3"}, parseHighlights...),
 		}
-		if shouldRenderDeferredDocsPanel(view) {
-			if streamDeferred {
-				contentNodes = append(contentNodes, renderDeferredDocsPanelPlaceholder())
+		if shouldRenderDeferredDocsPanel(parseView) {
+			if isStreamDeferred {
+				parseContentNodes = append(parseContentNodes, renderDeferredDocsPanelPlaceholder())
 			} else {
-				contentNodes = append(contentNodes, renderDeferredDocsPanel(view))
+				parseContentNodes = append(parseContentNodes, renderDeferredDocsPanel(parseView))
 			}
 		}
-		return html.Div(html.Props{Class: "mt-8 space-y-8"}, contentNodes...)
+		return html.Div(html.Props{Class: "mt-8 space-y-8"}, parseContentNodes...)
 	case serverPageSearch:
-		results := make([]ui.Node, 0, len(view.SearchResults))
-		for _, article := range view.SearchResults {
-			article := article
-			results = append(results, html.Article(html.Props{Class: "rounded-[1.5rem] border border-white/10 bg-white/5 p-6"},
-				html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-cyan-300"}, html.Text(strings.ToUpper(article.ID))),
-				html.H3(html.Props{Class: "mt-3 text-2xl font-bold text-white"}, html.Text(article.Title)),
-				html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-300"}, html.Text(article.Summary)),
-				navLink("Open detail", "/docs/"+article.ID+"?tab=overview", false),
+		parseResults := make([]ui.Node, 0, len(parseView.SearchResults))
+		for _, parseArticle4 := range parseView.SearchResults {
+			parseArticle5 := parseArticle4
+			parseResults = append(parseResults, html.Article(html.Props{Class: "rounded-[1.5rem] border border-white/10 bg-white/5 p-6"},
+				html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-cyan-300"}, html.Text(strings.ToUpper(parseArticle5.ID))),
+				html.H3(html.Props{Class: "mt-3 text-2xl font-bold text-white"}, html.Text(parseArticle5.Title)),
+				html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-300"}, html.Text(parseArticle5.Summary)),
+				navLink("Open detail", "/docs/"+parseArticle5.ID+"?tab=overview", false),
 			))
 		}
-		if len(results) == 0 {
-			results = append(results, html.Div(html.Props{Class: "rounded-[1.5rem] border border-dashed border-white/10 bg-white/5 p-6 text-slate-300"}, html.Text("No search results matched the current query.")))
+		if len(parseResults) == 0 {
+			parseResults = append(parseResults, html.Div(html.Props{Class: "rounded-[1.5rem] border border-dashed border-white/10 bg-white/5 p-6 text-slate-300"}, html.Text("No search results matched the current query.")))
 		}
 		return html.Div(html.Props{Class: "mt-8 space-y-8"},
 			html.Section(html.Props{Class: "rounded-[1.75rem] border border-white/10 bg-white/5 p-8"},
 				html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Search route")),
 				html.H2(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text("Query-driven server results")),
 				html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text("Each search link below can trigger a full server render with URL-specific HTML and a matching bootstrap payload.")),
-				html.P(html.Props{Class: "mt-4 text-sm uppercase tracking-[0.28em] text-slate-400"}, html.Text("Current query: "+emptyFallback(view.SearchQuery, "none"))),
-				html.P(html.Props{Class: "mt-2 text-sm text-slate-500"}, html.Text(view.Notice)),
+				html.P(html.Props{Class: "mt-4 text-sm uppercase tracking-[0.28em] text-slate-400"}, html.Text("Current query: "+emptyFallback(parseView.SearchQuery, "none"))),
+				html.P(html.Props{Class: "mt-2 text-sm text-slate-500"}, html.Text(parseView.Notice)),
 				html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-					navLink("All", "/search", view.SearchQuery == ""),
-					navLink("SSR", "/search?q=ssr", view.SearchQuery == "ssr"),
-					navLink("Routing", "/search?q=routing", view.SearchQuery == "routing"),
-					navLink("Transport", "/search?q="+serverGuideSectionTransport, view.SearchQuery == serverGuideSectionTransport),
-					navLink("Server rerender", "/search?q="+url.QueryEscape(view.SearchQuery)+"&refresh="+strconv.Itoa(view.Revision+1), false),
+					navLink("All", "/search", parseView.SearchQuery == ""),
+					navLink("SSR", "/search?q=ssr", parseView.SearchQuery == "ssr"),
+					navLink("Routing", "/search?q=routing", parseView.SearchQuery == "routing"),
+					navLink("Transport", "/search?q="+serverGuideSectionTransport, parseView.SearchQuery == serverGuideSectionTransport),
+					navLink("Server rerender", "/search?q="+url.QueryEscape(parseView.SearchQuery)+"&refresh="+strconv.Itoa(parseView.Revision+1), false),
 				),
 			),
-			html.Section(html.Props{Class: "grid gap-4 md:grid-cols-2"}, results...),
+			html.Section(html.Props{Class: "grid gap-4 md:grid-cols-2"}, parseResults...),
 		)
 	case serverPageSecure:
 		return html.Section(html.Props{Class: "mt-8 rounded-[1.75rem] border border-white/10 bg-white/5 p-8"},
 			html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Protected route")),
 			html.H2(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text("Guarded content unlocked")),
-			html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text(view.Notice)),
+			html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text(parseView.Notice)),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
-				statCard("User", emptyFallback(view.SecureUser, serverSecureUserDefault)),
-				statCard("Role", emptyFallback(view.SecureRole, serverSecureRoleMaintainer)),
-				statCard("Revision", fmt.Sprintf("%d", maxInt(view.Revision, 1))),
+				statCard("User", emptyFallback(parseView.SecureUser, serverSecureUserDefault)),
+				statCard("Role", emptyFallback(parseView.SecureRole, serverSecureRoleMaintainer)),
+				statCard("Revision", fmt.Sprintf("%d", maxInt(parseView.Revision, 1))),
 			),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
 				navLink("Switch role", "/secure?auth=true&role=auditor", false),
-				navLink("Server rerender", "/secure?auth=true&role="+url.QueryEscape(view.SecureRole)+"&refresh="+strconv.Itoa(view.Revision+1), false),
+				navLink("Server rerender", "/secure?auth=true&role="+url.QueryEscape(parseView.SecureRole)+"&refresh="+strconv.Itoa(parseView.Revision+1), false),
 				navLink("Revoke access", secureRedirectPath, false),
 			),
 		)
@@ -318,7 +318,7 @@ func renderPage(view demoShellView, streamDeferred bool) ui.Node {
 		return html.Section(html.Props{Class: "mt-8 rounded-[1.75rem] border border-white/10 bg-white/5 p-8"},
 			html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Guard redirect")),
 			html.H2(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text("Protected routes can redirect before rendering")),
-			html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text(view.Notice)),
+			html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text(parseView.Notice)),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
 				navLink("Grant access", "/secure?auth=true&role="+serverSecureRoleMaintainer, false),
 				navLink("Open overview", "/", false),
@@ -328,23 +328,23 @@ func renderPage(view demoShellView, streamDeferred bool) ui.Node {
 		return html.Section(html.Props{Class: "mt-8 rounded-[1.75rem] border border-white/10 bg-white/5 p-8"},
 			html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-rose-300"}, html.Text("Not found")),
 			html.H2(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text("Route not found")),
-			html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text(view.Notice)),
+			html.P(html.Props{Class: "mt-4 max-w-3xl text-lg leading-8 text-slate-300"}, html.Text(parseView.Notice)),
 		)
 	}
 }
 
-func shouldRenderDeferredDocsPanel(view demoShellView) bool {
-	return view.Page == serverPageDocs && view.CurrentTab == serverTabLoader
+func shouldRenderDeferredDocsPanel(parseView demoShellView) bool {
+	return parseView.Page == serverPageDocs && parseView.CurrentTab == serverTabLoader
 }
 
-func renderDeferredDocsPanel(view demoShellView) ui.Node {
-	switch normalizeStreamMode(view.StreamMode) {
+func renderDeferredDocsPanel(parseView demoShellView) ui.Node {
+	switch normalizeStreamMode(parseView.StreamMode) {
 	case serverStreamModeError:
 		return html.Section(html.Props{ID: serverDeferredPanelID, Class: "rounded-[1.75rem] border border-rose-400/20 bg-rose-400/10 p-6"},
 			html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-rose-300"}, html.Text("Deferred route panel")),
 			html.H3(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text("Deferred docs panel failed after shell flush")),
 			html.P(html.Props{Class: "mt-3 text-sm leading-7 text-rose-100"}, html.Text("The server replaced the placeholder with an explicit error region instead of silently dropping the streamed segment.")),
-			html.P(html.Props{Class: "mt-3 text-xs uppercase tracking-[0.28em] text-rose-200"}, html.Text("Section: "+emptyFallback(view.SectionID, serverGuideSectionSSR)+" • Revision: "+strconv.Itoa(maxInt(view.Revision, 1)))),
+			html.P(html.Props{Class: "mt-3 text-xs uppercase tracking-[0.28em] text-rose-200"}, html.Text("Section: "+emptyFallback(parseView.SectionID, serverGuideSectionSSR)+" • Revision: "+strconv.Itoa(maxInt(parseView.Revision, 1)))),
 		)
 	case serverStreamModeNested:
 		return html.Section(html.Props{ID: serverDeferredPanelID, Class: "rounded-[1.75rem] border border-cyan-500/20 bg-cyan-500/5 p-6"},
@@ -367,7 +367,7 @@ func renderDeferredDocsPanel(view demoShellView) ui.Node {
 		html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Deferred route panel")),
 		html.H3(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text("Streamed docs insights ready")),
 		html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-300"}, html.Text("This panel is the minimal streamed region for the request-time SSR demo. The server can flush the shell first and send this nested docs panel later while hydration still targets the final assembled DOM.")),
-		html.P(html.Props{Class: "mt-3 text-xs uppercase tracking-[0.28em] text-slate-400"}, html.Text("Section: "+emptyFallback(view.SectionID, serverGuideSectionSSR)+" • Revision: "+strconv.Itoa(maxInt(view.Revision, 1)))),
+		html.P(html.Props{Class: "mt-3 text-xs uppercase tracking-[0.28em] text-slate-400"}, html.Text("Section: "+emptyFallback(parseView.SectionID, serverGuideSectionSSR)+" • Revision: "+strconv.Itoa(maxInt(parseView.Revision, 1)))),
 	)
 }
 
@@ -378,26 +378,26 @@ func renderDeferredDocsPanelPlaceholder() ui.Node {
 	)
 }
 
-func navLink(label string, href string, active bool) ui.Node {
-	className := "inline-flex rounded-full border px-4 py-2 text-sm font-semibold transition-colors "
-	if active {
-		className += "border-cyan-900/90 bg-cyan-950/70 text-cyan-100"
+func navLink(parseLabel string, parseHref string, isActive bool) ui.Node {
+	parseClassName := "inline-flex rounded-full border px-4 py-2 text-sm font-semibold transition-colors "
+	if isActive {
+		parseClassName += "border-cyan-900/90 bg-cyan-950/70 text-cyan-100"
 	} else {
-		className += "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+		parseClassName += "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
 	}
-	return html.A(html.Props{Href: href, Class: className}, html.Text(label))
+	return html.A(html.Props{Href: parseHref, Class: parseClassName}, html.Text(parseLabel))
 }
 
-func statCard(label string, value string) ui.Node {
+func statCard(parseLabel string, parseValue string) ui.Node {
 	return html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4"},
-		html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text(label)),
-		html.P(html.Props{Class: "mt-3 text-xl font-bold text-white"}, html.Text(value)),
+		html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text(parseLabel)),
+		html.P(html.Props{Class: "mt-3 text-xl font-bold text-white"}, html.Text(parseValue)),
 	)
 }
 
-func emptyFallback(value string, fallback string) string {
-	if strings.TrimSpace(value) == "" {
-		return fallback
+func emptyFallback(parseValue string, parseFallback string) string {
+	if strings.TrimSpace(parseValue) == "" {
+		return parseFallback
 	}
-	return value
+	return parseValue
 }

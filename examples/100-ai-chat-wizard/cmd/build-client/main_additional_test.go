@@ -7,68 +7,68 @@ import (
 	"testing"
 )
 
-func TestBuildTargetAdditionalErrorBranches(t *testing.T) {
-	dir := t.TempDir()
-	shimDir := filepath.Join(dir, "shim")
-	if err := os.MkdirAll(shimDir, 0o755); err != nil {
-		t.Fatalf("MkdirAll(shimDir): %v", err)
+func TestBuildTargetAdditionalErrorBranches(parseT *testing.T) {
+	parseDir := parseT.TempDir()
+	parseShimDir := filepath.Join(parseDir, "shim")
+	if parseErr := os.MkdirAll(parseShimDir, 0o755); parseErr != nil {
+		parseT.Fatalf("MkdirAll(shimDir): %v", parseErr)
 	}
 
-	shimPath := filepath.Join(shimDir, "go.cmd")
-	originalPath := os.Getenv("PATH")
-	t.Cleanup(func() { _ = os.Setenv("PATH", originalPath) })
-	if err := os.Setenv("PATH", shimDir+string(os.PathListSeparator)+originalPath); err != nil {
-		t.Fatalf("Setenv(PATH): %v", err)
+	parseShimPath := filepath.Join(parseShimDir, "go.cmd")
+	parseOriginalPath := os.Getenv("PATH")
+	parseT.Cleanup(func() { _ = os.Setenv("PATH", parseOriginalPath) })
+	if parseErr2 := os.Setenv("PATH", parseShimDir+string(os.PathListSeparator)+parseOriginalPath); parseErr2 != nil {
+		parseT.Fatalf("Setenv(PATH): %v", parseErr2)
 	}
 
-	blockedDirAsFile := filepath.Join(dir, "blocked-parent")
-	if err := os.WriteFile(blockedDirAsFile, []byte("file"), 0o644); err != nil {
-		t.Fatalf("WriteFile(blocked parent): %v", err)
+	parseBlockedDirAsFile := filepath.Join(parseDir, "blocked-parent")
+	if parseErr3 := os.WriteFile(parseBlockedDirAsFile, []byte("file"), 0o644); parseErr3 != nil {
+		parseT.Fatalf("WriteFile(blocked parent): %v", parseErr3)
 	}
-	if err := buildTarget(dir, "chat client", "./client", filepath.Join(blockedDirAsFile, "chat.wasm")); err == nil || !strings.Contains(err.Error(), "prepare output directory") {
-		t.Fatalf("buildTarget(prepare dir) error = %v, want prepare output directory failure", err)
+	if parseErr4 := buildTarget(parseDir, "chat client", "./client", filepath.Join(parseBlockedDirAsFile, "chat.wasm")); parseErr4 == nil || !strings.Contains(parseErr4.ParseError(), "prepare output directory") {
+		parseT.Fatalf("buildTarget(prepare dir) error = %v, want prepare output directory failure", parseErr4)
 	}
 
-	if err := os.WriteFile(shimPath, []byte("@echo off\r\nexit /b 0\r\n"), 0o644); err != nil {
-		t.Fatalf("WriteFile(stat shim): %v", err)
+	if parseErr5 := os.WriteFile(parseShimPath, []byte("@echo off\r\nexit /b 0\r\n"), 0o644); parseErr5 != nil {
+		parseT.Fatalf("WriteFile(stat shim): %v", parseErr5)
 	}
-	if err := buildTarget(dir, "chat client", "./client", filepath.Join(dir, "bin", "missing.wasm")); err == nil || !strings.Contains(err.Error(), "stat chat client artifact") {
-		t.Fatalf("buildTarget(stat) error = %v, want stat artifact failure", err)
+	if parseErr6 := buildTarget(parseDir, "chat client", "./client", filepath.Join(parseDir, "bin", "missing.wasm")); parseErr6 == nil || !strings.Contains(parseErr6.ParseError(), "stat chat client artifact") {
+		parseT.Fatalf("buildTarget(stat) error = %v, want stat artifact failure", parseErr6)
 	}
 }
 
-func TestWriteBrotliSidecarAdditionalBranches(t *testing.T) {
-	dir := t.TempDir()
+func TestWriteBrotliSidecarAdditionalBranches(parseT *testing.T) {
+	parseDir := parseT.TempDir()
 
-	emptySource := filepath.Join(dir, "empty.wasm")
-	emptyTarget := filepath.Join(dir, "empty.wasm.br")
-	if err := os.WriteFile(emptySource, nil, 0o644); err != nil {
-		t.Fatalf("WriteFile(empty source): %v", err)
+	parseEmptySource := filepath.Join(parseDir, "empty.wasm")
+	parseEmptyTarget := filepath.Join(parseDir, "empty.wasm.br")
+	if parseErr := os.WriteFile(parseEmptySource, nil, 0o644); parseErr != nil {
+		parseT.Fatalf("WriteFile(empty source): %v", parseErr)
 	}
-	if err := writeBrotliSidecar(emptySource, emptyTarget); err != nil {
-		t.Fatalf("writeBrotliSidecar(empty): %v", err)
+	if parseErr2 := parseWriteBrotliSidecar(parseEmptySource, parseEmptyTarget); parseErr2 != nil {
+		parseT.Fatalf("writeBrotliSidecar(empty): %v", parseErr2)
 	}
-	if info, err := os.Stat(emptyTarget); err != nil || info.Size() == 0 {
-		t.Fatalf("empty brotli target stat err=%v info=%v", err, info)
-	}
-
-	blockedTempParent := filepath.Join(dir, "blocked-parent")
-	if err := os.WriteFile(blockedTempParent, []byte("file"), 0o644); err != nil {
-		t.Fatalf("WriteFile(blockedTempParent): %v", err)
-	}
-	if err := writeBrotliSidecar(emptySource, filepath.Join(blockedTempParent, "artifact.br")); err == nil || !strings.Contains(err.Error(), "create brotli sidecar") {
-		t.Fatalf("writeBrotliSidecar(create temp) error = %v, want create brotli sidecar failure", err)
+	if parseInfo, parseErr3 := os.Stat(parseEmptyTarget); parseErr3 != nil || parseInfo.Size() == 0 {
+		parseT.Fatalf("empty brotli target stat err=%v info=%v", parseErr3, parseInfo)
 	}
 
-	renameDir := filepath.Join(dir, "rename")
-	if err := os.MkdirAll(renameDir, 0o755); err != nil {
-		t.Fatalf("MkdirAll(renameDir): %v", err)
+	parseBlockedTempParent := filepath.Join(parseDir, "blocked-parent")
+	if parseErr4 := os.WriteFile(parseBlockedTempParent, []byte("file"), 0o644); parseErr4 != nil {
+		parseT.Fatalf("WriteFile(blockedTempParent): %v", parseErr4)
 	}
-	targetAsDir := filepath.Join(renameDir, "artifact.br")
-	if err := os.MkdirAll(targetAsDir, 0o755); err != nil {
-		t.Fatalf("MkdirAll(targetAsDir): %v", err)
+	if parseErr5 := parseWriteBrotliSidecar(parseEmptySource, filepath.Join(parseBlockedTempParent, "artifact.br")); parseErr5 == nil || !strings.Contains(parseErr5.ParseError(), "create brotli sidecar") {
+		parseT.Fatalf("writeBrotliSidecar(create temp) error = %v, want create brotli sidecar failure", parseErr5)
 	}
-	if err := writeBrotliSidecar(emptySource, targetAsDir); err == nil || !strings.Contains(err.Error(), "replace brotli sidecar") {
-		t.Fatalf("writeBrotliSidecar(rename) error = %v, want replace brotli sidecar failure", err)
+
+	parseRenameDir := filepath.Join(parseDir, "rename")
+	if parseErr6 := os.MkdirAll(parseRenameDir, 0o755); parseErr6 != nil {
+		parseT.Fatalf("MkdirAll(renameDir): %v", parseErr6)
+	}
+	parseTargetAsDir := filepath.Join(parseRenameDir, "artifact.br")
+	if parseErr7 := os.MkdirAll(parseTargetAsDir, 0o755); parseErr7 != nil {
+		parseT.Fatalf("MkdirAll(targetAsDir): %v", parseErr7)
+	}
+	if parseErr8 := parseWriteBrotliSidecar(parseEmptySource, parseTargetAsDir); parseErr8 == nil || !strings.Contains(parseErr8.ParseError(), "replace brotli sidecar") {
+		parseT.Fatalf("writeBrotliSidecar(rename) error = %v, want replace brotli sidecar failure", parseErr8)
 	}
 }

@@ -14,220 +14,220 @@ import (
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-func TestModelOptionAndSelectedModelRPCs(t *testing.T) {
-	store := newTestStore(t)
-	user := mustCreateUser(t, store, "models@example.com")
-	fake := newFakeProvider()
-	server := newFakeChatServer(store, fake)
-	ctx := bindAuthUser(server, "peer-models", user.ID, user.Email)
+func TestModelOptionAndSelectedModelRPCs(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "models@example.com")
+	parseFake := parseNewFakeProvider()
+	parseServer := parseNewFakeChatServer(store, parseFake)
+	parseCtx := parseBindAuthUser(parseServer, "peer-models", parseUser.ParseID, parseUser.Email)
 
-	listResp, err := server.ListModelOptions(ctx, &chatpb.ListModelOptionsRequest{})
-	if err != nil {
-		t.Fatalf("ListModelOptions: %v", err)
+	parseListResp, parseErr := parseServer.ParseListModelOptions(parseCtx, &chatpb.ListModelOptionsRequest{})
+	if parseErr != nil {
+		parseT.Fatalf("ListModelOptions: %v", parseErr)
 	}
-	if listResp.GetDefaultModel() != modelGPT54Mini || len(listResp.Models) != 1 {
-		t.Fatalf("unexpected model options response: %+v", listResp)
-	}
-
-	if _, err := server.SetSelectedModel(ctx, wrapperspb.String(modelGPT54)); err != nil {
-		t.Fatalf("SetSelectedModel: %v", err)
-	}
-	selectedModel, err := server.GetSelectedModel(ctx, &emptypb.Empty{})
-	if err != nil || selectedModel.GetValue() != modelGPT54 {
-		t.Fatalf("GetSelectedModel: resp=%+v err=%v", selectedModel, err)
+	if parseListResp.GetDefaultModel() != modelGPT54Mini || len(parseListResp.Models) != 1 {
+		parseT.Fatalf("unexpected model options response: %+v", parseListResp)
 	}
 
-	if _, err := server.SetSelectedModel(ctx, wrapperspb.String("missing-model")); status.Code(err) != codes.InvalidArgument {
-		t.Fatalf("expected invalid argument for unsupported model, got %v", status.Code(err))
+	if _, parseErr2 := parseServer.SetSelectedModel(parseCtx, wrapperspb.String(modelGPT54)); parseErr2 != nil {
+		parseT.Fatalf("SetSelectedModel: %v", parseErr2)
 	}
-	server.unbindAuthenticatedPeer("peer-models")
+	parseSelectedModel, parseErr := parseServer.GetSelectedModel(parseCtx, &emptypb.Empty{})
+	if parseErr != nil || parseSelectedModel.GetValue() != modelGPT54 {
+		parseT.Fatalf("GetSelectedModel: resp=%+v err=%v", parseSelectedModel, parseErr)
+	}
+
+	if _, parseErr3 := parseServer.SetSelectedModel(parseCtx, wrapperspb.String("missing-model")); status.Code(parseErr3) != codes.InvalidArgument {
+		parseT.Fatalf("expected invalid argument for unsupported model, got %v", status.Code(parseErr3))
+	}
+	parseServer.parseUnbindAuthenticatedPeer("peer-models")
 }
 
-func TestGetSelectedModelRepairsBlankPreferenceUsingFirstCatalogModel(t *testing.T) {
-	store := newTestStore(t)
-	user := mustCreateUser(t, store, "model-repair@example.com")
-	fake := newFakeProvider()
-	fake.modelOptions = []provider.ModelOption{
+func TestGetSelectedModelRepairsBlankPreferenceUsingFirstCatalogModel(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "model-repair@example.com")
+	parseFake := parseNewFakeProvider()
+	parseFake.modelOptions = []provider.ModelOption{
 		{
 			ID:           modelGPT54,
 			Label:        "GPT-5.4",
 			Note:         "Best",
-			Capabilities: fake.supportedModels[modelGPT54],
+			Capabilities: parseFake.supportedModels[modelGPT54],
 		},
 		{
 			ID:           modelGPT54Mini,
 			Label:        "GPT-5.4 mini",
 			Note:         "Fast",
-			Capabilities: fake.supportedModels[modelGPT54Mini],
+			Capabilities: parseFake.supportedModels[modelGPT54Mini],
 		},
 	}
-	fake.defaultModel = modelGPT54Mini
-	server := newFakeChatServer(store, fake)
-	ctx := bindAuthUser(server, "peer-model-repair", user.ID, user.Email)
+	parseFake.defaultModel = modelGPT54Mini
+	parseServer := parseNewFakeChatServer(store, parseFake)
+	parseCtx := parseBindAuthUser(parseServer, "peer-model-repair", parseUser.ParseID, parseUser.Email)
 
-	if err := store.setSelectedModel(user.ID, ""); err != nil {
-		t.Fatalf("seed blank selected model: %v", err)
+	if parseErr := store.setSelectedModel(parseUser.ParseID, ""); parseErr != nil {
+		parseT.Fatalf("seed blank selected model: %v", parseErr)
 	}
-	selectedModel, err := server.GetSelectedModel(ctx, &emptypb.Empty{})
-	if err != nil {
-		t.Fatalf("GetSelectedModel repair: %v", err)
+	parseSelectedModel, parseErr2 := parseServer.GetSelectedModel(parseCtx, &emptypb.Empty{})
+	if parseErr2 != nil {
+		parseT.Fatalf("GetSelectedModel repair: %v", parseErr2)
 	}
-	if selectedModel.GetValue() != modelGPT54 {
-		t.Fatalf("expected first catalog model fallback %q, got %q", modelGPT54, selectedModel.GetValue())
+	if parseSelectedModel.GetValue() != modelGPT54 {
+		parseT.Fatalf("expected first catalog model fallback %q, got %q", modelGPT54, parseSelectedModel.GetValue())
 	}
-	persistedModel, err := store.getSelectedModel(user.ID, "")
-	if err != nil {
-		t.Fatalf("store.getSelectedModel after repair: %v", err)
+	parsePersistedModel, parseErr2 := store.getSelectedModel(parseUser.ParseID, "")
+	if parseErr2 != nil {
+		parseT.Fatalf("store.getSelectedModel after repair: %v", parseErr2)
 	}
-	if persistedModel != modelGPT54 {
-		t.Fatalf("expected repaired persisted model %q, got %q", modelGPT54, persistedModel)
+	if parsePersistedModel != modelGPT54 {
+		parseT.Fatalf("expected repaired persisted model %q, got %q", modelGPT54, parsePersistedModel)
 	}
-	server.unbindAuthenticatedPeer("peer-model-repair")
+	parseServer.parseUnbindAuthenticatedPeer("peer-model-repair")
 }
 
-func TestRPCFallbacksWhenStoreOrProvidersAreUnavailable(t *testing.T) {
-	server := &chatServer{
+func TestRPCFallbacksWhenStoreOrProvidersAreUnavailable(parseT *testing.T) {
+	parseServer := &chatServer{
 		defaultModel:     modelGPT54Mini,
-		logger:           newTestLogger(),
+		logger:           parseNewTestLogger(),
 		providerRegistry: nil,
 		store:            nil,
 		sessions:         map[string]*sessionState{},
 		authUsers:        map[string]authUser{},
 	}
-	ctx := bindAuthUser(server, "peer-fallbacks", 99, "fallbacks@example.com")
+	parseCtx := parseBindAuthUser(parseServer, "peer-fallbacks", 99, "fallbacks@example.com")
 
-	nameResp, err := server.GetUserName(ctx, &chatpb.GetUserNameRequest{})
-	if err != nil || nameResp.GetName() != "User" {
-		t.Fatalf("GetUserName fallback: resp=%+v err=%v", nameResp, err)
+	parseNameResp, parseErr := parseServer.GetUserName(parseCtx, &chatpb.GetUserNameRequest{})
+	if parseErr != nil || parseNameResp.GetName() != "User" {
+		parseT.Fatalf("GetUserName fallback: resp=%+v err=%v", parseNameResp, parseErr)
 	}
-	toneResp, err := server.GetSelectedTone(ctx, &emptypb.Empty{})
-	if err != nil || toneResp.GetValue() != defaultToneID {
-		t.Fatalf("GetSelectedTone fallback: resp=%+v err=%v", toneResp, err)
+	parseToneResp, parseErr := parseServer.GetSelectedTone(parseCtx, &emptypb.Empty{})
+	if parseErr != nil || parseToneResp.GetValue() != defaultToneID {
+		parseT.Fatalf("GetSelectedTone fallback: resp=%+v err=%v", parseToneResp, parseErr)
 	}
-	modelResp, err := server.GetSelectedModel(ctx, &emptypb.Empty{})
-	if err != nil || modelResp.GetValue() != modelGPT54Mini {
-		t.Fatalf("GetSelectedModel fallback: resp=%+v err=%v", modelResp, err)
+	parseModelResp, parseErr := parseServer.GetSelectedModel(parseCtx, &emptypb.Empty{})
+	if parseErr != nil || parseModelResp.GetValue() != modelGPT54Mini {
+		parseT.Fatalf("GetSelectedModel fallback: resp=%+v err=%v", parseModelResp, parseErr)
 	}
-	systemPromptResp, err := server.GetCustomSystemPrompt(ctx, &emptypb.Empty{})
-	if err != nil || systemPromptResp.GetValue() != "" {
-		t.Fatalf("GetCustomSystemPrompt fallback: resp=%+v err=%v", systemPromptResp, err)
+	parseSystemPromptResp, parseErr := parseServer.GetCustomSystemPrompt(parseCtx, &emptypb.Empty{})
+	if parseErr != nil || parseSystemPromptResp.GetValue() != "" {
+		parseT.Fatalf("GetCustomSystemPrompt fallback: resp=%+v err=%v", parseSystemPromptResp, parseErr)
 	}
-	listResp, err := server.ListModelOptions(ctx, &chatpb.ListModelOptionsRequest{})
-	if err != nil || len(listResp.Models) != 0 {
-		t.Fatalf("ListModelOptions fallback: resp=%+v err=%v", listResp, err)
+	parseListResp, parseErr := parseServer.ParseListModelOptions(parseCtx, &chatpb.ListModelOptionsRequest{})
+	if parseErr != nil || len(parseListResp.Models) != 0 {
+		parseT.Fatalf("ListModelOptions fallback: resp=%+v err=%v", parseListResp, parseErr)
 	}
-	if _, err := server.SetSelectedTone(ctx, wrapperspb.String("professional")); err != nil {
-		t.Fatalf("SetSelectedTone no-store should no-op, got %v", err)
+	if _, parseErr2 := parseServer.SetSelectedTone(parseCtx, wrapperspb.String("professional")); parseErr2 != nil {
+		parseT.Fatalf("SetSelectedTone no-store should no-op, got %v", parseErr2)
 	}
-	if _, err := server.SetSelectedThinkingEnabled(ctx, wrapperspb.Bool(true)); err != nil {
-		t.Fatalf("SetSelectedThinkingEnabled no-store should no-op, got %v", err)
+	if _, parseErr3 := parseServer.SetSelectedThinkingEnabled(parseCtx, wrapperspb.Bool(true)); parseErr3 != nil {
+		parseT.Fatalf("SetSelectedThinkingEnabled no-store should no-op, got %v", parseErr3)
 	}
-	if _, err := server.SetSelectedThinkingEffort(ctx, wrapperspb.String("low")); err != nil {
-		t.Fatalf("SetSelectedThinkingEffort no-store should no-op, got %v", err)
+	if _, parseErr4 := parseServer.SetSelectedThinkingEffort(parseCtx, wrapperspb.String("low")); parseErr4 != nil {
+		parseT.Fatalf("SetSelectedThinkingEffort no-store should no-op, got %v", parseErr4)
 	}
-	if _, err := server.SetSelectedModel(ctx, wrapperspb.String(modelGPT54Mini)); err != nil {
-		t.Fatalf("SetSelectedModel without registry/store should no-op, got %v", err)
+	if _, parseErr5 := parseServer.SetSelectedModel(parseCtx, wrapperspb.String(modelGPT54Mini)); parseErr5 != nil {
+		parseT.Fatalf("SetSelectedModel without registry/store should no-op, got %v", parseErr5)
 	}
-	if _, err := server.SetCustomSystemPrompt(ctx, wrapperspb.String("Stay concise.")); err != nil {
-		t.Fatalf("SetCustomSystemPrompt without store should no-op, got %v", err)
+	if _, parseErr6 := parseServer.SetCustomSystemPrompt(parseCtx, wrapperspb.String("Stay concise.")); parseErr6 != nil {
+		parseT.Fatalf("SetCustomSystemPrompt without store should no-op, got %v", parseErr6)
 	}
-	server.unbindAuthenticatedPeer("peer-fallbacks")
+	parseServer.parseUnbindAuthenticatedPeer("peer-fallbacks")
 }
 
-func TestSendAndSpeechNegativeBranches(t *testing.T) {
-	store := newTestStore(t)
-	user := mustCreateUser(t, store, "negative@example.com")
+func TestSendAndSpeechNegativeBranches(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "negative@example.com")
 
-	providerWithoutThinking := newFakeProvider()
-	providerWithoutThinking.supportedModels[modelGPT54Mini] = provider.ModelCapabilities{
+	parseProviderWithoutThinking := parseNewFakeProvider()
+	parseProviderWithoutThinking.supportedModels[modelGPT54Mini] = provider.ModelCapabilities{
 		ProviderID:       "fake",
 		ProviderLabel:    "Fake",
 		SupportsThinking: false,
 		SupportsSpeech:   true,
 	}
-	providerWithoutThinking.streamChat = func(_ context.Context, _ provider.ChatRequest, _ func(provider.ChatEvent) error) (provider.ChatResult, error) {
+	parseProviderWithoutThinking.streamChat = func(_ context.Context, _ provider.ChatRequest, _ func(provider.ChatEvent) error) (provider.ChatResult, error) {
 		return provider.ChatResult{}, nil
 	}
-	providerWithoutThinking.generateTitle = func(_ context.Context, _ provider.TitleRequest) (string, error) { return "", nil }
-	server := newFakeChatServer(store, providerWithoutThinking)
-	ctx := bindAuthUser(server, "peer-negative-send", user.ID, user.Email)
-	err := server.Send(&chatpb.SendRequest{Message: "Need thinking", Model: modelGPT54Mini, ThinkingEnabled: true}, &fakeChatSendStream{ctx: ctx})
-	if status.Code(err) != codes.FailedPrecondition {
-		t.Fatalf("expected failed precondition for unsupported thinking, got %v", status.Code(err))
+	parseProviderWithoutThinking.generateTitle = func(_ context.Context, _ provider.TitleRequest) (string, error) { return "", nil }
+	parseServer := parseNewFakeChatServer(store, parseProviderWithoutThinking)
+	parseCtx := parseBindAuthUser(parseServer, "peer-negative-send", parseUser.ParseID, parseUser.Email)
+	parseErr := parseServer.ParseSend(&chatpb.SendRequest{Message: "Need thinking", Model: modelGPT54Mini, ThinkingEnabled: true}, &fakeChatSendStream{ctx: parseCtx})
+	if status.Code(parseErr) != codes.FailedPrecondition {
+		parseT.Fatalf("expected failed precondition for unsupported thinking, got %v", status.Code(parseErr))
 	}
 
-	erroringProvider := newFakeProvider()
-	erroringProvider.streamChat = func(_ context.Context, _ provider.ChatRequest, _ func(provider.ChatEvent) error) (provider.ChatResult, error) {
+	parseErroringProvider := parseNewFakeProvider()
+	parseErroringProvider.streamChat = func(_ context.Context, _ provider.ChatRequest, _ func(provider.ChatEvent) error) (provider.ChatResult, error) {
 		return provider.ChatResult{}, errors.New("boom")
 	}
-	erroringProvider.generateTitle = func(_ context.Context, _ provider.TitleRequest) (string, error) { return "", nil }
-	erroringServer := newFakeChatServer(store, erroringProvider)
-	erroringCtx := bindAuthUser(erroringServer, "peer-error-send", user.ID, user.Email)
-	erroringStream := &fakeChatSendStream{ctx: erroringCtx}
-	err = erroringServer.Send(&chatpb.SendRequest{Message: "Trigger error", Model: modelGPT54Mini}, erroringStream)
-	if err != nil {
-		t.Fatalf("expected provider failure to stream an error chunk, got %v", err)
+	parseErroringProvider.generateTitle = func(_ context.Context, _ provider.TitleRequest) (string, error) { return "", nil }
+	parseErroringServer := parseNewFakeChatServer(store, parseErroringProvider)
+	parseErroringCtx := parseBindAuthUser(parseErroringServer, "peer-error-send", parseUser.ParseID, parseUser.Email)
+	parseErroringStream := &fakeChatSendStream{ctx: parseErroringCtx}
+	parseErr = parseErroringServer.ParseSend(&chatpb.SendRequest{Message: "Trigger error", Model: modelGPT54Mini}, parseErroringStream)
+	if parseErr != nil {
+		parseT.Fatalf("expected provider failure to stream an error chunk, got %v", parseErr)
 	}
-	if len(erroringStream.chunks) == 0 {
-		t.Fatal("expected provider failure to produce at least one stream chunk")
+	if len(parseErroringStream.chunks) == 0 {
+		parseT.Fatal("expected provider failure to produce at least one stream chunk")
 	}
-	lastChunk := erroringStream.chunks[len(erroringStream.chunks)-1]
-	if !lastChunk.GetDone() {
-		t.Fatalf("expected final error chunk with done=true, got %+v", lastChunk)
+	parseLastChunk := parseErroringStream.chunks[len(parseErroringStream.chunks)-1]
+	if !parseLastChunk.GetDone() {
+		parseT.Fatalf("expected final error chunk with done=true, got %+v", parseLastChunk)
 	}
-	if !strings.Contains(lastChunk.GetError(), "boom") {
-		t.Fatalf("expected error chunk to include provider failure details, got %q", lastChunk.GetError())
+	if !strings.Contains(parseLastChunk.GetError(), "boom") {
+		parseT.Fatalf("expected error chunk to include provider failure details, got %q", parseLastChunk.GetError())
 	}
 
-	speechProvider := newFakeProvider()
-	speechProvider.supportedModels[modelGPT54Mini] = provider.ModelCapabilities{
+	parseSpeechProvider := parseNewFakeProvider()
+	parseSpeechProvider.supportedModels[modelGPT54Mini] = provider.ModelCapabilities{
 		ProviderID:       "fake",
 		ProviderLabel:    "Fake",
 		SupportsThinking: true,
 		SupportsSpeech:   false,
 	}
-	speechProvider.synthesizeSpeech = func(_ context.Context, _ provider.SpeechRequest, _ func(provider.SpeechChunk) error) (provider.SpeechResult, error) {
+	parseSpeechProvider.synthesizeSpeech = func(_ context.Context, _ provider.SpeechRequest, _ func(provider.SpeechChunk) error) (provider.SpeechResult, error) {
 		return provider.SpeechResult{}, nil
 	}
-	speechServer := newFakeChatServer(store, speechProvider)
-	speechCtx := bindAuthUser(speechServer, "peer-negative-speech", user.ID, user.Email)
-	err = speechServer.SynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "```code```", Model: modelGPT54Mini}, &fakeSpeechStream{ctx: speechCtx})
-	if status.Code(err) != codes.InvalidArgument {
-		t.Fatalf("expected invalid argument for unspeakable text, got %v", status.Code(err))
+	parseSpeechServer := parseNewFakeChatServer(store, parseSpeechProvider)
+	parseSpeechCtx := parseBindAuthUser(parseSpeechServer, "peer-negative-speech", parseUser.ParseID, parseUser.Email)
+	parseErr = parseSpeechServer.ParseSynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "```code```", Model: modelGPT54Mini}, &fakeSpeechStream{ctx: parseSpeechCtx})
+	if status.Code(parseErr) != codes.InvalidArgument {
+		parseT.Fatalf("expected invalid argument for unspeakable text, got %v", status.Code(parseErr))
 	}
-	err = speechServer.SynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "Hello", Model: modelGPT54Mini}, &fakeSpeechStream{ctx: speechCtx})
-	if status.Code(err) != codes.FailedPrecondition {
-		t.Fatalf("expected failed precondition for unsupported speech, got %v", status.Code(err))
+	parseErr = parseSpeechServer.ParseSynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "Hello", Model: modelGPT54Mini}, &fakeSpeechStream{ctx: parseSpeechCtx})
+	if status.Code(parseErr) != codes.FailedPrecondition {
+		parseT.Fatalf("expected failed precondition for unsupported speech, got %v", status.Code(parseErr))
 	}
-	server.unbindAuthenticatedPeer("peer-negative-send")
-	erroringServer.unbindAuthenticatedPeer("peer-error-send")
-	speechServer.unbindAuthenticatedPeer("peer-negative-speech")
+	parseServer.parseUnbindAuthenticatedPeer("peer-negative-send")
+	parseErroringServer.parseUnbindAuthenticatedPeer("peer-error-send")
+	parseSpeechServer.parseUnbindAuthenticatedPeer("peer-negative-speech")
 }
 
-func TestPreferenceAndConversationRPCErrorBranches(t *testing.T) {
-	store := newTestStore(t)
-	user := mustCreateUser(t, store, "rpc-errors@example.com")
-	server := newFakeChatServer(store, newFakeProvider())
-	ctx := bindAuthUser(server, "peer-rpc-errors", user.ID, user.Email)
+func TestPreferenceAndConversationRPCErrorBranches(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "rpc-errors@example.com")
+	parseServer := parseNewFakeChatServer(store, parseNewFakeProvider())
+	parseCtx := parseBindAuthUser(parseServer, "peer-rpc-errors", parseUser.ParseID, parseUser.Email)
 
-	if _, err := server.SetUserName(ctx, &chatpb.SetUserNameRequest{Name: "   "}); status.Code(err) != codes.InvalidArgument {
-		t.Fatalf("expected invalid argument for blank name, got %v", status.Code(err))
-	}
-
-	store.close()
-
-	if _, err := server.DeleteConversation(ctx, &chatpb.DeleteConversationRequest{Id: 123}); status.Code(err) != codes.Internal {
-		t.Fatalf("expected internal delete error after store close, got %v", status.Code(err))
-	}
-	if _, err := server.SetUserName(ctx, &chatpb.SetUserNameRequest{Name: "Cam"}); status.Code(err) != codes.Internal {
-		t.Fatalf("expected internal set user name error after store close, got %v", status.Code(err))
-	}
-	if _, err := server.GetSelectedThinkingEnabled(ctx, &emptypb.Empty{}); status.Code(err) != codes.Internal {
-		t.Fatalf("expected internal thinking enabled error after store close, got %v", status.Code(err))
-	}
-	if _, err := server.GetSelectedThinkingEffort(ctx, &emptypb.Empty{}); status.Code(err) != codes.Internal {
-		t.Fatalf("expected internal thinking effort error after store close, got %v", status.Code(err))
+	if _, parseErr := parseServer.SetUserName(parseCtx, &chatpb.SetUserNameRequest{Name: "   "}); status.Code(parseErr) != codes.InvalidArgument {
+		parseT.Fatalf("expected invalid argument for blank name, got %v", status.Code(parseErr))
 	}
 
-	server.unbindAuthenticatedPeer("peer-rpc-errors")
+	store.parseClose()
+
+	if _, parseErr2 := parseServer.ParseDeleteConversation(parseCtx, &chatpb.DeleteConversationRequest{Id: 123}); status.Code(parseErr2) != codes.Internal {
+		parseT.Fatalf("expected internal delete error after store close, got %v", status.Code(parseErr2))
+	}
+	if _, parseErr3 := parseServer.SetUserName(parseCtx, &chatpb.SetUserNameRequest{Name: "Cam"}); status.Code(parseErr3) != codes.Internal {
+		parseT.Fatalf("expected internal set user name error after store close, got %v", status.Code(parseErr3))
+	}
+	if _, parseErr4 := parseServer.GetSelectedThinkingEnabled(parseCtx, &emptypb.Empty{}); status.Code(parseErr4) != codes.Internal {
+		parseT.Fatalf("expected internal thinking enabled error after store close, got %v", status.Code(parseErr4))
+	}
+	if _, parseErr5 := parseServer.GetSelectedThinkingEffort(parseCtx, &emptypb.Empty{}); status.Code(parseErr5) != codes.Internal {
+		parseT.Fatalf("expected internal thinking effort error after store close, got %v", status.Code(parseErr5))
+	}
+
+	parseServer.parseUnbindAuthenticatedPeer("peer-rpc-errors")
 }

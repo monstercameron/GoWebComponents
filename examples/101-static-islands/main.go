@@ -13,34 +13,34 @@ import (
 )
 
 func nowMillis() float64 {
-	performance := js.Global().Get("performance")
-	if performance.Truthy() {
-		return performance.Call("now").Float()
+	parsePerformance := js.Global().Get("performance")
+	if parsePerformance.Truthy() {
+		return parsePerformance.Call("now").Float()
 	}
 	return 0
 }
 
-func writeMetric(elementID, value string) {
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+func writeMetric(parseElementID, parseValue string) {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return
 	}
-	node := document.Call("getElementById", elementID)
-	if !node.Truthy() {
+	parseNode := parseDocument.Call("getElementById", parseElementID)
+	if !parseNode.Truthy() {
 		return
 	}
-	node.Set("textContent", value)
+	parseNode.Set("textContent", parseValue)
 }
 
-func hydrateIsland(name string, selector string, node ui.Node) {
-	_, _ = ui.Hydrate(node, selector, ui.HydrationOptions{
+func hydrateIsland(parseName string, parseSelector string, parseNode ui.Node) {
+	_, _ = ui.Hydrate(parseNode, parseSelector, ui.HydrationOptions{
 		Observability: ui.SSRObservabilityOptions{
-			CorrelationID: "static-islands:" + name,
-			OnEvent: func(event ui.SSRObservation) {
-				if event.Hydration == nil {
+			CorrelationID: "static-islands:" + parseName,
+			OnEvent: func(parseEvent ui.SSRObservation) {
+				if parseEvent.Hydration == nil {
 					return
 				}
-				writeMetric("metric-"+name+"-hydration", fmt.Sprintf("%.2f ms", float64(event.Hydration.DurationNs)/1_000_000.0))
+				writeMetric("metric-"+parseName+"-hydration", fmt.Sprintf("%.2f ms", float64(parseEvent.Hydration.DurationNs)/1_000_000.0))
 			},
 		},
 	})
@@ -48,9 +48,9 @@ func hydrateIsland(name string, selector string, node ui.Node) {
 
 func main() {
 	utils.DisableAllDebug()
-	started := nowMillis()
+	parseStarted := nowMillis()
 	hydrateIsland("newsletter", "#newsletter-island", ui.CreateElement(newsletterIsland))
 	hydrateIsland("quote", "#quote-island", ui.CreateElement(quoteIsland))
-	writeMetric("metric-startup-total", fmt.Sprintf("%.2f ms", nowMillis()-started))
+	writeMetric("metric-startup-total", fmt.Sprintf("%.2f ms", nowMillis()-parseStarted))
 	select {}
 }

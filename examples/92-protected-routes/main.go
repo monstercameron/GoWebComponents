@@ -47,40 +47,40 @@ type workspaceSummary struct {
 var liveSession = demoSession{Status: sessionUnauthenticated}
 var workspaceRevision int32
 
-func workspaceSummaryKey(subject string) string {
-	trimmed := strings.TrimSpace(subject)
-	if trimmed == "" {
+func workspaceSummaryKey(parseSubject string) string {
+	parseTrimmed := strings.TrimSpace(parseSubject)
+	if parseTrimmed == "" {
 		return ""
 	}
-	return "workspace:summary:" + trimmed
+	return "workspace:summary:" + parseTrimmed
 }
 
-func loadWorkspaceSummary(ctx context.Context, subject string) (workspaceSummary, error) {
+func loadWorkspaceSummary(parseCtx context.Context, parseSubject string) (workspaceSummary, error) {
 	select {
-	case <-ctx.Done():
-		return workspaceSummary{}, ctx.Err()
+	case <-parseCtx.Done():
+		return workspaceSummary{}, parseCtx.Err()
 	case <-time.After(70 * time.Millisecond):
 	}
 
-	revision := int(atomic.AddInt32(&workspaceRevision, 1))
+	parseRevision := int(atomic.AddInt32(&workspaceRevision, 1))
 	return workspaceSummary{
-		Subject:      subject,
-		Revision:     revision,
-		Projects:     6 + (revision % 3),
-		Alerts:       1 + (revision % 2),
+		Subject:      parseSubject,
+		Revision:     parseRevision,
+		Projects:     6 + (parseRevision % 3),
+		Alerts:       1 + (parseRevision % 2),
 		LastSnapshot: time.Now().Format("15:04:05"),
 	}, nil
 }
 
-func setLiveSession(atom state.Atom[demoSession], next demoSession) {
-	liveSession = next
-	atom.Set(next)
+func setLiveSession(parseAtom state.Atom[demoSession], parseNext demoSession) {
+	liveSession = parseNext
+	parseAtom.Set(parseNext)
 }
 
 func homePageView() ui.Node {
-	nav := router.UseNavigate()
-	sessionAtom := state.UseAtom(sessionAtomID, liveSession)
-	session := sessionAtom.Get()
+	parseNav := router.UseNavigate()
+	parseSessionAtom := state.UseAtom(sessionAtomID, liveSession)
+	parseSession := parseSessionAtom.Get()
 
 	return shared.ExamplePage(
 		"Protected Routes",
@@ -90,22 +90,22 @@ func homePageView() ui.Node {
 			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("Use these launch buttons to enter the same protected route from different auth states. Signed-out navigation redirects through /login with a bounded return_to value. Unknown auth intentionally lands on the protected route first so the page can render manual authorizing UI while the session resolves.")),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
 				shared.ExampleButton("Open signed out", ui.UseEvent(func() {
-					setLiveSession(sessionAtom, demoSession{Status: sessionUnauthenticated})
-					nav.Navigate("/workspace")
+					setLiveSession(parseSessionAtom, demoSession{Status: sessionUnauthenticated})
+					parseNav.Navigate("/workspace")
 				})),
 				shared.ExampleButton("Open while resolving", ui.UseEvent(func() {
-					setLiveSession(sessionAtom, demoSession{Status: sessionUnknown})
-					nav.Navigate("/workspace")
+					setLiveSession(parseSessionAtom, demoSession{Status: sessionUnknown})
+					parseNav.Navigate("/workspace")
 				})),
 				shared.ExampleButton("Open signed in", ui.UseEvent(func() {
-					setLiveSession(sessionAtom, demoSession{Status: sessionAuthenticated, Subject: "atlas-admin", CanViewBilling: false})
-					nav.Navigate("/workspace")
+					setLiveSession(parseSessionAtom, demoSession{Status: sessionAuthenticated, Subject: "atlas-admin", CanViewBilling: false})
+					parseNav.Navigate("/workspace")
 				})),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
-				shared.ExampleStat("Session", session.Status),
-				shared.ExampleStat("Subject", emptyFallback(session.Subject, "guest")),
-				shared.ExampleStat("Billing claim", fmt.Sprintf("%t", session.CanViewBilling)),
+				shared.ExampleStat("Session", parseSession.Status),
+				shared.ExampleStat("Subject", emptyFallback(parseSession.Subject, "guest")),
+				shared.ExampleStat("Billing claim", fmt.Sprintf("%t", parseSession.CanViewBilling)),
 			),
 		),
 		shared.ExamplePanel("Security boundary",
@@ -124,36 +124,36 @@ func homePage(router.Attrs) *router.Element {
 }
 
 func loginPageView() ui.Node {
-	nav := router.UseNavigate()
-	query := router.UseQuery()
-	sessionAtom := state.UseAtom(sessionAtomID, liveSession)
-	session := sessionAtom.Get()
-	returnTo := router.ReadReturnTo(query.Values(), "/workspace")
+	parseNav := router.UseNavigate()
+	parseQuery := router.UseQuery()
+	parseSessionAtom := state.UseAtom(sessionAtomID, liveSession)
+	parseSession := parseSessionAtom.Get()
+	parseReturnTo := router.ReadReturnTo(parseQuery.Values(), "/workspace")
 
 	return shared.ExamplePage(
 		"Protected Route Login",
 		"router.ReadReturnTo and manual redirect recovery",
 		"This route is the current unauthorized fallback target. It reads the bounded return_to payload, lets the user choose a claim set, and uses replacement navigation so the transient login step does not linger in history after sign-in.",
 		shared.ExamplePanel("Redirect recovery",
-			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("Current return target: "+returnTo)),
+			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("Current return target: "+parseReturnTo)),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
 				shared.ExampleButton("Sign in and continue", ui.UseEvent(func() {
-					setLiveSession(sessionAtom, demoSession{Status: sessionAuthenticated, Subject: "atlas-admin", CanViewBilling: false})
-					nav.Replace(returnTo)
+					setLiveSession(parseSessionAtom, demoSession{Status: sessionAuthenticated, Subject: "atlas-admin", CanViewBilling: false})
+					parseNav.Replace(parseReturnTo)
 				})),
 				shared.ExampleButton("Sign in with billing access", ui.UseEvent(func() {
-					setLiveSession(sessionAtom, demoSession{Status: sessionAuthenticated, Subject: "atlas-finance", CanViewBilling: true})
-					nav.Replace(returnTo)
+					setLiveSession(parseSessionAtom, demoSession{Status: sessionAuthenticated, Subject: "atlas-finance", CanViewBilling: true})
+					parseNav.Replace(parseReturnTo)
 				})),
 				shared.ExampleButton("Stay signed out", ui.UseEvent(func() {
-					setLiveSession(sessionAtom, demoSession{Status: sessionUnauthenticated})
-					nav.Replace("/")
+					setLiveSession(parseSessionAtom, demoSession{Status: sessionUnauthenticated})
+					parseNav.Replace("/")
 				})),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
-				shared.ExampleStat("Session", session.Status),
-				shared.ExampleStat("Subject", emptyFallback(session.Subject, "guest")),
-				shared.ExampleStat("Billing claim", fmt.Sprintf("%t", session.CanViewBilling)),
+				shared.ExampleStat("Session", parseSession.Status),
+				shared.ExampleStat("Subject", emptyFallback(parseSession.Subject, "guest")),
+				shared.ExampleStat("Billing claim", fmt.Sprintf("%t", parseSession.CanViewBilling)),
 			),
 		),
 	)
@@ -163,62 +163,62 @@ func loginPage(router.Attrs) *router.Element {
 	return ui.CreateElement(loginPageView)
 }
 
-func workspacePageView(props router.Attrs) ui.Node {
-	nav := router.UseNavigate()
-	search := router.UseSearchParams()
-	revalidator := router.UseRevalidator()
-	sessionAtom := state.UseAtom(sessionAtomID, liveSession)
-	session := sessionAtom.Get()
+func workspacePageView(parseProps router.Attrs) ui.Node {
+	parseNav := router.UseNavigate()
+	parseSearch := router.UseSearchParams()
+	parseRevalidator := router.UseRevalidator()
+	parseSessionAtom := state.UseAtom(sessionAtomID, liveSession)
+	parseSession := parseSessionAtom.Get()
 
-	cacheKey, _ := props["cacheKey"].(string)
-	loaderSummary, _ := props["summary"].(workspaceSummary)
-	tab := search.Get("tab")
-	if tab == "" {
-		tab = "overview"
+	cacheKey, _ := parseProps["cacheKey"].(string)
+	parseLoaderSummary, _ := parseProps["summary"].(workspaceSummary)
+	parseTab := parseSearch.Get("tab")
+	if parseTab == "" {
+		parseTab = "overview"
 	}
 
-	resource := fetch.UseCachedResource(cacheKey, func(ctx context.Context) (workspaceSummary, error) {
-		return loadWorkspaceSummary(ctx, session.Subject)
+	parseResource := fetch.UseCachedResource(cacheKey, func(parseCtx context.Context) (workspaceSummary, error) {
+		return loadWorkspaceSummary(parseCtx, parseSession.Subject)
 	}, fetch.CacheOptions{
 		StaleAfter:   20 * time.Second,
 		MaxAge:       90 * time.Second,
 		DisposeAfter: 3 * time.Minute,
 	})
-	cacheState := resource.Get()
+	cacheState := parseResource.Get()
 
-	resolveSignedIn := ui.UseEvent(func() {
-		setLiveSession(sessionAtom, demoSession{Status: sessionAuthenticated, Subject: "atlas-admin", CanViewBilling: false})
-		revalidator.Revalidate()
+	parseResolveSignedIn := ui.UseEvent(func() {
+		setLiveSession(parseSessionAtom, demoSession{Status: sessionAuthenticated, Subject: "atlas-admin", CanViewBilling: false})
+		parseRevalidator.Revalidate()
 	})
-	resolveGuest := ui.UseEvent(func() {
-		setLiveSession(sessionAtom, demoSession{Status: sessionUnauthenticated})
-		values := url.Values{}
-		values.Set(router.ReturnToParam, router.PreserveReturnTo("/workspace", search.Values()))
-		nav.Replace("/login?" + values.Encode())
+	parseResolveGuest := ui.UseEvent(func() {
+		setLiveSession(parseSessionAtom, demoSession{Status: sessionUnauthenticated})
+		parseValues := url.Values{}
+		parseValues.Set(router.ReturnToParam, router.PreserveReturnTo("/workspace", parseSearch.Values()))
+		parseNav.Replace("/login?" + parseValues.Encode())
 	})
-	showOverview := ui.UseEvent(func() { search.Replace("tab", "overview") })
-	showBilling := ui.UseEvent(func() { search.Replace("tab", "billing") })
-	grantBilling := ui.UseEvent(func() {
-		setLiveSession(sessionAtom, demoSession{Status: sessionAuthenticated, Subject: session.Subject, CanViewBilling: true})
+	parseShowOverview := ui.UseEvent(func() { parseSearch.Replace("tab", "overview") })
+	parseShowBilling := ui.UseEvent(func() { parseSearch.Replace("tab", "billing") })
+	parseGrantBilling := ui.UseEvent(func() {
+		setLiveSession(parseSessionAtom, demoSession{Status: sessionAuthenticated, Subject: parseSession.Subject, CanViewBilling: true})
 	})
-	refreshBoth := ui.UseEvent(func() {
+	parseRefreshBoth := ui.UseEvent(func() {
 		if cacheKey != "" {
 			fetch.InvalidateResource(cacheKey)
 		}
-		revalidator.Revalidate()
+		parseRevalidator.Revalidate()
 	})
-	disposeAndRefresh := ui.UseEvent(func() {
-		resource.Dispose()
-		revalidator.Revalidate()
+	parseDisposeAndRefresh := ui.UseEvent(func() {
+		parseResource.Dispose()
+		parseRevalidator.Revalidate()
 	})
-	signOut := ui.UseEvent(func() {
-		setLiveSession(sessionAtom, demoSession{Status: sessionUnauthenticated})
-		values := url.Values{}
-		values.Set(router.ReturnToParam, router.PreserveReturnTo("/workspace", search.Values()))
-		nav.Replace("/login?" + values.Encode())
+	parseSignOut := ui.UseEvent(func() {
+		setLiveSession(parseSessionAtom, demoSession{Status: sessionUnauthenticated})
+		parseValues2 := url.Values{}
+		parseValues2.Set(router.ReturnToParam, router.PreserveReturnTo("/workspace", parseSearch.Values()))
+		parseNav.Replace("/login?" + parseValues2.Encode())
 	})
 
-	if session.Status == sessionUnknown {
+	if parseSession.Status == sessionUnknown {
 		return shared.ExamplePage(
 			"Protected Workspace",
 			"manual authorizing UI",
@@ -226,14 +226,14 @@ func workspacePageView(props router.Attrs) ui.Node {
 			shared.ExamplePanel("Authorizing",
 				html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("Session state is still unknown, so the route holds on to explicit authorizing UI instead of guessing. Pick an outcome below to complete the flow.")),
 				html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-					shared.ExampleButton("Restore signed-in session", resolveSignedIn),
-					shared.ExampleButton("Resolve as guest", resolveGuest),
+					shared.ExampleButton("Restore signed-in session", parseResolveSignedIn),
+					shared.ExampleButton("Resolve as guest", parseResolveGuest),
 				),
 			),
 		)
 	}
 
-	if tab == "billing" && !session.CanViewBilling {
+	if parseTab == "billing" && !parseSession.CanViewBilling {
 		return shared.ExamplePage(
 			"Protected Workspace",
 			"manual unauthorized fallback",
@@ -241,9 +241,9 @@ func workspacePageView(props router.Attrs) ui.Node {
 			shared.ExamplePanel("Unauthorized billing section",
 				html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("Router-level Unauthorized content is still future work. Today the app renders its own fallback for forbidden subsections, keeps the rest of the shell intact, and lets the user request a different claim set or navigate elsewhere.")),
 				html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-					shared.ExampleButton("Back to overview", showOverview),
-					shared.ExampleButton("Grant billing claim", grantBilling),
-					shared.ExampleButton("Sign out", signOut),
+					shared.ExampleButton("Back to overview", parseShowOverview),
+					shared.ExampleButton("Grant billing claim", parseGrantBilling),
+					shared.ExampleButton("Sign out", parseSignOut),
 				),
 			),
 		)
@@ -262,16 +262,16 @@ func workspacePageView(props router.Attrs) ui.Node {
 		"The route loader seeds the shared cache through fetch.LoadCached(...), and the component reads the same key through fetch.UseCachedResource(...). That keeps route-scoped data and component-level cache state aligned without a second fetch path.",
 		shared.ExamplePanel("Protected shell",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-				shared.ExampleButton("Overview tab", showOverview),
-				shared.ExampleButton("Billing tab", showBilling),
-				shared.ExampleButton("Revalidate route + cache", refreshBoth),
-				shared.ExampleButton("Dispose cache entry", disposeAndRefresh),
-				shared.ExampleButton("Sign out", signOut),
+				shared.ExampleButton("Overview tab", parseShowOverview),
+				shared.ExampleButton("Billing tab", parseShowBilling),
+				shared.ExampleButton("Revalidate route + cache", parseRefreshBoth),
+				shared.ExampleButton("Dispose cache entry", parseDisposeAndRefresh),
+				shared.ExampleButton("Sign out", parseSignOut),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-4"},
-				shared.ExampleStat("Active tab", tab),
-				shared.ExampleStat("Subject", session.Subject),
-				shared.ExampleStat("Loader revision", fmt.Sprintf("%d", loaderSummary.Revision)),
+				shared.ExampleStat("Active tab", parseTab),
+				shared.ExampleStat("Subject", parseSession.Subject),
+				shared.ExampleStat("Loader revision", fmt.Sprintf("%d", parseLoaderSummary.Revision)),
 				shared.ExampleStat("Shared cache revision", cacheRevision),
 			),
 			html.P(html.Props{Class: "mt-4 leading-7 text-slate-300"}, html.Text("The route loader and component reader share key "+emptyFallback(cacheKey, "<none>")+". If the route loader already filled it, the widget below starts ready instead of kicking off a second request.")),
@@ -296,13 +296,13 @@ func workspacePageView(props router.Attrs) ui.Node {
 	)
 }
 
-func workspacePage(props router.Attrs) *router.Element {
+func workspacePage(parseProps router.Attrs) *router.Element {
 	return ui.CreateElement(func() ui.Node {
-		return workspacePageView(props)
+		return workspacePageView(parseProps)
 	})
 }
 
-func routeLoading(props router.Attrs) *router.Element {
+func routeLoading(parseProps router.Attrs) *router.Element {
 	return ui.CreateElement(func() ui.Node {
 		return shared.ExamplePage(
 			"Protected Workspace",
@@ -315,71 +315,71 @@ func routeLoading(props router.Attrs) *router.Element {
 	})
 }
 
-func routeError(props router.Attrs) *router.Element {
-	message, _ := props["error"].(string)
+func routeError(parseProps router.Attrs) *router.Element {
+	parseMessage, _ := parseProps["error"].(string)
 	return ui.CreateElement(func() ui.Node {
 		return shared.ExamplePage(
 			"Protected Workspace",
 			"route error state",
 			"Route loader failures stay explicit and user-visible.",
 			shared.ExamplePanel("Error",
-				html.P(html.Props{Class: "mt-3 leading-7 text-rose-200"}, html.Text(emptyFallback(message, "Route load failed"))),
+				html.P(html.Props{Class: "mt-3 leading-7 text-rose-200"}, html.Text(emptyFallback(parseMessage, "Route load failed"))),
 			),
 		)
 	})
 }
 
-func protectedGuard(ctx router.RouteContext) router.GuardResult {
+func protectedGuard(parseCtx router.RouteContext) router.GuardResult {
 	if liveSession.Status != sessionUnauthenticated {
 		return router.AllowNavigation()
 	}
-	values := url.Values{}
-	values.Set(router.ReturnToParam, router.PreserveReturnTo(ctx.Path, ctx.Query.Values()))
-	return router.RedirectNavigation("/login?" + values.Encode())
+	parseValues := url.Values{}
+	parseValues.Set(router.ReturnToParam, router.PreserveReturnTo(parseCtx.Path, parseCtx.Query.Values()))
+	return router.RedirectNavigation("/login?" + parseValues.Encode())
 }
 
-func workspaceLoader(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
+func workspaceLoader(parseCtx context.Context, parseRouteCtx router.RouteContext) (router.Attrs, error) {
 	if liveSession.Status != sessionAuthenticated {
 		return router.Attrs{}, nil
 	}
 
 	cacheKey := workspaceSummaryKey(liveSession.Subject)
-	summary, err := fetch.LoadCached(ctx, cacheKey, func(loadCtx context.Context) (workspaceSummary, error) {
-		return loadWorkspaceSummary(loadCtx, liveSession.Subject)
+	parseSummary, parseErr := fetch.LoadCached(parseCtx, cacheKey, func(parseLoadCtx context.Context) (workspaceSummary, error) {
+		return loadWorkspaceSummary(parseLoadCtx, liveSession.Subject)
 	}, fetch.CacheOptions{
 		StaleAfter:   20 * time.Second,
 		MaxAge:       90 * time.Second,
 		DisposeAfter: 3 * time.Minute,
 	})
-	if err != nil {
-		return nil, err
+	if parseErr != nil {
+		return nil, parseErr
 	}
 	return router.Attrs{
 		"cacheKey": cacheKey,
-		"summary":  summary,
+		"summary":  parseSummary,
 	}, nil
 }
 
-func emptyFallback(value, fallback string) string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return fallback
+func emptyFallback(parseValue, parseFallback string) string {
+	parseTrimmed := strings.TrimSpace(parseValue)
+	if parseTrimmed == "" {
+		return parseFallback
 	}
-	return trimmed
+	return parseTrimmed
 }
 
 func main() {
 	utils.DisableAllDebug()
 	hotreload.Enable()
-	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
-	r.Register("/", homePage)
-	r.Register("/login", loginPage)
-	r.Register("/workspace", workspacePage, router.Options{
+	parseR := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
+	parseR.Register("/", homePage)
+	parseR.Register("/login", loginPage)
+	parseR.Register("/workspace", workspacePage, router.Options{
 		BeforeEnter: protectedGuard,
 		Loader:      workspaceLoader,
 		Loading:     routeLoading,
 		Error:       routeError,
 	})
-	r.Mount("#app")
+	parseR.Mount("#app")
 	select {}
 }

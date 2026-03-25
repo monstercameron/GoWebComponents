@@ -1,5 +1,5 @@
 package app
 
-func hasScrollSpaceBelow(scrollTop, scrollHeight, clientHeight, threshold float64) bool {
-	return scrollHeight-scrollTop-clientHeight > threshold
+func hasScrollSpaceBelow(parseScrollTop, parseScrollHeight, parseClientHeight, parseThreshold float64) bool {
+	return parseScrollHeight-parseScrollTop-parseClientHeight > parseThreshold
 }

@@ -9,15 +9,15 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func markdownRenderOptions(sourcePath string) gwchtml.MarkdownRenderOptions {
+func markdownRenderOptions(parseSourcePath string) gwchtml.MarkdownRenderOptions {
 	return gwchtml.MarkdownRenderOptions{
-		SourcePath:     sourcePath,
+		SourcePath:     parseSourcePath,
 		CodeBlockLabel: labelExampleMarkdown,
 		LinkTarget:     "_blank",
 		LinkRel:        "noreferrer",
-		ResolveHref: func(sourcePath, destination string) string {
-			resolved := gwchtml.ResolveMarkdownHref(sourcePath, destination)
-			return markdownDocumentHref(resolved)
+		ResolveHref: func(parseSourcePath2, parseDestination string) string {
+			parseResolved := gwchtml.ResolveMarkdownHref(parseSourcePath2, parseDestination)
+			return markdownDocumentHref(parseResolved)
 		},
 		Classes: gwchtml.MarkdownClasses{
 			Heading1:           "text-white font-semibold tracking-tight text-3xl",
@@ -42,38 +42,38 @@ func markdownRenderOptions(sourcePath string) gwchtml.MarkdownRenderOptions {
 	}
 }
 
-func markdownDocumentHref(sourcePath string) (href string) {
-	if sourcePath == "" {
+func markdownDocumentHref(parseSourcePath string) (parseHref string) {
+	if parseSourcePath == "" {
 		return ""
 	}
 	defer func() {
 		if recover() != nil {
-			href = sourcePath
+			parseHref = parseSourcePath
 		}
 	}()
-	return docsSourceURL(sourcePath)
+	return docsSourceURL(parseSourcePath)
 }
 
-func renderMarkdownState(panelProps contentPanelProps) ui.Node {
+func renderMarkdownState(parsePanelProps contentPanelProps) ui.Node {
 	switch {
-	case panelProps.MarkdownLoading && !panelProps.MarkdownReady:
+	case parsePanelProps.MarkdownLoading && !parsePanelProps.MarkdownReady:
 		return Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(messageDocLoading))
-	case panelProps.MarkdownError != "" && !panelProps.MarkdownReady:
+	case parsePanelProps.MarkdownError != "" && !parsePanelProps.MarkdownReady:
 		return Div(Class("rounded-[20px] border border-rose-400/20 bg-rose-400/10 p-4"),
 			Div(Class("text-sm font-medium text-rose-100"), Text("Document request failed")),
-			P(Class("mt-2 text-sm leading-7 text-rose-50/90"), Text(panelProps.MarkdownError)),
-			Button(Type("button"), OnClick(panelProps.OnRetryMarkdown), Class("mt-4 cursor-pointer rounded-2xl border border-rose-300/30 bg-rose-400/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"), Text(buttonRetryDocument)),
+			P(Class("mt-2 text-sm leading-7 text-rose-50/90"), Text(parsePanelProps.MarkdownError)),
+			Button(Type("button"), OnClick(parsePanelProps.OnRetryMarkdown), Class("mt-4 cursor-pointer rounded-2xl border border-rose-300/30 bg-rose-400/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"), Text(buttonRetryDocument)),
 		)
-	case panelProps.Item.Content.SourcePath == "":
+	case parsePanelProps.Item.Content.SourcePath == "":
 		return Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(messageDocUnavailable))
-	case panelProps.MarkdownReady:
-		markdownNodes := gwchtml.RenderMarkdown(panelProps.MarkdownBody, markdownRenderOptions(panelProps.Item.Content.SourcePath))
-		if len(markdownNodes) == 0 {
+	case parsePanelProps.MarkdownReady:
+		parseMarkdownNodes := gwchtml.RenderMarkdown(parsePanelProps.MarkdownBody, markdownRenderOptions(parsePanelProps.Item.Content.SourcePath))
+		if len(parseMarkdownNodes) == 0 {
 			return Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(messageDocEmpty))
 		}
 		return Div(Class("space-y-4"),
 			Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelRenderedMarkdown)),
-			Div(Class("space-y-4"), markdownNodes),
+			Div(Class("space-y-4"), parseMarkdownNodes),
 		)
 	default:
 		return Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(messageDocLoading))

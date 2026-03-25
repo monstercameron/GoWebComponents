@@ -12,56 +12,56 @@ import (
 )
 
 // emitBrowserPanicReport is a core package helper.
-func emitBrowserPanicReport(parseReport PanicReport) bool {
-	parseGlobal, parseErr := interop.GetGlobalThis()
-	if parseErr != nil {
+func emitBrowserPanicReport(parsePanicReport PanicReport) bool {
+	parseBrowserGlobal, parseGlobalErr := interop.GetGlobalThis()
+	if parseGlobalErr != nil {
 		return false
 	}
-	parseConsole := parseGlobal.Get("console")
-	if !parseConsole.Present() {
+	parseBrowserConsole := parseBrowserGlobal.Get("console")
+	if !parseBrowserConsole.Present() {
 		return false
 	}
 
-	parseHeader := fmt.Sprintf("[%s] %s panic in %s", parseReport.Code, parseReport.Phase, parseReport.Subject)
-	if parseSummary := strings.TrimSpace(parseReport.Summary); parseSummary != "" {
-		parseHeader += ": " + parseSummary
+	parsePanicHeader := fmt.Sprintf("[%s] %s panic in %s", parsePanicReport.Code, parsePanicReport.Phase, parsePanicReport.Subject)
+	if parsePanicSummary := strings.TrimSpace(parsePanicReport.Summary); parsePanicSummary != "" {
+		parsePanicHeader += ": " + parsePanicSummary
 	}
-	parsePayload := map[string]any{
-		"source":          parseReport.Source,
-		"phase":           string(parseReport.Phase),
-		"subject":         parseReport.Subject,
-		"where":           parseReport.Where,
-		"path":            parseReport.Path,
-		"error":           parseReport.Summary,
-		"runtime":         parseReport.Consequence,
-		"next":            parseReport.Remediation,
-		"docs":            parseReport.Docs,
-		"code":            parseReport.Code,
-		"componentStack":  parseReport.ComponentStack,
-		"appFrames":       parseReport.AppFrames,
-		"frameworkFrames": parseReport.FrameworkFrames,
-		"platformFrames":  parseReport.PlatformFrames,
-		"artifact":        parseReport.Artifact,
+	parsePanicPayload := map[string]any{
+		"source":          parsePanicReport.Source,
+		"phase":           string(parsePanicReport.Phase),
+		"subject":         parsePanicReport.Subject,
+		"where":           parsePanicReport.Where,
+		"path":            parsePanicReport.Path,
+		"error":           parsePanicReport.Summary,
+		"runtime":         parsePanicReport.Consequence,
+		"next":            parsePanicReport.Remediation,
+		"docs":            parsePanicReport.Docs,
+		"code":            parsePanicReport.Code,
+		"componentStack":  parsePanicReport.ComponentStack,
+		"appFrames":       parsePanicReport.AppFrames,
+		"frameworkFrames": parsePanicReport.FrameworkFrames,
+		"platformFrames":  parsePanicReport.PlatformFrames,
+		"artifact":        parsePanicReport.Artifact,
 	}
-	parsePayloadLine := "[GWC structured panic]"
-	if parseEncoded, parseErr2 := json.Marshal(parsePayload); parseErr2 == nil {
-		parsePayloadLine += " " + string(parseEncoded)
+	parsePanicPayloadLine := "[GWC structured panic]"
+	if parsePanicPayloadEncoded, parsePanicPayloadErr := json.Marshal(parsePanicPayload); parsePanicPayloadErr == nil {
+		parsePanicPayloadLine += " " + string(parsePanicPayloadEncoded)
 	}
 
-	isParseEmitted := false
-	isParseGrouped := false
-	if _, parseErr3 := parseConsole.Call("groupCollapsed", parseHeader); parseErr3 == nil {
-		isParseEmitted = true
-		isParseGrouped = true
+	isPanicEmitted := false
+	isPanicGrouped := false
+	if _, parseGroupErr := parseBrowserConsole.Call("groupCollapsed", parsePanicHeader); parseGroupErr == nil {
+		isPanicEmitted = true
+		isPanicGrouped = true
 	}
-	if _, parseErr4 := parseConsole.Call("error", parseReport.Formatted); parseErr4 == nil {
-		isParseEmitted = true
+	if _, parseErrorErr := parseBrowserConsole.Call("error", parsePanicReport.Formatted); parseErrorErr == nil {
+		isPanicEmitted = true
 	}
-	if _, parseErr5 := parseConsole.Call("log", parsePayloadLine); parseErr5 == nil {
-		isParseEmitted = true
+	if _, parseLogErr := parseBrowserConsole.Call("log", parsePanicPayloadLine); parseLogErr == nil {
+		isPanicEmitted = true
 	}
-	if isParseGrouped {
-		_, _ = parseConsole.Call("groupEnd")
+	if isPanicGrouped {
+		_, _ = parseBrowserConsole.Call("groupEnd")
 	}
-	return isParseEmitted
+	return isPanicEmitted
 }

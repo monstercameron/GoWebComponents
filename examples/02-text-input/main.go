@@ -15,17 +15,17 @@ import (
 
 // Text input component - demonstrates string state management
 func TextInputExample() ui.Node {
-	text := ui.UseState("")
-	currentText := text.Get()
-	debouncedText := ui.UseDebounced(currentText, 450*time.Millisecond)
-	throttledCount := ui.UseThrottled(len(currentText), 250*time.Millisecond)
+	parseText := ui.UseState("")
+	parseCurrentText := parseText.Get()
+	parseDebouncedText := ui.UseDebounced(parseCurrentText, 450*time.Millisecond)
+	parseThrottledCount := ui.UseThrottled(len(parseCurrentText), 250*time.Millisecond)
 
-	handleInput := ui.UseEvent(func(event ui.InputEvent) {
-		text.Set(event.GetValue())
+	handleInput := ui.UseEvent(func(parseEvent ui.InputEvent) {
+		parseText.Set(parseEvent.GetValue())
 	})
 
 	clear := ui.UseEvent(func() {
-		text.Set("")
+		parseText.Set("")
 	})
 
 	return h.Div(
@@ -46,7 +46,7 @@ func TextInputExample() ui.Node {
 				),
 				h.Input(
 					h.Type("text"),
-					h.Value(currentText),
+					h.Value(parseCurrentText),
 					h.OnInput(handleInput),
 					h.Class("w-full px-4 py-3 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-white placeholder-gray-600 transition-all"),
 					h.Placeholder("Enter text here..."),
@@ -82,10 +82,10 @@ func TextInputExample() ui.Node {
 					h.P(
 						h.Class("text-lg text-white font-medium break-all min-h-[1.75rem]"),
 						h.Text(func() string {
-							if currentText == "" {
+							if parseCurrentText == "" {
 								return "..."
 							}
-							return currentText
+							return parseCurrentText
 						}),
 					),
 				),
@@ -98,16 +98,16 @@ func TextInputExample() ui.Node {
 					h.P(
 						h.Class("text-lg text-white font-medium break-all min-h-[1.75rem]"),
 						h.Text(func() string {
-							if debouncedText.Get() == "" {
+							if parseDebouncedText.Get() == "" {
 								return "..."
 							}
-							return debouncedText.Get()
+							return parseDebouncedText.Get()
 						}),
 					),
 					h.P(
 						h.Class("mt-2 text-xs text-cyan-300"),
 						h.Text(func() string {
-							if debouncedText.Pending() {
+							if parseDebouncedText.Pending() {
 								return "Waiting for debounce window"
 							}
 							return "Debounced value settled"
@@ -124,10 +124,10 @@ func TextInputExample() ui.Node {
 				h.P(
 					h.Class("text-xl text-white mb-4 font-medium break-all"),
 					h.Text(func() string {
-						if currentText == "" {
+						if parseCurrentText == "" {
 							return "..."
 						}
-						return currentText
+						return parseCurrentText
 					}),
 				),
 				h.Div(
@@ -138,7 +138,7 @@ func TextInputExample() ui.Node {
 					),
 					h.Span(
 						h.Class("text-blue-400 font-mono font-bold"),
-						h.Textf("%d", len(currentText)),
+						h.Textf("%d", len(parseCurrentText)),
 					),
 				),
 				h.Div(
@@ -149,13 +149,13 @@ func TextInputExample() ui.Node {
 					),
 					h.Span(
 						h.Class("text-cyan-300 font-mono font-bold"),
-						h.Textf("%d", throttledCount.Get()),
+						h.Textf("%d", parseThrottledCount.Get()),
 					),
 				),
 				h.P(
 					h.Class("mt-3 text-xs text-cyan-300"),
 					h.Text(func() string {
-						if throttledCount.Pending() {
+						if parseThrottledCount.Pending() {
 							return "Count is throttled while typing"
 						}
 						return "Count is synced"

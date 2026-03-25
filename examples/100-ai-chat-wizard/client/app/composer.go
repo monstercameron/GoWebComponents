@@ -21,8 +21,8 @@ type composerProps struct {
 	OnSend             ui.Handler
 }
 
-func inputArea(props composerProps) ui.Node {
-	sendable := strings.TrimSpace(props.Value) != "" && !props.Disabled
+func parseInputArea(parseProps composerProps) ui.Node {
+	isParseSendable := strings.TrimSpace(parseProps.Value) != "" && !parseProps.Disabled
 	return Div(
 		Class("shrink-0 pb-0.5 px-4"),
 		Div(Class("max-w-[72rem] mx-auto"),
@@ -32,50 +32,50 @@ func inputArea(props composerProps) ui.Node {
 				Tag("textarea",
 					ID(idChatInput),
 					Class("flex-1 bg-transparent resize-none text-[1.3125rem] text-white placeholder:text-white/40 focus:outline-none leading-relaxed min-h-[1.5rem]"),
-					Placeholder(props.Intl.T(chatI18nNamespace, "input.placeholder")),
-					Value(props.Value),
-					OnInput(props.OnInput),
-					OnKeyDown(props.OnKeyDown),
+					Placeholder(parseProps.Intl.T(chatI18nNamespace, "input.placeholder")),
+					Value(parseProps.Value),
+					OnInput(parseProps.OnInput),
+					OnKeyDown(parseProps.OnKeyDown),
 				),
 				Div(Class("flex items-center gap-2 shrink-0 self-end"),
 					Button(
 						ID(idSendBtn),
 						Class(ClassNames(
 							"w-8 h-8 flex items-center justify-center rounded-full transition-colors shrink-0",
-							When(sendable, "bg-white text-black hover:bg-white/90"),
-							When(!sendable, "bg-white/10 text-white/30 cursor-not-allowed"),
+							When(isParseSendable, "bg-white text-black hover:bg-white/90"),
+							When(!isParseSendable, "bg-white/10 text-white/30 cursor-not-allowed"),
 						)),
-						DisabledIf(!sendable),
-						OnClick(props.OnSend),
+						DisabledIf(!isParseSendable),
+						OnClick(parseProps.OnSend),
 						Span(Class("text-sm leading-none select-none"), Text("\u2191")),
 					),
 					Tag("span",
 						Class("text-white/25 text-base leading-none cursor-default select-none"),
-						FromProps(Props{Raw: map[string]interface{}{"title": props.Intl.T(chatI18nNamespace, "input.disclaimer")}}),
+						FromProps(Props{Raw: map[string]interface{}{"title": parseProps.Intl.T(chatI18nNamespace, "input.disclaimer")}}),
 						Text("\u24d8"),
 					),
 				),
 			),
-			If(props.ThreadCostSummary.HasAnyExactCosts && props.ThreadCostSummary.TotalCost > 0,
+			If(parseProps.ThreadCostSummary.HasAnyExactCosts && parseProps.ThreadCostSummary.TotalCost > 0,
 				P(Class("text-right text-base text-white/20 mt-1 pr-1"),
 					Text(func() string {
-						cost := formatCostUSD(props.ThreadCostSummary.TotalCost)
-						if props.ThreadCostSummary.AllAssistantCostsExact {
-							return props.Intl.T(chatI18nNamespace, "input.threadTotal", i18n.Arguments{"cost": cost})
+						parseCost := formatCostUSD(parseProps.ThreadCostSummary.TotalCost)
+						if parseProps.ThreadCostSummary.AllAssistantCostsExact {
+							return parseProps.Intl.T(chatI18nNamespace, "input.threadTotal", i18n.Arguments{"cost": parseCost})
 						}
-						return props.Intl.T(chatI18nNamespace, "input.threadTotalPartial", i18n.Arguments{"cost": cost})
+						return parseProps.Intl.T(chatI18nNamespace, "input.threadTotalPartial", i18n.Arguments{"cost": parseCost})
 					}()),
 				),
 			),
-			If(props.AccountCostSummary.HasAnyExactCosts && props.AccountCostSummary.TotalCost > 0,
+			If(parseProps.AccountCostSummary.HasAnyExactCosts && parseProps.AccountCostSummary.TotalCost > 0,
 				P(Class("text-right text-sm text-white/35 mt-0.5 pr-1"),
 					Text(func() string {
-						cost := formatCostUSD(props.AccountCostSummary.TotalCost)
-						premiumPct := formatPercentValue(props.AccountCostSummary.PremiumPercent)
-						if props.AccountCostSummary.AllThreadCostsExact {
-							return props.Intl.T(chatI18nNamespace, "input.accountTotal", i18n.Arguments{"cost": cost, "premiumPercent": premiumPct})
+						parseCost2 := formatCostUSD(parseProps.AccountCostSummary.TotalCost)
+						parsePremiumPct := formatPercentValue(parseProps.AccountCostSummary.PremiumPercent)
+						if parseProps.AccountCostSummary.AllThreadCostsExact {
+							return parseProps.Intl.T(chatI18nNamespace, "input.accountTotal", i18n.Arguments{"cost": parseCost2, "premiumPercent": parsePremiumPct})
 						}
-						return props.Intl.T(chatI18nNamespace, "input.accountTotalPartial", i18n.Arguments{"cost": cost, "premiumPercent": premiumPct})
+						return parseProps.Intl.T(chatI18nNamespace, "input.accountTotalPartial", i18n.Arguments{"cost": parseCost2, "premiumPercent": parsePremiumPct})
 					}()),
 				),
 			),

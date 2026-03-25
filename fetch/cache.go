@@ -143,1130 +143,1167 @@ type cachedResourceWaiters struct {
 	once sync.Once
 }
 
+// newCachedResourceWaiters is an internal cache helper.
 func newCachedResourceWaiters() *cachedResourceWaiters {
 	return &cachedResourceWaiters{ch: make(chan struct{})}
 }
 
-func (w *cachedResourceWaiters) Done() <-chan struct{} {
-	if w == nil {
+// Done is an internal cache helper.
+func (parseW *cachedResourceWaiters) Done() <-chan struct{} {
+	if parseW == nil {
 		return nil
 	}
-	return w.ch
+	return parseW.ch
 }
 
-func (w *cachedResourceWaiters) Close() {
-	if w == nil {
+// Close is an internal cache helper.
+func (parseW *cachedResourceWaiters) Close() {
+	if parseW == nil {
 		return
 	}
-	w.once.Do(func() {
-		close(w.ch)
+	parseW.once.Do(func() {
+		close(parseW.ch)
 	})
 }
 
-func UseCachedResource[T any](key string, loader func(context.Context) (T, error), options ...CacheOptions) CachedResource[T] {
-	resolved := resolveCacheOptions(options)
-	entry := getCachedResourceEntry(key)
-	configureCachedResourceEntry[T](key, entry, resolved)
-	prepareCachedResourceEntry(key, entry)
+// UseCachedResource is an internal cache helper.
+func UseCachedResource[T any](parseKey string, parseLoader func(context.Context) (T, error), parseOptions ...CacheOptions) CachedResource[T] {
+	parseResolved := resolveCacheOptions(parseOptions)
+	parseEntry := getCachedResourceEntry(parseKey)
+	configureCachedResourceEntry[T](parseKey, parseEntry, parseResolved)
+	prepareCachedResourceEntry(parseKey, parseEntry)
 
-	snapshotAtom := state.UseAtom(cachedResourceAtomID(key), cachedResourceSnapshot{})
-	snapshot := snapshotAtom.Get()
+	parseSnapshotAtom := state.UseAtom(cachedResourceAtomID(parseKey), cachedResourceSnapshot{})
+	parseSnapshot := parseSnapshotAtom.Get()
 
 	ui.UseEffect(func() func() {
-		if key == "" || loader == nil {
+		if parseKey == "" || parseLoader == nil {
 			return nil
 		}
 
-		startCachedLoad(key, entry, func(ctx context.Context) (interface{}, error) {
-			return loader(ctx)
+		startCachedLoad(parseKey, parseEntry, func(parseCtx context.Context) (interface{}, error) {
+			return parseLoader(parseCtx)
 		}, false, nil)
 		return nil
-	}, key, snapshot.Ready, snapshot.Stale, snapshot.Loading, snapshot.UpdatedAt, resolved.StaleAfter)
+	}, parseKey, parseSnapshot.Ready, parseSnapshot.Stale, parseSnapshot.Loading, parseSnapshot.UpdatedAt, parseResolved.StaleAfter)
 
 	ui.UseEffect(func() func() {
-		if key == "" {
+		if parseKey == "" {
 			return nil
 		}
-		ownerPath := runtime.CurrentFiberPath()
-		retainCachedResource(key, ownerPath)
+		parseOwnerPath := runtime.CurrentFiberPath()
+		retainCachedResource(parseKey, parseOwnerPath)
 		return func() {
-			releaseCachedResource(key, ownerPath)
+			releaseCachedResource(parseKey, parseOwnerPath)
 		}
-	}, key)
+	}, parseKey)
 
 	return CachedResource[T]{
 		get: func() CachedResourceState[T] {
-			prepareCachedResourceEntry(key, entry)
-			return toPublicCachedState[T](currentCachedSnapshot(key))
+			prepareCachedResourceEntry(parseKey, parseEntry)
+			return toPublicCachedState[T](currentCachedSnapshot(parseKey))
 		},
 		reload: func() {
-			if key == "" || loader == nil {
+			if parseKey == "" || parseLoader == nil {
 				return
 			}
-			startCachedLoad(key, entry, func(ctx context.Context) (interface{}, error) {
-				return loader(ctx)
+			startCachedLoad(parseKey, parseEntry, func(parseCtx2 context.Context) (interface{}, error) {
+				return parseLoader(parseCtx2)
 			}, true, nil)
 		},
 		cancel: func() {
-			cancelCachedLoad(key)
+			cancelCachedLoad(parseKey)
 		},
 		invalidate: func() {
-			InvalidateResource(key)
+			InvalidateResource(parseKey)
 		},
 		dispose: func() {
-			DisposeResource(key)
+			DisposeResource(parseKey)
 		},
-		set: func(value T) {
-			setCachedValue(key, value)
+		set: func(parseValue T) {
+			setCachedValue(parseKey, parseValue)
 		},
-		update: func(fn func(T) T) {
-			if fn == nil {
+		update: func(parseFn func(T) T) {
+			if parseFn == nil {
 				return
 			}
-			updateCachedSnapshot(key, func(prev cachedResourceSnapshot) cachedResourceSnapshot {
-				current, _ := castCachedValue[T](prev.Value)
-				prev.Value = fn(current)
-				prev.Loading = false
-				prev.Error = nil
-				prev.Ready = true
-				prev.Stale = false
-				prev.UpdatedAt = time.Now()
-				return prev
+			updateCachedSnapshot(parseKey, func(parsePrev cachedResourceSnapshot) cachedResourceSnapshot {
+				parseCurrent, _ := castCachedValue[T](parsePrev.Value)
+				parsePrev.Value = parseFn(parseCurrent)
+				parsePrev.Loading = false
+				parsePrev.Error = nil
+				parsePrev.Ready = true
+				parsePrev.Stale = false
+				parsePrev.UpdatedAt = time.Now()
+				return parsePrev
 			})
-			markCachedEntryFresh(key)
-			persistCachedSnapshot(key)
+			markCachedEntryFresh(parseKey)
+			persistCachedSnapshot(parseKey)
 		},
 	}
 }
 
 // Get returns the current cached resource state.
-func (r CachedResource[T]) Get() CachedResourceState[T] {
-	if r.get == nil {
-		var zero CachedResourceState[T]
-		return zero
+func (parseR CachedResource[T]) Get() CachedResourceState[T] {
+	if parseR.get == nil {
+		var parseZero CachedResourceState[T]
+		return parseZero
 	}
 
-	return r.get()
+	return parseR.get()
 }
 
 // Reload starts a new cached resource load.
-func (r CachedResource[T]) Reload() {
-	if r.reload != nil {
-		r.reload()
+func (parseR CachedResource[T]) Reload() {
+	if parseR.reload != nil {
+		parseR.reload()
 	}
 }
 
 // Cancel cancels the active cached resource load, if any.
-func (r CachedResource[T]) Cancel() {
-	if r.cancel != nil {
-		r.cancel()
+func (parseR CachedResource[T]) Cancel() {
+	if parseR.cancel != nil {
+		parseR.cancel()
 	}
 }
 
 // Invalidate marks the cached value stale and eligible for revalidation.
-func (r CachedResource[T]) Invalidate() {
-	if r.invalidate != nil {
-		r.invalidate()
+func (parseR CachedResource[T]) Invalidate() {
+	if parseR.invalidate != nil {
+		parseR.invalidate()
 	}
 }
 
 // Dispose clears the cached value and removes the keyed entry from the shared registry.
-func (r CachedResource[T]) Dispose() {
-	if r.dispose != nil {
-		r.dispose()
+func (parseR CachedResource[T]) Dispose() {
+	if parseR.dispose != nil {
+		parseR.dispose()
 	}
 }
 
 // Set replaces the cached value optimistically.
-func (r CachedResource[T]) Set(value T) {
-	if r.set != nil {
-		r.set(value)
+func (parseR CachedResource[T]) Set(parseValue T) {
+	if parseR.set != nil {
+		parseR.set(parseValue)
 	}
 }
 
 // Update replaces the cached value using the previous value.
-func (r CachedResource[T]) Update(fn func(T) T) {
-	if r.update != nil {
-		r.update(fn)
+func (parseR CachedResource[T]) Update(parseFn func(T) T) {
+	if parseR.update != nil {
+		parseR.update(parseFn)
 	}
 }
 
 // InvalidateResource marks the named cached resource stale.
-func InvalidateResource(key string) {
-	if key == "" {
+func InvalidateResource(parseKey string) {
+	if parseKey == "" {
 		return
 	}
 
 	runtime.ReportLogWithFields("fetch", runtime.LogInfo, runtime.DiagnosticInformational, "cached resource invalidated", "", map[string]string{
-		"key": key,
+		"key": parseKey,
 	})
 
-	entry := getCachedResourceEntry(key)
-	entry.mu.Lock()
-	entry.invalidated = true
-	entry.mu.Unlock()
+	parseEntry := getCachedResourceEntry(parseKey)
+	parseEntry.mu.Lock()
+	parseEntry.invalidated = true
+	parseEntry.mu.Unlock()
 
-	updateCachedSnapshot(key, func(prev cachedResourceSnapshot) cachedResourceSnapshot {
-		prev.Error = nil
-		prev.Stale = prev.Ready
-		return prev
+	updateCachedSnapshot(parseKey, func(parsePrev cachedResourceSnapshot) cachedResourceSnapshot {
+		parsePrev.Error = nil
+		parsePrev.Stale = parsePrev.Ready
+		return parsePrev
 	})
 }
 
 // DisposeResource clears the named cached resource and drops its registry entry.
-func DisposeResource(key string) {
-	if key == "" {
+func DisposeResource(parseKey string) {
+	if parseKey == "" {
 		return
 	}
 
-	raw, ok := cachedResourceRegistry.LoadAndDelete(key)
-	if ok {
-		entry := raw.(*cachedResourceEntry)
-		entry.mu.Lock()
-		cancel := entry.cancel
-		done := entry.done
-		restore := entry.restore
-		entry.cancel = nil
-		entry.done = nil
-		entry.restore = nil
-		entry.pending = false
-		entry.invalidated = false
-		entry.lastLoaded = time.Time{}
-		entry.lastAccess = time.Time{}
-		entry.subscribers = 0
-		entry.ownerPaths = nil
-		entry.bootstrapped = false
-		entry.resumePolicy = CacheResumeTrustOnce
-		entry.restored = false
-		entry.mu.Unlock()
-		if cancel != nil {
-			cancel()
+	parseRaw, parseOk := cachedResourceRegistry.LoadAndDelete(parseKey)
+	if parseOk {
+		parseEntry := parseRaw.(*cachedResourceEntry)
+		parseEntry.mu.Lock()
+		parseCancel := parseEntry.cancel
+		parseDone := parseEntry.done
+		parseRestore := parseEntry.restore
+		parseEntry.cancel = nil
+		parseEntry.done = nil
+		parseEntry.restore = nil
+		parseEntry.pending = false
+		parseEntry.invalidated = false
+		parseEntry.lastLoaded = time.Time{}
+		parseEntry.lastAccess = time.Time{}
+		parseEntry.subscribers = 0
+		parseEntry.ownerPaths = nil
+		parseEntry.bootstrapped = false
+		parseEntry.resumePolicy = CacheResumeTrustOnce
+		parseEntry.restored = false
+		parseEntry.mu.Unlock()
+		if parseCancel != nil {
+			parseCancel()
 		}
-		done.Close()
-		restore.Close()
+		parseDone.Close()
+		parseRestore.Close()
 	}
 
-	clearCachedSnapshot(key)
-	deletePersistentCachedSnapshot(key)
+	clearCachedSnapshot(parseKey)
+	deletePersistentCachedSnapshot(parseKey)
 }
 
 // InspectCachedResources returns a stable snapshot of shared cache state for diagnostics and devtools.
 func InspectCachedResources() []CachedResourceInspection {
-	inspections := make([]CachedResourceInspection, 0)
-	cachedResourceRegistry.Range(func(key, value interface{}) bool {
-		cacheKey, _ := key.(string)
-		entry, _ := value.(*cachedResourceEntry)
-		if cacheKey == "" || entry == nil {
+	parseInspections := make([]CachedResourceInspection, 0)
+	cachedResourceRegistry.Range(func(parseKey, parseValue interface{}) bool {
+		cacheKey, _ := parseKey.(string)
+		parseEntry, _ := parseValue.(*cachedResourceEntry)
+		if cacheKey == "" || parseEntry == nil {
 			return true
 		}
 
-		entry.mu.Lock()
-		lastLoaded := entry.lastLoaded
-		subscribers := entry.subscribers
-		ownerPaths := cloneCachedOwnerPaths(entry.ownerPaths)
-		resumePolicy := entry.resumePolicy
-		entry.mu.Unlock()
+		parseEntry.mu.Lock()
+		parseLastLoaded := parseEntry.lastLoaded
+		parseSubscribers := parseEntry.subscribers
+		parseOwnerPaths := cloneCachedOwnerPaths(parseEntry.ownerPaths)
+		parseResumePolicy := parseEntry.resumePolicy
+		parseEntry.mu.Unlock()
 
-		snapshot := currentCachedSnapshot(cacheKey)
-		lastError := ""
-		if snapshot.Error != nil {
-			lastError = snapshot.Error.Error()
+		parseSnapshot := currentCachedSnapshot(cacheKey)
+		parseLastError := ""
+		if parseSnapshot.Error != nil {
+			parseLastError = parseSnapshot.Error.Error()
 		}
 
-		inspections = append(inspections, CachedResourceInspection{
+		parseInspections = append(parseInspections, CachedResourceInspection{
 			Key:             cacheKey,
-			Loading:         snapshot.Loading,
-			Ready:           snapshot.Ready,
-			Stale:           snapshot.Stale,
-			LastError:       lastError,
-			UpdatedAt:       snapshot.UpdatedAt,
-			LastLoaded:      lastLoaded,
-			SubscriberCount: subscribers,
-			OwnerPaths:      ownerPaths,
-			ResumePolicy:    resumePolicy,
+			Loading:         parseSnapshot.Loading,
+			Ready:           parseSnapshot.Ready,
+			Stale:           parseSnapshot.Stale,
+			LastError:       parseLastError,
+			UpdatedAt:       parseSnapshot.UpdatedAt,
+			LastLoaded:      parseLastLoaded,
+			SubscriberCount: parseSubscribers,
+			OwnerPaths:      parseOwnerPaths,
+			ResumePolicy:    parseResumePolicy,
 		})
 		return true
 	})
 
-	sort.Slice(inspections, func(i, j int) bool {
-		return inspections[i].Key < inspections[j].Key
+	sort.Slice(parseInspections, func(parseI, parseJ int) bool {
+		return parseInspections[parseI].Key < parseInspections[parseJ].Key
 	})
-	return inspections
+	return parseInspections
 }
 
 // RestoreCacheBootstrap seeds shared cached resources from a UI bootstrap payload.
-func RestoreCacheBootstrap(payload ui.SSRBootstrap) error {
-	bootstrap, err := readCacheBootstrap(payload.Data)
-	if err != nil {
-		return err
+func RestoreCacheBootstrap(parsePayload ui.SSRBootstrap) error {
+	parseBootstrap, parseErr := readCacheBootstrap(parsePayload.Data)
+	if parseErr != nil {
+		return parseErr
 	}
-	restoreCacheBootstrapEntries(bootstrap.Entries)
+	restoreCacheBootstrapEntries(parseBootstrap.Entries)
 	return nil
 }
 
 // SweepCachedResources clears expired or idle cache entries and returns the number removed.
 func SweepCachedResources() int {
-	now := time.Now()
-	var disposed int
-	cachedResourceRegistry.Range(func(key, value interface{}) bool {
-		cacheKey, _ := key.(string)
-		entry, _ := value.(*cachedResourceEntry)
-		if cacheKey == "" || entry == nil {
+	parseNow := time.Now()
+	var parseDisposed int
+	cachedResourceRegistry.Range(func(parseKey, parseValue interface{}) bool {
+		cacheKey, _ := parseKey.(string)
+		parseEntry, _ := parseValue.(*cachedResourceEntry)
+		if cacheKey == "" || parseEntry == nil {
 			return true
 		}
-		if shouldDisposeCachedEntry(now, entry) {
+		if shouldDisposeCachedEntry(parseNow, parseEntry) {
 			DisposeResource(cacheKey)
-			disposed++
+			parseDisposed++
 		}
 		return true
 	})
-	return disposed
+	return parseDisposed
 }
 
 // LoadCached reuses the shared cache from imperative code such as route loaders.
-func LoadCached[T any](ctx context.Context, key string, loader func(context.Context) (T, error), options ...CacheOptions) (T, error) {
-	var zero T
-	if loader == nil {
-		return zero, fmt.Errorf("fetch: loader cannot be nil")
+func LoadCached[T any](parseCtx context.Context, parseKey string, parseLoader func(context.Context) (T, error), parseOptions ...CacheOptions) (T, error) {
+	var parseZero T
+	if parseLoader == nil {
+		return parseZero, fmt.Errorf("fetch: loader cannot be nil")
 	}
-	if key == "" {
-		return loader(resolveCachedContext(ctx))
+	if parseKey == "" {
+		return parseLoader(resolveCachedContext(parseCtx))
 	}
 
-	resolved := resolveCacheOptions(options)
-	entry := getCachedResourceEntry(key)
-	configureCachedResourceEntry[T](key, entry, resolved)
+	parseResolved := resolveCacheOptions(parseOptions)
+	parseEntry := getCachedResourceEntry(parseKey)
+	configureCachedResourceEntry[T](parseKey, parseEntry, parseResolved)
 
-	adapter := func(loadCtx context.Context) (interface{}, error) {
-		return loader(loadCtx)
+	parseAdapter := func(parseLoadCtx context.Context) (interface{}, error) {
+		return parseLoader(parseLoadCtx)
 	}
 
 	for {
-		prepareCachedResourceEntry(key, entry)
-		snapshot := currentCachedSnapshot(key)
-		if snapshot.Ready && (snapshot.Loading || snapshot.Error != nil) {
-			value, _ := castCachedValue[T](snapshot.Value)
-			return value, nil
+		prepareCachedResourceEntry(parseKey, parseEntry)
+		parseSnapshot := currentCachedSnapshot(parseKey)
+		if parseSnapshot.Ready && (parseSnapshot.Loading || parseSnapshot.Error != nil) {
+			parseValue, _ := castCachedValue[T](parseSnapshot.Value)
+			return parseValue, nil
 		}
 
-		entry.mu.Lock()
-		needsLoad := shouldLoadCachedEntry(snapshot, entry)
-		if !needsLoad {
-			waiters := entry.done
-			if waiters == nil {
-				waiters = entry.restore
+		parseEntry.mu.Lock()
+		parseNeedsLoad := shouldLoadCachedEntry(parseSnapshot, parseEntry)
+		if !parseNeedsLoad {
+			parseWaiters := parseEntry.done
+			if parseWaiters == nil {
+				parseWaiters = parseEntry.restore
 			}
-			entry.mu.Unlock()
-			if snapshot.Ready {
-				value, _ := castCachedValue[T](snapshot.Value)
-				return value, nil
+			parseEntry.mu.Unlock()
+			if parseSnapshot.Ready {
+				parseValue2, _ := castCachedValue[T](parseSnapshot.Value)
+				return parseValue2, nil
 			}
-			if snapshot.Error != nil && waiters == nil {
-				return zero, snapshot.Error
+			if parseSnapshot.Error != nil && parseWaiters == nil {
+				return parseZero, parseSnapshot.Error
 			}
-			if waiters == nil {
-				return zero, nil
+			if parseWaiters == nil {
+				return parseZero, nil
 			}
-			if err := waitForCachedResource(ctx, waiters); err != nil {
-				return zero, err
+			if parseErr := waitForCachedResource(parseCtx, parseWaiters); parseErr != nil {
+				return parseZero, parseErr
 			}
 			continue
 		}
-		entry.mu.Unlock()
+		parseEntry.mu.Unlock()
 
-		waiters, _ := startCachedLoad(key, entry, adapter, false, ctx)
-		if err := waitForCachedResource(ctx, waiters); err != nil {
-			return zero, err
+		parseWaiters2, _ := startCachedLoad(parseKey, parseEntry, parseAdapter, false, parseCtx)
+		if parseErr2 := waitForCachedResource(parseCtx, parseWaiters2); parseErr2 != nil {
+			return parseZero, parseErr2
 		}
 	}
 }
 
-func resolveCacheOptions(options []CacheOptions) CacheOptions {
-	if len(options) == 0 {
+// resolveCacheOptions is an internal cache helper.
+func resolveCacheOptions(parseOptions []CacheOptions) CacheOptions {
+	if len(parseOptions) == 0 {
 		return CacheOptions{}
 	}
-	return options[0]
+	return parseOptions[0]
 }
 
-func readCacheBootstrap(data map[string]interface{}) (CacheBootstrap, error) {
-	if len(data) == 0 {
+// readCacheBootstrap is an internal cache helper.
+func readCacheBootstrap(parseData map[string]interface{}) (CacheBootstrap, error) {
+	if len(parseData) == 0 {
 		return CacheBootstrap{}, nil
 	}
-	raw, ok := data[CacheBootstrapDataKey]
-	if !ok || raw == nil {
+	parseRaw, parseOk := parseData[CacheBootstrapDataKey]
+	if !parseOk || parseRaw == nil {
 		return CacheBootstrap{}, nil
 	}
-	encoded, err := json.Marshal(raw)
-	if err != nil {
-		return CacheBootstrap{}, err
+	parseEncoded, parseErr := json.Marshal(parseRaw)
+	if parseErr != nil {
+		return CacheBootstrap{}, parseErr
 	}
-	var bootstrap CacheBootstrap
-	if err := json.Unmarshal(encoded, &bootstrap); err != nil {
-		return CacheBootstrap{}, err
+	var parseBootstrap CacheBootstrap
+	if parseErr2 := json.Unmarshal(parseEncoded, &parseBootstrap); parseErr2 != nil {
+		return CacheBootstrap{}, parseErr2
 	}
-	return bootstrap, nil
+	return parseBootstrap, nil
 }
 
-func restoreCacheBootstrapEntries(entries []CacheBootstrapEntry) {
-	now := time.Now()
-	for _, item := range entries {
-		key := strings.TrimSpace(item.Key)
-		if key == "" {
+// restoreCacheBootstrapEntries is an internal cache helper.
+func restoreCacheBootstrapEntries(parseEntries []CacheBootstrapEntry) {
+	parseNow := time.Now()
+	for _, parseItem := range parseEntries {
+		parseKey := strings.TrimSpace(parseItem.Key)
+		if parseKey == "" {
 			continue
 		}
-		entry := getCachedResourceEntry(key)
-		entry.mu.Lock()
-		entry.lastLoaded = item.UpdatedAt
-		entry.lastAccess = now
-		entry.resumePolicy = normalizeResumePolicy(item.ResumePolicy)
-		entry.bootstrapped = true
-		entry.pending = false
-		entry.cancel = nil
-		entry.done = nil
-		entry.mu.Unlock()
+		parseEntry := getCachedResourceEntry(parseKey)
+		parseEntry.mu.Lock()
+		parseEntry.lastLoaded = parseItem.UpdatedAt
+		parseEntry.lastAccess = parseNow
+		parseEntry.resumePolicy = normalizeResumePolicy(parseItem.ResumePolicy)
+		parseEntry.bootstrapped = true
+		parseEntry.pending = false
+		parseEntry.cancel = nil
+		parseEntry.done = nil
+		parseEntry.mu.Unlock()
 
-		updateCachedSnapshot(key, func(prev cachedResourceSnapshot) cachedResourceSnapshot {
+		updateCachedSnapshot(parseKey, func(parsePrev cachedResourceSnapshot) cachedResourceSnapshot {
 			return cachedResourceSnapshot{
-				Value:     item.Value,
+				Value:     parseItem.Value,
 				Loading:   false,
 				Error:     nil,
 				Ready:     true,
-				Stale:     bootstrapEntryShouldStartStale(now, item),
-				UpdatedAt: item.UpdatedAt,
+				Stale:     bootstrapEntryShouldStartStale(parseNow, parseItem),
+				UpdatedAt: parseItem.UpdatedAt,
 			}
 		})
 	}
 }
 
-func getCachedResourceEntry(key string) *cachedResourceEntry {
-	if key == "" {
+// getCachedResourceEntry is an internal cache helper.
+func getCachedResourceEntry(parseKey string) *cachedResourceEntry {
+	if parseKey == "" {
 		return &cachedResourceEntry{}
 	}
 
-	raw, _ := cachedResourceRegistry.LoadOrStore(key, &cachedResourceEntry{})
-	return raw.(*cachedResourceEntry)
+	parseRaw, _ := cachedResourceRegistry.LoadOrStore(parseKey, &cachedResourceEntry{})
+	return parseRaw.(*cachedResourceEntry)
 }
 
-func retainCachedResource(key string, ownerPath string) {
-	raw, ok := cachedResourceRegistry.Load(key)
-	if !ok {
+// retainCachedResource is an internal cache helper.
+func retainCachedResource(parseKey string, parseOwnerPath string) {
+	parseRaw, parseOk := cachedResourceRegistry.Load(parseKey)
+	if !parseOk {
 		return
 	}
-	entry := raw.(*cachedResourceEntry)
-	entry.mu.Lock()
-	entry.subscribers++
-	if trimmedOwner := strings.TrimSpace(ownerPath); trimmedOwner != "" {
-		if entry.ownerPaths == nil {
-			entry.ownerPaths = map[string]int{}
+	parseEntry := parseRaw.(*cachedResourceEntry)
+	parseEntry.mu.Lock()
+	parseEntry.subscribers++
+	if parseTrimmedOwner := strings.TrimSpace(parseOwnerPath); parseTrimmedOwner != "" {
+		if parseEntry.ownerPaths == nil {
+			parseEntry.ownerPaths = map[string]int{}
 		}
-		entry.ownerPaths[trimmedOwner]++
+		parseEntry.ownerPaths[parseTrimmedOwner]++
 	}
-	entry.lastAccess = time.Now()
-	entry.mu.Unlock()
+	parseEntry.lastAccess = time.Now()
+	parseEntry.mu.Unlock()
 }
 
-func releaseCachedResource(key string, ownerPath string) {
-	raw, ok := cachedResourceRegistry.Load(key)
-	if !ok {
+// releaseCachedResource is an internal cache helper.
+func releaseCachedResource(parseKey string, parseOwnerPath string) {
+	parseRaw, parseOk := cachedResourceRegistry.Load(parseKey)
+	if !parseOk {
 		return
 	}
-	entry := raw.(*cachedResourceEntry)
-	entry.mu.Lock()
-	if entry.subscribers > 0 {
-		entry.subscribers--
+	parseEntry := parseRaw.(*cachedResourceEntry)
+	parseEntry.mu.Lock()
+	if parseEntry.subscribers > 0 {
+		parseEntry.subscribers--
 	}
-	if trimmedOwner := strings.TrimSpace(ownerPath); trimmedOwner != "" && len(entry.ownerPaths) > 0 {
-		if entry.ownerPaths[trimmedOwner] <= 1 {
-			delete(entry.ownerPaths, trimmedOwner)
+	if parseTrimmedOwner := strings.TrimSpace(parseOwnerPath); parseTrimmedOwner != "" && len(parseEntry.ownerPaths) > 0 {
+		if parseEntry.ownerPaths[parseTrimmedOwner] <= 1 {
+			delete(parseEntry.ownerPaths, parseTrimmedOwner)
 		} else {
-			entry.ownerPaths[trimmedOwner]--
+			parseEntry.ownerPaths[parseTrimmedOwner]--
 		}
 	}
-	entry.lastAccess = time.Now()
-	entry.mu.Unlock()
+	parseEntry.lastAccess = time.Now()
+	parseEntry.mu.Unlock()
 }
 
-func cloneCachedOwnerPaths(input map[string]int) []string {
-	if len(input) == 0 {
+// cloneCachedOwnerPaths is an internal cache helper.
+func cloneCachedOwnerPaths(parseInput map[string]int) []string {
+	if len(parseInput) == 0 {
 		return nil
 	}
-	owners := make([]string, 0, len(input))
-	for path := range input {
-		owners = append(owners, path)
+	parseOwners := make([]string, 0, len(parseInput))
+	for parsePath := range parseInput {
+		parseOwners = append(parseOwners, parsePath)
 	}
-	sort.Strings(owners)
-	return owners
+	sort.Strings(parseOwners)
+	return parseOwners
 }
 
-func configureCachedResourceEntry[T any](key string, entry *cachedResourceEntry, options CacheOptions) {
-	if key == "" || entry == nil {
+// configureCachedResourceEntry is an internal cache helper.
+func configureCachedResourceEntry[T any](parseKey string, parseEntry *cachedResourceEntry, parseOptions CacheOptions) {
+	if parseKey == "" || parseEntry == nil {
 		return
 	}
 
-	desiredType := reflect.TypeOf((*T)(nil)).Elem()
-	entry.mu.Lock()
-	defer entry.mu.Unlock()
+	parseDesiredType := reflect.TypeOf((*T)(nil)).Elem()
+	parseEntry.mu.Lock()
+	defer parseEntry.mu.Unlock()
 
-	if entry.valueType == nil {
-		entry.valueType = desiredType
-	} else if entry.valueType != desiredType {
-		runtime.ReportDiagnostic("fetch", runtime.DiagnosticWarning, fmt.Sprintf("UseCachedResource key %q requested with conflicting value types %s and %s", key, entry.valueType, desiredType))
+	if parseEntry.valueType == nil {
+		parseEntry.valueType = parseDesiredType
+	} else if parseEntry.valueType != parseDesiredType {
+		runtime.ReportDiagnostic("fetch", runtime.DiagnosticWarning, fmt.Sprintf("UseCachedResource key %q requested with conflicting value types %s and %s", parseKey, parseEntry.valueType, parseDesiredType))
 	}
 
-	if options.StaleAfter > 0 {
-		entry.staleAfter = options.StaleAfter
+	if parseOptions.StaleAfter > 0 {
+		parseEntry.staleAfter = parseOptions.StaleAfter
 	}
-	if options.MaxAge > 0 {
-		entry.maxAge = options.MaxAge
+	if parseOptions.MaxAge > 0 {
+		parseEntry.maxAge = parseOptions.MaxAge
 	}
-	if options.DisposeAfter > 0 {
-		entry.disposeAfter = options.DisposeAfter
+	if parseOptions.DisposeAfter > 0 {
+		parseEntry.disposeAfter = parseOptions.DisposeAfter
 	}
-	if options.Persist {
-		entry.persist = true
+	if parseOptions.Persist {
+		parseEntry.persist = true
 	}
 }
 
-func cachedResourceAtomID(key string) string {
-	return cachedResourceAtomPrefix + key
+// cachedResourceAtomID is an internal cache helper.
+func cachedResourceAtomID(parseKey string) string {
+	return cachedResourceAtomPrefix + parseKey
 }
 
-func currentCachedSnapshot(key string) cachedResourceSnapshot {
-	if key == "" {
+// currentCachedSnapshot is an internal cache helper.
+func currentCachedSnapshot(parseKey string) cachedResourceSnapshot {
+	if parseKey == "" {
 		return cachedResourceSnapshot{}
 	}
 
-	rt := runtime.GetGlobalRuntime()
-	if rt == nil {
+	parseRt := runtime.GetGlobalRuntime()
+	if parseRt == nil {
 		return cachedResourceSnapshot{}
 	}
 
-	value, ok := rt.GetAtomValue(cachedResourceAtomID(key))
-	if !ok {
+	parseValue, parseOk := parseRt.GetAtomValue(cachedResourceAtomID(parseKey))
+	if !parseOk {
 		return cachedResourceSnapshot{}
 	}
 
-	snapshot, ok := value.(cachedResourceSnapshot)
-	if !ok {
+	parseSnapshot, parseOk := parseValue.(cachedResourceSnapshot)
+	if !parseOk {
 		return cachedResourceSnapshot{}
 	}
 
-	return snapshot
+	return parseSnapshot
 }
 
-func updateCachedSnapshot(key string, update func(cachedResourceSnapshot) cachedResourceSnapshot) {
-	if key == "" || update == nil {
+// updateCachedSnapshot is an internal cache helper.
+func updateCachedSnapshot(parseKey string, parseUpdate func(cachedResourceSnapshot) cachedResourceSnapshot) {
+	if parseKey == "" || parseUpdate == nil {
 		return
 	}
 
-	snapshot := update(currentCachedSnapshot(key))
-	rt := runtime.GetGlobalRuntime()
-	if rt == nil {
+	parseSnapshot := parseUpdate(currentCachedSnapshot(parseKey))
+	parseRt := runtime.GetGlobalRuntime()
+	if parseRt == nil {
 		return
 	}
-	_ = rt.RestoreAtomSnapshot(map[string]interface{}{cachedResourceAtomID(key): snapshot})
+	_ = parseRt.RestoreAtomSnapshot(map[string]interface{}{cachedResourceAtomID(parseKey): parseSnapshot})
 }
 
-func setCachedValue[T any](key string, value T) {
-	if key == "" {
+// setCachedValue is an internal cache helper.
+func setCachedValue[T any](parseKey string, parseValue T) {
+	if parseKey == "" {
 		return
 	}
 
-	updateCachedSnapshot(key, func(prev cachedResourceSnapshot) cachedResourceSnapshot {
-		prev.Value = value
-		prev.Loading = false
-		prev.Error = nil
-		prev.Ready = true
-		prev.Stale = false
-		prev.UpdatedAt = time.Now()
-		return prev
+	updateCachedSnapshot(parseKey, func(parsePrev cachedResourceSnapshot) cachedResourceSnapshot {
+		parsePrev.Value = parseValue
+		parsePrev.Loading = false
+		parsePrev.Error = nil
+		parsePrev.Ready = true
+		parsePrev.Stale = false
+		parsePrev.UpdatedAt = time.Now()
+		return parsePrev
 	})
-	markCachedEntryFresh(key)
-	persistCachedSnapshot(key)
+	markCachedEntryFresh(parseKey)
+	persistCachedSnapshot(parseKey)
 }
 
-func markCachedEntryFresh(key string) {
-	raw, ok := cachedResourceRegistry.Load(key)
-	if !ok {
+// markCachedEntryFresh is an internal cache helper.
+func markCachedEntryFresh(parseKey string) {
+	parseRaw, parseOk := cachedResourceRegistry.Load(parseKey)
+	if !parseOk {
 		return
 	}
 
-	entry := raw.(*cachedResourceEntry)
-	entry.mu.Lock()
-	entry.invalidated = false
-	entry.lastLoaded = time.Now()
-	entry.lastAccess = entry.lastLoaded
-	entry.mu.Unlock()
+	parseEntry := parseRaw.(*cachedResourceEntry)
+	parseEntry.mu.Lock()
+	parseEntry.invalidated = false
+	parseEntry.lastLoaded = time.Now()
+	parseEntry.lastAccess = parseEntry.lastLoaded
+	parseEntry.mu.Unlock()
 }
 
 // ConfigurePersistentCache sets the options for the persistent cache store, closing any existing store.
-func ConfigurePersistentCache(options PersistentCacheOptions) {
+func ConfigurePersistentCache(parseOptions PersistentCacheOptions) {
 	persistentCacheState.mu.Lock()
 	store := persistentCacheState.store
-	opened := persistentCacheState.opened
-	persistentCacheState.options = options
+	parseOpened := persistentCacheState.opened
+	persistentCacheState.options = parseOptions
 	persistentCacheState.store = interop.PersistentStore{}
 	persistentCacheState.err = nil
 	persistentCacheState.opened = false
 	persistentCacheState.mu.Unlock()
-	if opened {
+	if parseOpened {
 		_ = store.Close()
 	}
 }
 
-func startCachedLoad(key string, entry *cachedResourceEntry, loader func(context.Context) (interface{}, error), force bool, parent context.Context) (*cachedResourceWaiters, bool) {
-	if key == "" || entry == nil || loader == nil {
+// startCachedLoad is an internal cache helper.
+func startCachedLoad(parseKey string, parseEntry *cachedResourceEntry, parseLoader func(context.Context) (interface{}, error), isForce bool, parseParent context.Context) (*cachedResourceWaiters, bool) {
+	if parseKey == "" || parseEntry == nil || parseLoader == nil {
 		return nil, false
 	}
 
-	entry.mu.Lock()
-	current := currentCachedSnapshot(key)
-	if !force && !shouldLoadCachedEntry(current, entry) {
-		waiters := entry.done
-		entry.mu.Unlock()
-		return waiters, false
+	parseEntry.mu.Lock()
+	parseCurrent := currentCachedSnapshot(parseKey)
+	if !isForce && !shouldLoadCachedEntry(parseCurrent, parseEntry) {
+		parseWaiters := parseEntry.done
+		parseEntry.mu.Unlock()
+		return parseWaiters, false
 	}
-	if entry.pending {
-		waiters := entry.done
-		entry.mu.Unlock()
-		return waiters, false
+	if parseEntry.pending {
+		parseWaiters2 := parseEntry.done
+		parseEntry.mu.Unlock()
+		return parseWaiters2, false
 	}
-	entry.requestSeq++
-	seq := entry.requestSeq
-	ctx, cancel := context.WithCancel(resolveCachedContext(parent))
-	waiters := newCachedResourceWaiters()
-	entry.cancel = cancel
-	entry.pending = true
-	entry.invalidated = false
-	entry.done = waiters
-	entry.lastAccess = time.Now()
-	entry.bootstrapped = false
-	entry.mu.Unlock()
+	parseEntry.requestSeq++
+	parseSeq := parseEntry.requestSeq
+	parseCtx, parseCancel := context.WithCancel(resolveCachedContext(parseParent))
+	parseWaiters3 := newCachedResourceWaiters()
+	parseEntry.cancel = parseCancel
+	parseEntry.pending = true
+	parseEntry.invalidated = false
+	parseEntry.done = parseWaiters3
+	parseEntry.lastAccess = time.Now()
+	parseEntry.bootstrapped = false
+	parseEntry.mu.Unlock()
 
-	updateCachedSnapshot(key, func(prev cachedResourceSnapshot) cachedResourceSnapshot {
-		prev.Loading = true
-		prev.Error = nil
-		if prev.Ready {
-			prev.Stale = true
+	updateCachedSnapshot(parseKey, func(parsePrev cachedResourceSnapshot) cachedResourceSnapshot {
+		parsePrev.Loading = true
+		parsePrev.Error = nil
+		if parsePrev.Ready {
+			parsePrev.Stale = true
 		}
-		return prev
+		return parsePrev
 	})
 
-	go func(requestSeq uint64, requestCtx context.Context, done *cachedResourceWaiters) {
-		value, err := loader(requestCtx)
+	go func(parseRequestSeq uint64, parseRequestCtx context.Context, parseDone *cachedResourceWaiters) {
+		parseValue, parseErr := parseLoader(parseRequestCtx)
 
-		entry.mu.Lock()
-		if requestSeq != entry.requestSeq {
-			if entry.done == done {
-				entry.done = nil
+		parseEntry.mu.Lock()
+		if parseRequestSeq != parseEntry.requestSeq {
+			if parseEntry.done == parseDone {
+				parseEntry.done = nil
 			}
-			entry.mu.Unlock()
-			done.Close()
+			parseEntry.mu.Unlock()
+			parseDone.Close()
 			return
 		}
-		entry.pending = false
-		entry.cancel = nil
-		entry.done = nil
-		if err == nil && requestCtx.Err() == nil {
-			entry.lastLoaded = time.Now()
+		parseEntry.pending = false
+		parseEntry.cancel = nil
+		parseEntry.done = nil
+		if parseErr == nil && parseRequestCtx.Err() == nil {
+			parseEntry.lastLoaded = time.Now()
 		}
-		stillInvalidated := entry.invalidated
-		entry.mu.Unlock()
-		done.Close()
+		parseStillInvalidated := parseEntry.invalidated
+		parseEntry.mu.Unlock()
+		parseDone.Close()
 
-		if requestCtx.Err() != nil {
-			updateCachedSnapshot(key, func(prev cachedResourceSnapshot) cachedResourceSnapshot {
-				prev.Loading = false
-				if prev.Ready {
-					prev.Stale = prev.Stale || stillInvalidated
+		if parseRequestCtx.Err() != nil {
+			updateCachedSnapshot(parseKey, func(parsePrev2 cachedResourceSnapshot) cachedResourceSnapshot {
+				parsePrev2.Loading = false
+				if parsePrev2.Ready {
+					parsePrev2.Stale = parsePrev2.Stale || parseStillInvalidated
 				} else {
-					prev.Stale = false
+					parsePrev2.Stale = false
 				}
-				return prev
+				return parsePrev2
 			})
 			return
 		}
 
-		updateCachedSnapshot(key, func(prev cachedResourceSnapshot) cachedResourceSnapshot {
-			prev.Loading = false
-			prev.UpdatedAt = time.Now()
-			if err != nil {
-				prev.Error = err
-				if prev.Ready {
-					prev.Stale = true
+		updateCachedSnapshot(parseKey, func(parsePrev3 cachedResourceSnapshot) cachedResourceSnapshot {
+			parsePrev3.Loading = false
+			parsePrev3.UpdatedAt = time.Now()
+			if parseErr != nil {
+				parsePrev3.Error = parseErr
+				if parsePrev3.Ready {
+					parsePrev3.Stale = true
 				} else {
-					prev.Stale = false
+					parsePrev3.Stale = false
 				}
-				return prev
+				return parsePrev3
 			}
 
-			prev.Value = value
-			prev.Error = nil
-			prev.Ready = true
-			prev.Stale = false
-			return prev
+			parsePrev3.Value = parseValue
+			parsePrev3.Error = nil
+			parsePrev3.Ready = true
+			parsePrev3.Stale = false
+			return parsePrev3
 		})
-		persistCachedSnapshot(key)
-	}(seq, ctx, waiters)
-	return waiters, true
+		persistCachedSnapshot(parseKey)
+	}(parseSeq, parseCtx, parseWaiters3)
+	return parseWaiters3, true
 }
 
-func shouldLoadCachedEntry(snapshot cachedResourceSnapshot, entry *cachedResourceEntry) bool {
-	if entry.pending {
+// shouldLoadCachedEntry is an internal cache helper.
+func shouldLoadCachedEntry(parseSnapshot cachedResourceSnapshot, parseEntry *cachedResourceEntry) bool {
+	if parseEntry.pending {
 		return false
 	}
-	if entry.restore != nil {
+	if parseEntry.restore != nil {
 		return false
 	}
-	if entry.bootstrapped && entry.resumePolicy == CacheResumeAlwaysRefetch {
+	if parseEntry.bootstrapped && parseEntry.resumePolicy == CacheResumeAlwaysRefetch {
 		return true
 	}
-	if !snapshot.Ready {
-		return !snapshot.Loading
+	if !parseSnapshot.Ready {
+		return !parseSnapshot.Loading
 	}
-	if entry.invalidated || snapshot.Stale {
+	if parseEntry.invalidated || parseSnapshot.Stale {
 		return true
 	}
-	if entry.staleAfter > 0 && !entry.lastLoaded.IsZero() && time.Since(entry.lastLoaded) >= entry.staleAfter {
+	if parseEntry.staleAfter > 0 && !parseEntry.lastLoaded.IsZero() && time.Since(parseEntry.lastLoaded) >= parseEntry.staleAfter {
 		return true
 	}
 	return false
 }
 
-func cancelCachedLoad(key string) {
-	raw, ok := cachedResourceRegistry.Load(key)
-	if !ok {
+// cancelCachedLoad is an internal cache helper.
+func cancelCachedLoad(parseKey string) {
+	parseRaw, parseOk := cachedResourceRegistry.Load(parseKey)
+	if !parseOk {
 		return
 	}
 
-	entry := raw.(*cachedResourceEntry)
-	entry.mu.Lock()
-	cancel := entry.cancel
-	done := entry.done
-	entry.cancel = nil
-	entry.done = nil
-	entry.pending = false
-	stillInvalidated := entry.invalidated
-	entry.mu.Unlock()
+	parseEntry := parseRaw.(*cachedResourceEntry)
+	parseEntry.mu.Lock()
+	parseCancel := parseEntry.cancel
+	parseDone := parseEntry.done
+	parseEntry.cancel = nil
+	parseEntry.done = nil
+	parseEntry.pending = false
+	parseStillInvalidated := parseEntry.invalidated
+	parseEntry.mu.Unlock()
 
-	if cancel != nil {
-		cancel()
+	if parseCancel != nil {
+		parseCancel()
 	}
-	done.Close()
+	parseDone.Close()
 
-	updateCachedSnapshot(key, func(prev cachedResourceSnapshot) cachedResourceSnapshot {
-		prev.Loading = false
-		if prev.Ready {
-			prev.Stale = prev.Stale || stillInvalidated
+	updateCachedSnapshot(parseKey, func(parsePrev cachedResourceSnapshot) cachedResourceSnapshot {
+		parsePrev.Loading = false
+		if parsePrev.Ready {
+			parsePrev.Stale = parsePrev.Stale || parseStillInvalidated
 		} else {
-			prev.Stale = false
+			parsePrev.Stale = false
 		}
-		return prev
+		return parsePrev
 	})
 }
 
-func resolveCachedContext(ctx context.Context) context.Context {
-	if ctx != nil {
-		return ctx
+// resolveCachedContext is an internal cache helper.
+func resolveCachedContext(parseCtx context.Context) context.Context {
+	if parseCtx != nil {
+		return parseCtx
 	}
 	return context.Background()
 }
 
-func waitForCachedResource(ctx context.Context, waiters *cachedResourceWaiters) error {
-	if waiters == nil {
+// waitForCachedResource is an internal cache helper.
+func waitForCachedResource(parseCtx context.Context, parseWaiters *cachedResourceWaiters) error {
+	if parseWaiters == nil {
 		return nil
 	}
-	waitCh := waiters.Done()
-	if waitCh == nil {
+	parseWaitCh := parseWaiters.Done()
+	if parseWaitCh == nil {
 		return nil
 	}
-	if ctx == nil {
-		<-waitCh
+	if parseCtx == nil {
+		<-parseWaitCh
 		return nil
 	}
 	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-waitCh:
+	case <-parseCtx.Done():
+		return parseCtx.Err()
+	case <-parseWaitCh:
 		return nil
 	}
 }
 
-func normalizeResumePolicy(policy CacheResumePolicy) CacheResumePolicy {
-	switch policy {
+// normalizeResumePolicy is an internal cache helper.
+func normalizeResumePolicy(parsePolicy CacheResumePolicy) CacheResumePolicy {
+	switch parsePolicy {
 	case CacheResumeStaleWhileRevalidate, CacheResumeAlwaysRefetch:
-		return policy
+		return parsePolicy
 	default:
 		return CacheResumeTrustOnce
 	}
 }
 
-func bootstrapEntryShouldStartStale(now time.Time, entry CacheBootstrapEntry) bool {
-	switch normalizeResumePolicy(entry.ResumePolicy) {
+// bootstrapEntryShouldStartStale is an internal cache helper.
+func bootstrapEntryShouldStartStale(parseNow time.Time, parseEntry CacheBootstrapEntry) bool {
+	switch normalizeResumePolicy(parseEntry.ResumePolicy) {
 	case CacheResumeAlwaysRefetch:
 		return true
 	case CacheResumeStaleWhileRevalidate:
-		if entry.UpdatedAt.IsZero() || entry.StaleAfter <= 0 {
+		if parseEntry.UpdatedAt.IsZero() || parseEntry.StaleAfter <= 0 {
 			return true
 		}
-		return now.Sub(entry.UpdatedAt) >= entry.StaleAfter
+		return parseNow.Sub(parseEntry.UpdatedAt) >= parseEntry.StaleAfter
 	default:
 		return false
 	}
 }
 
-func prepareCachedResourceEntry(key string, entry *cachedResourceEntry) {
-	if key == "" || entry == nil {
+// prepareCachedResourceEntry is an internal cache helper.
+func prepareCachedResourceEntry(parseKey string, parseEntry *cachedResourceEntry) {
+	if parseKey == "" || parseEntry == nil {
 		return
 	}
 
-	now := time.Now()
-	expireSnapshot := false
-	disposeEntry := false
-	persistSnapshot := false
-	startRestore := false
-	snapshot := currentCachedSnapshot(key)
+	parseNow := time.Now()
+	isParseExpireSnapshot := false
+	isParseDisposeEntry := false
+	isParsePersistSnapshot := false
+	isParseStartRestore := false
+	parseSnapshot := currentCachedSnapshot(parseKey)
 
-	entry.mu.Lock()
-	if !entry.pending && entry.maxAge > 0 && !entry.lastLoaded.IsZero() && now.Sub(entry.lastLoaded) >= entry.maxAge {
-		entry.lastLoaded = time.Time{}
-		entry.invalidated = false
-		expireSnapshot = true
+	parseEntry.mu.Lock()
+	if !parseEntry.pending && parseEntry.maxAge > 0 && !parseEntry.lastLoaded.IsZero() && parseNow.Sub(parseEntry.lastLoaded) >= parseEntry.maxAge {
+		parseEntry.lastLoaded = time.Time{}
+		parseEntry.invalidated = false
+		isParseExpireSnapshot = true
 	}
-	if !entry.pending && entry.disposeAfter > 0 && !entry.lastAccess.IsZero() && now.Sub(entry.lastAccess) >= entry.disposeAfter {
-		disposeEntry = true
+	if !parseEntry.pending && parseEntry.disposeAfter > 0 && !parseEntry.lastAccess.IsZero() && parseNow.Sub(parseEntry.lastAccess) >= parseEntry.disposeAfter {
+		isParseDisposeEntry = true
 	}
-	if entry.persist && !entry.restored && entry.restore == nil {
-		if snapshot.Ready {
-			entry.restored = true
-			persistSnapshot = true
+	if parseEntry.persist && !parseEntry.restored && parseEntry.restore == nil {
+		if parseSnapshot.Ready {
+			parseEntry.restored = true
+			isParsePersistSnapshot = true
 		} else {
-			entry.restore = newCachedResourceWaiters()
-			startRestore = true
+			parseEntry.restore = newCachedResourceWaiters()
+			isParseStartRestore = true
 		}
 	}
-	entry.lastAccess = now
-	entry.mu.Unlock()
+	parseEntry.lastAccess = parseNow
+	parseEntry.mu.Unlock()
 
-	if disposeEntry {
-		resetCachedResourceEntry(key, entry)
+	if isParseDisposeEntry {
+		resetCachedResourceEntry(parseKey, parseEntry)
 		return
 	}
-	if expireSnapshot {
-		clearCachedSnapshot(key)
-		deletePersistentCachedSnapshot(key)
+	if isParseExpireSnapshot {
+		clearCachedSnapshot(parseKey)
+		deletePersistentCachedSnapshot(parseKey)
 	}
-	if startRestore {
-		startPersistentCachedRestore(key, entry)
+	if isParseStartRestore {
+		startPersistentCachedRestore(parseKey, parseEntry)
 	}
-	if persistSnapshot {
-		persistCachedSnapshot(key)
+	if isParsePersistSnapshot {
+		persistCachedSnapshot(parseKey)
 	}
 }
 
-func clearCachedSnapshot(key string) {
-	updateCachedSnapshot(key, func(prev cachedResourceSnapshot) cachedResourceSnapshot {
+// clearCachedSnapshot is an internal cache helper.
+func clearCachedSnapshot(parseKey string) {
+	updateCachedSnapshot(parseKey, func(parsePrev cachedResourceSnapshot) cachedResourceSnapshot {
 		return cachedResourceSnapshot{}
 	})
 }
 
-func resetCachedResourceEntry(key string, entry *cachedResourceEntry) {
-	if key == "" || entry == nil {
+// resetCachedResourceEntry is an internal cache helper.
+func resetCachedResourceEntry(parseKey string, parseEntry *cachedResourceEntry) {
+	if parseKey == "" || parseEntry == nil {
 		return
 	}
 
-	entry.mu.Lock()
-	cancel := entry.cancel
-	done := entry.done
-	restore := entry.restore
-	entry.cancel = nil
-	entry.done = nil
-	entry.restore = nil
-	entry.pending = false
-	entry.invalidated = false
-	entry.lastLoaded = time.Time{}
-	entry.lastAccess = time.Now()
-	entry.bootstrapped = false
-	entry.restored = false
-	entry.mu.Unlock()
+	parseEntry.mu.Lock()
+	parseCancel := parseEntry.cancel
+	parseDone := parseEntry.done
+	parseRestore := parseEntry.restore
+	parseEntry.cancel = nil
+	parseEntry.done = nil
+	parseEntry.restore = nil
+	parseEntry.pending = false
+	parseEntry.invalidated = false
+	parseEntry.lastLoaded = time.Time{}
+	parseEntry.lastAccess = time.Now()
+	parseEntry.bootstrapped = false
+	parseEntry.restored = false
+	parseEntry.mu.Unlock()
 
-	if cancel != nil {
-		cancel()
+	if parseCancel != nil {
+		parseCancel()
 	}
-	done.Close()
-	restore.Close()
-	clearCachedSnapshot(key)
+	parseDone.Close()
+	parseRestore.Close()
+	clearCachedSnapshot(parseKey)
 }
 
-func shouldDisposeCachedEntry(now time.Time, entry *cachedResourceEntry) bool {
-	entry.mu.Lock()
-	defer entry.mu.Unlock()
-	if entry.pending || entry.restore != nil {
+// shouldDisposeCachedEntry is an internal cache helper.
+func shouldDisposeCachedEntry(parseNow time.Time, parseEntry *cachedResourceEntry) bool {
+	parseEntry.mu.Lock()
+	defer parseEntry.mu.Unlock()
+	if parseEntry.pending || parseEntry.restore != nil {
 		return false
 	}
-	if entry.disposeAfter > 0 && !entry.lastAccess.IsZero() && now.Sub(entry.lastAccess) >= entry.disposeAfter {
+	if parseEntry.disposeAfter > 0 && !parseEntry.lastAccess.IsZero() && parseNow.Sub(parseEntry.lastAccess) >= parseEntry.disposeAfter {
 		return true
 	}
-	if entry.maxAge > 0 && !entry.lastLoaded.IsZero() && now.Sub(entry.lastLoaded) >= entry.maxAge {
+	if parseEntry.maxAge > 0 && !parseEntry.lastLoaded.IsZero() && parseNow.Sub(parseEntry.lastLoaded) >= parseEntry.maxAge {
 		return true
 	}
 	return false
 }
 
-func toPublicCachedState[T any](snapshot cachedResourceSnapshot) CachedResourceState[T] {
-	value, _ := castCachedValue[T](snapshot.Value)
+// toPublicCachedState is an internal cache helper.
+func toPublicCachedState[T any](parseSnapshot cachedResourceSnapshot) CachedResourceState[T] {
+	parseValue, _ := castCachedValue[T](parseSnapshot.Value)
 	return CachedResourceState[T]{
-		Value:     value,
-		Loading:   snapshot.Loading,
-		Error:     snapshot.Error,
-		Ready:     snapshot.Ready,
-		Stale:     snapshot.Stale,
-		UpdatedAt: snapshot.UpdatedAt,
+		Value:     parseValue,
+		Loading:   parseSnapshot.Loading,
+		Error:     parseSnapshot.Error,
+		Ready:     parseSnapshot.Ready,
+		Stale:     parseSnapshot.Stale,
+		UpdatedAt: parseSnapshot.UpdatedAt,
 	}
 }
 
-func castCachedValue[T any](value interface{}) (T, bool) {
-	cast, ok := value.(T)
-	if ok {
-		return cast, true
+// castCachedValue is an internal cache helper.
+func castCachedValue[T any](parseValue interface{}) (T, bool) {
+	parseCast, parseOk := parseValue.(T)
+	if parseOk {
+		return parseCast, true
 	}
 
-	var zero T
-	return zero, false
+	var parseZero T
+	return parseZero, false
 }
 
-func openPersistentCacheStore(ctx context.Context) (interop.PersistentStore, error) {
+// openPersistentCacheStore is an internal cache helper.
+func openPersistentCacheStore(parseCtx context.Context) (interop.PersistentStore, error) {
 	persistentCacheState.mu.Lock()
 	if persistentCacheState.opened {
 		store := persistentCacheState.store
-		err := persistentCacheState.err
+		parseErr := persistentCacheState.err
 		persistentCacheState.mu.Unlock()
-		return store, err
+		return store, parseErr
 	}
-	options := persistentCacheState.options
+	parseOptions := persistentCacheState.options
 	persistentCacheState.mu.Unlock()
 
-	resolver := options.StoreResolver
-	if resolver == nil {
-		storeName := strings.TrimSpace(options.StoreName)
+	parseResolver := parseOptions.StoreResolver
+	if parseResolver == nil {
+		storeName := strings.TrimSpace(parseOptions.StoreName)
 		if storeName == "" {
 			storeName = "fetch-cache"
 		}
-		fallbackResolver := options.FallbackResolver
-		if fallbackResolver == nil {
-			fallbackResolver = interop.LocalStorage
+		parseFallbackResolver := parseOptions.FallbackResolver
+		if parseFallbackResolver == nil {
+			parseFallbackResolver = interop.LocalStorage
 		}
-		fallbackBackend := strings.TrimSpace(options.FallbackBackend)
-		if fallbackBackend == "" {
-			fallbackBackend = "localStorage"
+		parseFallbackBackend := strings.TrimSpace(parseOptions.FallbackBackend)
+		if parseFallbackBackend == "" {
+			parseFallbackBackend = "localStorage"
 		}
-		resolver = func(ctx context.Context) (interop.PersistentStore, error) {
-			return interop.OpenPersistentStore(ctx, interop.PersistentStoreOptions{
+		parseResolver = func(parseCtx2 context.Context) (interop.PersistentStore, error) {
+			return interop.OpenPersistentStore(parseCtx2, interop.PersistentStoreOptions{
 				Name:               storeName,
-				DatabaseName:       options.DatabaseName,
+				DatabaseName:       parseOptions.DatabaseName,
 				DeleteOnCorruption: true,
-				FallbackResolver:   fallbackResolver,
-				FallbackBackend:    fallbackBackend,
+				FallbackResolver:   parseFallbackResolver,
+				FallbackBackend:    parseFallbackBackend,
 			})
 		}
 	}
-	store, err := resolver(ctx)
+	store, parseErr2 := parseResolver(parseCtx)
 
 	persistentCacheState.mu.Lock()
 	if persistentCacheState.opened {
-		existing := persistentCacheState.store
-		existingErr := persistentCacheState.err
+		parseExisting := persistentCacheState.store
+		parseExistingErr := persistentCacheState.err
 		persistentCacheState.mu.Unlock()
-		if err == nil {
+		if parseErr2 == nil {
 			_ = store.Close()
 		}
-		return existing, existingErr
+		return parseExisting, parseExistingErr
 	}
 	persistentCacheState.store = store
-	persistentCacheState.err = err
+	persistentCacheState.err = parseErr2
 	persistentCacheState.opened = true
 	persistentCacheState.mu.Unlock()
-	return store, err
+	return store, parseErr2
 }
 
-func startPersistentCachedRestore(key string, entry *cachedResourceEntry) {
-	if key == "" || entry == nil {
+// startPersistentCachedRestore is an internal cache helper.
+func startPersistentCachedRestore(parseKey string, parseEntry *cachedResourceEntry) {
+	if parseKey == "" || parseEntry == nil {
 		return
 	}
-	entry.mu.Lock()
-	waiters := entry.restore
-	valueType := entry.valueType
-	entry.mu.Unlock()
-	if waiters == nil || valueType == nil {
+	parseEntry.mu.Lock()
+	parseWaiters := parseEntry.restore
+	parseValueType := parseEntry.valueType
+	parseEntry.mu.Unlock()
+	if parseWaiters == nil || parseValueType == nil {
 		return
 	}
 
-	go func(done *cachedResourceWaiters, desiredType reflect.Type) {
-		defer done.Close()
-		store, err := openPersistentCacheStore(context.Background())
-		if err == nil {
-			var record persistedCachedResource
-			ok, decodeErr := store.DecodeJSON(context.Background(), key, &record)
-			if decodeErr != nil {
-				err = decodeErr
-			} else if ok && len(record.Value) > 0 {
-				now := time.Now()
-				if persistedEntryExpired(now, entry, record) {
-					deletePersistentCachedSnapshot(key)
+	go func(parseDone *cachedResourceWaiters, parseDesiredType reflect.Type) {
+		defer parseDone.Close()
+		store, parseErr := openPersistentCacheStore(context.Background())
+		if parseErr == nil {
+			var parseRecord persistedCachedResource
+			parseOk, parseDecodeErr := store.DecodeJSON(context.Background(), parseKey, &parseRecord)
+			if parseDecodeErr != nil {
+				parseErr = parseDecodeErr
+			} else if parseOk && len(parseRecord.Value) > 0 {
+				parseNow := time.Now()
+				if persistedEntryExpired(parseNow, parseEntry, parseRecord) {
+					deletePersistentCachedSnapshot(parseKey)
 				} else {
-					value, valueErr := decodePersistedCachedValue(record.Value, desiredType)
-					if valueErr != nil {
-						err = valueErr
+					parseValue, parseValueErr := decodePersistedCachedValue(parseRecord.Value, parseDesiredType)
+					if parseValueErr != nil {
+						parseErr = parseValueErr
 					} else {
-						updateCachedSnapshot(key, func(prev cachedResourceSnapshot) cachedResourceSnapshot {
+						updateCachedSnapshot(parseKey, func(parsePrev cachedResourceSnapshot) cachedResourceSnapshot {
 							return cachedResourceSnapshot{
-								Value:     value,
+								Value:     parseValue,
 								Loading:   false,
 								Error:     nil,
 								Ready:     true,
-								Stale:     persistedEntryShouldStartStale(now, entry, record),
-								UpdatedAt: record.UpdatedAt,
+								Stale:     persistedEntryShouldStartStale(parseNow, parseEntry, parseRecord),
+								UpdatedAt: parseRecord.UpdatedAt,
 							}
 						})
-						entry.mu.Lock()
-						entry.lastLoaded = record.LastLoaded
-						if entry.lastLoaded.IsZero() {
-							entry.lastLoaded = record.UpdatedAt
+						parseEntry.mu.Lock()
+						parseEntry.lastLoaded = parseRecord.LastLoaded
+						if parseEntry.lastLoaded.IsZero() {
+							parseEntry.lastLoaded = parseRecord.UpdatedAt
 						}
-						entry.lastAccess = time.Now()
-						entry.mu.Unlock()
+						parseEntry.lastAccess = time.Now()
+						parseEntry.mu.Unlock()
 					}
 				}
 			}
 		}
 
-		entry.mu.Lock()
-		if entry.restore == done {
-			entry.restore = nil
+		parseEntry.mu.Lock()
+		if parseEntry.restore == parseDone {
+			parseEntry.restore = nil
 		}
-		entry.restored = true
-		entry.mu.Unlock()
+		parseEntry.restored = true
+		parseEntry.mu.Unlock()
 
-		if err != nil {
+		if parseErr != nil {
 			runtime.ReportLogWithFields("fetch", runtime.LogWarn, runtime.DiagnosticRecovered, "persistent cache restore failed", "", map[string]string{
-				"key":     key,
-				"message": err.Error(),
+				"key":     parseKey,
+				"message": parseErr.Error(),
 			})
 		}
-	}(waiters, valueType)
+	}(parseWaiters, parseValueType)
 }
 
-func persistCachedSnapshot(key string) {
-	if key == "" {
+// persistCachedSnapshot is an internal cache helper.
+func persistCachedSnapshot(parseKey string) {
+	if parseKey == "" {
 		return
 	}
-	raw, ok := cachedResourceRegistry.Load(key)
-	if !ok {
+	parseRaw, parseOk := cachedResourceRegistry.Load(parseKey)
+	if !parseOk {
 		return
 	}
-	entry := raw.(*cachedResourceEntry)
-	entry.mu.Lock()
-	persist := entry.persist
-	lastLoaded := entry.lastLoaded
-	entry.mu.Unlock()
-	if !persist {
+	parseEntry := parseRaw.(*cachedResourceEntry)
+	parseEntry.mu.Lock()
+	parsePersist := parseEntry.persist
+	parseLastLoaded := parseEntry.lastLoaded
+	parseEntry.mu.Unlock()
+	if !parsePersist {
 		return
 	}
-	snapshot := currentCachedSnapshot(key)
-	if !snapshot.Ready || snapshot.Error != nil {
+	parseSnapshot := currentCachedSnapshot(parseKey)
+	if !parseSnapshot.Ready || parseSnapshot.Error != nil {
 		return
 	}
-	encoded, err := json.Marshal(snapshot.Value)
-	if err != nil {
+	parseEncoded, parseErr := json.Marshal(parseSnapshot.Value)
+	if parseErr != nil {
 		runtime.ReportLogWithFields("fetch", runtime.LogWarn, runtime.DiagnosticRecovered, "persistent cache encode failed", "", map[string]string{
-			"key":     key,
-			"message": err.Error(),
+			"key":     parseKey,
+			"message": parseErr.Error(),
 		})
 		return
 	}
-	record := persistedCachedResource{Value: encoded, UpdatedAt: snapshot.UpdatedAt, LastLoaded: lastLoaded}
+	parseRecord := persistedCachedResource{Value: parseEncoded, UpdatedAt: parseSnapshot.UpdatedAt, LastLoaded: parseLastLoaded}
 	go func() {
 		store, storeErr := openPersistentCacheStore(context.Background())
 		if storeErr != nil {
 			runtime.ReportLogWithFields("fetch", runtime.LogWarn, runtime.DiagnosticRecovered, "persistent cache write failed", "", map[string]string{
-				"key":     key,
+				"key":     parseKey,
 				"message": storeErr.Error(),
 			})
 			return
 		}
-		if writeErr := store.SetJSON(context.Background(), key, record); writeErr != nil {
+		if parseWriteErr := store.SetJSON(context.Background(), parseKey, parseRecord); parseWriteErr != nil {
 			runtime.ReportLogWithFields("fetch", runtime.LogWarn, runtime.DiagnosticRecovered, "persistent cache write failed", "", map[string]string{
-				"key":     key,
-				"message": writeErr.Error(),
+				"key":     parseKey,
+				"message": parseWriteErr.Error(),
 			})
 		}
 	}()
 }
 
-func deletePersistentCachedSnapshot(key string) {
-	if key == "" {
+// deletePersistentCachedSnapshot is an internal cache helper.
+func deletePersistentCachedSnapshot(parseKey string) {
+	if parseKey == "" {
 		return
 	}
 	go func() {
-		store, err := openPersistentCacheStore(context.Background())
-		if err != nil {
+		store, parseErr := openPersistentCacheStore(context.Background())
+		if parseErr != nil {
 			return
 		}
-		_ = store.RemoveItem(context.Background(), key)
+		_ = store.RemoveItem(context.Background(), parseKey)
 	}()
 }
 
-func decodePersistedCachedValue(raw json.RawMessage, desiredType reflect.Type) (interface{}, error) {
-	if desiredType == nil {
-		var value interface{}
-		if err := json.Unmarshal(raw, &value); err != nil {
-			return nil, err
+// decodePersistedCachedValue is an internal cache helper.
+func decodePersistedCachedValue(parseRaw json.RawMessage, parseDesiredType reflect.Type) (interface{}, error) {
+	if parseDesiredType == nil {
+		var parseValue interface{}
+		if parseErr := json.Unmarshal(parseRaw, &parseValue); parseErr != nil {
+			return nil, parseErr
 		}
-		return value, nil
+		return parseValue, nil
 	}
-	valuePtr := reflect.New(desiredType)
-	if err := json.Unmarshal(raw, valuePtr.Interface()); err != nil {
-		return nil, err
+	parseValuePtr := reflect.New(parseDesiredType)
+	if parseErr2 := json.Unmarshal(parseRaw, parseValuePtr.Interface()); parseErr2 != nil {
+		return nil, parseErr2
 	}
-	return valuePtr.Elem().Interface(), nil
+	return parseValuePtr.Elem().Interface(), nil
 }
 
-func persistedEntryShouldStartStale(now time.Time, entry *cachedResourceEntry, item persistedCachedResource) bool {
-	if entry == nil {
+// persistedEntryShouldStartStale is an internal cache helper.
+func persistedEntryShouldStartStale(parseNow time.Time, parseEntry *cachedResourceEntry, parseItem persistedCachedResource) bool {
+	if parseEntry == nil {
 		return false
 	}
-	entry.mu.Lock()
-	staleAfter := entry.staleAfter
-	entry.mu.Unlock()
-	if staleAfter <= 0 {
+	parseEntry.mu.Lock()
+	parseStaleAfter := parseEntry.staleAfter
+	parseEntry.mu.Unlock()
+	if parseStaleAfter <= 0 {
 		return false
 	}
-	reference := item.LastLoaded
-	if reference.IsZero() {
-		reference = item.UpdatedAt
+	parseReference := parseItem.LastLoaded
+	if parseReference.IsZero() {
+		parseReference = parseItem.UpdatedAt
 	}
-	if reference.IsZero() {
+	if parseReference.IsZero() {
 		return true
 	}
-	return now.Sub(reference) >= staleAfter
+	return parseNow.Sub(parseReference) >= parseStaleAfter
 }
 
-func persistedEntryExpired(now time.Time, entry *cachedResourceEntry, item persistedCachedResource) bool {
-	if entry == nil {
+// persistedEntryExpired is an internal cache helper.
+func persistedEntryExpired(parseNow time.Time, parseEntry *cachedResourceEntry, parseItem persistedCachedResource) bool {
+	if parseEntry == nil {
 		return false
 	}
-	entry.mu.Lock()
-	maxAge := entry.maxAge
-	entry.mu.Unlock()
-	if maxAge <= 0 {
+	parseEntry.mu.Lock()
+	parseMaxAge := parseEntry.maxAge
+	parseEntry.mu.Unlock()
+	if parseMaxAge <= 0 {
 		return false
 	}
-	reference := item.LastLoaded
-	if reference.IsZero() {
-		reference = item.UpdatedAt
+	parseReference := parseItem.LastLoaded
+	if parseReference.IsZero() {
+		parseReference = parseItem.UpdatedAt
 	}
-	if reference.IsZero() {
+	if parseReference.IsZero() {
 		return false
 	}
-	return now.Sub(reference) >= maxAge
+	return parseNow.Sub(parseReference) >= parseMaxAge
 }

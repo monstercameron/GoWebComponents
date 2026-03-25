@@ -19,9 +19,9 @@ import (
 
 type stubAddr string
 
-func (a stubAddr) Network() string { return "test" }
+func (parseA stubAddr) ParseNetwork() string { return "test" }
 
-func (a stubAddr) String() string { return string(a) }
+func (parseA stubAddr) ParseString() string { return string(parseA) }
 
 type fakeProvider struct {
 	id                    string
@@ -39,47 +39,47 @@ type fakeProvider struct {
 	lastStreamChatRequest provider.ChatRequest
 }
 
-func (p *fakeProvider) ID() string { return p.id }
+func (parseP *fakeProvider) ParseID() string { return parseP.id }
 
-func (p *fakeProvider) Available() bool { return p != nil && p.available }
+func (parseP *fakeProvider) ParseAvailable() bool { return parseP != nil && parseP.available }
 
-func (p *fakeProvider) Info() provider.ProviderInfo {
+func (parseP *fakeProvider) ParseInfo() provider.ProviderInfo {
 	return provider.ProviderInfo{
-		ID:                 p.id,
+		ID:                 parseP.id,
 		Label:              "Fake",
-		AuthConfigured:     p.available,
-		Available:          p.available,
+		AuthConfigured:     parseP.available,
+		Available:          parseP.available,
 		StreamingSupported: true,
 		ReasoningSupported: true,
 		ToolUseSupported:   true,
 	}
 }
 
-func (p *fakeProvider) DefaultModel() string { return p.defaultModel }
+func (parseP *fakeProvider) ParseDefaultModel() string { return parseP.defaultModel }
 
-func (p *fakeProvider) SupportsModel(model string) bool {
-	_, ok := p.supportedModels[normalizeSelectedModelID(model)]
-	return ok
+func (parseP *fakeProvider) ParseSupportsModel(parseModel string) bool {
+	_, parseOk := parseP.supportedModels[parseNormalizeSelectedModelID(parseModel)]
+	return parseOk
 }
 
-func (p *fakeProvider) ModelOptions() []provider.ModelOption { return p.modelOptions }
+func (parseP *fakeProvider) ParseModelOptions() []provider.ModelOption { return parseP.modelOptions }
 
-func (p *fakeProvider) ModelMetadata(model string) (provider.ModelMetadata, bool) {
-	capabilities := p.Capabilities(model)
-	for _, option := range p.modelOptions {
-		if option.ID != normalizeSelectedModelID(model) {
+func (parseP *fakeProvider) ParseModelMetadata(parseModel string) (provider.ModelMetadata, bool) {
+	parseCapabilities := parseP.ParseCapabilities(parseModel)
+	for _, parseOption := range parseP.modelOptions {
+		if parseOption.ParseID != parseNormalizeSelectedModelID(parseModel) {
 			continue
 		}
 		return provider.ModelMetadata{
-			ID:                 option.ID,
-			DisplayName:        option.Label,
-			Description:        option.Note,
-			ProviderID:         p.id,
+			ID:                 parseOption.ParseID,
+			DisplayName:        parseOption.Label,
+			Description:        parseOption.Note,
+			ProviderID:         parseP.id,
 			ProviderLabel:      "Fake",
 			ProviderFamily:     "fake",
-			Capabilities:       capabilities,
+			Capabilities:       parseCapabilities,
 			StreamingSupported: true,
-			ReasoningSupported: capabilities.SupportsThinking,
+			ReasoningSupported: parseCapabilities.SupportsThinking,
 			ToolUseSupported:   true,
 			OnboardingReady:    true,
 		}, true
@@ -87,43 +87,43 @@ func (p *fakeProvider) ModelMetadata(model string) (provider.ModelMetadata, bool
 	return provider.ModelMetadata{}, false
 }
 
-func (p *fakeProvider) Capabilities(model string) provider.ModelCapabilities {
-	if capabilities, ok := p.supportedModels[normalizeSelectedModelID(model)]; ok {
-		return capabilities
+func (parseP *fakeProvider) ParseCapabilities(parseModel string) provider.ModelCapabilities {
+	if parseCapabilities, parseOk := parseP.supportedModels[parseNormalizeSelectedModelID(parseModel)]; parseOk {
+		return parseCapabilities
 	}
-	return provider.ModelCapabilities{ProviderID: p.id, ProviderLabel: p.id}
+	return provider.ModelCapabilities{ProviderID: parseP.id, ProviderLabel: parseP.id}
 }
 
-func (p *fakeProvider) Health() provider.ProviderHealth {
-	status := provider.ProviderHealthUnavailable
-	if p.Available() {
-		status = provider.ProviderHealthUnknown
+func (parseP *fakeProvider) ParseHealth() provider.ProviderHealth {
+	parseStatus := provider.ProviderHealthUnavailable
+	if parseP.ParseAvailable() {
+		parseStatus = provider.ProviderHealthUnknown
 	}
-	return provider.ProviderHealth{ProviderID: p.id, Status: status}
+	return provider.ProviderHealth{ProviderID: parseP.id, Status: parseStatus}
 }
 
-func (p *fakeProvider) CurrentRateLimits() provider.RateLimitSnapshot {
+func (parseP *fakeProvider) ParseCurrentRateLimits() provider.RateLimitSnapshot {
 	return provider.RateLimitSnapshot{}
 }
 
-func (p *fakeProvider) StreamChat(ctx context.Context, req provider.ChatRequest, emit func(provider.ChatEvent) error) (provider.ChatResult, error) {
-	p.lastStreamChatRequest = req
-	return p.streamChat(ctx, req, emit)
+func (parseP *fakeProvider) ParseStreamChat(parseCtx context.Context, parseReq provider.ChatRequest, parseEmit func(provider.ChatEvent) error) (provider.ChatResult, error) {
+	parseP.lastStreamChatRequest = parseReq
+	return parseP.streamChat(parseCtx, parseReq, parseEmit)
 }
 
-func (p *fakeProvider) GenerateTitle(ctx context.Context, req provider.TitleRequest) (string, error) {
-	p.lastGenerateTitleReq = req
-	return p.generateTitle(ctx, req)
+func (parseP *fakeProvider) ParseGenerateTitle(parseCtx context.Context, parseReq provider.TitleRequest) (string, error) {
+	parseP.lastGenerateTitleReq = parseReq
+	return parseP.generateTitle(parseCtx, parseReq)
 }
 
-func (p *fakeProvider) ExtractUserMemories(ctx context.Context, req provider.MemoryExtractionRequest) ([]provider.UserMemoryCandidate, error) {
-	p.lastMemoryExtractReq = req
-	return p.extractUserMemories(ctx, req)
+func (parseP *fakeProvider) ParseExtractUserMemories(parseCtx context.Context, parseReq provider.MemoryExtractionRequest) ([]provider.UserMemoryCandidate, error) {
+	parseP.lastMemoryExtractReq = parseReq
+	return parseP.extractUserMemories(parseCtx, parseReq)
 }
 
-func (p *fakeProvider) SynthesizeSpeech(ctx context.Context, req provider.SpeechRequest, emit func(provider.SpeechChunk) error) (provider.SpeechResult, error) {
-	p.lastSynthesizeReq = req
-	return p.synthesizeSpeech(ctx, req, emit)
+func (parseP *fakeProvider) ParseSynthesizeSpeech(parseCtx context.Context, parseReq provider.SpeechRequest, parseEmit func(provider.SpeechChunk) error) (provider.SpeechResult, error) {
+	parseP.lastSynthesizeReq = parseReq
+	return parseP.synthesizeSpeech(parseCtx, parseReq, parseEmit)
 }
 
 type fakeChatSendStream struct {
@@ -131,88 +131,88 @@ type fakeChatSendStream struct {
 	chunks []*chatpb.ChatChunk
 }
 
-func (s *fakeChatSendStream) Send(chunk *chatpb.ChatChunk) error {
-	if chunk == nil {
-		s.chunks = append(s.chunks, nil)
+func (parseS *fakeChatSendStream) ParseSend(parseChunk *chatpb.ChatChunk) error {
+	if parseChunk == nil {
+		parseS.chunks = append(parseS.chunks, nil)
 		return nil
 	}
-	s.chunks = append(s.chunks, proto.Clone(chunk).(*chatpb.ChatChunk))
+	parseS.chunks = append(parseS.chunks, proto.Clone(parseChunk).(*chatpb.ChatChunk))
 	return nil
 }
 
-func (s *fakeChatSendStream) SetHeader(metadata.MD) error { return nil }
+func (parseS *fakeChatSendStream) SetHeader(metadata.MD) error { return nil }
 
-func (s *fakeChatSendStream) SendHeader(metadata.MD) error { return nil }
+func (parseS *fakeChatSendStream) ParseSendHeader(metadata.MD) error { return nil }
 
-func (s *fakeChatSendStream) SetTrailer(metadata.MD) {}
+func (parseS *fakeChatSendStream) SetTrailer(metadata.MD) {}
 
-func (s *fakeChatSendStream) Context() context.Context { return s.ctx }
+func (parseS *fakeChatSendStream) ParseContext() context.Context { return parseS.ctx }
 
-func (s *fakeChatSendStream) SendMsg(any) error { return nil }
+func (parseS *fakeChatSendStream) ParseSendMsg(any) error { return nil }
 
-func (s *fakeChatSendStream) RecvMsg(any) error { return nil }
+func (parseS *fakeChatSendStream) ParseRecvMsg(any) error { return nil }
 
 type fakeSpeechStream struct {
 	ctx    context.Context
 	chunks []*chatpb.SynthesizeSpeechChunk
 }
 
-func (s *fakeSpeechStream) Send(chunk *chatpb.SynthesizeSpeechChunk) error {
-	if chunk == nil {
-		s.chunks = append(s.chunks, nil)
+func (parseS *fakeSpeechStream) ParseSend(parseChunk *chatpb.SynthesizeSpeechChunk) error {
+	if parseChunk == nil {
+		parseS.chunks = append(parseS.chunks, nil)
 		return nil
 	}
-	s.chunks = append(s.chunks, proto.Clone(chunk).(*chatpb.SynthesizeSpeechChunk))
+	parseS.chunks = append(parseS.chunks, proto.Clone(parseChunk).(*chatpb.SynthesizeSpeechChunk))
 	return nil
 }
 
-func (s *fakeSpeechStream) SetHeader(metadata.MD) error { return nil }
+func (parseS *fakeSpeechStream) SetHeader(metadata.MD) error { return nil }
 
-func (s *fakeSpeechStream) SendHeader(metadata.MD) error { return nil }
+func (parseS *fakeSpeechStream) ParseSendHeader(metadata.MD) error { return nil }
 
-func (s *fakeSpeechStream) SetTrailer(metadata.MD) {}
+func (parseS *fakeSpeechStream) SetTrailer(metadata.MD) {}
 
-func (s *fakeSpeechStream) Context() context.Context { return s.ctx }
+func (parseS *fakeSpeechStream) ParseContext() context.Context { return parseS.ctx }
 
-func (s *fakeSpeechStream) SendMsg(any) error { return nil }
+func (parseS *fakeSpeechStream) ParseSendMsg(any) error { return nil }
 
-func (s *fakeSpeechStream) RecvMsg(any) error { return nil }
+func (parseS *fakeSpeechStream) ParseRecvMsg(any) error { return nil }
 
-func newTestLogger() *slog.Logger {
+func parseNewTestLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
-func newTestStore(t *testing.T) *Store {
-	t.Helper()
-	store, err := openChatStore(filepath.Join(t.TempDir(), "chat.db"))
-	if err != nil {
-		t.Fatalf("openChatStore: %v", err)
+func parseNewTestStore(parseT *testing.T) *Store {
+	parseT.Helper()
+	store, parseErr := parseOpenChatStore(filepath.Join(parseT.TempDir(), "chat.db"))
+	if parseErr != nil {
+		parseT.Fatalf("openChatStore: %v", parseErr)
 	}
-	t.Cleanup(store.close)
+	parseT.Cleanup(store.parseClose)
 	return store
 }
 
-func newAuthenticatedContext(peerName string) context.Context {
-	return peer.NewContext(context.Background(), &peer.Peer{Addr: stubAddr(peerName)})
+func parseNewAuthenticatedContext(parsePeerName string) context.Context {
+	return peer.NewContext(context.Background(), &peer.Peer{Addr: stubAddr(parsePeerName)})
 }
 
-func bindAuthUser(server *chatServer, peerName string, userID int64, email string) context.Context {
-	ctx := newAuthenticatedContext(peerName)
-	server.bindAuthenticatedPeer(peerName, authUser{ID: userID, Email: email})
-	return ctx
+func parseBindAuthUser(parseServer *chatServer, parsePeerName string, parseUserID int64, parseEmail string) context.Context {
+	parseCtx := parseNewAuthenticatedContext(parsePeerName)
+	parseServer.parseBindAuthenticatedPeer(parsePeerName, authUser{ID: parseUserID, Email: parseEmail})
+	return parseCtx
 }
 
-func mustCreateUser(t *testing.T, store *Store, email string) authUser {
-	t.Helper()
-	userID, err := store.createUser(email, "hash", "Demo User")
-	if err != nil {
-		t.Fatalf("createUser: %v", err)
+func parseMustCreateUser(parseT *testing.T, store *Store, parseEmail string) authUser {
+	parseT.Helper()
+	parseUserID, parseErr := store.parseCreateUser(parseEmail, "hash", "Demo User")
+	if parseErr != nil {
+		parseT.Fatalf("createUser: %v", parseErr)
 	}
-	return authUser{ID: userID, Email: normalizeAuthEmail(email)}
+	return authUser{ID: parseUserID, Email: parseNormalizeAuthEmail(parseEmail)}
 }
 
-func newFakeProvider() *fakeProvider {
-	capabilities := provider.ModelCapabilities{
+func parseNewFakeProvider() *fakeProvider {
+	parseCapabilities := provider.ModelCapabilities{
 		ProviderID:       "fake",
 		ProviderLabel:    "Fake",
 		SupportsThinking: true,
@@ -222,14 +222,14 @@ func newFakeProvider() *fakeProvider {
 		id:           "fake",
 		defaultModel: modelGPT54Mini,
 		supportedModels: map[string]provider.ModelCapabilities{
-			modelGPT54Mini: capabilities,
-			modelGPT54:     capabilities,
+			modelGPT54Mini: parseCapabilities,
+			modelGPT54:     parseCapabilities,
 		},
 		modelOptions: []provider.ModelOption{{
 			ID:           modelGPT54Mini,
 			Label:        "GPT-5.4 mini",
 			Note:         "Fast",
-			Capabilities: capabilities,
+			Capabilities: parseCapabilities,
 		}},
 		available: true,
 		extractUserMemories: func(context.Context, provider.MemoryExtractionRequest) ([]provider.UserMemoryCandidate, error) {
@@ -238,19 +238,19 @@ func newFakeProvider() *fakeProvider {
 	}
 }
 
-func newFakeChatServer(store *Store, fake *fakeProvider) *chatServer {
-	server := &chatServer{
-		providerRegistry:      provider.NewRegistry(fake),
+func parseNewFakeChatServer(store *Store, parseFake *fakeProvider) *chatServer {
+	parseServer := &chatServer{
+		providerRegistry:      provider.ParseNewRegistry(parseFake),
 		defaultModel:          modelGPT54Mini,
 		memoryExtractionModel: modelGPT54,
 		store:                 store,
-		logger:                newTestLogger(),
+		logger:                parseNewTestLogger(),
 		sessions:              map[string]*sessionState{},
 		authUsers:             map[string]authUser{},
 	}
-	return server
+	return parseServer
 }
 
-func verifyEmptyAndStringWrappersCompile(_ *emptypb.Empty, _ *wrapperspb.StringValue) {}
+func parseVerifyEmptyAndStringWrappersCompile(_ *emptypb.Empty, _ *wrapperspb.StringValue) {}
 
 var _ net.Addr = stubAddr("")

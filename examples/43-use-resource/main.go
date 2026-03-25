@@ -23,40 +23,40 @@ type deploymentPreview struct {
 }
 
 func useResourceExample() ui.Node {
-	environment := ui.UseState("Staging")
-	resource := fetch.UseResource(func(ctx context.Context) (deploymentPreview, error) {
+	parseEnvironment := ui.UseState("Staging")
+	parseResource := fetch.UseResource(func(parseCtx context.Context) (deploymentPreview, error) {
 		select {
 		case <-time.After(900 * time.Millisecond):
-		case <-ctx.Done():
-			return deploymentPreview{}, ctx.Err()
+		case <-parseCtx.Done():
+			return deploymentPreview{}, parseCtx.Err()
 		}
 
-		if environment.Get() == "Production" {
+		if parseEnvironment.Get() == "Production" {
 			return deploymentPreview{Environment: "Production", Nodes: 12, Window: "02:00 UTC"}, nil
 		}
 		return deploymentPreview{Environment: "Staging", Nodes: 4, Window: "Now"}, nil
-	}, environment.Get())
+	}, parseEnvironment.Get())
 
-	showStaging := ui.UseEvent(func() { environment.Set("Staging") })
-	showProduction := ui.UseEvent(func() { environment.Set("Production") })
-	reload := ui.UseEvent(func() { resource.Reload() })
-	cancel := ui.UseEvent(func() { resource.Cancel() })
+	parseShowStaging := ui.UseEvent(func() { parseEnvironment.Set("Staging") })
+	parseShowProduction := ui.UseEvent(func() { parseEnvironment.Set("Production") })
+	parseReload := ui.UseEvent(func() { parseResource.Reload() })
+	parseCancel := ui.UseEvent(func() { parseResource.Cancel() })
 
-	state := resource.Get()
-	status := "Idle"
-	if state.Loading {
-		status = "Loading"
-	} else if state.Error != nil {
-		status = "Error"
-	} else if state.Ready {
-		status = "Ready"
+	parseState := parseResource.Get()
+	parseStatus := "Idle"
+	if parseState.Loading {
+		parseStatus = "Loading"
+	} else if parseState.Error != nil {
+		parseStatus = "Error"
+	} else if parseState.Ready {
+		parseStatus = "Ready"
 	}
 
-	window := "-"
-	nodes := "-"
-	if state.Ready {
-		window = state.Value.Window
-		nodes = fmt.Sprintf("%d", state.Value.Nodes)
+	parseWindow := "-"
+	parseNodes := "-"
+	if parseState.Ready {
+		parseWindow = parseState.Value.Window
+		parseNodes = fmt.Sprintf("%d", parseState.Value.Nodes)
 	}
 
 	return shared.ExamplePage(
@@ -65,16 +65,16 @@ func useResourceExample() ui.Node {
 		"UseResource is the higher-level hook for Go loaders. It returns typed values, exposes cancellation, and re-runs when dependency values change.",
 		shared.ExamplePanel("Resource controls",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-				shared.ExampleButton("Staging", showStaging),
-				shared.ExampleButton("Production", showProduction),
-				shared.ExampleButton("Reload", reload),
-				shared.ExampleButton("Cancel", cancel),
+				shared.ExampleButton("Staging", parseShowStaging),
+				shared.ExampleButton("Production", parseShowProduction),
+				shared.ExampleButton("Reload", parseReload),
+				shared.ExampleButton("Cancel", parseCancel),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-4"},
-				shared.ExampleStat("Status", status),
-				shared.ExampleStat("Environment", environment.Get()),
-				shared.ExampleStat("Nodes", nodes),
-				shared.ExampleStat("Window", window),
+				shared.ExampleStat("Status", parseStatus),
+				shared.ExampleStat("Environment", parseEnvironment.Get()),
+				shared.ExampleStat("Nodes", parseNodes),
+				shared.ExampleStat("Window", parseWindow),
 			),
 		),
 		shared.ExamplePanel("Typed loader",

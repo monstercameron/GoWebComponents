@@ -11,16 +11,16 @@ var grpcReconnectRegistry struct {
 	handler func(string)
 }
 
-func registerGRPCReconnectHandler(handler func(string)) func() {
+func parseRegisterGRPCReconnectHandler(parseHandler func(string)) func() {
 	grpcReconnectRegistry.mu.Lock()
 	grpcReconnectRegistry.nextID++
-	registeredID := grpcReconnectRegistry.nextID
-	grpcReconnectRegistry.id = registeredID
-	grpcReconnectRegistry.handler = handler
+	parseRegisteredID := grpcReconnectRegistry.nextID
+	grpcReconnectRegistry.id = parseRegisteredID
+	grpcReconnectRegistry.handler = parseHandler
 	grpcReconnectRegistry.mu.Unlock()
 	return func() {
 		grpcReconnectRegistry.mu.Lock()
-		if grpcReconnectRegistry.id == registeredID && grpcReconnectRegistry.handler != nil {
+		if grpcReconnectRegistry.id == parseRegisteredID && grpcReconnectRegistry.handler != nil {
 			grpcReconnectRegistry.id = 0
 			grpcReconnectRegistry.handler = nil
 		}
@@ -28,11 +28,11 @@ func registerGRPCReconnectHandler(handler func(string)) func() {
 	}
 }
 
-func requestGRPCReconnect(reason string) {
+func parseRequestGRPCReconnect(parseReason string) {
 	grpcReconnectRegistry.mu.RLock()
-	handler := grpcReconnectRegistry.handler
+	parseHandler := grpcReconnectRegistry.handler
 	grpcReconnectRegistry.mu.RUnlock()
-	if handler != nil {
-		handler(reason)
+	if parseHandler != nil {
+		parseHandler(parseReason)
 	}
 }

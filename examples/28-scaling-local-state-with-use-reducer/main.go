@@ -90,77 +90,77 @@ func initialReplyState() replyState {
 	}
 }
 
-func reduceReplyState(state replyState, action replyAction) replyState {
-	switch action.Type {
+func reduceReplyState(parseState replyState, parseAction replyAction) replyState {
+	switch parseAction.Type {
 	case actionLoadThread:
-		reviewers := 0
-		escalation := "No escalation required"
-		if action.Thread.NeedsReview {
-			reviewers = 1
-			escalation = "Legal or policy reviewer queued"
+		parseReviewers := 0
+		parseEscalation := "No escalation required"
+		if parseAction.Thread.NeedsReview {
+			parseReviewers = 1
+			parseEscalation = "Legal or policy reviewer queued"
 		}
 		return replyState{
-			ActiveThread:      action.Thread,
+			ActiveThread:      parseAction.Thread,
 			Stage:             stageDrafting,
-			ReviewRequired:    action.Thread.NeedsReview,
-			ReviewerCount:     reviewers,
+			ReviewRequired:    parseAction.Thread.NeedsReview,
+			ReviewerCount:     parseReviewers,
 			QueueStatus:       "Working locally",
-			LastAction:        "Loaded " + action.Thread.Key + " thread",
+			LastAction:        "Loaded " + parseAction.Thread.Key + " thread",
 			RefinementCount:   0,
-			EscalationSummary: escalation,
+			EscalationSummary: parseEscalation,
 		}
 	case actionRefineReply:
-		next := state
-		next.RefinementCount++
-		next.LastAction = fmt.Sprintf("Refined reply draft (%d)", next.RefinementCount)
-		if next.ReviewRequired {
-			next.Stage = stageReview
-			next.QueueStatus = "Waiting for reviewer sign-off"
-			next.EscalationSummary = "Reviewer sees the latest policy context"
+		parseNext := parseState
+		parseNext.RefinementCount++
+		parseNext.LastAction = fmt.Sprintf("Refined reply draft (%d)", parseNext.RefinementCount)
+		if parseNext.ReviewRequired {
+			parseNext.Stage = stageReview
+			parseNext.QueueStatus = "Waiting for reviewer sign-off"
+			parseNext.EscalationSummary = "Reviewer sees the latest policy context"
 		} else {
-			next.Stage = stageDrafting
-			next.QueueStatus = "Working locally"
+			parseNext.Stage = stageDrafting
+			parseNext.QueueStatus = "Working locally"
 		}
-		return next
+		return parseNext
 	case actionRequestReview:
-		next := state
-		next.Stage = stageReview
-		next.ReviewRequired = true
-		if next.ReviewerCount == 0 {
-			next.ReviewerCount = 1
+		parseNext2 := parseState
+		parseNext2.Stage = stageReview
+		parseNext2.ReviewRequired = true
+		if parseNext2.ReviewerCount == 0 {
+			parseNext2.ReviewerCount = 1
 		}
-		next.QueueStatus = "Waiting for reviewer sign-off"
-		next.LastAction = "Routed to review"
-		next.EscalationSummary = "One reviewer must approve before queueing"
-		return next
+		parseNext2.QueueStatus = "Waiting for reviewer sign-off"
+		parseNext2.LastAction = "Routed to review"
+		parseNext2.EscalationSummary = "One reviewer must approve before queueing"
+		return parseNext2
 	case actionApprove:
-		next := state
-		next.Stage = stageReady
-		next.ReviewRequired = false
-		if next.ReviewerCount == 0 {
-			next.ReviewerCount = 1
+		parseNext3 := parseState
+		parseNext3.Stage = stageReady
+		parseNext3.ReviewRequired = false
+		if parseNext3.ReviewerCount == 0 {
+			parseNext3.ReviewerCount = 1
 		}
-		next.QueueStatus = "Ready for queue"
-		next.LastAction = "Reviewer approved the draft"
-		next.EscalationSummary = "Approval captured; reply can be queued"
-		return next
+		parseNext3.QueueStatus = "Ready for queue"
+		parseNext3.LastAction = "Reviewer approved the draft"
+		parseNext3.EscalationSummary = "Approval captured; reply can be queued"
+		return parseNext3
 	case actionQueue:
-		if state.ReviewRequired {
-			next := state
-			next.Stage = stageReview
-			next.QueueStatus = "Blocked until review completes"
-			next.LastAction = "Queue attempt blocked"
-			return next
+		if parseState.ReviewRequired {
+			parseNext4 := parseState
+			parseNext4.Stage = stageReview
+			parseNext4.QueueStatus = "Blocked until review completes"
+			parseNext4.LastAction = "Queue attempt blocked"
+			return parseNext4
 		}
-		next := state
-		next.Stage = stageQueued
-		next.QueueStatus = "Queued for send"
-		next.LastAction = "Queued the reply"
-		return next
+		parseNext5 := parseState
+		parseNext5.Stage = stageQueued
+		parseNext5.QueueStatus = "Queued for send"
+		parseNext5.LastAction = "Queued the reply"
+		return parseNext5
 	case actionReset:
 		return initialReplyState()
 	default:
-		return state
+		return parseState
 	}
 }
 
@@ -177,56 +177,56 @@ type supportReplyWorkflow struct {
 }
 
 func useSupportReplyWorkflow() supportReplyWorkflow {
-	workflow := ui.UseReducer(reduceReplyState, initialReplyState())
-	loadThread := func(thread supportThread) ui.Handler {
+	parseWorkflow := ui.UseReducer(reduceReplyState, initialReplyState())
+	parseLoadThread := func(parseThread supportThread) ui.Handler {
 		return ui.UseEvent(func() {
-			workflow.Dispatch(replyAction{Type: actionLoadThread, Thread: thread})
+			parseWorkflow.Dispatch(replyAction{Type: actionLoadThread, Thread: parseThread})
 		})
 	}
 
 	return supportReplyWorkflow{
-		State:             workflow.Get(),
-		UseBillingThread:  loadThread(threadOptions[0]),
-		UseShippingThread: loadThread(threadOptions[1]),
-		UsePolicyThread:   loadThread(threadOptions[2]),
+		State:             parseWorkflow.Get(),
+		UseBillingThread:  parseLoadThread(threadOptions[0]),
+		UseShippingThread: parseLoadThread(threadOptions[1]),
+		UsePolicyThread:   parseLoadThread(threadOptions[2]),
 		RefineReply: ui.UseEvent(func() {
-			workflow.Dispatch(replyAction{Type: actionRefineReply})
+			parseWorkflow.Dispatch(replyAction{Type: actionRefineReply})
 		}),
 		RequestReview: ui.UseEvent(func() {
-			workflow.Dispatch(replyAction{Type: actionRequestReview})
+			parseWorkflow.Dispatch(replyAction{Type: actionRequestReview})
 		}),
 		ApproveReply: ui.UseEvent(func() {
-			workflow.Dispatch(replyAction{Type: actionApprove})
+			parseWorkflow.Dispatch(replyAction{Type: actionApprove})
 		}),
 		QueueReply: ui.UseEvent(func() {
-			workflow.Dispatch(replyAction{Type: actionQueue})
+			parseWorkflow.Dispatch(replyAction{Type: actionQueue})
 		}),
 		ResetWorkflow: ui.UseEvent(func() {
-			workflow.Dispatch(replyAction{Type: actionReset})
+			parseWorkflow.Dispatch(replyAction{Type: actionReset})
 		}),
 	}
 }
 
-func threadButton(label string, active bool, handler ui.Handler) ui.Node {
-	className := "rounded-full border px-4 py-2 text-sm font-semibold transition "
-	if active {
-		className += "border-cyan-300 bg-cyan-300/15 text-cyan-100"
+func threadButton(parseLabel string, isActive bool, parseHandler ui.Handler) ui.Node {
+	parseClassName := "rounded-full border px-4 py-2 text-sm font-semibold transition "
+	if isActive {
+		parseClassName += "border-cyan-300 bg-cyan-300/15 text-cyan-100"
 	} else {
-		className += "border-white/10 bg-slate-950/45 text-slate-300 hover:border-cyan-900 hover:text-cyan-100"
+		parseClassName += "border-white/10 bg-slate-950/45 text-slate-300 hover:border-cyan-900 hover:text-cyan-100"
 	}
-	return html.Button(html.Props{OnClick: handler, Class: className}, html.Text(label))
+	return html.Button(html.Props{OnClick: parseHandler, Class: parseClassName}, html.Text(parseLabel))
 }
 
-func noteCard(label, value string) ui.Node {
+func noteCard(parseLabel, parseValue string) ui.Node {
 	return html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 p-4"},
-		html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text(label)),
-		html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-200"}, html.Text(value)),
+		html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text(parseLabel)),
+		html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-200"}, html.Text(parseValue)),
 	)
 }
 
 func reducerScalingExample() ui.Node {
-	workflow := useSupportReplyWorkflow()
-	state := workflow.State
+	parseWorkflow := useSupportReplyWorkflow()
+	parseState := parseWorkflow.State
 
 	return shared.ExamplePage(
 		"Scaling local state with UseReducer",
@@ -242,31 +242,31 @@ func reducerScalingExample() ui.Node {
 		),
 		shared.ExamplePanel("Reply workflow",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-				threadButton("Billing", state.ActiveThread.Key == threadOptions[0].Key, workflow.UseBillingThread),
-				threadButton("Shipping", state.ActiveThread.Key == threadOptions[1].Key, workflow.UseShippingThread),
-				threadButton("Policy", state.ActiveThread.Key == threadOptions[2].Key, workflow.UsePolicyThread),
+				threadButton("Billing", parseState.ActiveThread.Key == threadOptions[0].Key, parseWorkflow.UseBillingThread),
+				threadButton("Shipping", parseState.ActiveThread.Key == threadOptions[1].Key, parseWorkflow.UseShippingThread),
+				threadButton("Policy", parseState.ActiveThread.Key == threadOptions[2].Key, parseWorkflow.UsePolicyThread),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4"},
-				shared.ExampleStat("Active thread", state.ActiveThread.Label),
-				shared.ExampleStat("Stage", string(state.Stage)),
-				shared.ExampleStat("Review required", map[bool]string{true: "Yes", false: "No"}[state.ReviewRequired]),
-				shared.ExampleStat("Reviewers", fmt.Sprintf("%d", state.ReviewerCount)),
+				shared.ExampleStat("Active thread", parseState.ActiveThread.Label),
+				shared.ExampleStat("Stage", string(parseState.Stage)),
+				shared.ExampleStat("Review required", map[bool]string{true: "Yes", false: "No"}[parseState.ReviewRequired]),
+				shared.ExampleStat("Reviewers", fmt.Sprintf("%d", parseState.ReviewerCount)),
 			),
 			html.Div(html.Props{Class: "mt-4 grid gap-4 md:grid-cols-2"},
-				noteCard("Suggested reply", state.ActiveThread.SuggestedReply),
-				noteCard("Workflow summary", state.EscalationSummary),
+				noteCard("Suggested reply", parseState.ActiveThread.SuggestedReply),
+				noteCard("Workflow summary", parseState.EscalationSummary),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
-				shared.ExampleStat("Queue status", state.QueueStatus),
-				shared.ExampleStat("Refinements", fmt.Sprintf("%d", state.RefinementCount)),
-				shared.ExampleStat("Last action", state.LastAction),
+				shared.ExampleStat("Queue status", parseState.QueueStatus),
+				shared.ExampleStat("Refinements", fmt.Sprintf("%d", parseState.RefinementCount)),
+				shared.ExampleStat("Last action", parseState.LastAction),
 			),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-				shared.ExampleButton("Refine reply", workflow.RefineReply),
-				shared.ExampleButton("Request review", workflow.RequestReview),
-				shared.ExampleButton("Approve", workflow.ApproveReply),
-				shared.ExampleButton("Queue reply", workflow.QueueReply),
-				shared.ExampleButton("Reset", workflow.ResetWorkflow),
+				shared.ExampleButton("Refine reply", parseWorkflow.RefineReply),
+				shared.ExampleButton("Request review", parseWorkflow.RequestReview),
+				shared.ExampleButton("Approve", parseWorkflow.ApproveReply),
+				shared.ExampleButton("Queue reply", parseWorkflow.QueueReply),
+				shared.ExampleButton("Reset", parseWorkflow.ResetWorkflow),
 			),
 			shared.ExampleCode(
 				"func useSupportReplyWorkflow() supportReplyWorkflow {",

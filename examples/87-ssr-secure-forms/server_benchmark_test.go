@@ -12,69 +12,69 @@ import (
 	"testing"
 )
 
-func BenchmarkRenderSecureFormsDocument(b *testing.B) {
-	state := newPageState("token-123", nil)
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		document, err := renderDocument(state)
-		if err != nil {
-			b.Fatal(err)
+func BenchmarkRenderSecureFormsDocument(parseB *testing.B) {
+	parseState := newPageState("token-123", nil)
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseDocument, parseErr := renderDocument(parseState)
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
 		}
-		if len(document) == 0 {
-			b.Fatal("expected document")
-		}
-	}
-}
-
-func BenchmarkHandleMultipartUploadSuccess(b *testing.B) {
-	server := newTestServer()
-	csrfToken, csrfCookie := loadBenchmarkCSRF(b, server)
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		body := &bytes.Buffer{}
-		writer := multipart.NewWriter(body)
-		_ = writer.WriteField("csrf_token", csrfToken)
-		_ = writer.WriteField("label", "Benchmark board")
-		part, err := writer.CreateFormFile("asset", "board.png")
-		if err != nil {
-			b.Fatal(err)
-		}
-		if _, err := part.Write([]byte("\x89PNG\r\n\x1a\nfakepng")); err != nil {
-			b.Fatal(err)
-		}
-		_ = writer.Close()
-
-		req := httptest.NewRequest(http.MethodPost, "/upload", body)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
-		req.Header.Set("Origin", "http://example.com")
-		req.Host = "example.com"
-		req.AddCookie(csrfCookie)
-		res := httptest.NewRecorder()
-		server.handleUpload(res, req)
-		if res.Code != http.StatusSeeOther {
-			b.Fatalf("expected redirect, got %d", res.Code)
+		if len(parseDocument) == 0 {
+			parseB.Fatal("expected document")
 		}
 	}
 }
 
-func loadBenchmarkCSRF(b *testing.B, server *secureFormsServer) (string, *http.Cookie) {
-	b.Helper()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Host = "example.com"
-	res := httptest.NewRecorder()
-	server.handleIndex(res, req)
-	body := res.Body.String()
-	match := regexp.MustCompile(`name="csrf_token"[^>]*value="([^"]+)"`).FindStringSubmatch(body)
-	if len(match) != 2 {
-		b.Fatalf("expected csrf token in body, got %q", body)
-	}
-	for _, cookie := range res.Result().Cookies() {
-		if cookie.Name == secureFormsCSRFCookie {
-			return match[1], cookie
+func BenchmarkHandleMultipartUploadSuccess(parseB *testing.B) {
+	parseServer := newTestServer()
+	parseCsrfToken, parseCsrfCookie := loadBenchmarkCSRF(parseB, parseServer)
+	parseB.ReportAllocs()
+	parseB.ResetTimer()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		parseBody := &bytes.Buffer{}
+		parseWriter := multipart.NewWriter(parseBody)
+		_ = parseWriter.WriteField("csrf_token", parseCsrfToken)
+		_ = parseWriter.WriteField("label", "Benchmark board")
+		parsePart, parseErr := parseWriter.CreateFormFile("asset", "board.png")
+		if parseErr != nil {
+			parseB.Fatal(parseErr)
+		}
+		if _, parseErr2 := parsePart.Write([]byte("\x89PNG\r\n\x1a\nfakepng")); parseErr2 != nil {
+			parseB.Fatal(parseErr2)
+		}
+		_ = parseWriter.Close()
+
+		parseReq := httptest.NewRequest(http.MethodPost, "/upload", parseBody)
+		parseReq.Header.Set("Content-Type", parseWriter.FormDataContentType())
+		parseReq.Header.Set("Origin", "http://example.com")
+		parseReq.Host = "example.com"
+		parseReq.AddCookie(parseCsrfCookie)
+		parseRes := httptest.NewRecorder()
+		parseServer.handleUpload(parseRes, parseReq)
+		if parseRes.Code != http.StatusSeeOther {
+			parseB.Fatalf("expected redirect, got %d", parseRes.Code)
 		}
 	}
-	b.Fatal("expected csrf cookie")
+}
+
+func loadBenchmarkCSRF(parseB *testing.B, parseServer *secureFormsServer) (string, *http.Cookie) {
+	parseB.Helper()
+	parseReq := httptest.NewRequest(http.MethodGet, "/", nil)
+	parseReq.Host = "example.com"
+	parseRes := httptest.NewRecorder()
+	parseServer.handleIndex(parseRes, parseReq)
+	parseBody := parseRes.Body.String()
+	parseMatch := regexp.MustCompile(`name="csrf_token"[^>]*value="([^"]+)"`).FindStringSubmatch(parseBody)
+	if len(parseMatch) != 2 {
+		parseB.Fatalf("expected csrf token in body, got %q", parseBody)
+	}
+	for _, parseCookie := range parseRes.Result().Cookies() {
+		if parseCookie.Name == secureFormsCSRFCookie {
+			return parseMatch[1], parseCookie
+		}
+	}
+	parseB.Fatal("expected csrf cookie")
 	return "", nil
 }

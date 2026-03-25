@@ -129,7 +129,7 @@ func HeroSection() ui.Node {
 	)
 }
 
-func BlogPostCard(props BlogPostCardProps) ui.Node {
+func BlogPostCard(parseProps BlogPostCardProps) ui.Node {
 	return html.Article(html.Props{
 		Class: "bg-white/5 border border-white/10 rounded-xl p-8 hover:bg-white/10 transition-all duration-300 group",
 	},
@@ -137,19 +137,19 @@ func BlogPostCard(props BlogPostCardProps) ui.Node {
 			Class: "flex items-center mb-6",
 		},
 			html.Span(html.Props{
-				Class: props.TagColor + " px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
-			}, html.Text(props.Tag)),
+				Class: parseProps.TagColor + " px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
+			}, html.Text(parseProps.Tag)),
 			html.Time(html.Props{
 				Class: "text-gray-500 text-sm ml-auto font-mono",
-				Raw:   map[string]interface{}{"datetime": props.DateTime},
-			}, html.Text(props.Date)),
+				Raw:   map[string]interface{}{"datetime": parseProps.DateTime},
+			}, html.Text(parseProps.Date)),
 		),
 		html.H4(html.Props{
 			Class: "text-2xl font-bold mb-4 text-white group-hover:text-blue-400 transition-colors",
-		}, html.Text(props.Title)),
+		}, html.Text(parseProps.Title)),
 		html.P(html.Props{
 			Class: "text-gray-400 mb-6 line-clamp-3 leading-relaxed",
-		}, html.Text(props.Description)),
+		}, html.Text(parseProps.Description)),
 		html.A(html.Props{
 			Href:  "#",
 			Class: "inline-flex items-center text-blue-400 font-semibold hover:text-blue-300 transition-colors",

@@ -5,43 +5,43 @@ import (
 	"testing"
 )
 
-func TestAnthropicProviderNonNetworkHelpers(t *testing.T) {
-	provider := NewAnthropicProvider("test-key", testAnthropicCatalog())
-	if !provider.Available() {
-		t.Fatal("expected anthropic provider with test key to be available")
+func TestAnthropicProviderNonNetworkHelpers(parseT *testing.T) {
+	parseProvider := ParseNewAnthropicProvider("test-key", parseTestAnthropicCatalog())
+	if !parseProvider.ParseAvailable() {
+		parseT.Fatal("expected anthropic provider with test key to be available")
 	}
-	if provider.ID() != "anthropic" {
-		t.Fatalf("unexpected provider ID: %q", provider.ID())
+	if parseProvider.ParseID() != "anthropic" {
+		parseT.Fatalf("unexpected provider ID: %q", parseProvider.ParseID())
 	}
-	if provider.DefaultModel() != "claude-sonnet-4-5" {
-		t.Fatalf("unexpected default model: %q", provider.DefaultModel())
+	if parseProvider.ParseDefaultModel() != "claude-sonnet-4-5" {
+		parseT.Fatalf("unexpected default model: %q", parseProvider.ParseDefaultModel())
 	}
-	if !provider.SupportsModel("claude-sonnet-4-5") || provider.SupportsModel("gpt-5.4-mini") {
-		t.Fatal("unexpected SupportsModel behavior for Anthropic provider")
+	if !parseProvider.ParseSupportsModel("claude-sonnet-4-5") || parseProvider.ParseSupportsModel("gpt-5.4-mini") {
+		parseT.Fatal("unexpected SupportsModel behavior for Anthropic provider")
 	}
-	capabilities := provider.Capabilities("claude-sonnet-4-5")
-	if !capabilities.SupportsThinking || capabilities.SupportsSpeech {
-		t.Fatalf("unexpected capabilities: %+v", capabilities)
+	parseCapabilities := parseProvider.ParseCapabilities("claude-sonnet-4-5")
+	if !parseCapabilities.SupportsThinking || parseCapabilities.SupportsSpeech {
+		parseT.Fatalf("unexpected capabilities: %+v", parseCapabilities)
 	}
-	if len(provider.ModelOptions()) != 2 {
-		t.Fatalf("expected two Anthropic model options, got %d", len(provider.ModelOptions()))
+	if len(parseProvider.ParseModelOptions()) != 2 {
+		parseT.Fatalf("expected two Anthropic model options, got %d", len(parseProvider.ParseModelOptions()))
 	}
-	if got := anthropicThinkingBudget("HIGH"); got != 4096 {
-		t.Fatalf("unexpected high thinking budget: %d", got)
+	if parseGot := parseAnthropicThinkingBudget("HIGH"); parseGot != 4096 {
+		parseT.Fatalf("unexpected high thinking budget: %d", parseGot)
 	}
-	if got := anthropicThinkingBudget("low"); got != 1024 {
-		t.Fatalf("unexpected low thinking budget: %d", got)
+	if parseGot2 := parseAnthropicThinkingBudget("low"); parseGot2 != 1024 {
+		parseT.Fatalf("unexpected low thinking budget: %d", parseGot2)
 	}
-	if metadata := provider.mustModelMetadata("claude-sonnet-4-5"); metadata.ID != "claude-sonnet-4-5" || metadata.ProviderID != "anthropic" {
-		t.Fatalf("expected known-model metadata lookup path, got %+v", metadata)
+	if parseMetadata := parseProvider.parseMustModelMetadata("claude-sonnet-4-5"); parseMetadata.ParseID != "claude-sonnet-4-5" || parseMetadata.ProviderID != "anthropic" {
+		parseT.Fatalf("expected known-model metadata lookup path, got %+v", parseMetadata)
 	}
-	if !anthropicThinkingUnsupported(errors.New("thinking unsupported invalid_request_error")) {
-		t.Fatal("expected unsupported thinking error to be detected")
+	if !parseAnthropicThinkingUnsupported(errors.New("thinking unsupported invalid_request_error")) {
+		parseT.Fatal("expected unsupported thinking error to be detected")
 	}
-	if anthropicThinkingUnsupported(nil) {
-		t.Fatal("expected nil error to return false")
+	if parseAnthropicThinkingUnsupported(nil) {
+		parseT.Fatal("expected nil error to return false")
 	}
-	if NewAnthropicProvider("", testAnthropicCatalog()).Available() {
-		t.Fatal("expected provider without key to be unavailable")
+	if ParseNewAnthropicProvider("", parseTestAnthropicCatalog()).ParseAvailable() {
+		parseT.Fatal("expected provider without key to be unavailable")
 	}
 }

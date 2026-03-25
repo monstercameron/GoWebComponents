@@ -12,124 +12,124 @@ import (
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-func TestLoadStoreQueriesAndBestEffortStatements(t *testing.T) {
-	queries, err := loadStoreQueries()
-	if err != nil {
-		t.Fatalf("loadStoreQueries: %v", err)
+func TestLoadStoreQueriesAndBestEffortStatements(parseT *testing.T) {
+	parseQueries, parseErr := parseLoadStoreQueries()
+	if parseErr != nil {
+		parseT.Fatalf("loadStoreQueries: %v", parseErr)
 	}
-	if queries.schema == "" || queries.createUser == "" || queries.upsertUserMemory == "" {
-		t.Fatalf("expected key SQL queries to be loaded, got %+v", queries)
+	if parseQueries.schema == "" || parseQueries.parseCreateUser == "" || parseQueries.parseUpsertUserMemory == "" {
+		parseT.Fatalf("expected key SQL queries to be loaded, got %+v", parseQueries)
 	}
 
-	db, err := sql.Open("sqlite3", "file:unit-test-best-effort?mode=memory&cache=shared")
-	if err != nil {
-		t.Fatalf("sql.Open: %v", err)
+	parseDb, parseErr := sql.Open("sqlite3", "file:unit-test-best-effort?mode=memory&cache=shared")
+	if parseErr != nil {
+		parseT.Fatalf("sql.Open: %v", parseErr)
 	}
-	defer db.Close()
+	defer parseDb.Close()
 
-	runBestEffortStatements(db, "CREATE TABLE example(value TEXT); invalid sql; INSERT INTO example(value) VALUES ('ok')")
-	var count int
-	if err := db.QueryRow("SELECT COUNT(*) FROM example").Scan(&count); err != nil {
-		t.Fatalf("QueryRow count: %v", err)
+	parseRunBestEffortStatements(parseDb, "CREATE TABLE example(value TEXT); invalid sql; INSERT INTO example(value) VALUES ('ok')")
+	var parseCount int
+	if parseErr2 := parseDb.QueryRow("SELECT COUNT(*) FROM example").Scan(&parseCount); parseErr2 != nil {
+		parseT.Fatalf("QueryRow count: %v", parseErr2)
 	}
-	if count != 1 {
-		t.Fatalf("expected best-effort statements to continue after invalid SQL, got count=%d", count)
+	if parseCount != 1 {
+		parseT.Fatalf("expected best-effort statements to continue after invalid SQL, got count=%d", parseCount)
 	}
 }
 
-func TestNewChatServiceServerFallbackModel(t *testing.T) {
-	server := newChatServiceServer("test-key", "", "", "missing-model", nil, newTestLogger())
-	if server == nil {
-		t.Fatal("expected newChatServiceServer to return a server")
+func TestNewChatServiceServerFallbackModel(parseT *testing.T) {
+	parseServer := parseNewChatServiceServer("test-key", "", "", "missing-model", nil, parseNewTestLogger())
+	if parseServer == nil {
+		parseT.Fatal("expected newChatServiceServer to return a server")
 	}
-	if server.defaultModel != modelGPT54Mini {
-		t.Fatalf("expected fallback default model %q, got %q", modelGPT54Mini, server.defaultModel)
+	if parseServer.defaultModel != modelGPT54Mini {
+		parseT.Fatalf("expected fallback default model %q, got %q", modelGPT54Mini, parseServer.defaultModel)
 	}
-	if server.providerRegistry == nil {
-		t.Fatal("expected provider registry to be initialized")
+	if parseServer.providerRegistry == nil {
+		parseT.Fatal("expected provider registry to be initialized")
 	}
-	if cap(server.memoryExtractionSlots) != 2 {
-		t.Fatalf("expected memory extraction slot capacity 2, got %d", cap(server.memoryExtractionSlots))
+	if cap(parseServer.memoryExtractionSlots) != 2 {
+		parseT.Fatalf("expected memory extraction slot capacity 2, got %d", cap(parseServer.memoryExtractionSlots))
 	}
 
-	normalizedOnly := newChatServiceServer("", "", "", "gpt-5.4-2026-03-17", nil, newTestLogger())
-	if normalizedOnly.defaultModel != modelGPT54 {
-		t.Fatalf("expected normalized default model %q, got %q", modelGPT54, normalizedOnly.defaultModel)
+	parseNormalizedOnly := parseNewChatServiceServer("", "", "", "gpt-5.4-2026-03-17", nil, parseNewTestLogger())
+	if parseNormalizedOnly.defaultModel != modelGPT54 {
+		parseT.Fatalf("expected normalized default model %q, got %q", modelGPT54, parseNormalizedOnly.defaultModel)
 	}
 }
 
-func TestMemoryRPCValidationAndErrorBranches(t *testing.T) {
-	store := newTestStore(t)
-	user := mustCreateUser(t, store, "memory-rpc-errors@example.com")
-	server := &chatServer{
+func TestMemoryRPCValidationAndErrorBranches(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "memory-rpc-errors@example.com")
+	parseServer := &chatServer{
 		defaultModel: modelGPT54Mini,
 		store:        store,
-		logger:       newTestLogger(),
+		logger:       parseNewTestLogger(),
 		sessions:     map[string]*sessionState{},
 		authUsers:    map[string]authUser{},
 	}
-	ctx := bindAuthUser(server, "peer-memory-rpc-errors", user.ID, user.Email)
+	parseCtx := parseBindAuthUser(parseServer, "peer-memory-rpc-errors", parseUser.ParseID, parseUser.Email)
 
-	if _, err := server.UpsertUserMemory(ctx, &chatpb.UpsertUserMemoryRequest{}); status.Code(err) != codes.InvalidArgument {
-		t.Fatalf("expected invalid argument for missing memory, got %v", status.Code(err))
+	if _, parseErr := parseServer.ParseUpsertUserMemory(parseCtx, &chatpb.UpsertUserMemoryRequest{}); status.Code(parseErr) != codes.InvalidArgument {
+		parseT.Fatalf("expected invalid argument for missing memory, got %v", status.Code(parseErr))
 	}
-	if _, err := server.UpsertUserMemory(ctx, &chatpb.UpsertUserMemoryRequest{Memory: &chatpb.UserMemory{Summary: "   "}}); status.Code(err) != codes.InvalidArgument {
-		t.Fatalf("expected invalid argument for blank memory summary, got %v", status.Code(err))
+	if _, parseErr2 := parseServer.ParseUpsertUserMemory(parseCtx, &chatpb.UpsertUserMemoryRequest{Memory: &chatpb.UserMemory{Summary: "   "}}); status.Code(parseErr2) != codes.InvalidArgument {
+		parseT.Fatalf("expected invalid argument for blank memory summary, got %v", status.Code(parseErr2))
 	}
-	if _, err := server.DeleteUserMemory(ctx, &chatpb.DeleteUserMemoryRequest{Key: "   "}); status.Code(err) != codes.InvalidArgument {
-		t.Fatalf("expected invalid argument for blank memory key, got %v", status.Code(err))
-	}
-
-	store.close()
-
-	if _, err := server.ListUserMemories(ctx, &chatpb.ListUserMemoriesRequest{}); status.Code(err) != codes.Internal {
-		t.Fatalf("expected internal error for closed-store ListUserMemories, got %v", status.Code(err))
-	}
-	if _, err := server.UpsertUserMemory(ctx, &chatpb.UpsertUserMemoryRequest{Memory: &chatpb.UserMemory{Summary: "Stored summary"}}); status.Code(err) != codes.Internal {
-		t.Fatalf("expected internal error for closed-store UpsertUserMemory, got %v", status.Code(err))
-	}
-	if _, err := server.DeleteUserMemory(ctx, &chatpb.DeleteUserMemoryRequest{Key: "memory-key"}); status.Code(err) != codes.Internal {
-		t.Fatalf("expected internal error for closed-store DeleteUserMemory, got %v", status.Code(err))
-	}
-	if _, err := server.SetCustomSystemPrompt(ctx, wrapperspb.String("Prompt")); status.Code(err) != codes.Internal {
-		t.Fatalf("expected internal error for closed-store SetCustomSystemPrompt, got %v", status.Code(err))
-	}
-	if _, err := server.GetCustomSystemPrompt(ctx, &emptypb.Empty{}); status.Code(err) != codes.Internal {
-		t.Fatalf("expected internal error for closed-store GetCustomSystemPrompt, got %v", status.Code(err))
+	if _, parseErr3 := parseServer.ParseDeleteUserMemory(parseCtx, &chatpb.DeleteUserMemoryRequest{Key: "   "}); status.Code(parseErr3) != codes.InvalidArgument {
+		parseT.Fatalf("expected invalid argument for blank memory key, got %v", status.Code(parseErr3))
 	}
 
-	server.unbindAuthenticatedPeer("peer-memory-rpc-errors")
+	store.parseClose()
+
+	if _, parseErr4 := parseServer.ParseListUserMemories(parseCtx, &chatpb.ListUserMemoriesRequest{}); status.Code(parseErr4) != codes.Internal {
+		parseT.Fatalf("expected internal error for closed-store ListUserMemories, got %v", status.Code(parseErr4))
+	}
+	if _, parseErr5 := parseServer.ParseUpsertUserMemory(parseCtx, &chatpb.UpsertUserMemoryRequest{Memory: &chatpb.UserMemory{Summary: "Stored summary"}}); status.Code(parseErr5) != codes.Internal {
+		parseT.Fatalf("expected internal error for closed-store UpsertUserMemory, got %v", status.Code(parseErr5))
+	}
+	if _, parseErr6 := parseServer.ParseDeleteUserMemory(parseCtx, &chatpb.DeleteUserMemoryRequest{Key: "memory-key"}); status.Code(parseErr6) != codes.Internal {
+		parseT.Fatalf("expected internal error for closed-store DeleteUserMemory, got %v", status.Code(parseErr6))
+	}
+	if _, parseErr7 := parseServer.SetCustomSystemPrompt(parseCtx, wrapperspb.String("Prompt")); status.Code(parseErr7) != codes.Internal {
+		parseT.Fatalf("expected internal error for closed-store SetCustomSystemPrompt, got %v", status.Code(parseErr7))
+	}
+	if _, parseErr8 := parseServer.GetCustomSystemPrompt(parseCtx, &emptypb.Empty{}); status.Code(parseErr8) != codes.Internal {
+		parseT.Fatalf("expected internal error for closed-store GetCustomSystemPrompt, got %v", status.Code(parseErr8))
+	}
+
+	parseServer.parseUnbindAuthenticatedPeer("peer-memory-rpc-errors")
 }
 
-func TestMemoryRPCFallbacksWithoutStore(t *testing.T) {
-	server := &chatServer{
+func TestMemoryRPCFallbacksWithoutStore(parseT *testing.T) {
+	parseServer := &chatServer{
 		defaultModel: modelGPT54Mini,
-		logger:       newTestLogger(),
+		logger:       parseNewTestLogger(),
 		sessions:     map[string]*sessionState{},
 		authUsers:    map[string]authUser{},
 	}
-	ctx := bindAuthUser(server, "peer-memory-fallbacks", 7, "memory-fallbacks@example.com")
+	parseCtx := parseBindAuthUser(parseServer, "peer-memory-fallbacks", 7, "memory-fallbacks@example.com")
 
-	listResp, err := server.ListUserMemories(ctx, &chatpb.ListUserMemoriesRequest{})
-	if err != nil || len(listResp.GetMemories()) != 0 {
-		t.Fatalf("expected empty memory fallback response, resp=%+v err=%v", listResp, err)
+	parseListResp, parseErr := parseServer.ParseListUserMemories(parseCtx, &chatpb.ListUserMemoriesRequest{})
+	if parseErr != nil || len(parseListResp.GetMemories()) != 0 {
+		parseT.Fatalf("expected empty memory fallback response, resp=%+v err=%v", parseListResp, parseErr)
 	}
-	if _, err := server.UpsertUserMemory(ctx, &chatpb.UpsertUserMemoryRequest{}); err != nil {
-		t.Fatalf("expected no-store UpsertUserMemory to no-op, got %v", err)
+	if _, parseErr2 := parseServer.ParseUpsertUserMemory(parseCtx, &chatpb.UpsertUserMemoryRequest{}); parseErr2 != nil {
+		parseT.Fatalf("expected no-store UpsertUserMemory to no-op, got %v", parseErr2)
 	}
-	if _, err := server.DeleteUserMemory(ctx, &chatpb.DeleteUserMemoryRequest{}); err != nil {
-		t.Fatalf("expected no-store DeleteUserMemory to no-op, got %v", err)
+	if _, parseErr3 := parseServer.ParseDeleteUserMemory(parseCtx, &chatpb.DeleteUserMemoryRequest{}); parseErr3 != nil {
+		parseT.Fatalf("expected no-store DeleteUserMemory to no-op, got %v", parseErr3)
 	}
-	customPrompt, err := server.GetCustomSystemPrompt(ctx, &emptypb.Empty{})
-	if err != nil || customPrompt.GetValue() != "" {
-		t.Fatalf("expected empty custom prompt fallback, resp=%+v err=%v", customPrompt, err)
+	parseCustomPrompt, parseErr := parseServer.GetCustomSystemPrompt(parseCtx, &emptypb.Empty{})
+	if parseErr != nil || parseCustomPrompt.GetValue() != "" {
+		parseT.Fatalf("expected empty custom prompt fallback, resp=%+v err=%v", parseCustomPrompt, parseErr)
 	}
-	if _, err := server.SetCustomSystemPrompt(ctx, wrapperspb.String("ignored")); err != nil {
-		t.Fatalf("expected no-store SetCustomSystemPrompt to no-op, got %v", err)
+	if _, parseErr4 := parseServer.SetCustomSystemPrompt(parseCtx, wrapperspb.String("ignored")); parseErr4 != nil {
+		parseT.Fatalf("expected no-store SetCustomSystemPrompt to no-op, got %v", parseErr4)
 	}
 
-	server.unbindAuthenticatedPeer("peer-memory-fallbacks")
-	if _, err := server.ListUserMemories(context.Background(), &chatpb.ListUserMemoriesRequest{}); status.Code(err) != codes.Unauthenticated {
-		t.Fatalf("expected unauthenticated ListUserMemories after unbind, got %v", status.Code(err))
+	parseServer.parseUnbindAuthenticatedPeer("peer-memory-fallbacks")
+	if _, parseErr5 := parseServer.ParseListUserMemories(context.Background(), &chatpb.ListUserMemoriesRequest{}); status.Code(parseErr5) != codes.Unauthenticated {
+		parseT.Fatalf("expected unauthenticated ListUserMemories after unbind, got %v", status.Code(parseErr5))
 	}
 }

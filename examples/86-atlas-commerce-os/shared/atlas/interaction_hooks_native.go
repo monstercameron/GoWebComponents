@@ -16,19 +16,19 @@ type atlasLocalState[T any] struct {
 	value T
 }
 
-func useAtlasState[T any](initial T) *atlasLocalState[T] {
-	return &atlasLocalState[T]{value: initial}
+func useAtlasState[T any](parseInitial T) *atlasLocalState[T] {
+	return &atlasLocalState[T]{value: parseInitial}
 }
 
-func (s *atlasLocalState[T]) Get() T {
-	return s.value
+func (parseS *atlasLocalState[T]) Get() T {
+	return parseS.value
 }
 
-func (s *atlasLocalState[T]) Set(value T) {
-	s.value = value
+func (parseS *atlasLocalState[T]) Set(parseValue T) {
+	parseS.value = parseValue
 }
 
-func useAtlasEffect(effect func() func(), deps ...interface{}) {
+func useAtlasEffect(parseEffect func() func(), parseDeps ...interface{}) {
 }
 
 type atlasComputed[T any] struct {
@@ -61,84 +61,84 @@ type atlasViewportMetrics struct {
 	MeasuredAtUTC string
 }
 
-func useAtlasAtom[T any](id string, initial T) atlasAtom[T] {
-	return atlasAtom[T]{value: initial}
+func useAtlasAtom[T any](parseId string, parseInitial T) atlasAtom[T] {
+	return atlasAtom[T]{value: parseInitial}
 }
 
-func (a atlasAtom[T]) Get() T {
-	return a.value
+func (parseA atlasAtom[T]) Get() T {
+	return parseA.value
 }
 
-func (a atlasAtom[T]) Set(value T) {
+func (parseA atlasAtom[T]) Set(parseValue T) {
 }
 
-func useAtlasComputed[T any](compute func() T, deps ...interface{}) atlasComputed[T] {
-	return atlasComputed[T]{value: compute()}
+func useAtlasComputed[T any](parseCompute func() T, parseDeps ...interface{}) atlasComputed[T] {
+	return atlasComputed[T]{value: parseCompute()}
 }
 
-func (c atlasComputed[T]) Get() T {
-	return c.value
+func (parseC atlasComputed[T]) Get() T {
+	return parseC.value
 }
 
 func useAtlasRevalidator() atlasRevalidator {
 	return atlasRevalidator{}
 }
 
-func (r atlasRevalidator) Revalidate() {
+func (parseR atlasRevalidator) Revalidate() {
 }
 
-func (r atlasRevalidator) Loading() bool {
+func (parseR atlasRevalidator) Loading() bool {
 	return false
 }
 
-func startAtlasTransition(fn func()) {
-	ui.StartTransition(fn)
+func startAtlasTransition(parseFn func()) {
+	ui.StartTransition(parseFn)
 }
 
 func useAtlasTransition() atlasTransition {
-	transition := ui.UseTransition()
+	parseTransition := ui.UseTransition()
 	return atlasTransition{
-		pending: transition.Pending,
-		start:   transition.Start,
+		pending: parseTransition.Pending,
+		start:   parseTransition.Start,
 	}
 }
 
-func (t atlasTransition) Pending() bool {
-	if t.pending == nil {
+func (parseT atlasTransition) Pending() bool {
+	if parseT.pending == nil {
 		return false
 	}
-	return t.pending()
+	return parseT.pending()
 }
 
-func (t atlasTransition) Start(fn func()) {
-	if t.start != nil {
-		t.start(fn)
+func (parseT atlasTransition) Start(parseFn func()) {
+	if parseT.start != nil {
+		parseT.start(parseFn)
 		return
 	}
-	startAtlasTransition(fn)
+	startAtlasTransition(parseFn)
 }
 
-func useAtlasThrottled[T any](value T, interval time.Duration) atlasThrottled[T] {
-	throttled := ui.UseThrottled(value, interval)
+func useAtlasThrottled[T any](parseValue T, parseInterval time.Duration) atlasThrottled[T] {
+	parseThrottled := ui.UseThrottled(parseValue, parseInterval)
 	return atlasThrottled[T]{
-		get:     throttled.Get,
-		pending: throttled.Pending,
+		get:     parseThrottled.Get,
+		pending: parseThrottled.Pending,
 	}
 }
 
-func (t atlasThrottled[T]) Get() T {
-	if t.get == nil {
-		var zero T
-		return zero
+func (parseT atlasThrottled[T]) Get() T {
+	if parseT.get == nil {
+		var parseZero T
+		return parseZero
 	}
-	return t.get()
+	return parseT.get()
 }
 
-func (t atlasThrottled[T]) Pending() bool {
-	if t.pending == nil {
+func (parseT atlasThrottled[T]) Pending() bool {
+	if parseT.pending == nil {
 		return false
 	}
-	return t.pending()
+	return parseT.pending()
 }
 
 func useAtlasViewportMetrics() atlasViewportMetrics {
@@ -149,35 +149,35 @@ func useAtlasSearchParams() atlasSearchParams {
 	return atlasSearchParams{}
 }
 
-func (s atlasSearchParams) Values() url.Values {
+func (parseS atlasSearchParams) Values() url.Values {
 	return url.Values{}
 }
 
-func (s atlasSearchParams) ReplaceAll(values url.Values) {
+func (parseS atlasSearchParams) ReplaceAll(parseValues url.Values) {
 }
 
-func useAtlasCachedResource[T any](key string, loader func(context.Context) (T, error)) atlasCachedResource[T] {
+func useAtlasCachedResource[T any](parseKey string, parseLoader func(context.Context) (T, error)) atlasCachedResource[T] {
 	return atlasCachedResource[T]{}
 }
 
-func useAtlasResource[T any](loader func(context.Context) (T, error), deps ...interface{}) atlasResource[T] {
+func useAtlasResource[T any](parseLoader func(context.Context) (T, error), parseDeps ...interface{}) atlasResource[T] {
 	return atlasResource[T]{}
 }
 
-func atlasFetch(url string, options atlasFetchOptions) <-chan atlasImperativeFetchResult {
-	resultCh := make(chan atlasImperativeFetchResult, 1)
-	resultCh <- atlasImperativeFetchResult{Error: "fetch unavailable in native atlas build"}
-	return resultCh
+func atlasFetch(parseUrl string, parseOptions atlasFetchOptions) <-chan atlasImperativeFetchResult {
+	parseResultCh := make(chan atlasImperativeFetchResult, 1)
+	parseResultCh <- atlasImperativeFetchResult{Error: "fetch unavailable in native atlas build"}
+	return parseResultCh
 }
 
-func useAtlasWorkerTask[Request any, Progress any, Result any](options interop.WorkerOptions, name string) atlasWorkerTask[Request, Progress, Result] {
+func useAtlasWorkerTask[Request any, Progress any, Result any](parseOptions interop.WorkerOptions, parseName string) atlasWorkerTask[Request, Progress, Result] {
 	return atlasWorkerTask[Request, Progress, Result]{}
 }
 
-func useAtlasChannel[T any](ch <-chan T) atlasChannelValue[T] {
+func useAtlasChannel[T any](parseCh <-chan T) atlasChannelValue[T] {
 	return atlasChannelValue[T]{}
 }
 
-func persistAtlasSnapshot(key string, atomIDs ...string) error {
+func persistAtlasSnapshot(parseKey string, parseAtomIDs ...string) error {
 	return nil
 }

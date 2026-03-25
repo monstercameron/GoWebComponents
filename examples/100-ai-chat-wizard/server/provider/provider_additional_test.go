@@ -6,146 +6,146 @@ import (
 	"testing"
 )
 
-func TestOpenAIProviderAdditionalMetadataAndUnavailableBranches(t *testing.T) {
-	provider := NewOpenAIProvider("test-key", testOpenAICatalog())
-	if info := provider.Info(); info.ID != "openai" || info.BaseURL != openAIBaseURL || !info.Available || !info.AuthConfigured {
-		t.Fatalf("Info() = %+v, want available OpenAI metadata", info)
+func TestOpenAIProviderAdditionalMetadataAndUnavailableBranches(parseT *testing.T) {
+	parseProvider := ParseNewOpenAIProvider("test-key", parseTestOpenAICatalog())
+	if parseInfo := parseProvider.ParseInfo(); parseInfo.ParseID != "openai" || parseInfo.BaseURL != openAIBaseURL || !parseInfo.ParseAvailable || !parseInfo.AuthConfigured {
+		parseT.Fatalf("Info() = %+v, want available OpenAI metadata", parseInfo)
 	}
-	if health := provider.Health(); health.ProviderID != "openai" || health.Status != ProviderHealthUnknown {
-		t.Fatalf("Health() = %+v, want unknown available health", health)
+	if parseHealth := parseProvider.ParseHealth(); parseHealth.ProviderID != "openai" || parseHealth.ParseStatus != ProviderHealthUnknown {
+		parseT.Fatalf("Health() = %+v, want unknown available health", parseHealth)
 	}
-	if limits := provider.CurrentRateLimits(); !limits.Empty() {
-		t.Fatalf("CurrentRateLimits() = %+v, want empty snapshot", limits)
+	if parseLimits := parseProvider.ParseCurrentRateLimits(); !parseLimits.ParseEmpty() {
+		parseT.Fatalf("CurrentRateLimits() = %+v, want empty snapshot", parseLimits)
 	}
-	if metadata, ok := provider.ModelMetadata(" GPT-5.4 "); !ok || metadata.ID != "gpt-5.4" {
-		t.Fatalf("ModelMetadata() = %+v, %t; want gpt-5.4", metadata, ok)
+	if parseMetadata, parseOk := parseProvider.ParseModelMetadata(" GPT-5.4 "); !parseOk || parseMetadata.ParseID != "gpt-5.4" {
+		parseT.Fatalf("ModelMetadata() = %+v, %t; want gpt-5.4", parseMetadata, parseOk)
 	}
-	if metadata, ok := provider.ModelMetadata("unsupported-model"); ok || metadata.ID != "" {
-		t.Fatalf("ModelMetadata(unsupported) = %+v, %t; want zero,false", metadata, ok)
+	if parseMetadata2, parseOk2 := parseProvider.ParseModelMetadata("unsupported-model"); parseOk2 || parseMetadata2.ParseID != "" {
+		parseT.Fatalf("ModelMetadata(unsupported) = %+v, %t; want zero,false", parseMetadata2, parseOk2)
 	}
-	if fallback := provider.mustModelMetadata(" custom-openai "); fallback.ID != "custom-openai" || fallback.ProviderID != "openai" {
-		t.Fatalf("mustModelMetadata() = %+v, want fallback metadata", fallback)
+	if parseFallback := parseProvider.parseMustModelMetadata(" custom-openai "); parseFallback.ParseID != "custom-openai" || parseFallback.ProviderID != "openai" {
+		parseT.Fatalf("mustModelMetadata() = %+v, want fallback metadata", parseFallback)
 	}
-	if got := normalizeOpenAIModel(" GPT-5.4-MINI "); got != "gpt-5.4-mini" {
-		t.Fatalf("normalizeOpenAIModel() = %q, want gpt-5.4-mini", got)
+	if parseGot := parseNormalizeOpenAIModel(" GPT-5.4-MINI "); parseGot != "gpt-5.4-mini" {
+		parseT.Fatalf("normalizeOpenAIModel() = %q, want gpt-5.4-mini", parseGot)
 	}
-	if got := extractJSONObject("```json\n{\"memories\":[]}\n```"); got != `{"memories":[]}` {
-		t.Fatalf("extractJSONObject(fenced) = %q, want JSON body", got)
+	if parseGot2 := parseExtractJSONObject("```json\n{\"memories\":[]}\n```"); parseGot2 != `{"memories":[]}` {
+		parseT.Fatalf("extractJSONObject(fenced) = %q, want JSON body", parseGot2)
 	}
-	if got := extractJSONObject("plain text"); got != "plain text" {
-		t.Fatalf("extractJSONObject(plain) = %q, want original text", got)
+	if parseGot3 := parseExtractJSONObject("plain text"); parseGot3 != "plain text" {
+		parseT.Fatalf("extractJSONObject(plain) = %q, want original text", parseGot3)
 	}
-	if got := extractJSONObject(""); got != `{"memories":[]}` {
-		t.Fatalf("extractJSONObject(empty) = %q, want empty memories object", got)
+	if parseGot4 := parseExtractJSONObject(""); parseGot4 != `{"memories":[]}` {
+		parseT.Fatalf("extractJSONObject(empty) = %q, want empty memories object", parseGot4)
 	}
 
-	unavailable := NewOpenAIProvider("", testOpenAICatalog())
-	if _, err := unavailable.GenerateTitle(context.Background(), TitleRequest{Prompt: "hello"}); err != ErrNoProvidersAvailable {
-		t.Fatalf("GenerateTitle() error = %v, want ErrNoProvidersAvailable", err)
+	parseUnavailable := ParseNewOpenAIProvider("", parseTestOpenAICatalog())
+	if _, parseErr := parseUnavailable.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "hello"}); parseErr != ErrNoProvidersAvailable {
+		parseT.Fatalf("GenerateTitle() error = %v, want ErrNoProvidersAvailable", parseErr)
 	}
-	if _, err := unavailable.ExtractUserMemories(context.Background(), MemoryExtractionRequest{UserMessage: "remember"}); err != ErrNoProvidersAvailable {
-		t.Fatalf("ExtractUserMemories() error = %v, want ErrNoProvidersAvailable", err)
+	if _, parseErr2 := parseUnavailable.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{UserMessage: "remember"}); parseErr2 != ErrNoProvidersAvailable {
+		parseT.Fatalf("ExtractUserMemories() error = %v, want ErrNoProvidersAvailable", parseErr2)
 	}
-	if _, err := unavailable.StreamChat(context.Background(), ChatRequest{UserMessage: "hello"}, func(ChatEvent) error { return nil }); err != ErrNoProvidersAvailable {
-		t.Fatalf("StreamChat() error = %v, want ErrNoProvidersAvailable", err)
+	if _, parseErr3 := parseUnavailable.ParseStreamChat(context.Background(), ChatRequest{UserMessage: "hello"}, func(ChatEvent) error { return nil }); parseErr3 != ErrNoProvidersAvailable {
+		parseT.Fatalf("StreamChat() error = %v, want ErrNoProvidersAvailable", parseErr3)
 	}
-	if _, err := provider.SynthesizeSpeech(context.Background(), SpeechRequest{Model: "unknown-model", Text: "hello"}, func(SpeechChunk) error { return nil }); err == nil || !strings.Contains(err.Error(), `does not support speech`) {
-		t.Fatalf("SynthesizeSpeech() error = %v, want unsupported speech capability error", err)
+	if _, parseErr4 := parseProvider.ParseSynthesizeSpeech(context.Background(), SpeechRequest{Model: "unknown-model", Text: "hello"}, func(SpeechChunk) error { return nil }); parseErr4 == nil || !strings.Contains(parseErr4.ParseError(), `does not support speech`) {
+		parseT.Fatalf("SynthesizeSpeech() error = %v, want unsupported speech capability error", parseErr4)
 	}
 }
 
-func TestAnthropicProviderAdditionalMetadataAndHelpers(t *testing.T) {
-	provider := NewAnthropicProvider("test-key", testAnthropicCatalog())
-	if info := provider.Info(); info.ID != "anthropic" || info.BaseURL != anthropicBaseURL || !info.Available {
-		t.Fatalf("Info() = %+v, want available anthropic metadata", info)
+func TestAnthropicProviderAdditionalMetadataAndHelpers(parseT *testing.T) {
+	parseProvider := ParseNewAnthropicProvider("test-key", parseTestAnthropicCatalog())
+	if parseInfo := parseProvider.ParseInfo(); parseInfo.ParseID != "anthropic" || parseInfo.BaseURL != anthropicBaseURL || !parseInfo.ParseAvailable {
+		parseT.Fatalf("Info() = %+v, want available anthropic metadata", parseInfo)
 	}
-	if health := provider.Health(); health.ProviderID != "anthropic" || health.Status != ProviderHealthUnknown {
-		t.Fatalf("Health() = %+v, want unknown available health", health)
+	if parseHealth := parseProvider.ParseHealth(); parseHealth.ProviderID != "anthropic" || parseHealth.ParseStatus != ProviderHealthUnknown {
+		parseT.Fatalf("Health() = %+v, want unknown available health", parseHealth)
 	}
-	if limits := provider.CurrentRateLimits(); !limits.Empty() {
-		t.Fatalf("CurrentRateLimits() = %+v, want empty snapshot", limits)
+	if parseLimits := parseProvider.ParseCurrentRateLimits(); !parseLimits.ParseEmpty() {
+		parseT.Fatalf("CurrentRateLimits() = %+v, want empty snapshot", parseLimits)
 	}
-	if metadata, ok := provider.ModelMetadata(" Claude-Sonnet-4-5 "); !ok || metadata.ID != "claude-sonnet-4-5" {
-		t.Fatalf("ModelMetadata() = %+v, %t; want claude-sonnet-4-5", metadata, ok)
+	if parseMetadata, parseOk := parseProvider.ParseModelMetadata(" Claude-Sonnet-4-5 "); !parseOk || parseMetadata.ParseID != "claude-sonnet-4-5" {
+		parseT.Fatalf("ModelMetadata() = %+v, %t; want claude-sonnet-4-5", parseMetadata, parseOk)
 	}
-	if fallback := provider.mustModelMetadata(" custom-claude "); fallback.ID != "custom-claude" || fallback.ProviderID != "anthropic" {
-		t.Fatalf("mustModelMetadata() = %+v, want fallback metadata", fallback)
+	if parseFallback := parseProvider.parseMustModelMetadata(" custom-claude "); parseFallback.ParseID != "custom-claude" || parseFallback.ProviderID != "anthropic" {
+		parseT.Fatalf("mustModelMetadata() = %+v, want fallback metadata", parseFallback)
 	}
-	if got := normalizeAnthropicModel(" Claude-SONNET-4-5 "); got != "claude-sonnet-4-5" {
-		t.Fatalf("normalizeAnthropicModel() = %q, want claude-sonnet-4-5", got)
+	if parseGot := parseNormalizeAnthropicModel(" Claude-SONNET-4-5 "); parseGot != "claude-sonnet-4-5" {
+		parseT.Fatalf("normalizeAnthropicModel() = %q, want claude-sonnet-4-5", parseGot)
 	}
-	if system := anthropicSystemPrompt("  system  "); len(system) != 1 || system[0].Text != "system" {
-		t.Fatalf("anthropicSystemPrompt() = %+v, want trimmed system prompt", system)
+	if parseSystem := parseAnthropicSystemPrompt("  system  "); len(parseSystem) != 1 || parseSystem[0].Text != "system" {
+		parseT.Fatalf("anthropicSystemPrompt() = %+v, want trimmed system prompt", parseSystem)
 	}
-	if system := anthropicSystemPrompt("   "); system != nil {
-		t.Fatalf("anthropicSystemPrompt(blank) = %+v, want nil", system)
+	if parseSystem2 := parseAnthropicSystemPrompt("   "); parseSystem2 != nil {
+		parseT.Fatalf("anthropicSystemPrompt(blank) = %+v, want nil", parseSystem2)
 	}
-	if messages := anthropicMessages([]ChatMessage{{Role: "assistant", Content: "done"}}, "hello"); len(messages) != 2 {
-		t.Fatalf("anthropicMessages() len = %d, want 2", len(messages))
+	if parseMessages := parseAnthropicMessages([]ChatMessage{{Role: "assistant", Content: "done"}}, "hello"); len(parseMessages) != 2 {
+		parseT.Fatalf("anthropicMessages() len = %d, want 2", len(parseMessages))
 	}
-	if text := anthropicMessageText(nil); text != "" {
-		t.Fatalf("anthropicMessageText(nil) = %q, want empty string", text)
+	if parseText := parseAnthropicMessageText(nil); parseText != "" {
+		parseT.Fatalf("anthropicMessageText(nil) = %q, want empty string", parseText)
 	}
 
-	unavailable := NewAnthropicProvider("", testAnthropicCatalog())
-	if _, err := unavailable.GenerateTitle(context.Background(), TitleRequest{Prompt: "hello"}); err != ErrNoProvidersAvailable {
-		t.Fatalf("GenerateTitle() error = %v, want ErrNoProvidersAvailable", err)
+	parseUnavailable := ParseNewAnthropicProvider("", parseTestAnthropicCatalog())
+	if _, parseErr := parseUnavailable.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "hello"}); parseErr != ErrNoProvidersAvailable {
+		parseT.Fatalf("GenerateTitle() error = %v, want ErrNoProvidersAvailable", parseErr)
 	}
-	if _, err := unavailable.ExtractUserMemories(context.Background(), MemoryExtractionRequest{UserMessage: "remember"}); err != ErrNoProvidersAvailable {
-		t.Fatalf("ExtractUserMemories() error = %v, want ErrNoProvidersAvailable", err)
+	if _, parseErr2 := parseUnavailable.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{UserMessage: "remember"}); parseErr2 != ErrNoProvidersAvailable {
+		parseT.Fatalf("ExtractUserMemories() error = %v, want ErrNoProvidersAvailable", parseErr2)
 	}
-	if _, err := unavailable.StreamChat(context.Background(), ChatRequest{UserMessage: "hello"}, func(ChatEvent) error { return nil }); err != ErrNoProvidersAvailable {
-		t.Fatalf("StreamChat() error = %v, want ErrNoProvidersAvailable", err)
+	if _, parseErr3 := parseUnavailable.ParseStreamChat(context.Background(), ChatRequest{UserMessage: "hello"}, func(ChatEvent) error { return nil }); parseErr3 != ErrNoProvidersAvailable {
+		parseT.Fatalf("StreamChat() error = %v, want ErrNoProvidersAvailable", parseErr3)
 	}
-	if _, err := provider.SynthesizeSpeech(context.Background(), SpeechRequest{Model: "claude-sonnet-4-5", Text: "hello"}, func(SpeechChunk) error { return nil }); err == nil || !strings.Contains(err.Error(), `does not support speech`) {
-		t.Fatalf("SynthesizeSpeech() error = %v, want unsupported speech capability error", err)
+	if _, parseErr4 := parseProvider.ParseSynthesizeSpeech(context.Background(), SpeechRequest{Model: "claude-sonnet-4-5", Text: "hello"}, func(SpeechChunk) error { return nil }); parseErr4 == nil || !strings.Contains(parseErr4.ParseError(), `does not support speech`) {
+		parseT.Fatalf("SynthesizeSpeech() error = %v, want unsupported speech capability error", parseErr4)
 	}
 }
 
-func TestStubProviderAdditionalBranches(t *testing.T) {
-	catalog := testOpenAICatalog()
-	provider := NewStubProvider(" openai ", catalog)
-	if info := provider.Info(); info.ID != "openai" || info.BaseURL != "stub://openai" || info.AuthConfigured || !info.Available {
-		t.Fatalf("Info() = %+v, want available stub provider metadata", info)
+func TestStubProviderAdditionalBranches(parseT *testing.T) {
+	parseCatalog := parseTestOpenAICatalog()
+	parseProvider := ParseNewStubProvider(" openai ", parseCatalog)
+	if parseInfo := parseProvider.ParseInfo(); parseInfo.ParseID != "openai" || parseInfo.BaseURL != "stub://openai" || parseInfo.AuthConfigured || !parseInfo.ParseAvailable {
+		parseT.Fatalf("Info() = %+v, want available stub provider metadata", parseInfo)
 	}
-	if health := provider.Health(); health.ProviderID != "openai" || health.Status != ProviderHealthUnknown {
-		t.Fatalf("Health() = %+v, want unknown available health", health)
+	if parseHealth := parseProvider.ParseHealth(); parseHealth.ProviderID != "openai" || parseHealth.ParseStatus != ProviderHealthUnknown {
+		parseT.Fatalf("Health() = %+v, want unknown available health", parseHealth)
 	}
-	if limits := provider.CurrentRateLimits(); !limits.Empty() {
-		t.Fatalf("CurrentRateLimits() = %+v, want empty snapshot", limits)
+	if parseLimits := parseProvider.ParseCurrentRateLimits(); !parseLimits.ParseEmpty() {
+		parseT.Fatalf("CurrentRateLimits() = %+v, want empty snapshot", parseLimits)
 	}
-	if metadata, ok := provider.ModelMetadata("gpt-5.4-mini"); !ok || metadata.ID != "gpt-5.4-mini" {
-		t.Fatalf("ModelMetadata() = %+v, %t; want gpt-5.4-mini", metadata, ok)
+	if parseMetadata, parseOk := parseProvider.ParseModelMetadata("gpt-5.4-mini"); !parseOk || parseMetadata.ParseID != "gpt-5.4-mini" {
+		parseT.Fatalf("ModelMetadata() = %+v, %t; want gpt-5.4-mini", parseMetadata, parseOk)
 	}
-	if got, err := provider.GenerateTitle(context.Background(), TitleRequest{Prompt: strings.Repeat("word ", 20)}); err != nil || !strings.Contains(got, "OpenAI stub:") {
-		t.Fatalf("GenerateTitle() = %q, %v; want stub title", got, err)
+	if parseGot, parseErr := parseProvider.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: strings.Repeat("word ", 20)}); parseErr != nil || !strings.Contains(parseGot, "OpenAI stub:") {
+		parseT.Fatalf("GenerateTitle() = %q, %v; want stub title", parseGot, parseErr)
 	}
-	if got, err := provider.GenerateTitle(context.Background(), TitleRequest{}); err != nil || !strings.Contains(got, "stub conversation") {
-		t.Fatalf("GenerateTitle(blank) = %q, %v; want default stub title", got, err)
+	if parseGot2, parseErr2 := parseProvider.ParseGenerateTitle(context.Background(), TitleRequest{}); parseErr2 != nil || !strings.Contains(parseGot2, "stub conversation") {
+		parseT.Fatalf("GenerateTitle(blank) = %q, %v; want default stub title", parseGot2, parseErr2)
 	}
-	if memories, err := provider.ExtractUserMemories(context.Background(), MemoryExtractionRequest{}); err != nil || memories != nil {
-		t.Fatalf("ExtractUserMemories() = %+v, %v; want nil,nil", memories, err)
+	if parseMemories, parseErr3 := parseProvider.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{}); parseErr3 != nil || parseMemories != nil {
+		parseT.Fatalf("ExtractUserMemories() = %+v, %v; want nil,nil", parseMemories, parseErr3)
 	}
 
-	chunks := make([]SpeechChunk, 0, 2)
-	result, err := provider.SynthesizeSpeech(context.Background(), SpeechRequest{Text: "hello"}, func(chunk SpeechChunk) error {
-		chunks = append(chunks, chunk)
+	parseChunks := make([]SpeechChunk, 0, 2)
+	parseResult, parseErr4 := parseProvider.ParseSynthesizeSpeech(context.Background(), SpeechRequest{Text: "hello"}, func(parseChunk SpeechChunk) error {
+		parseChunks = append(parseChunks, parseChunk)
 		return nil
 	})
-	if err != nil {
-		t.Fatalf("SynthesizeSpeech() error = %v", err)
+	if parseErr4 != nil {
+		parseT.Fatalf("SynthesizeSpeech() error = %v", parseErr4)
 	}
-	if result.MimeType != "audio/mpeg" || len(chunks) != 2 || len(chunks[0].AudioChunk) == 0 || !chunks[1].Done {
-		t.Fatalf("SynthesizeSpeech() = %+v chunks=%+v, want first audio chunk and final done chunk", result, chunks)
+	if parseResult.MimeType != "audio/mpeg" || len(parseChunks) != 2 || len(parseChunks[0].AudioChunk) == 0 || !parseChunks[1].Done {
+		parseT.Fatalf("SynthesizeSpeech() = %+v chunks=%+v, want first audio chunk and final done chunk", parseResult, parseChunks)
 	}
 
-	if got := stubProviderLabel(" custom "); got != "CUSTOM" {
-		t.Fatalf("stubProviderLabel() = %q, want CUSTOM", got)
+	if parseGot3 := parseStubProviderLabel(" custom "); parseGot3 != "CUSTOM" {
+		parseT.Fatalf("stubProviderLabel() = %q, want CUSTOM", parseGot3)
 	}
-	if got := normalizeStubThinkingEffort("odd"); got != "medium" {
-		t.Fatalf("normalizeStubThinkingEffort() = %q, want medium", got)
+	if parseGot4 := parseNormalizeStubThinkingEffort("odd"); parseGot4 != "medium" {
+		parseT.Fatalf("normalizeStubThinkingEffort() = %q, want medium", parseGot4)
 	}
-	if unavailable := NewStubProvider("", catalog); unavailable.Available() || unavailable.Info().ID != "" || unavailable.Health().Status != ProviderHealthUnavailable {
-		t.Fatalf("blank stub provider = %+v info=%+v health=%+v, want unavailable provider", unavailable, unavailable.Info(), unavailable.Health())
+	if parseUnavailable := ParseNewStubProvider("", parseCatalog); parseUnavailable.ParseAvailable() || parseUnavailable.ParseInfo().ParseID != "" || parseUnavailable.ParseHealth().ParseStatus != ProviderHealthUnavailable {
+		parseT.Fatalf("blank stub provider = %+v info=%+v health=%+v, want unavailable provider", parseUnavailable, parseUnavailable.ParseInfo(), parseUnavailable.ParseHealth())
 	}
 }

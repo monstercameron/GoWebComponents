@@ -22,10 +22,10 @@ const (
 )
 
 func multiWindowExampleRoot() ui.Node {
-	location, err := interop.GetWindowLocation()
-	if err == nil {
-		path := strings.ToLower(strings.TrimSpace(location.Pathname()))
-		if strings.Contains(path, "popup") {
+	parseLocation, parseErr := interop.GetWindowLocation()
+	if parseErr == nil {
+		parsePath := strings.ToLower(strings.TrimSpace(parseLocation.Pathname()))
+		if strings.Contains(parsePath, "popup") {
 			return popupSurfaceExample()
 		}
 	}
@@ -33,231 +33,231 @@ func multiWindowExampleRoot() ui.Node {
 }
 
 func openerSurfaceExample() ui.Node {
-	session := ui.UseState("signed-in")
-	activeRoute := ui.UseState("/inventory?tab=summary")
-	activeDocument := ui.UseState("INV-204")
-	latestIntent := ui.UseState("Waiting for popup intent.")
-	popupStatus := ui.UseState("Closed")
-	logs := ui.UseState([]string{"Open the popup to establish the operator-console channel."})
-	channelRef := ui.UseRef(interop.WindowChannel{})
-	cancelRef := ui.UseRef((func())(nil))
+	parseSession := ui.UseState("signed-in")
+	parseActiveRoute := ui.UseState("/inventory?tab=summary")
+	parseActiveDocument := ui.UseState("INV-204")
+	parseLatestIntent := ui.UseState("Waiting for popup intent.")
+	parsePopupStatus := ui.UseState("Closed")
+	parseLogs := ui.UseState([]string{"Open the popup to establish the operator-console channel."})
+	parseChannelRef := ui.UseRef(interop.WindowChannel{})
+	parseCancelRef := ui.UseRef((func())(nil))
 
-	appendLog := func(line string) {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
+	parseAppendLog := func(parseLine string) {
+		parseTrimmed := strings.TrimSpace(parseLine)
+		if parseTrimmed == "" {
 			return
 		}
-		logs.Update(func(previous []string) []string {
-			next := append([]string{trimmed}, previous...)
-			if len(next) > 8 {
-				next = next[:8]
+		parseLogs.Update(func(parsePrevious []string) []string {
+			parseNext := append([]string{parseTrimmed}, parsePrevious...)
+			if len(parseNext) > 8 {
+				parseNext = parseNext[:8]
 			}
-			return next
+			return parseNext
 		})
 	}
 
-	describeError := func(prefix string, err error) string {
-		if err == nil {
-			return prefix
+	parseDescribeError := func(parsePrefix string, parseErr5 error) string {
+		if parseErr5 == nil {
+			return parsePrefix
 		}
-		if code, ok := interop.CodeOf(err); ok {
-			return fmt.Sprintf("%s [%s]: %v", prefix, code, err)
+		if parseCode, parseOk := interop.CodeOf(parseErr5); parseOk {
+			return fmt.Sprintf("%s [%s]: %v", parsePrefix, parseCode, parseErr5)
 		}
-		return fmt.Sprintf("%s: %v", prefix, err)
+		return fmt.Sprintf("%s: %v", parsePrefix, parseErr5)
 	}
 
-	releaseChannel := func(closeWindow bool) {
-		if cancel := cancelRef.Get(); cancel != nil {
-			cancel()
-			cancelRef.Set(nil)
+	parseReleaseChannel := func(isCloseWindow bool) {
+		if parseCancel := parseCancelRef.Get(); parseCancel != nil {
+			parseCancel()
+			parseCancelRef.Set(nil)
 		}
-		channel := channelRef.Get()
-		if closeWindow && channel.Name() != "" && !channel.Closed() {
-			_ = channel.Close()
+		parseChannel := parseChannelRef.Get()
+		if isCloseWindow && parseChannel.Name() != "" && !parseChannel.Closed() {
+			_ = parseChannel.Close()
 		}
-		channelRef.Set(interop.WindowChannel{})
+		parseChannelRef.Set(interop.WindowChannel{})
 	}
 
-	handleSignal := func(message interop.DecodedWindowEnvelope[interop.SurfaceSignal], err error) {
-		if err != nil {
-			appendLog(describeError("Popup message failed", err))
+	handleSignal := func(parseMessage interop.DecodedWindowEnvelope[interop.SurfaceSignal], parseErr6 error) {
+		if parseErr6 != nil {
+			parseAppendLog(parseDescribeError("Popup message failed", parseErr6))
 			return
 		}
-		switch message.Payload.Kind {
+		switch parseMessage.Payload.Kind {
 		case interop.SurfaceSignalSession:
-			if message.Payload.Session == nil {
-				appendLog("Popup session message arrived without payload.")
+			if parseMessage.Payload.Session == nil {
+				parseAppendLog("Popup session message arrived without payload.")
 				return
 			}
-			session.Set(message.Payload.Session.Status)
-			appendLog(fmt.Sprintf("Popup reported session %q: %s", message.Payload.Session.Status, message.Payload.Session.Reason))
+			parseSession.Set(parseMessage.Payload.Session.Status)
+			parseAppendLog(fmt.Sprintf("Popup reported session %q: %s", parseMessage.Payload.Session.Status, parseMessage.Payload.Session.Reason))
 		case interop.SurfaceSignalRoute:
-			if message.Payload.Route == nil {
-				appendLog("Popup route message arrived without payload.")
+			if parseMessage.Payload.Route == nil {
+				parseAppendLog("Popup route message arrived without payload.")
 				return
 			}
-			nextRoute := message.Payload.Route.Path
-			if strings.TrimSpace(message.Payload.Route.Query) != "" {
-				nextRoute += "?" + message.Payload.Route.Query
+			parseNextRoute := parseMessage.Payload.Route.Path
+			if strings.TrimSpace(parseMessage.Payload.Route.Query) != "" {
+				parseNextRoute += "?" + parseMessage.Payload.Route.Query
 			}
-			activeRoute.Set(nextRoute)
-			appendLog(fmt.Sprintf("Popup focused route %s", nextRoute))
+			parseActiveRoute.Set(parseNextRoute)
+			parseAppendLog(fmt.Sprintf("Popup focused route %s", parseNextRoute))
 		case interop.SurfaceSignalSelection:
-			if message.Payload.Selection == nil {
-				appendLog("Popup selection message arrived without payload.")
+			if parseMessage.Payload.Selection == nil {
+				parseAppendLog("Popup selection message arrived without payload.")
 				return
 			}
-			activeDocument.Set(message.Payload.Selection.ID)
-			appendLog(fmt.Sprintf("Popup selected %s %s", message.Payload.Selection.Scope, message.Payload.Selection.ID))
+			parseActiveDocument.Set(parseMessage.Payload.Selection.ID)
+			parseAppendLog(fmt.Sprintf("Popup selected %s %s", parseMessage.Payload.Selection.Scope, parseMessage.Payload.Selection.ID))
 		case interop.SurfaceSignalIntent:
-			if message.Payload.Intent == nil {
-				appendLog("Popup intent message arrived without payload.")
+			if parseMessage.Payload.Intent == nil {
+				parseAppendLog("Popup intent message arrived without payload.")
 				return
 			}
-			summary := fmt.Sprintf("%s -> %s", message.Payload.Intent.Action, message.Payload.Intent.Target)
-			latestIntent.Set(summary)
-			appendLog("Popup requested intent " + summary)
+			parseSummary := fmt.Sprintf("%s -> %s", parseMessage.Payload.Intent.Action, parseMessage.Payload.Intent.Target)
+			parseLatestIntent.Set(parseSummary)
+			parseAppendLog("Popup requested intent " + parseSummary)
 		default:
-			appendLog("Popup sent an unknown multi-surface payload.")
+			parseAppendLog("Popup sent an unknown multi-surface payload.")
 		}
 	}
 
-	send := func(label string, publish func(interop.WindowChannel) error, after func()) {
-		channel := channelRef.Get()
-		if channel.Name() == "" || channel.Closed() {
-			popupStatus.Set("Closed")
-			appendLog("Open the popup before sending a multi-surface signal.")
+	parseSend := func(parseLabel string, parsePublish func(interop.WindowChannel) error, parseAfter func()) {
+		parseChannel2 := parseChannelRef.Get()
+		if parseChannel2.Name() == "" || parseChannel2.Closed() {
+			parsePopupStatus.Set("Closed")
+			parseAppendLog("Open the popup before sending a multi-surface signal.")
 			return
 		}
-		if err := publish(channel); err != nil {
-			appendLog(describeError(label, err))
+		if parseErr := parsePublish(parseChannel2); parseErr != nil {
+			parseAppendLog(parseDescribeError(parseLabel, parseErr))
 			return
 		}
-		if after != nil {
-			after()
+		if parseAfter != nil {
+			parseAfter()
 		}
-		appendLog(label)
+		parseAppendLog(parseLabel)
 	}
 
-	openPopup := ui.UseEvent(func() {
-		current := channelRef.Get()
-		if current.Name() != "" && !current.Closed() {
-			_ = current.Focus()
-			popupStatus.Set("Connected")
-			appendLog("Reused the existing popup and focused it.")
+	parseOpenPopup := ui.UseEvent(func() {
+		parseCurrent := parseChannelRef.Get()
+		if parseCurrent.Name() != "" && !parseCurrent.Closed() {
+			_ = parseCurrent.Focus()
+			parsePopupStatus.Set("Connected")
+			parseAppendLog("Reused the existing popup and focused it.")
 			return
 		}
 
-		releaseChannel(false)
-		channel, err := interop.OpenSecondaryWindowChannel(interop.WindowChannelOptions{
+		parseReleaseChannel(false)
+		parseChannel3, parseErr2 := interop.OpenSecondaryWindowChannel(interop.WindowChannelOptions{
 			URL:      multiWindowPopupURL,
 			Name:     multiWindowChannelName,
 			Features: "popup=yes,width=560,height=760",
 		})
-		if err != nil {
-			appendLog(describeError("Opening popup failed", err))
+		if parseErr2 != nil {
+			parseAppendLog(parseDescribeError("Opening popup failed", parseErr2))
 			return
 		}
-		subscription, err := interop.SubscribeSurfaceSignals(channel, handleSignal)
-		if err != nil {
-			_ = channel.Close()
-			appendLog(describeError("Popup subscription failed", err))
+		parseSubscription, parseErr2 := interop.SubscribeSurfaceSignals(parseChannel3, handleSignal)
+		if parseErr2 != nil {
+			_ = parseChannel3.Close()
+			parseAppendLog(parseDescribeError("Popup subscription failed", parseErr2))
 			return
 		}
-		channelRef.Set(channel)
-		cancelRef.Set(subscription.Cancel)
-		popupStatus.Set("Connected")
-		appendLog("Opened the popup inspector and subscribed to its surface signals.")
+		parseChannelRef.Set(parseChannel3)
+		parseCancelRef.Set(parseSubscription.Cancel)
+		parsePopupStatus.Set("Connected")
+		parseAppendLog("Opened the popup inspector and subscribed to its surface signals.")
 	})
 
-	focusPopup := ui.UseEvent(func() {
-		send("Focused the popup window.", func(channel interop.WindowChannel) error {
-			return channel.Focus()
+	parseFocusPopup := ui.UseEvent(func() {
+		parseSend("Focused the popup window.", func(parseChannel6 interop.WindowChannel) error {
+			return parseChannel6.Focus()
 		}, nil)
 	})
 
-	closePopup := ui.UseEvent(func() {
-		channel := channelRef.Get()
-		if channel.Name() == "" || channel.Closed() {
-			popupStatus.Set("Closed")
-			appendLog("Popup is already closed.")
-			releaseChannel(false)
+	parseClosePopup := ui.UseEvent(func() {
+		parseChannel4 := parseChannelRef.Get()
+		if parseChannel4.Name() == "" || parseChannel4.Closed() {
+			parsePopupStatus.Set("Closed")
+			parseAppendLog("Popup is already closed.")
+			parseReleaseChannel(false)
 			return
 		}
-		if err := channel.Close(); err != nil {
-			appendLog(describeError("Closing popup failed", err))
+		if parseErr3 := parseChannel4.Close(); parseErr3 != nil {
+			parseAppendLog(parseDescribeError("Closing popup failed", parseErr3))
 			return
 		}
-		releaseChannel(false)
-		popupStatus.Set("Closed")
-		appendLog("Closed the popup from the opener.")
+		parseReleaseChannel(false)
+		parsePopupStatus.Set("Closed")
+		parseAppendLog("Closed the popup from the opener.")
 	})
 
-	sendSessionExpired := ui.UseEvent(func() {
-		expiresAt := time.Now().UTC().Add(15 * time.Minute).Round(time.Second)
-		send("Sent a session-expired signal to the popup.", func(channel interop.WindowChannel) error {
-			return interop.PublishSessionExpired(channel, "Re-authentication required in every active surface.", "/login", expiresAt)
+	parseSendSessionExpired := ui.UseEvent(func() {
+		parseExpiresAt := time.Now().UTC().Add(15 * time.Minute).Round(time.Second)
+		parseSend("Sent a session-expired signal to the popup.", func(parseChannel7 interop.WindowChannel) error {
+			return interop.PublishSessionExpired(parseChannel7, "Re-authentication required in every active surface.", "/login", parseExpiresAt)
 		}, func() {
-			session.Set("expired")
+			parseSession.Set("expired")
 		})
 	})
 
-	sendLogout := ui.UseEvent(func() {
-		send("Broadcast a logout signal to the popup.", func(channel interop.WindowChannel) error {
-			return interop.PublishLogout(channel, "Operator signed out in the main workspace.")
+	parseSendLogout := ui.UseEvent(func() {
+		parseSend("Broadcast a logout signal to the popup.", func(parseChannel8 interop.WindowChannel) error {
+			return interop.PublishLogout(parseChannel8, "Operator signed out in the main workspace.")
 		}, func() {
-			session.Set("signed-out")
+			parseSession.Set("signed-out")
 		})
 	})
 
-	sendRouteFocus := ui.UseEvent(func() {
-		send("Sent route focus for /orders/42.", func(channel interop.WindowChannel) error {
-			return interop.PublishRouteFocus(channel, "/orders/42", "tab=activity", "order-heading")
+	parseSendRouteFocus := ui.UseEvent(func() {
+		parseSend("Sent route focus for /orders/42.", func(parseChannel9 interop.WindowChannel) error {
+			return interop.PublishRouteFocus(parseChannel9, "/orders/42", "tab=activity", "order-heading")
 		}, func() {
-			activeRoute.Set("/orders/42?tab=activity")
+			parseActiveRoute.Set("/orders/42?tab=activity")
 		})
 	})
 
-	sendSelection := ui.UseEvent(func() {
-		send("Sent active-document selection INV-204.", func(channel interop.WindowChannel) error {
-			return interop.PublishSelection(channel, "invoice", "INV-204", "rev-12")
+	parseSendSelection := ui.UseEvent(func() {
+		parseSend("Sent active-document selection INV-204.", func(parseChannel10 interop.WindowChannel) error {
+			return interop.PublishSelection(parseChannel10, "invoice", "INV-204", "rev-12")
 		}, func() {
-			activeDocument.Set("INV-204")
+			parseActiveDocument.Set("INV-204")
 		})
 	})
 
-	sendIntent := ui.UseEvent(func() {
-		send("Sent a focus-panel intent to the popup.", func(channel interop.WindowChannel) error {
-			return interop.PublishIntent(channel, interop.SurfaceIntentFocusPanel, "inventory-inspector", map[string]string{"tab": "activity"})
+	parseSendIntent := ui.UseEvent(func() {
+		parseSend("Sent a focus-panel intent to the popup.", func(parseChannel11 interop.WindowChannel) error {
+			return interop.PublishIntent(parseChannel11, interop.SurfaceIntentFocusPanel, "inventory-inspector", map[string]string{"tab": "activity"})
 		}, func() {
-			latestIntent.Set("focus-panel -> inventory-inspector")
+			parseLatestIntent.Set("focus-panel -> inventory-inspector")
 		})
 	})
 
 	ui.UseEffect(func() func() {
-		timer, err := interop.ScheduleInterval(500*time.Millisecond, func() {
-			channel := channelRef.Get()
-			if channel.Name() == "" {
+		parseTimer, parseErr4 := interop.ScheduleInterval(500*time.Millisecond, func() {
+			parseChannel5 := parseChannelRef.Get()
+			if parseChannel5.Name() == "" {
 				return
 			}
-			if channel.Closed() {
-				releaseChannel(false)
-				popupStatus.Set("Closed")
-				appendLog("Popup closed unexpectedly. Reopen it to restore coordination.")
+			if parseChannel5.Closed() {
+				parseReleaseChannel(false)
+				parsePopupStatus.Set("Closed")
+				parseAppendLog("Popup closed unexpectedly. Reopen it to restore coordination.")
 			}
 		})
 		return func() {
-			if err == nil {
-				_ = timer.Cancel()
+			if parseErr4 == nil {
+				_ = parseTimer.Cancel()
 			}
-			releaseChannel(true)
+			parseReleaseChannel(true)
 		}
 	}, true)
 
-	logNodes := make([]ui.Node, 0, len(logs.Get()))
-	for _, entry := range logs.Get() {
-		logNodes = append(logNodes,
-			html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm leading-7 text-slate-300"}, html.Text(entry)),
+	parseLogNodes := make([]ui.Node, 0, len(parseLogs.Get()))
+	for _, parseEntry := range parseLogs.Get() {
+		parseLogNodes = append(parseLogNodes,
+			html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm leading-7 text-slate-300"}, html.Text(parseEntry)),
 		)
 	}
 
@@ -267,32 +267,32 @@ func openerSurfaceExample() ui.Node {
 		"Open a dedicated operator popup, propagate session and route context, and treat popup loss as ordinary recoverable state instead of a fatal runtime event.",
 		shared.ExamplePanel("Opener controls",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-4"},
-				shared.ExampleStat("Session", session.Get()),
-				shared.ExampleStat("Route", activeRoute.Get()),
-				shared.ExampleStat("Document", activeDocument.Get()),
-				shared.ExampleStat("Popup", popupStatus.Get()),
+				shared.ExampleStat("Session", parseSession.Get()),
+				shared.ExampleStat("Route", parseActiveRoute.Get()),
+				shared.ExampleStat("Document", parseActiveDocument.Get()),
+				shared.ExampleStat("Popup", parsePopupStatus.Get()),
 			),
 			html.Div(html.Props{Class: "mt-5 flex flex-wrap gap-3"},
-				shared.ExampleButton("Open popup", openPopup),
-				shared.ExampleButton("Focus popup", focusPopup),
-				shared.ExampleButton("Close popup", closePopup),
+				shared.ExampleButton("Open popup", parseOpenPopup),
+				shared.ExampleButton("Focus popup", parseFocusPopup),
+				shared.ExampleButton("Close popup", parseClosePopup),
 			),
 			html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"},
-				shared.ExampleButton("Expire session", sendSessionExpired),
-				shared.ExampleButton("Send logout", sendLogout),
-				shared.ExampleButton("Focus /orders/42", sendRouteFocus),
-				shared.ExampleButton("Select INV-204", sendSelection),
-				shared.ExampleButton("Focus inspector panel", sendIntent),
+				shared.ExampleButton("Expire session", parseSendSessionExpired),
+				shared.ExampleButton("Send logout", parseSendLogout),
+				shared.ExampleButton("Focus /orders/42", parseSendRouteFocus),
+				shared.ExampleButton("Select INV-204", parseSendSelection),
+				shared.ExampleButton("Focus inspector panel", parseSendIntent),
 			),
 			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text("The opener remains the authoritative owner for popup lifecycle. Signals are typed and explicit, not implicit global state replication.")),
 		),
 		shared.ExamplePanel("Popup feedback",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Latest intent", latestIntent.Get()),
+				shared.ExampleStat("Latest intent", parseLatestIntent.Get()),
 				shared.ExampleStat("Channel name", multiWindowChannelName),
 			),
 			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text("If the popup selects a different document or requests a focus change, those signals come back through the same typed channel and update the opener view here.")),
-			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, logNodes...),
+			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, parseLogNodes...),
 		),
 		shared.ExamplePanel("Integration shape",
 			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("Use WindowChannel only for targeted opener or popup workflows. Keep one surface authoritative, send route or selection hints explicitly, and treat popup disconnects as a state transition you can detect and recover from.")),
@@ -307,182 +307,182 @@ func openerSurfaceExample() ui.Node {
 }
 
 func popupSurfaceExample() ui.Node {
-	session := ui.UseState("waiting")
-	activeRoute := ui.UseState("Waiting for opener route focus.")
-	activeDocument := ui.UseState("No active document")
-	latestIntent := ui.UseState("Waiting for opener intent.")
-	connection := ui.UseState("Connecting to opener...")
-	orphaned := ui.UseState(false)
-	logs := ui.UseState([]string{"This popup is waiting for the opener channel."})
-	channelRef := ui.UseRef(interop.WindowChannel{})
-	cancelRef := ui.UseRef((func())(nil))
+	parseSession := ui.UseState("waiting")
+	parseActiveRoute := ui.UseState("Waiting for opener route focus.")
+	parseActiveDocument := ui.UseState("No active document")
+	parseLatestIntent := ui.UseState("Waiting for opener intent.")
+	parseConnection := ui.UseState("Connecting to opener...")
+	parseOrphaned := ui.UseState(false)
+	parseLogs := ui.UseState([]string{"This popup is waiting for the opener channel."})
+	parseChannelRef := ui.UseRef(interop.WindowChannel{})
+	parseCancelRef := ui.UseRef((func())(nil))
 
-	appendLog := func(line string) {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
+	parseAppendLog := func(parseLine string) {
+		parseTrimmed := strings.TrimSpace(parseLine)
+		if parseTrimmed == "" {
 			return
 		}
-		logs.Update(func(previous []string) []string {
-			next := append([]string{trimmed}, previous...)
-			if len(next) > 8 {
-				next = next[:8]
+		parseLogs.Update(func(parsePrevious []string) []string {
+			parseNext := append([]string{parseTrimmed}, parsePrevious...)
+			if len(parseNext) > 8 {
+				parseNext = parseNext[:8]
 			}
-			return next
+			return parseNext
 		})
 	}
 
-	describeError := func(prefix string, err error) string {
-		if err == nil {
-			return prefix
+	parseDescribeError := func(parsePrefix string, parseErr3 error) string {
+		if parseErr3 == nil {
+			return parsePrefix
 		}
-		if code, ok := interop.CodeOf(err); ok {
-			return fmt.Sprintf("%s [%s]: %v", prefix, code, err)
+		if parseCode, parseOk := interop.CodeOf(parseErr3); parseOk {
+			return fmt.Sprintf("%s [%s]: %v", parsePrefix, parseCode, parseErr3)
 		}
-		return fmt.Sprintf("%s: %v", prefix, err)
+		return fmt.Sprintf("%s: %v", parsePrefix, parseErr3)
 	}
 
-	send := func(label string, publish func(interop.WindowChannel) error, after func()) {
-		channel := channelRef.Get()
-		if channel.Name() == "" || channel.Closed() {
-			orphaned.Set(true)
-			connection.Set("Opener unavailable")
-			appendLog("Opener is unavailable; this popup is now orphaned.")
+	parseSend := func(parseLabel string, parsePublish func(interop.WindowChannel) error, parseAfter func()) {
+		parseChannel := parseChannelRef.Get()
+		if parseChannel.Name() == "" || parseChannel.Closed() {
+			parseOrphaned.Set(true)
+			parseConnection.Set("Opener unavailable")
+			parseAppendLog("Opener is unavailable; this popup is now orphaned.")
 			return
 		}
-		if err := publish(channel); err != nil {
-			appendLog(describeError(label, err))
+		if parseErr := parsePublish(parseChannel); parseErr != nil {
+			parseAppendLog(parseDescribeError(parseLabel, parseErr))
 			return
 		}
-		if after != nil {
-			after()
+		if parseAfter != nil {
+			parseAfter()
 		}
-		appendLog(label)
+		parseAppendLog(parseLabel)
 	}
 
-	handleSignal := func(message interop.DecodedWindowEnvelope[interop.SurfaceSignal], err error) {
-		if err != nil {
-			appendLog(describeError("Opener message failed", err))
+	handleSignal := func(parseMessage interop.DecodedWindowEnvelope[interop.SurfaceSignal], parseErr4 error) {
+		if parseErr4 != nil {
+			parseAppendLog(parseDescribeError("Opener message failed", parseErr4))
 			return
 		}
-		switch message.Payload.Kind {
+		switch parseMessage.Payload.Kind {
 		case interop.SurfaceSignalSession:
-			if message.Payload.Session == nil {
+			if parseMessage.Payload.Session == nil {
 				return
 			}
-			session.Set(message.Payload.Session.Status)
-			connection.Set("Connected")
-			orphaned.Set(false)
-			appendLog(fmt.Sprintf("Received session %q from opener.", message.Payload.Session.Status))
+			parseSession.Set(parseMessage.Payload.Session.Status)
+			parseConnection.Set("Connected")
+			parseOrphaned.Set(false)
+			parseAppendLog(fmt.Sprintf("Received session %q from opener.", parseMessage.Payload.Session.Status))
 		case interop.SurfaceSignalRoute:
-			if message.Payload.Route == nil {
+			if parseMessage.Payload.Route == nil {
 				return
 			}
-			nextRoute := message.Payload.Route.Path
-			if strings.TrimSpace(message.Payload.Route.Query) != "" {
-				nextRoute += "?" + message.Payload.Route.Query
+			parseNextRoute := parseMessage.Payload.Route.Path
+			if strings.TrimSpace(parseMessage.Payload.Route.Query) != "" {
+				parseNextRoute += "?" + parseMessage.Payload.Route.Query
 			}
-			activeRoute.Set(nextRoute)
-			appendLog("Received route focus " + nextRoute)
+			parseActiveRoute.Set(parseNextRoute)
+			parseAppendLog("Received route focus " + parseNextRoute)
 		case interop.SurfaceSignalSelection:
-			if message.Payload.Selection == nil {
+			if parseMessage.Payload.Selection == nil {
 				return
 			}
-			activeDocument.Set(message.Payload.Selection.ID)
-			appendLog(fmt.Sprintf("Received active %s %s", message.Payload.Selection.Scope, message.Payload.Selection.ID))
+			parseActiveDocument.Set(parseMessage.Payload.Selection.ID)
+			parseAppendLog(fmt.Sprintf("Received active %s %s", parseMessage.Payload.Selection.Scope, parseMessage.Payload.Selection.ID))
 		case interop.SurfaceSignalIntent:
-			if message.Payload.Intent == nil {
+			if parseMessage.Payload.Intent == nil {
 				return
 			}
-			latestIntent.Set(fmt.Sprintf("%s -> %s", message.Payload.Intent.Action, message.Payload.Intent.Target))
-			appendLog(fmt.Sprintf("Received opener intent %s", message.Payload.Intent.Action))
+			parseLatestIntent.Set(fmt.Sprintf("%s -> %s", parseMessage.Payload.Intent.Action, parseMessage.Payload.Intent.Target))
+			parseAppendLog(fmt.Sprintf("Received opener intent %s", parseMessage.Payload.Intent.Action))
 		}
 	}
 
 	ui.UseEffect(func() func() {
-		channel, err := interop.OpenWindowOpenerChannel(interop.WindowChannelOptions{Name: multiWindowChannelName})
-		if err != nil {
-			orphaned.Set(true)
-			connection.Set("Opened without an opener")
-			appendLog(describeError("No opener channel available", err))
+		parseChannel2, parseErr2 := interop.OpenWindowOpenerChannel(interop.WindowChannelOptions{Name: multiWindowChannelName})
+		if parseErr2 != nil {
+			parseOrphaned.Set(true)
+			parseConnection.Set("Opened without an opener")
+			parseAppendLog(parseDescribeError("No opener channel available", parseErr2))
 			return nil
 		}
-		channelRef.Set(channel)
-		connection.Set("Connected")
-		orphaned.Set(channel.Closed())
+		parseChannelRef.Set(parseChannel2)
+		parseConnection.Set("Connected")
+		parseOrphaned.Set(parseChannel2.Closed())
 
-		subscription, err := interop.SubscribeSurfaceSignals(channel, handleSignal)
-		if err != nil {
-			connection.Set("Subscription failed")
-			appendLog(describeError("Popup subscription failed", err))
+		parseSubscription, parseErr2 := interop.SubscribeSurfaceSignals(parseChannel2, handleSignal)
+		if parseErr2 != nil {
+			parseConnection.Set("Subscription failed")
+			parseAppendLog(parseDescribeError("Popup subscription failed", parseErr2))
 			return nil
 		}
-		cancelRef.Set(subscription.Cancel)
-		appendLog("Connected to the opener and subscribed to surface signals.")
+		parseCancelRef.Set(parseSubscription.Cancel)
+		parseAppendLog("Connected to the opener and subscribed to surface signals.")
 
-		timer, timerErr := interop.ScheduleInterval(500*time.Millisecond, func() {
-			current := channelRef.Get()
-			if current.Name() == "" {
+		parseTimer, parseTimerErr := interop.ScheduleInterval(500*time.Millisecond, func() {
+			parseCurrent := parseChannelRef.Get()
+			if parseCurrent.Name() == "" {
 				return
 			}
-			if current.Closed() {
-				orphaned.Set(true)
-				connection.Set("Opener disconnected")
+			if parseCurrent.Closed() {
+				parseOrphaned.Set(true)
+				parseConnection.Set("Opener disconnected")
 			}
 		})
 
 		return func() {
-			if cancel := cancelRef.Get(); cancel != nil {
-				cancel()
-				cancelRef.Set(nil)
+			if parseCancel := parseCancelRef.Get(); parseCancel != nil {
+				parseCancel()
+				parseCancelRef.Set(nil)
 			}
-			if timerErr == nil {
-				_ = timer.Cancel()
+			if parseTimerErr == nil {
+				_ = parseTimer.Cancel()
 			}
 		}
 	}, true)
 
-	requestOrdersFocus := ui.UseEvent(func() {
-		send("Requested route focus back to /inventory/alerts.", func(channel interop.WindowChannel) error {
-			return interop.PublishRouteFocus(channel, "/inventory/alerts", "panel=exceptions", "alerts-heading")
+	parseRequestOrdersFocus := ui.UseEvent(func() {
+		parseSend("Requested route focus back to /inventory/alerts.", func(parseChannel3 interop.WindowChannel) error {
+			return interop.PublishRouteFocus(parseChannel3, "/inventory/alerts", "panel=exceptions", "alerts-heading")
 		}, func() {
-			activeRoute.Set("/inventory/alerts?panel=exceptions")
+			parseActiveRoute.Set("/inventory/alerts?panel=exceptions")
 		})
 	})
 
-	requestSelection := ui.UseEvent(func() {
-		send("Selected SKU-42 in the popup.", func(channel interop.WindowChannel) error {
-			return interop.PublishSelection(channel, "sku", "SKU-42", "popup-rev-3")
+	parseRequestSelection := ui.UseEvent(func() {
+		parseSend("Selected SKU-42 in the popup.", func(parseChannel4 interop.WindowChannel) error {
+			return interop.PublishSelection(parseChannel4, "sku", "SKU-42", "popup-rev-3")
 		}, func() {
-			activeDocument.Set("SKU-42")
+			parseActiveDocument.Set("SKU-42")
 		})
 	})
 
-	requestFocusIntent := ui.UseEvent(func() {
-		send("Requested the opener focus its audit log panel.", func(channel interop.WindowChannel) error {
-			return interop.PublishIntent(channel, interop.SurfaceIntentFocusPanel, "audit-log", map[string]string{"tab": "alerts"})
+	parseRequestFocusIntent := ui.UseEvent(func() {
+		parseSend("Requested the opener focus its audit log panel.", func(parseChannel5 interop.WindowChannel) error {
+			return interop.PublishIntent(parseChannel5, interop.SurfaceIntentFocusPanel, "audit-log", map[string]string{"tab": "alerts"})
 		}, func() {
-			latestIntent.Set("focus-panel -> audit-log")
+			parseLatestIntent.Set("focus-panel -> audit-log")
 		})
 	})
 
-	acknowledgeLogout := ui.UseEvent(func() {
-		send("Acknowledged sign-out back to the opener.", func(channel interop.WindowChannel) error {
-			return interop.PublishLogout(channel, "Popup acknowledged remote sign-out.")
+	parseAcknowledgeLogout := ui.UseEvent(func() {
+		parseSend("Acknowledged sign-out back to the opener.", func(parseChannel6 interop.WindowChannel) error {
+			return interop.PublishLogout(parseChannel6, "Popup acknowledged remote sign-out.")
 		}, func() {
-			session.Set("signed-out")
+			parseSession.Set("signed-out")
 		})
 	})
 
-	logNodes := make([]ui.Node, 0, len(logs.Get()))
-	for _, entry := range logs.Get() {
-		logNodes = append(logNodes,
-			html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm leading-7 text-slate-300"}, html.Text(entry)),
+	parseLogNodes := make([]ui.Node, 0, len(parseLogs.Get()))
+	for _, parseEntry := range parseLogs.Get() {
+		parseLogNodes = append(parseLogNodes,
+			html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm leading-7 text-slate-300"}, html.Text(parseEntry)),
 		)
 	}
 
-	orphanMessage := "This popup is attached to the opener channel."
-	if orphaned.Get() {
-		orphanMessage = "The opener disappeared or this page was opened directly. Keep the UI visible, but disable assumptions that the coordinator is still present."
+	parseOrphanMessage := "This popup is attached to the opener channel."
+	if parseOrphaned.Get() {
+		parseOrphanMessage = "The opener disappeared or this page was opened directly. Keep the UI visible, but disable assumptions that the coordinator is still present."
 	}
 
 	return shared.ExamplePage(
@@ -491,25 +491,25 @@ func popupSurfaceExample() ui.Node {
 		"This is the popup side of the same example. It treats the opener as authoritative, listens for session or route signals, and degrades into an orphaned surface when the opener goes away.",
 		shared.ExamplePanel("Popup state",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-4"},
-				shared.ExampleStat("Connection", connection.Get()),
-				shared.ExampleStat("Session", session.Get()),
-				shared.ExampleStat("Route", activeRoute.Get()),
-				shared.ExampleStat("Document", activeDocument.Get()),
+				shared.ExampleStat("Connection", parseConnection.Get()),
+				shared.ExampleStat("Session", parseSession.Get()),
+				shared.ExampleStat("Route", parseActiveRoute.Get()),
+				shared.ExampleStat("Document", parseActiveDocument.Get()),
 			),
-			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text(orphanMessage)),
+			html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text(parseOrphanMessage)),
 			html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"},
-				shared.ExampleButton("Focus alerts route in opener", requestOrdersFocus),
-				shared.ExampleButton("Select SKU-42", requestSelection),
-				shared.ExampleButton("Focus audit log", requestFocusIntent),
-				shared.ExampleButton("Ack sign-out", acknowledgeLogout),
+				shared.ExampleButton("Focus alerts route in opener", parseRequestOrdersFocus),
+				shared.ExampleButton("Select SKU-42", parseRequestSelection),
+				shared.ExampleButton("Focus audit log", parseRequestFocusIntent),
+				shared.ExampleButton("Ack sign-out", parseAcknowledgeLogout),
 			),
 		),
 		shared.ExamplePanel("Latest opener intent",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Intent", latestIntent.Get()),
-				shared.ExampleStat("Orphaned", fmt.Sprintf("%t", orphaned.Get())),
+				shared.ExampleStat("Intent", parseLatestIntent.Get()),
+				shared.ExampleStat("Orphaned", fmt.Sprintf("%t", parseOrphaned.Get())),
 			),
-			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, logNodes...),
+			html.Ul(html.Props{Class: "mt-5 grid gap-3"}, parseLogNodes...),
 		),
 	)
 }

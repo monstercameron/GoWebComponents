@@ -48,89 +48,89 @@ var fenceLanguageAliases = map[string]string{
 }
 
 // Render converts markdown into HTML with fenced-code syntax highlighting.
-func Render(source string) (string, error) {
-	var htmlBuffer bytes.Buffer
-	if err := renderer.Convert([]byte(normalizeFenceLanguageAliases(source)), &htmlBuffer); err != nil {
-		return "", err
+func Render(parseSource string) (string, error) {
+	var parseHtmlBuffer bytes.Buffer
+	if parseErr := renderer.Convert([]byte(parseNormalizeFenceLanguageAliases(parseSource)), &parseHtmlBuffer); parseErr != nil {
+		return "", parseErr
 	}
-	return htmlBuffer.String(), nil
+	return parseHtmlBuffer.ParseString(), nil
 }
 
-func normalizeFenceLanguageAliases(source string) string {
-	if !strings.Contains(source, "```") && !strings.Contains(source, "~~~") {
-		return source
+func parseNormalizeFenceLanguageAliases(parseSource string) string {
+	if !strings.Contains(parseSource, "```") && !strings.Contains(parseSource, "~~~") {
+		return parseSource
 	}
 
-	lines := strings.SplitAfter(source, "\n")
-	if len(lines) == 0 {
-		return source
+	parseLines := strings.SplitAfter(parseSource, "\n")
+	if len(parseLines) == 0 {
+		return parseSource
 	}
 
-	var builder strings.Builder
-	inFence := false
-	fenceChar := byte(0)
-	fenceLen := 0
+	var parseBuilder strings.Builder
+	isParseInFence := false
+	parseFenceChar := byte(0)
+	parseFenceLen := 0
 
-	for _, line := range lines {
-		trimmedLine := strings.TrimRight(line, "\r\n")
-		newline := line[len(trimmedLine):]
-		leading := len(trimmedLine) - len(strings.TrimLeft(trimmedLine, " "))
-		content := trimmedLine
-		if leading <= 3 {
-			content = strings.TrimLeft(trimmedLine, " ")
+	for _, parseLine := range parseLines {
+		parseTrimmedLine := strings.TrimRight(parseLine, "\r\n")
+		parseNewline := parseLine[len(parseTrimmedLine):]
+		parseLeading := len(parseTrimmedLine) - len(strings.TrimLeft(parseTrimmedLine, " "))
+		parseContent := parseTrimmedLine
+		if parseLeading <= 3 {
+			parseContent = strings.TrimLeft(parseTrimmedLine, " ")
 		}
 
-		if leading <= 3 && len(content) >= 3 && (content[0] == '`' || content[0] == '~') {
-			markerLen := leadingFenceLength(content)
-			if markerLen >= 3 {
-				markerChar := content[0]
-				if !inFence {
-					builder.WriteString(trimmedLine[:leading])
-					builder.WriteString(strings.Repeat(string(markerChar), markerLen))
-					info := strings.TrimSpace(content[markerLen:])
-					if info != "" {
-						builder.WriteByte(' ')
-						builder.WriteString(normalizeFenceInfoString(info))
+		if parseLeading <= 3 && len(parseContent) >= 3 && (parseContent[0] == '`' || parseContent[0] == '~') {
+			parseMarkerLen := parseLeadingFenceLength(parseContent)
+			if parseMarkerLen >= 3 {
+				parseMarkerChar := parseContent[0]
+				if !isParseInFence {
+					parseBuilder.WriteString(parseTrimmedLine[:parseLeading])
+					parseBuilder.WriteString(strings.Repeat(string(parseMarkerChar), parseMarkerLen))
+					parseInfo := strings.TrimSpace(parseContent[parseMarkerLen:])
+					if parseInfo != "" {
+						parseBuilder.WriteByte(' ')
+						parseBuilder.WriteString(parseNormalizeFenceInfoString(parseInfo))
 					}
-					builder.WriteString(newline)
-					inFence = true
-					fenceChar = markerChar
-					fenceLen = markerLen
+					parseBuilder.WriteString(parseNewline)
+					isParseInFence = true
+					parseFenceChar = parseMarkerChar
+					parseFenceLen = parseMarkerLen
 					continue
 				}
-				if markerChar == fenceChar && markerLen >= fenceLen {
-					inFence = false
-					fenceChar = 0
-					fenceLen = 0
+				if parseMarkerChar == parseFenceChar && parseMarkerLen >= parseFenceLen {
+					isParseInFence = false
+					parseFenceChar = 0
+					parseFenceLen = 0
 				}
 			}
 		}
 
-		builder.WriteString(line)
+		parseBuilder.WriteString(parseLine)
 	}
 
-	return builder.String()
+	return parseBuilder.ParseString()
 }
 
-func leadingFenceLength(content string) int {
-	if len(content) == 0 {
+func parseLeadingFenceLength(parseContent string) int {
+	if len(parseContent) == 0 {
 		return 0
 	}
-	markerChar := content[0]
-	length := 0
-	for length < len(content) && content[length] == markerChar {
-		length++
+	parseMarkerChar := parseContent[0]
+	parseLength := 0
+	for parseLength < len(parseContent) && parseContent[parseLength] == parseMarkerChar {
+		parseLength++
 	}
-	return length
+	return parseLength
 }
 
-func normalizeFenceInfoString(info string) string {
-	fields := strings.Fields(info)
-	if len(fields) == 0 {
-		return info
+func parseNormalizeFenceInfoString(parseInfo string) string {
+	parseFields := strings.Fields(parseInfo)
+	if len(parseFields) == 0 {
+		return parseInfo
 	}
-	if normalized, ok := fenceLanguageAliases[strings.ToLower(fields[0])]; ok {
-		fields[0] = normalized
+	if parseNormalized, parseOk := fenceLanguageAliases[strings.ToLower(parseFields[0])]; parseOk {
+		parseFields[0] = parseNormalized
 	}
-	return strings.Join(fields, " ")
+	return strings.Join(parseFields, " ")
 }

@@ -65,30 +65,30 @@ func portfolioProjects() []portfolioProject {
 }
 
 func featuredPortfolioProjects() []portfolioProject {
-	projects := portfolioProjects()
-	featured := make([]portfolioProject, 0, len(projects))
-	for _, project := range projects {
-		if project.Featured {
-			featured = append(featured, project)
+	parseProjects := portfolioProjects()
+	parseFeatured := make([]portfolioProject, 0, len(parseProjects))
+	for _, parseProject := range parseProjects {
+		if parseProject.Featured {
+			parseFeatured = append(parseFeatured, parseProject)
 		}
 	}
-	return featured
+	return parseFeatured
 }
 
-func findPortfolioProject(title string) (portfolioProject, bool) {
-	trimmedTitle := strings.TrimSpace(strings.ToLower(title))
-	for _, project := range portfolioProjects() {
-		if strings.ToLower(project.Title) == trimmedTitle {
-			return project, true
+func findPortfolioProject(parseTitle string) (portfolioProject, bool) {
+	parseTrimmedTitle := strings.TrimSpace(strings.ToLower(parseTitle))
+	for _, parseProject := range portfolioProjects() {
+		if strings.ToLower(parseProject.Title) == parseTrimmedTitle {
+			return parseProject, true
 		}
 	}
 	return portfolioProject{}, false
 }
 
-func totalPortfolioTechnologies(projects []portfolioProject) int {
-	total := 0
-	for _, project := range projects {
-		total += len(project.Technologies)
+func totalPortfolioTechnologies(parseProjects []portfolioProject) int {
+	parseTotal := 0
+	for _, parseProject := range parseProjects {
+		parseTotal += len(parseProject.Technologies)
 	}
-	return total
+	return parseTotal
 }

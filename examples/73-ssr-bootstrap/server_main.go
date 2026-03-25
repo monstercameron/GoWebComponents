@@ -19,104 +19,104 @@ const (
 	bootstrapStartupDocs = "ACTIONABLE_ERRORS.md#gwc-example-server-startup"
 )
 
-func bootstrapRequestReport(path string, err error, consequence string, next string) diagnostics.Report {
+func bootstrapRequestReport(parsePath string, parseErr error, parseConsequence string, parseNext string) diagnostics.Report {
 	return diagnostics.NewReport(diagnostics.Options{
-		Summary:  err.Error(),
+		Summary:  parseErr.Error(),
 		Code:     "GWC-EXAMPLE-SERVER-REQUEST",
 		Headline: "server failure in ssr-bootstrap demo",
-		Path:     strings.TrimSpace(path),
-		Runtime:  strings.TrimSpace(consequence),
-		Next:     strings.TrimSpace(next),
+		Path:     strings.TrimSpace(parsePath),
+		Runtime:  strings.TrimSpace(parseConsequence),
+		Next:     strings.TrimSpace(parseNext),
 		Docs:     bootstrapRequestDocs,
 	})
 }
 
-func fatalBootstrapStartup(subject string, path string, err error, next string) {
+func fatalBootstrapStartup(parseSubject string, parsePath string, parseErr error, parseNext string) {
 	diagnostics.Emit(diagnostics.NewReport(diagnostics.Options{
-		Summary:  err.Error(),
+		Summary:  parseErr.Error(),
 		Code:     "GWC-EXAMPLE-SERVER-STARTUP",
-		Headline: "server startup failure in " + strings.TrimSpace(subject),
-		Path:     strings.TrimSpace(path),
+		Headline: "server startup failure in " + strings.TrimSpace(parseSubject),
+		Path:     strings.TrimSpace(parsePath),
 		Runtime:  "the dedicated SSR bootstrap example could not start, so no requests will be served.",
-		Next:     strings.TrimSpace(next),
+		Next:     strings.TrimSpace(parseNext),
 		Docs:     bootstrapStartupDocs,
 	}))
 	os.Exit(1)
 }
 
-func repoRoot(start string) (string, error) {
-	current := start
+func repoRoot(parseStart string) (string, error) {
+	parseCurrent := parseStart
 	for {
-		if _, err := os.Stat(filepath.Join(current, "go.mod")); err == nil {
-			return current, nil
+		if _, parseErr := os.Stat(filepath.Join(parseCurrent, "go.mod")); parseErr == nil {
+			return parseCurrent, nil
 		}
-		parent := filepath.Dir(current)
-		if parent == current {
-			return "", fmt.Errorf("could not find repo root from %s", start)
+		parseParent := filepath.Dir(parseCurrent)
+		if parseParent == parseCurrent {
+			return "", fmt.Errorf("could not find repo root from %s", parseStart)
 		}
-		current = parent
+		parseCurrent = parseParent
 	}
 }
 
 func main() {
-	port := strings.TrimSpace(os.Getenv("PORT"))
-	if port == "" {
-		port = "8086"
+	parsePort := strings.TrimSpace(os.Getenv("PORT"))
+	if parsePort == "" {
+		parsePort = "8086"
 	}
-	wd, err := os.Getwd()
-	if err != nil {
-		fatalBootstrapStartup("main.os.Getwd", "cwd", err, "Verify the example is being started from a readable working directory.")
+	parseWd, parseErr := os.Getwd()
+	if parseErr != nil {
+		fatalBootstrapStartup("main.os.Getwd", "cwd", parseErr, "Verify the example is being started from a readable working directory.")
 	}
-	root, err := repoRoot(wd)
-	if err != nil {
-		fatalBootstrapStartup("main.repoRoot", wd, err, "Start the example inside the repo so the wasm binary and scripts can be discovered.")
+	parseRoot, parseErr := repoRoot(parseWd)
+	if parseErr != nil {
+		fatalBootstrapStartup("main.repoRoot", parseWd, parseErr, "Start the example inside the repo so the wasm binary and scripts can be discovered.")
 	}
-	loggerScript := filepath.Join(root, "examples", "static", "script", "example-logger.js")
-	wasmExec := filepath.Join(root, "examples", "static", "script", "wasm_exec.js")
-	wasmBinary := filepath.Join(root, "examples", "static", "bin", "ssr-bootstrap.wasm")
+	parseLoggerScript := filepath.Join(parseRoot, "examples", "static", "script", "example-logger.js")
+	parseWasmExec := filepath.Join(parseRoot, "examples", "static", "script", "wasm_exec.js")
+	parseWasmBinary := filepath.Join(parseRoot, "examples", "static", "bin", "ssr-bootstrap.wasm")
 
-	http.HandleFunc("/assets/example-logger.js", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
-		http.ServeFile(w, r, loggerScript)
+	http.HandleFunc("/assets/example-logger.js", func(parseW http.ResponseWriter, parseR *http.Request) {
+		parseW.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		http.ServeFile(parseW, parseR, parseLoggerScript)
 	})
-	http.HandleFunc("/assets/wasm_exec.js", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
-		http.ServeFile(w, r, wasmExec)
+	http.HandleFunc("/assets/wasm_exec.js", func(parseW2 http.ResponseWriter, parseR2 *http.Request) {
+		parseW2.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		http.ServeFile(parseW2, parseR2, parseWasmExec)
 	})
-	http.HandleFunc("/assets/ssr-bootstrap.wasm", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/wasm")
-		http.ServeFile(w, r, wasmBinary)
+	http.HandleFunc("/assets/ssr-bootstrap.wasm", func(parseW3 http.ResponseWriter, parseR3 *http.Request) {
+		parseW3.Header().Set("Content-Type", "application/wasm")
+		http.ServeFile(parseW3, parseR3, parseWasmBinary)
 	})
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		payload := ui.SSRBootstrap{
+	http.HandleFunc("/", func(parseW4 http.ResponseWriter, parseR4 *http.Request) {
+		parsePayload := ui.SSRBootstrap{
 			Route: ui.SSRRouteBootstrap{Path: "/bootstrap"},
 			Data:  map[string]interface{}{"message": "inline bootstrap payload"},
 		}
-		body, err := ui.RenderToString(renderBootstrapView(bootstrapViewFromPayload(payload)))
-		if err != nil {
-			diagnostics.WriteHTTPError(w, http.StatusInternalServerError, bootstrapRequestReport(
-				r.URL.Path,
-				err,
+		parseBody, parseErr2 := ui.RenderToString(renderBootstrapView(bootstrapViewFromPayload(parsePayload)))
+		if parseErr2 != nil {
+			diagnostics.WriteHTTPError(parseW4, http.StatusInternalServerError, bootstrapRequestReport(
+				parseR4.URL.Path,
+				parseErr2,
 				"the request failed before the bootstrap view HTML could be rendered.",
 				"Inspect the bootstrap view render path and the payload being serialized into the document.",
 			))
 			return
 		}
-		script, err := ui.RenderBootstrapScript(payload, "")
-		if err != nil {
-			diagnostics.WriteHTTPError(w, http.StatusInternalServerError, bootstrapRequestReport(
-				r.URL.Path,
-				err,
+		parseScript, parseErr2 := ui.RenderBootstrapScript(parsePayload, "")
+		if parseErr2 != nil {
+			diagnostics.WriteHTTPError(parseW4, http.StatusInternalServerError, bootstrapRequestReport(
+				parseR4.URL.Path,
+				parseErr2,
 				"the bootstrap payload script was not generated, so the wasm client cannot hydrate this document.",
 				"Inspect the bootstrap payload contents and script generation path for this request.",
 			))
 			return
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = fmt.Fprintf(w, "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Dedicated SSR bootstrap</title>%s<script src=\"/assets/wasm_exec.js\"></script><script src=\"/assets/example-logger.js\"></script></head><body style=\"margin:0;background:#08111d\"><p id=\"client-status\" style=\"margin:0;padding:16px 24px;color:#67e8f9;font:600 14px/1.4 ui-sans-serif,system-ui,sans-serif\">Waiting for wasm hydration...</p><div id=\"app\">%s</div><script>const go=new Go();WebAssembly.instantiateStreaming(fetch('/assets/ssr-bootstrap.wasm'),go.importObject).then(result=>go.run(result.instance)).catch(err=>console.error('Failed to load WASM:',err));</script></body></html>", script, body)
+		parseW4.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = fmt.Fprintf(parseW4, "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Dedicated SSR bootstrap</title>%s<script src=\"/assets/wasm_exec.js\"></script><script src=\"/assets/example-logger.js\"></script></head><body style=\"margin:0;background:#08111d\"><p id=\"client-status\" style=\"margin:0;padding:16px 24px;color:#67e8f9;font:600 14px/1.4 ui-sans-serif,system-ui,sans-serif\">Waiting for wasm hydration...</p><div id=\"app\">%s</div><script>const go=new Go();WebAssembly.instantiateStreaming(fetch('/assets/ssr-bootstrap.wasm'),go.importObject).then(result=>go.run(result.instance)).catch(err=>console.error('Failed to load WASM:',err));</script></body></html>", parseScript, parseBody)
 	})
-	fmt.Printf("Dedicated SSR bootstrap demo listening on http://127.0.0.1:%s\n", port)
-	if err := http.ListenAndServe("127.0.0.1:"+port, nil); err != nil {
-		fatalBootstrapStartup("main.http.ListenAndServe", "127.0.0.1:"+port, err, "Free the port or update PORT before starting the example server again.")
+	fmt.Printf("Dedicated SSR bootstrap demo listening on http://127.0.0.1:%s\n", parsePort)
+	if parseErr3 := http.ListenAndServe("127.0.0.1:"+parsePort, nil); parseErr3 != nil {
+		fatalBootstrapStartup("main.http.ListenAndServe", "127.0.0.1:"+parsePort, parseErr3, "Free the port or update PORT before starting the example server again.")
 	}
 }

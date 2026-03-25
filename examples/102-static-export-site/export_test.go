@@ -7,35 +7,35 @@ import (
 	"testing"
 )
 
-func TestStaticExportExampleWritesMultipleRoutes(t *testing.T) {
-	outputDir := t.TempDir()
+func TestStaticExportExampleWritesMultipleRoutes(parseT *testing.T) {
+	parseOutputDir := parseT.TempDir()
 
-	summary, err := exportExampleSite(outputDir)
-	if err != nil {
-		t.Fatalf("Export() error = %v", err)
+	parseSummary, parseErr := exportExampleSite(parseOutputDir)
+	if parseErr != nil {
+		parseT.Fatalf("Export() error = %v", parseErr)
 	}
-	if len(summary.HTMLFiles) != len(exportedPages) {
-		t.Fatalf("expected %d html files, got %d", len(exportedPages), len(summary.HTMLFiles))
+	if len(parseSummary.HTMLFiles) != len(exportedPages) {
+		parseT.Fatalf("expected %d html files, got %d", len(exportedPages), len(parseSummary.HTMLFiles))
 	}
 
-	assertFileContains(t, filepath.Join(outputDir, "index.html"), "Prerender several routes once")
-	assertFileContains(t, filepath.Join(outputDir, "index.html"), `rel="preload"`)
-	assertFileContains(t, filepath.Join(outputDir, "index.html"), `srcset=`)
-	assertFileContains(t, filepath.Join(outputDir, "index.html"), `loading="lazy"`)
-	assertFileContains(t, filepath.Join(outputDir, "pricing", "index.html"), "pricing page is just another prerendered route")
-	assertFileContains(t, filepath.Join(outputDir, "pricing", "index.html"), `rel="prefetch"`)
-	assertFileContains(t, filepath.Join(outputDir, "docs", "getting-started", "index.html"), "Nested paths export to nested folders")
-	assertFileContains(t, filepath.Join(outputDir, "static", "site-export.4f3a2b1c.css"), ".media-frame")
-	assertFileContains(t, filepath.Join(outputDir, "static", "media", "hero-home.2f71c1a0.svg"), "Static export home")
+	assertFileContains(parseT, filepath.Join(parseOutputDir, "index.html"), "Prerender several routes once")
+	assertFileContains(parseT, filepath.Join(parseOutputDir, "index.html"), `rel="preload"`)
+	assertFileContains(parseT, filepath.Join(parseOutputDir, "index.html"), `srcset=`)
+	assertFileContains(parseT, filepath.Join(parseOutputDir, "index.html"), `loading="lazy"`)
+	assertFileContains(parseT, filepath.Join(parseOutputDir, "pricing", "index.html"), "pricing page is just another prerendered route")
+	assertFileContains(parseT, filepath.Join(parseOutputDir, "pricing", "index.html"), `rel="prefetch"`)
+	assertFileContains(parseT, filepath.Join(parseOutputDir, "docs", "getting-started", "index.html"), "Nested paths export to nested folders")
+	assertFileContains(parseT, filepath.Join(parseOutputDir, "static", "site-export.4f3a2b1c.css"), ".media-frame")
+	assertFileContains(parseT, filepath.Join(parseOutputDir, "static", "media", "hero-home.2f71c1a0.svg"), "Static export home")
 }
 
-func assertFileContains(t *testing.T, path string, want string) {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
+func assertFileContains(parseT *testing.T, parsePath string, parseWant string) {
+	parseT.Helper()
+	parseData, parseErr := os.ReadFile(parsePath)
+	if parseErr != nil {
+		parseT.Fatalf("read %s: %v", parsePath, parseErr)
 	}
-	if !strings.Contains(string(data), want) {
-		t.Fatalf("%s does not contain %q", path, want)
+	if !strings.Contains(string(parseData), parseWant) {
+		parseT.Fatalf("%s does not contain %q", parsePath, parseWant)
 	}
 }

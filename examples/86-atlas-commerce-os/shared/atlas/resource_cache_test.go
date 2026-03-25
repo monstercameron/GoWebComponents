@@ -5,34 +5,34 @@ import (
 	"testing"
 )
 
-func TestRoutePayloadResourceKeyFiltersNoticeAndBootstrapQuery(t *testing.T) {
-	query := url.Values{}
-	query.Set("warehouse", "east")
-	query.Set("atlas_notice", "inventory-updated")
-	query.Set("atlas_bootstrap", "external")
+func TestRoutePayloadResourceKeyFiltersNoticeAndBootstrapQuery(parseT *testing.T) {
+	parseQuery := url.Values{}
+	parseQuery.Set("warehouse", "east")
+	parseQuery.Set("atlas_notice", "inventory-updated")
+	parseQuery.Set("atlas_bootstrap", "external")
 
-	key := RoutePayloadResourceKey("/app/inventory", query)
-	if got, want := key, "atlas:route:/app/inventory?warehouse=east"; got != want {
-		t.Fatalf("RoutePayloadResourceKey() = %q, want %q", got, want)
+	parseKey := RoutePayloadResourceKey("/app/inventory", parseQuery)
+	if parseGot, parseWant := parseKey, "atlas:route:/app/inventory?warehouse=east"; parseGot != parseWant {
+		parseT.Fatalf("RoutePayloadResourceKey() = %q, want %q", parseGot, parseWant)
 	}
 }
 
-func TestRoutePayloadResourceKeyNormalizesQueryOrderForNavigationReuse(t *testing.T) {
-	left := url.Values{}
-	left.Add("warehouse", "east")
-	left.Add("status", "healthy")
+func TestRoutePayloadResourceKeyNormalizesQueryOrderForNavigationReuse(parseT *testing.T) {
+	parseLeft := url.Values{}
+	parseLeft.Add("warehouse", "east")
+	parseLeft.Add("status", "healthy")
 
-	right := url.Values{}
-	right.Add("status", "healthy")
-	right.Add("warehouse", "east")
+	parseRight := url.Values{}
+	parseRight.Add("status", "healthy")
+	parseRight.Add("warehouse", "east")
 
-	if got, want := RoutePayloadResourceKey("/app/inventory", left), RoutePayloadResourceKey("/app/inventory", right); got != want {
-		t.Fatalf("expected query order to normalize for repeat navigation, got %q and %q", got, want)
+	if parseGot, parseWant := RoutePayloadResourceKey("/app/inventory", parseLeft), RoutePayloadResourceKey("/app/inventory", parseRight); parseGot != parseWant {
+		parseT.Fatalf("expected query order to normalize for repeat navigation, got %q and %q", parseGot, parseWant)
 	}
 }
 
-func TestPayloadResourceKeysUseBootstrapFallbackData(t *testing.T) {
-	payload := Payload{
+func TestPayloadResourceKeysUseBootstrapFallbackData(parseT *testing.T) {
+	parsePayload := Payload{
 		Route: RouteBootstrap{
 			Path:  "/shop/widget",
 			Query: map[string][]string{"view": {"full"}, "atlas_notice": {"comment-submitted"}},
@@ -57,18 +57,18 @@ func TestPayloadResourceKeysUseBootstrapFallbackData(t *testing.T) {
 		},
 	}
 
-	keys := PayloadResourceKeys(payload)
-	expected := []string{
+	parseKeys := PayloadResourceKeys(parsePayload)
+	parseExpected := []string{
 		"atlas:route:/shop/widget?view=full",
 		"atlas:request:/api/atlas/route-data?path=%2Fshop%2Fwidget::page",
 		"atlas:request:/api/public/products/widget/related-products::items",
 	}
-	for _, key := range expected {
-		if _, ok := keys[key]; !ok {
-			t.Fatalf("expected payload resource keys to include %q", key)
+	for _, parseKey := range parseExpected {
+		if _, parseOk := parseKeys[parseKey]; !parseOk {
+			parseT.Fatalf("expected payload resource keys to include %q", parseKey)
 		}
 	}
-	if _, ok := keys["atlas:route:/shop/widget?atlas_notice=comment-submitted&view=full"]; ok {
-		t.Fatalf("expected notice query to be filtered from route cache key")
+	if _, parseOk2 := parseKeys["atlas:route:/shop/widget?atlas_notice=comment-submitted&view=full"]; parseOk2 {
+		parseT.Fatalf("expected notice query to be filtered from route cache key")
 	}
 }

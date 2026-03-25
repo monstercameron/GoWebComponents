@@ -12,65 +12,65 @@ import (
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-func setRolloutStatus(message string) {
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+func setRolloutStatus(parseMessage string) {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return
 	}
-	status := document.Call("getElementById", "client-status")
-	if status.Truthy() {
-		status.Set("textContent", message)
+	parseStatus := parseDocument.Call("getElementById", "client-status")
+	if parseStatus.Truthy() {
+		parseStatus.Set("textContent", parseMessage)
 	}
 }
 
-func ensureRolloutHash(path string) {
-	window := js.Global().Get("window")
-	if !window.Truthy() {
+func ensureRolloutHash(parsePath string) {
+	parseWindow := js.Global().Get("window")
+	if !parseWindow.Truthy() {
 		return
 	}
-	location := window.Get("location")
-	if location.Get("hash").String() == "" {
-		location.Set("hash", "#"+path)
+	parseLocation := parseWindow.Get("location")
+	if parseLocation.Get("hash").String() == "" {
+		parseLocation.Set("hash", "#"+parsePath)
 	}
 }
 
-func rolloutPage(view rolloutBootstrapView, routePath string) *router.Element {
+func rolloutPage(parseView rolloutBootstrapView, parseRoutePath string) *router.Element {
 	return ui.CreateElement(func() ui.Node {
-		return renderRolloutPage(view, routePath)
+		return renderRolloutPage(parseView, parseRoutePath)
 	})
 }
 
 func main() {
 	utils.DisableAllDebug()
 
-	bootstrap, err := ui.ReadBootstrapScript("")
-	if err != nil {
+	parseBootstrap, parseErr := ui.ReadBootstrapScript("")
+	if parseErr != nil {
 		setRolloutStatus("Failed to read staged rollout bootstrap")
 		select {}
 	}
 
-	view := rolloutViewFromBootstrap(bootstrap)
-	ensureRolloutHash(view.RoutePath)
+	parseView := rolloutViewFromBootstrap(parseBootstrap)
+	ensureRolloutHash(parseView.RoutePath)
 
-	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: rolloutControlPath})
-	r.Register(rolloutControlPath, func(router.Attrs) *router.Element {
-		return rolloutPage(view, rolloutControlPath)
+	parseR := router.NewHashRouter(router.RouterOptions{DefaultRoute: rolloutControlPath})
+	parseR.Register(rolloutControlPath, func(router.Attrs) *router.Element {
+		return rolloutPage(parseView, rolloutControlPath)
 	})
-	if view.Flags.BetaRouteEnabled {
-		r.Register(rolloutBetaPath, func(router.Attrs) *router.Element {
-			return rolloutPage(view, rolloutBetaPath)
+	if parseView.Flags.BetaRouteEnabled {
+		parseR.Register(rolloutBetaPath, func(router.Attrs) *router.Element {
+			return rolloutPage(parseView, rolloutBetaPath)
 		})
 	}
-	r.Register("*", func(router.Attrs) *router.Element {
-		return rolloutPage(view, "*")
+	parseR.Register("*", func(router.Attrs) *router.Element {
+		return rolloutPage(parseView, "*")
 	})
 
-	root := ui.CreateElement(func() ui.Node { return r.Current() })
-	if _, err := ui.Hydrate(root, "#app", ui.HydrationOptions{Bootstrap: bootstrap}); err != nil {
+	parseRoot := ui.CreateElement(func() ui.Node { return parseR.Current() })
+	if _, parseErr2 := ui.Hydrate(parseRoot, "#app", ui.HydrationOptions{Bootstrap: parseBootstrap}); parseErr2 != nil {
 		setRolloutStatus("Hydration failed")
 		select {}
 	}
-	r.HydrateMount("#app")
+	parseR.HydrateMount("#app")
 	setRolloutStatus("Hydrated with the same public config and flag snapshot used for SSR")
 	select {}
 }

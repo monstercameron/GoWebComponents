@@ -18,85 +18,85 @@ type atlasListFilterState struct {
 	Sort      string
 }
 
-func atlasCatalogFilterState(query catalogQueryState) atlasListFilterState {
+func atlasCatalogFilterState(parseQuery catalogQueryState) atlasListFilterState {
 	return atlasListFilterState{
-		Query:     query.Search,
-		Category:  fallback(query.Category, "all"),
-		Warehouse: fallback(query.Warehouse, "all"),
-		Sort:      query.Sort,
+		Query:     parseQuery.Search,
+		Category:  fallback(parseQuery.Category, "all"),
+		Warehouse: fallback(parseQuery.Warehouse, "all"),
+		Sort:      parseQuery.Sort,
 	}
 }
 
-func atlasMapFilterState(filters map[string]string) atlasListFilterState {
-	if filters == nil {
-		filters = map[string]string{}
+func atlasMapFilterState(parseFilters map[string]string) atlasListFilterState {
+	if parseFilters == nil {
+		parseFilters = map[string]string{}
 	}
 	return atlasListFilterState{
-		Query:     filters["q"],
-		Category:  fallback(filters["category"], "all"),
-		Warehouse: fallback(filters["warehouse"], "all"),
-		Status:    fallback(filters["status"], "all"),
-		Sort:      filters["sort"],
+		Query:     parseFilters["q"],
+		Category:  fallback(parseFilters["category"], "all"),
+		Warehouse: fallback(parseFilters["warehouse"], "all"),
+		Status:    fallback(parseFilters["status"], "all"),
+		Sort:      parseFilters["sort"],
 	}
 }
 
-func atlasSavedViewFilterState(saved SavedViewPayload) atlasListFilterState {
-	state := atlasMapFilterState(saved.Filters)
-	if strings.TrimSpace(saved.SortKey) != "" {
-		state.Sort = saved.SortKey
+func atlasSavedViewFilterState(parseSaved SavedViewPayload) atlasListFilterState {
+	parseState := atlasMapFilterState(parseSaved.Filters)
+	if strings.TrimSpace(parseSaved.SortKey) != "" {
+		parseState.Sort = parseSaved.SortKey
 	}
-	return state
+	return parseState
 }
 
-func atlasSameListFilterState(left, right atlasListFilterState) bool {
-	return atlasNormalizedFilterValue(left.Query) == atlasNormalizedFilterValue(right.Query) &&
-		atlasNormalizedFilterValue(left.Category) == atlasNormalizedFilterValue(right.Category) &&
-		atlasNormalizedFilterValue(left.Warehouse) == atlasNormalizedFilterValue(right.Warehouse) &&
-		atlasNormalizedFilterValue(left.Status) == atlasNormalizedFilterValue(right.Status) &&
-		atlasNormalizedFilterValue(left.Sort) == atlasNormalizedFilterValue(right.Sort)
+func atlasSameListFilterState(parseLeft, parseRight atlasListFilterState) bool {
+	return atlasNormalizedFilterValue(parseLeft.Query) == atlasNormalizedFilterValue(parseRight.Query) &&
+		atlasNormalizedFilterValue(parseLeft.Category) == atlasNormalizedFilterValue(parseRight.Category) &&
+		atlasNormalizedFilterValue(parseLeft.Warehouse) == atlasNormalizedFilterValue(parseRight.Warehouse) &&
+		atlasNormalizedFilterValue(parseLeft.Status) == atlasNormalizedFilterValue(parseRight.Status) &&
+		atlasNormalizedFilterValue(parseLeft.Sort) == atlasNormalizedFilterValue(parseRight.Sort)
 }
 
-func atlasBuildListFilterQuery(base url.Values, state atlasListFilterState) url.Values {
-	next := url.Values{}
-	for key, values := range base {
-		next[key] = append([]string(nil), values...)
+func atlasBuildListFilterQuery(parseBase url.Values, parseState atlasListFilterState) url.Values {
+	parseNext := url.Values{}
+	for parseKey, parseValues := range parseBase {
+		parseNext[parseKey] = append([]string(nil), parseValues...)
 	}
-	atlasAssignFilterQuery(next, "q", state.Query)
-	atlasAssignFilterQuery(next, "category", state.Category)
-	atlasAssignFilterQuery(next, "warehouse", state.Warehouse)
-	atlasAssignFilterQuery(next, "status", state.Status)
-	atlasAssignFilterQuery(next, "sort", state.Sort)
-	return next
+	atlasAssignFilterQuery(parseNext, "q", parseState.Query)
+	atlasAssignFilterQuery(parseNext, "category", parseState.Category)
+	atlasAssignFilterQuery(parseNext, "warehouse", parseState.Warehouse)
+	atlasAssignFilterQuery(parseNext, "status", parseState.Status)
+	atlasAssignFilterQuery(parseNext, "sort", parseState.Sort)
+	return parseNext
 }
 
-func atlasAssignFilterQuery(values url.Values, key, value string) {
-	trimmed := atlasNormalizedFilterValue(value)
-	if trimmed == "" || trimmed == "all" {
-		values.Del(key)
+func atlasAssignFilterQuery(parseValues url.Values, parseKey, parseValue string) {
+	parseTrimmed := atlasNormalizedFilterValue(parseValue)
+	if parseTrimmed == "" || parseTrimmed == "all" {
+		parseValues.Del(parseKey)
 		return
 	}
-	values.Set(key, trimmed)
+	parseValues.Set(parseKey, parseTrimmed)
 }
 
-func atlasNormalizedFilterValue(value string) string {
-	return strings.TrimSpace(strings.ToLower(value))
+func atlasNormalizedFilterValue(parseValue string) string {
+	return strings.TrimSpace(strings.ToLower(parseValue))
 }
 
-func atlasFilterSubmitLabel(syncing bool, idle string) string {
-	if syncing {
+func atlasFilterSubmitLabel(isSyncing bool, parseIdle string) string {
+	if isSyncing {
 		return "Updating..."
 	}
-	return idle
+	return parseIdle
 }
 
-func atlasSetFormFieldInTransition[T any](form ui.Form[T], field, value string) {
+func atlasSetFormFieldInTransition[T any](parseForm ui.Form[T], parseField, parseValue string) {
 	startAtlasTransition(func() {
-		form.SetField(field, value)
+		parseForm.SetField(parseField, parseValue)
 	})
 }
 
-func atlasSetFormInTransition[T any](form ui.Form[T], value T) {
+func atlasSetFormInTransition[T any](parseForm ui.Form[T], parseValue T) {
 	startAtlasTransition(func() {
-		form.Set(value)
+		parseForm.Set(parseValue)
 	})
 }

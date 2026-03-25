@@ -23,104 +23,104 @@ type quoteSelectionController struct {
 
 // useQuoteSelection manages the delayed quote prompt shown when the user
 // selects text on the page and chooses to insert it into the composer.
-func useQuoteSelection(app ui.Reducer[appState, appAction]) quoteSelectionController {
-	quoteSelection := ui.UseState(quoteSelectionState{})
-	quoteSelectionVersion := ui.UseRef(0)
-	quoteSelectionTimer := ui.UseRef(interop.Timer{})
+func parseUseQuoteSelection(parseApp ui.Reducer[appState, appAction]) quoteSelectionController {
+	parseQuoteSelection := ui.UseState(quoteSelectionState{})
+	parseQuoteSelectionVersion := ui.UseRef(0)
+	parseQuoteSelectionTimer := ui.UseRef(interop.Timer{})
 
-	cancelSelectionTimer := func() {
-		timer := quoteSelectionTimer.Get()
-		if err := timer.Cancel(); err == nil {
-			quoteSelectionTimer.Set(interop.Timer{})
+	parseCancelSelectionTimer := func() {
+		parseTimer := parseQuoteSelectionTimer.Get()
+		if parseErr := parseTimer.Cancel(); parseErr == nil {
+			parseQuoteSelectionTimer.Set(interop.Timer{})
 		}
 	}
 
-	commitQuoteSelectionReady := func(version int, readyState quoteSelectionState) {
-		if quoteSelectionVersion.Get() != version {
+	parseCommitQuoteSelectionReady := func(parseVersion int, parseReadyState quoteSelectionState) {
+		if parseQuoteSelectionVersion.Get() != parseVersion {
 			return
 		}
-		readyState.Pending = false
-		quoteSelection.Set(readyState)
+		parseReadyState.Pending = false
+		parseQuoteSelection.Set(parseReadyState)
 	}
 
-	queueQuoteSelection := func(selection quoteSelectionAnchor) {
-		nextVersion := quoteSelectionVersion.Get() + 1
-		quoteSelectionVersion.Set(nextVersion)
-		pendingState := quoteSelectionState{
+	parseQueueQuoteSelection := func(parseSelection2 quoteSelectionAnchor) {
+		parseNextVersion := parseQuoteSelectionVersion.Get() + 1
+		parseQuoteSelectionVersion.Set(parseNextVersion)
+		parsePendingState := quoteSelectionState{
 			Visible: true,
 			Pending: true,
-			Text:    selection.Text,
-			X:       selection.X,
-			Y:       selection.Y,
+			Text:    parseSelection2.Text,
+			X:       parseSelection2.X,
+			Y:       parseSelection2.Y,
 		}
-		quoteSelection.Set(pendingState)
-		cancelSelectionTimer()
-		timer, err := interop.ScheduleTimeout(500*time.Millisecond, func() {
-			quoteSelectionTimer.Set(interop.Timer{})
-			commitQuoteSelectionReady(nextVersion, pendingState)
+		parseQuoteSelection.Set(parsePendingState)
+		parseCancelSelectionTimer()
+		parseTimer2, parseErr2 := interop.ScheduleTimeout(500*time.Millisecond, func() {
+			parseQuoteSelectionTimer.Set(interop.Timer{})
+			parseCommitQuoteSelectionReady(parseNextVersion, parsePendingState)
 		})
-		if err != nil {
-			go func(version int, readyState quoteSelectionState) {
+		if parseErr2 != nil {
+			go func(parseVersion2 int, parseReadyState2 quoteSelectionState) {
 				time.Sleep(500 * time.Millisecond)
-				commitQuoteSelectionReady(version, readyState)
-			}(nextVersion, pendingState)
+				parseCommitQuoteSelectionReady(parseVersion2, parseReadyState2)
+			}(parseNextVersion, parsePendingState)
 			return
 		}
-		quoteSelectionTimer.Set(timer)
+		parseQuoteSelectionTimer.Set(parseTimer2)
 	}
 
-	dismissQuoteSelection := func() {
-		quoteSelectionVersion.Set(quoteSelectionVersion.Get() + 1)
-		cancelSelectionTimer()
-		if quoteSelection.Get().Visible {
-			quoteSelection.Set(quoteSelectionState{})
+	parseDismissQuoteSelection := func() {
+		parseQuoteSelectionVersion.Set(parseQuoteSelectionVersion.Get() + 1)
+		parseCancelSelectionTimer()
+		if parseQuoteSelection.Get().Visible {
+			parseQuoteSelection.Set(quoteSelectionState{})
 		}
 	}
 
-	handleSelectionMouse := ui.UseEvent(func(e ui.Event) {
-		target := e.JSValue().Get("target")
-		if selectionTargetMatches(target, "#"+idChatInputWrap) || selectionTargetMatches(target, "#"+idQuotePrompt) {
+	handleSelectionMouse := ui.UseEvent(func(parseE ui.Event) {
+		parseTarget := parseE.JSValue().Get("target")
+		if parseSelectionTargetMatches(parseTarget, "#"+idChatInputWrap) || parseSelectionTargetMatches(parseTarget, "#"+idQuotePrompt) {
 			return
 		}
-		selection, ok := readQuoteSelection(
-			e.JSValue().Get("clientX").Float(),
-			e.JSValue().Get("clientY").Float(),
+		parseSelection, parseOk := parseReadQuoteSelection(
+			parseE.JSValue().Get("clientX").Float(),
+			parseE.JSValue().Get("clientY").Float(),
 		)
-		if !ok {
-			dismissQuoteSelection()
+		if !parseOk {
+			parseDismissQuoteSelection()
 			return
 		}
-		queueQuoteSelection(selection)
+		parseQueueQuoteSelection(parseSelection)
 	})
 
-	stopPromptMouseUp := ui.UseEvent(func(e ui.Event) { e.StopPropagation() })
+	parseStopPromptMouseUp := ui.UseEvent(func(parseE2 ui.Event) { parseE2.StopPropagation() })
 
-	quoteSelectedText := ui.UseEvent(func(e ui.Event) {
-		e.StopPropagation()
-		currentQuoteSelection := quoteSelection.Get()
-		if strings.TrimSpace(currentQuoteSelection.Text) == "" {
-			dismissQuoteSelection()
+	parseQuoteSelectedText := ui.UseEvent(func(parseE3 ui.Event) {
+		parseE3.StopPropagation()
+		parseCurrentQuoteSelection := parseQuoteSelection.Get()
+		if strings.TrimSpace(parseCurrentQuoteSelection.Text) == "" {
+			parseDismissQuoteSelection()
 			return
 		}
-		app.Dispatch(appAction{
+		parseApp.Dispatch(appAction{
 			Type:      appActionSetInputText,
-			InputText: formatQuotedInput(app.Get().InputText, currentQuoteSelection.Text),
+			InputText: formatQuotedInput(parseApp.Get().InputText, parseCurrentQuoteSelection.Text),
 		})
 		clearQuoteSelection()
-		dismissQuoteSelection()
-		scheduleFocusChatInput(focusDelay)
+		parseDismissQuoteSelection()
+		parseScheduleFocusChatInput(focusDelay)
 	})
 
 	ui.UseEffect(func() func() {
 		return func() {
-			cancelSelectionTimer()
+			parseCancelSelectionTimer()
 		}
 	}, true)
 
 	return quoteSelectionController{
-		State:                quoteSelection.Get(),
+		State:                parseQuoteSelection.Get(),
 		HandleSelectionMouse: handleSelectionMouse,
-		QuoteSelectedText:    quoteSelectedText,
-		StopPromptMouseUp:    stopPromptMouseUp,
+		QuoteSelectedText:    parseQuoteSelectedText,
+		StopPromptMouseUp:    parseStopPromptMouseUp,
 	}
 }

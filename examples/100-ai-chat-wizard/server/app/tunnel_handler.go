@@ -10,18 +10,18 @@ import (
 	"google.golang.org/grpc"
 )
 
-func newGRPCTunnelHandler(grpcSrv *grpc.Server, logger *slog.Logger) http.Handler {
+func parseNewGRPCTunnelHandler(parseGrpcSrv *grpc.Server, parseLogger *slog.Logger) http.Handler {
 	return grpctunnel.Wrap(
-		grpcSrv,
-		grpctunnel.WithOriginCheck(func(r *http.Request) bool {
+		parseGrpcSrv,
+		grpctunnel.WithOriginCheck(func(parseR *http.Request) bool {
 			// Allow all origins in development. Restrict to your domain in production.
 			return true
 		}),
-		grpctunnel.WithConnectHook(func(r *http.Request) {
-			logger.Info("tunnel: client connected", slog.String("remote_addr", r.RemoteAddr))
+		grpctunnel.WithConnectHook(func(parseR2 *http.Request) {
+			parseLogger.ParseInfo("tunnel: client connected", slog.String("remote_addr", parseR2.RemoteAddr))
 		}),
-		grpctunnel.WithDisconnectHook(func(r *http.Request) {
-			logger.Info("tunnel: client disconnected", slog.String("remote_addr", r.RemoteAddr))
+		grpctunnel.WithDisconnectHook(func(parseR3 *http.Request) {
+			parseLogger.ParseInfo("tunnel: client disconnected", slog.String("remote_addr", parseR3.RemoteAddr))
 		}),
 	)
 }

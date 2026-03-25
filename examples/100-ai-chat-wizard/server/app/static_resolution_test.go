@@ -6,28 +6,28 @@ import (
 	"testing"
 )
 
-func TestResolveStaticDirectoriesUsesNearestExistingPaths(t *testing.T) {
-	originalWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Getwd: %v", err)
+func TestResolveStaticDirectoriesUsesNearestExistingPaths(parseT *testing.T) {
+	parseOriginalWD, parseErr := os.Getwd()
+	if parseErr != nil {
+		parseT.Fatalf("Getwd: %v", parseErr)
 	}
-	tempDir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tempDir, "examples", "100-ai-chat-wizard", "bin", "client"), 0o755); err != nil {
-		t.Fatalf("MkdirAll client bin: %v", err)
+	parseTempDir := parseT.TempDir()
+	if parseErr2 := os.MkdirAll(filepath.Join(parseTempDir, "examples", "100-ai-chat-wizard", "bin", "client"), 0o755); parseErr2 != nil {
+		parseT.Fatalf("MkdirAll client bin: %v", parseErr2)
 	}
-	if err := os.MkdirAll(filepath.Join(tempDir, "examples", "static"), 0o755); err != nil {
-		t.Fatalf("MkdirAll static: %v", err)
+	if parseErr3 := os.MkdirAll(filepath.Join(parseTempDir, "examples", "static"), 0o755); parseErr3 != nil {
+		parseT.Fatalf("MkdirAll static: %v", parseErr3)
 	}
-	if err := os.Chdir(tempDir); err != nil {
-		t.Fatalf("Chdir tempDir: %v", err)
+	if parseErr4 := os.Chdir(parseTempDir); parseErr4 != nil {
+		parseT.Fatalf("Chdir tempDir: %v", parseErr4)
 	}
-	defer os.Chdir(originalWD)
+	defer os.Chdir(parseOriginalWD)
 
-	clientDir, sharedDir := resolveStaticDirectories()
-	if filepath.ToSlash(clientDir) != "examples/100-ai-chat-wizard/bin/client" {
-		t.Fatalf("unexpected client dir: %q", clientDir)
+	parseClientDir, parseSharedDir := parseResolveStaticDirectories()
+	if filepath.ToSlash(parseClientDir) != "examples/100-ai-chat-wizard/bin/client" {
+		parseT.Fatalf("unexpected client dir: %q", parseClientDir)
 	}
-	if filepath.ToSlash(sharedDir) != "examples/static" {
-		t.Fatalf("unexpected shared dir: %q", sharedDir)
+	if filepath.ToSlash(parseSharedDir) != "examples/static" {
+		parseT.Fatalf("unexpected shared dir: %q", parseSharedDir)
 	}
 }

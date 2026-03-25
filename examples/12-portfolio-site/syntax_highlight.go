@@ -12,96 +12,96 @@ import (
 )
 
 // HighlightGoCode performs simple syntax highlighting for Go code
-func HighlightGoCode(code string) *Element {
-	lines := strings.Split(code, "\n")
-	lineElements := make([]ui.Node, 0, len(lines))
+func HighlightGoCode(parseCode string) *Element {
+	parseLines := strings.Split(parseCode, "\n")
+	parseLineElements := make([]ui.Node, 0, len(parseLines))
 
-	for _, line := range lines {
-		lineElements = append(lineElements, highlightLine(line))
+	for _, parseLine := range parseLines {
+		parseLineElements = append(parseLineElements, highlightLine(parseLine))
 	}
 
 	return html.Div(html.Props{
 		Class: "text-xs font-mono leading-relaxed overflow-x-auto h-full pb-8 p-4 text-gray-300 bg-[#0a0a0a]",
 		Style: map[string]string{"tab-size": "4"},
-	}, lineElements...)
+	}, parseLineElements...)
 }
 
-func highlightLine(line string) *Element {
-	if len(line) == 0 {
+func highlightLine(parseLine string) *Element {
+	if len(parseLine) == 0 {
 		return html.Div(html.Props{Class: "h-4"})
 	}
 
-	var tokens []ui.Node
+	var parseTokens []ui.Node
 
-	commentIdx := strings.Index(line, "//")
-	if commentIdx != -1 {
-		if commentIdx > 0 {
-			tokens = append(tokens, processCodeSegment(line[:commentIdx])...)
+	parseCommentIdx := strings.Index(parseLine, "//")
+	if parseCommentIdx != -1 {
+		if parseCommentIdx > 0 {
+			parseTokens = append(parseTokens, processCodeSegment(parseLine[:parseCommentIdx])...)
 		}
-		tokens = append(tokens, html.Span(html.Props{Class: "text-gray-500 italic"}, html.Text(line[commentIdx:])))
-		return html.Div(html.Props{Class: "whitespace-pre"}, tokens...)
+		parseTokens = append(parseTokens, html.Span(html.Props{Class: "text-gray-500 italic"}, html.Text(parseLine[parseCommentIdx:])))
+		return html.Div(html.Props{Class: "whitespace-pre"}, parseTokens...)
 	}
 
-	tokens = append(tokens, processCodeSegment(line)...)
-	return html.Div(html.Props{Class: "whitespace-pre"}, tokens...)
+	parseTokens = append(parseTokens, processCodeSegment(parseLine)...)
+	return html.Div(html.Props{Class: "whitespace-pre"}, parseTokens...)
 }
 
-func processCodeSegment(segment string) []ui.Node {
-	var tokens []ui.Node
+func processCodeSegment(parseSegment string) []ui.Node {
+	var parseTokens []ui.Node
 
-	current := ""
-	inString := false
-	stringChar := byte(0)
+	parseCurrent := ""
+	isParseInString := false
+	parseStringChar := byte(0)
 
-	flush := func() {
-		if current != "" {
-			tokens = append(tokens, colorizeToken(current))
-			current = ""
+	parseFlush := func() {
+		if parseCurrent != "" {
+			parseTokens = append(parseTokens, colorizeToken(parseCurrent))
+			parseCurrent = ""
 		}
 	}
 
-	for i := 0; i < len(segment); i++ {
-		char := segment[i]
+	for parseI := 0; parseI < len(parseSegment); parseI++ {
+		parseChar := parseSegment[parseI]
 
-		if inString {
-			current += string(char)
-			if char == stringChar && (i == 0 || segment[i-1] != '\\') {
-				tokens = append(tokens, html.Span(html.Props{Class: "text-green-400"}, html.Text(current)))
-				current = ""
-				inString = false
+		if isParseInString {
+			parseCurrent += string(parseChar)
+			if parseChar == parseStringChar && (parseI == 0 || parseSegment[parseI-1] != '\\') {
+				parseTokens = append(parseTokens, html.Span(html.Props{Class: "text-green-400"}, html.Text(parseCurrent)))
+				parseCurrent = ""
+				isParseInString = false
 			}
 			continue
 		}
 
-		if char == '"' || char == '`' || char == '\'' {
-			flush()
-			current += string(char)
-			inString = true
-			stringChar = char
+		if parseChar == '"' || parseChar == '`' || parseChar == '\'' {
+			parseFlush()
+			parseCurrent += string(parseChar)
+			isParseInString = true
+			parseStringChar = parseChar
 			continue
 		}
 
-		if isDelimiter(char) {
-			flush()
-			tokens = append(tokens, html.Span(html.Props{Class: "text-gray-500"}, html.Text(string(char))))
-		} else if unicode.IsSpace(rune(char)) {
-			flush()
-			tokens = append(tokens, html.Text(string(char)))
+		if isDelimiter(parseChar) {
+			parseFlush()
+			parseTokens = append(parseTokens, html.Span(html.Props{Class: "text-gray-500"}, html.Text(string(parseChar))))
+		} else if unicode.IsSpace(rune(parseChar)) {
+			parseFlush()
+			parseTokens = append(parseTokens, html.Text(string(parseChar)))
 		} else {
-			current += string(char)
+			parseCurrent += string(parseChar)
 		}
 	}
-	flush()
+	parseFlush()
 
-	return tokens
+	return parseTokens
 }
 
-func isDelimiter(char byte) bool {
-	return strings.ContainsRune("(){}[],.;:", rune(char))
+func isDelimiter(parseChar byte) bool {
+	return strings.ContainsRune("(){}[],.;:", rune(parseChar))
 }
 
-func colorizeToken(token string) *Element {
-	keywords := map[string]bool{
+func colorizeToken(parseToken string) *Element {
+	parseKeywords := map[string]bool{
 		"func": true, "return": true, "if": true, "else": true,
 		"for": true, "range": true, "var": true, "const": true,
 		"type": true, "struct": true, "interface": true, "package": true,
@@ -116,23 +116,23 @@ func colorizeToken(token string) *Element {
 		"error": true, "float32": true, "float64": true, "int32": true, "int64": true,
 	}
 
-	if keywords[token] {
-		return html.Span(html.Props{Class: "text-purple-400 font-bold"}, html.Text(token))
+	if parseKeywords[parseToken] {
+		return html.Span(html.Props{Class: "text-purple-400 font-bold"}, html.Text(parseToken))
 	}
 
-	if isNumber(token) {
-		return html.Span(html.Props{Class: "text-orange-400"}, html.Text(token))
+	if isNumber(parseToken) {
+		return html.Span(html.Props{Class: "text-orange-400"}, html.Text(parseToken))
 	}
 
-	return html.Span(html.Props{Class: "text-blue-300"}, html.Text(token))
+	return html.Span(html.Props{Class: "text-blue-300"}, html.Text(parseToken))
 }
 
-func isNumber(s string) bool {
-	if len(s) == 0 {
+func isNumber(parseS string) bool {
+	if len(parseS) == 0 {
 		return false
 	}
-	for _, c := range s {
-		if !unicode.IsDigit(c) && c != '.' {
+	for _, parseC := range parseS {
+		if !unicode.IsDigit(parseC) && parseC != '.' {
 			return false
 		}
 	}

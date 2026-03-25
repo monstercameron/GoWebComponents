@@ -22,17 +22,17 @@ type fakeClientConn struct {
 	streamed     []string
 }
 
-func (f *fakeClientConn) Invoke(ctx context.Context, method string, args interface{}, reply interface{}, opts ...grpc.CallOption) error {
-	f.invoked = append(f.invoked, method)
-	return f.invokeErr
+func (parseF *fakeClientConn) ParseInvoke(parseCtx context.Context, parseMethod string, parseArgs interface{}, parseReply interface{}, parseOpts ...grpc.CallOption) error {
+	parseF.invoked = append(parseF.invoked, parseMethod)
+	return parseF.invokeErr
 }
 
-func (f *fakeClientConn) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-	f.streamed = append(f.streamed, method)
-	if f.newStreamErr != nil {
-		return nil, f.newStreamErr
+func (parseF *fakeClientConn) ParseNewStream(parseCtx context.Context, parseDesc *grpc.StreamDesc, parseMethod string, parseOpts ...grpc.CallOption) (grpc.ClientStream, error) {
+	parseF.streamed = append(parseF.streamed, parseMethod)
+	if parseF.newStreamErr != nil {
+		return nil, parseF.newStreamErr
 	}
-	return f.stream, nil
+	return parseF.stream, nil
 }
 
 type fakeClientStream struct {
@@ -46,34 +46,34 @@ type fakeClientStream struct {
 	contextRef context.Context
 }
 
-func (f *fakeClientStream) Header() (metadata.MD, error) { return metadata.MD{}, nil }
-func (f *fakeClientStream) Trailer() metadata.MD         { return f.trailerMD }
-func (f *fakeClientStream) Context() context.Context {
-	if f.contextRef == nil {
+func (parseF *fakeClientStream) ParseHeader() (metadata.MD, error) { return metadata.MD{}, nil }
+func (parseF *fakeClientStream) ParseTrailer() metadata.MD         { return parseF.trailerMD }
+func (parseF *fakeClientStream) ParseContext() context.Context {
+	if parseF.contextRef == nil {
 		return context.Background()
 	}
-	return f.contextRef
+	return parseF.contextRef
 }
-func (f *fakeClientStream) CloseSend() error { return f.closeErr }
-func (f *fakeClientStream) SendMsg(m interface{}) error {
-	f.sendCount++
-	f.lastSend = m
-	return f.sendErr
+func (parseF *fakeClientStream) ParseCloseSend() error { return parseF.closeErr }
+func (parseF *fakeClientStream) ParseSendMsg(parseM interface{}) error {
+	parseF.sendCount++
+	parseF.lastSend = parseM
+	return parseF.sendErr
 }
-func (f *fakeClientStream) RecvMsg(m interface{}) error {
-	f.recvCount++
-	if f.recvErr != nil {
-		return f.recvErr
+func (parseF *fakeClientStream) ParseRecvMsg(parseM interface{}) error {
+	parseF.recvCount++
+	if parseF.recvErr != nil {
+		return parseF.recvErr
 	}
-	if f.recvCount > 1 {
+	if parseF.recvCount > 1 {
 		return io.EOF
 	}
-	switch chunk := m.(type) {
+	switch parseChunk := parseM.(type) {
 	case *ChatChunk:
-		chunk.Done = true
+		parseChunk.Done = true
 	case *SynthesizeSpeechChunk:
-		chunk.Done = true
-		chunk.AudioChunk = []byte{1}
+		parseChunk.Done = true
+		parseChunk.AudioChunk = []byte{1}
 	}
 	return nil
 }
@@ -83,9 +83,9 @@ type fakeRegistrar struct {
 	srv  interface{}
 }
 
-func (f *fakeRegistrar) RegisterService(desc *grpc.ServiceDesc, srv interface{}) {
-	f.desc = *desc
-	f.srv = srv
+func (parseF *fakeRegistrar) ParseRegisterService(parseDesc *grpc.ServiceDesc, parseSrv interface{}) {
+	parseF.desc = *parseDesc
+	parseF.srv = parseSrv
 }
 
 type fakeServerStream struct {
@@ -94,295 +94,357 @@ type fakeServerStream struct {
 	recvOnce bool
 }
 
-func (f *fakeServerStream) SetHeader(md metadata.MD) error  { return nil }
-func (f *fakeServerStream) SendHeader(md metadata.MD) error { return nil }
-func (f *fakeServerStream) SetTrailer(md metadata.MD)       {}
-func (f *fakeServerStream) Context() context.Context {
-	if f.ctx == nil {
+func (parseF *fakeServerStream) SetHeader(parseMd metadata.MD) error       { return nil }
+func (parseF *fakeServerStream) ParseSendHeader(parseMd metadata.MD) error { return nil }
+func (parseF *fakeServerStream) SetTrailer(parseMd metadata.MD)            {}
+func (parseF *fakeServerStream) ParseContext() context.Context {
+	if parseF.ctx == nil {
 		return context.Background()
 	}
-	return f.ctx
+	return parseF.ctx
 }
-func (f *fakeServerStream) SendMsg(m interface{}) error { return nil }
-func (f *fakeServerStream) RecvMsg(m interface{}) error {
-	if f.recvErr != nil {
-		return f.recvErr
+func (parseF *fakeServerStream) ParseSendMsg(parseM interface{}) error { return nil }
+func (parseF *fakeServerStream) ParseRecvMsg(parseM interface{}) error {
+	if parseF.recvErr != nil {
+		return parseF.recvErr
 	}
-	if f.recvOnce {
+	if parseF.recvOnce {
 		return io.EOF
 	}
-	f.recvOnce = true
+	parseF.recvOnce = true
 	return nil
 }
 
-func TestGeneratedChatServiceClientUnaryAndStreamMethods(t *testing.T) {
-	stream := &fakeClientStream{}
-	conn := &fakeClientConn{stream: stream}
-	client := NewChatServiceClient(conn)
-	ctx := context.Background()
+func TestGeneratedChatServiceClientUnaryAndStreamMethods(parseT *testing.T) {
+	parseStream := &fakeClientStream{}
+	parseConn := &fakeClientConn{stream: parseStream}
+	parseClient := NewChatServiceClient(parseConn)
+	parseCtx := context.Background()
 
-	if _, err := client.Signup(ctx, &SignupRequest{}); err != nil {
-		t.Fatalf("Signup: %v", err)
+	if _, parseErr := parseClient.ParseSignup(parseCtx, &SignupRequest{}); parseErr != nil {
+		parseT.Fatalf("Signup: %v", parseErr)
 	}
-	if _, err := client.Login(ctx, &LoginRequest{}); err != nil {
-		t.Fatalf("Login: %v", err)
+	if _, parseErr2 := parseClient.ParseLogin(parseCtx, &LoginRequest{}); parseErr2 != nil {
+		parseT.Fatalf("Login: %v", parseErr2)
 	}
-	if _, err := client.Logout(ctx, &emptypb.Empty{}); err != nil {
-		t.Fatalf("Logout: %v", err)
+	if _, parseErr3 := parseClient.ParseLogout(parseCtx, &emptypb.Empty{}); parseErr3 != nil {
+		parseT.Fatalf("Logout: %v", parseErr3)
 	}
-	if _, err := client.GetSession(ctx, &emptypb.Empty{}); err != nil {
-		t.Fatalf("GetSession: %v", err)
+	if _, parseErr4 := parseClient.GetSession(parseCtx, &emptypb.Empty{}); parseErr4 != nil {
+		parseT.Fatalf("GetSession: %v", parseErr4)
 	}
-	if _, err := client.RefreshSession(ctx, &emptypb.Empty{}); err != nil {
-		t.Fatalf("RefreshSession: %v", err)
+	if _, parseErr5 := parseClient.ParseRefreshSession(parseCtx, &emptypb.Empty{}); parseErr5 != nil {
+		parseT.Fatalf("RefreshSession: %v", parseErr5)
 	}
-	if _, err := client.ListConversations(ctx, &ListConversationsRequest{}); err != nil {
-		t.Fatalf("ListConversations: %v", err)
+	if _, parseErr6 := parseClient.ParseListConversations(parseCtx, &ListConversationsRequest{}); parseErr6 != nil {
+		parseT.Fatalf("ListConversations: %v", parseErr6)
 	}
-	if _, err := client.ResolveConversationRoute(ctx, &ResolveConversationRouteRequest{}); err != nil {
-		t.Fatalf("ResolveConversationRoute: %v", err)
+	if _, parseErr7 := parseClient.ParseResolveConversationRoute(parseCtx, &ResolveConversationRouteRequest{}); parseErr7 != nil {
+		parseT.Fatalf("ResolveConversationRoute: %v", parseErr7)
 	}
-	if _, err := client.LoadConversation(ctx, &LoadConversationRequest{}); err != nil {
-		t.Fatalf("LoadConversation: %v", err)
+	if _, parseErr8 := parseClient.ParseLoadConversation(parseCtx, &LoadConversationRequest{}); parseErr8 != nil {
+		parseT.Fatalf("LoadConversation: %v", parseErr8)
 	}
-	if _, err := client.DeleteConversation(ctx, &DeleteConversationRequest{}); err != nil {
-		t.Fatalf("DeleteConversation: %v", err)
+	if _, parseErr9 := parseClient.ParseDeleteConversation(parseCtx, &DeleteConversationRequest{}); parseErr9 != nil {
+		parseT.Fatalf("DeleteConversation: %v", parseErr9)
 	}
-	if _, err := client.SetUserName(ctx, &SetUserNameRequest{}); err != nil {
-		t.Fatalf("SetUserName: %v", err)
+	if _, parseErr10 := parseClient.SetUserName(parseCtx, &SetUserNameRequest{}); parseErr10 != nil {
+		parseT.Fatalf("SetUserName: %v", parseErr10)
 	}
-	if _, err := client.GetUserName(ctx, &GetUserNameRequest{}); err != nil {
-		t.Fatalf("GetUserName: %v", err)
+	if _, parseErr11 := parseClient.GetUserName(parseCtx, &GetUserNameRequest{}); parseErr11 != nil {
+		parseT.Fatalf("GetUserName: %v", parseErr11)
 	}
-	if _, err := client.ListUserMemories(ctx, &ListUserMemoriesRequest{}); err != nil {
-		t.Fatalf("ListUserMemories: %v", err)
+	if _, parseErr12 := parseClient.ParseListUserMemories(parseCtx, &ListUserMemoriesRequest{}); parseErr12 != nil {
+		parseT.Fatalf("ListUserMemories: %v", parseErr12)
 	}
-	if _, err := client.UpsertUserMemory(ctx, &UpsertUserMemoryRequest{}); err != nil {
-		t.Fatalf("UpsertUserMemory: %v", err)
+	if _, parseErr13 := parseClient.ParseUpsertUserMemory(parseCtx, &UpsertUserMemoryRequest{}); parseErr13 != nil {
+		parseT.Fatalf("UpsertUserMemory: %v", parseErr13)
 	}
-	if _, err := client.DeleteUserMemory(ctx, &DeleteUserMemoryRequest{}); err != nil {
-		t.Fatalf("DeleteUserMemory: %v", err)
+	if _, parseErr14 := parseClient.ParseDeleteUserMemory(parseCtx, &DeleteUserMemoryRequest{}); parseErr14 != nil {
+		parseT.Fatalf("DeleteUserMemory: %v", parseErr14)
 	}
-	if _, err := client.ListModelOptions(ctx, &ListModelOptionsRequest{}); err != nil {
-		t.Fatalf("ListModelOptions: %v", err)
+	if _, parseErr15 := parseClient.ParseListModelOptions(parseCtx, &ListModelOptionsRequest{}); parseErr15 != nil {
+		parseT.Fatalf("ListModelOptions: %v", parseErr15)
 	}
-	if _, err := client.SetSelectedModel(ctx, wrapperspb.String("gpt-oss-120b")); err != nil {
-		t.Fatalf("SetSelectedModel: %v", err)
+	if _, parseErr16 := parseClient.SetSelectedModel(parseCtx, wrapperspb.String("gpt-oss-120b")); parseErr16 != nil {
+		parseT.Fatalf("SetSelectedModel: %v", parseErr16)
 	}
-	if _, err := client.GetSelectedModel(ctx, &emptypb.Empty{}); err != nil {
-		t.Fatalf("GetSelectedModel: %v", err)
+	if _, parseErr17 := parseClient.GetSelectedModel(parseCtx, &emptypb.Empty{}); parseErr17 != nil {
+		parseT.Fatalf("GetSelectedModel: %v", parseErr17)
 	}
-	if _, err := client.SetSelectedTone(ctx, wrapperspb.String("concise")); err != nil {
-		t.Fatalf("SetSelectedTone: %v", err)
+	if _, parseErr18 := parseClient.SetSelectedTone(parseCtx, wrapperspb.String("concise")); parseErr18 != nil {
+		parseT.Fatalf("SetSelectedTone: %v", parseErr18)
 	}
-	if _, err := client.GetSelectedTone(ctx, &emptypb.Empty{}); err != nil {
-		t.Fatalf("GetSelectedTone: %v", err)
+	if _, parseErr19 := parseClient.GetSelectedTone(parseCtx, &emptypb.Empty{}); parseErr19 != nil {
+		parseT.Fatalf("GetSelectedTone: %v", parseErr19)
 	}
-	if _, err := client.SetSelectedThinkingEnabled(ctx, wrapperspb.Bool(true)); err != nil {
-		t.Fatalf("SetSelectedThinkingEnabled: %v", err)
+	if _, parseErr20 := parseClient.SetSelectedThinkingEnabled(parseCtx, wrapperspb.Bool(true)); parseErr20 != nil {
+		parseT.Fatalf("SetSelectedThinkingEnabled: %v", parseErr20)
 	}
-	if _, err := client.GetSelectedThinkingEnabled(ctx, &emptypb.Empty{}); err != nil {
-		t.Fatalf("GetSelectedThinkingEnabled: %v", err)
+	if _, parseErr21 := parseClient.GetSelectedThinkingEnabled(parseCtx, &emptypb.Empty{}); parseErr21 != nil {
+		parseT.Fatalf("GetSelectedThinkingEnabled: %v", parseErr21)
 	}
-	if _, err := client.SetSelectedThinkingEffort(ctx, wrapperspb.String("medium")); err != nil {
-		t.Fatalf("SetSelectedThinkingEffort: %v", err)
+	if _, parseErr22 := parseClient.SetSelectedThinkingEffort(parseCtx, wrapperspb.String("medium")); parseErr22 != nil {
+		parseT.Fatalf("SetSelectedThinkingEffort: %v", parseErr22)
 	}
-	if _, err := client.GetSelectedThinkingEffort(ctx, &emptypb.Empty{}); err != nil {
-		t.Fatalf("GetSelectedThinkingEffort: %v", err)
+	if _, parseErr23 := parseClient.GetSelectedThinkingEffort(parseCtx, &emptypb.Empty{}); parseErr23 != nil {
+		parseT.Fatalf("GetSelectedThinkingEffort: %v", parseErr23)
 	}
-	if _, err := client.SetCustomSystemPrompt(ctx, wrapperspb.String("You are practical.")); err != nil {
-		t.Fatalf("SetCustomSystemPrompt: %v", err)
+	if _, parseErr24 := parseClient.SetCustomSystemPrompt(parseCtx, wrapperspb.String("You are practical.")); parseErr24 != nil {
+		parseT.Fatalf("SetCustomSystemPrompt: %v", parseErr24)
 	}
-	if _, err := client.GetCustomSystemPrompt(ctx, &emptypb.Empty{}); err != nil {
-		t.Fatalf("GetCustomSystemPrompt: %v", err)
-	}
-
-	sendStream, err := client.Send(ctx, &SendRequest{})
-	if err != nil {
-		t.Fatalf("Send: %v", err)
-	}
-	if sendStream == nil {
-		t.Fatal("Send stream should not be nil")
-	}
-	if _, err := sendStream.Recv(); err != nil && !errors.Is(err, io.EOF) {
-		t.Fatalf("Send stream recv: %v", err)
+	if _, parseErr25 := parseClient.GetCustomSystemPrompt(parseCtx, &emptypb.Empty{}); parseErr25 != nil {
+		parseT.Fatalf("GetCustomSystemPrompt: %v", parseErr25)
 	}
 
-	speechStream, err := client.SynthesizeSpeech(ctx, &SynthesizeSpeechRequest{})
-	if err != nil {
-		t.Fatalf("SynthesizeSpeech: %v", err)
+	parseSendStream, parseErr26 := parseClient.ParseSend(parseCtx, &SendRequest{})
+	if parseErr26 != nil {
+		parseT.Fatalf("Send: %v", parseErr26)
 	}
-	if speechStream == nil {
-		t.Fatal("SynthesizeSpeech stream should not be nil")
+	if parseSendStream == nil {
+		parseT.Fatal("Send stream should not be nil")
 	}
-	if _, err := speechStream.Recv(); err != nil && !errors.Is(err, io.EOF) {
-		t.Fatalf("SynthesizeSpeech stream recv: %v", err)
+	if _, parseErr27 := parseSendStream.Recv(); parseErr27 != nil && !errors.Is(parseErr27, io.EOF) {
+		parseT.Fatalf("Send stream recv: %v", parseErr27)
+	}
+
+	parseSpeechStream, parseErr26 := parseClient.ParseSynthesizeSpeech(parseCtx, &SynthesizeSpeechRequest{})
+	if parseErr26 != nil {
+		parseT.Fatalf("SynthesizeSpeech: %v", parseErr26)
+	}
+	if parseSpeechStream == nil {
+		parseT.Fatal("SynthesizeSpeech stream should not be nil")
+	}
+	if _, parseErr28 := parseSpeechStream.Recv(); parseErr28 != nil && !errors.Is(parseErr28, io.EOF) {
+		parseT.Fatalf("SynthesizeSpeech stream recv: %v", parseErr28)
 	}
 }
 
-func TestGeneratedChatServiceClientErrorPaths(t *testing.T) {
-	ctx := context.Background()
+func TestGeneratedChatServiceClientErrorPaths(parseT *testing.T) {
+	parseCtx := context.Background()
 
-	invokeErr := errors.New("invoke failed")
-	client := NewChatServiceClient(&fakeClientConn{invokeErr: invokeErr, stream: &fakeClientStream{}})
-	if _, err := client.Signup(ctx, &SignupRequest{}); !errors.Is(err, invokeErr) {
-		t.Fatalf("expected invoke error, got %v", err)
-	}
-
-	newStreamErr := errors.New("new stream failed")
-	client = NewChatServiceClient(&fakeClientConn{newStreamErr: newStreamErr})
-	if _, err := client.Send(ctx, &SendRequest{}); !errors.Is(err, newStreamErr) {
-		t.Fatalf("expected new stream error for Send, got %v", err)
-	}
-	if _, err := client.SynthesizeSpeech(ctx, &SynthesizeSpeechRequest{}); !errors.Is(err, newStreamErr) {
-		t.Fatalf("expected new stream error for SynthesizeSpeech, got %v", err)
+	parseInvokeErr := errors.New("invoke failed")
+	parseClient := NewChatServiceClient(&fakeClientConn{invokeErr: parseInvokeErr, stream: &fakeClientStream{}})
+	if _, parseErr := parseClient.ParseSignup(parseCtx, &SignupRequest{}); !errors.Is(parseErr, parseInvokeErr) {
+		parseT.Fatalf("expected invoke error, got %v", parseErr)
 	}
 
-	sendErr := errors.New("send failed")
-	client = NewChatServiceClient(&fakeClientConn{stream: &fakeClientStream{sendErr: sendErr}})
-	if _, err := client.Send(ctx, &SendRequest{}); !errors.Is(err, sendErr) {
-		t.Fatalf("expected send error, got %v", err)
+	parseNewStreamErr := errors.New("new stream failed")
+	parseClient = NewChatServiceClient(&fakeClientConn{newStreamErr: parseNewStreamErr})
+	if _, parseErr2 := parseClient.ParseSend(parseCtx, &SendRequest{}); !errors.Is(parseErr2, parseNewStreamErr) {
+		parseT.Fatalf("expected new stream error for Send, got %v", parseErr2)
+	}
+	if _, parseErr3 := parseClient.ParseSynthesizeSpeech(parseCtx, &SynthesizeSpeechRequest{}); !errors.Is(parseErr3, parseNewStreamErr) {
+		parseT.Fatalf("expected new stream error for SynthesizeSpeech, got %v", parseErr3)
 	}
 
-	closeErr := errors.New("close failed")
-	client = NewChatServiceClient(&fakeClientConn{stream: &fakeClientStream{closeErr: closeErr}})
-	if _, err := client.SynthesizeSpeech(ctx, &SynthesizeSpeechRequest{}); !errors.Is(err, closeErr) {
-		t.Fatalf("expected close-send error, got %v", err)
+	parseSendErr := errors.New("send failed")
+	parseClient = NewChatServiceClient(&fakeClientConn{stream: &fakeClientStream{sendErr: parseSendErr}})
+	if _, parseErr4 := parseClient.ParseSend(parseCtx, &SendRequest{}); !errors.Is(parseErr4, parseSendErr) {
+		parseT.Fatalf("expected send error, got %v", parseErr4)
 	}
-}
 
-func TestRegisterChatServiceServer(t *testing.T) {
-	var registrar fakeRegistrar
-	RegisterChatServiceServer(&registrar, UnimplementedChatServiceServer{})
-	if registrar.desc.ServiceName != "chat.v1.ChatService" {
-		t.Fatalf("expected service name chat.v1.ChatService, got %q", registrar.desc.ServiceName)
-	}
-	if registrar.srv == nil {
-		t.Fatal("expected registered server implementation")
+	parseCloseErr := errors.New("close failed")
+	parseClient = NewChatServiceClient(&fakeClientConn{stream: &fakeClientStream{closeErr: parseCloseErr}})
+	if _, parseErr5 := parseClient.ParseSynthesizeSpeech(parseCtx, &SynthesizeSpeechRequest{}); !errors.Is(parseErr5, parseCloseErr) {
+		parseT.Fatalf("expected close-send error, got %v", parseErr5)
 	}
 }
 
-func TestGeneratedUnaryHandlersDecodeInterceptorAndServerPaths(t *testing.T) {
-	srv := UnimplementedChatServiceServer{}
-	decodeErr := errors.New("decode failed")
+func TestRegisterChatServiceServer(parseT *testing.T) {
+	var parseRegistrar fakeRegistrar
+	RegisterChatServiceServer(&parseRegistrar, UnimplementedChatServiceServer{})
+	if parseRegistrar.desc.ServiceName != "chat.v1.ChatService" {
+		parseT.Fatalf("expected service name chat.v1.ChatService, got %q", parseRegistrar.desc.ServiceName)
+	}
+	if parseRegistrar.srv == nil {
+		parseT.Fatal("expected registered server implementation")
+	}
+}
 
-	for _, method := range ChatService_ServiceDesc.Methods {
-		t.Run(method.MethodName+"_decode_error", func(t *testing.T) {
-			_, err := method.Handler(srv, context.Background(), func(v interface{}) error { return decodeErr }, nil)
-			if !errors.Is(err, decodeErr) {
-				t.Fatalf("expected decode error, got %v", err)
+func TestGeneratedUnaryHandlersDecodeInterceptorAndServerPaths(parseT *testing.T) {
+	parseSrv := UnimplementedChatServiceServer{}
+	parseDecodeErr := errors.New("decode failed")
+
+	for _, parseMethod := range ChatService_ServiceDesc.Methods {
+		parseT.Run(parseMethod.MethodName+"_decode_error", func(parseT2 *testing.T) {
+			_, parseErr := parseMethod.Handler(parseSrv, context.Background(), func(parseV interface{}) error { return parseDecodeErr }, nil)
+			if !errors.Is(parseErr, parseDecodeErr) {
+				parseT2.Fatalf("expected decode error, got %v", parseErr)
 			}
 		})
 
-		t.Run(method.MethodName+"_no_interceptor", func(t *testing.T) {
-			_, err := method.Handler(srv, context.Background(), func(v interface{}) error { return nil }, nil)
-			if status.Code(err) != codes.Unimplemented {
-				t.Fatalf("expected unimplemented status, got %v", err)
+		parseT.Run(parseMethod.MethodName+"_no_interceptor", func(parseT3 *testing.T) {
+			_, parseErr2 := parseMethod.Handler(parseSrv, context.Background(), func(parseV2 interface{}) error { return nil }, nil)
+			if status.Code(parseErr2) != codes.Unimplemented {
+				parseT3.Fatalf("expected unimplemented status, got %v", parseErr2)
 			}
 		})
 
-		t.Run(method.MethodName+"_with_interceptor", func(t *testing.T) {
-			var seenInfo bool
-			_, err := method.Handler(
-				srv,
+		parseT.Run(parseMethod.MethodName+"_with_interceptor", func(parseT4 *testing.T) {
+			var isSeenInfo bool
+			_, parseErr3 := parseMethod.Handler(
+				parseSrv,
 				context.Background(),
-				func(v interface{}) error { return nil },
-				func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-					seenInfo = true
-					if info == nil || info.FullMethod == "" {
-						t.Fatalf("expected unary info with full method for %s", method.MethodName)
+				func(parseV3 interface{}) error { return nil },
+				func(parseCtx context.Context, parseReq interface{}, parseInfo *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+					isSeenInfo = true
+					if parseInfo == nil || parseInfo.FullMethod == "" {
+						parseT4.Fatalf("expected unary info with full method for %s", parseMethod.MethodName)
 					}
-					return handler(ctx, req)
+					return handler(parseCtx, parseReq)
 				},
 			)
-			if !seenInfo {
-				t.Fatalf("expected interceptor execution for %s", method.MethodName)
+			if !isSeenInfo {
+				parseT4.Fatalf("expected interceptor execution for %s", parseMethod.MethodName)
 			}
-			if status.Code(err) != codes.Unimplemented {
-				t.Fatalf("expected unimplemented status, got %v", err)
-			}
-		})
-	}
-}
-
-func TestGeneratedStreamHandlersRecvAndServerPaths(t *testing.T) {
-	srv := UnimplementedChatServiceServer{}
-	recvErr := errors.New("recv failed")
-
-	for _, stream := range ChatService_ServiceDesc.Streams {
-		t.Run(stream.StreamName+"_recv_error", func(t *testing.T) {
-			err := stream.Handler(srv, &fakeServerStream{recvErr: recvErr})
-			if !errors.Is(err, recvErr) {
-				t.Fatalf("expected recv error, got %v", err)
-			}
-		})
-
-		t.Run(stream.StreamName+"_unimplemented", func(t *testing.T) {
-			err := stream.Handler(srv, &fakeServerStream{})
-			if status.Code(err) != codes.Unimplemented {
-				t.Fatalf("expected unimplemented status, got %v", err)
+			if status.Code(parseErr3) != codes.Unimplemented {
+				parseT4.Fatalf("expected unimplemented status, got %v", parseErr3)
 			}
 		})
 	}
 }
 
-func TestUnimplementedChatServiceServerMethodsReturnUnimplemented(t *testing.T) {
-	srv := UnimplementedChatServiceServer{}
-	ctx := context.Background()
+func TestGeneratedStreamHandlersRecvAndServerPaths(parseT *testing.T) {
+	parseSrv := UnimplementedChatServiceServer{}
+	parseRecvErr := errors.New("recv failed")
 
-	unaryChecks := []struct {
-		name string
-		call func() error
-	}{
-		{"Signup", func() error { _, err := srv.Signup(ctx, &SignupRequest{}); return err }},
-		{"Login", func() error { _, err := srv.Login(ctx, &LoginRequest{}); return err }},
-		{"Logout", func() error { _, err := srv.Logout(ctx, &emptypb.Empty{}); return err }},
-		{"GetSession", func() error { _, err := srv.GetSession(ctx, &emptypb.Empty{}); return err }},
-		{"RefreshSession", func() error { _, err := srv.RefreshSession(ctx, &emptypb.Empty{}); return err }},
-		{"ListConversations", func() error { _, err := srv.ListConversations(ctx, &ListConversationsRequest{}); return err }},
-		{"ResolveConversationRoute", func() error { _, err := srv.ResolveConversationRoute(ctx, &ResolveConversationRouteRequest{}); return err }},
-		{"LoadConversation", func() error { _, err := srv.LoadConversation(ctx, &LoadConversationRequest{}); return err }},
-		{"DeleteConversation", func() error { _, err := srv.DeleteConversation(ctx, &DeleteConversationRequest{}); return err }},
-		{"SetUserName", func() error { _, err := srv.SetUserName(ctx, &SetUserNameRequest{}); return err }},
-		{"GetUserName", func() error { _, err := srv.GetUserName(ctx, &GetUserNameRequest{}); return err }},
-		{"ListUserMemories", func() error { _, err := srv.ListUserMemories(ctx, &ListUserMemoriesRequest{}); return err }},
-		{"UpsertUserMemory", func() error { _, err := srv.UpsertUserMemory(ctx, &UpsertUserMemoryRequest{}); return err }},
-		{"DeleteUserMemory", func() error { _, err := srv.DeleteUserMemory(ctx, &DeleteUserMemoryRequest{}); return err }},
-		{"ListModelOptions", func() error { _, err := srv.ListModelOptions(ctx, &ListModelOptionsRequest{}); return err }},
-		{"SetSelectedModel", func() error { _, err := srv.SetSelectedModel(ctx, wrapperspb.String("x")); return err }},
-		{"GetSelectedModel", func() error { _, err := srv.GetSelectedModel(ctx, &emptypb.Empty{}); return err }},
-		{"SetSelectedTone", func() error { _, err := srv.SetSelectedTone(ctx, wrapperspb.String("x")); return err }},
-		{"GetSelectedTone", func() error { _, err := srv.GetSelectedTone(ctx, &emptypb.Empty{}); return err }},
-		{"SetSelectedThinkingEnabled", func() error { _, err := srv.SetSelectedThinkingEnabled(ctx, wrapperspb.Bool(true)); return err }},
-		{"GetSelectedThinkingEnabled", func() error { _, err := srv.GetSelectedThinkingEnabled(ctx, &emptypb.Empty{}); return err }},
-		{"SetSelectedThinkingEffort", func() error { _, err := srv.SetSelectedThinkingEffort(ctx, wrapperspb.String("low")); return err }},
-		{"GetSelectedThinkingEffort", func() error { _, err := srv.GetSelectedThinkingEffort(ctx, &emptypb.Empty{}); return err }},
-		{"SetCustomSystemPrompt", func() error { _, err := srv.SetCustomSystemPrompt(ctx, wrapperspb.String("x")); return err }},
-		{"GetCustomSystemPrompt", func() error { _, err := srv.GetCustomSystemPrompt(ctx, &emptypb.Empty{}); return err }},
-	}
+	for _, parseStream := range ChatService_ServiceDesc.Streams {
+		parseT.Run(parseStream.StreamName+"_recv_error", func(parseT2 *testing.T) {
+			parseErr := parseStream.Handler(parseSrv, &fakeServerStream{recvErr: parseRecvErr})
+			if !errors.Is(parseErr, parseRecvErr) {
+				parseT2.Fatalf("expected recv error, got %v", parseErr)
+			}
+		})
 
-	for _, tc := range unaryChecks {
-		t.Run(tc.name, func(t *testing.T) {
-			if code := status.Code(tc.call()); code != codes.Unimplemented {
-				t.Fatalf("expected unimplemented for %s, got %s", tc.name, code)
+		parseT.Run(parseStream.StreamName+"_unimplemented", func(parseT3 *testing.T) {
+			parseErr2 := parseStream.Handler(parseSrv, &fakeServerStream{})
+			if status.Code(parseErr2) != codes.Unimplemented {
+				parseT3.Fatalf("expected unimplemented status, got %v", parseErr2)
 			}
 		})
 	}
+}
 
-	streamChecks := []struct {
+func TestUnimplementedChatServiceServerMethodsReturnUnimplemented(parseT *testing.T) {
+	parseSrv := UnimplementedChatServiceServer{}
+	parseCtx := context.Background()
+
+	parseUnaryChecks := []struct {
 		name string
 		call func() error
 	}{
-		{"Send", func() error { return srv.Send(&SendRequest{}, &grpc.GenericServerStream[SendRequest, ChatChunk]{ServerStream: &fakeServerStream{}}) }},
-		{"SynthesizeSpeech", func() error {
-			return srv.SynthesizeSpeech(&SynthesizeSpeechRequest{}, &grpc.GenericServerStream[SynthesizeSpeechRequest, SynthesizeSpeechChunk]{ServerStream: &fakeServerStream{}})
+		{"Signup", func() error { _, parseErr := parseSrv.ParseSignup(parseCtx, &SignupRequest{}); return parseErr }},
+		{"Login", func() error { _, parseErr2 := parseSrv.ParseLogin(parseCtx, &LoginRequest{}); return parseErr2 }},
+		{"Logout", func() error { _, parseErr3 := parseSrv.ParseLogout(parseCtx, &emptypb.Empty{}); return parseErr3 }},
+		{"GetSession", func() error { _, parseErr4 := parseSrv.GetSession(parseCtx, &emptypb.Empty{}); return parseErr4 }},
+		{"RefreshSession", func() error {
+			_, parseErr5 := parseSrv.ParseRefreshSession(parseCtx, &emptypb.Empty{})
+			return parseErr5
+		}},
+		{"ListConversations", func() error {
+			_, parseErr6 := parseSrv.ParseListConversations(parseCtx, &ListConversationsRequest{})
+			return parseErr6
+		}},
+		{"ResolveConversationRoute", func() error {
+			_, parseErr7 := parseSrv.ParseResolveConversationRoute(parseCtx, &ResolveConversationRouteRequest{})
+			return parseErr7
+		}},
+		{"LoadConversation", func() error {
+			_, parseErr8 := parseSrv.ParseLoadConversation(parseCtx, &LoadConversationRequest{})
+			return parseErr8
+		}},
+		{"DeleteConversation", func() error {
+			_, parseErr9 := parseSrv.ParseDeleteConversation(parseCtx, &DeleteConversationRequest{})
+			return parseErr9
+		}},
+		{"SetUserName", func() error {
+			_, parseErr10 := parseSrv.SetUserName(parseCtx, &SetUserNameRequest{})
+			return parseErr10
+		}},
+		{"GetUserName", func() error {
+			_, parseErr11 := parseSrv.GetUserName(parseCtx, &GetUserNameRequest{})
+			return parseErr11
+		}},
+		{"ListUserMemories", func() error {
+			_, parseErr12 := parseSrv.ParseListUserMemories(parseCtx, &ListUserMemoriesRequest{})
+			return parseErr12
+		}},
+		{"UpsertUserMemory", func() error {
+			_, parseErr13 := parseSrv.ParseUpsertUserMemory(parseCtx, &UpsertUserMemoryRequest{})
+			return parseErr13
+		}},
+		{"DeleteUserMemory", func() error {
+			_, parseErr14 := parseSrv.ParseDeleteUserMemory(parseCtx, &DeleteUserMemoryRequest{})
+			return parseErr14
+		}},
+		{"ListModelOptions", func() error {
+			_, parseErr15 := parseSrv.ParseListModelOptions(parseCtx, &ListModelOptionsRequest{})
+			return parseErr15
+		}},
+		{"SetSelectedModel", func() error {
+			_, parseErr16 := parseSrv.SetSelectedModel(parseCtx, wrapperspb.String("x"))
+			return parseErr16
+		}},
+		{"GetSelectedModel", func() error {
+			_, parseErr17 := parseSrv.GetSelectedModel(parseCtx, &emptypb.Empty{})
+			return parseErr17
+		}},
+		{"SetSelectedTone", func() error {
+			_, parseErr18 := parseSrv.SetSelectedTone(parseCtx, wrapperspb.String("x"))
+			return parseErr18
+		}},
+		{"GetSelectedTone", func() error { _, parseErr19 := parseSrv.GetSelectedTone(parseCtx, &emptypb.Empty{}); return parseErr19 }},
+		{"SetSelectedThinkingEnabled", func() error {
+			_, parseErr20 := parseSrv.SetSelectedThinkingEnabled(parseCtx, wrapperspb.Bool(true))
+			return parseErr20
+		}},
+		{"GetSelectedThinkingEnabled", func() error {
+			_, parseErr21 := parseSrv.GetSelectedThinkingEnabled(parseCtx, &emptypb.Empty{})
+			return parseErr21
+		}},
+		{"SetSelectedThinkingEffort", func() error {
+			_, parseErr22 := parseSrv.SetSelectedThinkingEffort(parseCtx, wrapperspb.String("low"))
+			return parseErr22
+		}},
+		{"GetSelectedThinkingEffort", func() error {
+			_, parseErr23 := parseSrv.GetSelectedThinkingEffort(parseCtx, &emptypb.Empty{})
+			return parseErr23
+		}},
+		{"SetCustomSystemPrompt", func() error {
+			_, parseErr24 := parseSrv.SetCustomSystemPrompt(parseCtx, wrapperspb.String("x"))
+			return parseErr24
+		}},
+		{"GetCustomSystemPrompt", func() error {
+			_, parseErr25 := parseSrv.GetCustomSystemPrompt(parseCtx, &emptypb.Empty{})
+			return parseErr25
 		}},
 	}
 
-	for _, tc := range streamChecks {
-		t.Run(tc.name, func(t *testing.T) {
-			if code := status.Code(tc.call()); code != codes.Unimplemented {
-				t.Fatalf("expected unimplemented for %s, got %s", tc.name, code)
+	for _, parseTc := range parseUnaryChecks {
+		parseT.Run(parseTc.name, func(parseT2 *testing.T) {
+			if parseCode := status.Code(parseTc.call()); parseCode != codes.Unimplemented {
+				parseT2.Fatalf("expected unimplemented for %s, got %s", parseTc.name, parseCode)
+			}
+		})
+	}
+
+	parseStreamChecks := []struct {
+		name string
+		call func() error
+	}{
+		{"Send", func() error {
+			return parseSrv.ParseSend(&SendRequest{}, &grpc.GenericServerStream[SendRequest, ChatChunk]{ServerStream: &fakeServerStream{}})
+		}},
+		{"SynthesizeSpeech", func() error {
+			return parseSrv.ParseSynthesizeSpeech(&SynthesizeSpeechRequest{}, &grpc.GenericServerStream[SynthesizeSpeechRequest, SynthesizeSpeechChunk]{ServerStream: &fakeServerStream{}})
+		}},
+	}
+
+	for _, parseTc2 := range parseStreamChecks {
+		parseT.Run(parseTc2.name, func(parseT3 *testing.T) {
+			if parseCode2 := status.Code(parseTc2.call()); parseCode2 != codes.Unimplemented {
+				parseT3.Fatalf("expected unimplemented for %s, got %s", parseTc2.name, parseCode2)
 			}
 		})
 	}

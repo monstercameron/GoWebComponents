@@ -54,84 +54,84 @@ type HookRecord struct {
 	Hooks    []string `json:"hooks"`
 }
 
-func filterHookRecords(records []HookRecord, query string) []HookRecord {
-	trimmedQuery := strings.TrimSpace(strings.ToLower(query))
-	if trimmedQuery == "" {
-		return append([]HookRecord(nil), records...)
+func filterHookRecords(parseRecords []HookRecord, parseQuery string) []HookRecord {
+	parseTrimmedQuery := strings.TrimSpace(strings.ToLower(parseQuery))
+	if parseTrimmedQuery == "" {
+		return append([]HookRecord(nil), parseRecords...)
 	}
 
-	matches := make([]HookRecord, 0, len(records))
-	for _, record := range records {
-		hit := strings.Contains(strings.ToLower(record.Name), trimmedQuery) ||
-			strings.Contains(strings.ToLower(record.Category), trimmedQuery) ||
-			strings.Contains(strings.ToLower(record.Summary), trimmedQuery)
-		if !hit {
-			for _, hook := range record.Hooks {
-				if strings.Contains(strings.ToLower(hook), trimmedQuery) {
-					hit = true
+	parseMatches := make([]HookRecord, 0, len(parseRecords))
+	for _, parseRecord := range parseRecords {
+		isParseHit := strings.Contains(strings.ToLower(parseRecord.Name), parseTrimmedQuery) ||
+			strings.Contains(strings.ToLower(parseRecord.Category), parseTrimmedQuery) ||
+			strings.Contains(strings.ToLower(parseRecord.Summary), parseTrimmedQuery)
+		if !isParseHit {
+			for _, parseHook := range parseRecord.Hooks {
+				if strings.Contains(strings.ToLower(parseHook), parseTrimmedQuery) {
+					isParseHit = true
 					break
 				}
 			}
 		}
 
-		if hit {
-			matches = append(matches, record)
+		if isParseHit {
+			parseMatches = append(parseMatches, parseRecord)
 		}
 	}
 
-	return matches
+	return parseMatches
 }
 
-func recordSlug(name string) string {
-	slug := strings.ToLower(strings.TrimSpace(name))
-	replacer := strings.NewReplacer(" ", "-", "/", "-", "_", "-", ":", "", ",", "", ".", "")
-	slug = replacer.Replace(slug)
-	for strings.Contains(slug, "--") {
-		slug = strings.ReplaceAll(slug, "--", "-")
+func recordSlug(parseName string) string {
+	parseSlug := strings.ToLower(strings.TrimSpace(parseName))
+	parseReplacer := strings.NewReplacer(" ", "-", "/", "-", "_", "-", ":", "", ",", "", ".", "")
+	parseSlug = parseReplacer.Replace(parseSlug)
+	for strings.Contains(parseSlug, "--") {
+		parseSlug = strings.ReplaceAll(parseSlug, "--", "-")
 	}
-	return strings.Trim(slug, "-")
+	return strings.Trim(parseSlug, "-")
 }
 
-func normalizePlaygroundMode(mode string) string {
-	switch strings.ToLower(strings.TrimSpace(mode)) {
+func normalizePlaygroundMode(parseMode string) string {
+	switch strings.ToLower(strings.TrimSpace(parseMode)) {
 	case "agent", "review", "benchmark":
-		return strings.ToLower(strings.TrimSpace(mode))
+		return strings.ToLower(strings.TrimSpace(parseMode))
 	default:
 		return "agent"
 	}
 }
 
-func loadHookRecords(ctx context.Context) ([]HookRecord, error) {
-	resultCh := fetch.Fetch("./fixtures.json", fetch.Options{})
+func loadHookRecords(parseCtx context.Context) ([]HookRecord, error) {
+	parseResultCh := fetch.Fetch("./fixtures.json", fetch.Options{})
 	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case result := <-resultCh:
-		if result.Err != nil {
-			return nil, result.Err
+	case <-parseCtx.Done():
+		return nil, parseCtx.Err()
+	case parseResult := <-parseResultCh:
+		if parseResult.Err != nil {
+			return nil, parseResult.Err
 		}
 
-		payload, ok := result.Data.(string)
-		if !ok || payload == "" {
+		parsePayload, parseOk := parseResult.Data.(string)
+		if !parseOk || parsePayload == "" {
 			return nil, fmt.Errorf("fixtures payload unavailable")
 		}
 
-		var parsed []HookRecord
-		if err := json.Unmarshal([]byte(payload), &parsed); err != nil {
-			return nil, err
+		var parseParsed []HookRecord
+		if parseErr := json.Unmarshal([]byte(parsePayload), &parseParsed); parseErr != nil {
+			return nil, parseErr
 		}
-		return parsed, nil
+		return parseParsed, nil
 	}
 }
 
-func Shell(props ShellProps) ui.Node {
-	theme := state.UseAtom(themeAtom, "aurora")
-	search := state.UseAtom(searchAtom, "")
-	notice := state.UseAtom(noticeAtom, Notice{})
+func Shell(parseProps ShellProps) ui.Node {
+	parseTheme := state.UseAtom(themeAtom, "aurora")
+	parseSearch := state.UseAtom(searchAtom, "")
+	parseNotice := state.UseAtom(noticeAtom, Notice{})
 
-	toggleTheme := ui.UseEvent(func() {
-		theme.Update(func(current string) string {
-			if current == "aurora" {
+	parseToggleTheme := ui.UseEvent(func() {
+		parseTheme.Update(func(parseCurrent string) string {
+			if parseCurrent == "aurora" {
 				return "signal"
 			}
 			return "aurora"
@@ -139,36 +139,36 @@ func Shell(props ShellProps) ui.Node {
 	})
 
 	clearNotice := ui.UseEvent(func() {
-		notice.Set(Notice{})
+		parseNotice.Set(Notice{})
 	})
 
 	ui.UseEffect(func() func() {
-		document := js.Global().Get("document")
-		if document.Truthy() {
-			document.Set("title", "OMI Example - "+props.Title)
+		parseDocument := js.Global().Get("document")
+		if parseDocument.Truthy() {
+			parseDocument.Set("title", "OMI Example - "+parseProps.Title)
 		}
 
-		body := document.Get("body")
-		if body.Truthy() {
-			body.Call("setAttribute", "data-theme", theme.Get())
+		parseBody := parseDocument.Get("body")
+		if parseBody.Truthy() {
+			parseBody.Call("setAttribute", "data-theme", parseTheme.Get())
 		}
 
-		storage := js.Global().Get("localStorage")
-		if storage.Truthy() {
-			storage.Call("setItem", "omi-theme", theme.Get())
+		parseStorage := js.Global().Get("localStorage")
+		if parseStorage.Truthy() {
+			parseStorage.Call("setItem", "omi-theme", parseTheme.Get())
 		}
 		return nil
-	}, props.Title, theme.Get())
+	}, parseProps.Title, parseTheme.Get())
 
-	themePanelClass := "min-h-screen text-slate-100 selection:bg-cyan-400/20 "
-	if theme.Get() == "signal" {
-		themePanelClass += "bg-[#0d1319]"
+	parseThemePanelClass := "min-h-screen text-slate-100 selection:bg-cyan-400/20 "
+	if parseTheme.Get() == "signal" {
+		parseThemePanelClass += "bg-[#0d1319]"
 	} else {
-		themePanelClass += "bg-[#071018]"
+		parseThemePanelClass += "bg-[#071018]"
 	}
 
 	return html.Div(html.Props{
-		Class: themePanelClass,
+		Class: parseThemePanelClass,
 	},
 		html.Header(html.Props{
 			Class: "border-b border-slate-800/80 bg-[#0d1722]/88 backdrop-blur-xl sticky top-0 z-50",
@@ -187,44 +187,44 @@ func Shell(props ShellProps) ui.Node {
 				html.Nav(html.Props{
 					Class: "flex flex-wrap items-center gap-3",
 				},
-					ui.CreateElement(NavLink, NavLinkProps{Label: "Overview", Path: "/", Active: props.ActivePath == "/"}),
-					ui.CreateElement(NavLink, NavLinkProps{Label: "Data Lab", Path: "/data", Active: props.ActivePath == "/data"}),
-					ui.CreateElement(NavLink, NavLinkProps{Label: "Search", Path: "/search", Active: props.ActivePath == "/search"}),
-					ui.CreateElement(NavLink, NavLinkProps{Label: "Secure", Path: "/secure", Active: props.ActivePath == "/secure"}),
-					ui.CreateElement(NavLink, NavLinkProps{Label: "Playground", Path: "/playground", Active: props.ActivePath == "/playground"}),
+					ui.CreateElement(NavLink, NavLinkProps{Label: "Overview", Path: "/", Active: parseProps.ActivePath == "/"}),
+					ui.CreateElement(NavLink, NavLinkProps{Label: "Data Lab", Path: "/data", Active: parseProps.ActivePath == "/data"}),
+					ui.CreateElement(NavLink, NavLinkProps{Label: "Search", Path: "/search", Active: parseProps.ActivePath == "/search"}),
+					ui.CreateElement(NavLink, NavLinkProps{Label: "Secure", Path: "/secure", Active: parseProps.ActivePath == "/secure"}),
+					ui.CreateElement(NavLink, NavLinkProps{Label: "Playground", Path: "/playground", Active: parseProps.ActivePath == "/playground"}),
 				),
 				html.Div(html.Props{
 					Class: "flex items-center gap-3",
 				},
 					html.Small(html.Props{
 						Class: "hidden text-right text-xs uppercase tracking-[0.25em] text-slate-400 md:block",
-					}, html.Text("Shared search: "+search.Get())),
+					}, html.Text("Shared search: "+parseSearch.Get())),
 					html.Button(html.Props{
-						OnClick: toggleTheme,
+						OnClick: parseToggleTheme,
 						Class:   "rounded-full border border-slate-700/80 bg-slate-900/80 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800/90",
-					}, html.Text("Theme: "+strings.ToUpper(theme.Get()))),
+					}, html.Text("Theme: "+strings.ToUpper(parseTheme.Get()))),
 				),
 			),
 		),
 		func() ui.Node {
-			if notice.Get().Title == "" {
+			if parseNotice.Get().Title == "" {
 				return nil
 			}
 
-			accent := "border-cyan-900/80 bg-cyan-950/50 text-cyan-100"
-			if notice.Get().Level == "warn" {
-				accent = "border-amber-900/80 bg-amber-950/45 text-amber-100"
+			parseAccent := "border-cyan-900/80 bg-cyan-950/50 text-cyan-100"
+			if parseNotice.Get().Level == "warn" {
+				parseAccent = "border-amber-900/80 bg-amber-950/45 text-amber-100"
 			}
 
 			return html.Div(html.Props{
-				Class: "mx-auto mt-6 max-w-6xl rounded-2xl border px-5 py-4 " + accent,
+				Class: "mx-auto mt-6 max-w-6xl rounded-2xl border px-5 py-4 " + parseAccent,
 			},
 				html.Div(html.Props{
 					Class: "flex items-start justify-between gap-4",
 				},
 					html.Div(html.Props{},
-						html.Strong(html.Props{Class: "block text-sm uppercase tracking-[0.25em]"}, html.Text(notice.Get().Title)),
-						html.P(html.Props{Class: "mt-2 text-sm leading-6"}, html.Text(notice.Get().Body)),
+						html.Strong(html.Props{Class: "block text-sm uppercase tracking-[0.25em]"}, html.Text(parseNotice.Get().Title)),
+						html.P(html.Props{Class: "mt-2 text-sm leading-6"}, html.Text(parseNotice.Get().Body)),
 					),
 					html.Button(html.Props{
 						OnClick: clearNotice,
@@ -235,7 +235,7 @@ func Shell(props ShellProps) ui.Node {
 		}(),
 		html.Main(html.Props{
 			Class: "mx-auto max-w-6xl px-6 py-10",
-		}, props.Page),
+		}, parseProps.Page),
 		ui.CreateElement(devtools.Panel, devtools.PanelProps{
 			Title:           "OMI Devtools",
 			InitiallyOpen:   false,
@@ -245,21 +245,21 @@ func Shell(props ShellProps) ui.Node {
 	)
 }
 
-func NavLink(props NavLinkProps) ui.Node {
-	nav := router.UseNavigate()
-	navigate := ui.UseEvent(func() {
-		nav.Navigate(props.Path)
+func NavLink(parseProps NavLinkProps) ui.Node {
+	parseNav := router.UseNavigate()
+	parseNavigate := ui.UseEvent(func() {
+		parseNav.Navigate(parseProps.Path)
 	})
 
-	className := "rounded-full border border-slate-700/80 bg-slate-950/30 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800/80"
-	if props.Active {
-		className = "rounded-full border border-cyan-900/90 bg-cyan-950/70 px-4 py-2 text-sm font-semibold text-cyan-100"
+	parseClassName := "rounded-full border border-slate-700/80 bg-slate-950/30 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800/80"
+	if parseProps.Active {
+		parseClassName = "rounded-full border border-cyan-900/90 bg-cyan-950/70 px-4 py-2 text-sm font-semibold text-cyan-100"
 	}
 
 	return html.Button(html.Props{
-		OnClick: navigate,
-		Class:   className,
-	}, html.Text(props.Label))
+		OnClick: parseNavigate,
+		Class:   parseClassName,
+	}, html.Text(parseProps.Label))
 }
 
 func OverviewPage() ui.Node {
@@ -278,27 +278,27 @@ func DataPage() ui.Node {
 	})
 }
 
-func DataDetailPage(props Attrs) ui.Node {
+func DataDetailPage(parseProps Attrs) ui.Node {
 	return ui.CreateElement(Shell, ShellProps{
 		ActivePath: "/data",
 		Title:      "Record Detail",
-		Page:       ui.CreateElement(DataDetailContent, props),
+		Page:       ui.CreateElement(DataDetailContent, parseProps),
 	})
 }
 
-func SearchPage(props Attrs) ui.Node {
+func SearchPage(parseProps Attrs) ui.Node {
 	return ui.CreateElement(Shell, ShellProps{
 		ActivePath: "/search",
 		Title:      "Search",
-		Page:       ui.CreateElement(SearchContent, props),
+		Page:       ui.CreateElement(SearchContent, parseProps),
 	})
 }
 
-func SecurePage(props Attrs) ui.Node {
+func SecurePage(parseProps Attrs) ui.Node {
 	return ui.CreateElement(Shell, ShellProps{
 		ActivePath: "/secure",
 		Title:      "Secure",
-		Page:       ui.CreateElement(SecureContent, props),
+		Page:       ui.CreateElement(SecureContent, parseProps),
 	})
 }
 
@@ -310,9 +310,9 @@ func PlaygroundPage() ui.Node {
 	})
 }
 
-func DataDetailRouteLoading(props Attrs) ui.Node {
-	nav := router.UseNavigate()
-	slug, _ := props["id"].(string)
+func DataDetailRouteLoading(parseProps Attrs) ui.Node {
+	parseNav := router.UseNavigate()
+	parseSlug, _ := parseProps["id"].(string)
 
 	return html.Div(html.Props{Class: "space-y-8"},
 		html.Div(html.Props{Class: "flex flex-wrap items-center justify-between gap-4"},
@@ -321,19 +321,19 @@ func DataDetailRouteLoading(props Attrs) ui.Node {
 				html.H2(html.Props{Class: "mt-2 text-3xl font-black"}, html.Text("Loading record detail")),
 				html.P(html.Props{Class: "mt-2 text-slate-300"}, html.Text("The router is loading route-scoped data before rendering the detail page.")),
 			),
-			html.Button(html.Props{OnClick: ui.UseEvent(func() { nav.Navigate("/data") }), Class: "rounded-full border border-slate-700/80 bg-slate-900/80 px-5 py-3 font-semibold text-slate-200 hover:bg-slate-800/90"}, html.Text("Back to Data Lab")),
+			html.Button(html.Props{OnClick: ui.UseEvent(func() { parseNav.Navigate("/data") }), Class: "rounded-full border border-slate-700/80 bg-slate-900/80 px-5 py-3 font-semibold text-slate-200 hover:bg-slate-800/90"}, html.Text("Back to Data Lab")),
 		),
 		html.Div(html.Props{Class: "rounded-[2rem] border border-slate-800/80 bg-[#0d1722]/85 p-8"},
-			html.P(html.Props{Class: "text-sm uppercase tracking-[0.28em] text-slate-400"}, html.Text("Route slug: "+slug)),
+			html.P(html.Props{Class: "text-sm uppercase tracking-[0.28em] text-slate-400"}, html.Text("Route slug: "+parseSlug)),
 			html.P(html.Props{Class: "mt-4 text-slate-300"}, html.Text("Loading record detail...")),
 		),
 	)
 }
 
-func DataDetailRouteError(props Attrs) ui.Node {
-	nav := router.UseNavigate()
-	message, _ := props["error"].(string)
-	slug, _ := props["id"].(string)
+func DataDetailRouteError(parseProps Attrs) ui.Node {
+	parseNav := router.UseNavigate()
+	parseMessage, _ := parseProps["error"].(string)
+	parseSlug, _ := parseProps["id"].(string)
 
 	return html.Div(html.Props{Class: "space-y-8"},
 		html.Div(html.Props{Class: "flex flex-wrap items-center justify-between gap-4"},
@@ -341,16 +341,16 @@ func DataDetailRouteError(props Attrs) ui.Node {
 				html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-rose-300"}, html.Text("Route Loader Error")),
 				html.H2(html.Props{Class: "mt-2 text-3xl font-black"}, html.Text("Record detail failed")),
 			),
-			html.Button(html.Props{OnClick: ui.UseEvent(func() { nav.Navigate("/data") }), Class: "rounded-full border border-slate-700/80 bg-slate-900/80 px-5 py-3 font-semibold text-slate-200 hover:bg-slate-800/90"}, html.Text("Back to Data Lab")),
+			html.Button(html.Props{OnClick: ui.UseEvent(func() { parseNav.Navigate("/data") }), Class: "rounded-full border border-slate-700/80 bg-slate-900/80 px-5 py-3 font-semibold text-slate-200 hover:bg-slate-800/90"}, html.Text("Back to Data Lab")),
 		),
 		html.Div(html.Props{Class: "rounded-[2rem] border border-rose-400/20 bg-rose-400/10 p-8 text-rose-100"},
-			html.P(html.Props{Class: "text-sm uppercase tracking-[0.28em] text-rose-200/80"}, html.Text("Route slug: "+slug)),
-			html.P(html.Props{Class: "mt-4"}, html.Text(message)),
+			html.P(html.Props{Class: "text-sm uppercase tracking-[0.28em] text-rose-200/80"}, html.Text("Route slug: "+parseSlug)),
+			html.P(html.Props{Class: "mt-4"}, html.Text(parseMessage)),
 		),
 	)
 }
 
-func SearchRouteLoading(props Attrs) ui.Node {
+func SearchRouteLoading(parseProps Attrs) ui.Node {
 	return html.Div(html.Props{Class: "space-y-8"},
 		html.Div(html.Props{Class: "rounded-[2rem] border border-slate-800/80 bg-[#0d1722]/85 p-8"},
 			html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Route Loader")),
@@ -360,18 +360,18 @@ func SearchRouteLoading(props Attrs) ui.Node {
 	)
 }
 
-func SearchRouteError(props Attrs) ui.Node {
-	message, _ := props["error"].(string)
+func SearchRouteError(parseProps Attrs) ui.Node {
+	parseMessage, _ := parseProps["error"].(string)
 	return html.Div(html.Props{Class: "space-y-8"},
 		html.Div(html.Props{Class: "rounded-[2rem] border border-rose-400/20 bg-rose-400/10 p-8 text-rose-100"},
 			html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-rose-300"}, html.Text("Route Loader Error")),
 			html.H2(html.Props{Class: "mt-3 text-4xl font-black"}, html.Text("Search route failed")),
-			html.P(html.Props{Class: "mt-4"}, html.Text(message)),
+			html.P(html.Props{Class: "mt-4"}, html.Text(parseMessage)),
 		),
 	)
 }
 
-func SecureRouteLoading(props Attrs) ui.Node {
+func SecureRouteLoading(parseProps Attrs) ui.Node {
 	return html.Div(html.Props{Class: "space-y-8"},
 		html.Div(html.Props{Class: "rounded-[2rem] border border-slate-800/80 bg-[#0d1722]/85 p-8"},
 			html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Protected Loader")),
@@ -381,9 +381,9 @@ func SecureRouteLoading(props Attrs) ui.Node {
 	)
 }
 
-func SecureRouteError(props Attrs) ui.Node {
-	nav := router.UseNavigate()
-	message, _ := props["error"].(string)
+func SecureRouteError(parseProps Attrs) ui.Node {
+	parseNav := router.UseNavigate()
+	parseMessage, _ := parseProps["error"].(string)
 
 	return html.Div(html.Props{Class: "space-y-8"},
 		html.Div(html.Props{Class: "flex flex-wrap items-center justify-between gap-4"},
@@ -392,19 +392,19 @@ func SecureRouteError(props Attrs) ui.Node {
 				html.H2(html.Props{Class: "mt-2 text-3xl font-black"}, html.Text("Access denied")),
 			),
 			html.Div(html.Props{Class: "flex gap-3"},
-				html.Button(html.Props{OnClick: ui.UseEvent(func() { nav.Navigate("/secure?auth=true&role=admin") }), Class: "rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80"}, html.Text("Grant demo access")),
-				html.Button(html.Props{OnClick: ui.UseEvent(func() { nav.Navigate("/") }), Class: "rounded-full border border-slate-700/80 bg-slate-900/80 px-5 py-3 font-semibold text-slate-200 hover:bg-slate-800/90"}, html.Text("Back home")),
+				html.Button(html.Props{OnClick: ui.UseEvent(func() { parseNav.Navigate("/secure?auth=true&role=admin") }), Class: "rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80"}, html.Text("Grant demo access")),
+				html.Button(html.Props{OnClick: ui.UseEvent(func() { parseNav.Navigate("/") }), Class: "rounded-full border border-slate-700/80 bg-slate-900/80 px-5 py-3 font-semibold text-slate-200 hover:bg-slate-800/90"}, html.Text("Back home")),
 			),
 		),
 		html.Div(html.Props{Class: "rounded-[2rem] border border-rose-400/20 bg-rose-400/10 p-8 text-rose-100"},
-			html.P(html.Props{Class: "mt-1"}, html.Text(message)),
+			html.P(html.Props{Class: "mt-1"}, html.Text(parseMessage)),
 			html.P(html.Props{Class: "mt-4 text-rose-100/80"}, html.Text("Use the demo access button to reload this protected route with a simulated authenticated session.")),
 		),
 	)
 }
 
 func NotFoundPage() ui.Node {
-	nav := router.UseNavigate()
+	parseNav := router.UseNavigate()
 	return ui.CreateElement(Shell, ShellProps{
 		ActivePath: "*",
 		Title:      "Not Found",
@@ -415,7 +415,7 @@ func NotFoundPage() ui.Node {
 			html.H2(html.Props{Class: "mt-4 text-4xl font-black"}, html.Text("Route not found")),
 			html.P(html.Props{Class: "mt-4 text-slate-300"}, html.Text("The requested OMI panel does not exist.")),
 			html.Button(html.Props{
-				OnClick: ui.UseEvent(func() { nav.Navigate("/") }),
+				OnClick: ui.UseEvent(func() { parseNav.Navigate("/") }),
 				Class:   "mt-8 rounded-full border border-slate-700/80 bg-slate-900/80 px-5 py-3 font-semibold hover:bg-slate-800/90",
 			}, html.Text("Return home")),
 		),
@@ -423,70 +423,70 @@ func NotFoundPage() ui.Node {
 }
 
 func OverviewContent() ui.Node {
-	search := state.UseAtom(searchAtom, "")
-	notice := state.UseAtom(noticeAtom, Notice{})
+	parseSearch := state.UseAtom(searchAtom, "")
+	parseNotice := state.UseAtom(noticeAtom, Notice{})
 
-	sessionStart := ui.UseRef(time.Now().Format("3:04:05 PM"))
-	tickCount := ui.UseState(0)
-	searchID := ui.UseId()
+	parseSessionStart := ui.UseRef(time.Now().Format("3:04:05 PM"))
+	parseTickCount := ui.UseState(0)
+	parseSearchID := ui.UseId()
 
-	broadcast := ui.UseCallback(func(title, body string) {
-		notice.Set(Notice{Title: title, Body: body, Level: "info"})
-	}, search.Get())
+	parseBroadcast := ui.UseCallback(func(parseTitle, parseBody string) {
+		parseNotice.Set(Notice{Title: parseTitle, Body: parseBody, Level: "info"})
+	}, parseSearch.Get())
 
-	announce := ui.UseEvent(func() {
-		broadcast("Overview", "Shared search is set to '"+search.Get()+"'.")
+	parseAnnounce := ui.UseEvent(func() {
+		parseBroadcast("Overview", "Shared search is set to '"+parseSearch.Get()+"'.")
 	})
 
-	updateSearch := ui.UseEvent(func(event ui.InputEvent) {
-		search.Set(event.GetValue())
+	parseUpdateSearch := ui.UseEvent(func(parseEvent ui.InputEvent) {
+		parseSearch.Set(parseEvent.GetValue())
 	})
 
 	ui.UseEffect(func() func() {
-		stop := make(chan struct{})
-		var stopOnce sync.Once
-		ticker := time.NewTicker(time.Second)
+		parseStop := make(chan struct{})
+		var parseStopOnce sync.Once
+		parseTicker := time.NewTicker(time.Second)
 
 		go func() {
 			for {
 				select {
-				case <-ticker.C:
-					tickCount.Update(func(v int) int { return v + 1 })
-				case <-stop:
+				case <-parseTicker.C:
+					parseTickCount.Update(func(parseV int) int { return parseV + 1 })
+				case <-parseStop:
 					return
 				}
 			}
 		}()
 
 		return func() {
-			stopOnce.Do(func() {
-				ticker.Stop()
-				close(stop)
+			parseStopOnce.Do(func() {
+				parseTicker.Stop()
+				close(parseStop)
 			})
 		}
 	}, "overview-ticker")
 
-	highlights := html.Fragment(
+	parseHighlights := html.Fragment(
 		html.Div(html.Props{
 			Class: "rounded-3xl border border-slate-800/80 bg-[#0d1722]/82 p-6",
 		},
 			html.Small(html.Props{Class: "text-xs uppercase tracking-[0.3em] text-slate-400"}, html.Text("UseRef")),
-			html.H3(html.Props{Class: "mt-3 text-2xl font-black"}, html.Text(sessionStart.Get())),
+			html.H3(html.Props{Class: "mt-3 text-2xl font-black"}, html.Text(parseSessionStart.Get())),
 			html.P(html.Props{Class: "mt-2 text-sm text-slate-300"}, html.Text("Session start is stored in a ref so it stays stable across re-renders.")),
 		),
 		html.Div(html.Props{
 			Class: "rounded-3xl border border-slate-800/80 bg-[#0d1722]/82 p-6",
 		},
 			html.Small(html.Props{Class: "text-xs uppercase tracking-[0.3em] text-slate-400"}, html.Text("UseEffect")),
-			html.H3(html.Props{Class: "mt-3 text-2xl font-black"}, html.Text(fmt.Sprintf("%d ticks", tickCount.Get()))),
+			html.H3(html.Props{Class: "mt-3 text-2xl font-black"}, html.Text(fmt.Sprintf("%d ticks", parseTickCount.Get()))),
 			html.P(html.Props{Class: "mt-2 text-sm text-slate-300"}, html.Text("A ticker effect increments local state every second and cleans up on route changes.")),
 		),
 		html.Div(html.Props{
 			Class: "rounded-3xl border border-slate-800/80 bg-[#0d1722]/82 p-6",
 		},
 			html.Small(html.Props{Class: "text-xs uppercase tracking-[0.3em] text-slate-400"}, html.Text("Shared Atoms")),
-			html.H3(html.Props{Class: "mt-3 text-2xl font-black"}, html.Text(strings.TrimSpace(search.Get()+" ")+func() string {
-				if search.Get() == "" {
+			html.H3(html.Props{Class: "mt-3 text-2xl font-black"}, html.Text(strings.TrimSpace(parseSearch.Get()+" ")+func() string {
+				if parseSearch.Get() == "" {
 					return "idle"
 				}
 				return "active"
@@ -509,77 +509,77 @@ func OverviewContent() ui.Node {
 			},
 				html.Div(html.Props{Class: "flex-1 min-w-[16rem]"},
 					html.Label(html.Props{
-						For:   searchID,
+						For:   parseSearchID,
 						Class: "mb-2 block text-xs uppercase tracking-[0.28em] text-slate-400",
 					}, html.Text("Global search atom")),
 					html.Input(html.Props{
-						ID:          searchID,
-						Value:       search.Get(),
-						OnInput:     updateSearch,
+						ID:          parseSearchID,
+						Value:       parseSearch.Get(),
+						OnInput:     parseUpdateSearch,
 						Placeholder: "Type once here, reuse it on the data route",
 						Class:       "w-full rounded-2xl border border-slate-700/80 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none",
 					}),
 				),
 				html.Button(html.Props{
-					OnClick: announce,
+					OnClick: parseAnnounce,
 					Class:   "rounded-full border border-slate-700/80 bg-slate-900/80 px-5 py-3 font-semibold text-slate-200 hover:bg-slate-800/90",
 				}, html.Text("Broadcast notice")),
 			),
 		),
 		html.Section(html.Props{
 			Class: "grid gap-6 md:grid-cols-3",
-		}, highlights),
+		}, parseHighlights),
 		func() ui.Node {
-			if notice.Get().Title == "" {
+			if parseNotice.Get().Title == "" {
 				return nil
 			}
 			return html.Blockquote(html.Props{
 				Class: "rounded-3xl border border-slate-800/80 bg-slate-950/65 p-6 text-slate-200",
-			}, html.Text("Latest notice: "+notice.Get().Title+" - "+notice.Get().Body))
+			}, html.Text("Latest notice: "+parseNotice.Get().Title+" - "+parseNotice.Get().Body))
 		}(),
 	)
 }
 
 func DataContent() ui.Node {
-	search := state.UseAtom(searchAtom, "")
-	notice := state.UseAtom(noticeAtom, Notice{})
-	nav := router.UseNavigate()
-	query := router.UseQuery()
-	resource := fetch.UseFetch("./fixtures.json")
-	records := ui.UseState([]HookRecord{})
-	loadedAt := ui.UseState("never")
-	lastQuery := ui.UseRef("")
-	searchID := ui.UseId()
-	urlFilter := query.Get("q")
+	parseSearch := state.UseAtom(searchAtom, "")
+	parseNotice := state.UseAtom(noticeAtom, Notice{})
+	parseNav := router.UseNavigate()
+	parseQuery := router.UseQuery()
+	parseResource := fetch.UseFetch("./fixtures.json")
+	parseRecords := ui.UseState([]HookRecord{})
+	parseLoadedAt := ui.UseState("never")
+	parseLastQuery := ui.UseRef("")
+	parseSearchID := ui.UseId()
+	parseUrlFilter := parseQuery.Get("q")
 
-	fetchState := resource.Get()
+	parseFetchState := parseResource.Get()
 
 	ui.UseEffect(func() func() {
-		if strings.TrimSpace(search.Get()) != strings.TrimSpace(urlFilter) {
-			search.Set(urlFilter)
+		if strings.TrimSpace(parseSearch.Get()) != strings.TrimSpace(parseUrlFilter) {
+			parseSearch.Set(parseUrlFilter)
 		}
 		return nil
-	}, urlFilter)
+	}, parseUrlFilter)
 
-	refresh := ui.UseEvent(func() {
-		lastQuery.Set(search.Get())
-		resource.Refetch()
+	parseRefresh := ui.UseEvent(func() {
+		parseLastQuery.Set(parseSearch.Get())
+		parseResource.Refetch()
 	})
 
-	updateSearch := ui.UseEvent(func(event ui.InputEvent) {
-		value := event.GetValue()
-		search.Set(value)
-		trimmed := strings.TrimSpace(value)
-		if trimmed == "" {
-			nav.Replace("/data")
+	parseUpdateSearch := ui.UseEvent(func(parseEvent ui.InputEvent) {
+		parseValue := parseEvent.GetValue()
+		parseSearch.Set(parseValue)
+		parseTrimmed := strings.TrimSpace(parseValue)
+		if parseTrimmed == "" {
+			parseNav.Replace("/data")
 			return
 		}
-		encoded := url.QueryEscape(trimmed)
-		nav.Replace("/data?q=" + encoded)
+		parseEncoded := url.QueryEscape(parseTrimmed)
+		parseNav.Replace("/data?q=" + parseEncoded)
 	})
 
-	badgeClass := ui.UseCallback(func(category string) string {
-		switch strings.ToLower(category) {
+	parseBadgeClass := ui.UseCallback(func(parseCategory string) string {
+		switch strings.ToLower(parseCategory) {
 		case "hooks":
 			return "bg-cyan-950/70 text-cyan-100 border-cyan-900/80"
 		case "state":
@@ -589,79 +589,79 @@ func DataContent() ui.Node {
 		default:
 			return "bg-slate-900/70 text-slate-100 border-slate-700/80"
 		}
-	}, len(records.Get()))
+	}, len(parseRecords.Get()))
 
 	ui.UseEffect(func() func() {
-		resource.Refetch()
+		parseResource.Refetch()
 		return nil
 	}, "load-fixtures")
 
 	ui.UseEffect(func() func() {
-		if fetchState.Data == nil {
+		if parseFetchState.Data == nil {
 			return nil
 		}
 
-		payload, ok := fetchState.Data.(string)
-		if !ok || payload == "" {
+		parsePayload, parseOk := parseFetchState.Data.(string)
+		if !parseOk || parsePayload == "" {
 			return nil
 		}
 
-		var parsed []HookRecord
-		if err := json.Unmarshal([]byte(payload), &parsed); err == nil {
-			records.Set(parsed)
-			loadedAt.Set(time.Now().Format("3:04:05 PM"))
-			notice.Set(Notice{
+		var parseParsed []HookRecord
+		if parseErr := json.Unmarshal([]byte(parsePayload), &parseParsed); parseErr == nil {
+			parseRecords.Set(parseParsed)
+			parseLoadedAt.Set(time.Now().Format("3:04:05 PM"))
+			parseNotice.Set(Notice{
 				Title: "Data Lab",
-				Body:  fmt.Sprintf("Loaded %d showcase records from local fixtures.", len(parsed)),
+				Body:  fmt.Sprintf("Loaded %d showcase records from local fixtures.", len(parseParsed)),
 				Level: "info",
 			})
 		}
 		return nil
-	}, fetchState.Data)
+	}, parseFetchState.Data)
 
-	filtered := ui.UseMemo(func() []HookRecord {
-		return filterHookRecords(records.Get(), search.Get())
-	}, records.Get(), search.Get())
+	parseFiltered := ui.UseMemo(func() []HookRecord {
+		return filterHookRecords(parseRecords.Get(), parseSearch.Get())
+	}, parseRecords.Get(), parseSearch.Get())
 
-	cards := make([]ui.Node, 0, len(filtered))
-	for _, record := range filtered {
-		record := record
-		hookTags := make([]ui.Node, 0, len(record.Hooks))
-		for _, hook := range record.Hooks {
-			hookTags = append(hookTags, html.Code(html.Props{
+	parseCards := make([]ui.Node, 0, len(parseFiltered))
+	for _, parseRecord := range parseFiltered {
+		parseRecord2 := parseRecord
+		parseHookTags := make([]ui.Node, 0, len(parseRecord2.Hooks))
+		for _, parseHook := range parseRecord2.Hooks {
+			parseHookTags = append(parseHookTags, html.Code(html.Props{
 				Class: "rounded-full border border-slate-700/80 bg-slate-950/65 px-3 py-1 text-xs text-slate-200",
-			}, html.Text(hook)))
+			}, html.Text(parseHook)))
 		}
 
-		cards = append(cards, html.Article(html.Props{
+		parseCards = append(parseCards, html.Article(html.Props{
 			Class: "rounded-3xl border border-slate-800/80 bg-[#0d1722]/82 p-6",
 		},
 			html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
 				html.Div(html.Props{},
-					html.H3(html.Props{Class: "text-2xl font-black"}, html.Text(record.Name)),
-					html.P(html.Props{Class: "mt-3 text-sm leading-6 text-slate-300"}, html.Text(record.Summary)),
+					html.H3(html.Props{Class: "text-2xl font-black"}, html.Text(parseRecord2.Name)),
+					html.P(html.Props{Class: "mt-3 text-sm leading-6 text-slate-300"}, html.Text(parseRecord2.Summary)),
 				),
 				html.Span(html.Props{
-					Class: "rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.25em] " + badgeClass(record.Category),
-				}, html.Text(record.Category)),
+					Class: "rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.25em] " + parseBadgeClass(parseRecord2.Category),
+				}, html.Text(parseRecord2.Category)),
 			),
 			html.Div(html.Props{
 				Class: "mt-5 flex flex-wrap gap-2",
-			}, hookTags...),
+			}, parseHookTags...),
 			html.Button(html.Props{
-				OnClick: ui.UseEvent(func() { nav.Navigate("/data/" + recordSlug(record.Name)) }),
+				OnClick: ui.UseEvent(func() { parseNav.Navigate("/data/" + recordSlug(parseRecord2.Name)) }),
 				Class:   "mt-5 rounded-full border border-cyan-900/80 bg-cyan-950/60 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/80",
 			}, html.Text("Open detail")),
 		))
 	}
 
-	statusText := "Idle"
-	if fetchState.Loading {
-		statusText = "Loading"
-	} else if fetchState.Error != "" {
-		statusText = "Error"
-	} else if len(records.Get()) > 0 {
-		statusText = "Ready"
+	parseStatusText := "Idle"
+	if parseFetchState.Loading {
+		parseStatusText = "Loading"
+	} else if parseFetchState.Error != "" {
+		parseStatusText = "Error"
+	} else if len(parseRecords.Get()) > 0 {
+		parseStatusText = "Ready"
 	}
 
 	return html.Div(html.Props{
@@ -678,17 +678,17 @@ func DataContent() ui.Node {
 					html.H2(html.Props{Class: "mt-3 text-4xl font-black"}, html.Text("Manual fetch, shared filters, memoized results.")),
 				),
 				html.Button(html.Props{
-					OnClick: refresh,
+					OnClick: parseRefresh,
 					Class:   "rounded-full border border-slate-700/80 bg-slate-900/80 px-5 py-3 font-semibold text-slate-200 hover:bg-slate-800/90",
 				}, html.Text("Refresh fixtures")),
 				html.Button(html.Props{
 					OnClick: ui.UseEvent(func() {
-						trimmed := strings.TrimSpace(search.Get())
-						if trimmed == "" {
-							nav.Navigate("/search")
+						parseTrimmed2 := strings.TrimSpace(parseSearch.Get())
+						if parseTrimmed2 == "" {
+							parseNav.Navigate("/search")
 							return
 						}
-						nav.Navigate("/search?q=" + url.QueryEscape(trimmed))
+						parseNav.Navigate("/search?q=" + url.QueryEscape(parseTrimmed2))
 					}),
 					Class: "rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80",
 				}, html.Text("Open route search")),
@@ -698,89 +698,89 @@ func DataContent() ui.Node {
 			},
 				html.Div(html.Props{},
 					html.Label(html.Props{
-						For:   searchID,
+						For:   parseSearchID,
 						Class: "mb-2 block text-xs uppercase tracking-[0.28em] text-slate-400",
 					}, html.Text("Search")),
 					html.Input(html.Props{
-						ID:          searchID,
-						Value:       search.Get(),
-						OnInput:     updateSearch,
+						ID:          parseSearchID,
+						Value:       parseSearch.Get(),
+						OnInput:     parseUpdateSearch,
 						Placeholder: "Filter by hook, category, or summary",
 						Class:       "w-full rounded-2xl border border-slate-700/80 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none",
 					}),
 				),
 				html.Div(html.Props{},
 					html.Small(html.Props{Class: "block text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Status")),
-					html.P(html.Props{Class: "mt-2 text-lg font-bold"}, html.Text(statusText)),
+					html.P(html.Props{Class: "mt-2 text-lg font-bold"}, html.Text(parseStatusText)),
 				),
 				html.Div(html.Props{},
 					html.Small(html.Props{Class: "block text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Loaded at")),
-					html.P(html.Props{Class: "mt-2 text-lg font-bold"}, html.Text(loadedAt.Get())),
+					html.P(html.Props{Class: "mt-2 text-lg font-bold"}, html.Text(parseLoadedAt.Get())),
 				),
 				html.Div(html.Props{},
 					html.Small(html.Props{Class: "block text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Previous query")),
 					html.P(html.Props{Class: "mt-2 text-lg font-bold"}, html.Text(func() string {
-						if lastQuery.Get() == "" {
+						if parseLastQuery.Get() == "" {
 							return "none"
 						}
-						return lastQuery.Get()
+						return parseLastQuery.Get()
 					}())),
 				),
 				html.Div(html.Props{},
 					html.Small(html.Props{Class: "block text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("URL filter")),
 					html.P(html.Props{Class: "mt-2 text-lg font-bold"}, html.Text(func() string {
-						if urlFilter == "" {
+						if parseUrlFilter == "" {
 							return "none"
 						}
-						return urlFilter
+						return parseUrlFilter
 					}())),
 				),
 			),
 		),
 		func() ui.Node {
-			if fetchState.Error == "" {
+			if parseFetchState.Error == "" {
 				return nil
 			}
 			return html.Div(html.Props{
 				Class: "rounded-3xl border border-rose-400/20 bg-rose-400/10 p-5 text-rose-100",
-			}, html.Text("Fixture load failed: "+fetchState.Error))
+			}, html.Text("Fixture load failed: "+parseFetchState.Error))
 		}(),
 		html.Section(html.Props{
 			Class: "grid gap-6 md:grid-cols-2",
-		}, cards...),
+		}, parseCards...),
 	)
 }
 
-func DataDetailContent(props Attrs) ui.Node {
-	nav := router.UseNavigate()
-	revalidator := router.UseRevalidator()
-	routeData := router.UseRouteData()
-	slug, _ := props["slug"].(string)
-	if routeData != nil {
-		if value, ok := routeData["slug"].(string); ok && value != "" {
-			slug = value
+func DataDetailContent(parseProps Attrs) ui.Node {
+	parseNav := router.UseNavigate()
+	parseRevalidator := router.UseRevalidator()
+	parseRouteData := router.UseRouteData()
+	parseSlug, _ := parseProps["slug"].(string)
+	if parseRouteData != nil {
+		if parseValue, parseOk := parseRouteData["slug"].(string); parseOk && parseValue != "" {
+			parseSlug = parseValue
 		}
 	}
 
-	selected := HookRecord{}
-	if name, ok := props["name"].(string); ok {
-		selected.Name = name
+	parseSelected := HookRecord{}
+	if parseName, parseOk2 := parseProps["name"].(string); parseOk2 {
+		parseSelected.Name = parseName
 	}
-	if category, ok := props["category"].(string); ok {
-		selected.Category = category
+	if parseCategory, parseOk3 := parseProps["category"].(string); parseOk3 {
+		parseSelected.Category = parseCategory
 	}
-	if summary, ok := props["summary"].(string); ok {
-		selected.Summary = summary
+	if parseSummary, parseOk4 := parseProps["summary"].(string); parseOk4 {
+		parseSelected.Summary = parseSummary
 	}
-	if hooks, ok := props["hooks"].([]string); ok {
-		selected.Hooks = hooks
+	if parseHooks, parseOk5 := parseProps["hooks"].([]string); parseOk5 {
+		parseSelected.Hooks = parseHooks
 	}
 
-	hookTags := make([]ui.Node, 0, len(selected.Hooks))
-	for _, hook := range selected.Hooks {
-		hookTags = append(hookTags, html.Code(html.Props{
+	parseHookTags := make([]ui.Node, 0, len(parseSelected.Hooks))
+	for _, parseHook := range parseSelected.Hooks {
+		parseHookTags = append(parseHookTags, html.Code(html.Props{
 			Class: "rounded-full border border-slate-700/80 bg-slate-950/65 px-3 py-1 text-xs text-slate-200",
-		}, html.Text(hook)))
+		}, html.Text(parseHook)))
 	}
 
 	return html.Div(html.Props{Class: "space-y-8"},
@@ -791,89 +791,89 @@ func DataDetailContent(props Attrs) ui.Node {
 				html.P(html.Props{Class: "mt-2 text-slate-300"}, html.Text("This page resolves fixture data in `router.Options{Loader: ...}` before rendering the final route component.")),
 			),
 			html.Div(html.Props{Class: "flex gap-3"},
-				html.Button(html.Props{OnClick: ui.UseEvent(func() { revalidator.Revalidate() }), Class: "rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80"}, html.Text(func() string {
-					if revalidator.Loading() {
+				html.Button(html.Props{OnClick: ui.UseEvent(func() { parseRevalidator.Revalidate() }), Class: "rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80"}, html.Text(func() string {
+					if parseRevalidator.Loading() {
 						return "Revalidating..."
 					}
 					return "Revalidate route"
 				}())),
-				html.Button(html.Props{OnClick: ui.UseEvent(func() { nav.Navigate("/data") }), Class: "rounded-full border border-slate-700/80 bg-slate-900/80 px-5 py-3 font-semibold text-slate-200 hover:bg-slate-800/90"}, html.Text("Back to Data Lab")),
+				html.Button(html.Props{OnClick: ui.UseEvent(func() { parseNav.Navigate("/data") }), Class: "rounded-full border border-slate-700/80 bg-slate-900/80 px-5 py-3 font-semibold text-slate-200 hover:bg-slate-800/90"}, html.Text("Back to Data Lab")),
 			),
 		),
 		html.Div(html.Props{Class: "rounded-[2rem] border border-slate-800/80 bg-[#0d1722]/85 p-8"},
 			html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Data Detail")),
-			html.H2(html.Props{Class: "mt-3 text-4xl font-black"}, html.Text(selected.Name)),
+			html.H2(html.Props{Class: "mt-3 text-4xl font-black"}, html.Text(parseSelected.Name)),
 			func() ui.Node {
-				if selected.Category == "" {
+				if parseSelected.Category == "" {
 					return nil
 				}
-				return html.P(html.Props{Class: "mt-3 text-sm uppercase tracking-[0.28em] text-slate-400"}, html.Text("Category: "+selected.Category))
+				return html.P(html.Props{Class: "mt-3 text-sm uppercase tracking-[0.28em] text-slate-400"}, html.Text("Category: "+parseSelected.Category))
 			}(),
-			html.P(html.Props{Class: "mt-4 text-lg leading-8 text-slate-300"}, html.Text(selected.Summary)),
-			html.P(html.Props{Class: "mt-4 text-sm uppercase tracking-[0.28em] text-slate-400"}, html.Text("Route slug: "+slug)),
+			html.P(html.Props{Class: "mt-4 text-lg leading-8 text-slate-300"}, html.Text(parseSelected.Summary)),
+			html.P(html.Props{Class: "mt-4 text-sm uppercase tracking-[0.28em] text-slate-400"}, html.Text("Route slug: "+parseSlug)),
 			html.P(html.Props{Class: "mt-2 text-sm text-slate-500"}, html.Text("Data came from the router loader cache for the current route key.")),
-			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-2"}, hookTags...),
+			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-2"}, parseHookTags...),
 		),
 	)
 }
 
-func SearchContent(props Attrs) ui.Node {
-	search := state.UseAtom(searchAtom, "")
-	nav := router.UseNavigate()
-	revalidator := router.UseRevalidator()
-	query := router.UseQuery()
-	routeData := router.UseRouteData()
-	searchID := ui.UseId()
-	queryTerm := query.Get("q")
+func SearchContent(parseProps Attrs) ui.Node {
+	parseSearch := state.UseAtom(searchAtom, "")
+	parseNav := router.UseNavigate()
+	parseRevalidator := router.UseRevalidator()
+	parseQuery := router.UseQuery()
+	parseRouteData := router.UseRouteData()
+	parseSearchID := ui.UseId()
+	parseQueryTerm := parseQuery.Get("q")
 
 	ui.UseEffect(func() func() {
-		if strings.TrimSpace(search.Get()) != strings.TrimSpace(queryTerm) {
-			search.Set(queryTerm)
+		if strings.TrimSpace(parseSearch.Get()) != strings.TrimSpace(parseQueryTerm) {
+			parseSearch.Set(parseQueryTerm)
 		}
 		return nil
-	}, queryTerm)
+	}, parseQueryTerm)
 
-	updateSearch := ui.UseEvent(func(event ui.InputEvent) {
-		value := event.GetValue()
-		search.Set(value)
-		trimmed := strings.TrimSpace(value)
-		if trimmed == "" {
-			nav.Replace("/search")
+	parseUpdateSearch := ui.UseEvent(func(parseEvent ui.InputEvent) {
+		parseValue := parseEvent.GetValue()
+		parseSearch.Set(parseValue)
+		parseTrimmed := strings.TrimSpace(parseValue)
+		if parseTrimmed == "" {
+			parseNav.Replace("/search")
 			return
 		}
-		nav.Replace("/search?q=" + url.QueryEscape(trimmed))
+		parseNav.Replace("/search?q=" + url.QueryEscape(parseTrimmed))
 	})
 
-	results, _ := props["results"].([]HookRecord)
-	if routeData != nil {
-		if loadedResults, ok := routeData["results"].([]HookRecord); ok {
-			results = loadedResults
+	parseResults, _ := parseProps["results"].([]HookRecord)
+	if parseRouteData != nil {
+		if parseLoadedResults, parseOk := parseRouteData["results"].([]HookRecord); parseOk {
+			parseResults = parseLoadedResults
 		}
 	}
 
-	count := len(results)
-	resultCards := make([]ui.Node, 0, count)
-	for _, record := range results {
-		record := record
-		hookTags := make([]ui.Node, 0, len(record.Hooks))
-		for _, hook := range record.Hooks {
-			hookTags = append(hookTags, html.Code(html.Props{
+	parseCount := len(parseResults)
+	parseResultCards := make([]ui.Node, 0, parseCount)
+	for _, parseRecord := range parseResults {
+		parseRecord2 := parseRecord
+		parseHookTags := make([]ui.Node, 0, len(parseRecord2.Hooks))
+		for _, parseHook := range parseRecord2.Hooks {
+			parseHookTags = append(parseHookTags, html.Code(html.Props{
 				Class: "rounded-full border border-slate-700/80 bg-slate-950/65 px-3 py-1 text-xs text-slate-200",
-			}, html.Text(hook)))
+			}, html.Text(parseHook)))
 		}
 
-		resultCards = append(resultCards, html.Article(html.Props{Class: "rounded-3xl border border-slate-800/80 bg-[#0d1722]/82 p-6"},
+		parseResultCards = append(parseResultCards, html.Article(html.Props{Class: "rounded-3xl border border-slate-800/80 bg-[#0d1722]/82 p-6"},
 			html.Div(html.Props{Class: "flex items-start justify-between gap-4"},
 				html.Div(html.Props{},
-					html.H3(html.Props{Class: "text-2xl font-black"}, html.Text(record.Name)),
-					html.P(html.Props{Class: "mt-3 text-sm leading-6 text-slate-300"}, html.Text(record.Summary)),
+					html.H3(html.Props{Class: "text-2xl font-black"}, html.Text(parseRecord2.Name)),
+					html.P(html.Props{Class: "mt-3 text-sm leading-6 text-slate-300"}, html.Text(parseRecord2.Summary)),
 				),
 				html.Button(html.Props{
-					OnClick: ui.UseEvent(func() { nav.Navigate("/data/" + recordSlug(record.Name)) }),
+					OnClick: ui.UseEvent(func() { parseNav.Navigate("/data/" + recordSlug(parseRecord2.Name)) }),
 					Class:   "rounded-full border border-cyan-900/80 bg-cyan-950/60 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/80",
 				}, html.Text("Open detail")),
 			),
-			html.Div(html.Props{Class: "mt-5 flex flex-wrap gap-2"}, hookTags...),
+			html.Div(html.Props{Class: "mt-5 flex flex-wrap gap-2"}, parseHookTags...),
 		))
 	}
 
@@ -887,9 +887,9 @@ func SearchContent(props Attrs) ui.Node {
 				),
 				html.Div(html.Props{Class: "flex items-end gap-4"},
 					html.Small(html.Props{Class: "block text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Matches")),
-					html.P(html.Props{Class: "mt-2 text-lg font-bold"}, html.Text(fmt.Sprintf("%d", count))),
-					html.Button(html.Props{OnClick: ui.UseEvent(func() { revalidator.Revalidate() }), Class: "rounded-full border border-cyan-900/80 bg-cyan-950/70 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/80"}, html.Text(func() string {
-						if revalidator.Loading() {
+					html.P(html.Props{Class: "mt-2 text-lg font-bold"}, html.Text(fmt.Sprintf("%d", parseCount))),
+					html.Button(html.Props{OnClick: ui.UseEvent(func() { parseRevalidator.Revalidate() }), Class: "rounded-full border border-cyan-900/80 bg-cyan-950/70 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-900/80"}, html.Text(func() string {
+						if parseRevalidator.Loading() {
 							return "Revalidating..."
 						}
 						return "Revalidate route"
@@ -897,43 +897,43 @@ func SearchContent(props Attrs) ui.Node {
 				),
 			),
 			html.Div(html.Props{Class: "mt-8"},
-				html.Label(html.Props{For: searchID, Class: "mb-2 block text-xs uppercase tracking-[0.28em] text-slate-400"}, html.Text("Query")),
+				html.Label(html.Props{For: parseSearchID, Class: "mb-2 block text-xs uppercase tracking-[0.28em] text-slate-400"}, html.Text("Query")),
 				html.Input(html.Props{
-					ID:          searchID,
-					Value:       queryTerm,
-					OnInput:     updateSearch,
+					ID:          parseSearchID,
+					Value:       parseQueryTerm,
+					OnInput:     parseUpdateSearch,
 					Placeholder: "Search hooks, summaries, or categories",
 					Class:       "w-full rounded-2xl border border-slate-700/80 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none",
 				}),
 			),
 		),
 		func() ui.Node {
-			if count == 0 {
+			if parseCount == 0 {
 				return html.Div(html.Props{Class: "rounded-3xl border border-slate-800/80 bg-slate-950/65 p-8 text-slate-300"},
 					html.P(html.Props{}, html.Text("No route-loaded results matched the current query.")),
 				)
 			}
-			return html.Section(html.Props{Class: "grid gap-6 md:grid-cols-2"}, resultCards...)
+			return html.Section(html.Props{Class: "grid gap-6 md:grid-cols-2"}, parseResultCards...)
 		}(),
 	)
 }
 
-func SecureContent(props Attrs) ui.Node {
-	nav := router.UseNavigate()
-	revalidator := router.UseRevalidator()
-	routeData := router.UseRouteData()
-	userName, _ := props["userName"].(string)
-	role, _ := props["role"].(string)
-	grantedBy, _ := props["grantedBy"].(string)
-	if routeData != nil {
-		if value, ok := routeData["userName"].(string); ok && value != "" {
-			userName = value
+func SecureContent(parseProps Attrs) ui.Node {
+	parseNav := router.UseNavigate()
+	parseRevalidator := router.UseRevalidator()
+	parseRouteData := router.UseRouteData()
+	parseUserName, _ := parseProps["userName"].(string)
+	parseRole, _ := parseProps["role"].(string)
+	parseGrantedBy, _ := parseProps["grantedBy"].(string)
+	if parseRouteData != nil {
+		if parseValue, parseOk := parseRouteData["userName"].(string); parseOk && parseValue != "" {
+			parseUserName = parseValue
 		}
-		if value, ok := routeData["role"].(string); ok && value != "" {
-			role = value
+		if parseValue2, parseOk2 := parseRouteData["role"].(string); parseOk2 && parseValue2 != "" {
+			parseRole = parseValue2
 		}
-		if value, ok := routeData["grantedBy"].(string); ok && value != "" {
-			grantedBy = value
+		if parseValue3, parseOk3 := parseRouteData["grantedBy"].(string); parseOk3 && parseValue3 != "" {
+			parseGrantedBy = parseValue3
 		}
 	}
 
@@ -945,28 +945,28 @@ func SecureContent(props Attrs) ui.Node {
 				html.P(html.Props{Class: "mt-2 text-slate-300"}, html.Text("This page only renders after the route loader approves the simulated session state.")),
 			),
 			html.Div(html.Props{Class: "flex gap-3"},
-				html.Button(html.Props{OnClick: ui.UseEvent(func() { revalidator.Revalidate() }), Class: "rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80"}, html.Text(func() string {
-					if revalidator.Loading() {
+				html.Button(html.Props{OnClick: ui.UseEvent(func() { parseRevalidator.Revalidate() }), Class: "rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80"}, html.Text(func() string {
+					if parseRevalidator.Loading() {
 						return "Revalidating..."
 					}
 					return "Revalidate route"
 				}())),
-				html.Button(html.Props{OnClick: ui.UseEvent(func() { nav.Replace("/secure") }), Class: "rounded-full border border-rose-400/30 bg-rose-400/10 px-5 py-3 font-semibold text-rose-100 hover:bg-rose-400/20"}, html.Text("Revoke access")),
-				html.Button(html.Props{OnClick: ui.UseEvent(func() { nav.Replace("/secure?auth=true&role=auditor") }), Class: "rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80"}, html.Text("Switch role")),
+				html.Button(html.Props{OnClick: ui.UseEvent(func() { parseNav.Replace("/secure") }), Class: "rounded-full border border-rose-400/30 bg-rose-400/10 px-5 py-3 font-semibold text-rose-100 hover:bg-rose-400/20"}, html.Text("Revoke access")),
+				html.Button(html.Props{OnClick: ui.UseEvent(func() { parseNav.Replace("/secure?auth=true&role=auditor") }), Class: "rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80"}, html.Text("Switch role")),
 			),
 		),
 		html.Div(html.Props{Class: "grid gap-6 md:grid-cols-3"},
 			html.Div(html.Props{Class: "rounded-[2rem] border border-slate-800/80 bg-[#0d1722]/85 p-6"},
 				html.Small(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("User")),
-				html.H3(html.Props{Class: "mt-3 text-2xl font-black"}, html.Text(userName)),
+				html.H3(html.Props{Class: "mt-3 text-2xl font-black"}, html.Text(parseUserName)),
 			),
 			html.Div(html.Props{Class: "rounded-[2rem] border border-slate-800/80 bg-[#0d1722]/85 p-6"},
 				html.Small(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Role")),
-				html.H3(html.Props{Class: "mt-3 text-2xl font-black"}, html.Text(strings.ToUpper(role))),
+				html.H3(html.Props{Class: "mt-3 text-2xl font-black"}, html.Text(strings.ToUpper(parseRole))),
 			),
 			html.Div(html.Props{Class: "rounded-[2rem] border border-slate-800/80 bg-[#0d1722]/85 p-6"},
 				html.Small(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Granted by")),
-				html.H3(html.Props{Class: "mt-3 text-2xl font-black"}, html.Text(grantedBy)),
+				html.H3(html.Props{Class: "mt-3 text-2xl font-black"}, html.Text(parseGrantedBy)),
 			),
 		),
 		html.Div(html.Props{Class: "rounded-[2rem] border border-slate-800/80 bg-slate-950/65 p-8"},
@@ -976,71 +976,71 @@ func SecureContent(props Attrs) ui.Node {
 }
 
 func PlaygroundContent() ui.Node {
-	notice := state.UseAtom(noticeAtom, Notice{})
-	params := router.UseParams()
-	nav := router.UseNavigate()
-	title := ui.UseState("")
-	notes := ui.UseState("")
-	routeMode := normalizePlaygroundMode(params.Get("mode"))
-	mode := ui.UseState(routeMode)
-	savedCount := ui.UseState(0)
-	sessionCode := ui.UseRef("omi-" + time.Now().Format("150405"))
+	parseNotice := state.UseAtom(noticeAtom, Notice{})
+	parseParams := router.UseParams()
+	parseNav := router.UseNavigate()
+	parseTitle := ui.UseState("")
+	parseNotes := ui.UseState("")
+	parseRouteMode := normalizePlaygroundMode(parseParams.Get("mode"))
+	parseMode := ui.UseState(parseRouteMode)
+	parseSavedCount := ui.UseState(0)
+	parseSessionCode := ui.UseRef("omi-" + time.Now().Format("150405"))
 
-	titleID := ui.UseId()
-	notesID := ui.UseId()
-	modeID := ui.UseId()
+	parseTitleID := ui.UseId()
+	parseNotesID := ui.UseId()
+	parseModeID := ui.UseId()
 
-	preview := ui.UseMemo(func() string {
-		trimmed := strings.TrimSpace(notes.Get())
-		if trimmed == "" {
-			trimmed = "No notes yet."
+	parsePreview := ui.UseMemo(func() string {
+		parseTrimmed := strings.TrimSpace(parseNotes.Get())
+		if parseTrimmed == "" {
+			parseTrimmed = "No notes yet."
 		}
-		return fmt.Sprintf("%s | %s | %s", title.Get(), strings.ToUpper(mode.Get()), trimmed)
-	}, title.Get(), notes.Get(), mode.Get())
+		return fmt.Sprintf("%s | %s | %s", parseTitle.Get(), strings.ToUpper(parseMode.Get()), parseTrimmed)
+	}, parseTitle.Get(), parseNotes.Get(), parseMode.Get())
 
-	saveCallback := ui.UseCallback(func() {
-		savedCount.Update(func(v int) int { return v + 1 })
-		notice.Set(Notice{
+	parseSaveCallback := ui.UseCallback(func() {
+		parseSavedCount.Update(func(parseV int) int { return parseV + 1 })
+		parseNotice.Set(Notice{
 			Title: "Playground",
-			Body:  "Saved session " + sessionCode.Get() + " with mode " + strings.ToUpper(mode.Get()) + ".",
+			Body:  "Saved session " + parseSessionCode.Get() + " with mode " + strings.ToUpper(parseMode.Get()) + ".",
 			Level: "warn",
 		})
-	}, title.Get(), notes.Get(), mode.Get(), savedCount.Get())
+	}, parseTitle.Get(), parseNotes.Get(), parseMode.Get(), parseSavedCount.Get())
 
-	save := ui.UseEvent(saveCallback)
+	parseSave := ui.UseEvent(parseSaveCallback)
 	reset := ui.UseEvent(func() {
-		title.Set("")
-		notes.Set("")
-		mode.Set("agent")
-		nav.Replace("/playground/agent")
+		parseTitle.Set("")
+		parseNotes.Set("")
+		parseMode.Set("agent")
+		parseNav.Replace("/playground/agent")
 	})
 
-	updateTitle := ui.UseEvent(func(event ui.InputEvent) {
-		title.Set(event.GetValue())
+	parseUpdateTitle := ui.UseEvent(func(parseEvent ui.InputEvent) {
+		parseTitle.Set(parseEvent.GetValue())
 	})
-	updateNotes := ui.UseEvent(func(event ui.InputEvent) {
-		notes.Set(event.GetValue())
+	parseUpdateNotes := ui.UseEvent(func(parseEvent2 ui.InputEvent) {
+		parseNotes.Set(parseEvent2.GetValue())
 	})
-	updateMode := ui.UseEvent(func(event ui.ChangeEvent) {
-		nextMode := normalizePlaygroundMode(event.GetValue())
-		mode.Set(nextMode)
-		nav.Replace("/playground/" + nextMode)
+	parseUpdateMode := ui.UseEvent(func(parseEvent3 ui.ChangeEvent) {
+		parseNextMode := normalizePlaygroundMode(parseEvent3.GetValue())
+		parseMode.Set(parseNextMode)
+		parseNav.Replace("/playground/" + parseNextMode)
 	})
-
-	ui.UseEffect(func() func() {
-		if mode.Get() != routeMode {
-			mode.Set(routeMode)
-		}
-		return nil
-	}, routeMode)
 
 	ui.UseEffect(func() func() {
-		storage := js.Global().Get("localStorage")
-		if storage.Truthy() {
-			storage.Call("setItem", "omi-draft", preview)
+		if parseMode.Get() != parseRouteMode {
+			parseMode.Set(parseRouteMode)
 		}
 		return nil
-	}, preview)
+	}, parseRouteMode)
+
+	ui.UseEffect(func() func() {
+		parseStorage := js.Global().Get("localStorage")
+		if parseStorage.Truthy() {
+			parseStorage.Call("setItem", "omi-draft", parsePreview)
+		}
+		return nil
+	}, parsePreview)
 
 	return html.Div(html.Props{
 		Class: "grid gap-8 lg:grid-cols-[1.15fr_0.85fr]",
@@ -1051,20 +1051,20 @@ func PlaygroundContent() ui.Node {
 			html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Playground")),
 			html.H2(html.Props{Class: "mt-3 text-4xl font-black"}, html.Text("Forms, IDs, callbacks, refs, and effect persistence.")),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-				html.Button(html.Props{OnClick: ui.UseEvent(func() { nav.Navigate("/playground/agent") }), Class: func() string {
-					if mode.Get() == "agent" {
+				html.Button(html.Props{OnClick: ui.UseEvent(func() { parseNav.Navigate("/playground/agent") }), Class: func() string {
+					if parseMode.Get() == "agent" {
 						return "rounded-full border border-cyan-900/90 bg-cyan-950/70 px-4 py-2 text-sm font-semibold text-cyan-100"
 					}
 					return "rounded-full border border-slate-700/80 bg-slate-900/70 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800/90"
 				}()}, html.Text("/playground/agent")),
-				html.Button(html.Props{OnClick: ui.UseEvent(func() { nav.Navigate("/playground/review") }), Class: func() string {
-					if mode.Get() == "review" {
+				html.Button(html.Props{OnClick: ui.UseEvent(func() { parseNav.Navigate("/playground/review") }), Class: func() string {
+					if parseMode.Get() == "review" {
 						return "rounded-full border border-cyan-900/90 bg-cyan-950/70 px-4 py-2 text-sm font-semibold text-cyan-100"
 					}
 					return "rounded-full border border-slate-700/80 bg-slate-900/70 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800/90"
 				}()}, html.Text("/playground/review")),
-				html.Button(html.Props{OnClick: ui.UseEvent(func() { nav.Navigate("/playground/benchmark") }), Class: func() string {
-					if mode.Get() == "benchmark" {
+				html.Button(html.Props{OnClick: ui.UseEvent(func() { parseNav.Navigate("/playground/benchmark") }), Class: func() string {
+					if parseMode.Get() == "benchmark" {
 						return "rounded-full border border-cyan-900/90 bg-cyan-950/70 px-4 py-2 text-sm font-semibold text-cyan-100"
 					}
 					return "rounded-full border border-slate-700/80 bg-slate-900/70 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800/90"
@@ -1082,26 +1082,26 @@ func PlaygroundContent() ui.Node {
 					}, html.Text("Compose a session")),
 					html.Div(html.Props{},
 						html.Label(html.Props{
-							For:   titleID,
+							For:   parseTitleID,
 							Class: "mb-2 block text-xs uppercase tracking-[0.25em] text-slate-400",
 						}, html.Text("Title")),
 						html.Input(html.Props{
-							ID:          titleID,
-							Value:       title.Get(),
-							OnInput:     updateTitle,
+							ID:          parseTitleID,
+							Value:       parseTitle.Get(),
+							OnInput:     parseUpdateTitle,
 							Placeholder: "Agent coders and durable UI APIs",
 							Class:       "w-full rounded-2xl border border-slate-700/80 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none",
 						}),
 					),
 					html.Div(html.Props{},
 						html.Label(html.Props{
-							For:   modeID,
+							For:   parseModeID,
 							Class: "mb-2 block text-xs uppercase tracking-[0.25em] text-slate-400",
 						}, html.Text("Mode")),
 						html.Select(html.Props{
-							ID:       modeID,
-							Value:    mode.Get(),
-							OnChange: updateMode,
+							ID:       parseModeID,
+							Value:    parseMode.Get(),
+							OnChange: parseUpdateMode,
 							Class:    "w-full rounded-2xl border border-slate-700/80 bg-slate-950/70 px-4 py-3 text-slate-100 focus:outline-none",
 						},
 							html.Option(html.Props{Value: "agent"}, html.Text("Agent")),
@@ -1111,13 +1111,13 @@ func PlaygroundContent() ui.Node {
 					),
 					html.Div(html.Props{},
 						html.Label(html.Props{
-							For:   notesID,
+							For:   parseNotesID,
 							Class: "mb-2 block text-xs uppercase tracking-[0.25em] text-slate-400",
 						}, html.Text("Notes")),
 						html.Textarea(html.Props{
-							ID:          notesID,
-							Value:       notes.Get(),
-							OnInput:     updateNotes,
+							ID:          parseNotesID,
+							Value:       parseNotes.Get(),
+							OnInput:     parseUpdateNotes,
 							Placeholder: "Describe the scenario you want this session to cover...",
 							Class:       "min-h-[10rem] w-full rounded-3xl border border-slate-700/80 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none",
 						}),
@@ -1128,7 +1128,7 @@ func PlaygroundContent() ui.Node {
 				},
 					html.Button(html.Props{
 						Type:    "button",
-						OnClick: save,
+						OnClick: parseSave,
 						Class:   "rounded-full border border-cyan-900/90 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80",
 					}, html.Text("Save session")),
 					html.Button(html.Props{
@@ -1148,21 +1148,21 @@ func PlaygroundContent() ui.Node {
 				html.Small(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Live preview")),
 				html.Pre(html.Props{
 					Class: "mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-slate-200",
-				}, html.Text(preview)),
+				}, html.Text(parsePreview)),
 			),
 			html.Div(html.Props{
 				Class: "rounded-[2rem] border border-slate-800/80 bg-[#0d1722]/82 p-6",
 			},
 				html.Small(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Session ref")),
-				html.H3(html.Props{Class: "mt-3 text-2xl font-black"}, html.Text(sessionCode.Get())),
-				html.P(html.Props{Class: "mt-3 text-sm leading-6 text-slate-300"}, html.Text(fmt.Sprintf("Saved %d times in this browser session.", savedCount.Get()))),
+				html.H3(html.Props{Class: "mt-3 text-2xl font-black"}, html.Text(parseSessionCode.Get())),
+				html.P(html.Props{Class: "mt-3 text-sm leading-6 text-slate-300"}, html.Text(fmt.Sprintf("Saved %d times in this browser session.", parseSavedCount.Get()))),
 				func() ui.Node {
-					if notice.Get().Title == "" {
+					if parseNotice.Get().Title == "" {
 						return nil
 					}
 					return html.P(html.Props{
 						Class: "mt-4 rounded-2xl border border-slate-700/80 bg-slate-950/65 px-4 py-3 text-sm text-slate-200",
-					}, html.Text("Latest global notice: "+notice.Get().Body))
+					}, html.Text("Latest global notice: "+parseNotice.Get().Body))
 				}(),
 			),
 		),

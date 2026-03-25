@@ -6,37 +6,37 @@ import (
 	"testing"
 )
 
-func TestGeneratedLandingMatchesTemplateOutput(t *testing.T) {
-	templatePath := filepath.Join(".", "landing.template.html")
-	generatedPath := filepath.Join(".", "generated_landing.go")
+func TestGeneratedLandingMatchesTemplateOutput(parseT *testing.T) {
+	parseTemplatePath := filepath.Join(".", "landing.template.html")
+	parseGeneratedPath := filepath.Join(".", "generated_landing.go")
 
-	got, err := GenerateFromFile(templatePath, TemplateConfig{
+	parseGot, parseErr := GenerateFromFile(parseTemplatePath, TemplateConfig{
 		PackageName: "templatelowering",
 		StructName:  "LandingProps",
 		FuncName:    "RenderLanding",
 	})
-	if err != nil {
-		t.Fatalf("GenerateFromFile() error = %v", err)
+	if parseErr != nil {
+		parseT.Fatalf("GenerateFromFile() error = %v", parseErr)
 	}
 
-	wantBytes, err := os.ReadFile(generatedPath)
-	if err != nil {
-		t.Fatalf("ReadFile(%q) error = %v", generatedPath, err)
+	parseWantBytes, parseErr := os.ReadFile(parseGeneratedPath)
+	if parseErr != nil {
+		parseT.Fatalf("ReadFile(%q) error = %v", parseGeneratedPath, parseErr)
 	}
-	if got != string(wantBytes) {
-		t.Fatalf("generated output drifted from checked-in Go file")
+	if parseGot != string(parseWantBytes) {
+		parseT.Fatalf("generated output drifted from checked-in Go file")
 	}
 }
 
-func TestRenderLandingReturnsNode(t *testing.T) {
-	node := RenderLanding(LandingProps{
+func TestRenderLandingReturnsNode(parseT *testing.T) {
+	parseNode := RenderLanding(LandingProps{
 		Eyebrow:      "Compiler experiment",
 		Headline:     "Optional template lowering",
 		Summary:      "This lowers to ordinary Go builders.",
 		PrimaryTag:   "Inspectable",
 		SecondaryTag: "Optional",
 	})
-	if node == nil {
-		t.Fatal("RenderLanding() returned nil")
+	if parseNode == nil {
+		parseT.Fatal("RenderLanding() returned nil")
 	}
 }

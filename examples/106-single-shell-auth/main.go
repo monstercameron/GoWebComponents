@@ -44,61 +44,61 @@ var (
 	workspaceRoute = router.MustDefineRoute("/workspace")
 )
 
-func setShellSession(atom state.Atom[shellSession], next shellSession) {
-	liveShellSession = next
-	atom.Set(next)
+func setShellSession(parseAtom state.Atom[shellSession], parseNext shellSession) {
+	liveShellSession = parseNext
+	parseAtom.Set(parseNext)
 }
 
-func sessionSubject(session shellSession) string {
-	subject := strings.TrimSpace(session.Subject)
-	if subject == "" {
+func sessionSubject(parseSession shellSession) string {
+	parseSubject := strings.TrimSpace(parseSession.Subject)
+	if parseSubject == "" {
 		return "guest"
 	}
-	return subject
+	return parseSubject
 }
 
 func shellNavigationPanel() ui.Node {
-	nav := router.UseNavigate()
-	sessionAtom := state.UseAtom(shellSessionAtomID, liveShellSession)
-	session := sessionAtom.Get()
-	inspection := router.InspectCurrentRoute()
+	parseNav := router.UseNavigate()
+	parseSessionAtom := state.UseAtom(shellSessionAtomID, liveShellSession)
+	parseSession := parseSessionAtom.Get()
+	parseInspection := router.InspectCurrentRoute()
 
 	return shared.ExamplePanel("One running shell",
 		html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("These routes all live inside one mounted WASM client. Marketing pages, sign-in, and the protected workspace change through router navigation and shared auth state instead of bouncing through server-rendered detour pages.")),
 		html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
 			shared.ExampleButton("Marketing home", ui.UseEvent(func() {
-				nav.Navigate(marketingRoute.MustPath(nil))
+				parseNav.Navigate(marketingRoute.MustPath(nil))
 			})),
 			shared.ExampleButton("Pricing", ui.UseEvent(func() {
-				nav.Navigate(pricingRoute.MustPath(nil))
+				parseNav.Navigate(pricingRoute.MustPath(nil))
 			})),
 			shared.ExampleButton("Sign in", ui.UseEvent(func() {
-				nav.Navigate(signInRoute.MustPath(nil))
+				parseNav.Navigate(signInRoute.MustPath(nil))
 			})),
 			shared.ExampleButton("Workspace", ui.UseEvent(func() {
-				nav.Navigate(workspaceRoute.MustPath(nil))
+				parseNav.Navigate(workspaceRoute.MustPath(nil))
 			})),
 		),
 		html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-4"},
-			shared.ExampleStat("Current path", inspection.Path),
-			shared.ExampleStat("Session", session.Status),
-			shared.ExampleStat("Subject", sessionSubject(session)),
-			shared.ExampleStat("Shell mode", session.SessionMode),
+			shared.ExampleStat("Current path", parseInspection.Path),
+			shared.ExampleStat("Session", parseSession.Status),
+			shared.ExampleStat("Subject", sessionSubject(parseSession)),
+			shared.ExampleStat("Shell mode", parseSession.SessionMode),
 		),
 	)
 }
 
-func singleShellPage(title, feature, summary string, content ...ui.Node) ui.Node {
-	panels := make([]ui.Node, 0, len(content)+1)
-	panels = append(panels, shellNavigationPanel())
-	panels = append(panels, content...)
-	return shared.ExamplePage(title, feature, summary, panels...)
+func singleShellPage(parseTitle, parseFeature, parseSummary string, parseContent ...ui.Node) ui.Node {
+	parsePanels := make([]ui.Node, 0, len(parseContent)+1)
+	parsePanels = append(parsePanels, shellNavigationPanel())
+	parsePanels = append(parsePanels, parseContent...)
+	return shared.ExamplePage(parseTitle, parseFeature, parseSummary, parsePanels...)
 }
 
 func marketingPageView() ui.Node {
-	nav := router.UseNavigate()
-	sessionAtom := state.UseAtom(shellSessionAtomID, liveShellSession)
-	session := sessionAtom.Get()
+	parseNav := router.UseNavigate()
+	parseSessionAtom := state.UseAtom(shellSessionAtomID, liveShellSession)
+	parseSession := parseSessionAtom.Get()
 
 	return singleShellPage(
 		"Single-shell auth",
@@ -108,18 +108,18 @@ func marketingPageView() ui.Node {
 			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("This is the anonymous marketing surface. Jump directly to the protected workspace to watch the router preserve a bounded return target and redirect into the sign-in route without leaving the running shell.")),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
 				shared.ExampleButton("Open pricing", ui.UseEvent(func() {
-					nav.Navigate(pricingRoute.MustPath(nil))
+					parseNav.Navigate(pricingRoute.MustPath(nil))
 				})),
 				shared.ExampleButton("Go to sign in", ui.UseEvent(func() {
-					nav.Navigate(signInRoute.MustPath(nil))
+					parseNav.Navigate(signInRoute.MustPath(nil))
 				})),
 				shared.ExampleButton("Try protected workspace", ui.UseEvent(func() {
-					nav.Navigate(workspaceRoute.MustPath(nil))
+					parseNav.Navigate(workspaceRoute.MustPath(nil))
 				})),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
-				shared.ExampleStat("Current session", session.Status),
-				shared.ExampleStat("Workspace name", session.Workspace),
+				shared.ExampleStat("Current session", parseSession.Status),
+				shared.ExampleStat("Workspace name", parseSession.Workspace),
 				shared.ExampleStat("Guard target", workspaceRoute.MustPath(nil)),
 			),
 		),
@@ -138,7 +138,7 @@ func marketingPage(router.Attrs) *router.Element {
 }
 
 func pricingPageView() ui.Node {
-	nav := router.UseNavigate()
+	parseNav := router.UseNavigate()
 	return singleShellPage(
 		"Single-shell pricing",
 		"marketing routes can coexist with auth routes and workspace routes",
@@ -147,13 +147,13 @@ func pricingPageView() ui.Node {
 			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("A single-shell product does not need separate HTML entrypoints for every auth state. Pricing stays public, and sign-in can still continue into the same protected route contract after the user chooses to proceed.")),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
 				shared.ExampleButton("Return to marketing", ui.UseEvent(func() {
-					nav.Navigate(marketingRoute.MustPath(nil))
+					parseNav.Navigate(marketingRoute.MustPath(nil))
 				})),
 				shared.ExampleButton("Continue to sign in", ui.UseEvent(func() {
-					nav.Navigate(signInRoute.MustPath(nil))
+					parseNav.Navigate(signInRoute.MustPath(nil))
 				})),
 				shared.ExampleButton("Request workspace", ui.UseEvent(func() {
-					nav.Navigate(workspaceRoute.MustPath(nil))
+					parseNav.Navigate(workspaceRoute.MustPath(nil))
 				})),
 			),
 		),
@@ -165,29 +165,29 @@ func pricingPage(router.Attrs) *router.Element {
 }
 
 func signInPageView() ui.Node {
-	nav := router.UseNavigate()
-	query := router.UseQuery()
-	sessionAtom := state.UseAtom(shellSessionAtomID, liveShellSession)
-	returnTo := router.ReadReturnTo(query.Values(), workspaceRoute.MustPath(nil))
+	parseNav := router.UseNavigate()
+	parseQuery := router.UseQuery()
+	parseSessionAtom := state.UseAtom(shellSessionAtomID, liveShellSession)
+	parseReturnTo := router.ReadReturnTo(parseQuery.Values(), workspaceRoute.MustPath(nil))
 
-	signInOperator := ui.UseEvent(func() {
-		setShellSession(sessionAtom, shellSession{
+	parseSignInOperator := ui.UseEvent(func() {
+		setShellSession(parseSessionAtom, shellSession{
 			Status:      sessionAuthenticated,
 			Subject:     "atlas-operator",
 			Workspace:   "warehouse-ops",
 			SessionMode: "workspace",
 		})
-		nav.Replace(returnTo)
+		parseNav.Replace(parseReturnTo)
 	})
 
-	signInFinance := ui.UseEvent(func() {
-		setShellSession(sessionAtom, shellSession{
+	parseSignInFinance := ui.UseEvent(func() {
+		setShellSession(parseSessionAtom, shellSession{
 			Status:      sessionAuthenticated,
 			Subject:     "atlas-finance",
 			Workspace:   "finance-review",
 			SessionMode: "workspace",
 		})
-		nav.Replace(returnTo)
+		parseNav.Replace(parseReturnTo)
 	})
 
 	return singleShellPage(
@@ -195,12 +195,12 @@ func signInPageView() ui.Node {
 		"route recovery with one client-owned shell",
 		"The sign-in route reads the bounded return target, updates the shared auth session, and replaces navigation straight into the protected workspace. The shell never hands off to a second HTML app or full-page redirect.",
 		shared.ExamplePanel("Return-to recovery",
-			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("Current bounded return target: "+returnTo)),
+			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("Current bounded return target: "+parseReturnTo)),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-				shared.ExampleButton("Sign in as operator", signInOperator),
-				shared.ExampleButton("Sign in as finance reviewer", signInFinance),
+				shared.ExampleButton("Sign in as operator", parseSignInOperator),
+				shared.ExampleButton("Sign in as finance reviewer", parseSignInFinance),
 				shared.ExampleButton("Back to marketing", ui.UseEvent(func() {
-					nav.Replace(marketingRoute.MustPath(nil))
+					parseNav.Replace(marketingRoute.MustPath(nil))
 				})),
 			),
 			shared.ExampleCode(
@@ -217,18 +217,18 @@ func signInPage(router.Attrs) *router.Element {
 }
 
 func workspacePageView() ui.Node {
-	nav := router.UseNavigate()
-	sessionAtom := state.UseAtom(shellSessionAtomID, liveShellSession)
-	session := sessionAtom.Get()
+	parseNav := router.UseNavigate()
+	parseSessionAtom := state.UseAtom(shellSessionAtomID, liveShellSession)
+	parseSession := parseSessionAtom.Get()
 
-	signOut := ui.UseEvent(func() {
-		setShellSession(sessionAtom, shellSession{
+	parseSignOut := ui.UseEvent(func() {
+		setShellSession(parseSessionAtom, shellSession{
 			Status:      sessionGuest,
 			Subject:     "guest",
 			Workspace:   "public-site",
 			SessionMode: "marketing",
 		})
-		nav.Replace(marketingRoute.MustPath(nil))
+		parseNav.Replace(marketingRoute.MustPath(nil))
 	})
 
 	return singleShellPage(
@@ -238,15 +238,15 @@ func workspacePageView() ui.Node {
 		shared.ExamplePanel("Authenticated workspace route",
 			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("No second shell booted to show this screen. The same client instance updated the auth atom, replaced the route, and kept navigation inside the running session-aware app surface.")),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
-				shared.ExampleStat("Signed in as", sessionSubject(session)),
-				shared.ExampleStat("Workspace", session.Workspace),
-				shared.ExampleStat("Session mode", session.SessionMode),
+				shared.ExampleStat("Signed in as", sessionSubject(parseSession)),
+				shared.ExampleStat("Workspace", parseSession.Workspace),
+				shared.ExampleStat("Session mode", parseSession.SessionMode),
 			),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
 				shared.ExampleButton("Open pricing without leaving shell", ui.UseEvent(func() {
-					nav.Navigate(pricingRoute.MustPath(nil))
+					parseNav.Navigate(pricingRoute.MustPath(nil))
 				})),
-				shared.ExampleButton("Sign out to marketing", signOut),
+				shared.ExampleButton("Sign out to marketing", parseSignOut),
 			),
 		),
 		shared.ExamplePanel("Route contract usage",
@@ -265,7 +265,7 @@ func workspacePage(router.Attrs) *router.Element {
 }
 
 func notFoundPageView() ui.Node {
-	nav := router.UseNavigate()
+	parseNav := router.UseNavigate()
 	return shared.ExamplePage(
 		"Single-shell auth",
 		"route fallback",
@@ -274,7 +274,7 @@ func notFoundPageView() ui.Node {
 			html.P(html.Props{Class: "mt-3 leading-7 text-slate-300"}, html.Text("Use the button below to jump back into the marketing route and continue the single-shell auth flow.")),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
 				shared.ExampleButton("Return to marketing", ui.UseEvent(func() {
-					nav.Replace(marketingRoute.MustPath(nil))
+					parseNav.Replace(marketingRoute.MustPath(nil))
 				})),
 			),
 		),
@@ -285,27 +285,27 @@ func notFoundPage(router.Attrs) *router.Element {
 	return ui.CreateElement(notFoundPageView)
 }
 
-func protectedWorkspaceGuard(ctx router.RouteContext) router.GuardResult {
+func protectedWorkspaceGuard(parseCtx router.RouteContext) router.GuardResult {
 	if liveShellSession.Status == sessionAuthenticated {
 		return router.AllowNavigation()
 	}
 
-	values := url.Values{}
-	values.Set(router.ReturnToParam, router.PreserveReturnTo(ctx.Path, ctx.Query.Values()))
-	return router.RedirectNavigation(signInRoute.MustHref(nil, values))
+	parseValues := url.Values{}
+	parseValues.Set(router.ReturnToParam, router.PreserveReturnTo(parseCtx.Path, parseCtx.Query.Values()))
+	return router.RedirectNavigation(signInRoute.MustHref(nil, parseValues))
 }
 
 func main() {
 	utils.DisableAllDebug()
 
-	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: marketingRoute.Pattern()})
-	r.Register(marketingRoute.Pattern(), marketingPage)
-	r.Register(pricingRoute.Pattern(), pricingPage)
-	r.Register(signInRoute.Pattern(), signInPage)
-	r.Register(workspaceRoute.Pattern(), workspacePage, router.Options{
+	parseR := router.NewHashRouter(router.RouterOptions{DefaultRoute: marketingRoute.Pattern()})
+	parseR.Register(marketingRoute.Pattern(), marketingPage)
+	parseR.Register(pricingRoute.Pattern(), pricingPage)
+	parseR.Register(signInRoute.Pattern(), signInPage)
+	parseR.Register(workspaceRoute.Pattern(), workspacePage, router.Options{
 		BeforeEnter: protectedWorkspaceGuard,
 	})
-	r.Register("*", notFoundPage)
-	r.Mount("#app")
+	parseR.Register("*", notFoundPage)
+	parseR.Mount("#app")
 	select {}
 }

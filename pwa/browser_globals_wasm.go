@@ -6,23 +6,23 @@ package pwa
 import "syscall/js"
 
 func browserWindow() js.Value {
-	parseWindow := js.Global().Get("window")
-	if parseWindow.IsUndefined() || parseWindow.IsNull() {
+	parseBrowserWindow := js.Global().Get("window")
+	if parseBrowserWindow.IsUndefined() || parseBrowserWindow.IsNull() {
 		return js.Undefined()
 	}
-	return parseWindow
+	return parseBrowserWindow
 }
 
 func browserNavigator() js.Value {
-	if parseWindow := browserWindow(); !parseWindow.IsUndefined() && !parseWindow.IsNull() {
-		parseNavigator := parseWindow.Get("navigator")
-		if !parseNavigator.IsUndefined() && !parseNavigator.IsNull() {
-			return parseNavigator
+	if parseBrowserWindow := browserWindow(); !parseBrowserWindow.IsUndefined() && !parseBrowserWindow.IsNull() {
+		parseBrowserNavigator := parseBrowserWindow.Get("navigator")
+		if !parseBrowserNavigator.IsUndefined() && !parseBrowserNavigator.IsNull() {
+			return parseBrowserNavigator
 		}
 	}
-	parseNavigator2 := js.Global().Get("navigator")
-	if parseNavigator2.IsUndefined() || parseNavigator2.IsNull() {
+	parseGlobalNavigator := js.Global().Get("navigator")
+	if parseGlobalNavigator.IsUndefined() || parseGlobalNavigator.IsNull() {
 		return js.Undefined()
 	}
-	return parseNavigator2
+	return parseGlobalNavigator
 }

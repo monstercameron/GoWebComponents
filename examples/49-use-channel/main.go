@@ -15,29 +15,29 @@ import (
 )
 
 func useChannelExample() ui.Node {
-	source := ui.UseState((<-chan string)(nil))
-	started := ui.UseState(0)
-	channel := ui.UseChannel(source.Get())
+	parseSource := ui.UseState((<-chan string)(nil))
+	parseStarted := ui.UseState(0)
+	parseChannel := ui.UseChannel(parseSource.Get())
 
-	start := ui.UseEvent(func() {
-		messages := make(chan string)
-		source.Set(messages)
-		started.Update(func(previous int) int { return previous + 1 })
+	parseStart := ui.UseEvent(func() {
+		parseMessages := make(chan string)
+		parseSource.Set(parseMessages)
+		parseStarted.Update(func(parsePrevious int) int { return parsePrevious + 1 })
 
-		go func(out chan<- string) {
-			defer close(out)
-			steps := []string{"Boot worker", "Read queue", "Transform payload", "Publish result"}
-			for _, step := range steps {
+		go func(parseOut chan<- string) {
+			defer close(parseOut)
+			parseSteps := []string{"Boot worker", "Read queue", "Transform payload", "Publish result"}
+			for _, parseStep := range parseSteps {
 				time.Sleep(300 * time.Millisecond)
-				out <- step
+				parseOut <- parseStep
 			}
-		}(messages)
+		}(parseMessages)
 	})
-	reset := ui.UseEvent(func() { source.Set(nil) })
+	reset := ui.UseEvent(func() { parseSource.Set(nil) })
 
-	latest := "No value yet"
-	if channel.Ok() {
-		latest = channel.Get()
+	parseLatest := "No value yet"
+	if parseChannel.Ok() {
+		parseLatest = parseChannel.Get()
 	}
 
 	return shared.ExamplePage(
@@ -46,14 +46,14 @@ func useChannelExample() ui.Node {
 		"UseChannel exposes the last received value together with availability and closure state, which keeps streamed goroutine output readable from regular component render logic.",
 		shared.ExamplePanel("Channel stream",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-				shared.ExampleButton("Start new stream", start),
+				shared.ExampleButton("Start new stream", parseStart),
 				shared.ExampleButton("Reset source", reset),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-4"},
-				shared.ExampleStat("Started", fmt.Sprintf("%d", started.Get())),
-				shared.ExampleStat("Latest", latest),
-				shared.ExampleStat("Has value", map[bool]string{true: "Yes", false: "No"}[channel.Ok()]),
-				shared.ExampleStat("Closed", map[bool]string{true: "Yes", false: "No"}[channel.Closed()]),
+				shared.ExampleStat("Started", fmt.Sprintf("%d", parseStarted.Get())),
+				shared.ExampleStat("Latest", parseLatest),
+				shared.ExampleStat("Has value", map[bool]string{true: "Yes", false: "No"}[parseChannel.Ok()]),
+				shared.ExampleStat("Closed", map[bool]string{true: "Yes", false: "No"}[parseChannel.Closed()]),
 			),
 			shared.ExampleCode(
 				`stream := ui.UseChannel(source)`,

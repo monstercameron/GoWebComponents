@@ -4,25 +4,25 @@
 package i18n
 
 // UseLocale creates a non-reactive LocaleState using the given options.
-func UseLocale(parseOptions LocaleOptions) LocaleState {
-	parseSupported := normalizeLocales(parseOptions.SupportedLocales)
-	parseFallback := fallbackString(parseOptions.FallbackLocale, firstLocale(parseSupported))
-	parseCurrent := chooseSupportedLocale(parseOptions.InitialLocale, parseSupported, parseFallback)
-	if parseCurrent == "" {
-		parseCurrent = parseFallback
+func UseLocale(parseLocaleOptions LocaleOptions) LocaleState {
+	parseLocaleSupported := normalizeLocales(parseLocaleOptions.SupportedLocales)
+	parseLocaleFallback := fallbackString(parseLocaleOptions.FallbackLocale, firstLocale(parseLocaleSupported))
+	parseLocaleCurrent := chooseSupportedLocale(parseLocaleOptions.InitialLocale, parseLocaleSupported, parseLocaleFallback)
+	if parseLocaleCurrent == "" {
+		parseLocaleCurrent = parseLocaleFallback
 	}
 	return LocaleState{
-		get:       func() string { return parseCurrent },
-		set:       func(parseNext string) { parseCurrent = chooseSupportedLocale(parseNext, parseSupported, parseFallback) },
-		direction: func() Direction { return DirectionForLocale(parseCurrent) },
-		supported: func() []string { return append([]string(nil), parseSupported...) },
-		fallback:  func() string { return parseFallback },
+		get:       func() string { return parseLocaleCurrent },
+		set:       func(parseLocaleNext string) { parseLocaleCurrent = chooseSupportedLocale(parseLocaleNext, parseLocaleSupported, parseLocaleFallback) },
+		direction: func() Direction { return DirectionForLocale(parseLocaleCurrent) },
+		supported: func() []string { return append([]string(nil), parseLocaleSupported...) },
+		fallback:  func() string { return parseLocaleFallback },
 	}
 }
 
-func firstLocale(parseLocales []string) string {
-	if len(parseLocales) == 0 {
+func firstLocale(parseLocaleList []string) string {
+	if len(parseLocaleList) == 0 {
 		return ""
 	}
-	return parseLocales[0]
+	return parseLocaleList[0]
 }

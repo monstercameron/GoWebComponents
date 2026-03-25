@@ -16,182 +16,182 @@ type failingSpeechStream struct {
 	ctx context.Context
 }
 
-func (s *failingSpeechStream) Send(*chatpb.SynthesizeSpeechChunk) error {
+func (parseS *failingSpeechStream) ParseSend(*chatpb.SynthesizeSpeechChunk) error {
 	return errors.New("stream send failed")
 }
-func (s *failingSpeechStream) SetHeader(metadata.MD) error  { return nil }
-func (s *failingSpeechStream) SendHeader(metadata.MD) error { return nil }
-func (s *failingSpeechStream) SetTrailer(metadata.MD)       {}
-func (s *failingSpeechStream) Context() context.Context     { return s.ctx }
-func (s *failingSpeechStream) SendMsg(any) error            { return nil }
-func (s *failingSpeechStream) RecvMsg(any) error            { return nil }
+func (parseS *failingSpeechStream) SetHeader(metadata.MD) error       { return nil }
+func (parseS *failingSpeechStream) ParseSendHeader(metadata.MD) error { return nil }
+func (parseS *failingSpeechStream) SetTrailer(metadata.MD)            {}
+func (parseS *failingSpeechStream) ParseContext() context.Context     { return parseS.ctx }
+func (parseS *failingSpeechStream) ParseSendMsg(any) error            { return nil }
+func (parseS *failingSpeechStream) ParseRecvMsg(any) error            { return nil }
 
-func TestGenerateAndSaveConversationTitleBranches(t *testing.T) {
-	store := newTestStore(t)
-	user := mustCreateUser(t, store, "title-branches@example.com")
-	conversationID, err := store.createConversation(user.ID)
-	if err != nil {
-		t.Fatalf("createConversation: %v", err)
+func TestGenerateAndSaveConversationTitleBranches(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "title-branches@example.com")
+	parseConversationID, parseErr := store.parseCreateConversation(parseUser.ParseID)
+	if parseErr != nil {
+		parseT.Fatalf("createConversation: %v", parseErr)
 	}
 
-	nilSafeServer := &chatServer{logger: newTestLogger()}
-	nilSafeServer.generateAndSaveConversationTitle(user.ID, conversationID, modelGPT54Mini, "user", "assistant")
+	parseNilSafeServer := &chatServer{logger: parseNewTestLogger()}
+	parseNilSafeServer.parseGenerateAndSaveConversationTitle(parseUser.ParseID, parseConversationID, modelGPT54Mini, "user", "assistant")
 
-	missingProviderServer := &chatServer{store: store, logger: newTestLogger()}
-	missingProviderServer.generateAndSaveConversationTitle(user.ID, conversationID, modelGPT54Mini, "user", "assistant")
+	parseMissingProviderServer := &chatServer{store: store, logger: parseNewTestLogger()}
+	parseMissingProviderServer.parseGenerateAndSaveConversationTitle(parseUser.ParseID, parseConversationID, modelGPT54Mini, "user", "assistant")
 
-	fake := newFakeProvider()
-	fake.generateTitle = func(_ context.Context, req provider.TitleRequest) (string, error) {
-		if len(req.Prompt) == 0 {
-			t.Fatal("expected generate title prompt to be populated")
+	parseFake := parseNewFakeProvider()
+	parseFake.generateTitle = func(_ context.Context, parseReq provider.TitleRequest) (string, error) {
+		if len(parseReq.Prompt) == 0 {
+			parseT.Fatal("expected generate title prompt to be populated")
 		}
-		if len(req.Prompt) > 900 {
-			t.Fatalf("expected title prompt truncation to keep prompt compact, got len=%d", len(req.Prompt))
+		if len(parseReq.Prompt) > 900 {
+			parseT.Fatalf("expected title prompt truncation to keep prompt compact, got len=%d", len(parseReq.Prompt))
 		}
 		return "", nil
 	}
-	server := newFakeChatServer(store, fake)
-	server.generateAndSaveConversationTitle(user.ID, conversationID, modelGPT54Mini, string(make([]byte, 600)), string(make([]byte, 600)))
+	parseServer := parseNewFakeChatServer(store, parseFake)
+	parseServer.parseGenerateAndSaveConversationTitle(parseUser.ParseID, parseConversationID, modelGPT54Mini, string(make([]byte, 600)), string(make([]byte, 600)))
 
-	conversations, err := store.listConversations(user.ID)
-	if err != nil {
-		t.Fatalf("listConversations: %v", err)
+	parseConversations, parseErr := store.parseListConversations(parseUser.ParseID)
+	if parseErr != nil {
+		parseT.Fatalf("listConversations: %v", parseErr)
 	}
-	if len(conversations) != 1 && len(conversations) != 0 {
-		t.Fatalf("unexpected conversations after empty title branch: %+v", conversations)
+	if len(parseConversations) != 1 && len(parseConversations) != 0 {
+		parseT.Fatalf("unexpected conversations after empty title branch: %+v", parseConversations)
 	}
 
-	erroringProvider := newFakeProvider()
-	erroringProvider.generateTitle = func(_ context.Context, _ provider.TitleRequest) (string, error) {
+	parseErroringProvider := parseNewFakeProvider()
+	parseErroringProvider.generateTitle = func(_ context.Context, _ provider.TitleRequest) (string, error) {
 		return "", errors.New("title failure")
 	}
-	newFakeChatServer(store, erroringProvider).generateAndSaveConversationTitle(user.ID, conversationID, modelGPT54Mini, "user", "assistant")
+	parseNewFakeChatServer(store, parseErroringProvider).parseGenerateAndSaveConversationTitle(parseUser.ParseID, parseConversationID, modelGPT54Mini, "user", "assistant")
 
-	store.close()
-	newFakeChatServer(store, fake).generateAndSaveConversationTitle(user.ID, conversationID, modelGPT54Mini, "user", "assistant")
+	store.parseClose()
+	parseNewFakeChatServer(store, parseFake).parseGenerateAndSaveConversationTitle(parseUser.ParseID, parseConversationID, modelGPT54Mini, "user", "assistant")
 }
 
-func TestListAndLoadConversationBranches(t *testing.T) {
-	store := newTestStore(t)
-	user := mustCreateUser(t, store, "list-load@example.com")
-	other := mustCreateUser(t, store, "list-load-other@example.com")
-	conversationID, err := store.createConversation(user.ID)
-	if err != nil {
-		t.Fatalf("createConversation: %v", err)
+func TestListAndLoadConversationBranches(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "list-load@example.com")
+	parseOther := parseMustCreateUser(parseT, store, "list-load-other@example.com")
+	parseConversationID, parseErr := store.parseCreateConversation(parseUser.ParseID)
+	if parseErr != nil {
+		parseT.Fatalf("createConversation: %v", parseErr)
 	}
-	longTitle := "This is a deliberately very long conversation title that should be truncated in summaries"
-	if err := store.saveConversationTitle(user.ID, conversationID, longTitle); err != nil {
-		t.Fatalf("saveConversationTitle: %v", err)
+	parseLongTitle := "This is a deliberately very long conversation title that should be truncated in summaries"
+	if parseErr2 := store.parseSaveConversationTitle(parseUser.ParseID, parseConversationID, parseLongTitle); parseErr2 != nil {
+		parseT.Fatalf("saveConversationTitle: %v", parseErr2)
 	}
-	if err := store.saveConversationMessage(user.ID, conversationID, "ASSISTANT", "hello", modelGPT54Mini, 5, 7); err != nil {
-		t.Fatalf("saveConversationMessage: %v", err)
-	}
-
-	server := &chatServer{defaultModel: modelGPT54Mini, store: store, logger: newTestLogger(), sessions: map[string]*sessionState{}, authUsers: map[string]authUser{}}
-	ctx := bindAuthUser(server, "peer-list-load", user.ID, user.Email)
-
-	listResp, err := server.ListConversations(ctx, &chatpb.ListConversationsRequest{})
-	if err != nil {
-		t.Fatalf("ListConversations: %v", err)
-	}
-	if len(listResp.GetConversations()) != 1 {
-		t.Fatalf("expected one conversation summary, got %+v", listResp)
-	}
-	if preview := listResp.GetConversations()[0].GetPreview(); len(preview) != 63 || preview[len(preview)-3:] != "…" {
-		t.Fatalf("expected truncated preview with ellipsis, got %q", preview)
+	if parseErr3 := store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, "ASSISTANT", "hello", modelGPT54Mini, 5, 7); parseErr3 != nil {
+		parseT.Fatalf("saveConversationMessage: %v", parseErr3)
 	}
 
-	publicID := listResp.GetConversations()[0].GetPublicId()
-	if publicID == "" {
-		t.Fatal("expected conversation summary public_id")
+	parseServer := &chatServer{defaultModel: modelGPT54Mini, store: store, logger: parseNewTestLogger(), sessions: map[string]*sessionState{}, authUsers: map[string]authUser{}}
+	parseCtx := parseBindAuthUser(parseServer, "peer-list-load", parseUser.ParseID, parseUser.Email)
+
+	parseListResp, parseErr := parseServer.ParseListConversations(parseCtx, &chatpb.ListConversationsRequest{})
+	if parseErr != nil {
+		parseT.Fatalf("ListConversations: %v", parseErr)
+	}
+	if len(parseListResp.GetConversations()) != 1 {
+		parseT.Fatalf("expected one conversation summary, got %+v", parseListResp)
+	}
+	if parsePreview := parseListResp.GetConversations()[0].GetPreview(); len(parsePreview) != 63 || parsePreview[len(parsePreview)-3:] != "…" {
+		parseT.Fatalf("expected truncated preview with ellipsis, got %q", parsePreview)
 	}
 
-	routeResp, err := server.ResolveConversationRoute(ctx, &chatpb.ResolveConversationRouteRequest{PublicId: publicID})
-	if err != nil {
-		t.Fatalf("ResolveConversationRoute owner: %v", err)
-	}
-	if !routeResp.GetAccessible() || routeResp.GetId() != conversationID {
-		t.Fatalf("unexpected owner route response: %+v", routeResp)
+	parsePublicID := parseListResp.GetConversations()[0].GetPublicId()
+	if parsePublicID == "" {
+		parseT.Fatal("expected conversation summary public_id")
 	}
 
-	otherCtx := bindAuthUser(server, "peer-list-load-other", other.ID, other.Email)
-	otherRouteResp, err := server.ResolveConversationRoute(otherCtx, &chatpb.ResolveConversationRouteRequest{PublicId: publicID})
-	if err != nil {
-		t.Fatalf("ResolveConversationRoute other: %v", err)
+	parseRouteResp, parseErr := parseServer.ParseResolveConversationRoute(parseCtx, &chatpb.ResolveConversationRouteRequest{PublicId: parsePublicID})
+	if parseErr != nil {
+		parseT.Fatalf("ResolveConversationRoute owner: %v", parseErr)
 	}
-	if otherRouteResp.GetAccessible() || otherRouteResp.GetId() != 0 {
-		t.Fatalf("expected inaccessible route for non-owner, got %+v", otherRouteResp)
-	}
-
-	loadResp, err := server.LoadConversation(ctx, &chatpb.LoadConversationRequest{Id: conversationID})
-	if err != nil {
-		t.Fatalf("LoadConversation: %v", err)
-	}
-	if len(loadResp.GetMessages()) != 1 || loadResp.GetMessages()[0].GetModelId() != modelGPT54Mini {
-		t.Fatalf("unexpected load conversation response: %+v", loadResp)
-	}
-	if loadResp.GetMessages()[0].GetRole() != "assistant" {
-		t.Fatalf("expected normalized assistant role, got %q", loadResp.GetMessages()[0].GetRole())
+	if !parseRouteResp.GetAccessible() || parseRouteResp.GetId() != parseConversationID {
+		parseT.Fatalf("unexpected owner route response: %+v", parseRouteResp)
 	}
 
-	store.close()
-	if _, err := server.ListConversations(ctx, &chatpb.ListConversationsRequest{}); status.Code(err) != codes.Internal {
-		t.Fatalf("expected internal ListConversations error after store close, got %v", status.Code(err))
+	parseOtherCtx := parseBindAuthUser(parseServer, "peer-list-load-other", parseOther.ParseID, parseOther.Email)
+	parseOtherRouteResp, parseErr := parseServer.ParseResolveConversationRoute(parseOtherCtx, &chatpb.ResolveConversationRouteRequest{PublicId: parsePublicID})
+	if parseErr != nil {
+		parseT.Fatalf("ResolveConversationRoute other: %v", parseErr)
 	}
-	if _, err := server.ResolveConversationRoute(ctx, &chatpb.ResolveConversationRouteRequest{PublicId: publicID}); status.Code(err) != codes.Internal {
-		t.Fatalf("expected internal ResolveConversationRoute error after store close, got %v", status.Code(err))
+	if parseOtherRouteResp.GetAccessible() || parseOtherRouteResp.GetId() != 0 {
+		parseT.Fatalf("expected inaccessible route for non-owner, got %+v", parseOtherRouteResp)
 	}
-	if _, err := server.LoadConversation(ctx, &chatpb.LoadConversationRequest{Id: conversationID}); status.Code(err) != codes.Internal {
-		t.Fatalf("expected internal LoadConversation error after store close, got %v", status.Code(err))
+
+	parseLoadResp, parseErr := parseServer.ParseLoadConversation(parseCtx, &chatpb.LoadConversationRequest{Id: parseConversationID})
+	if parseErr != nil {
+		parseT.Fatalf("LoadConversation: %v", parseErr)
+	}
+	if len(parseLoadResp.GetMessages()) != 1 || parseLoadResp.GetMessages()[0].GetModelId() != modelGPT54Mini {
+		parseT.Fatalf("unexpected load conversation response: %+v", parseLoadResp)
+	}
+	if parseLoadResp.GetMessages()[0].GetRole() != "assistant" {
+		parseT.Fatalf("expected normalized assistant role, got %q", parseLoadResp.GetMessages()[0].GetRole())
+	}
+
+	store.parseClose()
+	if _, parseErr4 := parseServer.ParseListConversations(parseCtx, &chatpb.ListConversationsRequest{}); status.Code(parseErr4) != codes.Internal {
+		parseT.Fatalf("expected internal ListConversations error after store close, got %v", status.Code(parseErr4))
+	}
+	if _, parseErr5 := parseServer.ParseResolveConversationRoute(parseCtx, &chatpb.ResolveConversationRouteRequest{PublicId: parsePublicID}); status.Code(parseErr5) != codes.Internal {
+		parseT.Fatalf("expected internal ResolveConversationRoute error after store close, got %v", status.Code(parseErr5))
+	}
+	if _, parseErr6 := parseServer.ParseLoadConversation(parseCtx, &chatpb.LoadConversationRequest{Id: parseConversationID}); status.Code(parseErr6) != codes.Internal {
+		parseT.Fatalf("expected internal LoadConversation error after store close, got %v", status.Code(parseErr6))
 	}
 }
 
-func TestSynthesizeSpeechAdditionalBranches(t *testing.T) {
-	store := newTestStore(t)
-	user := mustCreateUser(t, store, "speech-branches@example.com")
+func TestSynthesizeSpeechAdditionalBranches(parseT *testing.T) {
+	store := parseNewTestStore(parseT)
+	parseUser := parseMustCreateUser(parseT, store, "speech-branches@example.com")
 
-	noProviderServer := &chatServer{logger: newTestLogger(), store: store, sessions: map[string]*sessionState{}, authUsers: map[string]authUser{}}
-	noProviderCtx := bindAuthUser(noProviderServer, "peer-no-provider-speech", user.ID, user.Email)
-	if err := noProviderServer.SynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "hello"}, &fakeSpeechStream{ctx: noProviderCtx}); status.Code(err) != codes.Unavailable {
-		t.Fatalf("expected unavailable when provider registry is nil, got %v", status.Code(err))
+	parseNoProviderServer := &chatServer{logger: parseNewTestLogger(), store: store, sessions: map[string]*sessionState{}, authUsers: map[string]authUser{}}
+	parseNoProviderCtx := parseBindAuthUser(parseNoProviderServer, "peer-no-provider-speech", parseUser.ParseID, parseUser.Email)
+	if parseErr := parseNoProviderServer.ParseSynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "hello"}, &fakeSpeechStream{ctx: parseNoProviderCtx}); status.Code(parseErr) != codes.Unavailable {
+		parseT.Fatalf("expected unavailable when provider registry is nil, got %v", status.Code(parseErr))
 	}
 
-	unsupportedModelServer := newFakeChatServer(store, newFakeProvider())
-	unsupportedCtx := bindAuthUser(unsupportedModelServer, "peer-unsupported-model-speech", user.ID, user.Email)
-	if err := unsupportedModelServer.SynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "hello", Model: "missing-model"}, &fakeSpeechStream{ctx: unsupportedCtx}); status.Code(err) != codes.InvalidArgument {
-		t.Fatalf("expected invalid argument for unsupported speech model, got %v", status.Code(err))
+	parseUnsupportedModelServer := parseNewFakeChatServer(store, parseNewFakeProvider())
+	parseUnsupportedCtx := parseBindAuthUser(parseUnsupportedModelServer, "peer-unsupported-model-speech", parseUser.ParseID, parseUser.Email)
+	if parseErr2 := parseUnsupportedModelServer.ParseSynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "hello", Model: "missing-model"}, &fakeSpeechStream{ctx: parseUnsupportedCtx}); status.Code(parseErr2) != codes.InvalidArgument {
+		parseT.Fatalf("expected invalid argument for unsupported speech model, got %v", status.Code(parseErr2))
 	}
 
-	emptyAudioProvider := newFakeProvider()
-	emptyAudioProvider.synthesizeSpeech = func(_ context.Context, _ provider.SpeechRequest, emit func(provider.SpeechChunk) error) (provider.SpeechResult, error) {
-		return provider.SpeechResult{MimeType: "audio/mpeg", Model: modelGPT54Mini, Voice: "sage", Script: "hello"}, emit(provider.SpeechChunk{Done: true})
+	parseEmptyAudioProvider := parseNewFakeProvider()
+	parseEmptyAudioProvider.synthesizeSpeech = func(_ context.Context, _ provider.SpeechRequest, parseEmit func(provider.SpeechChunk) error) (provider.SpeechResult, error) {
+		return provider.SpeechResult{MimeType: "audio/mpeg", Model: modelGPT54Mini, Voice: "sage", Script: "hello"}, parseEmit(provider.SpeechChunk{Done: true})
 	}
-	emptyAudioServer := newFakeChatServer(store, emptyAudioProvider)
-	emptyAudioCtx := bindAuthUser(emptyAudioServer, "peer-empty-audio-speech", user.ID, user.Email)
-	if err := emptyAudioServer.SynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "hello", Model: modelGPT54Mini}, &fakeSpeechStream{ctx: emptyAudioCtx}); status.Code(err) != codes.Internal {
-		t.Fatalf("expected internal error for empty synthesized audio, got %v", status.Code(err))
+	parseEmptyAudioServer := parseNewFakeChatServer(store, parseEmptyAudioProvider)
+	parseEmptyAudioCtx := parseBindAuthUser(parseEmptyAudioServer, "peer-empty-audio-speech", parseUser.ParseID, parseUser.Email)
+	if parseErr3 := parseEmptyAudioServer.ParseSynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "hello", Model: modelGPT54Mini}, &fakeSpeechStream{ctx: parseEmptyAudioCtx}); status.Code(parseErr3) != codes.Internal {
+		parseT.Fatalf("expected internal error for empty synthesized audio, got %v", status.Code(parseErr3))
 	}
 
-	statusErrProvider := newFakeProvider()
-	statusErrProvider.synthesizeSpeech = func(_ context.Context, _ provider.SpeechRequest, _ func(provider.SpeechChunk) error) (provider.SpeechResult, error) {
+	parseStatusErrProvider := parseNewFakeProvider()
+	parseStatusErrProvider.synthesizeSpeech = func(_ context.Context, _ provider.SpeechRequest, _ func(provider.SpeechChunk) error) (provider.SpeechResult, error) {
 		return provider.SpeechResult{}, status.Error(codes.Unavailable, "provider busy")
 	}
-	statusErrServer := newFakeChatServer(store, statusErrProvider)
-	statusErrCtx := bindAuthUser(statusErrServer, "peer-status-err-speech", user.ID, user.Email)
-	if err := statusErrServer.SynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "hello", Model: modelGPT54Mini}, &fakeSpeechStream{ctx: statusErrCtx}); status.Code(err) != codes.Unavailable {
-		t.Fatalf("expected provider gRPC status to pass through, got %v", status.Code(err))
+	parseStatusErrServer := parseNewFakeChatServer(store, parseStatusErrProvider)
+	parseStatusErrCtx := parseBindAuthUser(parseStatusErrServer, "peer-status-err-speech", parseUser.ParseID, parseUser.Email)
+	if parseErr4 := parseStatusErrServer.ParseSynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "hello", Model: modelGPT54Mini}, &fakeSpeechStream{ctx: parseStatusErrCtx}); status.Code(parseErr4) != codes.Unavailable {
+		parseT.Fatalf("expected provider gRPC status to pass through, got %v", status.Code(parseErr4))
 	}
 
-	streamFailProvider := newFakeProvider()
-	streamFailProvider.synthesizeSpeech = func(_ context.Context, _ provider.SpeechRequest, emit func(provider.SpeechChunk) error) (provider.SpeechResult, error) {
-		if err := emit(provider.SpeechChunk{AudioChunk: []byte("abc")}); err != nil {
-			return provider.SpeechResult{}, err
+	parseStreamFailProvider := parseNewFakeProvider()
+	parseStreamFailProvider.synthesizeSpeech = func(_ context.Context, _ provider.SpeechRequest, parseEmit2 func(provider.SpeechChunk) error) (provider.SpeechResult, error) {
+		if parseErr5 := parseEmit2(provider.SpeechChunk{AudioChunk: []byte("abc")}); parseErr5 != nil {
+			return provider.SpeechResult{}, parseErr5
 		}
 		return provider.SpeechResult{MimeType: "audio/mpeg", Model: modelGPT54Mini, Voice: "sage", Script: "hello"}, nil
 	}
-	streamFailServer := newFakeChatServer(store, streamFailProvider)
-	streamFailCtx := bindAuthUser(streamFailServer, "peer-stream-fail-speech", user.ID, user.Email)
-	if err := streamFailServer.SynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "hello", Model: modelGPT54Mini}, &failingSpeechStream{ctx: streamFailCtx}); status.Code(err) != codes.Canceled {
-		t.Fatalf("expected canceled status for downstream stream send failure, got %v", status.Code(err))
+	parseStreamFailServer := parseNewFakeChatServer(store, parseStreamFailProvider)
+	parseStreamFailCtx := parseBindAuthUser(parseStreamFailServer, "peer-stream-fail-speech", parseUser.ParseID, parseUser.Email)
+	if parseErr6 := parseStreamFailServer.ParseSynthesizeSpeech(&chatpb.SynthesizeSpeechRequest{Text: "hello", Model: modelGPT54Mini}, &failingSpeechStream{ctx: parseStreamFailCtx}); status.Code(parseErr6) != codes.Canceled {
+		parseT.Fatalf("expected canceled status for downstream stream send failure, got %v", status.Code(parseErr6))
 	}
 }

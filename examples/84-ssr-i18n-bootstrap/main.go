@@ -15,69 +15,69 @@ import (
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-func bootstrapMessageCount(messages map[string]map[string]ui.SSRI18nMessage) int {
-	total := 0
-	for _, localeMessages := range messages {
-		total += len(localeMessages)
+func bootstrapMessageCount(parseMessages map[string]map[string]ui.SSRI18nMessage) int {
+	parseTotal := 0
+	for _, parseLocaleMessages := range parseMessages {
+		parseTotal += len(parseLocaleMessages)
 	}
-	return total
+	return parseTotal
 }
 
-func setBootstrapStatus(message string) {
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+func setBootstrapStatus(parseMessage string) {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return
 	}
-	status := document.Call("getElementById", "bootstrap-client-status")
-	if status.Truthy() {
-		status.Set("textContent", message)
+	parseStatus := parseDocument.Call("getElementById", "bootstrap-client-status")
+	if parseStatus.Truthy() {
+		parseStatus.Set("textContent", parseMessage)
 	}
 }
 
-func bootstrapI18nExample(payload ui.SSRBootstrap) ui.Node {
-	bundle := i18n.BundleFromSSRBootstrap(payload.I18n)
-	locale := i18n.UseLocale(i18n.LocaleOptions{
-		InitialLocale:    payload.I18n.Locale,
-		SupportedLocales: bundle.Locales(),
-		FallbackLocale:   payload.I18n.FallbackLocale,
+func bootstrapI18nExample(parsePayload ui.SSRBootstrap) ui.Node {
+	parseBundle := i18n.BundleFromSSRBootstrap(parsePayload.I18n)
+	parseLocale := i18n.UseLocale(i18n.LocaleOptions{
+		InitialLocale:    parsePayload.I18n.Locale,
+		SupportedLocales: parseBundle.Locales(),
+		FallbackLocale:   parsePayload.I18n.FallbackLocale,
 	})
 	return i18n.Provider(i18n.ProviderProps{
-		Locale: locale,
-		Bundle: bundle,
+		Locale: parseLocale,
+		Bundle: parseBundle,
 		Child: ui.CreateElement(func() ui.Node {
-			intl := i18n.UseI18n()
+			parseIntl := i18n.UseI18n()
 			return html.Div(html.Props{
 				Class: "min-h-screen bg-[#08111d] text-slate-100",
 				Raw: map[string]interface{}{
-					"dir":                      string(intl.Direction()),
-					"lang":                     intl.Locale(),
-					"data-bootstrapped-locale": payload.I18n.Locale,
+					"dir":                      string(parseIntl.Direction()),
+					"lang":                     parseIntl.Locale(),
+					"data-bootstrapped-locale": parsePayload.I18n.Locale,
 				},
 			},
 				html.Div(html.Props{Class: "mx-auto max-w-3xl px-6 py-12"},
 					html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-slate-950/80 p-8 shadow-2xl"},
 						html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("SSR locale bootstrap")),
-						html.H1(html.Props{ID: "bootstrap-locale-headline", Class: "mt-4 text-5xl font-black tracking-tight text-white"}, html.Text(intl.T("bootstrap", "headline", i18n.Arguments{"name": "Cam"}))),
-						html.P(html.Props{ID: "bootstrap-locale-summary", Class: "mt-4 text-lg leading-8 text-slate-300"}, html.Text(intl.T("bootstrap", "summary"))),
+						html.H1(html.Props{ID: "bootstrap-locale-headline", Class: "mt-4 text-5xl font-black tracking-tight text-white"}, html.Text(parseIntl.T("bootstrap", "headline", i18n.Arguments{"name": "Cam"}))),
+						html.P(html.Props{ID: "bootstrap-locale-summary", Class: "mt-4 text-lg leading-8 text-slate-300"}, html.Text(parseIntl.T("bootstrap", "summary"))),
 						html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
 							html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4"},
 								html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Bootstrap locale")),
-								html.P(html.Props{ID: "bootstrap-locale-value", Class: "mt-3 text-2xl font-black text-white"}, html.Text(payload.I18n.Locale)),
+								html.P(html.Props{ID: "bootstrap-locale-value", Class: "mt-3 text-2xl font-black text-white"}, html.Text(parsePayload.I18n.Locale)),
 							),
 							html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4"},
 								html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Loaded locales")),
-								html.P(html.Props{ID: "bootstrap-locale-count", Class: "mt-3 text-2xl font-black text-white"}, html.Text(fmt.Sprintf("%d", len(bundle.Locales())))),
+								html.P(html.Props{ID: "bootstrap-locale-count", Class: "mt-3 text-2xl font-black text-white"}, html.Text(fmt.Sprintf("%d", len(parseBundle.Locales())))),
 							),
 							html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4"},
 								html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Transferred messages")),
-								html.P(html.Props{ID: "bootstrap-message-count", Class: "mt-3 text-2xl font-black text-white"}, html.Text(fmt.Sprintf("%d", bootstrapMessageCount(payload.I18n.Messages)))),
+								html.P(html.Props{ID: "bootstrap-message-count", Class: "mt-3 text-2xl font-black text-white"}, html.Text(fmt.Sprintf("%d", bootstrapMessageCount(parsePayload.I18n.Messages)))),
 							),
 						),
 						html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-							html.Button(html.Props{ID: "bootstrap-switch-en", Class: "rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100", OnClick: ui.UseEvent(func() { intl.SetLocale("en") })}, html.Text("English")),
-							html.Button(html.Props{ID: "bootstrap-switch-fr", Class: "rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100", OnClick: ui.UseEvent(func() { intl.SetLocale("fr") })}, html.Text("Francais")),
+							html.Button(html.Props{ID: "bootstrap-switch-en", Class: "rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100", OnClick: ui.UseEvent(func() { parseIntl.SetLocale("en") })}, html.Text("English")),
+							html.Button(html.Props{ID: "bootstrap-switch-fr", Class: "rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100", OnClick: ui.UseEvent(func() { parseIntl.SetLocale("fr") })}, html.Text("Francais")),
 						),
-						html.P(html.Props{ID: "bootstrap-locale-note", Class: "mt-6 text-sm leading-7 text-slate-400"}, html.Text(intl.T("bootstrap", "note"))),
+						html.P(html.Props{ID: "bootstrap-locale-note", Class: "mt-6 text-sm leading-7 text-slate-400"}, html.Text(parseIntl.T("bootstrap", "note"))),
 					),
 				),
 			)
@@ -87,19 +87,19 @@ func bootstrapI18nExample(payload ui.SSRBootstrap) ui.Node {
 
 func main() {
 	utils.DisableAllDebug()
-	payload, err := ui.ReadBootstrapScript("")
-	if err != nil {
+	parsePayload, parseErr := ui.ReadBootstrapScript("")
+	if parseErr != nil {
 		setBootstrapStatus("Failed to read SSR locale bootstrap")
 		select {}
 	}
-	root := ui.CreateElement(func() ui.Node { return bootstrapI18nExample(payload) })
-	_, err = ui.Hydrate(root, "#app", ui.HydrationOptions{Bootstrap: payload})
-	if err != nil {
+	parseRoot := ui.CreateElement(func() ui.Node { return bootstrapI18nExample(parsePayload) })
+	_, parseErr = ui.Hydrate(parseRoot, "#app", ui.HydrationOptions{Bootstrap: parsePayload})
+	if parseErr != nil {
 		setBootstrapStatus("Hydration failed")
 		select {}
 	}
 	setBootstrapStatus("Hydrated locale and messages from ui.SSRBootstrap.I18n")
-	if strings.TrimSpace(payload.I18n.Locale) == "" {
+	if strings.TrimSpace(parsePayload.I18n.Locale) == "" {
 		setBootstrapStatus("Hydrated, but bootstrap locale was empty")
 	}
 	select {}

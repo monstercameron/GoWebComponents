@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-func TestMutationRoutePrefixesUsesSharedInvalidationMatrix(t *testing.T) {
-	got := MutationRoutePrefixes("/app/purchase-orders/po-1042", "purchase-order-created")
-	want := []string{
+func TestMutationRoutePrefixesUsesSharedInvalidationMatrix(parseT *testing.T) {
+	parseGot := MutationRoutePrefixes("/app/purchase-orders/po-1042", "purchase-order-created")
+	parseWant := []string{
 		"/app/purchase-orders",
 		"/app/receiving",
 		"/app/dashboard",
@@ -16,29 +16,29 @@ func TestMutationRoutePrefixesUsesSharedInvalidationMatrix(t *testing.T) {
 		"/shop",
 		"/warehouses",
 	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("MutationRoutePrefixes() = %#v, want %#v", got, want)
+	if !reflect.DeepEqual(parseGot, parseWant) {
+		parseT.Fatalf("MutationRoutePrefixes() = %#v, want %#v", parseGot, parseWant)
 	}
 }
 
-func TestMutationRequestPrefixesCoversInternalAndPublicFamilies(t *testing.T) {
-	got := MutationRequestPrefixes([]string{"/app/settings", "/shop", "/warehouses"})
-	want := []string{
+func TestMutationRequestPrefixesCoversInternalAndPublicFamilies(parseT *testing.T) {
+	parseGot := MutationRequestPrefixes([]string{"/app/settings", "/shop", "/warehouses"})
+	parseWant := []string{
 		"/api/app/settings",
 		"/api/app/saved-views",
 		"/api/public/catalog",
 		"/api/public/products",
 		"/api/public/warehouses",
 	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("MutationRequestPrefixes() = %#v, want %#v", got, want)
+	if !reflect.DeepEqual(parseGot, parseWant) {
+		parseT.Fatalf("MutationRequestPrefixes() = %#v, want %#v", parseGot, parseWant)
 	}
 }
 
-func TestMutationRoutePrefixesFallsBackToCurrentPath(t *testing.T) {
-	got := MutationRoutePrefixes("/app/inventory/frame-desk", "unknown-notice")
-	want := []string{"/app/inventory/frame-desk"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("MutationRoutePrefixes() = %#v, want %#v", got, want)
+func TestMutationRoutePrefixesFallsBackToCurrentPath(parseT *testing.T) {
+	parseGot := MutationRoutePrefixes("/app/inventory/frame-desk", "unknown-notice")
+	parseWant := []string{"/app/inventory/frame-desk"}
+	if !reflect.DeepEqual(parseGot, parseWant) {
+		parseT.Fatalf("MutationRoutePrefixes() = %#v, want %#v", parseGot, parseWant)
 	}
 }

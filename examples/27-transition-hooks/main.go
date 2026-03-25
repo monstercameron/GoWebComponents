@@ -147,33 +147,33 @@ var routeSeeds = map[string]routeSnapshot{
 	},
 }
 
-func buildSearchSnapshot(query string) searchSnapshot {
-	normalized := strings.ToLower(strings.TrimSpace(query))
-	results := make([]searchRow, 0, 6)
-	matched := 0
-	rowsScanned := len(directorySeed) * 18
+func buildSearchSnapshot(parseQuery string) searchSnapshot {
+	parseNormalized := strings.ToLower(strings.TrimSpace(parseQuery))
+	parseResults := make([]searchRow, 0, 6)
+	parseMatched := 0
+	parseRowsScanned := len(directorySeed) * 18
 
-	for cycle := 0; cycle < 18; cycle++ {
-		for _, entry := range directorySeed {
-			searchable := strings.ToLower(entry.Name + " " + entry.Team + " " + entry.Region + " " + entry.Status)
-			if normalized != "" && !strings.Contains(searchable, normalized) {
+	for parseCycle := 0; parseCycle < 18; parseCycle++ {
+		for _, parseEntry := range directorySeed {
+			parseSearchable := strings.ToLower(parseEntry.Name + " " + parseEntry.Team + " " + parseEntry.Region + " " + parseEntry.Status)
+			if parseNormalized != "" && !strings.Contains(parseSearchable, parseNormalized) {
 				continue
 			}
-			matched++
-			if len(results) >= 6 {
+			parseMatched++
+			if len(parseResults) >= 6 {
 				continue
 			}
-			results = append(results, searchRow{
-				Title:   fmt.Sprintf("%s #%02d", entry.Name, cycle+1),
-				Meta:    fmt.Sprintf("%s - %s", entry.Team, entry.Region),
-				Score:   fmt.Sprintf("status: %s", entry.Status),
-				Preview: fmt.Sprintf("Result rows stay responsive because the input value commits before the heavier filter pass finishes for %s.", entry.Team),
+			parseResults = append(parseResults, searchRow{
+				Title:   fmt.Sprintf("%s #%02d", parseEntry.Name, parseCycle+1),
+				Meta:    fmt.Sprintf("%s - %s", parseEntry.Team, parseEntry.Region),
+				Score:   fmt.Sprintf("status: %s", parseEntry.Status),
+				Preview: fmt.Sprintf("Result rows stay responsive because the input value commits before the heavier filter pass finishes for %s.", parseEntry.Team),
 			})
 		}
 	}
 
-	if len(results) == 0 {
-		results = append(results, searchRow{
+	if len(parseResults) == 0 {
+		parseResults = append(parseResults, searchRow{
 			Title:   "No matching operators",
 			Meta:    "Try team names like Inventory, CX, or Warehouse.",
 			Score:   "0 matches",
@@ -182,122 +182,122 @@ func buildSearchSnapshot(query string) searchSnapshot {
 	}
 
 	return searchSnapshot{
-		Query:       query,
-		RowsScanned: rowsScanned,
-		Matched:     matched,
-		Results:     results,
+		Query:       parseQuery,
+		RowsScanned: parseRowsScanned,
+		Matched:     parseMatched,
+		Results:     parseResults,
 	}
 }
 
-func buildDashboardSnapshot(name string) dashboardSnapshot {
-	if snapshot, ok := dashboardSeeds[name]; ok {
-		return snapshot
+func buildDashboardSnapshot(parseName string) dashboardSnapshot {
+	if parseSnapshot, parseOk := dashboardSeeds[parseName]; parseOk {
+		return parseSnapshot
 	}
 	return dashboardSeeds["Pipeline"]
 }
 
-func buildRouteSnapshot(path string) routeSnapshot {
-	if snapshot, ok := routeSeeds[path]; ok {
-		return snapshot
+func buildRouteSnapshot(parsePath string) routeSnapshot {
+	if parseSnapshot, parseOk := routeSeeds[parsePath]; parseOk {
+		return parseSnapshot
 	}
 	return routeSeeds["/orders"]
 }
 
-func transitionButton(label string, active bool, handler ui.Handler) ui.Node {
-	className := "rounded-full border px-4 py-2 text-sm font-semibold transition-colors"
-	if active {
-		className += " border-cyan-300/70 bg-cyan-300/15 text-cyan-100"
+func transitionButton(parseLabel string, isActive bool, parseHandler ui.Handler) ui.Node {
+	parseClassName := "rounded-full border px-4 py-2 text-sm font-semibold transition-colors"
+	if isActive {
+		parseClassName += " border-cyan-300/70 bg-cyan-300/15 text-cyan-100"
 	} else {
-		className += " border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+		parseClassName += " border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
 	}
-	return html.Button(html.Props{Type: "button", OnClick: handler, Class: className}, html.Text(label))
+	return html.Button(html.Props{Type: "button", OnClick: parseHandler, Class: parseClassName}, html.Text(parseLabel))
 }
 
 func transitionHooksExample() ui.Node {
-	transition := ui.UseTransition()
+	parseTransition := ui.UseTransition()
 
-	query := ui.UseState("")
-	search := ui.UseState(buildSearchSnapshot(""))
-	requestedTab := ui.UseState("Pipeline")
-	dashboard := ui.UseState(buildDashboardSnapshot("Pipeline"))
-	requestedPath := ui.UseState("/orders")
-	routeView := ui.UseState(buildRouteSnapshot("/orders"))
-	workLabel := ui.UseState("Idle")
-	lastCommit := ui.UseState("Initial render committed")
+	parseQuery := ui.UseState("")
+	parseSearch := ui.UseState(buildSearchSnapshot(""))
+	parseRequestedTab := ui.UseState("Pipeline")
+	parseDashboard := ui.UseState(buildDashboardSnapshot("Pipeline"))
+	parseRequestedPath := ui.UseState("/orders")
+	parseRouteView := ui.UseState(buildRouteSnapshot("/orders"))
+	parseWorkLabel := ui.UseState("Idle")
+	parseLastCommit := ui.UseState("Initial render committed")
 
-	switchTab := func(name string) {
-		requestedTab.Set(name)
-		workLabel.Set("Switching dashboard to " + name)
-		transition.Start(func() {
-			dashboard.Set(buildDashboardSnapshot(name))
-			lastCommit.Set("Tab commit: " + name)
-			workLabel.Set(name + " dashboard ready")
+	parseSwitchTab := func(parseName string) {
+		parseRequestedTab.Set(parseName)
+		parseWorkLabel.Set("Switching dashboard to " + parseName)
+		parseTransition.Start(func() {
+			parseDashboard.Set(buildDashboardSnapshot(parseName))
+			parseLastCommit.Set("Tab commit: " + parseName)
+			parseWorkLabel.Set(parseName + " dashboard ready")
 		})
 	}
-	switchRoute := func(path string) {
-		requestedPath.Set(path)
-		workLabel.Set("Preparing section " + path)
-		transition.Start(func() {
-			routeView.Set(buildRouteSnapshot(path))
-			lastCommit.Set("Route commit: " + path)
-			workLabel.Set("Section ready at " + path)
+	parseSwitchRoute := func(parsePath string) {
+		parseRequestedPath.Set(parsePath)
+		parseWorkLabel.Set("Preparing section " + parsePath)
+		parseTransition.Start(func() {
+			parseRouteView.Set(buildRouteSnapshot(parsePath))
+			parseLastCommit.Set("Route commit: " + parsePath)
+			parseWorkLabel.Set("Section ready at " + parsePath)
 		})
 	}
 
-	updateSearch := ui.UseEvent(func(event ui.InputEvent) {
-		next := event.GetValue()
-		query.Set(next)
-		workLabel.Set("Filtering " + fmt.Sprintf("%d", len(directorySeed)*18) + " directory rows")
-		transition.Start(func() {
-			snapshot := buildSearchSnapshot(next)
-			search.Set(snapshot)
-			lastCommit.Set(fmt.Sprintf("Search commit: %d matches", snapshot.Matched))
-			workLabel.Set("Filtered results ready")
+	parseUpdateSearch := ui.UseEvent(func(parseEvent ui.InputEvent) {
+		parseNext := parseEvent.GetValue()
+		parseQuery.Set(parseNext)
+		parseWorkLabel.Set("Filtering " + fmt.Sprintf("%d", len(directorySeed)*18) + " directory rows")
+		parseTransition.Start(func() {
+			parseSnapshot := buildSearchSnapshot(parseNext)
+			parseSearch.Set(parseSnapshot)
+			parseLastCommit.Set(fmt.Sprintf("Search commit: %d matches", parseSnapshot.Matched))
+			parseWorkLabel.Set("Filtered results ready")
 		})
 	})
 
-	openPipeline := ui.UseEvent(func() { switchTab("Pipeline") })
-	openCapacity := ui.UseEvent(func() { switchTab("Capacity") })
-	openExperience := ui.UseEvent(func() { switchTab("Experience") })
-	openOrders := ui.UseEvent(func() { switchRoute("/orders") })
-	openInventory := ui.UseEvent(func() { switchRoute("/inventory") })
-	openFulfillment := ui.UseEvent(func() { switchRoute("/fulfillment") })
+	parseOpenPipeline := ui.UseEvent(func() { parseSwitchTab("Pipeline") })
+	parseOpenCapacity := ui.UseEvent(func() { parseSwitchTab("Capacity") })
+	parseOpenExperience := ui.UseEvent(func() { parseSwitchTab("Experience") })
+	parseOpenOrders := ui.UseEvent(func() { parseSwitchRoute("/orders") })
+	parseOpenInventory := ui.UseEvent(func() { parseSwitchRoute("/inventory") })
+	parseOpenFulfillment := ui.UseEvent(func() { parseSwitchRoute("/fulfillment") })
 
-	status := "Idle"
-	if transition.Pending() {
-		status = "Transition pending"
+	parseStatus := "Idle"
+	if parseTransition.Pending() {
+		parseStatus = "Transition pending"
 	}
-	statusDetail := lastCommit.Get()
-	if transition.Pending() {
-		statusDetail = workLabel.Get()
+	parseStatusDetail := parseLastCommit.Get()
+	if parseTransition.Pending() {
+		parseStatusDetail = parseWorkLabel.Get()
 	}
 
-	resultCards := make([]ui.Node, 0, len(search.Get().Results))
-	for _, result := range search.Get().Results {
-		resultCards = append(resultCards, html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/50 p-4"},
-			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(result.Title)),
-			html.P(html.Props{Class: "mt-2 text-sm text-slate-300"}, html.Text(result.Meta)),
-			html.P(html.Props{Class: "mt-3 text-xs uppercase tracking-[0.25em] text-cyan-300"}, html.Text(result.Score)),
-			html.P(html.Props{Class: "mt-3 text-sm leading-6 text-slate-400"}, html.Text(result.Preview)),
+	parseResultCards := make([]ui.Node, 0, len(parseSearch.Get().Results))
+	for _, parseResult := range parseSearch.Get().Results {
+		parseResultCards = append(parseResultCards, html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/50 p-4"},
+			html.P(html.Props{Class: "text-sm font-semibold text-white"}, html.Text(parseResult.Title)),
+			html.P(html.Props{Class: "mt-2 text-sm text-slate-300"}, html.Text(parseResult.Meta)),
+			html.P(html.Props{Class: "mt-3 text-xs uppercase tracking-[0.25em] text-cyan-300"}, html.Text(parseResult.Score)),
+			html.P(html.Props{Class: "mt-3 text-sm leading-6 text-slate-400"}, html.Text(parseResult.Preview)),
 		))
 	}
 
-	metricCards := make([]ui.Node, 0, len(dashboard.Get().Metrics))
-	for _, metric := range dashboard.Get().Metrics {
-		metricCards = append(metricCards, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/50 p-4"},
-			html.Small(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text(metric.Label)),
-			html.P(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text(metric.Value)),
+	parseMetricCards := make([]ui.Node, 0, len(parseDashboard.Get().Metrics))
+	for _, parseMetric := range parseDashboard.Get().Metrics {
+		parseMetricCards = append(parseMetricCards, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/50 p-4"},
+			html.Small(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text(parseMetric.Label)),
+			html.P(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text(parseMetric.Value)),
 		))
 	}
 
-	activityItems := make([]ui.Node, 0, len(dashboard.Get().Activity))
-	for _, item := range dashboard.Get().Activity {
-		activityItems = append(activityItems, html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm leading-6 text-slate-300"}, html.Text(item)))
+	parseActivityItems := make([]ui.Node, 0, len(parseDashboard.Get().Activity))
+	for _, parseItem := range parseDashboard.Get().Activity {
+		parseActivityItems = append(parseActivityItems, html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm leading-6 text-slate-300"}, html.Text(parseItem)))
 	}
 
-	routeHighlights := make([]ui.Node, 0, len(routeView.Get().Highlights))
-	for _, item := range routeView.Get().Highlights {
-		routeHighlights = append(routeHighlights, html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm leading-6 text-slate-300"}, html.Text(item)))
+	parseRouteHighlights := make([]ui.Node, 0, len(parseRouteView.Get().Highlights))
+	for _, parseItem2 := range parseRouteView.Get().Highlights {
+		parseRouteHighlights = append(parseRouteHighlights, html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm leading-6 text-slate-300"}, html.Text(parseItem2)))
 	}
 
 	return shared.ExamplePage(
@@ -306,61 +306,61 @@ func transitionHooksExample() ui.Node {
 		"Use transitions when the user should see urgent intent commit first, while heavier derived results, dashboards, or route-sized sections finish in a separate non-urgent pass.",
 		shared.ExamplePanel("Scheduler state",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-4"},
-				shared.ExampleStat("Scheduler", status),
-				shared.ExampleStat("Requested tab", requestedTab.Get()),
-				shared.ExampleStat("Requested path", requestedPath.Get()),
-				shared.ExampleStat("Last commit", statusDetail),
+				shared.ExampleStat("Scheduler", parseStatus),
+				shared.ExampleStat("Requested tab", parseRequestedTab.Get()),
+				shared.ExampleStat("Requested path", parseRequestedPath.Get()),
+				shared.ExampleStat("Last commit", parseStatusDetail),
 			),
 			html.P(html.Props{Class: "mt-6 text-sm leading-7 text-slate-300"}, html.Text("This page keeps urgent controls responsive, then moves the larger result list, dashboard panel, and route-sized section swap into transition-marked work so each intent reads clearly.")),
 		),
 		shared.ExamplePanel("Typeahead filtering",
 			html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-300"}, html.Text("Typing updates the input immediately. The heavier directory filtering runs inside a transition so the query and pending state change before the result pane settles.")),
 			html.Input(html.Props{
-				Value:       query.Get(),
-				OnInput:     updateSearch,
+				Value:       parseQuery.Get(),
+				OnInput:     parseUpdateSearch,
 				Placeholder: "Search by name, team, region, or status",
 				Class:       "mt-4 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder:text-slate-500",
 			}),
 			html.Div(html.Props{Class: "mt-4 grid gap-4 md:grid-cols-3"},
-				shared.ExampleStat("Rows scanned", fmt.Sprintf("%d", search.Get().RowsScanned)),
-				shared.ExampleStat("Matches", fmt.Sprintf("%d", search.Get().Matched)),
-				shared.ExampleStat("Current query", fallback(search.Get().Query, "All operators")),
+				shared.ExampleStat("Rows scanned", fmt.Sprintf("%d", parseSearch.Get().RowsScanned)),
+				shared.ExampleStat("Matches", fmt.Sprintf("%d", parseSearch.Get().Matched)),
+				shared.ExampleStat("Current query", fallback(parseSearch.Get().Query, "All operators")),
 			),
-			html.Ul(html.Props{Class: "mt-6 grid gap-3 lg:grid-cols-2"}, resultCards...),
+			html.Ul(html.Props{Class: "mt-6 grid gap-3 lg:grid-cols-2"}, parseResultCards...),
 		),
 		shared.ExamplePanel("Tab switches",
 			html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-300"}, html.Text("Tab clicks mark the next dashboard as requested right away. The metric cards and activity feed commit afterward through the transition lane.")),
 			html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"},
-				transitionButton("Pipeline", requestedTab.Get() == "Pipeline", openPipeline),
-				transitionButton("Capacity", requestedTab.Get() == "Capacity", openCapacity),
-				transitionButton("Experience", requestedTab.Get() == "Experience", openExperience),
+				transitionButton("Pipeline", parseRequestedTab.Get() == "Pipeline", parseOpenPipeline),
+				transitionButton("Capacity", parseRequestedTab.Get() == "Capacity", parseOpenCapacity),
+				transitionButton("Experience", parseRequestedTab.Get() == "Experience", parseOpenExperience),
 			),
-			html.P(html.Props{Class: "mt-5 text-sm leading-7 text-slate-300"}, html.Text(dashboard.Get().Summary)),
-			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"}, metricCards...),
-			html.Ul(html.Props{Class: "mt-6 grid gap-3"}, activityItems...),
+			html.P(html.Props{Class: "mt-5 text-sm leading-7 text-slate-300"}, html.Text(parseDashboard.Get().Summary)),
+			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"}, parseMetricCards...),
+			html.Ul(html.Props{Class: "mt-6 grid gap-3"}, parseActivityItems...),
 		),
 		shared.ExamplePanel("Route-style section swaps",
 			html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-300"}, html.Text("These buttons simulate route-sized view changes. Requested navigation updates immediately, while the committed section content swaps after the non-urgent render path finishes.")),
 			html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"},
-				transitionButton("/orders", requestedPath.Get() == "/orders", openOrders),
-				transitionButton("/inventory", requestedPath.Get() == "/inventory", openInventory),
-				transitionButton("/fulfillment", requestedPath.Get() == "/fulfillment", openFulfillment),
+				transitionButton("/orders", parseRequestedPath.Get() == "/orders", parseOpenOrders),
+				transitionButton("/inventory", parseRequestedPath.Get() == "/inventory", parseOpenInventory),
+				transitionButton("/fulfillment", parseRequestedPath.Get() == "/fulfillment", parseOpenFulfillment),
 			),
 			html.Div(html.Props{Class: "mt-6 rounded-[1.75rem] border border-cyan-300/15 bg-[linear-gradient(160deg,rgba(12,74,110,0.20),rgba(15,23,42,0.92))] p-6"},
-				html.P(html.Props{Class: "text-xs uppercase tracking-[0.3em] text-cyan-300"}, html.Text(routeView.Get().Path)),
-				html.H3(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text(routeView.Get().Title)),
-				html.P(html.Props{Class: "mt-4 max-w-3xl text-sm leading-7 text-slate-200"}, html.Text(routeView.Get().Summary)),
-				html.Ul(html.Props{Class: "mt-6 grid gap-3"}, routeHighlights...),
+				html.P(html.Props{Class: "text-xs uppercase tracking-[0.3em] text-cyan-300"}, html.Text(parseRouteView.Get().Path)),
+				html.H3(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text(parseRouteView.Get().Title)),
+				html.P(html.Props{Class: "mt-4 max-w-3xl text-sm leading-7 text-slate-200"}, html.Text(parseRouteView.Get().Summary)),
+				html.Ul(html.Props{Class: "mt-6 grid gap-3"}, parseRouteHighlights...),
 			),
 		),
 	)
 }
 
-func fallback(value string, empty string) string {
-	if strings.TrimSpace(value) == "" {
-		return empty
+func fallback(parseValue string, parseEmpty string) string {
+	if strings.TrimSpace(parseValue) == "" {
+		return parseEmpty
 	}
-	return value
+	return parseValue
 }
 
 func main() {

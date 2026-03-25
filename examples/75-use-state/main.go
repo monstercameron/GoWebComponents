@@ -14,64 +14,64 @@ import (
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-func logStateAction(action string, details ...interface{}) {
-	args := append([]interface{}{"[ui.UseState demo]", action}, details...)
-	js.Global().Get("console").Call("log", args...)
+func logStateAction(parseAction string, parseDetails ...interface{}) {
+	parseArgs := append([]interface{}{"[ui.UseState demo]", parseAction}, parseDetails...)
+	js.Global().Get("console").Call("log", parseArgs...)
 }
 
 func useStateExample() ui.Node {
-	counter := ui.UseState(2)
-	message := ui.UseState("Ship the feature-isolated catalog")
+	parseCounter := ui.UseState(2)
+	parseMessage := ui.UseState("Ship the feature-isolated catalog")
 
 	ui.UseEffect(func() func() {
 		logStateAction("mounted", map[string]interface{}{
-			"counter": counter.Get(),
-			"message": message.Get(),
+			"counter": parseCounter.Get(),
+			"message": parseMessage.Get(),
 		})
 		return nil
 	}, "state-demo-mounted")
 
-	increment := ui.UseEvent(func() {
-		previous := counter.Get()
-		counter.Update(func(previous int) int { return previous + 1 })
+	parseIncrement := ui.UseEvent(func() {
+		parsePrevious := parseCounter.Get()
+		parseCounter.Update(func(parsePrevious5 int) int { return parsePrevious5 + 1 })
 		logStateAction("increment clicked", map[string]interface{}{
-			"previousCounter": previous,
-			"nextCounter":     previous + 1,
+			"previousCounter": parsePrevious,
+			"nextCounter":     parsePrevious + 1,
 		})
 	})
-	decrement := ui.UseEvent(func() {
-		previous := counter.Get()
-		counter.Update(func(previous int) int { return previous - 1 })
+	parseDecrement := ui.UseEvent(func() {
+		parsePrevious2 := parseCounter.Get()
+		parseCounter.Update(func(parsePrevious6 int) int { return parsePrevious6 - 1 })
 		logStateAction("decrement clicked", map[string]interface{}{
-			"previousCounter": previous,
-			"nextCounter":     previous - 1,
+			"previousCounter": parsePrevious2,
+			"nextCounter":     parsePrevious2 - 1,
 		})
 	})
 	reset := ui.UseEvent(func() {
-		previousCounter := counter.Get()
-		previousMessage := message.Get()
-		counter.Set(2)
-		message.Set("Ship the feature-isolated catalog")
+		parsePreviousCounter := parseCounter.Get()
+		parsePreviousMessage := parseMessage.Get()
+		parseCounter.Set(2)
+		parseMessage.Set("Ship the feature-isolated catalog")
 		logStateAction("reset clicked", map[string]interface{}{
-			"previousCounter": previousCounter,
+			"previousCounter": parsePreviousCounter,
 			"nextCounter":     2,
-			"previousMessage": previousMessage,
+			"previousMessage": parsePreviousMessage,
 			"nextMessage":     "Ship the feature-isolated catalog",
 		})
 	})
 	setAlpha := ui.UseEvent(func() {
-		previous := message.Get()
-		message.Set("Audit every example page")
+		parsePrevious3 := parseMessage.Get()
+		parseMessage.Set("Audit every example page")
 		logStateAction("set audit message clicked", map[string]interface{}{
-			"previousMessage": previous,
+			"previousMessage": parsePrevious3,
 			"nextMessage":     "Audit every example page",
 		})
 	})
 	setBeta := ui.UseEvent(func() {
-		previous := message.Get()
-		message.Set("Document the implementation details")
+		parsePrevious4 := parseMessage.Get()
+		parseMessage.Set("Document the implementation details")
 		logStateAction("set docs message clicked", map[string]interface{}{
-			"previousMessage": previous,
+			"previousMessage": parsePrevious4,
 			"nextMessage":     "Document the implementation details",
 		})
 	})
@@ -83,13 +83,13 @@ func useStateExample() ui.Node {
 		shared.ExamplePanel("State transitions",
 			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("The counter demonstrates numeric update flows, while the message state demonstrates direct replacement of a typed string value.")),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-				shared.ExampleButton("-1", decrement),
-				shared.ExampleButton("+1", increment),
+				shared.ExampleButton("-1", parseDecrement),
+				shared.ExampleButton("+1", parseIncrement),
 				shared.ExampleButton("Reset", reset),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Counter", fmt.Sprintf("%d", counter.Get())),
-				shared.ExampleStat("Message length", fmt.Sprintf("%d chars", len(message.Get()))),
+				shared.ExampleStat("Counter", fmt.Sprintf("%d", parseCounter.Get())),
+				shared.ExampleStat("Message length", fmt.Sprintf("%d chars", len(parseMessage.Get()))),
 			),
 		),
 		shared.ExamplePanel("String state",
@@ -99,7 +99,7 @@ func useStateExample() ui.Node {
 			),
 			html.Div(html.Props{Class: "mt-6 rounded-2xl border border-white/10 bg-slate-950/45 p-5"},
 				html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Current message")),
-				html.P(html.Props{Class: "mt-3 text-xl font-semibold text-white"}, html.Text(message.Get())),
+				html.P(html.Props{Class: "mt-3 text-xl font-semibold text-white"}, html.Text(parseMessage.Get())),
 			),
 			shared.ExampleCode(
 				"counter := ui.UseState(2)",

@@ -7,9 +7,9 @@ import (
 	"testing"
 )
 
-func TestDecodeProductRequestFromFormAndJSON(t *testing.T) {
-	t.Run("form", func(t *testing.T) {
-		form := url.Values{
+func TestDecodeProductRequestFromFormAndJSON(parseT *testing.T) {
+	parseT.Run("form", func(parseT2 *testing.T) {
+		parseForm := url.Values{
 			"sku":                  {" task-lamp "},
 			"slug":                 {" task-lamp "},
 			"title":                {" Task Lamp "},
@@ -27,22 +27,22 @@ func TestDecodeProductRequestFromFormAndJSON(t *testing.T) {
 			"available":            {" 8 "},
 			"inbound":              {" 3 "},
 		}
-		req := formRequest(form.Encode())
+		parseReq := formRequest(parseForm.Encode())
 
-		got, err := decodeProductRequest(req)
-		if err != nil {
-			t.Fatalf("decodeProductRequest(form): %v", err)
+		parseGot, parseErr := decodeProductRequest(parseReq)
+		if parseErr != nil {
+			parseT2.Fatalf("decodeProductRequest(form): %v", parseErr)
 		}
-		if got.SKU != " task-lamp " || got.Slug != " task-lamp " || got.PriceCents != 12999 || got.Available != 8 || got.Inbound != 3 {
-			t.Fatalf("unexpected form payload: %+v", got)
+		if parseGot.SKU != " task-lamp " || parseGot.Slug != " task-lamp " || parseGot.PriceCents != 12999 || parseGot.Available != 8 || parseGot.Inbound != 3 {
+			parseT2.Fatalf("unexpected form payload: %+v", parseGot)
 		}
-		if got.CurrentWarehouse != " illinois-hub " || got.ReturnWarehouseID != " new-jersey-hub " {
-			t.Fatalf("unexpected warehouse payload: %+v", got)
+		if parseGot.CurrentWarehouse != " illinois-hub " || parseGot.ReturnWarehouseID != " new-jersey-hub " {
+			parseT2.Fatalf("unexpected warehouse payload: %+v", parseGot)
 		}
 	})
 
-	t.Run("json", func(t *testing.T) {
-		req := jsonRequest(`{
+	parseT.Run("json", func(parseT3 *testing.T) {
+		parseReq2 := jsonRequest(`{
 			"sku":"frame-desk",
 			"slug":"frame-desk",
 			"title":"Frame Desk",
@@ -61,28 +61,28 @@ func TestDecodeProductRequestFromFormAndJSON(t *testing.T) {
 			"inbound":2
 		}`)
 
-		got, err := decodeProductRequest(req)
-		if err != nil {
-			t.Fatalf("decodeProductRequest(json): %v", err)
+		parseGot2, parseErr2 := decodeProductRequest(parseReq2)
+		if parseErr2 != nil {
+			parseT3.Fatalf("decodeProductRequest(json): %v", parseErr2)
 		}
-		if got.SKU != "frame-desk" || got.Title != "Frame Desk" || got.PriceCents != 249900 {
-			t.Fatalf("unexpected json payload: %+v", got)
+		if parseGot2.SKU != "frame-desk" || parseGot2.Title != "Frame Desk" || parseGot2.PriceCents != 249900 {
+			parseT3.Fatalf("unexpected json payload: %+v", parseGot2)
 		}
-		if got.WarehouseID != "new-jersey-hub" || got.CurrentWarehouse != "illinois-hub" || got.ReturnWarehouseID != "nevada-hub" {
-			t.Fatalf("unexpected warehouse payload: %+v", got)
+		if parseGot2.WarehouseID != "new-jersey-hub" || parseGot2.CurrentWarehouse != "illinois-hub" || parseGot2.ReturnWarehouseID != "nevada-hub" {
+			parseT3.Fatalf("unexpected warehouse payload: %+v", parseGot2)
 		}
 	})
 }
 
-func TestProductHelpersValidationAndSanitization(t *testing.T) {
-	fields := validateProductRequest(productRequest{}, true)
-	for _, key := range []string{"sku", "slug", "title", "category", "status", "summary", "warehouse_id"} {
-		if _, ok := fields[key]; !ok {
-			t.Fatalf("expected validation error for %q, got %+v", key, fields)
+func TestProductHelpersValidationAndSanitization(parseT *testing.T) {
+	parseFields := validateProductRequest(productRequest{}, true)
+	for _, parseKey := range []string{"sku", "slug", "title", "category", "status", "summary", "warehouse_id"} {
+		if _, parseOk := parseFields[parseKey]; !parseOk {
+			parseT.Fatalf("expected validation error for %q, got %+v", parseKey, parseFields)
 		}
 	}
 
-	updateFields := validateProductRequest(productRequest{
+	parseUpdateFields := validateProductRequest(productRequest{
 		Title:       "Task Lamp",
 		Category:    "lighting",
 		PriceCents:  -1,
@@ -92,48 +92,48 @@ func TestProductHelpersValidationAndSanitization(t *testing.T) {
 		Available:   -2,
 		Inbound:     -3,
 	}, false)
-	if _, ok := updateFields["sku"]; ok {
-		t.Fatalf("did not expect sku to be required for update: %+v", updateFields)
+	if _, parseOk2 := parseUpdateFields["sku"]; parseOk2 {
+		parseT.Fatalf("did not expect sku to be required for update: %+v", parseUpdateFields)
 	}
-	for _, key := range []string{"price_cents", "available", "inbound"} {
-		if _, ok := updateFields[key]; !ok {
-			t.Fatalf("expected numeric validation error for %q, got %+v", key, updateFields)
+	for _, parseKey2 := range []string{"price_cents", "available", "inbound"} {
+		if _, parseOk3 := parseUpdateFields[parseKey2]; !parseOk3 {
+			parseT.Fatalf("expected numeric validation error for %q, got %+v", parseKey2, parseUpdateFields)
 		}
 	}
 
-	if got := sanitizeWarehouseReturnID(" new-jersey-hub "); got != "new-jersey-hub" {
-		t.Fatalf("sanitizeWarehouseReturnID(valid) = %q", got)
+	if parseGot := sanitizeWarehouseReturnID(" new-jersey-hub "); parseGot != "new-jersey-hub" {
+		parseT.Fatalf("sanitizeWarehouseReturnID(valid) = %q", parseGot)
 	}
-	for _, raw := range []string{"", "warehouse/a", `warehouse\\a`} {
-		if got := sanitizeWarehouseReturnID(raw); got != "" {
-			t.Fatalf("sanitizeWarehouseReturnID(%q) = %q, want empty", raw, got)
+	for _, parseRaw := range []string{"", "warehouse/a", `warehouse\\a`} {
+		if parseGot2 := sanitizeWarehouseReturnID(parseRaw); parseGot2 != "" {
+			parseT.Fatalf("sanitizeWarehouseReturnID(%q) = %q, want empty", parseRaw, parseGot2)
 		}
 	}
 
-	if got := mustProductInt(" 42 ", 7); got != 42 {
-		t.Fatalf("mustProductInt(valid) = %d, want 42", got)
+	if parseGot3 := mustProductInt(" 42 ", 7); parseGot3 != 42 {
+		parseT.Fatalf("mustProductInt(valid) = %d, want 42", parseGot3)
 	}
-	if got := mustProductInt("nope", 7); got != 7 {
-		t.Fatalf("mustProductInt(invalid) = %d, want 7", got)
-	}
-}
-
-func TestDecodeProductRequestInvalidBody(t *testing.T) {
-	req := jsonRequest(`{"sku":`)
-	_, err := decodeProductRequest(req)
-	if err == nil {
-		t.Fatal("expected decodeProductRequest to fail on invalid JSON")
+	if parseGot4 := mustProductInt("nope", 7); parseGot4 != 7 {
+		parseT.Fatalf("mustProductInt(invalid) = %d, want 7", parseGot4)
 	}
 }
 
-func formRequest(body string) *http.Request {
-	req, _ := http.NewRequest(http.MethodPost, "/products", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	return req
+func TestDecodeProductRequestInvalidBody(parseT *testing.T) {
+	parseReq := jsonRequest(`{"sku":`)
+	_, parseErr := decodeProductRequest(parseReq)
+	if parseErr == nil {
+		parseT.Fatal("expected decodeProductRequest to fail on invalid JSON")
+	}
 }
 
-func jsonRequest(body string) *http.Request {
-	req, _ := http.NewRequest(http.MethodPost, "/products", strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	return req
+func formRequest(parseBody string) *http.Request {
+	parseReq, _ := http.NewRequest(http.MethodPost, "/products", strings.NewReader(parseBody))
+	parseReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	return parseReq
+}
+
+func jsonRequest(parseBody string) *http.Request {
+	parseReq, _ := http.NewRequest(http.MethodPost, "/products", strings.NewReader(parseBody))
+	parseReq.Header.Set("Content-Type", "application/json")
+	return parseReq
 }

@@ -34,10 +34,10 @@ var testAvailableModels = []modelOption{
 
 const testDefaultModel = "gpt-5.4-mini"
 
-func TestNormalizeSelectedModelIDHandlesAliasesAndFallbacks(t *testing.T) {
-	t.Parallel()
+func TestNormalizeSelectedModelIDHandlesAliasesAndFallbacks(parseT *testing.T) {
+	parseT.Parallel()
 
-	tests := []struct {
+	parseTests := []struct {
 		name     string
 		modelID  string
 		models   []modelOption
@@ -74,21 +74,21 @@ func TestNormalizeSelectedModelIDHandlesAliasesAndFallbacks(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			if got := normalizeSelectedModelID(tt.modelID, tt.models, tt.fallback); got != tt.want {
-				t.Fatalf("normalizeSelectedModelID(%q) = %q, want %q", tt.modelID, got, tt.want)
+	for _, parseTt := range parseTests {
+		parseTt2 := parseTt
+		parseT.Run(parseTt2.name, func(parseT2 *testing.T) {
+			parseT2.Parallel()
+			if parseGot := parseNormalizeSelectedModelID(parseTt2.modelID, parseTt2.models, parseTt2.fallback); parseGot != parseTt2.want {
+				parseT2.Fatalf("normalizeSelectedModelID(%q) = %q, want %q", parseTt2.modelID, parseGot, parseTt2.want)
 			}
 		})
 	}
 }
 
-func TestSelectedModelForConversationPrefersLatestSwitchThenAssistant(t *testing.T) {
-	t.Parallel()
+func TestSelectedModelForConversationPrefersLatestSwitchThenAssistant(parseT *testing.T) {
+	parseT.Parallel()
 
-	tests := []struct {
+	parseTests := []struct {
 		name     string
 		messages []message
 		fallback string
@@ -122,26 +122,26 @@ func TestSelectedModelForConversationPrefersLatestSwitchThenAssistant(t *testing
 		},
 	}
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			if got := selectedModelForConversation(tt.messages, testAvailableModels, tt.fallback); got != tt.want {
-				t.Fatalf("selectedModelForConversation() = %q, want %q", got, tt.want)
+	for _, parseTt := range parseTests {
+		parseTt2 := parseTt
+		parseT.Run(parseTt2.name, func(parseT2 *testing.T) {
+			parseT2.Parallel()
+			if parseGot := parseSelectedModelForConversation(parseTt2.messages, testAvailableModels, parseTt2.fallback); parseGot != parseTt2.want {
+				parseT2.Fatalf("selectedModelForConversation() = %q, want %q", parseGot, parseTt2.want)
 			}
 		})
 	}
 }
 
-func TestSelectedModelForConversationKeepsFallbackForNewOrUserOnlyThreads(t *testing.T) {
-	t.Parallel()
+func TestSelectedModelForConversationKeepsFallbackForNewOrUserOnlyThreads(parseT *testing.T) {
+	parseT.Parallel()
 
-	models := []modelOption{
+	parseModels := []modelOption{
 		{ID: "claude-sonnet-4-5", Capabilities: modelCapabilities{ProviderID: "anthropic", ProviderLabel: "Anthropic"}},
 		{ID: "gpt-5.4-mini", Capabilities: modelCapabilities{ProviderID: "openai", ProviderLabel: "OpenAI"}},
 	}
 
-	tests := []struct {
+	parseTests := []struct {
 		name     string
 		messages []message
 	}{
@@ -157,21 +157,21 @@ func TestSelectedModelForConversationKeepsFallbackForNewOrUserOnlyThreads(t *tes
 		},
 	}
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			if got := selectedModelForConversation(tt.messages, models, "claude-sonnet-4-5"); got != "claude-sonnet-4-5" {
-				t.Fatalf("selectedModelForConversation() = %q, want claude-sonnet-4-5", got)
+	for _, parseTt := range parseTests {
+		parseTt2 := parseTt
+		parseT.Run(parseTt2.name, func(parseT2 *testing.T) {
+			parseT2.Parallel()
+			if parseGot := parseSelectedModelForConversation(parseTt2.messages, parseModels, "claude-sonnet-4-5"); parseGot != "claude-sonnet-4-5" {
+				parseT2.Fatalf("selectedModelForConversation() = %q, want claude-sonnet-4-5", parseGot)
 			}
 		})
 	}
 }
 
-func TestNormalizeSelectedThinkingEffortHandlesCaseWhitespaceAndInvalidInput(t *testing.T) {
-	t.Parallel()
+func TestNormalizeSelectedThinkingEffortHandlesCaseWhitespaceAndInvalidInput(parseT *testing.T) {
+	parseT.Parallel()
 
-	tests := []struct {
+	parseTests := []struct {
 		input string
 		want  string
 	}{
@@ -180,53 +180,53 @@ func TestNormalizeSelectedThinkingEffortHandlesCaseWhitespaceAndInvalidInput(t *
 		{input: "unknown", want: defaultThinkingEffort},
 	}
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.input, func(t *testing.T) {
-			t.Parallel()
-			if got := normalizeSelectedThinkingEffort(tt.input); got != tt.want {
-				t.Fatalf("normalizeSelectedThinkingEffort(%q) = %q, want %q", tt.input, got, tt.want)
+	for _, parseTt := range parseTests {
+		parseTt2 := parseTt
+		parseT.Run(parseTt2.input, func(parseT2 *testing.T) {
+			parseT2.Parallel()
+			if parseGot := parseNormalizeSelectedThinkingEffort(parseTt2.input); parseGot != parseTt2.want {
+				parseT2.Fatalf("normalizeSelectedThinkingEffort(%q) = %q, want %q", parseTt2.input, parseGot, parseTt2.want)
 			}
 		})
 	}
 }
 
-func TestProviderHelpersGroupModelsAndChooseProviderDefault(t *testing.T) {
-	t.Parallel()
+func TestProviderHelpersGroupModelsAndChooseProviderDefault(parseT *testing.T) {
+	parseT.Parallel()
 
-	models := []modelOption{
+	parseModels := []modelOption{
 		{ID: "openai-fast", Label: "OpenAI Fast", Capabilities: modelCapabilities{ProviderID: "openai", ProviderLabel: "OpenAI"}},
 		{ID: "openai-best", Label: "OpenAI Best", Capabilities: modelCapabilities{ProviderID: "openai", ProviderLabel: "OpenAI"}},
 		{ID: "cerebras-code", Label: "Cerebras Code", Capabilities: modelCapabilities{ProviderID: "cerebras", ProviderLabel: "Cerebras"}},
 	}
 
-	providers := providerOptionsForModels(models)
-	if len(providers) != 2 {
-		t.Fatalf("len(providerOptionsForModels()) = %d, want 2", len(providers))
+	parseProviders := parseProviderOptionsForModels(parseModels)
+	if len(parseProviders) != 2 {
+		parseT.Fatalf("len(providerOptionsForModels()) = %d, want 2", len(parseProviders))
 	}
-	if providers[0].ID != "openai" || providers[1].ID != "cerebras" {
-		t.Fatalf("provider ordering = %#v, want openai then cerebras", providers)
-	}
-
-	activeProvider := providerForModel("cerebras-code", models, "openai-fast")
-	if activeProvider.ID != "cerebras" {
-		t.Fatalf("providerForModel() = %#v, want cerebras", activeProvider)
+	if parseProviders[0].ParseID != "openai" || parseProviders[1].ParseID != "cerebras" {
+		parseT.Fatalf("provider ordering = %#v, want openai then cerebras", parseProviders)
 	}
 
-	filteredModels := modelsForProvider(models, "openai")
-	if len(filteredModels) != 2 {
-		t.Fatalf("len(modelsForProvider(openai)) = %d, want 2", len(filteredModels))
+	parseActiveProvider := parseProviderForModel("cerebras-code", parseModels, "openai-fast")
+	if parseActiveProvider.ParseID != "cerebras" {
+		parseT.Fatalf("providerForModel() = %#v, want cerebras", parseActiveProvider)
 	}
 
-	if got := defaultModelForProvider("cerebras", models, "openai-best"); got != "cerebras-code" {
-		t.Fatalf("defaultModelForProvider(cerebras) = %q, want cerebras-code", got)
+	parseFilteredModels := parseModelsForProvider(parseModels, "openai")
+	if len(parseFilteredModels) != 2 {
+		parseT.Fatalf("len(modelsForProvider(openai)) = %d, want 2", len(parseFilteredModels))
+	}
+
+	if parseGot := parseDefaultModelForProvider("cerebras", parseModels, "openai-best"); parseGot != "cerebras-code" {
+		parseT.Fatalf("defaultModelForProvider(cerebras) = %q, want cerebras-code", parseGot)
 	}
 }
 
-func TestRecoverPersistedModelSelection(t *testing.T) {
-	t.Parallel()
+func TestRecoverPersistedModelSelection(parseT *testing.T) {
+	parseT.Parallel()
 
-	tests := []struct {
+	parseTests := []struct {
 		name           string
 		persistedModel string
 		models         []modelOption
@@ -256,22 +256,22 @@ func TestRecoverPersistedModelSelection(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			gotModel, gotFallback := recoverPersistedModelSelection(tt.persistedModel, tt.models)
-			if gotModel != tt.wantModel || gotFallback != tt.wantFallback {
-				t.Fatalf("recoverPersistedModelSelection(%q) = (%q, %v), want (%q, %v)", tt.persistedModel, gotModel, gotFallback, tt.wantModel, tt.wantFallback)
+	for _, parseTt := range parseTests {
+		parseTt2 := parseTt
+		parseT.Run(parseTt2.name, func(parseT2 *testing.T) {
+			parseT2.Parallel()
+			parseGotModel, parseGotFallback := parseRecoverPersistedModelSelection(parseTt2.persistedModel, parseTt2.models)
+			if parseGotModel != parseTt2.wantModel || parseGotFallback != parseTt2.wantFallback {
+				parseT2.Fatalf("recoverPersistedModelSelection(%q) = (%q, %v), want (%q, %v)", parseTt2.persistedModel, parseGotModel, parseGotFallback, parseTt2.wantModel, parseTt2.wantFallback)
 			}
 		})
 	}
 }
 
-func TestSelectedModelCrossTabChannelName(t *testing.T) {
-	t.Parallel()
+func TestSelectedModelCrossTabChannelName(parseT *testing.T) {
+	parseT.Parallel()
 
-	tests := []struct {
+	parseTests := []struct {
 		name        string
 		sessionMail string
 		want        string
@@ -288,195 +288,195 @@ func TestSelectedModelCrossTabChannelName(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			if got := selectedModelCrossTabChannelName(tt.sessionMail); got != tt.want {
-				t.Fatalf("selectedModelCrossTabChannelName(%q) = %q, want %q", tt.sessionMail, got, tt.want)
+	for _, parseTt := range parseTests {
+		parseTt2 := parseTt
+		parseT.Run(parseTt2.name, func(parseT2 *testing.T) {
+			parseT2.Parallel()
+			if parseGot := parseSelectedModelCrossTabChannelName(parseTt2.sessionMail); parseGot != parseTt2.want {
+				parseT2.Fatalf("selectedModelCrossTabChannelName(%q) = %q, want %q", parseTt2.sessionMail, parseGot, parseTt2.want)
 			}
 		})
 	}
 }
 
-func TestFilterModelsByCapability(t *testing.T) {
-	t.Parallel()
+func TestFilterModelsByCapability(parseT *testing.T) {
+	parseT.Parallel()
 
-	models := []modelOption{
+	parseModels := []modelOption{
 		{ID: "reasoning", Capabilities: modelCapabilities{SupportsThinking: true, SupportsSpeech: false}},
 		{ID: "voice", Capabilities: modelCapabilities{SupportsThinking: false, SupportsSpeech: true}},
 		{ID: "basic", Capabilities: modelCapabilities{SupportsThinking: false, SupportsSpeech: false}},
 	}
 
-	thinking := filterModelsByCapability(models, "thinking")
-	if len(thinking) != 1 || thinking[0].ID != "reasoning" {
-		t.Fatalf("filterModelsByCapability(thinking) = %#v, want reasoning-only list", thinking)
+	parseThinking := filterModelsByCapability(parseModels, "thinking")
+	if len(parseThinking) != 1 || parseThinking[0].ParseID != "reasoning" {
+		parseT.Fatalf("filterModelsByCapability(thinking) = %#v, want reasoning-only list", parseThinking)
 	}
 
-	speech := filterModelsByCapability(models, "speech")
-	if len(speech) != 1 || speech[0].ID != "voice" {
-		t.Fatalf("filterModelsByCapability(speech) = %#v, want voice-only list", speech)
+	parseSpeech := filterModelsByCapability(parseModels, "speech")
+	if len(parseSpeech) != 1 || parseSpeech[0].ParseID != "voice" {
+		parseT.Fatalf("filterModelsByCapability(speech) = %#v, want voice-only list", parseSpeech)
 	}
 
-	unknown := filterModelsByCapability(models, "unknown")
-	if len(unknown) != len(models) {
-		t.Fatalf("filterModelsByCapability(unknown) len = %d, want %d", len(unknown), len(models))
+	parseUnknown := filterModelsByCapability(parseModels, "unknown")
+	if len(parseUnknown) != len(parseModels) {
+		parseT.Fatalf("filterModelsByCapability(unknown) len = %d, want %d", len(parseUnknown), len(parseModels))
 	}
 }
 
-func TestOpenAITTSSynthesisModel(t *testing.T) {
-	t.Parallel()
+func TestOpenAITTSSynthesisModel(parseT *testing.T) {
+	parseT.Parallel()
 
-	t.Run("prefers openai default when speech-capable", func(t *testing.T) {
-		t.Parallel()
-		models := []modelOption{
+	parseT.Run("prefers openai default when speech-capable", func(parseT2 *testing.T) {
+		parseT2.Parallel()
+		parseModels := []modelOption{
 			{ID: "gpt-5.4-mini", Capabilities: modelCapabilities{ProviderID: "openai", SupportsSpeech: true}},
 			{ID: "claude-4", Capabilities: modelCapabilities{ProviderID: "anthropic", SupportsSpeech: false}},
 		}
-		if got := openAITTSSynthesisModel(models, "gpt-5.4-mini"); got != "gpt-5.4-mini" {
-			t.Fatalf("openAITTSSynthesisModel() = %q, want gpt-5.4-mini", got)
+		if parseGot := parseOpenAITTSSynthesisModel(parseModels, "gpt-5.4-mini"); parseGot != "gpt-5.4-mini" {
+			parseT2.Fatalf("openAITTSSynthesisModel() = %q, want gpt-5.4-mini", parseGot)
 		}
 	})
 
-	t.Run("falls back to first openai speech model when provider default lacks speech", func(t *testing.T) {
-		t.Parallel()
-		models := []modelOption{
+	parseT.Run("falls back to first openai speech model when provider default lacks speech", func(parseT3 *testing.T) {
+		parseT3.Parallel()
+		parseModels2 := []modelOption{
 			{ID: "gpt-5.4-mini", Capabilities: modelCapabilities{ProviderID: "openai", SupportsSpeech: false}},
 			{ID: "gpt-5.4-tts", Capabilities: modelCapabilities{ProviderID: "openai", SupportsSpeech: true}},
 			{ID: "cerebras-voice", Capabilities: modelCapabilities{ProviderID: "cerebras", SupportsSpeech: true}},
 		}
-		if got := openAITTSSynthesisModel(models, "gpt-5.4-mini"); got != "gpt-5.4-tts" {
-			t.Fatalf("openAITTSSynthesisModel() = %q, want gpt-5.4-tts", got)
+		if parseGot2 := parseOpenAITTSSynthesisModel(parseModels2, "gpt-5.4-mini"); parseGot2 != "gpt-5.4-tts" {
+			parseT3.Fatalf("openAITTSSynthesisModel() = %q, want gpt-5.4-tts", parseGot2)
 		}
 	})
 
-	t.Run("returns empty when no openai speech model exists", func(t *testing.T) {
-		t.Parallel()
-		models := []modelOption{
+	parseT.Run("returns empty when no openai speech model exists", func(parseT4 *testing.T) {
+		parseT4.Parallel()
+		parseModels3 := []modelOption{
 			{ID: "claude-4", Capabilities: modelCapabilities{ProviderID: "anthropic", SupportsSpeech: false}},
 			{ID: "cerebras-voice", Capabilities: modelCapabilities{ProviderID: "cerebras", SupportsSpeech: true}},
 		}
-		if got := openAITTSSynthesisModel(models, "claude-4"); got != "" {
-			t.Fatalf("openAITTSSynthesisModel() = %q, want empty", got)
+		if parseGot3 := parseOpenAITTSSynthesisModel(parseModels3, "claude-4"); parseGot3 != "" {
+			parseT4.Fatalf("openAITTSSynthesisModel() = %q, want empty", parseGot3)
 		}
 	})
 }
 
-func TestTTSProviderOptionsForModelsIncludesOpenAI(t *testing.T) {
-	t.Parallel()
+func TestTTSProviderOptionsForModelsIncludesOpenAI(parseT *testing.T) {
+	parseT.Parallel()
 
-	models := []modelOption{
+	parseModels := []modelOption{
 		{ID: "gpt-5.4-mini", Capabilities: modelCapabilities{ProviderID: "openai", SupportsSpeech: true}},
 	}
 
-	options := ttsProviderOptionsForModels(models, "gpt-5.4-mini")
-	if len(options) != 1 {
-		t.Fatalf("len(ttsProviderOptionsForModels()) = %d, want 1", len(options))
+	parseOptions := parseTtsProviderOptionsForModels(parseModels, "gpt-5.4-mini")
+	if len(parseOptions) != 1 {
+		parseT.Fatalf("len(ttsProviderOptionsForModels()) = %d, want 1", len(parseOptions))
 	}
-	if options[0].ID != ttsProviderOpenAI || options[0].Label != "OpenAI" {
-		t.Fatalf("ttsProviderOptionsForModels()[0] = %#v, want OpenAI provider", options[0])
+	if parseOptions[0].ParseID != ttsProviderOpenAI || parseOptions[0].Label != "OpenAI" {
+		parseT.Fatalf("ttsProviderOptionsForModels()[0] = %#v, want OpenAI provider", parseOptions[0])
 	}
-	if !options[0].Available || options[0].ResolvedModel != "gpt-5.4-mini" {
-		t.Fatalf("ttsProviderOptionsForModels()[0] availability = %#v, want available gpt-5.4-mini", options[0])
+	if !parseOptions[0].ParseAvailable || parseOptions[0].ResolvedModel != "gpt-5.4-mini" {
+		parseT.Fatalf("ttsProviderOptionsForModels()[0] availability = %#v, want available gpt-5.4-mini", parseOptions[0])
 	}
 }
 
-func TestResolveSpeechSynthesisModelForProvider(t *testing.T) {
-	t.Parallel()
+func TestResolveSpeechSynthesisModelForProvider(parseT *testing.T) {
+	parseT.Parallel()
 
-	t.Run("resolves openai provider model for non-openai active chat model", func(t *testing.T) {
-		t.Parallel()
-		models := []modelOption{
+	parseT.Run("resolves openai provider model for non-openai active chat model", func(parseT2 *testing.T) {
+		parseT2.Parallel()
+		parseModels := []modelOption{
 			{ID: "claude-4", Capabilities: modelCapabilities{ProviderID: "anthropic", SupportsSpeech: false}},
 			{ID: "gpt-5.4-mini", Capabilities: modelCapabilities{ProviderID: "openai", SupportsSpeech: true}},
 		}
 
-		gotModel, supported := resolveSpeechSynthesisModelForProvider("claude-4", models, "claude-4", ttsProviderOpenAI)
-		if !supported || gotModel != "gpt-5.4-mini" {
-			t.Fatalf("resolveSpeechSynthesisModelForProvider() = (%q, %v), want (gpt-5.4-mini, true)", gotModel, supported)
+		parseGotModel, parseSupported := parseResolveSpeechSynthesisModelForProvider("claude-4", parseModels, "claude-4", ttsProviderOpenAI)
+		if !parseSupported || parseGotModel != "gpt-5.4-mini" {
+			parseT2.Fatalf("resolveSpeechSynthesisModelForProvider() = (%q, %v), want (gpt-5.4-mini, true)", parseGotModel, parseSupported)
 		}
 	})
 
-	t.Run("returns unsupported when provider has no speech-capable model", func(t *testing.T) {
-		t.Parallel()
-		models := []modelOption{
+	parseT.Run("returns unsupported when provider has no speech-capable model", func(parseT3 *testing.T) {
+		parseT3.Parallel()
+		parseModels2 := []modelOption{
 			{ID: "claude-4", Capabilities: modelCapabilities{ProviderID: "anthropic", SupportsSpeech: false}},
 		}
 
-		gotModel, supported := resolveSpeechSynthesisModelForProvider("claude-4", models, "claude-4", ttsProviderOpenAI)
-		if supported || gotModel != "" {
-			t.Fatalf("resolveSpeechSynthesisModelForProvider() = (%q, %v), want (\"\", false)", gotModel, supported)
+		parseGotModel2, parseSupported2 := parseResolveSpeechSynthesisModelForProvider("claude-4", parseModels2, "claude-4", ttsProviderOpenAI)
+		if parseSupported2 || parseGotModel2 != "" {
+			parseT3.Fatalf("resolveSpeechSynthesisModelForProvider() = (%q, %v), want (\"\", false)", parseGotModel2, parseSupported2)
 		}
 	})
 }
 
-func TestResolveSpeechSynthesisModel(t *testing.T) {
-	t.Parallel()
+func TestResolveSpeechSynthesisModel(parseT *testing.T) {
+	parseT.Parallel()
 
-	t.Run("uses requested model when it already supports speech", func(t *testing.T) {
-		t.Parallel()
-		models := []modelOption{
+	parseT.Run("uses requested model when it already supports speech", func(parseT2 *testing.T) {
+		parseT2.Parallel()
+		parseModels := []modelOption{
 			{ID: "gpt-5.4-mini", Capabilities: modelCapabilities{ProviderID: "openai", SupportsSpeech: true}},
 		}
 
-		gotModel, supported := resolveSpeechSynthesisModel("gpt-5.4-mini", models, "gpt-5.4-mini", false)
-		if !supported || gotModel != "gpt-5.4-mini" {
-			t.Fatalf("resolveSpeechSynthesisModel() = (%q, %v), want (gpt-5.4-mini, true)", gotModel, supported)
+		parseGotModel, parseSupported := parseResolveSpeechSynthesisModel("gpt-5.4-mini", parseModels, "gpt-5.4-mini", false)
+		if !parseSupported || parseGotModel != "gpt-5.4-mini" {
+			parseT2.Fatalf("resolveSpeechSynthesisModel() = (%q, %v), want (gpt-5.4-mini, true)", parseGotModel, parseSupported)
 		}
 	})
 
-	t.Run("does not fall back when openai tts fallback is disabled", func(t *testing.T) {
-		t.Parallel()
-		models := []modelOption{
+	parseT.Run("does not fall back when openai tts fallback is disabled", func(parseT3 *testing.T) {
+		parseT3.Parallel()
+		parseModels2 := []modelOption{
 			{ID: "claude-4", Capabilities: modelCapabilities{ProviderID: "anthropic", SupportsSpeech: false}},
 			{ID: "gpt-5.4-mini", Capabilities: modelCapabilities{ProviderID: "openai", SupportsSpeech: true}},
 		}
 
-		gotModel, supported := resolveSpeechSynthesisModel("claude-4", models, "claude-4", false)
-		if supported || gotModel != "" {
-			t.Fatalf("resolveSpeechSynthesisModel() = (%q, %v), want (\"\", false)", gotModel, supported)
+		parseGotModel2, parseSupported2 := parseResolveSpeechSynthesisModel("claude-4", parseModels2, "claude-4", false)
+		if parseSupported2 || parseGotModel2 != "" {
+			parseT3.Fatalf("resolveSpeechSynthesisModel() = (%q, %v), want (\"\", false)", parseGotModel2, parseSupported2)
 		}
 	})
 
-	t.Run("uses openai tts fallback while keeping non-openai chat provider selection", func(t *testing.T) {
-		t.Parallel()
-		models := []modelOption{
+	parseT.Run("uses openai tts fallback while keeping non-openai chat provider selection", func(parseT4 *testing.T) {
+		parseT4.Parallel()
+		parseModels3 := []modelOption{
 			{ID: "claude-4", Capabilities: modelCapabilities{ProviderID: "anthropic", SupportsSpeech: false}},
 			{ID: "gpt-5.4-mini", Capabilities: modelCapabilities{ProviderID: "openai", SupportsSpeech: true}},
 		}
 
-		activeChatModel := "claude-4"
-		gotModel, supported := resolveSpeechSynthesisModel(activeChatModel, models, activeChatModel, true)
-		if !supported || gotModel != "gpt-5.4-mini" {
-			t.Fatalf("resolveSpeechSynthesisModel() = (%q, %v), want (gpt-5.4-mini, true)", gotModel, supported)
+		parseActiveChatModel := "claude-4"
+		parseGotModel3, parseSupported3 := parseResolveSpeechSynthesisModel(parseActiveChatModel, parseModels3, parseActiveChatModel, true)
+		if !parseSupported3 || parseGotModel3 != "gpt-5.4-mini" {
+			parseT4.Fatalf("resolveSpeechSynthesisModel() = (%q, %v), want (gpt-5.4-mini, true)", parseGotModel3, parseSupported3)
 		}
-		if activeChatModel != "claude-4" {
-			t.Fatalf("activeChatModel mutated to %q, want claude-4", activeChatModel)
+		if parseActiveChatModel != "claude-4" {
+			parseT4.Fatalf("activeChatModel mutated to %q, want claude-4", parseActiveChatModel)
 		}
-		activeProvider := providerForModel(activeChatModel, models, activeChatModel)
-		if activeProvider.ID != "anthropic" {
-			t.Fatalf("active provider = %q, want anthropic", activeProvider.ID)
+		parseActiveProvider := parseProviderForModel(parseActiveChatModel, parseModels3, parseActiveChatModel)
+		if parseActiveProvider.ParseID != "anthropic" {
+			parseT4.Fatalf("active provider = %q, want anthropic", parseActiveProvider.ParseID)
 		}
 	})
 
-	t.Run("does not use non-openai speech models for fallback", func(t *testing.T) {
-		t.Parallel()
-		models := []modelOption{
+	parseT.Run("does not use non-openai speech models for fallback", func(parseT5 *testing.T) {
+		parseT5.Parallel()
+		parseModels4 := []modelOption{
 			{ID: "claude-4", Capabilities: modelCapabilities{ProviderID: "anthropic", SupportsSpeech: false}},
 			{ID: "cerebras-voice", Capabilities: modelCapabilities{ProviderID: "cerebras", SupportsSpeech: true}},
 		}
 
-		gotModel, supported := resolveSpeechSynthesisModel("claude-4", models, "claude-4", true)
-		if supported || gotModel != "" {
-			t.Fatalf("resolveSpeechSynthesisModel() = (%q, %v), want (\"\", false)", gotModel, supported)
+		parseGotModel4, parseSupported4 := parseResolveSpeechSynthesisModel("claude-4", parseModels4, "claude-4", true)
+		if parseSupported4 || parseGotModel4 != "" {
+			parseT5.Fatalf("resolveSpeechSynthesisModel() = (%q, %v), want (\"\", false)", parseGotModel4, parseSupported4)
 		}
 	})
 }
 
-func TestCanvasPreviewFromMarkdownIgnoresInvalidFencesAndUsesLatestCompletedCanvas(t *testing.T) {
-	t.Parallel()
+func TestCanvasPreviewFromMarkdownIgnoresInvalidFencesAndUsesLatestCompletedCanvas(parseT *testing.T) {
+	parseT.Parallel()
 
-	markdown := strings.Join([]string{
+	parseMarkdown := strings.Join([]string{
 		"```go",
 		`fmt.Println("ignore")`,
 		"```",
@@ -490,47 +490,47 @@ func TestCanvasPreviewFromMarkdownIgnoresInvalidFencesAndUsesLatestCompletedCanv
 		"```",
 	}, "\n")
 
-	preview, ok := canvasPreviewFromMarkdown(markdown)
-	if !ok {
-		t.Fatal("canvasPreviewFromMarkdown() = not found, want preview")
+	parsePreview, parseOk := canvasPreviewFromMarkdown(parseMarkdown)
+	if !parseOk {
+		parseT.Fatal("canvasPreviewFromMarkdown() = not found, want preview")
 	}
-	if preview.Source != "<div>latest</div>" {
-		t.Fatalf("preview.Source = %q, want latest canvas block", preview.Source)
+	if parsePreview.Source != "<div>latest</div>" {
+		parseT.Fatalf("preview.Source = %q, want latest canvas block", parsePreview.Source)
 	}
 
-	statefulPreview, ok := latestCanvasPreview([]message{
+	parseStatefulPreview, parseOk := parseLatestCanvasPreview([]message{
 		{Role: roleAssistant, Pending: true, Content: "```canvas\n<div>pending</div>\n```"},
 		{Role: roleAssistant, Content: "```canvas\n<div>stable</div>\n```"},
 	})
-	if !ok {
-		t.Fatal("latestCanvasPreview() = not found, want completed preview")
+	if !parseOk {
+		parseT.Fatal("latestCanvasPreview() = not found, want completed preview")
 	}
-	if statefulPreview.Source != "<div>stable</div>" {
-		t.Fatalf("latestCanvasPreview() picked %q, want completed message preview", statefulPreview.Source)
-	}
-}
-
-func TestBuildCanvasDocumentHandlesScriptOnlyAndFullHTML(t *testing.T) {
-	t.Parallel()
-
-	scriptDoc := buildCanvasDocument(`console.log("hi")`)
-	if !strings.Contains(scriptDoc, `<div id="canvas"></div>`) {
-		t.Fatalf("script document missing #canvas root: %q", scriptDoc)
-	}
-	if !strings.Contains(scriptDoc, `<script>console.log("hi")</script>`) {
-		t.Fatalf("script document missing wrapped script: %q", scriptDoc)
-	}
-
-	fullHTML := "<!DOCTYPE html><html><body><main>ready</main></body></html>"
-	if got := buildCanvasDocument(fullHTML); !strings.Contains(got, "<main>ready</main>") || !strings.Contains(got, "__gwcCanvas") {
-		t.Fatalf("buildCanvasDocument(full html) missing preserved content or runtime bridge: got %q", got)
+	if parseStatefulPreview.Source != "<div>stable</div>" {
+		parseT.Fatalf("latestCanvasPreview() picked %q, want completed message preview", parseStatefulPreview.Source)
 	}
 }
 
-func TestCanvasArtifactsFromMarkdownRecognizesHTMLAndJavaScript(t *testing.T) {
-	t.Parallel()
+func TestBuildCanvasDocumentHandlesScriptOnlyAndFullHTML(parseT *testing.T) {
+	parseT.Parallel()
 
-	markdown := strings.Join([]string{
+	parseScriptDoc := buildCanvasDocument(`console.log("hi")`)
+	if !strings.Contains(parseScriptDoc, `<div id="canvas"></div>`) {
+		parseT.Fatalf("script document missing #canvas root: %q", parseScriptDoc)
+	}
+	if !strings.Contains(parseScriptDoc, `<script>console.log("hi")</script>`) {
+		parseT.Fatalf("script document missing wrapped script: %q", parseScriptDoc)
+	}
+
+	parseFullHTML := "<!DOCTYPE html><html><body><main>ready</main></body></html>"
+	if parseGot := buildCanvasDocument(parseFullHTML); !strings.Contains(parseGot, "<main>ready</main>") || !strings.Contains(parseGot, "__gwcCanvas") {
+		parseT.Fatalf("buildCanvasDocument(full html) missing preserved content or runtime bridge: got %q", parseGot)
+	}
+}
+
+func TestCanvasArtifactsFromMarkdownRecognizesHTMLAndJavaScript(parseT *testing.T) {
+	parseT.Parallel()
+
+	parseMarkdown := strings.Join([]string{
 		"```html",
 		"<main>ready</main>",
 		"```",
@@ -540,130 +540,130 @@ func TestCanvasArtifactsFromMarkdownRecognizesHTMLAndJavaScript(t *testing.T) {
 		"```",
 	}, "\n")
 
-	artifacts := canvasArtifactsFromMarkdown(4, markdown)
-	if len(artifacts) != 2 {
-		t.Fatalf("len(canvasArtifactsFromMarkdown()) = %d, want 2", len(artifacts))
+	parseArtifacts := canvasArtifactsFromMarkdown(4, parseMarkdown)
+	if len(parseArtifacts) != 2 {
+		parseT.Fatalf("len(canvasArtifactsFromMarkdown()) = %d, want 2", len(parseArtifacts))
 	}
-	if artifacts[0].Language != "html" {
-		t.Fatalf("artifacts[0].Language = %q, want html", artifacts[0].Language)
+	if parseArtifacts[0].Language != "html" {
+		parseT.Fatalf("artifacts[0].Language = %q, want html", parseArtifacts[0].Language)
 	}
-	if artifacts[1].Language != "javascript" {
-		t.Fatalf("artifacts[1].Language = %q, want javascript", artifacts[1].Language)
-	}
-}
-
-func TestBuildCanvasRuntimeDocumentInjectsBridge(t *testing.T) {
-	t.Parallel()
-
-	document := buildCanvasRuntimeDocument(`<main>ok</main>`, "session-1", "artifact-1", 7)
-	if !strings.Contains(document, "__gwcCanvas") {
-		t.Fatalf("buildCanvasRuntimeDocument() missing bridge marker: %q", document)
-	}
-	if !strings.Contains(document, `"session-1"`) {
-		t.Fatalf("buildCanvasRuntimeDocument() missing session id: %q", document)
+	if parseArtifacts[1].Language != "javascript" {
+		parseT.Fatalf("artifacts[1].Language = %q, want javascript", parseArtifacts[1].Language)
 	}
 }
 
-func TestDeriveThreadCostSummaryMarksPartialExactCoverage(t *testing.T) {
-	t.Parallel()
+func TestBuildCanvasRuntimeDocumentInjectsBridge(parseT *testing.T) {
+	parseT.Parallel()
 
-	summary := deriveThreadCostSummary([]message{
+	parseDocument := buildCanvasRuntimeDocument(`<main>ok</main>`, "session-1", "artifact-1", 7)
+	if !strings.Contains(parseDocument, "__gwcCanvas") {
+		parseT.Fatalf("buildCanvasRuntimeDocument() missing bridge marker: %q", parseDocument)
+	}
+	if !strings.Contains(parseDocument, `"session-1"`) {
+		parseT.Fatalf("buildCanvasRuntimeDocument() missing session id: %q", parseDocument)
+	}
+}
+
+func TestDeriveThreadCostSummaryMarksPartialExactCoverage(parseT *testing.T) {
+	parseT.Parallel()
+
+	parseSummary := parseDeriveThreadCostSummary([]message{
 		{Role: roleAssistant, Content: "priced", ModelID: "gpt-5.4-mini", PromptTokens: 1000, CompletionTokens: 500},
 		{Role: roleAssistant, Content: "missing usage", ModelID: "gpt-5.4-mini", PromptTokens: 0, CompletionTokens: 0},
 		{Role: roleAssistant, Pending: true, Content: "pending should be ignored", ModelID: "gpt-5.4-mini", PromptTokens: 999, CompletionTokens: 999},
 	}, testAvailableModels)
 
-	if !summary.HasAnyExactCosts {
-		t.Fatal("HasAnyExactCosts = false, want true")
+	if !parseSummary.HasAnyExactCosts {
+		parseT.Fatal("HasAnyExactCosts = false, want true")
 	}
-	if summary.AllAssistantCostsExact {
-		t.Fatal("AllAssistantCostsExact = true, want false for partial coverage")
+	if parseSummary.AllAssistantCostsExact {
+		parseT.Fatal("AllAssistantCostsExact = true, want false for partial coverage")
 	}
-	if len(summary.AssistantMessageCosts) != 1 {
-		t.Fatalf("len(AssistantMessageCosts) = %d, want 1", len(summary.AssistantMessageCosts))
-	}
-
-	gotCost := summary.AssistantMessageCosts[0].Cost
-	wantCost := (1000 * 0.25 / 1_000_000) + (500 * 2.00 / 1_000_000)
-	if math.Abs(gotCost-wantCost) > 1e-12 {
-		t.Fatalf("cost = %.12f, want %.12f", gotCost, wantCost)
-	}
-}
-
-func TestExactAssistantMessageCostAllowsCompletionOnlyUsage(t *testing.T) {
-	t.Parallel()
-
-	cost, ok := exactAssistantMessageCost("gpt-5.4-mini", testAvailableModels, 0, 500)
-	if !ok {
-		t.Fatal("exactAssistantMessageCost() = not exact, want exact for completion-only usage")
+	if len(parseSummary.AssistantMessageCosts) != 1 {
+		parseT.Fatalf("len(AssistantMessageCosts) = %d, want 1", len(parseSummary.AssistantMessageCosts))
 	}
 
-	wantCost := 500 * 2.00 / 1_000_000
-	if math.Abs(cost.Cost-wantCost) > 1e-12 {
-		t.Fatalf("cost = %.12f, want %.12f", cost.Cost, wantCost)
+	parseGotCost := parseSummary.AssistantMessageCosts[0].Cost
+	parseWantCost := (1000 * 0.25 / 1_000_000) + (500 * 2.00 / 1_000_000)
+	if math.Abs(parseGotCost-parseWantCost) > 1e-12 {
+		parseT.Fatalf("cost = %.12f, want %.12f", parseGotCost, parseWantCost)
 	}
 }
 
-func TestDeriveAccountCostSummaryAppliesPremiumAndTracksCoverage(t *testing.T) {
-	t.Parallel()
+func TestExactAssistantMessageCostAllowsCompletionOnlyUsage(parseT *testing.T) {
+	parseT.Parallel()
 
-	threadA := threadCostSummary{
+	parseCost, parseOk := parseExactAssistantMessageCost("gpt-5.4-mini", testAvailableModels, 0, 500)
+	if !parseOk {
+		parseT.Fatal("exactAssistantMessageCost() = not exact, want exact for completion-only usage")
+	}
+
+	parseWantCost := 500 * 2.00 / 1_000_000
+	if math.Abs(parseCost.Cost-parseWantCost) > 1e-12 {
+		parseT.Fatalf("cost = %.12f, want %.12f", parseCost.Cost, parseWantCost)
+	}
+}
+
+func TestDeriveAccountCostSummaryAppliesPremiumAndTracksCoverage(parseT *testing.T) {
+	parseT.Parallel()
+
+	parseThreadA := threadCostSummary{
 		TotalCost:              0.125,
 		HasAnyExactCosts:       true,
 		AllAssistantCostsExact: true,
 	}
-	threadB := threadCostSummary{
+	parseThreadB := threadCostSummary{
 		TotalCost:              0.375,
 		HasAnyExactCosts:       true,
 		AllAssistantCostsExact: false,
 	}
-	summary := deriveAccountCostSummary([]threadCostSummary{threadA, threadB}, 5, 1)
+	parseSummary := parseDeriveAccountCostSummary([]threadCostSummary{parseThreadA, parseThreadB}, 5, 1)
 
-	if summary.ThreadCount != 3 {
-		t.Fatalf("ThreadCount = %d, want 3", summary.ThreadCount)
+	if parseSummary.ThreadCount != 3 {
+		parseT.Fatalf("ThreadCount = %d, want 3", parseSummary.ThreadCount)
 	}
-	if !summary.HasAnyExactCosts {
-		t.Fatal("HasAnyExactCosts = false, want true")
+	if !parseSummary.HasAnyExactCosts {
+		parseT.Fatal("HasAnyExactCosts = false, want true")
 	}
-	if summary.ExactThreadCostCount != 2 {
-		t.Fatalf("ExactThreadCostCount = %d, want 2", summary.ExactThreadCostCount)
+	if parseSummary.ExactThreadCostCount != 2 {
+		parseT.Fatalf("ExactThreadCostCount = %d, want 2", parseSummary.ExactThreadCostCount)
 	}
-	if summary.AllThreadCostsExact {
-		t.Fatal("AllThreadCostsExact = true, want false due to partial + failed lookups")
+	if parseSummary.AllThreadCostsExact {
+		parseT.Fatal("AllThreadCostsExact = true, want false due to partial + failed lookups")
 	}
-	if !summary.HasCoverageGaps {
-		t.Fatal("HasCoverageGaps = false, want true")
+	if !parseSummary.HasCoverageGaps {
+		parseT.Fatal("HasCoverageGaps = false, want true")
 	}
-	if summary.FailedThreadLookups != 1 {
-		t.Fatalf("FailedThreadLookups = %d, want 1", summary.FailedThreadLookups)
+	if parseSummary.FailedThreadLookups != 1 {
+		parseT.Fatalf("FailedThreadLookups = %d, want 1", parseSummary.FailedThreadLookups)
 	}
-	if math.Abs(summary.UsageCost-0.5) > 1e-12 {
-		t.Fatalf("UsageCost = %.12f, want 0.500000000000", summary.UsageCost)
+	if math.Abs(parseSummary.UsageCost-0.5) > 1e-12 {
+		parseT.Fatalf("UsageCost = %.12f, want 0.500000000000", parseSummary.UsageCost)
 	}
-	if math.Abs(summary.PremiumCost-0.025) > 1e-12 {
-		t.Fatalf("PremiumCost = %.12f, want 0.025000000000", summary.PremiumCost)
+	if math.Abs(parseSummary.PremiumCost-0.025) > 1e-12 {
+		parseT.Fatalf("PremiumCost = %.12f, want 0.025000000000", parseSummary.PremiumCost)
 	}
-	if math.Abs(summary.TotalCost-0.525) > 1e-12 {
-		t.Fatalf("TotalCost = %.12f, want 0.525000000000", summary.TotalCost)
+	if math.Abs(parseSummary.TotalCost-0.525) > 1e-12 {
+		parseT.Fatalf("TotalCost = %.12f, want 0.525000000000", parseSummary.TotalCost)
 	}
 }
 
-func TestSanitizeUsagePremiumPercentGuardsInvalidInput(t *testing.T) {
-	t.Parallel()
+func TestSanitizeUsagePremiumPercentGuardsInvalidInput(parseT *testing.T) {
+	parseT.Parallel()
 
-	if got := sanitizeUsagePremiumPercent(7.5, 5); got != 7.5 {
-		t.Fatalf("sanitizeUsagePremiumPercent(valid) = %.2f, want 7.50", got)
+	if parseGot := parseSanitizeUsagePremiumPercent(7.5, 5); parseGot != 7.5 {
+		parseT.Fatalf("sanitizeUsagePremiumPercent(valid) = %.2f, want 7.50", parseGot)
 	}
-	if got := sanitizeUsagePremiumPercent(-2, 5); got != 5 {
-		t.Fatalf("sanitizeUsagePremiumPercent(negative) = %.2f, want fallback 5.00", got)
+	if parseGot2 := parseSanitizeUsagePremiumPercent(-2, 5); parseGot2 != 5 {
+		parseT.Fatalf("sanitizeUsagePremiumPercent(negative) = %.2f, want fallback 5.00", parseGot2)
 	}
-	if got := sanitizeUsagePremiumPercent(math.Inf(1), 5); got != 5 {
-		t.Fatalf("sanitizeUsagePremiumPercent(inf) = %.2f, want fallback 5.00", got)
+	if parseGot3 := parseSanitizeUsagePremiumPercent(math.Inf(1), 5); parseGot3 != 5 {
+		parseT.Fatalf("sanitizeUsagePremiumPercent(inf) = %.2f, want fallback 5.00", parseGot3)
 	}
-	if got := sanitizeUsagePremiumPercent(math.NaN(), 5); got != 5 {
-		t.Fatalf("sanitizeUsagePremiumPercent(nan) = %.2f, want fallback 5.00", got)
+	if parseGot4 := parseSanitizeUsagePremiumPercent(math.NaN(), 5); parseGot4 != 5 {
+		parseT.Fatalf("sanitizeUsagePremiumPercent(nan) = %.2f, want fallback 5.00", parseGot4)
 	}
-	if got := sanitizeUsagePremiumPercent(5000, 5); got != 1000 {
-		t.Fatalf("sanitizeUsagePremiumPercent(clamp) = %.2f, want 1000.00", got)
+	if parseGot5 := parseSanitizeUsagePremiumPercent(5000, 5); parseGot5 != 1000 {
+		parseT.Fatalf("sanitizeUsagePremiumPercent(clamp) = %.2f, want 1000.00", parseGot5)
 	}
 }

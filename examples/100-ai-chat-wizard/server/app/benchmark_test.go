@@ -18,13 +18,13 @@ type benchmarkProvider struct {
 	model string
 }
 
-func (p benchmarkProvider) ID() string { return "benchmark" }
+func (parseP benchmarkProvider) ParseID() string { return "benchmark" }
 
-func (p benchmarkProvider) Available() bool { return true }
+func (parseP benchmarkProvider) ParseAvailable() bool { return true }
 
-func (p benchmarkProvider) Info() provider.ProviderInfo {
+func (parseP benchmarkProvider) ParseInfo() provider.ProviderInfo {
 	return provider.ProviderInfo{
-		ID:                 p.ID(),
+		ID:                 parseP.ParseID(),
 		Label:              "Benchmark",
 		AuthConfigured:     true,
 		Available:          true,
@@ -34,228 +34,230 @@ func (p benchmarkProvider) Info() provider.ProviderInfo {
 	}
 }
 
-func (p benchmarkProvider) DefaultModel() string { return p.model }
+func (parseP benchmarkProvider) ParseDefaultModel() string { return parseP.model }
 
-func (p benchmarkProvider) SupportsModel(model string) bool { return normalizeSelectedModelID(model) == p.model }
+func (parseP benchmarkProvider) ParseSupportsModel(parseModel string) bool {
+	return parseNormalizeSelectedModelID(parseModel) == parseP.model
+}
 
-func (p benchmarkProvider) ModelOptions() []provider.ModelOption {
-	capabilities := p.Capabilities(p.model)
+func (parseP benchmarkProvider) ParseModelOptions() []provider.ModelOption {
+	parseCapabilities := parseP.ParseCapabilities(parseP.model)
 	return []provider.ModelOption{{
-		ID:           p.model,
+		ID:           parseP.model,
 		Label:        "Benchmark Model",
 		Note:         "Synthetic benchmark provider",
-		Capabilities: capabilities,
+		Capabilities: parseCapabilities,
 	}}
 }
 
-func (p benchmarkProvider) ModelMetadata(model string) (provider.ModelMetadata, bool) {
-	if !p.SupportsModel(model) {
+func (parseP benchmarkProvider) ParseModelMetadata(parseModel string) (provider.ModelMetadata, bool) {
+	if !parseP.ParseSupportsModel(parseModel) {
 		return provider.ModelMetadata{}, false
 	}
-	capabilities := p.Capabilities(model)
+	parseCapabilities := parseP.ParseCapabilities(parseModel)
 	return provider.ModelMetadata{
-		ID:                 p.model,
+		ID:                 parseP.model,
 		DisplayName:        "Benchmark Model",
-		ProviderID:         p.ID(),
+		ProviderID:         parseP.ParseID(),
 		ProviderLabel:      "Benchmark",
 		ProviderFamily:     "benchmark",
-		Capabilities:       capabilities,
+		Capabilities:       parseCapabilities,
 		StreamingSupported: true,
-		ReasoningSupported: capabilities.SupportsThinking,
+		ReasoningSupported: parseCapabilities.SupportsThinking,
 		OnboardingReady:    true,
 	}, true
 }
 
-func (p benchmarkProvider) Capabilities(string) provider.ModelCapabilities {
+func (parseP benchmarkProvider) ParseCapabilities(string) provider.ModelCapabilities {
 	return provider.ModelCapabilities{
-		ProviderID:       p.ID(),
+		ProviderID:       parseP.ParseID(),
 		ProviderLabel:    "Benchmark",
 		SupportsThinking: true,
 	}
 }
 
-func (p benchmarkProvider) Health() provider.ProviderHealth {
+func (parseP benchmarkProvider) ParseHealth() provider.ProviderHealth {
 	return provider.ProviderHealth{
-		ProviderID: p.ID(),
+		ProviderID: parseP.ParseID(),
 		Status:     provider.ProviderHealthUnknown,
 	}
 }
 
-func (p benchmarkProvider) CurrentRateLimits() provider.RateLimitSnapshot {
+func (parseP benchmarkProvider) ParseCurrentRateLimits() provider.RateLimitSnapshot {
 	return provider.RateLimitSnapshot{}
 }
 
-func (p benchmarkProvider) StreamChat(_ context.Context, _ provider.ChatRequest, emit func(provider.ChatEvent) error) (provider.ChatResult, error) {
-	if err := emit(provider.ChatEvent{ThoughtDelta: "Inspecting request"}); err != nil {
-		return provider.ChatResult{}, err
+func (parseP benchmarkProvider) ParseStreamChat(_ context.Context, _ provider.ChatRequest, parseEmit func(provider.ChatEvent) error) (provider.ChatResult, error) {
+	if parseErr := parseEmit(provider.ChatEvent{ThoughtDelta: "Inspecting request"}); parseErr != nil {
+		return provider.ChatResult{}, parseErr
 	}
-	if err := emit(provider.ChatEvent{ThoughtDone: true}); err != nil {
-		return provider.ChatResult{}, err
+	if parseErr2 := parseEmit(provider.ChatEvent{ThoughtDone: true}); parseErr2 != nil {
+		return provider.ChatResult{}, parseErr2
 	}
-	if err := emit(provider.ChatEvent{TextDelta: "Benchmark response."}); err != nil {
-		return provider.ChatResult{}, err
+	if parseErr3 := parseEmit(provider.ChatEvent{TextDelta: "Benchmark response."}); parseErr3 != nil {
+		return provider.ChatResult{}, parseErr3
 	}
 	return provider.ChatResult{
-		Model:            p.model,
+		Model:            parseP.model,
 		PromptTokens:     64,
 		CompletionTokens: 24,
 	}, nil
 }
 
-func (p benchmarkProvider) GenerateTitle(context.Context, provider.TitleRequest) (string, error) {
+func (parseP benchmarkProvider) ParseGenerateTitle(context.Context, provider.TitleRequest) (string, error) {
 	return "Benchmark thread", nil
 }
 
-func (p benchmarkProvider) ExtractUserMemories(context.Context, provider.MemoryExtractionRequest) ([]provider.UserMemoryCandidate, error) {
+func (parseP benchmarkProvider) ParseExtractUserMemories(context.Context, provider.MemoryExtractionRequest) ([]provider.UserMemoryCandidate, error) {
 	return nil, nil
 }
 
-func (p benchmarkProvider) SynthesizeSpeech(context.Context, provider.SpeechRequest, func(provider.SpeechChunk) error) (provider.SpeechResult, error) {
+func (parseP benchmarkProvider) ParseSynthesizeSpeech(context.Context, provider.SpeechRequest, func(provider.SpeechChunk) error) (provider.SpeechResult, error) {
 	return provider.SpeechResult{}, nil
 }
 
-func newBenchmarkLogger() *slog.Logger {
+func parseNewBenchmarkLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
-func newBenchmarkStore(b *testing.B) *Store {
-	b.Helper()
-	store, err := openChatStore(filepath.Join(b.TempDir(), "benchmark-chat.db"))
-	if err != nil {
-		b.Fatalf("openChatStore: %v", err)
+func parseNewBenchmarkStore(parseB *testing.B) *Store {
+	parseB.Helper()
+	store, parseErr := parseOpenChatStore(filepath.Join(parseB.TempDir(), "benchmark-chat.db"))
+	if parseErr != nil {
+		parseB.Fatalf("openChatStore: %v", parseErr)
 	}
-	b.Cleanup(store.close)
+	parseB.Cleanup(store.parseClose)
 	return store
 }
 
-func mustCreateBenchmarkUser(b *testing.B, store *Store, email string) authUser {
-	b.Helper()
-	userID, err := store.createUser(email, "hash", "Benchmark User")
-	if err != nil {
-		b.Fatalf("createUser: %v", err)
+func parseMustCreateBenchmarkUser(parseB *testing.B, store *Store, parseEmail string) authUser {
+	parseB.Helper()
+	parseUserID, parseErr := store.parseCreateUser(parseEmail, "hash", "Benchmark User")
+	if parseErr != nil {
+		parseB.Fatalf("createUser: %v", parseErr)
 	}
-	return authUser{ID: userID, Email: normalizeAuthEmail(email)}
+	return authUser{ID: parseUserID, Email: parseNormalizeAuthEmail(parseEmail)}
 }
 
-func BenchmarkStoreCorePaths(b *testing.B) {
-	store := newBenchmarkStore(b)
-	user := mustCreateBenchmarkUser(b, store, "bench-store@example.com")
+func BenchmarkStoreCorePaths(parseB *testing.B) {
+	store := parseNewBenchmarkStore(parseB)
+	parseUser := parseMustCreateBenchmarkUser(parseB, store, "bench-store@example.com")
 
-	conversationID, err := store.createConversation(user.ID)
-	if err != nil {
-		b.Fatalf("createConversation: %v", err)
+	parseConversationID, parseErr := store.parseCreateConversation(parseUser.ParseID)
+	if parseErr != nil {
+		parseB.Fatalf("createConversation: %v", parseErr)
 	}
-	if err := store.saveConversationMessage(user.ID, conversationID, "user", "Seed question", "", 0, 0); err != nil {
-		b.Fatalf("saveConversationMessage seed user: %v", err)
+	if parseErr2 := store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, "user", "Seed question", "", 0, 0); parseErr2 != nil {
+		parseB.Fatalf("saveConversationMessage seed user: %v", parseErr2)
 	}
-	if err := store.saveConversationMessage(user.ID, conversationID, "assistant", "Seed answer", modelGPT54Mini, 32, 12); err != nil {
-		b.Fatalf("saveConversationMessage seed assistant: %v", err)
+	if parseErr3 := store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, "assistant", "Seed answer", modelGPT54Mini, 32, 12); parseErr3 != nil {
+		parseB.Fatalf("saveConversationMessage seed assistant: %v", parseErr3)
 	}
 
-	b.Run("create_conversation", func(b *testing.B) {
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			if _, err := store.createConversation(user.ID); err != nil {
-				b.Fatalf("createConversation: %v", err)
+	parseB.Run("create_conversation", func(parseB2 *testing.B) {
+		parseB2.ReportAllocs()
+		parseB2.ResetTimer()
+		for parseI := 0; parseI < parseB2.N; parseI++ {
+			if _, parseErr4 := store.parseCreateConversation(parseUser.ParseID); parseErr4 != nil {
+				parseB2.Fatalf("createConversation: %v", parseErr4)
 			}
 		}
 	})
 
-	b.Run("save_message", func(b *testing.B) {
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			if err := store.saveConversationMessage(user.ID, conversationID, "assistant", "Synthetic benchmark reply", modelGPT54Mini, 64, 24); err != nil {
-				b.Fatalf("saveConversationMessage: %v", err)
+	parseB.Run("save_message", func(parseB3 *testing.B) {
+		parseB3.ReportAllocs()
+		parseB3.ResetTimer()
+		for parseI2 := 0; parseI2 < parseB3.N; parseI2++ {
+			if parseErr5 := store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, "assistant", "Synthetic benchmark reply", modelGPT54Mini, 64, 24); parseErr5 != nil {
+				parseB3.Fatalf("saveConversationMessage: %v", parseErr5)
 			}
 		}
 	})
 
-	b.Run("list_conversations", func(b *testing.B) {
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			if _, err := store.listConversations(user.ID); err != nil {
-				b.Fatalf("listConversations: %v", err)
+	parseB.Run("list_conversations", func(parseB4 *testing.B) {
+		parseB4.ReportAllocs()
+		parseB4.ResetTimer()
+		for parseI3 := 0; parseI3 < parseB4.N; parseI3++ {
+			if _, parseErr6 := store.parseListConversations(parseUser.ParseID); parseErr6 != nil {
+				parseB4.Fatalf("listConversations: %v", parseErr6)
 			}
 		}
 	})
 
-	b.Run("load_conversation", func(b *testing.B) {
-		b.ReportAllocs()
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			if _, err := store.loadConversation(user.ID, conversationID); err != nil {
-				b.Fatalf("loadConversation: %v", err)
+	parseB.Run("load_conversation", func(parseB5 *testing.B) {
+		parseB5.ReportAllocs()
+		parseB5.ResetTimer()
+		for parseI4 := 0; parseI4 < parseB5.N; parseI4++ {
+			if _, parseErr7 := store.parseLoadConversation(parseUser.ParseID, parseConversationID); parseErr7 != nil {
+				parseB5.Fatalf("loadConversation: %v", parseErr7)
 			}
 		}
 	})
 }
 
-func BenchmarkSendClientsPerCore(b *testing.B) {
-	cpuCount := runtime.GOMAXPROCS(0)
-	if cpuCount <= 0 {
-		cpuCount = 1
+func BenchmarkSendClientsPerCore(parseB *testing.B) {
+	parseCpuCount := runtime.GOMAXPROCS(0)
+	if parseCpuCount <= 0 {
+		parseCpuCount = 1
 	}
 
-	for _, clientsPerCore := range []int{1, 2, 4} {
-		b.Run(fmt.Sprintf("%d_clients_per_core", clientsPerCore), func(b *testing.B) {
-			store := newBenchmarkStore(b)
-			user := mustCreateBenchmarkUser(b, store, fmt.Sprintf("bench-send-%d@example.com", clientsPerCore))
-			server := &chatServer{
-				providerRegistry:      provider.NewRegistry(benchmarkProvider{model: modelGPT54Mini}),
+	for _, parseClientsPerCore := range []int{1, 2, 4} {
+		parseB.Run(fmt.Sprintf("%d_clients_per_core", parseClientsPerCore), func(parseB2 *testing.B) {
+			store := parseNewBenchmarkStore(parseB2)
+			parseUser := parseMustCreateBenchmarkUser(parseB2, store, fmt.Sprintf("bench-send-%d@example.com", parseClientsPerCore))
+			parseServer := &chatServer{
+				providerRegistry:      provider.ParseNewRegistry(benchmarkProvider{model: modelGPT54Mini}),
 				defaultModel:          modelGPT54Mini,
 				store:                 store,
-				logger:                newBenchmarkLogger(),
+				logger:                parseNewBenchmarkLogger(),
 				sessions:              map[string]*sessionState{},
 				authUsers:             map[string]authUser{},
 				memoryExtractionSlots: make(chan struct{}, 2),
 			}
-			var workerCounter atomic.Int64
+			var parseWorkerCounter atomic.Int64
 
-			b.ReportAllocs()
-			b.ReportMetric(float64(clientsPerCore), "clients/core")
-			b.ReportMetric(float64(clientsPerCore*cpuCount), "target_clients")
-			b.SetParallelism(clientsPerCore)
-			b.ResetTimer()
+			parseB2.ReportAllocs()
+			parseB2.ReportMetric(float64(parseClientsPerCore), "clients/core")
+			parseB2.ReportMetric(float64(parseClientsPerCore*parseCpuCount), "target_clients")
+			parseB2.SetParallelism(parseClientsPerCore)
+			parseB2.ResetTimer()
 
-			b.RunParallel(func(pb *testing.PB) {
-				workerID := workerCounter.Add(1)
-				peerName := fmt.Sprintf("bench-peer-%d-%d", clientsPerCore, workerID)
-				ctx := bindAuthUser(server, peerName, user.ID, user.Email)
-				conversationID, err := store.createConversation(user.ID)
-				if err != nil {
-					panic(fmt.Sprintf("createConversation: %v", err))
+			parseB2.RunParallel(func(parsePb *testing.PB) {
+				parseWorkerID := parseWorkerCounter.Add(1)
+				parsePeerName := fmt.Sprintf("bench-peer-%d-%d", parseClientsPerCore, parseWorkerID)
+				parseCtx := parseBindAuthUser(parseServer, parsePeerName, parseUser.ParseID, parseUser.Email)
+				parseConversationID, parseErr := store.parseCreateConversation(parseUser.ParseID)
+				if parseErr != nil {
+					panic(fmt.Sprintf("createConversation: %v", parseErr))
 				}
-				history := []*chatpb.ChatMessage{
+				parseHistory := []*chatpb.ChatMessage{
 					{Role: "user", Content: "Seed request"},
 					{Role: "assistant", Content: "Seed response", ModelId: modelGPT54Mini, PromptTokens: 16, CompletionTokens: 8},
 				}
-				for _, message := range history {
-					if err := store.saveConversationMessage(user.ID, conversationID, message.GetRole(), message.GetContent(), message.GetModelId(), message.GetPromptTokens(), message.GetCompletionTokens()); err != nil {
-						panic(fmt.Sprintf("saveConversationMessage seed: %v", err))
+				for _, parseMessage := range parseHistory {
+					if parseErr2 := store.parseSaveConversationMessage(parseUser.ParseID, parseConversationID, parseMessage.GetRole(), parseMessage.GetContent(), parseMessage.GetModelId(), parseMessage.GetPromptTokens(), parseMessage.GetCompletionTokens()); parseErr2 != nil {
+						panic(fmt.Sprintf("saveConversationMessage seed: %v", parseErr2))
 					}
 				}
-				stream := &fakeChatSendStream{ctx: ctx}
-				req := &chatpb.SendRequest{
-					ConversationId:  conversationID,
+				parseStream := &fakeChatSendStream{ctx: parseCtx}
+				parseReq := &chatpb.SendRequest{
+					ConversationId:  parseConversationID,
 					Model:           modelGPT54Mini,
 					Message:         "Profile the bridge under benchmark load.",
-					History:         history,
+					History:         parseHistory,
 					Tone:            defaultToneID,
 					ThinkingEnabled: true,
 					ThinkingEffort:  defaultThinkingEffort,
 				}
 
-				for pb.Next() {
-					stream.chunks = stream.chunks[:0]
-					if err := server.Send(req, stream); err != nil {
-						panic(fmt.Sprintf("Send: %v", err))
+				for parsePb.Next() {
+					parseStream.chunks = parseStream.chunks[:0]
+					if parseErr3 := parseServer.ParseSend(parseReq, parseStream); parseErr3 != nil {
+						panic(fmt.Sprintf("Send: %v", parseErr3))
 					}
 				}
 
-				server.unbindAuthenticatedPeer(peerName)
+				parseServer.parseUnbindAuthenticatedPeer(parsePeerName)
 			})
 		})
 	}

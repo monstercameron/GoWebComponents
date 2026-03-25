@@ -18,23 +18,23 @@ type quoteSelectionState struct {
 	Y       float64
 }
 
-func quoteSelectionPrompt(state quoteSelectionState, onQuote, stopMouseUp ui.Handler) ui.Node {
-	intl := i18n.UseI18n()
-	if !state.Visible || state.Text == "" {
+func parseQuoteSelectionPrompt(parseState quoteSelectionState, parseOnQuote, parseStopMouseUp ui.Handler) ui.Node {
+	parseIntl := i18n.UseI18n()
+	if !parseState.Visible || parseState.Text == "" {
 		return nil
 	}
 
-	style := map[string]string{
-		"left": fmt.Sprintf("%.0fpx", state.X),
-		"top":  fmt.Sprintf("%.0fpx", state.Y),
+	parseStyle := map[string]string{
+		"left": fmt.Sprintf("%.0fpx", parseState.X),
+		"top":  fmt.Sprintf("%.0fpx", parseState.Y),
 	}
 
-	if state.Pending {
+	if parseState.Pending {
 		return Div(
 			ID(idQuoteSpinner),
 			Class("quote-selection-ui quote-selection-spinner-card"),
-			Style(style),
-			OnMouseUp(stopMouseUp),
+			Style(parseStyle),
+			OnMouseUp(parseStopMouseUp),
 			Span(Class("quote-selection-spinner-dot")),
 		)
 	}
@@ -42,9 +42,9 @@ func quoteSelectionPrompt(state quoteSelectionState, onQuote, stopMouseUp ui.Han
 	return Button(
 		ID(idQuotePrompt),
 		Class("quote-selection-ui quote-selection-chip"),
-		Style(style),
-		OnMouseUp(stopMouseUp),
-		OnClick(onQuote),
-		Text(intl.T(chatI18nNamespace, "quote.prompt")),
+		Style(parseStyle),
+		OnMouseUp(parseStopMouseUp),
+		OnClick(parseOnQuote),
+		Text(parseIntl.T(chatI18nNamespace, "quote.prompt")),
 	)
 }

@@ -2,8 +2,8 @@ package bootstrap
 
 import "testing"
 
-func TestPayloadToSSRBootstrap(t *testing.T) {
-	payload := Payload{
+func TestPayloadToSSRBootstrap(parseT *testing.T) {
+	parsePayload := Payload{
 		Route: RouteBootstrap{
 			Path:        "/inventory",
 			Query:       map[string][]string{"warehouse": {"east"}},
@@ -51,50 +51,50 @@ func TestPayloadToSSRBootstrap(t *testing.T) {
 		CSRF: "token-123",
 	}
 
-	got := payload.ToSSRBootstrap()
+	parseGot := parsePayload.ToSSRBootstrap()
 
-	if got.Route.Path != payload.Route.Path {
-		t.Fatalf("Route.Path mismatch: got %q want %q", got.Route.Path, payload.Route.Path)
+	if parseGot.Route.Path != parsePayload.Route.Path {
+		parseT.Fatalf("Route.Path mismatch: got %q want %q", parseGot.Route.Path, parsePayload.Route.Path)
 	}
-	if got.Route.Query["warehouse"][0] != "east" {
-		t.Fatalf("Route.Query mismatch: got %#v", got.Route.Query)
+	if parseGot.Route.Query["warehouse"][0] != "east" {
+		parseT.Fatalf("Route.Query mismatch: got %#v", parseGot.Route.Query)
 	}
-	if got.Route.Params["sku"] != "desk-1" {
-		t.Fatalf("Route.Params mismatch: got %#v", got.Route.Params)
+	if parseGot.Route.Params["sku"] != "desk-1" {
+		parseT.Fatalf("Route.Params mismatch: got %#v", parseGot.Route.Params)
 	}
-	if got.I18n.Locale != payload.I18n.Locale || got.I18n.Direction != payload.I18n.Direction {
-		t.Fatalf("I18n mismatch: got %#v want locale=%q direction=%q", got.I18n, payload.I18n.Locale, payload.I18n.Direction)
+	if parseGot.I18n.Locale != parsePayload.I18n.Locale || parseGot.I18n.Direction != parsePayload.I18n.Direction {
+		parseT.Fatalf("I18n mismatch: got %#v want locale=%q direction=%q", parseGot.I18n, parsePayload.I18n.Locale, parsePayload.I18n.Direction)
 	}
 
-	dataRoute, ok := got.Data["route"].(RouteBootstrap)
-	if !ok || dataRoute.Title != payload.Route.Title || dataRoute.Surface != payload.Route.Surface {
-		t.Fatalf("route payload mismatch: %#v", got.Data["route"])
+	parseDataRoute, parseOk := parseGot.Data["route"].(RouteBootstrap)
+	if !parseOk || parseDataRoute.Title != parsePayload.Route.Title || parseDataRoute.Surface != parsePayload.Route.Surface {
+		parseT.Fatalf("route payload mismatch: %#v", parseGot.Data["route"])
 	}
-	dataPreferences, ok := got.Data["preferences"].(PreferencesState)
-	if !ok || dataPreferences.DefaultWarehouse != payload.Preferences.DefaultWarehouse {
-		t.Fatalf("preferences payload mismatch: %#v", got.Data["preferences"])
+	parseDataPreferences, parseOk := parseGot.Data["preferences"].(PreferencesState)
+	if !parseOk || parseDataPreferences.DefaultWarehouse != parsePayload.Preferences.DefaultWarehouse {
+		parseT.Fatalf("preferences payload mismatch: %#v", parseGot.Data["preferences"])
 	}
-	dataTheme, ok := got.Data["theme"].(ThemeState)
-	if !ok || dataTheme.Mode != payload.Theme.Mode || !dataTheme.PrefersReducedMotion {
-		t.Fatalf("theme payload mismatch: %#v", got.Data["theme"])
+	parseDataTheme, parseOk := parseGot.Data["theme"].(ThemeState)
+	if !parseOk || parseDataTheme.Mode != parsePayload.Theme.Mode || !parseDataTheme.PrefersReducedMotion {
+		parseT.Fatalf("theme payload mismatch: %#v", parseGot.Data["theme"])
 	}
-	dataViews, ok := got.Data["savedViews"].([]SavedViewPayload)
-	if !ok || len(dataViews) != 1 || dataViews[0].Name != payload.SavedViews[0].Name {
-		t.Fatalf("savedViews payload mismatch: %#v", got.Data["savedViews"])
+	parseDataViews, parseOk := parseGot.Data["savedViews"].([]SavedViewPayload)
+	if !parseOk || len(parseDataViews) != 1 || parseDataViews[0].Name != parsePayload.SavedViews[0].Name {
+		parseT.Fatalf("savedViews payload mismatch: %#v", parseGot.Data["savedViews"])
 	}
-	dataUser, ok := got.Data["user"].(*UserSession)
-	if !ok || dataUser.ID != payload.User.ID {
-		t.Fatalf("user payload mismatch: %#v", got.Data["user"])
+	parseDataUser, parseOk := parseGot.Data["user"].(*UserSession)
+	if !parseOk || parseDataUser.ID != parsePayload.User.ID {
+		parseT.Fatalf("user payload mismatch: %#v", parseGot.Data["user"])
 	}
-	dataWorkspace, ok := got.Data["workspace"].(map[string]any)
-	if !ok || dataWorkspace["activeTab"] != "alerts" {
-		t.Fatalf("workspace payload mismatch: %#v", got.Data["workspace"])
+	parseDataWorkspace, parseOk := parseGot.Data["workspace"].(map[string]any)
+	if !parseOk || parseDataWorkspace["activeTab"] != "alerts" {
+		parseT.Fatalf("workspace payload mismatch: %#v", parseGot.Data["workspace"])
 	}
-	if got.Data["csrf"] != payload.CSRF {
-		t.Fatalf("csrf mismatch: got %#v want %q", got.Data["csrf"], payload.CSRF)
+	if parseGot.Data["csrf"] != parsePayload.CSRF {
+		parseT.Fatalf("csrf mismatch: got %#v want %q", parseGot.Data["csrf"], parsePayload.CSRF)
 	}
-	dataPayload, ok := got.Data["payload"].(map[string]any)
-	if !ok || dataPayload["cards"] != 4 {
-		t.Fatalf("payload data mismatch: %#v", got.Data["payload"])
+	parseDataPayload, parseOk := parseGot.Data["payload"].(map[string]any)
+	if !parseOk || parseDataPayload["cards"] != 4 {
+		parseT.Fatalf("payload data mismatch: %#v", parseGot.Data["payload"])
 	}
 }

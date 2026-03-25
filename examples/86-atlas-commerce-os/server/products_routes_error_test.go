@@ -9,82 +9,82 @@ import (
 	serverauth "github.com/monstercameron/GoWebComponents/examples/86-atlas-commerce-os/server/auth"
 )
 
-func TestInternalProductDetailAndEditorNotFoundPaths(t *testing.T) {
-	t.Run("api detail not found", func(t *testing.T) {
-		server, cleanup := newTestAtlasServer(t)
-		defer cleanup()
+func TestInternalProductDetailAndEditorNotFoundPaths(parseT *testing.T) {
+	parseT.Run("api detail not found", func(parseT2 *testing.T) {
+		parseServer, parseCleanup := newTestAtlasServer(parseT2)
+		defer parseCleanup()
 
-		req := httptest.NewRequest(http.MethodGet, "/api/app/products/not-a-real-product", nil)
-		req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-		res := httptest.NewRecorder()
+		parseReq := httptest.NewRequest(http.MethodGet, "/api/app/products/not-a-real-product", nil)
+		parseReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+		parseRes := httptest.NewRecorder()
 
-		server.routes().ServeHTTP(res, req)
+		parseServer.routes().ServeHTTP(parseRes, parseReq)
 
-		if res.Code != http.StatusNotFound {
-			t.Fatalf("expected %d, got %d", http.StatusNotFound, res.Code)
+		if parseRes.Code != http.StatusNotFound {
+			parseT2.Fatalf("expected %d, got %d", http.StatusNotFound, parseRes.Code)
 		}
-		if !strings.Contains(res.Body.String(), "product_admin_not_found") {
-			t.Fatalf("expected product_admin_not_found payload, got %q", res.Body.String())
+		if !strings.Contains(parseRes.Body.String(), "product_admin_not_found") {
+			parseT2.Fatalf("expected product_admin_not_found payload, got %q", parseRes.Body.String())
 		}
 	})
 
-	t.Run("editor page not found", func(t *testing.T) {
-		server, cleanup := newTestAtlasServer(t)
-		defer cleanup()
+	parseT.Run("editor page not found", func(parseT3 *testing.T) {
+		parseServer2, parseCleanup2 := newTestAtlasServer(parseT3)
+		defer parseCleanup2()
 
-		req := httptest.NewRequest(http.MethodGet, "/app/products/not-a-real-product", nil)
-		req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-		res := httptest.NewRecorder()
+		parseReq2 := httptest.NewRequest(http.MethodGet, "/app/products/not-a-real-product", nil)
+		parseReq2.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+		parseRes2 := httptest.NewRecorder()
 
-		server.routes().ServeHTTP(res, req)
+		parseServer2.routes().ServeHTTP(parseRes2, parseReq2)
 
-		if res.Code != http.StatusNotFound {
-			t.Fatalf("expected %d, got %d", http.StatusNotFound, res.Code)
+		if parseRes2.Code != http.StatusNotFound {
+			parseT3.Fatalf("expected %d, got %d", http.StatusNotFound, parseRes2.Code)
 		}
-		body := res.Body.String()
-		if !strings.Contains(body, "Atlas Internal Route Not Found") {
-			t.Fatalf("expected internal route recovery content, got %q", body)
+		parseBody := parseRes2.Body.String()
+		if !strings.Contains(parseBody, "Atlas Internal Route Not Found") {
+			parseT3.Fatalf("expected internal route recovery content, got %q", parseBody)
 		}
-		if !strings.Contains(body, "Back to dashboard") {
-			t.Fatalf("expected dashboard recovery link, got %q", body)
+		if !strings.Contains(parseBody, "Back to dashboard") {
+			parseT3.Fatalf("expected dashboard recovery link, got %q", parseBody)
 		}
 	})
 }
 
-func TestInternalProductsQueryFailurePaths(t *testing.T) {
-	t.Run("api list query failure", func(t *testing.T) {
-		server, cleanup := newTestAtlasServer(t)
-		cleanup()
+func TestInternalProductsQueryFailurePaths(parseT *testing.T) {
+	parseT.Run("api list query failure", func(parseT2 *testing.T) {
+		parseServer, parseCleanup := newTestAtlasServer(parseT2)
+		parseCleanup()
 
-		req := httptest.NewRequest(http.MethodGet, "/api/app/products", nil)
-		req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-		res := httptest.NewRecorder()
+		parseReq := httptest.NewRequest(http.MethodGet, "/api/app/products", nil)
+		parseReq.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+		parseRes := httptest.NewRecorder()
 
-		server.routes().ServeHTTP(res, req)
+		parseServer.routes().ServeHTTP(parseRes, parseReq)
 
-		if res.Code != http.StatusInternalServerError {
-			t.Fatalf("expected %d, got %d", http.StatusInternalServerError, res.Code)
+		if parseRes.Code != http.StatusInternalServerError {
+			parseT2.Fatalf("expected %d, got %d", http.StatusInternalServerError, parseRes.Code)
 		}
-		if !strings.Contains(res.Body.String(), "product_admin_query_failed") {
-			t.Fatalf("expected product_admin_query_failed payload, got %q", res.Body.String())
+		if !strings.Contains(parseRes.Body.String(), "product_admin_query_failed") {
+			parseT2.Fatalf("expected product_admin_query_failed payload, got %q", parseRes.Body.String())
 		}
 	})
 
-	t.Run("page list query failure", func(t *testing.T) {
-		server, cleanup := newTestAtlasServer(t)
-		cleanup()
+	parseT.Run("page list query failure", func(parseT3 *testing.T) {
+		parseServer2, parseCleanup2 := newTestAtlasServer(parseT3)
+		parseCleanup2()
 
-		req := httptest.NewRequest(http.MethodGet, "/app/products", nil)
-		req.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
-		res := httptest.NewRecorder()
+		parseReq2 := httptest.NewRequest(http.MethodGet, "/app/products", nil)
+		parseReq2.AddCookie(&http.Cookie{Name: serverauth.MockSessionCookieName, Value: "inventory_manager"})
+		parseRes2 := httptest.NewRecorder()
 
-		server.routes().ServeHTTP(res, req)
+		parseServer2.routes().ServeHTTP(parseRes2, parseReq2)
 
-		if res.Code != http.StatusInternalServerError {
-			t.Fatalf("expected %d, got %d", http.StatusInternalServerError, res.Code)
+		if parseRes2.Code != http.StatusInternalServerError {
+			parseT3.Fatalf("expected %d, got %d", http.StatusInternalServerError, parseRes2.Code)
 		}
-		if !strings.Contains(res.Body.String(), "product_admin_query_failed") {
-			t.Fatalf("expected product_admin_query_failed payload, got %q", res.Body.String())
+		if !strings.Contains(parseRes2.Body.String(), "product_admin_query_failed") {
+			parseT3.Fatalf("expected product_admin_query_failed payload, got %q", parseRes2.Body.String())
 		}
 	})
 }

@@ -15,103 +15,103 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestServerRoutingHelperBranches(t *testing.T) {
-	report := exampleServerRequestReport("handlePage", "/docs/ssr", os.ErrInvalid, "request failed", "inspect the route")
-	if report.Code != "GWC-EXAMPLE-SERVER-REQUEST" || !strings.Contains(report.Headline, "handlePage") || report.Path != "/docs/ssr" {
-		t.Fatalf("exampleServerRequestReport() = %+v, want populated report", report)
+func TestServerRoutingHelperBranches(parseT *testing.T) {
+	parseReport := exampleServerRequestReport("handlePage", "/docs/ssr", os.ErrInvalid, "request failed", "inspect the route")
+	if parseReport.Code != "GWC-EXAMPLE-SERVER-REQUEST" || !strings.Contains(parseReport.Headline, "handlePage") || parseReport.Path != "/docs/ssr" {
+		parseT.Fatalf("exampleServerRequestReport() = %+v, want populated report", parseReport)
 	}
 
-	query := url.Values{
+	parseQuery := url.Values{
 		"path": {"ignored"},
 		"tab":  {"loader"},
 		"q":    {"routing"},
 	}
-	clonedQuery := cloneQueryWithoutPath(query)
-	if _, ok := clonedQuery["path"]; ok {
-		t.Fatalf("cloneQueryWithoutPath() kept path query: %#v", clonedQuery)
+	parseClonedQuery := cloneQueryWithoutPath(parseQuery)
+	if _, parseOk := parseClonedQuery["path"]; parseOk {
+		parseT.Fatalf("cloneQueryWithoutPath() kept path query: %#v", parseClonedQuery)
 	}
-	clonedQuery.Set("tab", "overview")
-	if got := query.Get("tab"); got != "loader" {
-		t.Fatalf("cloneQueryWithoutPath() mutated original query, got %q", got)
+	parseClonedQuery.Set("tab", "overview")
+	if parseGot := parseQuery.Get("tab"); parseGot != "loader" {
+		parseT.Fatalf("cloneQueryWithoutPath() mutated original query, got %q", parseGot)
 	}
 
-	bootstrap := buildBootstrap("/docs/ssr", url.Values{"tab": {"loader"}}, map[string]string{"section": "ssr"}, bootstrapRouteData{
+	parseBootstrap := buildBootstrap("/docs/ssr", url.Values{"tab": {"loader"}}, map[string]string{"section": "ssr"}, bootstrapRouteData{
 		Page:      serverPageDocs,
 		SectionID: serverGuideSectionSSR,
 		Revision:  3,
 	})
-	if bootstrap.IDSeed != 3 || bootstrap.Route.Path != "/docs/ssr" || bootstrap.Route.Params["section"] != "ssr" {
-		t.Fatalf("buildBootstrap() = %+v, want cloned route bootstrap data", bootstrap)
+	if parseBootstrap.IDSeed != 3 || parseBootstrap.Route.Path != "/docs/ssr" || parseBootstrap.Route.Params["section"] != "ssr" {
+		parseT.Fatalf("buildBootstrap() = %+v, want cloned route bootstrap data", parseBootstrap)
 	}
-	if transportFromBootstrap(bootstrap) != serverBootstrapTransport {
-		t.Fatalf("transportFromBootstrap() = %q, want %q", transportFromBootstrap(bootstrap), serverBootstrapTransport)
+	if transportFromBootstrap(parseBootstrap) != serverBootstrapTransport {
+		parseT.Fatalf("transportFromBootstrap() = %q, want %q", transportFromBootstrap(parseBootstrap), serverBootstrapTransport)
 	}
-	if got := buildPathWithQuery("/docs/ssr", url.Values{"tab": {serverTabLoader}}); got != "/docs/ssr?tab=loader" {
-		t.Fatalf("buildPathWithQuery() = %q, want /docs/ssr?tab=loader", got)
+	if parseGot2 := buildPathWithQuery("/docs/ssr", url.Values{"tab": {serverTabLoader}}); parseGot2 != "/docs/ssr?tab=loader" {
+		parseT.Fatalf("buildPathWithQuery() = %q, want /docs/ssr?tab=loader", parseGot2)
 	}
-	if got := buildPathWithQuery("/docs/ssr", url.Values{}); got != "/docs/ssr" {
-		t.Fatalf("buildPathWithQuery(empty) = %q, want /docs/ssr", got)
+	if parseGot3 := buildPathWithQuery("/docs/ssr", url.Values{}); parseGot3 != "/docs/ssr" {
+		parseT.Fatalf("buildPathWithQuery(empty) = %q, want /docs/ssr", parseGot3)
 	}
-	if got := bootstrapReferenceURL("/search", url.Values{"q": {"ssr"}}); !strings.Contains(got, "path=%2Fsearch") || !strings.Contains(got, "q=ssr") {
-		t.Fatalf("bootstrapReferenceURL() = %q, want encoded route path and query", got)
+	if parseGot4 := bootstrapReferenceURL("/search", url.Values{"q": {"ssr"}}); !strings.Contains(parseGot4, "path=%2Fsearch") || !strings.Contains(parseGot4, "q=ssr") {
+		parseT.Fatalf("bootstrapReferenceURL() = %q, want encoded route path and query", parseGot4)
 	}
-	if got := cloneParams(nil); len(got) != 0 {
-		t.Fatalf("cloneParams(nil) = %#v, want empty map", got)
-	}
-
-	home := resolveRoute("/", url.Values{"refresh": {"0"}})
-	if home.Status != http.StatusOK || home.View.Page != serverPageHome || home.View.Revision != 1 {
-		t.Fatalf("resolveRoute(home) = %+v", home)
+	if parseGot5 := cloneParams(nil); len(parseGot5) != 0 {
+		parseT.Fatalf("cloneParams(nil) = %#v, want empty map", parseGot5)
 	}
 
-	search := resolveRoute("/search", url.Values{"q": {"routing"}, "refresh": {"2"}})
-	if search.Status != http.StatusOK || search.View.Page != serverPageSearch || len(search.View.SearchResults) == 0 || search.View.Revision != 2 {
-		t.Fatalf("resolveRoute(search) = %+v", search)
+	parseHome := resolveRoute("/", url.Values{"refresh": {"0"}})
+	if parseHome.Status != http.StatusOK || parseHome.View.Page != serverPageHome || parseHome.View.Revision != 1 {
+		parseT.Fatalf("resolveRoute(home) = %+v", parseHome)
 	}
 
-	secure := resolveRoute("/secure", url.Values{"auth": {"true"}, "role": {"auditor"}, "refresh": {"5"}})
-	if secure.Status != http.StatusOK || secure.View.Page != serverPageSecure || secure.View.SecureRole != "auditor" || secure.View.Revision != 5 {
-		t.Fatalf("resolveRoute(secure) = %+v", secure)
+	parseSearch := resolveRoute("/search", url.Values{"q": {"routing"}, "refresh": {"2"}})
+	if parseSearch.Status != http.StatusOK || parseSearch.View.Page != serverPageSearch || len(parseSearch.View.SearchResults) == 0 || parseSearch.View.Revision != 2 {
+		parseT.Fatalf("resolveRoute(search) = %+v", parseSearch)
 	}
 
-	signIn := resolveRoute("/signin", url.Values{"from": {"/secure"}})
-	if signIn.Status != http.StatusOK || !strings.Contains(signIn.View.Notice, "/secure") {
-		t.Fatalf("resolveRoute(signin) = %+v", signIn)
+	parseSecure := resolveRoute("/secure", url.Values{"auth": {"true"}, "role": {"auditor"}, "refresh": {"5"}})
+	if parseSecure.Status != http.StatusOK || parseSecure.View.Page != serverPageSecure || parseSecure.View.SecureRole != "auditor" || parseSecure.View.Revision != 5 {
+		parseT.Fatalf("resolveRoute(secure) = %+v", parseSecure)
 	}
 
-	notFound := resolveRoute("/missing", url.Values{})
-	if notFound.Status != http.StatusNotFound || notFound.View.Page != serverPageNotFound {
-		t.Fatalf("resolveRoute(notFound) = %+v", notFound)
+	parseSignIn := resolveRoute("/signin", url.Values{"from": {"/secure"}})
+	if parseSignIn.Status != http.StatusOK || !strings.Contains(parseSignIn.View.Notice, "/secure") {
+		parseT.Fatalf("resolveRoute(signin) = %+v", parseSignIn)
+	}
+
+	parseNotFound := resolveRoute("/missing", url.Values{})
+	if parseNotFound.Status != http.StatusNotFound || parseNotFound.View.Page != serverPageNotFound {
+		parseT.Fatalf("resolveRoute(notFound) = %+v", parseNotFound)
 	}
 
 	if !shouldStreamDeferredDocsPanel(resolveRoute("/docs/ssr", url.Values{"tab": {serverTabLoader}})) {
-		t.Fatal("expected docs loader route to stream deferred panel")
+		parseT.Fatal("expected docs loader route to stream deferred panel")
 	}
-	if shouldStreamDeferredDocsPanel(home) {
-		t.Fatal("expected home route to avoid deferred streaming")
-	}
-
-	docsHead := headDocumentForRoute(resolveRoute("/docs/ssr", url.Values{"tab": {serverTabOverview}}))
-	if docsHead.Robots != "index,follow" || len(docsHead.Alternates) != 2 || len(docsHead.JSONLD) != 1 {
-		t.Fatalf("headDocumentForRoute(docs) = %+v", docsHead)
-	}
-	searchHead := headDocumentForRoute(search)
-	if searchHead.Robots != "noindex,follow" || len(searchHead.JSONLD) != 1 {
-		t.Fatalf("headDocumentForRoute(search) = %+v", searchHead)
-	}
-	secureHead := headDocumentForRoute(secure)
-	if secureHead.Robots != "noindex,nofollow" {
-		t.Fatalf("headDocumentForRoute(secure) = %+v", secureHead)
+	if shouldStreamDeferredDocsPanel(parseHome) {
+		parseT.Fatal("expected home route to avoid deferred streaming")
 	}
 
-	replacement := streamedPanelReplacementScript(serverDeferredPanelID, `<section id="done">ready</section>`)
-	if !strings.Contains(replacement, "target.outerHTML=") || !strings.Contains(replacement, serverDeferredPanelID) || !strings.Contains(replacement, "ready") {
-		t.Fatalf("streamedPanelReplacementScript() = %q, want replacement script", replacement)
+	parseDocsHead := headDocumentForRoute(resolveRoute("/docs/ssr", url.Values{"tab": {serverTabOverview}}))
+	if parseDocsHead.Robots != "index,follow" || len(parseDocsHead.Alternates) != 2 || len(parseDocsHead.JSONLD) != 1 {
+		parseT.Fatalf("headDocumentForRoute(docs) = %+v", parseDocsHead)
+	}
+	parseSearchHead := headDocumentForRoute(parseSearch)
+	if parseSearchHead.Robots != "noindex,follow" || len(parseSearchHead.JSONLD) != 1 {
+		parseT.Fatalf("headDocumentForRoute(search) = %+v", parseSearchHead)
+	}
+	parseSecureHead := headDocumentForRoute(parseSecure)
+	if parseSecureHead.Robots != "noindex,nofollow" {
+		parseT.Fatalf("headDocumentForRoute(secure) = %+v", parseSecureHead)
+	}
+
+	parseReplacement := streamedPanelReplacementScript(serverDeferredPanelID, `<section id="done">ready</section>`)
+	if !strings.Contains(parseReplacement, "target.outerHTML=") || !strings.Contains(parseReplacement, serverDeferredPanelID) || !strings.Contains(parseReplacement, "ready") {
+		parseT.Fatalf("streamedPanelReplacementScript() = %q, want replacement script", parseReplacement)
 	}
 }
 
-func TestServerRenderBranchesAndRoutes(t *testing.T) {
-	views := []struct {
+func TestServerRenderBranchesAndRoutes(parseT *testing.T) {
+	parseViews := []struct {
 		name string
 		view demoShellView
 		want string
@@ -155,19 +155,19 @@ func TestServerRenderBranchesAndRoutes(t *testing.T) {
 		},
 	}
 
-	for _, test := range views {
-		t.Run(test.name, func(t *testing.T) {
-			markup, err := ui.RenderToString(test.node(test.view))
-			if err != nil {
-				t.Fatalf("RenderToString(%s) error = %v", test.name, err)
+	for _, parseTest := range parseViews {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			parseMarkup, parseErr := ui.RenderToString(parseTest.node(parseTest.view))
+			if parseErr != nil {
+				parseT2.Fatalf("RenderToString(%s) error = %v", parseTest.name, parseErr)
 			}
-			if !strings.Contains(markup, test.want) {
-				t.Fatalf("RenderToString(%s) missing %q\n%s", test.name, test.want, markup)
+			if !strings.Contains(parseMarkup, parseTest.want) {
+				parseT2.Fatalf("RenderToString(%s) missing %q\n%s", parseTest.name, parseTest.want, parseMarkup)
 			}
 		})
 	}
 
-	for _, mode := range []struct {
+	for _, parseMode := range []struct {
 		name string
 		mode string
 		want string
@@ -176,86 +176,86 @@ func TestServerRenderBranchesAndRoutes(t *testing.T) {
 		{name: "error", mode: serverStreamModeError, want: "Deferred docs panel failed after shell flush"},
 		{name: "nested", mode: serverStreamModeNested, want: "Nested streamed layout ready"},
 	} {
-		t.Run("deferred-"+mode.name, func(t *testing.T) {
-			markup, err := ui.RenderToString(renderDeferredDocsPanel(demoShellView{
+		parseT.Run("deferred-"+parseMode.name, func(parseT3 *testing.T) {
+			parseMarkup2, parseErr2 := ui.RenderToString(renderDeferredDocsPanel(demoShellView{
 				Page:       serverPageDocs,
 				SectionID:  serverGuideSectionSSR,
 				CurrentTab: serverTabLoader,
-				StreamMode: mode.mode,
+				StreamMode: parseMode.mode,
 				Revision:   2,
 			}))
-			if err != nil {
-				t.Fatalf("RenderToString(renderDeferredDocsPanel(%s)) error = %v", mode.name, err)
+			if parseErr2 != nil {
+				parseT3.Fatalf("RenderToString(renderDeferredDocsPanel(%s)) error = %v", parseMode.name, parseErr2)
 			}
-			if !strings.Contains(markup, mode.want) {
-				t.Fatalf("renderDeferredDocsPanel(%s) missing %q\n%s", mode.name, mode.want, markup)
+			if !strings.Contains(parseMarkup2, parseMode.want) {
+				parseT3.Fatalf("renderDeferredDocsPanel(%s) missing %q\n%s", parseMode.name, parseMode.want, parseMarkup2)
 			}
 		})
 	}
 
-	if got := revisionFromQuery(url.Values{"refresh": {"not-a-number"}}); got != 1 {
-		t.Fatalf("revisionFromQuery(invalid) = %d, want 1", got)
+	if parseGot := revisionFromQuery(url.Values{"refresh": {"not-a-number"}}); parseGot != 1 {
+		parseT.Fatalf("revisionFromQuery(invalid) = %d, want 1", parseGot)
 	}
-	if got := normalizePath(" docs/ssr/ "); got != "/docs/ssr" {
-		t.Fatalf("normalizePath() = %q, want /docs/ssr", got)
+	if parseGot2 := normalizePath(" docs/ssr/ "); parseGot2 != "/docs/ssr" {
+		parseT.Fatalf("normalizePath() = %q, want /docs/ssr", parseGot2)
 	}
-	if got := normalizeStreamMode(" nested "); got != serverStreamModeNested {
-		t.Fatalf("normalizeStreamMode() = %q, want %q", got, serverStreamModeNested)
+	if parseGot3 := normalizeStreamMode(" nested "); parseGot3 != serverStreamModeNested {
+		parseT.Fatalf("normalizeStreamMode() = %q, want %q", parseGot3, serverStreamModeNested)
 	}
-	if got := emptyFallback("   ", "fallback"); got != "fallback" {
-		t.Fatalf("emptyFallback(blank) = %q, want fallback", got)
+	if parseGot4 := emptyFallback("   ", "fallback"); parseGot4 != "fallback" {
+		parseT.Fatalf("emptyFallback(blank) = %q, want fallback", parseGot4)
 	}
-	if got := maxInt(0, 7); got != 7 {
-		t.Fatalf("maxInt(0, 7) = %d, want 7", got)
+	if parseGot5 := maxInt(0, 7); parseGot5 != 7 {
+		parseT.Fatalf("maxInt(0, 7) = %d, want 7", parseGot5)
 	}
-	if article := articleForSection("missing"); article.ID != serverGuideSectionSSR {
-		t.Fatalf("articleForSection(fallback) = %+v, want SSR article", article)
+	if parseArticle := articleForSection("missing"); parseArticle.ID != serverGuideSectionSSR {
+		parseT.Fatalf("articleForSection(fallback) = %+v, want SSR article", parseArticle)
 	}
-	if results := filterCatalog(""); len(results) != len(catalogList()) {
-		t.Fatalf("filterCatalog(empty) len = %d, want %d", len(results), len(catalogList()))
+	if parseResults := filterCatalog(""); len(parseResults) != len(catalogList()) {
+		parseT.Fatalf("filterCatalog(empty) len = %d, want %d", len(parseResults), len(catalogList()))
 	}
 }
 
-func TestAppServerRoutesServeAssetsAndHealth(t *testing.T) {
-	rootDir := t.TempDir()
-	wasmPath := filepath.Join(rootDir, "app.wasm")
-	cssPath := filepath.Join(rootDir, "tailwind.css")
-	loggerPath := filepath.Join(rootDir, "example-logger.js")
-	wasmExecPath := filepath.Join(rootDir, "wasm_exec.js")
-	for path, contents := range map[string]string{
-		wasmPath:     "wasm-bytes",
-		cssPath:      "body{}",
-		loggerPath:   "console.log('logger')",
-		wasmExecPath: "console.log('wasm_exec')",
+func TestAppServerRoutesServeAssetsAndHealth(parseT *testing.T) {
+	parseRootDir := parseT.TempDir()
+	parseWasmPath := filepath.Join(parseRootDir, "app.wasm")
+	parseCssPath := filepath.Join(parseRootDir, "tailwind.css")
+	parseLoggerPath := filepath.Join(parseRootDir, "example-logger.js")
+	parseWasmExecPath := filepath.Join(parseRootDir, "wasm_exec.js")
+	for parsePath, parseContents := range map[string]string{
+		parseWasmPath:     "wasm-bytes",
+		parseCssPath:      "body{}",
+		parseLoggerPath:   "console.log('logger')",
+		parseWasmExecPath: "console.log('wasm_exec')",
 	} {
-		if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
-			t.Fatalf("WriteFile(%s): %v", path, err)
+		if parseErr := os.WriteFile(parsePath, []byte(parseContents), 0o644); parseErr != nil {
+			parseT.Fatalf("WriteFile(%s): %v", parsePath, parseErr)
 		}
 	}
 
-	server := &appServer{
-		wasmPath:     wasmPath,
-		cssPath:      cssPath,
-		loggerPath:   loggerPath,
-		wasmExecPath: wasmExecPath,
+	parseServer := &appServer{
+		wasmPath:     parseWasmPath,
+		cssPath:      parseCssPath,
+		loggerPath:   parseLoggerPath,
+		wasmExecPath: parseWasmExecPath,
 	}
-	handler := server.routes()
+	parseHandler := parseServer.routes()
 
-	health := httptest.NewRecorder()
-	handler.ServeHTTP(health, httptest.NewRequest(http.MethodGet, "/healthz", nil))
-	if health.Code != http.StatusOK || !strings.Contains(health.Body.String(), `{"ok":true}`) {
-		t.Fatalf("healthz response = code %d body %q", health.Code, health.Body.String())
-	}
-
-	css := httptest.NewRecorder()
-	handler.ServeHTTP(css, httptest.NewRequest(http.MethodGet, "/assets/tailwind.css", nil))
-	if !strings.Contains(css.Body.String(), "body{}") || !strings.Contains(css.Result().Header.Get("Content-Type"), "text/css") {
-		t.Fatalf("css asset response = headers %#v body %q", css.Result().Header, css.Body.String())
+	parseHealth := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseHealth, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if parseHealth.Code != http.StatusOK || !strings.Contains(parseHealth.Body.String(), `{"ok":true}`) {
+		parseT.Fatalf("healthz response = code %d body %q", parseHealth.Code, parseHealth.Body.String())
 	}
 
-	fileRes := httptest.NewRecorder()
-	fileHandler(loggerPath, "text/javascript; charset=utf-8").ServeHTTP(fileRes, httptest.NewRequest(http.MethodGet, "/assets/example-logger.js", nil))
-	if !strings.Contains(fileRes.Body.String(), "logger") || !strings.Contains(fileRes.Result().Header.Get("Content-Type"), "text/javascript") {
-		t.Fatalf("fileHandler response = headers %#v body %q", fileRes.Result().Header, fileRes.Body.String())
+	parseCss := httptest.NewRecorder()
+	parseHandler.ServeHTTP(parseCss, httptest.NewRequest(http.MethodGet, "/assets/tailwind.css", nil))
+	if !strings.Contains(parseCss.Body.String(), "body{}") || !strings.Contains(parseCss.Result().Header.Get("Content-Type"), "text/css") {
+		parseT.Fatalf("css asset response = headers %#v body %q", parseCss.Result().Header, parseCss.Body.String())
+	}
+
+	parseFileRes := httptest.NewRecorder()
+	fileHandler(parseLoggerPath, "text/javascript; charset=utf-8").ServeHTTP(parseFileRes, httptest.NewRequest(http.MethodGet, "/assets/example-logger.js", nil))
+	if !strings.Contains(parseFileRes.Body.String(), "logger") || !strings.Contains(parseFileRes.Result().Header.Get("Content-Type"), "text/javascript") {
+		parseT.Fatalf("fileHandler response = headers %#v body %q", parseFileRes.Result().Header, parseFileRes.Body.String())
 	}
 }

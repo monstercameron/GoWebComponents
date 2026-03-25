@@ -27,24 +27,24 @@ const (
 
 type secureFormsServer struct{}
 
-func secureFormsRequestReport(subject string, path string, err error, consequence string, next string) diagnostics.Report {
+func secureFormsRequestReport(parseSubject string, parsePath string, parseErr error, parseConsequence string, parseNext string) diagnostics.Report {
 	return diagnostics.NewReport(diagnostics.Options{
-		Summary:  err.Error(),
+		Summary:  parseErr.Error(),
 		Code:     "GWC-EXAMPLE-SERVER-REQUEST",
-		Headline: "server failure in " + strings.TrimSpace(subject),
-		Path:     strings.TrimSpace(path),
-		Runtime:  strings.TrimSpace(consequence),
-		Next:     strings.TrimSpace(next),
+		Headline: "server failure in " + strings.TrimSpace(parseSubject),
+		Path:     strings.TrimSpace(parsePath),
+		Runtime:  strings.TrimSpace(parseConsequence),
+		Next:     strings.TrimSpace(parseNext),
 		Docs:     secureFormsRequestDocs,
 	})
 }
 
-func fatalSecureFormsStartup(path string, err error) {
+func fatalSecureFormsStartup(parsePath string, parseErr error) {
 	diagnostics.Emit(diagnostics.NewReport(diagnostics.Options{
-		Summary:  err.Error(),
+		Summary:  parseErr.Error(),
 		Code:     "GWC-EXAMPLE-SERVER-STARTUP",
 		Headline: "server startup failure in secure forms demo",
-		Path:     strings.TrimSpace(path),
+		Path:     strings.TrimSpace(parsePath),
 		Runtime:  "the secure forms example did not start, so no requests can be served.",
 		Next:     "Free the configured port or update PORT before restarting the secure forms example.",
 		Docs:     secureFormsStartupDocs,
@@ -52,231 +52,231 @@ func fatalSecureFormsStartup(path string, err error) {
 	os.Exit(1)
 }
 
-func (s *secureFormsServer) routes() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /", s.handleIndex)
-	mux.HandleFunc("POST /quote", s.handleQuote)
-	mux.HandleFunc("POST /upload", s.handleUpload)
-	return mux
+func (parseS *secureFormsServer) routes() http.Handler {
+	parseMux := http.NewServeMux()
+	parseMux.HandleFunc("GET /", parseS.handleIndex)
+	parseMux.HandleFunc("POST /quote", parseS.handleQuote)
+	parseMux.HandleFunc("POST /upload", parseS.handleUpload)
+	return parseMux
 }
 
-func (s *secureFormsServer) handleIndex(w http.ResponseWriter, r *http.Request) {
-	state := newPageState(ensureCSRFCookie(w, r), r.URL.Query())
-	s.renderHTML(w, http.StatusOK, state)
+func (parseS *secureFormsServer) handleIndex(parseW http.ResponseWriter, parseR *http.Request) {
+	parseState := newPageState(ensureCSRFCookie(parseW, parseR), parseR.URL.Query())
+	parseS.renderHTML(parseW, http.StatusOK, parseState)
 }
 
-func (s *secureFormsServer) handleQuote(w http.ResponseWriter, r *http.Request) {
-	if !validateCSRFFromForm(r) {
-		diagnostics.WriteHTTPError(w, http.StatusForbidden, secureFormsRequestReport(
+func (parseS *secureFormsServer) handleQuote(parseW http.ResponseWriter, parseR *http.Request) {
+	if !validateCSRFFromForm(parseR) {
+		diagnostics.WriteHTTPError(parseW, http.StatusForbidden, secureFormsRequestReport(
 			"secureFormsServer.handleQuote.csrf",
-			r.URL.Path,
+			parseR.URL.Path,
 			errors.New("csrf validation failed"),
 			"the quote submission was rejected before any mutation because the CSRF proof was missing or invalid.",
 			"Reload the form to refresh the CSRF token and resubmit from the same origin.",
 		))
 		return
 	}
-	if err := r.ParseForm(); err != nil {
-		diagnostics.WriteHTTPError(w, http.StatusBadRequest, secureFormsRequestReport(
+	if parseErr := parseR.ParseForm(); parseErr != nil {
+		diagnostics.WriteHTTPError(parseW, http.StatusBadRequest, secureFormsRequestReport(
 			"secureFormsServer.handleQuote.ParseForm",
-			r.URL.Path,
-			err,
+			parseR.URL.Path,
+			parseErr,
 			"the quote submission body could not be parsed, so the request ended before validation or redirect.",
 			"Inspect the form encoding and request payload for this submission.",
 		))
 		return
 	}
-	input := quoteForm{
-		Name:     strings.TrimSpace(r.Form.Get("name")),
-		Email:    strings.TrimSpace(r.Form.Get("email")),
-		Company:  strings.TrimSpace(r.Form.Get("company")),
-		Timeline: strings.TrimSpace(r.Form.Get("timeline")),
-		Notes:    strings.TrimSpace(r.Form.Get("notes")),
+	parseInput := quoteForm{
+		Name:     strings.TrimSpace(parseR.Form.Get("name")),
+		Email:    strings.TrimSpace(parseR.Form.Get("email")),
+		Company:  strings.TrimSpace(parseR.Form.Get("company")),
+		Timeline: strings.TrimSpace(parseR.Form.Get("timeline")),
+		Notes:    strings.TrimSpace(parseR.Form.Get("notes")),
 	}
-	state := newPageState(ensureCSRFCookie(w, r), r.URL.Query())
-	state.Quote = input
-	state.QuoteErrors = validateQuote(input)
-	if len(state.QuoteErrors) > 0 {
-		state.Notice = "Fix the highlighted quote fields and resubmit."
-		s.renderHTML(w, http.StatusBadRequest, state)
+	parseState := newPageState(ensureCSRFCookie(parseW, parseR), parseR.URL.Query())
+	parseState.Quote = parseInput
+	parseState.QuoteErrors = validateQuote(parseInput)
+	if len(parseState.QuoteErrors) > 0 {
+		parseState.Notice = "Fix the highlighted quote fields and resubmit."
+		parseS.renderHTML(parseW, http.StatusBadRequest, parseState)
 		return
 	}
-	redirectWithNotice(w, r, "Quote request captured with CSRF validation and a 303 redirect.")
+	redirectWithNotice(parseW, parseR, "Quote request captured with CSRF validation and a 303 redirect.")
 }
 
-func (s *secureFormsServer) handleUpload(w http.ResponseWriter, r *http.Request) {
-	if !validateCSRFFromForm(r) {
-		diagnostics.WriteHTTPError(w, http.StatusForbidden, secureFormsRequestReport(
+func (parseS *secureFormsServer) handleUpload(parseW http.ResponseWriter, parseR *http.Request) {
+	if !validateCSRFFromForm(parseR) {
+		diagnostics.WriteHTTPError(parseW, http.StatusForbidden, secureFormsRequestReport(
 			"secureFormsServer.handleUpload.csrf",
-			r.URL.Path,
+			parseR.URL.Path,
 			errors.New("csrf validation failed"),
 			"the upload submission was rejected before any file processing because the CSRF proof was missing or invalid.",
 			"Reload the form to refresh the CSRF token and resubmit from the same origin.",
 		))
 		return
 	}
-	if err := r.ParseMultipartForm(maxUploadBytes); err != nil {
-		diagnostics.WriteHTTPError(w, http.StatusBadRequest, secureFormsRequestReport(
+	if parseErr := parseR.ParseMultipartForm(maxUploadBytes); parseErr != nil {
+		diagnostics.WriteHTTPError(parseW, http.StatusBadRequest, secureFormsRequestReport(
 			"secureFormsServer.handleUpload.ParseMultipartForm",
-			r.URL.Path,
-			err,
+			parseR.URL.Path,
+			parseErr,
 			"the multipart request could not be parsed, so the upload was rejected before validation.",
 			"Inspect the multipart form encoding and upload size limits for this request.",
 		))
 		return
 	}
-	state := newPageState(ensureCSRFCookie(w, r), r.URL.Query())
-	state.Upload = uploadForm{Label: strings.TrimSpace(r.Form.Get("label"))}
+	parseState := newPageState(ensureCSRFCookie(parseW, parseR), parseR.URL.Query())
+	parseState.Upload = uploadForm{Label: strings.TrimSpace(parseR.Form.Get("label"))}
 
-	file, header, err := r.FormFile("asset")
-	if err != nil && !errors.Is(err, http.ErrMissingFile) {
-		diagnostics.WriteHTTPError(w, http.StatusBadRequest, secureFormsRequestReport(
+	parseFile, parseHeader, parseErr2 := parseR.FormFile("asset")
+	if parseErr2 != nil && !errors.Is(parseErr2, http.ErrMissingFile) {
+		diagnostics.WriteHTTPError(parseW, http.StatusBadRequest, secureFormsRequestReport(
 			"secureFormsServer.handleUpload.FormFile",
-			r.URL.Path,
-			err,
+			parseR.URL.Path,
+			parseErr2,
 			"the upload could not read the submitted file field, so validation stopped before redirect.",
 			"Inspect the multipart asset field name and browser submission payload for this request.",
 		))
 		return
 	}
-	if file != nil {
-		defer file.Close()
+	if parseFile != nil {
+		defer parseFile.Close()
 	}
 
 	var (
-		sizeBytes   int64
-		contentType string
+		parseSizeBytes   int64
+		parseContentType string
 	)
-	if file != nil {
-		data, readErr := io.ReadAll(io.LimitReader(file, maxUploadBytes+1))
-		if readErr != nil {
-			diagnostics.WriteHTTPError(w, http.StatusBadRequest, secureFormsRequestReport(
+	if parseFile != nil {
+		parseData, parseReadErr := io.ReadAll(io.LimitReader(parseFile, maxUploadBytes+1))
+		if parseReadErr != nil {
+			diagnostics.WriteHTTPError(parseW, http.StatusBadRequest, secureFormsRequestReport(
 				"secureFormsServer.handleUpload.ReadAll",
-				r.URL.Path,
-				readErr,
+				parseR.URL.Path,
+				parseReadErr,
 				"the upload body could not be read completely, so file validation stopped before redirect.",
 				"Inspect the uploaded file stream and size limits for this request.",
 			))
 			return
 		}
-		sizeBytes = int64(len(data))
-		if sizeBytes > 0 {
-			contentType = http.DetectContentType(data)
+		parseSizeBytes = int64(len(parseData))
+		if parseSizeBytes > 0 {
+			parseContentType = http.DetectContentType(parseData)
 		}
 	}
 
-	state.UploadErrors = validateUpload(state.Upload, header, sizeBytes, contentType)
-	if len(state.UploadErrors) > 0 {
-		state.Notice = "Fix the upload fields and try again."
-		s.renderHTML(w, http.StatusBadRequest, state)
+	parseState.UploadErrors = validateUpload(parseState.Upload, parseHeader, parseSizeBytes, parseContentType)
+	if len(parseState.UploadErrors) > 0 {
+		parseState.Notice = "Fix the upload fields and try again."
+		parseS.renderHTML(parseW, http.StatusBadRequest, parseState)
 		return
 	}
 
-	query := url.Values{}
-	query.Set("notice", "Asset accepted with CSRF validation and a 303 redirect.")
-	query.Set("asset", header.Filename)
-	query.Set("type", contentType)
-	http.Redirect(w, r, "/?"+query.Encode(), http.StatusSeeOther)
+	parseQuery := url.Values{}
+	parseQuery.Set("notice", "Asset accepted with CSRF validation and a 303 redirect.")
+	parseQuery.Set("asset", parseHeader.Filename)
+	parseQuery.Set("type", parseContentType)
+	http.Redirect(parseW, parseR, "/?"+parseQuery.Encode(), http.StatusSeeOther)
 }
 
-func (s *secureFormsServer) renderHTML(w http.ResponseWriter, status int, state pageState) {
-	document, err := renderDocument(state)
-	if err != nil {
-		diagnostics.WriteHTTPError(w, http.StatusInternalServerError, secureFormsRequestReport(
+func (parseS *secureFormsServer) renderHTML(parseW http.ResponseWriter, parseStatus int, parseState pageState) {
+	parseDocument, parseErr := renderDocument(parseState)
+	if parseErr != nil {
+		diagnostics.WriteHTTPError(parseW, http.StatusInternalServerError, secureFormsRequestReport(
 			"secureFormsServer.renderHTML",
 			"/",
-			err,
+			parseErr,
 			"the secure forms page could not be rendered, so the request returned HTTP 500 without HTML.",
 			"Inspect the secure forms document render path and the page state being serialized.",
 		))
 		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(status)
-	_, _ = w.Write([]byte(document))
+	parseW.Header().Set("Content-Type", "text/html; charset=utf-8")
+	parseW.WriteHeader(parseStatus)
+	_, _ = parseW.Write([]byte(parseDocument))
 }
 
-func redirectWithNotice(w http.ResponseWriter, r *http.Request, notice string) {
-	query := url.Values{}
-	query.Set("notice", notice)
-	http.Redirect(w, r, "/?"+query.Encode(), http.StatusSeeOther)
+func redirectWithNotice(parseW http.ResponseWriter, parseR *http.Request, parseNotice string) {
+	parseQuery := url.Values{}
+	parseQuery.Set("notice", parseNotice)
+	http.Redirect(parseW, parseR, "/?"+parseQuery.Encode(), http.StatusSeeOther)
 }
 
-func ensureCSRFCookie(w http.ResponseWriter, r *http.Request) string {
-	if cookie, err := r.Cookie(secureFormsCSRFCookie); err == nil && strings.TrimSpace(cookie.Value) != "" {
-		return cookie.Value
+func ensureCSRFCookie(parseW http.ResponseWriter, parseR *http.Request) string {
+	if parseCookie, parseErr := parseR.Cookie(secureFormsCSRFCookie); parseErr == nil && strings.TrimSpace(parseCookie.Value) != "" {
+		return parseCookie.Value
 	}
-	raw := make([]byte, 32)
-	if _, err := rand.Read(raw); err != nil {
+	parseRaw := make([]byte, 32)
+	if _, parseErr2 := rand.Read(parseRaw); parseErr2 != nil {
 		return base64.RawURLEncoding.EncodeToString([]byte("gwc-secure-forms-fallback-token"))
 	}
-	token := base64.RawURLEncoding.EncodeToString(raw)
-	http.SetCookie(w, &http.Cookie{
+	parseToken := base64.RawURLEncoding.EncodeToString(parseRaw)
+	http.SetCookie(parseW, &http.Cookie{
 		Name:     secureFormsCSRFCookie,
-		Value:    token,
+		Value:    parseToken,
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	})
-	return token
+	return parseToken
 }
 
-func validateCSRFFromForm(r *http.Request) bool {
-	if !sameOriginRequest(r) {
+func validateCSRFFromForm(parseR *http.Request) bool {
+	if !sameOriginRequest(parseR) {
 		return false
 	}
-	cookie, err := r.Cookie(secureFormsCSRFCookie)
-	if err != nil || strings.TrimSpace(cookie.Value) == "" {
+	parseCookie, parseErr := parseR.Cookie(secureFormsCSRFCookie)
+	if parseErr != nil || strings.TrimSpace(parseCookie.Value) == "" {
 		return false
 	}
-	contentType := strings.ToLower(strings.TrimSpace(r.Header.Get("Content-Type")))
-	if strings.Contains(contentType, "multipart/form-data") {
-		if err := r.ParseMultipartForm(maxUploadBytes); err != nil {
+	parseContentType := strings.ToLower(strings.TrimSpace(parseR.Header.Get("Content-Type")))
+	if strings.Contains(parseContentType, "multipart/form-data") {
+		if parseErr2 := parseR.ParseMultipartForm(maxUploadBytes); parseErr2 != nil {
 			return false
 		}
 	} else {
-		if err := r.ParseForm(); err != nil {
+		if parseErr3 := parseR.ParseForm(); parseErr3 != nil {
 			return false
 		}
 	}
-	fieldName, _ := ui.NewCSRFToken(cookie.Value).FormField()
-	token := strings.TrimSpace(r.Form.Get(fieldName))
-	return token != "" && subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(token)) == 1
+	parseFieldName, _ := ui.NewCSRFToken(parseCookie.Value).FormField()
+	parseToken := strings.TrimSpace(parseR.Form.Get(parseFieldName))
+	return parseToken != "" && subtle.ConstantTimeCompare([]byte(parseCookie.Value), []byte(parseToken)) == 1
 }
 
-func sameOriginRequest(r *http.Request) bool {
-	if origin := strings.TrimSpace(r.Header.Get("Origin")); origin != "" {
-		return sameOrigin(origin, r)
+func sameOriginRequest(parseR *http.Request) bool {
+	if parseOrigin := strings.TrimSpace(parseR.Header.Get("Origin")); parseOrigin != "" {
+		return sameOrigin(parseOrigin, parseR)
 	}
-	if referer := strings.TrimSpace(r.Header.Get("Referer")); referer != "" {
-		return sameOrigin(referer, r)
+	if parseReferer := strings.TrimSpace(parseR.Header.Get("Referer")); parseReferer != "" {
+		return sameOrigin(parseReferer, parseR)
 	}
 	return false
 }
 
-func sameOrigin(raw string, r *http.Request) bool {
-	parsed, err := url.Parse(raw)
-	if err != nil {
+func sameOrigin(parseRaw string, parseR *http.Request) bool {
+	parseParsed, parseErr := url.Parse(parseRaw)
+	if parseErr != nil {
 		return false
 	}
-	if parsed.Scheme == "" || parsed.Host == "" {
+	if parseParsed.Scheme == "" || parseParsed.Host == "" {
 		return false
 	}
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
+	parseScheme := "http"
+	if parseR.TLS != nil {
+		parseScheme = "https"
 	}
-	return strings.EqualFold(parsed.Scheme, scheme) && strings.EqualFold(parsed.Host, r.Host)
+	return strings.EqualFold(parseParsed.Scheme, parseScheme) && strings.EqualFold(parseParsed.Host, parseR.Host)
 }
 
 func main() {
-	port := strings.TrimSpace(os.Getenv("PORT"))
-	if port == "" {
-		port = "8087"
+	parsePort := strings.TrimSpace(os.Getenv("PORT"))
+	if parsePort == "" {
+		parsePort = "8087"
 	}
-	server := &secureFormsServer{}
-	fmt.Printf("SSR secure forms demo listening on http://127.0.0.1:%s\n", port)
-	if err := http.ListenAndServe("127.0.0.1:"+port, server.routes()); err != nil {
-		fatalSecureFormsStartup("127.0.0.1:"+port, err)
+	parseServer := &secureFormsServer{}
+	fmt.Printf("SSR secure forms demo listening on http://127.0.0.1:%s\n", parsePort)
+	if parseErr := http.ListenAndServe("127.0.0.1:"+parsePort, parseServer.routes()); parseErr != nil {
+		fatalSecureFormsStartup("127.0.0.1:"+parsePort, parseErr)
 	}
 }

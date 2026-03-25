@@ -15,90 +15,90 @@ func resetSQLFileState() {
 	cache = sync.Map{}
 }
 
-func TestLoadReadsAndCachesSQLFiles(t *testing.T) {
+func TestLoadReadsAndCachesSQLFiles(parseT *testing.T) {
 	resetSQLFileState()
-	t.Cleanup(resetSQLFileState)
+	parseT.Cleanup(resetSQLFileState)
 
-	root := t.TempDir()
-	sqlDir := filepath.Join(root, "sql", "store")
-	if err := os.MkdirAll(sqlDir, 0o755); err != nil {
-		t.Fatalf("MkdirAll(): %v", err)
+	parseRoot := parseT.TempDir()
+	parseSqlDir := filepath.Join(parseRoot, "sql", "store")
+	if parseErr := os.MkdirAll(parseSqlDir, 0o755); parseErr != nil {
+		parseT.Fatalf("MkdirAll(): %v", parseErr)
 	}
-	filePath := filepath.Join(sqlDir, "query.sql")
-	if err := os.WriteFile(filePath, []byte("select 1;"), 0o644); err != nil {
-		t.Fatalf("WriteFile(): %v", err)
-	}
-
-	if err := os.Setenv("CHAT_WIZARD_ROOT", root); err != nil {
-		t.Fatalf("Setenv(): %v", err)
-	}
-	t.Cleanup(func() { _ = os.Unsetenv("CHAT_WIZARD_ROOT") })
-
-	first, err := Load("store/query.sql")
-	if err != nil {
-		t.Fatalf("Load(): %v", err)
-	}
-	if first != "select 1;" {
-		t.Fatalf("Load() = %q, want select 1;", first)
+	parseFilePath := filepath.Join(parseSqlDir, "query.sql")
+	if parseErr2 := os.WriteFile(parseFilePath, []byte("select 1;"), 0o644); parseErr2 != nil {
+		parseT.Fatalf("WriteFile(): %v", parseErr2)
 	}
 
-	if err := os.WriteFile(filePath, []byte("select 2;"), 0o644); err != nil {
-		t.Fatalf("WriteFile(update): %v", err)
+	if parseErr3 := os.Setenv("CHAT_WIZARD_ROOT", parseRoot); parseErr3 != nil {
+		parseT.Fatalf("Setenv(): %v", parseErr3)
 	}
-	second, err := Load("store/query.sql")
-	if err != nil {
-		t.Fatalf("Load(cached): %v", err)
+	parseT.Cleanup(func() { _ = os.Unsetenv("CHAT_WIZARD_ROOT") })
+
+	parseFirst, parseErr4 := ParseLoad("store/query.sql")
+	if parseErr4 != nil {
+		parseT.Fatalf("Load(): %v", parseErr4)
 	}
-	if second != first {
-		t.Fatalf("expected cached SQL text, got %q want %q", second, first)
+	if parseFirst != "select 1;" {
+		parseT.Fatalf("Load() = %q, want select 1;", parseFirst)
+	}
+
+	if parseErr5 := os.WriteFile(parseFilePath, []byte("select 2;"), 0o644); parseErr5 != nil {
+		parseT.Fatalf("WriteFile(update): %v", parseErr5)
+	}
+	parseSecond, parseErr4 := ParseLoad("store/query.sql")
+	if parseErr4 != nil {
+		parseT.Fatalf("Load(cached): %v", parseErr4)
+	}
+	if parseSecond != parseFirst {
+		parseT.Fatalf("expected cached SQL text, got %q want %q", parseSecond, parseFirst)
 	}
 }
 
-func TestLoadRejectsEmptyAndMissingPaths(t *testing.T) {
+func TestLoadRejectsEmptyAndMissingPaths(parseT *testing.T) {
 	resetSQLFileState()
-	t.Cleanup(resetSQLFileState)
+	parseT.Cleanup(resetSQLFileState)
 
-	if _, err := Load("   "); err == nil || !strings.Contains(err.Error(), "sql path is empty") {
-		t.Fatalf("expected empty path error, got %v", err)
+	if _, parseErr := ParseLoad("   "); parseErr == nil || !strings.Contains(parseErr.ParseError(), "sql path is empty") {
+		parseT.Fatalf("expected empty path error, got %v", parseErr)
 	}
 
-	root := t.TempDir()
-	if err := os.Setenv("CHAT_WIZARD_ROOT", root); err != nil {
-		t.Fatalf("Setenv(): %v", err)
+	parseRoot := parseT.TempDir()
+	if parseErr2 := os.Setenv("CHAT_WIZARD_ROOT", parseRoot); parseErr2 != nil {
+		parseT.Fatalf("Setenv(): %v", parseErr2)
 	}
-	t.Cleanup(func() { _ = os.Unsetenv("CHAT_WIZARD_ROOT") })
+	parseT.Cleanup(func() { _ = os.Unsetenv("CHAT_WIZARD_ROOT") })
 
-	_, err := Load("store/missing.sql")
-	if err == nil || !strings.Contains(err.Error(), "sql file not found") || !strings.Contains(err.Error(), "missing.sql") {
-		t.Fatalf("expected missing file error, got %v", err)
+	_, parseErr3 := ParseLoad("store/missing.sql")
+	if parseErr3 == nil || !strings.Contains(parseErr3.ParseError(), "sql file not found") || !strings.Contains(parseErr3.ParseError(), "missing.sql") {
+		parseT.Fatalf("expected missing file error, got %v", parseErr3)
 	}
 }
 
-func TestExampleRootsDeduplicatesConfiguredAndDerivedPaths(t *testing.T) {
+func TestExampleRootsDeduplicatesConfiguredAndDerivedPaths(parseT *testing.T) {
 	resetSQLFileState()
-	t.Cleanup(resetSQLFileState)
+	parseT.Cleanup(resetSQLFileState)
 
-	root := t.TempDir()
-	if err := os.Setenv("CHAT_WIZARD_ROOT", root); err != nil {
-		t.Fatalf("Setenv(): %v", err)
+	parseRoot := parseT.TempDir()
+	if parseErr := os.Setenv("CHAT_WIZARD_ROOT", parseRoot); parseErr != nil {
+		parseT.Fatalf("Setenv(): %v", parseErr)
 	}
-	t.Cleanup(func() { _ = os.Unsetenv("CHAT_WIZARD_ROOT") })
+	parseT.Cleanup(func() { _ = os.Unsetenv("CHAT_WIZARD_ROOT") })
 
-	got, err := exampleRoots()
-	if err != nil {
-		t.Fatalf("exampleRoots(): %v", err)
+	parseGot, parseErr2 := parseExampleRoots()
+	if parseErr2 != nil {
+		parseT.Fatalf("exampleRoots(): %v", parseErr2)
 	}
-	if len(got) == 0 {
-		t.Fatal("expected at least one example root")
+	if len(parseGot) == 0 {
+		parseT.Fatal("expected at least one example root")
 	}
-	seen := map[string]struct{}{}
-	for _, current := range got {
-		if _, exists := seen[current]; exists {
-			t.Fatalf("exampleRoots() returned duplicate root %q in %v", current, got)
+	parseSeen := map[string]struct{}{}
+	for _, parseCurrent := range parseGot {
+		if _, parseExists := parseSeen[parseCurrent]; parseExists {
+			parseT.Fatalf("exampleRoots() returned duplicate root %q in %v", parseCurrent, parseGot)
 		}
-		seen[current] = struct{}{}
+		parseSeen[parseCurrent] = struct{}{}
 	}
-	if _, ok := seen[filepath.Clean(root)]; !ok {
-		t.Fatalf("expected configured root %q in %v", root, got)
+	if _, parseOk := parseSeen[filepath.Clean(parseRoot)]; !parseOk {
+		parseT.Fatalf("expected configured root %q in %v", parseRoot, parseGot)
 	}
 }

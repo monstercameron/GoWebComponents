@@ -23,8 +23,8 @@ import (
 var log = logging.New("example-0")
 
 // getContentKindLabel maps an item content kind to the UI label shown in the detail header.
-func getContentKindLabel(item docsItem) string {
-	switch item.Content.Kind {
+func getContentKindLabel(parseItem docsItem) string {
+	switch parseItem.Content.Kind {
 	case contentKindArticle:
 		return contentKindLabelArticle
 	case contentKindAPI:
@@ -37,8 +37,8 @@ func getContentKindLabel(item docsItem) string {
 }
 
 // statusBadgeClass returns the badge styling for the current stability state.
-func statusBadgeClass(status string) string {
-	switch status {
+func statusBadgeClass(parseStatus string) string {
+	switch parseStatus {
 	case statusStable:
 		return "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
 	case statusExperimental:
@@ -49,8 +49,8 @@ func statusBadgeClass(status string) string {
 }
 
 // typeBadgeClass returns the badge styling for the catalog item type.
-func typeBadgeClass(kind string) string {
-	switch kind {
+func typeBadgeClass(parseKind string) string {
+	switch parseKind {
 	case kindConcept:
 		return "bg-cyan-500/15 text-cyan-200 border-cyan-400/25"
 	case kindAPI:
@@ -68,15 +68,15 @@ func renderLoadingSpinner() ui.Node {
 }
 
 // renderStatCard renders a fixed-value metric card in the hero header.
-func renderStatCard(value, label string) ui.Node {
+func renderStatCard(parseValue, parseLabel string) ui.Node {
 	return Div(Class("rounded-3xl border border-white/10 bg-white/5 p-3 shadow-lg shadow-black/10"),
-		Div(Class("text-xl font-semibold text-white"), Text(value)),
-		Div(Class("mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-400"), Text(label)),
+		Div(Class("text-xl font-semibold text-white"), Text(parseValue)),
+		Div(Class("mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-400"), Text(parseLabel)),
 	)
 }
 
 // renderCatalogFetchState renders the catalog loading and error shell while the JSON request settles.
-func renderCatalogFetchState(title, message, buttonLabel string, onRetry ui.Handler) ui.Node {
+func renderCatalogFetchState(parseTitle, parseMessage, parseButtonLabel string, parseOnRetry ui.Handler) ui.Node {
 	return Div(Class("min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.20),transparent_28%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.18),transparent_24%),linear-gradient(180deg,#07111f_0%,#091427_40%,#0b1020_100%)] text-slate-100"),
 		Div(Class("mx-auto flex min-h-screen max-w-3xl items-center justify-center px-4 py-6"),
 			Div(Class("w-full rounded-[24px] border border-white/10 bg-white/5 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl"),
@@ -85,10 +85,10 @@ func renderCatalogFetchState(title, message, buttonLabel string, onRetry ui.Hand
 					Div(Class("rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-cyan-100"), Text("Fetching catalog")),
 				),
 				Div(Class("text-xs uppercase tracking-[0.18em] text-cyan-200"), Text("GoWebComponents docs surface")),
-				H1(Class("mt-3 text-3xl font-semibold tracking-tight text-white"), Text(title)),
-				P(Class("mt-3 text-sm leading-7 text-slate-300"), Text(message)),
+				H1(Class("mt-3 text-3xl font-semibold tracking-tight text-white"), Text(parseTitle)),
+				P(Class("mt-3 text-sm leading-7 text-slate-300"), Text(parseMessage)),
 				Div(Class("mt-5 flex flex-wrap gap-3"),
-					Button(Type("button"), OnClick(onRetry), Class("cursor-pointer rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0"), Text(buttonLabel)),
+					Button(Type("button"), OnClick(parseOnRetry), Class("cursor-pointer rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0"), Text(parseButtonLabel)),
 				),
 			),
 		),
@@ -96,10 +96,10 @@ func renderCatalogFetchState(title, message, buttonLabel string, onRetry ui.Hand
 }
 
 // renderCountStatCard renders an integer metric card in the hero header.
-func renderCountStatCard(value int, label string) ui.Node {
+func renderCountStatCard(parseValue int, parseLabel string) ui.Node {
 	return Div(Class("rounded-3xl border border-white/10 bg-white/5 p-3 shadow-lg shadow-black/10"),
-		Div(Class("text-xl font-semibold text-white"), Textf("%d", value)),
-		Div(Class("mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-400"), Text(label)),
+		Div(Class("text-xl font-semibold text-white"), Textf("%d", parseValue)),
+		Div(Class("mt-1 text-[11px] uppercase tracking-[0.18em] text-slate-400"), Text(parseLabel)),
 	)
 }
 
@@ -173,260 +173,260 @@ func renderQuickCounterSnippetCode() ui.Node {
 	)
 }
 
-func isQuickCounterSnippet(source string) bool {
-	normalized := strings.ReplaceAll(source, "\r\n", "\n")
-	return strings.Contains(normalized, "func Counter() ui.Node {") &&
-		strings.Contains(normalized, "count.Set(count.Get() + 1)") &&
-		strings.Contains(normalized, "Textf(\"Clicked %d times\", currentCount)")
+func isQuickCounterSnippet(parseSource string) bool {
+	parseNormalized := strings.ReplaceAll(parseSource, "\r\n", "\n")
+	return strings.Contains(parseNormalized, "func Counter() ui.Node {") &&
+		strings.Contains(parseNormalized, "count.Set(count.Get() + 1)") &&
+		strings.Contains(parseNormalized, "Textf(\"Clicked %d times\", currentCount)")
 }
 
-func isGoIdentifierStart(char byte) bool {
-	return char == '_' || unicode.IsLetter(rune(char))
+func isGoIdentifierStart(parseChar byte) bool {
+	return parseChar == '_' || unicode.IsLetter(rune(parseChar))
 }
 
-func isGoIdentifierPart(char byte) bool {
-	return char == '_' || unicode.IsLetter(rune(char)) || unicode.IsDigit(rune(char))
+func isGoIdentifierPart(parseChar byte) bool {
+	return parseChar == '_' || unicode.IsLetter(rune(parseChar)) || unicode.IsDigit(rune(parseChar))
 }
 
-func renderHighlightedGoSource(source string) ui.Node {
-	keywordClasses := map[string]string{
-		"break": "text-violet-300",
-		"case": "text-violet-300",
-		"default": "text-violet-300",
-		"defer": "text-violet-300",
-		"else": "text-violet-300",
+func renderHighlightedGoSource(parseSource string) ui.Node {
+	parseKeywordClasses := map[string]string{
+		"break":       "text-violet-300",
+		"case":        "text-violet-300",
+		"default":     "text-violet-300",
+		"defer":       "text-violet-300",
+		"else":        "text-violet-300",
 		"fallthrough": "text-violet-300",
-		"for": "text-violet-300",
-		"func": "text-violet-300",
-		"go": "text-violet-300",
-		"if": "text-violet-300",
-		"import": "text-violet-300",
-		"package": "text-violet-300",
-		"range": "text-violet-300",
-		"return": "text-violet-300",
-		"select": "text-violet-300",
-		"switch": "text-violet-300",
-		"type": "text-violet-300",
-		"var": "text-violet-300",
+		"for":         "text-violet-300",
+		"func":        "text-violet-300",
+		"go":          "text-violet-300",
+		"if":          "text-violet-300",
+		"import":      "text-violet-300",
+		"package":     "text-violet-300",
+		"range":       "text-violet-300",
+		"return":      "text-violet-300",
+		"select":      "text-violet-300",
+		"switch":      "text-violet-300",
+		"type":        "text-violet-300",
+		"var":         "text-violet-300",
 	}
-	callClasses := map[string]string{
-		"Button": "text-cyan-200",
-		"Class": "text-cyan-200",
-		"ClassNames": "text-cyan-200",
-		"CounterExample": "text-cyan-200",
-		"CreateElement": "text-cyan-200",
+	parseCallClasses := map[string]string{
+		"Button":          "text-cyan-200",
+		"Class":           "text-cyan-200",
+		"ClassNames":      "text-cyan-200",
+		"CounterExample":  "text-cyan-200",
+		"CreateElement":   "text-cyan-200",
 		"DisableAllDebug": "text-cyan-200",
-		"Div": "text-cyan-200",
-		"Fragment": "text-cyan-200",
-		"H2": "text-cyan-200",
-		"IfElse": "text-cyan-200",
-		"LookupString": "text-cyan-200",
-		"OnClick": "text-cyan-200",
-		"P": "text-cyan-200",
-		"Render": "text-cyan-200",
-		"Span": "text-cyan-200",
-		"String": "text-cyan-200",
-		"Text": "text-cyan-200",
-		"Textf": "text-cyan-200",
-		"UseEvent": "text-cyan-300",
-		"UseState": "text-cyan-300",
-		"WaitForever": "text-cyan-200",
-		"When": "text-cyan-200",
+		"Div":             "text-cyan-200",
+		"Fragment":        "text-cyan-200",
+		"H2":              "text-cyan-200",
+		"IfElse":          "text-cyan-200",
+		"LookupString":    "text-cyan-200",
+		"OnClick":         "text-cyan-200",
+		"P":               "text-cyan-200",
+		"Render":          "text-cyan-200",
+		"Span":            "text-cyan-200",
+		"String":          "text-cyan-200",
+		"Text":            "text-cyan-200",
+		"Textf":           "text-cyan-200",
+		"UseEvent":        "text-cyan-300",
+		"UseState":        "text-cyan-300",
+		"WaitForever":     "text-cyan-200",
+		"When":            "text-cyan-200",
 	}
-	moduleClasses := map[string]string{
+	parseModuleClasses := map[string]string{
 		"interop": "text-cyan-200",
-		"ui": "text-cyan-200",
-		"utils": "text-cyan-200",
+		"ui":      "text-cyan-200",
+		"utils":   "text-cyan-200",
 	}
-	var nodes []ui.Node
-	normalized := strings.ReplaceAll(source, "\r\n", "\n")
+	var parseNodes []ui.Node
+	parseNormalized := strings.ReplaceAll(parseSource, "\r\n", "\n")
 
-	appendText := func(text string) {
-		if text != "" {
-			nodes = append(nodes, Text(text))
+	parseAppendText := func(parseText string) {
+		if parseText != "" {
+			parseNodes = append(parseNodes, Text(parseText))
 		}
 	}
-	appendClassed := func(className, text string) {
-		if text == "" {
+	parseAppendClassed := func(parseClassName, parseText2 string) {
+		if parseText2 == "" {
 			return
 		}
-		nodes = append(nodes, Span(Class(className), Text(text)))
+		parseNodes = append(parseNodes, Span(Class(parseClassName), Text(parseText2)))
 	}
 
-	for index := 0; index < len(normalized); {
-		if strings.HasPrefix(normalized[index:], "//") {
-			end := index
-			for end < len(normalized) && normalized[end] != '\n' {
-				end++
+	for parseIndex := 0; parseIndex < len(parseNormalized); {
+		if strings.HasPrefix(parseNormalized[parseIndex:], "//") {
+			parseEnd := parseIndex
+			for parseEnd < len(parseNormalized) && parseNormalized[parseEnd] != '\n' {
+				parseEnd++
 			}
-			appendClassed("text-slate-500", normalized[index:end])
-			index = end
+			parseAppendClassed("text-slate-500", parseNormalized[parseIndex:parseEnd])
+			parseIndex = parseEnd
 			continue
 		}
-		if normalized[index] == '"' {
-			end := index + 1
-			for end < len(normalized) {
-				if normalized[end] == '\\' && end+1 < len(normalized) {
-					end += 2
+		if parseNormalized[parseIndex] == '"' {
+			parseEnd2 := parseIndex + 1
+			for parseEnd2 < len(parseNormalized) {
+				if parseNormalized[parseEnd2] == '\\' && parseEnd2+1 < len(parseNormalized) {
+					parseEnd2 += 2
 					continue
 				}
-				if normalized[end] == '"' {
-					end++
+				if parseNormalized[parseEnd2] == '"' {
+					parseEnd2++
 					break
 				}
-				end++
+				parseEnd2++
 			}
-			appendClassed("text-emerald-300", normalized[index:end])
-			index = end
+			parseAppendClassed("text-emerald-300", parseNormalized[parseIndex:parseEnd2])
+			parseIndex = parseEnd2
 			continue
 		}
-		if normalized[index] == '`' {
-			end := index + 1
-			for end < len(normalized) && normalized[end] != '`' {
-				end++
+		if parseNormalized[parseIndex] == '`' {
+			parseEnd3 := parseIndex + 1
+			for parseEnd3 < len(parseNormalized) && parseNormalized[parseEnd3] != '`' {
+				parseEnd3++
 			}
-			if end < len(normalized) {
-				end++
+			if parseEnd3 < len(parseNormalized) {
+				parseEnd3++
 			}
-			appendClassed("text-emerald-300", normalized[index:end])
-			index = end
+			parseAppendClassed("text-emerald-300", parseNormalized[parseIndex:parseEnd3])
+			parseIndex = parseEnd3
 			continue
 		}
-		if unicode.IsDigit(rune(normalized[index])) {
-			end := index + 1
-			for end < len(normalized) && (unicode.IsDigit(rune(normalized[end])) || normalized[end] == '.') {
-				end++
+		if unicode.IsDigit(rune(parseNormalized[parseIndex])) {
+			parseEnd4 := parseIndex + 1
+			for parseEnd4 < len(parseNormalized) && (unicode.IsDigit(rune(parseNormalized[parseEnd4])) || parseNormalized[parseEnd4] == '.') {
+				parseEnd4++
 			}
-			appendClassed("text-emerald-300", normalized[index:end])
-			index = end
+			parseAppendClassed("text-emerald-300", parseNormalized[parseIndex:parseEnd4])
+			parseIndex = parseEnd4
 			continue
 		}
-		if isGoIdentifierStart(normalized[index]) {
-			end := index + 1
-			for end < len(normalized) && isGoIdentifierPart(normalized[end]) {
-				end++
+		if isGoIdentifierStart(parseNormalized[parseIndex]) {
+			parseEnd5 := parseIndex + 1
+			for parseEnd5 < len(parseNormalized) && isGoIdentifierPart(parseNormalized[parseEnd5]) {
+				parseEnd5++
 			}
-			token := normalized[index:end]
+			parseToken := parseNormalized[parseIndex:parseEnd5]
 			switch {
-			case keywordClasses[token] != "":
-				appendClassed(keywordClasses[token], token)
-			case callClasses[token] != "":
-				appendClassed(callClasses[token], token)
-			case moduleClasses[token] != "":
-				appendClassed(moduleClasses[token], token)
-			case unicode.IsUpper(rune(token[0])):
-				appendClassed("text-cyan-200", token)
+			case parseKeywordClasses[parseToken] != "":
+				parseAppendClassed(parseKeywordClasses[parseToken], parseToken)
+			case parseCallClasses[parseToken] != "":
+				parseAppendClassed(parseCallClasses[parseToken], parseToken)
+			case parseModuleClasses[parseToken] != "":
+				parseAppendClassed(parseModuleClasses[parseToken], parseToken)
+			case unicode.IsUpper(rune(parseToken[0])):
+				parseAppendClassed("text-cyan-200", parseToken)
 			default:
-				appendClassed("text-amber-200", token)
+				parseAppendClassed("text-amber-200", parseToken)
 			}
-			index = end
+			parseIndex = parseEnd5
 			continue
 		}
-		appendText(string(normalized[index]))
-		index++
+		parseAppendText(string(parseNormalized[parseIndex]))
+		parseIndex++
 	}
 
-	args := make([]interface{}, 0, len(nodes))
-	for _, node := range nodes {
-		args = append(args, node)
+	parseArgs := make([]interface{}, 0, len(parseNodes))
+	for _, parseNode := range parseNodes {
+		parseArgs = append(parseArgs, parseNode)
 	}
-	return Code(args...)
+	return Code(parseArgs...)
 }
 
-func renderSourceSnippetCard(title, badge, source string) ui.Node {
+func renderSourceSnippetCard(parseTitle, parseBadge, parseSource string) ui.Node {
 	return Div(Class("min-w-0 rounded-[24px] border border-cyan-300/15 bg-[#050d18]/85 p-4 shadow-xl shadow-black/20"),
 		Div(Class("flex items-center justify-between gap-3"),
-			Div(Class("text-[11px] uppercase tracking-[0.18em] text-cyan-200"), Text(title)),
-			Div(Class("rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-400"), Text(badge)),
+			Div(Class("text-[11px] uppercase tracking-[0.18em] text-cyan-200"), Text(parseTitle)),
+			Div(Class("rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-400"), Text(parseBadge)),
 		),
 		Pre(Class("mt-3 overflow-x-auto rounded-[18px] border border-white/10 bg-black/20 p-4 text-[13px] leading-6 text-slate-200"),
-			IfElse(isQuickCounterSnippet(source), renderQuickCounterSnippetCode(), renderHighlightedGoSource(source)),
+			IfElse(isQuickCounterSnippet(parseSource), renderQuickCounterSnippetCode(), renderHighlightedGoSource(parseSource)),
 		),
 	)
 }
 
 // renderOptionNodes converts plain string values into select option nodes.
-func renderOptionNodes(values []string) []ui.Node {
-	return Map(values, func(value string) ui.Node {
-		return Option(Value(value), Text(value))
+func renderOptionNodes(parseValues []string) []ui.Node {
+	return Map(parseValues, func(parseValue string) ui.Node {
+		return Option(Value(parseValue), Text(parseValue))
 	})
 }
 
 // renderSortOptionNodes converts sort options into select option nodes.
-func renderSortOptionNodes(values []sortOption) []ui.Node {
-	return Map(values, func(value sortOption) ui.Node {
-		return Option(Value(value.Value), Text(value.Label))
+func renderSortOptionNodes(parseValues []sortOption) []ui.Node {
+	return Map(parseValues, func(parseValue sortOption) ui.Node {
+		return Option(Value(parseValue.Value), Text(parseValue.Label))
 	})
 }
 
 // renderItemCard renders a single searchable catalog item in the sidebar list.
-func renderItemCard(item docsItem, isActive bool, onSelect ui.Handler) ui.Node {
-	cardClass := ClassNames(
+func renderItemCard(parseItem docsItem, isActive bool, parseOnSelect ui.Handler) ui.Node {
+	parseCardClass := ClassNames(
 		"group block w-full cursor-pointer rounded-[22px] border p-3 text-left transition duration-200",
 		When(isActive, "border-cyan-300/35 bg-cyan-400/10 shadow-xl shadow-cyan-950/25"),
 		When(!isActive, "border-white/10 bg-white/[0.04] hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.08]"),
 	)
-	tagNodes := append([]ui.Node{
-		Span(Class(ClassNames("rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.14em]", statusBadgeClass(item.Status))), Text(item.Status)),
-		Span(Class("rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-400"), Text(item.Level)),
-		Span(Class("rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-slate-300"), Text(item.Module)),
-		Span(Class("rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-slate-300"), Text(item.ReadTime)),
-	}, Map(item.Tags, func(tag string) ui.Node {
-		return Span(Class("rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-slate-300"), Text("#"+tag))
+	parseTagNodes := append([]ui.Node{
+		Span(Class(ClassNames("rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.14em]", statusBadgeClass(parseItem.Status))), Text(parseItem.Status)),
+		Span(Class("rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-400"), Text(parseItem.Level)),
+		Span(Class("rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-slate-300"), Text(parseItem.Module)),
+		Span(Class("rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-slate-300"), Text(parseItem.ReadTime)),
+	}, Map(parseItem.Tags, func(parseTag string) ui.Node {
+		return Span(Class("rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-slate-300"), Text("#"+parseTag))
 	})...)
-	cardBody := Fragment(
+	parseCardBody := Fragment(
 		Div(Class("flex items-start justify-between gap-2"),
 			Div(Class("min-w-0 flex-1"),
-				Div(Class("text-sm font-medium text-white"), Text(item.Title)),
-				Div(Class("mt-1 line-clamp-2 text-xs leading-5 text-slate-400"), Text(item.Blurb)),
+				Div(Class("text-sm font-medium text-white"), Text(parseItem.Title)),
+				Div(Class("mt-1 line-clamp-2 text-xs leading-5 text-slate-400"), Text(parseItem.Blurb)),
 			),
-			Span(Class(ClassNames("shrink-0 rounded-full border px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em]", typeBadgeClass(item.Type))), Text(item.Type)),
+			Span(Class(ClassNames("shrink-0 rounded-full border px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em]", typeBadgeClass(parseItem.Type))), Text(parseItem.Type)),
 		),
-		Div(Class("mt-3 flex flex-wrap items-center gap-1"), tagNodes),
+		Div(Class("mt-3 flex flex-wrap items-center gap-1"), parseTagNodes),
 	)
-	if isGroupedAPIItem(item) {
-		return Button(Type("button"), OnClick(onSelect), Class(cardClass), cardBody)
+	if isGroupedAPIItem(parseItem) {
+		return Button(Type("button"), OnClick(parseOnSelect), Class(parseCardClass), parseCardBody)
 	}
-	return Button(Type("button"), OnClick(onSelect), Class(cardClass), cardBody)
+	return Button(Type("button"), OnClick(parseOnSelect), Class(parseCardClass), parseCardBody)
 }
 
 // renderConceptArticle renders long-form concept content for article-style entries.
-func renderConceptArticle(panelProps contentPanelProps) ui.Node {
-	sectionNodes := make([]ui.Node, 0, len(panelProps.Item.Content.Sections)+3)
-	if panelProps.Item.Content.Callout != "" {
-		sectionNodes = append(sectionNodes,
-			Div(Class("rounded-[22px] border border-cyan-400/20 bg-cyan-400/10 p-4 text-sm leading-7 text-cyan-50"), Text(panelProps.Item.Content.Callout)),
+func renderConceptArticle(parsePanelProps contentPanelProps) ui.Node {
+	parseSectionNodes := make([]ui.Node, 0, len(parsePanelProps.Item.Content.Sections)+3)
+	if parsePanelProps.Item.Content.Callout != "" {
+		parseSectionNodes = append(parseSectionNodes,
+			Div(Class("rounded-[22px] border border-cyan-400/20 bg-cyan-400/10 p-4 text-sm leading-7 text-cyan-50"), Text(parsePanelProps.Item.Content.Callout)),
 		)
 	}
-	sectionNodes = append(sectionNodes, Map(panelProps.Item.Content.Sections, func(section docsSection) ui.Node {
-		paragraphs := Map(section.Paragraphs, func(paragraph string) ui.Node {
-			return P(Text(paragraph))
+	parseSectionNodes = append(parseSectionNodes, Map(parsePanelProps.Item.Content.Sections, func(parseSection docsSection) ui.Node {
+		parseParagraphs := Map(parseSection.Paragraphs, func(parseParagraph string) ui.Node {
+			return P(Text(parseParagraph))
 		})
 		return Article(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
-			H3(Class("text-lg font-semibold text-white"), Text(section.Heading)),
-			Div(Class("mt-3 space-y-3 text-sm leading-7 text-slate-300"), paragraphs),
+			H3(Class("text-lg font-semibold text-white"), Text(parseSection.Heading)),
+			Div(Class("mt-3 space-y-3 text-sm leading-7 text-slate-300"), parseParagraphs),
 		)
 	})...)
-	if panelProps.Item.Content.SourcePath != "" {
-		sectionNodes = append(sectionNodes,
+	if parsePanelProps.Item.Content.SourcePath != "" {
+		parseSectionNodes = append(parseSectionNodes,
 			Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
 				Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelSourceDocument)),
-				Div(Class("mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-cyan-100"), Text(panelProps.Item.Content.SourcePath)),
+				Div(Class("mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-cyan-100"), Text(parsePanelProps.Item.Content.SourcePath)),
 			),
 		)
 	}
-	sectionNodes = append(sectionNodes, renderMarkdownState(panelProps))
-	if panelProps.Item.Content.Code != "" && !panelProps.MarkdownReady {
-		sectionNodes = append(sectionNodes,
+	parseSectionNodes = append(parseSectionNodes, renderMarkdownState(parsePanelProps))
+	if parsePanelProps.Item.Content.Code != "" && !parsePanelProps.MarkdownReady {
+		parseSectionNodes = append(parseSectionNodes,
 			Div(Class("rounded-[20px] border border-white/10 bg-[#06101d] p-4"),
 				Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelExampleMarkdown)),
-				Pre(Class("mt-3 overflow-x-auto text-sm leading-6 text-cyan-100"), Code(Text(panelProps.Item.Content.Code))),
+				Pre(Class("mt-3 overflow-x-auto text-sm leading-6 text-cyan-100"), Code(Text(parsePanelProps.Item.Content.Code))),
 			),
 		)
 	}
-	if len(sectionNodes) == 0 {
-		sectionNodes = append(sectionNodes,
-			Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(panelProps.Item.Blurb)),
+	if len(parseSectionNodes) == 0 {
+		parseSectionNodes = append(parseSectionNodes,
+			Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-7 text-slate-300"), Text(parsePanelProps.Item.Blurb)),
 		)
 	}
 	return Div(Class("min-w-0 flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-4 shadow-inner shadow-black/20"),
@@ -434,18 +434,18 @@ func renderConceptArticle(panelProps contentPanelProps) ui.Node {
 			Div(Class("text-sm font-medium text-white"), Text(labelConceptArticle)),
 			Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelMarkdownWriteup)),
 		),
-		Div(Class("mt-4 flex flex-1 flex-col gap-4"), sectionNodes),
+		Div(Class("mt-4 flex flex-1 flex-col gap-4"), parseSectionNodes),
 	)
 }
 
 // renderParameterTable renders the API parameter reference grid.
-func renderParameterTable(params []docsParam) ui.Node {
-	rows := Map(params, func(param docsParam) ui.Node {
+func renderParameterTable(parseParams []docsParam) ui.Node {
+	parseRows := Map(parseParams, func(parseParam docsParam) ui.Node {
 		return Tr(Class("border-b border-white/5 align-top text-slate-300 last:border-b-0"),
-			Td(Class("py-3 pr-4 font-medium text-white"), Text(param.Name)),
-			Td(Class("py-3 pr-4 text-cyan-200"), Text(param.Type)),
-			Td(Class("py-3 pr-4 uppercase"), Text(param.Required)),
-			Td(Class("py-3"), Text(param.Description)),
+			Td(Class("py-3 pr-4 font-medium text-white"), Text(parseParam.Name)),
+			Td(Class("py-3 pr-4 text-cyan-200"), Text(parseParam.Type)),
+			Td(Class("py-3 pr-4 uppercase"), Text(parseParam.Required)),
+			Td(Class("py-3"), Text(parseParam.Description)),
 		)
 	})
 	return Table(Class("min-w-full text-left text-sm"),
@@ -457,21 +457,21 @@ func renderParameterTable(params []docsParam) ui.Node {
 				Th(Class("pb-2 font-medium"), Text("Description")),
 			),
 		),
-		Tbody(rows),
+		Tbody(parseRows),
 	)
 }
 
 // renderAPIReference renders the structured API reference panel.
-func renderAPIReference(panelProps contentPanelProps) ui.Node {
-	if isGroupedAPIItem(panelProps.Item) {
-		return renderGroupedAPIReference(panelProps)
+func renderAPIReference(parsePanelProps contentPanelProps) ui.Node {
+	if isGroupedAPIItem(parsePanelProps.Item) {
+		return renderGroupedAPIReference(parsePanelProps)
 	}
-	hasHTMLUsageExample := panelProps.Item.Content.SourcePath != ""
+	hasHTMLUsageExample := parsePanelProps.Item.Content.SourcePath != ""
 	if hasHTMLUsageExample {
-		scrollToDemoAnchor(panelProps.Item.Content.AnchorID, panelProps.MarkdownReady, panelProps.MarkdownBody)
+		scrollToDemoAnchor(parsePanelProps.Item.Content.AnchorID, parsePanelProps.MarkdownReady, parsePanelProps.MarkdownBody)
 	}
-	noteNodes := Map(panelProps.Item.Content.Notes, func(note string) ui.Node {
-		return Li(Text(note))
+	parseNoteNodes := Map(parsePanelProps.Item.Content.Notes, func(parseNote string) ui.Node {
+		return Li(Text(parseNote))
 	})
 	return Div(Class("min-w-0 flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-4 shadow-inner shadow-black/20"),
 		Div(Class("border-b border-white/10 pb-3"),
@@ -481,21 +481,21 @@ func renderAPIReference(panelProps contentPanelProps) ui.Node {
 		Div(Class("mt-4 flex flex-1 flex-col gap-4"),
 			Div(Class("rounded-[22px] border border-violet-400/20 bg-violet-400/10 p-4"),
 				Div(Class("text-xs uppercase tracking-[0.18em] text-violet-200"), Text(labelSignature)),
-				Pre(Class("mt-3 overflow-x-auto text-sm leading-6 text-violet-50"), Code(Text(panelProps.Item.Content.Signature))),
-				P(Class("mt-3 text-sm leading-7 text-slate-200"), Text(panelProps.Item.Content.Summary)),
+				Pre(Class("mt-3 overflow-x-auto text-sm leading-6 text-violet-50"), Code(Text(parsePanelProps.Item.Content.Signature))),
+				P(Class("mt-3 text-sm leading-7 text-slate-200"), Text(parsePanelProps.Item.Content.Summary)),
 			),
 			Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
 				Div(Class("text-sm font-medium text-white"), Text(labelParameters)),
-				Div(Class("mt-4 overflow-x-auto"), renderParameterTable(panelProps.Item.Content.Params)),
+				Div(Class("mt-4 overflow-x-auto"), renderParameterTable(parsePanelProps.Item.Content.Params)),
 			),
 			Div(Class("grid gap-3 md:grid-cols-2"),
 				Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
 					Div(Class("text-sm font-medium text-white"), Text(labelReturns)),
-					Div(Class("mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-emerald-200"), Text(panelProps.Item.Content.Returns)),
+					Div(Class("mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-sm text-emerald-200"), Text(parsePanelProps.Item.Content.Returns)),
 				),
 				Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
 					Div(Class("text-sm font-medium text-white"), Text(labelNotes)),
-					Ul(Class("mt-3 space-y-2 text-sm leading-6 text-slate-300"), noteNodes),
+					Ul(Class("mt-3 space-y-2 text-sm leading-6 text-slate-300"), parseNoteNodes),
 				),
 			),
 			Div(Class("rounded-[20px] border border-white/10 bg-[#06101d] p-4"),
@@ -503,20 +503,20 @@ func renderAPIReference(panelProps contentPanelProps) ui.Node {
 				ui.If(hasHTMLUsageExample,
 					func() ui.Node {
 						return ui.Match().
-							When(panelProps.MarkdownLoading && !panelProps.MarkdownReady, func() ui.Node {
+							When(parsePanelProps.MarkdownLoading && !parsePanelProps.MarkdownReady, func() ui.Node {
 								return Div(Class("mt-3 rounded-xl border border-white/10 bg-black/15 px-3 py-4 text-sm text-slate-300"), Text(messageDocLoading))
 							}).
-							When(panelProps.MarkdownError != "", func() ui.Node {
-								return Div(Class("mt-3 rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 py-4 text-sm text-rose-100"), Text(panelProps.MarkdownError))
+							When(parsePanelProps.MarkdownError != "", func() ui.Node {
+								return Div(Class("mt-3 rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 py-4 text-sm text-rose-100"), Text(parsePanelProps.MarkdownError))
 							}).
 							Default(func() ui.Node {
 								return Div(Class("mt-3 rounded-xl border border-white/10 bg-black/15 p-3"),
-									renderInjectedHTMLFragment("api-usage-example-fragment", panelProps.MarkdownBody),
+									renderInjectedHTMLFragment("api-usage-example-fragment", parsePanelProps.MarkdownBody),
 								)
 							})
 					},
 					func() ui.Node {
-						return Pre(Class("mt-3 overflow-x-auto text-sm leading-6 text-cyan-100"), Code(Text(panelProps.Item.Content.Example)))
+						return Pre(Class("mt-3 overflow-x-auto text-sm leading-6 text-cyan-100"), Code(Text(parsePanelProps.Item.Content.Example)))
 					},
 				),
 			),
@@ -525,41 +525,41 @@ func renderAPIReference(panelProps contentPanelProps) ui.Node {
 }
 
 // renderCounterExample renders the interactive demo panel used by example entries.
-func renderCounterExample(panelProps contentPanelProps) ui.Node {
-	if panelProps.Item.Content.EmbedPath != "" {
-		return renderEmbeddedExample(panelProps)
+func renderCounterExample(parsePanelProps contentPanelProps) ui.Node {
+	if parsePanelProps.Item.Content.EmbedPath != "" {
+		return renderEmbeddedExample(parsePanelProps)
 	}
-	counterValue := ui.UseState(0)
+	parseCounterValue := ui.UseState(0)
 	ui.UseEffect(func() func() {
 		// Reset the demo whenever the user switches to a different catalog item.
-		counterValue.Set(0)
-		log.Info("counter reset", map[string]interface{}{"itemID": panelProps.Item.ID})
+		parseCounterValue.Set(0)
+		log.Info("counter reset", map[string]interface{}{"itemID": parsePanelProps.Item.ID})
 		return nil
-	}, panelProps.Item.ID)
-	decrementCount := ui.UseEvent(func() {
-		nextValue := counterValue.Get() - 1
-		counterValue.Set(nextValue)
-		log.Info("counter decremented", map[string]interface{}{"itemID": panelProps.Item.ID, "next": nextValue})
+	}, parsePanelProps.Item.ID)
+	parseDecrementCount := ui.UseEvent(func() {
+		parseNextValue := parseCounterValue.Get() - 1
+		parseCounterValue.Set(parseNextValue)
+		log.Info("counter decremented", map[string]interface{}{"itemID": parsePanelProps.Item.ID, "next": parseNextValue})
 	})
-	incrementCount := ui.UseEvent(func() {
-		nextValue := counterValue.Get() + 1
-		counterValue.Set(nextValue)
-		log.Info("counter incremented", map[string]interface{}{"itemID": panelProps.Item.ID, "next": nextValue})
+	parseIncrementCount := ui.UseEvent(func() {
+		parseNextValue2 := parseCounterValue.Get() + 1
+		parseCounterValue.Set(parseNextValue2)
+		log.Info("counter incremented", map[string]interface{}{"itemID": parsePanelProps.Item.ID, "next": parseNextValue2})
 	})
 	resetCount := ui.UseEvent(func() {
-		counterValue.Set(0)
-		log.Info("counter manually reset", map[string]interface{}{"itemID": panelProps.Item.ID})
+		parseCounterValue.Set(0)
+		log.Info("counter manually reset", map[string]interface{}{"itemID": parsePanelProps.Item.ID})
 	})
-	stateToneLabel := toneReady
-	if counterValue.Get() > 0 {
-		stateToneLabel = tonePositive
-	} else if counterValue.Get() < 0 {
-		stateToneLabel = toneNegative
+	parseStateToneLabel := toneReady
+	if parseCounterValue.Get() > 0 {
+		parseStateToneLabel = tonePositive
+	} else if parseCounterValue.Get() < 0 {
+		parseStateToneLabel = toneNegative
 	}
-	tipNodes := Map(panelProps.Item.Content.Tips, func(tip string) ui.Node {
-		return Li(Text(tip))
+	parseTipNodes := Map(parsePanelProps.Item.Content.Tips, func(parseTip string) ui.Node {
+		return Li(Text(parseTip))
 	})
-	controlButtonClass := "rounded-2xl border border-white/15 bg-black/20 px-4 py-2 text-sm font-medium text-white transition hover:bg-black/30"
+	parseControlButtonClass := "rounded-2xl border border-white/15 bg-black/20 px-4 py-2 text-sm font-medium text-white transition hover:bg-black/30"
 	return Div(Class("min-w-0 flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-4 shadow-inner shadow-black/20"),
 		Div(Class("border-b border-white/10 pb-3"),
 			Div(Class("text-sm font-medium text-white"), Text(labelInteractiveExample)),
@@ -568,19 +568,19 @@ func renderCounterExample(panelProps contentPanelProps) ui.Node {
 		Div(Class("mt-4 grid flex-1 gap-3 lg:grid-cols-[minmax(0,1.4fr)_280px]"),
 			Div(Class("rounded-[22px] border border-emerald-400/20 bg-emerald-400/10 p-5"),
 				Div(Class("text-xs uppercase tracking-[0.18em] text-emerald-200"), Text(labelLiveWidget)),
-				Div(Class("mt-4 text-5xl font-semibold tracking-tight text-white"), Textf("%d", counterValue.Get())),
-				Div(Class("mt-2 text-sm text-emerald-50/90"), Text(labelStateTonePrefix+stateToneLabel)),
+				Div(Class("mt-4 text-5xl font-semibold tracking-tight text-white"), Textf("%d", parseCounterValue.Get())),
+				Div(Class("mt-2 text-sm text-emerald-50/90"), Text(labelStateTonePrefix+parseStateToneLabel)),
 				Div(Class("mt-5 flex flex-wrap gap-2"),
-					Button(Type("button"), OnClick(decrementCount), Class(controlButtonClass), Text(buttonDecrement)),
-					Button(Type("button"), OnClick(incrementCount), Class(controlButtonClass), Text(buttonIncrement)),
-					Button(Type("button"), OnClick(resetCount), Class(controlButtonClass), Text(buttonReset)),
+					Button(Type("button"), OnClick(parseDecrementCount), Class(parseControlButtonClass), Text(buttonDecrement)),
+					Button(Type("button"), OnClick(parseIncrementCount), Class(parseControlButtonClass), Text(buttonIncrement)),
+					Button(Type("button"), OnClick(resetCount), Class(parseControlButtonClass), Text(buttonReset)),
 				),
-				P(Class("mt-5 text-sm leading-7 text-emerald-50/90"), Text(panelProps.Item.Content.Description)),
+				P(Class("mt-5 text-sm leading-7 text-emerald-50/90"), Text(parsePanelProps.Item.Content.Description)),
 			),
 			Div(Class("space-y-3"),
 				Div(Class("rounded-[20px] border border-white/10 bg-white/[0.04] p-4"),
 					Div(Class("text-sm font-medium text-white"), Text(labelWhyThisMatters)),
-					Ul(Class("mt-3 space-y-2 text-sm leading-6 text-slate-300"), tipNodes),
+					Ul(Class("mt-3 space-y-2 text-sm leading-6 text-slate-300"), parseTipNodes),
 				),
 				Div(Class("rounded-[20px] border border-white/10 bg-[#06101d] p-4"),
 					Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelExampleSource)),
@@ -591,57 +591,57 @@ func renderCounterExample(panelProps contentPanelProps) ui.Node {
 	)
 }
 
-func renderEmbeddedExample(panelProps contentPanelProps) ui.Node {
-	wasmURL := embeddedExampleURL(panelProps.Item.Content.EmbedPath)
-	shellID := fmt.Sprintf("embedded-demo-shell-%d", panelProps.Item.ID)
-	rootID := fmt.Sprintf("embedded-demo-root-%d", panelProps.Item.ID)
-	sourceURL := docsSourceURL(panelProps.Item.Content.SourcePath)
-	sourceBody := panelProps.MarkdownBody
-	sourceLoading := panelProps.MarkdownLoading
-	sourceReady := panelProps.MarkdownReady
-	sourceError := panelProps.MarkdownError
+func renderEmbeddedExample(parsePanelProps contentPanelProps) ui.Node {
+	parseWasmURL := embeddedExampleURL(parsePanelProps.Item.Content.EmbedPath)
+	parseShellID := fmt.Sprintf("embedded-demo-shell-%d", parsePanelProps.Item.ID)
+	parseRootID := fmt.Sprintf("embedded-demo-root-%d", parsePanelProps.Item.ID)
+	parseSourceURL := docsSourceURL(parsePanelProps.Item.Content.SourcePath)
+	parseSourceBody := parsePanelProps.MarkdownBody
+	parseSourceLoading := parsePanelProps.MarkdownLoading
+	parseSourceReady := parsePanelProps.MarkdownReady
+	parseSourceError := parsePanelProps.MarkdownError
 	ui.UseEffect(func() func() {
-		if wasmURL == "" {
+		if parseWasmURL == "" {
 			return nil
 		}
-		window := js.Global().Get("window")
-		if window.IsUndefined() || window.IsNull() {
+		parseWindow := js.Global().Get("window")
+		if parseWindow.IsUndefined() || parseWindow.IsNull() {
 			return nil
 		}
-		mountFunc := window.Get("__gwcMountEmbeddedExample")
-		if mountFunc.IsUndefined() || mountFunc.IsNull() || mountFunc.Type() != js.TypeFunction {
-			log.Error("embedded example mount helper missing", map[string]interface{}{"itemID": panelProps.Item.ID})
+		parseMountFunc := parseWindow.Get("__gwcMountEmbeddedExample")
+		if parseMountFunc.IsUndefined() || parseMountFunc.IsNull() || parseMountFunc.Type() != js.TypeFunction {
+			log.Error("embedded example mount helper missing", map[string]interface{}{"itemID": parsePanelProps.Item.ID})
 			return nil
 		}
-		options := js.Global().Get("Object").New()
-		options.Set("wasmURL", wasmURL)
-		options.Set("rootID", rootID)
-		options.Set("shellID", shellID)
-		mountFunc.Invoke(options)
+		parseOptions := js.Global().Get("Object").New()
+		parseOptions.Set("wasmURL", parseWasmURL)
+		parseOptions.Set("rootID", parseRootID)
+		parseOptions.Set("shellID", parseShellID)
+		parseMountFunc.Invoke(parseOptions)
 		return nil
-	}, panelProps.Item.ID, wasmURL, rootID, shellID)
-	if sourceURL != "" && sourceBody == "" && !sourceLoading && !sourceReady && sourceError == "" {
-		sourceResource := fetch.UseCachedResource(markdownCacheKey(sourceURL), func(ctx context.Context) (string, error) {
-			return loadMarkdownResource(ctx, sourceURL)
+	}, parsePanelProps.Item.ID, parseWasmURL, parseRootID, parseShellID)
+	if parseSourceURL != "" && parseSourceBody == "" && !parseSourceLoading && !parseSourceReady && parseSourceError == "" {
+		parseSourceResource := fetch.UseCachedResource(markdownCacheKey(parseSourceURL), func(parseCtx context.Context) (string, error) {
+			return loadMarkdownResource(parseCtx, parseSourceURL)
 		}, fetch.CacheOptions{StaleAfter: 2 * time.Minute})
-		sourceRequest := sourceResource.Get()
-		sourceBody = sourceRequest.Value
-		sourceLoading = sourceRequest.Loading
-		sourceReady = sourceRequest.Ready
-		sourceError = errorString(sourceRequest.Error)
+		parseSourceRequest := parseSourceResource.Get()
+		parseSourceBody = parseSourceRequest.Value
+		parseSourceLoading = parseSourceRequest.Loading
+		parseSourceReady = parseSourceRequest.Ready
+		parseSourceError = errorString(parseSourceRequest.Error)
 	}
-	sourceNode := ui.Match().
-		When(sourceLoading && !sourceReady, func() ui.Node {
+	parseSourceNode := ui.Match().
+		When(parseSourceLoading && !parseSourceReady, func() ui.Node {
 			return Div(Class("rounded-[24px] border border-white/10 bg-slate-950/50 px-4 py-5 text-sm text-slate-300"), Text(messageDocLoading))
 		}).
-		When(sourceError != "", func() ui.Node {
-			return Div(Class("rounded-[24px] border border-rose-400/20 bg-rose-400/10 px-4 py-5 text-sm text-rose-100"), Text(sourceError))
+		When(parseSourceError != "", func() ui.Node {
+			return Div(Class("rounded-[24px] border border-rose-400/20 bg-rose-400/10 px-4 py-5 text-sm text-rose-100"), Text(parseSourceError))
 		}).
-		When(sourceReady && sourceBody != "", func() ui.Node {
-			return renderSourceSnippetCard(labelExampleSource, "Go + hooks + typed HTML", sourceBody)
+		When(parseSourceReady && parseSourceBody != "", func() ui.Node {
+			return renderSourceSnippetCard(labelExampleSource, "Go + hooks + typed HTML", parseSourceBody)
 		}).
 		Default(func() ui.Node {
-			return renderSourceSnippetCard(labelExampleSource, "Go + hooks + typed HTML", panelProps.Item.Content.Code)
+			return renderSourceSnippetCard(labelExampleSource, "Go + hooks + typed HTML", parsePanelProps.Item.Content.Code)
 		})
 	return Div(Class("min-w-0 flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-3 shadow-inner shadow-black/20"),
 		Div(Class("flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2"),
@@ -653,7 +653,7 @@ func renderEmbeddedExample(panelProps contentPanelProps) ui.Node {
 				Div(ID("embedded-demo-host"), Class("overflow-hidden rounded-[20px] bg-[#081420] shadow-inner shadow-black/20"),
 					Div(Class("relative min-h-[420px] overflow-hidden rounded-[20px] bg-[#081420]"),
 						Div(
-							ID(shellID),
+							ID(parseShellID),
 							Attr("data-state", "loading"),
 							Attr("data-indeterminate", "true"),
 							Class("absolute inset-0 z-10 flex items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_28%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.10),transparent_22%),linear-gradient(180deg,#08111d_0%,#0b1523_100%)] p-4 transition-opacity duration-200"),
@@ -671,84 +671,84 @@ func renderEmbeddedExample(panelProps contentPanelProps) ui.Node {
 								Div(Attr("data-embed-error", "true"), Class("mt-5 hidden rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm leading-6 text-rose-100")),
 							),
 						),
-						Div(ID(rootID), Attr("data-boot", "pending"), Class("min-h-[420px] w-full")),
+						Div(ID(parseRootID), Attr("data-boot", "pending"), Class("min-h-[420px] w-full")),
 					),
 				),
 			),
 			Div(Class("min-w-0 space-y-2"),
-				sourceNode,
+				parseSourceNode,
 			),
 		),
 	)
 }
 
 // renderDisplaySurface chooses the appropriate detail renderer for the selected item.
-func renderDisplaySurface(panelProps contentPanelProps, hasSelectedItem bool) ui.Node {
+func renderDisplaySurface(parsePanelProps contentPanelProps, hasSelectedItem bool) ui.Node {
 	return ui.If(!hasSelectedItem,
 		func() ui.Node {
 			return Div(Class("flex min-h-full items-center justify-center rounded-[22px] border border-dashed border-white/10 bg-black/10 p-8 text-sm text-slate-400"), Text(messageNothingSelected))
 		},
 		func() ui.Node {
 			return ui.Match().
-				When(panelProps.Item.Content.Kind == contentKindArticle, func() ui.Node {
-					return renderConceptArticle(panelProps)
+				When(parsePanelProps.Item.Content.Kind == contentKindArticle, func() ui.Node {
+					return renderConceptArticle(parsePanelProps)
 				}).
-				When(panelProps.Item.Content.Kind == contentKindAPI, func() ui.Node {
-					return renderAPIReference(panelProps)
+				When(parsePanelProps.Item.Content.Kind == contentKindAPI, func() ui.Node {
+					return renderAPIReference(parsePanelProps)
 				}).
 				Default(func() ui.Node {
-					return ui.Component(renderCounterExample, panelProps)
+					return ui.Component(renderCounterExample, parsePanelProps)
 				})
 		},
 	)
 }
 
 // renderCatalogHero renders the top summary banner and primary CTA actions.
-func renderCatalogHero(props catalogHeroProps) ui.Node {
-	repoURL := "https://github.com/monstercameron/GoWebComponents"
-	cloneCommand := "git clone https://github.com/monstercameron/GoWebComponents.git"
-	copyCloneCommand := ui.UseEvent(func() {
-		document := js.Global().Get("document")
-		if document.IsUndefined() || document.IsNull() {
+func renderCatalogHero(parseProps catalogHeroProps) ui.Node {
+	parseRepoURL := "https://github.com/monstercameron/GoWebComponents"
+	parseCloneCommand := "git clone https://github.com/monstercameron/GoWebComponents.git"
+	parseCopyCloneCommand := ui.UseEvent(func() {
+		parseDocument := js.Global().Get("document")
+		if parseDocument.IsUndefined() || parseDocument.IsNull() {
 			return
 		}
-		button := document.Call("getElementById", "repo-clone-copy-button")
-		icon := document.Call("getElementById", "repo-clone-copy-icon")
-		status := document.Call("getElementById", "repo-clone-copy-status")
-		if !button.IsUndefined() && !button.IsNull() {
-			button.Get("classList").Call("add", "scale-110", "border-cyan-300/40", "bg-cyan-400/15", "text-cyan-100", "shadow-lg", "shadow-cyan-950/30")
+		parseButton := parseDocument.Call("getElementById", "repo-clone-copy-button")
+		parseIcon := parseDocument.Call("getElementById", "repo-clone-copy-icon")
+		parseStatus := parseDocument.Call("getElementById", "repo-clone-copy-status")
+		if !parseButton.IsUndefined() && !parseButton.IsNull() {
+			parseButton.Get("classList").Call("add", "scale-110", "border-cyan-300/40", "bg-cyan-400/15", "text-cyan-100", "shadow-lg", "shadow-cyan-950/30")
 		}
-		if !icon.IsUndefined() && !icon.IsNull() {
-			icon.Get("style").Set("transform", "scale(1.18) rotate(-8deg)")
+		if !parseIcon.IsUndefined() && !parseIcon.IsNull() {
+			parseIcon.Get("style").Set("transform", "scale(1.18) rotate(-8deg)")
 		}
-		if !status.IsUndefined() && !status.IsNull() {
-			status.Set("textContent", "Copied git clone command")
-			status.Get("classList").Call("remove", "hidden")
+		if !parseStatus.IsUndefined() && !parseStatus.IsNull() {
+			parseStatus.Set("textContent", "Copied git clone command")
+			parseStatus.Get("classList").Call("remove", "hidden")
 		}
-		clipboard := js.Global().Get("navigator").Get("clipboard")
-		if !clipboard.IsUndefined() && !clipboard.IsNull() && clipboard.Get("writeText").Type() == js.TypeFunction {
-			clipboard.Call("writeText", cloneCommand)
-		} else if !status.IsUndefined() && !status.IsNull() {
-			status.Set("textContent", "Clipboard unavailable")
+		parseClipboard := js.Global().Get("navigator").Get("clipboard")
+		if !parseClipboard.IsUndefined() && !parseClipboard.IsNull() && parseClipboard.Get("writeText").Type() == js.TypeFunction {
+			parseClipboard.Call("writeText", parseCloneCommand)
+		} else if !parseStatus.IsUndefined() && !parseStatus.IsNull() {
+			parseStatus.Set("textContent", "Clipboard unavailable")
 		}
-		_, _ = context.Background(), cloneCommand
-		if button.IsUndefined() || button.IsNull() {
+		_, _ = context.Background(), parseCloneCommand
+		if parseButton.IsUndefined() || parseButton.IsNull() {
 			return
 		}
-		buttonValue := button
-		iconValue := icon
-		statusValue := status
-		_, _ = js.Global(), statusValue
+		parseButtonValue := parseButton
+		parseIconValue := parseIcon
+		parseStatusValue := parseStatus
+		_, _ = js.Global(), parseStatusValue
 		_, _ = interop.ScheduleTimeout(420*time.Millisecond, func() {
-			buttonValue.Get("classList").Call("remove", "scale-110", "border-cyan-300/40", "bg-cyan-400/15", "text-cyan-100", "shadow-lg", "shadow-cyan-950/30")
-			if !iconValue.IsUndefined() && !iconValue.IsNull() {
-				iconValue.Get("style").Set("transform", "scale(1) rotate(0deg)")
+			parseButtonValue.Get("classList").Call("remove", "scale-110", "border-cyan-300/40", "bg-cyan-400/15", "text-cyan-100", "shadow-lg", "shadow-cyan-950/30")
+			if !parseIconValue.IsUndefined() && !parseIconValue.IsNull() {
+				parseIconValue.Get("style").Set("transform", "scale(1) rotate(0deg)")
 			}
 		})
 		_, _ = interop.ScheduleTimeout(1800*time.Millisecond, func() {
-			if !statusValue.IsUndefined() && !statusValue.IsNull() {
-				statusValue.Set("textContent", "")
-				statusValue.Get("classList").Call("add", "hidden")
+			if !parseStatusValue.IsUndefined() && !parseStatusValue.IsNull() {
+				parseStatusValue.Set("textContent", "")
+				parseStatusValue.Get("classList").Call("add", "hidden")
 			}
 		})
 	})
@@ -765,7 +765,7 @@ func renderCatalogHero(props catalogHeroProps) ui.Node {
 						Text("Go + WebAssembly UI Framework"),
 					),
 					A(
-						FromProps(Props{Href: repoURL, Target: "_blank", Rel: "noreferrer noopener", Class: "inline-flex items-center rounded-full border border-white/10 bg-slate-950/35 px-3 py-1 font-mono text-[11px] text-slate-300 transition hover:border-cyan-300/30 hover:text-cyan-100"}),
+						FromProps(Props{Href: parseRepoURL, Target: "_blank", Rel: "noreferrer noopener", Class: "inline-flex items-center rounded-full border border-white/10 bg-slate-950/35 px-3 py-1 font-mono text-[11px] text-slate-300 transition hover:border-cyan-300/30 hover:text-cyan-100"}),
 						Text("github.com/monstercameron/GoWebComponents"),
 					),
 					Div(Class("relative inline-flex items-center"),
@@ -773,7 +773,7 @@ func renderCatalogHero(props catalogHeroProps) ui.Node {
 							ID("repo-clone-copy-button"),
 							Type("button"),
 							Title("Copy git clone command"),
-							OnClick(copyCloneCommand),
+							OnClick(parseCopyCloneCommand),
 							Class("inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-slate-950/35 text-slate-300 transition duration-300 hover:border-cyan-300/30 hover:text-cyan-100"),
 							Span(ID("repo-clone-copy-icon"), Class("text-sm leading-none transition duration-300"), Text("⧉")),
 						),
@@ -798,16 +798,16 @@ func renderCatalogHero(props catalogHeroProps) ui.Node {
 							Span(Class("rounded-full border border-white/10 bg-white/5 px-3 py-1.5"), Text("SSR + hydration")),
 						),
 						Div(Class("flex flex-wrap gap-2"),
-							Button(Type("button"), OnClick(props.OnBrowseExamples), Class("cursor-pointer rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0"), Text(buttonBrowseExamples)),
-							Button(Type("button"), OnClick(props.OnInspectAPIs), Class("cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-100 transition hover:-translate-y-0.5 hover:bg-white/10 active:translate-y-0"), Text(buttonInspectPackageAPIs)),
+							Button(Type("button"), OnClick(parseProps.OnBrowseExamples), Class("cursor-pointer rounded-2xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:-translate-y-0.5 hover:bg-cyan-400/20 active:translate-y-0"), Text(buttonBrowseExamples)),
+							Button(Type("button"), OnClick(parseProps.OnInspectAPIs), Class("cursor-pointer rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-100 transition hover:-translate-y-0.5 hover:bg-white/10 active:translate-y-0"), Text(buttonInspectPackageAPIs)),
 						),
 					),
 					Div(Class("space-y-4 lg:min-w-0"),
 						renderHeroCodeSnippet(),
 						Div(Class("grid grid-cols-2 gap-2 sm:gap-3"),
-							renderCountStatCard(props.TotalItems, labelCatalogEntries),
-							renderCountStatCard(props.ExampleCount, labelLiveExamples),
-							renderCountStatCard(props.APICount, labelAPIPanes),
+							renderCountStatCard(parseProps.TotalItems, labelCatalogEntries),
+							renderCountStatCard(parseProps.ExampleCount, labelLiveExamples),
+							renderCountStatCard(parseProps.APICount, labelAPIPanes),
 							renderStatCard("Go + WASM", labelSingleStackUI),
 						),
 					),
@@ -818,69 +818,69 @@ func renderCatalogHero(props catalogHeroProps) ui.Node {
 }
 
 // renderCatalogSidebar renders the search, filters, and result list.
-func renderCatalogSidebar(props catalogSidebarProps) ui.Node {
+func renderCatalogSidebar(parseProps catalogSidebarProps) ui.Node {
 	return Section(Class("min-w-0 flex min-h-[420px] flex-col rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-xl lg:sticky lg:top-3 lg:h-[calc(100vh-1.5rem)] lg:w-[34%] lg:flex-none xl:w-[31%]"),
 		Div(Class("sticky top-0 z-10 border-b border-white/10 bg-slate-950/60 p-2.5 backdrop-blur-xl sm:p-3"),
 			Div(Class("flex flex-col gap-2"),
 				Div(Class("flex flex-col gap-2 sm:flex-row sm:items-center"),
 					Div(Class("relative flex-1"),
-						Input(Value(props.SearchQuery), OnInput(props.OnSearchInput), Placeholder("Search concepts, APIs, examples..."), Class("w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 transition focus:border-cyan-300/40 focus:bg-slate-950/60")),
+						Input(Value(parseProps.SearchQuery), OnInput(parseProps.OnSearchInput), Placeholder("Search concepts, APIs, examples..."), Class("w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 transition focus:border-cyan-300/40 focus:bg-slate-950/60")),
 					),
 					Div(Class("flex items-center gap-2 self-start sm:self-auto"),
-						Div(Class("text-xs uppercase tracking-[0.18em] text-slate-400"), Textf("%d results", props.ResultCount)),
+						Div(Class("text-xs uppercase tracking-[0.18em] text-slate-400"), Textf("%d results", parseProps.ResultCount)),
 						Button(
 							Type("button"),
-							OnClick(props.OnResetFilters),
-							Disabled(!props.HasActiveFilters),
+							OnClick(parseProps.OnResetFilters),
+							Disabled(!parseProps.HasActiveFilters),
 							Class(ClassNames(
 								"rounded-xl border px-3 py-2 text-[11px] font-medium uppercase tracking-[0.16em] transition",
-								When(props.HasActiveFilters, "cursor-pointer border-white/10 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white"),
-								When(!props.HasActiveFilters, "cursor-not-allowed border-white/5 bg-white/[0.03] text-slate-500"),
+								When(parseProps.HasActiveFilters, "cursor-pointer border-white/10 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white"),
+								When(!parseProps.HasActiveFilters, "cursor-not-allowed border-white/5 bg-white/[0.03] text-slate-500"),
 							)),
 							Text(buttonResetFilters),
 						),
 					),
 				),
-				Div(Class("flex flex-wrap gap-2"), props.FilterButtons),
+				Div(Class("flex flex-wrap gap-2"), parseProps.FilterButtons),
 				Div(Class("grid grid-cols-2 gap-2 xl:grid-cols-4"),
 					Label(Class("flex flex-col gap-1 text-[11px] uppercase tracking-[0.16em] text-slate-500"),
 						Span(Text("Status")),
-						Select(Value(props.SelectedStatusFilter), OnChange(props.OnStatusChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderOptionNodes(props.Statuses)),
+						Select(Value(parseProps.SelectedStatusFilter), OnChange(parseProps.OnStatusChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderOptionNodes(parseProps.Statuses)),
 					),
 					Label(Class("flex flex-col gap-1 text-[11px] uppercase tracking-[0.16em] text-slate-500"),
 						Span(Text("Difficulty")),
-						Select(Value(props.SelectedLevelFilter), OnChange(props.OnLevelChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderOptionNodes(props.Levels)),
+						Select(Value(parseProps.SelectedLevelFilter), OnChange(parseProps.OnLevelChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderOptionNodes(parseProps.Levels)),
 					),
 					Label(Class("flex flex-col gap-1 text-[11px] uppercase tracking-[0.16em] text-slate-500"),
 						Span(Text("Module")),
-						Select(Value(props.SelectedModuleFilter), OnChange(props.OnModuleChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderOptionNodes(props.Modules)),
+						Select(Value(parseProps.SelectedModuleFilter), OnChange(parseProps.OnModuleChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderOptionNodes(parseProps.Modules)),
 					),
 					Label(Class("flex flex-col gap-1 text-[11px] uppercase tracking-[0.16em] text-slate-500"),
 						Span(Text("Sort")),
-						Select(Value(props.SelectedSortOrder), OnChange(props.OnSortChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderSortOptionNodes(props.SortOptions)),
+						Select(Value(parseProps.SelectedSortOrder), OnChange(parseProps.OnSortChange), Class("rounded-xl border border-white/10 bg-slate-950/50 px-3 py-2 text-xs text-slate-100 outline-none"), renderSortOptionNodes(parseProps.SortOptions)),
 					),
 				),
 			),
 		),
 		Div(Class("scrollbar-stable min-h-0 flex-1 overflow-y-auto p-1.5 sm:p-2"),
-			Div(Class("space-y-2"), props.ItemNodes),
+			Div(Class("space-y-2"), parseProps.ItemNodes),
 		),
 	)
 }
 
 // renderDetailPanel renders the selected item header and its detail surface.
-func renderDetailPanel(props detailPanelProps) ui.Node {
+func renderDetailPanel(parseProps detailPanelProps) ui.Node {
 	return Section(Class("min-w-0 flex min-h-[420px] flex-1 flex-col rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-xl lg:sticky lg:top-3 lg:h-[calc(100vh-1.5rem)]"),
 		Div(Class("sticky top-0 z-10 border-b border-white/10 bg-slate-950/60 p-3 backdrop-blur-xl sm:p-4"),
-			IfElse(props.HasSelectedItem,
+			IfElse(parseProps.HasSelectedItem,
 				Fragment(
 					Div(Class("flex flex-wrap items-center gap-3"),
-						Span(Class(ClassNames("rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-[0.2em]", typeBadgeClass(props.SelectedItem.Type))), Text(props.SelectedItem.Type)),
-						Span(Class("rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-400"), Text(props.SelectedItem.Level)),
-						Span(Class("rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-400"), Text(getContentKindLabel(props.SelectedItem))),
+						Span(Class(ClassNames("rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-[0.2em]", typeBadgeClass(parseProps.SelectedItem.Type))), Text(parseProps.SelectedItem.Type)),
+						Span(Class("rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-400"), Text(parseProps.SelectedItem.Level)),
+						Span(Class("rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-slate-400"), Text(getContentKindLabel(parseProps.SelectedItem))),
 					),
-					H2(Class("mt-4 text-2xl font-semibold tracking-tight text-white sm:text-3xl"), Text(props.SelectedItem.Title)),
-					P(Class("mt-3 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base"), Text(props.SelectedItem.Blurb)),
+					H2(Class("mt-4 text-2xl font-semibold tracking-tight text-white sm:text-3xl"), Text(parseProps.SelectedItem.Title)),
+					P(Class("mt-3 max-w-3xl text-sm leading-7 text-slate-300 sm:text-base"), Text(parseProps.SelectedItem.Blurb)),
 				),
 				Fragment(
 					H2(Class("text-2xl font-semibold tracking-tight text-white sm:text-3xl"), Text(labelNothingSelected)),
@@ -888,79 +888,79 @@ func renderDetailPanel(props detailPanelProps) ui.Node {
 				),
 			),
 		),
-		Div(ID("demo"), Class("scrollbar-stable min-w-0 min-h-0 flex-1 overflow-y-auto p-2 sm:p-3"), renderDisplaySurface(contentPanelProps{Item: props.SelectedItem, MarkdownBody: props.MarkdownBody, MarkdownLoading: props.MarkdownLoading, MarkdownReady: props.MarkdownReady, MarkdownError: props.MarkdownError, OnRetryMarkdown: props.OnRetryMarkdown}, props.HasSelectedItem)),
+		Div(ID("demo"), Class("scrollbar-stable min-w-0 min-h-0 flex-1 overflow-y-auto p-2 sm:p-3"), renderDisplaySurface(contentPanelProps{Item: parseProps.SelectedItem, MarkdownBody: parseProps.MarkdownBody, MarkdownLoading: parseProps.MarkdownLoading, MarkdownReady: parseProps.MarkdownReady, MarkdownError: parseProps.MarkdownError, OnRetryMarkdown: parseProps.OnRetryMarkdown}, parseProps.HasSelectedItem)),
 	)
 }
 
 // renderDocsDemosSite wires together the search state, filters, selection state, and layout.
 func renderDocsDemosSite() ui.Node {
-	catalogURL := catalogDataURL()
-	catalogResource := fetch.UseCachedResource(catalogCacheKey(catalogURL), func(ctx context.Context) (docsCatalog, error) {
-		return loadCatalogResource(ctx, catalogURL)
+	parseCatalogURL := catalogDataURL()
+	parseCatalogResource := fetch.UseCachedResource(catalogCacheKey(parseCatalogURL), func(parseCtx context.Context) (docsCatalog, error) {
+		return loadCatalogResource(parseCtx, parseCatalogURL)
 	}, fetch.CacheOptions{StaleAfter: 45 * time.Second})
-	catalogRequest := catalogResource.Get()
-	retryCatalogLoad := ui.UseEvent(func() {
-		log.Info("catalog refetch requested", map[string]interface{}{"url": catalogURL})
-		catalogResource.Reload()
+	parseCatalogRequest := parseCatalogResource.Get()
+	parseRetryCatalogLoad := ui.UseEvent(func() {
+		log.Info("catalog refetch requested", map[string]interface{}{"url": parseCatalogURL})
+		parseCatalogResource.Reload()
 	})
 	ui.UseEffect(func() func() {
 		switch {
-		case catalogRequest.Loading:
-			log.Info("catalog cache loading", map[string]interface{}{"url": catalogURL, "stale": catalogRequest.Stale, "ready": catalogRequest.Ready})
-		case catalogRequest.Error != nil:
-			log.Error("catalog cache failed", map[string]interface{}{"url": catalogURL, "error": catalogRequest.Error.Error()})
-		case catalogRequest.Ready:
+		case parseCatalogRequest.Loading:
+			log.Info("catalog cache loading", map[string]interface{}{"url": parseCatalogURL, "stale": parseCatalogRequest.Stale, "ready": parseCatalogRequest.Ready})
+		case parseCatalogRequest.Error != nil:
+			log.Error("catalog cache failed", map[string]interface{}{"url": parseCatalogURL, "error": parseCatalogRequest.Error.Error()})
+		case parseCatalogRequest.Ready:
 			log.Info("catalog cache ready", map[string]interface{}{
-				"url":         catalogURL,
-				"modules":     len(catalogRequest.Value.Modules),
-				"statuses":    len(catalogRequest.Value.Statuses),
-				"levels":      len(catalogRequest.Value.Levels),
-				"filters":     len(catalogRequest.Value.Filters),
-				"sortOptions": len(catalogRequest.Value.SortOptions),
-				"items":       len(catalogRequest.Value.Items),
-				"stale":       catalogRequest.Stale,
+				"url":         parseCatalogURL,
+				"modules":     len(parseCatalogRequest.Value.Modules),
+				"statuses":    len(parseCatalogRequest.Value.Statuses),
+				"levels":      len(parseCatalogRequest.Value.Levels),
+				"filters":     len(parseCatalogRequest.Value.Filters),
+				"sortOptions": len(parseCatalogRequest.Value.SortOptions),
+				"items":       len(parseCatalogRequest.Value.Items),
+				"stale":       parseCatalogRequest.Stale,
 			})
 		}
 		return nil
-	}, catalogRequest.Loading, catalogRequest.Ready, catalogRequest.Stale, fmt.Sprint(catalogRequest.Error), len(catalogRequest.Value.Items))
+	}, parseCatalogRequest.Loading, parseCatalogRequest.Ready, parseCatalogRequest.Stale, fmt.Sprint(parseCatalogRequest.Error), len(parseCatalogRequest.Value.Items))
 
-	searchQuery := ui.UseState("")
-	deferredSearchQuery := ui.UseDeferredValue(searchQuery.Get())
-	activeTypeFilter := ui.UseState(filterAll)
-	selectedStatusFilter := ui.UseState(allFilterValue)
-	selectedLevelFilter := ui.UseState(allFilterValue)
-	selectedModuleFilter := ui.UseState(allFilterValue)
-	selectedSortOrder := ui.UseState(sortRelevance)
-	selectedItemID := ui.UseState(0)
-	anchorScrollItemID := ui.UseState(0)
-	anchorScrollRequestID := ui.UseState(0)
+	parseSearchQuery := ui.UseState("")
+	parseDeferredSearchQuery := ui.UseDeferredValue(parseSearchQuery.Get())
+	parseActiveTypeFilter := ui.UseState(filterAll)
+	parseSelectedStatusFilter := ui.UseState(allFilterValue)
+	parseSelectedLevelFilter := ui.UseState(allFilterValue)
+	parseSelectedModuleFilter := ui.UseState(allFilterValue)
+	parseSelectedSortOrder := ui.UseState(sortRelevance)
+	parseSelectedItemID := ui.UseState(0)
+	parseAnchorScrollItemID := ui.UseState(0)
+	parseAnchorScrollRequestID := ui.UseState(0)
 
-	updateSearchQuery := ui.UseEvent(func(event ui.InputEvent) {
-		searchQuery.Set(event.GetValue())
-		log.Info("search query updated", map[string]interface{}{"query": event.GetValue()})
+	parseUpdateSearchQuery := ui.UseEvent(func(parseEvent ui.InputEvent) {
+		parseSearchQuery.Set(parseEvent.GetValue())
+		log.Info("search query updated", map[string]interface{}{"query": parseEvent.GetValue()})
 	})
-	updateStatusFilter := ui.UseEvent(func(event ui.ChangeEvent) {
-		selectedStatusFilter.Set(event.GetValue())
-		log.Info("status filter updated", map[string]interface{}{"status": event.GetValue()})
+	parseUpdateStatusFilter := ui.UseEvent(func(parseEvent2 ui.ChangeEvent) {
+		parseSelectedStatusFilter.Set(parseEvent2.GetValue())
+		log.Info("status filter updated", map[string]interface{}{"status": parseEvent2.GetValue()})
 	})
-	updateLevelFilter := ui.UseEvent(func(event ui.ChangeEvent) {
-		selectedLevelFilter.Set(event.GetValue())
-		log.Info("level filter updated", map[string]interface{}{"level": event.GetValue()})
+	parseUpdateLevelFilter := ui.UseEvent(func(parseEvent3 ui.ChangeEvent) {
+		parseSelectedLevelFilter.Set(parseEvent3.GetValue())
+		log.Info("level filter updated", map[string]interface{}{"level": parseEvent3.GetValue()})
 	})
-	updateModuleFilter := ui.UseEvent(func(event ui.ChangeEvent) {
-		selectedModuleFilter.Set(event.GetValue())
-		log.Info("module filter updated", map[string]interface{}{"module": event.GetValue()})
+	parseUpdateModuleFilter := ui.UseEvent(func(parseEvent4 ui.ChangeEvent) {
+		parseSelectedModuleFilter.Set(parseEvent4.GetValue())
+		log.Info("module filter updated", map[string]interface{}{"module": parseEvent4.GetValue()})
 	})
-	updateSortOrder := ui.UseEvent(func(event ui.ChangeEvent) {
-		selectedSortOrder.Set(event.GetValue())
-		log.Info("sort order updated", map[string]interface{}{"sort": event.GetValue()})
+	parseUpdateSortOrder := ui.UseEvent(func(parseEvent5 ui.ChangeEvent) {
+		parseSelectedSortOrder.Set(parseEvent5.GetValue())
+		log.Info("sort order updated", map[string]interface{}{"sort": parseEvent5.GetValue()})
 	})
 	resetFilters := ui.UseEvent(func() {
-		activeTypeFilter.Set(filterAll)
-		selectedStatusFilter.Set(allFilterValue)
-		selectedLevelFilter.Set(allFilterValue)
-		selectedModuleFilter.Set(allFilterValue)
-		selectedSortOrder.Set(sortRelevance)
+		parseActiveTypeFilter.Set(filterAll)
+		parseSelectedStatusFilter.Set(allFilterValue)
+		parseSelectedLevelFilter.Set(allFilterValue)
+		parseSelectedModuleFilter.Set(allFilterValue)
+		parseSelectedSortOrder.Set(sortRelevance)
 		log.Info("filters reset", map[string]interface{}{
 			"type":   filterAll,
 			"status": allFilterValue,
@@ -969,83 +969,83 @@ func renderDocsDemosSite() ui.Node {
 			"sort":   sortRelevance,
 		})
 	})
-	hasActiveFilters := activeTypeFilter.Get() != filterAll || selectedStatusFilter.Get() != allFilterValue || selectedLevelFilter.Get() != allFilterValue || selectedModuleFilter.Get() != allFilterValue || selectedSortOrder.Get() != sortRelevance
+	hasActiveFilters := parseActiveTypeFilter.Get() != filterAll || parseSelectedStatusFilter.Get() != allFilterValue || parseSelectedLevelFilter.Get() != allFilterValue || parseSelectedModuleFilter.Get() != allFilterValue || parseSelectedSortOrder.Get() != sortRelevance
 
-	filteredItems := ui.UseMemo(func() []docsItem {
-		return sortItems(filterItems(catalogRequest.Value.Items, deferredSearchQuery, activeTypeFilter.Get(), selectedStatusFilter.Get(), selectedLevelFilter.Get(), selectedModuleFilter.Get()), selectedSortOrder.Get())
-	}, len(catalogRequest.Value.Items), deferredSearchQuery, activeTypeFilter.Get(), selectedStatusFilter.Get(), selectedLevelFilter.Get(), selectedModuleFilter.Get(), selectedSortOrder.Get())
+	parseFilteredItems := ui.UseMemo(func() []docsItem {
+		return sortItems(filterItems(parseCatalogRequest.Value.Items, parseDeferredSearchQuery, parseActiveTypeFilter.Get(), parseSelectedStatusFilter.Get(), parseSelectedLevelFilter.Get(), parseSelectedModuleFilter.Get()), parseSelectedSortOrder.Get())
+	}, len(parseCatalogRequest.Value.Items), parseDeferredSearchQuery, parseActiveTypeFilter.Get(), parseSelectedStatusFilter.Get(), parseSelectedLevelFilter.Get(), parseSelectedModuleFilter.Get(), parseSelectedSortOrder.Get())
 	ui.UseEffect(func() func() {
 		log.Info("filters applied", map[string]interface{}{
-			"query":       searchQuery.Get(),
-			"deferred":    deferredSearchQuery,
-			"type":        activeTypeFilter.Get(),
-			"status":      selectedStatusFilter.Get(),
-			"level":       selectedLevelFilter.Get(),
-			"module":      selectedModuleFilter.Get(),
-			"sort":        selectedSortOrder.Get(),
-			"resultCount": len(filteredItems),
+			"query":       parseSearchQuery.Get(),
+			"deferred":    parseDeferredSearchQuery,
+			"type":        parseActiveTypeFilter.Get(),
+			"status":      parseSelectedStatusFilter.Get(),
+			"level":       parseSelectedLevelFilter.Get(),
+			"module":      parseSelectedModuleFilter.Get(),
+			"sort":        parseSelectedSortOrder.Get(),
+			"resultCount": len(parseFilteredItems),
 		})
 		return nil
-	}, searchQuery.Get(), deferredSearchQuery, activeTypeFilter.Get(), selectedStatusFilter.Get(), selectedLevelFilter.Get(), selectedModuleFilter.Get(), selectedSortOrder.Get(), filteredItemsSignature(filteredItems))
+	}, parseSearchQuery.Get(), parseDeferredSearchQuery, parseActiveTypeFilter.Get(), parseSelectedStatusFilter.Get(), parseSelectedLevelFilter.Get(), parseSelectedModuleFilter.Get(), parseSelectedSortOrder.Get(), filteredItemsSignature(parseFilteredItems))
 	ui.UseEffect(func() func() {
 		// Keep selection aligned with the filtered list so the detail panel never points at a stale item.
-		if len(filteredItems) == 0 {
-			selectedItemID.Set(0)
-			anchorScrollItemID.Set(0)
+		if len(parseFilteredItems) == 0 {
+			parseSelectedItemID.Set(0)
+			parseAnchorScrollItemID.Set(0)
 			clearRequestedDemoAnchor()
 			log.Info("selection cleared", map[string]interface{}{"reason": "no filtered items"})
 			return nil
 		}
-		currentSelectedID := selectedItemID.Get()
-		for _, item := range filteredItems {
-			if item.ID == currentSelectedID {
+		parseCurrentSelectedID := parseSelectedItemID.Get()
+		for _, parseItem := range parseFilteredItems {
+			if parseItem.ID == parseCurrentSelectedID {
 				return nil
 			}
 		}
-		selectedItemID.Set(filteredItems[0].ID)
-		anchorScrollItemID.Set(0)
+		parseSelectedItemID.Set(parseFilteredItems[0].ID)
+		parseAnchorScrollItemID.Set(0)
 		clearRequestedDemoAnchor()
-		log.Info("selection repaired", map[string]interface{}{"selectedItemID": filteredItems[0].ID})
+		log.Info("selection repaired", map[string]interface{}{"selectedItemID": parseFilteredItems[0].ID})
 		return nil
-	}, filteredItemsSignature(filteredItems), selectedItemID.Get())
+	}, filteredItemsSignature(parseFilteredItems), parseSelectedItemID.Get())
 
-	selectedCatalogItem, hasSelectedItem := findSelectedItem(filteredItems, selectedItemID.Get())
-	selectedDocURL := ""
-	if hasSelectedItem && selectedCatalogItem.Content.SourcePath != "" && (selectedCatalogItem.Content.Kind == contentKindArticle || selectedCatalogItem.Content.Kind == contentKindAPI) {
-		selectedDocURL = docsSourceURL(selectedCatalogItem.Content.SourcePath)
+	parseSelectedCatalogItem, hasSelectedItem := findSelectedItem(parseFilteredItems, parseSelectedItemID.Get())
+	parseSelectedDocURL := ""
+	if hasSelectedItem && parseSelectedCatalogItem.Content.SourcePath != "" && (parseSelectedCatalogItem.Content.Kind == contentKindArticle || parseSelectedCatalogItem.Content.Kind == contentKindAPI) {
+		parseSelectedDocURL = docsSourceURL(parseSelectedCatalogItem.Content.SourcePath)
 	}
-	markdownResource := fetch.UseCachedResource(markdownCacheKey(selectedDocURL), func(ctx context.Context) (string, error) {
-		return loadMarkdownResource(ctx, selectedDocURL)
+	parseMarkdownResource := fetch.UseCachedResource(markdownCacheKey(parseSelectedDocURL), func(parseCtx2 context.Context) (string, error) {
+		return loadMarkdownResource(parseCtx2, parseSelectedDocURL)
 	}, fetch.CacheOptions{StaleAfter: 2 * time.Minute})
-	markdownRequest := markdownResource.Get()
-	retryMarkdownLoad := ui.UseEvent(func() {
-		if selectedDocURL == "" {
+	parseMarkdownRequest := parseMarkdownResource.Get()
+	parseRetryMarkdownLoad := ui.UseEvent(func() {
+		if parseSelectedDocURL == "" {
 			return
 		}
-		log.Info("markdown refetch requested", map[string]interface{}{"url": selectedDocURL, "sourcePath": selectedCatalogItem.Content.SourcePath})
-		markdownResource.Reload()
+		log.Info("markdown refetch requested", map[string]interface{}{"url": parseSelectedDocURL, "sourcePath": parseSelectedCatalogItem.Content.SourcePath})
+		parseMarkdownResource.Reload()
 	})
 	ui.UseEffect(func() func() {
-		if selectedDocURL == "" {
+		if parseSelectedDocURL == "" {
 			return nil
 		}
 		switch {
-		case markdownRequest.Loading:
-			log.Info("markdown cache loading", map[string]interface{}{"url": selectedDocURL, "sourcePath": selectedCatalogItem.Content.SourcePath, "ready": markdownRequest.Ready, "stale": markdownRequest.Stale})
-		case markdownRequest.Error != nil:
-			log.Error("markdown cache failed", map[string]interface{}{"url": selectedDocURL, "sourcePath": selectedCatalogItem.Content.SourcePath, "error": markdownRequest.Error.Error()})
-		case markdownRequest.Ready:
-			log.Info("markdown cache ready", map[string]interface{}{"url": selectedDocURL, "sourcePath": selectedCatalogItem.Content.SourcePath, "bytes": len(markdownRequest.Value)})
+		case parseMarkdownRequest.Loading:
+			log.Info("markdown cache loading", map[string]interface{}{"url": parseSelectedDocURL, "sourcePath": parseSelectedCatalogItem.Content.SourcePath, "ready": parseMarkdownRequest.Ready, "stale": parseMarkdownRequest.Stale})
+		case parseMarkdownRequest.Error != nil:
+			log.Error("markdown cache failed", map[string]interface{}{"url": parseSelectedDocURL, "sourcePath": parseSelectedCatalogItem.Content.SourcePath, "error": parseMarkdownRequest.Error.Error()})
+		case parseMarkdownRequest.Ready:
+			log.Info("markdown cache ready", map[string]interface{}{"url": parseSelectedDocURL, "sourcePath": parseSelectedCatalogItem.Content.SourcePath, "bytes": len(parseMarkdownRequest.Value)})
 		}
 		return nil
-	}, selectedDocURL, markdownRequest.Loading, markdownRequest.Ready, markdownRequest.Stale, errorString(markdownRequest.Error), len(markdownRequest.Value), selectedItemID.Get())
-	browseExamples := ui.UseEvent(func() {
-		activeTypeFilter.Set(kindExample)
+	}, parseSelectedDocURL, parseMarkdownRequest.Loading, parseMarkdownRequest.Ready, parseMarkdownRequest.Stale, errorString(parseMarkdownRequest.Error), len(parseMarkdownRequest.Value), parseSelectedItemID.Get())
+	parseBrowseExamples := ui.UseEvent(func() {
+		parseActiveTypeFilter.Set(kindExample)
 		clearRequestedDemoAnchor()
 		log.Info("quick filter selected", map[string]interface{}{"type": kindExample})
 	})
-	inspectPackageAPIs := ui.UseEvent(func() {
-		activeTypeFilter.Set(kindAPI)
+	parseInspectPackageAPIs := ui.UseEvent(func() {
+		parseActiveTypeFilter.Set(kindAPI)
 		clearRequestedDemoAnchor()
 		log.Info("quick filter selected", map[string]interface{}{"type": kindAPI})
 	})
@@ -1054,69 +1054,69 @@ func renderDocsDemosSite() ui.Node {
 			return nil
 		}
 		log.Info("detail item selected", map[string]interface{}{
-			"itemID": selectedCatalogItem.ID,
-			"title":  selectedCatalogItem.Title,
-			"type":   selectedCatalogItem.Type,
+			"itemID": parseSelectedCatalogItem.ID,
+			"title":  parseSelectedCatalogItem.Title,
+			"type":   parseSelectedCatalogItem.Type,
 		})
 		return nil
-	}, selectedItemID.Get(), filteredItemsSignature(filteredItems))
+	}, parseSelectedItemID.Get(), filteredItemsSignature(parseFilteredItems))
 
-	filterButtons := Map(catalogRequest.Value.Filters, func(filter string) ui.Node {
+	filterButtons := Map(parseCatalogRequest.Value.Filters, func(filter string) ui.Node {
 		filterValue := filter
-		isActiveFilter := filterValue == activeTypeFilter.Get()
-		buttonClass := ClassNames(
+		isActiveFilter := filterValue == parseActiveTypeFilter.Get()
+		parseButtonClass := ClassNames(
 			"cursor-pointer rounded-xl border px-2.5 py-1.5 text-xs transition",
 			When(isActiveFilter, "border-cyan-300/40 bg-cyan-400/15 text-cyan-100 shadow-lg shadow-cyan-900/20"),
 			When(!isActiveFilter, "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"),
 		)
 		return Button(Type("button"), OnClick(ui.UseEvent(func() {
-			activeTypeFilter.Set(filterValue)
+			parseActiveTypeFilter.Set(filterValue)
 			clearRequestedDemoAnchor()
 			log.Info("type filter updated", map[string]interface{}{"type": filterValue})
-		})), Class(buttonClass), Text(filterValue))
+		})), Class(parseButtonClass), Text(filterValue))
 	})
 
-	itemNodes := Map(filteredItems, func(item docsItem) ui.Node {
-		selectedCardID := item.ID
-		return renderItemCard(item, hasSelectedItem && selectedCatalogItem.ID == item.ID, ui.UseEvent(func() {
-			selectedItemID.Set(selectedCardID)
-			anchorScrollItemID.Set(selectedCardID)
-			anchorScrollRequestID.Set(anchorScrollRequestID.Get() + 1)
-			if item.Content.AnchorID != "" {
-				setRequestedDemoAnchor(item.Content.AnchorID)
+	parseItemNodes := Map(parseFilteredItems, func(parseItem2 docsItem) ui.Node {
+		parseSelectedCardID := parseItem2.ID
+		return renderItemCard(parseItem2, hasSelectedItem && parseSelectedCatalogItem.ID == parseItem2.ID, ui.UseEvent(func() {
+			parseSelectedItemID.Set(parseSelectedCardID)
+			parseAnchorScrollItemID.Set(parseSelectedCardID)
+			parseAnchorScrollRequestID.Set(parseAnchorScrollRequestID.Get() + 1)
+			if parseItem2.Content.AnchorID != "" {
+				setRequestedDemoAnchor(parseItem2.Content.AnchorID)
 			} else {
 				clearRequestedDemoAnchor()
 			}
-			log.Info("catalog card clicked", map[string]interface{}{"itemID": selectedCardID, "title": item.Title})
+			log.Info("catalog card clicked", map[string]interface{}{"itemID": parseSelectedCardID, "title": parseItem2.Title})
 		}))
 	})
-	itemNodes = append(itemNodes, If(len(filteredItems) == 0,
+	parseItemNodes = append(parseItemNodes, If(len(parseFilteredItems) == 0,
 		Div(Class("rounded-[22px] border border-dashed border-white/10 bg-black/10 p-6 text-center text-sm text-slate-400"), Text(messageNoMatches)),
 	))
 
-	catalogErrorMessage := ""
-	if catalogRequest.Error != nil {
-		catalogErrorMessage = catalogRequest.Error.Error()
+	parseCatalogErrorMessage := ""
+	if parseCatalogRequest.Error != nil {
+		parseCatalogErrorMessage = parseCatalogRequest.Error.Error()
 	}
 
 	return ui.Match().
-		When(!catalogRequest.Ready && catalogRequest.Error == nil, func() ui.Node {
-			return renderCatalogFetchState("Loading catalog", "Requesting the example catalog JSON before the docs surface renders.", "Retry request", retryCatalogLoad)
+		When(!parseCatalogRequest.Ready && parseCatalogRequest.Error == nil, func() ui.Node {
+			return renderCatalogFetchState("Loading catalog", "Requesting the example catalog JSON before the docs surface renders.", "Retry request", parseRetryCatalogLoad)
 		}).
-		When(catalogRequest.Error != nil && !catalogRequest.Ready, func() ui.Node {
-			return renderCatalogFetchState("Catalog request failed", catalogErrorMessage, "Retry request", retryCatalogLoad)
+		When(parseCatalogRequest.Error != nil && !parseCatalogRequest.Ready, func() ui.Node {
+			return renderCatalogFetchState("Catalog request failed", parseCatalogErrorMessage, "Retry request", parseRetryCatalogLoad)
 		}).
 		Default(func() ui.Node {
-			anchorScrollID := 0
-			if hasSelectedItem && anchorScrollItemID.Get() == selectedCatalogItem.ID {
-				anchorScrollID = anchorScrollRequestID.Get()
+			parseAnchorScrollID := 0
+			if hasSelectedItem && parseAnchorScrollItemID.Get() == parseSelectedCatalogItem.ID {
+				parseAnchorScrollID = parseAnchorScrollRequestID.Get()
 			}
 			return Div(Class("min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.20),transparent_28%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.18),transparent_24%),linear-gradient(180deg,#07111f_0%,#091427_40%,#0b1020_100%)] text-slate-100"),
 				Div(Class("mx-auto flex min-h-screen w-full max-w-[96rem] flex-col px-2 py-2 sm:px-3 sm:py-3 lg:px-4"),
-					ui.Component(renderCatalogHero, catalogHeroProps{OnBrowseExamples: browseExamples, OnInspectAPIs: inspectPackageAPIs, TotalItems: len(catalogRequest.Value.Items), ExampleCount: countItemsByType(catalogRequest.Value.Items, kindExample), APICount: countItemsByType(catalogRequest.Value.Items, kindAPI)}),
+					ui.Component(renderCatalogHero, catalogHeroProps{OnBrowseExamples: parseBrowseExamples, OnInspectAPIs: parseInspectPackageAPIs, TotalItems: len(parseCatalogRequest.Value.Items), ExampleCount: countItemsByType(parseCatalogRequest.Value.Items, kindExample), APICount: countItemsByType(parseCatalogRequest.Value.Items, kindAPI)}),
 					Main(Class("mt-2 flex w-full flex-1 flex-col gap-2 lg:min-h-0 lg:flex-row"),
-						ui.Component(renderCatalogSidebar, catalogSidebarProps{SearchQuery: searchQuery.Get(), ResultCount: len(filteredItems), HasActiveFilters: hasActiveFilters, Statuses: catalogRequest.Value.Statuses, Levels: catalogRequest.Value.Levels, Modules: catalogRequest.Value.Modules, SortOptions: catalogRequest.Value.SortOptions, FilterButtons: filterButtons, SelectedStatusFilter: selectedStatusFilter.Get(), SelectedLevelFilter: selectedLevelFilter.Get(), SelectedModuleFilter: selectedModuleFilter.Get(), SelectedSortOrder: selectedSortOrder.Get(), ItemNodes: itemNodes, OnSearchInput: updateSearchQuery, OnStatusChange: updateStatusFilter, OnLevelChange: updateLevelFilter, OnModuleChange: updateModuleFilter, OnSortChange: updateSortOrder, OnResetFilters: resetFilters}),
-						ui.Component(renderDetailPanel, detailPanelProps{SelectedItem: selectedCatalogItem, HasSelectedItem: hasSelectedItem, MarkdownBody: markdownRequest.Value, MarkdownLoading: markdownRequest.Loading, MarkdownReady: markdownRequest.Ready, MarkdownError: errorString(markdownRequest.Error), AnchorScrollID: anchorScrollID, OnRetryMarkdown: retryMarkdownLoad}),
+						ui.Component(renderCatalogSidebar, catalogSidebarProps{SearchQuery: parseSearchQuery.Get(), ResultCount: len(parseFilteredItems), HasActiveFilters: hasActiveFilters, Statuses: parseCatalogRequest.Value.Statuses, Levels: parseCatalogRequest.Value.Levels, Modules: parseCatalogRequest.Value.Modules, SortOptions: parseCatalogRequest.Value.SortOptions, FilterButtons: filterButtons, SelectedStatusFilter: parseSelectedStatusFilter.Get(), SelectedLevelFilter: parseSelectedLevelFilter.Get(), SelectedModuleFilter: parseSelectedModuleFilter.Get(), SelectedSortOrder: parseSelectedSortOrder.Get(), ItemNodes: parseItemNodes, OnSearchInput: parseUpdateSearchQuery, OnStatusChange: parseUpdateStatusFilter, OnLevelChange: parseUpdateLevelFilter, OnModuleChange: parseUpdateModuleFilter, OnSortChange: parseUpdateSortOrder, OnResetFilters: resetFilters}),
+						ui.Component(renderDetailPanel, detailPanelProps{SelectedItem: parseSelectedCatalogItem, HasSelectedItem: hasSelectedItem, MarkdownBody: parseMarkdownRequest.Value, MarkdownLoading: parseMarkdownRequest.Loading, MarkdownReady: parseMarkdownRequest.Ready, MarkdownError: errorString(parseMarkdownRequest.Error), AnchorScrollID: parseAnchorScrollID, OnRetryMarkdown: parseRetryMarkdownLoad}),
 					),
 				),
 			)
@@ -1125,8 +1125,8 @@ func renderDocsDemosSite() ui.Node {
 
 func main() {
 	defer func() {
-		if recovered := recover(); recovered != nil {
-			_, _ = runtime.FinalizeUnhandledPanicContext("runtime", runtime.PanicPhaseStartup, "main", "#app", nil, recovered)
+		if parseRecovered := recover(); parseRecovered != nil {
+			_, _ = runtime.FinalizeUnhandledPanicContext("runtime", runtime.PanicPhaseStartup, "main", "#app", nil, parseRecovered)
 		}
 	}()
 

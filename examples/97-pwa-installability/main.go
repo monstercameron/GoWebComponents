@@ -35,181 +35,181 @@ func installabilityManifest() pwa.Manifest {
 	}
 }
 
-func describePWAError(prefix string, err error) string {
-	if err == nil {
-		return prefix
+func describePWAError(parsePrefix string, parseErr error) string {
+	if parseErr == nil {
+		return parsePrefix
 	}
-	if code, ok := interop.CodeOf(err); ok {
-		return fmt.Sprintf("%s [%s]: %v", prefix, code, err)
+	if parseCode, parseOk := interop.CodeOf(parseErr); parseOk {
+		return fmt.Sprintf("%s [%s]: %v", parsePrefix, parseCode, parseErr)
 	}
-	return fmt.Sprintf("%s: %v", prefix, err)
+	return fmt.Sprintf("%s: %v", parsePrefix, parseErr)
 }
 
-func boolLabel(value bool) string {
-	if value {
+func boolLabel(isValue bool) string {
+	if isValue {
 		return "yes"
 	}
 	return "no"
 }
 
-func formatReasons(reasons []string) string {
-	if len(reasons) == 0 {
+func formatReasons(parseReasons []string) string {
+	if len(parseReasons) == 0 {
 		return "No blockers currently reported by ObserveInstallability()."
 	}
-	return strings.Join(reasons, " | ")
+	return strings.Join(parseReasons, " | ")
 }
 
-func formatServiceWorkerSnapshot(snapshot pwa.ServiceWorkerSnapshot) string {
-	parts := make([]string, 0, 4)
-	if snapshot.Scope != "" {
-		parts = append(parts, "scope="+snapshot.Scope)
+func formatServiceWorkerSnapshot(parseSnapshot pwa.ServiceWorkerSnapshot) string {
+	parseParts := make([]string, 0, 4)
+	if parseSnapshot.Scope != "" {
+		parseParts = append(parseParts, "scope="+parseSnapshot.Scope)
 	}
-	parts = append(parts, "controller="+boolLabel(snapshot.HasController))
-	if snapshot.Active.ScriptURL != "" {
-		parts = append(parts, "active="+string(snapshot.Active.State)+" @ "+snapshot.Active.ScriptURL)
+	parseParts = append(parseParts, "controller="+boolLabel(parseSnapshot.HasController))
+	if parseSnapshot.Active.ScriptURL != "" {
+		parseParts = append(parseParts, "active="+string(parseSnapshot.Active.State)+" @ "+parseSnapshot.Active.ScriptURL)
 	}
-	if snapshot.Waiting.ScriptURL != "" {
-		parts = append(parts, "waiting="+string(snapshot.Waiting.State)+" @ "+snapshot.Waiting.ScriptURL)
+	if parseSnapshot.Waiting.ScriptURL != "" {
+		parseParts = append(parseParts, "waiting="+string(parseSnapshot.Waiting.State)+" @ "+parseSnapshot.Waiting.ScriptURL)
 	}
-	if snapshot.Installing.ScriptURL != "" {
-		parts = append(parts, "installing="+string(snapshot.Installing.State)+" @ "+snapshot.Installing.ScriptURL)
+	if parseSnapshot.Installing.ScriptURL != "" {
+		parseParts = append(parseParts, "installing="+string(parseSnapshot.Installing.State)+" @ "+parseSnapshot.Installing.ScriptURL)
 	}
-	return strings.Join(parts, " | ")
+	return strings.Join(parseParts, " | ")
 }
 
 func installabilityExample() ui.Node {
-	manifest := installabilityManifest()
-	manifestJSON, err := pwa.MarshalManifestJSONIndented(manifest, "", "  ")
-	manifestPreview := "manifest preview unavailable"
-	if err == nil {
-		manifestPreview = string(manifestJSON)
+	parseManifest := installabilityManifest()
+	parseManifestJSON, parseErr := pwa.MarshalManifestJSONIndented(parseManifest, "", "  ")
+	parseManifestPreview := "manifest preview unavailable"
+	if parseErr == nil {
+		parseManifestPreview = string(parseManifestJSON)
 	}
-	initialInstallability := pwa.InstallabilityState{ManifestValid: true}
-	if validateErr := manifest.Validate(); validateErr != nil {
-		initialInstallability.ManifestValid = false
-		initialInstallability.ManifestError = validateErr.Error()
-		initialInstallability.Reasons = []string{validateErr.Error()}
+	parseInitialInstallability := pwa.InstallabilityState{ManifestValid: true}
+	if parseValidateErr := parseManifest.Validate(); parseValidateErr != nil {
+		parseInitialInstallability.ManifestValid = false
+		parseInitialInstallability.ManifestError = parseValidateErr.Error()
+		parseInitialInstallability.Reasons = []string{parseValidateErr.Error()}
 	} else {
-		initialInstallability.Reasons = []string{"Waiting for browser installability signals."}
+		parseInitialInstallability.Reasons = []string{"Waiting for browser installability signals."}
 	}
 
-	managerRef := ui.UseRef[*pwa.InstallabilityManager](nil)
-	registrationRef := ui.UseRef[*pwa.ServiceWorkerRegistration](nil)
-	serviceWorkerStartedRef := ui.UseRef(false)
-	serviceWorkerCancelRef := ui.UseRef[func()](nil)
-	installState := ui.UseState(initialInstallability)
-	promptStatus := ui.UseState("Install prompt idle.")
-	serviceWorkerStatus := ui.UseState("Service worker registration pending.")
-	serviceWorkerSnapshot := ui.UseState("No service worker snapshot yet.")
+	parseManagerRef := ui.UseRef[*pwa.InstallabilityManager](nil)
+	parseRegistrationRef := ui.UseRef[*pwa.ServiceWorkerRegistration](nil)
+	parseServiceWorkerStartedRef := ui.UseRef(false)
+	parseServiceWorkerCancelRef := ui.UseRef[func()](nil)
+	parseInstallState := ui.UseState(parseInitialInstallability)
+	parsePromptStatus := ui.UseState("Install prompt idle.")
+	parseServiceWorkerStatus := ui.UseState("Service worker registration pending.")
+	parseServiceWorkerSnapshot := ui.UseState("No service worker snapshot yet.")
 
-	applyInstallabilityState := func(state pwa.InstallabilityState) {
-		installState.Set(state)
+	applyInstallabilityState := func(parseState2 pwa.InstallabilityState) {
+		parseInstallState.Set(parseState2)
 	}
-	applyServiceWorkerSnapshot := func(snapshot pwa.ServiceWorkerSnapshot) {
-		formatted := formatServiceWorkerSnapshot(snapshot)
-		if strings.TrimSpace(formatted) == "" {
-			formatted = "No service worker snapshot yet."
+	applyServiceWorkerSnapshot := func(parseSnapshot pwa.ServiceWorkerSnapshot) {
+		parseFormatted := formatServiceWorkerSnapshot(parseSnapshot)
+		if strings.TrimSpace(parseFormatted) == "" {
+			parseFormatted = "No service worker snapshot yet."
 		}
-		serviceWorkerSnapshot.Set(formatted)
+		parseServiceWorkerSnapshot.Set(parseFormatted)
 	}
 
 	ui.UseEffect(func() func() {
-		cleanups := make([]func(), 0, 1)
-		if managerRef.Get() == nil {
-			manager, observeErr := pwa.ObserveInstallability(pwa.InstallabilityOptions{Manifest: &manifest})
-			if observeErr != nil {
-				promptStatus.Set(describePWAError("Installability observation unavailable", observeErr))
+		parseCleanups := make([]func(), 0, 1)
+		if parseManagerRef.Get() == nil {
+			parseManager, parseObserveErr := pwa.ObserveInstallability(pwa.InstallabilityOptions{Manifest: &parseManifest})
+			if parseObserveErr != nil {
+				parsePromptStatus.Set(describePWAError("Installability observation unavailable", parseObserveErr))
 			} else {
-				managerRef.Set(&manager)
-				applyInstallabilityState(manager.State())
-				subscription, subscribeErr := manager.Subscribe(func(state pwa.InstallabilityState) {
-					applyInstallabilityState(state)
+				parseManagerRef.Set(&parseManager)
+				applyInstallabilityState(parseManager.State())
+				parseSubscription, parseSubscribeErr := parseManager.Subscribe(func(parseState3 pwa.InstallabilityState) {
+					applyInstallabilityState(parseState3)
 				})
-				if subscribeErr == nil {
-					cleanups = append(cleanups, subscription.Cancel)
+				if parseSubscribeErr == nil {
+					parseCleanups = append(parseCleanups, parseSubscription.Cancel)
 				}
 			}
 		}
 		return func() {
-			for _, cancel := range cleanups {
-				cancel()
+			for _, parseCancel := range parseCleanups {
+				parseCancel()
 			}
 		}
 	}, "installability-observer")
 
 	ui.UseEffect(func() func() {
-		if registrationRef.Get() == nil && !serviceWorkerStartedRef.Get() {
-			serviceWorkerStartedRef.Set(true)
-			serviceWorkerStatus.Set("Registering service worker...")
+		if parseRegistrationRef.Get() == nil && !parseServiceWorkerStartedRef.Get() {
+			parseServiceWorkerStartedRef.Set(true)
+			parseServiceWorkerStatus.Set("Registering service worker...")
 			go func() {
-				registration, registerErr := pwa.RegisterServiceWorker(context.Background(), pwa.ServiceWorkerOptions{
+				parseRegistration, parseRegisterErr := pwa.RegisterServiceWorker(context.Background(), pwa.ServiceWorkerOptions{
 					URL:   "/97-pwa-installability/sw.js",
 					Scope: "/97-pwa-installability/",
 				})
-				if registerErr != nil {
-					serviceWorkerStatus.Set(describePWAError("Service worker registration failed", registerErr))
+				if parseRegisterErr != nil {
+					parseServiceWorkerStatus.Set(describePWAError("Service worker registration failed", parseRegisterErr))
 					return
 				}
-				registrationRef.Set(&registration)
-				serviceWorkerStatus.Set("Service worker registered through pwa.RegisterServiceWorker(...).")
-				applyServiceWorkerSnapshot(registration.Snapshot())
-				subscription, subscribeErr := registration.SubscribeLifecycle(func(snapshot pwa.ServiceWorkerSnapshot) {
-					applyServiceWorkerSnapshot(snapshot)
-					serviceWorkerStatus.Set("Service worker lifecycle changed.")
+				parseRegistrationRef.Set(&parseRegistration)
+				parseServiceWorkerStatus.Set("Service worker registered through pwa.RegisterServiceWorker(...).")
+				applyServiceWorkerSnapshot(parseRegistration.Snapshot())
+				parseSubscription2, parseSubscribeErr2 := parseRegistration.SubscribeLifecycle(func(parseSnapshot2 pwa.ServiceWorkerSnapshot) {
+					applyServiceWorkerSnapshot(parseSnapshot2)
+					parseServiceWorkerStatus.Set("Service worker lifecycle changed.")
 				})
-				if subscribeErr == nil {
-					serviceWorkerCancelRef.Set(subscription.Cancel)
+				if parseSubscribeErr2 == nil {
+					parseServiceWorkerCancelRef.Set(parseSubscription2.Cancel)
 				}
 			}()
 		}
 		return func() {
-			if cancel := serviceWorkerCancelRef.Get(); cancel != nil {
-				cancel()
-				serviceWorkerCancelRef.Set(nil)
+			if parseCancel2 := parseServiceWorkerCancelRef.Get(); parseCancel2 != nil {
+				parseCancel2()
+				parseServiceWorkerCancelRef.Set(nil)
 			}
 		}
 	}, "installability-service-worker")
 
-	refreshInstallability := ui.UseEvent(func() {
-		if manager := managerRef.Get(); manager != nil {
-			applyInstallabilityState(manager.State())
-			promptStatus.Set("Installability state refreshed from ObserveInstallability().")
+	parseRefreshInstallability := ui.UseEvent(func() {
+		if parseManager2 := parseManagerRef.Get(); parseManager2 != nil {
+			applyInstallabilityState(parseManager2.State())
+			parsePromptStatus.Set("Installability state refreshed from ObserveInstallability().")
 		}
 	})
-	promptInstall := ui.UseEvent(func() {
-		manager := managerRef.Get()
-		if manager == nil {
-			promptStatus.Set("Installability manager is not ready yet.")
+	parsePromptInstall := ui.UseEvent(func() {
+		parseManager3 := parseManagerRef.Get()
+		if parseManager3 == nil {
+			parsePromptStatus.Set("Installability manager is not ready yet.")
 			return
 		}
-		promptStatus.Set("Requesting install prompt...")
+		parsePromptStatus.Set("Requesting install prompt...")
 		go func() {
-			result, promptErr := manager.Prompt(context.Background())
-			if promptErr != nil {
-				promptStatus.Set(describePWAError("Install prompt unavailable", promptErr))
+			parseResult, parsePromptErr := parseManager3.Prompt(context.Background())
+			if parsePromptErr != nil {
+				parsePromptStatus.Set(describePWAError("Install prompt unavailable", parsePromptErr))
 				return
 			}
-			promptStatus.Set(fmt.Sprintf("Browser prompt outcome=%s platform=%s", result.Outcome, result.Platform))
+			parsePromptStatus.Set(fmt.Sprintf("Browser prompt outcome=%s platform=%s", parseResult.Outcome, parseResult.Platform))
 		}()
 	})
-	updateServiceWorker := ui.UseEvent(func() {
-		registration := registrationRef.Get()
-		if registration == nil {
-			serviceWorkerStatus.Set("Service worker registration is not ready yet.")
+	parseUpdateServiceWorker := ui.UseEvent(func() {
+		parseRegistration2 := parseRegistrationRef.Get()
+		if parseRegistration2 == nil {
+			parseServiceWorkerStatus.Set("Service worker registration is not ready yet.")
 			return
 		}
-		serviceWorkerStatus.Set("Requesting service worker update...")
+		parseServiceWorkerStatus.Set("Requesting service worker update...")
 		go func() {
-			if updateErr := registration.Update(context.Background()); updateErr != nil {
-				serviceWorkerStatus.Set(describePWAError("Service worker update failed", updateErr))
+			if parseUpdateErr := parseRegistration2.Update(context.Background()); parseUpdateErr != nil {
+				parseServiceWorkerStatus.Set(describePWAError("Service worker update failed", parseUpdateErr))
 				return
 			}
-			serviceWorkerStatus.Set("Service worker update requested.")
-			applyServiceWorkerSnapshot(registration.Snapshot())
+			parseServiceWorkerStatus.Set("Service worker update requested.")
+			applyServiceWorkerSnapshot(parseRegistration2.Snapshot())
 		}()
 	})
 
-	state := installState.Get()
+	parseState := parseInstallState.Get()
 	return shared.ExamplePage(
 		"PWA installability",
 		"pwa.ObserveInstallability, pwa.RegisterServiceWorker",
@@ -217,23 +217,23 @@ func installabilityExample() ui.Node {
 		shared.ExamplePanel("Live installability state",
 			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("This example links a real web manifest, registers a scoped service worker, and then surfaces the current installability state through pwa.ObserveInstallability(...).")),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-				shared.ExampleButton("Refresh installability", refreshInstallability),
-				shared.ExampleButton("Prompt install", promptInstall),
-				shared.ExampleButton("Update service worker", updateServiceWorker),
+				shared.ExampleButton("Refresh installability", parseRefreshInstallability),
+				shared.ExampleButton("Prompt install", parsePromptInstall),
+				shared.ExampleButton("Update service worker", parseUpdateServiceWorker),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-3 md:grid-cols-3"},
-				shared.ExampleStat("Manifest valid", boolLabel(state.ManifestValid)),
-				shared.ExampleStat("Prompt available", boolLabel(state.PromptAvailable)),
-				shared.ExampleStat("Installed", boolLabel(state.Installed)),
+				shared.ExampleStat("Manifest valid", boolLabel(parseState.ManifestValid)),
+				shared.ExampleStat("Prompt available", boolLabel(parseState.PromptAvailable)),
+				shared.ExampleStat("Installed", boolLabel(parseState.Installed)),
 			),
-			html.P(html.Props{Class: "mt-4 text-sm text-slate-300", ID: "pwa-installability-reasons"}, html.Text(formatReasons(state.Reasons))),
-			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "pwa-installability-prompt-status"}, html.Text(promptStatus.Get())),
-			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "pwa-installability-sw-status"}, html.Text(serviceWorkerStatus.Get())),
-			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "pwa-installability-sw-snapshot"}, html.Text(serviceWorkerSnapshot.Get())),
+			html.P(html.Props{Class: "mt-4 text-sm text-slate-300", ID: "pwa-installability-reasons"}, html.Text(formatReasons(parseState.Reasons))),
+			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "pwa-installability-prompt-status"}, html.Text(parsePromptStatus.Get())),
+			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "pwa-installability-sw-status"}, html.Text(parseServiceWorkerStatus.Get())),
+			html.P(html.Props{Class: "mt-3 text-sm text-slate-300", ID: "pwa-installability-sw-snapshot"}, html.Text(parseServiceWorkerSnapshot.Get())),
 		),
 		shared.ExamplePanel("Manifest wiring",
 			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("Keep the manifest app-owned and explicit. The same structure below is used for validation in Go and linked from the HTML entrypoint for the browser.")),
-			html.Pre(html.Props{Class: "mt-4 overflow-x-auto rounded-2xl border border-white/10 bg-black/40 p-4 text-sm text-slate-300", ID: "pwa-installability-manifest-preview"}, html.Text(manifestPreview)),
+			html.Pre(html.Props{Class: "mt-4 overflow-x-auto rounded-2xl border border-white/10 bg-black/40 p-4 text-sm text-slate-300", ID: "pwa-installability-manifest-preview"}, html.Text(parseManifestPreview)),
 		),
 	)
 }

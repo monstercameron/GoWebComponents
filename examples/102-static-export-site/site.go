@@ -67,62 +67,62 @@ var assetManifest = map[string]string{
 }
 
 func exportRoutes() []prerender.Route {
-	routes := make([]prerender.Route, 0, len(exportedPages))
-	for _, page := range exportedPages {
-		page := page
-		routes = append(routes, prerender.Route{
-			Path: page.Path,
-			Build: func(target prerender.Target) (prerender.RouteOutput, error) {
-				markup, err := renderStaticExportPage(page)
-				if err != nil {
-					return prerender.RouteOutput{}, err
+	parseRoutes := make([]prerender.Route, 0, len(exportedPages))
+	for _, parsePage := range exportedPages {
+		parsePage2 := parsePage
+		parseRoutes = append(parseRoutes, prerender.Route{
+			Path: parsePage2.Path,
+			Build: func(parseTarget prerender.Target) (prerender.RouteOutput, error) {
+				parseMarkup, parseErr := renderStaticExportPage(parsePage2)
+				if parseErr != nil {
+					return prerender.RouteOutput{}, parseErr
 				}
-				return prerender.RouteOutput{HTML: markup}, nil
+				return prerender.RouteOutput{HTML: parseMarkup}, nil
 			},
 		})
 	}
-	return routes
+	return parseRoutes
 }
 
-func exportExampleSite(outDir string) (prerender.ExportSummary, error) {
-	summary, err := prerender.Export(outDir, exportRoutes())
-	if err != nil {
-		return prerender.ExportSummary{}, err
+func exportExampleSite(parseOutDir string) (prerender.ExportSummary, error) {
+	parseSummary, parseErr := prerender.Export(parseOutDir, exportRoutes())
+	if parseErr != nil {
+		return prerender.ExportSummary{}, parseErr
 	}
-	if err := copyExampleAssets(outDir); err != nil {
-		return prerender.ExportSummary{}, err
+	if parseErr2 := copyExampleAssets(parseOutDir); parseErr2 != nil {
+		return prerender.ExportSummary{}, parseErr2
 	}
-	return summary, nil
+	return parseSummary, nil
 }
 
-func renderStaticExportPage(page exportedPage) (string, error) {
-	headMarkup, err := head.RenderToString(head.Document{
+func renderStaticExportPage(parsePage exportedPage) (string, error) {
+	parseHeadMarkup, parseErr := head.RenderToString(head.Document{
 		Metadata: router.Metadata{
-			Title:        page.Title,
-			Description:  page.Description,
-			CanonicalURL: "https://example.invalid" + page.Path,
+			Title:        parsePage.Title,
+			Description:  parsePage.Description,
+			CanonicalURL: "https://example.invalid" + parsePage.Path,
 		},
-		ResourceHints: resourceHintsForPage(page),
+		ResourceHints: resourceHintsForPage(parsePage),
 	})
-	if err != nil {
-		return "", err
+	if parseErr != nil {
+		return "", parseErr
 	}
 
-	bodyMarkup, err := ui.RenderToString(renderStaticExportBody(page))
-	if err != nil {
-		return "", err
+	parseBodyMarkup, parseErr := ui.RenderToString(renderStaticExportBody(parsePage))
+	if parseErr != nil {
+		return "", parseErr
 	}
 
-	return fmt.Sprintf("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">%s<link rel=\"stylesheet\" href=\"%s\"></head><body>%s</body></html>", headMarkup, assetURL("site-css"), bodyMarkup), nil
+	return fmt.Sprintf("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">%s<link rel=\"stylesheet\" href=\"%s\"></head><body>%s</body></html>", parseHeadMarkup, assetURL("site-css"), parseBodyMarkup), nil
 }
 
-func renderStaticExportBody(page exportedPage) ui.Node {
+func renderStaticExportBody(parsePage exportedPage) ui.Node {
 	return html.Main(html.Props{},
 		html.Div(html.Props{Class: "shell"},
 			html.Section(html.Props{Class: "card"},
-				html.P(html.Props{Class: "eyebrow"}, html.Text(page.Eyebrow)),
-				html.H1(html.Props{Class: "mt-4 text-5xl font-black tracking-tight text-white"}, html.Text(page.Headline)),
-				html.P(html.Props{Class: "lead"}, html.Text(page.Description)),
+				html.P(html.Props{Class: "eyebrow"}, html.Text(parsePage.Eyebrow)),
+				html.H1(html.Props{Class: "mt-4 text-5xl font-black tracking-tight text-white"}, html.Text(parsePage.Headline)),
+				html.P(html.Props{Class: "lead"}, html.Text(parsePage.Description)),
 				html.Div(html.Props{Class: "link-row"},
 					staticLink("/", "Home"),
 					staticLink("/pricing/", "Pricing"),
@@ -130,10 +130,10 @@ func renderStaticExportBody(page exportedPage) ui.Node {
 				),
 				html.Div(html.Props{Class: "media-frame"},
 					html.Img(html.Props{
-						Src: assetURL(page.HeroAsset),
-						Alt: page.Headline,
+						Src: assetURL(parsePage.HeroAsset),
+						Alt: parsePage.Headline,
 						Raw: map[string]interface{}{
-							"srcset":   responsiveSrcSet(page.HeroAsset),
+							"srcset":   responsiveSrcSet(parsePage.HeroAsset),
 							"sizes":    "(min-width: 1100px) 960px, 100vw",
 							"decoding": "async",
 							"width":    "1280",
@@ -145,13 +145,13 @@ func renderStaticExportBody(page exportedPage) ui.Node {
 			html.Section(html.Props{Class: "card"},
 				html.H2(html.Props{Class: "text-2xl font-black text-white"}, html.Text("Why this example exists")),
 				html.Div(html.Props{Class: "grid mt-4"},
-					html.P(html.Props{Class: "lead"}, html.Text(page.Callout)),
+					html.P(html.Props{Class: "lead"}, html.Text(parsePage.Callout)),
 					html.P(html.Props{Class: "lead"}, html.Text("Run the export command once, point any static host at the generated dist directory, and the site loads without a custom Go request handler.")),
 					html.P(html.Props{Class: "lead"}, html.Text("This is the current asset-delivery reference because it proves manifest-backed hashed asset URLs, route-scoped preload hints, responsive media markup, and lazy media loading in exported HTML.")),
 					html.Div(html.Props{Class: "media-frame media-frame-secondary"},
 						html.Img(html.Props{
-							Src: assetURL(page.LazyAsset),
-							Alt: page.Eyebrow + " secondary panel",
+							Src: assetURL(parsePage.LazyAsset),
+							Alt: parsePage.Eyebrow + " secondary panel",
 							Raw: map[string]interface{}{
 								"loading":  "lazy",
 								"decoding": "async",
@@ -166,72 +166,72 @@ func renderStaticExportBody(page exportedPage) ui.Node {
 	)
 }
 
-func staticLink(href string, label string) ui.Node {
-	return html.A(html.Props{Href: href, Class: "link-chip"}, html.Text(label))
+func staticLink(parseHref string, parseLabel string) ui.Node {
+	return html.A(html.Props{Href: parseHref, Class: "link-chip"}, html.Text(parseLabel))
 }
 
-func resourceHintsForPage(page exportedPage) []head.ResourceHint {
-	hints := []head.ResourceHint{
+func resourceHintsForPage(parsePage exportedPage) []head.ResourceHint {
+	parseHints := []head.ResourceHint{
 		{Rel: "preload", Href: assetURL("site-css"), As: "style"},
-		{Rel: "preload", Href: assetURL(page.HeroAsset), As: "image"},
+		{Rel: "preload", Href: assetURL(parsePage.HeroAsset), As: "image"},
 	}
-	if page.Path == "/pricing" {
-		hints = append(hints, head.ResourceHint{Rel: "prefetch", Href: assetURL("panel-docs"), As: "image"})
+	if parsePage.Path == "/pricing" {
+		parseHints = append(parseHints, head.ResourceHint{Rel: "prefetch", Href: assetURL("panel-docs"), As: "image"})
 	}
-	return hints
+	return parseHints
 }
 
-func assetURL(key string) string {
-	if value, ok := assetManifest[key]; ok {
-		return value
+func assetURL(parseKey string) string {
+	if parseValue, parseOk := assetManifest[parseKey]; parseOk {
+		return parseValue
 	}
 	return ""
 }
 
-func responsiveSrcSet(key string) string {
-	primary := assetURL(key)
-	if primary == "" {
+func responsiveSrcSet(parseKey string) string {
+	parsePrimary := assetURL(parseKey)
+	if parsePrimary == "" {
 		return ""
 	}
-	return primary + " 1280w, " + primary + " 640w"
+	return parsePrimary + " 1280w, " + parsePrimary + " 640w"
 }
 
-func copyExampleAssets(outDir string) error {
-	sourceRoot, err := resolveExampleAssetRoot()
-	if err != nil {
-		return err
+func copyExampleAssets(parseOutDir string) error {
+	parseSourceRoot, parseErr := resolveExampleAssetRoot()
+	if parseErr != nil {
+		return parseErr
 	}
-	return filepath.Walk(sourceRoot, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
+	return filepath.Walk(parseSourceRoot, func(parsePath string, parseInfo os.FileInfo, parseErr2 error) error {
+		if parseErr2 != nil {
+			return parseErr2
 		}
-		if info.IsDir() {
+		if parseInfo.IsDir() {
 			return nil
 		}
-		relative, err := filepath.Rel(sourceRoot, path)
-		if err != nil {
-			return err
+		parseRelative, parseErr2 := filepath.Rel(parseSourceRoot, parsePath)
+		if parseErr2 != nil {
+			return parseErr2
 		}
-		target := filepath.Join(outDir, relative)
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			return err
+		parseTarget := filepath.Join(parseOutDir, parseRelative)
+		if parseErr3 := os.MkdirAll(filepath.Dir(parseTarget), 0o755); parseErr3 != nil {
+			return parseErr3
 		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
+		parseData, parseErr2 := os.ReadFile(parsePath)
+		if parseErr2 != nil {
+			return parseErr2
 		}
-		return os.WriteFile(target, data, 0o644)
+		return os.WriteFile(parseTarget, parseData, 0o644)
 	})
 }
 
 func resolveExampleAssetRoot() (string, error) {
-	candidates := []string{
+	parseCandidates := []string{
 		"assets",
 		filepath.Join("examples", "102-static-export-site", "assets"),
 	}
-	for _, candidate := range candidates {
-		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
-			return candidate, nil
+	for _, parseCandidate := range parseCandidates {
+		if parseInfo, parseErr := os.Stat(parseCandidate); parseErr == nil && parseInfo.IsDir() {
+			return parseCandidate, nil
 		}
 	}
 	return "", fmt.Errorf("static export assets directory not found")

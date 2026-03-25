@@ -271,11 +271,11 @@ const chatShellHTML = `<!DOCTYPE html>
 
 var chatUsagePremiumPercent = 5.0
 
-func setChatUsagePremiumPercent(percent float64) {
-	chatUsagePremiumPercent = percent
+func setChatUsagePremiumPercent(parsePercent float64) {
+	chatUsagePremiumPercent = parsePercent
 }
 
-func currentChatUsagePremiumPercent() float64 {
+func parseCurrentChatUsagePremiumPercent() float64 {
 	return chatUsagePremiumPercent
 }
 
@@ -903,13 +903,13 @@ document.addEventListener('click', function(e) {
   attachAnimatedRegions();
 })();`
 
-func serveChatShell(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = fmt.Fprint(w, strings.Replace(chatShellHTML, "{{BOOT_STYLE}}", chatBootShellStyles, 1))
+func parseServeChatShell(parseW http.ResponseWriter, _ *http.Request) {
+	parseW.ParseHeader().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = fmt.Fprint(parseW, strings.Replace(chatShellHTML, "{{BOOT_STYLE}}", chatBootShellStyles, 1))
 }
 
-func serveChatBootstrapJS(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-	premiumLiteral := strconv.FormatFloat(currentChatUsagePremiumPercent(), 'f', 6, 64)
-	_, _ = fmt.Fprint(w, strings.Replace(chatBootstrapJS, "{{USAGE_PREMIUM_PERCENT}}", premiumLiteral, 1))
+func parseServeChatBootstrapJS(parseW http.ResponseWriter, _ *http.Request) {
+	parseW.ParseHeader().Set("Content-Type", "application/javascript; charset=utf-8")
+	parsePremiumLiteral := strconv.FormatFloat(parseCurrentChatUsagePremiumPercent(), 'f', 6, 64)
+	_, _ = fmt.Fprint(parseW, strings.Replace(chatBootstrapJS, "{{USAGE_PREMIUM_PERCENT}}", parsePremiumLiteral, 1))
 }

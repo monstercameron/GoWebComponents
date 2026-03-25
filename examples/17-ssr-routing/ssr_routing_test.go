@@ -12,54 +12,54 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestDefaultServerViewRendersToString(t *testing.T) {
-	markup, err := ui.RenderToString(renderDemoShell(defaultServerView()))
-	if err != nil {
-		t.Fatalf("unexpected render error: %v", err)
+func TestDefaultServerViewRendersToString(parseT *testing.T) {
+	parseMarkup, parseErr := ui.RenderToString(renderDemoShell(defaultServerView()))
+	if parseErr != nil {
+		parseT.Fatalf("unexpected render error: %v", parseErr)
 	}
 
-	checks := []string{
+	parseChecks := []string{
 		"SSR Routing Demo",
 		"Server render first, hydrate into advanced routes",
 		"SSR transport and hydration",
 		transportJSONSidecar,
 	}
-	for _, check := range checks {
-		if !strings.Contains(markup, check) {
-			t.Fatalf("expected SSR markup to contain %q, got %q", check, markup)
+	for _, parseCheck := range parseChecks {
+		if !strings.Contains(parseMarkup, parseCheck) {
+			parseT.Fatalf("expected SSR markup to contain %q, got %q", parseCheck, parseMarkup)
 		}
 	}
 }
 
-func TestDemoBootstrapSidecarMatchesExpectedRoute(t *testing.T) {
-	path := filepath.Join("bootstrap.json")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("unexpected bootstrap read error: %v", err)
+func TestDemoBootstrapSidecarMatchesExpectedRoute(parseT *testing.T) {
+	parsePath := filepath.Join("bootstrap.json")
+	parseData, parseErr := os.ReadFile(parsePath)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected bootstrap read error: %v", parseErr)
 	}
 
-	payload, err := ui.UnmarshalSSRBootstrap(data)
-	if err != nil {
-		t.Fatalf("unexpected bootstrap parse error: %v", err)
+	parsePayload, parseErr := ui.UnmarshalSSRBootstrap(parseData)
+	if parseErr != nil {
+		parseT.Fatalf("unexpected bootstrap parse error: %v", parseErr)
 	}
-	expectedRoutePath := "/docs/" + guideSectionSSR
-	if payload.Route.Path != expectedRoutePath {
-		t.Fatalf("expected bootstrap route %s, got %q", expectedRoutePath, payload.Route.Path)
+	parseExpectedRoutePath := "/docs/" + guideSectionSSR
+	if parsePayload.Route.Path != parseExpectedRoutePath {
+		parseT.Fatalf("expected bootstrap route %s, got %q", parseExpectedRoutePath, parsePayload.Route.Path)
 	}
-	if payload.Route.Params["section"] != guideSectionSSR {
-		t.Fatalf("expected bootstrap section param %s, got %+v", guideSectionSSR, payload.Route.Params)
+	if parsePayload.Route.Params["section"] != guideSectionSSR {
+		parseT.Fatalf("expected bootstrap section param %s, got %+v", guideSectionSSR, parsePayload.Route.Params)
 	}
-	if bootstrapTransport(payload) != transportJSONSidecar {
-		t.Fatalf("expected bootstrap transport %s, got %q", transportJSONSidecar, bootstrapTransport(payload))
+	if bootstrapTransport(parsePayload) != transportJSONSidecar {
+		parseT.Fatalf("expected bootstrap transport %s, got %q", transportJSONSidecar, bootstrapTransport(parsePayload))
 	}
 }
 
-func TestDemoBootstrapReferenceScriptPointsToSidecar(t *testing.T) {
-	script, err := ui.RenderBootstrapReferenceScript(ui.SSRBootstrapReference{URL: "bootstrap.json", Format: ui.SSRBootstrapFormatJSON}, "")
-	if err != nil {
-		t.Fatalf("unexpected reference render error: %v", err)
+func TestDemoBootstrapReferenceScriptPointsToSidecar(parseT *testing.T) {
+	parseScript, parseErr := ui.RenderBootstrapReferenceScript(ui.SSRBootstrapReference{URL: "bootstrap.json", Format: ui.SSRBootstrapFormatJSON}, "")
+	if parseErr != nil {
+		parseT.Fatalf("unexpected reference render error: %v", parseErr)
 	}
-	if !strings.Contains(script, "bootstrap.json") {
-		t.Fatalf("expected bootstrap reference script to point at bootstrap.json, got %q", script)
+	if !strings.Contains(parseScript, "bootstrap.json") {
+		parseT.Fatalf("expected bootstrap reference script to point at bootstrap.json, got %q", parseScript)
 	}
 }

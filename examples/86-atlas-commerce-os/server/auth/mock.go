@@ -30,58 +30,58 @@ func NewMockSessionManager() *MockSessionManager {
 	return &MockSessionManager{}
 }
 
-func (m *MockSessionManager) Resolve(r *http.Request) *Session {
-	cookie, err := r.Cookie(MockSessionCookieName)
-	if err != nil {
+func (parseM *MockSessionManager) Resolve(parseR *http.Request) *Session {
+	parseCookie, parseErr := parseR.Cookie(MockSessionCookieName)
+	if parseErr != nil {
 		return nil
 	}
-	role := normalizeRole(cookie.Value)
-	if role == "" {
+	parseRole := normalizeRole(parseCookie.Value)
+	if parseRole == "" {
 		return nil
 	}
 	return &Session{
 		UserID:           "demo-operator",
 		DisplayName:      "Atlas Demo Operator",
-		Role:             role,
-		DefaultWarehouse: mockRoleWarehouses[role],
+		Role:             parseRole,
+		DefaultWarehouse: mockRoleWarehouses[parseRole],
 	}
 }
 
-func (m *MockSessionManager) RequireInternalSession(w http.ResponseWriter, r *http.Request) *Session {
-	session := m.Resolve(r)
-	if session == nil {
-		recoveryURL := mockSignInURL(requestNextPath(r))
-		if !strings.HasPrefix(r.URL.Path, "/api/") {
-			http.Redirect(w, r, recoveryURL, http.StatusSeeOther)
+func (parseM *MockSessionManager) RequireInternalSession(parseW http.ResponseWriter, parseR *http.Request) *Session {
+	parseSession := parseM.Resolve(parseR)
+	if parseSession == nil {
+		parseRecoveryURL := mockSignInURL(requestNextPath(parseR))
+		if !strings.HasPrefix(parseR.URL.Path, "/api/") {
+			http.Redirect(parseW, parseR, parseRecoveryURL, http.StatusSeeOther)
 			return nil
 		}
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.WriteHeader(http.StatusUnauthorized)
-		_ = json.NewEncoder(w).Encode(map[string]any{
+		parseW.Header().Set("Content-Type", "application/json; charset=utf-8")
+		parseW.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(parseW).Encode(map[string]any{
 			"error":    "mock_sign_in_required",
 			"message":  "Start a mock Atlas internal session to access this route.",
-			"recovery": recoveryURL,
+			"recovery": parseRecoveryURL,
 		})
 		return nil
 	}
-	return session
+	return parseSession
 }
 
 func AllowedRoles() []string {
 	return []string{"inventory_manager", "warehouse_supervisor", "ops_lead"}
 }
 
-func (m *MockSessionManager) StartCookie(role string) *http.Cookie {
+func (parseM *MockSessionManager) StartCookie(parseRole string) *http.Cookie {
 	return &http.Cookie{
 		Name:     MockSessionCookieName,
-		Value:    normalizeRole(role),
+		Value:    normalizeRole(parseRole),
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	}
 }
 
-func (m *MockSessionManager) ClearCookie() *http.Cookie {
+func (parseM *MockSessionManager) ClearCookie() *http.Cookie {
 	return &http.Cookie{
 		Name:     MockSessionCookieName,
 		Value:    "",
@@ -92,44 +92,44 @@ func (m *MockSessionManager) ClearCookie() *http.Cookie {
 	}
 }
 
-func normalizeRole(role string) string {
-	trimmed := strings.TrimSpace(strings.ToLower(role))
-	if _, ok := mockRoleWarehouses[trimmed]; ok {
-		return trimmed
+func normalizeRole(parseRole string) string {
+	parseTrimmed := strings.TrimSpace(strings.ToLower(parseRole))
+	if _, parseOk := mockRoleWarehouses[parseTrimmed]; parseOk {
+		return parseTrimmed
 	}
 	return ""
 }
 
-func requestNextPath(r *http.Request) string {
-	referer := strings.TrimSpace(r.Header.Get("Referer"))
-	if referer != "" {
-		if parsed, err := url.Parse(referer); err == nil {
-			if next := sanitizeNextPath(parsed.RequestURI()); next != "" {
-				return next
+func requestNextPath(parseR *http.Request) string {
+	parseReferer := strings.TrimSpace(parseR.Header.Get("Referer"))
+	if parseReferer != "" {
+		if parseParsed, parseErr := url.Parse(parseReferer); parseErr == nil {
+			if parseNext := sanitizeNextPath(parseParsed.RequestURI()); parseNext != "" {
+				return parseNext
 			}
 		}
 	}
-	if next := sanitizeNextPath(r.URL.RequestURI()); next != "" && next != MockSignInPath {
-		return next
+	if parseNext2 := sanitizeNextPath(parseR.URL.RequestURI()); parseNext2 != "" && parseNext2 != MockSignInPath {
+		return parseNext2
 	}
 	return "/app/dashboard"
 }
 
-func mockSignInURL(next string) string {
-	values := url.Values{}
-	values.Set("next", sanitizeNextPath(next))
-	return MockSignInPath + "?" + values.Encode()
+func mockSignInURL(parseNext string) string {
+	parseValues := url.Values{}
+	parseValues.Set("next", sanitizeNextPath(parseNext))
+	return MockSignInPath + "?" + parseValues.Encode()
 }
 
-func sanitizeNextPath(next string) string {
-	trimmed := strings.TrimSpace(next)
-	if trimmed == "" || !strings.HasPrefix(trimmed, "/") || strings.HasPrefix(trimmed, "//") {
+func sanitizeNextPath(parseNext string) string {
+	parseTrimmed := strings.TrimSpace(parseNext)
+	if parseTrimmed == "" || !strings.HasPrefix(parseTrimmed, "/") || strings.HasPrefix(parseTrimmed, "//") {
 		return "/app/dashboard"
 	}
-	if parsed, err := url.Parse(trimmed); err == nil {
-		candidate := parsed.RequestURI()
-		if strings.HasPrefix(candidate, "/") && !strings.HasPrefix(candidate, "//") {
-			return candidate
+	if parseParsed, parseErr := url.Parse(parseTrimmed); parseErr == nil {
+		parseCandidate := parseParsed.RequestURI()
+		if strings.HasPrefix(parseCandidate, "/") && !strings.HasPrefix(parseCandidate, "//") {
+			return parseCandidate
 		}
 	}
 	return "/app/dashboard"

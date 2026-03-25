@@ -16,306 +16,306 @@ import (
 	"github.com/openai/openai-go/option"
 )
 
-func TestOpenAIProviderHTTPBackedBranches(t *testing.T) {
-	t.Run("generate title and memories", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !strings.HasSuffix(r.URL.Path, "/responses") {
-				t.Fatalf("unexpected path: %s", r.URL.Path)
+func TestOpenAIProviderHTTPBackedBranches(parseT *testing.T) {
+	parseT.Run("generate title and memories", func(parseT2 *testing.T) {
+		parseServer := httptest.NewServer(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+			if !strings.HasSuffix(parseR.URL.Path, "/responses") {
+				parseT2.Fatalf("unexpected path: %s", parseR.URL.Path)
 			}
-			body, err := io.ReadAll(r.Body)
-			if err != nil {
-				t.Fatalf("ReadAll: %v", err)
+			parseBody, parseErr := io.ReadAll(parseR.Body)
+			if parseErr != nil {
+				parseT2.Fatalf("ReadAll: %v", parseErr)
 			}
-			var payload map[string]any
-			if err := json.Unmarshal(body, &payload); err != nil {
-				t.Fatalf("json.Unmarshal request: %v", err)
+			var parsePayload map[string]any
+			if parseErr2 := json.Unmarshal(parseBody, &parsePayload); parseErr2 != nil {
+				parseT2.Fatalf("json.Unmarshal request: %v", parseErr2)
 			}
-			w.Header().Set("Content-Type", "application/json")
-			if input, _ := payload["input"].(string); strings.Contains(input, "User message:") {
-				if gotModel, _ := payload["model"].(string); gotModel != "gpt-5.4-mini" {
-					t.Fatalf("memory extraction model = %q, want gpt-5.4-mini", gotModel)
+			parseW.ParseHeader().Set("Content-Type", "application/json")
+			if parseInput, _ := parsePayload["input"].(string); strings.Contains(parseInput, "User message:") {
+				if parseGotModel, _ := parsePayload["model"].(string); parseGotModel != "gpt-5.4-mini" {
+					parseT2.Fatalf("memory extraction model = %q, want gpt-5.4-mini", parseGotModel)
 				}
-				textConfig, ok := payload["text"].(map[string]any)
-				if !ok {
-					t.Fatalf("missing text config in extraction request: %#v", payload["text"])
+				parseTextConfig, parseOk := parsePayload["text"].(map[string]any)
+				if !parseOk {
+					parseT2.Fatalf("missing text config in extraction request: %#v", parsePayload["text"])
 				}
-				formatConfig, ok := textConfig["format"].(map[string]any)
-				if !ok {
-					t.Fatalf("missing text.format in extraction request: %#v", textConfig["format"])
+				formatConfig, parseOk := parseTextConfig["format"].(map[string]any)
+				if !parseOk {
+					parseT2.Fatalf("missing text.format in extraction request: %#v", parseTextConfig["format"])
 				}
-				if gotType, _ := formatConfig["type"].(string); gotType != "json_schema" {
-					t.Fatalf("text.format.type = %q, want json_schema", gotType)
+				if parseGotType, _ := formatConfig["type"].(string); parseGotType != "json_schema" {
+					parseT2.Fatalf("text.format.type = %q, want json_schema", parseGotType)
 				}
-				if gotName, _ := formatConfig["name"].(string); gotName != "user_memories" {
-					t.Fatalf("text.format.name = %q, want user_memories", gotName)
+				if parseGotName, _ := formatConfig["name"].(string); parseGotName != "user_memories" {
+					parseT2.Fatalf("text.format.name = %q, want user_memories", parseGotName)
 				}
-				if gotStrict, _ := formatConfig["strict"].(bool); !gotStrict {
-					t.Fatalf("text.format.strict = %v, want true", formatConfig["strict"])
+				if parseGotStrict, _ := formatConfig["strict"].(bool); !parseGotStrict {
+					parseT2.Fatalf("text.format.strict = %v, want true", formatConfig["strict"])
 				}
-				schema, ok := formatConfig["schema"].(map[string]any)
-				if !ok {
-					t.Fatalf("text.format.schema missing from extraction request")
+				parseSchema, parseOk := formatConfig["schema"].(map[string]any)
+				if !parseOk {
+					parseT2.Fatalf("text.format.schema missing from extraction request")
 				}
-				properties, ok := schema["properties"].(map[string]any)
-				if !ok {
-					t.Fatalf("text.format.schema.properties missing from extraction request")
+				parseProperties, parseOk := parseSchema["properties"].(map[string]any)
+				if !parseOk {
+					parseT2.Fatalf("text.format.schema.properties missing from extraction request")
 				}
-				if _, ok := properties["memories"]; !ok {
-					t.Fatalf("text.format.schema.properties.memories missing from extraction request")
+				if _, parseOk2 := parseProperties["memories"]; !parseOk2 {
+					parseT2.Fatalf("text.format.schema.properties.memories missing from extraction request")
 				}
-				_, _ = w.Write([]byte(`{"id":"resp_mem","object":"response","model":"gpt-5.4-mini","output":[{"id":"msg_mem","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"{\"memories\":[{\"key\":\"pref-editor\",\"category\":\"preference\",\"summary\":\"Prefers Neovim\",\"detail\":\"Uses it daily\",\"usefulness_score\":91,\"confidence_score\":0.8,\"rubric_reason\":\"stable preference\"}]}"}]}]}`))
+				_, _ = parseW.Write([]byte(`{"id":"resp_mem","object":"response","model":"gpt-5.4-mini","output":[{"id":"msg_mem","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"{\"memories\":[{\"key\":\"pref-editor\",\"category\":\"preference\",\"summary\":\"Prefers Neovim\",\"detail\":\"Uses it daily\",\"usefulness_score\":91,\"confidence_score\":0.8,\"rubric_reason\":\"stable preference\"}]}"}]}]}`))
 				return
 			}
-			_, _ = w.Write([]byte(`{"id":"resp_title","object":"response","model":"gpt-5.4-nano","output":[{"id":"msg_title","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"  Daily Standup  "}]}]}`))
+			_, _ = parseW.Write([]byte(`{"id":"resp_title","object":"response","model":"gpt-5.4-nano","output":[{"id":"msg_title","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"  Daily Standup  "}]}]}`))
 		}))
-		defer server.Close()
+		defer parseServer.Close()
 
-		client := openai.NewClient(
+		parseClient := openai.NewClient(
 			option.WithAPIKey("test-key"),
-			option.WithBaseURL(server.URL),
-			option.WithHTTPClient(server.Client()),
+			option.WithBaseURL(parseServer.URL),
+			option.WithHTTPClient(parseServer.Client()),
 		)
-		provider := &OpenAIProvider{client: &client, catalog: testOpenAICatalog()}
+		parseProvider := &OpenAIProvider{client: &parseClient, catalog: parseTestOpenAICatalog()}
 
-		title, err := provider.GenerateTitle(context.Background(), TitleRequest{Prompt: "Summarize the chat", SystemPrompt: "Be concise"})
-		if err != nil {
-			t.Fatalf("GenerateTitle: %v", err)
+		parseTitle, parseErr3 := parseProvider.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "Summarize the chat", SystemPrompt: "Be concise"})
+		if parseErr3 != nil {
+			parseT2.Fatalf("GenerateTitle: %v", parseErr3)
 		}
-		if title != "Daily Standup" {
-			t.Fatalf("GenerateTitle() = %q, want Daily Standup", title)
+		if parseTitle != "Daily Standup" {
+			parseT2.Fatalf("GenerateTitle() = %q, want Daily Standup", parseTitle)
 		}
 
-		memories, err := provider.ExtractUserMemories(context.Background(), MemoryExtractionRequest{
+		parseMemories, parseErr3 := parseProvider.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{
 			Model:       " gpt-5.4-mini ",
 			UserMessage: "I prefer Neovim over VS Code.",
 		})
-		if err != nil {
-			t.Fatalf("ExtractUserMemories: %v", err)
+		if parseErr3 != nil {
+			parseT2.Fatalf("ExtractUserMemories: %v", parseErr3)
 		}
-		if len(memories) != 1 || memories[0].Key != "pref-editor" || memories[0].Category != "preference" {
-			t.Fatalf("unexpected memories payload: %+v", memories)
+		if len(parseMemories) != 1 || parseMemories[0].Key != "pref-editor" || parseMemories[0].Category != "preference" {
+			parseT2.Fatalf("unexpected memories payload: %+v", parseMemories)
 		}
 	})
 
-	t.Run("empty title and memory parse failure", func(t *testing.T) {
-		callCount := 0
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			callCount++
-			w.Header().Set("Content-Type", "application/json")
-			if callCount == 1 {
-				_, _ = w.Write([]byte(`{"id":"resp_title","object":"response","model":"gpt-5.4-nano","output":[{"id":"msg_title","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"   "}]}]}`))
+	parseT.Run("empty title and memory parse failure", func(parseT3 *testing.T) {
+		parseCallCount := 0
+		parseServer2 := httptest.NewServer(http.HandlerFunc(func(parseW2 http.ResponseWriter, parseR2 *http.Request) {
+			parseCallCount++
+			parseW2.ParseHeader().Set("Content-Type", "application/json")
+			if parseCallCount == 1 {
+				_, _ = parseW2.Write([]byte(`{"id":"resp_title","object":"response","model":"gpt-5.4-nano","output":[{"id":"msg_title","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"   "}]}]}`))
 				return
 			}
-			_, _ = w.Write([]byte(`{"id":"resp_mem","object":"response","model":"gpt-5.4-mini","output":[{"id":"msg_mem","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"not-json"}]}]}`))
+			_, _ = parseW2.Write([]byte(`{"id":"resp_mem","object":"response","model":"gpt-5.4-mini","output":[{"id":"msg_mem","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"not-json"}]}]}`))
 		}))
-		defer server.Close()
+		defer parseServer2.Close()
 
-		client := openai.NewClient(
+		parseClient2 := openai.NewClient(
 			option.WithAPIKey("test-key"),
-			option.WithBaseURL(server.URL),
-			option.WithHTTPClient(server.Client()),
+			option.WithBaseURL(parseServer2.URL),
+			option.WithHTTPClient(parseServer2.Client()),
 		)
-		provider := &OpenAIProvider{client: &client, catalog: testOpenAICatalog()}
+		parseProvider2 := &OpenAIProvider{client: &parseClient2, catalog: parseTestOpenAICatalog()}
 
-		if _, err := provider.GenerateTitle(context.Background(), TitleRequest{Prompt: "empty"}); err == nil || !strings.Contains(err.Error(), "empty title") {
-			t.Fatalf("GenerateTitle() error = %v, want empty title", err)
+		if _, parseErr4 := parseProvider2.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "empty"}); parseErr4 == nil || !strings.Contains(parseErr4.ParseError(), "empty title") {
+			parseT3.Fatalf("GenerateTitle() error = %v, want empty title", parseErr4)
 		}
-		if _, err := provider.ExtractUserMemories(context.Background(), MemoryExtractionRequest{UserMessage: "remember this"}); err == nil || !strings.Contains(err.Error(), "parse") {
-			t.Fatalf("ExtractUserMemories() error = %v, want parse failure", err)
+		if _, parseErr5 := parseProvider2.ParseExtractUserMemories(context.Background(), MemoryExtractionRequest{UserMessage: "remember this"}); parseErr5 == nil || !strings.Contains(parseErr5.ParseError(), "parse") {
+			parseT3.Fatalf("ExtractUserMemories() error = %v, want parse failure", parseErr5)
 		}
 	})
 
-	t.Run("speech success and failure paths", func(t *testing.T) {
-		t.Run("success", func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if !strings.Contains(r.URL.Path, "/audio/speech") {
-					t.Fatalf("unexpected speech path: %s", r.URL.Path)
+	parseT.Run("speech success and failure paths", func(parseT4 *testing.T) {
+		parseT4.Run("success", func(parseT5 *testing.T) {
+			parseServer3 := httptest.NewServer(http.HandlerFunc(func(parseW3 http.ResponseWriter, parseR3 *http.Request) {
+				if !strings.Contains(parseR3.URL.Path, "/audio/speech") {
+					parseT5.Fatalf("unexpected speech path: %s", parseR3.URL.Path)
 				}
-				w.Header().Set("Content-Type", "audio/mpeg")
-				_, _ = w.Write([]byte("fake-mp3-audio"))
+				parseW3.ParseHeader().Set("Content-Type", "audio/mpeg")
+				_, _ = parseW3.Write([]byte("fake-mp3-audio"))
 			}))
-			defer server.Close()
+			defer parseServer3.Close()
 
-			client := openai.NewClient(
+			parseClient3 := openai.NewClient(
 				option.WithAPIKey("test-key"),
-				option.WithBaseURL(server.URL),
-				option.WithHTTPClient(server.Client()),
+				option.WithBaseURL(parseServer3.URL),
+				option.WithHTTPClient(parseServer3.Client()),
 			)
-			provider := &OpenAIProvider{client: &client, catalog: testOpenAICatalog()}
+			parseProvider3 := &OpenAIProvider{client: &parseClient3, catalog: parseTestOpenAICatalog()}
 
-			chunks := make([]SpeechChunk, 0, 2)
-			result, err := provider.SynthesizeSpeech(context.Background(), SpeechRequest{
+			parseChunks := make([]SpeechChunk, 0, 2)
+			parseResult, parseErr6 := parseProvider3.ParseSynthesizeSpeech(context.Background(), SpeechRequest{
 				Model: "gpt-5.4-mini",
 				Text:  "  hello speech  ",
-			}, func(chunk SpeechChunk) error {
-				chunks = append(chunks, chunk)
+			}, func(parseChunk SpeechChunk) error {
+				parseChunks = append(parseChunks, parseChunk)
 				return nil
 			})
-			if err != nil {
-				t.Fatalf("SynthesizeSpeech(success): %v", err)
+			if parseErr6 != nil {
+				parseT5.Fatalf("SynthesizeSpeech(success): %v", parseErr6)
 			}
-			if result.MimeType != openAITTSDefaultMimeType || result.Model != string(openAITTSDaultModel) || result.Voice != string(openAITTSDefaultVoice) || result.Script != "hello speech" {
-				t.Fatalf("unexpected speech result: %+v", result)
+			if parseResult.MimeType != openAITTSDefaultMimeType || parseResult.Model != string(openAITTSDaultModel) || parseResult.Voice != string(openAITTSDefaultVoice) || parseResult.Script != "hello speech" {
+				parseT5.Fatalf("unexpected speech result: %+v", parseResult)
 			}
-			if len(chunks) != 2 || len(chunks[0].AudioChunk) == 0 || !chunks[1].Done {
-				t.Fatalf("unexpected speech chunks: %+v", chunks)
+			if len(parseChunks) != 2 || len(parseChunks[0].AudioChunk) == 0 || !parseChunks[1].Done {
+				parseT5.Fatalf("unexpected speech chunks: %+v", parseChunks)
 			}
-			if chunks[0].MimeType != openAITTSDefaultMimeType || chunks[0].Model != string(openAITTSDaultModel) || chunks[0].Voice != string(openAITTSDefaultVoice) {
-				t.Fatalf("first speech chunk missing metadata: %+v", chunks[0])
-			}
-		})
-
-		t.Run("empty audio", func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "audio/mpeg")
-			}))
-			defer server.Close()
-
-			client := openai.NewClient(
-				option.WithAPIKey("test-key"),
-				option.WithBaseURL(server.URL),
-				option.WithHTTPClient(server.Client()),
-			)
-			provider := &OpenAIProvider{client: &client, catalog: testOpenAICatalog()}
-
-			if _, err := provider.SynthesizeSpeech(context.Background(), SpeechRequest{
-				Model: "gpt-5.4-mini",
-				Text:  "hello speech",
-			}, func(SpeechChunk) error { return nil }); err == nil || !strings.Contains(err.Error(), "synthesized audio was empty") {
-				t.Fatalf("SynthesizeSpeech(empty audio) error = %v, want empty audio failure", err)
+			if parseChunks[0].MimeType != openAITTSDefaultMimeType || parseChunks[0].Model != string(openAITTSDaultModel) || parseChunks[0].Voice != string(openAITTSDefaultVoice) {
+				parseT5.Fatalf("first speech chunk missing metadata: %+v", parseChunks[0])
 			}
 		})
 
-		t.Run("emit failure", func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "audio/mpeg")
-				_, _ = w.Write([]byte("fake-mp3-audio"))
+		parseT4.Run("empty audio", func(parseT6 *testing.T) {
+			parseServer4 := httptest.NewServer(http.HandlerFunc(func(parseW4 http.ResponseWriter, parseR4 *http.Request) {
+				parseW4.ParseHeader().Set("Content-Type", "audio/mpeg")
 			}))
-			defer server.Close()
+			defer parseServer4.Close()
 
-			client := openai.NewClient(
+			parseClient4 := openai.NewClient(
 				option.WithAPIKey("test-key"),
-				option.WithBaseURL(server.URL),
-				option.WithHTTPClient(server.Client()),
+				option.WithBaseURL(parseServer4.URL),
+				option.WithHTTPClient(parseServer4.Client()),
 			)
-			provider := &OpenAIProvider{client: &client, catalog: testOpenAICatalog()}
+			parseProvider4 := &OpenAIProvider{client: &parseClient4, catalog: parseTestOpenAICatalog()}
 
-			expectedErr := errors.New("emit failed")
-			if _, err := provider.SynthesizeSpeech(context.Background(), SpeechRequest{
+			if _, parseErr7 := parseProvider4.ParseSynthesizeSpeech(context.Background(), SpeechRequest{
 				Model: "gpt-5.4-mini",
 				Text:  "hello speech",
-			}, func(SpeechChunk) error { return expectedErr }); !errors.Is(err, expectedErr) {
-				t.Fatalf("SynthesizeSpeech(emit failure) error = %v, want %v", err, expectedErr)
+			}, func(SpeechChunk) error { return nil }); parseErr7 == nil || !strings.Contains(parseErr7.ParseError(), "synthesized audio was empty") {
+				parseT6.Fatalf("SynthesizeSpeech(empty audio) error = %v, want empty audio failure", parseErr7)
+			}
+		})
+
+		parseT4.Run("emit failure", func(parseT7 *testing.T) {
+			parseServer5 := httptest.NewServer(http.HandlerFunc(func(parseW5 http.ResponseWriter, parseR5 *http.Request) {
+				parseW5.ParseHeader().Set("Content-Type", "audio/mpeg")
+				_, _ = parseW5.Write([]byte("fake-mp3-audio"))
+			}))
+			defer parseServer5.Close()
+
+			parseClient5 := openai.NewClient(
+				option.WithAPIKey("test-key"),
+				option.WithBaseURL(parseServer5.URL),
+				option.WithHTTPClient(parseServer5.Client()),
+			)
+			parseProvider5 := &OpenAIProvider{client: &parseClient5, catalog: parseTestOpenAICatalog()}
+
+			parseExpectedErr := errors.New("emit failed")
+			if _, parseErr8 := parseProvider5.ParseSynthesizeSpeech(context.Background(), SpeechRequest{
+				Model: "gpt-5.4-mini",
+				Text:  "hello speech",
+			}, func(SpeechChunk) error { return parseExpectedErr }); !errors.Is(parseErr8, parseExpectedErr) {
+				parseT7.Fatalf("SynthesizeSpeech(emit failure) error = %v, want %v", parseErr8, parseExpectedErr)
 			}
 		})
 	})
 }
 
-func TestAnthropicProviderHTTPBackedBranches(t *testing.T) {
-	t.Run("generate title", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !strings.HasSuffix(r.URL.Path, "/messages") {
-				t.Fatalf("unexpected path: %s", r.URL.Path)
+func TestAnthropicProviderHTTPBackedBranches(parseT *testing.T) {
+	parseT.Run("generate title", func(parseT2 *testing.T) {
+		parseServer := httptest.NewServer(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+			if !strings.HasSuffix(parseR.URL.Path, "/messages") {
+				parseT2.Fatalf("unexpected path: %s", parseR.URL.Path)
 			}
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"id":"msg_1","type":"message","role":"assistant","model":"claude-haiku-4-5","content":[{"type":"text","text":"  Anthropic summary  "}],"usage":{"input_tokens":3,"output_tokens":5},"stop_reason":"end_turn","stop_sequence":""}`))
+			parseW.ParseHeader().Set("Content-Type", "application/json")
+			_, _ = parseW.Write([]byte(`{"id":"msg_1","type":"message","role":"assistant","model":"claude-haiku-4-5","content":[{"type":"text","text":"  Anthropic summary  "}],"usage":{"input_tokens":3,"output_tokens":5},"stop_reason":"end_turn","stop_sequence":""}`))
 		}))
-		defer server.Close()
+		defer parseServer.Close()
 
-		client := anthropic.NewClient(
+		parseClient := anthropic.NewClient(
 			anthropicoption.WithAPIKey("test-key"),
-			anthropicoption.WithBaseURL(server.URL),
-			anthropicoption.WithHTTPClient(server.Client()),
+			anthropicoption.WithBaseURL(parseServer.URL),
+			anthropicoption.WithHTTPClient(parseServer.Client()),
 		)
-		provider := &AnthropicProvider{client: &client, catalog: testAnthropicCatalog()}
+		parseProvider := &AnthropicProvider{client: &parseClient, catalog: parseTestAnthropicCatalog()}
 
-		title, err := provider.GenerateTitle(context.Background(), TitleRequest{Prompt: "hello", SystemPrompt: "title"})
-		if err != nil {
-			t.Fatalf("GenerateTitle: %v", err)
+		parseTitle, parseErr := parseProvider.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "hello", SystemPrompt: "title"})
+		if parseErr != nil {
+			parseT2.Fatalf("GenerateTitle: %v", parseErr)
 		}
-		if title != "Anthropic summary" {
-			t.Fatalf("GenerateTitle() = %q, want Anthropic summary", title)
+		if parseTitle != "Anthropic summary" {
+			parseT2.Fatalf("GenerateTitle() = %q, want Anthropic summary", parseTitle)
 		}
 	})
 
-	t.Run("empty title", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"id":"msg_2","type":"message","role":"assistant","model":"claude-haiku-4-5","content":[{"type":"text","text":"   "}],"usage":{"input_tokens":3,"output_tokens":5},"stop_reason":"end_turn","stop_sequence":""}`))
+	parseT.Run("empty title", func(parseT3 *testing.T) {
+		parseServer2 := httptest.NewServer(http.HandlerFunc(func(parseW2 http.ResponseWriter, parseR2 *http.Request) {
+			parseW2.ParseHeader().Set("Content-Type", "application/json")
+			_, _ = parseW2.Write([]byte(`{"id":"msg_2","type":"message","role":"assistant","model":"claude-haiku-4-5","content":[{"type":"text","text":"   "}],"usage":{"input_tokens":3,"output_tokens":5},"stop_reason":"end_turn","stop_sequence":""}`))
 		}))
-		defer server.Close()
+		defer parseServer2.Close()
 
-		client := anthropic.NewClient(
+		parseClient2 := anthropic.NewClient(
 			anthropicoption.WithAPIKey("test-key"),
-			anthropicoption.WithBaseURL(server.URL),
-			anthropicoption.WithHTTPClient(server.Client()),
+			anthropicoption.WithBaseURL(parseServer2.URL),
+			anthropicoption.WithHTTPClient(parseServer2.Client()),
 		)
-		provider := &AnthropicProvider{client: &client, catalog: testAnthropicCatalog()}
+		parseProvider2 := &AnthropicProvider{client: &parseClient2, catalog: parseTestAnthropicCatalog()}
 
-		if _, err := provider.GenerateTitle(context.Background(), TitleRequest{Prompt: "empty"}); err == nil || !strings.Contains(err.Error(), "empty title") {
-			t.Fatalf("GenerateTitle() error = %v, want empty title", err)
+		if _, parseErr2 := parseProvider2.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "empty"}); parseErr2 == nil || !strings.Contains(parseErr2.ParseError(), "empty title") {
+			parseT3.Fatalf("GenerateTitle() error = %v, want empty title", parseErr2)
 		}
 	})
 }
 
-func TestCerebrasProviderHTTPBackedBranches(t *testing.T) {
-	t.Run("generate title", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !strings.HasSuffix(r.URL.Path, "/chat/completions") {
-				t.Fatalf("unexpected path: %s", r.URL.Path)
+func TestCerebrasProviderHTTPBackedBranches(parseT *testing.T) {
+	parseT.Run("generate title", func(parseT2 *testing.T) {
+		parseServer := httptest.NewServer(http.HandlerFunc(func(parseW http.ResponseWriter, parseR *http.Request) {
+			if !strings.HasSuffix(parseR.URL.Path, "/chat/completions") {
+				parseT2.Fatalf("unexpected path: %s", parseR.URL.Path)
 			}
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"id":"chatcmpl_1","object":"chat.completion","created":1,"model":"llama3.1-8b","choices":[{"index":0,"message":{"role":"assistant","content":"  Cerebras title  "},"finish_reason":"stop"}],"usage":{"prompt_tokens":11,"completion_tokens":7,"total_tokens":18}}`))
+			parseW.ParseHeader().Set("Content-Type", "application/json")
+			_, _ = parseW.Write([]byte(`{"id":"chatcmpl_1","object":"chat.completion","created":1,"model":"llama3.1-8b","choices":[{"index":0,"message":{"role":"assistant","content":"  Cerebras title  "},"finish_reason":"stop"}],"usage":{"prompt_tokens":11,"completion_tokens":7,"total_tokens":18}}`))
 		}))
-		defer server.Close()
+		defer parseServer.Close()
 
-		client := openai.NewClient(
+		parseClient := openai.NewClient(
 			option.WithAPIKey("test-key"),
-			option.WithBaseURL(server.URL),
-			option.WithHTTPClient(server.Client()),
+			option.WithBaseURL(parseServer.URL),
+			option.WithHTTPClient(parseServer.Client()),
 		)
-		provider := &CerebrasProvider{client: &client, catalog: testCerebrasCatalog()}
+		parseProvider := &CerebrasProvider{client: &parseClient, catalog: parseTestCerebrasCatalog()}
 
-		title, err := provider.GenerateTitle(context.Background(), TitleRequest{Prompt: "hello", SystemPrompt: "title"})
-		if err != nil {
-			t.Fatalf("GenerateTitle: %v", err)
+		parseTitle, parseErr := parseProvider.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "hello", SystemPrompt: "title"})
+		if parseErr != nil {
+			parseT2.Fatalf("GenerateTitle: %v", parseErr)
 		}
-		if title != "Cerebras title" {
-			t.Fatalf("GenerateTitle() = %q, want Cerebras title", title)
+		if parseTitle != "Cerebras title" {
+			parseT2.Fatalf("GenerateTitle() = %q, want Cerebras title", parseTitle)
 		}
 	})
 
-	t.Run("empty response and empty title", func(t *testing.T) {
-		callCount := 0
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			callCount++
-			w.Header().Set("Content-Type", "application/json")
-			if callCount == 1 {
-				_, _ = w.Write([]byte(`{"id":"chatcmpl_empty","object":"chat.completion","created":1,"model":"llama3.1-8b","choices":[],"usage":{"prompt_tokens":1,"completion_tokens":0,"total_tokens":1}}`))
+	parseT.Run("empty response and empty title", func(parseT3 *testing.T) {
+		parseCallCount := 0
+		parseServer2 := httptest.NewServer(http.HandlerFunc(func(parseW2 http.ResponseWriter, parseR2 *http.Request) {
+			parseCallCount++
+			parseW2.ParseHeader().Set("Content-Type", "application/json")
+			if parseCallCount == 1 {
+				_, _ = parseW2.Write([]byte(`{"id":"chatcmpl_empty","object":"chat.completion","created":1,"model":"llama3.1-8b","choices":[],"usage":{"prompt_tokens":1,"completion_tokens":0,"total_tokens":1}}`))
 				return
 			}
-			_, _ = w.Write([]byte(`{"id":"chatcmpl_blank","object":"chat.completion","created":1,"model":"llama3.1-8b","choices":[{"index":0,"message":{"role":"assistant","content":"   "},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`))
+			_, _ = parseW2.Write([]byte(`{"id":"chatcmpl_blank","object":"chat.completion","created":1,"model":"llama3.1-8b","choices":[{"index":0,"message":{"role":"assistant","content":"   "},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`))
 		}))
-		defer server.Close()
+		defer parseServer2.Close()
 
-		client := openai.NewClient(
+		parseClient2 := openai.NewClient(
 			option.WithAPIKey("test-key"),
-			option.WithBaseURL(server.URL),
-			option.WithHTTPClient(server.Client()),
+			option.WithBaseURL(parseServer2.URL),
+			option.WithHTTPClient(parseServer2.Client()),
 		)
-		provider := &CerebrasProvider{client: &client, catalog: testCerebrasCatalog()}
+		parseProvider2 := &CerebrasProvider{client: &parseClient2, catalog: parseTestCerebrasCatalog()}
 
-		if _, err := provider.GenerateTitle(context.Background(), TitleRequest{Prompt: "empty"}); err == nil || !strings.Contains(err.Error(), "empty response") {
-			t.Fatalf("GenerateTitle() error = %v, want empty response", err)
+		if _, parseErr2 := parseProvider2.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "empty"}); parseErr2 == nil || !strings.Contains(parseErr2.ParseError(), "empty response") {
+			parseT3.Fatalf("GenerateTitle() error = %v, want empty response", parseErr2)
 		}
-		if _, err := provider.GenerateTitle(context.Background(), TitleRequest{Prompt: "blank"}); err == nil || !strings.Contains(err.Error(), "empty title") {
-			t.Fatalf("GenerateTitle() error = %v, want empty title", err)
+		if _, parseErr3 := parseProvider2.ParseGenerateTitle(context.Background(), TitleRequest{Prompt: "blank"}); parseErr3 == nil || !strings.Contains(parseErr3.ParseError(), "empty title") {
+			parseT3.Fatalf("GenerateTitle() error = %v, want empty title", parseErr3)
 		}
 	})
 }
 
-func TestProviderHTTPStubPayloadsRemainValidJSON(t *testing.T) {
-	payload := map[string]any{
+func TestProviderHTTPStubPayloadsRemainValidJSON(parseT *testing.T) {
+	parsePayload := map[string]any{
 		"id":     "resp_check",
 		"object": "response",
 		"output": []map[string]any{
@@ -330,14 +330,14 @@ func TestProviderHTTPStubPayloadsRemainValidJSON(t *testing.T) {
 			},
 		},
 	}
-	encoded, err := json.Marshal(payload)
-	if err != nil {
-		t.Fatalf("json.Marshal payload: %v", err)
+	parseEncoded, parseErr := json.Marshal(parsePayload)
+	if parseErr != nil {
+		parseT.Fatalf("json.Marshal payload: %v", parseErr)
 	}
-	if !json.Valid(encoded) {
-		t.Fatalf("expected marshaled payload to be valid JSON: %s", string(encoded))
+	if !json.Valid(parseEncoded) {
+		parseT.Fatalf("expected marshaled payload to be valid JSON: %s", string(parseEncoded))
 	}
 	if !errors.Is(nil, nil) {
-		t.Fatal("expected nil to still compare equal under errors.Is")
+		parseT.Fatal("expected nil to still compare equal under errors.Is")
 	}
 }

@@ -29,95 +29,95 @@ type selectedModelCrossTabMessage struct {
 	Model string `json:"model"`
 }
 
-func cachedRenderedMarkdown(markdown string) (string, bool) {
-	renderedHTML, ok := renderedMarkdownCache[markdown]
-	return renderedHTML, ok
+func cachedRenderedMarkdown(parseMarkdown string) (string, bool) {
+	parseRenderedHTML, parseOk := renderedMarkdownCache[parseMarkdown]
+	return parseRenderedHTML, parseOk
 }
 
-func cacheRenderedMarkdown(markdown, renderedHTML string) {
-	if markdown == "" || renderedHTML == "" {
+func cacheRenderedMarkdown(parseMarkdown, parseRenderedHTML string) {
+	if parseMarkdown == "" || parseRenderedHTML == "" {
 		return
 	}
-	renderedMarkdownCache[markdown] = renderedHTML
+	renderedMarkdownCache[parseMarkdown] = parseRenderedHTML
 }
 
-func renderMarkdownSync(markdown string) string {
-	if renderedHTML, ok := renderedMarkdownCache[markdown]; ok {
-		return renderedHTML
+func renderMarkdownSync(parseMarkdown string) string {
+	if parseRenderedHTML, parseOk := renderedMarkdownCache[parseMarkdown]; parseOk {
+		return parseRenderedHTML
 	}
-	renderedHTML, err := markdownrender.Render(markdown)
-	if err != nil {
-		return markdown
+	parseRenderedHTML2, parseErr := markdownrender.Render(parseMarkdown)
+	if parseErr != nil {
+		return parseMarkdown
 	}
-	renderedMarkdownCache[markdown] = renderedHTML
-	return renderedHTML
+	renderedMarkdownCache[parseMarkdown] = parseRenderedHTML2
+	return parseRenderedHTML2
 }
 
-func completedAssistantMessagesMarkdownSignature(messages []message) string {
-	var builder strings.Builder
-	for _, messageItem := range messages {
-		if messageItem.Role != roleAssistant || messageItem.Pending {
+func parseCompletedAssistantMessagesMarkdownSignature(parseMessages []message) string {
+	var parseBuilder strings.Builder
+	for _, parseMessageItem := range parseMessages {
+		if parseMessageItem.Role != roleAssistant || parseMessageItem.Pending {
 			continue
 		}
-		if strings.TrimSpace(messageItem.Content) == "" {
+		if strings.TrimSpace(parseMessageItem.Content) == "" {
 			continue
 		}
-		builder.WriteString(messageItem.Content)
-		builder.WriteString("\n\x1f\n")
+		parseBuilder.WriteString(parseMessageItem.Content)
+		parseBuilder.WriteString("\n\x1f\n")
 	}
-	return builder.String()
+	return parseBuilder.ParseString()
 }
 
 // ─── scroll ───────────────────────────────────────────────────────────────────
 
-func scrollMessageListToBottom(behavior ...string) {
-	doc, err := interop.GetDocument()
-	if err != nil {
+func parseScrollMessageListToBottom(parseBehavior ...string) {
+	parseDoc, parseErr := interop.GetDocument()
+	if parseErr != nil {
 		return
 	}
-	resolvedBehavior := ""
-	if len(behavior) > 0 {
-		resolvedBehavior = strings.TrimSpace(behavior[0])
+	parseResolvedBehavior := ""
+	if len(parseBehavior) > 0 {
+		parseResolvedBehavior = strings.TrimSpace(parseBehavior[0])
 	}
-	if resolvedBehavior != "" {
-		scrollAnchorElement, foundScrollAnchor, anchorErr := doc.ElementByID(idScrollAnchor)
-		if anchorErr == nil && foundScrollAnchor {
-			options := interop.ScrollIntoViewOptions{
-				Behavior: resolvedBehavior,
+	if parseResolvedBehavior != "" {
+		parseScrollAnchorElement, parseFoundScrollAnchor, parseAnchorErr := parseDoc.ElementByID(idScrollAnchor)
+		if parseAnchorErr == nil && parseFoundScrollAnchor {
+			parseOptions := interop.ScrollIntoViewOptions{
+				Behavior: parseResolvedBehavior,
 				Block:    "end",
 			}
-			if err := scrollAnchorElement.ScrollIntoView(options); err == nil {
+			if parseErr2 := parseScrollAnchorElement.ScrollIntoView(parseOptions); parseErr2 == nil {
 				return
 			}
 		}
 	}
-	messageListElement, foundMessageList, err := doc.ElementByID(idMessageList)
-	if err != nil || !foundMessageList {
+	parseMessageListElement, parseFoundMessageList, parseErr := parseDoc.ElementByID(idMessageList)
+	if parseErr != nil || !parseFoundMessageList {
 		return
 	}
-	_, scrollHeight, _, err := messageListElement.ScrollMetrics()
-	if err != nil {
+	_, parseScrollHeight, _, parseErr := parseMessageListElement.ScrollMetrics()
+	if parseErr != nil {
 		return
 	}
-	_ = messageListElement.SetScrollTop(scrollHeight)
+	_ = parseMessageListElement.SetScrollTop(parseScrollHeight)
 }
 
-func scrollStreamingAssistantBubbleIntoView(behavior string) {
-	doc, err := interop.GetDocument()
-	if err != nil {
+func parseScrollStreamingAssistantBubbleIntoView(parseBehavior string) {
+	parseDoc, parseErr := interop.GetDocument()
+	if parseErr != nil {
 		return
 	}
-	streamingBubbleElement, foundStreamingBubble, err := doc.ElementByID(idStreamingBubble)
-	if err != nil || !foundStreamingBubble {
-		scrollMessageListToBottom(behavior)
+	parseStreamingBubbleElement, parseFoundStreamingBubble, parseErr := parseDoc.ElementByID(idStreamingBubble)
+	if parseErr != nil || !parseFoundStreamingBubble {
+		parseScrollMessageListToBottom(parseBehavior)
 		return
 	}
-	options := interop.ScrollIntoViewOptions{
-		Behavior: behavior,
+	parseOptions := interop.ScrollIntoViewOptions{
+		Behavior: parseBehavior,
 		Block:    "start",
 	}
-	if err := streamingBubbleElement.ScrollIntoView(options); err != nil {
-		scrollMessageListToBottom(behavior)
+	if parseErr2 := parseStreamingBubbleElement.ScrollIntoView(parseOptions); parseErr2 != nil {
+		parseScrollMessageListToBottom(parseBehavior)
 	}
 }
 
@@ -125,100 +125,100 @@ func scrollStreamingAssistantBubbleIntoView(behavior string) {
 // within scrollThresholdPx of the bottom — the threshold below which
 // auto-scroll is active.
 func isMessageListAtScrollBottom() bool {
-	doc, err := interop.GetDocument()
-	if err != nil {
+	parseDoc, parseErr := interop.GetDocument()
+	if parseErr != nil {
 		return true
 	}
-	messageListElement, foundMessageList, err := doc.ElementByID(idMessageList)
-	if err != nil || !foundMessageList {
+	parseMessageListElement, parseFoundMessageList, parseErr := parseDoc.ElementByID(idMessageList)
+	if parseErr != nil || !parseFoundMessageList {
 		return true
 	}
-	scrollTop, scrollHeight, clientHeight, err := messageListElement.ScrollMetrics()
-	if err != nil {
+	parseScrollTop, parseScrollHeight, parseClientHeight, parseErr := parseMessageListElement.ScrollMetrics()
+	if parseErr != nil {
 		return true
 	}
-	return !hasScrollSpaceBelow(scrollTop, scrollHeight, clientHeight, scrollThresholdPx)
+	return !hasScrollSpaceBelow(parseScrollTop, parseScrollHeight, parseClientHeight, scrollThresholdPx)
 }
 
-func messageListHasScrollBelow() bool {
-	doc, err := interop.GetDocument()
-	if err != nil {
+func parseMessageListHasScrollBelow() bool {
+	parseDoc, parseErr := interop.GetDocument()
+	if parseErr != nil {
 		return false
 	}
-	messageListElement, foundMessageList, err := doc.ElementByID(idMessageList)
-	if err != nil || !foundMessageList {
+	parseMessageListElement, parseFoundMessageList, parseErr := parseDoc.ElementByID(idMessageList)
+	if parseErr != nil || !parseFoundMessageList {
 		return false
 	}
-	scrollTop, scrollHeight, clientHeight, err := messageListElement.ScrollMetrics()
-	if err != nil {
+	parseScrollTop, parseScrollHeight, parseClientHeight, parseErr := parseMessageListElement.ScrollMetrics()
+	if parseErr != nil {
 		return false
 	}
-	return hasScrollSpaceBelow(scrollTop, scrollHeight, clientHeight, scrollThresholdPx)
+	return hasScrollSpaceBelow(parseScrollTop, parseScrollHeight, parseClientHeight, scrollThresholdPx)
 }
 
-func messageListScrollTop() (float64, bool) {
-	doc, err := interop.GetDocument()
-	if err != nil {
+func parseMessageListScrollTop() (float64, bool) {
+	parseDoc, parseErr := interop.GetDocument()
+	if parseErr != nil {
 		return 0, false
 	}
-	messageListElement, foundMessageList, err := doc.ElementByID(idMessageList)
-	if err != nil || !foundMessageList {
+	parseMessageListElement, parseFoundMessageList, parseErr := parseDoc.ElementByID(idMessageList)
+	if parseErr != nil || !parseFoundMessageList {
 		return 0, false
 	}
-	scrollTop, _, _, err := messageListElement.ScrollMetrics()
-	if err != nil {
+	parseScrollTop, _, _, parseErr := parseMessageListElement.ScrollMetrics()
+	if parseErr != nil {
 		return 0, false
 	}
-	return scrollTop, true
+	return parseScrollTop, true
 }
 
-func setMessageListScrollTop(scrollTop float64) bool {
-	doc, err := interop.GetDocument()
-	if err != nil {
+func setMessageListScrollTop(parseScrollTop float64) bool {
+	parseDoc, parseErr := interop.GetDocument()
+	if parseErr != nil {
 		return false
 	}
-	messageListElement, foundMessageList, err := doc.ElementByID(idMessageList)
-	if err != nil || !foundMessageList {
+	parseMessageListElement, parseFoundMessageList, parseErr := parseDoc.ElementByID(idMessageList)
+	if parseErr != nil || !parseFoundMessageList {
 		return false
 	}
-	if err := messageListElement.SetScrollTop(scrollTop); err != nil {
+	if parseErr2 := parseMessageListElement.SetScrollTop(parseScrollTop); parseErr2 != nil {
 		return false
 	}
 	return true
 }
 
-func focusChatInput() {
-	doc, err := interop.GetDocument()
-	if err != nil {
+func parseFocusChatInput() {
+	parseDoc, parseErr := interop.GetDocument()
+	if parseErr != nil {
 		return
 	}
-	chatInputElement, foundChatInput, err := doc.ElementByID(idChatInput)
-	if err != nil || !foundChatInput {
+	parseChatInputElement, parseFoundChatInput, parseErr := parseDoc.ElementByID(idChatInput)
+	if parseErr != nil || !parseFoundChatInput {
 		return
 	}
-	_ = chatInputElement.Focus()
+	_ = parseChatInputElement.Focus()
 }
 
-func scheduleFocusChatInput(delay time.Duration) {
-	if _, err := interop.ScheduleTimeout(delay, func() {
-		focusChatInput()
-	}); err != nil {
+func parseScheduleFocusChatInput(parseDelay time.Duration) {
+	if _, parseErr := interop.ScheduleTimeout(parseDelay, func() {
+		parseFocusChatInput()
+	}); parseErr != nil {
 		go func() {
-			time.Sleep(delay)
-			focusChatInput()
+			time.Sleep(parseDelay)
+			parseFocusChatInput()
 		}()
 	}
 }
 
-func currentWASMQuerySuffix() string {
-	env, _ := interop.GetWindowEnv()
-	suffix, ok := env.LookupString("__gwc_wasm_query")
-	if !ok {
+func parseCurrentWASMQuerySuffix() string {
+	parseEnv, _ := interop.GetWindowEnv()
+	parseSuffix, parseOk := parseEnv.LookupString("__gwc_wasm_query")
+	if !parseOk {
 		return ""
 	}
-	suffix = strings.TrimSpace(suffix)
-	if suffix == "?br=true" {
-		return suffix
+	parseSuffix = strings.TrimSpace(parseSuffix)
+	if parseSuffix == "?br=true" {
+		return parseSuffix
 	}
 	return ""
 }
@@ -226,711 +226,711 @@ func currentWASMQuerySuffix() string {
 // ─── text ─────────────────────────────────────────────────────────────────────
 
 // displayNameInitials returns up to 2 uppercase initials from a display name.
-func displayNameInitials(displayName string) string {
-	nameParts := strings.Fields(displayName)
-	initialsText := ""
-	for _, part := range nameParts {
-		runes := []rune(part)
-		if len(runes) > 0 {
-			initialsText += strings.ToUpper(string(runes[0]))
+func parseDisplayNameInitials(parseDisplayName string) string {
+	parseNameParts := strings.Fields(parseDisplayName)
+	parseInitialsText := ""
+	for _, parsePart := range parseNameParts {
+		parseRunes := []rune(parsePart)
+		if len(parseRunes) > 0 {
+			parseInitialsText += strings.ToUpper(string(parseRunes[0]))
 		}
-		if len(initialsText) >= 2 {
+		if len(parseInitialsText) >= 2 {
 			break
 		}
 	}
-	if initialsText == "" {
+	if parseInitialsText == "" {
 		return "?"
 	}
-	return initialsText
+	return parseInitialsText
 }
 
 const managedUserNameMemoryKey = "profile.display_name"
 
-func managedUserNameMemory(displayName string) editableUserMemory {
+func parseManagedUserNameMemory(parseDisplayName string) editableUserMemory {
 	return editableUserMemory{
 		Key:          managedUserNameMemoryKey,
 		Category:     "identity",
-		Summary:      strings.TrimSpace(displayName),
+		Summary:      strings.TrimSpace(parseDisplayName),
 		Detail:       "Primary display name used for this account.",
 		RubricReason: "Pinned from the profile display name so the assistant sees it first.",
 	}
 }
 
-func isManagedUserNameMemory(memory editableUserMemory) bool {
-	return strings.TrimSpace(memory.Key) == managedUserNameMemoryKey
+func isManagedUserNameMemory(parseMemory editableUserMemory) bool {
+	return strings.TrimSpace(parseMemory.Key) == managedUserNameMemoryKey
 }
 
-func ensureManagedUserNameMemory(displayName string, memories []editableUserMemory) []editableUserMemory {
-	filtered := make([]editableUserMemory, 0, len(memories)+1)
-	for _, memory := range memories {
-		if isManagedUserNameMemory(memory) {
+func parseEnsureManagedUserNameMemory(parseDisplayName string, parseMemories []editableUserMemory) []editableUserMemory {
+	parseFiltered := make([]editableUserMemory, 0, len(parseMemories)+1)
+	for _, parseMemory := range parseMemories {
+		if isManagedUserNameMemory(parseMemory) {
 			continue
 		}
-		filtered = append(filtered, memory)
+		parseFiltered = append(parseFiltered, parseMemory)
 	}
-	trimmedName := strings.TrimSpace(displayName)
-	if trimmedName == "" {
-		return filtered
+	parseTrimmedName := strings.TrimSpace(parseDisplayName)
+	if parseTrimmedName == "" {
+		return parseFiltered
 	}
-	return append([]editableUserMemory{managedUserNameMemory(trimmedName)}, filtered...)
+	return append([]editableUserMemory{parseManagedUserNameMemory(parseTrimmedName)}, parseFiltered...)
 }
 
-func defaultModelCatalog() modelCatalog {
+func parseDefaultModelCatalog() modelCatalog {
 	return modelCatalog{DefaultModel: defaultModel}
 }
 
-func modelOptionByID(modelID string, models []modelOption) (modelOption, bool) {
-	trimmedModelID := strings.TrimSpace(modelID)
-	for _, option := range models {
-		if option.ID == trimmedModelID {
-			return option, true
+func parseModelOptionByID(parseModelID string, parseModels []modelOption) (modelOption, bool) {
+	parseTrimmedModelID := strings.TrimSpace(parseModelID)
+	for _, parseOption := range parseModels {
+		if parseOption.ParseID == parseTrimmedModelID {
+			return parseOption, true
 		}
 	}
 	return modelOption{}, false
 }
 
-func providerOptionsForModels(models []modelOption) []providerOption {
-	options := make([]providerOption, 0, len(models))
-	seenProviders := map[string]struct{}{}
-	for _, option := range models {
-		providerID := strings.TrimSpace(option.Capabilities.ProviderID)
-		if providerID == "" {
-			providerID = "default"
+func parseProviderOptionsForModels(parseModels []modelOption) []providerOption {
+	parseOptions := make([]providerOption, 0, len(parseModels))
+	parseSeenProviders := map[string]struct{}{}
+	for _, parseOption := range parseModels {
+		parseProviderID := strings.TrimSpace(parseOption.ParseCapabilities.ProviderID)
+		if parseProviderID == "" {
+			parseProviderID = "default"
 		}
-		if _, seen := seenProviders[providerID]; seen {
+		if _, parseSeen := parseSeenProviders[parseProviderID]; parseSeen {
 			continue
 		}
-		providerLabel := strings.TrimSpace(option.Capabilities.ProviderLabel)
-		if providerLabel == "" {
-			providerLabel = strings.ToUpper(providerID)
+		parseProviderLabel := strings.TrimSpace(parseOption.ParseCapabilities.ProviderLabel)
+		if parseProviderLabel == "" {
+			parseProviderLabel = strings.ToUpper(parseProviderID)
 		}
-		options = append(options, providerOption{ID: providerID, Label: providerLabel})
-		seenProviders[providerID] = struct{}{}
+		parseOptions = append(parseOptions, providerOption{ID: parseProviderID, Label: parseProviderLabel})
+		parseSeenProviders[parseProviderID] = struct{}{}
 	}
-	return options
+	return parseOptions
 }
 
-func providerForModel(modelID string, models []modelOption, fallback string) providerOption {
-	resolvedModelID := normalizeSelectedModelID(modelID, models, fallback)
-	option, ok := modelOptionByID(resolvedModelID, models)
-	if !ok {
+func parseProviderForModel(parseModelID string, parseModels []modelOption, parseFallback string) providerOption {
+	parseResolvedModelID := parseNormalizeSelectedModelID(parseModelID, parseModels, parseFallback)
+	parseOption, parseOk := parseModelOptionByID(parseResolvedModelID, parseModels)
+	if !parseOk {
 		return providerOption{}
 	}
-	providerID := strings.TrimSpace(option.Capabilities.ProviderID)
-	if providerID == "" {
-		providerID = "default"
+	parseProviderID := strings.TrimSpace(parseOption.ParseCapabilities.ProviderID)
+	if parseProviderID == "" {
+		parseProviderID = "default"
 	}
-	providerLabel := strings.TrimSpace(option.Capabilities.ProviderLabel)
-	if providerLabel == "" {
-		providerLabel = strings.ToUpper(providerID)
+	parseProviderLabel := strings.TrimSpace(parseOption.ParseCapabilities.ProviderLabel)
+	if parseProviderLabel == "" {
+		parseProviderLabel = strings.ToUpper(parseProviderID)
 	}
-	return providerOption{ID: providerID, Label: providerLabel}
+	return providerOption{ID: parseProviderID, Label: parseProviderLabel}
 }
 
-func modelsForProvider(models []modelOption, providerID string) []modelOption {
-	trimmedProviderID := strings.TrimSpace(providerID)
-	if trimmedProviderID == "" {
-		return append([]modelOption(nil), models...)
+func parseModelsForProvider(parseModels []modelOption, parseProviderID string) []modelOption {
+	parseTrimmedProviderID := strings.TrimSpace(parseProviderID)
+	if parseTrimmedProviderID == "" {
+		return append([]modelOption(nil), parseModels...)
 	}
-	filtered := make([]modelOption, 0, len(models))
-	for _, option := range models {
-		candidateProviderID := strings.TrimSpace(option.Capabilities.ProviderID)
-		if candidateProviderID == "" {
-			candidateProviderID = "default"
+	parseFiltered := make([]modelOption, 0, len(parseModels))
+	for _, parseOption := range parseModels {
+		parseCandidateProviderID := strings.TrimSpace(parseOption.ParseCapabilities.ProviderID)
+		if parseCandidateProviderID == "" {
+			parseCandidateProviderID = "default"
 		}
-		if candidateProviderID == trimmedProviderID {
-			filtered = append(filtered, option)
+		if parseCandidateProviderID == parseTrimmedProviderID {
+			parseFiltered = append(parseFiltered, parseOption)
 		}
 	}
-	if len(filtered) == 0 {
-		return append([]modelOption(nil), models...)
+	if len(parseFiltered) == 0 {
+		return append([]modelOption(nil), parseModels...)
 	}
-	return filtered
+	return parseFiltered
 }
 
-func defaultModelForProvider(providerID string, models []modelOption, fallback string) string {
-	filtered := modelsForProvider(models, providerID)
-	if len(filtered) == 0 {
-		return normalizeSelectedModelID(fallback, models, fallback)
+func parseDefaultModelForProvider(parseProviderID string, parseModels []modelOption, parseFallback string) string {
+	parseFiltered := parseModelsForProvider(parseModels, parseProviderID)
+	if len(parseFiltered) == 0 {
+		return parseNormalizeSelectedModelID(parseFallback, parseModels, parseFallback)
 	}
-	resolvedFallback := normalizeSelectedModelID(fallback, models, fallback)
-	if option, ok := modelOptionByID(resolvedFallback, models); ok {
-		candidateProviderID := strings.TrimSpace(option.Capabilities.ProviderID)
-		if candidateProviderID == "" {
-			candidateProviderID = "default"
+	parseResolvedFallback := parseNormalizeSelectedModelID(parseFallback, parseModels, parseFallback)
+	if parseOption, parseOk := parseModelOptionByID(parseResolvedFallback, parseModels); parseOk {
+		parseCandidateProviderID := strings.TrimSpace(parseOption.ParseCapabilities.ProviderID)
+		if parseCandidateProviderID == "" {
+			parseCandidateProviderID = "default"
 		}
-		if candidateProviderID == strings.TrimSpace(providerID) {
-			return option.ID
+		if parseCandidateProviderID == strings.TrimSpace(parseProviderID) {
+			return parseOption.ParseID
 		}
 	}
-	return filtered[0].ID
+	return parseFiltered[0].ParseID
 }
 
-func normalizeSelectedModelID(modelID string, models []modelOption, fallback string) string {
-	modelID = strings.TrimSpace(modelID)
-	switch modelID {
+func parseNormalizeSelectedModelID(parseModelID string, parseModels []modelOption, parseFallback string) string {
+	parseModelID = strings.TrimSpace(parseModelID)
+	switch parseModelID {
 	case "gpt-5.4-2026-03-17":
-		modelID = "gpt-5.4"
+		parseModelID = "gpt-5.4"
 	case "gpt-5.4-mini-2026-03-17":
-		modelID = "gpt-5.4-mini"
+		parseModelID = "gpt-5.4-mini"
 	case "gpt-5.4-nano-2026-03-17":
-		modelID = "gpt-5.4-nano"
+		parseModelID = "gpt-5.4-nano"
 	}
-	fallback = strings.TrimSpace(fallback)
-	if modelID == "" {
-		if _, ok := modelOptionByID(fallback, models); ok {
-			return fallback
+	parseFallback = strings.TrimSpace(parseFallback)
+	if parseModelID == "" {
+		if _, parseOk := parseModelOptionByID(parseFallback, parseModels); parseOk {
+			return parseFallback
 		}
-		if fallback != "" && len(models) == 0 {
-			return fallback
+		if parseFallback != "" && len(parseModels) == 0 {
+			return parseFallback
 		}
-		if len(models) == 0 {
+		if len(parseModels) == 0 {
 			return ""
 		}
-		return models[0].ID
+		return parseModels[0].ParseID
 	}
-	if len(models) == 0 {
-		return modelID
+	if len(parseModels) == 0 {
+		return parseModelID
 	}
-	if _, ok := modelOptionByID(modelID, models); ok {
-		return modelID
+	if _, parseOk2 := parseModelOptionByID(parseModelID, parseModels); parseOk2 {
+		return parseModelID
 	}
-	if _, ok := modelOptionByID(fallback, models); ok {
-		return fallback
+	if _, parseOk3 := parseModelOptionByID(parseFallback, parseModels); parseOk3 {
+		return parseFallback
 	}
-	if fallback != "" {
-		return fallback
+	if parseFallback != "" {
+		return parseFallback
 	}
-	return models[0].ID
+	return parseModels[0].ParseID
 }
 
-func recoverPersistedModelSelection(persistedModel string, models []modelOption) (string, bool) {
-	canonicalModel := normalizeSelectedModelID(persistedModel, nil, "")
-	if canonicalModel != "" {
-		if _, ok := modelOptionByID(canonicalModel, models); ok {
-			return canonicalModel, false
+func parseRecoverPersistedModelSelection(parsePersistedModel string, parseModels []modelOption) (string, bool) {
+	parseCanonicalModel := parseNormalizeSelectedModelID(parsePersistedModel, nil, "")
+	if parseCanonicalModel != "" {
+		if _, parseOk := parseModelOptionByID(parseCanonicalModel, parseModels); parseOk {
+			return parseCanonicalModel, false
 		}
 	}
-	if len(models) == 0 {
-		return canonicalModel, false
+	if len(parseModels) == 0 {
+		return parseCanonicalModel, false
 	}
-	return models[0].ID, true
+	return parseModels[0].ParseID, true
 }
 
-func selectedModelCrossTabChannelName(sessionEmail string) string {
-	normalizedEmail := strings.TrimSpace(strings.ToLower(sessionEmail))
-	if normalizedEmail == "" {
+func parseSelectedModelCrossTabChannelName(parseSessionEmail string) string {
+	parseNormalizedEmail := strings.TrimSpace(strings.ToLower(parseSessionEmail))
+	if parseNormalizedEmail == "" {
 		return crossTabChannelSelectedModel
 	}
-	var builder strings.Builder
-	builder.WriteString(crossTabChannelSelectedModel)
-	builder.WriteString(":")
-	for _, r := range normalizedEmail {
+	var parseBuilder strings.Builder
+	parseBuilder.WriteString(crossTabChannelSelectedModel)
+	parseBuilder.WriteString(":")
+	for _, parseR := range parseNormalizedEmail {
 		switch {
-		case r >= 'a' && r <= 'z':
-			builder.WriteRune(r)
-		case r >= '0' && r <= '9':
-			builder.WriteRune(r)
+		case parseR >= 'a' && parseR <= 'z':
+			parseBuilder.WriteRune(parseR)
+		case parseR >= '0' && parseR <= '9':
+			parseBuilder.WriteRune(parseR)
 		default:
-			builder.WriteRune('-')
+			parseBuilder.WriteRune('-')
 		}
 	}
-	return builder.String()
+	return parseBuilder.ParseString()
 }
 
-func selectedModelForConversation(messages []message, models []modelOption, fallback string) string {
-	for idx := len(messages) - 1; idx >= 0; idx-- {
-		messageItem := messages[idx]
-		if messageItem.Role == roleSwitch {
-			switchModel := strings.TrimSpace(messageItem.Content)
-			if switchModel != "" {
-				return normalizeSelectedModelID(switchModel, models, fallback)
+func parseSelectedModelForConversation(parseMessages []message, parseModels []modelOption, parseFallback string) string {
+	for parseIdx := len(parseMessages) - 1; parseIdx >= 0; parseIdx-- {
+		parseMessageItem := parseMessages[parseIdx]
+		if parseMessageItem.Role == roleSwitch {
+			parseSwitchModel := strings.TrimSpace(parseMessageItem.Content)
+			if parseSwitchModel != "" {
+				return parseNormalizeSelectedModelID(parseSwitchModel, parseModels, parseFallback)
 			}
 		}
-		if messageItem.Role != roleAssistant {
+		if parseMessageItem.Role != roleAssistant {
 			continue
 		}
-		modelID := strings.TrimSpace(messageItem.ModelID)
-		if modelID != "" {
-			return normalizeSelectedModelID(modelID, models, fallback)
+		parseModelID := strings.TrimSpace(parseMessageItem.ModelID)
+		if parseModelID != "" {
+			return parseNormalizeSelectedModelID(parseModelID, parseModels, parseFallback)
 		}
 	}
-	return normalizeSelectedModelID(fallback, models, fallback)
+	return parseNormalizeSelectedModelID(parseFallback, parseModels, parseFallback)
 }
 
-func normalizeSelectedToneID(toneID string) string {
-	toneID = strings.TrimSpace(toneID)
-	if toneID == "" {
+func parseNormalizeSelectedToneID(parseToneID string) string {
+	parseToneID = strings.TrimSpace(parseToneID)
+	if parseToneID == "" {
 		return defaultTone
 	}
-	for _, toneOption := range availableTones {
-		if toneOption.ID == toneID {
-			return toneID
+	for _, parseToneOption := range availableTones {
+		if parseToneOption.ParseID == parseToneID {
+			return parseToneID
 		}
 	}
 	return defaultTone
 }
 
-func normalizeSelectedThinkingEffort(effort string) string {
-	effort = strings.TrimSpace(strings.ToLower(effort))
-	if effort == "" {
+func parseNormalizeSelectedThinkingEffort(parseEffort string) string {
+	parseEffort = strings.TrimSpace(strings.ToLower(parseEffort))
+	if parseEffort == "" {
 		return defaultThinkingEffort
 	}
-	for _, option := range availableThinkingEfforts {
-		if option.ID == effort {
-			return effort
+	for _, parseOption := range availableThinkingEfforts {
+		if parseOption.ParseID == parseEffort {
+			return parseEffort
 		}
 	}
 	return defaultThinkingEffort
 }
 
-func modelLabelForID(modelID string, models []modelOption) string {
-	if option, ok := modelOptionByID(modelID, models); ok {
-		return option.Label
+func parseModelLabelForID(parseModelID string, parseModels []modelOption) string {
+	if parseOption, parseOk := parseModelOptionByID(parseModelID, parseModels); parseOk {
+		return parseOption.Label
 	}
-	if strings.TrimSpace(modelID) == "" {
+	if strings.TrimSpace(parseModelID) == "" {
 		return ""
 	}
-	return modelID
+	return parseModelID
 }
 
-func modelSupportsThinking(modelID string, models []modelOption, fallback string) bool {
-	resolvedModelID := normalizeSelectedModelID(modelID, models, fallback)
-	option, ok := modelOptionByID(resolvedModelID, models)
-	return ok && option.Capabilities.SupportsThinking
+func parseModelSupportsThinking(parseModelID string, parseModels []modelOption, parseFallback string) bool {
+	parseResolvedModelID := parseNormalizeSelectedModelID(parseModelID, parseModels, parseFallback)
+	parseOption, parseOk := parseModelOptionByID(parseResolvedModelID, parseModels)
+	return parseOk && parseOption.ParseCapabilities.SupportsThinking
 }
 
-func modelSupportsSpeech(modelID string, models []modelOption, fallback string) bool {
-	resolvedModelID := normalizeSelectedModelID(modelID, models, fallback)
-	option, ok := modelOptionByID(resolvedModelID, models)
-	return ok && option.Capabilities.SupportsSpeech
+func parseModelSupportsSpeech(parseModelID string, parseModels []modelOption, parseFallback string) bool {
+	parseResolvedModelID := parseNormalizeSelectedModelID(parseModelID, parseModels, parseFallback)
+	parseOption, parseOk := parseModelOptionByID(parseResolvedModelID, parseModels)
+	return parseOk && parseOption.ParseCapabilities.SupportsSpeech
 }
 
-func modelSupportsCapability(modelID string, models []modelOption, fallback string, capability string) bool {
-	switch strings.TrimSpace(strings.ToLower(capability)) {
+func parseModelSupportsCapability(parseModelID string, parseModels []modelOption, parseFallback string, parseCapability string) bool {
+	switch strings.TrimSpace(strings.ToLower(parseCapability)) {
 	case "thinking":
-		return modelSupportsThinking(modelID, models, fallback)
+		return parseModelSupportsThinking(parseModelID, parseModels, parseFallback)
 	case "speech":
-		return modelSupportsSpeech(modelID, models, fallback)
+		return parseModelSupportsSpeech(parseModelID, parseModels, parseFallback)
 	default:
 		return true
 	}
 }
 
-func filterModelsByCapability(models []modelOption, capability string) []modelOption {
-	capability = strings.TrimSpace(strings.ToLower(capability))
-	if capability == "" {
-		return append([]modelOption(nil), models...)
+func filterModelsByCapability(parseModels []modelOption, parseCapability string) []modelOption {
+	parseCapability = strings.TrimSpace(strings.ToLower(parseCapability))
+	if parseCapability == "" {
+		return append([]modelOption(nil), parseModels...)
 	}
-	filtered := make([]modelOption, 0, len(models))
-	for _, option := range models {
-		if modelSupportsCapability(option.ID, models, "", capability) {
-			filtered = append(filtered, option)
+	parseFiltered := make([]modelOption, 0, len(parseModels))
+	for _, parseOption := range parseModels {
+		if parseModelSupportsCapability(parseOption.ParseID, parseModels, "", parseCapability) {
+			parseFiltered = append(parseFiltered, parseOption)
 		}
 	}
-	if len(filtered) == 0 {
-		return append([]modelOption(nil), models...)
+	if len(parseFiltered) == 0 {
+		return append([]modelOption(nil), parseModels...)
 	}
-	return filtered
+	return parseFiltered
 }
 
-func sameModelOptions(left, right []modelOption) bool {
-	if len(left) != len(right) {
+func parseSameModelOptions(parseLeft, parseRight []modelOption) bool {
+	if len(parseLeft) != len(parseRight) {
 		return false
 	}
-	for idx := range left {
-		if left[idx] != right[idx] {
+	for parseIdx := range parseLeft {
+		if parseLeft[parseIdx] != parseRight[parseIdx] {
 			return false
 		}
 	}
 	return true
 }
 
-func previewLogText(text string, maxLen int) string {
-	trimmedText := strings.TrimSpace(text)
-	if maxLen <= 0 || len(trimmedText) <= maxLen {
-		return trimmedText
+func parsePreviewLogText(parseText string, parseMaxLen int) string {
+	parseTrimmedText := strings.TrimSpace(parseText)
+	if parseMaxLen <= 0 || len(parseTrimmedText) <= parseMaxLen {
+		return parseTrimmedText
 	}
-	if maxLen <= 1 {
-		return trimmedText[:maxLen]
+	if parseMaxLen <= 1 {
+		return parseTrimmedText[:parseMaxLen]
 	}
-	return trimmedText[:maxLen-1] + "…"
+	return parseTrimmedText[:parseMaxLen-1] + "…"
 }
 
-func thoughtSectionKey(messageIndex, sectionIndex int, heading string) string {
-	return fmt.Sprintf("%d:%d:%s", messageIndex, sectionIndex, strings.TrimSpace(heading))
+func parseThoughtSectionKey(parseMessageIndex, parseSectionIndex int, parseHeading string) string {
+	return fmt.Sprintf("%d:%d:%s", parseMessageIndex, parseSectionIndex, strings.TrimSpace(parseHeading))
 }
 
-func materializeThoughtSections(messageIndex int, cachedSections []thoughtSection) []thoughtSection {
-	if len(cachedSections) == 0 {
+func parseMaterializeThoughtSections(parseMessageIndex int, parseCachedSections []thoughtSection) []thoughtSection {
+	if len(parseCachedSections) == 0 {
 		return nil
 	}
-	sections := make([]thoughtSection, len(cachedSections))
-	for idx, section := range cachedSections {
-		sections[idx] = thoughtSection{
-			Key:     thoughtSectionKey(messageIndex, idx, section.Heading),
-			Heading: section.Heading,
-			Body:    section.Body,
+	parseSections := make([]thoughtSection, len(parseCachedSections))
+	for parseIdx, parseSection := range parseCachedSections {
+		parseSections[parseIdx] = thoughtSection{
+			Key:     parseThoughtSectionKey(parseMessageIndex, parseIdx, parseSection.Heading),
+			Heading: parseSection.Heading,
+			Body:    parseSection.Body,
 		}
 	}
-	return sections
+	return parseSections
 }
 
-func parseThoughtHeading(line string) (string, bool) {
-	trimmedLine := strings.TrimSpace(line)
-	if !strings.HasPrefix(trimmedLine, "**") || !strings.HasSuffix(trimmedLine, "**") || len(trimmedLine) <= 4 {
+func parseThoughtHeading(parseLine string) (string, bool) {
+	parseTrimmedLine := strings.TrimSpace(parseLine)
+	if !strings.HasPrefix(parseTrimmedLine, "**") || !strings.HasSuffix(parseTrimmedLine, "**") || len(parseTrimmedLine) <= 4 {
 		return "", false
 	}
-	heading := strings.TrimSpace(trimmedLine[2 : len(trimmedLine)-2])
-	return heading, heading != ""
+	parseHeading := strings.TrimSpace(parseTrimmedLine[2 : len(parseTrimmedLine)-2])
+	return parseHeading, parseHeading != ""
 }
 
-func parseThoughtSections(messageIndex int, thoughtText string) []thoughtSection {
-	normalizedText := strings.TrimSpace(strings.ReplaceAll(thoughtText, "\r\n", "\n"))
-	if normalizedText == "" {
+func parseThoughtSections(parseMessageIndex int, parseThoughtText string) []thoughtSection {
+	parseNormalizedText := strings.TrimSpace(strings.ReplaceAll(parseThoughtText, "\r\n", "\n"))
+	if parseNormalizedText == "" {
 		return nil
 	}
-	if cachedSections, ok := thoughtSectionsCache[normalizedText]; ok {
-		return materializeThoughtSections(messageIndex, cachedSections)
+	if parseCachedSections, parseOk := thoughtSectionsCache[parseNormalizedText]; parseOk {
+		return parseMaterializeThoughtSections(parseMessageIndex, parseCachedSections)
 	}
 
-	lines := strings.Split(normalizedText, "\n")
-	sections := make([]thoughtSection, 0, 4)
-	currentHeading := ""
-	currentBodyLines := make([]string, 0, len(lines))
+	parseLines := strings.Split(parseNormalizedText, "\n")
+	parseSections := make([]thoughtSection, 0, 4)
+	parseCurrentHeading := ""
+	parseCurrentBodyLines := make([]string, 0, len(parseLines))
 
-	flushCurrent := func() {
-		if currentHeading == "" && len(currentBodyLines) == 0 {
+	parseFlushCurrent := func() {
+		if parseCurrentHeading == "" && len(parseCurrentBodyLines) == 0 {
 			return
 		}
-		heading := strings.TrimSpace(currentHeading)
-		body := strings.TrimSpace(strings.Join(currentBodyLines, "\n"))
-		if heading == "" {
-			heading = "Thinking"
+		parseHeading := strings.TrimSpace(parseCurrentHeading)
+		parseBody := strings.TrimSpace(strings.Join(parseCurrentBodyLines, "\n"))
+		if parseHeading == "" {
+			parseHeading = "Thinking"
 		}
-		sections = append(sections, thoughtSection{
-			Heading: heading,
-			Body:    body,
+		parseSections = append(parseSections, thoughtSection{
+			Heading: parseHeading,
+			Body:    parseBody,
 		})
-		currentHeading = ""
-		currentBodyLines = currentBodyLines[:0]
+		parseCurrentHeading = ""
+		parseCurrentBodyLines = parseCurrentBodyLines[:0]
 	}
 
-	for _, line := range lines {
-		trimmedLine := strings.TrimSpace(line)
-		if len(sections) == 0 && currentHeading == "" && len(currentBodyLines) == 0 && strings.EqualFold(trimmedLine, "thinking") {
+	for _, parseLine := range parseLines {
+		parseTrimmedLine := strings.TrimSpace(parseLine)
+		if len(parseSections) == 0 && parseCurrentHeading == "" && len(parseCurrentBodyLines) == 0 && strings.EqualFold(parseTrimmedLine, "thinking") {
 			continue
 		}
-		if heading, ok := parseThoughtHeading(trimmedLine); ok {
-			flushCurrent()
-			currentHeading = heading
+		if parseHeading2, parseOk2 := parseThoughtHeading(parseTrimmedLine); parseOk2 {
+			parseFlushCurrent()
+			parseCurrentHeading = parseHeading2
 			continue
 		}
-		currentBodyLines = append(currentBodyLines, line)
+		parseCurrentBodyLines = append(parseCurrentBodyLines, parseLine)
 	}
-	flushCurrent()
+	parseFlushCurrent()
 
-	if len(sections) == 0 {
-		sections = []thoughtSection{{
+	if len(parseSections) == 0 {
+		parseSections = []thoughtSection{{
 			Heading: "Thinking",
-			Body:    normalizedText,
+			Body:    parseNormalizedText,
 		}}
 	}
 
-	thoughtSectionsCache[normalizedText] = sections
-	return materializeThoughtSections(messageIndex, sections)
+	thoughtSectionsCache[parseNormalizedText] = parseSections
+	return parseMaterializeThoughtSections(parseMessageIndex, parseSections)
 }
 
-func exactAssistantMessageCost(modelID string, models []modelOption, promptTokens, completionTokens int) (assistantMessageCost, bool) {
-	trimmedModelID := strings.TrimSpace(modelID)
-	option, foundOption := modelOptionByID(trimmedModelID, models)
-	if !foundOption || (promptTokens <= 0 && completionTokens <= 0) {
+func parseExactAssistantMessageCost(parseModelID string, parseModels []modelOption, parsePromptTokens, parseCompletionTokens int) (assistantMessageCost, bool) {
+	parseTrimmedModelID := strings.TrimSpace(parseModelID)
+	parseOption, parseFoundOption := parseModelOptionByID(parseTrimmedModelID, parseModels)
+	if !parseFoundOption || (parsePromptTokens <= 0 && parseCompletionTokens <= 0) {
 		return assistantMessageCost{
-			ModelID:          trimmedModelID,
-			PromptTokens:     promptTokens,
-			CompletionTokens: completionTokens,
+			ModelID:          parseTrimmedModelID,
+			PromptTokens:     parsePromptTokens,
+			CompletionTokens: parseCompletionTokens,
 		}, false
 	}
-	pricing := option.Pricing
-	cost := (float64(promptTokens) * pricing.InputDollarsPerMillion / 1_000_000) +
-		(float64(completionTokens) * pricing.OutputDollarsPerMillion / 1_000_000)
+	parsePricing := parseOption.ParsePricing
+	parseCost := (float64(parsePromptTokens) * parsePricing.InputDollarsPerMillion / 1_000_000) +
+		(float64(parseCompletionTokens) * parsePricing.OutputDollarsPerMillion / 1_000_000)
 	return assistantMessageCost{
-		ModelID:          trimmedModelID,
-		PromptTokens:     promptTokens,
-		CompletionTokens: completionTokens,
-		Cost:             cost,
+		ModelID:          parseTrimmedModelID,
+		PromptTokens:     parsePromptTokens,
+		CompletionTokens: parseCompletionTokens,
+		Cost:             parseCost,
 	}, true
 }
 
-func threadCostSummarySignature(messages []message, models []modelOption) string {
-	var builder strings.Builder
-	for _, option := range models {
-		builder.WriteString(fmt.Sprintf("model|%s|%.6f|%.6f|%s\n", option.ID, option.Pricing.InputDollarsPerMillion, option.Pricing.OutputDollarsPerMillion, option.Pricing.Currency))
+func parseThreadCostSummarySignature(parseMessages []message, parseModels []modelOption) string {
+	var parseBuilder strings.Builder
+	for _, parseOption := range parseModels {
+		parseBuilder.WriteString(fmt.Sprintf("model|%s|%.6f|%.6f|%s\n", parseOption.ParseID, parseOption.ParsePricing.InputDollarsPerMillion, parseOption.ParsePricing.OutputDollarsPerMillion, parseOption.ParsePricing.Currency))
 	}
-	builder.WriteString("--\n")
-	for messageIndex, messageItem := range messages {
-		if messageItem.Role != roleAssistant || messageItem.Pending {
+	parseBuilder.WriteString("--\n")
+	for parseMessageIndex, parseMessageItem := range parseMessages {
+		if parseMessageItem.Role != roleAssistant || parseMessageItem.Pending {
 			continue
 		}
-		if strings.TrimSpace(messageItem.Content) == "" {
+		if strings.TrimSpace(parseMessageItem.Content) == "" {
 			continue
 		}
-		builder.WriteString(fmt.Sprintf("%d|%s|%d|%d\n", messageIndex, messageItem.ModelID, messageItem.PromptTokens, messageItem.CompletionTokens))
+		parseBuilder.WriteString(fmt.Sprintf("%d|%s|%d|%d\n", parseMessageIndex, parseMessageItem.ModelID, parseMessageItem.PromptTokens, parseMessageItem.CompletionTokens))
 	}
-	return builder.String()
+	return parseBuilder.ParseString()
 }
 
-func deriveThreadCostSummary(messages []message, models []modelOption) threadCostSummary {
-	signature := threadCostSummarySignature(messages, models)
-	if cachedSummary, ok := threadCostSummaryCache[signature]; ok {
-		return cachedSummary
+func parseDeriveThreadCostSummary(parseMessages []message, parseModels []modelOption) threadCostSummary {
+	parseSignature := parseThreadCostSummarySignature(parseMessages, parseModels)
+	if parseCachedSummary, parseOk := threadCostSummaryCache[parseSignature]; parseOk {
+		return parseCachedSummary
 	}
-	summary := threadCostSummary{
+	parseSummary := threadCostSummary{
 		AssistantMessageCosts:  make(map[int]assistantMessageCost),
 		AllAssistantCostsExact: true,
 	}
-	assistantMessageCount := 0
+	parseAssistantMessageCount := 0
 
-	for messageIndex, messageItem := range messages {
-		if messageItem.Role != roleAssistant || messageItem.Pending {
+	for parseMessageIndex, parseMessageItem := range parseMessages {
+		if parseMessageItem.Role != roleAssistant || parseMessageItem.Pending {
 			continue
 		}
-		if strings.TrimSpace(messageItem.Content) == "" {
+		if strings.TrimSpace(parseMessageItem.Content) == "" {
 			continue
 		}
-		assistantMessageCount++
-		messageCost, hasExactCost := exactAssistantMessageCost(messageItem.ModelID, models, messageItem.PromptTokens, messageItem.CompletionTokens)
+		parseAssistantMessageCount++
+		parseMessageCost, hasExactCost := parseExactAssistantMessageCost(parseMessageItem.ModelID, parseModels, parseMessageItem.PromptTokens, parseMessageItem.CompletionTokens)
 		if !hasExactCost {
-			summary.AllAssistantCostsExact = false
+			parseSummary.AllAssistantCostsExact = false
 			continue
 		}
-		summary.AssistantMessageCosts[messageIndex] = messageCost
-		summary.TotalCost += messageCost.Cost
-		summary.HasAnyExactCosts = true
+		parseSummary.AssistantMessageCosts[parseMessageIndex] = parseMessageCost
+		parseSummary.TotalCost += parseMessageCost.Cost
+		parseSummary.HasAnyExactCosts = true
 	}
-	if assistantMessageCount == 0 {
-		summary.AllAssistantCostsExact = false
+	if parseAssistantMessageCount == 0 {
+		parseSummary.AllAssistantCostsExact = false
 	}
 
-	threadCostSummaryCache[signature] = summary
-	return summary
+	threadCostSummaryCache[parseSignature] = parseSummary
+	return parseSummary
 }
 
-func formatCostUSD(cost float64) string {
+func formatCostUSD(parseCost float64) string {
 	switch {
-	case cost >= 1:
-		return fmt.Sprintf("$%.2f", cost)
-	case cost >= 0.01:
-		return fmt.Sprintf("$%.3f", cost)
-	case cost >= 0.001:
-		return fmt.Sprintf("$%.4f", cost)
+	case parseCost >= 1:
+		return fmt.Sprintf("$%.2f", parseCost)
+	case parseCost >= 0.01:
+		return fmt.Sprintf("$%.3f", parseCost)
+	case parseCost >= 0.001:
+		return fmt.Sprintf("$%.4f", parseCost)
 	default:
-		return fmt.Sprintf("$%.5f", cost)
+		return fmt.Sprintf("$%.5f", parseCost)
 	}
 }
 
-func formatPercentValue(value float64) string {
-	rounded := math.Round(value)
-	if math.Abs(value-rounded) < 0.000001 {
-		return fmt.Sprintf("%.0f", rounded)
+func formatPercentValue(parseValue float64) string {
+	parseRounded := math.Round(parseValue)
+	if math.Abs(parseValue-parseRounded) < 0.000001 {
+		return fmt.Sprintf("%.0f", parseRounded)
 	}
-	if value >= 10 {
-		return fmt.Sprintf("%.1f", value)
+	if parseValue >= 10 {
+		return fmt.Sprintf("%.1f", parseValue)
 	}
-	return fmt.Sprintf("%.2f", value)
+	return fmt.Sprintf("%.2f", parseValue)
 }
 
-func sanitizeUsagePremiumPercent(value, fallback float64) float64 {
-	if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
-		return fallback
+func parseSanitizeUsagePremiumPercent(parseValue, parseFallback float64) float64 {
+	if math.IsNaN(parseValue) || math.IsInf(parseValue, 0) || parseValue < 0 {
+		return parseFallback
 	}
-	if value > 1000 {
+	if parseValue > 1000 {
 		return 1000
 	}
-	return value
+	return parseValue
 }
 
-func configuredUsagePremiumPercent() float64 {
-	fallback := sanitizeUsagePremiumPercent(defaultUsagePremiumPercent, 5.0)
-	env, err := interop.GetWindowEnv()
-	if err != nil {
-		return fallback
+func parseConfiguredUsagePremiumPercent() float64 {
+	parseFallback := parseSanitizeUsagePremiumPercent(defaultUsagePremiumPercent, 5.0)
+	parseEnv, parseErr := interop.GetWindowEnv()
+	if parseErr != nil {
+		return parseFallback
 	}
-	rawValue, ok := env.LookupString(usagePremiumWindowKey)
-	if !ok {
-		return fallback
+	parseRawValue, parseOk := parseEnv.LookupString(usagePremiumWindowKey)
+	if !parseOk {
+		return parseFallback
 	}
-	parsed, err := strconv.ParseFloat(strings.TrimSpace(rawValue), 64)
-	if err != nil {
-		return fallback
+	parseParsed, parseErr := strconv.ParseFloat(strings.TrimSpace(parseRawValue), 64)
+	if parseErr != nil {
+		return parseFallback
 	}
-	return sanitizeUsagePremiumPercent(parsed, fallback)
+	return parseSanitizeUsagePremiumPercent(parseParsed, parseFallback)
 }
 
-func applyUsagePremium(usageCost, premiumPercent float64) (premiumCost float64, totalCost float64) {
-	normalizedUsageCost := usageCost
-	if normalizedUsageCost < 0 {
-		normalizedUsageCost = 0
+func applyUsagePremium(parseUsageCost, parsePremiumPercent float64) (parsePremiumCost float64, parseTotalCost float64) {
+	parseNormalizedUsageCost := parseUsageCost
+	if parseNormalizedUsageCost < 0 {
+		parseNormalizedUsageCost = 0
 	}
-	normalizedPremiumPct := sanitizeUsagePremiumPercent(premiumPercent, defaultUsagePremiumPercent)
-	premiumCost = normalizedUsageCost * normalizedPremiumPct / 100
-	totalCost = normalizedUsageCost + premiumCost
-	return premiumCost, totalCost
+	parseNormalizedPremiumPct := parseSanitizeUsagePremiumPercent(parsePremiumPercent, defaultUsagePremiumPercent)
+	parsePremiumCost = parseNormalizedUsageCost * parseNormalizedPremiumPct / 100
+	parseTotalCost = parseNormalizedUsageCost + parsePremiumCost
+	return parsePremiumCost, parseTotalCost
 }
 
-func deriveAccountCostSummary(threadSummaries []threadCostSummary, premiumPercent float64, failedThreadLookups int) accountCostSummary {
-	normalizedPremiumPct := sanitizeUsagePremiumPercent(premiumPercent, defaultUsagePremiumPercent)
-	summary := accountCostSummary{
-		ThreadCount:         len(threadSummaries) + maxInt(0, failedThreadLookups),
-		PremiumPercent:      normalizedPremiumPct,
-		AllThreadCostsExact: failedThreadLookups == 0,
-		FailedThreadLookups: maxInt(0, failedThreadLookups),
+func parseDeriveAccountCostSummary(parseThreadSummaries []threadCostSummary, parsePremiumPercent float64, parseFailedThreadLookups int) accountCostSummary {
+	parseNormalizedPremiumPct := parseSanitizeUsagePremiumPercent(parsePremiumPercent, defaultUsagePremiumPercent)
+	parseSummary := accountCostSummary{
+		ThreadCount:         len(parseThreadSummaries) + parseMaxInt(0, parseFailedThreadLookups),
+		PremiumPercent:      parseNormalizedPremiumPct,
+		AllThreadCostsExact: parseFailedThreadLookups == 0,
+		FailedThreadLookups: parseMaxInt(0, parseFailedThreadLookups),
 	}
-	if summary.FailedThreadLookups > 0 {
-		summary.HasCoverageGaps = true
+	if parseSummary.FailedThreadLookups > 0 {
+		parseSummary.HasCoverageGaps = true
 	}
-	for _, threadSummary := range threadSummaries {
-		if threadSummary.HasAnyExactCosts {
-			summary.HasAnyExactCosts = true
-			summary.ExactThreadCostCount++
-			summary.UsageCost += threadSummary.TotalCost
+	for _, parseThreadSummary := range parseThreadSummaries {
+		if parseThreadSummary.HasAnyExactCosts {
+			parseSummary.HasAnyExactCosts = true
+			parseSummary.ExactThreadCostCount++
+			parseSummary.UsageCost += parseThreadSummary.TotalCost
 		}
-		if !threadSummary.AllAssistantCostsExact {
-			summary.AllThreadCostsExact = false
-			summary.HasCoverageGaps = true
+		if !parseThreadSummary.AllAssistantCostsExact {
+			parseSummary.AllThreadCostsExact = false
+			parseSummary.HasCoverageGaps = true
 		}
 	}
-	if summary.ThreadCount == 0 {
-		summary.AllThreadCostsExact = false
+	if parseSummary.ThreadCount == 0 {
+		parseSummary.AllThreadCostsExact = false
 	}
-	summary.PremiumCost, summary.TotalCost = applyUsagePremium(summary.UsageCost, normalizedPremiumPct)
-	return summary
+	parseSummary.PremiumCost, parseSummary.TotalCost = applyUsagePremium(parseSummary.UsageCost, parseNormalizedPremiumPct)
+	return parseSummary
 }
 
 // ─── state helpers ────────────────────────────────────────────────────────────
 
-func cloneMessages(previousMessages []message) []message {
-	return append([]message(nil), previousMessages...)
+func parseCloneMessages(parsePreviousMessages []message) []message {
+	return append([]message(nil), parsePreviousMessages...)
 }
 
-func lastPendingMessageIndex(messages []message) int {
-	for index := len(messages) - 1; index >= 0; index-- {
-		if messages[index].Pending {
-			return index
+func parseLastPendingMessageIndex(parseMessages []message) int {
+	for parseIndex := len(parseMessages) - 1; parseIndex >= 0; parseIndex-- {
+		if parseMessages[parseIndex].Pending {
+			return parseIndex
 		}
 	}
 	return -1
 }
 
-func appendAssistantMessageDeltaValue(previousMessages []message, deltaText string) []message {
-	if len(previousMessages) == 0 {
-		return previousMessages
+func parseAppendAssistantMessageDeltaValue(parsePreviousMessages []message, parseDeltaText string) []message {
+	if len(parsePreviousMessages) == 0 {
+		return parsePreviousMessages
 	}
-	lastIndex := len(previousMessages) - 1
-	updatedMessages := cloneMessages(previousMessages)
-	lastMessage := updatedMessages[lastIndex]
-	lastMessage.Content += deltaText
-	updatedMessages[lastIndex] = lastMessage
-	return updatedMessages
+	parseLastIndex := len(parsePreviousMessages) - 1
+	parseUpdatedMessages := parseCloneMessages(parsePreviousMessages)
+	parseLastMessage := parseUpdatedMessages[parseLastIndex]
+	parseLastMessage.Content += parseDeltaText
+	parseUpdatedMessages[parseLastIndex] = parseLastMessage
+	return parseUpdatedMessages
 }
 
-func appendAssistantMessageDelta(messagesState ui.State[[]message], deltaText string) {
-	messagesState.Update(func(previousMessages []message) []message {
-		return appendAssistantMessageDeltaValue(previousMessages, deltaText)
+func parseAppendAssistantMessageDelta(parseMessagesState ui.State[[]message], parseDeltaText string) {
+	parseMessagesState.Update(func(parsePreviousMessages []message) []message {
+		return parseAppendAssistantMessageDeltaValue(parsePreviousMessages, parseDeltaText)
 	})
 }
 
-func appendAssistantThoughtDeltaValue(previousMessages []message, deltaText string) []message {
-	if len(previousMessages) == 0 {
-		return previousMessages
+func parseAppendAssistantThoughtDeltaValue(parsePreviousMessages []message, parseDeltaText string) []message {
+	if len(parsePreviousMessages) == 0 {
+		return parsePreviousMessages
 	}
-	lastIndex := len(previousMessages) - 1
-	updatedMessages := cloneMessages(previousMessages)
-	lastMessage := updatedMessages[lastIndex]
-	lastMessage.Thought += deltaText
-	lastMessage.ThoughtPending = true
-	updatedMessages[lastIndex] = lastMessage
-	return updatedMessages
+	parseLastIndex := len(parsePreviousMessages) - 1
+	parseUpdatedMessages := parseCloneMessages(parsePreviousMessages)
+	parseLastMessage := parseUpdatedMessages[parseLastIndex]
+	parseLastMessage.Thought += parseDeltaText
+	parseLastMessage.ThoughtPending = true
+	parseUpdatedMessages[parseLastIndex] = parseLastMessage
+	return parseUpdatedMessages
 }
 
-func appendAssistantThoughtDelta(messagesState ui.State[[]message], deltaText string) {
-	messagesState.Update(func(previousMessages []message) []message {
-		return appendAssistantThoughtDeltaValue(previousMessages, deltaText)
+func parseAppendAssistantThoughtDelta(parseMessagesState ui.State[[]message], parseDeltaText string) {
+	parseMessagesState.Update(func(parsePreviousMessages []message) []message {
+		return parseAppendAssistantThoughtDeltaValue(parsePreviousMessages, parseDeltaText)
 	})
 }
 
-func markPendingAssistantThoughtCompleteValue(previousMessages []message) []message {
-	pendingIndex := lastPendingMessageIndex(previousMessages)
-	if pendingIndex < 0 {
-		return previousMessages
+func parseMarkPendingAssistantThoughtCompleteValue(parsePreviousMessages []message) []message {
+	parsePendingIndex := parseLastPendingMessageIndex(parsePreviousMessages)
+	if parsePendingIndex < 0 {
+		return parsePreviousMessages
 	}
-	updatedMessages := cloneMessages(previousMessages)
-	updatedMessages[pendingIndex].ThoughtPending = false
-	return updatedMessages
+	parseUpdatedMessages := parseCloneMessages(parsePreviousMessages)
+	parseUpdatedMessages[parsePendingIndex].ThoughtPending = false
+	return parseUpdatedMessages
 }
 
-func markPendingAssistantThoughtComplete(messagesState ui.State[[]message]) {
-	messagesState.Update(func(previousMessages []message) []message {
-		return markPendingAssistantThoughtCompleteValue(previousMessages)
+func parseMarkPendingAssistantThoughtComplete(parseMessagesState ui.State[[]message]) {
+	parseMessagesState.Update(func(parsePreviousMessages []message) []message {
+		return parseMarkPendingAssistantThoughtCompleteValue(parsePreviousMessages)
 	})
 }
 
-func finalizePendingMessagesValue(previousMessages []message) []message {
-	pendingIndex := lastPendingMessageIndex(previousMessages)
-	if pendingIndex < 0 {
-		return previousMessages
+func parseFinalizePendingMessagesValue(parsePreviousMessages []message) []message {
+	parsePendingIndex := parseLastPendingMessageIndex(parsePreviousMessages)
+	if parsePendingIndex < 0 {
+		return parsePreviousMessages
 	}
-	updatedMessages := cloneMessages(previousMessages)
-	updatedMessages[pendingIndex].Pending = false
-	updatedMessages[pendingIndex].ThoughtPending = false
-	return updatedMessages
+	parseUpdatedMessages := parseCloneMessages(parsePreviousMessages)
+	parseUpdatedMessages[parsePendingIndex].Pending = false
+	parseUpdatedMessages[parsePendingIndex].ThoughtPending = false
+	return parseUpdatedMessages
 }
 
-func finalizePendingMessages(messagesState ui.State[[]message]) {
-	messagesState.Update(func(previousMessages []message) []message {
-		return finalizePendingMessagesValue(previousMessages)
+func parseFinalizePendingMessages(parseMessagesState ui.State[[]message]) {
+	parseMessagesState.Update(func(parsePreviousMessages []message) []message {
+		return parseFinalizePendingMessagesValue(parsePreviousMessages)
 	})
 }
 
-func finalizePendingMessageWithStatsValue(previousMessages []message, timeToFirstTokenSeconds, tokensPerSecond float64, totalTokenCount int, modelID string, promptTokens, completionTokens int) []message {
-	pendingIndex := lastPendingMessageIndex(previousMessages)
-	if pendingIndex < 0 {
-		return previousMessages
+func parseFinalizePendingMessageWithStatsValue(parsePreviousMessages []message, parseTimeToFirstTokenSeconds, parseTokensPerSecond float64, parseTotalTokenCount int, parseModelID string, parsePromptTokens, parseCompletionTokens int) []message {
+	parsePendingIndex := parseLastPendingMessageIndex(parsePreviousMessages)
+	if parsePendingIndex < 0 {
+		return parsePreviousMessages
 	}
-	updatedMessages := cloneMessages(previousMessages)
-	updatedMessages[pendingIndex].Pending = false
-	updatedMessages[pendingIndex].ThoughtPending = false
-	updatedMessages[pendingIndex].ModelID = modelID
-	updatedMessages[pendingIndex].PromptTokens = promptTokens
-	updatedMessages[pendingIndex].CompletionTokens = completionTokens
-	updatedMessages[pendingIndex].TTFT = timeToFirstTokenSeconds
-	updatedMessages[pendingIndex].TKPS = tokensPerSecond
-	updatedMessages[pendingIndex].Tokens = totalTokenCount
-	if completionTokens > 0 {
-		updatedMessages[pendingIndex].Tokens = completionTokens
+	parseUpdatedMessages := parseCloneMessages(parsePreviousMessages)
+	parseUpdatedMessages[parsePendingIndex].Pending = false
+	parseUpdatedMessages[parsePendingIndex].ThoughtPending = false
+	parseUpdatedMessages[parsePendingIndex].ModelID = parseModelID
+	parseUpdatedMessages[parsePendingIndex].PromptTokens = parsePromptTokens
+	parseUpdatedMessages[parsePendingIndex].CompletionTokens = parseCompletionTokens
+	parseUpdatedMessages[parsePendingIndex].TTFT = parseTimeToFirstTokenSeconds
+	parseUpdatedMessages[parsePendingIndex].TKPS = parseTokensPerSecond
+	parseUpdatedMessages[parsePendingIndex].Tokens = parseTotalTokenCount
+	if parseCompletionTokens > 0 {
+		parseUpdatedMessages[parsePendingIndex].Tokens = parseCompletionTokens
 	}
-	return updatedMessages
+	return parseUpdatedMessages
 }
 
-func finalizePendingMessageWithStats(messagesState ui.State[[]message], timeToFirstTokenSeconds, tokensPerSecond float64, totalTokenCount int, modelID string, promptTokens, completionTokens int) {
-	messagesState.Update(func(previousMessages []message) []message {
-		return finalizePendingMessageWithStatsValue(previousMessages, timeToFirstTokenSeconds, tokensPerSecond, totalTokenCount, modelID, promptTokens, completionTokens)
+func parseFinalizePendingMessageWithStats(parseMessagesState ui.State[[]message], parseTimeToFirstTokenSeconds, parseTokensPerSecond float64, parseTotalTokenCount int, parseModelID string, parsePromptTokens, parseCompletionTokens int) {
+	parseMessagesState.Update(func(parsePreviousMessages []message) []message {
+		return parseFinalizePendingMessageWithStatsValue(parsePreviousMessages, parseTimeToFirstTokenSeconds, parseTokensPerSecond, parseTotalTokenCount, parseModelID, parsePromptTokens, parseCompletionTokens)
 	})
 }
 
-func replacePendingMessageWithErrorValue(previousMessages []message, errorMessage string) []message {
-	pendingIndex := lastPendingMessageIndex(previousMessages)
-	if pendingIndex < 0 {
-		updatedMessages := cloneMessages(previousMessages)
-		return append(updatedMessages, message{Role: roleAssistant, Content: errorMessage})
+func parseReplacePendingMessageWithErrorValue(parsePreviousMessages []message, parseErrorMessage string) []message {
+	parsePendingIndex := parseLastPendingMessageIndex(parsePreviousMessages)
+	if parsePendingIndex < 0 {
+		parseUpdatedMessages := parseCloneMessages(parsePreviousMessages)
+		return append(parseUpdatedMessages, message{Role: roleAssistant, Content: parseErrorMessage})
 	}
-	updatedMessages := cloneMessages(previousMessages)
-	updatedMessages[pendingIndex] = message{Role: roleAssistant, Content: errorMessage}
-	return updatedMessages
+	parseUpdatedMessages2 := parseCloneMessages(parsePreviousMessages)
+	parseUpdatedMessages2[parsePendingIndex] = message{Role: roleAssistant, Content: parseErrorMessage}
+	return parseUpdatedMessages2
 }
 
-func replacePendingMessageWithError(messagesState ui.State[[]message], errorMessage string) {
-	messagesState.Update(func(previousMessages []message) []message {
-		return replacePendingMessageWithErrorValue(previousMessages, errorMessage)
+func parseReplacePendingMessageWithError(parseMessagesState ui.State[[]message], parseErrorMessage string) {
+	parseMessagesState.Update(func(parsePreviousMessages []message) []message {
+		return parseReplacePendingMessageWithErrorValue(parsePreviousMessages, parseErrorMessage)
 	})
 }

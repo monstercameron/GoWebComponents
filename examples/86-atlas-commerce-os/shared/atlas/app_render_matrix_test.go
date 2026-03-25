@@ -7,18 +7,18 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func TestAppRenderMatrixAcrossPublicAndInternalRoutes(t *testing.T) {
-	baseInventoryRows := sampleInventoryRows()
-	baseProducts := sampleProductCards()
-	baseWarehouses := sampleWarehouseCards()
-	baseComments := sampleCommentRecords()
-	baseTransfers := sampleTransferRecords()
-	baseOrders := samplePurchaseOrders()
-	baseReceiving := sampleReceivingRecords()
-	baseWarehouseOps := sampleWarehouseOpsRecords()
-	baseProductAdmins := sampleProductAdminCards()
+func TestAppRenderMatrixAcrossPublicAndInternalRoutes(parseT *testing.T) {
+	parseBaseInventoryRows := sampleInventoryRows()
+	parseBaseProducts := sampleProductCards()
+	parseBaseWarehouses := sampleWarehouseCards()
+	parseBaseComments := sampleCommentRecords()
+	parseBaseTransfers := sampleTransferRecords()
+	parseBaseOrders := samplePurchaseOrders()
+	parseBaseReceiving := sampleReceivingRecords()
+	parseBaseWarehouseOps := sampleWarehouseOpsRecords()
+	parseBaseProductAdmins := sampleProductAdminCards()
 
-	cases := []struct {
+	parseCases := []struct {
 		name    string
 		path    string
 		page    any
@@ -32,8 +32,8 @@ func TestAppRenderMatrixAcrossPublicAndInternalRoutes(t *testing.T) {
 			name: "catalog",
 			path: RouteCatalog,
 			page: catalogPage{
-				Items:    baseProducts,
-				Total:    len(baseProducts),
+				Items:    parseBaseProducts,
+				Total:    len(parseBaseProducts),
 				Page:     1,
 				PageSize: 12,
 				Query: catalogQueryState{
@@ -49,31 +49,31 @@ func TestAppRenderMatrixAcrossPublicAndInternalRoutes(t *testing.T) {
 			name: "product-detail",
 			path: RouteProduct,
 			page: productDetailPage{
-				Product:  baseProducts[0],
-				Comments: baseComments,
+				Product:  parseBaseProducts[0],
+				Comments: parseBaseComments,
 			},
 		},
 		{
 			name: "warehouses-directory",
 			path: RouteWarehouses,
 			page: warehouseDirectoryPage{
-				Items: baseWarehouses,
+				Items: parseBaseWarehouses,
 			},
 		},
 		{
 			name: "warehouse-public-detail",
 			path: RouteWarehousePublicDetail,
 			page: warehouseDetailPage{
-				Warehouse: baseWarehouses[0],
-				Products:  baseProducts,
+				Warehouse: parseBaseWarehouses[0],
+				Products:  parseBaseProducts,
 			},
 		},
 		{
 			name: "availability",
 			path: RouteWarehouseAvailability,
 			page: availabilityPage{
-				Warehouse: baseWarehouses[0],
-				Product:   baseProducts[0],
+				Warehouse: parseBaseWarehouses[0],
+				Product:   parseBaseProducts[0],
 				Available: 2,
 				Inbound:   4,
 				Status:    "promise_risk",
@@ -85,10 +85,10 @@ func TestAppRenderMatrixAcrossPublicAndInternalRoutes(t *testing.T) {
 			page: dashboardPage{
 				Summary:   sampleSummary("Dashboard pulse"),
 				Alerts:    3,
-				Transfers: baseTransfers,
-				Receiving: baseReceiving,
-				Comments:  baseComments,
-				Orders:    baseOrders,
+				Transfers: parseBaseTransfers,
+				Receiving: parseBaseReceiving,
+				Comments:  parseBaseComments,
+				Orders:    parseBaseOrders,
 			},
 		},
 		{
@@ -96,7 +96,7 @@ func TestAppRenderMatrixAcrossPublicAndInternalRoutes(t *testing.T) {
 			path: RouteInventory,
 			page: inventoryCMSPage{
 				Summary: sampleSummary("Inventory shell"),
-				Items:   baseInventoryRows,
+				Items:   parseBaseInventoryRows,
 				Filters: map[string]string{
 					"warehouse": "new-jersey-hub",
 					"status":    "promise_risk",
@@ -110,7 +110,7 @@ func TestAppRenderMatrixAcrossPublicAndInternalRoutes(t *testing.T) {
 			page: inventoryDetailPage{
 				SKU:   "frame-desk",
 				Title: "Frame Desk",
-				Rows:  baseInventoryRows,
+				Rows:  parseBaseInventoryRows,
 			},
 		},
 		{
@@ -119,7 +119,7 @@ func TestAppRenderMatrixAcrossPublicAndInternalRoutes(t *testing.T) {
 			page: inventoryDetailPage{
 				SKU:   "frame-desk",
 				Title: "Frame Desk",
-				Rows:  baseInventoryRows,
+				Rows:  parseBaseInventoryRows,
 			},
 			overlay: inventoryThresholdHistoryPanelPage{
 				SKU: "frame-desk",
@@ -155,7 +155,7 @@ func TestAppRenderMatrixAcrossPublicAndInternalRoutes(t *testing.T) {
 			path: RouteWarehouseOps,
 			page: warehouseOpsList{
 				Summary: sampleSummary("Warehouse operations"),
-				Items:   baseWarehouseOps,
+				Items:   parseBaseWarehouseOps,
 			},
 		},
 		{
@@ -163,9 +163,9 @@ func TestAppRenderMatrixAcrossPublicAndInternalRoutes(t *testing.T) {
 			path: RouteWarehouseDetail,
 			page: warehouseInventoryDetailPage{
 				Summary:   sampleSummary("Facility detail"),
-				Warehouse: baseWarehouseOps[0],
-				Inventory: baseInventoryRows,
-				Orders:    baseOrders,
+				Warehouse: parseBaseWarehouseOps[0],
+				Inventory: parseBaseInventoryRows,
+				Orders:    parseBaseOrders,
 				Filters: map[string]string{
 					"status": "promise_risk",
 				},
@@ -175,11 +175,11 @@ func TestAppRenderMatrixAcrossPublicAndInternalRoutes(t *testing.T) {
 			name: "warehouse-item-detail",
 			path: RouteWarehouseItemDetail,
 			page: warehouseInventoryItemDetailPage{
-				Warehouse: baseWarehouseOps[0],
-				Item:      baseInventoryRows[0],
-				Product:   baseProductAdmins[0],
-				Network:   baseInventoryRows,
-				Orders:    baseOrders,
+				Warehouse: parseBaseWarehouseOps[0],
+				Item:      parseBaseInventoryRows[0],
+				Product:   parseBaseProductAdmins[0],
+				Network:   parseBaseInventoryRows,
+				Orders:    parseBaseOrders,
 				Filters: map[string]string{
 					"status": "all",
 					"sort":   "available",
@@ -190,16 +190,16 @@ func TestAppRenderMatrixAcrossPublicAndInternalRoutes(t *testing.T) {
 			name: "transfers",
 			path: RouteTransfers,
 			page: transferList{
-				Items: baseTransfers,
+				Items: parseBaseTransfers,
 			},
 		},
 		{
 			name: "transfer-detail",
 			path: RouteTransferDetail,
 			page: transferDetailPage{
-				Transfer: baseTransfers[0],
+				Transfer: parseBaseTransfers[0],
 				Lines: []transferLineRecord{
-					{ID: "tr-line-1", TransferID: baseTransfers[0].ID, ProductSKU: "frame-desk", Quantity: 5},
+					{ID: "tr-line-1", TransferID: parseBaseTransfers[0].ID, ProductSKU: "frame-desk", Quantity: 5},
 				},
 			},
 		},
@@ -208,16 +208,16 @@ func TestAppRenderMatrixAcrossPublicAndInternalRoutes(t *testing.T) {
 			path: RoutePurchaseOrders,
 			page: purchaseOrderList{
 				Summary: sampleSummary("Purchase-order watch"),
-				Items:   baseOrders,
+				Items:   parseBaseOrders,
 			},
 		},
 		{
 			name: "purchase-order-detail",
 			path: RoutePurchaseOrderDetail,
 			page: purchaseOrderDetailPage{
-				Order: baseOrders[0],
+				Order: parseBaseOrders[0],
 				Lines: []purchaseOrderLineRecord{
-					{ID: "po-line-1", PurchaseOrderID: baseOrders[0].ID, ProductSKU: "frame-desk", Quantity: 12, ETA: "Thu 09:30", Status: "submitted"},
+					{ID: "po-line-1", PurchaseOrderID: parseBaseOrders[0].ID, ProductSKU: "frame-desk", Quantity: 12, ETA: "Thu 09:30", Status: "submitted"},
 				},
 			},
 		},
@@ -225,16 +225,16 @@ func TestAppRenderMatrixAcrossPublicAndInternalRoutes(t *testing.T) {
 			name: "receiving",
 			path: RouteReceiving,
 			page: receivingList{
-				Items: baseReceiving,
+				Items: parseBaseReceiving,
 			},
 		},
 		{
 			name: "receiving-detail",
 			path: RouteReceivingSessionDetail,
 			page: receivingDetailPage{
-				Session: baseReceiving[0],
+				Session: parseBaseReceiving[0],
 				Lines: []receivingLineRecord{
-					{ID: "rcv-line-1", ReceivingSessionID: baseReceiving[0].ID, ProductSKU: "frame-desk", ExpectedQuantity: 8, ActualQuantity: 7, DiscrepancyReason: "supplier short"},
+					{ID: "rcv-line-1", ReceivingSessionID: parseBaseReceiving[0].ID, ProductSKU: "frame-desk", ExpectedQuantity: 8, ActualQuantity: 7, DiscrepancyReason: "supplier short"},
 				},
 			},
 		},
@@ -243,7 +243,7 @@ func TestAppRenderMatrixAcrossPublicAndInternalRoutes(t *testing.T) {
 			path: RouteComments,
 			page: commentList{
 				Summary: sampleSummary("Buyer inbox"),
-				Items:   baseComments,
+				Items:   parseBaseComments,
 			},
 		},
 		{
@@ -257,21 +257,21 @@ func TestAppRenderMatrixAcrossPublicAndInternalRoutes(t *testing.T) {
 			name: "products-cms",
 			path: "/app/products",
 			page: productCMSPageData{
-				Items: baseProductAdmins,
+				Items: parseBaseProductAdmins,
 				Filters: productCMSFilters{
 					Search:   "frame",
 					Category: "desks",
 					Status:   "all",
 					Sort:     "updated",
 				},
-				Total:    len(baseProductAdmins),
+				Total:    len(parseBaseProductAdmins),
 				Editable: true,
 			},
 		},
 		{
 			name: "product-editor",
 			path: "/app/products/frame-desk",
-			page: baseProductAdmins[0],
+			page: parseBaseProductAdmins[0],
 		},
 		{
 			name: "fallback-path",
@@ -282,20 +282,20 @@ func TestAppRenderMatrixAcrossPublicAndInternalRoutes(t *testing.T) {
 		},
 	}
 
-	for _, tc := range cases {
-		payload := samplePayloadForRoute(tc.path, tc.page, tc.overlay)
-		markup, err := ui.RenderToString(App(payload))
-		if err != nil {
-			t.Fatalf("%s render failed: %v", tc.name, err)
+	for _, parseTc := range parseCases {
+		parsePayload := samplePayloadForRoute(parseTc.path, parseTc.page, parseTc.overlay)
+		parseMarkup, parseErr := ui.RenderToString(App(parsePayload))
+		if parseErr != nil {
+			parseT.Fatalf("%s render failed: %v", parseTc.name, parseErr)
 		}
-		if !strings.Contains(markup, "atlas-shell-root") {
-			t.Fatalf("%s missing shell root markup", tc.name)
+		if !strings.Contains(parseMarkup, "atlas-shell-root") {
+			parseT.Fatalf("%s missing shell root markup", parseTc.name)
 		}
 	}
 }
 
-func TestAppRenderSpecialScreens(t *testing.T) {
-	mockPayload := samplePayloadForRoute("/auth/mock-sign-in", mockSignInPage{
+func TestAppRenderSpecialScreens(parseT *testing.T) {
+	parseMockPayload := samplePayloadForRoute("/auth/mock-sign-in", mockSignInPage{
 		Roles: []mockSignInRole{
 			{Value: "inventory_manager", Label: "Inventory manager", Description: "Manages inventory workflows."},
 			{Value: "buyer_support", Label: "Buyer support", Description: "Handles buyer inbox and moderation."},
@@ -303,81 +303,81 @@ func TestAppRenderSpecialScreens(t *testing.T) {
 		Next:    RouteDashboard,
 		Message: "Choose an Atlas role to continue.",
 	}, nil)
-	mockPayload.Route.Screen = "mock-sign-in"
-	mockPayload.Route.Surface = "internal"
-	mockPayload.User = nil
+	parseMockPayload.Route.Screen = "mock-sign-in"
+	parseMockPayload.Route.Surface = "internal"
+	parseMockPayload.User = nil
 
-	mockMarkup, err := ui.RenderToString(App(mockPayload))
-	if err != nil {
-		t.Fatalf("mock-sign-in render failed: %v", err)
+	parseMockMarkup, parseErr := ui.RenderToString(App(parseMockPayload))
+	if parseErr != nil {
+		parseT.Fatalf("mock-sign-in render failed: %v", parseErr)
 	}
-	if !strings.Contains(mockMarkup, "Start session") {
-		t.Fatalf("mock-sign-in markup missing expected action")
+	if !strings.Contains(parseMockMarkup, "Start session") {
+		parseT.Fatalf("mock-sign-in markup missing expected action")
 	}
 
-	recoveryPayload := samplePayloadForRoute("/app/recovery", recoveryPage{
+	parseRecoveryPayload := samplePayloadForRoute("/app/recovery", recoveryPage{
 		Title:         "Atlas recovery",
 		Message:       "Route payload could not be resolved.",
 		RecoveryHref:  RouteDashboard,
 		RecoveryLabel: "Back to dashboard",
 		Detail:        "Try reopening the route after data reload.",
 	}, nil)
-	recoveryPayload.Route.Screen = "recovery"
-	recoveryPayload.Route.Surface = "internal"
-	recoveryPayload.User = &UserSession{
+	parseRecoveryPayload.Route.Screen = "recovery"
+	parseRecoveryPayload.Route.Surface = "internal"
+	parseRecoveryPayload.User = &UserSession{
 		ID:               "ops-1",
 		DisplayName:      "Atlas Operator",
 		Role:             "inventory_manager",
 		DefaultWarehouse: "new-jersey-hub",
 	}
 
-	recoveryMarkup, err := ui.RenderToString(App(recoveryPayload))
-	if err != nil {
-		t.Fatalf("recovery render failed: %v", err)
+	parseRecoveryMarkup, parseErr := ui.RenderToString(App(parseRecoveryPayload))
+	if parseErr != nil {
+		parseT.Fatalf("recovery render failed: %v", parseErr)
 	}
-	if !strings.Contains(recoveryMarkup, "Back to dashboard") {
-		t.Fatalf("recovery markup missing expected recovery link")
+	if !strings.Contains(parseRecoveryMarkup, "Back to dashboard") {
+		parseT.Fatalf("recovery markup missing expected recovery link")
 	}
 }
 
-func samplePayloadForRoute(path string, page any, overlay any) Payload {
-	route, ok := RouteBootstrapForPath(path)
-	if !ok {
-		meta := MetadataForPath(path)
-		surface := "public"
-		if strings.HasPrefix(path, "/app") {
-			surface = "internal"
+func samplePayloadForRoute(parsePath string, parsePage any, parseOverlay any) Payload {
+	parseRoute, parseOk := RouteBootstrapForPath(parsePath)
+	if !parseOk {
+		parseMeta := MetadataForPath(parsePath)
+		parseSurface := "public"
+		if strings.HasPrefix(parsePath, "/app") {
+			parseSurface = "internal"
 		}
-		route = RouteBootstrap{
-			Path:        path,
-			Surface:     surface,
+		parseRoute = RouteBootstrap{
+			Path:        parsePath,
+			Surface:     parseSurface,
 			Screen:      "custom",
-			Title:       meta.Title,
-			Description: meta.Description,
-			Canonical:   meta.Canonical,
+			Title:       parseMeta.Title,
+			Description: parseMeta.Description,
+			Canonical:   parseMeta.Canonical,
 		}
 	}
-	if route.Path == "" {
-		route.Path = path
+	if parseRoute.Path == "" {
+		parseRoute.Path = parsePath
 	}
-	if route.Surface == "" {
-		route.Surface = "public"
-		if strings.HasPrefix(path, "/app") {
-			route.Surface = "internal"
+	if parseRoute.Surface == "" {
+		parseRoute.Surface = "public"
+		if strings.HasPrefix(parsePath, "/app") {
+			parseRoute.Surface = "internal"
 		}
 	}
-	route.Query = map[string][]string{
+	parseRoute.Query = map[string][]string{
 		"status": {"promise_risk"},
 		"sort":   {"updated"},
 	}
-	route.Params = map[string]string{
+	parseRoute.Params = map[string]string{
 		"sku":         "frame-desk",
 		"warehouseId": "illinois-hub",
 		"productSlug": "frame-desk",
 	}
 
-	payload := Payload{
-		Route:       route,
+	parsePayload := Payload{
+		Route:       parseRoute,
 		Preferences: DefaultPreferences(),
 		I18n:        DefaultI18n("en"),
 		Theme:       DefaultTheme(),
@@ -397,43 +397,43 @@ func samplePayloadForRoute(path string, page any, overlay any) Payload {
 		},
 		CSRF: "test-csrf-token",
 	}
-	if strings.HasPrefix(path, "/app") {
-		payload.User = &UserSession{
+	if strings.HasPrefix(parsePath, "/app") {
+		parsePayload.User = &UserSession{
 			ID:               "ops-1",
 			DisplayName:      "Atlas Operator",
 			Role:             "inventory_manager",
 			DefaultWarehouse: "new-jersey-hub",
 		}
-		payload.Route.Surface = "internal"
+		parsePayload.Route.Surface = "internal"
 	}
-	if page != nil {
-		payload.Data["page"] = page
-		payload.Requests["page"] = Request{
+	if parsePage != nil {
+		parsePayload.Data["page"] = parsePage
+		parsePayload.Requests["page"] = Request{
 			Method: "GET",
-			URL:    StartupRequestURL(path, nil),
+			URL:    StartupRequestURL(parsePath, nil),
 			Status: 200,
 			Data: map[string]any{
-				"page": page,
+				"page": parsePage,
 			},
 		}
 	}
-	if overlay != nil {
-		payload.Data["overlay"] = overlay
-		payload.Requests["overlay"] = Request{
+	if parseOverlay != nil {
+		parsePayload.Data["overlay"] = parseOverlay
+		parsePayload.Requests["overlay"] = Request{
 			Method: "GET",
-			URL:    StartupRequestURL(path, nil) + "#overlay",
+			URL:    StartupRequestURL(parsePath, nil) + "#overlay",
 			Status: 200,
 			Data: map[string]any{
-				"overlay": overlay,
+				"overlay": parseOverlay,
 			},
 		}
 	}
-	return payload
+	return parsePayload
 }
 
-func sampleSummary(headline string) pageSummary {
+func sampleSummary(parseHeadline string) pageSummary {
 	return pageSummary{
-		Headline: headline,
+		Headline: parseHeadline,
 		Items: []pageSummaryItem{
 			{Label: "Metric one", Value: "12", Detail: "Primary route signal"},
 			{Label: "Metric two", Value: "7", Detail: "Secondary route signal"},

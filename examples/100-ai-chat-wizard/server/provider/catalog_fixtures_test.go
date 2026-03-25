@@ -1,7 +1,7 @@
 package provider
 
-func testOpenAICatalog() Catalog {
-	models := []ModelMetadata{
+func parseTestOpenAICatalog() Catalog {
+	parseModels := []ModelMetadata{
 		{
 			ID:            "gpt-5.4",
 			DisplayName:   "GPT-5.4",
@@ -28,19 +28,19 @@ func testOpenAICatalog() Catalog {
 		},
 	}
 	return Catalog{
-		Models: []ModelMetadata{models[0], models[1], models[2]},
+		Models: []ModelMetadata{parseModels[0], parseModels[1], parseModels[2]},
 		Options: []ModelOption{
-			ModelOptionFromMetadata(models[0], "Best"),
-			ModelOptionFromMetadata(models[1], "Fast"),
-			ModelOptionFromMetadata(models[2], "Cheap"),
+			ParseModelOptionFromMetadata(parseModels[0], "Best"),
+			ParseModelOptionFromMetadata(parseModels[1], "Fast"),
+			ParseModelOptionFromMetadata(parseModels[2], "Cheap"),
 		},
 		DefaultModel: "gpt-5.4-mini",
 		TitleModel:   "gpt-5.4-nano",
 	}
 }
 
-func testAnthropicCatalog() Catalog {
-	models := []ModelMetadata{
+func parseTestAnthropicCatalog() Catalog {
+	parseModels := []ModelMetadata{
 		{
 			ID:              "claude-sonnet-4-5",
 			DisplayName:     "Claude Sonnet 4.5",
@@ -59,18 +59,18 @@ func testAnthropicCatalog() Catalog {
 		},
 	}
 	return Catalog{
-		Models: []ModelMetadata{models[0], models[1]},
+		Models: []ModelMetadata{parseModels[0], parseModels[1]},
 		Options: []ModelOption{
-			ModelOptionFromMetadata(models[0], "Reasoning"),
-			ModelOptionFromMetadata(models[1], "Fast"),
+			ParseModelOptionFromMetadata(parseModels[0], "Reasoning"),
+			ParseModelOptionFromMetadata(parseModels[1], "Fast"),
 		},
 		DefaultModel: "claude-sonnet-4-5",
 		TitleModel:   "claude-haiku-4-5",
 	}
 }
 
-func testCerebrasCatalog() Catalog {
-	models := []ModelMetadata{
+func parseTestCerebrasCatalog() Catalog {
+	parseModels := []ModelMetadata{
 		{
 			ID:              "gpt-oss-120b",
 			DisplayName:     "GPT OSS 120B",
@@ -105,12 +105,12 @@ func testCerebrasCatalog() Catalog {
 		},
 	}
 	return Catalog{
-		Models: []ModelMetadata{models[0], models[1], models[2], models[3]},
+		Models: []ModelMetadata{parseModels[0], parseModels[1], parseModels[2], parseModels[3]},
 		Options: []ModelOption{
-			ModelOptionFromMetadata(models[0], "Reasoning"),
-			ModelOptionFromMetadata(models[1], "Fast"),
-			ModelOptionFromMetadata(models[2], "Preview"),
-			ModelOptionFromMetadata(models[3], "Preview"),
+			ParseModelOptionFromMetadata(parseModels[0], "Reasoning"),
+			ParseModelOptionFromMetadata(parseModels[1], "Fast"),
+			ParseModelOptionFromMetadata(parseModels[2], "Preview"),
+			ParseModelOptionFromMetadata(parseModels[3], "Preview"),
 		},
 		DefaultModel: "gpt-oss-120b",
 		TitleModel:   "llama3.1-8b",

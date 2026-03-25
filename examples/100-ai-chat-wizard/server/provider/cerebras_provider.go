@@ -20,227 +20,227 @@ type CerebrasProvider struct {
 	catalog Catalog
 }
 
-func NewCerebrasProvider(apiKey string, catalog Catalog) *CerebrasProvider {
-	trimmedAPIKey := strings.TrimSpace(apiKey)
-	resolvedCatalog := normalizeCatalog("cerebras", "Cerebras", catalog)
-	if trimmedAPIKey == "" {
-		return &CerebrasProvider{catalog: resolvedCatalog}
+func ParseNewCerebrasProvider(parseApiKey string, parseCatalog Catalog) *CerebrasProvider {
+	parseTrimmedAPIKey := strings.TrimSpace(parseApiKey)
+	parseResolvedCatalog := parseNormalizeCatalog("cerebras", "Cerebras", parseCatalog)
+	if parseTrimmedAPIKey == "" {
+		return &CerebrasProvider{catalog: parseResolvedCatalog}
 	}
-	client := openai.NewClient(
-		option.WithAPIKey(trimmedAPIKey),
+	parseClient := openai.NewClient(
+		option.WithAPIKey(parseTrimmedAPIKey),
 		option.WithBaseURL(cerebrasBaseURL),
 	)
-	return &CerebrasProvider{client: &client, catalog: resolvedCatalog}
+	return &CerebrasProvider{client: &parseClient, catalog: parseResolvedCatalog}
 }
 
-func (p *CerebrasProvider) ID() string {
+func (parseP *CerebrasProvider) ParseID() string {
 	return "cerebras"
 }
 
-func (p *CerebrasProvider) Available() bool {
-	return p != nil && p.client != nil && len(p.catalog.Options) > 0
+func (parseP *CerebrasProvider) ParseAvailable() bool {
+	return parseP != nil && parseP.client != nil && len(parseP.catalog.Options) > 0
 }
 
-func (p *CerebrasProvider) Info() ProviderInfo {
+func (parseP *CerebrasProvider) ParseInfo() ProviderInfo {
 	return ProviderInfo{
-		ID:                 p.ID(),
+		ID:                 parseP.ParseID(),
 		Label:              "Cerebras",
 		BaseURL:            cerebrasBaseURL,
-		AuthConfigured:     p.Available(),
-		Available:          p.Available(),
+		AuthConfigured:     parseP.ParseAvailable(),
+		Available:          parseP.ParseAvailable(),
 		StreamingSupported: true,
 		ReasoningSupported: true,
 		ToolUseSupported:   false,
 	}
 }
 
-func (p *CerebrasProvider) DefaultModel() string {
-	return strings.TrimSpace(p.catalog.DefaultModel)
+func (parseP *CerebrasProvider) ParseDefaultModel() string {
+	return strings.TrimSpace(parseP.catalog.ParseDefaultModel)
 }
 
-func (p *CerebrasProvider) SupportsModel(model string) bool {
-	return p.catalog.SupportsModel(model)
+func (parseP *CerebrasProvider) ParseSupportsModel(parseModel string) bool {
+	return parseP.catalog.ParseSupportsModel(parseModel)
 }
 
-func (p *CerebrasProvider) ModelOptions() []ModelOption {
-	return p.catalog.ModelOptions()
+func (parseP *CerebrasProvider) ParseModelOptions() []ModelOption {
+	return parseP.catalog.ParseModelOptions()
 }
 
-func (p *CerebrasProvider) ModelMetadata(model string) (ModelMetadata, bool) {
-	return p.catalog.ModelMetadata(model)
+func (parseP *CerebrasProvider) ParseModelMetadata(parseModel string) (ModelMetadata, bool) {
+	return parseP.catalog.ParseModelMetadata(parseModel)
 }
 
-func (p *CerebrasProvider) Capabilities(model string) ModelCapabilities {
-	if metadata, ok := p.catalog.ModelMetadata(model); ok {
-		return metadata.Capabilities
+func (parseP *CerebrasProvider) ParseCapabilities(parseModel string) ModelCapabilities {
+	if parseMetadata, parseOk := parseP.catalog.ParseModelMetadata(parseModel); parseOk {
+		return parseMetadata.ParseCapabilities
 	}
-	return ModelCapabilities{ProviderID: p.ID(), ProviderLabel: "Cerebras"}
+	return ModelCapabilities{ProviderID: parseP.ParseID(), ProviderLabel: "Cerebras"}
 }
 
-func (p *CerebrasProvider) Health() ProviderHealth {
-	status := ProviderHealthUnavailable
-	if p.Available() {
-		status = ProviderHealthUnknown
+func (parseP *CerebrasProvider) ParseHealth() ProviderHealth {
+	parseStatus := ProviderHealthUnavailable
+	if parseP.ParseAvailable() {
+		parseStatus = ProviderHealthUnknown
 	}
-	return ProviderHealth{ProviderID: p.ID(), Status: status}
+	return ProviderHealth{ProviderID: parseP.ParseID(), Status: parseStatus}
 }
 
-func (p *CerebrasProvider) CurrentRateLimits() RateLimitSnapshot {
+func (parseP *CerebrasProvider) ParseCurrentRateLimits() RateLimitSnapshot {
 	return RateLimitSnapshot{}
 }
 
-func (p *CerebrasProvider) GenerateTitle(ctx context.Context, req TitleRequest) (string, error) {
-	if !p.Available() {
+func (parseP *CerebrasProvider) ParseGenerateTitle(parseCtx context.Context, parseReq TitleRequest) (string, error) {
+	if !parseP.ParseAvailable() {
 		return "", ErrNoProvidersAvailable
 	}
 
-	response, err := p.client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
-		Model: shared.ChatModel(p.catalog.TitleModel),
+	parseResponse, parseErr := parseP.client.Chat.Completions.New(parseCtx, openai.ChatCompletionNewParams{
+		Model: shared.ChatModel(parseP.catalog.TitleModel),
 		Messages: []openai.ChatCompletionMessageParamUnion{
-			openai.SystemMessage(strings.TrimSpace(req.SystemPrompt)),
-			openai.UserMessage(strings.TrimSpace(req.Prompt)),
+			openai.SystemMessage(strings.TrimSpace(parseReq.SystemPrompt)),
+			openai.UserMessage(strings.TrimSpace(parseReq.Prompt)),
 		},
 		MaxCompletionTokens: openai.Int(64),
 	})
-	if err != nil {
-		return "", fmt.Errorf("cerebras title: %w", err)
+	if parseErr != nil {
+		return "", fmt.Errorf("cerebras title: %w", parseErr)
 	}
-	if len(response.Choices) == 0 {
+	if len(parseResponse.Choices) == 0 {
 		return "", errors.New("cerebras title: empty response")
 	}
-	title := strings.TrimSpace(response.Choices[0].Message.Content)
-	if title == "" {
+	parseTitle := strings.TrimSpace(parseResponse.Choices[0].Message.Content)
+	if parseTitle == "" {
 		return "", errors.New("cerebras title: empty title")
 	}
-	return title, nil
+	return parseTitle, nil
 }
 
-func (p *CerebrasProvider) ExtractUserMemories(ctx context.Context, req MemoryExtractionRequest) ([]UserMemoryCandidate, error) {
-	_ = ctx
-	_ = req
-	if !p.Available() {
+func (parseP *CerebrasProvider) ParseExtractUserMemories(parseCtx context.Context, parseReq MemoryExtractionRequest) ([]UserMemoryCandidate, error) {
+	_ = parseCtx
+	_ = parseReq
+	if !parseP.ParseAvailable() {
 		return nil, ErrNoProvidersAvailable
 	}
 	return nil, errors.New("cerebras memory extraction is not implemented")
 }
 
-func (p *CerebrasProvider) StreamChat(ctx context.Context, req ChatRequest, emit func(ChatEvent) error) (ChatResult, error) {
-	if !p.Available() {
+func (parseP *CerebrasProvider) ParseStreamChat(parseCtx context.Context, parseReq ChatRequest, parseEmit func(ChatEvent) error) (ChatResult, error) {
+	if !parseP.ParseAvailable() {
 		return ChatResult{}, ErrNoProvidersAvailable
 	}
 
-	resolvedModel := strings.TrimSpace(req.Model)
-	if resolvedModel == "" {
-		resolvedModel = p.DefaultModel()
+	parseResolvedModel := strings.TrimSpace(parseReq.Model)
+	if parseResolvedModel == "" {
+		parseResolvedModel = parseP.ParseDefaultModel()
 	}
 
-	params := openai.ChatCompletionNewParams{
-		Model:               shared.ChatModel(resolvedModel),
-		Messages:            cerebrasChatMessages(req.SystemPrompt, req.History, req.UserMessage),
+	parseParams := openai.ChatCompletionNewParams{
+		Model:               shared.ChatModel(parseResolvedModel),
+		Messages:            parseCerebrasChatMessages(parseReq.SystemPrompt, parseReq.History, parseReq.UserMessage),
 		MaxCompletionTokens: openai.Int(cerebrasMaxCompletionTokens),
 		StreamOptions: openai.ChatCompletionStreamOptionsParam{
 			IncludeUsage: openai.Bool(true),
 		},
 	}
-		if req.ThinkingEnabled && p.Capabilities(resolvedModel).SupportsThinking {
-		params.ReasoningEffort = cerebrasReasoningEffort(req.ThinkingEffort)
+	if parseReq.ThinkingEnabled && parseP.ParseCapabilities(parseResolvedModel).SupportsThinking {
+		parseParams.ReasoningEffort = parseCerebrasReasoningEffort(parseReq.ThinkingEffort)
 	}
 
-	stream := p.client.Chat.Completions.NewStreaming(ctx, params)
-	thoughtStarted := false
-	thoughtDoneSent := false
-	var promptTokens int64
-	var completionTokens int64
+	parseStream := parseP.client.Chat.Completions.NewStreaming(parseCtx, parseParams)
+	isParseThoughtStarted := false
+	isParseThoughtDoneSent := false
+	var parsePromptTokens int64
+	var parseCompletionTokens int64
 
-	emitThoughtDone := func() error {
-		if thoughtDoneSent {
+	parseEmitThoughtDone := func() error {
+		if isParseThoughtDoneSent {
 			return nil
 		}
-		thoughtDoneSent = true
-		return emit(ChatEvent{ThoughtDone: true})
+		isParseThoughtDoneSent = true
+		return parseEmit(ChatEvent{ThoughtDone: true})
 	}
 
-	for stream.Next() {
-		chunk := stream.Current()
-		if chunk.Usage.CompletionTokens > 0 || chunk.Usage.PromptTokens > 0 {
-			promptTokens = chunk.Usage.PromptTokens
-			completionTokens = chunk.Usage.CompletionTokens
+	for parseStream.Next() {
+		parseChunk := parseStream.Current()
+		if parseChunk.Usage.CompletionTokens > 0 || parseChunk.Usage.PromptTokens > 0 {
+			parsePromptTokens = parseChunk.Usage.PromptTokens
+			parseCompletionTokens = parseChunk.Usage.CompletionTokens
 		}
-		reasoningDelta := cerebrasReasoningDelta(chunk.RawJSON())
-		if reasoningDelta != "" {
-			thoughtStarted = true
-			if err := emit(ChatEvent{ThoughtDelta: reasoningDelta}); err != nil {
-				return ChatResult{}, err
+		parseReasoningDelta := parseCerebrasReasoningDelta(parseChunk.RawJSON())
+		if parseReasoningDelta != "" {
+			isParseThoughtStarted = true
+			if parseErr := parseEmit(ChatEvent{ThoughtDelta: parseReasoningDelta}); parseErr != nil {
+				return ChatResult{}, parseErr
 			}
 		}
-		for _, choice := range chunk.Choices {
-			if choice.Delta.Content == "" {
+		for _, parseChoice := range parseChunk.Choices {
+			if parseChoice.Delta.Content == "" {
 				continue
 			}
-			if thoughtStarted && !thoughtDoneSent {
-				if err := emitThoughtDone(); err != nil {
-					return ChatResult{}, err
+			if isParseThoughtStarted && !isParseThoughtDoneSent {
+				if parseErr2 := parseEmitThoughtDone(); parseErr2 != nil {
+					return ChatResult{}, parseErr2
 				}
 			}
-			if err := emit(ChatEvent{TextDelta: choice.Delta.Content}); err != nil {
-				return ChatResult{}, err
+			if parseErr3 := parseEmit(ChatEvent{TextDelta: parseChoice.Delta.Content}); parseErr3 != nil {
+				return ChatResult{}, parseErr3
 			}
 		}
 	}
-	if err := stream.Err(); err != nil {
-		return ChatResult{}, fmt.Errorf("cerebras stream: %w", err)
+	if parseErr4 := parseStream.Err(); parseErr4 != nil {
+		return ChatResult{}, fmt.Errorf("cerebras stream: %w", parseErr4)
 	}
-	if thoughtStarted && !thoughtDoneSent {
-		if err := emitThoughtDone(); err != nil {
-			return ChatResult{}, err
+	if isParseThoughtStarted && !isParseThoughtDoneSent {
+		if parseErr5 := parseEmitThoughtDone(); parseErr5 != nil {
+			return ChatResult{}, parseErr5
 		}
 	}
 
 	return ChatResult{
-		Model:            resolvedModel,
-		PromptTokens:     promptTokens,
-		CompletionTokens: completionTokens,
+		Model:            parseResolvedModel,
+		PromptTokens:     parsePromptTokens,
+		CompletionTokens: parseCompletionTokens,
 	}, nil
 }
 
-func (p *CerebrasProvider) SynthesizeSpeech(ctx context.Context, req SpeechRequest, emit func(SpeechChunk) error) (SpeechResult, error) {
-	_ = ctx
-	_ = req
-	_ = emit
-	if !p.Available() {
+func (parseP *CerebrasProvider) ParseSynthesizeSpeech(parseCtx context.Context, parseReq SpeechRequest, parseEmit func(SpeechChunk) error) (SpeechResult, error) {
+	_ = parseCtx
+	_ = parseReq
+	_ = parseEmit
+	if !parseP.ParseAvailable() {
 		return SpeechResult{}, ErrNoProvidersAvailable
 	}
-	return SpeechResult{}, &UnsupportedCapabilityError{Capability: CapabilitySpeech, Model: strings.TrimSpace(req.Model), ProviderID: p.ID()}
+	return SpeechResult{}, &UnsupportedCapabilityError{Capability: CapabilitySpeech, Model: strings.TrimSpace(parseReq.Model), ProviderID: parseP.ParseID()}
 }
 
-func cerebrasChatMessages(systemPrompt string, history []ChatMessage, userMessage string) []openai.ChatCompletionMessageParamUnion {
-	messages := make([]openai.ChatCompletionMessageParamUnion, 0, len(history)+2)
-	if trimmedPrompt := strings.TrimSpace(systemPrompt); trimmedPrompt != "" {
-		messages = append(messages, openai.SystemMessage(trimmedPrompt))
+func parseCerebrasChatMessages(parseSystemPrompt string, parseHistory []ChatMessage, parseUserMessage string) []openai.ChatCompletionMessageParamUnion {
+	parseMessages := make([]openai.ChatCompletionMessageParamUnion, 0, len(parseHistory)+2)
+	if parseTrimmedPrompt := strings.TrimSpace(parseSystemPrompt); parseTrimmedPrompt != "" {
+		parseMessages = append(parseMessages, openai.SystemMessage(parseTrimmedPrompt))
 	}
-	for _, historyMessage := range history {
-		switch NormalizeRole(historyMessage.Role) {
+	for _, parseHistoryMessage := range parseHistory {
+		switch ParseNormalizeRole(parseHistoryMessage.Role) {
 		case "assistant":
-			messages = append(messages, openai.AssistantMessage(strings.TrimSpace(historyMessage.Content)))
+			parseMessages = append(parseMessages, openai.AssistantMessage(strings.TrimSpace(parseHistoryMessage.Content)))
 		case "developer":
-			messages = append(messages, openai.DeveloperMessage(strings.TrimSpace(historyMessage.Content)))
+			parseMessages = append(parseMessages, openai.DeveloperMessage(strings.TrimSpace(parseHistoryMessage.Content)))
 		case "system":
-			messages = append(messages, openai.SystemMessage(strings.TrimSpace(historyMessage.Content)))
+			parseMessages = append(parseMessages, openai.SystemMessage(strings.TrimSpace(parseHistoryMessage.Content)))
 		case "tool":
-			messages = append(messages, openai.ToolMessage(strings.TrimSpace(historyMessage.Content), "tool"))
+			parseMessages = append(parseMessages, openai.ToolMessage(strings.TrimSpace(parseHistoryMessage.Content), "tool"))
 		default:
-			messages = append(messages, openai.UserMessage(strings.TrimSpace(historyMessage.Content)))
+			parseMessages = append(parseMessages, openai.UserMessage(strings.TrimSpace(parseHistoryMessage.Content)))
 		}
 	}
-	messages = append(messages, openai.UserMessage(strings.TrimSpace(userMessage)))
-	return messages
+	parseMessages = append(parseMessages, openai.UserMessage(strings.TrimSpace(parseUserMessage)))
+	return parseMessages
 }
 
-func cerebrasReasoningDelta(raw string) string {
-	if strings.TrimSpace(raw) == "" {
+func parseCerebrasReasoningDelta(parseRaw string) string {
+	if strings.TrimSpace(parseRaw) == "" {
 		return ""
 	}
-	var chunk struct {
+	var parseChunk struct {
 		Choices []struct {
 			Delta struct {
 				Reasoning        string `json:"reasoning"`
@@ -248,22 +248,22 @@ func cerebrasReasoningDelta(raw string) string {
 			} `json:"delta"`
 		} `json:"choices"`
 	}
-	if err := json.Unmarshal([]byte(raw), &chunk); err != nil {
+	if parseErr := json.Unmarshal([]byte(parseRaw), &parseChunk); parseErr != nil {
 		return ""
 	}
-	for _, choice := range chunk.Choices {
-		if choice.Delta.Reasoning != "" {
-			return choice.Delta.Reasoning
+	for _, parseChoice := range parseChunk.Choices {
+		if parseChoice.Delta.Reasoning != "" {
+			return parseChoice.Delta.Reasoning
 		}
-		if choice.Delta.ReasoningContent != "" {
-			return choice.Delta.ReasoningContent
+		if parseChoice.Delta.ReasoningContent != "" {
+			return parseChoice.Delta.ReasoningContent
 		}
 	}
 	return ""
 }
 
-func cerebrasReasoningEffort(effort string) shared.ReasoningEffort {
-	switch strings.TrimSpace(strings.ToLower(effort)) {
+func parseCerebrasReasoningEffort(parseEffort string) shared.ReasoningEffort {
+	switch strings.TrimSpace(strings.ToLower(parseEffort)) {
 	case "low":
 		return shared.ReasoningEffortLow
 	case "high":
@@ -273,20 +273,20 @@ func cerebrasReasoningEffort(effort string) shared.ReasoningEffort {
 	}
 }
 
-func normalizeCerebrasModel(model string) string {
-	return strings.TrimSpace(strings.ToLower(model))
+func parseNormalizeCerebrasModel(parseModel string) string {
+	return strings.TrimSpace(strings.ToLower(parseModel))
 }
 
-func (p *CerebrasProvider) mustModelMetadata(model string) ModelMetadata {
-	metadata, ok := p.ModelMetadata(model)
-	if !ok {
+func (parseP *CerebrasProvider) parseMustModelMetadata(parseModel string) ModelMetadata {
+	parseMetadata, parseOk := parseP.ParseModelMetadata(parseModel)
+	if !parseOk {
 		return ModelMetadata{
-			ID:            strings.TrimSpace(model),
-			DisplayName:   strings.TrimSpace(model),
-			ProviderID:    p.ID(),
+			ID:            strings.TrimSpace(parseModel),
+			DisplayName:   strings.TrimSpace(parseModel),
+			ProviderID:    parseP.ParseID(),
 			ProviderLabel: "Cerebras",
-			Capabilities:  p.Capabilities(model),
+			Capabilities:  parseP.ParseCapabilities(parseModel),
 		}
 	}
-	return metadata
+	return parseMetadata
 }

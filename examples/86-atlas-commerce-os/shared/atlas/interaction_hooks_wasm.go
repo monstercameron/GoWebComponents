@@ -20,20 +20,20 @@ type atlasLocalState[T any] struct {
 	value ui.State[T]
 }
 
-func useAtlasState[T any](initial T) *atlasLocalState[T] {
-	return &atlasLocalState[T]{value: ui.UseState(initial)}
+func useAtlasState[T any](parseInitial T) *atlasLocalState[T] {
+	return &atlasLocalState[T]{value: ui.UseState(parseInitial)}
 }
 
-func (s *atlasLocalState[T]) Get() T {
-	return s.value.Get()
+func (parseS *atlasLocalState[T]) Get() T {
+	return parseS.value.Get()
 }
 
-func (s *atlasLocalState[T]) Set(value T) {
-	s.value.Set(value)
+func (parseS *atlasLocalState[T]) Set(parseValue T) {
+	parseS.value.Set(parseValue)
 }
 
-func useAtlasEffect(effect func() func(), deps ...interface{}) {
-	ui.UseEffect(effect, deps...)
+func useAtlasEffect(parseEffect func() func(), parseDeps ...interface{}) {
+	ui.UseEffect(parseEffect, parseDeps...)
 }
 
 type atlasComputed[T any] struct {
@@ -73,285 +73,285 @@ type atlasViewportMetrics struct {
 	MeasuredAtUTC string
 }
 
-func useAtlasAtom[T any](id string, initial T) atlasAtom[T] {
-	atom := state.UseAtom(id, initial)
-	return atlasAtom[T]{get: atom.Get, set: atom.Set}
+func useAtlasAtom[T any](parseId string, parseInitial T) atlasAtom[T] {
+	parseAtom := state.UseAtom(parseId, parseInitial)
+	return atlasAtom[T]{get: parseAtom.Get, set: parseAtom.Set}
 }
 
-func (a atlasAtom[T]) Get() T {
-	if a.get == nil {
-		var zero T
-		return zero
+func (parseA atlasAtom[T]) Get() T {
+	if parseA.get == nil {
+		var parseZero T
+		return parseZero
 	}
-	return a.get()
+	return parseA.get()
 }
 
-func (a atlasAtom[T]) Set(value T) {
-	if a.set != nil {
-		a.set(value)
+func (parseA atlasAtom[T]) Set(parseValue T) {
+	if parseA.set != nil {
+		parseA.set(parseValue)
 	}
 }
 
-func useAtlasComputed[T any](compute func() T, deps ...interface{}) atlasComputed[T] {
-	computed := state.UseComputed(compute, deps...)
-	return atlasComputed[T]{get: computed.Get}
+func useAtlasComputed[T any](parseCompute func() T, parseDeps ...interface{}) atlasComputed[T] {
+	parseComputed := state.UseComputed(parseCompute, parseDeps...)
+	return atlasComputed[T]{get: parseComputed.Get}
 }
 
-func (c atlasComputed[T]) Get() T {
-	if c.get == nil {
-		var zero T
-		return zero
+func (parseC atlasComputed[T]) Get() T {
+	if parseC.get == nil {
+		var parseZero T
+		return parseZero
 	}
-	return c.get()
+	return parseC.get()
 }
 
 func useAtlasRevalidator() atlasRevalidator {
-	revalidator := router.UseRevalidator()
+	parseRevalidator := router.UseRevalidator()
 	return atlasRevalidator{
-		revalidate: revalidator.Revalidate,
-		loading:    revalidator.Loading,
+		revalidate: parseRevalidator.Revalidate,
+		loading:    parseRevalidator.Loading,
 	}
 }
 
-func (r atlasRevalidator) Revalidate() {
-	if r.revalidate != nil {
-		r.revalidate()
+func (parseR atlasRevalidator) Revalidate() {
+	if parseR.revalidate != nil {
+		parseR.revalidate()
 	}
 }
 
-func (r atlasRevalidator) Loading() bool {
-	if r.loading == nil {
+func (parseR atlasRevalidator) Loading() bool {
+	if parseR.loading == nil {
 		return false
 	}
-	return r.loading()
+	return parseR.loading()
 }
 
-func startAtlasTransition(fn func()) {
-	ui.StartTransition(fn)
+func startAtlasTransition(parseFn func()) {
+	ui.StartTransition(parseFn)
 }
 
 func useAtlasTransition() atlasTransition {
-	transition := ui.UseTransition()
+	parseTransition := ui.UseTransition()
 	return atlasTransition{
-		pending: transition.Pending,
-		start:   transition.Start,
+		pending: parseTransition.Pending,
+		start:   parseTransition.Start,
 	}
 }
 
-func (t atlasTransition) Pending() bool {
-	if t.pending == nil {
+func (parseT atlasTransition) Pending() bool {
+	if parseT.pending == nil {
 		return false
 	}
-	return t.pending()
+	return parseT.pending()
 }
 
-func (t atlasTransition) Start(fn func()) {
-	if t.start != nil {
-		t.start(fn)
+func (parseT atlasTransition) Start(parseFn func()) {
+	if parseT.start != nil {
+		parseT.start(parseFn)
 		return
 	}
-	startAtlasTransition(fn)
+	startAtlasTransition(parseFn)
 }
 
-func useAtlasThrottled[T any](value T, interval time.Duration) atlasThrottled[T] {
-	throttled := ui.UseThrottled(value, interval)
+func useAtlasThrottled[T any](parseValue T, parseInterval time.Duration) atlasThrottled[T] {
+	parseThrottled := ui.UseThrottled(parseValue, parseInterval)
 	return atlasThrottled[T]{
-		get:     throttled.Get,
-		pending: throttled.Pending,
+		get:     parseThrottled.Get,
+		pending: parseThrottled.Pending,
 	}
 }
 
-func (t atlasThrottled[T]) Get() T {
-	if t.get == nil {
-		var zero T
-		return zero
+func (parseT atlasThrottled[T]) Get() T {
+	if parseT.get == nil {
+		var parseZero T
+		return parseZero
 	}
-	return t.get()
+	return parseT.get()
 }
 
-func (t atlasThrottled[T]) Pending() bool {
-	if t.pending == nil {
+func (parseT atlasThrottled[T]) Pending() bool {
+	if parseT.pending == nil {
 		return false
 	}
-	return t.pending()
+	return parseT.pending()
 }
 
 func useAtlasViewportMetrics() atlasViewportMetrics {
-	metrics := ui.UseState(readAtlasViewportMetrics())
+	parseMetrics := ui.UseState(readAtlasViewportMetrics())
 	useAtlasEffect(func() func() {
-		window := js.Global().Get("window")
-		if !window.Truthy() || !window.Get("addEventListener").Truthy() {
+		parseWindow := js.Global().Get("window")
+		if !parseWindow.Truthy() || !parseWindow.Get("addEventListener").Truthy() {
 			return nil
 		}
-		handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			metrics.Update(func(prev atlasViewportMetrics) atlasViewportMetrics {
-				next := readAtlasViewportMetrics()
-				next.SampleCount = prev.SampleCount + 1
-				return next
+		parseHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseMetrics.Update(func(parsePrev atlasViewportMetrics) atlasViewportMetrics {
+				parseNext := readAtlasViewportMetrics()
+				parseNext.SampleCount = parsePrev.SampleCount + 1
+				return parseNext
 			})
 			return nil
 		})
-		metrics.Update(func(prev atlasViewportMetrics) atlasViewportMetrics {
-			next := readAtlasViewportMetrics()
-			if prev.SampleCount > 0 {
-				next.SampleCount = prev.SampleCount
+		parseMetrics.Update(func(parsePrev2 atlasViewportMetrics) atlasViewportMetrics {
+			parseNext2 := readAtlasViewportMetrics()
+			if parsePrev2.SampleCount > 0 {
+				parseNext2.SampleCount = parsePrev2.SampleCount
 			}
-			return next
+			return parseNext2
 		})
-		window.Call("addEventListener", "scroll", handler)
-		window.Call("addEventListener", "resize", handler)
+		parseWindow.Call("addEventListener", "scroll", parseHandler)
+		parseWindow.Call("addEventListener", "resize", parseHandler)
 		return func() {
-			window.Call("removeEventListener", "scroll", handler)
-			window.Call("removeEventListener", "resize", handler)
-			handler.Release()
+			parseWindow.Call("removeEventListener", "scroll", parseHandler)
+			parseWindow.Call("removeEventListener", "resize", parseHandler)
+			parseHandler.Release()
 		}
 	}, nil)
-	return metrics.Get()
+	return parseMetrics.Get()
 }
 
 func readAtlasViewportMetrics() atlasViewportMetrics {
-	window := js.Global().Get("window")
-	if !window.Truthy() {
+	parseWindow := js.Global().Get("window")
+	if !parseWindow.Truthy() {
 		return atlasViewportMetrics{}
 	}
-	width := 0
-	height := 0
-	scrollY := 0
-	if value := window.Get("innerWidth"); value.Truthy() {
-		width = value.Int()
+	parseWidth := 0
+	parseHeight := 0
+	parseScrollY := 0
+	if parseValue := parseWindow.Get("innerWidth"); parseValue.Truthy() {
+		parseWidth = parseValue.Int()
 	}
-	if value := window.Get("innerHeight"); value.Truthy() {
-		height = value.Int()
+	if parseValue2 := parseWindow.Get("innerHeight"); parseValue2.Truthy() {
+		parseHeight = parseValue2.Int()
 	}
-	if value := window.Get("scrollY"); value.Truthy() {
-		scrollY = value.Int()
+	if parseValue3 := parseWindow.Get("scrollY"); parseValue3.Truthy() {
+		parseScrollY = parseValue3.Int()
 	}
 	return atlasViewportMetrics{
-		ScrollY:       scrollY,
-		Width:         width,
-		Height:        height,
+		ScrollY:       parseScrollY,
+		Width:         parseWidth,
+		Height:        parseHeight,
 		SampleCount:   1,
 		MeasuredAtUTC: time.Now().UTC().Format(time.RFC3339),
 	}
 }
 
 func useAtlasSearchParams() atlasSearchParams {
-	params := router.UseSearchParams()
+	parseParams := router.UseSearchParams()
 	return atlasSearchParams{
-		values:     params.Values,
-		replaceAll: params.ReplaceAll,
+		values:     parseParams.Values,
+		replaceAll: parseParams.ReplaceAll,
 	}
 }
 
-func (s atlasSearchParams) Values() url.Values {
-	if s.values == nil {
+func (parseS atlasSearchParams) Values() url.Values {
+	if parseS.values == nil {
 		return url.Values{}
 	}
-	return s.values()
+	return parseS.values()
 }
 
-func (s atlasSearchParams) ReplaceAll(values url.Values) {
-	if s.replaceAll != nil {
-		s.replaceAll(values)
+func (parseS atlasSearchParams) ReplaceAll(parseValues url.Values) {
+	if parseS.replaceAll != nil {
+		parseS.replaceAll(parseValues)
 	}
 }
 
-func useAtlasCachedResource[T any](key string, loader func(context.Context) (T, error)) atlasCachedResource[T] {
-	resource := fetch.UseCachedResource(key, loader, fetch.CacheOptions{
+func useAtlasCachedResource[T any](parseKey string, parseLoader func(context.Context) (T, error)) atlasCachedResource[T] {
+	parseResource := fetch.UseCachedResource(parseKey, parseLoader, fetch.CacheOptions{
 		StaleAfter:   5 * time.Minute,
 		MaxAge:       30 * time.Minute,
 		DisposeAfter: 90 * time.Minute,
 	})
 	return atlasCachedResource[T]{
 		get: func() atlasCachedResourceState[T] {
-			state := resource.Get()
+			parseState := parseResource.Get()
 			return atlasCachedResourceState[T]{
-				Value:   state.Value,
-				Loading: state.Loading,
-				Error:   state.Error,
-				Ready:   state.Ready,
-				Stale:   state.Stale,
+				Value:   parseState.Value,
+				Loading: parseState.Loading,
+				Error:   parseState.Error,
+				Ready:   parseState.Ready,
+				Stale:   parseState.Stale,
 			}
 		},
-		reload: resource.Reload,
-		set:    resource.Set,
-		update: resource.Update,
+		reload: parseResource.Reload,
+		set:    parseResource.Set,
+		update: parseResource.Update,
 	}
 }
 
-func useAtlasResource[T any](loader func(context.Context) (T, error), deps ...interface{}) atlasResource[T] {
-	resource := fetch.UseResource(loader, deps...)
+func useAtlasResource[T any](parseLoader func(context.Context) (T, error), parseDeps ...interface{}) atlasResource[T] {
+	parseResource := fetch.UseResource(parseLoader, parseDeps...)
 	return atlasResource[T]{
 		get: func() atlasResourceState[T] {
-			state := resource.Get()
+			parseState := parseResource.Get()
 			return atlasResourceState[T]{
-				Value:   state.Value,
-				Loading: state.Loading,
-				Error:   state.Error,
-				Ready:   state.Ready,
+				Value:   parseState.Value,
+				Loading: parseState.Loading,
+				Error:   parseState.Error,
+				Ready:   parseState.Ready,
 			}
 		},
-		reload: resource.Reload,
+		reload: parseResource.Reload,
 	}
 }
 
-func atlasFetch(url string, options atlasFetchOptions) <-chan atlasImperativeFetchResult {
-	resultCh := make(chan atlasImperativeFetchResult, 1)
+func atlasFetch(parseUrl string, parseOptions atlasFetchOptions) <-chan atlasImperativeFetchResult {
+	parseResultCh := make(chan atlasImperativeFetchResult, 1)
 	go func() {
-		fetchCh := fetch.Fetch(url, fetch.Options{
-			Method:  options.Method,
-			Headers: options.Headers,
-			Body:    options.Body,
+		parseFetchCh := fetch.Fetch(parseUrl, fetch.Options{
+			Method:  parseOptions.Method,
+			Headers: parseOptions.Headers,
+			Body:    parseOptions.Body,
 		})
-		result := <-fetchCh
-		fetch.ReturnChannel(fetchCh)
-		payload := atlasImperativeFetchResult{
-			Data:    result.Text(),
-			Status:  result.Status,
-			Headers: result.Headers,
+		parseResult := <-parseFetchCh
+		fetch.ReturnChannel(parseFetchCh)
+		parsePayload := atlasImperativeFetchResult{
+			Data:    parseResult.Text(),
+			Status:  parseResult.Status,
+			Headers: parseResult.Headers,
 		}
-		if result.Err != nil {
-			payload.Error = result.Err.Error()
+		if parseResult.Err != nil {
+			parsePayload.Error = parseResult.Err.Error()
 		}
-		resultCh <- payload
+		parseResultCh <- parsePayload
 	}()
-	return resultCh
+	return parseResultCh
 }
 
-func useAtlasWorkerTask[Request any, Progress any, Result any](options interop.WorkerOptions, name string) atlasWorkerTask[Request, Progress, Result] {
-	task := ui.UseWorkerTask[Request, Progress, Result](options, name)
+func useAtlasWorkerTask[Request any, Progress any, Result any](parseOptions interop.WorkerOptions, parseName string) atlasWorkerTask[Request, Progress, Result] {
+	parseTask := ui.UseWorkerTask[Request, Progress, Result](parseOptions, parseName)
 	return atlasWorkerTask[Request, Progress, Result]{
 		get: func() atlasWorkerTaskState[Progress, Result] {
-			state := task.Get()
+			parseState := parseTask.Get()
 			return atlasWorkerTaskState[Progress, Result]{
-				Value:         state.Value,
-				Progress:      state.Progress,
-				ProgressReady: state.ProgressReady,
-				Running:       state.Running,
-				Ready:         state.Ready,
-				Cancelled:     state.Cancelled,
-				Started:       state.Started,
-				Error:         state.Error,
+				Value:         parseState.Value,
+				Progress:      parseState.Progress,
+				ProgressReady: parseState.ProgressReady,
+				Running:       parseState.Running,
+				Ready:         parseState.Ready,
+				Cancelled:     parseState.Cancelled,
+				Started:       parseState.Started,
+				Error:         parseState.Error,
 			}
 		},
-		start:  task.Start,
-		cancel: task.Cancel,
+		start:  parseTask.Start,
+		cancel: parseTask.Cancel,
 	}
 }
 
-func useAtlasChannel[T any](ch <-chan T) atlasChannelValue[T] {
-	channel := ui.UseChannel(ch)
+func useAtlasChannel[T any](parseCh <-chan T) atlasChannelValue[T] {
+	parseChannel := ui.UseChannel(parseCh)
 	return atlasChannelValue[T]{
-		get:    channel.Get,
-		ok:     channel.Ok,
-		closed: channel.Closed,
+		get:    parseChannel.Get,
+		ok:     parseChannel.Ok,
+		closed: parseChannel.Closed,
 	}
 }
 
-func persistAtlasSnapshot(key string, atomIDs ...string) error {
-	snap, err := state.GetSnapshot()
-	if err != nil {
-		return err
+func persistAtlasSnapshot(parseKey string, parseAtomIDs ...string) error {
+	parseSnap, parseErr := state.GetSnapshot()
+	if parseErr != nil {
+		return parseErr
 	}
-	return state.SaveSnapshot(key, snap.Select(atomIDs...), state.LocalStorage)
+	return state.SaveSnapshot(parseKey, parseSnap.Select(parseAtomIDs...), state.LocalStorage)
 }

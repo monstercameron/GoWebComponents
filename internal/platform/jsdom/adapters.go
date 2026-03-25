@@ -17,23 +17,23 @@ type WASMDOMNode struct {
 var _ runtime.DOMNode = (*WASMDOMNode)(nil)
 
 // NewWASMDOMNode wraps a raw js.Value as a runtime.DOMNode.
-func NewWASMDOMNode(value js.Value) runtime.DOMNode {
-	return &WASMDOMNode{value: value}
+func NewWASMDOMNode(parseValue js.Value) runtime.DOMNode {
+	return &WASMDOMNode{value: parseValue}
 }
 
-func (n *WASMDOMNode) IsNull() bool {
-	return n.value.IsNull() || n.value.IsUndefined()
+func (parseN *WASMDOMNode) IsNull() bool {
+	return parseN.value.IsNull() || parseN.value.IsUndefined()
 }
 
-func (n *WASMDOMNode) Equals(other runtime.DOMNode) bool {
-	if otherNode, ok := other.(*WASMDOMNode); ok {
-		return n.value.Equal(otherNode.value)
+func (parseN *WASMDOMNode) Equals(parseOther runtime.DOMNode) bool {
+	if parseOtherNode, parseOk := parseOther.(*WASMDOMNode); parseOk {
+		return parseN.value.Equal(parseOtherNode.value)
 	}
 	return false
 }
 
-func (n *WASMDOMNode) Value() js.Value {
-	return n.value
+func (parseN *WASMDOMNode) Value() js.Value {
+	return parseN.value
 }
 
 // WASMDOMAdapter implements runtime.DOMAdapter for browser/WASM.
@@ -71,435 +71,435 @@ var _ runtime.DOMAdapter = (*WASMDOMAdapter)(nil)
 
 // NewWASMDOMAdapter creates a DOM adapter backed by the browser document.
 func NewWASMDOMAdapter() *WASMDOMAdapter {
-	doc := js.Global().Get("document")
+	parseDoc := js.Global().Get("document")
 	// Pre-cache DOM prototype methods
-	elemProto := js.Global().Get("Element").Get("prototype")
-	batchSetAttributes := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		node := args[0]
-		attrs := args[1]
-		keys := js.Global().Get("Object").Call("keys", attrs)
-		length := keys.Get("length").Int()
-		for i := 0; i < length; i++ {
-			key := keys.Index(i).String()
-			node.Call("setAttribute", key, attrs.Get(key).String())
+	parseElemProto := js.Global().Get("Element").Get("prototype")
+	parseBatchSetAttributes := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseNode := parseArgs[0]
+		parseAttrs := parseArgs[1]
+		parseKeys := js.Global().Get("Object").Call("keys", parseAttrs)
+		parseLength := parseKeys.Get("length").Int()
+		for parseI := 0; parseI < parseLength; parseI++ {
+			parseKey := parseKeys.Index(parseI).String()
+			parseNode.Call("setAttribute", parseKey, parseAttrs.Get(parseKey).String())
 		}
 		return nil
 	})
 	return &WASMDOMAdapter{
-		document: doc,
+		document: parseDoc,
 		// Bind methods to document to ensure correct 'this' context when Invoked
-		createElement:    doc.Get("createElement").Call("bind", doc),
-		createTextNode:   doc.Get("createTextNode").Call("bind", doc),
-		querySelector:    doc.Get("querySelector").Call("bind", doc),
-		querySelectorAll: doc.Get("querySelectorAll").Call("bind", doc),
-		getElementByID:   doc.Get("getElementById").Call("bind", doc),
-		getByClassName:   doc.Get("getElementsByClassName").Call("bind", doc),
-		getByTagName:     doc.Get("getElementsByTagName").Call("bind", doc),
-		createFragment:   doc.Get("createDocumentFragment").Call("bind", doc),
+		createElement:    parseDoc.Get("createElement").Call("bind", parseDoc),
+		createTextNode:   parseDoc.Get("createTextNode").Call("bind", parseDoc),
+		querySelector:    parseDoc.Get("querySelector").Call("bind", parseDoc),
+		querySelectorAll: parseDoc.Get("querySelectorAll").Call("bind", parseDoc),
+		getElementByID:   parseDoc.Get("getElementById").Call("bind", parseDoc),
+		getByClassName:   parseDoc.Get("getElementsByClassName").Call("bind", parseDoc),
+		getByTagName:     parseDoc.Get("getElementsByTagName").Call("bind", parseDoc),
+		createFragment:   parseDoc.Get("createDocumentFragment").Call("bind", parseDoc),
 		// Cache element methods (not bound, will use Call)
-		appendChild:         elemProto.Get("appendChild"),
-		removeChild:         elemProto.Get("removeChild"),
-		setAttribute:        elemProto.Get("setAttribute"),
-		removeAttribute:     elemProto.Get("removeAttribute"),
-		insertBefore:        elemProto.Get("insertBefore"),
-		replaceChild:        elemProto.Get("replaceChild"),
-		addEventListener:    elemProto.Get("addEventListener"),
-		removeEventListener: elemProto.Get("removeEventListener"),
-		batchSetAttributes:  batchSetAttributes,
+		appendChild:         parseElemProto.Get("appendChild"),
+		removeChild:         parseElemProto.Get("removeChild"),
+		setAttribute:        parseElemProto.Get("setAttribute"),
+		removeAttribute:     parseElemProto.Get("removeAttribute"),
+		insertBefore:        parseElemProto.Get("insertBefore"),
+		replaceChild:        parseElemProto.Get("replaceChild"),
+		addEventListener:    parseElemProto.Get("addEventListener"),
+		removeEventListener: parseElemProto.Get("removeEventListener"),
+		batchSetAttributes:  parseBatchSetAttributes,
 	}
 }
 
-func (a *WASMDOMAdapter) CreateElement(tag string) runtime.DOMNode {
+func (parseA *WASMDOMAdapter) CreateElement(parseTag string) runtime.DOMNode {
 	// Check if document is available
-	if a.document.IsNull() || a.document.IsUndefined() {
+	if parseA.document.IsNull() || parseA.document.IsUndefined() {
 		// Document not available - return null node
 		return &WASMDOMNode{value: js.Null()}
 	}
 
 	// Use Invoke on the cached function instead of Call on the document
 	// This saves a property lookup on every call
-	elem := a.createElement.Invoke(tag)
-	if elem.IsNull() || elem.IsUndefined() {
+	parseElem := parseA.createElement.Invoke(parseTag)
+	if parseElem.IsNull() || parseElem.IsUndefined() {
 		// This shouldn't happen, but handle it gracefully
 		return &WASMDOMNode{value: js.Null()}
 	}
-	return &WASMDOMNode{value: elem}
+	return &WASMDOMNode{value: parseElem}
 }
 
-func (a *WASMDOMAdapter) CreateTextNode(text string) runtime.DOMNode {
+func (parseA *WASMDOMAdapter) CreateTextNode(parseText string) runtime.DOMNode {
 	// Check if document is available
-	if a.document.IsNull() || a.document.IsUndefined() {
+	if parseA.document.IsNull() || parseA.document.IsUndefined() {
 		return &WASMDOMNode{value: js.Null()}
 	}
 
 	// Use Invoke on the cached function
-	textNode := a.createTextNode.Invoke(text)
-	if textNode.IsNull() || textNode.IsUndefined() {
+	parseTextNode := parseA.createTextNode.Invoke(parseText)
+	if parseTextNode.IsNull() || parseTextNode.IsUndefined() {
 		return &WASMDOMNode{value: js.Null()}
 	}
-	return &WASMDOMNode{value: textNode}
+	return &WASMDOMNode{value: parseTextNode}
 }
 
-func (a *WASMDOMAdapter) SetAttribute(node runtime.DOMNode, name, value string) {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
+func (parseA *WASMDOMAdapter) SetAttribute(parseNode runtime.DOMNode, parseName, parseValue string) {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
 		// Use cached method for better performance
-		a.setAttribute.Call("call", wasmNode.value, name, value)
+		parseA.setAttribute.Call("call", parseWasmNode.value, parseName, parseValue)
 	}
 }
 
-func (a *WASMDOMAdapter) RemoveAttribute(node runtime.DOMNode, name string) {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		a.removeAttribute.Call("call", wasmNode.value, name)
+func (parseA *WASMDOMAdapter) RemoveAttribute(parseNode runtime.DOMNode, parseName string) {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		parseA.removeAttribute.Call("call", parseWasmNode.value, parseName)
 	}
 }
 
-func (a *WASMDOMAdapter) SetProperty(node runtime.DOMNode, name string, value interface{}) {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
+func (parseA *WASMDOMAdapter) SetProperty(parseNode runtime.DOMNode, parseName string, parseValue interface{}) {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
 		// Direct property set (fastest path)
-		wasmNode.value.Set(name, value)
+		parseWasmNode.value.Set(parseName, parseValue)
 	}
 }
 
-func (a *WASMDOMAdapter) GetProperty(node runtime.DOMNode, name string) interface{} {
-	if node == nil || node.IsNull() {
+func (parseA *WASMDOMAdapter) GetProperty(parseNode runtime.DOMNode, parseName string) interface{} {
+	if parseNode == nil || parseNode.IsNull() {
 		return nil
 	}
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		if !wasmNode.value.IsNull() && !wasmNode.value.IsUndefined() {
-			return wasmNode.value.Get(name)
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		if !parseWasmNode.value.IsNull() && !parseWasmNode.value.IsUndefined() {
+			return parseWasmNode.value.Get(parseName)
 		}
 	}
 	return nil
 }
 
-func (a *WASMDOMAdapter) AppendChild(parent, child runtime.DOMNode) {
+func (parseA *WASMDOMAdapter) AppendChild(parseParent, parseChild runtime.DOMNode) {
 	// Fast path: skip nil checks when nodes are valid
-	parentNode, ok1 := parent.(*WASMDOMNode)
-	childNode, ok2 := child.(*WASMDOMNode)
-	if !ok1 || !ok2 {
+	parseParentNode, parseOk1 := parseParent.(*WASMDOMNode)
+	parseChildNode, parseOk2 := parseChild.(*WASMDOMNode)
+	if !parseOk1 || !parseOk2 {
 		return
 	}
 
 	// If in batch mode for this specific parent, append to the top-most fragment.
-	if depth := len(a.batchStack); depth > 0 {
-		state := a.batchStack[depth-1]
-		if state.parent == parentNode {
-			a.appendChild.Call("call", state.fragment, childNode.value)
+	if parseDepth := len(parseA.batchStack); parseDepth > 0 {
+		parseState := parseA.batchStack[parseDepth-1]
+		if parseState.parent == parseParentNode {
+			parseA.appendChild.Call("call", parseState.fragment, parseChildNode.value)
 			return
 		}
 	}
 
 	// Use cached method via Call (faster than method lookup each time)
-	a.appendChild.Call("call", parentNode.value, childNode.value)
+	parseA.appendChild.Call("call", parseParentNode.value, parseChildNode.value)
 }
 
-func (a *WASMDOMAdapter) RemoveChild(parent, child runtime.DOMNode) {
-	parentNode, ok1 := parent.(*WASMDOMNode)
-	childNode, ok2 := child.(*WASMDOMNode)
-	if !ok1 || !ok2 {
+func (parseA *WASMDOMAdapter) RemoveChild(parseParent, parseChild runtime.DOMNode) {
+	parseParentNode, parseOk1 := parseParent.(*WASMDOMNode)
+	parseChildNode, parseOk2 := parseChild.(*WASMDOMNode)
+	if !parseOk1 || !parseOk2 {
 		return
 	}
 	// Use cached method
-	a.removeChild.Call("call", parentNode.value, childNode.value)
+	parseA.removeChild.Call("call", parseParentNode.value, parseChildNode.value)
 }
 
-func (a *WASMDOMAdapter) InsertBefore(parent, newNode, referenceNode runtime.DOMNode) {
-	parentN, ok1 := parent.(*WASMDOMNode)
-	newN, ok2 := newNode.(*WASMDOMNode)
-	refN, ok3 := referenceNode.(*WASMDOMNode)
-	if ok1 && ok2 && ok3 {
-		a.insertBefore.Call("call", parentN.value, newN.value, refN.value)
+func (parseA *WASMDOMAdapter) InsertBefore(parseParent, parseNewNode, parseReferenceNode runtime.DOMNode) {
+	parseParentN, parseOk1 := parseParent.(*WASMDOMNode)
+	parseNewN, parseOk2 := parseNewNode.(*WASMDOMNode)
+	parseRefN, parseOk3 := parseReferenceNode.(*WASMDOMNode)
+	if parseOk1 && parseOk2 && parseOk3 {
+		parseA.insertBefore.Call("call", parseParentN.value, parseNewN.value, parseRefN.value)
 	}
 }
 
-func (a *WASMDOMAdapter) ReplaceChild(parent, newNode, oldNode runtime.DOMNode) {
-	parentN, ok1 := parent.(*WASMDOMNode)
-	newN, ok2 := newNode.(*WASMDOMNode)
-	oldN, ok3 := oldNode.(*WASMDOMNode)
-	if ok1 && ok2 && ok3 {
-		a.replaceChild.Call("call", parentN.value, newN.value, oldN.value)
+func (parseA *WASMDOMAdapter) ReplaceChild(parseParent, parseNewNode, parseOldNode runtime.DOMNode) {
+	parseParentN, parseOk1 := parseParent.(*WASMDOMNode)
+	parseNewN, parseOk2 := parseNewNode.(*WASMDOMNode)
+	parseOldN, parseOk3 := parseOldNode.(*WASMDOMNode)
+	if parseOk1 && parseOk2 && parseOk3 {
+		parseA.replaceChild.Call("call", parseParentN.value, parseNewN.value, parseOldN.value)
 	}
 }
 
-func (a *WASMDOMAdapter) QuerySelector(selector string) interface{} {
-	result := a.querySelector.Invoke(selector)
-	if result.IsNull() || result.IsUndefined() {
+func (parseA *WASMDOMAdapter) QuerySelector(parseSelector string) interface{} {
+	parseResult := parseA.querySelector.Invoke(parseSelector)
+	if parseResult.IsNull() || parseResult.IsUndefined() {
 		return nil
 	}
-	return &WASMDOMNode{value: result}
+	return &WASMDOMNode{value: parseResult}
 }
 
-func (a *WASMDOMAdapter) ResolveNode(value interface{}) runtime.DOMNode {
-	switch typed := value.(type) {
+func (parseA *WASMDOMAdapter) ResolveNode(parseValue interface{}) runtime.DOMNode {
+	switch parseTyped := parseValue.(type) {
 	case *WASMDOMNode:
-		return typed
+		return parseTyped
 	case runtime.DOMNode:
-		return typed
+		return parseTyped
 	case js.Value:
-		if typed.IsNull() || typed.IsUndefined() {
+		if parseTyped.IsNull() || parseTyped.IsUndefined() {
 			return nil
 		}
-		return &WASMDOMNode{value: typed}
+		return &WASMDOMNode{value: parseTyped}
 	default:
 		return nil
 	}
 }
 
-func (a *WASMDOMAdapter) QuerySelectorAll(selector string) []runtime.DOMNode {
-	nodeList := a.querySelectorAll.Invoke(selector)
-	length := nodeList.Get("length").Int()
+func (parseA *WASMDOMAdapter) QuerySelectorAll(parseSelector string) []runtime.DOMNode {
+	parseNodeList := parseA.querySelectorAll.Invoke(parseSelector)
+	parseLength := parseNodeList.Get("length").Int()
 
-	nodes := make([]runtime.DOMNode, length)
-	for i := 0; i < length; i++ {
-		nodes[i] = &WASMDOMNode{value: nodeList.Index(i)}
+	parseNodes := make([]runtime.DOMNode, parseLength)
+	for parseI := 0; parseI < parseLength; parseI++ {
+		parseNodes[parseI] = &WASMDOMNode{value: parseNodeList.Index(parseI)}
 	}
-	return nodes
+	return parseNodes
 }
 
-func (a *WASMDOMAdapter) GetElementById(id string) runtime.DOMNode {
-	result := a.getElementByID.Invoke(id)
-	if result.IsNull() || result.IsUndefined() {
+func (parseA *WASMDOMAdapter) GetElementById(parseId string) runtime.DOMNode {
+	parseResult := parseA.getElementByID.Invoke(parseId)
+	if parseResult.IsNull() || parseResult.IsUndefined() {
 		return nil
 	}
-	return &WASMDOMNode{value: result}
+	return &WASMDOMNode{value: parseResult}
 }
 
-func (a *WASMDOMAdapter) GetElementsByClassName(className string) []runtime.DOMNode {
-	htmlCollection := a.getByClassName.Invoke(className)
-	length := htmlCollection.Get("length").Int()
+func (parseA *WASMDOMAdapter) GetElementsByClassName(parseClassName string) []runtime.DOMNode {
+	parseHtmlCollection := parseA.getByClassName.Invoke(parseClassName)
+	parseLength := parseHtmlCollection.Get("length").Int()
 
-	nodes := make([]runtime.DOMNode, length)
-	for i := 0; i < length; i++ {
-		nodes[i] = &WASMDOMNode{value: htmlCollection.Index(i)}
+	parseNodes := make([]runtime.DOMNode, parseLength)
+	for parseI := 0; parseI < parseLength; parseI++ {
+		parseNodes[parseI] = &WASMDOMNode{value: parseHtmlCollection.Index(parseI)}
 	}
-	return nodes
+	return parseNodes
 }
 
-func (a *WASMDOMAdapter) GetElementsByTagName(tagName string) []runtime.DOMNode {
-	htmlCollection := a.getByTagName.Invoke(tagName)
-	length := htmlCollection.Get("length").Int()
+func (parseA *WASMDOMAdapter) GetElementsByTagName(parseTagName string) []runtime.DOMNode {
+	parseHtmlCollection := parseA.getByTagName.Invoke(parseTagName)
+	parseLength := parseHtmlCollection.Get("length").Int()
 
-	nodes := make([]runtime.DOMNode, length)
-	for i := 0; i < length; i++ {
-		nodes[i] = &WASMDOMNode{value: htmlCollection.Index(i)}
+	parseNodes := make([]runtime.DOMNode, parseLength)
+	for parseI := 0; parseI < parseLength; parseI++ {
+		parseNodes[parseI] = &WASMDOMNode{value: parseHtmlCollection.Index(parseI)}
 	}
-	return nodes
+	return parseNodes
 }
 
-func (a *WASMDOMAdapter) SetInnerHTML(node runtime.DOMNode, html string) {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		wasmNode.value.Set("innerHTML", html)
-	}
-}
-
-func (a *WASMDOMAdapter) GetInnerHTML(node runtime.DOMNode) string {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		return wasmNode.value.Get("innerHTML").String()
-	}
-	return ""
-}
-
-func (a *WASMDOMAdapter) SetTextContent(node runtime.DOMNode, text string) {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		wasmNode.value.Set("textContent", text)
+func (parseA *WASMDOMAdapter) SetInnerHTML(parseNode runtime.DOMNode, parseHtml string) {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		parseWasmNode.value.Set("innerHTML", parseHtml)
 	}
 }
 
-func (a *WASMDOMAdapter) GetTextContent(node runtime.DOMNode) string {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		return wasmNode.value.Get("textContent").String()
+func (parseA *WASMDOMAdapter) GetInnerHTML(parseNode runtime.DOMNode) string {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		return parseWasmNode.value.Get("innerHTML").String()
 	}
 	return ""
 }
 
-func (a *WASMDOMAdapter) AddClass(node runtime.DOMNode, className string) {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		classList := wasmNode.value.Get("classList")
-		classList.Call("add", className)
+func (parseA *WASMDOMAdapter) SetTextContent(parseNode runtime.DOMNode, parseText string) {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		parseWasmNode.value.Set("textContent", parseText)
 	}
 }
 
-func (a *WASMDOMAdapter) RemoveClass(node runtime.DOMNode, className string) {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		classList := wasmNode.value.Get("classList")
-		classList.Call("remove", className)
+func (parseA *WASMDOMAdapter) GetTextContent(parseNode runtime.DOMNode) string {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		return parseWasmNode.value.Get("textContent").String()
+	}
+	return ""
+}
+
+func (parseA *WASMDOMAdapter) AddClass(parseNode runtime.DOMNode, parseClassName string) {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		parseClassList := parseWasmNode.value.Get("classList")
+		parseClassList.Call("add", parseClassName)
 	}
 }
 
-func (a *WASMDOMAdapter) ToggleClass(node runtime.DOMNode, className string) {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		classList := wasmNode.value.Get("classList")
-		classList.Call("toggle", className)
+func (parseA *WASMDOMAdapter) RemoveClass(parseNode runtime.DOMNode, parseClassName string) {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		parseClassList := parseWasmNode.value.Get("classList")
+		parseClassList.Call("remove", parseClassName)
 	}
 }
 
-func (a *WASMDOMAdapter) GetParent(node runtime.DOMNode) runtime.DOMNode {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		parent := wasmNode.value.Get("parentNode")
-		if !parent.IsNull() && !parent.IsUndefined() {
-			return &WASMDOMNode{value: parent}
+func (parseA *WASMDOMAdapter) ToggleClass(parseNode runtime.DOMNode, parseClassName string) {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		parseClassList := parseWasmNode.value.Get("classList")
+		parseClassList.Call("toggle", parseClassName)
+	}
+}
+
+func (parseA *WASMDOMAdapter) GetParent(parseNode runtime.DOMNode) runtime.DOMNode {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		parseParent := parseWasmNode.value.Get("parentNode")
+		if !parseParent.IsNull() && !parseParent.IsUndefined() {
+			return &WASMDOMNode{value: parseParent}
 		}
 	}
 	return nil
 }
 
-func (a *WASMDOMAdapter) GetChildren(node runtime.DOMNode) []runtime.DOMNode {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		children := wasmNode.value.Get("children")
-		length := children.Get("length").Int()
+func (parseA *WASMDOMAdapter) GetChildren(parseNode runtime.DOMNode) []runtime.DOMNode {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		parseChildren := parseWasmNode.value.Get("children")
+		parseLength := parseChildren.Get("length").Int()
 
-		nodes := make([]runtime.DOMNode, length)
-		for i := 0; i < length; i++ {
-			nodes[i] = &WASMDOMNode{value: children.Index(i)}
+		parseNodes := make([]runtime.DOMNode, parseLength)
+		for parseI := 0; parseI < parseLength; parseI++ {
+			parseNodes[parseI] = &WASMDOMNode{value: parseChildren.Index(parseI)}
 		}
-		return nodes
+		return parseNodes
 	}
 	return nil
 }
 
-func (a *WASMDOMAdapter) GetFirstChild(node runtime.DOMNode) runtime.DOMNode {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		firstChild := wasmNode.value.Get("firstChild")
-		if !firstChild.IsNull() && !firstChild.IsUndefined() {
-			return &WASMDOMNode{value: firstChild}
-		}
-	}
-	return nil
-}
-
-func (a *WASMDOMAdapter) GetNextSibling(node runtime.DOMNode) runtime.DOMNode {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		nextSibling := wasmNode.value.Get("nextSibling")
-		if !nextSibling.IsNull() && !nextSibling.IsUndefined() {
-			return &WASMDOMNode{value: nextSibling}
+func (parseA *WASMDOMAdapter) GetFirstChild(parseNode runtime.DOMNode) runtime.DOMNode {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		parseFirstChild := parseWasmNode.value.Get("firstChild")
+		if !parseFirstChild.IsNull() && !parseFirstChild.IsUndefined() {
+			return &WASMDOMNode{value: parseFirstChild}
 		}
 	}
 	return nil
 }
 
-func (a *WASMDOMAdapter) SetStyle(node runtime.DOMNode, property, value string) {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		style := wasmNode.value.Get("style")
-		style.Set(property, value)
+func (parseA *WASMDOMAdapter) GetNextSibling(parseNode runtime.DOMNode) runtime.DOMNode {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		parseNextSibling := parseWasmNode.value.Get("nextSibling")
+		if !parseNextSibling.IsNull() && !parseNextSibling.IsUndefined() {
+			return &WASMDOMNode{value: parseNextSibling}
+		}
+	}
+	return nil
+}
+
+func (parseA *WASMDOMAdapter) SetStyle(parseNode runtime.DOMNode, parseProperty, parseValue string) {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		parseStyle := parseWasmNode.value.Get("style")
+		parseStyle.Set(parseProperty, parseValue)
 	}
 }
 
-func (a *WASMDOMAdapter) SetStyles(node runtime.DOMNode, styles map[string]string) {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		style := wasmNode.value.Get("style")
+func (parseA *WASMDOMAdapter) SetStyles(parseNode runtime.DOMNode, parseStyles map[string]string) {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		parseStyle := parseWasmNode.value.Get("style")
 		// Batch style updates by caching style object
-		for property, value := range styles {
-			style.Set(property, value)
+		for parseProperty, parseValue := range parseStyles {
+			parseStyle.Set(parseProperty, parseValue)
 		}
 	}
 }
 
 // BeginBatch starts batching DOM operations for a parent node
-func (a *WASMDOMAdapter) BeginBatch(parent runtime.DOMNode) {
-	if parentNode, ok := parent.(*WASMDOMNode); ok {
-		depth := len(a.batchStack)
-		var fragment js.Value
-		if depth < len(a.fragmentPool) {
-			fragment = a.fragmentPool[depth]
+func (parseA *WASMDOMAdapter) BeginBatch(parseParent runtime.DOMNode) {
+	if parseParentNode, parseOk := parseParent.(*WASMDOMNode); parseOk {
+		parseDepth := len(parseA.batchStack)
+		var parseFragment js.Value
+		if parseDepth < len(parseA.fragmentPool) {
+			parseFragment = parseA.fragmentPool[parseDepth]
 		} else {
-			fragment = a.createFragment.Invoke()
-			a.fragmentPool = append(a.fragmentPool, fragment)
+			parseFragment = parseA.createFragment.Invoke()
+			parseA.fragmentPool = append(parseA.fragmentPool, parseFragment)
 		}
-		a.batchStack = append(a.batchStack, wasmBatchState{parent: parentNode, fragment: fragment})
+		parseA.batchStack = append(parseA.batchStack, wasmBatchState{parent: parseParentNode, fragment: parseFragment})
 	}
 }
 
 // EndBatch commits all batched operations
-func (a *WASMDOMAdapter) EndBatch() {
-	depth := len(a.batchStack)
-	if depth == 0 {
+func (parseA *WASMDOMAdapter) EndBatch() {
+	parseDepth := len(parseA.batchStack)
+	if parseDepth == 0 {
 		return
 	}
 
-	state := a.batchStack[depth-1]
-	a.batchStack = a.batchStack[:depth-1]
-	if state.parent != nil {
+	parseState := parseA.batchStack[parseDepth-1]
+	parseA.batchStack = parseA.batchStack[:parseDepth-1]
+	if parseState.parent != nil {
 		// Single DOM call to append all children
-		a.appendChild.Call("call", state.parent.value, state.fragment)
+		parseA.appendChild.Call("call", parseState.parent.value, parseState.fragment)
 	}
 }
 
 // BatchSetAttributes sets multiple attributes in a single boundary crossing
-func (a *WASMDOMAdapter) BatchSetAttributes(node runtime.DOMNode, attrs map[string]string) {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		if len(attrs) == 0 {
+func (parseA *WASMDOMAdapter) BatchSetAttributes(parseNode runtime.DOMNode, parseAttrs map[string]string) {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		if len(parseAttrs) == 0 {
 			return
 		}
 
-		payload := js.Global().Get("Object").New()
-		for name, value := range attrs {
-			payload.Set(name, value)
+		parsePayload := js.Global().Get("Object").New()
+		for parseName, parseValue := range parseAttrs {
+			parsePayload.Set(parseName, parseValue)
 		}
-		a.batchSetAttributes.Invoke(wasmNode.value, payload)
+		parseA.batchSetAttributes.Invoke(parseWasmNode.value, parsePayload)
 	}
 }
 
-func (a *WASMDOMAdapter) WrapFunction(fn interface{}) interface{} {
-	switch f := fn.(type) {
+func (parseA *WASMDOMAdapter) WrapFunction(parseFn interface{}) interface{} {
+	switch parseF := parseFn.(type) {
 	case func():
-		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			f()
+		return js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseF()
 			return nil
 		})
 	case func(string):
-		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			if len(args) == 0 {
-				f("")
+		return js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+			if len(parseArgs2) == 0 {
+				parseF("")
 				return nil
 			}
-			target := args[0].Get("target")
-			if target.IsNull() || target.IsUndefined() {
-				f("")
+			parseTarget := parseArgs2[0].Get("target")
+			if parseTarget.IsNull() || parseTarget.IsUndefined() {
+				parseF("")
 				return nil
 			}
-			value := target.Get("value")
-			if value.IsNull() || value.IsUndefined() {
-				f("")
+			parseValue := parseTarget.Get("value")
+			if parseValue.IsNull() || parseValue.IsUndefined() {
+				parseF("")
 				return nil
 			}
-			f(value.String())
+			parseF(parseValue.String())
 			return nil
 		})
 	case func(js.Value):
-		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			if len(args) > 0 {
-				f(args[0])
+		return js.FuncOf(func(parseThis3 js.Value, parseArgs3 []js.Value) interface{} {
+			if len(parseArgs3) > 0 {
+				parseF(parseArgs3[0])
 			}
 			return nil
 		})
 	case func() error:
-		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			f()
+		return js.FuncOf(func(parseThis4 js.Value, parseArgs4 []js.Value) interface{} {
+			parseF()
 			return nil
 		})
 	case func(js.Value) error:
-		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			if len(args) > 0 {
-				f(args[0])
+		return js.FuncOf(func(parseThis5 js.Value, parseArgs5 []js.Value) interface{} {
+			if len(parseArgs5) > 0 {
+				parseF(parseArgs5[0])
 			}
 			return nil
 		})
 	case func(runtime.GoEvent):
-		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			if len(args) > 0 {
-				f(runtime.NewGoEvent(args[0]))
+		return js.FuncOf(func(parseThis6 js.Value, parseArgs6 []js.Value) interface{} {
+			if len(parseArgs6) > 0 {
+				parseF(runtime.NewGoEvent(parseArgs6[0]))
 			}
 			return nil
 		})
 	case func(runtime.GoEvent) error:
-		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			if len(args) > 0 {
-				f(runtime.NewGoEvent(args[0]))
+		return js.FuncOf(func(parseThis7 js.Value, parseArgs7 []js.Value) interface{} {
+			if len(parseArgs7) > 0 {
+				parseF(runtime.NewGoEvent(parseArgs7[0]))
 			}
 			return nil
 		})
 	default:
-		return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		return js.FuncOf(func(parseThis8 js.Value, parseArgs8 []js.Value) interface{} {
 			return nil
 		})
 	}
@@ -515,10 +515,10 @@ var _ runtime.EventAdapter = (*WASMEventAdapter)(nil)
 
 // NewWASMEventAdapter creates an event adapter backed by browser DOM listeners.
 func NewWASMEventAdapter() *WASMEventAdapter {
-	elemProto := js.Global().Get("Element").Get("prototype")
+	parseElemProto := js.Global().Get("Element").Get("prototype")
 	return &WASMEventAdapter{
-		addEventListener:    elemProto.Get("addEventListener"),
-		removeEventListener: elemProto.Get("removeEventListener"),
+		addEventListener:    parseElemProto.Get("addEventListener"),
+		removeEventListener: parseElemProto.Get("removeEventListener"),
 	}
 }
 
@@ -530,42 +530,42 @@ type wasmEventHandler struct {
 
 var _ runtime.EventHandler = (*wasmEventHandler)(nil)
 
-func (h *wasmEventHandler) Release() {
-	h.fn.Release()
+func (parseH *wasmEventHandler) Release() {
+	parseH.fn.Release()
 }
 
-func (a *WASMEventAdapter) CreateEventHandler(fn func(runtime.Event)) runtime.EventHandler {
+func (parseA *WASMEventAdapter) CreateEventHandler(parseFn func(runtime.Event)) runtime.EventHandler {
 	// Create a wasmEvent wrapper
-	jsFn := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		if len(args) > 0 {
-			event := &wasmEvent{value: args[0]}
-			fn(event)
+	parseJsFn := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		if len(parseArgs) > 0 {
+			parseEvent := &wasmEvent{value: parseArgs[0]}
+			parseFn(parseEvent)
 		}
 		return nil
 	})
 
 	return &wasmEventHandler{
-		fn:     jsFn,
-		goFunc: fn,
+		fn:     parseJsFn,
+		goFunc: parseFn,
 	}
 }
 
-func (a *WASMEventAdapter) ReleaseEventHandler(handler runtime.EventHandler) {
-	handler.Release()
+func (parseA *WASMEventAdapter) ReleaseEventHandler(parseHandler runtime.EventHandler) {
+	parseHandler.Release()
 }
 
-func (a *WASMEventAdapter) AddEventListener(node runtime.DOMNode, eventType string, handler runtime.EventHandler) {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		if wasmHandler, ok := handler.(*wasmEventHandler); ok {
-			a.addEventListener.Call("call", wasmNode.value, eventType, wasmHandler.fn)
+func (parseA *WASMEventAdapter) AddEventListener(parseNode runtime.DOMNode, parseEventType string, parseHandler runtime.EventHandler) {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		if parseWasmHandler, parseOk2 := parseHandler.(*wasmEventHandler); parseOk2 {
+			parseA.addEventListener.Call("call", parseWasmNode.value, parseEventType, parseWasmHandler.fn)
 		}
 	}
 }
 
-func (a *WASMEventAdapter) RemoveEventListener(node runtime.DOMNode, eventType string, handler runtime.EventHandler) {
-	if wasmNode, ok := node.(*WASMDOMNode); ok {
-		if wasmHandler, ok := handler.(*wasmEventHandler); ok {
-			a.removeEventListener.Call("call", wasmNode.value, eventType, wasmHandler.fn)
+func (parseA *WASMEventAdapter) RemoveEventListener(parseNode runtime.DOMNode, parseEventType string, parseHandler runtime.EventHandler) {
+	if parseWasmNode, parseOk := parseNode.(*WASMDOMNode); parseOk {
+		if parseWasmHandler, parseOk2 := parseHandler.(*wasmEventHandler); parseOk2 {
+			parseA.removeEventListener.Call("call", parseWasmNode.value, parseEventType, parseWasmHandler.fn)
 		}
 	}
 }
@@ -577,55 +577,55 @@ type wasmEvent struct {
 
 var _ runtime.Event = (*wasmEvent)(nil)
 
-func (e *wasmEvent) PreventDefault() {
-	e.value.Call("preventDefault")
+func (parseE *wasmEvent) PreventDefault() {
+	parseE.value.Call("preventDefault")
 }
 
-func (e *wasmEvent) StopPropagation() {
-	e.value.Call("stopPropagation")
+func (parseE *wasmEvent) StopPropagation() {
+	parseE.value.Call("stopPropagation")
 }
 
-func (e *wasmEvent) GetValue() string {
-	target := e.value.Get("target")
-	if !target.IsNull() && !target.IsUndefined() {
-		value := target.Get("value")
-		if !value.IsNull() && !value.IsUndefined() {
-			return value.String()
+func (parseE *wasmEvent) GetValue() string {
+	parseTarget := parseE.value.Get("target")
+	if !parseTarget.IsNull() && !parseTarget.IsUndefined() {
+		parseValue := parseTarget.Get("value")
+		if !parseValue.IsNull() && !parseValue.IsUndefined() {
+			return parseValue.String()
 		}
 	}
 	return ""
 }
 
-func (e *wasmEvent) GetTarget() runtime.DOMNode {
-	target := e.value.Get("target")
-	if !target.IsNull() && !target.IsUndefined() {
-		return &WASMDOMNode{value: target}
+func (parseE *wasmEvent) GetTarget() runtime.DOMNode {
+	parseTarget := parseE.value.Get("target")
+	if !parseTarget.IsNull() && !parseTarget.IsUndefined() {
+		return &WASMDOMNode{value: parseTarget}
 	}
 	return nil
 }
 
-func (e *wasmEvent) GetKeyCode() int {
-	keyCode := e.value.Get("keyCode")
-	if !keyCode.IsNull() && !keyCode.IsUndefined() {
-		return keyCode.Int()
+func (parseE *wasmEvent) GetKeyCode() int {
+	parseKeyCode := parseE.value.Get("keyCode")
+	if !parseKeyCode.IsNull() && !parseKeyCode.IsUndefined() {
+		return parseKeyCode.Int()
 	}
 	return 0
 }
 
-func (e *wasmEvent) GetKey() string {
-	key := e.value.Get("key")
-	if !key.IsNull() && !key.IsUndefined() {
-		return key.String()
+func (parseE *wasmEvent) GetKey() string {
+	parseKey := parseE.value.Get("key")
+	if !parseKey.IsNull() && !parseKey.IsUndefined() {
+		return parseKey.String()
 	}
 	return ""
 }
 
-func (e *wasmEvent) IsChecked() bool {
-	target := e.value.Get("target")
-	if !target.IsNull() && !target.IsUndefined() {
-		checked := target.Get("checked")
-		if !checked.IsNull() && !checked.IsUndefined() {
-			return checked.Bool()
+func (parseE *wasmEvent) IsChecked() bool {
+	parseTarget := parseE.value.Get("target")
+	if !parseTarget.IsNull() && !parseTarget.IsUndefined() {
+		parseChecked := parseTarget.Get("checked")
+		if !parseChecked.IsNull() && !parseChecked.IsUndefined() {
+			return parseChecked.Bool()
 		}
 	}
 	return false
@@ -645,46 +645,46 @@ func NewWASMScheduler() *WASMScheduler {
 	}
 }
 
-func (s *WASMScheduler) RequestIdleCallback(callback func(runtime.Deadline)) {
+func (parseS *WASMScheduler) RequestIdleCallback(parseCallback func(runtime.Deadline)) {
 	// Wrap the callback - release after execution
-	var jsFn js.Func
-	jsFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		deadline := &wasmDeadline{}
-		if len(args) > 0 {
-			deadline.value = args[0]
+	var parseJsFn js.Func
+	parseJsFn = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseDeadline := &wasmDeadline{}
+		if len(parseArgs) > 0 {
+			parseDeadline.value = parseArgs[0]
 		}
-		callback(deadline)
+		parseCallback(parseDeadline)
 		// Release after callback executes
-		jsFn.Release()
+		parseJsFn.Release()
 		return nil
 	})
 
 	// Check if requestIdleCallback is available
-	if s.window.Get("requestIdleCallback").Truthy() {
-		s.window.Call("requestIdleCallback", jsFn)
+	if parseS.window.Get("requestIdleCallback").Truthy() {
+		parseS.window.Call("requestIdleCallback", parseJsFn)
 	} else {
 		// Fallback to setTimeout
-		s.window.Call("setTimeout", jsFn, 0)
+		parseS.window.Call("setTimeout", parseJsFn, 0)
 	}
 }
 
-func (s *WASMScheduler) SetTimeout(callback func(), delay int) {
+func (parseS *WASMScheduler) SetTimeout(parseCallback func(), parseDelay int) {
 	// Always use setTimeout (even for delay 0) to allow goroutines to run
 	// This ensures that goroutines calling setState can enqueue updates before workLoop processes them
-	var jsFn js.Func
-	jsFn = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		callback()
+	var parseJsFn js.Func
+	parseJsFn = js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseCallback()
 		// Release after callback executes
-		jsFn.Release()
+		parseJsFn.Release()
 		return nil
 	})
 
-	s.window.Call("setTimeout", jsFn, delay)
+	parseS.window.Call("setTimeout", parseJsFn, parseDelay)
 }
 
-func (s *WASMScheduler) CancelIdleCallback(id interface{}) {
-	if s.window.Get("cancelIdleCallback").Truthy() {
-		s.window.Call("cancelIdleCallback", id)
+func (parseS *WASMScheduler) CancelIdleCallback(parseId interface{}) {
+	if parseS.window.Get("cancelIdleCallback").Truthy() {
+		parseS.window.Call("cancelIdleCallback", parseId)
 	}
 }
 
@@ -695,21 +695,21 @@ type wasmDeadline struct {
 
 var _ runtime.Deadline = (*wasmDeadline)(nil)
 
-func (d *wasmDeadline) TimeRemaining() float64 {
-	if d.value.IsUndefined() || d.value.IsNull() {
+func (parseD *wasmDeadline) TimeRemaining() float64 {
+	if parseD.value.IsUndefined() || parseD.value.IsNull() {
 		return 50.0 // Default to 50ms
 	}
-	if d.value.Get("timeRemaining").Truthy() {
-		return d.value.Call("timeRemaining").Float()
+	if parseD.value.Get("timeRemaining").Truthy() {
+		return parseD.value.Call("timeRemaining").Float()
 	}
 	return 50.0
 }
 
-func (d *wasmDeadline) DidTimeout() bool {
-	if d.value.IsUndefined() || d.value.IsNull() {
+func (parseD *wasmDeadline) DidTimeout() bool {
+	if parseD.value.IsUndefined() || parseD.value.IsNull() {
 		return false
 	}
-	return d.value.Get("didTimeout").Bool()
+	return parseD.value.Get("didTimeout").Bool()
 }
 
 // WASMBrowserState implements runtime.BrowserState for browser/WASM.
@@ -726,69 +726,69 @@ func NewWASMBrowserState() *WASMBrowserState {
 	}
 }
 
-func (b *WASMBrowserState) PushState(state interface{}, title, url string) {
-	history := b.window.Get("history")
-	history.Call("pushState", state, title, url)
+func (parseB *WASMBrowserState) PushState(parseState interface{}, parseTitle, parseUrl string) {
+	parseHistory := parseB.window.Get("history")
+	parseHistory.Call("pushState", parseState, parseTitle, parseUrl)
 }
 
-func (b *WASMBrowserState) ReplaceState(state interface{}, title, url string) {
-	history := b.window.Get("history")
-	history.Call("replaceState", state, title, url)
+func (parseB *WASMBrowserState) ReplaceState(parseState interface{}, parseTitle, parseUrl string) {
+	parseHistory := parseB.window.Get("history")
+	parseHistory.Call("replaceState", parseState, parseTitle, parseUrl)
 }
 
-func (b *WASMBrowserState) GetCurrentPath() string {
-	location := b.window.Get("location")
-	return location.Get("pathname").String()
+func (parseB *WASMBrowserState) GetCurrentPath() string {
+	parseLocation := parseB.window.Get("location")
+	return parseLocation.Get("pathname").String()
 }
 
-func (b *WASMBrowserState) OnPopState(callback func(path string)) {
-	b.window.Call("addEventListener", "popstate", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		location := b.window.Get("location")
-		path := location.Get("pathname").String()
-		callback(path)
+func (parseB *WASMBrowserState) OnPopState(parseCallback func(path string)) {
+	parseB.window.Call("addEventListener", "popstate", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseLocation := parseB.window.Get("location")
+		parsePath := parseLocation.Get("pathname").String()
+		parseCallback(parsePath)
 		return nil
 	}))
 }
 
-func (b *WASMBrowserState) SetItem(key, value string) error {
-	storage := b.window.Get("localStorage")
-	if !storage.IsNull() && !storage.IsUndefined() {
-		storage.Call("setItem", key, value)
+func (parseB *WASMBrowserState) SetItem(parseKey, parseValue string) error {
+	parseStorage := parseB.window.Get("localStorage")
+	if !parseStorage.IsNull() && !parseStorage.IsUndefined() {
+		parseStorage.Call("setItem", parseKey, parseValue)
 	}
 	return nil
 }
 
-func (b *WASMBrowserState) GetItem(key string) (string, bool) {
-	storage := b.window.Get("localStorage")
-	if storage.IsNull() || storage.IsUndefined() {
+func (parseB *WASMBrowserState) GetItem(parseKey string) (string, bool) {
+	parseStorage := parseB.window.Get("localStorage")
+	if parseStorage.IsNull() || parseStorage.IsUndefined() {
 		return "", false
 	}
 
-	value := storage.Call("getItem", key)
-	if value.IsNull() {
+	parseValue := parseStorage.Call("getItem", parseKey)
+	if parseValue.IsNull() {
 		return "", false
 	}
-	return value.String(), true
+	return parseValue.String(), true
 }
 
-func (b *WASMBrowserState) RemoveItem(key string) {
-	storage := b.window.Get("localStorage")
-	if !storage.IsNull() && !storage.IsUndefined() {
-		storage.Call("removeItem", key)
+func (parseB *WASMBrowserState) RemoveItem(parseKey string) {
+	parseStorage := parseB.window.Get("localStorage")
+	if !parseStorage.IsNull() && !parseStorage.IsUndefined() {
+		parseStorage.Call("removeItem", parseKey)
 	}
 }
 
-func (b *WASMBrowserState) GetHash() string {
-	location := b.window.Get("location")
-	return location.Get("hash").String()
+func (parseB *WASMBrowserState) GetHash() string {
+	parseLocation := parseB.window.Get("location")
+	return parseLocation.Get("hash").String()
 }
 
-func (b *WASMBrowserState) SetHash(hash string) {
-	location := b.window.Get("location")
-	location.Set("hash", hash)
+func (parseB *WASMBrowserState) SetHash(parseHash string) {
+	parseLocation := parseB.window.Get("location")
+	parseLocation.Set("hash", parseHash)
 }
 
-func (b *WASMBrowserState) Reload() {
-	location := b.window.Get("location")
-	location.Call("reload")
+func (parseB *WASMBrowserState) Reload() {
+	parseLocation := parseB.window.Get("location")
+	parseLocation.Call("reload")
 }

@@ -35,284 +35,284 @@ type authUserRecord struct {
 const maxDBOpenConns = 8
 
 // openChatStore opens (or creates) the SQLite database at path and initialises the schema.
-func openChatStore(path string) (*Store, error) {
-	return openChatStoreWithRecovery(path, true)
+func parseOpenChatStore(parsePath string) (*Store, error) {
+	return parseOpenChatStoreWithRecovery(parsePath, true)
 }
 
-func openChatStoreWithRecovery(path string, allowRecovery bool) (*Store, error) {
-	queries, err := loadStoreQueries()
-	if err != nil {
-		return nil, err
+func parseOpenChatStoreWithRecovery(parsePath string, isAllowRecovery bool) (*Store, error) {
+	parseQueries, parseErr := parseLoadStoreQueries()
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	dbDir := strings.TrimSpace(filepath.Dir(path))
-	if dbDir != "" && dbDir != "." {
-		if err := os.MkdirAll(dbDir, 0o755); err != nil {
-			return nil, fmt.Errorf("create db directory %q: %w", dbDir, err)
+	parseDbDir := strings.TrimSpace(filepath.Dir(parsePath))
+	if parseDbDir != "" && parseDbDir != "." {
+		if parseErr2 := os.MkdirAll(parseDbDir, 0o755); parseErr2 != nil {
+			return nil, fmt.Errorf("create db directory %q: %w", parseDbDir, parseErr2)
 		}
 	}
-	dsn := "file:" + path + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
-	db, err := sql.Open("sqlite3", dsn)
-	if err != nil {
-		return nil, err
+	parseDsn := "file:" + parsePath + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+	parseDb, parseErr := sql.Open("sqlite3", parseDsn)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	maxOpenConns := maxDBOpenConns
-	if cpuCount := runtime.GOMAXPROCS(0); cpuCount > 0 && cpuCount < maxOpenConns {
-		maxOpenConns = cpuCount
+	parseMaxOpenConns := maxDBOpenConns
+	if parseCpuCount := runtime.GOMAXPROCS(0); parseCpuCount > 0 && parseCpuCount < parseMaxOpenConns {
+		parseMaxOpenConns = parseCpuCount
 	}
-	if maxOpenConns < 4 {
-		maxOpenConns = 4
+	if parseMaxOpenConns < 4 {
+		parseMaxOpenConns = 4
 	}
-	db.SetMaxOpenConns(maxOpenConns)
-	db.SetMaxIdleConns(maxOpenConns)
-	db.SetConnMaxIdleTime(5 * time.Minute)
-	if _, err := db.Exec(queries.schema); err != nil {
-		_ = db.Close()
-		if allowRecovery && shouldResetIncompatibleStore(path, err) {
-			if backupPath, recoveryErr := backupIncompatibleStoreFiles(path); recoveryErr == nil {
-				return openChatStoreWithRecovery(path, false)
+	parseDb.SetMaxOpenConns(parseMaxOpenConns)
+	parseDb.SetMaxIdleConns(parseMaxOpenConns)
+	parseDb.SetConnMaxIdleTime(5 * time.Minute)
+	if _, parseErr3 := parseDb.Exec(parseQueries.schema); parseErr3 != nil {
+		_ = parseDb.Close()
+		if isAllowRecovery && shouldResetIncompatibleStore(parsePath, parseErr3) {
+			if parseBackupPath, parseRecoveryErr := parseBackupIncompatibleStoreFiles(parsePath); parseRecoveryErr == nil {
+				return parseOpenChatStoreWithRecovery(parsePath, false)
 			} else {
-				return nil, fmt.Errorf("backup incompatible store %q: %w", backupPath, recoveryErr)
+				return nil, fmt.Errorf("backup incompatible store %q: %w", parseBackupPath, parseRecoveryErr)
 			}
 		}
-		return nil, err
+		return nil, parseErr3
 	}
-	runBestEffortStatements(db, queries.migrations)
-	if err := ensureConversationPublicIDs(db); err != nil {
-		_ = db.Close()
-		return nil, err
+	parseRunBestEffortStatements(parseDb, parseQueries.migrations)
+	if parseErr4 := parseEnsureConversationPublicIDs(parseDb); parseErr4 != nil {
+		_ = parseDb.Close()
+		return nil, parseErr4
 	}
-	return &Store{db: db, queries: queries}, nil
+	return &Store{db: parseDb, queries: parseQueries}, nil
 }
 
-func ensureConversationPublicIDs(db *sql.DB) error {
-	rows, err := db.Query(`SELECT id FROM conversations WHERE TRIM(COALESCE(public_id, '')) = '' ORDER BY id`)
-	if err != nil {
-		return err
+func parseEnsureConversationPublicIDs(parseDb *sql.DB) error {
+	parseRows, parseErr := parseDb.Query(`SELECT id FROM conversations WHERE TRIM(COALESCE(public_id, '')) = '' ORDER BY id`)
+	if parseErr != nil {
+		return parseErr
 	}
-	defer rows.Close()
+	defer parseRows.Close()
 
-	var conversationIDs []int64
-	for rows.Next() {
-		var conversationID int64
-		if err := rows.Scan(&conversationID); err != nil {
-			return err
+	var parseConversationIDs []int64
+	for parseRows.Next() {
+		var parseConversationID int64
+		if parseErr2 := parseRows.Scan(&parseConversationID); parseErr2 != nil {
+			return parseErr2
 		}
-		conversationIDs = append(conversationIDs, conversationID)
+		parseConversationIDs = append(parseConversationIDs, parseConversationID)
 	}
-	if err := rows.Err(); err != nil {
-		return err
+	if parseErr3 := parseRows.Err(); parseErr3 != nil {
+		return parseErr3
 	}
 
-	for _, conversationID := range conversationIDs {
-		if err := assignConversationPublicID(db, conversationID); err != nil {
-			return err
+	for _, parseConversationID2 := range parseConversationIDs {
+		if parseErr4 := parseAssignConversationPublicID(parseDb, parseConversationID2); parseErr4 != nil {
+			return parseErr4
 		}
 	}
 
-	_, err = db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_conversations_public_id ON conversations(public_id)`)
-	return err
+	_, parseErr = parseDb.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_conversations_public_id ON conversations(public_id)`)
+	return parseErr
 }
 
-func assignConversationPublicID(db *sql.DB, conversationID int64) error {
-	for attempts := 0; attempts < 8; attempts++ {
-		publicID := strings.TrimSpace(newConversationPublicID())
-		if publicID == "" {
+func parseAssignConversationPublicID(parseDb *sql.DB, parseConversationID int64) error {
+	for parseAttempts := 0; parseAttempts < 8; parseAttempts++ {
+		parsePublicID := strings.TrimSpace(newConversationPublicID())
+		if parsePublicID == "" {
 			continue
 		}
-		if _, err := db.Exec(`UPDATE conversations SET public_id = ? WHERE id = ? AND TRIM(COALESCE(public_id, '')) = ''`, publicID, conversationID); err != nil {
-			if isConversationPublicIDConflict(err) {
+		if _, parseErr := parseDb.Exec(`UPDATE conversations SET public_id = ? WHERE id = ? AND TRIM(COALESCE(public_id, '')) = ''`, parsePublicID, parseConversationID); parseErr != nil {
+			if isConversationPublicIDConflict(parseErr) {
 				continue
 			}
-			return err
+			return parseErr
 		}
 		return nil
 	}
-	return fmt.Errorf("assign public_id for conversation %d: exhausted retries", conversationID)
+	return fmt.Errorf("assign public_id for conversation %d: exhausted retries", parseConversationID)
 }
 
-func isConversationPublicIDConflict(err error) bool {
-	if err == nil {
+func isConversationPublicIDConflict(parseErr error) bool {
+	if parseErr == nil {
 		return false
 	}
-	lowered := strings.ToLower(err.Error())
-	return strings.Contains(lowered, "unique") && strings.Contains(lowered, "public_id")
+	parseLowered := strings.ToLower(parseErr.ParseError())
+	return strings.Contains(parseLowered, "unique") && strings.Contains(parseLowered, "public_id")
 }
 
-func shouldResetIncompatibleStore(path string, err error) bool {
-	if strings.TrimSpace(path) == "" || err == nil {
+func shouldResetIncompatibleStore(parsePath string, parseErr error) bool {
+	if strings.TrimSpace(parsePath) == "" || parseErr == nil {
 		return false
 	}
-	if _, statErr := os.Stat(path); statErr != nil {
+	if _, parseStatErr := os.Stat(parsePath); parseStatErr != nil {
 		return false
 	}
-	lowered := strings.ToLower(err.Error())
-	return strings.Contains(lowered, "no such column") ||
-		strings.Contains(lowered, "has no column named") ||
-		strings.Contains(lowered, "table ") ||
-		strings.Contains(lowered, "malformed")
+	parseLowered := strings.ToLower(parseErr.ParseError())
+	return strings.Contains(parseLowered, "no such column") ||
+		strings.Contains(parseLowered, "has no column named") ||
+		strings.Contains(parseLowered, "table ") ||
+		strings.Contains(parseLowered, "malformed")
 }
 
-func backupIncompatibleStoreFiles(path string) (string, error) {
-	suffix := ".incompatible-" + time.Now().UTC().Format("20060102T150405") + ".bak"
-	backupPath := path + suffix
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return backupPath, err
+func parseBackupIncompatibleStoreFiles(parsePath string) (string, error) {
+	parseSuffix := ".incompatible-" + time.Now().UTC().Format("20060102T150405") + ".bak"
+	parseBackupPath := parsePath + parseSuffix
+	if parseErr := os.MkdirAll(filepath.Dir(parsePath), 0o755); parseErr != nil {
+		return parseBackupPath, parseErr
 	}
-	if err := os.Rename(path, backupPath); err != nil {
-		return backupPath, err
+	if parseErr2 := os.Rename(parsePath, parseBackupPath); parseErr2 != nil {
+		return parseBackupPath, parseErr2
 	}
-	for _, ext := range []string{"-wal", "-shm"} {
-		src := path + ext
-		if _, err := os.Stat(src); err == nil {
-			_ = os.Rename(src, backupPath+ext)
+	for _, parseExt := range []string{"-wal", "-shm"} {
+		parseSrc := parsePath + parseExt
+		if _, parseErr3 := os.Stat(parseSrc); parseErr3 == nil {
+			_ = os.Rename(parseSrc, parseBackupPath+parseExt)
 		}
 	}
-	return backupPath, nil
+	return parseBackupPath, nil
 }
 
-func runBestEffortStatements(db *sql.DB, statements string) {
-	for _, rawStatement := range strings.Split(statements, ";") {
-		statement := strings.TrimSpace(rawStatement)
-		if statement == "" {
+func parseRunBestEffortStatements(parseDb *sql.DB, parseStatements string) {
+	for _, parseRawStatement := range strings.Split(parseStatements, ";") {
+		parseStatement := strings.TrimSpace(parseRawStatement)
+		if parseStatement == "" {
 			continue
 		}
-		_, _ = db.Exec(statement)
+		_, _ = parseDb.Exec(parseStatement)
 	}
 }
 
-func (s *Store) close() { _ = s.db.Close() }
+func (parseS *Store) parseClose() { _ = parseS.db.Close() }
 
-func (s *Store) createUser(email, passwordHash, displayName string) (int64, error) {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return 0, err
+func (parseS *Store) parseCreateUser(parseEmail, parsePasswordHash, parseDisplayName string) (int64, error) {
+	parseTx, parseErr := parseS.db.Begin()
+	if parseErr != nil {
+		return 0, parseErr
 	}
-	defer tx.Rollback()
+	defer parseTx.Rollback()
 
-	now := time.Now().UTC()
-	insertResult, err := tx.Exec(
-		s.queries.createUser,
-		normalizeAuthEmail(email), passwordHash, now.Format(time.RFC3339),
+	parseNow := time.Now().UTC()
+	parseInsertResult, parseErr := parseTx.Exec(
+		parseS.queries.parseCreateUser,
+		parseNormalizeAuthEmail(parseEmail), parsePasswordHash, parseNow.Format(time.RFC3339),
 	)
-	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+	if parseErr != nil {
+		if strings.Contains(strings.ToLower(parseErr.ParseError()), "unique") {
 			return 0, errUserAlreadyExists
 		}
-		return 0, err
+		return 0, parseErr
 	}
-	userID, err := insertResult.LastInsertId()
-	if err != nil {
-		return 0, err
+	parseUserID, parseErr := parseInsertResult.LastInsertId()
+	if parseErr != nil {
+		return 0, parseErr
 	}
-	resolvedName := strings.TrimSpace(displayName)
-	if resolvedName == "" {
-		resolvedName = defaultDisplayNameFromEmail(email)
+	parseResolvedName := strings.TrimSpace(parseDisplayName)
+	if parseResolvedName == "" {
+		parseResolvedName = parseDefaultDisplayNameFromEmail(parseEmail)
 	}
-	if _, err := tx.Exec(
-		s.queries.upsertUserProfileName,
-		userID, resolvedName, now.Unix(),
-	); err != nil {
-		return 0, err
+	if _, parseErr2 := parseTx.Exec(
+		parseS.queries.upsertUserProfileName,
+		parseUserID, parseResolvedName, parseNow.Unix(),
+	); parseErr2 != nil {
+		return 0, parseErr2
 	}
-	if err := tx.Commit(); err != nil {
-		return 0, err
+	if parseErr3 := parseTx.Commit(); parseErr3 != nil {
+		return 0, parseErr3
 	}
-	return userID, nil
+	return parseUserID, nil
 }
 
-func (s *Store) getUserAuthByEmail(email string) (authUserRecord, error) {
-	row := s.db.QueryRow(s.queries.getUserAuthByEmail, normalizeAuthEmail(email))
-	record := authUserRecord{}
-	if err := row.Scan(&record.ID, &record.Email, &record.PasswordHash); err != nil {
-		return authUserRecord{}, err
+func (parseS *Store) getUserAuthByEmail(parseEmail string) (authUserRecord, error) {
+	parseRow := parseS.db.QueryRow(parseS.queries.getUserAuthByEmail, parseNormalizeAuthEmail(parseEmail))
+	parseRecord := authUserRecord{}
+	if parseErr := parseRow.Scan(&parseRecord.ParseID, &parseRecord.Email, &parseRecord.PasswordHash); parseErr != nil {
+		return authUserRecord{}, parseErr
 	}
-	record.Email = normalizeAuthEmail(record.Email)
-	return record, nil
+	parseRecord.Email = parseNormalizeAuthEmail(parseRecord.Email)
+	return parseRecord, nil
 }
 
-func (s *Store) userExists(userID int64) (bool, error) {
-	row := s.db.QueryRow(s.queries.userExists, userID)
-	var exists int
-	if err := row.Scan(&exists); err != nil {
-		return false, err
+func (parseS *Store) parseUserExists(parseUserID int64) (bool, error) {
+	parseRow := parseS.db.QueryRow(parseS.queries.parseUserExists, parseUserID)
+	var parseExists int
+	if parseErr := parseRow.Scan(&parseExists); parseErr != nil {
+		return false, parseErr
 	}
-	return exists != 0, nil
+	return parseExists != 0, nil
 }
 
-func (s *Store) conversationOwnedByUser(userID, conversationID int64) (bool, error) {
-	row := s.db.QueryRow(s.queries.conversationOwnedByUser, conversationID, userID)
-	var exists int
-	if err := row.Scan(&exists); err != nil {
-		return false, err
+func (parseS *Store) parseConversationOwnedByUser(parseUserID, parseConversationID int64) (bool, error) {
+	parseRow := parseS.db.QueryRow(parseS.queries.parseConversationOwnedByUser, parseConversationID, parseUserID)
+	var parseExists int
+	if parseErr := parseRow.Scan(&parseExists); parseErr != nil {
+		return false, parseErr
 	}
-	return exists != 0, nil
+	return parseExists != 0, nil
 }
 
 // resolveConversationRoute returns the owner-scoped internal conversation id for
 // one public UUID. This is the server authority for browser routes; future
 // shared-thread visibility should extend this resolver instead of bypassing it.
-func (s *Store) resolveConversationRoute(userID int64, publicID string) (conversationSummaryRow, bool, error) {
-	publicID = strings.TrimSpace(publicID)
-	if publicID == "" {
+func (parseS *Store) parseResolveConversationRoute(parseUserID int64, parsePublicID string) (conversationSummaryRow, bool, error) {
+	parsePublicID = strings.TrimSpace(parsePublicID)
+	if parsePublicID == "" {
 		return conversationSummaryRow{}, false, nil
 	}
-	row := s.db.QueryRow(s.queries.resolveConversationRoute, userID, publicID)
-	var summary conversationSummaryRow
-	if err := row.Scan(&summary.ID, &summary.PublicID); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+	parseRow := parseS.db.QueryRow(parseS.queries.parseResolveConversationRoute, parseUserID, parsePublicID)
+	var parseSummary conversationSummaryRow
+	if parseErr := parseRow.Scan(&parseSummary.ParseID, &parseSummary.PublicID); parseErr != nil {
+		if errors.Is(parseErr, sql.ErrNoRows) {
 			return conversationSummaryRow{}, false, nil
 		}
-		return conversationSummaryRow{}, false, err
+		return conversationSummaryRow{}, false, parseErr
 	}
-	return summary, true, nil
+	return parseSummary, true, nil
 }
 
 // createConversation inserts a new conversation row and returns its id.
-func (s *Store) createConversation(userID int64) (int64, error) {
-	for attempts := 0; attempts < 8; attempts++ {
-		publicID := strings.TrimSpace(newConversationPublicID())
-		if publicID == "" {
+func (parseS *Store) parseCreateConversation(parseUserID int64) (int64, error) {
+	for parseAttempts := 0; parseAttempts < 8; parseAttempts++ {
+		parsePublicID := strings.TrimSpace(newConversationPublicID())
+		if parsePublicID == "" {
 			continue
 		}
-		insertResult, err := s.db.Exec(
-			s.queries.createConversation,
-			userID, publicID, time.Now().UTC().Format(time.RFC3339), userID,
+		parseInsertResult, parseErr := parseS.db.Exec(
+			parseS.queries.parseCreateConversation,
+			parseUserID, parsePublicID, time.Now().UTC().Format(time.RFC3339), parseUserID,
 		)
-		if err != nil {
-			if isConversationPublicIDConflict(err) {
+		if parseErr != nil {
+			if isConversationPublicIDConflict(parseErr) {
 				continue
 			}
-			return 0, err
+			return 0, parseErr
 		}
-		rowsAffected, err := insertResult.RowsAffected()
-		if err == nil && rowsAffected == 0 {
+		parseRowsAffected, parseErr := parseInsertResult.RowsAffected()
+		if parseErr == nil && parseRowsAffected == 0 {
 			return 0, errStoreUserMissing
 		}
-		return insertResult.LastInsertId()
+		return parseInsertResult.LastInsertId()
 	}
 	return 0, errors.New("create conversation: exhausted public id retries")
 }
 
 // saveConversationMessage appends a message to the given conversation.
-func (s *Store) saveConversationMessage(userID, conversationID int64, role, content, modelID string, promptTokens, completionTokens int64) error {
-	result, err := s.db.Exec(
-		s.queries.saveConversationMessage,
-		conversationID, role, content, modelID, promptTokens, completionTokens, time.Now().UTC().Format(time.RFC3339), conversationID, userID,
+func (parseS *Store) parseSaveConversationMessage(parseUserID, parseConversationID int64, parseRole, parseContent, parseModelID string, parsePromptTokens, parseCompletionTokens int64) error {
+	parseResult, parseErr := parseS.db.Exec(
+		parseS.queries.parseSaveConversationMessage,
+		parseConversationID, parseRole, parseContent, parseModelID, parsePromptTokens, parseCompletionTokens, time.Now().UTC().Format(time.RFC3339), parseConversationID, parseUserID,
 	)
-	if err != nil {
-		return err
+	if parseErr != nil {
+		return parseErr
 	}
-	rowsAffected, err := result.RowsAffected()
-	if err == nil && rowsAffected == 0 {
+	parseRowsAffected, parseErr := parseResult.RowsAffected()
+	if parseErr == nil && parseRowsAffected == 0 {
 		return errStoreConversationMissing
 	}
 	return nil
 }
 
 // saveConversationTitle persists an AI-generated title for a conversation.
-func (s *Store) saveConversationTitle(userID, conversationID int64, title string) error {
-	_, err := s.db.Exec(s.queries.saveConversationTitle, title, conversationID, userID)
-	return err
+func (parseS *Store) parseSaveConversationTitle(parseUserID, parseConversationID int64, parseTitle string) error {
+	_, parseErr := parseS.db.Exec(parseS.queries.parseSaveConversationTitle, parseTitle, parseConversationID, parseUserID)
+	return parseErr
 }
 
 // conversationSummaryRow is a lightweight view of a conversation for the sidebar list.
@@ -324,214 +324,214 @@ type conversationSummaryRow struct {
 }
 
 // listConversations returns all conversations for one user ordered newest-first.
-func (s *Store) listConversations(userID int64) ([]conversationSummaryRow, error) {
-	rows, err := s.db.Query(s.queries.listConversations, userID)
-	if err != nil {
-		return nil, err
+func (parseS *Store) parseListConversations(parseUserID int64) ([]conversationSummaryRow, error) {
+	parseRows, parseErr := parseS.db.Query(parseS.queries.parseListConversations, parseUserID)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	defer rows.Close()
-	var conversationSummaries []conversationSummaryRow
-	for rows.Next() {
-		var conversationSummary conversationSummaryRow
-		if err := rows.Scan(&conversationSummary.ID, &conversationSummary.PublicID, &conversationSummary.StartedAt, &conversationSummary.Preview); err != nil {
-			return nil, err
+	defer parseRows.Close()
+	var parseConversationSummaries []conversationSummaryRow
+	for parseRows.Next() {
+		var parseConversationSummary conversationSummaryRow
+		if parseErr2 := parseRows.Scan(&parseConversationSummary.ParseID, &parseConversationSummary.PublicID, &parseConversationSummary.StartedAt, &parseConversationSummary.Preview); parseErr2 != nil {
+			return nil, parseErr2
 		}
-		conversationSummaries = append(conversationSummaries, conversationSummary)
+		parseConversationSummaries = append(parseConversationSummaries, parseConversationSummary)
 	}
-	return conversationSummaries, rows.Err()
+	return parseConversationSummaries, parseRows.Err()
 }
 
 // loadConversation returns all messages for one user-owned conversation in order.
-func (s *Store) loadConversation(userID, conversationID int64) ([]struct {
+func (parseS *Store) parseLoadConversation(parseUserID, parseConversationID int64) ([]struct {
 	Role             string
 	Content          string
 	ModelID          string
 	PromptTokens     int64
 	CompletionTokens int64
 }, error) {
-	rows, err := s.db.Query(
-		s.queries.loadConversation, conversationID, userID)
-	if err != nil {
-		return nil, err
+	parseRows, parseErr := parseS.db.Query(
+		parseS.queries.parseLoadConversation, parseConversationID, parseUserID)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	defer rows.Close()
-	var conversationMessages []struct {
+	defer parseRows.Close()
+	var parseConversationMessages []struct {
 		Role             string
 		Content          string
 		ModelID          string
 		PromptTokens     int64
 		CompletionTokens int64
 	}
-	for rows.Next() {
-		var messageRow struct {
+	for parseRows.Next() {
+		var parseMessageRow struct {
 			Role             string
 			Content          string
 			ModelID          string
 			PromptTokens     int64
 			CompletionTokens int64
 		}
-		if err := rows.Scan(&messageRow.Role, &messageRow.Content, &messageRow.ModelID, &messageRow.PromptTokens, &messageRow.CompletionTokens); err != nil {
-			return nil, err
+		if parseErr2 := parseRows.Scan(&parseMessageRow.Role, &parseMessageRow.Content, &parseMessageRow.ModelID, &parseMessageRow.PromptTokens, &parseMessageRow.CompletionTokens); parseErr2 != nil {
+			return nil, parseErr2
 		}
-		conversationMessages = append(conversationMessages, messageRow)
+		parseConversationMessages = append(parseConversationMessages, parseMessageRow)
 	}
-	return conversationMessages, rows.Err()
+	return parseConversationMessages, parseRows.Err()
 }
 
 // deleteConversation removes one user-owned conversation and all its messages.
-func (s *Store) deleteConversation(userID, conversationID int64) error {
-	tx, err := s.db.Begin()
-	if err != nil {
-		return err
+func (parseS *Store) parseDeleteConversation(parseUserID, parseConversationID int64) error {
+	parseTx, parseErr := parseS.db.Begin()
+	if parseErr != nil {
+		return parseErr
 	}
-	defer tx.Rollback()
+	defer parseTx.Rollback()
 
-	if _, err := tx.Exec(
-		s.queries.deleteConversationMessages,
-		conversationID, userID,
-	); err != nil {
-		return err
+	if _, parseErr2 := parseTx.Exec(
+		parseS.queries.deleteConversationMessages,
+		parseConversationID, parseUserID,
+	); parseErr2 != nil {
+		return parseErr2
 	}
-	if _, err := tx.Exec(s.queries.deleteConversation, conversationID, userID); err != nil {
-		return err
+	if _, parseErr3 := parseTx.Exec(parseS.queries.parseDeleteConversation, parseConversationID, parseUserID); parseErr3 != nil {
+		return parseErr3
 	}
-	return tx.Commit()
+	return parseTx.Commit()
 }
 
 // setUserName upserts one user's profile row.
-func (s *Store) setUserName(userID int64, name string, updatedAt int64) error {
-	_, err := s.db.Exec(
-		s.queries.upsertUserProfileName,
-		userID, name, updatedAt,
+func (parseS *Store) setUserName(parseUserID int64, parseName string, parseUpdatedAt int64) error {
+	_, parseErr := parseS.db.Exec(
+		parseS.queries.upsertUserProfileName,
+		parseUserID, parseName, parseUpdatedAt,
 	)
-	return err
+	return parseErr
 }
 
-func (s *Store) getUserName(userID int64) (name string, updatedAt int64, err error) {
-	row := s.db.QueryRow(s.queries.getUserName, userID)
-	if scanErr := row.Scan(&name, &updatedAt); scanErr != nil {
-		if errors.Is(scanErr, sql.ErrNoRows) {
+func (parseS *Store) getUserName(parseUserID int64) (parseName string, parseUpdatedAt int64, parseErr error) {
+	parseRow := parseS.db.QueryRow(parseS.queries.getUserName, parseUserID)
+	if parseScanErr := parseRow.Scan(&parseName, &parseUpdatedAt); parseScanErr != nil {
+		if errors.Is(parseScanErr, sql.ErrNoRows) {
 			return "User", 0, nil
 		}
-		return "", 0, scanErr
+		return "", 0, parseScanErr
 	}
-	return name, updatedAt, nil
+	return parseName, parseUpdatedAt, nil
 }
 
-func (s *Store) setSelectedModel(userID int64, model string) error {
-	_, err := s.db.Exec(
-		s.queries.setSelectedModel,
-		userID, model,
+func (parseS *Store) setSelectedModel(parseUserID int64, parseModel string) error {
+	_, parseErr := parseS.db.Exec(
+		parseS.queries.setSelectedModel,
+		parseUserID, parseModel,
 	)
-	return err
+	return parseErr
 }
 
-func (s *Store) getSelectedModel(userID int64, fallback string) (string, error) {
-	row := s.db.QueryRow(s.queries.getSelectedModel, userID)
-	var selectedModel string
-	if scanErr := row.Scan(&selectedModel); scanErr != nil {
-		if errors.Is(scanErr, sql.ErrNoRows) {
-			return fallback, nil
+func (parseS *Store) getSelectedModel(parseUserID int64, parseFallback string) (string, error) {
+	parseRow := parseS.db.QueryRow(parseS.queries.getSelectedModel, parseUserID)
+	var parseSelectedModel string
+	if parseScanErr := parseRow.Scan(&parseSelectedModel); parseScanErr != nil {
+		if errors.Is(parseScanErr, sql.ErrNoRows) {
+			return parseFallback, nil
 		}
-		return "", scanErr
+		return "", parseScanErr
 	}
-	if selectedModel == "" {
-		return fallback, nil
+	if parseSelectedModel == "" {
+		return parseFallback, nil
 	}
-	return selectedModel, nil
+	return parseSelectedModel, nil
 }
 
-func (s *Store) setSelectedTone(userID int64, tone string) error {
-	_, err := s.db.Exec(
-		s.queries.setSelectedTone,
-		userID, tone,
+func (parseS *Store) setSelectedTone(parseUserID int64, parseTone string) error {
+	_, parseErr := parseS.db.Exec(
+		parseS.queries.setSelectedTone,
+		parseUserID, parseTone,
 	)
-	return err
+	return parseErr
 }
 
-func (s *Store) getSelectedTone(userID int64, fallback string) (string, error) {
-	row := s.db.QueryRow(s.queries.getSelectedTone, userID)
-	var selectedTone string
-	if scanErr := row.Scan(&selectedTone); scanErr != nil {
-		if errors.Is(scanErr, sql.ErrNoRows) {
-			return fallback, nil
+func (parseS *Store) getSelectedTone(parseUserID int64, parseFallback string) (string, error) {
+	parseRow := parseS.db.QueryRow(parseS.queries.getSelectedTone, parseUserID)
+	var parseSelectedTone string
+	if parseScanErr := parseRow.Scan(&parseSelectedTone); parseScanErr != nil {
+		if errors.Is(parseScanErr, sql.ErrNoRows) {
+			return parseFallback, nil
 		}
-		return "", scanErr
+		return "", parseScanErr
 	}
-	if selectedTone == "" {
-		return fallback, nil
+	if parseSelectedTone == "" {
+		return parseFallback, nil
 	}
-	return selectedTone, nil
+	return parseSelectedTone, nil
 }
 
-func (s *Store) setSelectedThinkingEnabled(userID int64, enabled bool) error {
-	enabledValue := 0
-	if enabled {
-		enabledValue = 1
+func (parseS *Store) setSelectedThinkingEnabled(parseUserID int64, isEnabled bool) error {
+	parseEnabledValue := 0
+	if isEnabled {
+		parseEnabledValue = 1
 	}
-	_, err := s.db.Exec(
-		s.queries.setSelectedThinkingEnabled,
-		userID, enabledValue,
+	_, parseErr := parseS.db.Exec(
+		parseS.queries.setSelectedThinkingEnabled,
+		parseUserID, parseEnabledValue,
 	)
-	return err
+	return parseErr
 }
 
-func (s *Store) getSelectedThinkingEnabled(userID int64, fallback bool) (bool, error) {
-	row := s.db.QueryRow(s.queries.getSelectedThinkingEnabled, userID)
-	var enabledValue int64
-	if scanErr := row.Scan(&enabledValue); scanErr != nil {
-		if errors.Is(scanErr, sql.ErrNoRows) {
-			return fallback, nil
+func (parseS *Store) getSelectedThinkingEnabled(parseUserID int64, isFallback bool) (bool, error) {
+	parseRow := parseS.db.QueryRow(parseS.queries.getSelectedThinkingEnabled, parseUserID)
+	var parseEnabledValue int64
+	if parseScanErr := parseRow.Scan(&parseEnabledValue); parseScanErr != nil {
+		if errors.Is(parseScanErr, sql.ErrNoRows) {
+			return isFallback, nil
 		}
-		return false, scanErr
+		return false, parseScanErr
 	}
-	return enabledValue != 0, nil
+	return parseEnabledValue != 0, nil
 }
 
-func (s *Store) setSelectedThinkingEffort(userID int64, effort string) error {
-	_, err := s.db.Exec(
-		s.queries.setSelectedThinkingEffort,
-		userID, effort,
+func (parseS *Store) setSelectedThinkingEffort(parseUserID int64, parseEffort string) error {
+	_, parseErr := parseS.db.Exec(
+		parseS.queries.setSelectedThinkingEffort,
+		parseUserID, parseEffort,
 	)
-	return err
+	return parseErr
 }
 
-func (s *Store) getSelectedThinkingEffort(userID int64, fallback string) (string, error) {
-	row := s.db.QueryRow(s.queries.getSelectedThinkingEffort, userID)
-	var effort string
-	if scanErr := row.Scan(&effort); scanErr != nil {
-		if errors.Is(scanErr, sql.ErrNoRows) {
-			return fallback, nil
+func (parseS *Store) getSelectedThinkingEffort(parseUserID int64, parseFallback string) (string, error) {
+	parseRow := parseS.db.QueryRow(parseS.queries.getSelectedThinkingEffort, parseUserID)
+	var parseEffort string
+	if parseScanErr := parseRow.Scan(&parseEffort); parseScanErr != nil {
+		if errors.Is(parseScanErr, sql.ErrNoRows) {
+			return parseFallback, nil
 		}
-		return "", scanErr
+		return "", parseScanErr
 	}
-	if effort == "" {
-		return fallback, nil
+	if parseEffort == "" {
+		return parseFallback, nil
 	}
-	return effort, nil
+	return parseEffort, nil
 }
 
-func (s *Store) setSelectedSystemPrompt(userID int64, prompt string) error {
-	_, err := s.db.Exec(
-		s.queries.setSelectedSystemPrompt,
-		userID, prompt,
+func (parseS *Store) setSelectedSystemPrompt(parseUserID int64, parsePrompt string) error {
+	_, parseErr := parseS.db.Exec(
+		parseS.queries.setSelectedSystemPrompt,
+		parseUserID, parsePrompt,
 	)
-	return err
+	return parseErr
 }
 
-func (s *Store) getSelectedSystemPrompt(userID int64, fallback string) (string, error) {
-	row := s.db.QueryRow(s.queries.getSelectedSystemPrompt, userID)
-	var prompt string
-	if scanErr := row.Scan(&prompt); scanErr != nil {
-		if errors.Is(scanErr, sql.ErrNoRows) {
-			return fallback, nil
+func (parseS *Store) getSelectedSystemPrompt(parseUserID int64, parseFallback string) (string, error) {
+	parseRow := parseS.db.QueryRow(parseS.queries.getSelectedSystemPrompt, parseUserID)
+	var parsePrompt string
+	if parseScanErr := parseRow.Scan(&parsePrompt); parseScanErr != nil {
+		if errors.Is(parseScanErr, sql.ErrNoRows) {
+			return parseFallback, nil
 		}
-		return "", scanErr
+		return "", parseScanErr
 	}
-	if prompt == "" {
-		return fallback, nil
+	if parsePrompt == "" {
+		return parseFallback, nil
 	}
-	return prompt, nil
+	return parsePrompt, nil
 }
 
 type userMemoryRow struct {
@@ -546,103 +546,103 @@ type userMemoryRow struct {
 	UpdatedAt       string
 }
 
-func (s *Store) upsertUserMemory(userID int64, memory userMemoryRow) error {
-	now := time.Now().UTC().Format(time.RFC3339)
-	_, err := s.db.Exec(
-		s.queries.upsertUserMemory,
-		userID,
-		memory.Key,
-		memory.Category,
-		memory.Summary,
-		memory.Detail,
-		memory.SourceMessage,
-		memory.UsefulnessScore,
-		memory.ConfidenceScore,
-		memory.RubricReason,
-		now,
-		now,
+func (parseS *Store) parseUpsertUserMemory(parseUserID int64, parseMemory userMemoryRow) error {
+	parseNow := time.Now().UTC().Format(time.RFC3339)
+	_, parseErr := parseS.db.Exec(
+		parseS.queries.parseUpsertUserMemory,
+		parseUserID,
+		parseMemory.Key,
+		parseMemory.Category,
+		parseMemory.Summary,
+		parseMemory.Detail,
+		parseMemory.SourceMessage,
+		parseMemory.UsefulnessScore,
+		parseMemory.ConfidenceScore,
+		parseMemory.RubricReason,
+		parseNow,
+		parseNow,
 	)
-	return err
+	return parseErr
 }
 
-func (s *Store) listUserMemories(userID int64) ([]userMemoryRow, error) {
-	rows, err := s.db.Query(s.queries.listUserMemories, userID)
-	if err != nil {
-		return nil, err
+func (parseS *Store) parseListUserMemories(parseUserID int64) ([]userMemoryRow, error) {
+	parseRows, parseErr := parseS.db.Query(parseS.queries.parseListUserMemories, parseUserID)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	defer rows.Close()
+	defer parseRows.Close()
 
-	memories := make([]userMemoryRow, 0)
-	for rows.Next() {
-		var memory userMemoryRow
-		if err := rows.Scan(
-			&memory.Key,
-			&memory.Category,
-			&memory.Summary,
-			&memory.Detail,
-			&memory.SourceMessage,
-			&memory.UsefulnessScore,
-			&memory.ConfidenceScore,
-			&memory.RubricReason,
-			&memory.UpdatedAt,
-		); err != nil {
-			return nil, err
+	parseMemories := make([]userMemoryRow, 0)
+	for parseRows.Next() {
+		var parseMemory userMemoryRow
+		if parseErr2 := parseRows.Scan(
+			&parseMemory.Key,
+			&parseMemory.Category,
+			&parseMemory.Summary,
+			&parseMemory.Detail,
+			&parseMemory.SourceMessage,
+			&parseMemory.UsefulnessScore,
+			&parseMemory.ConfidenceScore,
+			&parseMemory.RubricReason,
+			&parseMemory.UpdatedAt,
+		); parseErr2 != nil {
+			return nil, parseErr2
 		}
-		memories = append(memories, memory)
+		parseMemories = append(parseMemories, parseMemory)
 	}
-	return memories, rows.Err()
+	return parseMemories, parseRows.Err()
 }
 
-func (s *Store) deleteUserMemory(userID int64, key string) error {
-	_, err := s.db.Exec(s.queries.deleteUserMemory, userID, strings.TrimSpace(key))
-	return err
+func (parseS *Store) parseDeleteUserMemory(parseUserID int64, parseKey string) error {
+	_, parseErr := parseS.db.Exec(parseS.queries.parseDeleteUserMemory, parseUserID, strings.TrimSpace(parseKey))
+	return parseErr
 }
 
-func (s *Store) listModelCatalog() ([]modelCatalogRow, error) {
-	rows, err := s.db.Query(s.queries.listModelCatalog)
-	if err != nil {
-		return nil, err
+func (parseS *Store) parseListModelCatalog() ([]modelCatalogRow, error) {
+	parseRows, parseErr := parseS.db.Query(parseS.queries.parseListModelCatalog)
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	defer rows.Close()
+	defer parseRows.Close()
 
-	catalog := make([]modelCatalogRow, 0)
-	for rows.Next() {
-		var row modelCatalogRow
-		var supportsThinking int64
-		var supportsSpeech int64
-		var onboardingReady int64
-		var isDefault int64
-		var useForTitleGeneration int64
-		var useForMemoryExtraction int64
-		if err := rows.Scan(
-			&row.ID,
-			&row.ProviderID,
-			&row.ProviderLabel,
-			&row.Label,
-			&row.Note,
-			&row.Description,
-			&supportsThinking,
-			&supportsSpeech,
-			&row.InputPerMillionUSD,
-			&row.OutputPerMillionUSD,
-			&row.PricingCurrency,
-			&row.MaxOutputTokens,
-			&row.ThroughputTokensPerSec,
-			&onboardingReady,
-			&isDefault,
-			&useForTitleGeneration,
-			&useForMemoryExtraction,
-			&row.SortOrder,
-		); err != nil {
-			return nil, err
+	parseCatalog := make([]modelCatalogRow, 0)
+	for parseRows.Next() {
+		var parseRow modelCatalogRow
+		var parseSupportsThinking int64
+		var parseSupportsSpeech int64
+		var parseOnboardingReady int64
+		var parseIsDefault int64
+		var parseUseForTitleGeneration int64
+		var parseUseForMemoryExtraction int64
+		if parseErr2 := parseRows.Scan(
+			&parseRow.ParseID,
+			&parseRow.ProviderID,
+			&parseRow.ProviderLabel,
+			&parseRow.Label,
+			&parseRow.Note,
+			&parseRow.Description,
+			&parseSupportsThinking,
+			&parseSupportsSpeech,
+			&parseRow.InputPerMillionUSD,
+			&parseRow.OutputPerMillionUSD,
+			&parseRow.PricingCurrency,
+			&parseRow.MaxOutputTokens,
+			&parseRow.ThroughputTokensPerSec,
+			&parseOnboardingReady,
+			&parseIsDefault,
+			&parseUseForTitleGeneration,
+			&parseUseForMemoryExtraction,
+			&parseRow.SortOrder,
+		); parseErr2 != nil {
+			return nil, parseErr2
 		}
-		row.SupportsThinking = supportsThinking != 0
-		row.SupportsSpeech = supportsSpeech != 0
-		row.OnboardingReady = onboardingReady != 0
-		row.IsDefault = isDefault != 0
-		row.UseForTitleGeneration = useForTitleGeneration != 0
-		row.UseForMemoryExtraction = useForMemoryExtraction != 0
-		catalog = append(catalog, row)
+		parseRow.SupportsThinking = parseSupportsThinking != 0
+		parseRow.SupportsSpeech = parseSupportsSpeech != 0
+		parseRow.OnboardingReady = parseOnboardingReady != 0
+		parseRow.IsDefault = parseIsDefault != 0
+		parseRow.UseForTitleGeneration = parseUseForTitleGeneration != 0
+		parseRow.UseForMemoryExtraction = parseUseForMemoryExtraction != 0
+		parseCatalog = append(parseCatalog, parseRow)
 	}
-	return catalog, rows.Err()
+	return parseCatalog, parseRows.Err()
 }

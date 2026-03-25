@@ -43,434 +43,434 @@ type profileSettingsController struct {
 
 // useProfileSettings hides the username and settings persistence workflow
 // behind a feature-specific hook built from the public primitive hooks.
-func useProfileSettings(
-	intl i18n.Runtime,
-	app ui.Reducer[appState, appAction],
-	userNameState state.Atom[string],
-	ttsProviderState state.Atom[string],
-	chatClientRef ui.Ref[chatpb.ChatServiceClient],
-	nav router.Navigator,
-	currentPath string,
-	settingsPanelRouteID string,
-	settingsReturnRoute ui.Ref[string],
-	userNameFetchedAt ui.Ref[time.Time],
-	selectedToneCache fetch.CachedResource[string],
-	selectedThinkingEnabledCache fetch.CachedResource[bool],
-	selectedThinkingEffortCache fetch.CachedResource[string],
+func parseUseProfileSettings(
+	parseIntl i18n.Runtime,
+	parseApp ui.Reducer[appState, appAction],
+	parseUserNameState state.Atom[string],
+	parseTtsProviderState state.Atom[string],
+	parseChatClientRef ui.Ref[chatpb.ChatServiceClient],
+	parseNav router.Navigator,
+	parseCurrentPath string,
+	parseSettingsPanelRouteID string,
+	parseSettingsReturnRoute ui.Ref[string],
+	parseUserNameFetchedAt ui.Ref[time.Time],
+	parseSelectedToneCache fetch.CachedResource[string],
+	parseSelectedThinkingEnabledCache fetch.CachedResource[bool],
+	parseSelectedThinkingEffortCache fetch.CachedResource[string],
 	handleAuthFailure func(error) bool,
 ) profileSettingsController {
-	seedSettingsInputs := func() {
-		app.Dispatch(appAction{Type: appActionSetNameInput, NameInput: userNameState.Get()})
-		app.Dispatch(appAction{Type: appActionSetToneInput, ToneInput: app.Get().SelectedTone})
-		app.Dispatch(appAction{Type: appActionSetThinkingEnabledInput, ThinkingEnabledInput: app.Get().SelectedThinkingEnabled})
-		app.Dispatch(appAction{Type: appActionSetThinkingEffortInput, ThinkingEffortInput: app.Get().SelectedThinkingEffort})
-		app.Dispatch(appAction{Type: appActionSetTTSProviderInput, TTSProviderInput: app.Get().SelectedTTSProvider})
-		app.Dispatch(appAction{Type: appActionSetSystemPromptInput, SystemPromptInput: app.Get().CustomSystemPrompt})
-		app.Dispatch(appAction{Type: appActionSetLocaleInput, LocaleInput: normalizeChatLocaleID(intl.Locale())})
-		app.Dispatch(appAction{Type: appActionSetUserMemories, UserMemories: ensureManagedUserNameMemory(userNameState.Get(), app.Get().UserMemories), DeletedUserMemoryKeys: []string{}})
+	parseSeedSettingsInputs := func() {
+		parseApp.Dispatch(appAction{Type: appActionSetNameInput, NameInput: parseUserNameState.Get()})
+		parseApp.Dispatch(appAction{Type: appActionSetToneInput, ToneInput: parseApp.Get().SelectedTone})
+		parseApp.Dispatch(appAction{Type: appActionSetThinkingEnabledInput, ThinkingEnabledInput: parseApp.Get().SelectedThinkingEnabled})
+		parseApp.Dispatch(appAction{Type: appActionSetThinkingEffortInput, ThinkingEffortInput: parseApp.Get().SelectedThinkingEffort})
+		parseApp.Dispatch(appAction{Type: appActionSetTTSProviderInput, TTSProviderInput: parseApp.Get().SelectedTTSProvider})
+		parseApp.Dispatch(appAction{Type: appActionSetSystemPromptInput, SystemPromptInput: parseApp.Get().CustomSystemPrompt})
+		parseApp.Dispatch(appAction{Type: appActionSetLocaleInput, LocaleInput: parseNormalizeChatLocaleID(parseIntl.Locale())})
+		parseApp.Dispatch(appAction{Type: appActionSetUserMemories, UserMemories: parseEnsureManagedUserNameMemory(parseUserNameState.Get(), parseApp.Get().UserMemories), DeletedUserMemoryKeys: []string{}})
 	}
 
-	openSettingsSection := func(section string) {
-		normalized := normalizeSettingsSectionID(section)
-		if normalized == "" {
-			normalized = defaultSettingsSectionID
+	parseOpenSettingsSection := func(parseSection3 string) {
+		parseNormalized := parseNormalizeSettingsSectionID(parseSection3)
+		if parseNormalized == "" {
+			parseNormalized = defaultSettingsSectionID
 		}
-		app.Dispatch(appAction{Type: appActionSetActiveSettingsSection, ActiveSettingsSection: normalized})
-		if !app.Get().ShowNameModal {
-			seedSettingsInputs()
-			app.Dispatch(appAction{Type: appActionSetShowNameModal, ShowNameModal: true})
+		parseApp.Dispatch(appAction{Type: appActionSetActiveSettingsSection, ActiveSettingsSection: parseNormalized})
+		if !parseApp.Get().ShowNameModal {
+			parseSeedSettingsInputs()
+			parseApp.Dispatch(appAction{Type: appActionSetShowNameModal, ShowNameModal: true})
 		}
 	}
 
-	closeSettingsRoute := func() {
-		section := normalizeSettingsSectionID(app.Get().ActiveSettingsSection)
-		if section == "" {
-			section = defaultSettingsSectionID
+	parseCloseSettingsRoute := func() {
+		parseSection := parseNormalizeSettingsSectionID(parseApp.Get().ActiveSettingsSection)
+		if parseSection == "" {
+			parseSection = defaultSettingsSectionID
 		}
-		returnPath := strings.TrimSpace(settingsReturnRoute.Get())
-		if returnPath == "" {
-			if activePublicID := strings.TrimSpace(app.Get().ActiveConvPublicID); activePublicID != "" {
-				returnPath = chatThreadPath(activePublicID)
+		parseReturnPath := strings.TrimSpace(parseSettingsReturnRoute.Get())
+		if parseReturnPath == "" {
+			if parseActivePublicID := strings.TrimSpace(parseApp.Get().ActiveConvPublicID); parseActivePublicID != "" {
+				parseReturnPath = parseChatThreadPath(parseActivePublicID)
 			} else {
-				returnPath = chatRouteRoot
+				parseReturnPath = chatRouteRoot
 			}
 		}
-		app.Dispatch(appAction{Type: appActionSetShowNameModal, ShowNameModal: false})
-		nav.Navigate(buildSettingsReturnRoute(returnPath, section))
+		parseApp.Dispatch(appAction{Type: appActionSetShowNameModal, ShowNameModal: false})
+		parseNav.Navigate(buildSettingsReturnRoute(parseReturnPath, parseSection))
 	}
 
-	customSystemPromptCacheKey := ""
-	if app.Get().GRPCReady && app.Get().Authenticated {
-		customSystemPromptCacheKey = cacheKeyCustomSystemPrompt
+	parseCustomSystemPromptCacheKey := ""
+	if parseApp.Get().GRPCReady && parseApp.Get().Authenticated {
+		parseCustomSystemPromptCacheKey = cacheKeyCustomSystemPrompt
 	}
-	customSystemPromptCache := fetch.UseCachedResource(customSystemPromptCacheKey, func(ctx context.Context) (string, error) {
-		client := chatClientRef.Get()
-		if client == nil {
+	parseCustomSystemPromptCache := fetch.UseCachedResource(parseCustomSystemPromptCacheKey, func(parseCtx context.Context) (string, error) {
+		parseClient := parseChatClientRef.Get()
+		if parseClient == nil {
 			return "", nil
 		}
-		resp, err := client.GetCustomSystemPrompt(ctx, &emptypb.Empty{})
-		if err != nil {
-			if handleAuthFailure != nil && handleAuthFailure(err) {
+		parseResp, parseErr := parseClient.GetCustomSystemPrompt(parseCtx, &emptypb.Empty{})
+		if parseErr != nil {
+			if handleAuthFailure != nil && handleAuthFailure(parseErr) {
 				return "", nil
 			}
-			return "", err
+			return "", parseErr
 		}
-		return strings.TrimSpace(resp.GetValue()), nil
+		return strings.TrimSpace(parseResp.GetValue()), nil
 	}, fetch.CacheOptions{StaleAfter: toneTTL, MaxAge: toneTTL, Persist: true})
-	customSystemPromptCacheState := customSystemPromptCache.Get()
+	parseCustomSystemPromptCacheState := parseCustomSystemPromptCache.Get()
 
 	ui.UseEffect(func() func() {
-		currentState := app.Get()
-		if !currentState.GRPCReady || !customSystemPromptCacheState.Ready {
+		parseCurrentState := parseApp.Get()
+		if !parseCurrentState.GRPCReady || !parseCustomSystemPromptCacheState.Ready {
 			return nil
 		}
-		resolvedPrompt := strings.TrimSpace(customSystemPromptCacheState.Value)
-		if resolvedPrompt != currentState.CustomSystemPrompt {
-			app.Dispatch(appAction{Type: appActionSetCustomSystemPrompt, CustomSystemPrompt: resolvedPrompt})
+		parseResolvedPrompt := strings.TrimSpace(parseCustomSystemPromptCacheState.Value)
+		if parseResolvedPrompt != parseCurrentState.CustomSystemPrompt {
+			parseApp.Dispatch(appAction{Type: appActionSetCustomSystemPrompt, CustomSystemPrompt: parseResolvedPrompt})
 		}
-		if !currentState.ShowNameModal && resolvedPrompt != currentState.SystemPromptInput {
-			app.Dispatch(appAction{Type: appActionSetSystemPromptInput, SystemPromptInput: resolvedPrompt})
+		if !parseCurrentState.ShowNameModal && parseResolvedPrompt != parseCurrentState.SystemPromptInput {
+			parseApp.Dispatch(appAction{Type: appActionSetSystemPromptInput, SystemPromptInput: parseResolvedPrompt})
 		}
 		return nil
-	}, app.Get().GRPCReady, customSystemPromptCacheState.Ready, customSystemPromptCacheState.Value, app.Get().ShowNameModal)
+	}, parseApp.Get().GRPCReady, parseCustomSystemPromptCacheState.Ready, parseCustomSystemPromptCacheState.Value, parseApp.Get().ShowNameModal)
 
 	ui.UseEffect(func() func() {
-		if !app.Get().Authenticated {
+		if !parseApp.Get().Authenticated {
 			return nil
 		}
-		if isSettingsRoute(currentPath) {
-			openSettingsSection(settingsPanelRouteID)
+		if isSettingsRoute(parseCurrentPath) {
+			parseOpenSettingsSection(parseSettingsPanelRouteID)
 			return nil
 		}
-		if app.Get().ShowNameModal {
-			app.Dispatch(appAction{Type: appActionSetShowNameModal, ShowNameModal: false})
+		if parseApp.Get().ShowNameModal {
+			parseApp.Dispatch(appAction{Type: appActionSetShowNameModal, ShowNameModal: false})
 		}
 		return nil
-	}, app.Get().Authenticated, currentPath, settingsPanelRouteID)
+	}, parseApp.Get().Authenticated, parseCurrentPath, parseSettingsPanelRouteID)
 
 	ui.UseEffect(func() func() {
-		if !app.Get().ShowNameModal {
+		if !parseApp.Get().ShowNameModal {
 			return nil
 		}
-		section := normalizeSettingsSectionID(app.Get().ActiveSettingsSection)
-		if section == "" {
-			section = defaultSettingsSectionID
+		parseSection2 := parseNormalizeSettingsSectionID(parseApp.Get().ActiveSettingsSection)
+		if parseSection2 == "" {
+			parseSection2 = defaultSettingsSectionID
 		}
-		window := js.Global().Get("window")
-		if !window.Truthy() || window.Get("requestAnimationFrame").Type() != js.TypeFunction {
-			scrollSettingsSectionIntoView(section)
+		parseWindow := js.Global().Get("window")
+		if !parseWindow.Truthy() || parseWindow.Get("requestAnimationFrame").Type() != js.TypeFunction {
+			parseScrollSettingsSectionIntoView(parseSection2)
 			return nil
 		}
-		var callback js.Func
-		callback = js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
-			scrollSettingsSectionIntoView(section)
-			callback.Release()
+		var parseCallback js.Func
+		parseCallback = js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
+			parseScrollSettingsSectionIntoView(parseSection2)
+			parseCallback.Release()
 			return nil
 		})
-		window.Call("requestAnimationFrame", callback)
+		parseWindow.Call("requestAnimationFrame", parseCallback)
 		return nil
-	}, app.Get().ShowNameModal, app.Get().ActiveSettingsSection)
+	}, parseApp.Get().ShowNameModal, parseApp.Get().ActiveSettingsSection)
 
-	refresh := func(force bool) {
-		if !app.Get().Authenticated {
+	parseRefresh := func(isForce bool) {
+		if !parseApp.Get().Authenticated {
 			return
 		}
-		if !force && time.Since(userNameFetchedAt.Get()) < userNameTTL {
+		if !isForce && time.Since(parseUserNameFetchedAt.Get()) < userNameTTL {
 			return
 		}
-		client := chatClientRef.Get()
-		if client == nil {
+		parseClient2 := parseChatClientRef.Get()
+		if parseClient2 == nil {
 			return
 		}
 		go func() {
-			resp, err := client.GetUserName(context.Background(), &chatpb.GetUserNameRequest{})
-			if err != nil {
-				if handleAuthFailure != nil && handleAuthFailure(err) {
+			parseResp2, parseErr2 := parseClient2.GetUserName(context.Background(), &chatpb.GetUserNameRequest{})
+			if parseErr2 != nil {
+				if handleAuthFailure != nil && handleAuthFailure(parseErr2) {
 					return
 				}
-				chatLog.Error("get user name failed", logging.Fields{"error": err})
+				chatLog.ParseError("get user name failed", logging.Fields{"error": parseErr2})
 				return
 			}
-			if resp.Name != "" {
-				userNameState.Set(resp.Name)
+			if parseResp2.Name != "" {
+				parseUserNameState.Set(parseResp2.Name)
 			}
-			memoriesResp, memoriesErr := client.ListUserMemories(context.Background(), &chatpb.ListUserMemoriesRequest{})
-			if memoriesErr != nil {
-				if handleAuthFailure != nil && handleAuthFailure(memoriesErr) {
+			parseMemoriesResp, parseMemoriesErr := parseClient2.ParseListUserMemories(context.Background(), &chatpb.ListUserMemoriesRequest{})
+			if parseMemoriesErr != nil {
+				if handleAuthFailure != nil && handleAuthFailure(parseMemoriesErr) {
 					return
 				}
-				chatLog.Error("list user memories failed", logging.Fields{"error": memoriesErr})
+				chatLog.ParseError("list user memories failed", logging.Fields{"error": parseMemoriesErr})
 				return
 			}
-			memories := make([]editableUserMemory, 0, len(memoriesResp.Memories))
-			for _, memory := range memoriesResp.Memories {
-				memories = append(memories, editableUserMemory{
-					Key:             memory.GetKey(),
-					Category:        memory.GetCategory(),
-					Summary:         memory.GetSummary(),
-					Detail:          memory.GetDetail(),
-					SourceMessage:   memory.GetSourceMessage(),
-					UsefulnessScore: int(memory.GetUsefulnessScore()),
-					ConfidenceScore: memory.GetConfidenceScore(),
-					RubricReason:    memory.GetRubricReason(),
-					UpdatedAt:       memory.GetUpdatedAt(),
+			parseMemories := make([]editableUserMemory, 0, len(parseMemoriesResp.Memories))
+			for _, parseMemory := range parseMemoriesResp.Memories {
+				parseMemories = append(parseMemories, editableUserMemory{
+					Key:             parseMemory.GetKey(),
+					Category:        parseMemory.GetCategory(),
+					Summary:         parseMemory.GetSummary(),
+					Detail:          parseMemory.GetDetail(),
+					SourceMessage:   parseMemory.GetSourceMessage(),
+					UsefulnessScore: int(parseMemory.GetUsefulnessScore()),
+					ConfidenceScore: parseMemory.GetConfidenceScore(),
+					RubricReason:    parseMemory.GetRubricReason(),
+					UpdatedAt:       parseMemory.GetUpdatedAt(),
 				})
 			}
-			memories = ensureManagedUserNameMemory(resp.Name, memories)
-			app.Dispatch(appAction{Type: appActionSetUserMemories, UserMemories: memories, DeletedUserMemoryKeys: []string{}})
-			userNameFetchedAt.Set(time.Now())
-			if force {
-				chatLog.Info("profile", logging.Fields{"name": resp.Name, "memories": len(memories)})
+			parseMemories = parseEnsureManagedUserNameMemory(parseResp2.Name, parseMemories)
+			parseApp.Dispatch(appAction{Type: appActionSetUserMemories, UserMemories: parseMemories, DeletedUserMemoryKeys: []string{}})
+			parseUserNameFetchedAt.Set(time.Now())
+			if isForce {
+				chatLog.ParseInfo("profile", logging.Fields{"name": parseResp2.Name, "memories": len(parseMemories)})
 			}
 		}()
 	}
 
-	saveSettings := func() {
-		currentState := app.Get()
-		name := strings.TrimSpace(currentState.NameInput)
-		selectedToneValue := normalizeSelectedToneID(currentState.ToneInput)
-		selectedThinkingEnabledValue := currentState.ThinkingEnabledInput
-		selectedThinkingEffortValue := normalizeSelectedThinkingEffort(currentState.ThinkingEffortInput)
-		selectedTTSProviderValue := resolveTTSProviderID(currentState.TTSProviderInput)
-		systemPromptValue := strings.TrimSpace(currentState.SystemPromptInput)
-		selectedLocaleValue := normalizeChatLocaleID(currentState.LocaleInput)
-		if name != "" {
-			chatLog.Info("profile save", logging.Fields{"name": name, "tone": selectedToneValue, "system_prompt_len": len([]rune(systemPromptValue))})
-			userNameState.Set(name)
-			client := chatClientRef.Get()
-			if client != nil {
+	parseSaveSettings := func() {
+		parseCurrentState2 := parseApp.Get()
+		parseName := strings.TrimSpace(parseCurrentState2.NameInput)
+		parseSelectedToneValue := parseNormalizeSelectedToneID(parseCurrentState2.ToneInput)
+		parseSelectedThinkingEnabledValue := parseCurrentState2.ThinkingEnabledInput
+		parseSelectedThinkingEffortValue := parseNormalizeSelectedThinkingEffort(parseCurrentState2.ThinkingEffortInput)
+		parseSelectedTTSProviderValue := parseResolveTTSProviderID(parseCurrentState2.TTSProviderInput)
+		parseSystemPromptValue := strings.TrimSpace(parseCurrentState2.SystemPromptInput)
+		parseSelectedLocaleValue := parseNormalizeChatLocaleID(parseCurrentState2.LocaleInput)
+		if parseName != "" {
+			chatLog.ParseInfo("profile save", logging.Fields{"name": parseName, "tone": parseSelectedToneValue, "system_prompt_len": len([]rune(parseSystemPromptValue))})
+			parseUserNameState.Set(parseName)
+			parseClient3 := parseChatClientRef.Get()
+			if parseClient3 != nil {
 				go func() {
-					_, err := client.SetUserName(context.Background(), &chatpb.SetUserNameRequest{Name: name})
-					if err != nil {
-						if handleAuthFailure != nil && handleAuthFailure(err) {
+					_, parseErr3 := parseClient3.SetUserName(context.Background(), &chatpb.SetUserNameRequest{Name: parseName})
+					if parseErr3 != nil {
+						if handleAuthFailure != nil && handleAuthFailure(parseErr3) {
 							return
 						}
-						chatLog.Error("set user name failed", logging.Fields{"error": err})
+						chatLog.ParseError("set user name failed", logging.Fields{"error": parseErr3})
 						return
 					}
-					userNameFetchedAt.Set(time.Now())
+					parseUserNameFetchedAt.Set(time.Now())
 				}()
 			}
 		}
-		intl.SetLocale(selectedLocaleValue)
-		app.Dispatch(appAction{Type: appActionSetSelectedTone, SelectedTone: selectedToneValue})
-		app.Dispatch(appAction{Type: appActionSetSelectedThinkingEnabled, SelectedThinkingEnabled: selectedThinkingEnabledValue})
-		if selectedThinkingEnabledValue {
-			app.Dispatch(appAction{Type: appActionSetSelectedThinkingEffort, SelectedThinkingEffort: selectedThinkingEffortValue})
+		parseIntl.SetLocale(parseSelectedLocaleValue)
+		parseApp.Dispatch(appAction{Type: appActionSetSelectedTone, SelectedTone: parseSelectedToneValue})
+		parseApp.Dispatch(appAction{Type: appActionSetSelectedThinkingEnabled, SelectedThinkingEnabled: parseSelectedThinkingEnabledValue})
+		if parseSelectedThinkingEnabledValue {
+			parseApp.Dispatch(appAction{Type: appActionSetSelectedThinkingEffort, SelectedThinkingEffort: parseSelectedThinkingEffortValue})
 		}
-		app.Dispatch(appAction{Type: appActionSetSelectedTTSProvider, SelectedTTSProvider: selectedTTSProviderValue})
-		ttsProviderState.Set(selectedTTSProviderValue)
-		app.Dispatch(appAction{Type: appActionSetCustomSystemPrompt, CustomSystemPrompt: systemPromptValue})
-		selectedToneCache.Set(selectedToneValue)
-		selectedThinkingEnabledCache.Set(selectedThinkingEnabledValue)
-		if selectedThinkingEnabledValue {
-			selectedThinkingEffortCache.Set(selectedThinkingEffortValue)
+		parseApp.Dispatch(appAction{Type: appActionSetSelectedTTSProvider, SelectedTTSProvider: parseSelectedTTSProviderValue})
+		parseTtsProviderState.Set(parseSelectedTTSProviderValue)
+		parseApp.Dispatch(appAction{Type: appActionSetCustomSystemPrompt, CustomSystemPrompt: parseSystemPromptValue})
+		parseSelectedToneCache.Set(parseSelectedToneValue)
+		parseSelectedThinkingEnabledCache.Set(parseSelectedThinkingEnabledValue)
+		if parseSelectedThinkingEnabledValue {
+			parseSelectedThinkingEffortCache.Set(parseSelectedThinkingEffortValue)
 		}
-		customSystemPromptCache.Set(systemPromptValue)
-		if client := chatClientRef.Get(); client != nil {
+		parseCustomSystemPromptCache.Set(parseSystemPromptValue)
+		if parseClient4 := parseChatClientRef.Get(); parseClient4 != nil {
 			go func() {
-				_, err := client.SetSelectedTone(context.Background(), wrapperspb.String(selectedToneValue))
-				if err != nil {
-					if handleAuthFailure != nil && handleAuthFailure(err) {
+				_, parseErr4 := parseClient4.SetSelectedTone(context.Background(), wrapperspb.String(parseSelectedToneValue))
+				if parseErr4 != nil {
+					if handleAuthFailure != nil && handleAuthFailure(parseErr4) {
 						return
 					}
-					chatLog.Error("set selected tone failed", logging.Fields{"error": err})
-					selectedToneCache.Invalidate()
+					chatLog.ParseError("set selected tone failed", logging.Fields{"error": parseErr4})
+					parseSelectedToneCache.Invalidate()
 				}
 			}()
 			go func() {
-				_, err := client.SetSelectedThinkingEnabled(context.Background(), wrapperspb.Bool(selectedThinkingEnabledValue))
-				if err != nil {
-					if handleAuthFailure != nil && handleAuthFailure(err) {
+				_, parseErr5 := parseClient4.SetSelectedThinkingEnabled(context.Background(), wrapperspb.Bool(parseSelectedThinkingEnabledValue))
+				if parseErr5 != nil {
+					if handleAuthFailure != nil && handleAuthFailure(parseErr5) {
 						return
 					}
-					chatLog.Error("set selected thinking enabled failed", logging.Fields{"error": err})
-					selectedThinkingEnabledCache.Invalidate()
+					chatLog.ParseError("set selected thinking enabled failed", logging.Fields{"error": parseErr5})
+					parseSelectedThinkingEnabledCache.Invalidate()
 				}
 			}()
-			if selectedThinkingEnabledValue {
+			if parseSelectedThinkingEnabledValue {
 				go func() {
-					_, err := client.SetSelectedThinkingEffort(context.Background(), wrapperspb.String(selectedThinkingEffortValue))
-					if err != nil {
-						if handleAuthFailure != nil && handleAuthFailure(err) {
+					_, parseErr6 := parseClient4.SetSelectedThinkingEffort(context.Background(), wrapperspb.String(parseSelectedThinkingEffortValue))
+					if parseErr6 != nil {
+						if handleAuthFailure != nil && handleAuthFailure(parseErr6) {
 							return
 						}
-						chatLog.Error("set selected thinking effort failed", logging.Fields{"error": err})
-						selectedThinkingEffortCache.Invalidate()
+						chatLog.ParseError("set selected thinking effort failed", logging.Fields{"error": parseErr6})
+						parseSelectedThinkingEffortCache.Invalidate()
 					}
 				}()
 			}
 			go func() {
-				_, err := client.SetCustomSystemPrompt(context.Background(), wrapperspb.String(systemPromptValue))
-				if err != nil {
-					if handleAuthFailure != nil && handleAuthFailure(err) {
+				_, parseErr7 := parseClient4.SetCustomSystemPrompt(context.Background(), wrapperspb.String(parseSystemPromptValue))
+				if parseErr7 != nil {
+					if handleAuthFailure != nil && handleAuthFailure(parseErr7) {
 						return
 					}
-					chatLog.Error("set custom system prompt failed", logging.Fields{"error": err})
-					customSystemPromptCache.Invalidate()
+					chatLog.ParseError("set custom system prompt failed", logging.Fields{"error": parseErr7})
+					parseCustomSystemPromptCache.Invalidate()
 				}
 			}()
-			for _, key := range currentState.DeletedUserMemoryKeys {
-				deleteKey := strings.TrimSpace(key)
-				if deleteKey == "" {
+			for _, parseKey := range parseCurrentState2.DeletedUserMemoryKeys {
+				parseDeleteKey := strings.TrimSpace(parseKey)
+				if parseDeleteKey == "" {
 					continue
 				}
-				go func(memoryKey string) {
-					if _, err := client.DeleteUserMemory(context.Background(), &chatpb.DeleteUserMemoryRequest{Key: memoryKey}); err != nil {
-						if handleAuthFailure != nil && handleAuthFailure(err) {
+				go func(parseMemoryKey string) {
+					if _, parseErr8 := parseClient4.ParseDeleteUserMemory(context.Background(), &chatpb.DeleteUserMemoryRequest{Key: parseMemoryKey}); parseErr8 != nil {
+						if handleAuthFailure != nil && handleAuthFailure(parseErr8) {
 							return
 						}
-						chatLog.Error("delete user memory failed", logging.Fields{"error": err, "key": memoryKey})
+						chatLog.ParseError("delete user memory failed", logging.Fields{"error": parseErr8, "key": parseMemoryKey})
 					}
-				}(deleteKey)
+				}(parseDeleteKey)
 			}
-			for _, memory := range currentState.UserMemories {
-				if isManagedUserNameMemory(memory) {
+			for _, parseMemory2 := range parseCurrentState2.UserMemories {
+				if parseManagedUserNameMemory(parseMemory2) {
 					continue
 				}
-				summary := strings.TrimSpace(memory.Summary)
-				if summary == "" {
+				parseSummary := strings.TrimSpace(parseMemory2.Summary)
+				if parseSummary == "" {
 					continue
 				}
-				request := &chatpb.UpsertUserMemoryRequest{
+				parseRequest := &chatpb.UpsertUserMemoryRequest{
 					Memory: &chatpb.UserMemory{
-						Key:             strings.TrimSpace(memory.Key),
-						Category:        strings.TrimSpace(memory.Category),
-						Summary:         summary,
-						Detail:          strings.TrimSpace(memory.Detail),
-						SourceMessage:   strings.TrimSpace(memory.SourceMessage),
-						UsefulnessScore: int32(memory.UsefulnessScore),
-						ConfidenceScore: memory.ConfidenceScore,
-						RubricReason:    strings.TrimSpace(memory.RubricReason),
-						UpdatedAt:       memory.UpdatedAt,
+						Key:             strings.TrimSpace(parseMemory2.Key),
+						Category:        strings.TrimSpace(parseMemory2.Category),
+						Summary:         parseSummary,
+						Detail:          strings.TrimSpace(parseMemory2.Detail),
+						SourceMessage:   strings.TrimSpace(parseMemory2.SourceMessage),
+						UsefulnessScore: int32(parseMemory2.UsefulnessScore),
+						ConfidenceScore: parseMemory2.ConfidenceScore,
+						RubricReason:    strings.TrimSpace(parseMemory2.RubricReason),
+						UpdatedAt:       parseMemory2.UpdatedAt,
 					},
 				}
-				go func(req *chatpb.UpsertUserMemoryRequest) {
-					if _, err := client.UpsertUserMemory(context.Background(), req); err != nil {
-						if handleAuthFailure != nil && handleAuthFailure(err) {
+				go func(parseReq *chatpb.UpsertUserMemoryRequest) {
+					if _, parseErr9 := parseClient4.ParseUpsertUserMemory(context.Background(), parseReq); parseErr9 != nil {
+						if handleAuthFailure != nil && handleAuthFailure(parseErr9) {
 							return
 						}
-						chatLog.Error("upsert user memory failed", logging.Fields{"error": err, "summary": req.GetMemory().GetSummary()})
+						chatLog.ParseError("upsert user memory failed", logging.Fields{"error": parseErr9, "summary": parseReq.GetMemory().GetSummary()})
 					}
-				}(request)
+				}(parseRequest)
 			}
 		}
-		app.Dispatch(appAction{Type: appActionSetToneInput, ToneInput: selectedToneValue})
-		app.Dispatch(appAction{Type: appActionSetTTSProviderInput, TTSProviderInput: selectedTTSProviderValue})
-		app.Dispatch(appAction{Type: appActionSetSystemPromptInput, SystemPromptInput: systemPromptValue})
-		app.Dispatch(appAction{Type: appActionSetUserMemories, UserMemories: ensureManagedUserNameMemory(name, currentState.UserMemories), DeletedUserMemoryKeys: []string{}})
-		closeSettingsRoute()
+		parseApp.Dispatch(appAction{Type: appActionSetToneInput, ToneInput: parseSelectedToneValue})
+		parseApp.Dispatch(appAction{Type: appActionSetTTSProviderInput, TTSProviderInput: parseSelectedTTSProviderValue})
+		parseApp.Dispatch(appAction{Type: appActionSetSystemPromptInput, SystemPromptInput: parseSystemPromptValue})
+		parseApp.Dispatch(appAction{Type: appActionSetUserMemories, UserMemories: parseEnsureManagedUserNameMemory(parseName, parseCurrentState2.UserMemories), DeletedUserMemoryKeys: []string{}})
+		parseCloseSettingsRoute()
 	}
 
-	open := ui.UseEvent(func() {
-		if !isSettingsRoute(currentPath) {
-			settingsReturnRoute.Set(currentLocationPathSearch())
-			nav.Navigate(buildSettingsRoute(defaultSettingsSectionID))
+	parseOpen := ui.UseEvent(func() {
+		if !isSettingsRoute(parseCurrentPath) {
+			parseSettingsReturnRoute.Set(parseCurrentLocationPathSearch())
+			parseNav.Navigate(buildSettingsRoute(defaultSettingsSectionID))
 			return
 		}
-		nav.Replace(buildSettingsRoute(defaultSettingsSectionID))
+		parseNav.Replace(buildSettingsRoute(defaultSettingsSectionID))
 	})
 
-	close := ui.UseEvent(func() {
-		closeSettingsRoute()
+	parseClose := ui.UseEvent(func() {
+		parseCloseSettingsRoute()
 	})
 
-	navigateSection := ui.UseEvent(func(e ui.Event) {
-		e.PreventDefault()
-		normalized := normalizeSettingsSectionID(eventDatasetValue(e, dataSettingsSection))
-		if normalized == "" {
+	parseNavigateSection := ui.UseEvent(func(parseE ui.Event) {
+		parseE.PreventDefault()
+		parseNormalized2 := parseNormalizeSettingsSectionID(parseEventDatasetValue(parseE, dataSettingsSection))
+		if parseNormalized2 == "" {
 			return
 		}
-		app.Dispatch(appAction{Type: appActionSetActiveSettingsSection, ActiveSettingsSection: normalized})
-		nav.Replace(buildSettingsRoute(normalized))
+		parseApp.Dispatch(appAction{Type: appActionSetActiveSettingsSection, ActiveSettingsSection: parseNormalized2})
+		parseNav.Replace(buildSettingsRoute(parseNormalized2))
 	})
 
-	handleNameInput := ui.UseEvent(func(e ui.Event) {
-		nextName := e.GetValue()
-		app.Dispatch(appAction{Type: appActionSetNameInput, NameInput: nextName})
-		app.Dispatch(appAction{Type: appActionSetUserMemories, UserMemories: ensureManagedUserNameMemory(nextName, app.Get().UserMemories), DeletedUserMemoryKeys: app.Get().DeletedUserMemoryKeys})
+	handleNameInput := ui.UseEvent(func(parseE2 ui.Event) {
+		parseNextName := parseE2.GetValue()
+		parseApp.Dispatch(appAction{Type: appActionSetNameInput, NameInput: parseNextName})
+		parseApp.Dispatch(appAction{Type: appActionSetUserMemories, UserMemories: parseEnsureManagedUserNameMemory(parseNextName, parseApp.Get().UserMemories), DeletedUserMemoryKeys: parseApp.Get().DeletedUserMemoryKeys})
 	})
 
-	handleNameKey := ui.UseEvent(func(e ui.Event) {
-		switch e.GetKey() {
+	handleNameKey := ui.UseEvent(func(parseE3 ui.Event) {
+		switch parseE3.GetKey() {
 		case "Enter":
-			e.PreventDefault()
-			saveSettings()
+			parseE3.PreventDefault()
+			parseSaveSettings()
 		case "Escape":
-			closeSettingsRoute()
+			parseCloseSettingsRoute()
 		}
 	})
 
-	handleToneChange := ui.UseEvent(func(e ui.Event) {
-		app.Dispatch(appAction{Type: appActionSetToneInput, ToneInput: normalizeSelectedToneID(eventDatasetValue(e, dataTone))})
+	handleToneChange := ui.UseEvent(func(parseE4 ui.Event) {
+		parseApp.Dispatch(appAction{Type: appActionSetToneInput, ToneInput: parseNormalizeSelectedToneID(parseEventDatasetValue(parseE4, dataTone))})
 	})
 
-	handleThinkingMode := ui.UseEvent(func(e ui.Event) {
-		nextMode := strings.TrimSpace(strings.ToLower(eventValueOrDataset(e, dataThinkingEffort)))
-		nextEnabled := nextMode != "off"
-		app.Dispatch(appAction{Type: appActionSetThinkingEnabledInput, ThinkingEnabledInput: nextEnabled})
-		if nextEnabled {
-			app.Dispatch(appAction{Type: appActionSetThinkingEffortInput, ThinkingEffortInput: normalizeSelectedThinkingEffort(nextMode)})
+	handleThinkingMode := ui.UseEvent(func(parseE5 ui.Event) {
+		parseNextMode := strings.TrimSpace(strings.ToLower(parseEventValueOrDataset(parseE5, dataThinkingEffort)))
+		isParseNextEnabled := parseNextMode != "off"
+		parseApp.Dispatch(appAction{Type: appActionSetThinkingEnabledInput, ThinkingEnabledInput: isParseNextEnabled})
+		if isParseNextEnabled {
+			parseApp.Dispatch(appAction{Type: appActionSetThinkingEffortInput, ThinkingEffortInput: parseNormalizeSelectedThinkingEffort(parseNextMode)})
 		}
 	})
 
-	handleTTSProvider := ui.UseEvent(func(e ui.Event) {
-		nextProvider := resolveTTSProviderID(eventValueOrDataset(e, dataTTSProvider))
-		app.Dispatch(appAction{Type: appActionSetTTSProviderInput, TTSProviderInput: nextProvider})
+	handleTTSProvider := ui.UseEvent(func(parseE6 ui.Event) {
+		parseNextProvider := parseResolveTTSProviderID(parseEventValueOrDataset(parseE6, dataTTSProvider))
+		parseApp.Dispatch(appAction{Type: appActionSetTTSProviderInput, TTSProviderInput: parseNextProvider})
 	})
 
-	handleSystemPrompt := ui.UseEvent(func(e ui.Event) {
-		app.Dispatch(appAction{Type: appActionSetSystemPromptInput, SystemPromptInput: e.GetValue()})
+	handleSystemPrompt := ui.UseEvent(func(parseE7 ui.Event) {
+		parseApp.Dispatch(appAction{Type: appActionSetSystemPromptInput, SystemPromptInput: parseE7.GetValue()})
 	})
 
-	handleMemoryChange := ui.UseEvent(func(e ui.Event) {
-		index, ok := eventDatasetInt(e, dataMemoryIndex)
-		if !ok {
+	handleMemoryChange := ui.UseEvent(func(parseE8 ui.Event) {
+		parseIndex, parseOk := parseEventDatasetInt(parseE8, dataMemoryIndex)
+		if !parseOk {
 			return
 		}
-		currentState := app.Get()
-		if index < 0 || index >= len(currentState.UserMemories) {
+		parseCurrentState3 := parseApp.Get()
+		if parseIndex < 0 || parseIndex >= len(parseCurrentState3.UserMemories) {
 			return
 		}
-		if isManagedUserNameMemory(currentState.UserMemories[index]) {
+		if parseManagedUserNameMemory(parseCurrentState3.UserMemories[parseIndex]) {
 			return
 		}
-		field := eventDatasetValue(e, dataMemoryField)
-		app.Dispatch(appAction{Type: appActionUpdateUserMemoryField, UserMemoryIndex: index, UserMemoryField: field, UserMemoryValue: e.GetValue()})
+		parseField := parseEventDatasetValue(parseE8, dataMemoryField)
+		parseApp.Dispatch(appAction{Type: appActionUpdateUserMemoryField, UserMemoryIndex: parseIndex, UserMemoryField: parseField, UserMemoryValue: parseE8.GetValue()})
 	})
 
-	addMemory := ui.UseEvent(func() {
-		app.Dispatch(appAction{Type: appActionAddUserMemory})
+	parseAddMemory := ui.UseEvent(func() {
+		parseApp.Dispatch(appAction{Type: appActionAddUserMemory})
 	})
 
-	deleteMemory := ui.UseEvent(func(e ui.Event) {
-		index, ok := eventDatasetInt(e, dataMemoryIndex)
-		if !ok {
+	parseDeleteMemory := ui.UseEvent(func(parseE9 ui.Event) {
+		parseIndex2, parseOk2 := parseEventDatasetInt(parseE9, dataMemoryIndex)
+		if !parseOk2 {
 			return
 		}
-		currentState := app.Get()
-		if index < 0 || index >= len(currentState.UserMemories) {
+		parseCurrentState4 := parseApp.Get()
+		if parseIndex2 < 0 || parseIndex2 >= len(parseCurrentState4.UserMemories) {
 			return
 		}
-		if isManagedUserNameMemory(currentState.UserMemories[index]) {
+		if parseManagedUserNameMemory(parseCurrentState4.UserMemories[parseIndex2]) {
 			return
 		}
-		app.Dispatch(appAction{Type: appActionDeleteUserMemory, UserMemoryIndex: index})
+		parseApp.Dispatch(appAction{Type: appActionDeleteUserMemory, UserMemoryIndex: parseIndex2})
 	})
 
-	handleLocaleChange := ui.UseEvent(func(e ui.Event) {
-		app.Dispatch(appAction{Type: appActionSetLocaleInput, LocaleInput: normalizeChatLocaleID(eventDatasetValue(e, dataLocale))})
+	handleLocaleChange := ui.UseEvent(func(parseE10 ui.Event) {
+		parseApp.Dispatch(appAction{Type: appActionSetLocaleInput, LocaleInput: parseNormalizeChatLocaleID(parseEventDatasetValue(parseE10, dataLocale))})
 	})
 
-	save := ui.UseEvent(func() {
-		saveSettings()
+	parseSave := ui.UseEvent(func() {
+		parseSaveSettings()
 	})
 
 	return profileSettingsController{
-		Refresh:            refresh,
-		Open:               open,
-		Close:              close,
-		NavigateSection:    navigateSection,
+		Refresh:            parseRefresh,
+		Open:               parseOpen,
+		Close:              parseClose,
+		NavigateSection:    parseNavigateSection,
 		HandleNameInput:    handleNameInput,
 		HandleNameKey:      handleNameKey,
 		HandleToneChange:   handleToneChange,
@@ -478,9 +478,9 @@ func useProfileSettings(
 		HandleTTSProvider:  handleTTSProvider,
 		HandleSystemPrompt: handleSystemPrompt,
 		HandleMemoryChange: handleMemoryChange,
-		AddMemory:          addMemory,
-		DeleteMemory:       deleteMemory,
+		AddMemory:          parseAddMemory,
+		DeleteMemory:       parseDeleteMemory,
 		HandleLocaleChange: handleLocaleChange,
-		Save:               save,
+		Save:               parseSave,
 	}
 }

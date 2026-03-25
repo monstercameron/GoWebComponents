@@ -81,8 +81,9 @@ Framework coverage reference:
   Use overlays, portals, async boundaries, lazy loading, tasks, and transition lanes in product and operations workflows.
 - [x] Add real Atlas coverage for shared state and snapshot primitives.
   Use atoms, computed values, derived slices, and snapshot persistence for operator workspaces and reviewer handoff.
-- [ ] Add real Atlas coverage for fetch, SSR bootstrap, and devtools.
+- [x] Add real Atlas coverage for fetch, SSR bootstrap, and devtools.
   Use data resources, cached resources, bootstrap scripts, hydration reuse, and a live diagnostics panel.
+  Atlas now uses cached fetch resources and bootstrap reuse in `client/main.go`, and diagnostics mode mounts `devtools.Panel` plus `devtools.SnapshotNow()` summary from `shared/atlas/page.go`.
 
 ## 2. Information Architecture And Route Map
 
@@ -764,19 +765,24 @@ Use these as the default acceptance-story set:
 
 ### Server and data tests
 
-- [ ] Add sqlite data-layer tests.
+- [x] Add sqlite data-layer tests.
   Cover seed loading, queries, filters, comment persistence, and inventory mutations.
-- [ ] Add repository-level query tests.
+  Covered by `examples/86-atlas-commerce-os/server/db/store_integration_test.go` (`TestLoadMigrationsAndMigrateFallback`, `TestStoreReadFlows`, and `TestStoreAdminAndMutationFlows`).
+- [x] Add repository-level query tests.
   Validate product lookup, warehouse lookup, availability joins, comment retrieval, saved views, and inventory filter combinations.
-- [ ] Add write-path persistence tests.
+  Query coverage lives in `examples/86-atlas-commerce-os/server/db/store_integration_test.go` via `TestStoreReadFlows` and includes catalog filters, product and warehouse lookups, availability joins, comments, and saved-view reads.
+- [x] Add write-path persistence tests.
   Validate comment creation, quote request creation, stock adjustment writes, threshold updates, transfer lifecycle updates, and receiving reconciliation writes.
-- [ ] Add handler tests.
+  Persistence paths are covered in `examples/86-atlas-commerce-os/server/db/store_integration_test.go` under `TestStoreAdminAndMutationFlows`, including comments, quote/restock requests, inventory and threshold updates, transfers, purchase orders, and receiving reconciliation.
+- [x] Add handler tests.
   Validate SSR responses, JSON endpoints, form submissions, validation failures, and moderation actions.
+  Covered by `examples/86-atlas-commerce-os/server/server_test.go` plus `products_routes_error_test.go`, including SSR route assertions, JSON endpoint checks, form-post success and validation-failure paths, and comment moderation flows.
 
 ### Unit test ideas
 
-- [ ] Add unit tests for query parsing.
+- [x] Add unit tests for query parsing.
   Test catalog and inventory query parsing for sort, filter, pagination, invalid values, and canonicalization.
+  Added focused parsing coverage in `examples/86-atlas-commerce-os/server/query_parsing_test.go` for pagination fallback, public warehouse query defaults, Atlas bootstrap-query filtering, and inventory sort/filter normalization.
 - [x] Add unit tests for metadata generation.
   Test route title, description, canonical URL, and structured-data generation for public product and warehouse routes.
 - [x] Add unit tests for theme and preference resolution.
@@ -785,8 +791,9 @@ Use these as the default acceptance-story set:
   Test warehouse-aware delivery promise logic and stock-status labeling.
 - [x] Add unit tests for transfer recommendation logic.
   Test derived stock-pressure and cross-warehouse rebalance recommendations.
-- [ ] Add unit tests for receiving reconciliation rules.
+- [x] Add unit tests for receiving reconciliation rules.
   Test expected-versus-actual quantity handling, discrepancy classification, and final state transitions.
+  Added `examples/86-atlas-commerce-os/server/db/receiving_rules_test.go` for expected-vs-actual receiving-line checks plus reconcile transition coverage, and expanded `validateReceivingRequest` status coverage in `examples/86-atlas-commerce-os/server/mutations_helpers_test.go`.
 - [x] Add unit tests for moderation-state transitions.
   Test pending, approved, rejected, and flagged comment lifecycle rules.
 - [x] Add unit tests for saved-view serialization.
@@ -794,40 +801,53 @@ Use these as the default acceptance-story set:
 
 ### UI and route tests
 
-- [ ] Add route-level tests for public pages.
+- [x] Add route-level tests for public pages.
   Cover SSR render, metadata, hydration bootstrap, and query-driven filters.
-- [ ] Add route-level tests for internal pages.
+  Public-route coverage is in `examples/86-atlas-commerce-os/server/server_test.go` (`TestPublicSSRRoutes` and public cases in `TestPublicAndInternalJSONAPIsReturnData`) and validates SSR output, metadata tags, bootstrap payloads, and filter-driven route requests.
+- [x] Add route-level tests for internal pages.
   Cover dashboard load, list filtering, modal flows, receiving workflows, and revalidation behavior.
+  Internal-route coverage is exercised in `examples/86-atlas-commerce-os/server/server_test.go` through `TestInternalSSRRoutes`, nested-route bootstrap tests, threshold-history external-bootstrap checks, and internal API route assertions.
 - [x] Add accessibility-focused browser coverage.
   Validate keyboard navigation, overlay focus handling, form errors, and route announcements.
-- [ ] Add theming and locale coverage.
+- [x] Add theming and locale coverage.
   Validate SSR-stable theme load, locale switching, formatting, and RTL support.
+  Covered by SSR and bootstrap tests in `examples/86-atlas-commerce-os/server/server_test.go` (direct-entry preference save and SSR class/locale assertions) plus locale-direction helper coverage in `examples/86-atlas-commerce-os/shared/atlas/derived_state_bootstrap_test.go`.
 
 ### Component test ideas
 
-- [ ] Add component tests for data table primitives.
+- [x] Add component tests for data table primitives.
   Validate sortable headers, filter chip rendering, empty states, saved-view badges, and bulk-selection affordances.
-- [ ] Add component tests for public comment and form modules.
+  Added table-primitive coverage in `examples/86-atlas-commerce-os/shared/atlas/table_primitives_test.go`, including empty-state rows, sortable headers, filter and saved-view rail chips, and bulk moderation affordances on the comments table route.
+- [x] Add component tests for public comment and form modules.
   Validate label wiring, error rendering, success states, moderation messages, and pending states.
-- [ ] Add component tests for warehouse availability cards.
+  Added `examples/86-atlas-commerce-os/shared/atlas/public_comment_modules_test.go` covering comment-form validation, ARIA label and error wiring, moderation badge rendering, pending refresh/submit states, and pending-comment merge behavior.
+- [x] Add component tests for warehouse availability cards.
   Validate stock labels, ETA messaging, fallback states, and warehouse-specific promise rendering.
-- [ ] Add component tests for overlay-backed workflows.
+  Added coverage in `examples/86-atlas-commerce-os/shared/atlas/warehouse_availability_cards_test.go` for promise-lane cards, refresh and empty fallbacks, warehouse-specific availability promise rendering, and status-driven support-point messaging.
+- [x] Add component tests for overlay-backed workflows.
   Validate SKU threshold modal, transfer dialog, discrepancy resolution dialog, side sheets, and command palette behavior.
-- [ ] Add component tests for preference controls.
+  Added overlay component coverage in `examples/86-atlas-commerce-os/shared/atlas/overlay_workflows_test.go` for threshold route-sheet rendering, transfer/receiving/moderation confirmation dialogs, and shared dismissible side-sheet behavior.
+- [x] Add component tests for preference controls.
   Validate theme toggle, locale selector, density selector, and saved-view controls.
-- [ ] Add component tests for activity timeline and audit rows.
+  Added settings-route preference control coverage in `examples/86-atlas-commerce-os/shared/atlas/preference_controls_test.go`, including theme/locale/density/default-warehouse controls and the saved-view listbox workflow.
+- [x] Add component tests for activity timeline and audit rows.
   Validate event grouping, status chips, timestamps, and note rendering.
+  Added timeline and audit-row coverage in `examples/86-atlas-commerce-os/shared/atlas/activity_timeline_test.go`, including dashboard activity grouping/empty state and threshold-history timestamp plus note rendering.
 
 ### Integration test ideas
 
-- [ ] Add integration tests for public browsing flow.
+- [x] Add integration tests for public browsing flow.
   Exercise landing to catalog to product route transitions with SSR and hydration continuity.
-- [ ] Add integration tests for public form submissions.
+  Added sequential public-flow coverage in `examples/86-atlas-commerce-os/server/integration_public_flow_test.go` to assert landing, catalog-query, and product SSR responses keep bootstrap continuity for hydration.
+- [x] Add integration tests for public form submissions.
   Cover comment submission, restock request, and quote request server round-trips including validation errors.
-- [ ] Add integration tests for inventory management flow.
+  Existing integration coverage in `examples/86-atlas-commerce-os/server/server_test.go` (`TestPublicMutationValidationReturnsFieldErrors` and `TestAdditionalMutationSuccessPaths`) now maps directly to this requirement.
+- [x] Add integration tests for inventory management flow.
   Cover loading inventory data, applying filters, saving views, editing thresholds, and revalidating list state.
-- [ ] Add integration tests for transfer creation flow.
+  Added end-to-end inventory workspace coverage in `examples/86-atlas-commerce-os/server/integration_inventory_flow_test.go`, including filtered inventory loads, saved-view creation, threshold updates, and post-mutation list and history checks.
+- [x] Add integration tests for transfer creation flow.
   Cover derived recommendation display, modal submission, persistence, and queue refresh.
+  Added transfer-flow integration coverage in `examples/86-atlas-commerce-os/server/integration_transfer_flow_test.go`, including recommendation endpoint checks, transfer submission, persisted queue growth, and refreshed transfer list reads.
 - [ ] Add integration tests for receiving reconciliation flow.
   Cover loading a session, entering actual quantities, handling discrepancy branches, and finalizing reconciliation.
 - [ ] Add integration tests for moderation flow.

@@ -13,18 +13,18 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func Open(ctx context.Context, sqlitePath string) (*sql.DB, error) {
-	if err := os.MkdirAll(filepath.Dir(sqlitePath), 0o755); err != nil {
-		return nil, fmt.Errorf("create sqlite directory: %w", err)
+func Open(parseCtx context.Context, parseSqlitePath string) (*sql.DB, error) {
+	if parseErr := os.MkdirAll(filepath.Dir(parseSqlitePath), 0o755); parseErr != nil {
+		return nil, fmt.Errorf("create sqlite directory: %w", parseErr)
 	}
-	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)", filepath.ToSlash(sqlitePath))
-	database, err := sql.Open("sqlite", dsn)
-	if err != nil {
-		return nil, fmt.Errorf("open sqlite: %w", err)
+	parseDsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)", filepath.ToSlash(parseSqlitePath))
+	parseDatabase, parseErr2 := sql.Open("sqlite", parseDsn)
+	if parseErr2 != nil {
+		return nil, fmt.Errorf("open sqlite: %w", parseErr2)
 	}
-	if err := database.PingContext(ctx); err != nil {
-		database.Close()
-		return nil, fmt.Errorf("ping sqlite: %w", err)
+	if parseErr3 := parseDatabase.PingContext(parseCtx); parseErr3 != nil {
+		parseDatabase.Close()
+		return nil, fmt.Errorf("ping sqlite: %w", parseErr3)
 	}
-	return database, nil
+	return parseDatabase, nil
 }

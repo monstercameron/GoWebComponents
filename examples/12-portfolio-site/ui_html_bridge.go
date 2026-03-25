@@ -17,108 +17,158 @@ type ChangeEvent = ui.ChangeEvent
 type KeyboardEvent = ui.KeyboardEvent
 type FormEvent = ui.FormEvent
 
-func toProps(attrs Attrs) html.Props {
-	if attrs == nil {
+func toProps(parseAttrs Attrs) html.Props {
+	if parseAttrs == nil {
 		return html.Props{}
 	}
-	return html.Props{Raw: attrs}
+	return html.Props{Raw: parseAttrs}
 }
 
-func normalizeChildren(children ...interface{}) []ui.Node {
-	result := make([]ui.Node, 0, len(children))
-	for _, child := range children {
-		switch value := child.(type) {
+func normalizeChildren(parseChildren ...interface{}) []ui.Node {
+	parseResult := make([]ui.Node, 0, len(parseChildren))
+	for _, parseChild := range parseChildren {
+		switch parseValue := parseChild.(type) {
 		case nil:
 			continue
 		case ui.Node:
-			result = append(result, value)
+			parseResult = append(parseResult, parseValue)
 		case string:
-			result = append(result, html.Text(value))
+			parseResult = append(parseResult, html.Text(parseValue))
 		case fmt.Stringer:
-			result = append(result, html.Text(value.String()))
+			parseResult = append(parseResult, html.Text(parseValue.String()))
 		case []ui.Node:
-			result = append(result, value...)
+			parseResult = append(parseResult, parseValue...)
 		case []interface{}:
-			result = append(result, normalizeChildren(value...)...)
+			parseResult = append(parseResult, normalizeChildren(parseValue...)...)
 		default:
-			result = append(result, html.Text(fmt.Sprint(value)))
+			parseResult = append(parseResult, html.Text(fmt.Sprint(parseValue)))
 		}
 	}
-	return result
+	return parseResult
 }
 
-func tag(name string, attrs Attrs, children ...interface{}) *Element {
-	return html.Tag(name, toProps(attrs), normalizeChildren(children...)...)
+func tag(parseName string, parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return html.Tag(parseName, toProps(parseAttrs), normalizeChildren(parseChildren...)...)
 }
 
-func Text(value interface{}) *Element { return html.Text(fmt.Sprint(value)) }
-func CreateElement(component interface{}, props ...interface{}) *Element {
-	return ui.CreateElement(component, props...)
+func Text(parseValue interface{}) *Element { return html.Text(fmt.Sprint(parseValue)) }
+func CreateElement(parseComponent interface{}, parseProps ...interface{}) *Element {
+	return ui.CreateElement(parseComponent, parseProps...)
 }
-func Div(attrs Attrs, children ...interface{}) *Element { return tag("div", attrs, children...) }
-func Section(attrs Attrs, children ...interface{}) *Element {
-	return tag("section", attrs, children...)
+func Div(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("div", parseAttrs, parseChildren...)
 }
-func Article(attrs Attrs, children ...interface{}) *Element {
-	return tag("article", attrs, children...)
+func Section(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("section", parseAttrs, parseChildren...)
 }
-func Footer(attrs Attrs, children ...interface{}) *Element { return tag("footer", attrs, children...) }
-func Nav(attrs Attrs, children ...interface{}) *Element    { return tag("nav", attrs, children...) }
-func Form(attrs Attrs, children ...interface{}) *Element   { return tag("form", attrs, children...) }
-func A(attrs Attrs, children ...interface{}) *Element      { return tag("a", attrs, children...) }
-func Button(attrs Attrs, children ...interface{}) *Element { return tag("button", attrs, children...) }
-func Code(attrs Attrs, children ...interface{}) *Element   { return tag("code", attrs, children...) }
-func Pre(attrs Attrs, children ...interface{}) *Element    { return tag("pre", attrs, children...) }
-func H1(attrs Attrs, children ...interface{}) *Element     { return tag("h1", attrs, children...) }
-func H2(attrs Attrs, children ...interface{}) *Element     { return tag("h2", attrs, children...) }
-func H3(attrs Attrs, children ...interface{}) *Element     { return tag("h3", attrs, children...) }
-func H4(attrs Attrs, children ...interface{}) *Element     { return tag("h4", attrs, children...) }
-func P(attrs Attrs, children ...interface{}) *Element      { return tag("p", attrs, children...) }
-func Span(attrs Attrs, children ...interface{}) *Element   { return tag("span", attrs, children...) }
-func Strong(attrs Attrs, children ...interface{}) *Element { return tag("strong", attrs, children...) }
-func Ul(attrs Attrs, children ...interface{}) *Element     { return tag("ul", attrs, children...) }
-func Li(attrs Attrs, children ...interface{}) *Element     { return tag("li", attrs, children...) }
-func Label(attrs Attrs, children ...interface{}) *Element  { return tag("label", attrs, children...) }
-func Select(attrs Attrs, children ...interface{}) *Element { return tag("select", attrs, children...) }
-func Option(attrs Attrs, children ...interface{}) *Element { return tag("option", attrs, children...) }
-func Textarea(attrs Attrs, children ...interface{}) *Element {
-	return tag("textarea", attrs, children...)
+func Article(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("article", parseAttrs, parseChildren...)
 }
-func Input(attrs Attrs, children ...interface{}) *Element  { return tag("input", attrs, children...) }
-func Iframe(attrs Attrs, children ...interface{}) *Element { return tag("iframe", attrs, children...) }
-func Img(attrs Attrs, children ...interface{}) *Element    { return tag("img", attrs, children...) }
-func Br(attrs Attrs, children ...interface{}) *Element     { return tag("br", attrs, children...) }
+func Footer(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("footer", parseAttrs, parseChildren...)
+}
+func Nav(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("nav", parseAttrs, parseChildren...)
+}
+func Form(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("form", parseAttrs, parseChildren...)
+}
+func A(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("a", parseAttrs, parseChildren...)
+}
+func Button(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("button", parseAttrs, parseChildren...)
+}
+func Code(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("code", parseAttrs, parseChildren...)
+}
+func Pre(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("pre", parseAttrs, parseChildren...)
+}
+func H1(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("h1", parseAttrs, parseChildren...)
+}
+func H2(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("h2", parseAttrs, parseChildren...)
+}
+func H3(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("h3", parseAttrs, parseChildren...)
+}
+func H4(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("h4", parseAttrs, parseChildren...)
+}
+func P(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("p", parseAttrs, parseChildren...)
+}
+func Span(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("span", parseAttrs, parseChildren...)
+}
+func Strong(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("strong", parseAttrs, parseChildren...)
+}
+func Ul(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("ul", parseAttrs, parseChildren...)
+}
+func Li(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("li", parseAttrs, parseChildren...)
+}
+func Label(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("label", parseAttrs, parseChildren...)
+}
+func Select(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("select", parseAttrs, parseChildren...)
+}
+func Option(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("option", parseAttrs, parseChildren...)
+}
+func Textarea(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("textarea", parseAttrs, parseChildren...)
+}
+func Input(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("input", parseAttrs, parseChildren...)
+}
+func Iframe(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("iframe", parseAttrs, parseChildren...)
+}
+func Img(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("img", parseAttrs, parseChildren...)
+}
+func Br(parseAttrs Attrs, parseChildren ...interface{}) *Element {
+	return tag("br", parseAttrs, parseChildren...)
+}
 
-func UseState[T any](initialValue T) (func() T, func(interface{})) {
-	state := ui.UseState(initialValue)
-	return state.Get, func(value interface{}) {
-		if updater, ok := value.(func(T) T); ok {
-			state.Update(updater)
+func UseState[T any](parseInitialValue T) (func() T, func(interface{})) {
+	parseState := ui.UseState(parseInitialValue)
+	return parseState.Get, func(parseValue interface{}) {
+		if parseUpdater, parseOk := parseValue.(func(T) T); parseOk {
+			parseState.Update(parseUpdater)
 			return
 		}
-		cast, ok := value.(T)
-		if ok {
-			state.Set(cast)
+		parseCast, parseOk2 := parseValue.(T)
+		if parseOk2 {
+			parseState.Set(parseCast)
 		}
 	}
 }
-func UseEffect(effect func() func(), deps ...interface{}) { ui.UseEffect(effect, deps...) }
-func UseMemo(compute func() interface{}, deps ...interface{}) interface{} {
-	return ui.UseMemo(compute, deps...)
+func UseEffect(parseEffect func() func(), parseDeps ...interface{}) {
+	ui.UseEffect(parseEffect, parseDeps...)
 }
-func UseCallback(fn interface{}, deps ...interface{}) interface{} {
-	return ui.UseCallback(fn, deps...)
+func UseMemo(parseCompute func() interface{}, parseDeps ...interface{}) interface{} {
+	return ui.UseMemo(parseCompute, parseDeps...)
 }
-func UseId() string                       { return ui.UseId() }
-func UseEvent(fn interface{}) interface{} { return ui.UseEvent(fn).Value() }
-func UseFetch(url string, options ...interface{}) (func() gwcfetch.State, func()) {
-	fetchOptions := make([]gwcfetch.Options, 0, len(options))
-	for _, option := range options {
-		cast, ok := option.(gwcfetch.Options)
-		if ok {
-			fetchOptions = append(fetchOptions, cast)
+func UseCallback(parseFn interface{}, parseDeps ...interface{}) interface{} {
+	return ui.UseCallback(parseFn, parseDeps...)
+}
+func UseId() string                            { return ui.UseId() }
+func UseEvent(parseFn interface{}) interface{} { return ui.UseEvent(parseFn).Value() }
+func UseFetch(parseUrl string, parseOptions ...interface{}) (func() gwcfetch.State, func()) {
+	parseFetchOptions := make([]gwcfetch.Options, 0, len(parseOptions))
+	for _, parseOption := range parseOptions {
+		parseCast, parseOk := parseOption.(gwcfetch.Options)
+		if parseOk {
+			parseFetchOptions = append(parseFetchOptions, parseCast)
 		}
 	}
-	resource := gwcfetch.UseFetch(url, fetchOptions...)
-	return resource.Get, resource.Refetch
+	parseResource := gwcfetch.UseFetch(parseUrl, parseFetchOptions...)
+	return parseResource.Get, parseResource.Refetch
 }

@@ -12,22 +12,22 @@ import (
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-func counterToneClass(currentCount int) string {
+func counterToneClass(parseCurrentCount int) string {
 	switch {
-	case currentCount > 0:
+	case parseCurrentCount > 0:
 		return "border-emerald-400/20 bg-emerald-400/10 text-emerald-100"
-	case currentCount < 0:
+	case parseCurrentCount < 0:
 		return "border-amber-400/20 bg-amber-400/10 text-amber-100"
 	default:
 		return "border-cyan-300/20 bg-cyan-400/10 text-cyan-100"
 	}
 }
 
-func counterToneLabel(currentCount int) string {
+func counterToneLabel(parseCurrentCount int) string {
 	switch {
-	case currentCount > 0:
+	case parseCurrentCount > 0:
 		return "Positive"
-	case currentCount < 0:
+	case parseCurrentCount < 0:
 		return "Negative"
 	default:
 		return "Ready"
@@ -35,62 +35,62 @@ func counterToneLabel(currentCount int) string {
 }
 
 func CounterExample() ui.Node {
-	count := ui.UseState(0)
-	currentCount := count.Get()
-	embedded := isEmbeddedExample()
+	parseCount := ui.UseState(0)
+	parseCurrentCount := parseCount.Get()
+	parseEmbedded := isEmbeddedExample()
 
-	increment := ui.UseEvent(func() {
-		count.Update(func(prev int) int { return prev + 1 })
+	parseIncrement := ui.UseEvent(func() {
+		parseCount.Update(func(parsePrev int) int { return parsePrev + 1 })
 	})
 
-	decrement := ui.UseEvent(func() {
-		count.Update(func(prev int) int { return prev - 1 })
+	parseDecrement := ui.UseEvent(func() {
+		parseCount.Update(func(parsePrev2 int) int { return parsePrev2 - 1 })
 	})
 
 	reset := ui.UseEvent(func() {
-		count.Set(0)
+		parseCount.Set(0)
 	})
 
-	toneLabel := counterToneLabel(currentCount)
-	toneClass := counterToneClass(currentCount)
-	buttonBaseClass := "transition-all duration-200 active:scale-95"
-	headerClass := ClassNames(
+	parseToneLabel := counterToneLabel(parseCurrentCount)
+	parseToneClass := counterToneClass(parseCurrentCount)
+	parseButtonBaseClass := "transition-all duration-200 active:scale-95"
+	parseHeaderClass := ClassNames(
 		"border-b border-white/10",
-		When(embedded, "pb-3"),
-		When(!embedded, "flex flex-wrap items-center justify-between gap-3 pb-4"),
+		When(parseEmbedded, "pb-3"),
+		When(!parseEmbedded, "flex flex-wrap items-center justify-between gap-3 pb-4"),
 	)
-	iconButtonClass := ClassNames(
+	parseIconButtonClass := ClassNames(
 		"h-14 w-14 flex items-center justify-center rounded-2xl text-xl font-semibold border",
-		buttonBaseClass,
+		parseButtonBaseClass,
 		"hover:-translate-y-0.5",
 	)
-	neutralButtonClass := ClassNames(
-		iconButtonClass,
+	parseNeutralButtonClass := ClassNames(
+		parseIconButtonClass,
 		"border-white/10 bg-white/[0.05] text-slate-100 hover:bg-white/[0.08]",
 	)
-	primaryButtonClass := ClassNames(
-		iconButtonClass,
+	parsePrimaryButtonClass := ClassNames(
+		parseIconButtonClass,
 		"border-cyan-300/30 bg-cyan-400/15 text-cyan-100 shadow-lg shadow-cyan-950/30 hover:bg-cyan-400/20",
 	)
 	resetButtonClass := ClassNames(
 		"h-14 px-5 flex items-center justify-center rounded-2xl text-xs font-semibold uppercase tracking-[0.18em]",
-		buttonBaseClass,
+		parseButtonBaseClass,
 		"border-white/10 bg-slate-950/35 text-slate-200 hover:bg-white/[0.08] hover:text-white",
 	)
-	containerClass := ClassNames(
+	parseContainerClass := ClassNames(
 		"box-border flex justify-center bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_26%),radial-gradient(circle_at_top_right,rgba(245,158,11,0.10),transparent_20%),linear-gradient(180deg,#020617_0%,#07111f_42%,#0f172a_100%)] text-white",
-		When(embedded, "w-full items-start p-3 sm:p-4"),
-		When(!embedded, "min-h-screen items-center p-4 sm:p-5"),
+		When(parseEmbedded, "w-full items-start p-3 sm:p-4"),
+		When(!parseEmbedded, "min-h-screen items-center p-4 sm:p-5"),
 	)
-	cardClass := ClassNames(
+	parseCardClass := ClassNames(
 		"box-border w-full rounded-[24px] border border-white/10 bg-white/[0.05] shadow-2xl shadow-black/30 backdrop-blur-xl",
-		When(embedded, "max-w-5xl p-4 sm:p-5"),
-		When(!embedded, "max-w-xl p-5 sm:p-6"),
+		When(parseEmbedded, "max-w-5xl p-4 sm:p-5"),
+		When(!parseEmbedded, "max-w-xl p-5 sm:p-6"),
 	)
 
-	return Div(Class(containerClass),
-		Div(Class(cardClass),
-			Div(Class(headerClass),
+	return Div(Class(parseContainerClass),
+		Div(Class(parseCardClass),
+			Div(Class(parseHeaderClass),
 				Div(Class("space-y-2"),
 					Div(Class("inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-400/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-cyan-100"),
 						Span(Class("h-2 w-2 rounded-full bg-cyan-300")),
@@ -99,23 +99,23 @@ func CounterExample() ui.Node {
 					H2(Class("text-3xl font-semibold tracking-tight text-white"), Text("Counter Example")),
 					P(Class("max-w-md text-sm leading-6 text-slate-300"), Text("Reactive state, stable handlers, and direct DOM output from Go in the same design language as example-0.")),
 				),
-				IfElse(!embedded,
-					Div(Class(ClassNames("rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em]", toneClass)), Text(toneLabel)),
+				IfElse(!parseEmbedded,
+					Div(Class(ClassNames("rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em]", parseToneClass)), Text(parseToneLabel)),
 					Fragment(),
 				),
 			),
 
 			Div(Class("mt-5"),
 				Div(Class("rounded-[22px] border border-emerald-400/20 bg-emerald-400/10 p-5"),
-					Div(Class("text-6xl font-semibold tracking-tight text-white font-mono"), Textf("%d", currentCount)),
+					Div(Class("text-6xl font-semibold tracking-tight text-white font-mono"), Textf("%d", parseCurrentCount)),
 					P(Class("mt-2 text-sm text-emerald-50/90"), Text("Current count")),
-					IfElse(currentCount == 0,
+					IfElse(parseCurrentCount == 0,
 						P(Class("mt-3 text-xs uppercase tracking-[0.16em] text-emerald-200"), Text("Counter is centered")),
-						P(Class("mt-3 text-xs uppercase tracking-[0.16em] text-emerald-100/80"), Textf("Offset from zero: %d", currentCount)),
+						P(Class("mt-3 text-xs uppercase tracking-[0.16em] text-emerald-100/80"), Textf("Offset from zero: %d", parseCurrentCount)),
 					),
 					Div(Class("mt-5 flex flex-wrap gap-2"),
-						Button(OnClick(decrement), Class(neutralButtonClass), Text("-")),
-						Button(OnClick(increment), Class(primaryButtonClass), Text("+")),
+						Button(OnClick(parseDecrement), Class(parseNeutralButtonClass), Text("-")),
+						Button(OnClick(parseIncrement), Class(parsePrimaryButtonClass), Text("+")),
 						Button(OnClick(reset), Class(resetButtonClass), Text("Reset")),
 					),
 				),
@@ -131,12 +131,12 @@ func main() {
 }
 
 func resolveMountSelector() string {
-	env, _ := interop.GetWindowEnv()
-	return env.String("__gwcExampleMountSelector", "#app")
+	parseEnv, _ := interop.GetWindowEnv()
+	return parseEnv.String("__gwcExampleMountSelector", "#app")
 }
 
 func isEmbeddedExample() bool {
-	env, _ := interop.GetWindowEnv()
-	_, ok := env.LookupString("__gwcExampleMountSelector")
-	return ok
+	parseEnv, _ := interop.GetWindowEnv()
+	_, parseOk := parseEnv.LookupString("__gwcExampleMountSelector")
+	return parseOk
 }

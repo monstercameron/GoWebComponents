@@ -2,8 +2,8 @@ package app
 
 import "testing"
 
-func TestHasScrollSpaceBelow(t *testing.T) {
-	tests := []struct {
+func TestHasScrollSpaceBelow(parseT *testing.T) {
+	parseTests := []struct {
 		name         string
 		scrollTop    float64
 		scrollHeight float64
@@ -37,10 +37,10 @@ func TestHasScrollSpaceBelow(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := hasScrollSpaceBelow(test.scrollTop, test.scrollHeight, test.clientHeight, test.threshold); got != test.want {
-				t.Fatalf("hasScrollSpaceBelow(%v, %v, %v, %v) = %v, want %v", test.scrollTop, test.scrollHeight, test.clientHeight, test.threshold, got, test.want)
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			if parseGot := hasScrollSpaceBelow(parseTest.scrollTop, parseTest.scrollHeight, parseTest.clientHeight, parseTest.threshold); parseGot != parseTest.want {
+				parseT2.Fatalf("hasScrollSpaceBelow(%v, %v, %v, %v) = %v, want %v", parseTest.scrollTop, parseTest.scrollHeight, parseTest.clientHeight, parseTest.threshold, parseGot, parseTest.want)
 			}
 		})
 	}

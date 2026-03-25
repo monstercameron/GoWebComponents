@@ -9,17 +9,17 @@ import (
 	"github.com/monstercameron/GoWebComponents/hotreload"
 )
 
-func TestEnableHotReloadDelegatesToHotreloadPackage(t *testing.T) {
+func TestEnableHotReloadDelegatesToHotreloadPackage(parseT *testing.T) {
 	hotreload.Disable()
-	t.Cleanup(hotreload.Disable)
+	parseT.Cleanup(hotreload.Disable)
 
 	EnableHotReload(true)
 	if !hotreload.IsEnabled() {
-		t.Fatal("expected compatibility wrapper to enable hotreload package")
+		parseT.Fatal("expected compatibility wrapper to enable hotreload package")
 	}
 
 	EnableHotReload(false)
 	if hotreload.IsEnabled() {
-		t.Fatal("expected compatibility wrapper to disable hotreload package")
+		parseT.Fatal("expected compatibility wrapper to disable hotreload package")
 	}
 }

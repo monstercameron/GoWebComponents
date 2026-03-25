@@ -10,84 +10,84 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func useAccountCostSummary(
-	currentState appState,
-	chatClientRef ui.Ref[chatpb.ChatServiceClient],
+func parseUseAccountCostSummary(
+	parseCurrentState appState,
+	parseChatClientRef ui.Ref[chatpb.ChatServiceClient],
 	handleAuthFailure func(error) bool,
 ) accountCostSummary {
-	initial := deriveAccountCostSummary(nil, configuredUsagePremiumPercent(), 0)
-	summaryState := ui.UseState(initial)
-	requestSeq := ui.UseRef(uint64(0))
+	parseInitial := parseDeriveAccountCostSummary(nil, parseConfiguredUsagePremiumPercent(), 0)
+	parseSummaryState := ui.UseState(parseInitial)
+	parseRequestSeq := ui.UseRef(uint64(0))
 
 	ui.UseEffect(func() func() {
-		premiumPercent := configuredUsagePremiumPercent()
-		if !currentState.Authenticated || !currentState.GRPCReady {
-			summaryState.Set(deriveAccountCostSummary(nil, premiumPercent, 0))
+		parsePremiumPercent := parseConfiguredUsagePremiumPercent()
+		if !parseCurrentState.Authenticated || !parseCurrentState.GRPCReady {
+			parseSummaryState.Set(parseDeriveAccountCostSummary(nil, parsePremiumPercent, 0))
 			return nil
 		}
-		client := chatClientRef.Get()
-		if client == nil {
-			summaryState.Set(deriveAccountCostSummary(nil, premiumPercent, 0))
+		parseClient := parseChatClientRef.Get()
+		if parseClient == nil {
+			parseSummaryState.Set(parseDeriveAccountCostSummary(nil, parsePremiumPercent, 0))
 			return nil
 		}
 
-		conversations := append([]convSummary(nil), currentState.ConversationList...)
-		models := append([]modelOption(nil), currentState.ModelOptions...)
-		nextSeq := requestSeq.Get() + 1
-		requestSeq.Set(nextSeq)
+		parseConversations := append([]convSummary(nil), parseCurrentState.ConversationList...)
+		parseModels := append([]modelOption(nil), parseCurrentState.ParseModelOptions...)
+		parseNextSeq := parseRequestSeq.Get() + 1
+		parseRequestSeq.Set(parseNextSeq)
 
-		go func(seq uint64, rows []convSummary, availableModels []modelOption, premiumPct float64) {
-			if len(availableModels) == 0 {
-				if requestSeq.Get() == seq {
-					summaryState.Set(deriveAccountCostSummary(nil, premiumPct, len(rows)))
+		go func(parseSeq uint64, parseRows []convSummary, parseAvailableModels []modelOption, parsePremiumPct float64) {
+			if len(parseAvailableModels) == 0 {
+				if parseRequestSeq.Get() == parseSeq {
+					parseSummaryState.Set(parseDeriveAccountCostSummary(nil, parsePremiumPct, len(parseRows)))
 				}
 				return
 			}
-			threadSummaries := make([]threadCostSummary, 0, len(rows))
-			failedLookups := 0
-			for _, row := range rows {
-				if row.ID <= 0 {
-					failedLookups++
+			parseThreadSummaries := make([]threadCostSummary, 0, len(parseRows))
+			parseFailedLookups := 0
+			for _, parseRow := range parseRows {
+				if parseRow.ParseID <= 0 {
+					parseFailedLookups++
 					continue
 				}
-				resp, err := client.LoadConversation(context.Background(), &chatpb.LoadConversationRequest{Id: row.ID})
-				if err != nil {
-					if handleAuthFailure != nil && handleAuthFailure(err) {
+				parseResp, parseErr := parseClient.ParseLoadConversation(context.Background(), &chatpb.LoadConversationRequest{Id: parseRow.ParseID})
+				if parseErr != nil {
+					if handleAuthFailure != nil && handleAuthFailure(parseErr) {
 						return
 					}
-					failedLookups++
-					chatLog.Warn("account cost refresh: conversation load failed", logging.Fields{"conv_id": row.ID, "error": err})
+					parseFailedLookups++
+					chatLog.Warn("account cost refresh: conversation load failed", logging.Fields{"conv_id": parseRow.ParseID, "error": parseErr})
 					continue
 				}
-				loadedMessages := make([]message, 0, len(resp.Messages))
-				for _, currentMessage := range resp.Messages {
-					loadedMessages = append(loadedMessages, message{
-						Role:             currentMessage.Role,
-						Content:          currentMessage.Content,
-						ModelID:          currentMessage.GetModelId(),
-						PromptTokens:     int(currentMessage.GetPromptTokens()),
-						CompletionTokens: int(currentMessage.GetCompletionTokens()),
+				parseLoadedMessages := make([]message, 0, len(parseResp.Messages))
+				for _, parseCurrentMessage := range parseResp.Messages {
+					parseLoadedMessages = append(parseLoadedMessages, message{
+						Role:             parseCurrentMessage.Role,
+						Content:          parseCurrentMessage.Content,
+						ModelID:          parseCurrentMessage.GetModelId(),
+						PromptTokens:     int(parseCurrentMessage.GetPromptTokens()),
+						CompletionTokens: int(parseCurrentMessage.GetCompletionTokens()),
 					})
 				}
-				threadSummaries = append(threadSummaries, deriveThreadCostSummary(loadedMessages, availableModels))
+				parseThreadSummaries = append(parseThreadSummaries, parseDeriveThreadCostSummary(parseLoadedMessages, parseAvailableModels))
 			}
-			if requestSeq.Get() != seq {
+			if parseRequestSeq.Get() != parseSeq {
 				return
 			}
-			summary := deriveAccountCostSummary(threadSummaries, premiumPct, failedLookups)
-			summaryState.Set(summary)
-			chatLog.Info("account cost refreshed", logging.Fields{
-				"thread_count":          summary.ThreadCount,
-				"exact_thread_costs":    summary.ExactThreadCostCount,
-				"failed_thread_lookups": summary.FailedThreadLookups,
-				"usage_cost_usd":        summary.UsageCost,
-				"premium_pct":           summary.PremiumPercent,
-				"total_cost_usd":        summary.TotalCost,
+			parseSummary := parseDeriveAccountCostSummary(parseThreadSummaries, parsePremiumPct, parseFailedLookups)
+			parseSummaryState.Set(parseSummary)
+			chatLog.ParseInfo("account cost refreshed", logging.Fields{
+				"thread_count":          parseSummary.ThreadCount,
+				"exact_thread_costs":    parseSummary.ExactThreadCostCount,
+				"failed_thread_lookups": parseSummary.FailedThreadLookups,
+				"usage_cost_usd":        parseSummary.UsageCost,
+				"premium_pct":           parseSummary.PremiumPercent,
+				"total_cost_usd":        parseSummary.TotalCost,
 			})
-		}(nextSeq, conversations, models, premiumPercent)
+		}(parseNextSeq, parseConversations, parseModels, parsePremiumPercent)
 
 		return nil
-	}, currentState.Authenticated, currentState.GRPCReady, currentState.ConversationList, currentState.ModelOptions)
+	}, parseCurrentState.Authenticated, parseCurrentState.GRPCReady, parseCurrentState.ConversationList, parseCurrentState.ParseModelOptions)
 
-	return summaryState.Get()
+	return parseSummaryState.Get()
 }

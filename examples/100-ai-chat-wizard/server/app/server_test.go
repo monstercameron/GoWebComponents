@@ -7,36 +7,36 @@ import (
 	"testing"
 )
 
-func TestLoadOrCreateConversationSessionForkCreatesNewConversation(t *testing.T) {
-	store, err := openChatStore(filepath.Join(t.TempDir(), "chat.db"))
-	if err != nil {
-		t.Fatalf("openChatStore: %v", err)
+func TestLoadOrCreateConversationSessionForkCreatesNewConversation(parseT *testing.T) {
+	store, parseErr := parseOpenChatStore(filepath.Join(parseT.TempDir(), "chat.db"))
+	if parseErr != nil {
+		parseT.Fatalf("openChatStore: %v", parseErr)
 	}
-	defer store.close()
+	defer store.parseClose()
 
-	server := newChatServiceServer("", "", "", modelGPT54Mini, store, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	userID, err := store.createUser("test@example.com", "hash", "Test User")
-	if err != nil {
-		t.Fatalf("createUser: %v", err)
+	parseServer := parseNewChatServiceServer("", "", "", modelGPT54Mini, store, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	parseUserID, parseErr := store.parseCreateUser("test@example.com", "hash", "Test User")
+	if parseErr != nil {
+		parseT.Fatalf("createUser: %v", parseErr)
 	}
 
-	firstConversationID, savedCount, err := server.loadOrCreateConversationSession("peer-1", userID, 0, 0)
-	if err != nil {
-		t.Fatalf("first loadOrCreateConversationSession: %v", err)
+	parseFirstConversationID, parseSavedCount, parseErr := parseServer.parseLoadOrCreateConversationSession("peer-1", parseUserID, 0, 0)
+	if parseErr != nil {
+		parseT.Fatalf("first loadOrCreateConversationSession: %v", parseErr)
 	}
-	if savedCount != 0 {
-		t.Fatalf("expected first conversation saved count 0, got %d", savedCount)
+	if parseSavedCount != 0 {
+		parseT.Fatalf("expected first conversation saved count 0, got %d", parseSavedCount)
 	}
-	server.markConversationMessagesSaved("peer-1", 4)
+	parseServer.parseMarkConversationMessagesSaved("peer-1", 4)
 
-	forkConversationID, forkSavedCount, err := server.loadOrCreateConversationSession("peer-1", userID, 0, 2)
-	if err != nil {
-		t.Fatalf("fork loadOrCreateConversationSession: %v", err)
+	parseForkConversationID, parseForkSavedCount, parseErr := parseServer.parseLoadOrCreateConversationSession("peer-1", parseUserID, 0, 2)
+	if parseErr != nil {
+		parseT.Fatalf("fork loadOrCreateConversationSession: %v", parseErr)
 	}
-	if forkConversationID == firstConversationID {
-		t.Fatalf("expected fork to create a new conversation, reused %d", forkConversationID)
+	if parseForkConversationID == parseFirstConversationID {
+		parseT.Fatalf("expected fork to create a new conversation, reused %d", parseForkConversationID)
 	}
-	if forkSavedCount != 0 {
-		t.Fatalf("expected fork saved count 0 for a new conversation, got %d", forkSavedCount)
+	if parseForkSavedCount != 0 {
+		parseT.Fatalf("expected fork saved count 0 for a new conversation, got %d", parseForkSavedCount)
 	}
 }

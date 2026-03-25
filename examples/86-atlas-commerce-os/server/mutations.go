@@ -13,383 +13,383 @@ import (
 	"github.com/monstercameron/GoWebComponents/examples/86-atlas-commerce-os/shared/repository"
 )
 
-func (s *atlasServer) handlePublicCommentCreate(w http.ResponseWriter, r *http.Request) {
-	if !validateCSRFRequest(s, w, r) {
+func (parseS *atlasServer) handlePublicCommentCreate(parseW http.ResponseWriter, parseR *http.Request) {
+	if !validateCSRFRequest(parseS, parseW, parseR) {
 		return
 	}
-	product, err := s.store.ProductBySlug(r.Context(), r.PathValue("slug"))
-	if err != nil {
-		s.writeError(w, http.StatusNotFound, "product_not_found", err)
+	parseProduct, parseErr := parseS.store.ProductBySlug(parseR.Context(), parseR.PathValue("slug"))
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusNotFound, "product_not_found", parseErr)
 		return
 	}
-	input, err := decodeCommentRequest(r)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_comment_request", err)
+	parseInput, parseErr := decodeCommentRequest(parseR)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "invalid_comment_request", parseErr)
 		return
 	}
-	if fields := validateCommentRequest(input); len(fields) > 0 {
-		s.writeValidationError(w, http.StatusBadRequest, "invalid_comment_request", "Fix the highlighted comment fields and try again.", fields)
+	if parseFields := validateCommentRequest(parseInput); len(parseFields) > 0 {
+		parseS.writeValidationError(parseW, http.StatusBadRequest, "invalid_comment_request", "Fix the highlighted comment fields and try again.", parseFields)
 		return
 	}
-	created, err := s.store.CreateComment(r.Context(), serverdb.CreateCommentInput{ProductSKU: product.SKU, AuthorName: input.AuthorName, AuthorType: "public", Reaction: input.Reaction, Subject: input.Subject, Body: input.Body})
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "comment_create_failed", err)
+	parseCreated, parseErr := parseS.store.CreateComment(parseR.Context(), serverdb.CreateCommentInput{ProductSKU: parseProduct.SKU, AuthorName: parseInput.AuthorName, AuthorType: "public", Reaction: parseInput.Reaction, Subject: parseInput.Subject, Body: parseInput.Body})
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "comment_create_failed", parseErr)
 		return
 	}
-	s.respondMutation(w, r, http.StatusCreated, created, "comment-submitted")
+	parseS.respondMutation(parseW, parseR, http.StatusCreated, parseCreated, "comment-submitted")
 }
 
-func (s *atlasServer) handlePublicQuoteRequestCreate(w http.ResponseWriter, r *http.Request) {
-	if !validateCSRFRequest(s, w, r) {
+func (parseS *atlasServer) handlePublicQuoteRequestCreate(parseW http.ResponseWriter, parseR *http.Request) {
+	if !validateCSRFRequest(parseS, parseW, parseR) {
 		return
 	}
-	product, err := s.store.ProductBySlug(r.Context(), r.PathValue("slug"))
-	if err != nil {
-		s.writeError(w, http.StatusNotFound, "product_not_found", err)
+	parseProduct, parseErr := parseS.store.ProductBySlug(parseR.Context(), parseR.PathValue("slug"))
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusNotFound, "product_not_found", parseErr)
 		return
 	}
-	input, err := decodeQuoteRequest(r)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_quote_request", err)
+	parseInput, parseErr := decodeQuoteRequest(parseR)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "invalid_quote_request", parseErr)
 		return
 	}
-	if fields := validateQuoteRequest(input); len(fields) > 0 {
-		s.writeValidationError(w, http.StatusBadRequest, "invalid_quote_request", "Fix the highlighted quote request fields and try again.", fields)
+	if parseFields := validateQuoteRequest(parseInput); len(parseFields) > 0 {
+		parseS.writeValidationError(parseW, http.StatusBadRequest, "invalid_quote_request", "Fix the highlighted quote request fields and try again.", parseFields)
 		return
 	}
-	created, err := s.store.CreateQuoteRequest(r.Context(), serverdb.CreateQuoteRequestInput{ProductSKU: product.SKU, RequesterName: input.RequesterName, CompanyName: input.CompanyName, Email: input.Email, Quantity: input.Quantity, Note: input.Note})
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "quote_request_failed", err)
+	parseCreated, parseErr := parseS.store.CreateQuoteRequest(parseR.Context(), serverdb.CreateQuoteRequestInput{ProductSKU: parseProduct.SKU, RequesterName: parseInput.RequesterName, CompanyName: parseInput.CompanyName, Email: parseInput.Email, Quantity: parseInput.Quantity, Note: parseInput.Note})
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "quote_request_failed", parseErr)
 		return
 	}
-	s.respondMutation(w, r, http.StatusCreated, created, "quote-request-submitted")
+	parseS.respondMutation(parseW, parseR, http.StatusCreated, parseCreated, "quote-request-submitted")
 }
 
-func (s *atlasServer) handlePublicRestockRequestCreate(w http.ResponseWriter, r *http.Request) {
-	if !validateCSRFRequest(s, w, r) {
+func (parseS *atlasServer) handlePublicRestockRequestCreate(parseW http.ResponseWriter, parseR *http.Request) {
+	if !validateCSRFRequest(parseS, parseW, parseR) {
 		return
 	}
-	product, err := s.store.ProductBySlug(r.Context(), r.PathValue("slug"))
-	if err != nil {
-		s.writeError(w, http.StatusNotFound, "product_not_found", err)
+	parseProduct, parseErr := parseS.store.ProductBySlug(parseR.Context(), parseR.PathValue("slug"))
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusNotFound, "product_not_found", parseErr)
 		return
 	}
-	input, err := decodeRestockRequest(r)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_restock_request", err)
+	parseInput, parseErr := decodeRestockRequest(parseR)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "invalid_restock_request", parseErr)
 		return
 	}
-	if fields := validateRestockRequest(input); len(fields) > 0 {
-		s.writeValidationError(w, http.StatusBadRequest, "invalid_restock_request", "Fix the highlighted restock request fields and try again.", fields)
+	if parseFields := validateRestockRequest(parseInput); len(parseFields) > 0 {
+		parseS.writeValidationError(parseW, http.StatusBadRequest, "invalid_restock_request", "Fix the highlighted restock request fields and try again.", parseFields)
 		return
 	}
-	created, err := s.store.CreateRestockRequest(r.Context(), serverdb.CreateRestockRequestInput{ProductSKU: product.SKU, Email: input.Email, PreferredWarehouseID: input.PreferredWarehouseID})
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "restock_request_failed", err)
+	parseCreated, parseErr := parseS.store.CreateRestockRequest(parseR.Context(), serverdb.CreateRestockRequestInput{ProductSKU: parseProduct.SKU, Email: parseInput.Email, PreferredWarehouseID: parseInput.PreferredWarehouseID})
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "restock_request_failed", parseErr)
 		return
 	}
-	s.respondMutation(w, r, http.StatusCreated, created, "restock-request-submitted")
+	parseS.respondMutation(parseW, parseR, http.StatusCreated, parseCreated, "restock-request-submitted")
 }
 
-func (s *atlasServer) handleInternalCommentModeration(w http.ResponseWriter, r *http.Request) {
-	if s.sessions.RequireInternalSession(w, r) == nil {
+func (parseS *atlasServer) handleInternalCommentModeration(parseW http.ResponseWriter, parseR *http.Request) {
+	if parseS.sessions.RequireInternalSession(parseW, parseR) == nil {
 		return
 	}
-	if !validateCSRFRequest(s, w, r) {
+	if !validateCSRFRequest(parseS, parseW, parseR) {
 		return
 	}
-	input, err := decodeModerationRequest(r)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_moderation_request", err)
+	parseInput, parseErr := decodeModerationRequest(parseR)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "invalid_moderation_request", parseErr)
 		return
 	}
-	if fields := validateModerationRequest(input); len(fields) > 0 {
-		s.writeValidationError(w, http.StatusBadRequest, "invalid_moderation_request", "Choose a valid moderation status before applying the review.", fields)
+	if parseFields := validateModerationRequest(parseInput); len(parseFields) > 0 {
+		parseS.writeValidationError(parseW, http.StatusBadRequest, "invalid_moderation_request", "Choose a valid moderation status before applying the review.", parseFields)
 		return
 	}
-	updated, err := s.store.ModerateComment(r.Context(), r.PathValue("id"), input.Status, input.Reason)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "moderation_failed", err)
+	parseUpdated, parseErr := parseS.store.ModerateComment(parseR.Context(), parseR.PathValue("id"), parseInput.Status, parseInput.Reason)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "moderation_failed", parseErr)
 		return
 	}
-	s.respondMutation(w, r, http.StatusOK, updated, "comment-moderated")
+	parseS.respondMutation(parseW, parseR, http.StatusOK, parseUpdated, "comment-moderated")
 }
 
-func (s *atlasServer) handleInternalBulkCommentModeration(w http.ResponseWriter, r *http.Request) {
-	if s.sessions.RequireInternalSession(w, r) == nil {
+func (parseS *atlasServer) handleInternalBulkCommentModeration(parseW http.ResponseWriter, parseR *http.Request) {
+	if parseS.sessions.RequireInternalSession(parseW, parseR) == nil {
 		return
 	}
-	if !validateCSRFRequest(s, w, r) {
+	if !validateCSRFRequest(parseS, parseW, parseR) {
 		return
 	}
-	input, err := decodeBulkModerationRequest(r)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_bulk_moderation_request", err)
+	parseInput, parseErr := decodeBulkModerationRequest(parseR)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "invalid_bulk_moderation_request", parseErr)
 		return
 	}
-	if fields := validateBulkModerationRequest(input); len(fields) > 0 {
-		s.writeValidationError(w, http.StatusBadRequest, "invalid_bulk_moderation_request", "Choose at least one visible comment and a valid moderation status before applying the bulk review.", fields)
+	if parseFields := validateBulkModerationRequest(parseInput); len(parseFields) > 0 {
+		parseS.writeValidationError(parseW, http.StatusBadRequest, "invalid_bulk_moderation_request", "Choose at least one visible comment and a valid moderation status before applying the bulk review.", parseFields)
 		return
 	}
-	updated, err := s.store.ModerateComments(r.Context(), input.IDs, input.Status, input.Reason)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "bulk_moderation_failed", err)
+	parseUpdated, parseErr := parseS.store.ModerateComments(parseR.Context(), parseInput.IDs, parseInput.Status, parseInput.Reason)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "bulk_moderation_failed", parseErr)
 		return
 	}
-	s.respondMutation(w, r, http.StatusOK, map[string]any{"items": updated}, "comments-bulk-moderated")
+	parseS.respondMutation(parseW, parseR, http.StatusOK, map[string]any{"items": parseUpdated}, "comments-bulk-moderated")
 }
 
-func (s *atlasServer) handleInternalThresholdUpdate(w http.ResponseWriter, r *http.Request) {
-	if s.sessions.RequireInternalSession(w, r) == nil {
+func (parseS *atlasServer) handleInternalThresholdUpdate(parseW http.ResponseWriter, parseR *http.Request) {
+	if parseS.sessions.RequireInternalSession(parseW, parseR) == nil {
 		return
 	}
-	if !validateCSRFRequest(s, w, r) {
+	if !validateCSRFRequest(parseS, parseW, parseR) {
 		return
 	}
-	input, err := decodeThresholdRequest(r)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_threshold_request", err)
+	parseInput, parseErr := decodeThresholdRequest(parseR)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "invalid_threshold_request", parseErr)
 		return
 	}
-	if fields := validateThresholdRequest(input); len(fields) > 0 {
-		s.writeValidationError(w, http.StatusBadRequest, "invalid_threshold_request", "Fix the threshold fields before saving the warehouse policy.", fields)
+	if parseFields := validateThresholdRequest(parseInput); len(parseFields) > 0 {
+		parseS.writeValidationError(parseW, http.StatusBadRequest, "invalid_threshold_request", "Fix the threshold fields before saving the warehouse policy.", parseFields)
 		return
 	}
-	updated, err := s.store.UpdateThreshold(r.Context(), r.PathValue("sku"), input.WarehouseID, input.ReorderPoint, input.SafetyStock)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "threshold_update_failed", err)
+	parseUpdated, parseErr := parseS.store.UpdateThreshold(parseR.Context(), parseR.PathValue("sku"), parseInput.WarehouseID, parseInput.ReorderPoint, parseInput.SafetyStock)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "threshold_update_failed", parseErr)
 		return
 	}
-	s.respondMutation(w, r, http.StatusOK, updated, "threshold-updated")
+	parseS.respondMutation(parseW, parseR, http.StatusOK, parseUpdated, "threshold-updated")
 }
 
-func (s *atlasServer) handleInternalInventoryUpdate(w http.ResponseWriter, r *http.Request) {
-	if s.sessions.RequireInternalSession(w, r) == nil {
+func (parseS *atlasServer) handleInternalInventoryUpdate(parseW http.ResponseWriter, parseR *http.Request) {
+	if parseS.sessions.RequireInternalSession(parseW, parseR) == nil {
 		return
 	}
-	if !validateCSRFRequest(s, w, r) {
+	if !validateCSRFRequest(parseS, parseW, parseR) {
 		return
 	}
-	input, err := decodeInventoryUpdateRequest(r)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_inventory_update_request", err)
+	parseInput, parseErr := decodeInventoryUpdateRequest(parseR)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "invalid_inventory_update_request", parseErr)
 		return
 	}
-	if fields := validateInventoryUpdateRequest(input); len(fields) > 0 {
-		s.writeValidationError(w, http.StatusBadRequest, "invalid_inventory_update_request", "Fix the inventory fields before saving the warehouse lane.", fields)
+	if parseFields := validateInventoryUpdateRequest(parseInput); len(parseFields) > 0 {
+		parseS.writeValidationError(parseW, http.StatusBadRequest, "invalid_inventory_update_request", "Fix the inventory fields before saving the warehouse lane.", parseFields)
 		return
 	}
-	updated, err := s.store.UpdateInventoryLevel(r.Context(), r.PathValue("sku"), serverdb.UpdateInventoryLevelInput{WarehouseID: input.WarehouseID, OnHand: input.OnHand, Reserved: input.Reserved, Inbound: input.Inbound, Damaged: input.Damaged, ReorderPoint: input.ReorderPoint, SafetyStock: input.SafetyStock, Status: input.Status})
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "inventory_update_failed", err)
+	parseUpdated, parseErr := parseS.store.UpdateInventoryLevel(parseR.Context(), parseR.PathValue("sku"), serverdb.UpdateInventoryLevelInput{WarehouseID: parseInput.WarehouseID, OnHand: parseInput.OnHand, Reserved: parseInput.Reserved, Inbound: parseInput.Inbound, Damaged: parseInput.Damaged, ReorderPoint: parseInput.ReorderPoint, SafetyStock: parseInput.SafetyStock, Status: parseInput.Status})
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "inventory_update_failed", parseErr)
 		return
 	}
-	if wantsHTMLResponse(r) {
-		if returnPath := sanitizeNextPath(input.ReturnPath); strings.TrimSpace(input.ReturnPath) != "" {
-			http.Redirect(w, r, withNotice(returnPath, "inventory-updated"), http.StatusSeeOther)
+	if wantsHTMLResponse(parseR) {
+		if parseReturnPath := sanitizeNextPath(parseInput.ReturnPath); strings.TrimSpace(parseInput.ReturnPath) != "" {
+			http.Redirect(parseW, parseR, withNotice(parseReturnPath, "inventory-updated"), http.StatusSeeOther)
 			return
 		}
-		http.Redirect(w, r, withNotice("/app/inventory/"+updated.SKU, "inventory-updated"), http.StatusSeeOther)
+		http.Redirect(parseW, parseR, withNotice("/app/inventory/"+parseUpdated.SKU, "inventory-updated"), http.StatusSeeOther)
 		return
 	}
-	s.respondMutation(w, r, http.StatusOK, updated, "inventory-updated")
+	parseS.respondMutation(parseW, parseR, http.StatusOK, parseUpdated, "inventory-updated")
 }
 
-func (s *atlasServer) handleInternalPreferencesSave(w http.ResponseWriter, r *http.Request) {
-	session := s.sessions.RequireInternalSession(w, r)
-	if session == nil {
+func (parseS *atlasServer) handleInternalPreferencesSave(parseW http.ResponseWriter, parseR *http.Request) {
+	parseSession := parseS.sessions.RequireInternalSession(parseW, parseR)
+	if parseSession == nil {
 		return
 	}
-	if !validateCSRFRequest(s, w, r) {
+	if !validateCSRFRequest(parseS, parseW, parseR) {
 		return
 	}
-	input, err := decodePreferencesRequest(r)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_preferences_request", err)
+	parseInput, parseErr := decodePreferencesRequest(parseR)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "invalid_preferences_request", parseErr)
 		return
 	}
-	if fields := validatePreferencesRequest(input); len(fields) > 0 {
-		s.writeValidationError(w, http.StatusBadRequest, "invalid_preferences_request", "Choose valid Atlas preference values before saving.", fields)
+	if parseFields := validatePreferencesRequest(parseInput); len(parseFields) > 0 {
+		parseS.writeValidationError(parseW, http.StatusBadRequest, "invalid_preferences_request", "Choose valid Atlas preference values before saving.", parseFields)
 		return
 	}
-	updated, err := s.store.SavePreferences(r.Context(), serverdb.PreferencesRecord{OwnerID: session.UserID, Theme: input.Theme, Locale: input.Locale, Density: input.Density, DefaultWarehouseID: input.DefaultWarehouseID})
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "preferences_save_failed", err)
+	parseUpdated, parseErr := parseS.store.SavePreferences(parseR.Context(), serverdb.PreferencesRecord{OwnerID: parseSession.UserID, Theme: parseInput.Theme, Locale: parseInput.Locale, Density: parseInput.Density, DefaultWarehouseID: parseInput.DefaultWarehouseID})
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "preferences_save_failed", parseErr)
 		return
 	}
-	s.respondMutation(w, r, http.StatusOK, updated, "preferences-saved")
+	parseS.respondMutation(parseW, parseR, http.StatusOK, parseUpdated, "preferences-saved")
 }
 
-func (s *atlasServer) handleInternalSavedViewCreate(w http.ResponseWriter, r *http.Request) {
-	session := s.sessions.RequireInternalSession(w, r)
-	if session == nil {
+func (parseS *atlasServer) handleInternalSavedViewCreate(parseW http.ResponseWriter, parseR *http.Request) {
+	parseSession := parseS.sessions.RequireInternalSession(parseW, parseR)
+	if parseSession == nil {
 		return
 	}
-	if !validateCSRFRequest(s, w, r) {
+	if !validateCSRFRequest(parseS, parseW, parseR) {
 		return
 	}
-	input, err := decodeSavedViewRequest(r)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_saved_view_request", err)
+	parseInput, parseErr := decodeSavedViewRequest(parseR)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "invalid_saved_view_request", parseErr)
 		return
 	}
-	if fields := validateSavedViewRequest(input); len(fields) > 0 {
-		s.writeValidationError(w, http.StatusBadRequest, "invalid_saved_view_request", "Fix the saved-view fields before creating the view.", fields)
+	if parseFields := validateSavedViewRequest(parseInput); len(parseFields) > 0 {
+		parseS.writeValidationError(parseW, http.StatusBadRequest, "invalid_saved_view_request", "Fix the saved-view fields before creating the view.", parseFields)
 		return
 	}
-	created, err := s.store.SaveView(r.Context(), serverdb.SaveViewInput{OwnerID: session.UserID, Name: input.Name, Scope: input.Scope, FiltersJSON: input.FiltersJSON, SortKey: input.SortKey, SortDirection: input.SortDirection, Density: input.Density, WarehouseID: input.WarehouseID})
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "saved_view_create_failed", err)
+	parseCreated, parseErr := parseS.store.SaveView(parseR.Context(), serverdb.SaveViewInput{OwnerID: parseSession.UserID, Name: parseInput.Name, Scope: parseInput.Scope, FiltersJSON: parseInput.FiltersJSON, SortKey: parseInput.SortKey, SortDirection: parseInput.SortDirection, Density: parseInput.Density, WarehouseID: parseInput.WarehouseID})
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "saved_view_create_failed", parseErr)
 		return
 	}
-	s.respondMutation(w, r, http.StatusCreated, created, "saved-view-created")
+	parseS.respondMutation(parseW, parseR, http.StatusCreated, parseCreated, "saved-view-created")
 }
 
-func (s *atlasServer) handleInternalSavedViewsExport(w http.ResponseWriter, r *http.Request) {
-	session := s.sessions.RequireInternalSession(w, r)
-	if session == nil {
+func (parseS *atlasServer) handleInternalSavedViewsExport(parseW http.ResponseWriter, parseR *http.Request) {
+	parseSession := parseS.sessions.RequireInternalSession(parseW, parseR)
+	if parseSession == nil {
 		return
 	}
-	items, err := s.store.SavedViewsByOwner(r.Context(), session.UserID)
-	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "saved_views_export_failed", err)
+	parseItems, parseErr := parseS.store.SavedViewsByOwner(parseR.Context(), parseSession.UserID)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusInternalServerError, "saved_views_export_failed", parseErr)
 		return
 	}
-	s.writeJSON(w, http.StatusOK, buildSavedViewTransferDocument(items))
+	parseS.writeJSON(parseW, http.StatusOK, buildSavedViewTransferDocument(parseItems))
 }
 
-func (s *atlasServer) handleInternalSavedViewImport(w http.ResponseWriter, r *http.Request) {
-	session := s.sessions.RequireInternalSession(w, r)
-	if session == nil {
+func (parseS *atlasServer) handleInternalSavedViewImport(parseW http.ResponseWriter, parseR *http.Request) {
+	parseSession := parseS.sessions.RequireInternalSession(parseW, parseR)
+	if parseSession == nil {
 		return
 	}
-	if !validateCSRFRequest(s, w, r) {
+	if !validateCSRFRequest(parseS, parseW, parseR) {
 		return
 	}
-	input, err := decodeSavedViewImportRequest(r)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_saved_view_import_request", err)
+	parseInput, parseErr := decodeSavedViewImportRequest(parseR)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "invalid_saved_view_import_request", parseErr)
 		return
 	}
-	if fields := validateSavedViewImportRequest(input); len(fields) > 0 {
-		s.writeValidationError(w, http.StatusBadRequest, "invalid_saved_view_import_request", "Paste a valid saved-view export payload before importing Atlas presets.", fields)
+	if parseFields := validateSavedViewImportRequest(parseInput); len(parseFields) > 0 {
+		parseS.writeValidationError(parseW, http.StatusBadRequest, "invalid_saved_view_import_request", "Paste a valid saved-view export payload before importing Atlas presets.", parseFields)
 		return
 	}
-	views, err := parseSavedViewTransferDocument(input.ViewsJSON)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_saved_view_import_payload", err)
+	parseViews, parseErr := parseSavedViewTransferDocument(parseInput.ViewsJSON)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "invalid_saved_view_import_payload", parseErr)
 		return
 	}
-	imported, err := s.store.ImportSavedViews(r.Context(), session.UserID, views)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "saved_view_import_failed", err)
+	parseImported, parseErr := parseS.store.ImportSavedViews(parseR.Context(), parseSession.UserID, parseViews)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "saved_view_import_failed", parseErr)
 		return
 	}
-	s.respondMutation(w, r, http.StatusCreated, map[string]any{"items": imported}, "saved-views-imported")
+	parseS.respondMutation(parseW, parseR, http.StatusCreated, map[string]any{"items": parseImported}, "saved-views-imported")
 }
 
-func (s *atlasServer) handleInternalTransferCreate(w http.ResponseWriter, r *http.Request) {
-	if s.sessions.RequireInternalSession(w, r) == nil {
+func (parseS *atlasServer) handleInternalTransferCreate(parseW http.ResponseWriter, parseR *http.Request) {
+	if parseS.sessions.RequireInternalSession(parseW, parseR) == nil {
 		return
 	}
-	if !validateCSRFRequest(s, w, r) {
+	if !validateCSRFRequest(parseS, parseW, parseR) {
 		return
 	}
-	input, err := decodeTransferRequest(r)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_transfer_request", err)
+	parseInput, parseErr := decodeTransferRequest(parseR)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "invalid_transfer_request", parseErr)
 		return
 	}
-	if fields := validateTransferRequest(input); len(fields) > 0 {
-		s.writeValidationError(w, http.StatusBadRequest, "invalid_transfer_request", "Fix the transfer fields before creating the workflow.", fields)
+	if parseFields := validateTransferRequest(parseInput); len(parseFields) > 0 {
+		parseS.writeValidationError(parseW, http.StatusBadRequest, "invalid_transfer_request", "Fix the transfer fields before creating the workflow.", parseFields)
 		return
 	}
-	created, err := s.store.CreateTransfer(r.Context(), serverdb.CreateTransferInput{SourceWarehouseID: input.SourceWarehouseID, DestinationWarehouseID: input.DestinationWarehouseID, Reason: input.Reason, RecommendedBy: input.RecommendedBy})
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "transfer_create_failed", err)
+	parseCreated, parseErr := parseS.store.CreateTransfer(parseR.Context(), serverdb.CreateTransferInput{SourceWarehouseID: parseInput.SourceWarehouseID, DestinationWarehouseID: parseInput.DestinationWarehouseID, Reason: parseInput.Reason, RecommendedBy: parseInput.RecommendedBy})
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "transfer_create_failed", parseErr)
 		return
 	}
-	s.respondMutation(w, r, http.StatusCreated, created, "transfer-created")
+	parseS.respondMutation(parseW, parseR, http.StatusCreated, parseCreated, "transfer-created")
 }
 
-func (s *atlasServer) handleInternalReceivingReconcile(w http.ResponseWriter, r *http.Request) {
-	if s.sessions.RequireInternalSession(w, r) == nil {
+func (parseS *atlasServer) handleInternalReceivingReconcile(parseW http.ResponseWriter, parseR *http.Request) {
+	if parseS.sessions.RequireInternalSession(parseW, parseR) == nil {
 		return
 	}
-	if !validateCSRFRequest(s, w, r) {
+	if !validateCSRFRequest(parseS, parseW, parseR) {
 		return
 	}
-	input, err := decodeReceivingRequest(r)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_receiving_request", err)
+	parseInput, parseErr := decodeReceivingRequest(parseR)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "invalid_receiving_request", parseErr)
 		return
 	}
-	if fields := validateReceivingRequest(input); len(fields) > 0 {
-		s.writeValidationError(w, http.StatusBadRequest, "invalid_receiving_request", "Fix the receiving closeout fields before reconciling the session.", fields)
+	if parseFields := validateReceivingRequest(parseInput); len(parseFields) > 0 {
+		parseS.writeValidationError(parseW, http.StatusBadRequest, "invalid_receiving_request", "Fix the receiving closeout fields before reconciling the session.", parseFields)
 		return
 	}
-	updated, err := s.store.ReconcileReceiving(r.Context(), r.PathValue("id"), serverdb.ReconcileReceivingInput{Status: input.Status, DiscrepancySummary: input.DiscrepancySummary})
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "receiving_reconcile_failed", err)
+	parseUpdated, parseErr := parseS.store.ReconcileReceiving(parseR.Context(), parseR.PathValue("id"), serverdb.ReconcileReceivingInput{Status: parseInput.Status, DiscrepancySummary: parseInput.DiscrepancySummary})
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "receiving_reconcile_failed", parseErr)
 		return
 	}
-	s.respondMutation(w, r, http.StatusOK, updated, "receiving-reconciled")
+	parseS.respondMutation(parseW, parseR, http.StatusOK, parseUpdated, "receiving-reconciled")
 }
 
-func (s *atlasServer) handleInternalPurchaseOrderStatus(w http.ResponseWriter, r *http.Request) {
-	if s.sessions.RequireInternalSession(w, r) == nil {
+func (parseS *atlasServer) handleInternalPurchaseOrderStatus(parseW http.ResponseWriter, parseR *http.Request) {
+	if parseS.sessions.RequireInternalSession(parseW, parseR) == nil {
 		return
 	}
-	if !validateCSRFRequest(s, w, r) {
+	if !validateCSRFRequest(parseS, parseW, parseR) {
 		return
 	}
-	input, err := decodePurchaseOrderStatusRequest(r)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_purchase_order_status_request", err)
+	parseInput, parseErr := decodePurchaseOrderStatusRequest(parseR)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "invalid_purchase_order_status_request", parseErr)
 		return
 	}
-	if fields := validatePurchaseOrderStatusRequest(input); len(fields) > 0 {
-		s.writeValidationError(w, http.StatusBadRequest, "invalid_purchase_order_status_request", "Choose a valid purchase-order status before updating the vendor workflow.", fields)
+	if parseFields := validatePurchaseOrderStatusRequest(parseInput); len(parseFields) > 0 {
+		parseS.writeValidationError(parseW, http.StatusBadRequest, "invalid_purchase_order_status_request", "Choose a valid purchase-order status before updating the vendor workflow.", parseFields)
 		return
 	}
-	updated, err := s.store.UpdatePurchaseOrderStatus(r.Context(), r.PathValue("id"), serverdb.UpdatePurchaseOrderStatusInput{Status: input.Status})
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "purchase_order_status_failed", err)
+	parseUpdated, parseErr := parseS.store.UpdatePurchaseOrderStatus(parseR.Context(), parseR.PathValue("id"), serverdb.UpdatePurchaseOrderStatusInput{Status: parseInput.Status})
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "purchase_order_status_failed", parseErr)
 		return
 	}
-	s.respondMutation(w, r, http.StatusOK, updated, "purchase-order-updated")
+	parseS.respondMutation(parseW, parseR, http.StatusOK, parseUpdated, "purchase-order-updated")
 }
 
-func (s *atlasServer) handleInternalPurchaseOrderCreate(w http.ResponseWriter, r *http.Request) {
-	if s.sessions.RequireInternalSession(w, r) == nil {
+func (parseS *atlasServer) handleInternalPurchaseOrderCreate(parseW http.ResponseWriter, parseR *http.Request) {
+	if parseS.sessions.RequireInternalSession(parseW, parseR) == nil {
 		return
 	}
-	if !validateCSRFRequest(s, w, r) {
+	if !validateCSRFRequest(parseS, parseW, parseR) {
 		return
 	}
-	input, err := decodePurchaseOrderCreateRequest(r)
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_purchase_order_request", err)
+	parseInput, parseErr := decodePurchaseOrderCreateRequest(parseR)
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "invalid_purchase_order_request", parseErr)
 		return
 	}
-	if fields := validatePurchaseOrderCreateRequest(input); len(fields) > 0 {
-		s.writeValidationError(w, http.StatusBadRequest, "invalid_purchase_order_request", "Fix the order fields before creating the replenishment workflow.", fields)
+	if parseFields := validatePurchaseOrderCreateRequest(parseInput); len(parseFields) > 0 {
+		parseS.writeValidationError(parseW, http.StatusBadRequest, "invalid_purchase_order_request", "Fix the order fields before creating the replenishment workflow.", parseFields)
 		return
 	}
-	created, err := s.store.CreatePurchaseOrder(r.Context(), serverdb.CreatePurchaseOrderInput{VendorName: input.VendorName, WarehouseID: input.WarehouseID, ProductSKU: input.ProductSKU, Quantity: input.Quantity, ETA: input.ETA, PriorityNote: input.PriorityNote, Status: input.Status})
-	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "purchase_order_create_failed", err)
+	parseCreated, parseErr := parseS.store.CreatePurchaseOrder(parseR.Context(), serverdb.CreatePurchaseOrderInput{VendorName: parseInput.VendorName, WarehouseID: parseInput.WarehouseID, ProductSKU: parseInput.ProductSKU, Quantity: parseInput.Quantity, ETA: parseInput.ETA, PriorityNote: parseInput.PriorityNote, Status: parseInput.Status})
+	if parseErr != nil {
+		parseS.writeError(parseW, http.StatusBadRequest, "purchase_order_create_failed", parseErr)
 		return
 	}
-	if wantsHTMLResponse(r) {
-		if returnPath := sanitizeNextPath(input.ReturnPath); strings.TrimSpace(input.ReturnPath) != "" {
-			http.Redirect(w, r, withNotice(returnPath, "purchase-order-created"), http.StatusSeeOther)
+	if wantsHTMLResponse(parseR) {
+		if parseReturnPath := sanitizeNextPath(parseInput.ReturnPath); strings.TrimSpace(parseInput.ReturnPath) != "" {
+			http.Redirect(parseW, parseR, withNotice(parseReturnPath, "purchase-order-created"), http.StatusSeeOther)
 			return
 		}
-		http.Redirect(w, r, withNotice("/app/purchase-orders/"+created.Order.ID, "purchase-order-created"), http.StatusSeeOther)
+		http.Redirect(parseW, parseR, withNotice("/app/purchase-orders/"+parseCreated.Order.ID, "purchase-order-created"), http.StatusSeeOther)
 		return
 	}
-	s.respondMutation(w, r, http.StatusCreated, created, "purchase-order-created")
+	parseS.respondMutation(parseW, parseR, http.StatusCreated, parseCreated, "purchase-order-created")
 }
 
 type commentRequest struct {
@@ -489,364 +489,364 @@ type purchaseOrderCreateRequest struct {
 	ReturnPath   string `json:"return_path"`
 }
 
-func decodeCommentRequest(r *http.Request) (commentRequest, error) {
-	var payload commentRequest
-	return payload, decodeBodyOrForm(r, &payload, func(values url.Values) {
-		payload.AuthorName = values.Get("author_name")
-		payload.Reaction = values.Get("reaction")
-		payload.Subject = values.Get("subject")
-		payload.Body = values.Get("body")
+func decodeCommentRequest(parseR *http.Request) (commentRequest, error) {
+	var parsePayload commentRequest
+	return parsePayload, decodeBodyOrForm(parseR, &parsePayload, func(parseValues url.Values) {
+		parsePayload.AuthorName = parseValues.Get("author_name")
+		parsePayload.Reaction = parseValues.Get("reaction")
+		parsePayload.Subject = parseValues.Get("subject")
+		parsePayload.Body = parseValues.Get("body")
 	})
 }
 
-func decodeQuoteRequest(r *http.Request) (quoteRequest, error) {
-	var payload quoteRequest
-	return payload, decodeBodyOrForm(r, &payload, func(values url.Values) {
-		payload.RequesterName = values.Get("requester_name")
-		payload.CompanyName = values.Get("company_name")
-		payload.Email = values.Get("email")
-		payload.Quantity = mustAtoi(values.Get("quantity"), 1)
-		payload.Note = values.Get("note")
+func decodeQuoteRequest(parseR *http.Request) (quoteRequest, error) {
+	var parsePayload quoteRequest
+	return parsePayload, decodeBodyOrForm(parseR, &parsePayload, func(parseValues url.Values) {
+		parsePayload.RequesterName = parseValues.Get("requester_name")
+		parsePayload.CompanyName = parseValues.Get("company_name")
+		parsePayload.Email = parseValues.Get("email")
+		parsePayload.Quantity = mustAtoi(parseValues.Get("quantity"), 1)
+		parsePayload.Note = parseValues.Get("note")
 	})
 }
 
-func decodeRestockRequest(r *http.Request) (restockRequest, error) {
-	var payload restockRequest
-	return payload, decodeBodyOrForm(r, &payload, func(values url.Values) {
-		payload.Email = values.Get("email")
-		payload.PreferredWarehouseID = values.Get("preferred_warehouse_id")
+func decodeRestockRequest(parseR *http.Request) (restockRequest, error) {
+	var parsePayload restockRequest
+	return parsePayload, decodeBodyOrForm(parseR, &parsePayload, func(parseValues url.Values) {
+		parsePayload.Email = parseValues.Get("email")
+		parsePayload.PreferredWarehouseID = parseValues.Get("preferred_warehouse_id")
 	})
 }
 
-func decodeModerationRequest(r *http.Request) (moderationRequest, error) {
-	var payload moderationRequest
-	return payload, decodeBodyOrForm(r, &payload, func(values url.Values) {
-		payload.Status = values.Get("status")
-		payload.Reason = values.Get("reason")
+func decodeModerationRequest(parseR *http.Request) (moderationRequest, error) {
+	var parsePayload moderationRequest
+	return parsePayload, decodeBodyOrForm(parseR, &parsePayload, func(parseValues url.Values) {
+		parsePayload.Status = parseValues.Get("status")
+		parsePayload.Reason = parseValues.Get("reason")
 	})
 }
 
-func decodeBulkModerationRequest(r *http.Request) (bulkModerationRequest, error) {
-	var payload bulkModerationRequest
-	return payload, decodeBodyOrForm(r, &payload, func(values url.Values) {
-		payload.IDs = collectListField(values, "ids")
-		payload.Status = values.Get("status")
-		payload.Reason = values.Get("reason")
+func decodeBulkModerationRequest(parseR *http.Request) (bulkModerationRequest, error) {
+	var parsePayload bulkModerationRequest
+	return parsePayload, decodeBodyOrForm(parseR, &parsePayload, func(parseValues url.Values) {
+		parsePayload.IDs = collectListField(parseValues, "ids")
+		parsePayload.Status = parseValues.Get("status")
+		parsePayload.Reason = parseValues.Get("reason")
 	})
 }
 
-func decodeThresholdRequest(r *http.Request) (thresholdRequest, error) {
-	var payload thresholdRequest
-	return payload, decodeBodyOrForm(r, &payload, func(values url.Values) {
-		payload.WarehouseID = values.Get("warehouse_id")
-		payload.ReorderPoint = mustAtoi(values.Get("reorder_point"), 1)
-		payload.SafetyStock = mustAtoi(values.Get("safety_stock"), 0)
+func decodeThresholdRequest(parseR *http.Request) (thresholdRequest, error) {
+	var parsePayload thresholdRequest
+	return parsePayload, decodeBodyOrForm(parseR, &parsePayload, func(parseValues url.Values) {
+		parsePayload.WarehouseID = parseValues.Get("warehouse_id")
+		parsePayload.ReorderPoint = mustAtoi(parseValues.Get("reorder_point"), 1)
+		parsePayload.SafetyStock = mustAtoi(parseValues.Get("safety_stock"), 0)
 	})
 }
 
-func decodeInventoryUpdateRequest(r *http.Request) (inventoryUpdateRequest, error) {
-	var payload inventoryUpdateRequest
-	return payload, decodeBodyOrForm(r, &payload, func(values url.Values) {
-		payload.WarehouseID = values.Get("warehouse_id")
-		payload.OnHand = mustAtoi(values.Get("on_hand"), 0)
-		payload.Reserved = mustAtoi(values.Get("reserved"), 0)
-		payload.Inbound = mustAtoi(values.Get("inbound"), 0)
-		payload.Damaged = mustAtoi(values.Get("damaged"), 0)
-		payload.ReorderPoint = mustAtoi(values.Get("reorder_point"), 1)
-		payload.SafetyStock = mustAtoi(values.Get("safety_stock"), 0)
-		payload.Status = values.Get("status")
-		payload.ReturnPath = values.Get("return_path")
+func decodeInventoryUpdateRequest(parseR *http.Request) (inventoryUpdateRequest, error) {
+	var parsePayload inventoryUpdateRequest
+	return parsePayload, decodeBodyOrForm(parseR, &parsePayload, func(parseValues url.Values) {
+		parsePayload.WarehouseID = parseValues.Get("warehouse_id")
+		parsePayload.OnHand = mustAtoi(parseValues.Get("on_hand"), 0)
+		parsePayload.Reserved = mustAtoi(parseValues.Get("reserved"), 0)
+		parsePayload.Inbound = mustAtoi(parseValues.Get("inbound"), 0)
+		parsePayload.Damaged = mustAtoi(parseValues.Get("damaged"), 0)
+		parsePayload.ReorderPoint = mustAtoi(parseValues.Get("reorder_point"), 1)
+		parsePayload.SafetyStock = mustAtoi(parseValues.Get("safety_stock"), 0)
+		parsePayload.Status = parseValues.Get("status")
+		parsePayload.ReturnPath = parseValues.Get("return_path")
 	})
 }
 
-func decodePreferencesRequest(r *http.Request) (preferencesRequest, error) {
-	var payload preferencesRequest
-	return payload, decodeBodyOrForm(r, &payload, func(values url.Values) {
-		payload.Theme = values.Get("theme")
-		payload.Locale = values.Get("locale")
-		payload.Density = values.Get("density")
-		payload.DefaultWarehouseID = values.Get("default_warehouse_id")
+func decodePreferencesRequest(parseR *http.Request) (preferencesRequest, error) {
+	var parsePayload preferencesRequest
+	return parsePayload, decodeBodyOrForm(parseR, &parsePayload, func(parseValues url.Values) {
+		parsePayload.Theme = parseValues.Get("theme")
+		parsePayload.Locale = parseValues.Get("locale")
+		parsePayload.Density = parseValues.Get("density")
+		parsePayload.DefaultWarehouseID = parseValues.Get("default_warehouse_id")
 	})
 }
 
-func decodeSavedViewRequest(r *http.Request) (savedViewRequest, error) {
-	var payload savedViewRequest
-	return payload, decodeBodyOrForm(r, &payload, func(values url.Values) {
-		payload.Name = values.Get("name")
-		payload.Scope = values.Get("scope")
-		payload.FiltersJSON = values.Get("filters_json")
-		payload.SortKey = values.Get("sort_key")
-		payload.SortDirection = values.Get("sort_direction")
-		payload.Density = values.Get("density")
-		payload.WarehouseID = values.Get("warehouse_id")
+func decodeSavedViewRequest(parseR *http.Request) (savedViewRequest, error) {
+	var parsePayload savedViewRequest
+	return parsePayload, decodeBodyOrForm(parseR, &parsePayload, func(parseValues url.Values) {
+		parsePayload.Name = parseValues.Get("name")
+		parsePayload.Scope = parseValues.Get("scope")
+		parsePayload.FiltersJSON = parseValues.Get("filters_json")
+		parsePayload.SortKey = parseValues.Get("sort_key")
+		parsePayload.SortDirection = parseValues.Get("sort_direction")
+		parsePayload.Density = parseValues.Get("density")
+		parsePayload.WarehouseID = parseValues.Get("warehouse_id")
 	})
 }
 
-func decodeSavedViewImportRequest(r *http.Request) (savedViewImportRequest, error) {
-	var payload savedViewImportRequest
-	return payload, decodeBodyOrForm(r, &payload, func(values url.Values) {
-		payload.ViewsJSON = values.Get("views_json")
+func decodeSavedViewImportRequest(parseR *http.Request) (savedViewImportRequest, error) {
+	var parsePayload savedViewImportRequest
+	return parsePayload, decodeBodyOrForm(parseR, &parsePayload, func(parseValues url.Values) {
+		parsePayload.ViewsJSON = parseValues.Get("views_json")
 	})
 }
 
-func decodeTransferRequest(r *http.Request) (transferRequest, error) {
-	var payload transferRequest
-	return payload, decodeBodyOrForm(r, &payload, func(values url.Values) {
-		payload.SourceWarehouseID = values.Get("source_warehouse_id")
-		payload.DestinationWarehouseID = values.Get("destination_warehouse_id")
-		payload.Reason = values.Get("reason")
-		payload.RecommendedBy = values.Get("recommended_by")
+func decodeTransferRequest(parseR *http.Request) (transferRequest, error) {
+	var parsePayload transferRequest
+	return parsePayload, decodeBodyOrForm(parseR, &parsePayload, func(parseValues url.Values) {
+		parsePayload.SourceWarehouseID = parseValues.Get("source_warehouse_id")
+		parsePayload.DestinationWarehouseID = parseValues.Get("destination_warehouse_id")
+		parsePayload.Reason = parseValues.Get("reason")
+		parsePayload.RecommendedBy = parseValues.Get("recommended_by")
 	})
 }
 
-func decodeReceivingRequest(r *http.Request) (receivingRequest, error) {
-	var payload receivingRequest
-	return payload, decodeBodyOrForm(r, &payload, func(values url.Values) {
-		payload.Status = values.Get("status")
-		payload.DiscrepancySummary = values.Get("discrepancy_summary")
+func decodeReceivingRequest(parseR *http.Request) (receivingRequest, error) {
+	var parsePayload receivingRequest
+	return parsePayload, decodeBodyOrForm(parseR, &parsePayload, func(parseValues url.Values) {
+		parsePayload.Status = parseValues.Get("status")
+		parsePayload.DiscrepancySummary = parseValues.Get("discrepancy_summary")
 	})
 }
 
-func decodePurchaseOrderStatusRequest(r *http.Request) (purchaseOrderStatusRequest, error) {
-	var payload purchaseOrderStatusRequest
-	return payload, decodeBodyOrForm(r, &payload, func(values url.Values) {
-		payload.Status = values.Get("status")
+func decodePurchaseOrderStatusRequest(parseR *http.Request) (purchaseOrderStatusRequest, error) {
+	var parsePayload purchaseOrderStatusRequest
+	return parsePayload, decodeBodyOrForm(parseR, &parsePayload, func(parseValues url.Values) {
+		parsePayload.Status = parseValues.Get("status")
 	})
 }
 
-func decodePurchaseOrderCreateRequest(r *http.Request) (purchaseOrderCreateRequest, error) {
-	var payload purchaseOrderCreateRequest
-	return payload, decodeBodyOrForm(r, &payload, func(values url.Values) {
-		payload.VendorName = values.Get("vendor_name")
-		payload.WarehouseID = values.Get("warehouse_id")
-		payload.ProductSKU = values.Get("product_sku")
-		payload.Quantity = mustAtoi(values.Get("quantity"), 1)
-		payload.ETA = values.Get("eta")
-		payload.PriorityNote = values.Get("priority_note")
-		payload.Status = values.Get("status")
-		payload.ReturnPath = values.Get("return_path")
+func decodePurchaseOrderCreateRequest(parseR *http.Request) (purchaseOrderCreateRequest, error) {
+	var parsePayload purchaseOrderCreateRequest
+	return parsePayload, decodeBodyOrForm(parseR, &parsePayload, func(parseValues url.Values) {
+		parsePayload.VendorName = parseValues.Get("vendor_name")
+		parsePayload.WarehouseID = parseValues.Get("warehouse_id")
+		parsePayload.ProductSKU = parseValues.Get("product_sku")
+		parsePayload.Quantity = mustAtoi(parseValues.Get("quantity"), 1)
+		parsePayload.ETA = parseValues.Get("eta")
+		parsePayload.PriorityNote = parseValues.Get("priority_note")
+		parsePayload.Status = parseValues.Get("status")
+		parsePayload.ReturnPath = parseValues.Get("return_path")
 	})
 }
 
-func decodeBodyOrForm(r *http.Request, target any, assignForm func(url.Values)) error {
-	contentType := strings.ToLower(strings.TrimSpace(r.Header.Get("Content-Type")))
-	if strings.Contains(contentType, "application/json") {
-		if err := json.NewDecoder(r.Body).Decode(target); err != nil {
-			return fmt.Errorf("decode json body: %w", err)
+func decodeBodyOrForm(parseR *http.Request, parseTarget any, parseAssignForm func(url.Values)) error {
+	parseContentType := strings.ToLower(strings.TrimSpace(parseR.Header.Get("Content-Type")))
+	if strings.Contains(parseContentType, "application/json") {
+		if parseErr := json.NewDecoder(parseR.Body).Decode(parseTarget); parseErr != nil {
+			return fmt.Errorf("decode json body: %w", parseErr)
 		}
 		return nil
 	}
-	if err := r.ParseForm(); err != nil {
-		return fmt.Errorf("parse form body: %w", err)
+	if parseErr2 := parseR.ParseForm(); parseErr2 != nil {
+		return fmt.Errorf("parse form body: %w", parseErr2)
 	}
-	assignForm(r.Form)
+	parseAssignForm(parseR.Form)
 	return nil
 }
 
-func (s *atlasServer) respondMutation(w http.ResponseWriter, r *http.Request, status int, payload any, notice string) {
-	if wantsHTMLResponse(r) {
-		referer := strings.TrimSpace(r.Header.Get("Referer"))
-		if referer == "" {
-			referer = "/"
+func (parseS *atlasServer) respondMutation(parseW http.ResponseWriter, parseR *http.Request, parseStatus int, parsePayload any, parseNotice string) {
+	if wantsHTMLResponse(parseR) {
+		parseReferer := strings.TrimSpace(parseR.Header.Get("Referer"))
+		if parseReferer == "" {
+			parseReferer = "/"
 		}
-		http.Redirect(w, r, withNotice(referer, notice), http.StatusSeeOther)
+		http.Redirect(parseW, parseR, withNotice(parseReferer, parseNotice), http.StatusSeeOther)
 		return
 	}
-	s.writeJSON(w, status, payload)
+	parseS.writeJSON(parseW, parseStatus, parsePayload)
 }
 
-func wantsHTMLResponse(r *http.Request) bool {
-	accept := strings.ToLower(r.Header.Get("Accept"))
-	contentType := strings.ToLower(r.Header.Get("Content-Type"))
-	return strings.Contains(accept, "text/html") || strings.Contains(contentType, "application/x-www-form-urlencoded") || strings.Contains(contentType, "multipart/form-data")
+func wantsHTMLResponse(parseR *http.Request) bool {
+	parseAccept := strings.ToLower(parseR.Header.Get("Accept"))
+	parseContentType := strings.ToLower(parseR.Header.Get("Content-Type"))
+	return strings.Contains(parseAccept, "text/html") || strings.Contains(parseContentType, "application/x-www-form-urlencoded") || strings.Contains(parseContentType, "multipart/form-data")
 }
 
-func withNotice(raw string, notice string) string {
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return raw
+func withNotice(parseRaw string, parseNotice string) string {
+	parseParsed, parseErr := url.Parse(parseRaw)
+	if parseErr != nil {
+		return parseRaw
 	}
-	query := parsed.Query()
-	query.Set("atlas_notice", notice)
-	parsed.RawQuery = query.Encode()
-	return parsed.String()
+	parseQuery := parseParsed.Query()
+	parseQuery.Set("atlas_notice", parseNotice)
+	parseParsed.RawQuery = parseQuery.Encode()
+	return parseParsed.String()
 }
 
-func mustAtoi(value string, fallback int) int {
-	parsed, err := strconv.Atoi(strings.TrimSpace(value))
-	if err != nil {
-		return fallback
+func mustAtoi(parseValue string, parseFallback int) int {
+	parseParsed, parseErr := strconv.Atoi(strings.TrimSpace(parseValue))
+	if parseErr != nil {
+		return parseFallback
 	}
-	return parsed
+	return parseParsed
 }
 
-func validateCommentRequest(input commentRequest) map[string]string {
-	fields := map[string]string{}
-	if strings.TrimSpace(input.AuthorName) == "" {
-		fields["author_name"] = "Enter the author name."
+func validateCommentRequest(parseInput commentRequest) map[string]string {
+	parseFields := map[string]string{}
+	if strings.TrimSpace(parseInput.AuthorName) == "" {
+		parseFields["author_name"] = "Enter the author name."
 	}
-	if !isOneOf(input.Reaction, "up", "down") {
-		fields["reaction"] = "Choose thumbs up or thumbs down."
+	if !isOneOf(parseInput.Reaction, "up", "down") {
+		parseFields["reaction"] = "Choose thumbs up or thumbs down."
 	}
-	if strings.TrimSpace(input.Subject) == "" {
-		fields["subject"] = "Enter a short subject for the comment."
+	if strings.TrimSpace(parseInput.Subject) == "" {
+		parseFields["subject"] = "Enter a short subject for the comment."
 	}
-	if len(strings.TrimSpace(input.Body)) < 8 {
-		fields["body"] = "Enter a more specific comment or question."
+	if len(strings.TrimSpace(parseInput.Body)) < 8 {
+		parseFields["body"] = "Enter a more specific comment or question."
 	}
-	return fields
+	return parseFields
 }
 
-func validateQuoteRequest(input quoteRequest) map[string]string {
-	fields := map[string]string{}
-	if strings.TrimSpace(input.RequesterName) == "" {
-		fields["requester_name"] = "Enter the requester name."
+func validateQuoteRequest(parseInput quoteRequest) map[string]string {
+	parseFields := map[string]string{}
+	if strings.TrimSpace(parseInput.RequesterName) == "" {
+		parseFields["requester_name"] = "Enter the requester name."
 	}
-	if strings.TrimSpace(input.CompanyName) == "" {
-		fields["company_name"] = "Enter the company name."
+	if strings.TrimSpace(parseInput.CompanyName) == "" {
+		parseFields["company_name"] = "Enter the company name."
 	}
-	if !looksLikeEmail(input.Email) {
-		fields["email"] = "Enter a valid contact email address."
+	if !looksLikeEmail(parseInput.Email) {
+		parseFields["email"] = "Enter a valid contact email address."
 	}
-	if input.Quantity < 1 {
-		fields["quantity"] = "Enter a quantity of at least 1."
+	if parseInput.Quantity < 1 {
+		parseFields["quantity"] = "Enter a quantity of at least 1."
 	}
-	return fields
+	return parseFields
 }
 
-func validateRestockRequest(input restockRequest) map[string]string {
-	fields := map[string]string{}
-	if !looksLikeEmail(input.Email) {
-		fields["email"] = "Enter a valid email address for restock updates."
+func validateRestockRequest(parseInput restockRequest) map[string]string {
+	parseFields := map[string]string{}
+	if !looksLikeEmail(parseInput.Email) {
+		parseFields["email"] = "Enter a valid email address for restock updates."
 	}
-	if strings.TrimSpace(input.PreferredWarehouseID) == "" {
-		fields["preferred_warehouse_id"] = "Choose a preferred warehouse."
+	if strings.TrimSpace(parseInput.PreferredWarehouseID) == "" {
+		parseFields["preferred_warehouse_id"] = "Choose a preferred warehouse."
 	}
-	return fields
+	return parseFields
 }
 
-func validateModerationRequest(input moderationRequest) map[string]string {
-	fields := map[string]string{}
-	if !isOneOf(input.Status, "pending", "approved", "rejected", "flagged") {
-		fields["status"] = "Choose pending, approved, rejected, or flagged."
+func validateModerationRequest(parseInput moderationRequest) map[string]string {
+	parseFields := map[string]string{}
+	if !isOneOf(parseInput.Status, "pending", "approved", "rejected", "flagged") {
+		parseFields["status"] = "Choose pending, approved, rejected, or flagged."
 	}
-	return fields
+	return parseFields
 }
 
-func validateBulkModerationRequest(input bulkModerationRequest) map[string]string {
-	fields := map[string]string{}
-	if len(input.IDs) == 0 {
-		fields["ids"] = "Choose at least one visible comment for bulk review."
+func validateBulkModerationRequest(parseInput bulkModerationRequest) map[string]string {
+	parseFields := map[string]string{}
+	if len(parseInput.IDs) == 0 {
+		parseFields["ids"] = "Choose at least one visible comment for bulk review."
 	}
-	if !isOneOf(input.Status, "pending", "approved", "rejected", "flagged") {
-		fields["status"] = "Choose pending, approved, rejected, or flagged."
+	if !isOneOf(parseInput.Status, "pending", "approved", "rejected", "flagged") {
+		parseFields["status"] = "Choose pending, approved, rejected, or flagged."
 	}
-	return fields
+	return parseFields
 }
 
-func validateThresholdRequest(input thresholdRequest) map[string]string {
-	fields := map[string]string{}
-	if strings.TrimSpace(input.WarehouseID) == "" {
-		fields["warehouse_id"] = "Choose a warehouse for the threshold policy."
+func validateThresholdRequest(parseInput thresholdRequest) map[string]string {
+	parseFields := map[string]string{}
+	if strings.TrimSpace(parseInput.WarehouseID) == "" {
+		parseFields["warehouse_id"] = "Choose a warehouse for the threshold policy."
 	}
-	if input.ReorderPoint < 1 {
-		fields["reorder_point"] = "Enter a reorder point greater than zero."
+	if parseInput.ReorderPoint < 1 {
+		parseFields["reorder_point"] = "Enter a reorder point greater than zero."
 	}
-	if input.SafetyStock < 0 {
-		fields["safety_stock"] = "Safety stock cannot be negative."
+	if parseInput.SafetyStock < 0 {
+		parseFields["safety_stock"] = "Safety stock cannot be negative."
 	}
-	return fields
+	return parseFields
 }
 
-func validateInventoryUpdateRequest(input inventoryUpdateRequest) map[string]string {
-	fields := map[string]string{}
-	if strings.TrimSpace(input.WarehouseID) == "" {
-		fields["warehouse_id"] = "Choose the warehouse lane you are editing."
+func validateInventoryUpdateRequest(parseInput inventoryUpdateRequest) map[string]string {
+	parseFields := map[string]string{}
+	if strings.TrimSpace(parseInput.WarehouseID) == "" {
+		parseFields["warehouse_id"] = "Choose the warehouse lane you are editing."
 	}
-	if input.OnHand < 0 {
-		fields["on_hand"] = "On-hand units cannot be negative."
+	if parseInput.OnHand < 0 {
+		parseFields["on_hand"] = "On-hand units cannot be negative."
 	}
-	if input.Reserved < 0 {
-		fields["reserved"] = "Reserved units cannot be negative."
+	if parseInput.Reserved < 0 {
+		parseFields["reserved"] = "Reserved units cannot be negative."
 	}
-	if input.Inbound < 0 {
-		fields["inbound"] = "Inbound units cannot be negative."
+	if parseInput.Inbound < 0 {
+		parseFields["inbound"] = "Inbound units cannot be negative."
 	}
-	if input.Damaged < 0 {
-		fields["damaged"] = "Damaged units cannot be negative."
+	if parseInput.Damaged < 0 {
+		parseFields["damaged"] = "Damaged units cannot be negative."
 	}
-	if input.ReorderPoint < 1 {
-		fields["reorder_point"] = "Reorder point must be at least 1."
+	if parseInput.ReorderPoint < 1 {
+		parseFields["reorder_point"] = "Reorder point must be at least 1."
 	}
-	if input.SafetyStock < 0 {
-		fields["safety_stock"] = "Safety stock cannot be negative."
+	if parseInput.SafetyStock < 0 {
+		parseFields["safety_stock"] = "Safety stock cannot be negative."
 	}
-	if !isOneOf(input.Status, "balanced", "promise_risk", "critical", "recovery") {
-		fields["status"] = "Choose a supported warehouse status."
+	if !isOneOf(parseInput.Status, "balanced", "promise_risk", "critical", "recovery") {
+		parseFields["status"] = "Choose a supported warehouse status."
 	}
-	return fields
+	return parseFields
 }
 
-func validatePreferencesRequest(input preferencesRequest) map[string]string {
-	fields := map[string]string{}
-	if !isOneOf(input.Theme, "dark", "light") {
-		fields["theme"] = "Choose the dark or light Atlas theme."
+func validatePreferencesRequest(parseInput preferencesRequest) map[string]string {
+	parseFields := map[string]string{}
+	if !isOneOf(parseInput.Theme, "dark", "light") {
+		parseFields["theme"] = "Choose the dark or light Atlas theme."
 	}
-	if !isOneOf(input.Locale, "en", "fr", "ar") {
-		fields["locale"] = "Choose one of the supported Atlas locales."
+	if !isOneOf(parseInput.Locale, "en", "fr", "ar") {
+		parseFields["locale"] = "Choose one of the supported Atlas locales."
 	}
-	if !isOneOf(input.Density, "compact", "comfortable") {
-		fields["density"] = "Choose compact or comfortable density."
+	if !isOneOf(parseInput.Density, "compact", "comfortable") {
+		parseFields["density"] = "Choose compact or comfortable density."
 	}
-	if strings.TrimSpace(input.DefaultWarehouseID) == "" {
-		fields["default_warehouse_id"] = "Choose a default warehouse."
+	if strings.TrimSpace(parseInput.DefaultWarehouseID) == "" {
+		parseFields["default_warehouse_id"] = "Choose a default warehouse."
 	}
-	return fields
+	return parseFields
 }
 
-func validateSavedViewRequest(input savedViewRequest) map[string]string {
-	fields := map[string]string{}
-	if strings.TrimSpace(input.Name) == "" {
-		fields["name"] = "Enter a name for the saved view."
+func validateSavedViewRequest(parseInput savedViewRequest) map[string]string {
+	parseFields := map[string]string{}
+	if strings.TrimSpace(parseInput.Name) == "" {
+		parseFields["name"] = "Enter a name for the saved view."
 	}
-	if strings.TrimSpace(input.Scope) == "" {
-		fields["scope"] = "Choose a scope for the saved view."
+	if strings.TrimSpace(parseInput.Scope) == "" {
+		parseFields["scope"] = "Choose a scope for the saved view."
 	}
-	if !isOneOf(input.SortDirection, "asc", "desc") {
-		fields["sort_direction"] = "Choose asc or desc sort direction."
+	if !isOneOf(parseInput.SortDirection, "asc", "desc") {
+		parseFields["sort_direction"] = "Choose asc or desc sort direction."
 	}
-	if strings.TrimSpace(input.FiltersJSON) != "" {
-		var parsed map[string]any
-		if err := json.Unmarshal([]byte(input.FiltersJSON), &parsed); err != nil {
-			fields["filters_json"] = "Enter valid JSON for the saved-view filters."
+	if strings.TrimSpace(parseInput.FiltersJSON) != "" {
+		var parseParsed map[string]any
+		if parseErr := json.Unmarshal([]byte(parseInput.FiltersJSON), &parseParsed); parseErr != nil {
+			parseFields["filters_json"] = "Enter valid JSON for the saved-view filters."
 		}
 	}
-	return fields
+	return parseFields
 }
 
-func validateSavedViewImportRequest(input savedViewImportRequest) map[string]string {
-	fields := map[string]string{}
-	if strings.TrimSpace(input.ViewsJSON) == "" {
-		fields["views_json"] = "Paste the saved-view export payload before importing."
-		return fields
+func validateSavedViewImportRequest(parseInput savedViewImportRequest) map[string]string {
+	parseFields := map[string]string{}
+	if strings.TrimSpace(parseInput.ViewsJSON) == "" {
+		parseFields["views_json"] = "Paste the saved-view export payload before importing."
+		return parseFields
 	}
-	if _, err := parseSavedViewTransferDocument(input.ViewsJSON); err != nil {
-		fields["views_json"] = "Paste a valid saved-view export payload."
+	if _, parseErr := parseSavedViewTransferDocument(parseInput.ViewsJSON); parseErr != nil {
+		parseFields["views_json"] = "Paste a valid saved-view export payload."
 	}
-	return fields
+	return parseFields
 }
 
-func collectListField(values url.Values, key string) []string {
-	result := []string{}
-	for _, raw := range values[key] {
-		for _, part := range strings.Split(raw, ",") {
-			trimmed := strings.TrimSpace(part)
-			if trimmed != "" {
-				result = append(result, trimmed)
+func collectListField(parseValues url.Values, parseKey string) []string {
+	parseResult := []string{}
+	for _, parseRaw := range parseValues[parseKey] {
+		for _, parsePart := range strings.Split(parseRaw, ",") {
+			parseTrimmed := strings.TrimSpace(parsePart)
+			if parseTrimmed != "" {
+				parseResult = append(parseResult, parseTrimmed)
 			}
 		}
 	}
-	return result
+	return parseResult
 }
 
 type savedViewTransferDocument struct {
@@ -863,133 +863,133 @@ type savedViewTransferItem struct {
 	FiltersJSON   string `json:"filtersJSON"`
 }
 
-func buildSavedViewTransferDocument(items []repository.SavedView) savedViewTransferDocument {
-	result := savedViewTransferDocument{Items: make([]savedViewTransferItem, 0, len(items))}
-	for _, item := range items {
-		result.Items = append(result.Items, savedViewTransferItem{
-			Name:          item.Name,
-			Scope:         item.Scope,
-			SortKey:       item.SortKey,
-			SortDirection: item.SortDirection,
-			Density:       item.Density,
-			WarehouseID:   item.WarehouseID,
-			FiltersJSON:   item.FiltersJSON,
+func buildSavedViewTransferDocument(parseItems []repository.SavedView) savedViewTransferDocument {
+	parseResult := savedViewTransferDocument{Items: make([]savedViewTransferItem, 0, len(parseItems))}
+	for _, parseItem := range parseItems {
+		parseResult.Items = append(parseResult.Items, savedViewTransferItem{
+			Name:          parseItem.Name,
+			Scope:         parseItem.Scope,
+			SortKey:       parseItem.SortKey,
+			SortDirection: parseItem.SortDirection,
+			Density:       parseItem.Density,
+			WarehouseID:   parseItem.WarehouseID,
+			FiltersJSON:   parseItem.FiltersJSON,
 		})
 	}
-	return result
+	return parseResult
 }
 
-func parseSavedViewTransferDocument(raw string) ([]repository.SavedView, error) {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
+func parseSavedViewTransferDocument(parseRaw string) ([]repository.SavedView, error) {
+	parseTrimmed := strings.TrimSpace(parseRaw)
+	if parseTrimmed == "" {
 		return nil, fmt.Errorf("saved-view transfer payload is required")
 	}
-	document := savedViewTransferDocument{}
-	if err := json.Unmarshal([]byte(trimmed), &document); err == nil && len(document.Items) > 0 {
-		items := make([]repository.SavedView, 0, len(document.Items))
-		for _, item := range document.Items {
-			items = append(items, repository.SavedView{
-				Name:          item.Name,
-				Scope:         item.Scope,
-				SortKey:       item.SortKey,
-				SortDirection: item.SortDirection,
-				Density:       item.Density,
-				WarehouseID:   item.WarehouseID,
-				FiltersJSON:   item.FiltersJSON,
+	parseDocument := savedViewTransferDocument{}
+	if parseErr := json.Unmarshal([]byte(parseTrimmed), &parseDocument); parseErr == nil && len(parseDocument.Items) > 0 {
+		parseItems := make([]repository.SavedView, 0, len(parseDocument.Items))
+		for _, parseItem := range parseDocument.Items {
+			parseItems = append(parseItems, repository.SavedView{
+				Name:          parseItem.Name,
+				Scope:         parseItem.Scope,
+				SortKey:       parseItem.SortKey,
+				SortDirection: parseItem.SortDirection,
+				Density:       parseItem.Density,
+				WarehouseID:   parseItem.WarehouseID,
+				FiltersJSON:   parseItem.FiltersJSON,
 			})
 		}
-		return items, nil
+		return parseItems, nil
 	}
-	items := []savedViewTransferItem{}
-	if err := json.Unmarshal([]byte(trimmed), &items); err != nil {
-		return nil, fmt.Errorf("decode saved-view transfer payload: %w", err)
+	parseItems2 := []savedViewTransferItem{}
+	if parseErr2 := json.Unmarshal([]byte(parseTrimmed), &parseItems2); parseErr2 != nil {
+		return nil, fmt.Errorf("decode saved-view transfer payload: %w", parseErr2)
 	}
-	result := make([]repository.SavedView, 0, len(items))
-	for _, item := range items {
-		result = append(result, repository.SavedView{
-			Name:          item.Name,
-			Scope:         item.Scope,
-			SortKey:       item.SortKey,
-			SortDirection: item.SortDirection,
-			Density:       item.Density,
-			WarehouseID:   item.WarehouseID,
-			FiltersJSON:   item.FiltersJSON,
+	parseResult := make([]repository.SavedView, 0, len(parseItems2))
+	for _, parseItem2 := range parseItems2 {
+		parseResult = append(parseResult, repository.SavedView{
+			Name:          parseItem2.Name,
+			Scope:         parseItem2.Scope,
+			SortKey:       parseItem2.SortKey,
+			SortDirection: parseItem2.SortDirection,
+			Density:       parseItem2.Density,
+			WarehouseID:   parseItem2.WarehouseID,
+			FiltersJSON:   parseItem2.FiltersJSON,
 		})
 	}
-	return result, nil
+	return parseResult, nil
 }
 
-func validateTransferRequest(input transferRequest) map[string]string {
-	fields := map[string]string{}
-	if strings.TrimSpace(input.SourceWarehouseID) == "" {
-		fields["source_warehouse_id"] = "Choose a source warehouse."
+func validateTransferRequest(parseInput transferRequest) map[string]string {
+	parseFields := map[string]string{}
+	if strings.TrimSpace(parseInput.SourceWarehouseID) == "" {
+		parseFields["source_warehouse_id"] = "Choose a source warehouse."
 	}
-	if strings.TrimSpace(input.DestinationWarehouseID) == "" {
-		fields["destination_warehouse_id"] = "Choose a destination warehouse."
+	if strings.TrimSpace(parseInput.DestinationWarehouseID) == "" {
+		parseFields["destination_warehouse_id"] = "Choose a destination warehouse."
 	}
-	if strings.EqualFold(strings.TrimSpace(input.SourceWarehouseID), strings.TrimSpace(input.DestinationWarehouseID)) && strings.TrimSpace(input.SourceWarehouseID) != "" {
-		fields["destination_warehouse_id"] = "Choose a destination warehouse different from the source."
+	if strings.EqualFold(strings.TrimSpace(parseInput.SourceWarehouseID), strings.TrimSpace(parseInput.DestinationWarehouseID)) && strings.TrimSpace(parseInput.SourceWarehouseID) != "" {
+		parseFields["destination_warehouse_id"] = "Choose a destination warehouse different from the source."
 	}
-	if strings.TrimSpace(input.Reason) == "" {
-		fields["reason"] = "Enter the operational reason for this transfer."
+	if strings.TrimSpace(parseInput.Reason) == "" {
+		parseFields["reason"] = "Enter the operational reason for this transfer."
 	}
-	return fields
+	return parseFields
 }
 
-func validateReceivingRequest(input receivingRequest) map[string]string {
-	fields := map[string]string{}
-	if !isOneOf(input.Status, "open", "in_review", "closed") {
-		fields["status"] = "Choose open, in_review, or closed."
+func validateReceivingRequest(parseInput receivingRequest) map[string]string {
+	parseFields := map[string]string{}
+	if !isOneOf(parseInput.Status, "open", "in_review", "closed") {
+		parseFields["status"] = "Choose open, in_review, or closed."
 	}
-	if strings.TrimSpace(input.DiscrepancySummary) == "" {
-		fields["discrepancy_summary"] = "Summarize the receiving discrepancy or closeout note."
+	if strings.TrimSpace(parseInput.DiscrepancySummary) == "" {
+		parseFields["discrepancy_summary"] = "Summarize the receiving discrepancy or closeout note."
 	}
-	return fields
+	return parseFields
 }
 
-func validatePurchaseOrderStatusRequest(input purchaseOrderStatusRequest) map[string]string {
-	fields := map[string]string{}
-	if !isOneOf(input.Status, "submitted", "approved", "on_hold", "received") {
-		fields["status"] = "Choose submitted, approved, on_hold, or received."
+func validatePurchaseOrderStatusRequest(parseInput purchaseOrderStatusRequest) map[string]string {
+	parseFields := map[string]string{}
+	if !isOneOf(parseInput.Status, "submitted", "approved", "on_hold", "received") {
+		parseFields["status"] = "Choose submitted, approved, on_hold, or received."
 	}
-	return fields
+	return parseFields
 }
 
-func validatePurchaseOrderCreateRequest(input purchaseOrderCreateRequest) map[string]string {
-	fields := map[string]string{}
-	if strings.TrimSpace(input.VendorName) == "" {
-		fields["vendor_name"] = "Enter the vendor for this replenishment order."
+func validatePurchaseOrderCreateRequest(parseInput purchaseOrderCreateRequest) map[string]string {
+	parseFields := map[string]string{}
+	if strings.TrimSpace(parseInput.VendorName) == "" {
+		parseFields["vendor_name"] = "Enter the vendor for this replenishment order."
 	}
-	if strings.TrimSpace(input.WarehouseID) == "" {
-		fields["warehouse_id"] = "Choose the receiving warehouse."
+	if strings.TrimSpace(parseInput.WarehouseID) == "" {
+		parseFields["warehouse_id"] = "Choose the receiving warehouse."
 	}
-	if strings.TrimSpace(input.ProductSKU) == "" {
-		fields["product_sku"] = "Choose the inventory item to order."
+	if strings.TrimSpace(parseInput.ProductSKU) == "" {
+		parseFields["product_sku"] = "Choose the inventory item to order."
 	}
-	if input.Quantity < 1 {
-		fields["quantity"] = "Order quantity must be at least 1."
+	if parseInput.Quantity < 1 {
+		parseFields["quantity"] = "Order quantity must be at least 1."
 	}
-	if strings.TrimSpace(input.ETA) == "" {
-		fields["eta"] = "Enter the expected arrival window."
+	if strings.TrimSpace(parseInput.ETA) == "" {
+		parseFields["eta"] = "Enter the expected arrival window."
 	}
-	if strings.TrimSpace(input.PriorityNote) == "" {
-		fields["priority_note"] = "Add a short purchasing note for the lane."
+	if strings.TrimSpace(parseInput.PriorityNote) == "" {
+		parseFields["priority_note"] = "Add a short purchasing note for the lane."
 	}
-	if !isOneOf(input.Status, "draft", "submitted", "approved", "on_hold") {
-		fields["status"] = "Choose a valid purchase-order status."
+	if !isOneOf(parseInput.Status, "draft", "submitted", "approved", "on_hold") {
+		parseFields["status"] = "Choose a valid purchase-order status."
 	}
-	return fields
+	return parseFields
 }
 
-func looksLikeEmail(value string) bool {
-	_, err := mail.ParseAddress(strings.TrimSpace(value))
-	return err == nil
+func looksLikeEmail(parseValue string) bool {
+	_, parseErr := mail.ParseAddress(strings.TrimSpace(parseValue))
+	return parseErr == nil
 }
 
-func isOneOf(value string, allowed ...string) bool {
-	trimmed := strings.TrimSpace(strings.ToLower(value))
-	for _, item := range allowed {
-		if trimmed == strings.ToLower(item) {
+func isOneOf(parseValue string, parseAllowed ...string) bool {
+	parseTrimmed := strings.TrimSpace(strings.ToLower(parseValue))
+	for _, parseItem := range parseAllowed {
+		if parseTrimmed == strings.ToLower(parseItem) {
 			return true
 		}
 	}

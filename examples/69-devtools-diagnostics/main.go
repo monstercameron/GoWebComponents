@@ -17,10 +17,10 @@ import (
 )
 
 func diagnosticsExample() ui.Node {
-	snapshot := devtools.UseSnapshot(800 * time.Millisecond)
-	message := "No diagnostics yet"
-	if len(snapshot.Diagnostics) > 0 {
-		message = snapshot.Diagnostics[0].Message
+	parseSnapshot := devtools.UseSnapshot(800 * time.Millisecond)
+	parseMessage := "No diagnostics yet"
+	if len(parseSnapshot.Diagnostics) > 0 {
+		parseMessage = parseSnapshot.Diagnostics[0].Message
 	}
 
 	return shared.ExamplePage(
@@ -29,34 +29,34 @@ func diagnosticsExample() ui.Node {
 		"This example intentionally triggers a router warning by registering the same exact route twice. The devtools snapshot then exposes the diagnostic payload inside normal UI.",
 		shared.ExamplePanel("Diagnostics summary",
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
-				shared.ExampleStat("Count", fmt.Sprintf("%d", len(snapshot.Diagnostics))),
-				shared.ExampleStat("Source", firstDiagnosticSource(snapshot)),
-				shared.ExampleStat("Severity", firstDiagnosticSeverity(snapshot)),
+				shared.ExampleStat("Count", fmt.Sprintf("%d", len(parseSnapshot.Diagnostics))),
+				shared.ExampleStat("Source", firstDiagnosticSource(parseSnapshot)),
+				shared.ExampleStat("Severity", firstDiagnosticSeverity(parseSnapshot)),
 			),
-			html.P(html.Props{Class: "mt-6 text-slate-300"}, html.Text(message)),
+			html.P(html.Props{Class: "mt-6 text-slate-300"}, html.Text(parseMessage)),
 		),
 	)
 }
 
-func firstDiagnosticSource(snapshot devtools.Snapshot) string {
-	if len(snapshot.Diagnostics) == 0 {
+func firstDiagnosticSource(parseSnapshot devtools.Snapshot) string {
+	if len(parseSnapshot.Diagnostics) == 0 {
 		return "-"
 	}
-	return snapshot.Diagnostics[0].Source
+	return parseSnapshot.Diagnostics[0].Source
 }
 
-func firstDiagnosticSeverity(snapshot devtools.Snapshot) string {
-	if len(snapshot.Diagnostics) == 0 {
+func firstDiagnosticSeverity(parseSnapshot devtools.Snapshot) string {
+	if len(parseSnapshot.Diagnostics) == 0 {
 		return "-"
 	}
-	return string(snapshot.Diagnostics[0].Severity)
+	return string(parseSnapshot.Diagnostics[0].Severity)
 }
 
 func main() {
 	utils.DisableAllDebug()
-	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
-	r.Register("/", func(router.Attrs) *router.Element { return ui.CreateElement(diagnosticsExample) })
-	r.Register("/", func(router.Attrs) *router.Element { return ui.CreateElement(diagnosticsExample) })
-	r.Mount("#app")
+	parseR := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
+	parseR.Register("/", func(router.Attrs) *router.Element { return ui.CreateElement(diagnosticsExample) })
+	parseR.Register("/", func(router.Attrs) *router.Element { return ui.CreateElement(diagnosticsExample) })
+	parseR.Mount("#app")
 	select {}
 }

@@ -23,9 +23,9 @@ type InstallabilitySubscription struct {
 	cancel func()
 }
 
-func (parseS InstallabilitySubscription) Cancel() {
-	if parseS.cancel != nil {
-		parseS.cancel()
+func (parseSubscription InstallabilitySubscription) Cancel() {
+	if parseSubscription.cancel != nil {
+		parseSubscription.cancel()
 	}
 }
 
@@ -35,23 +35,23 @@ type InstallabilityManager struct {
 	subscribe func(func(InstallabilityState)) (InstallabilitySubscription, error)
 }
 
-func (parseM InstallabilityManager) State() InstallabilityState {
-	if parseM.state == nil {
+func (parseManager InstallabilityManager) State() InstallabilityState {
+	if parseManager.state == nil {
 		return InstallabilityState{}
 	}
-	return parseM.state()
+	return parseManager.state()
 }
 
-func (parseM InstallabilityManager) Prompt(parseCtx context.Context) (InstallPromptResult, error) {
-	if parseM.prompt == nil {
+func (parseManager InstallabilityManager) Prompt(parseInstallCtx context.Context) (InstallPromptResult, error) {
+	if parseManager.prompt == nil {
 		return InstallPromptResult{}, installabilityUnavailable("InstallabilityManager.Prompt", "")
 	}
-	return parseM.prompt(parseCtx)
+	return parseManager.prompt(parseInstallCtx)
 }
 
-func (parseM InstallabilityManager) Subscribe(parseHandler func(InstallabilityState)) (InstallabilitySubscription, error) {
-	if parseM.subscribe == nil {
+func (parseManager InstallabilityManager) Subscribe(parseInstallHandler func(InstallabilityState)) (InstallabilitySubscription, error) {
+	if parseManager.subscribe == nil {
 		return InstallabilitySubscription{}, installabilityUnavailable("InstallabilityManager.Subscribe", "")
 	}
-	return parseM.subscribe(parseHandler)
+	return parseManager.subscribe(parseInstallHandler)
 }

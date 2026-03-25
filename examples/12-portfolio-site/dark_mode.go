@@ -16,7 +16,7 @@ func initDarkModeCSS() {
 		return // CSS already injected
 	}
 
-	css := `
+	parseCss := `
 <style id="gwc-darkmode-css">
 html.dark {
   filter: invert(1) hue-rotate(180deg);
@@ -28,18 +28,18 @@ html.dark img, html.dark video, html.dark iframe, html.dark canvas {
 }
 </style>`
 
-	js.Global().Get("document").Get("head").Call("insertAdjacentHTML", "beforeend", css)
+	js.Global().Get("document").Get("head").Call("insertAdjacentHTML", "beforeend", parseCss)
 }
 
 // applyDarkClass toggles the "dark" class on the document root element.
 // This controls the application of dark mode styles across the entire page.
-func applyDarkClass(enabled bool) {
-	docEl := js.Global().Get("document").Get("documentElement")
-	classList := docEl.Get("classList")
-	if enabled {
-		classList.Call("add", "dark")
+func applyDarkClass(isEnabled bool) {
+	parseDocEl := js.Global().Get("document").Get("documentElement")
+	parseClassList := parseDocEl.Get("classList")
+	if isEnabled {
+		parseClassList.Call("add", "dark")
 	} else {
-		classList.Call("remove", "dark")
+		parseClassList.Call("remove", "dark")
 	}
 }
 
@@ -47,19 +47,19 @@ func applyDarkClass(enabled bool) {
 // Priority: 1) localStorage saved preference, 2) system preference via media query.
 // Returns true for dark mode preference, false for light mode.
 func getInitialDarkPref() bool {
-	storage := js.Global().Get("localStorage")
-	if !storage.IsUndefined() && !storage.IsNull() {
-		pref := storage.Call("getItem", "gwc-theme").String()
-		if pref == "dark" {
+	parseStorage := js.Global().Get("localStorage")
+	if !parseStorage.IsUndefined() && !parseStorage.IsNull() {
+		parsePref := parseStorage.Call("getItem", "gwc-theme").String()
+		if parsePref == "dark" {
 			return true
 		}
-		if pref == "light" {
+		if parsePref == "light" {
 			return false
 		}
 	}
 	// Fallback to system preference detection
-	match := js.Global().Call("matchMedia", "(prefers-color-scheme: dark)")
-	if !match.IsUndefined() && match.Get("matches").Bool() {
+	parseMatch := js.Global().Call("matchMedia", "(prefers-color-scheme: dark)")
+	if !parseMatch.IsUndefined() && parseMatch.Get("matches").Bool() {
 		return true
 	}
 	return false
@@ -67,14 +67,14 @@ func getInitialDarkPref() bool {
 
 // saveDarkPref persists the dark mode preference to localStorage.
 // Enables preference retention across browser sessions.
-func saveDarkPref(enabled bool) {
-	storage := js.Global().Get("localStorage")
-	if storage.IsUndefined() || storage.IsNull() {
+func saveDarkPref(isEnabled bool) {
+	parseStorage := js.Global().Get("localStorage")
+	if parseStorage.IsUndefined() || parseStorage.IsNull() {
 		return // localStorage not available
 	}
-	if enabled {
-		storage.Call("setItem", "gwc-theme", "dark")
+	if isEnabled {
+		parseStorage.Call("setItem", "gwc-theme", "dark")
 	} else {
-		storage.Call("setItem", "gwc-theme", "light")
+		parseStorage.Call("setItem", "gwc-theme", "light")
 	}
 }

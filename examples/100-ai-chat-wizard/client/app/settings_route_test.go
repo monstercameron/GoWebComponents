@@ -4,8 +4,8 @@ package app
 
 import "testing"
 
-func TestNormalizeSettingsSectionID(t *testing.T) {
-	tests := []struct {
+func TestNormalizeSettingsSectionID(parseT *testing.T) {
+	parseTests := []struct {
 		raw  string
 		want string
 	}{
@@ -17,27 +17,27 @@ func TestNormalizeSettingsSectionID(t *testing.T) {
 		{raw: "", want: ""},
 	}
 
-	for _, test := range tests {
-		if got := normalizeSettingsSectionID(test.raw); got != test.want {
-			t.Fatalf("normalizeSettingsSectionID(%q) = %q, want %q", test.raw, got, test.want)
+	for _, parseTest := range parseTests {
+		if parseGot := parseNormalizeSettingsSectionID(parseTest.raw); parseGot != parseTest.want {
+			parseT.Fatalf("normalizeSettingsSectionID(%q) = %q, want %q", parseTest.raw, parseGot, parseTest.want)
 		}
 	}
 }
 
-func TestBuildSettingsRoute(t *testing.T) {
-	if got := buildSettingsRoute(settingsSectionIntelligence); got != "/app/settings?panel=settings-intelligence" {
-		t.Fatalf("buildSettingsRoute() = %q", got)
+func TestBuildSettingsRoute(parseT *testing.T) {
+	if parseGot := buildSettingsRoute(settingsSectionIntelligence); parseGot != "/app/settings?panel=settings-intelligence" {
+		parseT.Fatalf("buildSettingsRoute() = %q", parseGot)
 	}
-	if got := buildSettingsRoute("unknown"); got != "/app/settings?panel=settings-profile" {
-		t.Fatalf("buildSettingsRoute() fallback = %q", got)
+	if parseGot2 := buildSettingsRoute("unknown"); parseGot2 != "/app/settings?panel=settings-profile" {
+		parseT.Fatalf("buildSettingsRoute() fallback = %q", parseGot2)
 	}
 }
 
-func TestBuildSettingsReturnRoute(t *testing.T) {
-	if got := buildSettingsReturnRoute("/app/thread/abc", settingsSectionIntelligence); got != "/app/thread/abc#settings-intelligence" {
-		t.Fatalf("buildSettingsReturnRoute() = %q", got)
+func TestBuildSettingsReturnRoute(parseT *testing.T) {
+	if parseGot := buildSettingsReturnRoute("/app/thread/abc", settingsSectionIntelligence); parseGot != "/app/thread/abc#settings-intelligence" {
+		parseT.Fatalf("buildSettingsReturnRoute() = %q", parseGot)
 	}
-	if got := buildSettingsReturnRoute("", settingsSectionIntelligence); got != "/app#settings-intelligence" {
-		t.Fatalf("buildSettingsReturnRoute() fallback = %q", got)
+	if parseGot2 := buildSettingsReturnRoute("", settingsSectionIntelligence); parseGot2 != "/app#settings-intelligence" {
+		parseT.Fatalf("buildSettingsReturnRoute() fallback = %q", parseGot2)
 	}
 }

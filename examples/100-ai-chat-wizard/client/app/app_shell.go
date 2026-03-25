@@ -66,53 +66,53 @@ type appViewState struct {
 	CanvasOnlyRoute        bool
 }
 
-func deriveAppViewState(currentState appState, userName string, sidebarOpen bool, threadSummary threadCostSummary, accountSummary accountCostSummary, canvasOnlyRoute bool) appViewState {
+func parseDeriveAppViewState(parseCurrentState appState, parseUserName string, isSidebarOpen bool, parseThreadSummary threadCostSummary, parseAccountSummary accountCostSummary, isCanvasOnlyRoute bool) appViewState {
 	return appViewState{
 		CurrentPath:            router.GetCurrentPath(),
-		GRPCReady:              currentState.GRPCReady,
-		AuthResolved:           currentState.AuthResolved,
-		Authenticated:          currentState.Authenticated,
-		AuthMode:               currentState.AuthMode,
-		AuthError:              currentState.AuthError,
-		AuthSubmitting:         currentState.AuthSubmitting,
-		AuthEmail:              currentState.AuthEmail,
-		AuthPassword:           currentState.AuthPassword,
-		AuthDisplayName:        currentState.AuthDisplayName,
-		SessionEmail:           currentState.SessionEmail,
-		Messages:               currentState.Messages,
-		InputText:              currentState.InputText,
-		IsStreaming:            currentState.Streaming,
-		EditIdx:                currentState.EditIdx,
-		EditText:               currentState.EditText,
-		ModelOptions:           currentState.ModelOptions,
-		DefaultModelID:         currentState.DefaultModel,
-		SelectedModel:          currentState.SelectedModel,
-		ConversationList:       currentState.ConversationList,
-		ActiveConversationID:   currentState.ActiveConvID,
-		DeleteTarget:           currentState.DeleteTarget,
-		UserName:               userName,
-		UserInitials:           displayNameInitials(userName),
-		ShowSettingsModal:      currentState.ShowNameModal,
-		ActiveSettingsSection:  currentState.ActiveSettingsSection,
-		NameInput:              currentState.NameInput,
-		ToneInput:              currentState.ToneInput,
-		ThinkingEnabledInput:   currentState.ThinkingEnabledInput,
-		ThinkingEffortInput:    currentState.ThinkingEffortInput,
-		TTSProviderInput:       resolveTTSProviderID(currentState.TTSProviderInput),
-		SystemPromptInput:      currentState.SystemPromptInput,
-		UserMemories:           currentState.UserMemories,
-		LocaleInput:            normalizeChatLocaleID(currentState.LocaleInput),
-		ThinkingEnabled:        currentState.SelectedThinkingEnabled,
-		ThinkingEffort:         currentState.SelectedThinkingEffort,
-		SelectedTTSProvider:    resolveTTSProviderID(currentState.SelectedTTSProvider),
-		SidebarOpen:            sidebarOpen,
-		ExpandedThoughts:       currentState.ExpandedThoughtSections,
-		ThreadCostSummary:      threadSummary,
-		AccountCostSummary:     accountSummary,
-		ThinkingSupported:      modelSupportsThinking(currentState.SelectedModel, currentState.ModelOptions, currentState.DefaultModel),
-		MarkdownWorkerFallback: currentState.MarkdownWorkerFallback,
-		CanvasSession:          currentState.CanvasSession,
-		CanvasOnlyRoute:        canvasOnlyRoute,
+		GRPCReady:              parseCurrentState.GRPCReady,
+		AuthResolved:           parseCurrentState.AuthResolved,
+		Authenticated:          parseCurrentState.Authenticated,
+		AuthMode:               parseCurrentState.AuthMode,
+		AuthError:              parseCurrentState.AuthError,
+		AuthSubmitting:         parseCurrentState.AuthSubmitting,
+		AuthEmail:              parseCurrentState.AuthEmail,
+		AuthPassword:           parseCurrentState.AuthPassword,
+		AuthDisplayName:        parseCurrentState.AuthDisplayName,
+		SessionEmail:           parseCurrentState.SessionEmail,
+		Messages:               parseCurrentState.Messages,
+		InputText:              parseCurrentState.InputText,
+		IsStreaming:            parseCurrentState.Streaming,
+		EditIdx:                parseCurrentState.EditIdx,
+		EditText:               parseCurrentState.EditText,
+		ModelOptions:           parseCurrentState.ParseModelOptions,
+		DefaultModelID:         parseCurrentState.ParseDefaultModel,
+		SelectedModel:          parseCurrentState.SelectedModel,
+		ConversationList:       parseCurrentState.ConversationList,
+		ActiveConversationID:   parseCurrentState.ActiveConvID,
+		DeleteTarget:           parseCurrentState.DeleteTarget,
+		UserName:               parseUserName,
+		UserInitials:           parseDisplayNameInitials(parseUserName),
+		ShowSettingsModal:      parseCurrentState.ShowNameModal,
+		ActiveSettingsSection:  parseCurrentState.ActiveSettingsSection,
+		NameInput:              parseCurrentState.NameInput,
+		ToneInput:              parseCurrentState.ToneInput,
+		ThinkingEnabledInput:   parseCurrentState.ThinkingEnabledInput,
+		ThinkingEffortInput:    parseCurrentState.ThinkingEffortInput,
+		TTSProviderInput:       parseResolveTTSProviderID(parseCurrentState.TTSProviderInput),
+		SystemPromptInput:      parseCurrentState.SystemPromptInput,
+		UserMemories:           parseCurrentState.UserMemories,
+		LocaleInput:            parseNormalizeChatLocaleID(parseCurrentState.LocaleInput),
+		ThinkingEnabled:        parseCurrentState.SelectedThinkingEnabled,
+		ThinkingEffort:         parseCurrentState.SelectedThinkingEffort,
+		SelectedTTSProvider:    parseResolveTTSProviderID(parseCurrentState.SelectedTTSProvider),
+		SidebarOpen:            isSidebarOpen,
+		ExpandedThoughts:       parseCurrentState.ExpandedThoughtSections,
+		ThreadCostSummary:      parseThreadSummary,
+		AccountCostSummary:     parseAccountSummary,
+		ThinkingSupported:      parseModelSupportsThinking(parseCurrentState.SelectedModel, parseCurrentState.ParseModelOptions, parseCurrentState.ParseDefaultModel),
+		MarkdownWorkerFallback: parseCurrentState.MarkdownWorkerFallback,
+		CanvasSession:          parseCurrentState.CanvasSession,
+		CanvasOnlyRoute:        isCanvasOnlyRoute,
 	}
 }
 
@@ -139,172 +139,172 @@ type appShellProps struct {
 	CanvasWorkspace      canvasWorkspaceController
 }
 
-func renderAppShell(props appShellProps) ui.Node {
-	content := renderWorkspaceShell(props)
+func renderAppShell(parseProps appShellProps) ui.Node {
+	parseContent := renderWorkspaceShell(parseProps)
 	isWorkspace := true
-	if !props.View.GRPCReady || !props.View.AuthResolved {
-		content = ui.Component(renderAuthLoadingShell, authLoadingShellProps{View: props.View})
+	if !parseProps.View.GRPCReady || !parseProps.View.AuthResolved {
+		parseContent = ui.Component(renderAuthLoadingShell, authLoadingShellProps{View: parseProps.View})
 		isWorkspace = false
-	} else if !props.View.Authenticated {
+	} else if !parseProps.View.Authenticated {
 		isWorkspace = false
-		if isLandingRoute(props.View.CurrentPath) {
-			content = renderLandingShell(props.Intl, props.View, props.AuthSession)
+		if isLandingRoute(parseProps.View.CurrentPath) {
+			parseContent = renderLandingShell(parseProps.Intl, parseProps.View, parseProps.AuthSession)
 		} else {
-			content = renderAuthShell(props.Intl, props.View, props.AuthSession)
+			parseContent = renderAuthShell(parseProps.Intl, parseProps.View, parseProps.AuthSession)
 		}
 	}
 	// Workspace needs a fixed full-screen viewport with overflow clipped because
 	// scrolling is managed internally per panel. Landing and auth pages are
 	// standard document-flow pages that must be able to scroll freely.
-	outerClass := "flex h-screen w-screen overflow-hidden bg-[#212121] text-white"
+	parseOuterClass := "flex h-screen w-screen overflow-hidden bg-[#212121] text-white"
 	if !isWorkspace {
-		outerClass = "h-screen w-full overflow-x-hidden overflow-y-auto text-white"
+		parseOuterClass = "h-screen w-full overflow-x-hidden overflow-y-auto text-white"
 	}
 	return Div(
 		Tag("style", Text(chatWizardStyles)),
 		Div(
 			FromProps(Props{Raw: map[string]interface{}{
-				"dir":                 string(props.Intl.Direction()),
-				"lang":                props.Intl.Locale(),
-				"data-current-locale": props.Intl.Locale(),
+				"dir":                 string(parseProps.Intl.Direction()),
+				"lang":                parseProps.Intl.Locale(),
+				"data-current-locale": parseProps.Intl.Locale(),
 			}}),
-			Class(outerClass),
-			OnMouseUp(props.QuoteSelection.HandleSelectionMouse),
-			content,
+			Class(parseOuterClass),
+			OnMouseUp(parseProps.QuoteSelection.HandleSelectionMouse),
+			parseContent,
 		),
 	)
 }
 
-func renderWorkspaceShell(props appShellProps) ui.Node {
-	if props.View.CanvasOnlyRoute {
+func renderWorkspaceShell(parseProps appShellProps) ui.Node {
+	if parseProps.View.CanvasOnlyRoute {
 		return Div(
 			Class("flex h-full w-full min-w-0 min-h-0"),
-			canvasWorkspacePane(props.Intl, props.View.CanvasSession, props.CanvasWorkspace, true),
+			canvasWorkspacePane(parseProps.Intl, parseProps.View.CanvasSession, parseProps.CanvasWorkspace, true),
 		)
 	}
 	return Fragment(
-		sidebar(
-			props.View.ConversationList,
-			props.View.ActiveConversationID,
-			props.View.IsStreaming,
-			props.View.UserName,
-			props.View.UserInitials,
-			props.View.SidebarOpen,
-			props.ResetChat,
-			props.ConversationList.Load,
-			props.ConversationList.RequestDelete,
-			props.ProfileSettings.Open,
-			props.ToggleSidebar,
+		parseSidebar(
+			parseProps.View.ConversationList,
+			parseProps.View.ActiveConversationID,
+			parseProps.View.IsStreaming,
+			parseProps.View.UserName,
+			parseProps.View.UserInitials,
+			parseProps.View.SidebarOpen,
+			parseProps.ResetChat,
+			parseProps.ConversationList.Load,
+			parseProps.ConversationList.RequestDelete,
+			parseProps.ProfileSettings.Open,
+			parseProps.ToggleSidebar,
 		),
-		mainPanel(
-			props.View.Messages,
-			props.View.IsStreaming,
-			props.View.MarkdownWorkerFallback,
-			props.View.InputText,
-			props.ChatStream.HandleInput,
-			props.ChatStream.HandleKey,
-			props.ChatStream.Send,
-			props.View.EditIdx,
-			props.View.EditText,
-			props.ChatStream.StartEdit,
-			props.ChatStream.CancelEdit,
-			props.ChatStream.HandleEditChange,
-			props.ChatStream.SubmitEdit,
-			props.ChatStream.HandleEditKey,
-			props.ChatStream.Fork,
-			props.CanvasWorkspace.OpenFromMessage,
-			props.ToggleThoughtSection,
-			props.View.ModelOptions,
-			props.View.DefaultModelID,
-			props.View.ThreadCostSummary,
-			props.View.AccountCostSummary,
-			props.View.SelectedModel,
-			props.ModelPreferences.SetProvider,
-			props.ModelPreferences.SetModel,
-			props.View.ThinkingEnabled,
-			props.View.ThinkingEffort,
-			props.View.ThinkingSupported,
-			props.ModelPreferences.SetThinkingMode,
-			props.View.UserInitials,
-			props.View.SidebarOpen,
-			props.ToggleSidebar,
-			props.View.ExpandedThoughts,
-			props.TTSAudio,
-			props.RequestSpeechUpgrade,
-			props.ScrollMemory,
-			props.View.CanvasSession,
-			props.CanvasWorkspace,
+		parseMainPanel(
+			parseProps.View.Messages,
+			parseProps.View.IsStreaming,
+			parseProps.View.MarkdownWorkerFallback,
+			parseProps.View.InputText,
+			parseProps.ChatStream.HandleInput,
+			parseProps.ChatStream.HandleKey,
+			parseProps.ChatStream.ParseSend,
+			parseProps.View.EditIdx,
+			parseProps.View.EditText,
+			parseProps.ChatStream.StartEdit,
+			parseProps.ChatStream.CancelEdit,
+			parseProps.ChatStream.HandleEditChange,
+			parseProps.ChatStream.SubmitEdit,
+			parseProps.ChatStream.HandleEditKey,
+			parseProps.ChatStream.Fork,
+			parseProps.CanvasWorkspace.OpenFromMessage,
+			parseProps.ToggleThoughtSection,
+			parseProps.View.ParseModelOptions,
+			parseProps.View.DefaultModelID,
+			parseProps.View.ThreadCostSummary,
+			parseProps.View.AccountCostSummary,
+			parseProps.View.SelectedModel,
+			parseProps.ModelPreferences.SetProvider,
+			parseProps.ModelPreferences.SetModel,
+			parseProps.View.ThinkingEnabled,
+			parseProps.View.ThinkingEffort,
+			parseProps.View.ThinkingSupported,
+			parseProps.ModelPreferences.SetThinkingMode,
+			parseProps.View.UserInitials,
+			parseProps.View.SidebarOpen,
+			parseProps.ToggleSidebar,
+			parseProps.View.ExpandedThoughts,
+			parseProps.TTSAudio,
+			parseProps.RequestSpeechUpgrade,
+			parseProps.ScrollMemory,
+			parseProps.View.CanvasSession,
+			parseProps.CanvasWorkspace,
 		),
-		If(props.View.CanvasSession.Active && props.View.CanvasSession.LayoutMode == canvasLayoutOverlay,
+		If(parseProps.View.CanvasSession.Active && parseProps.View.CanvasSession.LayoutMode == canvasLayoutOverlay,
 			Div(Class("fixed inset-0 z-40 flex min-h-0 min-w-0 bg-black/72 backdrop-blur-md overlay-in"),
-				canvasWorkspacePane(props.Intl, props.View.CanvasSession, props.CanvasWorkspace, false),
+				canvasWorkspacePane(parseProps.Intl, parseProps.View.CanvasSession, parseProps.CanvasWorkspace, false),
 			),
 		),
-		quoteSelectionPrompt(props.QuoteSelection.State, props.QuoteSelection.QuoteSelectedText, props.QuoteSelection.StopPromptMouseUp),
-		renderDeleteConversationModal(props.Intl, props.View, props.StopBubble, props.ConversationList),
-		renderSpeechUpgradeModal(props.Intl, props.ShowSpeechModal, props.SpeechModalError, props.StopBubble, props.CancelSpeechModal, props.ConfirmSpeechModal),
-		renderSettingsModal(props.Intl, props.View, props.StopBubble, props.ProfileSettings, props.AuthSession),
+		parseQuoteSelectionPrompt(parseProps.QuoteSelection.State, parseProps.QuoteSelection.QuoteSelectedText, parseProps.QuoteSelection.StopPromptMouseUp),
+		renderDeleteConversationModal(parseProps.Intl, parseProps.View, parseProps.StopBubble, parseProps.ConversationList),
+		renderSpeechUpgradeModal(parseProps.Intl, parseProps.ShowSpeechModal, parseProps.SpeechModalError, parseProps.StopBubble, parseProps.CancelSpeechModal, parseProps.ConfirmSpeechModal),
+		renderSettingsModal(parseProps.Intl, parseProps.View, parseProps.StopBubble, parseProps.ProfileSettings, parseProps.AuthSession),
 	)
 }
 
-func renderDeleteConversationModal(intl i18n.Runtime, view appViewState, stopBubble ui.Handler, conversationList conversationListController) ui.Node {
-	if view.DeleteTarget <= 0 {
+func renderDeleteConversationModal(parseIntl i18n.Runtime, parseView appViewState, parseStopBubble ui.Handler, parseConversationList conversationListController) ui.Node {
+	if parseView.DeleteTarget <= 0 {
 		return nil
 	}
 	return Div(
 		Class("fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overlay-in"),
-		OnClick(conversationList.CancelDelete),
+		OnClick(parseConversationList.CancelDelete),
 		Div(
 			Class("bg-[#2f2f2f] border border-white/10 rounded-2xl p-6 max-w-sm w-full mx-4 flex flex-col gap-4 modal-in"),
-			OnClick(stopBubble),
-			P(Class("text-white font-semibold text-base"), Text(intl.T(chatI18nNamespace, "modal.deleteTitle"))),
-			P(Class("text-white/60 text-sm"), Text(intl.T(chatI18nNamespace, "modal.deleteBody"))),
+			OnClick(parseStopBubble),
+			P(Class("text-white font-semibold text-base"), Text(parseIntl.T(chatI18nNamespace, "modal.deleteTitle"))),
+			P(Class("text-white/60 text-sm"), Text(parseIntl.T(chatI18nNamespace, "modal.deleteBody"))),
 			Div(Class("flex gap-3 justify-end"),
 				Button(
 					Class("px-4 py-2 text-sm rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition-colors"),
-					OnClick(conversationList.CancelDelete),
-					Text(intl.T(chatI18nNamespace, "message.cancel")),
+					OnClick(parseConversationList.CancelDelete),
+					Text(parseIntl.T(chatI18nNamespace, "message.cancel")),
 				),
 				Button(
 					Class("px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-500 transition-colors font-medium"),
-					OnClick(conversationList.ConfirmDelete),
-					Text(intl.T(chatI18nNamespace, "sidebar.deleteConversation")),
+					OnClick(parseConversationList.ConfirmDelete),
+					Text(parseIntl.T(chatI18nNamespace, "sidebar.deleteConversation")),
 				),
 			),
 		),
 	)
 }
 
-func renderSettingsModal(intl i18n.Runtime, view appViewState, stopBubble ui.Handler, profileSettings profileSettingsController, auth authSessionController) ui.Node {
-	if !view.ShowSettingsModal {
+func renderSettingsModal(parseIntl i18n.Runtime, parseView appViewState, parseStopBubble ui.Handler, parseProfileSettings profileSettingsController, parseAuth authSessionController) ui.Node {
+	if !parseView.ShowSettingsModal {
 		return nil
 	}
-	activeSection := normalizeSettingsSectionID(view.ActiveSettingsSection)
-	if activeSection == "" {
-		activeSection = defaultSettingsSectionID
+	parseActiveSection := parseNormalizeSettingsSectionID(parseView.ActiveSettingsSection)
+	if parseActiveSection == "" {
+		parseActiveSection = defaultSettingsSectionID
 	}
-	currentThinkingMode := "off"
-	if view.ThinkingEnabledInput {
-		currentThinkingMode = normalizeSelectedThinkingEffort(view.ThinkingEffortInput)
+	parseCurrentThinkingMode := "off"
+	if parseView.ThinkingEnabledInput {
+		parseCurrentThinkingMode = parseNormalizeSelectedThinkingEffort(parseView.ThinkingEffortInput)
 	}
 	return Div(
 		Class("fixed inset-0 z-50 flex items-stretch justify-center bg-black/60 p-3 backdrop-blur-sm overlay-in sm:p-6"),
-		OnClick(profileSettings.Close),
+		OnClick(parseProfileSettings.Close),
 		Div(
 			Class("modal-in flex h-full max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#2f2f2f] shadow-[0_28px_90px_rgba(0,0,0,0.45)]"),
-			OnClick(stopBubble),
+			OnClick(parseStopBubble),
 			Div(Class("flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6"),
 				Div(Class("flex min-w-0 items-center gap-3"),
 					Div(Class("flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/6 text-lg"), Text("\u2699\ufe0f")),
 					Div(Class("min-w-0"),
-						P(Class("text-base font-semibold text-white sm:text-lg"), Text(intl.T(chatI18nNamespace, "modal.settingsTitle"))),
-						P(Class("text-sm text-white/45"), Text(view.SessionEmail)),
+						P(Class("text-base font-semibold text-white sm:text-lg"), Text(parseIntl.T(chatI18nNamespace, "modal.settingsTitle"))),
+						P(Class("text-sm text-white/45"), Text(parseView.SessionEmail)),
 					),
 				),
 				Button(
 					Class("flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"),
-					FromProps(Props{Aria: map[string]string{"label": intl.T(chatI18nNamespace, "message.cancel")}}),
-					OnClick(profileSettings.Close),
+					FromProps(Props{Aria: map[string]string{"label": parseIntl.T(chatI18nNamespace, "message.cancel")}}),
+					OnClick(parseProfileSettings.Close),
 					Span(Class("text-lg leading-none"), Text("\u00d7")),
 				),
 			),
@@ -312,49 +312,49 @@ func renderSettingsModal(intl i18n.Runtime, view appViewState, stopBubble ui.Han
 				Div(Class("min-h-0 overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/18 lg:basis-[20%] lg:max-w-[20%]"),
 					Div(Class("chat-scrollbar flex h-full min-h-0 flex-col overflow-y-auto p-3"),
 						Div(Class("rounded-[1.2rem] border border-white/8 bg-white/[0.03] px-4 py-3"),
-							P(Class("text-[11px] font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.settingsTitle"))),
-							P(Class("mt-2 text-sm font-medium text-white"), Text(view.SessionEmail)),
+							P(Class("text-[11px] font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.settingsTitle"))),
+							P(Class("mt-2 text-sm font-medium text-white"), Text(parseView.SessionEmail)),
 							P(Class("mt-1 text-xs leading-6 text-white/42"), Text("Navigation")),
 						),
 						Div(Class("mt-3 flex flex-col gap-2"),
-							renderSettingsNavItem(intl, activeSection, settingsSectionProfile, intl.T(chatI18nNamespace, "modal.displayName"), intl.T(chatI18nNamespace, "modal.displayNamePlaceholder"), profileSettings.NavigateSection),
-							renderSettingsNavItem(intl, activeSection, settingsSectionTone, intl.T(chatI18nNamespace, "modal.aiTone"), toneLabel(intl, view.ToneInput), profileSettings.NavigateSection),
-							renderSettingsNavItem(intl, activeSection, settingsSectionPrompt, intl.T(chatI18nNamespace, "modal.systemPrompt"), intl.T(chatI18nNamespace, "modal.systemPromptHelp"), profileSettings.NavigateSection),
-							renderSettingsNavItem(intl, activeSection, settingsSectionIntelligence, intl.T(chatI18nNamespace, "modal.intelligence"), thinkingEffortLabel(intl, currentThinkingMode), profileSettings.NavigateSection),
-							renderSettingsNavItem(intl, activeSection, settingsSectionSpeech, intl.T(chatI18nNamespace, "modal.ttsProviders"), ttsProviderLabel(view.SelectedTTSProvider), profileSettings.NavigateSection),
-							renderSettingsNavItem(intl, activeSection, settingsSectionMemories, intl.T(chatI18nNamespace, "modal.memories"), intl.T(chatI18nNamespace, "modal.memoriesHelp"), profileSettings.NavigateSection),
-							renderSettingsNavItem(intl, activeSection, settingsSectionLanguage, intl.T(chatI18nNamespace, "modal.language"), localeLabel(view.LocaleInput), profileSettings.NavigateSection),
+							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionProfile, parseIntl.T(chatI18nNamespace, "modal.displayName"), parseIntl.T(chatI18nNamespace, "modal.displayNamePlaceholder"), parseProfileSettings.NavigateSection),
+							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionTone, parseIntl.T(chatI18nNamespace, "modal.aiTone"), parseToneLabel(parseIntl, parseView.ToneInput), parseProfileSettings.NavigateSection),
+							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionPrompt, parseIntl.T(chatI18nNamespace, "modal.systemPrompt"), parseIntl.T(chatI18nNamespace, "modal.systemPromptHelp"), parseProfileSettings.NavigateSection),
+							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionIntelligence, parseIntl.T(chatI18nNamespace, "modal.intelligence"), parseThinkingEffortLabel(parseIntl, parseCurrentThinkingMode), parseProfileSettings.NavigateSection),
+							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionSpeech, parseIntl.T(chatI18nNamespace, "modal.ttsProviders"), parseTtsProviderLabel(parseView.SelectedTTSProvider), parseProfileSettings.NavigateSection),
+							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionMemories, parseIntl.T(chatI18nNamespace, "modal.memories"), parseIntl.T(chatI18nNamespace, "modal.memoriesHelp"), parseProfileSettings.NavigateSection),
+							renderSettingsNavItem(parseIntl, parseActiveSection, settingsSectionLanguage, parseIntl.T(chatI18nNamespace, "modal.language"), parseLocaleLabel(parseView.LocaleInput), parseProfileSettings.NavigateSection),
 						),
 					),
 				),
 				Div(Class("flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/12 lg:basis-[80%] lg:max-w-[80%]"),
 					Div(Class("border-b border-white/10 bg-black/10 px-5 py-4"),
-						P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(settingsSectionEyebrow(activeSection))),
-						P(Class("mt-2 text-xl font-semibold tracking-tight text-white"), Text(settingsSectionTitle(intl, activeSection))),
-						P(Class("mt-2 max-w-2xl text-sm leading-7 text-white/55"), Text(settingsSectionDescription(intl, view, activeSection, currentThinkingMode))),
+						P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(settingsSectionEyebrow(parseActiveSection))),
+						P(Class("mt-2 text-xl font-semibold tracking-tight text-white"), Text(settingsSectionTitle(parseIntl, parseActiveSection))),
+						P(Class("mt-2 max-w-2xl text-sm leading-7 text-white/55"), Text(settingsSectionDescription(parseIntl, parseView, parseActiveSection, parseCurrentThinkingMode))),
 					),
 					Div(Class("chat-scrollbar flex min-h-0 flex-1 overflow-y-auto"),
 						Div(Class("flex w-full flex-col gap-4 p-4 sm:p-5"),
-							renderActiveSettingsPane(intl, view, activeSection, currentThinkingMode, profileSettings),
+							renderActiveSettingsPane(parseIntl, parseView, parseActiveSection, parseCurrentThinkingMode, parseProfileSettings),
 						),
 					),
 					Div(Class("flex flex-col gap-3 border-t border-white/10 bg-black/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-5"),
-						If(view.Authenticated,
+						If(parseView.Authenticated,
 							Button(
 								Class("rounded-lg bg-red-500/15 px-4 py-2 text-sm text-red-200 transition-colors hover:bg-red-500/25 sm:mr-auto"),
-								OnClick(auth.Logout),
-								Text(intl.T(chatI18nNamespace, "auth.logout")),
+								OnClick(parseAuth.ParseLogout),
+								Text(parseIntl.T(chatI18nNamespace, "auth.logout")),
 							),
 						),
 						Button(
 							Class("rounded-lg bg-white/10 px-4 py-2 text-sm text-white/70 transition-colors hover:bg-white/20"),
-							OnClick(profileSettings.Close),
-							Text(intl.T(chatI18nNamespace, "message.cancel")),
+							OnClick(parseProfileSettings.Close),
+							Text(parseIntl.T(chatI18nNamespace, "message.cancel")),
 						),
 						Button(
 							Class("rounded-lg bg-white px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-white/90"),
-							OnClick(profileSettings.Save),
-							Text(intl.T(chatI18nNamespace, "modal.save")),
+							OnClick(parseProfileSettings.Save),
+							Text(parseIntl.T(chatI18nNamespace, "modal.save")),
 						),
 					),
 				),
@@ -363,82 +363,82 @@ func renderSettingsModal(intl i18n.Runtime, view appViewState, stopBubble ui.Han
 	)
 }
 
-func renderSpeechUpgradeModal(intl i18n.Runtime, show bool, errorText string, stopBubble ui.Handler, cancel ui.Handler, confirm ui.Handler) ui.Node {
-	if !show {
+func renderSpeechUpgradeModal(parseIntl i18n.Runtime, isShow bool, parseErrorText string, parseStopBubble ui.Handler, parseCancel ui.Handler, parseConfirm ui.Handler) ui.Node {
+	if !isShow {
 		return nil
 	}
 	return Div(
 		Class("fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overlay-in"),
-		OnClick(cancel),
+		OnClick(parseCancel),
 		Div(
 			Class("bg-[#2f2f2f] border border-white/10 rounded-2xl p-6 max-w-md w-full mx-4 flex flex-col gap-4 modal-in"),
-			OnClick(stopBubble),
-			P(Class("text-white font-semibold text-base"), Text(intl.T(chatI18nNamespace, "modal.speechProviderTitle"))),
-			P(Class("text-white/60 text-sm leading-6"), Text(intl.T(chatI18nNamespace, "modal.speechProviderBody"))),
-			If(strings.TrimSpace(errorText) != "",
-				Div(Class("rounded-xl border border-[#f59e0b]/24 bg-[#f59e0b]/10 px-3 py-2 text-xs text-[#ffd7a3]"), Text(errorText)),
+			OnClick(parseStopBubble),
+			P(Class("text-white font-semibold text-base"), Text(parseIntl.T(chatI18nNamespace, "modal.speechProviderTitle"))),
+			P(Class("text-white/60 text-sm leading-6"), Text(parseIntl.T(chatI18nNamespace, "modal.speechProviderBody"))),
+			If(strings.TrimSpace(parseErrorText) != "",
+				Div(Class("rounded-xl border border-[#f59e0b]/24 bg-[#f59e0b]/10 px-3 py-2 text-xs text-[#ffd7a3]"), Text(parseErrorText)),
 			),
 			Div(Class("flex gap-3 justify-end"),
 				Button(
 					Class("px-4 py-2 text-sm rounded-lg bg-white/10 text-white/70 hover:bg-white/20 transition-colors"),
-					OnClick(cancel),
-					Text(intl.T(chatI18nNamespace, "message.cancel")),
+					OnClick(parseCancel),
+					Text(parseIntl.T(chatI18nNamespace, "message.cancel")),
 				),
 				Button(
 					Class("px-4 py-2 text-sm rounded-lg bg-[#19c37d] text-[#052516] hover:bg-[#31de90] transition-colors font-medium"),
-					OnClick(confirm),
-					Text(intl.T(chatI18nNamespace, "modal.speechProviderConfirm")),
+					OnClick(parseConfirm),
+					Text(parseIntl.T(chatI18nNamespace, "modal.speechProviderConfirm")),
 				),
 			),
 		),
 	)
 }
 
-func renderSettingsNavItem(intl i18n.Runtime, activeSection, sectionID, title, summary string, onNavigate ui.Handler) ui.Node {
+func renderSettingsNavItem(parseIntl i18n.Runtime, parseActiveSection, parseSectionID, parseTitle, parseSummary string, parseOnNavigate ui.Handler) ui.Node {
 	return A(
-		Href(buildSettingsRoute(sectionID)),
-		Data(dataSettingsSection, sectionID),
-		OnClick(onNavigate),
+		Href(buildSettingsRoute(parseSectionID)),
+		Data(dataSettingsSection, parseSectionID),
+		OnClick(parseOnNavigate),
 		Class(ClassNames(
 			"rounded-[1.2rem] border px-4 py-3 text-left transition-colors",
-			When(activeSection == sectionID, "border-[#8df5cf]/40 bg-[#8df5cf]/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"),
-			When(activeSection != sectionID, "border-white/10 bg-white/[0.03] hover:bg-white/8"),
+			When(parseActiveSection == parseSectionID, "border-[#8df5cf]/40 bg-[#8df5cf]/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"),
+			When(parseActiveSection != parseSectionID, "border-white/10 bg-white/[0.03] hover:bg-white/8"),
 		)),
-		P(Class("text-[11px] font-medium uppercase tracking-[0.22em] text-white/35"), Text(title)),
+		P(Class("text-[11px] font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseTitle)),
 		P(Class(ClassNames(
 			"mt-1 text-sm leading-6",
-			When(activeSection == sectionID, "text-white"),
-			When(activeSection != sectionID, "text-white/74"),
-		)), Text(summary)),
+			When(parseActiveSection == parseSectionID, "text-white"),
+			When(parseActiveSection != parseSectionID, "text-white/74"),
+		)), Text(parseSummary)),
 	)
 }
 
-func renderActiveSettingsPane(intl i18n.Runtime, view appViewState, activeSection, currentThinkingMode string, profileSettings profileSettingsController) ui.Node {
-	switch activeSection {
+func renderActiveSettingsPane(parseIntl i18n.Runtime, parseView appViewState, parseActiveSection, parseCurrentThinkingMode string, parseProfileSettings profileSettingsController) ui.Node {
+	switch parseActiveSection {
 	case settingsSectionTone:
 		return Div(
 			ID(settingsSectionTone),
 			Class("flex flex-col gap-4"),
 			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.aiTone"))),
-				P(Class("mt-1 text-sm text-white/55"), Text(toneDescription(intl, view.ToneInput))),
+				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.aiTone"))),
+				P(Class("mt-1 text-sm text-white/55"), Text(parseToneDescription(parseIntl, parseView.ToneInput))),
 				Div(Class("mt-4 flex flex-col gap-2"),
-					Map(availableTones, func(option toneOption) ui.Node {
-						isActive := view.ToneInput == option.ID
+					Map(availableTones, func(parseOption toneOption) ui.Node {
+						isActive := parseView.ToneInput == parseOption.ParseID
 						return Button(
 							Class(ClassNames(
 								"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
 								When(isActive, "border-white/30 bg-white/15 text-white"),
 								When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
 							)),
-							Data(dataTone, option.ID),
-							OnClick(profileSettings.HandleToneChange),
-							Span(Class("font-medium"), Text(toneLabel(intl, option.ID))),
+							Data(dataTone, parseOption.ParseID),
+							OnClick(parseProfileSettings.HandleToneChange),
+							Span(Class("font-medium"), Text(parseToneLabel(parseIntl, parseOption.ParseID))),
 							Span(Class(ClassNames(
 								"text-xs",
 								When(isActive, "text-white/60"),
 								When(!isActive, "text-white/30"),
-							)), Text(toneDescription(intl, option.ID))),
+							)), Text(parseToneDescription(parseIntl, parseOption.ParseID))),
 						)
 					}),
 				),
@@ -450,13 +450,13 @@ func renderActiveSettingsPane(intl i18n.Runtime, view appViewState, activeSectio
 			Class("flex flex-col gap-3 rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
 			Tag("textarea",
 				Class("min-h-[18rem] w-full resize-y rounded-xl border border-white/20 bg-[#3a3a3a] px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none"),
-				Placeholder(intl.T(chatI18nNamespace, "modal.systemPromptPlaceholder")),
-				Value(view.SystemPromptInput),
-				OnInput(profileSettings.HandleSystemPrompt),
+				Placeholder(parseIntl.T(chatI18nNamespace, "modal.systemPromptPlaceholder")),
+				Value(parseView.SystemPromptInput),
+				OnInput(parseProfileSettings.HandleSystemPrompt),
 			),
 			P(
 				Class("whitespace-pre-wrap rounded-xl border border-white/10 bg-[#2d2d2d] px-3 py-2 font-mono text-[11px] leading-relaxed text-white/60"),
-				Text(intl.T(chatI18nNamespace, "modal.systemPromptTemplate")),
+				Text(parseIntl.T(chatI18nNamespace, "modal.systemPromptTemplate")),
 			),
 		)
 	case settingsSectionIntelligence:
@@ -464,62 +464,62 @@ func renderActiveSettingsPane(intl i18n.Runtime, view appViewState, activeSectio
 			ID(settingsSectionIntelligence),
 			Class("flex flex-col gap-4"),
 			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.intelligence"))),
-				P(Class("mt-1 text-sm text-white/55"), Text(intl.T(chatI18nNamespace, "modal.intelligenceHelp"))),
+				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligence"))),
+				P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligenceHelp"))),
 				Div(Class("mt-4 flex flex-col gap-2"),
-					Map(availableThinkingEfforts, func(option thinkingEffortOption) ui.Node {
-						isActive := currentThinkingMode == option.ID
+					Map(availableThinkingEfforts, func(parseOption2 thinkingEffortOption) ui.Node {
+						isActive := parseCurrentThinkingMode == parseOption2.ParseID
 						return Button(
 							Class(ClassNames(
 								"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
 								When(isActive, "border-white/30 bg-white/15 text-white"),
 								When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
-								When(!view.ThinkingSupported, "cursor-not-allowed opacity-50 hover:bg-[#3a3a3a] hover:text-white/60"),
+								When(!parseView.ThinkingSupported, "cursor-not-allowed opacity-50 hover:bg-[#3a3a3a] hover:text-white/60"),
 							)),
-							DisabledIf(!view.ThinkingSupported),
-							Data(dataThinkingEffort, option.ID),
-							OnClick(profileSettings.HandleThinkingMode),
-							Span(Class("font-medium"), Text(thinkingEffortLabel(intl, option.ID))),
+							DisabledIf(!parseView.ThinkingSupported),
+							Data(dataThinkingEffort, parseOption2.ParseID),
+							OnClick(parseProfileSettings.HandleThinkingMode),
+							Span(Class("font-medium"), Text(parseThinkingEffortLabel(parseIntl, parseOption2.ParseID))),
 						)
 					}),
 				),
-				If(!view.ThinkingSupported,
-					P(Class("mt-3 text-xs leading-relaxed text-white/40"), Text(intl.T(chatI18nNamespace, "modal.intelligenceUnavailable"))),
+				If(!parseView.ThinkingSupported,
+					P(Class("mt-3 text-xs leading-relaxed text-white/40"), Text(parseIntl.T(chatI18nNamespace, "modal.intelligenceUnavailable"))),
 				),
 			),
 		)
 	case settingsSectionSpeech:
-		providerOptions := ttsProviderOptionsForModels(view.ModelOptions, view.DefaultModelID)
-		activeProvider := resolveTTSProviderID(view.TTSProviderInput)
+		parseProviderOptions := parseTtsProviderOptionsForModels(parseView.ParseModelOptions, parseView.DefaultModelID)
+		parseActiveProvider := parseResolveTTSProviderID(parseView.TTSProviderInput)
 		return Div(
 			ID(settingsSectionSpeech),
 			Class("flex flex-col gap-4"),
 			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.ttsProviders"))),
-				P(Class("mt-1 text-sm text-white/55"), Text(intl.T(chatI18nNamespace, "modal.ttsProvidersHelp"))),
+				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.ttsProviders"))),
+				P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.ttsProvidersHelp"))),
 				Div(Class("mt-4 flex flex-col gap-2"),
-					Map(providerOptions, func(option ttsProviderOption) ui.Node {
-						isActive := activeProvider == option.ID
-						availabilityText := modelLabelForID(option.ResolvedModel, view.ModelOptions)
-						if !option.Available {
-							availabilityText = intl.T(chatI18nNamespace, "modal.ttsProviderUnavailable")
+					Map(parseProviderOptions, func(parseOption3 ttsProviderOption) ui.Node {
+						isActive := parseActiveProvider == parseOption3.ParseID
+						parseAvailabilityText := parseModelLabelForID(parseOption3.ResolvedModel, parseView.ParseModelOptions)
+						if !parseOption3.ParseAvailable {
+							parseAvailabilityText = parseIntl.T(chatI18nNamespace, "modal.ttsProviderUnavailable")
 						}
 						return Button(
 							Class(ClassNames(
 								"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
 								When(isActive, "border-white/30 bg-white/15 text-white"),
 								When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
-								When(!option.Available, "cursor-not-allowed opacity-50 hover:bg-[#3a3a3a] hover:text-white/60"),
+								When(!parseOption3.ParseAvailable, "cursor-not-allowed opacity-50 hover:bg-[#3a3a3a] hover:text-white/60"),
 							)),
-							DisabledIf(!option.Available),
-							Data(dataTTSProvider, option.ID),
-							OnClick(profileSettings.HandleTTSProvider),
-							Span(Class("font-medium"), Text(option.Label)),
+							DisabledIf(!parseOption3.ParseAvailable),
+							Data(dataTTSProvider, parseOption3.ParseID),
+							OnClick(parseProfileSettings.HandleTTSProvider),
+							Span(Class("font-medium"), Text(parseOption3.Label)),
 							Span(Class(ClassNames(
 								"text-xs",
 								When(isActive, "text-white/60"),
 								When(!isActive, "text-white/35"),
-							)), Text(availabilityText)),
+							)), Text(parseAvailabilityText)),
 						)
 					}),
 				),
@@ -531,39 +531,39 @@ func renderActiveSettingsPane(intl i18n.Runtime, view appViewState, activeSectio
 			Class("flex flex-col gap-4"),
 			Div(Class("flex items-center justify-between gap-3 rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
 				Div(Class("min-w-0"),
-					P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.memories"))),
-					P(Class("mt-1 text-sm text-white/55"), Text(intl.T(chatI18nNamespace, "modal.memoriesHelp"))),
+					P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.memories"))),
+					P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.memoriesHelp"))),
 				),
 				Button(
 					Class("rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-white/20"),
-					OnClick(profileSettings.AddMemory),
-					Text(intl.T(chatI18nNamespace, "modal.memoryAdd")),
+					OnClick(parseProfileSettings.AddMemory),
+					Text(parseIntl.T(chatI18nNamespace, "modal.memoryAdd")),
 				),
 			),
-			If(len(view.UserMemories) == 0,
-				Div(Class("rounded-[1.4rem] border border-dashed border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-white/40"), Text(intl.T(chatI18nNamespace, "modal.memoriesEmpty"))),
+			If(len(parseView.UserMemories) == 0,
+				Div(Class("rounded-[1.4rem] border border-dashed border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-white/40"), Text(parseIntl.T(chatI18nNamespace, "modal.memoriesEmpty"))),
 			),
-			Fragment(renderEditableUserMemories(intl, view.UserMemories, profileSettings)),
+			Fragment(renderEditableUserMemories(parseIntl, parseView.UserMemories, parseProfileSettings)),
 		)
 	case settingsSectionLanguage:
 		return Div(
 			ID(settingsSectionLanguage),
 			Class("flex flex-col gap-4"),
 			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.language"))),
-				P(Class("mt-1 text-sm text-white/55"), Text(localeLabel(view.LocaleInput))),
+				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.language"))),
+				P(Class("mt-1 text-sm text-white/55"), Text(parseLocaleLabel(parseView.LocaleInput))),
 				Div(Class("mt-4 flex flex-col gap-2"),
-					Map(availableLocales, func(option localeOption) ui.Node {
-						isActive := view.LocaleInput == option.ID
+					Map(availableLocales, func(parseOption4 localeOption) ui.Node {
+						isActive := parseView.LocaleInput == parseOption4.ParseID
 						return Button(
 							Class(ClassNames(
 								"flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
 								When(isActive, "border-white/30 bg-white/15 text-white"),
 								When(!isActive, "border-white/10 bg-[#3a3a3a] text-white/60 hover:bg-white/10 hover:text-white/90"),
 							)),
-							Data(dataLocale, option.ID),
-							OnClick(profileSettings.HandleLocaleChange),
-							Span(Class("font-medium"), Text(localeLabel(option.ID))),
+							Data(dataLocale, parseOption4.ParseID),
+							OnClick(parseProfileSettings.HandleLocaleChange),
+							Span(Class("font-medium"), Text(parseLocaleLabel(parseOption4.ParseID))),
 						)
 					}),
 				),
@@ -574,65 +574,65 @@ func renderActiveSettingsPane(intl i18n.Runtime, view appViewState, activeSectio
 			ID(settingsSectionProfile),
 			Class("flex flex-col gap-4"),
 			Div(Class("rounded-[1.4rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5"),
-				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(intl.T(chatI18nNamespace, "modal.displayName"))),
-				P(Class("mt-1 text-sm text-white/55"), Text(intl.T(chatI18nNamespace, "modal.displayNamePlaceholder"))),
+				P(Class("text-xs font-medium uppercase tracking-[0.22em] text-white/35"), Text(parseIntl.T(chatI18nNamespace, "modal.displayName"))),
+				P(Class("mt-1 text-sm text-white/55"), Text(parseIntl.T(chatI18nNamespace, "modal.displayNamePlaceholder"))),
 				Input(
 					ID(idNameInput),
 					Type("text"),
 					Class("mt-4 w-full rounded-xl border border-white/20 bg-[#3a3a3a] px-4 py-3 text-sm text-white placeholder:text-white/40 focus:outline-none"),
-					Placeholder(intl.T(chatI18nNamespace, "modal.displayNamePlaceholder")),
-					Value(view.NameInput),
-					OnInput(profileSettings.HandleNameInput),
-					OnKeyDown(profileSettings.HandleNameKey),
+					Placeholder(parseIntl.T(chatI18nNamespace, "modal.displayNamePlaceholder")),
+					Value(parseView.NameInput),
+					OnInput(parseProfileSettings.HandleNameInput),
+					OnKeyDown(parseProfileSettings.HandleNameKey),
 				),
 			),
 		)
 	}
 }
 
-func settingsSectionTitle(intl i18n.Runtime, activeSection string) string {
-	switch activeSection {
+func settingsSectionTitle(parseIntl i18n.Runtime, parseActiveSection string) string {
+	switch parseActiveSection {
 	case settingsSectionTone:
-		return intl.T(chatI18nNamespace, "modal.aiTone")
+		return parseIntl.T(chatI18nNamespace, "modal.aiTone")
 	case settingsSectionPrompt:
-		return intl.T(chatI18nNamespace, "modal.systemPrompt")
+		return parseIntl.T(chatI18nNamespace, "modal.systemPrompt")
 	case settingsSectionIntelligence:
-		return intl.T(chatI18nNamespace, "modal.intelligence")
+		return parseIntl.T(chatI18nNamespace, "modal.intelligence")
 	case settingsSectionSpeech:
-		return intl.T(chatI18nNamespace, "modal.ttsProviders")
+		return parseIntl.T(chatI18nNamespace, "modal.ttsProviders")
 	case settingsSectionMemories:
-		return intl.T(chatI18nNamespace, "modal.memories")
+		return parseIntl.T(chatI18nNamespace, "modal.memories")
 	case settingsSectionLanguage:
-		return intl.T(chatI18nNamespace, "modal.language")
+		return parseIntl.T(chatI18nNamespace, "modal.language")
 	default:
-		return intl.T(chatI18nNamespace, "modal.displayName")
+		return parseIntl.T(chatI18nNamespace, "modal.displayName")
 	}
 }
 
-func settingsSectionDescription(intl i18n.Runtime, view appViewState, activeSection, currentThinkingMode string) string {
-	switch activeSection {
+func settingsSectionDescription(parseIntl i18n.Runtime, parseView appViewState, parseActiveSection, parseCurrentThinkingMode string) string {
+	switch parseActiveSection {
 	case settingsSectionTone:
-		return toneDescription(intl, view.ToneInput)
+		return parseToneDescription(parseIntl, parseView.ToneInput)
 	case settingsSectionPrompt:
-		return intl.T(chatI18nNamespace, "modal.systemPromptHelp")
+		return parseIntl.T(chatI18nNamespace, "modal.systemPromptHelp")
 	case settingsSectionIntelligence:
-		if !view.ThinkingSupported {
-			return intl.T(chatI18nNamespace, "modal.intelligenceUnavailable")
+		if !parseView.ThinkingSupported {
+			return parseIntl.T(chatI18nNamespace, "modal.intelligenceUnavailable")
 		}
-		return thinkingEffortLabel(intl, currentThinkingMode)
+		return parseThinkingEffortLabel(parseIntl, parseCurrentThinkingMode)
 	case settingsSectionSpeech:
-		return intl.T(chatI18nNamespace, "modal.ttsProvidersHelp")
+		return parseIntl.T(chatI18nNamespace, "modal.ttsProvidersHelp")
 	case settingsSectionMemories:
-		return intl.T(chatI18nNamespace, "modal.memoriesHelp")
+		return parseIntl.T(chatI18nNamespace, "modal.memoriesHelp")
 	case settingsSectionLanguage:
-		return localeLabel(view.LocaleInput)
+		return parseLocaleLabel(parseView.LocaleInput)
 	default:
-		return intl.T(chatI18nNamespace, "modal.displayNamePlaceholder")
+		return parseIntl.T(chatI18nNamespace, "modal.displayNamePlaceholder")
 	}
 }
 
-func settingsSectionEyebrow(activeSection string) string {
-	switch activeSection {
+func settingsSectionEyebrow(parseActiveSection string) string {
+	switch parseActiveSection {
 	case settingsSectionTone:
 		return "Tone"
 	case settingsSectionPrompt:
@@ -650,39 +650,39 @@ func settingsSectionEyebrow(activeSection string) string {
 	}
 }
 
-func newChatHandler(app ui.Reducer[appState, appAction], scrollMemory threadScrollMemory, onNavigateRoot func()) ui.Handler {
+func parseNewChatHandler(parseApp ui.Reducer[appState, appAction], parseScrollMemory threadScrollMemory, parseOnNavigateRoot func()) ui.Handler {
 	return ui.UseEvent(func() {
-		currentState := app.Get()
-		if currentState.Streaming {
+		parseCurrentState := parseApp.Get()
+		if parseCurrentState.Streaming {
 			return
 		}
-		scrollMemory.CancelPendingPersist()
-		scrollMemory.PersistNow(currentState.ActiveConvID)
-		scrollMemory.PrepareRestore(0)
-		chatLog.Info("new chat", logging.Fields{"prev_conv_id": currentState.ActiveConvID, "messages": len(currentState.Messages)})
-		app.Dispatch(appAction{Type: appActionSetMessages, Messages: []message{}})
-		app.Dispatch(appAction{Type: appActionSetInputText, InputText: ""})
-		app.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: 0, ActiveConvPublicID: ""})
-		app.Dispatch(appAction{Type: appActionSetEditIdx, EditIdx: -1})
-		app.Dispatch(appAction{Type: appActionSetEditText, EditText: ""})
-		if onNavigateRoot != nil {
-			onNavigateRoot()
+		parseScrollMemory.CancelPendingPersist()
+		parseScrollMemory.ParsePersistNow(parseCurrentState.ActiveConvID)
+		parseScrollMemory.ParsePrepareRestore(0)
+		chatLog.ParseInfo("new chat", logging.Fields{"prev_conv_id": parseCurrentState.ActiveConvID, "messages": len(parseCurrentState.Messages)})
+		parseApp.Dispatch(appAction{Type: appActionSetMessages, Messages: []message{}})
+		parseApp.Dispatch(appAction{Type: appActionSetInputText, InputText: ""})
+		parseApp.Dispatch(appAction{Type: appActionSetActiveConvID, ActiveConvID: 0, ActiveConvPublicID: ""})
+		parseApp.Dispatch(appAction{Type: appActionSetEditIdx, EditIdx: -1})
+		parseApp.Dispatch(appAction{Type: appActionSetEditText, EditText: ""})
+		if parseOnNavigateRoot != nil {
+			parseOnNavigateRoot()
 		}
 	})
 }
 
-func toggleSidebarHandler(sidebarOpenState state.Atom[bool]) ui.Handler {
+func parseToggleSidebarHandler(parseSidebarOpenState state.Atom[bool]) ui.Handler {
 	return ui.UseEvent(func() {
-		sidebarOpenState.Set(!sidebarOpenState.Get())
+		parseSidebarOpenState.Set(!parseSidebarOpenState.Get())
 	})
 }
 
-func toggleThoughtSectionHandler(app ui.Reducer[appState, appAction]) ui.Handler {
-	return ui.UseEvent(func(e ui.Event) {
-		sectionKey := strings.TrimSpace(e.JSValue().Get("currentTarget").Get("dataset").Get(dataThoughtSection).String())
-		if sectionKey == "" {
+func parseToggleThoughtSectionHandler(parseApp ui.Reducer[appState, appAction]) ui.Handler {
+	return ui.UseEvent(func(parseE ui.Event) {
+		parseSectionKey := strings.TrimSpace(parseE.JSValue().Get("currentTarget").Get("dataset").Get(dataThoughtSection).ParseString())
+		if parseSectionKey == "" {
 			return
 		}
-		app.Dispatch(appAction{Type: appActionToggleThoughtSection, ThoughtSectionKey: sectionKey})
+		parseApp.Dispatch(appAction{Type: appActionToggleThoughtSection, ThoughtSectionKey: parseSectionKey})
 	})
 }

@@ -14,19 +14,19 @@ import (
 )
 
 func rawHandlerExample() ui.Node {
-	wrappedCount := ui.UseState(0)
-	rawCount := ui.UseState(0)
-	lastMode := ui.UseState("No clicks yet")
+	parseWrappedCount := ui.UseState(0)
+	parseRawCount := ui.UseState(0)
+	parseLastMode := ui.UseState("No clicks yet")
 
-	wrapped := ui.UseEvent(func() {
-		wrappedCount.Update(func(previous int) int { return previous + 1 })
-		lastMode.Set("ui.UseEvent")
+	parseWrapped := ui.UseEvent(func() {
+		parseWrappedCount.Update(func(parsePrevious int) int { return parsePrevious + 1 })
+		parseLastMode.Set("ui.UseEvent")
 	})
-	prebuiltRaw := ui.UseEvent(func() {
-		rawCount.Update(func(previous int) int { return previous + 1 })
-		lastMode.Set("ui.WrapHandler")
+	parsePrebuiltRaw := ui.UseEvent(func() {
+		parseRawCount.Update(func(parsePrevious2 int) int { return parsePrevious2 + 1 })
+		parseLastMode.Set("ui.WrapHandler")
 	})
-	raw := ui.WrapHandler(prebuiltRaw.Value())
+	parseRaw := ui.WrapHandler(parsePrebuiltRaw.Value())
 
 	return shared.ExamplePage(
 		"ui.WrapHandler",
@@ -35,13 +35,13 @@ func rawHandlerExample() ui.Node {
 		shared.ExamplePanel("Wrapped versus raw",
 			html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("Both buttons work. The left button passes the handler directly from ui.UseEvent. The right button forwards an already-created handler value through ui.WrapHandler without wrapping it again.")),
 			html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-				shared.ExampleButton("Increment via ui.UseEvent", wrapped),
-				html.Button(html.Props{OnClick: raw, Class: "rounded-full border border-amber-500/40 bg-amber-500/10 px-5 py-3 font-semibold text-amber-100 hover:bg-amber-500/20"}, html.Text("Increment via ui.WrapHandler")),
+				shared.ExampleButton("Increment via ui.UseEvent", parseWrapped),
+				html.Button(html.Props{OnClick: parseRaw, Class: "rounded-full border border-amber-500/40 bg-amber-500/10 px-5 py-3 font-semibold text-amber-100 hover:bg-amber-500/20"}, html.Text("Increment via ui.WrapHandler")),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
-				shared.ExampleStat("Wrapped clicks", fmt.Sprintf("%d", wrappedCount.Get())),
-				shared.ExampleStat("Raw clicks", fmt.Sprintf("%d", rawCount.Get())),
-				shared.ExampleStat("Last path", lastMode.Get()),
+				shared.ExampleStat("Wrapped clicks", fmt.Sprintf("%d", parseWrappedCount.Get())),
+				shared.ExampleStat("Raw clicks", fmt.Sprintf("%d", parseRawCount.Get())),
+				shared.ExampleStat("Last path", parseLastMode.Get()),
 			),
 			shared.ExampleCode(
 				`preferred := ui.UseEvent(func() { ... })`,

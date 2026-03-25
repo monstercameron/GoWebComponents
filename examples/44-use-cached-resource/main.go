@@ -31,84 +31,84 @@ func nextCachedFeedRevision() int {
 	return cachedFeedRevision
 }
 
-func loadCachedFeed(ctx context.Context) ([]string, error) {
+func loadCachedFeed(parseCtx context.Context) ([]string, error) {
 	select {
 	case <-time.After(700 * time.Millisecond):
-	case <-ctx.Done():
-		return nil, ctx.Err()
+	case <-parseCtx.Done():
+		return nil, parseCtx.Err()
 	}
 
-	revision := nextCachedFeedRevision()
+	parseRevision := nextCachedFeedRevision()
 	return []string{
-		fmt.Sprintf("Revision %d", revision),
+		fmt.Sprintf("Revision %d", parseRevision),
 		fmt.Sprintf("Loaded at %s", time.Now().Format("15:04:05")),
 		"Shared key lets multiple components see the same cached data.",
 	}, nil
 }
 
-func renderFeedList(items []string) []ui.Node {
-	children := make([]ui.Node, 0, len(items))
-	for _, item := range items {
-		children = append(children, html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-slate-200"}, html.Text(item)))
+func renderFeedList(parseItems []string) []ui.Node {
+	parseChildren := make([]ui.Node, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		parseChildren = append(parseChildren, html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-slate-200"}, html.Text(parseItem)))
 	}
-	return children
+	return parseChildren
 }
 
 func cachedControlPanel() ui.Node {
-	resource := fetch.UseCachedResource(cachedKey, loadCachedFeed, fetch.CacheOptions{StaleAfter: 5 * time.Second})
-	state := resource.Get()
-	reload := ui.UseEvent(func() { resource.Reload() })
-	invalidate := ui.UseEvent(func() { resource.Invalidate() })
-	optimistic := ui.UseEvent(func() {
-		resource.Update(func(previous []string) []string {
-			next := append([]string{}, previous...)
-			next = append([]string{"Optimistic local item"}, next...)
-			return next
+	parseResource := fetch.UseCachedResource(cachedKey, loadCachedFeed, fetch.CacheOptions{StaleAfter: 5 * time.Second})
+	parseState := parseResource.Get()
+	parseReload := ui.UseEvent(func() { parseResource.Reload() })
+	parseInvalidate := ui.UseEvent(func() { parseResource.Invalidate() })
+	parseOptimistic := ui.UseEvent(func() {
+		parseResource.Update(func(parsePrevious []string) []string {
+			parseNext := append([]string{}, parsePrevious...)
+			parseNext = append([]string{"Optimistic local item"}, parseNext...)
+			return parseNext
 		})
 	})
 
-	status := "Idle"
-	if state.Loading && !state.Ready {
-		status = "Initial load"
-	} else if state.Loading && state.Ready {
-		status = "Refreshing"
-	} else if state.Stale {
-		status = "Stale"
-	} else if state.Ready {
-		status = "Ready"
+	parseStatus := "Idle"
+	if parseState.Loading && !parseState.Ready {
+		parseStatus = "Initial load"
+	} else if parseState.Loading && parseState.Ready {
+		parseStatus = "Refreshing"
+	} else if parseState.Stale {
+		parseStatus = "Stale"
+	} else if parseState.Ready {
+		parseStatus = "Ready"
 	}
 
-	updatedAt := "-"
-	if !state.UpdatedAt.IsZero() {
-		updatedAt = state.UpdatedAt.Format("15:04:05")
+	parseUpdatedAt := "-"
+	if !parseState.UpdatedAt.IsZero() {
+		parseUpdatedAt = parseState.UpdatedAt.Format("15:04:05")
 	}
 
 	return shared.ExamplePanel("Cache owner",
 		html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-			shared.ExampleButton("Reload", reload),
-			shared.ExampleButton("Invalidate", invalidate),
-			shared.ExampleButton("Optimistic update", optimistic),
+			shared.ExampleButton("Reload", parseReload),
+			shared.ExampleButton("Invalidate", parseInvalidate),
+			shared.ExampleButton("Optimistic update", parseOptimistic),
 		),
 		html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
-			shared.ExampleStat("Status", status),
-			shared.ExampleStat("Ready", fmt.Sprintf("%t", state.Ready)),
-			shared.ExampleStat("Updated", updatedAt),
+			shared.ExampleStat("Status", parseStatus),
+			shared.ExampleStat("Ready", fmt.Sprintf("%t", parseState.Ready)),
+			shared.ExampleStat("Updated", parseUpdatedAt),
 		),
 	)
 }
 
 func cachedViewerPanel() ui.Node {
-	resource := fetch.UseCachedResource(cachedKey, loadCachedFeed, fetch.CacheOptions{StaleAfter: 5 * time.Second})
-	state := resource.Get()
+	parseResource := fetch.UseCachedResource(cachedKey, loadCachedFeed, fetch.CacheOptions{StaleAfter: 5 * time.Second})
+	parseState := parseResource.Get()
 
-	items := []ui.Node{html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-slate-400"}, html.Text("Waiting for cache data..."))}
-	if len(state.Value) > 0 {
-		items = renderFeedList(state.Value)
+	parseItems := []ui.Node{html.Li(html.Props{Class: "rounded-2xl border border-white/10 bg-slate-950/40 px-4 py-3 text-slate-400"}, html.Text("Waiting for cache data..."))}
+	if len(parseState.Value) > 0 {
+		parseItems = renderFeedList(parseState.Value)
 	}
 
 	return shared.ExamplePanel("Shared consumer",
 		html.P(html.Props{Class: "mt-3 text-slate-300"}, html.Text("This second component uses the same cache key and sees the same value, stale state, and optimistic updates.")),
-		html.Ul(html.Props{Class: "mt-6 grid gap-3"}, items...),
+		html.Ul(html.Props{Class: "mt-6 grid gap-3"}, parseItems...),
 	)
 }
 

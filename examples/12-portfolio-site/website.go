@@ -11,7 +11,7 @@ import (
 // DocsWebsite composes Earl Cameron's personal website and GoWebComponents showcase.
 // Combines personal branding, project portfolio, technical documentation, and
 // interactive examples into a cohesive single-page application experience.
-func DocsWebsite(props Attrs) *Element {
+func DocsWebsite(parseProps Attrs) *Element {
 	return html.Div(html.Props{Class: "min-h-screen bg-[#0a0a0a] text-white selection:bg-blue-500/30"},
 		ui.CreateElement(NavBar),
 		ui.CreateElement(PersonalHeroSection),

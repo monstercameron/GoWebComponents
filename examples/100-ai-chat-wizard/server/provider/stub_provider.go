@@ -12,33 +12,33 @@ type StubProvider struct {
 	catalog Catalog
 }
 
-func NewStubProvider(providerID string, catalog Catalog) *StubProvider {
-	trimmedID := strings.TrimSpace(strings.ToLower(providerID))
-	if trimmedID == "" {
+func ParseNewStubProvider(parseProviderID string, parseCatalog Catalog) *StubProvider {
+	parseTrimmedID := strings.TrimSpace(strings.ToLower(parseProviderID))
+	if parseTrimmedID == "" {
 		return &StubProvider{}
 	}
 	return &StubProvider{
-		id:      trimmedID,
-		label:   stubProviderLabel(trimmedID),
-		catalog: normalizeCatalog(trimmedID, stubProviderLabel(trimmedID), catalog),
+		id:      parseTrimmedID,
+		label:   parseStubProviderLabel(parseTrimmedID),
+		catalog: parseNormalizeCatalog(parseTrimmedID, parseStubProviderLabel(parseTrimmedID), parseCatalog),
 	}
 }
 
-func (p *StubProvider) ID() string {
-	return p.id
+func (parseP *StubProvider) ParseID() string {
+	return parseP.id
 }
 
-func (p *StubProvider) Available() bool {
-	return p != nil && p.id != "" && len(p.catalog.Options) > 0
+func (parseP *StubProvider) ParseAvailable() bool {
+	return parseP != nil && parseP.id != "" && len(parseP.catalog.Options) > 0
 }
 
-func (p *StubProvider) Info() ProviderInfo {
+func (parseP *StubProvider) ParseInfo() ProviderInfo {
 	return ProviderInfo{
-		ID:                 p.id,
-		Label:              p.label,
-		BaseURL:            "stub://" + p.id,
+		ID:                 parseP.id,
+		Label:              parseP.label,
+		BaseURL:            "stub://" + parseP.id,
 		AuthConfigured:     false,
-		Available:          p.Available(),
+		Available:          parseP.ParseAvailable(),
 		StreamingSupported: true,
 		ReasoningSupported: true,
 		ToolUseSupported:   false,
@@ -46,107 +46,107 @@ func (p *StubProvider) Info() ProviderInfo {
 	}
 }
 
-func (p *StubProvider) DefaultModel() string {
-	return strings.TrimSpace(p.catalog.DefaultModel)
+func (parseP *StubProvider) ParseDefaultModel() string {
+	return strings.TrimSpace(parseP.catalog.ParseDefaultModel)
 }
 
-func (p *StubProvider) SupportsModel(model string) bool {
-	return p.catalog.SupportsModel(model)
+func (parseP *StubProvider) ParseSupportsModel(parseModel string) bool {
+	return parseP.catalog.ParseSupportsModel(parseModel)
 }
 
-func (p *StubProvider) ModelOptions() []ModelOption {
-	return p.catalog.ModelOptions()
+func (parseP *StubProvider) ParseModelOptions() []ModelOption {
+	return parseP.catalog.ParseModelOptions()
 }
 
-func (p *StubProvider) ModelMetadata(model string) (ModelMetadata, bool) {
-	return p.catalog.ModelMetadata(model)
+func (parseP *StubProvider) ParseModelMetadata(parseModel string) (ModelMetadata, bool) {
+	return parseP.catalog.ParseModelMetadata(parseModel)
 }
 
-func (p *StubProvider) Capabilities(model string) ModelCapabilities {
-	if metadata, ok := p.catalog.ModelMetadata(model); ok {
-		return metadata.Capabilities
+func (parseP *StubProvider) ParseCapabilities(parseModel string) ModelCapabilities {
+	if parseMetadata, parseOk := parseP.catalog.ParseModelMetadata(parseModel); parseOk {
+		return parseMetadata.ParseCapabilities
 	}
-	return ModelCapabilities{ProviderID: p.id, ProviderLabel: p.label}
+	return ModelCapabilities{ProviderID: parseP.id, ProviderLabel: parseP.label}
 }
 
-func (p *StubProvider) Health() ProviderHealth {
-	if !p.Available() {
-		return ProviderHealth{ProviderID: p.id, Status: ProviderHealthUnavailable}
+func (parseP *StubProvider) ParseHealth() ProviderHealth {
+	if !parseP.ParseAvailable() {
+		return ProviderHealth{ProviderID: parseP.id, Status: ProviderHealthUnavailable}
 	}
-	return ProviderHealth{ProviderID: p.id, Status: ProviderHealthUnknown}
+	return ProviderHealth{ProviderID: parseP.id, Status: ProviderHealthUnknown}
 }
 
-func (p *StubProvider) CurrentRateLimits() RateLimitSnapshot {
+func (parseP *StubProvider) ParseCurrentRateLimits() RateLimitSnapshot {
 	return RateLimitSnapshot{}
 }
 
-func (p *StubProvider) GenerateTitle(_ context.Context, req TitleRequest) (string, error) {
-	userPrompt := strings.TrimSpace(req.Prompt)
-	if userPrompt == "" {
-		return fmt.Sprintf("%s stub conversation", p.label), nil
+func (parseP *StubProvider) ParseGenerateTitle(_ context.Context, parseReq TitleRequest) (string, error) {
+	parseUserPrompt := strings.TrimSpace(parseReq.Prompt)
+	if parseUserPrompt == "" {
+		return fmt.Sprintf("%s stub conversation", parseP.label), nil
 	}
-	title := userPrompt
-	if len(title) > 48 {
-		title = strings.TrimSpace(title[:48]) + "…"
+	parseTitle := parseUserPrompt
+	if len(parseTitle) > 48 {
+		parseTitle = strings.TrimSpace(parseTitle[:48]) + "…"
 	}
-	return fmt.Sprintf("%s stub: %s", p.label, title), nil
+	return fmt.Sprintf("%s stub: %s", parseP.label, parseTitle), nil
 }
 
-func (p *StubProvider) ExtractUserMemories(_ context.Context, _ MemoryExtractionRequest) ([]UserMemoryCandidate, error) {
+func (parseP *StubProvider) ParseExtractUserMemories(_ context.Context, _ MemoryExtractionRequest) ([]UserMemoryCandidate, error) {
 	return nil, nil
 }
 
-func (p *StubProvider) StreamChat(_ context.Context, req ChatRequest, emit func(ChatEvent) error) (ChatResult, error) {
-	model := strings.TrimSpace(req.Model)
-	if model == "" {
-		model = p.DefaultModel()
+func (parseP *StubProvider) ParseStreamChat(_ context.Context, parseReq ChatRequest, parseEmit func(ChatEvent) error) (ChatResult, error) {
+	parseModel := strings.TrimSpace(parseReq.Model)
+	if parseModel == "" {
+		parseModel = parseP.ParseDefaultModel()
 	}
-	if req.ThinkingEnabled {
-		if err := emit(ChatEvent{ThoughtDelta: fmt.Sprintf("%s stub reasoning in %s mode.", p.label, normalizeStubThinkingEffort(req.ThinkingEffort))}); err != nil {
-			return ChatResult{}, err
+	if parseReq.ThinkingEnabled {
+		if parseErr := parseEmit(ChatEvent{ThoughtDelta: fmt.Sprintf("%s stub reasoning in %s mode.", parseP.label, parseNormalizeStubThinkingEffort(parseReq.ThinkingEffort))}); parseErr != nil {
+			return ChatResult{}, parseErr
 		}
-		if err := emit(ChatEvent{ThoughtDone: true}); err != nil {
-			return ChatResult{}, err
+		if parseErr2 := parseEmit(ChatEvent{ThoughtDone: true}); parseErr2 != nil {
+			return ChatResult{}, parseErr2
 		}
 	}
-	response := fmt.Sprintf("%s stub reply from %s to %q", p.label, model, strings.TrimSpace(req.UserMessage))
-	if err := emit(ChatEvent{TextDelta: response}); err != nil {
-		return ChatResult{}, err
+	parseResponse := fmt.Sprintf("%s stub reply from %s to %q", parseP.label, parseModel, strings.TrimSpace(parseReq.UserMessage))
+	if parseErr3 := parseEmit(ChatEvent{TextDelta: parseResponse}); parseErr3 != nil {
+		return ChatResult{}, parseErr3
 	}
 	return ChatResult{
-		Model:            model,
-		PromptTokens:     int64(len(strings.Fields(req.UserMessage))) * 8,
-		CompletionTokens: int64(len(strings.Fields(response))) * 6,
+		Model:            parseModel,
+		PromptTokens:     int64(len(strings.Fields(parseReq.UserMessage))) * 8,
+		CompletionTokens: int64(len(strings.Fields(parseResponse))) * 6,
 	}, nil
 }
 
-func (p *StubProvider) SynthesizeSpeech(_ context.Context, req SpeechRequest, emit func(SpeechChunk) error) (SpeechResult, error) {
-	model := strings.TrimSpace(req.Model)
-	if model == "" {
-		model = p.DefaultModel()
+func (parseP *StubProvider) ParseSynthesizeSpeech(_ context.Context, parseReq SpeechRequest, parseEmit func(SpeechChunk) error) (SpeechResult, error) {
+	parseModel := strings.TrimSpace(parseReq.Model)
+	if parseModel == "" {
+		parseModel = parseP.ParseDefaultModel()
 	}
-	mimeType := "audio/mpeg"
-	chunk := SpeechChunk{
+	parseMimeType := "audio/mpeg"
+	parseChunk := SpeechChunk{
 		AudioChunk: []byte("stub-audio"),
-		MimeType:   mimeType,
-		Model:      model,
+		MimeType:   parseMimeType,
+		Model:      parseModel,
 		Voice:      "stub",
-		Script:     req.Text,
+		Script:     parseReq.Text,
 	}
-	if err := emit(chunk); err != nil {
-		return SpeechResult{}, err
+	if parseErr := parseEmit(parseChunk); parseErr != nil {
+		return SpeechResult{}, parseErr
 	}
-	done := chunk
-	done.AudioChunk = nil
-	done.Done = true
-	if err := emit(done); err != nil {
-		return SpeechResult{}, err
+	parseDone := parseChunk
+	parseDone.AudioChunk = nil
+	parseDone.Done = true
+	if parseErr2 := parseEmit(parseDone); parseErr2 != nil {
+		return SpeechResult{}, parseErr2
 	}
-	return SpeechResult{MimeType: mimeType, Model: model, Voice: "stub", Script: req.Text}, nil
+	return SpeechResult{MimeType: parseMimeType, Model: parseModel, Voice: "stub", Script: parseReq.Text}, nil
 }
 
-func stubProviderLabel(providerID string) string {
-	switch strings.TrimSpace(strings.ToLower(providerID)) {
+func parseStubProviderLabel(parseProviderID string) string {
+	switch strings.TrimSpace(strings.ToLower(parseProviderID)) {
 	case "openai":
 		return "OpenAI"
 	case "anthropic":
@@ -154,14 +154,14 @@ func stubProviderLabel(providerID string) string {
 	case "cerebras":
 		return "Cerebras"
 	default:
-		return strings.ToUpper(strings.TrimSpace(providerID))
+		return strings.ToUpper(strings.TrimSpace(parseProviderID))
 	}
 }
 
-func normalizeStubThinkingEffort(value string) string {
-	switch strings.TrimSpace(strings.ToLower(value)) {
+func parseNormalizeStubThinkingEffort(parseValue string) string {
+	switch strings.TrimSpace(strings.ToLower(parseValue)) {
 	case "low", "medium", "high":
-		return strings.TrimSpace(strings.ToLower(value))
+		return strings.TrimSpace(strings.ToLower(parseValue))
 	default:
 		return "medium"
 	}

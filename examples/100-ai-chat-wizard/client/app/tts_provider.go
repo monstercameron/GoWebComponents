@@ -24,30 +24,30 @@ var ttsProviderDefinitions = []ttsProviderDefinition{
 		ResolveModel: func(requestModel string, models []modelOption, fallback string) string {
 			const openAIProviderID = "openai"
 
-			resolvedRequestModel := normalizeSelectedModelID(requestModel, models, fallback)
-			if resolvedRequestModel != "" && modelSupportsSpeech(resolvedRequestModel, models, fallback) {
-				requestProvider := strings.TrimSpace(strings.ToLower(providerForModel(resolvedRequestModel, models, fallback).ID))
+			resolvedRequestModel := parseNormalizeSelectedModelID(requestModel, models, fallback)
+			if resolvedRequestModel != "" && parseModelSupportsSpeech(resolvedRequestModel, models, fallback) {
+				requestProvider := strings.TrimSpace(strings.ToLower(parseProviderForModel(resolvedRequestModel, models, fallback).ParseID))
 				if requestProvider == openAIProviderID {
 					return resolvedRequestModel
 				}
 			}
 
-			preferredModel := strings.TrimSpace(defaultModelForProvider(openAIProviderID, models, fallback))
+			preferredModel := strings.TrimSpace(parseDefaultModelForProvider(openAIProviderID, models, fallback))
 			if preferredModel != "" {
-				preferredProvider := strings.TrimSpace(strings.ToLower(providerForModel(preferredModel, models, fallback).ID))
-				if preferredProvider == openAIProviderID && modelSupportsSpeech(preferredModel, models, fallback) {
+				preferredProvider := strings.TrimSpace(strings.ToLower(parseProviderForModel(preferredModel, models, fallback).ParseID))
+				if preferredProvider == openAIProviderID && parseModelSupportsSpeech(preferredModel, models, fallback) {
 					return preferredModel
 				}
 			}
 
 			for _, option := range models {
-				if !option.Capabilities.SupportsSpeech {
+				if !option.ParseCapabilities.SupportsSpeech {
 					continue
 				}
-				if strings.TrimSpace(strings.ToLower(option.Capabilities.ProviderID)) != openAIProviderID {
+				if strings.TrimSpace(strings.ToLower(option.ParseCapabilities.ProviderID)) != openAIProviderID {
 					continue
 				}
-				if modelID := strings.TrimSpace(option.ID); modelID != "" {
+				if modelID := strings.TrimSpace(option.ParseID); modelID != "" {
 					return modelID
 				}
 			}
@@ -57,78 +57,78 @@ var ttsProviderDefinitions = []ttsProviderDefinition{
 	},
 }
 
-func resolveTTSProviderID(providerID string) string {
-	normalized := strings.TrimSpace(strings.ToLower(providerID))
-	for _, provider := range ttsProviderDefinitions {
-		if provider.ID == normalized {
-			return provider.ID
+func parseResolveTTSProviderID(parseProviderID string) string {
+	parseNormalized := strings.TrimSpace(strings.ToLower(parseProviderID))
+	for _, parseProvider := range ttsProviderDefinitions {
+		if parseProvider.ParseID == parseNormalized {
+			return parseProvider.ParseID
 		}
 	}
 	return defaultTTSProvider
 }
 
-func ttsProviderLabel(providerID string) string {
-	resolvedProviderID := resolveTTSProviderID(providerID)
-	for _, provider := range ttsProviderDefinitions {
-		if provider.ID == resolvedProviderID {
-			return provider.Label
+func parseTtsProviderLabel(parseProviderID string) string {
+	parseResolvedProviderID := parseResolveTTSProviderID(parseProviderID)
+	for _, parseProvider := range ttsProviderDefinitions {
+		if parseProvider.ParseID == parseResolvedProviderID {
+			return parseProvider.Label
 		}
 	}
-	return strings.ToUpper(resolvedProviderID)
+	return strings.ToUpper(parseResolvedProviderID)
 }
 
-func ttsProviderOptionsForModels(models []modelOption, fallback string) []ttsProviderOption {
-	options := make([]ttsProviderOption, 0, len(ttsProviderDefinitions))
-	for _, provider := range ttsProviderDefinitions {
-		resolvedModel := strings.TrimSpace(provider.ResolveModel("", models, fallback))
-		options = append(options, ttsProviderOption{
-			ID:            provider.ID,
-			Label:         provider.Label,
-			ResolvedModel: resolvedModel,
-			Available:     resolvedModel != "",
+func parseTtsProviderOptionsForModels(parseModels []modelOption, parseFallback string) []ttsProviderOption {
+	parseOptions := make([]ttsProviderOption, 0, len(ttsProviderDefinitions))
+	for _, parseProvider := range ttsProviderDefinitions {
+		parseResolvedModel := strings.TrimSpace(parseProvider.ResolveModel("", parseModels, parseFallback))
+		parseOptions = append(parseOptions, ttsProviderOption{
+			ID:            parseProvider.ParseID,
+			Label:         parseProvider.Label,
+			ResolvedModel: parseResolvedModel,
+			Available:     parseResolvedModel != "",
 		})
 	}
-	return options
+	return parseOptions
 }
 
-func resolveTTSProviderModel(providerID, requestModel string, models []modelOption, fallback string) string {
-	resolvedProviderID := resolveTTSProviderID(providerID)
-	for _, provider := range ttsProviderDefinitions {
-		if provider.ID != resolvedProviderID {
+func parseResolveTTSProviderModel(parseProviderID, parseRequestModel string, parseModels []modelOption, parseFallback string) string {
+	parseResolvedProviderID := parseResolveTTSProviderID(parseProviderID)
+	for _, parseProvider := range ttsProviderDefinitions {
+		if parseProvider.ParseID != parseResolvedProviderID {
 			continue
 		}
-		return strings.TrimSpace(provider.ResolveModel(requestModel, models, fallback))
+		return strings.TrimSpace(parseProvider.ResolveModel(parseRequestModel, parseModels, parseFallback))
 	}
 	return ""
 }
 
-func ttsProviderSupportsSpeech(providerID string, models []modelOption, fallback string) bool {
-	resolvedModel := resolveTTSProviderModel(providerID, "", models, fallback)
-	return modelSupportsSpeech(resolvedModel, models, fallback)
+func parseTtsProviderSupportsSpeech(parseProviderID string, parseModels []modelOption, parseFallback string) bool {
+	parseResolvedModel := parseResolveTTSProviderModel(parseProviderID, "", parseModels, parseFallback)
+	return parseModelSupportsSpeech(parseResolvedModel, parseModels, parseFallback)
 }
 
 // openAITTSSynthesisModel stays as a compatibility helper for existing tests.
-func openAITTSSynthesisModel(models []modelOption, fallback string) string {
-	return resolveTTSProviderModel(ttsProviderOpenAI, "", models, fallback)
+func parseOpenAITTSSynthesisModel(parseModels []modelOption, parseFallback string) string {
+	return parseResolveTTSProviderModel(ttsProviderOpenAI, "", parseModels, parseFallback)
 }
 
-func resolveSpeechSynthesisModelForProvider(requestModel string, models []modelOption, fallback string, providerID string) (string, bool) {
-	resolvedModel := resolveTTSProviderModel(providerID, requestModel, models, fallback)
-	if !modelSupportsSpeech(resolvedModel, models, fallback) {
+func parseResolveSpeechSynthesisModelForProvider(parseRequestModel string, parseModels []modelOption, parseFallback string, parseProviderID string) (string, bool) {
+	parseResolvedModel := parseResolveTTSProviderModel(parseProviderID, parseRequestModel, parseModels, parseFallback)
+	if !parseModelSupportsSpeech(parseResolvedModel, parseModels, parseFallback) {
 		return "", false
 	}
-	return resolvedModel, true
+	return parseResolvedModel, true
 }
 
 // resolveSpeechSynthesisModel stays as a compatibility helper for the older
 // boolean fallback mode and delegates to the provider abstraction.
-func resolveSpeechSynthesisModel(requestModel string, models []modelOption, fallback string, useOpenAITTSFallback bool) (string, bool) {
-	resolvedModel := normalizeSelectedModelID(requestModel, models, fallback)
-	if modelSupportsSpeech(resolvedModel, models, fallback) {
-		return resolvedModel, true
+func parseResolveSpeechSynthesisModel(parseRequestModel string, parseModels []modelOption, parseFallback string, isUseOpenAITTSFallback bool) (string, bool) {
+	parseResolvedModel := parseNormalizeSelectedModelID(parseRequestModel, parseModels, parseFallback)
+	if parseModelSupportsSpeech(parseResolvedModel, parseModels, parseFallback) {
+		return parseResolvedModel, true
 	}
-	if !useOpenAITTSFallback {
+	if !isUseOpenAITTSFallback {
 		return "", false
 	}
-	return resolveSpeechSynthesisModelForProvider(requestModel, models, fallback, ttsProviderOpenAI)
+	return parseResolveSpeechSynthesisModelForProvider(parseRequestModel, parseModels, parseFallback, ttsProviderOpenAI)
 }

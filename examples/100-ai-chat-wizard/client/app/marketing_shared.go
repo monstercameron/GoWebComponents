@@ -55,7 +55,7 @@ func renderMarketingHeaderBrand(renderSubtitle, renderTargetPath string) ui.Node
 	return A(
 		Class("flex min-w-0 items-center gap-3 sm:gap-4"),
 		Href(renderTargetPath),
-		OnClick(landingNavigateHandler(renderTargetPath)),
+		OnClick(parseLandingNavigateHandler(renderTargetPath)),
 		Div(
 			Class("grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[linear-gradient(135deg,#c4b5fd_0%,#f9a8d4_100%)] text-sm font-black text-[#1a1330] sm:h-11 sm:w-11"),
 			Text("RD"),
@@ -78,7 +78,7 @@ func renderMarketingHeaderAction(renderLabel, renderTargetPath string, isPrimary
 			When(isHiddenOnSmall, "hidden sm:inline-flex"),
 		)),
 		Href(renderTargetPath),
-		OnClick(landingNavigateHandler(renderTargetPath)),
+		OnClick(parseLandingNavigateHandler(renderTargetPath)),
 		Text(renderLabel),
 	)
 }
@@ -115,34 +115,34 @@ func renderLandingFooterLink(renderLabel, renderHref string) ui.Node {
 
 // landingNavigateHandler returns a click handler that performs client-side router navigation,
 // respecting modifier keys and default-prevented events so browser behaviour is preserved.
-func landingNavigateHandler(routeTargetPath string) func(ui.Event) {
-	routeNormalizedTarget := strings.TrimSpace(routeTargetPath)
-	return func(e ui.Event) {
-		routeJSEvent := e.JSValue()
-		if routeJSEvent.Truthy() {
-			if routeJSEvent.Get("defaultPrevented").Bool() {
+func parseLandingNavigateHandler(parseRouteTargetPath string) func(ui.Event) {
+	parseRouteNormalizedTarget := strings.TrimSpace(parseRouteTargetPath)
+	return func(parseE ui.Event) {
+		parseRouteJSEvent := parseE.JSValue()
+		if parseRouteJSEvent.Truthy() {
+			if parseRouteJSEvent.Get("defaultPrevented").Bool() {
 				return
 			}
-			if routeJSEvent.Get("button").Int() != 0 {
+			if parseRouteJSEvent.Get("button").Int() != 0 {
 				return
 			}
-			if routeJSEvent.Get("metaKey").Bool() || routeJSEvent.Get("ctrlKey").Bool() || routeJSEvent.Get("shiftKey").Bool() || routeJSEvent.Get("altKey").Bool() {
+			if parseRouteJSEvent.Get("metaKey").Bool() || parseRouteJSEvent.Get("ctrlKey").Bool() || parseRouteJSEvent.Get("shiftKey").Bool() || parseRouteJSEvent.Get("altKey").Bool() {
 				return
 			}
 		}
 
-		e.PreventDefault()
-		if routeNormalizedTarget == "" {
+		parseE.PreventDefault()
+		if parseRouteNormalizedTarget == "" {
 			return
 		}
-		routeCurrentPath := strings.TrimSpace(router.GetCurrentPath())
-		if routeCurrentPath == routeNormalizedTarget {
+		parseRouteCurrentPath := strings.TrimSpace(router.GetCurrentPath())
+		if parseRouteCurrentPath == parseRouteNormalizedTarget {
 			return
 		}
 		// treat /home and authLandingRoute as the same destination to avoid a redundant navigation
-		if routeNormalizedTarget == authLandingRoute && routeCurrentPath == marketingHomeRoute {
+		if parseRouteNormalizedTarget == authLandingRoute && parseRouteCurrentPath == marketingHomeRoute {
 			return
 		}
-		router.Navigate(routeNormalizedTarget)
+		router.Navigate(parseRouteNormalizedTarget)
 	}
 }

@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-func TestGeneratedMessagesExposeNoArgMethodsAndNilSafeGetters(t *testing.T) {
-	messages := []interface{}{
+func TestGeneratedMessagesExposeNoArgMethodsAndNilSafeGetters(parseT *testing.T) {
+	parseMessages := []interface{}{
 		&ChatMessage{},
 		&SendRequest{},
 		&ChatChunk{},
@@ -42,46 +42,46 @@ func TestGeneratedMessagesExposeNoArgMethodsAndNilSafeGetters(t *testing.T) {
 		&SynthesizeSpeechChunk{},
 	}
 
-	for _, message := range messages {
-		callNoArgMethods(t, message)
-		callNilGetters(t, reflect.TypeOf(message))
+	for _, parseMessage := range parseMessages {
+		parseCallNoArgMethods(parseT, parseMessage)
+		parseCallNilGetters(parseT, reflect.TypeOf(parseMessage))
 	}
 }
 
-func callNoArgMethods(t *testing.T, message interface{}) {
-	t.Helper()
-	value := reflect.ValueOf(message)
-	typ := value.Type()
-	for index := 0; index < value.NumMethod(); index++ {
-		method := value.Method(index)
-		methodType := method.Type()
-		if methodType.NumIn() != 0 {
+func parseCallNoArgMethods(parseT *testing.T, parseMessage interface{}) {
+	parseT.Helper()
+	parseValue := reflect.ValueOf(parseMessage)
+	parseTyp := parseValue.Type()
+	for parseIndex := 0; parseIndex < parseValue.NumMethod(); parseIndex++ {
+		parseMethod := parseValue.Method(parseIndex)
+		parseMethodType := parseMethod.Type()
+		if parseMethodType.NumIn() != 0 {
 			continue
 		}
 		// Skip two-return Descriptor signatures and other non-trivial call shapes.
-		if methodType.NumOut() > 1 {
+		if parseMethodType.NumOut() > 1 {
 			continue
 		}
-		if typ.Method(index).Name == "ProtoMessage" {
+		if parseTyp.Method(parseIndex).Name == "ProtoMessage" {
 			continue
 		}
-		method.Call(nil)
+		parseMethod.Call(nil)
 	}
 }
 
-func callNilGetters(t *testing.T, pointerType reflect.Type) {
-	t.Helper()
-	nilValue := reflect.Zero(pointerType)
-	for index := 0; index < nilValue.NumMethod(); index++ {
-		methodInfo := pointerType.Method(index)
-		methodType := methodInfo.Type
-		if !strings.HasPrefix(methodInfo.Name, "Get") {
+func parseCallNilGetters(parseT *testing.T, parsePointerType reflect.Type) {
+	parseT.Helper()
+	parseNilValue := reflect.Zero(parsePointerType)
+	for parseIndex := 0; parseIndex < parseNilValue.NumMethod(); parseIndex++ {
+		parseMethodInfo := parsePointerType.Method(parseIndex)
+		parseMethodType := parseMethodInfo.Type
+		if !strings.HasPrefix(parseMethodInfo.Name, "Get") {
 			continue
 		}
 		// Receiver + no parameters.
-		if methodType.NumIn() != 1 || methodType.NumOut() != 1 {
+		if parseMethodType.NumIn() != 1 || parseMethodType.NumOut() != 1 {
 			continue
 		}
-		nilValue.Method(index).Call(nil)
+		parseNilValue.Method(parseIndex).Call(nil)
 	}
 }

@@ -9,29 +9,29 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func eventDatasetValue(e ui.Event, key string) string {
-	return strings.TrimSpace(e.JSValue().Get("currentTarget").Get("dataset").Get(key).String())
+func parseEventDatasetValue(parseE ui.Event, parseKey string) string {
+	return strings.TrimSpace(parseE.JSValue().Get("currentTarget").Get("dataset").Get(parseKey).ParseString())
 }
 
-func eventValueOrDataset(e ui.Event, key string) string {
-	if value := strings.TrimSpace(e.GetValue()); value != "" {
-		return value
+func parseEventValueOrDataset(parseE ui.Event, parseKey string) string {
+	if parseValue := strings.TrimSpace(parseE.GetValue()); parseValue != "" {
+		return parseValue
 	}
-	return eventDatasetValue(e, key)
+	return parseEventDatasetValue(parseE, parseKey)
 }
 
-func eventDatasetInt(e ui.Event, key string) (int, bool) {
-	value, err := strconv.Atoi(eventDatasetValue(e, key))
-	if err != nil {
+func parseEventDatasetInt(parseE ui.Event, parseKey string) (int, bool) {
+	parseValue, parseErr := strconv.Atoi(parseEventDatasetValue(parseE, parseKey))
+	if parseErr != nil {
 		return 0, false
 	}
-	return value, true
+	return parseValue, true
 }
 
-func eventDatasetInt64(e ui.Event, key string) (int64, bool) {
-	value, err := strconv.ParseInt(eventDatasetValue(e, key), 10, 64)
-	if err != nil {
+func parseEventDatasetInt64(parseE ui.Event, parseKey string) (int64, bool) {
+	parseValue, parseErr := strconv.ParseInt(parseEventDatasetValue(parseE, parseKey), 10, 64)
+	if parseErr != nil {
 		return 0, false
 	}
-	return value, true
+	return parseValue, true
 }

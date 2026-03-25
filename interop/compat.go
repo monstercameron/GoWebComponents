@@ -34,16 +34,16 @@ func SharedWindowEnv() (WindowEnv, error) {
 }
 
 // NewGoWASMWorker preserves the legacy Go WASM worker constructor name.
-func NewGoWASMWorker(parseCtx context.Context, parseOptions GoWASMWorkerOptions) (Worker, error) {
-	return OpenGoWASMWorker(parseCtx, parseOptions)
+func NewGoWASMWorker(parseWorkerCtx context.Context, parseWorkerOptions GoWASMWorkerOptions) (Worker, error) {
+	return OpenGoWASMWorker(parseWorkerCtx, parseWorkerOptions)
 }
 
 // SetTimeout preserves the legacy timer helper name.
-func SetTimeout(parseDelay time.Duration, parseFn func()) (Timer, error) {
-	return ScheduleTimeout(parseDelay, parseFn)
+func SetTimeout(parseTimerDelay time.Duration, parseTimerFn func()) (Timer, error) {
+	return ScheduleTimeout(parseTimerDelay, parseTimerFn)
 }
 
 // SetInterval preserves the legacy interval helper name.
-func SetInterval(parseInterval time.Duration, parseFn func()) (Timer, error) {
-	return ScheduleInterval(parseInterval, parseFn)
+func SetInterval(parseTimerInterval time.Duration, parseTimerFn func()) (Timer, error) {
+	return ScheduleInterval(parseTimerInterval, parseTimerFn)
 }

@@ -12,15 +12,15 @@ import (
 )
 
 func usePreviousExample() ui.Node {
-	query := ui.UseState("")
-	previous := ui.UsePrevious(query.Get())
-	update := ui.UseEvent(func(event ui.InputEvent) {
-		query.Set(event.GetValue())
+	parseQuery := ui.UseState("")
+	parsePrevious := ui.UsePrevious(parseQuery.Get())
+	parseUpdate := ui.UseEvent(func(parseEvent ui.InputEvent) {
+		parseQuery.Set(parseEvent.GetValue())
 	})
 
-	previousLabel := "No previous committed value yet"
-	if previous.Ok() {
-		previousLabel = previous.Get()
+	parsePreviousLabel := "No previous committed value yet"
+	if parsePrevious.Ok() {
+		parsePreviousLabel = parsePrevious.Get()
 	}
 
 	return shared.ExamplePage(
@@ -28,10 +28,10 @@ func usePreviousExample() ui.Node {
 		"Compare the current value with the previous committed one",
 		"UsePrevious is useful for render-time comparisons, change detection, and transition messaging without creating extra state of your own.",
 		shared.ExamplePanel("Current versus previous",
-			html.Input(html.Props{Value: query.Get(), OnInput: update, Placeholder: "Type to compare values", Class: "mt-3 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100"}),
+			html.Input(html.Props{Value: parseQuery.Get(), OnInput: parseUpdate, Placeholder: "Type to compare values", Class: "mt-3 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100"}),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Current", query.Get()),
-				shared.ExampleStat("Previous", previousLabel),
+				shared.ExampleStat("Current", parseQuery.Get()),
+				shared.ExampleStat("Previous", parsePreviousLabel),
 			),
 		),
 	)

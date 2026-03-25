@@ -113,8 +113,8 @@ type examplesRuntimeConfig struct {
 	ExampleSlug string
 }
 
-func normalizeCatalogMode(mode string) string {
-	switch strings.TrimSpace(strings.ToLower(mode)) {
+func normalizeCatalogMode(parseMode string) string {
+	switch strings.TrimSpace(strings.ToLower(parseMode)) {
 	case "wasm":
 		return "wasm"
 	case "multi-client":
@@ -124,381 +124,381 @@ func normalizeCatalogMode(mode string) string {
 	}
 }
 
-func normalizeCatalogFeatures(features []string) []string {
-	seen := map[string]struct{}{}
-	for _, feature := range features {
-		feature = strings.TrimSpace(strings.ToLower(feature))
-		if feature == "" {
+func normalizeCatalogFeatures(parseFeatures []string) []string {
+	parseSeen := map[string]struct{}{}
+	for _, parseFeature := range parseFeatures {
+		parseFeature = strings.TrimSpace(strings.ToLower(parseFeature))
+		if parseFeature == "" {
 			continue
 		}
-		seen[feature] = struct{}{}
+		parseSeen[parseFeature] = struct{}{}
 	}
-	ordered := make([]string, 0, len(seen))
-	for _, feature := range catalogFeatureOrder {
-		if _, ok := seen[feature]; ok {
-			ordered = append(ordered, feature)
-			delete(seen, feature)
+	parseOrdered := make([]string, 0, len(parseSeen))
+	for _, parseFeature2 := range catalogFeatureOrder {
+		if _, parseOk := parseSeen[parseFeature2]; parseOk {
+			parseOrdered = append(parseOrdered, parseFeature2)
+			delete(parseSeen, parseFeature2)
 		}
 	}
-	if len(seen) > 0 {
-		extra := make([]string, 0, len(seen))
-		for feature := range seen {
-			extra = append(extra, feature)
+	if len(parseSeen) > 0 {
+		parseExtra := make([]string, 0, len(parseSeen))
+		for parseFeature3 := range parseSeen {
+			parseExtra = append(parseExtra, parseFeature3)
 		}
-		sort.Strings(extra)
-		ordered = append(ordered, extra...)
+		sort.Strings(parseExtra)
+		parseOrdered = append(parseOrdered, parseExtra...)
 	}
-	return ordered
+	return parseOrdered
 }
 
-func catalogFeatureLabel(feature string) string {
-	feature = strings.TrimSpace(strings.ToLower(feature))
-	if label, ok := catalogFeatureLabels[feature]; ok {
-		return label
+func catalogFeatureLabel(parseFeature string) string {
+	parseFeature = strings.TrimSpace(strings.ToLower(parseFeature))
+	if parseLabel, parseOk := catalogFeatureLabels[parseFeature]; parseOk {
+		return parseLabel
 	}
-	parts := strings.Fields(strings.ReplaceAll(feature, "-", " "))
-	for index, part := range parts {
-		if part == "" {
+	parseParts := strings.Fields(strings.ReplaceAll(parseFeature, "-", " "))
+	for parseIndex, parsePart := range parseParts {
+		if parsePart == "" {
 			continue
 		}
-		parts[index] = strings.ToUpper(part[:1]) + part[1:]
+		parseParts[parseIndex] = strings.ToUpper(parsePart[:1]) + parsePart[1:]
 	}
-	return strings.Join(parts, " ")
+	return strings.Join(parseParts, " ")
 }
 
-func availableCatalogFeatures(entries []catalogEntry) []string {
-	present := map[string]struct{}{}
-	for _, entry := range entries {
-		for _, tag := range entry.Tags {
-			tag = strings.TrimSpace(strings.ToLower(tag))
-			if _, ok := catalogFeatureLabels[tag]; ok {
-				present[tag] = struct{}{}
+func availableCatalogFeatures(parseEntries []catalogEntry) []string {
+	parsePresent := map[string]struct{}{}
+	for _, parseEntry := range parseEntries {
+		for _, parseTag := range parseEntry.Tags {
+			parseTag = strings.TrimSpace(strings.ToLower(parseTag))
+			if _, parseOk := catalogFeatureLabels[parseTag]; parseOk {
+				parsePresent[parseTag] = struct{}{}
 			}
 		}
 	}
-	available := make([]string, 0, len(present))
-	for _, feature := range catalogFeatureOrder {
-		if _, ok := present[feature]; ok {
-			available = append(available, feature)
+	parseAvailable := make([]string, 0, len(parsePresent))
+	for _, parseFeature := range catalogFeatureOrder {
+		if _, parseOk2 := parsePresent[parseFeature]; parseOk2 {
+			parseAvailable = append(parseAvailable, parseFeature)
 		}
 	}
-	return available
+	return parseAvailable
 }
 
-func toggleCatalogFeature(features []string, feature string, enabled bool) []string {
-	feature = strings.TrimSpace(strings.ToLower(feature))
-	next := make([]string, 0, len(features)+1)
-	for _, existing := range normalizeCatalogFeatures(features) {
-		if existing == feature {
+func toggleCatalogFeature(parseFeatures []string, parseFeature string, isEnabled bool) []string {
+	parseFeature = strings.TrimSpace(strings.ToLower(parseFeature))
+	parseNext := make([]string, 0, len(parseFeatures)+1)
+	for _, parseExisting := range normalizeCatalogFeatures(parseFeatures) {
+		if parseExisting == parseFeature {
 			continue
 		}
-		next = append(next, existing)
+		parseNext = append(parseNext, parseExisting)
 	}
-	if enabled && feature != "" {
-		next = append(next, feature)
+	if isEnabled && parseFeature != "" {
+		parseNext = append(parseNext, parseFeature)
 	}
-	return normalizeCatalogFeatures(next)
+	return normalizeCatalogFeatures(parseNext)
 }
 
-func featureSummaryLabel(features []string) string {
-	features = normalizeCatalogFeatures(features)
-	if len(features) == 0 {
+func featureSummaryLabel(parseFeatures []string) string {
+	parseFeatures = normalizeCatalogFeatures(parseFeatures)
+	if len(parseFeatures) == 0 {
 		return "All framework features"
 	}
-	if len(features) == 1 {
-		return catalogFeatureLabel(features[0])
+	if len(parseFeatures) == 1 {
+		return catalogFeatureLabel(parseFeatures[0])
 	}
-	if len(features) == 2 {
-		return catalogFeatureLabel(features[0]) + " and " + catalogFeatureLabel(features[1])
+	if len(parseFeatures) == 2 {
+		return catalogFeatureLabel(parseFeatures[0]) + " and " + catalogFeatureLabel(parseFeatures[1])
 	}
-	return fmt.Sprintf("%s, %s, and %d more", catalogFeatureLabel(features[0]), catalogFeatureLabel(features[1]), len(features)-2)
+	return fmt.Sprintf("%s, %s, and %d more", catalogFeatureLabel(parseFeatures[0]), catalogFeatureLabel(parseFeatures[1]), len(parseFeatures)-2)
 }
 
-func featureStorageValue(features []string) string {
-	return strings.Join(normalizeCatalogFeatures(features), ",")
+func featureStorageValue(parseFeatures []string) string {
+	return strings.Join(normalizeCatalogFeatures(parseFeatures), ",")
 }
 
-func filterCatalogEntries(entries []catalogEntry, query string, mode string, selectedFeatures []string) []catalogEntry {
-	trimmedQuery := strings.TrimSpace(strings.ToLower(query))
-	selectedFeatures = normalizeCatalogFeatures(selectedFeatures)
-	filtered := make([]catalogEntry, 0, len(entries))
-	for _, entry := range entries {
-		if mode == "wasm" && !entry.UsesWasm {
+func filterCatalogEntries(parseEntries []catalogEntry, parseQuery string, parseMode string, parseSelectedFeatures []string) []catalogEntry {
+	parseTrimmedQuery := strings.TrimSpace(strings.ToLower(parseQuery))
+	parseSelectedFeatures = normalizeCatalogFeatures(parseSelectedFeatures)
+	parseFiltered := make([]catalogEntry, 0, len(parseEntries))
+	for _, parseEntry := range parseEntries {
+		if parseMode == "wasm" && !parseEntry.UsesWasm {
 			continue
 		}
-		if mode == "multi-client" && !entry.MultiClient {
+		if parseMode == "multi-client" && !parseEntry.MultiClient {
 			continue
 		}
-		if len(selectedFeatures) > 0 {
-			matchesFeature := false
-			for _, feature := range selectedFeatures {
-				for _, tag := range entry.Tags {
-					if strings.EqualFold(strings.TrimSpace(tag), feature) {
-						matchesFeature = true
+		if len(parseSelectedFeatures) > 0 {
+			isParseMatchesFeature := false
+			for _, parseFeature := range parseSelectedFeatures {
+				for _, parseTag := range parseEntry.Tags {
+					if strings.EqualFold(strings.TrimSpace(parseTag), parseFeature) {
+						isParseMatchesFeature = true
 						break
 					}
 				}
-				if matchesFeature {
+				if isParseMatchesFeature {
 					break
 				}
 			}
-			if !matchesFeature {
+			if !isParseMatchesFeature {
 				continue
 			}
 		}
-		if trimmedQuery != "" {
-			haystack := strings.ToLower(entry.Name + " " + entry.Href + " " + entry.WasmBinary + " " + strings.Join(entry.Tags, " "))
-			matches := true
-			for _, term := range strings.Fields(trimmedQuery) {
-				if !strings.Contains(haystack, term) {
-					matches = false
+		if parseTrimmedQuery != "" {
+			parseHaystack := strings.ToLower(parseEntry.Name + " " + parseEntry.Href + " " + parseEntry.WasmBinary + " " + strings.Join(parseEntry.Tags, " "))
+			isParseMatches := true
+			for _, parseTerm := range strings.Fields(parseTrimmedQuery) {
+				if !strings.Contains(parseHaystack, parseTerm) {
+					isParseMatches = false
 					break
 				}
 			}
-			if !matches {
+			if !isParseMatches {
 				continue
 			}
 		}
-		filtered = append(filtered, entry)
+		parseFiltered = append(parseFiltered, parseEntry)
 	}
-	return filtered
+	return parseFiltered
 }
 
-func catalogSummary(query string, mode string, selectedFeatures []string) string {
-	parts := []string{"Browsing the wasm-first examples catalog"}
-	if mode == "wasm" {
-		parts = append(parts, "filtering to wasm-backed examples")
+func catalogSummary(parseQuery string, parseMode string, parseSelectedFeatures []string) string {
+	parseParts := []string{"Browsing the wasm-first examples catalog"}
+	if parseMode == "wasm" {
+		parseParts = append(parseParts, "filtering to wasm-backed examples")
 	}
-	if mode == "multi-client" {
-		parts = append(parts, "filtering to multi-client coordination demos")
+	if parseMode == "multi-client" {
+		parseParts = append(parseParts, "filtering to multi-client coordination demos")
 	}
-	selectedFeatures = normalizeCatalogFeatures(selectedFeatures)
-	if len(selectedFeatures) > 0 {
-		labels := make([]string, 0, len(selectedFeatures))
-		for _, feature := range selectedFeatures {
-			labels = append(labels, catalogFeatureLabel(feature))
+	parseSelectedFeatures = normalizeCatalogFeatures(parseSelectedFeatures)
+	if len(parseSelectedFeatures) > 0 {
+		parseLabels := make([]string, 0, len(parseSelectedFeatures))
+		for _, parseFeature := range parseSelectedFeatures {
+			parseLabels = append(parseLabels, catalogFeatureLabel(parseFeature))
 		}
-		parts = append(parts, fmt.Sprintf("matching framework features %s", strings.Join(labels, ", ")))
+		parseParts = append(parseParts, fmt.Sprintf("matching framework features %s", strings.Join(parseLabels, ", ")))
 	}
-	if strings.TrimSpace(query) != "" {
-		parts = append(parts, fmt.Sprintf("searching for %q", strings.TrimSpace(query)))
+	if strings.TrimSpace(parseQuery) != "" {
+		parseParts = append(parseParts, fmt.Sprintf("searching for %q", strings.TrimSpace(parseQuery)))
 	}
-	return strings.Join(parts, " and ") + "."
+	return strings.Join(parseParts, " and ") + "."
 }
 
 func loadPersistedCatalogFilters() (catalogFilterState, bool) {
-	storage, err := interop.GetLocalStorage()
-	if err != nil {
+	parseStorage, parseErr := interop.GetLocalStorage()
+	if parseErr != nil {
 		return catalogFilterState{}, false
 	}
-	value, ok, err := storage.GetItem(catalogStateKey)
-	if err != nil || !ok || strings.TrimSpace(value) == "" {
+	parseValue, parseOk, parseErr := parseStorage.GetItem(catalogStateKey)
+	if parseErr != nil || !parseOk || strings.TrimSpace(parseValue) == "" {
 		return catalogFilterState{}, false
 	}
-	var state catalogFilterState
-	if err := json.Unmarshal([]byte(value), &state); err != nil {
+	var parseState catalogFilterState
+	if parseErr2 := json.Unmarshal([]byte(parseValue), &parseState); parseErr2 != nil {
 		return catalogFilterState{}, false
 	}
-	state.Query = strings.TrimSpace(state.Query)
-	state.Mode = normalizeCatalogMode(state.Mode)
-	state.Features = normalizeCatalogFeatures(state.Features)
-	return state, true
+	parseState.Query = strings.TrimSpace(parseState.Query)
+	parseState.Mode = normalizeCatalogMode(parseState.Mode)
+	parseState.Features = normalizeCatalogFeatures(parseState.Features)
+	return parseState, true
 }
 
-func savePersistedCatalogFilters(state catalogFilterState) {
-	storage, err := interop.GetLocalStorage()
-	if err != nil {
+func savePersistedCatalogFilters(parseState catalogFilterState) {
+	parseStorage, parseErr := interop.GetLocalStorage()
+	if parseErr != nil {
 		return
 	}
-	state.Query = strings.TrimSpace(state.Query)
-	state.Mode = normalizeCatalogMode(state.Mode)
-	state.Features = normalizeCatalogFeatures(state.Features)
-	encoded, err := json.Marshal(state)
-	if err != nil {
+	parseState.Query = strings.TrimSpace(parseState.Query)
+	parseState.Mode = normalizeCatalogMode(parseState.Mode)
+	parseState.Features = normalizeCatalogFeatures(parseState.Features)
+	parseEncoded, parseErr := json.Marshal(parseState)
+	if parseErr != nil {
 		return
 	}
-	_ = storage.SetItem(catalogStateKey, string(encoded))
+	_ = parseStorage.SetItem(catalogStateKey, string(parseEncoded))
 }
 
-func openCatalogCacheStore(ctx context.Context) (interop.PersistentStore, error) {
-	return interop.OpenPersistentStore(ctx, interop.PersistentStoreOptions{
+func openCatalogCacheStore(parseCtx context.Context) (interop.PersistentStore, error) {
+	return interop.OpenPersistentStore(parseCtx, interop.PersistentStoreOptions{
 		Name:         "examples-catalog-cache",
 		DatabaseName: "gwc-examples-cache",
 		Version:      1,
 	})
 }
 
-func loadPersistedCatalogPayload(ctx context.Context) (cachedCatalogPayload, bool) {
-	store, err := openCatalogCacheStore(ctx)
-	if err != nil {
+func loadPersistedCatalogPayload(parseCtx context.Context) (cachedCatalogPayload, bool) {
+	store, parseErr := openCatalogCacheStore(parseCtx)
+	if parseErr != nil {
 		return cachedCatalogPayload{}, false
 	}
 	defer store.Close()
-	entry, ok, err := interop.LoadPersistentJSON[cachedCatalogPayload](ctx, store, catalogCacheKey)
-	if err != nil || !ok || len(entry.Payload.Examples) == 0 {
+	parseEntry, parseOk, parseErr := interop.LoadPersistentJSON[cachedCatalogPayload](parseCtx, store, catalogCacheKey)
+	if parseErr != nil || !parseOk || len(parseEntry.Payload.Examples) == 0 {
 		return cachedCatalogPayload{}, false
 	}
-	return entry, true
+	return parseEntry, true
 }
 
-func savePersistedCatalogPayload(ctx context.Context, sourceURL string, payload catalogPayload) {
-	store, err := openCatalogCacheStore(ctx)
-	if err != nil {
+func savePersistedCatalogPayload(parseCtx context.Context, parseSourceURL string, parsePayload catalogPayload) {
+	store, parseErr := openCatalogCacheStore(parseCtx)
+	if parseErr != nil {
 		return
 	}
 	defer store.Close()
-	_ = store.SetJSON(ctx, catalogCacheKey, cachedCatalogPayload{
-		SourceURL: strings.TrimSpace(sourceURL),
+	_ = store.SetJSON(parseCtx, catalogCacheKey, cachedCatalogPayload{
+		SourceURL: strings.TrimSpace(parseSourceURL),
 		CachedAt:  time.Now().UTC().Format(time.RFC3339),
-		Payload:   payload,
+		Payload:   parsePayload,
 	})
 }
 
 func loadExamplesRuntimeConfig() examplesRuntimeConfig {
-	config := examplesRuntimeConfig{
+	parseConfig := examplesRuntimeConfig{
 		Mode:        "static",
 		CatalogURL:  "catalog.json",
 		AssetBase:   "",
 		WasmBase:    "bin/",
 		CatalogHref: "./index.html#/examples",
 	}
-	if bootstrap, err := ui.ReadBootstrapScript(""); err == nil {
-		config.RoutePath = strings.TrimSpace(bootstrap.Route.Path)
-		if raw, ok := bootstrap.Data["examples"]; ok {
-			encoded, marshalErr := json.Marshal(raw)
-			if marshalErr == nil {
-				var decoded struct {
-					Mode        string `json:"mode"`
-					CatalogURL  string `json:"catalogURL"`
-					AssetBase   string `json:"assetBase"`
-					WasmBase    string `json:"wasmBase"`
-					CatalogHref string `json:"catalogHref"`
-					Slug        string `json:"slug"`
+	if parseBootstrap, parseErr := ui.ReadBootstrapScript(""); parseErr == nil {
+		parseConfig.RoutePath = strings.TrimSpace(parseBootstrap.Route.Path)
+		if parseRaw, parseOk := parseBootstrap.Data["examples"]; parseOk {
+			parseEncoded, parseMarshalErr := json.Marshal(parseRaw)
+			if parseMarshalErr == nil {
+				var parseDecoded struct {
+					mode        string `json:"mode"`
+					catalogURL  string `json:"catalogURL"`
+					assetBase   string `json:"assetBase"`
+					wasmBase    string `json:"wasmBase"`
+					catalogHref string `json:"catalogHref"`
+					slug        string `json:"slug"`
 				}
-				if json.Unmarshal(encoded, &decoded) == nil {
-					if strings.TrimSpace(decoded.Mode) != "" {
-						config.Mode = strings.TrimSpace(decoded.Mode)
+				if json.Unmarshal(parseEncoded, &parseDecoded) == nil {
+					if strings.TrimSpace(parseDecoded.Mode) != "" {
+						parseConfig.Mode = strings.TrimSpace(parseDecoded.Mode)
 					}
-					if strings.TrimSpace(decoded.CatalogURL) != "" {
-						config.CatalogURL = strings.TrimSpace(decoded.CatalogURL)
+					if strings.TrimSpace(parseDecoded.CatalogURL) != "" {
+						parseConfig.CatalogURL = strings.TrimSpace(parseDecoded.CatalogURL)
 					}
-					if strings.TrimSpace(decoded.AssetBase) != "" {
-						config.AssetBase = strings.TrimSpace(decoded.AssetBase)
+					if strings.TrimSpace(parseDecoded.AssetBase) != "" {
+						parseConfig.AssetBase = strings.TrimSpace(parseDecoded.AssetBase)
 					}
-					if strings.TrimSpace(decoded.WasmBase) != "" {
-						config.WasmBase = strings.TrimSpace(decoded.WasmBase)
+					if strings.TrimSpace(parseDecoded.WasmBase) != "" {
+						parseConfig.WasmBase = strings.TrimSpace(parseDecoded.WasmBase)
 					}
-					if strings.TrimSpace(decoded.CatalogHref) != "" {
-						config.CatalogHref = strings.TrimSpace(decoded.CatalogHref)
+					if strings.TrimSpace(parseDecoded.CatalogHref) != "" {
+						parseConfig.CatalogHref = strings.TrimSpace(parseDecoded.CatalogHref)
 					}
-					config.ExampleSlug = strings.TrimSpace(decoded.Slug)
+					parseConfig.ExampleSlug = strings.TrimSpace(parseDecoded.Slug)
 				}
 			}
 		}
 	}
-	if config.Mode == "static" {
-		if location, err := interop.GetWindowLocation(); err == nil {
-			if hashRoute := normalizeStaticExamplesRoute(location.Hash()); hashRoute != "" {
-				config.RoutePath = hashRoute
-			} else if strings.TrimSpace(config.RoutePath) == "" {
-				config.RoutePath = strings.TrimSpace(location.Pathname())
+	if parseConfig.Mode == "static" {
+		if parseLocation, parseErr2 := interop.GetWindowLocation(); parseErr2 == nil {
+			if parseHashRoute := normalizeStaticExamplesRoute(parseLocation.Hash()); parseHashRoute != "" {
+				parseConfig.RoutePath = parseHashRoute
+			} else if strings.TrimSpace(parseConfig.RoutePath) == "" {
+				parseConfig.RoutePath = strings.TrimSpace(parseLocation.Pathname())
 			}
 		}
-		if strings.TrimSpace(config.RoutePath) == "" {
-			config.RoutePath = "/examples/"
+		if strings.TrimSpace(parseConfig.RoutePath) == "" {
+			parseConfig.RoutePath = "/examples/"
 		}
-		if strings.TrimSpace(config.ExampleSlug) == "" {
-			config.ExampleSlug = staticExampleSlugFromRoute(config.RoutePath)
+		if strings.TrimSpace(parseConfig.ExampleSlug) == "" {
+			parseConfig.ExampleSlug = staticExampleSlugFromRoute(parseConfig.RoutePath)
 		}
 	}
-	return config
+	return parseConfig
 }
 
-func normalizeStaticExamplesRoute(rawHash string) string {
-	route := strings.TrimSpace(rawHash)
-	route = strings.TrimPrefix(route, "#")
-	route = strings.TrimSpace(route)
-	if route == "" {
+func normalizeStaticExamplesRoute(parseRawHash string) string {
+	parseRoute := strings.TrimSpace(parseRawHash)
+	parseRoute = strings.TrimPrefix(parseRoute, "#")
+	parseRoute = strings.TrimSpace(parseRoute)
+	if parseRoute == "" {
 		return ""
 	}
-	if cutIndex := strings.Index(route, "?"); cutIndex >= 0 {
-		route = route[:cutIndex]
+	if parseCutIndex := strings.Index(parseRoute, "?"); parseCutIndex >= 0 {
+		parseRoute = parseRoute[:parseCutIndex]
 	}
-	route = strings.TrimSpace(route)
-	if route == "" {
+	parseRoute = strings.TrimSpace(parseRoute)
+	if parseRoute == "" {
 		return ""
 	}
-	if !strings.HasPrefix(route, "/") {
-		route = "/" + route
+	if !strings.HasPrefix(parseRoute, "/") {
+		parseRoute = "/" + parseRoute
 	}
-	route = "/" + strings.Trim(strings.TrimPrefix(route, "/"), "/")
-	if route == "/" {
+	parseRoute = "/" + strings.Trim(strings.TrimPrefix(parseRoute, "/"), "/")
+	if parseRoute == "/" {
 		return "/examples/"
 	}
-	if route == "/examples" {
+	if parseRoute == "/examples" {
 		return "/examples/"
 	}
-	if !strings.HasPrefix(route, "/examples/") {
-		return route
+	if !strings.HasPrefix(parseRoute, "/examples/") {
+		return parseRoute
 	}
-	parts := strings.Split(strings.Trim(route, "/"), "/")
-	if len(parts) < 2 {
+	parseParts := strings.Split(strings.Trim(parseRoute, "/"), "/")
+	if len(parseParts) < 2 {
 		return "/examples/"
 	}
-	return "/examples/" + strings.TrimSpace(parts[1]) + "/"
+	return "/examples/" + strings.TrimSpace(parseParts[1]) + "/"
 }
 
-func staticExampleSlugFromRoute(route string) string {
-	route = strings.TrimSpace(route)
-	if route == "" || route == "/examples" || route == "/examples/" {
+func staticExampleSlugFromRoute(parseRoute string) string {
+	parseRoute = strings.TrimSpace(parseRoute)
+	if parseRoute == "" || parseRoute == "/examples" || parseRoute == "/examples/" {
 		return ""
 	}
-	if !strings.HasPrefix(route, "/examples/") {
+	if !strings.HasPrefix(parseRoute, "/examples/") {
 		return ""
 	}
-	parts := strings.Split(strings.Trim(route, "/"), "/")
-	if len(parts) < 2 {
+	parseParts := strings.Split(strings.Trim(parseRoute, "/"), "/")
+	if len(parseParts) < 2 {
 		return ""
 	}
-	return strings.TrimSpace(parts[1])
+	return strings.TrimSpace(parseParts[1])
 }
 
-func catalogPayloadFresh(entry cachedCatalogPayload) bool {
+func catalogPayloadFresh(parseEntry cachedCatalogPayload) bool {
 	if catalogPayloadMaxAge <= 0 {
 		return true
 	}
-	cachedAt, err := time.Parse(time.RFC3339, strings.TrimSpace(entry.CachedAt))
-	if err != nil {
+	parseCachedAt, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(parseEntry.CachedAt))
+	if parseErr != nil {
 		return false
 	}
-	return time.Since(cachedAt) <= catalogPayloadMaxAge
+	return time.Since(parseCachedAt) <= catalogPayloadMaxAge
 }
 
-func prewarmCatalogAssets(config examplesRuntimeConfig, payload catalogPayload) {
-	manager, err := pwa.OpenCacheStorageManager()
-	if err != nil {
+func prewarmCatalogAssets(parseConfig examplesRuntimeConfig, parsePayload catalogPayload) {
+	parseManager, parseErr := pwa.OpenCacheStorageManager()
+	if parseErr != nil {
 		return
 	}
-	assetBase := config.AssetBase
-	immutableURLs := []string{
-		assetBase + "script/wasm_exec.js",
-		assetBase + "script/example-logger.js",
+	parseAssetBase := parseConfig.AssetBase
+	parseImmutableURLs := []string{
+		parseAssetBase + "script/wasm_exec.js",
+		parseAssetBase + "script/example-logger.js",
 	}
-	plan, err := pwa.BuildCacheStoragePlan(pwa.ServiceWorkerAssetPlan{
+	parsePlan, parseErr := pwa.BuildCacheStoragePlan(pwa.ServiceWorkerAssetPlan{
 		CacheName:        catalogCacheName,
-		ManifestRevision: strings.TrimSpace(payload.GeneratedAt),
-		ImmutableURLs:    immutableURLs,
+		ManifestRevision: strings.TrimSpace(parsePayload.GeneratedAt),
+		ImmutableURLs:    parseImmutableURLs,
 	}, pwa.CacheStoragePlanOptions{CachePrefix: catalogCachePrefix})
-	if err != nil {
+	if parseErr != nil {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	_, _ = manager.Sync(ctx, plan)
+	parseCtx, parseCancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer parseCancel()
+	_, _ = parseManager.Sync(parseCtx, parsePlan)
 }
 
-func renderCatalogCards(entries []catalogEntry) []ui.Node {
-	if len(entries) == 0 {
+func renderCatalogCards(parseEntries []catalogEntry) []ui.Node {
+	if len(parseEntries) == 0 {
 		return []ui.Node{
 			html.Div(html.Props{Class: "rounded-[1.75rem] border border-dashed border-white/10 bg-slate-950/35 p-6 text-slate-400"},
 				html.P(html.Props{Class: "text-lg font-semibold text-slate-100"}, html.Text("No examples matched this filter.")),
@@ -506,231 +506,231 @@ func renderCatalogCards(entries []catalogEntry) []ui.Node {
 			),
 		}
 	}
-	nodes := make([]ui.Node, 0, len(entries))
-	for _, entry := range entries {
-		badges := []ui.Node{}
-		if entry.UsesWasm {
-			badges = append(badges, html.Span(html.Props{Class: "rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.25em] text-cyan-200"}, html.Text("WASM")))
+	parseNodes := make([]ui.Node, 0, len(parseEntries))
+	for _, parseEntry := range parseEntries {
+		parseBadges := []ui.Node{}
+		if parseEntry.UsesWasm {
+			parseBadges = append(parseBadges, html.Span(html.Props{Class: "rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.25em] text-cyan-200"}, html.Text("WASM")))
 		}
-		if entry.MultiClient {
-			badges = append(badges, html.Span(html.Props{Class: "rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.25em] text-emerald-200"}, html.Text("Multi-client")))
+		if parseEntry.MultiClient {
+			parseBadges = append(parseBadges, html.Span(html.Props{Class: "rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.25em] text-emerald-200"}, html.Text("Multi-client")))
 		}
-		if entry.WasmBinary != "" {
-			badges = append(badges, html.Span(html.Props{Class: "rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300"}, html.Text(entry.WasmBinary)))
+		if parseEntry.WasmBinary != "" {
+			parseBadges = append(parseBadges, html.Span(html.Props{Class: "rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-300"}, html.Text(parseEntry.WasmBinary)))
 		}
 
-		nodes = append(nodes,
-			html.A(html.Props{Href: entry.Href, Class: "grid gap-4 rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6 text-left transition hover:-translate-y-1 hover:border-cyan-300/30 hover:bg-slate-950/60"},
+		parseNodes = append(parseNodes,
+			html.A(html.Props{Href: parseEntry.Href, Class: "grid gap-4 rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6 text-left transition hover:-translate-y-1 hover:border-cyan-300/30 hover:bg-slate-950/60"},
 				html.Div(html.Props{Class: "flex flex-wrap items-start justify-between gap-3"},
 					html.Div(html.Props{},
-						html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300"}, html.Text(entry.Name)),
-						html.H2(html.Props{Class: "mt-3 text-2xl font-black tracking-tight text-white"}, html.Text(shortCatalogTitle(entry.Name))),
+						html.P(html.Props{Class: "text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300"}, html.Text(parseEntry.Name)),
+						html.H2(html.Props{Class: "mt-3 text-2xl font-black tracking-tight text-white"}, html.Text(shortCatalogTitle(parseEntry.Name))),
 					),
-					html.Div(html.Props{Class: "flex flex-wrap gap-2 justify-end"}, badges...),
+					html.Div(html.Props{Class: "flex flex-wrap gap-2 justify-end"}, parseBadges...),
 				),
-				html.P(html.Props{Class: "text-sm leading-7 text-slate-300"}, html.Text(fmt.Sprintf("Entry point: %s", entry.HTMLFile))),
-				html.P(html.Props{Class: "text-sm leading-7 text-slate-400"}, html.Text(fmt.Sprintf("Path: %s", entry.Href))),
+				html.P(html.Props{Class: "text-sm leading-7 text-slate-300"}, html.Text(fmt.Sprintf("Entry point: %s", parseEntry.HTMLFile))),
+				html.P(html.Props{Class: "text-sm leading-7 text-slate-400"}, html.Text(fmt.Sprintf("Path: %s", parseEntry.Href))),
 			),
 		)
 	}
-	return nodes
+	return parseNodes
 }
 
-func shortCatalogTitle(name string) string {
-	toWords := func(value string) string {
-		parts := strings.Fields(strings.ReplaceAll(value, "-", " "))
-		for index, part := range parts {
-			if part == "" {
+func shortCatalogTitle(parseName string) string {
+	parseToWords := func(parseValue string) string {
+		parseParts := strings.Fields(strings.ReplaceAll(parseValue, "-", " "))
+		for parseIndex, parsePart := range parseParts {
+			if parsePart == "" {
 				continue
 			}
-			parts[index] = strings.ToUpper(part[:1]) + part[1:]
+			parseParts[parseIndex] = strings.ToUpper(parsePart[:1]) + parsePart[1:]
 		}
-		return strings.Join(parts, " ")
+		return strings.Join(parseParts, " ")
 	}
-	if parts := strings.SplitN(name, "-", 2); len(parts) == 2 {
-		return toWords(parts[1])
+	if parseParts2 := strings.SplitN(parseName, "-", 2); len(parseParts2) == 2 {
+		return parseToWords(parseParts2[1])
 	}
-	return toWords(name)
+	return parseToWords(parseName)
 }
 
-func findCatalogEntry(entries []catalogEntry, slug string) (catalogEntry, bool) {
-	slug = strings.TrimSpace(strings.ToLower(slug))
-	if slug == "" {
+func findCatalogEntry(parseEntries []catalogEntry, parseSlug string) (catalogEntry, bool) {
+	parseSlug = strings.TrimSpace(strings.ToLower(parseSlug))
+	if parseSlug == "" {
 		return catalogEntry{}, false
 	}
-	for _, entry := range entries {
-		if strings.EqualFold(strings.TrimSpace(entry.Name), slug) {
-			return entry, true
+	for _, parseEntry := range parseEntries {
+		if strings.EqualFold(strings.TrimSpace(parseEntry.Name), parseSlug) {
+			return parseEntry, true
 		}
 	}
 	return catalogEntry{}, false
 }
 
-func loadCatalogFromNetwork(config examplesRuntimeConfig) (catalogPayload, string, error) {
-	var lastErr error
-	candidates := []string{config.CatalogURL}
-	for _, fallback := range []string{"/examples/catalog.json", "catalog.json"} {
-		if strings.TrimSpace(fallback) == "" || strings.EqualFold(strings.TrimSpace(config.CatalogURL), fallback) {
+func loadCatalogFromNetwork(parseConfig examplesRuntimeConfig) (catalogPayload, string, error) {
+	var parseLastErr error
+	parseCandidates := []string{parseConfig.CatalogURL}
+	for _, parseFallback := range []string{"/examples/catalog.json", "catalog.json"} {
+		if strings.TrimSpace(parseFallback) == "" || strings.EqualFold(strings.TrimSpace(parseConfig.CatalogURL), parseFallback) {
 			continue
 		}
-		candidates = append(candidates, fallback)
+		parseCandidates = append(parseCandidates, parseFallback)
 	}
-	for _, catalogURL := range candidates {
-		response, err := http.Get(catalogURL)
-		if err != nil {
-			lastErr = err
+	for _, parseCatalogURL := range parseCandidates {
+		parseResponse, parseErr := http.Get(parseCatalogURL)
+		if parseErr != nil {
+			parseLastErr = parseErr
 			continue
 		}
-		if response.StatusCode != http.StatusOK {
-			lastErr = fmt.Errorf("catalog request failed for %s with status %d", catalogURL, response.StatusCode)
-			response.Body.Close()
+		if parseResponse.StatusCode != http.StatusOK {
+			parseLastErr = fmt.Errorf("catalog request failed for %s with status %d", parseCatalogURL, parseResponse.StatusCode)
+			parseResponse.Body.Close()
 			continue
 		}
-		var payload catalogPayload
-		decodeErr := json.NewDecoder(response.Body).Decode(&payload)
-		response.Body.Close()
-		if decodeErr != nil {
-			lastErr = decodeErr
+		var parsePayload catalogPayload
+		parseDecodeErr := json.NewDecoder(parseResponse.Body).Decode(&parsePayload)
+		parseResponse.Body.Close()
+		if parseDecodeErr != nil {
+			parseLastErr = parseDecodeErr
 			continue
 		}
-		return payload, catalogURL, nil
+		return parsePayload, parseCatalogURL, nil
 	}
-	if lastErr != nil {
-		return catalogPayload{}, "", lastErr
+	if parseLastErr != nil {
+		return catalogPayload{}, "", parseLastErr
 	}
 	return catalogPayload{}, "", fmt.Errorf("catalog request failed")
 }
 
 func catalogApp() ui.Node {
-	runtimeConfig := loadExamplesRuntimeConfig()
-	catalog := ui.UseState(catalogPayload{})
-	loading := ui.UseState(true)
-	loadStatus := ui.UseState("Loading catalog metadata from the examples server...")
-	search := ui.UseState("")
-	mode := ui.UseState("all")
-	selectedFeatures := ui.UseState([]string{})
-	filtersReady := ui.UseState(false)
-	activity := ui.UseState(catalogSummary("", "all", nil))
+	parseRuntimeConfig := loadExamplesRuntimeConfig()
+	parseCatalog := ui.UseState(catalogPayload{})
+	parseLoading := ui.UseState(true)
+	parseLoadStatus := ui.UseState("Loading catalog metadata from the examples server...")
+	parseSearch := ui.UseState("")
+	parseMode := ui.UseState("all")
+	parseSelectedFeatures := ui.UseState([]string{})
+	parseFiltersReady := ui.UseState(false)
+	parseActivity := ui.UseState(catalogSummary("", "all", nil))
 
-	applyFilterState := func(nextQuery string, nextMode string, nextFeatures []string) {
-		nextQuery = strings.TrimSpace(nextQuery)
-		nextMode = normalizeCatalogMode(nextMode)
-		nextFeatures = normalizeCatalogFeatures(nextFeatures)
-		nextSummary := catalogSummary(nextQuery, nextMode, nextFeatures)
-		search.Set(nextQuery)
-		mode.Set(nextMode)
-		selectedFeatures.Set(nextFeatures)
-		activity.Set(nextSummary)
+	applyFilterState := func(parseNextQuery string, parseNextMode string, parseNextFeatures2 []string) {
+		parseNextQuery = strings.TrimSpace(parseNextQuery)
+		parseNextMode = normalizeCatalogMode(parseNextMode)
+		parseNextFeatures2 = normalizeCatalogFeatures(parseNextFeatures2)
+		parseNextSummary := catalogSummary(parseNextQuery, parseNextMode, parseNextFeatures2)
+		parseSearch.Set(parseNextQuery)
+		parseMode.Set(parseNextMode)
+		parseSelectedFeatures.Set(parseNextFeatures2)
+		parseActivity.Set(parseNextSummary)
 	}
 
-	updateSearch := ui.UseEvent(func(event ui.InputEvent) {
-		applyFilterState(event.GetValue(), mode.Get(), selectedFeatures.Get())
+	parseUpdateSearch := ui.UseEvent(func(parseEvent ui.InputEvent) {
+		applyFilterState(parseEvent.GetValue(), parseMode.Get(), parseSelectedFeatures.Get())
 	})
 
-	showAll := ui.UseEvent(func() {
-		applyFilterState(search.Get(), "all", selectedFeatures.Get())
+	parseShowAll := ui.UseEvent(func() {
+		applyFilterState(parseSearch.Get(), "all", parseSelectedFeatures.Get())
 	})
 
-	showWasm := ui.UseEvent(func() {
-		applyFilterState(search.Get(), "wasm", selectedFeatures.Get())
+	parseShowWasm := ui.UseEvent(func() {
+		applyFilterState(parseSearch.Get(), "wasm", parseSelectedFeatures.Get())
 	})
 
-	showMultiClient := ui.UseEvent(func() {
-		applyFilterState(search.Get(), "multi-client", selectedFeatures.Get())
+	parseShowMultiClient := ui.UseEvent(func() {
+		applyFilterState(parseSearch.Get(), "multi-client", parseSelectedFeatures.Get())
 	})
 
-	toggleFeature := ui.UseEvent(func(event ui.ChangeEvent) {
-		nextFeatures := toggleCatalogFeature(selectedFeatures.Get(), event.GetValue(), event.IsChecked())
-		applyFilterState(search.Get(), mode.Get(), nextFeatures)
+	parseToggleFeature := ui.UseEvent(func(parseEvent2 ui.ChangeEvent) {
+		parseNextFeatures := toggleCatalogFeature(parseSelectedFeatures.Get(), parseEvent2.GetValue(), parseEvent2.IsChecked())
+		applyFilterState(parseSearch.Get(), parseMode.Get(), parseNextFeatures)
 	})
 
 	clearFeatures := ui.UseEvent(func() {
-		applyFilterState(search.Get(), mode.Get(), nil)
+		applyFilterState(parseSearch.Get(), parseMode.Get(), nil)
 	})
 
 	ui.UseEffect(func() func() {
-		if state, ok := loadPersistedCatalogFilters(); ok {
-			applyFilterState(state.Query, state.Mode, state.Features)
+		if parseState, parseOk := loadPersistedCatalogFilters(); parseOk {
+			applyFilterState(parseState.Query, parseState.Mode, parseState.Features)
 		}
-		filtersReady.Set(true)
+		parseFiltersReady.Set(true)
 		return nil
 	}, "catalog-filters-load")
 
 	ui.UseEffect(func() func() {
-		if !filtersReady.Get() {
+		if !parseFiltersReady.Get() {
 			return nil
 		}
-		savePersistedCatalogFilters(catalogFilterState{Query: search.Get(), Mode: mode.Get(), Features: selectedFeatures.Get()})
+		savePersistedCatalogFilters(catalogFilterState{Query: parseSearch.Get(), Mode: parseMode.Get(), Features: parseSelectedFeatures.Get()})
 		return nil
-	}, filtersReady.Get(), search.Get(), mode.Get(), featureStorageValue(selectedFeatures.Get()))
+	}, parseFiltersReady.Get(), parseSearch.Get(), parseMode.Get(), featureStorageValue(parseSelectedFeatures.Get()))
 
 	ui.UseEffect(func() func() {
 		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
+			parseCtx, parseCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer parseCancel()
 
-			cached, hasCached := loadPersistedCatalogPayload(ctx)
+			parseCached, hasCached := loadPersistedCatalogPayload(parseCtx)
 			if hasCached {
-				catalog.Set(cached.Payload)
-				loading.Set(false)
-				if catalogPayloadFresh(cached) {
-					loadStatus.Set(fmt.Sprintf("Loaded %d examples from the durable catalog cache.", cached.Payload.TotalExamples))
-					go prewarmCatalogAssets(runtimeConfig, cached.Payload)
+				parseCatalog.Set(parseCached.Payload)
+				parseLoading.Set(false)
+				if catalogPayloadFresh(parseCached) {
+					parseLoadStatus.Set(fmt.Sprintf("Loaded %d examples from the durable catalog cache.", parseCached.Payload.TotalExamples))
+					go prewarmCatalogAssets(parseRuntimeConfig, parseCached.Payload)
 					return
 				}
-				loadStatus.Set(fmt.Sprintf("Loaded %d cached examples and refreshing catalog metadata in the background.", cached.Payload.TotalExamples))
-				go prewarmCatalogAssets(runtimeConfig, cached.Payload)
+				parseLoadStatus.Set(fmt.Sprintf("Loaded %d cached examples and refreshing catalog metadata in the background.", parseCached.Payload.TotalExamples))
+				go prewarmCatalogAssets(parseRuntimeConfig, parseCached.Payload)
 			}
 
-			payload, sourceURL, err := loadCatalogFromNetwork(runtimeConfig)
-			if err != nil {
+			parsePayload, parseSourceURL, parseErr := loadCatalogFromNetwork(parseRuntimeConfig)
+			if parseErr != nil {
 				if hasCached {
-					loadStatus.Set(fmt.Sprintf("Using cached catalog metadata because refresh failed: %v", err))
+					parseLoadStatus.Set(fmt.Sprintf("Using cached catalog metadata because refresh failed: %v", parseErr))
 					return
 				}
-				loading.Set(false)
-				loadStatus.Set(fmt.Sprintf("Catalog unavailable: %v", err))
+				parseLoading.Set(false)
+				parseLoadStatus.Set(fmt.Sprintf("Catalog unavailable: %v", parseErr))
 				return
 			}
-			catalog.Set(payload)
-			loading.Set(false)
-			loadStatus.Set(fmt.Sprintf("Loaded %d examples from the examples catalog.", payload.TotalExamples))
-			savePersistedCatalogPayload(context.Background(), sourceURL, payload)
-			go prewarmCatalogAssets(runtimeConfig, payload)
+			parseCatalog.Set(parsePayload)
+			parseLoading.Set(false)
+			parseLoadStatus.Set(fmt.Sprintf("Loaded %d examples from the examples catalog.", parsePayload.TotalExamples))
+			savePersistedCatalogPayload(context.Background(), parseSourceURL, parsePayload)
+			go prewarmCatalogAssets(parseRuntimeConfig, parsePayload)
 		}()
 		return nil
 	}, "catalog-load")
 
-	availableFeatures := availableCatalogFeatures(catalog.Get().Examples)
-	filtered := filterCatalogEntries(catalog.Get().Examples, search.Get(), mode.Get(), selectedFeatures.Get())
-	selectedEntry, hasSelectedEntry := findCatalogEntry(catalog.Get().Examples, runtimeConfig.ExampleSlug)
-	displayedEntries := filtered
-	if strings.TrimSpace(runtimeConfig.ExampleSlug) != "" {
+	parseAvailableFeatures := availableCatalogFeatures(parseCatalog.Get().Examples)
+	parseFiltered := filterCatalogEntries(parseCatalog.Get().Examples, parseSearch.Get(), parseMode.Get(), parseSelectedFeatures.Get())
+	parseSelectedEntry, hasSelectedEntry := findCatalogEntry(parseCatalog.Get().Examples, parseRuntimeConfig.ExampleSlug)
+	parseDisplayedEntries := parseFiltered
+	if strings.TrimSpace(parseRuntimeConfig.ExampleSlug) != "" {
 		if hasSelectedEntry {
-			displayedEntries = []catalogEntry{selectedEntry}
+			parseDisplayedEntries = []catalogEntry{parseSelectedEntry}
 		} else {
-			displayedEntries = nil
+			parseDisplayedEntries = nil
 		}
 	}
-	cards := renderCatalogCards(displayedEntries)
-	featureControls := make([]ui.Node, 0, len(availableFeatures))
-	for _, feature := range availableFeatures {
-		checked := false
-		for _, selected := range selectedFeatures.Get() {
-			if selected == feature {
-				checked = true
+	parseCards := renderCatalogCards(parseDisplayedEntries)
+	parseFeatureControls := make([]ui.Node, 0, len(parseAvailableFeatures))
+	for _, parseFeature := range parseAvailableFeatures {
+		isParseChecked := false
+		for _, parseSelected := range parseSelectedFeatures.Get() {
+			if parseSelected == parseFeature {
+				isParseChecked = true
 				break
 			}
 		}
-		featureControls = append(featureControls,
+		parseFeatureControls = append(parseFeatureControls,
 			html.Label(html.Props{Class: "flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm text-slate-200 hover:border-cyan-300/30"},
-				html.Input(html.Props{Type: "checkbox", Value: feature, Checked: checked, OnChange: toggleFeature, Class: "h-4 w-4 rounded border-white/20 bg-slate-950/80 text-cyan-300"}),
-				html.Span(html.Props{}, html.Text(catalogFeatureLabel(feature))),
+				html.Input(html.Props{Type: "checkbox", Value: parseFeature, Checked: isParseChecked, OnChange: parseToggleFeature, Class: "h-4 w-4 rounded border-white/20 bg-slate-950/80 text-cyan-300"}),
+				html.Span(html.Props{}, html.Text(catalogFeatureLabel(parseFeature))),
 			),
 		)
 	}
-	activeModeClass := func(expected string) string {
-		if mode.Get() == expected {
+	parseActiveModeClass := func(parseExpected string) string {
+		if parseMode.Get() == parseExpected {
 			return "rounded-full border border-cyan-400/30 bg-cyan-400/15 px-4 py-2 text-sm font-semibold text-cyan-100"
 		}
 		return "rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200"
@@ -744,32 +744,32 @@ func catalogApp() ui.Node {
 			html.Div(html.Props{Class: "mt-8 grid gap-4 md:grid-cols-3"},
 				html.Div(html.Props{Class: "rounded-[1.5rem] border border-white/10 bg-white/5 p-5"},
 					html.Small(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Examples")),
-					html.P(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text(fmt.Sprintf("%d", catalog.Get().TotalExamples))),
+					html.P(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text(fmt.Sprintf("%d", parseCatalog.Get().TotalExamples))),
 				),
 				html.Div(html.Props{Class: "rounded-[1.5rem] border border-white/10 bg-white/5 p-5"},
 					html.Small(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Wasm bins")),
-					html.P(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text(fmt.Sprintf("%d", catalog.Get().WasmExamples))),
+					html.P(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text(fmt.Sprintf("%d", parseCatalog.Get().WasmExamples))),
 				),
 				html.Div(html.Props{Class: "rounded-[1.5rem] border border-white/10 bg-white/5 p-5"},
 					html.Small(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Multi-client demos")),
-					html.P(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text(fmt.Sprintf("%d", catalog.Get().MultiClientExamples))),
+					html.P(html.Props{Class: "mt-3 text-4xl font-black text-white"}, html.Text(fmt.Sprintf("%d", parseCatalog.Get().MultiClientExamples))),
 				),
 			),
 		),
 		html.Section(html.Props{Class: "mt-8"},
 			html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-white/5 p-6"},
 				func() ui.Node {
-					if strings.TrimSpace(runtimeConfig.ExampleSlug) == "" {
+					if strings.TrimSpace(parseRuntimeConfig.ExampleSlug) == "" {
 						return nil
 					}
 					if hasSelectedEntry {
 						return html.Div(html.Props{Class: "mb-5 rounded-[1.5rem] border border-cyan-300/20 bg-cyan-400/10 p-5"},
 							html.P(html.Props{Class: "text-xs uppercase tracking-[0.28em] text-cyan-200"}, html.Text("Selected example route")),
-							html.H2(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text(shortCatalogTitle(selectedEntry.Name))),
+							html.H2(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text(shortCatalogTitle(parseSelectedEntry.Name))),
 							html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-200"}, html.Text("This static shell resolved a hash-route target and is keeping the catalog focused on that example while preserving a direct link to the original example entrypoint.")),
 							html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"},
-								html.A(html.Props{Href: selectedEntry.Href, Class: "rounded-full border border-cyan-300/30 bg-cyan-300/15 px-4 py-2 text-sm font-semibold text-cyan-100"}, html.Text("Open example")),
-								html.A(html.Props{Href: runtimeConfig.CatalogHref, Class: "rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200"}, html.Text("Back to catalog")),
+								html.A(html.Props{Href: parseSelectedEntry.Href, Class: "rounded-full border border-cyan-300/30 bg-cyan-300/15 px-4 py-2 text-sm font-semibold text-cyan-100"}, html.Text("Open example")),
+								html.A(html.Props{Href: parseRuntimeConfig.CatalogHref, Class: "rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200"}, html.Text("Back to catalog")),
 							),
 						)
 					}
@@ -778,40 +778,40 @@ func catalogApp() ui.Node {
 						html.H2(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text("Example not found in this catalog")),
 						html.P(html.Props{Class: "mt-3 text-sm leading-7 text-slate-200"}, html.Text("The current static route points at an example slug that is not present in the loaded catalog manifest.")),
 						html.Div(html.Props{Class: "mt-4 flex flex-wrap gap-3"},
-							html.A(html.Props{Href: runtimeConfig.CatalogHref, Class: "rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200"}, html.Text("Back to catalog")),
+							html.A(html.Props{Href: parseRuntimeConfig.CatalogHref, Class: "rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200"}, html.Text("Back to catalog")),
 						),
 					)
 				}(),
 				html.Div(html.Props{Class: "flex flex-wrap items-center gap-3"},
-					html.Input(html.Props{Value: search.Get(), OnInput: updateSearch, Placeholder: "Search examples by slug, path, wasm bin, or tag", Class: "min-w-[18rem] flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none"}),
-					html.Button(html.Props{Type: "button", OnClick: showAll, Class: activeModeClass("all")}, html.Text("All")),
-					html.Button(html.Props{Type: "button", OnClick: showWasm, Class: activeModeClass("wasm")}, html.Text("Wasm-backed")),
-					html.Button(html.Props{Type: "button", OnClick: showMultiClient, Class: activeModeClass("multi-client")}, html.Text("Multi-client")),
+					html.Input(html.Props{Value: parseSearch.Get(), OnInput: parseUpdateSearch, Placeholder: "Search examples by slug, path, wasm bin, or tag", Class: "min-w-[18rem] flex-1 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none"}),
+					html.Button(html.Props{Type: "button", OnClick: parseShowAll, Class: parseActiveModeClass("all")}, html.Text("All")),
+					html.Button(html.Props{Type: "button", OnClick: parseShowWasm, Class: parseActiveModeClass("wasm")}, html.Text("Wasm-backed")),
+					html.Button(html.Props{Type: "button", OnClick: parseShowMultiClient, Class: parseActiveModeClass("multi-client")}, html.Text("Multi-client")),
 					html.Details(html.Props{Class: "min-w-[18rem] rounded-2xl border border-white/10 bg-slate-950/55"},
-						html.Summary(html.Props{Class: "cursor-pointer list-none rounded-2xl px-4 py-3 text-sm font-semibold text-slate-100"}, html.Text("Framework features: "+featureSummaryLabel(selectedFeatures.Get()))),
+						html.Summary(html.Props{Class: "cursor-pointer list-none rounded-2xl px-4 py-3 text-sm font-semibold text-slate-100"}, html.Text("Framework features: "+featureSummaryLabel(parseSelectedFeatures.Get()))),
 						html.Div(html.Props{Class: "grid gap-3 border-t border-white/10 p-4"},
 							html.Div(html.Props{Class: "flex items-center justify-between gap-3 text-xs uppercase tracking-[0.2em] text-slate-400"},
 								html.Span(html.Props{}, html.Text("Match any selected feature")),
 								html.Button(html.Props{Type: "button", OnClick: clearFeatures, Class: "rounded-full border border-white/10 px-3 py-1 text-[11px] font-semibold text-slate-300 hover:border-cyan-300/30 hover:text-cyan-100"}, html.Text("Clear")),
 							),
-							html.Div(html.Props{Class: "grid gap-2 sm:grid-cols-2"}, featureControls...),
+							html.Div(html.Props{Class: "grid gap-2 sm:grid-cols-2"}, parseFeatureControls...),
 						),
 					),
 				),
-				html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-400"}, html.Text(activity.Get())),
+				html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-400"}, html.Text(parseActivity.Get())),
 				func() ui.Node {
-					if loading.Get() {
-						return html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text(loadStatus.Get()))
+					if parseLoading.Get() {
+						return html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text(parseLoadStatus.Get()))
 					}
-					if strings.TrimSpace(runtimeConfig.ExampleSlug) != "" {
+					if strings.TrimSpace(parseRuntimeConfig.ExampleSlug) != "" {
 						if hasSelectedEntry {
 							return html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text("Resolved the current route to a single example target inside the static host shell."))
 						}
 						return html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text("The current static route did not match any example slug in the loaded catalog."))
 					}
-					return html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text(fmt.Sprintf("Showing %d of %d examples.", len(filtered), catalog.Get().TotalExamples)))
+					return html.P(html.Props{Class: "mt-4 text-sm leading-7 text-slate-300"}, html.Text(fmt.Sprintf("Showing %d of %d examples.", len(parseFiltered), parseCatalog.Get().TotalExamples)))
 				}(),
-				html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"}, cards...),
+				html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"}, parseCards...),
 			),
 		),
 	)

@@ -17,126 +17,128 @@ type stubProvider struct {
 	metadata     map[string]ModelMetadata
 }
 
-func (p *stubProvider) ID() string { return p.id }
+func (parseP *stubProvider) ParseID() string { return parseP.id }
 
-func (p *stubProvider) Available() bool { return p.available }
+func (parseP *stubProvider) ParseAvailable() bool { return parseP.available }
 
-func (p *stubProvider) Info() ProviderInfo {
-	if p.info.ID == "" {
-		return ProviderInfo{ID: p.id, Label: p.id, Available: p.available, AuthConfigured: p.available}
+func (parseP *stubProvider) ParseInfo() ProviderInfo {
+	if parseP.info.ParseID == "" {
+		return ProviderInfo{ID: parseP.id, Label: parseP.id, Available: parseP.available, AuthConfigured: parseP.available}
 	}
-	return p.info
+	return parseP.info
 }
 
-func (p *stubProvider) DefaultModel() string { return p.defaultModel }
+func (parseP *stubProvider) ParseDefaultModel() string { return parseP.defaultModel }
 
-func (p *stubProvider) SupportsModel(model string) bool {
-	_, ok := p.models[strings.TrimSpace(model)]
-	return ok
+func (parseP *stubProvider) ParseSupportsModel(parseModel string) bool {
+	_, parseOk := parseP.models[strings.TrimSpace(parseModel)]
+	return parseOk
 }
 
-func (p *stubProvider) ModelOptions() []ModelOption { return p.options }
+func (parseP *stubProvider) ParseModelOptions() []ModelOption { return parseP.options }
 
-func (p *stubProvider) ModelMetadata(model string) (ModelMetadata, bool) {
-	metadata, ok := p.metadata[strings.TrimSpace(model)]
-	return metadata, ok
+func (parseP *stubProvider) ParseModelMetadata(parseModel string) (ModelMetadata, bool) {
+	parseMetadata, parseOk := parseP.parseMetadata[strings.TrimSpace(parseModel)]
+	return parseMetadata, parseOk
 }
 
-func (p *stubProvider) Capabilities(model string) ModelCapabilities {
-	return p.models[strings.TrimSpace(model)]
+func (parseP *stubProvider) ParseCapabilities(parseModel string) ModelCapabilities {
+	return parseP.models[strings.TrimSpace(parseModel)]
 }
 
-func (p *stubProvider) Health() ProviderHealth {
-	return ProviderHealth{ProviderID: p.id, Status: ProviderHealthUnknown}
+func (parseP *stubProvider) ParseHealth() ProviderHealth {
+	return ProviderHealth{ProviderID: parseP.id, Status: ProviderHealthUnknown}
 }
 
-func (p *stubProvider) CurrentRateLimits() RateLimitSnapshot {
+func (parseP *stubProvider) ParseCurrentRateLimits() RateLimitSnapshot {
 	return RateLimitSnapshot{}
 }
 
-func (p *stubProvider) StreamChat(context.Context, ChatRequest, func(ChatEvent) error) (ChatResult, error) {
+func (parseP *stubProvider) ParseStreamChat(context.Context, ChatRequest, func(ChatEvent) error) (ChatResult, error) {
 	return ChatResult{}, nil
 }
 
-func (p *stubProvider) GenerateTitle(context.Context, TitleRequest) (string, error) { return "", nil }
+func (parseP *stubProvider) ParseGenerateTitle(context.Context, TitleRequest) (string, error) {
+	return "", nil
+}
 
-func (p *stubProvider) ExtractUserMemories(context.Context, MemoryExtractionRequest) ([]UserMemoryCandidate, error) {
+func (parseP *stubProvider) ParseExtractUserMemories(context.Context, MemoryExtractionRequest) ([]UserMemoryCandidate, error) {
 	return nil, nil
 }
 
-func (p *stubProvider) SynthesizeSpeech(context.Context, SpeechRequest, func(SpeechChunk) error) (SpeechResult, error) {
+func (parseP *stubProvider) ParseSynthesizeSpeech(context.Context, SpeechRequest, func(SpeechChunk) error) (SpeechResult, error) {
 	return SpeechResult{}, nil
 }
 
-func TestRegistryResolveAndCapabilityChecks(t *testing.T) {
-	capabilities := ModelCapabilities{ProviderID: "stub", ProviderLabel: "Stub", SupportsThinking: true, SupportsSpeech: false}
-	provider := &stubProvider{
+func TestRegistryResolveAndCapabilityChecks(parseT *testing.T) {
+	parseCapabilities := ModelCapabilities{ProviderID: "stub", ProviderLabel: "Stub", SupportsThinking: true, SupportsSpeech: false}
+	parseProvider := &stubProvider{
 		id:           "stub",
 		available:    true,
 		defaultModel: "stub-default",
-		models:       map[string]ModelCapabilities{"model-a": capabilities},
-		options:      []ModelOption{{ID: "model-a", Label: "Model A", Capabilities: capabilities}},
+		models:       map[string]ModelCapabilities{"model-a": parseCapabilities},
+		options:      []ModelOption{{ID: "model-a", Label: "Model A", Capabilities: parseCapabilities}},
 		metadata: map[string]ModelMetadata{
 			"model-a": {
 				ID:            "model-a",
 				DisplayName:   "Model A",
 				ProviderID:    "stub",
 				ProviderLabel: "Stub",
-				Capabilities:  capabilities,
+				Capabilities:  parseCapabilities,
 			},
 		},
 	}
-	registry := NewRegistry(provider)
+	parseRegistry := ParseNewRegistry(parseProvider)
 
-	resolvedProvider, resolvedModel, err := registry.Resolve("model-a")
-	if err != nil || resolvedProvider.ID() != "stub" || resolvedModel != "model-a" {
-		t.Fatalf("Resolve returned provider=%v model=%q err=%v", resolvedProvider, resolvedModel, err)
-	}
-
-	defaultProvider, defaultModel, err := registry.Resolve("")
-	if err != nil || defaultProvider.ID() != "stub" || defaultModel != "stub-default" {
-		t.Fatalf("Resolve default returned provider=%v model=%q err=%v", defaultProvider, defaultModel, err)
+	parseResolvedProvider, parseResolvedModel, parseErr := parseRegistry.ParseResolve("model-a")
+	if parseErr != nil || parseResolvedProvider.ParseID() != "stub" || parseResolvedModel != "model-a" {
+		parseT.Fatalf("Resolve returned provider=%v model=%q err=%v", parseResolvedProvider, parseResolvedModel, parseErr)
 	}
 
-	_, _, capabilityState, err := registry.RequireCapability("model-a", CapabilitySpeech)
-	var unsupportedErr *UnsupportedCapabilityError
-	if !errors.As(err, &unsupportedErr) {
-		t.Fatalf("expected UnsupportedCapabilityError, got %v", err)
-	}
-	if capabilityState.SupportsSpeech {
-		t.Fatal("expected speech capability to be false")
+	parseDefaultProvider, parseDefaultModel, parseErr := parseRegistry.ParseResolve("")
+	if parseErr != nil || parseDefaultProvider.ParseID() != "stub" || parseDefaultModel != "stub-default" {
+		parseT.Fatalf("Resolve default returned provider=%v model=%q err=%v", parseDefaultProvider, parseDefaultModel, parseErr)
 	}
 
-	if _, _, err := registry.Resolve("missing"); err == nil {
-		t.Fatal("expected Resolve to reject unsupported model")
+	_, _, parseCapabilityState, parseErr := parseRegistry.ParseRequireCapability("model-a", CapabilitySpeech)
+	var parseUnsupportedErr *UnsupportedCapabilityError
+	if !errors.As(parseErr, &parseUnsupportedErr) {
+		parseT.Fatalf("expected UnsupportedCapabilityError, got %v", parseErr)
 	}
-	if _, _, err := (*Registry)(nil).Resolve(""); !errors.Is(err, ErrNoProvidersAvailable) {
-		t.Fatalf("expected ErrNoProvidersAvailable for nil registry, got %v", err)
+	if parseCapabilityState.SupportsSpeech {
+		parseT.Fatal("expected speech capability to be false")
+	}
+
+	if _, _, parseErr2 := parseRegistry.ParseResolve("missing"); parseErr2 == nil {
+		parseT.Fatal("expected Resolve to reject unsupported model")
+	}
+	if _, _, parseErr3 := (*Registry)(nil).ParseResolve(""); !errors.Is(parseErr3, ErrNoProvidersAvailable) {
+		parseT.Fatalf("expected ErrNoProvidersAvailable for nil registry, got %v", parseErr3)
 	}
 }
 
-func TestConversationInputAndRoleNormalization(t *testing.T) {
-	if got := NormalizeRole(" Developer "); got != "developer" {
-		t.Fatalf("NormalizeRole mismatch: %q", got)
+func TestConversationInputAndRoleNormalization(parseT *testing.T) {
+	if parseGot := ParseNormalizeRole(" Developer "); parseGot != "developer" {
+		parseT.Fatalf("NormalizeRole mismatch: %q", parseGot)
 	}
-	if got := NormalizeRole("unknown"); got != "user" {
-		t.Fatalf("expected unknown role to normalize to user, got %q", got)
-	}
-
-	conversation := BuildConversationInput([]ChatMessage{{Role: "assistant", Content: " Hello "}}, " Latest ")
-	if !strings.Contains(conversation, "assistant:\nHello") {
-		t.Fatalf("conversation input missing normalized history: %q", conversation)
-	}
-	if !strings.HasSuffix(conversation, "user:\nLatest") {
-		t.Fatalf("conversation input missing latest user turn: %q", conversation)
+	if parseGot2 := ParseNormalizeRole("unknown"); parseGot2 != "user" {
+		parseT.Fatalf("expected unknown role to normalize to user, got %q", parseGot2)
 	}
 
-	var nilErr *UnsupportedCapabilityError
-	if nilErr.Error() != "unsupported capability" {
-		t.Fatalf("unexpected nil UnsupportedCapabilityError string: %q", nilErr.Error())
+	parseConversation := BuildConversationInput([]ChatMessage{{Role: "assistant", Content: " Hello "}}, " Latest ")
+	if !strings.Contains(parseConversation, "assistant:\nHello") {
+		parseT.Fatalf("conversation input missing normalized history: %q", parseConversation)
 	}
-	withModel := (&UnsupportedCapabilityError{Capability: CapabilityThinking, Model: "model-a", ProviderID: "stub"}).Error()
-	if !strings.Contains(withModel, "model \"model-a\" does not support thinking") {
-		t.Fatalf("unexpected UnsupportedCapabilityError text: %q", withModel)
+	if !strings.HasSuffix(parseConversation, "user:\nLatest") {
+		parseT.Fatalf("conversation input missing latest user turn: %q", parseConversation)
+	}
+
+	var parseNilErr *UnsupportedCapabilityError
+	if parseNilErr.ParseError() != "unsupported capability" {
+		parseT.Fatalf("unexpected nil UnsupportedCapabilityError string: %q", parseNilErr.ParseError())
+	}
+	parseWithModel := (&UnsupportedCapabilityError{Capability: CapabilityThinking, Model: "model-a", ProviderID: "stub"}).ParseError()
+	if !strings.Contains(parseWithModel, "model \"model-a\" does not support thinking") {
+		parseT.Fatalf("unexpected UnsupportedCapabilityError text: %q", parseWithModel)
 	}
 }

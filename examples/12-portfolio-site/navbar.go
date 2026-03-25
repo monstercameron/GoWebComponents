@@ -17,7 +17,7 @@ func NavBar(_ Attrs) *Element {
 	// Component state management
 	isMobileMenuOpen, setIsMobileMenuOpen := UseState(false)
 	isScrolled, setIsScrolled := UseState(false)
-	scrollProgress, setScrollProgress := UseState(0.0)
+	parseScrollProgress, setScrollProgress := UseState(0.0)
 	isDark, setIsDark := UseState(getInitialDarkPref()) // Persisted dark mode preference
 
 	// Initialize dark mode CSS on component mount
@@ -34,15 +34,15 @@ func NavBar(_ Attrs) *Element {
 	}, isDark())
 
 	// Event handlers
-	handleMobileToggle := UseEvent(UseCallback(func(event MouseEvent) {
+	handleMobileToggle := UseEvent(UseCallback(func(parseEvent MouseEvent) {
 		setIsMobileMenuOpen(!isMobileMenuOpen())
 	}, isMobileMenuOpen()))
 
-	handleDarkToggle := UseEvent(UseCallback(func(event MouseEvent) {
-		newVal := !isDark()
-		setIsDark(newVal)
-		applyDarkClass(newVal)
-		saveDarkPref(newVal)
+	handleDarkToggle := UseEvent(UseCallback(func(parseEvent2 MouseEvent) {
+		isParseNewVal := !isDark()
+		setIsDark(isParseNewVal)
+		applyDarkClass(isParseNewVal)
+		saveDarkPref(isParseNewVal)
 	}, isDark()))
 
 	// Initialize scroll tracking and smooth scrolling behavior
@@ -50,49 +50,49 @@ func NavBar(_ Attrs) *Element {
 		AddSmoothScrollCSS() // Inject smooth scroll CSS once
 
 		// Setup scroll listener for navbar effects and progress tracking
-		scrollHandler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			scrollY := js.Global().Get("window").Get("scrollY").Float()
-			setIsScrolled(scrollY > 20) // Trigger glassmorphism effect
+		parseScrollHandler := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			parseScrollY := js.Global().Get("window").Get("scrollY").Float()
+			setIsScrolled(parseScrollY > 20) // Trigger glassmorphism effect
 
 			// Calculate scroll progress for progress bar
-			windowHeight := js.Global().Get("window").Get("innerHeight").Float()
-			documentHeight := js.Global().Get("document").Get("documentElement").Get("scrollHeight").Float()
-			maxScroll := documentHeight - windowHeight
+			parseWindowHeight := js.Global().Get("window").Get("innerHeight").Float()
+			parseDocumentHeight := js.Global().Get("document").Get("documentElement").Get("scrollHeight").Float()
+			parseMaxScroll := parseDocumentHeight - parseWindowHeight
 
-			if maxScroll > 0 {
-				progress := scrollY / maxScroll
-				if progress > 1 {
-					progress = 1
+			if parseMaxScroll > 0 {
+				parseProgress := parseScrollY / parseMaxScroll
+				if parseProgress > 1 {
+					parseProgress = 1
 				}
-				setScrollProgress(progress)
+				setScrollProgress(parseProgress)
 			}
 
 			return nil
 		})
 
-		js.Global().Get("window").Call("addEventListener", "scroll", scrollHandler)
+		js.Global().Get("window").Call("addEventListener", "scroll", parseScrollHandler)
 		return func() {
-			js.Global().Get("window").Call("removeEventListener", "scroll", scrollHandler)
-			scrollHandler.Release()
+			js.Global().Get("window").Call("removeEventListener", "scroll", parseScrollHandler)
+			parseScrollHandler.Release()
 		}
 	}, true)
 
 	// Apply glassmorphism effect based on scroll state
-	navClasses := "fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out"
+	parseNavClasses := "fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out"
 	if isScrolled() {
-		navClasses += " bg-[#0a0a0a]/80 backdrop-blur-xl shadow-2xl border-b border-white/10"
+		parseNavClasses += " bg-[#0a0a0a]/80 backdrop-blur-xl shadow-2xl border-b border-white/10"
 	} else {
-		navClasses += " bg-transparent backdrop-blur-lg"
+		parseNavClasses += " bg-transparent backdrop-blur-lg"
 	}
 
 	return Nav(
-		Attrs{"class": navClasses},
+		Attrs{"class": parseNavClasses},
 
 		// Scroll progress bar
 		Div(
 			Attrs{
 				"class": "absolute bottom-0 left-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-300 ease-out",
-				"style": "width: " + fmt.Sprintf("%.1f", scrollProgress()*100) + "%",
+				"style": "width: " + fmt.Sprintf("%.1f", parseScrollProgress()*100) + "%",
 			},
 		),
 
@@ -205,27 +205,27 @@ func NavBar(_ Attrs) *Element {
 		),
 
 		// Enhanced Mobile Menu
-		EnhancedMobileMenu(isMobileMenuOpen(), func(b bool) { setIsMobileMenuOpen(b) }),
+		EnhancedMobileMenu(isMobileMenuOpen(), func(isB bool) { setIsMobileMenuOpen(isB) }),
 	)
 }
 
 // EnhancedNavLink renders a navigation item with icon, smooth animations and section routing.
 // Handles both hash navigation for sections and route navigation for pages like documentation.
-func EnhancedNavLink(icon, text, href, section string) *Element {
-	handleClick := UseEvent(UseCallback(func(event MouseEvent) {
-		event.PreventDefault()
+func EnhancedNavLink(parseIcon, parseText, parseHref, parseSection string) *Element {
+	handleClick := UseEvent(UseCallback(func(parseEvent MouseEvent) {
+		parseEvent.PreventDefault()
 		// Handle docs route vs section scrolling
-		if section == "docs" {
-			router.Navigate(section)
+		if parseSection == "docs" {
+			router.Navigate(parseSection)
 		} else {
 			// For sections, use smooth scrolling
-			ScrollToSectionSmoothEnhanced(section)
+			ScrollToSectionSmoothEnhanced(parseSection)
 		}
-	}, section))
+	}, parseSection))
 
 	return A(
 		Attrs{
-			"href":    href,
+			"href":    parseHref,
 			"class":   "group relative px-3 py-2 text-gray-300 hover:text-white transition-all duration-300 font-medium rounded-xl hover:bg-white/5 cursor-pointer",
 			"onclick": handleClick,
 		},
@@ -233,8 +233,8 @@ func EnhancedNavLink(icon, text, href, section string) *Element {
 		// Content container
 		Div(
 			Attrs{"class": "flex items-center space-x-2"},
-			Span(Attrs{"class": "text-sm transition-transform duration-300 group-hover:scale-110"}, icon),
-			Span(Attrs{"class": "text-sm font-medium transition-transform duration-300 group-hover:translate-x-0.5 whitespace-nowrap"}, text),
+			Span(Attrs{"class": "text-sm transition-transform duration-300 group-hover:scale-110"}, parseIcon),
+			Span(Attrs{"class": "text-sm font-medium transition-transform duration-300 group-hover:translate-x-0.5 whitespace-nowrap"}, parseText),
 		),
 
 		// Animated underline
@@ -271,19 +271,19 @@ func MobileMenuIcon(isOpen bool) *Element {
 
 // EnhancedMobileMenu creates a modern mobile menu with animations
 func EnhancedMobileMenu(isOpen bool, setIsOpen func(bool)) *Element {
-	handleClose := UseEvent(func(event MouseEvent) {
+	handleClose := UseEvent(func(parseEvent MouseEvent) {
 		setIsOpen(false)
 	})
 
-	overlayClasses := "lg:hidden fixed inset-0 z-40 transition-all duration-300 ease-in-out"
-	menuClasses := "lg:hidden fixed top-16 md:top-20 left-0 right-0 z-50 transition-all duration-300 ease-in-out transform"
+	parseOverlayClasses := "lg:hidden fixed inset-0 z-40 transition-all duration-300 ease-in-out"
+	parseMenuClasses := "lg:hidden fixed top-16 md:top-20 left-0 right-0 z-50 transition-all duration-300 ease-in-out transform"
 
 	if isOpen {
-		overlayClasses += " bg-black/50 backdrop-blur-sm opacity-100"
-		menuClasses += " translate-y-0 opacity-100"
+		parseOverlayClasses += " bg-black/50 backdrop-blur-sm opacity-100"
+		parseMenuClasses += " translate-y-0 opacity-100"
 	} else {
-		overlayClasses += " bg-black/0 opacity-0 pointer-events-none"
-		menuClasses += " -translate-y-full opacity-0 pointer-events-none"
+		parseOverlayClasses += " bg-black/0 opacity-0 pointer-events-none"
+		parseMenuClasses += " -translate-y-full opacity-0 pointer-events-none"
 	}
 
 	return Div(
@@ -292,14 +292,14 @@ func EnhancedMobileMenu(isOpen bool, setIsOpen func(bool)) *Element {
 		// Overlay
 		Div(
 			Attrs{
-				"class":   overlayClasses,
+				"class":   parseOverlayClasses,
 				"onclick": handleClose,
 			},
 		),
 
 		// Menu content
 		Div(
-			Attrs{"class": menuClasses},
+			Attrs{"class": parseMenuClasses},
 			Div(
 				Attrs{"class": "bg-[#0a0a0a]/95 backdrop-blur-xl shadow-2xl border-b border-white/10 mx-4 rounded-2xl mt-2"},
 				Div(
@@ -337,128 +337,128 @@ func EnhancedMobileMenu(isOpen bool, setIsOpen func(bool)) *Element {
 }
 
 // EnhancedMobileNavLink creates a styled mobile navigation link
-func EnhancedMobileNavLink(icon, text, href, section string, setIsOpen func(bool)) *Element {
-	handleClick := UseEvent(func(event MouseEvent) {
-		event.PreventDefault()
+func EnhancedMobileNavLink(parseIcon, parseText, parseHref, parseSection string, setIsOpen func(bool)) *Element {
+	handleClick := UseEvent(func(parseEvent MouseEvent) {
+		parseEvent.PreventDefault()
 		// Handle docs route vs section scrolling
-		if section == "docs" {
-			router.Navigate(section)
+		if parseSection == "docs" {
+			router.Navigate(parseSection)
 		} else {
 			// For sections, use smooth scrolling
-			ScrollToSectionSmoothEnhanced(section)
+			ScrollToSectionSmoothEnhanced(parseSection)
 		}
 		setIsOpen(false)
 	})
 
 	return A(
 		Attrs{
-			"href":    href,
+			"href":    parseHref,
 			"class":   "group flex items-center space-x-3 px-4 py-3 text-gray-300 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-300 font-medium cursor-pointer",
 			"onclick": handleClick,
 		},
-		Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:scale-110"}, icon),
-		Span(Attrs{"class": "transition-transform duration-300 group-hover:translate-x-1"}, text),
+		Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:scale-110"}, parseIcon),
+		Span(Attrs{"class": "transition-transform duration-300 group-hover:translate-x-1"}, parseText),
 		Span(Attrs{"class": "ml-auto text-gray-400 group-hover:text-indigo-600 transition-colors duration-300"}, "→"),
 	)
 }
 
 // ScrollToSectionJS creates a JavaScript function string for scrolling
-func ScrollToSectionJS(section string) interface{} {
-	return UseEvent(func(e MouseEvent) {
-		ScrollToSectionSmoothEnhanced(section)
+func ScrollToSectionJS(parseSection string) interface{} {
+	return UseEvent(func(parseE MouseEvent) {
+		ScrollToSectionSmoothEnhanced(parseSection)
 	})
 }
 
 // ScrollToSectionSmooth provides basic smooth scrolling to sections
-func ScrollToSectionSmooth(section string) {
-	ScrollToSectionSmoothEnhanced(section)
+func ScrollToSectionSmooth(parseSection string) {
+	ScrollToSectionSmoothEnhanced(parseSection)
 }
 
 // ScrollToSectionSmoothEnhanced provides advanced smooth scrolling with easing and visual feedback
-func ScrollToSectionSmoothEnhanced(section string) {
-	element := js.Global().Get("document").Call("getElementById", section)
-	if element.IsNull() {
+func ScrollToSectionSmoothEnhanced(parseSection string) {
+	parseElement := js.Global().Get("document").Call("getElementById", parseSection)
+	if parseElement.IsNull() {
 		return
 	}
 
 	// Get current scroll position
-	currentY := js.Global().Get("window").Get("pageYOffset").Float()
+	parseCurrentY := js.Global().Get("window").Get("pageYOffset").Float()
 
 	// Calculate target position with navbar offset
-	rect := element.Call("getBoundingClientRect")
-	targetY := rect.Get("top").Float() + currentY - 100 // Increased offset for better spacing
+	parseRect := parseElement.Call("getBoundingClientRect")
+	parseTargetY := parseRect.Get("top").Float() + parseCurrentY - 100 // Increased offset for better spacing
 
 	// Don't scroll if we're already close to the target
-	if js.Global().Get("Math").Call("abs", targetY-currentY).Float() < 10 {
+	if js.Global().Get("Math").Call("abs", parseTargetY-parseCurrentY).Float() < 10 {
 		return
 	}
 
 	// Show scroll indicator (optional visual feedback)
-	showScrollIndicator(section)
+	showScrollIndicator(parseSection)
 
 	// Enhanced smooth scroll with custom easing
-	animateScrollTo(currentY, targetY, 800) // 800ms duration
+	animateScrollTo(parseCurrentY, parseTargetY, 800) // 800ms duration
 }
 
 // animateScrollTo provides custom smooth scrolling with easing
-func animateScrollTo(startY, targetY, duration float64) {
-	startTime := js.Global().Get("performance").Call("now").Float()
-	distance := targetY - startY
+func animateScrollTo(parseStartY, parseTargetY, parseDuration float64) {
+	parseStartTime := js.Global().Get("performance").Call("now").Float()
+	parseDistance := parseTargetY - parseStartY
 
 	// Easing function (ease-in-out-cubic)
-	easeInOutCubic := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		t := args[0].Float()
-		if t < 0.5 {
-			return 4 * t * t * t
+	parseEaseInOutCubic := js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+		parseT := parseArgs[0].Float()
+		if parseT < 0.5 {
+			return 4 * parseT * parseT * parseT
 		}
-		return 1 - js.Global().Get("Math").Call("pow", -2*t+2, 3).Float()/2
+		return 1 - js.Global().Get("Math").Call("pow", -2*parseT+2, 3).Float()/2
 	})
 
 	// Animation function
-	var animate js.Func
-	animate = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		currentTime := js.Global().Get("performance").Call("now").Float()
-		elapsed := currentTime - startTime
+	var parseAnimate js.Func
+	parseAnimate = js.FuncOf(func(parseThis2 js.Value, parseArgs2 []js.Value) interface{} {
+		parseCurrentTime := js.Global().Get("performance").Call("now").Float()
+		parseElapsed := parseCurrentTime - parseStartTime
 
-		if elapsed >= duration {
+		if parseElapsed >= parseDuration {
 			// Animation complete - ensure exact final position
-			js.Global().Get("window").Call("scrollTo", 0, targetY)
+			js.Global().Get("window").Call("scrollTo", 0, parseTargetY)
 			hideScrollIndicator()
 			return nil
 		}
 
 		// Calculate progress (0 to 1)
-		progress := elapsed / duration
+		parseProgress := parseElapsed / parseDuration
 
 		// Apply easing
-		easedProgress := easeInOutCubic.Invoke(progress).Float()
+		parseEasedProgress := parseEaseInOutCubic.Invoke(parseProgress).Float()
 
 		// Calculate current position
-		currentY := startY + (distance * easedProgress)
+		parseCurrentY := parseStartY + (parseDistance * parseEasedProgress)
 
 		// Apply scroll
-		js.Global().Get("window").Call("scrollTo", 0, currentY)
+		js.Global().Get("window").Call("scrollTo", 0, parseCurrentY)
 
 		// Continue animation
-		js.Global().Call("requestAnimationFrame", animate)
+		js.Global().Call("requestAnimationFrame", parseAnimate)
 
 		return nil
 	})
 
 	// Start animation
-	js.Global().Call("requestAnimationFrame", animate)
+	js.Global().Call("requestAnimationFrame", parseAnimate)
 }
 
 // showScrollIndicator shows a visual indicator during scrolling
-func showScrollIndicator(section string) {
+func showScrollIndicator(parseSection string) {
 	// Create or update scroll indicator
-	indicator := js.Global().Get("document").Call("getElementById", "scroll-indicator")
+	parseIndicator := js.Global().Get("document").Call("getElementById", "scroll-indicator")
 
-	if indicator.IsNull() {
+	if parseIndicator.IsNull() {
 		// Create indicator element
-		indicator = js.Global().Get("document").Call("createElement", "div")
-		indicator.Set("id", "scroll-indicator")
-		indicator.Get("style").Set("cssText", `
+		parseIndicator = js.Global().Get("document").Call("createElement", "div")
+		parseIndicator.Set("id", "scroll-indicator")
+		parseIndicator.Get("style").Set("cssText", `
 			position: fixed;
 			top: 50%;
 			right: 20px;
@@ -476,29 +476,29 @@ func showScrollIndicator(section string) {
 			transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 			pointer-events: none;
 		`)
-		js.Global().Get("document").Get("body").Call("appendChild", indicator)
+		js.Global().Get("document").Get("body").Call("appendChild", parseIndicator)
 	}
 
 	// Update indicator text and show
-	sectionName := formatSectionName(section)
-	indicator.Set("textContent", "📍 Scrolling to "+sectionName)
-	indicator.Get("style").Set("opacity", "1")
-	indicator.Get("style").Set("transform", "translateY(-50%) translateX(0)")
+	parseSectionName := formatSectionName(parseSection)
+	parseIndicator.Set("textContent", "📍 Scrolling to "+parseSectionName)
+	parseIndicator.Get("style").Set("opacity", "1")
+	parseIndicator.Get("style").Set("transform", "translateY(-50%) translateX(0)")
 }
 
 // hideScrollIndicator hides the scroll indicator
 func hideScrollIndicator() {
-	indicator := js.Global().Get("document").Call("getElementById", "scroll-indicator")
-	if !indicator.IsNull() {
-		indicator.Get("style").Set("opacity", "0")
-		indicator.Get("style").Set("transform", "translateY(-50%) translateX(20px)")
+	parseIndicator := js.Global().Get("document").Call("getElementById", "scroll-indicator")
+	if !parseIndicator.IsNull() {
+		parseIndicator.Get("style").Set("opacity", "0")
+		parseIndicator.Get("style").Set("transform", "translateY(-50%) translateX(20px)")
 
 		// Remove after transition
-		js.Global().Call("setTimeout", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			if !indicator.IsNull() {
-				parent := indicator.Get("parentNode")
-				if !parent.IsNull() {
-					parent.Call("removeChild", indicator)
+		js.Global().Call("setTimeout", js.FuncOf(func(parseThis js.Value, parseArgs []js.Value) interface{} {
+			if !parseIndicator.IsNull() {
+				parseParent := parseIndicator.Get("parentNode")
+				if !parseParent.IsNull() {
+					parseParent.Call("removeChild", parseIndicator)
 				}
 			}
 			return nil
@@ -507,8 +507,8 @@ func hideScrollIndicator() {
 }
 
 // formatSectionName formats section ID to display name
-func formatSectionName(section string) string {
-	switch section {
+func formatSectionName(parseSection string) string {
+	switch parseSection {
 	case "home":
 		return "Home"
 	case "about":
@@ -524,15 +524,15 @@ func formatSectionName(section string) string {
 	case "contact":
 		return "Contact"
 	default:
-		return section
+		return parseSection
 	}
 }
 
 // AddSmoothScrollCSS adds CSS for enhanced smooth scrolling
 func AddSmoothScrollCSS() {
 	// Add CSS for smooth scroll behavior to the document
-	style := js.Global().Get("document").Call("createElement", "style")
-	style.Set("textContent", `
+	parseStyle := js.Global().Get("document").Call("createElement", "style")
+	parseStyle.Set("textContent", `
 		html {
 			scroll-behavior: smooth;
 		}
@@ -566,5 +566,5 @@ func AddSmoothScrollCSS() {
 			animation: scrollPulse 2s ease-in-out infinite;
 		}
 	`)
-	js.Global().Get("document").Get("head").Call("appendChild", style)
+	js.Global().Get("document").Get("head").Call("appendChild", parseStyle)
 }

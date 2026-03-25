@@ -18,305 +18,305 @@ type threadScrollMemory struct {
 	prepareRestore       func(int64)
 }
 
-func (m threadScrollMemory) ShouldAutoScroll() bool {
-	if m.shouldAutoScroll == nil {
+func (parseM threadScrollMemory) ShouldAutoScroll() bool {
+	if parseM.shouldAutoScroll == nil {
 		return true
 	}
-	return m.shouldAutoScroll()
+	return parseM.shouldAutoScroll()
 }
 
-func (m threadScrollMemory) ResetToBottomMode() {
-	if m.resetToBottomMode != nil {
-		m.resetToBottomMode()
+func (parseM threadScrollMemory) ResetToBottomMode() {
+	if parseM.resetToBottomMode != nil {
+		parseM.resetToBottomMode()
 	}
 }
 
-func (m threadScrollMemory) ShowScrollToBottom() bool {
-	if m.showScrollToBottom == nil {
+func (parseM threadScrollMemory) ParseShowScrollToBottom() bool {
+	if parseM.showScrollToBottom == nil {
 		return false
 	}
-	return m.showScrollToBottom()
+	return parseM.showScrollToBottom()
 }
 
-func (m threadScrollMemory) FollowStream() {
-	if m.followStream != nil {
-		m.followStream()
+func (parseM threadScrollMemory) ParseFollowStream() {
+	if parseM.followStream != nil {
+		parseM.followStream()
 	}
 }
 
-func (m threadScrollMemory) ScrollToBottom() {
-	if m.scrollToBottom != nil {
-		m.scrollToBottom()
+func (parseM threadScrollMemory) ParseScrollToBottom() {
+	if parseM.scrollToBottom != nil {
+		parseM.scrollToBottom()
 	}
 }
 
-func (m threadScrollMemory) CancelPendingPersist() {
-	if m.cancelPendingPersist != nil {
-		m.cancelPendingPersist()
+func (parseM threadScrollMemory) CancelPendingPersist() {
+	if parseM.cancelPendingPersist != nil {
+		parseM.cancelPendingPersist()
 	}
 }
 
-func (m threadScrollMemory) PersistNow(convID int64) {
-	if m.persistNow != nil {
-		m.persistNow(convID)
+func (parseM threadScrollMemory) ParsePersistNow(parseConvID int64) {
+	if parseM.persistNow != nil {
+		parseM.persistNow(parseConvID)
 	}
 }
 
-func (m threadScrollMemory) PrepareRestore(convID int64) {
-	if m.prepareRestore != nil {
-		m.prepareRestore(convID)
+func (parseM threadScrollMemory) ParsePrepareRestore(parseConvID int64) {
+	if parseM.prepareRestore != nil {
+		parseM.prepareRestore(parseConvID)
 	}
 }
 
-func useThreadScrollMemory(activeConvID int64, messageCount int) threadScrollMemory {
-	userHasScrolledRef := ui.UseRef(false)
-	manualScrollIntentRef := ui.UseRef(false)
-	autoScrollInFlightRef := ui.UseRef(false)
-	lastScrollTopRef := ui.UseRef(float64(0))
-	scrollCacheRef := ui.UseRef(map[int64]float64{})
-	scrollPersistTimerRef := ui.UseRef(interop.Timer{})
-	streamFollowTimerRef := ui.UseRef(interop.Timer{})
-	streamFollowHoldTimerRef := ui.UseRef(interop.Timer{})
-	pendingScrollRestoreRef := ui.UseRef((*float64)(nil))
-	showScrollToBottomState := ui.UseState(false)
+func parseUseThreadScrollMemory(parseActiveConvID int64, parseMessageCount int) threadScrollMemory {
+	parseUserHasScrolledRef := ui.UseRef(false)
+	parseManualScrollIntentRef := ui.UseRef(false)
+	parseAutoScrollInFlightRef := ui.UseRef(false)
+	parseLastScrollTopRef := ui.UseRef(float64(0))
+	parseScrollCacheRef := ui.UseRef(map[int64]float64{})
+	parseScrollPersistTimerRef := ui.UseRef(interop.Timer{})
+	parseStreamFollowTimerRef := ui.UseRef(interop.Timer{})
+	parseStreamFollowHoldTimerRef := ui.UseRef(interop.Timer{})
+	parsePendingScrollRestoreRef := ui.UseRef((*float64)(nil))
+	parseShowScrollToBottomState := ui.UseState(false)
 
-	syncScrollToBottomVisibility := func() {
-		showScrollToBottomState.Set(messageListHasScrollBelow())
+	parseSyncScrollToBottomVisibility := func() {
+		parseShowScrollToBottomState.Set(parseMessageListHasScrollBelow())
 	}
 
-	cancelPendingScrollPersist := func() {
-		timer := scrollPersistTimerRef.Get()
-		if err := timer.Cancel(); err == nil {
-			scrollPersistTimerRef.Set(interop.Timer{})
+	parseCancelPendingScrollPersist := func() {
+		parseTimer := parseScrollPersistTimerRef.Get()
+		if parseErr := parseTimer.Cancel(); parseErr == nil {
+			parseScrollPersistTimerRef.Set(interop.Timer{})
 		}
 	}
 
-	cancelPendingStreamFollow := func() {
-		timer := streamFollowTimerRef.Get()
-		if err := timer.Cancel(); err == nil {
-			streamFollowTimerRef.Set(interop.Timer{})
+	parseCancelPendingStreamFollow := func() {
+		parseTimer2 := parseStreamFollowTimerRef.Get()
+		if parseErr2 := parseTimer2.Cancel(); parseErr2 == nil {
+			parseStreamFollowTimerRef.Set(interop.Timer{})
 		}
 	}
 
-	cancelStreamFollowHold := func() {
-		timer := streamFollowHoldTimerRef.Get()
-		if err := timer.Cancel(); err == nil {
-			streamFollowHoldTimerRef.Set(interop.Timer{})
+	parseCancelStreamFollowHold := func() {
+		parseTimer3 := parseStreamFollowHoldTimerRef.Get()
+		if parseErr3 := parseTimer3.Cancel(); parseErr3 == nil {
+			parseStreamFollowHoldTimerRef.Set(interop.Timer{})
 		}
 	}
 
-	markManualScrollIntent := func() {
-		manualScrollIntentRef.Set(true)
-		userHasScrolledRef.Set(true)
-		cancelPendingStreamFollow()
-		cancelStreamFollowHold()
-		autoScrollInFlightRef.Set(false)
+	parseMarkManualScrollIntent := func() {
+		parseManualScrollIntentRef.Set(true)
+		parseUserHasScrolledRef.Set(true)
+		parseCancelPendingStreamFollow()
+		parseCancelStreamFollowHold()
+		parseAutoScrollInFlightRef.Set(false)
 	}
 
-	persistThreadScrollNow := func(convID int64) {
-		scrollTop, ok := messageListScrollTop()
-		if !ok {
+	parsePersistThreadScrollNow := func(parseConvID int64) {
+		parseScrollTop, parseOk := parseMessageListScrollTop()
+		if !parseOk {
 			return
 		}
-		scrollCache := scrollCacheRef.Get()
-		scrollCache[convID] = scrollTop
-		scrollCacheRef.Set(scrollCache)
+		parseScrollCache := parseScrollCacheRef.Get()
+		parseScrollCache[parseConvID] = parseScrollTop
+		parseScrollCacheRef.Set(parseScrollCache)
 	}
 
-	scheduleThreadScrollPersist := func(convID int64) {
-		cancelPendingScrollPersist()
-		timer, err := interop.ScheduleTimeout(scrollSettleDelay, func() {
-			persistThreadScrollNow(convID)
-			scrollPersistTimerRef.Set(interop.Timer{})
+	parseScheduleThreadScrollPersist := func(parseConvID2 int64) {
+		parseCancelPendingScrollPersist()
+		parseTimer4, parseErr4 := interop.ScheduleTimeout(scrollSettleDelay, func() {
+			parsePersistThreadScrollNow(parseConvID2)
+			parseScrollPersistTimerRef.Set(interop.Timer{})
 		})
-		if err != nil {
-			persistThreadScrollNow(convID)
+		if parseErr4 != nil {
+			parsePersistThreadScrollNow(parseConvID2)
 			return
 		}
-		scrollPersistTimerRef.Set(timer)
+		parseScrollPersistTimerRef.Set(parseTimer4)
 	}
 
-	prepareThreadScrollRestore := func(convID int64) {
-		cancelPendingStreamFollow()
-		cancelStreamFollowHold()
-		autoScrollInFlightRef.Set(false)
-		manualScrollIntentRef.Set(false)
-		if scrollTop, ok := scrollCacheRef.Get()[convID]; ok {
-			value := scrollTop
-			pendingScrollRestoreRef.Set(&value)
+	parsePrepareThreadScrollRestore := func(parseConvID3 int64) {
+		parseCancelPendingStreamFollow()
+		parseCancelStreamFollowHold()
+		parseAutoScrollInFlightRef.Set(false)
+		parseManualScrollIntentRef.Set(false)
+		if parseScrollTop2, parseOk2 := parseScrollCacheRef.Get()[parseConvID3]; parseOk2 {
+			parseValue := parseScrollTop2
+			parsePendingScrollRestoreRef.Set(&parseValue)
 			return
 		}
-		pendingScrollRestoreRef.Set(nil)
-		userHasScrolledRef.Set(false)
+		parsePendingScrollRestoreRef.Set(nil)
+		parseUserHasScrolledRef.Set(false)
 	}
 
-	scheduleStreamFollow := func() {
-		if userHasScrolledRef.Get() {
+	parseScheduleStreamFollow := func() {
+		if parseUserHasScrolledRef.Get() {
 			return
 		}
-		cancelPendingStreamFollow()
-		timer, err := interop.ScheduleTimeout(streamFollowDelay, func() {
-			streamFollowTimerRef.Set(interop.Timer{})
-			if userHasScrolledRef.Get() {
+		parseCancelPendingStreamFollow()
+		parseTimer5, parseErr5 := interop.ScheduleTimeout(streamFollowDelay, func() {
+			parseStreamFollowTimerRef.Set(interop.Timer{})
+			if parseUserHasScrolledRef.Get() {
 				return
 			}
-			cancelStreamFollowHold()
-			autoScrollInFlightRef.Set(true)
-			manualScrollIntentRef.Set(false)
-			scrollStreamingAssistantBubbleIntoView(scrollBehaviorSmooth)
-			holdTimer, holdErr := interop.ScheduleTimeout(streamFollowHold, func() {
-				streamFollowHoldTimerRef.Set(interop.Timer{})
-				autoScrollInFlightRef.Set(false)
+			parseCancelStreamFollowHold()
+			parseAutoScrollInFlightRef.Set(true)
+			parseManualScrollIntentRef.Set(false)
+			parseScrollStreamingAssistantBubbleIntoView(scrollBehaviorSmooth)
+			parseHoldTimer, parseHoldErr := interop.ScheduleTimeout(streamFollowHold, func() {
+				parseStreamFollowHoldTimerRef.Set(interop.Timer{})
+				parseAutoScrollInFlightRef.Set(false)
 			})
-			if holdErr != nil {
-				autoScrollInFlightRef.Set(false)
+			if parseHoldErr != nil {
+				parseAutoScrollInFlightRef.Set(false)
 				return
 			}
-			streamFollowHoldTimerRef.Set(holdTimer)
+			parseStreamFollowHoldTimerRef.Set(parseHoldTimer)
 		})
-		if err != nil {
-			autoScrollInFlightRef.Set(true)
-			scrollStreamingAssistantBubbleIntoView(scrollBehaviorSmooth)
-			autoScrollInFlightRef.Set(false)
+		if parseErr5 != nil {
+			parseAutoScrollInFlightRef.Set(true)
+			parseScrollStreamingAssistantBubbleIntoView(scrollBehaviorSmooth)
+			parseAutoScrollInFlightRef.Set(false)
 			return
 		}
-		streamFollowTimerRef.Set(timer)
+		parseStreamFollowTimerRef.Set(parseTimer5)
 	}
 
 	ui.UseEffect(func() func() {
-		if !userHasScrolledRef.Get() {
-			scrollMessageListToBottom(scrollBehaviorSmooth)
+		if !parseUserHasScrolledRef.Get() {
+			parseScrollMessageListToBottom(scrollBehaviorSmooth)
 		}
-		syncScrollToBottomVisibility()
+		parseSyncScrollToBottomVisibility()
 		return nil
-	}, messageCount)
+	}, parseMessageCount)
 
 	ui.UseEffect(func() func() {
-		pendingScrollTop := pendingScrollRestoreRef.Get()
-		if pendingScrollTop == nil {
+		parsePendingScrollTop := parsePendingScrollRestoreRef.Get()
+		if parsePendingScrollTop == nil {
 			return nil
 		}
-		if setMessageListScrollTop(*pendingScrollTop) {
-			userHasScrolledRef.Set(!isMessageListAtScrollBottom())
-			lastScrollTopRef.Set(*pendingScrollTop)
+		if setMessageListScrollTop(*parsePendingScrollTop) {
+			parseUserHasScrolledRef.Set(!isMessageListAtScrollBottom())
+			parseLastScrollTopRef.Set(*parsePendingScrollTop)
 		}
-		pendingScrollRestoreRef.Set(nil)
-		syncScrollToBottomVisibility()
+		parsePendingScrollRestoreRef.Set(nil)
+		parseSyncScrollToBottomVisibility()
 		return nil
-	}, activeConvID, messageCount)
+	}, parseActiveConvID, parseMessageCount)
 
 	ui.UseEffect(func() func() {
-		doc, err := interop.GetDocument()
-		if err != nil {
+		parseDoc, parseErr6 := interop.GetDocument()
+		if parseErr6 != nil {
 			return nil
 		}
-		el, ok, err := doc.ElementByID(idMessageList)
-		if err != nil || !ok {
+		parseEl, parseOk3, parseErr6 := parseDoc.ElementByID(idMessageList)
+		if parseErr6 != nil || !parseOk3 {
 			return nil
 		}
-		sub, err := el.Listen("scroll", func(_ interop.BrowserEvent) {
-			scrollTop, hasScrollTop := messageListScrollTop()
-			previousTop := lastScrollTopRef.Get()
+		parseSub, parseErr6 := parseEl.Listen("scroll", func(_ interop.BrowserEvent) {
+			parseScrollTop3, hasScrollTop := parseMessageListScrollTop()
+			parsePreviousTop := parseLastScrollTopRef.Get()
 			if hasScrollTop {
-				lastScrollTopRef.Set(scrollTop)
+				parseLastScrollTopRef.Set(parseScrollTop3)
 			}
-			if autoScrollInFlightRef.Get() && !manualScrollIntentRef.Get() && hasScrollTop && scrollTop+1 < previousTop {
+			if parseAutoScrollInFlightRef.Get() && !parseManualScrollIntentRef.Get() && hasScrollTop && parseScrollTop3+1 < parsePreviousTop {
 				// User scrolled upward while smooth auto-follow was animating.
-				markManualScrollIntent()
+				parseMarkManualScrollIntent()
 			}
-			if autoScrollInFlightRef.Get() && !manualScrollIntentRef.Get() {
+			if parseAutoScrollInFlightRef.Get() && !parseManualScrollIntentRef.Get() {
 				if isMessageListAtScrollBottom() {
-					userHasScrolledRef.Set(false)
+					parseUserHasScrolledRef.Set(false)
 				}
-				syncScrollToBottomVisibility()
+				parseSyncScrollToBottomVisibility()
 				return
 			}
-			manualScrollIntentRef.Set(false)
+			parseManualScrollIntentRef.Set(false)
 			if isMessageListAtScrollBottom() {
-				userHasScrolledRef.Set(false)
+				parseUserHasScrolledRef.Set(false)
 			} else {
-				userHasScrolledRef.Set(true)
-				cancelPendingStreamFollow()
-				cancelStreamFollowHold()
-				autoScrollInFlightRef.Set(false)
+				parseUserHasScrolledRef.Set(true)
+				parseCancelPendingStreamFollow()
+				parseCancelStreamFollowHold()
+				parseAutoScrollInFlightRef.Set(false)
 			}
-			syncScrollToBottomVisibility()
-			scheduleThreadScrollPersist(activeConvID)
+			parseSyncScrollToBottomVisibility()
+			parseScheduleThreadScrollPersist(parseActiveConvID)
 		})
-		if err != nil {
+		if parseErr6 != nil {
 			return nil
 		}
-		wheelSub, wheelErr := el.Listen("wheel", func(_ interop.BrowserEvent) {
-			markManualScrollIntent()
+		parseWheelSub, parseWheelErr := parseEl.Listen("wheel", func(_ interop.BrowserEvent) {
+			parseMarkManualScrollIntent()
 		})
-		if wheelErr != nil {
-			return func() { sub.Cancel() }
+		if parseWheelErr != nil {
+			return func() { parseSub.Cancel() }
 		}
-		touchSub, touchErr := el.Listen("touchmove", func(_ interop.BrowserEvent) {
-			markManualScrollIntent()
+		parseTouchSub, parseTouchErr := parseEl.Listen("touchmove", func(_ interop.BrowserEvent) {
+			parseMarkManualScrollIntent()
 		})
-		if touchErr != nil {
+		if parseTouchErr != nil {
 			return func() {
-				wheelSub.Cancel()
-				sub.Cancel()
+				parseWheelSub.Cancel()
+				parseSub.Cancel()
 			}
 		}
-		pointerSub, pointerErr := el.Listen("pointerdown", func(_ interop.BrowserEvent) {
-			if !autoScrollInFlightRef.Get() {
+		parsePointerSub, parsePointerErr := parseEl.Listen("pointerdown", func(_ interop.BrowserEvent) {
+			if !parseAutoScrollInFlightRef.Get() {
 				return
 			}
-			markManualScrollIntent()
+			parseMarkManualScrollIntent()
 		})
-		if pointerErr != nil {
+		if parsePointerErr != nil {
 			return func() {
-				touchSub.Cancel()
-				wheelSub.Cancel()
-				sub.Cancel()
+				parseTouchSub.Cancel()
+				parseWheelSub.Cancel()
+				parseSub.Cancel()
 			}
 		}
 		return func() {
-			pointerSub.Cancel()
-			touchSub.Cancel()
-			wheelSub.Cancel()
-			sub.Cancel()
+			parsePointerSub.Cancel()
+			parseTouchSub.Cancel()
+			parseWheelSub.Cancel()
+			parseSub.Cancel()
 		}
-	}, true, activeConvID)
+	}, true, parseActiveConvID)
 
 	ui.UseEffect(func() func() {
 		return func() {
-			cancelPendingScrollPersist()
-			cancelPendingStreamFollow()
-			cancelStreamFollowHold()
+			parseCancelPendingScrollPersist()
+			parseCancelPendingStreamFollow()
+			parseCancelStreamFollowHold()
 		}
 	}, true)
 
 	return threadScrollMemory{
-		shouldAutoScroll: func() bool {
-			return !userHasScrolledRef.Get()
+		autoScroll: func() bool {
+			return !parseUserHasScrolledRef.Get()
 		},
 		showScrollToBottom: func() bool {
-			return showScrollToBottomState.Get()
+			return parseShowScrollToBottomState.Get()
 		},
 		resetToBottomMode: func() {
-			cancelPendingStreamFollow()
-			cancelStreamFollowHold()
-			autoScrollInFlightRef.Set(false)
-			manualScrollIntentRef.Set(false)
-			userHasScrolledRef.Set(false)
-			showScrollToBottomState.Set(false)
+			parseCancelPendingStreamFollow()
+			parseCancelStreamFollowHold()
+			parseAutoScrollInFlightRef.Set(false)
+			parseManualScrollIntentRef.Set(false)
+			parseUserHasScrolledRef.Set(false)
+			parseShowScrollToBottomState.Set(false)
 		},
-		followStream: scheduleStreamFollow,
+		followStream: parseScheduleStreamFollow,
 		scrollToBottom: func() {
-			cancelPendingStreamFollow()
-			cancelStreamFollowHold()
-			autoScrollInFlightRef.Set(false)
-			manualScrollIntentRef.Set(false)
-			userHasScrolledRef.Set(false)
-			scrollMessageListToBottom(scrollBehaviorSmooth)
-			showScrollToBottomState.Set(false)
+			parseCancelPendingStreamFollow()
+			parseCancelStreamFollowHold()
+			parseAutoScrollInFlightRef.Set(false)
+			parseManualScrollIntentRef.Set(false)
+			parseUserHasScrolledRef.Set(false)
+			parseScrollMessageListToBottom(scrollBehaviorSmooth)
+			parseShowScrollToBottomState.Set(false)
 		},
-		cancelPendingPersist: cancelPendingScrollPersist,
-		persistNow:           persistThreadScrollNow,
-		prepareRestore:       prepareThreadScrollRestore,
+		cancelPendingPersist: parseCancelPendingScrollPersist,
+		persistNow:           parsePersistThreadScrollNow,
+		prepareRestore:       parsePrepareThreadScrollRestore,
 	}
 }

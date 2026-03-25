@@ -37,17 +37,17 @@ type BackgroundSyncCapabilities struct {
 	Periodic bool
 }
 
-func (parseC BackgroundSyncCapabilities) Available() bool {
-	return parseC.OneShot || parseC.Periodic
+func (parseCapabilities BackgroundSyncCapabilities) Available() bool {
+	return parseCapabilities.OneShot || parseCapabilities.Periodic
 }
 
 type ServiceWorkerSubscription struct {
 	cancel func()
 }
 
-func (parseS ServiceWorkerSubscription) Cancel() {
-	if parseS.cancel != nil {
-		parseS.cancel()
+func (parseSubscription ServiceWorkerSubscription) Cancel() {
+	if parseSubscription.cancel != nil {
+		parseSubscription.cancel()
 	}
 }
 
@@ -62,58 +62,58 @@ type ServiceWorkerRegistration struct {
 	reloadOnControllerChange func() (ServiceWorkerSubscription, error)
 }
 
-func (parseR ServiceWorkerRegistration) Snapshot() ServiceWorkerSnapshot {
-	if parseR.snapshot == nil {
+func (parseRegistration ServiceWorkerRegistration) Snapshot() ServiceWorkerSnapshot {
+	if parseRegistration.snapshot == nil {
 		return ServiceWorkerSnapshot{}
 	}
-	return parseR.snapshot()
+	return parseRegistration.snapshot()
 }
 
-func (parseR ServiceWorkerRegistration) BackgroundSyncCapabilities() BackgroundSyncCapabilities {
-	if parseR.backgroundSync == nil {
+func (parseRegistration ServiceWorkerRegistration) BackgroundSyncCapabilities() BackgroundSyncCapabilities {
+	if parseRegistration.backgroundSync == nil {
 		return BackgroundSyncCapabilities{}
 	}
-	return parseR.backgroundSync()
+	return parseRegistration.backgroundSync()
 }
 
-func (parseR ServiceWorkerRegistration) RegisterSync(parseCtx context.Context, parseTag string) error {
-	if parseR.registerSync == nil {
-		return serviceWorkerUnavailable("ServiceWorkerRegistration.RegisterSync", parseTag)
+func (parseRegistration ServiceWorkerRegistration) RegisterSync(parseSyncCtx context.Context, parseSyncTag string) error {
+	if parseRegistration.registerSync == nil {
+		return serviceWorkerUnavailable("ServiceWorkerRegistration.RegisterSync", parseSyncTag)
 	}
-	return parseR.registerSync(parseCtx, parseTag)
+	return parseRegistration.registerSync(parseSyncCtx, parseSyncTag)
 }
 
-func (parseR ServiceWorkerRegistration) Update(parseCtx context.Context) error {
-	if parseR.update == nil {
+func (parseRegistration ServiceWorkerRegistration) Update(parseUpdateCtx context.Context) error {
+	if parseRegistration.update == nil {
 		return serviceWorkerUnavailable("ServiceWorkerRegistration.Update", "")
 	}
-	return parseR.update(parseCtx)
+	return parseRegistration.update(parseUpdateCtx)
 }
 
-func (parseR ServiceWorkerRegistration) Unregister(parseCtx context.Context) (bool, error) {
-	if parseR.unregister == nil {
+func (parseRegistration ServiceWorkerRegistration) Unregister(parseUnregisterCtx context.Context) (bool, error) {
+	if parseRegistration.unregister == nil {
 		return false, serviceWorkerUnavailable("ServiceWorkerRegistration.Unregister", "")
 	}
-	return parseR.unregister(parseCtx)
+	return parseRegistration.unregister(parseUnregisterCtx)
 }
 
-func (parseR ServiceWorkerRegistration) SkipWaiting(parseCtx context.Context) error {
-	if parseR.skipWaiting == nil {
+func (parseRegistration ServiceWorkerRegistration) SkipWaiting(parseSkipCtx context.Context) error {
+	if parseRegistration.skipWaiting == nil {
 		return serviceWorkerUnavailable("ServiceWorkerRegistration.SkipWaiting", "")
 	}
-	return parseR.skipWaiting(parseCtx)
+	return parseRegistration.skipWaiting(parseSkipCtx)
 }
 
-func (parseR ServiceWorkerRegistration) SubscribeLifecycle(parseHandler func(ServiceWorkerSnapshot)) (ServiceWorkerSubscription, error) {
-	if parseR.subscribeLifecycle == nil {
+func (parseRegistration ServiceWorkerRegistration) SubscribeLifecycle(parseLifecycleHandler func(ServiceWorkerSnapshot)) (ServiceWorkerSubscription, error) {
+	if parseRegistration.subscribeLifecycle == nil {
 		return ServiceWorkerSubscription{}, serviceWorkerUnavailable("ServiceWorkerRegistration.SubscribeLifecycle", "")
 	}
-	return parseR.subscribeLifecycle(parseHandler)
+	return parseRegistration.subscribeLifecycle(parseLifecycleHandler)
 }
 
-func (parseR ServiceWorkerRegistration) ReloadOnControllerChange() (ServiceWorkerSubscription, error) {
-	if parseR.reloadOnControllerChange == nil {
+func (parseRegistration ServiceWorkerRegistration) ReloadOnControllerChange() (ServiceWorkerSubscription, error) {
+	if parseRegistration.reloadOnControllerChange == nil {
 		return ServiceWorkerSubscription{}, serviceWorkerUnavailable("ServiceWorkerRegistration.ReloadOnControllerChange", "")
 	}
-	return parseR.reloadOnControllerChange()
+	return parseRegistration.reloadOnControllerChange()
 }

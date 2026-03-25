@@ -15,91 +15,91 @@ import (
 // to create a production-ready form with password strength, async submission, and error handling.
 func AdvancedFormExample(_ Attrs) *Element {
 	// Form field state management
-	username, setUsername := UseState("")
-	email, setEmail := UseState("")
-	password, setPassword := UseState("")
-	confirmPass, setConfirmPass := UseState("")
-	bio, setBio := UseState("")
-	userType, setUserType := UseState("developer")
-	agreeTerms, setAgreeTerms := UseState(false)
+	parseUsername, setUsername := UseState("")
+	parseEmail, setEmail := UseState("")
+	parsePassword, setPassword := UseState("")
+	parseConfirmPass, setConfirmPass := UseState("")
+	parseBio, setBio := UseState("")
+	parseUserType, setUserType := UseState("developer")
+	parseAgreeTerms, setAgreeTerms := UseState(false)
 
 	// Form submission and validation state
 	isSubmitting, setIsSubmitting := UseState(false)
-	submitStatus, setSubmitStatus := UseState("")
-	passwordStrength, setPasswordStrength := UseState(0)
-	fieldClass := "w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-	fieldErrorClass := "w-full rounded-md border border-red-400/70 bg-red-500/10 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-400"
+	parseSubmitStatus, setSubmitStatus := UseState("")
+	parsePasswordStrength, setPasswordStrength := UseState(0)
+	parseFieldClass := "w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+	parseFieldErrorClass := "w-full rounded-md border border-red-400/70 bg-red-500/10 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-400"
 
 	// Calculate password strength when password changes
 	UseEffect(func() func() {
-		pass := password()
-		if pass == "" {
+		parsePass := parsePassword()
+		if parsePass == "" {
 			setPasswordStrength(0)
 			return nil
 		}
 
-		strength := 0
-		if len(pass) >= 8 {
-			strength += 25
+		parseStrength := 0
+		if len(parsePass) >= 8 {
+			parseStrength += 25
 		}
-		if regexp.MustCompile(`[a-z]`).MatchString(pass) {
-			strength += 25
+		if regexp.MustCompile(`[a-z]`).MatchString(parsePass) {
+			parseStrength += 25
 		}
-		if regexp.MustCompile(`[A-Z]`).MatchString(pass) {
-			strength += 25
+		if regexp.MustCompile(`[A-Z]`).MatchString(parsePass) {
+			parseStrength += 25
 		}
-		if regexp.MustCompile(`[0-9]`).MatchString(pass) {
-			strength += 12
+		if regexp.MustCompile(`[0-9]`).MatchString(parsePass) {
+			parseStrength += 12
 		}
-		if regexp.MustCompile(`[^a-zA-Z0-9]`).MatchString(pass) {
-			strength += 13
+		if regexp.MustCompile(`[^a-zA-Z0-9]`).MatchString(parsePass) {
+			parseStrength += 13
 		}
-		if strength > 100 {
-			strength = 100
+		if parseStrength > 100 {
+			parseStrength = 100
 		}
-		setPasswordStrength(strength)
+		setPasswordStrength(parseStrength)
 		return nil
-	}, password())
+	}, parsePassword())
 
 	// Input handlers
-	handleUsernameChange := UseEvent(func(event InputEvent) {
-		value := event.GetValue()
-		setUsername(value)
+	handleUsernameChange := UseEvent(func(parseEvent InputEvent) {
+		parseValue := parseEvent.GetValue()
+		setUsername(parseValue)
 	})
 
-	handleEmailChange := UseEvent(func(event InputEvent) {
-		value := event.GetValue()
-		setEmail(value)
+	handleEmailChange := UseEvent(func(parseEvent2 InputEvent) {
+		parseValue2 := parseEvent2.GetValue()
+		setEmail(parseValue2)
 	})
 
-	handlePasswordChange := UseEvent(func(event InputEvent) {
-		value := event.GetValue()
-		setPassword(value)
+	handlePasswordChange := UseEvent(func(parseEvent3 InputEvent) {
+		parseValue3 := parseEvent3.GetValue()
+		setPassword(parseValue3)
 	})
 
-	handleConfirmPassChange := UseEvent(func(event InputEvent) {
-		value := event.GetValue()
-		setConfirmPass(value)
+	handleConfirmPassChange := UseEvent(func(parseEvent4 InputEvent) {
+		parseValue4 := parseEvent4.GetValue()
+		setConfirmPass(parseValue4)
 	})
 
-	handleBioChange := UseEvent(func(event InputEvent) {
-		value := event.GetValue()
-		setBio(value)
+	handleBioChange := UseEvent(func(parseEvent5 InputEvent) {
+		parseValue5 := parseEvent5.GetValue()
+		setBio(parseValue5)
 	})
 
-	handleUserTypeChange := UseEvent(func(event ChangeEvent) {
-		value := event.GetValue()
-		setUserType(value)
+	handleUserTypeChange := UseEvent(func(parseEvent6 ChangeEvent) {
+		parseValue6 := parseEvent6.GetValue()
+		setUserType(parseValue6)
 	})
 
-	handleTermsChange := UseEvent(func(event ChangeEvent) {
-		checked := event.IsChecked()
-		setAgreeTerms(checked)
+	handleTermsChange := UseEvent(func(parseEvent7 ChangeEvent) {
+		parseChecked := parseEvent7.IsChecked()
+		setAgreeTerms(parseChecked)
 	})
 
 	// Form submission
-	handleSubmit := UseEvent(func(event FormEvent) {
-		event.PreventDefault()
+	handleSubmit := UseEvent(func(parseEvent8 FormEvent) {
+		parseEvent8.PreventDefault()
 		setIsSubmitting(true)
 		setSubmitStatus("")
 
@@ -108,25 +108,25 @@ func AdvancedFormExample(_ Attrs) *Element {
 			time.Sleep(2 * time.Second)
 
 			// Validate form
-			usernameVal := username()
-			emailVal := email()
-			passwordVal := password()
-			confirmPassVal := confirmPass()
-			agreeTermsVal := agreeTerms()
+			parseUsernameVal := parseUsername()
+			parseEmailVal := parseEmail()
+			parsePasswordVal := parsePassword()
+			parseConfirmPassVal := parseConfirmPass()
+			parseAgreeTermsVal := parseAgreeTerms()
 
-			if usernameVal == "" || emailVal == "" || passwordVal == "" {
+			if parseUsernameVal == "" || parseEmailVal == "" || parsePasswordVal == "" {
 				setSubmitStatus("error")
 				setIsSubmitting(false)
 				return
 			}
 
-			if passwordVal != confirmPassVal {
+			if parsePasswordVal != parseConfirmPassVal {
 				setSubmitStatus("error")
 				setIsSubmitting(false)
 				return
 			}
 
-			if !agreeTermsVal {
+			if !parseAgreeTermsVal {
 				setSubmitStatus("error")
 				setIsSubmitting(false)
 				return
@@ -148,49 +148,49 @@ func AdvancedFormExample(_ Attrs) *Element {
 	})
 
 	// Helper functions for validation display
-	usernameError := func() string {
-		val := username()
-		if val == "" {
+	parseUsernameError := func() string {
+		parseVal := parseUsername()
+		if parseVal == "" {
 			return ""
 		}
-		if len(val) < 3 || len(val) > 20 {
+		if len(parseVal) < 3 || len(parseVal) > 20 {
 			return "Username must be 3-20 characters"
 		}
-		if !regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString(val) {
+		if !regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString(parseVal) {
 			return "Username can only contain letters, numbers, and underscores"
 		}
 		return ""
 	}
 
-	emailError := func() string {
-		val := email()
-		if val == "" {
+	parseEmailError := func() string {
+		parseVal2 := parseEmail()
+		if parseVal2 == "" {
 			return ""
 		}
-		if !regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`).MatchString(val) {
+		if !regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`).MatchString(parseVal2) {
 			return "Please enter a valid email address"
 		}
 		return ""
 	}
 
-	passwordError := func() string {
-		val := password()
-		if val == "" {
+	parsePasswordError := func() string {
+		parseVal3 := parsePassword()
+		if parseVal3 == "" {
 			return ""
 		}
-		if len(val) < 8 {
+		if len(parseVal3) < 8 {
 			return "Password must be at least 8 characters"
 		}
 		return ""
 	}
 
-	confirmPassError := func() string {
-		val := confirmPass()
-		passVal := password()
-		if val == "" {
+	parseConfirmPassError := func() string {
+		parseVal4 := parseConfirmPass()
+		parsePassVal := parsePassword()
+		if parseVal4 == "" {
 			return ""
 		}
-		if val != passVal {
+		if parseVal4 != parsePassVal {
 			return "Passwords do not match"
 		}
 		return ""
@@ -216,19 +216,19 @@ func AdvancedFormExample(_ Attrs) *Element {
 				Label(Attrs{"class": "block text-sm font-medium text-slate-300"}, "Username"),
 				Input(Attrs{
 					"type":    "text",
-					"value":   username(),
+					"value":   parseUsername(),
 					"oninput": handleUsernameChange,
 					"class": func() string {
-						if usernameError() != "" {
-							return fieldErrorClass
+						if parseUsernameError() != "" {
+							return parseFieldErrorClass
 						}
-						return fieldClass
+						return parseFieldClass
 					}(),
 					"placeholder": "Enter username",
 				}),
 				func() *Element {
-					if err := usernameError(); err != "" {
-						return P(Attrs{"class": "text-sm text-red-600"}, err)
+					if parseErr := parseUsernameError(); parseErr != "" {
+						return P(Attrs{"class": "text-sm text-red-600"}, parseErr)
 					}
 					return Text("")
 				}(),
@@ -240,19 +240,19 @@ func AdvancedFormExample(_ Attrs) *Element {
 				Label(Attrs{"class": "block text-sm font-medium text-slate-300"}, "Email"),
 				Input(Attrs{
 					"type":    "email",
-					"value":   email(),
+					"value":   parseEmail(),
 					"oninput": handleEmailChange,
 					"class": func() string {
-						if emailError() != "" {
-							return fieldErrorClass
+						if parseEmailError() != "" {
+							return parseFieldErrorClass
 						}
-						return fieldClass
+						return parseFieldClass
 					}(),
 					"placeholder": "Enter email",
 				}),
 				func() *Element {
-					if err := emailError(); err != "" {
-						return P(Attrs{"class": "text-sm text-red-600"}, err)
+					if parseErr2 := parseEmailError(); parseErr2 != "" {
+						return P(Attrs{"class": "text-sm text-red-600"}, parseErr2)
 					}
 					return Text("")
 				}(),
@@ -264,38 +264,38 @@ func AdvancedFormExample(_ Attrs) *Element {
 				Label(Attrs{"class": "block text-sm font-medium text-slate-300"}, "Password"),
 				Input(Attrs{
 					"type":    "password",
-					"value":   password(),
+					"value":   parsePassword(),
 					"oninput": handlePasswordChange,
 					"class": func() string {
-						if passwordError() != "" {
-							return fieldErrorClass
+						if parsePasswordError() != "" {
+							return parseFieldErrorClass
 						}
-						return fieldClass
+						return parseFieldClass
 					}(),
 					"placeholder": "Enter password",
 				}),
 
 				// Password strength meter
 				func() *Element {
-					if password() != "" {
-						strength := passwordStrength()
+					if parsePassword() != "" {
+						parseStrength2 := parsePasswordStrength()
 						return Div(
 							Attrs{"class": "mt-2"},
 							Div(Attrs{"class": "mb-1 flex justify-between text-xs text-slate-400"},
 								Span(nil, "Password Strength"),
-								Span(nil, Text(strconv.Itoa(strength)), "%"),
+								Span(nil, Text(strconv.Itoa(parseStrength2)), "%"),
 							),
 							Div(Attrs{"class": "h-2 w-full rounded-full bg-white/10"},
 								Div(Attrs{
 									"class": func() string {
-										if strength < 30 {
+										if parseStrength2 < 30 {
 											return "bg-red-500 h-2 rounded-full transition-all duration-300"
-										} else if strength < 70 {
+										} else if parseStrength2 < 70 {
 											return "bg-yellow-500 h-2 rounded-full transition-all duration-300"
 										}
 										return "bg-green-500 h-2 rounded-full transition-all duration-300"
 									}(),
-									"style": "width: " + strconv.Itoa(strength) + "%;",
+									"style": "width: " + strconv.Itoa(parseStrength2) + "%;",
 								}),
 							),
 						)
@@ -304,8 +304,8 @@ func AdvancedFormExample(_ Attrs) *Element {
 				}(),
 
 				func() *Element {
-					if err := passwordError(); err != "" {
-						return P(Attrs{"class": "text-sm text-red-600"}, err)
+					if parseErr3 := parsePasswordError(); parseErr3 != "" {
+						return P(Attrs{"class": "text-sm text-red-600"}, parseErr3)
 					}
 					return Text("")
 				}(),
@@ -317,19 +317,19 @@ func AdvancedFormExample(_ Attrs) *Element {
 				Label(Attrs{"class": "block text-sm font-medium text-slate-300"}, "Confirm Password"),
 				Input(Attrs{
 					"type":    "password",
-					"value":   confirmPass(),
+					"value":   parseConfirmPass(),
 					"oninput": handleConfirmPassChange,
 					"class": func() string {
-						if confirmPassError() != "" {
-							return fieldErrorClass
+						if parseConfirmPassError() != "" {
+							return parseFieldErrorClass
 						}
-						return fieldClass
+						return parseFieldClass
 					}(),
 					"placeholder": "Confirm password",
 				}),
 				func() *Element {
-					if err := confirmPassError(); err != "" {
-						return P(Attrs{"class": "text-sm text-red-600"}, err)
+					if parseErr4 := parseConfirmPassError(); parseErr4 != "" {
+						return P(Attrs{"class": "text-sm text-red-600"}, parseErr4)
 					}
 					return Text("")
 				}(),
@@ -340,16 +340,16 @@ func AdvancedFormExample(_ Attrs) *Element {
 				Attrs{"class": "space-y-2"},
 				Label(Attrs{"class": "block text-sm font-medium text-slate-300"}, "Bio (optional)"),
 				Textarea(Attrs{
-					"value":       bio(),
+					"value":       parseBio(),
 					"oninput":     handleBioChange,
 					"rows":        "4",
-					"class":       fieldClass,
+					"class":       parseFieldClass,
 					"placeholder": "Tell us about yourself...",
 				}),
 				Div(
 					Attrs{"class": "flex justify-between text-xs text-slate-500"},
 					Span(nil, Text("Optional")),
-					Span(nil, Text(fmt.Sprintf("%d/500 characters", len(bio())))),
+					Span(nil, Text(fmt.Sprintf("%d/500 characters", len(parseBio())))),
 				),
 			),
 
@@ -358,9 +358,9 @@ func AdvancedFormExample(_ Attrs) *Element {
 				Attrs{"class": "space-y-2"},
 				Label(Attrs{"class": "block text-sm font-medium text-slate-300"}, "User Type"),
 				Select(Attrs{
-					"value":    userType(),
+					"value":    parseUserType(),
 					"onchange": handleUserTypeChange,
-					"class":    fieldClass,
+					"class":    parseFieldClass,
 				},
 					Option(Attrs{"value": "developer"}, "Developer"),
 					Option(Attrs{"value": "designer"}, "Designer"),
@@ -374,7 +374,7 @@ func AdvancedFormExample(_ Attrs) *Element {
 				Attrs{"class": "flex items-center space-x-2"},
 				Input(Attrs{
 					"type":     "checkbox",
-					"checked":  agreeTerms(),
+					"checked":  parseAgreeTerms(),
 					"onchange": handleTermsChange,
 					"class":    "h-4 w-4 rounded border-white/20 bg-slate-900 text-indigo-500 focus:ring-indigo-400 focus:ring-offset-0",
 				}),
@@ -387,9 +387,9 @@ func AdvancedFormExample(_ Attrs) *Element {
 				Button(
 					Attrs{
 						"type":     "submit",
-						"disabled": isSubmitting() || !agreeTerms(),
+						"disabled": isSubmitting() || !parseAgreeTerms(),
 						"class": func() string {
-							if isSubmitting() || !agreeTerms() {
+							if isSubmitting() || !parseAgreeTerms() {
 								return "w-full cursor-not-allowed rounded-md border border-white/10 bg-slate-900 px-4 py-3 text-slate-500"
 							}
 							return "w-full rounded-md bg-indigo-500 px-4 py-3 text-white transition-colors hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
@@ -405,8 +405,8 @@ func AdvancedFormExample(_ Attrs) *Element {
 
 				// Status messages
 				func() *Element {
-					status := submitStatus()
-					switch status {
+					parseStatus := parseSubmitStatus()
+					switch parseStatus {
 					case "success":
 						return Div(Attrs{"class": "rounded-md border border-emerald-400/40 bg-emerald-500/10 p-4 text-emerald-200"},
 							P(Attrs{"class": "font-semibold"}, "✅ Success!"),
@@ -427,11 +427,11 @@ func AdvancedFormExample(_ Attrs) *Element {
 }
 
 // FormField creates a labeled form field with validation
-func FormField(label string, input *Element, errorMsg string, isValidating bool) *Element {
+func FormField(parseLabel string, parseInput *Element, parseErrorMsg string, isValidating bool) *Element {
 	return Div(
 		Attrs{"class": "space-y-2"},
-		Label(Attrs{"class": "block text-sm font-medium text-slate-300"}, label),
-		input,
+		Label(Attrs{"class": "block text-sm font-medium text-slate-300"}, parseLabel),
+		parseInput,
 		func() *Element {
 			if isValidating {
 				return P(Attrs{"class": "flex items-center text-sm text-cyan-300"},
@@ -439,10 +439,10 @@ func FormField(label string, input *Element, errorMsg string, isValidating bool)
 					"Validating...",
 				)
 			}
-			if errorMsg != "" {
+			if parseErrorMsg != "" {
 				return P(Attrs{"class": "text-sm text-red-600 flex items-center"},
 					Span(Attrs{"class": "mr-2"}, "❌"),
-					errorMsg,
+					parseErrorMsg,
 				)
 			}
 			return Div(nil)
@@ -451,28 +451,28 @@ func FormField(label string, input *Element, errorMsg string, isValidating bool)
 }
 
 // PasswordStrengthMeter shows password strength visualization
-func PasswordStrengthMeter(strength int) *Element {
-	var strengthText string
-	var strengthColor string
-	var barWidth string
+func PasswordStrengthMeter(parseStrength int) *Element {
+	var parseStrengthText string
+	var parseStrengthColor string
+	var parseBarWidth string
 
 	switch {
-	case strength < 30:
-		strengthText = "Weak"
-		strengthColor = "text-red-600"
-		barWidth = "25%"
-	case strength < 60:
-		strengthText = "Fair"
-		strengthColor = "text-yellow-600"
-		barWidth = "50%"
-	case strength < 80:
-		strengthText = "Good"
-		strengthColor = "text-blue-600"
-		barWidth = "75%"
+	case parseStrength < 30:
+		parseStrengthText = "Weak"
+		parseStrengthColor = "text-red-600"
+		parseBarWidth = "25%"
+	case parseStrength < 60:
+		parseStrengthText = "Fair"
+		parseStrengthColor = "text-yellow-600"
+		parseBarWidth = "50%"
+	case parseStrength < 80:
+		parseStrengthText = "Good"
+		parseStrengthColor = "text-blue-600"
+		parseBarWidth = "75%"
 	default:
-		strengthText = "Strong"
-		strengthColor = "text-green-600"
-		barWidth = "100%"
+		parseStrengthText = "Strong"
+		parseStrengthColor = "text-green-600"
+		parseBarWidth = "100%"
 	}
 
 	return Div(
@@ -480,26 +480,26 @@ func PasswordStrengthMeter(strength int) *Element {
 		Div(
 			Attrs{"class": "flex justify-between items-center"},
 			Span(Attrs{"class": "text-xs text-slate-400"}, "Password Strength:"),
-			Span(Attrs{"class": "text-xs font-medium " + strengthColor}, strengthText),
+			Span(Attrs{"class": "text-xs font-medium " + parseStrengthColor}, parseStrengthText),
 		),
 		Div(
 			Attrs{"class": "h-2 w-full rounded-full bg-white/10"},
 			Div(Attrs{
-				"class": "h-2 rounded-full transition-all duration-300 " + getStrengthBarColor(strength),
-				"style": "width: " + barWidth,
+				"class": "h-2 rounded-full transition-all duration-300 " + getStrengthBarColor(parseStrength),
+				"style": "width: " + parseBarWidth,
 			}),
 		),
 	)
 }
 
 // Helper functions
-func getStrengthBarColor(strength int) string {
+func getStrengthBarColor(parseStrength int) string {
 	switch {
-	case strength < 30:
+	case parseStrength < 30:
 		return "bg-red-500"
-	case strength < 60:
+	case parseStrength < 60:
 		return "bg-yellow-500"
-	case strength < 80:
+	case parseStrength < 80:
 		return "bg-blue-500"
 	default:
 		return "bg-green-500"

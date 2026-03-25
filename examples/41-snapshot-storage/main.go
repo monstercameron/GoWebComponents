@@ -17,70 +17,70 @@ import (
 
 const snapshotStorageKey = "catalog-state-storage-demo"
 
-func snapshotStorageText(snapshot state.Snapshot) string {
-	if len(snapshot) == 0 {
+func snapshotStorageText(parseSnapshot state.Snapshot) string {
+	if len(parseSnapshot) == 0 {
 		return "{}"
 	}
-	data, err := state.MarshalSnapshotJSON(snapshot)
-	if err != nil {
-		return err.Error()
+	parseData, parseErr := state.MarshalSnapshotJSON(parseSnapshot)
+	if parseErr != nil {
+		return parseErr.Error()
 	}
-	return string(data)
+	return string(parseData)
 }
 
 func snapshotStorageExample() ui.Node {
-	stage := state.UseAtom("catalog-state-storage-stage", "Draft")
-	visitors := state.UseAtom("catalog-state-storage-visitors", 1200)
-	stored := ui.UseState("{}")
-	status := ui.UseState("Persist selected atoms into LocalStorage, then restore them later.")
+	parseStage := state.UseAtom("catalog-state-storage-stage", "Draft")
+	parseVisitors := state.UseAtom("catalog-state-storage-visitors", 1200)
+	parseStored := ui.UseState("{}")
+	parseStatus := ui.UseState("Persist selected atoms into LocalStorage, then restore them later.")
 
-	seedLaunch := ui.UseEvent(func() {
-		stage.Set("Launch")
-		visitors.Set(4800)
+	parseSeedLaunch := ui.UseEvent(func() {
+		parseStage.Set("Launch")
+		parseVisitors.Set(4800)
 	})
-	seedScale := ui.UseEvent(func() {
-		stage.Set("Scale")
-		visitors.Set(12500)
+	parseSeedScale := ui.UseEvent(func() {
+		parseStage.Set("Scale")
+		parseVisitors.Set(12500)
 	})
-	mutate := ui.UseEvent(func() {
-		stage.Set("Recovery")
-		visitors.Set(900)
-		status.Set("Live atoms changed. Restore the persisted snapshot to recover the saved values.")
+	parseMutate := ui.UseEvent(func() {
+		parseStage.Set("Recovery")
+		parseVisitors.Set(900)
+		parseStatus.Set("Live atoms changed. Restore the persisted snapshot to recover the saved values.")
 	})
-	persist := ui.UseEvent(func() {
-		snap, _ := state.GetSnapshot()
-		snapshot := snap.Select("catalog-state-storage-stage", "catalog-state-storage-visitors")
-		if err := state.SaveSnapshot(snapshotStorageKey, snapshot, state.LocalStorage); err != nil {
-			status.Set("Save failed: " + err.Error())
+	parsePersist := ui.UseEvent(func() {
+		parseSnap, _ := state.GetSnapshot()
+		parseSnapshot := parseSnap.Select("catalog-state-storage-stage", "catalog-state-storage-visitors")
+		if parseErr := state.SaveSnapshot(snapshotStorageKey, parseSnapshot, state.LocalStorage); parseErr != nil {
+			parseStatus.Set("Save failed: " + parseErr.Error())
 			return
 		}
-		loaded, ok, err := state.LoadSnapshot(snapshotStorageKey, state.LocalStorage)
-		if err != nil {
-			status.Set("Load failed: " + err.Error())
+		parseLoaded, parseOk, parseErr2 := state.LoadSnapshot(snapshotStorageKey, state.LocalStorage)
+		if parseErr2 != nil {
+			parseStatus.Set("Load failed: " + parseErr2.Error())
 			return
 		}
-		if !ok {
-			status.Set("Saved, but the snapshot was not found on read-back.")
+		if !parseOk {
+			parseStatus.Set("Saved, but the snapshot was not found on read-back.")
 			return
 		}
-		stored.Set(snapshotStorageText(loaded))
-		status.Set("Saved the selected atoms to LocalStorage and verified the payload with LoadSnapshot.")
+		parseStored.Set(snapshotStorageText(parseLoaded))
+		parseStatus.Set("Saved the selected atoms to LocalStorage and verified the payload with LoadSnapshot.")
 	})
-	restore := ui.UseEvent(func() {
-		restored, err := state.RestoreSnapshot(snapshotStorageKey, state.LocalStorage)
-		if err != nil {
-			status.Set("Restore failed: " + err.Error())
+	parseRestore := ui.UseEvent(func() {
+		parseRestored, parseErr3 := state.RestoreSnapshot(snapshotStorageKey, state.LocalStorage)
+		if parseErr3 != nil {
+			parseStatus.Set("Restore failed: " + parseErr3.Error())
 			return
 		}
-		if !restored {
-			status.Set("No snapshot found. Persist one first.")
+		if !parseRestored {
+			parseStatus.Set("No snapshot found. Persist one first.")
 			return
 		}
-		loaded, ok, err := state.LoadSnapshot(snapshotStorageKey, state.LocalStorage)
-		if err == nil && ok {
-			stored.Set(snapshotStorageText(loaded))
+		parseLoaded2, parseOk2, parseErr3 := state.LoadSnapshot(snapshotStorageKey, state.LocalStorage)
+		if parseErr3 == nil && parseOk2 {
+			parseStored.Set(snapshotStorageText(parseLoaded2))
 		}
-		status.Set("Restored the saved LocalStorage snapshot back into runtime atoms.")
+		parseStatus.Set("Restored the saved LocalStorage snapshot back into runtime atoms.")
 	})
 
 	return shared.ExamplePage(
@@ -89,25 +89,25 @@ func snapshotStorageExample() ui.Node {
 		"Browser storage helpers serialize snapshots to JSON, making it easy to keep lightweight shared state across refreshes or manual recovery flows.",
 		shared.ExamplePanel("Live atoms",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-				shared.ExampleButton("Seed launch", seedLaunch),
-				shared.ExampleButton("Seed scale", seedScale),
-				shared.ExampleButton("Mutate live state", mutate),
+				shared.ExampleButton("Seed launch", parseSeedLaunch),
+				shared.ExampleButton("Seed scale", parseSeedScale),
+				shared.ExampleButton("Mutate live state", parseMutate),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Stage", stage.Get()),
-				shared.ExampleStat("Visitors", fmt.Sprintf("%d", visitors.Get())),
+				shared.ExampleStat("Stage", parseStage.Get()),
+				shared.ExampleStat("Visitors", fmt.Sprintf("%d", parseVisitors.Get())),
 			),
 		),
 		shared.ExamplePanel("Storage controls",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-				shared.ExampleButton("Persist to LocalStorage", persist),
-				shared.ExampleButton("Restore from LocalStorage", restore),
+				shared.ExampleButton("Persist to LocalStorage", parsePersist),
+				shared.ExampleButton("Restore from LocalStorage", parseRestore),
 			),
-			html.P(html.Props{Class: "mt-6 text-slate-300"}, html.Text(status.Get())),
+			html.P(html.Props{Class: "mt-6 text-slate-300"}, html.Text(parseStatus.Get())),
 			shared.ExampleCode(
 				`state.SaveSnapshot("catalog-state-storage-demo", snapshot, state.LocalStorage)`,
 				`state.RestoreSnapshot("catalog-state-storage-demo", state.LocalStorage)`,
-				stored.Get(),
+				parseStored.Get(),
 			),
 		),
 	)

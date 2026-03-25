@@ -9,69 +9,100 @@ func GetGlobalThis() (Value, error) {
 }
 
 // Present reports whether the value is defined and non-null.
-func (parseV Value) Present() bool { return false }
+func (parseValue Value) Present() bool {
+	_ = parseValue
+	return false
+}
 
 // Truthy reports whether the value is truthy in the JavaScript sense.
-func (parseV Value) Truthy() bool { return false }
+func (parseValue Value) Truthy() bool {
+	_ = parseValue
+	return false
+}
 
 // IsUndefined reports whether the value is undefined.
-func (parseV Value) IsUndefined() bool { return true }
+func (parseValue Value) IsUndefined() bool {
+	_ = parseValue
+	return true
+}
 
 // IsNull reports whether the value is null.
-func (parseV Value) IsNull() bool { return true }
+func (parseValue Value) IsNull() bool {
+	_ = parseValue
+	return true
+}
 
 // String returns the value as a string when possible.
-func (parseV Value) String() string { return "" }
+func (parseValue Value) String() string {
+	_ = parseValue
+	return ""
+}
 
 // Bool returns the value as a boolean when possible.
-func (parseV Value) Bool() bool { return false }
+func (parseValue Value) Bool() bool {
+	_ = parseValue
+	return false
+}
 
 // Int returns the value as an integer when possible.
-func (parseV Value) Int() int { return 0 }
+func (parseValue Value) Int() int {
+	_ = parseValue
+	return 0
+}
 
 // Float returns the value as a float when possible.
-func (parseV Value) Float() float64 { return 0 }
+func (parseValue Value) Float() float64 {
+	_ = parseValue
+	return 0
+}
 
 // Get reads a property from the wrapped value.
-func (parseV Value) Get(parseName string) Value {
-	_ = parseName
+func (parseValue Value) Get(parseValueName string) Value {
+	_ = parseValue
+	_ = parseValueName
 	return Value{}
 }
 
 // Set writes a property on the wrapped value.
-func (parseV Value) Set(parseName string, parseValue any) error {
-	_ = parseName
+func (parseValue Value) Set(parseValueName string, parseValueData any) error {
 	_ = parseValue
+	_ = parseValueName
+	_ = parseValueData
 	return unavailable("Value.Set", "")
 }
 
 // Delete removes a property from the wrapped value.
-func (parseV Value) Delete(parseName string) error {
-	_ = parseName
+func (parseValue Value) Delete(parseValueName string) error {
+	_ = parseValue
+	_ = parseValueName
 	return unavailable("Value.Delete", "")
 }
 
 // Call invokes a named method on the wrapped value.
-func (parseV Value) Call(parseName string, parseArgs ...any) (Value, error) {
-	_ = parseName
-	_ = parseArgs
+func (parseValue Value) Call(parseMethodName string, parseMethodArgs ...any) (Value, error) {
+	_ = parseValue
+	_ = parseMethodName
+	_ = parseMethodArgs
 	return Value{}, unavailable("Value.Call", "")
 }
 
 // Invoke calls the wrapped value as a function.
-func (parseV Value) Invoke(parseArgs ...any) (Value, error) {
-	_ = parseArgs
+func (parseValue Value) Invoke(parseCallArgs ...any) (Value, error) {
+	_ = parseValue
+	_ = parseCallArgs
 	return Value{}, unavailable("Value.Invoke", "")
 }
 
 // ToGo converts the wrapped value into a JSON-shaped Go representation.
-func (parseV Value) ToGo() (any, error) {
+func (parseValue Value) ToGo() (any, error) {
+	_ = parseValue
 	return nil, unavailable("Value.ToGo", "")
 }
 
 // SetFunction binds a Go handler to a property on the wrapped value.
-func (parseV Value) SetFunction(parseName string, parseHandler func(args ...Value) any) (Subscription, error) {
-	_ = parseName
-	_ = parseHandler
+func (parseValue Value) SetFunction(parseFunctionName string, parseFunctionHandler func(args ...Value) any) (Subscription, error) {
+	_ = parseValue
+	_ = parseFunctionName
+	_ = parseFunctionHandler
 	return Subscription{}, unavailable("Value.SetFunction", "")
 }

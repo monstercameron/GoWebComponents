@@ -9,8 +9,8 @@ import (
 	"fmt"
 )
 
-func Open(ctx context.Context, sqlitePath string) (*sql.DB, error) {
-	_ = ctx
-	_ = sqlitePath
+func Open(parseCtx context.Context, parseSqlitePath string) (*sql.DB, error) {
+	_ = parseCtx
+	_ = parseSqlitePath
 	return nil, fmt.Errorf("sqlite is unavailable for js/wasm builds")
 }

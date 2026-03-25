@@ -91,104 +91,104 @@ var canvasFunctionPattern = regexp.MustCompile(`^\s*(?:export\s+default\s+|expor
 var canvasClassPattern = regexp.MustCompile(`^\s*(?:export\s+default\s+|export\s+)?class\s+([A-Za-z_][A-Za-z0-9_]*)`)
 var canvasConstPattern = regexp.MustCompile(`^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=`)
 
-func latestCanvasPreview(messages []message) (canvasArtifact, bool) {
-	artifacts := allCanvasArtifacts(messages)
-	if len(artifacts) == 0 {
+func parseLatestCanvasPreview(parseMessages []message) (canvasArtifact, bool) {
+	parseArtifacts := parseAllCanvasArtifacts(parseMessages)
+	if len(parseArtifacts) == 0 {
 		return canvasArtifact{}, false
 	}
-	return artifacts[len(artifacts)-1], true
+	return parseArtifacts[len(parseArtifacts)-1], true
 }
 
-func allCanvasArtifacts(messages []message) []canvasArtifact {
-	artifacts := make([]canvasArtifact, 0, 4)
-	for idx, messageItem := range messages {
-		if messageItem.Role != roleAssistant || messageItem.Pending {
+func parseAllCanvasArtifacts(parseMessages []message) []canvasArtifact {
+	parseArtifacts := make([]canvasArtifact, 0, 4)
+	for parseIdx, parseMessageItem := range parseMessages {
+		if parseMessageItem.Role != roleAssistant || parseMessageItem.Pending {
 			continue
 		}
-		artifacts = append(artifacts, canvasArtifactsFromMarkdown(idx, messageItem.Content)...)
+		parseArtifacts = append(parseArtifacts, canvasArtifactsFromMarkdown(parseIdx, parseMessageItem.Content)...)
 	}
-	return artifacts
+	return parseArtifacts
 }
 
-func canvasArtifactsForMessage(messages []message, messageIndex int) []canvasArtifact {
-	if messageIndex < 0 || messageIndex >= len(messages) {
+func canvasArtifactsForMessage(parseMessages []message, parseMessageIndex int) []canvasArtifact {
+	if parseMessageIndex < 0 || parseMessageIndex >= len(parseMessages) {
 		return nil
 	}
-	messageItem := messages[messageIndex]
-	if messageItem.Role != roleAssistant || messageItem.Pending {
+	parseMessageItem := parseMessages[parseMessageIndex]
+	if parseMessageItem.Role != roleAssistant || parseMessageItem.Pending {
 		return nil
 	}
-	return canvasArtifactsFromMarkdown(messageIndex, messageItem.Content)
+	return canvasArtifactsFromMarkdown(parseMessageIndex, parseMessageItem.Content)
 }
 
-func findCanvasArtifact(messages []message, artifactID string) (canvasArtifact, bool) {
-	artifactID = strings.TrimSpace(artifactID)
-	if artifactID == "" {
+func parseFindCanvasArtifact(parseMessages []message, parseArtifactID string) (canvasArtifact, bool) {
+	parseArtifactID = strings.TrimSpace(parseArtifactID)
+	if parseArtifactID == "" {
 		return canvasArtifact{}, false
 	}
-	for _, artifact := range allCanvasArtifacts(messages) {
-		if artifact.ID == artifactID {
-			return artifact, true
+	for _, parseArtifact := range parseAllCanvasArtifacts(parseMessages) {
+		if parseArtifact.ParseID == parseArtifactID {
+			return parseArtifact, true
 		}
 	}
 	return canvasArtifact{}, false
 }
 
-func canvasPreviewFromMarkdown(markdown string) (canvasArtifact, bool) {
-	artifacts := canvasArtifactsFromMarkdown(0, markdown)
-	if len(artifacts) == 0 {
+func canvasPreviewFromMarkdown(parseMarkdown string) (canvasArtifact, bool) {
+	parseArtifacts := canvasArtifactsFromMarkdown(0, parseMarkdown)
+	if len(parseArtifacts) == 0 {
 		return canvasArtifact{}, false
 	}
-	return artifacts[len(artifacts)-1], true
+	return parseArtifacts[len(parseArtifacts)-1], true
 }
 
-func canvasArtifactsFromMarkdown(messageIndex int, markdown string) []canvasArtifact {
-	matches := fencedBlockPattern.FindAllStringSubmatch(markdown, -1)
-	if len(matches) == 0 {
+func canvasArtifactsFromMarkdown(parseMessageIndex int, parseMarkdown string) []canvasArtifact {
+	parseMatches := fencedBlockPattern.FindAllStringSubmatch(parseMarkdown, -1)
+	if len(parseMatches) == 0 {
 		return nil
 	}
-	artifacts := make([]canvasArtifact, 0, len(matches))
-	for blockIndex, match := range matches {
-		info := strings.TrimSpace(match[1])
-		source := strings.TrimSpace(match[2])
-		if source == "" {
+	parseArtifacts := make([]canvasArtifact, 0, len(parseMatches))
+	for parseBlockIndex, parseMatch := range parseMatches {
+		parseInfo := strings.TrimSpace(parseMatch[1])
+		parseSource := strings.TrimSpace(parseMatch[2])
+		if parseSource == "" {
 			continue
 		}
-		language, ok := canvasFenceLanguage(info)
-		if !ok {
+		parseLanguage, parseOk := canvasFenceLanguage(parseInfo)
+		if !parseOk {
 			continue
 		}
-		focusOptions := deriveCanvasFocusRegions(source)
-		focus := canvasDefaultFocusRegion(focusOptions, source)
-		label := canvasArtifactLabel(language, source, blockIndex)
-		artifacts = append(artifacts, canvasArtifact{
-			ID:           fmt.Sprintf("m%d-b%d", messageIndex, blockIndex),
-			MessageIndex: messageIndex,
-			BlockIndex:   blockIndex,
-			Info:         info,
-			Language:     language,
-			Label:        label,
-			Source:       source,
-			Document:     buildCanvasDocument(source),
-			Focus:        focus,
-			FocusOptions: focusOptions,
+		parseFocusOptions := parseDeriveCanvasFocusRegions(parseSource)
+		parseFocus := canvasDefaultFocusRegion(parseFocusOptions, parseSource)
+		parseLabel := canvasArtifactLabel(parseLanguage, parseSource, parseBlockIndex)
+		parseArtifacts = append(parseArtifacts, canvasArtifact{
+			ID:           fmt.Sprintf("m%d-b%d", parseMessageIndex, parseBlockIndex),
+			MessageIndex: parseMessageIndex,
+			BlockIndex:   parseBlockIndex,
+			Info:         parseInfo,
+			Language:     parseLanguage,
+			Label:        parseLabel,
+			Source:       parseSource,
+			Document:     buildCanvasDocument(parseSource),
+			Focus:        parseFocus,
+			FocusOptions: parseFocusOptions,
 		})
 	}
-	return artifacts
+	return parseArtifacts
 }
 
-func canvasFenceLanguage(info string) (string, bool) {
-	fields := strings.Fields(strings.ToLower(strings.TrimSpace(info)))
-	if len(fields) == 0 {
+func canvasFenceLanguage(parseInfo string) (string, bool) {
+	parseFields := strings.Fields(strings.ToLower(strings.TrimSpace(parseInfo)))
+	if len(parseFields) == 0 {
 		return "", false
 	}
-	for _, field := range fields {
-		switch field {
+	for _, parseField := range parseFields {
+		switch parseField {
 		case "canvas":
 			return "canvas", true
 		}
 	}
-	switch fields[0] {
+	switch parseFields[0] {
 	case "html", "htm":
 		return "html", true
 	case "javascript", "js":
@@ -197,148 +197,148 @@ func canvasFenceLanguage(info string) (string, bool) {
 	return "", false
 }
 
-func canvasArtifactLabel(language, source string, blockIndex int) string {
-	switch language {
+func canvasArtifactLabel(parseLanguage, parseSource string, parseBlockIndex int) string {
+	switch parseLanguage {
 	case "html":
 		return "HTML demo"
 	case "javascript":
-		if strings.Contains(source, "function App") || strings.Contains(source, "const App") {
+		if strings.Contains(parseSource, "function App") || strings.Contains(parseSource, "const App") {
 			return "App component"
 		}
 		return "JavaScript demo"
 	case "canvas":
-		if strings.Contains(strings.ToLower(source), "<html") {
+		if strings.Contains(strings.ToLower(parseSource), "<html") {
 			return "Canvas page"
 		}
-		if strings.Contains(source, "function App") || strings.Contains(source, "const App") {
+		if strings.Contains(parseSource, "function App") || strings.Contains(parseSource, "const App") {
 			return "App component"
 		}
-		return fmt.Sprintf("Canvas block %d", blockIndex+1)
+		return fmt.Sprintf("Canvas block %d", parseBlockIndex+1)
 	default:
-		return fmt.Sprintf("Canvas block %d", blockIndex+1)
+		return fmt.Sprintf("Canvas block %d", parseBlockIndex+1)
 	}
 }
 
-func canvasDefaultFocusRegion(regions []canvasFocusRegion, source string) canvasFocusRegion {
-	for _, region := range regions {
-		if region.Kind != "file" {
-			return region
+func canvasDefaultFocusRegion(parseRegions []canvasFocusRegion, parseSource string) canvasFocusRegion {
+	for _, parseRegion := range parseRegions {
+		if parseRegion.Kind != "file" {
+			return parseRegion
 		}
 	}
-	lineCount := 1 + strings.Count(source, "\n")
+	parseLineCount := 1 + strings.Count(parseSource, "\n")
 	return canvasFocusRegion{
 		File:      "artifact",
 		Label:     "Full file",
 		Kind:      "file",
 		StartLine: 1,
-		EndLine:   lineCount,
+		EndLine:   parseLineCount,
 	}
 }
 
-func deriveCanvasFocusRegions(source string) []canvasFocusRegion {
-	lines := strings.Split(strings.ReplaceAll(source, "\r\n", "\n"), "\n")
-	regions := make([]canvasFocusRegion, 0, 8)
-	regions = append(regions, canvasFocusRegion{
+func parseDeriveCanvasFocusRegions(parseSource string) []canvasFocusRegion {
+	parseLines := strings.Split(strings.ReplaceAll(parseSource, "\r\n", "\n"), "\n")
+	parseRegions := make([]canvasFocusRegion, 0, 8)
+	parseRegions = append(parseRegions, canvasFocusRegion{
 		File:      "artifact",
 		Label:     "Full file",
 		Kind:      "file",
 		StartLine: 1,
-		EndLine:   len(lines),
+		EndLine:   len(parseLines),
 	})
-	for idx, line := range lines {
-		lineNumber := idx + 1
-		if match := canvasFunctionPattern.FindStringSubmatch(line); len(match) == 2 {
-			regions = append(regions, canvasFocusRegion{
+	for parseIdx, parseLine := range parseLines {
+		parseLineNumber := parseIdx + 1
+		if parseMatch := canvasFunctionPattern.FindStringSubmatch(parseLine); len(parseMatch) == 2 {
+			parseRegions = append(parseRegions, canvasFocusRegion{
 				File:      "artifact",
-				Label:     match[1],
-				Symbol:    match[1],
+				Label:     parseMatch[1],
+				Symbol:    parseMatch[1],
 				Kind:      "function",
-				StartLine: lineNumber,
-				EndLine:   estimateCanvasRegionEnd(lines, idx),
+				StartLine: parseLineNumber,
+				EndLine:   parseEstimateCanvasRegionEnd(parseLines, parseIdx),
 			})
 			continue
 		}
-		if match := canvasClassPattern.FindStringSubmatch(line); len(match) == 2 {
-			regions = append(regions, canvasFocusRegion{
+		if parseMatch2 := canvasClassPattern.FindStringSubmatch(parseLine); len(parseMatch2) == 2 {
+			parseRegions = append(parseRegions, canvasFocusRegion{
 				File:      "artifact",
-				Label:     match[1],
-				Symbol:    match[1],
+				Label:     parseMatch2[1],
+				Symbol:    parseMatch2[1],
 				Kind:      "class",
-				StartLine: lineNumber,
-				EndLine:   estimateCanvasRegionEnd(lines, idx),
+				StartLine: parseLineNumber,
+				EndLine:   parseEstimateCanvasRegionEnd(parseLines, parseIdx),
 			})
 			continue
 		}
-		if match := canvasConstPattern.FindStringSubmatch(line); len(match) == 2 {
-			regions = append(regions, canvasFocusRegion{
+		if parseMatch3 := canvasConstPattern.FindStringSubmatch(parseLine); len(parseMatch3) == 2 {
+			parseRegions = append(parseRegions, canvasFocusRegion{
 				File:      "artifact",
-				Label:     match[1],
-				Symbol:    match[1],
+				Label:     parseMatch3[1],
+				Symbol:    parseMatch3[1],
 				Kind:      "block",
-				StartLine: lineNumber,
-				EndLine:   estimateCanvasRegionEnd(lines, idx),
+				StartLine: parseLineNumber,
+				EndLine:   parseEstimateCanvasRegionEnd(parseLines, parseIdx),
 			})
 		}
 	}
-	return dedupeCanvasFocusRegions(regions)
+	return parseDedupeCanvasFocusRegions(parseRegions)
 }
 
-func dedupeCanvasFocusRegions(regions []canvasFocusRegion) []canvasFocusRegion {
-	if len(regions) == 0 {
+func parseDedupeCanvasFocusRegions(parseRegions []canvasFocusRegion) []canvasFocusRegion {
+	if len(parseRegions) == 0 {
 		return nil
 	}
-	seen := make(map[string]bool, len(regions))
-	out := make([]canvasFocusRegion, 0, len(regions))
-	for _, region := range regions {
-		key := fmt.Sprintf("%s:%d:%d:%s", region.Kind, region.StartLine, region.EndLine, region.Label)
-		if seen[key] {
+	parseSeen := make(map[string]bool, len(parseRegions))
+	parseOut := make([]canvasFocusRegion, 0, len(parseRegions))
+	for _, parseRegion := range parseRegions {
+		parseKey := fmt.Sprintf("%s:%d:%d:%s", parseRegion.Kind, parseRegion.StartLine, parseRegion.EndLine, parseRegion.Label)
+		if parseSeen[parseKey] {
 			continue
 		}
-		seen[key] = true
-		out = append(out, region)
+		parseSeen[parseKey] = true
+		parseOut = append(parseOut, parseRegion)
 	}
-	return out
+	return parseOut
 }
 
-func estimateCanvasRegionEnd(lines []string, start int) int {
-	if start < 0 || start >= len(lines) {
-		return len(lines)
+func parseEstimateCanvasRegionEnd(parseLines []string, parseStart int) int {
+	if parseStart < 0 || parseStart >= len(parseLines) {
+		return len(parseLines)
 	}
-	depth := 0
-	seenBrace := false
-	for idx := start; idx < len(lines); idx++ {
-		line := lines[idx]
-		depth += strings.Count(line, "{")
-		if strings.Contains(line, "{") {
-			seenBrace = true
+	parseDepth := 0
+	isParseSeenBrace := false
+	for parseIdx := parseStart; parseIdx < len(parseLines); parseIdx++ {
+		parseLine := parseLines[parseIdx]
+		parseDepth += strings.Count(parseLine, "{")
+		if strings.Contains(parseLine, "{") {
+			isParseSeenBrace = true
 		}
-		depth -= strings.Count(line, "}")
-		if seenBrace && idx > start && depth <= 0 {
-			return idx + 1
+		parseDepth -= strings.Count(parseLine, "}")
+		if isParseSeenBrace && parseIdx > parseStart && parseDepth <= 0 {
+			return parseIdx + 1
 		}
-		if !seenBrace && idx > start && strings.TrimSpace(line) == "" {
-			return idx
+		if !isParseSeenBrace && parseIdx > parseStart && strings.TrimSpace(parseLine) == "" {
+			return parseIdx
 		}
 	}
-	return len(lines)
+	return len(parseLines)
 }
 
-func buildCanvasDocument(source string) string {
-	return buildCanvasRuntimeDocument(source, "", "", 0)
+func buildCanvasDocument(parseSource string) string {
+	return buildCanvasRuntimeDocument(parseSource, "", "", 0)
 }
 
-func buildCanvasRuntimeDocument(source, sessionID, artifactID string, renderVersion int) string {
-	trimmed := strings.TrimSpace(source)
-	if trimmed == "" {
+func buildCanvasRuntimeDocument(parseSource, parseSessionID, parseArtifactID string, renderVersion int) string {
+	parseTrimmed := strings.TrimSpace(parseSource)
+	if parseTrimmed == "" {
 		return ""
 	}
-	lower := strings.ToLower(trimmed)
-	document := trimmed
-	if !strings.Contains(lower, "<html") && !strings.Contains(lower, "<!doctype") {
-		if !strings.Contains(trimmed, "<") {
-			trimmed = fmt.Sprintf("<script>%s</script>", strings.ReplaceAll(trimmed, "</script", "<\\/script"))
+	parseLower := strings.ToLower(parseTrimmed)
+	parseDocument := parseTrimmed
+	if !strings.Contains(parseLower, "<html") && !strings.Contains(parseLower, "<!doctype") {
+		if !strings.Contains(parseTrimmed, "<") {
+			parseTrimmed = fmt.Sprintf("<script>%s</script>", strings.ReplaceAll(parseTrimmed, "</script", "<\\/script"))
 		}
-		document = fmt.Sprintf(`<!DOCTYPE html>
+		parseDocument = fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -365,13 +365,13 @@ func buildCanvasRuntimeDocument(source, sessionID, artifactID string, renderVers
   <div id="canvas"></div>
   %s
 </body>
-</html>`, trimmed)
+</html>`, parseTrimmed)
 	}
-	return injectCanvasRuntimeBridge(document, sessionID, artifactID, renderVersion)
+	return parseInjectCanvasRuntimeBridge(parseDocument, parseSessionID, parseArtifactID, renderVersion)
 }
 
-func injectCanvasRuntimeBridge(document, sessionID, artifactID string, renderVersion int) string {
-	bridge := fmt.Sprintf(`<script>(function(){var sessionID=%q;var artifactID=%q;var renderVersion=%d;
+func parseInjectCanvasRuntimeBridge(parseDocument, parseSessionID, parseArtifactID string, renderVersion int) string {
+	parseBridge := fmt.Sprintf(`<script>(function(){var sessionID=%q;var artifactID=%q;var renderVersion=%d;
 function send(kind,payload){try{if(window.parent&&window.parent!==window){window.parent.postMessage({__gwcCanvas:true,sessionID:sessionID,artifactID:artifactID,renderVersion:renderVersion,kind:kind,payload:payload||{}}, "*");}}catch(_){}} 
 function stringifyArgs(args){var out=[];for(var i=0;i<args.length;i++){var value=args[i];if(typeof value==="string"){out.push(value);continue;}try{out.push(JSON.stringify(value));}catch(_){out.push(String(value));}}return out.join(" ");} 
 ["log","info","warn","error"].forEach(function(level){if(typeof console[level]!=="function"){return;}var original=console[level].bind(console);console[level]=function(){send("console",{level:level,message:stringifyArgs(arguments)});return original.apply(console, arguments);};});
@@ -379,148 +379,148 @@ window.addEventListener("error", function(event){send("runtime_error",{message:S
 window.addEventListener("unhandledrejection", function(event){var reason=event&&event.reason;send("runtime_error",{message:"Unhandled promise rejection",detail:reason&&reason.stack?String(reason.stack):String(reason)});});
 document.addEventListener("DOMContentLoaded", function(){send("status",{previewStatus:"rendered",runtimeStatus:"ready"});});
 send("status",{previewStatus:"rendering",runtimeStatus:"booting"});
-})();</script>`, sessionID, artifactID, renderVersion)
-	lower := strings.ToLower(document)
-	if idx := strings.LastIndex(lower, "</body>"); idx >= 0 {
-		return document[:idx] + bridge + document[idx:]
+})();</script>`, parseSessionID, parseArtifactID, renderVersion)
+	parseLower := strings.ToLower(parseDocument)
+	if parseIdx := strings.LastIndex(parseLower, "</body>"); parseIdx >= 0 {
+		return parseDocument[:parseIdx] + parseBridge + parseDocument[parseIdx:]
 	}
-	if idx := strings.LastIndex(lower, "</html>"); idx >= 0 {
-		return document[:idx] + bridge + document[idx:]
+	if parseIdx2 := strings.LastIndex(parseLower, "</html>"); parseIdx2 >= 0 {
+		return parseDocument[:parseIdx2] + parseBridge + parseDocument[parseIdx2:]
 	}
-	return document + bridge
+	return parseDocument + parseBridge
 }
 
-func canvasFocusSnippet(source string, focus canvasFocusRegion) string {
-	lines := strings.Split(strings.ReplaceAll(source, "\r\n", "\n"), "\n")
-	if len(lines) == 0 {
+func canvasFocusSnippet(parseSource string, parseFocus canvasFocusRegion) string {
+	parseLines := strings.Split(strings.ReplaceAll(parseSource, "\r\n", "\n"), "\n")
+	if len(parseLines) == 0 {
 		return ""
 	}
-	start, end := clampCanvasFocusRange(focus, len(lines))
-	if start <= 0 || end <= 0 || start > end {
-		return source
+	parseStart, parseEnd := parseClampCanvasFocusRange(parseFocus, len(parseLines))
+	if parseStart <= 0 || parseEnd <= 0 || parseStart > parseEnd {
+		return parseSource
 	}
-	return strings.Join(lines[start-1:end], "\n")
+	return strings.Join(parseLines[parseStart-1:parseEnd], "\n")
 }
 
-func clampCanvasFocusRange(focus canvasFocusRegion, lineCount int) (int, int) {
-	if lineCount <= 0 {
+func parseClampCanvasFocusRange(parseFocus canvasFocusRegion, parseLineCount int) (int, int) {
+	if parseLineCount <= 0 {
 		return 0, 0
 	}
-	start := focus.StartLine
-	end := focus.EndLine
-	if start <= 0 {
-		start = 1
+	parseStart := parseFocus.StartLine
+	parseEnd := parseFocus.EndLine
+	if parseStart <= 0 {
+		parseStart = 1
 	}
-	if end <= 0 || end > lineCount {
-		end = lineCount
+	if parseEnd <= 0 || parseEnd > parseLineCount {
+		parseEnd = parseLineCount
 	}
-	if start > end {
-		start = 1
-		end = lineCount
+	if parseStart > parseEnd {
+		parseStart = 1
+		parseEnd = parseLineCount
 	}
-	return start, end
+	return parseStart, parseEnd
 }
 
-func replaceCanvasFocusRegion(source string, focus canvasFocusRegion, replacement string) (string, canvasPatchRecord, bool) {
-	lines := strings.Split(strings.ReplaceAll(source, "\r\n", "\n"), "\n")
-	if len(lines) == 0 {
-		return source, canvasPatchRecord{}, false
+func parseReplaceCanvasFocusRegion(parseSource string, parseFocus canvasFocusRegion, parseReplacement string) (string, canvasPatchRecord, bool) {
+	parseLines := strings.Split(strings.ReplaceAll(parseSource, "\r\n", "\n"), "\n")
+	if len(parseLines) == 0 {
+		return parseSource, canvasPatchRecord{}, false
 	}
-	start, end := clampCanvasFocusRange(focus, len(lines))
-	if start <= 0 || end <= 0 || start > end {
-		return source, canvasPatchRecord{}, false
+	parseStart, parseEnd := parseClampCanvasFocusRange(parseFocus, len(parseLines))
+	if parseStart <= 0 || parseEnd <= 0 || parseStart > parseEnd {
+		return parseSource, canvasPatchRecord{}, false
 	}
-	before := strings.Join(lines[start-1:end], "\n")
-	replacementLines := strings.Split(strings.ReplaceAll(replacement, "\r\n", "\n"), "\n")
-	nextLines := append([]string{}, lines[:start-1]...)
-	nextLines = append(nextLines, replacementLines...)
-	nextLines = append(nextLines, lines[end:]...)
-	nextSource := strings.Join(nextLines, "\n")
-	record := canvasPatchRecord{
+	parseBefore := strings.Join(parseLines[parseStart-1:parseEnd], "\n")
+	parseReplacementLines := strings.Split(strings.ReplaceAll(parseReplacement, "\r\n", "\n"), "\n")
+	parseNextLines := append([]string{}, parseLines[:parseStart-1]...)
+	parseNextLines = append(parseNextLines, parseReplacementLines...)
+	parseNextLines = append(parseNextLines, parseLines[parseEnd:]...)
+	parseNextSource := strings.Join(parseNextLines, "\n")
+	parseRecord := canvasPatchRecord{
 		Type:         "patch_region",
-		TargetLabel:  canvasFocusDisplayLabel(focus),
-		Summary:      fmt.Sprintf("Patched %s", canvasFocusDisplayLabel(focus)),
-		SourceBefore: source,
-		SourceAfter:  nextSource,
-		Before:       before,
-		After:        replacement,
-		StartLine:    start,
-		EndLine:      end,
+		TargetLabel:  canvasFocusDisplayLabel(parseFocus),
+		Summary:      fmt.Sprintf("Patched %s", canvasFocusDisplayLabel(parseFocus)),
+		SourceBefore: parseSource,
+		SourceAfter:  parseNextSource,
+		Before:       parseBefore,
+		After:        parseReplacement,
+		StartLine:    parseStart,
+		EndLine:      parseEnd,
 	}
-	return nextSource, record, true
+	return parseNextSource, parseRecord, true
 }
 
-func deriveCanvasPatch(previous, next string, focus canvasFocusRegion) (canvasPatchRecord, bool) {
-	if previous == next {
+func parseDeriveCanvasPatch(parsePrevious, parseNext string, parseFocus canvasFocusRegion) (canvasPatchRecord, bool) {
+	if parsePrevious == parseNext {
 		return canvasPatchRecord{}, false
 	}
-	prevLines := strings.Split(strings.ReplaceAll(previous, "\r\n", "\n"), "\n")
-	nextLines := strings.Split(strings.ReplaceAll(next, "\r\n", "\n"), "\n")
-	prefix := 0
-	for prefix < len(prevLines) && prefix < len(nextLines) && prevLines[prefix] == nextLines[prefix] {
-		prefix++
+	parsePrevLines := strings.Split(strings.ReplaceAll(parsePrevious, "\r\n", "\n"), "\n")
+	parseNextLines := strings.Split(strings.ReplaceAll(parseNext, "\r\n", "\n"), "\n")
+	parsePrefix := 0
+	for parsePrefix < len(parsePrevLines) && parsePrefix < len(parseNextLines) && parsePrevLines[parsePrefix] == parseNextLines[parsePrefix] {
+		parsePrefix++
 	}
-	suffix := 0
-	for suffix < len(prevLines)-prefix && suffix < len(nextLines)-prefix &&
-		prevLines[len(prevLines)-1-suffix] == nextLines[len(nextLines)-1-suffix] {
-		suffix++
+	parseSuffix := 0
+	for parseSuffix < len(parsePrevLines)-parsePrefix && parseSuffix < len(parseNextLines)-parsePrefix &&
+		parsePrevLines[len(parsePrevLines)-1-parseSuffix] == parseNextLines[len(parseNextLines)-1-parseSuffix] {
+		parseSuffix++
 	}
-	prevEnd := len(prevLines) - suffix
-	nextEnd := len(nextLines) - suffix
-	if prevEnd < prefix {
-		prevEnd = prefix
+	parsePrevEnd := len(parsePrevLines) - parseSuffix
+	parseNextEnd := len(parseNextLines) - parseSuffix
+	if parsePrevEnd < parsePrefix {
+		parsePrevEnd = parsePrefix
 	}
-	if nextEnd < prefix {
-		nextEnd = prefix
+	if parseNextEnd < parsePrefix {
+		parseNextEnd = parsePrefix
 	}
-	startLine := prefix + 1
-	endLine := prevEnd
-	targetLabel := "file"
-	patchType := "patch_file"
-	if canvasRangesOverlap(startLine, maxInt(startLine, endLine), focus.StartLine, focus.EndLine) {
-		targetLabel = canvasFocusDisplayLabel(focus)
-		patchType = "patch_region"
+	parseStartLine := parsePrefix + 1
+	parseEndLine := parsePrevEnd
+	parseTargetLabel := "file"
+	parsePatchType := "patch_file"
+	if canvasRangesOverlap(parseStartLine, parseMaxInt(parseStartLine, parseEndLine), parseFocus.StartLine, parseFocus.EndLine) {
+		parseTargetLabel = canvasFocusDisplayLabel(parseFocus)
+		parsePatchType = "patch_region"
 	}
-	if prefix == 0 && suffix == 0 {
-		patchType = "replace_file"
-		targetLabel = "file"
+	if parsePrefix == 0 && parseSuffix == 0 {
+		parsePatchType = "replace_file"
+		parseTargetLabel = "file"
 	}
 	return canvasPatchRecord{
-		Type:         patchType,
-		TargetLabel:  targetLabel,
-		Summary:      fmt.Sprintf("Updated %s", targetLabel),
-		SourceBefore: previous,
-		SourceAfter:  next,
-		Before:       strings.Join(prevLines[prefix:prevEnd], "\n"),
-		After:        strings.Join(nextLines[prefix:nextEnd], "\n"),
-		StartLine:    startLine,
-		EndLine:      endLine,
+		Type:         parsePatchType,
+		TargetLabel:  parseTargetLabel,
+		Summary:      fmt.Sprintf("Updated %s", parseTargetLabel),
+		SourceBefore: parsePrevious,
+		SourceAfter:  parseNext,
+		Before:       strings.Join(parsePrevLines[parsePrefix:parsePrevEnd], "\n"),
+		After:        strings.Join(parseNextLines[parsePrefix:parseNextEnd], "\n"),
+		StartLine:    parseStartLine,
+		EndLine:      parseEndLine,
 	}, true
 }
 
-func canvasRangesOverlap(aStart, aEnd, bStart, bEnd int) bool {
-	if aStart <= 0 || aEnd <= 0 || bStart <= 0 || bEnd <= 0 {
+func canvasRangesOverlap(parseAStart, parseAEnd, parseBStart, parseBEnd int) bool {
+	if parseAStart <= 0 || parseAEnd <= 0 || parseBStart <= 0 || parseBEnd <= 0 {
 		return false
 	}
-	return aStart <= bEnd && bStart <= aEnd
+	return parseAStart <= parseBEnd && parseBStart <= parseAEnd
 }
 
-func canvasFocusDisplayLabel(focus canvasFocusRegion) string {
-	if strings.TrimSpace(focus.Label) != "" {
-		return focus.Label
+func canvasFocusDisplayLabel(parseFocus canvasFocusRegion) string {
+	if strings.TrimSpace(parseFocus.Label) != "" {
+		return parseFocus.Label
 	}
-	if strings.TrimSpace(focus.Symbol) != "" {
-		return focus.Symbol
+	if strings.TrimSpace(parseFocus.Symbol) != "" {
+		return parseFocus.Symbol
 	}
-	if focus.Kind == "file" {
+	if parseFocus.Kind == "file" {
 		return "file"
 	}
 	return "focused region"
 }
 
-func maxInt(a, b int) int {
-	if a > b {
-		return a
+func parseMaxInt(parseA, parseB int) int {
+	if parseA > parseB {
+		return parseA
 	}
-	return b
+	return parseB
 }

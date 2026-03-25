@@ -10,18 +10,18 @@ type bootstrapView struct {
 	Message string
 }
 
-func bootstrapViewFromPayload(payload ui.SSRBootstrap) bootstrapView {
-	view := bootstrapView{Path: payload.Route.Path, Message: "inline bootstrap payload"}
-	if view.Path == "" {
-		view.Path = "/bootstrap"
+func bootstrapViewFromPayload(parsePayload ui.SSRBootstrap) bootstrapView {
+	parseView := bootstrapView{Path: parsePayload.Route.Path, Message: "inline bootstrap payload"}
+	if parseView.Path == "" {
+		parseView.Path = "/bootstrap"
 	}
-	if value, ok := payload.Data["message"].(string); ok && value != "" {
-		view.Message = value
+	if parseValue, parseOk := parsePayload.Data["message"].(string); parseOk && parseValue != "" {
+		parseView.Message = parseValue
 	}
-	return view
+	return parseView
 }
 
-func renderBootstrapView(view bootstrapView) ui.Node {
+func renderBootstrapView(parseView bootstrapView) ui.Node {
 	return html.Div(html.Props{Class: "min-h-screen bg-[#08111d] text-slate-100"},
 		html.Div(html.Props{Class: "mx-auto max-w-3xl px-6 py-12"},
 			html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-slate-950/80 p-8 shadow-2xl"},
@@ -31,11 +31,11 @@ func renderBootstrapView(view bootstrapView) ui.Node {
 				html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
 					html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4"},
 						html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Bootstrap route")),
-						html.P(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text(view.Path)),
+						html.P(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text(parseView.Path)),
 					),
 					html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4"},
 						html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Bootstrap message")),
-						html.P(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text(view.Message)),
+						html.P(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text(parseView.Message)),
 					),
 				),
 				html.P(html.Props{Class: "mt-6 text-sm leading-7 text-slate-400"}, html.Text("The client reads the inline JSON bootstrap first, then calls ui.Hydrate with the same payload so the already-rendered DOM can be reused.")),

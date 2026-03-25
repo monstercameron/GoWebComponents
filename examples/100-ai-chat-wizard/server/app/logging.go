@@ -21,138 +21,138 @@ type otelJSONHandler struct {
 	serviceName string
 }
 
-func newOTELLogger(writer io.Writer, serviceName string) *slog.Logger {
-	base := slog.NewJSONHandler(writer, &slog.HandlerOptions{
+func parseNewOTELLogger(parseWriter io.Writer, parseServiceName string) *slog.Logger {
+	parseBase := slog.NewJSONHandler(parseWriter, &slog.HandlerOptions{
 		Level:     slog.LevelDebug,
 		AddSource: true,
-		ReplaceAttr: func(_ []string, attr slog.Attr) slog.Attr {
-			switch attr.Key {
+		ReplaceAttr: func(_ []string, parseAttr slog.Attr) slog.Attr {
+			switch parseAttr.Key {
 			case slog.TimeKey:
-				attr.Key = "timestamp"
+				parseAttr.Key = "timestamp"
 			case slog.LevelKey:
-				attr.Key = "severity_text"
-				attr.Value = slog.StringValue(strings.ToUpper(attr.Value.String()))
+				parseAttr.Key = "severity_text"
+				parseAttr.Value = slog.StringValue(strings.ToUpper(parseAttr.Value.ParseString()))
 			case slog.MessageKey:
-				attr.Key = "body"
+				parseAttr.Key = "body"
 			}
-			return attr
+			return parseAttr
 		},
 	})
-	return slog.New(&otelJSONHandler{next: base, serviceName: strings.TrimSpace(serviceName)})
+	return slog.New(&otelJSONHandler{next: parseBase, serviceName: strings.TrimSpace(parseServiceName)})
 }
 
-func newServerLogger() (*slog.Logger, func(), error) {
-	if err := os.MkdirAll(serverLogDir, 0o755); err != nil {
-		return nil, nil, err
+func parseNewServerLogger() (*slog.Logger, func(), error) {
+	if parseErr := os.MkdirAll(serverLogDir, 0o755); parseErr != nil {
+		return nil, nil, parseErr
 	}
-	logPath := filepath.Join(serverLogDir, serverLogFilename)
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-	if err != nil {
-		return nil, nil, err
+	parseLogPath := filepath.Join(serverLogDir, serverLogFilename)
+	parseLogFile, parseErr2 := os.OpenFile(parseLogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	if parseErr2 != nil {
+		return nil, nil, parseErr2
 	}
 
-	logger := newOTELLogger(io.MultiWriter(os.Stderr, logFile), serverServiceName)
-	closeFn := func() {
-		_ = logFile.Close()
+	parseLogger := parseNewOTELLogger(io.MultiWriter(os.Stderr, parseLogFile), serverServiceName)
+	parseCloseFn := func() {
+		_ = parseLogFile.Close()
 	}
-	return logger.With(slog.String("log.file.path", logPath)), closeFn, nil
+	return parseLogger.With(slog.String("log.file.path", parseLogPath)), parseCloseFn, nil
 }
 
-func (h *otelJSONHandler) Enabled(ctx context.Context, level slog.Level) bool {
-	return h.next.Enabled(ctx, level)
+func (parseH *otelJSONHandler) ParseEnabled(parseCtx context.Context, parseLevel slog.Level) bool {
+	return parseH.next.ParseEnabled(parseCtx, parseLevel)
 }
 
-func (h *otelJSONHandler) Handle(ctx context.Context, record slog.Record) error {
-	cloned := record.Clone()
-	if strings.TrimSpace(h.serviceName) != "" {
-		cloned.AddAttrs(slog.String("service.name", h.serviceName))
+func (parseH *otelJSONHandler) Handle(parseCtx context.Context, parseRecord slog.Record) error {
+	parseCloned := parseRecord.Clone()
+	if strings.TrimSpace(parseH.serviceName) != "" {
+		parseCloned.AddAttrs(slog.String("service.name", parseH.serviceName))
 	}
-	cloned.AddAttrs(slog.Int("severity_number", otelSeverityNumber(record.Level)))
+	parseCloned.AddAttrs(slog.Int("severity_number", parseOtelSeverityNumber(parseRecord.Level)))
 
-	if record.Level >= slog.LevelError {
-		if boundary := errorBoundaryFromMessage(record.Message); boundary != "" {
-			cloned.AddAttrs(slog.String("error.boundary", boundary))
+	if parseRecord.Level >= slog.LevelError {
+		if parseBoundary := parseErrorBoundaryFromMessage(parseRecord.Message); parseBoundary != "" {
+			parseCloned.AddAttrs(slog.String("error.boundary", parseBoundary))
 		}
-		errMessage, errType := errorDetailsFromRecord(record)
-		if errMessage == "" {
-			errMessage = strings.TrimSpace(record.Message)
+		parseErrMessage, parseErrType := parseErrorDetailsFromRecord(parseRecord)
+		if parseErrMessage == "" {
+			parseErrMessage = strings.TrimSpace(parseRecord.Message)
 		}
-		if errMessage != "" {
-			cloned.AddAttrs(slog.String("error.message", errMessage))
+		if parseErrMessage != "" {
+			parseCloned.AddAttrs(slog.String("error.message", parseErrMessage))
 		}
-		if errType != "" {
-			cloned.AddAttrs(slog.String("error.type", errType))
+		if parseErrType != "" {
+			parseCloned.AddAttrs(slog.String("error.type", parseErrType))
 		}
 	}
 
-	return h.next.Handle(ctx, cloned)
+	return parseH.next.Handle(parseCtx, parseCloned)
 }
 
-func (h *otelJSONHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+func (parseH *otelJSONHandler) ParseWithAttrs(parseAttrs []slog.Attr) slog.Handler {
 	return &otelJSONHandler{
-		next:        h.next.WithAttrs(attrs),
-		serviceName: h.serviceName,
+		next:        parseH.next.ParseWithAttrs(parseAttrs),
+		serviceName: parseH.serviceName,
 	}
 }
 
-func (h *otelJSONHandler) WithGroup(name string) slog.Handler {
+func (parseH *otelJSONHandler) ParseWithGroup(parseName string) slog.Handler {
 	return &otelJSONHandler{
-		next:        h.next.WithGroup(name),
-		serviceName: h.serviceName,
+		next:        parseH.next.ParseWithGroup(parseName),
+		serviceName: parseH.serviceName,
 	}
 }
 
-func otelSeverityNumber(level slog.Level) int {
+func parseOtelSeverityNumber(parseLevel slog.Level) int {
 	switch {
-	case level >= slog.LevelError:
+	case parseLevel >= slog.LevelError:
 		return 17
-	case level >= slog.LevelWarn:
+	case parseLevel >= slog.LevelWarn:
 		return 13
-	case level >= slog.LevelInfo:
+	case parseLevel >= slog.LevelInfo:
 		return 9
 	default:
 		return 5
 	}
 }
 
-func errorBoundaryFromMessage(message string) string {
-	trimmed := strings.TrimSpace(message)
-	if trimmed == "" {
+func parseErrorBoundaryFromMessage(parseMessage string) string {
+	parseTrimmed := strings.TrimSpace(parseMessage)
+	if parseTrimmed == "" {
 		return ""
 	}
-	if separatorIndex := strings.Index(trimmed, ":"); separatorIndex > 0 {
-		return strings.TrimSpace(trimmed[:separatorIndex])
+	if parseSeparatorIndex := strings.Index(parseTrimmed, ":"); parseSeparatorIndex > 0 {
+		return strings.TrimSpace(parseTrimmed[:parseSeparatorIndex])
 	}
-	return trimmed
+	return parseTrimmed
 }
 
-func errorDetailsFromRecord(record slog.Record) (errorMessage string, errorType string) {
-	record.Attrs(func(attr slog.Attr) bool {
-		if strings.TrimSpace(attr.Key) != "error" {
+func parseErrorDetailsFromRecord(parseRecord slog.Record) (parseErrorMessage string, parseErrorType string) {
+	parseRecord.Attrs(func(parseAttr slog.Attr) bool {
+		if strings.TrimSpace(parseAttr.Key) != "error" {
 			return true
 		}
-		resolvedAttr := attr.Value.Resolve()
-		switch resolvedAttr.Kind() {
+		parseResolvedAttr := parseAttr.Value.ParseResolve()
+		switch parseResolvedAttr.Kind() {
 		case slog.KindAny:
-			anyValue := resolvedAttr.Any()
-			if anyValue == nil {
+			parseAnyValue := parseResolvedAttr.Any()
+			if parseAnyValue == nil {
 				return false
 			}
-			if errValue, ok := anyValue.(error); ok {
-				errorMessage = strings.TrimSpace(errValue.Error())
-				errorType = fmt.Sprintf("%T", errValue)
+			if parseErrValue, parseOk := parseAnyValue.(error); parseOk {
+				parseErrorMessage = strings.TrimSpace(parseErrValue.ParseError())
+				parseErrorType = fmt.Sprintf("%T", parseErrValue)
 				return false
 			}
-			errorMessage = strings.TrimSpace(fmt.Sprint(anyValue))
-			errorType = fmt.Sprintf("%T", anyValue)
+			parseErrorMessage = strings.TrimSpace(fmt.Sprint(parseAnyValue))
+			parseErrorType = fmt.Sprintf("%T", parseAnyValue)
 			return false
 		default:
-			errorMessage = strings.TrimSpace(resolvedAttr.String())
-			if errorMessage == "" {
-				errorMessage = strings.TrimSpace(fmt.Sprint(resolvedAttr.Any()))
+			parseErrorMessage = strings.TrimSpace(parseResolvedAttr.ParseString())
+			if parseErrorMessage == "" {
+				parseErrorMessage = strings.TrimSpace(fmt.Sprint(parseResolvedAttr.Any()))
 			}
 			return false
 		}
 	})
-	return errorMessage, errorType
+	return parseErrorMessage, parseErrorType
 }

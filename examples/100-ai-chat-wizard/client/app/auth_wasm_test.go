@@ -10,8 +10,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func TestAuthErrorMessageUsesFriendlyProductText(t *testing.T) {
-	tests := []struct {
+func TestAuthErrorMessageUsesFriendlyProductText(parseT *testing.T) {
+	parseTests := []struct {
 		name string
 		mode string
 		err  error
@@ -61,12 +61,11 @@ func TestAuthErrorMessageUsesFriendlyProductText(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := authErrorMessage(test.mode, test.err); got != test.want {
-				t.Fatalf("authErrorMessage() = %q, want %q", got, test.want)
+	for _, parseTest := range parseTests {
+		parseT.Run(parseTest.name, func(parseT2 *testing.T) {
+			if parseGot := parseAuthErrorMessage(parseTest.mode, parseTest.err); parseGot != parseTest.want {
+				parseT2.Fatalf("authErrorMessage() = %q, want %q", parseGot, parseTest.want)
 			}
 		})
 	}
 }
-

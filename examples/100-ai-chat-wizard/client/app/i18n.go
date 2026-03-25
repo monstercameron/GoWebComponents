@@ -378,63 +378,63 @@ var chatWizardBundle = func() *i18n.Bundle {
 	return bundle
 }()
 
-func chatWizardRoot() ui.Node {
-	locale := i18n.UseLocale(i18n.LocaleOptions{
+func parseChatWizardRoot() ui.Node {
+	parseLocale := i18n.UseLocale(i18n.LocaleOptions{
 		InitialLocale:    "en",
-		SupportedLocales: supportedChatLocaleIDs(),
+		SupportedLocales: parseSupportedChatLocaleIDs(),
 		FallbackLocale:   "en",
 		PersistenceKey:   chatLocalePersistenceKey,
 		DetectBrowser:    true,
 	})
 	return i18n.Provider(i18n.ProviderProps{
-		Locale: locale,
+		Locale: parseLocale,
 		Bundle: chatWizardBundle,
-		Child:  ui.CreateElement(App),
+		Child:  ui.CreateElement(ParseApp),
 	})
 }
 
-func supportedChatLocaleIDs() []string {
-	locales := make([]string, 0, len(availableLocales))
-	for _, option := range availableLocales {
-		locales = append(locales, option.ID)
+func parseSupportedChatLocaleIDs() []string {
+	parseLocales := make([]string, 0, len(availableLocales))
+	for _, parseOption := range availableLocales {
+		parseLocales = append(parseLocales, parseOption.ParseID)
 	}
-	return locales
+	return parseLocales
 }
 
-func normalizeChatLocaleID(locale string) string {
-	normalized := i18n.NormalizeLocale(locale)
-	for _, option := range availableLocales {
-		if option.ID == normalized {
-			return option.ID
+func parseNormalizeChatLocaleID(parseLocale string) string {
+	parseNormalized := i18n.NormalizeLocale(parseLocale)
+	for _, parseOption := range availableLocales {
+		if parseOption.ParseID == parseNormalized {
+			return parseOption.ParseID
 		}
 	}
-	return availableLocales[0].ID
+	return availableLocales[0].ParseID
 }
 
-func localeLabel(id string) string {
-	for _, option := range availableLocales {
-		if option.ID == id {
-			return option.NativeLabel
+func parseLocaleLabel(parseId string) string {
+	for _, parseOption := range availableLocales {
+		if parseOption.ParseID == parseId {
+			return parseOption.NativeLabel
 		}
 	}
-	return strings.TrimSpace(id)
+	return strings.TrimSpace(parseId)
 }
 
-func toneLabel(intl i18n.Runtime, id string) string {
-	return intl.T(chatI18nNamespace, "tone."+id+".label")
+func parseToneLabel(parseIntl i18n.Runtime, parseId string) string {
+	return parseIntl.T(chatI18nNamespace, "tone."+parseId+".label")
 }
 
-func toneDescription(intl i18n.Runtime, id string) string {
-	return intl.T(chatI18nNamespace, "tone."+id+".desc")
+func parseToneDescription(parseIntl i18n.Runtime, parseId string) string {
+	return parseIntl.T(chatI18nNamespace, "tone."+parseId+".desc")
 }
 
-func thinkingEffortLabel(intl i18n.Runtime, id string) string {
-	return intl.T(chatI18nNamespace, "thinking."+id)
+func parseThinkingEffortLabel(parseIntl i18n.Runtime, parseId string) string {
+	return parseIntl.T(chatI18nNamespace, "thinking."+parseId)
 }
 
-func thoughtHeadingLabel(intl i18n.Runtime, heading string) string {
-	if strings.EqualFold(strings.TrimSpace(heading), "thinking") {
-		return intl.T(chatI18nNamespace, "message.thinking")
+func parseThoughtHeadingLabel(parseIntl i18n.Runtime, parseHeading string) string {
+	if strings.EqualFold(strings.TrimSpace(parseHeading), "thinking") {
+		return parseIntl.T(chatI18nNamespace, "message.thinking")
 	}
-	return heading
+	return parseHeading
 }

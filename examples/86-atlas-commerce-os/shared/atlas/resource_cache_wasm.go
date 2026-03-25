@@ -10,34 +10,34 @@ import (
 	"github.com/monstercameron/GoWebComponents/ui"
 )
 
-func BootstrapCacheEntries(payload Payload, options fetch.CacheOptions, updatedAt time.Time) []fetch.CacheBootstrapEntry {
-	entries := []fetch.CacheBootstrapEntry{{
-		Key:          RoutePayloadResourceKey(payload.Route.Path, resourceQueryValues(payload.Route.Query)),
-		Value:        clonePayloadForResourceCache(payload),
-		UpdatedAt:    updatedAt,
+func BootstrapCacheEntries(parsePayload Payload, parseOptions fetch.CacheOptions, parseUpdatedAt time.Time) []fetch.CacheBootstrapEntry {
+	parseEntries := []fetch.CacheBootstrapEntry{{
+		Key:          RoutePayloadResourceKey(parsePayload.Route.Path, resourceQueryValues(parsePayload.Route.Query)),
+		Value:        clonePayloadForResourceCache(parsePayload),
+		UpdatedAt:    parseUpdatedAt,
 		ResumePolicy: fetch.CacheResumeTrustOnce,
-		StaleAfter:   options.StaleAfter,
+		StaleAfter:   parseOptions.StaleAfter,
 	}}
-	visitPayloadRequestData(payload, func(requestURL string, dataKey string, value any) {
-		entries = append(entries, fetch.CacheBootstrapEntry{
-			Key:          CachedRequestResourceKey(requestURL, dataKey),
-			Value:        value,
-			UpdatedAt:    updatedAt,
+	visitPayloadRequestData(parsePayload, func(parseRequestURL string, parseDataKey string, parseValue any) {
+		parseEntries = append(parseEntries, fetch.CacheBootstrapEntry{
+			Key:          CachedRequestResourceKey(parseRequestURL, parseDataKey),
+			Value:        parseValue,
+			UpdatedAt:    parseUpdatedAt,
 			ResumePolicy: fetch.CacheResumeTrustOnce,
-			StaleAfter:   options.StaleAfter,
+			StaleAfter:   parseOptions.StaleAfter,
 		})
 	})
-	return entries
+	return parseEntries
 }
 
-func SeedFetchCacheBootstrap(bootstrap *ui.SSRBootstrap, payload Payload, options fetch.CacheOptions, updatedAt time.Time) {
-	if bootstrap == nil {
+func SeedFetchCacheBootstrap(parseBootstrap *ui.SSRBootstrap, parsePayload Payload, parseOptions fetch.CacheOptions, parseUpdatedAt time.Time) {
+	if parseBootstrap == nil {
 		return
 	}
-	if bootstrap.Data == nil {
-		bootstrap.Data = map[string]any{}
+	if parseBootstrap.Data == nil {
+		parseBootstrap.Data = map[string]any{}
 	}
-	bootstrap.Data[fetch.CacheBootstrapDataKey] = fetch.CacheBootstrap{
-		Entries: BootstrapCacheEntries(payload, options, updatedAt),
+	parseBootstrap.Data[fetch.CacheBootstrapDataKey] = fetch.CacheBootstrap{
+		Entries: BootstrapCacheEntries(parsePayload, parseOptions, parseUpdatedAt),
 	}
 }

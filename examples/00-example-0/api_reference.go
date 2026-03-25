@@ -19,246 +19,246 @@ const activeDemoAnchorProperty = "__gwc_active_demo_anchor__"
 const demoAnchorScrollRequestProperty = "__gwc_demo_anchor_scroll_request__"
 const apiReferenceSearchProperty = "__gwc_api_reference_search__"
 
-func setRequestedDemoAnchor(anchorID string) {
-	window := js.Global().Get("window")
-	if window.IsUndefined() || window.IsNull() {
+func setRequestedDemoAnchor(parseAnchorID string) {
+	parseWindow := js.Global().Get("window")
+	if parseWindow.IsUndefined() || parseWindow.IsNull() {
 		return
 	}
-	window.Set(demoAnchorScrollRequestProperty, anchorID)
+	parseWindow.Set(demoAnchorScrollRequestProperty, parseAnchorID)
 }
 
 func clearRequestedDemoAnchor() {
 	setRequestedDemoAnchor("")
 }
 
-func findScrollableAncestor(target js.Value) js.Value {
-	if target.IsUndefined() || target.IsNull() {
+func findScrollableAncestor(parseTarget js.Value) js.Value {
+	if parseTarget.IsUndefined() || parseTarget.IsNull() {
 		return js.Undefined()
 	}
-	current := target.Get("parentElement")
-	for !current.IsUndefined() && !current.IsNull() {
-		style := js.Global().Get("window").Call("getComputedStyle", current)
-		overflowY := style.Get("overflowY").String()
-		isScrollableOverflow := overflowY == "auto" || overflowY == "scroll"
-		if isScrollableOverflow && current.Get("scrollHeight").Float() > current.Get("clientHeight").Float()+1 {
-			return current
+	parseCurrent := parseTarget.Get("parentElement")
+	for !parseCurrent.IsUndefined() && !parseCurrent.IsNull() {
+		parseStyle := js.Global().Get("window").Call("getComputedStyle", parseCurrent)
+		parseOverflowY := parseStyle.Get("overflowY").String()
+		isScrollableOverflow := parseOverflowY == "auto" || parseOverflowY == "scroll"
+		if isScrollableOverflow && parseCurrent.Get("scrollHeight").Float() > parseCurrent.Get("clientHeight").Float()+1 {
+			return parseCurrent
 		}
-		current = current.Get("parentElement")
+		parseCurrent = parseCurrent.Get("parentElement")
 	}
 	return js.Undefined()
 }
 
-func isGroupedAPIItem(item docsItem) bool {
-	return item.Type == kindAPI && item.Content.AnchorID != "" && item.Content.SourcePath != ""
+func isGroupedAPIItem(parseItem docsItem) bool {
+	return parseItem.Type == kindAPI && parseItem.Content.AnchorID != "" && parseItem.Content.SourcePath != ""
 }
 
-func apiReferenceDocumentURL(item docsItem) string {
-	if item.Content.SourcePath == "" {
+func apiReferenceDocumentURL(parseItem docsItem) string {
+	if parseItem.Content.SourcePath == "" {
 		return ""
 	}
-	url := docsSourceURL(item.Content.SourcePath)
-	if item.Content.AnchorID != "" {
-		url += "#" + item.Content.AnchorID
+	parseUrl := docsSourceURL(parseItem.Content.SourcePath)
+	if parseItem.Content.AnchorID != "" {
+		parseUrl += "#" + parseItem.Content.AnchorID
 	}
-	return url
+	return parseUrl
 }
 
-func scrollToDemoAnchor(anchorID string, ready bool, body string) {
+func scrollToDemoAnchor(parseAnchorID string, isReady bool, parseBody string) {
 	ui.UseEffect(func() func() {
-		if !ready || body == "" || anchorID == "" {
+		if !isReady || parseBody == "" || parseAnchorID == "" {
 			return nil
 		}
-		window := js.Global().Get("window")
-		if window.IsUndefined() || window.IsNull() {
+		parseWindow := js.Global().Get("window")
+		if parseWindow.IsUndefined() || parseWindow.IsNull() {
 			return nil
 		}
-		requestedAnchor := window.Get(demoAnchorScrollRequestProperty)
-		if requestedAnchor.IsUndefined() || requestedAnchor.IsNull() || requestedAnchor.String() != anchorID {
+		parseRequestedAnchor := parseWindow.Get(demoAnchorScrollRequestProperty)
+		if parseRequestedAnchor.IsUndefined() || parseRequestedAnchor.IsNull() || parseRequestedAnchor.String() != parseAnchorID {
 			return nil
 		}
-		window.Set(activeDemoAnchorProperty, anchorID)
-		attemptScroll := func() {
-			currentAnchor := window.Get(activeDemoAnchorProperty)
-			if currentAnchor.IsUndefined() || currentAnchor.IsNull() || currentAnchor.String() != anchorID {
+		parseWindow.Set(activeDemoAnchorProperty, parseAnchorID)
+		parseAttemptScroll := func() {
+			parseCurrentAnchor := parseWindow.Get(activeDemoAnchorProperty)
+			if parseCurrentAnchor.IsUndefined() || parseCurrentAnchor.IsNull() || parseCurrentAnchor.String() != parseAnchorID {
 				return
 			}
-			document := js.Global().Get("document")
-			if document.IsUndefined() || document.IsNull() {
+			parseDocument := js.Global().Get("document")
+			if parseDocument.IsUndefined() || parseDocument.IsNull() {
 				return
 			}
-			container := document.Call("querySelector", "#demo")
-			selector := fmt.Sprintf("#demo #%s", anchorID)
-			target := document.Call("querySelector", selector)
-			if container.IsUndefined() || container.IsNull() || target.IsUndefined() || target.IsNull() {
+			parseContainer := parseDocument.Call("querySelector", "#demo")
+			parseSelector := fmt.Sprintf("#demo #%s", parseAnchorID)
+			parseTarget := parseDocument.Call("querySelector", parseSelector)
+			if parseContainer.IsUndefined() || parseContainer.IsNull() || parseTarget.IsUndefined() || parseTarget.IsNull() {
 				return
 			}
-			if target.Get("scrollIntoView").Type() == js.TypeFunction {
-				target.Call("scrollIntoView", true)
+			if parseTarget.Get("scrollIntoView").Type() == js.TypeFunction {
+				parseTarget.Call("scrollIntoView", true)
 			}
-			targetRect := target.Call("getBoundingClientRect")
-			if targetRect.Get("top").Float() >= 0 && targetRect.Get("top").Float() <= 48 {
+			parseTargetRect := parseTarget.Call("getBoundingClientRect")
+			if parseTargetRect.Get("top").Float() >= 0 && parseTargetRect.Get("top").Float() <= 48 {
 				return
 			}
-			scrollContainer := findScrollableAncestor(target)
-			if !scrollContainer.IsUndefined() && !scrollContainer.IsNull() {
-				containerRect := scrollContainer.Call("getBoundingClientRect")
-				nextTop := scrollContainer.Get("scrollTop").Float() + targetRect.Get("top").Float() - containerRect.Get("top").Float() - 24
-				if scrollContainer.Get("scrollTo").Type() == js.TypeFunction {
-					scrollContainer.Call("scrollTo", 0, nextTop)
+			parseScrollContainer := findScrollableAncestor(parseTarget)
+			if !parseScrollContainer.IsUndefined() && !parseScrollContainer.IsNull() {
+				parseContainerRect := parseScrollContainer.Call("getBoundingClientRect")
+				parseNextTop := parseScrollContainer.Get("scrollTop").Float() + parseTargetRect.Get("top").Float() - parseContainerRect.Get("top").Float() - 24
+				if parseScrollContainer.Get("scrollTo").Type() == js.TypeFunction {
+					parseScrollContainer.Call("scrollTo", 0, parseNextTop)
 					return
 				}
-				scrollContainer.Set("scrollTop", nextTop)
+				parseScrollContainer.Set("scrollTop", parseNextTop)
 				return
 			}
-			if window.IsUndefined() || window.IsNull() {
+			if parseWindow.IsUndefined() || parseWindow.IsNull() {
 				return
 			}
-			nextWindowTop := window.Get("scrollY").Float() + targetRect.Get("top").Float() - 24
-			if window.Get("scrollTo").Type() == js.TypeFunction {
-				window.Call("scrollTo", 0, nextWindowTop)
+			parseNextWindowTop := parseWindow.Get("scrollY").Float() + parseTargetRect.Get("top").Float() - 24
+			if parseWindow.Get("scrollTo").Type() == js.TypeFunction {
+				parseWindow.Call("scrollTo", 0, parseNextWindowTop)
 				return
 			}
-			documentElement := document.Get("documentElement")
-			if !documentElement.IsUndefined() && !documentElement.IsNull() {
-				documentElement.Set("scrollTop", nextWindowTop)
+			parseDocumentElement := parseDocument.Get("documentElement")
+			if !parseDocumentElement.IsUndefined() && !parseDocumentElement.IsNull() {
+				parseDocumentElement.Set("scrollTop", parseNextWindowTop)
 			}
 		}
 
-		attemptScroll()
+		parseAttemptScroll()
 
-		delays := []time.Duration{16 * time.Millisecond, 80 * time.Millisecond, 180 * time.Millisecond, 320 * time.Millisecond, 520 * time.Millisecond, 900 * time.Millisecond, 1400 * time.Millisecond, 2 * time.Second}
-		timers := make([]interop.Timer, 0, len(delays))
-		for _, delay := range delays {
-			timer, err := interop.ScheduleTimeout(delay, attemptScroll)
-			if err != nil {
+		parseDelays := []time.Duration{16 * time.Millisecond, 80 * time.Millisecond, 180 * time.Millisecond, 320 * time.Millisecond, 520 * time.Millisecond, 900 * time.Millisecond, 1400 * time.Millisecond, 2 * time.Second}
+		parseTimers := make([]interop.Timer, 0, len(parseDelays))
+		for _, parseDelay := range parseDelays {
+			parseTimer, parseErr := interop.ScheduleTimeout(parseDelay, parseAttemptScroll)
+			if parseErr != nil {
 				continue
 			}
-			timers = append(timers, timer)
+			parseTimers = append(parseTimers, parseTimer)
 		}
-		if len(timers) == 0 {
+		if len(parseTimers) == 0 {
 			return nil
 		}
 		return func() {
-			for _, timer := range timers {
-				_ = timer.Cancel()
+			for _, parseTimer2 := range parseTimers {
+				_ = parseTimer2.Cancel()
 			}
 		}
-	}, anchorID, ready, len(body))
+	}, parseAnchorID, isReady, len(parseBody))
 }
 
-func renderInjectedHTMLFragment(className, body string) ui.Node {
-	return Tag("div", FromProps(Props{Class: className, Raw: map[string]interface{}{innerHTMLProperty: body}}))
+func renderInjectedHTMLFragment(parseClassName, parseBody string) ui.Node {
+	return Tag("div", FromProps(Props{Class: parseClassName, Raw: map[string]interface{}{innerHTMLProperty: parseBody}}))
 }
 
-func filterAPIReferenceSections(query string, ready bool, body string) {
+func filterAPIReferenceSections(parseQuery string, isReady bool, parseBody string) {
 	ui.UseEffect(func() func() {
-		if !ready || body == "" {
+		if !isReady || parseBody == "" {
 			return nil
 		}
-		window := js.Global().Get("window")
-		if window.IsUndefined() || window.IsNull() {
+		parseWindow := js.Global().Get("window")
+		if parseWindow.IsUndefined() || parseWindow.IsNull() {
 			return nil
 		}
-		normalizedQuery := strings.TrimSpace(strings.ToLower(query))
-		window.Set(apiReferenceSearchProperty, normalizedQuery)
+		parseNormalizedQuery := strings.TrimSpace(strings.ToLower(parseQuery))
+		parseWindow.Set(apiReferenceSearchProperty, parseNormalizedQuery)
 		applyFilter := func() {
-			currentQuery := window.Get(apiReferenceSearchProperty)
-			if currentQuery.IsUndefined() || currentQuery.IsNull() || currentQuery.String() != normalizedQuery {
+			parseCurrentQuery := parseWindow.Get(apiReferenceSearchProperty)
+			if parseCurrentQuery.IsUndefined() || parseCurrentQuery.IsNull() || parseCurrentQuery.String() != parseNormalizedQuery {
 				return
 			}
-			document := js.Global().Get("document")
-			if document.IsUndefined() || document.IsNull() {
+			parseDocument := js.Global().Get("document")
+			if parseDocument.IsUndefined() || parseDocument.IsNull() {
 				return
 			}
-			fragment := document.Call("querySelector", "#demo .api-reference-fragment")
-			if fragment.IsUndefined() || fragment.IsNull() {
+			parseFragment := parseDocument.Call("querySelector", "#demo .api-reference-fragment")
+			if parseFragment.IsUndefined() || parseFragment.IsNull() {
 				return
 			}
-			apiItems := fragment.Call("querySelectorAll", ".api-item")
-			itemCount := apiItems.Get("length").Int()
-			for index := 0; index < itemCount; index++ {
-				item := apiItems.Index(index)
-				matches := normalizedQuery == "" || strings.Contains(strings.ToLower(item.Get("textContent").String()), normalizedQuery)
-				if matches {
-					item.Get("style").Set("display", "")
+			parseApiItems := parseFragment.Call("querySelectorAll", ".api-item")
+			parseItemCount := parseApiItems.Get("length").Int()
+			for parseIndex := 0; parseIndex < parseItemCount; parseIndex++ {
+				parseItem := parseApiItems.Index(parseIndex)
+				isParseMatches := parseNormalizedQuery == "" || strings.Contains(strings.ToLower(parseItem.Get("textContent").String()), parseNormalizedQuery)
+				if isParseMatches {
+					parseItem.Get("style").Set("display", "")
 				} else {
-					item.Get("style").Set("display", "none")
+					parseItem.Get("style").Set("display", "none")
 				}
 			}
 
-			articles := fragment.Call("querySelectorAll", "article")
-			articleCount := articles.Get("length").Int()
-			for index := 0; index < articleCount; index++ {
-				article := articles.Index(index)
-				itemNodes := article.Call("querySelectorAll", ".api-item")
-				itemNodeCount := itemNodes.Get("length").Int()
-				if itemNodeCount == 0 {
-					article.Get("style").Set("display", "")
+			parseArticles := parseFragment.Call("querySelectorAll", "article")
+			parseArticleCount := parseArticles.Get("length").Int()
+			for parseIndex2 := 0; parseIndex2 < parseArticleCount; parseIndex2++ {
+				parseArticle := parseArticles.Index(parseIndex2)
+				parseItemNodes := parseArticle.Call("querySelectorAll", ".api-item")
+				parseItemNodeCount := parseItemNodes.Get("length").Int()
+				if parseItemNodeCount == 0 {
+					parseArticle.Get("style").Set("display", "")
 					continue
 				}
 				hasVisibleItem := false
-				for itemIndex := 0; itemIndex < itemNodeCount; itemIndex++ {
-					if itemNodes.Index(itemIndex).Get("style").Get("display").String() != "none" {
+				for parseItemIndex := 0; parseItemIndex < parseItemNodeCount; parseItemIndex++ {
+					if parseItemNodes.Index(parseItemIndex).Get("style").Get("display").String() != "none" {
 						hasVisibleItem = true
 						break
 					}
 				}
 				if hasVisibleItem {
-					article.Get("style").Set("display", "")
+					parseArticle.Get("style").Set("display", "")
 				} else {
-					article.Get("style").Set("display", "none")
+					parseArticle.Get("style").Set("display", "none")
 				}
 			}
 
-			sections := fragment.Call("querySelectorAll", "section")
-			sectionCount := sections.Get("length").Int()
-			for index := 0; index < sectionCount; index++ {
-				section := sections.Index(index)
-				if normalizedQuery == "" {
-					section.Get("style").Set("display", "")
+			parseSections := parseFragment.Call("querySelectorAll", "section")
+			parseSectionCount := parseSections.Get("length").Int()
+			for parseIndex3 := 0; parseIndex3 < parseSectionCount; parseIndex3++ {
+				parseSection := parseSections.Index(parseIndex3)
+				if parseNormalizedQuery == "" {
+					parseSection.Get("style").Set("display", "")
 					continue
 				}
-				matchesHeading := strings.Contains(strings.ToLower(section.Get("textContent").String()), normalizedQuery)
-				visibleItems := section.Call("querySelectorAll", ".api-item")
-				visibleCount := visibleItems.Get("length").Int()
+				parseMatchesHeading := strings.Contains(strings.ToLower(parseSection.Get("textContent").String()), parseNormalizedQuery)
+				parseVisibleItems := parseSection.Call("querySelectorAll", ".api-item")
+				parseVisibleCount := parseVisibleItems.Get("length").Int()
 				hasVisibleItem := false
-				for itemIndex := 0; itemIndex < visibleCount; itemIndex++ {
-					if visibleItems.Index(itemIndex).Get("style").Get("display").String() != "none" {
+				for parseItemIndex2 := 0; parseItemIndex2 < parseVisibleCount; parseItemIndex2++ {
+					if parseVisibleItems.Index(parseItemIndex2).Get("style").Get("display").String() != "none" {
 						hasVisibleItem = true
 						break
 					}
 				}
-				if matchesHeading || hasVisibleItem {
-					section.Get("style").Set("display", "")
+				if parseMatchesHeading || hasVisibleItem {
+					parseSection.Get("style").Set("display", "")
 				} else {
-					section.Get("style").Set("display", "none")
+					parseSection.Get("style").Set("display", "none")
 				}
 			}
 		}
-		delays := []time.Duration{16 * time.Millisecond, 80 * time.Millisecond, 180 * time.Millisecond}
-		timers := make([]interop.Timer, 0, len(delays))
-		for _, delay := range delays {
-			timer, err := interop.ScheduleTimeout(delay, applyFilter)
-			if err != nil {
+		parseDelays := []time.Duration{16 * time.Millisecond, 80 * time.Millisecond, 180 * time.Millisecond}
+		parseTimers := make([]interop.Timer, 0, len(parseDelays))
+		for _, parseDelay := range parseDelays {
+			parseTimer, parseErr := interop.ScheduleTimeout(parseDelay, applyFilter)
+			if parseErr != nil {
 				continue
 			}
-			timers = append(timers, timer)
+			parseTimers = append(parseTimers, parseTimer)
 		}
 		return func() {
-			for _, timer := range timers {
-				_ = timer.Cancel()
+			for _, parseTimer2 := range parseTimers {
+				_ = parseTimer2.Cancel()
 			}
 		}
-	}, query, ready, len(body))
+	}, parseQuery, isReady, len(parseBody))
 }
 
-func renderGroupedAPIReference(panelProps contentPanelProps) ui.Node {
-	apiSearchQuery := ui.UseState("")
-	updateAPISearchQuery := ui.UseEvent(func(event ui.InputEvent) {
-		apiSearchQuery.Set(event.GetValue())
+func renderGroupedAPIReference(parsePanelProps contentPanelProps) ui.Node {
+	parseApiSearchQuery := ui.UseState("")
+	parseUpdateAPISearchQuery := ui.UseEvent(func(parseEvent ui.InputEvent) {
+		parseApiSearchQuery.Set(parseEvent.GetValue())
 	})
-	scrollToDemoAnchor(panelProps.Item.Content.AnchorID, panelProps.MarkdownReady, panelProps.MarkdownBody)
-	filterAPIReferenceSections(apiSearchQuery.Get(), panelProps.MarkdownReady, panelProps.MarkdownBody)
+	scrollToDemoAnchor(parsePanelProps.Item.Content.AnchorID, parsePanelProps.MarkdownReady, parsePanelProps.MarkdownBody)
+	filterAPIReferenceSections(parseApiSearchQuery.Get(), parsePanelProps.MarkdownReady, parsePanelProps.MarkdownBody)
 
 	return Div(Class("min-w-0 flex min-h-full flex-col rounded-[22px] border border-white/10 bg-slate-950/35 p-3 shadow-inner shadow-black/20"),
 		Div(Class("border-b border-white/10 pb-2"),
@@ -268,8 +268,8 @@ func renderGroupedAPIReference(panelProps contentPanelProps) ui.Node {
 		Div(Class("mt-3 rounded-[20px] border border-white/10 bg-white/[0.04] p-3"),
 			Div(Class("text-xs uppercase tracking-[0.18em] text-slate-500"), Text(labelReferenceSearch)),
 			Input(
-				Value(apiSearchQuery.Get()),
-				OnInput(updateAPISearchQuery),
+				Value(parseApiSearchQuery.Get()),
+				OnInput(parseUpdateAPISearchQuery),
 				Placeholder(messageReferenceSearch),
 				Class("mt-2 w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 transition focus:border-cyan-300/40 focus:bg-slate-950/60"),
 			),
@@ -277,10 +277,10 @@ func renderGroupedAPIReference(panelProps contentPanelProps) ui.Node {
 		Div(Class("mt-3 rounded-[22px] border border-violet-400/20 bg-violet-400/10 p-3"),
 			Div(Class("text-xs uppercase tracking-[0.18em] text-violet-200"), Text("Reference scope")),
 			P(Class("mt-2 text-sm leading-7 text-violet-50"), Text("This API group is defined in the catalog and resolves to a shared HTML reference fragment. Selecting a card fetches the fragment into this surface and then scrolls to the matching section anchor.")),
-			Div(Class("mt-2 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-sm leading-6 text-cyan-100 break-all"), Text(apiReferenceDocumentURL(panelProps.Item))),
+			Div(Class("mt-2 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-sm leading-6 text-cyan-100 break-all"), Text(apiReferenceDocumentURL(parsePanelProps.Item))),
 		),
 		Div(Class("mt-3 min-h-[72vh] rounded-[22px] border border-white/10 bg-[#08111f] p-2"),
-			renderInjectedHTMLFragment("api-reference-fragment", panelProps.MarkdownBody),
+			renderInjectedHTMLFragment("api-reference-fragment", parsePanelProps.MarkdownBody),
 		),
 	)
 }

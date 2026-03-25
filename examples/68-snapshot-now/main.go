@@ -15,11 +15,11 @@ import (
 )
 
 func snapshotNowExample() ui.Node {
-	count := ui.UseState(0)
-	summary := ui.UseState("Press capture to take an immediate snapshot.")
-	capture := ui.UseEvent(func() {
-		snapshot := devtools.SnapshotNow()
-		summary.Set(fmt.Sprintf("route=%s fibers=%d diagnostics=%d", snapshot.Route.Path, snapshot.Stats.TotalFibers, len(snapshot.Diagnostics)))
+	parseCount := ui.UseState(0)
+	parseSummary := ui.UseState("Press capture to take an immediate snapshot.")
+	parseCapture := ui.UseEvent(func() {
+		parseSnapshot := devtools.SnapshotNow()
+		parseSummary.Set(fmt.Sprintf("route=%s fibers=%d diagnostics=%d", parseSnapshot.Route.Path, parseSnapshot.Stats.TotalFibers, len(parseSnapshot.Diagnostics)))
 	})
 
 	return shared.ExamplePage(
@@ -28,14 +28,14 @@ func snapshotNowExample() ui.Node {
 		"SnapshotNow is the imperative path. It is useful from buttons, debug drawers, or one-off diagnostics where you do not want a polling subscription.",
 		shared.ExamplePanel("Imperative capture",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-				shared.ExampleButton("Increment state", ui.UseEvent(func() { count.Update(func(previous int) int { return previous + 1 }) })),
-				shared.ExampleButton("Capture snapshot now", capture),
+				shared.ExampleButton("Increment state", ui.UseEvent(func() { parseCount.Update(func(parsePrevious int) int { return parsePrevious + 1 }) })),
+				shared.ExampleButton("Capture snapshot now", parseCapture),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Local state", fmt.Sprintf("%d", count.Get())),
+				shared.ExampleStat("Local state", fmt.Sprintf("%d", parseCount.Get())),
 				shared.ExampleStat("Capture mode", "Imperative"),
 			),
-			html.P(html.Props{Class: "mt-6 text-slate-300"}, html.Text(summary.Get())),
+			html.P(html.Props{Class: "mt-6 text-slate-300"}, html.Text(parseSummary.Get())),
 		),
 	)
 }

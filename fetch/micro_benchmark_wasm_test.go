@@ -8,11 +8,11 @@ import (
 	"time"
 )
 
-func BenchmarkNormalizeMutationIDMicro(b *testing.B) {
-	now := time.Unix(1710000000, 0).UTC()
+func BenchmarkNormalizeMutationIDMicro(parseB *testing.B) {
+	parseNow := time.Unix(1710000000, 0).UTC()
 
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = normalizeMutationID("", now, i)
+	parseB.ReportAllocs()
+	for parseI := 0; parseI < parseB.N; parseI++ {
+		_ = normalizeMutationID("", parseNow, parseI)
 	}
 }

@@ -34,53 +34,53 @@ type revalidatorPageProps struct {
 	FallbackData router.Attrs
 }
 
-func revalidatorPageView(props revalidatorPageProps) ui.Node {
-	revalidator := router.UseRevalidator()
-	data := router.UseRouteData()
-	if data == nil {
-		data = props.FallbackData
+func revalidatorPageView(parseProps revalidatorPageProps) ui.Node {
+	parseRevalidator := router.UseRevalidator()
+	parseData := router.UseRouteData()
+	if parseData == nil {
+		parseData = parseProps.FallbackData
 	}
 
-	stamp, _ := data["stamp"].(string)
-	revision, _ := data["revision"].(string)
+	parseStamp, _ := parseData["stamp"].(string)
+	parseRevision, _ := parseData["revision"].(string)
 	return shared.ExamplePage(
 		"router.UseRevalidator",
 		"Rerun the current route loader without changing the URL",
 		"UseRevalidator is the manual refresh hook for loader-backed routes. It keeps the same path and query string but asks the current route to fetch again.",
 		shared.ExamplePanel("Revalidation",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-				shared.ExampleButton("Revalidate current route", ui.UseEvent(func() { revalidator.Revalidate() })),
+				shared.ExampleButton("Revalidate current route", ui.UseEvent(func() { parseRevalidator.Revalidate() })),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
-				shared.ExampleStat("Loader revision", revision),
-				shared.ExampleStat("Loaded at", stamp),
-				shared.ExampleStat("Loading", fmt.Sprintf("%t", revalidator.Loading())),
+				shared.ExampleStat("Loader revision", parseRevision),
+				shared.ExampleStat("Loaded at", parseStamp),
+				shared.ExampleStat("Loading", fmt.Sprintf("%t", parseRevalidator.Loading())),
 			),
 		),
 	)
 }
 
-func revalidatorPage(props router.Attrs) *router.Element {
-	return ui.CreateElement(revalidatorPageView, revalidatorPageProps{FallbackData: props})
+func revalidatorPage(parseProps router.Attrs) *router.Element {
+	return ui.CreateElement(revalidatorPageView, revalidatorPageProps{FallbackData: parseProps})
 }
 
 func main() {
 	utils.DisableAllDebug()
-	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/dashboard"})
-	r.Register("/dashboard", revalidatorPage, router.Options{
-		Loader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
+	parseR := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/dashboard"})
+	parseR.Register("/dashboard", revalidatorPage, router.Options{
+		Loader: func(parseCtx context.Context, parseRouteCtx router.RouteContext) (router.Attrs, error) {
 			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
+			case <-parseCtx.Done():
+				return nil, parseCtx.Err()
 			case <-time.After(280 * time.Millisecond):
 			}
 			return router.Attrs{
 				"revision": fmt.Sprintf("%d", nextRevalidateTick()),
 				"stamp":    time.Now().Format("15:04:05.000"),
-				"path":     routeCtx.Path,
+				"path":     parseRouteCtx.Path,
 			}, nil
 		},
-		Loading: func(props router.Attrs) *router.Element {
+		Loading: func(parseProps router.Attrs) *router.Element {
 			return shared.ExamplePage(
 				"router.UseRevalidator",
 				"Loader pending",
@@ -91,6 +91,6 @@ func main() {
 			)
 		},
 	})
-	r.Mount("#app")
+	parseR.Mount("#app")
 	select {}
 }

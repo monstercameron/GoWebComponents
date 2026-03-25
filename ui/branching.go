@@ -4,22 +4,22 @@ package ui
 type NodeFactory func() Node
 
 // Component is a concise alias for CreateElement when rendering components.
-func Component(parseComponent interface{}, parseProps ...interface{}) Node {
-	return CreateElement(parseComponent, parseProps...)
+func Component(parseComponentType interface{}, parseComponentProps ...interface{}) Node {
+	return CreateElement(parseComponentType, parseComponentProps...)
 }
 
 // If lazily renders one of two branches.
-func If(isCondition bool, parseWhenTrue NodeFactory, parseWhenFalse ...NodeFactory) Node {
+func If(isCondition bool, parseBranchTrue NodeFactory, parseBranchFalse ...NodeFactory) Node {
 	if isCondition {
-		if parseWhenTrue == nil {
+		if parseBranchTrue == nil {
 			return nil
 		}
-		return parseWhenTrue()
+		return parseBranchTrue()
 	}
-	if len(parseWhenFalse) == 0 || parseWhenFalse[0] == nil {
+	if len(parseBranchFalse) == 0 || parseBranchFalse[0] == nil {
 		return nil
 	}
-	return parseWhenFalse[0]()
+	return parseBranchFalse[0]()
 }
 
 // MatchBuilder lazily resolves the first matching branch and a default.
@@ -34,24 +34,24 @@ func Match() MatchBuilder {
 }
 
 // When records the first matching branch in the chain.
-func (parseBuilder MatchBuilder) When(isCondition bool, render NodeFactory) MatchBuilder {
-	if parseBuilder.matched || !isCondition {
-		return parseBuilder
+func (parseMatchBuilder MatchBuilder) When(isCondition bool, parseBranchRender NodeFactory) MatchBuilder {
+	if parseMatchBuilder.matched || !isCondition {
+		return parseMatchBuilder
 	}
-	parseBuilder.matched = true
-	if render != nil {
-		parseBuilder.node = render()
+	parseMatchBuilder.matched = true
+	if parseBranchRender != nil {
+		parseMatchBuilder.node = parseBranchRender()
 	}
-	return parseBuilder
+	return parseMatchBuilder
 }
 
 // Default resolves the chain to the first matching node or the default branch.
-func (parseBuilder MatchBuilder) Default(render NodeFactory) Node {
-	if parseBuilder.matched {
-		return parseBuilder.node
+func (parseMatchBuilder MatchBuilder) Default(parseBranchRender NodeFactory) Node {
+	if parseMatchBuilder.matched {
+		return parseMatchBuilder.node
 	}
-	if render == nil {
+	if parseBranchRender == nil {
 		return nil
 	}
-	return render()
+	return parseBranchRender()
 }

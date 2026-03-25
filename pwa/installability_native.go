@@ -10,11 +10,11 @@ import (
 )
 
 // ObserveInstallability is a non-browser stub that always returns an unavailable error.
-func ObserveInstallability(parseOptions InstallabilityOptions) (InstallabilityManager, error) {
-	_ = parseOptions
+func ObserveInstallability(parseInstallOptions InstallabilityOptions) (InstallabilityManager, error) {
+	_ = parseInstallOptions
 	return InstallabilityManager{}, installabilityUnavailable("ObserveInstallability", "window")
 }
 
-func installabilityUnavailable(parseOp string, parseTarget string) error {
-	return &interop.Error{Op: parseOp, Target: parseTarget, Code: interop.CodeUnavailable, Err: errors.New("installability helpers are unavailable in this build")}
+func installabilityUnavailable(parseInstallOp string, parseInstallTarget string) error {
+	return &interop.Error{Op: parseInstallOp, Target: parseInstallTarget, Code: interop.CodeUnavailable, Err: errors.New("installability helpers are unavailable in this build")}
 }

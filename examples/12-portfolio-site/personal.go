@@ -71,14 +71,14 @@ func PersonalHeroSection(_ Attrs) *Element {
 
 			// Quick stats
 			func() *Element {
-				stats := portfolioHeroStats()
-				statElements := make([]interface{}, 0, len(stats))
-				for _, stat := range stats {
-					statElements = append(statElements, PersonalStatCard(stat.Number, stat.Label))
+				parseStats := portfolioHeroStats()
+				parseStatElements := make([]interface{}, 0, len(parseStats))
+				for _, parseStat := range parseStats {
+					parseStatElements = append(parseStatElements, PersonalStatCard(parseStat.Number, parseStat.Label))
 				}
 				return Div(
 					Attrs{"class": "grid grid-cols-2 md:grid-cols-4 gap-8 max-w-2xl mx-auto"},
-					statElements...,
+					parseStatElements...,
 				)
 			}(),
 		),
@@ -87,11 +87,11 @@ func PersonalHeroSection(_ Attrs) *Element {
 
 // PersonalStatCard displays key metrics about GoWebComponents in a compact format.
 // Used to highlight the framework's unique value propositions numerically.
-func PersonalStatCard(number, label string) *Element {
+func PersonalStatCard(parseNumber, parseLabel string) *Element {
 	return Div(
 		Attrs{"class": "text-center p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm"},
-		P(Attrs{"class": "text-3xl font-bold text-blue-400 mb-1"}, number),
-		P(Attrs{"class": "text-sm text-gray-400"}, label),
+		P(Attrs{"class": "text-3xl font-bold text-blue-400 mb-1"}, parseNumber),
+		P(Attrs{"class": "text-sm text-gray-400"}, parseLabel),
 	)
 }
 
@@ -184,14 +184,14 @@ func PersonalAboutSection(_ Attrs) *Element {
 
 // PersonalHighlightItem renders a skill or achievement with icon and description.
 // Provides consistent formatting for professional highlights and expertise areas.
-func PersonalHighlightItem(icon, title, description string) *Element {
+func PersonalHighlightItem(parseIcon, parseTitle, parseDescription string) *Element {
 	return Div(
 		Attrs{"class": "flex items-start space-x-4 p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors duration-200"},
-		Span(Attrs{"class": "text-2xl"}, icon),
+		Span(Attrs{"class": "text-2xl"}, parseIcon),
 		Div(
 			nil,
-			P(Attrs{"class": "font-semibold text-white"}, title),
-			P(Attrs{"class": "text-sm text-gray-400"}, description),
+			P(Attrs{"class": "font-semibold text-white"}, parseTitle),
+			P(Attrs{"class": "text-sm text-gray-400"}, parseDescription),
 		),
 	)
 }
@@ -248,21 +248,21 @@ func PersonalSkillsSection(_ Attrs) *Element {
 // PersonalSkillCategory groups related skills under a themed title with badge display.
 // Creates skill tags dynamically from arrays and provides visual grouping
 // for different technology domains.
-func PersonalSkillCategory(title string, skills []string) *Element {
-	skillElements := make([]interface{}, len(skills))
-	for i, skill := range skills {
-		skillElements[i] = Span(
+func PersonalSkillCategory(parseTitle string, parseSkills []string) *Element {
+	parseSkillElements := make([]interface{}, len(parseSkills))
+	for parseI, parseSkill := range parseSkills {
+		parseSkillElements[parseI] = Span(
 			Attrs{"class": "inline-block bg-white/10 px-3 py-1 rounded-full text-sm text-gray-300 border border-white/5 hover:bg-white/20 transition-colors duration-200"},
-			skill,
+			parseSkill,
 		)
 	}
 
 	return Div(
 		Attrs{"class": "bg-black/20 rounded-xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300"},
-		H3(Attrs{"class": "text-xl font-bold text-white mb-4"}, title),
+		H3(Attrs{"class": "text-xl font-bold text-white mb-4"}, parseTitle),
 		Div(
 			Attrs{"class": "flex flex-wrap gap-2"},
-			skillElements...,
+			parseSkillElements...,
 		),
 	)
 }
@@ -406,33 +406,33 @@ func PersonalYouTubeSection(_ Attrs) *Element {
 }
 
 // YouTubeHighlight creates a highlight item for the YouTube section
-func YouTubeHighlight(icon, title, description string) *Element {
+func YouTubeHighlight(parseIcon, parseTitle, parseDescription string) *Element {
 	return Div(
 		Attrs{"class": "flex items-start space-x-3 group"},
-		Span(Attrs{"class": "text-xl transition-transform group-hover:scale-110"}, icon),
+		Span(Attrs{"class": "text-xl transition-transform group-hover:scale-110"}, parseIcon),
 		Div(
 			nil,
-			P(Attrs{"class": "font-semibold text-white"}, title),
-			P(Attrs{"class": "text-gray-400 text-sm"}, description),
+			P(Attrs{"class": "font-semibold text-white"}, parseTitle),
+			P(Attrs{"class": "text-gray-400 text-sm"}, parseDescription),
 		),
 	)
 }
 
 // YouTubeStatBadge creates a small badge for YouTube interactions
-func YouTubeStatBadge(icon, action string) *Element {
+func YouTubeStatBadge(parseIcon, parseAction string) *Element {
 	return Div(
 		Attrs{"class": "inline-flex items-center space-x-2 px-4 py-2 bg-white/10 rounded-full border border-white/20 hover:bg-white/20 transition-all duration-300 cursor-pointer group"},
-		Span(Attrs{"class": "text-lg group-hover:scale-110 transition-transform"}, icon),
-		Span(Attrs{"class": "text-sm font-medium text-white"}, action),
+		Span(Attrs{"class": "text-lg group-hover:scale-110 transition-transform"}, parseIcon),
+		Span(Attrs{"class": "text-sm font-medium text-white"}, parseAction),
 	)
 }
 
 // ScrollToSection creates a JavaScript function for smooth scrolling
-func ScrollToSection(sectionId string) interface{} {
-	return UseEvent(func(e MouseEvent) {
-		element := js.Global().Get("document").Call("getElementById", sectionId)
-		if !element.IsNull() {
-			element.Call("scrollIntoView", map[string]interface{}{
+func ScrollToSection(parseSectionId string) interface{} {
+	return UseEvent(func(parseE MouseEvent) {
+		parseElement := js.Global().Get("document").Call("getElementById", parseSectionId)
+		if !parseElement.IsNull() {
+			parseElement.Call("scrollIntoView", map[string]interface{}{
 				"behavior": "smooth",
 			})
 		}

@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-func BenchmarkResolveMutationQueueOptions(b *testing.B) {
-	b.ReportAllocs()
-	options := []MutationQueueOptions{
+func BenchmarkResolveMutationQueueOptions(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseOptions := []MutationQueueOptions{
 		{
 			StorageKey:  "bench-queue",
 			MaxAttempts: 7,
@@ -19,35 +19,35 @@ func BenchmarkResolveMutationQueueOptions(b *testing.B) {
 			MaxDelay:    45 * time.Second,
 		},
 	}
-	for b.Loop() {
-		cfg := resolveMutationQueueOptions(options)
-		if cfg.StorageKey == "" || cfg.MaxAttempts == 0 {
-			b.Fatal("resolveMutationQueueOptions returned invalid config")
+	for parseB.Loop() {
+		parseCfg := resolveMutationQueueOptions(parseOptions)
+		if parseCfg.StorageKey == "" || parseCfg.MaxAttempts == 0 {
+			parseB.Fatal("resolveMutationQueueOptions returned invalid config")
 		}
 	}
 }
 
-func BenchmarkNormalizeMutationID(b *testing.B) {
-	b.ReportAllocs()
-	now := time.Unix(1711324800, 12345)
-	for b.Loop() {
-		id := normalizeMutationID("", now, 9)
-		if id == "" {
-			b.Fatal("normalizeMutationID returned empty id")
+func BenchmarkNormalizeMutationID(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseNow := time.Unix(1711324800, 12345)
+	for parseB.Loop() {
+		parseId := normalizeMutationID("", parseNow, 9)
+		if parseId == "" {
+			parseB.Fatal("normalizeMutationID returned empty id")
 		}
 	}
 }
 
-func BenchmarkMergeResolvedMutation(b *testing.B) {
-	b.ReportAllocs()
-	existing := QueuedMutation{
+func BenchmarkMergeResolvedMutation(parseB *testing.B) {
+	parseB.ReportAllocs()
+	parseExisting := QueuedMutation{
 		ID:       "mutation-1",
 		Method:   "POST",
 		URL:      "/api/messages",
 		Headers:  map[string]string{"content-type": "application/json"},
 		Metadata: map[string]string{"lane": "chat"},
 	}
-	draft := MutationDraft{
+	parseDraft := MutationDraft{
 		ID:       "mutation-2",
 		Kind:     "chat.send",
 		DedupKey: "chat:send:bench",
@@ -64,11 +64,11 @@ func BenchmarkMergeResolvedMutation(b *testing.B) {
 			"source": "benchmark",
 		},
 	}
-	now := time.Unix(1711324800, 0)
-	for b.Loop() {
-		merged := mergeResolvedMutation(existing, draft, now, fmt.Sprintf("attempt-%d", b.N))
-		if merged.ID == "" || merged.Method == "" || merged.State != MutationQueued {
-			b.Fatal("mergeResolvedMutation returned invalid record")
+	parseNow := time.Unix(1711324800, 0)
+	for parseB.Loop() {
+		parseMerged := mergeResolvedMutation(parseExisting, parseDraft, parseNow, fmt.Sprintf("attempt-%d", parseB.N))
+		if parseMerged.ID == "" || parseMerged.Method == "" || parseMerged.State != MutationQueued {
+			parseB.Fatal("mergeResolvedMutation returned invalid record")
 		}
 	}
 }

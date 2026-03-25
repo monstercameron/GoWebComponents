@@ -15,18 +15,18 @@ import (
 )
 
 func queryPageView() ui.Node {
-	query := router.UseQuery()
-	search := router.UseSearchParams()
+	parseQuery := router.UseQuery()
+	parseSearch := router.UseSearchParams()
 
-	setGo := ui.UseEvent(func() { search.Set("q", "go") })
-	setWasm := ui.UseEvent(func() { search.Set("q", "wasm") })
-	setSort := ui.UseEvent(func() { search.Replace("sort", "stars") })
-	clearSort := ui.UseEvent(func() { search.Delete("sort") })
+	setGo := ui.UseEvent(func() { parseSearch.Set("q", "go") })
+	setWasm := ui.UseEvent(func() { parseSearch.Set("q", "wasm") })
+	setSort := ui.UseEvent(func() { parseSearch.Replace("sort", "stars") })
+	clearSort := ui.UseEvent(func() { parseSearch.Delete("sort") })
 	resetAll := ui.UseEvent(func() {
-		values := url.Values{}
-		values.Set("q", "router")
-		values.Set("page", "2")
-		search.Navigate(values)
+		parseValues := url.Values{}
+		parseValues.Set("q", "router")
+		parseValues.Set("page", "2")
+		parseSearch.Navigate(parseValues)
 	})
 
 	return shared.ExamplePage(
@@ -42,10 +42,10 @@ func queryPageView() ui.Node {
 				shared.ExampleButton("Reset query set", resetAll),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-4"},
-				shared.ExampleStat("q", query.Get("q")),
-				shared.ExampleStat("sort", query.Get("sort")),
-				shared.ExampleStat("page", query.Get("page")),
-				shared.ExampleStat("encoded", query.Encode()),
+				shared.ExampleStat("q", parseQuery.Get("q")),
+				shared.ExampleStat("sort", parseQuery.Get("sort")),
+				shared.ExampleStat("page", parseQuery.Get("page")),
+				shared.ExampleStat("encoded", parseQuery.Encode()),
 			),
 			shared.ExampleCode(
 				`query := router.UseQuery()`,
@@ -62,8 +62,8 @@ func queryPage(_ router.Attrs) *router.Element {
 
 func main() {
 	utils.DisableAllDebug()
-	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/search"})
-	r.Register("/search", queryPage)
-	r.Mount("#app")
+	parseR := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/search"})
+	parseR.Register("/search", queryPage)
+	parseR.Mount("#app")
 	select {}
 }

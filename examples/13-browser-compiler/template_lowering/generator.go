@@ -16,166 +16,166 @@ type TemplateConfig struct {
 	FuncName    string
 }
 
-func GenerateFromFile(path string, config TemplateConfig) (string, error) {
-	input, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
+func GenerateFromFile(parsePath string, parseConfig TemplateConfig) (string, error) {
+	parseInput, parseErr := os.ReadFile(parsePath)
+	if parseErr != nil {
+		return "", parseErr
 	}
-	return Generate(input, config)
+	return Generate(parseInput, parseConfig)
 }
 
-func Generate(input []byte, config TemplateConfig) (string, error) {
-	if strings.TrimSpace(config.PackageName) == "" || strings.TrimSpace(config.StructName) == "" || strings.TrimSpace(config.FuncName) == "" {
+func Generate(parseInput []byte, parseConfig TemplateConfig) (string, error) {
+	if strings.TrimSpace(parseConfig.PackageName) == "" || strings.TrimSpace(parseConfig.StructName) == "" || strings.TrimSpace(parseConfig.FuncName) == "" {
 		return "", fmt.Errorf("template lowering requires package, struct, and function names")
 	}
 
-	root, err := parseTemplate(input)
-	if err != nil {
-		return "", err
+	parseRoot, parseErr := parseTemplate(parseInput)
+	if parseErr != nil {
+		return "", parseErr
 	}
 
-	var buf bytes.Buffer
-	buf.WriteString("package " + config.PackageName + "\n\n")
-	buf.WriteString("import (\n")
-	buf.WriteString("\t\"github.com/monstercameron/GoWebComponents/html\"\n")
-	buf.WriteString("\t\"github.com/monstercameron/GoWebComponents/ui\"\n")
-	buf.WriteString(")\n\n")
-	buf.WriteString("type " + config.StructName + " struct {\n")
-	for _, field := range collectFields(root) {
-		buf.WriteString("\t" + field + " string\n")
+	var parseBuf bytes.Buffer
+	parseBuf.WriteString("package " + parseConfig.PackageName + "\n\n")
+	parseBuf.WriteString("import (\n")
+	parseBuf.WriteString("\t\"github.com/monstercameron/GoWebComponents/html\"\n")
+	parseBuf.WriteString("\t\"github.com/monstercameron/GoWebComponents/ui\"\n")
+	parseBuf.WriteString(")\n\n")
+	parseBuf.WriteString("type " + parseConfig.StructName + " struct {\n")
+	for _, parseField := range collectFields(parseRoot) {
+		parseBuf.WriteString("\t" + parseField + " string\n")
 	}
-	buf.WriteString("}\n\n")
-	buf.WriteString("func " + config.FuncName + "(props " + config.StructName + ") ui.Node {\n")
-	buf.WriteString("\treturn " + renderNode(root, 1) + "\n")
-	buf.WriteString("}\n")
+	parseBuf.WriteString("}\n\n")
+	parseBuf.WriteString("func " + parseConfig.FuncName + "(props " + parseConfig.StructName + ") ui.Node {\n")
+	parseBuf.WriteString("\treturn " + renderNode(parseRoot, 1) + "\n")
+	parseBuf.WriteString("}\n")
 
-	formatted, err := format.Source(buf.Bytes())
-	if err != nil {
-		return "", fmt.Errorf("format generated source: %w", err)
+	parseFormatted, parseErr := format.Source(parseBuf.Bytes())
+	if parseErr != nil {
+		return "", fmt.Errorf("format generated source: %w", parseErr)
 	}
-	return string(formatted), nil
+	return string(parseFormatted), nil
 }
 
-func parseTemplate(input []byte) (*nethtml.Node, error) {
-	doc, err := nethtml.Parse(bytes.NewReader(input))
-	if err != nil {
-		return nil, err
+func parseTemplate(parseInput []byte) (*nethtml.Node, error) {
+	parseDoc, parseErr := nethtml.Parse(bytes.NewReader(parseInput))
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	var root *nethtml.Node
-	var visit func(*nethtml.Node)
-	visit = func(node *nethtml.Node) {
-		if root != nil {
+	var parseRoot *nethtml.Node
+	var parseVisit func(*nethtml.Node)
+	parseVisit = func(parseNode *nethtml.Node) {
+		if parseRoot != nil {
 			return
 		}
-		if node.Type == nethtml.ElementNode && node.Data != "html" && node.Data != "head" && node.Data != "body" {
-			root = node
+		if parseNode.Type == nethtml.ElementNode && parseNode.Data != "html" && parseNode.Data != "head" && parseNode.Data != "body" {
+			parseRoot = parseNode
 			return
 		}
-		for child := node.FirstChild; child != nil; child = child.NextSibling {
-			visit(child)
+		for parseChild := parseNode.FirstChild; parseChild != nil; parseChild = parseChild.NextSibling {
+			parseVisit(parseChild)
 		}
 	}
-	visit(doc)
-	if root == nil {
+	parseVisit(parseDoc)
+	if parseRoot == nil {
 		return nil, fmt.Errorf("no root element found")
 	}
-	return root, nil
+	return parseRoot, nil
 }
 
-func collectFields(root *nethtml.Node) []string {
-	seen := map[string]bool{}
-	fields := make([]string, 0, 8)
-	var walk func(*nethtml.Node)
-	walk = func(node *nethtml.Node) {
-		if node.Type == nethtml.TextNode {
-			if field, ok := placeholderField(node.Data); ok && !seen[field] {
-				seen[field] = true
-				fields = append(fields, field)
+func collectFields(parseRoot *nethtml.Node) []string {
+	parseSeen := map[string]bool{}
+	parseFields := make([]string, 0, 8)
+	var parseWalk func(*nethtml.Node)
+	parseWalk = func(parseNode *nethtml.Node) {
+		if parseNode.Type == nethtml.TextNode {
+			if parseField, parseOk := placeholderField(parseNode.Data); parseOk && !parseSeen[parseField] {
+				parseSeen[parseField] = true
+				parseFields = append(parseFields, parseField)
 			}
 		}
-		for child := node.FirstChild; child != nil; child = child.NextSibling {
-			walk(child)
+		for parseChild := parseNode.FirstChild; parseChild != nil; parseChild = parseChild.NextSibling {
+			parseWalk(parseChild)
 		}
 	}
-	walk(root)
-	return fields
+	parseWalk(parseRoot)
+	return parseFields
 }
 
-func renderNode(node *nethtml.Node, depth int) string {
-	indent := strings.Repeat("\t", depth)
-	if node.Type == nethtml.TextNode {
-		text := strings.TrimSpace(node.Data)
-		if text == "" {
+func renderNode(parseNode *nethtml.Node, parseDepth int) string {
+	parseIndent := strings.Repeat("\t", parseDepth)
+	if parseNode.Type == nethtml.TextNode {
+		parseText := strings.TrimSpace(parseNode.Data)
+		if parseText == "" {
 			return ""
 		}
-		if field, ok := placeholderField(text); ok {
-			return "html.Text(props." + field + ")"
+		if parseField, parseOk := placeholderField(parseText); parseOk {
+			return "html.Text(props." + parseField + ")"
 		}
-		return "html.Text(" + quote(text) + ")"
+		return "html.Text(" + quote(parseText) + ")"
 	}
-	if node.Type != nethtml.ElementNode {
+	if parseNode.Type != nethtml.ElementNode {
 		return ""
 	}
 
-	builder := &strings.Builder{}
-	builder.WriteString(tagFunc(node.Data))
-	builder.WriteString("(html.Props{")
-	propsParts := make([]string, 0, 2)
-	for _, attr := range node.Attr {
-		switch attr.Key {
+	parseBuilder := &strings.Builder{}
+	parseBuilder.WriteString(tagFunc(parseNode.Data))
+	parseBuilder.WriteString("(html.Props{")
+	parsePropsParts := make([]string, 0, 2)
+	for _, parseAttr := range parseNode.Attr {
+		switch parseAttr.Key {
 		case "class":
-			propsParts = append(propsParts, "Class: "+quote(strings.TrimSpace(attr.Val)))
+			parsePropsParts = append(parsePropsParts, "Class: "+quote(strings.TrimSpace(parseAttr.Val)))
 		case "id":
-			propsParts = append(propsParts, "ID: "+quote(strings.TrimSpace(attr.Val)))
+			parsePropsParts = append(parsePropsParts, "ID: "+quote(strings.TrimSpace(parseAttr.Val)))
 		}
 	}
-	builder.WriteString(strings.Join(propsParts, ", "))
-	builder.WriteString("}")
+	parseBuilder.WriteString(strings.Join(parsePropsParts, ", "))
+	parseBuilder.WriteString("}")
 
-	children := renderChildren(node, depth+1)
-	if len(children) == 0 {
-		builder.WriteString(")")
-		return builder.String()
+	parseChildren := renderChildren(parseNode, parseDepth+1)
+	if len(parseChildren) == 0 {
+		parseBuilder.WriteString(")")
+		return parseBuilder.String()
 	}
-	builder.WriteString(",\n")
-	for index, child := range children {
-		builder.WriteString(indent)
-		builder.WriteString(child)
-		if index < len(children)-1 {
-			builder.WriteString(",\n")
+	parseBuilder.WriteString(",\n")
+	for parseIndex, parseChild := range parseChildren {
+		parseBuilder.WriteString(parseIndent)
+		parseBuilder.WriteString(parseChild)
+		if parseIndex < len(parseChildren)-1 {
+			parseBuilder.WriteString(",\n")
 		}
 	}
-	builder.WriteString(")")
-	return builder.String()
+	parseBuilder.WriteString(")")
+	return parseBuilder.String()
 }
 
-func renderChildren(node *nethtml.Node, depth int) []string {
-	children := make([]string, 0, 4)
-	for child := node.FirstChild; child != nil; child = child.NextSibling {
-		rendered := renderNode(child, depth)
-		if rendered == "" {
+func renderChildren(parseNode *nethtml.Node, parseDepth int) []string {
+	parseChildren := make([]string, 0, 4)
+	for parseChild := parseNode.FirstChild; parseChild != nil; parseChild = parseChild.NextSibling {
+		parseRendered := renderNode(parseChild, parseDepth)
+		if parseRendered == "" {
 			continue
 		}
-		children = append(children, rendered)
+		parseChildren = append(parseChildren, parseRendered)
 	}
-	return children
+	return parseChildren
 }
 
-func placeholderField(text string) (string, bool) {
-	trimmed := strings.TrimSpace(text)
-	if !strings.HasPrefix(trimmed, "{{.") || !strings.HasSuffix(trimmed, "}}") {
+func placeholderField(parseText string) (string, bool) {
+	parseTrimmed := strings.TrimSpace(parseText)
+	if !strings.HasPrefix(parseTrimmed, "{{.") || !strings.HasSuffix(parseTrimmed, "}}") {
 		return "", false
 	}
-	field := strings.TrimSuffix(strings.TrimPrefix(trimmed, "{{."), "}}")
-	field = strings.TrimSpace(field)
-	if field == "" || strings.ContainsAny(field, " .-") {
+	parseField := strings.TrimSuffix(strings.TrimPrefix(parseTrimmed, "{{."), "}}")
+	parseField = strings.TrimSpace(parseField)
+	if parseField == "" || strings.ContainsAny(parseField, " .-") {
 		return "", false
 	}
-	return field, true
+	return parseField, true
 }
 
-func tagFunc(tag string) string {
-	switch tag {
+func tagFunc(parseTag string) string {
+	switch parseTag {
 	case "section":
 		return "html.Section"
 	case "p":
@@ -187,10 +187,10 @@ func tagFunc(tag string) string {
 	case "span":
 		return "html.Span"
 	default:
-		return "html.Tag(" + quote(tag) + ", "
+		return "html.Tag(" + quote(parseTag) + ", "
 	}
 }
 
-func quote(value string) string {
-	return fmt.Sprintf("%q", value)
+func quote(parseValue string) string {
+	return fmt.Sprintf("%q", parseValue)
 }

@@ -21,7 +21,7 @@ func isDebugBuild() bool {
 }
 
 // debugf is a production-optimized no-op; the compiler inlines and eliminates the call entirely.
-func debugf(namespace, format string, a ...interface{}) {
+func debugf(parseNamespace, format string, parseA ...interface{}) {
 	// No-op in production builds - compiler will eliminate this function call
 }
 
@@ -32,7 +32,7 @@ func shouldCollectMemStats() bool {
 }
 
 // ConfigureMemStatsSampleRate is a production stub that no-ops memory stats configuration.
-func ConfigureMemStatsSampleRate(rate int64) {
+func ConfigureMemStatsSampleRate(parseRate int64) {
 	// No-op in production
 }
 
@@ -48,13 +48,13 @@ func EnableDebug() {}
 func DisableDebug() {}
 
 // ConfigureDebugNamespace is a production stub that does nothing.
-func ConfigureDebugNamespace(namespace string, enabled bool) {}
+func ConfigureDebugNamespace(parseNamespace string, isEnabled bool) {}
 
 // ConfigureDebugNamespaces is a production stub that does nothing.
-func ConfigureDebugNamespaces(namespaces map[string]bool) {}
+func ConfigureDebugNamespaces(parseNamespaces map[string]bool) {}
 
 // ConfigureDebugNamespacesExclusive is a production stub that does nothing.
-func ConfigureDebugNamespacesExclusive(namespaces map[string]bool) {}
+func ConfigureDebugNamespacesExclusive(parseNamespaces map[string]bool) {}
 
 // EnableAllDebug is a production stub that does nothing.
 func EnableAllDebug() {}
@@ -71,8 +71,8 @@ func GetDebugStatus() map[string]bool {
 }
 
 // EnableHotReload enables or disables hot reload in production builds.
-func EnableHotReload(enabled bool) {
-	if enabled {
+func EnableHotReload(isEnabled bool) {
+	if isEnabled {
 		hotreload.Enable()
 		return
 	}
@@ -85,8 +85,8 @@ func IsHotReloadEnabled() bool {
 }
 
 // InstallHotReloadBridge configures the hot reload bridge with the given atom IDs.
-func InstallHotReloadBridge(atomIDs ...string) {
-	hotreload.Configure(hotreload.Config{AtomIDs: atomIDs})
+func InstallHotReloadBridge(parseAtomIDs ...string) {
+	hotreload.Configure(hotreload.Config{AtomIDs: parseAtomIDs})
 }
 
 // EnableGoroutineMonitoring is a production stub that does nothing.
@@ -96,7 +96,7 @@ func EnableGoroutineMonitoring() {}
 func DisableGoroutineMonitoring() {}
 
 // ConfigureGoroutineThreshold is a production stub that does nothing.
-func ConfigureGoroutineThreshold(threshold int) {}
+func ConfigureGoroutineThreshold(parseThreshold int) {}
 
 // GetGoroutineStats always returns zero values in production builds.
 func GetGoroutineStats() map[string]int64 {
@@ -112,96 +112,96 @@ func GetGoroutineStats() map[string]int64 {
 func ResetGoroutineBaseline() {}
 
 // WriteConsole formats and writes a log entry to the browser console.
-func WriteConsole(format string, args ...interface{}) {
-	msg := fmt.Sprintf(format, args...)
-	WriteConsoleStructured("log", "", msg, nil)
+func WriteConsole(format string, parseArgs ...interface{}) {
+	parseMsg := fmt.Sprintf(format, parseArgs...)
+	WriteConsoleStructured("log", "", parseMsg, nil)
 }
 
 // WriteConsoleStructured writes a structured log entry to the browser console when available.
-func WriteConsoleStructured(level, scope, message string, fields map[string]interface{}) {
-	normalizedLevel := strings.ToLower(strings.TrimSpace(level))
-	if normalizedLevel == "" {
-		normalizedLevel = "log"
+func WriteConsoleStructured(parseLevel, parseScope, parseMessage string, parseFields map[string]interface{}) {
+	parseNormalizedLevel := strings.ToLower(strings.TrimSpace(parseLevel))
+	if parseNormalizedLevel == "" {
+		parseNormalizedLevel = "log"
 	}
 
-	global, err := interop.GetGlobalThis()
-	if err != nil {
-		consoleFallback(normalizedLevel, scope, message, fields)
+	parseGlobal, parseErr := interop.GetGlobalThis()
+	if parseErr != nil {
+		consoleFallback(parseNormalizedLevel, parseScope, parseMessage, parseFields)
 		return
 	}
-	console := global.Get("console")
-	if !console.Present() {
-		consoleFallback(normalizedLevel, scope, message, fields)
+	parseConsole := parseGlobal.Get("console")
+	if !parseConsole.Present() {
+		consoleFallback(parseNormalizedLevel, parseScope, parseMessage, parseFields)
 		return
 	}
 
-	entry := map[string]interface{}{"message": message}
-	if scope != "" {
-		entry["scope"] = scope
+	parseEntry := map[string]interface{}{"message": parseMessage}
+	if parseScope != "" {
+		parseEntry["scope"] = parseScope
 	}
-	for key, value := range fields {
-		entry[key] = value
+	for parseKey, parseValue := range parseFields {
+		parseEntry[parseKey] = parseValue
 	}
-	if _, err := console.Call(normalizedLevel, entry); err == nil {
+	if _, parseErr2 := parseConsole.Call(parseNormalizedLevel, parseEntry); parseErr2 == nil {
 		return
 	}
-	consoleFallback(normalizedLevel, scope, message, fields)
+	consoleFallback(parseNormalizedLevel, parseScope, parseMessage, parseFields)
 }
 
 // ResolveDocumentURL resolves a relative asset path against the current document URL.
-func ResolveDocumentURL(relative string) string {
-	if strings.TrimSpace(relative) == "" {
+func ResolveDocumentURL(parseRelative string) string {
+	if strings.TrimSpace(parseRelative) == "" {
 		return ""
 	}
 
-	global, err := interop.GetGlobalThis()
-	if err != nil {
-		return relative
+	parseGlobal, parseErr := interop.GetGlobalThis()
+	if parseErr != nil {
+		return parseRelative
 	}
 
-	base := ""
-	document := global.Get("document")
-	if document.Present() {
-		baseURI := document.Get("baseURI")
-		if baseURI.Present() {
-			base = strings.TrimSpace(baseURI.String())
+	parseBase := ""
+	parseDocument := parseGlobal.Get("document")
+	if parseDocument.Present() {
+		parseBaseURI := parseDocument.Get("baseURI")
+		if parseBaseURI.Present() {
+			parseBase = strings.TrimSpace(parseBaseURI.String())
 		}
 	}
-	if base == "" {
-		window := global.Get("window")
-		if window.Present() {
-			location := window.Get("location")
-			if location.Present() {
-				href := location.Get("href")
-				if href.Present() {
-					base = strings.TrimSpace(href.String())
+	if parseBase == "" {
+		parseWindow := parseGlobal.Get("window")
+		if parseWindow.Present() {
+			parseLocation := parseWindow.Get("location")
+			if parseLocation.Present() {
+				parseHref := parseLocation.Get("href")
+				if parseHref.Present() {
+					parseBase = strings.TrimSpace(parseHref.String())
 				}
 			}
 		}
 	}
-	if base == "" {
-		return relative
+	if parseBase == "" {
+		return parseRelative
 	}
 
-	baseURL, err := url.Parse(base)
-	if err != nil {
-		return relative
+	parseBaseURL, parseErr := url.Parse(parseBase)
+	if parseErr != nil {
+		return parseRelative
 	}
-	relativeURL, err := url.Parse(relative)
-	if err != nil {
-		return relative
+	parseRelativeURL, parseErr := url.Parse(parseRelative)
+	if parseErr != nil {
+		return parseRelative
 	}
-	return baseURL.ResolveReference(relativeURL).String()
+	return parseBaseURL.ResolveReference(parseRelativeURL).String()
 }
 
-func consoleFallback(level, scope, message string, fields map[string]interface{}) {
-	prefix := ""
-	if scope != "" {
-		prefix = "[" + scope + "] "
+func consoleFallback(parseLevel, parseScope, parseMessage string, parseFields map[string]interface{}) {
+	parsePrefix := ""
+	if parseScope != "" {
+		parsePrefix = "[" + parseScope + "] "
 	}
-	if len(fields) == 0 {
-		fmt.Printf("%s%s: %s\n", prefix, strings.ToUpper(level), message)
+	if len(parseFields) == 0 {
+		fmt.Printf("%s%s: %s\n", parsePrefix, strings.ToUpper(parseLevel), parseMessage)
 		return
 	}
-	fmt.Printf("%s%s: %s %v\n", prefix, strings.ToUpper(level), message, fields)
+	fmt.Printf("%s%s: %s %v\n", parsePrefix, strings.ToUpper(parseLevel), parseMessage, parseFields)
 }

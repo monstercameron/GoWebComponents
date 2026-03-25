@@ -10,25 +10,25 @@ type seedQueries struct {
 	insertMessage      string
 }
 
-func loadSeedQueries() (seedQueries, error) {
-	var queries seedQueries
-	var err error
+func parseLoadSeedQueries() (seedQueries, error) {
+	var parseQueries seedQueries
+	var parseErr error
 
-	if queries.schema, err = sqlfiles.Load("store/schema.sql"); err != nil {
-		return seedQueries{}, err
+	if parseQueries.schema, parseErr = sqlfiles.ParseLoad("store/schema.sql"); parseErr != nil {
+		return seedQueries{}, parseErr
 	}
-	if queries.createUser, err = sqlfiles.Load("store/create_user.sql"); err != nil {
-		return seedQueries{}, err
+	if parseQueries.parseCreateUser, parseErr = sqlfiles.ParseLoad("store/create_user.sql"); parseErr != nil {
+		return seedQueries{}, parseErr
 	}
-	if queries.insertUserProfile, err = sqlfiles.Load("seed/insert_user_profile.sql"); err != nil {
-		return seedQueries{}, err
+	if parseQueries.insertUserProfile, parseErr = sqlfiles.ParseLoad("seed/insert_user_profile.sql"); parseErr != nil {
+		return seedQueries{}, parseErr
 	}
-	if queries.insertConversation, err = sqlfiles.Load("seed/insert_conversation.sql"); err != nil {
-		return seedQueries{}, err
+	if parseQueries.insertConversation, parseErr = sqlfiles.ParseLoad("seed/insert_conversation.sql"); parseErr != nil {
+		return seedQueries{}, parseErr
 	}
-	if queries.insertMessage, err = sqlfiles.Load("store/save_conversation_message.sql"); err != nil {
-		return seedQueries{}, err
+	if parseQueries.insertMessage, parseErr = sqlfiles.ParseLoad("store/save_conversation_message.sql"); parseErr != nil {
+		return seedQueries{}, parseErr
 	}
 
-	return queries, nil
+	return parseQueries, nil
 }

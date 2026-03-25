@@ -15,80 +15,80 @@ import (
 func main() {
 	fmt.Println("OMI example starting...")
 
-	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
-	r.Register("/", OverviewPage)
-	r.Register("/data", DataPage)
-	r.Register("/data/:id", DataDetailPage, router.Options{
-		Loader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
-			records, err := loadHookRecords(ctx)
-			if err != nil {
-				return nil, err
+	parseR := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/"})
+	parseR.Register("/", OverviewPage)
+	parseR.Register("/data", DataPage)
+	parseR.Register("/data/:id", DataDetailPage, router.Options{
+		Loader: func(parseCtx context.Context, parseRouteCtx router.RouteContext) (router.Attrs, error) {
+			parseRecords, parseErr := loadHookRecords(parseCtx)
+			if parseErr != nil {
+				return nil, parseErr
 			}
 
-			slug := routeCtx.Params.Get("id")
-			for _, record := range records {
-				if recordSlug(record.Name) == slug {
+			parseSlug := parseRouteCtx.Params.Get("id")
+			for _, parseRecord := range parseRecords {
+				if recordSlug(parseRecord.Name) == parseSlug {
 					return router.Attrs{
-						"slug":     slug,
-						"name":     record.Name,
-						"category": record.Category,
-						"summary":  record.Summary,
-						"hooks":    record.Hooks,
+						"slug":     parseSlug,
+						"name":     parseRecord.Name,
+						"category": parseRecord.Category,
+						"summary":  parseRecord.Summary,
+						"hooks":    parseRecord.Hooks,
 					}, nil
 				}
 			}
 
-			return nil, fmt.Errorf("no record matched route slug %q", slug)
+			return nil, fmt.Errorf("no record matched route slug %q", parseSlug)
 		},
 		Loading: DataDetailRouteLoading,
 		Error:   DataDetailRouteError,
 	})
-	r.Register("/search", SearchPage, router.Options{
-		Loader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
-			records, err := loadHookRecords(ctx)
-			if err != nil {
-				return nil, err
+	parseR.Register("/search", SearchPage, router.Options{
+		Loader: func(parseCtx2 context.Context, parseRouteCtx2 router.RouteContext) (router.Attrs, error) {
+			parseRecords2, parseErr2 := loadHookRecords(parseCtx2)
+			if parseErr2 != nil {
+				return nil, parseErr2
 			}
 
-			queryTerm := routeCtx.Query.Get("q")
+			parseQueryTerm := parseRouteCtx2.Query.Get("q")
 			return router.Attrs{
-				"query":   queryTerm,
-				"results": filterHookRecords(records, queryTerm),
+				"query":   parseQueryTerm,
+				"results": filterHookRecords(parseRecords2, parseQueryTerm),
 			}, nil
 		},
 		Loading: SearchRouteLoading,
 		Error:   SearchRouteError,
 	})
-	r.Register("/secure", SecurePage, router.Options{
-		Loader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
+	parseR.Register("/secure", SecurePage, router.Options{
+		Loader: func(parseCtx3 context.Context, parseRouteCtx3 router.RouteContext) (router.Attrs, error) {
 			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
+			case <-parseCtx3.Done():
+				return nil, parseCtx3.Err()
 			case <-time.After(120 * time.Millisecond):
 			}
 
-			if routeCtx.Query.Get("auth") != "true" {
+			if parseRouteCtx3.Query.Get("auth") != "true" {
 				return nil, fmt.Errorf("access denied: open /secure?auth=true to simulate an authenticated session")
 			}
 
-			role := routeCtx.Query.Get("role")
-			if role == "" {
-				role = "admin"
+			parseRole := parseRouteCtx3.Query.Get("role")
+			if parseRole == "" {
+				parseRole = "admin"
 			}
 
 			return router.Attrs{
 				"userName":  "Morgan Reconciler",
-				"role":      role,
+				"role":      parseRole,
 				"grantedBy": "route loader",
 			}, nil
 		},
 		Loading: SecureRouteLoading,
 		Error:   SecureRouteError,
 	})
-	r.Register("/playground", PlaygroundPage)
-	r.Register("/playground/:mode", PlaygroundPage)
-	r.Register("*", NotFoundPage)
-	r.Mount("#app")
+	parseR.Register("/playground", PlaygroundPage)
+	parseR.Register("/playground/:mode", PlaygroundPage)
+	parseR.Register("*", NotFoundPage)
+	parseR.Mount("#app")
 
 	fmt.Println("OMI example mounted")
 	select {}

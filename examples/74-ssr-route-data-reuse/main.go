@@ -26,42 +26,42 @@ var initialCatalog bootstrapCatalog
 var initialCatalogAvailable bool
 var initialCatalogConsumed bool
 
-func reuseStat(label, value string) ui.Node {
+func reuseStat(parseLabel, parseValue string) ui.Node {
 	return html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4"},
-		html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text(label)),
-		html.P(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text(value)),
+		html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text(parseLabel)),
+		html.P(html.Props{Class: "mt-3 text-2xl font-black text-white"}, html.Text(parseValue)),
 	)
 }
 
-func reuseButton(label string, handler ui.Handler) ui.Node {
-	return html.Button(html.Props{OnClick: handler, Class: "rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80"}, html.Text(label))
+func reuseButton(parseLabel string, parseHandler ui.Handler) ui.Node {
+	return html.Button(html.Props{OnClick: parseHandler, Class: "rounded-full border border-cyan-900/80 bg-cyan-950/70 px-5 py-3 font-semibold text-cyan-100 hover:bg-cyan-900/80"}, html.Text(parseLabel))
 }
 
-func decodeBootstrapCatalog(data map[string]interface{}) (bootstrapCatalog, bool) {
-	rawItems, ok := data["items"].([]interface{})
-	if !ok {
+func decodeBootstrapCatalog(parseData map[string]interface{}) (bootstrapCatalog, bool) {
+	parseRawItems, parseOk := parseData["items"].([]interface{})
+	if !parseOk {
 		return bootstrapCatalog{}, false
 	}
-	items := make([]string, 0, len(rawItems))
-	for _, raw := range rawItems {
-		value, ok := raw.(string)
-		if !ok {
+	parseItems := make([]string, 0, len(parseRawItems))
+	for _, parseRaw := range parseRawItems {
+		parseValue, parseOk2 := parseRaw.(string)
+		if !parseOk2 {
 			continue
 		}
-		items = append(items, value)
+		parseItems = append(parseItems, parseValue)
 	}
-	revision := 0
-	if rawRevision, ok := data["revision"].(float64); ok {
-		revision = int(rawRevision)
+	parseRevision := 0
+	if parseRawRevision, parseOk3 := parseData["revision"].(float64); parseOk3 {
+		parseRevision = int(parseRawRevision)
 	}
-	return bootstrapCatalog{Items: items, Revision: revision}, len(items) > 0
+	return bootstrapCatalog{Items: parseItems, Revision: parseRevision}, len(parseItems) > 0
 }
 
-func consumeInitialCatalog(routeCtx router.RouteContext) (bootstrapCatalog, bool) {
+func consumeInitialCatalog(parseRouteCtx router.RouteContext) (bootstrapCatalog, bool) {
 	if !initialCatalogAvailable || initialCatalogConsumed {
 		return bootstrapCatalog{}, false
 	}
-	if strings.TrimSpace(initialBootstrap.Route.Path) != strings.TrimSpace(routeCtx.Path) {
+	if strings.TrimSpace(initialBootstrap.Route.Path) != strings.TrimSpace(parseRouteCtx.Path) {
 		return bootstrapCatalog{}, false
 	}
 	initialCatalogConsumed = true
@@ -79,15 +79,15 @@ func liveCatalog() bootstrapCatalog {
 	}
 }
 
-func catalogPage(attrs router.Attrs) *router.Element {
-	revalidator := router.UseRevalidator()
-	items, _ := attrs["items"].([]string)
-	source, _ := attrs["source"].(string)
-	revision, _ := attrs["revision"].(int)
+func catalogPage(parseAttrs router.Attrs) *router.Element {
+	parseRevalidator := router.UseRevalidator()
+	parseItems, _ := parseAttrs["items"].([]string)
+	parseSource, _ := parseAttrs["source"].(string)
+	parseRevision, _ := parseAttrs["revision"].(int)
 
-	rows := make([]ui.Node, 0, len(items))
-	for _, item := range items {
-		rows = append(rows, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4 text-slate-200"}, html.Text(item)))
+	parseRows := make([]ui.Node, 0, len(parseItems))
+	for _, parseItem := range parseItems {
+		parseRows = append(parseRows, html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4 text-slate-200"}, html.Text(parseItem)))
 	}
 
 	return html.Div(html.Props{Class: "min-h-screen bg-[#08111d] text-slate-100"},
@@ -97,51 +97,51 @@ func catalogPage(attrs router.Attrs) *router.Element {
 				html.H1(html.Props{Class: "mt-4 text-5xl font-black tracking-tight text-white"}, html.Text("Route data reuse during hydration")),
 				html.P(html.Props{Class: "mt-4 text-lg leading-8 text-slate-300"}, html.Text("The first client loader run reuses route data embedded in the bootstrap payload, then later revalidation falls back to the normal live client loader path.")),
 				html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-					reuseStat("Data source", source),
-					reuseStat("Revision", fmt.Sprintf("%d", revision)),
+					reuseStat("Data source", parseSource),
+					reuseStat("Revision", fmt.Sprintf("%d", parseRevision)),
 				),
 				html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-					reuseButton("Revalidate route", ui.UseEvent(func() { revalidator.Revalidate() })),
+					reuseButton("Revalidate route", ui.UseEvent(func() { parseRevalidator.Revalidate() })),
 				),
-				html.Div(html.Props{Class: "mt-6 grid gap-4"}, rows...),
+				html.Div(html.Props{Class: "mt-6 grid gap-4"}, parseRows...),
 			),
 		),
 	)
 }
 
-func ensureCatalogHash(path string) {
-	window := js.Global().Get("window")
-	if !window.Truthy() {
+func ensureCatalogHash(parsePath string) {
+	parseWindow := js.Global().Get("window")
+	if !parseWindow.Truthy() {
 		return
 	}
-	location := window.Get("location")
-	if location.Get("hash").String() == "" {
-		location.Set("hash", "#"+path)
+	parseLocation := parseWindow.Get("location")
+	if parseLocation.Get("hash").String() == "" {
+		parseLocation.Set("hash", "#"+parsePath)
 	}
 }
 
 func main() {
 	utils.DisableAllDebug()
 	ensureCatalogHash("/products")
-	bootstrap, err := ui.ReadBootstrapScript("")
-	if err == nil {
-		initialBootstrap = bootstrap
-		initialCatalog, initialCatalogAvailable = decodeBootstrapCatalog(bootstrap.Data)
+	parseBootstrap, parseErr := ui.ReadBootstrapScript("")
+	if parseErr == nil {
+		initialBootstrap = parseBootstrap
+		initialCatalog, initialCatalogAvailable = decodeBootstrapCatalog(parseBootstrap.Data)
 	}
 
-	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/products"})
-	r.Register("/products", catalogPage, router.Options{
-		Loader: func(ctx context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
-			if catalog, ok := consumeInitialCatalog(routeCtx); ok {
-				return router.Attrs{"items": catalog.Items, "source": "bootstrap payload", "revision": catalog.Revision}, nil
+	parseR := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/products"})
+	parseR.Register("/products", catalogPage, router.Options{
+		Loader: func(parseCtx context.Context, parseRouteCtx router.RouteContext) (router.Attrs, error) {
+			if parseCatalog, parseOk := consumeInitialCatalog(parseRouteCtx); parseOk {
+				return router.Attrs{"items": parseCatalog.Items, "source": "bootstrap payload", "revision": parseCatalog.Revision}, nil
 			}
-			catalog := liveCatalog()
-			return router.Attrs{"items": catalog.Items, "source": "live loader", "revision": catalog.Revision}, nil
+			parseCatalog2 := liveCatalog()
+			return router.Attrs{"items": parseCatalog2.Items, "source": "live loader", "revision": parseCatalog2.Revision}, nil
 		},
 	})
 
-	root := ui.CreateElement(func() ui.Node { return r.Current() })
-	_, _ = ui.Hydrate(root, "#app", ui.HydrationOptions{Bootstrap: initialBootstrap})
-	r.HydrateMount("#app")
+	parseRoot := ui.CreateElement(func() ui.Node { return parseR.Current() })
+	_, _ = ui.Hydrate(parseRoot, "#app", ui.HydrationOptions{Bootstrap: initialBootstrap})
+	parseR.HydrateMount("#app")
 	select {}
 }

@@ -29,71 +29,71 @@ type modelPreferencesController struct {
 	SetThinkingMode              ui.Handler
 }
 
-func modelCatalogFromResponse(resp *chatpb.ListModelOptionsResponse) modelCatalog {
-	catalog := defaultModelCatalog()
-	if resp == nil {
-		return catalog
+func parseModelCatalogFromResponse(parseResp *chatpb.ListModelOptionsResponse) modelCatalog {
+	parseCatalog := parseDefaultModelCatalog()
+	if parseResp == nil {
+		return parseCatalog
 	}
-	options := make([]modelOption, 0, len(resp.Models))
-	for _, option := range resp.Models {
-		capabilities := option.GetCapabilities()
-		pricing := option.GetPricing()
-		options = append(options, modelOption{
-			ID:    option.GetId(),
-			Label: option.GetLabel(),
-			Note:  option.GetNote(),
+	parseOptions := make([]modelOption, 0, len(parseResp.Models))
+	for _, parseOption := range parseResp.Models {
+		parseCapabilities := parseOption.GetCapabilities()
+		parsePricing := parseOption.GetPricing()
+		parseOptions = append(parseOptions, modelOption{
+			ID:    parseOption.GetId(),
+			Label: parseOption.GetLabel(),
+			Note:  parseOption.GetNote(),
 			Capabilities: modelCapabilities{
-				ProviderID:       capabilities.GetProviderId(),
-				ProviderLabel:    capabilities.GetProviderLabel(),
-				SupportsThinking: capabilities.GetSupportsThinking(),
-				SupportsSpeech:   capabilities.GetSupportsSpeech(),
+				ProviderID:       parseCapabilities.GetProviderId(),
+				ProviderLabel:    parseCapabilities.GetProviderLabel(),
+				SupportsThinking: parseCapabilities.GetSupportsThinking(),
+				SupportsSpeech:   parseCapabilities.GetSupportsSpeech(),
 			},
 			Pricing: modelPricing{
-				InputDollarsPerMillion:  pricing.GetInputCostPerMillionUsd(),
-				OutputDollarsPerMillion: pricing.GetOutputCostPerMillionUsd(),
-				Currency:                pricing.GetCurrency(),
+				InputDollarsPerMillion:  parsePricing.GetInputCostPerMillionUsd(),
+				OutputDollarsPerMillion: parsePricing.GetOutputCostPerMillionUsd(),
+				Currency:                parsePricing.GetCurrency(),
 			},
 		})
 	}
-	if len(options) == 0 {
-		return catalog
+	if len(parseOptions) == 0 {
+		return parseCatalog
 	}
-	catalog.Models = options
-	catalog.DefaultModel = normalizeSelectedModelID(resp.GetDefaultModel(), options, catalog.DefaultModel)
-	return catalog
+	parseCatalog.Models = parseOptions
+	parseCatalog.ParseDefaultModel = parseNormalizeSelectedModelID(parseResp.GetDefaultModel(), parseOptions, parseCatalog.ParseDefaultModel)
+	return parseCatalog
 }
 
-func shouldApplySelectedModelBootstrap(bootstrapComplete bool, currentState appState, cacheReady bool) bool {
-	if bootstrapComplete || !cacheReady {
+func shouldApplySelectedModelBootstrap(isBootstrapComplete bool, parseCurrentState appState, isCacheReady bool) bool {
+	if isBootstrapComplete || !isCacheReady {
 		return false
 	}
-	if !currentState.GRPCReady || !currentState.Authenticated {
+	if !parseCurrentState.GRPCReady || !parseCurrentState.Authenticated {
 		return false
 	}
-	if currentState.ActiveConvID > 0 || len(currentState.Messages) > 0 {
+	if parseCurrentState.ActiveConvID > 0 || len(parseCurrentState.Messages) > 0 {
 		return false
 	}
 	return true
 }
 
-func shouldApplySelectedModelRecovery(recoveryComplete bool, currentState appState, cacheReady bool) bool {
-	if recoveryComplete || !cacheReady {
+func shouldApplySelectedModelRecovery(isRecoveryComplete bool, parseCurrentState appState, isCacheReady bool) bool {
+	if isRecoveryComplete || !isCacheReady {
 		return false
 	}
-	if !currentState.GRPCReady || !currentState.Authenticated {
+	if !parseCurrentState.GRPCReady || !parseCurrentState.Authenticated {
 		return false
 	}
-	if currentState.ActiveConvID > 0 || len(currentState.Messages) > 0 || len(currentState.ModelOptions) == 0 {
+	if parseCurrentState.ActiveConvID > 0 || len(parseCurrentState.Messages) > 0 || len(parseCurrentState.ParseModelOptions) == 0 {
 		return false
 	}
 	return true
 }
 
-func shouldApplyThinkingPreferencesBootstrap(bootstrapComplete bool, currentState appState, enabledCacheReady, effortCacheReady bool) bool {
-	if bootstrapComplete || !enabledCacheReady || !effortCacheReady {
+func shouldApplyThinkingPreferencesBootstrap(isBootstrapComplete bool, parseCurrentState appState, isEnabledCacheReady, isEffortCacheReady bool) bool {
+	if isBootstrapComplete || !isEnabledCacheReady || !isEffortCacheReady {
 		return false
 	}
-	if !currentState.GRPCReady || !currentState.Authenticated {
+	if !parseCurrentState.GRPCReady || !parseCurrentState.Authenticated {
 		return false
 	}
 	return true
@@ -101,213 +101,213 @@ func shouldApplyThinkingPreferencesBootstrap(bootstrapComplete bool, currentStat
 
 // useModelPreferences hides model-catalog loading, selected-model sync, and
 // thinking preference persistence behind a feature-specific hook.
-func useModelPreferences(
-	app ui.Reducer[appState, appAction],
-	chatClientRef ui.Ref[chatpb.ChatServiceClient],
+func parseUseModelPreferences(
+	parseApp ui.Reducer[appState, appAction],
+	parseChatClientRef ui.Ref[chatpb.ChatServiceClient],
 	handleAuthFailure func(error) bool,
 ) modelPreferencesController {
-	modelCatalogRefreshOnConnect := ui.UseRef(false)
-	modelCatalogBootstrapRequested := ui.UseRef(false)
-	selectedModelChannelRef := ui.UseRef(interop.CrossTabChannel{})
-	modelPreferenceSessionKey := ui.UseRef("")
-	selectedModelBootstrapComplete := ui.UseRef(false)
-	selectedModelRecoveryComplete := ui.UseRef(false)
-	thinkingPreferencesBootstrapComplete := ui.UseRef(false)
-	modelCatalogCacheKey := ""
-	if app.Get().GRPCReady {
-		modelCatalogCacheKey = cacheKeyModelCatalog
+	parseModelCatalogRefreshOnConnect := ui.UseRef(false)
+	parseModelCatalogBootstrapRequested := ui.UseRef(false)
+	parseSelectedModelChannelRef := ui.UseRef(interop.CrossTabChannel{})
+	parseModelPreferenceSessionKey := ui.UseRef("")
+	parseSelectedModelBootstrapComplete := ui.UseRef(false)
+	parseSelectedModelRecoveryComplete := ui.UseRef(false)
+	parseThinkingPreferencesBootstrapComplete := ui.UseRef(false)
+	parseModelCatalogCacheKey := ""
+	if parseApp.Get().GRPCReady {
+		parseModelCatalogCacheKey = cacheKeyModelCatalog
 	}
-	modelCatalogCache := fetch.UseCachedResource(modelCatalogCacheKey, func(ctx context.Context) (modelCatalog, error) {
-		catalog := defaultModelCatalog()
-		client := chatClientRef.Get()
-		if client == nil {
-			return catalog, nil
+	parseModelCatalogCache := fetch.UseCachedResource(parseModelCatalogCacheKey, func(parseCtx context.Context) (modelCatalog, error) {
+		parseCatalog := parseDefaultModelCatalog()
+		parseClient := parseChatClientRef.Get()
+		if parseClient == nil {
+			return parseCatalog, nil
 		}
-		resp, err := client.ListModelOptions(ctx, &chatpb.ListModelOptionsRequest{})
-		if err != nil {
-			return modelCatalog{}, err
+		parseResp, parseErr := parseClient.ParseListModelOptions(parseCtx, &chatpb.ListModelOptionsRequest{})
+		if parseErr != nil {
+			return modelCatalog{}, parseErr
 		}
-		return modelCatalogFromResponse(resp), nil
+		return parseModelCatalogFromResponse(parseResp), nil
 	}, fetch.CacheOptions{StaleAfter: modelTTL, MaxAge: modelTTL, Persist: true})
-	modelCatalogCacheState := modelCatalogCache.Get()
+	parseModelCatalogCacheState := parseModelCatalogCache.Get()
 
-	selectedModelCacheKey := ""
-	if app.Get().GRPCReady && app.Get().Authenticated {
-		selectedModelCacheKey = cacheKeySelectedModel
+	parseSelectedModelCacheKey := ""
+	if parseApp.Get().GRPCReady && parseApp.Get().Authenticated {
+		parseSelectedModelCacheKey = cacheKeySelectedModel
 	}
-	selectedModelCache := fetch.UseCachedResource(selectedModelCacheKey, func(ctx context.Context) (string, error) {
-		client := chatClientRef.Get()
-		if client == nil {
-			return app.Get().DefaultModel, nil
+	parseSelectedModelCache := fetch.UseCachedResource(parseSelectedModelCacheKey, func(parseCtx2 context.Context) (string, error) {
+		parseClient2 := parseChatClientRef.Get()
+		if parseClient2 == nil {
+			return parseApp.Get().ParseDefaultModel, nil
 		}
-		resp, err := client.GetSelectedModel(ctx, &emptypb.Empty{})
-		if err != nil {
-			if handleAuthFailure != nil && handleAuthFailure(err) {
-				return app.Get().DefaultModel, nil
+		parseResp2, parseErr2 := parseClient2.GetSelectedModel(parseCtx2, &emptypb.Empty{})
+		if parseErr2 != nil {
+			if handleAuthFailure != nil && handleAuthFailure(parseErr2) {
+				return parseApp.Get().ParseDefaultModel, nil
 			}
-			return "", err
+			return "", parseErr2
 		}
-		currentState := app.Get()
-		return normalizeSelectedModelID(resp.GetValue(), currentState.ModelOptions, currentState.DefaultModel), nil
+		parseCurrentState := parseApp.Get()
+		return parseNormalizeSelectedModelID(parseResp2.GetValue(), parseCurrentState.ParseModelOptions, parseCurrentState.ParseDefaultModel), nil
 	}, fetch.CacheOptions{StaleAfter: modelTTL, MaxAge: modelTTL, Persist: true})
-	selectedModelCacheState := selectedModelCache.Get()
+	parseSelectedModelCacheState := parseSelectedModelCache.Get()
 
-	selectedToneCacheKey := ""
-	if app.Get().GRPCReady && app.Get().Authenticated {
-		selectedToneCacheKey = cacheKeySelectedTone
+	parseSelectedToneCacheKey := ""
+	if parseApp.Get().GRPCReady && parseApp.Get().Authenticated {
+		parseSelectedToneCacheKey = cacheKeySelectedTone
 	}
-	selectedToneCache := fetch.UseCachedResource(selectedToneCacheKey, func(ctx context.Context) (string, error) {
-		client := chatClientRef.Get()
-		if client == nil {
+	parseSelectedToneCache := fetch.UseCachedResource(parseSelectedToneCacheKey, func(parseCtx3 context.Context) (string, error) {
+		parseClient3 := parseChatClientRef.Get()
+		if parseClient3 == nil {
 			return defaultTone, nil
 		}
-		resp, err := client.GetSelectedTone(ctx, &emptypb.Empty{})
-		if err != nil {
-			if handleAuthFailure != nil && handleAuthFailure(err) {
+		parseResp3, parseErr3 := parseClient3.GetSelectedTone(parseCtx3, &emptypb.Empty{})
+		if parseErr3 != nil {
+			if handleAuthFailure != nil && handleAuthFailure(parseErr3) {
 				return defaultTone, nil
 			}
-			return "", err
+			return "", parseErr3
 		}
-		return normalizeSelectedToneID(resp.GetValue()), nil
+		return parseNormalizeSelectedToneID(parseResp3.GetValue()), nil
 	}, fetch.CacheOptions{StaleAfter: toneTTL, MaxAge: toneTTL, Persist: true})
-	selectedToneCacheState := selectedToneCache.Get()
+	parseSelectedToneCacheState := parseSelectedToneCache.Get()
 
-	selectedThinkingEnabledCacheKey := ""
-	if app.Get().GRPCReady && app.Get().Authenticated {
-		selectedThinkingEnabledCacheKey = cacheKeySelectedThinkingEnabled
+	parseSelectedThinkingEnabledCacheKey := ""
+	if parseApp.Get().GRPCReady && parseApp.Get().Authenticated {
+		parseSelectedThinkingEnabledCacheKey = cacheKeySelectedThinkingEnabled
 	}
-	selectedThinkingEnabledCache := fetch.UseCachedResource(selectedThinkingEnabledCacheKey, func(ctx context.Context) (bool, error) {
-		client := chatClientRef.Get()
-		if client == nil {
+	parseSelectedThinkingEnabledCache := fetch.UseCachedResource(parseSelectedThinkingEnabledCacheKey, func(parseCtx4 context.Context) (bool, error) {
+		parseClient4 := parseChatClientRef.Get()
+		if parseClient4 == nil {
 			return defaultThinkingEnabled, nil
 		}
-		resp, err := client.GetSelectedThinkingEnabled(ctx, &emptypb.Empty{})
-		if err != nil {
-			if handleAuthFailure != nil && handleAuthFailure(err) {
+		parseResp4, parseErr4 := parseClient4.GetSelectedThinkingEnabled(parseCtx4, &emptypb.Empty{})
+		if parseErr4 != nil {
+			if handleAuthFailure != nil && handleAuthFailure(parseErr4) {
 				return defaultThinkingEnabled, nil
 			}
-			return false, err
+			return false, parseErr4
 		}
-		return resp.GetValue(), nil
+		return parseResp4.GetValue(), nil
 	}, fetch.CacheOptions{StaleAfter: toneTTL, MaxAge: toneTTL, Persist: true})
-	selectedThinkingEnabledCacheState := selectedThinkingEnabledCache.Get()
+	parseSelectedThinkingEnabledCacheState := parseSelectedThinkingEnabledCache.Get()
 
-	selectedThinkingEffortCacheKey := ""
-	if app.Get().GRPCReady && app.Get().Authenticated {
-		selectedThinkingEffortCacheKey = cacheKeySelectedThinkingEffort
+	parseSelectedThinkingEffortCacheKey := ""
+	if parseApp.Get().GRPCReady && parseApp.Get().Authenticated {
+		parseSelectedThinkingEffortCacheKey = cacheKeySelectedThinkingEffort
 	}
-	selectedThinkingEffortCache := fetch.UseCachedResource(selectedThinkingEffortCacheKey, func(ctx context.Context) (string, error) {
-		client := chatClientRef.Get()
-		if client == nil {
+	parseSelectedThinkingEffortCache := fetch.UseCachedResource(parseSelectedThinkingEffortCacheKey, func(parseCtx5 context.Context) (string, error) {
+		parseClient5 := parseChatClientRef.Get()
+		if parseClient5 == nil {
 			return defaultThinkingEffort, nil
 		}
-		resp, err := client.GetSelectedThinkingEffort(ctx, &emptypb.Empty{})
-		if err != nil {
-			if handleAuthFailure != nil && handleAuthFailure(err) {
+		parseResp5, parseErr5 := parseClient5.GetSelectedThinkingEffort(parseCtx5, &emptypb.Empty{})
+		if parseErr5 != nil {
+			if handleAuthFailure != nil && handleAuthFailure(parseErr5) {
 				return defaultThinkingEffort, nil
 			}
-			return "", err
+			return "", parseErr5
 		}
-		return normalizeSelectedThinkingEffort(resp.GetValue()), nil
+		return parseNormalizeSelectedThinkingEffort(parseResp5.GetValue()), nil
 	}, fetch.CacheOptions{StaleAfter: toneTTL, MaxAge: toneTTL, Persist: true})
-	selectedThinkingEffortCacheState := selectedThinkingEffortCache.Get()
+	parseSelectedThinkingEffortCacheState := parseSelectedThinkingEffortCache.Get()
 
-	publishSelectedModelCrossTab := func(nextModel string) {
-		channel := selectedModelChannelRef.Get()
-		if channel.Name() == "" {
+	parsePublishSelectedModelCrossTab := func(parseNextModel2 string) {
+		parseChannel := parseSelectedModelChannelRef.Get()
+		if parseChannel.Name() == "" {
 			return
 		}
-		if err := channel.Publish(selectedModelCrossTabMessage{Model: nextModel}); err != nil {
-			chatLog.Warn("publish selected model cross-tab failed", logging.Fields{"error": err, "model": nextModel, "channel": channel.Name()})
+		if parseErr6 := parseChannel.Publish(selectedModelCrossTabMessage{Model: parseNextModel2}); parseErr6 != nil {
+			chatLog.Warn("publish selected model cross-tab failed", logging.Fields{"error": parseErr6, "model": parseNextModel2, "channel": parseChannel.Name()})
 		}
 	}
 
-	persistSelectedModel := func(nextModel string) {
-		nextModel = strings.TrimSpace(nextModel)
-		if nextModel == "" {
+	parsePersistSelectedModel := func(parseNextModel3 string) {
+		parseNextModel3 = strings.TrimSpace(parseNextModel3)
+		if parseNextModel3 == "" {
 			return
 		}
-		selectedModelCache.Set(nextModel)
-		if client := chatClientRef.Get(); client != nil {
-			go func(modelID string) {
-				_, err := client.SetSelectedModel(context.Background(), wrapperspb.String(modelID))
-				if err != nil {
-					if handleAuthFailure != nil && handleAuthFailure(err) {
+		parseSelectedModelCache.Set(parseNextModel3)
+		if parseClient6 := parseChatClientRef.Get(); parseClient6 != nil {
+			go func(parseModelID string) {
+				_, parseErr7 := parseClient6.SetSelectedModel(context.Background(), wrapperspb.String(parseModelID))
+				if parseErr7 != nil {
+					if handleAuthFailure != nil && handleAuthFailure(parseErr7) {
 						return
 					}
-					chatLog.Error("set selected model failed", logging.Fields{"error": err, "model": modelID})
-					selectedModelCache.Invalidate()
+					chatLog.ParseError("set selected model failed", logging.Fields{"error": parseErr7, "model": parseModelID})
+					parseSelectedModelCache.Invalidate()
 					return
 				}
-				publishSelectedModelCrossTab(modelID)
-			}(nextModel)
+				parsePublishSelectedModelCrossTab(parseModelID)
+			}(parseNextModel3)
 		}
 	}
 
-	persistThinkingPreferences := func(enabled bool, effort string) {
-		resolvedEffort := normalizeSelectedThinkingEffort(effort)
-		selectedThinkingEnabledCache.Set(enabled)
-		selectedThinkingEffortCache.Set(resolvedEffort)
-		if client := chatClientRef.Get(); client != nil {
-			go func(nextEnabled bool) {
-				_, err := client.SetSelectedThinkingEnabled(context.Background(), wrapperspb.Bool(nextEnabled))
-				if err != nil {
-					if handleAuthFailure != nil && handleAuthFailure(err) {
+	parsePersistThinkingPreferences := func(isEnabled bool, parseEffort string) {
+		parseResolvedEffort := parseNormalizeSelectedThinkingEffort(parseEffort)
+		parseSelectedThinkingEnabledCache.Set(isEnabled)
+		parseSelectedThinkingEffortCache.Set(parseResolvedEffort)
+		if parseClient7 := parseChatClientRef.Get(); parseClient7 != nil {
+			go func(isNextEnabled bool) {
+				_, parseErr8 := parseClient7.SetSelectedThinkingEnabled(context.Background(), wrapperspb.Bool(isNextEnabled))
+				if parseErr8 != nil {
+					if handleAuthFailure != nil && handleAuthFailure(parseErr8) {
 						return
 					}
-					chatLog.Error("set selected thinking enabled failed", logging.Fields{"error": err})
-					selectedThinkingEnabledCache.Invalidate()
+					chatLog.ParseError("set selected thinking enabled failed", logging.Fields{"error": parseErr8})
+					parseSelectedThinkingEnabledCache.Invalidate()
 				}
-			}(enabled)
-			go func(nextEffort string) {
-				_, err := client.SetSelectedThinkingEffort(context.Background(), wrapperspb.String(nextEffort))
-				if err != nil {
-					if handleAuthFailure != nil && handleAuthFailure(err) {
+			}(isEnabled)
+			go func(parseNextEffort2 string) {
+				_, parseErr9 := parseClient7.SetSelectedThinkingEffort(context.Background(), wrapperspb.String(parseNextEffort2))
+				if parseErr9 != nil {
+					if handleAuthFailure != nil && handleAuthFailure(parseErr9) {
 						return
 					}
-					chatLog.Error("set selected thinking effort failed", logging.Fields{"error": err})
-					selectedThinkingEffortCache.Invalidate()
+					chatLog.ParseError("set selected thinking effort failed", logging.Fields{"error": parseErr9})
+					parseSelectedThinkingEffortCache.Invalidate()
 				}
-			}(resolvedEffort)
+			}(parseResolvedEffort)
 		}
 	}
 
-	refreshModelCatalog := func() {
-		client := chatClientRef.Get()
-		if client == nil {
+	parseRefreshModelCatalog := func() {
+		parseClient8 := parseChatClientRef.Get()
+		if parseClient8 == nil {
 			return
 		}
 		go func() {
-			resp, err := client.ListModelOptions(context.Background(), &chatpb.ListModelOptionsRequest{})
-			if err != nil {
-				if handleAuthFailure != nil && handleAuthFailure(err) {
+			parseResp6, parseErr10 := parseClient8.ParseListModelOptions(context.Background(), &chatpb.ListModelOptionsRequest{})
+			if parseErr10 != nil {
+				if handleAuthFailure != nil && handleAuthFailure(parseErr10) {
 					return
 				}
-				chatLog.Error("list model options failed", logging.Fields{"error": err})
+				chatLog.ParseError("list model options failed", logging.Fields{"error": parseErr10})
 				return
 			}
-			modelCatalogCache.Set(modelCatalogFromResponse(resp))
+			parseModelCatalogCache.Set(parseModelCatalogFromResponse(parseResp6))
 		}()
 	}
 
-	applyModelSelection := func(nextModel string) bool {
-		currentState := app.Get()
-		resolvedModel := normalizeSelectedModelID(nextModel, currentState.ModelOptions, currentState.DefaultModel)
-		if resolvedModel == "" {
+	applyModelSelection := func(parseNextModel4 string) bool {
+		parseCurrentState2 := parseApp.Get()
+		parseResolvedModel := parseNormalizeSelectedModelID(parseNextModel4, parseCurrentState2.ParseModelOptions, parseCurrentState2.ParseDefaultModel)
+		if parseResolvedModel == "" {
 			return false
 		}
-		if resolvedModel == currentState.SelectedModel {
+		if parseResolvedModel == parseCurrentState2.SelectedModel {
 			return true
 		}
-		selectedModelBootstrapComplete.Set(true)
-		selectedModelRecoveryComplete.Set(true)
-		app.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: resolvedModel})
-		persistSelectedModel(resolvedModel)
-		if len(currentState.Messages) > 0 {
-			app.Dispatch(appAction{
+		parseSelectedModelBootstrapComplete.Set(true)
+		parseSelectedModelRecoveryComplete.Set(true)
+		parseApp.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: parseResolvedModel})
+		parsePersistSelectedModel(parseResolvedModel)
+		if len(parseCurrentState2.Messages) > 0 {
+			parseApp.Dispatch(appAction{
 				Type: appActionUpdateMessages,
-				UpdateMessages: func(prev []message) []message {
-					return append(append([]message{}, prev...), message{Role: roleSwitch, Content: resolvedModel})
+				UpdateMessages: func(parsePrev []message) []message {
+					return append(append([]message{}, parsePrev...), message{Role: roleSwitch, Content: parseResolvedModel})
 				},
 			})
 		}
@@ -315,256 +315,256 @@ func useModelPreferences(
 	}
 
 	ui.UseEffect(func() func() {
-		if !app.Get().GRPCReady {
-			modelCatalogRefreshOnConnect.Set(false)
+		if !parseApp.Get().GRPCReady {
+			parseModelCatalogRefreshOnConnect.Set(false)
 			return nil
 		}
-		if modelCatalogRefreshOnConnect.Get() {
+		if parseModelCatalogRefreshOnConnect.Get() {
 			return nil
 		}
-		modelCatalogRefreshOnConnect.Set(true)
-		modelCatalogCache.Invalidate()
+		parseModelCatalogRefreshOnConnect.Set(true)
+		parseModelCatalogCache.Invalidate()
 		return nil
-	}, app.Get().GRPCReady)
+	}, parseApp.Get().GRPCReady)
 
 	ui.UseEffect(func() func() {
-		currentState := app.Get()
-		if !currentState.GRPCReady || !currentState.Authenticated {
-			modelPreferenceSessionKey.Set("")
-			selectedModelBootstrapComplete.Set(false)
-			selectedModelRecoveryComplete.Set(false)
-			thinkingPreferencesBootstrapComplete.Set(false)
+		parseCurrentState3 := parseApp.Get()
+		if !parseCurrentState3.GRPCReady || !parseCurrentState3.Authenticated {
+			parseModelPreferenceSessionKey.Set("")
+			parseSelectedModelBootstrapComplete.Set(false)
+			parseSelectedModelRecoveryComplete.Set(false)
+			parseThinkingPreferencesBootstrapComplete.Set(false)
 			return nil
 		}
-		sessionKey := strings.TrimSpace(strings.ToLower(currentState.SessionEmail))
-		if sessionKey == "" {
-			sessionKey = "__anonymous__"
+		parseSessionKey := strings.TrimSpace(strings.ToLower(parseCurrentState3.SessionEmail))
+		if parseSessionKey == "" {
+			parseSessionKey = "__anonymous__"
 		}
-		if modelPreferenceSessionKey.Get() == sessionKey {
+		if parseModelPreferenceSessionKey.Get() == parseSessionKey {
 			return nil
 		}
-		modelPreferenceSessionKey.Set(sessionKey)
-		selectedModelBootstrapComplete.Set(false)
-		selectedModelRecoveryComplete.Set(false)
-		thinkingPreferencesBootstrapComplete.Set(false)
+		parseModelPreferenceSessionKey.Set(parseSessionKey)
+		parseSelectedModelBootstrapComplete.Set(false)
+		parseSelectedModelRecoveryComplete.Set(false)
+		parseThinkingPreferencesBootstrapComplete.Set(false)
 		return nil
-	}, app.Get().GRPCReady, app.Get().Authenticated, app.Get().SessionEmail)
+	}, parseApp.Get().GRPCReady, parseApp.Get().Authenticated, parseApp.Get().SessionEmail)
 
 	ui.UseEffect(func() func() {
-		currentState := app.Get()
-		if !currentState.GRPCReady || !currentState.Authenticated {
-			selectedModelChannelRef.Set(interop.CrossTabChannel{})
+		parseCurrentState4 := parseApp.Get()
+		if !parseCurrentState4.GRPCReady || !parseCurrentState4.Authenticated {
+			parseSelectedModelChannelRef.Set(interop.CrossTabChannel{})
 			return nil
 		}
-		channel, err := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{
-			Name: selectedModelCrossTabChannelName(currentState.SessionEmail),
+		parseChannel2, parseErr11 := interop.OpenCrossTabChannel(interop.CrossTabChannelOptions{
+			Name: parseSelectedModelCrossTabChannelName(parseCurrentState4.SessionEmail),
 		})
-		if err != nil {
-			selectedModelChannelRef.Set(interop.CrossTabChannel{})
-			chatLog.Warn("open selected model cross-tab channel failed", logging.Fields{"error": err, "email": currentState.SessionEmail})
+		if parseErr11 != nil {
+			parseSelectedModelChannelRef.Set(interop.CrossTabChannel{})
+			chatLog.Warn("open selected model cross-tab channel failed", logging.Fields{"error": parseErr11, "email": parseCurrentState4.SessionEmail})
 			return nil
 		}
-		selectedModelChannelRef.Set(channel)
-		subscription, err := interop.SubscribeDecodedCrossTab[selectedModelCrossTabMessage](channel, func(message interop.DecodedCrossTabEnvelope[selectedModelCrossTabMessage], subErr error) {
-			if subErr != nil {
-				chatLog.Warn("selected model cross-tab subscribe failed", logging.Fields{"error": subErr, "channel": channel.Name()})
+		parseSelectedModelChannelRef.Set(parseChannel2)
+		parseSubscription, parseErr11 := interop.SubscribeDecodedCrossTab[selectedModelCrossTabMessage](parseChannel2, func(parseMessage interop.DecodedCrossTabEnvelope[selectedModelCrossTabMessage], parseSubErr error) {
+			if parseSubErr != nil {
+				chatLog.Warn("selected model cross-tab subscribe failed", logging.Fields{"error": parseSubErr, "channel": parseChannel2.Name()})
 				return
 			}
-			currentState := app.Get()
-			if !currentState.GRPCReady || !currentState.Authenticated || currentState.Streaming {
+			parseCurrentState5 := parseApp.Get()
+			if !parseCurrentState5.GRPCReady || !parseCurrentState5.Authenticated || parseCurrentState5.Streaming {
 				return
 			}
-			resolvedModel := normalizeSelectedModelID(message.Payload.Model, currentState.ModelOptions, currentState.DefaultModel)
-			if resolvedModel == "" || resolvedModel == currentState.SelectedModel {
+			parseResolvedModel2 := parseNormalizeSelectedModelID(parseMessage.Payload.Model, parseCurrentState5.ParseModelOptions, parseCurrentState5.ParseDefaultModel)
+			if parseResolvedModel2 == "" || parseResolvedModel2 == parseCurrentState5.SelectedModel {
 				return
 			}
-			selectedModelCache.Set(resolvedModel)
-			selectedModelBootstrapComplete.Set(true)
-			selectedModelRecoveryComplete.Set(true)
-			app.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: resolvedModel})
+			parseSelectedModelCache.Set(parseResolvedModel2)
+			parseSelectedModelBootstrapComplete.Set(true)
+			parseSelectedModelRecoveryComplete.Set(true)
+			parseApp.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: parseResolvedModel2})
 		})
-		if err != nil {
-			selectedModelChannelRef.Set(interop.CrossTabChannel{})
-			_ = channel.Close()
-			chatLog.Warn("selected model cross-tab setup failed", logging.Fields{"error": err, "channel": channel.Name()})
+		if parseErr11 != nil {
+			parseSelectedModelChannelRef.Set(interop.CrossTabChannel{})
+			_ = parseChannel2.Close()
+			chatLog.Warn("selected model cross-tab setup failed", logging.Fields{"error": parseErr11, "channel": parseChannel2.Name()})
 			return nil
 		}
 		return func() {
-			selectedModelChannelRef.Set(interop.CrossTabChannel{})
-			subscription.Cancel()
-			_ = channel.Close()
+			parseSelectedModelChannelRef.Set(interop.CrossTabChannel{})
+			parseSubscription.Cancel()
+			_ = parseChannel2.Close()
 		}
-	}, app.Get().GRPCReady, app.Get().Authenticated, app.Get().SessionEmail)
+	}, parseApp.Get().GRPCReady, parseApp.Get().Authenticated, parseApp.Get().SessionEmail)
 
 	ui.UseEffect(func() func() {
-		currentState := app.Get()
-		if !currentState.GRPCReady || !currentState.Authenticated {
-			modelCatalogBootstrapRequested.Set(false)
+		parseCurrentState6 := parseApp.Get()
+		if !parseCurrentState6.GRPCReady || !parseCurrentState6.Authenticated {
+			parseModelCatalogBootstrapRequested.Set(false)
 			return nil
 		}
-		if len(currentState.ModelOptions) > 0 {
-			modelCatalogBootstrapRequested.Set(false)
+		if len(parseCurrentState6.ParseModelOptions) > 0 {
+			parseModelCatalogBootstrapRequested.Set(false)
 			return nil
 		}
-		if chatClientRef.Get() == nil {
+		if parseChatClientRef.Get() == nil {
 			return nil
 		}
-		if modelCatalogBootstrapRequested.Get() {
+		if parseModelCatalogBootstrapRequested.Get() {
 			return nil
 		}
-		modelCatalogBootstrapRequested.Set(true)
-		refreshModelCatalog()
+		parseModelCatalogBootstrapRequested.Set(true)
+		parseRefreshModelCatalog()
 		return nil
-	}, app.Get().GRPCReady, app.Get().Authenticated, len(app.Get().ModelOptions), modelCatalogCacheState.Loading)
+	}, parseApp.Get().GRPCReady, parseApp.Get().Authenticated, len(parseApp.Get().ParseModelOptions), parseModelCatalogCacheState.Loading)
 
 	ui.UseEffect(func() func() {
-		currentState := app.Get()
-		if !currentState.GRPCReady || !modelCatalogCacheState.Ready {
+		parseCurrentState7 := parseApp.Get()
+		if !parseCurrentState7.GRPCReady || !parseModelCatalogCacheState.Ready {
 			return nil
 		}
-		catalog := modelCatalogCacheState.Value
-		resolvedDefaultModel := normalizeSelectedModelID(catalog.DefaultModel, catalog.Models, defaultModel)
-		if !sameModelOptions(currentState.ModelOptions, catalog.Models) || currentState.DefaultModel != resolvedDefaultModel {
-			app.Dispatch(appAction{Type: appActionSetModelCatalog, ModelOptions: catalog.Models, DefaultModel: resolvedDefaultModel})
+		parseCatalog2 := parseModelCatalogCacheState.Value
+		parseResolvedDefaultModel := parseNormalizeSelectedModelID(parseCatalog2.ParseDefaultModel, parseCatalog2.Models, defaultModel)
+		if !parseSameModelOptions(parseCurrentState7.ParseModelOptions, parseCatalog2.Models) || parseCurrentState7.ParseDefaultModel != parseResolvedDefaultModel {
+			parseApp.Dispatch(appAction{Type: appActionSetModelCatalog, ModelOptions: parseCatalog2.Models, DefaultModel: parseResolvedDefaultModel})
 		}
 		return nil
-	}, app.Get().GRPCReady, modelCatalogCacheState.Ready, modelCatalogCacheState.Value)
+	}, parseApp.Get().GRPCReady, parseModelCatalogCacheState.Ready, parseModelCatalogCacheState.Value)
 
 	ui.UseEffect(func() func() {
-		currentState := app.Get()
-		if !shouldApplySelectedModelBootstrap(selectedModelBootstrapComplete.Get(), currentState, selectedModelCacheState.Ready) {
+		parseCurrentState8 := parseApp.Get()
+		if !shouldApplySelectedModelBootstrap(parseSelectedModelBootstrapComplete.Get(), parseCurrentState8, parseSelectedModelCacheState.Ready) {
 			return nil
 		}
-		resolvedModel := normalizeSelectedModelID(selectedModelCacheState.Value, currentState.ModelOptions, currentState.DefaultModel)
-		if resolvedModel != currentState.SelectedModel {
-			app.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: resolvedModel})
+		parseResolvedModel3 := parseNormalizeSelectedModelID(parseSelectedModelCacheState.Value, parseCurrentState8.ParseModelOptions, parseCurrentState8.ParseDefaultModel)
+		if parseResolvedModel3 != parseCurrentState8.SelectedModel {
+			parseApp.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: parseResolvedModel3})
 		}
-		selectedModelBootstrapComplete.Set(true)
+		parseSelectedModelBootstrapComplete.Set(true)
 		return nil
-	}, app.Get().GRPCReady, selectedModelCacheState.Ready, selectedModelCacheState.Value, app.Get().ActiveConvID, len(app.Get().Messages))
+	}, parseApp.Get().GRPCReady, parseSelectedModelCacheState.Ready, parseSelectedModelCacheState.Value, parseApp.Get().ActiveConvID, len(parseApp.Get().Messages))
 
 	ui.UseEffect(func() func() {
-		currentState := app.Get()
-		if !shouldApplySelectedModelRecovery(selectedModelRecoveryComplete.Get(), currentState, selectedModelCacheState.Ready) {
+		parseCurrentState9 := parseApp.Get()
+		if !shouldApplySelectedModelRecovery(parseSelectedModelRecoveryComplete.Get(), parseCurrentState9, parseSelectedModelCacheState.Ready) {
 			return nil
 		}
-		recoveredModel, usedFallback := recoverPersistedModelSelection(selectedModelCacheState.Value, currentState.ModelOptions)
-		if recoveredModel == "" || strings.TrimSpace(selectedModelCacheState.Value) == recoveredModel {
-			selectedModelRecoveryComplete.Set(true)
+		parseRecoveredModel, parseUsedFallback := parseRecoverPersistedModelSelection(parseSelectedModelCacheState.Value, parseCurrentState9.ParseModelOptions)
+		if parseRecoveredModel == "" || strings.TrimSpace(parseSelectedModelCacheState.Value) == parseRecoveredModel {
+			parseSelectedModelRecoveryComplete.Set(true)
 			return nil
 		}
-		if recoveredModel != currentState.SelectedModel {
-			app.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: recoveredModel})
+		if parseRecoveredModel != parseCurrentState9.SelectedModel {
+			parseApp.Dispatch(appAction{Type: appActionSetSelectedModel, SelectedModel: parseRecoveredModel})
 		}
-		persistSelectedModel(recoveredModel)
-		if usedFallback {
-			if !currentState.SelectedThinkingEnabled {
-				app.Dispatch(appAction{Type: appActionSetSelectedThinkingEnabled, SelectedThinkingEnabled: true})
+		parsePersistSelectedModel(parseRecoveredModel)
+		if parseUsedFallback {
+			if !parseCurrentState9.SelectedThinkingEnabled {
+				parseApp.Dispatch(appAction{Type: appActionSetSelectedThinkingEnabled, SelectedThinkingEnabled: true})
 			}
-			if currentState.SelectedThinkingEffort != defaultThinkingEffort {
-				app.Dispatch(appAction{Type: appActionSetSelectedThinkingEffort, SelectedThinkingEffort: defaultThinkingEffort})
+			if parseCurrentState9.SelectedThinkingEffort != defaultThinkingEffort {
+				parseApp.Dispatch(appAction{Type: appActionSetSelectedThinkingEffort, SelectedThinkingEffort: defaultThinkingEffort})
 			}
-			thinkingPreferencesBootstrapComplete.Set(true)
-			persistThinkingPreferences(true, defaultThinkingEffort)
+			parseThinkingPreferencesBootstrapComplete.Set(true)
+			parsePersistThinkingPreferences(true, defaultThinkingEffort)
 		}
-		selectedModelRecoveryComplete.Set(true)
+		parseSelectedModelRecoveryComplete.Set(true)
 		return nil
-	}, app.Get().GRPCReady, selectedModelCacheState.Ready, selectedModelCacheState.Value, app.Get().ActiveConvID, len(app.Get().Messages), app.Get().ModelOptions, app.Get().SelectedModel, app.Get().SelectedThinkingEnabled, app.Get().SelectedThinkingEffort)
+	}, parseApp.Get().GRPCReady, parseSelectedModelCacheState.Ready, parseSelectedModelCacheState.Value, parseApp.Get().ActiveConvID, len(parseApp.Get().Messages), parseApp.Get().ParseModelOptions, parseApp.Get().SelectedModel, parseApp.Get().SelectedThinkingEnabled, parseApp.Get().SelectedThinkingEffort)
 
 	ui.UseEffect(func() func() {
-		currentState := app.Get()
-		if !currentState.GRPCReady || !currentState.Authenticated || !selectedToneCacheState.Ready {
+		parseCurrentState10 := parseApp.Get()
+		if !parseCurrentState10.GRPCReady || !parseCurrentState10.Authenticated || !parseSelectedToneCacheState.Ready {
 			return nil
 		}
-		resolvedTone := normalizeSelectedToneID(selectedToneCacheState.Value)
-		if resolvedTone != currentState.SelectedTone {
-			app.Dispatch(appAction{Type: appActionSetSelectedTone, SelectedTone: resolvedTone})
+		parseResolvedTone := parseNormalizeSelectedToneID(parseSelectedToneCacheState.Value)
+		if parseResolvedTone != parseCurrentState10.SelectedTone {
+			parseApp.Dispatch(appAction{Type: appActionSetSelectedTone, SelectedTone: parseResolvedTone})
 		}
-		if !currentState.ShowNameModal && resolvedTone != currentState.ToneInput {
-			app.Dispatch(appAction{Type: appActionSetToneInput, ToneInput: resolvedTone})
+		if !parseCurrentState10.ShowNameModal && parseResolvedTone != parseCurrentState10.ToneInput {
+			parseApp.Dispatch(appAction{Type: appActionSetToneInput, ToneInput: parseResolvedTone})
 		}
 		return nil
-	}, app.Get().GRPCReady, selectedToneCacheState.Ready, selectedToneCacheState.Value, app.Get().ShowNameModal)
+	}, parseApp.Get().GRPCReady, parseSelectedToneCacheState.Ready, parseSelectedToneCacheState.Value, parseApp.Get().ShowNameModal)
 
 	ui.UseEffect(func() func() {
-		currentState := app.Get()
-		if !shouldApplyThinkingPreferencesBootstrap(thinkingPreferencesBootstrapComplete.Get(), currentState, selectedThinkingEnabledCacheState.Ready, selectedThinkingEffortCacheState.Ready) {
+		parseCurrentState11 := parseApp.Get()
+		if !shouldApplyThinkingPreferencesBootstrap(parseThinkingPreferencesBootstrapComplete.Get(), parseCurrentState11, parseSelectedThinkingEnabledCacheState.Ready, parseSelectedThinkingEffortCacheState.Ready) {
 			return nil
 		}
-		if selectedThinkingEnabledCacheState.Value != currentState.SelectedThinkingEnabled {
-			app.Dispatch(appAction{Type: appActionSetSelectedThinkingEnabled, SelectedThinkingEnabled: selectedThinkingEnabledCacheState.Value})
+		if parseSelectedThinkingEnabledCacheState.Value != parseCurrentState11.SelectedThinkingEnabled {
+			parseApp.Dispatch(appAction{Type: appActionSetSelectedThinkingEnabled, SelectedThinkingEnabled: parseSelectedThinkingEnabledCacheState.Value})
 		}
-		resolvedThinkingEffort := normalizeSelectedThinkingEffort(selectedThinkingEffortCacheState.Value)
-		if resolvedThinkingEffort != currentState.SelectedThinkingEffort {
-			app.Dispatch(appAction{Type: appActionSetSelectedThinkingEffort, SelectedThinkingEffort: resolvedThinkingEffort})
+		parseResolvedThinkingEffort := parseNormalizeSelectedThinkingEffort(parseSelectedThinkingEffortCacheState.Value)
+		if parseResolvedThinkingEffort != parseCurrentState11.SelectedThinkingEffort {
+			parseApp.Dispatch(appAction{Type: appActionSetSelectedThinkingEffort, SelectedThinkingEffort: parseResolvedThinkingEffort})
 		}
-		thinkingPreferencesBootstrapComplete.Set(true)
+		parseThinkingPreferencesBootstrapComplete.Set(true)
 		return nil
-	}, app.Get().GRPCReady, selectedThinkingEnabledCacheState.Ready, selectedThinkingEnabledCacheState.Value, selectedThinkingEffortCacheState.Ready, selectedThinkingEffortCacheState.Value, app.Get().SelectedThinkingEnabled, app.Get().SelectedThinkingEffort)
+	}, parseApp.Get().GRPCReady, parseSelectedThinkingEnabledCacheState.Ready, parseSelectedThinkingEnabledCacheState.Value, parseSelectedThinkingEffortCacheState.Ready, parseSelectedThinkingEffortCacheState.Value, parseApp.Get().SelectedThinkingEnabled, parseApp.Get().SelectedThinkingEffort)
 
-	setModel := ui.UseEvent(func(e ui.Event) {
-		if app.Get().Streaming {
+	setModel := ui.UseEvent(func(parseE ui.Event) {
+		if parseApp.Get().Streaming {
 			return
 		}
-		currentState := app.Get()
-		newModel := normalizeSelectedModelID(eventValueOrDataset(e, dataModel), currentState.ModelOptions, currentState.DefaultModel)
-		if newModel == app.Get().SelectedModel {
+		parseCurrentState12 := parseApp.Get()
+		parseNewModel := parseNormalizeSelectedModelID(parseEventValueOrDataset(parseE, dataModel), parseCurrentState12.ParseModelOptions, parseCurrentState12.ParseDefaultModel)
+		if parseNewModel == parseApp.Get().SelectedModel {
 			return
 		}
-		chatLog.Info("model set", logging.Fields{"model": newModel})
-		_ = applyModelSelection(newModel)
+		chatLog.ParseInfo("model set", logging.Fields{"model": parseNewModel})
+		_ = applyModelSelection(parseNewModel)
 	})
 
-	setProvider := ui.UseEvent(func(e ui.Event) {
-		if app.Get().Streaming {
+	setProvider := ui.UseEvent(func(parseE2 ui.Event) {
+		if parseApp.Get().Streaming {
 			return
 		}
-		currentState := app.Get()
-		providerID := strings.TrimSpace(eventValueOrDataset(e, dataProvider))
-		if providerID == "" {
+		parseCurrentState13 := parseApp.Get()
+		parseProviderID := strings.TrimSpace(parseEventValueOrDataset(parseE2, dataProvider))
+		if parseProviderID == "" {
 			return
 		}
-		currentProvider := providerForModel(currentState.SelectedModel, currentState.ModelOptions, currentState.DefaultModel)
-		if currentProvider.ID == providerID {
+		parseCurrentProvider := parseProviderForModel(parseCurrentState13.SelectedModel, parseCurrentState13.ParseModelOptions, parseCurrentState13.ParseDefaultModel)
+		if parseCurrentProvider.ParseID == parseProviderID {
 			return
 		}
-		nextModel := defaultModelForProvider(providerID, currentState.ModelOptions, currentState.DefaultModel)
-		if nextModel == "" || nextModel == currentState.SelectedModel {
+		parseNextModel := parseDefaultModelForProvider(parseProviderID, parseCurrentState13.ParseModelOptions, parseCurrentState13.ParseDefaultModel)
+		if parseNextModel == "" || parseNextModel == parseCurrentState13.SelectedModel {
 			return
 		}
-		_ = applyModelSelection(nextModel)
+		_ = applyModelSelection(parseNextModel)
 	})
 
-	setThinkingMode := ui.UseEvent(func(e ui.Event) {
-		if app.Get().Streaming {
+	setThinkingMode := ui.UseEvent(func(parseE3 ui.Event) {
+		if parseApp.Get().Streaming {
 			return
 		}
-		currentState := app.Get()
-		if !modelSupportsThinking(currentState.SelectedModel, currentState.ModelOptions, currentState.DefaultModel) {
+		parseCurrentState14 := parseApp.Get()
+		if !parseModelSupportsThinking(parseCurrentState14.SelectedModel, parseCurrentState14.ParseModelOptions, parseCurrentState14.ParseDefaultModel) {
 			return
 		}
-		nextMode := strings.TrimSpace(strings.ToLower(eventValueOrDataset(e, dataThinkingEffort)))
-		nextEnabled := nextMode != "off"
-		nextEffort := currentState.SelectedThinkingEffort
-		if nextEnabled {
-			nextEffort = normalizeSelectedThinkingEffort(nextMode)
+		parseNextMode := strings.TrimSpace(strings.ToLower(parseEventValueOrDataset(parseE3, dataThinkingEffort)))
+		isParseNextEnabled := parseNextMode != "off"
+		parseNextEffort := parseCurrentState14.SelectedThinkingEffort
+		if isParseNextEnabled {
+			parseNextEffort = parseNormalizeSelectedThinkingEffort(parseNextMode)
 		}
-		if currentState.SelectedThinkingEnabled == nextEnabled && (!nextEnabled || currentState.SelectedThinkingEffort == nextEffort) {
+		if parseCurrentState14.SelectedThinkingEnabled == isParseNextEnabled && (!isParseNextEnabled || parseCurrentState14.SelectedThinkingEffort == parseNextEffort) {
 			return
 		}
-		thinkingPreferencesBootstrapComplete.Set(true)
-		app.Dispatch(appAction{Type: appActionSetSelectedThinkingEnabled, SelectedThinkingEnabled: nextEnabled})
-		if nextEnabled {
-			app.Dispatch(appAction{Type: appActionSetSelectedThinkingEffort, SelectedThinkingEffort: nextEffort})
+		parseThinkingPreferencesBootstrapComplete.Set(true)
+		parseApp.Dispatch(appAction{Type: appActionSetSelectedThinkingEnabled, SelectedThinkingEnabled: isParseNextEnabled})
+		if isParseNextEnabled {
+			parseApp.Dispatch(appAction{Type: appActionSetSelectedThinkingEffort, SelectedThinkingEffort: parseNextEffort})
 		}
-		persistThinkingPreferences(nextEnabled, nextEffort)
+		parsePersistThinkingPreferences(isParseNextEnabled, parseNextEffort)
 	})
 
 	return modelPreferencesController{
-		SelectedToneCache:            selectedToneCache,
-		SelectedThinkingEnabledCache: selectedThinkingEnabledCache,
-		SelectedThinkingEffortCache:  selectedThinkingEffortCache,
-		RefreshCatalog:               refreshModelCatalog,
+		SelectedToneCache:            parseSelectedToneCache,
+		SelectedThinkingEnabledCache: parseSelectedThinkingEnabledCache,
+		SelectedThinkingEffortCache:  parseSelectedThinkingEffortCache,
+		RefreshCatalog:               parseRefreshModelCatalog,
 		SetProvider:                  setProvider,
 		SetModel:                     setModel,
 		SetThinkingMode:              setThinkingMode,

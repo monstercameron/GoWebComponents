@@ -5,70 +5,70 @@ package jsdom
 
 import "testing"
 
-func TestWASMDOMAdapter_NestedBatchesKeepParentBoundaries(t *testing.T) {
-	cleanup := installBenchmarkDOM()
-	defer cleanup()
+func TestWASMDOMAdapter_NestedBatchesKeepParentBoundaries(parseT *testing.T) {
+	parseCleanup := installBenchmarkDOM()
+	defer parseCleanup()
 
-	adapter := NewWASMDOMAdapter()
-	outerParent := adapter.CreateElement("div").(*WASMDOMNode)
-	outerA := adapter.CreateElement("h1")
-	innerParent := adapter.CreateElement("section").(*WASMDOMNode)
-	innerA := adapter.CreateElement("button")
-	innerB := adapter.CreateElement("button")
-	outerB := adapter.CreateElement("p")
+	parseAdapter := NewWASMDOMAdapter()
+	parseOuterParent := parseAdapter.CreateElement("div").(*WASMDOMNode)
+	parseOuterA := parseAdapter.CreateElement("h1")
+	parseInnerParent := parseAdapter.CreateElement("section").(*WASMDOMNode)
+	parseInnerA := parseAdapter.CreateElement("button")
+	parseInnerB := parseAdapter.CreateElement("button")
+	parseOuterB := parseAdapter.CreateElement("p")
 
-	adapter.BeginBatch(outerParent)
-	adapter.AppendChild(outerParent, outerA)
-	adapter.AppendChild(outerParent, innerParent)
-	adapter.BeginBatch(innerParent)
-	adapter.AppendChild(innerParent, innerA)
-	adapter.AppendChild(innerParent, innerB)
-	adapter.EndBatch()
-	adapter.AppendChild(outerParent, outerB)
-	adapter.EndBatch()
+	parseAdapter.BeginBatch(parseOuterParent)
+	parseAdapter.AppendChild(parseOuterParent, parseOuterA)
+	parseAdapter.AppendChild(parseOuterParent, parseInnerParent)
+	parseAdapter.BeginBatch(parseInnerParent)
+	parseAdapter.AppendChild(parseInnerParent, parseInnerA)
+	parseAdapter.AppendChild(parseInnerParent, parseInnerB)
+	parseAdapter.EndBatch()
+	parseAdapter.AppendChild(parseOuterParent, parseOuterB)
+	parseAdapter.EndBatch()
 
-	if got := outerParent.value.Get("children").Get("length").Int(); got != 3 {
-		t.Fatalf("expected 3 outer children, got %d", got)
+	if parseGot := parseOuterParent.value.Get("children").Get("length").Int(); parseGot != 3 {
+		parseT.Fatalf("expected 3 outer children, got %d", parseGot)
 	}
-	if got := innerParent.value.Get("children").Get("length").Int(); got != 2 {
-		t.Fatalf("expected 2 inner children, got %d", got)
+	if parseGot2 := parseInnerParent.value.Get("children").Get("length").Int(); parseGot2 != 2 {
+		parseT.Fatalf("expected 2 inner children, got %d", parseGot2)
 	}
-	if first := outerParent.value.Get("children").Index(0).Get("tagName").String(); first != "h1" {
-		t.Fatalf("expected first outer child to be h1, got %q", first)
+	if parseFirst := parseOuterParent.value.Get("children").Index(0).Get("tagName").String(); parseFirst != "h1" {
+		parseT.Fatalf("expected first outer child to be h1, got %q", parseFirst)
 	}
-	if second := outerParent.value.Get("children").Index(1).Get("tagName").String(); second != "section" {
-		t.Fatalf("expected second outer child to be section, got %q", second)
+	if parseSecond := parseOuterParent.value.Get("children").Index(1).Get("tagName").String(); parseSecond != "section" {
+		parseT.Fatalf("expected second outer child to be section, got %q", parseSecond)
 	}
-	if third := outerParent.value.Get("children").Index(2).Get("tagName").String(); third != "p" {
-		t.Fatalf("expected third outer child to be p, got %q", third)
+	if parseThird := parseOuterParent.value.Get("children").Index(2).Get("tagName").String(); parseThird != "p" {
+		parseT.Fatalf("expected third outer child to be p, got %q", parseThird)
 	}
 }
 
-func TestWASMDOMAdapter_FragmentReuseDoesNotReplayChildren(t *testing.T) {
-	cleanup := installBenchmarkDOM()
-	defer cleanup()
+func TestWASMDOMAdapter_FragmentReuseDoesNotReplayChildren(parseT *testing.T) {
+	parseCleanup := installBenchmarkDOM()
+	defer parseCleanup()
 
-	adapter := NewWASMDOMAdapter()
-	parent := adapter.CreateElement("div").(*WASMDOMNode)
-	first := adapter.CreateElement("span")
-	second := adapter.CreateElement("span")
+	parseAdapter := NewWASMDOMAdapter()
+	parseParent := parseAdapter.CreateElement("div").(*WASMDOMNode)
+	parseFirst := parseAdapter.CreateElement("span")
+	parseSecond := parseAdapter.CreateElement("span")
 
-	adapter.BeginBatch(parent)
-	adapter.AppendChild(parent, first)
-	adapter.EndBatch()
+	parseAdapter.BeginBatch(parseParent)
+	parseAdapter.AppendChild(parseParent, parseFirst)
+	parseAdapter.EndBatch()
 
-	adapter.BeginBatch(parent)
-	adapter.AppendChild(parent, second)
-	adapter.EndBatch()
+	parseAdapter.BeginBatch(parseParent)
+	parseAdapter.AppendChild(parseParent, parseSecond)
+	parseAdapter.EndBatch()
 
-	children := parent.value.Get("children")
-	if got := children.Get("length").Int(); got != 2 {
-		t.Fatalf("expected 2 children after fragment reuse, got %d", got)
+	parseChildren := parseParent.value.Get("children")
+	if parseGot := parseChildren.Get("length").Int(); parseGot != 2 {
+		parseT.Fatalf("expected 2 children after fragment reuse, got %d", parseGot)
 	}
-	if firstTag := children.Index(0).Get("tagName").String(); firstTag != "span" {
-		t.Fatalf("expected first child tag span, got %q", firstTag)
+	if parseFirstTag := parseChildren.Index(0).Get("tagName").String(); parseFirstTag != "span" {
+		parseT.Fatalf("expected first child tag span, got %q", parseFirstTag)
 	}
-	if secondTag := children.Index(1).Get("tagName").String(); secondTag != "span" {
-		t.Fatalf("expected second child tag span, got %q", secondTag)
+	if parseSecondTag := parseChildren.Index(1).Get("tagName").String(); parseSecondTag != "span" {
+		parseT.Fatalf("expected second child tag span, got %q", parseSecondTag)
 	}
 }

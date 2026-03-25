@@ -15,53 +15,53 @@ type ComponentType struct {
 }
 
 // NewComponentType constructs a component handle recognized by the runtime.
-func NewComponentType(parseId string, parseName string, parseQualifiedName string, parseImplementation interface{}, render func(interface{}, map[string]interface{}) *Element) *ComponentType {
+func NewComponentType(parseComponentID string, parseComponentName string, parseComponentQualifiedName string, parseComponentImplementation interface{}, render func(interface{}, map[string]interface{}) *Element) *ComponentType {
 	return &ComponentType{
-		ID:             parseId,
-		Name:           parseName,
-		QualifiedName:  parseQualifiedName,
-		implementation: parseImplementation,
+		ID:             parseComponentID,
+		Name:           parseComponentName,
+		QualifiedName:  parseComponentQualifiedName,
+		implementation: parseComponentImplementation,
 		render:         render,
 	}
 }
 
 // Render invokes the current implementation attached to the component handle.
-func (parseComponent *ComponentType) Render(parseProps map[string]interface{}) *Element {
-	if parseComponent == nil {
+func (parseComponentType *ComponentType) Render(parseComponentProps map[string]interface{}) *Element {
+	if parseComponentType == nil {
 		return nil
 	}
 
-	parseComponent.mu.RLock()
-	parseImplementation := parseComponent.implementation
-	render := parseComponent.render
-	parseComponent.mu.RUnlock()
+	parseComponentType.mu.RLock()
+	parseCurrentImplementation := parseComponentType.implementation
+	render := parseComponentType.render
+	parseComponentType.mu.RUnlock()
 
-	if parseImplementation == nil || render == nil {
+	if parseCurrentImplementation == nil || render == nil {
 		return nil
 	}
-	return render(parseImplementation, parseProps)
+	return render(parseCurrentImplementation, parseComponentProps)
 }
 
 // SetImplementation updates the current implementation for a stable component handle.
-func (parseComponent *ComponentType) SetImplementation(parseImplementation interface{}) {
-	if parseComponent == nil {
+func (parseComponentType *ComponentType) SetImplementation(parseComponentImplementation interface{}) {
+	if parseComponentType == nil {
 		return
 	}
-	parseComponent.mu.Lock()
-	parseComponent.implementation = parseImplementation
-	parseComponent.mu.Unlock()
+	parseComponentType.mu.Lock()
+	parseComponentType.implementation = parseComponentImplementation
+	parseComponentType.mu.Unlock()
 }
 
 // IdentityKey returns the logical identity used to compare component handles.
-func (parseComponent *ComponentType) IdentityKey() string {
-	if parseComponent == nil {
+func (parseComponentType *ComponentType) IdentityKey() string {
+	if parseComponentType == nil {
 		return ""
 	}
-	if parseComponent.ID != "" {
-		return parseComponent.ID
+	if parseComponentType.ID != "" {
+		return parseComponentType.ID
 	}
-	if parseComponent.QualifiedName != "" {
-		return parseComponent.QualifiedName
+	if parseComponentType.QualifiedName != "" {
+		return parseComponentType.QualifiedName
 	}
-	return parseComponent.Name
+	return parseComponentType.Name
 }

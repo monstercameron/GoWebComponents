@@ -11,26 +11,26 @@ import (
 	"github.com/monstercameron/GoWebComponents/utils"
 )
 
-func setClientStatus(message string) {
-	document := js.Global().Get("document")
-	if !document.Truthy() {
+func setClientStatus(parseMessage string) {
+	parseDocument := js.Global().Get("document")
+	if !parseDocument.Truthy() {
 		return
 	}
-	status := document.Call("getElementById", "client-status")
-	if status.Truthy() {
-		status.Set("textContent", message)
+	parseStatus := parseDocument.Call("getElementById", "client-status")
+	if parseStatus.Truthy() {
+		parseStatus.Set("textContent", parseMessage)
 	}
 }
 
 func main() {
 	utils.DisableAllDebug()
-	payload, err := ui.ReadBootstrapScript("")
-	if err != nil {
+	parsePayload, parseErr := ui.ReadBootstrapScript("")
+	if parseErr != nil {
 		setClientStatus("Failed to read inline bootstrap payload")
 		select {}
 	}
-	_, err = ui.Hydrate(renderBootstrapView(bootstrapViewFromPayload(payload)), "#app", ui.HydrationOptions{Bootstrap: payload})
-	if err != nil {
+	_, parseErr = ui.Hydrate(renderBootstrapView(bootstrapViewFromPayload(parsePayload)), "#app", ui.HydrationOptions{Bootstrap: parsePayload})
+	if parseErr != nil {
 		setClientStatus("Hydration failed")
 		select {}
 	}

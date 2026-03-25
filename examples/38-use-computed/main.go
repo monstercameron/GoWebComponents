@@ -22,35 +22,35 @@ type pricingSummary struct {
 }
 
 func useComputedExample() ui.Node {
-	seats := state.UseAtom("catalog-state-computed-seats", 6)
-	price := state.UseAtom("catalog-state-computed-price", 24)
+	parseSeats := state.UseAtom("catalog-state-computed-seats", 6)
+	parsePrice := state.UseAtom("catalog-state-computed-price", 24)
 
-	summary := state.UseComputed(func() pricingSummary {
-		subtotal := seats.Get() * price.Get()
-		support := 12
-		tier := "Growth"
-		if seats.Get() >= 10 {
-			support = 24
-			tier = "Scale"
+	parseSummary := state.UseComputed(func() pricingSummary {
+		parseSubtotal := parseSeats.Get() * parsePrice.Get()
+		parseSupport := 12
+		parseTier := "Growth"
+		if parseSeats.Get() >= 10 {
+			parseSupport = 24
+			parseTier = "Scale"
 		}
 		return pricingSummary{
-			Subtotal: subtotal,
-			Support:  support,
-			Total:    subtotal + support,
-			Tier:     tier,
+			Subtotal: parseSubtotal,
+			Support:  parseSupport,
+			Total:    parseSubtotal + parseSupport,
+			Tier:     parseTier,
 		}
-	}, seats.Get(), price.Get())
+	}, parseSeats.Get(), parsePrice.Get())
 
-	decreaseSeats := ui.UseEvent(func() {
-		if seats.Get() > 1 {
-			seats.Update(func(previous int) int { return previous - 1 })
+	parseDecreaseSeats := ui.UseEvent(func() {
+		if parseSeats.Get() > 1 {
+			parseSeats.Update(func(parsePrevious int) int { return parsePrevious - 1 })
 		}
 	})
-	increaseSeats := ui.UseEvent(func() { seats.Update(func(previous int) int { return previous + 1 }) })
-	standard := ui.UseEvent(func() { price.Set(24) })
-	premium := ui.UseEvent(func() { price.Set(32) })
+	parseIncreaseSeats := ui.UseEvent(func() { parseSeats.Update(func(parsePrevious2 int) int { return parsePrevious2 + 1 }) })
+	parseStandard := ui.UseEvent(func() { parsePrice.Set(24) })
+	parsePremium := ui.UseEvent(func() { parsePrice.Set(32) })
 
-	computed := summary.Get()
+	parseComputed := parseSummary.Get()
 
 	return shared.ExamplePage(
 		"state.UseComputed",
@@ -58,22 +58,22 @@ func useComputedExample() ui.Node {
 		"UseComputed keeps render-time derivations explicit: you provide a typed compute function and the concrete dependency values that should trigger recomputation.",
 		shared.ExamplePanel("Inputs",
 			html.Div(html.Props{Class: "mt-3 flex flex-wrap gap-3"},
-				shared.ExampleButton("-1 seat", decreaseSeats),
-				shared.ExampleButton("+1 seat", increaseSeats),
-				shared.ExampleButton("Standard $24", standard),
-				shared.ExampleButton("Premium $32", premium),
+				shared.ExampleButton("-1 seat", parseDecreaseSeats),
+				shared.ExampleButton("+1 seat", parseIncreaseSeats),
+				shared.ExampleButton("Standard $24", parseStandard),
+				shared.ExampleButton("Premium $32", parsePremium),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-2"},
-				shared.ExampleStat("Seats", fmt.Sprintf("%d", seats.Get())),
-				shared.ExampleStat("Price per seat", fmt.Sprintf("$%d", price.Get())),
+				shared.ExampleStat("Seats", fmt.Sprintf("%d", parseSeats.Get())),
+				shared.ExampleStat("Price per seat", fmt.Sprintf("$%d", parsePrice.Get())),
 			),
 		),
 		shared.ExamplePanel("Computed output",
 			html.Div(html.Props{Class: "mt-3 grid gap-4 md:grid-cols-4"},
-				shared.ExampleStat("Subtotal", fmt.Sprintf("$%d", computed.Subtotal)),
-				shared.ExampleStat("Support", fmt.Sprintf("$%d", computed.Support)),
-				shared.ExampleStat("Total", fmt.Sprintf("$%d", computed.Total)),
-				shared.ExampleStat("Tier", computed.Tier),
+				shared.ExampleStat("Subtotal", fmt.Sprintf("$%d", parseComputed.Subtotal)),
+				shared.ExampleStat("Support", fmt.Sprintf("$%d", parseComputed.Support)),
+				shared.ExampleStat("Total", fmt.Sprintf("$%d", parseComputed.Total)),
+				shared.ExampleStat("Tier", parseComputed.Tier),
 			),
 			shared.ExampleCode(
 				`summary := state.UseComputed(func() pricingSummary { ... }, seats.Get(), price.Get())`,

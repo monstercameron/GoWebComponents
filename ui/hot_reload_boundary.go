@@ -12,14 +12,14 @@ func hotReloadBoundaryKey(resetKeys []interface{}) string {
 		return "__gwc_hotreload_boundary__"
 	}
 
-	parseData, parseErr := json.Marshal(resetKeys)
-	if parseErr == nil {
-		return "__gwc_hotreload_boundary__:" + string(parseData)
+	parseBoundaryData, parseBoundaryErr := json.Marshal(resetKeys)
+	if parseBoundaryErr == nil {
+		return "__gwc_hotreload_boundary__:" + string(parseBoundaryData)
 	}
 
-	parseParts := make([]string, 0, len(resetKeys))
-	for _, parseKey := range resetKeys {
-		parseParts = append(parseParts, fmt.Sprintf("%#v", parseKey))
+	parseBoundaryParts := make([]string, 0, len(resetKeys))
+	for _, parseBoundaryKey := range resetKeys {
+		parseBoundaryParts = append(parseBoundaryParts, fmt.Sprintf("%#v", parseBoundaryKey))
 	}
-	return "__gwc_hotreload_boundary__:" + strings.Join(parseParts, "|")
+	return "__gwc_hotreload_boundary__:" + strings.Join(parseBoundaryParts, "|")
 }

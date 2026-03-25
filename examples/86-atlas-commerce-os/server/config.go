@@ -25,50 +25,50 @@ type config struct {
 }
 
 func loadConfig() (config, error) {
-	workingDir, err := os.Getwd()
-	if err != nil {
-		return config{}, fmt.Errorf("get working directory: %w", err)
+	parseWorkingDir, parseErr := os.Getwd()
+	if parseErr != nil {
+		return config{}, fmt.Errorf("get working directory: %w", parseErr)
 	}
-	repoRoot, err := findRepoRoot(workingDir)
-	if err != nil {
-		return config{}, err
+	parseRepoRoot, parseErr := findRepoRoot(parseWorkingDir)
+	if parseErr != nil {
+		return config{}, parseErr
 	}
-	exampleRoot := filepath.Join(repoRoot, "examples", "86-atlas-commerce-os")
-	staticDir := filepath.Join(repoRoot, "examples", "static")
-	examplesWasmDir, err := runnerconfig.ResolveWorkspaceBuildPath(repoRoot, runnerconfig.FS{}, "examples")
-	if err != nil {
-		return config{}, fmt.Errorf("resolve examples build root: %w", err)
+	parseExampleRoot := filepath.Join(parseRepoRoot, "examples", "86-atlas-commerce-os")
+	parseStaticDir := filepath.Join(parseRepoRoot, "examples", "static")
+	parseExamplesWasmDir, parseErr := runnerconfig.ResolveWorkspaceBuildPath(parseRepoRoot, runnerconfig.FS{}, "examples")
+	if parseErr != nil {
+		return config{}, fmt.Errorf("resolve examples build root: %w", parseErr)
 	}
-	addr := strings.TrimSpace(os.Getenv("ATLAS_ADDR"))
-	if addr == "" {
-		addr = "127.0.0.1:8096"
+	parseAddr := strings.TrimSpace(os.Getenv("ATLAS_ADDR"))
+	if parseAddr == "" {
+		parseAddr = "127.0.0.1:8096"
 	}
 	return config{
-		Addr:              addr,
-		RepoRoot:          repoRoot,
-		ExampleRoot:       exampleRoot,
-		FallbackSchema:    filepath.Join(exampleRoot, "server", "data", "schema.sql"),
-		MigrationsDir:     filepath.Join(exampleRoot, "server", "data", "migrations"),
-		SQLitePath:        filepath.Join(exampleRoot, "server", "data", "atlas-commerce-os.db"),
-		StaticDir:         staticDir,
-		TailwindCSS:       filepath.Join(staticDir, "css", "tailwind.css"),
-		WASMExecJS:        filepath.Join(staticDir, "script", "wasm_exec.js"),
-		ExampleLoggerJS:   filepath.Join(staticDir, "script", "example-logger.js"),
-		AtlasWASM:         filepath.Join(examplesWasmDir, "atlas-commerce-os.wasm"),
+		Addr:              parseAddr,
+		RepoRoot:          parseRepoRoot,
+		ExampleRoot:       parseExampleRoot,
+		FallbackSchema:    filepath.Join(parseExampleRoot, "server", "data", "schema.sql"),
+		MigrationsDir:     filepath.Join(parseExampleRoot, "server", "data", "migrations"),
+		SQLitePath:        filepath.Join(parseExampleRoot, "server", "data", "atlas-commerce-os.db"),
+		StaticDir:         parseStaticDir,
+		TailwindCSS:       filepath.Join(parseStaticDir, "css", "tailwind.css"),
+		WASMExecJS:        filepath.Join(parseStaticDir, "script", "wasm_exec.js"),
+		ExampleLoggerJS:   filepath.Join(parseStaticDir, "script", "example-logger.js"),
+		AtlasWASM:         filepath.Join(parseExamplesWasmDir, "atlas-commerce-os.wasm"),
 		DefaultPublicHost: "http://127.0.0.1:8096",
 	}, nil
 }
 
-func findRepoRoot(start string) (string, error) {
-	current := start
+func findRepoRoot(parseStart string) (string, error) {
+	parseCurrent := parseStart
 	for {
-		if _, err := os.Stat(filepath.Join(current, "go.mod")); err == nil {
-			return current, nil
+		if _, parseErr := os.Stat(filepath.Join(parseCurrent, "go.mod")); parseErr == nil {
+			return parseCurrent, nil
 		}
-		parent := filepath.Dir(current)
-		if parent == current {
-			return "", fmt.Errorf("could not locate repo root from %s", start)
+		parseParent := filepath.Dir(parseCurrent)
+		if parseParent == parseCurrent {
+			return "", fmt.Errorf("could not locate repo root from %s", parseStart)
 		}
-		current = parent
+		parseCurrent = parseParent
 	}
 }

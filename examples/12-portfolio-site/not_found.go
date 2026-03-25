@@ -13,8 +13,8 @@ import (
 // Features a prominent 404 display, helpful navigation buttons, and quick links
 // to key sections of the application for improved user experience.
 func NotFoundPage(_ Attrs) *Element {
-	home := ui.UseEvent(func() { router.Navigate("/") })
-	docs := ui.UseEvent(func() { router.Navigate("/docs") })
+	parseHome := ui.UseEvent(func() { router.Navigate("/") })
+	parseDocs := ui.UseEvent(func() { router.Navigate("/docs") })
 
 	return html.Div(html.Props{Class: "min-h-screen bg-[#0a0a0a] flex items-center justify-center"},
 		html.Div(html.Props{Class: "text-center max-w-2xl mx-auto px-6"},
@@ -25,8 +25,8 @@ func NotFoundPage(_ Attrs) *Element {
 			html.H2(html.Props{Class: "text-3xl md:text-4xl font-bold text-white mb-4"}, html.Text("Page Not Found")),
 			html.P(html.Props{Class: "text-xl text-gray-400 mb-8 leading-relaxed"}, html.Text("Oops! The page you're looking for doesn't exist. It might have been moved, deleted, or you entered the wrong URL.")),
 			html.Div(html.Props{Class: "flex flex-col sm:flex-row gap-4 justify-center items-center"},
-				html.Button(html.Props{OnClick: home, Class: "px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 font-semibold text-lg cursor-pointer"}, html.Text("🏠 Go Home")),
-				html.Button(html.Props{OnClick: docs, Class: "px-8 py-4 bg-white/5 text-white rounded-xl border-2 border-white/10 hover:border-indigo-500/50 hover:bg-white/10 transition-all duration-300 transform hover:-translate-y-1 font-semibold text-lg cursor-pointer"}, html.Text("📚 View Docs")),
+				html.Button(html.Props{OnClick: parseHome, Class: "px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 font-semibold text-lg cursor-pointer"}, html.Text("🏠 Go Home")),
+				html.Button(html.Props{OnClick: parseDocs, Class: "px-8 py-4 bg-white/5 text-white rounded-xl border-2 border-white/10 hover:border-indigo-500/50 hover:bg-white/10 transition-all duration-300 transform hover:-translate-y-1 font-semibold text-lg cursor-pointer"}, html.Text("📚 View Docs")),
 			),
 			html.Div(html.Props{Class: "mt-12 pt-8 border-t border-white/10"},
 				html.P(html.Props{Class: "text-gray-400 mb-4"}, html.Text("Here are some helpful links:")),

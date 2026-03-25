@@ -51,96 +51,96 @@ var routeContent = map[string]localeRouteContent{
 	},
 }
 
-func ensureLocaleRoutingHash(path string) {
-	window := js.Global().Get("window")
-	if !window.Truthy() {
+func ensureLocaleRoutingHash(parsePath string) {
+	parseWindow := js.Global().Get("window")
+	if !parseWindow.Truthy() {
 		return
 	}
-	location := window.Get("location")
-	if location.Get("hash").String() == "" {
-		location.Set("hash", "#"+path)
+	parseLocation := parseWindow.Get("location")
+	if parseLocation.Get("hash").String() == "" {
+		parseLocation.Set("hash", "#"+parsePath)
 	}
 }
 
-func localeRouteView(props localeRoutePageProps) ui.Node {
-	navigate := router.UseNavigate()
-	direction := string(i18n.DirectionForLocale(props.Locale))
-	goLocale := func(next string) ui.Handler {
+func localeRouteView(parseProps localeRoutePageProps) ui.Node {
+	parseNavigate := router.UseNavigate()
+	parseDirection := string(i18n.DirectionForLocale(parseProps.Locale))
+	parseGoLocale := func(parseNext string) ui.Handler {
 		return ui.UseEvent(func() {
-			navigate.Navigate(i18n.PrefixPath(next, props.BasePath, i18n.RouteOptions{SupportedLocales: routeLocales, DefaultLocale: "en", OmitDefaultPrefix: true}))
+			parseNavigate.Navigate(i18n.PrefixPath(parseNext, parseProps.BasePath, i18n.RouteOptions{SupportedLocales: routeLocales, DefaultLocale: "en", OmitDefaultPrefix: true}))
 		})
 	}
 
-	return html.Div(html.Props{Class: "min-h-screen bg-[#08111d] text-slate-100", Raw: map[string]interface{}{"dir": direction, "lang": props.Locale, "data-route-locale": props.Locale}},
+	return html.Div(html.Props{Class: "min-h-screen bg-[#08111d] text-slate-100", Raw: map[string]interface{}{"dir": parseDirection, "lang": parseProps.Locale, "data-route-locale": parseProps.Locale}},
 		html.Div(html.Props{Class: "mx-auto max-w-4xl px-6 py-12"},
 			html.Div(html.Props{Class: "rounded-[2rem] border border-white/10 bg-slate-950/80 p-8 shadow-2xl"},
 				html.P(html.Props{Class: "text-xs uppercase tracking-[0.35em] text-cyan-300"}, html.Text("Locale routing guidance")),
-				html.H1(html.Props{ID: "locale-routing-title", Class: "mt-4 text-5xl font-black tracking-tight text-white"}, html.Text(props.Title)),
-				html.P(html.Props{ID: "locale-routing-summary", Class: "mt-4 text-lg leading-8 text-slate-300"}, html.Text(props.Summary)),
+				html.H1(html.Props{ID: "locale-routing-title", Class: "mt-4 text-5xl font-black tracking-tight text-white"}, html.Text(parseProps.Title)),
+				html.P(html.Props{ID: "locale-routing-summary", Class: "mt-4 text-lg leading-8 text-slate-300"}, html.Text(parseProps.Summary)),
 				html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-3"},
 					html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4"},
 						html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Locale")),
-						html.P(html.Props{ID: "locale-routing-locale", Class: "mt-3 text-2xl font-black text-white"}, html.Text(props.Locale)),
+						html.P(html.Props{ID: "locale-routing-locale", Class: "mt-3 text-2xl font-black text-white"}, html.Text(parseProps.Locale)),
 					),
 					html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4"},
 						html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Base path")),
-						html.P(html.Props{ID: "locale-routing-base", Class: "mt-3 text-2xl font-black text-white"}, html.Text(props.BasePath)),
+						html.P(html.Props{ID: "locale-routing-base", Class: "mt-3 text-2xl font-black text-white"}, html.Text(parseProps.BasePath)),
 					),
 					html.Div(html.Props{Class: "rounded-2xl border border-white/10 bg-white/5 p-4"},
 						html.P(html.Props{Class: "text-xs uppercase tracking-[0.25em] text-slate-400"}, html.Text("Localized path")),
-						html.P(html.Props{ID: "locale-routing-path", Class: "mt-3 text-2xl font-black text-white"}, html.Text(props.LocalizedPath)),
+						html.P(html.Props{ID: "locale-routing-path", Class: "mt-3 text-2xl font-black text-white"}, html.Text(parseProps.LocalizedPath)),
 					),
 				),
 				html.Div(html.Props{Class: "mt-6 flex flex-wrap gap-3"},
-					html.Button(html.Props{ID: "locale-route-en", Class: "rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100", OnClick: goLocale("en")}, html.Text("English route")),
-					html.Button(html.Props{ID: "locale-route-fr", Class: "rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100", OnClick: goLocale("fr")}, html.Text("Route francaise")),
-					html.Button(html.Props{ID: "locale-route-ar", Class: "rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-sm font-semibold text-amber-100", OnClick: goLocale("ar")}, html.Text("المسار العربي")),
+					html.Button(html.Props{ID: "locale-route-en", Class: "rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-100", OnClick: parseGoLocale("en")}, html.Text("English route")),
+					html.Button(html.Props{ID: "locale-route-fr", Class: "rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-100", OnClick: parseGoLocale("fr")}, html.Text("Route francaise")),
+					html.Button(html.Props{ID: "locale-route-ar", Class: "rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-sm font-semibold text-amber-100", OnClick: parseGoLocale("ar")}, html.Text("المسار العربي")),
 				),
-				html.P(html.Props{ID: "locale-routing-loader", Class: "mt-6 text-sm leading-7 text-slate-400"}, html.Text(props.Loader)),
+				html.P(html.Props{ID: "locale-routing-loader", Class: "mt-6 text-sm leading-7 text-slate-400"}, html.Text(parseProps.Loader)),
 			),
 		),
 	)
 }
 
-func localeRoutePage(attrs router.Attrs) *router.Element {
+func localeRoutePage(parseAttrs router.Attrs) *router.Element {
 	return ui.CreateElement(localeRouteView, localeRoutePageProps{
-		Locale:        stringAttr(attrs, "locale"),
-		BasePath:      stringAttr(attrs, "basePath"),
-		LocalizedPath: stringAttr(attrs, "localizedPath"),
-		Title:         stringAttr(attrs, "title"),
-		Summary:       stringAttr(attrs, "summary"),
-		Loader:        stringAttr(attrs, "loader"),
+		Locale:        stringAttr(parseAttrs, "locale"),
+		BasePath:      stringAttr(parseAttrs, "basePath"),
+		LocalizedPath: stringAttr(parseAttrs, "localizedPath"),
+		Title:         stringAttr(parseAttrs, "title"),
+		Summary:       stringAttr(parseAttrs, "summary"),
+		Loader:        stringAttr(parseAttrs, "loader"),
 	})
 }
 
-func stringAttr(attrs router.Attrs, key string) string {
-	value, _ := attrs[key].(string)
-	return value
+func stringAttr(parseAttrs router.Attrs, parseKey string) string {
+	parseValue, _ := parseAttrs[parseKey].(string)
+	return parseValue
 }
 
-func localeRouteLoader(_ context.Context, routeCtx router.RouteContext) (router.Attrs, error) {
-	resolved := i18n.ResolvePath(routeCtx.Path, i18n.RouteOptions{SupportedLocales: routeLocales, DefaultLocale: "en", OmitDefaultPrefix: true})
-	content, ok := routeContent[resolved.Locale]
-	if !ok {
-		content = routeContent["en"]
+func localeRouteLoader(_ context.Context, parseRouteCtx router.RouteContext) (router.Attrs, error) {
+	parseResolved := i18n.ResolvePath(parseRouteCtx.Path, i18n.RouteOptions{SupportedLocales: routeLocales, DefaultLocale: "en", OmitDefaultPrefix: true})
+	parseContent, parseOk := routeContent[parseResolved.Locale]
+	if !parseOk {
+		parseContent = routeContent["en"]
 	}
 	return router.Attrs{
-		"locale":        resolved.Locale,
-		"basePath":      resolved.BasePath,
-		"localizedPath": resolved.LocalizedPath,
-		"title":         content.Title,
-		"summary":       content.Summary,
-		"loader":        content.Loader,
+		"locale":        parseResolved.Locale,
+		"basePath":      parseResolved.BasePath,
+		"localizedPath": parseResolved.LocalizedPath,
+		"title":         parseContent.Title,
+		"summary":       parseContent.Summary,
+		"loader":        parseContent.Loader,
 	}, nil
 }
 
 func main() {
 	utils.DisableAllDebug()
 	ensureLocaleRoutingHash("/pricing")
-	r := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/pricing"})
-	for _, path := range []string{"/pricing", "/en/pricing", "/fr/pricing", "/ar/pricing"} {
-		r.Register(path, localeRoutePage, router.Options{Loader: localeRouteLoader})
+	parseR := router.NewHashRouter(router.RouterOptions{DefaultRoute: "/pricing"})
+	for _, parsePath := range []string{"/pricing", "/en/pricing", "/fr/pricing", "/ar/pricing"} {
+		parseR.Register(parsePath, localeRoutePage, router.Options{Loader: localeRouteLoader})
 	}
-	r.Mount("#app")
+	parseR.Mount("#app")
 	select {}
 }

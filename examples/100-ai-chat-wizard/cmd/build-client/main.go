@@ -10,28 +10,28 @@ import (
 )
 
 func main() {
-	repoRoot, err := findRepoRoot()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	parseRepoRoot, parseErr := parseFindRepoRoot()
+	if parseErr != nil {
+		fmt.Fprintln(os.Stderr, parseErr)
 		os.Exit(1)
 	}
-	if err := buildSharedTailwind(repoRoot); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	if parseErr2 := buildSharedTailwind(parseRepoRoot); parseErr2 != nil {
+		fmt.Fprintln(os.Stderr, parseErr2)
 		os.Exit(1)
 	}
 
-	legacyArtifacts := []string{
-		filepath.Join(repoRoot, "examples", "100-ai-chat-wizard", "client", "chat.wasm"),
-		filepath.Join(repoRoot, "examples", "100-ai-chat-wizard", "client", "backgroundworker", "background-worker.wasm"),
+	parseLegacyArtifacts := []string{
+		filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard", "client", "chat.wasm"),
+		filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard", "client", "backgroundworker", "background-worker.wasm"),
 	}
-	for _, legacyPath := range legacyArtifacts {
-		if err := removeLegacyArtifact(legacyPath); err != nil {
-			fmt.Fprintln(os.Stderr, err)
+	for _, parseLegacyPath := range parseLegacyArtifacts {
+		if parseErr3 := parseRemoveLegacyArtifact(parseLegacyPath); parseErr3 != nil {
+			fmt.Fprintln(os.Stderr, parseErr3)
 			os.Exit(1)
 		}
 	}
 
-	targets := []struct {
+	parseTargets := []struct {
 		label       string
 		packagePath string
 		outputPath  string
@@ -39,130 +39,130 @@ func main() {
 		{
 			label:       "chat client",
 			packagePath: "./examples/100-ai-chat-wizard/client",
-			outputPath:  filepath.Join(repoRoot, "examples", "100-ai-chat-wizard", "bin", "client", "app", "chat.wasm"),
+			outputPath:  filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard", "bin", "client", "app", "chat.wasm"),
 		},
 		{
 			label:       "background worker",
 			packagePath: "./examples/100-ai-chat-wizard/client/backgroundworker",
-			outputPath:  filepath.Join(repoRoot, "examples", "100-ai-chat-wizard", "bin", "client", "worker", "background-worker.wasm"),
+			outputPath:  filepath.Join(parseRepoRoot, "examples", "100-ai-chat-wizard", "bin", "client", "worker", "background-worker.wasm"),
 		},
 	}
 
-	for _, target := range targets {
-		if err := buildTarget(repoRoot, target.label, target.packagePath, target.outputPath); err != nil {
-			fmt.Fprintln(os.Stderr, err)
+	for _, parseTarget := range parseTargets {
+		if parseErr4 := buildTarget(parseRepoRoot, parseTarget.label, parseTarget.packagePath, parseTarget.outputPath); parseErr4 != nil {
+			fmt.Fprintln(os.Stderr, parseErr4)
 			os.Exit(1)
 		}
-		if err := writeBrotliSidecar(target.outputPath, target.outputPath+".br"); err != nil {
-			fmt.Fprintln(os.Stderr, err)
+		if parseErr5 := parseWriteBrotliSidecar(parseTarget.outputPath, parseTarget.outputPath+".br"); parseErr5 != nil {
+			fmt.Fprintln(os.Stderr, parseErr5)
 			os.Exit(1)
 		}
 	}
 }
 
 // buildSharedTailwind refreshes the shared examples Tailwind CSS before wasm compilation.
-func buildSharedTailwind(repoRoot string) error {
-	command := exec.Command("go", "run", "./tools/gwc", "tailwind")
-	command.Dir = repoRoot
-	command.Stdout = os.Stdout
-	command.Stderr = os.Stderr
-	if err := command.Run(); err != nil {
-		return fmt.Errorf("build shared tailwind css: %w", err)
+func buildSharedTailwind(parseRepoRoot string) error {
+	parseCommand := exec.Command("go", "run", "./tools/gwc", "tailwind")
+	parseCommand.Dir = parseRepoRoot
+	parseCommand.Stdout = os.Stdout
+	parseCommand.Stderr = os.Stderr
+	if parseErr := parseCommand.Run(); parseErr != nil {
+		return fmt.Errorf("build shared tailwind css: %w", parseErr)
 	}
 	return nil
 }
 
-func removeLegacyArtifact(path string) error {
-	if err := os.Remove(path); err != nil {
-		if os.IsNotExist(err) {
+func parseRemoveLegacyArtifact(parsePath string) error {
+	if parseErr := os.Remove(parsePath); parseErr != nil {
+		if os.IsNotExist(parseErr) {
 			return nil
 		}
-		return fmt.Errorf("remove legacy artifact %s: %w", path, err)
+		return fmt.Errorf("remove legacy artifact %s: %w", parsePath, parseErr)
 	}
-	fmt.Printf("removed legacy artifact: %s\n", path)
+	fmt.Printf("removed legacy artifact: %s\n", parsePath)
 	return nil
 }
 
-func findRepoRoot() (string, error) {
-	workingDir, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("get working directory: %w", err)
+func parseFindRepoRoot() (string, error) {
+	parseWorkingDir, parseErr := os.Getwd()
+	if parseErr != nil {
+		return "", fmt.Errorf("get working directory: %w", parseErr)
 	}
 
-	currentDir := workingDir
+	parseCurrentDir := parseWorkingDir
 	for {
-		if _, err := os.Stat(filepath.Join(currentDir, "go.mod")); err == nil {
-			return currentDir, nil
+		if _, parseErr2 := os.Stat(filepath.Join(parseCurrentDir, "go.mod")); parseErr2 == nil {
+			return parseCurrentDir, nil
 		}
-		parentDir := filepath.Dir(currentDir)
-		if parentDir == currentDir {
-			return "", fmt.Errorf("find repo root: go.mod not found from %s upward", workingDir)
+		parseParentDir := filepath.Dir(parseCurrentDir)
+		if parseParentDir == parseCurrentDir {
+			return "", fmt.Errorf("find repo root: go.mod not found from %s upward", parseWorkingDir)
 		}
-		currentDir = parentDir
+		parseCurrentDir = parseParentDir
 	}
 }
 
-func buildTarget(repoRoot string, label string, packagePath string, outputPath string) error {
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
-		return fmt.Errorf("prepare output directory for %s: %w", label, err)
+func buildTarget(parseRepoRoot string, parseLabel string, parsePackagePath string, parseOutputPath string) error {
+	if parseErr := os.MkdirAll(filepath.Dir(parseOutputPath), 0755); parseErr != nil {
+		return fmt.Errorf("prepare output directory for %s: %w", parseLabel, parseErr)
 	}
 
-	command := exec.Command("go", "build", "-o", outputPath, packagePath)
-	command.Dir = repoRoot
-	command.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
-	command.Stdout = os.Stdout
-	command.Stderr = os.Stderr
+	parseCommand := exec.Command("go", "build", "-o", parseOutputPath, parsePackagePath)
+	parseCommand.Dir = parseRepoRoot
+	parseCommand.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
+	parseCommand.Stdout = os.Stdout
+	parseCommand.Stderr = os.Stderr
 
-	if err := command.Run(); err != nil {
-		return fmt.Errorf("build %s: %w", label, err)
+	if parseErr2 := parseCommand.Run(); parseErr2 != nil {
+		return fmt.Errorf("build %s: %w", parseLabel, parseErr2)
 	}
 
-	artifactInfo, err := os.Stat(outputPath)
-	if err != nil {
-		return fmt.Errorf("stat %s artifact: %w", label, err)
+	parseArtifactInfo, parseErr3 := os.Stat(parseOutputPath)
+	if parseErr3 != nil {
+		return fmt.Errorf("stat %s artifact: %w", parseLabel, parseErr3)
 	}
-	fmt.Printf("built %s: %s (%d bytes)\n", label, outputPath, artifactInfo.Size())
+	fmt.Printf("built %s: %s (%d bytes)\n", parseLabel, parseOutputPath, parseArtifactInfo.Size())
 	return nil
 }
 
-func writeBrotliSidecar(sourcePath string, targetPath string) error {
-	inputBytes, err := os.ReadFile(sourcePath)
-	if err != nil {
-		return fmt.Errorf("read source artifact for brotli: %w", err)
+func parseWriteBrotliSidecar(parseSourcePath string, parseTargetPath string) error {
+	parseInputBytes, parseErr := os.ReadFile(parseSourcePath)
+	if parseErr != nil {
+		return fmt.Errorf("read source artifact for brotli: %w", parseErr)
 	}
-	tempFile, err := os.CreateTemp(filepath.Dir(targetPath), filepath.Base(targetPath)+".*.tmp")
-	if err != nil {
-		return fmt.Errorf("create brotli sidecar: %w", err)
+	parseTempFile, parseErr := os.CreateTemp(filepath.Dir(parseTargetPath), filepath.Base(parseTargetPath)+".*.tmp")
+	if parseErr != nil {
+		return fmt.Errorf("create brotli sidecar: %w", parseErr)
 	}
-	tempPath := tempFile.Name()
+	parseTempPath := parseTempFile.Name()
 	defer func() {
-		_ = tempFile.Close()
-		_ = os.Remove(tempPath)
+		_ = parseTempFile.Close()
+		_ = os.Remove(parseTempPath)
 	}()
 
-	brotliWriter := brotli.NewWriterLevel(tempFile, brotli.BestCompression)
-	if _, err := brotliWriter.Write(inputBytes); err != nil {
-		brotliWriter.Close()
-		return fmt.Errorf("write brotli sidecar: %w", err)
+	parseBrotliWriter := brotli.NewWriterLevel(parseTempFile, brotli.BestCompression)
+	if _, parseErr2 := parseBrotliWriter.Write(parseInputBytes); parseErr2 != nil {
+		parseBrotliWriter.Close()
+		return fmt.Errorf("write brotli sidecar: %w", parseErr2)
 	}
-	if err := brotliWriter.Close(); err != nil {
-		return fmt.Errorf("finalize brotli sidecar: %w", err)
+	if parseErr3 := parseBrotliWriter.Close(); parseErr3 != nil {
+		return fmt.Errorf("finalize brotli sidecar: %w", parseErr3)
 	}
-	if err := tempFile.Close(); err != nil {
-		return fmt.Errorf("close brotli sidecar temp file: %w", err)
+	if parseErr4 := parseTempFile.Close(); parseErr4 != nil {
+		return fmt.Errorf("close brotli sidecar temp file: %w", parseErr4)
 	}
-	if err := os.Rename(tempPath, targetPath); err != nil {
-		return fmt.Errorf("replace brotli sidecar: %w", err)
+	if parseErr5 := os.Rename(parseTempPath, parseTargetPath); parseErr5 != nil {
+		return fmt.Errorf("replace brotli sidecar: %w", parseErr5)
 	}
 
-	artifactInfo, err := os.Stat(targetPath)
-	if err != nil {
-		return fmt.Errorf("stat brotli sidecar: %w", err)
+	parseArtifactInfo, parseErr := os.Stat(parseTargetPath)
+	if parseErr != nil {
+		return fmt.Errorf("stat brotli sidecar: %w", parseErr)
 	}
-	compressionRatio := 0.0
-	if len(inputBytes) > 0 {
-		compressionRatio = (float64(artifactInfo.Size()) / float64(len(inputBytes))) * 100
+	parseCompressionRatio := 0.0
+	if len(parseInputBytes) > 0 {
+		parseCompressionRatio = (float64(parseArtifactInfo.Size()) / float64(len(parseInputBytes))) * 100
 	}
-	fmt.Printf("built brotli sidecar: %s (%d bytes, %.2f%% of raw)\n", targetPath, artifactInfo.Size(), compressionRatio)
+	fmt.Printf("built brotli sidecar: %s (%d bytes, %.2f%% of raw)\n", parseTargetPath, parseArtifactInfo.Size(), parseCompressionRatio)
 	return nil
 }

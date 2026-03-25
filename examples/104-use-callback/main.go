@@ -14,48 +14,48 @@ import (
 )
 
 func useCallbackExample() ui.Node {
-	total := ui.UseState(12)
-	step := ui.UseState(2)
-	draft := ui.UseState("")
-	renders := ui.UseRef(0)
-	renders.Set(renders.Get() + 1)
+	parseTotal := ui.UseState(12)
+	parseStep := ui.UseState(2)
+	parseDraft := ui.UseState("")
+	parseRenders := ui.UseRef(0)
+	parseRenders.Set(parseRenders.Get() + 1)
 
-	increment := ui.UseCallback(func() {
-		total.Update(func(previous int) int {
-			return previous + step.Get()
+	parseIncrement := ui.UseCallback(func() {
+		parseTotal.Update(func(parsePrevious int) int {
+			return parsePrevious + parseStep.Get()
 		})
-	}, step.Get())
+	}, parseStep.Get())
 
-	callbackRefreshes := ui.UseState(1)
-	lastStep := ui.UseRef(step.Get())
+	parseCallbackRefreshes := ui.UseState(1)
+	parseLastStep := ui.UseRef(parseStep.Get())
 	ui.UseEffect(func() func() {
-		currentStep := step.Get()
-		if currentStep != lastStep.Get() {
-			lastStep.Set(currentStep)
-			callbackRefreshes.Update(func(previous int) int {
-				return previous + 1
+		parseCurrentStep := parseStep.Get()
+		if parseCurrentStep != parseLastStep.Get() {
+			parseLastStep.Set(parseCurrentStep)
+			parseCallbackRefreshes.Update(func(parsePrevious2 int) int {
+				return parsePrevious2 + 1
 			})
 		}
 		return nil
-	}, increment)
+	}, parseIncrement)
 
-	updateDraft := ui.UseEvent(func(event ui.InputEvent) {
-		draft.Set(event.GetValue())
+	parseUpdateDraft := ui.UseEvent(func(parseEvent ui.InputEvent) {
+		parseDraft.Set(parseEvent.GetValue())
 	})
-	changeStep := ui.UseEvent(func(event ui.InputEvent) {
-		next := 1
-		fmt.Sscanf(event.GetValue(), "%d", &next)
-		if next < 1 {
-			next = 1
+	parseChangeStep := ui.UseEvent(func(parseEvent2 ui.InputEvent) {
+		parseNext := 1
+		fmt.Sscanf(parseEvent2.GetValue(), "%d", &parseNext)
+		if parseNext < 1 {
+			parseNext = 1
 		}
-		if next > 9 {
-			next = 9
+		if parseNext > 9 {
+			parseNext = 9
 		}
-		step.Set(next)
+		parseStep.Set(parseNext)
 	})
-	runIncrement := ui.UseEvent(func(event ui.MouseEvent) {
-		event.PreventDefault()
-		increment()
+	parseRunIncrement := ui.UseEvent(func(parseEvent3 ui.MouseEvent) {
+		parseEvent3.PreventDefault()
+		parseIncrement()
 	})
 
 	return shared.ExamplePage(
@@ -68,8 +68,8 @@ func useCallbackExample() ui.Node {
 					html.Label(html.Props{For: "use-callback-draft", Class: "text-sm font-semibold text-slate-200"}, html.Text("Unrelated draft text")),
 					html.Input(html.Props{
 						ID:          "use-callback-draft",
-						Value:       draft.Get(),
-						OnInput:     updateDraft,
+						Value:       parseDraft.Get(),
+						OnInput:     parseUpdateDraft,
 						Placeholder: "Type here to rerender without changing step",
 						Class:       "mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100",
 					}),
@@ -81,21 +81,21 @@ func useCallbackExample() ui.Node {
 						Type:    "number",
 						Min:     "1",
 						Max:     "9",
-						Value:   fmt.Sprintf("%d", step.Get()),
-						OnInput: changeStep,
+						Value:   fmt.Sprintf("%d", parseStep.Get()),
+						OnInput: parseChangeStep,
 						Class:   "mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-slate-100",
 					}),
 				),
 			),
 			html.Div(html.Props{Class: "mt-6 grid gap-4 md:grid-cols-4"},
-				shared.ExampleStat("Current total", fmt.Sprintf("%d", total.Get())),
-				shared.ExampleStat("Component renders", fmt.Sprintf("%d", renders.Get())),
-				shared.ExampleStat("UseCallback refreshes", fmt.Sprintf("%d", callbackRefreshes.Get())),
+				shared.ExampleStat("Current total", fmt.Sprintf("%d", parseTotal.Get())),
+				shared.ExampleStat("Component renders", fmt.Sprintf("%d", parseRenders.Get())),
+				shared.ExampleStat("UseCallback refreshes", fmt.Sprintf("%d", parseCallbackRefreshes.Get())),
 				shared.ExampleStat("Inline handler policy", "recreated every render"),
 			),
 			html.P(html.Props{Class: "mt-5 text-sm leading-7 text-slate-300"}, html.Text("Typing in the draft box rerenders the component, but the memoized increment callback stays stable because its only dependency is step. Changing step is the moment when UseCallback refreshes the closure.")),
 			html.Div(html.Props{Class: "mt-5 flex flex-wrap gap-3"},
-				shared.ExampleButton("Increment total", runIncrement),
+				shared.ExampleButton("Increment total", parseRunIncrement),
 			),
 		),
 		shared.ExamplePanel("Where each tool fits",

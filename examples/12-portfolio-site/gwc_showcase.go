@@ -80,17 +80,17 @@ func GWCShowcaseSection(_ Attrs) *Element {
 
 // Designed for dark backgrounds with semi-transparent cards and hover interactions.
 
-func GWCFeatureCard(icon, title, description string) *Element {
+func GWCFeatureCard(parseIcon, parseTitle, parseDescription string) *Element {
 
 	return Div(
 
 		Attrs{"class": "bg-white/5 backdrop-blur-sm p-6 rounded-xl hover:bg-white/10 transition-all duration-300 border border-white/10"},
 
-		Div(Attrs{"class": "text-3xl mb-4"}, icon),
+		Div(Attrs{"class": "text-3xl mb-4"}, parseIcon),
 
-		H3(Attrs{"class": "text-xl font-semibold mb-3"}, title),
+		H3(Attrs{"class": "text-xl font-semibold mb-3"}, parseTitle),
 
-		P(Attrs{"class": "text-gray-400"}, description),
+		P(Attrs{"class": "text-gray-400"}, parseDescription),
 	)
 
 }
@@ -223,26 +223,26 @@ func AdvancedFormShowcase(_ Attrs) *Element {
 
 // and smooth 3D flip animations between app view and code view.
 
-func LazyMiniAppCard(props Attrs) *Element {
-	icon := props["icon"].(string)
-	title := props["title"].(string)
-	description := props["description"].(string)
-	component := props["component"].(func(Attrs) *Element)
-	sourceUrl := props["sourceUrl"].(string)
+func LazyMiniAppCard(parseProps Attrs) *Element {
+	parseIcon := parseProps["icon"].(string)
+	parseTitle := parseProps["title"].(string)
+	parseDescription := parseProps["description"].(string)
+	parseComponent := parseProps["component"].(func(Attrs) *Element)
+	parseSourceUrl := parseProps["sourceUrl"].(string)
 
-	showSource, setShowSource := UseState(false)
+	parseShowSource, setShowSource := UseState(false)
 
-	sourceLoaded, setSourceLoaded := UseState(false)
+	parseSourceLoaded, setSourceLoaded := UseState(false)
 
 	shouldFetch, setShouldFetch := UseState(false)
 
 	// Use UseFetch but only when shouldFetch is true
 
-	fetchUrl := func() string {
+	parseFetchUrl := func() string {
 
 		if shouldFetch() {
 
-			return sourceUrl
+			return parseSourceUrl
 
 		}
 
@@ -250,51 +250,51 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 	}()
 
-	getFetchState, _ := UseFetch(fetchUrl)
+	getFetchState, _ := UseFetch(parseFetchUrl)
 
-	fetchState := getFetchState()
+	parseFetchState := getFetchState()
 
 	// Determine current source code and loading state
 
-	var sourceCode string
+	var parseSourceCode string
 
 	var isLoading bool
 
-	if !sourceLoaded() {
+	if !parseSourceLoaded() {
 
-		sourceCode = "// Click 'View Code' to load source from GitHub..."
+		parseSourceCode = "// Click 'View Code' to load source from GitHub..."
 
 		isLoading = false
 
-	} else if fetchState.Loading {
+	} else if parseFetchState.Loading {
 
-		sourceCode = ""
+		parseSourceCode = ""
 
 		isLoading = true
 
-	} else if fetchState.Error != "" {
+	} else if parseFetchState.Error != "" {
 
-		sourceCode = fmt.Sprintf("// Error fetching source code: %s\n// Please check the URL: %s", fetchState.Error, sourceUrl)
+		parseSourceCode = fmt.Sprintf("// Error fetching source code: %s\n// Please check the URL: %s", parseFetchState.Error, parseSourceUrl)
 
 		isLoading = false
 
-	} else if fetchState.Data != nil {
+	} else if parseFetchState.Data != nil {
 
-		sourceCode = fmt.Sprintf("%v", fetchState.Data)
+		parseSourceCode = fmt.Sprintf("%v", parseFetchState.Data)
 
 		isLoading = false
 
 	} else {
 
-		sourceCode = "// Source code not available"
+		parseSourceCode = "// Source code not available"
 
 		isLoading = false
 
 	}
 
-	toggleSource := UseEvent(func(event MouseEvent) {
+	parseToggleSource := UseEvent(func(parseEvent MouseEvent) {
 
-		if !showSource() && !sourceLoaded() {
+		if !parseShowSource() && !parseSourceLoaded() {
 
 			// First time viewing source - trigger the API call
 
@@ -306,15 +306,15 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 		}
 
-		setShowSource(!showSource())
+		setShowSource(!parseShowSource())
 
 	})
 
-	copyToClipboard := UseEvent(func(event MouseEvent) {
+	parseCopyToClipboard := UseEvent(func(parseEvent2 MouseEvent) {
 
-		if !isLoading && sourceCode != "" && sourceLoaded() {
+		if !isLoading && parseSourceCode != "" && parseSourceLoaded() {
 
-			js.Global().Get("navigator").Get("clipboard").Call("writeText", sourceCode)
+			js.Global().Get("navigator").Get("clipboard").Call("writeText", parseSourceCode)
 
 		}
 
@@ -339,7 +339,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 				"style": func() string {
 
-					if showSource() {
+					if parseShowSource() {
 
 						return "transform: rotateY(180deg); transform-style: preserve-3d;"
 
@@ -375,13 +375,13 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 							Attrs{"class": "flex items-center space-x-2"},
 
-							Span(Attrs{"class": "text-2xl"}, icon),
+							Span(Attrs{"class": "text-2xl"}, parseIcon),
 
 							Div(nil,
 
-								H3(Attrs{"class": "font-semibold text-white"}, title),
+								H3(Attrs{"class": "font-semibold text-white"}, parseTitle),
 
-								P(Attrs{"class": "text-xs text-gray-400"}, description),
+								P(Attrs{"class": "text-xs text-gray-400"}, parseDescription),
 							),
 						),
 
@@ -391,7 +391,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 								"class": "text-xs px-3 py-1 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all duration-300 hover:scale-105",
 
-								"onclick": toggleSource,
+								"onclick": parseToggleSource,
 							},
 
 							"</> View Code",
@@ -405,7 +405,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 					Attrs{"class": "flex-1 overflow-y-auto p-6 bg-transparent"},
 
-					CreateElement(component, nil),
+					CreateElement(parseComponent, nil),
 				),
 			),
 
@@ -434,7 +434,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 							Span(Attrs{"class": "text-green-400 text-lg"}, "{}"),
 
-							H3(Attrs{"class": "font-semibold text-white text-sm"}, title+" Source"),
+							H3(Attrs{"class": "font-semibold text-white text-sm"}, parseTitle+" Source"),
 						),
 
 						Button(
@@ -443,7 +443,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 								"class": "text-xs px-3 py-1 bg-blue-600 text-white rounded-full hover:bg-blue-500 transition-all duration-300 hover:scale-105",
 
-								"onclick": toggleSource,
+								"onclick": parseToggleSource,
 							},
 
 							"🎨 View App",
@@ -457,7 +457,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 					func() *Element {
 						// Only render content when showSource is true (back side is visible)
-						if !sourceLoaded() {
+						if !parseSourceLoaded() {
 							// Not loaded yet, show placeholder
 							return Pre(
 								Attrs{"class": "text-gray-400 text-sm font-mono whitespace-pre-wrap"},
@@ -486,18 +486,18 @@ func LazyMiniAppCard(props Attrs) *Element {
 						}
 
 						// Show source code
-						return HighlightGoCode(sourceCode)
+						return HighlightGoCode(parseSourceCode)
 
 					}(),
 
 					// Floating Clipboard Button (only show when not loading)
 
 					func() *Element {
-						if !showSource() {
+						if !parseShowSource() {
 							return nil
 						}
 
-						if !isLoading && sourceCode != "" && sourceLoaded() {
+						if !isLoading && parseSourceCode != "" && parseSourceLoaded() {
 
 							return Button(
 
@@ -505,7 +505,7 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 									"class": "absolute top-8 right-8 p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg shadow-lg transition-all duration-300 hover:scale-110 opacity-80 hover:opacity-100",
 
-									"onclick": copyToClipboard,
+									"onclick": parseCopyToClipboard,
 
 									"title": "Copy to clipboard",
 								},
@@ -527,24 +527,24 @@ func LazyMiniAppCard(props Attrs) *Element {
 
 // MiniAppCard creates a mini app showcase card with 3D flip animation and clipboard
 
-func MiniAppCard(props Attrs) *Element {
-	icon := props["icon"].(string)
-	title := props["title"].(string)
-	description := props["description"].(string)
-	component := props["component"].(func(Attrs) *Element)
-	sourceCode := props["sourceCode"].(string)
+func MiniAppCard(parseProps Attrs) *Element {
+	parseIcon := parseProps["icon"].(string)
+	parseTitle := parseProps["title"].(string)
+	parseDescription := parseProps["description"].(string)
+	parseComponent := parseProps["component"].(func(Attrs) *Element)
+	parseSourceCode := parseProps["sourceCode"].(string)
 
-	showSource, setShowSource := UseState(false)
+	parseShowSource, setShowSource := UseState(false)
 
-	toggleSource := UseEvent(func(event MouseEvent) {
+	parseToggleSource := UseEvent(func(parseEvent MouseEvent) {
 
-		setShowSource(!showSource())
+		setShowSource(!parseShowSource())
 
 	})
 
-	copyToClipboard := UseEvent(func(event MouseEvent) {
+	parseCopyToClipboard := UseEvent(func(parseEvent2 MouseEvent) {
 
-		js.Global().Get("navigator").Get("clipboard").Call("writeText", sourceCode)
+		js.Global().Get("navigator").Get("clipboard").Call("writeText", parseSourceCode)
 
 		// Could add a toast notification here
 
@@ -569,7 +569,7 @@ func MiniAppCard(props Attrs) *Element {
 
 				"style": func() string {
 
-					if showSource() {
+					if parseShowSource() {
 
 						return "transform: rotateY(180deg); transform-style: preserve-3d;"
 
@@ -605,13 +605,13 @@ func MiniAppCard(props Attrs) *Element {
 
 							Attrs{"class": "flex items-center space-x-2"},
 
-							Span(Attrs{"class": "text-2xl"}, icon),
+							Span(Attrs{"class": "text-2xl"}, parseIcon),
 
 							Div(nil,
 
-								H3(Attrs{"class": "font-semibold text-white"}, title),
+								H3(Attrs{"class": "font-semibold text-white"}, parseTitle),
 
-								P(Attrs{"class": "text-xs text-gray-400"}, description),
+								P(Attrs{"class": "text-xs text-gray-400"}, parseDescription),
 							),
 						),
 
@@ -621,7 +621,7 @@ func MiniAppCard(props Attrs) *Element {
 
 								"class": "text-xs px-3 py-1 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all duration-300 hover:scale-105",
 
-								"onclick": toggleSource,
+								"onclick": parseToggleSource,
 							},
 
 							"</> View Code",
@@ -635,7 +635,7 @@ func MiniAppCard(props Attrs) *Element {
 
 					Attrs{"class": "flex-1 overflow-y-auto p-6 bg-transparent"},
 
-					CreateElement(component, nil),
+					CreateElement(parseComponent, nil),
 				),
 			),
 
@@ -664,7 +664,7 @@ func MiniAppCard(props Attrs) *Element {
 
 							Span(Attrs{"class": "text-green-400 text-lg"}, "{}"),
 
-							H3(Attrs{"class": "font-semibold text-white text-sm"}, title+" Source"),
+							H3(Attrs{"class": "font-semibold text-white text-sm"}, parseTitle+" Source"),
 						),
 
 						Button(
@@ -673,7 +673,7 @@ func MiniAppCard(props Attrs) *Element {
 
 								"class": "text-xs px-3 py-1 bg-blue-600 text-white rounded-full hover:bg-blue-500 transition-all duration-300 hover:scale-105",
 
-								"onclick": toggleSource,
+								"onclick": parseToggleSource,
 							},
 
 							"🎨 View App",
@@ -686,16 +686,16 @@ func MiniAppCard(props Attrs) *Element {
 					Attrs{"class": "relative p-6 pb-12 h-full"},
 
 					func() *Element {
-						if !showSource() {
+						if !parseShowSource() {
 							return nil
 						}
-						return HighlightGoCode(sourceCode)
+						return HighlightGoCode(parseSourceCode)
 					}(),
 
 					// Floating Clipboard Button
 
 					func() *Element {
-						if !showSource() {
+						if !parseShowSource() {
 							return nil
 						}
 						return Button(
@@ -704,7 +704,7 @@ func MiniAppCard(props Attrs) *Element {
 
 								"class": "absolute top-8 right-8 p-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg shadow-lg transition-all duration-300 hover:scale-110 opacity-80 hover:opacity-100",
 
-								"onclick": copyToClipboard,
+								"onclick": parseCopyToClipboard,
 
 								"title": "Copy to clipboard",
 							},
@@ -721,17 +721,17 @@ func MiniAppCard(props Attrs) *Element {
 
 // Mini App 1: Click Counter
 
-func MiniClickCounter(props Attrs) *Element {
+func MiniClickCounter(parseProps Attrs) *Element {
 
-	clickCount, setClickCount := UseState(0)
+	parseClickCount, setClickCount := UseState(0)
 
-	incrementClicks := UseEvent(func(event MouseEvent) {
+	parseIncrementClicks := UseEvent(func(parseEvent MouseEvent) {
 
-		setClickCount(clickCount() + 1)
+		setClickCount(parseClickCount() + 1)
 
 	})
 
-	resetClicks := UseEvent(func(event MouseEvent) {
+	resetClicks := UseEvent(func(parseEvent2 MouseEvent) {
 
 		setClickCount(0)
 
@@ -741,13 +741,13 @@ func MiniClickCounter(props Attrs) *Element {
 
 		Attrs{"class": "text-center space-y-3"},
 
-		P(Attrs{"class": "text-2xl font-bold text-blue-400"}, Text(strconv.Itoa(clickCount()))),
+		P(Attrs{"class": "text-2xl font-bold text-blue-400"}, Text(strconv.Itoa(parseClickCount()))),
 
 		Div(
 
 			Attrs{"class": "space-x-2"},
 
-			Button(Attrs{"class": "px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700", "onclick": incrementClicks}, "+1"),
+			Button(Attrs{"class": "px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700", "onclick": parseIncrementClicks}, "+1"),
 
 			Button(Attrs{"class": "px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700", "onclick": resetClicks}, "Reset"),
 		),
@@ -757,9 +757,9 @@ func MiniClickCounter(props Attrs) *Element {
 
 // Mini App 2: Random Number Generator
 
-func MiniRandomizer(props Attrs) *Element {
+func MiniRandomizer(parseProps Attrs) *Element {
 
-	randomNum, setRandomNum := UseState(42)
+	parseRandomNum, setRandomNum := UseState(42)
 
 	// Initialize random seed once when component mounts
 	UseEffect(func() func() {
@@ -767,32 +767,32 @@ func MiniRandomizer(props Attrs) *Element {
 		return nil
 	})
 
-	generateRandom := UseEvent(func(event MouseEvent) {
+	parseGenerateRandom := UseEvent(func(parseEvent MouseEvent) {
 		// Use Go's native random number generator
-		newNum := rand.Intn(100) + 1
-		setRandomNum(newNum)
+		parseNewNum := rand.Intn(100) + 1
+		setRandomNum(parseNewNum)
 	})
 
 	return Div(
 
 		Attrs{"class": "text-center space-y-3"},
 
-		P(Attrs{"class": "text-2xl font-bold text-purple-400"}, Text(strconv.Itoa(randomNum()))),
+		P(Attrs{"class": "text-2xl font-bold text-purple-400"}, Text(strconv.Itoa(parseRandomNum()))),
 
-		Button(Attrs{"class": "px-4 py-2 bg-purple-600 text-white text-sm rounded hover:bg-purple-700", "onclick": generateRandom}, "Generate"),
+		Button(Attrs{"class": "px-4 py-2 bg-purple-600 text-white text-sm rounded hover:bg-purple-700", "onclick": parseGenerateRandom}, "Generate"),
 	)
 
 }
 
 // Mini App 3: Quick Note
 
-func MiniNotepad(props Attrs) *Element {
+func MiniNotepad(parseProps Attrs) *Element {
 
-	noteText, setNoteText := UseState("Sample note text")
+	parseNoteText, setNoteText := UseState("Sample note text")
 
-	updateNote := UseEvent(func(event MouseEvent) {
+	parseUpdateNote := UseEvent(func(parseEvent MouseEvent) {
 
-		if noteText() == "Sample note text" {
+		if parseNoteText() == "Sample note text" {
 
 			setNoteText("Updated note!")
 
@@ -812,16 +812,16 @@ func MiniNotepad(props Attrs) *Element {
 
 			Attrs{"class": "w-full p-3 border border-white/10 rounded text-sm bg-black/20 min-h-16"},
 
-			P(Attrs{"class": "text-white"}, noteText()),
+			P(Attrs{"class": "text-white"}, parseNoteText()),
 		),
 
 		Div(
 
 			Attrs{"class": "flex justify-between items-center"},
 
-			Button(Attrs{"class": "px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700", "onclick": updateNote}, "Edit Note"),
+			Button(Attrs{"class": "px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700", "onclick": parseUpdateNote}, "Edit Note"),
 
-			P(Attrs{"class": "text-xs text-gray-400"}, Text(strconv.Itoa(len(noteText()))), " characters"),
+			P(Attrs{"class": "text-xs text-gray-400"}, Text(strconv.Itoa(len(parseNoteText()))), " characters"),
 		),
 	)
 
@@ -829,25 +829,25 @@ func MiniNotepad(props Attrs) *Element {
 
 // Mini App 4: Color Picker
 
-func MiniColorPicker(props Attrs) *Element {
+func MiniColorPicker(parseProps Attrs) *Element {
 
-	selectedColor, setSelectedColor := UseState("bg-blue-500")
+	parseSelectedColor, setSelectedColor := UseState("bg-blue-500")
 
-	colors := []string{"bg-red-500", "bg-blue-500", "bg-green-500", "bg-yellow-500", "bg-purple-500", "bg-pink-500"}
+	parseColors := []string{"bg-red-500", "bg-blue-500", "bg-green-500", "bg-yellow-500", "bg-purple-500", "bg-pink-500"}
 
-	colorButtons := make([]interface{}, len(colors))
+	parseColorButtons := make([]interface{}, len(parseColors))
 
-	for i, color := range colors {
+	for parseI, parseColor := range parseColors {
 
-		currentColor := color
+		parseCurrentColor := parseColor
 
-		colorButtons[i] = Button(Attrs{
+		parseColorButtons[parseI] = Button(Attrs{
 
-			"class": "w-6 h-6 rounded-full " + color + " hover:scale-110 transition-transform",
+			"class": "w-6 h-6 rounded-full " + parseColor + " hover:scale-110 transition-transform",
 
-			"onclick": UseEvent(func(event MouseEvent) {
+			"onclick": UseEvent(func(parseEvent MouseEvent) {
 
-				setSelectedColor(currentColor)
+				setSelectedColor(parseCurrentColor)
 
 			}),
 		})
@@ -858,28 +858,28 @@ func MiniColorPicker(props Attrs) *Element {
 
 		Attrs{"class": "space-y-3"},
 
-		Div(Attrs{"class": "w-full h-16 rounded " + selectedColor()}),
+		Div(Attrs{"class": "w-full h-16 rounded " + parseSelectedColor()}),
 
-		Div(Attrs{"class": "flex space-x-2 justify-center"}, colorButtons...),
+		Div(Attrs{"class": "flex space-x-2 justify-center"}, parseColorButtons...),
 	)
 
 }
 
 // Mini App 5: Simple Timer
 
-func MiniTimer(props Attrs) *Element {
+func MiniTimer(parseProps Attrs) *Element {
 
-	timerCount, setTimerCount := UseState(0)
+	parseTimerCount, setTimerCount := UseState(0)
 
-	timerRunning, setTimerRunning := UseState(false)
+	parseTimerRunning, setTimerRunning := UseState(false)
 
-	toggleTimer := UseEvent(func(event MouseEvent) {
+	parseToggleTimer := UseEvent(func(parseEvent MouseEvent) {
 
-		setTimerRunning(!timerRunning())
+		setTimerRunning(!parseTimerRunning())
 
 	})
 
-	resetTimer := UseEvent(func(event MouseEvent) {
+	resetTimer := UseEvent(func(parseEvent2 MouseEvent) {
 
 		setTimerCount(0)
 
@@ -887,28 +887,28 @@ func MiniTimer(props Attrs) *Element {
 	})
 
 	// Define tick handler using UseEvent
-	tick := UseEvent(func() {
-		setTimerCount(timerCount() + 1)
+	parseTick := UseEvent(func() {
+		setTimerCount(parseTimerCount() + 1)
 	})
 
 	UseEffect(func() func() {
-		if timerRunning() {
-			timeoutID := js.Global().Call("setTimeout", tick, 1000)
-			_ = timeoutID
+		if parseTimerRunning() {
+			parseTimeoutID := js.Global().Call("setTimeout", parseTick, 1000)
+			_ = parseTimeoutID
 		}
 		return nil
 	})
 
 	return Div(
 		Attrs{"class": "text-center space-y-3"},
-		P(Attrs{"class": "text-2xl font-bold text-green-400"}, Text(strconv.Itoa(timerCount())), "s"),
+		P(Attrs{"class": "text-2xl font-bold text-green-400"}, Text(strconv.Itoa(parseTimerCount())), "s"),
 		Div(
 
 			Attrs{"class": "space-x-2"},
 
-			Button(Attrs{"class": "px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700", "onclick": toggleTimer}, func() string {
+			Button(Attrs{"class": "px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700", "onclick": parseToggleTimer}, func() string {
 
-				if timerRunning() {
+				if parseTimerRunning() {
 
 					return "Stop"
 
@@ -926,31 +926,31 @@ func MiniTimer(props Attrs) *Element {
 
 // Mini App 6: Vote Counter
 
-func MiniVoting(props Attrs) *Element {
+func MiniVoting(parseProps Attrs) *Element {
 
-	upvotes, setUpvotes := UseState(12)
+	parseUpvotes, setUpvotes := UseState(12)
 
-	downvotes, setDownvotes := UseState(3)
+	parseDownvotes, setDownvotes := UseState(3)
 
-	addUpvote := UseEvent(func(event MouseEvent) {
+	parseAddUpvote := UseEvent(func(parseEvent MouseEvent) {
 
-		setUpvotes(upvotes() + 1)
-
-	})
-
-	addDownvote := UseEvent(func(event MouseEvent) {
-
-		setDownvotes(downvotes() + 1)
+		setUpvotes(parseUpvotes() + 1)
 
 	})
 
-	totalVotes := upvotes() + downvotes()
+	parseAddDownvote := UseEvent(func(parseEvent2 MouseEvent) {
 
-	upvotePercentage := 0
+		setDownvotes(parseDownvotes() + 1)
 
-	if totalVotes > 0 {
+	})
 
-		upvotePercentage = (upvotes() * 100) / totalVotes
+	parseTotalVotes := parseUpvotes() + parseDownvotes()
+
+	parseUpvotePercentage := 0
+
+	if parseTotalVotes > 0 {
+
+		parseUpvotePercentage = (parseUpvotes() * 100) / parseTotalVotes
 
 	}
 
@@ -962,22 +962,22 @@ func MiniVoting(props Attrs) *Element {
 
 			Attrs{"class": "flex justify-between items-center"},
 
-			Button(Attrs{"class": "flex items-center space-x-1 px-2 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700", "onclick": addUpvote},
+			Button(Attrs{"class": "flex items-center space-x-1 px-2 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700", "onclick": parseAddUpvote},
 
 				Span(nil, "👍"),
 
-				Span(nil, Text(strconv.Itoa(upvotes()))),
+				Span(nil, Text(strconv.Itoa(parseUpvotes()))),
 			),
 
-			Button(Attrs{"class": "flex items-center space-x-1 px-2 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700", "onclick": addDownvote},
+			Button(Attrs{"class": "flex items-center space-x-1 px-2 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700", "onclick": parseAddDownvote},
 
 				Span(nil, "👎"),
 
-				Span(nil, Text(strconv.Itoa(downvotes()))),
+				Span(nil, Text(strconv.Itoa(parseDownvotes()))),
 			),
 		),
 
-		P(Attrs{"class": "text-xs text-gray-400 text-center"}, Text(strconv.Itoa(upvotePercentage)), "% approval"),
+		P(Attrs{"class": "text-xs text-gray-400 text-center"}, Text(strconv.Itoa(parseUpvotePercentage)), "% approval"),
 	)
 
 }
@@ -1360,7 +1360,7 @@ func WhyGoWebComponentsSection(_ Attrs) *Element {
 
 						// Store UseEvent result in variable for proper event handling
 
-						navigateToDocs := UseEvent(func(event MouseEvent) {
+						parseNavigateToDocs := UseEvent(func(parseEvent MouseEvent) {
 
 							router.Navigate("/docs")
 
@@ -1390,7 +1390,7 @@ func WhyGoWebComponentsSection(_ Attrs) *Element {
 
 									"class": "px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 font-semibold text-lg cursor-pointer",
 
-									"onclick": navigateToDocs,
+									"onclick": parseNavigateToDocs,
 								},
 
 								"📚 View Documentation",

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -15,7 +16,9 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -39,6 +42,9 @@ const (
 )
 
 var (
+	//go:embed scripts/livereload-client.txt
+	embeddedLivereloadClientScript string
+
 	buildEnv = []string{"GOOS=js", "GOARCH=wasm"}
 	upgrader = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
@@ -49,6 +55,34 @@ var (
 	livereloadConfigUserHomeDir = os.UserHomeDir
 	livereloadExecutablePath    = os.Executable
 )
+
+func livereloadClientScriptBytes(parsePath string) ([]byte, error) {
+	parseOverridePath := strings.TrimSpace(parsePath)
+	if parseOverridePath != "" {
+		parseContent, parseErr := os.ReadFile(parseOverridePath)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		return parseContent, nil
+	}
+
+	if strings.TrimSpace(embeddedLivereloadClientScript) == "" {
+		return nil, fmt.Errorf("embedded livereload client script is empty")
+	}
+
+	return []byte(embeddedLivereloadClientScript), nil
+}
+
+func terminateLivereloadProcessTree(parseCmd *exec.Cmd) {
+	if parseCmd == nil || parseCmd.Process == nil {
+		return
+	}
+	if runtime.GOOS == "windows" {
+		_ = exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(parseCmd.Process.Pid)).Run()
+		return
+	}
+	_ = parseCmd.Process.Kill()
+}
 
 func livereloadRunnerConfigFS() runnerconfig.FS {
 	return runnerconfig.FS{
@@ -207,52 +241,52 @@ type LiveReloadServer struct {
 	manifestPath         string
 }
 
-func livereloadReport(subject string, path string, summary string, consequence string, next string) diagnostics.Report {
+func livereloadReport(parseSubject string, parsePath string, parseSummary string, parseConsequence string, parseNext string) diagnostics.Report {
 	return diagnostics.NewReport(diagnostics.Options{
-		Summary:  strings.TrimSpace(summary),
+		Summary:  strings.TrimSpace(parseSummary),
 		Code:     "GWC-TOOL-LIVERELOAD",
-		Headline: "tool failure in " + strings.TrimSpace(subject),
-		Path:     strings.TrimSpace(path),
-		Runtime:  strings.TrimSpace(consequence),
-		Next:     strings.TrimSpace(next),
+		Headline: "tool failure in " + strings.TrimSpace(parseSubject),
+		Path:     strings.TrimSpace(parsePath),
+		Runtime:  strings.TrimSpace(parseConsequence),
+		Next:     strings.TrimSpace(parseNext),
 		Docs:     livereloadDocs,
 	})
 }
 
-func livereloadErrReport(subject string, path string, err error, consequence string, next string) diagnostics.Report {
-	return livereloadReport(subject, path, err.Error(), consequence, next)
+func livereloadErrReport(parseSubject string, parsePath string, parseErr error, parseConsequence string, parseNext string) diagnostics.Report {
+	return livereloadReport(parseSubject, parsePath, parseErr.Error(), parseConsequence, parseNext)
 }
 
-func emitLivereloadError(subject string, path string, err error, consequence string, next string) {
-	diagnostics.Emit(livereloadErrReport(subject, path, err, consequence, next))
+func emitLivereloadError(parseSubject string, parsePath string, parseErr error, parseConsequence string, parseNext string) {
+	diagnostics.Emit(livereloadErrReport(parseSubject, parsePath, parseErr, parseConsequence, parseNext))
 }
 
-func newUpdateClassification(updateType string, reloadType string, reason string, changedFiles []string) UpdateClassification {
-	classification := UpdateClassification{
-		Type:         updateType,
-		ReloadType:   reloadType,
-		Reason:       reason,
-		ChangedFiles: changedFiles,
+func newUpdateClassification(parseUpdateType string, parseReloadType string, parseReason string, parseChangedFiles []string) UpdateClassification {
+	parseClassification := UpdateClassification{
+		Type:         parseUpdateType,
+		ReloadType:   parseReloadType,
+		Reason:       parseReason,
+		ChangedFiles: parseChangedFiles,
 	}
-	classification.Plan = describeUpdateCompatibilityPlan(classification)
-	return classification
+	parseClassification.Plan = describeUpdateCompatibilityPlan(parseClassification)
+	return parseClassification
 }
 
-func describeUpdateCompatibilityPlan(classification UpdateClassification) UpdateCompatibilityPlan {
-	switch classification.ReloadType {
+func describeUpdateCompatibilityPlan(parseClassification UpdateClassification) UpdateCompatibilityPlan {
+	switch parseClassification.ReloadType {
 	case "hot":
-		plan := UpdateCompatibilityPlan{
+		parsePlan := UpdateCompatibilityPlan{
 			Summary:        "planned preserve-state hot reload; compatible local state is preserved, changed subtrees may remount, async and router work restart",
 			PreserveState:  true,
 			RemountSubtree: true,
 			RestartAsync:   true,
 		}
-		if len(classification.ChangedFiles) == 0 {
-			plan.Summary = "planned preserve-state hot reload; compatible local state is preserved"
-			plan.RemountSubtree = false
-			plan.RestartAsync = false
+		if len(parseClassification.ChangedFiles) == 0 {
+			parsePlan.Summary = "planned preserve-state hot reload; compatible local state is preserved"
+			parsePlan.RemountSubtree = false
+			parsePlan.RestartAsync = false
 		}
-		return plan
+		return parsePlan
 	case "full":
 		return UpdateCompatibilityPlan{
 			Summary:    "planned full reload; preserved local state will be discarded",
@@ -263,380 +297,380 @@ func describeUpdateCompatibilityPlan(classification UpdateClassification) Update
 	}
 }
 
-func newBuildStatus(phase string, phaseSummary string) BuildStatus {
+func newBuildStatus(parsePhase string, parsePhaseSummary string) BuildStatus {
 	return BuildStatus{
-		Phase:        strings.TrimSpace(phase),
-		PhaseSummary: strings.TrimSpace(phaseSummary),
+		Phase:        strings.TrimSpace(parsePhase),
+		PhaseSummary: strings.TrimSpace(parsePhaseSummary),
 	}
 }
 
-func fatalLivereloadStartup(subject string, path string, err error, next string) {
-	emitLivereloadError(subject, path, err, "the live reload tool did not finish startup, so no build or websocket loop is running.", next)
+func fatalLivereloadStartup(parseSubject string, parsePath string, parseErr error, parseNext string) {
+	emitLivereloadError(parseSubject, parsePath, parseErr, "the live reload tool did not finish startup, so no build or websocket loop is running.", parseNext)
 	os.Exit(1)
 }
 
 // NewLiveReloadServer creates a LiveReloadServer rooted at projectRoot with default options.
-func NewLiveReloadServer(projectRoot string) (*LiveReloadServer, error) {
-	return NewLiveReloadServerWithOptions(LiveReloadOptions{ProjectRoot: projectRoot})
+func NewLiveReloadServer(parseProjectRoot string) (*LiveReloadServer, error) {
+	return NewLiveReloadServerWithOptions(LiveReloadOptions{ProjectRoot: parseProjectRoot})
 }
 
 // NewLiveReloadServerWithOptions creates a LiveReloadServer from the given options.
-func NewLiveReloadServerWithOptions(options LiveReloadOptions) (*LiveReloadServer, error) {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create file watcher: %w", err)
+func NewLiveReloadServerWithOptions(parseOptions LiveReloadOptions) (*LiveReloadServer, error) {
+	parseWatcher, parseErr := fsnotify.NewWatcher()
+	if parseErr != nil {
+		return nil, fmt.Errorf("failed to create file watcher: %w", parseErr)
 	}
 
-	buildDir := strings.TrimSpace(options.MainPath)
+	buildDir := strings.TrimSpace(parseOptions.MainPath)
 	if buildDir != "" {
-		buildDir, err = resolveBuildDir(buildDir)
-		if err != nil {
-			return nil, err
+		buildDir, parseErr = resolveBuildDir(buildDir)
+		if parseErr != nil {
+			return nil, parseErr
 		}
 	}
-	projectRoot := strings.TrimSpace(options.ProjectRoot)
-	if projectRoot == "" {
+	parseProjectRoot := strings.TrimSpace(parseOptions.ProjectRoot)
+	if parseProjectRoot == "" {
 		if buildDir != "" {
-			projectRoot = buildDir
+			parseProjectRoot = buildDir
 		} else {
-			projectRoot = "."
+			parseProjectRoot = "."
 		}
 	}
-	projectRoot, err = filepath.Abs(projectRoot)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve project root: %w", err)
+	parseProjectRoot, parseErr = filepath.Abs(parseProjectRoot)
+	if parseErr != nil {
+		return nil, fmt.Errorf("failed to resolve project root: %w", parseErr)
 	}
 	if buildDir == "" {
-		buildDir = projectRoot
+		buildDir = parseProjectRoot
 	}
 
-	watchRoot := projectRoot
-	if moduleRoot := resolveModuleRoot(buildDir); moduleRoot != "" {
-		watchRoot = moduleRoot
+	parseWatchRoot := parseProjectRoot
+	if parseModuleRoot := resolveModuleRoot(buildDir); parseModuleRoot != "" {
+		parseWatchRoot = parseModuleRoot
 	}
 
-	indexPath := strings.TrimSpace(options.IndexPath)
-	if indexPath == "" {
-		indexPath = filepath.Join(projectRoot, "index.html")
-		if _, err := os.Stat(indexPath); err != nil {
-			indexPath = filepath.Join(projectRoot, "static", "index.html")
+	parseIndexPath := strings.TrimSpace(parseOptions.IndexPath)
+	if parseIndexPath == "" {
+		parseIndexPath = filepath.Join(parseProjectRoot, "index.html")
+		if _, parseErr2 := os.Stat(parseIndexPath); parseErr2 != nil {
+			parseIndexPath = filepath.Join(parseProjectRoot, "static", "index.html")
 		}
-	} else if !filepath.IsAbs(indexPath) {
-		indexPath = filepath.Join(projectRoot, indexPath)
+	} else if !filepath.IsAbs(parseIndexPath) {
+		parseIndexPath = filepath.Join(parseProjectRoot, parseIndexPath)
 	}
 
-	outputPath := strings.TrimSpace(options.OutputPath)
-	if outputPath == "" {
-		workspaceBuildRoot, resolveErr := runnerconfig.ResolveWorkspaceBuildRoot(watchRoot, livereloadRunnerConfigFS())
-		if resolveErr != nil {
-			return nil, fmt.Errorf("resolve workspace build root: %w", resolveErr)
+	parseOutputPath := strings.TrimSpace(parseOptions.OutputPath)
+	if parseOutputPath == "" {
+		parseWorkspaceBuildRoot, parseResolveErr := runnerconfig.ResolveWorkspaceBuildRoot(parseWatchRoot, livereloadRunnerConfigFS())
+		if parseResolveErr != nil {
+			return nil, fmt.Errorf("resolve workspace build root: %w", parseResolveErr)
 		}
-		relProjectPath, relErr := filepath.Rel(watchRoot, projectRoot)
-		if relErr != nil || strings.HasPrefix(relProjectPath, "..") {
-			relProjectPath = filepath.Base(projectRoot)
+		parseRelProjectPath, parseRelErr := filepath.Rel(parseWatchRoot, parseProjectRoot)
+		if parseRelErr != nil || strings.HasPrefix(parseRelProjectPath, "..") {
+			parseRelProjectPath = filepath.Base(parseProjectRoot)
 		}
-		outputPath = filepath.Join(workspaceBuildRoot, relProjectPath, "main.wasm")
-	} else if !filepath.IsAbs(outputPath) {
-		outputPath = filepath.Join(buildDir, outputPath)
+		parseOutputPath = filepath.Join(parseWorkspaceBuildRoot, parseRelProjectPath, "main.wasm")
+	} else if !filepath.IsAbs(parseOutputPath) {
+		parseOutputPath = filepath.Join(buildDir, parseOutputPath)
 	}
 
-	staticDir := resolveStaticDir(projectRoot)
+	parseStaticDir := resolveStaticDir(parseProjectRoot)
 
-	clientScriptPath := strings.TrimSpace(options.ClientScriptPath)
-	if clientScriptPath == "" {
-		clientScriptPath = resolveClientScriptPath()
-	} else if !filepath.IsAbs(clientScriptPath) {
-		clientScriptPath = filepath.Join(projectRoot, clientScriptPath)
+	parseClientScriptPath := strings.TrimSpace(parseOptions.ClientScriptPath)
+	if parseClientScriptPath == "" {
+		parseClientScriptPath = resolveClientScriptPath()
+	} else if !filepath.IsAbs(parseClientScriptPath) {
+		parseClientScriptPath = filepath.Join(parseProjectRoot, parseClientScriptPath)
 	}
 
-	host := strings.TrimSpace(options.Host)
-	if host == "" {
-		host = defaultHost
+	parseHost := strings.TrimSpace(parseOptions.Host)
+	if parseHost == "" {
+		parseHost = defaultHost
 	}
-	port := strings.TrimSpace(options.Port)
-	if port == "" {
-		port = defaultPort
+	parsePort := strings.TrimSpace(parseOptions.Port)
+	if parsePort == "" {
+		parsePort = defaultPort
 	}
 
-	manifestPath := outputPath + ".hotreload-manifest.json"
+	parseManifestPath := parseOutputPath + ".hotreload-manifest.json"
 
 	return &LiveReloadServer{
-		watcher:          watcher,
-		projectRoot:      projectRoot,
-		watchRoot:        watchRoot,
+		watcher:          parseWatcher,
+		projectRoot:      parseProjectRoot,
+		watchRoot:        parseWatchRoot,
 		buildDir:         buildDir,
-		indexPath:        indexPath,
-		outputPath:       outputPath,
-		staticDir:        staticDir,
-		clientScriptPath: clientScriptPath,
-		host:             host,
-		port:             port,
-		alwaysHotReload:  options.AlwaysHotReload,
+		indexPath:        parseIndexPath,
+		outputPath:       parseOutputPath,
+		staticDir:        parseStaticDir,
+		clientScriptPath: parseClientScriptPath,
+		host:             parseHost,
+		port:             parsePort,
+		alwaysHotReload:  parseOptions.AlwaysHotReload,
 		clients:          make(map[*websocket.Conn]ClientSession),
 		changedFiles:     make(map[string]time.Time),
-		modulePath:       resolveModulePath(watchRoot),
-		manifestPath:     manifestPath,
+		modulePath:       resolveModulePath(parseWatchRoot),
+		manifestPath:     parseManifestPath,
 	}, nil
 }
 
-func (lrs *LiveReloadServer) newHTTPHandler() http.Handler {
-	mux := http.NewServeMux()
-	fileServer := http.FileServer(http.Dir(lrs.projectRoot))
-	mux.HandleFunc("/__gwc/status", lrs.handleStatus)
-	mux.HandleFunc("/__gwc/clients/disconnect", lrs.handleClientDisconnect)
-	if lrs.staticDir != "" {
-		staticFileServer := http.StripPrefix("/static/", http.FileServer(http.Dir(lrs.staticDir)))
-		mux.Handle("/static/", staticFileServer)
+func (parseLrs *LiveReloadServer) newHTTPHandler() http.Handler {
+	parseMux := http.NewServeMux()
+	parseFileServer := http.FileServer(http.Dir(parseLrs.projectRoot))
+	parseMux.HandleFunc("/__gwc/status", parseLrs.handleStatus)
+	parseMux.HandleFunc("/__gwc/clients/disconnect", parseLrs.handleClientDisconnect)
+	if parseLrs.staticDir != "" {
+		parseStaticFileServer := http.StripPrefix("/static/", http.FileServer(http.Dir(parseLrs.staticDir)))
+		parseMux.Handle("/static/", parseStaticFileServer)
 	}
-	servedWASMPath := lrs.servedWASMPath()
-	if servedWASMPath != "" {
-		mux.HandleFunc(servedWASMPath, func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, lrs.outputPath)
+	parseServedWASMPath := parseLrs.servedWASMPath()
+	if parseServedWASMPath != "" {
+		parseMux.HandleFunc(parseServedWASMPath, func(parseW http.ResponseWriter, parseR *http.Request) {
+			http.ServeFile(parseW, parseR, parseLrs.outputPath)
 		})
 	}
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" {
-			lrs.handleHTML(w, r, lrs.indexPath)
+	parseMux.HandleFunc("/", func(parseW2 http.ResponseWriter, parseR2 *http.Request) {
+		if parseR2.URL.Path == "/" {
+			parseLrs.handleHTML(parseW2, parseR2, parseLrs.indexPath)
 			return
 		}
-		if strings.HasSuffix(r.URL.Path, ".html") {
-			relPath := strings.TrimPrefix(r.URL.Path, "/")
-			lrs.handleHTML(w, r, filepath.Join(lrs.projectRoot, filepath.FromSlash(relPath)))
+		if strings.HasSuffix(parseR2.URL.Path, ".html") {
+			parseRelPath := strings.TrimPrefix(parseR2.URL.Path, "/")
+			parseLrs.handleHTML(parseW2, parseR2, filepath.Join(parseLrs.projectRoot, filepath.FromSlash(parseRelPath)))
 			return
 		}
-		fileServer.ServeHTTP(w, r)
+		parseFileServer.ServeHTTP(parseW2, parseR2)
 	})
-	mux.HandleFunc("/ws", lrs.handleWebSocketManaged)
-	return mux
+	parseMux.HandleFunc("/ws", parseLrs.handleWebSocketManaged)
+	return parseMux
 }
 
-func (lrs *LiveReloadServer) statusURL() string {
-	return "http://" + netAddr(lrs.host, lrs.port) + "/__gwc/status"
+func (parseLrs *LiveReloadServer) statusURL() string {
+	return "http://" + netAddr(parseLrs.host, parseLrs.port) + "/__gwc/status"
 }
 
-func (lrs *LiveReloadServer) websocketURL() string {
-	return "ws://" + netAddr(lrs.host, lrs.port) + "/ws"
+func (parseLrs *LiveReloadServer) websocketURL() string {
+	return "ws://" + netAddr(parseLrs.host, parseLrs.port) + "/ws"
 }
 
-func (lrs *LiveReloadServer) currentStatus() LiveReloadStatus {
-	lrs.mutex.Lock()
-	lastClassification := lrs.lastClassification
-	var lastBuild *BuildStatus
-	var currentError *BuildStatus
-	if lrs.lastBuildStatus != nil {
-		buildCopy := *lrs.lastBuildStatus
-		lastBuild = &buildCopy
+func (parseLrs *LiveReloadServer) currentStatus() LiveReloadStatus {
+	parseLrs.mutex.Lock()
+	parseLastClassification := parseLrs.lastClassification
+	var parseLastBuild *BuildStatus
+	var parseCurrentError *BuildStatus
+	if parseLrs.lastBuildStatus != nil {
+		buildCopy := *parseLrs.lastBuildStatus
+		parseLastBuild = &buildCopy
 		if !buildCopy.Success {
-			errorCopy := buildCopy
-			currentError = &errorCopy
+			parseErrorCopy := buildCopy
+			parseCurrentError = &parseErrorCopy
 		}
 	}
-	lrs.mutex.Unlock()
+	parseLrs.mutex.Unlock()
 
-	clients := lrs.currentClientSessions()
-	clientCount := len(clients)
+	parseClients := parseLrs.currentClientSessions()
+	parseClientCount := len(parseClients)
 
-	status := LiveReloadStatus{
+	parseStatus := LiveReloadStatus{
 		Mode:               "livereload-wasm",
-		ListeningURL:       "http://" + netAddr(lrs.host, lrs.port),
-		StatusURL:          lrs.statusURL(),
-		WebSocketURL:       lrs.websocketURL(),
-		ProjectRoot:        lrs.projectRoot,
-		WatchRoot:          lrs.watchRoot,
-		BuildDir:           lrs.buildDir,
-		ServedWASMPath:     lrs.servedWASMPath(),
-		HotReloadEnabled:   lrs.alwaysHotReload,
-		HotReloadEligible:  lrs.alwaysHotReload || lastClassification.ReloadType == "hot",
-		LastClassification: lastClassification,
-		LastBuild:          lastBuild,
-		CurrentError:       currentError,
-		ClientCount:        clientCount,
-		Clients:            clients,
+		ListeningURL:       "http://" + netAddr(parseLrs.host, parseLrs.port),
+		StatusURL:          parseLrs.statusURL(),
+		WebSocketURL:       parseLrs.websocketURL(),
+		ProjectRoot:        parseLrs.projectRoot,
+		WatchRoot:          parseLrs.watchRoot,
+		BuildDir:           parseLrs.buildDir,
+		ServedWASMPath:     parseLrs.servedWASMPath(),
+		HotReloadEnabled:   parseLrs.alwaysHotReload,
+		HotReloadEligible:  parseLrs.alwaysHotReload || parseLastClassification.ReloadType == "hot",
+		LastClassification: parseLastClassification,
+		LastBuild:          parseLastBuild,
+		CurrentError:       parseCurrentError,
+		ClientCount:        parseClientCount,
+		Clients:            parseClients,
 	}
-	return status
+	return parseStatus
 }
 
-func (lrs *LiveReloadServer) currentClientSessions() []ClientSession {
-	lrs.clientsMutex.RLock()
-	defer lrs.clientsMutex.RUnlock()
+func (parseLrs *LiveReloadServer) currentClientSessions() []ClientSession {
+	parseLrs.clientsMutex.RLock()
+	defer parseLrs.clientsMutex.RUnlock()
 
-	if len(lrs.clients) == 0 {
+	if len(parseLrs.clients) == 0 {
 		return nil
 	}
 
-	sessions := make([]ClientSession, 0, len(lrs.clients))
-	for _, session := range lrs.clients {
-		sessions = append(sessions, session)
+	parseSessions := make([]ClientSession, 0, len(parseLrs.clients))
+	for _, parseSession := range parseLrs.clients {
+		parseSessions = append(parseSessions, parseSession)
 	}
-	sort.Slice(sessions, func(i, j int) bool {
-		if sessions[i].ConnectedAt.Equal(sessions[j].ConnectedAt) {
-			return sessions[i].ID < sessions[j].ID
+	sort.Slice(parseSessions, func(parseI, parseJ int) bool {
+		if parseSessions[parseI].ConnectedAt.Equal(parseSessions[parseJ].ConnectedAt) {
+			return parseSessions[parseI].ID < parseSessions[parseJ].ID
 		}
-		return sessions[i].ConnectedAt.Before(sessions[j].ConnectedAt)
+		return parseSessions[parseI].ConnectedAt.Before(parseSessions[parseJ].ConnectedAt)
 	})
-	return sessions
+	return parseSessions
 }
 
-func (lrs *LiveReloadServer) handleStatus(w http.ResponseWriter, r *http.Request) {
-	status := lrs.currentStatus()
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	encoded, err := json.MarshalIndent(status, "", "  ")
-	if err != nil {
-		diagnostics.WriteHTTPError(w, http.StatusInternalServerError, livereloadErrReport(
+func (parseLrs *LiveReloadServer) handleStatus(parseW http.ResponseWriter, parseR *http.Request) {
+	parseStatus := parseLrs.currentStatus()
+	parseW.Header().Set("Content-Type", "application/json; charset=utf-8")
+	parseEncoded, parseErr := json.MarshalIndent(parseStatus, "", "  ")
+	if parseErr != nil {
+		diagnostics.WriteHTTPError(parseW, http.StatusInternalServerError, livereloadErrReport(
 			"LiveReloadServer.handleStatus.marshal",
-			r.URL.Path,
-			err,
+			parseR.URL.Path,
+			parseErr,
 			"the machine-readable dev status endpoint could not serialize the current livereload state.",
 			"Inspect the status payload fields and marshalling assumptions before relying on editor or tooling integrations.",
 		))
 		return
 	}
-	_, _ = w.Write(encoded)
+	_, _ = parseW.Write(parseEncoded)
 }
 
-func (lrs *LiveReloadServer) handleClientDisconnect(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.Header().Set("Allow", http.MethodPost)
-		http.Error(w, "disconnect endpoint only supports POST", http.StatusMethodNotAllowed)
+func (parseLrs *LiveReloadServer) handleClientDisconnect(parseW http.ResponseWriter, parseR *http.Request) {
+	if parseR.Method != http.MethodPost {
+		parseW.Header().Set("Allow", http.MethodPost)
+		http.Error(parseW, "disconnect endpoint only supports POST", http.StatusMethodNotAllowed)
 		return
 	}
 
-	request := clientDisconnectRequest{
-		ClientID: strings.TrimSpace(r.URL.Query().Get("clientID")),
-		All:      strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("all")), "true"),
+	parseRequest := clientDisconnectRequest{
+		ClientID: strings.TrimSpace(parseR.URL.Query().Get("clientID")),
+		All:      strings.EqualFold(strings.TrimSpace(parseR.URL.Query().Get("all")), "true"),
 	}
-	if r.Body != nil && r.ContentLength != 0 {
-		defer r.Body.Close()
-		var decoded clientDisconnectRequest
-		if err := json.NewDecoder(r.Body).Decode(&decoded); err != nil {
-			http.Error(w, "invalid disconnect request payload", http.StatusBadRequest)
+	if parseR.Body != nil && parseR.ContentLength != 0 {
+		defer parseR.Body.Close()
+		var parseDecoded clientDisconnectRequest
+		if parseErr := json.NewDecoder(parseR.Body).Decode(&parseDecoded); parseErr != nil {
+			http.Error(parseW, "invalid disconnect request payload", http.StatusBadRequest)
 			return
 		}
-		if strings.TrimSpace(decoded.ClientID) != "" {
-			request.ClientID = strings.TrimSpace(decoded.ClientID)
+		if strings.TrimSpace(parseDecoded.ClientID) != "" {
+			parseRequest.ClientID = strings.TrimSpace(parseDecoded.ClientID)
 		}
-		request.All = request.All || decoded.All
+		parseRequest.All = parseRequest.All || parseDecoded.All
 	}
-	if !request.All && request.ClientID == "" {
-		http.Error(w, "specify clientID or all=true", http.StatusBadRequest)
+	if !parseRequest.All && parseRequest.ClientID == "" {
+		http.Error(parseW, "specify clientID or all=true", http.StatusBadRequest)
 		return
 	}
 
-	disconnectedIDs, remaining := lrs.disconnectClients(request.ClientID, request.All)
-	response := clientDisconnectResponse{
-		DisconnectedIDs: disconnectedIDs,
-		Disconnected:    len(disconnectedIDs),
-		Remaining:       remaining,
+	parseDisconnectedIDs, parseRemaining := parseLrs.disconnectClients(parseRequest.ClientID, parseRequest.All)
+	parseResponse := clientDisconnectResponse{
+		DisconnectedIDs: parseDisconnectedIDs,
+		Disconnected:    len(parseDisconnectedIDs),
+		Remaining:       parseRemaining,
 	}
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	encoded, err := json.MarshalIndent(response, "", "  ")
-	if err != nil {
-		http.Error(w, "failed to encode disconnect response", http.StatusInternalServerError)
+	parseW.Header().Set("Content-Type", "application/json; charset=utf-8")
+	parseEncoded, parseErr2 := json.MarshalIndent(parseResponse, "", "  ")
+	if parseErr2 != nil {
+		http.Error(parseW, "failed to encode disconnect response", http.StatusInternalServerError)
 		return
 	}
-	_, _ = w.Write(encoded)
+	_, _ = parseW.Write(parseEncoded)
 }
 
-func (lrs *LiveReloadServer) disconnectClients(clientID string, disconnectAll bool) ([]string, int) {
-	lrs.clientsMutex.Lock()
-	targets := make([]*websocket.Conn, 0, len(lrs.clients))
-	disconnectedIDs := make([]string, 0, len(lrs.clients))
-	for conn, session := range lrs.clients {
-		if disconnectAll || session.ID == clientID {
-			targets = append(targets, conn)
-			disconnectedIDs = append(disconnectedIDs, session.ID)
-			delete(lrs.clients, conn)
-			if !disconnectAll {
+func (parseLrs *LiveReloadServer) disconnectClients(parseClientID string, isDisconnectAll bool) ([]string, int) {
+	parseLrs.clientsMutex.Lock()
+	parseTargets := make([]*websocket.Conn, 0, len(parseLrs.clients))
+	parseDisconnectedIDs := make([]string, 0, len(parseLrs.clients))
+	for parseConn, parseSession := range parseLrs.clients {
+		if isDisconnectAll || parseSession.ID == parseClientID {
+			parseTargets = append(parseTargets, parseConn)
+			parseDisconnectedIDs = append(parseDisconnectedIDs, parseSession.ID)
+			delete(parseLrs.clients, parseConn)
+			if !isDisconnectAll {
 				break
 			}
 		}
 	}
-	remaining := len(lrs.clients)
-	lrs.clientsMutex.Unlock()
+	parseRemaining := len(parseLrs.clients)
+	parseLrs.clientsMutex.Unlock()
 
-	sort.Strings(disconnectedIDs)
-	for _, conn := range targets {
-		_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Disconnected by gwc dashboard"), time.Now().Add(time.Second))
-		_ = conn.Close()
+	sort.Strings(parseDisconnectedIDs)
+	for _, parseConn2 := range parseTargets {
+		_ = parseConn2.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Disconnected by gwc dashboard"), time.Now().Add(time.Second))
+		_ = parseConn2.Close()
 	}
-	return disconnectedIDs, remaining
+	return parseDisconnectedIDs, parseRemaining
 }
 
-func (lrs *LiveReloadServer) nextClientSession() ClientSession {
-	now := time.Now().UTC()
+func (parseLrs *LiveReloadServer) nextClientSession() ClientSession {
+	parseNow := time.Now().UTC()
 	return ClientSession{
-		ID:          fmt.Sprintf("client-%d", atomic.AddUint64(&lrs.nextClientID, 1)),
-		ConnectedAt: now,
-		LastSeenAt:  now,
+		ID:          fmt.Sprintf("client-%d", atomic.AddUint64(&parseLrs.nextClientID, 1)),
+		ConnectedAt: parseNow,
+		LastSeenAt:  parseNow,
 	}
 }
 
-func (lrs *LiveReloadServer) markClientSeen(conn *websocket.Conn) {
-	lrs.clientsMutex.Lock()
-	defer lrs.clientsMutex.Unlock()
-	session, ok := lrs.clients[conn]
-	if !ok {
+func (parseLrs *LiveReloadServer) markClientSeen(parseConn *websocket.Conn) {
+	parseLrs.clientsMutex.Lock()
+	defer parseLrs.clientsMutex.Unlock()
+	parseSession, parseOk := parseLrs.clients[parseConn]
+	if !parseOk {
 		return
 	}
-	session.LastSeenAt = time.Now().UTC()
-	lrs.clients[conn] = session
+	parseSession.LastSeenAt = time.Now().UTC()
+	parseLrs.clients[parseConn] = parseSession
 }
 
-func (lrs *LiveReloadServer) Start() error {
+func (parseLrs *LiveReloadServer) Start() error {
 	// Watch the module root so shared package changes rebuild example-specific servers.
-	err := lrs.addWatchers(lrs.watchRoot)
-	if err != nil {
-		return fmt.Errorf("failed to add watchers: %w", err)
+	parseErr := parseLrs.addWatchers(parseLrs.watchRoot)
+	if parseErr != nil {
+		return fmt.Errorf("failed to add watchers: %w", parseErr)
 	}
 
-	lrs.httpServer = &http.Server{
-		Addr:    netAddr(lrs.host, lrs.port),
-		Handler: lrs.newHTTPHandler(),
+	parseLrs.httpServer = &http.Server{
+		Addr:    netAddr(parseLrs.host, parseLrs.port),
+		Handler: parseLrs.newHTTPHandler(),
 	}
 
 	// Start HTTP server in a goroutine
 	go func() {
-		fmt.Printf("🌐 Live reload server starting on http://%s\n", netAddr(lrs.host, lrs.port))
-		if err := lrs.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			emitLivereloadError("LiveReloadServer.Start.ListenAndServe", netAddr(lrs.host, lrs.port), err, "the HTTP listener stopped unexpectedly and browser clients can no longer connect.", "Inspect the bind address and listener lifetime for the livereload server.")
+		fmt.Printf("🌐 Live reload server starting on http://%s\n", netAddr(parseLrs.host, parseLrs.port))
+		if parseErr2 := parseLrs.httpServer.ListenAndServe(); parseErr2 != nil && parseErr2 != http.ErrServerClosed {
+			emitLivereloadError("LiveReloadServer.Start.ListenAndServe", netAddr(parseLrs.host, parseLrs.port), parseErr2, "the HTTP listener stopped unexpectedly and browser clients can no longer connect.", "Inspect the bind address and listener lifetime for the livereload server.")
 		}
 	}()
 
 	// Handle interrupt signal for graceful shutdown
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	parseC := make(chan os.Signal, 1)
+	signal.Notify(parseC, os.Interrupt, syscall.SIGTERM)
 
 	fmt.Println("🔄 Live reload started. Watching for .go file changes...")
-	fmt.Printf("📂 Watching directory: %s\n", lrs.watchRoot)
-	if lrs.watchRoot != lrs.projectRoot {
-		fmt.Printf("🗂️  Serving project root: %s\n", lrs.projectRoot)
+	fmt.Printf("📂 Watching directory: %s\n", parseLrs.watchRoot)
+	if parseLrs.watchRoot != parseLrs.projectRoot {
+		fmt.Printf("🗂️  Serving project root: %s\n", parseLrs.projectRoot)
 	}
-	fmt.Printf("🧩 Building from: %s\n", lrs.buildDir)
+	fmt.Printf("🧩 Building from: %s\n", parseLrs.buildDir)
 	fmt.Printf("⏱️  Debounce time: %v\n", debounceTime)
-	fmt.Printf("🌐 Server running on http://%s\n", netAddr(lrs.host, lrs.port))
+	fmt.Printf("🌐 Server running on http://%s\n", netAddr(parseLrs.host, parseLrs.port))
 	fmt.Println("🛑 Press Ctrl+C to stop")
 
 	// Trigger initial build
-	lrs.triggerBuild()
+	parseLrs.triggerBuild()
 
 	go func() {
 		for {
 			select {
-			case event, ok := <-lrs.watcher.Events:
-				if !ok {
+			case parseEvent, parseOk := <-parseLrs.watcher.Events:
+				if !parseOk {
 					return
 				}
-				lrs.handleFileEvent(event)
+				parseLrs.handleFileEvent(parseEvent)
 
-			case err, ok := <-lrs.watcher.Errors:
-				if !ok {
+			case parseErr3, parseOk2 := <-parseLrs.watcher.Errors:
+				if !parseOk2 {
 					return
 				}
-				emitLivereloadError("LiveReloadServer.Start.watcher", lrs.watchRoot, err, "file watching degraded and future source changes may not trigger rebuilds.", "Inspect filesystem watcher limits and the watched root for this livereload session.")
+				emitLivereloadError("LiveReloadServer.Start.watcher", parseLrs.watchRoot, parseErr3, "file watching degraded and future source changes may not trigger rebuilds.", "Inspect filesystem watcher limits and the watched root for this livereload session.")
 
-			case <-c:
+			case <-parseC:
 				fmt.Println("\n🛑 Shutting down live reload server...")
-				lrs.cleanup()
+				parseLrs.cleanup()
 				os.Exit(0)
 			}
 		}
@@ -646,225 +680,225 @@ func (lrs *LiveReloadServer) Start() error {
 	select {}
 }
 
-func (lrs *LiveReloadServer) handleHTML(w http.ResponseWriter, r *http.Request, filePath string) {
+func (parseLrs *LiveReloadServer) handleHTML(parseW http.ResponseWriter, parseR *http.Request, parseFilePath string) {
 	// Read the original html file
-	htmlContent, err := os.ReadFile(filePath)
-	if err != nil {
-		http.NotFound(w, r)
+	parseHtmlContent, parseErr := os.ReadFile(parseFilePath)
+	if parseErr != nil {
+		http.NotFound(parseW, parseR)
 		return
 	}
 
-	scriptContent, err := livereloadClientScriptBytes(lrs.clientScriptPath)
-	if err != nil {
-		scriptPath := strings.TrimSpace(lrs.clientScriptPath)
-		if scriptPath == "" {
-			scriptPath = "embedded launcher client script"
+	parseScriptContent, parseErr := livereloadClientScriptBytes(parseLrs.clientScriptPath)
+	if parseErr != nil {
+		parseScriptPath := strings.TrimSpace(parseLrs.clientScriptPath)
+		if parseScriptPath == "" {
+			parseScriptPath = "embedded launcher client script"
 		}
-		diagnostics.WriteHTTPError(w, http.StatusInternalServerError, livereloadErrReport(
+		diagnostics.WriteHTTPError(parseW, http.StatusInternalServerError, livereloadErrReport(
 			"LiveReloadServer.handleHTML.clientScript",
-			scriptPath,
-			err,
+			parseScriptPath,
+			parseErr,
 			"the HTML response could not inject the livereload client script, so browser reload coordination is unavailable for this request.",
 			"Verify the configured livereload client override path or restore the embedded launcher client asset before serving HTML through this tool.",
 		))
 		return
 	}
 
-	configScript := fmt.Sprintf("\n<script>\nwindow.__GWC_LIVERELOAD_CONFIG = Object.assign({}, window.__GWC_LIVERELOAD_CONFIG || {}, { wasmPath: %q });\n</script>", lrs.servedWASMPath())
+	parseConfigScript := fmt.Sprintf("\n<script>\nwindow.__GWC_LIVERELOAD_CONFIG = Object.assign({}, window.__GWC_LIVERELOAD_CONFIG || {}, { wasmPath: %q });\n</script>", parseLrs.servedWASMPath())
 
 	// Inject the live reload script before closing </body> tag
-	liveReloadScript := fmt.Sprintf("%s\n<script>\n%s\n</script>", configScript, string(scriptContent))
+	parseLiveReloadScript := fmt.Sprintf("%s\n<script>\n%s\n</script>", parseConfigScript, string(parseScriptContent))
 
 	// Insert the script before closing </body> tag
-	modifiedContent := strings.Replace(string(htmlContent), "</body>", liveReloadScript+"\n</body>", 1)
+	parseModifiedContent := strings.Replace(string(parseHtmlContent), "</body>", parseLiveReloadScript+"\n</body>", 1)
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(modifiedContent))
+	parseW.Header().Set("Content-Type", "text/html; charset=utf-8")
+	parseW.Write([]byte(parseModifiedContent))
 }
 
-func (lrs *LiveReloadServer) servedWASMPath() string {
-	if lrs == nil {
+func (parseLrs *LiveReloadServer) servedWASMPath() string {
+	if parseLrs == nil {
 		return "/main.wasm"
 	}
 
-	outputPath := strings.TrimSpace(lrs.outputPath)
-	if outputPath == "" {
+	parseOutputPath := strings.TrimSpace(parseLrs.outputPath)
+	if parseOutputPath == "" {
 		return "/main.wasm"
 	}
-	if !filepath.IsAbs(outputPath) {
-		outputPath = filepath.Join(lrs.buildDir, outputPath)
+	if !filepath.IsAbs(parseOutputPath) {
+		parseOutputPath = filepath.Join(parseLrs.buildDir, parseOutputPath)
 	}
 
-	relPath, err := filepath.Rel(lrs.projectRoot, outputPath)
-	if err == nil && relPath != "" && relPath != "." && !strings.HasPrefix(relPath, "..") && !filepath.IsAbs(relPath) {
-		return "/" + filepath.ToSlash(relPath)
+	parseRelPath, parseErr := filepath.Rel(parseLrs.projectRoot, parseOutputPath)
+	if parseErr == nil && parseRelPath != "" && parseRelPath != "." && !strings.HasPrefix(parseRelPath, "..") && !filepath.IsAbs(parseRelPath) {
+		return "/" + filepath.ToSlash(parseRelPath)
 	}
 
-	base := strings.TrimSpace(filepath.Base(outputPath))
-	if base == "" || base == "." || base == string(filepath.Separator) {
+	parseBase := strings.TrimSpace(filepath.Base(parseOutputPath))
+	if parseBase == "" || parseBase == "." || parseBase == string(filepath.Separator) {
 		return "/main.wasm"
 	}
-	return "/" + filepath.ToSlash(base)
+	return "/" + filepath.ToSlash(parseBase)
 }
 
-func (lrs *LiveReloadServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		emitLivereloadError("LiveReloadServer.handleWebSocket.upgrade", r.URL.Path, err, "the browser could not establish the livereload websocket, so it will miss build notifications.", "Inspect the websocket endpoint, browser connection state, and any local proxy interference.")
+func (parseLrs *LiveReloadServer) handleWebSocket(parseW http.ResponseWriter, parseR *http.Request) {
+	parseConn, parseErr := upgrader.Upgrade(parseW, parseR, nil)
+	if parseErr != nil {
+		emitLivereloadError("LiveReloadServer.handleWebSocket.upgrade", parseR.URL.Path, parseErr, "the browser could not establish the livereload websocket, so it will miss build notifications.", "Inspect the websocket endpoint, browser connection state, and any local proxy interference.")
 		return
 	}
-	defer conn.Close()
+	defer parseConn.Close()
 
 	// Add client to the list
-	lrs.clientsMutex.Lock()
-	session := lrs.nextClientSession()
-	session.RemoteAddr = strings.TrimSpace(r.RemoteAddr)
-	session.UserAgent = strings.TrimSpace(r.UserAgent())
-	lrs.clients[conn] = session
-	lrs.clientsMutex.Unlock()
+	parseLrs.clientsMutex.Lock()
+	parseSession := parseLrs.nextClientSession()
+	parseSession.RemoteAddr = strings.TrimSpace(parseR.RemoteAddr)
+	parseSession.UserAgent = strings.TrimSpace(parseR.UserAgent())
+	parseLrs.clients[parseConn] = parseSession
+	parseLrs.clientsMutex.Unlock()
 
-	fmt.Printf("🔌 WebSocket client connected (total: %d)\n", len(lrs.clients))
+	fmt.Printf("🔌 WebSocket client connected (total: %d)\n", len(parseLrs.clients))
 
 	// Send current build status to the new client
-	lrs.sendCurrentBuildStatus(conn)
+	parseLrs.sendCurrentBuildStatus(parseConn)
 
 	// Remove client when done
 	defer func() {
-		lrs.clientsMutex.Lock()
-		delete(lrs.clients, conn)
-		lrs.clientsMutex.Unlock()
-		fmt.Printf("🔌 WebSocket client disconnected (remaining: %d)\n", len(lrs.clients))
+		parseLrs.clientsMutex.Lock()
+		delete(parseLrs.clients, parseConn)
+		parseLrs.clientsMutex.Unlock()
+		fmt.Printf("🔌 WebSocket client disconnected (remaining: %d)\n", len(parseLrs.clients))
 	}()
 
 	// Keep connection alive and handle messages
 	for {
-		_, data, err := conn.ReadMessage()
-		if err != nil {
+		_, parseData, parseErr2 := parseConn.ReadMessage()
+		if parseErr2 != nil {
 			break
 		}
-		lrs.markClientSeen(conn)
+		parseLrs.markClientSeen(parseConn)
 
-		var message WebSocketMessage
-		if err := json.Unmarshal(data, &message); err != nil {
+		var parseMessage WebSocketMessage
+		if parseErr3 := json.Unmarshal(parseData, &parseMessage); parseErr3 != nil {
 			continue
 		}
-		if message.Type == MessageTypeStateSnapshot {
-			if payload, ok := message.Payload.(string); ok && strings.TrimSpace(payload) != "" {
-				lrs.stateSnapshotMu.Lock()
-				lrs.pendingStateSnapshot = payload
-				lrs.stateSnapshotMu.Unlock()
+		if parseMessage.Type == MessageTypeStateSnapshot {
+			if parsePayload, parseOk := parseMessage.Payload.(string); parseOk && strings.TrimSpace(parsePayload) != "" {
+				parseLrs.stateSnapshotMu.Lock()
+				parseLrs.pendingStateSnapshot = parsePayload
+				parseLrs.stateSnapshotMu.Unlock()
 			}
 		}
 	}
 }
 
-func (lrs *LiveReloadServer) handleWebSocketManaged(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		emitLivereloadError("LiveReloadServer.handleWebSocketManaged.upgrade", r.URL.Path, err, "the browser could not establish the livereload websocket, so it will miss build notifications.", "Inspect the websocket endpoint, browser connection state, and any local proxy interference.")
+func (parseLrs *LiveReloadServer) handleWebSocketManaged(parseW http.ResponseWriter, parseR *http.Request) {
+	parseConn, parseErr := upgrader.Upgrade(parseW, parseR, nil)
+	if parseErr != nil {
+		emitLivereloadError("LiveReloadServer.handleWebSocketManaged.upgrade", parseR.URL.Path, parseErr, "the browser could not establish the livereload websocket, so it will miss build notifications.", "Inspect the websocket endpoint, browser connection state, and any local proxy interference.")
 		return
 	}
-	defer conn.Close()
+	defer parseConn.Close()
 
-	session := lrs.nextClientSession()
-	session.RemoteAddr = strings.TrimSpace(r.RemoteAddr)
-	session.UserAgent = strings.TrimSpace(r.UserAgent())
-	lrs.clientsMutex.Lock()
-	lrs.clients[conn] = session
-	clientCount := len(lrs.clients)
-	lrs.clientsMutex.Unlock()
+	parseSession := parseLrs.nextClientSession()
+	parseSession.RemoteAddr = strings.TrimSpace(parseR.RemoteAddr)
+	parseSession.UserAgent = strings.TrimSpace(parseR.UserAgent())
+	parseLrs.clientsMutex.Lock()
+	parseLrs.clients[parseConn] = parseSession
+	parseClientCount := len(parseLrs.clients)
+	parseLrs.clientsMutex.Unlock()
 
-	fmt.Printf("websocket client connected (%s, total: %d)\n", session.ID, clientCount)
-	lrs.sendCurrentBuildStatus(conn)
+	fmt.Printf("websocket client connected (%s, total: %d)\n", parseSession.ID, parseClientCount)
+	parseLrs.sendCurrentBuildStatus(parseConn)
 
 	defer func() {
-		lrs.clientsMutex.Lock()
-		delete(lrs.clients, conn)
-		remaining := len(lrs.clients)
-		lrs.clientsMutex.Unlock()
-		fmt.Printf("websocket client disconnected (%s, remaining: %d)\n", session.ID, remaining)
+		parseLrs.clientsMutex.Lock()
+		delete(parseLrs.clients, parseConn)
+		parseRemaining := len(parseLrs.clients)
+		parseLrs.clientsMutex.Unlock()
+		fmt.Printf("websocket client disconnected (%s, remaining: %d)\n", parseSession.ID, parseRemaining)
 	}()
 
 	for {
-		_, data, err := conn.ReadMessage()
-		if err != nil {
+		_, parseData, parseErr2 := parseConn.ReadMessage()
+		if parseErr2 != nil {
 			break
 		}
-		lrs.markClientSeen(conn)
+		parseLrs.markClientSeen(parseConn)
 
-		var message WebSocketMessage
-		if err := json.Unmarshal(data, &message); err != nil {
+		var parseMessage WebSocketMessage
+		if parseErr3 := json.Unmarshal(parseData, &parseMessage); parseErr3 != nil {
 			continue
 		}
-		if message.Type == MessageTypeStateSnapshot {
-			if payload, ok := message.Payload.(string); ok && strings.TrimSpace(payload) != "" {
-				lrs.stateSnapshotMu.Lock()
-				lrs.pendingStateSnapshot = payload
-				lrs.stateSnapshotMu.Unlock()
+		if parseMessage.Type == MessageTypeStateSnapshot {
+			if parsePayload, parseOk := parseMessage.Payload.(string); parseOk && strings.TrimSpace(parsePayload) != "" {
+				parseLrs.stateSnapshotMu.Lock()
+				parseLrs.pendingStateSnapshot = parsePayload
+				parseLrs.stateSnapshotMu.Unlock()
 			}
 		}
 	}
 }
 
-func (lrs *LiveReloadServer) requestStateSnapshot() {
-	lrs.broadcastMessage(MessageTypeStateExport, map[string]string{
+func (parseLrs *LiveReloadServer) requestStateSnapshot() {
+	parseLrs.broadcastMessage(MessageTypeStateExport, map[string]string{
 		"reason": "hot_reload",
 	})
 }
 
-func (lrs *LiveReloadServer) takePendingStateSnapshot() string {
-	lrs.stateSnapshotMu.Lock()
-	defer lrs.stateSnapshotMu.Unlock()
-	snapshot := lrs.pendingStateSnapshot
-	lrs.pendingStateSnapshot = ""
-	return snapshot
+func (parseLrs *LiveReloadServer) takePendingStateSnapshot() string {
+	parseLrs.stateSnapshotMu.Lock()
+	defer parseLrs.stateSnapshotMu.Unlock()
+	parseSnapshot := parseLrs.pendingStateSnapshot
+	parseLrs.pendingStateSnapshot = ""
+	return parseSnapshot
 }
 
-func (lrs *LiveReloadServer) clearPendingStateSnapshot() {
-	lrs.stateSnapshotMu.Lock()
-	lrs.pendingStateSnapshot = ""
-	lrs.stateSnapshotMu.Unlock()
+func (parseLrs *LiveReloadServer) clearPendingStateSnapshot() {
+	parseLrs.stateSnapshotMu.Lock()
+	parseLrs.pendingStateSnapshot = ""
+	parseLrs.stateSnapshotMu.Unlock()
 }
 
-func (lrs *LiveReloadServer) sendCurrentBuildStatus(conn *websocket.Conn) {
+func (parseLrs *LiveReloadServer) sendCurrentBuildStatus(parseConn *websocket.Conn) {
 	// Check if we have a previous build status to send
-	if lrs.lastBuildStatus != nil {
-		message := WebSocketMessage{
+	if parseLrs.lastBuildStatus != nil {
+		parseMessage := WebSocketMessage{
 			Type:      MessageTypeCurrentStatus,
-			Payload:   *lrs.lastBuildStatus,
+			Payload:   *parseLrs.lastBuildStatus,
 			Timestamp: time.Now(),
 		}
 
-		data, err := json.Marshal(message)
-		if err != nil {
-			emitLivereloadError("LiveReloadServer.sendCurrentBuildStatus.marshal", "current_status", err, "the current build status could not be serialized, so the new websocket client received no initial status.", "Inspect the build status payload for unsupported values before marshalling.")
+		parseData, parseErr := json.Marshal(parseMessage)
+		if parseErr != nil {
+			emitLivereloadError("LiveReloadServer.sendCurrentBuildStatus.marshal", "current_status", parseErr, "the current build status could not be serialized, so the new websocket client received no initial status.", "Inspect the build status payload for unsupported values before marshalling.")
 			return
 		}
 
-		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			emitLivereloadError("LiveReloadServer.sendCurrentBuildStatus.write", "current_status", err, "the new websocket client did not receive the current build status and may show stale state.", "Inspect websocket connectivity and client lifecycle during status delivery.")
+		if parseErr2 := parseConn.WriteMessage(websocket.TextMessage, parseData); parseErr2 != nil {
+			emitLivereloadError("LiveReloadServer.sendCurrentBuildStatus.write", "current_status", parseErr2, "the new websocket client did not receive the current build status and may show stale state.", "Inspect websocket connectivity and client lifecycle during status delivery.")
 		} else {
-			statusText := "success"
-			if !lrs.lastBuildStatus.Success {
-				statusText = "failed"
+			parseStatusText := "success"
+			if !parseLrs.lastBuildStatus.Success {
+				parseStatusText = "failed"
 			}
-			fmt.Printf("📤 Sent current build status (%s) to new client\n", statusText)
+			fmt.Printf("📤 Sent current build status (%s) to new client\n", parseStatusText)
 		}
 	} else {
 		// Try to check current build state by attempting a quick build check
-		go lrs.checkCurrentBuildState(conn)
+		go parseLrs.checkCurrentBuildState(parseConn)
 	}
 }
 
-func (lrs *LiveReloadServer) checkCurrentBuildState(conn *websocket.Conn) {
+func (parseLrs *LiveReloadServer) checkCurrentBuildState(parseConn *websocket.Conn) {
 	// Do a quick build check to see if the current code compiles
 	fmt.Println("🔍 Checking current build state for new client...")
-	if err := os.MkdirAll(filepath.Dir(lrs.outputPath), 0o755); err != nil {
-		emitLivereloadError("LiveReloadServer.checkCurrentBuildState.mkdir", filepath.Dir(lrs.outputPath), err, "the livereload output directory could not be created before the status check build.", "Inspect the configured build root and directory permissions for the livereload artifact path.")
+	if parseErr := os.MkdirAll(filepath.Dir(parseLrs.outputPath), 0o755); parseErr != nil {
+		emitLivereloadError("LiveReloadServer.checkCurrentBuildState.mkdir", filepath.Dir(parseLrs.outputPath), parseErr, "the livereload output directory could not be created before the status check build.", "Inspect the configured build root and directory permissions for the livereload artifact path.")
 		return
 	}
 
-	lrs.lastBuildStatus = &BuildStatus{
+	parseLrs.lastBuildStatus = &BuildStatus{
 		Success:      false,
 		ReloadType:   "none",
 		Phase:        "checking_current_state",
@@ -872,22 +906,22 @@ func (lrs *LiveReloadServer) checkCurrentBuildState(conn *websocket.Conn) {
 		StaleOutput:  false,
 	}
 
-	cmd := exec.Command(buildCommand, "build", "-o", lrs.outputPath)
-	cmd.Dir = lrs.buildDir
-	cmd.Env = append(os.Environ(), buildEnv...)
+	parseCmd := exec.Command(buildCommand, "build", "-o", parseLrs.outputPath)
+	parseCmd.Dir = parseLrs.buildDir
+	parseCmd.Env = append(os.Environ(), buildEnv...)
 
 	// Capture stderr for error reporting
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
+	var parseStderr bytes.Buffer
+	parseCmd.Stderr = &parseStderr
 
-	err := cmd.Run()
+	parseErr2 := parseCmd.Run()
 
 	var buildStatus BuildStatus
-	if err != nil {
+	if parseErr2 != nil {
 		// Build failed - get the error
-		buildError := strings.TrimSpace(stderr.String())
+		buildError := strings.TrimSpace(parseStderr.String())
 		if buildError == "" {
-			buildError = err.Error()
+			buildError = parseErr2.Error()
 		}
 
 		buildStatus = BuildStatus{
@@ -900,7 +934,7 @@ func (lrs *LiveReloadServer) checkCurrentBuildState(conn *websocket.Conn) {
 		}
 		diagnostics.Emit(livereloadReport(
 			"LiveReloadServer.checkCurrentBuildState",
-			lrs.buildDir,
+			parseLrs.buildDir,
 			buildError,
 			"the current app does not compile, so newly connected clients are informed that the dev server is in a failed build state.",
 			"Inspect the current build stderr and fix the compile error before relying on hot reload state.",
@@ -917,68 +951,68 @@ func (lrs *LiveReloadServer) checkCurrentBuildState(conn *websocket.Conn) {
 	}
 
 	// Store this as the current build status
-	lrs.lastBuildStatus = &buildStatus
+	parseLrs.lastBuildStatus = &buildStatus
 
 	// Send to the specific client
-	message := WebSocketMessage{
+	parseMessage := WebSocketMessage{
 		Type:      MessageTypeCurrentStatus,
 		Payload:   buildStatus,
 		Timestamp: time.Now(),
 	}
 
-	data, err := json.Marshal(message)
-	if err != nil {
-		emitLivereloadError("LiveReloadServer.checkCurrentBuildState.marshal", "current_status", err, "the build-state check result could not be serialized, so the client received no current-status payload.", "Inspect the build-state payload for unsupported values before marshalling.")
+	parseData, parseErr2 := json.Marshal(parseMessage)
+	if parseErr2 != nil {
+		emitLivereloadError("LiveReloadServer.checkCurrentBuildState.marshal", "current_status", parseErr2, "the build-state check result could not be serialized, so the client received no current-status payload.", "Inspect the build-state payload for unsupported values before marshalling.")
 		return
 	}
 
-	if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-		emitLivereloadError("LiveReloadServer.checkCurrentBuildState.write", "current_status", err, "the websocket client did not receive the build-state check result and may show stale information.", "Inspect websocket connectivity and client lifecycle during status delivery.")
+	if parseErr3 := parseConn.WriteMessage(websocket.TextMessage, parseData); parseErr3 != nil {
+		emitLivereloadError("LiveReloadServer.checkCurrentBuildState.write", "current_status", parseErr3, "the websocket client did not receive the build-state check result and may show stale information.", "Inspect websocket connectivity and client lifecycle during status delivery.")
 	}
 }
 
-func (lrs *LiveReloadServer) broadcastMessage(msgType MessageType, payload interface{}) {
-	message := WebSocketMessage{
-		Type:      msgType,
-		Payload:   payload,
+func (parseLrs *LiveReloadServer) broadcastMessage(parseMsgType MessageType, parsePayload interface{}) {
+	parseMessage := WebSocketMessage{
+		Type:      parseMsgType,
+		Payload:   parsePayload,
 		Timestamp: time.Now(),
 	}
 
-	data, err := json.Marshal(message)
-	if err != nil {
-		emitLivereloadError("LiveReloadServer.broadcastMessage.marshal", string(msgType), err, "the livereload event was not serialized, so connected clients will miss this update.", "Inspect the websocket payload for unsupported values before marshalling.")
+	parseData, parseErr := json.Marshal(parseMessage)
+	if parseErr != nil {
+		emitLivereloadError("LiveReloadServer.broadcastMessage.marshal", string(parseMsgType), parseErr, "the livereload event was not serialized, so connected clients will miss this update.", "Inspect the websocket payload for unsupported values before marshalling.")
 		return
 	}
 
-	lrs.clientsMutex.RLock()
-	defer lrs.clientsMutex.RUnlock()
+	parseLrs.clientsMutex.RLock()
+	defer parseLrs.clientsMutex.RUnlock()
 
-	for conn := range lrs.clients {
-		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			emitLivereloadError("LiveReloadServer.broadcastMessage.write", string(msgType), err, "one websocket client did not receive the livereload event and may drift out of sync.", "Inspect websocket connectivity and client lifecycle for the failing connection.")
+	for parseConn := range parseLrs.clients {
+		if parseErr2 := parseConn.WriteMessage(websocket.TextMessage, parseData); parseErr2 != nil {
+			emitLivereloadError("LiveReloadServer.broadcastMessage.write", string(parseMsgType), parseErr2, "one websocket client did not receive the livereload event and may drift out of sync.", "Inspect websocket connectivity and client lifecycle for the failing connection.")
 		}
 	}
 }
 
-func (lrs *LiveReloadServer) addWatchers(root string) error {
-	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
+func (parseLrs *LiveReloadServer) addWatchers(parseRoot string) error {
+	return filepath.Walk(parseRoot, func(parsePath string, parseInfo os.FileInfo, parseErr2 error) error {
+		if parseErr2 != nil {
+			return parseErr2
 		}
 
 		// Skip hidden directories, vendor, and node_modules
-		if info.IsDir() {
-			name := info.Name()
-			if strings.HasPrefix(name, ".") || name == "vendor" || name == "node_modules" || name == "bin" {
+		if parseInfo.IsDir() {
+			parseName := parseInfo.Name()
+			if strings.HasPrefix(parseName, ".") || parseName == "vendor" || parseName == "node_modules" || parseName == "bin" {
 				return filepath.SkipDir
 			}
 
 			// Add the directory to the watcher
-			err := lrs.watcher.Add(path)
-			if err != nil {
-				emitLivereloadError("LiveReloadServer.addWatchers", path, err, "changes under this directory will not trigger rebuilds because the watcher could not attach.", "Inspect filesystem watcher limits, permissions, and directory availability for this path.")
+			parseErr := parseLrs.watcher.Add(parsePath)
+			if parseErr != nil {
+				emitLivereloadError("LiveReloadServer.addWatchers", parsePath, parseErr, "changes under this directory will not trigger rebuilds because the watcher could not attach.", "Inspect filesystem watcher limits, permissions, and directory availability for this path.")
 			} else {
-				fmt.Printf("👀 Watching: %s\n", path)
+				fmt.Printf("👀 Watching: %s\n", parsePath)
 			}
 		}
 
@@ -986,41 +1020,41 @@ func (lrs *LiveReloadServer) addWatchers(root string) error {
 	})
 }
 
-func (lrs *LiveReloadServer) handleFileEvent(event fsnotify.Event) {
+func (parseLrs *LiveReloadServer) handleFileEvent(parseEvent fsnotify.Event) {
 	// Only handle .go files
-	if !strings.HasSuffix(event.Name, ".go") {
+	if !strings.HasSuffix(parseEvent.Name, ".go") {
 		return
 	}
 
 	// Skip temporary files and test files
-	if strings.Contains(event.Name, ".tmp") || strings.Contains(event.Name, "~") {
+	if strings.Contains(parseEvent.Name, ".tmp") || strings.Contains(parseEvent.Name, "~") {
 		return
 	}
 
 	// Only handle write and create events
-	if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
-		fmt.Printf("📝 File changed: %s\n", event.Name)
+	if parseEvent.Op&fsnotify.Write == fsnotify.Write || parseEvent.Op&fsnotify.Create == fsnotify.Create {
+		fmt.Printf("📝 File changed: %s\n", parseEvent.Name)
 
 		// Track the changed file
-		lrs.mutex.Lock()
-		lrs.changedFiles[event.Name] = time.Now()
-		lrs.mutex.Unlock()
+		parseLrs.mutex.Lock()
+		parseLrs.changedFiles[parseEvent.Name] = time.Now()
+		parseLrs.mutex.Unlock()
 
-		lrs.debounceAndBuild()
+		parseLrs.debounceAndBuild()
 	}
 }
 
-func (lrs *LiveReloadServer) debounceAndBuild() {
-	lrs.mutex.Lock()
-	defer lrs.mutex.Unlock()
+func (parseLrs *LiveReloadServer) debounceAndBuild() {
+	parseLrs.mutex.Lock()
+	defer parseLrs.mutex.Unlock()
 
-	if lrs.currentBuild != nil && lrs.currentBuild.Process != nil {
-		if !lrs.buildQueued {
-			fmt.Printf("⏭️  Build already running (PID: %d); queueing one follow-up rebuild\n", lrs.currentBuild.Process.Pid)
+	if parseLrs.currentBuild != nil && parseLrs.currentBuild.Process != nil {
+		if !parseLrs.buildQueued {
+			fmt.Printf("⏭️  Build already running (PID: %d); queueing one follow-up rebuild\n", parseLrs.currentBuild.Process.Pid)
 		}
-		lrs.buildQueued = true
-		lrs.broadcastMessage(MessageTypeDebounceStatus, map[string]interface{}{
-			"changeCount":          lrs.changeCount,
+		parseLrs.buildQueued = true
+		parseLrs.broadcastMessage(MessageTypeDebounceStatus, map[string]interface{}{
+			"changeCount":          parseLrs.changeCount,
 			"timeSinceFirstChange": int64(0),
 			"waitTime":             int64(0),
 			"maxWaitTime":          maxDebounceTime.Milliseconds(),
@@ -1029,265 +1063,265 @@ func (lrs *LiveReloadServer) debounceAndBuild() {
 		return
 	}
 
-	now := time.Now()
+	parseNow := time.Now()
 
 	// Track if this is the first change in a batch
-	if lrs.firstChangeTime.IsZero() {
-		lrs.firstChangeTime = now
-		lrs.changeCount = 0
+	if parseLrs.firstChangeTime.IsZero() {
+		parseLrs.firstChangeTime = parseNow
+		parseLrs.changeCount = 0
 	}
 
-	lrs.changeCount++
+	parseLrs.changeCount++
 
 	// Calculate smart debounce time based on change pattern
-	var smartDebounceTime time.Duration
-	timeSinceFirstChange := now.Sub(lrs.firstChangeTime)
+	var parseSmartDebounceTime time.Duration
+	parseTimeSinceFirstChange := parseNow.Sub(parseLrs.firstChangeTime)
 
-	if lrs.changeCount == 1 {
+	if parseLrs.changeCount == 1 {
 		// First change - use longer debounce to give user time to continue typing
-		smartDebounceTime = debounceTime
-		fmt.Printf("⏱️  First change detected, waiting %v for more changes...\n", smartDebounceTime)
-	} else if lrs.changeCount <= 3 && timeSinceFirstChange < 10*time.Second {
+		parseSmartDebounceTime = debounceTime
+		fmt.Printf("⏱️  First change detected, waiting %v for more changes...\n", parseSmartDebounceTime)
+	} else if parseLrs.changeCount <= 3 && parseTimeSinceFirstChange < 10*time.Second {
 		// Multiple quick changes - user is actively typing, extend wait
-		smartDebounceTime = debounceTime
-		fmt.Printf("⏱️  Change #%d detected, extending wait %v (user actively typing)...\n", lrs.changeCount, smartDebounceTime)
+		parseSmartDebounceTime = debounceTime
+		fmt.Printf("⏱️  Change #%d detected, extending wait %v (user actively typing)...\n", parseLrs.changeCount, parseSmartDebounceTime)
 	} else {
 		// Many changes or been waiting a while - use shorter debounce
-		smartDebounceTime = quickDebounceTime
-		fmt.Printf("⏱️  Change #%d detected, using quick debounce %v...\n", lrs.changeCount, smartDebounceTime)
+		parseSmartDebounceTime = quickDebounceTime
+		fmt.Printf("⏱️  Change #%d detected, using quick debounce %v...\n", parseLrs.changeCount, parseSmartDebounceTime)
 	}
 
 	// Don't wait longer than maxDebounceTime total
-	if timeSinceFirstChange > maxDebounceTime-smartDebounceTime {
-		smartDebounceTime = maxDebounceTime - timeSinceFirstChange
-		if smartDebounceTime <= 0 {
+	if parseTimeSinceFirstChange > maxDebounceTime-parseSmartDebounceTime {
+		parseSmartDebounceTime = maxDebounceTime - parseTimeSinceFirstChange
+		if parseSmartDebounceTime <= 0 {
 			fmt.Printf("⏰ Maximum debounce time reached, building immediately\n")
-			lrs.resetDebounceState()
-			go lrs.triggerBuild()
+			parseLrs.resetDebounceState()
+			go parseLrs.triggerBuild()
 			return
 		}
-		fmt.Printf("⏰ Approaching max debounce time, will build in %v\n", smartDebounceTime)
+		fmt.Printf("⏰ Approaching max debounce time, will build in %v\n", parseSmartDebounceTime)
 	}
 
 	// Reset the debounce timer
-	if lrs.debounceTimer != nil {
-		lrs.debounceTimer.Stop()
+	if parseLrs.debounceTimer != nil {
+		parseLrs.debounceTimer.Stop()
 	}
 
 	// Reset max debounce timer if this is the first change
-	if lrs.changeCount == 1 {
-		if lrs.maxDebounceTimer != nil {
-			lrs.maxDebounceTimer.Stop()
+	if parseLrs.changeCount == 1 {
+		if parseLrs.maxDebounceTimer != nil {
+			parseLrs.maxDebounceTimer.Stop()
 		}
-		lrs.maxDebounceTimer = time.AfterFunc(maxDebounceTime, func() {
+		parseLrs.maxDebounceTimer = time.AfterFunc(maxDebounceTime, func() {
 			fmt.Printf("⏰ Maximum debounce time (%v) reached, forcing build\n", maxDebounceTime)
-			lrs.mutex.Lock()
-			lrs.resetDebounceState()
-			lrs.mutex.Unlock()
-			lrs.triggerBuild()
+			parseLrs.mutex.Lock()
+			parseLrs.resetDebounceState()
+			parseLrs.mutex.Unlock()
+			parseLrs.triggerBuild()
 		})
 	}
 
-	lrs.debounceTimer = time.AfterFunc(smartDebounceTime, func() {
-		lrs.mutex.Lock()
-		lrs.resetDebounceState()
-		lrs.mutex.Unlock()
-		lrs.triggerBuild()
+	parseLrs.debounceTimer = time.AfterFunc(parseSmartDebounceTime, func() {
+		parseLrs.mutex.Lock()
+		parseLrs.resetDebounceState()
+		parseLrs.mutex.Unlock()
+		parseLrs.triggerBuild()
 	})
 
 	// Notify clients about debouncing status
-	lrs.broadcastMessage(MessageTypeDebounceStatus, map[string]interface{}{
-		"changeCount":          lrs.changeCount,
-		"timeSinceFirstChange": timeSinceFirstChange.Milliseconds(),
-		"waitTime":             smartDebounceTime.Milliseconds(),
+	parseLrs.broadcastMessage(MessageTypeDebounceStatus, map[string]interface{}{
+		"changeCount":          parseLrs.changeCount,
+		"timeSinceFirstChange": parseTimeSinceFirstChange.Milliseconds(),
+		"waitTime":             parseSmartDebounceTime.Milliseconds(),
 		"maxWaitTime":          maxDebounceTime.Milliseconds(),
 	})
 }
 
 // resetDebounceState resets the debouncing state after a build
-func (lrs *LiveReloadServer) resetDebounceState() {
-	lrs.firstChangeTime = time.Time{}
-	lrs.changeCount = 0
-	if lrs.maxDebounceTimer != nil {
-		lrs.maxDebounceTimer.Stop()
-		lrs.maxDebounceTimer = nil
+func (parseLrs *LiveReloadServer) resetDebounceState() {
+	parseLrs.firstChangeTime = time.Time{}
+	parseLrs.changeCount = 0
+	if parseLrs.maxDebounceTimer != nil {
+		parseLrs.maxDebounceTimer.Stop()
+		parseLrs.maxDebounceTimer = nil
 	}
 }
 
 // classifyUpdate determines whether the changes require a hot reload or full page reload
-func (lrs *LiveReloadServer) classifyUpdate() UpdateClassification {
-	lrs.mutex.Lock()
-	defer lrs.mutex.Unlock()
+func (parseLrs *LiveReloadServer) classifyUpdate() UpdateClassification {
+	parseLrs.mutex.Lock()
+	defer parseLrs.mutex.Unlock()
 
-	var changedFiles []string
-	for file := range lrs.changedFiles {
-		changedFiles = append(changedFiles, file)
+	var parseChangedFiles []string
+	for parseFile := range parseLrs.changedFiles {
+		parseChangedFiles = append(parseChangedFiles, parseFile)
 	}
 
 	// Clear the changed files after classification
-	lrs.changedFiles = make(map[string]time.Time)
+	parseLrs.changedFiles = make(map[string]time.Time)
 
-	if lrs.alwaysHotReload {
-		reason := "App dev server hot reload"
-		if len(changedFiles) > 0 {
-			reason = "Hot reload for app changes"
+	if parseLrs.alwaysHotReload {
+		parseReason := "App dev server hot reload"
+		if len(parseChangedFiles) > 0 {
+			parseReason = "Hot reload for app changes"
 		}
-		return newUpdateClassification("small", "hot", reason, changedFiles)
+		return newUpdateClassification("small", "hot", parseReason, parseChangedFiles)
 	}
 
-	if len(changedFiles) == 0 {
-		return newUpdateClassification("small", "hot", "No files changed", changedFiles)
+	if len(parseChangedFiles) == 0 {
+		return newUpdateClassification("small", "hot", "No files changed", parseChangedFiles)
 	}
 
 	// Analyze the changed files to determine update type
-	var hotReloadReasons []string
-	for _, file := range changedFiles {
-		relPath, _ := filepath.Rel(lrs.projectRoot, file)
-		relPath = filepath.ToSlash(relPath)
+	var parseHotReloadReasons []string
+	for _, parseFile2 := range parseChangedFiles {
+		parseRelPath, _ := filepath.Rel(parseLrs.projectRoot, parseFile2)
+		parseRelPath = filepath.ToSlash(parseRelPath)
 
 		// Always full reload for critical system files
-		if strings.Contains(relPath, "main.go") {
-			return newUpdateClassification("big", "full", "Main function or entry point changed", changedFiles)
+		if strings.Contains(parseRelPath, "main.go") {
+			return newUpdateClassification("big", "full", "Main function or entry point changed", parseChangedFiles)
 		}
 
-		if strings.Contains(relPath, "fiber/fiber.go") ||
-			strings.Contains(relPath, "fiber/hooks.go") ||
-			strings.Contains(relPath, "fiber/types.go") ||
-			strings.Contains(relPath, "fiber/state_management.go") {
-			return newUpdateClassification("big", "full", "Core fiber system changed", changedFiles)
+		if strings.Contains(parseRelPath, "fiber/fiber.go") ||
+			strings.Contains(parseRelPath, "fiber/hooks.go") ||
+			strings.Contains(parseRelPath, "fiber/types.go") ||
+			strings.Contains(parseRelPath, "fiber/state_management.go") {
+			return newUpdateClassification("big", "full", "Core fiber system changed", parseChangedFiles)
 		}
 
-		if strings.Contains(relPath, "go.mod") || strings.Contains(relPath, "go.sum") {
-			return newUpdateClassification("big", "full", "Package dependencies changed", changedFiles)
+		if strings.Contains(parseRelPath, "go.mod") || strings.Contains(parseRelPath, "go.sum") {
+			return newUpdateClassification("big", "full", "Package dependencies changed", parseChangedFiles)
 		}
 
 		// Check if file is in examples/ directory (UI components)
-		if strings.Contains(relPath, "examples/") {
-			hotReloadReasons = append(hotReloadReasons, "example components")
+		if strings.Contains(parseRelPath, "examples/") {
+			parseHotReloadReasons = append(parseHotReloadReasons, "example components")
 		}
 		// Check if file is in website/ directory (UI components)
-		if strings.Contains(relPath, "website/") {
-			hotReloadReasons = append(hotReloadReasons, "website components")
+		if strings.Contains(parseRelPath, "website/") {
+			parseHotReloadReasons = append(parseHotReloadReasons, "website components")
 		}
 	}
 
 	// Remove duplicates from hotReloadReasons
-	uniqueReasons := make(map[string]bool)
-	var finalReasons []string
-	for _, reason := range hotReloadReasons {
-		if !uniqueReasons[reason] {
-			uniqueReasons[reason] = true
-			finalReasons = append(finalReasons, reason)
+	parseUniqueReasons := make(map[string]bool)
+	var parseFinalReasons []string
+	for _, parseReason2 := range parseHotReloadReasons {
+		if !parseUniqueReasons[parseReason2] {
+			parseUniqueReasons[parseReason2] = true
+			parseFinalReasons = append(parseFinalReasons, parseReason2)
 		}
 	}
 
 	// If we detected UI-related changes, use hot reload
-	if len(finalReasons) > 0 {
-		return newUpdateClassification("small", "hot", "UI changes: "+strings.Join(finalReasons, ", "), changedFiles)
+	if len(parseFinalReasons) > 0 {
+		return newUpdateClassification("small", "hot", "UI changes: "+strings.Join(parseFinalReasons, ", "), parseChangedFiles)
 	}
 
 	// Default to full reload for logic changes
-	return newUpdateClassification("big", "full", "Logic changes detected, using full reload for safety", changedFiles)
+	return newUpdateClassification("big", "full", "Logic changes detected, using full reload for safety", parseChangedFiles)
 }
 
-func (lrs *LiveReloadServer) triggerBuild() {
+func (parseLrs *LiveReloadServer) triggerBuild() {
 	// Classify the update before building
-	classification := lrs.classifyUpdate()
+	parseClassification := parseLrs.classifyUpdate()
 	fmt.Printf("🔍 Update classification: %s (%s) - %s\n",
-		classification.Type, classification.ReloadType, classification.Reason)
+		parseClassification.Type, parseClassification.ReloadType, parseClassification.Reason)
 
 	fmt.Println("🔨 Starting WASM build...")
-	startTime := time.Now()
+	parseStartTime := time.Now()
 
 	buildStatus := BuildStatus{
 		Success:      false,
-		ReloadType:   classification.ReloadType,
+		ReloadType:   parseClassification.ReloadType,
 		Phase:        "compiling",
 		PhaseSummary: "compiling a new wasm artifact while the previous output remains live",
 		StaleOutput:  true,
 	}
-	lrs.mutex.Lock()
-	lrs.lastClassification = classification
-	lrs.lastBuildStatus = &buildStatus
-	lrs.mutex.Unlock()
+	parseLrs.mutex.Lock()
+	parseLrs.lastClassification = parseClassification
+	parseLrs.lastBuildStatus = &buildStatus
+	parseLrs.mutex.Unlock()
 
 	// Notify clients that build started with classification info
-	lrs.broadcastMessage(MessageTypeBuildStart, map[string]interface{}{
-		"classification": classification,
+	parseLrs.broadcastMessage(MessageTypeBuildStart, map[string]interface{}{
+		"classification": parseClassification,
 		"status":         buildStatus,
 	})
-	if classification.ReloadType == "hot" {
-		lrs.clearPendingStateSnapshot()
-		lrs.requestStateSnapshot()
+	if parseClassification.ReloadType == "hot" {
+		parseLrs.clearPendingStateSnapshot()
+		parseLrs.requestStateSnapshot()
 	}
 
 	// Create the build command
-	if err := os.MkdirAll(filepath.Dir(lrs.outputPath), 0o755); err != nil {
-		emitLivereloadError("LiveReloadServer.triggerBuild.mkdir", filepath.Dir(lrs.outputPath), err, "the livereload output directory could not be created before rebuilding.", "Inspect the configured build root and directory permissions for the livereload artifact path.")
-		lrs.clearPendingStateSnapshot()
-		lrs.lastBuildStatus = &BuildStatus{
+	if parseErr := os.MkdirAll(filepath.Dir(parseLrs.outputPath), 0o755); parseErr != nil {
+		emitLivereloadError("LiveReloadServer.triggerBuild.mkdir", filepath.Dir(parseLrs.outputPath), parseErr, "the livereload output directory could not be created before rebuilding.", "Inspect the configured build root and directory permissions for the livereload artifact path.")
+		parseLrs.clearPendingStateSnapshot()
+		parseLrs.lastBuildStatus = &BuildStatus{
 			Success:      false,
-			Error:        fmt.Sprintf("Failed to prepare build output directory: %v", err),
+			Error:        fmt.Sprintf("Failed to prepare build output directory: %v", parseErr),
 			ReloadType:   "none",
 			Phase:        "blocked_on_error",
 			PhaseSummary: "blocked on a build error; the last good output is all the dev server can still serve",
 			StaleOutput:  true,
 		}
-		lrs.broadcastMessage(MessageTypeBuildError, *lrs.lastBuildStatus)
+		parseLrs.broadcastMessage(MessageTypeBuildError, *parseLrs.lastBuildStatus)
 		return
 	}
-	cmd := exec.Command(buildCommand, "build", "-o", lrs.outputPath)
+	parseCmd := exec.Command(buildCommand, "build", "-o", parseLrs.outputPath)
 
-	cmd.Dir = lrs.buildDir
-	cmd.Env = append(os.Environ(), buildEnv...)
+	parseCmd.Dir = parseLrs.buildDir
+	parseCmd.Env = append(os.Environ(), buildEnv...)
 
 	// Capture stdout and stderr for error reporting
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = io.MultiWriter(os.Stdout, &stdout)
-	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
+	var parseStdout, parseStderr bytes.Buffer
+	parseCmd.Stdout = io.MultiWriter(os.Stdout, &parseStdout)
+	parseCmd.Stderr = io.MultiWriter(os.Stderr, &parseStderr)
 
 	fmt.Printf("🏗️  Build process started (PID: will be available after start)\n")
 
 	// Start the build process (non-blocking)
-	err := cmd.Start()
-	if err != nil {
-		emitLivereloadError("LiveReloadServer.triggerBuild.start", lrs.buildDir, err, "the rebuild never started, so connected clients remain on the previous artifact state.", "Inspect the build command, working directory, and output path for the livereload session.")
-		lrs.clearPendingStateSnapshot()
-		failedStatus := &BuildStatus{
+	parseErr2 := parseCmd.Start()
+	if parseErr2 != nil {
+		emitLivereloadError("LiveReloadServer.triggerBuild.start", parseLrs.buildDir, parseErr2, "the rebuild never started, so connected clients remain on the previous artifact state.", "Inspect the build command, working directory, and output path for the livereload session.")
+		parseLrs.clearPendingStateSnapshot()
+		parseFailedStatus := &BuildStatus{
 			Success:      false,
-			Error:        fmt.Sprintf("Failed to start build: %v", err),
+			Error:        fmt.Sprintf("Failed to start build: %v", parseErr2),
 			ReloadType:   "none",
 			Phase:        "blocked_on_error",
 			PhaseSummary: "blocked on a build error; the last good output is all the dev server can still serve",
 			StaleOutput:  true,
 		}
-		lrs.mutex.Lock()
-		lrs.currentBuild = nil
-		lrs.lastBuildStatus = failedStatus
-		lrs.mutex.Unlock()
-		lrs.broadcastMessage(MessageTypeBuildError, *failedStatus)
+		parseLrs.mutex.Lock()
+		parseLrs.currentBuild = nil
+		parseLrs.lastBuildStatus = parseFailedStatus
+		parseLrs.mutex.Unlock()
+		parseLrs.broadcastMessage(MessageTypeBuildError, *parseFailedStatus)
 		return
 	}
-	lrs.mutex.Lock()
-	lrs.currentBuild = cmd
-	lrs.mutex.Unlock()
+	parseLrs.mutex.Lock()
+	parseLrs.currentBuild = parseCmd
+	parseLrs.mutex.Unlock()
 
-	fmt.Printf("🏗️  Build process running (PID: %d)\n", cmd.Process.Pid)
+	fmt.Printf("🏗️  Build process running (PID: %d)\n", parseCmd.Process.Pid)
 
 	// Wait for the build to complete
-	err = cmd.Wait()
+	parseErr2 = parseCmd.Wait()
 
-	duration := time.Since(startTime)
+	parseDuration := time.Since(parseStartTime)
 
 	// Check if the process was killed vs completed naturally
-	if err != nil {
-		if cmd.ProcessState != nil && cmd.ProcessState.String() == "signal: killed" {
-			fmt.Printf("⏹️  Build was cancelled after %v\n", duration)
+	if parseErr2 != nil {
+		if parseCmd.ProcessState != nil && parseCmd.ProcessState.String() == "signal: killed" {
+			fmt.Printf("⏹️  Build was cancelled after %v\n", parseDuration)
 		} else {
 			// Get the actual build error output
-			buildError := strings.TrimSpace(stderr.String())
+			buildError := strings.TrimSpace(parseStderr.String())
 			if buildError == "" {
-				buildError = err.Error()
+				buildError = parseErr2.Error()
 			}
 
 			buildStatus := BuildStatus{
@@ -1301,364 +1335,364 @@ func (lrs *LiveReloadServer) triggerBuild() {
 
 			diagnostics.Emit(livereloadReport(
 				"LiveReloadServer.triggerBuild.wait",
-				lrs.buildDir,
+				parseLrs.buildDir,
 				buildError,
 				"the rebuild failed, so no new wasm artifact or reload event was produced for connected clients.",
 				"Inspect the captured build stderr and fix the compile error before relying on the next livereload cycle.",
 			))
-			lrs.clearPendingStateSnapshot()
-			lrs.mutex.Lock()
-			lrs.lastBuildStatus = &buildStatus
-			lrs.mutex.Unlock()
-			lrs.broadcastMessage(MessageTypeBuildComplete, buildStatus)
+			parseLrs.clearPendingStateSnapshot()
+			parseLrs.mutex.Lock()
+			parseLrs.lastBuildStatus = &buildStatus
+			parseLrs.mutex.Unlock()
+			parseLrs.broadcastMessage(MessageTypeBuildComplete, buildStatus)
 		}
 	} else {
-		manifest, manifestErr := lrs.buildChangedComponentManifest(classification)
-		if manifestErr != nil {
-			emitLivereloadError("LiveReloadServer.triggerBuild.manifest", lrs.manifestPath, manifestErr, "hot-reload metadata was not generated, so the next client update may fall back to less precise behavior.", "Inspect component-manifest generation for unsupported files or parser failures.")
+		parseManifest, parseManifestErr := parseLrs.buildChangedComponentManifest(parseClassification)
+		if parseManifestErr != nil {
+			emitLivereloadError("LiveReloadServer.triggerBuild.manifest", parseLrs.manifestPath, parseManifestErr, "hot-reload metadata was not generated, so the next client update may fall back to less precise behavior.", "Inspect component-manifest generation for unsupported files or parser failures.")
 		}
-		if manifest != nil {
-			if err := lrs.writeChangedComponentManifest(manifest); err != nil {
-				emitLivereloadError("LiveReloadServer.triggerBuild.writeManifest", lrs.manifestPath, err, "the changed-component manifest was not written, so downstream tooling cannot consume precise hot-reload metadata.", "Inspect manifest path permissions and filesystem availability before writing the hot-reload manifest.")
+		if parseManifest != nil {
+			if parseErr3 := parseLrs.writeChangedComponentManifest(parseManifest); parseErr3 != nil {
+				emitLivereloadError("LiveReloadServer.triggerBuild.writeManifest", parseLrs.manifestPath, parseErr3, "the changed-component manifest was not written, so downstream tooling cannot consume precise hot-reload metadata.", "Inspect manifest path permissions and filesystem availability before writing the hot-reload manifest.")
 			}
 		}
 
 		buildStatus := BuildStatus{
 			Success:      true,
-			Duration:     duration.String(),
-			ReloadType:   classification.ReloadType,
+			Duration:     parseDuration.String(),
+			ReloadType:   parseClassification.ReloadType,
 			Phase:        "waiting_for_reload",
 			PhaseSummary: "build finished; waiting for the browser to load the fresh artifact",
 			StaleOutput:  true,
-			ManifestPath: lrs.manifestPath,
-			Manifest:     manifest,
+			ManifestPath: parseLrs.manifestPath,
+			Manifest:     parseManifest,
 		}
 		if buildStatus.ReloadType == "hot" {
-			buildStatus.StateSnapshot = lrs.takePendingStateSnapshot()
+			buildStatus.StateSnapshot = parseLrs.takePendingStateSnapshot()
 		} else {
-			lrs.clearPendingStateSnapshot()
+			parseLrs.clearPendingStateSnapshot()
 		}
 
-		fmt.Printf("✅ Build completed successfully in %v\n", duration)
-		lrs.mutex.Lock()
-		lrs.lastBuildStatus = &buildStatus
-		lrs.mutex.Unlock()
-		lrs.broadcastMessage(MessageTypeBuildComplete, buildStatus)
+		fmt.Printf("✅ Build completed successfully in %v\n", parseDuration)
+		parseLrs.mutex.Lock()
+		parseLrs.lastBuildStatus = &buildStatus
+		parseLrs.mutex.Unlock()
+		parseLrs.broadcastMessage(MessageTypeBuildComplete, buildStatus)
 	}
 
-	lrs.mutex.Lock()
-	queuedRebuild := lrs.buildQueued
-	lrs.buildQueued = false
-	lrs.currentBuild = nil
-	lrs.mutex.Unlock()
+	parseLrs.mutex.Lock()
+	parseQueuedRebuild := parseLrs.buildQueued
+	parseLrs.buildQueued = false
+	parseLrs.currentBuild = nil
+	parseLrs.mutex.Unlock()
 
-	if queuedRebuild {
+	if parseQueuedRebuild {
 		fmt.Println("🔁 Running queued rebuild for changes that landed during the previous compile")
-		go lrs.triggerBuild()
+		go parseLrs.triggerBuild()
 	}
 }
 
-func (lrs *LiveReloadServer) buildChangedComponentManifest(classification UpdateClassification) (*ChangedComponentManifest, error) {
-	manifest := &ChangedComponentManifest{
+func (parseLrs *LiveReloadServer) buildChangedComponentManifest(parseClassification UpdateClassification) (*ChangedComponentManifest, error) {
+	parseManifest := &ChangedComponentManifest{
 		GeneratedAt:  time.Now(),
-		ReloadType:   classification.ReloadType,
-		Reason:       classification.Reason,
-		ChangedFiles: make([]string, 0, len(classification.ChangedFiles)),
+		ReloadType:   parseClassification.ReloadType,
+		Reason:       parseClassification.Reason,
+		ChangedFiles: make([]string, 0, len(parseClassification.ChangedFiles)),
 	}
 
-	componentsByQualifiedName := make(map[string]ChangedComponent)
-	for _, file := range classification.ChangedFiles {
-		relFile := file
-		if relative, err := filepath.Rel(lrs.watchRoot, file); err == nil {
-			relFile = filepath.ToSlash(relative)
+	parseComponentsByQualifiedName := make(map[string]ChangedComponent)
+	for _, parseFile := range parseClassification.ChangedFiles {
+		parseRelFile := parseFile
+		if parseRelative, parseErr := filepath.Rel(parseLrs.watchRoot, parseFile); parseErr == nil {
+			parseRelFile = filepath.ToSlash(parseRelative)
 		}
-		manifest.ChangedFiles = append(manifest.ChangedFiles, relFile)
+		parseManifest.ChangedFiles = append(parseManifest.ChangedFiles, parseRelFile)
 
-		components, err := lrs.extractChangedComponents(file)
-		if err != nil {
-			return nil, err
+		parseComponents, parseErr2 := parseLrs.extractChangedComponents(parseFile)
+		if parseErr2 != nil {
+			return nil, parseErr2
 		}
-		for _, component := range components {
-			componentsByQualifiedName[component.QualifiedName] = component
-		}
-	}
-
-	if len(componentsByQualifiedName) > 0 {
-		qualifiedNames := make([]string, 0, len(componentsByQualifiedName))
-		for qualifiedName := range componentsByQualifiedName {
-			qualifiedNames = append(qualifiedNames, qualifiedName)
-		}
-		sort.Strings(qualifiedNames)
-		manifest.Components = make([]ChangedComponent, 0, len(qualifiedNames))
-		for _, qualifiedName := range qualifiedNames {
-			manifest.Components = append(manifest.Components, componentsByQualifiedName[qualifiedName])
+		for _, parseComponent := range parseComponents {
+			parseComponentsByQualifiedName[parseComponent.QualifiedName] = parseComponent
 		}
 	}
 
-	return manifest, nil
+	if len(parseComponentsByQualifiedName) > 0 {
+		parseQualifiedNames := make([]string, 0, len(parseComponentsByQualifiedName))
+		for parseQualifiedName := range parseComponentsByQualifiedName {
+			parseQualifiedNames = append(parseQualifiedNames, parseQualifiedName)
+		}
+		sort.Strings(parseQualifiedNames)
+		parseManifest.Components = make([]ChangedComponent, 0, len(parseQualifiedNames))
+		for _, parseQualifiedName2 := range parseQualifiedNames {
+			parseManifest.Components = append(parseManifest.Components, parseComponentsByQualifiedName[parseQualifiedName2])
+		}
+	}
+
+	return parseManifest, nil
 }
 
-func (lrs *LiveReloadServer) extractChangedComponents(filePath string) ([]ChangedComponent, error) {
-	if strings.TrimSpace(filePath) == "" || !strings.HasSuffix(filePath, ".go") {
+func (parseLrs *LiveReloadServer) extractChangedComponents(parseFilePath string) ([]ChangedComponent, error) {
+	if strings.TrimSpace(parseFilePath) == "" || !strings.HasSuffix(parseFilePath, ".go") {
 		return nil, nil
 	}
 
-	fset := token.NewFileSet()
-	parsed, err := parser.ParseFile(fset, filePath, nil, 0)
-	if err != nil {
-		return nil, fmt.Errorf("parse %s: %w", filePath, err)
+	parseFset := token.NewFileSet()
+	parseParsed, parseErr := parser.ParseFile(parseFset, parseFilePath, nil, 0)
+	if parseErr != nil {
+		return nil, fmt.Errorf("parse %s: %w", parseFilePath, parseErr)
 	}
 
-	relFile := filePath
-	if relative, err := filepath.Rel(lrs.watchRoot, filePath); err == nil {
-		relFile = filepath.ToSlash(relative)
+	parseRelFile := parseFilePath
+	if parseRelative, parseErr2 := filepath.Rel(parseLrs.watchRoot, parseFilePath); parseErr2 == nil {
+		parseRelFile = filepath.ToSlash(parseRelative)
 	}
-	packagePath := resolvePackagePath(lrs.modulePath, lrs.watchRoot, filePath)
-	packageName := ""
-	if parsed.Name != nil {
-		packageName = parsed.Name.Name
+	parsePackagePath := resolvePackagePath(parseLrs.modulePath, parseLrs.watchRoot, parseFilePath)
+	parsePackageName := ""
+	if parseParsed.Name != nil {
+		parsePackageName = parseParsed.Name.Name
 	}
 
-	var components []ChangedComponent
-	for _, decl := range parsed.Decls {
-		switch typed := decl.(type) {
+	var parseComponents []ChangedComponent
+	for _, parseDecl := range parseParsed.Decls {
+		switch parseTyped := parseDecl.(type) {
 		case *ast.FuncDecl:
-			if typed.Name == nil || typed.Recv != nil || !returnsComponentNode(typed.Type) {
+			if parseTyped.Name == nil || parseTyped.Recv != nil || !returnsComponentNode(parseTyped.Type) {
 				continue
 			}
-			components = append(components, ChangedComponent{
-				Name:          typed.Name.Name,
-				QualifiedName: qualifyComponentName(packagePath, typed.Name.Name),
-				PackageName:   packageName,
-				PackagePath:   packagePath,
-				File:          relFile,
+			parseComponents = append(parseComponents, ChangedComponent{
+				Name:          parseTyped.Name.Name,
+				QualifiedName: qualifyComponentName(parsePackagePath, parseTyped.Name.Name),
+				PackageName:   parsePackageName,
+				PackagePath:   parsePackagePath,
+				File:          parseRelFile,
 			})
 		case *ast.GenDecl:
-			if typed.Tok != token.VAR {
+			if parseTyped.Tok != token.VAR {
 				continue
 			}
-			for _, spec := range typed.Specs {
-				valueSpec, ok := spec.(*ast.ValueSpec)
-				if !ok {
+			for _, parseSpec := range parseTyped.Specs {
+				parseValueSpec, parseOk := parseSpec.(*ast.ValueSpec)
+				if !parseOk {
 					continue
 				}
-				for index, name := range valueSpec.Names {
-					if name == nil || !isComponentValueSpec(valueSpec, index) {
+				for parseIndex, parseName := range parseValueSpec.Names {
+					if parseName == nil || !isComponentValueSpec(parseValueSpec, parseIndex) {
 						continue
 					}
-					components = append(components, ChangedComponent{
-						Name:          name.Name,
-						QualifiedName: qualifyComponentName(packagePath, name.Name),
-						PackageName:   packageName,
-						PackagePath:   packagePath,
-						File:          relFile,
+					parseComponents = append(parseComponents, ChangedComponent{
+						Name:          parseName.Name,
+						QualifiedName: qualifyComponentName(parsePackagePath, parseName.Name),
+						PackageName:   parsePackageName,
+						PackagePath:   parsePackagePath,
+						File:          parseRelFile,
 					})
 				}
 			}
 		}
 	}
 
-	return components, nil
+	return parseComponents, nil
 }
 
-func isComponentValueSpec(spec *ast.ValueSpec, index int) bool {
-	if spec == nil {
+func isComponentValueSpec(parseSpec *ast.ValueSpec, parseIndex int) bool {
+	if parseSpec == nil {
 		return false
 	}
-	if funcType, ok := spec.Type.(*ast.FuncType); ok {
-		return returnsComponentNode(funcType)
+	if parseFuncType, parseOk := parseSpec.Type.(*ast.FuncType); parseOk {
+		return returnsComponentNode(parseFuncType)
 	}
-	if index >= len(spec.Values) {
+	if parseIndex >= len(parseSpec.Values) {
 		return false
 	}
-	funcLiteral, ok := spec.Values[index].(*ast.FuncLit)
-	if !ok {
+	parseFuncLiteral, parseOk2 := parseSpec.Values[parseIndex].(*ast.FuncLit)
+	if !parseOk2 {
 		return false
 	}
-	return returnsComponentNode(funcLiteral.Type)
+	return returnsComponentNode(parseFuncLiteral.Type)
 }
 
-func returnsComponentNode(funcType *ast.FuncType) bool {
-	if funcType == nil || funcType.Results == nil || len(funcType.Results.List) != 1 {
+func returnsComponentNode(parseFuncType *ast.FuncType) bool {
+	if parseFuncType == nil || parseFuncType.Results == nil || len(parseFuncType.Results.List) != 1 {
 		return false
 	}
-	return isComponentResultExpr(funcType.Results.List[0].Type)
+	return isComponentResultExpr(parseFuncType.Results.List[0].Type)
 }
 
-func isComponentResultExpr(expr ast.Expr) bool {
-	switch typed := expr.(type) {
+func isComponentResultExpr(parseExpr ast.Expr) bool {
+	switch parseTyped := parseExpr.(type) {
 	case *ast.Ident:
-		return typed.Name == "Node" || typed.Name == "Element"
+		return parseTyped.Name == "Node" || parseTyped.Name == "Element"
 	case *ast.SelectorExpr:
-		packageIdent, ok := typed.X.(*ast.Ident)
-		if !ok {
+		parsePackageIdent, parseOk := parseTyped.X.(*ast.Ident)
+		if !parseOk {
 			return false
 		}
-		return (packageIdent.Name == "ui" && (typed.Sel.Name == "Node" || typed.Sel.Name == "Element")) ||
-			(packageIdent.Name == "runtime" && typed.Sel.Name == "Element")
+		return (parsePackageIdent.Name == "ui" && (parseTyped.Sel.Name == "Node" || parseTyped.Sel.Name == "Element")) ||
+			(parsePackageIdent.Name == "runtime" && parseTyped.Sel.Name == "Element")
 	case *ast.StarExpr:
-		return isRuntimeElementExpr(typed.X)
+		return isRuntimeElementExpr(parseTyped.X)
 	default:
 		return false
 	}
 }
 
-func isRuntimeElementExpr(expr ast.Expr) bool {
-	switch typed := expr.(type) {
+func isRuntimeElementExpr(parseExpr ast.Expr) bool {
+	switch parseTyped := parseExpr.(type) {
 	case *ast.Ident:
-		return typed.Name == "Element"
+		return parseTyped.Name == "Element"
 	case *ast.SelectorExpr:
-		packageIdent, ok := typed.X.(*ast.Ident)
-		if !ok {
+		parsePackageIdent, parseOk := parseTyped.X.(*ast.Ident)
+		if !parseOk {
 			return false
 		}
-		return (packageIdent.Name == "ui" || packageIdent.Name == "runtime") && typed.Sel.Name == "Element"
+		return (parsePackageIdent.Name == "ui" || parsePackageIdent.Name == "runtime") && parseTyped.Sel.Name == "Element"
 	default:
 		return false
 	}
 }
 
-func qualifyComponentName(packagePath string, name string) string {
-	if strings.TrimSpace(packagePath) == "" {
-		return name
+func qualifyComponentName(parsePackagePath string, parseName string) string {
+	if strings.TrimSpace(parsePackagePath) == "" {
+		return parseName
 	}
-	return packagePath + "." + name
+	return parsePackagePath + "." + parseName
 }
 
-func resolvePackagePath(modulePath string, watchRoot string, filePath string) string {
-	directory := filepath.Dir(filePath)
-	relDirectory, err := filepath.Rel(watchRoot, directory)
-	if err != nil || relDirectory == "." {
-		return modulePath
+func resolvePackagePath(parseModulePath string, parseWatchRoot string, parseFilePath string) string {
+	parseDirectory := filepath.Dir(parseFilePath)
+	parseRelDirectory, parseErr := filepath.Rel(parseWatchRoot, parseDirectory)
+	if parseErr != nil || parseRelDirectory == "." {
+		return parseModulePath
 	}
-	relDirectory = filepath.ToSlash(relDirectory)
-	if strings.TrimSpace(modulePath) == "" {
-		return relDirectory
+	parseRelDirectory = filepath.ToSlash(parseRelDirectory)
+	if strings.TrimSpace(parseModulePath) == "" {
+		return parseRelDirectory
 	}
-	return modulePath + "/" + relDirectory
+	return parseModulePath + "/" + parseRelDirectory
 }
 
-func resolveModulePath(root string) string {
-	goModPath := filepath.Join(root, "go.mod")
-	content, err := os.ReadFile(goModPath)
-	if err != nil {
+func resolveModulePath(parseRoot string) string {
+	parseGoModPath := filepath.Join(parseRoot, "go.mod")
+	parseContent, parseErr := os.ReadFile(parseGoModPath)
+	if parseErr != nil {
 		return ""
 	}
-	for _, line := range strings.Split(string(content), "\n") {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "module ") {
-			return strings.TrimSpace(strings.TrimPrefix(trimmed, "module "))
+	for _, parseLine := range strings.Split(string(parseContent), "\n") {
+		parseTrimmed := strings.TrimSpace(parseLine)
+		if strings.HasPrefix(parseTrimmed, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(parseTrimmed, "module "))
 		}
 	}
 	return ""
 }
 
-func (lrs *LiveReloadServer) writeChangedComponentManifest(manifest *ChangedComponentManifest) error {
-	if manifest == nil || strings.TrimSpace(lrs.manifestPath) == "" {
+func (parseLrs *LiveReloadServer) writeChangedComponentManifest(parseManifest *ChangedComponentManifest) error {
+	if parseManifest == nil || strings.TrimSpace(parseLrs.manifestPath) == "" {
 		return nil
 	}
-	if err := os.MkdirAll(filepath.Dir(lrs.manifestPath), 0o755); err != nil {
-		return fmt.Errorf("create manifest dir: %w", err)
+	if parseErr := os.MkdirAll(filepath.Dir(parseLrs.manifestPath), 0o755); parseErr != nil {
+		return fmt.Errorf("create manifest dir: %w", parseErr)
 	}
-	data, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal manifest: %w", err)
+	parseData, parseErr2 := json.MarshalIndent(parseManifest, "", "  ")
+	if parseErr2 != nil {
+		return fmt.Errorf("marshal manifest: %w", parseErr2)
 	}
-	if err := os.WriteFile(lrs.manifestPath, data, 0o644); err != nil {
-		return fmt.Errorf("write manifest: %w", err)
+	if parseErr3 := os.WriteFile(parseLrs.manifestPath, parseData, 0o644); parseErr3 != nil {
+		return fmt.Errorf("write manifest: %w", parseErr3)
 	}
 	return nil
 }
 
-func (lrs *LiveReloadServer) cleanup() {
-	lrs.mutex.Lock()
-	defer lrs.mutex.Unlock()
+func (parseLrs *LiveReloadServer) cleanup() {
+	parseLrs.mutex.Lock()
+	defer parseLrs.mutex.Unlock()
 
-	if lrs.debounceTimer != nil {
-		lrs.debounceTimer.Stop()
+	if parseLrs.debounceTimer != nil {
+		parseLrs.debounceTimer.Stop()
 	}
 
-	if lrs.maxDebounceTimer != nil {
-		lrs.maxDebounceTimer.Stop()
+	if parseLrs.maxDebounceTimer != nil {
+		parseLrs.maxDebounceTimer.Stop()
 	}
 
-	if lrs.currentBuild != nil && lrs.currentBuild.Process != nil {
+	if parseLrs.currentBuild != nil && parseLrs.currentBuild.Process != nil {
 		fmt.Println("🛑 Killing running build process...")
-		lrs.currentBuild.Process.Kill()
-		lrs.currentBuild.Wait()
+		terminateLivereloadProcessTree(parseLrs.currentBuild)
+		_ = parseLrs.currentBuild.Wait()
 	}
 
-	if lrs.watcher != nil {
-		lrs.watcher.Close()
+	if parseLrs.watcher != nil {
+		parseLrs.watcher.Close()
 	}
 
-	if lrs.httpServer != nil {
-		lrs.httpServer.Close()
+	if parseLrs.httpServer != nil {
+		parseLrs.httpServer.Close()
 	}
 
 	// Close all WebSocket connections
-	lrs.clientsMutex.Lock()
-	for conn := range lrs.clients {
-		conn.Close()
+	parseLrs.clientsMutex.Lock()
+	for parseConn := range parseLrs.clients {
+		parseConn.Close()
 	}
-	lrs.clientsMutex.Unlock()
+	parseLrs.clientsMutex.Unlock()
 }
 
-func resolveBuildDir(entryPath string) (string, error) {
-	absPath, err := filepath.Abs(strings.TrimSpace(entryPath))
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve entry path: %w", err)
+func resolveBuildDir(parseEntryPath string) (string, error) {
+	parseAbsPath, parseErr := filepath.Abs(strings.TrimSpace(parseEntryPath))
+	if parseErr != nil {
+		return "", fmt.Errorf("failed to resolve entry path: %w", parseErr)
 	}
-	info, err := os.Stat(absPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to inspect entry path %s: %w", absPath, err)
+	parseInfo, parseErr := os.Stat(parseAbsPath)
+	if parseErr != nil {
+		return "", fmt.Errorf("failed to inspect entry path %s: %w", parseAbsPath, parseErr)
 	}
-	if info.IsDir() {
-		return absPath, nil
+	if parseInfo.IsDir() {
+		return parseAbsPath, nil
 	}
-	return filepath.Dir(absPath), nil
+	return filepath.Dir(parseAbsPath), nil
 }
 
-func resolveModuleRoot(startPath string) string {
-	current := strings.TrimSpace(startPath)
-	if current == "" {
+func resolveModuleRoot(parseStartPath string) string {
+	parseCurrent := strings.TrimSpace(parseStartPath)
+	if parseCurrent == "" {
 		return ""
 	}
 
-	absPath, err := filepath.Abs(current)
-	if err != nil {
+	parseAbsPath, parseErr := filepath.Abs(parseCurrent)
+	if parseErr != nil {
 		return ""
 	}
 
-	info, err := os.Stat(absPath)
-	if err != nil {
+	parseInfo, parseErr := os.Stat(parseAbsPath)
+	if parseErr != nil {
 		return ""
 	}
-	if !info.IsDir() {
-		absPath = filepath.Dir(absPath)
+	if !parseInfo.IsDir() {
+		parseAbsPath = filepath.Dir(parseAbsPath)
 	}
 
 	for {
-		if _, err := os.Stat(filepath.Join(absPath, "go.mod")); err == nil {
-			return absPath
+		if _, parseErr2 := os.Stat(filepath.Join(parseAbsPath, "go.mod")); parseErr2 == nil {
+			return parseAbsPath
 		}
-		parent := filepath.Dir(absPath)
-		if parent == absPath {
+		parseParent := filepath.Dir(parseAbsPath)
+		if parseParent == parseAbsPath {
 			return ""
 		}
-		absPath = parent
+		parseAbsPath = parseParent
 	}
 }
 
-func resolveStaticDir(projectRoot string) string {
-	candidates := []string{
-		filepath.Join(projectRoot, "static"),
-		filepath.Join(filepath.Dir(projectRoot), "static"),
+func resolveStaticDir(parseProjectRoot string) string {
+	parseCandidates := []string{
+		filepath.Join(parseProjectRoot, "static"),
+		filepath.Join(filepath.Dir(parseProjectRoot), "static"),
 	}
 
-	for _, candidate := range candidates {
-		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
-			return candidate
+	for _, parseCandidate := range parseCandidates {
+		if parseInfo, parseErr := os.Stat(parseCandidate); parseErr == nil && parseInfo.IsDir() {
+			return parseCandidate
 		}
 	}
 
@@ -1669,103 +1703,103 @@ func resolveClientScriptPath() string {
 	return resolveConfiguredClientScriptPath()
 }
 
-func firstExistingPath(candidates ...string) string {
-	for _, candidate := range candidates {
-		if strings.TrimSpace(candidate) == "" {
+func firstExistingPath(parseCandidates ...string) string {
+	for _, parseCandidate := range parseCandidates {
+		if strings.TrimSpace(parseCandidate) == "" {
 			continue
 		}
-		cleanCandidate := filepath.Clean(candidate)
-		if _, err := os.Stat(cleanCandidate); err == nil {
-			return cleanCandidate
+		parseCleanCandidate := filepath.Clean(parseCandidate)
+		if _, parseErr := os.Stat(parseCleanCandidate); parseErr == nil {
+			return parseCleanCandidate
 		}
 	}
 	return ""
 }
 
 func resolveConfiguredClientScriptPath() string {
-	cwd, err := livereloadConfigGetwd()
-	if err != nil {
-		cwd = ""
+	parseCwd, parseErr := livereloadConfigGetwd()
+	if parseErr != nil {
+		parseCwd = ""
 	}
-	resolved, ok, err := runnerconfig.ResolveConfiguredPath(cwd, func(paths runnerconfig.Paths) string {
-		return paths.LivereloadClientScript
+	parseResolved, parseOk, parseErr := runnerconfig.ResolveConfiguredPath(parseCwd, func(parsePaths runnerconfig.Paths) string {
+		return parsePaths.LivereloadClientScript
 	}, "livereloadClientScript", livereloadRunnerConfigFS())
-	if err != nil || !ok {
+	if parseErr != nil || !parseOk {
 		return ""
 	}
-	if _, err := os.Stat(resolved); err == nil {
-		return resolved
+	if _, parseErr2 := os.Stat(parseResolved); parseErr2 == nil {
+		return parseResolved
 	}
 	return ""
 }
 
 func resolveLivereloadRunnerConfigPath() string {
-	cwd, err := livereloadConfigGetwd()
-	if err != nil {
-		cwd = ""
+	parseCwd, parseErr := livereloadConfigGetwd()
+	if parseErr != nil {
+		parseCwd = ""
 	}
-	configPath, err := runnerconfig.ResolveConfigPath(cwd, livereloadRunnerConfigFS())
-	if err != nil {
+	parseConfigPath, parseErr := runnerconfig.ResolveConfigPath(parseCwd, livereloadRunnerConfigFS())
+	if parseErr != nil {
 		return ""
 	}
-	return configPath
+	return parseConfigPath
 }
 
-func netAddr(host, port string) string {
-	if strings.TrimSpace(host) == "" {
-		host = defaultHost
+func netAddr(parseHost, parsePort string) string {
+	if strings.TrimSpace(parseHost) == "" {
+		parseHost = defaultHost
 	}
-	if strings.TrimSpace(port) == "" {
-		port = defaultPort
+	if strings.TrimSpace(parsePort) == "" {
+		parsePort = defaultPort
 	}
-	return net.JoinHostPort(host, port)
+	return net.JoinHostPort(parseHost, parsePort)
 }
 
 func main() {
-	appPath := flag.String("app", "", "Path to the app main.go file or the app directory")
-	mainPath := flag.String("main", "", "Legacy alias for -app")
-	rootPath := flag.String("root", "", "Project root to watch and serve")
-	htmlPath := flag.String("html", "", "HTML file to serve, relative to the project root")
-	indexPath := flag.String("index", "", "Legacy alias for -html")
-	wasmPath := flag.String("wasm", "", "WASM output path, relative to the build directory")
-	outputPath := flag.String("output", "", "Legacy alias for -wasm")
-	host := flag.String("host", defaultHost, "Host to bind")
-	port := flag.String("port", defaultPort, "Port to bind")
-	hot := flag.Bool("hot", true, "Always use hot reload on successful rebuilds")
-	clientScriptPath := flag.String("client-script", "", "Optional override path to a custom livereload client script")
+	parseAppPath := flag.String("app", "", "Path to the app main.go file or the app directory")
+	parseMainPath := flag.String("main", "", "Legacy alias for -app")
+	parseRootPath := flag.String("root", "", "Project root to watch and serve")
+	parseHtmlPath := flag.String("html", "", "HTML file to serve, relative to the project root")
+	parseIndexPath := flag.String("index", "", "Legacy alias for -html")
+	parseWasmPath := flag.String("wasm", "", "WASM output path, relative to the build directory")
+	parseOutputPath := flag.String("output", "", "Legacy alias for -wasm")
+	parseHost := flag.String("host", defaultHost, "Host to bind")
+	parsePort := flag.String("port", defaultPort, "Port to bind")
+	parseHot := flag.Bool("hot", true, "Always use hot reload on successful rebuilds")
+	parseClientScriptPath := flag.String("client-script", "", "Optional override path to a custom livereload client script")
 	flag.Parse()
 
-	selectedAppPath := strings.TrimSpace(*appPath)
-	if selectedAppPath == "" {
-		selectedAppPath = strings.TrimSpace(*mainPath)
+	parseSelectedAppPath := strings.TrimSpace(*parseAppPath)
+	if parseSelectedAppPath == "" {
+		parseSelectedAppPath = strings.TrimSpace(*parseMainPath)
 	}
-	selectedHTMLPath := strings.TrimSpace(*htmlPath)
-	if selectedHTMLPath == "" {
-		selectedHTMLPath = strings.TrimSpace(*indexPath)
+	parseSelectedHTMLPath := strings.TrimSpace(*parseHtmlPath)
+	if parseSelectedHTMLPath == "" {
+		parseSelectedHTMLPath = strings.TrimSpace(*parseIndexPath)
 	}
-	selectedWASMPath := strings.TrimSpace(*wasmPath)
-	if selectedWASMPath == "" {
-		selectedWASMPath = strings.TrimSpace(*outputPath)
+	parseSelectedWASMPath := strings.TrimSpace(*parseWasmPath)
+	if parseSelectedWASMPath == "" {
+		parseSelectedWASMPath = strings.TrimSpace(*parseOutputPath)
 	}
 
-	server, err := NewLiveReloadServerWithOptions(LiveReloadOptions{
-		MainPath:         selectedAppPath,
-		ProjectRoot:      *rootPath,
-		IndexPath:        selectedHTMLPath,
-		OutputPath:       selectedWASMPath,
-		Host:             *host,
-		Port:             *port,
-		AlwaysHotReload:  *hot,
-		ClientScriptPath: *clientScriptPath,
+	parseServer, parseErr := NewLiveReloadServerWithOptions(LiveReloadOptions{
+		MainPath:         parseSelectedAppPath,
+		ProjectRoot:      *parseRootPath,
+		IndexPath:        parseSelectedHTMLPath,
+		OutputPath:       parseSelectedWASMPath,
+		Host:             *parseHost,
+		Port:             *parsePort,
+		AlwaysHotReload:  *parseHot,
+		ClientScriptPath: *parseClientScriptPath,
 	})
-	if err != nil {
-		fatalLivereloadStartup("main.NewLiveReloadServerWithOptions", strings.TrimSpace(*rootPath), err, "Inspect the selected app, project root, HTML path, and client-script arguments before starting livereload again.")
+	if parseErr != nil {
+		fatalLivereloadStartup("main.NewLiveReloadServerWithOptions", strings.TrimSpace(*parseRootPath), parseErr, "Inspect the selected app, project root, HTML path, and client-script arguments before starting livereload again.")
 	}
 
-	defer server.cleanup()
+	defer parseServer.cleanup()
 
-	err = server.Start()
-	if err != nil {
-		fatalLivereloadStartup("main.Start", netAddr(*host, *port), err, "Inspect watcher initialization and HTTP startup errors before restarting the livereload tool.")
+	parseErr = parseServer.Start()
+	if parseErr != nil {
+		fatalLivereloadStartup("main.Start", netAddr(*parseHost, *parsePort), parseErr, "Inspect watcher initialization and HTTP startup errors before restarting the livereload tool.")
 	}
 }

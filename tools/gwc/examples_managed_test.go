@@ -22,6 +22,19 @@ func stageManagedProfileCommandDir(parseT *testing.T, parseRootPath string) {
 	}
 }
 
+// stageManagedPathServerDir creates a throwaway Go server package used for path-based managed lifecycle tests.
+func stageManagedPathServerDir(parseT *testing.T, parseRootPath string) string {
+	parseT.Helper()
+	parseServerDir := filepath.Join(parseRootPath, "examples", "custom-managed-server")
+	if parseErr := os.MkdirAll(parseServerDir, 0755); parseErr != nil {
+		parseT.Fatalf("mkdir managed path server dir: %v", parseErr)
+	}
+	if parseErr2 := os.WriteFile(filepath.Join(parseServerDir, "main.go"), []byte("package main\nfunc main(){}\n"), 0644); parseErr2 != nil {
+		parseT.Fatalf("write managed path server main.go: %v", parseErr2)
+	}
+	return parseServerDir
+}
+
 // TestRunExamplesManagedStartWritesRuntimeState verifies start writes profile runtime state under the default artifact root.
 func TestRunExamplesManagedStartWritesRuntimeState(parseT *testing.T) {
 	parseRootPath := parseT.TempDir()
@@ -29,10 +42,15 @@ func TestRunExamplesManagedStartWritesRuntimeState(parseT *testing.T) {
 
 	parseOriginalLaunch := examplesManagedLaunchProcess
 	parseOriginalWait := examplesManagedWaitServerReady
+	parseOriginalBuild := examplesManagedBuildBinary
 	parseT.Cleanup(func() {
 		examplesManagedLaunchProcess = parseOriginalLaunch
 		examplesManagedWaitServerReady = parseOriginalWait
+		examplesManagedBuildBinary = parseOriginalBuild
 	})
+	examplesManagedBuildBinary = func(parseTargetPath string, parseBinaryPath string, parseWorkingDir string) error {
+		return nil
+	}
 
 	examplesManagedLaunchProcess = func(parseConfig examplesManagedLaunchConfig) (int, error) {
 		if parseConfig.listenAddr != "127.0.0.1:8095" {
@@ -79,6 +97,66 @@ func TestRunExamplesManagedStartWritesRuntimeState(parseT *testing.T) {
 	}
 }
 
+// TestRunExamplesManagedStartAcceptsPathArgument verifies managed start can be keyed directly by a server path.
+func TestRunExamplesManagedStartAcceptsPathArgument(parseT *testing.T) {
+	parseRootPath := parseT.TempDir()
+	parseServerDir := stageManagedPathServerDir(parseT, parseRootPath)
+
+	parseOriginalLaunch := examplesManagedLaunchProcess
+	parseOriginalWait := examplesManagedWaitServerReady
+	parseOriginalBuild := examplesManagedBuildBinary
+	parseT.Cleanup(func() {
+		examplesManagedLaunchProcess = parseOriginalLaunch
+		examplesManagedWaitServerReady = parseOriginalWait
+		examplesManagedBuildBinary = parseOriginalBuild
+	})
+	examplesManagedBuildBinary = func(parseTargetPath string, parseBinaryPath string, parseWorkingDir string) error {
+		return nil
+	}
+
+	var parseLaunchPath string
+	examplesManagedLaunchProcess = func(parseConfig examplesManagedLaunchConfig) (int, error) {
+		if len(parseConfig.commandArgs) != 0 {
+			parseT.Fatalf("expected managed launch to run the built binary directly, got args %#v", parseConfig.commandArgs)
+		}
+		parseLaunchPath = parseConfig.commandPath
+		return 5719, nil
+	}
+	examplesManagedWaitServerReady = func(parseState examplesManagedServerState, parseTimeout time.Duration) error {
+		return nil
+	}
+
+	parseLauncher := launcher{repoRoot: parseRootPath}
+	if parseErr := parseLauncher.runExamples([]string{"start", parseServerDir}); parseErr != nil {
+		parseT.Fatalf("run examples start by path: %v", parseErr)
+	}
+
+	parseAbsolutePath, parseErr := normalizePath(parseRootPath, parseServerDir)
+	if parseErr != nil {
+		parseT.Fatalf("resolve absolute path: %v", parseErr)
+	}
+	parseExpectedBinaryPath := buildExamplesManagedBinaryPath(filepath.Join(parseRootPath, "bin", "runtime", "examples-servers", buildExamplesManagedPathStateKey(parseAbsolutePath)+".json"))
+	if parseLaunchPath != parseExpectedBinaryPath {
+		parseT.Fatalf("expected launch binary path %q, got %q", parseExpectedBinaryPath, parseLaunchPath)
+	}
+	parseStateKey := buildExamplesManagedPathStateKey(parseAbsolutePath)
+	parseStatePath, _, parseErr2 := parseLauncher.resolveExamplesManagedStatePaths(parseStateKey)
+	if parseErr2 != nil {
+		parseT.Fatalf("resolve path-based state path: %v", parseErr2)
+	}
+	parsePayload, parseErr3 := os.ReadFile(parseStatePath)
+	if parseErr3 != nil {
+		parseT.Fatalf("read path-based state: %v", parseErr3)
+	}
+	var parseState examplesManagedServerState
+	if parseErr4 := json.Unmarshal(parsePayload, &parseState); parseErr4 != nil {
+		parseT.Fatalf("decode path-based state: %v", parseErr4)
+	}
+	if parseState.ServerPath != parseAbsolutePath || parseState.ProfileName != parseStateKey {
+		parseT.Fatalf("unexpected path-based state payload: %#v", parseState)
+	}
+}
+
 // TestRunExamplesManagedStartUsesArtifactRootOverride verifies state artifacts honor gwc-runner artifactRoot.
 func TestRunExamplesManagedStartUsesArtifactRootOverride(parseT *testing.T) {
 	parseRootPath := parseT.TempDir()
@@ -89,10 +167,15 @@ func TestRunExamplesManagedStartUsesArtifactRootOverride(parseT *testing.T) {
 
 	parseOriginalLaunch := examplesManagedLaunchProcess
 	parseOriginalWait := examplesManagedWaitServerReady
+	parseOriginalBuild := examplesManagedBuildBinary
 	parseT.Cleanup(func() {
 		examplesManagedLaunchProcess = parseOriginalLaunch
 		examplesManagedWaitServerReady = parseOriginalWait
+		examplesManagedBuildBinary = parseOriginalBuild
 	})
+	examplesManagedBuildBinary = func(parseTargetPath string, parseBinaryPath string, parseWorkingDir string) error {
+		return nil
+	}
 	examplesManagedLaunchProcess = func(parseConfig examplesManagedLaunchConfig) (int, error) {
 		return 9911, nil
 	}
@@ -216,11 +299,16 @@ func TestRunExamplesManagedStartCleansUpOnHealthFailure(parseT *testing.T) {
 	parseOriginalLaunch := examplesManagedLaunchProcess
 	parseOriginalWait := examplesManagedWaitServerReady
 	parseOriginalTerminate := examplesManagedTerminatePIDTree
+	parseOriginalBuild := examplesManagedBuildBinary
 	parseT.Cleanup(func() {
 		examplesManagedLaunchProcess = parseOriginalLaunch
 		examplesManagedWaitServerReady = parseOriginalWait
 		examplesManagedTerminatePIDTree = parseOriginalTerminate
+		examplesManagedBuildBinary = parseOriginalBuild
 	})
+	examplesManagedBuildBinary = func(parseTargetPath string, parseBinaryPath string, parseWorkingDir string) error {
+		return nil
+	}
 
 	examplesManagedLaunchProcess = func(parseConfig examplesManagedLaunchConfig) (int, error) {
 		return 6611, nil
@@ -245,5 +333,85 @@ func TestRunExamplesManagedStartCleansUpOnHealthFailure(parseT *testing.T) {
 	parseStatePath := filepath.Join(parseRootPath, "bin", "runtime", "examples-servers", "chat-wizard-local.json")
 	if _, parseErr2 := os.Stat(parseStatePath); !os.IsNotExist(parseErr2) {
 		parseT.Fatalf("expected failed start to remove state file, stat err=%v", parseErr2)
+	}
+}
+
+// TestDispatchCommandSupportsPathFirstManagedAction verifies path-first managed actions dispatch through `gwc <path> <action>`.
+func TestDispatchCommandSupportsPathFirstManagedAction(parseT *testing.T) {
+	parseRootPath := parseT.TempDir()
+	parseServerDir := stageManagedPathServerDir(parseT, parseRootPath)
+	parseLauncher := launcher{repoRoot: parseRootPath}
+
+	parseStdout, parseRestoreStdout, parseErr := captureExamplesStdout()
+	if parseErr != nil {
+		parseT.Fatalf("capture stdout: %v", parseErr)
+	}
+	defer parseRestoreStdout()
+
+	if parseErr2 := parseLauncher.dispatchCommand(parseServerDir, []string{"status", "-json"}); parseErr2 != nil {
+		parseT.Fatalf("dispatch path-first managed status: %v", parseErr2)
+	}
+	parseOutput, parseErr3 := parseStdout()
+	if parseErr3 != nil {
+		parseT.Fatalf("read captured stdout: %v", parseErr3)
+	}
+	if !strings.Contains(parseOutput, `"action": "status"`) {
+		parseT.Fatalf("expected path-first status output, got %q", parseOutput)
+	}
+}
+
+// TestRunExamplesSupportsPathThenAction verifies `gwc examples <path> <action>` dispatches to managed lifecycle flows.
+func TestRunExamplesSupportsPathThenAction(parseT *testing.T) {
+	parseRootPath := parseT.TempDir()
+	parseServerDir := stageManagedPathServerDir(parseT, parseRootPath)
+
+	parseOriginalLaunch := examplesManagedLaunchProcess
+	parseOriginalWait := examplesManagedWaitServerReady
+	parseOriginalBuild := examplesManagedBuildBinary
+	parseT.Cleanup(func() {
+		examplesManagedLaunchProcess = parseOriginalLaunch
+		examplesManagedWaitServerReady = parseOriginalWait
+		examplesManagedBuildBinary = parseOriginalBuild
+	})
+	examplesManagedBuildBinary = func(parseTargetPath string, parseBinaryPath string, parseWorkingDir string) error {
+		return nil
+	}
+	examplesManagedLaunchProcess = func(parseConfig examplesManagedLaunchConfig) (int, error) {
+		return 9191, nil
+	}
+	examplesManagedWaitServerReady = func(parseState examplesManagedServerState, parseTimeout time.Duration) error {
+		return nil
+	}
+
+	parseLauncher := launcher{repoRoot: parseRootPath}
+	if parseErr := parseLauncher.runExamples([]string{parseServerDir, "start"}); parseErr != nil {
+		parseT.Fatalf("run examples path-then-action start: %v", parseErr)
+	}
+}
+
+// TestLauncherJSONRequestedForPathFirstManagedAction verifies path-first managed actions honor `-json` detection.
+func TestLauncherJSONRequestedForPathFirstManagedAction(parseT *testing.T) {
+	parsePath := filepath.Join(".", "examples", "100-ai-chat-wizard", "cmd", "server")
+	if !launcherJSONRequestedForCommand(parsePath, []string{"status", "-json"}) {
+		parseT.Fatalf("expected launcher json detection for path-first managed action")
+	}
+	if launcherJSONRequestedForCommand(parsePath, []string{"status"}) {
+		parseT.Fatalf("expected launcher json detection to stay false without -json")
+	}
+}
+
+// TestResolveExamplesManagedPathCommandUsesServerDirWhenOutsideRepoRoot verifies external server paths run from their own directory.
+func TestResolveExamplesManagedPathCommandUsesServerDirWhenOutsideRepoRoot(parseT *testing.T) {
+	parseRepoRoot := parseT.TempDir()
+	parseExternalRoot := parseT.TempDir()
+	parseServerDir := stageManagedPathServerDir(parseT, parseExternalRoot)
+
+	parseLauncher := launcher{repoRoot: parseRepoRoot}
+	parseProfile, parseErr := parseLauncher.resolveExamplesManagedPathCommand(parseServerDir)
+	if parseErr != nil {
+		parseT.Fatalf("resolve managed path command: %v", parseErr)
+	}
+	if parseProfile.commandDir != parseServerDir {
+		parseT.Fatalf("expected external path commandDir=%q, got %q", parseServerDir, parseProfile.commandDir)
 	}
 }

@@ -74,14 +74,14 @@ func DocsNavBar(_ Attrs) *Element {
 				// Back Home Link
 				func() *Element {
 					// Store UseEvent result in variable for proper event handling
-					navigateToHome := UseEvent(func(event MouseEvent) {
+					parseNavigateToHome := UseEvent(func(parseEvent MouseEvent) {
 						router.Navigate("/")
 					})
 
 					return Button(
 						Attrs{
 							"class":   "group flex items-center space-x-3 px-4 py-2 text-gray-300 hover:text-white transition-all duration-300 font-medium rounded-xl hover:bg-white/10 cursor-pointer",
-							"onclick": navigateToHome,
+							"onclick": parseNavigateToHome,
 						},
 						Span(Attrs{"class": "text-lg transition-transform duration-300 group-hover:scale-110"}, "←"),
 						Span(Attrs{"class": "font-semibold transition-transform duration-300 group-hover:translate-x-0.5"}, "Back to App"),
@@ -142,12 +142,12 @@ func TableOfContents(_ Attrs) *Element {
 }
 
 // TocLink creates a table of contents link with scroll functionality
-func TocLink(icon, title, sectionId, description string) *Element {
-	handleClick := UseEvent(func(event MouseEvent) {
-		event.PreventDefault()
+func TocLink(parseIcon, parseTitle, parseSectionId, parseDescription string) *Element {
+	handleClick := UseEvent(func(parseEvent MouseEvent) {
+		parseEvent.PreventDefault()
 		// Use the enhanced scroll function from navbar
 		// ScrollToSectionSmoothEnhanced is defined in navbar.go in the same package
-		ScrollToSectionSmoothEnhanced(sectionId)
+		ScrollToSectionSmoothEnhanced(parseSectionId)
 	})
 
 	return Div(
@@ -157,10 +157,10 @@ func TocLink(icon, title, sectionId, description string) *Element {
 		},
 		Div(
 			Attrs{"class": "flex items-start space-x-3"},
-			Span(Attrs{"class": "text-2xl group-hover:scale-110 transition-transform duration-200"}, icon),
+			Span(Attrs{"class": "text-2xl group-hover:scale-110 transition-transform duration-200"}, parseIcon),
 			Div(nil,
-				H3(Attrs{"class": "font-semibold text-white group-hover:text-blue-400"}, title),
-				P(Attrs{"class": "text-sm text-gray-400 mt-1"}, description),
+				H3(Attrs{"class": "font-semibold text-white group-hover:text-blue-400"}, parseTitle),
+				P(Attrs{"class": "text-sm text-gray-400 mt-1"}, parseDescription),
 			),
 		),
 	)
@@ -710,20 +710,20 @@ resource.Refetch()`,
 // Helper components for documentation structure
 
 // SectionHeader creates a consistent section header
-func SectionHeader(icon, title, description string) *Element {
+func SectionHeader(parseIcon, parseTitle, parseDescription string) *Element {
 	return Div(
 		Attrs{"class": "mb-8"},
 		H2(
 			Attrs{"class": "text-3xl font-bold text-white mb-2 flex items-center"},
-			Span(Attrs{"class": "mr-3"}, icon),
-			title,
+			Span(Attrs{"class": "mr-3"}, parseIcon),
+			parseTitle,
 		),
-		P(Attrs{"class": "text-lg text-gray-400"}, description),
+		P(Attrs{"class": "text-lg text-gray-400"}, parseDescription),
 	)
 }
 
 // ApiCard creates a documentation card for API items
-func ApiCard(name, apiType, description, code, details string) *Element {
+func ApiCard(parseName, parseApiType, parseDescription, parseCode, parseDetails string) *Element {
 	return Div(
 		Attrs{"class": "bg-white/5 rounded-xl shadow-lg border border-white/10 overflow-hidden backdrop-blur-sm"},
 
@@ -733,11 +733,11 @@ func ApiCard(name, apiType, description, code, details string) *Element {
 			Div(
 				Attrs{"class": "flex items-center justify-between"},
 				Div(nil,
-					H3(Attrs{"class": "text-xl font-bold text-white"}, name),
-					Span(Attrs{"class": "inline-block px-2 py-1 bg-blue-900/30 text-blue-300 border border-blue-500/30 text-xs font-medium rounded-full mt-1"}, apiType),
+					H3(Attrs{"class": "text-xl font-bold text-white"}, parseName),
+					Span(Attrs{"class": "inline-block px-2 py-1 bg-blue-900/30 text-blue-300 border border-blue-500/30 text-xs font-medium rounded-full mt-1"}, parseApiType),
 				),
 			),
-			P(Attrs{"class": "text-gray-400 mt-2"}, description),
+			P(Attrs{"class": "text-gray-400 mt-2"}, parseDescription),
 		),
 
 		// Code example
@@ -745,31 +745,31 @@ func ApiCard(name, apiType, description, code, details string) *Element {
 			Attrs{"class": "bg-[#0a0a0a] text-gray-300 p-6 border-y border-white/10"},
 			Pre(
 				Attrs{"class": "text-sm overflow-x-auto"},
-				Code(nil, code),
+				Code(nil, parseCode),
 			),
 		),
 
 		// Details
 		Div(
 			Attrs{"class": "px-6 py-4"},
-			P(Attrs{"class": "text-gray-300 leading-relaxed"}, details),
+			P(Attrs{"class": "text-gray-300 leading-relaxed"}, parseDetails),
 		),
 	)
 }
 
 // HtmlElementGroup creates a group of HTML element documentation
-func HtmlElementGroup(title string, elements []HtmlElementDoc) *Element {
-	elementCards := make([]interface{}, len(elements))
-	for i, elem := range elements {
-		elementCards[i] = HtmlElementCard(elem)
+func HtmlElementGroup(parseTitle string, parseElements []HtmlElementDoc) *Element {
+	parseElementCards := make([]interface{}, len(parseElements))
+	for parseI, parseElem := range parseElements {
+		parseElementCards[parseI] = HtmlElementCard(parseElem)
 	}
 
 	return Div(
 		Attrs{"class": "mb-8"},
-		H3(Attrs{"class": "text-xl font-semibold text-white mb-4"}, title),
+		H3(Attrs{"class": "text-xl font-semibold text-white mb-4"}, parseTitle),
 		Div(
 			Attrs{"class": "grid grid-cols-1 md:grid-cols-2 gap-4"},
-			elementCards...,
+			parseElementCards...,
 		),
 	)
 }
@@ -782,15 +782,14 @@ type HtmlElementDoc struct {
 }
 
 // HtmlElementCard creates a card for an HTML element
-func HtmlElementCard(elem HtmlElementDoc) *Element {
+func HtmlElementCard(parseElem HtmlElementDoc) *Element {
 	return Div(
 		Attrs{"class": "bg-white/5 border border-white/10 rounded-lg p-4 hover:bg-white/10 transition-colors"},
-		H4(Attrs{"class": "font-semibold text-white mb-2"}, elem.Name),
-		P(Attrs{"class": "text-sm text-gray-400 mb-3"}, elem.Description),
+		H4(Attrs{"class": "font-semibold text-white mb-2"}, parseElem.Name),
+		P(Attrs{"class": "text-sm text-gray-400 mb-3"}, parseElem.Description),
 		Div(
 			Attrs{"class": "bg-[#0a0a0a] text-gray-300 p-3 rounded text-xs overflow-x-auto border border-white/5"},
-			Code(nil, elem.Example),
+			Code(nil, parseElem.Example),
 		),
 	)
 }
-

@@ -230,29 +230,29 @@ func (handleHub *serverInteractiveHub) handleServerInteractiveAction(handleWrite
 }
 
 // broadcastServerInteractiveSnapshot fan-outs one snapshot to connected SSE clients.
-func (broadcastHub *serverInteractiveHub) broadcastServerInteractiveSnapshot(broadcastPayload []byte) {
-	broadcastHub.applyMutex.Lock()
-	broadcastClients := make([]chan []byte, 0, len(broadcastHub.storeClients))
-	for broadcastClient := range broadcastHub.storeClients {
-		broadcastClients = append(broadcastClients, broadcastClient)
+func (parseBroadcastHub *serverInteractiveHub) broadcastServerInteractiveSnapshot(parseBroadcastPayload []byte) {
+	parseBroadcastHub.applyMutex.Lock()
+	parseBroadcastClients := make([]chan []byte, 0, len(parseBroadcastHub.storeClients))
+	for parseBroadcastClient := range parseBroadcastHub.storeClients {
+		parseBroadcastClients = append(parseBroadcastClients, parseBroadcastClient)
 	}
-	broadcastHub.applyMutex.Unlock()
-	for _, broadcastClient := range broadcastClients {
+	parseBroadcastHub.applyMutex.Unlock()
+	for _, parseBroadcastClient2 := range parseBroadcastClients {
 		select {
-		case broadcastClient <- broadcastPayload:
+		case parseBroadcastClient2 <- parseBroadcastPayload:
 		default:
 		}
 	}
 }
 
 func main() {
-	mainHub := buildServerInteractiveHub()
-	http.HandleFunc("/", mainHub.handleServerInteractiveIndex)
-	http.HandleFunc("/events", mainHub.handleServerInteractiveEvents)
-	http.HandleFunc("/action", mainHub.handleServerInteractiveAction)
+	parseMainHub := buildServerInteractiveHub()
+	http.HandleFunc("/", parseMainHub.handleServerInteractiveIndex)
+	http.HandleFunc("/events", parseMainHub.handleServerInteractiveEvents)
+	http.HandleFunc("/action", parseMainHub.handleServerInteractiveAction)
 	log.Println("server-interactive POC: http://127.0.0.1:8180")
-	if runErr := http.ListenAndServe("127.0.0.1:8180", nil); runErr != nil {
-		log.Fatal(runErr)
+	if parseRunErr := http.ListenAndServe("127.0.0.1:8180", nil); parseRunErr != nil {
+		log.Fatal(parseRunErr)
 	}
 }
 

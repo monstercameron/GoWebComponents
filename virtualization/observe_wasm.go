@@ -14,52 +14,52 @@ type Subscription struct {
 }
 
 // Cancel stops the active viewport observation.
-func (parseS Subscription) Cancel() {
-	if parseS.cancel != nil {
-		parseS.cancel()
+func (parseSubscription Subscription) Cancel() {
+	if parseSubscription.cancel != nil {
+		parseSubscription.cancel()
 	}
 }
 
 // ObserveOwnedViewport tracks scroll offset, viewport height, and visible plus
 // rendered row ranges for one owned scroll container.
-func ObserveOwnedViewport(parseElement interop.Element, parseConfig ViewportConfig, parseHandler func(ViewportState)) (Subscription, error) {
-	if _, parseErr := normalizeConfig(parseConfig); parseErr != nil {
-		return Subscription{}, parseErr
+func ObserveOwnedViewport(parseViewportElement interop.Element, parseViewportConfig ViewportConfig, parseViewportHandler func(ViewportState)) (Subscription, error) {
+	if _, parseViewportErr := normalizeConfig(parseViewportConfig); parseViewportErr != nil {
+		return Subscription{}, parseViewportErr
 	}
-	if parseHandler == nil {
+	if parseViewportHandler == nil {
 		return Subscription{}, errors.New("virtualization: viewport handler is nil")
 	}
 
-	parsePublish := func() error {
-		parseScrollTop, _, parseClientHeight, parseErr2 := parseElement.ScrollMetrics()
-		if parseErr2 != nil {
-			return parseErr2
+	parseViewportPublish := func() error {
+		parseViewportScrollTop, _, parseViewportClientHeight, parseViewportMetricsErr := parseViewportElement.ScrollMetrics()
+		if parseViewportMetricsErr != nil {
+			return parseViewportMetricsErr
 		}
-		parseState, parseErr2 := ComputeViewportState(parseConfig, parseScrollTop, parseClientHeight)
-		if parseErr2 != nil {
-			return parseErr2
+		parseViewportState, parseViewportStateErr := ComputeViewportState(parseViewportConfig, parseViewportScrollTop, parseViewportClientHeight)
+		if parseViewportStateErr != nil {
+			return parseViewportStateErr
 		}
-		parseHandler(parseState)
+		parseViewportHandler(parseViewportState)
 		return nil
 	}
 
-	parseScrollSub, parseErr3 := parseElement.Listen("scroll", func(interop.BrowserEvent) {
-		_ = parsePublish()
+	parseScrollSub, parseScrollErr := parseViewportElement.Listen("scroll", func(interop.BrowserEvent) {
+		_ = parseViewportPublish()
 	})
-	if parseErr3 != nil {
-		return Subscription{}, parseErr3
+	if parseScrollErr != nil {
+		return Subscription{}, parseScrollErr
 	}
-	parseResizeSub, parseErr3 := parseElement.ObserveResize(func(interop.ResizeEntry) {
-		_ = parsePublish()
+	parseResizeSub, parseResizeErr := parseViewportElement.ObserveResize(func(interop.ResizeEntry) {
+		_ = parseViewportPublish()
 	})
-	if parseErr3 != nil {
+	if parseResizeErr != nil {
 		parseScrollSub.Cancel()
-		return Subscription{}, parseErr3
+		return Subscription{}, parseResizeErr
 	}
-	if parseErr4 := parsePublish(); parseErr4 != nil {
+	if parseViewportPublishErr := parseViewportPublish(); parseViewportPublishErr != nil {
 		parseResizeSub.Cancel()
 		parseScrollSub.Cancel()
-		return Subscription{}, parseErr4
+		return Subscription{}, parseViewportPublishErr
 	}
 
 	return Subscription{cancel: func() {
